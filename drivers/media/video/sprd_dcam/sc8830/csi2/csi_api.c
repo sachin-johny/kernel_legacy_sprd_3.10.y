@@ -7,6 +7,7 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/globalregs.h>
+#include <mach/sci.h>
 
 #include "csi_api.h"
 #include "csi_log.h"
@@ -40,11 +41,10 @@ void csi_api_event2_handler(void *param);
 
 static void csi_enable()
 {
-    *(volatile u32*)CSI2_EB |= CSI2_EB_BIT; //enable CSI DPHY, actually enable cfg_clk(26M) for CSI DPHY
-
-    *(volatile u32*)CSI2_RST |= CSI2_RST_BIT; //CSI host reset
+    sci_glb_set(CSI2_EB, CSI2_EB_BIT);
+    sci_glb_set(CSI2_RST, CSI2_RST_BIT);
     udelay(1);
-    *(volatile u32*)CSI2_RST &= ~CSI2_RST_BIT; //CSI host reset
+    sci_glb_clr(CSI2_RST, CSI2_RST_BIT);
 }
 
 u8 csi_api_init(void)

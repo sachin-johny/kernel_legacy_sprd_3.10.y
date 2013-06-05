@@ -75,6 +75,18 @@
 		REG_WR(a, _tmp | ((m) & (v))); \
 	}while(0)
 
+#define GLB_REG_RD(a)                                      sci_glb_read(a, 0xffffffff)
+#define GLB_REG_WR(a,v)                                    sci_glb_write(a, v, 0xffffffff)
+#define GLB_REG_AWR(a,v)                                   GLB_REG_WR(a, (GLB_REG_RD(a) & v))
+#define GLB_REG_OWR(a,v)                                   GLB_REG_WR(a, (GLB_REG_RD(a) | v))
+#define GLB_REG_XWR(a,v)                                   GLB_REG_WR(a, (GLB_REG_RD(a) ^ v))
+#define GLB_REG_MWR(a,m,v)                                 \
+	do {                                           \
+		uint32_t _tmp = GLB_REG_RD(a);        \
+		_tmp &= ~(m);                          \
+		GLB_REG_WR(a, _tmp | ((m) & (v))); \
+	}while(0)
+
 
 #define DCAM_CHECK_PARAM_ZERO_POINTER(n)               \
 	do {                                           \
@@ -410,10 +422,10 @@ int32_t dcam_module_en(void)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		ret = dcam_set_clk(DCA_CLK_256M);
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, CCIR_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
 
 		dcam_print_clock();
 #if 0
@@ -453,7 +465,7 @@ int32_t dcam_module_dis(void)
 	DCAM_TRACE("DCAM DRV: dcam_module_dis: %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
+		GLB_REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
 		dcam_set_clk(DCAM_CLK_NONE);
 
 		dcam_print_clock();
@@ -513,28 +525,28 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	/* do reset action */
 	switch (reset_mode) {
 	case DCAM_RST_PATH0:
-		REG_OWR(DCAM_RST, PATH0_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH0_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, PATH0_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~PATH0_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path0 \n");
 		break;
 
 	case DCAM_RST_PATH1:
-		REG_OWR(DCAM_RST, PATH1_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH1_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, PATH1_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~PATH1_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path1 \n");
 		break;
 
 	case DCAM_RST_PATH2:
-		REG_OWR(DCAM_RST, PATH2_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH2_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, PATH2_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~PATH2_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path2 \n");
 		break;
 
 	case DCAM_RST_ALL:
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
+		GLB_REG_OWR(DCAM_RST, CCIR_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
+		GLB_REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset all \n");
 		break;
 	default:
