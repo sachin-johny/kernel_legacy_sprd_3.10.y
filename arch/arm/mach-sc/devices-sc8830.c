@@ -1108,29 +1108,44 @@ struct platform_device sprd_emmc_device = {
 static int native_tdmodem_start(void *arg)
 {
 	u32 state;
+	u32 value;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
-	memcpy(SPRD_IRAM1_BASE + 0x1800, cp1data, sizeof(cp1data));      	/* copy cp1 source code */
+	memcpy(SPRD_IRAM1_BASE + 0x1800, cp1data, sizeof(cp1data));
 
-	*((volatile u32*)TD_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp1 force shutdown */
+	/* clear cp1 force shutdown */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x02000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
 
 	while(1)
 	{
-		state = *((volatile u32*)TD_REG_STATUS_ADDR);
+		state = __raw_readl(TD_REG_STATUS_ADDR);
 		if (!(state & (0xf<<16)))
 			break;
 	}
 
-	*((volatile u32*)TD_REG_CLK_ADDR) |= ~0x10000000;       /* clear cp1 force deep sleep */
+	/* clear cp1 force deep sleep */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x10000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
 
-	*((volatile u32*)TD_REG_RESET_ADDR) |= ~0x00000002;      /* clear reset cp1 */
-
+	/* clear reset cp1 */
+	value = ((__raw_readl(TD_REG_RESET_ADDR) & ~0x00000002));
+	__raw_writel(value, TD_REG_RESET_ADDR);
 	return 0;
 }
 static int native_tdmodem_stop(void *arg)
 {
-	*((volatile u32*)TD_REG_RESET_ADDR) |=  0x00000002;    /* reset cp1 */
-	*((volatile u32*)TD_REG_CLK_ADDR) |= 0x10000000;       /* cp1 force deep sleep */
-	*((volatile u32*)TD_REG_CLK_ADDR) |= 0x02000000;       /* cp1 force shutdown */
+	u32 value;
+	/* reset cp1 */
+	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x00000002));
+	__raw_writel(value, TD_REG_RESET_ADDR);
+
+	/* cp1 force deep sleep */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) | 0x10000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+
+	/* cp1 force shutdown */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) | 0x02000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
 	return 0;
 }
 static struct cproc_init_data sprd_cproc_td_pdata = {
@@ -1275,25 +1290,45 @@ struct platform_device sprd_saudio_td_device = {
 static int native_wcdmamodem_start(void *arg)
 {
 	u32 state;
+	u32 value;
+
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
-	memcpy(SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));      /* copy cp0 source code */
-	*((volatile u32*)WCDMA_REG_CLK_ADDR) &= ~0x02000000;       /* clear cp0 force shutdown */
+	memcpy(SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
+
+	/* clear cp0 force shutdown */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x02000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
 	while(1)
 	{
-		state = *((volatile u32*)WCDMA_REG_STATUS_ADDR);
+		state = __raw_readl(WCDMA_REG_STATUS_ADDR);
 		if (!(state & (0xf<<28)))
 			break;
 	}
 
-	*((volatile u32*)WCDMA_REG_CLK_ADDR) |= ~0x10000000;       /* clear cp0 force deep sleep */
-	*((volatile u32*)WCDMA_REG_RESET_ADDR) |= ~0x00000001;       /* clear reset cp0 cp1 */
+	/* clear cp0 force deep sleep */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x10000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	/* clear reset cp0 cp1 */
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) & ~0x00000001));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
 	return 0;
 }
 static int native_wcdmamodem_stop(void *arg)
 {
-	*((volatile u32*)WCDMA_REG_RESET_ADDR) |=  0x00000001;       /* reset cp0 */
-	*((volatile u32*)WCDMA_REG_CLK_ADDR) |= ~0x10000000;       /* cp0 force deep sleep */
-	*((volatile u32*)WCDMA_REG_CLK_ADDR) |= ~0x02000000;       /* clear cp0 force shutdown */
+	u32 value;
+	/* reset cp0 */
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x00000001));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+
+	/* cp0 force deep sleep */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | ~0x10000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	/* clear cp0 force shutdown */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | ~0x02000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
 	return 0;
 }
 
