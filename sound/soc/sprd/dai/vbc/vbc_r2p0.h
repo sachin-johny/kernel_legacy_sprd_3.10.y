@@ -61,6 +61,16 @@ enum {
 	ST_INPUT_ZERO,
 };
 
+/*AD DGMUX NUM*/
+enum {
+	ADC0_DGMUX = 0,
+	ADC1_DGMUX,
+	ADC2_DGMUX,
+	ADC3_DGMUX,
+	ADC_DGMUX_MAX
+};
+
+
 /* -------------------------- */
 
 #define PHYS_VBDA0		(VBC_PHY_BASE + 0x0000)	/* 0x0000  Voice band DAC0 data buffer */
@@ -69,6 +79,11 @@ enum {
 #define PHYS_VBAD1		(VBC_PHY_BASE + 0x000C)	/* 0x000C  Voice band ADC1 data buffer */
 #define PHYS_VBAD2		(VBC_PHY_BASE + 0x00C0)	/* 0x00C0  Voice band ADC2 data buffer */
 #define PHYS_VBAD3		(VBC_PHY_BASE + 0x00C4)	/* 0x00C4  Voice band ADC3 data buffer */
+
+/*for CP2 */
+#define VBC_CP2_PHY_BASE		0x02020000
+#define CP2_PHYS_VBDA0		(VBC_CP2_PHY_BASE + 0x0000)	/* 0x0000  Voice band DAC0 data buffer */
+#define CP2_PHYS_VBDA1		(VBC_CP2_PHY_BASE + 0x0004)	/* 0x0004  Voice band DAC1 data buffer */
 
 #define ARM_VB_BASE		VBC_BASE
 #define VBDA0			(ARM_VB_BASE + 0x0000)	/*  Voice band DAC0 data buffer */
@@ -166,7 +181,8 @@ enum {
 
 #define VBAD2DMA_EN 	(0)
 #define VBAD3DMA_EN	(1)
- /*VBIISSEL*/
+
+	/*VBIISSEL*/
 #define VBIISSEL_AD01_PORT_SHIFT	(0)
 #define VBIISSEL_AD01_PORT_MASK	(0x7)
 #define VBIISSEL_AD23_PORT_SHIFT	(3)
@@ -179,9 +195,6 @@ enum {
 #define VBDAPATH_DA0_ADDFM_MASK	(0x3<<VBDAPATH_DA0_ADDFM_SHIFT)
 #define VBDAPATH_DA1_ADDFM_SHIFT	(2)
 #define VBDAPATH_DA1_ADDFM_MASK	(0x3<<VBDAPATH_DA1_ADDFM_SHIFT)
-#define VBDAPATH_DA0_ADDFM 	(0)
-#define VBDAPATH_DA1_ADDFM 	(2)
-
 
      /*ADPATHCTL*/
 #define VBADPATH_AD0_INMUX_SHIFT    (0)
@@ -201,23 +214,12 @@ enum {
 #define VBADPATH_AD2_DGMUX_MASK    (0x1<<VBADPATH_AD2_DGMUX_SHIFT)
 #define VBADPATH_AD3_DGMUX_SHIFT    (11)
 #define VBADPATH_AD3_DGMUX_MASK    (0x1<<VBADPATH_AD3_DGMUX_SHIFT)
-/*
-#define VBADPATH_AD0_DGMUX    (8)
-#define VBADPATH_AD1_DGMUX    (9)
-#define VBADPATH_AD2_DGMUX    (10)
-#define VBADPATH_AD3_DGMUX    (11)
-*/
+
 #define VBADPATH_ST0_INMUX_SHIFT	(12)
 #define VBADPATH_ST0_INMUX_MASK	(0x3<<VBADPATH_ST0_INMUX_SHIFT)
 #define VBADPATH_ST1_INMUX_SHIFT	(14)
 #define VBADPATH_ST1_INMUX_MASK	(0x3<<VBADPATH_ST1_INMUX_SHIFT)
-     /*MIXERCTL*/
-#define VBMIXER_DAC0_MUXIN_SEL_SHIFT	(0)
-#define VBMIXER_DAC0_MUXIN_SEL_MASK	(0x7<<VBMIXER_DAC0_MUXIN_SEL_SHIFT)
-#define VBMIXER_DAC1_MUXIN_SEL_SHIFT	(3)
-#define VBMIXER_DAC1_MUXIN_SEL_MASK	(0x7<<VBMIXER_DAC1_MUXIN_SEL_SHIFT)
-#define VBMIXER_DAC0_OUT_SEL		(6)
-#define VBMIXER_DAC1_OUT_SEL		(7)
+
      /*DACSRCCTL*/
 #define 	VBDACSRC_EN		(0)
 #define 	VBDACSRC_CLR		(1)
@@ -241,6 +243,7 @@ enum {
 
     /*STCTL0*/
 #define     VBST_EN_0			(12)
+
     /*STCTL1*/
 #define     VBST_EN_1	                  (12)
 #define 	VBST0_SEL_CHN		(13)

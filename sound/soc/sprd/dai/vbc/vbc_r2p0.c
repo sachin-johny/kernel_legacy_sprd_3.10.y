@@ -152,6 +152,8 @@ static DEFINE_MUTEX(load_mutex);
 static struct vbc_equ vbc_eq_setting = { 0 };
 
 static int vbc_control;
+static int vbc_da_iis_port;
+static int adc_dgmux_val[ADC_DGMUX_MAX];
 
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai);
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
@@ -215,7 +217,6 @@ enum {
 	SPRD_VBC_AD3_INMUX,
 	SPRD_VBC_AD_IISMUX,
 	SPRD_VBC_AD23_IISMUX,
-	SPRD_VBC_DA_IISMUX,
 	SPRD_VBC_MUX_MAX
 };
 
@@ -229,8 +230,7 @@ const char *vbc_mux_debug_str[SPRD_VBC_MUX_MAX] = {
 	"ad2 inmux",
 	"ad3 inmux",
 	"ad iis mux",
-	"ad23 iis mux",
-	"da iis mux"
+	"ad23 iis mux"
 };
 
 typedef int (*sprd_vbc_mux_set) (int sel);
@@ -338,7 +338,6 @@ static int vbc_ad3_dgmux_set(int val)
 
 static int vbc_adc_src_set(int rate, int is_ad23)
 {
-	int i;
 	int f1f2f3_bp;
 	int f1_sel;
 	int en_sel;
@@ -439,23 +438,7 @@ sprd_vbc_mux_set vbc_mux_cfg[SPRD_VBC_MUX_MAX] = {
 	vbc_ad2_inmux_set,
 	vbc_ad3_inmux_set,
 	vbc_ad_iismux_set,
-	vbc_ad23_iismux_set,
-	vbc_da_iismux_set
-};
-
-enum {
-	ADC0_DGMUX = 0,
-	ADC1_DGMUX,
-	ADC2_DGMUX,
-	ADC3_DGMUX,
-	ADC_DGMUX_MAX
-};
-
-struct sprd_vbc_mux_op adc_dgmux_cfg[ADC_DGMUX_MAX] = {
-	{0, vbc_ad0_dgmux_set},
-	{0, vbc_ad1_dgmux_set},
-	{0, vbc_ad2_dgmux_set},
-	{0, vbc_ad3_dgmux_set},
+	vbc_ad23_iismux_set
 };
 
 static inline void vbc_safe_mem_release(void **free)
@@ -1011,6 +994,34 @@ static int vbc_try_dg_set(int vbc_idx, int id)
 	return 0;
 }
 
+static int vbc_try_da_iismux_set(void)
+{
+	vbc_da_iismux_set(vbc_da_iis_port  == 0 ?
+			      0 : ((vbc_da_iis_port  == 1) ? 2 : 3));
+	return 0;
+}
+
+static int vbc_try_ad_dgmux_set(int id)
+{
+	switch(id) {
+		case ADC0_DGMUX:
+			vbc_ad0_dgmux_set (adc_dgmux_val[ADC0_DGMUX]);
+			break;
+		case ADC1_DGMUX:
+			vbc_ad1_dgmux_set (adc_dgmux_val[ADC1_DGMUX]);
+			break;
+		case ADC2_DGMUX:
+			vbc_ad2_dgmux_set (adc_dgmux_val[ADC2_DGMUX]);
+			 break;
+		case ADC3_DGMUX:
+			vbc_ad3_dgmux_set (adc_dgmux_val[ADC3_DGMUX]);
+			break;
+		default:
+			break;
+	}
+	return 0;
+}
+
 int dig_fm_event(struct snd_soc_dapm_widget *w,
 		 struct snd_kcontrol *k, int event)
 {
@@ -1075,15 +1086,11 @@ static const char *ad3_inmux_txt[] = {
 };
 
 static const char *ad_iis_txt[] = {
-	"AUDIIS0", "DIGFM", "EXTDIGFM", "RESERVED", "AUDIIS1",
+	"AUDIIS0", "DIGFM", "EXTDIGFM", "EXTIIS6", "AUDIIS1",
 };
 
 static const char *ad23_iis_txt[] = {
-	"AUDIIS1", "DIGFM", "EXTDIGFM", "RESERVED", "AUDIIS0",
-};
-
-static const char *da_iis_txt[] = {
-	"AUD", "NOUSE", "RESERVED", "RESERVED", "NOUSE",
+	"AUDIIS1", "DIGFM", "EXTDIGFM", "EXTIIS6", "AUDIIS0",
 };
 
 #define SPRD_VBC_ENUM(xreg, xmax, xtexts)\
@@ -1103,8 +1110,7 @@ static const struct soc_enum vbc_mux_sel_enum[SPRD_VBC_MUX_MAX] = {
 	SPRD_VBC_ENUM(SPRD_VBC_AD3_INMUX, 4, ad3_inmux_txt),
 	/*IIS INMUX */
 	SPRD_VBC_ENUM(SPRD_VBC_AD_IISMUX, 5, ad_iis_txt),
-	SPRD_VBC_ENUM(SPRD_VBC_AD23_IISMUX, 5, ad23_iis_txt),
-	/*SPRD_VBC_ENUM(SPRD_VBC_DA_IISMUX, 5, da_iis_txt), */
+	SPRD_VBC_ENUM(SPRD_VBC_AD23_IISMUX, 5, ad23_iis_txt)
 };
 
 static int vbc_da0_event(struct snd_soc_dapm_widget *w,
@@ -1362,8 +1368,7 @@ static const struct snd_kcontrol_new vbc_mux[SPRD_VBC_MUX_MAX] = {
 	SPRD_VBC_MUX("AD2 INMUX", vbc_mux_sel_enum[SPRD_VBC_AD2_INMUX]),
 	SPRD_VBC_MUX("AD3 INMUX", vbc_mux_sel_enum[SPRD_VBC_AD3_INMUX]),
 	SPRD_VBC_MUX("AD IISMUX", vbc_mux_sel_enum[SPRD_VBC_AD_IISMUX]),
-	SPRD_VBC_MUX("AD23 IISMUX", vbc_mux_sel_enum[SPRD_VBC_AD23_IISMUX]),
-	SPRD_VBC_MUX("DA IISMUX", vbc_mux_sel_enum[SPRD_VBC_DA_IISMUX])
+	SPRD_VBC_MUX("AD23 IISMUX", vbc_mux_sel_enum[SPRD_VBC_AD23_IISMUX])
 };
 
 #define VBC_DAPM_MUX_E(wname, wreg) \
@@ -1392,7 +1397,6 @@ static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 	/*IIS MUX */
 	VBC_DAPM_MUX_E("AD IISMUX", SPRD_VBC_AD_IISMUX),
 	VBC_DAPM_MUX_E("AD23 IISMUX", SPRD_VBC_AD23_IISMUX),
-	/*VBC_DAPM_MUX_E("DA IISMUX", SPRD_VBC_DA_IISMUX), */
 
 	/*ST Switch */
 	SND_SOC_DAPM_PGA_S("ST0 Switch", 4, SOC_REG(STCTL0), VBST_EN_0, 0, NULL,
@@ -1402,9 +1406,9 @@ static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 
 	/*FM Mixer */
 	SND_SOC_DAPM_PGA_S("DA0 FM Mixer", 4, SOC_REG(DAPATCHCTL),
-			   VBDAPATH_DA0_ADDFM, 0, NULL, 0),
+			   VBDAPATH_DA0_ADDFM_SHIFT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("DA1 FM Mixer", 4, SOC_REG(DAPATCHCTL),
-			   VBDAPATH_DA1_ADDFM, 0, NULL, 0),
+			   VBDAPATH_DA1_ADDFM_SHIFT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("DFM", 4, SND_SOC_NOPM, 0, 0, NULL, 0),
 
 	/*VBC Chan Switch */
@@ -1482,19 +1486,12 @@ static const struct snd_soc_dapm_route vbc_intercon[] = {
 
 	{"ST0 Switch", NULL, "ST0 INMUX"},
 	{"ST1 Switch", NULL, "ST1 INMUX"},
-
 	{"DA0 Switch", NULL, "ST0 Switch"},
 	{"DA1 Switch", NULL, "ST1 Switch"},
-
 	{"DA0 FM Mixer", NULL, "DA0 Switch"},
 	{"DA1 FM Mixer", NULL, "DA1 Switch"},
-
 	{"DFM", NULL, "DA0 FM Mixer"},
 	{"DFM", NULL, "DA1 FM Mixer"},
-/*
-	{"DA IISMUX", NULL, "DA0 Switch"},
-	{"DA IISMUX", NULL, "DA1 Switch"},
-*/
 	{"Digital DACL Switch", NULL, "DFM"},
 	{"Digital DACR Switch", NULL, "DFM"},
 };
@@ -1568,10 +1565,15 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 		vbc_set_buffer_size(0, VBC_FIFO_FRAME_NUM, 0);
 		vbc_eq_setting.codec_dai = codec_dai;
 		vbc_eq_try_apply(codec_dai);
+		vbc_try_da_iismux_set();
 	} else if (vbc_idx == 1) {
 		vbc_set_buffer_size(VBC_FIFO_FRAME_NUM, 0, 0);
+		vbc_try_ad_dgmux_set(0);
+		vbc_try_ad_dgmux_set(1);
 	} else {
 		vbc_set_buffer_size(0, 0, VBC_FIFO_FRAME_NUM);
+		vbc_try_ad_dgmux_set(2);
+		vbc_try_ad_dgmux_set(3);
 	}
 
 	vbc_try_dg_set(vbc_idx, VBC_LEFT);
@@ -1598,7 +1600,6 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 			 struct snd_soc_dai *dai)
 {
 	int vbc_idx;
-	int i;
 
 	vbc_dbg("Entering %s\n", __func__);
 
@@ -2229,12 +2230,33 @@ static int vbc_switch_put(struct snd_kcontrol *kcontrol,
 	if (vbc_control == ucontrol->value.integer.value[0])
 		return 0;
 
-	vbc_control = ucontrol->value.integer.value[0];
+	if (ucontrol->value.integer.value[0] == 3) {  /*switch to cp2-arm*/
 
-	arch_audio_vbc_switch(vbc_control == 0 ?
-			      AUDIO_TO_CP0_DSP_CTRL : ((vbc_control == 1) ?
-						       AUDIO_TO_CP1_DSP_CTRL
-						       : AUDIO_TO_AP_ARM_CTRL));
+		arch_audio_vbc_switch(AUDIO_TO_CP2_ARM_CTRL);
+
+#ifdef CONFIG_SPRD_VBC_LR_INVERT
+		vbc_pcm_stereo_out.dev_paddr[0] = CP2_PHYS_VBDA1;
+		vbc_pcm_stereo_out.dev_paddr[1] = CP2_PHYS_VBDA0;
+#else
+		vbc_pcm_stereo_out.dev_paddr[0] = CP2_PHYS_VBDA0;
+		vbc_pcm_stereo_out.dev_paddr[1] = CP2_PHYS_VBDA1;
+#endif
+	} else {
+		arch_audio_vbc_switch(ucontrol->value.integer.value[0] == 0 ?
+					  AUDIO_TO_CP0_DSP_CTRL : ((ucontrol->value.integer.value[0] == 1) ?
+								   AUDIO_TO_CP1_DSP_CTRL
+								   : AUDIO_TO_AP_ARM_CTRL));
+		if (vbc_control == 3 && ucontrol->value.integer.value[0] == 2)	{/*cp2--> ap*/
+#ifdef CONFIG_SPRD_VBC_LR_INVERT
+			vbc_pcm_stereo_out.dev_paddr[0] = PHYS_VBDA1;
+			vbc_pcm_stereo_out.dev_paddr[1] = PHYS_VBDA0;
+#else
+			vbc_pcm_stereo_out.dev_paddr[0] = PHYS_VBDA0;
+			vbc_pcm_stereo_out.dev_paddr[1] = PHYS_VBDA1;
+#endif
+		}
+	}
+	vbc_control = ucontrol->value.integer.value[0];
 
 	vbc_dbg("Leaving %s\n", __func__);
 	return 1;
@@ -2383,7 +2405,7 @@ static int adc_dgmux_get(struct snd_kcontrol *kcontrol,
 	    (struct soc_mixer_control *)kcontrol->private_value;
 	int id = FUN_REG(mc->reg);
 
-	ucontrol->value.integer.value[0] = adc_dgmux_cfg[id].val;
+	ucontrol->value.integer.value[0] = adc_dgmux_val[id];
 	return 0;
 }
 
@@ -2398,15 +2420,39 @@ static int adc_dgmux_put(struct snd_kcontrol *kcontrol,
 	pr_info("VBC AD%d DG mux : %ld\n", id, ucontrol->value.integer.value[0]);
 
 	ret = ucontrol->value.integer.value[0];
-	if (ret == adc_dgmux_cfg[id].val) {
+	if (ret == adc_dgmux_val[id]) {
 		return ret;
 	}
 
-	adc_dgmux_cfg[id].val = ret;
-	adc_dgmux_cfg[id].set(ret);
+	adc_dgmux_val[id] = ret;
+	vbc_try_ad_dgmux_set(id);
 
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
+}
+
+static int dac_iismux_get(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = vbc_da_iis_port;
+	return 0;
+}
+
+static int dac_iismux_put(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
+	pr_info("VBC DA output to %s\n",
+		texts->texts[ucontrol->value.integer.value[0]]);
+	if (vbc_da_iis_port == ucontrol->value.integer.value[0])
+		return 0;
+
+	vbc_da_iis_port = ucontrol->value.integer.value[0];
+
+	vbc_try_da_iismux_set();
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return 1;
 }
 
 enum {
@@ -2416,12 +2462,14 @@ enum {
 	PCM_STREAM_LAST = PCM_STREAM_CAPTURE2,
 };
 
-static const char *switch_function[] = { "cp0-dsp", "cp1-dsp", "ap" };
+static const char *switch_function[] = { "cp0-dsp", "cp1-dsp", "ap", "cp2-arm" };
 static const char *eq_load_function[] = { "idle", "loading" };
+static const char *da_iis_mux_function[] = { "sprd-codec", "ext-codec-4", "ext-codec-6" };
 
 static const struct soc_enum vbc_enum[] = {
 	SOC_ENUM_SINGLE_EXT(3, switch_function),
 	SOC_ENUM_SINGLE_EXT(2, eq_load_function),
+	SOC_ENUM_SINGLE_EXT(3, da_iis_mux_function),
 };
 
 static const struct snd_kcontrol_new vbc_controls[] = {
@@ -2478,6 +2526,8 @@ static const struct snd_kcontrol_new vbc_controls[] = {
 		       adc_dgmux_get, adc_dgmux_put),
 	SOC_SINGLE_EXT("VBC AD3 DG Mux", FUN_REG(ADC3_DGMUX), 0, 1, 0,
 		       adc_dgmux_get, adc_dgmux_put),
+	SOC_ENUM_EXT("VBC DA IIS Mux", vbc_enum[2], dac_iismux_get,
+			 dac_iismux_put),
 
 #ifdef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	SOC_SINGLE_EXT("VBC EQ Profile Select", 0, 0, VBC_EQ_PROFILE_CNT_MAX, 0,
