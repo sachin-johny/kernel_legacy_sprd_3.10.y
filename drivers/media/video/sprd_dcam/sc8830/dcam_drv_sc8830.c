@@ -2553,10 +2553,13 @@ LOCAL int32_t _dcam_path_trim(enum dcam_path_index path_index)
 		path = &s_dcam_mod.dcam_path1;
 		cfg_reg = DCAM_PATH1_CFG;
 		ctrl_bit = 8;
-	} else if (DCAM_PATH_IDX_2 == path_index){
+	} else if (DCAM_PATH_IDX_2 == path_index) {
 		path = &s_dcam_mod.dcam_path2;
 		cfg_reg = DCAM_PATH2_CFG;
 		ctrl_bit = 1;
+	} else {
+		printk("DCAM DRV: _dcam_path_trim invalid path_index=%d \n", path_index);
+		return -1;
 	}
 
 	if (path->input_size.w != path->input_rect.w ||

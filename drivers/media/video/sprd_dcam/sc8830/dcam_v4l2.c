@@ -2099,15 +2099,9 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 				path_cfg = dcam_path1_cfg;
 			}else if (DCAM_PATH2 == channel_id) {
 				path_cfg = dcam_path2_cfg; /* no need get resizer, it will done in try format */
-#if 0
-				if (unlikely(dcam_get_resizer(0))) {
-					/*no wait to get the controller of resizer, failed*/
-					printk("V4L2: sprd_v4l2_streamresume, path2 has been occupied by other app \n");
-					return -EIO;
-				}
-#endif
 			} else {
 				printk("V4L2: sprd_v4l2_streamresume, invalid channel_id=0x%x \n", channel_id);
+				return -1;
 			}
 
 			if(DCAM_PATH0 == channel_id) {
