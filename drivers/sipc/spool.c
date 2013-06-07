@@ -37,9 +37,6 @@ static struct class		*spool_class;
 
 static int spool_open(struct inode *inode, struct file *filp)
 {
-	//int minor = iminor(filp->f_path.dentry->d_inode);
-   // int minor2 = iminor(inode);
-   // printk(KERN_WARNING"minor = %d, minor2 = %d\n", minor, minor2);
 	static struct spool_device *spool;
 	struct spool_sblock *sblock;
 
@@ -70,83 +67,80 @@ static ssize_t spool_read(struct file *filp,
 {
 	struct spool_sblock *sblock = filp->private_data;
 	int timeout = -1;
-    int ret = 0;
-    int rdsize = 0;
-    struct sblock blk = {0};
+	int ret = 0;
+	int rdsize = 0;
+	struct sblock blk = {0};
 
 	if (filp->f_flags & O_NONBLOCK) {
 		timeout = 0;
 	}
 
-    if((ret = sblock_receive(sblock->dst, sblock->channel, &blk, timeout)) < 0){
-        pr_debug("spool_read: failed to receive block!\n");
-        return ret;
-    }
+	if((ret = sblock_receive(sblock->dst, sblock->channel, &blk, timeout)) < 0){
+		pr_debug("spool_read: failed to receive block!\n");
+		return ret;
+	}
 
-    rdsize = blk.length > count ? count : blk.length;
+	rdsize = blk.length > count ? count : blk.length;
 
-    if(copy_to_user(buf, blk.addr, rdsize)){
-        pr_debug("spool_read: failed to copy to user!\n");
-        ret = -EFAULT;
-    }else{
-        ret = rdsize;
-    }
+	if(copy_to_user(buf, blk.addr, rdsize)){
+		pr_debug("spool_read: failed to copy to user!\n");
+		ret = -EFAULT;
+	}else{
+		ret = rdsize;
+	}
 
-    if(sblock_release(sblock->dst, sblock->channel, &blk)){
-        pr_debug("failed to release block!\n");
-    }
+	if(sblock_release(sblock->dst, sblock->channel, &blk)){
+		pr_debug("failed to release block!\n");
+	}
 
-    return ret;
+	return ret;
 }
 
 static ssize_t spool_write(struct file *filp,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
-    struct spool_sblock *sblock = filp->private_data;
-    int timeout = -1;
-    int ret = 0;
-    int wrsize = 0;
-    int pos = 0;
-    struct sblock blk = {0};
-    size_t len = count;
+	struct spool_sblock *sblock = filp->private_data;
+	int timeout = -1;
+	int ret = 0;
+	int wrsize = 0;
+	int pos = 0;
+	struct sblock blk = {0};
+	size_t len = count;
 
-    if (filp->f_flags & O_NONBLOCK) {
-        timeout = 0;
-    }
+	if(filp->f_flags & O_NONBLOCK){
+		timeout = 0;
+	}
 
-    do{
-        if((ret = sblock_get(sblock->dst, sblock->channel, &blk, timeout)) < 0){
-            printk(KERN_WARNING "spool_write: failed to get block!\n");
-            return ret;
-        }
+	do{
+		if((ret = sblock_get(sblock->dst, sblock->channel, &blk, timeout)) < 0){
+		printk(KERN_WARNING "spool_write: failed to get block!\n");
+		return ret;
+		}
 
-        wrsize = (blk.length > len ? len : blk.length);
-	pr_debug("spool_write: blk_len %d, count %d, wsize %d\n", blk.length, len, wrsize);
-        if(copy_from_user(blk.addr, buf + pos, wrsize)){
-            printk(KERN_WARNING "spool_write: failed to copy from user!\n");
-            ret = -EFAULT;
-        }else{
-            blk.length = wrsize;
-            len -= wrsize;
-            pos += wrsize;
-        }
- 
-        if(sblock_send(sblock->dst, sblock->channel, &blk)){
-            pr_debug("spool_write: failed to send block!");
-        }
-	pr_debug("spool_write len= %u, ret= %d\n", len, ret);
-    }while(len > 0 && ret == 0);
+		wrsize = (blk.length > len ? len : blk.length);
+		pr_debug("spool_write: blk_len %d, count %d, wsize %d\n", blk.length, len, wrsize);
+		if(copy_from_user(blk.addr, buf + pos, wrsize)){
+			printk(KERN_WARNING "spool_write: failed to copy from user!\n");
+			ret = -EFAULT;
+		}else{
+			blk.length = wrsize;
+			len -= wrsize;
+			pos += wrsize;
+		}
 
-    return count - len;
+		if(sblock_send(sblock->dst, sblock->channel, &blk)){
+			pr_debug("spool_write: failed to send block!");
+		}
+
+		pr_debug("spool_write len= %u, ret= %d\n", len, ret);
+	}while(len > 0 && ret == 0);
+
+	return count - len;
 }
 
 static unsigned int spool_poll(struct file *filp, poll_table *wait)
 {
-	struct spool_sblock *sblock = filp->private_data;
-    /*TODO*/
-    return 0;
-	/*return sbuf_poll_wait(sblock->dst, sblock->channel, sbuf->bufid,
-			filp, wait);*/
+	return 0;
 }
 
 static long spool_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -170,7 +164,7 @@ static int __devinit spool_probe(struct platform_device *pdev)
 	struct spool_init_data *init = pdev->dev.platform_data;
 	struct spool_device *spool;
 	dev_t devid;
-	int i, rval;
+	int rval;
 
 	rval = sblock_create(init->dst, init->channel, init->txblocknum,
 		init->txblocksize, init->rxblocknum, init->rxblocksize);
@@ -193,7 +187,6 @@ static int __devinit spool_probe(struct platform_device *pdev)
 		printk(KERN_ERR "Failed to alloc spool chrdev\n");
 		return rval;
 	}
-/*TODO block device ? */
 	cdev_init(&(spool->cdev), &spool_fops);
 	rval = cdev_add(&(spool->cdev), devid, 1);
 	if (rval != 0) {

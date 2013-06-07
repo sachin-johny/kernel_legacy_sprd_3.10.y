@@ -1123,22 +1123,6 @@ struct platform_device sprd_stty_td_device = {
 	.dev		= {.platform_data = &sprd_stty_td_pdata},
 };
 
-static struct spool_init_data sprd_spool_td_pdata = {
-    .name       = "spool_td",
-    .dst        = SIPC_ID_CPT,
-    .channel    = SMSG_CH_CTRL, /*TODO*/
-	.txblocknum = 64,
-    .txblocksize = 1516,
-    .rxblocknum = 64,
-    .rxblocksize = 1516,
-};
-struct platform_device sprd_spool_td_device = {
-    .name           = "spool",
-    .id             = 0,
-    .dev            = {.platform_data = &sprd_spool_td_pdata},
-};
-
-
 static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "seth_td0",
 	.dst		= SIPC_ID_CPT,
@@ -1170,6 +1154,21 @@ struct platform_device sprd_seth2_td_device = {
 	.name           = "seth",
 	.id             =  2,
 	.dev		= {.platform_data = &sprd_seth2_td_pdata},
+};
+
+static struct spool_init_data sprd_spool_td_pdata = {
+	.name 		= "spool_td",
+	.dst 		= SIPC_ID_CPT,
+	.channel 	= SMSG_CH_CTRL,
+	.txblocknum 	= 64,
+	.txblocksize 	= 1516,
+	.rxblocknum 	= 64,
+	.rxblocksize 	= 1516,
+};
+struct platform_device sprd_spool_td_device = {
+	.name 		= "spool",
+	.id 		= 0,
+	.dev 		= {.platform_data = &sprd_spool_td_pdata},
 };
 
 static struct saudio_init_data sprd_saudio_td={
@@ -1340,6 +1339,22 @@ struct platform_device sprd_seth2_wcdma_device = {
 	.id             =  5,
 	.dev		= {.platform_data = &sprd_seth2_wcdma_pdata},
 };
+
+static struct spool_init_data sprd_spool_wcdma_pdata = {
+	.name 		= "spool_w",
+	.dst 		= SIPC_ID_CPW,
+	.channel 	= SMSG_CH_CTRL,
+	.txblocknum 	= 64,
+	.txblocksize	= 1516,
+	.rxblocknum 	= 64,
+	.rxblocksize 	= 1516,
+};
+struct platform_device sprd_spool_wcdma_device = {
+	.name 		= "spool",
+	.id 		= 1,
+	.dev 		= {.platform_data = &sprd_spool_wcdma_pdata},
+};
+
 
 static struct saudio_init_data sprd_saudio_wcdma={
 	"VIRTUAL AUDIO W",
