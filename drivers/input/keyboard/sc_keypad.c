@@ -357,7 +357,7 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 					}
 				} while_each_thread(g, p);
 			}  else {
-				panic("!!!! Combine key: vol_down + vol_up !!!! second panic\n");
+				//panic("!!!! Combine key: vol_down + vol_up !!!! second panic\n");
 			}
 			key_panic_check_times++;
 		}

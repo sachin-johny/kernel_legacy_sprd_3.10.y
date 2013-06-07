@@ -32,3 +32,4 @@ obj-$(CONFIG_MACH_SPX35PAD) += board-sp8830pad.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX35FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7735EC) += board-sp7735ec.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX15FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o dma_r4p0.o
+obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o
