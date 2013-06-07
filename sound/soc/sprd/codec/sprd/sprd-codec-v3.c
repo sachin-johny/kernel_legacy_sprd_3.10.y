@@ -51,6 +51,10 @@
 #define sprd_bug_on(...)
 #endif
 
+#if  CONFIG_CODEC_SRC_SAMPLE_RATE != 32000 && CONFIG_CODEC_SRC_SAMPLE_RATE != 48000
+#error "CODEC_SRC_SAMPLE_RATE value not support, you must set 32000 or 48000"
+#endif
+
 #define SOC_REG(r) ((unsigned short)(r))
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define ID_FUN(id, lr) ((unsigned short)(((id) << 1) | (lr)))
@@ -1101,7 +1105,7 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 {
 	int set;
 	if (rate == 44100)
-		rate = 32000;
+		rate = CONFIG_CODEC_SRC_SAMPLE_RATE;
 	set = rate / 4000;
 	if (set > 13) {
 		pr_err("sprd_codec not supports ad rate %d\n", rate);
