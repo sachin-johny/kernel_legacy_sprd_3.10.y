@@ -1533,11 +1533,45 @@ static int vidioc_s_parm(struct file *file, void *priv,
 	return 0;
 }
 
+void v4l2_reqbufs_debug(struct videobuf_queue *q,
+		 struct v4l2_requestbuffers *req)
+{
+	if (req->count < 1) {
+		printk("V4L2 reqbufs: count invalid (%d)\n", req->count);
+	}
+
+	if (req->memory != V4L2_MEMORY_MMAP     &&
+	    req->memory != V4L2_MEMORY_USERPTR  &&
+	    req->memory != V4L2_MEMORY_OVERLAY) {
+		printk("V4L2 reqbufs: memory type invalid\n");
+	}
+
+	if (req->type != q->type) {
+		printk("V4L2 reqbufs: queue type invalid\n");
+	}
+
+	if (q->streaming) {
+		printk("V4L2 reqbufs: streaming already exists\n");
+	}
+
+	if (!list_empty(&q->stream)) {
+		printk("V4L2 reqbufs: stream running\n");
+	}
+
+}
+
 static int vidioc_reqbufs(struct file *file, void *priv,
 			  struct v4l2_requestbuffers *p)
 {
 	struct dcam_fh *fh = priv;
-	return (videobuf_reqbufs(&fh->vb_vidq, p));
+	int retval;
+
+	retval = videobuf_reqbufs(&fh->vb_vidq, p);
+	if(retval < 0){
+		printk("V4L2: videobuf_reqbufs fail! retval %d .\n", retval);
+		v4l2_reqbufs_debug(&fh->vb_vidq, p);
+	}
+	return retval;
 }
 
 static int vidioc_querybuf(struct file *file, void *priv, struct v4l2_buffer *p)
