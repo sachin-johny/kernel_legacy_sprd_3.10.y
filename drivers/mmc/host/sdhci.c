@@ -33,11 +33,13 @@
 #include <linux/mmc/host.h>
 #include <linux/pm_runtime.h>
 #include <linux/mmc/card.h>
-
+#ifdef CONFIG_MMC_SDHCI_SCX35
+#include <mach/hardware.h>
+#endif
 #include "sdhci.h"
 
 #define DRIVER_NAME "sdhci"
-#define CONFIG_EMMC_HYNIX_LPDDR
+//#define CONFIG_EMMC_HYNIX_LPDDR
 
 #define DBG(f, x...) \
 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
@@ -146,6 +148,15 @@ void sdhci_dumpregs(struct sdhci_host *host)
 		printk(KERN_ERR DRIVER_NAME ": ADMA Err: 0x%08x | ADMA Ptr: 0x%08x\n",
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
+
+#ifdef CONFIG_MMC_SDHCI_SCX35
+	printk(KERN_ERR DRIVER_NAME ": INTC1[0x71500008] : 0x%x (emmc is bit28)\n\r",
+			readl(SPRD_INTC1_BASE + 0x08));
+	printk(KERN_ERR DRIVER_NAME ": AHB_EN[0x20D00000] : 0x%x (emmc is bit11)\n\r",
+			readl(SPRD_AHB_BASE));
+	printk(KERN_ERR DRIVER_NAME ": GIC[0x12001100] : 0x%x \n\r",
+			readl(CORE_GIC_DIS_VA + 0x100 + (60/32)*4));
+#endif
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
 }
@@ -1150,9 +1161,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	int real_div = div, clk_mul = 1;
 	u16 clk = 0;
 	/*For Hynix 4GB+4Gb LPDDR CiMCP EMMC*/
-#ifdef CONFIG_EMMC_HYNIX_LPDDR
 	u16 clk_temp = 0;
-#endif
+
 	unsigned long timeout;
 
 	if (clock && clock == host->clock)
@@ -1168,12 +1178,12 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	if (clock == host->clock)
 		return;
-#ifdef CONFIG_EMMC_HYNIX_LPDDR
+
 	clk_temp = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	clk_temp &= ~SDHCI_CLOCK_INT_EN;
+	clk_temp &= ~SDHCI_CLOCK_CARD_EN;
 	sdhci_writew(host, clk_temp, SDHCI_CLOCK_CONTROL);
 	mdelay(1);
-#endif
+
 	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
 	if (clock == 0)
@@ -1255,17 +1265,11 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	clk |= (div & SDHCI_DIV_MASK) << SDHCI_DIVIDER_SHIFT;
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
 		<< SDHCI_DIVIDER_HI_SHIFT;
-#ifdef CONFIG_EMMC_HYNIX_LPDDR
-	clk |= SDHCI_CLOCK_CARD_EN;
-#else
+
 	clk |= SDHCI_CLOCK_INT_EN;
-#endif
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
-#ifdef CONFIG_EMMC_HYNIX_LPDDR
-	mdelay(1);
-	clk |= SDHCI_CLOCK_INT_EN;
-#else
+
 	/* Wait max 20 ms */
 	timeout = 20;
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))
@@ -1281,7 +1285,6 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	}
 
 	clk |= SDHCI_CLOCK_CARD_EN;
-#endif
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 out:
 	host->clock = clock;
@@ -1570,10 +1573,10 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 
 
-		/* Reset SD Clock Enable */
-		//clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-		//clk &= ~SDHCI_CLOCK_CARD_EN;
-		//sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+		/* Reset SD Clock Disable */
+		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+		clk &= ~SDHCI_CLOCK_CARD_EN;
+		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
@@ -1623,6 +1626,11 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 			sdhci_writew(host, ctrl_2, SDHCI_HOST_CONTROL2);
 #endif
 		}
+
+		/* Reset SD Clock Enable */
+		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
+		clk |= SDHCI_CLOCK_CARD_EN;
+		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
 
 		/* Re-enable SD Clock */
 		//clock = host->clock;
