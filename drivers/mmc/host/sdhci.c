@@ -1180,7 +1180,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		return;
 
 	clk_temp = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	clk_temp |= (SDHCI_CLOCK_INT_EN | SDHCI_CLOCK_INT_STABLE);
+	clk_temp &= ~SDHCI_CLOCK_CARD_EN;
 	sdhci_writew(host, clk_temp, SDHCI_CLOCK_CONTROL);
 
 	if (clock == 0)
