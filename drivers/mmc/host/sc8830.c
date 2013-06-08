@@ -274,13 +274,13 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	if(clock == 0){
 		if (host_data->clk_enable) {
 			clk_disable(host->clk);
-			printk("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
+			pr_debug("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
 			host->clock = 0;
 			host_data->clk_enable = 0;
 		}
 	}else{
 		if (0 == host_data->clk_enable) {
-			printk("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
+			pr_debug("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
 			clk_enable(host->clk);
 			host_data->clk_enable = 1;
 		}
@@ -291,12 +291,24 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	return;
 }
 
+static int __regulator_force_disable(struct regulator *regulator)
+{
+	int i = 0;
+	while(1 == regulator_is_enabled(regulator)) {
+		regulator_disable(regulator);
+		i++;
+	};
+	printk("__regulator_force_disable count= %d\n",i);
+	return 0;
+}
+
 /*
 *   The vdd_sdio is supplied by external LDO, power bit in register xxx is useless
 */
 static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 {
 	unsigned int volt_level = 0;
+	unsigned int volt_ext_level = SDIO_VDD_VOLT_3V0;
 	int ret;
 	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
@@ -329,8 +341,10 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 	printk("%s, power:%d, set regulator voltage:%d\n",
 			mmc_hostname(host->mmc), power, volt_level);
 	if(volt_level == 0){
-		if ((host->vmmc) && regulator_is_enabled(host->vmmc))
-			ret = regulator_disable(host->vmmc);
+		if (host->vmmc)
+			ret = __regulator_force_disable(host->vmmc);
+		if (host->vmmc_ext)
+			ret = __regulator_force_disable(host->vmmc_ext);
 	}else{
 		if(host->vmmc){
 			ret = regulator_set_voltage(host->vmmc, volt_level,
@@ -340,9 +354,25 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 					mmc_hostname(host->mmc), ret);
 				return;
 			}
+			printk(KERN_ERR "%s, enabel regulator\n",mmc_hostname(host->mmc));
 			ret = regulator_enable(host->vmmc);
 			if(ret){
 				printk(KERN_ERR "%s, enabel regulator error:%d\n",
+					mmc_hostname(host->mmc), ret);
+				return;
+			}
+		}
+		if(host->vmmc_ext){
+			ret = regulator_set_voltage(host->vmmc_ext, volt_ext_level,
+								volt_ext_level);
+			if(ret){
+				printk(KERN_ERR "%s, vmmc_ext set voltage error:%d\n",
+					mmc_hostname(host->mmc), ret);
+				return;
+			}
+			ret = regulator_enable(host->vmmc_ext);
+			if(ret){
+				printk(KERN_ERR "%s, vmmc_ext enabel regulator error:%d\n",
 					mmc_hostname(host->mmc), ret);
 				return;
 			}
@@ -413,6 +443,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, host);
 	host->vmmc = NULL;
+	host->vmmc_ext = NULL;
 	host->ioaddr = (void __iomem *)res->start;
 	printk("sdio: host->ioaddr:0x%x\n", (u32)host->ioaddr);
 	host->hw_name = (host_data->platdata->hw_name)?
@@ -460,6 +491,18 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		printk("%s, sd_detect_gpio == 0 \n", __func__ );
 	}
 #endif
+
+	if(host_data->platdata->vdd_name) {
+	    host->vmmc = regulator_get(NULL, host_data->platdata->vdd_name);
+	    BUG_ON(IS_ERR(host->vmmc));
+	    regulator_enable(host->vmmc);
+	 }
+	if(host_data->platdata->vdd_ext_name) {
+	    host->vmmc_ext = regulator_get(NULL, host_data->platdata->vdd_ext_name);
+	    BUG_ON(IS_ERR(host->vmmc_ext));
+	    regulator_enable(host->vmmc_ext);
+	}
+
 	host->clk = NULL;
 	sdhci_module_init(host);
 
@@ -580,15 +623,12 @@ static int sprd_mmc_host_runtime_suspend(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
-        if(mmc_try_claim_host(mmc)) {
             sdhci_runtime_suspend_host(host);
             spin_lock_irqsave(&host->lock, flags);
             if(host->ops->set_clock)
                 host->ops->set_clock(host, 0);
             spin_unlock_irqrestore(&host->lock, flags);
-            mmc_release_host(mmc);
             rc = 0;
-        }
     }
     return rc;
 }
@@ -599,15 +639,13 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
-        mmc_claim_host(mmc);
         if(host->ops->set_clock) {
             spin_lock_irqsave(&host->lock, flags);
             host->ops->set_clock(host, 1);
             spin_unlock_irqrestore(&host->lock, flags);
-            mdelay(10);
+            mdelay(5);
         }
         sdhci_runtime_resume_host(host);
-        mmc_release_host(mmc);
     }
     return 0;
 }
@@ -663,12 +701,10 @@ static int sdhci_pm_resume(struct device *dev) {
         sdhci_host_wakeup_clear(host);
 #endif
     retval = sdhci_resume_host(host);
-    if(!retval) {
 #ifdef CONFIG_PM_RUNTIME
         if(pm_runtime_enabled(dev))
             pm_runtime_put_autosuspend(dev);
 #endif
-    }
     return retval;
 }
 
