@@ -113,7 +113,7 @@ static ssize_t ram_console_read_old(struct file *file, char __user *buf,
 	pos -= old_log_size;
 	count = persistent_ram_ecc_string(prz, NULL, 0);
 	if (pos < count) {
-		str = kmalloc(count, GFP_KERNEL);
+		str = kmalloc(count+1, GFP_KERNEL);
 		if (!str)
 			return -ENOMEM;
 		persistent_ram_ecc_string(prz, str, count + 1);

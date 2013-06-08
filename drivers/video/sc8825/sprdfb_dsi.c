@@ -181,7 +181,7 @@ static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)
 		break;
 	default:
 		printk(KERN_ERR "sprdfb:[%s] fail, invalid video_bus_width\n", __FUNCTION__);
-		break;
+		return 0;
 	}
 
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_DPI_CFG, ((uint32_t)color_coding<<2));
