@@ -1168,6 +1168,16 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	
 	return SENSOR_K_SUCCESS;
 }
+
+LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
+{
+	level->low_light  = 110;
+	level->high_light = 470;
+
+	SENSOR_PRINT("_Sensor_K_GetFlashLevel:low_light=%d, high_light=%d  \n", level->low_light, level->high_light);
+
+	return SENSOR_K_SUCCESS;
+}
 #endif
 int hi351_init_write(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
 
