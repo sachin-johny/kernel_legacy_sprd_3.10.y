@@ -783,7 +783,7 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 		if(s_dcam_mod.dcam_path2.path_update){
 			local_irq_restore(flags);
 			DCAM_TRACE("DCAM DRV: dcam_update_path 2:  updating return \n");
-			return;
+			return rtn;
 		}
 		local_irq_restore(flags);
 
