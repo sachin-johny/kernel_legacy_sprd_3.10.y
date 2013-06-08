@@ -154,7 +154,7 @@ static struct vbc_equ vbc_eq_setting = { 0 };
 static int vbc_control;
 static int vbc_da_iis_port;
 static int adc_dgmux_val[ADC_DGMUX_MAX];
-
+static int fm_sample_rate = 32000;
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai);
 #ifndef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 static void vbc_eq_delay_work(struct work_struct *work);
@@ -370,10 +370,12 @@ static int vbc_adc_src_set(int rate, int is_ad23)
 			f1f2f3_bp = 0;
 			f1_sel = 0;
 			en_sel = 1;
+			break;
 		case 44100:
 			f1f2f3_bp = 1;
 			f1_sel = 0;
 			en_sel = 1;
+			break;
 		default:
 			f1f2f3_bp = 0;
 			f1_sel = 0;
@@ -406,8 +408,8 @@ static int vbc_ad_iismux_set(int port)
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_AD01_PORT_SHIFT,
 		      VBIISSEL_AD01_PORT_MASK);
 	/*ADC  SRC set*/
-	if (port  == 1 || port  == 2)  /* fm input */
-		vbc_adc_src_set(32000, 0);
+	if (port == 1||port == 2)  /*fm input */
+		vbc_adc_src_set(fm_sample_rate, 0);
 	return 0;
 }
 
@@ -416,8 +418,8 @@ static int vbc_ad23_iismux_set(int port)
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_AD23_PORT_SHIFT,
 		      VBIISSEL_AD23_PORT_MASK);
 	/*ADC23  SRC set*/
-	if (port  == 1 || port  == 2)  /* fm input */
-		vbc_adc_src_set(32000, 1);
+	if (port == 1||port == 2)  /*fm input */
+		vbc_adc_src_set(fm_sample_rate, 1);
 	return 0;
 }
 
@@ -1660,8 +1662,11 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 	}
 
 	if (vbc_idx != 0) {
-		if (params_rate(params) == 44100)
-			vbc_adc_src_set(32000, vbc_idx-1);
+		if (params_rate(params) == 44100) {
+			if ((vbc_idx == 1 && sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 0) ||\
+				(vbc_idx == 2 && sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 0))
+			vbc_adc_src_set(CONFIG_CODEC_SRC_SAMPLE_RATE, vbc_idx-1);
+		}
 		else
 			vbc_adc_src_set(0, vbc_idx-1); /*close adc src*/
 	}
@@ -2455,6 +2460,25 @@ static int dac_iismux_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int fm_sample_rate_get(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = ((fm_sample_rate == 32000) ? 0:1) ;
+	return 0;
+}
+
+static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
+	pr_info("fm_sample_rate is %s\n",
+		texts->texts[ucontrol->value.integer.value[0]]);
+	fm_sample_rate  = (ucontrol->value.integer.value[0] ? 48000:32000);
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return 1;
+}
+
 enum {
 	PCM_STREAM_PLAYBACK = 0,
 	PCM_STREAM_CAPTURE,
@@ -2465,11 +2489,13 @@ enum {
 static const char *switch_function[] = { "cp0-dsp", "cp1-dsp", "ap", "cp2-arm" };
 static const char *eq_load_function[] = { "idle", "loading" };
 static const char *da_iis_mux_function[] = { "sprd-codec", "ext-codec-4", "ext-codec-6" };
+static const char *fm_sample_rate_function[] = { "32000", "48000" };
 
 static const struct soc_enum vbc_enum[] = {
-	SOC_ENUM_SINGLE_EXT(3, switch_function),
+	SOC_ENUM_SINGLE_EXT(4, switch_function),
 	SOC_ENUM_SINGLE_EXT(2, eq_load_function),
 	SOC_ENUM_SINGLE_EXT(3, da_iis_mux_function),
+	SOC_ENUM_SINGLE_EXT(2, fm_sample_rate_function),
 };
 
 static const struct snd_kcontrol_new vbc_controls[] = {
@@ -2528,6 +2554,8 @@ static const struct snd_kcontrol_new vbc_controls[] = {
 		       adc_dgmux_get, adc_dgmux_put),
 	SOC_ENUM_EXT("VBC DA IIS Mux", vbc_enum[2], dac_iismux_get,
 			 dac_iismux_put),
+	SOC_ENUM_EXT("FM Sample Rate", vbc_enum[3], fm_sample_rate_get,
+			 fm_sample_rate_set),
 
 #ifdef CONFIG_SPRD_VBC_EQ_PROFILE_ASSUME
 	SOC_SINGLE_EXT("VBC EQ Profile Select", 0, 0, VBC_EQ_PROFILE_CNT_MAX, 0,

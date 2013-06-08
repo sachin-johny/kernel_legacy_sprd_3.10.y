@@ -108,4 +108,12 @@ config SND_SPRD_SOC_BT_I2S
 	   this option will build spreadtrum I2S driver for external codec
            or like BT/Digital FM etc.
 
+config CODEC_SRC_SAMPLE_RATE
+	int "codec src sample rate setting (32000 or 48000) unit(HZ)"
+	range 32000 48000
+	default 32000
+	help
+	  when capture sample rate is 44100HZ, we cann't set 44100 HZ for CODEC adc sample rate,
+	  so need to set CODEC sample to 32000/48000, then open VBC SRC changing to 44100HZ..
+
 endmenu
