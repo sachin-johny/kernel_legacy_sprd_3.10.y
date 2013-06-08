@@ -1180,11 +1180,8 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 		return;
 
 	clk_temp = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	clk_temp &= ~SDHCI_CLOCK_CARD_EN;
+	clk_temp |= (SDHCI_CLOCK_INT_EN | SDHCI_CLOCK_INT_STABLE);
 	sdhci_writew(host, clk_temp, SDHCI_CLOCK_CONTROL);
-	mdelay(1);
-
-	sdhci_writew(host, 0, SDHCI_CLOCK_CONTROL);
 
 	if (clock == 0)
 		goto out;
@@ -2755,11 +2752,12 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 			SDHCI_INT_END_BIT | SDHCI_INT_CRC | SDHCI_INT_TIMEOUT |
 			SDHCI_INT_DATA_END | SDHCI_INT_RESPONSE);
 	}
+	#if 0  /* No need */
 	/* Force clock and power re-program */
 	host->pwr = 0;
 	host->clock = 0;
 	sdhci_do_set_ios(host, &host->mmc->ios);
-
+	#endif
 	sdhci_do_start_signal_voltage_switch(host, &host->mmc->ios);
 	if (host_flags & SDHCI_PV_ENABLED)
 		sdhci_do_enable_preset_value(host, true);
@@ -3233,12 +3231,6 @@ int sdhci_add_host(struct sdhci_host *host)
 		mmc_hostname(mmc), host);
 	if (ret)
 		goto untasklet;
-
-	host->vmmc = regulator_get(mmc_dev(mmc), "vmmc");
-	if (IS_ERR(host->vmmc)) {
-		pr_info("%s: no vmmc regulator found\n", mmc_hostname(mmc));
-		host->vmmc = NULL;
-	}
 
 	host_data = sdhci_priv(host);
 #ifdef CONFIG_MMC_CARD_HOTPLUG

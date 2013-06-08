@@ -933,18 +933,21 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
+	printk("mmc_sd_init_card enter\n");
 
 	/* The initialization should be done at 3.3 V I/O voltage. */
 	mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_330, 0);
 
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
-	if (err)
+	if (err){
+		printk("mmc_sd_get_cid  err = %x\n",err);
 		return err;
-
+	}
 	if (oldcard) {
-		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0)
+		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0){
+		printk("memcmp  cid = %x,oldcard->raw_cid = %x\n",cid,oldcard->raw_cid);
 			return -ENOENT;
-
+			}
 		card = oldcard;
 	} else {
 		/*
@@ -1047,12 +1050,13 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	host->card = card;
+	printk("mmc_sd_init_card success\n");
 	return 0;
 
 free_card:
 	if (!oldcard)
 		mmc_remove_card(card);
-
+	printk("mmc_sd_init_card err\n");
 	return err;
 }
 

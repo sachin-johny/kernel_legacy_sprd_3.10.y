@@ -17,6 +17,7 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
 #include <linux/mmc/mmc.h>
+#include <linux/mmc/sdhci.h>
 
 #include "core.h"
 #include "bus.h"
@@ -1402,25 +1403,36 @@ static void mmc_detect(struct mmc_host *host)
 /*
  * Suspend callback from host.
  */
-static int mmc_suspend(struct mmc_host *host)
-{
-	int err = 0;
+	static int mmc_suspend(struct mmc_host *host)
+	{
+		int err = 0, i = 0 ;
+			struct mmc_card *card = host->card;
 
-	BUG_ON(!host);
-	BUG_ON(!host->card);
+			BUG_ON(!host);
+			BUG_ON(!host->card);
 
-	mmc_claim_host(host);
-	if (mmc_card_can_sleep(host)) {
-		err = mmc_card_sleep(host);
-		if (!err)
-			mmc_card_set_sleep(host->card);
-	} else if (!mmc_host_is_spi(host))
-		mmc_deselect_cards(host);
-	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
-	mmc_release_host(host);
+			mmc_claim_host(host);
 
-	return err;
-}
+			for(i=0x0; i<EMMC_VENDOR_MAX; i++) {
+				if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_SUMSUNG)
+				break;
+			}
+
+			printk("%s, card->cid.manfid =0x%x, i=0x%x\n",__func__, card->cid.manfid, i);
+			if((i < EMMC_VENDOR_MAX) && (card->cid.manfid == emmc_timing_inf[i].vend_id)){
+				mmc_deselect_cards(host);
+			}else{
+				if (mmc_card_can_sleep(host))
+					err = mmc_card_sleep(host);
+				else if (!mmc_host_is_spi(host))
+					mmc_deselect_cards(host);
+			}
+			host->card->state &= ~MMC_STATE_HIGHSPEED;
+		mmc_release_host(host);
+
+		return err;
+	}
+
 
 /*
  * Resume callback from host.
@@ -1430,19 +1442,33 @@ static int mmc_suspend(struct mmc_host *host)
  */
 static int mmc_resume(struct mmc_host *host)
 {
-	int err;
+	int err = 0 , i = 0 ;
+        struct mmc_card *card = host->card;
 
 	BUG_ON(!host);
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-	if (mmc_card_is_sleep(host->card)) {
-		err = mmc_card_awake(host);
-		mmc_card_clr_sleep(host->card);
-	} else
-		err = mmc_init_card(host, host->ocr, host->card);
-	mmc_release_host(host);
 
+        for(i=0x0; i<EMMC_VENDOR_MAX; i++) {
+	   if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_SUMSUNG)
+                break;
+        }
+	printk("%s, emmc_timing_inf[i].vend_id = %x,card->cid.manfid =0x%x, i=0x%x\n",
+	__func__, emmc_timing_inf[i].vend_id,card->cid.manfid, i);
+        if((i < EMMC_VENDOR_MAX) && (card->cid.manfid == emmc_timing_inf[i].vend_id)){
+                if(mmc_card_keep_power(host)){
+                    err = mmc_select_card(host->card);
+                }else{
+                    mmc_power_up(host);
+                    err = mmc_init_card(host, host->ocr, host->card);
+                 }
+        }
+        else{
+          mmc_power_up(host);
+          err = mmc_init_card(host, host->ocr, host->card);
+        }
+        mmc_release_host(host);
 	return err;
 }
 

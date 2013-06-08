@@ -55,7 +55,6 @@ struct sprd_host_platdata {
 	const char *hw_name;	/* Hardware bus name */
 	const char *vdd_name;
 	const char *vdd_ext_name;
-	struct regulator *vmmc;	/* extend Power regulator */
 	int volt_level;
 	const char *clk_name;
 	const char *clk_parent;
@@ -158,6 +157,7 @@ struct sdhci_host {
 	const struct sdhci_ops *ops;	/* Low level hw interface */
 
 	struct regulator *vmmc;	/* Power regulator */
+	struct regulator *vmmc_ext;	/* eMMC core Power regulator */
 	int		dev_attached;	/* device attache indicater */
 	/* Internal data */
 	struct mmc_host *mmc;	/* MMC structure */
