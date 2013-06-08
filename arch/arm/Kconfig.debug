@@ -360,4 +360,14 @@ config ARM_KPROBES_TEST
 	help
 	  Perform tests of kprobes API and instruction set simulation.
 
+config SPRD_DEBUG
+	bool "Enable SPRD DEBUG"
+
+config SPRD_DEBUG_SCHED_LOG
+	bool "SPRD Scheduler Logging Feature"
+	depends on SPRD_DEBUG
+	default n
+	help
+	  SPRD Scheduler Logging Feature for Debug use.
+
 endmenu

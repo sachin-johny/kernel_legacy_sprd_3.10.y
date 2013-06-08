@@ -31,6 +31,10 @@
 #include <linux/clockchips.h>
 #include <linux/wakelock.h>
 #include <mach/adi.h>
+#if defined(CONFIG_SPRD_DEBUG)
+/* For saving Fault status */
+#include <mach/sprd_debug.h>
+#endif
 
 extern int sc8830_get_clock_status(void);
 extern void secondary_startup(void);
@@ -724,4 +728,7 @@ void sc_pm_init(void)
 	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
 	wake_lock(&pm_debug_lock);
 */
+#if defined(CONFIG_SPRD_DEBUG)
+	sprd_debug_init();
+#endif
 }
