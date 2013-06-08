@@ -363,7 +363,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	struct mmc_data data = {0};
 	struct mmc_request mrq = {NULL};
 	struct scatterlist sg;
-	int err;
+	int err=0;
 
 	/*
 	 * The caller must have CAP_SYS_RAWIO, and must be calling this on the
