@@ -124,6 +124,11 @@ static __devexit void __keypad_disable(void)
 	sci_glb_clr(REG_GLB_GEN0, BIT_KPD_EB | BIT_RTC_KPD_EB);
 }
 
+static int __keypad_controller_ver(void)
+{
+	return 0;
+}
+
 #elif defined(CONFIG_ARCH_SCX35)
 static __devinit void __keypad_enable(void)
 {
@@ -139,6 +144,10 @@ static __devexit void __keypad_disable(void)
 	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_KPD_EB);
 	sci_glb_clr(REG_AON_APB_APB_RTC_EB, BIT_KPD_RTC_EB);
 }
+static int __keypad_controller_ver(void)
+{
+	return 1;
+}
 
 #else
 #error "Pls fill the low level enable function"
@@ -150,7 +159,6 @@ struct sci_keypad_t {
 	int rows;
 	int cols;
 	unsigned int keyup_test_jiffies;
-	unsigned int controller_ver;
 };
 
 #ifdef CONFIG_MAGIC_SYSRQ
@@ -428,11 +436,12 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	unsigned int row_shift, keycodemax;
 
 	if (!pdata) {
+		printk(KERN_WARNING "sci_keypad_probe get platform_data NULL\n");
 		error = -EINVAL;
 		goto out0;
 	}
-	row_shift = get_count_order(pdata->cols);
-	keycodemax = pdata->rows << row_shift;
+	row_shift = get_count_order(pdata->cols_number);
+	keycodemax = pdata->rows_number << row_shift;
 
 	sci_kpd = kzalloc(sizeof(struct sci_keypad_t) +
 			  keycodemax * sizeof(unsigned short), GFP_KERNEL);
@@ -445,9 +454,8 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, sci_kpd);
 
 	sci_kpd->input_dev = input_dev;
-	sci_kpd->rows = pdata->rows;
-	sci_kpd->cols = pdata->cols;
-	sci_kpd->controller_ver = pdata->controller_ver;
+	sci_kpd->rows = pdata->rows_number;
+	sci_kpd->cols = pdata->cols_number;
 
 	__keypad_enable();
 
@@ -507,7 +515,7 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 	value = KPD_SLEEP_CNT_VALUE(1000);
 	__raw_writel(value, KPD_SLEEP_CNT);
 
-	if (sci_kpd->controller_ver == 0) {
+	if (__keypad_controller_ver() == 0) {
 		if ((pdata->rows_choose_hw & ~KPDCTL_ROW_MSK_V0)
 		    || (pdata->cols_choose_hw & ~KPDCTL_COL_MSK_V0)) {
 			pr_warn("Error rows_choose_hw Or cols_choose_hw\n");
@@ -515,7 +523,7 @@ static int __devinit sci_keypad_probe(struct platform_device *pdev)
 			pdata->rows_choose_hw &= KPDCTL_ROW_MSK_V0;
 			pdata->cols_choose_hw &= KPDCTL_COL_MSK_V0;
 		}
-	} else if (sci_kpd->controller_ver == 1) {
+	} else if (__keypad_controller_ver() == 1) {
 		if ((pdata->rows_choose_hw & ~KPDCTL_ROW_MSK_V1)
 		    || (pdata->cols_choose_hw & ~KPDCTL_COL_MSK_V1)) {
 			pr_warn("Error rows_choose_hw\n");

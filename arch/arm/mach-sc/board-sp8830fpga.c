@@ -41,9 +41,11 @@
 #include <linux/akm8975.h>
 #include <linux/irq.h>
 #include <linux/persistent_ram.h>
+#include <linux/input/matrix_keypad.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
+#include <mach/kpd.h>
 
 #include <mach/sci_glb_regs.h>
 
@@ -61,6 +63,101 @@ extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
+
+/*keypad define */
+#define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 | SCI_ROW2 | SCI_ROW1 | SCI_ROW0)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 | SCI_COL2 | SCI_COL1 | SCI_COL0)
+#define ROWS	(8)
+#define COLS	(8)
+
+static const unsigned int board_keymap[] = {
+	KEY(0, 0, KEY_F1),
+
+	KEY(0, 3, KEY_COFFEE),
+	KEY(0, 2, KEY_QUESTION),
+	KEY(2, 3, KEY_CONNECT),
+	KEY(1, 2, KEY_SHOP),
+	KEY(1, 1, KEY_PHONE),
+
+	KEY(0, 1, KEY_DELETE),
+	KEY(2, 2, KEY_PLAY),
+	KEY(1, 0, KEY_PAGEUP),
+	KEY(1, 3, KEY_PAGEDOWN),
+	KEY(2, 0, KEY_EMAIL),
+	KEY(2, 1, KEY_STOP),
+
+	KEY(0, 7, KEY_KP1),
+	KEY(0, 6, KEY_KP2),
+	KEY(0, 5, KEY_KP3),
+	KEY(1, 7, KEY_KP4),
+	KEY(1, 6, KEY_KP5),
+	KEY(1, 5, KEY_KP6),
+	KEY(2, 7, KEY_KP7),
+	KEY(2, 6, KEY_KP8),
+	KEY(2, 5, KEY_KP9),
+	KEY(3, 6, KEY_KP0),
+	KEY(3, 7, KEY_KPASTERISK),
+	KEY(3, 5, KEY_KPDOT),
+	KEY(7, 2, KEY_NUMLOCK),
+	KEY(7, 1, KEY_KPMINUS),
+	KEY(6, 1, KEY_KPPLUS),
+	KEY(7, 6, KEY_KPSLASH),
+	KEY(6, 0, KEY_ENTER),
+
+	KEY(7, 4, KEY_CAMERA),
+
+	KEY(0, 4, KEY_F2),
+	KEY(1, 4, KEY_F3),
+	KEY(2, 4, KEY_F4),
+	KEY(7, 7, KEY_F5),
+	KEY(7, 5, KEY_F6),
+
+	KEY(3, 4, KEY_Q),
+	KEY(3, 3, KEY_W),
+	KEY(3, 2, KEY_E),
+	KEY(3, 1, KEY_R),
+	KEY(3, 0, KEY_T),
+	KEY(4, 7, KEY_Y),
+	KEY(4, 6, KEY_U),
+	KEY(4, 5, KEY_I),
+	KEY(4, 4, KEY_O),
+	KEY(4, 3, KEY_P),
+	KEY(4, 2, KEY_A),
+	KEY(4, 1, KEY_S),
+	KEY(4, 0, KEY_D),
+	KEY(5, 7, KEY_F),
+	KEY(5, 6, KEY_G),
+	KEY(5, 5, KEY_H),
+	KEY(5, 4, KEY_J),
+	KEY(5, 3, KEY_K),
+	KEY(5, 2, KEY_L),
+	KEY(5, 1, KEY_Z),
+	KEY(5, 0, KEY_X),
+	KEY(6, 7, KEY_C),
+	KEY(6, 6, KEY_V),
+	KEY(6, 5, KEY_B),
+	KEY(6, 4, KEY_N),
+	KEY(6, 3, KEY_M),
+	KEY(6, 2, KEY_SPACE),
+	KEY(7, 0, KEY_LEFTSHIFT),
+	KEY(7, 3, KEY_LEFTCTRL),
+};
+
+static const struct matrix_keymap_data customize_keymap = {
+	.keymap = board_keymap,
+	.keymap_size = ARRAY_SIZE(board_keymap),
+};
+
+static struct sci_keypad_platform_data sci_keypad_data = {
+	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
+	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
+	.rows_number = ROWS,
+	.cols_number = COLS,
+	.keymap_data = &customize_keymap,
+	.support_long_key = 1,
+	.repeat = 0,
+	.debounce_time = 5000,
+};
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -631,6 +728,7 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();

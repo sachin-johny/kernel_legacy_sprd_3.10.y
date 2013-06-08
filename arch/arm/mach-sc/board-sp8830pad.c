@@ -41,10 +41,12 @@
 #include <linux/akm8975.h>
 #include <linux/irq.h>
 #include <linux/persistent_ram.h>
+#include <linux/input/matrix_keypad.h>
 
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
+#include <mach/kpd.h>
 
 #include "devices.h"
 
@@ -60,6 +62,34 @@ extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
 extern int __init sci_regulator_init(void);
+
+/*keypad define */
+#define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL0 | SCI_COL1)
+#define ROWS	(2)
+#define COLS	(2)
+
+static const unsigned int board_keymap[] = {
+	KEY(0, 0, KEY_VOLUMEDOWN),
+	KEY(1, 0, KEY_VOLUMEUP),
+	KEY(0, 1, KEY_HOME),
+};
+
+static const struct matrix_keymap_data customize_keymap = {
+	.keymap = board_keymap,
+	.keymap_size = ARRAY_SIZE(board_keymap),
+};
+
+static struct sci_keypad_platform_data sci_keypad_data = {
+	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
+	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
+	.rows_number = ROWS,
+	.cols_number = COLS,
+	.keymap_data = &customize_keymap,
+	.support_long_key = 1,
+	.repeat = 0,
+	.debounce_time = 5000,
+};
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -622,6 +652,7 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();

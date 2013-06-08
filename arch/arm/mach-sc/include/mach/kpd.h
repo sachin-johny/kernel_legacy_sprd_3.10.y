@@ -24,17 +24,15 @@
 struct sci_keypad_platform_data {
 	int rows_choose_hw;	/* choose chip keypad controler rows */
 	int cols_choose_hw;	/* choose chip keypad controler cols */
-	int rows;
-	int cols;
+	int rows_number; /*How many rows are there in board. */
+	int cols_number; /*How many cols are there in board. */
 	const struct matrix_keymap_data *keymap_data;
 	int support_long_key;
 	unsigned short repeat;
 	unsigned int debounce_time;	/* in ns */
-	unsigned int keyup_test_interval;	/* in ms */
-	unsigned int controller_ver;
 };
 
-//chip define begin
+/* chip define begin */
 #define SCI_COL7	(0x01 << 15)
 #define SCI_COL6	(0x01 << 14)
 #define SCI_COL5	(0x01 << 13)
@@ -53,7 +51,37 @@ struct sci_keypad_platform_data {
 #define SCI_ROW1	(0x01 << 17)
 #define SCI_ROW0	(0x01 << 16)
 
-//chip define end
+/*using example */
+/*
+#define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
+#define CUSTOM_KEYPAD_COLS          (SCI_COL0 | SCI_COL1)
+#define ROWS	(2)
+#define COLS	(2)
+
+static const unsigned int board_keymap[] = {
+	KEY(0, 0, KEY_VOLUMEDOWN),
+	KEY(1, 0, KEY_VOLUMEUP),
+	KEY(0, 1, KEY_HOME),
+};
+
+static const struct matrix_keymap_data customize_keymap = {
+	.keymap = board_keymap,
+	.keymap_size = ARRAY_SIZE(board_keymap),
+};
+
+static struct sci_keypad_platform_data sci_keypad_data = {
+	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
+	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
+	.rows_number = ROWS,
+	.cols_number = COLS,
+	.keymap_data = &customize_keymap,
+	.support_long_key = 1,
+	.repeat = 0,
+	.debounce_time = 5000,
+};
+platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
+platform_add_devices(sprd_keypad_device, sizeof(sprd_keypad_device));
+*/
 
 
 #endif
