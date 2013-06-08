@@ -1496,11 +1496,11 @@ struct sysdump_mem sprd_dump_mem[] = {
 					(WCN_START_ADDR - CONFIG_PHYS_OFFSET),
 		.soff		= 0xffffffff,
 		.size		= WCN_TOTAL_SIZE,
-#ifdef CONFIG_SIPC_WCN
+//#ifdef CONFIG_SIPC_WCN
 		.type		= SYSDUMP_MODEM,
-#else
-		.type		= SYSDUMP_RAM,
-#endif
+//#else
+//		.type		= SYSDUMP_RAM,
+//#endif
 	},
 	{
 		.paddr		= WCN_START_ADDR + WCN_TOTAL_SIZE,
