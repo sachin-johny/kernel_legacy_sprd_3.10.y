@@ -277,6 +277,17 @@ static struct snd_soc_dai_link sc883x_dai[] = {
 	 .cpu_dai_name = "vbc",
 	 .codec_dai_name = "sprd-codec-i2s",
 	 },
+#ifdef CONFIG_SND_SPRD_SOC_VAUDIO
+	{
+	 .name = "sc883x-dsp",
+	 .stream_name = "vbc-dsp",
+
+	 .codec_name = "sprd-codec",
+	 .platform_name = "sprd-pcm-audio",
+	 .cpu_dai_name = "vaudio",
+	 .codec_dai_name = "sprd-codec-i2s",
+	 },
+#endif
 	{
 	.name = "sc883x-vbc-ad23",
 	.stream_name = "vbc-ext",
@@ -288,25 +299,15 @@ static struct snd_soc_dai_link sc883x_dai[] = {
 	},
 #ifdef CONFIG_SND_SPRD_SOC_VAUDIO
 	{
-	 .name = "sc883x-dsp",
-	 .stream_name = "vbc-dsp",
+	 .name = "sc883x-dsp-ad23",
+	 .stream_name = "vbc-dsp-ext",
 
 	 .codec_name = "sprd-codec",
 	 .platform_name = "sprd-pcm-audio",
-	 .cpu_dai_name = "vaudio",
-	 .codec_dai_name = "sprd-codec-i2s",
+	 .cpu_dai_name = "vaudio-ad23",
+	 .codec_dai_name = "codec-i2s-ext",
 	 },
-	 {
-	  .name = "sc883x-dsp-ad23",
-	  .stream_name = "vbc-dsp-ext",
-
-	  .codec_name = "sprd-codec",
-	  .platform_name = "sprd-pcm-audio",
-	  .cpu_dai_name = "vaudio-ad23",
-	  .codec_dai_name = "codec-i2s-ext",
-	  },
 #endif
-
 };
 
 static struct snd_soc_card sc883x_card = {
