@@ -225,10 +225,10 @@ static int ldo_is_on(struct regulator_dev *rdev)
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
 		if (ret == ! !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit))
 			ret = -EINVAL;
-	} else if (regs->pd_set) {	/* new feature */
-		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
 	} else if (regs->pd_rst) {
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
+	} else if (regs->pd_set) {	/* new feature */
+		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
 	}
 
 	debug2("regu %p (%s) return %d\n", regs, desc->desc.name, ret);
@@ -841,7 +841,7 @@ static int cmp_val(const void *a, const void *b)
  * __adc_voltage - get regulator output voltage through auxadc
  * @regulator: regulator source
  *
- * This returns the current regulator voltage in uV.
+ * This returns the current regulator voltage in mV.
  *
  * NOTE: If the regulator is disabled it will return the voltage value. This
  * function should not be used to determine regulator state.
@@ -1019,6 +1019,18 @@ retry:
 exit:
 	debug("%s failure\n", desc->desc.name);
 	return -1;
+}
+
+static int regu_force_trimming(struct regulator_dev *rdev, int trim)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+
+	if (regs->vol_trm)
+		ANA_REG_SET(regs->vol_trm,
+			    trim << __ffs(regs->vol_trm_bits),
+			    regs->vol_trm_bits);
+	return 0;
 }
 
 static struct regulator_ops ldo_ops = {
@@ -1224,8 +1236,13 @@ static int debugfs_voltage_get(void *data, u64 * val)
 static int debugfs_ldo_set(void *data, u64 val)
 {
 	struct regulator_dev *rdev = data;
-	if (rdev && rdev->desc->ops->set_voltage)
-		rdev->desc->ops->set_voltage(rdev, val * 1000, val * 1000, 0);
+	if (rdev && rdev->desc->ops->set_voltage) {
+		if (val < 200)	/* FIXME: debug force trimming */
+			regu_force_trimming(rdev, val);
+		else
+			rdev->desc->ops->set_voltage(rdev, val * 1000,
+						     val * 1000, 0);
+	}
 	return 0;
 }
 
@@ -1236,9 +1253,13 @@ static int debugfs_dcdc_set(void *data, u64 val)
 	int to_vol = (int)val;
 
 	if (rdev) {
-		mutex_lock(&rdev->mutex);
-		desc->ops->calibrate(rdev, 0, to_vol);
-		mutex_unlock(&rdev->mutex);
+		if (val < 200)	/* FIXME: debug force trimming */
+			regu_force_trimming(rdev, val);
+		else {
+			mutex_lock(&rdev->mutex);
+			desc->ops->calibrate(rdev, 0, to_vol);
+			mutex_unlock(&rdev->mutex);
+		}
 	}
 	return 0;
 }
@@ -1362,6 +1383,7 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	}
 #endif
 
+/* patch for sc7710 BA version */
 #ifdef CONFIG_ARCH_SC7710
 	if (sci_get_ana_chip_id() == ANA_CHIP_ID_BA &&
 	    desc->regs->typ == VDD_TYP_LPREF) {
