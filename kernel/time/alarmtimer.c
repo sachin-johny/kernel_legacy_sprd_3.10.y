@@ -589,7 +589,12 @@ static enum alarmtimer_restart alarm_handle_timer(struct alarm *alarm,
  */
 static int alarm_clock_getres(const clockid_t which_clock, struct timespec *tp)
 {
-	clockid_t baseid = alarm_bases[clock2alarm(which_clock)].base_clockid;
+	enum  alarmtimer_type type = clock2alarm(which_clock);
+	clockid_t baseid;
+
+	if(type == -1)
+		return -EPERM;
+	baseid = alarm_bases[type].base_clockid;
 
 	if (!alarmtimer_get_rtcdev())
 		return -ENOTSUPP;
@@ -606,7 +611,12 @@ static int alarm_clock_getres(const clockid_t which_clock, struct timespec *tp)
  */
 static int alarm_clock_get(clockid_t which_clock, struct timespec *tp)
 {
-	struct alarm_base *base = &alarm_bases[clock2alarm(which_clock)];
+	enum  alarmtimer_type type = clock2alarm(which_clock);
+	struct alarm_base *base;
+
+	if(type == -1)
+		return -EPERM;
+	base = &alarm_bases[type];
 
 	if (!alarmtimer_get_rtcdev())
 		return -ENOTSUPP;
@@ -633,6 +643,9 @@ static int alarm_timer_create(struct k_itimer *new_timer)
 		return -EPERM;
 
 	type = clock2alarm(new_timer->it_clock);
+	
+	if(type == -1)
+		return -EPERM;
 	base = &alarm_bases[type];
 	alarm_init(&new_timer->it.alarm.alarmtimer, type, alarm_handle_timer);
 	return 0;
@@ -828,6 +841,9 @@ static int alarm_timer_nsleep(const clockid_t which_clock, int flags,
 	ktime_t exp;
 	int ret = 0;
 	struct restart_block *restart;
+
+	if(type == -1)
+		return -EPERM;
 
 	if (!alarmtimer_get_rtcdev())
 		return -ENOTSUPP;
