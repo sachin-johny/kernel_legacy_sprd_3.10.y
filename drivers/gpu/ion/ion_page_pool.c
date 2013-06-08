@@ -200,7 +200,7 @@ static int ion_page_pool_shrink(struct shrinker *shrinker,
 	struct ion_page_pool *pool;
 	int nr_freed = 0;
 	int i;
-	bool high;
+	bool high=false;
 	int nr_to_scan = sc->nr_to_scan;
 
 	if (sc->gfp_mask & __GFP_HIGHMEM)
