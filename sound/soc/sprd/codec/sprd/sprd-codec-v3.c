@@ -1441,7 +1441,8 @@ static int digital_power_event(struct snd_soc_dapm_widget *w,
 		sprd_codec_digital_open(w->codec);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		arch_audio_codec_digital_disable();
+		/*maybe ADC module use it, so we cann't close it*/
+		/*arch_audio_codec_digital_disable(); */
 		arch_audio_codec_digital_reg_disable();
 		break;
 	default:
