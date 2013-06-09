@@ -25,7 +25,7 @@
 
 #include <mach/globalregs.h>
 
-#define SPRD_I2C_CTL_ID	5
+#define SPRD_I2C_CTL_ID	(6)
 
 /*Note: The defined below are for tiger and later chipset. */
 /*If we don't use cmd buffer function, the define work well for the old chipset*/
@@ -497,6 +497,61 @@ static int sprd_i2c_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#if defined (CONFIG_PM) && defined(CONFIG_ARCH_SCX35)
+struct i2c_regs {
+	unsigned long ctl;/*0x0*/
+	unsigned long cmd;/*0x4*/
+	unsigned long div0;/*0x8*/
+	unsigned long div1;/*0xc*/
+	unsigned long rst;/*0x10*/
+	unsigned long cmd_buf;/*0x14*/
+	unsigned long cmd_buf_ctl;/*0x18*/
+
+	/*global i2c_regs*/
+};
+
+static struct i2c_regs l2c_saved_regs[SPRD_I2C_CTL_ID];
+static int i2c_controller_suspend(struct platform_device *pdev,
+				      pm_message_t state)
+{
+	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
+
+	if (pi2c && (pi2c->adap.nr < ARRAY_SIZE(l2c_saved_regs))) {
+		l2c_saved_regs[pi2c->adap.nr].ctl = __raw_readl(pi2c->membase + I2C_CTL);
+		l2c_saved_regs[pi2c->adap.nr].cmd = __raw_readl(pi2c->membase + I2C_CMD);
+		l2c_saved_regs[pi2c->adap.nr].div0 = __raw_readl(pi2c->membase + I2C_CLKD0);
+		l2c_saved_regs[pi2c->adap.nr].div1 = __raw_readl(pi2c->membase + I2C_CLKD1);
+		l2c_saved_regs[pi2c->adap.nr].rst = __raw_readl(pi2c->membase + I2C_RST);
+		l2c_saved_regs[pi2c->adap.nr].cmd_buf = __raw_readl(pi2c->membase + I2C_CMD_BUF);
+		l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl = __raw_readl(pi2c->membase + I2C_CMD_BUF_CTL);
+	}
+	if (!IS_ERR(pi2c->clk))
+		clk_disable(pi2c->clk);
+	return 0;
+}
+
+static int i2c_controller_resume(struct platform_device *pdev)
+{
+	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
+
+	if (!IS_ERR(pi2c->clk))
+		clk_enable(pi2c->clk);
+	if (pi2c) {
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].ctl, pi2c->membase + I2C_CTL);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd, pi2c->membase + I2C_CMD);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].div0, pi2c->membase + I2C_CLKD0);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].div1, pi2c->membase + I2C_CLKD1);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].rst, pi2c->membase + I2C_RST);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf, pi2c->membase + I2C_CMD_BUF);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl, pi2c->membase + I2C_CMD_BUF_CTL);
+	}
+	return 0;
+}
+#else
+#define i2c_controller_suspend	NULL
+#define i2c_controller_resume	NULL
+#endif
+
 static struct platform_driver sprd_i2c_driver = {
 	.probe = sprd_i2c_probe,
 	.remove = sprd_i2c_remove,
@@ -504,6 +559,8 @@ static struct platform_driver sprd_i2c_driver = {
 		   .owner = THIS_MODULE,
 		   .name = "sprd-i2c",
 		   },
+	.suspend = i2c_controller_suspend,
+	.resume = i2c_controller_resume,
 };
 
 static int __init sprd_i2c_init(void)

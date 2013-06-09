@@ -325,7 +325,6 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 {
 	u32 val;
 
-	printk("%s\n",__func__);
 
 	//SIC polarity 1
 	val = __raw_readl(SPRD_EICINT_BASE+0x10);
@@ -559,6 +558,15 @@ static struct uart_ops serial_sprd_ops = {
 	.verify_port = serial_sprd_verify_port,
 };
 static struct uart_port *serial_sprd_ports[UART_NR_MAX] = { 0 };
+static struct{
+	uint32_t ien;
+	uint32_t ctrl0;
+	uint32_t ctrl1;
+	uint32_t ctrl2;
+	uint32_t clkd0;
+	uint32_t clkd1;
+	uint32_t dspwait;
+} uart_bak[UART_NR_MAX]={0};
 
 static int clk_startup(struct platform_device *pdev)
 {
@@ -776,6 +784,7 @@ static int serial_sprd_remove(struct platform_device *dev)
 static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 {
 	/* TODO */
+	int id = dev->id;
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 		is_uart_rx_wakeup = false;
 	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
@@ -790,6 +799,14 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 	}else{
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
+	struct uart_port *port;
+	port = serial_sprd_ports[id];
+	uart_bak[id].ien = serial_in(port, ARM_UART_IEN);
+	uart_bak[id].ctrl0 = serial_in(port, ARM_UART_CTL0);
+	uart_bak[id].ctrl1 = serial_in(port, ARM_UART_CTL1);
+	uart_bak[id].ctrl2 = serial_in(port, ARM_UART_CTL2);
+	uart_bak[id].clkd0 = serial_in(port, ARM_UART_CLKD0);
+	uart_bak[id].clkd1 = serial_in(port, ARM_UART_CLKD1);
 
 	return 0;
 }
@@ -797,6 +814,7 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 static int serial_sprd_resume(struct platform_device *dev)
 {
 	/* TODO */
+	int id = dev->id;
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 		if(is_uart_rx_wakeup)
 		{
@@ -816,6 +834,14 @@ static int serial_sprd_resume(struct platform_device *dev)
 	}else{
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
+	struct uart_port *port = serial_sprd_ports[id];
+	port = serial_sprd_ports[id];
+	serial_out(port, ARM_UART_IEN, uart_bak[id].ien);
+	serial_out(port, ARM_UART_CTL0, uart_bak[id].ctrl0);
+	serial_out(port, ARM_UART_CTL1, uart_bak[id].ctrl1);
+	serial_out(port, ARM_UART_CTL2, uart_bak[id].ctrl2);
+	serial_out(port, ARM_UART_CLKD0, uart_bak[id].clkd0);
+	serial_out(port, ARM_UART_CLKD1, uart_bak[id].clkd1);
 
 	return 0;
 }
