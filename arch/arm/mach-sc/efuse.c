@@ -80,7 +80,10 @@
 #define D_EFUSE_MIN_BLK_ID			(0)
 #define D_EFUSE_MAX_BLK_ID  			(7)
 
-#define D_EFUSE_VERIFY_BLK_ID(_X_)		do {BUG_ON((_X_) > D_EFUSE_MAX_BLK_ID || (_X_) < D_EFUSE_MIN_BLK_ID);}while(0)
+#define D_EFUSE_VERIFY_BLK_ID(_X_)		do {    \
+    BUG_ON((_X_) > D_EFUSE_MAX_BLK_ID || (_X_) < D_EFUSE_MIN_BLK_ID);   \
+}while(0)
+
 //adie laser fuse control
 #define AFUSE_DLY_PROT_KEY		(0xa2)
 
@@ -88,8 +91,14 @@ static DEFINE_MUTEX(ddie_fuse_lock);
 static DEFINE_MUTEX(adie_fuse_lock);
 
 #ifdef CONFIG_EFUSE_TEST
+#define efuse_dbg    printk
 static int efuse_auto_test_en = 0;
 #endif
+
+
+
+static void efuse_dump_register(u32 en);
+
 static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 {
 	unsigned long timeout;
@@ -110,7 +119,9 @@ static __inline void __ddie_fuse_global_init(void)
 #if defined(CONFIG_ARCH_SC8825)
 	sci_glb_set(REG_GLB_GEN0, BIT_EFUSE_EB);
 #elif defined(CONFIG_ARCH_SCX35)
-	sci_glb_set(REG_AON_APB_APB_EB0,BIT_EFUSE_EB);	
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_EFUSE_EB);
+	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
+	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
 #endif
 	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) | BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN,
 		     REG_EFUSE_PGM_PARA);
@@ -118,14 +129,17 @@ static __inline void __ddie_fuse_global_init(void)
 
 static __inline void __ddie_fuse_global_close(void)
 {
-#if defined(CONFIG_ARCH_SC8825)	
+#if defined(CONFIG_ARCH_SC8825)
 	sci_glb_clr(REG_GLB_GEN0, BIT_EFUSE_EB);
 #elif defined(CONFIG_ARCH_SCX35)
 	sci_glb_clr(REG_AON_APB_APB_EB0,BIT_EFUSE_EB);
+	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
+	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
 #endif
 	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
 		     REG_EFUSE_PGM_PARA);
 }
+
 
 static __inline int __ddie_fuse_read(u32 blk)
 {
@@ -135,16 +149,19 @@ static __inline int __ddie_fuse_read(u32 blk)
 	__ddie_fuse_global_init();
 	val = BITS_READ_INDEX(blk) | BITS_PGM_INDEX(blk);
 	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
+	efuse_dump_register(1);
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_RD_START,
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_READ_BUSY);
 	val = __raw_readl(REG_EFUSE_DATA_RD);
+	efuse_dump_register(0);
 	__ddie_fuse_global_close();
 	mutex_unlock(&ddie_fuse_lock);
 
 	return val;
 }
 
+//Need confirm.
 static __inline int __adie_fuse_getdata(void)
 {
 	int val = 0;
@@ -314,8 +331,10 @@ void sci_ddie_fuse_program(u32 blk, int data)
 	val = BITS_PGM_INDEX(blk);
 	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
 	__raw_writel(data, REG_EFUSE_DATA_WR);
+	efuse_dump_register(1);
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_PG_START,
 		     REG_EFUSE_MODE_CTRL);
+	efuse_dump_register(0);
 	__ddie_fuse_wait_status_clean(BIT_PGM_BUSY);
 
 	if (efuse_auto_test_en)
@@ -457,6 +476,37 @@ static int read_write_i2s_switch_pin(int is_read, int v, struct sci_fuse *p)
 	}
 	return val;
 }
+
+#ifdef CONFIG_EFUSE_TEST
+static void efuse_dump_register(u32 en)
+{
+	if (en) {
+		efuse_dbg("Before operation.\n");
+	} else {
+		efuse_dbg("After operation.\n");
+	}
+#if defined(CONFIG_ARCH_SCX35)
+	efuse_dbg("REG_EFUSE_DATA_RD = 0x%x\n", __raw_readl(REG_EFUSE_DATA_RD));
+	efuse_dbg("REG_EFUSE_DATA_WR = 0x%x\n", __raw_readl(REG_EFUSE_DATA_WR));
+	efuse_dbg("REG_EFUSE_BLOCK_INDEX = 0x%x\n", __raw_readl(REG_EFUSE_BLOCK_INDEX));
+	efuse_dbg("REG_EFUSE_MODE_CTRL = 0x%x\n", __raw_readl(REG_EFUSE_MODE_CTRL));
+	efuse_dbg("REG_EFUSE_PGM_PARA = 0x%x\n", __raw_readl(REG_EFUSE_PGM_PARA));
+	efuse_dbg("REG_EFUSE_STATUS = 0x%x\n", __raw_readl(REG_EFUSE_STATUS));
+	efuse_dbg("REG_EFUSE_BLK_FLAGS = 0x%x\n", __raw_readl(REG_EFUSE_BLK_FLAGS));
+	efuse_dbg("REG_EFUSE_BLK_CLR = 0x%x\n", __raw_readl(REG_EFUSE_BLK_CLR));
+	efuse_dbg("REG_EFUSE_MAGIC_NUMBER = 0x%x\n", __raw_readl(REG_EFUSE_MAGIC_NUMBER));
+
+	efuse_dbg("REG_AON_APB_APB_EB0 = 0x%x\n", sci_glb_raw_read(REG_AON_APB_APB_EB0));
+	efuse_dbg("REG_AON_APB_PWR_CTRL = 0x%x\n", sci_glb_raw_read(REG_AON_APB_PWR_CTRL));
+#endif
+}
+#else
+static void efuse_dump_register(u32 en)
+{
+	return;
+}
+#endif
+
 static int fuse_debug_set(void *data, u64 val)
 {
 	struct sci_fuse *p = data;
