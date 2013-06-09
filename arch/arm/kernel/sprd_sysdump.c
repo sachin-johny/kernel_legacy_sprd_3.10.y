@@ -87,7 +87,7 @@ struct sysdump_extra sprd_sysdump_extra = {
 
 static struct sysdump_config sysdump_conf = {
 	.enable = 1,
-	.dump_modem = 0,
+	.dump_modem = 1,
 	.reboot = 1,
 	.dump_path = "",
 };
@@ -500,7 +500,7 @@ static ctl_table sysdump_sysctl_table[] = {
 	},
 	{
 		.procname       = "sysdump_dump_modem",
-		.data           = &sysdump_conf.enable,
+		.data           = &sysdump_conf.dump_modem,
 		.maxlen         = sizeof(int),
 		.mode           = 0644,
 		.proc_handler   = proc_dointvec,
