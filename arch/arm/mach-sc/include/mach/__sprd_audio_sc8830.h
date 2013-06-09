@@ -546,8 +546,8 @@ static inline int arch_audio_codec_analog_disable(void)
 	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
 	/*RTC*/
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, 0, BIT_RTC_AUD_EN);
-	/*26M*/
-	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN);
+	/*26M  this is shared with adc, so we cann't close it */
+	/*sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN);*/
 #endif
 
 	return ret;
