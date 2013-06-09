@@ -684,19 +684,25 @@ int swap_to_zram(int  nr_to_scan,  int  min_adj, int   max_adj)
 			
 			oom_adj = sig->oom_adj;
 			if ( (oom_adj < oom_adj_wmark) ||
-			      (__task_cred(p)->uid  <= 10000))
+			      (__task_cred(p)->uid  <= 10000) || (p->flags & PF_KTHREAD) )
 			{
 				task_unlock(p);
 				continue;
 			}
 
+			atomic_inc(&mm->mm_users);
+
+			task_unlock(p);
+
+			down_read(&mm->mmap_sem);
+			pages_tofree += shrink_pages(mm, &zone0_page_list, &zone1_page_list, shrink_to_scan);
+			up_read(&mm->mmap_sem);
+
+			mmput(mm);
 
 			pr_debug("%s, name:%s, adj:%d, policy:%u, uid:%u\r\n", 
-				__func__, p->comm, oom_adj,p->policy, __task_cred(p)->uid );
+							__func__, p->comm, oom_adj,p->policy, __task_cred(p)->uid );
 			
-			pages_tofree += shrink_pages(mm, &zone0_page_list, &zone1_page_list, shrink_to_scan);
-			
-			task_unlock(p);
 		}
 		read_unlock(&tasklist_lock);
 
@@ -709,6 +715,7 @@ int swap_to_zram(int  nr_to_scan,  int  min_adj, int   max_adj)
 		{
 			break;
 		}
+		
 	}
 
 	return pages_freed;
