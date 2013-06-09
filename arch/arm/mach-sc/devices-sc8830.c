@@ -1468,33 +1468,36 @@ struct sysdump_mem sprd_dump_mem[] = {
 };
 int sprd_dump_mem_num = ARRAY_SIZE(sprd_dump_mem);
 
-#if 0
 static struct resource sprd_pmu_resource[] = {
 	[0] = {
-		.start		= IRQ_CA5PMU_NCT_INT0,
-		.end		= IRQ_CA5PMU_NCT_INT0,
+		.start		= IRQ_NPMUIRQ0_INT,
+		.end		= IRQ_NPMUIRQ0_INT,
 		.flags		= IORESOURCE_IRQ,
 	},
 	[1] = {
-		.start		= IRQ_CA5PMU_NCT_INT1,
-		.end		= IRQ_CA5PMU_NCT_INT1,
+		.start		= IRQ_NPMUIRQ1_INT,
+		.end		= IRQ_NPMUIRQ1_INT,
+		.flags		= IORESOURCE_IRQ,
+	},
+	[2] = {
+		.start		= IRQ_NPMUIRQ2_INT,
+		.end		= IRQ_NPMUIRQ2_INT,
+		.flags		= IORESOURCE_IRQ,
+	},
+	[3] = {
+		.start		= IRQ_NPMUIRQ3_INT,
+		.end		= IRQ_NPMUIRQ3_INT,
 		.flags		= IORESOURCE_IRQ,
 	},
 };
 
-static struct platform_device sprd_pmu_device = {
+struct platform_device sprd_a7_pmu_device = {
 	.name		= "arm-pmu",
 	.id		= ARM_PMU_DEVICE_CPU,
 	.resource = sprd_pmu_resource,
 	.num_resources	= ARRAY_SIZE(sprd_pmu_resource),
 };
 
-static void sprd_init_pmu(void)
-{
-	platform_device_register(&sprd_pmu_device);
-}
-arch_initcall(sprd_init_pmu);
-#endif
 
 
 #define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
