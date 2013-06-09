@@ -155,6 +155,7 @@ static __inline int __adie_fuse_getdata(void)
 	/* wait for maximum of 100 msec */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_RD_REQ, 1);
 	udelay(1);
+	timeout = jiffies + msecs_to_jiffies(300);
 	while(BIT_AFUSE_RD_REQ & sci_adi_read(ANA_REG_GLB_AFUSE_CTRL)) {
 		if(time_after(jiffies, timeout))
 		{
@@ -169,6 +170,7 @@ static __inline int __adie_fuse_getdata(void)
 	/* wait for maximum of 100 msec */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_READ_REQ, 1);
 	udelay(1);
+	timeout = jiffies + msecs_to_jiffies(300);
 	while(BIT_AFUSE_READ_REQ & sci_adi_read(ANA_REG_GLB_AFUSE_CTRL)) {
 		if(time_after(jiffies, timeout)){
 			WARN_ON(1);
