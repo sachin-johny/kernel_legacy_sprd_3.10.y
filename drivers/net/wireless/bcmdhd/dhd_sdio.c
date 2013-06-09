@@ -2861,8 +2861,10 @@ dhdsdio_write_vars(dhd_bus_t *bus)
 		DHD_INFO(("Compare NVRAM dl & ul; varsize=%d\n", varsize));
 		nvram_ularray = (uint8*)MALLOC(bus->dhd->osh, varsize);
 		if (!nvram_ularray)
+		{
+			MFREE(bus->dhd->osh, vbuffer, varsize);
 			return BCME_NOMEM;
-
+		}
 		/* Upload image to verify downloaded contents. */
 		memset(nvram_ularray, 0xaa, varsize);
 
