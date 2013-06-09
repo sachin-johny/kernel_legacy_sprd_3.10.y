@@ -142,7 +142,7 @@ int32_t dsi_early_int(void)
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
-		return -1;
+//		return -1;
 	}else{
 		printk(KERN_ERR "sprdfb: dsi request irq int0 OK!\n");
 	}
@@ -155,7 +155,7 @@ int32_t dsi_early_int(void)
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
-		return -1;
+//		return -1;
 	}else{
 		printk(KERN_ERR "sprdfb: dsi request irq int1 OK!\n");
 	}
@@ -283,6 +283,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	if(dev->panel_ready){
 		dsi_ctx.is_inited = true;
 	}else{
+		dsi_ctx.is_inited = false;
 		dsi_early_int();
 	}
 

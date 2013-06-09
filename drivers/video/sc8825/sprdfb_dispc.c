@@ -577,7 +577,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 #else
 	ret = request_irq(IRQ_DISPC_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);
 #endif
-	if (ret) {
+	if (ret && ret != -EBUSY) {
 		printk(KERN_ERR "sprdfb: dispcfailed to request irq!\n");
 		clk_disable(dispc_ctx.clk_dispc);
 		clk_disable(dispc_ctx.clk_dispc_dbi);
@@ -766,15 +766,15 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		clk_enable(dispc_ctx.clk_dispc_dpi);
 		clk_enable(dispc_ctx.clk_dispc_dbi);
 		dispc_ctx.vsync_done = 1;
-		if (dispc_read(DISPC_SIZE_XY) == dispc_read(DISPC_CTRL)) { /* resume from deep sleep */
+		if (dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
-			dispc_reset();
-			dispc_module_enable();
-			dispc_ctx.is_first_frame = true;
+			dev->panel_ready = false;
+			dispc_ctx.is_inited = false;
+			sprdfb_dispc_early_init(dev);
 			sprdfb_dispc_init(dev);
-
 			sprdfb_panel_resume(dev, true);
-		} else {
+			dev->panel_ready = true;
+		}else {
 			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
 			sprdfb_panel_resume(dev, true);
 		}
