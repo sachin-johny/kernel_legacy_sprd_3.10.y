@@ -63,7 +63,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(I2C0),	
 	SPRD_DEVICE(BM0),
 	SPRD_DEVICE(AXIBM0),
-	SPRD_DEVICE(HWLOCK),
+	SPRD_DEVICE(HWLOCK0),
 	SPRD_DEVICE(ADI),
 
 	SPRD_DEVICE(UART0),

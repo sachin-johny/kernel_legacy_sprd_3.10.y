@@ -47,7 +47,6 @@
 
 #define THIS_PROCESSOR_KEY	(HWSPINLOCK_WRITE_KEY)	/*first processor */
 static void __iomem *hwspinlock_base;
-static int hwspinlock_vid = 0;
 static int hwspinlock_exist_cnt = 0;
 
 #define SPINLOCKS_BUSY()	(readl(hwspinlock_base + HWSPINLOCK_TTLSTS))
@@ -55,16 +54,38 @@ static int hwspinlock_exist_cnt = 0;
 #define SPINLOCKS_ENABLE_CLEAR()	writel(HWSPINLOCK_ENABLE_CLEAR,hwspinlock_base + HWSPINLOCK_CLEAREN)
 #define SPINLOCKS_DISABLE_CLEAR()	writel(~HWSPINLOCK_ENABLE_CLEAR, hwspinlock_base + HWSPINLOCK_CLEAREN)
 
-static int hwspinlock_isbusy(unsigned int lockid)
+__used static int hwspinlock_isbusy(unsigned int lockid)
 {
 	unsigned int status = 0;
 	SPINLOCKS_DETAIL_STATUS(status);
 	return ((status & (1 << lockid)) ? 1 : 0);
 }
 
-static int hwspinlocks_isbusy(void)
+__used static int hwspinlocks_isbusy(void)
 {
 	return ((SPINLOCKS_BUSY())? 1 : 0);
+}
+
+__used static void hwspinlock_clear(unsigned int lockid)
+{
+	/*setting the abnormal clear bit to 1 makes the corresponding
+	 *lock to Not Taken state
+	 */
+	SPINLOCKS_ENABLE_CLEAR();
+	writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
+	SPINLOCKS_DISABLE_CLEAR();
+}
+
+__used static void hwspinlock_clear_all(void)
+{
+	/*clear all the locks
+	 */
+	unsigned int lockid = 0;
+	SPINLOCKS_ENABLE_CLEAR();
+	do {
+		writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
+	} while (lockid++ < HWSPINLOCK_ID_TOTAL_NUMS);
+	SPINLOCKS_DISABLE_CLEAR();
 }
 
 static unsigned int do_lock_key(struct hwspinlock *lock)
@@ -78,7 +99,8 @@ static int __hwspinlock_trylock(struct hwspinlock *lock)
 	void __iomem *addr = lock->priv;
 
 	if (hwspinlock_vid == 0x100) {
-		return (!readl(addr));
+		if (!readl(addr))
+			goto __locked;
 	} else {
 		unsigned int key = do_lock_key(lock);
 		if (!(key ^ HWSPINLOCK_NOTTAKEN_V0))
@@ -86,11 +108,15 @@ static int __hwspinlock_trylock(struct hwspinlock *lock)
 
 		if (HWSPINLOCK_NOTTAKEN_V0 == readl(addr)) {
 			writel(key, addr);
-			return (key == readl(addr));
-		} else {
-			return 0;
+			if (key == readl(addr))
+				goto __locked;
 		}
 	}
+	return 0;
+
+__locked:
+	RECORD_HWLOCKS_STATUS_LOCK(hwlock_to_id(lock));
+	return 1;
 }
 
 static void __hwspinlock_unlock(struct hwspinlock *lock)
@@ -105,6 +131,7 @@ static void __hwspinlock_unlock(struct hwspinlock *lock)
 		if (!(readl(lock_addr) ^ unlock_key))
 			BUG_ON(1);
 	}
+	RECORD_HWLOCKS_STATUS_UNLOCK(hwlock_to_id(lock));
 	writel(unlock_key, lock_addr);
 }
 
@@ -128,29 +155,6 @@ static const struct hwspinlock_ops sci_hwspinlock_ops = {
 	.unlock = __hwspinlock_unlock,
 	.relax = __hwspinlock_relax,
 };
-
-static void hwspinlock_clear(unsigned int lockid)
-{
-	/*setting the abnormal clear bit to 1 makes the corresponding
-	 *lock to Not Taken state 
-	 */
-	SPINLOCKS_ENABLE_CLEAR();
-	writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
-	SPINLOCKS_DISABLE_CLEAR();
-}
-
-static void hwspinlock_clear_all(void)
-{
-	unsigned int lockid = 0;
-	/*setting the abnormal clear bit to 1 makes the corresponding
-	 *lock to Not Taken state
-	 */
-	SPINLOCKS_ENABLE_CLEAR();
-	do {
-		writel(1 << lockid, hwspinlock_base + HWSPINLOCK_CLEAR);
-	} while (lockid++ < HWSPINLOCK_ID_TOTAL_NUMS);
-	SPINLOCKS_DISABLE_CLEAR();
-}
 
 static int __devinit sci_hwspinlock_probe(struct platform_device *pdev)
 {

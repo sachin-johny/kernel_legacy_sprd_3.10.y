@@ -169,8 +169,8 @@ struct platform_device sprd_nand_device = {
 
 static struct resource sprd_hwspinlock_resources[] = {
 	[0] = {
-		.start	= SPRD_HWLOCK_BASE,
-		.end = SPRD_HWLOCK_BASE + SPRD_HWLOCK_SIZE - 1,
+		.start	= SPRD_HWLOCK0_BASE,
+		.end = SPRD_HWLOCK0_BASE + SPRD_HWLOCK0_SIZE - 1,
 		.flags	= IORESOURCE_MEM,
 	},
 };
