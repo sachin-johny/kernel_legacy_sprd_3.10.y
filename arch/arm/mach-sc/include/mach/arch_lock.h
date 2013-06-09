@@ -21,38 +21,34 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
-extern struct hwspinlock *hwlocks[];
-extern unsigned char hwlocks_implemented[];
+extern struct hwspinlock * __initdata hwlocks[];
+extern unsigned char __initdata hwlocks_implemented[];
+extern unsigned int hwspinlock_vid;
+extern unsigned char local_hwlocks_status[];
 
 #define	arch_get_hwlock(_ID_)	(hwlocks[_ID_])
 #define FILL_HWLOCKS(_X_)	do {hwlocks_implemented[(_X_)] = 1;} while(0)
+#define RECORD_HWLOCKS_STATUS_LOCK(_X_)	do {local_hwlocks_status[(_X_)] = 1;} while(0)
+#define RECORD_HWLOCKS_STATUS_UNLOCK(_X_)	do {local_hwlocks_status[(_X_)] = 0;} while(0)
 
 #if	defined (CONFIG_ARCH_SC8825)
-#define HWLOCK_ADDR(_X_)	(SPRD_HWLOCK_BASE + (0x80 + 0x4*(_X_)))
 static __inline __init int __hwspinlock_init(void)
 {
+	hwspinlock_vid = 0;
 	__raw_writel(BIT_SPINLOCK_EB, REG_GLB_SET(REG_AHB_AHB_CTL0));
 	return 0;
 }
 
 #else
-
-static __inline unsigned long HWLOCK_ADDR(unsigned int id)
-{
-	BUG_ON(id > 63);
-	if (id < 31)
-		return SPRD_HWLOCK1_BASE + (0x800 + 0x4*(id));
-	else
-		return SPRD_HWLOCK0_BASE + (0x800 + 0x4*(id));
-}
-
 static __inline __init int __hwspinlock_init(void)
 {
+	hwspinlock_vid = __raw_readl(SPRD_HWLOCK0_BASE + 0xffc);
 	__raw_writel(BIT_SPINLOCK_EB, REG_GLB_SET(REG_AP_AHB_AHB_EB));
 	__raw_writel(BIT_SPLK_EB, REG_GLB_SET(REG_AON_APB_APB_EB0));
 	return 0;
 }
 #endif
+
 
 //Configs lock id
 #define HWSPINLOCK_WRITE_KEY	(0x1)	/*processor specific write lock id */
@@ -77,48 +73,62 @@ static inline void arch_hwlocks_implemented(void)
 	FILL_HWLOCKS(HWLOCK_ADC);
 }
 
-#if	defined (CONFIG_ARCH_SC8825)
+#ifndef SPRD_HWLOCK1_BASE
+#define SPRD_HWLOCK1_BASE SPRD_HWLOCK0_BASE
+#endif
+static inline unsigned long HWLOCK_ADDR(unsigned int id)
+{
+	if (hwspinlock_vid == 0x100) {
+		BUG_ON(id > 63);
+		if (id < 31)
+			return SPRD_HWLOCK1_BASE + 0x800 + 0x4*id;
+		else
+			return SPRD_HWLOCK0_BASE + 0x800 + 0x4*id;
+	} else if (hwspinlock_vid == 0x0) {
+		return SPRD_HWLOCK0_BASE + 0x80 + 0x4*id;
+	} else {
+		printk(KERN_ERR "hwspinlock module version is wrong!");
+		return -1;
+	}
+}
+
 static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
 {
-	unsigned long addr = HWLOCK_ADDR(lock_id);
-	__hwspinlock_init();
+	unsigned long addr;
 
-	if (HWSPINLOCK_NOTTAKEN_V0 == __raw_readl(addr)) {
-		__raw_writel(HWSPINLOCK_WRITE_KEY, addr);
-		if (HWSPINLOCK_WRITE_KEY == __raw_readl(addr)) {
-			dsb();
-			return 1;
+	__hwspinlock_init();
+	addr = HWLOCK_ADDR(lock_id);
+
+	if (hwspinlock_vid == 0x100) {
+		if (!readl(addr))
+			goto __locked;
+	} else if (hwspinlock_vid == 0) {
+		if (HWSPINLOCK_NOTTAKEN_V0 == __raw_readl(addr)) {
+			__raw_writel(HWSPINLOCK_WRITE_KEY, addr);
+			if (HWSPINLOCK_WRITE_KEY == __raw_readl(addr)) {
+				goto __locked;
+			}
 		}
 	}
 	return 0;
+
+__locked:
+	dsb();
+	RECORD_HWLOCKS_STATUS_LOCK(lock_id);
+	return 1;
 }
 
 static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 {
 	unsigned long addr = HWLOCK_ADDR(lock_id);
 	dsb();
-	__raw_writel(HWSPINLOCK_NOTTAKEN_V0, addr);
-}
-#else
-static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
-{
-	unsigned long addr = HWLOCK_ADDR(lock_id);
-	__hwspinlock_init();
+	RECORD_HWLOCKS_STATUS_UNLOCK(lock_id);
 
-	if (!readl(addr)) {
-		dsb();
-		return 1;
-	} else
-		return 0;
+	if (hwspinlock_vid == 0x100)
+		__raw_writel(HWSPINLOCK_NOTTAKEN_V1, addr);
+	else
+		__raw_writel(HWSPINLOCK_NOTTAKEN_V0, addr);
 }
-
-static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
-{
-	unsigned long addr = HWLOCK_ADDR(lock_id);
-	dsb();
-	__raw_writel(HWSPINLOCK_NOTTAKEN_V1, addr);
-}
-#endif
 
 #define arch_hwlock_fast(_LOCK_ID_) do { \
 	while (!arch_hwlock_fast_trylock(_LOCK_ID_)) \
