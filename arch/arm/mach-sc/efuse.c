@@ -420,12 +420,50 @@ static struct sci_fuse sci_fuse_array[] = {
 	{"ddie-fuse5", 5, 0},
 	{"ddie-fuse6", 6, 0},
 	{"ddie-fuse7", 7, 0},
+	{"iis-0", 0, 2},
+	{"iis-1", 1, 2},
+	{"iis-2", 2, 2},
+	{"iis-3", 3, 2},
 };
 
+#define IIS_TO_AP	(0)
+#define IIS_TO_CP0	(1)
+#define IIS_TO_CP1	(2)
+#define IIS_TO_CP2	(3)
+#define PIN_CTL_REG3 (SPRD_PIN_BASE + 0xc)
+
+static int read_write_i2s_switch_pin(int is_read, int v, struct sci_fuse *p)
+{
+	u32 shift = 0;
+	u32 mask = 0x7;
+	int val = 0;
+	if (p->blk_id == 0)
+		shift = 6;
+	else if (p->blk_id == 1)
+		shift = 9;
+	else if (p->blk_id == 2)
+		shift = 12;
+	else if (p->blk_id == 3)
+		shift = 15;
+	else
+		BUG_ON(1);
+	val = __raw_readl(PIN_CTL_REG3);
+	if (is_read) {
+		return val;
+	} else {
+		val &= ~(mask<<shift);
+		val |= (v& mask)<<shift;
+		__raw_writel(val,PIN_CTL_REG3);
+	}
+	return val;
+}
 static int fuse_debug_set(void *data, u64 val)
 {
 	struct sci_fuse *p = data;
-
+	if (p->is_adie_fuse == 2) {
+		read_write_i2s_switch_pin(0, val, p);
+		return 0;
+	}
 	if (!(p->is_adie_fuse))
 		sci_ddie_fuse_program(p->blk_id, (int)val);
 
@@ -435,6 +473,11 @@ static int fuse_debug_set(void *data, u64 val)
 static int fuse_debug_get(void *data, u64 * val)
 {
 	struct sci_fuse *p = data;
+
+	if (p->is_adie_fuse == 2) {
+		*val = read_write_i2s_switch_pin(1, val, p);
+		return 0;
+	}
 
 	if (p->is_adie_fuse)
 		*val = __adie_fuse_getdata();
@@ -450,7 +493,7 @@ DEFINE_SIMPLE_ATTRIBUTE(efuse_enable_fops, fuse_debug_get,
 static struct dentry *debugfs_base;
 static int __init fuse_debug_add(struct sci_fuse *fuse)
 {
-	if (!debugfs_create_file(fuse->name, S_IRUGO | S_IWUSR, debugfs_base,
+	if (!debugfs_create_file(fuse->name, S_IALLUGO, debugfs_base,
 				 fuse, &efuse_enable_fops))
 		return -ENOMEM;
 
