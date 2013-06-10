@@ -24,7 +24,7 @@
 #define PARAM_SIZE 128
 #define SCALE_USER_MAX 4
 #define INVALID_USER_ID PID_MAX_DEFAULT
-#define SCALE_TIMEOUT 100/*ms*/
+#define SCALE_TIMEOUT 5000/*ms*/
 
 struct scale_user {
 	pid_t pid;
