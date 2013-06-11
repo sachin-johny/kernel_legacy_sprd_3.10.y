@@ -30,7 +30,7 @@
 * that is agreed upon, otherwise remote processors can't possibly assume
 * they're using the same hardware lock.
 */
-struct hwspinlock * __initdata hwlocks[HWSPINLOCK_ID_TOTAL_NUMS];
+struct hwspinlock *hwlocks[HWSPINLOCK_ID_TOTAL_NUMS];
 unsigned char __initdata hwlocks_implemented[HWSPINLOCK_ID_TOTAL_NUMS];
 unsigned int hwspinlock_vid;
 unsigned char local_hwlocks_status[HWSPINLOCK_ID_TOTAL_NUMS];/*array[0] standfor lock0*/

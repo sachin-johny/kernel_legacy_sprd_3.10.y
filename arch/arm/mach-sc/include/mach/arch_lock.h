@@ -21,7 +21,7 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
-extern struct hwspinlock * __initdata hwlocks[];
+extern struct hwspinlock *hwlocks[];
 extern unsigned char __initdata hwlocks_implemented[];
 extern unsigned int hwspinlock_vid;
 extern unsigned char local_hwlocks_status[];
