@@ -1573,6 +1573,8 @@ static int v4l2_streamoff(struct file *file,
 
 	if (dev->stream_mode) {
 		ret = dcam_pause();
+		mutex_unlock(&dev->dcam_mutex);
+		return ret;
 	} else {
 		atomic_set(&dev->stream_on, 0);
 
@@ -1590,15 +1592,15 @@ static int v4l2_streamoff(struct file *file,
 		if (path->is_work) {
 			dcam_rel_resizer();
 		}
-		ret = sprd_v4l2_local_deinit(dev);
 	}
 
 exit:
 
 	if (ret) {
-		DCAM_TRACE("V4L2: Failed to stop stream %d \n", ret);
+		printk("V4L2: Failed to stop stream %d \n", ret);
 	}
 
+	ret = sprd_v4l2_local_deinit(dev);
 	mutex_unlock(&dev->dcam_mutex);
 	return ret;
 }
@@ -1706,6 +1708,7 @@ static void sprd_timer_callback(unsigned long data)
 	}
 
 	if (0 == atomic_read(&dev->run_flag)) {
+		printk("timer callback V4L2_TX_ERR error. \n");
 		node.irq_flag = V4L2_TX_ERR;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);

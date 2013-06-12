@@ -22,6 +22,7 @@
 #include <mach/irqs.h>
 #include "dcam_drv_sc8825.h"
 #include "gen_scale_coef.h"
+#include <mach/sci.h>
 
 //#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
@@ -288,10 +289,10 @@ int32_t dcam_module_en(void)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		ret = dcam_set_clk(DCA_CLK_256M);
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 	}
 /*MODULE_EN_END:*/
 	return ret;
@@ -303,7 +304,7 @@ int32_t dcam_module_dis(void)
 
 	DCAM_TRACE("DCAM DRV: dcam_module_dis: %d \n", s_dcam_users.counter);
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
+		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(DCAM_CLK_NONE);
 	}
 	return -rtn;
@@ -331,28 +332,28 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	/* do reset action */
 	switch (reset_mode) {
 	case DCAM_RST_PATH1:
-		REG_OWR(DCAM_RST, PATH1_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH1_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH1_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH1_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 /*
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 */
 		DCAM_TRACE("DCAM DRV: reset path1 \n");
 		break;
 	case DCAM_RST_PATH2:
-		REG_OWR(DCAM_RST, PATH2_RST_BIT);
-		REG_AWR(DCAM_RST, ~PATH2_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH2_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH2_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path2 \n");
 		break;
 	case DCAM_RST_ALL:
-		REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset all \n");
 		break;
 	default:
@@ -573,14 +574,14 @@ int32_t dcam_stop(void)
 		if (atomic_read(&s_resize_flag)) {
 			s_resize_wait = 1;
 			/* resize started , wait for it going to the end*/
-			DCAM_TRACE("DCAM DRV: dcam_stop, wait: %d \n", s_done_sema.count);
+			printk("DCAM DRV: dcam_stop, wait: %d \n", s_done_sema.count);
 			rtn = down_interruptible(&s_done_sema);
 		}
 	}
 
 	free_irq(DCAM_IRQ, &g_dcam_irq);
 
-	DCAM_TRACE("DCAM DRV: dcam_stop, exit from wait: %d \n", s_done_sema.count);
+	printk("DCAM DRV: dcam_stop, exit from wait: %d \n", s_done_sema.count);
 
 	/* PATH1_EB */
 	REG_AWR(DCAM_CFG, ~BIT_0);
@@ -686,7 +687,11 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 			} else {
 				REG_MWR(CAP_CCIR_CTRL, BIT_3, sync_pol->hsync_pol << 3);
 				REG_MWR(CAP_CCIR_CTRL, BIT_4, sync_pol->vsync_pol << 4);
-				REG_MWR(CLK_DLY_CTRL,  BIT_19, sync_pol->pclk_pol << 19);
+				if (0 == sync_pol->pclk_pol) {
+					sci_glb_clr(CLK_DLY_CTRL, BIT_19);
+				}else{
+					sci_glb_set(CLK_DLY_CTRL, BIT_19);
+				}
 			}
 		} else {
 			if (sync_pol->need_href) {
@@ -1509,9 +1514,11 @@ static irqreturn_t dcam_isr_root(int irq, void *dev_id)
 	irq_line = status;
 	if (unlikely(DCAM_IRQ_ERR_MASK & status)) {
 		err_flag = 1;
-		printk("DCAM DRV: error, 0x%x, %d, 0x%x,0x%x.\n", \
+		printk("DCAM DRV: error, 0x%x, path2 %d, mipi err 0x%x,0x%x. \n", \
 			    status, s_dcam_mod.dcam_path2.valide, \
 			    REG_RD(DCAM_MIPI_ERR1),REG_RD(DCAM_MIPI_ERR2));
+		printk("DCAM DRV: 0x20900200, 0x%x 0x%x 0x%x. \n",
+			REG_RD(DCAM_AHB_BASE), REG_RD(DCAM_AHB_BASE + 4), REG_RD(DCAM_AHB_BASE + 8));
 		REG_AWR(DCAM_INT_MASK, ~DCAM_IRQ_LINE_ERR_MASK);//disable error int
 		s_path1_wait = 1;
 		_dcam_stopped();
@@ -1633,6 +1640,7 @@ static int32_t _dcam_path_set_next_frm(uint32_t path_index, uint32_t is_1st_frm)
 		}
 		path->output_frame_cur = path->output_frame_cur->next;
 	} else {
+		printk("DCAM locked! 0x%x \n", path->output_frame_cur->fid);
 		rtn = DCAM_RTN_PATH_FRAME_LOCKED;
 	}
 

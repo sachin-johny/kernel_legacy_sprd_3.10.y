@@ -30,6 +30,7 @@
 #include <linux/kthread.h>
 #include <linux/dma-mapping.h>
 #include <mach/dma.h>
+#include <mach/sci.h>
 
 #define RTT_PRINT pr_debug
 //#define RTT_PRINT printk
@@ -195,24 +196,24 @@ static int rot_k_set_y_param(ROT_CFG_T * param_ptr)
 static void rot_k_cfg(void)
 {
 	// rot eb
-	REG_OWR(AHB_GLOBAL_REG_CTL0, BIT(14));	//ROTATION_DRV_ONE
+	sci_glb_set(AHB_GLOBAL_REG_CTL0, BIT(14));	//ROTATION_DRV_ONE
 
 	// rot soft reset
-	REG_OWR(AHB_GLOBAL_REG_SOFTRST, BIT(10));
-	REG_AWR(AHB_GLOBAL_REG_SOFTRST, ~BIT(10));
+	sci_glb_set(AHB_GLOBAL_REG_SOFTRST, BIT(10));
+	sci_glb_clr(AHB_GLOBAL_REG_SOFTRST, BIT(10));
 }
 
 static void rot_k_disable(void)
 {
 	// rot eb
-	REG_AWR(AHB_GLOBAL_REG_CTL0, ~BIT(14));	//ROTATION_DRV_ONE
+	sci_glb_clr(AHB_GLOBAL_REG_CTL0, BIT(14));	//ROTATION_DRV_ONE
 }
 
 static void rot_k_software_reset(void)
 {
 	// rot soft reset
-	REG_OWR(AHB_GLOBAL_REG_SOFTRST, BIT(10));
-	REG_AWR(AHB_GLOBAL_REG_SOFTRST, ~BIT(10));
+	sci_glb_set(AHB_GLOBAL_REG_SOFTRST, BIT(10));
+	sci_glb_clr(AHB_GLOBAL_REG_SOFTRST, BIT(10));
 }
 
 static void rot_k_set_src_addr(uint32_t src_addr)
