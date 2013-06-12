@@ -22,6 +22,9 @@
 
 #include <mach/hardware.h>
 #include <mach/irqs.h>
+#include <mach/sci_glb_regs.h>
+#include <mach/sci.h>
+#include <mach/arch_misc.h>
 
 /* general interrupt registers */
 #define	INTC_IRQ_MSKSTS		(0x0000)
@@ -78,7 +81,11 @@ static const struct intc_mux_irq _mux[] = {
 #define LEGACY_FIQ_BIT	(32)
 #define LEGACY_IRQ_BIT	(29)
 
-static __init void __irq_init(void){}
+static __init void __irq_init(void)
+{
+	if (soc_is_scx35_v0())
+		sci_glb_clr(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG,BIT_CA7_CORE_AUTO_GATE_EN);
+}
 
 #else
 
@@ -166,6 +173,7 @@ void __init sci_init_irq(void)
 	gic_arch_extn.irq_mask = sci_irq_mask;
 	gic_arch_extn.irq_unmask = sci_irq_unmask;
 	gic_arch_extn.irq_set_wake = sci_set_wake;
+
 	ana_init_irq();
 
 	/*disable legacy interrupt*/
