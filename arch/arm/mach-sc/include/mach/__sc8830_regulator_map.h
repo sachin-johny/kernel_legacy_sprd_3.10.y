@@ -17,8 +17,9 @@
  */
 
 /*
- * Regulator Name[0], Regulator Type[1], Power Off Ctrl[2] and Bit[3], Power On Ctrl[4] and Bit[5], Slp Ctrl[6] and Bit[7],
- * Voltage Trimming Ctrl[8] and Bits[9], Voltage Ctrl[10] and Bits[11], Voltage Select Count[12] and List[13 ... ...]
+ * Regulator (0)Name, Regulator (1)Type, Power Off (2)Ctrl and (3)Bit, Power On (4)Ctrl and (5)Bit, Sleep (6)Ctrl and (7)Bit,
+ * Voltage Trimming (8)Ctrl and (9)Bits, Calibration (10)Ctrl and (11)Bits,
+ * Voltage (12)Default, Voltage (13)Ctrl and (14)Bits, Voltage Select (15)Count and Voltage (16)List[ ... ...]
  */
 
     SCI_REGU_REG(vddcore, 2, ANA_REG_GLB_LDO_DCDC_PD_RTCSET, BIT(9), ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, BIT(9), 0, 0,
@@ -43,7 +44,7 @@
 
     SCI_REGU_REG(vddwrf, 2, ANA_REG_GLB_LDO_DCDC_PD_RTCSET, BIT(13), ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, BIT(13), ANA_REG_GLB_LDO_SLP_CTRL0, BIT(10),
 	ANA_REG_GLB_DCDC_WRF_ADI, BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4), ANA_REG_GLB_LDO_CAL_SEL, BIT(17)|BIT(20),
-	2800, ANA_REG_GLB_DCDC_WRF_ADI, BIT(5)|BIT(6), 4, 2600, 2700, 2800, 2900);
+	0, ANA_REG_GLB_DCDC_WRF_ADI, BIT(5)|BIT(6), 4, 2600, 2700, 2800, 2900);
 
     SCI_REGU_REG(vdd18, 0, ANA_REG_GLB_LDO_DCDC_PD_RTCSET, BIT(1), ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, BIT(1), ANA_REG_GLB_LDO_SLP_CTRL0, BIT(0),
 	ANA_REG_GLB_LDO_CAL_CTRL0, BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4), ANA_REG_GLB_LDO_CAL_SEL, BIT(6)|BIT(7)|BIT(17)|BIT(18)|BIT(20),

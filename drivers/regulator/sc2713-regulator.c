@@ -185,10 +185,8 @@ static int ldo_turn_on(struct regulator_dev *rdev)
 
 	debug2("regu %p (%s), turn on\n", regs, desc->desc.name);
 	/* ldo trimming when first turn on */
-	if (regs->cal_ctl && regs->vol_trm && desc->ops
-	    && !desc->ops->is_trimming(rdev)) {
+	if (desc->ops && !desc->ops->is_trimming(rdev))
 		__regu_calibrate(rdev, 0, 0);
-	}
 	return 0;
 }
 
@@ -235,10 +233,12 @@ static int ldo_is_on(struct regulator_dev *rdev)
 	return ret;
 }
 
+#if 0				/* FIXME: todo later */
 static int ldo_enable_time(struct regulator_dev *rdev)
 {
 	return 1000 * 1;	/*Microseconds */
 }
+#endif
 
 static int ldo_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
@@ -575,7 +575,7 @@ static int dcdc_set_trimming(struct regulator_dev *rdev,
  * FIXME: no need division?
 	int ctl_vol = DIV_ROUND_UP(def_vol * to_vol * 1000, adc_vol) + acc_vol;
 */
-	int ctl_vol = 1000 * (def_vol - (adc_vol - to_vol)) + acc_vol;
+	int ctl_vol = 1000 * (to_vol - (adc_vol - def_vol)) + acc_vol;
 	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
@@ -611,7 +611,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	/* found the closely vol ctrl bits */
 	i = __match_dcdc_vol(regs, mv);
 	if (i < 0)
-		return -EINVAL;
+		return WARN_ON(-EINVAL);
 
 	debug("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
 	      mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
@@ -703,11 +703,23 @@ static int dcdc_init_trimming(struct regulator_dev *rdev)
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 	int ret = -EINVAL;
+	u32 trim = 0;
 
 	if (!regs->vol_trm || !regs->vol_def)
 		goto exit;
 
-	__regu_calibrate(rdev, 0, 0);
+#if !defined(CONFIG_REGULATOR_ADC_DEBUG)
+	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
+	    >> __ffs(regs->vol_trm_bits);
+#endif
+	if (trim != 0) {
+		debug("regu %p (%s) trimming ok before startup\n", regs,
+		      desc->desc.name);
+		set_bit(desc->desc.id, trimming_state);
+		ret = trim;
+	} else {
+		__regu_calibrate(rdev, 0, 0);
+	}
 	return 0;
 
 exit:
@@ -944,8 +956,10 @@ int __regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 	const struct sci_regulator_regs *regs = desc->regs;
 	int in_calibration(void);
 	if (in_calibration() || !__is_valid_adc_cal()
-	    || !regs->cal_ctl || !regs->vol_def || !regs->vol_trm) {
-		/* bypass if in CFT or not adc cal or no cal ctl or no def val */
+	    || !regs->vol_def || !regs->cal_ctl || !regs->vol_trm) {
+		/* FIXME: BYPASS if in CFT or not adc cal or no cal ctl
+		 * or no def vol.
+		 */
 		return -EACCES;
 	}
 
@@ -960,7 +974,7 @@ static int regu_calibrate(struct regulator_dev *rdev, int def_vol, int to_vol)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
-	int ret = 0, retry_count = 2;
+	int ret = 0, retry_count = 1;
 	int adc_vol = 0, ctl_vol, cal_vol = 0;
 
 retry:
@@ -973,8 +987,16 @@ retry:
 	if (!def_vol)
 		def_vol = (IS_ERR_VALUE(ctl_vol)) ? regs->vol_def : ctl_vol;
 
-	if (!to_vol)
+	if (!to_vol) {
 		to_vol = (IS_ERR_VALUE(ctl_vol)) ? regs->vol_def : ctl_vol;
+
+		/* FIXME: Ideal voltage maybe not chip default which in the choice */
+		if (to_vol != regs->vol_def) {
+			int i = __match_dcdc_vol(regs, regs->vol_def);
+			if (i >= 0 && regs->vol_sel[i] != regs->vol_def)
+				to_vol = regs->vol_def;
+		}
+	}
 
 	adc_vol = regu_adc_voltage(rdev);
 	if (adc_vol <= 0) {
@@ -992,7 +1014,7 @@ retry:
 	if (!def_vol || !to_vol || adc_vol <= 0)
 		goto exit;
 
-	if (abs(adc_vol - def_vol) >= def_vol / 10)	/* adjust limit 10% */
+	if (abs(adc_vol - def_vol) >= def_vol / 9)	/* adjust limit 10% */
 		goto exit;
 	else if (cal_vol < to_vol / 100) {	/* bias 1% */
 		/**
@@ -1032,6 +1054,30 @@ static int regu_force_trimming(struct regulator_dev *rdev, int trim)
 			    regs->vol_trm_bits);
 	return 0;
 }
+
+/**
+ * regulator_strongly_disable - strongly disable regulator output
+ * @regulator: regulator source
+ *
+ * Strongly try disable the regulator output voltage or current.
+ * NOTE: this *will* disable the regulator output even if other consumer
+ * devices have it enabled. This should be used for situations when device
+ * had unbalanced with calls to regulator_enable().
+ * *Not* recommended to call this function before try to balance the use_count.
+ */
+int regulator_strongly_disable(struct regulator *regulator)
+{
+	struct regulator_dev *rdev = regulator_get_drvdata(regulator);
+	int ret = 0;
+
+	if (rdev)
+		while (rdev->use_count--)
+			regulator_disable(regulator);
+
+	return ret;
+}
+
+EXPORT_SYMBOL_GPL(regulator_strongly_disable);
 
 static struct regulator_ops ldo_ops = {
 	.enable = ldo_turn_on,

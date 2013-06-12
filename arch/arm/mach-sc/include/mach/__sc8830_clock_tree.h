@@ -16,6 +16,12 @@
  *************************************************
  */
 
+/*
+ * Clock (0)Name, Clock (1)fixed rate, Clock Enable (2)Ctrl and (3)Bit,
+ * Clock Divisor (4)Ctrl and (5)Bit, Clock Parent (6)Ctrl and (7)Bit,
+ * and Parent Select (15)Count and (16)Lists[ ... ...]
+ */
+
 SCI_CLK_ADD(ext_26m, 26000000, 0, 0,
 	0, 0, 0, 0, 0);
 
