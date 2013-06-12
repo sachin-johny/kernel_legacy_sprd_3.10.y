@@ -631,12 +631,19 @@ int __init sci_clock_init(void)
 	{
 		struct clk_lookup *cl =
 		    (struct clk_lookup *)(&__clkinit_begin + 1);
+		struct clk_lookup *cl_end = (struct clk_lookup *)&__clkinit_end;
+		int seq = (0 == strcmp(cl->con_id, "ext_26m"));
+
 		debug0("%p (%x) -- %p -- %p (%x)\n",
 		       &__clkinit_begin, __clkinit_begin, cl,
 		       &__clkinit_end, __clkinit_end);
-		while (cl < (struct clk_lookup *)&__clkinit_end) {
-			sci_clk_register(cl);
-			cl++;
+
+		if (seq) {
+			while (cl < cl_end)
+				sci_clk_register(cl++);
+		} else {
+			while (--cl_end >= cl)
+				sci_clk_register(cl_end);
 		}
 	}
 
