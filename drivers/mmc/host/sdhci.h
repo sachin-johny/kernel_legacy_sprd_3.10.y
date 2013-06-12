@@ -389,6 +389,22 @@ static inline void *sdhci_priv(struct sdhci_host *host)
 	return (void *)host->private;
 }
 
+static inline u8 sdhci_sdclk_enable(struct sdhci_host *host, u8 val)
+{
+	u32 regVal;
+
+	regVal = sdhci_readl(host, SDHCI_CLOCK_CONTROL);
+	/* off sd_clk */
+	if (val == 0) {
+		regVal &= ~SDHCI_CLOCK_CARD_EN;
+		sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
+	}
+	else {
+		regVal |= SDHCI_CLOCK_CARD_EN;
+		sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
+	}
+}
+
 extern void sdhci_card_detect(struct sdhci_host *host);
 extern int sdhci_add_host(struct sdhci_host *host);
 extern void sdhci_remove_host(struct sdhci_host *host, int dead);

@@ -1179,9 +1179,7 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	if (clock == host->clock)
 		return;
 
-	clk_temp = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	clk_temp &= ~SDHCI_CLOCK_CARD_EN;
-	sdhci_writew(host, clk_temp, SDHCI_CLOCK_CONTROL);
+	sdhci_sdclk_enable(host, 0);
 
 	if (clock == 0)
 		goto out;
@@ -1263,10 +1261,10 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
 		<< SDHCI_DIVIDER_HI_SHIFT;
 
+	udelay(500);
 	clk |= SDHCI_CLOCK_INT_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
-
-
+	udelay(500);
 	/* Wait max 20 ms */
 	timeout = 20;
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))
@@ -1571,9 +1569,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 
 		/* Reset SD Clock Disable */
-		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-		clk &= ~SDHCI_CLOCK_CARD_EN;
-		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+		sdhci_sdclk_enable(host, 0);
 
 		if (host->ops->set_uhs_signaling)
 			host->ops->set_uhs_signaling(host, ios->timing);
@@ -1625,9 +1621,7 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 		}
 
 		/* Reset SD Clock Enable */
-		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-		clk |= SDHCI_CLOCK_CARD_EN;
-		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+		sdhci_sdclk_enable(host, 1);
 
 		/* Re-enable SD Clock */
 		//clock = host->clock;
@@ -1795,9 +1789,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 	} else if (!(ctrl & SDHCI_CTRL_VDD_180) &&
 		  (ios->signal_voltage == MMC_SIGNAL_VOLTAGE_180)) {
 		/* Stop SDCLK */
-		clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-		clk &= ~SDHCI_CLOCK_CARD_EN;
-		sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+		sdhci_sdclk_enable(host, 0);
 
 		/* Check whether DAT[3:0] is 0000 */
 		present_state = sdhci_readl(host, SDHCI_PRESENT_STATE);
@@ -1816,9 +1808,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 			ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 			if (ctrl & SDHCI_CTRL_VDD_180) {
 				/* Provide SDCLK again and wait for 1ms*/
-				clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-				clk |= SDHCI_CLOCK_CARD_EN;
-				sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
+				sdhci_sdclk_enable(host, 1);
 				usleep_range(1000, 1500);
 
 				/*

@@ -273,6 +273,7 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	struct sprd_host_data *host_data= sdhci_priv(host);
 	if(clock == 0){
 		if (host_data->clk_enable) {
+			sdhci_sdclk_enable(host, 0);
 			clk_disable(host->clk);
 			pr_debug("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
 			host->clock = 0;
@@ -282,6 +283,7 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 		if (0 == host_data->clk_enable) {
 			pr_debug("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
 			clk_enable(host->clk);
+			sdhci_sdclk_enable(host, 1);
 			host_data->clk_enable = 1;
 		}
 	}
