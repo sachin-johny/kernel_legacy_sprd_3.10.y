@@ -1198,7 +1198,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	struct mmc_blk_data *md = mq->data;
 	struct mmc_card *card = md->queue.card;
 	struct mmc_blk_request *brq = &mq->mqrq_cur->brq;
-	int ret = 1, disable_multi = 0, retry = 0, type;
+	int ret = 1, disable_multi = 0, retry = 0, type, max_while = 0;
 	enum mmc_blk_status status;
 	struct mmc_queue_req *mq_rq;
 	struct request *req;
@@ -1298,6 +1298,12 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			 * In case of a incomplete request
 			 * prepare it again and resend.
 			 */
+			/*
+			 * But max again resend 3 times, or it possible enters dead while.
+			 */
+			max_while++;
+			if(max_while>2)
+				goto cmd_abort;
 			mmc_blk_rw_rq_prep(mq_rq, card, disable_multi, mq);
 			mmc_start_req(card->host, &mq_rq->mmc_active, NULL);
 		}
