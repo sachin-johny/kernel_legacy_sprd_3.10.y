@@ -41,7 +41,7 @@
 #define ROT_FALSE 			0
 #define DISABLE_AHB_SLEEP 	0
 #define ENABLE_AHB_SLEEP 	1
-#define ROT_TIMEOUT         100/*ms*/
+#define ROT_TIMEOUT         5000/*ms*/
 
 #define REG_RD(a)						__raw_readl(a)
 #define REG_WR(a,v)					__raw_writel(v,a)
