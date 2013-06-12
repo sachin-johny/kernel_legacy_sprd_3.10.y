@@ -317,6 +317,20 @@ config REGULATOR_SC2713
 	help
 	  This driver supports spreadtrum voltage regulator chips.
 
+config REGULATOR_CAL_DUMMY
+    bool "Regulator calibration is dummy"
+    depends on REGULATOR_SC2713
+    default n
+    help
+        This option only for debug purpose
+
+config REGULATOR_ADC_DEBUG
+    bool "Regulator auxadc channel value debug"
+    depends on REGULATOR_SC2713
+    default n
+    help
+        This option only for debug purpose
+
 config REGULATOR_SPRD_MAP
 	string "regulator map file name"
 	depends on REGULATOR_SPRD || REGULATOR_SC2713

@@ -17,8 +17,9 @@
  */
 
 /*
- * Regulator Name[0], Regulator Type[1], Power Off Ctrl[2] and Bit[3], Power On Ctrl[4] and Bit[5], Slp Ctrl[6] and Bit[7],
- * Voltage Trimming Ctrl[8] and Bits[9], Voltage Ctrl[10] and Bits[11], Voltage Select Count[12] and List[13 ... ...]
+ * Regulator (0)Name, Regulator (1)Type, Power Off (2)Ctrl and (3)Bit, Power On (4)Ctrl and (5)Bit, Sleep (6)Ctrl and (7)Bit,
+ * Voltage Trimming (8)Ctrl and (9)Bits, Calibration (10)Ctrl and (11)Bits,
+ * Voltage (12)Default, Voltage (13)Ctrl and (14)Bits, Voltage Select (15)Count and Voltage (16)List[ ... ...]
  */
 
     SCI_REGU_REG(vddcore, 2, ANA_REG_GLB_LDO_PD_SET, BIT(1), ANA_REG_GLB_LDO_PD_RST, BIT(1), ANA_REG_GLB_LDO_AP_SLP_CTRL1, BIT(0),
@@ -31,7 +32,7 @@
 
     SCI_REGU_REG(dcdcmem, 2, ANA_REG_GLB_LDO_PD_SET, BIT(12), ANA_REG_GLB_LDO_PD_RST, BIT(12), ANA_REG_GLB_LDO_AP_SLP_CTRL1, BIT(2),
 	ANA_REG_GLB_DCDC_MEM_CTRL1, BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4), ANA_REG_GLB_LDO_CAL, BIT(16)|BIT(17)|BIT(18)|BIT(19),
-	0, ANA_REG_GLB_DCDC_MEM_CTRL0, BIT(0)|BIT(1)|BIT(2), 8, 1800, 1250, 1350, 1300, 1500, 1400, 1200, 1900);
+	1800, ANA_REG_GLB_DCDC_MEM_CTRL0, BIT(0)|BIT(1)|BIT(2), 8, 1800, 1250, 1350, 1300, 1500, 1400, 1200, 1900);
 
     SCI_REGU_REG(dcdcwpa, 2, ANA_REG_GLB_LDO_PD_CTRL1, BIT(4), ANA_REG_GLB_LDO_PD_CTRL1, BIT(5), ANA_REG_GLB_LDO_AP_SLP_CTRL1, BIT(3),
 	ANA_REG_GLB_WPA_DCDC_CTRL2, BIT(0)|BIT(1)|BIT(2), 0, 0,
@@ -141,11 +142,11 @@
 	ANA_REG_GLB_LDO_TRIM6, BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12), ANA_REG_GLB_LDO_CAL, BIT(19)|BIT(20),
 	1800, 0, 0, 0);
 
-    SCI_REGU_REG(ldo_lpref1, 3, ANA_REG_GLB_LDO_PD_SET, BIT(13), ANA_REG_GLB_LDO_PD_RST, BIT(13), 0, 0,
-	ANA_REG_GLB_LDO_TRIM6, BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12), ANA_REG_GLB_LDO_CAL, BIT(16)|BIT(19)|BIT(20),
-	1800, 0, 0, 0);
-
     SCI_REGU_REG(ldo_lpref2, 3, ANA_REG_GLB_LDO_PD_SET, BIT(13), ANA_REG_GLB_LDO_PD_RST, BIT(13), 0, 0,
 	ANA_REG_GLB_LDO_TRIM6, BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12), ANA_REG_GLB_LDO_CAL, BIT(17)|BIT(19)|BIT(20),
+	1800, 0, 0, 0);
+
+    SCI_REGU_REG(ldo_lpref1, 3, ANA_REG_GLB_LDO_PD_SET, BIT(13), ANA_REG_GLB_LDO_PD_RST, BIT(13), 0, 0,
+	ANA_REG_GLB_LDO_TRIM6, BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12), ANA_REG_GLB_LDO_CAL, BIT(16)|BIT(19)|BIT(20),
 	1800, 0, 0, 0);
 
