@@ -1030,7 +1030,7 @@ dsih_error_t mipi_dsih_unregister_event(dsih_ctrl_t * instance, dsih_event_t eve
 {
     uint32_t mask = 1;
     uint32_t temp = 0;
-    if (event > DSI_MAX_EVENT)
+    if (event >= DSI_MAX_EVENT)
     {
         return ERR_DSI_INVALID_EVENT;
     }
