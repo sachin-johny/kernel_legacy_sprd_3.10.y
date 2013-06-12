@@ -16,39 +16,21 @@
 #include <linux/io.h>
 #include <linux/delay.h>
 #include <linux/clk.h>
-#include <mach/sci_glb_regs.h>
-#include <mach/globalregs.h>
-#include <mach/hardware.h>
-#include <mach/irqs.h>
+
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
+#include "sprdfb_chip_common.h"
 
 #include "dsi/mipi_dsih_local.h"
 #include "dsi/mipi_dsih_dphy.h"
 #include "dsi/mipi_dsih_hal.h"
 #include "dsi/mipi_dsih_api.h"
 
-#ifdef CONFIG_FB_SCX35
-#define DSI_SOFT_RST (0)
-#define MIPI_DPHY_EN (0)
-#define REG_AHB_MIPI_PHY_CTRL (SPRD_AHB_BASE)
-#else
-#define DSI_SOFT_RST (26)
-#define MIPI_DPHY_EN (0)
-#define AHB_MIPI_PHY_CTRL (0x021c)
-#define REG_AHB_MIPI_PHY_CTRL (AHB_MIPI_PHY_CTRL + SPRD_AHB_BASE)
-#endif
-
 #define DSI_PHY_REF_CLOCK (26*1000)
 
 
 #define DSI_EDPI_CFG (0x6c)
-
-
-#ifdef CONFIG_FB_SCX35
-#define SPRD_MIPI_DSIC_BASE SPRD_DSI_BASE
-#endif
 
 struct sprdfb_dsi_context {
 	struct clk		*clk_dsi;
@@ -100,14 +82,13 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 
 static void dsi_reset(void)
 {
-#ifdef CONFIG_FB_SCX35
-	#define REG_AHB_SOFT_RST (0x4 + SPRD_AHB_BASE)
-#else
-	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
-#endif
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<DSI_SOFT_RST), REG_AHB_SOFT_RST);
-	udelay(10);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<DSI_SOFT_RST)), REG_AHB_SOFT_RST);
+	printk("zcf:DSI_AHB_SOFT_RST:%x,BIT_DSI_SOFT_RST:%x\n",DSI_AHB_SOFT_RST,BIT_DSI_SOFT_RST);
+	printk("zcf:DSI_AHB_SOFT_RST:%x \n",__raw_readl(DSI_AHB_SOFT_RST));
+	__raw_writel(__raw_readl(DSI_AHB_SOFT_RST) | (BIT_DSI_SOFT_RST), DSI_AHB_SOFT_RST);
+	printk("zcf:DSI_AHB_SOFT_RST:%x \n",__raw_readl(DSI_AHB_SOFT_RST));
+ 	udelay(10);
+	__raw_writel(__raw_readl(DSI_AHB_SOFT_RST) & (~(BIT_DSI_SOFT_RST)), DSI_AHB_SOFT_RST);
+	printk("zcf:DSI_AHB_SOFT_RST:%x \n",__raw_readl(DSI_AHB_SOFT_RST));
 }
 
 int32_t dsi_early_int(void)
@@ -123,22 +104,12 @@ int32_t dsi_early_int(void)
 
 //	dsi_ctx.clk_dsi = clk_get(NULL, "clk_dsi");
 //	clk_enable(dsi_ctx.clk_dsi);
-#ifdef CONFIG_FB_SCX35
-	//Enable DSI clock
-	__raw_writel(__raw_readl(REG_AP_AHB_MISC_CKG_EN) | (BIT_DPHY_REF_CKG_EN) | (BIT_DPHY_CFG_CKG_EN) , REG_AP_AHB_MISC_CKG_EN);
-#endif
-	/*enable dphy*/
-	__raw_writel(__raw_readl(REG_AHB_MIPI_PHY_CTRL) | (1<<MIPI_DPHY_EN), REG_AHB_MIPI_PHY_CTRL);
 
 	dsi_reset();
 
 //	memset(&(dsi_ctx.dsi_inst), 0, sizeof(dsi_ctx.dsi_inst));
 
-#ifdef CONFIG_FB_SCX35
-	ret = request_irq(IRQ_DSI0_INT, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
-#else
-	ret = request_irq(IRQ_DSI_INT0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
-#endif
+	ret = request_irq(IRQ_DSI_INTN0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
@@ -147,11 +118,7 @@ int32_t dsi_early_int(void)
 		printk(KERN_ERR "sprdfb: dsi request irq int0 OK!\n");
 	}
 
-#ifdef CONFIG_FB_SCX35
-	ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
-#else
-	ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
-#endif
+	ret = request_irq(IRQ_DSI_INTN1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
@@ -195,19 +162,17 @@ static int32_t dsi_edpi_init(void)
 	return 0;
 }
 
-static int32_t dsi_dpi_init(struct panel_spec* panel)
+static int32_t dsi_dpi_init(struct sprdfb_device *dev)
 {
 	dsih_dpi_video_t dpi_param;
 	dsih_error_t result;
+	struct panel_spec* panel = dev->panel;
 	struct info_mipi * mipi = panel->info.mipi;
 
 	dpi_param.no_of_lanes = mipi->lan_number;
 	dpi_param.byte_clock = mipi->phy_feq / 8;
-#ifdef CONFIG_FB_LCD_SSD2075_MIPI
-	dpi_param.pixel_clock = 384*1000/7;//16000;//DSI_PHY_REF_CLOCK / 4;
-#else
-	dpi_param.pixel_clock = 384*1000/11;//16000;//DSI_PHY_REF_CLOCK / 4;
-#endif
+	dpi_param.pixel_clock = dev->dpi_clock/1000;
+
 	switch(mipi->video_bus_width){
 	case 16:
 		dpi_param.color_coding = COLOR_CODE_16BIT_CONFIG1;
@@ -280,6 +245,8 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		resume = true;
 	}
 
+	dsi_enable();
+
 	if(dev->panel_ready){
 		dsi_ctx.is_inited = true;
 	}else{
@@ -315,11 +282,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		printk(KERN_INFO "sprdfb:[%s]: dsi has alread initialized\n", __FUNCTION__);
 		dsi_instance->status = INITIALIZED;
 
-#ifdef CONFIG_FB_SCX35
-		ret = request_irq(IRQ_DSI0_INT, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
-#else
-		ret = request_irq(IRQ_DSI_INT0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
-#endif
+		ret = request_irq(IRQ_DSI_INTN0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
 		if (ret) {
 			printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
 	//		clk_disable(dsi_ctx.clk_dsi);
@@ -328,11 +291,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 			printk(KERN_ERR "sprdfb: dsi request irq int0 OK!\n");
 		}
 
-#ifdef CONFIG_FB_SCX35
-		ret = request_irq(IRQ_DSI1_INT, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
-#else
-		ret = request_irq(IRQ_DSI_INT1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
-#endif
+		ret = request_irq(IRQ_DSI_INTN1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 		if (ret) {
 			printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
 	//		clk_disable(dsi_ctx.clk_dsi);
@@ -405,7 +364,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	}
 
 	if(SPRDFB_MIPI_MODE_VIDEO == mipi->work_mode){
-		dsi_dpi_init(dev->panel);
+		dsi_dpi_init(dev);
 	}
 
 	return 0;

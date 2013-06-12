@@ -17,6 +17,7 @@
 #include <asm/io.h>
 #include <mach/hardware.h>
 
+#include "sprdfb_chip_common.h"
 
 /* DISPC regs offset */
 #define DISPC_CTRL		(0x0000)
@@ -73,20 +74,12 @@
 
 static inline uint32_t dispc_read(uint32_t reg)
 {
-#ifdef CONFIG_FB_SCX35
-	return __raw_readl(SPRD_LCDC_BASE + reg);
-#else
-	return __raw_readl(SPRD_DISPLAY_BASE + reg);
-#endif
+	return __raw_readl(SPRD_DISPC_BASE + reg);
 }
 
 static inline void dispc_write(uint32_t value, uint32_t reg)
 {
-#ifdef CONFIG_FB_SCX35
-	__raw_writel(value, (SPRD_LCDC_BASE + reg));
-#else
-	__raw_writel(value, (SPRD_DISPLAY_BASE + reg));
-#endif
+	__raw_writel(value, (SPRD_DISPC_BASE + reg));
 }
 
 static inline void dispc_set_bits(uint32_t bits, uint32_t reg)

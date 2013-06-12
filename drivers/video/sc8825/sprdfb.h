@@ -118,6 +118,8 @@ struct sprdfb_device {
 	struct panel_spec	*panel;
 	struct display_ctrl	*ctrl;
 
+	uint32_t dpi_clock;
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif
