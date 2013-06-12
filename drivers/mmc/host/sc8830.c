@@ -247,7 +247,7 @@ static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 	/* shark chipid = 0 the max clock is 26M */
 	if (((0 == strcmp(host_pdata->hw_name, "sprd-sdio1"))
 		|| ((0 == strcmp(host_pdata->hw_name, "sprd-sdio2"))))
-		&& ( 0 == sci_get_chip_id())/* chip id */){
+		&& ( soc_is_scx35_v0())/* chip id */){
 		host_pdata->clk_parent =  "clk_48m";
 		host_pdata->max_clock = 48000000;
 	}

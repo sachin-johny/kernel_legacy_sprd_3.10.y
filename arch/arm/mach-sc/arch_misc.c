@@ -27,13 +27,25 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/arch_misc.h>
 
+
+static u32 chip_id __read_mostly;
 u32 sci_get_chip_id(void)
 {
+	return chip_id;
+}
+
+void __init sc_init_chip_id(void)
+{
 #if defined(CONFIG_ARCH_SC8825)
-	return __raw_readl(REG_AHB_CHIP_ID);
+	chip_id = __raw_readl(REG_AHB_CHIP_ID);
 #endif
 #if defined(CONFIG_ARCH_SCX35)
-	return __raw_readl(REG_AON_APB_CHIP_ID);
+	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
+	if (chip_id == 0)
+		chip_id = SCX35_ALPHA_TAPOUT;//alpha Tapout.
 #endif
 }
+
+

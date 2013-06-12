@@ -18,7 +18,9 @@
 #include <asm/io.h>
 #include <asm/page.h>
 #include <asm/mach/map.h>
+
 #include <mach/hardware.h>
+#include <mach/arch_misc.h>
 
 #define SPRD_DEVICE(name) { \
 	.virtual = SPRD_##name##_BASE, \
@@ -141,5 +143,6 @@ static struct map_desc sprd_io_desc[] __initdata = {
 void __init sci_map_io(void)
 {
 	iotable_init(sprd_io_desc, ARRAY_SIZE(sprd_io_desc));
+	sc_init_chip_id();
 }
 
