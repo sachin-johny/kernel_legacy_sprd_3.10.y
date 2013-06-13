@@ -37,7 +37,6 @@
 #define SETH_DEBUG(x...)	pr_debug("SETH: " x)
 #define SETH_ERR(x...)		pr_err("SETH: Error: " x)
 
-#define SETH_BLOCK_NUM	64
 #define SETH_BLOCK_SIZE	(ETH_HLEN + ETH_DATA_LEN + NET_IP_ALIGN)
 
 #define DEV_ON 1
@@ -178,10 +177,12 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	 * Get a free sblock.
 	 */
 
-	ret = sblock_get(pdata->dst, pdata->channel, &blk, 0xFFFFFFFF);
+	ret = sblock_get(pdata->dst, pdata->channel, &blk, 0);
 	if(ret) {
-		SETH_ERR ("Get free sblock failed(%d)\n", ret);
+		SETH_ERR ("Get free sblock failed(%d), drop data!\n", ret);
+		/*
 		netif_stop_queue (dev);
+		*/
 		seth->stats.tx_fifo_errors++;
 		seth->stopped = 1;
 		dev_kfree_skb_any (skb);
@@ -322,8 +323,8 @@ static int __devinit seth_probe(struct platform_device *pdev)
 	random_ether_addr(netdev->dev_addr);
 
 	ret = sblock_create(pdata->dst, pdata->channel,
-		SETH_BLOCK_NUM, SETH_BLOCK_SIZE,
-		SETH_BLOCK_NUM, SETH_BLOCK_SIZE);
+		pdata->blocknum, SETH_BLOCK_SIZE,
+		pdata->blocknum, SETH_BLOCK_SIZE);
 	if (ret) {
 		SETH_ERR ("create sblock failed (%d)\n", ret);
 		free_netdev(netdev);

@@ -1127,6 +1127,7 @@ static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "seth_td0",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA0,
+	.blocknum	= 256,
 };
 struct platform_device sprd_seth0_td_device = {
 	.name           = "seth",
@@ -1138,6 +1139,7 @@ static struct seth_init_data sprd_seth1_td_pdata = {
 	.name		= "seth_td1",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA1,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth1_td_device = {
 	.name           = "seth",
@@ -1149,6 +1151,7 @@ static struct seth_init_data sprd_seth2_td_pdata = {
 	.name		= "seth_td2",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA2,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth2_td_device = {
 	.name           = "seth",
@@ -1311,6 +1314,7 @@ static struct seth_init_data sprd_seth0_wcdma_pdata = {
 	.name		= "seth_w0",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA0,
+	.blocknum	= 256,
 };
 struct platform_device sprd_seth0_wcdma_device = {
 	.name           = "seth",
@@ -1322,6 +1326,7 @@ static struct seth_init_data sprd_seth1_wcdma_pdata = {
 	.name		= "seth_w1",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA1,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth1_wcdma_device = {
 	.name           = "seth",
@@ -1333,6 +1338,7 @@ static struct seth_init_data sprd_seth2_wcdma_pdata = {
 	.name		= "seth_w2",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA2,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth2_wcdma_device = {
 	.name           = "seth",
