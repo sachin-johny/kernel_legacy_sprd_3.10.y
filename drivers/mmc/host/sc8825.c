@@ -51,6 +51,8 @@
  *to wake the system up
  */
 
+static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock);
+
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
 #include <mach/pinmap.h>
 static unsigned int sdio_wakeup_irq;
@@ -154,9 +156,7 @@ void sdhci_bus_scan(void)
 #ifdef CONFIG_MMC_BUS_SCAN
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
 		printk("%s, entry\n", __func__);
-		if (sdhci_host_g->ops->set_clock) {
-			sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
-		}
+		sdhci_sprd_enable_clock(sdhci_host_g, true);
 
 		mmc_detect_change(sdhci_host_g->mmc, 0);
 	}
@@ -390,7 +390,7 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
-	.set_clock		= sdhci_sprd_enable_clock,
+//	.set_clock		= sdhci_sprd_enable_clock,
 	.set_power		= sdhci_sprd_set_power,
 };
 
@@ -495,7 +495,7 @@ static void sdhci_module_init(struct sdhci_host* host)
 	sci_glb_set(host_pdata->rst_reg, host_pdata->rst_bit);
 	sci_glb_clr(host_pdata->rst_reg, host_pdata->rst_bit);
 	sdhci_sprd_set_base_clock(host);
-	host->ops->set_clock(host, true);
+	sdhci_sprd_enable_clock(host, true);
 	if (pdev->id == SDC_SLAVE_EMMC) {
 		emmc_get_spl_data(host);
 		/* add alter pin driver strength*/
@@ -725,8 +725,7 @@ static int sprd_mmc_host_runtime_suspend(struct device *dev) {
     if(dev->driver != NULL) {
             sdhci_runtime_suspend_host(host);
             spin_lock_irqsave(&host->lock, flags);
-            if(host->ops->set_clock)
-                host->ops->set_clock(host, 0);
+	    sdhci_sprd_enable_clock(host, false);
             spin_unlock_irqrestore(&host->lock, flags);
             rc = 0;
     }
@@ -739,12 +738,11 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
-        if(host->ops->set_clock) {
             spin_lock_irqsave(&host->lock, flags);
-            host->ops->set_clock(host, 1);
+            sdhci_sprd_enable_clock(host, true);
             spin_unlock_irqrestore(&host->lock, flags);
-            mdelay(10);
-        }
+            mdelay(5);
+
         sdhci_runtime_resume_host(host);
     }
     return 0;
@@ -773,8 +771,7 @@ static int sdhci_pm_suspend(struct device *dev) {
                     sdhci_host_wakeup_set(host);
 #endif
                 spin_lock_irqsave(&host->lock, flags);
-                if(host->ops->set_clock)
-                    host->ops->set_clock(host, 0);
+		sdhci_sprd_enable_clock(host, false);
                 spin_unlock_irqrestore(&host->lock, flags);
             } else {
 #ifdef CONFIG_PM_RUNTIME
@@ -793,8 +790,7 @@ static int sdhci_pm_resume(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     spin_lock_irqsave(&host->lock, flags);
-    if(host->ops->set_clock)
-        host->ops->set_clock(host, 1);
+    sdhci_sprd_enable_clock(host, true);
     spin_unlock_irqrestore(&host->lock, flags);
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
     if (pdev->id == SDC_SLAVE_WIFI)

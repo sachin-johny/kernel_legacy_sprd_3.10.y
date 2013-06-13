@@ -1390,10 +1390,10 @@ static void sdhci_hw_reset(struct mmc_host *mmc)
 	struct sdhci_host *host = mmc_priv(mmc);	
 	printk("%s, ****************** %s, call mmc_power_off ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_off(mmc);
-	usleep_range(5000, 5500);	
+	//usleep_range(5000, 5500);
+	msleep(300);
 	printk("%s, ****************** %s, call mmc_power_up ***********\n", mmc_hostname(mmc), __func__ );
 	mmc_power_up(mmc);
-	printk("%s, ****************** %s,  set cmd and data***********\n", mmc_hostname(mmc), __func__ );
 	sdhci_reset(host, SDHCI_RESET_CMD|SDHCI_RESET_DATA);
 	printk("%s, ****************** %s ***********\n", mmc_hostname(mmc), __func__ );
 }
@@ -2764,9 +2764,11 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 	}
 
 	/* Force clock and power re-program */
+#if 0
 	host->pwr = 0;
 	host->clock = 0;
 	sdhci_do_set_ios(host, &host->mmc->ios);
+#endif
 
 	sdhci_do_start_signal_voltage_switch(host, &host->mmc->ios);
 	if (host_flags & SDHCI_PV_ENABLED)
