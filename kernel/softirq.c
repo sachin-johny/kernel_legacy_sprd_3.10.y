@@ -336,6 +336,10 @@ static inline void invoke_softirq(void)
 }
 #endif
 
+#if defined(CONFIG_LOCAL_TIMERS) && defined(CONFIG_ARCH_SC8825)
+extern void unmask_irq(struct irq_desc *desc);
+#endif
+
 /*
  * Exit an interrupt context. Process softirqs if needed and possible:
  */
@@ -346,7 +350,16 @@ void irq_exit(void)
 	sub_preempt_count(IRQ_EXIT_OFFSET);
 	if (!in_interrupt() && local_softirq_pending())
 		invoke_softirq();
-
+#if defined(CONFIG_LOCAL_TIMERS) && defined(CONFIG_ARCH_SC8825)
+	{
+		/* FIXME, unmask gptimer when irq exit */
+		static int bypass_count = 0, set_flag = 0;
+		if(bypass_count++ > 500)
+			set_flag = 1;
+		if(set_flag && smp_processor_id() == 0)
+			unmask_irq(&irq_desc[39]);
+	}
+#endif
 	rcu_irq_exit();
 #ifdef CONFIG_NO_HZ
 	/* Make sure that timer wheel updates are propagated */
