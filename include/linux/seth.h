@@ -18,6 +18,7 @@ struct seth_init_data {
 	char *name;
 	uint8_t dst;
 	uint8_t	channel;
+	uint32_t blocknum;
 };
 
 #endif
