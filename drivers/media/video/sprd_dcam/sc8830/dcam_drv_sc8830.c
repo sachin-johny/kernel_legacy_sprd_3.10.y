@@ -2509,7 +2509,7 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 		yuv_reg[1] = DCAM_FRM_ADDR2;
 		yuv_reg[2] = DCAM_FRM_ADDR3;
 		path_max_frm_cnt = DCAM_PATH_1_FRM_CNT_MAX;
-	} else if(DCAM_PATH_IDX_2 == path_index){
+	} else /*if(DCAM_PATH_IDX_2 == path_index)*/ {
 		frame = &s_path2_frame[0];
 		path = &s_dcam_mod.dcam_path2;
 		yuv_reg[0] = DCAM_FRM_ADDR4;
@@ -2619,6 +2619,9 @@ LOCAL int32_t _dcam_path_check_deci(enum dcam_path_index path_index, uint32_t *i
 		path = &s_dcam_mod.dcam_path1;
 	} else if (DCAM_PATH_IDX_2 == path_index){
 		path = &s_dcam_mod.dcam_path2;
+	} else {
+		rtn = DCAM_RTN_PATH_SC_ERR;
+		goto dcam_path_err;
 	}
 
 	if (path->input_rect.w > (path->output_size.w * DCAM_SC_COEFF_DOWN_MAX * (1<<DCAM_PATH_DECI_FAC_MAX)) ||
@@ -2637,7 +2640,7 @@ LOCAL int32_t _dcam_path_check_deci(enum dcam_path_index path_index, uint32_t *i
 		else
 			*is_deci = 0;
 	}
-
+dcam_path_err:
 	DCAM_TRACE("DCAM DRV: _dcam_path_check_deci: path_index=%d, is_deci=%d, rtn=%d \n", path_index, *is_deci, rtn);
 
 	return rtn;

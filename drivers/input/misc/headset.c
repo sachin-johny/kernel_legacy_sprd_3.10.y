@@ -443,7 +443,7 @@ static int __init headset_init(void)
 	if (ht->switch_workqueue == NULL) {
 		pr_err("can't create headset switch workqueue\n");
 		ret = -ENOMEM;
-		goto _headset_workqueue;
+		goto _headset_button_gpio_irq_handler;
 	}
 
 	return 0;
