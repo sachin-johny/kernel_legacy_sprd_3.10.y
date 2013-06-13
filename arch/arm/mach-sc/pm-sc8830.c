@@ -31,6 +31,7 @@
 #include <linux/clockchips.h>
 #include <linux/wakelock.h>
 #include <mach/adi.h>
+#include <mach/arch_misc.h>
 #if defined(CONFIG_SPRD_DEBUG)
 /* For saving Fault status */
 #include <mach/sprd_debug.h>
@@ -49,7 +50,11 @@ void pm_ana_ldo_config(void);
 static void setup_autopd_mode(void)
 {
 	uint32_t mid = 0;
-	sci_glb_write(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3B, -1UL);
+
+	if (soc_is_scx35_v0())
+		sci_glb_write(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3a, -1UL);
+	else
+		sci_glb_write(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3B, -1UL);
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);//AP_WAKEUP_POR_CFG
 
 	// INTC0_EB, INTC1_EB, INTC2_EB, INTC3_EB
@@ -589,6 +594,9 @@ int deep_sleep(void)
 
 	udelay(5);
 	if (ret) cpu_init();
+
+	if (soc_is_scx35_v0())
+		sci_glb_clr(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG,BIT_CA7_CORE_AUTO_GATE_EN);
 
 	return ret;
 }
