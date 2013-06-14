@@ -445,17 +445,24 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 
 }
 
-static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
+static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
+{
+	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+
+	dev->enable = 0;
+	clk_disable(dispc_ctx.clk_dispc);
+	clk_disable(dispc_ctx.clk_dispc_dpi);
+	clk_disable(dispc_ctx.clk_dispc_dbi);
+
+	return 0;
+}
+
+static int32_t dispc_clk_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
 	struct clk *clk_parent1, *clk_parent2, *clk_parent3;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
-
-	if(dispc_ctx.is_inited){
-		printk(KERN_WARNING "sprdfb: dispc early init warning!(has been inited)");
-		return 0;
-	}
 
 	dispc_print_clk();
 	printk("zcf:BIT_DISPC_CORE_EN:%x,DISPC_CORE_EN:%x\n",BIT_DISPC_CORE_EN,DISPC_CORE_EN);
@@ -470,7 +477,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {
 		printk(KERN_WARNING "sprdfb: get clk_parent1 fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_parent1 ok!\n");
 	}
@@ -478,7 +485,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	clk_parent2 = clk_get(NULL, DISPC_DBI_CLOCK_PARENT);
 	if (IS_ERR(clk_parent2)) {
 		printk(KERN_WARNING "sprdfb: get clk_parent2 fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_parent2 ok!\n");
 	}
@@ -486,7 +493,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	clk_parent3 = clk_get(NULL, DISPC_DPI_CLOCK_PARENT);
 	if (IS_ERR(clk_parent3)) {
 		printk(KERN_WARNING "sprdfb: get clk_parent3 fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_parent3 ok!\n");
 	}
@@ -494,7 +501,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	dispc_ctx.clk_dispc = clk_get(NULL, DISPC_PLL_CLK);
 	if (IS_ERR(dispc_ctx.clk_dispc)) {
 		printk(KERN_WARNING "sprdfb: get clk_dispc fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
 	}
@@ -502,7 +509,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	dispc_ctx.clk_dispc_dbi = clk_get(NULL, DISPC_DBI_CLK);
 	if (IS_ERR(dispc_ctx.clk_dispc_dbi)) {
 		printk(KERN_WARNING "sprdfb: get clk_dispc_dbi fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
 	}
@@ -510,7 +517,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	dispc_ctx.clk_dispc_dpi = clk_get(NULL, DISPC_DPI_CLK);
 	if (IS_ERR(dispc_ctx.clk_dispc_dpi)) {
 		printk(KERN_WARNING "sprdfb: get clk_dispc_dpi fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 	}
@@ -537,20 +544,21 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	if(ret){
 		printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 	}
-       if((dev->panel_ready) && (0 != dev->panel->fps)){
-               dispc_update_clock(dev);
-       }else{
-               dev->dpi_clock = DISPC_DPI_CLOCK;
-               ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, DISPC_DPI_CLOCK);
-               if(ret){
-                       printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
-               }
-        }
+
+	if((dev->panel_ready) && (0 != dev->panel->fps)){
+		dispc_update_clock(dev);
+	}else{
+		dev->dpi_clock = DISPC_DPI_CLOCK;
+		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, DISPC_DPI_CLOCK);
+		if(ret){
+			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
+		}
+	}
 
 	ret = clk_enable(dispc_ctx.clk_dispc);
 	if (ret) {
 		printk(KERN_WARNING "sprdfb: enable clk_dispc fail!\n");
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc ok!\n");
 	}
@@ -559,7 +567,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	if (ret) {
 		printk(KERN_WARNING "sprdfb: enable clk_dispc_dbi fail!\n");
 		clk_disable(dispc_ctx.clk_dispc);
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
 	}
@@ -569,19 +577,26 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		printk(KERN_WARNING "sprdfb: enable clk_dispc_dpi fail!\n");
 		clk_disable(dispc_ctx.clk_dispc);
 		clk_disable(dispc_ctx.clk_dispc_dbi);
-		return 0;
+		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 	}
 
 	dispc_print_clk();
 
-	if(!dev->panel_ready){
-		dispc_reset();
-		dispc_module_enable();
-		dispc_ctx.is_first_frame = true;
-	}else{
-		dispc_ctx.is_first_frame = false;
+	return 0;
+}
+
+static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
+{
+	int ret = 0;
+
+	if(dispc_ctx.is_inited){
+		printk(KERN_WARNING "sprdfb: dispc_module has already initialized! warning!!");
+		return 0;
+	}
+	else{
+		printk(KERN_INFO "sprdfb: dispc_module_init. call only once!");
 	}
 
 	dispc_ctx.vsync_done = 1;
@@ -598,21 +613,53 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	sema_init(&dispc_ctx.overlay_lock, 1);
 #endif
-	dispc_ctx.is_inited = true;
 
 	ret = request_irq(IRQ_DISPC_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);
-	if (ret && ret != -EBUSY) {
+	if (ret) {
 		printk(KERN_ERR "sprdfb: dispcfailed to request irq!\n");
-		clk_disable(dispc_ctx.clk_dispc);
-		clk_disable(dispc_ctx.clk_dispc_dbi);
-		clk_disable(dispc_ctx.clk_dispc_dpi);
-		dispc_ctx.is_inited = false;
+		sprdfb_dispc_uninit(dev);
 		return -1;
 	}
 
+	dispc_ctx.is_inited = true;
 	return 0;
+
 }
 
+static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
+{
+	int ret = 0;
+
+	ret = dispc_clk_init(dev);
+	if(ret){
+		printk(KERN_WARNING "sprdfb: dispc_clk_init fail!\n");
+		return -1;
+	}
+
+	if(!dispc_ctx.is_inited){
+		//init
+		if(dev->panel_ready){
+			//panel ready
+			printk(KERN_INFO "sprdfb:[%s]: dispc has alread initialized\n", __FUNCTION__);
+			dispc_ctx.is_first_frame = false;
+		}else{
+			//panel not ready
+			printk(KERN_INFO "sprdfb:[%s]: dispc is not initialized\n", __FUNCTION__);
+			dispc_reset();
+			dispc_module_enable();
+			dispc_ctx.is_first_frame = true;
+		}
+		ret = sprdfb_dispc_module_init(dev);
+	}else{
+		//resume
+		printk(KERN_INFO "sprdfb:[%s]: sprdfb_dispc_early_init resume\n", __FUNCTION__);
+		dispc_reset();
+		dispc_module_enable();
+		dispc_ctx.is_first_frame = true;
+	}
+
+	return ret;
+}
 
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 {
@@ -649,20 +696,6 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	}
 	dispc_set_bits(BIT(2), DISPC_INT_EN);
 	dev->enable = 1;
-	return 0;
-}
-
-static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
-{
-	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
-
-	dev->enable = 0;
-	if(dispc_ctx.is_inited){
-		clk_disable(dispc_ctx.clk_dispc);
-		clk_disable(dispc_ctx.clk_dispc_dpi);
-		clk_disable(dispc_ctx.clk_dispc_dbi);
-		dispc_ctx.is_inited = false;
-	}
 	return 0;
 }
 
@@ -794,12 +827,11 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		dispc_ctx.vsync_done = 1;
 		if (dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
-			dev->panel_ready = false;
-			dispc_ctx.is_inited = false;
+			dev->is_deepsleep=true;
 			sprdfb_dispc_early_init(dev);
 			sprdfb_dispc_init(dev);
 			sprdfb_panel_resume(dev, true);
-			dev->panel_ready = true;
+			dev->is_deepsleep=false;
 		}else {
 			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
 
