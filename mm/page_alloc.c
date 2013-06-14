@@ -2208,7 +2208,23 @@ rebalance:
 	if (page)
 		goto got_pg;
 
-	/*
+	/*set this mask to make reclaim
+         * rountine more fastly&efficiency*/
+        gfp_mask |= GFP_LMK_TRY_HARDER;
+
+        /* Try direct reclaim and then allocating again*/
+	page = __alloc_pages_direct_reclaim(gfp_mask, order,
+					zonelist, high_zoneidx,
+					nodemask,
+					alloc_flags, preferred_zone,
+					migratetype, &did_some_progress);
+
+        if (page)
+		goto got_pg;
+
+
+        gfp_mask &= ~GFP_LMK_TRY_HARDER;
+        /*
 	 * If we failed to make any progress reclaiming, then we are
 	 * running out of options and have to consider going OOM
 	 */

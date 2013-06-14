@@ -90,12 +90,12 @@ static uint32_t lowmem_minfile_check_enable = 1;
 static uint32_t lowmem_last_swap_time = 0;
 
 static size_t lowmem_minfile[6] = {
-	24 * 1024,	  //96MB
-	22* 1024,	 //88MB
-	20 * 1024,	 //80MB
-	15 * 1024,	 //60MB
-	10* 1024,	 //40MB
-	5 * 1024,	//20MB		
+	32 * 1024,	 //128MB
+	30 * 1024,	 //120MB
+	28 * 1024,	 //112MB
+	24 * 1024,	 //96MB
+	22 * 1024,	 //88MB
+	12 * 1024,	 //48MB		
 };
 static int lowmem_minfile_size = 6;
 
@@ -286,6 +286,23 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
 
+
+        //under try free page situation, should try harder
+        if(!current_is_kswapd()){
+                if((sc->gfp_mask & GFP_LMK_TRY_HARDER) == GFP_LMK_TRY_HARDER){
+   
+                    if(min_adj > lowmem_adj[1]){
+#ifdef CONFIG_ANDROID_LMK_ENHANCE
+	                for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++)
+		            selected_oom_adj[i]=min_adj=lowmem_adj[1];
+#else
+	                    selected_oom_adj=min_adj=lowmem_adj[1];
+#endif
+                            lowmem_print(2, "[LMK]alloc page rountine, try harder old: %d, new:%d\r\n",\
+                                min_adj, min_adj);
+                    }
+                }
+         }else{
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 	if(lowmem_minfile_check_enable && (sc->nr_to_scan > 0))
 	{
@@ -297,8 +314,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 		if( min_adj == OOM_ADJUST_MAX + 1)
 		{
-			printk("\r\n[LMK] Cache value high: other_free:%d, other_file:%d, lowmem_minfile[%d]:%d\r\n", 
-					    other_free,other_file, array_size -1, lowmem_minfree[array_size - 1]);
+			lowmem_print(2,"\r\n[LMK] Cache value high: other_free:%d, other_file:%d, zram_swap_size:%d\r\n", 
+					    other_free,other_file,  zram_swap_size);
 			oom_adj_index = ARRAY_SIZE(lowmem_adj) - 1;
 		}
 
@@ -317,8 +334,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		{
 			if ((min_adj == lowmem_adj[0]) && ((other_file + other_free) < (totalreserve_pages << 1)))
 			{
-				printk("\r\n[LMK] WARN No Memory: other_free:%d, other_file:%d, lowmem_minfile[0]:%d, min_adj:%d, totalreserve_pages:%d, zram_swap_size:%d\r\n", 
-					    other_free,other_file, lowmem_minfile[0], min_adj, totalreserve_pages << 1, zram_swap_size);
+				lowmem_print(2, "\r\n[LMK] WARN No Memory: other_free:%d, other_file:%d,\
+                                        lowmem_minfile[0]:%d, min_adj:%d, totalreserve_pages:%d, zram_swap_size:%d\r\n",\
+                                            other_free,other_file, lowmem_minfile[0], min_adj, \
+                                                totalreserve_pages << 1,zram_swap_size);
 				min_adj = 0;
 			}
 			else
@@ -326,11 +345,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				min_adj = lowmem_adj[0];
 			}
 		}		
+		lowmem_print(2, "\r\n[LMK] zram_swap_size:%d, min_adj:%d, reserve_pages=%d \r\n", \
+					    zram_swap_size, min_adj, totalreserve_pages);
 
 		
 		if(min_adj  != lowmem_adj[oom_adj_index])
 		{
-			lowmem_print(4, "[LMK]adjudge adj, old: %d, new:%d\r\n", lowmem_adj[oom_adj_index], min_adj);
+			lowmem_print(2, "[LMK]adjudge adj, old: %d, new:%d\r\n", lowmem_adj[oom_adj_index], min_adj);
 		}
 		
 	}
@@ -355,11 +376,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
 	if(lowmem_swap_app_enable)
 	{
-		if(current_is_kswapd() && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) && (min_adj > 1))
+		if(current_is_kswapd() && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) \
+                        &&((min_adj > lowmem_adj[0]) && (min_adj <lowmem_adj[5])))
 		{
 			int times = 0;
 			struct sysinfo si = {0};
-
+                        int count=0;
 			int  swap_to_scan = getbuddyfreepages()  >>  1;   //buddy pages /2
 			
 			if(swap_to_scan > 1024)
@@ -367,12 +389,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				swap_to_scan = 1024;
 			}
 
+                        count=jiffies;
+
 			if(swap_to_scan > (SWAP_CLUSTER_MAX  << 1) )  //Only run at buddy pages enough
 			{
 				to_reclaimed = swap_to_zram(swap_to_scan, min_adj, 1);
 			}
 			
-			lowmem_print(2,"[LMK]swap_to_scan:%d, to_reclaimed:%d, time:%d s\r\n",  swap_to_scan, to_reclaimed, jiffies/HZ);
+			lowmem_print(2,"[LMK]swap_to_scan:%d, to_reclaimed:%d, time:%d ms\r\n", \
+                                swap_to_scan, to_reclaimed, jiffies_to_msecs(jiffies-count));
 			
 			if(to_reclaimed >= swap_to_scan)
 			{
@@ -404,11 +429,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			}
 
 		}
-		
-	}
+	    }
 #endif
-      
-	read_lock(&tasklist_lock);
+        }// if(sc->gfp_mask & GFP_LKM_DYNAMIC == GFP_LKM_DYNAMIC)
+       	read_lock(&tasklist_lock);
 	for_each_process(p) {
 		struct mm_struct *mm;
 		struct signal_struct *sig;
@@ -423,15 +447,26 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 		oom_adj = sig->oom_adj;
 		
+                if(p->state == TASK_UNINTERRUPTIBLE){
+                    lowmem_print(6, " [%d, %s] uninterruptible skip, adj %d\n",
+				p->pid, p->comm, oom_adj);
+                    task_unlock(p);
+                    continue;
+                }
 #ifdef CONFIG_ZRAM_FOR_ANDROID	
 		if((oom_adj == 6) && (min_adj >= kill_home_adj_wmark))
 		{
-		     task_unlock(p);
+		    lowmem_print(6, " [%d:%s] home app skip, adj %d\n",
+				p->pid, p->comm, oom_adj);
+
+                    task_unlock(p);
 		    continue;	 
 		}
 #endif	 /*CONFIG_ZRAM_FOR_ANDROID*/	
 		if (oom_adj < min_adj) {
-			task_unlock(p);
+			lowmem_print(6, " [%d:%s] current adj %d\n",
+				p->pid, p->comm, oom_adj);
+                        task_unlock(p);
 			continue;
 		}
 #ifdef CONFIG_ZRAM
@@ -440,8 +475,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		tasksize = get_mm_rss(mm);
 #endif
 		task_unlock(p);
-		if (tasksize <= 0)
-			continue;
+		if (tasksize <= 0){
+		    lowmem_print(6, " [%d:%s] no task size skip, adj %d, %d\n",
+				p->pid, p->comm, oom_adj, tasksize);
+                    continue;
+                }
 
 #ifdef CONFIG_ANDROID_LMK_ENHANCE
 		for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
