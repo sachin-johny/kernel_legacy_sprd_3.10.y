@@ -2969,7 +2969,7 @@ static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 	.shutdown = sprd_codec_pcm_shutdown,
 	.hw_params = sprd_codec_pcm_hw_params,
 	.hw_free = sprd_codec_pcm_hw_free,
-	.digital_mute = sprd_codec_digital_mute,
+	/*.digital_mute = sprd_codec_digital_mute,*/
 };
 
 #ifdef CONFIG_PM
