@@ -54,13 +54,19 @@ enum {
 #define SPRD_VBC_BASE_HI  (VBC_BASE & 0xFFFF0000)
 
 #define CODEC_DP_BASE 		SPRD_AUDIO_BASE
-/*the AP BASE : 0x8600,  part1(0x0600) just for codec op, part2(0x8000) for real read/write offset */
-#define CODEC_AP_BASE		(SPRD_ADI_BASE + 0x0600)
-#define CODEC_AP_OFFSET	(0x8000)
+
+/*CODEC_AP_BASE: the bit15 cann't be 1 for asoc reg.*/
+#if (ANA_AUDCFGA_INT_BASE & BIT(15))
+#define CODEC_AP_BASE   (ANA_AUDCFGA_INT_BASE & ~(BIT(15)))
+#define CODEC_AP_OFFSET   (0x8000)
+#else
+#define CODEC_AP_BASE (ANA_AUDCFGA_INT_BASE)
+#define CODEC_AP_OFFSET  (0)
+#endif
 
 #define VBC_PHY_BASE		SPRD_VBC_PHYS
 #define CODEC_DP_PHY_BASE	SPRD_AUDIO_PHYS
-#define CODEC_AP_PHY_BASE	(SPRD_ADI_PHYS + 0x8600)
+#define CODEC_AP_PHY_BASE	(SPRD_ADISLAVE_PHYS + 0x0600)
 #define CODEC_AP_IRQ		(IRQ_ANA_AUD_INT)
 #define CODEC_DP_IRQ		(IRQ_REQ_AUD_INT)
 
