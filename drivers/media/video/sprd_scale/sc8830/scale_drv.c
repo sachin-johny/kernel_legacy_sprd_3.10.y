@@ -16,15 +16,13 @@
 #include <linux/bitops.h>
 #include <linux/semaphore.h>
 #include <linux/delay.h>
-
 #include <asm/io.h>
 #include <mach/hardware.h>
-
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
 #include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
 
-//#define SCALE_DRV_DEBUG
+/*#define SCALE_DRV_DEBUG*/
 #define SCALE_LOWEST_ADDR 0x800
 #define SCALE_ADDR_INVALIDE(addr) ((addr) < SCALE_LOWEST_ADDR)
 #define SCALE_YUV_ADDR_INVALIDE(y,u,v) \
@@ -44,7 +42,6 @@
 #define SC_COEFF_H_NUM (SC_H_COEF_SIZE / 4)
 #define SC_COEFF_V_NUM (SC_V_COEF_SIZE / 4)
 #define SC_COEFF_V_CHROMA_NUM (SC_V_CHROM_COEF_SIZE / 4)
-#define SCALE_AXI_STOP_TIMEOUT 100
 #define SCALE_PIXEL_ALIGNED 4
 #define SCALE_SLICE_HEIGHT_ALIGNED 4
 
@@ -66,11 +63,6 @@
 			return -SCALE_RTN_PARA_ERR; \
 	} while(0)
 
-#define SCALE_CLEAR(a) \
-	do { \
-		memset((void *)(a), 0, sizeof(*(a))); \
-	} while(0)
-
 #define SCALE_RTN_IF_ERR if(rtn) return rtn
 
 typedef void (*scale_isr)(void);
@@ -81,10 +73,6 @@ struct scale_desc {
 	struct scale_size sc_input_size;
 	struct scale_addr input_addr;
 	uint32_t input_format;
-	struct scale_addr temp_buf_addr;
-	struct scale_addr temp_buf_addr_vir;
-	uint32_t temp_buf_src;
-	uint32_t mem_order[3];
 	struct scale_size output_size;
 	struct scale_addr output_addr;
 	uint32_t output_format;
@@ -95,8 +83,8 @@ struct scale_desc {
 	uint32_t is_last_slice;
 	scale_isr_func user_func;
 	void *user_data;
-	uint32_t use_local_tmp_buf;
 	atomic_t start_flag;
+	uint32_t sc_deci_val;
 };
 
 static uint32_t g_scale_irq = 0x12345678;
@@ -141,6 +129,20 @@ int32_t scale_module_dis(void)
 	return ret;
 }
 
+static int32_t scale_check_deci_slice_mode(uint32_t deci_val, uint32_t slice_h)
+{
+	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
+
+	if (deci_val > 0) {
+		if ((slice_h >= deci_val) && (0 == (slice_h % deci_val))) {
+			rtn = SCALE_RTN_SUCCESS;
+		} else {
+			rtn = SCALE_RTN_SC_ERR;
+		}
+	}
+	return rtn;
+}
+
 int32_t scale_start(void)
 {
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
@@ -163,14 +165,18 @@ int32_t scale_start(void)
 	g_path->slice_in_height = 0;
 	g_path->slice_out_height = 0;
 	g_path->is_last_slice = 0;
+	g_path->sc_deci_val = 0;
+	REG_MWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT), 0);
 	REG_OWR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
 	REG_OWR(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
 
 	rtn = _scale_cfg_scaler();
-	if(rtn) goto exit;
+	if (rtn) goto exit;
 
 	if (SCALE_MODE_NORMAL != g_path->scale_mode) {
 		g_path->slice_in_height += g_path->slice_height;
+		rtn = scale_check_deci_slice_mode(g_path->sc_deci_val, g_path->slice_height);
+		if (rtn) goto exit;
 	}
 	REG_MWR(SCALE_BASE, SCALE_PATH_MASK, SCALE_PATH_SELECT);
 	REG_OWR(SCALE_BASE, SCALE_PATH_EB_BIT);
@@ -198,6 +204,8 @@ static int32_t scale_continue(void)
 	if (SCALE_MODE_NORMAL != g_path->scale_mode) {
 		if (g_path->slice_in_height + g_path->slice_height >= g_path->input_rect.h) {
 			slice_h = g_path->input_rect.h - g_path->slice_in_height;
+			if (scale_check_deci_slice_mode(g_path->sc_deci_val, slice_h))
+				return SCALE_RTN_SC_ERR;
 			g_path->is_last_slice = 1;
 			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, slice_h);
 			REG_OWR(SCALE_REV_SLICE_CFG, SCALE_IS_LAST_SLICE_BIT);
@@ -588,6 +596,7 @@ static int32_t _scale_calc_sc_size(void)
 					break;
 				}
 			}
+			g_path->sc_deci_val = (1 << (1 + i));
 			REG_OWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT));
 			REG_MWR(SCALE_CFG, SCALE_DEC_X_MASK, (i << 0));
 			REG_MWR(SCALE_CFG, SCALE_DEC_Y_MASK, (i << 3));

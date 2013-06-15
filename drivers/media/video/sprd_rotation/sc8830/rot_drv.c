@@ -15,9 +15,7 @@
 #include <linux/interrupt.h>
 #include <asm/io.h>
 #include <video/sprd_rot_k.h>
-
 #include <mach/hardware.h>
-
 #include "rot_drv.h"
 #include "sc8830_reg_rot.h"
 #include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
