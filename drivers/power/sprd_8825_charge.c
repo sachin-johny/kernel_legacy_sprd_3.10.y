@@ -38,8 +38,13 @@
 #include <mach/sci.h>
 #endif
 
+#ifdef CONFIG_ARCH_SC7710
+#define USB_DM_GPIO 203
+#define USB_DP_GPIO 204
+#else
 #define USB_DM_GPIO 215
 #define USB_DP_GPIO 216
+#endif
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
@@ -361,21 +366,29 @@ void __weak udc_disable(void)
 int sprd_charger_is_adapter(struct sprd_battery_data *data)
 {
 	uint32_t ret;
+	volatile uint32_t i;
+	unsigned long irq_flag = 0;
 
-	gpio_request(USB_DM_GPIO, "sprd_charge");
+	mdelay(300);
+
+	gpio_request(USB_DM_GPIO, "sprd_charge_dm");
+	gpio_request(USB_DP_GPIO, "sprd_charge_dp");
 	gpio_direction_input(USB_DM_GPIO);
+	gpio_direction_input(USB_DP_GPIO);
 
 	udc_enable();
-
-	mdelay(200);
-
-	ret = gpio_get_value(USB_DM_GPIO);
-
 	udc_phy_down();
 
-	udc_disable();
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DP_PULLDOWN_BIT | USB_DM_PULLDOWN_BIT), USB_PHY_CTRL);
+	/* Identify USB charger */
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLUP_BIT), USB_PHY_CTRL);
+	mdelay(5);
+	ret = gpio_get_value(USB_DM_GPIO);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, (USB_DM_PULLUP_BIT), USB_PHY_CTRL);
 
+	udc_disable();
 	gpio_free(USB_DM_GPIO);
+	gpio_free(USB_DP_GPIO);
 
 	return ret;
 }

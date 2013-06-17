@@ -57,6 +57,9 @@
 #define SPRD_CHG_CUR_1050MA	1050
 #define SPRD_CHG_CUR_MAX	1050
 
+#define SPRD_USB_CHG_CUR	SPRD_CHG_CUR_500MA
+#define SPRD_AC_CHG_CUR		SPRD_CHG_CUR_800MA
+
 #else
 /*charge current type*/
 #define SPRD_CHG_CUR_300MA	300
@@ -76,10 +79,13 @@
 #define SPRD_CHG_CUR_1700MA	1700
 #define SPRD_CHG_CUR_1800MA	1800
 #define SPRD_CHG_CUR_MAX	1800
-#endif
 
 #define SPRD_USB_CHG_CUR	SPRD_CHG_CUR_500MA
 #define SPRD_AC_CHG_CUR		SPRD_CHG_CUR_600MA
+
+#endif
+
+
 /*
  battery status define
 */
