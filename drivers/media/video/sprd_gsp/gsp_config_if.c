@@ -57,7 +57,7 @@ LOCAL void GSP_SetLayer0Parameter(void)
     GSP_L0_ROTMODE_SET(s_gsp_cfg.layer0_info.rot_angle);
     GSP_L0_COLORKEYENABLE_SET(s_gsp_cfg.layer0_info.colorkey_en);
     GSP_L0_PALLETENABLE_SET(s_gsp_cfg.layer0_info.pallet_en);
-    GSP_L0_SCALETAPMODE_SET(s_gsp_cfg.layer0_info.row_tap_mode,s_gsp_cfg.layer0_info.col_tap_mode);
+    //GSP_L0_SCALETAPMODE_SET(s_gsp_cfg.layer0_info.row_tap_mode,s_gsp_cfg.layer0_info.col_tap_mode);
 
 }
 
@@ -123,20 +123,25 @@ LOCAL void GSP_SetMiscParameter(void)
 
 
     GSP_DITHER_ENABLE_SET(s_gsp_cfg.misc_info.dithering_en);
+    //GSP_AHB_CLOCK_SET(s_gsp_cfg.misc_info.ahb_clock);
+    GSP_CLOCK_SET(s_gsp_cfg.misc_info.gsp_clock);
+    GSP_EMC_GAP_SET(s_gsp_cfg.misc_info.gsp_gap);
 }
 
 PUBLIC void GSP_Init(void)
 {
     GSP_HWMODULE_ENABLE();
-    GSP_EMC_MATRIX_ENABLE();
-    GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);
-    GSP_AUTO_GATE_ENABLE();
-    //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_26M_BIT);
     GSP_HWMODULE_SOFTRESET();
 
-    *(volatile unsigned long *)(SPRD_PMU_BASE+0x1c) &= ~(1<<25);
-    *(volatile unsigned long *)(SPRD_AONAPB_BASE) |= (1<<25);   //     MM enable
-
+    /* move to module init
+        GSP_EMC_MATRIX_ENABLE();
+        GSP_EMC_GAP_SET(0);
+        GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);
+        GSP_AUTO_GATE_ENABLE();
+        //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_26M_BIT);
+        *(volatile unsigned long *)(SPRD_PMU_BASE+0x1c) &= ~(1<<25);
+        *(volatile unsigned long *)(SPRD_AONAPB_BASE) |= (1<<25);   //     MM enable
+    */
     GSP_IRQMODE_SET(GSP_IRQ_MODE_LEVEL);
 }
 PUBLIC void GSP_Deinit(void)

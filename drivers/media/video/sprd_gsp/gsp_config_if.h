@@ -85,7 +85,7 @@ extern   "C"
 //GSP inner work loggy clock ctl
 //#define SPRD_APBCKG_PHYS		0X71200000
 #define GSP_CLOCK_BASE		(SPRD_APBCKG_BASE + 0x28)
-#define GSP_CLOCK_256M_BIT	(3<<0)// div form  PLL clock, use[1:0] 2bit,  0:96M 1:156M 2:196M 3:256M
+#define GSP_CLOCK_256M_BIT  (3)// div form  PLL clock, use[1:0] 2bit,  0:96M 1:153.6M 2:192M 3:256M
 
 
 //force enable GSP inner work loggy clock, used for debug
@@ -95,9 +95,10 @@ extern   "C"
 
 
     //GSP register set clock , through AHB bus
-//#define SPRD_APBCKG_PHYS		0X71200000
-#define GSP_AHB_CLOCK_BASE		(SPRD_APBCKG_BASE + 0x20)
-#define GSP_AHB_CLOCK_26M_BIT	(0)// [1:0] is used by GSP, 0:26M
+//#define SPRD_APBCKG_PHYS      0X71200000
+#define GSP_AHB_CLOCK_BASE      (SPRD_APBCKG_BASE + 0x20)
+#define GSP_AHB_CLOCK_26M_BIT   (0)// [1:0] is used by GSP, 0:26M
+#define GSP_AHB_CLOCK_192M_BIT  (3)// [1:0] is used by GSP, 0:26M 1:76M 2:128M 3:192M
 
     //interrupt relative
 #define TB_GSP_INT 			(0x33)  //gsp hardware irq number
@@ -116,21 +117,70 @@ extern   "C"
 #endif
 
 
-#define GSP_EMC_MATRIX_ENABLE()	(*(volatile uint32_t*)(GSP_EMC_MATRIX_BASE) |= GSP_EMC_MATRIX_BIT)
+
+#if 0
+#define GSP_EMC_MATRIX_ENABLE() (*(volatile uint32_t*)(GSP_EMC_MATRIX_BASE) |= GSP_EMC_MATRIX_BIT)
 #define GSP_CLOCK_SET(sel)\
 {\
-	*(volatile uint32_t*)(GSP_CLOCK_BASE) &= ~3;\
-	*(volatile uint32_t*)(GSP_CLOCK_BASE) |= sel;\
+    *(volatile uint32_t*)(GSP_CLOCK_BASE) &= ~3;\
+    *(volatile uint32_t*)(GSP_CLOCK_BASE) |= (sel);\
 }
-#define GSP_AUTO_GATE_ENABLE()	(*(volatile uint32_t*)(GSP_AUTO_GATE_ENABLE_BASE) |= GSP_AUTO_GATE_ENABLE_BIT)
+#define GSP_AUTO_GATE_ENABLE()  (*(volatile uint32_t*)(GSP_AUTO_GATE_ENABLE_BASE) |= GSP_AUTO_GATE_ENABLE_BIT)
 #define GSP_AHB_CLOCK_SET(sel)\
 {\
-	*(volatile uint32_t*)(GSP_AHB_CLOCK_BASE) &= ~3;\
-	*(volatile uint32_t*)(GSP_AHB_CLOCK_BASE) |= sel;\
+    *(volatile uint32_t*)(GSP_AHB_CLOCK_BASE) &= ~3;\
+    *(volatile uint32_t*)(GSP_AHB_CLOCK_BASE) |= (sel);\
+}
+#define GSP_AHB_CLOCK_GET(sel)  (*(volatile uint32_t*)(GSP_AHB_CLOCK_BASE)&0x3)
+
+
+//0x402B001C multi-media force shutdown [25]
+//0x402E0000 MM enable
+#define GSP_ENABLE_MM(addr)\
+{\
+    *(volatile unsigned long *)(SPRD_PMU_BASE+0x1c) &= ~(1<<25);\
+    *(volatile unsigned long *)(SPRD_AONAPB_BASE) |= (1<<25);\
 }
 
+#define GSP_HWMODULE_SOFTRESET()\
+    *(volatile uint32_t *)(GSP_SOFT_RESET) |= GSP_SOFT_RST_BIT;\
+    udelay(10);\
+    *(volatile uint32_t *)(GSP_SOFT_RESET) &= (~GSP_SOFT_RST_BIT)
+
+#define GSP_HWMODULE_ENABLE()\
+    *(volatile uint32_t *)(GSP_MOD_EN) |= (GSP_MOD_EN_BIT)
+
+#define GSP_HWMODULE_DISABLE(bit)\
+        *(volatile uint32_t *)(GSP_MOD_EN) &= (~(GSP_MOD_EN_BIT))
+
+#else
+#include <mach/sci.h>
+#define GSP_EMC_MATRIX_ENABLE()     sci_glb_set(GSP_EMC_MATRIX_BASE, GSP_EMC_MATRIX_BIT)
+#define GSP_CLOCK_SET(sel)          sci_glb_write(GSP_CLOCK_BASE, (sel), 0x3)
+#define GSP_AUTO_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_AUTO_GATE_ENABLE_BIT)
+#define GSP_AHB_CLOCK_SET(sel)      sci_glb_write(GSP_AHB_CLOCK_BASE, (sel), 0x3)
+#define GSP_AHB_CLOCK_GET()      	sci_glb_read(GSP_AHB_CLOCK_BASE,0x3)
 
 
+//0x402B001C multi-media force shutdown [25]
+//0x402E0000 MM enable
+#define GSP_ENABLE_MM(addr)\
+{\
+    sci_glb_clr((SPRD_PMU_BASE+0x1c),(1<<25));\
+    sci_glb_set(SPRD_AONAPB_BASE,(1<<25));\
+}
+
+#define GSP_HWMODULE_SOFTRESET()\
+    sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
+    udelay(10);\
+    sci_glb_clr(GSP_SOFT_RESET,GSP_SOFT_RST_BIT)
+
+#define GSP_HWMODULE_ENABLE()       sci_glb_set(GSP_MOD_EN,GSP_MOD_EN_BIT)
+#define GSP_HWMODULE_DISABLE()		sci_glb_clr(GSP_MOD_EN,GSP_MOD_EN_BIT)
+
+#endif
+#define GSP_EMC_GAP_SET(interval)\
+    ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb = (interval)
 #define GSP_L0_ADDR_SET(addr)\
     *(GSP_DATA_ADDR_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_y_addr_u) = (addr)
 #define GSP_L1_ADDR_SET(addr)\
@@ -138,7 +188,7 @@ extern   "C"
 #define GSP_Ld_ADDR_SET(addr)\
     *(GSP_DATA_ADDR_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_des_y_addr_u) = (addr)
 
-
+#define GSP_L0_PITCH_GET()  (*(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u))
 #define GSP_L0_PITCH_SET(pitch)\
     *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u) = (pitch)
 #define GSP_L1_PITCH_SET(pitch)\
@@ -261,6 +311,7 @@ extern   "C"
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.pmargb_mod1 = (mode)
 #define GSP_SCALE_ENABLE_SET(scal_en)\
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.scale_en = (scal_en)
+#define GSP_SCALE_ENABLE_GET()  (((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.scale_en)
 
 
 #define GSP_SCALESTATUS_RESET()\
@@ -277,19 +328,8 @@ extern   "C"
 
 #define GSP_L0_ENABLE_GET()     (((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.l0_en)
 
-
-#define GSP_HWMODULE_SOFTRESET()\
-    *(volatile uint32_t *)(GSP_SOFT_RESET) |= GSP_SOFT_RST_BIT;\
-    udelay(500);\
-    *(volatile uint32_t *)(GSP_SOFT_RESET) &= (~GSP_SOFT_RST_BIT)
-
-#define GSP_HWMODULE_ENABLE()\
-    *(volatile uint32_t *)(GSP_MOD_EN) |= (GSP_MOD_EN_BIT)
-
-#define GSP_HWMODULE_DISABLE(bit)\
-        *(volatile uint32_t *)(GSP_MOD_EN) &= (~(GSP_MOD_EN_BIT))
-
-
+#define GSP_CFG_L1_PARAM(param)\
+    *(volatile GSP_LAYER1_REG_T *)GSP_L1_BASE = (param)
     /**---------------------------------------------------------------------------*
      **                         Data Definition                              *
      **---------------------------------------------------------------------------*/

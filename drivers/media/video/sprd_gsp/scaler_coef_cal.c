@@ -371,7 +371,7 @@ static void WriteScalarCoef(int16_t * dst_coef_ptr,
         dst_coef_ptr += dst_pitch;
     }
 }
-
+/*
 static void SetHorRegisterCoef(uint32_t * reg_coef_ptr, int16_t * y_coef_ptr,
                                int16_t * uv_coef_ptr)
 {
@@ -426,6 +426,7 @@ static void SetHorRegisterCoef(uint32_t * reg_coef_ptr, int16_t * y_coef_ptr,
         *reg_coef_ptr++ = reg;
     }
 }
+*/
 
 static void CheckCoefRange(int16_t * coef_ptr, int16_t rows, int16_t columns, int16_t pitch)
 {
@@ -540,7 +541,9 @@ static void GSP_Rearrang_Coeff(void* src, void*dst, int32_t tap)
 uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
                                   uint32_t i_h,
                                   uint32_t o_w,
-                                  uint32_t o_h,
+                                  uint32_t o_h,                                  
+                                  uint32_t hor_tap,
+                                  uint32_t ver_tap,                                  
                                   uint32_t *coeff_h_ptr,
                                   uint32_t *coeff_v_ptr,
                                   void *temp_buf_ptr,
@@ -548,17 +551,17 @@ uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
                                  )
 {
     int16_t D_hor = i_w;    //decimition at horizontal
-    int16_t D_ver = i_h;    //decimition at vertical
+    //int16_t D_ver = i_h;    //decimition at vertical
     int16_t I_hor = o_w;    //interpolation at horizontal
-    int16_t I_ver = o_h;    //interpolation at vertical
-    int16_t I_ver_bak_uv = o_h;
+    //int16_t I_ver = o_h;    //interpolation at vertical
+    //int16_t I_ver_bak_uv = o_h;
 
     int16_t *cong_com_hor = 0;
     int16_t *cong_com_ver = 0;
     int16_t *coeff_array = 0;
 
-    uint16_t luma_ver_tap, chrome_ver_tap;
-    uint16_t luma_ver_maxtap = 8, chrome_ver_maxtap = 8;
+    //uint16_t luma_ver_tap, chrome_ver_tap;
+    //uint16_t luma_ver_maxtap = 8, chrome_ver_maxtap = 8;
 
     uint32_t coef_buf_size = 0;
     int16_t *temp_filter_ptr = NULL;
@@ -566,9 +569,9 @@ uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
     uint32_t filter_buf_size = GSC_COUNT * sizeof(int16_t);
     int16_t filter_len[COEF_ARR_ROWS] = { 0 };
     int16_t coef_len = 0;
-    uint8_t is_scaling_up = FALSE;
-    uint8_t hor_tap = 8;
-    uint8_t ver_tap = 8;
+    //uint8_t is_scaling_up = FALSE;
+    //uint8_t hor_tap = 8;
+    //uint8_t ver_tap = 8;
     GSC_MEM_POOL pool = { 0 };
     uint32_t i = 0;
 
