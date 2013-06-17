@@ -6435,9 +6435,9 @@ dhdsdio_download_nvram(struct dhd_bus *bus)
 	/* Download variables */
 	if (nvram_file_exists) {
 		len = dhd_os_get_image_block(memblock, MAX_NVRAMBUF_SIZE, image);
-		if (len < 0){
+		if ((int)len < 0){
 			int try_times = 0;
-			for (try_times = 0; (try_times < 3) && (len < 0); try_times++) {
+			for (try_times = 0; (try_times < 3) && ((int)len < 0); try_times++) {
 				mdelay(10);
 				len = dhd_os_get_image_block(memblock, MAX_NVRAMBUF_SIZE, image);
 			}
