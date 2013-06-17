@@ -54,29 +54,12 @@ void print_init_ana(void)
 /*init ana global regs for pm*/
 void init_ana_gr(void)
 {
-        /*set dcdc_core scale to 0.9v at chip sleep*/
-	sci_adi_write(ANA_REG_GLB_DCDC_SLP_V, 0
+    /*set dcdc_core scale to 0.9v at chip sleep*/
+	sci_adi_raw_write(ANA_REG_GLB_DCDC_SLP_V, 0
 			| BIT_SLP_DCDC_CORE_V_EN
 			| BIT_XTL_SLP_DCDC_CORE_V_EN
 			| BITS_SLP_DCDC_CORE_V(DCDC_CORE_V_09)
-			, DCDC_CORE_V_MASK);
-
-#if 0
-        /* set dcdc mem power down */
-        sci_adi_clr(ANA_REG_GLB_LDO_PD_RST, BIT_DCDC_MEM_PD_RST);
-        sci_adi_set(ANA_REG_GLB_LDO_PD_SET, BIT_DCDC_MEM_PD);
-#endif
-
-#if 0
-	/* set dcdc lowpower mode */
-        sci_adi_write(ANA_REG_GLB_DCDC_LP_EN, 0
-                        |BIT_XTL_SLP_DCDC_OTP_PD_EN
-                        |BIT_XTL_SLP_WPA_DCDC_LP_EN
-                        /*|BIT_XTL_SLP_DCDC_MEM_LP_EN*/
-                        /*|BIT_XTL_SLP_DCDC_ARM_LP_EN*/
-                        /*|BIT_XTL_SLP_DCDC_CORE_LP_EN*/
-                        ,DCDC_LP_MASK);
-#endif
+			);
 
 	/* setup ldo AP sleep mode */
 	sci_adi_raw_write(ANA_REG_GLB_LDO_AP_SLP_CTRL0, 0
@@ -171,7 +154,6 @@ void init_ana_gr(void)
 		//|BIT_DEEP_SLP_DCDCCORE_PD_EN
 		);
 
-#if 1
 	/* setup ldo XTL sleep mode */
 	sci_adi_raw_write(ANA_REG_GLB_LDO_XTL_SLP_CTRL0, 0
 		//|BIT_SLP_XTL_LDOAMP_PD_EN
@@ -202,7 +184,21 @@ void init_ana_gr(void)
 		//|BIT_SLP_XTL_DCDCARM_PD_EN
 		//|BIT_SLP_XTL_DCDCCORE_PD_EN
 		);
-#endif
+
+#if 1
+	/* set dcdc lowpower mode */
+    sci_adi_raw_write(ANA_REG_GLB_DCDC_LP_EN, 0
+			//|BIT_XTL_SLP_DCDC_OTP_PD_EN
+			//|BIT_SLP_DCDC_OTP_PD_EN
+			//|BIT_XTL_SLP_WPA_DCDC_LP_EN
+			//|BIT_SLP_WPA_DCDC_LP_EN
+			//|BIT_XTL_SLP_DCDC_MEM_LP_EN
+			|BIT_SLP_DCDC_MEM_LP_EN
+			//|BIT_XTL_SLP_DCDC_ARM_LP_EN
+			//|BIT_SLP_DCDC_ARM_LP_EN
+			//|BIT_XTL_SLP_DCDC_CORE_LP_EN
+			|BIT_SLP_DCDC_CORE_LP_EN
+			);
 
 	/* setup ldo deep sleep lowpower mode */
 	sci_adi_raw_write(ANA_REG_GLB_SLP_LDO_LP_CTRL0, 0
@@ -259,6 +255,7 @@ void init_ana_gr(void)
 		//|BIT_SLP_XTL_LDOWIF1_LP_EN
 		//|BIT_SLP_XTL_LDOWIF0_LP_EN
 		);
+#endif
 
 	/* enable ldo sleep mode*/
 	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL, 0
@@ -271,6 +268,10 @@ void sc7710_turnoff_allldo(void)
 {
 	/*select AP control all ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_SW, 0);
+
+	/* FIXME: disable otp for reserved */
+	sci_adi_set(ANA_REG_GLB_ANA_MIXED_CTRL, BIT_OTP_EN_RST);
+	sci_adi_set(ANA_REG_GLB_DCDC_OPT_CTRL, BIT_DCDC_OTP_PD);
 
 	/*turn off all modules ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL1, 0x5555);
