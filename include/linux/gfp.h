@@ -36,6 +36,8 @@ struct vm_area_struct;
 #endif
 #define ___GFP_NO_KSWAPD	0x400000u
 #define ___GFP_OTHER_NODE	0x800000u
+#define ___GFP_LMK_TRY_HARDER   0x1000000u
+
 
 /*
  * GFP bitmasks..
@@ -145,6 +147,9 @@ struct vm_area_struct;
 
 /* 4GB DMA on some platforms */
 #define GFP_DMA32	__GFP_DMA32
+
+/* low memory killer special rountine*/
+#define GFP_LMK_TRY_HARDER	___GFP_LMK_TRY_HARDER
 
 /* Convert GFP flags to their corresponding migrate type */
 static inline int allocflags_to_migratetype(gfp_t gfp_flags)
