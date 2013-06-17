@@ -39,7 +39,7 @@
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_TIMEOUT_MS 1000
 
-//#define USE_INTERRUPT
+#define USE_INTERRUPT
 /*#define RT_VSP_THREAD*/
 
 #define DEFAULT_FREQ_DIV 0x0
@@ -54,12 +54,11 @@
 #define WB_ADDR_SET0_OFF                0x20
 #define WB_ADDR_SET1_OFF                0x24
 
-#if defined(CONFIG_ARCH_SCX35)
-    #ifdef USE_INTERRUPT
-        #undef USE_INTERRUPT
-    #endif
-#endif
-
+#define VSP_GLB_REG_BASE        (SPRD_VSP_BASE+0x1000)
+#define VSP_INT_STS_OFF            0x0             //from VSP
+#define VSP_INT_MASK_OFF        0x04
+#define VSP_INT_CLR_OFF           0x08
+#define VSP_INT_RAW_OFF         0x0c
 
 struct vsp_fh{
 	int is_vsp_aquired;
@@ -234,8 +233,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		}
 		if (ret) {
 			/*clear vsp int*/
-			__raw_writel((1<<10)|(1<<12)|(1<<15)|(1<<16),
-				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+            __raw_writel((1<<1) |(1<<2)|(1<<4)|(1<<5), VSP_GLB_REG_BASE+VSP_INT_CLR_OFF);
+            __raw_writel((1<<0)|(1<<1)|(1<<2), SPRD_VSP_BASE+ARM_INT_CLR_OFF);
 		}
 		put_user(vsp_hw_dev.vsp_int_status, (int __user *)arg);
 		vsp_hw_dev.vsp_int_status = 0;
@@ -267,46 +266,38 @@ by clk_get()!\n", "clk_vsp", name_parent);
 static irqreturn_t vsp_isr(int irq, void *data)
 {
 	int int_status;
-	
-	int_status = vsp_hw_dev.vsp_int_status = __raw_readl(SPRD_VSP_BASE+DCAM_INT_STS_OFF);
-	//printk(KERN_INFO "VSP_INT_STS %x\n",int_status);
-	if((int_status >> 15) & 0x1) // CMD DONE
-	{
-		__raw_writel((1<<10)|(1<<12)|(1<<15), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
+    int ret = 0xff; // 0xff : invalid
 
-		disable_vsp(vsp_hw_dev.vsp_fp);
-		release_vsp(vsp_hw_dev.vsp_fp);
-	}
-	else if((int_status >> 16) & 0x1) // MPEG4 ENC DONE
+    //check which module occur interrupt and clear coresponding bit
+ 	int_status =  __raw_readl(VSP_GLB_REG_BASE+VSP_INT_STS_OFF);
+    if((int_status >> 1) & 0x1) // VLC SLICE DONE
 	{
-		__raw_writel((1<<16), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
-	}
-	else if((int_status) & 0x4180) // JPEG ENC 
+ 		__raw_writel((1<<1), VSP_GLB_REG_BASE+VSP_INT_CLR_OFF);
+        ret = (1<<1);
+	}else if((int_status >> 2) & 0x1) // MBW SLICE DONE
 	{
-		int ret = 7; // 7 : invalid
-		 if((int_status >> 14) & 0x1) //JPEG ENC  MEA DONE
-		{
-			__raw_writel((1<<14), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
-			ret = 0;
-		}
-		if((int_status >> 7) & 0x1)  // JPEG ENC BSM INIT
-		{
-			__raw_writel((1<<7),
-				SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
-			ret = 2;
-		}
-		 if((int_status >> 8) & 0x1)  // JPEG ENC VLC DONE INIT
-		{
-			__raw_writel((1<<8), SPRD_VSP_BASE+DCAM_INT_CLR_OFF);
-			ret = 4;			
-		}
+ 		__raw_writel((1<<2), VSP_GLB_REG_BASE+VSP_INT_CLR_OFF);
+        ret = (1<<2);
+	}else if((int_status >> 4) & 0x1) // VLD ERR
+	{
+ 		__raw_writel((1<<4), VSP_GLB_REG_BASE+VSP_INT_CLR_OFF);
+        ret = (1<<4);
+	}else if((int_status >> 5) & 0x1) // TIMEOUT ERR
+	{
+ 		__raw_writel((1<<5), VSP_GLB_REG_BASE+VSP_INT_CLR_OFF);
+        ret = (1<<5);
+	}
 
-		 vsp_hw_dev.vsp_int_status = ret;
-	}
+    //clear VSP accelerator interrupt bit     
+    int_status =  __raw_readl(SPRD_VSP_BASE+ARM_INT_STS_OFF);
+    if ((int_status >> 2) & 0x1) //VSP ACC INT
+    {
+    	__raw_writel((1<<2), SPRD_VSP_BASE+ARM_INT_CLR_OFF);
+    }
+ 
+ 	vsp_hw_dev.vsp_int_status = ret;
 	vsp_hw_dev.condition_work = 1;
 	wake_up_interruptible(&vsp_hw_dev.wait_queue_work);
-
-
 
 	return IRQ_HANDLED;
 }
@@ -395,19 +386,7 @@ static int vsp_probe(struct platform_device *pdev)
 	vsp_hw_dev.vsp_parent_clk = NULL;
 
 #if defined(CONFIG_ARCH_SCX35)
-		//cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
-		//cmd0 |= 0x440;
-		//__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");
-
-		//cmd0 = __raw_readl(PLL_SRC);//"PLL_SRC:Read the PLL_SRC CLOCK");
-		//cmd0 &=~(0xc);//192M
-		//__raw_writel(cmd0,PLL_SRC);//"PLL_SRC:set vsp clock");
-
-		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
-		//cmd0 = 0xFFFFFFFF;
-		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
-
-        // Open MM top power.
+	// Open MM top power.
 	//*(volatile uint32 *)(0x402b001c) &= 0xfdffffff;
 	//*(volatile uint32 *)(0x402e0000) |= 0x02000000;
 
@@ -465,7 +444,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 
 #ifdef USE_INTERRUPT
 	/* register isr */
-	ret = request_irq(IRQ_VSP_INT, vsp_isr, 0, "VSP", &vsp_hw_dev);
+	ret = request_irq(IRQ_VSP_INT, vsp_isr, IRQF_DISABLED/*0*/, "VSP", &vsp_hw_dev);
 	if (ret) {
 		printk(KERN_ERR "vsp: failed to request irq!\n");
 		ret = -EINVAL;
@@ -501,7 +480,6 @@ static int vsp_remove(struct platform_device *pdev)
 #ifdef USE_INTERRUPT
 	free_irq(IRQ_VSP_INT, &vsp_hw_dev);
 #endif
-
 
 	if (vsp_hw_dev.vsp_clk) {
 		clk_put(vsp_hw_dev.vsp_clk);
