@@ -1261,6 +1261,7 @@ LOCAL int v4l2_g_parm(struct file *file,
 			struct v4l2_streamparm *streamparm)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
+	struct timeval           time;
 
 	DCAM_TRACE("V4L2: v4l2_g_parm, capability 0x%x \n", streamparm->parm.capture.capability);
 
@@ -1269,9 +1270,13 @@ LOCAL int v4l2_g_parm(struct file *file,
 	streamparm->parm.capture.reserved[2] = dev->dcam_cxt.cap_in_size.w;
 	streamparm->parm.capture.reserved[3] = dev->dcam_cxt.cap_in_size.h;
 
+	do_gettimeofday(&time);
+	streamparm->parm.capture.timeperframe.numerator    = time.tv_sec;
+	streamparm->parm.capture.timeperframe.denominator  = time.tv_usec;
+	DCAM_TRACE("V4L2: v4l2_g_parm sec=%d, usec=%d \n", time.tv_sec, time.tv_usec);
+
 	return 0;
 }
-
 
 /*
 	capability       parameters                         structure member
@@ -1294,6 +1299,7 @@ enum dcam_parm_id {
 	PATH_PAUSE    = 0x2001,
 	PATH_RESUME   = 0x2002,
 };
+
 LOCAL int v4l2_s_parm(struct file *file,
 			void *priv,
 			struct v4l2_streamparm *streamparm)
