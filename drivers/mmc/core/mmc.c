@@ -838,6 +838,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	u32 cid[4];
 	unsigned int max_dtr;
 	u32 rocr;
+	u32 ext_csd_bits;
+	u32 bus_width;
 	u8 *ext_csd = NULL;
 
 	BUG_ON(!host);
@@ -1019,7 +1021,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (card->ext_csd.part_config & EXT_CSD_PART_CONFIG_ACC_MASK) {
 		
-		printk("**** %s, card->ext_csd.part_config & EXT_CSD_PART_CONFIG_ACC_MASK ****\n", __func__, card->ext_csd.part_config & EXT_CSD_PART_CONFIG_ACC_MASK);
+	//	printk("**** %s, card->ext_csd.part_config & EXT_CSD_PART_CONFIG_ACC_MASK ****\n", __func__, card->ext_csd.part_config & EXT_CSD_PART_CONFIG_ACC_MASK);
 		card->ext_csd.part_config &= ~EXT_CSD_PART_CONFIG_ACC_MASK;
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_PART_CONFIG,
 				 card->ext_csd.part_config,
@@ -1138,8 +1140,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (mmc_card_hs200(card)) {
 		printk("********** %s, mmc_card_hs200(card):%d **********\n", __func__, mmc_card_hs200(card));
-		u32 ext_csd_bits;
-		u32 bus_width = card->host->ios.bus_width;
+		bus_width = card->host->ios.bus_width;
 
 		/*
 		 * For devices supporting HS200 mode, the bus width has

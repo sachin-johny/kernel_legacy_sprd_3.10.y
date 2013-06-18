@@ -382,7 +382,7 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 	sprd_sysdump_extra.enter_id = enter_id;
 
 	sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_IO_MEM_BASE);
-	printk("vaddr is %p,paddr is %p\n",sprd_sysdump_info,SPRD_IO_MEM_BASE);
+	printk("vaddr is %p,paddr is %p\n",sprd_sysdump_info, (void *)SPRD_IO_MEM_BASE);
 	memcpy(sprd_sysdump_info->magic, SYSDUMP_MAGIC,
 			sizeof(sprd_sysdump_info->magic));
 
@@ -433,6 +433,7 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 	return;
 }
 
+extern void emergency_restart(void);
 void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs)
 {
 	if (!sysdump_conf.enable)
@@ -471,7 +472,6 @@ void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs)
 		printk("*****************************************************\n");
 		printk("\n");
 
-		extern void emergency_restart(void);
 		emergency_restart();
 	}
 

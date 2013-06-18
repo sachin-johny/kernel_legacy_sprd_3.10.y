@@ -43,7 +43,7 @@ static void __inline __dma_clk_disable(void)
 {
 	sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_DMA_EB);
 }
-
+#if 0
 static void __dma_set_prio(u32 dma_chn, dma_pri_level chn_prio)
 {
 	u32 reg_val;
@@ -93,7 +93,7 @@ static int __dma_set_request_mode(u32 dma_chn, dma_request_mode mode)
 
 	return 0;
 }
-
+#endif
 static int __dma_set_int_type(u32 dma_chn, dma_int_type int_type)
 {
 	u32 reg_val;
@@ -487,7 +487,6 @@ int sci_dma_request(const char *dev_name, dma_chn_type chn_type)
 
 int sci_dma_free(u32 dma_chn)
 {
-	int i;
 	ulong flags;
 
 	if (dma_chn > DMA_CHN_MAX)

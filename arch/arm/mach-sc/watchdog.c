@@ -134,7 +134,7 @@ static int __init fatal_flag_init(void)
 #else
 	dump_flag = (void __iomem *)(SPRD_IRAM0_BASE + SZ_8K - 4);
 #endif
-	*dump_flag = NULL;
+	*dump_flag = 0;
 #ifdef CONFIG_DEBUG_FS
 	fatal_dump_dir = debugfs_create_dir("fatal_dump", NULL);
 	if (IS_ERR(fatal_dump_dir) || !fatal_dump_dir) {

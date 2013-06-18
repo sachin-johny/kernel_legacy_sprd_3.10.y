@@ -309,6 +309,7 @@ static int sprd_rtc_read_alarm(struct device *dev,
 }
 
 #if defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SC7710)
+#if 0
 static inline unsigned long sprd_rtc_get_aux_alarm_sec(void)
 {
 	unsigned sec, min, hour, day;
@@ -359,6 +360,7 @@ static int sprd_rtc_read_aux_alarm(struct device *dev,
 
 	return 0;
 }
+#endif
 #endif
 
 static int sprd_rtc_set_alarm(struct device *dev,

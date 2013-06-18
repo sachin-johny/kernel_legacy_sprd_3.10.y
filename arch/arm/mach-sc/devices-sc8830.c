@@ -1016,7 +1016,7 @@ static int native_tdmodem_start(void *arg)
 	u32 state;
 	u32 value;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
-	memcpy(SPRD_IRAM1_BASE + 0x1800, cp1data, sizeof(cp1data));
+	memcpy((void *)(SPRD_IRAM1_BASE + 0x1800), cp1data, sizeof(cp1data));
 
 	/* clear cp1 force shutdown */
 	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x02000000));
@@ -1201,7 +1201,7 @@ static int native_wcdmamodem_start(void *arg)
 	u32 value;
 
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
-	memcpy(SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
+	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
 
 	/* clear cp0 force shutdown */
 	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x02000000));

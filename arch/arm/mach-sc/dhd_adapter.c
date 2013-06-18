@@ -23,7 +23,7 @@
 #include <mach/irqs.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
-
+#include <linux/export.h>
 #include <linux/clk.h>
 #include <linux/fs.h>
 #include <linux/mmc/host.h>
@@ -208,7 +208,7 @@ int wlan_device_status_register(
 
 EXPORT_SYMBOL(wlan_device_status_register);
 
-static unsigned int wlan_device_status(struct device *dev)
+static __used unsigned int wlan_device_status(struct device *dev)
 {
 	return wlan_device_cd;
 }

@@ -389,7 +389,7 @@ static inline void *sdhci_priv(struct sdhci_host *host)
 	return (void *)host->private;
 }
 
-static inline u8 sdhci_sdclk_enable(struct sdhci_host *host, u8 val)
+static inline void sdhci_sdclk_enable(struct sdhci_host *host, u8 val)
 {
 	u32 regVal;
 

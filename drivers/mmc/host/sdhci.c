@@ -235,7 +235,7 @@ static void sdhci_enable_card_detection(struct sdhci_host *host)
 	sdhci_set_card_detection(host, true);
 }
 
-static void sdhci_disable_card_detection(struct sdhci_host *host)
+static __used void sdhci_disable_card_detection(struct sdhci_host *host)
 {
 	sdhci_set_card_detection(host, false);
 }
@@ -1161,7 +1161,6 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	int real_div = div, clk_mul = 1;
 	u16 clk = 0;
 	/*For Hynix 4GB+4Gb LPDDR CiMCP EMMC*/
-	u16 clk_temp = 0;
 
 	unsigned long timeout;
 
@@ -1520,7 +1519,6 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 
 	if (host->version >= SDHCI_SPEC_300) {
 #if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
-		u16 clk;
 		u32 ctrl_2;
 #else
 		u16 clk, ctrl_2;
@@ -1696,7 +1694,6 @@ static int sdhci_do_get_ro(struct sdhci_host *host)
 
 static void sdhci_hw_reset(struct mmc_host *mmc)
 {
-	int ret = 0;
 	struct sdhci_host *host = mmc_priv(mmc);
 	sdhci_init(host,0);
 	mmc_power_off(mmc);
@@ -1754,7 +1751,7 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 						struct mmc_ios *ios)
 {
 	u8 pwr;
-	u16 clk, ctrl;
+	u16 ctrl;
 	u32 present_state;
 
 	/*
@@ -2773,14 +2770,14 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 }
 EXPORT_SYMBOL_GPL(sdhci_runtime_resume_host);
 
-#endif /* CONFIG_PM *
+#endif /* CONFIG_PM */
 
 
-/*****************************************************************************\
+/*****************************************************************************
  *                                                                           *
  * Device allocation/registration                                            *
  *                                                                           *
-\*****************************************************************************/
+ *****************************************************************************/
 
 struct sdhci_host *sdhci_alloc_host(struct device *dev,
 	size_t priv_size)

@@ -49,8 +49,6 @@ void pm_ana_ldo_config(void);
 
 static void setup_autopd_mode(void)
 {
-	uint32_t mid = 0;
-
 	if (soc_is_scx35_v0())
 		sci_glb_write(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3a, -1UL);
 	else
@@ -366,6 +364,7 @@ void print_last_reg(void)
 	printk("ANA_REG_GLB_LDO_PD_CTRL --- 0x%08x\n", ldo_pd_ctrl);
 	printk("ANA_REG_GLB_ARM_MODULE_EN --- 0x%08x\n", arm_module_en);
 }
+#if 0
 static void test_setup_timer(int load)
 {
 	//AP_TMR0_EB
@@ -390,7 +389,7 @@ static void test_setup_timer(int load)
 	sci_glb_write(SPRD_INT_BASE + 0x8, 0xffffffff, -1UL);
 	return;
 }
-
+#endif
 void check_ldo(void)
 {
 }
@@ -424,7 +423,7 @@ struct emc_repower_param *repower_param;
 
 static int init_reset_vector(void)
 {
-	sp_pm_reset_vector = SPRD_IRAM0_BASE;
+	sp_pm_reset_vector = (u32 *)SPRD_IRAM0_BASE;
 
 	iram_start = (void __iomem *)(SPRD_IRAM_BASE);
 	/* copy sleep code to (IRAM). */
@@ -538,8 +537,6 @@ static void arm_sleep(void)
 /* arm core + arm sys */
 static void mcu_sleep(void)
 {
-	u32 val;
-
 	SAVE_GLOBAL_REG;
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SYS_SLEEP_EN);
 	cpu_do_idle();
@@ -714,8 +711,6 @@ static void sc8830_machine_restart(char mode, const char *cmd)
 
 void sc_pm_init(void)
 {
-	unsigned int cpu1_jump_addrss;
-	unsigned int val;
 	__raw_writel(0x0, REG_PMU_APB_CA7_C0_CFG);
 	
 	init_reset_vector();

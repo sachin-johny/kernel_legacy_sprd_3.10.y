@@ -264,6 +264,9 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 
 static DEFINE_RAW_SPINLOCK(die_lock);
 
+#ifdef CONFIG_SPRD_SYSDUMP /* TODO: jianjun.he */
+	extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
+#endif
 /*
  * This function is protected against re-entrancy.
  */
@@ -285,7 +288,6 @@ void die(const char *str, struct pt_regs *regs, int err)
 	ret = __die(str, err, thread, regs);
 
 #ifdef CONFIG_SPRD_SYSDUMP /* TODO: jianjun.he */
-	extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
 	sysdump_enter(1, str, regs);
 #endif
 
