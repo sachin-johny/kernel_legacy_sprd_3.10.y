@@ -54,10 +54,11 @@ struct nmi_5625_dev {
 static int already_init = 0;
 static struct nmi_5625_dev nd;
 
-#define GPIO_ATV_RESET    138
-#define GPIO_ATV_PWROFF   139
+#define GPIO_ATV_RESET    149
+#define GPIO_ATV_PWROFF   150
 
 static struct regulator *s_camdvdd_regulator = NULL;
+static struct regulator *s_vddrf1_regulator = NULL;
 
 /**************************************************************
 	
@@ -100,16 +101,25 @@ static int nmi5625_ioctl(struct file *file,
 	int ret = 0;
 	#define NMI_I2C_RW_LENGTH	256
 
+
+        
+	dPrint(N_TRACE,"[nmi-debug]%s: enter --> cmd = %d\n", __func__,cmd&0xffff0000);
+       
+
 	switch ((cmd&0xffff0000)) {
 		case NM5625_PWR_2P8_CTL:
 			dPrint(N_TRACE,"NM5625_PWR_2P8_CTL, power %s\n", (arg==1)?"on":"off");
 			if (arg == 1) {	/* on */
                 // gpio_direction_output(GPIO_ATV_PWROFF,1);
 				//test
-				//LDO_TurnOnLDO(LDO_LDO_CAMA);						   
+				//LDO_TurnOnLDO(LDO_LDO_CAMA);	
+			            dPrint(N_TRACE,"set s_vddrf1_regulator voltage to level 1800mv\n");
+                                    regulator_set_voltage(s_vddrf1_regulator,1800000,1800000);
+                                    regulator_enable(s_vddrf1_regulator);
              			  } 
 			else	{							
 							//gpio_direction_output(GPIO_ATV_PWROFF,0);
+            //                        regulator_disable(s_vddrf1_regulator);   
 				}
 
 			break;
@@ -118,15 +128,17 @@ static int nmi5625_ioctl(struct file *file,
 			if (arg == 1) {	
 				gpio_direction_output(GPIO_ATV_PWROFF,1);
 				//ANA_REG_OR(ANA_MIXED_CTRL,  BIT_6);
-
+                
+		dPrint(N_TRACE,"set s_camdvdd_regulator voltage to level 1800mv\n");
+                regulator_set_voltage(s_camdvdd_regulator,1800000,1800000);
                 regulator_enable(s_camdvdd_regulator);
 			} 
 			else {
                 /* sun.aijun(SPRD) modify */
-				gpio_direction_output(GPIO_ATV_PWROFF,0);
+	//			gpio_direction_output(GPIO_ATV_PWROFF,0);
 				//ANA_REG_AND(ANA_MIXED_CTRL,  ~BIT_6);
 
-                regulator_disable(s_camdvdd_regulator);   
+          //      regulator_disable(s_camdvdd_regulator);   
 			}	
 			break;
 
@@ -220,7 +232,7 @@ static int nmi5625_ioctl(struct file *file,
 
 _fail_:
 	//func_exit();
-	dPrint(N_TRACE, "nmi_ioctl return value...(%d)\n", ret);
+	//dPrint(N_TRACE, "nmi_ioctl return value...(%d)\n", ret);
 	return ret; 
 }
 
@@ -298,8 +310,16 @@ static int nmi5625_probe(struct i2c_client *client, const struct i2c_device_id *
 		}
 		/*User interface end */
 
-        if (NULL == s_camdvdd_regulator) {
-            s_camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
+        if (NULL == s_vddrf1_regulator) {
+        if (NULL == s_vddrf1_regulator) {
+            s_vddrf1_regulator = regulator_get(NULL, "vddrf1");
+        }
+        if (IS_ERR(s_vddrf1_regulator)) {
+                dPrint(N_ERR,"SENSOR:could not get vddrf1.\n");
+                goto _fail_;
+        }
+        
+        s_camdvdd_regulator = regulator_get(NULL, "vddcamd1");
         }
         if (IS_ERR(s_camdvdd_regulator)) {
                 dPrint(N_ERR,"SENSOR:could not get camdvdd.\n");

@@ -30,17 +30,17 @@
 
 
 
-#define NMI_SDA_PIN	81
-#define NMI_SCL_PIN	80
+#define NMI_SDA_PIN	125 //81
+#define NMI_SCL_PIN	124 //80
 
 static unsigned long I2C_func_cfg[] /*__initdata*/ = {
-	MFP_CFG_X(SDA, GPIO, DS3, F_PULL_UP, F_PULL_UP, IO_OE),
-        MFP_CFG_X(SCL, GPIO, DS3, F_PULL_UP, F_PULL_UP, IO_OE), 
+	MFP_CFG_X(SDA1, GPIO, DS3, F_PULL_UP, F_PULL_UP, IO_OE),
+        MFP_CFG_X(SCL1, GPIO, DS3, F_PULL_UP, F_PULL_UP, IO_OE), 
 };
 
 static unsigned long I2C_std_func_cfg[] = {
-	MFP_CFG_X(SDA, AF0, DS3, F_PULL_UP, F_PULL_UP, IO_NONE),
-        MFP_CFG_X(SCL, AF0, DS3, F_PULL_UP, F_PULL_UP, IO_NONE), 
+	MFP_CFG_X(SDA1, AF0, DS3, F_PULL_UP, F_PULL_UP, IO_NONE),
+        MFP_CFG_X(SCL1, AF0, DS3, F_PULL_UP, F_PULL_UP, IO_NONE), 
 };
 
 /******************************************************************************

@@ -339,6 +339,7 @@ struct akm8963_platform_data akm_platform_data_8963 = {
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
+        {I2C_BOARD_INFO("nmiatv",0x60),},/*atv*/ 
 };
 
 static struct i2c_board_info i2c0_boardinfo[] = {
