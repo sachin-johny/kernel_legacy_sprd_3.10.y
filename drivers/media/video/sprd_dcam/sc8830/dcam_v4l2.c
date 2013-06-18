@@ -177,6 +177,7 @@ struct dcam_dev {
 	struct dcam_queue        queue;
 	struct timer_list        dcam_timer;
 	atomic_t                 run_flag;
+	uint32_t                 got_resizer;
 };
 
 #ifndef __SIMULATOR__
@@ -187,7 +188,7 @@ LOCAL int sprd_v4l2_queue_write(struct dcam_queue *queue, struct dcam_node *node
 LOCAL int sprd_v4l2_queue_read(struct dcam_queue *queue, struct dcam_node *node);
 LOCAL int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
 LOCAL int sprd_stop_timer(struct timer_list *dcam_timer);
-LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id);
+LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t reconfig_flag);
 LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id);
 
 
@@ -1300,6 +1301,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 	struct dcam_dev          *dev = video_drvdata(file);
 	uint32_t                 frm_id;
 	uint32_t                 channel_id;
+	uint32_t                 reconfig_flag;
 	struct dcam_path_spec    *path = NULL;
 	int                      ret = DCAM_RTN_SUCCESS;
 
@@ -1356,7 +1358,8 @@ LOCAL int v4l2_s_parm(struct file *file,
 
 	case PATH_PAUSE:
 		channel_id = streamparm->parm.capture.reserved[0];
-		sprd_v4l2_streampause(file, channel_id);
+		reconfig_flag = streamparm->parm.capture.reserved[1];
+		sprd_v4l2_streampause(file, channel_id, reconfig_flag);
 		break;
 
 	case PATH_RESUME:
@@ -1646,6 +1649,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 			printk("V4L2: path2 has been occupied by other app \n");
 			return -EIO;
 		}
+		dev->got_resizer = 1;
 		mutex_lock(&dev->dcam_mutex);
 		ret = sprd_v4l2_check_path2_cap(fmt->fourcc, f, &dev->dcam_cxt);
 		mutex_unlock(&dev->dcam_mutex);
@@ -1934,7 +1938,10 @@ LOCAL int v4l2_streamoff(struct file *file,
 
 	if (path_2->is_work) {
 		path_2->status = PATH_IDLE;
-		dcam_rel_resizer();
+		if (dev->got_resizer) {
+			dcam_rel_resizer();
+			dev->got_resizer = 0;
+		}
 	}
 
 	if (path_0->is_work) {
@@ -2047,14 +2054,14 @@ exit:
 	return ret;
 }
 
-LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id)
+LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t reconfig_flag)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_path_spec    *path = NULL;
 	int                      ret = 0;
 	enum dcam_path_index     path_index;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d \n", channel_id);
+	DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d ,reconfig_flag = %d.\n", channel_id,reconfig_flag);
 		
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
@@ -2063,11 +2070,14 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id)
 		ret = dcam_stop_path(path_index);
 		V4L2_PRINT_IF_ERR(ret);
 		path->status = PATH_IDLE;
-		path->is_work = 0;
-		path->frm_cnt_act = 0;
+		if ((reconfig_flag) && (DCAM_PATH2 == channel_id)) {
+			path->is_work = 0;
+			path->frm_cnt_act = 0;
+		}
 
-		if(DCAM_PATH2 == channel_id){
+		if (DCAM_PATH2 == channel_id && dev->got_resizer) {
 			dcam_rel_resizer();
+			dev->got_resizer = 0;
 		}
 		DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d done \n", channel_id);
 	}else{
@@ -2098,9 +2108,18 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 			}else if (DCAM_PATH1 == channel_id) {
 				path_cfg = dcam_path1_cfg;
 			}else if (DCAM_PATH2 == channel_id) {
-				path_cfg = dcam_path2_cfg; /* no need get resizer, it will done in try format */
+				if (0 == dev->got_resizer) {
+					 /* if not owned resiezer, try to get it */
+					if (unlikely(dcam_get_resizer(0))) {
+						/*no wait to get the controller of resizer, failed*/
+						printk("V4L2: sprd_v4l2_resume, path2 has been occupied by other app \n");
+						return -EIO;
+					}
+					dev->got_resizer = 1;
+				}
+				path_cfg = dcam_path2_cfg;
 			} else {
-				printk("V4L2: sprd_v4l2_streamresume, invalid channel_id=0x%x \n", channel_id);
+				printk("V4L2: sprd_v4l2_resume, invalid channel_id=0x%x \n", channel_id);
 				return -1;
 			}
 
@@ -2217,7 +2236,7 @@ LOCAL int sprd_init_handle(struct file *file)
 	}
 	path->frm_cnt_act = 0;
 	path->status = PATH_IDLE;
-
+	dev->got_resizer = 0;
 	return 0;
 }
 

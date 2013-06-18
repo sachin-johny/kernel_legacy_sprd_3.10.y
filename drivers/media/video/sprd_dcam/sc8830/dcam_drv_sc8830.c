@@ -877,6 +877,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		DCAM_RTN_IF_ERR;
 		_dcam_force_copy_ext(DCAM_PATH_IDX_2, true, true);
 		DCAM_TRACE("DCAM:int= %x \n", REG_RD(DCAM_INT_STS));
+		REG_OWR(DCAM_INT_MASK, BIT_8);
 		REG_OWR(DCAM_CFG, BIT_2);
 		//REG_OWR(DCAM_BURST_GAP, BIT_20); // aiden todo
 	}
