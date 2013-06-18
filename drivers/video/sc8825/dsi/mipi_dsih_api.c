@@ -131,7 +131,7 @@ dsih_error_t mipi_dsih_close(dsih_ctrl_t * instance)
 }
 void mipi_dsih_allow_return_to_lp(dsih_ctrl_t * instance, int hfp, int hbp, int vactive, int vfp, int vbp, int vsync)
 {
-    if (instance != 0)
+    if (NULL != instance)
     {
         if (instance->status == INITIALIZED)
         {
@@ -143,15 +143,15 @@ void mipi_dsih_allow_return_to_lp(dsih_ctrl_t * instance, int hfp, int hbp, int 
             mipi_dsih_hal_dpi_lp_during_vsync(instance, vsync);
             return;
         }
-    }
-    if (instance->log_error != 0)
-    {
-        instance->log_error("invalid instance");
+	if (instance->log_error != 0)
+   	{
+            instance->log_error("invalid instance");
+	}
     }
 }
 void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, int short_write, int short_read)
 {
-    if (instance != 0)
+    if (NULL != instance)
     {
         if (instance->status == INITIALIZED)
         {
@@ -161,15 +161,15 @@ void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
             mipi_dsih_hal_dcs_rd_tx_type(instance, 0, short_read);
             return;
         }
-    }
-    if (instance->log_error != 0)
-    {
-        instance->log_error("invalid instance");
+	if (instance->log_error != 0)
+    	{
+            instance->log_error("invalid instance");
+    	}
     }
 }
 void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, int short_write, int short_read)
 {
-    if (instance != 0)
+    if (NULL != instance)
     {
         if (instance->status == INITIALIZED)
         {
@@ -182,10 +182,10 @@ void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
             mipi_dsih_hal_gen_rd_tx_type(instance, 2, short_read);
             return;
         }
-    }
-    if (instance->log_error != 0)
-    {
-        instance->log_error("invalid instance");
+	if (instance->log_error != 0)
+	{
+       	    instance->log_error("invalid instance");
+    	}
     }
 }
 /* packet handling */
@@ -561,7 +561,7 @@ dsih_error_t mipi_dsih_dcs_wr_cmd(dsih_ctrl_t * instance, uint8_t vc, uint8_t* p
 }
 void mipi_dsih_cmd_mode(dsih_ctrl_t * instance, int en)
 {
-    if (instance != 0)
+    if (NULL != instance)
     {
         if (instance->status == INITIALIZED)
         {
@@ -576,15 +576,16 @@ void mipi_dsih_cmd_mode(dsih_ctrl_t * instance, int en)
             }
             return;
         }
-    }
-    if (instance->log_error != 0)
-    {
-        instance->log_error("invalid instance");
+	if (instance->log_error != 0)
+    	{
+            instance->log_error("invalid instance");
+    	}
     }
 }
+
 void mipi_dsih_video_mode(dsih_ctrl_t * instance, int en)
 {
-    if (instance != 0)
+    if (NULL != instance)
     {
         if (instance->status == INITIALIZED)
         {
@@ -599,12 +600,13 @@ void mipi_dsih_video_mode(dsih_ctrl_t * instance, int en)
             }
             return;
         }
-    }
-    if (instance->log_error != 0)
-    {
-        instance->log_error("invalid instance");
+	if (instance->log_error != 0)
+	{
+        	instance->log_error("invalid instance");
+    	}
     }
 }
+
 int mipi_dsih_active_mode(dsih_ctrl_t * instance)
 {
     if (mipi_dsih_hal_gen_is_cmd_mode(instance))
@@ -1090,7 +1092,7 @@ void mipi_dsih_event_handler(void * param)
     uint8_t i = 0;
     uint32_t status_0 = mipi_dsih_hal_error_status_0(instance, 0xffffffff);
     uint32_t status_1 = mipi_dsih_hal_error_status_1(instance, 0xffffffff);
-    if (instance == 0)
+    if (NULL == instance)
     {
         return;
     }
