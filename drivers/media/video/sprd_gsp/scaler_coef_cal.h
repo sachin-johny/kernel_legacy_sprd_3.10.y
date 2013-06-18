@@ -55,12 +55,13 @@
 uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
                                   uint32_t i_h,
                                   uint32_t o_w,
-                                  uint32_t o_h,
+                                  uint32_t o_h,                                  
+                                  uint32_t hor_tap,
+                                  uint32_t ver_tap,                                  
                                   uint32_t *coeff_h_ptr,
                                   uint32_t *coeff_v_ptr,
                                   void *temp_buf_ptr,
-                                  uint32_t temp_buf_size
-                                 );
+                                  uint32_t temp_buf_size);
 
 void GSP_Scale_Coef_Tab_Config(uint32_t *p_h_coeff,uint32_t *p_v_coeff);
 #endif

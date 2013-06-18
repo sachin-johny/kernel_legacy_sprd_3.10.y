@@ -133,6 +133,7 @@ extern   "C"
 
     typedef enum _GSP_ERR_CODE_TAG_
     {
+    	/*GSP HW defined err code, start*/
         GSP_NO_ERR = 0,
         GSP_DES_SIZE_ERR = 1,
         GSP_SCL_OUT_RNG_ERR = 2,
@@ -154,6 +155,34 @@ extern   "C"
         GSP_LYER1_OUT_SITUATION_ERR = 18,
         GSP_CMD_NUM_ERR = 19,
         GSP_ALL_MODULE_DISABLE_ERR = 20,
+        /*GSP HW defined err code, end*/
+
+		/*GSP kernel driver defined err code, start*/
+        GSP_KERNEL_FULL = 0x81,//kernel driver only supports GSP_MAX_USER clients
+        GSP_KERNEL_OPEN_INTR = 0x82,//wait open semaphore, interrupt by signal
+        GSP_KERNEL_CFG_INTR = 0x83,//wait hw semaphore, interrupt by signal
+        GSP_KERNEL_COPY_ERR = 0x84,//copy cfg params err
+        GSP_KERNEL_CALLER_NOT_OWN_HW = 0x85,// the caller thread don't get the GSP-HW semaphore, have no power to trigger,waite done.
+        GSP_KERNEL_WORKAROUND_ALLOC_ERR = 0x86,//alloc CMDQ descriptor memory err
+        GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT = 0x87,
+        GSP_KERNEL_WORKAROUND_WAITDONE_INTR = 0x88,
+        GSP_KERNEL_GEN_OUT_RANG = 0x89,
+        GSP_KERNEL_GEN_ALLOC_ERR = 0x8A,
+        GSP_KERNEL_GEN_COMMON_ERR = 0x8B,
+        GSP_KERNEL_WAITDONE_TIMEOUT = 0x8C,
+        GSP_KERNEL_WAITDONE_INTR = 0x8D,        
+        GSP_KERNEL_FORCE_EXIT = 0x8E,//not an err
+        GSP_KERNEL_CTL_CMD_ERR = 0x8F,//not an err
+        /*GSP kernel driver defined err code, end*/
+		
+		/*GSP HAL defined err code, start*/
+
+		GSP_HAL_PARAM_ERR = 0xA0,// common hal interface parameter err
+		GSP_HAL_PARAM_CHECK_ERR = 0xA1,// GSP config parameter check err
+		GSP_HAL_VITUAL_ADDR_NOT_SUPPORT = 0xA2,// GSP can't process virtual address
+		GSP_HAL_ALLOC_ERR = 0xA3,
+        /*GSP HAL defined err code, end*/
+
         GSP_ERR_MAX_NUM,
     } GSP_ERR_CODE_E;
 
@@ -292,6 +321,9 @@ extern   "C"
     typedef struct _GSP_MISC_CONFIG_INFO_TAG_
     {
         uint8_t                        dithering_en;
+		uint8_t                        gsp_gap;//gsp ddr gap(0~255)
+		uint8_t                        gsp_clock;//gsp clock(0:96M 1:153.6M 2:192M 3:256M)
+		uint8_t                        ahb_clock;//ahb clock(0:26M 1:76M 2:128M 3:192M)
     }
     GSP_MISC_CONFIG_INFO_T;
 

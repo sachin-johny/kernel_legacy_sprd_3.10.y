@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include <linux/init.h>
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/miscdevice.h>
@@ -37,14 +37,62 @@
 #include <linux/dma-mapping.h>
 #endif
 
-static volatile pid_t			gsp_cur_client_pid = INVALID_USER_ID;
+static ulong gsp_gap = 0;
+module_param(gsp_gap, ulong, 0644);//S_IRUGO|S_IWUGO
+MODULE_PARM_DESC(gsp_gap, "gsp ddr gap(0~255)");
+
+static uint gsp_clock = 3;
+module_param(gsp_clock, uint, 0644);
+MODULE_PARM_DESC(gsp_clock, "gsp clock(0:96M 1:153.6M 2:192M 3:256M)");
+
+static int ahb_clock = 2;
+module_param(ahb_clock, int, 0644);
+MODULE_PARM_DESC(ahb_clock, "ahb clock(0:26M 1:76M 2:128M 3:192M)");
+
+
+#define PERF_MAGIC 0x0000dead
+#define PERF_STATIC_CNT_PWR 8
+#define PERF_STATIC_CNT_MAX (1 << PERF_STATIC_CNT_PWR)
+
+static unsigned long gsp_perf_cnt = 0;
+static unsigned long long gsp_perf_s = 0;
+static unsigned long long gsp_perf_ns = 0;
+static unsigned long gsp_perf = 0;
+module_param(gsp_perf, ulong, 0644);
+MODULE_PARM_DESC(gsp_perf, "write 0xdead to gsp_perf will trigger gsp static time cost,then write back to gsp_perf.");
+
+static unsigned long gsp_workaround_perf_cnt = 0;
+static unsigned long long gsp_workaround_perf_s = 0;
+static unsigned long long gsp_workaround_perf_ns = 0;
+static unsigned long gsp_workaround_perf = 0;
+module_param(gsp_workaround_perf, ulong, 0644);
+MODULE_PARM_DESC(gsp_workaround_perf, "write 0xdead to gsp_workaround_perf will trigger gsp static workaround time cost,then write back to gsp_workaround_perf.");
+
+
+static volatile pid_t           gsp_cur_client_pid = INVALID_USER_ID;
 static struct semaphore         gsp_hw_resource_sem;//cnt == 1,only one thread can access critical section at the same time
 static struct semaphore         gsp_wait_interrupt_sem;// init to 0, gsp done/timeout/client discard release sem
-GSP_CONFIG_INFO_T				s_gsp_cfg = {0};//protect by gsp_hw_resource_sem
+GSP_CONFIG_INFO_T               s_gsp_cfg;//protect by gsp_hw_resource_sem
 static struct proc_dir_entry    *gsp_drv_proc_file;
 
 
-static gsp_user gsp_user_array[GSP_MAX_USER]= {0};
+#define GSP_ERR_RECORD_CNT  8
+static GSP_REG_T g_gsp_reg_err_record[GSP_ERR_RECORD_CNT];
+static uint32_t g_gsp_reg_err_record_rp=0;
+static uint32_t g_gsp_reg_err_record_wp=0;
+
+#define ERR_RECORD_INDEX_ADD(v) (v = ((v+1)&(GSP_ERR_RECORD_CNT-1)))
+#define ERR_RECORD_INDEX_ADD_RP()   ERR_RECORD_INDEX_ADD(g_gsp_reg_err_record_rp)
+#define ERR_RECORD_INDEX_ADD_WP()   ERR_RECORD_INDEX_ADD(g_gsp_reg_err_record_wp)
+#define ERR_RECORD_INDEX_GET_RP()   (g_gsp_reg_err_record_rp)
+#define ERR_RECORD_INDEX_GET_WP()   (g_gsp_reg_err_record_wp)
+#define ERR_RECORD_ADD(v)   (g_gsp_reg_err_record[g_gsp_reg_err_record_wp] = (v))
+#define ERR_RECORD_GET(v)   (&g_gsp_reg_err_record[g_gsp_reg_err_record_rp])
+#define ERR_RECORD_EMPTY()  (g_gsp_reg_err_record_rp == g_gsp_reg_err_record_wp)
+#define ERR_RECORD_FULL()   ((g_gsp_reg_err_record_wp+1)&(GSP_ERR_RECORD_CNT-1) == g_gsp_reg_err_record_rp)
+
+
+static gsp_user gsp_user_array[GSP_MAX_USER];
 static gsp_user* gsp_get_user(pid_t user_pid)
 {
     gsp_user* ret_user = NULL;
@@ -210,59 +258,26 @@ static uint32_t GSP_layer0_layer1_overlap(void)
         des_rect1.rect_h = s_gsp_cfg.layer1_info.clip_rect.rect_h;
     }
 
-    //L1 (st_x,st_y) in C F G H I area
+    //L1 (st_x,st_y) at left or top of L0
+    if(((des_rect1.st_x+des_rect1.rect_w-1) < des_rect0.st_x)
+       ||((des_rect1.st_y+des_rect1.rect_h-1) < des_rect0.st_y))
+    {
+        return 0;
+    }
+
+    //L1 (st_x,st_y) at right or bottom of L0
     if(des_rect1.st_x > (des_rect0.st_x + des_rect0.rect_w - 1)
        ||des_rect1.st_y > (des_rect0.st_y + des_rect0.rect_h - 1))
     {
         return 0;
     }
 
-    //L1 (st_x,st_y) in A area
-    if((des_rect1.st_x < des_rect0.st_x) && (des_rect1.st_y < des_rect0.st_y))
-    {
-        if(((des_rect1.st_x+des_rect1.rect_w-1) <= des_rect0.st_x)||((des_rect1.st_y+des_rect1.rect_h-1) <= des_rect0.st_y))
-        {
-            return 0;
-        }
-        else
-        {
-            return 1;
-        }
-    }
 
-    //L1 (st_x,st_y) in B area
-    if((des_rect1.st_x >= des_rect0.st_x) && (des_rect1.st_y < des_rect0.st_y))
-    {
-        if((des_rect1.st_y+des_rect1.rect_h-1) < des_rect0.st_y)
-        {
-            return 0;
-        }
-        else
-        {
-            return 1;
-        }
-    }
-
-    //L1 (st_x,st_y) in D area
-    if((des_rect1.st_x < des_rect0.st_x) && (des_rect1.st_y >= des_rect0.st_y))
-    {
-        if((des_rect1.st_x+des_rect1.rect_w-1) < des_rect0.st_x)
-        {
-            return 0;
-        }
-        else
-        {
-            return 1;
-        }
-    }
-
-    //L1 (st_x,st_y) in E area
     return 1;
 }
 
 
-
-
+#ifndef TRANSLATION_CALC_OPT
 static void Matrix3x3SetIdentity(Matrix33 m)
 {
     uint32_t r = 0;//row
@@ -312,7 +327,6 @@ desc:multiply m1 times m2, store result in m2
 static void MatrixMul31(Matrix33 m1,Matrix31 m2)
 {
     uint32_t r = 0;//row
-    uint32_t i = 0;
     Matrix31 tm;//temp matrix
 
     for(r=0; r<3; r++)
@@ -326,7 +340,7 @@ static void MatrixMul31(Matrix33 m1,Matrix31 m2)
     }
 }
 
-
+#endif
 /*
 func:GSP_Gen_CMDQ()
 desc:split L1 des image into a few parts according to their relationship, each parts will be bitblt by GSP separately in CMDQ mode
@@ -348,17 +362,17 @@ static uint32_t GSP_Gen_CMDQ(GSP_LAYER1_REG_T *pDescriptors_walk,GSP_L1_L0_RELAT
 
     PART_POINTS L0_des_Points = {0};
     PART_POINTS L1_des_Points = {0};
-    PART_POINTS parts_Points_des[PARTS_CNT_MAX] = {0};//L1 des parts not overlap
-    PART_POINTS parts_Points_src[PARTS_CNT_MAX] = {0};//L1 des parts in clip pic
+    PART_POINTS parts_Points_des[PARTS_CNT_MAX] = {{0}};//L1 des parts not overlap
+    PART_POINTS parts_Points_src[PARTS_CNT_MAX] = {{0}};//L1 des parts in clip pic
 
 #ifdef TRANSLATION_CALC_OPT
-    PART_POINTS parts_Points_des_co[PARTS_CNT_MAX] = {0};//coordinat point at (parts_Points_des[0].st_x,parts_Points_des[0].st_y)
-    PART_POINTS parts_Points_des_am[PARTS_CNT_MAX] = {0};//anti-mirror
-    PART_POINTS parts_Points_des_ar[PARTS_CNT_MAX] = {0};//anti-ratation
+    PART_POINTS parts_Points_des_co[PARTS_CNT_MAX] = {{0}};//coordinat point at (parts_Points_des[0].st_x,parts_Points_des[0].st_y)
+    PART_POINTS parts_Points_des_am[PARTS_CNT_MAX] = {{0}};//anti-mirror
+    PART_POINTS parts_Points_des_ar[PARTS_CNT_MAX] = {{0}};//anti-ratation
 #else
 
-    PART_POINTS parts_Points_des_ar_matrix[PARTS_CNT_MAX] = {0};//anti-ratation
-    PART_POINTS parts_Points_src_matrix[PARTS_CNT_MAX] = {0};//L1 des parts in clip pic
+    PART_POINTS parts_Points_des_ar_matrix[PARTS_CNT_MAX] = {{0}};//anti-ratation
+    PART_POINTS parts_Points_src_matrix[PARTS_CNT_MAX] = {{0}};//L1 des parts in clip pic
 
     Matrix33 matrix_t;//translate to origin at (parts_Points_des[0].st_x,parts_Points_des[0].st_y)
     Matrix33 matrix_am;//anti-mirror
@@ -404,6 +418,7 @@ static uint32_t GSP_Gen_CMDQ(GSP_LAYER1_REG_T *pDescriptors_walk,GSP_L1_L0_RELAT
     L1_des_Points.end_y = L1_des_Points.st_y + L1_des_h - 1;
 
     //split des-layer0 area into parts
+    GSP_TRACE("%s%d:relation==%d\n",__func__,__LINE__,relation);
     switch(relation)
     {
         case L1_L0_RELATIONSHIP_AQ:
@@ -978,11 +993,14 @@ the problem need 2 prerequisite:
 work-around method:split L1 area into many rectangle parts,one part in L0 area, do another parts first,then do the in part
 so the trigger-ioctl call will take much more time than before
 */
-static void GSP_work_around1(gsp_user* pUserdata)
+static int32_t GSP_work_around1(gsp_user* pUserdata)
 {
+    uint32_t i=0;
+    uint32_t blockcnt=0;
+
     uint32_t L1inL0cnt=0;
     uint32_t L0inL1cnt=0;
-    int32_t ret = 0;
+    int32_t ret = GSP_NO_ERR;
     GSP_L1_L0_RELATIONSHIP_E relation = L1_L0_RELATIONSHIP_I;
     uint32_t L1_des_w = 0;//L1 des width after rotation
     uint32_t L1_des_h = 0;//L1 des width after rotation
@@ -991,14 +1009,15 @@ static void GSP_work_around1(gsp_user* pUserdata)
     uint32_t descriptors_byte_len = 0;
     GSP_LAYER1_REG_T *pDescriptors = NULL;//vitrual address of descriptors of Layer1 bitblt CMDQ
     dma_addr_t      Descriptors_pa = 0;//physic address of descriptors, points to the same memory with pDescriptors
-    GSP_CMDQ_REG_T CmdQCfg = {0};//CMDQ config register structer
+    GSP_CMDQ_REG_T CmdQCfg;//CMDQ config register structer
 
     //only blending possibly has this problem
     if(s_gsp_cfg.layer1_info.layer_en == 0
        ||s_gsp_cfg.layer0_info.layer_en == 0)
     {
-        return;
+        return GSP_NO_ERR;
     }
+    memset(&CmdQCfg,0,sizeof(CmdQCfg));
 
     if(s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_90
        ||s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_270
@@ -1031,19 +1050,19 @@ static void GSP_work_around1(gsp_user* pUserdata)
     if(!(s_gsp_cfg.layer0_info.clip_rect.rect_w >= s_gsp_cfg.layer0_info.des_rect.rect_w*2
          ||s_gsp_cfg.layer0_info.clip_rect.rect_h >= s_gsp_cfg.layer0_info.des_rect.rect_h*2))
     {
-        return;
+        return GSP_NO_ERR;
     }
     //if they not overlap,its ok,just return
     if(GSP_layer0_layer1_overlap() == 0)
     {
-        return;
+        return GSP_NO_ERR;
     }
 
     //if L1 in L0,its ok,just return
     L1inL0cnt = GSP_get_points_in_layer0();
     if(L1inL0cnt == 4)
     {
-        return;
+        return GSP_NO_ERR;
     }
 
     //they cross overlap, must be processed specially!!
@@ -1055,26 +1074,29 @@ static void GSP_work_around1(gsp_user* pUserdata)
         {
             relation = L1_L0_RELATIONSHIP_AD;
         }
-        else if(L0inL1cnt == 4)
-        {
-            relation = L1_L0_RELATIONSHIP_AQ;
-        }
-        else if(L1_des_Points.end_x > L0_des_Points.end_x)
+        else if(L1_des_Points.end_x > L0_des_Points.end_x
+                && L1_des_Points.end_y <= L0_des_Points.end_y)
         {
             relation = L1_L0_RELATIONSHIP_AC;
         }
-        else
+        else if(L1_des_Points.end_x <= L0_des_Points.end_x
+                && L1_des_Points.end_y > L0_des_Points.end_y)
         {
             relation = L1_L0_RELATIONSHIP_AO;
         }
+        else
+        {
+            relation = L1_L0_RELATIONSHIP_AQ;
+        }
 
     }
-    else if(L1_des_Points.st_x >= L0_des_Points.st_x && L1_des_Points.st_x <= L0_des_Points.end_x
+    else if(L0_des_Points.st_x <= L1_des_Points.st_x && L1_des_Points.st_x <= L0_des_Points.end_x
             && L1_des_Points.st_y < L0_des_Points.st_y)//L1 start point in B
     {
         if(L1inL0cnt == 0)
         {
-            if(L0inL1cnt == 0)
+            //if(L0inL1cnt == 0)
+            if(L1_des_Points.end_x <= L0_des_Points.end_x)
             {
                 relation = L1_L0_RELATIONSHIP_BP;
             }
@@ -1092,12 +1114,13 @@ static void GSP_work_around1(gsp_user* pUserdata)
             relation = L1_L0_RELATIONSHIP_BE;
         }
     }
-    else if(L1_des_Points.st_y >= L0_des_Points.st_y && L1_des_Points.st_y <= L0_des_Points.end_y
+    else if(L0_des_Points.st_y <= L1_des_Points.st_y && L1_des_Points.st_y <= L0_des_Points.end_y
             && L1_des_Points.st_x < L0_des_Points.st_x)//L1 start point in G
     {
         if(L1inL0cnt == 0)
         {
-            if(L0inL1cnt == 0)
+            //if(L0inL1cnt == 0)
+            if(L1_des_Points.end_y <= L0_des_Points.end_y)
             {
                 relation = L1_L0_RELATIONSHIP_GK;
             }
@@ -1142,11 +1165,14 @@ static void GSP_work_around1(gsp_user* pUserdata)
     {
         printk("gsp_drv_ioctl:pid:0x%08x, can't alloc CMDQ descriptor memory!! just disable L1 !! L%d \n",pUserdata->pid,__LINE__);
         GSP_L1_ENABLE_SET(0);
-        return;
+        return GSP_KERNEL_WORKAROUND_ALLOC_ERR;
     }
+    blockcnt = GSP_Gen_CMDQ(pDescriptors,relation);
 
-    (*(uint32_t*)&CmdQCfg.gsp_cmd_addr_u) = (uint32_t)Descriptors_pa;
-    CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_num = GSP_Gen_CMDQ(pDescriptors,relation);
+    if(relation == L1_L0_RELATIONSHIP_BP)// CMDQ mode have many hardware problem, but in BP case, it can cutdown time cost 3ms
+    {
+        (*(uint32_t*)&CmdQCfg.gsp_cmd_addr_u) = (uint32_t)Descriptors_pa;
+        CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_num = blockcnt;
     CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_en = 1;
 
     //disable L0,and trigger GSP do process the 4 parts
@@ -1156,14 +1182,17 @@ static void GSP_work_around1(gsp_user* pUserdata)
     ret = GSP_Trigger();
     GSP_TRACE("%s:pid:0x%08x, trigger %s!, L%d \n",__func__,pUserdata->pid,(ret)?"failed":"success",__LINE__);
     if(ret)
-    {
-        printk("error %s:pid:0x%08x, disable Layer1 !!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
-        GSP_L1_ENABLE_SET(0);
-        goto exit;
-    }
+        {
+            printk("%sL%d:triger failed, err_record[%d],pid:0x%08x, disable Layer1 !!!!!!\n",__func__,__LINE__,ERR_RECORD_INDEX_GET_WP(),pUserdata->pid);
+
+            ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
+            ERR_RECORD_INDEX_ADD_WP();
+            GSP_L1_ENABLE_SET(0);
+            goto cmdQ_exit;
+        }
 
     //ret = down_interruptible(&gsp_wait_interrupt_sem);//interrupt lose
-    ret = down_timeout(&gsp_wait_interrupt_sem,10);//for interrupt lose, timeout return -ETIME,
+        ret = down_timeout(&gsp_wait_interrupt_sem,30);//for interrupt lose, timeout return -ETIME,
     if (ret == 0)//gsp process over
     {
         GSP_TRACE("%s:pid:0x%08x, wait done sema success, L%d \n",__func__,pUserdata->pid,__LINE__);
@@ -1171,12 +1200,12 @@ static void GSP_work_around1(gsp_user* pUserdata)
     else if (ret == -ETIME)
     {
         printk("%s:pid:0x%08x, wait done sema 10-jiffies-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
-        ret = -ERESTARTSYS;
+            ret = GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT;
     }
     else if (ret)// == -EINTR
     {
         printk("%s:pid:0x%08x, wait done sema interrupted by a signal, L%d \n",__func__,pUserdata->pid,__LINE__);
-        ret = -ERESTARTSYS;
+            ret = GSP_KERNEL_WORKAROUND_WAITDONE_INTR;
     }
 
     GSP_Wait_Finish();//wait busy-bit down
@@ -1184,15 +1213,61 @@ static void GSP_work_around1(gsp_user* pUserdata)
     GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
     sema_init(&gsp_wait_interrupt_sem,0);
 
-exit:
-    CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_en = 0;//disable CMDQ
-    GSP_L1_CMDQ_SET(CmdQCfg);
+    cmdQ_exit:
+        CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_en = 0;//disable CMDQ
+        GSP_L1_CMDQ_SET(CmdQCfg);
+        L0_CFG_RESTORE_FROM_CMDQ();
+    }
+    else //replace CMDQ with while loop
+    {
+        GSP_L0_ENABLE_SET(0);
+        while(i < blockcnt)
+        {
+            GSP_CFG_L1_PARAM(pDescriptors[i]);
 
-    L0_CFG_RESTORE_FROM_CMDQ();
+            ret = GSP_Trigger();
+            GSP_TRACE("%s%d:pid:0x%08x, trigger CMDQ[%d] %s!\n",__func__,__LINE__,pUserdata->pid,i,(ret)?"failed":"success");
+            if(ret)
+            {
+                printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !! er_code:%d \n",__func__,__LINE__,pUserdata->pid,ret);
 
+                ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
+                ERR_RECORD_INDEX_ADD_WP();
+                break;
+            }
+
+            //ret = down_interruptible(&gsp_wait_interrupt_sem);//interrupt lose
+            ret = down_timeout(&gsp_wait_interrupt_sem,30);//for interrupt lose, timeout return -ETIME,
+            if (ret == 0)//gsp process over
+            {
+                GSP_TRACE("%s%d:pid:0x%08x, wait done sema success \n",__func__,__LINE__,pUserdata->pid);
+            }
+            else if (ret == -ETIME)
+            {
+                printk("%s%d:pid:0x%08x, wait done sema 30-jiffies-timeout,it's abnormal!!\n",__func__,__LINE__,pUserdata->pid);
+                printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !! \n",__func__,__LINE__,pUserdata->pid);
+                ret = GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT;
+                break;
+            }
+            else if (ret)// == -EINTR
+            {
+                printk("%s%d:pid:0x%08x, wait done sema interrupted by a signal\n",__func__,__LINE__,pUserdata->pid);
+                printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !!\n",__func__,__LINE__,pUserdata->pid);
+                ret = GSP_KERNEL_WORKAROUND_WAITDONE_INTR;
+                break;
+            }
+
+            GSP_Wait_Finish();//wait busy-bit down
+            GSP_IRQSTATUS_CLEAR();
+            GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
+            sema_init(&gsp_wait_interrupt_sem,0);
+            i++;
+        }
+        GSP_L0_ENABLE_SET(s_gsp_cfg.layer0_info.layer_en);
+    }
     //cfg L1 rect and des_pos as the overlap part
     //though the L1 rect and des_pos has modified in end of GSP_Gen_CMDQ(), but it will be overwriten during CMDQ executing
-    *(volatile GSP_LAYER1_REG_T *)GSP_L1_BASE = pDescriptors[CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_num];
+    GSP_CFG_L1_PARAM(pDescriptors[blockcnt]);
 
     //free descriptor buffer
     dma_free_coherent(NULL,
@@ -1200,13 +1275,15 @@ exit:
                       pDescriptors,
                       Descriptors_pa);
 
+    return ret;
+
 }
 #endif
 
 
 static int32_t gsp_drv_open(struct inode *node, struct file *file)
 {
-    int32_t ret = -EBUSY;
+    int32_t ret = GSP_NO_ERR;
     gsp_user *pUserdata = NULL;
 
     GSP_TRACE("gsp_drv_open:pid:0x%08x enter.\n",current->pid);
@@ -1215,20 +1292,21 @@ static int32_t gsp_drv_open(struct inode *node, struct file *file)
 
     if (NULL == pUserdata)
     {
-        GSP_TRACE("gsp_drv_open:pid:0x%08x user cnt full.\n",current->pid);
+        printk("gsp_drv_open:pid:0x%08x user cnt full.\n",current->pid);
+        ret = GSP_KERNEL_FULL;
         goto exit;
     }
     GSP_TRACE("gsp_drv_open:pid:0x%08x bf wait open sema.\n",current->pid);
     ret = down_interruptible(&pUserdata->sem_open);
-    if(!ret)
+    if(!ret)//ret==0, wait success
     {
         GSP_TRACE("gsp_drv_open:pid:0x%08x  wait open sema success.\n",current->pid);
         file->private_data = pUserdata;
-        ret = 0;
     }
-    else
+    else//ret == -EINTR
     {
-        GSP_TRACE("gsp_drv_open:pid:0x%08x  wait open sema failed.\n",current->pid);
+        ret = GSP_KERNEL_OPEN_INTR;
+        printk("gsp_drv_open:pid:0x%08x  wait open sema failed.\n",current->pid);
     }
 
 exit:
@@ -1265,7 +1343,7 @@ static int32_t gsp_drv_release(struct inode *node, struct file *file)
 */
     file->private_data = NULL;
 
-    return 0;
+    return GSP_NO_ERR;
 }
 
 
@@ -1291,7 +1369,7 @@ ssize_t gsp_drv_write(struct file *file, const char __user * u_data, size_t cnt,
     send a signal to resume it and make it return from ioctl(),we does not up a sema to make target
     thread can distinguish GSP done and signal interrupt.
     */
-    send_sig(SIGABRT, pUserdata->pid, 0);
+    send_sig(SIGABRT, (struct task_struct *)pUserdata->pid, 0);
 
     return 1;
 }
@@ -1359,24 +1437,30 @@ static void GSP_Coef_Tap_Convert(uint8_t h_tap,uint8_t v_tap)
             s_gsp_cfg.layer0_info.col_tap_mode = 0;
             break;
     }
+    s_gsp_cfg.layer0_info.row_tap_mode &= 0x3;
+    s_gsp_cfg.layer0_info.col_tap_mode &= 0x3;
 }
 
 
-static void GSP_Scaling_Coef_Gen_And_Config(void)
+static int32_t GSP_Scaling_Coef_Gen_And_Config(void)
 {
     uint8_t     h_tap = 8;
     uint8_t     v_tap = 8;
     uint32_t    *tmp_buf = NULL;
     uint32_t    *h_coeff = NULL;
     uint32_t    *v_coeff = NULL;
-    volatile uint32_t    coef_factor_w = 0;
-    volatile uint32_t    coef_factor_h = 0;
-    volatile uint32_t    after_rotate_w = 0;
-    volatile uint32_t    after_rotate_h = 0;
-    volatile uint32_t    coef_in_w = 0;
-    volatile uint32_t    coef_in_h = 0;
-    volatile uint32_t    coef_out_w = 0;
-    volatile uint32_t    coef_out_h = 0;
+    uint32_t    coef_factor_w = 0;
+    uint32_t    coef_factor_h = 0;
+    uint32_t    after_rotate_w = 0;
+    uint32_t    after_rotate_h = 0;
+    uint32_t    coef_in_w = 0;
+    uint32_t    coef_in_h = 0;
+    uint32_t    coef_out_w = 0;
+    uint32_t    coef_out_h = 0;
+    static volatile uint32_t coef_in_w_last = 0;//if the new in w h out w h equal last params, don't need calc again
+    static volatile uint32_t coef_in_h_last = 0;
+    static volatile uint32_t coef_out_w_last = 0;
+    static volatile uint32_t coef_out_h_last = 0;
 
     if((s_gsp_cfg.layer0_info.clip_rect.rect_w != s_gsp_cfg.layer0_info.des_rect.rect_w) ||
        (s_gsp_cfg.layer0_info.clip_rect.rect_h != s_gsp_cfg.layer0_info.des_rect.rect_h))
@@ -1389,7 +1473,7 @@ static void GSP_Scaling_Coef_Gen_And_Config(void)
         if(s_gsp_cfg.layer0_info.des_rect.rect_w < 4
            ||s_gsp_cfg.layer0_info.des_rect.rect_h < 4)
         {
-            return;
+            return GSP_KERNEL_GEN_OUT_RANG;
         }
 
         if(s_gsp_cfg.layer0_info.rot_angle == GSP_ROT_ANGLE_0
@@ -1414,7 +1498,7 @@ static void GSP_Scaling_Coef_Gen_And_Config(void)
 
         if(coef_factor_w > 16 || coef_factor_h > 16)
         {
-            return;
+            return GSP_KERNEL_GEN_OUT_RANG;
         }
 
         if(coef_factor_w > 8)
@@ -1443,38 +1527,54 @@ static void GSP_Scaling_Coef_Gen_And_Config(void)
             coef_factor_h= 1;
         }
 
-        tmp_buf = (uint32_t *)kmalloc(GSP_COEFF_BUF_SIZE, GFP_KERNEL);
-        if (NULL == tmp_buf)
-        {
-            printk("SCALE DRV: No mem to alloc coeff buffer! \n");
-            return;//SCALE_RTN_NO_MEM
-        }
-        h_coeff = tmp_buf;
-        v_coeff = tmp_buf + (GSP_COEFF_COEF_SIZE/4);
-
         coef_in_w = CEIL(after_rotate_w,coef_factor_w);
         coef_in_h = CEIL(after_rotate_h,coef_factor_h);
         coef_out_w = s_gsp_cfg.layer0_info.des_rect.rect_w;
         coef_out_h = s_gsp_cfg.layer0_info.des_rect.rect_h;
-
-        if (!(GSP_Gen_Block_Ccaler_Coef(coef_in_w,
-                                        coef_in_h,
-                                        coef_out_w,
-                                        coef_out_h,
-                                        h_coeff,
-                                        v_coeff,
-                                        tmp_buf + (GSP_COEFF_COEF_SIZE/2),
-                                        GSP_COEFF_POOL_SIZE)))
+        if(coef_in_w_last != coef_in_w
+           || coef_in_h_last != coef_in_h
+           || coef_out_w_last != coef_out_w
+           || coef_out_h_last != coef_out_h)
         {
-            kfree(tmp_buf);
-            printk("GSP DRV: GSP_Gen_Block_Ccaler_Coef error! \n");
-            return;
+            tmp_buf = (uint32_t *)kmalloc(GSP_COEFF_BUF_SIZE, GFP_KERNEL);
+            if (NULL == tmp_buf)
+            {
+                printk("SCALE DRV: No mem to alloc coeff buffer! \n");
+                return GSP_KERNEL_GEN_ALLOC_ERR;
+            }
+            h_coeff = tmp_buf;
+            v_coeff = tmp_buf + (GSP_COEFF_COEF_SIZE/4);
+
+            if (!(GSP_Gen_Block_Ccaler_Coef(coef_in_w,
+                                            coef_in_h,
+                                            coef_out_w,
+                                            coef_out_h,
+                                            h_tap,
+                                            v_tap,
+                                            h_coeff,
+                                            v_coeff,
+                                            tmp_buf + (GSP_COEFF_COEF_SIZE/2),
+                                            GSP_COEFF_POOL_SIZE)))
+            {
+                kfree(tmp_buf);
+                printk("GSP DRV: GSP_Gen_Block_Ccaler_Coef error! \n");
+                return GSP_KERNEL_GEN_COMMON_ERR;
+            }
+            GSP_Scale_Coef_Tab_Config(h_coeff,v_coeff);//write coef-metrix to register            
+            coef_in_w_last = coef_in_w;
+            coef_in_h_last = coef_in_h;
+            coef_out_w_last = coef_out_w;
+            coef_out_h_last = coef_out_h;
         }
 
-        GSP_Scale_Coef_Tab_Config(h_coeff,v_coeff);//write coef-metrix to register
-        GSP_Coef_Tap_Convert(h_tap,v_tap);
+		GSP_Coef_Tap_Convert(h_tap,v_tap);
+        GSP_L0_SCALETAPMODE_SET(s_gsp_cfg.layer0_info.row_tap_mode,s_gsp_cfg.layer0_info.col_tap_mode);
+        GSP_TRACE("GSP DRV: GSP_Gen_Block_Ccaler_Coef, register: r_tap%d,c_tap%d \n",
+               ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_cfg_u.mBits.row_tap_mod,
+               ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_cfg_u.mBits.col_tap_mod);// 
         kfree(tmp_buf);
     }
+    return GSP_NO_ERR;
 }
 
 /*
@@ -1486,6 +1586,7 @@ static uint32_t GSP_Info_Config(void)
     //check GSP is in idle
     if(GSP_WORKSTATUS_GET())
     {
+        printk("GSP_Info_Config(): GSP busy when config!!!\n");
         GSP_ASSERT();
     }
 
@@ -1542,11 +1643,9 @@ static long gsp_drv_ioctl(struct file *file,
     int32_t ret = -GSP_NO_ERR;
     uint32_t param_size = _IOC_SIZE(cmd);
     gsp_user* pUserdata = file->private_data;
-    if(pUserdata == NULL)
-    {
-        printk("%s:error--pUserdata is null!, pid-0x%08x \n\n",__func__,current->pid);
-        return -ENODEV;
-    }
+    struct timespec start_time;
+    struct timespec end_time;
+    //long long cost=0;
 
     GSP_TRACE("%s:pid:0x%08x, io number 0x%x, param_size %d \n",
               __func__,
@@ -1569,12 +1668,12 @@ static long gsp_drv_ioctl(struct file *file,
                     volatile struct task_struct *__task = NULL;
 
                     GSP_TRACE("%sL%d current:%08x store_pid:0x%08x, \n",__func__,__LINE__,current->pid,gsp_cur_client_pid);
-                    barrier();
+                    //barrier();
                     __pid = find_get_pid(gsp_cur_client_pid);
                     if(__pid != NULL)
                     {
                         __task = get_pid_task(__pid,PIDTYPE_PID);
-                        barrier();
+                        //barrier();
 
                         if(__task != NULL)
                         {
@@ -1592,7 +1691,7 @@ static long gsp_drv_ioctl(struct file *file,
                     {
                         GSP_Release_HWSema();
                     }
-                    barrier();
+                    //barrier();
                 }
 
 
@@ -1601,7 +1700,7 @@ static long gsp_drv_ioctl(struct file *file,
                 {
                     GSP_TRACE("%s:pid:0x%08x, wait gsp-hw sema interrupt by signal,return, L%d \n",__func__,pUserdata->pid,__LINE__);
                     //receive a signal
-                    ret = -ERESTARTSYS;
+                    ret = GSP_KERNEL_CFG_INTR;
                     goto exit;
                 }
                 GSP_TRACE("%s:pid:0x%08x, wait gsp-hw sema success, L%d \n",__func__,pUserdata->pid,__LINE__);
@@ -1610,7 +1709,7 @@ static long gsp_drv_ioctl(struct file *file,
                 if(ret)
                 {
                     printk("%s:pid:0x%08x, copy_params_from_user failed! \n",__func__,pUserdata->pid);
-                    ret = -EFAULT;
+                    ret = GSP_KERNEL_COPY_ERR;
                     gsp_cur_client_pid = INVALID_USER_ID;
                     up(&gsp_hw_resource_sem);
                     goto exit;
@@ -1627,13 +1726,16 @@ static long gsp_drv_ioctl(struct file *file,
                     {
                         s_gsp_cfg.layer0_info.scaling_en = 1;
                     }
-                    s_gsp_cfg.misc_info.dithering_en = 1;//dither enabled default
+                    //s_gsp_cfg.misc_info.dithering_en = 1;//dither enabled default
+                    s_gsp_cfg.misc_info.ahb_clock = ahb_clock;
+                    s_gsp_cfg.misc_info.gsp_clock = gsp_clock;
+                    s_gsp_cfg.misc_info.gsp_gap = gsp_gap;
 
                     ret = GSP_Info_Config();
                     GSP_TRACE("%s:pid:0x%08x, config hw %s!, L%d \n",__func__,pUserdata->pid,(ret>0)?"failed":"success",__LINE__);
                     if(ret)
                     {
-                        ret |= 0x80000000;
+                        //ret |= 0x80000000;
                         GSP_Deinit();
                         gsp_cur_client_pid = INVALID_USER_ID;
                         up(&gsp_hw_resource_sem);
@@ -1652,27 +1754,64 @@ static long gsp_drv_ioctl(struct file *file,
                 GSP_TRACE("%s:pid:0x%08x, calc coef and trigger to run , L%d \n",__func__,pUserdata->pid,__LINE__);
                 GSP_Cache_Flush();
 #ifdef GSP_WORK_AROUND1
-                GSP_work_around1(pUserdata);
-#endif
-                GSP_Scaling_Coef_Gen_And_Config();
-                ret = GSP_Trigger();
-                GSP_TRACE("%s:pid:0x%08x, trigger %s!, L%d \n",__func__,pUserdata->pid,(ret)?"failed":"success",__LINE__);
+                if(gsp_workaround_perf == PERF_MAGIC)
+                {
+                    get_monotonic_boottime(&start_time);
+                }
+
+                ret = GSP_work_around1(pUserdata);
                 if(ret)
                 {
+                    //goto exit;
+                }
+
+                if(gsp_workaround_perf == PERF_MAGIC)
+                {
+                    get_monotonic_boottime(&end_time);
+
+                    gsp_workaround_perf_cnt++;
+                    gsp_workaround_perf_ns += (end_time.tv_nsec < start_time.tv_nsec)? (end_time.tv_nsec + 1000000000 - start_time.tv_nsec):(end_time.tv_nsec - start_time.tv_nsec);
+                    gsp_workaround_perf_s += (end_time.tv_nsec < start_time.tv_nsec)? (end_time.tv_sec - 1 - start_time.tv_sec):(end_time.tv_sec - start_time.tv_sec);
+                    gsp_workaround_perf_s += (gsp_workaround_perf_ns >= 1000000000)? 1:0;
+                    gsp_workaround_perf_ns -= (gsp_workaround_perf_ns >= 1000000000)? 1000000000:0;
+
+                    if(gsp_workaround_perf_cnt >= PERF_STATIC_CNT_MAX)
+                    {
+                        gsp_workaround_perf = ((gsp_workaround_perf_s*1000000+(gsp_workaround_perf_ns>>10)) >> PERF_STATIC_CNT_PWR);
+                        gsp_workaround_perf_cnt = 0;
+                        gsp_workaround_perf_s = 0;
+                        gsp_workaround_perf_ns = 0;
+                    }
+                }
+#endif
+                ret = GSP_Scaling_Coef_Gen_And_Config();
+                if(ret)
+                {
+                    goto exit;
+                }
+
+                if(gsp_perf == PERF_MAGIC)
+                {
+                    get_monotonic_boottime(&start_time);
+                }
+                ret = GSP_Trigger();
+                GSP_TRACE("%sL%d:pid:0x%08x, trigger %s!\n",__func__,__LINE__,pUserdata->pid,(ret)?"failed":"success");
+                if(ret)
+                {
+                    printk("%s%d:pid:0x%08x, trigger failed!! err_code:%d \n",__func__,__LINE__,pUserdata->pid,ret);
+                    ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
+                    ERR_RECORD_INDEX_ADD_WP();
                     GSP_Deinit();
 
                     gsp_cur_client_pid = INVALID_USER_ID;
                     up(&gsp_hw_resource_sem);
                     GSP_TRACE("%s:pid:0x%08x, release hw sema, L%d \n",__func__,pUserdata->pid,__LINE__);
                 }
-                else
-                {
-                }
             }
             else
             {
                 GSP_TRACE("%s:pid:0x%08x,exit L%d \n",__func__,pUserdata->pid,__LINE__);
-                ret = -EPERM;
+                ret = GSP_KERNEL_CALLER_NOT_OWN_HW;
                 goto exit;
             }
         }
@@ -1685,26 +1824,43 @@ static long gsp_drv_ioctl(struct file *file,
             {
                 GSP_TRACE("%s:pid:0x%08x, bf wait done sema, L%d \n",__func__,pUserdata->pid,__LINE__);
                 //ret = down_interruptible(&gsp_wait_interrupt_sem);//interrupt lose
-                ret = down_timeout(&gsp_wait_interrupt_sem,10);//for interrupt lose, timeout return -ETIME,
+                ret = down_timeout(&gsp_wait_interrupt_sem,60);//for interrupt lose, timeout return -ETIME,
                 if (ret == 0)//gsp process over
                 {
+                    if(gsp_perf == PERF_MAGIC)
+                    {
+                        get_monotonic_boottime(&end_time);
+                        gsp_perf_cnt++;
+                        gsp_perf_ns += (end_time.tv_nsec < start_time.tv_nsec)? (end_time.tv_nsec + 1000000000 - start_time.tv_nsec):(end_time.tv_nsec - start_time.tv_nsec);
+                        gsp_perf_s += (end_time.tv_nsec < start_time.tv_nsec)? (end_time.tv_sec - 1 - start_time.tv_sec):(end_time.tv_sec - start_time.tv_sec);
+                        gsp_perf_s += (gsp_perf_ns >= 1000000000)? 1:0;
+                        gsp_perf_ns -= (gsp_perf_ns >= 1000000000)? 1000000000:0;
+
+                        if(gsp_perf_cnt >= PERF_STATIC_CNT_MAX)
+                        {
+                            gsp_perf = ((gsp_perf_s*1000000+(gsp_perf_ns>>10)) >> PERF_STATIC_CNT_PWR);
+                            gsp_perf_cnt = 0;
+                            gsp_perf_s = 0;
+                            gsp_perf_ns = 0;
+                        }
+                    }
                     GSP_TRACE("%s:pid:0x%08x, wait done sema success, L%d \n",__func__,pUserdata->pid,__LINE__);
                 }
                 else if (ret == -ETIME)
                 {
                     printk("%s:pid:0x%08x, wait done sema 10-jiffies-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
-                    ret = -ERESTARTSYS;
+                    ret = GSP_KERNEL_WAITDONE_TIMEOUT;
                 }
                 else if (ret)// == -EINTR
                 {
                     printk("%s:pid:0x%08x, wait done sema interrupted by a signal, L%d \n",__func__,pUserdata->pid,__LINE__);
-                    ret = -ERESTARTSYS;
+                    ret = GSP_KERNEL_WAITDONE_INTR;
                 }
 
                 if (pUserdata->is_exit_force)
                 {
                     pUserdata->is_exit_force = 0;
-                    ret = -1;
+                    ret = GSP_KERNEL_FORCE_EXIT;
                 }
 
                 GSP_Wait_Finish();//wait busy-bit down
@@ -1720,14 +1876,14 @@ static long gsp_drv_ioctl(struct file *file,
         break;
 
         default:
-            ret = -ESRCH;
+            ret = GSP_KERNEL_CTL_CMD_ERR;
             break;
     }
 
 exit:
     if (ret)
     {
-        GSP_TRACE("%s:pid:0x%08x, error code 0x%x \n", __func__,pUserdata->pid,ret);
+        printk("%s:pid:0x%08x, error code 0x%x \n", __func__,pUserdata->pid,ret);
     }
     return ret;
 
@@ -1743,11 +1899,27 @@ static int32_t  gsp_drv_proc_read(char *page,
                                   void *data)
 {
     int32_t len = 0;
-    uint32_t i = 0;
-    GSP_REG_T *g_gsp_reg =  (GSP_REG_T *)GSP_REG_BASE;
+    GSP_REG_T *g_gsp_reg =  NULL;
 
     len += sprintf(page + len, "********************************************* \n");
-    len += sprintf(page + len, "%s , u_data_size %d , register :\n",__func__,count);
+
+
+    if(!ERR_RECORD_EMPTY())
+    {
+        len += sprintf(page + len, "%s , u_data_size %d ,record register[%d] :\n",__func__,count,ERR_RECORD_INDEX_GET_RP());
+        g_gsp_reg = (GSP_REG_T *)ERR_RECORD_GET();
+        ERR_RECORD_INDEX_ADD_RP();
+    }
+    else
+    {
+        len += sprintf(page + len, "%s , u_data_size %d , register :\n",__func__,count);
+
+        g_gsp_reg = (GSP_REG_T *)GSP_REG_BASE;
+    }
+
+
+
+
 
     len += sprintf(page + len, "misc: run %d|busy %d|errflag %d|errcode %02d|dither %d|pmmod0 %d|pmmod1 %d|pmen %d|scale %d|reserv2 %d|scl_stat_clr %d|l0en %d|l1en %d|rb %d\n",
                    g_gsp_reg->gsp_cfg_u.mBits.gsp_run,
@@ -1812,7 +1984,7 @@ static int32_t  gsp_drv_proc_read(char *page,
                    g_gsp_reg->gsp_layer1_cfg_u.mBits.rot_mod_l1,
                    g_gsp_reg->gsp_layer1_cfg_u.mBits.ck_en_l1,
                    g_gsp_reg->gsp_layer1_cfg_u.mBits.pallet_en_l1);
-    len += sprintf(page + len, "L1 blockalpha %03d, pitch %d04,(%04d,%04d)%04dx%04d => (%04d,%04d)\n",
+    len += sprintf(page + len, "L1 blockalpha %03d, pitch %04d,(%04d,%04d)%04dx%04d => (%04d,%04d)\n",
                    g_gsp_reg->gsp_layer1_alpha_u.mBits.alpha_l1,
                    g_gsp_reg->gsp_layer1_pitch_u.mBits.pitch1,
                    g_gsp_reg->gsp_layer1_clip_start_u.mBits.clip_start_x_l1,
@@ -1878,6 +2050,107 @@ static struct miscdevice gsp_drv_dev =
     .name = "sprd_gsp",
     .fops = &gsp_drv_fops
 };
+
+#if 0// test time cost
+static irqreturn_t gsp_irq_handler(int32_t irq, void *dev_id)
+{
+    ulong cost_ns=0;
+    ulong cost_s=0;
+    static uint32_t test_flag=1;// 1 test; 0 no test
+    static uint32_t cnt=0;
+
+    static uint32_t change_first_cfg=0;
+    static uint32_t test_type=0;//0 interval 0;1 interval 255;2 96M;3 153M;4 196M; 5 256M
+    static struct timespec start_time= {0};
+    static struct timespec end_time= {0};
+
+
+    GSP_TRACE("%s enter!\n",__func__);
+
+    if(change_first_cfg==0)
+    {
+        change_first_cfg=1;
+        GSP_EMC_GAP_SET(0);
+        GSP_CLOCK_SET(0);
+    }
+    if((GSP_L0_PITCH_GET() == 640) && test_flag && cnt == 0)
+    {
+        get_monotonic_boottime(&start_time);
+        printk("gsp-irq get start time(%04ld.%09ld)\n",start_time.tv_sec,start_time.tv_nsec);
+    }
+
+    GSP_IRQSTATUS_CLEAR();
+    GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
+
+    cnt++;
+    if((GSP_L0_PITCH_GET() == 640) && test_flag && cnt == 200)
+    {
+        cnt=0;
+        switch(test_type)
+        {
+            case 0:
+                GSP_EMC_GAP_SET(0);
+                GSP_CLOCK_SET(1);
+                break;
+            case 1:
+                GSP_EMC_GAP_SET(0);
+                GSP_CLOCK_SET(2);
+                break;
+            case 2:
+                GSP_EMC_GAP_SET(0);
+                GSP_CLOCK_SET(3);
+                break;
+            case 3:
+                GSP_EMC_GAP_SET(0xff);
+                GSP_CLOCK_SET(0);
+                break;
+            case 4:
+                GSP_EMC_GAP_SET(0xff);
+                GSP_CLOCK_SET(1);
+                break;
+            case 5:
+                GSP_EMC_GAP_SET(0xff);
+                GSP_CLOCK_SET(2);
+                break;
+            case 6:
+                GSP_EMC_GAP_SET(0xff);
+                GSP_CLOCK_SET(3);
+                break;
+            case 7:
+            default:
+                GSP_EMC_GAP_SET(0);
+                GSP_CLOCK_SET(3);
+                test_flag = 0;
+                break;
+        }
+
+        get_monotonic_boottime(&end_time);
+        cost_s = end_time.tv_sec - start_time.tv_sec;
+        cost_ns = end_time.tv_nsec-start_time.tv_nsec;
+        printk("gsp-irq type%d (%04ld.%09ld--%04ld.%09ld),cost:%02u%09u ns\n",
+               test_type,
+               start_time.tv_sec,
+               start_time.tv_nsec,
+               end_time.tv_sec,
+               end_time.tv_nsec,
+               cost_s,
+               cost_ns);
+        test_type = (test_type + 1)%8;
+    }
+    if((GSP_L0_PITCH_GET() == 640) && test_flag)
+    {
+        printk("gsp-irq trigger %03d\n",cnt);
+        GSP_Trigger();
+    }
+    else
+    {
+        printk("gsp-irq up\n");
+        up(&gsp_wait_interrupt_sem);
+    }
+    return IRQ_HANDLED;
+}
+
+#else
 static irqreturn_t gsp_irq_handler(int32_t irq, void *dev_id)
 {
     GSP_TRACE("%s enter!\n",__func__);
@@ -1885,15 +2158,27 @@ static irqreturn_t gsp_irq_handler(int32_t irq, void *dev_id)
     GSP_IRQSTATUS_CLEAR();
     GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
     up(&gsp_wait_interrupt_sem);
+
+    //sema_init(&gsp_wait_interrupt_sem,0);
+    //up(&gsp_hw_resource_sem);
+
     return IRQ_HANDLED;
 }
 
+#endif
 int32_t gsp_drv_probe(struct platform_device *pdev)
 {
     int32_t ret = 0;
     int32_t i = 0;
 
     GSP_TRACE("gsp_probe enter .\n");
+    printk("%s,AHB clock :%d\n", __func__,GSP_AHB_CLOCK_GET());
+    GSP_EMC_MATRIX_ENABLE();
+    GSP_EMC_GAP_SET(0);
+    GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
+    GSP_AUTO_GATE_ENABLE();
+    //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
+    GSP_ENABLE_MM();
 
     ret = misc_register(&gsp_drv_dev);
     if (ret)
@@ -1936,6 +2221,7 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
     }
 
     /* initialize locks*/
+    memset(&s_gsp_cfg,0,sizeof(s_gsp_cfg));
     sema_init(&gsp_hw_resource_sem, 1);
     sema_init(&gsp_wait_interrupt_sem, 0);
 
