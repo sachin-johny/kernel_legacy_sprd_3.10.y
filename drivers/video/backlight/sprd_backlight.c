@@ -245,10 +245,11 @@ static int __devinit sprd_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
 	struct backlight_device *bldev;
+
+#ifdef SPRD_BACKLIGHT_PWM
 	struct resource *pwm_res;
 	char pwm_clk_name[32];
 
-#ifdef SPRD_BACKLIGHT_PWM
 	pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (IS_ERR(pwm_res)) {
 		printkk("Can't get pwm resource");

@@ -3782,7 +3782,7 @@ tracing_mark_write(struct file *filp, const char __user *ubuf,
 	 * ring buffer.
 	 */
 	BUILD_BUG_ON(TRACE_BUF_SIZE >= PAGE_SIZE);
-
+	page2 = NULL;
 	/* check if we cross pages */
 	if ((addr & PAGE_MASK) != ((addr + cnt) & PAGE_MASK))
 		nr_pages = 2;

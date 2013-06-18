@@ -1285,7 +1285,7 @@ static inline void update_umctl_timing_cfg(MEM_TYPE_ENUM mem_type, u32 clk_emc_d
             REG32(UMCTL_REG_BASE+UMCTL_CFG_ADD_DFITPHYWRLAT) = 0x3;//timing_cfg.DFITPHYWRLAT ;
 	        break;
         }
-	    defautl: {
+	    default: {
 	        while(1);
 	    }
     }
@@ -1775,7 +1775,7 @@ void set_emc_repower_param(struct emc_repower_param *param, u32 umctl_base, u32 
 //	u32 umctl_base;
 //	u32 publ_base;
 	u32 value;
-	u32 div;
+	u32 div = 0;
 	printk("set_emc_repower_param param = 0x%x, umctl_base = 0x%x, publ_base = 0x%x\r\n", (u32)param, umctl_base, publ_base);
 	param->flag = EMC_REPOWER_PARAM_FLAG;
 	value = REG32(umctl_base + UMCTL_CFG_ADD_MCFG);

@@ -35,7 +35,7 @@ static int read_write_pin_switch(int is_read, int v,
 	if ((shift > 31))
 		BUG_ON(1);
 	if (v > mask)
-		printk(KERN_ERR, "v:0x%x overflow bitwidth:%d, mask:0x%x it\n",
+		printk("v:0x%x overflow bitwidth:%d, mask:0x%x it\n",
 			v, p->bit_width, mask);
 	val = __raw_readl(pin_ctl_reg);
 	if (is_read) {

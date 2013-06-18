@@ -29,7 +29,7 @@ extern void check_pd(void);
 #define BATTERY_CHECK_INTERVAL 30000
 extern int battery_updata(void);
 
-static int sprd_check_battery(void)
+static int __used sprd_check_battery(void)
 {
 	int ret_val = 0;
 	if (battery_updata()) {

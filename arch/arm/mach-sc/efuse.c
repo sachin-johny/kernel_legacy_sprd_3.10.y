@@ -525,7 +525,7 @@ static int fuse_debug_get(void *data, u64 * val)
 	struct sci_fuse *p = data;
 
 	if (p->is_adie_fuse == 2) {
-		*val = read_write_i2s_switch_pin(1, val, p);
+		*val = read_write_i2s_switch_pin(1, (int)val, p);
 		return 0;
 	}
 

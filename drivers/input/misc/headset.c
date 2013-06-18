@@ -447,7 +447,7 @@ static int __init headset_init(void)
 	}
 
 	return 0;
-_headset_workqueue:
+
 	destroy_workqueue(ht->switch_workqueue);
 _headset_button_gpio_irq_handler:
 	free_irq(ht->button.irq, &ht->button);

@@ -99,8 +99,9 @@ static int sprd_cproc_release (struct inode *inode, struct file *filp)
 
 static long sprd_cproc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
+	/*
 	struct cproc_device *cproc = filp->private_data;
-
+	*/
 	/* TODO: for general modem download&control */
 
 	return 0;
@@ -108,8 +109,9 @@ static long sprd_cproc_ioctl(struct file *filp, unsigned int cmd, unsigned long 
 
 static int sprd_cproc_mmap(struct file *filp, struct vm_area_struct *vma)
 {
+	/*
 	struct cproc_device *cproc = filp->private_data;
-
+	*/
 	/* TODO: for general modem download&control */
 
 	return 0;
@@ -159,7 +161,7 @@ static ssize_t cproc_proc_read(struct file *filp,
 	void *vmem;
 	int rval;
 
-	pr_debug("cproc proc read type: %s ppos %ll\n", type, *ppos);
+//	pr_debug("cproc proc read type: %s ppos %ll\n", type, *ppos);
 
 	if (strcmp(type, "mem") == 0) {
 		if (*ppos >= cproc->initdata->maxsz) {

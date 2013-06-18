@@ -576,6 +576,9 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 	handle_IPI(ipinr, regs);
 }
 
+#ifdef CONFIG_SPRD_SYSDUMP
+		extern void sysdump_ipi(struct pt_regs *regs);
+#endif
 void handle_IPI(int ipinr, struct pt_regs *regs)
 {
 	unsigned int cpu = smp_processor_id();
@@ -610,7 +613,6 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	case IPI_CPU_STOP:
 		irq_enter();
 #ifdef CONFIG_SPRD_SYSDUMP
-		extern void sysdump_ipi(struct pt_regs *regs);
 		sysdump_ipi(regs);
 #endif
 		ipi_cpu_stop(cpu);

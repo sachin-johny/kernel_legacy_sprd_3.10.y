@@ -201,7 +201,7 @@ EXPORT_SYMBOL_GPL(sdhci_device_attach);
  *   @ return:  true--- SDIO device attach ready
  *              false---SDIO device attach not ready
  */
-int sdhci_device_attached()
+int sdhci_device_attached(void)
 {
 	struct mmc_host *mmc = NULL;
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
@@ -623,7 +623,6 @@ static int sprd_mmc_host_runtime_suspend(struct device *dev) {
     unsigned long flags;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
-    struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
             sdhci_runtime_suspend_host(host);
             spin_lock_irqsave(&host->lock, flags);
@@ -639,7 +638,6 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
     unsigned long flags;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
-    struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
         if(host->ops->set_clock) {
             spin_lock_irqsave(&host->lock, flags);
@@ -661,7 +659,6 @@ static int sdhci_pm_suspend(struct device *dev) {
     int retval = 0;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
-    struct mmc_host *mmc = host->mmc;
 #ifdef CONFIG_PM_RUNTIME
     if(pm_runtime_enabled(dev))
         retval = pm_runtime_get_sync(dev);
@@ -693,7 +690,6 @@ static int sdhci_pm_resume(struct device *dev) {
     unsigned long flags;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
-    struct mmc_host *mmc = host->mmc;
     spin_lock_irqsave(&host->lock, flags);
     if(host->ops->set_clock)
         host->ops->set_clock(host, 1);

@@ -373,7 +373,7 @@ static inline int usb_connected(void)
 	return gpio_get_value(battery_data->gpio);
 }
 
-static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
+static __used irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
 	struct sprd_battery_data *data = dev_id;
 	uint32_t charger_status;
@@ -536,7 +536,6 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 	uint32_t voltage = 0;
 	uint32_t capacity = 0;
 	int32_t adc_value = 0;
-	int32_t vprog_value = 0;
 	int usb_online = 0;
 	uint32_t ac_online = 0;
 	uint32_t ac_notify = 0;
@@ -1111,13 +1110,13 @@ err_usb_failed:
 	if (data->irq) {
 		free_irq(data->irq, data);
 	}
-err_io_to_irq:
-err_io_request:
+//err_io_to_irq:
+//err_io_request:
 	if (data->gpio) {
 		gpio_free(data->gpio);
 	}
 err_io_resource:
-err_request_irq_failed:
+//err_request_irq_failed:
 	kfree(data);
 err_data_alloc_failed:
 	battery_data = NULL;

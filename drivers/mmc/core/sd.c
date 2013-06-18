@@ -758,7 +758,7 @@ int mmc_sd_get_cid(struct mmc_host *host, u32 ocr, u32 *cid, u32 *rocr)
 	    MMC_CAP_SET_XPC_180))
 		ocr |= SD_OCR_XPC;
 
-try_again:
+//try_again:
 	err = mmc_send_app_op_cond(host, ocr, rocr);
 	if (err)
 		return err;
@@ -945,7 +945,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0){
-		printk("memcmp  cid = %x,oldcard->raw_cid = %x\n",cid,oldcard->raw_cid);
+	//	printk("memcmp  cid = %x,oldcard->raw_cid = %x\n",cid,oldcard->raw_cid);
 			return -ENOENT;
 			}
 		card = oldcard;

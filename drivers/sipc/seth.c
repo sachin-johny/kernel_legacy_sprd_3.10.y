@@ -87,7 +87,6 @@ seth_rx_handler (void* data)
 	struct sblock blk;
 	struct sk_buff* skb;
 	int ret;
-	int i;
 
 	if (seth->state != DEV_ON) {
 		SETH_ERR ("rx_handler the state of %s is off!\n", seth->netdev->name);
@@ -242,8 +241,6 @@ static int seth_open (struct net_device *dev)
  */
 static int seth_close (struct net_device *dev)
 {
-	SEth* seth = netdev_priv(dev);
-
 	netif_stop_queue(dev);
 
 	/*

@@ -542,7 +542,6 @@ uint32_t vchg_buf[_VCHG_BUF_SIZE];
 
 void put_vbat_capacity_value(uint32_t vbat)
 {
-	int i;
 	static int buff_pointer = 0;
 
 	vbat_capacity_buff[buff_pointer] = vbat;

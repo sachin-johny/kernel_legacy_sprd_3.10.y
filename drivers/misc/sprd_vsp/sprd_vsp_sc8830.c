@@ -143,7 +143,7 @@ static irqreturn_t vsp_isr(int irq, void *data);
 #endif
 static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
-	int ret, cmd0;
+	int ret;
 	struct clk *clk_parent;
 	char *name_parent;
 	unsigned long frequency;

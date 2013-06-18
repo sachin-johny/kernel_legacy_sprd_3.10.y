@@ -203,9 +203,9 @@ static int blue_enable_set(void *data, u64 val)
 	return 0;
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(red_ops, red_enable_get, red_enable_set, "%x\n");
-DEFINE_SIMPLE_ATTRIBUTE(green_ops, green_enable_get, green_enable_set, "%x\n");
-DEFINE_SIMPLE_ATTRIBUTE(blue_ops, blue_enable_get, blue_enable_set, "%x\n");
+DEFINE_SIMPLE_ATTRIBUTE(red_ops, red_enable_get, red_enable_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(green_ops, green_enable_get, green_enable_set, "%llu\n");
+DEFINE_SIMPLE_ATTRIBUTE(blue_ops, blue_enable_get, blue_enable_set, "%llu\n");
 
 #define blc_debug()\
 	printk("%s %d\n", __func__, __LINE__)

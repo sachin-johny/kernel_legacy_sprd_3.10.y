@@ -245,10 +245,10 @@ static int sprd_i2c_readbytes(struct sprd_i2c *pi2c, char *buf, int count)
 
 static int sprd_i2c_send_target_addr(struct sprd_i2c *pi2c, struct i2c_msg *msg)
 {
-	int rc;
-	int cmd;
-	int cmd2;
-	int tmp;
+	int rc = 0;
+	int cmd = 0;
+	int cmd2 = 0;
+	int tmp = 0;
 
 	if (msg->flags & I2C_M_TEN) {
 		cmd = 0xf0 | (((msg->addr >> 8) & 0x03) << 1);

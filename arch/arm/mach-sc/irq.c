@@ -177,7 +177,9 @@ void __init sci_init_irq(void)
 	ana_init_irq();
 
 	/*disable legacy interrupt*/
+#if (LEGACY_FIQ_BIT < 32)
 	__raw_writel(1<<LEGACY_FIQ_BIT, CORE_GIC_DIS_VA + GIC_DIST_ENABLE_CLEAR);
+#endif
 	__raw_writel(1<<LEGACY_IRQ_BIT, CORE_GIC_DIS_VA + GIC_DIST_ENABLE_CLEAR);
 
 	__irq_init();

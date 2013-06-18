@@ -103,7 +103,7 @@ int mmc_go_idle(struct mmc_host *host)
 	int err;
 	struct mmc_command cmd = {0};
 #ifdef CONFIG_MMC_SDHCI_SCX35
-	unsigned int tmp_flag, reg_val;
+	unsigned int tmp_flag = 0, reg_val = 0;
 #endif
 
 	/*

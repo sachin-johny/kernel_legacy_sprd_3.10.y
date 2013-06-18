@@ -349,7 +349,6 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 /* FIXME: this pin config should be just defined int general pin mux table */
 static void serial_sprd_pin_config(void)
 {
-	unsigned int value;
 #ifndef CONFIG_ARCH_SCX35
 	value = __raw_readl(SPRD_GREG_BASE + 0x08);
 	value |= 0x07 << 20;
@@ -566,7 +565,7 @@ static struct{
 	uint32_t clkd0;
 	uint32_t clkd1;
 	uint32_t dspwait;
-} uart_bak[UART_NR_MAX]={0};
+} uart_bak[UART_NR_MAX];
 
 static int clk_startup(struct platform_device *pdev)
 {
@@ -785,6 +784,7 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 {
 	/* TODO */
 	int id = dev->id;
+	struct uart_port *port;
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 		is_uart_rx_wakeup = false;
 	}else if(BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type){
@@ -799,7 +799,6 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 	}else{
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
-	struct uart_port *port;
 	port = serial_sprd_ports[id];
 	uart_bak[id].ien = serial_in(port, ARM_UART_IEN);
 	uart_bak[id].ctrl0 = serial_in(port, ARM_UART_CTL0);
@@ -815,6 +814,7 @@ static int serial_sprd_resume(struct platform_device *dev)
 {
 	/* TODO */
 	int id = dev->id;
+	struct uart_port *port = serial_sprd_ports[id];
 	if(BT_RX_WAKE_UP == plat_data.wakeup_type){
 		if(is_uart_rx_wakeup)
 		{
@@ -834,7 +834,6 @@ static int serial_sprd_resume(struct platform_device *dev)
 	}else{
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
-	struct uart_port *port = serial_sprd_ports[id];
 	port = serial_sprd_ports[id];
 	serial_out(port, ARM_UART_IEN, uart_bak[id].ien);
 	serial_out(port, ARM_UART_CTL0, uart_bak[id].ctrl0);

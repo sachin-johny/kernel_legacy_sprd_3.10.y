@@ -395,7 +395,7 @@ static struct miscdevice ltr558_device = {
 
 static void ltr558_work(struct work_struct *work)
 {
-	int als_ps_status, val, logpval;
+	int als_ps_status, val;
 	ltr558_t *pls = container_of(work, ltr558_t, work);
 
 	alert_mesg("ltr558_work \n");
