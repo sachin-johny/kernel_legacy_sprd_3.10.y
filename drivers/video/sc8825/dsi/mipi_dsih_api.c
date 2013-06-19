@@ -21,8 +21,7 @@ dsih_error_t mipi_dsih_open(dsih_ctrl_t * instance)
     uint32_t version = 0;
     int i = 0;
 
-
-     if (instance == 0)
+    if (instance == 0)
     {
         return ERR_DSI_INVALID_INSTANCE;
     }
@@ -131,61 +130,70 @@ dsih_error_t mipi_dsih_close(dsih_ctrl_t * instance)
 }
 void mipi_dsih_allow_return_to_lp(dsih_ctrl_t * instance, int hfp, int hbp, int vactive, int vfp, int vbp, int vsync)
 {
-    if (NULL != instance)
+    if(0 == instance)
     {
-        if (instance->status == INITIALIZED)
-        {
-            mipi_dsih_hal_dpi_lp_during_hfp(instance, hfp);
-            mipi_dsih_hal_dpi_lp_during_hbp(instance, hbp);
-            mipi_dsih_hal_dpi_lp_during_vactive(instance, vactive);
-            mipi_dsih_hal_dpi_lp_during_vfp(instance, vfp);
-            mipi_dsih_hal_dpi_lp_during_vbp(instance, vbp);
-            mipi_dsih_hal_dpi_lp_during_vsync(instance, vsync);
-            return;
-        }
-	if (instance->log_error != 0)
-   	{
-            instance->log_error("invalid instance");
-	}
+        return;
+    }
+
+    if (instance->status == INITIALIZED)
+    {
+        mipi_dsih_hal_dpi_lp_during_hfp(instance, hfp);
+        mipi_dsih_hal_dpi_lp_during_hbp(instance, hbp);
+        mipi_dsih_hal_dpi_lp_during_vactive(instance, vactive);
+        mipi_dsih_hal_dpi_lp_during_vfp(instance, vfp);
+        mipi_dsih_hal_dpi_lp_during_vbp(instance, vbp);
+        mipi_dsih_hal_dpi_lp_during_vsync(instance, vsync);
+        return;
+    }
+
+    if (instance->log_error != 0)
+    {
+        instance->log_error("invalid instance");
     }
 }
 void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, int short_write, int short_read)
 {
-    if (NULL != instance)
+    if(0 == instance)
     {
-        if (instance->status == INITIALIZED)
-        {
-            mipi_dsih_hal_dcs_wr_tx_type(instance, 0, short_write);
-            mipi_dsih_hal_dcs_wr_tx_type(instance, 1, short_write);
-            mipi_dsih_hal_dcs_wr_tx_type(instance, 3, long_write); /* long packet*/
-            mipi_dsih_hal_dcs_rd_tx_type(instance, 0, short_read);
-            return;
-        }
-	if (instance->log_error != 0)
-    	{
-            instance->log_error("invalid instance");
-    	}
+        return;
+    }
+
+    if (instance->status == INITIALIZED)
+    {
+        mipi_dsih_hal_dcs_wr_tx_type(instance, 0, short_write);
+        mipi_dsih_hal_dcs_wr_tx_type(instance, 1, short_write);
+        mipi_dsih_hal_dcs_wr_tx_type(instance, 3, long_write); /* long packet*/
+        mipi_dsih_hal_dcs_rd_tx_type(instance, 0, short_read);
+        return;
+    }
+
+    if (instance->log_error != 0)
+    {
+        instance->log_error("invalid instance");
     }
 }
 void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, int short_write, int short_read)
 {
-    if (NULL != instance)
+    if(0 == instance)
     {
-        if (instance->status == INITIALIZED)
-        {
-            mipi_dsih_hal_gen_wr_tx_type(instance, 0, short_write);
-            mipi_dsih_hal_gen_wr_tx_type(instance, 1, short_write);
-            mipi_dsih_hal_gen_wr_tx_type(instance, 2, short_write);
-            mipi_dsih_hal_gen_wr_tx_type(instance, 3, long_write); /* long packet*/
-            mipi_dsih_hal_gen_rd_tx_type(instance, 0, short_read);
-            mipi_dsih_hal_gen_rd_tx_type(instance, 1, short_read);
-            mipi_dsih_hal_gen_rd_tx_type(instance, 2, short_read);
-            return;
-        }
-	if (instance->log_error != 0)
-	{
-       	    instance->log_error("invalid instance");
-    	}
+        return;
+    }
+
+    if (instance->status == INITIALIZED)
+    {
+        mipi_dsih_hal_gen_wr_tx_type(instance, 0, short_write);
+        mipi_dsih_hal_gen_wr_tx_type(instance, 1, short_write);
+        mipi_dsih_hal_gen_wr_tx_type(instance, 2, short_write);
+        mipi_dsih_hal_gen_wr_tx_type(instance, 3, long_write); /* long packet*/
+        mipi_dsih_hal_gen_rd_tx_type(instance, 0, short_read);
+        mipi_dsih_hal_gen_rd_tx_type(instance, 1, short_read);
+        mipi_dsih_hal_gen_rd_tx_type(instance, 2, short_read);
+        return;
+    }
+    
+    if (instance->log_error != 0)
+    {
+        instance->log_error("invalid instance");
     }
 }
 /* packet handling */
@@ -561,64 +569,72 @@ dsih_error_t mipi_dsih_dcs_wr_cmd(dsih_ctrl_t * instance, uint8_t vc, uint8_t* p
 }
 void mipi_dsih_cmd_mode(dsih_ctrl_t * instance, int en)
 {
-    if (NULL != instance)
+    if(0 == instance)
     {
-        if (instance->status == INITIALIZED)
-        {
-            if ((!mipi_dsih_hal_gen_is_cmd_mode(instance)) && en)
-            {   /* disable video mode first */
-                mipi_dsih_hal_dpi_video_mode_en(instance, 0);
-                mipi_dsih_hal_gen_cmd_mode_en(instance, 1);
-            }
-            else if ((mipi_dsih_hal_gen_is_cmd_mode(instance)) && !en)
-            {
-                mipi_dsih_hal_gen_cmd_mode_en(instance, 0);
-            }
-            return;
+        return;
+    }
+
+    if (instance->status == INITIALIZED)
+    {
+        if ((!mipi_dsih_hal_gen_is_cmd_mode(instance)) && en)
+        {   /* disable video mode first */
+            mipi_dsih_hal_dpi_video_mode_en(instance, 0);
+            mipi_dsih_hal_gen_cmd_mode_en(instance, 1);
         }
-	if (instance->log_error != 0)
-    	{
-            instance->log_error("invalid instance");
-    	}
+        else if ((mipi_dsih_hal_gen_is_cmd_mode(instance)) && !en)
+        {
+            mipi_dsih_hal_gen_cmd_mode_en(instance, 0);
+        }
+        return;
+    }
+        
+    if (instance->log_error != 0)
+    {
+        instance->log_error("invalid instance");
     }
 }
 
 void mipi_dsih_video_mode(dsih_ctrl_t * instance, int en)
 {
-    if (NULL != instance)
+    if(0 == instance)
     {
-        if (instance->status == INITIALIZED)
-        {
-            if ((!mipi_dsih_hal_dpi_is_video_mode(instance)) && en)
-            {   /* disable cmd mode first */
-                mipi_dsih_hal_gen_cmd_mode_en(instance, 0);
-                mipi_dsih_hal_dpi_video_mode_en(instance, 1);
-            }
-            else if ((!mipi_dsih_hal_dpi_is_video_mode(instance)) && !en)
-            {
-                mipi_dsih_hal_dpi_video_mode_en(instance, 0);
-            }
-            return;
+        return;
+    }
+
+    if (instance->status == INITIALIZED)
+    {
+        if ((!mipi_dsih_hal_dpi_is_video_mode(instance)) && en)
+        {   /* disable cmd mode first */
+            mipi_dsih_hal_gen_cmd_mode_en(instance, 0);
+            mipi_dsih_hal_dpi_video_mode_en(instance, 1);
         }
-	if (instance->log_error != 0)
-	{
-        	instance->log_error("invalid instance");
-    	}
+        else if ((!mipi_dsih_hal_dpi_is_video_mode(instance)) && !en)
+        {
+            mipi_dsih_hal_dpi_video_mode_en(instance, 0);
+        }
+        return;
+    }
+
+    if (instance->log_error != 0)
+    {
+        instance->log_error("invalid instance");
     }
 }
 
 int mipi_dsih_active_mode(dsih_ctrl_t * instance)
 {
+	int ret_val=0;
     if (mipi_dsih_hal_gen_is_cmd_mode(instance))
     {
-        return 1;
+		ret_val=ret_val|0x1;
     }
-    else if (mipi_dsih_hal_dpi_is_video_mode(instance))
+    if (mipi_dsih_hal_dpi_is_video_mode(instance))
     {
-        return 2;
+		ret_val=ret_val|0x2;
     }
-    return 0;
+    return ret_val;
 }
+
 dsih_error_t mipi_dsih_gen_wr_cmd(dsih_ctrl_t * instance, uint8_t vc, uint8_t* params, uint16_t param_length)
 {
     uint8_t data_type = 0;
@@ -1090,12 +1106,17 @@ void mipi_dsih_event_handler(void * param)
 {
     dsih_ctrl_t * instance = (dsih_ctrl_t *)(param);
     uint8_t i = 0;
-    uint32_t status_0 = mipi_dsih_hal_error_status_0(instance, 0xffffffff);
-    uint32_t status_1 = mipi_dsih_hal_error_status_1(instance, 0xffffffff);
-    if (NULL == instance)
+    uint32_t status_0;
+    uint32_t status_1;
+    
+    if (instance == 0)
     {
         return;
     }
+
+    status_0 = mipi_dsih_hal_error_status_0(instance, 0xffffffff);
+    status_1 = mipi_dsih_hal_error_status_1(instance, 0xffffffff);
+
     for (i = 0; i < DSI_MAX_EVENT; i++)
     {
         if (instance->event_registry[i] != 0)

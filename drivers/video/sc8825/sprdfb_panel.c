@@ -15,6 +15,7 @@
 #include <linux/mutex.h>
 #include <linux/list.h>
 #include <linux/delay.h>
+#include <linux/fb.h>
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
@@ -32,7 +33,6 @@ extern struct panel_if_ctrl sprdfb_rgb_ctrl;
 extern struct panel_if_ctrl sprdfb_mipi_ctrl;
 
 extern void sprdfb_panel_remove(struct sprdfb_device *dev);
-
 
 static int __init lcd_id_get(char *str)
 {
@@ -67,7 +67,7 @@ static int32_t panel_reset_lcdc(struct panel_spec *self)
 	msleep(20);
 	return 0;
 }
-
+#if 0
 static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 {
 	pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
@@ -79,7 +79,7 @@ static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 		panel_reset_lcdc(panel);
 	}
 }
-
+#endif
 static bool panel_check(struct panel_cfg *cfg)
 {
 	bool rval = true;
@@ -314,6 +314,112 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 	}
 }
 
+#ifdef CONFIG_FB_ESD_SUPPORT
+/*return value:  0--panel OK.1-panel has been reset*/
+uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
+{
+	int32_t result = 0;
+	uint32_t if_status = 0;
+
+	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+
+	dev->check_esd_time++;
+
+	if(SPRDFB_PANEL_IF_EDPI == dev->panel_if_type){
+		if (dev->panel->ops->panel_esd_check != NULL) {
+			result = dev->panel->ops->panel_esd_check(dev->panel);
+			pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
+		}
+	}else if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+#ifdef FB_CHECK_ESD_BY_TE_SUPPORT
+		dev->esd_te_waiter++;
+		dev->esd_te_done = 0;
+		dispc_set_bits(BIT(1), DISPC_INT_EN);
+		result  = wait_event_interruptible_timeout(dev->esd_te_queue,
+			          dev->esd_te_done, msecs_to_jiffies(600));
+		pr_debug("sprdfb: after wait (%d)\n", result);
+		dispc_clear_bits(BIT(1), DISPC_INT_EN);
+		if(!result){ /*time out*/
+			printk("sprdfb: [%s] esd check  not got te signal!!!!\n", __FUNCTION__);
+			dev->esd_te_waiter = 0;
+			result = 0;
+		}else{
+			pr_debug("sprdfb: [%s] esd check  got te signal!\n", __FUNCTION__);
+			result = 1;
+		}
+#else
+		if (dev->panel->ops->panel_esd_check != NULL) {
+			result = dev->panel->ops->panel_esd_check(dev->panel);
+			pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
+		}
+
+#endif
+	}
+
+
+	if(0 == dev->enable){
+		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+		return 0;
+	}
+
+	if(result == 0){
+		dev->panel_reset_time++;
+
+		if(SPRDFB_PANEL_IF_EDPI == dev->panel_if_type){
+			if(NULL != dev->panel->if_ctrl->panel_if_get_status){
+				if_status = dev->panel->if_ctrl->panel_if_get_status(dev);
+			}
+		}else if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+			if_status = 2; /*need reset dsi as default for dpi mode*/
+		}
+
+		if(0 == if_status){
+			printk("sprdfb: [%s] fail! Need reset panel\n",__FUNCTION__);
+			if(NULL != dev->panel->if_ctrl->panel_if_before_panel_reset){
+				dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
+			}
+			dev->panel->ops->panel_reset(dev->panel);
+
+			if(0 == dev->enable){
+				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+				return 0;
+			}
+
+			dev->panel->ops->panel_init(dev->panel);
+			panel_ready(dev);
+		}else{
+			printk("sprdfb: [%s] fail! Need reset panel and panel if!!!!\n",__FUNCTION__);
+			dev->reset_dsi_time++;
+			if(NULL != dev->panel->if_ctrl->panel_if_suspend){
+				dev->panel->if_ctrl->panel_if_suspend(dev);
+			}
+
+			mdelay(10);
+
+			if(0 == dev->enable){
+				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+				return 0;
+			}
+
+			panel_init(dev);
+			dev->panel->ops->panel_reset(dev->panel);
+
+			if(0 == dev->enable){
+				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+				return 0;
+			}
+
+			dev->panel->ops->panel_init(dev->panel);
+			panel_ready(dev);
+		}
+		pr_debug("sprdfb: [%s]return 1\n",__FUNCTION__);
+		return 1;
+	}
+	pr_debug("sprdfb: [%s]return 0\n",__FUNCTION__);
+	return 0;
+}
+#endif
+
 void sprdfb_panel_suspend(struct sprdfb_device *dev)
 {
 	if(NULL == dev->panel){
@@ -349,8 +455,8 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 #endif
 
 	if(from_deep_sleep){
-		dev->panel->ops->panel_reset(dev->panel);
 		panel_init(dev);
+		dev->panel->ops->panel_reset(dev->panel);
 		dev->panel->ops->panel_init(dev->panel);
 		panel_ready(dev);
 	}else{

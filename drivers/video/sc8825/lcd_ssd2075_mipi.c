@@ -107,7 +107,7 @@ static LCM_Init_Code init_data[] = {
 
 };
 
-static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
+//static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
 
 //static LCM_Init_Code sleep_in =  {LCM_SEND(1), {0x10}};
 
@@ -146,7 +146,7 @@ static int32_t ssd2075_mipi_init(struct panel_spec *self)
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
 		}else if(tag & LCM_TAG_SLEEP){
-			udelay((init->tag & LCM_TAG_MASK) * 1000);
+			msleep((init->tag & LCM_TAG_MASK));
 		}
 		init++;
 	}
@@ -157,7 +157,6 @@ static int32_t ssd2075_mipi_init(struct panel_spec *self)
 
 static uint32_t ssd2075_readid(struct panel_spec *self)
 {
-	int32_t i = 0;
 	int32_t j =0;
 	uint8_t read_data[10] = {0};
 	int32_t read_rtn = 0;
@@ -181,6 +180,7 @@ static uint32_t ssd2075_readid(struct panel_spec *self)
 
 		if((0x20 == read_data[0])&&(0x75 == read_data[1])){
 			printk("lcd_ssd2075_mipi read id success!\n");
+			mipi_eotp_set(1,1);
 			return 0x2075;
 		}
 	}
@@ -196,7 +196,6 @@ static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	unsigned int tag;
 	int32_t size = 0;
 
-	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
 	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
@@ -216,7 +215,7 @@ static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(sleep_in_out->data, (sleep_in_out->tag & LCM_TAG_MASK));
 		}else if(tag & LCM_TAG_SLEEP){
-			udelay((sleep_in_out->tag & LCM_TAG_MASK) * 1000);
+			msleep((sleep_in_out->tag & LCM_TAG_MASK));
 		}
 		sleep_in_out++;
 	}

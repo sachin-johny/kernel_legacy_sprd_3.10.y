@@ -17,6 +17,11 @@
 #ifdef CONFIG_HAS_EARLYSUSPEND
 #include <linux/earlysuspend.h>
 #endif
+#include <linux/workqueue.h>
+#include <linux/semaphore.h>
+#include <linux/wait.h>
+
+#define FB_CHECK_ESD_BY_TE_SUPPORT
 
 enum{
 	SPRDFB_PANEL_IF_DBI = 0,
@@ -121,6 +126,22 @@ struct sprdfb_device {
 
 	uint32_t dpi_clock;
 
+#ifdef CONFIG_FB_ESD_SUPPORT
+	struct delayed_work ESD_work;
+	struct semaphore   ESD_lock;
+	uint32_t ESD_timeout_val;
+	bool ESD_work_start;
+	/*for debug only*/
+	uint32_t check_esd_time;
+	uint32_t panel_reset_time;
+	uint32_t reset_dsi_time;
+#ifdef FB_CHECK_ESD_BY_TE_SUPPORT
+	uint32_t esd_te_waiter;
+	wait_queue_head_t  esd_te_queue;
+	uint32_t esd_te_done;
+#endif
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif
@@ -137,6 +158,11 @@ struct display_ctrl {
 
 	int32_t	(*suspend)	  (struct sprdfb_device *dev);
 	int32_t 	(*resume)	  (struct sprdfb_device *dev);
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+	int32_t	(*ESD_check)	  (struct sprdfb_device *dev);
+#endif
+
 #ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
 	int32_t 	(*enable_overlay) 	(struct sprdfb_device *dev, struct overlay_info* info, int enable);
 	int32_t	(*display_overlay)	(struct sprdfb_device *dev, struct overlay_display* setting);

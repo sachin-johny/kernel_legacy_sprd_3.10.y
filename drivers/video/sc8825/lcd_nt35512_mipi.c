@@ -89,7 +89,7 @@ static LCM_Init_Code init_data[] = {
 {LCM_SEND(1), {0x2c}}, // normal on 
 };
 
-static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
+//static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
 
 static LCM_Init_Code sleep_in =  {LCM_SEND(1), {0x10}};
 
@@ -113,7 +113,7 @@ static int32_t nt35512_mipi_init(struct panel_spec *self)
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
 		}else if(tag & LCM_TAG_SLEEP){
-			udelay((init->tag & LCM_TAG_MASK) * 1000);
+			msleep((init->tag & LCM_TAG_MASK));
 		}
 		init++;
 	}

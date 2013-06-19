@@ -21,7 +21,6 @@
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
-
 #include <mach/board.h>
 
 enum{
@@ -44,6 +43,10 @@ enum{
 #endif
 
 #define SPRDFB_DEFAULT_FPS (60)
+
+#define SPRDFB_ESD_TIME_OUT_CMD	(2000)
+
+#define SPRDFB_ESD_TIME_OUT_VIDEO	(1000)
 
 extern bool sprdfb_panel_get(struct sprdfb_device *dev);
 extern int sprdfb_panel_probe(struct sprdfb_device *dev);
@@ -94,13 +97,13 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 #else
 	dev->fb->fix.smem_start = SPRD_FB_MEM_BASE;
 	printk("sprdfb:setup_fb_mem--smem_start:%x,len:%d\n",dev->fb->fix.smem_start,len);
-	addr =  ioremap(SPRD_FB_MEM_BASE, len);
+	addr =  (uint32_t)ioremap(SPRD_FB_MEM_BASE, len);
 	if (!addr) {
 		printk(KERN_ERR "Unable to map framebuffer base: 0x%08x\n", addr);
 		return -ENOMEM;
 	}
 	dev->fb->fix.smem_len = len;
-	dev->fb->screen_base =  addr;
+	dev->fb->screen_base = (char*)addr;
 #endif
 	return 0;
 }
@@ -321,6 +324,31 @@ static int sprdfb_resume(struct platform_device *pdev)
 }
 #endif
 
+#ifdef CONFIG_FB_ESD_SUPPORT
+static void ESD_work_func(struct work_struct *work)
+{
+	struct sprdfb_device *dev = container_of(work, struct sprdfb_device, ESD_work.work);
+
+	pr_debug("sprdfb: [%s] enter!\n", __FUNCTION__);
+
+	//do real ESD check
+	//mdelay(1000);
+	if(NULL != dev->ctrl->ESD_check){
+		dev->ctrl->ESD_check(dev);
+	}
+
+	if(0 != dev->enable){
+		pr_debug("sprdfb: reschedule ESD workqueue!\n");
+		schedule_delayed_work(&dev->ESD_work, msecs_to_jiffies(dev->ESD_timeout_val));
+		dev->ESD_work_start = true;
+	}else{
+		printk("sprdfb: DON't reschedule ESD workqueue since device not avialbe!!\n");
+	}
+
+	pr_debug("sprdfb: [%s] leave!\n", __FUNCTION__);
+}
+#endif
+
 static int sprdfb_probe(struct platform_device *pdev)
 {
 	struct fb_info *fb = NULL;
@@ -400,6 +428,23 @@ static int sprdfb_probe(struct platform_device *pdev)
 	dev->early_suspend.resume  = sprdfb_late_resume;
 	dev->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB;
 	register_early_suspend(&dev->early_suspend);
+#endif
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+	pr_debug("sprdfb: Init ESD work queue!\n");
+	INIT_DELAYED_WORK(&dev->ESD_work, ESD_work_func);
+	sema_init(&dev->ESD_lock, 1);
+
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT_VIDEO;
+	}else{
+		dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT_CMD;
+	}
+
+	dev->ESD_work_start = false;
+	dev->check_esd_time = 0;
+	dev->reset_dsi_time = 0;
+	dev->panel_reset_time = 0;
 #endif
 
 	return 0;

@@ -20,7 +20,7 @@
 #include <mach/hardware.h>
 #include <mach/globalregs.h>
 #include <mach/irqs.h>
-
+#include <mach/sci.h>
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb_lcdc_reg.h"
 #include "sprdfb.h"
@@ -85,9 +85,9 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 static void lcdc_reset(void)
 {
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<LCDC_SOFT_RST), REG_AHB_SOFT_RST);
+	sci_glb_set(REG_AHB_SOFT_RST, (1<<LCDC_SOFT_RST));
 	udelay(10);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<LCDC_SOFT_RST)), REG_AHB_SOFT_RST);
+	sci_glb_clr(REG_AHB_SOFT_RST, (1<<LCDC_SOFT_RST) );
 }
 
 static inline void lcdc_set_bg_color(uint32_t bg_color)
@@ -288,8 +288,7 @@ static int32_t sprdfb_lcdc_early_init(struct sprdfb_device *dev)
 	}
 
 	/*usesd to open dipsc matix clock*/
-	__raw_writel(__raw_readl((REG_AHB_MATRIX_CLOCK) | (1<<LCDC_CORE_CLK_EN) ), 
-			REG_AHB_MATRIX_CLOCK);
+	sci_glb_set(REG_AHB_MATRIX_CLOCK, (1<<LCDC_CORE_CLK_EN));
 
 	if(!dev->panel_ready){
 		ret = clk_enable(lcdc_ctx.clk_lcdc);

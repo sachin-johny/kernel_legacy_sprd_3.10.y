@@ -35,7 +35,7 @@ static uint32_t rgb_readid(struct panel_spec *self)
 
 	/* default id reg is 0 */
 	if(SPRDFB_RGB_BUS_TYPE_I2C == rgb->cmd_bus_mode){
-		rgb->bus_info.i2c->ops->i2c_read_16bits(0x0, false, &id, false);
+		rgb->bus_info.i2c->ops->i2c_read_16bits(0x0, false, (uint16_t*)&id, false);
 	}else{
 		rgb->bus_info.spi->ops->spi_send_cmd(0x0);
 		rgb->bus_info.spi->ops->spi_read(&id);
@@ -46,7 +46,7 @@ static uint32_t rgb_readid(struct panel_spec *self)
 
 static void rgb_dispc_init_config(struct panel_spec *panel)
 {
-	uint32_t reg_val = 0;
+	uint32_t reg_val = dispc_read(DISPC_DPI_CTRL);
 
 	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
 
@@ -61,6 +61,7 @@ static void rgb_dispc_init_config(struct panel_spec *panel)
 	}
 
 	/*use dpi as interface*/
+	dispc_clear_bits((3<<1), DISPC_CTRL);
 
 	/*h sync pol*/
 	if(SPRDFB_POLARITY_NEG == panel->info.rgb->h_sync_pol){

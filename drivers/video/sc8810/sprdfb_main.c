@@ -24,7 +24,6 @@
 #include "sprdfb.h"
 #include "lcdpanel.h"
 
-
 #ifdef	CONFIG_TRIPLE_FRAMEBUFFER
 #define FRAMEBUFFER_NR		3
 #else

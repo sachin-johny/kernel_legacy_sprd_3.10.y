@@ -173,7 +173,7 @@ static LCM_Init_Code init_data[] = {
 #endif
 };
 
-static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
+//static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
 
 static LCM_Init_Code sleep_in[] =  {
 {LCM_SEND(1), {0x28}},
@@ -195,6 +195,9 @@ static LCM_Force_Cmd_Code rd_prep_code[]={
 	{0x37, {LCM_SEND(2), {0x3, 0}}},
 };
 
+static LCM_Force_Cmd_Code rd_prep_code_1[]={
+	{0x37, {LCM_SEND(2), {0x1, 0}}},
+};
 static int32_t nt35516_mipi_init(struct panel_spec *self)
 {
 	int32_t i;
@@ -233,6 +236,7 @@ static uint32_t nt35516_readid(struct panel_spec *self)
 	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
 	mipi_force_write_t mipi_force_write = self->info.mipi->ops->mipi_force_write;
 	mipi_force_read_t mipi_force_read = self->info.mipi->ops->mipi_force_read;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
 	printk("lcd_nt35516_mipi read id!\n");
 	mipi_set_cmd_mode();
@@ -244,12 +248,13 @@ static uint32_t nt35516_readid(struct panel_spec *self)
 			if(tag & LCM_TAG_SEND){
 				mipi_force_write(rd_prepare->datatype, rd_prepare->real_cmd_code.data, (rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
 			}else if(tag & LCM_TAG_SLEEP){
-				udelay((rd_prepare->real_cmd_code.tag & LCM_TAG_MASK) * 1000);
+				msleep((rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
 			}
 			rd_prepare++;
 		}
-
+		mipi_eotp_set(0,0);
 		read_rtn = mipi_force_read(0xc5, 3,(uint8_t *)read_data);
+		mipi_eotp_set(1,1);
 		printk("lcd_nt35516_mipi read id 0xc5 value is 0x%x, 0x%x, 0x%x!\n", read_data[0], read_data[1], read_data[2]);
 
 		if((0x55 == read_data[0])&&(0x16 == read_data[1])&&(0x00 == read_data[2])){
@@ -267,7 +272,6 @@ static int32_t nt35516_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	unsigned int tag;
 	int32_t size = 0;
 
-	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
 
 	printk(KERN_DEBUG "nt35516_enter_sleep, is_sleep = %d\n", is_sleep);
@@ -285,17 +289,89 @@ static int32_t nt35516_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(sleep_in_out->data, (sleep_in_out->tag & LCM_TAG_MASK));
 		}else if(tag & LCM_TAG_SLEEP){
-			udelay((sleep_in_out->tag & LCM_TAG_MASK) * 1000);
+			msleep((sleep_in_out->tag & LCM_TAG_MASK));
 		}
 		sleep_in_out++;
 	}
 	return 0;
 }
 
+static uint32_t nt35516_readpowermode(struct panel_spec *self)
+{
+	int32_t i = 0;
+	uint32_t j =0;
+	LCM_Force_Cmd_Code * rd_prepare = rd_prep_code_1;
+	uint8_t read_data[1] = {0};
+	int32_t read_rtn = 0;
+	unsigned int tag = 0;
+
+	mipi_force_write_t mipi_force_write = self->info.mipi->ops->mipi_force_write;
+	mipi_force_read_t mipi_force_read = self->info.mipi->ops->mipi_force_read;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
+
+	pr_debug("lcd_nt35516_mipi read power mode!\n");
+
+	for(j = 0; j < 4; j++){
+		rd_prepare = rd_prep_code_1;
+		for(i = 0; i < ARRAY_SIZE(rd_prep_code_1); i++){
+			tag = (rd_prepare->real_cmd_code.tag >> 24);
+			if(tag & LCM_TAG_SEND){
+				mipi_force_write(rd_prepare->datatype, rd_prepare->real_cmd_code.data, (rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
+			}else if(tag & LCM_TAG_SLEEP){
+				msleep((rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
+			}
+			rd_prepare++;
+		}
+		mipi_eotp_set(0,0);
+		read_rtn = mipi_force_read(0x0A, 1,(uint8_t *)read_data);
+		mipi_eotp_set(1,1);
+		printk("lcd_nt35516 mipi read power mode 0x0A value is 0x%x! , read result(%d)\n", read_data[0], read_rtn);
+		if((0x9c == read_data[0])  && (0 == read_rtn)){
+			pr_debug("lcd_nt35516_mipi read power mode success!\n");
+			return 0x9c;
+		}
+	}
+
+	return 0x0;
+}
+
+static int32_t nt35516_check_esd(struct panel_spec *self)
+{
+	uint32_t power_mode;
+
+	mipi_set_lp_mode_t mipi_set_data_lp_mode = self->info.mipi->ops->mipi_set_data_lp_mode;
+	mipi_set_hs_mode_t mipi_set_data_hs_mode = self->info.mipi->ops->mipi_set_data_hs_mode;
+	mipi_set_lp_mode_t mipi_set_lp_mode = self->info.mipi->ops->mipi_set_lp_mode;
+	mipi_set_hs_mode_t mipi_set_hs_mode = self->info.mipi->ops->mipi_set_hs_mode;
+	uint16_t work_mode = self->info.mipi->work_mode;
+
+	pr_debug("nt35516_check_esd!\n");
+	if(SPRDFB_MIPI_MODE_CMD==work_mode){
+		mipi_set_lp_mode();
+	}else{
+		mipi_set_data_lp_mode();
+	}
+	power_mode = nt35516_readpowermode(self);
+	//power_mode = 0x0;
+	if(SPRDFB_MIPI_MODE_CMD==work_mode){
+		mipi_set_hs_mode();
+	}else{
+		mipi_set_data_hs_mode();
+	}
+	if(power_mode == 0x9c){
+		pr_debug("nt35516_check_esd OK!\n");
+		return 1;
+	}else{
+		printk("nt35516_check_esd fail!(0x%x)\n", power_mode);
+		return 0;
+	}
+}
+
 static struct panel_operations lcd_nt35516_mipi_operations = {
 	.panel_init = nt35516_mipi_init,
 	.panel_readid = nt35516_readid,
 	.panel_enter_sleep = nt35516_enter_sleep,
+	.panel_esd_check = nt35516_check_esd,
 };
 
 static struct timing_rgb lcd_nt35516_mipi_timing = {
@@ -325,8 +401,10 @@ static struct info_mipi lcd_nt35516_mipi_info = {
 struct panel_spec lcd_nt35516_mipi_spec = {
 	.width = 540,
 	.height = 960,
+	.fps = 60,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
+	.is_clean_lcd = true,
 	.info = {
 		.mipi = &lcd_nt35516_mipi_info
 	},

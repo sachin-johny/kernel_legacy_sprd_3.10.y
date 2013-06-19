@@ -79,6 +79,8 @@ typedef uint32_t (*read_data_t)(void);
 
 typedef int32_t (*mipi_set_cmd_mode_t)(void);
 typedef int32_t (*mipi_set_video_mode_t)(void);
+typedef int32_t (*mipi_set_lp_mode_t)(void);
+typedef int32_t (*mipi_set_hs_mode_t)(void);
 typedef int32_t (*mipi_gen_write_t)(uint8_t *param, uint16_t param_length);
 typedef int32_t (*mipi_gen_read_t)(uint8_t *param, uint16_t param_length, uint8_t bytes_to_read, uint8_t *read_buffer);
 typedef int32_t (*mipi_dcs_write_t)(uint8_t *param, uint16_t param_length);
@@ -119,6 +121,7 @@ struct panel_operations {
 				uint16_t angle);
 	int32_t (*panel_set_direction)(struct panel_spec *self, uint16_t direction);
 	uint32_t (*panel_readid)(struct panel_spec *self);
+	int32_t (*panel_esd_check)(struct panel_spec *self);
 };
 
 /* MCU LCD specific properties */
@@ -165,6 +168,10 @@ struct ops_spi{
 struct ops_mipi{
 	int32_t (*mipi_set_cmd_mode)(void);
 	int32_t (*mipi_set_video_mode)(void);
+	int32_t (*mipi_set_lp_mode)(void);
+	int32_t (*mipi_set_hs_mode)(void);
+	int32_t (*mipi_set_data_lp_mode)(void);
+	int32_t (*mipi_set_data_hs_mode)(void);
 	int32_t (*mipi_gen_write)(uint8_t *param, uint16_t param_length);
 	int32_t (*mipi_gen_read)(uint8_t *param, uint16_t param_length, uint8_t bytes_to_read, uint8_t *read_buffer);
 	int32_t (*mipi_dcs_write)(uint8_t *param, uint16_t param_length);
@@ -232,8 +239,11 @@ struct panel_if_ctrl{
 	void (*panel_if_uninit)(struct sprdfb_device *dev);
 	void (*panel_if_before_refresh)(struct sprdfb_device *dev);
 	void (*panel_if_after_refresh)(struct sprdfb_device *dev);
+	void (*panel_if_before_panel_reset)(struct sprdfb_device *dev);
 	void (*panel_if_suspend)(struct sprdfb_device *dev);
 	void (*panel_if_resume)(struct sprdfb_device *dev);
+	uint32_t  (*panel_if_get_status)(struct sprdfb_device *dev);
+
 };
 
 /* LCD abstraction */
@@ -243,6 +253,7 @@ struct panel_spec {
 	uint32_t fps;
 	uint16_t type; /*mcu, rgb, mipi*/
 	uint16_t direction;
+	bool	 is_clean_lcd;
 	union {
 		struct info_mcu *mcu;
 		struct info_rgb *rgb;
