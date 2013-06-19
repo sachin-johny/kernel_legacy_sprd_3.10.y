@@ -2171,12 +2171,15 @@ void do_coredump(long signr, int exit_code, struct pt_regs *regs)
 		 */
 		if (!S_ISREG(inode->i_mode))
 			goto close_fail;
-		/*
+#if 0//for corefile sdcard storage
+                /*
 		 * Dont allow local users get cute and trick others to coredump
 		 * into their pre-created files.
 		 */
-		if (inode->i_uid != current_fsuid())
+	
+                if (inode->i_uid != current_fsuid())
 			goto close_fail;
+#endif
 		if (!cprm.file->f_op || !cprm.file->f_op->write)
 			goto close_fail;
 		if (do_truncate(cprm.file->f_path.dentry, 0, 0, cprm.file))
