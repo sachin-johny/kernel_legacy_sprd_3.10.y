@@ -1,8 +1,8 @@
 /* ==========================================================================
  * $File: //dwh/usb_iip/dev/software/otg/linux/drivers/dwc_otg_core_if.h $
- * $Revision: #4 $
- * $Date: 2008/12/18 $
- * $Change: 1155299 $
+ * $Revision: #13 $
+ * $Date: 2012/08/10 $
+ * $Change: 2047372 $
  *
  * Synopsys HS OTG Linux Software Driver and documentation (hereinafter,
  * "Software") is an Unsupported proprietary work of Synopsys, Inc. unless
@@ -63,8 +63,12 @@ extern uint8_t dwc_otg_is_host_mode(dwc_otg_core_if_t * _core_if);
 extern uint8_t dwc_otg_is_dma_enable(dwc_otg_core_if_t * core_if);
 
 /** This function should be called on every hardware interrupt. */
-extern int32_t dwc_otg_handle_common_intr(dwc_otg_core_if_t * _core_if);
+extern int32_t dwc_otg_handle_common_intr(dwc_otg_core_if_t *core_if);
 
+#ifndef DWC_DEVICE_ONLY
+extern void dwc_otg_core_fore_host(dwc_otg_core_if_t * core_if);
+extern int32_t otg_cable_disconnect(dwc_otg_core_if_t * core_if);
+#endif
 /** @name OTG Core Parameters */
 /** @{ */
 
@@ -291,7 +295,7 @@ extern int32_t dwc_otg_get_param_phy_type(dwc_otg_core_if_t * core_if);
 #define dwc_param_phy_type_default DWC_PHY_TYPE_PARAM_UTMI
 
 /**
- * Specifies the UTMI+ Data Width.	This parameter is
+ * Specifies the UTMI+ Data Width. This parameter is
  * applicable for a PHY_TYPE of UTMI+ or ULPI. (For a ULPI
  * PHY_TYPE, this parameter indicates the data width between
  * the MAC and the ULPI Wrapper.) Also, this parameter is
@@ -372,7 +376,7 @@ extern int dwc_otg_set_param_dev_tx_fifo_size(dwc_otg_core_if_t * core_if,
 					      int fifo_num, int32_t val);
 extern int32_t dwc_otg_get_param_dev_tx_fifo_size(dwc_otg_core_if_t * core_if,
 						  int fifo_num);
-#define dwc_param_dev_tx_fifo_size_default 256
+#define dwc_param_dev_tx_fifo_size_default 768
 
 /** Thresholding enable flag-
  * bit 0 - enable non-ISO Tx thresholding
@@ -424,16 +428,55 @@ extern int32_t dwc_otg_get_param_mpi_enable(dwc_otg_core_if_t * core_if);
 #define dwc_param_mpi_enable_default 0
 
 /**
+ * Specifies whether ADP capability is enabled
+ */
+extern int dwc_otg_set_param_adp_enable(dwc_otg_core_if_t * core_if,
+					int32_t val);
+extern int32_t dwc_otg_get_param_adp_enable(dwc_otg_core_if_t * core_if);
+#define dwc_param_adp_enable_default 0
+
+/**
  * Specifies whether IC_USB capability is enabled
  */
+
 extern int dwc_otg_set_param_ic_usb_cap(dwc_otg_core_if_t * core_if,
 					int32_t val);
 extern int32_t dwc_otg_get_param_ic_usb_cap(dwc_otg_core_if_t * core_if);
 #define dwc_param_ic_usb_cap_default 0
 
-extern int dwc_otg_set_param_ahb_thr_ratio(dwc_otg_core_if_t * core_if, int32_t val);
+extern int dwc_otg_set_param_ahb_thr_ratio(dwc_otg_core_if_t * core_if,
+					   int32_t val);
 extern int32_t dwc_otg_get_param_ahb_thr_ratio(dwc_otg_core_if_t * core_if);
 #define dwc_param_ahb_thr_ratio_default 0
+
+extern int dwc_otg_set_param_power_down(dwc_otg_core_if_t * core_if,
+					int32_t val);
+extern int32_t dwc_otg_get_param_power_down(dwc_otg_core_if_t * core_if);
+#define dwc_param_power_down_default 0
+
+extern int dwc_otg_set_param_reload_ctl(dwc_otg_core_if_t * core_if,
+					int32_t val);
+extern int32_t dwc_otg_get_param_reload_ctl(dwc_otg_core_if_t * core_if);
+#define dwc_param_reload_ctl_default 0
+
+extern int dwc_otg_set_param_dev_out_nak(dwc_otg_core_if_t * core_if,
+					 int32_t val);
+extern int32_t dwc_otg_get_param_dev_out_nak(dwc_otg_core_if_t * core_if);
+#define dwc_param_dev_out_nak_default 0
+
+extern int dwc_otg_set_param_cont_on_bna(dwc_otg_core_if_t * core_if,
+					 int32_t val);
+extern int32_t dwc_otg_get_param_cont_on_bna(dwc_otg_core_if_t * core_if);
+#define dwc_param_cont_on_bna_default 0
+
+extern int dwc_otg_set_param_ahb_single(dwc_otg_core_if_t * core_if,
+					int32_t val);
+extern int32_t dwc_otg_get_param_ahb_single(dwc_otg_core_if_t * core_if);
+#define dwc_param_ahb_single_default 0
+
+extern int dwc_otg_set_param_otg_ver(dwc_otg_core_if_t * core_if, int32_t val);
+extern int32_t dwc_otg_get_param_otg_ver(dwc_otg_core_if_t * core_if);
+#define dwc_param_otg_ver_default 0
 
 /** @} */
 
@@ -514,6 +557,12 @@ extern uint32_t dwc_otg_get_enumspeed(dwc_otg_core_if_t * core_if);
  * Get value of prtpwr field from the HPRT0 register
  */
 extern uint32_t dwc_otg_get_prtpower(dwc_otg_core_if_t * core_if);
+
+/**
+ * Get value of flag indicating core state - hibernated or not
+ */
+extern uint32_t dwc_otg_get_core_state(dwc_otg_core_if_t * core_if);
+
 /**
  * Set value of prtpwr field from the HPRT0 register
  */
@@ -527,6 +576,24 @@ extern uint32_t dwc_otg_get_prtsuspend(dwc_otg_core_if_t * core_if);
  * Set value of prtpwr field from the HPRT0 register
  */
 extern void dwc_otg_set_prtsuspend(dwc_otg_core_if_t * core_if, uint32_t val);
+
+/**
+ * Get value of ModeChTimEn field from the HCFG regsiter
+ */
+extern uint32_t dwc_otg_get_mode_ch_tim(dwc_otg_core_if_t * core_if);
+/**
+ * Set value of ModeChTimEn field from the HCFG regsiter
+ */
+extern void dwc_otg_set_mode_ch_tim(dwc_otg_core_if_t * core_if, uint32_t val);
+
+/**
+ * Get value of Fram Interval field from the HFIR regsiter
+ */
+extern uint32_t dwc_otg_get_fr_interval(dwc_otg_core_if_t * core_if);
+/**
+ * Set value of Frame Interval field from the HFIR regsiter
+ */
+extern void dwc_otg_set_fr_interval(dwc_otg_core_if_t * core_if, uint32_t val);
 
 /**
  * Set value of prtres field from the HPRT0 register
@@ -632,4 +699,4 @@ extern uint32_t dwc_otg_get_hptxfsiz(dwc_otg_core_if_t * core_if);
 
 /** @} */
 
-#endif				/* __DWC_CORE_IF_H__ */
+#endif /* __DWC_CORE_IF_H__ */

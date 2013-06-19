@@ -111,6 +111,28 @@ static DEFINE_MUTEX(udc_lock);
 
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
+
+/**
+ * Get the dwc_otg_pcd_ep_t* from usb_ep* pointer - NULL in case
+ * if the endpoint is not found
+ */
+static struct dwc_otg_pcd_ep *ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
+{
+	int i;
+	if (pcd->ep0.priv == handle) {
+		return &pcd->ep0;
+	}
+
+	for (i = 0; i < MAX_EPS_CHANNELS - 1; i++) {
+		if (pcd->in_ep[i].priv == handle)
+			return &pcd->in_ep[i];
+		if (pcd->out_ep[i].priv == handle)
+			return &pcd->out_ep[i];
+	}
+
+	return NULL;
+}
+
 extern int in_calibration(void);
 
 static int factory_mode = false;
@@ -286,7 +308,7 @@ static struct usb_request *dwc_otg_pcd_alloc_request(struct usb_ep *ep,
 		return 0;
 	}
 	memset(usb_req, 0, sizeof(*usb_req));
-	usb_req->dma = DMA_ADDR_INVALID;
+	usb_req->dma = DWC_DMA_ADDR_INVALID;
 
 	return usb_req;
 }
@@ -328,7 +350,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 		    gfp_t gfp_flags)
 {
 	dwc_otg_pcd_t *pcd;
-	int retval;
+	int retval = 0;
 
 	//trace_printk("(%p,%p,%d)\n",
 	//	    usb_ep, usb_req, gfp_flags);
@@ -358,7 +380,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	usb_req->status = -EINPROGRESS;
 	usb_req->actual = 0;
 
-	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, usb_req->dma,
+	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, usb_req->dma/*dma_addr*/,
 				      usb_req->length, usb_req->zero, usb_req,
 				      gfp_flags == GFP_ATOMIC ? 1 : 0);
 	if (retval) {
@@ -651,6 +673,10 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	static int enum_enabled = 0;
 	int action = is_on;
 
+#ifndef DWC_DEVICE_ONLY	
+	if(!usb_get_id_state())
+		return 0;
+#endif
 	if (gadget == 0)
 		return -ENODEV;
 	else
@@ -670,6 +696,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		 */
 		if(timer_pending(&d->cable_timer))
 			del_timer(&d->cable_timer);
+		
 		__udc_shutdown();
 	}
 	mutex_unlock(&udc_lock);
@@ -789,7 +816,9 @@ static int _complete(dwc_otg_pcd_t * pcd, void *ep_handle,
 
 		}
 		req->actual = actual;
+		DWC_SPINUNLOCK(pcd->lock);
 		req->complete(ep_handle, req);
+		DWC_SPINLOCK(pcd->lock);
 	}
 
 	return 0;
@@ -1137,16 +1166,16 @@ int dwc_udc_state(void)
 
 void udc_phy_down(void)
 {
-	struct gadget_wrapper *d = gadget_wrapper;
+	//struct gadget_wrapper *d = gadget_wrapper;
 
-	dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
+	//dwc_otg_dev_soft_disconnect(GET_CORE_IF(d->pcd));
 }
 
 void udc_phy_up(void)
 {
-	struct gadget_wrapper *d = gadget_wrapper;
+	//struct gadget_wrapper *d = gadget_wrapper;
 
-	dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
+	//dwc_otg_dev_soft_connect(GET_CORE_IF(d->pcd));
 }
 static struct usb_hotplug_callback *hotplug_cb;
 static void hotplug_callback(int event, int usb_cable)
@@ -1229,6 +1258,14 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	struct gadget_wrapper *d;
 	int value = 0;
 
+#ifndef DWC_DEVICE_ONLY
+	/*
+	 *if otg cable is connected , id state =0
+	 *as host turn on vbus, in this case shouldn't call this handler
+	 */
+	if(!usb_get_id_state())
+		return IRQ_HANDLED;
+#endif
 	d = gadget_wrapper;
 	if (d->driver == NULL) {
 		pr_info("too early, no gadget drive\n");
@@ -1340,7 +1377,7 @@ int pcd_init(
 	irq = platform_get_irq(_dev, 0);
 	DWC_DEBUGPL(DBG_ANY, "registering handler for irq%d\n", irq);
 	retval = request_irq(irq, dwc_otg_pcd_irq,
-			0, gadget_wrapper->gadget.name,
+			IRQF_SHARED, gadget_wrapper->gadget.name,
 			otg_dev->pcd);
 	//SA_SHIRQ, gadget_wrapper->gadget.name,
 	if (retval != 0) {
@@ -1395,7 +1432,11 @@ int pcd_init(
 	 * dwc driver is ok, check if the cable is insert, if no,
 	 * shutdown udc for saving power.
 	 */
+#ifndef DWC_DEVICE_ONLY
+	if ((!gadget_wrapper->vbus)&&usb_get_id_state()){
+#else
 	if (!gadget_wrapper->vbus){
+#endif
 		pr_debug("vbus is not power now \n");
 		gadget_wrapper->udc_startup = 1;
 		__udc_shutdown();
@@ -1428,7 +1469,7 @@ struct platform_device *_dev
 	/*
 	 * Free the IRQ
 	 */
-	//free_irq(_dev->irq, pcd);
+	free_irq(platform_get_irq(_dev, 0), pcd);
 	plug_irq = usb_get_vbus_irq();
 	usb_free_vbus_irq(plug_irq);
 	dwc_otg_pcd_remove(pcd);

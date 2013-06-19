@@ -16,17 +16,15 @@
 #include <linux/clk.h>
 #include <linux/regulator/consumer.h>
 #include <linux/gpio.h>
-
 #include <asm/irq.h>
-
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/globalregs.h>
 #include <mach/board.h>
 #include "usb_hw.h"
-
-
+#include <mach/adi.h>
+#include <linux/io.h>//__raw_writel
 
 #if defined(CONFIG_ARCH_SC8825)||defined(CONFIG_ARCH_SCX35)
 #define  USB_LDO_NAME	"vddusb"
@@ -106,6 +104,8 @@ void usb_phy_init(void)
 {
 #ifdef CONFIG_USB_CORE_IP_293A
 #if defined(CONFIG_ARCH_SCX35)
+
+	sci_glb_set(REG_AP_APB_USB_PHY_TUNE,BIT(9)|BIT(10)|BIT(11)|BIT(20));
 #else
 		/*
 		* tiger PHY reg is different with previous ,
@@ -144,10 +144,12 @@ void usb_phy_init(void)
         }
 #endif
 }
+
+
 static void usb_startup(void)
 {
 	usb_ldo_switch(1);
-	mdelay(2);
+	mdelay(5);
 	usb_enable_module(1);
 	mdelay(10);
 #if defined(CONFIG_ARCH_SCX35)
@@ -158,7 +160,6 @@ static void usb_startup(void)
 #else	
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(1)|BIT(2),AHB_CTL3);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6),AHB_CTL3);
-
 
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6)|BIT(7),AHB_SOFT_RST);
 	mdelay(5);
@@ -226,5 +227,76 @@ void usb_set_vbus_irq_type(int irq, int irq_type)
 
 	return;
 }
+
+#ifndef DWC_DEVICE_ONLY
+void charge_pump_set(int state)
+{
+	struct regulator *usb_regulator = NULL;
+#define  USB_CHG_PUMP_NAME	"chg_pump"
+
+	if(usb_regulator == NULL){
+		usb_regulator = regulator_get(NULL,USB_CHG_PUMP_NAME);
+	}
+	if(usb_regulator){
+		if(state){
+			regulator_enable(usb_regulator);
+		}else{
+			regulator_disable(usb_regulator);
+		}
+		regulator_put(usb_regulator);
+	}
+}
+
+int usb_alloc_id_irq(void)
+{
+	int irq;
+
+	gpio_request(USB_OTG_CABLE_DETECT,"USB OTG CABLE");
+	gpio_direction_input(USB_OTG_CABLE_DETECT);
+	irq = gpio_to_irq(USB_OTG_CABLE_DETECT);
+	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+
+	return irq;
+}
+
+void usb_free_id_irq(int irq)
+{
+	gpio_free(USB_OTG_CABLE_DETECT);
+}
+
+int usb_get_id_irq(void)
+{
+	int value;
+
+	value = gpio_to_irq(USB_OTG_CABLE_DETECT);
+
+	return value;
+}
+int usb_get_id_state(void)
+{
+#if 1
+	return 1;
+#else
+	int value;
+	value = gpio_get_value(USB_OTG_CABLE_DETECT);
+	return !!value;
+#endif
+}
+
+void usb_set_id_irq_type(int irq, int irq_type)
+{
+	if (irq_type == OTG_CABLE_PLUG_IN)
+		irq_set_irq_type(irq, IRQ_TYPE_LEVEL_LOW);
+	else if (irq_type == OTG_CABLE_PLUG_OUT)
+		irq_set_irq_type(irq, IRQ_TYPE_LEVEL_HIGH);
+	else {
+		pr_warning("error type for usb vbus\n");
+	}
+
+	return;
+}
+#endif
+
+
 EXPORT_SYMBOL(udc_disable);
 EXPORT_SYMBOL(udc_enable);

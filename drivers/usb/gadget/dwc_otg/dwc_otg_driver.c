@@ -72,6 +72,7 @@
 #include "dwc_otg_driver.h"
 #include "dwc_otg_core_if.h"
 #include "dwc_otg_pcd_if.h"
+#include "usb_hw.h"
 
 #define DWC_DRIVER_VERSION	"2.81a 04-FEB-2009"
 #define DWC_DRIVER_DESC		"HS OTG USB Controller driver"
@@ -195,28 +196,28 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	.ulpi_fs_ls = -1,
 	.ts_dline = -1,
 	.en_multiple_tx_fifo = -1,
-	#if defined(CONFIG_ARCH_SCX35)
+#if defined(CONFIG_ARCH_SCX35)
 	.dev_tx_fifo_size = {
-			     /* dev_tx_fifo_size */
-			     0x40,
-			     0x40,
-			     0x100,
-			     0x100,
-			     0x100,
-			     0x100,
-			     0x100,
-			     0x80,
-			     0x80,
-			     0x80,
-			     0x80,
-			     0x80,
-			     0x80,
-			     0x80,
-			     0x200
-			     /* 15 */
-			     },
+				 /* dev_tx_fifo_size */
+				 0x40,
+				 0x40,
+				 0x100,
+				 0x100,
+				 0x100,
+				 0x100,
+				 0x100,
+				 0x80,
+				 0x80,
+				 0x80,
+				 0x80,
+				 0x80,
+				 0x80,
+				 0x80,
+				 0x200
+				 /* 15 */
+				 },
 
-	#else
+#else
 	.dev_tx_fifo_size = {
 			     /* dev_tx_fifo_size */
 			     0x100,
@@ -236,7 +237,7 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 			     -1
 			     /* 15 */
 			     },
-	#endif
+#endif
 	.thr_ctl = -1,
 	.tx_thr_length = -1,
 	.rx_thr_length = -1,
@@ -261,7 +262,7 @@ static DRIVER_ATTR(version, S_IRUGO, version_show, NULL);
 /**
  * Global Debug Level Mask.
  */
-uint32_t g_dbg_lvl = 0;		/* OFF */
+uint32_t g_dbg_lvl = 0x0;		/* OFF */
 
 /**
  * This function shows the driver Debug Level.
@@ -540,8 +541,10 @@ static int set_parameters(dwc_otg_core_if_t * core_if)
  * This function is the top level interrupt handler for the Common
  * (Device and host modes) interrupts.
  */
-static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
-	__attribute__((unused));
+/**static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
+*	__attribute__((unused));
+*need to confirm if need comm_irq
+*/
 static irqreturn_t dwc_otg_common_irq(int irq, void *dev)
 {
 	dwc_otg_device_t *otg_dev = dev;
@@ -595,9 +598,10 @@ static int dwc_otg_driver_remove(
 	/*
 	 * Free the IRQ
 	 */
-#if 0 //sword
+#ifndef DWC_DEVICE_ONLY 
+	/*if otg is supported*/
 	if (otg_dev->common_irq_installed) {
-		free_irq(_dev->irq, otg_dev);
+		free_irq(platform_get_irq(_dev, 0), otg_dev);
 	}
 #endif
 	if (otg_dev->core_if) {
@@ -612,8 +616,8 @@ static int dwc_otg_driver_remove(
 	/*
 	 * Return the memory.
 	 */
-	if (otg_dev->base) {
-		iounmap(otg_dev->base);
+	if (otg_dev->os_dep.base) {
+		iounmap(otg_dev->os_dep.base);
 	}
 	dwc_free(otg_dev);
 
@@ -668,24 +672,23 @@ static int dwc_otg_driver_probe(
 	}
 
 	memset(dwc_otg_device, 0, sizeof(*dwc_otg_device));
-	dwc_otg_device->reg_offset = 0xFFFFFFFF;
+	dwc_otg_device->os_dep.reg_offset = 0xFFFFFFFF;
 
 	/*
 	 * Map the DWC_otg Core memory into virtual address space.
 	 */
-
-	dwc_otg_device->base = (void *)platform_get_resource(_dev,
+	dwc_otg_device->os_dep.base = (void *)platform_get_resource(_dev,
 						IORESOURCE_MEM, 0)->start;
 
-	if (!dwc_otg_device->base) {
+	if (!dwc_otg_device->os_dep.base) {
 		dev_err(&_dev->dev, "ioremap() failed\n");
 		retval = -ENOMEM;
 		goto fail;
 	}
-	dev_dbg(&_dev->dev, "base=0x%08x\n", (unsigned)dwc_otg_device->base);
+	dev_dbg(&_dev->dev, "base=0x%08x\n", (unsigned)dwc_otg_device->os_dep.base);
 
 	irq = platform_get_irq(_dev, 0);
-	dev_dbg(&_dev->dev, "base=0x%08x irq:%d\n", (unsigned)dwc_otg_device->base,
+	dev_dbg(&_dev->dev, "base=0x%08x irq:%d\n", (unsigned)dwc_otg_device->os_dep.base,
 			irq);
 	/*
 	 * Initialize driver data to point to the global DWC_otg
@@ -697,7 +700,7 @@ static int dwc_otg_driver_probe(
 	dev_dbg(&_dev->dev, "dwc_otg_device=0x%p\n", dwc_otg_device);
 
 	udc_enable();
-	dwc_otg_device->core_if = dwc_otg_cil_init(dwc_otg_device->base);
+	dwc_otg_device->core_if = dwc_otg_cil_init(dwc_otg_device->os_dep.base);
 	if (!dwc_otg_device->core_if) {
 		dev_err(&_dev->dev, "CIL initialization failed!\n");
 		retval = -ENOMEM;
@@ -749,9 +752,14 @@ static int dwc_otg_driver_probe(
 	DWC_DEBUGPL(DBG_CIL, "registering (common) handler for irq%d\n",
 		    irq);
 //sword
-/*
+#ifndef DWC_DEVICE_ONLY
+	/*
+	 *no need to use comm_irq if the usb IP core can work only in device mode
+	 *but if support otg, we should use common_irq
+	 *such as device disconnect when usb cable is connected,plug out udisk
+	 */
 	retval = request_irq(irq, dwc_otg_common_irq,
-			     0, "dwc_otg", dwc_otg_device);
+			     IRQF_SHARED, "dwc_otg", dwc_otg_device);
 			     //SA_SHIRQ, "dwc_otg", dwc_otg_device);
 	if (retval) {
 		DWC_ERROR("request of irq%d failed\n", irq);
@@ -760,8 +768,15 @@ static int dwc_otg_driver_probe(
 	} else {
 		dwc_otg_device->common_irq_installed = 1;
 	}
-*/
+#endif
 
+#if 0//ndef DWC_DEVICE_ONLY //no need
+	/*
+	 * judge wheather otg cable is connected 
+	 */
+	if(!usb_get_id_state())
+		dwc_otg_core_fore_host(dwc_otg_device->core_if);
+#endif
 	/*
 	 * Initialize the DWC_otg core.
 	 */
