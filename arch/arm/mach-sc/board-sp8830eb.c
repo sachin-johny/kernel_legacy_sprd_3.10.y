@@ -27,7 +27,7 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-#include <linux/i2c/ft5306_ts.h>
+#include <linux/i2c/ft53x6_ts.h>
 #include <linux/i2c/lis3dh.h>
 #include <linux/i2c/ltr_558als.h>
 #include <linux/akm8975.h>
@@ -362,7 +362,7 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 
 static struct i2c_board_info i2c0_boardinfo[] = {
 	{
-		I2C_BOARD_INFO(FT5206_TS_DEVICE, FT5206_TS_ADDR),
+		I2C_BOARD_INFO(FT5X0X_NAME, FT53x6_TS_ADDR),
 		.platform_data = &ft5x0x_ts_info,
 	},
 };

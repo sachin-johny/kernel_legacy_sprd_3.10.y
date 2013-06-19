@@ -1,20 +1,11 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
-#if defined(CONFIG_MACH_SPX35EA) || defined (CONFIG_MACH_SPX35EB) ||defined (CONFIG_MACH_SP7735EC)|| defined (CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP5735PAD)
-#define SCREEN_MAX_X    719
-#define SCREEN_MAX_Y    1279
-#else
-#define SCREEN_MAX_X    539
-#define SCREEN_MAX_Y    959
-#endif
-
-#define PRESS_MAX       255
-
-#define FT5X0X_NAME			"ft5x0x_ts"//"synaptics_i2c_rmi"//"synaptics-rmi-ts"// 
+#define FT5X0X_NAME			"ft5x0x_ts"
 #define FT5206_TS_DEVICE		"ft5x0x_ts"
 #define FT5206_TS_NAME			"ft5x0x_ts"
 #define FT5206_TS_ADDR			0x38
+#define FT53x6_TS_ADDR			0x38
 
 struct ft5x0x_ts_platform_data{
 	int irq_gpio_number;
