@@ -182,6 +182,8 @@
 #define NR_GPIO_IRQS	( 320 )
 
 #define NR_IRQS				(NR_SCI_PHY_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
+#define FIQ_START	(0)
+#define NR_FIQS		(NR_SCI_PHY_IRQS)
 
 #ifndef __ASSEMBLY__
 void __init ana_init_irq(void);

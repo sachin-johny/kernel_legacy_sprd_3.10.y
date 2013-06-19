@@ -36,7 +36,10 @@
 #include <linux/delay.h>
 #include <linux/irq.h>
 #include <mach/watchdog.h>
-#include <mach/irqs.h>
+#include <asm/io.h>
+#include <asm/fiq.h>
+#include <asm/fiq_glue.h>
+#include <asm/cacheflush.h>
 
 #define KERNEL_ONLY_CHIP_DOG 0
 #define KERNEL_WATCHDOG_FEEDER 1
@@ -55,6 +58,7 @@ static unsigned long wdt_enabled;
 #define wdt_feed_all() FEED_ALL_WDG(chip_margin, ap_margin, ca7_margin, ca7_irq_margin)
 
 extern int in_calibration(void);
+#ifndef CONFIG_SPRD_WATCHDOG_SYS_FIQ
 static irqreturn_t ca7_wdg_isr(int irq, void *dev_id)
 {
 	pr_debug("%s\n", __func__);
@@ -66,6 +70,22 @@ static irqreturn_t ca7_wdg_isr(int irq, void *dev_id)
 	panic("watchdog timeout interrupt happen\n");
 	return IRQ_HANDLED;
 }
+#else
+static void ca7_wdg_fiq(struct fiq_glue_handler *h, void *regs, void *svc_sp)
+{
+	flush_cache_all();
+	outer_disable(); /* l2x0_disable */
+	oops_in_progress = 1;
+	mdelay(50); /* wait for other application processor finish printk */
+	arch_trigger_all_cpu_backtrace();
+	panic("Hardware Watchdog interrupt barks on <cpu%d>\n", smp_processor_id());
+	__raw_writel(WDG_INT_CLEAR_BIT, CA7_WDG_INT_CLR);
+}
+
+static struct fiq_glue_handler ca7_wdg_fiq_glue_handler = {
+	.fiq = ca7_wdg_fiq,
+};
+#endif
 
 #define sprd_wdt_shutdown NULL
 
@@ -118,12 +138,19 @@ static inline int wdt_init(void)
 
 	/* 0xf0 coressponding to wachdog reboot mode of bootloader */
 	sci_adi_raw_write(ANA_RST_STATUS, 0xf0);
-
+#ifndef CONFIG_SPRD_WATCHDOG_SYS_FIQ
 	ret = request_irq(IRQ_CA7WDG_INT, ca7_wdg_isr, IRQF_NO_SUSPEND, "sprd_wdg", NULL);
 	if (ret) {
 		pr_info("sprd wdg isr register failed\n");
 		BUG();
 	}
+#else
+	ret = fiq_glue_register_handler(&ca7_wdg_fiq_glue_handler);
+	if (ret == 0)
+		enable_fiq(IRQ_CA7WDG_INT);
+	else
+		pr_err("<%s> fiq_glue_register_handler failed %d!\n", __func__, ret);
+#endif
 
 	register_syscore_ops(&sprd_wdt_syscore_ops);
 	return ret;

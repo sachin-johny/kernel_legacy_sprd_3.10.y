@@ -367,6 +367,14 @@ config SPRD_WATCHDOG_SYS
 	  If you wish to have watchdog support enabled,
           say Y, otherwise say N.
 
+config SPRD_WATCHDOG_SYS_FIQ
+	bool "Spreadtrum watchdog with fiq mode"
+	depends on SPRD_WATCHDOG_SYS
+	select FIQ_GLUE
+	default y
+	help
+	  This option will chose hardware watchdog interrupt mode to fiq.
+
 # AVR32 Architecture
 
 config AT32AP700X_WDT

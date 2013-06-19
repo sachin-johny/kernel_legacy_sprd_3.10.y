@@ -25,6 +25,7 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/sci.h>
 #include <mach/arch_misc.h>
+#include <asm/fiq.h>
 
 /* general interrupt registers */
 #define	INTC_IRQ_MSKSTS		(0x0000)
@@ -32,6 +33,9 @@
 #define	INTC_IRQ_EN		(0x0008)
 #define	INTC_IRQ_DIS		(0x000C)
 #define	INTC_IRQ_SOFT		(0x0010)
+#define	INTC_FIQ_STS		(0x0020)
+#define	INTC_FIQ_EN		(0x0028)
+#define	INTC_FIQ_DIS		(0x002C)
 
 struct intc {
 	u32 intc_reg_base;
@@ -143,10 +147,15 @@ static void sci_irq_mask(struct irq_data *data)
 	unsigned int irq = SCI_GET_INTC_IRQ(data->irq);
 	u32 base;
 	u32 bit;
+	u32 offset = INTC_IRQ_DIS;
+#ifdef CONFIG_SPRD_WATCHDOG_SYS_FIQ
+	if (unlikely(irq == (IRQ_CA7WDG_INT - IRQ_GIC_START)))
+		offset = INTC_FIQ_DIS;
+#endif
 	if (!__irq_mux_irq_find(irq, &base, &bit))
-		__raw_writel(1 << bit, base + INTC_IRQ_DIS);
+		__raw_writel(1 << bit, base + offset);
 	if (!__irq_find_base(irq, &base, &bit))
-		__raw_writel(1 << bit, base + INTC_IRQ_DIS);
+		__raw_writel(1 << bit, base + offset);
 }
 
 static void sci_irq_unmask(struct irq_data *data)
@@ -154,10 +163,15 @@ static void sci_irq_unmask(struct irq_data *data)
 	unsigned int irq = SCI_GET_INTC_IRQ(data->irq);
 	u32 base;
 	u32 bit;
+	u32 offset = INTC_IRQ_EN;
+#ifdef CONFIG_SPRD_WATCHDOG_SYS_FIQ
+	if (unlikely(irq == (IRQ_CA7WDG_INT - IRQ_GIC_START)))
+		offset = INTC_FIQ_EN;
+#endif
 	if (!__irq_mux_irq_find(irq, &base, &bit))
-		__raw_writel(1 << bit, base + INTC_IRQ_EN);
+		__raw_writel(1 << bit, base + offset);
 	if (!__irq_find_base(irq, &base, &bit))
-		__raw_writel(1 << bit, base + INTC_IRQ_EN);
+		__raw_writel(1 << bit, base + offset);
 }
 
 static int sci_set_wake(struct irq_data *d, unsigned int on)
@@ -184,4 +198,3 @@ void __init sci_init_irq(void)
 
 	__irq_init();
 }
-
