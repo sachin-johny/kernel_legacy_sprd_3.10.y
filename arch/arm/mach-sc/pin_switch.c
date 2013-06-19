@@ -58,7 +58,7 @@ static int pin_switch_debug_set(void *data, u64 val)
 static int pin_switch_debug_get(void *data, u64 * val)
 {
 	struct sci_pin_switch *p = data;
-	*val = read_write_pin_switch(1, val, p);
+	*val = read_write_pin_switch(1, (int)val, p);
 	return 0;
 }
 
