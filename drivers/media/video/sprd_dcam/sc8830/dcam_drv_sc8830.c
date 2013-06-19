@@ -426,7 +426,7 @@ int32_t dcam_module_en(void)
 		GLB_REG_OWR(DCAM_RST, CCIR_RST_BIT);
 		GLB_REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
 		GLB_REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
-
+		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 		dcam_print_clock();
 #if 0
 		{
@@ -2172,7 +2172,7 @@ LOCAL irqreturn_t dcam_isr_root(int irq, void *dev_id)
 	void                    *data;
 	int32_t                 i;
 
-	status = REG_RD(DCAM_INT_STS);
+	status = REG_RD(DCAM_INT_STS) & DCAM_IRQ_LINE_MASK;
 	if (unlikely(0 == status)) {
 		return IRQ_NONE;
 	}

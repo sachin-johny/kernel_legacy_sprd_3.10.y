@@ -61,6 +61,7 @@
 #define CSI2_DPHY_EB                                   (DCAM_AHB_CTL0 + 0x0000UL)
 #define DCAM_RST                                       (DCAM_AHB_CTL0 + 0x0004UL)
 #define DCAM_MATRIX_EB                                 (DCAM_AHB_CTL0 + 0x0008UL)
+#define DCAM_CCIR_PCLK_EB                              (SPRD_MMCKG_BASE + 0x0028UL)
 
 #define DCAM_BASE                                      SPRD_DCAM_BASE 
 #define DCAM_CFG                                       (DCAM_BASE + 0x0000UL)
@@ -148,6 +149,7 @@
 #define PATH0_RST_BIT                                  BIT_7
 #define PATH1_RST_BIT                                  BIT_8
 #define PATH2_RST_BIT                                  BIT_9
+#define CCIR_PCLK_EB_BIT                               BIT_16
 
 #define DCAM_PATH_NUM                                  3
 #define DCAM_CAP_SKIP_FRM_MAX                          16
