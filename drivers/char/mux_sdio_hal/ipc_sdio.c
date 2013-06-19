@@ -84,7 +84,7 @@ typedef struct MIPC_TRANSFER_Tag
    u32                                            counter;
 }MIPC_TRANSFER_T;
 
-#define MAX_IPC_TX_WAIT_TIMEOUT    10
+#define MAX_SDIO_TX_WAIT_TIMEOUT    100
 
 #define MAX_MIPC_RX_FRAME_SIZE    (64*1024)
 #define MAX_MIPC_TX_FRAME_SIZE    (16*1024)
@@ -106,7 +106,7 @@ u32 s_mux_ipc_event_flags = 0;
 static struct task_struct *s_mux_ipc_rx_thread;
 static struct task_struct *s_mux_ipc_tx_thread;
 
-
+static  int   sdio_tx_wait_time = 10;
 MIPC_FRAME_LIST_T  s_mipc_tx_free_frame_list;
 MIPC_TRANSFER_T     s_mipc_tx_tansfer;
 
@@ -699,7 +699,15 @@ static int mux_ipc_tx_thread(void *data)
 		{
 			if(_IsTransferFifoEmpty(&s_mipc_tx_tansfer))
 			{
-				msleep(MAX_IPC_TX_WAIT_TIMEOUT);
+				if(sdio_tx_wait_time > 0)
+				{
+					if(sdio_tx_wait_time > MAX_SDIO_TX_WAIT_TIMEOUT)
+					{
+						sdio_tx_wait_time = MAX_SDIO_TX_WAIT_TIMEOUT;
+					}
+					msleep(sdio_tx_wait_time);
+				}
+				
 				if(_FlushTxTransfer())
 				{
 					printk("No Data To Send\n");
@@ -902,6 +910,8 @@ static void __exit mux_ipc_sdio_exit(void)
 
 module_param_named(sdio_transfer_crc_check_enable, sdio_transfer_crc_check_enable, int, S_IRUGO | S_IWUSR);
 module_param_named(sdio_transfer_frame_check_enable, sdio_transfer_frame_check_enable, int, S_IRUGO | S_IWUSR);
+module_param_named(sdio_tx_wait_time, sdio_tx_wait_time, int, S_IRUGO | S_IWUSR);
+
 
 
 module_init(mux_ipc_sdio_init);
