@@ -1329,7 +1329,7 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.vaddr		= PAGE_OFFSET +
 					(CPT_START_ADDR + CPT_TOTAL_SIZE - CONFIG_PHYS_OFFSET),
 		.soff		= 0xffffffff,
-		.size		= SPRD_IO_MEM_BASE - (CPT_START_ADDR + CPT_TOTAL_SIZE),
+		.size		= CPW_START_ADDR - (CPT_START_ADDR + CPT_TOTAL_SIZE),
 		.type		= SYSDUMP_RAM,
 	},
 	{
