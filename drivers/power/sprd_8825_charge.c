@@ -44,9 +44,24 @@
 #else
 #define USB_DM_GPIO 215
 #define USB_DP_GPIO 216
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+#define BATTERY_CAPACITY_INIT_SHAKING_MAX 30
+#define BATTERY_CAPACITY_RUN_SHAKING_MAX 2
+#define BATTERY_ABS(a,b) ((a)>=(b)?((a)-(b)):((b)-(a)))
+#define BATTERY_MONITOR_LEVEL 1
+#define BATTERY_MONITOR_COUNT (0x1f >> BATTERY_MONITOR_LEVEL)
+extern uint16_t get_battery_reference(void);
+extern uint16_t *get_battery_init(void);
 #endif
 extern int sci_adc_get_value(unsigned chan, int scale);
 
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+enum BATTERY_ENUM
+{
+BATTERY_CAPACITY_INIT,
+BATTERY_CAPACITY_MONITOR,
+};
+#endif
 uint16_t adc_voltage_table[2][2] = {
 #ifdef CONFIG_ARCH_SC7710
 	{3300, 4200},
@@ -227,7 +242,14 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 	static uint16_t pre_percentum = 0xffff;
 	int is_charging = data->charging;
 	int is_usb;
-
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+	static uint16_t battery_percentum=0;
+	static enum BATTERY_ENUM battery_status = BATTERY_CAPACITY_INIT;
+	static uint16_t	percentum_old=0;
+	static char battery_count=0;
+	battery_count++;
+	battery_count = battery_count & BATTERY_MONITOR_COUNT;
+#endif
 	if (data->usb_online)
 		is_usb = 1;
 	else
@@ -343,11 +365,116 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 			pre_percentum = percentum;
 
 	}
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+uint16_t capcity_reference=0;
+switch(battery_status)
+{
+case BATTERY_CAPACITY_INIT:
+	capcity_reference=get_battery_reference();
+	if(capcity_reference ==200)
+	{
+	return battery_percentum;
+	}
+	else
+	{
+		percentum_old = percentum;
+		*(get_battery_init())=1;
+		battery_status=BATTERY_CAPACITY_MONITOR;
+		if(percentum<=5)
+		{
+			battery_percentum = percentum;
+			return  battery_percentum;
+		}
+		if(capcity_reference!=0)
+		{
+			if((capcity_reference >= (percentum + BATTERY_CAPACITY_INIT_SHAKING_MAX))
+					||(percentum >= (capcity_reference + BATTERY_CAPACITY_INIT_SHAKING_MAX)))
+				{
+				battery_percentum = percentum;
+				}
+			else
+				{
+				battery_percentum = capcity_reference;
+				}
+		}
+		else
+		{
+				battery_percentum=percentum;
+		}
+
+	}
+break;
+case BATTERY_CAPACITY_MONITOR:
+		{
+			if( BATTERY_ABS(percentum, percentum_old) <= BATTERY_CAPACITY_RUN_SHAKING_MAX)
+			{
+				if(is_charging)
+				{
+					if(battery_percentum < percentum)
+					{
+						if(percentum > 95)
+						{
+							if((battery_count & (BATTERY_MONITOR_COUNT >> 2))== 0)
+								battery_percentum++;
+						}
+						else
+						{
+							if(battery_count == 0)
+								battery_percentum++;
+						}
+					}
+					else	if(battery_percentum > percentum)
+					{
+					}
+					else
+					{
+						battery_count=0;
+					}
+				}
+				else
+				{
+					if(battery_percentum > percentum)
+					{
+						if(percentum <=10)
+						{
+							if((battery_count & (BATTERY_MONITOR_COUNT >> 3))== 0)
+								{
+								battery_percentum--;
+								}
+						}
+						else
+						{
+							if(battery_count == 0)
+								battery_percentum--;
+						}
+
+					}
+					else if (battery_percentum < percentum)
+					{
+					}
+					else
+					{
+						battery_count=0;
+					}
+				}
+			}
+			else
+			{
+			}
+			percentum_old = percentum;
+		}
+break;
+}
+#endif
 
 	pr_debug("SPRD_CHG::: %s, voltage = %d, retval = %d, is_charging = %d\n",
 	       __FUNCTION__, voltage, percentum, is_charging);
 
-	return percentum;
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+return battery_percentum;
+#else
+return percentum;
+#endif
 }
 
 void __weak udc_enable(void)

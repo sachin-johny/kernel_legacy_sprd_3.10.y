@@ -40,6 +40,15 @@
 #include <linux/slab.h>
 #include <linux/jiffies.h>
 
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+#include <linux/semaphore.h>
+#include <linux/fs.h>
+#include <linux/device.h>
+#include <linux/kdev_t.h>
+#include <asm/uaccess.h>
+#include <linux/sysfs.h>
+#include <mach/pm_debug.h>
+#endif
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 static struct sprd_battery_data *battery_data;
@@ -139,6 +148,29 @@ static int sprd_battery_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_STATUS:
 		/* suppose battery always online */
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+		if(battery_data->usb_online|| battery_data->ac_online)
+		{
+			if (data->charging)
+			{
+				val->intval = POWER_SUPPLY_STATUS_CHARGING;
+			}
+			else
+			{
+				if(battery_data->in_precharge)
+				{
+					val->intval = POWER_SUPPLY_STATUS_FULL;
+				}
+				else
+				{
+					val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+				}
+			}
+		}else
+		{
+			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
+		}
+#else
 		if (data->charging) {
 			if (data->capacity >= 100)
 				val->intval = POWER_SUPPLY_STATUS_FULL;
@@ -147,6 +179,7 @@ static int sprd_battery_get_property(struct power_supply *psy,
 		} else {
 			val->intval = POWER_SUPPLY_STATUS_DISCHARGING;
 		}
+#endif
 		break;
 	case POWER_SUPPLY_PROP_HEALTH:
 		val->intval = POWER_SUPPLY_HEALTH_GOOD;
@@ -498,7 +531,16 @@ void enable_ac_charge(struct sprd_battery_data *battery_data)
 	sprd_start_charge(battery_data);
 	battery_data->in_precharge = 0;
 }
-
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+uint16_t * get_battery_init(void)
+{
+	return &(battery_data->read);
+}
+uint16_t get_battery_reference(void)
+{
+	return battery_data->capcity_reference;
+}
+#endif
 void charge_stop(struct sprd_battery_data *battery_data)
 {
 	sprd_stop_charge(battery_data);
@@ -535,6 +577,10 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 	int usb_notify = 0;
 	int battery_notify = 0;
 	int32_t vchg_value;
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+	u32 cur_time;
+	static u32 battery_time=0;
+#endif
 #ifdef CONFIG_BATTERY_TEMP_DECT
 	int32_t temp_value;
 	int temp;
@@ -761,11 +807,32 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			       CHARGE_OVER_TIME);
 		}
 	}
-
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+		cur_time = get_sys_cnt();
+		if ((cur_time -  battery_time) > 4000)
+		{
+			battery_time = cur_time;
+			capacity =sprd_vol_to_percent(battery_data,
+					sprd_bat_adc_to_vol(battery_data,
+							    get_vbat_capacity_value
+							    ()), 0);
+			if(battery_data->capcity_reference!=capacity)
+			{
+				if(battery_data->capcity_reference<=100)
+				battery_data->capcity_reference=capacity;
+				up(&(battery_data->capacity_sema));
+			}
+			if (battery_data->capacity != capacity)
+			{
+				battery_data->capacity = capacity;
+				battery_notify = 1;
+			}
+		}
+#endif
 out:
 	if (!in_sleep) {
-
-		capacity =
+#ifndef CHGR_CAPACITY_SHOW_STEADY
+	capacity =
 		    sprd_vol_to_percent(battery_data,
 					sprd_bat_adc_to_vol(battery_data,
 							    get_vbat_capacity_value
@@ -774,13 +841,13 @@ out:
                     , capacity  \
                     , battery_data->capacity);
 
-		voltage = (voltage / 10) * 10;
 
 		if (battery_data->capacity != capacity) {
 			battery_data->capacity = capacity;
 			battery_notify = 1;
 		}
-
+#endif
+		voltage = (voltage / 10) * 10;
 		if (battery_data->voltage != voltage) {
 			battery_data->voltage = voltage;
 			battery_notify = 1;
@@ -822,7 +889,7 @@ void battery_sleep(void)
 }
 
 
-#ifdef CONFIG_ARCH_SC7710
+//#ifdef CONFIG_ARCH_SC7710
 void enable_tiemr0_wakeup(void)
 {
 	static u32 set_flag = 0;
@@ -860,10 +927,10 @@ void check_timer0_and_battery_handler(void)
 	} else {
 		stop_chg_timer_work();
 	}
-
+printk("i am here!!!\n");
 	clear_chg_timer_in_intc();
 }
-#endif
+//#endif
 
 /* used to detect battery capacity status
  * return 1: need update
@@ -952,6 +1019,52 @@ static int __init adc_cal_start(char *str)
 __setup("adc_cal", adc_cal_start);
 
 extern int sci_efuse_calibration_get(unsigned int *p_cal_data);
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+static int battery_capcity_open(struct inode *ind, struct file *filp)
+{
+	return 0;
+}
+static ssize_t  battery_capcity_read(struct file *filp, char *buf, size_t size, loff_t *lofp)
+{
+	int res = -1;
+	char tmp=50;
+	printk("<0>copy battery_capcity to the user space\n");
+	down_interruptible(&(battery_data->capacity_sema));
+		res = copy_to_user(buf, &battery_data->capcity_reference, size);
+	if (res == 0)
+	{
+		return size;
+	}
+	else
+	{
+		return 0;
+	}
+}
+static ssize_t  battery_capcity_write(struct file *filp, const char *buf, size_t size, loff_t *lofp)
+{
+	int res = -1;
+	char tmp;
+	printk("write test data battery_capcity\n");
+	down_interruptible(&(battery_data->capacity_sema));
+		res = copy_from_user(&battery_data->capcity_reference, buf, size);
+	if (res == 0)
+	{
+		return size;
+	}
+	else
+	{
+		return 0;
+	}
+}
+
+struct file_operations battery_capcity_fops =
+{
+	.owner=THIS_MODULE,
+	.open =  battery_capcity_open,
+	.read =  battery_capcity_read,
+	.write =  battery_capcity_write,
+};
+#endif
 static int sprd_battery_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -1016,7 +1129,10 @@ static int sprd_battery_probe(struct platform_device *pdev)
 	data->battery_timer.data = (unsigned long)data;
 
 	sprd_chg_init();
-
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+	data->capcity_reference = 200;
+	sema_init(&(data->capacity_sema),1);
+#endif
 	pr_debug("probe adc4200: %d,adc3600:%d\n", adc_voltage_table[0][0],
 	       adc_voltage_table[1][0]);
 
@@ -1210,6 +1326,9 @@ static struct platform_driver sprd_battery_device = {
 
 static int __init sprd_battery_init(void)
 {
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+	device_create( class_create(THIS_MODULE, "battery_capcity_dev"), NULL, MKDEV(register_chrdev(0,"battery_capcity_dev",&battery_capcity_fops),0), 0, "battery_capcity_dev",0);
+#endif
 	return platform_driver_register(&sprd_battery_device);
 }
 
