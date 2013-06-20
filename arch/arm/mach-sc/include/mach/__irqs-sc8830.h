@@ -109,6 +109,7 @@
 #define IRQ_CP0_WDG_INT			SCI_IRQ(83)
 #define IRQ_CP1_WDG_INT			SCI_IRQ(84)
 #define IRQ_CP2_WDG_INT			SCI_IRQ(85)
+#define IRQ_AXI_BM_PUB_INT		SCI_IRQ(86)
 #if 0
 #define IRQ_NFC_INT			SCI_IRQ(86)
 #define IRQ_NFC_INT			SCI_IRQ(87)

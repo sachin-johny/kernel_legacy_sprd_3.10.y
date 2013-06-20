@@ -446,173 +446,16 @@ struct platform_device sprd_spi2_device = {
 	.resource = spi2_resources,
 	.num_resources = ARRAY_SIZE(spi2_resources),
 };
-#if 0
-static struct resource sprd_ahb_bm0_res[] = {
-	[0] = {
-		.start = SPRD_BM0_BASE,
-		.end = SPRD_BM0_BASE + SPRD_BM0_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_BM0_INT,
-		.end = IRQ_BM0_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-};
 
-static struct resource sprd_ahb_bm1_res[] = {
-	[0] = {
-		.start = SPRD_BM1_BASE,
-		.end = SPRD_BM1_BASE + SPRD_BM1_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_BM1_INT,
-		.end = IRQ_BM1_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-
-};
-
-static struct resource sprd_ahb_bm2_res[] = {
-	[0] = {
-		.start = SPRD_BM2_BASE,
-		.end = SPRD_BM2_BASE + SPRD_BM2_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_BM2_INT,
-		.end = IRQ_BM2_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-
-};
-
-static struct resource sprd_ahb_bm3_res[] = {
-	[0] = {
-		.start = SPRD_BM3_BASE,
-		.end = SPRD_BM3_BASE + SPRD_BM3_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_BM_INT,
-		.end = IRQ_BM_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-
-};
-
-static struct resource sprd_ahb_bm4_res[] = {
-	[0] = {
-		.start = SPRD_BM4_BASE,
-		.end = SPRD_BM4_BASE + SPRD_BM4_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_BM_INT,
-		.end = IRQ_BM_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-
-};
-
-static struct resource sprd_axi_bm0_res[] = {
-	[0] = {
-		.start =SPRD_AXIBM0_BASE,
-		.end = SPRD_AXIBM0_BASE + SPRD_AXIBM0_SIZE - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_AXIBM_INT,
-		.end = IRQ_AXIBM_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-};
-
-static struct resource sprd_axi_bm1_res[] = {
-	[0] = {
-		.start =SPRD_AXIBM1_BASE,
-		.end = SPRD_AXIBM1_BASE + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_AXIBM_INT,
-		.end = IRQ_AXIBM_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-};
-
-static struct resource sprd_axi_bm2_res[] = {
-	[0] = {
-		.start =SPRD_AXIBM2_BASE,
-		.end = SPRD_AXIBM2_BASE + SZ_4K - 1,
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_AXIBM_INT,
-		.end = IRQ_AXIBM_INT,
-		.flags = IORESOURCE_IRQ,
-	},
-};
-
-
-struct platform_device sprd_ahb_bm0_device = {
+struct platform_device sprd_ahb_bm_device = {
 	.name = "sprd_ahb_busmonitor",
 	.id = 0,
-	.resource = sprd_ahb_bm0_res,
-	.num_resources = ARRAY_SIZE(sprd_ahb_bm0_res),
-};
-
-struct platform_device sprd_ahb_bm1_device = {
-	.name = "sprd_ahb_busmonitor",
-	.id = 1,
-	.resource = sprd_ahb_bm1_res,
-	.num_resources = ARRAY_SIZE(sprd_ahb_bm1_res),
-};
-
-struct platform_device sprd_ahb_bm2_device = {
-	.name = "sprd_ahb_busmonitor",
-	.id = 2,
-	.resource = sprd_ahb_bm2_res,
-	.num_resources = ARRAY_SIZE(sprd_ahb_bm2_res),
-};
-
-struct platform_device sprd_ahb_bm3_device = {
-	.name = "sprd_ahb_busmonitor",
-	.id = 3,
-	.resource = sprd_ahb_bm3_res,
-	.num_resources = ARRAY_SIZE(sprd_ahb_bm3_res),
-};
-
-struct platform_device sprd_ahb_bm4_device = {
-	.name = "sprd_ahb_busmonitor",
-	.id = 4,
-	.resource = sprd_ahb_bm4_res,
-	.num_resources = ARRAY_SIZE(sprd_ahb_bm4_res),
-
 };
 
 struct platform_device sprd_axi_bm0_device = {
 	.name = "sprd_axi_busmonitor",
 	.id = 0,
-	.resource = sprd_axi_bm0_res,
-	.num_resources = ARRAY_SIZE(sprd_axi_bm0_res),
 };
-
-struct platform_device sprd_axi_bm1_device = {
-	.name = "sprd_axi_busmonitor",
-	.id = 1,
-	.resource = sprd_axi_bm1_res,
-	.num_resources = ARRAY_SIZE(sprd_axi_bm1_res),
-};
-
-struct platform_device sprd_axi_bm2_device = {
-	.name = "sprd_axi_busmonitor",
-	.id = 2,
-	.resource = sprd_axi_bm2_res,
-	.num_resources = ARRAY_SIZE(sprd_axi_bm2_res),
-};
-#endif
 
 static struct resource sci_keypad_resources[] = {
 	{
@@ -1016,7 +859,7 @@ static int native_tdmodem_start(void *arg)
 	u32 state;
 	u32 value;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
-	memcpy((void *)(SPRD_IRAM1_BASE + 0x1800), cp1data, sizeof(cp1data));
+	memcpy(SPRD_IRAM1_BASE + 0x1800, cp1data, sizeof(cp1data));
 
 	/* clear cp1 force shutdown */
 	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x02000000));
@@ -1127,7 +970,6 @@ static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "seth_td0",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA0,
-	.blocknum	= 256,
 };
 struct platform_device sprd_seth0_td_device = {
 	.name           = "seth",
@@ -1139,7 +981,6 @@ static struct seth_init_data sprd_seth1_td_pdata = {
 	.name		= "seth_td1",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA1,
-	.blocknum	= 64,
 };
 struct platform_device sprd_seth1_td_device = {
 	.name           = "seth",
@@ -1151,7 +992,6 @@ static struct seth_init_data sprd_seth2_td_pdata = {
 	.name		= "seth_td2",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA2,
-	.blocknum	= 64,
 };
 struct platform_device sprd_seth2_td_device = {
 	.name           = "seth",
@@ -1201,7 +1041,7 @@ static int native_wcdmamodem_start(void *arg)
 	u32 value;
 
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
-	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
+	memcpy(SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
 
 	/* clear cp0 force shutdown */
 	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x02000000));
@@ -1314,7 +1154,6 @@ static struct seth_init_data sprd_seth0_wcdma_pdata = {
 	.name		= "seth_w0",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA0,
-	.blocknum	= 256,
 };
 struct platform_device sprd_seth0_wcdma_device = {
 	.name           = "seth",
@@ -1326,7 +1165,6 @@ static struct seth_init_data sprd_seth1_wcdma_pdata = {
 	.name		= "seth_w1",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA1,
-	.blocknum	= 64,
 };
 struct platform_device sprd_seth1_wcdma_device = {
 	.name           = "seth",
@@ -1338,7 +1176,6 @@ static struct seth_init_data sprd_seth2_wcdma_pdata = {
 	.name		= "seth_w2",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA2,
-	.blocknum	= 64,
 };
 struct platform_device sprd_seth2_wcdma_device = {
 	.name           = "seth",
