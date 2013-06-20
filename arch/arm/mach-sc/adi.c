@@ -100,25 +100,6 @@ static inline int __adi_ver(void)
 
 #define	TO_ADDR(_x_)		( ((_x_) >> SHIFT_RD_ADDR) & readback_addr_mak )
 
-/*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-static inline void __adi_lock(unsigned long *flags, unsigned long *hw_flags)
-{
-	if (arch_get_hwlock(HWLOCK_ADI))
-		WARN_ON(IS_ERR_VALUE
-			(hwspin_lock_timeout_irqsave
-			 (arch_get_hwlock(HWLOCK_ADI), -1, flags)));
-	else
-		arch_hwlock_fast(HWLOCK_ADI);
-}
-
-static inline void __adi_unlock(unsigned long *flags, unsigned long *hw_flags)
-{
-	if (arch_get_hwlock(HWLOCK_ADI))
-		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_ADI), flags);
-	else
-		arch_hwunlock_fast(HWLOCK_ADI);
-}
-
 static inline int __adi_fifo_drain(void)
 {
 	int cnt = 1000;
@@ -176,8 +157,10 @@ static inline int __adi_read(u32 regPddr, unsigned int *v)
 
 	WARN(cnt == 0, "ADI READ timeout!!!");
 	/* val high part should be the address of the last read operation */
-	if ((!v) || TO_ADDR(val) != (regPddr & readback_addr_mak))
+	if ((!v) || TO_ADDR(val) != (regPddr & readback_addr_mak)) {
+		printk("val = 0x%x, regPaddr = 0x%x, readback_addr_mak = 0x%x\n",val,regPddr, readback_addr_mak);
 		return -1;
+	}
 
 	*v = val & MASK_RD_VALU;
 	return 0;
@@ -190,11 +173,13 @@ int sci_adi_read(u32 reg)
 		unsigned long flags;
 		int ret = 0;
 		reg = __adi_translate_addr(reg);
-		__adi_lock(&flags, NULL);
+		__arch_default_lock(HWLOCK_ADI, &flags);
 		ret = __adi_read(reg, &val);
-		__adi_unlock(&flags, NULL);
-		if (ret)
+		__adi_default_unlock(HWLOCK_ADI, &flags);
+		if (ret) {
+			printk("read error: reg = 0x%x\n",reg);
 			BUG_ON(1);
+		}
 	}
 	return val;
 }
@@ -259,9 +244,9 @@ int sci_adi_write_fast(u32 reg, u16 val, u32 sync)
 {
 	if (!__adi_addr_check(reg)) {
 		unsigned long flags;
-		__adi_lock(&flags, NULL);
+		__arch_default_lock(HWLOCK_ADI, &flags);
 		__adi_write(reg, val, sync);
-		__adi_unlock(&flags, NULL);
+		__adi_default_unlock(HWLOCK_ADI, &flags);
 	}
 	return 0;
 }
@@ -273,11 +258,11 @@ int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 	if (!__adi_addr_check(reg)) {
 		unsigned long flags;
 		int ret = 0, val = 0;
-		__adi_lock(&flags, NULL);
+		__arch_default_lock(HWLOCK_ADI, &flags);
 		ret = __adi_read(__adi_translate_addr(reg), &val);
 		if (!ret)
 			__adi_write(reg, (val & ~clear_msk) | or_val, 1);
-		__adi_unlock(&flags, NULL);
+		__adi_default_unlock(HWLOCK_ADI, &flags);
 		if (ret)
 			BUG_ON(1);
 	}
