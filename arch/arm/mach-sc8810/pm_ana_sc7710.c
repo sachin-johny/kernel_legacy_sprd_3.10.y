@@ -142,7 +142,7 @@ void init_ana_gr(void)
 
 	/* setup ldo DEEP sleep mode */
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DEEP_SLP_CTRL0, 0
-		|BIT_DEEP_SLP_LDOAMP_PD_EN
+		//|BIT_DEEP_SLP_LDOAMP_PD_EN
 		|BIT_DEEP_SLP_LDOVDD25_PD_EN
 		//|BIT_DEEP_SLP_LDOVDD18_PD_EN
 		//|BIT_DEEP_SLP_LDOVDD28_PD_EN
