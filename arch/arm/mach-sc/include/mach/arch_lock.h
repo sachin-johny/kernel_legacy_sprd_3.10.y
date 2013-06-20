@@ -137,4 +137,23 @@ static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 #define arch_hwunlock_fast(_LOCK_ID_) do { \
 				arch_hwlock_fast_unlock(_LOCK_ID_);} while (0)
 
+
+static inline void __arch_default_lock(unsigned int lock_id, unsigned long *flags)
+{
+	if (arch_get_hwlock(lock_id))
+		WARN_ON(IS_ERR_VALUE
+			(hwspin_lock_timeout_irqsave
+			 (arch_get_hwlock(lock_id), -1, flags)));
+	else
+		arch_hwlock_fast(lock_id);
+}
+
+static inline void __adi_default_unlock(unsigned int lock_id, unsigned long *flags)
+{
+	if (arch_get_hwlock(lock_id))
+		hwspin_unlock_irqrestore(arch_get_hwlock(lock_id), flags);
+	else
+		arch_hwunlock_fast(lock_id);
+}
+
 #endif

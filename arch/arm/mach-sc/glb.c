@@ -24,23 +24,6 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/arch_lock.h>
 
-/*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
-static void sci_glb_lock(unsigned long *flags, unsigned long *hw_flags)
-{
-	if (arch_get_hwlock(HWLOCK_GLB))
-		WARN_ON(IS_ERR_VALUE(hwspin_lock_timeout_irqsave(arch_get_hwlock(HWLOCK_GLB), -1, flags)));
-	else
-		arch_hwlock_fast(HWLOCK_GLB);
-}
-
-static void sci_glb_unlock(unsigned long *flags, unsigned long *hw_flags)
-{
-	if (arch_get_hwlock(HWLOCK_GLB))
-		hwspin_unlock_irqrestore(arch_get_hwlock(HWLOCK_GLB), flags);
-	else
-		arch_hwunlock_fast(HWLOCK_GLB);
-}
-
 u32 sci_glb_read(u32 reg, u32 msk)
 {
 	return __raw_readl(reg) & msk;
@@ -48,10 +31,10 @@ u32 sci_glb_read(u32 reg, u32 msk)
 
 int sci_glb_write(u32 reg, u32 val, u32 msk)
 {
-	unsigned long flags, hw_flags;
-	sci_glb_lock(&flags, &hw_flags);
+	unsigned long flags;
+	__arch_default_lock(HWLOCK_GLB, &flags);
 	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
-	sci_glb_unlock(&flags, &hw_flags);
+	__adi_default_unlock(HWLOCK_GLB, &flags);
 	return 0;
 }
 
@@ -75,10 +58,10 @@ int sci_glb_set(u32 reg, u32 bit)
 	if (__is_glb(reg)) {
 		__raw_writel(bit, REG_GLB_SET(reg));
 	} else {
-		unsigned long flags, hw_flags;
-		sci_glb_lock(&flags, &hw_flags);
+		unsigned long flags;
+		__arch_default_lock(HWLOCK_GLB, &flags);
 		__raw_writel(__raw_readl(reg) | bit, reg);
-		sci_glb_unlock(&flags, &hw_flags);
+		__adi_default_unlock(HWLOCK_GLB, &flags);
 	}
 	return 0;
 }
@@ -88,10 +71,10 @@ int sci_glb_clr(u32 reg, u32 bit)
 	if (__is_glb(reg)) {
 		__raw_writel(bit, REG_GLB_CLR(reg));
 	} else {
-		unsigned long flags, hw_flags;
-		sci_glb_lock(&flags, &hw_flags);
+		unsigned long flags;
+		__arch_default_lock(HWLOCK_GLB, &flags);
 		__raw_writel((__raw_readl(reg) & ~bit), reg);
-		sci_glb_unlock(&flags, &hw_flags);
+		__adi_default_unlock(HWLOCK_GLB, &flags);
 	}
 	return 0;
 }
