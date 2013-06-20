@@ -251,6 +251,16 @@ enum dcam_output_mode {
 	DCAM_OUTPUT_HALF_WORD,
 };
 
+enum dcam_glb_reg_id {
+	DCAM_CFG_REG = 0,
+	DCAM_CONTROL_REG,
+	DCAM_INIT_MASK_REG,
+	DCAM_INIT_CLR_REG,
+	DCAM_AHBM_STS_REG,
+	DCAM_ENDIAN_REG,
+	DCAM_REG_MAX
+};
+
 struct dcam_cap_sync_pol {
 	uint8_t               vsync_pol;
 	uint8_t               hsync_pol;
@@ -357,4 +367,7 @@ int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
 int32_t    dcam_resize_start(void);
 int32_t    dcam_resize_end(void);
 int32_t    dcam_stop_cap(void);
+void dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id);
+void dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id);
+void dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id);
 #endif //_DCAM_DRV_8830_H_

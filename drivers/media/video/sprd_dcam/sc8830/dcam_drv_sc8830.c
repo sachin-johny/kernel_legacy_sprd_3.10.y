@@ -63,30 +63,17 @@
 #define DCAM_CLK_DOMAIN_AHB                            1
 #define DCAM_CLK_DOMAIN_DCAM                           0
 
-#define REG_RD(a)                                      __raw_readl(a)
-#define REG_WR(a,v)                                    __raw_writel(v,a)
-#define REG_AWR(a,v)                                   REG_WR(a, (REG_RD(a) & v))//__raw_writel((__raw_readl(a) & v), a)
-#define REG_OWR(a,v)                                   REG_WR(a, (REG_RD(a) | v))//__raw_writel((__raw_readl(a) | v), a)
-#define REG_XWR(a,v)                                   REG_WR(a, (REG_RD(a) ^ v)) //__raw_writel((__raw_readl(a) ^ v), a)
-#define REG_MWR(a,m,v)                                 \
-	do {                                           \
-		uint32_t _tmp = REG_RD(a);        \
-		_tmp &= ~(m);                          \
-		REG_WR(a, _tmp | ((m) & (v))); \
+#define REG_RD(a) __raw_readl(a)
+#define REG_WR(a,v) __raw_writel(v,a)
+#define REG_AWR(a,v) __raw_writel((__raw_readl(a) & (v)), (a))
+#define REG_OWR(a,v) __raw_writel((__raw_readl(a) | (v)), (a))
+#define REG_XWR(a,v) __raw_writel((__raw_readl(a) ^ (v)), (a))
+#define REG_MWR(a,m,v) \
+	do { \
+		uint32_t _tmp = __raw_readl(a); \
+		_tmp &= ~(m); \
+		__raw_writel((_tmp | ((m) & (v))), (a)); \
 	}while(0)
-
-#define GLB_REG_RD(a)                                      sci_glb_read(a, 0xffffffff)
-#define GLB_REG_WR(a,v)                                    sci_glb_write(a, v, 0xffffffff)
-#define GLB_REG_AWR(a,v)                                   GLB_REG_WR(a, (GLB_REG_RD(a) & v))
-#define GLB_REG_OWR(a,v)                                   GLB_REG_WR(a, (GLB_REG_RD(a) | v))
-#define GLB_REG_XWR(a,v)                                   GLB_REG_WR(a, (GLB_REG_RD(a) ^ v))
-#define GLB_REG_MWR(a,m,v)                                 \
-	do {                                           \
-		uint32_t _tmp = GLB_REG_RD(a);        \
-		_tmp &= ~(m);                          \
-		GLB_REG_WR(a, _tmp | ((m) & (v))); \
-	}while(0)
-
 
 #define DCAM_CHECK_PARAM_ZERO_POINTER(n)               \
 	do {                                           \
@@ -241,6 +228,12 @@ LOCAL struct semaphore            s_path1_done_dis_en_sema = __SEMAPHORE_INITIAL
 
 LOCAL DEFINE_MUTEX(dcam_sem);
 LOCAL DEFINE_SPINLOCK(dcam_lock);
+LOCAL DEFINE_SPINLOCK(dcam_glb_reg_cfg_lock);
+LOCAL DEFINE_SPINLOCK(dcam_glb_reg_control_lock);
+LOCAL DEFINE_SPINLOCK(dcam_glb_reg_mask_lock);
+LOCAL DEFINE_SPINLOCK(dcam_glb_reg_clr_lock);
+LOCAL DEFINE_SPINLOCK(dcam_glb_reg_ahbm_sts_lock);
+LOCAL DEFINE_SPINLOCK(dcam_glb_reg_endian_lock);
 
 LOCAL void    _dcam_path0_set(void);
 LOCAL void    _dcam_path1_set(void);
@@ -308,6 +301,158 @@ LOCAL const dcam_isr isr_list[IRQ_NUMBER] = {
 	raw_slice_done
 };
 
+void dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id)
+{
+	unsigned long flag;
+
+	switch(reg_id) {
+	case DCAM_CFG_REG:
+		spin_lock_irqsave(&dcam_glb_reg_cfg_lock, flag);
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_cfg_lock, flag);
+		break;
+	case DCAM_CONTROL_REG:
+		spin_lock_irqsave(&dcam_glb_reg_control_lock, flag);
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_control_lock, flag);
+		break;
+	case DCAM_INIT_MASK_REG:
+		spin_lock_irqsave(&dcam_glb_reg_mask_lock, flag);
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_mask_lock, flag);
+		break;
+	case DCAM_INIT_CLR_REG:
+		spin_lock_irqsave(&dcam_glb_reg_clr_lock, flag);
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_clr_lock, flag);
+		break;
+	case DCAM_AHBM_STS_REG:
+		spin_lock_irqsave(&dcam_glb_reg_ahbm_sts_lock, flag);
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_ahbm_sts_lock, flag);
+		break;
+	case DCAM_ENDIAN_REG:
+		spin_lock_irqsave(&dcam_glb_reg_endian_lock, flag);
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_endian_lock, flag);
+		break;
+	default:
+		__raw_writel(__raw_readl(addr) & (val), addr);
+		break;
+	}
+}
+
+void dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id)
+{
+	unsigned long flag;
+
+	switch(reg_id) {
+	case DCAM_CFG_REG:
+		spin_lock_irqsave(&dcam_glb_reg_cfg_lock, flag);
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_cfg_lock, flag);
+		break;
+	case DCAM_CONTROL_REG:
+		spin_lock_irqsave(&dcam_glb_reg_control_lock, flag);
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_control_lock, flag);
+		break;
+	case DCAM_INIT_MASK_REG:
+		spin_lock_irqsave(&dcam_glb_reg_mask_lock, flag);
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_mask_lock, flag);
+		break;
+	case DCAM_INIT_CLR_REG:
+		spin_lock_irqsave(&dcam_glb_reg_clr_lock, flag);
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_clr_lock, flag);
+		break;
+	case DCAM_AHBM_STS_REG:
+		spin_lock_irqsave(&dcam_glb_reg_ahbm_sts_lock, flag);
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_ahbm_sts_lock, flag);
+		break;
+	case DCAM_ENDIAN_REG:
+		spin_lock_irqsave(&dcam_glb_reg_endian_lock, flag);
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		spin_unlock_irqrestore(&dcam_glb_reg_endian_lock, flag);
+		break;
+	default:
+		__raw_writel(__raw_readl(addr) | (val), addr);
+		break;
+	}
+}
+
+void dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id)
+{
+	unsigned long flag;
+	uint32_t tmp = 0;
+
+	switch(reg_id) {
+	case DCAM_CFG_REG:
+		spin_lock_irqsave(&dcam_glb_reg_cfg_lock, flag);
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		spin_unlock_irqrestore(&dcam_glb_reg_cfg_lock, flag);
+		break;
+	case DCAM_CONTROL_REG:
+		spin_lock_irqsave(&dcam_glb_reg_control_lock, flag);
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		spin_unlock_irqrestore(&dcam_glb_reg_control_lock, flag);
+		break;
+	case DCAM_INIT_MASK_REG:
+		spin_lock_irqsave(&dcam_glb_reg_mask_lock, flag);
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		spin_unlock_irqrestore(&dcam_glb_reg_mask_lock, flag);
+		break;
+	case DCAM_INIT_CLR_REG:
+		spin_lock_irqsave(&dcam_glb_reg_clr_lock, flag);
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		spin_unlock_irqrestore(&dcam_glb_reg_clr_lock, flag);
+		break;
+	case DCAM_AHBM_STS_REG:
+		spin_lock_irqsave(&dcam_glb_reg_ahbm_sts_lock, flag);
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		spin_unlock_irqrestore(&dcam_glb_reg_ahbm_sts_lock, flag);
+		break;
+	case DCAM_ENDIAN_REG:
+		spin_lock_irqsave(&dcam_glb_reg_endian_lock, flag);
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		spin_unlock_irqrestore(&dcam_glb_reg_endian_lock, flag);
+		break;
+	default:
+		{
+			tmp = __raw_readl(addr);
+			tmp &= ~(mask);
+			__raw_writel(tmp | ((mask) & (val)), addr);
+		}
+		break;
+	}
+}
+
 void dcam_print_clock(void)
 {
 	uint32_t ahb_en, ahb_rst, gen_ckg_cfg;
@@ -351,13 +496,13 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			if (DCAM_CAP_IF_CSI2 == if_mode) {
 			/*	REG_OWR(CSI2_DPHY_EB, MIPI_EB_BIT);*/
 				ret = _dcam_mipi_clk_en();
-				REG_OWR(DCAM_CFG, BIT_9);
+				dcam_glb_reg_owr(DCAM_CFG, BIT_9, DCAM_CFG_REG);
 				REG_MWR(CAP_MIPI_CTRL, BIT_2 | BIT_1, sn_mode << 1);
 			} else {
 				/*REG_OWR(DCAM_EB, CCIR_IN_EB_BIT);
 				REG_OWR(DCAM_EB, CCIR_EB_BIT);*/
 				ret = _dcam_ccir_clk_en();
-				REG_MWR(DCAM_CFG, BIT_9, 0 << 9);
+				dcam_glb_reg_mwr(DCAM_CFG, BIT_9, 0 << 9, DCAM_CFG_REG);
 				REG_MWR(CAP_CCIR_CTRL, BIT_2 | BIT_1, sn_mode << 1);
 			}
 			rtn = DCAM_RTN_SUCCESS;
@@ -366,7 +511,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 
 	if(0 == g_dcam_irq_en){
 		REG_WR(DCAM_INT_CLR,  DCAM_IRQ_LINE_MASK);
-		REG_MWR(DCAM_INT_MASK, DCAM_IRQ_LINE_MASK, DCAM_IRQ_LINE_MASK);
+		dcam_glb_reg_mwr(DCAM_INT_MASK, DCAM_IRQ_LINE_MASK, DCAM_IRQ_LINE_MASK, DCAM_INIT_MASK_REG);
 		ret = request_irq(DCAM_IRQ,
 				dcam_isr_root,
 				IRQF_SHARED,
@@ -392,12 +537,12 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 
 	if (DCAM_CAP_IF_CSI2 == if_mode) {
 		/*REG_MWR(CSI2_DPHY_EB, MIPI_EB_BIT, 0 << 10);*/
-		REG_MWR(DCAM_CFG, BIT_9, 0 << 9);
+		dcam_glb_reg_mwr(DCAM_CFG, BIT_9, 0 << 9, DCAM_CFG_REG);
 		_dcam_mipi_clk_dis();
 	} else {
 		/*REG_MWR(DCAM_EB, CCIR_IN_EB_BIT, 0 << 2);
 		REG_MWR(DCAM_EB, CCIR_EB_BIT, 0 << 9);*/
-		REG_MWR(DCAM_CFG, BIT_9, 0 << 9);
+		dcam_glb_reg_mwr(DCAM_CFG, BIT_9, 0 << 9, DCAM_CFG_REG);
 		_dcam_ccir_clk_dis();
 	}
 
@@ -422,10 +567,10 @@ int32_t dcam_module_en(void)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		ret = dcam_set_clk(DCA_CLK_256M);
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
-		GLB_REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		GLB_REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 		dcam_print_clock();
 #if 0
@@ -465,7 +610,7 @@ int32_t dcam_module_dis(void)
 	DCAM_TRACE("DCAM DRV: dcam_module_dis: %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		GLB_REG_AWR(DCAM_EB, ~DCAM_EB_BIT);
+		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(DCAM_CLK_NONE);
 
 		dcam_print_clock();
@@ -510,7 +655,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	if (DCAM_RST_ALL == reset_mode) {
 		if (atomic_read(&s_dcam_users)) {
 			/* firstly, stop AXI writing */
-			REG_OWR(DCAM_AHBM_STS, BIT_6);
+			dcam_glb_reg_owr(DCAM_AHBM_STS, BIT_6, DCAM_AHBM_STS_REG);
 		}
 
 		/* then wait for AHB busy cleared */
@@ -525,28 +670,28 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	/* do reset action */
 	switch (reset_mode) {
 	case DCAM_RST_PATH0:
-		GLB_REG_OWR(DCAM_RST, PATH0_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~PATH0_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH0_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH0_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path0 \n");
 		break;
 
 	case DCAM_RST_PATH1:
-		GLB_REG_OWR(DCAM_RST, PATH1_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~PATH1_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH1_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH1_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path1 \n");
 		break;
 
 	case DCAM_RST_PATH2:
-		GLB_REG_OWR(DCAM_RST, PATH2_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~PATH2_RST_BIT);
+		sci_glb_set(DCAM_RST, PATH2_RST_BIT);
+		sci_glb_clr(DCAM_RST, PATH2_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset path2 \n");
 		break;
 
 	case DCAM_RST_ALL:
-		GLB_REG_OWR(DCAM_RST, DCAM_MOD_RST_BIT);
-		GLB_REG_OWR(DCAM_RST, CCIR_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~DCAM_MOD_RST_BIT);
-		GLB_REG_AWR(DCAM_RST, ~CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
+		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
 		DCAM_TRACE("DCAM DRV: reset all \n");
 		break;
 	default:
@@ -557,7 +702,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	if (DCAM_RST_ALL == reset_mode) {
 		if (atomic_read(&s_dcam_users)) {
 			/* the end, enable AXI writing */
-			REG_AWR(DCAM_AHBM_STS, ~BIT_6);
+			dcam_glb_reg_awr(DCAM_AHBM_STS, ~BIT_6, DCAM_AHBM_STS_REG);
 		}
 	}
 
@@ -822,7 +967,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 	REG_MWR(CAP_MIPI_FRM_CTRL, BIT_5 | BIT_4, 1 << 4);
 #endif
 
-	REG_OWR(DCAM_AHBM_STS, BIT_8); // aiden add: write arbit mode
+	dcam_glb_reg_owr(DCAM_AHBM_STS, BIT_8, DCAM_AHBM_STS_REG); // aiden add: write arbit mode
 	
 	cap_en = REG_RD(DCAM_CONTROL) & BIT_2;
 	
@@ -834,11 +979,11 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		if (cap_en) {
 			/* if cap is already open, the sequence is: 
 			   cap force copy -> path 0 enable -> cap auto copy */
-			REG_MWR(DCAM_CONTROL, BIT_0, 1 << 0); /* Cap force copy */
-			REG_OWR(DCAM_CFG, BIT_0);             /* Enable Path 0 */
-			REG_MWR(DCAM_CONTROL, BIT_1, 1 << 1); /* Cap auto copy, trigger path 0 enable */
+			dcam_glb_reg_mwr(DCAM_CONTROL, BIT_0, 1 << 0, DCAM_CONTROL_REG); /* Cap force copy */
+			dcam_glb_reg_owr(DCAM_CFG, BIT_0, DCAM_CFG_REG);             /* Enable Path 0 */
+			dcam_glb_reg_mwr(DCAM_CONTROL, BIT_1, 1 << 1, DCAM_CONTROL_REG); /* Cap auto copy, trigger path 0 enable */
 		} else {
-			REG_OWR(DCAM_CFG, BIT_0);             /* Enable Path 0 */
+			dcam_glb_reg_owr(DCAM_CFG, BIT_0, DCAM_CFG_REG);             /* Enable Path 0 */
 		}
 	}
 
@@ -856,7 +1001,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		DCAM_RTN_IF_ERR;
 		_dcam_force_copy_ext(DCAM_PATH_IDX_1, true, true);
 		DCAM_TRACE("DCAM:int= %x \n", REG_RD(DCAM_INT_STS));
-		REG_OWR(DCAM_CFG, BIT_1);
+		dcam_glb_reg_owr(DCAM_CFG, BIT_1, DCAM_CFG_REG);
 	}
 
 	if ((DCAM_PATH_IDX_2 & path_index) && s_dcam_mod.dcam_path2.valide) {
@@ -877,8 +1022,8 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		DCAM_RTN_IF_ERR;
 		_dcam_force_copy_ext(DCAM_PATH_IDX_2, true, true);
 		DCAM_TRACE("DCAM:int= %x \n", REG_RD(DCAM_INT_STS));
-		REG_OWR(DCAM_INT_MASK, BIT_8);
-		REG_OWR(DCAM_CFG, BIT_2);
+		dcam_glb_reg_owr(DCAM_INT_MASK, BIT_8, DCAM_INIT_MASK_REG);
+		dcam_glb_reg_owr(DCAM_CFG, BIT_2, DCAM_CFG_REG);
 		//REG_OWR(DCAM_BURST_GAP, BIT_20); // aiden todo
 	}
 
@@ -888,9 +1033,9 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 
 	
 	if(0 == cap_en){
-		REG_MWR(DCAM_CONTROL, BIT_0, 1 << 0); /* Cap force copy */
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_0, 1 << 0, DCAM_CONTROL_REG); /* Cap force copy */
 		//REG_MWR(DCAM_CONTROL, BIT_1, 1 << 1); /* Cap auto  copy */
-		REG_MWR(DCAM_CONTROL, BIT_2, 1 << 2); /* Cap Enable */
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_2, 1 << 2, DCAM_CONTROL_REG); /* Cap Enable */
 	}
 
 	if ((DCAM_PATH_IDX_0 & path_index) && s_dcam_mod.dcam_path0.valide) {
@@ -937,7 +1082,7 @@ int32_t dcam_stop_cap(void)
 	DCAM_TRACE("DCAM DRV: dcam_stop_cap, dcam_mode: %d \n", s_dcam_mod.dcam_mode);	
 	/* CAP_EB disable */
 	//REG_AWR(DCAM_CONTROL, ~BIT_2); /* Cap Enable */
-	REG_MWR(DCAM_CONTROL, BIT_2, 0); /* Cap Enable */
+	dcam_glb_reg_mwr(DCAM_CONTROL, BIT_2, 0, DCAM_CONTROL_REG); /* Cap Enable */
 	//_dcam_wait_for_stop();
 	DCAM_TRACE("DCAM DRV: dcam_stop_cap, s_resize_flag %d \n", atomic_read(&s_resize_flag));
 	if (atomic_read(&s_resize_flag)) {
@@ -1053,7 +1198,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		wait_path_stop = 1;
 		
 		/* PATH0_EB disable */
-		REG_AWR(DCAM_CFG, ~BIT_0);
+		dcam_glb_reg_awr(DCAM_CFG, ~BIT_0,DCAM_CFG_REG);
 	}
 	if ((DCAM_PATH_IDX_1 & path_index) && s_dcam_mod.dcam_path1.valide) {
 		DCAM_TRACE("DCAM DRV: before diable path: path_control=%x \n", REG_RD(DCAM_CONTROL));
@@ -1070,7 +1215,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		wait_path_stop = 1;
 
 		/* PATH2_EB disable */
-		REG_AWR(DCAM_CFG, ~BIT_2);
+		dcam_glb_reg_awr(DCAM_CFG, ~BIT_2, DCAM_CFG_REG);
 	}
 
 	DCAM_TRACE("DCAM DRV: wait path stop, wait_path_stop=%d, dcam_mode=%d \n", wait_path_stop, s_dcam_mod.dcam_mode);
@@ -1151,20 +1296,20 @@ int32_t dcam_resume(void)
 	if (s_dcam_mod.dcam_path1.valide) {
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_1, false);
 		DCAM_RTN_IF_ERR;
-		REG_OWR(DCAM_CFG, BIT_1);
+		dcam_glb_reg_owr(DCAM_CFG, BIT_1, DCAM_CFG_REG);
 		_dcam_auto_copy_ext(DCAM_PATH_IDX_1, true, true);
 	}
 
 	if (s_dcam_mod.dcam_path2.valide) {
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, false);
 		DCAM_RTN_IF_ERR;
-		REG_OWR(DCAM_CFG, BIT_2);
+		dcam_glb_reg_owr(DCAM_CFG, BIT_2, DCAM_CFG_REG);
 		_dcam_auto_copy_ext(DCAM_PATH_IDX_2, true, true);
 	}
 
 	printk("DCAM R \n");
 
-	REG_OWR(DCAM_CONTROL, BIT_2); /* Enable CAP */
+	dcam_glb_reg_owr(DCAM_CONTROL, BIT_2, DCAM_CONTROL_REG); /* Enable CAP */
 	return -rtn;
 }
 
@@ -1172,7 +1317,7 @@ int32_t dcam_pause(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 
-	REG_AWR(DCAM_CONTROL, ~BIT_2); /* Disable CAP */
+	dcam_glb_reg_awr(DCAM_CONTROL, ~BIT_2, DCAM_CONTROL_REG); /* Disable CAP */
 	printk("DCAM P \n");
 	return -rtn;
 }
@@ -1412,9 +1557,9 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		if (need_isp) {
-			REG_MWR(DCAM_CFG, BIT_7, 1 << 7);
+			dcam_glb_reg_mwr(DCAM_CFG, BIT_7, 1 << 7, DCAM_CFG_REG);
 		} else {
-			REG_MWR(DCAM_CFG, BIT_7, 0 << 7);
+			dcam_glb_reg_mwr(DCAM_CFG, BIT_7, 0 << 7, DCAM_CFG_REG);
 		}
 		break;
 	}
@@ -2245,8 +2390,8 @@ LOCAL void _dcam_path0_set(void)
 		REG_MWR(DCAM_PATH0_CFG, BIT_1 | BIT_0, path->frame_deci << 0);
 	}
 
-	REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
-	REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
+	dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
+	dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_19, BIT_19, DCAM_ENDIAN_REG); // axi read
 
 
 }
@@ -2299,10 +2444,10 @@ LOCAL void _dcam_path1_set(void)
 	}
 
 	if(path->valid_param.data_endian){
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_7 | BIT_6, path->data_endian.y_endian << 6);
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_9 | BIT_8, path->data_endian.uv_endian << 8);
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_7 | BIT_6, path->data_endian.y_endian << 6, DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_9 | BIT_8, path->data_endian.uv_endian << 8, DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_19, BIT_19, DCAM_ENDIAN_REG); // axi read
 		DCAM_TRACE("DCAM DRV: path 1: data_endian y=0x%x, uv=0x%x \n",
 			path->data_endian.y_endian, path->data_endian.uv_endian);
 	}
@@ -2383,10 +2528,10 @@ LOCAL void _dcam_path2_set(void)
 	}
 
 	if(path->valid_param.data_endian){
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_11 | BIT_10, path->data_endian.y_endian << 10);
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_13 | BIT_12, path->data_endian.uv_endian << 12);
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_18, BIT_18); // axi write
-		REG_MWR(DCAM_ENDIAN_SEL, BIT_19, BIT_19); // axi read
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_11 | BIT_10, path->data_endian.y_endian << 10,DCAM_ENDIAN_REG );
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_13 | BIT_12, path->data_endian.uv_endian << 12, DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_19, BIT_19, DCAM_ENDIAN_REG); // axi read
 		DCAM_TRACE("DCAM DRV: path 2: data_endian y=0x%x, uv=0x%x \n",
 			path->data_endian.y_endian, path->data_endian.uv_endian);
 	}
@@ -2863,14 +3008,14 @@ LOCAL void _dcam_force_copy_ext(enum dcam_path_index path_index, uint32_t path_c
 		if(coef_copy)
 			reg_val |= BIT_14;
 
-		REG_MWR(DCAM_CONTROL, reg_val, reg_val);
+		dcam_glb_reg_mwr(DCAM_CONTROL, reg_val, reg_val, DCAM_CONTROL_REG);
 	}else if(DCAM_PATH_IDX_2 == path_index){
 		if(path_copy)
 			reg_val |= BIT_12;
 		if(coef_copy)
 			reg_val |= BIT_16;
 
-		REG_MWR(DCAM_CONTROL, reg_val, reg_val);
+		dcam_glb_reg_mwr(DCAM_CONTROL, reg_val, reg_val, DCAM_CONTROL_REG);
 	}else{
 		DCAM_TRACE("DCAM DRV: _dcam_force_copy_ext invalid path index: %d \n", path_index);
 	}
@@ -2886,14 +3031,14 @@ LOCAL void _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_co
 		if(coef_copy)
 			reg_val |= BIT_15;
 
-		REG_MWR(DCAM_CONTROL, reg_val, reg_val);
+		dcam_glb_reg_mwr(DCAM_CONTROL, reg_val, reg_val, DCAM_CONTROL_REG);
 	}else if(DCAM_PATH_IDX_2 == path_index){
 		if(path_copy)
 			reg_val |= BIT_13;
 		if(coef_copy)
 			reg_val |= BIT_17;
 
-		REG_MWR(DCAM_CONTROL, reg_val, reg_val);
+		dcam_glb_reg_mwr(DCAM_CONTROL, reg_val, reg_val, DCAM_CONTROL_REG);
 	}else{
 		DCAM_TRACE("DCAM DRV: _dcam_auto_copy_ext invalid path index: %d \n", path_index);
 	}
@@ -2905,9 +3050,9 @@ LOCAL void _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_co
 LOCAL void _dcam_force_copy(enum dcam_path_index path_index)
 {
 	if(DCAM_PATH_IDX_1 == path_index){
-		REG_MWR(DCAM_CONTROL, BIT_10, 1 << 10);
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_10, 1 << 10, DCAM_CONTROL_REG);
 	}else if(DCAM_PATH_IDX_2 == path_index){
-		REG_MWR(DCAM_CONTROL, BIT_12, 1 << 12);
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_12, 1 << 12, DCAM_CONTROL_REG);
 	}else{
 		DCAM_TRACE("DCAM DRV: _dcam_force_copy invalid path index: %d \n", path_index);
 	}
@@ -2916,11 +3061,11 @@ LOCAL void _dcam_force_copy(enum dcam_path_index path_index)
 LOCAL void _dcam_auto_copy(enum dcam_path_index path_index)
 {
 	if(DCAM_PATH_IDX_0 == path_index){
-		REG_MWR(DCAM_CONTROL, BIT_9, 1 << 9);
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_9, 1 << 9, DCAM_CONTROL_REG);
 	}else if(DCAM_PATH_IDX_1 == path_index){
-		REG_MWR(DCAM_CONTROL, BIT_11, 1 << 11);
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_11, 1 << 11, DCAM_CONTROL_REG);
 	}else if(DCAM_PATH_IDX_2 == path_index){
-		REG_MWR(DCAM_CONTROL, BIT_13, 1 << 13);
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_13, 1 << 13, DCAM_CONTROL_REG);
 	}else{
 		DCAM_TRACE("DCAM DRV: _dcam_auto_copy invalid path index: %d \n", path_index);
 	}
@@ -3033,7 +3178,7 @@ LOCAL void    _path1_done(void)
 	uint32_t                coef_copy = 0;
 
 	if (s_path1_done_wait_dis_en) {
-		REG_AWR(DCAM_CFG, ~BIT_1);
+		dcam_glb_reg_awr(DCAM_CFG, ~BIT_1, DCAM_CFG_REG);
 		s_path1_done_wait_dis_en = 0;
 		up(&s_path1_done_dis_en_sema);
 	}

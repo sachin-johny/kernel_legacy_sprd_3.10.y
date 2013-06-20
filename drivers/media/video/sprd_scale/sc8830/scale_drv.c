@@ -167,8 +167,8 @@ int32_t scale_start(void)
 	g_path->is_last_slice = 0;
 	g_path->sc_deci_val = 0;
 	REG_MWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT), 0);
-	REG_OWR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
-	REG_OWR(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
+	REG_WR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
+	dcam_glb_reg_owr(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), DCAM_INIT_MASK_REG);
 
 	rtn = _scale_cfg_scaler();
 	if (rtn) goto exit;
@@ -178,12 +178,12 @@ int32_t scale_start(void)
 		rtn = scale_check_deci_slice_mode(g_path->sc_deci_val, g_path->slice_height);
 		if (rtn) goto exit;
 	}
-	REG_MWR(SCALE_BASE, SCALE_PATH_MASK, SCALE_PATH_SELECT);
-	REG_OWR(SCALE_BASE, SCALE_PATH_EB_BIT);
+	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_MASK, SCALE_PATH_SELECT, DCAM_CFG_REG);
+	dcam_glb_reg_owr(SCALE_BASE, SCALE_PATH_EB_BIT, DCAM_CFG_REG);
 	_scale_reg_trace();
 
-	REG_OWR(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT));
-	REG_OWR(SCALE_CTRL, SCALE_START_BIT);
+	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
+	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
 	atomic_inc(&g_path->start_flag);
 	return SCALE_RTN_SUCCESS;
 
@@ -218,7 +218,7 @@ static int32_t scale_continue(void)
 	}
 
 	_scale_reg_trace();
-	REG_OWR(SCALE_CTRL, SCALE_START_BIT);
+	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
 	atomic_inc(&g_path->start_flag);
 	SCALE_TRACE("SCALE DRV: continue %x.\n", REG_RD(SCALE_CFG));
 
@@ -236,9 +236,9 @@ int32_t scale_stop(void)
 		}
 	}
 
-	REG_MWR(SCALE_BASE, SCALE_PATH_EB_BIT, 0);
-	REG_MWR(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), 0);
-	REG_OWR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
+	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_EB_BIT, 0, DCAM_CFG_REG);
+	dcam_glb_reg_mwr(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), 0, DCAM_INIT_MASK_REG);
+	REG_WR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
 
 	SCALE_TRACE("SCALE DRV: stop is OK.\n");
 	return rtn;
@@ -384,9 +384,9 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			endian->uv_endian >= SCALE_ENDIAN_MAX) {
 			rtn = SCALE_RTN_ENDIAN_ERR;
 		} else {
-			REG_OWR(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT | SCALE_AXI_WR_ENDIAN_BIT));
-			REG_MWR(SCALE_ENDIAN_SEL, SCALE_INPUT_Y_ENDIAN_MASK, endian->y_endian);
-			REG_MWR(SCALE_ENDIAN_SEL, SCALE_INPUT_UV_ENDIAN_MASK, (endian->uv_endian << 2));
+			dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT | SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
+			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_Y_ENDIAN_MASK, endian->y_endian, DCAM_ENDIAN_REG);
+			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_UV_ENDIAN_MASK, (endian->uv_endian << 2), DCAM_ENDIAN_REG);
 		}
 		break;
 	}
@@ -460,9 +460,9 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			endian->uv_endian >= SCALE_ENDIAN_MAX) {
 			rtn = SCALE_RTN_ENDIAN_ERR;
 		} else {
-			REG_OWR(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT|SCALE_AXI_WR_ENDIAN_BIT));
-			REG_MWR(SCALE_ENDIAN_SEL, SCALE_OUTPUT_Y_ENDIAN_MASK, (endian->y_endian << 10));
-			REG_MWR(SCALE_ENDIAN_SEL, SCALE_OUTPUT_UV_ENDIAN_MASK, (endian->uv_endian << 12));
+			dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT|SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
+			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_Y_ENDIAN_MASK, (endian->y_endian << 10), DCAM_ENDIAN_REG);
+			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_UV_ENDIAN_MASK, (endian->uv_endian << 12), DCAM_ENDIAN_REG);
 		}
 		break;
 	}
@@ -732,7 +732,7 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 		g_path->user_func(&frame, g_path->user_data);
 	}
 
-	REG_OWR(SCALE_INT_CLR, (SCALE_IRQ_BIT|SCALE_IRQ_SLICE_BIT));
+	REG_WR(SCALE_INT_CLR, (SCALE_IRQ_BIT|SCALE_IRQ_SLICE_BIT));
 	atomic_dec(&g_path->start_flag);
 	if (s_wait_flag) {
 		up(&scale_done_sema);

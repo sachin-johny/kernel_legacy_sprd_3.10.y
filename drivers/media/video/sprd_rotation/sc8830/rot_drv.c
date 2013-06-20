@@ -103,13 +103,13 @@ static void rot_k_set_img_size(ROT_SIZE_T * size)
 
 static void rot_k_set_endian(ROT_ENDIAN_E src_end, ROT_ENDIAN_E dst_end)
 {
-	REG_AWR(REG_ROTATION_ENDIAN_SEL,
-		(~(ROT_RD_ENDIAN_MASK |ROT_WR_ENDIAN_MASK)));
+	dcam_glb_reg_awr(REG_ROTATION_ENDIAN_SEL,
+		(~(ROT_RD_ENDIAN_MASK |ROT_WR_ENDIAN_MASK)), DCAM_ENDIAN_REG);
 
-	REG_OWR(REG_ROTATION_ENDIAN_SEL,
+	dcam_glb_reg_owr(REG_ROTATION_ENDIAN_SEL,
 		(ROT_AXI_RD_WORD_ENDIAN_BIT |
 		ROT_AXI_WR_WORD_ENDIAN_BIT |
-		(src_end << 16) |(dst_end << 14)));
+		(src_end << 16) |(dst_end << 14)), DCAM_ENDIAN_REG);
 }
 
 static void rot_k_set_pixel_mode(ROT_PIXEL_FORMAT_E pixel_format)
@@ -134,14 +134,14 @@ static void rot_k_set_dir(ROT_ANGLE_E angle)
 
 static void rot_k_interrupt_en(void)
 {
-	REG_OWR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
-	REG_OWR(REG_ROTATION_INT_MASK, ROT_IRQ_BIT);
+	REG_WR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
+	dcam_glb_reg_owr(REG_ROTATION_INT_MASK, ROT_IRQ_BIT, DCAM_INIT_MASK_REG);
 }
 
 static void rot_k_interrupt_dis(void)
 {
-	REG_OWR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
-	REG_AWR(REG_ROTATION_INT_MASK, (~ROT_IRQ_BIT));
+	REG_WR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
+	dcam_glb_reg_awr(REG_ROTATION_INT_MASK, (~ROT_IRQ_BIT), DCAM_INIT_MASK_REG);
 }
 
 static void rot_k_enable(void)
@@ -177,7 +177,7 @@ static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 		user_rot_isr_func();
 	}
 
-	REG_OWR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
+	REG_WR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
 
 	spin_unlock_irqrestore(&rot_lock, flag);
 
