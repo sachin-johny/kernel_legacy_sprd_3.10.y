@@ -930,7 +930,7 @@ static int native_tdmodem_start(void *arg)
 	u32 state;
 	u32 value;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
-	memcpy(SPRD_IRAM1_BASE + 0x1800, cp1data, sizeof(cp1data));
+	memcpy((void *)(SPRD_IRAM1_BASE + 0x1800), cp1data, sizeof(cp1data));
 
 	/* clear cp1 force shutdown */
 	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x02000000));
@@ -1041,6 +1041,7 @@ static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "seth_td0",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA0,
+	.blocknum	= 256,
 };
 struct platform_device sprd_seth0_td_device = {
 	.name           = "seth",
@@ -1052,6 +1053,7 @@ static struct seth_init_data sprd_seth1_td_pdata = {
 	.name		= "seth_td1",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA1,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth1_td_device = {
 	.name           = "seth",
@@ -1063,6 +1065,7 @@ static struct seth_init_data sprd_seth2_td_pdata = {
 	.name		= "seth_td2",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA2,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth2_td_device = {
 	.name           = "seth",
@@ -1112,7 +1115,7 @@ static int native_wcdmamodem_start(void *arg)
 	u32 value;
 
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
-	memcpy(SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
+	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
 
 	/* clear cp0 force shutdown */
 	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x02000000));
@@ -1225,6 +1228,7 @@ static struct seth_init_data sprd_seth0_wcdma_pdata = {
 	.name		= "seth_w0",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA0,
+	.blocknum	= 256,
 };
 struct platform_device sprd_seth0_wcdma_device = {
 	.name           = "seth",
@@ -1236,6 +1240,7 @@ static struct seth_init_data sprd_seth1_wcdma_pdata = {
 	.name		= "seth_w1",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA1,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth1_wcdma_device = {
 	.name           = "seth",
@@ -1247,6 +1252,7 @@ static struct seth_init_data sprd_seth2_wcdma_pdata = {
 	.name		= "seth_w2",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA2,
+	.blocknum	= 64,
 };
 struct platform_device sprd_seth2_wcdma_device = {
 	.name           = "seth",
