@@ -4,7 +4,7 @@ obj-y += irq.o timer.o arch_init.o arch_lock.o \
 
 obj-$(CONFIG_ARCH_SC8825) += dcdc_cal.o
 obj-$(CONFIG_ARCH_SC8825) += devices-sc8825.o io-sc8825.o  clock-sc8825.o arch_misc.o globalregs.o
-obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o thm.o pin_switch.o
+obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o pin_switch.o
 obj-$(CONFIG_ARCH_SCX35) += emc_earlysuspend_8830.o
 
 obj-$(CONFIG_PM) += pm.o emc_repower.o

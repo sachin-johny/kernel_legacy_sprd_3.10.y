@@ -40,6 +40,8 @@ extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_spi2_device;
 extern struct platform_device sprd_keypad_device;
 extern struct platform_device sprd_audio_platform_pcm_device;
+extern struct platform_device sprd_thm_device;
+extern struct platform_device sprd_thm_a_device;
 extern struct platform_device sprd_audio_cpu_dai_vaudio_device;
 extern struct platform_device sprd_audio_cpu_dai_vbc_device;
 extern struct platform_device sprd_audio_codec_sprd_codec_device;

@@ -17,9 +17,20 @@
 
 #ifndef __CTL_THM_H__
 #define __CTL_THM_H__
+#include <linux/types.h>
+#include <linux/sprd_thm.h>
 
-#define SPRD_ARM_SENSOR  0
-#define SPRD_PMIC_SENSOR    1
-extern int sprd_thm_temp_read(u32 sensor);
+struct sprd_thermal_zone {
+	struct thermal_zone_device *therm_dev;
+	struct mutex th_lock;
+	struct work_struct therm_work;
+	struct sprd_thm_platform_data *trip_tab;
+	enum thermal_device_mode mode;
+	int sensor_id;
+	void __iomem *reg_base;
+};
+
+extern int sprd_thm_hw_init(struct sprd_thermal_zone *pzone);
+extern int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone);
 
 #endif
