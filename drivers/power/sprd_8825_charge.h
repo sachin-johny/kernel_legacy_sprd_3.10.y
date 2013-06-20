@@ -19,7 +19,7 @@
 #include <linux/wakelock.h>
 #include <linux/power_supply.h>
 #include <mach/adc.h>
-
+#include <linux/semaphore.h>
 /* When the battery volume is lower than this value and the charger is still
  * plugged in, we will restart the charge process.
  */
@@ -187,7 +187,7 @@
 #define CHGR_PD_BIT			BIT(12)
 #define CHGR_CURVE_SHARP_BIT		BIT(13)
 #endif
-
+#define CHGR_CAPACITY_SHOW_STEADY 1
 /*
  * This enum defines the lowest switchover point between constant-current and
  * constant-volatage.
@@ -258,7 +258,11 @@ struct sprd_battery_data {
 	uint32_t cur_type;
 	uint32_t hw_switch_point;
 	uint64_t charge_start_jiffies;
-
+#ifdef CHGR_CAPACITY_SHOW_STEADY
+	uint16_t capcity_reference;
+	uint16_t read;
+	struct semaphore capacity_sema;
+#endif
 	struct power_supply battery;
 	struct power_supply ac;
 	struct power_supply usb;
