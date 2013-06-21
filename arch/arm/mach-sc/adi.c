@@ -175,7 +175,7 @@ int sci_adi_read(u32 reg)
 		reg = __adi_translate_addr(reg);
 		__arch_default_lock(HWLOCK_ADI, &flags);
 		ret = __adi_read(reg, &val);
-		__adi_default_unlock(HWLOCK_ADI, &flags);
+		__arch_default_unlock(HWLOCK_ADI, &flags);
 		if (ret) {
 			printk("read error: reg = 0x%x\n",reg);
 			BUG_ON(1);
@@ -246,7 +246,7 @@ int sci_adi_write_fast(u32 reg, u16 val, u32 sync)
 		unsigned long flags;
 		__arch_default_lock(HWLOCK_ADI, &flags);
 		__adi_write(reg, val, sync);
-		__adi_default_unlock(HWLOCK_ADI, &flags);
+		__arch_default_unlock(HWLOCK_ADI, &flags);
 	}
 	return 0;
 }
@@ -262,7 +262,7 @@ int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 		ret = __adi_read(__adi_translate_addr(reg), &val);
 		if (!ret)
 			__adi_write(reg, (val & ~clear_msk) | or_val, 1);
-		__adi_default_unlock(HWLOCK_ADI, &flags);
+		__arch_default_unlock(HWLOCK_ADI, &flags);
 		if (ret)
 			BUG_ON(1);
 	}

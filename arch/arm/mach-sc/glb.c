@@ -34,7 +34,7 @@ int sci_glb_write(u32 reg, u32 val, u32 msk)
 	unsigned long flags;
 	__arch_default_lock(HWLOCK_GLB, &flags);
 	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
-	__adi_default_unlock(HWLOCK_GLB, &flags);
+	__arch_default_unlock(HWLOCK_GLB, &flags);
 	return 0;
 }
 
@@ -61,7 +61,7 @@ int sci_glb_set(u32 reg, u32 bit)
 		unsigned long flags;
 		__arch_default_lock(HWLOCK_GLB, &flags);
 		__raw_writel(__raw_readl(reg) | bit, reg);
-		__adi_default_unlock(HWLOCK_GLB, &flags);
+		__arch_default_unlock(HWLOCK_GLB, &flags);
 	}
 	return 0;
 }
@@ -74,7 +74,7 @@ int sci_glb_clr(u32 reg, u32 bit)
 		unsigned long flags;
 		__arch_default_lock(HWLOCK_GLB, &flags);
 		__raw_writel((__raw_readl(reg) & ~bit), reg);
-		__adi_default_unlock(HWLOCK_GLB, &flags);
+		__arch_default_unlock(HWLOCK_GLB, &flags);
 	}
 	return 0;
 }

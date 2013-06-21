@@ -148,7 +148,7 @@ static inline void __arch_default_lock(unsigned int lock_id, unsigned long *flag
 		arch_hwlock_fast(lock_id);
 }
 
-static inline void __adi_default_unlock(unsigned int lock_id, unsigned long *flags)
+static inline void __arch_default_unlock(unsigned int lock_id, unsigned long *flags)
 {
 	if (arch_get_hwlock(lock_id))
 		hwspin_unlock_irqrestore(arch_get_hwlock(lock_id), flags);
