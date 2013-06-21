@@ -45,8 +45,8 @@
 #include <linux/memory_hotplug.h>
 #include <linux/fs.h>
 #include <linux/swap.h>
-
-
+#include <linux/string.h>
+#include <linux/spinlock_types.h>
 
 #ifdef CONFIG_ANDROID_LMK_ENHANCE
 #define LOWMEM_DEATHPENDING_DEPTH 3
@@ -76,6 +76,21 @@ static size_t lowmem_minfree[6] = {
 static int lowmem_minfree_size = 4;
 static pid_t last_killed_pid = 0;
 
+DEFINE_SPINLOCK(lmk_wl_lock);
+
+#define MAX_LMK_WHITE_LIST  0x10
+/*lowmemory killer white list*/
+struct lmk_wl{
+    char wl_name[0x20];
+    struct task_struct *wl_tsk;
+};
+
+/*note: task name limit 16 characters, intercept last 16 characters*/
+static struct lmk_wl lmk_wl_info[MAX_LMK_WHITE_LIST]={
+    {"ndroid.launcher", NULL}, 
+    {"android.browser", NULL},
+    {"thunderst.radio", NULL},
+};
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 static unsigned int  default_interval_time = 2*HZ;
@@ -196,6 +211,82 @@ int getbuddyfreepages(void)
 	return total;
 }
 #endif
+static int lowmem_white_list_chk(struct task_struct *p)
+{
+    int count;
+    
+    if(p == NULL)
+        return 0;
+ 
+    spin_lock(&lmk_wl_lock);
+    for(count=0; count<sizeof(lmk_wl_info)/sizeof(lmk_wl_info[0]); count++){
+        if(!strcmp((char*)&lmk_wl_info[count].wl_name[0], p->comm)){
+            lmk_wl_info[count].wl_tsk = p;
+            lowmem_print(2, "[LMK]: %s find white list process:%s\r\n",__func__, p->comm);
+            spin_unlock(&lmk_wl_lock);
+            return 1;
+        }
+    }
+    spin_unlock(&lmk_wl_lock);
+    return 0;
+}
+
+static struct  task_struct *lowmem_white_list_kill(int did_some_progress, int* size, int select_oom_adj)
+{
+    int count;
+    int select_size;
+    int tasksize;
+    struct task_struct *p;
+    struct task_struct *select=NULL;
+
+    lowmem_print(2, "[LMK]: %s did_some_progress=%d\r\n",\
+            __func__, did_some_progress);
+
+    if(did_some_progress)
+        return 0;
+    read_lock(&tasklist_lock);
+    for(count=0; count<sizeof(lmk_wl_info)/sizeof(lmk_wl_info[0]); count++){
+        if(lmk_wl_info[count].wl_tsk != NULL){
+            p=lmk_wl_info[count].wl_tsk;
+            task_lock(p);
+            #ifdef CONFIG_ZRAM
+		   tasksize = get_mm_rss(p->mm) + get_mm_counter(p->mm, MM_SWAPENTS);
+            #else		
+		   tasksize = get_mm_rss(p->mm);
+            #endif
+
+            if(p->signal->oom_adj<select_oom_adj){
+                task_unlock(p);
+                continue;
+            }
+
+            if(!select){
+                select=p;
+                *size=select_size=tasksize;
+            }else{
+                if(p->signal->oom_adj > select->signal->oom_adj){
+                    task_unlock(p);
+                    continue;
+                }
+                if((p->signal->oom_adj == select->signal->oom_adj)\
+                        && (tasksize <= select_size)){
+                    task_unlock(p);
+                    continue;
+                }
+                select=p;
+                *size=select_size=tasksize;
+            }
+            task_unlock(p);
+        }
+    }
+    read_unlock(&tasklist_lock);
+
+    if(select){
+        lowmem_print(2, "[LMK]: %s find white list process:%s, task_size=%d\r\n",\
+            __func__, select->comm, *size);
+    }
+    return select;
+}
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
@@ -205,7 +296,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #else
 	struct task_struct *selected = NULL;
 #endif
-	int rem = 0;
+        struct task_struct *wl_selected=NULL;
+	int    wl_selected_tasksize=0;
+        int    wl_kill_trigger=0;
+        int    wl_make_some_progress=0;
+        int rem = 0;
 	int tasksize;
 	int i;
 	int min_adj = OOM_ADJUST_MAX + 1;
@@ -225,7 +320,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int  oom_adj_index = 0;
 	int to_reclaimed = 0;
 #endif  /*CONFIG_ZRAM_FOR_ANDROID*/
-
 
 #ifdef  CONFIG_ZRAM
         other_free -= totalreserve_pages;
@@ -446,29 +540,27 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			continue;
 		}
 		oom_adj = sig->oom_adj;
-		
+		lowmem_print(6, "[%d:%s] loop, current adj %d\n",p->pid, p->comm, oom_adj);
+
                 if(p->state == TASK_UNINTERRUPTIBLE){
                     lowmem_print(6, " [%d, %s] uninterruptible skip, adj %d\n",
 				p->pid, p->comm, oom_adj);
                     task_unlock(p);
                     continue;
                 }
-#ifdef CONFIG_ZRAM_FOR_ANDROID	
-		if((oom_adj == 6) && (min_adj >= kill_home_adj_wmark))
-		{
-		    lowmem_print(6, " [%d:%s] home app skip, adj %d\n",
-				p->pid, p->comm, oom_adj);
-
-                    task_unlock(p);
-		    continue;	 
-		}
-#endif	 /*CONFIG_ZRAM_FOR_ANDROID*/	
 		if (oom_adj < min_adj) {
 			lowmem_print(6, " [%d:%s] current adj %d\n",
 				p->pid, p->comm, oom_adj);
                         task_unlock(p);
 			continue;
 		}
+                if(lowmem_white_list_chk(p)){
+                	lowmem_print(2, " [%d:%s] whilt lisk check skip, current adj %d\n",
+				p->pid, p->comm, oom_adj);
+                        wl_kill_trigger=1;
+                        task_unlock(p);
+			continue;
+                }
 #ifdef CONFIG_ZRAM
 		tasksize = get_mm_rss(p->mm) + get_mm_counter(p->mm, MM_SWAPENTS);
 #else		
@@ -534,7 +626,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                          } else
                          last_killed_pid = selected[i]->pid;
                          rem -= selected_tasksize[i];
-		}
+	                 wl_make_some_progress=1;   
+                }
 	}
 #else
 	if (selected) {
@@ -548,14 +641,32 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                        selected->signal->oom_adj--;
                 } else
                        last_killed_pid = selected->pid;
-
+                
+                wl_make_some_progress=1;
 		rem -= selected_tasksize;
 	}
-	else
-	{
-		//pr_debug("[LMK] No Application adj less than min_adj:%d\r\n", min_adj);
-	}
 #endif
+
+        if(!current_is_kswapd() && wl_kill_trigger){
+                wl_selected=lowmem_white_list_kill(wl_make_some_progress, (int*)&wl_selected_tasksize, min_adj);
+                if(wl_selected){
+#ifdef CONFIG_ANDROID_LMK_ENHANCE
+                    lowmem_deathpending[0] = wl_selected;
+		    lowmem_deathpending_timeout[0] = jiffies + HZ;
+#else
+                    lowmem_deathpending = wl_selected;
+		    lowmem_deathpending_timeout = jiffies + HZ;
+#endif
+                    force_sig(SIGKILL, wl_selected);
+                    if(wl_selected->pid == last_killed_pid && wl_selected->signal->oom_adj > 2) {
+                       wl_selected->signal->oom_adj--;
+                    } else
+                       last_killed_pid = wl_selected->pid;
+
+		    rem -= wl_selected_tasksize;
+                    lowmem_print(2, "lowmem_shrink: wl kill tasksize=%d\n", wl_selected_tasksize);
+            }     
+        }
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	read_unlock(&tasklist_lock);
@@ -729,18 +840,15 @@ int swap_to_zram(int  nr_to_scan,  int  min_adj, int   max_adj)
 			}
 
 			atomic_inc(&mm->mm_users);
-
 			task_unlock(p);
-
+                        read_unlock(&tasklist_lock);
 			down_read(&mm->mmap_sem);
 			pages_tofree += shrink_pages(mm, &zone0_page_list, &zone1_page_list, shrink_to_scan);
 			up_read(&mm->mmap_sem);
-
 			mmput(mm);
-
+                        read_lock(&tasklist_lock);
 			pr_debug("%s, name:%s, adj:%d, policy:%u, uid:%u\r\n", 
 							__func__, p->comm, oom_adj,p->policy, __task_cred(p)->uid );
-			
 		}
 		read_unlock(&tasklist_lock);
 
