@@ -1455,8 +1455,9 @@ static int mmc_resume(struct mmc_host *host)
 	   if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_SUMSUNG)
                 break;
         }
-	printk("%s, emmc_timing_inf[i].vend_id = %x,card->cid.manfid =0x%x, i=0x%x\n",
-	__func__, emmc_timing_inf[i].vend_id,card->cid.manfid, i);
+	if(i < EMMC_VENDOR_MAX)
+		printk("%s, emmc_timing_inf[i].vend_id = %x,card->cid.manfid =0x%x, i=0x%x\n",
+			__func__, emmc_timing_inf[i].vend_id,card->cid.manfid, i);
         if((i < EMMC_VENDOR_MAX) && (card->cid.manfid == emmc_timing_inf[i].vend_id)){
                 if(mmc_card_keep_power(host)){
                     err = mmc_select_card(host->card);
