@@ -1158,7 +1158,7 @@ static uint32_t calc_num_in_eps(dwc_otg_core_if_t * core_if)
 	uint32_t num_in_eps = 0;
 	uint32_t num_eps = core_if->hwcfg2.b.num_dev_ep;
 	uint32_t hwcfg1 = core_if->hwcfg1.d32 >> 3;
-	uint32_t num_tx_fifos = core_if->hwcfg4.b.num_in_eps;
+	//uint32_t num_tx_fifos = core_if->hwcfg4.b.num_in_eps;
 	int i;
 
 	for (i = 0; i < num_eps; ++i) {
@@ -1209,9 +1209,9 @@ static uint32_t calc_num_out_eps(dwc_otg_core_if_t * core_if)
 
 void dwc_otg_core_fore_host(dwc_otg_core_if_t * core_if)
 {
-	int i = 0;
+	//int i = 0;
 	dwc_otg_core_global_regs_t *global_regs = core_if->core_global_regs;
-	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
+//	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
 	gusbcfg_data_t usbcfg = {.d32 = 0 };
 
 	/* Common Initialization */
@@ -1656,7 +1656,7 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
 	dwc_otg_core_params_t *params = core_if->core_params;
 	dcfg_data_t dcfg = {.d32 = 0 };
-	depctl_data_t diepctl = {.d32 = 0 };
+	//depctl_data_t diepctl = {.d32 = 0 };
 	grstctl_t resetctl = {.d32 = 0 };
 	uint32_t rx_fifo_size;
 	fifosize_data_t nptxfifosize;
@@ -3243,8 +3243,8 @@ void dwc_otg_ep_activate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	depctl_data_t depctl;
 	volatile uint32_t *addr;
 	daint_data_t daintmsk = {.d32 = 0 };
-	dcfg_data_t dcfg;
-	uint8_t i;
+	//dcfg_data_t dcfg;
+	//uint8_t i;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s() EP%d-%s\n", __func__, ep->num,
 		    (ep->is_in ? "IN" : "OUT"));
@@ -3373,8 +3373,8 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	depctl_data_t depctl = {.d32 = 0 };
 	volatile uint32_t *addr;
 	daint_data_t daintmsk = {.d32 = 0 };
-	dcfg_data_t dcfg;
-	uint8_t i = 0;
+	//dcfg_data_t dcfg;
+	//uint8_t i = 0;
 
 #ifdef DWC_UTE_PER_IO
 	ep->xiso_frame_num = 0xFFFFFFFF;
