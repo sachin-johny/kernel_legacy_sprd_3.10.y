@@ -1812,12 +1812,13 @@ ERR_SENSOR_E Sensor_SetMode(SENSOR_MODE_E mode)
 		    s_sensor_exp_info.sensor_mode_info[mode].image_format;
 		Sensor_SendRegTabToSensor
 		    (&s_sensor_info_ptr->resolution_tab_info_ptr[mode]);
-
+#if 0
 		//confirm camera identify OK
 		if(SENSOR_SUCCESS != s_sensor_info_ptr->ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)){
 			SENSOR_PRINT("SENSOR: sensor identify not correct!!");
 			return SENSOR_OP_STATUS_ERR;
 		}
+#endif
 
 	} else {
 		if(set_reg_tab_func)

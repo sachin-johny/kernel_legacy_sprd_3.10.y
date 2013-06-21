@@ -1069,6 +1069,7 @@ LOCAL uint32_t set_ov7675_awb(uint32_t mode)
                 OV7675_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
         }
 		Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_LIGHTSOURCE, (uint32_t)mode);
+                Sensor_SetSensorExifInfo(SENSOR_EXIF_CTRL_WHITEBALANCE, (uint32_t) mode);
         SENSOR_TRACE("SENSOR: set_awb_mode: mode = %d", mode);
         return 0;
 }
