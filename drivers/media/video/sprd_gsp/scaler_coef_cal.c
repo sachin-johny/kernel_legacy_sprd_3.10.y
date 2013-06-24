@@ -476,6 +476,9 @@ static void GSP_Rearrang_Coeff(void* src, void*dst, int32_t tap)
 
     src_ptr = (int16_t*)src;
     dst_ptr = (int16_t*)dst;
+    if (src_ptr == NULL || dst_ptr == NULL) 
+	return;
+
     if (0 != dst_ptr)
     {
         memset((void*)dst_ptr, 0x00, 8 * 8 * sizeof(int16_t));
@@ -486,13 +489,13 @@ static void GSP_Rearrang_Coeff(void* src, void*dst, int32_t tap)
         case 6:
         case 2:
         {
-            for(i = 0; i<8; i++)
-            {
-                for(j = 0; j< tap; j++)
-                {
-                    *(dst_ptr+i*8+1+j) = *(src_ptr+i*8+j);
-                }
-            }
+           for(i = 0; i<8; i++)
+           {
+              for(j = 0; j< tap; j++)
+              {
+                 *(dst_ptr+i*8+1+j) = *(src_ptr+i*8+j);
+              }
+           }
         }
         break;
 
