@@ -212,8 +212,8 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 		void *buf, uint32_t len, int timeout)
 {
 	struct sbuf_mgr *sbuf = sbufs[dst][channel];
-	struct sbuf_ring *ring = &(sbuf->rings[bufid]);
-	volatile struct sbuf_ring_header *ringhd = ring->header;
+	struct sbuf_ring *ring = NULL;
+	volatile struct sbuf_ring_header *ringhd = NULL;
 	struct smsg mevt;
 	void *txpos;
 	int rval, left, tail, txsize;
@@ -221,6 +221,8 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 	if (!sbuf) {
 		return -ENODEV;
 	}
+        ring = &(sbuf->rings[bufid]);
+        ringhd = ring->header;
 	if (sbuf->state != SBUF_STATE_READY) {
 		printk(KERN_ERR "sbuf-%d-%d not ready to write!\n", dst, channel);
 		return -ENODEV;
@@ -333,8 +335,8 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 		void *buf, uint32_t len, int timeout)
 {
 	struct sbuf_mgr *sbuf = sbufs[dst][channel];
-	struct sbuf_ring *ring = &(sbuf->rings[bufid]);
-	volatile struct sbuf_ring_header *ringhd = ring->header;
+	struct sbuf_ring *ring = NULL;
+	volatile struct sbuf_ring_header *ringhd = NULL;
 	struct smsg mevt;
 	void *rxpos;
 	int rval, left, tail, rxsize;
@@ -342,6 +344,9 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 	if (!sbuf) {
 		return -ENODEV;
 	}
+        ring = &(sbuf->rings[bufid]);
+        ringhd = ring->header;
+
 	if (sbuf->state != SBUF_STATE_READY) {
 		printk(KERN_ERR "sbuf-%d-%d not ready to read!\n", dst, channel);
 		return -ENODEV;
@@ -453,13 +458,15 @@ int sbuf_poll_wait(uint8_t dst, uint8_t channel, uint32_t bufid,
 		struct file *filp, poll_table *wait)
 {
 	struct sbuf_mgr *sbuf = sbufs[dst][channel];
-	struct sbuf_ring *ring = &(sbuf->rings[bufid]);
-	volatile struct sbuf_ring_header *ringhd = ring->header;
+	struct sbuf_ring *ring = NULL;
+	volatile struct sbuf_ring_header *ringhd = NULL;
 	unsigned int mask = 0;
 
 	if (!sbuf) {
 		return -ENODEV;
 	}
+        ring = &(sbuf->rings[bufid]);
+	ringhd = ring->header;
 	if (sbuf->state != SBUF_STATE_READY) {
 		printk(KERN_ERR "sbuf-%d-%d not ready to poll !\n", dst, channel);
 		return -ENODEV;
