@@ -1664,12 +1664,14 @@ static long gsp_drv_ioctl(struct file *file,
                 // the caller thread was killed without release GSP hw semaphore
                 if(gsp_cur_client_pid != INVALID_USER_ID)
                 {
-                    volatile struct pid * __pid = NULL;
-                    volatile struct task_struct *__task = NULL;
+                    struct pid * __pid = NULL;
+                    struct task_struct *__task = NULL;
+					pid_t temp_pid = INVALID_USER_ID;
 
                     GSP_TRACE("%sL%d current:%08x store_pid:0x%08x, \n",__func__,__LINE__,current->pid,gsp_cur_client_pid);
                     //barrier();
-                    __pid = find_get_pid(gsp_cur_client_pid);
+                    temp_pid = gsp_cur_client_pid;
+                    __pid = find_get_pid(temp_pid);
                     if(__pid != NULL)
                     {
                         __task = get_pid_task(__pid,PIDTYPE_PID);

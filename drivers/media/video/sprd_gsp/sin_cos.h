@@ -17,8 +17,8 @@
 #define COSSIN_Q 30
 #define pi              3.14159265359
 #define PI_32           0x3243F6A88
-#define ARC_32_COEF     2147483648
-#define ARC_32(arc) (int32_t)((arc) / (pi) * 2147483648);
+#define ARC_32_COEF     0x80000000
+#define ARC_32(arc) (int32_t)((arc) / (pi) * ARC_32_COEF);
 int32_t sin_32(int32_t n);
 int32_t cos_32(int32_t n);
 #endif
