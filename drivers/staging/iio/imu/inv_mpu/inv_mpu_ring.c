@@ -559,7 +559,6 @@ static int inv_report_gyro_accl_compass(struct iio_dev *indio_dev,
 	int source, i;
 	struct inv_chip_config_s *conf;
 
-	ENTER;
 	conf = &st->chip_config;
 	ind = 0;
 	if (conf->quaternion_on & conf->dmp_on) {
@@ -621,14 +620,12 @@ static int inv_report_gyro_accl_compass(struct iio_dev *indio_dev,
 			/*read from external sensor data register */
 			result = inv_i2c_read(st, REG_EXT_SENS_DATA_00,
 					      NUM_BYTES_COMPASS_SLAVE, d);
-			ENTER;
 			/* d[7] is status 2 register */
 			/*for AKM8975, bit 2 and 3 should be all be zero*/
 			/* for AMK8963, bit 3 should be zero*/
 			if ((DATA_AKM_DRDY == d[0]) &&
 			    (0 == (d[7] & DATA_AKM_STAT_MASK)) &&
 			    (!result)) {
-				ENTER;
 				u8 *sens;
 				sens = st->chip_info.compass_sens;
 				c[0] = (short)((d[2] << 8) | d[1]);
@@ -682,6 +679,7 @@ static int inv_report_gyro_accl_compass(struct iio_dev *indio_dev,
  */
 irqreturn_t inv_read_fifo(int irq, void *dev_id)
 {
+
 	struct inv_mpu_iio_s *st = (struct inv_mpu_iio_s *)dev_id;
 	struct iio_dev *indio_dev = iio_priv_to_dev(st);
 	size_t bytes_per_datum;
@@ -693,8 +691,6 @@ irqreturn_t inv_read_fifo(int irq, void *dev_id)
 	struct inv_reg_map_s *reg;
 	s64 buf[8];
 	s8 *tmp;
-
-	ENTER;
 	reg = &st->reg;
 	if (!(st->chip_config.accl_fifo_enable |
 		st->chip_config.gyro_fifo_enable |

@@ -38,7 +38,7 @@
 
 //#define INVENSENSE_DBG
 #ifdef INVENSENSE_DBG
-#define ENTER printk(KERN_INFO "[INVENSENSE_DBG] func: %s  line: %04d  ", __func__, __LINE__)
+#define ENTER printk(KERN_INFO "[INVENSENSE_DBG] func: %s  line: %04d\n", __func__, __LINE__);
 #define PRINT_DBG(x...)  printk(KERN_INFO "[INVENSENSE_DBG] " x)
 #define PRINT_INFO(x...)  printk(KERN_INFO "[INVENSENSE_INFO] " x)
 #define PRINT_WARN(x...)  printk(KERN_INFO "[INVENSENSE_WARN] " x)
