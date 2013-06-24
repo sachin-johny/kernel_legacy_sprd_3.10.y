@@ -1295,10 +1295,12 @@ static int debugfs_ldo_set(void *data, u64 val)
 static int debugfs_dcdc_set(void *data, u64 val)
 {
 	struct regulator_dev *rdev = data;
-	struct sci_regulator_desc *desc = __get_desc(rdev);
-	int to_vol = (int)val;
+	struct sci_regulator_desc *desc = NULL;
+	int to_vol = 0;
 
 	if (rdev) {
+		desc = __get_desc(rdev);
+		to_vol = (int)val;
 		if (val < 200)	/* FIXME: debug force trimming */
 			regu_force_trimming(rdev, val);
 		else {
