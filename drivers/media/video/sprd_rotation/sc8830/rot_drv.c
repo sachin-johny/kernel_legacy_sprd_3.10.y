@@ -162,7 +162,7 @@ static void rot_k_start(void)
 static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 {
 	uint32_t status;
-	uint32_t flag;
+	unsigned long flag;
 
 	(void)irq; (void)dev_id;
 	status = REG_RD(REG_ROTATION_INT_STS);
@@ -187,7 +187,7 @@ static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 int rot_k_isr_reg(rot_isr_func user_func)
 {
 	int rtn = 0;
-	uint32_t flag;
+	unsigned long flag;
 
 	spin_lock_irqsave(&rot_lock, flag);
 	user_rot_isr_func = user_func;

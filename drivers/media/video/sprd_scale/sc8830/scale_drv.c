@@ -247,7 +247,7 @@ int32_t scale_stop(void)
 int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_data)
 {
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-	uint32_t flag;
+	unsigned long flag;
 	int ret = 0;
 
 	if(id >= SCALE_IRQ_NUMBER) {
@@ -704,7 +704,7 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 {
 	uint32_t status;
 	struct scale_frame frame;
-	uint32_t flag;
+	unsigned long flag;
 
 	(void)irq; (void)dev_id;
 	status = REG_RD(SCALE_INT_STS);
