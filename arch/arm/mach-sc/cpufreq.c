@@ -153,38 +153,22 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 struct cpufreq_conf sc8830_cpufreq_conf = {
 	.clk = NULL,
 	.regulator = NULL,
-#if 0 /* debug */
 	.freq_tbl = {
-		{0, 1400000},
-		{1, 1200000},
-		{2, 1000000},
-		{3,  750000},
-		{4, CPUFREQ_TABLE_END}
+		{0, 800000},
+		{1, 400000},
+		{2, 266000},
+		{3, CPUFREQ_TABLE_END}
 	},
 	.vddarm_mv = {
-		1200000,
-		1200000,
-		1100000,
 		1000000,
-		 900000,
-	},
-#else
-	.freq_tbl = {
-		{0, 1000000},
-		{1,  750000},
-		{2, CPUFREQ_TABLE_END}
-	},
-	.vddarm_mv = {
-		1100000,
 		1000000,
-		 900000,
+		1000000,
+		1000000,
 	},
-#endif
 };
 
 struct cpufreq_conf *sprd_cpufreq_conf = NULL;
 struct cpufreq_status sprd_cpufreq_status = {0};
-
 
 void sprd_auto_hotplug_init(void)
 {
@@ -261,7 +245,7 @@ static int sprd_update_cpu_speed(int cpu,
 	 * So we remeber the original target frequency and voltage of core0,
 	 * and use the higher one
 	 */
-	sprd_cpufreq_status.percpu_target[cpu] = target_speed;
+
 	for_each_online_cpu(i) {
 		new_speed = max(new_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
@@ -359,9 +343,13 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 			policy->min, policy->max, table[index].frequency);
 
 	new_speed = table[index].frequency;
-	ret = sprd_update_cpu_speed(policy->cpu, new_speed, index);
 
-	tegra_auto_hotplug_governor();
+	sprd_cpufreq_status.percpu_target[policy->cpu] = new_speed;
+	pr_debug("## %s cpu:%d %u on cpu%d\n", __func__, policy->cpu, new_speed, smp_processor_id());
+	if (policy->cpu != 0)
+		return 0;
+
+	ret = sprd_update_cpu_speed(policy->cpu, new_speed, index);
 
 	return ret;
 }
@@ -381,19 +369,28 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 	int i, ret;
 
 #if defined(CONFIG_ARCH_SCX35)
-	sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
-		return PTR_ERR(sprd_cpufreq_conf->clk);
-	clk_enable(sprd_cpufreq_conf->clk);
-
-	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
+	if (!sprd_cpufreq_conf->clk) {
+		sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
+		if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
+			return PTR_ERR(sprd_cpufreq_conf->clk);
+	}
+	if (!sprd_cpufreq_conf->regulator) {
+		sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
+			if (IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
+				return PTR_ERR(sprd_cpufreq_conf->regulator);
+	}
 #endif
 
 	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
 
 	cpufreq_frequency_table_cpuinfo(policy, sprd_cpufreq_conf->freq_tbl);
 	policy->cur = sprd_raw_get_cpufreq(); /* current cpu frequency: KHz*/
-	policy->cpuinfo.transition_latency = 1 * 1000 * 1000; /* why this value? */
+	 /*
+	  * transition_latency 5us is enough now
+	  * but sampling too often, unbalance and irregular on each online cpu
+	  * so we set 500us here.
+	  */
+	policy->cpuinfo.transition_latency = 500 * 1000;
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	cpumask_copy(policy->related_cpus, cpu_possible_mask);
 
@@ -412,8 +409,8 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 	if (policy->cpu == 0)
 		register_pm_notifier(&sprd_cpufreq_pm_notifier);
 
-	pr_err("sprd_cpufreq_driver_init policy->cpu = %d, cpu = %d, ret = %d\n",
-		policy->cpu, smp_processor_id(), ret);
+	pr_err("sprd_cpufreq_driver_init policy->cpu = %d, policy->cur = %u, cpu = %d, ret = %d\n",
+		policy->cpu, policy->cur, smp_processor_id(), ret);
 
 	return ret;
 }
@@ -423,11 +420,11 @@ static int sprd_cpufreq_exit(struct cpufreq_policy *policy)
 	memset(&sprd_cpufreq_status, 0, sizeof(sprd_cpufreq_status));
 
 #if defined(CONFIG_ARCH_SCX35)
-	sprd_cpufreq_conf = NULL;
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk)) /* do we need disable the clock? */
+	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
 		clk_put(sprd_cpufreq_conf->clk);
 
-	regulator_put(sprd_cpufreq_conf->regulator);
+	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
+		regulator_put(sprd_cpufreq_conf->regulator);
 #endif
 
 	if (policy->cpu == 0)
