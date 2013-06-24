@@ -388,8 +388,6 @@ int inv_get_silicon_rev_mpu6050(struct inv_mpu_iio_s *st)
 	u16 sw_rev;
 	short index;
 	struct inv_chip_info_s *chip_info = &st->chip_info;
-
-	ENTER;
 	reg = &st->reg;
 
 	result = inv_i2c_read(st, REG_PRODUCT_ID, 1, &prod_ver);

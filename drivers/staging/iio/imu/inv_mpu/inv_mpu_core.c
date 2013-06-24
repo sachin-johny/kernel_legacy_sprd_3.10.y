@@ -184,7 +184,6 @@ static int set_power_itg(struct inv_mpu_iio_s *st, bool power_on)
 	u8 data;
 	int result;
 
-	ENTER;
 	reg = &st->reg;
 	if (power_on)
 		data = 0;
@@ -1722,7 +1721,6 @@ static int inv_setup_compass(struct inv_mpu_iio_s *st)
 	int result;
 	u8 data[4];
 
-	ENTER;
 	result = inv_i2c_read(st, REG_YGOFFS_TC, 1, data);
 	if (result)
 		return result;
