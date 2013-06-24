@@ -256,6 +256,10 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 
 	if (host->ops->platform_reset_enter)
 		host->ops->platform_reset_enter(host, mask);
+	if (mask & SDHCI_RESET_ALL) {
+		sdhci_sdclk_enable(host, 0);
+		udelay(200);
+	}
 #if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 	sdhci_writeb(host, mask | SDHCI_HW_RESET_CARD, SDHCI_SOFTWARE_RESET);
 #else

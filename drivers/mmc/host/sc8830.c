@@ -274,6 +274,7 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	if(clock == 0){
 		if (host_data->clk_enable) {
 			sdhci_sdclk_enable(host, 0);
+			udelay(200);
 			clk_disable(host->clk);
 			pr_debug("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
 			host->clock = 0;
@@ -397,6 +398,7 @@ static void sdhci_module_init(struct sdhci_host* host)
 	sci_glb_set(REG_AP_AHB_AHB_EB, host_pdata->enb_bit);
 	/* Reset SDIO Module */
 	sci_glb_set(REG_AP_AHB_AHB_RST, host_pdata->rst_bit);
+	udelay(200);
 	sci_glb_clr(REG_AP_AHB_AHB_RST, host_pdata->rst_bit);
 	sdhci_sprd_set_base_clock(host);
 	host->ops->set_clock(host, true);
