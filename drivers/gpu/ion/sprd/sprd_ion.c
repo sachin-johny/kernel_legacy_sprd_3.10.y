@@ -24,6 +24,7 @@
 struct ion_device *idev;
 int num_heaps;
 struct ion_heap **heaps;
+#if 0
 static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 {
         pgd_t *pgd = pgd_offset(mm, addr);
@@ -47,6 +48,7 @@ static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 
         return pa;
 }
+#endif
 
 static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 				unsigned long arg)
@@ -96,7 +98,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		paddr = data.paddr;	
 		size = data.size;
 		dmac_flush_range(kaddr, kaddr + size);
-		outer_clean_range(paddr, paddr + size);
+		outer_clean_range((phys_addr_t)paddr, (phys_addr_t)(paddr + size));
 
 /*maybe open in future if support discrete page map so keep this code unremoved here*/
 #else
