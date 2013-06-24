@@ -1,7 +1,7 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
-#if defined(CONFIG_MACH_SPX35EA) || defined (CONFIG_MACH_SPX35EB) ||defined (CONFIG_MACH_SP7735EC)
+#if defined(CONFIG_MACH_SPX35EA) || defined (CONFIG_MACH_SPX35EB) ||defined (CONFIG_MACH_SP7735EC)|| defined (CONFIG_MACH_SPX35EC)
 #define SCREEN_MAX_X    719
 #define SCREEN_MAX_Y    1279
 #else

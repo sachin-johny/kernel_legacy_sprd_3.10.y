@@ -26,6 +26,10 @@
 #include "__board-sp8830eb.h"
 #endif
 
+#ifdef	CONFIG_MACH_SPX35EC
+#include "__board-sp8830ec.h"
+#endif
+
 #ifdef	CONFIG_MACH_SPX35PAD
 #include "__board-sp8830pad.h"
 #endif
