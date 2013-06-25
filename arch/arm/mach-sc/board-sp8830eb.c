@@ -15,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-
+#include <linux/export.h>
 #include <asm/io.h>
 #include <asm/setup.h>
 #include <asm/mach/time.h>
@@ -297,7 +297,7 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PROX_INT,
 };
-
+#if 0
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.poll_interval = 10,
 	.min_interval = 10,
@@ -309,7 +309,7 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.negate_y = 0,
 	.negate_z = 1
 };
-
+#endif
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -20480,
 	.mag_high_x = 20479,
@@ -689,19 +689,9 @@ static void __init sc8830_init_early(void)
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
 
-/*
- * Setup the memory banks.
- */
-
-static void __init sc8830_fixup(struct machine_desc *desc,
-	struct tag *tags, char **cmdline, struct meminfo *mi)
-{
-}
-
 MACHINE_START(SCPHONE, "sc8830")
 	.reserve	= sci_reserve,
 	.map_io		= sci_map_io,
-	.fixup		= sc8830_fixup,
 	.init_early	= sc8830_init_early,
 	.handle_irq	= gic_handle_irq,
 	.init_irq	= sci_init_irq,
