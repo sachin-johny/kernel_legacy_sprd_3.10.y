@@ -44,6 +44,7 @@ extern void sp_pm_collapse_exit(void);
 extern void sc8830_standby_iram(void);
 extern void sc8830_standby_iram_end(void);
 extern void sc8830_standby_exit_iram(void);
+extern int sc_cpuidle_init(void);
 void pm_ana_ldo_config(void);
 
 
@@ -662,7 +663,7 @@ int sprd_cpu_deep_sleep(unsigned int cpu)
 	return ret;
 }
 static void init_gr(void){}
-void sc8825_idle(void)
+void sc_default_idle(void)
 {
 	cpu_do_idle();
 	local_irq_enable();
@@ -730,7 +731,10 @@ void sc_pm_init(void)
 
 	/* enable arm clock auto gating*/
 	//sci_glb_set(REG_AHB_AHB_CTL1, BIT_ARM_AUTO_GATE_EN);
-	pm_idle = sc8825_idle;
+	pm_idle = sc_default_idle;
+#ifdef CONFIG_CPU_IDLE
+	sc_cpuidle_init();
+#endif
 /*
 	wake_lock_init(&pm_debug_lock, WAKE_LOCK_SUSPEND, "pm_not_ready");
 	wake_lock(&pm_debug_lock);

@@ -12,6 +12,10 @@ obj-$(CONFIG_FIX_V7TAGRAM_BUG) += fix_v7_tag_ram_bug.o
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 CFLAGS_emc_repower.o += -fPIC
 
+ifeq ($(CONFIG_CPU_IDLE),y)
+	obj-$(CONFIG_ARCH_SCX35) += cpuidle-sc8830.o
+endif
+
 ifeq ($(CONFIG_PM),y)
 	obj-$(CONFIG_ARCH_SC8825) += pm-sc8825.o standby-sc8825.o pm_debug.o
 	obj-$(CONFIG_ARCH_SCX35) += pm-sc8830.o standby-sc8830.o pm_debug_sc8830.o
