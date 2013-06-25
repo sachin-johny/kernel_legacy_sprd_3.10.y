@@ -45,12 +45,13 @@ static int32_t sprdfb_dsi_set_lp_mode(void);
 
 static uint32_t dsi_core_read_function(uint32_t addr, uint32_t offset)
 {
-	return __raw_readl(addr + offset);
+	return dispc_glb_read(addr + offset);
 }
 
 static void dsi_core_write_function(uint32_t addr, uint32_t offset, uint32_t data)
 {
-	__raw_writel(data, addr + offset);
+//	__raw_writel(data, addr + offset);
+	sci_glb_write((addr + offset), data, 0xffffffff);
 }
 
 
@@ -85,12 +86,12 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 static void dsi_reset(void)
 {
 	printk("zcf:DSI_AHB_SOFT_RST:%x,BIT_DSI_SOFT_RST:%x\n",DSI_AHB_SOFT_RST,BIT_DSI_SOFT_RST);
-	printk("zcf:DSI_AHB_SOFT_RST:%x \n",__raw_readl(DSI_AHB_SOFT_RST));
-	__raw_writel(__raw_readl(DSI_AHB_SOFT_RST) | (BIT_DSI_SOFT_RST), DSI_AHB_SOFT_RST);
-	printk("zcf:DSI_AHB_SOFT_RST:%x \n",__raw_readl(DSI_AHB_SOFT_RST));
+	printk("zcf:DSI_AHB_SOFT_RST:%x \n",dispc_glb_read(DSI_AHB_SOFT_RST));
+	sci_glb_set(DSI_AHB_SOFT_RST, BIT_DSI_SOFT_RST);
+	printk("zcf:DSI_AHB_SOFT_RST:%x \n",dispc_glb_read(DSI_AHB_SOFT_RST));
  	udelay(10);
-	__raw_writel(__raw_readl(DSI_AHB_SOFT_RST) & (~(BIT_DSI_SOFT_RST)), DSI_AHB_SOFT_RST);
-	printk("zcf:DSI_AHB_SOFT_RST:%x \n",__raw_readl(DSI_AHB_SOFT_RST));
+	sci_glb_clr(DSI_AHB_SOFT_RST, BIT_DSI_SOFT_RST);
+	printk("zcf:DSI_AHB_SOFT_RST:%x \n",dispc_glb_read(DSI_AHB_SOFT_RST));
 }
 
 static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)
@@ -537,9 +538,9 @@ static int32_t sprdfb_dsi_gen_read(uint8_t *param, uint16_t param_length, uint8_
 	uint32_t reg_val, reg_val_1, reg_val_2;
 	result = mipi_dsih_gen_rd_cmd(&(dsi_ctx.dsi_inst), 0, param, param_length, bytes_to_read, read_buffer);
 
-	reg_val = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
-	reg_val_1 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
-	reg_val_2 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
+	reg_val = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
+	reg_val_1 = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
+	reg_val_2 = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
 
 	if(0 != (reg_val & 0x2)){
 		printk("sprdfb: [%s] mipi read hang (0x%x)!\n", __FUNCTION__, reg_val);
@@ -576,9 +577,9 @@ static int32_t sprdfb_dsi_dcs_read(uint8_t command, uint8_t bytes_to_read, uint8
 	uint32_t reg_val, reg_val_1, reg_val_2;
 
 	result = mipi_dsih_dcs_rd_cmd(&(dsi_ctx.dsi_inst), 0, command, bytes_to_read, read_buffer);
-	reg_val = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
-	reg_val_1 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
-	reg_val_2 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
+	reg_val = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
+	reg_val_1 = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
+	reg_val_2 = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
 
 	if(0 != (reg_val & 0x2)){
 		printk("sprdfb: [%s] mipi read hang (0x%x)!\n", __FUNCTION__, reg_val);
@@ -614,9 +615,9 @@ static int32_t sprd_dsi_force_read(uint8_t command, uint8_t bytes_to_read, uint8
 
 	iRtn = mipi_dsih_gen_rd_packet(&(dsi_ctx.dsi_inst),  0,  6,  0, command,  bytes_to_read, read_buffer);
 
-	reg_val = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
-	reg_val_1 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
-	reg_val_2 = __raw_readl(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
+	reg_val = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_PHY_STATUS);
+	reg_val_1 = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST0);
+	reg_val_2 = dispc_glb_read(SPRD_MIPI_DSIC_BASE + R_DSI_HOST_ERROR_ST1);
 
 	if(0 != (reg_val & 0x2)){
 		printk("sprdfb: [%s] mipi read hang (0x%x)!\n", __FUNCTION__, reg_val);
