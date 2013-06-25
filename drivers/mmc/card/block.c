@@ -793,13 +793,18 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 			 int type)
 {
-	int err;
+	int err, retries;
 
 	if (md->reset_done & type)
+	{
+		printk("******* %s, md->reset_done:%d, type:%d, return -EEXIST *****\n", __func__, md->reset_done, type);
 		return -EEXIST;
-
+	}
 	md->reset_done |= type;
+	retries = 5;
+    do{
 	err = mmc_hw_reset(host);
+	}while(err && (err != -EOPNOTSUPP) && retries--);
 	/* Ensure we switch back to the correct partition */
 	if (err != -EOPNOTSUPP) {
 		struct mmc_blk_data *main_md = mmc_get_drvdata(host->card);
@@ -1423,7 +1428,9 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	/*
 	* reset host failed, give up, remove card
 	*/
+	#if 0 /* no need*/
 	remove_sd_card(card->host);
+	#endif
 
  start_new_req:
 	if (rqc) {

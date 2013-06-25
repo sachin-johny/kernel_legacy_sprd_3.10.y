@@ -509,6 +509,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host->clk = NULL;
 	sdhci_module_init(host);
+	host->mmc->caps |= MMC_CAP_HW_RESET;
 
 	switch(pdev->id) {
 		case 0:

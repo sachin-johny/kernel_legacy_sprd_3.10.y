@@ -1034,7 +1034,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * If the host supports the power_off_notify capability then
 	 * set the notification byte in the ext_csd register of device
 	 */
-	 printk("********** %s,  host->caps2:0x%x, card->ext_csd.rev:%d *********\n", __func__, host->caps2, card->ext_csd.rev);
+	 printk("****%s,  host->caps2:0x%x, card->ext_csd.rev:%d ****\n", __func__, host->caps2, card->ext_csd.rev);
 	if ((host->caps2 & MMC_CAP2_POWEROFF_NOTIFY) &&
 	    (card->ext_csd.rev >= 6)) {
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
@@ -1051,7 +1051,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (!err)
 			card->poweroff_notify_state = MMC_POWERED_ON;
 	}
-	printk("********** %s,	card->poweroff_notify_state:%d *********\n", __func__, card->poweroff_notify_state);
+	printk("****%s,	card->poweroff_notify_state:%d ****\n", __func__, card->poweroff_notify_state);
 
 	/*
 	 * Activate high speed (if supported)
@@ -1061,12 +1061,12 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		if (card->ext_csd.hs_max_dtr > 52000000 &&
 		    host->caps2 & MMC_CAP2_HS200)
 		{			
-			printk("********** %s,	call  mmc_select_hs200*********\n", __func__ );
+			printk("****%s,	call  mmc_select_hs200****\n", __func__ );
 			err = mmc_select_hs200(card);
 		}
 		else if	(host->caps & MMC_CAP_MMC_HIGHSPEED)
 		{
-			printk("********** %s,	call  mmc_switch*********\n", __func__ );
+			printk("****%s,	call  mmc_switch****\n", __func__ );
 			err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 					 EXT_CSD_HS_TIMING, 1,
 					 card->ext_csd.generic_cmd6_time);
@@ -1081,12 +1081,12 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		} else {
 			if (card->ext_csd.hs_max_dtr > 52000000 &&
 			    host->caps2 & MMC_CAP2_HS200) {			    
-				printk("********** %s,	call  mmc_select_hs200, mmc_set_timing*********\n", __func__ );
+				printk("****%s,	call  mmc_select_hs200, mmc_set_timing****\n", __func__ );
 				mmc_card_set_hs200(card);
 				mmc_set_timing(card->host,
 					       MMC_TIMING_MMC_HS200);
 			} else {		
-				printk("********** %s,	call  mmc_card_set_highspeed, mmc_set_timing*********\n", __func__ );
+				printk("****%s,	call  mmc_card_set_highspeed, mmc_set_timing****\n", __func__ );
 				mmc_card_set_highspeed(card);
 				mmc_set_timing(card->host, MMC_TIMING_MMC_HS);
 			}
@@ -1100,15 +1100,15 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	if (mmc_card_highspeed(card) || mmc_card_hs200(card)) {
 		
-		printk("********** %s,  mmc_card_highspeed(card) :%d*********\n", __func__ , mmc_card_highspeed(card) );		
-		printk("********** %s,   mmc_card_hs200(card) :%d*********\n", __func__ , mmc_card_hs200(card) );
+		printk("****%s,  mmc_card_highspeed(card) :%d****\n", __func__ , mmc_card_highspeed(card) );		
+		printk("****%s,   mmc_card_hs200(card) :%d****\n", __func__ , mmc_card_hs200(card) );
 		if (max_dtr > card->ext_csd.hs_max_dtr)
 		{			
-			printk("********** %s,	max_dtr >  card->ext_csd.hs_max_dtr*********\n", __func__ );
+			printk("****%s,	max_dtr >  card->ext_csd.hs_max_dtr****\n", __func__ );
 			max_dtr = card->ext_csd.hs_max_dtr;
 		}
 	} else if (max_dtr > card->csd.max_dtr) {		
-		printk("********** %s,  max_dtr > card->csd.max_dtr*********\n", __func__ );
+		printk("****%s,  max_dtr > card->csd.max_dtr****\n", __func__ );
 		max_dtr = card->csd.max_dtr;
 	}
 
@@ -1130,16 +1130,16 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				ddr = MMC_1_2V_DDR_MODE;
 		
 		if(ddr ==  MMC_1_2V_DDR_MODE)
-			printk("********* %s, ddr = MMC_1_2V_DDR_MODE\n ", __func__  );
+			printk("****%s, ddr = MMC_1_2V_DDR_MODE\n ", __func__  );
 		if(ddr ==  MMC_1_8V_DDR_MODE)
-			printk("********* %s, ddr = MMC_1_8V_DDR_MODE\n ", __func__ );
+			printk("****%s, ddr = MMC_1_8V_DDR_MODE\n ", __func__ );
 	}
 
 	/*
 	 * Indicate HS200 SDR mode (if supported).
 	 */
 	if (mmc_card_hs200(card)) {
-		printk("********** %s, mmc_card_hs200(card):%d **********\n", __func__, mmc_card_hs200(card));
+		printk("****%s, mmc_card_hs200(card):%d ****\n", __func__, mmc_card_hs200(card));
 		bus_width = card->host->ios.bus_width;
 
 		/*
@@ -1155,10 +1155,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 */
 		if ((host->caps2 & MMC_CAP2_HS200) &&
 		    card->host->ops->execute_tuning) {
-			printk("********** %s, host->caps2:0x%x **********\n", __func__, host->caps2);
-			printk("********** %s, host->caps2 & MMC_CAP2_HS200 **********\n", __func__);
+			printk("****%s, host->caps2:0x%x ****\n", __func__, host->caps2);
+			printk("****%s, host->caps2 & MMC_CAP2_HS200 ****\n", __func__);
 			if(card->host->ops->execute_tuning)
-				printk("********** %s, card->host->ops->execute_tuning:%pf **********\n", __func__, card->host->ops->execute_tuning);
+				printk("****%s, card->host->ops->execute_tuning:%pf ****\n", __func__, card->host->ops->execute_tuning);
 
 			mmc_host_clk_hold(card->host);
 			err = card->host->ops->execute_tuning(card->host,
@@ -1207,7 +1207,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			if (bus_width == MMC_BUS_WIDTH_1)
 				ddr = 0; /* no DDR for 1-bit width */
 			
-			printk("************ %s, call  mmc_select_powerclass,  idx:%d ****************\n", __func__, idx);
+			printk("****%s, call  mmc_select_powerclass,  idx:%d ****\n", __func__, idx);
 			err = mmc_select_powerclass(card, ext_csd_bits[idx][0],
 						    ext_csd);
 			if (err)
@@ -1273,14 +1273,14 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 			 * WARNING: eMMC rules are NOT the same as SD DDR
 			 */
 			if (ddr == MMC_1_2V_DDR_MODE) {
-				printk("****** %s, ddr == MMC_1_2V_DDR_MODE *******\n", __func__ );
+				printk("****%s, ddr == MMC_1_2V_DDR_MODE ****\n", __func__ );
 				err = mmc_set_signal_voltage(host,
 					MMC_SIGNAL_VOLTAGE_120, 0);
 				if (err)
 					goto err;
 			}
 			
-			printk("****** %s, call mmc_card_set_ddr_mode *******\n", __func__ );
+			printk("****%s, call mmc_card_set_ddr_mode ****\n", __func__ );
 			mmc_card_set_ddr_mode(card);
 			mmc_set_timing(card->host, MMC_TIMING_UHS_DDR50);
 			mmc_set_bus_width(card->host, bus_width);
@@ -1308,11 +1308,11 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 * If cache size is higher than 0, this indicates
 	 * the existence of cache and it can be turned on.
 	 */
-	 printk("******** %s, host->caps2:0x%x ******\n", __func__, host->caps2);
+	 printk("****%s, host->caps2:0x%x ****\n", __func__, host->caps2);
 	if ((host->caps2 & MMC_CAP2_CACHE_CTRL) &&
 			card->ext_csd.cache_size > 0) {
 		
-		printk("******** %s, card->ext_csd.cache_size > 0 ******\n", __func__);
+		printk("****%s, card->ext_csd.cache_size > 0 ****\n", __func__);
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
@@ -1452,7 +1452,7 @@ static int mmc_resume(struct mmc_host *host)
 	mmc_claim_host(host);
 
         for(i=0x0; i<EMMC_VENDOR_MAX; i++) {
-	   if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_SUMSUNG)
+	   if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_HYNIX)
                 break;
         }
 	if(i < EMMC_VENDOR_MAX)
@@ -1477,7 +1477,6 @@ static int mmc_resume(struct mmc_host *host)
 static int mmc_power_restore(struct mmc_host *host)
 {
 	int ret;
-
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
 	mmc_card_clr_sleep(host->card);
 	mmc_claim_host(host);
