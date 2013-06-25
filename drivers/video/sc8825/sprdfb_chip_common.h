@@ -39,6 +39,7 @@ void dispc_dbi_clk_set(unsigned int clk_src, unsigned int clk_div);
 
 void dispc_dpi_clk_set(unsigned int clk_src, unsigned int clk_div);
 
+u32 dispc_glb_read(u32 reg);
 
 
 #endif

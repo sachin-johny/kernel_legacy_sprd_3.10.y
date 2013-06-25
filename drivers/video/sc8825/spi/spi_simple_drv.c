@@ -90,18 +90,21 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
     if(spi_id == 0)
     {
        // *(volatile uint32_t *)AHB_SOFT_RST |= (1 << 14);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
+//	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
+	sci_glb_set(REG_AHB_SOFT_RST, (1<<14));
         
         udelay(10);
  //       *(volatile uint32_t *)AHB_SOFT_RST &= ~(1 << 14);        
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<14)), REG_AHB_SOFT_RST);
+//	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<14)), REG_AHB_SOFT_RST);
+	sci_glb_clr(REG_AHB_SOFT_RST, (1<<14));
         //for(i=0; i<ms; i++);
         //*(volatile uint32_t *)AHB_RST0_CLR |= SPI0_SOFT_RST_CLR;
     }
     else
     {
         //*(volatile uint32_t *)AHB_SOFT_RST |= (1 << 14);
-	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
+//	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
+	sci_glb_set(REG_AHB_SOFT_RST, (1<<14));
 
         //for(i=0; i<ms; i++);
         //*(volatile uint32_t *)APB_RST0_CLR |= SPI1_SOFT_RST_CLR;

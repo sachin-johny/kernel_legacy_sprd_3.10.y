@@ -74,12 +74,13 @@
 
 static inline uint32_t dispc_read(uint32_t reg)
 {
-	return __raw_readl(SPRD_DISPC_BASE + reg);
+	return dispc_glb_read(SPRD_DISPC_BASE + reg);
 }
 
 static inline void dispc_write(uint32_t value, uint32_t reg)
 {
-	__raw_writel(value, (SPRD_DISPC_BASE + reg));
+//	__raw_writel(value, (SPRD_DISPC_BASE + reg));
+	sci_glb_write((SPRD_DISPC_BASE + reg), value, 0xffffffff);
 }
 
 static inline void dispc_set_bits(uint32_t bits, uint32_t reg)

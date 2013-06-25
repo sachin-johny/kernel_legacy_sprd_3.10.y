@@ -43,7 +43,10 @@ void dispc_dpi_clk_set(unsigned int clk_src, unsigned int clk_div)
 }
 
 
-
+u32 dispc_glb_read(u32 reg)
+{
+	return sci_glb_read(reg, 0xffffffff);
+}
 
 
 

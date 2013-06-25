@@ -212,12 +212,12 @@ static irqreturn_t dispc_isr(int irq, void *data)
 static void dispc_reset(void)
 {
 	printk("REG_AHB_SOFT_RST:%x ,BIT_DISPC_SOFT_RST:%x \n",REG_AHB_SOFT_RST,BIT_DISPC_SOFT_RST);
-	printk("REG_AHB_SOFT_RST:%x \n",__raw_readl(REG_AHB_SOFT_RST));
+	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
 	sci_glb_set(REG_AHB_SOFT_RST, (BIT_DISPC_SOFT_RST) );
-	printk("REG_AHB_SOFT_RST:%x \n",__raw_readl(REG_AHB_SOFT_RST));
+	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
  	udelay(10);
 	sci_glb_clr(REG_AHB_SOFT_RST, (BIT_DISPC_SOFT_RST) );
-	printk("REG_AHB_SOFT_RST:%x \n",__raw_readl(REG_AHB_SOFT_RST));
+	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
 }
 
 static inline void dispc_set_bg_color(uint32_t bg_color)
@@ -502,7 +502,6 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 		}
 
 		printk("sprdfb:[%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
-		printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
 	}
 
 }
@@ -527,12 +526,13 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	dispc_print_clk();
 	printk("zcf:BIT_DISPC_CORE_EN:%x,DISPC_CORE_EN:%x\n",BIT_DISPC_CORE_EN,DISPC_CORE_EN);
 	printk("zcf:BIT_DISPC_EMC_EN:%x,DISPC_EMC_EN:%x\n",BIT_DISPC_EMC_EN,DISPC_EMC_EN);
-	printk("zcf:DISPC_CORE_EN:%x\n",__raw_readl(DISPC_CORE_EN));
-	printk("zcf:DISPC_EMC_EN:%x\n",__raw_readl(DISPC_EMC_EN));
-	__raw_writel(__raw_readl(DISPC_CORE_EN) | (BIT_DISPC_CORE_EN),DISPC_CORE_EN); //core_clock_en
-	__raw_writel(__raw_readl(DISPC_EMC_EN) | (BIT_DISPC_EMC_EN),DISPC_EMC_EN); //matrix clock en
-	printk("zcf:DISPC_CORE_EN:%x\n",__raw_readl(DISPC_CORE_EN));
-	printk("zcf:DISPC_EMC_EN:%x\n",__raw_readl(DISPC_EMC_EN));
+	printk("zcf:DISPC_CORE_EN:%x\n",dispc_glb_read(DISPC_CORE_EN));
+	printk("zcf:DISPC_EMC_EN:%x\n",dispc_glb_read(DISPC_EMC_EN));
+	sci_glb_set(DISPC_CORE_EN, BIT_DISPC_CORE_EN);
+	sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
+
+	printk("zcf:DISPC_CORE_EN:%x\n",dispc_glb_read(DISPC_CORE_EN));
+	printk("zcf:DISPC_EMC_EN:%x\n",dispc_glb_read(DISPC_EMC_EN));
 
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {

@@ -25,9 +25,9 @@ void dsi_enable(void)
 
 void dispc_print_clk(void)
 {
-	printk("0x20900200 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x200));
-	printk("0x20900208 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x208));
-	printk("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x220));
+	printk("0x20900200 = 0x%x\n", sci_glb_read(SPRD_AHB_BASE + 0x200));
+	printk("0x20900208 = 0x%x\n", sci_glb_read(SPRD_AHB_BASE + 0x208));
+	printk("0x20900220 = 0x%x\n", sci_glb_read(SPRD_AHB_BASE + 0x220));
 }
 
 
