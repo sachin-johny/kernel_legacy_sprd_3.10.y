@@ -69,24 +69,8 @@ struct sprd_pcm_dma_params {
 	u32 dev_paddr[2];	/* device physical address for DMA */
 };
 
-typedef struct sprd_dma_desc {
-	u32 datawidth;
-	u32 src_addr;
-	u32 des_addr;
-	u32 fragmens_len;
-	u32 block_len;
-	u32 src_step;
-	u32 des_step;
-	dma_request_mode req_mode;
-	/*only full chn need following config */
-	u32 transcation_len;
-	u32 src_frag_step;
-	u32 dst_frag_step;
-	u32 src_blk_step;
-	u32 dst_blk_step;
-	u32 linklist_ptr;
-	u32 is_end;
-} sprd_dma_desc;
+typedef struct sci_dma_cfg  sprd_dma_desc;
+
 
 static inline int sprd_pcm_dma_get_addr(int dma_ch,
 					struct snd_pcm_substream *substream)
