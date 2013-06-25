@@ -416,6 +416,7 @@ static int i2s_get_ddata_width(struct i2s_priv *i2s)
 #endif
 }
 
+#if 0
 static int i2s_get_sdata_width(struct i2s_priv *i2s)
 {
 	struct i2s_config *config = &i2s->config;
@@ -434,6 +435,7 @@ static int i2s_get_sdata_width(struct i2s_priv *i2s)
 	return WORD_WIDTH;
 #endif
 }
+#endif
 
 static int i2s_get_data_position(struct i2s_priv *i2s)
 {

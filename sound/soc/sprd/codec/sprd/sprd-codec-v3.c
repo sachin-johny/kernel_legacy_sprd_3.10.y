@@ -2913,6 +2913,7 @@ static irqreturn_t sprd_codec_dp_irq(int irq, void *dev_id)
 }
 #endif
 
+#if 0
 static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 {
 	struct snd_soc_codec *codec = dai->codec;
@@ -2963,7 +2964,7 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 
 	return ret;
 }
-
+#endif
 static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 	.startup = sprd_codec_pcm_startup,
 	.shutdown = sprd_codec_pcm_shutdown,
@@ -3008,7 +3009,7 @@ static void sprd_codec_proc_read(struct snd_info_entry *entry,
 	snd_iprintf(buffer, "%s digital part\n", codec->name);
 	for (reg = SPRD_CODEC_DP_BASE; reg < SPRD_CODEC_DP_END; reg += 0x10) {
 		snd_iprintf(buffer, "0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
-			    (reg - SPRD_CODEC_DP_BASE)
+			    (unsigned int)(reg - SPRD_CODEC_DP_BASE)
 			    , snd_soc_read(codec, reg + 0x00)
 			    , snd_soc_read(codec, reg + 0x04)
 			    , snd_soc_read(codec, reg + 0x08)
@@ -3018,7 +3019,7 @@ static void sprd_codec_proc_read(struct snd_info_entry *entry,
 	snd_iprintf(buffer, "%s analog part\n", codec->name);
 	for (reg = SPRD_CODEC_AP_BASE; reg < SPRD_CODEC_AP_END; reg += 0x10) {
 		snd_iprintf(buffer, "0x%04x | 0x%04x 0x%04x 0x%04x 0x%04x\n",
-			    (reg - SPRD_CODEC_AP_BASE)
+			    (unsigned int)(reg - SPRD_CODEC_AP_BASE)
 			    , snd_soc_read(codec, reg + 0x00)
 			    , snd_soc_read(codec, reg + 0x04)
 			    , snd_soc_read(codec, reg + 0x08)

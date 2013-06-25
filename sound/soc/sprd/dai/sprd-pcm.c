@@ -316,7 +316,11 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 	return 0;
 }
 
+#ifdef DMA_VER_R1P0
 static irqreturn_t sprd_pcm_dma_irq_ch(int dma_ch, void *dev_id)
+#else
+static void sprd_pcm_dma_irq_ch(int dma_ch, void *dev_id)
+#endif
 {
 	struct snd_pcm_substream *substream = dev_id;
 	struct snd_pcm_runtime *runtime = substream->runtime;
@@ -345,7 +349,11 @@ irq_ready:
 irq_fast:
 	snd_pcm_period_elapsed(dev_id);
 irq_ret:
+#ifdef  DMA_VER_R1P0
 	return IRQ_HANDLED;
+#else
+	return;
+#endif
 }
 
 #ifdef DMA_VER_R1P0
@@ -562,7 +570,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 	sprd_dma_desc *dma_desc[2];
 	dma_addr_t dma_buff_phys[2];	/*, next_desc_phys[2]; */
 	struct i2s_private *i2s_private;
-	struct i2s_config *config;
+	struct i2s_config *config = NULL;
 	int ret = 0;
 	int i, j = 0;
 	int used_chan_count;
@@ -692,7 +700,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 	sprd_pcm_dbg("dma_reg_addr[0].phys_addr:0x%x\n",
 		     dma_reg_addr[0].phys_addr);
 
-	sci_dma_config(rtd->uid_cid_map[0], rtd->dma_desc_array,
+	sci_dma_config((u32)(rtd->uid_cid_map[0]), (struct sci_dma_cfg *)(rtd->dma_desc_array),
 		       params_periods(params), &dma_reg_addr[0]);
 	ret = sci_dma_register_irqhandle(rtd->uid_cid_map[0], rtd->params->irq_type,	/*dma->irq_type */
 					 sprd_pcm_dma_irq_ch, substream);
@@ -707,8 +715,8 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		sprd_pcm_dbg("dma_reg_addr[1].phys_addr:0x%x\n",
 			     dma_reg_addr[1].phys_addr);
 
-		sci_dma_config(rtd->uid_cid_map[1],
-			       rtd->dma_desc_array + runtime->hw.periods_max,
+		sci_dma_config((u32)(rtd->uid_cid_map[1]),
+			       (struct sci_dma_cfg *)(rtd->dma_desc_array + runtime->hw.periods_max),
 			       params_periods(params), &dma_reg_addr[1]);
 		ret = sci_dma_register_irqhandle(rtd->uid_cid_map[1], rtd->params->irq_type,	/*dma->irq_type */
 						 sprd_pcm_dma_irq_ch,
