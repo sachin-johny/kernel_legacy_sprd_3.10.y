@@ -20,6 +20,7 @@
 #include <linux/cdev.h>
 #include <linux/slab.h>
 #include <linux/poll.h>
+#include <linux/module.h>
 
 #include "iio.h"
 #include "iio_core.h"
