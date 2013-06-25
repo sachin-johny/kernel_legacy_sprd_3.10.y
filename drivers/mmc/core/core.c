@@ -1063,6 +1063,17 @@ EXPORT_SYMBOL(mmc_regulator_get_ocrmask);
  * a particular supply voltage.  This would normally be called from the
  * set_ios() method.
  */
+static int __regulator_force_disable(struct regulator *regulator)
+{
+	int i = 0;
+	while(1 == regulator_is_enabled(regulator)) {
+		regulator_disable(regulator);
+		i++;
+	};
+	printk("__regulator_force_disable count= %d\n",i);
+	return 0;
+}
+
 int mmc_regulator_set_ocr(struct mmc_host *mmc,
 			struct regulator *supply,
 			unsigned short vdd_bit)
@@ -1109,7 +1120,7 @@ int mmc_regulator_set_ocr(struct mmc_host *mmc,
 				mmc->regulator_enabled = true;
 		}
 	} else if (mmc->regulator_enabled) {
-		result = regulator_disable(supply);
+		result = __regulator_force_disable(supply);
 		if (result == 0)
 			mmc->regulator_enabled = false;
 	}
@@ -1975,11 +1986,16 @@ int mmc_can_reset(struct mmc_card *card)
 
 	if (!mmc_card_mmc(card))
 		return 0;
+#if 0
 	rst_n_function = card->ext_csd.rst_n_function;
 	if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) != EXT_CSD_RST_N_ENABLED)
 		return 0;
 	return 1;
+#endif
+/*for emmc reset use power off mode*/
+	return 1;
 }
+
 EXPORT_SYMBOL(mmc_can_reset);
 
 static int mmc_do_hw_reset(struct mmc_host *host, int check)
@@ -1989,15 +2005,15 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	if (!host->bus_ops->power_restore)
 		return -EOPNOTSUPP;
 
-	if (!(host->caps & MMC_CAP_HW_RESET) || !host->ops->hw_reset)
+	if (!(host->caps & MMC_CAP_HW_RESET) || !host->ops->hw_reset){
 		return -EOPNOTSUPP;
-
+		}
 	if (!card)
 		return -EINVAL;
 
 	if(!mmc_card_sd(card)){
-		if (!mmc_can_reset(card))
-			return -EOPNOTSUPP;
+		if (!mmc_can_reset(card)){
+			return -EOPNOTSUPP;}
 	}
 
 	mmc_host_clk_hold(host);
