@@ -67,8 +67,8 @@ struct sblock_ring {
 
 	uint32_t            txblk_count;
 
-	struct mutex		txlock;
-	struct mutex		rxlock;
+	spinlock_t		txlock;
+	spinlock_t		rxlock;
 
 	wait_queue_head_t	getwait;
 	wait_queue_head_t	recvwait;

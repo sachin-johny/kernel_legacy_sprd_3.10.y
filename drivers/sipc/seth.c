@@ -190,6 +190,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 
 	if(blk.length < skb->len) {
 		SETH_ERR ("The size of sblock is so tiny!\n");
+		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
 		dev_kfree_skb_any (skb);
 		return NETDEV_TX_BUSY;
@@ -200,6 +201,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	ret = sblock_send(pdata->dst, pdata->channel, &blk);
 	if(ret) {
 		SETH_ERR ("send sblock failed(%d)\n", ret);
+		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
 		dev_kfree_skb_any (skb);
 		return NETDEV_TX_BUSY;

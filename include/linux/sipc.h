@@ -342,6 +342,18 @@ int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk);
  */
 int sblock_get_free_count(uint8_t dst, uint8_t channel);
 
+
+/**
+ * sblock_put  -- put a free sblock for sender
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @blk: sblock pointer
+ * @return: void
+ */
+void sblock_put(uint8_t dst, uint8_t channel, struct sblock *blk);
+
+
 /* ****************************************************************** */
 /* TODO: SRPC interfaces */
 
