@@ -18,15 +18,13 @@
 #include "sc8830_reg_dcam.h"
 
 
-#define DCAM_DEBUG
+//#define DCAM_DEBUG
 
 #ifdef DCAM_DEBUG
 	#define DCAM_TRACE             printk
 #else
 	#define DCAM_TRACE             pr_debug
 #endif
-
-#define DCAM_TRACE_LOW             pr_debug
 
 #define DCAM_ERR_TRACE				printk
 

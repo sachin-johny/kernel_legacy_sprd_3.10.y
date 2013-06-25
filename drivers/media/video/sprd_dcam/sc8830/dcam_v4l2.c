@@ -921,7 +921,7 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	node.index    = frame->fid;
 	node.height   = frame->height;
 
-	DCAM_TRACE_LOW("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
+	DCAM_TRACE("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
 		node.irq_flag, node.f_type, node.index);
 
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == frame->type) {
@@ -938,7 +938,7 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	}
 	fmr_index = frame->fid - path->frm_id_base;
 	if (fmr_index >= path->frm_cnt_act) {
-		DCAM_TRACE_LOW("V4L2: sprd_v4l2_tx_done, index error %d, actually count %d \n",
+		DCAM_TRACE("V4L2: sprd_v4l2_tx_done, index error %d, actually count %d \n",
 			fmr_index,
 			path->frm_id_base);
 	}
@@ -1120,7 +1120,7 @@ LOCAL int sprd_v4l2_path_lightly_cfg(path_cfg_func path_cfg,
 				struct dcam_path_spec* path_spec)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
-	uint32_t                 param, i;
+	uint32_t                 param;
 
 	if (NULL == path_cfg || NULL == path_spec)
 		return -EINVAL;
@@ -1273,7 +1273,7 @@ LOCAL int v4l2_g_parm(struct file *file,
 	do_gettimeofday(&time);
 	streamparm->parm.capture.timeperframe.numerator    = time.tv_sec;
 	streamparm->parm.capture.timeperframe.denominator  = time.tv_usec;
-	DCAM_TRACE("V4L2: v4l2_g_parm sec=%d, usec=%d \n", time.tv_sec, time.tv_usec);
+	DCAM_TRACE("V4L2: v4l2_g_parm sec %d, usec %d \n", (int)time.tv_sec, (int)time.tv_usec);
 
 	return 0;
 }
@@ -1435,7 +1435,6 @@ LOCAL int v4l2_s_crop(struct file *file,
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_rect         *input_rect;
 	struct dcam_size         *input_size;
-	uint32_t                 i;
 
 	if (unlikely(crop->type != V4L2_BUF_TYPE_VIDEO_CAPTURE) &&
 		unlikely(crop->type != V4L2_BUF_TYPE_PRIVATE) &&
@@ -1586,7 +1585,6 @@ LOCAL int v4l2_g_fmt_vid_cap(struct file *file,
 LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
-	struct dcam_format       *fmt;
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_path_spec    *path = NULL;
 	path_cfg_func            path_cfg;
@@ -1604,19 +1602,9 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 	}else if (DCAM_PATH2 == channel_id) {
 		path_cfg = dcam_path2_cfg;
 	}
-#if 0
-	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path->in_size);
-	V4L2_RTN_IF_ERR(ret);
 
-	ret = path_cfg(DCAM_PATH_INPUT_RECT, &path->in_rect);
-	V4L2_RTN_IF_ERR(ret);
-
-	ret = path_cfg(DCAM_PATH_OUTPUT_SIZE, &path->out_size);
-	V4L2_RTN_IF_ERR(ret);
-#endif
 	dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
 
-exit:
 	mutex_unlock(&dev->dcam_mutex);
 
 	if (ret) {
@@ -1662,6 +1650,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 		if (ret) {
 			/*failed to set path2, release the controller of resizer*/
 			dcam_rel_resizer();
+			dev->got_resizer = 0;
 		}
 		channel_id = DCAM_PATH2;
 	} else if (V4L2_BUF_TYPE_VIDEO_OUTPUT == f->type){
@@ -1714,8 +1703,8 @@ LOCAL int v4l2_qbuf(struct file *file,
 		return -EINVAL;
 	}
 
-	DCAM_TRACE_LOW("V4L2: v4l2_qbuf, type 0x%x, status=%d, frm_cnt_act=%d, y=0x%x, u=0x%x, v=0x%x \n", 
-		p->type, path->status, path->frm_cnt_act, p->m.userptr, p->input, p->reserved);
+	DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, status %d, frm_cnt_act %d \n",
+		p->type, path->status, path->frm_cnt_act);
 		
 	mutex_lock(&dev->dcam_mutex);
 
@@ -1747,7 +1736,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 		} else {
 			index = p->index - path->frm_id_base;
 			dcam_frame_unlock(path->frm_ptr[index]);
-			DCAM_TRACE_LOW("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", p->type, p->index);
+			DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", p->type, p->index);
 		}
 	}
 
@@ -1766,7 +1755,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	struct dcam_path_spec    *path;
 	int                      ret = 0;
 
-	DCAM_TRACE_LOW("V4L2: v4l2_dqbuf \n");
+	DCAM_TRACE("V4L2: v4l2_dqbuf \n");
 
 	while (1) {
 		ret = down_interruptible(&dev->irq_sem);
@@ -1788,7 +1777,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	}
 
 	do_gettimeofday(&p->timestamp);
-	DCAM_TRACE_LOW("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
+	DCAM_TRACE("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
 
 	p->flags = node.irq_flag;
 	p->type  = node.f_type;
@@ -1805,7 +1794,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 
 	memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
 
-	DCAM_TRACE_LOW("V4L2: v4l2_dqbuf, flag 0x%x type 0x%x index 0x%x \n", p->flags, p->type, p->index);
+	DCAM_TRACE("V4L2: v4l2_dqbuf, flag 0x%x type 0x%x index 0x%x \n", p->flags, p->type, p->index);
 
 	return DCAM_RTN_SUCCESS;
 }
@@ -2067,7 +2056,8 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t
 	int                      ret = 0;
 	enum dcam_path_index     path_index;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d ,reconfig_flag = %d.\n", channel_id,reconfig_flag);
+	DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel %d ,recfg flag %d\n",
+		channel_id,reconfig_flag);
 		
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
