@@ -2604,7 +2604,7 @@ void hc_xfer_timeout(void *ptr)
 	if (ptr)
 		xfer_info = (hc_xfer_info_t *) ptr;
 
-	if (!xfer_info->hc) {
+	if (!xfer_info || !xfer_info->hc) {
 		DWC_ERROR("xfer_info->hc = %p\n", xfer_info->hc);
 		return;
 	}

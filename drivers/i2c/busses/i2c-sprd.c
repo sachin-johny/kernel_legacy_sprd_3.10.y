@@ -534,7 +534,7 @@ static int i2c_controller_resume(struct platform_device *pdev)
 {
 	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
 
-	if (!IS_ERR(pi2c->clk))
+	if (pi2c && !IS_ERR(pi2c->clk))
 		clk_enable(pi2c->clk);
 	if (pi2c) {
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].ctl, pi2c->membase + I2C_CTL);
