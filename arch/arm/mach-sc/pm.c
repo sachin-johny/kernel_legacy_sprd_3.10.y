@@ -25,6 +25,7 @@ extern void sc_pm_init(void);
 extern void check_ldo(void);
 extern void check_pd(void);
 
+#if 0 /*comment for bug 179358 */
 /*for battery*/
 #define BATTERY_CHECK_INTERVAL 30000
 extern int battery_updata(void);
@@ -37,6 +38,7 @@ static int __used sprd_check_battery(void)
 	}
 	return ret_val;
 }
+#endif
 
 static void sprd_pm_standby(void)
 {
