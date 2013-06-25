@@ -52,7 +52,7 @@ LOCAL uint32_t _ov5640_Identify(uint32_t param);
 LOCAL uint32_t _ov5640_set_brightness(uint32_t level);
 LOCAL uint32_t _ov5640_set_contrast(uint32_t level);
 /*LOCAL uint32_t _ov5640_set_sharpness(uint32_t level);*/
-LOCAL uint32_t _ov5640_set_saturation(uint32_t level);
+/*LOCAL uint32_t _ov5640_set_saturation(uint32_t level);*/
 LOCAL uint32_t _ov5640_set_image_effect(uint32_t effect_type);
 LOCAL uint32_t _ov5640_set_ev(uint32_t level);
 LOCAL uint32_t _ov5640_set_anti_flicker(uint32_t mode);
@@ -1244,7 +1244,7 @@ SENSOR_INFO_T g_ov5640_yuv_info = {
 	ov5640_I2C_ADDR_W,	// salve i2c write address
 	ov5640_I2C_ADDR_R,	// salve i2c read address
 
-	SENSOR_I2C_REG_16BIT | SENSOR_I2C_REG_8BIT,	// bit0: 0: i2c register value is 8 bit, 1: i2c register value is 16 bit
+	SENSOR_I2C_REG_16BIT | SENSOR_I2C_REG_8BIT | SENSOR_I2C_FREQ_400,	// bit0: 0: i2c register value is 8 bit, 1: i2c register value is 16 bit
 	// bit1: 0: i2c register addr  is 8 bit, 1: i2c register addr  is 16 bit
 	// other bit: reseved
 	SENSOR_HW_SIGNAL_PCLK_N | SENSOR_HW_SIGNAL_VSYNC_N | SENSOR_HW_SIGNAL_HSYNC_P,	// bit0: 0:negative; 1:positive -> polarily of pixel clock
@@ -1271,7 +1271,7 @@ SENSOR_INFO_T g_ov5640_yuv_info = {
 	// bit[8:31] reseved
 
 	SENSOR_LOW_PULSE_RESET,	// reset pulse level
-	50,			// reset pulse width(ms)
+	10,//50,			// reset pulse width(ms)
 
 	SENSOR_HIGH_LEVEL_PWDN,	// 1: high level valid; 0: low level valid
 
@@ -1629,6 +1629,7 @@ LOCAL const SENSOR_REG_BITS_T ov5640_saturation_tab[][6] = {
 	 }
 };
 
+#if 0
 LOCAL uint32_t _ov5640_set_saturation(uint32_t level)
 {
 	uint16_t i = 0x00;
@@ -1659,6 +1660,7 @@ LOCAL uint32_t _ov5640_set_saturation(uint32_t level)
 		     level, reg_value);
 	return 0;
 }
+#endif
 
 LOCAL const SENSOR_REG_BITS_T ov5640_image_effect_tab[][5] = {
 	// effect normal
@@ -2662,7 +2664,7 @@ LOCAL uint32_t _ov5640_AutoFocusZone(SENSOR_EXT_FUN_PARAM_T_PTR param_ptr)
 		do_gettimeofday(&time2);
 
 		SENSOR_PRINT
-		    ("SENSOR: _ov5640_AutoFocusZone time1 = %d, time2=%d, time=%d \n",
+		    ("SENSOR: _ov5640_AutoFocusZone time1 = %ld, time2=%ld, time=%ld \n",
 		     (time1.tv_sec * 1000 + time1.tv_usec / 1000),
 		     (time2.tv_sec * 1000 + time2.tv_usec / 1000),
 		     (time2.tv_sec * 1000 + time2.tv_usec / 1000) -
