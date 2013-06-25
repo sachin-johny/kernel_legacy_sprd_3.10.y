@@ -26,6 +26,7 @@
 #include <mach/adi.h>
 #include <linux/interrupt.h>
 #include <mach/irqs.h>
+#include <mach/gpio.h>
 
 struct dentry * dentry_debug_root = NULL;
 static int is_print_sleep_mode = 0;
@@ -90,6 +91,11 @@ static char * sleep_mode_str[]  = {
 #define	INTCV3_FIQ_STS		INTC3_REG(0x0020)
 #define INT_IRQ_MASK	(1<<3)
 
+#define ANA_REG_INT_MASK_STATUS         (ANA_CTL_INT_BASE + 0x0000)
+#define ANA_REG_INT_RAW_STATUS          (ANA_CTL_INT_BASE + 0x0004)
+#define ANA_REG_INT_EN                  (ANA_CTL_INT_BASE + 0x0008)
+#define ANA_REG_INT_MASK_STATUS_SYNC    (ANA_CTL_INT_BASE + 0x000c)
+
 void pm_debug_dump_ahb_glb_regs(void);
 
 static void hard_irq_reset(void)
@@ -129,14 +135,26 @@ void hard_irq_set(void)
 {
 	sprd_irqs_sts[0] = __raw_readl(INT_IRQ_STS);
 	sprd_irqs_sts[1] = __raw_readl(INT_FIQ_STS);
-	irq_status = __raw_readl(INTCV0_IRQ_MSKSTS);
+	irq_status = __raw_readl(INTCV0_IRQ_RAW);
 	parse_hard_irq(irq_status, 0);
-	irq_status = __raw_readl(INTCV1_IRQ_MSKSTS);
+	irq_status = __raw_readl(INTCV1_IRQ_RAW);
 	parse_hard_irq(irq_status, 1);
-	irq_status = __raw_readl(INTCV2_IRQ_MSKSTS);
+	irq_status = __raw_readl(INTCV2_IRQ_RAW);
 	parse_hard_irq(irq_status, 2);
-	irq_status = __raw_readl(INTCV3_IRQ_MSKSTS);
+	irq_status = __raw_readl(INTCV3_IRQ_RAW);
 	parse_hard_irq(irq_status, 3);
+}
+void print_int_status(void)
+{
+	printk("APB_EB 0x%08x\n", __raw_readl(REG_AP_APB_APB_EB));
+	printk("INTC0 mask:0x%08x raw:0x%08x en:0x%08x\n", __raw_readl(INTCV0_IRQ_MSKSTS),__raw_readl(INTCV0_IRQ_RAW), __raw_readl(INTCV0_IRQ_EN));
+	printk("INTC1 mask:0x%08x raw:0x%08x en:0x%08x\n", __raw_readl(INTCV1_IRQ_MSKSTS),__raw_readl(INTCV1_IRQ_RAW), __raw_readl(INTCV1_IRQ_EN));
+	printk("INTC2 mask:0x%08x raw:0x%08x en:0x%08x\n", __raw_readl(INTCV2_IRQ_MSKSTS),__raw_readl(INTCV2_IRQ_RAW), __raw_readl(INTCV2_IRQ_EN));
+	printk("INTC3 mask:0x%08x raw:0x%08x en:0x%08x\n", __raw_readl(INTCV3_IRQ_MSKSTS),__raw_readl(INTCV3_IRQ_RAW), __raw_readl(INTCV3_IRQ_EN));
+	printk("INT mask:0x%08x raw:0x%08x en:0x%08x\n", __raw_readl(INT_IRQ_STS),__raw_readl(INT_IRQ_RAW), __raw_readl(INT_IRQ_ENB));
+	printk("ANA INT mask:0x%08x raw:0x%08x en:0x%08x\n", sci_adi_read(ANA_REG_INT_MASK_STATUS), sci_adi_read(ANA_REG_INT_RAW_STATUS), sci_adi_read(ANA_REG_INT_EN));
+	printk("ANA EIC MODULE_EN 0x%08x eic bit(3)\n", sci_adi_read(ANA_REG_GLB_ARM_MODULE_EN));
+	printk("ANA EIC int en 0x%08x\n", sci_adi_read(ANA_CTL_EIC_BASE + 0x18));
 }
 
 #define GPIO_GROUP_NUM		16
@@ -154,7 +172,6 @@ void hard_irq_set(void)
 #define IRQ_2		(1<<2)
 
 #define REG_GPIO_MIS            (0x0020)
-#define ANA_REG_INT_MASK_STATUS (SPRD_MISC_BASE + 0x380 +0x0000)
 void print_hard_irq_inloop(int ret)
 {
 	unsigned int i, j, val;
@@ -198,8 +215,36 @@ void print_hard_irq_inloop(int ret)
 		if(sprd_hard_irq[25]){
 			printk("wake up by adi\n");
 		}
-		if(sprd_hard_irq[38])
-			printk("wake up by ana\n");
+		if(sprd_hard_irq[38]){
+			printk("wake up by ana ");
+			int ana_sts = sci_adi_read(ANA_REG_INT_RAW_STATUS);
+			if(ana_sts & BIT(0))
+				printk("adc\n");
+			if(ana_sts & BIT(1)){
+				printk("gpio\n");
+				printk("gpio 0 ~ 16 0x%08x\n", sci_adi_read(SPRD_MISC_BASE + 0x0480 + 0x1c));
+				printk("gpio 17 ~ 31 0x%08x\n", sci_adi_read(SPRD_MISC_BASE + 0x0480 + 0x40 + 0x1c));
+			}
+			if(ana_sts & BIT(2))
+				printk("rtc\n");
+			if(ana_sts & BIT(3))
+				printk("wdg\n");
+			if(ana_sts & BIT(4))
+				printk("fgu\n");
+			if(ana_sts & BIT(5)){
+				printk("eic\n");
+				printk("ana eic 0x%08x\n", sci_adi_read(ANA_EIC_BASE + 0x1c));
+			}
+			if(ana_sts & BIT(6))
+				printk("aud head button\n");
+			if(ana_sts & BIT(7))
+				printk("aud protect\n");
+			if(ana_sts & BIT(8))
+				printk("thermal\n");
+			if(ana_sts & BIT(10))
+				printk("dcdc otp\n");
+			printk("ANA INT 0x%08x\n", ana_sts);
+		}
 		if(sprd_hard_irq[36])
 			printk("wake up by kpd\n");
 		if(sprd_hard_irq[35]){
@@ -216,7 +261,7 @@ void print_hard_irq_inloop(int ret)
 		if(sprd_hard_irq[21])
 			printk("wake up by afifi_error\n");
 	}
-	if(sprd_irqs_sts[0]&IRQ_3){
+	if(sprd_irqs_sts[0]&IRQ_2){
 		if(sprd_hard_irq[29]){
 			printk("wake up by ap_tmr0\n");
 		}
@@ -261,10 +306,6 @@ void print_hard_irq_inloop(int ret)
 			}
 		}
 	}
-	if(0){
-		printk("adie, irq status:0x%x \n", sci_adi_read(ANA_REG_INT_MASK_STATUS));
-	}
-
 }
 
 static void print_hard_irq(void)
@@ -485,7 +526,109 @@ void pm_debug_save_ahb_glb_regs(void){}
 void pm_debug_set_wakeup_timer(void)
 {
 	u32 val = get_sys_cnt();
-	val = val + 30000;
+	val = val + 5000;
 	__raw_writel(val, SYSCNT_REG(0) );
 	__raw_writel(1, SYSCNT_REG(0X8) );
+}
+#define WDG_BASE		(ANA_WDG_BASE)
+#define SPRD_ANA_BASE		(ANA_CTL_GLB_BASE)
+
+#define WDG_LOAD_LOW        (WDG_BASE + 0x00)
+#define WDG_LOAD_HIGH       (WDG_BASE + 0x04)
+#define WDG_CTRL            (WDG_BASE + 0x08)
+#define WDG_INT_CLR         (WDG_BASE + 0x0C)
+#define WDG_INT_RAW         (WDG_BASE + 0x10)
+#define WDG_INT_MSK         (WDG_BASE + 0x14)
+#define WDG_CNT_LOW         (WDG_BASE + 0x18)
+#define WDG_CNT_HIGH        (WDG_BASE + 0x1C)
+#define WDG_LOCK            (WDG_BASE + 0x20)
+#define WDG_IRQ_LOW            (WDG_BASE + 0x2c)
+#define WDG_IRQ_HIGH            (WDG_BASE + 0x30)
+
+#define WDG_INT_EN_BIT          BIT(0)
+#define WDG_CNT_EN_BIT          BIT(1)
+#define WDG_NEW_VER_EN		BIT(2)
+#define WDG_INT_CLEAR_BIT       BIT(0)
+#define WDG_RST_CLEAR_BIT       BIT(3)
+#define WDG_LD_BUSY_BIT         BIT(4)
+#define WDG_RST_EN_BIT		BIT(3)
+
+
+#define ANA_REG_BASE            SPRD_ANA_BASE	/*  0x82000600 */
+
+
+#define WDG_NEW_VERSION
+#define ANA_RST_STATUS          (ANA_REG_BASE + 0xE8)
+#define ANA_AGEN                (ANA_REG_BASE + 0x00)
+#define ANA_RTC_CLK_EN		(ANA_REG_BASE + 0x08)
+
+#define AGEN_WDG_EN             BIT(2)
+#define AGEN_RTC_WDG_EN         BIT(2)
+
+#define WDG_CLK                 32768
+#define WDG_UNLOCK_KEY          0xE551
+
+#define ANA_WDG_LOAD_TIMEOUT_NUM    (10000)
+
+#ifdef WDG_NEW_VERSION
+#define WDG_LOAD_TIMER_VALUE(value) \
+        do{\
+                    sci_adi_raw_write( WDG_LOAD_HIGH, (uint16_t)(((value) >> 16 ) & 0xffff));\
+                    sci_adi_raw_write( WDG_LOAD_LOW , (uint16_t)((value)  & 0xffff) );\
+        }while(0)
+#define WDG_LOAD_TIMER_INT_VALUE(value) \
+        do{\
+                    sci_adi_raw_write( WDG_IRQ_HIGH, (uint16_t)(((value) >> 16 ) & 0xffff));\
+                    sci_adi_raw_write( WDG_IRQ_LOW , (uint16_t)((value)  & 0xffff) );\
+        }while(0)
+
+#else
+
+#define WDG_LOAD_TIMER_VALUE(value) \
+        do{\
+                    uint32_t   cnt          =  0;\
+                    sci_adi_raw_write( WDG_LOAD_HIGH, (uint16_t)(((value) >> 16 ) & 0xffff));\
+                    sci_adi_raw_write( WDG_LOAD_LOW , (uint16_t)((value)  & 0xffff) );\
+                    while((sci_adi_read(WDG_INT_RAW) & WDG_LD_BUSY_BIT) && ( cnt < ANA_WDG_LOAD_TIMEOUT_NUM )) cnt++;\
+        }while(0)
+#endif
+/* use ana watchdog to wake up */
+void pm_debug_set_apwdt(void)
+{
+	uint32_t cnt = 0;
+	uint32_t ms = 5000;
+	cnt = (ms * WDG_CLK) / 1000;
+
+	sci_glb_set(INT_IRQ_ENB, BIT(11));
+	/*enable interface clk*/
+	sci_adi_set(ANA_AGEN, AGEN_WDG_EN);
+	/*enable work clk*/
+	sci_adi_set(ANA_RTC_CLK_EN, AGEN_RTC_WDG_EN);
+	sci_adi_raw_write(WDG_LOCK, WDG_UNLOCK_KEY);
+	sci_adi_set(WDG_CTRL, WDG_NEW_VER_EN);
+	WDG_LOAD_TIMER_VALUE(0x80000);
+	WDG_LOAD_TIMER_INT_VALUE(0x40000);
+	sci_adi_set(WDG_CTRL, WDG_CNT_EN_BIT | WDG_INT_EN_BIT| WDG_RST_EN_BIT);
+	sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
+	sci_adi_set(ANA_REG_INT_EN, BIT(3));
+#if 0
+	do{
+		udelay(1000);
+		printk("INTC1 mask:0x%08x raw:0x%08x en:0x%08x\n", __raw_readl(INTCV1_IRQ_MSKSTS),__raw_readl(INTCV1_IRQ_RAW), __raw_readl(INTCV1_IRQ_EN));
+		printk("INT mask:0x%08x raw:0x%08x en:0x%08x ana 0x%08x\n", __raw_readl(INT_IRQ_STS),__raw_readl(INT_IRQ_RAW), __raw_readl(INT_IRQ_ENB), sci_adi_read(ANA_REG_INT_MASK_STATUS));
+		printk("ANA mask:0x%08x raw:0x%08x en:0x%08x\n", sci_adi_read(ANA_REG_INT_MASK_STATUS), sci_adi_read(ANA_REG_INT_RAW_STATUS), sci_adi_read(ANA_REG_INT_EN));
+		printk("wdg cnt low 0x%08x high 0x%08x\n", sci_adi_read(WDG_CNT_LOW), sci_adi_read(WDG_CNT_HIGH));
+	}while(0);
+#endif
+}
+void pm_debug_clr_apwdt(void)
+{
+	//sci_adi_raw_write(WDG_LOCK, WDG_UNLOCK_KEY);
+	printk("watchdog int raw status: 0x%x\n", sci_adi_read(WDG_INT_RAW));
+	printk("watchdog int msk status: 0x%x\n", sci_adi_read(WDG_INT_MSK));
+	sci_adi_set(WDG_INT_CLR, WDG_INT_CLEAR_BIT | WDG_RST_CLEAR_BIT);
+	printk("watchdog int raw status: 0x%x\n", sci_adi_read(WDG_INT_RAW));
+	printk("watchdog int msk status: 0x%x\n", sci_adi_read(WDG_INT_MSK));
+	sci_adi_clr(WDG_CTRL, WDG_CNT_EN_BIT | WDG_RST_EN_BIT);
+	//sci_adi_raw_write(WDG_LOCK, (uint16_t) (~WDG_UNLOCK_KEY));
 }

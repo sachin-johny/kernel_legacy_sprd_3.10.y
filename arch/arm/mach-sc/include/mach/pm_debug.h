@@ -39,6 +39,7 @@ extern void print_statisic(void);
 extern void wakeup_irq_set(void);
 extern void print_irq_loop(void);
 extern void hard_irq_set(void);
+extern void print_int_status(void);
 extern void clr_sleep_mode(void);
 extern void set_sleep_mode(int sm);
 extern void time_statisic_begin(void);

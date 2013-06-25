@@ -14,7 +14,7 @@
 #define CONFIG_NR_CPUS 1
 #endif
 
-#include "idle.h"
+#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
 #define REG_UART1_ENABLE_VIR	0xf53b0000
 #define REG_UART1_ENABLE_PHY	0x71300000
 #define REG_UART1_ENABLE_BIT	(0x1 << 14)
@@ -76,8 +76,14 @@ sprd_pm_va_to_iram:
 	nop
 	dsb
 	isb
+#if 0
+5:  b 5b
+#endif
 	ldr r0, =0xf5160000
 	bl emc_suspend
+#if 0
+4:  b 4b
+#endif
 	nop
 	nop
 	nop
@@ -117,11 +123,17 @@ ENDPROC(sc8830_standby_iram)
 
 /* r0 is the phy or vir addr of lpddr2 */
 ENTRY(emc_resume)
+	mov pc, lr
 	ldr r1, =0x30
 	add r2, r0, r1
-	ldr r1, [r2]
-	bic r1, #0x9
+	ldr r1, =0xa
 	str r1, [r2]
+	mov pc, lr
+	ldr r1, =0x7ffff /* should larger than 5us */
+2:  sub	r1, r1, #0x1
+    cmp	r1, #0x0
+    bne  2b
+	mov pc, lr
 	mov r2, r0  /* bak r0 */
 	ldr r0, =0x7ffff /* should larger than 5us */
 1:  sub	r0, r0, #0x1
@@ -137,11 +149,12 @@ ENTRY(emc_resume)
 	mov pc, lr
 ENDPROC(emc_resume)
 ENTRY(emc_suspend)
+	mov pc, lr
 	ldr r1, =0x30
 	add r2, r0, r1
-	ldr r1, [r2]
-	orr r1, #0x9
+	ldr r1, =0x1
 	str r1, [r2]
+	mov pc, lr
 	ldr r0, =0x7ffff /* should larger than 5us */
 1:  sub	r0, r0, #0x1
     cmp	r0, #0x0
@@ -158,8 +171,7 @@ ENTRY(sc8830_standby_exit_iram)
 	cmp r0, r1
 	msr cpsr_c, r1
 #if 0
-	ldr r0, =0xfffffff
-	bl my_delay
+5:	b 5b
 #endif
 	#blne dead
 /*
@@ -182,12 +194,6 @@ ENTRY(sc8830_standby_exit_iram)
 	ldr r1, =0x1c
 	str r1, [r0]
 loopp:
-	mov r0, #'A'
-	bl printch
-	mov r0, #'\r'
-	bl printch
-	mov r0, #'\n'
-	bl printch
 	adr	r0, str_a2
 	bl	printascii_phy
 	/*
@@ -199,6 +205,38 @@ loopp:
 	ldr r0, =0x0020
 	bl my_delay
 
+#if 0
+loopbd:
+	b loopbd
+#endif
+	ldr r0, =0x71300000
+	ldr r1, [r0]
+	orr r1, #0x40000
+	str r1, [r0]
+	ldr r0, =0x0120
+	bl my_delay
+
+	adr r0, reg_ca7_ckg
+	ldr r1, [r0]
+	ldr r0, =0x20d0000c
+	str r1, [r0]
+	ldr r0, =0x0120
+	bl my_delay
+
+	adr r0, reg_clk_ahb
+	ldr r1, [r0]
+	ldr r0, =0x71200020
+	str r1, [r0]
+	ldr r0, =0x0120
+	bl my_delay
+
+	adr r0, reg_clk_apb
+	ldr r1, [r0]
+	ldr r0, =0x71200024
+	str r1, [r0]
+	ldr r0, =0x0120
+	bl my_delay
+
 
 #if 0
 loopbd:
@@ -206,6 +244,7 @@ loopbd:
 #endif
 	ldr r0, =SPRD_LPDDR2_PHYS
 	bl emc_resume
+#if 0
 	ldr r0, =SPRD_LPDDR2_PHYS
 	bl emc_suspend
 	ldr r0, =0xffff
@@ -214,7 +253,6 @@ loopbd:
     bne  1b
 	ldr r0, =SPRD_LPDDR2_PHYS
 	bl emc_resume
-#if 0
 loopbb:
 	b loopbb
 #endif
@@ -282,6 +320,12 @@ ENDPROC(dead)
 	.globl sleep_asm_counter
 sleep_asm_counter:
 	.long	0x0
+reg_ca7_ckg: /* REG_AP_AHB_CA7_CKG_CFG */
+	.long	0x0
+reg_clk_ahb: /* REG_AP_CLK_AP_AHB_CFG */
+	.long	0x0
+reg_clk_apb: /* REG_AP_CLK_AP_APB_CFG */
+	.long	0x0
 
 
 str_a2:	.asciz	"from deep!"
@@ -300,7 +344,7 @@ ENDPROC(sp_arch_idle)
 ENTRY(sp_pm_collapse)
 
 	ldr     r0, =sp_saved_state	/* address of sp_saved_state ptr */
-#if (NR_CPUS >= 2)
+#if (CONFIG_NR_CPUS >= 2)
 	mrc	p15, 0, r1, c0, c0, 5	/* MPIDR */
 	ands	r1, r1, #15		/* What CPU am I */
 	mov	r2, #CPU_SAVED_STATE_SIZE
@@ -325,6 +369,25 @@ ENTRY(sp_pm_collapse)
 #if 0
 3:	b 3b
 #endif
+	ldr r1, =sc8830_standby_iram
+	ldr r2, =iram_start
+	ldr r2, [r2, #0]
+	sub r2, r2, r1
+	ldr		r0, =0xf513000c
+	ldr		r1, [r0]
+	ldr		r0, =reg_ca7_ckg
+	add		r0, r2
+	str		r1, [r0]
+	ldr		r0, =0xf53a0020
+	ldr		r1, [r0]
+	ldr		r0, =reg_clk_ahb
+	add		r0, r2
+	str		r1, [r0]
+	ldr		r0, =0xf53a0024
+	ldr		r1, [r0]
+	ldr		r0, =reg_clk_apb
+	add		r0, r2
+	str		r1, [r0]
 
 	bl	v7_flush_dcache_all
 #if 0
@@ -377,7 +440,7 @@ ENTRY(sp_pm_collapse_exit)
 	add     r1, r1, r3
 	sub     r1, r1, r2
 	add	r1, r1, #CPU_SAVED_STATE_SIZE
-#if (NR_CPUS >= 2)
+#if (CONFIG_NR_CPUS >= 2)
 	mrc	p15, 0, r2, c0, c0, 5	/* MPIDR */
 	ands	r2, r2, #15		/* What CPU am I */
 	mov	r3, #CPU_SAVED_STATE_SIZE
@@ -446,6 +509,9 @@ sp_pm_pa_to_va:
 	dmb
 	ldmfd   sp!, {lr}
 #endif
+#if 0
+2:	b	2b
+#endif
 	mov     r0, #1
 	bx      lr
 	nop
@@ -460,20 +526,3 @@ ENDPROC(sp_pm_collapse_exit)
 sp_saved_state:
 	.space  CPU_SAVED_STATE_SIZE * CONFIG_NR_CPUS
 
-	.globl sp_pm_boot_vector
-sp_pm_boot_vector:
-	.space  4 * CONFIG_NR_CPUS
-
-	.globl l2x0_base_addr
-l2x0_base_addr:
-	.long 0x0
-
-/*
- * Save & restore l2x0 registers while system is entering and resuming
- * from Power Collapse.
- * 1. aux_ctrl_save (0x0)
- * 2. data_latency_ctrl (0x4)
- * 3. prefetch control (0x8)
- */
-l2x0_saved_ctrl_reg_val:
-	.space 4 * 3

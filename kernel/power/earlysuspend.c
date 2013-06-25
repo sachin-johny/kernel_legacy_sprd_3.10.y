@@ -28,7 +28,7 @@ enum {
 	DEBUG_SUSPEND = 1U << 2,
 	DEBUG_VERBOSE = 1U << 3,
 };
-static int debug_mask = DEBUG_USER_STATE;
+static int debug_mask = DEBUG_USER_STATE | DEBUG_SUSPEND | DEBUG_VERBOSE;
 module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static DEFINE_MUTEX(early_suspend_lock);
@@ -99,6 +99,7 @@ static void early_suspend(struct work_struct *work)
 			if (debug_mask & DEBUG_VERBOSE)
 				pr_info("early_suspend: calling %pf\n", pos->suspend);
 			pos->suspend(pos);
+			printk("-------- suspend %pf \n", pos->suspend);
 		}
 	}
 	mutex_unlock(&early_suspend_lock);
@@ -142,6 +143,7 @@ static void late_resume(struct work_struct *work)
 				pr_info("late_resume: calling %pf\n", pos->resume);
 
 			pos->resume(pos);
+			printk("-------- resume %pf \n", pos->resume);
 		}
 	}
 	if (debug_mask & DEBUG_SUSPEND)

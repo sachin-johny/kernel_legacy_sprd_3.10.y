@@ -74,12 +74,20 @@ static void setup_autopd_mode(void)
 	//sci_glb_set(SPRD_INT_BASE + 0x8, BIT(2)); //ana & eic
 	//sci_glb_set(SPRD_INTC0_BASE + 0x8, BIT(30) | BIT(31)); //syst & aon_syst
 
-	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_IO_EN | BIT_SLP_LDORF0_PD_EN | BIT_SLP_LDORF1_PD_EN | BIT_SLP_LDORF2_PD_EN);
-	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDO_PD_EN);
-	sci_adi_set(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
-	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_LDORF2_LP_EN | BIT_SLP_LDORF1_LP_EN | BIT_SLP_LDORF0_LP_EN);
+	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_IO_EN | BIT_SLP_LDORF0_PD_EN | BIT_SLP_LDORF1_PD_EN | BIT_SLP_LDORF2_PD_EN);
+	//sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_IO_EN | BIT_SLP_LDORF0_PD_EN | BIT_SLP_LDORF1_PD_EN | BIT_SLP_LDORF2_PD_EN);
 
-	sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 7<<4);
+	/* don't power down emmccore & emmcio */
+	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN | BIT_SLP_LDOEMMCIO_PD_EN);
+
+	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDO_PD_EN);
+	sci_adi_clr(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
+	//sci_adi_set(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
+	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_LDORF2_LP_EN | BIT_SLP_LDORF1_LP_EN | BIT_SLP_LDORF0_LP_EN);
+	//sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_LDORF2_LP_EN | BIT_SLP_LDORF1_LP_EN | BIT_SLP_LDORF0_LP_EN);
+
+	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 7<<4);
+	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 5<<4);
 	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 	sci_glb_set(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
@@ -155,6 +163,7 @@ void disable_ahb_module(void)
 	// AP_PERI_FORCE_SLP
 	sci_glb_set(REG_AP_AHB_AP_SYS_FORCE_SLEEP_CFG, BIT_AP_PERI_FORCE_SLP);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
+	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN);
 
 	//AP_SYS_AUTO_SLEEP_CFG
 	sci_glb_set(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3B);
@@ -174,7 +183,10 @@ void bak_restore_ahb(int bak)
 
 void disable_apb_module(void)
 {
-	sci_glb_write(REG_AP_APB_APB_EB, 0, -1UL);
+	int stat;
+	stat = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
+	stat &=(0xf<<19 | BIT_UART1_EB | BIT_UART0_EB); // leave intc on
+	sci_glb_write(REG_AP_APB_APB_EB, stat, -1UL);
 	return;
 }
 void bak_restore_apb(int bak)
@@ -190,7 +202,10 @@ void bak_restore_apb(int bak)
 void disable_aon_module(void)
 {
 	//sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB | BIT_GPU_EB);
+	//sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
 
+	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_AON_TMR_EB | BIT_AP_TMR0_EB);
+	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_AP_TMR2_EB | BIT_AP_TMR1_EB);
 	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_DISP_EMC_EB);
 	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_USB_PHY_PD);
 }
@@ -207,6 +222,7 @@ void bak_restore_aon(int bak)
 		if(pwr_ctl & BIT_USB_PHY_PD)
 			sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_USB_PHY_PD);
 		sci_glb_write(REG_AON_APB_APB_EB0, apb_eb0, -1UL);
+		sci_glb_write(REG_AON_APB_APB_EB1, apb_eb1, -1UL);
 	}
 	return;
 }
@@ -244,6 +260,15 @@ void show_pin_reg(void)
 	printk("REG_PIN_CHIP_SLEEP    0x%08x\n", sci_glb_read(REG_PIN_CHIP_SLEEP, -1UL));
 	printk("### uart1 ckd 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X24, -1UL));
 	printk("### uart1 ctl 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X18, -1UL));
+	sci_glb_set(REG_PMU_APB_XTL0_REL_CFG, 0x4);
+	sci_glb_set(REG_PMU_APB_XTLBUF0_REL_CFG, 0x4);
+	sci_glb_clr(REG_PMU_APB_PD_CP1_TD_CFG, BIT(24));
+	printk("REG_PMU_APB_XTL0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL0_REL_CFG, -1UL));
+	printk("REG_PMU_APB_XTL1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL1_REL_CFG, -1UL));
+	printk("REG_PMU_APB_XTL2_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL2_REL_CFG, -1UL));
+	printk("REG_PMU_APB_XTLBUF0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF0_REL_CFG, -1UL));
+	printk("REG_PMU_APB_XTLBUF1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF1_REL_CFG, -1UL));
+	printk("REG_PMU_APB_PD_CP1_TD_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_CP1_TD_CFG, -1Ul));
 }
 void force_mcu_core_sleep(void)
 {
@@ -288,8 +313,10 @@ uint32_t pwr_stat0=0, pwr_stat1=0, pwr_stat2=0, pwr_stat3=0, apb_eb0=0, apb_eb1=
 uint32_t ldo_slp_ctrl0, ldo_slp_ctrl1, ldo_slp_ctrl2, xtl_wait_ctrl, ldo_slp_ctrl3, ldo_aud_ctrl4;
 uint32_t mm_apb, ldo_pd_ctrl, arm_module_en;
 uint32_t cp_slp_status_dbg0, cp_slp_status_dbg1, sleep_ctrl, ddr_sleep_ctrl, sleep_status, pwr_ctrl, ca7_standby_status;
+uint32_t pd_pub_sys;
 void bak_last_reg(void)
 {
+	pd_pub_sys = __raw_readl(REG_PMU_APB_PD_PUB_SYS_CFG);
 	cp_slp_status_dbg0 = __raw_readl(REG_PMU_APB_CP_SLP_STATUS_DBG0);
 	cp_slp_status_dbg1 = __raw_readl(REG_PMU_APB_CP_SLP_STATUS_DBG1);
 	pwr_stat0 = __raw_readl(REG_PMU_APB_PWR_STATUS0_DBG);
@@ -325,6 +352,7 @@ void bak_last_reg(void)
 void print_last_reg(void)
 {
 	printk("aon pmu status reg\n");
+	printk("REG_PMU_APB_PD_PUB_SYS_CFG ------ 0x%08x\n", pd_pub_sys);
 	printk("REG_PMU_APB_CP_SLP_STATUS_DBG0 ----- 0x%08x\n", cp_slp_status_dbg0);
 	printk("REG_PMU_APB_CP_SLP_STATUS_DBG1 ----- 0x%08x\n", cp_slp_status_dbg1);
 	printk("REG_PMU_APB_PWR_STATUS0_DBG ----- 0x%08x\n", pwr_stat0);
@@ -552,42 +580,62 @@ static void light_sleep(void)
 	cpu_do_idle();
 	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_LIGHT_SLEEP_EN);
 }
+void int_work_round(void)
+{
+	sci_glb_set(SPRD_AONAPB_BASE + 0x8, (0x1<<30 | 1<<8 | 1<<1));
+	//sci_glb_clr(SPRD_LPDDR2_PHY_BASE + 0x2c, BIT(4));
+	//sci_glb_set(SPRD_LPDDR2_PHY_BASE + 0x2c, BIT(4));
+	//sci_glb_write(SPRD_LPDDR2_BASE + 0x30, 0, -1UL);
+	//sci_glb_set(SPRD_PMU_BASE + 0xa8, 1<<1);
+	sci_adi_clr(ANA_EIC_BASE + 0x18, 0x20);
+}
 extern void pm_debug_set_wakeup_timer(void);
-int deep_sleep(void)
+extern void pm_debug_set_apwdt(void);
+int deep_sleep(int from_idle)
 {
 	int ret = 0;
+	static unsigned int cnt = 0;
 
-	SAVE_GLOBAL_REG;
-	/* some prepare here */
-	show_pin_reg();
-	enable_mcu_deep_sleep();
-	disable_ahb_module();
-	disable_dma();
-	disable_mm();
-	disable_ana_module();
-	disable_aon_module();
-	show_reg_status();
-	bak_last_reg();
-	print_last_reg();
-	wait_until_uart1_tx_done();
-	disable_ahb_module();
-	disable_apb_module();
-	//pm_debug_set_wakeup_timer();
-	//force_mcu_core_sleep();
-	//bak_last_reg();
-
-	/* set entry when deepsleep return*/
-	save_reset_vector();
-	set_reset_vector();
+	if(!from_idle){
+		SAVE_GLOBAL_REG;
+		/* some prepare here */
+		show_pin_reg();
+		enable_mcu_deep_sleep();
+		disable_ahb_module();
+		disable_dma();
+		//disable_mm();
+		disable_ana_module();
+		disable_aon_module();
+		show_reg_status();
+		bak_last_reg();
+		print_last_reg();
+		print_int_status();
+		//wait_until_uart1_tx_done();
+		int_work_round();
+		//pm_debug_set_apwdt();
+		disable_apb_module();
+		//pm_debug_set_wakeup_timer();
+		//force_mcu_core_sleep();
+		//bak_last_reg();
+		__raw_writel(0x0, REG_PMU_APB_CA7_C0_CFG);
+	}
 
 	ret = sp_pm_collapse(0, 1);
 
-	sci_glb_set(REG_AP_APB_APB_EB, 0xf<<19);
-	hard_irq_set();
-	sci_glb_clr(REG_AP_APB_APB_EB, 0xf<<19);
-	restore_reset_vector();	
-	disable_mcu_deep_sleep();
-	RESTORE_GLOBAL_REG;
+	udelay(50);
+	if(!from_idle){
+		__raw_writel(0x1, REG_PMU_APB_CA7_C0_CFG);
+		printk("ret %d not from idle\n", ret);
+		if(ret){
+			printk("deep sleep %u times\n", cnt);
+			cnt++;
+		}
+		sci_glb_set(REG_AP_APB_APB_EB, 0xf<<19);
+		hard_irq_set();
+		sci_glb_clr(REG_AP_APB_APB_EB, 0xf<<19);
+		disable_mcu_deep_sleep();
+		RESTORE_GLOBAL_REG;
+	}
 
 
 	udelay(5);
@@ -648,9 +696,10 @@ int sprd_cpu_deep_sleep(unsigned int cpu)
 	} else {
 		/*printk("###### %s,	DEEP ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_DEP);
-#if 0		
-		ret = deep_sleep( );
+#if 1
+		ret = deep_sleep(0);
 #else
+		//pm_debug_set_wakeup_timer();
 		ret = 0;
 		arm_sleep();
 #endif
@@ -712,7 +761,6 @@ static void sc8830_machine_restart(char mode, const char *cmd)
 
 void sc_pm_init(void)
 {
-	__raw_writel(0x0, REG_PMU_APB_CA7_C0_CFG);
 	
 	init_reset_vector();
 	pm_power_off   = sc8830_power_off;
@@ -725,6 +773,7 @@ void sc_pm_init(void)
 	/* disable all sleep mode */
 	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN | BIT_MCU_LIGHT_SLEEP_EN | \
 		BIT_MCU_SYS_SLEEP_EN | BIT_MCU_CORE_SLEEP);
+	set_reset_vector();
 #ifndef CONFIG_SPRD_PM_DEBUG
 	pm_debug_init();
 #endif
