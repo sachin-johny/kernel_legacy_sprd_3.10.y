@@ -20,7 +20,7 @@
 #include <mach/sci_glb_regs.h>
 
 
-#define BIT(x) (1<<x)
+//#define BIT(x) (1<<x)
 
 
 #define DISPC_PLL_CLK				("clk_disc0")

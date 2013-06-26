@@ -27,7 +27,7 @@ void dsi_enable(void)
 	printk("REG_AP_AHB_MISC_CKG_EN:%x \n",REG_AP_AHB_MISC_CKG_EN);
 	printk("DSI_REG_EB:%x \n",dispc_glb_read(DSI_REG_EB));
 	printk("DSI_REG_EB:%x \n",DSI_REG_EB);
-	printk("BIT_DPHY_REF_CKG_EN:%x,BIT_DPHY_CFG_CKG_EN:%x \n",BIT_DPHY_REF_CKG_EN,BIT_DPHY_CFG_CKG_EN);
+	printk("BIT_DPHY_REF_CKG_EN:%lx,BIT_DPHY_CFG_CKG_EN:%lx \n",BIT_DPHY_REF_CKG_EN,BIT_DPHY_CFG_CKG_EN);
 }
 
 void dispc_print_clk(void)

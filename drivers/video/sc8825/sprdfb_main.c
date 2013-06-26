@@ -89,14 +89,14 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 		printk(KERN_ERR "sprdfb: Failed to allocate framebuffer memory\n");
 		return -ENOMEM;
 	}
-	pr_debug(KERN_INFO "sprdfb:  got %d bytes mem at 0x%x\n", len, addr);
+	pr_debug(KERN_INFO "sprdfb:  got %d bytes mem at 0x%lx\n", len, addr);
 
 	dev->fb->fix.smem_start = __pa(addr);
 	dev->fb->fix.smem_len = len;
 	dev->fb->screen_base = (char*)addr;
 #else
 	dev->fb->fix.smem_start = SPRD_FB_MEM_BASE;
-	printk("sprdfb:setup_fb_mem--smem_start:%x,len:%d\n",dev->fb->fix.smem_start,len);
+	printk("sprdfb:setup_fb_mem--smem_start:%lx,len:%d\n",dev->fb->fix.smem_start,len);
 	addr =  (uint32_t)ioremap(SPRD_FB_MEM_BASE, len);
 	if (!addr) {
 		printk(KERN_ERR "Unable to map framebuffer base: 0x%08x\n", addr);
@@ -458,7 +458,7 @@ err0:
 	return ret;
 }
 
-static void __devexit sprdfb_remove(struct platform_device *pdev)
+static int __devexit sprdfb_remove(struct platform_device *pdev)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
 	printk("sprdfb: [%s]\n",__FUNCTION__);
@@ -466,6 +466,7 @@ static void __devexit sprdfb_remove(struct platform_device *pdev)
 	sprdfb_panel_remove(dev);
 	dev->ctrl->uninit(dev);
 	fb_free_resources(dev);
+	return 0;
 }
 
 static struct platform_driver sprdfb_driver = {
