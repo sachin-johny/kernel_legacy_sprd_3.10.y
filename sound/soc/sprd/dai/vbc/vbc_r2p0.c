@@ -111,7 +111,6 @@ static const u32 vbc_ad_eq_profile_default[VBC_AD_EFFECT_PARAS_LEN] = {
 /* TODO the default register value */
 	0x00000000,		/*  ADPATCHCTL      */
 	0x00000000,		/*  ADHPCTL         */
-	0x00000000,		/*  ADCSRCCTL       */
 	0x00000000,		/*  ADC01_HPCOEF0_H  or   ADC23_HPCOEF0_H   */
 	0x00000000,		/*  ADC01_HPCOEF0_L  or ADC23_HPCOEF0_L     */
 };
@@ -1937,16 +1936,12 @@ static int vbc_ad_eq_reg_offset(u32 reg)
 	int i = 0;
 	if (reg == ADPATCHCTL) {
 		i = 0;
-	} else if ((reg >= ADHPCTL) && (reg <= ADCSRCCTL)) {
-		i = ((reg - ADHPCTL) >> 2) + 1;
+	} else if (reg == ADHPCTL) {
+		i = 1;
 	} else if ((reg >= AD01_HPCOEF0_H) && (reg <= AD01_HPCOEF42_L)) {
-		i = ((reg - AD01_HPCOEF0_H) >> 2) +
-		    ((ADCSRCCTL - ADHPCTL) >> 2) +
-		    ((MIXERCTL - DAPATCHCTL) >> 2) + 2;
+		i = ((reg - AD01_HPCOEF0_H) >> 2) + 2;
 	} else if ((reg >= AD23_HPCOEF0_H) && (reg <= AD23_HPCOEF42_L)) {
-		i = ((reg - AD23_HPCOEF0_H) >> 2) +
-		    ((ADCSRCCTL - ADHPCTL) >> 2) +
-		    ((MIXERCTL - DAPATCHCTL) >> 2) + 2;
+		i = ((reg - AD23_HPCOEF0_H) >> 2) + 2;
 	}
 	BUG_ON(i >= VBC_AD_EFFECT_PARAS_LEN);
 	return i;
@@ -2005,7 +2000,6 @@ static void vbc_eq_reg_apply(struct snd_soc_dai *codec_dai, void *data,
 	} else {
 		vbc_ad_eq_reg_set(ADHPCTL, data);
 		vbc_ad_eq_reg_set(ADPATCHCTL, data);
-		vbc_ad_eq_reg_set(ADCSRCCTL, data);
 		if (chan_id == VBC_CHAN_AD01) {
 			vbc_ad_eq_reg_set_range(AD01_HPCOEF0_H, AD01_HPCOEF42_L,
 						data);

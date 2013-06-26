@@ -27,7 +27,7 @@
 #define VBC_EQ_PROFILE_CNT_MAX		(100)
 #define VBC_EQ_PROFILE_NAME_MAX		(32)
 #define VBC_DA_EFFECT_PARAS_LEN              (20+72*2)
-#define VBC_AD_EFFECT_PARAS_LEN              (3+ 43*2)
+#define VBC_AD_EFFECT_PARAS_LEN              (2+ 43*2)
 
 /* VBADBUFFDTA */
 enum {
