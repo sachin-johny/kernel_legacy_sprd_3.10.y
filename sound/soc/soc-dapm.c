@@ -2876,8 +2876,8 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 			dev_err(dapm->dev, "Failed to create %s widget\n",
 				dai->driver->playback.stream_name);
 		}
-
-		w->priv = dai;
+		else
+			w->priv = dai;
 		dai->playback_widget = w;
 	}
 
@@ -2894,8 +2894,8 @@ int snd_soc_dapm_new_dai_widgets(struct snd_soc_dapm_context *dapm,
 			dev_err(dapm->dev, "Failed to create %s widget\n",
 				dai->driver->capture.stream_name);
 		}
-
-		w->priv = dai;
+		else
+			w->priv = dai;
 		dai->capture_widget = w;
 	}
 
