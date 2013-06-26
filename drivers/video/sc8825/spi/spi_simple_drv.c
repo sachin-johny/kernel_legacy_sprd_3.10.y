@@ -83,7 +83,6 @@ void SPI_Enable( uint32_t spi_id, bool is_en)
 
 void SPI_Reset( uint32_t spi_id, uint32_t ms)
 {
-    uint32_t i = 0;
 #if !(defined CONFIG_ARCH_SCX35)
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
 
@@ -97,7 +96,6 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
  //       *(volatile uint32_t *)AHB_SOFT_RST &= ~(1 << 14);        
 //	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) & (~(1<<14)), REG_AHB_SOFT_RST);
 	sci_glb_clr(REG_AHB_SOFT_RST, (1<<14));
-        //for(i=0; i<ms; i++);
         //*(volatile uint32_t *)AHB_RST0_CLR |= SPI0_SOFT_RST_CLR;
     }
     else
@@ -106,13 +104,12 @@ void SPI_Reset( uint32_t spi_id, uint32_t ms)
 //	__raw_writel(__raw_readl(REG_AHB_SOFT_RST) | (1<<14), REG_AHB_SOFT_RST);
 	sci_glb_set(REG_AHB_SOFT_RST, (1<<14));
 
-        //for(i=0; i<ms; i++);
         //*(volatile uint32_t *)APB_RST0_CLR |= SPI1_SOFT_RST_CLR;
     }
 #endif
 }
 
-
+#if 0
 static void SPI_PinConfig(void)
 {
 #ifndef FPGA_TEST
@@ -123,7 +120,7 @@ static void SPI_PinConfig(void)
     *(volatile uint32_t *)(0x8C000110) = 0x109;
 #endif
 }
-
+#endif
 
 // The dividend is clk_spiX_div[1:0] + 1
 void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
@@ -155,7 +152,6 @@ void SPI_ClkSetting(uint32_t spi_id, uint32_t clk_src, uint32_t clk_div)
 void SPI_SetCsLow( uint32_t spi_sel_csx , bool is_low)
 {
    volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T*)(SPI_USED_BASE);
-   uint32_t temp;
 
     if(is_low)     {
         //spi_ctl0[11:8]:cs3<->cs0 chip select, 0-selected;1-none
@@ -333,7 +329,7 @@ void SPI_Init(SPI_INIT_PARM *spi_parm)
 {
     volatile SPI_CTL_REG_T *spi_ctr_ptr = (volatile SPI_CTL_REG_T *)(SPI_USED_BASE);
     uint32_t temp;
-    uint32_t ctl0, ctl1, ctl2, ctl3;
+    uint32_t ctl0, ctl1, ctl3;
     //SCI_ASSERT((spi_parm->data_width >=0) && (spi_parm->data_width < 32));
     
     SPI_Reset(0, 1000);  //Reset spi0&spi1

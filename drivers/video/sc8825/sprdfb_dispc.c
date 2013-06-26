@@ -211,7 +211,7 @@ static irqreturn_t dispc_isr(int irq, void *data)
 /* dispc soft reset */
 static void dispc_reset(void)
 {
-	printk("REG_AHB_SOFT_RST:%x ,BIT_DISPC_SOFT_RST:%x \n",REG_AHB_SOFT_RST,BIT_DISPC_SOFT_RST);
+	printk("REG_AHB_SOFT_RST:%x ,BIT_DISPC_SOFT_RST:%lx \n",REG_AHB_SOFT_RST,BIT_DISPC_SOFT_RST);
 	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
 	sci_glb_set(REG_AHB_SOFT_RST, (BIT_DISPC_SOFT_RST) );
 	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
@@ -524,8 +524,8 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
 
 	dispc_print_clk();
-	printk("zcf:BIT_DISPC_CORE_EN:%x,DISPC_CORE_EN:%x\n",BIT_DISPC_CORE_EN,DISPC_CORE_EN);
-	printk("zcf:BIT_DISPC_EMC_EN:%x,DISPC_EMC_EN:%x\n",BIT_DISPC_EMC_EN,DISPC_EMC_EN);
+	printk("zcf:BIT_DISPC_CORE_EN:%lx,DISPC_CORE_EN:%x\n",BIT_DISPC_CORE_EN,DISPC_CORE_EN);
+	printk("zcf:BIT_DISPC_EMC_EN:%lx,DISPC_EMC_EN:%x\n",BIT_DISPC_EMC_EN,DISPC_EMC_EN);
 	printk("zcf:DISPC_CORE_EN:%x\n",dispc_glb_read(DISPC_CORE_EN));
 	printk("zcf:DISPC_EMC_EN:%x\n",dispc_glb_read(DISPC_EMC_EN));
 	sci_glb_set(DISPC_CORE_EN, BIT_DISPC_CORE_EN);
