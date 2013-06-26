@@ -24,6 +24,7 @@
 #include <linux/kthread.h>
 
 #include <mach/hardware.h>
+#include <mach/dma.h>
 
 #include "sprd_spi_r4p0.h"
 
@@ -42,14 +43,16 @@ struct sprd_spi_devdata {
 	struct workqueue_struct *work_queue;
 };
 
-static void sprd_spi_wait_for_idle(void __iomem *reg_base)
+extern void clk_force_disable(struct clk *);
+
+static void sprd_spi_wait_for_send_complete(u32 reg_base)
 {
 	u32 timeout = 0;
 	while (!(__raw_readl(reg_base + SPI_STS2) & SPI_TX_FIFO_REALLY_EMPTY))
 	{
 		if (++timeout > SPI_TIME_OUT) {
-			/*fixme*/
-			printk("spi timeout!\n");
+			/*fixme, set timeout*/
+			printk("spi send timeout!\n");
 			BUG_ON(1);
 		}
 	}
@@ -57,8 +60,8 @@ static void sprd_spi_wait_for_idle(void __iomem *reg_base)
 	while (__raw_readl(reg_base + SPI_STS2) & SPI_TX_BUSY)
 	{
 		if (++timeout > SPI_TIME_OUT) {
-			/*fixme*/
-			printk("spi timeout!\n");
+			/*fixme, set timeout*/
+			printk("spi send timeout!\n");
 			BUG_ON(1);
 		}
 	}
@@ -75,7 +78,7 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 {
 	int i;
 	u32 reg_val;
-	u32 bytes_per_word, block_num;
+	u32 bits_per_word, block_num;
 	u32 send_data_msk;
 	u8 *tx_u8_p, *rx_u8_p;
 	u16 *tx_u16_p, *rx_u16_p;
@@ -83,32 +86,52 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 	const void *src_buf;
 	void *dst_buf;
 	u32 transfer_mode;
+	u32 reg_base;
 	struct sprd_spi_devdata *spi_chip;
 
 	spi_chip = spi_master_get_devdata(spi_dev->master);
-
-	/*fixme*/
+	reg_base = (u32)spi_chip->reg_base;
+#if 0
+	/* We config the bits_per_word in function spi_new_device()
+	 * but you can reconfig thi option in spi_transfer
+	 */
 	if (unlikely(trans_node->bits_per_word != spi_dev->bits_per_word)) {
+		printk("%s %d\n", __func__, __LINE__);
 		reg_val = __raw_readl(spi_chip->reg_base + SPI_CTL0);
 		reg_val &= ~(0x1f << 2);
 		if (trans_node->bits_per_word != MAX_BITS_PER_WORD) {
 			reg_val |= trans_node->bits_per_word << 2;
+			printk("%s %d\n", __func__, __LINE__);
 		}
 		__raw_writel(reg_val, spi_chip->reg_base + SPI_CTL0);
 	}
 	/*fixme!the bits_per_word alaign up with 8*/
 	bytes_per_word = ALIGN_UP(trans_node->bits_per_word, 8) >> 3;
+#else
+	bits_per_word = ALIGN_UP(spi_dev->bits_per_word, 8);
 
+	reg_val = __raw_readl(reg_base + SPI_CTL0);
+	reg_val &= ~(0x1f << 2);
+	if (32 != bits_per_word) {
+		reg_val |= bits_per_word << 2;
+	}
+	writel(reg_val, reg_base + SPI_CTL0);
+
+#endif
 	/*send data buf*/
 	src_buf = trans_node->tx_buf;
+
 	/*recv data buf*/
 	dst_buf = trans_node->rx_buf;
+
 	send_data_msk = 0xffffffff;
+
 	if (src_buf && dst_buf) {
 		transfer_mode = rt_mode;
 	} else {
 		if (dst_buf) {
 			transfer_mode = rx_mode;
+			/*in rx mode, we always send 0 to slave*/
 			send_data_msk = 0x0;
 			src_buf = trans_node->rx_buf;
 		} else {
@@ -116,68 +139,72 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 		}
 	}
 
-	sprd_spi_wait_for_idle(spi_chip->reg_base);
+	reg_val = __raw_readl(reg_base + SPI_CTL1);
 
-	printk("%s %d\n", __func__, __LINE__);
-
-	reg_val = __raw_readl(spi_chip->reg_base + SPI_CTL1);
 	reg_val &= ~(0x3 << 12);
-	reg_val |= SPI_RX_MODE |SPI_TX_MODE;
-	writel(reg_val, spi_chip->reg_base + SPI_CTL1);
 
-	if (trans_node->cs_change) {
-		if (spi_dev->chip_select < SPRD_SPI_CHIP_CS_NUM) {
-			reg_val = __raw_readl(spi_chip->reg_base + SPI_CTL0);
-			reg_val &= ~(0x1 << (spi_dev->chip_select + 8));
-			__raw_writel(reg_val, spi_chip->reg_base + SPI_CTL0);
-		} else {
-			/*fixme, need to support gpio cs*/
-		}
+	if (transfer_mode == tx_mode) {
+		reg_val |= SPI_TX_MODE;
+	} else {
+		reg_val |= SPI_RX_MODE |SPI_TX_MODE;
 	}
 
-	switch (bytes_per_word) {
-	case 1:
+	writel(reg_val, reg_base + SPI_CTL1);
+
+	/*reset the fifo*/
+	writel(0x1, reg_base + SPI_FIFO_RST);
+	writel(0x0, reg_base + SPI_FIFO_RST);
+
+	/*alaway set cs pin to low level when transfer */
+	if (spi_dev->chip_select < SPRD_SPI_CHIP_CS_NUM) {
+		reg_val = __raw_readl(reg_base + SPI_CTL0);
+		reg_val &= ~(0x1 << (spi_dev->chip_select + 8));
+		writel(reg_val, reg_base + SPI_CTL0);
+	} else {
+		/*fixme, need to support gpio cs*/
+	}
+
+	switch (bits_per_word) {
+	case 8:
 		tx_u8_p = (u8 *)src_buf;
 		rx_u8_p = (u8 *)dst_buf;
 		block_num = trans_node->len;
-
 		for (; block_num >= SPRD_SPI_FIFO_SIZE; block_num -= SPRD_SPI_FIFO_SIZE)
 		{
 			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, tx_u8_p++)
 			{
 				__raw_writeb(*tx_u8_p & send_data_msk,
-					spi_chip->reg_base + SPI_TXD);
+					reg_base + SPI_TXD);
 			}
 
-			sprd_spi_wait_for_idle(spi_chip->reg_base);
+			sprd_spi_wait_for_send_complete(reg_base);
 
 			if (transfer_mode == tx_mode)
 				continue;
 
 			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, rx_u8_p++)
 			{
-				*rx_u8_p = __raw_readb(spi_chip->reg_base + SPI_TXD);
+				*rx_u8_p = __raw_readb(reg_base + SPI_TXD);
 			}
 		}
 
 		for (i = 0; i < block_num; i++, tx_u8_p++)
 		{
-			__raw_writeb(*tx_u8_p & send_data_msk, spi_chip->reg_base + SPI_TXD);
+			__raw_writeb(*tx_u8_p & send_data_msk, reg_base + SPI_TXD);
 		}
 
-		sprd_spi_wait_for_idle(spi_chip->reg_base);
+		sprd_spi_wait_for_send_complete(reg_base);
 
 		if (transfer_mode == tx_mode)
 			break;
 
 		for (i = 0; i < block_num; i++, rx_u8_p++)
 		{
-
-			*rx_u8_p = __raw_readb(spi_chip->reg_base + SPI_TXD);
+			*rx_u8_p = __raw_readb(reg_base + SPI_TXD);
 		}
-
 		break;
-	case 2:
+
+	case 16:
 		tx_u16_p = (u16 *)src_buf;
 		rx_u16_p = (u16 *)dst_buf;
 		block_num = trans_node->len >> 1;
@@ -187,37 +214,37 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 			for (i =0; i < SPRD_SPI_FIFO_SIZE; i++, tx_u16_p++)
 			{
 				__raw_writew(*tx_u16_p & send_data_msk,
-					spi_chip->reg_base + SPI_TXD);
+					reg_base + SPI_TXD);
 			}
 
-			sprd_spi_wait_for_idle(spi_chip->reg_base);
+			sprd_spi_wait_for_send_complete(reg_base);
 
 			if (transfer_mode == tx_mode)
 				continue;
 
 			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, rx_u16_p++)
 			{
-				*rx_u16_p = __raw_readw(spi_chip->reg_base + SPI_TXD);
+				*rx_u16_p = __raw_readw(reg_base + SPI_TXD);
 			}
 		}
 
 		for (i = 0; i < block_num; i++, tx_u16_p++)
 		{
-			__raw_writew(*tx_u16_p & send_data_msk, spi_chip->reg_base + SPI_TXD);
+			__raw_writew(*tx_u16_p & send_data_msk, reg_base + SPI_TXD);
 		}
 
-		sprd_spi_wait_for_idle(spi_chip->reg_base);
+		sprd_spi_wait_for_send_complete(reg_base);
 
 		if (transfer_mode == tx_mode)
 			break;
 
 		for (i = 0; i < block_num; i++, rx_u16_p++)
 		{
-			*rx_u16_p = __raw_readw(spi_chip->reg_base + SPI_TXD);
+			*rx_u16_p = __raw_readw(reg_base + SPI_TXD);
 		}
 		break;
 
-	case 4:
+	case 32:
 		tx_u32_p = (u32 *)src_buf;
 		rx_u32_p = (u32 *)dst_buf;
 		block_num = trans_node->len >> 2;
@@ -227,33 +254,33 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, tx_u32_p++)
 			{
 				__raw_writel(*tx_u32_p & send_data_msk,
-					spi_chip->reg_base + SPI_TXD);
+					reg_base + SPI_TXD);
 			}
 
-			sprd_spi_wait_for_idle(spi_chip->reg_base);
+			sprd_spi_wait_for_send_complete(reg_base);
 
 			if (transfer_mode == tx_mode)
 				continue;
 
 			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, tx_u32_p++)
 			{
-				*rx_u32_p = __raw_readl(spi_chip->reg_base + SPI_TXD);
+				*rx_u32_p = __raw_readl(reg_base + SPI_TXD);
 			}
 		}
 
 		for (i = 0; i < block_num; i++, tx_u32_p++)
 		{
-			__raw_writel(*tx_u32_p & send_data_msk, spi_chip->reg_base + SPI_TXD);
+			__raw_writel(*tx_u32_p & send_data_msk, reg_base + SPI_TXD);
 		}
 
-		sprd_spi_wait_for_idle(spi_chip->reg_base);
+		sprd_spi_wait_for_send_complete(reg_base);
 
 		if (transfer_mode == tx_mode)
 			break;
 
 		for (i = 0; i < block_num; i++, rx_u32_p++)
 		{
-			*rx_u32_p = __raw_readl(spi_chip->reg_base + SPI_TXD);
+			*rx_u32_p = __raw_readl(reg_base + SPI_TXD);
 		}
 
 		break;
@@ -262,20 +289,18 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 		break;
 	}
 
-	if (trans_node->cs_change) {
-		if (spi_dev->chip_select < SPRD_SPI_CHIP_CS_NUM) {
-			reg_val = __raw_readl(spi_chip->reg_base + SPI_CTL0);
-			reg_val |= 0xf << 8;
-			__raw_writel(reg_val, spi_chip->reg_base + SPI_CTL0);
-		} else {
-			/*fixme, need to support gpio cs*/
-		}
+	if (spi_dev->chip_select < SPRD_SPI_CHIP_CS_NUM) {
+		reg_val = __raw_readl(reg_base + SPI_CTL0);
+		reg_val |= 0xf << 8;
+		__raw_writel(reg_val, reg_base + SPI_CTL0);
+	} else {
+		/*fixme, need to support gpio cs*/
 	}
 
-	reg_val = __raw_readl(spi_chip->reg_base + SPI_CTL1);
+	reg_val = __raw_readl(reg_base + SPI_CTL1);
 	reg_val &= ~(0x3 << 12);
-	writel(reg_val, spi_chip->reg_base + SPI_CTL1);
-	/*fxime*/
+	writel(reg_val, reg_base + SPI_CTL1);
+
 	return trans_node->len;
 }
 
@@ -310,9 +335,10 @@ static void  sprd_spi_transfer_work(struct work_struct *work)
 			}
 		}
 
-		if (spi_msg->complete)
+		if (spi_msg->complete) {
+			spi_msg->status = 0x0;
 			spi_msg->complete(spi_msg->context);
-
+		}
 		spin_lock_irqsave(&spi_chip->lock, flags);
 	}
 
@@ -439,6 +465,9 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 
 	__raw_writel(spi_clk_div, spi_chip->reg_base + SPI_CLKD);
 
+	/*wait the clk config become effective*/
+	msleep(5);
+
 	/*disable the clk after config complete*/
 	clk_disable(spi_chip->clk);
 
@@ -451,7 +480,7 @@ static void sprd_spi_cleanup(struct spi_device *spi)
 
 	spi_chip = spi_master_get_devdata(spi->master);
 
-	clk_disable(spi_chip->clk);
+	clk_force_disable(spi_chip->clk);
 }
 
 static int __init sprd_spi_probe(struct platform_device *pdev)
@@ -463,15 +492,20 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	struct sprd_spi_devdata *spi_chip;
 
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
-	if (!regs)
-		return -ENXIO;
+	if (!regs) {
+		dev_err(&pdev->dev, "spi_%d get io resource failed!\n", pdev->id);
+		return -ENODEV;
+	}
 
 	irq_num = platform_get_irq(pdev, 0);
-	if (irq_num < 0)
+	if (irq_num < 0) {
+		dev_err(&pdev->dev, "spi_%d get irq resource failed!\n", pdev->id);
 		return irq_num;
+	}
 
 	master = spi_alloc_master(&pdev->dev, sizeof (*spi_chip));
 	if (!master) {
+		dev_err(&pdev->dev, "spi_%d spi_alloc_master failed!\n", pdev->id);
 		return -ENOMEM;
 	}
 
@@ -523,6 +557,7 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	spin_lock_init(&spi_chip->lock);
 	/*on multi core system, use the create_workqueue() is better??*/
 	spi_chip->work_queue = create_singlethread_workqueue(pdev->name);
+//	spi_chip->work_queue = create_workqueue(pdev->name);
 	INIT_WORK(&spi_chip->work, sprd_spi_transfer_work);
 
 	platform_set_drvdata(pdev, master);
@@ -543,7 +578,7 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
 
 	destroy_workqueue(spi_chip->work_queue);
 
-	clk_disable(spi_chip->clk);
+	clk_force_disable(spi_chip->clk);
 
 	spi_unregister_master(master);
 
@@ -556,13 +591,14 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
 static int sprd_spi_suspend(struct platform_device *pdev, pm_message_t mesg)
 {
 	struct spi_master *master = platform_get_drvdata(pdev);
+
 	struct sprd_spi_devdata *spi_chip = spi_master_get_devdata(master);
 	if (IS_ERR(spi_chip->clk)) {
 		pr_err("can't get spi_clk when suspend()\n");
 		return -1;
 	}
 
-	clk_disable(spi_chip->clk);
+	clk_force_disable(spi_chip->clk);
 
 	return 0;
 }
@@ -584,20 +620,12 @@ static struct platform_driver sprd_spi_driver = {
 	},
 	.suspend = sprd_spi_suspend,
 	.resume  = sprd_spi_resume,
+	.probe = sprd_spi_probe,
 	.remove  = __exit_p(sprd_spi_remove),
 };
 
-static int __init sprd_spi_init(void)
-{
-	return platform_driver_probe(&sprd_spi_driver, sprd_spi_probe);
-}
-module_init(sprd_spi_init);
-
-static void __exit sprd_spi_exit(void)
-{
-	platform_driver_unregister(&sprd_spi_driver);
-}
-module_exit(sprd_spi_exit);
+module_platform_driver(sprd_spi_driver);
 
 MODULE_DESCRIPTION("SpreadTrum SPI(r4p0 version) Controller driver");
+MODULE_AUTHOR("Jack.Jiang <Jack.Jiang@spreadtrum.com>");
 MODULE_LICENSE("GPL");
