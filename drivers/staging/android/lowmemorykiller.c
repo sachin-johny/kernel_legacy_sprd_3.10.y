@@ -211,6 +211,18 @@ int getbuddyfreepages(void)
 	return total;
 }
 #endif
+
+static void lowmem_white_list_init(void)
+{
+    int count=0;
+
+    spin_lock(&lmk_wl_lock);
+    for(count=0; count<sizeof(lmk_wl_info)/sizeof(lmk_wl_info[0]); count++){
+            lmk_wl_info[count].wl_tsk = NULL;
+    }
+    spin_unlock(&lmk_wl_lock);
+}
+
 static int lowmem_white_list_chk(struct task_struct *p)
 {
     int count;
@@ -244,7 +256,8 @@ static struct  task_struct *lowmem_white_list_kill(int did_some_progress, int* s
 
     if(did_some_progress)
         return 0;
-    read_lock(&tasklist_lock);
+ 
+    spin_lock(&lmk_wl_lock);
     for(count=0; count<sizeof(lmk_wl_info)/sizeof(lmk_wl_info[0]); count++){
         if(lmk_wl_info[count].wl_tsk != NULL){
             p=lmk_wl_info[count].wl_tsk;
@@ -279,7 +292,7 @@ static struct  task_struct *lowmem_white_list_kill(int did_some_progress, int* s
             task_unlock(p);
         }
     }
-    read_unlock(&tasklist_lock);
+    spin_unlock(&lmk_wl_lock);
 
     if(select){
         lowmem_print(2, "[LMK]: %s find white list process:%s, task_size=%d\r\n",\
@@ -526,7 +539,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	    }
 #endif
         }// if(sc->gfp_mask & GFP_LKM_DYNAMIC == GFP_LKM_DYNAMIC)
-       	read_lock(&tasklist_lock);
+        lowmem_white_list_init();
+        read_lock(&tasklist_lock);
 	for_each_process(p) {
 		struct mm_struct *mm;
 		struct signal_struct *sig;
