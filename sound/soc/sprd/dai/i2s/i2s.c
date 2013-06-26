@@ -397,43 +397,38 @@ static void i2s_set_slave_timeout(struct i2s_priv *i2s)
 	i2s_reg_write(reg, val << shift, mask);
 }
 
+#if defined(DMA_VER_R1P0)
 static int i2s_get_ddata_width(struct i2s_priv *i2s)
 {
 	struct i2s_config *config = &i2s->config;
 	if (PCM_BUS == config->bus_type) {
 		if (config->byte_per_chan == I2S_BPCH_16) {
-#if defined(DMA_VER_R1P0)
 			return DMA_DDATA_WIDTH16;
-#elif defined(DMA_VER_R4P0)
-			return SHORT_WIDTH;
-#endif
 		}
 	}
-#if defined(DMA_VER_R1P0)
 	return DMA_DDATA_WIDTH32;
-#elif defined( DMA_VER_R4P0)
-	return WORD_WIDTH;
-#endif
 }
 
-#if 0
 static int i2s_get_sdata_width(struct i2s_priv *i2s)
 {
 	struct i2s_config *config = &i2s->config;
 	if (PCM_BUS == config->bus_type) {
 		if (config->byte_per_chan == I2S_BPCH_16) {
-#if defined(DMA_VER_R1P0)
 			return DMA_SDATA_WIDTH16;
-#elif defined(DMA_VER_R4P0)
-			return SHORT_WIDTH;
-#endif
 		}
 	}
-#if defined(DMA_VER_R1P0)
 	return DMA_SDATA_WIDTH32;
+}
 #elif defined(DMA_VER_R4P0)
+static int i2s_get_dma_data_width(struct i2s_priv *i2s)
+{
+	struct i2s_config *config = &i2s->config;
+	if (PCM_BUS == config->bus_type) {
+		if (config->byte_per_chan == I2S_BPCH_16) {
+			return SHORT_WIDTH;
+		}
+	}
 	return WORD_WIDTH;
-#endif
 }
 #endif
 
@@ -609,7 +604,7 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	dma_data->desc.cfg_dst_data_width = i2s_get_ddata_width(i2s);
 	dma_data->desc.cfg_src_data_width = i2s_get_sdata_width(i2s);
 #elif defined(DMA_VER_R4P0)
-	dma_data->desc.datawidth = i2s_get_ddata_width(i2s);
+	dma_data->desc.datawidth = i2s_get_dma_data_width(i2s);
 #endif
 
 	dma_data->dev_paddr[0] =
