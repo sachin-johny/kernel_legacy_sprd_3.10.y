@@ -2683,7 +2683,7 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 			   auxmic_tlv),
 	SPRD_CODEC_PGA_MAX("HEADMIC Boost", SPRD_CODEC_PGA_HEADMIC, 3,
 			   headmic_tlv),
-	SPRD_CODEC_PGA_MAX("Linein Boost", SPRD_CODEC_PGA_MIC, 3, mic_tlv),
+	SPRD_CODEC_PGA_MAX("Linein Boost", SPRD_CODEC_PGA_AIL, 3, ailr_tlv),
 
 	SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
 		       sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
