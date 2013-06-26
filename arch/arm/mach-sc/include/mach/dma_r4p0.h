@@ -26,7 +26,10 @@
 #define FULL_CHN_START 25
 #define FULL_CHN_END DMA_CHN_MAX
 
+#define DMA_LINKLIST_CFG_NODE_SIZE 64
+
 #endif
+
 
 typedef enum {
 	NO_INT = 0x00,
@@ -80,6 +83,8 @@ struct sci_dma_cfg {
 	u32 transcation_len;
 	u32 src_frag_step;
 	u32 dst_frag_step;
+	u32 wrap_ptr;
+	u32 wrap_to;
 	u32 src_blk_step;
 	u32 dst_blk_step;
 	u32 linklist_ptr;
