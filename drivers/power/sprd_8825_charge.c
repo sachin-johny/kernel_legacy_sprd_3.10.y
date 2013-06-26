@@ -494,8 +494,6 @@ void __weak udc_disable(void)
 int sprd_charger_is_adapter(struct sprd_battery_data *data)
 {
 	uint32_t ret;
-	volatile uint32_t i;
-	unsigned long irq_flag = 0;
 
 	mdelay(300);
 
@@ -545,22 +543,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	mdelay(10);
 	ret = gpio_get_value(USB_DM_GPIO);
 	sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLUP));
-#if 0
-	/* normal charger */
-	if (ret) {
-		/* Identify standard adapter */
-		sci_glb_set(REG_AHB_USB_PHY_CTRL, BIT_DMPULLDOWN);
-		for (i = 0; i < 1000; i++) {;
-		}
-		if (gpio_get_value(USB_DM_GPIO)
-		    == gpio_get_value(USB_DP_GPIO)) {
-			ret = 1;	/* adapter */
-		} else {
-			ret = 1;	/* non standard adapter */
-		}
-		sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLDOWN));
-	}
-#endif
+	
 	local_irq_restore(irq_flag);
 	udc_disable();
 	gpio_free(USB_DM_GPIO);
@@ -635,6 +618,17 @@ int32_t sprd_get_chg_current(struct sprd_battery_data * data)
 
 #define CHG_CTL             (ANA_GPIN_PG0_BASE + 0x0000)
 
+#ifdef CONFIG_ARCH_SC7710
+void sprd_stop_charge(struct sprd_battery_data *data)
+{
+	sci_adi_set(ANA_CHGR_CTRL0, CHGR_PD_BIT);
+}
+
+void sprd_start_charge(struct sprd_battery_data *data)
+{
+	sci_adi_clr(ANA_CHGR_CTRL0, CHGR_PD_BIT);
+}
+#else
 void sprd_stop_charge(struct sprd_battery_data *data)
 {
 	sci_adi_set(ANA_CHGR_CTRL1, CHGR_PD_BIT);
@@ -644,6 +638,7 @@ void sprd_start_charge(struct sprd_battery_data *data)
 {
 	sci_adi_clr(ANA_CHGR_CTRL1, CHGR_PD_BIT);
 }
+#endif
 
 void sprd_set_recharge(struct sprd_battery_data *data)
 {
@@ -753,13 +748,15 @@ void sprd_set_chg_cur(uint32_t chg_current)
 		chg_current = SPRD_CHG_CUR_MAX;
 	}
 
-	temp = ((chg_current - 300) / 100);
-
 #ifdef CONFIG_ARCH_SC7710
+	temp = ((chg_current - 300) / 50);
+
 	sci_adi_write(ANA_CHGR_CTRL0,
 		      ((temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK),
 		      (CHGR_CHG_CUR_MSK));
 #else
+	temp = ((chg_current - 300) / 100);
+
 	sci_adi_write(ANA_CHGR_CTRL1,
 		      (temp << CHGR_CHG_CUR_SHIFT) & CHGR_CHG_CUR_MSK,
 		      CHGR_CHG_CUR_MSK);
@@ -772,7 +769,11 @@ void sprd_chg_init(void)
 
 	sci_adi_write(ANA_CHGR_CTRL0, CHGR_CC_EN_BIT,
 		      (CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
+#ifdef CONFIG_ARCH_SC7710
+	sci_adi_set(ANA_CHGR_CTRL0, CHGR_CURVE_SHARP_BIT);
+#else
 	sci_adi_set(ANA_CHGR_CTRL1, CHGR_CURVE_SHARP_BIT);
+#endif
 
 #ifndef CONFIG_ARCH_SC7710
 	chip_id = sci_adi_read(CHIP_ID_LOW_REG);
