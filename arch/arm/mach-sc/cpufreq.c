@@ -131,7 +131,7 @@ struct cpufreq_conf {
 };
 
 struct cpufreq_status {
-	unsigned int	real_global;
+	unsigned int	global_target;
 	unsigned int	percpu_target[CONFIG_NR_CPUS];
 	int		is_suspend;
 };
@@ -166,6 +166,8 @@ struct cpufreq_conf sc8830_cpufreq_conf = {
 		1000000,
 	},
 };
+
+#define TRANSITION_LATENCY	(500 * 1000)
 
 struct cpufreq_conf *sprd_cpufreq_conf = NULL;
 struct cpufreq_status sprd_cpufreq_status = {0};
@@ -250,10 +252,10 @@ static int sprd_update_cpu_speed(int cpu,
 		new_speed = max(new_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
 
-	if (sprd_cpufreq_status.real_global == new_speed)
+	if (sprd_cpufreq_status.global_target == new_speed)
 		return 0;
 
-	freqs.old = sprd_cpufreq_status.real_global;
+	freqs.old = sprd_cpufreq_status.global_target;
 	freqs.new = new_speed;
 
 	for_each_online_cpu(freqs.cpu)
@@ -264,7 +266,7 @@ static int sprd_update_cpu_speed(int cpu,
 	for_each_online_cpu(freqs.cpu)
 		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
 
-	sprd_cpufreq_status.real_global = new_speed;
+	sprd_cpufreq_status.global_target = new_speed;
 
 	return 0;
 }
@@ -366,22 +368,7 @@ static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
 
 static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 {
-	int i, ret;
-
-#if defined(CONFIG_ARCH_SCX35)
-	if (!sprd_cpufreq_conf->clk) {
-		sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
-		if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
-			return PTR_ERR(sprd_cpufreq_conf->clk);
-	}
-	if (!sprd_cpufreq_conf->regulator) {
-		sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
-			if (IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
-				return PTR_ERR(sprd_cpufreq_conf->regulator);
-	}
-#endif
-
-	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
+	int ret;
 
 	cpufreq_frequency_table_cpuinfo(policy, sprd_cpufreq_conf->freq_tbl);
 	policy->cur = sprd_raw_get_cpufreq(); /* current cpu frequency: KHz*/
@@ -390,17 +377,13 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 	  * but sampling too often, unbalance and irregular on each online cpu
 	  * so we set 500us here.
 	  */
-	policy->cpuinfo.transition_latency = 500 * 1000;
+	policy->cpuinfo.transition_latency = TRANSITION_LATENCY;
 	policy->shared_type = CPUFREQ_SHARED_TYPE_ALL;
 	cpumask_copy(policy->related_cpus, cpu_possible_mask);
 
 	cpufreq_frequency_table_get_attr(sprd_cpufreq_conf->freq_tbl, policy->cpu);
 
-	sprd_cpufreq_status.real_global = policy->cur;
-	for_each_online_cpu(i) {
-		sprd_cpufreq_status.percpu_target[i] = policy->cur;
-	}
-	sprd_cpufreq_status.is_suspend = false;
+	sprd_cpufreq_status.percpu_target[policy->cpu] = policy->cur;
 
 	ret = cpufreq_frequency_table_cpuinfo(policy, sprd_cpufreq_conf->freq_tbl);
 	if (ret != 0)
@@ -417,16 +400,6 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 
 static int sprd_cpufreq_exit(struct cpufreq_policy *policy)
 {
-	memset(&sprd_cpufreq_status, 0, sizeof(sprd_cpufreq_status));
-
-#if defined(CONFIG_ARCH_SCX35)
-	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
-		clk_put(sprd_cpufreq_conf->clk);
-
-	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
-		regulator_put(sprd_cpufreq_conf->regulator);
-#endif
-
 	if (policy->cpu == 0)
 		unregister_pm_notifier(&sprd_cpufreq_pm_notifier);
 
@@ -471,6 +444,20 @@ static int __init sprd_cpufreq_modinit(void)
 	sprd_cpufreq_conf = &sc8825_cpufreq_conf;
 #endif
 
+#if defined(CONFIG_ARCH_SCX35)
+	sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
+		return PTR_ERR(sprd_cpufreq_conf->clk);
+
+	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
+	sprd_cpufreq_status.global_target = sprd_cpufreq_conf->orignal_freq;
+	sprd_cpufreq_status.is_suspend = false;
+
+	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
+		return PTR_ERR(sprd_cpufreq_conf->regulator);
+#endif
+
 	sprd_auto_hotplug_init();
 	ret = cpufreq_register_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
@@ -484,6 +471,14 @@ static int __init sprd_cpufreq_modinit(void)
 
 static void __exit sprd_cpufreq_modexit(void)
 {
+#if defined(CONFIG_ARCH_SCX35)
+	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
+		clk_put(sprd_cpufreq_conf->clk);
+
+	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
+		regulator_put(sprd_cpufreq_conf->regulator);
+#endif
+
 	sprd_auto_hotplug_exit();
 	cpufreq_unregister_driver(&sprd_cpufreq_driver);
 	cpufreq_unregister_notifier(
