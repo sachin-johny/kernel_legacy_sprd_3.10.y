@@ -2536,7 +2536,7 @@ LOCAL void _dcam_path2_set(void)
 	}
 
 	if (path->valid_param.frame_deci) {
-		REG_MWR(DCAM_PATH0_CFG, BIT_24 | BIT_23, path->frame_deci << 23);
+		REG_MWR(DCAM_PATH2_CFG, BIT_24 | BIT_23, path->frame_deci << 23);
 		DCAM_TRACE("DCAM DRV: path 2: frame_deci=0x%x \n", path->frame_deci);
 	}
 
