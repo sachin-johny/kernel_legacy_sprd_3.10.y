@@ -139,7 +139,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 				       struct sci_dma_reg *dma_reg)
 {
 	u32 datawidth = 0,req_mode = 0, is_end = 0, addr_fix_mod = 0;
-	u32 llist_en = 0;
+	u32 llist_en = 0, is_wrap = 0, wrap_mode = 0;
 
 	switch (cfg->datawidth) {
 	case BYTE_WIDTH:
@@ -198,10 +198,18 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 		}
 	}
 
-	/*only full chn support data copy form fifo to fifo */
-	if (cfg->transcation_len || cfg->linklist_ptr ||
-	    ((cfg->src_step | cfg->des_step) == 0))
-			goto full_chn_convert;
+	/* only full chn support following mode:
+	 * 1 transcation tranfer
+	 * 2 linklist
+	 * 3 copy data from fifo to fifo (not test yet)
+	 * 4 wrap mode
+	 */
+	if (cfg->transcation_len ||
+	    cfg->linklist_ptr ||
+	    ((cfg->src_step | cfg->des_step) == 0) ||
+	    (cfg->wrap_ptr && cfg->wrap_to)) {
+		goto full_chn_convert;
+	}
 
 	/*set default priority*/
 	dma_reg->cfg = DMA_PRI_1 << CHN_PRIORITY_OFFSET;
@@ -222,6 +230,20 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	return 0;
 
  full_chn_convert:
+	if (cfg->wrap_ptr && cfg->wrap_to) {
+		is_wrap = 0x1;
+		if (cfg->wrap_to == cfg->src_addr) {
+			wrap_mode = 0x0;
+		} else {
+			if (cfg->wrap_to == cfg->des_addr) {
+				wrap_mode = 0x1;
+			} else {
+				/*error message*/
+				return -EINVAL;
+			}
+		}
+	}
+
 	if (cfg->is_end)
 		is_end = 0x1;
 
@@ -236,10 +258,12 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 	/*frag len */
 	dma_reg->frg_len =
 		(datawidth << SRC_DATAWIDTH_OFFSET) |
-		 (datawidth << DES_DATAWIDTH_OFFSET) |
+		(datawidth << DES_DATAWIDTH_OFFSET) |
 		(0x0 << SWT_MODE_OFFSET) |
 		(req_mode << REQ_MODE_OFFSET) |
 		(is_end << LLIST_END_OFFSET) |
+		(wrap_mode << ADDR_WRAP_SEL_OFFSET) |
+		(is_wrap << ADDR_WRAP_EN_OFFSET) |
 		(addr_fix_mod << ADDR_FIX_SEL_EN) |
 		(cfg->fragmens_len & FRG_LEN_MASK);
 	/*blk len */
@@ -255,6 +279,9 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 		(cfg->des_step & TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
 		(cfg->src_step & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
 
+	dma_reg->wrap_ptr = cfg->wrap_ptr;
+	dma_reg->wrap_to = cfg->wrap_to;
+
 	dma_reg->llist_ptr = cfg->linklist_ptr;
 
 	return 0;
@@ -267,11 +294,11 @@ static void __inline __dma_int_clr(u32 dma_chn)
 
 static void __init __dma_reg_init(void)
 {
-	int i = 0x100;;
+	int i = 0x100;
 
 	/*reset the DMA */
 	sci_glb_set(REG_AP_AHB_AHB_RST, 0x1 << 8);
-	while (i--) ;
+	while (i--);
 	sci_glb_clr(REG_AP_AHB_AHB_RST, 0x1 << 8);
 
 	__raw_writel(0x0, DMA_FRAG_WAIT);
