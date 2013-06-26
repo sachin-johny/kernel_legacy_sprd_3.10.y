@@ -57,18 +57,18 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 		int pagecount = ((PAGE_ALIGN(size)) >> PAGE_SHIFT);
 		page = dma_alloc_from_contiguous(NULL , pagecount , 0);
 		if(!page) {
-			pr_debug("ion: malloc dma_alloc_from_contiguous() failed size:0x%x , pageCount:%d\n" , size , pagecount);
+			pr_debug("ion: malloc dma_alloc_from_contiguous() failed size:0x%lx , pageCount:%d\n" , size , pagecount);
 			return -ENOMEM;
 		}
 		phys = page_to_phys(page);
-		pr_debug("ion: malloc from cma mem: size=%08x,phy addr=%08x\n", size, phys);
+		pr_debug("ion: malloc from cma mem: size=%08lx,phy addr=%08lx\n", size, phys);
 		return phys;
 	}
 	/*else allocate from reserved memroy if it exist.*/
 	else
 	{
 		unsigned long offset = gen_pool_alloc(cma_heap->pool, size);
-		pr_debug("ion: malloc from reserved mem: size=%08x, pool=%08x, offset=%08x \n", size, cma_heap->pool, offset);
+		pr_debug("ion: malloc from reserved mem: size=%08lx, pool=%p, offset=%08lx \n", size, cma_heap->pool, offset);
 		if (!offset)
 			return ION_CARVEOUT_ALLOCATE_FAIL;
 		return offset;
@@ -86,7 +86,7 @@ void ion_cma_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	/*free reserved memory*/
 	if((cma_heap->pool != NULL) && ((addr < (cma_heap->poolbase +cma_heap->poolsize)) && (addr >= cma_heap->poolbase)))
 	{
-		pr_debug("ion: free reserved mem: size=%08x, pool=%08x, base:%08x , phyaddr=%08x \n", size, cma_heap->pool, cma_heap->poolbase , addr);
+		pr_debug("ion: free reserved mem: size=%08lx, pool=%p, base:%08lx , phyaddr=%08lx \n", size, cma_heap->pool, cma_heap->poolbase , addr);
 		gen_pool_free(cma_heap->pool, addr, size);
 	}
 	else
@@ -94,7 +94,7 @@ void ion_cma_free(struct ion_heap *heap, ion_phys_addr_t addr,
 		struct page *page;
 		int pagecount = ((PAGE_ALIGN(size)) >> PAGE_SHIFT);
 		page = phys_to_page(addr);
-		pr_debug("ion: free cma mem: size=%08x, phyAddr=%08x \n", size, addr);
+		pr_debug("ion: free cma mem: size=%08lx, phyAddr=%08lx \n", size, addr);
 		dma_release_from_contiguous(NULL , page, pagecount);
 	}
 	return;
@@ -115,7 +115,7 @@ static int ion_cma_heap_allocate(struct ion_heap *heap,
 				      unsigned long flags)
 {
 	buffer->priv_phys = ion_cma_allocate(heap, size, align);
-	pr_debug("pgprot_noncached flags 0x%x\n",flags);
+	pr_debug("pgprot_noncached flags 0x%lx\n",flags);
 	if(flags&(1<<31))
 		buffer->flags |= (1<<31);
 	else
@@ -182,7 +182,7 @@ int ion_cma_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	if((buffer->flags & (1<<31)) )
 	{
-		pr_debug("pgprot_cached buffer->flags 0x%x\n",buffer->flags);
+		pr_debug("pgprot_cached buffer->flags 0x%lx\n",buffer->flags);
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       buffer->size,
@@ -191,7 +191,7 @@ int ion_cma_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 	else
 	{
-		pr_debug("pgprot_noncached buffer->flags 0x%x\n",buffer->flags);
+		pr_debug("pgprot_noncached buffer->flags 0x%lx\n",buffer->flags);
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       vma->vm_end - vma->vm_start,
@@ -232,7 +232,7 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data)
 	else
 	{
 		cma_heap->pool = NULL;
-		cma_heap->poolbase = NULL;
+		cma_heap->poolbase = 0;
 		cma_heap->poolsize = 0;
 	}
 	cma_heap->heap.ops = &cma_heap_ops;
