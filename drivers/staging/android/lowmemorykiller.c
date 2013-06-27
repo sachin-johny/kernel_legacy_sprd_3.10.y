@@ -101,7 +101,7 @@ static  unsigned int  swap_interval_time = 2*HZ;
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 static unsigned int  kill_home_adj_wmark = 6;
 static uint32_t lowmem_swap_app_enable = 1;
-static uint32_t lowmem_minfile_check_enable = 0;
+static uint32_t lowmem_minfile_check_enable = 1;
 static uint32_t lowmem_last_swap_time = 0;
 
 static size_t lowmem_minfile[6] = {
