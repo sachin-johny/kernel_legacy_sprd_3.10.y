@@ -396,6 +396,10 @@ static void sdhci_module_init(struct sdhci_host* host)
 	host_pdata = sdhci_get_platdata(host);
 	/* Enable SDIO Module */
 	sci_glb_set(REG_AP_AHB_AHB_EB, host_pdata->enb_bit);
+
+	/* disable emmc sd_clk */
+	sdhci_sdclk_enable(host, 0);
+
 	/* Reset SDIO Module */
 	sci_glb_set(REG_AP_AHB_AHB_RST, host_pdata->rst_bit);
 	udelay(200);

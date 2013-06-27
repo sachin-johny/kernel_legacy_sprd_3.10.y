@@ -258,7 +258,6 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 		host->ops->platform_reset_enter(host, mask);
 	if (mask & SDHCI_RESET_ALL) {
 		sdhci_sdclk_enable(host, 0);
-		udelay(200);
 	}
 #if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
 	sdhci_writeb(host, mask | SDHCI_HW_RESET_CARD, SDHCI_SOFTWARE_RESET);
@@ -1264,10 +1263,9 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 	clk |= ((div & SDHCI_DIV_HI_MASK) >> SDHCI_DIV_MASK_LEN)
 		<< SDHCI_DIVIDER_HI_SHIFT;
 
-	udelay(500);
 	clk |= SDHCI_CLOCK_INT_EN;
 	sdhci_writew(host, clk, SDHCI_CLOCK_CONTROL);
-	udelay(500);
+	udelay(200);
 	/* Wait max 20 ms */
 	timeout = 20;
 	while (!((clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL))

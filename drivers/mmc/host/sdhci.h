@@ -396,8 +396,11 @@ static inline void sdhci_sdclk_enable(struct sdhci_host *host, u8 val)
 	regVal = sdhci_readl(host, SDHCI_CLOCK_CONTROL);
 	/* off sd_clk */
 	if (val == 0) {
-		regVal &= ~SDHCI_CLOCK_CARD_EN;
-		sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
+		if ((regVal & SDHCI_CLOCK_CARD_EN) != 0) {
+			regVal &= ~SDHCI_CLOCK_CARD_EN;
+			sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
+			udelay(200);
+		}
 	}
 	else {
 		regVal |= SDHCI_CLOCK_CARD_EN;
