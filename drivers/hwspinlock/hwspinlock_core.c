@@ -552,14 +552,15 @@ EXPORT_SYMBOL_GPL(hwspin_lock_request_specific);
  */
 int hwspin_lock_free(struct hwspinlock *hwlock)
 {
-	struct device *dev = hwlock->bank->dev;
+	struct device *dev = NULL;
 	struct hwspinlock *tmp;
 	int ret;
 
-	if (!hwlock) {
+	if (!hwlock || !hwlock->bank) {
 		pr_err("invalid hwlock\n");
 		return -EINVAL;
 	}
+	dev = hwlock->bank->dev;
 
 	mutex_lock(&hwspinlock_tree_lock);
 
