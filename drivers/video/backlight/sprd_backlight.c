@@ -173,7 +173,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			/*series mode*/
 			/*whiteled config*/
 			led_level = sprd_caculate_brightness(bl_brightness >> 2);
-			if (led_level < 0) {
+			if ((int)led_level < 0) {
 				return led_level;
 			}
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL1);
