@@ -54,6 +54,7 @@ obj-$(CONFIG_WL127X_RFKILL)	+= wl127x-rfkill.o
 obj-$(CONFIG_SENSORS_AK8975)	+= akm8975.o
 obj-$(CONFIG_GPS_CTRL)		+= gpsctl.o
 obj-$(CONFIG_GPS_IRQ)		+= brcm_gps_irq.o
+obj-$(CONFIG_CGX)		+= gpsip/
 
 obj-y		+= sprd_vsp/
 obj-y		+= sprd_jpg/

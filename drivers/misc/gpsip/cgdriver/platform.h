@@ -1,0 +1,265 @@
+/******************************************************************************
+ *                                LEGAL NOTICE                                *
+ *                                                                            *
+ *  USE OF THIS SOFTWARE (including any copy or compiled version thereof) AND *
+ *  DOCUMENTATION IS SUBJECT TO THE SOFTWARE LICENSE AND RESTRICTIONS AND THE *
+ *  WARRANTY DISLCAIMER SET FORTH IN LEGAL_NOTICE.TXT FILE. IF YOU DO NOT     *
+ *  FULLY ACCEPT THE TERMS, YOU MAY NOT INSTALL OR OTHERWISE USE THE SOFTWARE *
+ *  OR DOCUMENTATION.                                                         *
+ *  NOTWITHSTANDING ANYTHING TO THE CONTRARY IN THIS NOTICE, INSTALLING OR    *
+ *  OTHERISE USING THE SOFTWARE OR DOCUMENTATION INDICATES YOUR ACCEPTANCE OF *
+ *  THE LICENSE TERMS AS STATED.                                              *
+ *                                                                            *
+ ******************************************************************************/
+/* Version: 1.8.9\3686 */
+/* Build  : 13 */
+/* Date   : 12/08/2012 */
+
+/**
+	\file 
+	\brief SPRD_FPGA specific defines
+
+	\defgroup CGX_DRIVER_PLATFORM_ANDROID SPRD_FPGA/Android platform specific defines
+	\{
+	The following values are specific to the SPRD_FPGA / Android implementation.
+	For other platforms, please select appropriate values.
+
+ */
+#ifndef PLATFORM_H
+#define PLATFORM_H
+
+///
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/types.h>
+#include <linux/interrupt.h>
+#include <asm/dma.h>
+#include <asm/io.h>
+#include <asm/system.h>
+#include <asm/uaccess.h>
+#include <asm/irq.h>
+#include <linux/dma-mapping.h>
+
+#include <mach/hardware.h>
+
+
+#define CGX_PLATFORM_NAME "SPRD_FPGA_FPGA"
+
+/*************************************************************************************/
+
+/*New add by paul*/
+
+#define NUMBER_1K                       (1 *1024)
+#define NUMBER_16K                      (16*1024)
+#define NUMBER_64K                      (64*1024)
+
+
+#define MAX_DMA_CHUNK_SIZE				(0x80000)  // 512K
+#define MAX_DMA_TRANSFER_TASKS			(64)		/**< Maximum number of DMA tasks */
+
+
+#if 0
+#define CG_DRIVER_GPIO_TCXO			(23)   
+
+#define CG_DRIVER_GPIO_TCXO_EN	    (23)   
+
+#define CG_DRIVER_GPIO_GPS_RF_RSTN  (23)   
+
+#define CG_DRIVER_GPIO_GPS_MRSTN    (23)   
+#else
+#define CG_DRIVER_GPIO_TCXO			(22)   
+
+#define CG_DRIVER_GPIO_TCXO_EN	    (22)   
+
+#define CG_DRIVER_GPIO_GPS_RF_RSTN  (22)   
+
+#define CG_DRIVER_GPIO_GPS_MRSTN    (22)   
+#endif
+
+
+/**
+	CGsnap IP physical address
+	\attention Need to be ported
+	\ingroup SPRD_FPGA_cpu_specific
+
+        TODO: modify by sprd
+	
+*/
+#define CG_DRIVER_CGCORE_BASE_PA    0x21C00000 //(0xFCB0B000)/* cg ip base */
+
+#define CG_DRIVER_GPIO_BASE_PA		(0x8A000000)
+
+#define CG_DRIVER_INTR_BASE_PA		(0xFC000000)
+
+
+#define CG_DRIVER_CLK_BASE_PA		(0xFC802000)
+
+#define CG_DRIVER_DMA_BASE_PA		   (20100000)
+
+/*************************************************************************************/
+
+
+
+
+
+/* macro to get at IO space when running virtually */
+#ifdef CONFIG_MMU
+	#ifdef CONFIG_SMP
+		#define IO_ADDRESS(addr)  ((((addr)&0xffff0000) == 0x20300000) ? (0xFF800000 |((addr)&0xffff)) : (addr))
+	#else
+		#define IO_ADDRESS(addr)  ((((addr)&0xffff0000) == 0x10220000) ? (0xFF800000 |((addr)&0xffff)) : (addr))
+	#endif
+	#define __IO_ADDRESS(addr)   IO_ADDRESS(addr)
+#else
+	#define IO_ADDRESS(x)		(x)
+#endif
+
+#define REG_BASE_IOCFG		      0x20041000
+#define REG_IO_BASE               (IO_ADDRESS(REG_BASE_IOCFG))  // FPGA is not need
+
+/** 
+
+
+	\name Memory Mapping (Virtual Memory Addresses)
+	in Linux, the driver run in kernel space, and can access all physical addresses directly,
+	so, VA=PA 
+	\{
+ */
+
+/** Virtual base address for CGsnap registers */
+#define CG_DRIVER_CGCORE_BASE_VA	ioremap(CG_DRIVER_CGCORE_BASE_PA,4)//(IO_ADDRESS(CG_DRIVER_CGCORE_BASE_PA))	
+
+/** Virtual base address for GPIO controller registers */
+#define CG_DRIVER_GPIO_BASE_VA		(IO_ADDRESS(CG_DRIVER_GPIO_BASE_PA))
+
+/** Virtual base address for Interrupt controller registers */
+#define CG_DRIVER_INTR_BASE_VA		(IO_ADDRESS(CG_DRIVER_INTR_BASE_PA))
+
+/** Virtual base address for DMA controller registers */
+#define CG_DRIVER_CLK_BASE_VA		(IO_ADDRESS(CG_DRIVER_CLK_BASE_PA))
+
+/** Virtual base address for DMA controller registers */
+#define CG_DRIVER_DMA_BASE_VA		(IO_ADDRESS(CG_DRIVER_DMA_BASE_PA))
+
+/*bxd add for RF config*/
+#define CG_RF_ARM_BASE_VA 		ioremap(0x402a0000,4)
+#define CG_RF_APB_EB0_BASE_VA 	ioremap(0x402e0000,4)
+#define CG_RF_MSPI_BASE_VA 		ioremap(0x40070000,4)
+
+
+/** Virtual base address for CGsnap sclk */
+#define CG_DRIVER_SCLK_VA	ioremap(0x20d00000,4)
+
+
+#ifdef CG_DRIVER_RTC_BASE_VA
+	/** Virtual base address for RTC controller registers */
+	#define CG_DRIVER_RTC_BASE_VA		(IO_ADDRESS(CG_DRIVER_RTC_BASE_PA))
+#endif
+#ifdef CG_DRIVER_REVISION_BASE_PA
+	/** Virtual base address for revision controller registers */
+	#define CG_DRIVER_REVISION_BASE_VA  (IO_ADDRESS(CG_DRIVER_REVISION_BASE_PA))
+#endif
+/** \} Memory Mapping */
+
+
+/** 
+
+
+	\name Interrupt Codes
+	\{
+ */
+
+
+/** DMA interrupt event name
+
+	For platforms where the interrupt is handled by BSP code, this is the event 
+	name to be used by the driver.
+	in all other cases, this should be defined 'NULL'
+ */
+#define CGX_DRIVE_DMA_INT_EVENT_NAME (NULL)
+
+/** DMA completion exported sync-object name
+
+	For platforms where the DMA interrupt is handled by BSP code/driver, this is the sync-object name
+	exported by the operating system, that can be waited on, and that issues a signal when DMA
+	x-fer is complete.
+	in all other cases, this should not be defined
+*/
+
+/*modify bu paul for compile-----debug*/
+//#define gDMACompletion NULL
+// struct completion  gDMACompletion;
+//#define CGX_DRIVE_DMA_INT_GLOBAL_SYNC_OBJECT (gDMACompletion)
+
+
+/** GPS interrupt event name
+	For platforms where the interrupt is handled by BSP code, this is the event 
+	name to be used by the driver.
+	in all other cases, this should be defined 'NULL'
+ */
+#define CGX_DRIVE_GPS_INT_EVENT_NAME	(NULL)
+
+/** \} Interrupt codes */
+
+/** 
+
+
+	\name DMA Control 
+	\{ 
+*/
+
+
+#define CG_DRIVER_DMA_CHANNEL_READ		(0) /**< DMA channel to use for snap transfer */
+
+
+
+/** \} DMA Control */
+
+
+/** 
+
+
+	\name GPIO mapping
+	\{
+ */
+
+
+
+
+/** GPIO assigned to RF front-end configuration data. 
+	This line is used to configure the ACLYS-L, (send and receive data in I2C like protocol)
+	a.k.a. SER2
+	\attention Input & Output
+ */
+#define CG_DRIVER_GPIO_RF_DATA				(0 + 3)
+
+/** GPIO assigned to RF front-end configuration clock. 
+	This line is used to configure the ACLYS-L, (clocking the I2C like protocol)
+	a.k.a. SER1
+	\attention Output only
+ */
+#define CG_DRIVER_GPIO_RF_CLK				(0 + 2)
+
+
+/** GPIO assigned to RF front-end power down. 
+	This line is used to control RF FrontEnd power mode (i.e., select between power on and power down modes)
+	This value is used on if CG_DRIVER_CGCORE_CONTROLS_RF_PD is FALSE
+	\attention Output only
+ */
+#define CG_DRIVER_GPIO_RF_PD				(0 + 0)
+#define CG_DRIVER_CG_CORE_CONTROLS_RF_PD	(TRUE)
+#define RF_POWER_UP_VAL (0)					// ACLYS RF requires '0' for PU
+
+#define CGX5000_DR							(0 + 18)
+
+
+
+
+//#define CGX5000_INT		(CG_CPU_GPIO_GROUP_D + 9)
+
+/** \} GPIO mapping */
+
+
+/** \} */
+
+#endif /* PLATFORM_H */

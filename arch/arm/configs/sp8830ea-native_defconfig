@@ -971,6 +971,11 @@ CONFIG_SPRD_BLC=y
 # CONFIG_ALTERA_STAPL is not set
 
 #
+# GPS modules
+#
+# CONFIG_CGX is not set
+
+#
 # SCSI device support
 #
 CONFIG_SCSI_MOD=y
