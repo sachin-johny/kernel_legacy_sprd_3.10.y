@@ -1508,53 +1508,47 @@ IDENTIFY_SEARCH:
 	sensor_list = Sensor_GetList(sensor_id);
 	_Sensor_I2CInit(sensor_id);
 	list_for_each_entry(cfg, sensor_list, list) {
-		sensor_info_ptr = cfg->driver_info;
+            sensor_info_ptr = cfg->driver_info;
 
-		if (NULL == sensor_info_ptr) {
-			sensor_index++;
-			SENSOR_PRINT_ERR
-			    ("SENSOR: %d info of Sensor_Init table %d is null",
-			     sensor_index, (uint) sensor_id);
-			continue;
-		}
-		s_sensor_info_ptr = sensor_info_ptr;
-		Sensor_PowerOn(SCI_TRUE);
-		SENSOR_PRINT_ERR
-		    ("SENSOR: Sensor_PowerOn done,this_client=0x%x\n",
-		     (uint32_t) this_client);
-		SENSOR_PRINT_ERR("SENSOR: identify ptr =0x%x\n",
-				 (uint32_t)
-				 sensor_info_ptr->ioctl_func_tab_ptr->identify);
+            if (NULL == sensor_info_ptr) {
+                sensor_index++;
+                SENSOR_PRINT_ERR
+                    ("SENSOR: %d info of Sensor_Init table %d is null",
+                     sensor_index, (uint) sensor_id);
+                continue;
+            }
+            s_sensor_info_ptr = sensor_info_ptr;
+            Sensor_PowerOn(SCI_TRUE);
+            if(5 != Sensor_GetCurId()){
+                SENSOR_PRINT_ERR ("SENSOR: Sensor_PowerOn done,this_client=0x%x\n", (uint32_t) this_client);
+                SENSOR_PRINT_ERR("SENSOR: identify ptr =0x%x\n", (uint32_t) sensor_info_ptr->ioctl_func_tab_ptr->identify);
+            }
 
-		if (PNULL != sensor_info_ptr->ioctl_func_tab_ptr->identify) {
-			printk
-			    ("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n",
-			     (uint32_t) this_client,
-			     (uint32_t) & this_client->addr, this_client->addr);
+            if (PNULL != sensor_info_ptr->ioctl_func_tab_ptr->identify) {
+                if(5 != Sensor_GetCurId()){
+                    printk ("SENSOR:identify  Sensor 00:this_client=0x%x,this_client->addr=0x%x,0x%x\n", 
+                            (uint32_t) this_client, (uint32_t) & this_client->addr, this_client->addr);
+                }
 
-			if (5 != Sensor_GetCurId())
-				this_client->addr =
-				    (this_client->addr & (~0xFF)) |
-				    (s_sensor_info_ptr->salve_i2c_addr_w &
-				     0xFF);
-			SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
-			if (SENSOR_SUCCESS ==
-				sensor_info_ptr-> ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)) {
-				s_sensor_list_ptr[sensor_id] = sensor_info_ptr;
-				s_sensor_register_info_ptr->is_register[sensor_id] = SCI_TRUE;
-				if(5 != Sensor_GetCurId())//test by wang bonnie
-					s_sensor_index[sensor_id] = sensor_index;
-				s_sensor_register_info_ptr->img_sensor_num++;
-				//ImgSensor_PutMutex();
-				Sensor_PowerOn(SCI_FALSE);
-				SENSOR_PRINT_HIGH ("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d,sensor_index=%d.\n",
-				     sensor_id,
-				     s_sensor_register_info_ptr->img_sensor_num,sensor_index);
-				break;
-			}
-		}
-		Sensor_PowerOn(SCI_FALSE);
-		sensor_index++;
+                if (5 != Sensor_GetCurId()){
+                    this_client->addr = (this_client->addr & (~0xFF)) | (s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
+                }
+                SENSOR_PRINT_ERR("SENSOR:identify  Sensor 01\n");
+                if (SENSOR_SUCCESS == sensor_info_ptr-> ioctl_func_tab_ptr->identify(SENSOR_ZERO_I2C)) {
+                    s_sensor_list_ptr[sensor_id] = sensor_info_ptr;
+                    s_sensor_register_info_ptr->is_register[sensor_id] = SCI_TRUE;
+                    if(5 != Sensor_GetCurId())//test by wang bonnie
+                        s_sensor_index[sensor_id] = sensor_index;
+                    s_sensor_register_info_ptr->img_sensor_num++;
+                    //ImgSensor_PutMutex();
+                    Sensor_PowerOn(SCI_FALSE);
+                    SENSOR_PRINT_HIGH ("_Sensor_Identify:sensor_id :%d,img_sensor_num=%d,sensor_index=%d.\n",
+                            sensor_id, s_sensor_register_info_ptr->img_sensor_num,sensor_index);
+                    break;
+                }
+            }
+            Sensor_PowerOn(SCI_FALSE);
+            sensor_index++;
 	}
 	_Sensor_I2CDeInit(sensor_id);
 	if (SCI_TRUE == s_sensor_register_info_ptr->is_register[sensor_id]) {
