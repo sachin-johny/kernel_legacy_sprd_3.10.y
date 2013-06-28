@@ -2417,12 +2417,6 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 static int sprd_codec_pcm_startup(struct snd_pcm_substream *substream,
 				  struct snd_soc_dai *dai)
 {
-	struct snd_soc_codec *codec = dai->codec;
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		snd_soc_dapm_force_enable_pin(&codec->card->dapm, "DAC");
-	} else {
-		snd_soc_dapm_force_enable_pin(&codec->card->dapm, "ADC");
-	}
 	return 0;
 }
 
