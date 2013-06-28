@@ -369,9 +369,11 @@ static int32_t otg_cable_connect_fun(void *dev)
 	dwc_otg_device_t *otg_dev = dev;	
 	printk("USB otg cable is not connected timeout");
 	return 0;
+	/*
 	otg_cable_disconnect(otg_dev->core_if);
 	if(timer_pending(&otg_cable_connect_timer))
 		del_timer(&otg_cable_connect_timer);
+	*/
 
 }
 
@@ -479,15 +481,15 @@ int hcd_init(
 	 */
 	hcd = usb_create_hcd(&dwc_otg_hc_driver, &_dev->dev, dev_name(&_dev->dev));
 	/** need hcd->has_tt = 1, because if the device is work on FS, we should support it**/
+	if (!hcd) {
+                retval = -ENOMEM;
+                goto error1;
+        }
+
 	hcd->has_tt = 1;
 
 //      hcd->uses_new_polling = 1;
 //      hcd->poll_rh = 0;
-
-	if (!hcd) {
-		retval = -ENOMEM;
-		goto error1;
-	}
 
 	hcd->regs = otg_dev->os_dep.base;
 
