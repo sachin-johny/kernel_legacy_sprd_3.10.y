@@ -39,7 +39,7 @@ static void           *u_data = NULL;
 void csi_api_event1_handler(void *param);
 void csi_api_event2_handler(void *param);
 
-static void csi_enable()
+static void csi_enable(void)
 {
     sci_glb_set(CSI2_EB, CSI2_EB_BIT);
     sci_glb_set(CSI2_RST, CSI2_RST_BIT);
@@ -115,20 +115,20 @@ u8 csi_api_start(void)
 		csi_event_disable(0xffffffff, 1);                                                                                  
 		csi_event_disable(0xffffffff, 2);      
 		ret = request_irq(IRQ_CSI_INT0, 
-				csi_api_event1_handler, 
+				(irq_handler_t)csi_api_event1_handler,
 				IRQF_SHARED, 
 				"CSI2_0", 
-				&g_csi2_irq);
+				(void *)(&g_csi2_irq));
 		if (ret) {
 			e = ERR_UNDEFINED;
 			break;
 		}
 
 		ret = request_irq(IRQ_CSI_INT1, 
-				csi_api_event2_handler, 
+				(irq_handler_t)csi_api_event2_handler,
 				IRQF_SHARED, 
 				"CSI2_1", 
-				&g_csi2_irq);
+				(void *)(&g_csi2_irq));
 		if (ret) {
 			e = ERR_UNDEFINED;
 			break;
@@ -456,7 +456,7 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
 void csi_api_event1_handler(void *param)
 {                                                                                                                          
 	u32 source = 0;                                                                                                        
-	u32 flag;
+	unsigned long flag;
 
     	source = csi_event_get_source(1);
     	spin_lock_irqsave(&csi2_lock,flag);
@@ -517,10 +517,10 @@ void csi_api_event1_handler(void *param)
 void csi_api_event2_handler(void *param)
 {                                                                                                                          
 	u32 source = 0;                                                                                                        
-	u32 flag;
+	unsigned long flag;
 
     	source = csi_event_get_source(2);
-    	spin_lock_irqsave(&csi2_lock,flag);
+    	spin_lock_irqsave(&csi2_lock, flag);
 	if (isr_cb) {
 		(*isr_cb)(2, source, u_data);
 	}
@@ -622,7 +622,7 @@ u32 csi_api_core_read(csi_registers_t address)
 
 int csi_reg_isr(csi2_isr_func user_func, void* user_data)
 {
-	u32                flag;
+	unsigned long                flag;
 
 	spin_lock_irqsave(&csi2_lock, flag);
 	isr_cb = user_func;

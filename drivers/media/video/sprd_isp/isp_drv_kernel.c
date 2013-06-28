@@ -59,7 +59,7 @@
 #define SA_SHIRQ	IRQF_SHARED
 
 static uint32_t                    g_isp_irq = 0x12345678;/*for share irq handler function*/
-static uint32_t                    g_dcam_irq = 0x12345678;/*for share irq handler function*/
+//static uint32_t                    g_dcam_irq = 0x12345678;/*for share irq handler function*/
 /*isp minor number*/
 #define ISP_MINOR		MISC_DYNAMIC_MINOR
 #define init_MUTEX(sem)		sema_init(sem, 1)
@@ -117,7 +117,7 @@ static int32_t _isp_module_dis(void);
 static int  _isp_registerirq(void);
 static void _isp_unregisterirq(void);
 static irqreturn_t _isp_irq_root(int irq, void *dev_id);
-static irqreturn_t _dcam_irq_root(int irq, void *dev_id);
+void _dcam_isp_root(void);
 static int _isp_queue_init(struct isp_queue *queue);
 static int _isp_queue_write(struct isp_queue *queue, struct isp_node *node);
 static int _isp_queue_read(struct isp_queue *queue, struct isp_node *node);
@@ -132,7 +132,7 @@ static int32_t _isp_kernel_release(struct inode *node, struct file *filp);
 static loff_t _isp_kernel_seek (struct file *pf, loff_t offset, int orig);
 static ssize_t _isp_kernel_read (struct file *pf, char __user *buf, size_t count, loff_t * p);
 static ssize_t _isp_kernel_write (struct file *fl, const char __user *buf, size_t count, loff_t * p);
-static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long param);
+static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long param);
 /**driver'  functions declare**/
 static int32_t _isp_probe(struct platform_device *pdev);
 static int32_t _isp_remove(struct platform_device *dev);
@@ -168,9 +168,9 @@ static struct platform_driver isp_driver = {
 static int32_t _isp_module_eb(void)
 {
 	int32_t ret = 0;
-	uint32_t value=0x00;
 
-	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", ISP_CORE_CLK_EB, ISP_MODULE_EB);
+
+	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", (uint32_t)ISP_CORE_CLK_EB, (uint32_t)ISP_MODULE_EB);
 
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
@@ -195,7 +195,7 @@ static int32_t _isp_module_dis(void)
 
 static int32_t _isp_module_rst(void)
 {
-	int32_t	ret = 0;
+	int32_t ret = 0;
 	uint32_t reg_value=0x00;
 	int i =0;
 
@@ -243,7 +243,6 @@ static int32_t _isp_module_rst(void)
 static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
 {
 	int32_t ret = 0;
-	struct isp_reg_bits reg_bits = {0x00};
 	uint32_t reg_value=0x00;
 
 	if((0x00!=s_isp_alloc_addr)
@@ -277,7 +276,6 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 static int32_t _isp_lnc_param_set(uint32_t* addr, uint32_t len)
 {
 	int32_t ret = 0;
-	uint16_t* buf_addr=(uint16_t*)s_isp_alloc_addr;
 
 	if((0x00!=s_isp_alloc_addr)
 		&&(0x00!=addr))
@@ -306,11 +304,9 @@ static int32_t _isp_free(void)
 
 static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 {
-	int32_t ret = 0;
+	int32_t ret = 0x00;
 	uint32_t buf=0x00;
-	uint32_t vir_buf=0x00;
-	uint32_t mem_order=0x00;
-	void *ptr;
+	void *ptr = 0x00;
 
 	if((0x00!=s_isp_alloc_addr)
 		&&(len<=s_isp_alloc_len))
@@ -330,7 +326,7 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 		}
 		ptr = (void*)s_isp_alloc_addr;
 		*addr = s_isp_alloc_addr;
-		buf = virt_to_phys(s_isp_alloc_addr);
+		buf = virt_to_phys((volatile void *)s_isp_alloc_addr);
 		dmac_flush_range(ptr, ptr + len);
 		outer_flush_range(__pa(ptr), __pa(ptr) + len);
 	}
@@ -348,16 +344,6 @@ static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 #endif
 
 	return rtn;
-}
-
-void isp_int_en(void)
-{
-	//enable_irq(ISP_IRQ);
-}
-
-void isp_int_dis(void)
-{
-	//disable_irq(ISP_IRQ);
 }
 
 static int _isp_queue_init(struct isp_queue *queue)
@@ -494,11 +480,6 @@ static int _isp_en_irq(unsigned long int_num)
 	ISP_WRITEL(ISP_INT_EN, int_num);
 
 	return ret;
-}
-static void _isp_dis_irq(unsigned long int_num)
-{
-	ISP_NAWR(ISP_INT_EN, int_num);
-
 }
 
 static int _isp_registerirq(void)
@@ -838,7 +819,7 @@ static irqreturn_t _isp_irq_root(int irq, void *dev_id)
 	uint32_t	status = 0;
 	uint32_t	irq_line = 0;
 	uint32_t	irq_status = 0;
-	uint32_t	flag = 0;
+	unsigned long flag = 0;
 	int32_t     i = 0;
 	struct isp_node    node = { 0 };
 
@@ -871,7 +852,7 @@ static irqreturn_t _isp_irq_root(int irq, void *dev_id)
 void _dcam_isp_root(void)
 {
 	int32_t	ret = 0;
-	uint32_t	 flag = 0;
+	unsigned long flag = 0;
 	struct isp_node node = { 0 };
 
 	//ISP_PRINT ("ISP_RAW: isp_k: _dcam_isp_root %d \n", s_dcam_int_eb);
@@ -887,7 +868,7 @@ void _dcam_isp_root(void)
 		up(&g_isp_device.sem_isr);
 	}
 
-	return IRQ_HANDLED;
+	//return IRQ_HANDLED;
 }
 
 /**********************************************************
@@ -948,9 +929,9 @@ static int32_t _isp_kernel_proc_read (char *page, char **start, off_t off, int c
 *unsigned int cmd:
 *unsigned long param:
 ***********************************************************/
-static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long param)
+static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long param)
 {
-	int32_t ret = 0;
+	long ret = 0;
 	uint32_t isp_irq, dcam_irq;
 	struct isp_irq_param irq_param = { 0 };
 	struct isp_node isp_node = { 0 };
@@ -965,8 +946,6 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 
 	if(ISP_IO_IRQ==cmd)
 	{
-		uint32_t reg_value = 0;
-
 		ret = down_interruptible(&g_isp_device.sem_isr);
 		if (ret) {
 			ret = -ERESTARTSYS;
@@ -975,7 +954,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 		ret=_isp_queue_read(&g_isp_device.queue, &isp_node);
 		if ( 0 != ret) {
 
-			ISP_PRINT("isp_k: ioctl irq: _isp_queue_read error, ret = 0x%x", ret);
+			ISP_PRINT("isp_k: ioctl irq: _isp_queue_read error, ret = 0x%x", (uint32_t)ret);
 			ret = -EFAULT;
 			goto ISP_IOCTL_EXIT;
 		}
@@ -988,7 +967,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 		ret = copy_to_user ((void*) param, (void*)&irq_param, sizeof(struct isp_irq_param));
 		if ( 0 != ret) {
 
-			ISP_PRINT("isp_k: ioctl irq: copy_to_user failed, ret = 0x%x", ret);
+			ISP_PRINT("isp_k: ioctl irq: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 			ret = -EFAULT;
 		}
 
@@ -1004,7 +983,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
 			if ( 0 != ret) {
 
-				ISP_PRINT("isp_k: ioctl read: copy_to_user failed, ret = 0x%x", ret);
+				ISP_PRINT("isp_k: ioctl read: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 				ret = -EFAULT;
 				goto IO_READ_EXIT;
 			}
@@ -1013,7 +992,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ret = copy_from_user((void*)reg_bits_ptr, (void*)reg_param.reg_param, buf_size);
 			if ( 0 != ret) {
 
-				ISP_PRINT("isp_k: ioctl read: copy_to_user failed, ret = 0x%x", ret);
+				ISP_PRINT("isp_k: ioctl read: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 				ret  =-EFAULT;
 				goto IO_READ_EXIT;
 			}
@@ -1022,7 +1001,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ret = copy_to_user((void*)reg_param.reg_param, (void*)reg_bits_ptr, buf_size);
 			if ( 0 != ret) {
 
-				ISP_PRINT("isp_k: ioctl read: copy_to_user failed, ret = 0x%x", ret);
+				ISP_PRINT("isp_k: ioctl read: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 				ret = -EFAULT;
 				goto IO_READ_EXIT;
 			}
@@ -1040,7 +1019,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
 			if ( 0 != ret) {
 
-				ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", ret);
+				ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 				ret = -EFAULT;
 				goto IO_WRITE_EXIT;
 			}
@@ -1054,7 +1033,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			ret = copy_from_user((void*)reg_bits_ptr, (void*)reg_param.reg_param, buf_size);
 			if ( 0 != ret) {
 
-				ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", ret);
+				ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 				ret = -EFAULT;
 				goto IO_WRITE_EXIT;
 			}
@@ -1092,7 +1071,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			break;
 
 			case ISP_IO_STOP: {
-			uint32_t flag = 0;
+			unsigned long flag = 0;
 			struct isp_node node = { 0 };
 			ISP_PRINT("isp_k: ioctl  stop called !\n");
 			spin_lock_irqsave(&isp_spin_lock,flag);
@@ -1107,7 +1086,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				unsigned long int_num;
 				ret = copy_from_user((void*)&int_num, (void*)param, 0x04);
 				if (ret) {
-					ISP_PRINT ("isp_k:io int copy param failed, ret = %d \n", ret);
+					ISP_PRINT ("isp_k:io int copy param failed, ret = %d \n", (uint32_t)ret);
 					ret = -EFAULT;
 					goto ISP_IOCTL_LOCKED_CMD_EXIT;
 				}
@@ -1124,7 +1103,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				unsigned long int_param;
 				ret = copy_from_user((void*)&int_param, (void*)param, 0x04);
 				if (ret) {
-					ISP_PRINT ("isp_k:dcam int copy params failed, ret = %d \n", ret);
+					ISP_PRINT ("isp_k:dcam int copy params failed, ret = %d \n", (uint32_t)ret);
 					ret = -EFAULT;
 					goto ISP_IOCTL_LOCKED_CMD_EXIT;
 				}
@@ -1142,7 +1121,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
 				if ( 0 != ret) {
 
-					ISP_PRINT("isp_k: ioctl lnc param: copy_to_user failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl lnc param: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 					goto IO_LNC_PARAM_EXIT;
 				}
@@ -1156,13 +1135,13 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				ret = copy_from_user((void*)addr, (void*)reg_param.reg_param, buf_size);
 				if ( 0 != ret) {
 
-					ISP_PRINT("isp_k: ioctl lnc param: copy_to_user failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl lnc param: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 					goto IO_LNC_PARAM_EXIT;
 				}
 				ret = _isp_lnc_param_set(addr, buf_size);
 				if ( 0 != ret) {
-					ISP_PRINT("isp_k: ioctl lnc param failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl lnc param failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 					goto IO_LNC_PARAM_EXIT;
 				}
@@ -1179,7 +1158,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				uint32_t buf_size = 0;
 				ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
 				if ( 0 != ret) {
-					ISP_PRINT("isp_k: ioctl lnc: copy_to_user failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl lnc: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 					goto IO_LNC_EXIT;
 				}
@@ -1192,7 +1171,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				}
 				ret = copy_from_user((void*)reg_bits_ptr, (void*)reg_param.reg_param, buf_size);
 				if ( 0 != ret) {
-					ISP_PRINT("isp_k: ioctl lnc: copy_to_user failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl lnc: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 					goto IO_LNC_EXIT;
 				}
@@ -1211,10 +1190,10 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 			break;
 
 			case ISP_IO_ALLOC: {
-				uint32_t buf_size = 0;
+
 				ret = copy_from_user((void*)&reg_param, (void*)param, sizeof(struct isp_reg_param));
 				if ( 0 != ret) {
-					ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl write: copy_to_user failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 					break;
 				}
@@ -1222,7 +1201,7 @@ static int32_t _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned lo
 				if ( 0 == ret) {
 					ret = copy_to_user((void*)param, (void*)&reg_param, sizeof(struct isp_reg_param));
 				} else {
-					ISP_PRINT("isp_k: ioctl alloc failed, ret = 0x%x", ret);
+					ISP_PRINT("isp_k: ioctl alloc failed, ret = 0x%x", (uint32_t)ret);
 					ret = -EFAULT;
 				}
 			}
@@ -1253,7 +1232,6 @@ static int _isp_probe(struct platform_device *pdev)
 		ISP_PRINT ( "isp_k:probe cannot register miscdev on minor=%d (%d)\n",(int32_t)ISP_MINOR, (int32_t)ret);
 		return ret;
 	}
-	//mutex_init(&g_isp_device.isp_lock);
 	mutex_init(&s_isp_lock);
 
 	isp_proc_file = create_proc_read_entry("driver/sprd_isp" ,

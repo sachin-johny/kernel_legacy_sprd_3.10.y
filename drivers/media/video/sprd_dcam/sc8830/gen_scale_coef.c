@@ -209,7 +209,7 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,
 		    (int32_t)
 		    div64_s64_s64((int64_t)
 				  ((int64_t) 2 * (int64_t) (mid_i - i - 1) *
-				   (int64_t) 2147483648),
+				   (int64_t) ARC_32_COEF),
 				  (int64_t) coef_lenght);
 		int64_t a = (int64_t) 9059697;
 		int64_t b = (int64_t) 7717519;
@@ -590,7 +590,6 @@ uint8_t Dcam_GenScaleCoeff(int16_t i_w,
 	uint32_t filter_buf_size = GSC_COUNT * sizeof(int16_t);
 	int16_t filter_len[COEF_ARR_ROWS] = { 0 };
 	int16_t coef_len = 0;
-	uint8_t is_scaling_up = FALSE;
 	GSC_MEM_POOL pool = { 0 };
 
 	/* init pool and allocate static array */

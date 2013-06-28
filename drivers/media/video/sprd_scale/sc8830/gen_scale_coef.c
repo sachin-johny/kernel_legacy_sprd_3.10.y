@@ -86,7 +86,6 @@ static int64_t div64_s64_s64(int64_t dividend, int64_t divisor)
 	int64_t dividend_tmp = dividend;
 	int64_t divisor_tmp = divisor;
 	int64_t ret = 0;
-	int64_t tmp = 0;
 
 	if (0 == divisor)
 		return 0;
@@ -198,10 +197,10 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,
 	div64_s64_s64((int64_t) ((int64_t) N << GSC_FIX), (int64_t) MAX(M, N));
 	for (i = 0; i < mid_i; i++) {
 		int64_t angle_x =
-		div64_s64_s64((int64_t) ARC_32_COEF * (int64_t) (i + 1) *
+		div64_s64_s64(ARC_32_COEF * (int64_t) (i + 1) *
 				(int64_t) N, (int64_t) MAX(M,N) * (int64_t) 8);
 		int64_t angle_y =
-		div64_s64_s64((int64_t) ARC_32_COEF * (int64_t) (i + 1) *
+		div64_s64_s64(ARC_32_COEF * (int64_t) (i + 1) *
 				(int64_t) N, (int64_t) (M * N) * (int64_t) 8);
 		int32_t value_x = sin_32((int32_t) angle_x);
 		int32_t value_y = sin_32((int32_t) angle_y);
@@ -216,7 +215,7 @@ static int16_t CalYmodelCoef(int16_t coef_lenght,
 		int32_t angle_32 =
 		(int32_t)div64_s64_s64((int64_t)
 					((int64_t) 2 * (int64_t) (mid_i - i - 1) *
-					(int64_t) 2147483648),
+					ARC_32_COEF),
 					(int64_t) coef_lenght);
 		int64_t a = (int64_t) 9059697;
 		int64_t b = (int64_t) 7717519;
@@ -541,7 +540,6 @@ uint8_t GenScaleCoeff(int16_t i_w,
 	uint32_t filter_buf_size = GSC_COUNT * sizeof(int16_t);
 	int16_t filter_len[COEF_ARR_ROWS] = { 0 };
 	int16_t coef_len = 0;
-	uint8_t is_scaling_up = FALSE;
 	GSC_MEM_POOL pool = { 0 };
 
 	/* init pool and allocate static array */
