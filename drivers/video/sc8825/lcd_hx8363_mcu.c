@@ -386,6 +386,7 @@ struct panel_spec lcd_hx8363_mcu_spec = {
 	.width = 480,
 	.height = 854,
 #endif
+   .is_clean_lcd = true,
 	.type = LCD_MODE_MCU,
 	.direction = LCD_DIRECT_NORMAL,
 	.info = {.mcu = &lcd_hx8363_mcu_info},
