@@ -3954,6 +3954,12 @@ static int descriptors_changed(struct usb_device *udev,
 	if (!changed && serial_len) {
 		length = usb_string(udev, udev->descriptor.iSerialNumber,
 				buf, serial_len);
+		if(length < 0)
+		{
+			dev_err(&udev->dev, "usb_string return error\n");
+			kfree(buf);
+			return 1;
+		}
 		if (length + 1 != serial_len) {
 			dev_dbg(&udev->dev, "serial string error %d\n",
 					length);
