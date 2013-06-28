@@ -406,12 +406,16 @@ static int serial_sprd_startup(struct uart_port *port)
 	ctrl1 |= 0x3e00 | SP_RX_FIFO;
 	serial_out(port, ARM_UART_CTL1, ctrl1);
 
+	spin_lock(&port->lock);
 	/* enable interrupt */
 	ien = serial_in(port, ARM_UART_IEN);
 	ien |=
 	    UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY |
 	    UART_IEN_BREAK_DETECT | UART_IEN_TIMEOUT;
 	serial_out(port, ARM_UART_IEN, ien);
+
+	spin_unlock(&port->lock);
+
 	return 0;
 }
 
@@ -663,6 +667,8 @@ static void serial_sprd_console_write(struct console *co, const char *s,
 {
 	struct uart_port *port = serial_sprd_ports[co->index];
 	int ien;
+
+	spin_lock(&port->lock);
 	/*firstly,save the IEN register and disable the interrupts */
 	ien = serial_in(port, ARM_UART_IEN);
 	serial_out(port, ARM_UART_IEN, 0x0);
@@ -671,6 +677,7 @@ static void serial_sprd_console_write(struct console *co, const char *s,
 	/*finally,wait for  TXD FIFO to become empty and restore the IEN register */
 	wait_for_xmitr(port);
 	serial_out(port, ARM_UART_IEN, ien);
+	spin_unlock(&port->lock);
 }
 
 static int __init serial_sprd_console_setup(struct console *co, char *options)
