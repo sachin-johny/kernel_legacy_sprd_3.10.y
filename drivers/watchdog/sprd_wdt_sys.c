@@ -38,13 +38,18 @@
 #include <mach/watchdog.h>
 #include <mach/irqs.h>
 
+#define KERNEL_ONLY_CHIP_DOG 0
 #define KERNEL_WATCHDOG_FEEDER 1
 
 static int feed_period = 3; /* (secs) Default is 3 sec */
 static int ca7_irq_margin = 9; /* (secs) Default is 9 sec */
 static int ca7_margin = 10; /* (secs) Default is 10 sec */
 static int ap_margin = 12; /* (secs) Default is 12 sec */
+#if KERNEL_ONLY_CHIP_DOG
+static int chip_margin = 8; /* (secs) Default is 8 sec */
+#else
 static int chip_margin = 15; /* (secs) Default is 15 sec */
+#endif
 static unsigned long wdt_enabled;
 
 #define wdt_feed_all() FEED_ALL_WDG(chip_margin, ap_margin, ca7_margin, ca7_irq_margin)
@@ -180,7 +185,15 @@ static int __init sci_wdt_kfeeder_init(void)
 	if (wdt_init())
 		return 0;
 
+#if 0
 	feed_task = kthread_create(watchdog_feeder, NULL, "watchdog_feeder");
+#else
+	do {
+		int cpu = 0;
+		feed_task = kthread_create_on_node(watchdog_feeder, NULL, cpu_to_node(cpu), "watchdog_feeder/%d", cpu);
+		kthread_bind(feed_task, cpu);
+	} while (0);
+#endif
 	if (feed_task == 0) {
 		pr_err("Can't crate watchdog_feeder thread!\n");
 	} else {
