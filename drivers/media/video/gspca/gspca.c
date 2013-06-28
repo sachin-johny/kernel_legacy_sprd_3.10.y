@@ -1669,7 +1669,7 @@ static int vidioc_querybuf(struct file *file, void *priv,
 	struct gspca_dev *gspca_dev = priv;
 	struct gspca_frame *frame;
 
-	if (v4l2_buf->index < 0
+	if ((int)v4l2_buf->index < 0
 	    || v4l2_buf->index >= gspca_dev->nframes)
 		return -EINVAL;
 
