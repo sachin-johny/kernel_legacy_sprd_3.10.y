@@ -652,7 +652,7 @@ static int bcsp_recv(struct hci_uart *hu, void *data, int count)
 				 * Allocate packet. Max len of a BCSP pkt= 
 				 * 0xFFF (payload) +4 (header) +2 (crc) */
 
-				bcsp->rx_skb = bt_skb_alloc(0x1005, GFP_KERNEL);
+				bcsp->rx_skb = bt_skb_alloc(0x1005, GFP_ATOMIC);
 				if (!bcsp->rx_skb) {
 					BT_ERR("Can't allocate mem for new packet");
 					bcsp->rx_state = BCSP_W4_PKT_DELIMITER;
