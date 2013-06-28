@@ -156,7 +156,7 @@ void sdhci_bus_scan(void)
 			sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
 		}
 
-		sdhci_reinit(sdhci_host_g);
+		//sdhci_reinit(sdhci_host_g);
 		mmc_detect_change(sdhci_host_g->mmc, 0);
 	}
 #endif
@@ -513,7 +513,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host->clk = NULL;
 	sdhci_module_init(host);
-	host->mmc->caps |= MMC_CAP_HW_RESET;
+	//host->mmc->caps |= MMC_CAP_HW_RESET;
 
 	switch(pdev->id) {
 		case 0:
@@ -538,7 +538,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
 			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
 			host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;
-			host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR;
+			host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR ;
 			break;
 		default:
 			BUG();
