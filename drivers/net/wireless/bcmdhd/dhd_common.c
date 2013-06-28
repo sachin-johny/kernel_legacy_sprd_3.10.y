@@ -2218,7 +2218,7 @@ int
 wl_iw_parse_data_tlv(char** list_str, void *dst, int dst_size, const char token,
                      int input_size, int *bytes_left)
 {
-	char* str = *list_str;
+	char* str;
 	uint16 short_temp;
 	uint32 int_temp;
 
@@ -2226,7 +2226,7 @@ wl_iw_parse_data_tlv(char** list_str, void *dst, int dst_size, const char token,
 		DHD_ERROR(("%s error paramters\n", __FUNCTION__));
 		return -1;
 	}
-
+	str  = *list_str;
 	/* Clean all dest bytes */
 	memset(dst, 0, dst_size);
 	while (*bytes_left > 0) {
@@ -2267,7 +2267,7 @@ int
 wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list,
                              int channel_num, int *bytes_left)
 {
-	char* str = *list_str;
+	char* str;
 	int idx = 0;
 
 	if ((list_str == NULL) || (*list_str == NULL) ||(bytes_left == NULL) || (*bytes_left < 0)) {
@@ -2275,6 +2275,7 @@ wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list,
 		return -1;
 	}
 
+	str = list_str;	
 	while (*bytes_left > 0) {
 
 		if (str[0] != CSCAN_TLV_TYPE_CHANNEL_IE) {
