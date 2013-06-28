@@ -954,6 +954,26 @@ static int yaffs2_ybicmp(const void *a, const void *b)
 		return aseq - bseq;
 }
 
+#ifndef ARRAYSIZE
+#define ARRAYSIZE(a)            (sizeof(a)/sizeof(a[0]))
+#endif
+
+static bool sprd_could_fail(const char * name)
+{
+    char * array[] = {
+        //"userdata",
+        "cache"
+    };
+
+    int i;
+
+    for (i = 0; i < ARRAYSIZE(array); i++)
+        if(!strncmp(name, array[i], strlen(array[i])))
+            return true;
+
+    return false;
+}
+
 int yaffs2_scan_backwards(struct yaffs_dev *dev)
 {
 	struct yaffs_ext_tags tags;
@@ -1372,13 +1392,19 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 				}
 
 				if (!in->valid && in->variant_type !=
-				    (oh ? oh->type : tags.extra_obj_type))
+				    (oh ? oh->type : tags.extra_obj_type)) {
 					yaffs_trace(YAFFS_TRACE_ERROR,
 						"yaffs tragedy: Bad object type, %d != %d, for object %d at chunk %d during scan",
 						oh ?
 						oh->type : tags.extra_obj_type,
 						in->variant_type, tags.obj_id,
 						chunk);
+                                        // printk(KERN_WARNING "dev->param.name = %s\n", dev->param.name);
+                                        if(sprd_could_fail(dev->param.name)){
+                                                alloc_failed = 1;
+                                                goto Error;
+                                        }
+                                }
 
 				if (!in->valid &&
 				    (tags.obj_id == YAFFS_OBJECTID_ROOT ||
@@ -1572,6 +1598,8 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 		}
 
 	}
+
+Error:
 
 	yaffs_skip_rest_of_block(dev);
 
