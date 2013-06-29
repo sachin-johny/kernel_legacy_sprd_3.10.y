@@ -1603,7 +1603,7 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 		path_cfg = dcam_path2_cfg;
 	}
 
-	dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
+	ret = dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
 
 	mutex_unlock(&dev->dcam_mutex);
 

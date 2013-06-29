@@ -2730,6 +2730,9 @@ LOCAL int32_t _dcam_path_scaler(enum dcam_path_index path_index)
 	} else if (DCAM_PATH_IDX_2 == path_index){
 		path = &s_dcam_mod.dcam_path2;
 		cfg_reg = DCAM_PATH2_CFG;
+	} else {
+		printk("DCAM DRV: _dcam_path_scaler - error path \n");
+		return DCAM_RTN_PARA_ERR;
 	}
 
 	if (DCAM_RAWRGB == path->output_format ||
@@ -2824,6 +2827,9 @@ LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 	} else if (DCAM_PATH_IDX_2 == path_index){
 		path = &s_dcam_mod.dcam_path2;
 		cfg_reg = DCAM_PATH2_CFG;
+	} else {
+		printk("DCAM DRV: _dcam_calc_sc_size - error path \n");
+		return DCAM_RTN_PARA_ERR;
 	}
 
 	if (path->input_rect.w > (path->output_size.w * DCAM_SC_COEFF_DOWN_MAX * (1<<DCAM_PATH_DECI_FAC_MAX)) ||
