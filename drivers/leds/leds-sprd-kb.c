@@ -25,9 +25,9 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#define KPLED_DBG 0
+#define KPLED_DEBUG 0
 
-#ifdef  KPLED_DBG
+#ifdef  KPLED_DEBUG
 #define KPLED_DBG(fmt, arg...)  printk(KERN_ERR "%s: " fmt "\n" , __func__ , ## arg)
 #else
 #define KPLED_DBG(fmt, arg...) 
