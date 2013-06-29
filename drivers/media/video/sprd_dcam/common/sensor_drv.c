@@ -1724,7 +1724,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 
 
 	SENSOR_PRINT("SENSOR: Sensor_Init, select PCLK0 by default!\n");
-        sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,0x80 | 0x40, GR_CLK_GEN7);
+        sprd_greg_clear_bits(REG_TYPE_GLOBAL,0x80 | 0x40, GR_CLK_GEN7);
 
 	SENSOR_PRINT("SENSOR: Sensor_Init, sensor_id: %d.\n", sensor_id);
 
@@ -1744,7 +1744,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 		if (5 == sensor_id) {
 			msleep(20);
 	                SENSOR_PRINT("SENSOR: Sensor_Init, select PCLK1 to make ATV work!\n");
-                        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,0x40, GR_CLK_GEN7);
+                        sprd_greg_set_bits(REG_TYPE_GLOBAL,0x40, GR_CLK_GEN7);
 			_Sensor_Identify(SENSOR_ATV);
 		}
 		ret_val = _sensor_com_init(sensor_id, sensor_register_info_ptr);
@@ -1759,7 +1759,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 		if (5 == sensor_id||!s_sensor_identified) {
 			msleep(20);
 	                SENSOR_PRINT("SENSOR: Sensor_Init, select PCLK1 to make ATV work!\n");
-                        sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,0x40, GR_CLK_GEN7);
+                        sprd_greg_set_bits(REG_TYPE_GLOBAL,0x40, GR_CLK_GEN7);
 			_Sensor_Identify(SENSOR_ATV);
 		}
 
