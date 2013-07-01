@@ -164,6 +164,17 @@ void sdhci_bus_scan(void)
 }
 EXPORT_SYMBOL_GPL(sdhci_bus_scan);
 
+unsigned int sdhci_wifi_detect_isbusy(void) {
+	unsigned int busy = 0;
+	#ifdef CONFIG_MMC_BUS_SCAN
+	if(sdhci_host_g && sdhci_host_g->mmc) {
+		busy = work_busy(&sdhci_host_g->mmc->detect.work);
+	}
+	#endif
+	return busy;
+}
+EXPORT_SYMBOL_GPL(sdhci_wifi_detect_isbusy);
+
 /*
  *   set indicator indicates that whether any devices attach on sdio bus.
  *   NOTE: devices must already attached on bus before calling this function.
@@ -513,7 +524,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 
 	host->clk = NULL;
 	sdhci_module_init(host);
-	//host->mmc->caps |= MMC_CAP_HW_RESET;
+	host->mmc->caps |= MMC_CAP_HW_RESET;
 
 	switch(pdev->id) {
 		case 0:
