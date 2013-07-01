@@ -514,7 +514,7 @@ u32 __attribute__ ((naked)) read_cpsr(void)
 #define UART_STS0 (SPRD_UART1_BASE + 0x08)
 #define UART_STS1 (SPRD_UART1_BASE + 0x0c)
 
-static void wait_until_uart1_tx_done(void)
+static __used void wait_until_uart1_tx_done(void)
 {
 	u32 tx_fifo_val;
 	u32 really_done = 0;

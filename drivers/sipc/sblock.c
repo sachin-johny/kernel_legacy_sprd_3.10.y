@@ -106,7 +106,7 @@ static int sblock_thread(void *data)
 				}
 				break;
 			case SMSG_EVENT_SBLOCK_RELEASE:
-				blk.addr = mrecv.value;
+				blk.addr = (void *)(mrecv.value);
 				blk.length = sblock->txblksz;
 				sblock_put(sblock->dst, sblock->channel, &blk);
 				wake_up_interruptible_all(&(sblock->ring->getwait));
