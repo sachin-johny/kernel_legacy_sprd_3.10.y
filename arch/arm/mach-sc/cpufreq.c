@@ -124,6 +124,8 @@ static unsigned int get_mcu_clk_freq(void)
 
 struct cpufreq_conf {
 	struct clk 					*clk;
+	struct clk 					*mpllclk;
+	struct clk 					*tdpllclk;
 	struct regulator 				*regulator;
 	unsigned int					orignal_freq;
 	struct cpufreq_frequency_table	freq_tbl[FREQ_TABLE_SIZE];
@@ -150,19 +152,23 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 	},
 };
 
+/* khz */
+#define SHARK_TOP_FREQUENCY	(1000000)
+#define SHARK_TDPLL_FREQUENCY	(768000)
+
 struct cpufreq_conf sc8830_cpufreq_conf = {
 	.clk = NULL,
+	.mpllclk = NULL,
+	.tdpllclk = NULL,
 	.regulator = NULL,
 	.freq_tbl = {
-		{0, 800000},
-		{1, 400000},
-		{2, 266000},
-		{3, CPUFREQ_TABLE_END}
+		{0, SHARK_TOP_FREQUENCY},
+		{1, SHARK_TDPLL_FREQUENCY},
+		{2, CPUFREQ_TABLE_END}
 	},
 	.vddarm_mv = {
-		1000000,
-		1000000,
-		1000000,
+		1250000,
+		1200000,
 		1000000,
 	},
 };
@@ -201,10 +207,23 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 	} while (0)
 #define CPUFREQ_SET_CLOCK() \
 	do { \
-		ret = clk_set_rate(sprd_cpufreq_conf->clk, freq.new * 1000); \
-		if (ret) \
-			pr_err("cpufreq: Failed to set cpu frequency to %d kHz\n", \
-				freq.new); \
+		if (freq.new == SHARK_TDPLL_FREQUENCY) { \
+			ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk); \
+			if (ret) \
+				pr_err("cpufreq: Failed to set cpu parent to tdpll\n"); \
+		} else { \
+			if (clk_get_parent(sprd_cpufreq_conf->clk) != sprd_cpufreq_conf->tdpllclk) { \
+				ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk); \
+				if (ret) \
+					pr_err("cpufreq: Failed to set cpu parent to tdpll\n"); \
+			} \
+			ret = clk_set_rate(sprd_cpufreq_conf->mpllclk, (freq.new * 1000)); \
+			if (ret) \
+				pr_err("cpufreq: Failed to set mpll rate\n"); \
+			ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk); \
+			if (ret) \
+				pr_err("cpufreq: Failed to set cpu parent to mpll\n"); \
+		} \
 	} while (0)
 	trace_cpu_frequency(freq.new, freq.cpu);
 
@@ -449,6 +468,18 @@ static int __init sprd_cpufreq_modinit(void)
 	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
 		return PTR_ERR(sprd_cpufreq_conf->clk);
 
+	sprd_cpufreq_conf->mpllclk = clk_get_sys(NULL, "clk_mpll");
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->mpllclk))
+		return PTR_ERR(sprd_cpufreq_conf->mpllclk);
+
+	sprd_cpufreq_conf->tdpllclk = clk_get_sys(NULL, "clk_tdpll");
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->tdpllclk))
+		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
+
+	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
+	clk_set_rate(sprd_cpufreq_conf->mpllclk, (SHARK_TOP_FREQUENCY * 1000));
+	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
+
 	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
 	sprd_cpufreq_status.global_target = sprd_cpufreq_conf->orignal_freq;
 	sprd_cpufreq_status.is_suspend = false;
@@ -472,9 +503,6 @@ static int __init sprd_cpufreq_modinit(void)
 static void __exit sprd_cpufreq_modexit(void)
 {
 #if defined(CONFIG_ARCH_SCX35)
-	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
-		clk_put(sprd_cpufreq_conf->clk);
-
 	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
 		regulator_put(sprd_cpufreq_conf->regulator);
 #endif
