@@ -1287,7 +1287,7 @@ static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
 	return ret;
 }
 
-static void remove_sd_card(struct mmc_host *host)
+static __used void remove_sd_card(struct mmc_host *host)
 {
 	printk(KERN_INFO "%s: %s\n", mmc_hostname(host), __func__);
 	if (!host->card || host->card->removed) {

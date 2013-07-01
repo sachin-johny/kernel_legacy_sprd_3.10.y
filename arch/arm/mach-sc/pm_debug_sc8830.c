@@ -175,6 +175,7 @@ void print_int_status(void)
 void print_hard_irq_inloop(int ret)
 {
 	unsigned int i, j, val;
+	unsigned int ana_sts;
 	unsigned int gpio_irq[GPIO_GROUP_NUM];
 
 	if(sprd_irqs_sts[0] != 0)
@@ -217,7 +218,7 @@ void print_hard_irq_inloop(int ret)
 		}
 		if(sprd_hard_irq[38]){
 			printk("wake up by ana ");
-			int ana_sts = sci_adi_read(ANA_REG_INT_RAW_STATUS);
+			ana_sts = sci_adi_read(ANA_REG_INT_RAW_STATUS);
 			if(ana_sts & BIT(0))
 				printk("adc\n");
 			if(ana_sts & BIT(1)){

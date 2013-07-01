@@ -158,7 +158,7 @@ static inline int __adi_read(u32 regPddr, unsigned int *v)
 	WARN(cnt == 0, "ADI READ timeout!!!");
 	/* val high part should be the address of the last read operation */
 	if ((!v) || TO_ADDR(val) != (regPddr & readback_addr_mak)) {
-		printk("val = 0x%x, regPaddr = 0x%x, readback_addr_mak = 0x%x\n",val,regPddr, readback_addr_mak);
+		printk("val = 0x%lx, regPaddr = 0x%x, readback_addr_mak = 0x%x\n",val,regPddr, readback_addr_mak);
 		return -1;
 	}
 
