@@ -34,6 +34,32 @@ extern struct panel_if_ctrl sprdfb_mipi_ctrl;
 
 extern void sprdfb_panel_remove(struct sprdfb_device *dev);
 
+#ifdef CONFIG_FB_SC8825
+typedef struct {
+	uint32_t reg;
+	uint32_t val;
+} panel_pinmap_t;
+
+panel_pinmap_t panel_rstpin_map[] = {
+	{REG_PIN_LCD_RSTN, BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE},
+	{REG_PIN_LCD_RSTN, BITS_PIN_DS(3)|BITS_PIN_AF(3)|BIT_PIN_NUL|BIT_PIN_NUL|BIT_PIN_SLP_OE},
+};
+
+static void sprd_panel_set_rstn_prop(unsigned int if_slp)
+{
+	int i;
+
+	if (if_slp){
+		panel_rstpin_map[0].val = __raw_readl(CTL_PIN_BASE+REG_PIN_LCD_RSTN);
+		i = 1;
+	}else{
+		i = 0;
+	}
+
+	__raw_writel(panel_rstpin_map[i].val, CTL_PIN_BASE + panel_rstpin_map[i].reg);
+}
+#endif
+
 static int __init lcd_id_get(char *str)
 {
 	if ((str != NULL) && (str[0] == 'I') && (str[1] == 'D')) {
@@ -67,6 +93,27 @@ static int32_t panel_reset_lcdc(struct panel_spec *self)
 	msleep(20);
 	return 0;
 }
+
+static int32_t panel_set_resetpin_dispc( uint32_t status)
+{
+	if(0 == status){
+		dispc_write(0, DISPC_RSTN);
+	}else{
+		dispc_write(1, DISPC_RSTN);
+	}
+	return 0;
+}
+
+static int32_t panel_set_resetpin_lcdc(uint32_t status)
+{
+	if(0 == status){
+		lcdc_write(0, LCM_RSTN);
+	}else{
+		lcdc_write(1, LCM_RSTN);
+	}
+	return 0;
+}
+
 #if 0
 static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 {
@@ -80,6 +127,21 @@ static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
 	}
 }
 #endif
+
+static void panel_set_resetpin(uint16_t dev_id,  uint32_t status, struct panel_spec *panel )
+{
+	pr_debug("sprdfb: [%s].\n",__FUNCTION__);
+
+	/*panel set reset pin status*/
+	if(SPRDFB_MAINLCD_ID == dev_id){
+		panel_set_resetpin_dispc(status);
+	}else{
+	#ifdef CONFIG_FB_SC8825
+		panel_set_resetpin_lcdc(status);
+	#endif
+	}
+}
+
 static bool panel_check(struct panel_cfg *cfg)
 {
 	bool rval = true;
@@ -438,6 +500,13 @@ void sprdfb_panel_suspend(struct sprdfb_device *dev)
 	if(NULL != dev->panel->if_ctrl->panel_if_suspend){
 		dev->panel->if_ctrl->panel_if_suspend(dev);
 	}
+	/*set the reset pin to low*/
+	panel_set_resetpin(dev->dev_id, 0, dev->panel);
+
+#ifdef CONFIG_FB_SC8825
+	/*set the reset pin status and set */
+	sprd_panel_set_rstn_prop(1);
+#endif
 }
 
 void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
@@ -453,6 +522,13 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 		dev->panel->if_ctrl->panel_if_resume(dev);
 	}
 #endif
+#ifdef CONFIG_FB_SC8825
+	/*restore the reset pin status*/
+	sprd_panel_set_rstn_prop(0);
+#endif
+
+	/*restore  the reset pin to high*/
+	panel_set_resetpin(dev->dev_id, 1, dev->panel);
 
 	if(from_deep_sleep){
 		panel_init(dev);
