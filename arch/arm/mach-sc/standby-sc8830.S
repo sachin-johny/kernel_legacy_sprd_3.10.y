@@ -502,6 +502,14 @@ sp_pm_pa_to_va:
 	mcr     p15, 0, r3, c7, c5, 6   /* BPIALL */
 	dsb
 	isb
+#ifdef CONFIG_FIX_V7TAGRAM_BUG
+	stmfd   sp!, {lr}
+	ldr r0, =physical_from_idle
+	mov r1, #0
+	str r1, [r0]
+	bl fix_tag_ram_bug
+	ldmfd   sp!, {lr}
+#endif
 
 #if 0
 	stmfd   sp!, {lr}
