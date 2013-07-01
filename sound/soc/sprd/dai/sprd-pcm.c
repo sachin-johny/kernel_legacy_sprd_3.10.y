@@ -49,12 +49,21 @@
 #define sprd_pcm_dbg(...)
 #endif
 
+#ifndef  DMA_LINKLIST_CFG_NODE_SIZE
+#define DMA_LINKLIST_CFG_NODE_SIZE  (sizeof(sprd_dma_desc))
+#endif
+
 struct sprd_runtime_data {
 	int dma_addr_offset;
 	struct sprd_pcm_dma_params *params;
 	int uid_cid_map[2];
 	int int_pos_update[2];
+#ifdef DMA_VER_R1P0
 	sprd_dma_desc *dma_desc_array;
+#else
+	sprd_dma_desc *dma_cfg_array;
+	dma_addr_t *dma_desc_array;
+#endif
 	dma_addr_t dma_desc_array_phys;
 	int burst_len;
 	int hw_chan;
@@ -85,7 +94,7 @@ static const struct snd_pcm_hardware sprd_pcm_hardware = {
 	.period_bytes_max = VBC_FIFO_FRAME_NUM * 4 * 100,
 	.periods_min = 1,
 	/* non limit */
-	.periods_max = PAGE_SIZE / sizeof(sprd_dma_desc),
+	.periods_max = PAGE_SIZE / DMA_LINKLIST_CFG_NODE_SIZE,
 	.buffer_bytes_max = VBC_BUFFER_BYTES_MAX,
 };
 
@@ -101,13 +110,13 @@ static const struct snd_pcm_hardware sprd_i2s_pcm_hardware = {
 	.period_bytes_max = 32 * 2 * 100,
 	.periods_min = 1,
 	/* non limit */
-	.periods_max = PAGE_SIZE / sizeof(sprd_dma_desc),
+	.periods_max = PAGE_SIZE / DMA_LINKLIST_CFG_NODE_SIZE,
 	.buffer_bytes_max = I2S_BUFFER_BYTES_MAX,
 };
 
 static inline int sprd_is_vaudio(struct snd_soc_dai *cpu_dai)
 {
-	return (cpu_dai->driver->id == VAUDIO_MAGIC_ID);
+	return ((cpu_dai->driver->id == VAUDIO_MAGIC_ID) ||(cpu_dai->driver->id == VAUDIO_MAGIC_ID+1));
 }
 
 static inline int sprd_is_i2s(struct snd_soc_dai *cpu_dai)
@@ -238,37 +247,39 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	if (!rtd)
 		goto out;
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
-	if (!((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-	      && 0 == sprd_buffer_iram_backup())) {
+	if (sprd_is_i2s(srtd->cpu_dai)
+	    || !((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		 && 0 == sprd_buffer_iram_backup())) {
 #endif
-#ifdef DMA_VER_R1P0
 		rtd->dma_desc_array =
-		    dma_alloc_coherent(substream->pcm->card->dev,
+		    dma_alloc_writecombine(substream->pcm->card->dev,
 				       hw_chan * PAGE_SIZE,
 				       &rtd->dma_desc_array_phys, GFP_KERNEL);
-#endif
-#ifdef DMA_VER_R4P0
-		rtd->dma_desc_array =
-		    dma_alloc_coherent(substream->pcm->card->dev,
-				       hw_chan * 2 * PAGE_SIZE,
-				       &rtd->dma_desc_array_phys, GFP_KERNEL);
-		memset(rtd->dma_desc_array, 0x0, hw_chan * 2  * PAGE_SIZE);
-#endif
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	} else {
 		runtime->hw.periods_max =
-		    SPRD_AUDIO_DMA_NODE_SIZE / sizeof(sprd_dma_desc),
-		    runtime->hw.buffer_bytes_max =
+			SPRD_AUDIO_DMA_NODE_SIZE / DMA_LINKLIST_CFG_NODE_SIZE,
+		runtime->hw.buffer_bytes_max =
 		    SPRD_IRAM_ALL_SIZE - (2 * SPRD_AUDIO_DMA_NODE_SIZE),
 		    rtd->dma_desc_array =
 		    (void *)(s_iram_remap_base + runtime->hw.buffer_bytes_max);
 		rtd->dma_desc_array_phys =
 		    SPRD_IRAM_ALL_PHYS + runtime->hw.buffer_bytes_max;
 		rtd->buffer_in_iram = 1;
+		/*must clear the dma_desc_array first here*/
+		memset(rtd->dma_desc_array, 0, (2 * SPRD_AUDIO_DMA_NODE_SIZE));
 	}
 #endif
 	if (!rtd->dma_desc_array)
 		goto err1;
+
+#ifdef DMA_VER_R4P0
+	rtd->dma_cfg_array =
+		kzalloc(hw_chan * runtime->hw.periods_max * sizeof(sprd_dma_desc), GFP_KERNEL);
+	if (!rtd->dma_cfg_array)
+		goto err2;
+#endif
+
 	rtd->uid_cid_map[0] = rtd->uid_cid_map[1] = -1;
 
 	rtd->burst_len = burst_len;
@@ -278,7 +289,22 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	ret = 0;
 	goto out;
 
+#ifdef DMA_VER_R4P0
+err2:
+	pr_err("dma_cfg_array alloc fail!\n");
+
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+		if (rtd->buffer_in_iram)
+			sprd_buffer_iram_restore();
+		else
+#endif
+		dma_free_writecombine(substream->pcm->card->dev,
+				  hw_chan * PAGE_SIZE,
+				  rtd->dma_desc_array,
+				  rtd->dma_desc_array_phys);
+#endif
 err1:
+	pr_err("dma_desc_array alloc fail!\n");
 	kfree(rtd);
 out:
 	sprd_pcm_dbg("return %i\n", ret);
@@ -298,16 +324,12 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 		sprd_buffer_iram_restore();
 	else
 #endif
-#ifdef DMA_VER_R1P0
-		dma_free_coherent(substream->pcm->card->dev,
-				  rtd->hw_chan * PAGE_SIZE,
-				  rtd->dma_desc_array,
-				  rtd->dma_desc_array_phys);
-#endif
+	dma_free_writecombine(substream->pcm->card->dev,
+			  rtd->hw_chan * PAGE_SIZE,
+			  rtd->dma_desc_array,
+			  rtd->dma_desc_array_phys);
 #ifdef DMA_VER_R4P0
-	dma_free_coherent(substream->pcm->card->dev,
-			  rtd->hw_chan * 2 * PAGE_SIZE,
-			  rtd->dma_desc_array, rtd->dma_desc_array_phys);
+	kfree(rtd->dma_cfg_array);
 #endif
 	kfree(rtd);
 
@@ -638,8 +660,8 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	runtime->dma_bytes = totsize;
 
-	dma_desc[0] = rtd->dma_desc_array;
-	dma_desc[1] = rtd->dma_desc_array + runtime->hw.periods_max;
+	dma_desc[0] = rtd->dma_cfg_array;
+	dma_desc[1] = rtd->dma_cfg_array + runtime->hw.periods_max;
 
 	dma_buff_phys[0] = runtime->dma_addr;
 	rtd->dma_addr_offset = (totsize / used_chan_count);
@@ -692,31 +714,31 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 	sprd_pcm_dbg("nodesize:%d\n", j);
 
 	dma_reg_addr[0].phys_addr =
-	    (u32) (rtd->dma_desc_array_phys) + rtd->hw_chan * PAGE_SIZE;
+	    (u32) (rtd->dma_desc_array_phys);
 	dma_reg_addr[0].virt_addr =
-	    (u32) (rtd->dma_desc_array) + rtd->hw_chan * PAGE_SIZE;
+	    (u32) (rtd->dma_desc_array);
 	sprd_pcm_dbg("dma_reg_addr[0].virt_addr:0x%x\n",
 		     dma_reg_addr[0].virt_addr);
 	sprd_pcm_dbg("dma_reg_addr[0].phys_addr:0x%x\n",
 		     dma_reg_addr[0].phys_addr);
 
-	sci_dma_config((u32)(rtd->uid_cid_map[0]), (struct sci_dma_cfg *)(rtd->dma_desc_array),
+	sci_dma_config((u32)(rtd->uid_cid_map[0]), (struct sci_dma_cfg *)(rtd->dma_cfg_array),
 		       params_periods(params), &dma_reg_addr[0]);
 	ret = sci_dma_register_irqhandle(rtd->uid_cid_map[0], rtd->params->irq_type,	/*dma->irq_type */
 					 sprd_pcm_dma_irq_ch, substream);
 
 	if (used_chan_count > 1) {
 		dma_reg_addr[1].phys_addr =
-		    (u32) (dma_reg_addr[0].phys_addr) + PAGE_SIZE;
+		    (u32) (dma_reg_addr[0].phys_addr) + runtime->hw.periods_max * DMA_LINKLIST_CFG_NODE_SIZE;
 		dma_reg_addr[1].virt_addr =
-		    (u32) (dma_reg_addr[0].virt_addr) + PAGE_SIZE;
+		    (u32) (dma_reg_addr[0].virt_addr) + runtime->hw.periods_max * DMA_LINKLIST_CFG_NODE_SIZE;
 		sprd_pcm_dbg("dma_reg_addr[1].virt_addr:0x%x\n",
 			     dma_reg_addr[1].virt_addr);
 		sprd_pcm_dbg("dma_reg_addr[1].phys_addr:0x%x\n",
 			     dma_reg_addr[1].phys_addr);
 
 		sci_dma_config((u32)(rtd->uid_cid_map[1]),
-			       (struct sci_dma_cfg *)(rtd->dma_desc_array + runtime->hw.periods_max),
+			       (struct sci_dma_cfg *)(rtd->dma_cfg_array + runtime->hw.periods_max),
 			       params_periods(params), &dma_reg_addr[1]);
 		ret = sci_dma_register_irqhandle(rtd->uid_cid_map[1], rtd->params->irq_type,	/*dma->irq_type */
 						 sprd_pcm_dma_irq_ch,
@@ -943,6 +965,7 @@ static int sprd_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 static u64 sprd_pcm_dmamask = DMA_BIT_MASK(32);
 static struct snd_dma_buffer *save_p_buf = 0;
 static struct snd_dma_buffer *save_c_buf = 0;
+static struct snd_dma_buffer *save_c23_buf = 0;
 
 static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
@@ -980,18 +1003,35 @@ static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	substream = pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream;
 	if (substream) {
 		struct snd_dma_buffer *buf = &substream->dma_buffer;
-		if (sprd_is_i2s(cpu_dai) || !save_c_buf) {
+		if (sprd_is_i2s(cpu_dai)) {
 			ret = sprd_pcm_preallocate_dma_buffer(pcm,
-							      SNDRV_PCM_STREAM_CAPTURE);
+								  SNDRV_PCM_STREAM_CAPTURE);
 			if (ret)
 				goto out;
-			if (!sprd_is_i2s(cpu_dai)) {
+		} else if (!strcmp(rtd->cpu_dai->name, "vbc")  || !strcmp(rtd->cpu_dai->name, "vaudio")) {
+			 if (!save_c_buf) {
+				ret = sprd_pcm_preallocate_dma_buffer(pcm,
+								      SNDRV_PCM_STREAM_CAPTURE);
+				if (ret)
+					goto out;
 				save_c_buf = buf;
+				sprd_pcm_dbg("capture ad01 alloc memery\n");
+			} else {
+				memcpy(buf, save_c_buf, sizeof(*buf));
+				sprd_pcm_dbg("capture ad01 share memery\n");
 			}
-			sprd_pcm_dbg("capture alloc memery\n");
-		} else {
-			memcpy(buf, save_c_buf, sizeof(*buf));
-			sprd_pcm_dbg("capture share memery\n");
+		} else if (!strcmp(rtd->cpu_dai->name, "vbc-ad23")  || !strcmp(rtd->cpu_dai->name, "vaudio-ad23")) {
+			if ( !save_c23_buf) {
+				ret = sprd_pcm_preallocate_dma_buffer(pcm,
+								      SNDRV_PCM_STREAM_CAPTURE);
+				if (ret)
+					goto out;
+				save_c23_buf = buf;
+				sprd_pcm_dbg("capture ad23 alloc memery\n");
+			} else {
+				memcpy(buf, save_c23_buf, sizeof(*buf));
+				sprd_pcm_dbg("capture ad23 share memery\n");
+			}
 		}
 	}
 out:
@@ -1028,6 +1068,9 @@ static void sprd_pcm_free_dma_buffers(struct snd_pcm *pcm)
 		}
 		if (buf == save_c_buf) {
 			save_c_buf = 0;
+		}
+		if (buf == save_c23_buf) {
+			save_c23_buf = 0;
 		}
 	}
 	sprd_pcm_dbg("Leaving %s\n", __func__);

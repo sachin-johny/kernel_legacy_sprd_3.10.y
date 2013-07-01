@@ -71,8 +71,8 @@ enum {
 #define CODEC_DP_IRQ		(IRQ_REQ_AUD_INT)
 
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
-#define SPRD_IRAM_ALL_PHYS	0X00000000
-#define SPRD_IRAM_ALL_SIZE	SZ_32K
+#define SPRD_IRAM_ALL_PHYS	  (SPRD_IRAM1_PHYS + 0x4800)  /*18K offset*/
+#define SPRD_IRAM_ALL_SIZE	  (SPRD_IRAM1_SIZE -0x4800) /*34k size*/
 #endif
 
 #define CLASS_G_LDO_ID			"vddclsg"
