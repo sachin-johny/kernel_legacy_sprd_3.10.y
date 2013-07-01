@@ -21,6 +21,9 @@
 #include <linux/slab.h>
 #include <linux/io.h>
 #include <asm/uaccess.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+
 
 #include <linux/sipc.h>
 #include "sbuf.h"
@@ -499,6 +502,58 @@ int sbuf_status(uint8_t dst, uint8_t channel)
 
 	return 0;
 }
+
+#if defined(CONFIG_DEBUG_FS)
+
+static int sbuf_debug_show(struct seq_file *m, void *private)
+{
+	struct sbuf_mgr *sbuf = NULL;
+	struct sbuf_ring	*rings = NULL;
+	struct sbuf_ring_header  *ring = NULL;
+	int i, j, n;
+
+	for (i = 0; i < SIPC_ID_NR; i++) {
+		for (j=0;  j< SMSG_CH_NR; j++) {
+			sbuf = sbufs[i][j];
+			if (!sbuf) {
+				continue;
+			}
+			seq_printf(m, "sbuf dst 0x%0x, channel: 0x%0x, state: %d, smem_virt: 0x%0x, smem_addr: 0x%0x, smem_size: 0x%0x, ringnr: %d \n",
+				   sbuf->dst, sbuf->channel, sbuf->state, sbuf->smem_virt, sbuf->smem_addr, sbuf->smem_size, sbuf->ringnr);
+
+			for (n=0;  n < sbuf->ringnr;  n++) {
+				rings = &(sbuf->rings[n]);
+				ring = rings->header;
+				seq_printf(m, "sbuf ring[%d]: rxbuf_addr :0x%0x, rxbuf_rdptr :0x%0x, rxbuf_wrptr :0x%0x, rxbuf_size :0x%0x \n", n,  ring->rxbuf_addr, ring->rxbuf_rdptr, ring->rxbuf_wrptr, ring->rxbuf_size);
+				seq_printf(m, "sbuf ring[%d]: txbuf_addr :0x%0x, txbuf_rdptr :0x%0x, txbuf_wrptr :0x%0x, txbuf_size :0x%0x \n", n,  ring->txbuf_addr, ring->txbuf_rdptr, ring->txbuf_wrptr, ring->txbuf_size);
+			}
+		}
+	}
+	return 0;
+}
+
+static int sbuf_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sbuf_debug_show, inode->i_private);
+}
+
+static const struct file_operations sbuf_debug_fops = {
+	.open = sbuf_debug_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+int  sbuf_init_debugfs( void *root )
+{
+	if (!root)
+		return -ENXIO;
+	debugfs_create_file("sbuf", S_IRUGO, (struct dentry *)root, NULL, &sbuf_debug_fops);
+	return 0;
+}
+
+#endif /* CONFIG_DEBUG_FS */
+
 
 EXPORT_SYMBOL(sbuf_create);
 EXPORT_SYMBOL(sbuf_destroy);

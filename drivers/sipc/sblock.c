@@ -23,6 +23,8 @@
 #include <linux/list.h>
 #include <linux/spinlock.h>
 #include <asm/uaccess.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
 
 #include <linux/sipc.h>
 #include "sblock.h"
@@ -499,6 +501,56 @@ int sblock_release(uint8_t dst, uint8_t channel, struct sblock *blk)
 	return 0;
 }
 
+#if defined(CONFIG_DEBUG_FS)
+static int sblock_debug_show(struct seq_file *m, void *private)
+{
+	struct sblock_mgr *sblock = NULL;
+	struct sblock_ring  *ring = NULL;
+	struct sblock_ring_header	 *header= NULL;
+	int i, j;
+
+	for (i = 0; i < SIPC_ID_NR; i++) {
+		for (j=0;  j< SMSG_CH_NR; j++) {
+			sblock = sblocks[i][j];
+			if (!sblock) {
+				continue;
+			}
+			seq_printf(m, "sblock dst 0x%0x, channel: 0x%0x, state: %d, smem_virt: 0x%0x, smem_addr: 0x%0x, smem_size: 0x%0x, txblksz: %d, rxblksz: %d \n",
+				   sblock->dst, sblock->channel, sblock->state, sblock->smem_virt, sblock->smem_addr, sblock->smem_size, sblock->txblksz, sblock->rxblksz );
+			ring = sblock->ring;
+			header = sblock->ring->header;
+			seq_printf(m, "sblock ring: txblk_virt :0x%0x, rxblk_virt :0x%0x, txblk_count :%d \n",  ring->txblk_virt, ring->rxblk_virt, ring->txblk_count );
+			seq_printf(m, "sblock header: rxblk_addr :0x%0x, rxblk_rdptr :0x%0x, rxblk_wrptr :0x%0x, rxblk_size :%d, rxblk_count :%d, rxblk_blks: 0x%0x \n", 
+							header->rxblk_addr, header->rxblk_rdptr, header->rxblk_wrptr, header->rxblk_size, header->rxblk_count, header->rxblk_blks );
+			seq_printf(m, "sblock header: txblk_addr :0x%0x, txblk_rdptr :0x%0x, txblk_wrptr :0x%0x, txblk_size :%d, txblk_count :%d, txblk_blks: 0x%0x \n", 
+							header->txblk_addr, header->txblk_rdptr, header->txblk_wrptr, header->txblk_size, header->txblk_count, header->txblk_blks );
+		}
+	}
+	return 0;
+
+}
+
+static int sblock_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, sblock_debug_show, inode->i_private);
+}
+
+static const struct file_operations sblock_debug_fops = {
+	.open = sblock_debug_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+int  sblock_init_debugfs(void *root )
+{
+	if (!root)
+		return -ENXIO;
+	debugfs_create_file("sblock", S_IRUGO, (struct dentry *)root, NULL, &sblock_debug_fops);
+	return 0;
+}
+
+#endif /* CONFIG_DEBUG_FS */
 
 EXPORT_SYMBOL(sblock_put);
 EXPORT_SYMBOL(sblock_create);
