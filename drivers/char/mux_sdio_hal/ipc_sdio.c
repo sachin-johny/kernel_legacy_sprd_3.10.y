@@ -19,7 +19,7 @@
 #include <linux/clk.h>
 #include <linux/platform_device.h>
 #include <linux/list.h>
-
+#include <linux/wakelock.h>
 #include <linux/semaphore.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
@@ -98,6 +98,8 @@ u8*   s_mipc_rx_buf = NULL;
 #define MAX_MIPC_TX_FRAME_NUM    3
 MIPC_TRANSF_FRAME_T   s_tx_transfer_frame[MAX_MIPC_TX_FRAME_NUM];
 
+static struct wake_lock   s_ipc_sdio_tx_wake_lock;
+static struct wake_lock   s_ipc_sdio_rx_wake_lock;
 
 static struct mutex ipc_mutex;
 wait_queue_head_t s_mux_read_rts;
@@ -461,7 +463,9 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 	u32  result =  SDHCI_TRANSFER_OK;
 	u32 resend_count = 0;
 	mutex_lock(&ipc_mutex);/*get  lock */
-
+	
+	wake_lock(&s_ipc_sdio_tx_wake_lock);	
+	
 	do
 	{
 	        ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECT_REQ);	
@@ -508,6 +512,9 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 		sdhci_resetconnect(MUX_IPC_ENABLE);
 	}
 	ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_IDLE);
+
+	wake_unlock(&s_ipc_sdio_tx_wake_lock);	
+		
 	mutex_unlock(&ipc_mutex); /* release lock */
 	return ret;
 
@@ -629,6 +636,8 @@ u32  process_modem_packet(unsigned long data)
 	ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_IDLE);
 	mutex_unlock(&ipc_mutex);
 
+	wake_unlock(&s_ipc_sdio_rx_wake_lock);
+	
 	if(!result)
 	{
 		u32  send_cnt = 0;
@@ -803,6 +812,7 @@ u32 s_mipc_rx_event_flags = 0;
 	if(ipc_status && even_flag)
 	{
 	      	s_mipc_rx_event_flags = even_flag;
+		wake_lock(&s_ipc_sdio_rx_wake_lock);	
 	  	wake_up(&s_mux_ipc_rx_wq);
         status = 0;
 	}
@@ -857,6 +867,8 @@ static int modem_sdio_probe(struct platform_device *pdev)
 	int retval = 0;
 
 	printk("modem_spi_probe\n");
+	wake_lock_init(&s_ipc_sdio_tx_wake_lock, WAKE_LOCK_SUSPEND, "ipc_sdio_tx");
+	wake_lock_init(&s_ipc_sdio_rx_wake_lock, WAKE_LOCK_SUSPEND, "ipc_sdio_rx");	
 	mutex_init(&ipc_mutex);
 	mux_ipc_create_tx_thread();
         mux_ipc_create_rx_thread();

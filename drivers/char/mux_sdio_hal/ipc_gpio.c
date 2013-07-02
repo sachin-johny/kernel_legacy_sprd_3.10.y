@@ -42,7 +42,7 @@
 static unsigned int cp_to_ap_rdy_irq;
 static unsigned int cp_to_ap_rts_irq;
 
-static struct wake_lock   s_sdhci_wake_lock;
+
 static wait_queue_head_t   s_gpio_cp_ready_wq;
 
 extern void process_modem_packet(unsigned long data);
@@ -84,39 +84,6 @@ void ap2cp_rts_disable(void)
 	gpio_set_value(GPIO_AP_TO_CP_RTS, 0);
 }
 
-#define MAX_SLEEP_DELAY_TIME   5000
-static struct timer_list s_sdhci_gpio_timer;
-
-u32 s_is_sdhci_sleep = 0;
-u32 s_is_sdhci_need_restore = 0;
-
-static void _EnableSleep(unsigned long unused)
-{
-	printk("[MIPC]EnableSleep!%d\r\n", s_is_sdhci_sleep);
-	if(s_is_sdhci_sleep)
-	{
-		s_is_sdhci_need_restore = 1;
-		wake_unlock(&s_sdhci_wake_lock);
-	 	s_is_sdhci_sleep = 0;
-	}
-}
-
-static void _DisableSleep(void)
-{
-        pr_debug("[MIPC]_DisableSleep!\r\n");
-        if(!s_is_sdhci_sleep)
-        {
-		printk("[MIPC]DisableSleep!%d\r\n", s_is_sdhci_sleep);
-		wake_lock(&s_sdhci_wake_lock);
-		s_is_sdhci_sleep = 1;
-		if(s_is_sdhci_need_restore)
-		{
-			s_is_sdhci_need_restore = 0;
-		}
-        }
-	mod_timer(&s_sdhci_gpio_timer,  jiffies + msecs_to_jiffies(MAX_SLEEP_DELAY_TIME));
-}
-
 extern  u32  wake_up_mipc_rx_thread(u32  need_to_rx_data);
 
 static irqreturn_t cp_to_ap_rts_irq_handle(int irq, void *handle)
@@ -130,7 +97,7 @@ static irqreturn_t cp_to_ap_rts_irq_handle(int irq, void *handle)
 		irq_set_irq_type( irq,  IRQF_TRIGGER_HIGH);
 		if(!wake_up_mipc_rx_thread(!cp2ap_rts()))
 		{
-			_DisableSleep();
+			
 		}
 	}
 
@@ -147,7 +114,6 @@ static irqreturn_t cp_to_ap_rdy_handle(int irq, void *handle)
 
 u32 sdhci_connect(u32   direction)
 {
-	_DisableSleep();
 	if(SDHCI_TRANSFER_DIRECT_WRITE == direction)
 	{
 	          clear_ap_status();	/* send */
@@ -177,7 +143,6 @@ u32 sdhci_connect(u32   direction)
 u32 sdhci_disconnect(u32  status)
 {
 	DBG("[SDIO_IPC]sdhci_disconnect: %s\r\n", status ? "SDHCI_TRANSFER_ERROR" : "SDHCI_TRANSFER_OK");
-	_DisableSleep();
 #ifdef SDHCI_RESEND_SUPPORT
 	if(SDHCI_TRANSFER_OK  == status)
 	{
@@ -232,14 +197,7 @@ int sdhci_hal_gpio_init(void)
 	DBG("sdhci_hal_gpio init \n");
 
 	init_waitqueue_head(&s_gpio_cp_ready_wq);
-	wake_lock_init(&s_sdhci_wake_lock, WAKE_LOCK_SUSPEND, "cp_to_ap_rts");
-
-	init_timer(&s_sdhci_gpio_timer);
-	s_sdhci_gpio_timer.expires = MAX_SLEEP_DELAY_TIME;
-	s_sdhci_gpio_timer.data = 0;
-	s_sdhci_gpio_timer.function = _EnableSleep;
-
-
+	
 	//config ap_to_cp_rts
 	ret = gpio_request(GPIO_AP_TO_CP_RTS, "ap_to_cp_rts");
 	if (ret) {
