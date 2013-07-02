@@ -151,9 +151,8 @@ void usb_phy_init(void)
 static void usb_startup(void)
 {
 	usb_ldo_switch(1);
-	mdelay(5);
-	usb_enable_module(1);
 	mdelay(10);
+	usb_enable_module(1);
 #if defined(CONFIG_ARCH_SCX35)
 	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
 	mdelay(5);
@@ -256,8 +255,10 @@ int usb_alloc_id_irq(void)
 	gpio_request(USB_OTG_CABLE_DETECT,"USB OTG CABLE");
 	gpio_direction_input(USB_OTG_CABLE_DETECT);
 	irq = gpio_to_irq(USB_OTG_CABLE_DETECT);
+#if defined(CONFIG_MACH_SPX35EA)
+	/**EA board H/W doesn't support OTG**/
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
-
+#endif
 	return irq;
 }
 
@@ -276,7 +277,8 @@ int usb_get_id_irq(void)
 }
 int usb_get_id_state(void)
 {
-#if 1
+#if defined(CONFIG_MACH_SPX35EA)
+	/**EA board H/W doesn't support OTG**/
 	return 1;
 #else
 	int value;
