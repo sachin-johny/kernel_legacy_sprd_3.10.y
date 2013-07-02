@@ -43,6 +43,10 @@
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -587,6 +591,10 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 	if (ipinr >= IPI_TIMER && ipinr < IPI_TIMER + NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr - IPI_TIMER]);
 
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 1);
+#endif
+
 	switch (ipinr) {
 	case IPI_TIMER:
 		irq_enter();
@@ -628,6 +636,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 2);
+#endif
+
 	set_irq_regs(old_regs);
 }
 

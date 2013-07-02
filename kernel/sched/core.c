@@ -77,6 +77,11 @@
 #include <asm/tlb.h>
 #include <asm/irq_regs.h>
 #include <asm/mutex.h>
+
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
 #ifdef CONFIG_PARAVIRT
 #include <asm/paravirt.h>
 #endif
@@ -3244,6 +3249,9 @@ need_resched:
 	} else
 		raw_spin_unlock_irq(&rq->lock);
 
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_task_log(cpu, rq->curr);
+#endif
 	post_schedule(rq);
 
 	sched_preempt_enable_no_resched();
