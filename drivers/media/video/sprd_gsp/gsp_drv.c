@@ -1169,8 +1169,10 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
     }
     blockcnt = GSP_Gen_CMDQ(pDescriptors,relation);
 
-    if(relation == L1_L0_RELATIONSHIP_BP)// CMDQ mode have many hardware problem, but in BP case, it can cutdown time cost 3ms
+    //if(relation == L1_L0_RELATIONSHIP_BP)//bug 181964 ,in video, there are more 2 line white pixel under video-image, ASIC CMDQ's bug.
+    if(0)
     {
+        // CMDQ mode have many hardware problem, but in BP case, it can cutdown time cost 3ms
         (*(uint32_t*)&CmdQCfg.gsp_cmd_addr_u) = (uint32_t)Descriptors_pa;
         CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_num = blockcnt;
     CmdQCfg.gsp_cmd_cfg_u.mBits.cmd_en = 1;
