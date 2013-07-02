@@ -95,7 +95,8 @@ static inline u32 __thm_reg_read(u32 reg)
 
 u32 sprd_thm_temp2rawdata(u32 sensor, int temp)
 {
-	u32 i, high_bits, low_bits;
+	u32 high_bits, low_bits;
+	int i;
 	const short *high_tab;
 	const short *low_tab;
 
@@ -119,12 +120,18 @@ u32 sprd_thm_temp2rawdata(u32 sensor, int temp)
 		if (high_tab[i] <= temp)
 			break;
 	}
+	if (i < 0) {
+		i = 0;
+	}
 	temp -= high_tab[i];
 	high_bits = i;
 
 	for (i = LOW_TAB_SZ - 1; i >= 0; i--) {
 		if (low_tab[i] <= temp)
 			break;
+	}
+	if (i < 0) {
+		i = 0;
 	}
 	low_bits = i;
 	return ((high_bits << HIGH_BITS_OFFSET) | low_bits);
