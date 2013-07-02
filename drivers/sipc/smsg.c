@@ -20,6 +20,9 @@
 #include <linux/delay.h>
 #include <linux/slab.h>
 #include <linux/io.h>
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+
 
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
@@ -348,6 +351,55 @@ recv_failed:
 
 	return rval;
 }
+
+#if defined(CONFIG_DEBUG_FS)
+static int smsg_debug_show(struct seq_file *m, void *private)
+{
+	struct smsg_ipc *smsg_sipc = NULL;
+	int i, j;
+
+	for (i = 0; i < SIPC_ID_NR; i++) {
+		smsg_sipc = smsg_ipcs[i];
+		if (!smsg_sipc) {
+			continue;
+		}
+		seq_printf(m, "sipc: %s: \n", smsg_sipc->name);
+		seq_printf(m, "dst: 0x%0x, irq: 0x%0x\n",
+			   smsg_sipc->dst, smsg_sipc->irq);
+		seq_printf(m, "txbufAddr: 0x%0x, txbufsize: 0x%0x, txbufrdptr: 0x%0x, txbufwrptr: 0x%0x\n",
+			   smsg_sipc->txbuf_addr, smsg_sipc->txbuf_size, smsg_sipc->txbuf_rdptr, smsg_sipc->txbuf_wrptr);
+		seq_printf(m, "rxbufAddr: 0x%0x, rxbufsize: 0x%0x, rxbufrdptr: 0x%0x, rxbufwrptr: 0x%0x\n",
+			   smsg_sipc->rxbuf_addr, smsg_sipc->rxbuf_size, smsg_sipc->rxbuf_rdptr, smsg_sipc->rxbuf_wrptr);
+
+		for (j=0;  j<SMSG_CH_NR; j++) {
+			seq_printf(m, "channel[%d] states: %d\n", j, smsg_sipc->states[j]);
+		}
+	}
+	return 0;
+}
+
+static int smsg_debug_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, smsg_debug_show, inode->i_private);
+}
+
+static const struct file_operations smsg_debug_fops = {
+	.open = smsg_debug_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+};
+
+int smsg_init_debugfs(void *root )
+{
+	if (!root)
+		return -ENXIO;
+	debugfs_create_file("smsg", S_IRUGO, (struct dentry *)root, NULL, &smsg_debug_fops);
+	return 0;
+}
+
+#endif /* CONFIG_DEBUG_FS */
+
 
 EXPORT_SYMBOL(smsg_ch_open);
 EXPORT_SYMBOL(smsg_ch_close);

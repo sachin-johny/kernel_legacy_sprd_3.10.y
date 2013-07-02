@@ -353,7 +353,6 @@ int sblock_get_free_count(uint8_t dst, uint8_t channel);
  */
 void sblock_put(uint8_t dst, uint8_t channel, struct sblock *blk);
 
-
 /* ****************************************************************** */
 /* TODO: SRPC interfaces */
 
