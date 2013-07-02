@@ -37,8 +37,6 @@
 
 extern int in_calibration(void);
 
-static int usb_clk_status = 0;
-
 static void usb_ldo_switch(int is_on)
 {
 	struct regulator *usb_regulator = NULL;
@@ -55,6 +53,8 @@ static void usb_ldo_switch(int is_on)
 		regulator_put(usb_regulator);
 	}
 }
+#if defined(CONFIG_ARCH_SC8825)
+static int usb_clk_status = 0;
 static int usb_clock_enable(int is_on)
 {
 	struct clk *usb_clock = NULL;
@@ -75,6 +75,8 @@ static int usb_clock_enable(int is_on)
 	}
 	return 0;
 }
+#endif
+
 #if defined(CONFIG_ARCH_SCX35)
 static void usb_enable_module(int en)
 {

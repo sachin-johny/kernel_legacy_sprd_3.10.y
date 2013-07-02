@@ -93,9 +93,10 @@ static struct gadget_wrapper {
 	/*
 	 * this timer is used for checking cable type, usb or ac adapter.
 	 */
-	struct timer_list cable_timer;
+	struct workqueue_struct *cable2pc_wq;
 	struct workqueue_struct *detect_wq;
 	struct work_struct detect_work;
+	struct delayed_work cable2pc;
 
 	struct switch_dev sdev;
 	int udc_startup;
@@ -112,6 +113,7 @@ static DEFINE_MUTEX(udc_lock);
 /* Display the contents of the buffer */
 extern void dump_msg(const u8 * buf, unsigned int length);
 
+#if 0
 /**
  * Get the dwc_otg_pcd_ep_t* from usb_ep* pointer - NULL in case
  * if the endpoint is not found
@@ -132,7 +134,7 @@ static struct dwc_otg_pcd_ep *ep_from_handle(dwc_otg_pcd_t * pcd, void *handle)
 
 	return NULL;
 }
-
+#endif
 extern int in_calibration(void);
 
 static int factory_mode = false;
@@ -665,12 +667,10 @@ extern void dwc_otg_pcd_stop(dwc_otg_pcd_t *pcd);
 
 static void __udc_startup(void);
 static void __udc_shutdown(void);
-static void enumeration_enable(void);
 
 static int pullup(struct usb_gadget *gadget, int is_on)
 {
 	struct gadget_wrapper *d;
-	static int enum_enabled = 0;
 	int action = is_on;
 
 #ifndef DWC_DEVICE_ONLY	
@@ -687,15 +687,13 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 
 	mutex_lock(&udc_lock);
 	if (action) {
-		mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
+		queue_delayed_work(d->cable2pc_wq, &d->cable2pc,CABLE_TIMEOUT);
 		__udc_startup();
 	} else {
 		/*
 		 *this is soft disconnct, and maybe the timer started
 		 *by plugin still work, need cancel this timer like plugout
 		 */
-		if(timer_pending(&d->cable_timer))
-			del_timer(&d->cable_timer);
 		
 		__udc_shutdown();
 	}
@@ -729,8 +727,6 @@ static int _setup(dwc_otg_pcd_t * pcd, uint8_t * bytes)
 		mod_timer(&setup_transfer_timer, jiffies + HZ);
 	}
 #endif
-	if(timer_pending(&gadget_wrapper->cable_timer))
-		del_timer(&gadget_wrapper->cable_timer);
 	if (gadget_wrapper->driver && gadget_wrapper->driver->setup) {
 		retval = gadget_wrapper->driver->setup(&gadget_wrapper->gadget,
 				(struct usb_ctrlrequest
@@ -1240,12 +1236,11 @@ static void usb_detect_works(struct work_struct *work)
 		pr_info("usb detect plug in,vbus pull up\n");
 		hotplug_callback(VBUS_PLUG_IN, 0);
 		if(get_usb_first_enable_store_flag()){
-			mod_timer(&d->cable_timer, jiffies + CABLE_TIMEOUT);
+			queue_delayed_work(d->cable2pc_wq, &d->cable2pc,CABLE_TIMEOUT);
 			__udc_startup();
 		}
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
-		del_timer(&d->cable_timer);
 		__udc_shutdown();
 		hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
 	}
@@ -1287,16 +1282,6 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
-static void enumeration_enable(void)
-{
-	struct gadget_wrapper *d;
-
-	pr_info("enable usb enumeration\n");
-	d = gadget_wrapper;
-	dwc_otg_enable_global_interrupts(GET_CORE_IF(d->pcd));
-	return;
-}
-
 static int cable_is_connected(void)
 {
 	if (usb_get_vbus_state())
@@ -1311,10 +1296,12 @@ static int cable_is_connected(void)
  * power.
  */
 #define REENUM_CNT  1
-static void cable_detect_handler(unsigned long data)
+static void cable2pc_detect_works(struct work_struct *work)
 {
 	int usb_cable;
 	static int reenum_cnt = REENUM_CNT;
+	struct gadget_wrapper *d;
+	d = gadget_wrapper;
 	usb_cable = cable_is_usb();
 
 	/* in factory mode, we know the cable must be usb, so we enumerate
@@ -1325,8 +1312,7 @@ static void cable_detect_handler(unsigned long data)
 		reenum_cnt--;
 		mutex_lock(&udc_lock);
 		__udc_shutdown();
-		mod_timer(&gadget_wrapper->cable_timer, jiffies +
-				CABLE_TIMEOUT);
+		queue_delayed_work(d->cable2pc_wq, &d->cable2pc,CABLE_TIMEOUT);
 		__udc_startup();
 		mutex_unlock(&udc_lock);
 		return;
@@ -1394,8 +1380,8 @@ int pcd_init(
 		setup_transfer_timer_start = 0;
 	}
 #endif
-	setup_timer(&gadget_wrapper->cable_timer, cable_detect_handler,
-			(unsigned long)gadget_wrapper);
+	INIT_DELAYED_WORK(&gadget_wrapper->cable2pc, cable2pc_detect_works);
+	gadget_wrapper->cable2pc_wq = create_singlethread_workqueue("usb 2 pc wq");
 	/*
 	 * setup usb cable detect interupt
 	 */
@@ -1474,6 +1460,7 @@ struct platform_device *_dev
 	usb_free_vbus_irq(plug_irq);
 	dwc_otg_pcd_remove(pcd);
 	destroy_workqueue(gadget_wrapper->detect_wq);
+	destroy_workqueue(gadget_wrapper->cable2pc_wq);
 	wake_lock_destroy(&usb_wake_lock);
 	switch_dev_unregister(&gadget_wrapper->sdev);
 	free_wrapper(gadget_wrapper);

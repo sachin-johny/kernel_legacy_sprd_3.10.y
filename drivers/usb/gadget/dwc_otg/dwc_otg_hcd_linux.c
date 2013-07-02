@@ -361,7 +361,7 @@ static struct dwc_otg_hcd_function_ops hcd_fops = {
 	.get_b_hnp_enable = _get_b_hnp_enable,
 };
 
-
+#if 0
 static struct timer_list otg_cable_connect_timer;
 static int32_t otg_cable_connect_fun(void *dev)
 {
@@ -376,7 +376,7 @@ static int32_t otg_cable_connect_fun(void *dev)
 	*/
 
 }
-
+#endif
 void usb_otg_cable_detect_work(void *p)
 {
 	dwc_otg_device_t *otg_dev = p;
@@ -447,7 +447,6 @@ int hcd_init(
 	int irq;
 	int otg_cable_irq;
 	int otg_cable_connected;
-	u64 dmamask;
 	int retval = 0;
 
 	DWC_DEBUGPL(DBG_HCD, "DWC OTG HCD INIT\n");
@@ -456,23 +455,11 @@ int hcd_init(
 	/* HCD.c will judge this flag. */
 	/* and also scsi_lib.c will check this dma_mask. daniel.li */
 	if (dwc_otg_is_dma_enable(otg_dev->core_if)) {
-#if 0
-		dmamask = DMA_BIT_MASK(32);
-		if(dma_set_mask(&_dev->dev, dmamask))
-		dma_set_coherent_mask(&_dev->dev, dmamask);
-#else
 		_dev->dev.dma_mask = &dwc_otg_dmamask;
 		_dev->dev.coherent_dma_mask = dwc_otg_dmamask;
-#endif
 	} else {
-#if 0
-		dmamask = 0;
-		dma_set_mask(&_dev->dev, dmamask);
-		dma_set_coherent_mask(&_dev->dev, dmamask);
-#else
 		_dev->dev.dma_mask = (void *)0;
 		_dev->dev.coherent_dma_mask = 0;
-#endif
 	}
 
 	/*

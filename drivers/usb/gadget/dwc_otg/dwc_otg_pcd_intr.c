@@ -3356,12 +3356,7 @@ static inline void handle_in_ep_disable_intr(dwc_otg_pcd_t * pcd,
 	dctl_data_t dctl = {.d32 = 0 };
 	dwc_otg_pcd_ep_t *ep;
 	dwc_ep_t *dwc_ep;
-	gintmsk_data_t gintmsk_data;
 	depctl_data_t depctl;
-	uint32_t diepdma;
-	uint32_t remain_to_transfer = 0;
-	uint8_t i;
-	uint32_t xfer_size;
 
 	ep = get_in_ep(pcd, epnum);
 	dwc_ep = &ep->dwc_ep;
@@ -4386,7 +4381,6 @@ int32_t dwc_otg_pcd_handle_in_nak_effective(dwc_otg_pcd_t * pcd)
 	depctl_data_t diepctl = {.d32 = 0 };
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 	gintsts_data_t gintsts;
-	dwc_otg_core_if_t *core_if = GET_CORE_IF(pcd);
 	int i;
 
 	DWC_DEBUGPL(DBG_PCD, "Global IN NAK Effective\n");
