@@ -1370,23 +1370,6 @@ static void sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq)
 
 	spin_lock_irqsave(&host->lock, flags);
 
-	/* if card is removed, send no commands */
-	if( (mmc->card) && (mmc->card->removed) ){
-		printk("%s:: card was removed or broken\n", __func__ );
-		if(mrq->data){
-			mrq->data->error = -ETIMEDOUT;
-		}else if(mrq->cmd){
-			mrq->cmd->error = -ETIMEDOUT;
-		}
-		host->mrq = NULL;
-		host->cmd = NULL;
-		host->data = NULL;
-		mmc_request_done(mmc, mrq);
-		wake_unlock(&sdhci_wake_lock);
-		spin_unlock_irqrestore(&host->lock, flags);
-		return;
-	}
-	/* if card is removed, send no commands */
 	WARN_ON(host->mrq != NULL);
 
 #ifdef SDHCI_USE_LEDS_CLASS
