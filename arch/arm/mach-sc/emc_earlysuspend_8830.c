@@ -55,7 +55,7 @@
 #define DMC_CHANGE_FREQ_WAIT_TIMEOUT		100
 static u32 max_clk = 0;
 static DEFINE_MUTEX(emc_mutex);
-static u32 emc_clk_get(void);
+u32 emc_clk_get(void);
 #define CP2_FLAGS_ADDR	(SPRD_IRAM1_BASE + 0x47FC)
 #define CP2_PARAM_ADDR	(SPRD_IRAM1_BASE + 0x4700)
 #define uint32 u32
@@ -188,7 +188,7 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 
 	return 0;
 }
-static u32 emc_clk_set(u32 new_clk, u32 sene)
+u32 emc_clk_set(u32 new_clk, u32 sene)
 {
 	u32 dll_enable = 1;
 	u32 old_clk;
@@ -249,6 +249,8 @@ static u32 emc_clk_set(u32 new_clk, u32 sene)
 	mutex_unlock(&emc_mutex);
 	return 0;
 }
+EXPORT_SYMBOL(emc_clk_set);
+
 static u32 get_dpll_clk(void)
 {
 	u32 clk;
@@ -257,7 +259,7 @@ static u32 get_dpll_clk(void)
 	clk *= 4;
 	return clk;
 }
-static u32 emc_clk_get(void)
+u32 emc_clk_get(void)
 {
 	u32 pll_clk;
 	u32 div;
@@ -286,6 +288,8 @@ static u32 emc_clk_get(void)
 	clk = pll_clk / (div + 1);
 	return clk;
 }
+EXPORT_SYMBOL(emc_clk_get);
+
 static int debugfs_emc_freq_get(void *data, u64 * val)
 {
 	u32 freq;

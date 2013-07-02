@@ -63,6 +63,14 @@ config DEVFREQ_GOV_USERSPACE
 	  Otherwise, the governor does not change the frequnecy
 	  given at the initialization.
 
+config DEVFREQ_GOV_ONDEMAND
+	bool "Ondemand"
+	help
+	  Chooses frequency based on the recent load on the device. Works
+	  similar as ONDEMAND governor of CPUFREQ does. A device with
+	  Simple-Ondemand should be able to provide busy/total counter
+	  values that imply the usage rate.
+	  Requests from user space and devices drivers can also tune frequency
 comment "DEVFREQ Drivers"
 
 config ARM_EXYNOS4_BUS_DEVFREQ
@@ -77,5 +85,21 @@ config ARM_EXYNOS4_BUS_DEVFREQ
 	  the operating frequencies and voltages with OPP support.
 	  To operate with optimal voltages, ASV support is required
 	  (CONFIG_EXYNOS_ASV).
+
+config SPRD_SCXX30_DMC_FREQ
+	bool "Spreadtrum scxx30 Memory Bus DMCFREQ Driver"
+	depends on ARCH_SCX35
+	select ARCH_HAS_OPP
+	select DEVFREQ_GOV_ONDEMAND
+	help
+	  This adds the DMCFREQ driver for Spreadtrum scxx30 memory bus (vdd_core)
+	  It reads PPMU counters of memory controllers and adjusts
+	  the operating frequencies with OPP support.
+
+config SPRD_DMC_FREQ_DEBUG
+	bool "Spreadtrum scxx30 Memory Bus DMCFREQ Driver debug"
+	depends on SPRD_SCXX30_DMC_FREQ
+	help
+	  DMCFREQ driver for Spreadtrum scxx30 memory bus debug.
 
 endif # PM_DEVFREQ

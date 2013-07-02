@@ -192,6 +192,10 @@ extern const struct devfreq_governor devfreq_userspace;
 #endif
 #ifdef CONFIG_DEVFREQ_GOV_SIMPLE_ONDEMAND
 extern const struct devfreq_governor devfreq_simple_ondemand;
+#endif
+#ifdef CONFIG_DEVFREQ_GOV_ONDEMAND
+extern const struct devfreq_governor devfreq_ondemand;
+#endif
 /**
  * struct devfreq_simple_ondemand_data - void *data fed to struct devfreq
  *	and devfreq_add_device
@@ -209,7 +213,6 @@ struct devfreq_simple_ondemand_data {
 	unsigned int upthreshold;
 	unsigned int downdifferential;
 };
-#endif
 
 #else /* !CONFIG_PM_DEVFREQ */
 static struct devfreq *devfreq_add_device(struct device *dev,
