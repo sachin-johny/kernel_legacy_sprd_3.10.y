@@ -80,10 +80,13 @@ static void mipi_dispc_init_config(struct panel_spec *panel)
 		reg_val |= (1<<3);
 #endif
 	}else{
-		/*enable te*/
-		reg_val |= (1<<8);
+		if(!(panel->cap & PANEL_CAP_NOT_TEAR_SYNC)){
+			printk("sprdfb: mipi_dispc_init_config not support TE\n");
+			/*enable te*/
+			reg_val |= (1<<8);
+		}
 		/*te pol*/
-		if(SPRDFB_POLARITY_NEG == panel->info.mipi->h_sync_pol){
+		if(SPRDFB_POLARITY_NEG == panel->info.mipi->te_pol){
 			reg_val |= (1<<9);
 		}
 		/*use external te*/
