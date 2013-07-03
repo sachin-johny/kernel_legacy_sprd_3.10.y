@@ -46,6 +46,7 @@ void clk_32k_config(int is_on)
 int gps_power_ctl(int is_on)
 {
 	int err;
+        int enabled = 0;
 
 	if (data->pwr_type && !strcmp(data->pwr_type, "pwr_gpio")) {
 		if(GPIO_UNCONFIG != data->power_pin){
@@ -63,12 +64,13 @@ int gps_power_ctl(int is_on)
 		    pr_err("gpsctl:could not get 1.8v regulator\n");
 		    return -1;
 		   }
-		if (is_on) {
+                enabled = regulator_is_enabled(gps_regulator);
+                if (is_on & !enabled) {
 		    err = regulator_set_voltage(gps_regulator, 1800000, 1800000);
 		     if (err)
 			pr_err("gpsctl:could not set to 1800mv.\n");
 			regulator_enable(gps_regulator);
-		} else {
+		} else if(enabled){
 			regulator_disable(gps_regulator);
 		}
 	}

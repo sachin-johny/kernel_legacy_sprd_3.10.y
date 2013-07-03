@@ -219,11 +219,17 @@ static int ldo_is_on(struct regulator_dev *rdev)
 	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
 	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
+
+        /*for pd_rst has higher prioty than pd_set, what's more, their reset values are the same, 0*/
+#if 0
 	if (regs->pd_rst && regs->pd_set) {
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
+                /*when reset, pd_set & pd_rst are all zero, always get here*/
 		if (ret == ! !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit))
 			ret = -EINVAL;
-	} else if (regs->pd_rst) {
+	} else 
+#endif
+        if (regs->pd_rst) {
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
 	} else if (regs->pd_set) {	/* new feature */
 		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
