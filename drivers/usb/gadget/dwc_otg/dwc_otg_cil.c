@@ -2127,9 +2127,10 @@ void dwc_otg_core_host_init(dwc_otg_core_if_t * core_if)
 			    DWC_READ_REG32(&global_regs->grxfsiz));
 
 		/* Non-periodic Tx FIFO */
+		/*set the reg with XX_fifo_size_default,don't use the value initialized when kernel bootup*/
 		DWC_DEBUGPL(DBG_CIL, "initial gnptxfsiz=%08x\n",
 			    DWC_READ_REG32(&global_regs->gnptxfsiz));
-		nptxfifosize.b.depth = params->host_nperio_tx_fifo_size;
+		nptxfifosize.b.depth = dwc_param_host_nperio_tx_fifo_size_default;
 		nptxfifosize.b.startaddr = params->host_rx_fifo_size;
 		DWC_WRITE_REG32(&global_regs->gnptxfsiz, nptxfifosize.d32);
 		DWC_DEBUGPL(DBG_CIL, "new gnptxfsiz=%08x\n",
