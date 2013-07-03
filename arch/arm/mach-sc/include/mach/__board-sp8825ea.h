@@ -25,6 +25,13 @@
 #define GPIO_MAIN_SENSOR_PWN     42
 #define GPIO_SUB_SENSOR_PWN      43
 
+#define GPIO_SPRD_FLASH_LOW      138
+#define GPIO_SPRD_FLASH_HIGH     173
+#define SPRD_FLASH_ON            1
+#define SPRD_FLASH_OFF           0
+#define SPRD_FLASH_LOW_CUR       110
+#define SPRD_FLASH_HIGH_CUR      470
+
 #define EIC_CHARGER_DETECT		(A_EIC_START + 2)
 #define EIC_KEY_POWER           (A_EIC_START + 3)
 #define HEADSET_BUTTON_GPIO		(A_EIC_START + 4)

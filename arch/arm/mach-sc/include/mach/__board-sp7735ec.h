@@ -25,6 +25,13 @@
 #define GPIO_MAIN_SENSOR_PWN     187//42
 #define GPIO_SUB_SENSOR_PWN      188//43
 
+#define SPRD_FLASH_OFST          0x890
+#define SPRD_FLASH_CTRL_BIT      0x8000
+#define SPRD_FLASH_LOW_VAL       0x3
+#define SPRD_FLASH_HIGH_VAL      0xF
+#define SPRD_FLASH_LOW_CUR       110
+#define SPRD_FLASH_HIGH_CUR      470
+
 #define USB_OTG_CABLE_DETECT     72
 
 #define EIC_CHARGER_DETECT		(A_EIC_START + 0)
