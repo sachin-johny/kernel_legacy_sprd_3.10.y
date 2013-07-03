@@ -109,10 +109,7 @@ extern int bcmsdh_remove(struct device *dev);
 extern volatile bool dhd_mmc_suspend;
 
 #ifdef CONFIG_PM_RUNTIME
-	static void bcmsdh_start_runtime(struct sdio_func *func) {
-	unsigned long flags;
-	struct mmc_card *card = func->card;
-
+static void bcmsdh_start_runtime(struct sdio_func *func) {
 	pm_runtime_no_callbacks(&func->dev);
 	pm_suspend_ignore_children(&func->dev, true);
 	pm_runtime_set_autosuspend_delay(&func->dev, 50);
