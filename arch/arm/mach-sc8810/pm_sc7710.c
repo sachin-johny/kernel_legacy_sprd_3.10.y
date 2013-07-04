@@ -37,8 +37,7 @@ extern void l2x0_resume(int collapsed);
 extern void init_ana_gr(void);
 extern void sc7710_turnoff_allldo(void);
 extern void enable_cp_jtag(void);
-extern void check_timer0_and_battery_handler(void);
-extern void enable_tiemr0_wakeup(void);
+
 
 /*init (arm gsm td mm) auto power down */
 #define CHIP_ID_VER_0		(0x88100000UL)
@@ -440,7 +439,7 @@ int sc8810_deep_sleep(void)
 		       "wakelock_suspend", flags);
 	}
 
-	enable_tiemr0_wakeup();
+
 
 	status = sc8810_get_clock_status();
 	if (status & DEVICE_AHB) {
@@ -454,7 +453,7 @@ int sc8810_deep_sleep(void)
 		ret = deep_sleep();
 	}
 
-	check_timer0_and_battery_handler();
+
 
 	time_add(get_sys_cnt() - time, ret);
 	print_hard_irq_inloop(ret);

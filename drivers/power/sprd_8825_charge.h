@@ -187,6 +187,7 @@
 #define CHGR_PD_BIT			BIT(12)
 #define CHGR_CURVE_SHARP_BIT		BIT(13)
 #endif
+
 #define CHGR_CAPACITY_SHOW_STEADY 1
 /*
  * This enum defines the lowest switchover point between constant-current and
@@ -305,6 +306,7 @@ int32_t sprd_get_chg_current(struct sprd_battery_data *data);
 void stop_chg_timer_work(void);
 void clear_chg_timer_int(void);
 void clear_chg_timer_in_intc(void);
+uint32_t sprd_dump_chg_reg(void);
 
 #endif
 

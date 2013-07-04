@@ -543,7 +543,7 @@ int sprd_charger_is_adapter(struct sprd_battery_data *data)
 	mdelay(10);
 	ret = gpio_get_value(USB_DM_GPIO);
 	sci_glb_clr(REG_AHB_USB_PHY_CTRL, (BIT_DMPULLUP));
-	
+
 	local_irq_restore(irq_flag);
 	udc_disable();
 	gpio_free(USB_DM_GPIO);
@@ -762,6 +762,16 @@ void sprd_set_chg_cur(uint32_t chg_current)
 		      CHGR_CHG_CUR_MSK);
 #endif
 }
+
+#ifdef CONFIG_ARCH_SC7710
+uint32_t sprd_dump_chg_reg(void)
+{
+	uint16_t chg0_val = sci_adi_read(ANA_CHGR_CTRL0);
+	uint16_t chg1_val = sci_adi_read(ANA_CHGR_CTRL1);
+
+	return chg0_val | (chg1_val << 16);
+}
+#endif
 
 void sprd_chg_init(void)
 {

@@ -20,7 +20,10 @@
 extern int sc8810_deep_sleep(void);
 extern void l2x0_suspend(void);
 extern void l2x0_resume(int collapsed);
-
+#ifdef CONFIG_ARCH_SC7710
+extern uint32_t check_timer0_and_battery_handler(void);
+extern void enable_timer0_wakeup(void);
+#endif
 /*idle for sc8810*/
 void sc8810_idle(void)
 {
@@ -46,7 +49,19 @@ void sc8810_idle(void)
 	time_statisic_begin();
 
 	WARN_ONCE(!irqs_disabled(), "#####: Interrupts enabled in sc8810_sleep()!\n");
+
+#ifdef CONFIG_ARCH_SC7710
+	while (1) {
+		enable_timer0_wakeup();
+		sc8810_deep_sleep();
+
+		if (check_timer0_and_battery_handler()) {
+			break;
+		}
+	}
+#else
 	sc8810_deep_sleep();
+#endif
 
 	/* add for debug & statisic*/
 	irq_wakeup_set();

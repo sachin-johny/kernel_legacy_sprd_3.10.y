@@ -53,14 +53,24 @@ extern int sci_adc_get_value(unsigned chan, int scale);
 
 static struct sprd_battery_data *battery_data;
 
-#ifdef CONFIG_ARCH_SC7710
-static u32 sprd_chg_wakeup_cnt = 0;
-#endif
+static int pluse_charging = 0;
+static int pluse_charge_cnt = CHGMNG_PLUSE_TIMES;
+static int hw_switch_update_cnt = CONFIG_AVERAGE_CNT;
+static int stop_left_time = CHARGE_BEFORE_STOP;
+static int32_t vprog_current = 0;
+static int vchg_vol;
+static int pre_usb_online = 0;
+static int pre_ac_online = 0;
 
 #ifdef CONFIG_NOTIFY_BY_USB
 #include <mach/usb.h>
 static int plugin_callback(int usb_cable, void *data);
 static int plugout_callback(int usb_cable, void *data);
+
+#ifdef CONFIG_ARCH_SC7710
+static void sprd_chg_wakeup_timer_load(u32 val);
+#endif
+
 /*
  * we need usb module to detect
  * 1, plug in/out
@@ -449,7 +459,7 @@ static int plugin_callback(int usb_cable, void *data)
 	}
 
 #ifdef CONFIG_ARCH_SC7710
-	sprd_chg_wakeup_cnt = SPRD_CHG_WAKEUP_SLEEP_CNT;
+	sprd_chg_wakeup_timer_load(SPRD_CHG_WAKEUP_SLEEP_CNT);
 #endif
 	d->ac_online = 0;
 	d->usb_online = 0;
@@ -481,7 +491,7 @@ static int plugout_callback(int usb_cable, void *data)
 	}
 
 #ifdef CONFIG_ARCH_SC7710
-	sprd_chg_wakeup_cnt = SPRD_DISCHG_WAKEUP_SLEEP_CNT;
+	sprd_chg_wakeup_timer_load(SPRD_DISCHG_WAKEUP_SLEEP_CNT);
 #endif
 
 	d->ac_online = 0;
@@ -494,15 +504,6 @@ static int plugout_callback(int usb_cable, void *data)
 	return 0;
 }
 #endif
-
-static int pluse_charging = 0;
-static int pluse_charge_cnt = CHGMNG_PLUSE_TIMES;
-static int hw_switch_update_cnt = CONFIG_AVERAGE_CNT;
-static int stop_left_time = CHARGE_BEFORE_STOP;
-static int32_t vprog_current = 0;
-static int vchg_vol;
-static int pre_usb_online = 0;
-static int pre_ac_online = 0;
 
 void enable_usb_charge(struct sprd_battery_data *battery_data)
 {
@@ -684,14 +685,15 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 			printk(KERN_ERR "vbat over %d \n", voltage);
 		}
 
-        pr_debug("SPRD_CHG::%s, voltage = %d, vchg_vol = %d, vprog_current = %d, usb = %d, ac = %d, cur_type = %d\n" \
+        pr_debug("SPRD_CHG::%s, voltage = %d, vchg_vol = %d, vprog_current = %d, usb = %d, ac = %d, cur_type = %d, reg = 0x%x\n" \
                 , __FUNCTION__  \
                 , voltage   \
                 , vchg_vol  \
                 , vprog_current \
                 , usb_online    \
                 , ac_online     \
-                , battery_data->cur_type);
+                , battery_data->cur_type    \
+                , sprd_dump_chg_reg());
 
 	}
 	if (!battery_data->charging && !battery_data->in_precharge &&
@@ -889,48 +891,52 @@ void battery_sleep(void)
 }
 
 
-//#ifdef CONFIG_ARCH_SC7710
-void enable_tiemr0_wakeup(void)
-{
-	static u32 set_flag = 0;
+#ifdef CONFIG_ARCH_SC7710
 
+static void sprd_chg_wakeup_timer_load(u32 val)
+{
 	while (__raw_readl(SPRD_TIMER0_INT) & SPRD_TIMER0_LD_BUSY) {
 		//wait timer0 ready
 	}
 
-	if (!set_flag) {
-		__raw_writel(sprd_chg_wakeup_cnt, SPRD_TIMER0_LOAD);
-		__raw_writel(__raw_readl(SPRD_TIMER0_CTL) | SPRD_TIMER0_MODE,
-			     SPRD_TIMER0_CTL);
-		__raw_writel(__raw_readl(SPRD_TIMER0_INT) | SPRD_TIMER0_INT_EN,
-			     SPRD_TIMER0_INT);
+	__raw_writel(val, SPRD_TIMER0_LOAD);
+	__raw_writel(__raw_readl(SPRD_TIMER0_CTL) | SPRD_TIMER0_MODE,
+		     SPRD_TIMER0_CTL);
+	__raw_writel(__raw_readl(SPRD_TIMER0_INT) | SPRD_TIMER0_INT_EN,
+		     SPRD_TIMER0_INT);
+}
 
-		set_flag = 1;
-	}
-
+void enable_timer0_wakeup(void)
+{
 	__raw_writel(__raw_readl(SPRD_INTC_EN_STS) | SPRD_INTC_TIMER0_BIT,
 		     SPRD_INTC_EN_STS);
 	__raw_writel(__raw_readl(SPRD_TIMER0_CTL) | SPRD_TIMER0_RUN,
 		     SPRD_TIMER0_CTL);
 
-    pr_debug("wakeup source = %s, sprd_chg_wakeup_cnt = %u\n"\
-                , __FUNCTION__\
-                , sprd_chg_wakeup_cnt);
-
 }
 
-void check_timer0_and_battery_handler(void)
+uint32_t check_timer0_and_battery_handler(void)
 {
-	if (__raw_readl(SPRD_INTC_MSK_STS) & SPRD_INTC_TIMER0_BIT) {
+	uint32_t is_timer_int = __raw_readl(SPRD_INTC_MSK_STS) & SPRD_INTC_TIMER0_BIT;
+	uint32_t is_other_int = __raw_readl(SPRD_INTC_MSK_STS) & (~SPRD_INTC_TIMER0_BIT);
+
+	printk("%s, is_timer_int = 0x%x, is_ohter_int = 0x%x!\n"    \
+					, __FUNCTION__  \
+					, is_timer_int  \
+					, is_other_int);
+
+	if (is_timer_int && (!is_other_int)) {
 		battery_sleep();
 		clear_chg_timer_int();
+		clear_chg_timer_in_intc();
+		return 0;
 	} else {
 		stop_chg_timer_work();
+		clear_chg_timer_in_intc();
+		return 1;
 	}
-printk("i am here!!!\n");
-	clear_chg_timer_in_intc();
 }
-//#endif
+#endif
 
 /* used to detect battery capacity status
  * return 1: need update
