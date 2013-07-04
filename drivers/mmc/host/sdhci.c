@@ -38,6 +38,13 @@
 #endif
 #include "sdhci.h"
 
+#include <mach/adi.h>
+#include <mach/sci_glb_regs.h>
+
+#ifndef	ANA_REG_GET
+#define	ANA_REG_GET(_r)		sci_adi_read(_r)
+#endif
+
 #define DRIVER_NAME "sdhci"
 //#define CONFIG_EMMC_HYNIX_LPDDR
 
@@ -156,6 +163,10 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			readl(SPRD_AHB_BASE));
 	printk(KERN_ERR DRIVER_NAME ": GIC[0x12001100] : 0x%x \n\r",
 			readl(CORE_GIC_DIS_VA + 0x100 + (60/32)*4));
+	printk(KERN_ERR DRIVER_NAME ": ANA_REG_GLB_LDO_DCDC_PD_RTCSET : 0x%x \n\r",
+			ANA_REG_GET(ANA_REG_GLB_LDO_DCDC_PD_RTCSET));
+	printk(KERN_ERR DRIVER_NAME ": ANA_REG_GLB_LDO_DCDC_PD_RTCSET : 0x%x \n\r",
+			ANA_REG_GET(ANA_REG_GLB_LDO_PD_CTRL));
 #endif
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
