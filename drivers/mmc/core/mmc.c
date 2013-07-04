@@ -180,6 +180,24 @@ static int mmc_decode_csd(struct mmc_card *card)
 		csd->erase_size <<= csd->write_blkbits - 9;
 	}
 
+	printk(KERN_INFO "CSD.structure 0x%x\n",csd->structure);
+	printk(KERN_INFO "CSD.mmca_vsn 0x%x\n",csd->mmca_vsn);
+	printk(KERN_INFO "CSD.cmdclass 0x%x\n",csd->cmdclass);
+	printk(KERN_INFO "CSD.tacc_clks 0x%x\n",csd->tacc_clks);
+	printk(KERN_INFO "CSD.tacc_ns 0x%x\n",csd->tacc_ns);
+	printk(KERN_INFO "CSD.c_size uninitialize\n",csd->c_size);
+	printk(KERN_INFO "CSD.r2w_factor 0x%x\n",csd->r2w_factor);
+	printk(KERN_INFO "CSD.max_dtr 0x%xHz\n",csd->max_dtr);
+	printk(KERN_INFO "CSD.erase_size 0x%x sectors\n",csd->erase_size);		/* In sectors */
+	printk(KERN_INFO "CSD.read_blkbits 0x%x\n",csd->read_blkbits);
+	printk(KERN_INFO "CSD.write_blkbits 0x%x\n",csd->write_blkbits);
+	printk(KERN_INFO "CSD.capacity 0x%x sectors\n",csd->capacity);
+
+	printk(KERN_INFO "CSD.read_partial 0x%x\n",csd->read_partial);
+	printk(KERN_INFO "CSD.read_misalign 0x%x\n",csd->read_misalign);
+	printk(KERN_INFO "CSD.write_partial 0x%x\n",csd->write_partial);
+	printk(KERN_INFO "CSD.write_misalign 0x%x\n",csd->write_misalign);
+
 	return 0;
 }
 
@@ -547,6 +565,57 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 		}
 	}
 
+//---
+	printk(KERN_INFO "Ext_CSD.rev 0x%x\n",					card->ext_csd.rev);
+	printk(KERN_INFO "Ext_CSD.erase_group_def 0x%x\n",		card->ext_csd.erase_group_def);
+	printk(KERN_INFO "Ext_CSD.sec_feature_support 0x%x\n",	card->ext_csd.sec_feature_support);
+	printk(KERN_INFO "Ext_CSD.rel_sectors 0x%x\n",			card->ext_csd.rel_sectors);
+	printk(KERN_INFO "Ext_CSD.rel_param 0x%x\n",			card->ext_csd.rel_param);
+	printk(KERN_INFO "Ext_CSD.part_config 0x%x\n",			card->ext_csd.part_config);
+	printk(KERN_INFO "Ext_CSD.cache_ctrl 0x%x\n",			card->ext_csd.cache_ctrl);
+	printk(KERN_INFO "Ext_CSD.rst_n_function 0x%x\n",		card->ext_csd.rst_n_function);
+	printk(KERN_INFO "Ext_CSD.part_time 0x%x\n",			card->ext_csd.part_time);		/* Units: ms */
+	printk(KERN_INFO "Ext_CSD.sa_timeout 0x%x\n",			card->ext_csd.sa_timeout);		/* Units: 100ns */
+	printk(KERN_INFO "Ext_CSD.generic_cmd6_time 0x%x\n",	card->ext_csd.generic_cmd6_time);	/* Units: 10ms */
+	printk(KERN_INFO "Ext_CSD.power_off_longtime 0x%x\n",	card->ext_csd.power_off_longtime);     /* Units: ms */
+	printk(KERN_INFO "Ext_CSD.hs_max_dtr 0x%x\n",			card->ext_csd.hs_max_dtr);
+	printk(KERN_INFO "Ext_CSD.sectors 0x%x\n",				card->ext_csd.sectors);
+	printk(KERN_INFO "Ext_CSD.card_type 0x%x\n",			card->ext_csd.card_type);
+	printk(KERN_INFO "Ext_CSD.hc_erase_size 0x%x\n",		card->ext_csd.hc_erase_size);		/* In sectors */
+	printk(KERN_INFO "Ext_CSD.hc_erase_timeout 0x%x\n",		card->ext_csd.hc_erase_timeout);	/* In milliseconds */
+	printk(KERN_INFO "Ext_CSD.sec_trim_mult 0x%x\n",			card->ext_csd.sec_trim_mult);	/* Secure trim multiplier  */
+	printk(KERN_INFO "Ext_CSD.sec_erase_mult 0x%x\n",		card->ext_csd.sec_erase_mult);	/* Secure erase multiplier */
+	printk(KERN_INFO "Ext_CSD.trim_timeout 0x%x\n",			card->ext_csd.trim_timeout);		/* In milliseconds */
+	printk(KERN_INFO "Ext_CSD.enhanced_area_en 0x%x\n",	card->ext_csd.enhanced_area_en);	/* enable bit */
+	printk(KERN_INFO "Ext_CSD.enhanced_area_offset 0x%x\n",	card->ext_csd.enhanced_area_offset);	/* Units: Byte */
+	printk(KERN_INFO "Ext_CSD.enhanced_area_size 0x%x\n",	card->ext_csd.enhanced_area_size);	/* Units: KB */
+	printk(KERN_INFO "Ext_CSD.cache_size 0x%x\n",			card->ext_csd.cache_size);		/* Units: KB */
+	printk(KERN_INFO "Ext_CSD.hpi_en 0x%x\n",				card->ext_csd.hpi_en);			/* HPI enablebit */
+	printk(KERN_INFO "Ext_CSD.hpi 0x%x\n",					card->ext_csd.hpi);			/* HPI support bit */
+	printk(KERN_INFO "Ext_CSD.hpi_cmd 0x%x\n",				card->ext_csd.hpi_cmd);		/* cmd used as HPI */
+	printk(KERN_INFO "Ext_CSD.data_sector_size 0x%x\n",		card->ext_csd.data_sector_size);       /* 512 bytes or 4KB */
+	printk(KERN_INFO "Ext_CSD.data_tag_unit_size 0x%x\n",	card->ext_csd.data_tag_unit_size);     /* DATA TAG UNIT size */
+	printk(KERN_INFO "Ext_CSD.boot_ro_lock 0x%x\n",			card->ext_csd.boot_ro_lock);		/* ro lock support */
+	printk(KERN_INFO "Ext_CSD.boot_ro_lockable 0x%x\n",		card->ext_csd.boot_ro_lockable);
+	printk(KERN_INFO "Ext_CSD.raw_partition_support 0x%x\n",	card->ext_csd.raw_partition_support);	/* 160 */
+	printk(KERN_INFO "Ext_CSD.raw_erased_mem_count 0x%x\n",	card->ext_csd.raw_erased_mem_count);	/* 181 */
+	printk(KERN_INFO "Ext_CSD.raw_ext_csd_structure 0x%x\n",	card->ext_csd.raw_ext_csd_structure);	/* 194 */
+	printk(KERN_INFO "Ext_CSD.raw_card_type 0x%x\n",		card->ext_csd.raw_card_type);		/* 196 */
+	printk(KERN_INFO "Ext_CSD.out_of_int_time 0x%x\n",		card->ext_csd.out_of_int_time);	/* 198 */
+	printk(KERN_INFO "Ext_CSD.raw_s_a_timeout 0x%x\n",		card->ext_csd.raw_s_a_timeout);		/* 217 */
+	printk(KERN_INFO "Ext_CSD.raw_hc_erase_gap_size 0x%x\n",	card->ext_csd.raw_hc_erase_gap_size);	/* 221 */
+	printk(KERN_INFO "Ext_CSD.raw_erase_timeout_mult 0x%x\n",	card->ext_csd.raw_erase_timeout_mult);	/* 223 */
+	printk(KERN_INFO "Ext_CSD.raw_hc_erase_grp_size 0x%x\n",	card->ext_csd.raw_hc_erase_grp_size);	/* 224 */
+	printk(KERN_INFO "Ext_CSD.raw_sec_trim_mult 0x%x\n",		card->ext_csd.raw_sec_trim_mult);	/* 229 */
+	printk(KERN_INFO "Ext_CSD.raw_sec_erase_mult 0x%x\n",	card->ext_csd.raw_sec_erase_mult);	/* 230 */
+	printk(KERN_INFO "Ext_CSD.raw_sec_feature_support 0x%x\n",	card->ext_csd.raw_sec_feature_support);/* 231 */
+	printk(KERN_INFO "Ext_CSD.raw_trim_mult 0x%x\n",		card->ext_csd.raw_trim_mult);		/* 232 */
+	printk(KERN_INFO "Ext_CSD.raw_sectors 0 0x%x\n",		card->ext_csd.raw_sectors[0]);		/* 212 - 4 bytes */
+	printk(KERN_INFO "Ext_CSD.raw_sectors 1 0x%x\n",		card->ext_csd.raw_sectors[1]);		/* 212 - 4 bytes */
+	printk(KERN_INFO "Ext_CSD.raw_sectors 2 0x%x\n",		card->ext_csd.raw_sectors[2]);		/* 212 - 4 bytes */
+	printk(KERN_INFO "Ext_CSD.raw_sectors 3 0x%x\n",		card->ext_csd.raw_sectors[3]);		/* 212 - 4 bytes */
+	printk(KERN_INFO "Ext_CSD.rev 0x%x\n",					card->ext_csd.feature_support);
+//---
 out:
 	return err;
 }
