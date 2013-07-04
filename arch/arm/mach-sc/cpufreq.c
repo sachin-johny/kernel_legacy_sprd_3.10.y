@@ -133,7 +133,6 @@ struct cpufreq_conf {
 };
 
 struct cpufreq_status {
-	unsigned int	global_target;
 	unsigned int	percpu_target[CONFIG_NR_CPUS];
 	int		is_suspend;
 };
@@ -155,7 +154,26 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 /* khz */
 #define SHARK_TOP_FREQUENCY	(1000000)
 #define SHARK_TDPLL_FREQUENCY	(768000)
-
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+struct cpufreq_conf sc8830_cpufreq_conf = {
+	.clk = NULL,
+	.mpllclk = NULL,
+	.tdpllclk = NULL,
+	.regulator = NULL,
+	.freq_tbl = {
+		{0, SHARK_TOP_FREQUENCY},
+		{1, SHARK_TDPLL_FREQUENCY},
+		{2, 50000},	//fake freq means we need to unplug one cpu
+		{3, CPUFREQ_TABLE_END}
+	},
+	.vddarm_mv = {
+		1250000,
+		1200000,
+		1000000,
+		1000000,
+	},
+};
+#else
 struct cpufreq_conf sc8830_cpufreq_conf = {
 	.clk = NULL,
 	.mpllclk = NULL,
@@ -172,24 +190,119 @@ struct cpufreq_conf sc8830_cpufreq_conf = {
 		1000000,
 	},
 };
-
+#endif
+/* ns */
 #define TRANSITION_LATENCY	(500 * 1000)
 
 struct cpufreq_conf *sprd_cpufreq_conf = NULL;
 struct cpufreq_status sprd_cpufreq_status = {0};
+struct cpufreq_freqs global_freqs;
+static DEFINE_MUTEX(freq_lock);
 
-void sprd_auto_hotplug_init(void)
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+static unsigned int bottom_freq = SHARK_TDPLL_FREQUENCY;
+struct unplug_work_info {
+	unsigned int cpuid;
+	int need_unplug;
+	struct delayed_work unplug_work;
+};
+/* milliseconds */
+static int unplug_delay = 1000;
+//we enable dynamic cpu hotplug by default
+static int enabled_dhp = 1;
+
+static DEFINE_PER_CPU(struct unplug_work_info, uwi);
+static void sprd_unplug_one_cpu(struct work_struct *work)
 {
+	struct unplug_work_info *puwi = container_of(work,
+		struct unplug_work_info, unplug_work.work);
+	if (puwi->need_unplug) {
+		pr_debug("### we gonna unplug cpu%d\n", puwi->cpuid);
+		cpu_down(puwi->cpuid);
+	} else {
+		pr_debug("### ok do nonthing for cpu%d ###\n", puwi->cpuid);
+	}
 	return;
 }
-void sprd_auto_hotplug_exit(void)
+
+static ssize_t show_enabled(struct kobject *kobj, struct attribute *attr, char *buf)
 {
+	return sprintf(buf, "%d\n", enabled_dhp);
+}
+
+static ssize_t store_enabled(struct kobject *kobj, struct attribute *attr,
+			      const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (strict_strtoul(buf, 10, &val))
+		return -EINVAL;
+
+	if (val > 1)
+		return -EINVAL;
+
+	enabled_dhp = val;
+	return n;
+}
+
+static ssize_t show_unplug_delay_time
+(struct kobject *kobj, struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", unplug_delay);
+}
+
+static ssize_t store_unplug_delay_time(struct kobject *kobj, struct attribute *attr,
+			      const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (strict_strtoul(buf, 10, &val))
+		return -EINVAL;
+
+	unplug_delay = val;
+	return n;
+}
+
+define_one_global_rw(enabled);
+define_one_global_rw(unplug_delay_time);
+
+static struct attribute *dynamic_hp_attributes[] = {
+	&enabled.attr,
+	&unplug_delay_time.attr,
+	NULL
+};
+
+static struct attribute_group dynamic_hp_attr_group = {
+	.attrs = dynamic_hp_attributes,
+	.name = "dynamic_hotplug",
+};
+static int sprd_auto_hotplug_init(void)
+{
+	int rc;
+	unsigned int i;
+	struct unplug_work_info *puwi;
+
+	rc = sysfs_create_group(cpufreq_global_kobject, &dynamic_hp_attr_group);
+	if (rc)
+		goto sysfs_err;
+
+	for_each_possible_cpu(i) {
+		puwi = &per_cpu(uwi, i);
+		puwi->cpuid = i;
+		puwi->need_unplug = 0;
+		INIT_DELAYED_WORK(&puwi->unplug_work, sprd_unplug_one_cpu);
+	}
+
+	return 0;
+sysfs_err:
+	return rc;
+}
+static void sprd_auto_hotplug_exit(void)
+{
+	sysfs_remove_group(cpufreq_global_kobject, &dynamic_hp_attr_group);
 	return;
 }
-void tegra_auto_hotplug_governor(void)
-{
-	return;
-}
+#endif
 
 static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 {
@@ -253,12 +366,41 @@ static unsigned int sprd_raw_get_cpufreq(void)
 #endif
 }
 
+static void sprd_real_set_cpufreq(unsigned int new_speed, int index)
+{
+
+	pr_debug("$$$ sprd_real_set_cpufreq %u khz on cpu%d\n",
+		new_speed, smp_processor_id());
+	mutex_lock(&freq_lock);
+
+	if (global_freqs.old == new_speed) {
+		mutex_unlock(&freq_lock);
+		return;
+	}
+	global_freqs.new = new_speed;
+
+	for_each_online_cpu(global_freqs.cpu)
+		cpufreq_notify_transition(&global_freqs, CPUFREQ_PRECHANGE);
+
+	sprd_raw_set_cpufreq(global_freqs, index);
+
+	for_each_online_cpu(global_freqs.cpu)
+		cpufreq_notify_transition(&global_freqs, CPUFREQ_POSTCHANGE);
+
+	global_freqs.old = global_freqs.new;
+
+	mutex_unlock(&freq_lock);
+	return;
+}
+
 static int sprd_update_cpu_speed(int cpu,
 	unsigned int target_speed, int index)
 {
 	int i;
 	unsigned int new_speed = 0;
-	struct cpufreq_freqs freqs;
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+	unsigned int min_speed = SHARK_TOP_FREQUENCY, cpuid;
+#endif
 
 	/*
 	 * CONFIG_NR_CPUS cores are always in the same voltage, at the same
@@ -270,23 +412,26 @@ static int sprd_update_cpu_speed(int cpu,
 	for_each_online_cpu(i) {
 		new_speed = max(new_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+	for_each_online_cpu(i) {
+		min_speed = min(min_speed, sprd_cpufreq_status.percpu_target[i]);
+	}
 
-	if (sprd_cpufreq_status.global_target == new_speed)
-		return 0;
+	if ((new_speed == min_speed) && (min_speed == SHARK_TOP_FREQUENCY)) {
+		if (num_online_cpus() < nr_cpu_ids) {
+			cpuid = cpumask_next_zero(0, cpu_online_mask);
+			if (enabled_dhp) {
+				pr_debug("# we gonna plug cpu%d\n", cpuid);
+				cpu_up(cpuid);
+			}
+		}
+	}
 
-	freqs.old = sprd_cpufreq_status.global_target;
-	freqs.new = new_speed;
+	if (new_speed < bottom_freq)
+		new_speed = bottom_freq;
+#endif
 
-	for_each_online_cpu(freqs.cpu)
-		cpufreq_notify_transition(&freqs, CPUFREQ_PRECHANGE);
-
-	sprd_raw_set_cpufreq(freqs, index);
-
-	for_each_online_cpu(freqs.cpu)
-		cpufreq_notify_transition(&freqs, CPUFREQ_POSTCHANGE);
-
-	sprd_cpufreq_status.global_target = new_speed;
-
+	sprd_real_set_cpufreq(new_speed, index);
 	return 0;
 }
 
@@ -347,7 +492,9 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int index;
 	unsigned int new_speed;
 	struct cpufreq_frequency_table *table;
-
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+	struct unplug_work_info *puwi;
+#endif
 	if (true == sprd_cpufreq_status.is_suspend)
 		return 0;
 
@@ -367,8 +514,22 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 
 	sprd_cpufreq_status.percpu_target[policy->cpu] = new_speed;
 	pr_debug("## %s cpu:%d %u on cpu%d\n", __func__, policy->cpu, new_speed, smp_processor_id());
-	if (policy->cpu != 0)
-		return 0;
+
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+	puwi = &per_cpu(uwi, policy->cpu);
+	if (new_speed < bottom_freq) {
+		if (policy->cpu) {
+			puwi->need_unplug = 1;
+			pr_debug("we set need unplug here cpu%d\n", policy->cpu);
+			if (enabled_dhp)
+				schedule_delayed_work_on(0, &puwi->unplug_work, msecs_to_jiffies(unplug_delay));
+			return 0;
+		}
+	} else {
+		pr_debug("we ununuset need unplug here cpu%d\n", policy->cpu);
+		puwi->need_unplug = 0;
+	}
+#endif
 
 	ret = sprd_update_cpu_speed(policy->cpu, new_speed, index);
 
@@ -476,20 +637,26 @@ static int __init sprd_cpufreq_modinit(void)
 	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->tdpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
 
+	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
+	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
+		return PTR_ERR(sprd_cpufreq_conf->regulator);
+
+	/* set max voltage first */
+	regulator_set_voltage(sprd_cpufreq_conf->regulator,
+		sprd_cpufreq_conf->vddarm_mv[0],
+		sprd_cpufreq_conf->vddarm_mv[0]);
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
 	clk_set_rate(sprd_cpufreq_conf->mpllclk, (SHARK_TOP_FREQUENCY * 1000));
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
 
 	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
-	sprd_cpufreq_status.global_target = sprd_cpufreq_conf->orignal_freq;
+	global_freqs.old = sprd_cpufreq_conf->orignal_freq;
 	sprd_cpufreq_status.is_suspend = false;
 
-	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
-		return PTR_ERR(sprd_cpufreq_conf->regulator);
 #endif
-
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 	sprd_auto_hotplug_init();
+#endif
 	ret = cpufreq_register_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
 	if (ret)
@@ -506,8 +673,9 @@ static void __exit sprd_cpufreq_modexit(void)
 	if (!IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
 		regulator_put(sprd_cpufreq_conf->regulator);
 #endif
-
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 	sprd_auto_hotplug_exit();
+#endif
 	cpufreq_unregister_driver(&sprd_cpufreq_driver);
 	cpufreq_unregister_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
