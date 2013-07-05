@@ -3153,6 +3153,7 @@ static __devinit int sprd_codec_probe(struct platform_device *pdev)
 				  GFP_KERNEL);
 	if (sprd_codec == NULL)
 		return -ENOMEM;
+	sprd_codec->da_sample_val = 44100; /*inital value for FM route*/
 
 	platform_set_drvdata(pdev, sprd_codec);
 
