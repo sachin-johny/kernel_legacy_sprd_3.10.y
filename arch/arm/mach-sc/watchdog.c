@@ -38,6 +38,8 @@ void sprd_set_reboot_mode(const char *cmd)
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
 	} else if (cmd && !strncmp(cmd, "cftreboot", 9)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_CFTREBOOT);
+	} else if (cmd && !strncmp(cmd, "autodloader", 11)) {
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_AUTODLOADER);
 	} else if(cmd){
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
 	}else{

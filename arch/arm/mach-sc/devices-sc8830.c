@@ -999,7 +999,7 @@ static struct spipe_init_data sprd_spipe_td_pdata = {
 	.name		= "spipe_td",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_PIPE,
-	.ringnr		= 8,
+	.ringnr		= 9,
 	.txbuf_size	= 4096,
 	.rxbuf_size	= 4096,
 };
@@ -1186,7 +1186,7 @@ static struct spipe_init_data sprd_spipe_wcdma_pdata = {
 	.name		= "spipe_w",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_PIPE,
-	.ringnr		= 8,
+	.ringnr		= 9,
 	.txbuf_size	= 4096,
 	.rxbuf_size	= 4096,
 };
