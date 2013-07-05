@@ -101,7 +101,7 @@ void clk_force_disable(struct clk *clk)
 	if (IS_ERR_OR_NULL(clk))
 		return;
 
-	debug("clk %p, usage %d\n", clk, clk->usage);
+	debug2("clk %p, usage %d\n", clk, clk->usage);
 	while (clk->usage > 0) {
 		clk_disable(clk);
 	}
@@ -180,8 +180,10 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 {
 	int ret = -EACCES;
 	unsigned long flags;
+#if defined(CONFIG_DEBUG_FS)
 	struct clk *old_parent = clk_get_parent(clk);
-	debug0("clk %p, parent %p <<< %p\n", clk, parent, old_parent);
+#endif
+	debug0("clk %p, parent %p <<< %p\n", clk, parent, clk_get_parent(clk));
 	if (IS_ERR_OR_NULL(clk) || IS_ERR(parent))
 		return -EINVAL;
 
@@ -257,10 +259,13 @@ static int sci_clk_is_enable(struct clk *c)
 
 static int sci_clk_set_rate(struct clk *c, unsigned long rate)
 {
-	u32 div, div_shift;
-	debug("clk %p (%s) set rate %lu\n", c, c->regs->name, rate);
+	int div;
+	u32 div_shift;
+	debug2("clk %p (%s) set rate %lu\n", c, c->regs->name, rate);
 	rate = clk_round_rate(c, rate);
 	div = clk_get_rate(c->parent) / rate - 1;	//FIXME:
+	if (div < 0)
+		return -EINVAL;
 	div_shift = __ffs(c->regs->div.mask);
 	debug("clk %p (%s) pll div reg %08x, val %08x mask %08x\n", c,
 	      c->regs->name, c->regs->div.reg, div << div_shift,
@@ -349,7 +354,7 @@ static int sci_pll_set_rate(struct clk *c, unsigned long rate)
 			      c->regs->div.mask);
 	}
 
-	debug("pll %p (%s) set rate %lu\n", c, c->regs->name, rate);
+	debug2("pll %p (%s) set rate %lu\n", c, c->regs->name, rate);
 	return 0;
 }
 
@@ -522,19 +527,19 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	     c, c->regs->name, c->rate, c->ops, c->regs->enb.reg,
 	     c->regs->sel.reg, c->regs->div.reg, c->regs->nr_sources);
 
+	if (c->regs->nr_sources) {	/* FIXME: dummy update clock parent and rate */
+		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
+#if defined(CONFIG_DEBUG_FS)
+		clk_set_rate(c, clk_get_rate(c));
+#endif
+	}
+
 	if (c->enable == NULL && c->regs->enb.reg) {
 		c->enable = sci_clk_enable;
 		/* FIXME: dummy update some pll clocks usage */
 		if (__clk_is_dummy_pll(c) && sci_clk_is_enable(c)) {
 			clk_enable(c);
 		}
-	}
-
-	if (c->regs->nr_sources) {	/* FIXME: dummy update clock parent and rate */
-		clk_set_parent(c, c->regs->sources[sci_clk_get_parent(c)]);
-#if defined(CONFIG_DEBUG_FS)
-		clk_set_rate(c, clk_get_rate(c));
-#endif
 	}
 
 	clkdev_add(cl);
@@ -561,23 +566,12 @@ static int __init sci_clock_dump(void)
 			     clk_get_rate(c), p ? p->regs->name : "none");
 		cl++;
 	}
-	debug("ok\n");
+	debug("okay\n");
 	return 0;
 }
 
 void sci_clock_dump_active(void)
 {
-	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
-	while (cl < (struct clk_lookup *)&__clkinit_end) {
-		struct clk *c = cl->clk;
-		struct clk *p = clk_get_parent(c);
-		if (c->enable == NULL || sci_clk_is_enable(c))
-			printk
-			    ("@@@clock[%s] is active, usage %d, rate %lu, parent[%s]\n",
-			     c->regs->name, c->usage, clk_get_rate(c),
-			     p ? p->regs->name : "none");
-		cl++;
-	}
 }
 
 static int
