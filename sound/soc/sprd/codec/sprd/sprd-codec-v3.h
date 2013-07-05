@@ -163,6 +163,7 @@
 #define VCM_V_MASK		(0x7)
 #define BG_I			(9)
 #define BG_I_MASK		(0x3)
+#define AUXADC_EN		(8)
 #define BG_EN			(7)
 #define BG_RST			(6)
 #define BG_IBIAS_EN		(5)

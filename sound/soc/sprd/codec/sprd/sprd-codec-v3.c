@@ -397,6 +397,16 @@ static inline void sprd_codec_vcm_v_sel(int v_sel)
 	arch_audio_codec_write_mask(PMUR4_PMUR3, val, mask);
 }
 
+static inline void sprd_codec_auxadc_en(int on)
+{
+	int mask;
+	int val;
+	sprd_codec_dbg("Entering %s set %d\n", __func__, on);
+	mask = BIT(AUXADC_EN);
+	val = on ? mask : 0;
+	arch_audio_codec_write_mask(PMUR4_PMUR3, val, mask);
+}
+
 static int sprd_codec_pga_spk_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val;
@@ -997,6 +1007,7 @@ int sprd_inter_headphone_pa(int on)
 			regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
 			regulator_enable(regulator);
 		}
+		sprd_codec_auxadc_en(1);
 		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
 		sprd_codec_hp_pa_mode(inter_hp_pa.setting.class_g_mode);
 		sprd_codec_hp_pa_osc(inter_hp_pa.setting.class_g_osc);
@@ -1011,6 +1022,7 @@ int sprd_inter_headphone_pa(int on)
 		sprd_codec_hp_pa_ref_en(0);
 		sprd_codec_hp_pa_hpl_en(0);
 		sprd_codec_hp_pa_hpr_en(0);
+		sprd_codec_auxadc_en(0);
 		if (regulator) {
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);
