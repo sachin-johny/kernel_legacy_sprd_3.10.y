@@ -24,6 +24,7 @@
  * plugged in, we will restart the charge process.
  */
 #define PREVRECHARGE		4100
+#define CHGMNG_ULTRA_VOLTAGE	(4550)
 #define CHGMNG_OVER_CHARGE	(4330)
 /* When the battery voltage is higher than this value, we will stop charging. */
 #define PREVCHGEND			(4210)

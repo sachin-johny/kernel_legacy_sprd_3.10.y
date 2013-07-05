@@ -49,6 +49,7 @@
 #include <linux/sysfs.h>
 #include <mach/pm_debug.h>
 #endif
+
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 static struct sprd_battery_data *battery_data;
@@ -567,6 +568,11 @@ u32 plus_charge_start_time = 0;
 
 #endif
 
+void __weak sprd_vbatvolt_checkpoint(uint32_t volt_level, uint32_t adc_value)
+{
+	return ;
+}
+
 uint32_t vbat_capacity_loop_cnt = 0;
 static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 {
@@ -634,6 +640,9 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 		}
 
 		voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
+
+		/* FIXME: Enable Software OVP function */
+		sprd_vbatvolt_checkpoint(voltage, adc_value);
 
 		if (!battery_data->charging && (battery_data->in_precharge == 1)
 		    && usb_online && (voltage < battery_data->precharge_start)) {

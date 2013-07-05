@@ -139,7 +139,7 @@
 #define BIT_RTC_EIC_EB                  ( BIT(3) )
 #define BIT_RTC_WDG_EB                  ( BIT(2) )
 #define BIT_RTC_RTC_EB                  ( BIT(1) )
-#define BIT_RTC_ARCH_EB                 ( BIT(0) )
+#define BIT_ANA_RTC_ARCH_EB             ( BIT(0) )
 
 /* bits definitions for register ANA_REG_GLB_APB_RST */
 #define BIT_ANA_PWM4_SOFT_RST           ( BIT(12) )
@@ -832,11 +832,11 @@
 #define BIT_LDO_SIM0_SEL                ( BIT(0) )
 
 /* bits definitions for register ANA_REG_GLB_WHTLED_CTRL0 */
-#define BIT_PWM4_EB                     ( BIT(13) )
-#define BIT_PWM3_EB                     ( BIT(12) )
-#define BIT_PWM2_EB                     ( BIT(11) )
-#define BIT_PWM1_EB                     ( BIT(10) )
-#define BIT_PWM0_EB                     ( BIT(9) )
+#define BIT_ANA_PWM4_EB                 ( BIT(13) )
+#define BIT_ANA_PWM3_EB                 ( BIT(12) )
+#define BIT_ANA_PWM2_EB                 ( BIT(11) )
+#define BIT_ANA_PWM1_EB                 ( BIT(10) )
+#define BIT_ANA_PWM0_EB                 ( BIT(9) )
 #define BIT_WHTLED_PD_RTC               ( BIT(8) )
 #define BIT_WHTLED_LCD_PWM_POL          ( BIT(6) )
 #define BIT_WHTLED_BOOST_EN_RST         ( BIT(5) )

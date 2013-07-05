@@ -23,6 +23,10 @@
 #include <linux/io.h>
 #endif
 
+#if defined(CONFIG_ARCH_SC7710)
+#include <mach/regs_ana_glb_sc7710.h>
+#endif
+
 #ifndef CONFIG_ARCH_SC7710
 #include <mach/regs_ahb.h>
 #endif
@@ -244,6 +248,7 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 	int is_charging = data->charging;
 	int is_usb;
 #ifdef CHGR_CAPACITY_SHOW_STEADY
+	uint16_t capcity_reference=0;
 	static uint16_t battery_percentum=0;
 	static enum BATTERY_ENUM battery_status = BATTERY_CAPACITY_INIT;
 	static uint16_t	percentum_old=0;
@@ -367,7 +372,6 @@ uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
 
 	}
 #ifdef CHGR_CAPACITY_SHOW_STEADY
-uint16_t capcity_reference=0;
 switch(battery_status)
 {
 case BATTERY_CAPACITY_INIT:
@@ -795,6 +799,36 @@ void sprd_chg_init(void)
 	}
 #endif
 }
+
+#define MASK_DCDC_PDRSLOW	(BITS_DCDC_CORE_PDRSLOW(3)|BITS_DCDC_CORE_PDRSLOW_RST(3))
+#define DCDC_PDRSLOW(x)	(BITS_DCDC_CORE_PDRSLOW((x))|BITS_DCDC_CORE_PDRSLOW_RST(3-(x)))
+
+void sprd_vbatvolt_checkpoint(uint32_t volt_level, uint32_t adc_value)
+{
+#if defined(CONFIG_ARCH_SC7710)
+	static int state = 0;
+	if (unlikely((volt_level > CHGMNG_ULTRA_VOLTAGE || adc_value > 4090) && state == 0)) {
+		state = 1;
+		sci_adi_write(ANA_REG_GLB_DCDC_CORE_CTRL2, DCDC_PDRSLOW(3), MASK_DCDC_PDRSLOW);
+		sci_adi_write(ANA_REG_GLB_DCDC_ARM_CTRL2, DCDC_PDRSLOW(3), MASK_DCDC_PDRSLOW);
+		sci_adi_write(ANA_REG_GLB_DCDC_MEM_CTRL2, DCDC_PDRSLOW(3), MASK_DCDC_PDRSLOW);
+		/* reserved
+		sci_adi_write(ANA_REG_GLB_WPA_DCDC_CTRL1, DCDC_PDRSLOW(3), MASK_DCDC_PDRSLOW);
+		*/
+	}
+	else if (state != 0 && volt_level < (PREVCHGEND + 50)) {
+		state = 0;
+		sci_adi_write(ANA_REG_GLB_DCDC_CORE_CTRL2, DCDC_PDRSLOW(2), MASK_DCDC_PDRSLOW);/*default*/
+		sci_adi_write(ANA_REG_GLB_DCDC_ARM_CTRL2, DCDC_PDRSLOW(2), MASK_DCDC_PDRSLOW);
+		sci_adi_write(ANA_REG_GLB_DCDC_MEM_CTRL2, DCDC_PDRSLOW(2), MASK_DCDC_PDRSLOW);
+		/* reserved
+		sci_adi_write(ANA_REG_GLB_WPA_DCDC_CTRL1, DCDC_PDRSLOW(2), MASK_DCDC_PDRSLOW);
+		*/
+	}
+#endif
+	return;
+}
+
 
 /* TODO: put these struct into sprd_battery_data */
 uint32_t temp_buf[CONFIG_AVERAGE_CNT];
