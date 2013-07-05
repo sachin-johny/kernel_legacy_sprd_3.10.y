@@ -742,7 +742,6 @@ uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
 void sprd_set_chg_cur(uint32_t chg_current)
 {
 	uint32_t temp;
-	uint32_t val;
 
 	if (chg_current > SPRD_CHG_CUR_MAX) {
 		chg_current = SPRD_CHG_CUR_MAX;
@@ -775,8 +774,9 @@ uint32_t sprd_dump_chg_reg(void)
 
 void sprd_chg_init(void)
 {
+#ifndef CONFIG_ARCH_SC7710
 	unsigned int chip_id = 0;
-
+#endif
 	sci_adi_write(ANA_CHGR_CTRL0, CHGR_CC_EN_BIT,
 		      (CHGR_CC_EN_BIT | CHGR_CC_EN_RST_BIT));
 #ifdef CONFIG_ARCH_SC7710
@@ -806,7 +806,6 @@ uint32_t vchg_buf[_VCHG_BUF_SIZE];
 
 void put_vbat_capacity_value(uint32_t vbat)
 {
-	int i;
 	static int buff_pointer = 0;
 
 	vbat_capacity_buff[buff_pointer] = vbat;

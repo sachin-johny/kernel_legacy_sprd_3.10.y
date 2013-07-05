@@ -416,6 +416,7 @@ static inline int usb_connected(void)
 	return gpio_get_value(battery_data->gpio);
 }
 
+#ifndef CONFIG_NOTIFY_BY_USB
 static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 {
 	struct sprd_battery_data *data = dev_id;
@@ -447,6 +448,7 @@ static irqreturn_t sprd_battery_interrupt(int irq, void *dev_id)
 	gpio_direction_input(data->gpio);
 	return IRQ_HANDLED;
 }
+#endif
 
 #ifdef CONFIG_NOTIFY_BY_USB
 static int plugin_callback(int usb_cable, void *data)
@@ -571,7 +573,9 @@ static void charge_handler(struct sprd_battery_data *battery_data, int in_sleep)
 	uint32_t voltage = 0;
 	uint32_t capacity = 0;
 	int32_t adc_value = 0;
+#ifdef CONFIG_SPRD_POWER
 	int32_t vprog_value = 0;
+#endif
 	int usb_online = 0;
 	uint32_t ac_online = 0;
 	uint32_t ac_notify = 0;
@@ -1030,12 +1034,16 @@ static int battery_capcity_open(struct inode *ind, struct file *filp)
 {
 	return 0;
 }
+
 static ssize_t  battery_capcity_read(struct file *filp, char *buf, size_t size, loff_t *lofp)
 {
 	int res = -1;
-	char tmp=50;
 	printk("<0>copy battery_capcity to the user space\n");
-	down_interruptible(&(battery_data->capacity_sema));
+
+	if (down_interruptible(&battery_data->capacity_sema)) {
+		return -ERESTARTSYS;
+	}
+
 		res = copy_to_user(buf, &battery_data->capcity_reference, size);
 	if (res == 0)
 	{
@@ -1046,13 +1054,17 @@ static ssize_t  battery_capcity_read(struct file *filp, char *buf, size_t size, 
 		return 0;
 	}
 }
+
 static ssize_t  battery_capcity_write(struct file *filp, const char *buf, size_t size, loff_t *lofp)
 {
 	int res = -1;
-	char tmp;
 	printk("write test data battery_capcity\n");
-	down_interruptible(&(battery_data->capacity_sema));
-		res = copy_from_user(&battery_data->capcity_reference, buf, size);
+
+	if (down_interruptible(&battery_data->capacity_sema)) {
+		return -ERESTARTSYS;
+	}
+
+	res = copy_from_user(&battery_data->capcity_reference, buf, size);
 	if (res == 0)
 	{
 		return size;
@@ -1279,13 +1291,17 @@ err_usb_failed:
 	if (data->irq) {
 		free_irq(data->irq, data);
 	}
+#ifndef CONFIG_NOTIFY_BY_USB
 err_io_to_irq:
 err_io_request:
+#endif
 	if (data->gpio) {
 		gpio_free(data->gpio);
 	}
 err_io_resource:
+#ifndef CONFIG_NOTIFY_BY_USB
 err_request_irq_failed:
+#endif
 	kfree(data);
 err_data_alloc_failed:
 	battery_data = NULL;
@@ -1333,7 +1349,7 @@ static struct platform_driver sprd_battery_device = {
 static int __init sprd_battery_init(void)
 {
 #ifdef CHGR_CAPACITY_SHOW_STEADY
-	device_create( class_create(THIS_MODULE, "battery_capcity_dev"), NULL, MKDEV(register_chrdev(0,"battery_capcity_dev",&battery_capcity_fops),0), 0, "battery_capcity_dev",0);
+	device_create( class_create(THIS_MODULE, "battery_capcity_dev"), NULL, MKDEV(register_chrdev(0,"battery_capcity_dev",&battery_capcity_fops),0), 0, "battery_capcity_dev");
 #endif
 	return platform_driver_register(&sprd_battery_device);
 }
