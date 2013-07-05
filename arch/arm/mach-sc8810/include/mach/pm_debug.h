@@ -12,8 +12,14 @@
 #define SYSCNT_REG(off) (SPRD_SYSCNT_BASE + (off))
 #define SYSCNT_COUNT    SYSCNT_REG(0x0004)
 
+/* no need double-reading */
+#define SYSCNT_SHADOW_COUNT    SYSCNT_REG(0x000c)
+
 static u32 inline get_sys_cnt(void)
 {
+#if defined(CONFIG_ARCH_SC7710)
+	return __raw_readl(SYSCNT_SHADOW_COUNT);
+#else
 	u32 val1, val2;
         val1 = __raw_readl(SYSCNT_COUNT);
         val2 = __raw_readl(SYSCNT_COUNT);
@@ -22,6 +28,7 @@ static u32 inline get_sys_cnt(void)
              val2 = __raw_readl(SYSCNT_COUNT);
         }
         return val2;
+#endif
 }
 
 
