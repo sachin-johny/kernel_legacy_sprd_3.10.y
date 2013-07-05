@@ -31,6 +31,9 @@
 #define HEADMIC_DETECT_BASE	(SPRD_MISC_BASE	+ 0x700)
 #define HEADMIC_DETECT_REG(X)   (HEADMIC_DETECT_BASE + (X))
 
+#define HEADMIC_BUTTON_BASE	(SPRD_MISC_BASE	+ 0xe00)
+#define HEADMIC_BUTTON_REG(X)   (HEADMIC_BUTTON_BASE + (X))
+
 #define HEADMIC_DETECT_GLB_REG(X)   (ANA_REGS_GLB_BASE + (X))
 
 #define HEADMIC_DETECT_INSRT_VOL_SHIFT  (5)
@@ -301,15 +304,15 @@ static void headset_button_work_func(struct work_struct *work)
 	int adc_val[ADC_FIFO_CNT] = {0};
 
 	state = headset_button_down();
-
 	set_adc_to_headmic(1);
 	mdelay(10);
 	for (i = 0; i < ADC_FIFO_CNT; i++) {
 		adc_val[i] = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
 	}
 	adc_mic = adc_val[ADC_FIFO_CNT/2];
-
-	printk("SPRD_HEADSET::%s adc_mic = %d\n", __FUNCTION__, adc_mic);
+	msleep(200);
+	state = state | headset_button_down();
+	pr_info("SPRD_HEADSET::%s adc_mic = %d state = %d\n", __FUNCTION__, adc_mic, state);
 	if(state) {
 		for (i = 0; i < pdata->nbuttons; i++) {
 			if (adc_mic >= pdata->headset_button[i].adc_min && 
@@ -544,6 +547,7 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
 		dev_err(dev, "%s: request irq failed %d\n", __FUNCTION__, error);
 		goto fail1;
 	}
+
 	return 0;
 
 fail1:
@@ -590,6 +594,36 @@ fail1:
 	return error;
 
 }
+static int headset_suspend(struct platform_device * pdev, pm_message_t state)
+{
+	pr_info("%s\n", __FUNCTION__);
+
+	headset_irq_enable(0, headset.detect.irq);
+	headset_reg_msk_or(0x01, HEADMIC_BUTTON_REG(0x34), 0x01);
+	headset_reg_msk_or(0x32, HEADMIC_BUTTON_REG(0x3c), 0x0f);
+	headset_reg_msk_or(0xff, HEADMIC_BUTTON_REG(0x40), 0xffff);
+	headset_reg_msk_or(0xff, HEADMIC_BUTTON_REG(0x44), 0xffff);
+
+	msleep(100);
+	headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
+	headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
+
+	return 0;
+}
+static int headset_resume(struct platform_device * pdev)
+{
+	pr_info("%s\n", __FUNCTION__);
+
+	headset_irq_enable(1, headset.detect.irq);
+	headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
+	headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
+	headset_reg_clr_bit(HEADMIC_BUTTON_REG(0x34), 0x01);
+	headset_reg_clr_bit(HEADMIC_BUTTON_REG(0x3c), 0x0f);
+	headset_reg_clr_bit(HEADMIC_BUTTON_REG(0x40), 0xffff);
+	headset_reg_clr_bit(HEADMIC_BUTTON_REG(0x44), 0xffff);
+
+	return 0;
+}
 
 static struct platform_driver headset_detect_driver = {
 	.driver = {
@@ -597,6 +631,8 @@ static struct platform_driver headset_detect_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = headset_detect_probe,
+	.suspend = headset_suspend,
+	.resume = headset_resume,
 };
 
 static struct platform_driver headset_buttons_driver = {
