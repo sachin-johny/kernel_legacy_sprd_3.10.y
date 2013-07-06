@@ -35,6 +35,7 @@
 #include <asm/unistd.h>
 #include "pnode.h"
 #include "internal.h"
+#include <linux/mtd/mtd.h>
 
 #define HASH_SHIFT ilog2(PAGE_SIZE / sizeof(struct list_head))
 #define HASH_SIZE (1UL << HASH_SHIFT)
@@ -2271,6 +2272,66 @@ int copy_mount_string(const void __user *data, char **where)
 	return 0;
 }
 
+static void erase_sector(struct mtd_info *mtd_info, unsigned int start, unsigned int len);
+
+static void erase_partition(struct mtd_info *mtd_info)
+{
+    unsigned int start;
+    for(start = 0; start < mtd_info->size; start += mtd_info->erasesize)
+        erase_sector(mtd_info, start, mtd_info->erasesize);
+}
+ 
+static void erase_sector(struct mtd_info *mtd_info, unsigned int start, unsigned int len)
+{
+    int ret;
+    struct erase_info ei = {0};
+
+    ei.addr = start;
+    ei.len = mtd_info->erasesize;
+    ei.mtd = mtd_info;
+    mtd_info->erase(mtd_info, &ei);
+    
+}
+
+
+#ifndef ARRAYSIZE
+#define ARRAYSIZE(a)            (sizeof(a)/sizeof(a[0]))
+#endif
+
+static bool sprd_should_erase(const char * name)
+{
+    char *mount_point[] = {"/cache"};
+    int i;
+
+    for (i = 0; i < ARRAYSIZE(mount_point); i++)
+        if(!strncmp(name, mount_point[i], strlen(mount_point[i])))
+            return true;
+
+    return false;
+
+}
+
+static void  sprd_erase_partition(const char * name)
+{
+    char *mount_point[] = {"/cache"}; 
+    char *parti_name [] = {"cache"};
+    struct mtd_info *mtd = NULL;
+
+    int i;
+
+    for (i = 0; i < ARRAYSIZE(mount_point); i++)
+        if(!strncmp(name, mount_point[i], strlen(mount_point[i])))
+            break;
+	
+     mtd = get_mtd_device_nm(parti_name[i]);
+     if(mtd){
+		erase_partition(mtd);
+        put_mtd_device(mtd);
+     }
+
+    return ;
+}
+
 /*
  * Flags is a 32-bit value that allows up to 31 non-fs dependent flags to
  * be given to the mount() call (ie: read-only, no-dev, no-suid etc).
@@ -2291,7 +2352,7 @@ long do_mount(char *dev_name, char *dir_name, char *type_page,
 	struct path path;
 	int retval = 0;
 	int mnt_flags = 0;
-
+    
 	/* Discard magic */
 	if ((flags & MS_MGC_MSK) == MS_MGC_VAL)
 		flags &= ~MS_MGC_MSK;
@@ -2347,9 +2408,19 @@ long do_mount(char *dev_name, char *dir_name, char *type_page,
 		retval = do_change_type(&path, flags);
 	else if (flags & MS_MOVE)
 		retval = do_move_mount(&path, dev_name);
-	else
-		retval = do_new_mount(&path, type_page, flags, mnt_flags,
+	else {
+            retval = do_new_mount(&path, type_page, flags, mnt_flags,
 				      dev_name, data_page);
+	
+            /*in case of faling to mount, erase the partition and retry*/
+	    if(retval && sprd_should_erase(dir_name)) {	
+	            printk(KERN_WARNING "partion %s cannot mount, erase it and remoutn\n", dev_name);
+		    do_move_mount(&path, dev_name);
+		    sprd_erase_partition(dir_name) ;
+		    retval = do_new_mount(&path, type_page, flags, mnt_flags,
+				                dev_name, data_page);
+	    }
+      }
 dput_out:
 	path_put(&path);
 	return retval;
