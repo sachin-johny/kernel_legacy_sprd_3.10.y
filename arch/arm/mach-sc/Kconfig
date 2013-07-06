@@ -167,4 +167,8 @@ config BUS_MONITOR
         default n
 	depends on ARCH_SCX35
 
+config BUS_MONITOR_DEBUG
+        bool "debug scxx35 AHB and DMC bus monitors"
+        default n
+	depends on BUS_MONITOR
 endif

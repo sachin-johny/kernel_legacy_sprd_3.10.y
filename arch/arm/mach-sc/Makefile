@@ -12,7 +12,7 @@ obj-$(CONFIG_FIX_V7TAGRAM_BUG) += fix_v7_tag_ram_bug.o
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
 CFLAGS_emc_repower.o += -fPIC
 ifeq ($(CONFIG_BUS_MONITOR),y)
-	obj-$(CONFIG_ARCH_SCX35) += bm_sc8830.o
+obj-$(CONFIG_ARCH_SCX35) += bm_sc8830.o
 endif
 
 ifeq ($(CONFIG_CPU_IDLE),y)

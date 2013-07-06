@@ -53,6 +53,22 @@
 #define AXI_BM_CNT_CLR			BIT(4)
 #define AXI_BM_INT_CLR			BIT(29)
 
+#if CONFIG_BUS_MONITOR_DEBUG
+static void __sci_axi_bm_debug(void)
+{
+	u32 bm_index, reg_index, val;
+
+	pr_debug("REG_PUB_APB_BUSMON_CFG: 0x%08x\n", sci_glb_read(REG_PUB_APB_BUSMON_CFG, -1UL));
+	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
+		for(reg_index=0; reg_index<=0x5c; reg_index+=0x4){
+			val = __raw_readl(AXI_BM_INTC_REG(bm_index)+reg_index);
+			if(val)
+				pr_debug("*** %s, chn:%d reg%x:0x%x ***\n",
+						__func__, bm_index, reg_index, val );
+		}
+	}
+}
+#endif
 
 static inline void __sci_axi_bm_chn_en(int chn)
 {
@@ -65,13 +81,27 @@ static inline void __sci_axi_bm_chn_en(int chn)
 	return;
 }
 
+
+static inline void __sci_axi_bm_chn_int_clr(int chn)
+{
+	u32 val;
+
+	val = __raw_readl(AXI_BM_INTC_REG(chn));
+	val |= (AXI_BM_INT_CLR);
+	__raw_writel(val, AXI_BM_INTC_REG(chn));
+
+	return;
+
+}
+
 static inline u32 __sci_axi_bm_chn_cnt_bw(int chn)
 {
 	u32 rbw, wbw;
 
 	rbw = __raw_readl(AXI_BM_RBW_IN_WIN_REG(chn));
 	wbw = __raw_readl(AXI_BM_WBW_IN_WIN_REG(chn));
-	pr_debug(" chn:%d, rbw:%u, wbw:%u \n", chn, rbw, wbw );
+	if(rbw || wbw)
+		pr_debug(" chn:%d, rbw:%u, wbw:%u \n", chn, rbw, wbw );
 
 	return (rbw+wbw);
 }
@@ -102,6 +132,15 @@ static void __sci_axi_bm_cnt_stop(void)
 	return;
 }
 
+static void __sci_axi_bm_int_clr(void)
+{
+	int bm_index;
+
+	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
+		__sci_axi_bm_chn_int_clr(bm_index);
+	}
+}
+
 /* performance count clear */
 static void __sci_axi_bm_cnt_clr(void)
 {
@@ -116,10 +155,23 @@ static void __sci_axi_bm_cnt_clr(void)
 		__raw_writel(val, AXI_BM_INTC_REG(bm_index));
 		val |= (AXI_BM_CNT_CLR);
 		__raw_writel(val, AXI_BM_INTC_REG(bm_index));
+#if CONFIG_BUS_MONITOR_DEBUG
 		pr_debug(" chn:%d, val:0x%x, reg:0x%x \n", bm_index, val, AXI_BM_INTC_REG(bm_index));
 		__sci_axi_bm_chn_cnt_bw(bm_index);
+#endif
 	}
 	return;
+}
+
+static void __sci_axi_bm_init(void)
+{
+	int bm_index, reg_index;
+
+	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
+		for(reg_index=0; reg_index<=0x5c; reg_index+=0x4)
+			__raw_writel(0, AXI_BM_INTC_REG(bm_index)+reg_index);
+	}
+
 }
 
 static void __sci_bm_glb_count_enable(bool is_enable)
@@ -189,7 +241,10 @@ unsigned int dmc_mon_cnt_bw(void)
 	for (chn = AXI_BM0; chn <= AXI_BM9; chn++) {
 		cnt += __sci_axi_bm_chn_cnt_bw(chn);
 	}
-
+#if CONFIG_BUS_MONITOR_DEBUG
+	__sci_axi_bm_debug( );
+	pr_debug(" %s done \n", __func__ );
+#endif
 	return cnt;
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_bw);
@@ -224,7 +279,9 @@ static int __init sci_bm_init(void)
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		__sci_bm_glb_reset_and_enable(bm_index, true);
 	}
+	__sci_axi_bm_init();
 	__sci_axi_bm_cnt_clr();
+	__sci_axi_bm_int_clr();
 
 	for (bm_index = AHB_BM0; bm_index <= AHB_BM2; bm_index++) {
 		__sci_bm_glb_reset_and_enable(bm_index, true);
