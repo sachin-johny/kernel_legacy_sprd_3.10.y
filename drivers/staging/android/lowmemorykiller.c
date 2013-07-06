@@ -88,8 +88,9 @@ struct lmk_wl{
 /*note: task name limit 16 characters, intercept last 16 characters*/
 static struct lmk_wl lmk_wl_info[MAX_LMK_WHITE_LIST]={
     {"ndroid.launcher", NULL}, 
-    {"android.browser", NULL},
     {"thunderst.radio", NULL},
+    {"d.process.acore", NULL},
+    {"ndroid.contacts", NULL},
 };
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
@@ -104,13 +105,14 @@ static uint32_t lowmem_swap_app_enable = 1;
 static uint32_t lowmem_minfile_check_enable = 0;
 static uint32_t lowmem_last_swap_time = 0;
 
+
 static size_t lowmem_minfile[6] = {
-	32 * 1024,	 //128MB
-	30 * 1024,	 //120MB
-	28 * 1024,	 //112MB
-	24 * 1024,	 //96MB
 	22 * 1024,	 //88MB
-	12 * 1024,	 //48MB		
+	18 * 1024,	 //72MB
+	16 * 1024,	 //64MB
+	12 * 1024,	 //48MB
+	8 * 1024,	 //32MB
+	6 * 1024,	 //24MB
 };
 static int lowmem_minfile_size = 6;
 
@@ -139,6 +141,9 @@ extern void putback_lru_page(struct page *page);
 extern unsigned int zone_id_shrink_pagelist(struct zone *zone_id,struct list_head *page_list, unsigned int nr_to_reclaim);
 #define lru_to_page(_head) (list_entry((_head)->prev, struct page, lru))
 
+/*front app adj & most system process oom_adj definition*/
+#define FRONT_APP_ADJ          0
+/* enable debug log*/
 #define SWAP_PROCESS_DEBUG_LOG 0
 /* free RAM 8M(2048 pages) */
 #define CHECK_FREE_MEMORY 2048
@@ -398,12 +403,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
         if(!current_is_kswapd()){
                 if((sc->gfp_mask & GFP_LMK_TRY_HARDER) == GFP_LMK_TRY_HARDER){
    
-                    if(min_adj > lowmem_adj[1]){
+                    if(min_adj > lowmem_adj[0]){
 #ifdef CONFIG_ANDROID_LMK_ENHANCE
 	                for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++)
-		            selected_oom_adj[i]=min_adj=lowmem_adj[1];
+		            selected_oom_adj[i]=min_adj=lowmem_adj[0];
 #else
-	                    selected_oom_adj=min_adj=lowmem_adj[1];
+	                    selected_oom_adj=min_adj=lowmem_adj[0];
 #endif
                             lowmem_print(2, "[LMK]alloc page rountine, try harder old: %d, new:%d\r\n",\
                                 min_adj, min_adj);
@@ -411,20 +416,22 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                 }
          }else{
 #ifdef CONFIG_ZRAM_FOR_ANDROID
-	if(lowmem_minfile_check_enable && (sc->nr_to_scan > 0))
-	{
+	    if(lowmem_minfile_check_enable && (sc->nr_to_scan > 0))
+	    {
 		int t = 0;
 		unsigned int zram_swap_size = 0;
 		struct sysinfo si = {0};
 		si_swapinfo(&si);	
 		zram_swap_size = (si.totalswap - si.freeswap);
 
-		if( min_adj == OOM_ADJUST_MAX + 1)
+		lowmem_print(2,"\r\n[LMK_swap] init oom_adj_index:%d, other_free:%d, other_file:%d\r\n", oom_adj_index, other_free, other_file);
+                if( min_adj == OOM_ADJUST_MAX + 1)
 		{
-			lowmem_print(2,"\r\n[LMK] Cache value high: other_free:%d, other_file:%d, zram_swap_size:%d\r\n", 
+			lowmem_print(2,"\r\n[LMK_swap] Cache value high: other_free:%d, other_file:%d, zram_swap_size:%d\r\n",
 					    other_free,other_file,  zram_swap_size);
 			oom_adj_index = ARRAY_SIZE(lowmem_adj) - 1;
 		}
+
 
 		//Recalculate min_adj value according to swapped size
 		for(t = oom_adj_index; t  >= 0; t--)
@@ -441,7 +448,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		{
 			if ((min_adj == lowmem_adj[0]) && ((other_file + other_free) < (totalreserve_pages << 1)))
 			{
-				lowmem_print(2, "\r\n[LMK] WARN No Memory: other_free:%d, other_file:%d,\
+				lowmem_print(2, "\r\n[LMK_swap] WARN No Memory: other_free:%d, other_file:%d,\
                                         lowmem_minfile[0]:%d, min_adj:%d, totalreserve_pages:%d, zram_swap_size:%d\r\n",\
                                             other_free,other_file, lowmem_minfile[0], min_adj, \
                                                 totalreserve_pages << 1,zram_swap_size);
@@ -452,19 +459,20 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				min_adj = lowmem_adj[0];
 			}
 		}		
-		lowmem_print(2, "\r\n[LMK] zram_swap_size:%d, min_adj:%d, reserve_pages=%d \r\n", \
+		lowmem_print(2, "\r\n[LMK_swap] zram_swap_size:%d, min_adj:%d, reserve_pages=%d \r\n", \
 					    zram_swap_size, min_adj, totalreserve_pages);
 
 		
 		if(min_adj  != lowmem_adj[oom_adj_index])
 		{
-			lowmem_print(2, "[LMK]adjudge adj, old: %d, new:%d\r\n", lowmem_adj[oom_adj_index], min_adj);
+			lowmem_print(2, "[LMK_swap]adjudge adj, old: %d, new:%d\r\n", lowmem_adj[oom_adj_index], min_adj);
 		}
+            }
 		
-	}
+	 }
 #endif
 
-	if (sc->nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
+	if(sc->nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
 		lowmem_print(5, "lowmem_shrink %lu, %x, return %d\n",
 			     sc->nr_to_scan, sc->gfp_mask, rem);
 #ifndef CONFIG_ANDROID_LMK_THREAD
@@ -479,69 +487,76 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
 
 #ifdef  CONFIG_ZRAM_FOR_ANDROID
-	lowmem_print(4,"[LMK] other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n", 
+	if(current_is_kswapd()){
+		lowmem_print(2,"[LMK_swap] other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n",
 						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
-	if(lowmem_swap_app_enable)
-	{
-		if(current_is_kswapd() && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) \
-                        &&((min_adj > lowmem_adj[0]) && (min_adj <lowmem_adj[5])))
-		{
+
+                if(lowmem_swap_app_enable && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) \
+                        && (min_adj>FRONT_APP_ADJ)/*for performance consideration, avoid swapin front app& system process*/\
+                            && ((min_adj >= lowmem_adj[1])&& (min_adj < lowmem_adj[5]))/*avoid swap in empty process*/){
 			int times = 0;
 			struct sysinfo si = {0};
-                        int count=0;
-			int  swap_to_scan = getbuddyfreepages()  >>  1;   //buddy pages /2
-			
-			if(swap_to_scan > 1024)
-			{
-				swap_to_scan = 1024;
+                        int  count=0;
+			int  buddy_free = getbuddyfreepages()  >>  1;   //buddy pages /2
+                        int  start_adj=0;
+                        const static int  swap_thresh[15]={8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 102, 110, 118};
+                        const static int  swap_to_scan[15]={1024, 1024, 768, 768, 512, 512, 512, 256, 256, 256, 64, 64, 32, 16, 0};
+                        const static int  scan_num=1024;
+                        const static int  scan_max_times=2;
+                        
+                        if(buddy_free > scan_num){
+				buddy_free = scan_num;
 			}
 
                         count=jiffies;
-
-			if(swap_to_scan > (SWAP_CLUSTER_MAX  << 1) )  //Only run at buddy pages enough
-			{
-				to_reclaimed = swap_to_zram(swap_to_scan, min_adj, 1);
-			}
+                        /*Only run at buddy pages enough*/
+                        if(buddy_free > (SWAP_CLUSTER_MAX  << 1) ){
+                              for(start_adj=1; start_adj<min_adj; start_adj++){
+                                 /*swap policy:
+                                  * (a) if current mem pressure not high, swap harder(not easily exist)
+                                  * (b) if process has low oom_adj, this process will swap harder, for consideration this process
+                                  *     will not easily been killed*/
+                                 to_reclaimed += swap_to_zram(buddy_free*(swap_to_scan[start_adj]/swap_to_scan[0]), start_adj, start_adj);
 			
-			lowmem_print(2,"[LMK]swap_to_scan:%d, to_reclaimed:%d, time:%d ms\r\n", \
-                                swap_to_scan, to_reclaimed, jiffies_to_msecs(jiffies-count));
+			         lowmem_print(2,"[LMK_swap]buddy_free:%d, swap_to_scan[%d]:%d, to_reclaimed:%d,  min_adj:%d, time:%d ms\r\n", \
+                                         buddy_free, start_adj, swap_to_scan[start_adj], to_reclaimed,  min_adj, jiffies_to_msecs(jiffies-count));
 			
-			if(to_reclaimed >= swap_to_scan)
-			{
-			         swap_interval_time = default_interval_time;
-				return rem - to_reclaimed;							
-			}
+			         if(to_reclaimed >= swap_thresh[min_adj]){
+			            swap_interval_time = default_interval_time;
+                                    return rem - to_reclaimed;
+			         }
+                             }
+                        }
 
-			if(0 == to_reclaimed)
-			{
-			       times = 5;
+			if(0 == to_reclaimed){
+			       times = scan_max_times;
 			}
-			else
-			{
-				times = swap_to_scan/to_reclaimed;
-				if(times > 5)
-				{
-					times = 5;
+			else{
+				times = buddy_free*(swap_to_scan[min_adj]/swap_to_scan[0])/to_reclaimed;
+				if(times > scan_max_times){
+					times = scan_max_times;
 				}
 			}
 			
 			swap_interval_time = default_interval_time * times;
 			lowmem_last_swap_time =  jiffies;	   
-
 			si_swapinfo(&si);
+                        lowmem_print(2,"[LMK_swap] buddy_free:%d, si.totalswap:%d, si.freeswap:%d, minfile:%d\r\n", \
+                                buddy_free, si.totalswap, si.freeswap, lowmem_minfile[oom_adj_index]);
 
-			if( (si.totalswap - si.freeswap) < lowmem_minfile[oom_adj_index])
-			{
-				return rem - to_reclaimed;
+			if( (si.totalswap - si.freeswap) < lowmem_minfile[oom_adj_index]){
+                                return rem - to_reclaimed;
 			}
-
-		}
-	    }
+                 }
 #endif
-        }// if(sc->gfp_mask & GFP_LKM_DYNAMIC == GFP_LKM_DYNAMIC)
-        lowmem_white_list_init();
-        read_lock(&tasklist_lock);
-	for_each_process(p) {
+            }
+
+            lowmem_print(2,"[LMK] kill process start ,other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n", 
+						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
+
+            lowmem_white_list_init();
+            read_lock(&tasklist_lock);
+	    for_each_process(p) {
 		struct mm_struct *mm;
 		struct signal_struct *sig;
 		int oom_adj;
@@ -554,24 +569,27 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			continue;
 		}
 		oom_adj = sig->oom_adj;
-		lowmem_print(6, "[%d:%s] loop, current adj %d\n",p->pid, p->comm, oom_adj);
+		lowmem_print(6, "[[LMK] [%d:%s] loop, current adj %d\n",p->pid, p->comm, oom_adj);
 
                 if(p->state == TASK_UNINTERRUPTIBLE){
-                    lowmem_print(6, " [%d, %s] uninterruptible skip, adj %d\n",
+                    lowmem_print(6, " [LMK] [%d, %s] uninterruptible skip, adj %d\n",
 				p->pid, p->comm, oom_adj);
                     task_unlock(p);
                     continue;
                 }
 		if (oom_adj < min_adj) {
-			lowmem_print(6, " [%d:%s] current adj %d\n",
+			lowmem_print(6, " [LMK] [%d:%s] current adj %d\n",
 				p->pid, p->comm, oom_adj);
                         task_unlock(p);
 			continue;
 		}
                 if(lowmem_white_list_chk(p)){
-                	lowmem_print(2, " [%d:%s] whilt lisk check skip, current adj %d\n",
+                	lowmem_print(2, " [LMK] [%d:%s] whilt lisk check skip, current adj %d\n",
 				p->pid, p->comm, oom_adj);
-                        wl_kill_trigger=1;
+                        
+                        if(min_adj<=lowmem_adj[0]){
+                            wl_kill_trigger=1;
+                        }
                         task_unlock(p);
 			continue;
                 }
@@ -582,7 +600,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
 		task_unlock(p);
 		if (tasksize <= 0){
-		    lowmem_print(6, " [%d:%s] no task size skip, adj %d, %d\n",
+		    lowmem_print(6, " [LMK] [%d:%s] no task size skip, adj %d, %d\n",
 				p->pid, p->comm, oom_adj, tasksize);
                     continue;
                 }
@@ -605,7 +623,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			if (all_selected_oom < LOWMEM_DEATHPENDING_DEPTH)
 				all_selected_oom++;
 
-			lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
+			lowmem_print(2, "[LMK] select %d (%s), adj %d, size %d, to kill\n",
 				p->pid, p->comm, oom_adj, tasksize);
 
 			break;
@@ -621,14 +639,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected = p;
 		selected_tasksize = tasksize;
 		selected_oom_adj = oom_adj;
-		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
+		lowmem_print(2, "[LMK] select %d (%s), adj %d, size %d, to kill\n",
 			     p->pid, p->comm, oom_adj, tasksize);
 #endif
-	}
+	    }
 #ifdef CONFIG_ANDROID_LMK_ENHANCE
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
+	    for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
 		if (selected[i]) {
-			lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
+			lowmem_print(1, "[LMK] send sigkill to %d (%s), adj %d, size %d\n",
 				selected[i]->pid, selected[i]->comm,
 				selected_oom_adj[i], selected_tasksize[i]);
 			lowmem_deathpending[i] = selected[i];
@@ -642,10 +660,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                          rem -= selected_tasksize[i];
 	                 wl_make_some_progress=1;   
                 }
-	}
+	    }
 #else
-	if (selected) {
-		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
+	    if (selected) {
+		lowmem_print(1, "[LMK] send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_adj, selected_tasksize);
 		lowmem_deathpending = selected;
@@ -658,12 +676,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                 
                 wl_make_some_progress=1;
 		rem -= selected_tasksize;
-	}
+	    }
 #endif
 
-        if(!current_is_kswapd() && wl_kill_trigger){
-                wl_selected=lowmem_white_list_kill(wl_make_some_progress, (int*)&wl_selected_tasksize, min_adj);
-                if(wl_selected){
+            if(wl_kill_trigger){
+                 wl_selected=lowmem_white_list_kill(wl_make_some_progress, (int*)&wl_selected_tasksize, min_adj);
+                 if(wl_selected){
 #ifdef CONFIG_ANDROID_LMK_ENHANCE
                     lowmem_deathpending[0] = wl_selected;
 		    lowmem_deathpending_timeout[0] = jiffies + HZ;
@@ -678,13 +696,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                        last_killed_pid = wl_selected->pid;
 
 		    rem -= wl_selected_tasksize;
-                    lowmem_print(2, "lowmem_shrink: wl kill tasksize=%d\n", wl_selected_tasksize);
-            }     
-        }
-	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
-		     sc->nr_to_scan, sc->gfp_mask, rem);
+                    lowmem_print(2, "[LMK] lowmem_shrink: wl kill tasksize=%d\n", wl_selected_tasksize);
+                 }     
+             }
 	read_unlock(&tasklist_lock);
-	return rem;
+        lowmem_print(2, "lowmem_shrink %lu, %x, return %d\n",
+		     sc->nr_to_scan, sc->gfp_mask, rem);
+
+        return rem;
 }
 
 static struct shrinker lowmem_shrinker = {
@@ -811,7 +830,6 @@ int swap_to_zram(int  nr_to_scan,  int  min_adj, int   max_adj)
 {
 	struct task_struct *p = NULL;
 	int pages_tofree = 0, pages_freed = 0;
-	int  oom_adj_wmark = 0;
 	LIST_HEAD(zone0_page_list);
 	LIST_HEAD(zone1_page_list);
 	struct sysinfo ramzswap_info = { 0 };
@@ -825,57 +843,56 @@ int swap_to_zram(int  nr_to_scan,  int  min_adj, int   max_adj)
 		return 0;
 	}
 
-	for(oom_adj_wmark = min_adj;  oom_adj_wmark >= max_adj;  oom_adj_wmark--)
+        if(nr_to_scan<=0){
+                return 0;
+        }
+	pages_tofree = 0;
+		
+	read_lock(&tasklist_lock);
+	for_each_process(p) 
 	{
-		pages_tofree = 0;
-		
-		read_lock(&tasklist_lock);
-		for_each_process(p) 
+		struct mm_struct *mm;
+		struct signal_struct *sig;
+		int oom_adj;
+
+		task_lock(p);
+		mm = p->mm;
+		sig = p->signal;
+		if (!mm || !sig) 
 		{
-			struct mm_struct *mm;
-			struct signal_struct *sig;
-			int oom_adj;
-
-			task_lock(p);
-			mm = p->mm;
-			sig = p->signal;
-			if (!mm || !sig) 
-			{
-				task_unlock(p);
-				continue;
-			}
-			
-			oom_adj = sig->oom_adj;
-			if ( (oom_adj < oom_adj_wmark) ||
-			      (__task_cred(p)->uid  <= 10000) || (p->flags & PF_KTHREAD) )
-			{
-				task_unlock(p);
-				continue;
-			}
-
-			atomic_inc(&mm->mm_users);
 			task_unlock(p);
-                        read_unlock(&tasklist_lock);
-			down_read(&mm->mmap_sem);
-			pages_tofree += shrink_pages(mm, &zone0_page_list, &zone1_page_list, shrink_to_scan);
-			up_read(&mm->mmap_sem);
-			mmput(mm);
-                        read_lock(&tasklist_lock);
-			pr_debug("%s, name:%s, adj:%d, policy:%u, uid:%u\r\n", 
+			continue;
+		}
+			
+                oom_adj = sig->oom_adj;
+                if ( (oom_adj < min_adj) || (oom_adj > max_adj) ||\
+			(__task_cred(p)->uid  <= 10000) || (p->flags & PF_KTHREAD) )
+		{
+			task_unlock(p);
+			continue;
+		}
+
+         
+                printk("%s, name:%s, adj:%d, policy:%u, uid:%u\r\n", 
+			__func__, p->comm, oom_adj,p->policy, __task_cred(p)->uid );
+
+
+		atomic_inc(&mm->mm_users);
+		task_unlock(p);
+                read_unlock(&tasklist_lock);
+		down_read(&mm->mmap_sem);
+		pages_tofree += shrink_pages(mm, &zone0_page_list, &zone1_page_list, shrink_to_scan);
+		up_read(&mm->mmap_sem);
+		mmput(mm);
+                read_lock(&tasklist_lock);
+		pr_debug("%s, name:%s, adj:%d, policy:%u, uid:%u\r\n", 
 							__func__, p->comm, oom_adj,p->policy, __task_cred(p)->uid );
-		}
-		read_unlock(&tasklist_lock);
+	 }
+	read_unlock(&tasklist_lock);
 
-		if(pages_tofree)
-		{
-			pages_freed += swap_pages(&zone0_page_list, &zone1_page_list, pages_tofree);
-		}
-
-		if(pages_freed >= shrink_to_scan)
-		{
-			break;
-		}
-		
+	if(pages_tofree)
+	{
+		pages_freed += swap_pages(&zone0_page_list, &zone1_page_list, pages_tofree);
 	}
 
 	return pages_freed;
