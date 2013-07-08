@@ -26,8 +26,6 @@
 	#define DCAM_TRACE             pr_debug
 #endif
 
-#define DCAM_ERR_TRACE				printk
-
 #define DCAM_WAIT_FOREVER                        0xFFFFFFFF
 #define DCAM_PATH_1_FRM_CNT_MAX                  8
 #define DCAM_PATH_2_FRM_CNT_MAX                  4
