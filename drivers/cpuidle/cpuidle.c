@@ -395,11 +395,14 @@ EXPORT_SYMBOL_GPL(cpuidle_disable_device);
 static int __cpuidle_register_device(struct cpuidle_device *dev)
 {
 	int ret;
-	struct device *cpu_dev = get_cpu_device((unsigned long)dev->cpu);
-	struct cpuidle_driver *cpuidle_driver = cpuidle_get_driver();
+	struct device *cpu_dev = NULL;
+	struct cpuidle_driver *cpuidle_driver = NULL;
 
 	if (!dev)
 		return -EINVAL;
+        cpu_dev = get_cpu_device((unsigned long)dev->cpu);
+        cpuidle_driver = cpuidle_get_driver();
+
 	if (!try_module_get(cpuidle_driver->owner))
 		return -EINVAL;
 
