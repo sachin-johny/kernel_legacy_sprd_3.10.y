@@ -1756,7 +1756,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 		_Sensor_Identify(SENSOR_SUB);
 		printk("SENSOR: Sensor_Init Identify \n");
 
-		if (5 == sensor_id||!s_sensor_identified) {
+		if (5 == sensor_id) {
 			msleep(20);
 	                SENSOR_PRINT("SENSOR: Sensor_Init, select PCLK1 to make ATV work!\n");
                         sprd_greg_set_bits(REG_TYPE_GLOBAL,0x40, GR_CLK_GEN7);
