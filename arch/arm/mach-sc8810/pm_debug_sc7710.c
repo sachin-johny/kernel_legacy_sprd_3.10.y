@@ -235,7 +235,7 @@ void print_statisic(void)
 	print_hard_irq();
 	print_irq();
 	if(is_print_wakeup)	
-		printk("###wake up form %s : %08x\n",  sleep_mode_str[sleep_mode],  irq_status);
+		printk("###wake up from %s : %08x\n",  sleep_mode_str[sleep_mode],  irq_status);
 	
 }
 
@@ -532,7 +532,9 @@ static int print_thread(void * data)
 		print_gr();
 		print_ana();
 		print_init_ana();
+#if !defined(CONFIG_ARCH_SC7710)
 		is_dsp_sleep();
+#endif
 		/*just print locked wake_lock*/
 		has_wake_lock(WAKE_LOCK_SUSPEND);
 		msleep(100);

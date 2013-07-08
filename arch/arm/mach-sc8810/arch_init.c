@@ -73,7 +73,7 @@ early_initcall(arch_init);
 /*some chip init global helper functions */
 int sci_get_chipid(void)
 {
-	return __raw_readl(CHIP_ID);
+	return sprd_greg_read(REG_TYPE_AHB_GLOBAL, CHIP_ID);
 }
 int sci_get_ana_chipid(void)
 {

@@ -453,7 +453,7 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 		udelay(50);
 	}
 
-	if (!cnt) {
+	if (cnt < 0) {
 		ret = -1;
 		WARN_ON(1);
 		goto Exit;

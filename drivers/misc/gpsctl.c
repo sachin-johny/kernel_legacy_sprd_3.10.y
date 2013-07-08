@@ -64,8 +64,8 @@ int gps_power_ctl(int is_on)
 		    pr_err("gpsctl:could not get 1.8v regulator\n");
 		    return -1;
 		   }
-                enabled = regulator_is_enabled(gps_regulator);
-                if (is_on & !enabled) {
+                enabled = (1 == regulator_is_enabled(gps_regulator));
+                if (is_on && !enabled) {
 		    err = regulator_set_voltage(gps_regulator, 1800000, 1800000);
 		     if (err)
 			pr_err("gpsctl:could not set to 1800mv.\n");

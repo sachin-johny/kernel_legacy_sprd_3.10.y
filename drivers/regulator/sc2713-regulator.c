@@ -29,6 +29,7 @@
 #include <linux/init.h>
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/version.h>
 #include <linux/spinlock.h>
 #include <linux/debugfs.h>
 #include <linux/slab.h>
@@ -219,17 +220,13 @@ static int ldo_is_on(struct regulator_dev *rdev)
 	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
 	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
-
-        /*for pd_rst has higher prioty than pd_set, what's more, their reset values are the same, 0*/
-#if 0
 	if (regs->pd_rst && regs->pd_set) {
+        /*for pd_rst has higher prioty than pd_set, what's more, their reset values are the same, 0*/
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
-                /*when reset, pd_set & pd_rst are all zero, always get here*/
+        /* FIXME: when reset, pd_set & pd_rst are all zero, always get here*/
 		if (ret == ! !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit))
 			ret = -EINVAL;
-	} else 
-#endif
-        if (regs->pd_rst) {
+	} else if (regs->pd_rst) {
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
 	} else if (regs->pd_set) {	/* new feature */
 		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
@@ -352,7 +349,7 @@ static int __init_trimming(struct regulator_dev *rdev)
 	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
 	    >> __ffs(regs->vol_trm_bits);
 
-	if (trim != desc->ops->trimming_def_val) {
+	if (trim != desc->ops->trimming_def_val && !(regs->vol_def & 1)) {
 		/* some DCDC/LDOs had been calibrated in uboot-spl */
 		debug("regu %p (%s) trimming ok before startup\n", regs,
 		      desc->desc.name);
@@ -582,7 +579,12 @@ static int dcdc_set_trimming(struct regulator_dev *rdev,
  * FIXME: no need division?
 	int ctl_vol = DIV_ROUND_UP(def_vol * to_vol * 1000, adc_vol) + acc_vol;
 */
-	int ctl_vol = 1000 * (to_vol - (adc_vol - def_vol)) + acc_vol;
+	int ctl_vol = 1000 * (to_vol - (adc_vol - def_vol)) + acc_vol;	/*uV */
+
+	/* FIXME: dcdc core ctrl should be keeped after trimming.
+	 * but now, uV_offset is used for dcdc set/get correct voltage.
+	 */
+	rdev->constraints->uV_offset = ctl_vol - def_vol * 1000;
 	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
@@ -1370,15 +1372,15 @@ static int debugfs_ldo_set(void *data, u64 val)
 static int debugfs_dcdc_set(void *data, u64 val)
 {
 	struct regulator_dev *rdev = data;
-	struct sci_regulator_desc *desc = __get_desc(rdev);
-	int to_vol = (int)val;
+	struct sci_regulator_desc *desc;
 
-	if (rdev && desc->ops) {
+	if (rdev) {
+		desc = __get_desc(rdev);
 		if (val < 200)	/* FIXME: debug force trimming */
 			regu_force_trimming(rdev, val);
-		else {
+		else if (desc && desc->ops) {
 			mutex_lock(&rdev->mutex);
-			desc->ops->calibrate(rdev, 0, to_vol);
+			desc->ops->calibrate(rdev, 0, val);
 			mutex_unlock(&rdev->mutex);
 		}
 	}
@@ -1459,8 +1461,6 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 	};
 	struct regulator_consumer_supply consumer_supplies_default[] = {
 		[0] = {
-		       .dev = 0,
-		       .dev_name = 0,
 		       .supply = desc->desc.name,
 		       }
 	};
@@ -1551,7 +1551,11 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		init_data.consumer_supplies = consumer_supplies_default;
 
 	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
+	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0, 0);
+#else
 	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
+#endif
 	if (init_data.consumer_supplies != consumer_supplies_default)
 		kfree(init_data.consumer_supplies);
 
