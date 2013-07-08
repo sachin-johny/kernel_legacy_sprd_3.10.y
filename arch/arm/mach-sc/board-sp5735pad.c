@@ -15,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-
+#include <linux/export.h>
 #include <asm/io.h>
 #include <asm/setup.h>
 #include <asm/mach/time.h>
@@ -38,6 +38,7 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <mach/pinmap.h>
+#include <linux/mpu.h>
 #include <linux/akm8975.h>
 #include <linux/irq.h>
 #include <linux/persistent_ram.h>
@@ -50,8 +51,6 @@
 
 #include "devices.h"
 
-/* IRQ's for the multi sensor board */
-#define MPUIRQ_GPIO 212
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <linux/spi/mxd_cmmb_026x.h>
@@ -62,6 +61,9 @@ extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
 extern int __init sci_regulator_init(void);
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+extern int __init sprd_ramconsole_init(void);
+#endif
 
 /*keypad define */
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
@@ -99,6 +101,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
 	&sprd_serial_device2,
+	&sprd_serial_device3,
 	&sprd_device_rtc,
 	&sprd_eic_gpio_device,
 	&sprd_nand_device,
@@ -121,6 +124,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_audio_codec_sprd_codec_device,
 	&sprd_audio_cpu_dai_i2s_device,
 	&sprd_audio_cpu_dai_i2s_device1,
+	&sprd_audio_cpu_dai_i2s_device2,
+	&sprd_audio_cpu_dai_i2s_device3,
 	&sprd_audio_codec_null_codec_device,
 	&sprd_battery_device,
 #ifdef CONFIG_ION
@@ -169,6 +174,10 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_seth0_wcdma_device,
 	&sprd_seth1_wcdma_device,
 	&sprd_seth2_wcdma_device,
+#ifdef CONFIG_SIPC_SPOOL
+	&sprd_spool_wcdma_device,
+#endif
+	&sprd_saudio_wcdma_device,
 #endif
 	&kb_backlight_device,
 	&sprd_a7_pmu_device,
@@ -275,6 +284,10 @@ static struct serial_data plat_data2 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
 	.clk = 26000000,
 };
+static struct serial_data plat_data3 = {
+	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
+	.clk = 26000000,
+};
 
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
@@ -283,10 +296,8 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 };
 
 static struct ltr558_pls_platform_data ltr558_pls_info = {
-	.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
+	.irq_gpio_number	= GPIO_PROX_INT,
 };
-
-/* TODO: mpu sensor drivers not merged */
 #if 0
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.poll_interval = 10,
@@ -299,7 +310,7 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.negate_y = 0,
 	.negate_z = 1
 };
-
+#endif
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -20480,
 	.mag_high_x = 20479,
@@ -313,8 +324,8 @@ static struct mpu_platform_data mpu9150_platform_data = {
 	.int_config = 0x00,
 	.level_shifter = 0,
 	.orientation = { -1, 0, 0,
-					  0, -1, 0,
-					  0, 0, +1 },
+					  0, +1, 0,
+					  0, 0, -1 },
 	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
 	.sec_slave_id = COMPASS_ID_AK8963,
 	.secondary_i2c_addr = 0x0C,
@@ -325,23 +336,25 @@ static struct mpu_platform_data mpu9150_platform_data = {
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
 
-
 static struct i2c_board_info i2c2_boardinfo[] = {
+	/*
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
+	*/
 	{ I2C_BOARD_INFO("mpu9150", 0x68),
-	  .irq = MPUIRQ_GPIO,
+	  .irq = GPIO_GYRO_INT1,
 	  .platform_data = &mpu9150_platform_data,
 	},
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
-/*	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+	/*
+	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
-	},*/
+	},
+	*/
 };
-#endif
 
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
@@ -357,10 +370,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 
 static int sc8810_add_i2c_devices(void)
 {
-#if 0
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
-#endif
-
 	i2c_register_board_info(0, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(1, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 	return 0;
@@ -655,11 +665,16 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+	platform_device_add_data(&sprd_serial_device3,(const void*)&plat_data3,sizeof(plat_data3));
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+#ifdef CONFIG_ANDROID_RAM_CONSOLE
+    sprd_ramconsole_init();
+#endif
+
 }
 
 extern void __init  sci_enable_timer_early(void);
@@ -676,19 +691,9 @@ static void __init sc8830_init_early(void)
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
 
-/*
- * Setup the memory banks.
- */
-
-static void __init sc8830_fixup(struct machine_desc *desc,
-	struct tag *tags, char **cmdline, struct meminfo *mi)
-{
-}
-
 MACHINE_START(SCPHONE, "sc8830")
 	.reserve	= sci_reserve,
 	.map_io		= sci_map_io,
-	.fixup		= sc8830_fixup,
 	.init_early	= sc8830_init_early,
 	.handle_irq	= gic_handle_irq,
 	.init_irq	= sci_init_irq,
