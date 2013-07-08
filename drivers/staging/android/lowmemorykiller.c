@@ -551,9 +551,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #endif
             }
 
+#ifdef  CONFIG_ZRAM_FOR_ANDROID
             lowmem_print(2,"[LMK] kill process start ,other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n", 
 						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
-
+#endif
             lowmem_white_list_init();
             read_lock(&tasklist_lock);
 	    for_each_process(p) {
