@@ -26,13 +26,15 @@ dsih_error_t mipi_dsih_dphy_open(dphy_t * phy)
     {                                                                                                                                                                  
         return ERR_DSI_PHY_INVALID;                                                                                                                                    
     }                                                                                                                                                                  
-    phy->status = NOT_INITIALIZED;                                                                                                                                     
+    phy->status = NOT_INITIALIZED;
+#if 0
     mipi_dsih_dphy_reset(phy, 0);                                                                                                                                      
     mipi_dsih_dphy_stop_wait_time(phy, 0x1C);                                                                                                                          
     mipi_dsih_dphy_no_of_lanes(phy, 1);                                                                                                                                
     mipi_dsih_dphy_clock_en(phy, 1);                                                                                                                                   
     mipi_dsih_dphy_shutdown(phy, 1);                                                                                                                                   
-    mipi_dsih_dphy_reset(phy, 1);                                                                                                                                      
+    mipi_dsih_dphy_reset(phy, 1);
+#endif
     phy->status = INITIALIZED;                                                                                                                                         
     return OK;                                                                                                                                                         
 }                                                                                                                                                                      
@@ -141,6 +143,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     /* provide an initial active-high test clear pulse in TESTCLR  */                                                                                                  
     mipi_dsih_dphy_test_clear(phy, 1);                                                                                                                                 
     mipi_dsih_dphy_test_clear(phy, 0);                                                                                                                                 
+    for(i=0;i<100;i++){
+            ;
+    }
 #ifdef DWC_MIPI_DPHY_BIDIR_TSMC40LP                                                                                                                                    
     /* find ranges */                                                                                                                                                  
     for (range = 0; (range < (sizeof(ranges)/sizeof(ranges[0]))) && ((output_freq / 1000) > ranges[range].freq); range++)                                              
@@ -160,20 +165,20 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
   /* Jessica add - begin*/  
     data[0] =  0x42;//0x44;//0x44;//0x40;                 //0x40: ok for 200    clock lane lpx /*about 52ns*/
     mipi_dsih_dphy_write(phy, 0x60, data, 1);
-    data[0] =  0x0; //0xA6;//0xC6;//0xC6;//0x86;                 //0x48: ok for 200     prepare time
-    mipi_dsih_dphy_write(phy, 0x61, data, 1);
+//    data[0] =  0x0; //0xA6;//0xC6;//0xC6;//0x86;                 //0x48: ok for 200     prepare time
+//    mipi_dsih_dphy_write(phy, 0x61, data, 1);
 
-    data[0] =  0x0;//0x6a;//0x6a;//0x4a;                  //0x4a: ok for 200    zero time
-    mipi_dsih_dphy_write(phy, 0x62, data, 1);
+//    data[0] =  0x0;//0x6a;//0x6a;//0x4a;                  //0x4a: ok for 200    zero time
+//    mipi_dsih_dphy_write(phy, 0x62, data, 1);
 
     data[0] =  0x42;//0x44;//0x40;//0x40;              // 0x40: ok for 200          data lane lpx /*about 52ns*/
     mipi_dsih_dphy_write(phy, 0x70, data, 1);
 
-    data[0] = 0x0;// 0x84;//0x96;//0x96;//0x86;                //0x48: ok for 200         prepare time
-    mipi_dsih_dphy_write(phy, 0x71, data, 1);
+//    data[0] = 0x0;// 0x84;//0x96;//0x96;//0x86;                //0x48: ok for 200         prepare time
+//    mipi_dsih_dphy_write(phy, 0x71, data, 1);
 
-    data[0] =  0x0;//0x44;//0x44;//0x40;               //0x4a: ok for 200          zero time
-    mipi_dsih_dphy_write(phy, 0x72, data, 1);
+//    data[0] =  0x0;//0x44;//0x44;//0x40;               //0x4a: ok for 200          zero time
+//    mipi_dsih_dphy_write(phy, 0x72, data, 1);
 
     //data[0] =  0x44;                                                                                 
     //mipi_dsih_dphy_write(phy, 0x73, data, 1);	
@@ -211,8 +216,8 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
    data[0] = input_divider - 1;                                                                                                                                       
    mipi_dsih_dphy_write(phy, 0x17, data, 1);           //Jessica                                                                                                               
     
-    data[0] = 1;
-    mipi_dsih_dphy_write(phy, 0xB0, data, 1);
+//    data[0] = 1;
+//    mipi_dsih_dphy_write(phy, 0xB0, data, 1);
 
 
 
@@ -228,7 +233,13 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     mipi_dsih_dphy_no_of_lanes(phy, no_of_lanes);                                                                                                                      
     mipi_dsih_dphy_stop_wait_time(phy, 0x1C);                                                                                                                          
     mipi_dsih_dphy_clock_en(phy, 1);                                                                                                                                   
+    for(i=0;i<100;i++){
+            ;
+    }
     mipi_dsih_dphy_shutdown(phy, 1);                                                                                                                                   
+    for(i=0;i<100;i++){
+            ;
+    }
     mipi_dsih_dphy_reset(phy, 1);                                                                                                                                      
     return OK;                                                                                                                                                         
 } 
