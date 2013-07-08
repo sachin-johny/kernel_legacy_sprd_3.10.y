@@ -165,8 +165,16 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			readl(CORE_GIC_DIS_VA + 0x100 + (60/32)*4));
 	printk(KERN_ERR DRIVER_NAME ": ANA_REG_GLB_LDO_DCDC_PD_RTCSET : 0x%x \n\r",
 			ANA_REG_GET(ANA_REG_GLB_LDO_DCDC_PD_RTCSET));
-	printk(KERN_ERR DRIVER_NAME ": ANA_REG_GLB_LDO_DCDC_PD_RTCSET : 0x%x \n\r",
+	printk(KERN_ERR DRIVER_NAME ": ANA_REG_GLB_LDO_PD_CTRL : 0x%x \n\r",
 			ANA_REG_GET(ANA_REG_GLB_LDO_PD_CTRL));
+	 printk(KERN_ERR DRIVER_NAME ": REG_PMU_APB_PLL_DIV_EN1 : 0x%x \n\r",
+			readl(REG_PMU_APB_PLL_DIV_EN1));
+	 printk(KERN_ERR DRIVER_NAME ": REG_PMU_APB_CGM_AP_EN : 0x%x \n\r",
+			readl(REG_PMU_APB_CGM_AP_EN));
+	 printk(KERN_ERR DRIVER_NAME ": REG_PMU_APB_TDPLL_REL_CFG : 0x%x \n\r",
+			readl(REG_PMU_APB_TDPLL_REL_CFG));
+	 printk(KERN_ERR DRIVER_NAME ": REG_PMU_APB_CGM_AP_AUTO_GATE_EN : 0x%x \n\r",
+			readl(REG_PMU_APB_CGM_AP_AUTO_GATE_EN)); 
 #endif
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
