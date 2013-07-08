@@ -73,6 +73,7 @@ static size_t lowmem_minfree[6] = {
 	4 * 1024,	/* 16MB */
 	16 * 1024,	/* 64MB */
 };
+
 static int lowmem_minfree_size = 4;
 static pid_t last_killed_pid = 0;
 
@@ -215,6 +216,7 @@ int getbuddyfreepages(void)
 }
 #endif
 
+
 static void lowmem_white_list_init(void)
 {
     int count=0;
@@ -336,6 +338,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int  oom_adj_index = 0;
 	int to_reclaimed = 0;
 #endif  /*CONFIG_ZRAM_FOR_ANDROID*/
+
 
 #ifdef  CONFIG_ZRAM
         other_free -= totalreserve_pages;
@@ -491,7 +494,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
                 if(lowmem_swap_app_enable && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) \
                         && (min_adj>FRONT_APP_ADJ)/*for performance consideration, avoid swapin front app& system process*/\
-                            && ((min_adj >= lowmem_adj[0])&& (min_adj < lowmem_adj[5]))/*avoid swap in empty process*/){
+                            && ((min_adj >= lowmem_adj[0]) && (min_adj < lowmem_adj[5]))/*avoid swap in empty process*/){
 			int times = 0;
 			struct sysinfo si = {0};
                         int  count=0;
@@ -514,7 +517,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                                   * (a) if current mem pressure not high, swap harder(not easily exist)
                                   * (b) if process has low oom_adj, this process will swap harder, for consideration this process
                                   *     will not easily been killed*/
-                                 to_reclaimed += swap_to_zram(buddy_free*(swap_to_scan[start_adj]/swap_to_scan[0]), start_adj, start_adj);
+                                 to_reclaimed += swap_to_zram((buddy_free*swap_to_scan[start_adj])/swap_to_scan[0], start_adj, start_adj);
 			
 			         lowmem_print(2,"[LMK_swap]buddy_free:%d, swap_to_scan[%d]:%d, to_reclaimed:%d,  min_adj:%d, time:%d ms\r\n", \
                                          buddy_free, start_adj, swap_to_scan[start_adj], to_reclaimed,  min_adj, jiffies_to_msecs(jiffies-count));
@@ -1065,8 +1068,6 @@ module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
-
-
 module_init(lowmem_init);
 module_exit(lowmem_exit);
 
