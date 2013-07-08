@@ -89,8 +89,6 @@ struct lmk_wl{
 static struct lmk_wl lmk_wl_info[MAX_LMK_WHITE_LIST]={
     {"ndroid.launcher", NULL}, 
     {"thunderst.radio", NULL},
-    {"d.process.acore", NULL},
-    {"ndroid.contacts", NULL},
 };
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
@@ -493,14 +491,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
                 if(lowmem_swap_app_enable && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) \
                         && (min_adj>FRONT_APP_ADJ)/*for performance consideration, avoid swapin front app& system process*/\
-                            && ((min_adj >= lowmem_adj[1])&& (min_adj < lowmem_adj[5]))/*avoid swap in empty process*/){
+                            && ((min_adj >= lowmem_adj[0])&& (min_adj < lowmem_adj[5]))/*avoid swap in empty process*/){
 			int times = 0;
 			struct sysinfo si = {0};
                         int  count=0;
 			int  buddy_free = getbuddyfreepages()  >>  1;   //buddy pages /2
                         int  start_adj=0;
                         const static int  swap_thresh[15]={8, 16, 24, 32, 40, 48, 56, 64, 72, 80, 88, 96, 102, 110, 118};
-                        const static int  swap_to_scan[15]={1024, 1024, 768, 768, 512, 512, 512, 256, 256, 256, 64, 64, 32, 16, 0};
+                        const static int  swap_to_scan[15]={1024, 1024, 768, 768, 768, 512, 512, 512, 256, 256, 64, 64, 32, 16, 0};
                         const static int  scan_num=1024;
                         const static int  scan_max_times=2;
                         
