@@ -615,9 +615,9 @@ static void sc8810_i2c_init(struct sc8810_i2c *i2c)
 	unsigned int tmp;
 	struct sc8810_platform_i2c *pdata;
 
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 29) | BIT(4), GR_GEN0);
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, i2c->adap.nr==0?BIT(4):1<<(i2c->adap.nr+28), GR_GEN0);
+	sprd_greg_set_bits(REG_TYPE_GLOBAL, i2c->adap.nr==0?0x01:1<<(i2c->adap.nr+1), GR_SOFT_RST);
+	sprd_greg_clear_bits(REG_TYPE_GLOBAL, i2c->adap.nr==0?0x01:1<<(i2c->adap.nr+1), GR_SOFT_RST);
 
 	__raw_writel(0x1,i2c->membase+I2C_RST);
 
@@ -732,6 +732,7 @@ static int sc8810_i2c_probe(struct platform_device *pdev)
 	i2c->adap.algo = &sc8810_i2c_algorithm;
 	i2c->adap.algo_data = i2c;
 	i2c->adap.dev.parent = &pdev->dev;
+	i2c->adap.nr = pdev->id;
 
 	/* initialize the i2c controller */
 
@@ -744,8 +745,6 @@ static int sc8810_i2c_probe(struct platform_device *pdev)
 		printk("I2C:request_irq failed!\n");
 		goto err_irq;
 	}
-
-	i2c->adap.nr = pdev->id;
 
 	ret = i2c_add_numbered_adapter(&i2c->adap);
 	if (ret < 0){
