@@ -180,11 +180,16 @@ static int scxx30_dmc_get_dev_status(struct device *dev,
 	pr_debug("*** %s, trans_bw:%lluB, curr freq:%lu, total_bw:%uKB ***\n",
 			__func__, trans_bw, stat->current_frequency, total_bw);
 
-	stat->busy_time = (u32)div_u64(trans_bw*HZ, interval); /* BW: B/s */
 	/*
 	* TODO: efficiency ratio could be more accurate??
 	*/
-	stat->total_time = total_bw*125 ;   /* BW: KB*1000/8(efficiency ratio) B/s */
+	if(interval){
+		stat->busy_time = (u32)div_u64(trans_bw*HZ, interval); /* BW: B/s */
+		stat->total_time = total_bw*125 ;   /* BW: KB*1000/8(efficiency ratio) B/s */
+	}else{
+		stat->busy_time = 0 ;
+		stat->total_time = 0;
+	}
 	pr_debug("*** %s, interval:%u, busy_time:%lu, totoal_time:%lu ***\n",
 				__func__, interval, stat->busy_time, stat->total_time );
 #else

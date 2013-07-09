@@ -12,6 +12,7 @@
  */
 
 #include <linux/errno.h>
+#include <linux/sched.h>
 #include <linux/slab.h>
 #include <linux/devfreq.h>
 #include <linux/math64.h>
@@ -31,8 +32,6 @@ struct dfs_request_state{
 };
 static struct dfs_request_state user_requests;
 static struct devfreq *g_devfreq; /* for requests from kernel */
-
-/************ userspace interface *****************/
 struct userspace_data {
 	int req_bw;
 	unsigned long set_freq;
@@ -41,6 +40,62 @@ struct userspace_data {
 	unsigned long (*convert_bw_to_freq)(u32 req_bw);
 	bool enable;
 };
+
+/************ kernel interface *****************/
+/*
+*  add a new ddr bandwidth request.
+*  @req_bw: KB
+*/
+void dfs_add_request(u32 req_bw)
+{
+	u32 req_freq;
+	struct userspace_data *user_data;
+	req_freq = 0;
+	if(g_devfreq && g_devfreq->data){
+		user_data = (struct userspace_data *)(g_devfreq->data);
+		if(user_data->convert_bw_to_freq){
+			req_freq = (user_data->convert_bw_to_freq)(req_bw);
+		}
+	}
+	pr_debug("*** %s, pid:%u, req_bw:%u, req_freq:%u ***\n",
+				__func__, current->pid, req_bw, req_freq );
+	if(req_freq){
+		mutex_lock(&g_devfreq->lock);
+		user_requests.req_sum += req_freq;
+		update_devfreq(g_devfreq);
+		mutex_unlock(&g_devfreq->lock);
+	}
+}
+
+/*
+*  Remove a ddr bandwidth request.
+*  @req_bw: KB
+*/
+void dfs_remove_request(u32 req_bw)
+{
+	u32 req_freq;
+	struct userspace_data *user_data;
+	req_freq = 0;
+
+	if(g_devfreq && g_devfreq->data){
+		user_data = (struct userspace_data *)(g_devfreq->data);
+		if(user_data->convert_bw_to_freq){
+			req_freq = (user_data->convert_bw_to_freq)(req_bw);
+		}
+	}
+	pr_debug("*** %s, pid:%u, req_bw:%u, req_freq:%u ***\n",
+				__func__, current->pid, req_bw, req_freq );
+	if(req_freq){
+		mutex_lock(&g_devfreq->lock);
+		user_requests.req_sum -= req_freq;
+		if(user_requests.req_sum < 0)
+			user_requests.req_sum = 0;
+		update_devfreq(g_devfreq);
+		mutex_unlock(&g_devfreq->lock);
+	}
+}
+
+/************ userspace interface *****************/
 
 static ssize_t store_upthreshold(struct device *dev, struct device_attribute *attr,
 			  const char *buf, size_t count)
@@ -286,9 +341,14 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	if (err)
 		return err;
 
+	/*
+	* TODO: add request frequency
+	*/
+	req_freq = user_requests.req_sum;
+
 	if (data) {
 		if (data->enable==false || data->set_freq){
-			*freq = data->set_freq ? data->set_freq : max;
+			*freq = (data->set_freq?data->set_freq:max)+req_freq ;
 			return 0;
 		}
 		if (data->upthreshold)
@@ -328,11 +388,6 @@ static int devfreq_ondemand_func(struct devfreq *df,
 		pr_debug("*** %s, stat.current_frequency == 0, freq:%lu ***\n", __func__, *freq);
 		return 0;
 	}
-
-	/*
-	* TODO: add request frequency
-	*/
-	req_freq = user_requests.req_sum;
 
 	/* Keep the current frequency */
 	if (stat.busy_time * 100 >
