@@ -1664,7 +1664,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 	}
 
 	if ((0 == ret) && (0 != atomic_read(&dev->stream_on))) {
-		if ((DCAM_PATH1 == channel_id))
+		if (DCAM_PATH1 == channel_id)
 			ret = sprd_v4l2_update_video(file, channel_id);
 	}
 
@@ -1689,6 +1689,8 @@ LOCAL int v4l2_qbuf(struct file *file,
 	uint32_t                 index;
 	uint32_t                 path_cnt;
 
+	mutex_lock(&dev->dcam_mutex);
+
 	if (V4L2_BUF_TYPE_VIDEO_CAPTURE == p->type) {
 		path = &info->dcam_path[DCAM_PATH1];
 		path_cnt = DCAM_PATH_1_FRM_CNT_MAX;
@@ -1700,13 +1702,12 @@ LOCAL int v4l2_qbuf(struct file *file,
 		path_cnt = DCAM_PATH_0_FRM_CNT_MAX;
 	} else {
 		printk("V4L2 error: v4l2_qbuf, type 0x%x \n", p->type);
+		mutex_unlock(&dev->dcam_mutex);
 		return -EINVAL;
 	}
 
 	DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, status %d, frm_cnt_act %d \n",
 		p->type, path->status, path->frm_cnt_act);
-		
-	mutex_lock(&dev->dcam_mutex);
 
 	if (PATH_IDLE == path->status) {
 		if (unlikely(0 == p->m.userptr)) {
@@ -1743,7 +1744,6 @@ LOCAL int v4l2_qbuf(struct file *file,
 	mutex_unlock(&dev->dcam_mutex);
 
 	return ret;
-
 }
 
 LOCAL int v4l2_dqbuf(struct file *file,
@@ -2056,7 +2056,7 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t
 	int                      ret = 0;
 	enum dcam_path_index     path_index;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel %d ,recfg flag %d\n",
+	DCAM_TRACE("V4L2: pause, channel %d ,recfg flag %d\n",
 		channel_id,reconfig_flag);
 		
 	path = &dev->dcam_cxt.dcam_path[channel_id];
@@ -2075,9 +2075,9 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t
 			dcam_rel_resizer();
 			dev->got_resizer = 0;
 		}
-		DCAM_TRACE("V4L2: sprd_v4l2_streampause, channel=%d done \n", channel_id);
-	}else{
-		DCAM_TRACE("V4L2: sprd_v4l2_streampause, path %d not running, status=%d, cannot pause \n", 
+		DCAM_TRACE("V4L2: pause, channel=%d done \n", channel_id);
+	} else {
+		DCAM_TRACE("V4L2: pause, path %d not running, status=%d \n",
 			channel_id, path->status);
 	}
 
@@ -2092,7 +2092,7 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 	path_cfg_func            path_cfg;
 	int                      ret = 0;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_streamresume, channel=%d \n", channel_id);
+	DCAM_TRACE("V4L2: resume, channel=%d \n", channel_id);
 	
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
@@ -2101,25 +2101,25 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 		if (path->is_work) {
 			if (DCAM_PATH0 == channel_id) {
 				path_cfg = dcam_path0_cfg;
-			}else if (DCAM_PATH1 == channel_id) {
+			} else if (DCAM_PATH1 == channel_id) {
 				path_cfg = dcam_path1_cfg;
-			}else if (DCAM_PATH2 == channel_id) {
+			} else if (DCAM_PATH2 == channel_id) {
 				if (0 == dev->got_resizer) {
 					 /* if not owned resiezer, try to get it */
 					if (unlikely(dcam_get_resizer(0))) {
 						/*no wait to get the controller of resizer, failed*/
-						printk("V4L2: sprd_v4l2_resume, path2 has been occupied by other app \n");
+						printk("V4L2: resume, path2 has been occupied by other app \n");
 						return -EIO;
 					}
 					dev->got_resizer = 1;
 				}
 				path_cfg = dcam_path2_cfg;
 			} else {
-				printk("V4L2: sprd_v4l2_resume, invalid channel_id=0x%x \n", channel_id);
+				printk("V4L2: resume, invalid channel_id=0x%x \n", channel_id);
 				return -1;
 			}
 
-			if(DCAM_PATH0 == channel_id) {
+			if (DCAM_PATH0 == channel_id) {
 				ret = sprd_v4l2_path0_cfg(path_cfg, path);
 			} else {
 				ret = sprd_v4l2_path_cfg(path_cfg, path);
@@ -2131,16 +2131,16 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 
 			path->status = PATH_RUN;
 		}else{
-			DCAM_TRACE("V4L2: sprd_v4l2_streamresume, path %d no parameter, is_work=%d, cannot resume \n", 
+			DCAM_TRACE("V4L2: resume, path %d no parameter, is_work=%d, cannot resume \n",
 				channel_id, path->is_work);
 		}
 	}else{
-		DCAM_TRACE("V4L2: sprd_v4l2_streamresume, path %d not idle, status=%d, cannot resume \n", 
+		DCAM_TRACE("V4L2: resume, path %d not idle, status=%d, cannot resume \n",
 			channel_id, path->status);
 	}
 exit:
 	if (ret) {
-		DCAM_TRACE("V4L2: fail sprd_v4l2_streamresume, path %d, ret = 0x%x\n", channel_id, ret);
+		DCAM_TRACE("V4L2: fail resume, path %d, ret = 0x%x\n", channel_id, ret);
 	}
 	return ret;
 }
