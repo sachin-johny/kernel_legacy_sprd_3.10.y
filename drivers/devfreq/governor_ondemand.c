@@ -173,7 +173,7 @@ static ssize_t store_request(struct device *dev, struct device_attribute *attr,
 	struct devfreq *devfreq = to_devfreq(dev);
 	struct userspace_data *data;
 	int wanted;
-	unsigned long req_freq;
+	int req_freq;
 	int err = 0;
 
 	req_freq = 0;
@@ -187,9 +187,11 @@ static ssize_t store_request(struct device *dev, struct device_attribute *attr,
 		if(data->req_bw < 0)
 			data->req_bw = 0;
 		if(data->convert_bw_to_freq)
-			req_freq = data->convert_bw_to_freq(data->req_bw);
+			req_freq = data->convert_bw_to_freq(wanted);
 	}
 	user_requests.req_sum += req_freq;
+	if(user_requests.req_sum < 0)
+		user_requests.req_sum = 0;
 	err = update_devfreq(devfreq);
 	if (err == 0)
 		err = count;

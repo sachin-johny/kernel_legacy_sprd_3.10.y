@@ -105,9 +105,9 @@ static unsigned long scxx30_min_freq(struct dmcfreq_data *data)
 * @bw, request bandwidth, KB
 * @return, KHz
 */
-static unsigned long scxx30_convert_bw_to_freq(unsigned long bw)
+static int scxx30_convert_bw_to_freq(int bw)
 {
-	unsigned long freq;
+	int freq;
 
 	freq = 0;
 	/*freq = dmc_convert_bw_to_freq(bw);*/
