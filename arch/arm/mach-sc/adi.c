@@ -119,9 +119,27 @@ static inline int __adi_fifo_drain(void)
 #endif
 
 #define ANA_ADDR_SIZE			(SZ_4K)
+
+int sci_is_adi_vaddr(u32 vaddr)
+{
+	return (vaddr >= ANA_VIRT_BASE && vaddr <= (ANA_VIRT_BASE + ANA_ADDR_SIZE));
+}
+EXPORT_SYMBOL(sci_is_adi_vaddr);
+
+int sci_adi_p2v(u32 paddr, u32 *vaddr)
+{
+	if(paddr < ANA_PHYS_BASE || paddr > (ANA_PHYS_BASE + ANA_ADDR_SIZE)) {
+		return -1;
+	} else {
+		*vaddr = paddr - ANA_PHYS_BASE + ANA_VIRT_BASE;
+	}
+	return 0;
+}
+EXPORT_SYMBOL(sci_adi_p2v);
+
 static inline int __adi_addr_check(u32 vaddr)
 {
-	if(vaddr < ANA_VIRT_BASE || vaddr > (ANA_VIRT_BASE + ANA_ADDR_SIZE)) {
+	if(!sci_is_adi_vaddr(vaddr)) {
 		WARN(1, "Maybe ADI vaddr is wrong?!!");
 		return -1;
 	}

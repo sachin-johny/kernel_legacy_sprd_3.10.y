@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * Copyright (C) 2013 Spreadtrum Communications Inc.
  * Copyright (C) steve.zhan
  *
  * This program is free software; you can redistribute it and/or
@@ -54,4 +54,28 @@ IS_CPU(sc8735v1, SCX35_BETA_TAPOUT, SCX35_BETA_TAPOUT_MASK)
 #define soc_is_scx35_v0()	soc_id_is_sc8735v0()
 #define soc_is_scx35_v1()	soc_id_is_sc8735v1()
 
+
+/**
+* read value from virtual address. Pls make sure val is not NULL.
+* return 0 is successful
+*/
+int sci_read_va(u32 vreg, u32 *val);
+
+/**
+* write value to virtual address. if clear_msk is ~0, or_val will fully set to vreg.
+* return 0 is successful
+*/
+int sci_write_va(u32 vreg, const u32 or_val, const u32 clear_msk);
+
+/**
+* read value from pysical address. Pls make sure val is not NULL.
+* return 0 is successful
+*/
+int sci_read_pa(u32 preg, u32 *val);
+
+/**
+* write value to pysical address. if clear_msk is ~0, or_val will fully set to paddr.
+* return 0 is successful
+*/
+int sci_write_pa(u32 paddr, const u32 or_val, const u32 clear_msk);
 
