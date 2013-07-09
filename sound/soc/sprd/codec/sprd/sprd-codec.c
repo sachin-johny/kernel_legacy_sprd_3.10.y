@@ -2414,23 +2414,6 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 	return 0;
 }
 
-static int sprd_codec_pcm_startup(struct snd_pcm_substream *substream,
-				  struct snd_soc_dai *dai)
-{
-	return 0;
-}
-
-static void sprd_codec_pcm_shutdown(struct snd_pcm_substream *substream,
-				    struct snd_soc_dai *dai)
-{
-	struct snd_soc_codec *codec = dai->codec;
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		snd_soc_dapm_disable_pin(&codec->card->dapm, "DAC");
-	} else {
-		snd_soc_dapm_disable_pin(&codec->card->dapm, "ADC");
-	}
-}
-
 static int sprd_codec_pcm_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai)
@@ -2541,8 +2524,6 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 }
 
 static struct snd_soc_dai_ops sprd_codec_dai_ops = {
-	.startup = sprd_codec_pcm_startup,
-	.shutdown = sprd_codec_pcm_shutdown,
 	.hw_params = sprd_codec_pcm_hw_params,
 	.hw_free = sprd_codec_pcm_hw_free,
 	.digital_mute = sprd_codec_digital_mute,
