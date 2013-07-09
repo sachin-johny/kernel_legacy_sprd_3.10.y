@@ -90,7 +90,11 @@ static struct sc8810_nand_page_oob nand_config_table[] =
 	{0x2c, 0xb3, 0x90, 0x66, 0x64, 4096, 224, 512, 8},
 	{0x2c, 0xbc, 0x90, 0x66, 0x54, 4096, 224, 512, 8},
 	{0xec, 0xb3, 0x01, 0x66, 0x5a, 4096, 128, 512, 4},
-	{0xec, 0xbc, 0x00, 0x6a, 0x56, 4096, 256, 512, 8}
+	{0xec, 0xbc, 0x00, 0x6a, 0x56, 4096, 256, 512, 8},
+	{0xad, 0xbc, 0x90, 0x55, 0x56, 2048, 64,  512, 4},
+	{0x2c, 0xbc, 0x90, 0x55, 0x56, 2048, 64,  512, 4},
+	{0x2c, 0xb3, 0xd1, 0x55, 0x56, 2048, 64,  512, 4},
+	{0xc8, 0xbc, 0x90, 0x55, 0x54, 2048, 64,  512, 4}
 };
 
 /* some nand id could not be calculated the pagesize by mtd, replace it with a known id which has the same format. */
@@ -1059,11 +1063,17 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 	if (index < array) {
 		this->ecc.size = nand_config_table[index].eccsize;
 		g_info.ecc_mode = nand_config_table[index].eccbit;
+
+		/* 4 bit ecc, per 512 bytes can creat 13 * 4 = 52 bit , 52 / 8 = 7 bytes
+		   8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 14 bytes */
 		switch (g_info.ecc_mode) {
 			case 4:
-				/* 4 bit ecc, per 512 bytes can creat 13 * 4 = 52 bit , 52 / 8 = 7 bytes */
+				/* 4 bit ecc, per 512 bytes can creat 14 * 4 = 56 bit , 56 / 8 = 7 bytes */
 				this->ecc.bytes = 7;
-				this->ecc.layout = &_nand_oob_128;
+				if(nand_config_table[index].oobsize == 64)
+				    this->ecc.layout = &_nand_oob_64_4bit;
+				else
+				 this->ecc.layout = &_nand_oob_128;
 			break;
 			case 8:
 				/* 8 bit ecc, per 512 bytes can creat 13 * 8 = 104 bit , 104 / 8 = 14 bytes */
@@ -1075,13 +1085,6 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 				mtd->oobsize = nand_config_table[index].oobsize;
 			break;
 		}
-	}else{
-        if((nand_config_table[array - 1].pagesize == 2048) && (nand_config_table[array - 1].eccbit == 4)){
-    				this->ecc.size = nand_config_table[index].eccsize;
-    				g_info.ecc_mode = nand_config_table[index].eccbit;
-    				this->ecc.bytes = 7;
-    				this->ecc.layout = &_nand_oob_64_4bit;
-    	}
 	}
 }
 
