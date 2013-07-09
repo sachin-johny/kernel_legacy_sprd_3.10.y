@@ -810,8 +810,8 @@ static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.detect_gpio = 140,
 	.vdd_name = "vddsd",
 	.clk_name = "clk_sdio0",
-	.clk_parent = "clk_192m",
-	.max_clock = 192000000,
+	.clk_parent = "ext_26m",
+	.max_clock = 26000000,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 };
