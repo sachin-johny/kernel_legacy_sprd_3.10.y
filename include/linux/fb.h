@@ -202,6 +202,7 @@ struct fb_bitfield {
 #define FB_ACTIVATE_NOW		0	/* set values immediately (or vbl)*/
 #define FB_ACTIVATE_NXTOPEN	1	/* activate on next open	*/
 #define FB_ACTIVATE_TEST	2	/* don't set, round up impossible */
+#define FB_ACTIVATE_NOW_NO_DISP 4
 #define FB_ACTIVATE_MASK       15
 					/* values			*/
 #define FB_ACTIVATE_VBL	       16	/* activate values on next vbl  */
