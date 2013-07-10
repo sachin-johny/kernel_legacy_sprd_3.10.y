@@ -12,12 +12,33 @@
  */
 #include <linux/input-hook.h>
 
+extern char nand_cmd_buff[40];
+extern int nand_cmd_buff_index;
+extern void fixon_timeout_print_reg(void);
+extern nand_cmd_comm[40][TASK_COMM_LEN];
+static inline nand_print_cmd(void)
+{
+    int i;
+    printk("nand_cmd_buff begin\n");
+    for(i=0;i<40;i++)
+    {
+		  printk("comm is %s\n",nand_cmd_comm[nand_cmd_buff_index]);
+        printk("cmd is %x\n",nand_cmd_buff[nand_cmd_buff_index]);
+        nand_cmd_buff_index++;
+        if(nand_cmd_buff_index == 40)
+            nand_cmd_buff_index = 0;
+    }
+    printk("nand_cmd_buff end\n");
+}
 static enum hrtimer_restart trigger_watch_event_timer_cb(struct hrtimer *timer)
 {
 	struct trigger_watch_event *event = container_of(timer, struct trigger_watch_event, timer);
 	enum hrtimer_restart restart = HRTIMER_NORESTART;
 	pr_info("< %s > trigger-watch event timer timeout %dms\n", event->name, event->period);
-	if (event->trigger_watch_event_cb)
+	//output all nand cmd
+	        nand_print_cmd();
+        fixon_timeout_print_reg();
+        if (event->trigger_watch_event_cb)
 		event->trigger_watch_event_cb(event->private);
 	if (event->repeated) { /* repeat timer */
 		hrtimer_forward_now(timer, ktime_set(event->period / 1000, (event->period % 1000) * 1000000));
