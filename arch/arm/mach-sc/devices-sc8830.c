@@ -791,6 +791,11 @@ struct platform_device sprd_isp_device = {
 	.id = -1,
 };
 
+struct platform_device sprd_dma_copy_device = {
+	.name	= "sprd_dma_copy",
+	.id	= -1,
+};
+
 static struct resource sprd_sdio0_resources[] = {
 	[0] = {
 		.start = SPRD_SDIO0_BASE,

@@ -68,6 +68,7 @@ extern struct platform_device sprd_gsp_device;
 extern struct platform_device sprd_rotation_device;
 extern struct platform_device sprd_sensor_device;
 extern struct platform_device sprd_isp_device;
+extern struct platform_device sprd_dma_copy_device;
 extern struct platform_device sprd_ahb_bm0_device;
 extern struct platform_device sprd_ahb_bm1_device;
 extern struct platform_device sprd_ahb_bm2_device;
