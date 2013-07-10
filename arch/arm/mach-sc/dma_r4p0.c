@@ -13,6 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
+#include <linux/mutex.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
@@ -22,6 +23,8 @@
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/dma_reg.h>
+
+#define DMA_MEMCPY_CHN_SIZE 3
 
 struct sci_dma_desc {
 	const char *dev_name;
@@ -33,16 +36,20 @@ struct sci_dma_desc {
 static struct sci_dma_desc *dma_chns;
 
 static DEFINE_SPINLOCK(dma_lock);
+static DEFINE_MUTEX(dma_mutex);
 
 static void __inline __dma_clk_enable(void)
 {
-	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_DMA_EB);
+	if (!sci_glb_read(REG_AP_AHB_AHB_EB, BIT_DMA_EB)) {
+		sci_glb_set(REG_AP_AHB_AHB_EB, BIT_DMA_EB);
+	}
 }
 
 static void __inline __dma_clk_disable(void)
 {
 	sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_DMA_EB);
 }
+
 #if 0
 static void __dma_set_prio(u32 dma_chn, dma_pri_level chn_prio)
 {
@@ -60,8 +67,7 @@ static int __dma_set_request_mode(u32 dma_chn, dma_request_mode mode)
 	u32 reg_val = __raw_readl(DMA_CHN_FRAG_LEN(dma_chn));
 	u32 req_mod = 0;
 
-	switch (mode)
-	{
+	switch (mode) {
 	case FRAG_REQ_MODE:
 		req_mod = 0x0;
 		break;
@@ -71,13 +77,13 @@ static int __dma_set_request_mode(u32 dma_chn, dma_request_mode mode)
 		break;
 
 	case TRANS_REQ_MODE:
-		if (dma_chn < FULL_CHN_START ||dma_chn > FULL_CHN_END)
+		if (dma_chn < FULL_CHN_START || dma_chn > FULL_CHN_END)
 			return -EINVAL;
 		req_mod = 0x2;
 		break;
 
 	case LIST_REQ_MODE:
-		if (dma_chn < FULL_CHN_START ||dma_chn > FULL_CHN_END)
+		if (dma_chn < FULL_CHN_START || dma_chn > FULL_CHN_END)
 			return -EINVAL;
 		req_mod = 0x3;
 		break;
@@ -135,11 +141,33 @@ static int __dma_set_int_type(u32 dma_chn, dma_int_type int_type)
 }
 
 /*convert struct sci_dma_cfg to struct sci_dma_reg*/
-static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
-				       struct sci_dma_reg *dma_reg)
+static int __dma_cfg_check_and_convert(u32 dma_chn,
+				       const struct sci_dma_cfg *cfg,
+				       u32 dma_reg_addr)
 {
-	u32 datawidth = 0,req_mode = 0, is_end = 0, addr_fix_mod = 0;
-	u32 llist_en = 0, is_wrap = 0, wrap_mode = 0;
+	volatile struct sci_dma_reg *dma_reg;
+	u32 datawidth = 0, req_mode = 0, list_end = 0, fix_en = 0;
+	u32 fix_mode = 0, llist_en = 0, wrap_en = 0, wrap_mode = 0;
+
+	/* only full chn support following features:
+	 * 1 transcation tranfer
+	 * 2 linklist
+	 * 3 copy data from fifo to fifo (not test yet, config the
+	 * src_trsf_step = 0 and dst_trsf_step = 0)
+	 * 4 wrap mode
+	 * 5 src_frag_step or dst_frag_step
+	 * 6 src_blk_step or dst_blk_step
+	 */
+	if (cfg->transcation_len ||
+	    cfg->linklist_ptr ||
+	    ((cfg->src_step | cfg->des_step) == 0) ||
+	    (cfg->wrap_ptr && cfg->wrap_to) ||
+	    (cfg->src_frag_step | cfg->dst_frag_step) ||
+	    (cfg->src_blk_step | cfg->dst_blk_step)) {
+		if (dma_chn < FULL_CHN_START) {
+			return -EINVAL;
+		}
+	}
 
 	switch (cfg->datawidth) {
 	case BYTE_WIDTH:
@@ -152,6 +180,7 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 		datawidth = 2;
 		break;
 	default:
+		/*linklist config */
 		if (cfg->linklist_ptr)
 			break;
 		printk("DMA config datawidth error!\n");
@@ -167,107 +196,82 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 
 	req_mode = cfg->req_mode;
 #if 0
-	/*linklist ptr must aligned with 8 bytes*/
+	/*linklist ptr must aligned with 8 bytes */
 	if (cfg->linklist_ptr) {
 		if (!PTR_ALIGN(cfg->linklist_ptr, 8))
 			return -EINVAL;
-		req_mode = LIST_REQ_MODE;
-	} else {
-		if (cfg->block_len && (cfg->block_len != cfg->fragmens_len)) {
-			req_mode = BLOCK_REQ_MODE;
-		} else {
-			req_mode = FRAG_REQ_MODE;
-		}
 	}
 #endif
 
+	/*addr fix mode */
 	if (cfg->src_step != 0 && cfg->des_step != 0) {
-		addr_fix_mod = 0x0;
+		fix_en = 0x0;
 	} else {
 		if ((cfg->src_step | cfg->des_step) == 0) {
-			/*only full chn support data copy from fifo to fifo*/
-			addr_fix_mod = 0;
+			/*only full chn support data copy from fifo to fifo ??? */
+			fix_en = 0x0;
 		} else {
+			fix_en = 0x1;
 			if (cfg->src_step) {
-				/*dest addr is fixed*/
-				addr_fix_mod = 0x3;
+				/*dest addr is fixed */
+				fix_mode = 0x1;
 			} else {
-				/*src addr is fixed*/
-				addr_fix_mod = 0x1;
+				/*src addr is fixed */
+				fix_mode = 0x0;
 			}
 		}
 	}
 
-	/* only full chn support following mode:
-	 * 1 transcation tranfer
-	 * 2 linklist
-	 * 3 copy data from fifo to fifo (not test yet)
-	 * 4 wrap mode
-	 */
-	if (cfg->transcation_len ||
-	    cfg->linklist_ptr ||
-	    ((cfg->src_step | cfg->des_step) == 0) ||
-	    (cfg->wrap_ptr && cfg->wrap_to)) {
-		goto full_chn_convert;
-	}
-
-	/*set default priority*/
-	dma_reg->cfg = DMA_PRI_1 << CHN_PRIORITY_OFFSET;
-	/*src and des addr */
-	dma_reg->src_addr = cfg->src_addr;
-	dma_reg->des_addr = cfg->des_addr;
-	/*frag len */
-	dma_reg->frg_len =
-		(datawidth << SRC_DATAWIDTH_OFFSET) |
-		(datawidth << DES_DATAWIDTH_OFFSET) |
-		(0x0 << SWT_MODE_OFFSET) |
-		(req_mode << REQ_MODE_OFFSET) |
-		(addr_fix_mod << ADDR_FIX_SEL_EN) |
-		(cfg->fragmens_len & FRG_LEN_MASK);
-	/*blk len */
-	dma_reg->blk_len = cfg->block_len & BLK_LEN_MASK;
-
-	return 0;
-
- full_chn_convert:
+	/*wrap mode, if wrap_ptr point 0x0, there're some problems, Notices!!! */
 	if (cfg->wrap_ptr && cfg->wrap_to) {
-		is_wrap = 0x1;
+		wrap_en = 0x1;
 		if (cfg->wrap_to == cfg->src_addr) {
 			wrap_mode = 0x0;
 		} else {
 			if (cfg->wrap_to == cfg->des_addr) {
 				wrap_mode = 0x1;
 			} else {
-				/*error message*/
+				/*error message */
 				return -EINVAL;
 			}
 		}
 	}
 
-	if (cfg->is_end)
-		is_end = 0x1;
-
-	if (cfg->linklist_ptr)
+	/*Notice!! if the linlklist point 0x0, thers're some porblems */
+	if (cfg->linklist_ptr) {
 		llist_en = 0x1;
+		if (cfg->is_end) {
+			list_end = 0x1;
+		}
+	}
 
-	 dma_reg->cfg = DMA_PRI_1 << CHN_PRIORITY_OFFSET |
-		llist_en << LLIST_EN_OFFSET;
+	dma_reg = (struct sci_dma_reg *)dma_reg_addr;
+
+	dma_reg->pause = 0x0;
+	dma_reg->req = 0x0;
+	/*set default priority = 1 */
+	dma_reg->cfg = DMA_PRI_1 << CHN_PRIORITY_OFFSET |
+	    llist_en << LLIST_EN_OFFSET;
 	/*src and des addr */
 	dma_reg->src_addr = cfg->src_addr;
 	dma_reg->des_addr = cfg->des_addr;
 	/*frag len */
 	dma_reg->frg_len =
-		(datawidth << SRC_DATAWIDTH_OFFSET) |
-		(datawidth << DES_DATAWIDTH_OFFSET) |
-		(0x0 << SWT_MODE_OFFSET) |
-		(req_mode << REQ_MODE_OFFSET) |
-		(is_end << LLIST_END_OFFSET) |
-		(wrap_mode << ADDR_WRAP_SEL_OFFSET) |
-		(is_wrap << ADDR_WRAP_EN_OFFSET) |
-		(addr_fix_mod << ADDR_FIX_SEL_EN) |
-		(cfg->fragmens_len & FRG_LEN_MASK);
+	    (datawidth << SRC_DATAWIDTH_OFFSET) |
+	    (datawidth << DES_DATAWIDTH_OFFSET) |
+	    (0x0 << SWT_MODE_OFFSET) |
+	    (req_mode << REQ_MODE_OFFSET) |
+	    (wrap_mode << ADDR_WRAP_SEL_OFFSET) |
+	    (wrap_en << ADDR_WRAP_EN_OFFSET) |
+	    (fix_mode << ADDR_FIX_SEL_OFFSET) |
+	    (fix_en << ADDR_FIX_SEL_EN) |
+	    (list_end << LLIST_END_OFFSET) | (cfg->fragmens_len & FRG_LEN_MASK);
 	/*blk len */
 	dma_reg->blk_len = cfg->block_len & BLK_LEN_MASK;
+
+	if (dma_chn < FULL_CHN_START)
+		return 0;
+
 	/*trac len */
 	if (0x0 == cfg->transcation_len) {
 		dma_reg->trsc_len = cfg->block_len & TRSC_LEN_MASK;
@@ -275,14 +279,24 @@ static int __dma_cfg_check_and_convert(const struct sci_dma_cfg *cfg,
 		dma_reg->trsc_len = cfg->transcation_len & TRSC_LEN_MASK;
 	}
 
+	/*trsf step */
 	dma_reg->trsf_step =
-		(cfg->des_step & TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
-		(cfg->src_step & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
+	    (cfg->des_step & TRSF_STEP_MASK) << DEST_TRSF_STEP_OFFSET |
+	    (cfg->src_step & TRSF_STEP_MASK) << SRC_TRSF_STEP_OFFSET;
 
+	/*wrap ptr */
 	dma_reg->wrap_ptr = cfg->wrap_ptr;
 	dma_reg->wrap_to = cfg->wrap_to;
 
 	dma_reg->llist_ptr = cfg->linklist_ptr;
+	/*frag step */
+	dma_reg->frg_step =
+	    (cfg->dst_frag_step & FRAG_STEP_MASK) << DEST_FRAG_STEP_OFFSET |
+	    (cfg->src_frag_step & FRAG_STEP_MASK) << SRC_FRAG_STEP_OFFSET;
+
+	/*src and dst blk step */
+	dma_reg->src_blk_step = cfg->src_blk_step;
+	dma_reg->des_blk_step = cfg->dst_blk_step;
 
 	return 0;
 }
@@ -298,7 +312,7 @@ static void __init __dma_reg_init(void)
 
 	/*reset the DMA */
 	sci_glb_set(REG_AP_AHB_AHB_RST, 0x1 << 8);
-	while (i--);
+	while (i--) ;
 	sci_glb_clr(REG_AP_AHB_AHB_RST, 0x1 << 8);
 
 	__raw_writel(0x0, DMA_FRAG_WAIT);
@@ -319,18 +333,21 @@ static irqreturn_t __dma_irq_handle(int irq, void *dev_id)
 		return IRQ_NONE;
 	}
 
+	/*read again */
+	irq_status = readl(DMA_INT_MSK_STS);
 	while (irq_status) {
 		i = __ffs(irq_status);
 		irq_status &= (irq_status - 1);
 
-		/*the dma chn index is start with 1,notice!*/
+		/*the dma chn index is start with 1,notice! */
 		reg_addr = DMA_CHN_INT(i + 1);
 		/*clean all type interrupt */
 		writel(readl(reg_addr) | (0x1f << 24), reg_addr);
 
 		if (dma_chns[i + 1].irq_handler)
-			/*audio driver need to get the dma chn*/
-			dma_chns[i + 1].irq_handler(i + 1, dma_chns[i + 1].data);
+			/*audio driver need to get the dma chn */
+			dma_chns[i + 1].irq_handler(i + 1,
+						    dma_chns[i + 1].data);
 	}
 
 	spin_unlock(&dma_lock);
@@ -345,9 +362,14 @@ static void __inline __dma_set_uid(u32 dma_chn, u32 dev_id)
 	}
 }
 
-static void __inline __dma_enable(u32 dma_chn)
+static void __inline __dma_chn_enable(u32 dma_chn)
 {
 	writel(readl(DMA_CHN_CFG(dma_chn)) | 0x1, DMA_CHN_CFG(dma_chn));
+}
+
+static void __inline __dma_chn_disable(u32 dma_chn)
+{
+	writel(readl(DMA_CHN_CFG(dma_chn)) & ~0x1, DMA_CHN_CFG(dma_chn));
 }
 
 static void __inline __dma_soft_request(u32 dma_chn)
@@ -355,9 +377,9 @@ static void __inline __dma_soft_request(u32 dma_chn)
 	writel(readl(DMA_CHN_REQ(dma_chn)) | 0x1, DMA_CHN_REQ(dma_chn));
 }
 
-static void __dma_chn_disable(u32 dma_chn)
+static void __dma_stop_and_disable(u32 dma_chn)
 {
-	/*if the chn has disable already, do nothing*/
+	/*if the chn has disable already, do nothing */
 	if (!(readl(DMA_CHN_CFG(dma_chn)) & 0x1))
 		return;
 
@@ -380,7 +402,7 @@ int sci_dma_start(u32 dma_chn, u32 dev_id)
 	/*fixme, need to check dev_id */
 	__dma_set_uid(dma_chn, dev_id);
 
-	__dma_enable(dma_chn);
+	__dma_chn_enable(dma_chn);
 
 	if (DMA_UID_SOFTWARE == dev_id)
 		__dma_soft_request(dma_chn);
@@ -393,7 +415,7 @@ int sci_dma_stop(u32 dma_chn, u32 dev_id)
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
-	__dma_chn_disable(dma_chn);
+	__dma_stop_and_disable(dma_chn);
 
 	__dma_int_clr(dma_chn);
 
@@ -425,25 +447,25 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 		   u32 node_size, struct reg_cfg_addr *cfg_addr)
 {
 	int ret, i;
-	struct sci_dma_reg dma_reg;
+	struct sci_dma_cfg list_cfg;
 	struct sci_dma_reg *dma_reg_list;
-	volatile void *reg_addr;
 
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
-	/*must init the dma_reg */
-	memset(&dma_reg, 0x0, sizeof(dma_reg));
+	__dma_clk_enable();
 
 	if (node_size > 1)
 		goto linklist_config;
 
-	ret = __dma_cfg_check_and_convert(cfg_list, &dma_reg);
+	ret =
+	    __dma_cfg_check_and_convert(dma_chn, cfg_list,
+					DMA_CHx_BASE(dma_chn));
 	if (ret < 0) {
-		return -EINVAL;
+		printk("%s %d error\n", __func__, __LINE__);
 	}
 
-	goto fill_dma_reg;
+	return ret;
 
  linklist_config:
 	if (NULL == cfg_addr)
@@ -455,26 +477,26 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 		cfg_list[i].linklist_ptr = cfg_addr->phys_addr +
 		    ((i + 1) % node_size) * sizeof(struct sci_dma_reg) + 0x10;
 		ret =
-		    __dma_cfg_check_and_convert(cfg_list + i, dma_reg_list + i);
-		if (ret < 0)
+		    __dma_cfg_check_and_convert(dma_chn, cfg_list + i,
+						(u32) (dma_reg_list + i));
+		if (ret < 0) {
+			printk("%s %d error\n", __func__, __LINE__);
 			return -EINVAL;
+		}
 	}
 
-	/*enable linklist mode*/
-	dma_reg.cfg = 0x1 << 4;
-	dma_reg.llist_ptr = cfg_addr->phys_addr + 0x10;
-	/*audio driver need to get the src and dst addr in the first node*/
-	dma_reg.src_addr = cfg_list[0].src_addr;
-	dma_reg.des_addr = cfg_list[0].des_addr;
+	memset((void *)&list_cfg, 0x0, sizeof(list_cfg));
 
- fill_dma_reg:
-	__dma_clk_enable();
+	list_cfg.linklist_ptr = cfg_addr->phys_addr + 0x10;
+	/*audio driver need get src and dest addr in first node */
+	list_cfg.src_addr = cfg_list[0].src_addr;
+	list_cfg.des_addr = cfg_list[0].des_addr;
 
-	reg_addr = (void *)DMA_CHx_BASE(dma_chn);
+	ret =
+	    __dma_cfg_check_and_convert(dma_chn, &list_cfg,
+					DMA_CHx_BASE(dma_chn));
 
-	memcpy_toio(reg_addr, &dma_reg, sizeof(dma_reg));
-
-	return 0;
+	return ret;
 }
 
 int sci_dma_request(const char *dev_name, dma_chn_type chn_type)
@@ -482,7 +504,6 @@ int sci_dma_request(const char *dev_name, dma_chn_type chn_type)
 	int i;
 	int dma_chn;
 	u32 dma_chn_start, dma_chn_end;
-	ulong flags;
 
 	if (!dev_name)
 		return -EINVAL;
@@ -497,7 +518,7 @@ int sci_dma_request(const char *dev_name, dma_chn_type chn_type)
 		dma_chn_end = DMA_CHN_MAX;
 	}
 
-	spin_lock_irqsave(&dma_lock, flags);
+	mutex_lock(&dma_mutex);
 
 	for (i = dma_chn_start; i <= dma_chn_end; i++) {
 		if (!dma_chns[i].dev_name) {
@@ -507,34 +528,39 @@ int sci_dma_request(const char *dev_name, dma_chn_type chn_type)
 		}
 	}
 
-	spin_unlock_irqrestore(&dma_lock, flags);
+	mutex_unlock(&dma_mutex);
 
 	return dma_chn;
 }
 
 int sci_dma_free(u32 dma_chn)
 {
-	ulong flags;
+	int i;
 
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
-	__dma_chn_disable(dma_chn);
+	__dma_stop_and_disable(dma_chn);
 
 	__dma_int_clr(dma_chn);
 
-	/*set a valid dma chn for CID, the CID is start with 1*/
+	/*set a valid dma chn for CID, the CID is start with 1 */
 	__dma_set_uid(0, dma_chns[dma_chn].dev_id);
 
-	spin_lock_irqsave(&dma_lock, flags);
+	mutex_lock(&dma_mutex);
 
 	memset(dma_chns + dma_chn, 0x0, sizeof(*dma_chns));
 
-	/*if all dma chn be free, disable the DMA clk */
-	if (0X0 == readl(DMA_EN_STS))
+	/*if all chn be free, disbale the dma's clk */
+	for (i = DMA_CHN_MIN; i <= DMA_CHN_MAX; i++) {
+		if (dma_chns[i].dev_name)
+			break;
+	}
+
+	if (i > DMA_CHN_MAX)
 		__dma_clk_disable();
 
-	spin_unlock_irqrestore(&dma_lock, flags);
+	mutex_unlock(&dma_mutex);
 
 	return 0;
 }
@@ -574,11 +600,104 @@ u32 sci_dma_get_dst_addr(u32 dma_chn)
 	return __raw_readl(DMA_CHN_DES_ADR(dma_chn));
 }
 
+#define DMA_MEMCPY_MIN_SIZE 64
+#define DMA_MEMCPY_MAX_SIZE TRSC_LEN_MASK
+static void sci_dma_memcpy_irqhandle(int chn, void *data)
+{
+	struct mutex *memcpy_mutex = (struct mutex *)data;
+
+	mutex_unlock(memcpy_mutex);
+}
+
+int sci_dma_memcpy(u32 dest, u32 src, size_t size)
+{
+	int ret;
+	int dma_chn;
+	u32 data_width, src_step;
+	u32 irq_mode;
+	struct sci_dma_cfg cfg;
+	struct mutex memcpy_mutex;
+
+	if (size < DMA_MEMCPY_MIN_SIZE || size > DMA_MEMCPY_MAX_SIZE) {
+		return -EINVAL;
+	}
+
+	if (size <= BLK_LEN_MASK) {
+		dma_chn = sci_dma_request("dma memcpy", STD_DMA_CHN);
+	} else {
+		dma_chn = sci_dma_request("dma memcpy", FULL_DMA_CHN);
+	}
+	if (dma_chn < 0) {
+		printk("alloc dma chn fail\n");
+		return dma_chn;
+	}
+
+	mutex_init(&memcpy_mutex);
+
+	memset(&cfg, 0x0, sizeof(cfg));
+
+	if ((size & 0x3) == 0) {
+		data_width = WORD_WIDTH;
+		src_step = 4;
+	} else {
+		if ((size & 0x1) == 0) {
+			data_width = SHORT_WIDTH;
+			src_step = 2;
+		} else {
+			data_width = BYTE_WIDTH;
+			src_step = 1;
+		}
+	}
+
+	cfg.src_addr = src;
+	cfg.des_addr = dest;
+	cfg.datawidth = data_width;
+	cfg.src_step = src_step;
+	cfg.des_step = src_step;
+	cfg.fragmens_len = DMA_MEMCPY_MIN_SIZE;
+	if (size <= BLK_LEN_MASK) {
+		cfg.block_len = size;
+		cfg.req_mode = BLOCK_REQ_MODE;
+		irq_mode = BLK_DONE;
+	} else {
+		cfg.block_len = DMA_MEMCPY_MIN_SIZE;
+		cfg.transcation_len = size;
+		cfg.req_mode = TRANS_REQ_MODE;
+		irq_mode = TRANS_DONE;
+	}
+
+	ret = sci_dma_config(dma_chn, &cfg, 1, NULL);
+	if (ret < 0) {
+		printk("dma memcpy config error!\n");
+		sci_dma_free(dma_chn);
+		return -EINVAL;
+	}
+
+	ret = sci_dma_register_irqhandle(dma_chn, irq_mode,
+					 sci_dma_memcpy_irqhandle,
+					 &memcpy_mutex);
+	if (ret < 0) {
+		printk("dma register irqhandle failed!\n");
+		sci_dma_free(dma_chn);
+		return ret;
+	}
+
+	mutex_lock(&memcpy_mutex);
+
+	sci_dma_start(dma_chn, DMA_UID_SOFTWARE);
+
+	mutex_lock(&memcpy_mutex);
+
+	sci_dma_free(dma_chn);
+
+	return 0;
+}
+
 static int __init sci_init_dma(void)
 {
 	int ret;
 
-	/*the first dma chn index is 1, notice!!*/
+	/*the first dma chn index is 1, notice!! */
 	dma_chns = kzalloc(sizeof(*dma_chns) * (DMA_CHN_NUM + 1), GFP_KERNEL);
 	if (dma_chns == NULL)
 		return -ENOMEM;
@@ -602,6 +721,7 @@ static int __init sci_init_dma(void)
 
 	return ret;
 }
+
 arch_initcall(sci_init_dma);
 
 EXPORT_SYMBOL_GPL(sci_dma_request);
@@ -613,3 +733,4 @@ EXPORT_SYMBOL_GPL(sci_dma_stop);
 EXPORT_SYMBOL_GPL(sci_dma_ioctl);
 EXPORT_SYMBOL_GPL(sci_dma_get_src_addr);
 EXPORT_SYMBOL_GPL(sci_dma_get_dst_addr);
+EXPORT_SYMBOL_GPL(sci_dma_memcpy);
