@@ -57,6 +57,7 @@ static char * sleep_mode_str[]  = {
 	"[ARM]",
 	"[MCU]",
 	"[DEP]",
+	"[LIT]",
 	"[NON]"
 };
 #define INT_REG(off)		(SPRD_INT_BASE + (off))
