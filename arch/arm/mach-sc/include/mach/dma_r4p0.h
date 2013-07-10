@@ -112,5 +112,5 @@ int sci_dma_stop(u32 dma_chn, u32 dev_id);
 int sci_dma_ioctl(u32 dma_chn, dma_cmd cmd, void *arg);
 u32 sci_dma_get_src_addr(u32 dma_chn);
 u32 sci_dma_get_dst_addr(u32 dma_chn);
-
+int sci_dma_memcpy(u32 dest, u32 src, size_t size);
 #endif

@@ -188,6 +188,7 @@ struct sci_dma_reg {
 #define SRC_FRAG_STEP_OFFSET 0
 
 #define TRSF_STEP_MASK	0xffff
+#define FRAG_STEP_MASK	0xffff
 
 #define DATAWIDTH_MASK	0x3
 #define SWT_MODE_MASK	0x3
