@@ -107,19 +107,6 @@ static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 		cancel_delayed_work(&rtd->delayed_work);
 	}
 
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		snd_soc_dapm_force_enable_pin(&card->dapm, "DAC");
-		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 1);
-	} else {
-		if (dai->id == VAUDIO_MAGIC_ID) {
-			snd_soc_dapm_force_enable_pin(&card->dapm, "ADC");
-			vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 1);
-		} else {
-			snd_soc_dapm_force_enable_pin(&card->dapm, "ADC1");
-			vaudio_dapm_ignore_suspend(&card->dapm, "ADC1", 1);
-		}
-	}
-
 	snd_soc_dapm_stream_event(rtd, substream->stream, codec_dai,
 				  SND_SOC_DAPM_STREAM_START);
 
@@ -142,19 +129,6 @@ static void sprd_vaudio_shutdown(struct snd_pcm_substream *substream,
 	int i;
 
 	sprd_vaudio_dbg("Entering %s\n", __func__);
-
-	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		snd_soc_dapm_disable_pin(&card->dapm, "DAC");
-		vaudio_dapm_ignore_suspend(&card->dapm, "DAC", 0);
-	} else {
-		if (dai->id == VAUDIO_MAGIC_ID) {
-			snd_soc_dapm_disable_pin(&card->dapm, "ADC");
-			vaudio_dapm_ignore_suspend(&card->dapm, "ADC", 0);
-		} else {
-			snd_soc_dapm_disable_pin(&card->dapm, "ADC1");
-			vaudio_dapm_ignore_suspend(&card->dapm, "ADC1", 0);
-		}
-	}
 
 	snd_soc_dai_digital_mute(codec_dai, 1);
 
