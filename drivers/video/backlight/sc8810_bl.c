@@ -124,6 +124,7 @@ static int __devinit sc8810_backlight_probe(struct platform_device *pdev)
 {
        struct backlight_properties props;
        struct backlight_device *bldev;
+       struct clk *parent = NULL;
 
        memset(&props, 0, sizeof(struct backlight_properties));
        props.max_brightness = PWM_MOD_MAX;
@@ -139,8 +140,10 @@ static int __devinit sc8810_backlight_probe(struct platform_device *pdev)
                printk(KERN_ERR "Failed to get clk_pwm0\n");
                return -EIO;
        }
-       clk_enable(sc8810bl.clk);
+       parent = clk_get(NULL, "ext_26m");
+	   clk_set_parent(sc8810bl.clk, parent);
 
+       clk_enable(sc8810bl.clk);
        bldev = backlight_device_register(
                        dev_name(&pdev->dev), &pdev->dev,
                        &sc8810bl, &sc8810_backlight_ops, &props);
