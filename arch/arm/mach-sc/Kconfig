@@ -135,6 +135,12 @@ config FIX_V7TAGRAM_BUG
         default n
 	depends on ARCH_SCX35
 
+config SPRD_CPU_DYNAMIC_HOTPLUG
+	bool "cpu dynamic hotplug with DVFS"
+	default n
+	depends on HOTPLUG_CPU
+	depends on ARCH_SCX35
+
 config SPRD_DCDC_DEBUG
 	tristate "Enable dcdc debug module"
 	default n
