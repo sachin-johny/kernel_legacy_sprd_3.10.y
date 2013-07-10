@@ -166,10 +166,9 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 
 	if (seth->state != DEV_ON) {
 		SETH_ERR ("xmit the state of %s is off\n", dev->name);
-		//netif_stop_queue (dev);
 		netif_carrier_off (dev);
 		seth->stats.tx_carrier_errors++;
-		dev_kfree_skb_any (skb);
+		dev_kfree_skb_any(skb);
 		return NETDEV_TX_OK;
 	}
 	/*
@@ -178,32 +177,29 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 
 	ret = sblock_get(pdata->dst, pdata->channel, &blk, 0);
 	if(ret) {
-		SETH_ERR ("Get free sblock failed(%d), drop data!\n", ret);
-		/*
-		netif_stop_queue (dev);
-		*/
+		SETH_INFO("Get free sblock failed(%d), drop data!\n", ret);
 		seth->stats.tx_fifo_errors++;
 		seth->stopped = 1;
-		dev_kfree_skb_any (skb);
+		netif_stop_queue (dev);
 		return NETDEV_TX_BUSY;
 	}
 
 	if(blk.length < skb->len) {
-		SETH_ERR ("The size of sblock is so tiny!\n");
+		SETH_ERR("The size of sblock is so tiny!\n");
 		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
-		dev_kfree_skb_any (skb);
-		return NETDEV_TX_BUSY;
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_OK;
 	}
 
 	blk.length = skb->len;
 	memcpy (blk.addr, skb->data, skb->len);
 	ret = sblock_send(pdata->dst, pdata->channel, &blk);
 	if(ret) {
-		SETH_ERR ("send sblock failed(%d)\n", ret);
+		SETH_INFO("send sblock failed(%d)!\n", ret);
 		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
-		dev_kfree_skb_any (skb);
+		netif_stop_queue (dev);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -214,7 +210,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	seth->stats.tx_packets++;
 	dev->trans_start = jiffies;
 
-	dev_kfree_skb_any (skb);
+	dev_kfree_skb_any(skb);
 
 	return NETDEV_TX_OK;
 }
@@ -261,6 +257,7 @@ static struct net_device_stats * seth_get_stats(struct net_device *dev)
 static void seth_tx_timeout(struct net_device *dev)
 {
 	SETH_INFO ("seth_tx_timeout()\n");
+	dev->trans_start = jiffies;
 	netif_wake_queue(dev);
 }
 
@@ -315,7 +312,7 @@ static int __devinit seth_probe(struct platform_device *pdev)
 	seth->stopped = 0;
 
 	netdev->netdev_ops = &seth_ops;
-	netdev->watchdog_timeo = 100*HZ;
+	netdev->watchdog_timeo = 5*HZ;
 	netdev->irq = 0;
 	netdev->dma = 0;
 
