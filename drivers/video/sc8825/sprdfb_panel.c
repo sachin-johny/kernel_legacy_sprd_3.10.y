@@ -104,6 +104,7 @@ static int32_t panel_set_resetpin_dispc( uint32_t status)
 	return 0;
 }
 
+#ifdef CONFIG_FB_SC8825
 static int32_t panel_set_resetpin_lcdc(uint32_t status)
 {
 	if(0 == status){
@@ -113,20 +114,28 @@ static int32_t panel_set_resetpin_lcdc(uint32_t status)
 	}
 	return 0;
 }
-
-#if 0
-static void panel_reset(uint16_t dev_id, struct panel_spec *panel)
-{
-	pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
-
-	/* panel reset */
-	if(SPRDFB_MAINLCD_ID == dev_id){
-		panel_reset_dispc(panel);
-	}else{
-		panel_reset_lcdc(panel);
-	}
-}
 #endif
+
+static int panel_reset(struct sprdfb_device *dev)
+{
+	if((NULL == dev) || (NULL == dev->panel)){
+		printk(KERN_ERR "sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return -1;
+	}
+
+	pr_debug("sprdfb: [%s], enter\n",__FUNCTION__);
+
+	//clk/data lane enter LP
+	if(NULL != dev->panel->if_ctrl->panel_if_before_panel_reset){
+		dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
+	}
+	msleep(5);
+
+	//reset panel
+	dev->panel->ops->panel_reset(dev->panel);
+
+	return 0;
+}
 
 static void panel_set_resetpin(uint16_t dev_id,  uint32_t status, struct panel_spec *panel )
 {
@@ -140,6 +149,29 @@ static void panel_set_resetpin(uint16_t dev_id,  uint32_t status, struct panel_s
 		panel_set_resetpin_lcdc(status);
 	#endif
 	}
+}
+
+
+static int32_t panel_before_resume(struct sprdfb_device *dev)
+{
+#ifdef CONFIG_FB_SC8825
+	/*restore the reset pin status*/
+	sprd_panel_set_rstn_prop(0);
+#endif
+	/*restore  the reset pin to high*/
+	panel_set_resetpin(dev->dev_id, 1, dev->panel);
+	return 0;
+}
+
+static int32_t panel_after_suspend(struct sprdfb_device *dev)
+{
+	/*set the reset pin to low*/
+	panel_set_resetpin(dev->dev_id, 0, dev->panel);
+#ifdef CONFIG_FB_SC8825
+	/*set the reset pin status and set */
+	sprd_panel_set_rstn_prop(1);
+#endif
+	return 0;
 }
 
 static bool panel_check(struct panel_cfg *cfg)
@@ -277,7 +309,7 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
 		panel_init(dev);
-		dev->panel->ops->panel_reset(cfg->panel);
+		panel_reset(dev);
 		id = dev->panel->ops->panel_readid(dev->panel);
 		if(id == cfg->lcd_id) {
 			pr_debug(KERN_INFO "sprdfb: [%s]: LCD Panel 0x%x is attached!\n", __FUNCTION__, cfg->lcd_id);
@@ -437,10 +469,7 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 
 		if(0 == if_status){
 			printk("sprdfb: [%s] fail! Need reset panel\n",__FUNCTION__);
-			if(NULL != dev->panel->if_ctrl->panel_if_before_panel_reset){
-				dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
-			}
-			dev->panel->ops->panel_reset(dev->panel);
+			panel_reset(dev);
 
 			if(0 == dev->enable){
 				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
@@ -464,7 +493,7 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 			}
 
 			panel_init(dev);
-			dev->panel->ops->panel_reset(dev->panel);
+			panel_reset(dev);
 
 			if(0 == dev->enable){
 				printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
@@ -489,24 +518,43 @@ void sprdfb_panel_suspend(struct sprdfb_device *dev)
 	}
 
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
+#if 0
+	//step1-1 clk/data lane enter LP
+	if(NULL != dev->panel->if_ctrl->panel_if_before_panel_reset){
+		dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
+	}
+
+	//step1-2 enter sleep  (another way : reset panel)
 	/*Jessica TODO: Need do some I2c, SPI, mipi sleep here*/
 	/* let lcdc sleep in */
+
 	if (dev->panel->ops->panel_enter_sleep != NULL) {
 		dev->panel->ops->panel_enter_sleep(dev->panel,1);
 	}
-
 	msleep(100);
+#else
+	//step1 reset panel
+	panel_reset(dev);
+#endif
 
+	//step2 clk/data lane enter ulps
+	if(NULL != dev->panel->if_ctrl->panel_if_enter_ulps){
+		dev->panel->if_ctrl->panel_if_enter_ulps(dev);
+	}
+
+	//step3 turn off mipi
 	if(NULL != dev->panel->if_ctrl->panel_if_suspend){
 		dev->panel->if_ctrl->panel_if_suspend(dev);
 	}
-	/*set the reset pin to low*/
-	panel_set_resetpin(dev->dev_id, 0, dev->panel);
 
-#ifdef CONFIG_FB_SC8825
-	/*set the reset pin status and set */
-	sprd_panel_set_rstn_prop(1);
-#endif
+	//step4 reset pin to low
+	if (dev->panel->ops->panel_after_suspend != NULL) {
+		//himax mipi lcd may define empty function
+		dev->panel->ops->panel_after_suspend(dev->panel);
+	}
+	else{
+		panel_after_suspend(dev);
+	}
 }
 
 void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
@@ -521,30 +569,43 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 	if(NULL != dev->panel->if_ctrl->panel_if_resume){
 		dev->panel->if_ctrl->panel_if_resume(dev);
 	}
+	panel_ready(dev);
 #endif
-#ifdef CONFIG_FB_SC8825
-	/*restore the reset pin status*/
-	sprd_panel_set_rstn_prop(0);
-#endif
-
-	/*restore  the reset pin to high*/
-	panel_set_resetpin(dev->dev_id, 1, dev->panel);
+	//step1 reset pin to high
+	if (dev->panel->ops->panel_before_resume != NULL) {
+		//himax mipi lcd may define empty function
+		dev->panel->ops->panel_before_resume(dev->panel);
+	}
+	else{
+		panel_before_resume(dev);
+	}
 
 	if(from_deep_sleep){
+		//step2 turn on mipi
 		panel_init(dev);
-		dev->panel->ops->panel_reset(dev->panel);
+
+		//step3 reset panel
+		panel_reset(dev);
+
+		//step4 panel init
 		dev->panel->ops->panel_init(dev->panel);
+
+		//step5 clk/data lane enter HS
 		panel_ready(dev);
 	}else{
+		//step2 turn on mipi
 		/*Jessica TODO: resume i2c, spi, mipi*/
 		if(NULL != dev->panel->if_ctrl->panel_if_resume){
 			dev->panel->if_ctrl->panel_if_resume(dev);
 		}
 
-		/* let lcd sleep out */
+		//step3 sleep out
 		if(NULL != dev->panel->ops->panel_enter_sleep){
 			dev->panel->ops->panel_enter_sleep(dev->panel,0);
 		}
+
+		//step4 clk/data lane enter HS
+		panel_ready(dev);
 	}
 
 }

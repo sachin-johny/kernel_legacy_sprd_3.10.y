@@ -46,7 +46,9 @@ void mipi_dsih_shutdown_controller(dsih_ctrl_t * instance, int shutdown);
                                                                                                                                                                          
 void mipi_dsih_reset_phy(dsih_ctrl_t * instance);                                                                                                                        
                                                                                                                                                                          
-void mipi_dsih_shutdown_phy(dsih_ctrl_t * instance, int shutdown);                                                                                                       
+void mipi_dsih_shutdown_phy(dsih_ctrl_t * instance, int shutdown);
+
+void mipi_dsih_ulps_mode(dsih_ctrl_t * instance, int en);
                                                                                                                                                                          
 /* packet handling */                                                                                                                                                    
                                                                                                                                                                          
