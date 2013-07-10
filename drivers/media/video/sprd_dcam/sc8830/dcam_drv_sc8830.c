@@ -865,6 +865,9 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 		rtn = _dcam_path_check_deci(DCAM_PATH_IDX_1, &is_deci);
 		DCAM_RTN_IF_ERR;
 		if ((s_p_dcam_mod->dcam_path1.deci_val.deci_x_en != is_deci) || is_deci) {
+			printk("DCAM: need restart \n");
+			return 1;
+/*
 			DCAM_TRACE("DCAM: To restart path1 \n");
 			DCAM_TRACE("DCAM: restart path1, deci cur=%d, will_set_to=%d \n",
 				s_p_dcam_mod->dcam_path1.deci_val.deci_x_en, is_deci);
@@ -872,6 +875,7 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 			s_p_dcam_mod->dcam_path1.output_frame_count = DCAM_PATH_1_FRM_CNT_MAX;
 			s_p_dcam_mod->dcam_path1.valide = 1;
 			dcam_start_path(DCAM_PATH_IDX_1);
+*/
 		} else {
 			DCAM_TRACE("DCAM: To update path1 \n");
 			rtn = _dcam_path_scaler(DCAM_PATH_IDX_1);
