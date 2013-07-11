@@ -122,6 +122,8 @@ struct panel_operations {
 	int32_t (*panel_close)(struct panel_spec *self);
 	int32_t (*panel_reset)(struct panel_spec *self);
 	int32_t (*panel_enter_sleep)(struct panel_spec *self, uint8_t is_sleep);
+	int32_t (*panel_after_suspend)(struct panel_spec *self);
+	int32_t (*panel_before_resume)(struct panel_spec *self);
 	int32_t (*panel_set_contrast)(struct panel_spec *self, uint16_t contrast);
 	int32_t (*panel_set_brightness)(struct panel_spec *self,
 				uint16_t brightness);
@@ -257,6 +259,7 @@ struct panel_if_ctrl{
 	void (*panel_if_before_refresh)(struct sprdfb_device *dev);
 	void (*panel_if_after_refresh)(struct sprdfb_device *dev);
 	void (*panel_if_before_panel_reset)(struct sprdfb_device *dev);
+	void (*panel_if_enter_ulps)(struct sprdfb_device *dev);
 	void (*panel_if_suspend)(struct sprdfb_device *dev);
 	void (*panel_if_resume)(struct sprdfb_device *dev);
 	uint32_t  (*panel_if_get_status)(struct sprdfb_device *dev);

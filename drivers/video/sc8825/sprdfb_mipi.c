@@ -26,7 +26,7 @@ extern int32_t sprdfb_dsi_suspend(struct sprdfb_device *dev);
 extern int32_t sprdfb_dsi_resume(struct sprdfb_device *dev);
 extern int32_t sprdfb_dsi_before_panel_reset(struct sprdfb_device *dev);
 extern uint32_t sprdfb_dsi_get_status(struct sprdfb_device *dev);
-
+extern int32_t sprdfb_dsi_enter_ulps(struct sprdfb_device *dev);
 extern uint32_t rgb_calc_h_timing(struct timing_rgb *timing);
 extern uint32_t rgb_calc_v_timing(struct timing_rgb *timing);
 
@@ -188,6 +188,12 @@ static void sprdfb_mipi_panel_before_reset(struct sprdfb_device *dev)
 {
 	sprdfb_dsi_before_panel_reset(dev);
 }
+
+static void sprdfb_mipi_panel_enter_ulps(struct sprdfb_device *dev)
+{
+	sprdfb_dsi_enter_ulps(dev);
+}
+
 static void sprdfb_mipi_panel_suspend(struct sprdfb_device *dev)
 {
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
@@ -217,6 +223,7 @@ struct panel_if_ctrl sprdfb_mipi_ctrl = {
 	.panel_if_before_refresh	= NULL,
 	.panel_if_after_refresh	= NULL,
 	.panel_if_before_panel_reset = sprdfb_mipi_panel_before_reset,
+	.panel_if_enter_ulps = sprdfb_mipi_panel_enter_ulps,
 	.panel_if_suspend = sprdfb_mipi_panel_suspend,
 	.panel_if_resume = sprdfb_mipi_panel_resume,
 	.panel_if_get_status = sprdfb_mipi_get_status,

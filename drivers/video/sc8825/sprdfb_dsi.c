@@ -42,6 +42,7 @@ struct sprdfb_dsi_context {
 static struct sprdfb_dsi_context dsi_ctx;
 
 static int32_t sprdfb_dsi_set_lp_mode(void);
+static int32_t sprdfb_dsi_set_ulps_mode(void);
 
 static uint32_t dsi_core_read_function(uint32_t addr, uint32_t offset)
 {
@@ -73,11 +74,15 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
 		/*need delay 1us*/
 		printk("sprdfb: reset dsi host!\n");
-
-		for(i=0;i<10;i++){
-			printk("*");
+		{/*for debug*/
+			for(i=0;i<256;i+=16){
+				printk("sprdfb: %x: 0x%x, 0x%x, 0x%x, 0x%x\n", i, dsi_core_read_function(SPRD_MIPI_DSIC_BASE, i),
+					dsi_core_read_function(SPRD_MIPI_DSIC_BASE, i+4),
+					dsi_core_read_function(SPRD_MIPI_DSIC_BASE, i+8),
+					dsi_core_read_function(SPRD_MIPI_DSIC_BASE, i+12));
+			}
+			printk("**************************\n");
 		}
-		printk("\n");
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
 	}
 	return IRQ_HANDLED;
@@ -438,6 +443,7 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
 	}else{
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
 		mipi_dsih_video_mode(&(dsi_ctx.dsi_inst), 1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
 		udelay(100);
@@ -456,6 +462,12 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 int32_t sprdfb_dsi_before_panel_reset(struct sprdfb_device *dev)
 {
 	sprdfb_dsi_set_lp_mode();
+	return 0;
+}
+
+int32_t sprdfb_dsi_enter_ulps(struct sprdfb_device *dev)
+{
+	sprdfb_dsi_set_ulps_mode();
 	return 0;
 }
 
@@ -496,6 +508,12 @@ static int32_t sprdfb_dsi_set_hs_mode(void)
 	mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
+	return 0;
+}
+
+static int32_t sprdfb_dsi_set_ulps_mode(void)
+{
+	mipi_dsih_ulps_mode(&(dsi_ctx.dsi_inst), 1);
 	return 0;
 }
 
