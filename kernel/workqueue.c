@@ -1892,6 +1892,12 @@ __acquires(&gcwq->lock)
 		       current->comm, preempt_count(), task_pid_nr(current));
 		printk(KERN_ERR "    last function: ");
 		print_symbol("%s\n", (unsigned long)f);
+#ifdef ACEDEBUG
+		if(work->callback) {
+			printk(KERN_ERR "    last function->callback: ");
+			print_symbol("%s\n", (unsigned long)(work->callback));
+		}
+#endif
 		debug_show_held_locks(current);
 		dump_stack();
 	}
