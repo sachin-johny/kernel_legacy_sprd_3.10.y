@@ -509,7 +509,7 @@ static int sbuf_debug_show(struct seq_file *m, void *private)
 {
 	struct sbuf_mgr *sbuf = NULL;
 	struct sbuf_ring	*rings = NULL;
-	struct sbuf_ring_header  *ring = NULL;
+	volatile struct sbuf_ring_header  *ring = NULL;
 	int i, j, n;
 
 	for (i = 0; i < SIPC_ID_NR; i++) {
@@ -519,7 +519,7 @@ static int sbuf_debug_show(struct seq_file *m, void *private)
 				continue;
 			}
 			seq_printf(m, "sbuf dst 0x%0x, channel: 0x%0x, state: %d, smem_virt: 0x%0x, smem_addr: 0x%0x, smem_size: 0x%0x, ringnr: %d \n",
-				   sbuf->dst, sbuf->channel, sbuf->state, sbuf->smem_virt, sbuf->smem_addr, sbuf->smem_size, sbuf->ringnr);
+				   sbuf->dst, sbuf->channel, sbuf->state, (uint32_t)sbuf->smem_virt, sbuf->smem_addr, sbuf->smem_size, sbuf->ringnr);
 
 			for (n=0;  n < sbuf->ringnr;  n++) {
 				rings = &(sbuf->rings[n]);
