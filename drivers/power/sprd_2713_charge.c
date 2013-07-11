@@ -31,8 +31,8 @@
 extern int sci_adc_get_value(unsigned chan, int scale);
 
 uint16_t adc_voltage_table[2][2] = {
-	{3285, 4200},
-	{2796, 3600},
+	{3310, 4200},
+	{2832, 3600},
 };
 
 uint16_t voltage_capacity_table[][2] = {
