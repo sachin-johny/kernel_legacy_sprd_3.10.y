@@ -1084,12 +1084,11 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 	}
 
 	if ((DCAM_PATH_IDX_0 & path_index) && s_p_dcam_mod->dcam_path0.valide) {
-/*
+
 		s_p_dcam_mod->dcam_path0.need_stop = 1;
 		_dcam_wait_path_done(DCAM_PATH_IDX_0);
-*/
-		dcam_glb_reg_awr(DCAM_CFG, ~BIT_0, DCAM_CFG_REG);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
+			_dcam_wait_for_stop();
 			_dcam_wait_for_stop();
 		}
 		dcam_reset(DCAM_RST_PATH0);
@@ -1113,12 +1112,10 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 
 	if ((DCAM_PATH_IDX_2 & path_index) && s_p_dcam_mod->dcam_path2.valide) {
 		DCAM_TRACE("DCAM: stop path2 In \n");
-/*
 		s_p_dcam_mod->dcam_path2.need_stop = 1;
 		_dcam_wait_path_done(DCAM_PATH_IDX_2);
-*/
-		dcam_glb_reg_awr(DCAM_CFG, ~BIT_2, DCAM_CFG_REG);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
+			_dcam_wait_for_stop();
 			_dcam_wait_for_stop();
 		}
 		DCAM_TRACE("DCAM: stop path2 Out \n");
@@ -2299,7 +2296,7 @@ LOCAL void _dcam_path0_set(void)
 	struct dcam_path_desc   *path = &s_p_dcam_mod->dcam_path0;
 	uint32_t                reg_val = 0;
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
+	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
 	if (path->valid_param.input_size) {
 		reg_val = path->input_size.w | (path->input_size.h << 16);
@@ -2326,7 +2323,7 @@ LOCAL void _dcam_path1_set(void)
 	struct dcam_path_desc   *path = &s_p_dcam_mod->dcam_path1;
 	uint32_t                reg_val = 0;
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
+	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
 	if (path->valid_param.input_size) {
 		reg_val = path->input_size.w | (path->input_size.h << 16);
@@ -2409,7 +2406,7 @@ LOCAL void _dcam_path2_set(void)
 	struct dcam_path_desc   *path = &s_p_dcam_mod->dcam_path2;
 	uint32_t                reg_val = 0;
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
+	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
 	if (path->valid_param.input_size) {
 		reg_val = path->input_size.w | (path->input_size.h << 16);
@@ -2498,7 +2495,7 @@ LOCAL void _dcam_frm_clear(enum dcam_path_index path_index)
 	struct dcam_frame       *path1_frame = &s_p_dcam_mod->path1_frame[0];
 	struct dcam_frame       *path2_frame = &s_p_dcam_mod->path2_frame[0];
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
+	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
 	if (DCAM_PATH_IDX_0 & path_index) {
 		for (i = 0; i < DCAM_PATH_0_FRM_CNT_MAX; i++) {
@@ -2537,7 +2534,7 @@ LOCAL void _dcam_link_frm(uint32_t base_id)
 	struct dcam_frame       *path1_frame = &s_p_dcam_mod->path1_frame[0];
 	struct dcam_frame       *path2_frame = &s_p_dcam_mod->path2_frame[0];
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
+	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
 	for (i = 0; i < DCAM_PATH_0_FRM_CNT_MAX; i++) {
 		DCAM_CLEAR(path0_frame + i);
@@ -3350,7 +3347,7 @@ LOCAL int  _dcam_internal_init(void)
 }
 LOCAL void _dcam_internal_deinit(void)
 {
-	printk("DCAM: internal deinit 0x%x \n", s_p_dcam_mod);
+	printk("DCAM: internal deinit 0x%x \n", (uint32_t)s_p_dcam_mod);
 
 	if (NULL != s_p_dcam_mod) {
 		free_irq(DCAM_IRQ, s_p_dcam_mod);
