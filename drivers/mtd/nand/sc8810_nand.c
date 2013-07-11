@@ -855,7 +855,7 @@ static void sc8810_nand_data_add(unsigned int bytes, unsigned int bus_width, uns
 
 char nand_cmd_buff[40];
 int nand_cmd_buff_index = 0;
-char nand_cmd_comm[40][TASK_COMM_LEN];
+char nand_cmd_comm[40][TASK_COMM_LEN+1];
 static inline nand_add_cmd(char cmd)
 {
     nand_cmd_buff_index++;
@@ -863,6 +863,7 @@ static inline nand_add_cmd(char cmd)
         nand_cmd_buff_index = 0;
     nand_cmd_buff[nand_cmd_buff_index] = cmd;
 		memcpy(nand_cmd_comm[nand_cmd_buff_index],current->comm,TASK_COMM_LEN);
+	nand_cmd_comm[nand_cmd_buff_index][TASK_COMM_LEN] = 0;
 }
 static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ctrl)
 {

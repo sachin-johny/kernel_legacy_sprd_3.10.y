@@ -23,7 +23,7 @@ static inline nand_print_cmd(void)
     for(i=0;i<40;i++)
     {
 		  printk("comm is %s\n",nand_cmd_comm[nand_cmd_buff_index]);
-        printk("cmd is %x\n",nand_cmd_buff[nand_cmd_buff_index]);
+        printk("cmd is %x\n\n",nand_cmd_buff[nand_cmd_buff_index]);
         nand_cmd_buff_index++;
         if(nand_cmd_buff_index == 40)
             nand_cmd_buff_index = 0;
