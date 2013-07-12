@@ -419,9 +419,6 @@ static int vbc_ad_iismux_set(int port)
 {
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_AD01_PORT_SHIFT,
 		      VBIISSEL_AD01_PORT_MASK);
-	/*ADC  SRC set */
-	if (port == 1 || port == 2)	/*fm input */
-		vbc_adc_src_set(fm_sample_rate, 0);
 	return 0;
 }
 
@@ -429,9 +426,6 @@ static int vbc_ad23_iismux_set(int port)
 {
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_AD23_PORT_SHIFT,
 		      VBIISSEL_AD23_PORT_MASK);
-	/*ADC23  SRC set */
-	if (port == 1 || port == 2)	/*fm input */
-		vbc_adc_src_set(fm_sample_rate, 1);
 	return 0;
 }
 
@@ -521,12 +515,34 @@ static int vbc_set_buffer_size(int ad_buffer_size, int da_buffer_size,
 		      (VBDABUFFERSIZE_MASK | VBADBUFFERSIZE_MASK));
 	if ((ad23_buffer_size > 0)
 	    && (ad23_buffer_size <= VBC_FIFO_FRAME_NUM)) {
-		val &= ~(VBAD23BUFFERSIZE_MASK);
-		val |= (((ad23_buffer_size - 1) << VBAD23BUFFERSIZE_SHIFT)
+		val = (((ad23_buffer_size - 1) << VBAD23BUFFERSIZE_SHIFT)
 			& VBAD23BUFFERSIZE_MASK);
+		vbc_reg_write(VBBUFFAD23, val, VBAD23BUFFERSIZE_MASK);
 	}
-	vbc_reg_write(VBBUFFAD23, val, VBAD23BUFFERSIZE_MASK);
 	return 0;
+}
+
+
+static void fm_set_vbc_buffer_size(void)
+{
+	int val = vbc_reg_read(VBBUFFSIZE);
+	if (!(val & VBADBUFFERSIZE_MASK)) {
+		val |= (((VBC_FIFO_FRAME_NUM - 1) << VBADBUFFERSIZE_SHIFT)
+			& VBADBUFFERSIZE_MASK);
+	}
+	if (!(val & VBDABUFFERSIZE_MASK)) {
+		val |= (((VBC_FIFO_FRAME_NUM - 1) << VBDABUFFERSIZE_SHIFT)
+			& VBDABUFFERSIZE_MASK);
+	}
+	vbc_reg_write(VBBUFFSIZE, val,
+		      (VBDABUFFERSIZE_MASK | VBADBUFFERSIZE_MASK));
+
+	val = vbc_reg_read(VBBUFFAD23);
+	if (!(val & VBAD23BUFFERSIZE_MASK)) {
+		val = (((VBC_FIFO_FRAME_NUM - 1) << VBAD23BUFFERSIZE_SHIFT)
+			& VBAD23BUFFERSIZE_MASK);
+		vbc_reg_write(VBBUFFAD23, val, VBAD23BUFFERSIZE_MASK);
+	}
 }
 
 static inline int vbc_sw_write_buffer(int enable)
@@ -1045,6 +1061,17 @@ static int vbc_try_da_iismux_set(void)
 	return 0;
 }
 
+static int vbc_try_ad_iismux_set(void)
+{
+	vbc_ad_iismux_set(sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val);
+	return 0;
+}
+static int vbc_try_ad23_iismux_set(void)
+{
+	vbc_ad23_iismux_set(sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val);
+	return 0;
+}
+
 static int vbc_try_ad_dgmux_set(int id)
 {
 	switch (id) {
@@ -1071,6 +1098,7 @@ int dig_fm_event(struct snd_soc_dapm_widget *w,
 {
 	vbc_dbg("Entering %s switch %s\n", __func__,
 		SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
+	fm_set_vbc_buffer_size(); /*No use in FM function, just for debug VBC*/
 	vbc_try_st_dg_set(VBC_LEFT);
 	vbc_try_st_dg_set(VBC_RIGHT);
 	vbc_enable(! !SND_SOC_DAPM_EVENT_ON(event));
@@ -1346,6 +1374,12 @@ static int mux_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		mux->set = vbc_mux_cfg[id];
 		ret = mux->set(mux->val);
+		/*ADC  SRC set for FM input */
+		if ((id == SPRD_VBC_AD_IISMUX) && (mux->val == 1 || mux->val == 2))
+			vbc_adc_src_set(fm_sample_rate, 0);
+		/*ADC23  SRC set for FM input*/
+		else if ((id == SPRD_VBC_AD23_IISMUX) && (mux->val == 1 || mux->val == 2))
+			vbc_adc_src_set(fm_sample_rate, 1);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		mux->set = 0;
@@ -1612,10 +1646,12 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 		vbc_try_da_iismux_set();
 	} else if (vbc_idx == 1) {
 		vbc_set_buffer_size(VBC_FIFO_FRAME_NUM, 0, 0);
+		vbc_try_ad_iismux_set();
 		vbc_try_ad_dgmux_set(0);
 		vbc_try_ad_dgmux_set(1);
 	} else {
 		vbc_set_buffer_size(0, 0, VBC_FIFO_FRAME_NUM);
+		vbc_try_ad23_iismux_set();
 		vbc_try_ad_dgmux_set(2);
 		vbc_try_ad_dgmux_set(3);
 	}
