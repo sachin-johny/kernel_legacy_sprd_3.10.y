@@ -20,7 +20,6 @@
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/cacheflush.h>
 #include <mach/sc8830_emc_freq_data.h>
-
 #define EMC_DLL_SWITCH_DISABLE_MODE		0x0
 #define EMC_DLL_SWITCH_ENABLE_MODE		0x1
 #define EMC_DLL_NOT_SWITCH_MODE			0x2
@@ -59,7 +58,7 @@ u32 emc_clk_get(void);
 #define CP2_FLAGS_ADDR	(SPRD_IRAM1_BASE + 0x47FC)
 #define CP2_PARAM_ADDR	(SPRD_IRAM1_BASE + 0x4700)
 #define uint32 u32
-#define TEST_DEBUG
+
 #define debug(format, arg...) pr_debug("emc_freq" "" format, ## arg)
 #define info(format, arg...) pr_info("emc_freq: " "" format, ## arg)
 typedef struct
@@ -105,6 +104,7 @@ typedef struct
 }ddr_dfs_val_t;
 static u32 emc_freq = 0;
 static u32 emc_delay = 20;
+static u32 chip_id = 0;
 static ddr_dfs_val_t __emc_param_configs[5];
 static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr);
 static ddr_dfs_val_t *__dmc_param_config(u32 clk)
@@ -131,7 +131,12 @@ static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 }
 static void cp_code_init(void)
 {
-	memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data, sizeof(cp_code_data));
+	if(chip_id == 0) {
+		memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_es, sizeof(cp_code_data_es));
+	}
+	else {
+		memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_cs, sizeof(cp_code_data_cs));
+	}
 }
 static void close_cp(void)
 {
@@ -149,9 +154,9 @@ static void close_cp(void)
 		}
 		times ++;
 	}
-	info("__emc_clk_set flag =  0x%08x , phy register = 0x%08x\n", __raw_readl(CP2_FLAGS_ADDR), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x4));
+	//info("__emc_clk_set flag =  0x%08x , phy register = 0x%08x\n", __raw_readl(CP2_FLAGS_ADDR), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x4));
 	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x10));
-	info("__emc_clk_set flag REG_AON_CLK_EMC_CFG = 0x%08x\n", __raw_readl(REG_AON_CLK_EMC_CFG));
+	//info("__emc_clk_set flag REG_AON_CLK_EMC_CFG = 0x%08x\n", __raw_readl(REG_AON_CLK_EMC_CFG));
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 	for(i = 0; i < 0x1000; i++);
 	sci_glb_set(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//cp2 force sleep
@@ -185,7 +190,6 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 	for(i = 0; i < 0x1000; i++);
 	close_cp();
-
 	return 0;
 }
 u32 emc_clk_set(u32 new_clk, u32 sene)
@@ -204,9 +208,9 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 		dll_enable = 0;
 	}
 	old_clk = emc_clk_get();
-	info("REG_AON_CLK_PUB_AHB_CFG = %x\n", __raw_readl(REG_AON_CLK_PUB_AHB_CFG));
-	info("emc_clk_set old = %d, new = %d\n", old_clk, new_clk);
-	info("emc_clk_set clk = %d, sene = %d, dll_enable = %d, emc_delay = %x\n", new_clk, sene,dll_enable, emc_delay);
+	//info("REG_AON_CLK_PUB_AHB_CFG = %x\n", __raw_readl(REG_AON_CLK_PUB_AHB_CFG));
+	//info("emc_clk_set old = %d, new = %d\n", old_clk, new_clk);
+	//info("emc_clk_set clk = %d, sene = %d, dll_enable = %d, emc_delay = %x\n", new_clk, sene,dll_enable, emc_delay);
 	if(new_clk == 100) {
 		if(old_clk > 332) {
 			__emc_clk_set(332, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
@@ -218,7 +222,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	}
 	else if(old_clk == 100) {
 		if(new_clk == 200) {
-			__emc_clk_set(200, 0, EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_SET);
+			__emc_clk_set(200, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_SET);
 		}
 		else {
 			__emc_clk_set(200, 0, EMC_DLL_SWITCH_ENABLE_MODE, EMC_BSP_BPS_200_SET);
@@ -438,10 +442,13 @@ static int __init emc_early_suspend_init(void)
 {
 	u32 val;
 	__raw_writel(1, REG_AON_CLK_PUB_AHB_CFG);
+	__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
 	val = __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x02c);
 	val &= ~(1 << 4);
-	__raw_writel(val,SPRD_LPDDR2_PHY_BASE + 0x02c);	
+	__raw_writel(val,SPRD_LPDDR2_PHY_BASE + 0x02c);
+
 	max_clk = get_spl_emc_clk_set();
+	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	cp_code_init();
 	__emc_timing_reg_init();
 	register_early_suspend(&emc_early_suspend_desc);
