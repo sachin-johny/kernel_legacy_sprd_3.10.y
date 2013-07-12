@@ -24,6 +24,7 @@
 #include <linux/suspend.h>
 #include <linux/debugfs.h>
 #include <linux/cpu.h>
+#include <linux/thermal.h>
 #include <linux/regulator/consumer.h>
 #include <asm/system.h>
 #include <trace/events/power.h>
@@ -127,6 +128,9 @@ struct cpufreq_conf {
 	struct clk 					*mpllclk;
 	struct clk 					*tdpllclk;
 	struct regulator 				*regulator;
+	struct thermal_cooling_device	*cdev;
+	int 							cooling_state;
+	unsigned int					limited_max_freq;
 	unsigned int					orignal_freq;
 	struct cpufreq_frequency_table	freq_tbl[FREQ_TABLE_SIZE];
 	unsigned int					vddarm_mv[FREQ_TABLE_SIZE];
@@ -154,12 +158,14 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 /* khz */
 #define SHARK_TOP_FREQUENCY	(1000000)
 #define SHARK_TDPLL_FREQUENCY	(768000)
+#define SHARK_LIMITED_MAX_FREQUENCY	(768000)
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 struct cpufreq_conf sc8830_cpufreq_conf = {
 	.clk = NULL,
 	.mpllclk = NULL,
 	.tdpllclk = NULL,
 	.regulator = NULL,
+	.cdev = NULL,
 	.freq_tbl = {
 		{0, SHARK_TOP_FREQUENCY},
 		{1, SHARK_TDPLL_FREQUENCY},
@@ -179,6 +185,7 @@ struct cpufreq_conf sc8830_cpufreq_conf = {
 	.mpllclk = NULL,
 	.tdpllclk = NULL,
 	.regulator = NULL,
+	.cdev = NULL,
 	.freq_tbl = {
 		{0, SHARK_TOP_FREQUENCY},
 		{1, SHARK_TDPLL_FREQUENCY},
@@ -218,7 +225,8 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 		struct unplug_work_info, unplug_work.work);
 	if (puwi->need_unplug) {
 		pr_debug("### we gonna unplug cpu%d\n", puwi->cpuid);
-		cpu_down(puwi->cpuid);
+		if (enabled_dhp)
+			cpu_down(puwi->cpuid);
 	} else {
 		pr_debug("### ok do nonthing for cpu%d ###\n", puwi->cpuid);
 	}
@@ -431,6 +439,9 @@ static int sprd_update_cpu_speed(int cpu,
 		new_speed = bottom_freq;
 #endif
 
+	if (new_speed > sprd_cpufreq_conf->limited_max_freq)
+		new_speed = sprd_cpufreq_conf->limited_max_freq;
+
 	sprd_real_set_cpufreq(new_speed, index);
 	return 0;
 }
@@ -613,7 +624,67 @@ static struct notifier_block sprd_cpufreq_policy_nb = {
 	.notifier_call = sprd_cpufreq_policy_notifier,
 };
 
+static int get_max_state(struct thermal_cooling_device *cdev,
+			 unsigned long *state)
+{
+	int ret = 0;
 
+	*state = 2;
+
+	return ret;
+}
+
+static int get_cur_state(struct thermal_cooling_device *cdev,
+			 unsigned long *state)
+{
+	int ret = 0;
+
+	*state = sprd_cpufreq_conf->cooling_state;
+
+	return ret;
+}
+
+static int set_cur_state(struct thermal_cooling_device *cdev,
+			 unsigned long state)
+{
+	int ret = 0, cpu;
+
+	sprd_cpufreq_conf->cooling_state = state;
+	if (state) {
+		pr_info("#########--------- cpufreq heating up\n");
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+		enabled_dhp = 0;
+#endif
+		sprd_cpufreq_conf->limited_max_freq = SHARK_LIMITED_MAX_FREQUENCY;
+		/* unplug all online cpu except cpu0 mandatory */
+		for_each_online_cpu(cpu) {
+			if (cpu)
+				cpu_down(cpu);
+		}
+	} else {
+		pr_info("#########--------- cpufreq cooling down\n");
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+		enabled_dhp = 1;
+#else
+		/* plug-in all offline cpu mandatory if we didn't
+		  * enbale CPU_DYNAMIC_HOTPLUG
+		 */
+		for_each_cpu(cpu, cpu_possible_mask) {
+			if (!cpu_online(cpu))
+				cpu_up(cpu);
+		}
+#endif
+		sprd_cpufreq_conf->limited_max_freq = SHARK_TOP_FREQUENCY;
+	}
+
+	return ret;
+}
+
+static struct thermal_cooling_device_ops sprd_cpufreq_cooling_ops = {
+	.get_max_state = get_max_state,
+	.get_cur_state = get_cur_state,
+	.set_cur_state = set_cur_state,
+};
 static int __init sprd_cpufreq_modinit(void)
 {
 	int ret;
@@ -626,20 +697,25 @@ static int __init sprd_cpufreq_modinit(void)
 
 #if defined(CONFIG_ARCH_SCX35)
 	sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->clk))
+	if (IS_ERR(sprd_cpufreq_conf->clk))
 		return PTR_ERR(sprd_cpufreq_conf->clk);
 
 	sprd_cpufreq_conf->mpllclk = clk_get_sys(NULL, "clk_mpll");
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->mpllclk))
+	if (IS_ERR(sprd_cpufreq_conf->mpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->mpllclk);
 
 	sprd_cpufreq_conf->tdpllclk = clk_get_sys(NULL, "clk_tdpll");
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->tdpllclk))
+	if (IS_ERR(sprd_cpufreq_conf->tdpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
 
 	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
-	if (IS_ERR_OR_NULL(sprd_cpufreq_conf->regulator))
+	if (IS_ERR(sprd_cpufreq_conf->regulator))
 		return PTR_ERR(sprd_cpufreq_conf->regulator);
+
+	sprd_cpufreq_conf->cdev = thermal_cooling_device_register("thermal-cpufreq-0", 0,
+						&sprd_cpufreq_cooling_ops);
+	if (IS_ERR(sprd_cpufreq_conf->cdev))
+		return PTR_ERR(sprd_cpufreq_conf->cdev);
 
 	/* set max voltage first */
 	regulator_set_voltage(sprd_cpufreq_conf->regulator,
@@ -650,6 +726,8 @@ static int __init sprd_cpufreq_modinit(void)
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
 
 	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
+	sprd_cpufreq_conf->limited_max_freq = SHARK_TOP_FREQUENCY;
+	sprd_cpufreq_conf->cooling_state = 0;
 	global_freqs.old = sprd_cpufreq_conf->orignal_freq;
 	sprd_cpufreq_status.is_suspend = false;
 
@@ -676,6 +754,7 @@ static void __exit sprd_cpufreq_modexit(void)
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 	sprd_auto_hotplug_exit();
 #endif
+	thermal_cooling_device_unregister(sprd_cpufreq_conf->cdev);
 	cpufreq_unregister_driver(&sprd_cpufreq_driver);
 	cpufreq_unregister_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
