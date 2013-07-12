@@ -18,6 +18,15 @@ int sci_adi_init(void);
 
 int sci_adi_read(u32 reg);
 
+int sci_is_adi_vaddr(u32 vaddr);
+
+/*
+ * using adi method to translate pysical address to virtual address
+ * return 0 is ok.
+ */
+int sci_adi_p2v(u32 paddr, u32 *vaddr);
+
+
 /*
  * WARN: the arguments (reg, value) is different from
  * the general __raw_writel(value, reg)
