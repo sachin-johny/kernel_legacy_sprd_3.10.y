@@ -589,8 +589,8 @@ static void gs_read_complete(struct usb_ep *ep, struct usb_request *req)
 	/* Queue all received data until the tty layer is ready for it. */
 	spin_lock(&port->port_lock);
 	list_add_tail(&req->list, &port->read_queue);
-	tasklet_schedule(&port->push);
 	spin_unlock(&port->port_lock);
+	tasklet_schedule(&port->push);
 }
 
 static void gs_write_complete(struct usb_ep *ep, struct usb_request *req)
