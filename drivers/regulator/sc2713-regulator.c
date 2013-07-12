@@ -129,6 +129,7 @@ enum {
 static DEFINE_MUTEX(adc_chan_mutex);
 static int __is_trimming(struct regulator_dev *);
 static int __regu_calibrate(struct regulator_dev *, int, int);
+extern int sci_efuse_calibration_get(u32 * p_cal_data);
 
 #define SCI_REGU_REG(VDD, TYP, PD_SET, SET_BIT, PD_RST, RST_BIT, SLP_CTL, SLP_CTL_BIT, \
                      VOL_TRM, VOL_TRM_BITS, CAL_CTL, CAL_CTL_BITS, VOL_DEF, \
@@ -900,6 +901,17 @@ static int __init __adc_cal_setup(char *str)
 
 early_param("adc_cal", __adc_cal_setup);
 
+static int __init __adc_cal_fuse_setup(void)
+{
+	if (!__is_valid_adc_cal() &&
+	    sci_efuse_calibration_get((u32 *) adc_data)) {
+		debug("%d : %d -- %d : %d\n",
+		      (int)adc_data[0][0], (int)adc_data[0][1],
+		      (int)adc_data[1][0], (int)adc_data[1][1]);
+	}
+	return 0;
+}
+
 static int __adc2vbat(int adc_res)
 {
 	int t = adc_data[0][0] - adc_data[1][0];
@@ -1631,6 +1643,8 @@ int __init sci_regulator_init(void)
 		.name = "sc2713-regulator",
 		.id = -1,
 	};
+
+	__adc_cal_fuse_setup();
 	return platform_device_register(&regulator_device);
 }
 
