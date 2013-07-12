@@ -55,7 +55,7 @@
 #define HIGH_TAB_SZ 8
 #define LOW_TAB_SZ  16
 
-#define HOT2NOR_RANGE   5
+#define HOT2NOR_RANGE   15
 #define LOCAL_SENSOR_ADDR_OFF 0x100
 
 static const short temp_search_high_40nm[HIGH_TAB_SZ] =
@@ -186,7 +186,7 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 	int cal_offset = 0;
 	struct sprd_thm_platform_data *trip_tab = pzone->trip_tab;
 
-	base_addr = (u32)pzone->reg_base;
+	base_addr = (u32) pzone->reg_base;
 
 	printk(KERN_NOTICE "sprd_thm_hw_init id:%d,base 0x%x\n",
 	       pzone->sensor_id, base_addr);
@@ -225,19 +225,25 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 		if (trip_tab->trip_points[0].type == THERMAL_TRIP_ACTIVE) {
 			raw_temp =
 			    sprd_thm_temp2rawdata(pzone->sensor_id,
-						  trip_tab->
-						  trip_points[0].temp -
-						  cal_offset);
+						  trip_tab->trip_points[0].
+						  temp - cal_offset);
 			if (raw_temp < RAW_TEMP_RANGE_MSK) {
 				raw_temp++;
 			}
-			__thm_reg_write((local_sensor_addr + SENSOR_OVERHEAD_HOT_THRES), raw_temp, RAW_TEMP_RANGE_MSK);	//set hot int temp value
-			raw_temp = sprd_thm_temp2rawdata(pzone->sensor_id,
-							 trip_tab->trip_points
-							 [0].temp -
-							 HOT2NOR_RANGE -
-							 cal_offset);
-			__thm_reg_write((local_sensor_addr + SENSOR_HOT2NOR__HIGHOFF_THRES), raw_temp << RAW_TEMP_OFFSET, RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);	//set hot2nor int temp value
+			//set hot int temp value
+			__thm_reg_write((local_sensor_addr +
+					 SENSOR_OVERHEAD_HOT_THRES), raw_temp,
+					RAW_TEMP_RANGE_MSK);
+			raw_temp =
+			    sprd_thm_temp2rawdata(pzone->sensor_id,
+						  trip_tab->trip_points[0].
+						  temp - HOT2NOR_RANGE -
+						  cal_offset);
+			//set hot2nor int temp value
+			__thm_reg_write((local_sensor_addr +
+					 SENSOR_HOT2NOR__HIGHOFF_THRES),
+					raw_temp << RAW_TEMP_OFFSET,
+					RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);
 			__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL),	//enable int
 					SEN_HOT2NOR_INT_BIT | SEN_HOT_INT_BIT,
 					0);
@@ -250,11 +256,13 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 						  trip_tab->trip_points
 						  [trip_tab->num_trips -
 						   1].temp - cal_offset);
-			__thm_reg_write((local_sensor_addr + SENSOR_OVERHEAD_HOT_THRES), raw_temp << RAW_TEMP_OFFSET, RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);	//set overheat int temp value
-#if 0
+			//set overheat int temp value
+			__thm_reg_write((local_sensor_addr +
+					 SENSOR_OVERHEAD_HOT_THRES),
+					raw_temp << RAW_TEMP_OFFSET,
+					RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);
 			__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL),	//enable int
 					SEN_OVERHEAT_INT_BIT, 0);
-#endif
 		}
 	}
 
@@ -276,12 +284,12 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 	int ret = 0;
 
 	local_sensor_addr =
-	    (u32)pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
+	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 	int_sts = __thm_reg_read(local_sensor_addr + SENSOR_INT_STS);
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), int_sts, ~0);	//CLR INT
 
 	printk
-	    ("sprd_thm_hw_irq_handle --------@@@@------id:%d, int_sts :0x%x \n",
+	    ("sprd_thm_hw_irq_handle --------@@@------id:%d, int_sts :0x%x \n",
 	     pzone->sensor_id, int_sts);
 	printk("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n",
 	       sprd_thm_temp_read(pzone->sensor_id));

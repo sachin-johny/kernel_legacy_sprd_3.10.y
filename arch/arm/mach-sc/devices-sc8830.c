@@ -24,6 +24,7 @@
 #include <linux/spipe.h>
 #include <linux/spool.h>
 #include <linux/seth.h>
+#include <linux/sprd_thm.h>
 #include <sound/saudio.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
@@ -33,7 +34,6 @@
 #include <mach/board.h>
 
 #include "devices.h"
-#include <linux/sprd_thm.h>
 
 
 static struct resource sprd_serial_resources0[] = {
@@ -489,14 +489,14 @@ static struct resource sprd_thm_resources[] = {
 
 static struct sprd_thm_platform_data sprd_thm_data = {
 	.trip_points[0] = {
-		.temp = 80,
+		.temp = 107,
 		.type = THERMAL_TRIP_ACTIVE,
 		.cdev_name = {
 			[0] = "thermal-cpufreq-0",
 		},
 	},
 	.trip_points[1] = {
-		.temp = 160,
+		.temp = 114,
 		.type = THERMAL_TRIP_CRITICAL,
 	},
 	.num_trips = 2,
