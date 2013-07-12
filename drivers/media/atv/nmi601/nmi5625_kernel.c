@@ -97,143 +97,137 @@ static u8 i2cBuf[32];
 static int nmi5625_ioctl(struct file *file,
 		    unsigned int cmd, unsigned long arg)
 {
-	struct nmi_5625_dev *d = file->private_data;
-	int ret = 0;
-	#define NMI_I2C_RW_LENGTH	256
+    struct nmi_5625_dev *d = file->private_data;
+    int ret = 0;
+    #define NMI_I2C_RW_LENGTH	256
 
+    dPrint(N_TRACE,"[nmi-debug]%s: enter --> cmd = %d\n", __func__,cmd&0xffff0000);
 
-        
-	dPrint(N_TRACE,"[nmi-debug]%s: enter --> cmd = %d\n", __func__,cmd&0xffff0000);
-       
-
-	switch ((cmd&0xffff0000)) {
-		case NM5625_PWR_2P8_CTL:
-			dPrint(N_TRACE,"NM5625_PWR_2P8_CTL, power %s\n", (arg==1)?"on":"off");
-			if (arg == 1) {	/* on */
+    switch ((cmd&0xffff0000)) {
+        case NM5625_PWR_2P8_CTL:
+            dPrint(N_TRACE,"NM5625_PWR_2P8_CTL, power %s\n", (arg==1)?"on":"off");
+            if (arg == 1) {	/* on */
                 // gpio_direction_output(GPIO_ATV_PWROFF,1);
-				//test
-				//LDO_TurnOnLDO(LDO_LDO_CAMA);	
-			            dPrint(N_TRACE,"set s_vddrf1_regulator voltage to level 1800mv\n");
-                                    regulator_set_voltage(s_vddrf1_regulator,1800000,1800000);
-                                    regulator_enable(s_vddrf1_regulator);
-             			  } 
-			else	{							
-							//gpio_direction_output(GPIO_ATV_PWROFF,0);
-            //                        regulator_disable(s_vddrf1_regulator);   
-				}
+                //test
+                //LDO_TurnOnLDO(LDO_LDO_CAMA);	
+                dPrint(N_TRACE,"set s_vddrf1_regulator voltage to level 1800mv\n");
+                regulator_set_voltage(s_vddrf1_regulator,1800000,1800000);
+                regulator_enable(s_vddrf1_regulator);
+            }else{							
+                //gpio_direction_output(GPIO_ATV_PWROFF,0);
+                regulator_disable(s_vddrf1_regulator);   
+            }
 
-			break;
-		case NM5625_PWR_1P2_CTL:
-			dPrint(N_TRACE,"NM5625_PWR_1P2_CTL, power %s\n", (arg==1)?"on":"off");
-			if (arg == 1) {	
-				gpio_direction_output(GPIO_ATV_PWROFF,1);
-				//ANA_REG_OR(ANA_MIXED_CTRL,  BIT_6);
-                
-		dPrint(N_TRACE,"set s_camdvdd_regulator voltage to level 1800mv\n");
+            break;
+        case NM5625_PWR_1P2_CTL:
+            dPrint(N_TRACE,"NM5625_PWR_1P2_CTL, power %s\n", (arg==1)?"on":"off");
+            if (arg == 1) {	
+                gpio_direction_output(GPIO_ATV_PWROFF,1);
+                //ANA_REG_OR(ANA_MIXED_CTRL,  BIT_6);
+                dPrint(N_TRACE,"set s_camdvdd_regulator voltage to level 1800mv\n");
                 regulator_set_voltage(s_camdvdd_regulator,1800000,1800000);
                 regulator_enable(s_camdvdd_regulator);
-			} 
-			else {
+            } 
+            else {
                 /* sun.aijun(SPRD) modify */
-	//			gpio_direction_output(GPIO_ATV_PWROFF,0);
-				//ANA_REG_AND(ANA_MIXED_CTRL,  ~BIT_6);
+                gpio_direction_output(GPIO_ATV_PWROFF,0);
+                //ANA_REG_AND(ANA_MIXED_CTRL,  ~BIT_6);
+                regulator_disable(s_camdvdd_regulator);   
+            }	
+            break;
 
-          //      regulator_disable(s_camdvdd_regulator);   
-			}	
-			break;
+        case NM5625_ATV_RESET_CTL:
+            dPrint(N_TRACE,"NM5625_ATV_RESET_CTL, reset %s\n", (arg==1)?"high":"low");
+            if (arg == 1) {						
+                gpio_direction_output(GPIO_ATV_RESET,1);
+            } 
+            else {						
+                gpio_direction_output(GPIO_ATV_RESET,0);
+            }
+            break;
 
-		case NM5625_ATV_RESET_CTL:
-			dPrint(N_TRACE,"NM5625_ATV_RESET_CTL, reset %s\n", (arg==1)?"high":"low");
-           		if (arg == 1) {						
-					gpio_direction_output(GPIO_ATV_RESET,1);
-				} 
-				else {						
-					gpio_direction_output(GPIO_ATV_RESET,0);
-				}
-			break;
-			
-			
-		case NM5625_ATV_I2C_READ:
-			{
-				u8 *kbuf = &i2cBuf[0];
-				int size = cmd&0xffff;	/* Note: I used the lower 16 bits for size */	
-				int len = size;
-				dPrint(N_TRACE,"NM5625_ATV_I2C_READ\n");
-				mutex_lock(&d->mu);
-				while(len) {
-					int sz;
-					if (len > NMI_I2C_RW_LENGTH)
-						sz = NMI_I2C_RW_LENGTH;
-					else
-						sz = len;
-					ret = i2c_master_recv(d->i2c_client_atv, kbuf, sz); 
-					if (ret < 0) {
-						dPrint(N_ERR, "nmi: failed i2c read...(%d)\n", ret);
-						//kfree(kbuf);
-						mutex_unlock(&d->mu);
-						goto _fail_;
-					}
-					kbuf += NMI_I2C_RW_LENGTH;
-					len -= sz;
-				}
-				//nmi_i2c_read(0x60,kbuf,size);
-				dPrint(N_TRACE,"nmi: read buf is (%x), size is (%d)\n",*kbuf,size);
 
-				if (copy_to_user(arg, i2cBuf, size) ) {
-					dPrint(N_ERR, "nmi: failed copy to user...\n");
-					ret = -EFAULT;
-					//kfree(kbuf);
-					mutex_unlock(&d->mu);
-					goto _fail_;
-				}
-				//kfree(kbuf);
-				mutex_unlock(&d->mu);
-			}
-			break;
-		case NM5625_ATV_I2C_WRITE:
-			{
-				u8 *kbuf = &i2cBuf[0];
-				int size = cmd&0xffff;	/* Note: I used the lower 16 bits for size */
-				int len = size;
-				dPrint(N_TRACE,"NM5625_ATV_I2C_WRITE\n");
+        case NM5625_ATV_I2C_READ:
+            {
+                u8 *kbuf = &i2cBuf[0];
+                int size = cmd&0xffff;	/* Note: I used the lower 16 bits for size */	
+                int len = size;
+                dPrint(N_TRACE,"NM5625_ATV_I2C_READ\n");
+                mutex_lock(&d->mu);
+                while(len) {
+                    int sz;
+                    if (len > NMI_I2C_RW_LENGTH)
+                        sz = NMI_I2C_RW_LENGTH;
+                    else
+                        sz = len;
+                    ret = i2c_master_recv(d->i2c_client_atv, kbuf, sz); 
+                    if (ret < 0) {
+                        dPrint(N_ERR, "nmi: failed i2c read...(%d)\n", ret);
+                        //kfree(kbuf);
+                        mutex_unlock(&d->mu);
+                        goto _fail_;
+                    }
+                    kbuf += NMI_I2C_RW_LENGTH;
+                    len -= sz;
+                }
+                //nmi_i2c_read(0x60,kbuf,size);
+                dPrint(N_TRACE,"nmi: read buf is (%x), size is (%d)\n",*kbuf,size);
 
-				if (copy_from_user(kbuf, arg, size)) {					
-					dPrint(N_ERR, "nmi: failed copy from user...\n");
-					ret = -EFAULT;
-					goto _fail_;
-				}
-				dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
-				mutex_lock(&d->mu);
-				while(len){
-					int sz;
-					if (len > NMI_I2C_RW_LENGTH)
-						sz = NMI_I2C_RW_LENGTH;
-					else
-						sz = len;
-					ret = i2c_master_send(d->i2c_client_atv, kbuf, sz);
-					if (ret < 0) {
-						dPrint(N_ERR, "nmi: failed i2c write...(%d)\n", ret);
-						//kfree(kbuf);
-						mutex_unlock(&d->mu);
-						goto _fail_;
-					}
-					kbuf += NMI_I2C_RW_LENGTH;
-					len -= sz;
-				}
-				//nmi_i2c_write(0x60,kbuf,size);
-				dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
-				
-				mutex_unlock(&d->mu);
-			}
-			break;
-		default:
-			break;
-	}
+                if (copy_to_user(arg, i2cBuf, size) ) {
+                    dPrint(N_ERR, "nmi: failed copy to user...\n");
+                    ret = -EFAULT;
+                    //kfree(kbuf);
+                    mutex_unlock(&d->mu);
+                    goto _fail_;
+                }
+                //kfree(kbuf);
+                mutex_unlock(&d->mu);
+            }
+            break;
+        case NM5625_ATV_I2C_WRITE:
+            {
+                u8 *kbuf = &i2cBuf[0];
+                int size = cmd&0xffff;	/* Note: I used the lower 16 bits for size */
+                int len = size;
+                dPrint(N_TRACE,"NM5625_ATV_I2C_WRITE\n");
+
+                if (copy_from_user(kbuf, arg, size)) {					
+                    dPrint(N_ERR, "nmi: failed copy from user...\n");
+                    ret = -EFAULT;
+                    goto _fail_;
+                }
+                dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
+                mutex_lock(&d->mu);
+                while(len){
+                    int sz;
+                    if (len > NMI_I2C_RW_LENGTH)
+                        sz = NMI_I2C_RW_LENGTH;
+                    else
+                        sz = len;
+                    ret = i2c_master_send(d->i2c_client_atv, kbuf, sz);
+                    if (ret < 0) {
+                        dPrint(N_ERR, "nmi: failed i2c write...(%d)\n", ret);
+                        //kfree(kbuf);
+                        mutex_unlock(&d->mu);
+                        goto _fail_;
+                    }
+                    kbuf += NMI_I2C_RW_LENGTH;
+                    len -= sz;
+                }
+                //nmi_i2c_write(0x60,kbuf,size);
+                dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
+
+                mutex_unlock(&d->mu);
+            }
+            break;
+        default:
+            break;
+    }
 
 _fail_:
-	//func_exit();
-	//dPrint(N_TRACE, "nmi_ioctl return value...(%d)\n", ret);
-	return ret; 
+    //func_exit();
+    //dPrint(N_TRACE, "nmi_ioctl return value...(%d)\n", ret);
+    return ret; 
 }
 
 
