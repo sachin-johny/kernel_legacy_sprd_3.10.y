@@ -594,7 +594,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 	}
 
-	if((dev->panel_ready) && (0 != dev->panel->fps)){
+	if(0 != dev->panel->fps){
 		dispc_update_clock(dev);
 	}else{
 		dev->dpi_clock = DISPC_DPI_CLOCK;
@@ -847,7 +847,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 		dispc_layer_update(&(dev->fb->var));
 	}
 
-	dispc_update_clock(dev);
+//	dispc_update_clock(dev);
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(dispc_ctx.is_first_frame){
@@ -1562,6 +1562,7 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 	.refresh		= sprdfb_dispc_refresh,
 	.suspend		= sprdfb_dispc_suspend,
 	.resume		= sprdfb_dispc_resume,
+	.update_clk	= dispc_update_clock,
 #ifdef CONFIG_FB_ESD_SUPPORT
 	.ESD_check	= sprdfb_disc_check_esd,
 #endif

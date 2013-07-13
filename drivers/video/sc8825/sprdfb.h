@@ -159,6 +159,7 @@ struct display_ctrl {
 
 	int32_t	(*suspend)	  (struct sprdfb_device *dev);
 	int32_t 	(*resume)	  (struct sprdfb_device *dev);
+	void		(*update_clk)	  (struct sprdfb_device *dev);
 
 #ifdef CONFIG_FB_ESD_SUPPORT
 	int32_t	(*ESD_check)	  (struct sprdfb_device *dev);

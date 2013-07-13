@@ -308,6 +308,7 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	list_for_each_entry(cfg, panel_list, list) {
 		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
+		dev->ctrl->update_clk(dev);
 		panel_init(dev);
 		panel_reset(dev);
 		id = dev->panel->ops->panel_readid(dev->panel);
