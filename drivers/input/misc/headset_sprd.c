@@ -606,7 +606,7 @@ static int headset_suspend(struct platform_device * pdev, pm_message_t state)
 
 	msleep(100);
 	headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
-	headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
+	//headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
 
 	return 0;
 }
@@ -615,7 +615,7 @@ static int headset_resume(struct platform_device * pdev)
 	pr_info("%s\n", __FUNCTION__);
 
 	headset_irq_enable(1, headset.detect.irq);
-	headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
+	//headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
 	headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
 	headset_reg_clr_bit(HEADMIC_BUTTON_REG(0x34), 0x01);
 	headset_reg_clr_bit(HEADMIC_BUTTON_REG(0x3c), 0x0f);
