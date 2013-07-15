@@ -219,8 +219,14 @@ loopbd:
 	adr r0, reg_ca7_ckg
 	ldr r1, [r0]
 	ldr r0, =0x20d0000c
+	ldr r2, =0xfffffff0
+	and r3, r2, r1
+	str r3, [r0]
+	ldr r0, =0x020
+	bl my_delay
+	ldr r0, =0x20d0000c
 	str r1, [r0]
-	ldr r0, =0x0120
+	ldr r0, =0x020
 	bl my_delay
 
 	adr r0, reg_clk_ahb
