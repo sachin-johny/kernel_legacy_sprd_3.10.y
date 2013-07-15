@@ -421,6 +421,7 @@ static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
 {
 	struct task_struct *q;
 	struct mm_struct *mm;
+        int tasksize;
 
 	p = find_lock_task_mm(p);
 	if (!p)
@@ -429,8 +430,14 @@ static int oom_kill_task(struct task_struct *p, struct mem_cgroup *mem)
 	/* mm cannot be safely dereferenced after task_unlock(p) */
 	mm = p->mm;
 
-	pr_err("Killed process %d (%s) total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB\n",
-		task_pid_nr(p), p->comm, K(p->mm->total_vm),
+#ifdef CONFIG_ZRAM
+	tasksize = get_mm_rss(p->mm) + get_mm_counter(p->mm, MM_SWAPENTS);
+#else
+        tasksize = get_mm_rss(p->mm);
+#endif
+ 
+	pr_err("Killed process %d (%s) tasksize:%lukB, total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB\n",
+		task_pid_nr(p), p->comm, K(tasksize), K(p->mm->total_vm),
 		K(get_mm_counter(p->mm, MM_ANONPAGES)),
 		K(get_mm_counter(p->mm, MM_FILEPAGES)));
 	task_unlock(p);

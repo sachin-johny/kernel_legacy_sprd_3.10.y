@@ -59,6 +59,34 @@
 static DECLARE_WAIT_QUEUE_HEAD(lowmemkiller_wait);
 #endif
 
+#define LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
+
+#ifdef LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
+#define LMK_LEAK_MEM_ACCOUNT                    0x5
+#define LMK_LEAK_MEM_MIN_SUSPECT_NUM            0x10
+#define LMK_MAX_ACCOUNT_PROCESS_NUM             0x40
+#define LMK_LEAK_MEM_REPORT_THRESH              4*1024//unit:KB
+/*system process mem leak detect*/
+struct lmk_mem_leak{
+    char name[TASK_COMM_LEN];//account process name.
+    int  store_mem[LMK_LEAK_MEM_ACCOUNT];//store the last LMK_LEAK_MEM_ACCOUNT process mem rss
+    int  sum_mem;//account sum mem info
+    int  init_avg_mem;//int LMK_LEAK_MEM_ACCOUNT account average rss mem value
+    int  last_avg_mem;//last aLMK_LEAK_MEM_ACCOUNT ccount average rss mem vale
+    int  cur_mem;//current rss mem vale
+    int  leak_suspect_num; //leak suspect num
+    int  account_num;//total account num;
+    int  start_account_time;//start account time;
+    int  account_time;//total account time
+    bool valid;//current item valid indicator
+    bool  is_dump;//if already dumped
+
+};
+
+struct lmk_mem_leak  mem_leak_info[LMK_MAX_ACCOUNT_PROCESS_NUM];
+#endif
+
+
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
 	0,
@@ -82,7 +110,7 @@ DEFINE_SPINLOCK(lmk_wl_lock);
 #define MAX_LMK_WHITE_LIST  0x10
 /*lowmemory killer white list*/
 struct lmk_wl{
-    char wl_name[0x20];
+    char wl_name[TASK_COMM_LEN];
     struct task_struct *wl_tsk;
 };
 
@@ -305,6 +333,105 @@ static struct  task_struct *lowmem_white_list_kill(int did_some_progress, int* s
     }
     return select;
 }
+
+#ifdef LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
+static void lowmem_mem_leak_init(void)
+{
+    int count=0;
+
+    for(count=0; count<LMK_MAX_ACCOUNT_PROCESS_NUM; count++){
+            memset((char*)&mem_leak_info[count].name[0],0, TASK_COMM_LEN);
+            mem_leak_info[count].valid = false;
+            mem_leak_info[count].account_num = 0;
+            mem_leak_info[count].sum_mem = 0;
+            mem_leak_info[count].init_avg_mem = 0;
+            mem_leak_info[count].last_avg_mem = 0;
+            mem_leak_info[count].cur_mem=0xffffffff;
+            mem_leak_info[count].is_dump=false;
+    }
+}
+
+#define K(x) ((x) << (PAGE_SHIFT-10))
+static void lowmem_mem_leak_account(struct task_struct *p)
+{
+    int i=0;
+    int count=0;
+    int find_seat=0;
+    int tasksize=0;
+    int avg_count=0;
+    int sum=0;
+
+    if(!p || !p->mm || !p->signal ||(p->signal->oom_adj>=0)){
+        return;
+    }
+
+    if(current->pid == p->pid){
+        return;
+    }
+
+    spin_lock(&lmk_wl_lock);
+    for(count=0x0; count<LMK_MAX_ACCOUNT_PROCESS_NUM; count++){
+        if(mem_leak_info[count].valid){
+             if(!strcmp((char*)&mem_leak_info[count].name[0], p->comm)){
+#ifdef CONFIG_ZRAM
+	          tasksize = get_mm_rss(p->mm) + get_mm_counter(p->mm, MM_SWAPENTS);
+#else
+                  tasksize = get_mm_rss(p->mm);
+#endif
+                  mem_leak_info[count].account_time = jiffies_to_msecs(jiffies-mem_leak_info[count].start_account_time);
+                  if(mem_leak_info[count].account_num < LMK_LEAK_MEM_ACCOUNT){
+                      avg_count=mem_leak_info[count].account_num+1;
+                      mem_leak_info[count].sum_mem += tasksize;
+                      mem_leak_info[count].init_avg_mem = mem_leak_info[count].sum_mem/avg_count;
+                  }else{
+                      avg_count=LMK_LEAK_MEM_ACCOUNT;
+                  }
+
+                  if(tasksize >= mem_leak_info[count].cur_mem){
+                      mem_leak_info[count].leak_suspect_num++;
+                  }
+                  mem_leak_info[count].cur_mem= tasksize;
+                  mem_leak_info[count].store_mem[mem_leak_info[count].account_num%LMK_LEAK_MEM_ACCOUNT]=tasksize;
+                  for(i=0x0; i<avg_count; i++){
+                      sum += mem_leak_info[count].store_mem[i];
+                  }
+                  mem_leak_info[count].last_avg_mem = sum/avg_count;
+                  mem_leak_info[count].account_num++;
+                  mem_leak_info[count].account_time = jiffies_to_msecs(jiffies-mem_leak_info[count].start_account_time);
+                  lowmem_print(2, "[LMK] process leak info %d (%s): leak_count %d,  total_account %d,  init task size %lukB, current task size %lukB,\
+                          account time:%d(s)\n", task_pid_nr(p), p->comm, mem_leak_info[count].leak_suspect_num, mem_leak_info[count].account_num,\
+                                K(mem_leak_info[count].init_avg_mem), K(mem_leak_info[count].last_avg_mem), mem_leak_info[count].account_time>>10);
+
+                  if(mem_leak_info[count].last_avg_mem > mem_leak_info[count].init_avg_mem){
+                        if((K(mem_leak_info[count].last_avg_mem - mem_leak_info[count].init_avg_mem) > LMK_LEAK_MEM_REPORT_THRESH)
+                                && (mem_leak_info[count].leak_suspect_num > LMK_LEAK_MEM_MIN_SUSPECT_NUM) && \
+                                    (mem_leak_info[count].account_num < (mem_leak_info[count].leak_suspect_num*2))){
+                                        lowmem_print(2, "[LMK]suspect leak memory process %d (%s) init task size %lukB, current task size %lukB,\
+                                            total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, account time:%d(s), leak_count:%d\n", task_pid_nr(p), \
+                                                p->comm, K(mem_leak_info[count].init_avg_mem), K(mem_leak_info[count].last_avg_mem),K(p->mm->total_vm),\
+                                                    K(get_mm_counter(p->mm, MM_ANONPAGES)), K(get_mm_counter(p->mm, MM_FILEPAGES)),\
+                                                        mem_leak_info[count].account_time>>10, mem_leak_info[count].leak_suspect_num);
+                                        if(!mem_leak_info[count].is_dump && (__task_cred(p)->uid > 1000))
+                                            force_sig(SIGUSR1, p->pid);
+                                        mem_leak_info[count].is_dump=true;
+                        }
+                  }
+                  break;
+              }
+         }else{
+                find_seat=count;
+         }
+    }
+
+    if((count==LMK_MAX_ACCOUNT_PROCESS_NUM) && find_seat){
+        strcpy((char*)&mem_leak_info[find_seat].name[0], p->comm);
+        mem_leak_info[find_seat].start_account_time = jiffies_to_msecs(jiffies);
+        mem_leak_info[find_seat].valid=true;
+        lowmem_print(2, "[LMK]find seat for process leak memory monitor %d (%s), find_seat %d \n",task_pid_nr(p), p->comm, find_seat);
+    }
+    spin_unlock(&lmk_wl_lock);
+}
+#endif
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
@@ -572,7 +699,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 		oom_adj = sig->oom_adj;
 		lowmem_print(6, "[[LMK] [%d:%s] loop, current adj %d\n",p->pid, p->comm, oom_adj);
-
+#ifdef LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
+                lowmem_mem_leak_account(p);
+#endif
                 if(p->state == TASK_UNINTERRUPTIBLE){
                     lowmem_print(6, " [LMK] [%d, %s] uninterruptible skip, adj %d\n",
 				p->pid, p->comm, oom_adj);
@@ -1010,6 +1139,10 @@ static int __init lowmem_init(void)
 	struct zone *zone;
 	unsigned int high_wmark = 0;
 	lowmem_last_swap_time =  jiffies;
+#endif
+
+#ifdef LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
+        lowmem_mem_leak_init();
 #endif
 	task_free_register(&task_nb);
 	register_shrinker(&lowmem_shrinker);
