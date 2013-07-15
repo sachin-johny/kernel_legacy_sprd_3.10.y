@@ -3,7 +3,7 @@
 #
 menu "Magnetometer sensors"
 
-config SENSORS_AK8975
+config SENSORS_AK8975_IIO
 	tristate "Asahi Kasei AK8975 3-Axis Magnetometer"
 	depends on I2C
 	depends on GENERIC_GPIO

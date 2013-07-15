@@ -27,9 +27,12 @@
 
 #include <linux/i2c.h>
 #include <linux/i2c/ft53x6_ts.h>
+#if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
 #include <linux/i2c/lis3dh.h>
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 #include <linux/i2c/ltr_558als.h>
-#include <linux/akm8975.h>
+#endif
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <linux/input/matrix_keypad.h>
@@ -39,8 +42,12 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <mach/pinmap.h>
+#if(defined(CONFIG_INV_MPU_IIO)||defined(CONFIG_INV_MPU_IIO_MODULE))
 #include <linux/mpu.h>
+#endif
+#if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
 #include <linux/akm8975.h>
+#endif
 #include <linux/irq.h>
 #include <linux/persistent_ram.h>
 
@@ -293,10 +300,13 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.vdd_name 			= "vdd28",
 };
 
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PROX_INT,
 };
+#endif
 
+#if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.poll_interval = 10,
 	.min_interval = 10,
@@ -308,7 +318,9 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.negate_y = 0,
 	.negate_z = 1
 };
+#endif
 
+#if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
 struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_x = -20480,
 	.mag_high_x = 20479,
@@ -317,7 +329,9 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_low_z = -20480,
 	.mag_high_z = 20479,
 };
+#endif
 
+#if(defined(CONFIG_INV_MPU_IIO)||defined(CONFIG_INV_MPU_IIO_MODULE))
 static struct mpu_platform_data mpu9150_platform_data = {
 	.int_config = 0x00,
 	.level_shifter = 0,
@@ -333,25 +347,30 @@ static struct mpu_platform_data mpu9150_platform_data = {
 	.key = {0xec, 0x06, 0x17, 0xdf, 0x77, 0xfc, 0xe6, 0xac,
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
+#endif
 
 static struct i2c_board_info i2c2_boardinfo[] = {
-	/*
+#if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
 	},
-	*/
+#endif
+#if(defined(CONFIG_INV_MPU_IIO)||defined(CONFIG_INV_MPU_IIO_MODULE))
 	{ I2C_BOARD_INFO("mpu9150", 0x68),
 	  .irq = GPIO_GYRO_INT1,
 	  .platform_data = &mpu9150_platform_data,
 	},
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
 	},
-	/*
-	{ I2C_BOARD_INFO(AKM8975_I2C_NAME,    AKM8975_I2C_ADDR),
+#endif
+#if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
+	{ I2C_BOARD_INFO(AKM8975_I2C_NAME, AKM8975_I2C_ADDR),
 	  .platform_data = &akm8975_platform_d,
 	},
-	*/
+#endif
 };
 
 static struct i2c_board_info i2c1_boardinfo[] = {
