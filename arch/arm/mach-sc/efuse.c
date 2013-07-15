@@ -216,8 +216,8 @@ int sci_efuse_get(u32 blk)
 EXPORT_SYMBOL(sci_efuse_get);
 
 #define CAL_DATA_BLK		7
-#define BASE_ADC_P0		785	//3.6V
-#define BASE_ADC_P1		917	//4.2V
+#define BASE_ADC_P0		711	//3.6V
+#define BASE_ADC_P1		830	//4.2V
 #define VOL_P0		3600
 #define VOL_P1		4200
 #define ADC_DATA_OFFSET		128
@@ -226,7 +226,7 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 	int data;
 	unsigned short adc_temp;
 
-	data = __ddie_fuse_read(CAL_DATA_BLK);
+	data =  __adie_fuse_getdata();
 
 	data &= ~(1 << 31);
 
@@ -236,11 +236,11 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 	}
 	//adc 3.6V
 	adc_temp = ((data >> 8) & 0x00FF) + BASE_ADC_P0 - ADC_DATA_OFFSET;
-	p_cal_data[1] = (VOL_P0) | (adc_temp << 16);
+	p_cal_data[1] = (VOL_P0) | ((adc_temp << 2) << 16);
 
 	//adc 4.2V
 	adc_temp = (data & 0x00FF) + BASE_ADC_P1 - ADC_DATA_OFFSET;
-	p_cal_data[0] = (VOL_P1) | (adc_temp << 16);
+	p_cal_data[0] = (VOL_P1) | ((adc_temp << 2) << 16);
 
 	return 1;
 }
