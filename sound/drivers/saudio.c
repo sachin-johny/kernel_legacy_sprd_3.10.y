@@ -162,6 +162,7 @@ struct saudio_stream {
 	uint32_t last_getblk_count;
 	uint32_t blk_count;
 
+	struct mutex mutex;
 };
 
 struct saudio_dev_ctrl {
@@ -436,8 +437,18 @@ static int snd_card_saudio_hw_params(struct snd_pcm_substream *substream,
 
 static int snd_card_saudio_hw_free(struct snd_pcm_substream *substream)
 {
+	int ret=0;
+	const struct snd_saudio *saudio = snd_pcm_substream_chip(substream);
+	const int stream_id = substream->pstr->stream;
+	const int dev = substream->pcm->device;
+	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct saudio_stream *stream =
+	    (struct saudio_stream *)&(saudio->dev_ctrl[dev].stream[stream_id]);
 	ADEBUG();
-	return saudio_pcm_lib_free_pages(substream);
+	mutex_lock(&stream->mutex);
+	ret = saudio_pcm_lib_free_pages(substream);
+	mutex_unlock(&stream->mutex);
+	return ret;
 }
 
 static snd_pcm_uframes_t snd_card_saudio_pcm_pointer(struct snd_pcm_substream
@@ -778,7 +789,9 @@ static void sblock_notifier(int event, void *data)
 
 	if (event == SBLOCK_NOTIFY_GET) {
 		if (stream->stream_state == SAUDIO_TRIGGERED) {
+			mutex_lock(&stream->mutex);
 			result = saudio_data_transfer_process(stream, &msg);
+			mutex_unlock(&stream->mutex);
 		} else {
 			pr_debug("\n: saudio is stopped\n");
 		}
@@ -819,6 +832,7 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 
 			stream->stream_state = SAUDIO_IDLE;
 			stream->stream_id = j;
+			mutex_init(&stream->mutex);
 
 			result =
 			    sblock_create(stream->dst, stream->channel,

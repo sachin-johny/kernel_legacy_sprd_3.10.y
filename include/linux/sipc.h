@@ -48,15 +48,12 @@ enum {
 	SMSG_CH_DATA0,		/* 2G/3G wirleless data */
 	SMSG_CH_DATA1,		/* 2G/3G wirleless data */
 	SMSG_CH_DATA2,		/* 2G/3G wirleless data */
-	SMSG_CH_VBC_T,		/* audio conrol channel for td */
-	SMSG_CH_PLAYBACK_T, 	/* audio playback channel for td */
-	SMSG_CH_CAPTURE_T,	/* audio capture channel for td */
-	SMSG_CH_VBC_W,		/* audio conrol channel for w */
-	SMSG_CH_PLAYBACK_W, 	/* audio playback channel for w */
-	SMSG_CH_CAPTURE_W,	/* audio capture channel for w */
-	SMSG_CH_CTRL_VOIP,		/* audio conrol channel for w */
-	SMSG_CH_PLAYBACK_VOIP, 	/* audio playback channel for w */
-	SMSG_CH_CAPTURE_VOIP,	/* audio capture channel for w */
+	SMSG_CH_VBC,		/* audio conrol channel */
+	SMSG_CH_PLAYBACK, 	/* audio playback channel */
+	SMSG_CH_CAPTURE,	/* audio capture channel */
+	SMSG_CH_CTRL_VOIP,	/* audio voip conrol channel */
+	SMSG_CH_PLAYBACK_VOIP, 	/* audio voip playback channel */
+	SMSG_CH_CAPTURE_VOIP,	/* audio voip capture channel */
 	SMSG_CH_NR,		/* total channel number */
 };
 

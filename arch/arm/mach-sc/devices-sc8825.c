@@ -1017,9 +1017,9 @@ struct platform_device sprd_seth2_td_device = {
 static struct saudio_init_data  sprd_saudio_td={
 	"VIRTUAL AUDIO",
 	SIPC_ID_CPT,
-	SMSG_CH_VBC_T,
-	SMSG_CH_PLAYBACK_T,
-	SMSG_CH_CAPTURE_T,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
 };
 
 struct platform_device sprd_saudio_td_device = {

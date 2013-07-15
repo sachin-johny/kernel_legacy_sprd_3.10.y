@@ -168,6 +168,11 @@ config SIPC_WCN
 	select SIPC
 	default n
 
+config VOIP_CPT
+	bool "VOIP process in modem T,it is processed in modem W by default"
+	default n
+	depends on SIPC_TD
+
 config BUS_MONITOR
         bool "scxx35 AHB and DMC bus monitors"
         default n

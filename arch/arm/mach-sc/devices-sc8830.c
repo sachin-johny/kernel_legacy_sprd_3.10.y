@@ -1096,9 +1096,9 @@ struct platform_device sprd_spool_td_device = {
 static struct saudio_init_data sprd_saudio_td={
 	"VIRTUAL AUDIO",
 	SIPC_ID_CPT,
-	SMSG_CH_VBC_T,
-	SMSG_CH_PLAYBACK_T,
-	SMSG_CH_CAPTURE_T,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
 };
 
 struct platform_device sprd_saudio_td_device = {
@@ -1106,6 +1106,7 @@ struct platform_device sprd_saudio_td_device = {
 	.id         = 0,
 	.dev        = {.platform_data=&sprd_saudio_td},
 };
+
 #endif
 
 #ifdef CONFIG_SIPC_WCDMA
@@ -1284,28 +1285,15 @@ struct platform_device sprd_spool_wcdma_device = {
 static struct saudio_init_data sprd_saudio_wcdma={
 	"VIRTUAL AUDIO W",
 	SIPC_ID_CPW,
-	SMSG_CH_VBC_W,
-	SMSG_CH_PLAYBACK_W,
-	SMSG_CH_CAPTURE_W,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
 };
 
 struct platform_device sprd_saudio_wcdma_device = {
 	.name       = "saudio",
 	.id         = 1,
 	.dev        = {.platform_data=&sprd_saudio_wcdma},
-};
-static struct saudio_init_data sprd_saudio_voip={
-	"saudiovoip",
-	SIPC_ID_CPW,
-	SMSG_CH_CTRL_VOIP,
-	SMSG_CH_PLAYBACK_VOIP,
-	SMSG_CH_CAPTURE_VOIP,
-};
-
-struct platform_device sprd_saudio_voip_device = {
-	.name       = "saudio",
-	.id         = 2,
-	.dev        = {.platform_data=&sprd_saudio_voip},
 };
 #endif
 
@@ -1452,6 +1440,23 @@ struct platform_device sprd_a7_pmu_device = {
 };
 
 
+static struct saudio_init_data sprd_saudio_voip={
+	"saudiovoip",
+#ifdef CONFIG_VOIP_CPT
+	SIPC_ID_CPT,
+#else
+	SIPC_ID_CPW,
+#endif
+	SMSG_CH_CTRL_VOIP,
+	SMSG_CH_PLAYBACK_VOIP,
+	SMSG_CH_CAPTURE_VOIP,
+};
+
+struct platform_device sprd_saudio_voip_device = {
+	.name       = "saudio",
+	.id         = 2,
+	.dev        = {.platform_data=&sprd_saudio_voip},
+};
 
 #define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
