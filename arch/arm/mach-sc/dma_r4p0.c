@@ -13,7 +13,7 @@
 
 #include <linux/module.h>
 #include <linux/init.h>
-#include <linux/mutex.h>
+#include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/kernel.h>
 #include <linux/interrupt.h>
@@ -23,8 +23,6 @@
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/dma_reg.h>
-
-#define DMA_MEMCPY_CHN_SIZE 3
 
 struct sci_dma_desc {
 	const char *dev_name;
@@ -604,9 +602,9 @@ u32 sci_dma_get_dst_addr(u32 dma_chn)
 #define DMA_MEMCPY_MAX_SIZE TRSC_LEN_MASK
 static void sci_dma_memcpy_irqhandle(int chn, void *data)
 {
-	struct mutex *memcpy_mutex = (struct mutex *)data;
+	struct semaphore *dma_sema = (struct semaphore *)data;
 
-	mutex_unlock(memcpy_mutex);
+	up(dma_sema);
 }
 
 int sci_dma_memcpy(u32 dest, u32 src, size_t size)
@@ -616,7 +614,7 @@ int sci_dma_memcpy(u32 dest, u32 src, size_t size)
 	u32 data_width, src_step;
 	u32 irq_mode;
 	struct sci_dma_cfg cfg;
-	struct mutex memcpy_mutex;
+	struct semaphore dma_seam;
 
 	if (size < DMA_MEMCPY_MIN_SIZE || size > DMA_MEMCPY_MAX_SIZE) {
 		return -EINVAL;
@@ -632,7 +630,7 @@ int sci_dma_memcpy(u32 dest, u32 src, size_t size)
 		return dma_chn;
 	}
 
-	mutex_init(&memcpy_mutex);
+	sema_init(&dma_seam, 0);
 
 	memset(&cfg, 0x0, sizeof(cfg));
 
@@ -675,18 +673,16 @@ int sci_dma_memcpy(u32 dest, u32 src, size_t size)
 
 	ret = sci_dma_register_irqhandle(dma_chn, irq_mode,
 					 sci_dma_memcpy_irqhandle,
-					 &memcpy_mutex);
+					 &dma_seam);
 	if (ret < 0) {
 		printk("dma register irqhandle failed!\n");
 		sci_dma_free(dma_chn);
 		return ret;
 	}
 
-	mutex_lock(&memcpy_mutex);
-
 	sci_dma_start(dma_chn, DMA_UID_SOFTWARE);
 
-	mutex_lock(&memcpy_mutex);
+	down(&dma_seam);
 
 	sci_dma_free(dma_chn);
 
