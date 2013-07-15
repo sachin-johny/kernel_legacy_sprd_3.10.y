@@ -62,7 +62,7 @@
 	    #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE * SZ_1M)
 	    #endif
 	#elif defined (CONFIG_ARCH_SCX35)
-		#define SPRD_ION_SIZE	(100*1024*1024)
+		#define SPRD_ION_SIZE	(20*1024*1024)
 	#endif
 
 #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)

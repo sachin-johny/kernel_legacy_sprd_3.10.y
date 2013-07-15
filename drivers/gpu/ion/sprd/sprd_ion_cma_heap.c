@@ -34,7 +34,7 @@
 #endif
 
 #define ION_CMA_ALLOCATE_FAIL -1
-#define ION_SIZE_SEPARATRIX    0x500000
+#define ION_SIZE_SEPARATRIX    0x800000
 
 struct ion_cma_heap {
 	struct ion_heap heap;
@@ -55,13 +55,19 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 		struct page *page;
 		ion_phys_addr_t phys;
 		int pagecount = ((PAGE_ALIGN(size)) >> PAGE_SHIFT);
+		struct timeval val;
+		int start, end;
+		do_gettimeofday(&val);
+		start = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
 		page = dma_alloc_from_contiguous(NULL , pagecount , 0);
+		do_gettimeofday(&val);
+		end = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
 		if(!page) {
 			pr_debug("ion: malloc dma_alloc_from_contiguous() failed size:0x%lx , pageCount:%d\n" , size , pagecount);
 			return -ENOMEM;
 		}
 		phys = page_to_phys(page);
-		pr_debug("ion: malloc from cma mem: size=%08lx,phy addr=%08lx\n", size, phys);
+		printk("ion: malloc from cma mem: size=%08lx,phy addr=%08lx, time=%dms\n", size, phys, end-start);
 		return phys;
 	}
 	/*else allocate from reserved memroy if it exist.*/
