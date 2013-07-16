@@ -78,7 +78,6 @@ extern   "C"
 
 /*irq line number in system*/
 #define ISP_IRQ				IRQ_ISP_INT
-#define DCAM_IRQ			IRQ_DCAM_INT
 
 #define ISP_EB_BIT		BIT_2
 #define ISP_RST_LOG_BIT	BIT_2

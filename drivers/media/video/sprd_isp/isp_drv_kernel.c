@@ -489,8 +489,6 @@ static int _isp_en_irq(unsigned long int_num)
 static int _isp_registerirq(void)
 {
 	uint32_t ret = 0;
-//	ret = request_irq(ISP_IRQ, _isp_irq_root, SA_SHIRQ, "ISP", &g_isp_irq);
-//	ret = request_irq(DCAM_IRQ, _dcam_irq_root, SA_SHIRQ, "ISP", &g_dcam_irq);
 
 	ret = request_irq(ISP_IRQ, _isp_irq_root, IRQF_SHARED, "ISP", &g_isp_irq);
 
@@ -498,7 +496,6 @@ static int _isp_registerirq(void)
 }
 static void _isp_unregisterirq(void)
 {
-	//free_irq (DCAM_IRQ, &g_dcam_irq);
 	free_irq (ISP_IRQ, &g_isp_irq);
 }
 

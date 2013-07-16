@@ -50,7 +50,6 @@ typedef struct _rot_param_tag {
 	ROT_ENDIAN_E dst_endian;
 } ROT_PARAM_CFG_T;
 
-static uint32_t g_rot_irq = 0x87654321;
 static rot_isr_func user_rot_isr_func;
 static ROT_PARAM_CFG_T s_rotation_cfg;
 static DEFINE_SPINLOCK(rot_lock);
@@ -132,18 +131,6 @@ static void rot_k_set_dir(ROT_ANGLE_E angle)
 	REG_OWR(REG_ROTATION_PATH_CFG, ((angle & 0x3) << 2));
 }
 
-static void rot_k_interrupt_en(void)
-{
-	REG_WR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
-	dcam_glb_reg_owr(REG_ROTATION_INT_MASK, ROT_IRQ_BIT, DCAM_INIT_MASK_REG);
-}
-
-static void rot_k_interrupt_dis(void)
-{
-	REG_WR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
-	dcam_glb_reg_awr(REG_ROTATION_INT_MASK, (~ROT_IRQ_BIT), DCAM_INIT_MASK_REG);
-}
-
 static void rot_k_enable(void)
 {
 	REG_OWR(REG_ROTATION_PATH_CFG, ROT_EB_BIT);
@@ -159,17 +146,13 @@ static void rot_k_start(void)
 	REG_OWR(REG_ROTATION_CTRL, ROT_START_BIT);
 }
 
-static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
+
+int rot_k_isr(struct dcam_frame* dcam_frm, void* u_data)
 {
-	uint32_t status;
 	unsigned long flag;
 
-	(void)irq; (void)dev_id;
-	status = REG_RD(REG_ROTATION_INT_STS);
-
-	if (unlikely(0 == (status & ROT_IRQ_BIT))) {
-		return IRQ_NONE;
-	}
+	(void)dcam_frm; (void)u_data;
+	//printk("Rot, 0x%x \n", status);
 
 	spin_lock_irqsave(&rot_lock, flag);
 
@@ -177,11 +160,9 @@ static irqreturn_t rot_k_isr_root(int irq, void *dev_id)
 		user_rot_isr_func();
 	}
 
-	REG_WR(REG_ROTATION_INT_CLR, ROT_IRQ_BIT);
-
 	spin_unlock_irqrestore(&rot_lock, flag);
 
-	return IRQ_HANDLED;
+	return 0;
 }
 
 int rot_k_isr_reg(rot_isr_func user_func)
@@ -193,17 +174,9 @@ int rot_k_isr_reg(rot_isr_func user_func)
 	user_rot_isr_func = user_func;
 	spin_unlock_irqrestore(&rot_lock, flag);
 	if (user_func) {
-		rtn = request_irq(ROT_IRQ,
-				rot_k_isr_root,
-				IRQF_SHARED,
-				"ROTATE",
-				&g_rot_irq);
-		if (rtn) {
-			printk("request_irq error %d \n", rtn);
-			rtn = -1;
-		}
+		dcam_reg_isr(DCAM_ROT_DONE, rot_k_isr, NULL);
 	} else {
-		free_irq(ROT_IRQ, &g_rot_irq);
+		dcam_reg_isr(DCAM_ROT_DONE, NULL, NULL);
 	}
 
 	return rtn;
@@ -308,8 +281,6 @@ void rot_k_done(void)
 	rot_k_set_dir(s->angle);
 	rot_k_set_endian(s->src_endian, s->dst_endian);
 	rot_k_enable();
-	rot_k_interrupt_dis();
-	rot_k_interrupt_en();
 	rot_k_start();
 	ROTATE_TRACE("ok to rotation_done.\n");
 }
@@ -317,7 +288,6 @@ void rot_k_done(void)
 void rot_k_close(void)
 {
 	rot_k_disable();
-	rot_k_interrupt_dis();
 }
 
 static int rot_k_check_param(ROT_CFG_T * param_ptr)

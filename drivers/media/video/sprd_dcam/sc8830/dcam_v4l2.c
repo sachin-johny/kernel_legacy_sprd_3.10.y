@@ -190,6 +190,10 @@ LOCAL int sprd_start_timer(struct timer_list *dcam_timer, uint32_t time_val);
 LOCAL int sprd_stop_timer(struct timer_list *dcam_timer);
 LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t reconfig_flag);
 LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id);
+LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param);
+LOCAL int sprd_v4l2_reg_path2_isr(struct dcam_dev* param);
+LOCAL int sprd_v4l2_unreg_isr(struct dcam_dev* param);
+LOCAL int sprd_v4l2_unreg_path2_isr(struct dcam_dev* param);
 
 
 LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
@@ -1027,6 +1031,53 @@ LOCAL int sprd_v4l2_tx_stop(void* param)
 
 	return ret;
 }
+
+LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param)
+{
+	dcam_reg_isr(DCAM_PATH0_DONE,   sprd_v4l2_tx_done,  param);
+	dcam_reg_isr(DCAM_PATH1_DONE,   sprd_v4l2_tx_done,  param);
+	dcam_reg_isr(DCAM_PATH0_OV,     sprd_v4l2_tx_error, param);
+	dcam_reg_isr(DCAM_PATH1_OV,     sprd_v4l2_tx_error, param);
+	dcam_reg_isr(DCAM_ISP_OV,       sprd_v4l2_tx_error, param);
+	dcam_reg_isr(DCAM_MIPI_OV,      sprd_v4l2_tx_error, param);
+	dcam_reg_isr(DCAM_SN_LINE_ERR,  sprd_v4l2_tx_error, param);
+	dcam_reg_isr(DCAM_SN_FRAME_ERR, sprd_v4l2_tx_error, param);
+	dcam_reg_isr(DCAM_JPEG_BUF_OV,  sprd_v4l2_no_mem,   param);
+
+	return 0;
+}
+
+LOCAL int sprd_v4l2_reg_path2_isr(struct dcam_dev* param)
+{
+	dcam_reg_isr(DCAM_PATH2_DONE,   sprd_v4l2_tx_done,  param);
+	dcam_reg_isr(DCAM_PATH2_OV,     sprd_v4l2_tx_error, param);
+
+	return 0;
+}
+
+LOCAL int sprd_v4l2_unreg_isr(struct dcam_dev* param)
+{
+	dcam_reg_isr(DCAM_PATH0_DONE,   NULL, param);
+	dcam_reg_isr(DCAM_PATH1_DONE,   NULL, param);
+	dcam_reg_isr(DCAM_PATH0_OV,     NULL, param);
+	dcam_reg_isr(DCAM_PATH1_OV,     NULL, param);
+	dcam_reg_isr(DCAM_ISP_OV,       NULL, param);
+	dcam_reg_isr(DCAM_MIPI_OV,      NULL, param);
+	dcam_reg_isr(DCAM_SN_LINE_ERR,  NULL, param);
+	dcam_reg_isr(DCAM_SN_FRAME_ERR, NULL, param);
+	dcam_reg_isr(DCAM_JPEG_BUF_OV,  NULL, param);
+
+	return 0;
+}
+
+LOCAL int sprd_v4l2_unreg_path2_isr(struct dcam_dev* param)
+{
+	dcam_reg_isr(DCAM_PATH2_DONE,   NULL,  NULL);
+	dcam_reg_isr(DCAM_PATH2_OV,     NULL,  NULL);
+
+	return 0;
+}
+
 LOCAL int sprd_v4l2_path0_cfg(path_cfg_func path_cfg,
 				struct dcam_path_spec* path_spec)
 {
@@ -1805,7 +1856,6 @@ LOCAL int v4l2_streamon(struct file *file,
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	int                      ret = DCAM_RTN_SUCCESS;
-	uint32_t                 i;
 	struct dcam_path_spec    *path_0 = NULL;
 	struct dcam_path_spec    *path_1 = NULL;
 	struct dcam_path_spec    *path_2 = NULL;
@@ -1837,10 +1887,8 @@ LOCAL int v4l2_streamon(struct file *file,
 	ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 	V4L2_RTN_IF_ERR(ret);
 
-	for (i = DCAM_TX_DONE; i < USER_IRQ_NUMBER; i++) {
-		ret = dcam_reg_isr(i, sprd_v4l2_isr[i], dev);
-		V4L2_RTN_IF_ERR(ret);
-	}
+	ret = sprd_v4l2_reg_isr(dev);
+	V4L2_RTN_IF_ERR(ret);
 
 	/* config cap sub-module */
 	ret = sprd_v4l2_cap_cfg(&dev->dcam_cxt);
@@ -1859,6 +1907,8 @@ LOCAL int v4l2_streamon(struct file *file,
 	/* config path2 sub-module if necessary*/
 	if (path_2->is_work) {
 		ret = sprd_v4l2_path_cfg(dcam_path2_cfg, path_2);
+		V4L2_RTN_IF_ERR(ret);
+		ret = sprd_v4l2_reg_path2_isr(dev);
 		V4L2_RTN_IF_ERR(ret);
 		path_2->status = PATH_RUN;
 	} else {
@@ -1880,6 +1930,8 @@ LOCAL int v4l2_streamon(struct file *file,
 exit:
 
 	if (ret) {
+		sprd_v4l2_unreg_path2_isr(dev);
+		sprd_v4l2_unreg_isr(dev);
 		printk("V4L2: Failed to start stream 0x%x \n", ret);
 	} else {
 		atomic_set(&dev->run_flag, 0);
@@ -1927,6 +1979,9 @@ LOCAL int v4l2_streamoff(struct file *file,
 	ret = dcam_stop_cap();
 	V4L2_PRINT_IF_ERR(ret);
 
+	ret = sprd_v4l2_unreg_isr(dev);
+	V4L2_PRINT_IF_ERR(ret);
+
 	if (path_1->is_work) {
 		path_1->status = PATH_IDLE;
 	}
@@ -1937,6 +1992,8 @@ LOCAL int v4l2_streamoff(struct file *file,
 			dcam_rel_resizer();
 			dev->got_resizer = 0;
 		}
+		ret = sprd_v4l2_unreg_path2_isr(dev);
+		V4L2_PRINT_IF_ERR(ret);
 	}
 
 	if (path_0->is_work) {
@@ -2069,6 +2126,8 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t
 		if ((reconfig_flag) && (DCAM_PATH2 == channel_id)) {
 			path->is_work = 0;
 			path->frm_cnt_act = 0;
+			ret = sprd_v4l2_unreg_path2_isr(dev);
+			V4L2_PRINT_IF_ERR(ret);
 		}
 
 		if (DCAM_PATH2 == channel_id && dev->got_resizer) {
@@ -2113,6 +2172,8 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 					}
 					dev->got_resizer = 1;
 				}
+				ret = sprd_v4l2_reg_path2_isr(dev);
+				V4L2_PRINT_IF_ERR(ret);
 				path_cfg = dcam_path2_cfg;
 			} else {
 				printk("V4L2: resume, invalid channel_id=0x%x \n", channel_id);

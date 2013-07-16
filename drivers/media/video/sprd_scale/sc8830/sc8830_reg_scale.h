@@ -53,7 +53,6 @@ extern "C"
 #define SCALE_DECI_FAC_MAX 4
 #define SCALE_LINE_BUF_LENGTH 4096
 
-#define SCALE_IRQ IRQ_DCAM_INT
 #define SCALE_IRQ_SLICE_BIT (1 << 17)
 #define SCALE_IRQ_BIT (1 << 8)
 #define SCALE_PATH_MASK (3 << 13)

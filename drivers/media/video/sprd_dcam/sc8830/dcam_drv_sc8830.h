@@ -122,11 +122,28 @@ enum dcam_capture_mode {
 	DCAM_CAPTURE_MODE_MAX
 };
 
+
 enum dcam_irq_id {
-	DCAM_TX_DONE = 0,
-	DCAM_TX_ERR,
-	DCAM_NO_MEM,
-	USER_IRQ_NUMBER
+	DCAM_SN_SOF = 0,
+	DCAM_SN_EOF,
+	DCAM_CAP_SOF,
+	DCAM_CAP_EOF,
+	DCAM_PATH0_DONE,
+	DCAM_PATH0_OV,
+	DCAM_PATH1_DONE,
+	DCAM_PATH1_OV,
+	DCAM_PATH2_DONE,
+	DCAM_PATH2_OV,
+	DCAM_SN_LINE_ERR,
+	DCAM_SN_FRAME_ERR,
+	DCAM_JPEG_BUF_OV,
+	DCAM_ISP_OV,
+	DCAM_MIPI_OV,
+	DCAM_ROT_DONE,
+	DCAM_PATH1_SLICE_DONE,
+	DCAM_PATH2_SLICE_DONE,
+	DCAM_RAW_SLICE_DONE,
+	DCAM_IRQ_NUMBER
 };
 
 enum dcam_cfg_id {
@@ -197,7 +214,7 @@ enum iram_owner {
 };
 
 enum dcam_clk_sel {
-	DCA_CLK_256M = 0,
+	DCAM_CLK_256M = 0,
 	DCAM_CLK_128M,
 	DCAM_CLK_76M8,
 	DCAM_CLK_48M,
@@ -338,8 +355,8 @@ int32_t    dcam_module_en(void);
 int32_t    dcam_module_dis(void);
 int32_t    dcam_reset(enum dcam_rst_mode reset_mode);
 int32_t    dcam_set_clk(enum dcam_clk_sel clk_sel);
-int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
-		struct dcam_rect *in_rect, struct dcam_size *out_size);
+int32_t    dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
+			struct dcam_rect *in_rect, struct dcam_size *out_size);
 int32_t    dcam_start_path(enum dcam_path_index path_index);
 int32_t    dcam_start(void);
 int32_t    dcam_stop_path(enum dcam_path_index path_index);
@@ -363,7 +380,7 @@ int32_t    dcam_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
 int32_t    dcam_resize_start(void);
 int32_t    dcam_resize_end(void);
 int32_t    dcam_stop_cap(void);
-void dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id);
-void dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id);
-void dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id);
+void       dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id);
+void       dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id);
+void       dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id);
 #endif //_DCAM_DRV_8830_H_

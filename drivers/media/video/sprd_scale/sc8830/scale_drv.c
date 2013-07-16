@@ -87,7 +87,6 @@ struct scale_desc {
 	uint32_t sc_deci_val;
 };
 
-static uint32_t g_scale_irq = 0x12345678;
 static struct scale_desc scale_path;
 static struct scale_desc *g_path = &scale_path;
 static uint32_t s_wait_flag = 0;
@@ -98,7 +97,7 @@ static int32_t _scale_cfg_scaler(void);
 static int32_t _scale_calc_sc_size(void);
 static int32_t _scale_set_sc_coeff(void);
 static void _scale_reg_trace(void);
-static irqreturn_t _scale_isr_root(int irq, void *dev_id);
+static int _scale_isr_root(struct dcam_frame* dcam_frm, void* u_data);
 
 int32_t scale_module_en(void)
 {
@@ -167,8 +166,6 @@ int32_t scale_start(void)
 	g_path->is_last_slice = 0;
 	g_path->sc_deci_val = 0;
 	REG_MWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT), 0);
-	REG_WR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
-	dcam_glb_reg_owr(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), DCAM_INIT_MASK_REG);
 
 	rtn = _scale_cfg_scaler();
 	if (rtn) goto exit;
@@ -237,8 +234,6 @@ int32_t scale_stop(void)
 	}
 
 	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_EB_BIT, 0, DCAM_CFG_REG);
-	dcam_glb_reg_mwr(SCALE_INT_MASK, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT), 0, DCAM_INIT_MASK_REG);
-	REG_WR(SCALE_INT_CLR, (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT));
 
 	SCALE_TRACE("SCALE DRV: stop is OK.\n");
 	return rtn;
@@ -248,7 +243,6 @@ int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_da
 {
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
 	unsigned long flag;
-	int ret = 0;
 
 	if(id >= SCALE_IRQ_NUMBER) {
 		rtn = SCALE_RTN_ISR_ID_ERR;
@@ -258,17 +252,11 @@ int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_da
 		g_path->user_data = u_data;
 		spin_unlock_irqrestore(&scale_lock, flag);
 		if (user_func) {
-			ret = request_irq(SCALE_IRQ,
-					_scale_isr_root,
-					IRQF_SHARED,
-					"SCALE",
-					&g_scale_irq);
-			if (ret) {
-				printk("SCALE DRV: scale_reg_isr,error %d \n", ret);
-				rtn = SCALE_RTN_MAX;
-			}
+			dcam_reg_isr(DCAM_PATH2_DONE, _scale_isr_root, (void*)NULL);
+			dcam_reg_isr(DCAM_PATH2_SLICE_DONE, _scale_isr_root, (void*)NULL);
 		} else {
-			free_irq(SCALE_IRQ, &g_scale_irq);
+			dcam_reg_isr(DCAM_PATH2_DONE, NULL, (void*)NULL);
+			dcam_reg_isr(DCAM_PATH2_SLICE_DONE, NULL, (void*)NULL);
 		}
 	}
 
@@ -700,18 +688,12 @@ static int32_t _scale_set_sc_coeff(void)
 	return SCALE_RTN_SUCCESS;
 }
 
-static irqreturn_t _scale_isr_root(int irq, void *dev_id)
+int _scale_isr_root(struct dcam_frame* dcam_frm, void* u_data)
 {
-	uint32_t status;
 	struct scale_frame frame;
 	unsigned long flag;
 
-	(void)irq; (void)dev_id;
-	status = REG_RD(SCALE_INT_STS);
-
-	if (unlikely(0 == (status & (SCALE_IRQ_BIT | SCALE_IRQ_SLICE_BIT)))) {
-		return IRQ_HANDLED;
-	}
+	(void)dcam_frm; (void)u_data;
 
 	SCALE_TRACE("SCALE DRV: _scale_isr_root \n");
 	spin_lock_irqsave(&scale_lock, flag);
@@ -732,7 +714,6 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 		g_path->user_func(&frame, g_path->user_data);
 	}
 
-	REG_WR(SCALE_INT_CLR, (SCALE_IRQ_BIT|SCALE_IRQ_SLICE_BIT));
 	atomic_dec(&g_path->start_flag);
 	if (s_wait_flag) {
 		up(&scale_done_sema);
@@ -744,7 +725,7 @@ static irqreturn_t _scale_isr_root(int irq, void *dev_id)
 	}
 	spin_unlock_irqrestore(&scale_lock, flag);
 
-	return IRQ_HANDLED;
+	return 0;
 }
 
 static void _scale_reg_trace(void)

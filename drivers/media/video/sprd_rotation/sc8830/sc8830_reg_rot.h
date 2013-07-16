@@ -47,7 +47,6 @@ typedef enum {
 #define REG_ROTATION_OFFSET_START (ROT_BASE + 0x8008UL)
 #define REG_ROTATION_IMG_SIZE (ROT_BASE + 0x800CUL)
 
-#define ROT_IRQ IRQ_DCAM_INT
 #define ROT_IRQ_BIT (1 << 15)
 #define ROT_START_BIT (1 << 5)
 #define ROT_AXI_RD_WORD_ENDIAN_BIT (1 << 19)
