@@ -57,7 +57,7 @@ static LCM_Init_Code init_data[] = {
 {LCM_SEND(6), {4, 0, 0xB1,0x7C,0x00,0x00}}, // command/video mode
 #ifdef CONFIG_FB_SCX35
 {LCM_SEND(6), {4, 0, 0xB1,0x7C,0x06,0x00}}, // command/video mode,rotate 180^M
-#else^M
+#else
  {LCM_SEND(6), {4, 0, 0xB1,0x7C,0x00,0x00}}, // command/video mode
 #endif
 {LCM_SEND(7), {5, 0, 0xB8,0x01,0x02,0x02,0x02}},

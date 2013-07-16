@@ -441,7 +441,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 #ifdef CONFIG_FB_ESD_SUPPORT
 	pr_debug("sprdfb: Init ESD work queue!\n");
 	INIT_DELAYED_WORK(&dev->ESD_work, ESD_work_func);
-	sema_init(&dev->ESD_lock, 1);
+//	sema_init(&dev->ESD_lock, 1);
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		dev->ESD_timeout_val = SPRDFB_ESD_TIME_OUT_VIDEO;
