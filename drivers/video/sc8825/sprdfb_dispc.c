@@ -69,7 +69,7 @@ struct sprdfb_dispc_context {
 #ifdef  CONFIG_FB_LCD_OVERLAY_SUPPORT
 	/* overlay */
 	uint32_t  overlay_state;  /*0-closed, 1-configed, 2-started*/
-	struct semaphore   overlay_lock;
+//	struct semaphore   overlay_lock;
 #endif
 
 #ifdef CONFIG_FB_VSYNC_SUPPORT
@@ -106,6 +106,9 @@ static void dispc_clk_clear_status(struct sprdfb_dispc_context *dispc_ctx_ptr);
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev);
 static void dispc_reset(void);
 static void dispc_module_enable(void);
+static void dispc_stop_for_feature(struct sprdfb_device *dev);
+static void dispc_run_for_feature(struct sprdfb_device *dev);
+
 
 static irqreturn_t dispc_isr(int irq, void *data)
 {
@@ -183,12 +186,6 @@ static irqreturn_t dispc_isr(int irq, void *data)
 
 	if(done){
 		dispc_ctx->vsync_done = 1;
-
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-	if(SPRD_OVERLAY_STATUS_STARTED == dispc_ctx->overlay_state){
-		overlay_close(dev);
-	}
-#endif
 
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 		if(SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type){
@@ -404,10 +401,6 @@ static void dispc_run(struct sprdfb_device *dev)
 		return;
 	}
 
-#ifdef CONFIG_FB_ESD_SUPPORT
-	down(&dev->ESD_lock);
-#endif
-
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(!dispc_ctx.is_first_frame){
 			dispc_ctx.vsync_done = 0;
@@ -435,10 +428,6 @@ static void dispc_run(struct sprdfb_device *dev)
 		/* start refresh */
 		dispc_set_bits((1 << 4), DISPC_CTRL);
 	}
-
-#ifdef CONFIG_FB_ESD_SUPPORT
-	up(&dev->ESD_lock);
-#endif
 }
 
 static void dispc_stop(struct sprdfb_device *dev)
@@ -661,10 +650,7 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 	dispc_ctx.waitfor_vsync_waiter = 0;
 	init_waitqueue_head(&(dispc_ctx.waitfor_vsync_queue));
 #endif
-
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-	sema_init(&dispc_ctx.overlay_lock, 1);
-#endif
+	sema_init(&dev->refresh_lock, 1);
 
 	ret = request_irq(IRQ_DISPC_INT, dispc_isr, IRQF_DISABLED, "DISPC", &dispc_ctx);
 	if (ret) {
@@ -890,9 +876,7 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-	down(&dispc_ctx.overlay_lock);
-#endif
+	down(&dev->refresh_lock);
 
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
@@ -913,6 +897,11 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 	dispc_ctx.dev = dev;
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	if(SPRD_OVERLAY_STATUS_STARTED == dispc_ctx.overlay_state){
+		overlay_close(dev);
+	}
+#endif
 
 #ifdef LCD_UPDATE_PARTLY
 	if ((fb->var.reserved[0] == 0x6f766572) &&(SPRDFB_PANEL_IF_DPI != dev->panel_if_type)) {
@@ -970,9 +959,7 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 #endif
 
 ERROR_REFRESH:
-#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
-	up(&dispc_ctx.overlay_lock);
-#endif
+	up(&dev->refresh_lock);
     if(dev->panel->is_clean_lcd){
 		if(dispc_ctx.is_resume){
 			dispc_osd_enable(true);
@@ -1071,7 +1058,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 			dispc_osd_enable(false);
 			dispc_set_bg_color(0x00);
 			sprdfb_dispc_refresh(dev);
-			msleep(30);
+			mdelay(30);
 			dispc_ctx.is_resume=true;
 		}
 
@@ -1086,9 +1073,10 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
 {
 	uint32_t ret = 0;
-	bool	is_esd_lock_down=false;
 	bool	is_clk_enable=false;
 	bool	is_need_run=false;
+	bool	is_refresh_lock_down=false;
+
 	pr_debug("sprdfb: [%s] \n", __FUNCTION__);
 
 	/*Jessica TODO: need add other mode support*/
@@ -1098,9 +1086,8 @@ static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
 		ret = -1;
 		goto ERROR_CHECK_ESD;
 	}
-
-	down(&dev->ESD_lock);
-	is_esd_lock_down=true;
+	down(&dev->refresh_lock);
+	is_refresh_lock_down=true;
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
@@ -1125,19 +1112,14 @@ static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
 	}
 
 #ifndef FB_CHECK_ESD_BY_TE_SUPPORT
+	//for video esd check
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
-		//for video esd check
-		dispc_stop(dev);
-		while(dispc_read(DISPC_DPI_STS1) & BIT(16));
-		udelay(25);
+		dispc_stop_for_feature(dev);
 		is_need_run=true;
 	}
 #endif
 
 	ret = sprdfb_panel_ESD_check(dev);
-
-	up(&dev->ESD_lock);
-	is_esd_lock_down=false;
 
 	if(0 == dev->enable){
 		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
@@ -1146,7 +1128,7 @@ static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
 	}
 
 	if(0 !=ret || is_need_run){
-		dispc_run(dev);
+		dispc_run_for_feature(dev);
 		is_need_run=false;
 	}
 
@@ -1154,11 +1136,11 @@ ERROR_CHECK_ESD:
 	if(is_clk_enable){
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT);
 	}
-	if(is_esd_lock_down){
-		up(&dev->ESD_lock);
-	}
 	if(is_need_run){
-		dispc_run(dev);
+		dispc_run_for_feature(dev);
+	}
+	if(is_refresh_lock_down){
+		up(&dev->refresh_lock);
 	}
 
 	return ret;
@@ -1363,7 +1345,7 @@ static int overlay_close(struct sprdfb_device *dev)
 static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct overlay_info* info, int enable)
 {
 	int result = -1;
-	bool	is_esd_lock_down=false;
+	bool	is_refresh_lock_down=false;
 	bool	is_clk_enable=false;
 
 	if(0 == dev->enable){
@@ -1379,8 +1361,8 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 			goto ERROR_ENABLE_OVERLAY;
 		}
 
-		down(&dispc_ctx.overlay_lock);
-		is_esd_lock_down=true;
+		down(&dev->refresh_lock);
+		is_refresh_lock_down=true;
 
 		if(0 != dispc_sync(dev)){
 			printk(KERN_ERR "sprdfb: sprdfb_dispc_enable_overlay fail. (wait done fail)\n");
@@ -1396,7 +1378,11 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 			is_clk_enable=true;
 		}
 #endif
-
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+		if(SPRD_OVERLAY_STATUS_STARTED == dispc_ctx.overlay_state){
+			overlay_close(dev);
+		}
+#endif
 		result = overlay_open();
 		if(0 != result){
 			result=-1;
@@ -1422,8 +1408,8 @@ ERROR_ENABLE_OVERLAY:
 	if(is_clk_enable){
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT);
 	}
-	if(is_esd_lock_down){
-		up(&dispc_ctx.overlay_lock);
+	if(is_refresh_lock_down){
+		up(&dev->refresh_lock);
 	}
 
 	pr_debug("sprdfb: [%s] return %d\n", __FUNCTION__, result);
@@ -1441,7 +1427,7 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 	pr_debug("sprdfb: sprdfb_dispc_display_overlay: layer:%d, (%d, %d,%d,%d)\n",
 		setting->layer_index, setting->rect.x, setting->rect.y, setting->rect.h, setting->rect.w);
 
-	down(&dispc_ctx.overlay_lock);
+	down(&dev->refresh_lock);
 
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
@@ -1500,7 +1486,7 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 	}
 
 ERROR_DISPLAY_OVERLAY:
-	up(&dispc_ctx.overlay_lock);
+	up(&dev->refresh_lock);
 
 	pr_debug("DISPC_CTRL: 0x%x\n", dispc_read(DISPC_CTRL));
 	pr_debug("DISPC_SIZE_XY: 0x%x\n", dispc_read(DISPC_SIZE_XY));
@@ -1547,6 +1533,26 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 	return 0;
 }
 #endif
+
+static void dispc_stop_for_feature(struct sprdfb_device *dev)
+{
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		dispc_stop(dev);
+		while(dispc_read(DISPC_DPI_STS1) & BIT(16));
+		udelay(25);
+	}
+}
+
+static void dispc_run_for_feature(struct sprdfb_device *dev)
+{
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	if(SPRD_OVERLAY_STATUS_ON != dispc_ctx.overlay_state)
+#endif
+	{
+		dispc_run(dev);
+	}
+}
+
 
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",

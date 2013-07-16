@@ -125,10 +125,11 @@ struct sprdfb_device {
 	struct display_ctrl	*ctrl;
 
 	uint32_t dpi_clock;
+	struct semaphore   refresh_lock;
 
 #ifdef CONFIG_FB_ESD_SUPPORT
 	struct delayed_work ESD_work;
-	struct semaphore   ESD_lock;
+//	struct semaphore   ESD_lock;
 	uint32_t ESD_timeout_val;
 	bool ESD_work_start;
 	/*for debug only*/
