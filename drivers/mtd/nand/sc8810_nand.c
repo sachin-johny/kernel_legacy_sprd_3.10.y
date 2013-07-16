@@ -604,9 +604,9 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 
 	if (is_timeout == 1) {
 	    int i;
-	    for (i=0; i<40; i++)
+	    for (i=0; i<40; i+=4)
         {
-            printk("\r\nnfc cmd reg addr:0x%x, value:0x%xx!\r\n", NFC_CMD+i);
+            printk("\r\nnfc cmd reg addr:0x%x, value:0x%xx!\r\n", NFC_CMD+i, nfc_reg_read(NFC_CMD+i));
         }
 
 		ret = fixon_timeout_function(flag);
