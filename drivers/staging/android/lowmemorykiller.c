@@ -411,7 +411,7 @@ static void lowmem_mem_leak_account(struct task_struct *p)
                                                 p->comm, K(mem_leak_info[count].init_avg_mem), K(mem_leak_info[count].last_avg_mem),K(p->mm->total_vm),\
                                                     K(get_mm_counter(p->mm, MM_ANONPAGES)), K(get_mm_counter(p->mm, MM_FILEPAGES)),\
                                                         mem_leak_info[count].account_time>>10, mem_leak_info[count].leak_suspect_num);
-                                        if(!mem_leak_info[count].is_dump && (__task_cred(p)->uid > 1000))
+                                        if(!mem_leak_info[count].is_dump)
                                             force_sig(SIGUSR1, p->pid);
                                         mem_leak_info[count].is_dump=true;
                         }
