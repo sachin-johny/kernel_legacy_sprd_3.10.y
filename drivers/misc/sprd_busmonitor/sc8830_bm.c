@@ -160,20 +160,21 @@ static int __sci_bm_chn_sel(u32 bm_index, u32 chn_id)
 	case AHB_BM0:
 		reg_val &= ~(0x1 << 4);
 		reg_val |= (chn_id & 0x1) << 4;
+		sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0x10);
 		break;
 	case AHB_BM1:
 		reg_val &= ~(0x3 << 8);
 		reg_val |= (chn_id & 0x3) << 8;
+		sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0x300);
 		break;
 	case AHB_BM2:
 		reg_val &= ~(0x3 << 10);
 		reg_val |= (chn_id & 0x3) << 10;
+		sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0xc00);
 		break;
 	default:
 		return -EINVAL;
 	}
-
-	sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0xffffffff);
 
 	return 0;
 }
