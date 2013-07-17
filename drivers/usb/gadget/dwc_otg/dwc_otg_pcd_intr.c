@@ -620,10 +620,11 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 {
 	int i, num_in_eps, num_out_eps;
 	dwc_otg_pcd_ep_t *ep;
+	unsigned long flags;
 
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 
-	DWC_SPINLOCK(pcd->lock);
+	DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 
 	num_in_eps = GET_CORE_IF(pcd)->dev_if->num_in_eps;
 	num_out_eps = GET_CORE_IF(pcd)->dev_if->num_out_eps;
@@ -632,7 +633,7 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 	/* don't disconnect drivers more than once */
 	if (pcd->ep0state == EP0_DISCONNECT) {
 		DWC_DEBUGPL(DBG_ANY, "%s() Already Disconnected\n", __func__);
-		DWC_SPINUNLOCK(pcd->lock);
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 		return;
 	}
 	pcd->ep0state = EP0_DISCONNECT;
@@ -666,11 +667,11 @@ void dwc_otg_pcd_stop(dwc_otg_pcd_t * pcd)
 
 	/* report disconnect; the driver is already quiesced */
 	if (pcd->fops->disconnect) {
-		DWC_SPINUNLOCK(pcd->lock);
+		DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 		pcd->fops->disconnect(pcd);
-		DWC_SPINLOCK(pcd->lock);
+		DWC_SPINLOCK_IRQSAVE(pcd->lock, &flags);
 	}
-	DWC_SPINUNLOCK(pcd->lock);
+	DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 }
 
 /**
