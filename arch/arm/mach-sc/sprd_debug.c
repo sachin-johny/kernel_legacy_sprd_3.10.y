@@ -98,6 +98,18 @@ void sprd_debug_check_crash_key(unsigned int code, int value)
 		if (code == KEY_VOLUMEDOWN)
 			voldown_p = true;
 		if (volup_p && voldown_p) {
+			static unsigned long stack_dump_jiffies = 0;
+
+			if (!stack_dump_jiffies || jiffies > stack_dump_jiffies + HZ * 10) {
+				pr_info("trigger sysrq w & m\n");
+
+				/* show blocked thread */
+				handle_sysrq('w');
+
+				/* show memory */
+				handle_sysrq('m');
+				stack_dump_jiffies = jiffies;
+			}
 			if (code == KEY_POWER) {
 				pr_info("%s: Crash key count : %d\n", __func__, ++loopcount);
 				if (loopcount == 2)
