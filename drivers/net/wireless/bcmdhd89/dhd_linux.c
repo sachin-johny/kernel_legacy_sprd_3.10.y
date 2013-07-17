@@ -3086,6 +3086,9 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	int ret = 0;
 	char eventmask[WL_EVENTING_MASK_LEN];
 	char iovbuf[WL_EVENTING_MASK_LEN + 12];	/*  Room for "event_msgs" + '\0' + bitvec  */
+	/*+++ for 190875, co-work with bk3513*/
+	uint btc_mode = 2;
+	/*--- for 190875, co-work with bk3513*/
 
 #if !defined(WL_CFG80211)
 	uint up = 0;
@@ -3286,6 +3289,15 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	/* Match Host and Dongle rx alignment */
 	bcm_mkiovar("bus:txglomalign", (char *)&dongle_align, 4, iovbuf, sizeof(iovbuf));
 	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+
+	/*+++ for 190875, co-work with bk3513*/
+	bcm_mkiovar("btc_mode", (char *)&btc_mode, 4, iovbuf, sizeof(iovbuf));
+	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+
+	btc_mode =3;
+	bcm_mkiovar("btc_wire", (char *)&btc_mode, 4, iovbuf, sizeof(iovbuf));
+	dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+	/*--- for 190875, co-work with bk3513*/
 
 	/* disable glom option for some chips */
 	chipID = (uint16)dhd_bus_chip_id(dhd);
