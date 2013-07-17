@@ -1112,6 +1112,12 @@ static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 	return 0;
 }
 
+void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate)
+{
+	sprd_codec_set_sample_rate(codec, rate,  0x0F, 0);
+}
+EXPORT_SYMBOL(sprd_codec_set_da_sample_rate);
+
 static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 					 int mask, int shift)
 {
@@ -2064,12 +2070,12 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
 
-	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
-
 	mixer->on = ucontrol->value.integer.value[0];
 
 	if (mixer->set)
 		ret = mixer->set(codec, mixer->on);
+
+	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 

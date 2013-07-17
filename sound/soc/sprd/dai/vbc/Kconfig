@@ -21,3 +21,9 @@ config SPRD_VBC_LR_INVERT
 	depends on SND_SOC_DOLPHIN
 	help
 	 say Y then the VBC will support invert the LR channel.
+
+config SPRD_VBC_SRC_OPEN
+	bool "VBC ADC/ADC23 SRC open"
+	default n
+	help
+	  say Y then the VBC will open adc SRC for FM  function.

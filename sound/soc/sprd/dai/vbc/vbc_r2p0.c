@@ -45,6 +45,8 @@
 #define vbc_dbg(...)
 #endif
 
+void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate);
+
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define SOC_REG(r) ((unsigned short)(r))
 
@@ -516,12 +518,11 @@ static int vbc_set_buffer_size(int ad_buffer_size, int da_buffer_size,
 	if ((ad23_buffer_size > 0)
 	    && (ad23_buffer_size <= VBC_FIFO_FRAME_NUM)) {
 		val = (((ad23_buffer_size - 1) << VBAD23BUFFERSIZE_SHIFT)
-			& VBAD23BUFFERSIZE_MASK);
+		       & VBAD23BUFFERSIZE_MASK);
 		vbc_reg_write(VBBUFFAD23, val, VBAD23BUFFERSIZE_MASK);
 	}
 	return 0;
 }
-
 
 static void fm_set_vbc_buffer_size(void)
 {
@@ -540,7 +541,7 @@ static void fm_set_vbc_buffer_size(void)
 	val = vbc_reg_read(VBBUFFAD23);
 	if (!(val & VBAD23BUFFERSIZE_MASK)) {
 		val = (((VBC_FIFO_FRAME_NUM - 1) << VBAD23BUFFERSIZE_SHIFT)
-			& VBAD23BUFFERSIZE_MASK);
+		       & VBAD23BUFFERSIZE_MASK);
 		vbc_reg_write(VBBUFFAD23, val, VBAD23BUFFERSIZE_MASK);
 	}
 }
@@ -1066,6 +1067,7 @@ static int vbc_try_ad_iismux_set(void)
 	vbc_ad_iismux_set(sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val);
 	return 0;
 }
+
 static int vbc_try_ad23_iismux_set(void)
 {
 	vbc_ad23_iismux_set(sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val);
@@ -1098,7 +1100,7 @@ int dig_fm_event(struct snd_soc_dapm_widget *w,
 {
 	vbc_dbg("Entering %s switch %s\n", __func__,
 		SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
-	fm_set_vbc_buffer_size(); /*No use in FM function, just for debug VBC*/
+	fm_set_vbc_buffer_size();	/*No use in FM function, just for debug VBC */
 	vbc_try_st_dg_set(VBC_LEFT);
 	vbc_try_st_dg_set(VBC_RIGHT);
 	vbc_enable(! !SND_SOC_DAPM_EVENT_ON(event));
@@ -1360,9 +1362,34 @@ static int vbc_power_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec)
+{
+#ifdef CONFIG_SPRD_VBC_SRC_OPEN
+	vbc_dbg("vbc src open\n");
+	if (sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 1
+	    || sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 2)
+		vbc_adc_src_set(fm_sample_rate, 0);
+	if (sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 1
+	    || sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 2)
+		vbc_adc_src_set(fm_sample_rate, 1);
+	sprd_codec_set_da_sample_rate(codec, 44100);
+#else
+	vbc_dbg("vbc src close\n");
+	if (sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 1
+	    || sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 2)
+		vbc_adc_src_set(0, 0);
+	if (sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 1
+	    || sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 2)
+		vbc_adc_src_set(0, 1);
+	sprd_codec_set_da_sample_rate(codec, fm_sample_rate);
+#endif
+	return 0;
+}
+
 static int mux_event(struct snd_soc_dapm_widget *w,
 		     struct snd_kcontrol *kcontrol, int event)
 {
+	struct snd_soc_codec *codec = w->codec;
 	unsigned int id = FUN_REG(w->reg);
 	struct sprd_vbc_mux_op *mux = &(sprd_vbc_mux[id]);
 	int ret = 0;
@@ -1374,12 +1401,11 @@ static int mux_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		mux->set = vbc_mux_cfg[id];
 		ret = mux->set(mux->val);
-		/*ADC  SRC set for FM input */
-		if ((id == SPRD_VBC_AD_IISMUX) && (mux->val == 1 || mux->val == 2))
-			vbc_adc_src_set(fm_sample_rate, 0);
-		/*ADC23  SRC set for FM input*/
-		else if ((id == SPRD_VBC_AD23_IISMUX) && (mux->val == 1 || mux->val == 2))
-			vbc_adc_src_set(fm_sample_rate, 1);
+		/*ADC01/ADC23  SRC set for FM input */
+		if ((id == SPRD_VBC_AD_IISMUX || id == SPRD_VBC_AD23_IISMUX)
+		    && (mux->val == 1 || mux->val == 2)) {
+			vbc_fm_try_set_sample_rate(codec);
+		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		mux->set = 0;
@@ -1425,12 +1451,12 @@ int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
 	if (ucontrol->value.enumerated.item[0] > e->max - 1)
 		return -EINVAL;
 
-	ret = snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
-
 	mux->val = (ucontrol->value.enumerated.item[0] & mask);
 	if (mux->set) {
 		ret = mux->set(mux->val);
 	}
+
+	ret = snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
 }
@@ -2025,17 +2051,18 @@ static void vbc_eq_reg_apply(struct snd_soc_dai *codec_dai, void *data,
 		vbc_da_eq_reg_set_range(HPCOEF0_H, HPCOEF71_L, data);
 
 		vbc_da_eq_reg_set(DAHPCTL, data);
-		vbc_da_eq_reg_set(DAPATCHCTL, data);
+		/*FM function maybe use this regs,and EQ setting don't use them */
+		/*vbc_da_eq_reg_set(DAPATCHCTL, data); */
 
-		vbc_da_eq_reg_set(STCTL0, data);
-		vbc_da_eq_reg_set(STCTL1, data);
+		/*vbc_da_eq_reg_set(STCTL0, data); */
+		/*vbc_da_eq_reg_set(STCTL1, data); */
 
 		vbc_da_eq_reg_set(DACSRCCTL, data);
 		vbc_da_eq_reg_set(MIXERCTL, data);
 		vbc_da_eq_reg_set_range(VBNGCVTHD, VBNGCTL, data);
 	} else {
 		vbc_ad_eq_reg_set(ADHPCTL, data);
-		vbc_ad_eq_reg_set(ADPATCHCTL, data);
+		/*vbc_ad_eq_reg_set(ADPATCHCTL, data); */
 		if (chan_id == VBC_CHAN_AD01) {
 			vbc_ad_eq_reg_set_range(AD01_HPCOEF0_H, AD01_HPCOEF42_L,
 						data);
@@ -2078,16 +2105,16 @@ static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai,
 		mutex_lock(&load_mutex);
 		if (chan_id == VBC_CHAN_DA) {
 			struct vbc_da_eq_profile *now =
-			    &(((struct vbc_da_eq_profile *)(vbc_eq_setting.
-							    data[VBC_CHAN_DA]))
+			    &(((struct vbc_da_eq_profile
+				*)(vbc_eq_setting.data[VBC_CHAN_DA]))
 			      [vbc_eq_setting.now_profile[VBC_CHAN_DA]]);
 			data = now->effect_paras;
 			pr_info("vbc %s eq apply '%s'\n",
 				vbc_get_chan_name(chan_id), now->name);
 		} else {
 			struct vbc_ad_eq_profile *now =
-			    &(((struct vbc_ad_eq_profile *)(vbc_eq_setting.
-							    data[chan_id]))
+			    &(((struct vbc_ad_eq_profile
+				*)(vbc_eq_setting.data[chan_id]))
 			      [vbc_eq_setting.now_profile[chan_id]]);
 			data = now->effect_paras;
 			pr_info("vbc %s eq apply '%s'\n",
@@ -2121,9 +2148,9 @@ static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 	profile_max =
 	    ((id ==
 	      0) ? vbc_eq_setting.hdr.num_da : ((id ==
-						 1) ? vbc_eq_setting.hdr.
-						num_ad01 : vbc_eq_setting.hdr.
-						num_ad23));
+						 1) ? vbc_eq_setting.
+						hdr.num_ad01 : vbc_eq_setting.
+						hdr.num_ad23));
 	pr_info("vbc %s eq select %ld max %d\n",
 		((id == 0) ? "DA" : ((id == 1) ? "AD01" : "AD23")),
 		ucontrol->value.integer.value[0], profile_max);
@@ -2218,14 +2245,14 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 	memcpy(vbc_eq_setting.data[VBC_CHAN_DA], fw_data + offset, len);
 	for (i = 0; i < vbc_eq_setting.hdr.num_da; i++) {
 		if (strncmp
-		    (((struct vbc_da_eq_profile *)(vbc_eq_setting.
-						   data[VBC_CHAN_DA]))[i].magic,
+		    (((struct vbc_da_eq_profile
+		       *)(vbc_eq_setting.data[VBC_CHAN_DA]))[i].magic,
 		     VBC_EQ_FIRMWARE_MAGIC_ID, VBC_EQ_FIRMWARE_MAGIC_LEN)) {
 			pr_err
 			    ("DA Firmware profile[%d] magic error!magic: %s \n",
 			     i,
-			     ((struct vbc_da_eq_profile *)(vbc_eq_setting.
-							   data[VBC_CHAN_DA]))
+			     ((struct vbc_da_eq_profile
+			       *)(vbc_eq_setting.data[VBC_CHAN_DA]))
 			     [i].magic);
 			ret = -EINVAL;
 			goto eq_err1;
@@ -2248,15 +2275,14 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 	memcpy(vbc_eq_setting.data[VBC_CHAN_AD01], fw_data + offset, len);
 	for (i = 0; i < vbc_eq_setting.hdr.num_ad01; i++) {
 		if (strncmp
-		    (((struct vbc_ad_eq_profile *)(vbc_eq_setting.
-						   data[VBC_CHAN_AD01]))[i].
-		     magic, VBC_EQ_FIRMWARE_MAGIC_ID,
-		     VBC_EQ_FIRMWARE_MAGIC_LEN)) {
+		    (((struct vbc_ad_eq_profile
+		       *)(vbc_eq_setting.data[VBC_CHAN_AD01]))[i].magic,
+		     VBC_EQ_FIRMWARE_MAGIC_ID, VBC_EQ_FIRMWARE_MAGIC_LEN)) {
 			pr_err
 			    ("AD01 Firmware profile[%d] magic error!magic:%s \n",
 			     i,
-			     ((struct vbc_ad_eq_profile *)(vbc_eq_setting.
-							   data[VBC_CHAN_AD01]))
+			     ((struct vbc_ad_eq_profile
+			       *)(vbc_eq_setting.data[VBC_CHAN_AD01]))
 			     [i].magic);
 			ret = -EINVAL;
 			goto eq_err2;
@@ -2280,10 +2306,9 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 	memcpy(vbc_eq_setting.data[VBC_CHAN_AD23], fw_data + offset, len);
 	for (i = 0; i < vbc_eq_setting.hdr.num_ad23; i++) {
 		if (strncmp
-		    (((struct vbc_ad_eq_profile *)(vbc_eq_setting.
-						   data[VBC_CHAN_AD23]))[i].
-		     magic, VBC_EQ_FIRMWARE_MAGIC_ID,
-		     VBC_EQ_FIRMWARE_MAGIC_LEN)) {
+		    (((struct vbc_ad_eq_profile
+		       *)(vbc_eq_setting.data[VBC_CHAN_AD23]))[i].magic,
+		     VBC_EQ_FIRMWARE_MAGIC_ID, VBC_EQ_FIRMWARE_MAGIC_LEN)) {
 			pr_err("AD23 Firmware profile[%d] magic error!\n", i);
 			ret = -EINVAL;
 			goto eq_err3;
@@ -2652,9 +2677,12 @@ static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
 			      struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+
 	pr_info("fm_sample_rate is %s\n",
 		texts->texts[ucontrol->value.integer.value[0]]);
 	fm_sample_rate = (ucontrol->value.integer.value[0] ? 48000 : 32000);
+	vbc_fm_try_set_sample_rate(codec);
 
 	vbc_dbg("Leaving %s\n", __func__);
 	return 1;
