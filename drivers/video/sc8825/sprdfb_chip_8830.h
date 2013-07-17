@@ -21,6 +21,7 @@
 
 
 //#define BIT(x) (1<<x)
+#define	SPRD_MIPI_DPHY_GEN2
 
 
 #define DISPC_PLL_CLK				("clk_disc0")
