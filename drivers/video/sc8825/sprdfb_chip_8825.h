@@ -19,6 +19,8 @@
 
 #define BIT(x) (1<<x)
 
+#define	SPRD_MIPI_DPHY_GEN1
+
 
 #define DISPC_PLL_CLK					("clk_dispc")
 #define DISPC_DBI_CLK					("clk_dispc_dbi")
