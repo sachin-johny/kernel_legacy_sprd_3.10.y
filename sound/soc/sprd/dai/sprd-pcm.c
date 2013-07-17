@@ -348,6 +348,7 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 {
 	struct sprd_runtime_data *rtd = substream->runtime->private_data;
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *srtd = substream->private_data;
 	struct sprd_pcm_dma_params *dma;
 	struct sprd_dma_channel_desc dma_cfg = { 0 };
 	sprd_dma_desc *dma_desc[2];
@@ -379,10 +380,18 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 				   sometimes DMA will use previous configure
 				   that still save on DMA internal memory.
 				   so, that need transfter invaild.
-				*/
-				dma_cfg.dst_addr = dma_desc[i]->ddst + 8;
+				 */
+				if (sprd_is_i2s(srtd->cpu_dai)) {
+					dma_cfg.dst_addr = dma_desc[i]->ddst;
+				} else {
+					dma_cfg.dst_addr = dma_desc[i]->ddst + 8;
+				}
 			} else {
-				dma_cfg.src_addr = dma_desc[i]->dsrc - 8;
+				if (sprd_is_i2s(srtd->cpu_dai)) {
+					dma_cfg.src_addr = dma_desc[i]->dsrc;
+				} else {
+					dma_cfg.src_addr = dma_desc[i]->dsrc - 8;
+				}
 				dma_cfg.dst_addr = dma_desc[i]->ddst;
 			}
 			sprd_dma_channel_config(rtd->uid_cid_map[i],
