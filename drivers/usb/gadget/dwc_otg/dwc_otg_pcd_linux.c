@@ -1418,11 +1418,7 @@ int pcd_init(
 	 * dwc driver is ok, check if the cable is insert, if no,
 	 * shutdown udc for saving power.
 	 */
-#ifndef DWC_DEVICE_ONLY
-	if ((!gadget_wrapper->vbus)&&usb_get_id_state()){
-#else
 	if (!gadget_wrapper->vbus){
-#endif
 		pr_debug("vbus is not power now \n");
 		gadget_wrapper->udc_startup = 1;
 		__udc_shutdown();
