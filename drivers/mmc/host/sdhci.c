@@ -174,7 +174,9 @@ void sdhci_dumpregs(struct sdhci_host *host)
 	 printk(KERN_ERR DRIVER_NAME ": REG_PMU_APB_TDPLL_REL_CFG : 0x%x \n\r",
 			readl(REG_PMU_APB_TDPLL_REL_CFG));
 	 printk(KERN_ERR DRIVER_NAME ": REG_PMU_APB_CGM_AP_AUTO_GATE_EN : 0x%x \n\r",
-			readl(REG_PMU_APB_CGM_AP_AUTO_GATE_EN)); 
+			readl(REG_PMU_APB_CGM_AP_AUTO_GATE_EN));
+	 printk(KERN_ERR DRIVER_NAME ": REG_AP_AHB_MISC_CFG : 0x%x \n\r",
+			readl(REG_AP_AHB_MISC_CFG));
 #endif
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");

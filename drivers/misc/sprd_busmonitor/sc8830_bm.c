@@ -160,21 +160,20 @@ static int __sci_bm_chn_sel(u32 bm_index, u32 chn_id)
 	case AHB_BM0:
 		reg_val &= ~(0x1 << 4);
 		reg_val |= (chn_id & 0x1) << 4;
-		sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0x10);
 		break;
 	case AHB_BM1:
 		reg_val &= ~(0x3 << 8);
 		reg_val |= (chn_id & 0x3) << 8;
-		sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0x300);
 		break;
 	case AHB_BM2:
 		reg_val &= ~(0x3 << 10);
 		reg_val |= (chn_id & 0x3) << 10;
-		sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0xc00);
 		break;
 	default:
 		return -EINVAL;
 	}
+
+	sci_glb_write(REG_AP_AHB_MISC_CFG, reg_val, 0xff0);
 
 	return 0;
 }
@@ -489,17 +488,33 @@ static struct platform_driver sprd_bm_driver = {
 	},
 };
 
+static struct platform_device sprd_bm_axi_device = {
+	.name = "sprd_axi_busmonitor",
+	.id = 0,
+};
+
+static struct platform_device sprd_bm_ahb_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 0,
+};
+
 static int __init sci_bm_init(void)
 {
 	bm_root_dentry = debugfs_create_dir("sprd_bm", NULL);
 	if (IS_ERR_OR_NULL(bm_root_dentry))
 		return -ENOENT;
+	
+	platform_device_register(&sprd_bm_axi_device);
+	platform_device_register(&sprd_bm_ahb_device);
 
 	return platform_driver_register(&sprd_bm_driver);
 }
 
 static void __exit sci_bm_exit(void)
 {
+	platform_device_unregister(&sprd_bm_axi_device);
+	platform_device_unregister(&sprd_bm_ahb_device);
+
 	platform_driver_unregister(&sprd_bm_driver);
 	debugfs_remove_recursive(bm_root_dentry);
 }
