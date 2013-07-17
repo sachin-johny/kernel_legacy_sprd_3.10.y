@@ -45,27 +45,42 @@
 #include <asm/sizes.h>
 
 #ifdef CONFIG_ION
-	#if defined (CONFIG_ARCH_SC8825)
-	    #if defined(CONFIG_CAMERA_8M)
-	    	#define SPRD_ION_SIZE	(23*1024*1024)
-	    #elif defined(CONFIG_CAMERA_5M)
-	    	#define SPRD_ION_SIZE	(19*1024*1024)
-	    #elif defined(CONFIG_CAMERA_3M)
-	    	#define SPRD_ION_SIZE	(13*1024*1024)
-	    #elif defined(CONFIG_CAMERA_2M)
-	        #ifdef CONFIG_CAMERA_ROTATION
-	        	#define SPRD_ION_SIZE	(13*1024*1024)
-	        #else
-	        	#define SPRD_ION_SIZE	(8*1024*1024)
-	        #endif
-	    #else
+    #if defined (CONFIG_ARCH_SC8825)
+        #if defined(CONFIG_CAMERA_8M)
+            #define SPRD_ION_SIZE	(23*1024*1024)
+        #elif defined(CONFIG_CAMERA_5M)
+            #define SPRD_ION_SIZE	(19*1024*1024)
+        #elif defined(CONFIG_CAMERA_3M)
+            #define SPRD_ION_SIZE	(13*1024*1024)
+        #elif defined(CONFIG_CAMERA_2M)
+            #ifdef CONFIG_CAMERA_ROTATION
+                #define SPRD_ION_SIZE	(13*1024*1024)
+            #else
+                #define SPRD_ION_SIZE	(8*1024*1024)
+            #endif
+        #else
 	    #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE * SZ_1M)
-	    #endif
-	#elif defined (CONFIG_ARCH_SCX35)
-		#define SPRD_ION_SIZE	(20*1024*1024)
-	#endif
+        #endif
+    #elif defined (CONFIG_ARCH_SCX35)
+        #if defined(CONFIG_CMA)
+            #define SPRD_ION_SIZE	(20*1024*1024)
+        #else
+            #define SPRD_ION_SIZE	(60*1024*1024)
+        #endif
+    #else
+        #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE*1024*1024)
+    #endif
 
-#define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
+
+    #if defined (CONFIG_ARCH_SCX35)
+        #if defined(CONFIG_CMA)
+            #define SPRD_ION_OVERLAY_SIZE   (0 * SZ_1M)
+        #else
+            #define SPRD_ION_OVERLAY_SIZE   (25 * SZ_1M)
+        #endif
+    #else
+        #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
+    #endif
 
 #else /* !ION */
 #define SPRD_ION_SIZE           (0 * SZ_1M)
