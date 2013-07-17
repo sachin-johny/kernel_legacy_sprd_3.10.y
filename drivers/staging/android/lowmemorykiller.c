@@ -406,14 +406,16 @@ static void lowmem_mem_leak_account(struct task_struct *p)
                         if((K(mem_leak_info[count].last_avg_mem - mem_leak_info[count].init_avg_mem) > LMK_LEAK_MEM_REPORT_THRESH)
                                 && (mem_leak_info[count].leak_suspect_num > LMK_LEAK_MEM_MIN_SUSPECT_NUM) && \
                                     (mem_leak_info[count].account_num < (mem_leak_info[count].leak_suspect_num*2))){
-                                        lowmem_print(2, "[LMK]suspect leak memory process %d (%s) init task size %lukB, current task size %lukB,\
-                                            total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB, account time:%d(s), leak_count:%d\n", task_pid_nr(p), \
-                                                p->comm, K(mem_leak_info[count].init_avg_mem), K(mem_leak_info[count].last_avg_mem),K(p->mm->total_vm),\
-                                                    K(get_mm_counter(p->mm, MM_ANONPAGES)), K(get_mm_counter(p->mm, MM_FILEPAGES)),\
-                                                        mem_leak_info[count].account_time>>10, mem_leak_info[count].leak_suspect_num);
-                                        if(!mem_leak_info[count].is_dump)
-                                            force_sig(SIGUSR1, p->pid);
-                                        mem_leak_info[count].is_dump=true;
+                                       lowmem_print(2, "[LMK]suspect leak memory process %d (%s),leak_count %d, total_account %d,\
+                                            init task size %lukB, current task size %lukB, total-vm:%lukB, anon-rss:%lukB, file-rss:%lukB,\
+                                                account time:%d(s), leak_count:%d\n", task_pid_nr(p), p->comm, mem_leak_info[count].leak_suspect_num,\
+                                                    mem_leak_info[count].account_num, K(mem_leak_info[count].init_avg_mem), \
+                                                        K(mem_leak_info[count].last_avg_mem),K(p->mm->total_vm), K(get_mm_counter(p->mm, MM_ANONPAGES)),                                                            K(get_mm_counter(p->mm, MM_FILEPAGES)), mem_leak_info[count].account_time>>10,\
+                                                                mem_leak_info[count].leak_suspect_num);
+                                        if(!mem_leak_info[count].is_dump){
+                                            send_sig(SIGUSR1, p, 0);
+                                            mem_leak_info[count].is_dump=true;
+                                        }
                         }
                   }
                   break;
