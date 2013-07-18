@@ -65,7 +65,7 @@
         #if defined(CONFIG_CMA)
             #define SPRD_ION_SIZE	(20*1024*1024)
         #else
-            #define SPRD_ION_SIZE	(60*1024*1024)
+            #define SPRD_ION_SIZE	(100*1024*1024)
         #endif
     #else
         #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE*1024*1024)
