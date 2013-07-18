@@ -250,9 +250,13 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 	case PM_SUSPEND_PREPARE:
 		mutex_lock(&data->lock);
 		data->disabled = true;
+		/*
+		* DMC must be set 200MHz before deep sleep in ES chips
+		*/
+		emc_clk_set(200, 1);
 		mutex_unlock(&data->lock);
 		return NOTIFY_OK;
-
+#if 0
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		/* Reactivate */
@@ -260,6 +264,7 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		data->disabled = false;
 		mutex_unlock(&data->lock);
 		return NOTIFY_OK;
+#endif
 	}
 
 	return NOTIFY_DONE;
@@ -351,6 +356,7 @@ static __devexit int scxx30_dmcfreq_remove(struct platform_device *pdev)
 static int scxx30_dmcfreq_resume(struct device *dev)
 {
 	struct dmcfreq_data *data = dev_get_drvdata(dev);
+	data->disabled = false;
 #ifdef CONFIG_BUS_MONITOR
 	dmc_mon_cnt_clr( );
 	dmc_mon_cnt_start( );
