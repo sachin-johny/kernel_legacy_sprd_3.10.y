@@ -68,8 +68,9 @@ struct smsg_ipc {
 };
 
 #define CHAN_STATE_UNUSED	0
-#define CHAN_STATE_WAITING	1
-#define CHAN_STATE_OPENED	2
+#define CHAN_STATE_APREADY	1
+#define CHAN_STATE_CPREADY 	2
+#define CHAN_STATE_OPENED	(CHAN_STATE_APREADY | CHAN_STATE_CPREADY)
 
 /* create/destroy smsg ipc between AP/CP */
 int smsg_ipc_create(uint8_t dst, struct smsg_ipc *ipc);

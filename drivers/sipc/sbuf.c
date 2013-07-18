@@ -199,9 +199,16 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 void sbuf_destroy(uint8_t dst, uint8_t channel)
 {
 	struct sbuf_mgr *sbuf = sbufs[dst][channel];
+	int i;
 
 	sbuf->state = SBUF_STATE_IDLE;
+	smsg_ch_close(dst, channel, -1);
 	kthread_stop(sbuf->thread);
+
+	for (i = 0; i < sbuf->ringnr; i++) {
+		wake_up_interruptible_all(&sbuf->rings[i].txwait);
+		wake_up_interruptible_all(&sbuf->rings[i].rxwait);
+	}
 
 	kfree(sbuf->rings);
 	iounmap(sbuf->smem_virt);
@@ -260,24 +267,37 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 		/* wait forever */
 		rval = wait_event_interruptible(ring->txwait,
 			(int)(ringhd->txbuf_wrptr - ringhd->txbuf_rdptr) <
-			ringhd->txbuf_size);
+			ringhd->txbuf_size || sbuf->state == SBUF_STATE_IDLE);
 		if (rval < 0) {
 			printk(KERN_WARNING "sbuf_write wait interrupted!\n");
+		}
+
+		if (sbuf->state == SBUF_STATE_IDLE) {
+			printk(KERN_ERR "sbuf_write sbuf state is idle!\n");
+			rval = -EIO;
 		}
 	} else {
 		/* wait timeout */
 		rval = wait_event_interruptible_timeout(ring->txwait,
 			(int)(ringhd->txbuf_wrptr - ringhd->txbuf_rdptr) <
-			ringhd->txbuf_size, timeout);
+			ringhd->txbuf_size || sbuf->state == SBUF_STATE_IDLE,
+			timeout);
 		if (rval < 0) {
 			printk(KERN_WARNING "sbuf_write wait interrupted!\n");
 		} else if (rval == 0) {
 			printk(KERN_WARNING "sbuf_write wait timeout!\n");
 			rval = -ETIME;
 		}
+
+		if (sbuf->state == SBUF_STATE_IDLE) {
+			printk(KERN_ERR "sbuf_write sbuf state is idle!\n");
+			rval = -EIO;
+		}
+
 	}
 
-	while (left && (int)(ringhd->txbuf_wrptr - ringhd->txbuf_rdptr) < ringhd->txbuf_size) {
+	while (left && (int)(ringhd->txbuf_wrptr - ringhd->txbuf_rdptr) < ringhd->txbuf_size &&
+			sbuf->state == SBUF_STATE_READY) {
 		/* calc txpos & txsize */
 		txpos = ring->txbuf_virt + ringhd->txbuf_wrptr % ringhd->txbuf_size;
 		txsize = ringhd->txbuf_size - (int)(ringhd->txbuf_wrptr - ringhd->txbuf_rdptr);
@@ -381,24 +401,37 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 		} else if (timeout < 0) {
 			/* wait forever */
 			rval = wait_event_interruptible(ring->rxwait,
-				ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr);
+				ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr ||
+				sbuf->state == SBUF_STATE_IDLE);
 			if (rval < 0) {
 				printk(KERN_WARNING "sbuf_read wait interrupted!\n");
+			}
+
+			if (sbuf->state == SBUF_STATE_IDLE) {
+				printk(KERN_ERR "sbuf_read sbuf state is idle!\n");
+				rval = -EIO;
 			}
 		} else {
 			/* wait timeout */
 			rval = wait_event_interruptible_timeout(ring->rxwait,
-				ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr, timeout);
+				ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr ||
+				sbuf->state == SBUF_STATE_IDLE, timeout);
 			if (rval < 0) {
 				printk(KERN_WARNING "sbuf_read wait interrupted!\n");
 			} else if (rval == 0) {
 				printk(KERN_WARNING "sbuf_read wait timeout!\n");
 				rval = -ETIME;
 			}
+
+			if (sbuf->state == SBUF_STATE_IDLE) {
+				printk(KERN_ERR "sbuf_read sbuf state is idle!\n");
+				rval = -EIO;
+			}
 		}
 	}
 
-	while (left && (ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr)) {
+	while (left && (ringhd->rxbuf_wrptr != ringhd->rxbuf_rdptr) &&
+			sbuf->state == SBUF_STATE_READY) {
 		/* calc rxpos & rxsize */
 		rxpos = ring->rxbuf_virt + ringhd->rxbuf_rdptr % ringhd->rxbuf_size;
 		rxsize = (int)(ringhd->rxbuf_wrptr - ringhd->rxbuf_rdptr);

@@ -68,7 +68,6 @@ static int sblock_thread(void *data)
 		printk(KERN_ERR "Failed to open channel %d\n", sblock->channel);
 		return rval;
 	}
-
 	/* handle the sblock events */
 	while (!kthread_should_stop()) {
 		/* monitor sblock recv smsg */
@@ -264,7 +263,11 @@ void sblock_destroy(uint8_t dst, uint8_t channel)
 	struct sblock_mgr *sblock = sblocks[dst][channel];
 
 	sblock->state = SBLOCK_STATE_IDLE;
+	smsg_ch_close(dst, channel, -1);
 	kthread_stop(sblock->thread);
+
+	wake_up_interruptible_all(&sblock->ring->recvwait);
+	wake_up_interruptible_all(&sblock->ring->getwait);
 
 	kfree(sblock->ring->txunits);
 	kfree(sblock->ring);
@@ -323,19 +326,31 @@ int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout)
 			rval = -ENODATA;
 		} else if (timeout < 0) {
 			/* wait forever */
-			rval = wait_event_interruptible(ring->getwait, !list_empty(head));
+			rval = wait_event_interruptible(ring->getwait, !list_empty(head) ||
+					sblock->state == SBLOCK_STATE_IDLE);
 			if (rval < 0) {
 				printk(KERN_WARNING "sblock_get wait interrupted!\n");
+			}
+
+			if (sblock->state == SBLOCK_STATE_IDLE) {
+				printk(KERN_ERR "sblock_get sblock state is idle!\n");
+				rval = -EIO;
 			}
 		} else {
 			/* wait timeout */
 			rval = wait_event_interruptible_timeout(ring->getwait,
-					!list_empty(head), timeout);
+					!list_empty(head) || sblock == SBLOCK_STATE_IDLE,
+					timeout);
 			if (rval < 0) {
 				printk(KERN_WARNING "sblock_get wait interrupted!\n");
 			} else if (rval == 0) {
 				printk(KERN_WARNING "sblock_get wait timeout!\n");
 				rval = -ETIME;
+			}
+
+			if(sblock->state == SBLOCK_STATE_IDLE) {
+				printk(KERN_ERR "sblock_get sblock state is idle!\n");
+				rval = -EIO;
 			}
 		}
 	}
@@ -431,6 +446,12 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 			if (rval < 0) {
 				printk(KERN_WARNING "sblock_receive wait interrupted!\n");
 			}
+
+			if (sblock->state == SBLOCK_STATE_IDLE) {
+				printk(KERN_ERR "sblock_receive sblock state is idle!\n");
+				rval = -EIO;
+			}
+
 		} else {
 			/* wait timeout */
 			rval = wait_event_interruptible_timeout(ring->recvwait,
@@ -440,6 +461,11 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 			} else if (rval == 0) {
 				printk(KERN_WARNING "sblock_receive wait timeout!\n");
 				rval = -ETIME;
+			}
+
+			if (sblock->state == SBLOCK_STATE_IDLE) {
+				printk(KERN_ERR "sblock_receive sblock state is idle!\n");
+				rval = -EIO;
 			}
 		}
 	}

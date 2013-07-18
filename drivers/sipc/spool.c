@@ -220,7 +220,7 @@ static int __devexit spool_remove(struct platform_device *pdev)
 	unregister_chrdev_region(
 	MKDEV(spool->major, spool->minor), 1);
 
-	sbuf_destroy(spool->init->dst, spool->init->channel);
+	sblock_destroy(spool->init->dst, spool->init->channel);
 	kfree(spool);
 
 	platform_set_drvdata(pdev, NULL);
