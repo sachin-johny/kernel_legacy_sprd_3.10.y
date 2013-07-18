@@ -656,16 +656,18 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 		enabled_dhp = 0;
 #endif
 		sprd_cpufreq_conf->limited_max_freq = SHARK_LIMITED_MAX_FREQUENCY;
+#if defined(CONFIG_SMP)
 		/* unplug all online cpu except cpu0 mandatory */
 		for_each_online_cpu(cpu) {
 			if (cpu)
 				cpu_down(cpu);
 		}
+#endif
 	} else {
 		pr_info("#########--------- cpufreq cooling down\n");
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 		enabled_dhp = 1;
-#else
+#elif defined(CONFIG_SMP)
 		/* plug-in all offline cpu mandatory if we didn't
 		  * enbale CPU_DYNAMIC_HOTPLUG
 		 */
