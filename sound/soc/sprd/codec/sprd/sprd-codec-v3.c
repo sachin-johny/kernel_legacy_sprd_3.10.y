@@ -1778,7 +1778,7 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_POST_PMU:
-#if 0				/* do not enable the diff function from weifeng.ni */
+#if 1				/* enable the diff function in shark from weifeng.ni */
 		snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), BIT(DIFF_EN),
 				    BIT(DIFF_EN));
 #endif
