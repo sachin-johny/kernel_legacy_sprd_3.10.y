@@ -665,11 +665,13 @@ static int cpufreq_governor_interactive(struct cpufreq_policy *policy,
 				pcpu->target_set_time;
 			pcpu->hispeed_validate_time =
 				pcpu->target_set_time;
-			pcpu->governor_enabled = 1;
 			smp_wmb();
 			pcpu->cpu_timer.expires =
 				jiffies + usecs_to_jiffies(timer_rate);
 			add_timer_on(&pcpu->cpu_timer, j);
+			smp_wmb();
+			pcpu->governor_enabled = 1;
+			smp_wmb();/* is it necessary? */
 		}
 
 		/*
