@@ -1461,6 +1461,19 @@ static int yaffs_write_end(struct file *filp, struct address_space *mapping,
 	return ret;
 }
 
+int yaffs_get_n_free_chunks_countrev(struct yaffs_dev *dev)
+{
+    int free_true = yaffs_get_n_free_chunks(dev);
+
+    if(free_true > dev->n_reserved_blocks_root)
+    {
+        return (free_true - dev->n_reserved_blocks_root);
+    }
+    else
+    {
+        return 0;
+    }
+}
 static int yaffs_statfs(struct dentry *dentry, struct kstatfs *buf)
 {
 	struct yaffs_dev *dev = yaffs_dentry_to_obj(dentry)->my_dev;
@@ -1489,7 +1502,7 @@ static int yaffs_statfs(struct dentry *dentry, struct kstatfs *buf)
 		do_div(bytes_in_dev, sb->s_blocksize);	/* bytes_in_dev becomes the number of blocks */
 		buf->f_blocks = bytes_in_dev;
 
-		bytes_free = ((uint64_t) (yaffs_get_n_free_chunks(dev))) *
+		bytes_free = ((uint64_t) (yaffs_get_n_free_chunks_countrev(dev))) *
 		    ((uint64_t) (dev->data_bytes_per_chunk));
 
 		do_div(bytes_free, sb->s_blocksize);
@@ -1503,7 +1516,7 @@ static int yaffs_statfs(struct dentry *dentry, struct kstatfs *buf)
 		    dev->param.chunks_per_block /
 		    (sb->s_blocksize / dev->data_bytes_per_chunk);
 		buf->f_bfree =
-		    yaffs_get_n_free_chunks(dev) /
+		    yaffs_get_n_free_chunks_countrev(dev) /
 		    (sb->s_blocksize / dev->data_bytes_per_chunk);
 	} else {
 		buf->f_blocks =
@@ -1512,7 +1525,7 @@ static int yaffs_statfs(struct dentry *dentry, struct kstatfs *buf)
 		    (dev->data_bytes_per_chunk / sb->s_blocksize);
 
 		buf->f_bfree =
-		    yaffs_get_n_free_chunks(dev) *
+		    yaffs_get_n_free_chunks_countrev(dev) *
 		    (dev->data_bytes_per_chunk / sb->s_blocksize);
 	}
 
@@ -2464,6 +2477,7 @@ static char *yaffs_dump_dev_part1(char *buf, struct yaffs_dev *dev)
 	buf += sprintf(buf, "n_tnodes.............. %d\n", dev->n_tnodes);
 	buf += sprintf(buf, "n_obj................. %d\n", dev->n_obj);
 	buf += sprintf(buf, "n_free_chunks......... %d\n", dev->n_free_chunks);
+    buf += sprintf(buf, "n_reserved_blocks_root.%d\n", dev->n_reserved_blocks_root);
 	buf += sprintf(buf, "\n");
 	buf += sprintf(buf, "n_page_writes......... %u\n", dev->n_page_writes);
 	buf += sprintf(buf, "n_page_reads.......... %u\n", dev->n_page_reads);
