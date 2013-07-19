@@ -2069,13 +2069,15 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
+	/*notice the sequence */
+	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
 
+	/*update reg: must be set after snd_soc_dapm_put_enum_double->change = snd_soc_test_bits(widget->codec, e->reg, mask, val); */
 	mixer->on = ucontrol->value.integer.value[0];
 
 	if (mixer->set)
 		ret = mixer->set(codec, mixer->on);
 
-	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
