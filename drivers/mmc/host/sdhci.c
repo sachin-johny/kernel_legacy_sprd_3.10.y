@@ -177,6 +177,10 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			readl(REG_PMU_APB_CGM_AP_AUTO_GATE_EN));
 	 printk(KERN_ERR DRIVER_NAME ": REG_AP_AHB_MISC_CFG : 0x%x \n\r",
 			readl(REG_AP_AHB_MISC_CFG));
+	 printk(KERN_ERR DRIVER_NAME ": BASE_CLK_SEL sdio[0~3],default[1,2,2,1]: 0x%x, 0x%x, 0x%x, 0x%x \n\r",
+			readl(REG_AP_CLK_SDIO0_CFG), readl(REG_AP_CLK_SDIO1_CFG),
+			readl(REG_AP_CLK_SDIO2_CFG),readl(REG_AP_CLK_EMMC_CFG));
+	  printk(KERN_ERR DRIVER_NAME ": AHB_CLK_SEL : 0x%x \n\r", readl(REG_AP_CLK_AP_AHB_CFG));
 #endif
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
