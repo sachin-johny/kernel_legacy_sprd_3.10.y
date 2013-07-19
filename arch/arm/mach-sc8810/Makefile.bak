@@ -25,7 +25,6 @@ obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 
 obj-$(CONFIG_DEBUG_FS) += clock_debug.o
 
-sprdboard-$(CONFIG_MACH_SP7710GA_ORANGE) += board_sp7710ga_orange/
 sprdboard-$(CONFIG_MACH_SP8810EA) += board-sp8810ea/
 sprdboard-$(CONFIG_MACH_SP8810EC) += board-sp8810ec/
 sprdboard-$(CONFIG_MACH_SP8810GA) += board-sp8810ga/

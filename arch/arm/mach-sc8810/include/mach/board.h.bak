@@ -14,9 +14,6 @@
 #ifndef __ASM_ARCH_BOARD_H
 #define __ASM_ARCH_BOARD_H
 
-#ifdef CONFIG_MACH_SP7710GA_ORANGE
-#include <mach/gpio-sp7710ga_orange.h>
-#endif
 #ifdef	CONFIG_MACH_SP8810EA
 #include <mach/gpio-sp8810ea.h>
 #endif
