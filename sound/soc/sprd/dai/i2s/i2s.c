@@ -430,6 +430,16 @@ static int i2s_get_dma_data_width(struct i2s_priv *i2s)
 	}
 	return WORD_WIDTH;
 }
+static int i2s_get_dma_step(struct i2s_priv *i2s)
+{
+	struct i2s_config *config = &i2s->config;
+	if (PCM_BUS == config->bus_type) {
+		if (config->byte_per_chan == I2S_BPCH_16) {
+			return 2;
+		}
+	}
+	return 4;
+}
 #endif
 
 static int i2s_get_data_position(struct i2s_priv *i2s)
@@ -605,6 +615,10 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	dma_data->desc.cfg_src_data_width = i2s_get_sdata_width(i2s);
 #elif defined(DMA_VER_R4P0)
 	dma_data->desc.datawidth = i2s_get_dma_data_width(i2s);
+	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		dma_data->desc.src_step = i2s_get_dma_step(i2s);
+	else
+		dma_data->desc.des_step = i2s_get_dma_step(i2s);
 #endif
 
 	dma_data->dev_paddr[0] =

@@ -677,9 +677,9 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 			if (sprd_is_i2s(srtd->cpu_dai)) {
 				/*dma_desc[i]->fragmens_len = rtd->burst_len;*/
 				if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-					dma_desc[i]->fragmens_len = (I2S_FIFO_DEPTH - config->tx_watermark) * 4;
+					dma_desc[i]->fragmens_len = (I2S_FIFO_DEPTH - config->tx_watermark) * dma_desc[i]->datawidth;
 				} else {
-					dma_desc[i]->fragmens_len = config->rx_watermark * 4;
+					dma_desc[i]->fragmens_len = config->rx_watermark * dma_desc[i]->datawidth;
 				}
 			} else {
 				dma_desc[i]->fragmens_len =
