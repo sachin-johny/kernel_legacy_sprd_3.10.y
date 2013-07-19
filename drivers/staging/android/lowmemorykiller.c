@@ -398,7 +398,7 @@ static void lowmem_mem_leak_account(struct task_struct *p)
                   mem_leak_info[count].last_avg_mem = sum/avg_count;
                   mem_leak_info[count].account_num++;
                   mem_leak_info[count].account_time = jiffies_to_msecs(jiffies-mem_leak_info[count].start_account_time);
-                  lowmem_print(2, "[LMK] process leak info %d (%s): leak_count %d,  total_account %d,  init task size %lukB, current task size %lukB,\
+                  lowmem_print(4, "[LMK] process leak info %d (%s): leak_count %d,  total_account %d,  init task size %lukB, current task size %lukB,\
                           account time:%d(s)\n", task_pid_nr(p), p->comm, mem_leak_info[count].leak_suspect_num, mem_leak_info[count].account_num,\
                                 K(mem_leak_info[count].init_avg_mem), K(mem_leak_info[count].last_avg_mem), mem_leak_info[count].account_time>>10);
 
