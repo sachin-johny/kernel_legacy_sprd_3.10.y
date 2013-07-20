@@ -772,7 +772,7 @@ static void l2cap_sock_kill(struct sock *sk)
 	if (!sock_flag(sk, SOCK_ZAPPED) || sk->sk_socket)
 		return;
 
-	BT_DBG("l2cap_sock_kill sk %p state %d count =%d\n", sk, sk->sk_state, killcount);
+	BT_DBG("l2cap_sock_kill sk %p state %d\n", sk, sk->sk_state);
 
 	/* Kill poor orphan */
         if (!sk)
