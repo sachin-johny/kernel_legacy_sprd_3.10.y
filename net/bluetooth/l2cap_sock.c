@@ -772,12 +772,15 @@ static void l2cap_sock_kill(struct sock *sk)
 	if (!sock_flag(sk, SOCK_ZAPPED) || sk->sk_socket)
 		return;
 
-	BT_DBG("sk %p state %d", sk, sk->sk_state);
+	BT_DBG("l2cap_sock_kill sk %p state %d count =%d\n", sk, sk->sk_state, killcount);
 
 	/* Kill poor orphan */
+        if (!sk)
+            return 0;
 
 	l2cap_chan_destroy(l2cap_pi(sk)->chan);
-	sock_set_flag(sk, SOCK_DEAD);
+        sock_set_flag(sk, SOCK_DEAD);
+
 	sock_put(sk);
 }
 
@@ -807,7 +810,6 @@ static int l2cap_sock_shutdown(struct socket *sock, int how)
 
 	if (!err && sk->sk_err)
 		err = -sk->sk_err;
-
 	release_sock(sk);
 	return err;
 }
@@ -821,11 +823,14 @@ static int l2cap_sock_release(struct socket *sock)
 
 	if (!sk)
 		return 0;
-
 	err = l2cap_sock_shutdown(sock, 2);
 
-	sock_orphan(sk);
-	l2cap_sock_kill(sk);
+        if (!sk)
+            return 0;
+        sock_orphan(sk);
+
+        l2cap_sock_kill(sk);
+
 	return err;
 }
 
