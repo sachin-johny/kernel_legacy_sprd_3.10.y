@@ -89,7 +89,8 @@ static int nmi5625_release(struct inode * inode, struct file * file)
 	int ret = 0;
 
 	func_enter();
-
+	gpio_direction_output(GPIO_ATV_RESET,0);
+        gpio_direction_output(GPIO_ATV_PWROFF,0);
 	func_exit();
 	return ret;
 }

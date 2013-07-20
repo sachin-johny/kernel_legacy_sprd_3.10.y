@@ -1728,6 +1728,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 
 	SENSOR_PRINT("SENSOR: Sensor_Init, sensor_id: %d.\n", sensor_id);
 
+
 	if (Sensor_IsInit()) {
 		SENSOR_PRINT("SENSOR: Sensor_Init is done\n");
 		return SENSOR_SUCCESS;
