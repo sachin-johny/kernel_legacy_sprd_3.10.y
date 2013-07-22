@@ -7041,11 +7041,12 @@ set_ap_cfg(struct net_device *dev, struct ap_profile *ap)
 	}
 
 	max_assoc = ap->max_scb;
+#ifndef CONFIG_BCM40181
 	if ((res = dev_wlc_intvar_set(dev, "maxassoc", max_assoc))) {
 		WL_ERROR(("%s fail to set maxassoc\n", __FUNCTION__));
 		goto fail;
 	}
-
+#endif
 	ap_ssid.SSID_len = strlen(ap->ssid);
 	strncpy(ap_ssid.SSID, ap->ssid, ap_ssid.SSID_len);
 

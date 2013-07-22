@@ -886,6 +886,9 @@ dhdsdio_clkctl(dhd_bus_t *bus, uint target, bool pendok)
 		/* Make sure SD clock is available */
 		if (bus->clkstate == CLK_NONE)
 			dhdsdio_sdclk(bus, TRUE);
+	#ifdef CONFIG_BCM40181
+		OSL_DELAY(50);
+	#endif
 		/* Now request HT Avail on the backplane */
 		ret = dhdsdio_htclk(bus, TRUE, pendok);
 		if (ret == BCME_OK) {
