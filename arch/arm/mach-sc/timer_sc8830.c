@@ -32,20 +32,21 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/irqs.h>
 
-static __iomem void *base_gptimer[4] = {
-	(__iomem void *)SPRD_GPTIMER_BASE,
+static __iomem void *base_gptimer[5] = {
+	(__iomem void *)(SPRD_APTIMER0_BASE + 0x20),
 	(__iomem void *)SPRD_APTIMER0_BASE,
 	(__iomem void *)SPRD_APTIMER1_BASE,
 	(__iomem void *)SPRD_APTIMER2_BASE,
+	(__iomem void *)SPRD_GPTIMER_BASE,
 };
 static int irq_nr[4] = {
-	IRQ_AONTMR0_INT,
+	IRQ_APTMR1_INT,
 	IRQ_APTMR0_INT,
 	IRQ_APTMR2_INT,
 	IRQ_APTMR4_INT,
 };
 static struct clock_event_device *local_evt[4]={0};
-static int e_cpu = 0;
+static int e_cpu = 4;
 #define	TIMER_LOAD(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x0000)
 #define	TIMER_VALUE(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x0004)
 #define	TIMER_CTL(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x0008)
@@ -58,6 +59,7 @@ static int e_cpu = 0;
 #define	TIMER_ENABLE	(1 << 7)
 
 #define	TIMER_INT_EN	(1 << 0)
+#define	TIMER_INT_STS	(1 << 2)
 #define	TIMER_INT_CLR	(1 << 3)
 #define	TIMER_INT_BUSY	(1 << 4)
 
@@ -70,8 +72,8 @@ static int e_cpu = 0;
 #define	BC_TIMER	1
 #define	SOURCE_TIMER	2
 
-#define BC_CPU 1
-#define BC_IRQ  IRQ_APTMR1_INT
+#define BC_CPU 2
+#define BC_IRQ  IRQ_APTMR3_INT
 
 static __iomem void *base_syscnt = (__iomem void *)SPRD_SYSCNT_BASE;
 #define	SYSCNT_COUNT	(base_syscnt + 0x0004)
