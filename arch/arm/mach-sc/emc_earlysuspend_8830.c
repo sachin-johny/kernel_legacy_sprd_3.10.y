@@ -442,7 +442,7 @@ static int __init emc_early_suspend_init(void)
 {
 	u32 val;
 	__raw_writel(1, REG_AON_CLK_PUB_AHB_CFG);
-	__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
+	//__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
 	val = __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x02c);
 	val &= ~(1 << 4);
 	__raw_writel(val,SPRD_LPDDR2_PHY_BASE + 0x02c);
