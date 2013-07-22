@@ -214,7 +214,6 @@ static int cpufreq_stats_create_table(struct cpufreq_policy *policy,
 		goto error_out;
 
 	stat->cpu = cpu;
-	per_cpu(cpufreq_stats_table, cpu) = stat;
 
 	for (i = 0; table[i].frequency != CPUFREQ_TABLE_END; i++) {
 		unsigned int freq = table[i].frequency;
@@ -247,6 +246,7 @@ static int cpufreq_stats_create_table(struct cpufreq_policy *policy,
 		if (freq_table_get_index(stat, freq) == -1)
 			stat->freq_table[j++] = freq;
 	}
+	per_cpu(cpufreq_stats_table, cpu) = stat;
 	stat->state_num = j;
 	spin_lock(&cpufreq_stats_lock);
 	stat->last_time = get_jiffies_64();
