@@ -58,9 +58,9 @@ static struct cpuidle_params cpuidle_params_table[] = {
 	/* WFI */
 	{.exit_latency = 1 , .target_residency = 1, .valid = 1},
 	/* LIGHT SLEEP */
-	{.exit_latency = 50 , .target_residency = 100, .valid = 1},
+	{.exit_latency = 100 , .target_residency = 1000, .valid = 1},
 	/* CPU CORE POWER DOWN */
-	{.exit_latency = 2000 , .target_residency = 5000, .valid = 1},
+	{.exit_latency = 20000 , .target_residency = 50000, .valid = 1},
 };
 
 
@@ -135,9 +135,14 @@ static int sc_enter_idle(struct cpuidle_device *dev,
 			int index)
 {
 	int cpu_id = smp_processor_id();
+	ktime_t enter, exit;
+	s64 us;
 
 	local_irq_disable();
 	local_fiq_disable();
+
+	enter = ktime_get();
+
 #ifdef SC_IDLE_DEBUG
 	idle_debug_state[cpu_id] =  index;
 	if(index)
@@ -180,6 +185,11 @@ static int sc_enter_idle(struct cpuidle_device *dev,
 		cpu_do_idle();
 		WARN(1, "CPUIDLE: NO THIS LEVEL!!!");
 	}
+
+	exit = ktime_sub(ktime_get(), enter);
+	us = ktime_to_us(exit);
+
+	dev->last_residency = us;
 
 	local_fiq_enable();
 	local_irq_enable();
