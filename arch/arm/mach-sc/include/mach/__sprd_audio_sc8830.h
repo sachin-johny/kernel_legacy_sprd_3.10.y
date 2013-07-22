@@ -53,6 +53,10 @@ enum {
 #define IS_SPRD_VBC_RANG(reg) (((reg) >= VBC_BASE) && ((reg) < VBC_END))
 #define SPRD_VBC_BASE_HI  (VBC_BASE & 0xFFFF0000)
 
+#define VBC_MUX_REG_BASE		(100)
+#define VBC_MUX_REG_MAX		(50)
+#define IS_SPRD_VBC_MUX_RANG(reg)	((reg) >= VBC_MUX_REG_BASE && (reg) < (VBC_MUX_REG_BASE + VBC_MUX_REG_MAX))
+
 #define CODEC_DP_BASE 		SPRD_AUDIO_BASE
 
 /*CODEC_AP_BASE: the bit15 cann't be 1 for asoc reg.*/
