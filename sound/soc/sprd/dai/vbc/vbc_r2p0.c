@@ -494,6 +494,16 @@ inline int vbc_reg_write2(int reg, int val)
 
 EXPORT_SYMBOL_GPL(vbc_reg_write2);
 
+inline int vbc_mux_reg_read(int reg)
+{
+	int id = FUN_REG(reg) - VBC_MUX_REG_BASE;
+	struct sprd_vbc_mux_op *mux = &(sprd_vbc_mux[id]);
+
+	return mux->val;
+}
+
+EXPORT_SYMBOL_GPL(vbc_mux_reg_read);
+
 static int vbc_set_buffer_size(int ad_buffer_size, int da_buffer_size,
 			       int ad23_buffer_size)
 {
@@ -1170,7 +1180,7 @@ static const char *ad23_iis_txt[] = {
 };
 
 #define SPRD_VBC_ENUM(xreg, xmax, xtexts)\
-		  SOC_ENUM_SINGLE(FUN_REG(xreg), 0, xmax, xtexts)
+		  SOC_ENUM_SINGLE(FUN_REG(xreg + VBC_MUX_REG_BASE), 0, xmax, xtexts)
 
 static const struct soc_enum vbc_mux_sel_enum[SPRD_VBC_MUX_MAX] = {
 	/*ST CHAN MUX */
@@ -1425,7 +1435,7 @@ int sprd_vbc_mux_get(struct snd_kcontrol *kcontrol,
 		     struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	unsigned int reg = FUN_REG(e->reg);
+	unsigned int reg = FUN_REG(e->reg) - VBC_MUX_REG_BASE;
 	struct sprd_vbc_mux_op *mux = &(sprd_vbc_mux[reg]);
 
 	ucontrol->value.enumerated.item[0] = mux->val;
@@ -1437,11 +1447,13 @@ int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
 		     struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_enum *e = (struct soc_enum *)kcontrol->private_value;
-	unsigned int reg = FUN_REG(e->reg);
+	unsigned int reg = FUN_REG(e->reg) - VBC_MUX_REG_BASE;
 	unsigned int max = e->max;
 	unsigned int mask = (1 << fls(max)) - 1;
 	struct sprd_vbc_mux_op *mux = &(sprd_vbc_mux[reg]);
 	int ret = 0;
+	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
 
 	pr_info("set MUX[%s] to %d\n", vbc_mux_debug_str[reg],
 		ucontrol->value.enumerated.item[0]);
@@ -1451,12 +1463,20 @@ int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
 	if (ucontrol->value.enumerated.item[0] > e->max - 1)
 		return -EINVAL;
 
+	/*notice the sequence */
+	ret = snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
+
+	/*update reg: must be set after snd_soc_dapm_put_enum_double->change = snd_soc_test_bits(widget->codec, e->reg, mask, val); */
 	mux->val = (ucontrol->value.enumerated.item[0] & mask);
 	if (mux->set) {
 		ret = mux->set(mux->val);
 	}
+	/*ADC01/ADC23  SRC set for FM input */
+	if ((reg == SPRD_VBC_AD_IISMUX || reg == SPRD_VBC_AD23_IISMUX)
+	    && (mux->val == 1 || mux->val == 2)) {
+		vbc_fm_try_set_sample_rate(codec);
+	}
 
-	ret = snd_soc_dapm_put_enum_double(kcontrol, ucontrol);
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
 }

@@ -2780,8 +2780,9 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SPRD_CODEC_MIC_BIAS("HEADMIC Bias Switch", SPRD_CODEC_HEADMIC_BIAS),
 };
- int vbc_reg_read(int reg);
+int vbc_reg_read(int reg);
 int vbc_reg_write2(int reg, int val);
+int vbc_mux_reg_read(int reg);
 
 static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 				    unsigned int reg)
@@ -2805,6 +2806,9 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 		sprd_codec_dbg("read the register is vbc's reg = 0x%x\n", (reg - VBC_REG_OFFSET));
 		reg |= SPRD_VBC_BASE_HI;
 		return vbc_reg_read(reg);
+	} else if (IS_SPRD_VBC_MUX_RANG(FUN_REG(reg))) {
+		sprd_codec_dbg("read the register is vbc  MUX  reg(%d) = 0x%x\n", FUN_REG(reg), vbc_mux_reg_read(reg));
+		return vbc_mux_reg_read(reg);
 	}
 	sprd_codec_dbg("read the register is not codec's reg = 0x%x\n", reg);
 	return 0;
