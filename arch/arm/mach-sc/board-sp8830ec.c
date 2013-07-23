@@ -318,8 +318,8 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.axis_map_y = 0,
 	.axis_map_z = 2,
 	.negate_x = 0,
-	.negate_y = 0,
-	.negate_z = 1
+	.negate_y = 1,
+	.negate_z = 0
 };
 #endif
 
