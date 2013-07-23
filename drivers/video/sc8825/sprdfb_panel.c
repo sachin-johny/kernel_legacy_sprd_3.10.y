@@ -416,7 +416,7 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 	int32_t result = 0;
 	uint32_t if_status = 0;
 
-	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+//	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
 
 	dev->check_esd_time++;
 
@@ -445,7 +445,7 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 #else
 		if (dev->panel->ops->panel_esd_check != NULL) {
 			result = dev->panel->ops->panel_esd_check(dev->panel);
-			pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
+//			pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
 		}
 
 #endif
@@ -507,7 +507,7 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 		pr_debug("sprdfb: [%s]return 1\n",__FUNCTION__);
 		return 1;
 	}
-	pr_debug("sprdfb: [%s]return 0\n",__FUNCTION__);
+//	pr_debug("sprdfb: [%s]return 0\n",__FUNCTION__);
 	return 0;
 }
 #endif

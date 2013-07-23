@@ -21,7 +21,7 @@
 #include <linux/semaphore.h>
 #include <linux/wait.h>
 
-#define FB_CHECK_ESD_BY_TE_SUPPORT
+//#define FB_CHECK_ESD_BY_TE_SUPPORT
 
 enum{
 	SPRDFB_PANEL_IF_DBI = 0,

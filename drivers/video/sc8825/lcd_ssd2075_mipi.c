@@ -126,6 +126,11 @@ static LCM_Init_Code sleep_out[] =  {
 {LCM_SEND(1), {0x29}},
 {LCM_SLEEP(20)},
 };
+
+static LCM_Force_Cmd_Code rd_prep_code_1[]={
+	{0x37, {LCM_SEND(2), {0x3, 0}}},
+};
+
 static int32_t ssd2075_mipi_init(struct panel_spec *self)
 {
 	int32_t i;
@@ -225,10 +230,84 @@ static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
+static uint32_t ssd2075_readpowermode(struct panel_spec *self)
+{
+	int32_t i = 0;
+	uint32_t j =0;
+	LCM_Force_Cmd_Code * rd_prepare = rd_prep_code_1;
+	uint8_t read_data[3] = {0};
+	int32_t read_rtn = 0;
+	unsigned int tag = 0;
+
+	mipi_force_write_t mipi_force_write = self->info.mipi->ops->mipi_force_write;
+	mipi_force_read_t mipi_force_read = self->info.mipi->ops->mipi_force_read;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
+
+//	pr_debug("lcd_ssd2075_mipi read power mode!\n");
+
+	mipi_eotp_set(0,1);
+	for(j = 0; j < 4; j++){
+		rd_prepare = rd_prep_code_1;
+		for(i = 0; i < ARRAY_SIZE(rd_prep_code_1); i++){
+			tag = (rd_prepare->real_cmd_code.tag >> 24);
+			if(tag & LCM_TAG_SEND){
+				mipi_force_write(rd_prepare->datatype, rd_prepare->real_cmd_code.data, (rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
+			}else if(tag & LCM_TAG_SLEEP){
+				msleep((rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
+			}
+			rd_prepare++;
+		}
+		read_rtn = mipi_force_read(0xF5, 3,(uint8_t *)read_data);
+//		printk("lcd_ssd2075 mipi read power mode 0xF5 value r[0]=0x%x,r[1]=0x%x,r[2]=0x%x! , read result(%d)\n", read_data[0],read_data[1],read_data[2],read_rtn);
+		if((0x0 == read_data[0]) && (0x0 == read_data[1]) && (0x0 == read_data[2]) && (0 == read_rtn)){
+			mipi_eotp_set(1,1);
+//			pr_debug("lcd_ssd2075_mipi read power mode success!\n");
+			return 0xF5;
+		}
+	}
+	mipi_eotp_set(1,1);
+	printk("lcd_ssd2075 ssd2075_readpowermode fail! 0xF5 value r[0]=0x%x,r[1]=0x%x,r[2]=0x%x! , read result(%d)\n", read_data[0],\
+		read_data[1],read_data[2],read_rtn);
+	return 0x0;
+}
+
+static int32_t ssd2075_check_esd(struct panel_spec *self)
+{
+	uint32_t power_mode;
+
+	mipi_set_lp_mode_t mipi_set_data_lp_mode = self->info.mipi->ops->mipi_set_data_lp_mode;
+	mipi_set_hs_mode_t mipi_set_data_hs_mode = self->info.mipi->ops->mipi_set_data_hs_mode;
+	mipi_set_lp_mode_t mipi_set_lp_mode = self->info.mipi->ops->mipi_set_lp_mode;
+	mipi_set_hs_mode_t mipi_set_hs_mode = self->info.mipi->ops->mipi_set_hs_mode;
+	uint16_t work_mode = self->info.mipi->work_mode;
+
+//	pr_debug("ssd2075_check_esd!\n");
+	if(SPRDFB_MIPI_MODE_CMD==work_mode){
+		mipi_set_lp_mode();
+	}else{
+		mipi_set_data_lp_mode();
+	}
+	power_mode = ssd2075_readpowermode(self);
+	//power_mode = 0x0;
+	if(SPRDFB_MIPI_MODE_CMD==work_mode){
+		mipi_set_hs_mode();
+	}else{
+		mipi_set_data_hs_mode();
+	}
+	if(power_mode == 0xF5){
+//		pr_debug("ssd2075_check_esd OK!\n");
+		return 1;
+	}else{
+		printk("ssd2075_check_esd fail!(0x%x)\n", power_mode);
+		return 0;
+	}
+}
+
 static struct panel_operations lcd_ssd2075_mipi_operations = {
 	.panel_init = ssd2075_mipi_init,
 	.panel_readid = ssd2075_readid,
 	.panel_enter_sleep = ssd2075_enter_sleep,
+	.panel_esd_check = ssd2075_check_esd,
 };
 
 static struct timing_rgb lcd_ssd2075_mipi_timing = {

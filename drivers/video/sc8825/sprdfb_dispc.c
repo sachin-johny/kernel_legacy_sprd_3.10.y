@@ -53,8 +53,6 @@ struct sprdfb_dispc_context {
 	bool			is_inited;
 	bool			is_first_frame;
 	bool			is_resume;
-	bool			is_wait_for_suspend;
-
 	bool			clk_is_open;
 	bool			clk_is_refreshing;
 	int				clk_open_count;
@@ -877,15 +875,15 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	down(&dev->refresh_lock);
+	if(0 == dev->enable){
+		printk("sprdfb: [%s]: do not refresh in suspend!!!\n", __FUNCTION__);
+		goto ERROR_REFRESH;
+	}
 
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
 //		dispc_ctx.vsync_done = 0;
-		if(dispc_ctx.is_wait_for_suspend){
-			printk("sprdfb: [%s]: do not refresh in suspend!!!\n", __FUNCTION__);
-			goto ERROR_REFRESH;
-		}
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 		if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_REFRESH)){
 			printk(KERN_WARNING "sprdfb: enable dispc_clk fail in refresh!\n");
@@ -988,24 +986,22 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 	printk(KERN_INFO "sprdfb:[%s], dev->enable = %d\n",__FUNCTION__, dev->enable);
 
 	if (0 != dev->enable){
-
+		down(&dev->refresh_lock);
 		if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
-			dispc_ctx.is_wait_for_suspend=true;
 			/* must wait ,dispc_sync() */
 			dispc_ctx.vsync_waiter ++;
 			dispc_sync(dev);
-			dispc_ctx.is_wait_for_suspend=false;
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 			printk("sprdfb: open clk in suspend\n");
 			if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT)){
 				printk(KERN_WARNING "sprdfb:[%s] clk enable fail!!!\n",__FUNCTION__);
-				//return 0;
 			}
 #endif
 			printk(KERN_INFO "sprdfb:[%s] got sync\n",__FUNCTION__);
 		}
 
 		dev->enable = 0;
+		up(&dev->refresh_lock);
 
 #ifdef CONFIG_FB_ESD_SUPPORT
 		if(dev->ESD_work_start == true){
@@ -1072,75 +1068,85 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 
 
 #ifdef CONFIG_FB_ESD_SUPPORT
-static int32_t sprdfb_disc_check_esd(struct sprdfb_device *dev)
+//for video esd check
+static int32_t sprdfb_dispc_check_esd_dpi(struct sprdfb_device *dev)
 {
 	uint32_t ret = 0;
-	bool	is_clk_enable=false;
-	bool	is_need_run=false;
-	bool	is_refresh_lock_down=false;
+	unsigned long flags;
 
-	pr_debug("sprdfb: [%s] \n", __FUNCTION__);
-
-	/*Jessica TODO: need add other mode support*/
-	/*only support command mode now*/
-	if(SPRDFB_PANEL_IF_DBI == dev->panel_if_type){
-		pr_debug("sprdfb: [%s] leave (not support dbi mode now)!\n", __FUNCTION__);
-		ret = -1;
-		goto ERROR_CHECK_ESD;
+#ifdef FB_CHECK_ESD_BY_TE_SUPPORT
+	ret = sprdfb_panel_ESD_check(dev);
+	if(0 !=ret){
+		dispc_run_for_feature(dev);
 	}
-	down(&dev->refresh_lock);
-	is_refresh_lock_down=true;
-	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
-		dispc_ctx.vsync_waiter ++;
-		dispc_sync(dev);
-		if(dispc_ctx.is_wait_for_suspend){
-			printk("sprdfb: [%s]: do not check esd in suspend!!!\n", __FUNCTION__);
-			goto ERROR_CHECK_ESD;
-		}
-#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
-		if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT)){
-			printk(KERN_WARNING "sprdfb:[%s] clk enable fail!!!\n",__FUNCTION__);
-			ret = -1;
-			goto ERROR_CHECK_ESD;
-		}
-		is_clk_enable=true;
+#else
+	local_irq_save(flags);
+	dispc_stop_for_feature(dev);
+
+	ret = sprdfb_panel_ESD_check(dev);	//make sure there is no log in this function
+
+	dispc_run_for_feature(dev);
+	local_irq_restore(flags);
 #endif
-	}
 
-	if(0 == dev->enable){
-		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
-		ret=-1;
-		goto ERROR_CHECK_ESD;
-	}
+	return ret;
+}
 
-#ifndef FB_CHECK_ESD_BY_TE_SUPPORT
-	//for video esd check
-	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
-		dispc_stop_for_feature(dev);
-		is_need_run=true;
+//for cmd esd check
+static int32_t sprdfb_dispc_check_esd_edpi(struct sprdfb_device *dev)
+{
+	uint32_t ret = 0;
+
+	dispc_ctx.vsync_waiter ++;
+	dispc_sync(dev);
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+	if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT)){
+		printk(KERN_WARNING "sprdfb:[%s] clk enable fail!!!\n",__FUNCTION__);
+		return -1;
 	}
 #endif
 
 	ret = sprdfb_panel_ESD_check(dev);
 
+	if(0 !=ret){
+		dispc_run_for_feature(dev);
+	}
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+	sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT);
+#endif
+
+	return ret;
+}
+
+static int32_t sprdfb_dispc_check_esd(struct sprdfb_device *dev)
+{
+	uint32_t ret = 0;
+	bool	is_refresh_lock_down=false;
+
+	pr_debug("sprdfb: [%s] \n", __FUNCTION__);
+
+	if(SPRDFB_PANEL_IF_DBI == dev->panel_if_type){
+		printk("sprdfb: [%s] leave (not support dbi mode now)!\n", __FUNCTION__);
+		ret = -1;
+		goto ERROR_CHECK_ESD;
+	}
+	down(&dev->refresh_lock);
+	is_refresh_lock_down=true;
 	if(0 == dev->enable){
 		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
 		ret=-1;
 		goto ERROR_CHECK_ESD;
 	}
 
-	if(0 !=ret || is_need_run){
-		dispc_run_for_feature(dev);
-		is_need_run=false;
+	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		ret=sprdfb_dispc_check_esd_dpi(dev);
+	}
+	else{
+		ret=sprdfb_dispc_check_esd_edpi(dev);
 	}
 
 ERROR_CHECK_ESD:
-	if(is_clk_enable){
-		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_COUNT);
-	}
-	if(is_need_run){
-		dispc_run_for_feature(dev);
-	}
 	if(is_refresh_lock_down){
 		up(&dev->refresh_lock);
 	}
@@ -1350,11 +1356,6 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 	bool	is_refresh_lock_down=false;
 	bool	is_clk_enable=false;
 
-	if(0 == dev->enable){
-		printk(KERN_ERR "sprdfb: sprdfb_dispc_enable_overlay fail. (dev not enable)\n");
-		goto ERROR_ENABLE_OVERLAY;
-	}
-
 	pr_debug("sprdfb: [%s]: %d, %d\n", __FUNCTION__, enable,  dev->enable);
 
 	if(enable){  /*enable*/
@@ -1365,6 +1366,11 @@ static int32_t sprdfb_dispc_enable_overlay(struct sprdfb_device *dev, struct ove
 
 		down(&dev->refresh_lock);
 		is_refresh_lock_down=true;
+
+		if(0 == dev->enable){
+			printk(KERN_ERR "sprdfb: sprdfb_dispc_enable_overlay fail. (dev not enable)\n");
+			goto ERROR_ENABLE_OVERLAY;
+		}
 
 		if(0 != dispc_sync(dev)){
 			printk(KERN_ERR "sprdfb: sprdfb_dispc_enable_overlay fail. (wait done fail)\n");
@@ -1430,15 +1436,14 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 		setting->layer_index, setting->rect.x, setting->rect.y, setting->rect.h, setting->rect.w);
 
 	down(&dev->refresh_lock);
-
+	if(0 == dev->enable){
+		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+		goto ERROR_DISPLAY_OVERLAY;
+	}
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
 		//dispc_ctx.vsync_done = 0;
-		if(dispc_ctx.is_wait_for_suspend){
-			printk("sprdfb: [%s]: do not display overlay in suspend!!!\n", __FUNCTION__);
-			goto ERROR_DISPLAY_OVERLAY;
-		}
 #ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
 		if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_REFRESH)){
 			printk(KERN_WARNING "sprdfb:[%s] clk enable fail!!!\n",__FUNCTION__);
@@ -1566,7 +1571,7 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 	.resume		= sprdfb_dispc_resume,
 	.update_clk	= dispc_update_clock,
 #ifdef CONFIG_FB_ESD_SUPPORT
-	.ESD_check	= sprdfb_disc_check_esd,
+	.ESD_check	= sprdfb_dispc_check_esd,
 #endif
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	.enable_overlay = sprdfb_dispc_enable_overlay,

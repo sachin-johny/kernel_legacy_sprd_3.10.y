@@ -519,7 +519,7 @@ static int32_t sprdfb_dsi_set_ulps_mode(void)
 
 static int32_t sprdfb_dsi_set_data_lp_mode(void)
 {
-	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
+//	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1fff);
 
@@ -529,9 +529,9 @@ static int32_t sprdfb_dsi_set_data_lp_mode(void)
 static int32_t sprdfb_dsi_set_data_hs_mode(void)
 {
 	int active_mode = mipi_dsih_active_mode(&(dsi_ctx.dsi_inst));
-	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
+//	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 
-	printk("aoke sprdfb: set data hs mode active_mode=%d\n",active_mode);
+//	printk("aoke sprdfb: set data hs mode active_mode=%d\n",active_mode);
 	if(1==active_mode){
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 	}else{
