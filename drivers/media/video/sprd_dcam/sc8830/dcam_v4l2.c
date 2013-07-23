@@ -1364,18 +1364,22 @@ LOCAL int v4l2_s_parm(struct file *file,
 
 	DCAM_TRACE("V4L2: v4l2_s_parm, ability 0x%x \n", streamparm->parm.capture.capability);
 
-	mutex_lock(&dev->dcam_mutex);
 	
 	switch (streamparm->parm.capture.capability) {
 	case CAPTURE_MODE:
+		mutex_lock(&dev->dcam_mutex);
 		dev->dcam_cxt.capture_mode = streamparm->parm.capture.capturemode;
+		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: capture mode %d \n", dev->dcam_cxt.capture_mode);
 		break;
 	case CAPTURE_SKIP_NUM:
+		mutex_lock(&dev->dcam_mutex);
 		dev->dcam_cxt.skip_number  = streamparm->parm.capture.reserved[0];
+		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: cap skip number %d \n", dev->dcam_cxt.skip_number);
 		break;
 	case CAPTURE_SENSOR_SIZE:
+		mutex_lock(&dev->dcam_mutex);
 		dev->dcam_cxt.cap_in_size.w  = streamparm->parm.capture.reserved[2];
 		dev->dcam_cxt.cap_in_size.h  = streamparm->parm.capture.reserved[3];
 		dev->dcam_cxt.cap_in_rect.x  = 0;
@@ -1384,11 +1388,13 @@ LOCAL int v4l2_s_parm(struct file *file,
 		dev->dcam_cxt.cap_in_rect.h  = dev->dcam_cxt.cap_in_size.h;
 		dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
 		dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
+		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: sensor size %d %d \n",
 			dev->dcam_cxt.cap_in_size.w,
 			dev->dcam_cxt.cap_in_size.h);
 		break;
 	case CAPTURE_FRM_ID_BASE:
+		mutex_lock(&dev->dcam_mutex);
 		frm_id = streamparm->parm.capture.reserved[1];
 
 		if (DCAM_PATH1 == streamparm->parm.capture.extendedmode) {
@@ -1400,16 +1406,19 @@ LOCAL int v4l2_s_parm(struct file *file,
 		} else {
 			printk("V4L2: Wrong channel ID, %d  \n", streamparm->parm.capture.extendedmode);
 		}
+		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: channel %d, base id 0x%x \n",
 			streamparm->parm.capture.extendedmode,
 			frm_id);
 		break;
 
 	case PATH_FRM_DECI:
+		mutex_lock(&dev->dcam_mutex);
 		channel_id = streamparm->parm.capture.reserved[0];
 		path = &dev->dcam_cxt.dcam_path[channel_id];
 		//path->path_frm_deci = streamparm->parm.capture.reserved[1];
 		path->path_frm_deci = 0;//streamparm->parm.capture.reserved[1]; // aiden tmp changes
+		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: channel %d, frm_deci=%d \n", channel_id, path->path_frm_deci);
 		break;
 
@@ -1431,7 +1440,6 @@ LOCAL int v4l2_s_parm(struct file *file,
 
 	}
 
-	mutex_unlock(&dev->dcam_mutex);
 
 	return ret;
 }
@@ -2220,6 +2228,7 @@ LOCAL void sprd_timer_callback(unsigned long data)
 	}
 
 	if (0 == atomic_read(&dev->run_flag)) {
+		printk("DCAM timeout.\n");
 		node.irq_flag = V4L2_TX_ERR;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
@@ -2378,20 +2387,64 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
+	struct dcam_info         *info = &dev->dcam_cxt;
+	struct dcam_path_spec    *path;
+	struct v4l2_buffer       buf;
+	uint32_t                 index;
 	int                      ret = 0;
 
 	DCAM_TRACE("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
+	if (cnt < sizeof(struct v4l2_buffer)) {
+		printk("V4L2: Failed to enable dcam module \n");
+		return -EIO;
+	}
+	ret = copy_from_user((void*)&buf, u_data, sizeof(struct v4l2_buffer));
 
-	mutex_lock(&dev->dcam_mutex);
+	switch (buf.flags) {
+	case 0:
+		mutex_lock(&dev->dcam_mutex);
+		ret = sprd_v4l2_tx_stop(dev);
+		if (ret)
+			ret = 0;
+		else
+			ret = 1;
+		mutex_unlock(&dev->dcam_mutex);
+	break;
 
-	ret = sprd_v4l2_tx_stop(dev);
+	case 1:
+		if (V4L2_BUF_TYPE_VIDEO_CAPTURE == buf.type) {
+			path = &info->dcam_path[DCAM_PATH1];
+		} else if (V4L2_BUF_TYPE_PRIVATE == buf.type) {
+			path = &info->dcam_path[DCAM_PATH2];
+		} else if (V4L2_BUF_TYPE_VIDEO_OUTPUT == buf.type){
+			path = &info->dcam_path[DCAM_PATH0];
+		} else {
+			printk("V4L2 error: v4l2_qbuf, type 0x%x \n", buf.type);
+			mutex_unlock(&dev->dcam_mutex);
+			return -EINVAL;
+		}
 
-	if (ret)
-		ret = 0;
-	else
-		ret = 1;
+		if (unlikely(buf.index > path->frm_id_base + path->frm_cnt_act - 1)) {
+			printk("V4L2: error, index %d, frm_id_base %d frm_cnt_act %d \n",
+				buf.index, path->frm_id_base, path->frm_cnt_act);
+			ret = -EINVAL;
+		} else if (buf.index < path->frm_id_base) {
+			printk("V4L2: error, index %d, frm_id_base %d \n",
+						buf.index, path->frm_id_base);
+			ret = -EINVAL;
+		} else {
+			index = buf.index - path->frm_id_base;
+			dcam_frame_unlock(path->frm_ptr[index]);
+			DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", buf.type, buf.index);
+		}
 
-	mutex_unlock(&dev->dcam_mutex);
+	break;
+
+	default:
+		printk("V4L2: flasg error! \n");
+		ret = -EINVAL;
+	break;
+	}
 
 	return ret;
 }
