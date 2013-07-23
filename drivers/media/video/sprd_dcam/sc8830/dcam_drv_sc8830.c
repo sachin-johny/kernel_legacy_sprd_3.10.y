@@ -1084,7 +1084,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		_dcam_wait_path_done(DCAM_PATH_IDX_0);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
 			_dcam_wait_for_stop();
-			_dcam_wait_for_stop();
+			//_dcam_wait_for_stop();
 		}
 		dcam_reset(DCAM_RST_PATH0);
 		_dcam_frm_clear(DCAM_PATH_IDX_0);
@@ -1097,7 +1097,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		_dcam_wait_path_done(DCAM_PATH_IDX_1);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
 			_dcam_wait_for_stop();
-			_dcam_wait_for_stop();
+			//_dcam_wait_for_stop();
 		}
 		dcam_reset(DCAM_RST_PATH1);
 		_dcam_frm_clear(DCAM_PATH_IDX_1);
@@ -1111,7 +1111,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		_dcam_wait_path_done(DCAM_PATH_IDX_2);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
 			_dcam_wait_for_stop();
-			_dcam_wait_for_stop();
+			//_dcam_wait_for_stop();
 		}
 		DCAM_TRACE("DCAM: stop path2 Out \n");
 		dcam_reset(DCAM_RST_PATH2);
@@ -3042,7 +3042,7 @@ LOCAL void    _dcam_cap_eof(void)
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
-	printk("DCAM: E \n");
+//	printk("DCAM: E \n");
 
 	if (user_func) {
 		(*user_func)(NULL, data);
@@ -3424,6 +3424,7 @@ LOCAL void    _dcam_wait_for_stop(void)
 	if (rtn) {
 		printk("DCAM: Failed to wait for stop \n");
 	}
+	udelay(1000);
 	return;
 }
 
