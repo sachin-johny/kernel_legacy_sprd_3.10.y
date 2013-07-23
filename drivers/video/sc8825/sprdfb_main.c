@@ -39,6 +39,8 @@ enum{
 #define FRAMEBUFFER_NR		(2)
 #endif
 
+#define SPRDFB_FRAMES_TO_SKIP 	(1)
+
 #define SPRDFB_DEFAULT_FPS (60)
 
 #define SPRDFB_ESD_TIME_OUT_CMD	(2000)
@@ -53,6 +55,7 @@ extern struct display_ctrl sprdfb_dispc_ctrl ;
 extern struct display_ctrl sprdfb_lcdc_ctrl;
 
 static unsigned PP[16];
+static int frame_count = 0;
 
 static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb);
@@ -176,6 +179,11 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	struct sprdfb_device *dev = fb->par;
 
 	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
+
+	if(frame_count < SPRDFB_FRAMES_TO_SKIP) {
+		frame_count++;
+		return 0;
+	}
 
 	if(0 == dev->enable){
 		printk(KERN_ERR "sprdfb:[%s]: Invalid Device status %d", __FUNCTION__, dev->enable);
