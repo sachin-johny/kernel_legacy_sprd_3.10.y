@@ -42,6 +42,8 @@
 #include "clock.h"
 #include "mach/__clock_tree.h"
 
+int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags);
+
 const u32 __clkinit0 __clkinit_begin = 0xeeeebbbb;
 const u32 __clkinit2 __clkinit_end = 0xddddeeee;
 
@@ -533,6 +535,12 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		clk_set_rate(c, clk_get_rate(c));
 #endif
 	}
+
+#if defined(CONFIG_ARCH_SCX35)
+	if (strcmp(c->regs->name, "clk_mm_i") == 0) {
+		c->enable = sci_mm_enable;
+	}
+#endif
 
 	if (c->enable == NULL && c->regs->enb.reg) {
 		c->enable = sci_clk_enable;

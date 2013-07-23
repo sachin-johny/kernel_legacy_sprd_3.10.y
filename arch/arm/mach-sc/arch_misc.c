@@ -20,11 +20,13 @@
 #include <linux/io.h>
 #include <linux/hwspinlock.h>
 #include <linux/mm.h>
+#include <linux/clk.h>
 #include <linux/debugfs.h>
 
 #include <asm/delay.h>
 #include <asm/memory.h>
 #include <asm/highmem.h>
+#include <asm/tlbflush.h>
 
 #include <mach/hardware.h>
 #include <mach/adi.h>
@@ -44,6 +46,64 @@ static u32 chip_id __read_mostly;
 u32 sci_get_chip_id(void)
 {
 	return chip_id;
+}
+
+static void __iomap_page(unsigned long virt, unsigned long size, int enable)
+{
+	unsigned long addr = virt, end = virt + (size & ~(SZ_4K - 1));
+	u32 *pgd;
+	u32 *pte;
+
+	pgd = (u32 *)init_mm.pgd + (addr >> 20);
+	pte = (u32 *)__va(*pgd & 0xfffffc00);
+	pte += (addr >> 12) & 0xff;
+
+	pr_info("%s (%d) pgd %p, pte %p, *pte %x\n",
+		__FUNCTION__, enable, pgd, pte, *pte);
+
+	if (enable)
+		*pte |= 0x3;
+	else
+		*pte &= ~0x3;
+
+	flush_tlb_kernel_range(virt, end);
+}
+
+#define sci_reg_set(reg, bit)	sci_write_va(reg, bit, 0)
+#define sci_reg_clr(reg, bit)	sci_write_va(reg, 0, bit)
+
+int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
+{
+	if (enable) {
+		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
+		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
+		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
+		__iomap_page(SPRD_VSP_BASE, SZ_4K, enable);
+
+		sci_reg_clr(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+		/* FIXME: wait a moment for mm domain stable
+		*/
+		udelay(100);
+		sci_reg_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
+
+		sci_reg_set(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+		sci_reg_set(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+		sci_reg_set(REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
+	} else {
+		sci_reg_clr(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+		sci_reg_clr(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+
+		sci_reg_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
+		/* FIXME: do not force mm domain power off before retention
+		*/
+		sci_reg_set(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+
+		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
+		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
+		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
+		__iomap_page(SPRD_VSP_BASE, SZ_4K, enable);
+	}
+	return 0;
 }
 
 void __init sc_init_chip_id(void)
