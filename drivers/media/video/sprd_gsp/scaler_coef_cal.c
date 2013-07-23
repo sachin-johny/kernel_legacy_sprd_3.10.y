@@ -514,6 +514,134 @@ static void GSP_Rearrang_Coeff(void* src, void*dst, int32_t tap)
     }
 }
 
+#define CACHE_COEF
+#ifdef CACHE_COEF
+//we use "Least Recently Used(LRU)" to implement the coef-matrix cache policy
+
+#include <linux/kernel.h>
+#include <linux/slab.h>
+#include <linux/types.h>
+
+
+#define COEF_MATRIX_ENTRY_SIZE	(GSP_COEFF_COEF_SIZE/2)
+#define CACHED_COEF_CNT_MAX	32
+
+typedef struct _coef_entry
+{
+    struct _coef_entry* prev;
+    struct _coef_entry* next;
+    uint16_t in_w;
+    uint16_t in_h;
+    uint16_t out_w;
+    uint16_t out_h;
+    uint32_t coef[COEF_MATRIX_ENTRY_SIZE];
+} Coef_Entry;
+
+
+Coef_Entry *Coef_Entry_List_Head = NULL;
+#define LIST_ADD_TO_LIST_HEAD(pEntry)\
+{\
+	Coef_Entry_List_Head->prev->next = (pEntry);\
+	(pEntry)->prev = Coef_Entry_List_Head->prev;\
+	(pEntry)->next = Coef_Entry_List_Head;\
+	Coef_Entry_List_Head->prev = (pEntry);\
+	Coef_Entry_List_Head = (pEntry);\
+}
+
+#define LIST_FETCH_FROM_LIST(pEntry)\
+{\
+	pEntry->prev->next = pEntry->next;\
+	pEntry->next->prev = pEntry->prev;\
+}
+
+#define LIST_SET_ENTRY_KEY(pEntry,i_w,i_h,o_w,o_h)\
+{\
+	pEntry->in_w = i_w;\
+	pEntry->in_h = i_h;\
+	pEntry->out_w = o_w;\
+	pEntry->out_h = o_h;\
+}
+
+#define LIST_GET_THE_TAIL_ENTRY()	(Coef_Entry_List_Head->prev)
+
+
+static uint32_t s_cache_coef_init_flag = 0;
+static int32_t cache_coef_init(void)
+{
+    Coef_Entry *Coef_Entry_Array = NULL;
+    uint32_t i = 0;
+    pr_debug("GSP_CACHE_COEF:init\n");
+
+    if(s_cache_coef_init_flag == 0)
+    {
+        Coef_Entry_Array = (Coef_Entry *)kmalloc(sizeof(Coef_Entry)*CACHED_COEF_CNT_MAX, GFP_KERNEL);
+
+        if(Coef_Entry_Array)
+        {
+            memset((void*)Coef_Entry_Array,0,sizeof(Coef_Entry)*CACHED_COEF_CNT_MAX);
+
+            Coef_Entry_List_Head = &Coef_Entry_Array[0];
+            Coef_Entry_Array[0].prev = &Coef_Entry_Array[0];
+            Coef_Entry_Array[0].next = &Coef_Entry_Array[0];
+            i++;
+
+            while(i < CACHED_COEF_CNT_MAX)
+            {
+                LIST_ADD_TO_LIST_HEAD(&Coef_Entry_Array[i]);
+                i++;
+            }
+            s_cache_coef_init_flag = 1;
+        }
+        else
+        {
+            return -1;
+        }
+    }
+    return 0;
+}
+
+/*
+func:cache_coef_hit_check
+desc:find the entry have the same in_w in_h out_w out_h
+return:if hit,return the entry pointer; else return null;
+*/
+static Coef_Entry* cache_coef_hit_check(uint16_t in_w, uint16_t in_h, uint16_t out_w,uint16_t out_h)
+{
+    static uint32_t total_cnt = 0;
+    static uint32_t hit_cnt = 0;
+
+    Coef_Entry* walk = Coef_Entry_List_Head;
+
+    total_cnt++;
+    while(walk->in_w != 0)
+    {
+        if(walk->in_w == in_w
+                && walk->in_h == in_h
+                && walk->out_w == out_w
+                && walk->out_h == out_h)
+        {
+            hit_cnt++;
+            pr_debug("GSP_CACHE_COEF:hit, hit_ratio:%d percent\n",hit_cnt*100/total_cnt);
+            return walk;
+        }
+        if(walk->next == Coef_Entry_List_Head)
+        {
+            break;
+        }
+        walk = walk->next;
+    }
+    pr_debug("GSP_CACHE_COEF:miss\n");
+    return NULL;
+}
+
+static Coef_Entry* cache_coef_move_entry_to_list_head(Coef_Entry* pEntry)
+{
+    LIST_FETCH_FROM_LIST(pEntry);
+    LIST_ADD_TO_LIST_HEAD(pEntry);
+    return Coef_Entry_List_Head;
+}
+
+#endif
 
 /**---------------------------------------------------------------------------*
  **                         Public Functions                                  *
@@ -577,6 +705,26 @@ uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
     //uint8_t ver_tap = 8;
     GSC_MEM_POOL pool = { 0 };
     uint32_t i = 0;
+
+#ifdef CACHE_COEF
+    Coef_Entry* pEntry = NULL;
+
+    if(s_cache_coef_init_flag == 0)
+    {
+        cache_coef_init();
+    }
+
+    if(s_cache_coef_init_flag == 1)
+    {
+        pEntry = cache_coef_hit_check(i_w,i_h,o_w,o_h);
+        if(pEntry)   //hit
+        {
+            memcpy((void*)coeff_h_ptr, (void*)pEntry->coef, COEF_MATRIX_ENTRY_SIZE*4);
+            cache_coef_move_entry_to_list_head(pEntry);
+            return TRUE;
+        }
+    }
+#endif
 
     /* init pool and allocate static array */
     if (!_InitPool(temp_buf_ptr, temp_buf_size, &pool))
@@ -677,6 +825,23 @@ uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
         }
     }
 
+#ifdef CACHE_COEF
+    if(s_cache_coef_init_flag == 1)
+    {
+        pEntry = LIST_GET_THE_TAIL_ENTRY();
+        if(pEntry->in_w == 0)
+        {
+            pr_debug("GSP_CACHE_COEF:add\n");
+        }
+        else
+        {
+            pr_debug("GSP_CACHE_COEF:swap\n");
+        }
+        memcpy((void*)pEntry->coef,(void*)coeff_h_ptr,COEF_MATRIX_ENTRY_SIZE*4);
+        cache_coef_move_entry_to_list_head(pEntry);
+        LIST_SET_ENTRY_KEY(pEntry,i_w,i_h,o_w,o_h);
+    }
+#endif
 
     return TRUE;
 }
