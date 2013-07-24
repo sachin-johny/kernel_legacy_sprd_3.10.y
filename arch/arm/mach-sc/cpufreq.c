@@ -34,7 +34,7 @@
 #include <mach/adi.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
-
+#include <mach/arch_misc.h>
 
 
 #if defined(CONFIG_ARCH_SC8825)
@@ -132,8 +132,8 @@ struct cpufreq_conf {
 	int 							cooling_state;
 	unsigned int					limited_max_freq;
 	unsigned int					orignal_freq;
-	struct cpufreq_frequency_table	freq_tbl[FREQ_TABLE_SIZE];
-	unsigned int					vddarm_mv[FREQ_TABLE_SIZE];
+	struct cpufreq_frequency_table			*freq_tbl;
+	unsigned int					*vddarm_mv;
 };
 
 struct cpufreq_status {
@@ -141,10 +141,12 @@ struct cpufreq_status {
 	int		is_suspend;
 };
 
+struct cpufreq_table_data {
+	struct cpufreq_frequency_table 		freq_tbl[FREQ_TABLE_SIZE];
+	unsigned int				vddarm_mv[FREQ_TABLE_SIZE];
+};
 
-struct cpufreq_conf sc8825_cpufreq_conf = {
-	.clk = NULL,
-	.regulator = NULL,
+static struct cpufreq_table_data sc8825_cpufreq_table_data = {
 	.freq_tbl =	{
 		{0, 1000000},
 		{1, 500000},
@@ -155,41 +157,41 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 	},
 };
 
+struct cpufreq_conf sc8825_cpufreq_conf = {
+	.clk = NULL,
+	.regulator = NULL,
+	.freq_tbl = sc8825_cpufreq_table_data.freq_tbl,
+	.vddarm_mv = sc8825_cpufreq_table_data.vddarm_mv,
+};
+
 /* khz */
-#define SHARK_TOP_FREQUENCY	(1000000)
+static unsigned int shark_top_frequency;
 #define SHARK_TDPLL_FREQUENCY	(768000)
-#define SHARK_LIMITED_MAX_FREQUENCY	(768000)
-#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
-struct cpufreq_conf sc8830_cpufreq_conf = {
-	.clk = NULL,
-	.mpllclk = NULL,
-	.tdpllclk = NULL,
-	.regulator = NULL,
-	.cdev = NULL,
+static unsigned int shark_limited_max_frequency;
+#define SHARK_FAKE_FREQUENCY	(1)
+
+static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
 	.freq_tbl = {
-		{0, SHARK_TOP_FREQUENCY},
+		/* {0, 1200000}, */
+		{0, 1000000},
 		{1, SHARK_TDPLL_FREQUENCY},
-		{2, 50000},	//fake freq means we need to unplug one cpu
-		{3, CPUFREQ_TABLE_END}
+		{2, 600000},
+		{3, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
-		1250000,
-		1200000,
-		1000000,
+		/* 1250000, */
+		1150000,
+		1100000,
+		1050000,
 		1000000,
 	},
 };
-#else
-struct cpufreq_conf sc8830_cpufreq_conf = {
-	.clk = NULL,
-	.mpllclk = NULL,
-	.tdpllclk = NULL,
-	.regulator = NULL,
-	.cdev = NULL,
+
+static struct cpufreq_table_data sc8830_cpufreq_table_data_es = {
 	.freq_tbl = {
-		{0, SHARK_TOP_FREQUENCY},
+		{0, 1000000},
 		{1, SHARK_TDPLL_FREQUENCY},
-		{2, CPUFREQ_TABLE_END}
+		{2, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
 		1250000,
@@ -197,17 +199,27 @@ struct cpufreq_conf sc8830_cpufreq_conf = {
 		1000000,
 	},
 };
-#endif
+
+struct cpufreq_conf sc8830_cpufreq_conf = {
+	.clk = NULL,
+	.mpllclk = NULL,
+	.tdpllclk = NULL,
+	.regulator = NULL,
+	.cdev = NULL,
+	.freq_tbl = NULL,
+	.vddarm_mv = NULL,
+};
+
 /* ns */
 #define TRANSITION_LATENCY	(500 * 1000)
 
 struct cpufreq_conf *sprd_cpufreq_conf = NULL;
-struct cpufreq_status sprd_cpufreq_status = {0};
+struct cpufreq_status sprd_cpufreq_status = {{0}, 0};
 struct cpufreq_freqs global_freqs;
 static DEFINE_MUTEX(freq_lock);
 
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
-static unsigned int bottom_freq = SHARK_TDPLL_FREQUENCY;
+static unsigned int bottom_freq;
 struct unplug_work_info {
 	unsigned int cpuid;
 	int need_unplug;
@@ -289,6 +301,11 @@ static int sprd_auto_hotplug_init(void)
 	int rc;
 	unsigned int i;
 	struct unplug_work_info *puwi;
+	struct cpufreq_frequency_table *pfreq = sprd_cpufreq_conf->freq_tbl;
+
+	for (i = 0; (pfreq[i].frequency != SHARK_FAKE_FREQUENCY); i++);
+	bottom_freq = pfreq[--i].frequency;
+	pr_debug("%s bottom_freq=%u\n", __func__, bottom_freq);
 
 	rc = sysfs_create_group(cpufreq_global_kobject, &dynamic_hp_attr_group);
 	if (rc)
@@ -312,7 +329,7 @@ static void sprd_auto_hotplug_exit(void)
 }
 #endif
 
-static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
+static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 {
 #if defined(CONFIG_ARCH_SCX35)
 	int ret;
@@ -328,7 +345,7 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 	} while (0)
 #define CPUFREQ_SET_CLOCK() \
 	do { \
-		if (freq.new == SHARK_TDPLL_FREQUENCY) { \
+		if (freq->new == SHARK_TDPLL_FREQUENCY) { \
 			ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk); \
 			if (ret) \
 				pr_err("cpufreq: Failed to set cpu parent to tdpll\n"); \
@@ -338,7 +355,7 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 				if (ret) \
 					pr_err("cpufreq: Failed to set cpu parent to tdpll\n"); \
 			} \
-			ret = clk_set_rate(sprd_cpufreq_conf->mpllclk, (freq.new * 1000)); \
+			ret = clk_set_rate(sprd_cpufreq_conf->mpllclk, (freq->new * 1000)); \
 			if (ret) \
 				pr_err("cpufreq: Failed to set mpll rate\n"); \
 			ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk); \
@@ -346,9 +363,9 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 				pr_err("cpufreq: Failed to set cpu parent to mpll\n"); \
 		} \
 	} while (0)
-	trace_cpu_frequency(freq.new, freq.cpu);
+	trace_cpu_frequency(freq->new, cpu);
 
-	if (freq.new > freq.old) {
+	if (freq->new > freq->old) {
 		CPUFREQ_SET_VOLTAGE();
 		CPUFREQ_SET_CLOCK();
 	} else {
@@ -360,7 +377,7 @@ static void sprd_raw_set_cpufreq(struct cpufreq_freqs freq, int index)
 #undef CPUFREQ_SET_CLOCK
 
 #elif defined(CONFIG_ARCH_SC8825)
-	set_mcu_clk_freq(freq.new * 1000);
+	set_mcu_clk_freq(freq->new * 1000);
 #endif
 	return;
 }
@@ -374,23 +391,22 @@ static unsigned int sprd_raw_get_cpufreq(void)
 #endif
 }
 
-static void sprd_real_set_cpufreq(unsigned int new_speed, int index)
+static void sprd_real_set_cpufreq(int cpu, unsigned int new_speed, int index)
 {
-
-	pr_debug("$$$ sprd_real_set_cpufreq %u khz on cpu%d\n",
-		new_speed, smp_processor_id());
 	mutex_lock(&freq_lock);
 
 	if (global_freqs.old == new_speed) {
 		mutex_unlock(&freq_lock);
 		return;
 	}
+	pr_debug("$$$ sprd_real_set_cpufreq %u khz on cpu%d\n",
+		new_speed, smp_processor_id());
 	global_freqs.new = new_speed;
 
 	for_each_online_cpu(global_freqs.cpu)
 		cpufreq_notify_transition(&global_freqs, CPUFREQ_PRECHANGE);
 
-	sprd_raw_set_cpufreq(global_freqs, index);
+	sprd_raw_set_cpufreq(cpu, &global_freqs, index);
 
 	for_each_online_cpu(global_freqs.cpu)
 		cpufreq_notify_transition(&global_freqs, CPUFREQ_POSTCHANGE);
@@ -407,7 +423,7 @@ static int sprd_update_cpu_speed(int cpu,
 	int i;
 	unsigned int new_speed = 0;
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
-	unsigned int min_speed = SHARK_TOP_FREQUENCY, cpuid;
+	unsigned int min_speed = shark_top_frequency, cpuid;
 #endif
 
 	/*
@@ -425,7 +441,7 @@ static int sprd_update_cpu_speed(int cpu,
 		min_speed = min(min_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
 
-	if ((new_speed == min_speed) && (min_speed == SHARK_TOP_FREQUENCY)) {
+	if ((new_speed == min_speed) && (min_speed == shark_top_frequency)) {
 		if (num_online_cpus() < nr_cpu_ids) {
 			cpuid = cpumask_next_zero(0, cpu_online_mask);
 			if (enabled_dhp) {
@@ -442,7 +458,7 @@ static int sprd_update_cpu_speed(int cpu,
 	if (new_speed > sprd_cpufreq_conf->limited_max_freq)
 		new_speed = sprd_cpufreq_conf->limited_max_freq;
 
-	sprd_real_set_cpufreq(new_speed, index);
+	sprd_real_set_cpufreq(cpu, new_speed, index);
 	return 0;
 }
 
@@ -557,6 +573,40 @@ static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
 	return sprd_raw_get_cpufreq();
 }
 
+static int sprd_freq_table_init(void)
+{
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+	struct cpufreq_frequency_table *pfreq;
+	unsigned int *pvdd;
+	unsigned int i;
+#endif
+
+	/* we init freq table here depends on which chip being used */
+	if (soc_is_scx35_v0()) {
+		pr_info("%s es_chip", __func__);
+		sprd_cpufreq_conf->freq_tbl = sc8830_cpufreq_table_data_es.freq_tbl;
+		sprd_cpufreq_conf->vddarm_mv = sc8830_cpufreq_table_data_es.vddarm_mv;
+	} else if (soc_is_scx35_v1()) {
+		pr_info("%s cs_chip", __func__);
+		sprd_cpufreq_conf->freq_tbl = sc8830_cpufreq_table_data_cs.freq_tbl;
+		sprd_cpufreq_conf->vddarm_mv = sc8830_cpufreq_table_data_cs.vddarm_mv;
+	} else {
+		pr_err("%s error chip id\n", __func__);
+		return -EINVAL;
+	}
+#if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
+	/* we'll add a fake freq which means cpu can be unplugged */
+	pfreq = sprd_cpufreq_conf->freq_tbl;
+	pvdd = sprd_cpufreq_conf->vddarm_mv;
+
+	for (i = 0; (pfreq[i].frequency != CPUFREQ_TABLE_END); i++);
+	pfreq[i++].frequency = SHARK_FAKE_FREQUENCY;
+	pfreq[i].frequency = CPUFREQ_TABLE_END;
+	pfreq[i].index = i;
+#endif
+	return 0;
+}
+
 static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 {
 	int ret;
@@ -655,7 +705,7 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 		enabled_dhp = 0;
 #endif
-		sprd_cpufreq_conf->limited_max_freq = SHARK_LIMITED_MAX_FREQUENCY;
+		sprd_cpufreq_conf->limited_max_freq = shark_limited_max_frequency;
 #if defined(CONFIG_SMP)
 		/* unplug all online cpu except cpu0 mandatory */
 		for_each_online_cpu(cpu) {
@@ -676,7 +726,7 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 				cpu_up(cpu);
 		}
 #endif
-		sprd_cpufreq_conf->limited_max_freq = SHARK_TOP_FREQUENCY;
+		sprd_cpufreq_conf->limited_max_freq = shark_top_frequency;
 	}
 
 	return ret;
@@ -698,6 +748,13 @@ static int __init sprd_cpufreq_modinit(void)
 #endif
 
 #if defined(CONFIG_ARCH_SCX35)
+	ret = sprd_freq_table_init();
+	if (ret)
+		return ret;
+	shark_top_frequency = sprd_cpufreq_conf->freq_tbl[0].frequency;
+	/* TODO:need verify for the initialization of limited max freq */
+	shark_limited_max_frequency = sprd_cpufreq_conf->freq_tbl[0].frequency;
+
 	sprd_cpufreq_conf->clk = clk_get_sys(NULL, "clk_mcu");
 	if (IS_ERR(sprd_cpufreq_conf->clk))
 		return PTR_ERR(sprd_cpufreq_conf->clk);
@@ -724,11 +781,11 @@ static int __init sprd_cpufreq_modinit(void)
 		sprd_cpufreq_conf->vddarm_mv[0],
 		sprd_cpufreq_conf->vddarm_mv[0]);
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
-	clk_set_rate(sprd_cpufreq_conf->mpllclk, (SHARK_TOP_FREQUENCY * 1000));
+	clk_set_rate(sprd_cpufreq_conf->mpllclk, (shark_top_frequency * 1000));
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
 
 	sprd_cpufreq_conf->orignal_freq = sprd_raw_get_cpufreq();
-	sprd_cpufreq_conf->limited_max_freq = SHARK_TOP_FREQUENCY;
+	sprd_cpufreq_conf->limited_max_freq = shark_top_frequency;
 	sprd_cpufreq_conf->cooling_state = 0;
 	global_freqs.old = sprd_cpufreq_conf->orignal_freq;
 	sprd_cpufreq_status.is_suspend = false;
