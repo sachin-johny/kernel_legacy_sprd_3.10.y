@@ -285,7 +285,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			REG_WR(SCALE_SRC_SIZE, reg_val);
 			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT, 0);
 			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, 0);
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_HEIGHT_MASK, size->w);
+			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, size->w);
 			REG_WR(SCALE_REV_BURST_IN_TRIM_START, 0);
 			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
 			g_path->input_size.w = size->w;
@@ -564,7 +564,7 @@ static int32_t _scale_calc_sc_size(void)
 	uint32_t reg_val = 0;
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
 	uint32_t div_factor = 1;
-	uint32_t i;
+	uint32_t i = 0, pixel_aligned_num = 0;
 
 	if (g_path->input_rect.w > (g_path->output_size.w * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
 		g_path->input_rect.h > (g_path->output_size.h * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
@@ -585,28 +585,29 @@ static int32_t _scale_calc_sc_size(void)
 				}
 			}
 			g_path->sc_deci_val = (1 << (1 + i));
-			REG_OWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT));
-			REG_MWR(SCALE_CFG, SCALE_DEC_X_MASK, (i << 0));
-			REG_MWR(SCALE_CFG, SCALE_DEC_Y_MASK, (i << 3));
+			pixel_aligned_num = (g_path->sc_deci_val >= SCALE_PIXEL_ALIGNED) ? g_path->sc_deci_val : SCALE_PIXEL_ALIGNED;
 			g_path->sc_input_size.w = g_path->input_rect.w >> (1 + i);
 			g_path->sc_input_size.h = g_path->input_rect.h >> (1 + i);
-			if ((g_path->sc_input_size.w & (SCALE_PIXEL_ALIGNED - 1)) ||
-				(g_path->sc_input_size.h & (SCALE_PIXEL_ALIGNED - 1))) {
-				SCALE_TRACE("SCALE DRV: Unsupported sc aligned w ,h %d %d \n",
-					g_path->sc_input_size.w,
-					g_path->sc_input_size.h);
-				g_path->sc_input_size.w = g_path->sc_input_size.w & ~(SCALE_PIXEL_ALIGNED - 1);
-				g_path->sc_input_size.h = g_path->sc_input_size.h & ~(SCALE_PIXEL_ALIGNED - 1);
+			if ((g_path->sc_input_size.w % pixel_aligned_num) ||
+				(g_path->sc_input_size.h % pixel_aligned_num)) {
+				g_path->sc_input_size.w = g_path->sc_input_size.w / pixel_aligned_num * pixel_aligned_num;
+				g_path->sc_input_size.h = g_path->sc_input_size.h / pixel_aligned_num * pixel_aligned_num;
 				g_path->input_rect.w = g_path->sc_input_size.w << (1 + i);
 				g_path->input_rect.h = g_path->sc_input_size.h << (1 + i);
-				SCALE_TRACE("SCALE DRV: after rearranged w ,h %d %d, sc w h %d %d \n",
-					g_path->input_rect.w,
-					g_path->input_rect.h,
-					g_path->sc_input_size.w,
-					g_path->sc_input_size.h);
-				reg_val = g_path->input_rect.w | (g_path->input_rect.h << 16);
-				REG_WR(SCALE_TRIM_SIZE, reg_val);
 			}
+
+			REG_WR(SCALE_TRIM_START, 0);
+			reg_val = g_path->sc_input_size.w | (g_path->sc_input_size.h << 16);
+			REG_WR(SCALE_TRIM_SIZE, reg_val);
+			REG_WR(SCALE_SRC_SIZE, reg_val);
+
+			REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT);
+			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, (i << 13));
+			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, g_path->input_size.w);
+			reg_val = g_path->input_rect.x | (g_path->input_rect.y << 16);
+			REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
+			reg_val = g_path->input_rect.w | (g_path->input_rect.h << 16);
+			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
 		}
 
 	}
