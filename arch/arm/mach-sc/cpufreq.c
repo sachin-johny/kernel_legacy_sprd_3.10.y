@@ -220,13 +220,15 @@ static DEFINE_MUTEX(freq_lock);
 
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 static unsigned int bottom_freq;
+struct delayed_work plugin_work;
 struct unplug_work_info {
 	unsigned int cpuid;
 	int need_unplug;
 	struct delayed_work unplug_work;
 };
 /* milliseconds */
-static int unplug_delay = 1000;
+static int unplug_delay = 500;
+static int plugin_delay = 750;
 //we enable dynamic cpu hotplug by default
 static int enabled_dhp = 1;
 
@@ -236,12 +238,33 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 	struct unplug_work_info *puwi = container_of(work,
 		struct unplug_work_info, unplug_work.work);
 	if (puwi->need_unplug) {
-		pr_debug("### we gonna unplug cpu%d\n", puwi->cpuid);
+		pr_info("---###--- we gonna unplug cpu%d\n", puwi->cpuid);
 		if (enabled_dhp)
 			cpu_down(puwi->cpuid);
-	} else {
-		pr_debug("### ok do nonthing for cpu%d ###\n", puwi->cpuid);
+	} else
+		pr_info("---###--- ok do nonthing for cpu%d ###\n", puwi->cpuid);
+
+	return;
+}
+
+static void sprd_plugin_one_cpu(struct work_struct *work)
+{
+	int cpuid, i;
+	unsigned int min_speed = shark_top_frequency;
+
+	for_each_online_cpu(i) {
+		min_speed = min(min_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
+
+	if ((min_speed == shark_top_frequency) && (num_online_cpus() < nr_cpu_ids)) {
+		cpuid = cpumask_next_zero(0, cpu_online_mask);
+		if (enabled_dhp) {
+			pr_info("----@@@---- we gonna plug cpu%d\n", cpuid);
+			cpu_up(cpuid);
+		}
+	} else
+		pr_info("----@@@---- ok do nonthing\n");
+
 	return;
 }
 
@@ -283,12 +306,32 @@ static ssize_t store_unplug_delay_time(struct kobject *kobj, struct attribute *a
 	return n;
 }
 
+static ssize_t show_plugin_delay_time
+(struct kobject *kobj, struct attribute *attr, char *buf)
+{
+	return sprintf(buf, "%d\n", plugin_delay);
+}
+
+static ssize_t store_plugin_delay_time(struct kobject *kobj, struct attribute *attr,
+			      const char *buf, size_t n)
+{
+	unsigned long val;
+
+	if (strict_strtoul(buf, 10, &val))
+		return -EINVAL;
+
+	plugin_delay = val;
+	return n;
+}
+
 define_one_global_rw(enabled);
 define_one_global_rw(unplug_delay_time);
+define_one_global_rw(plugin_delay_time);
 
 static struct attribute *dynamic_hp_attributes[] = {
 	&enabled.attr,
 	&unplug_delay_time.attr,
+	&plugin_delay_time.attr,
 	NULL
 };
 
@@ -311,6 +354,7 @@ static int sprd_auto_hotplug_init(void)
 	if (rc)
 		goto sysfs_err;
 
+	INIT_DELAYED_WORK(&plugin_work, sprd_plugin_one_cpu);
 	for_each_possible_cpu(i) {
 		puwi = &per_cpu(uwi, i);
 		puwi->cpuid = i;
@@ -423,7 +467,7 @@ static int sprd_update_cpu_speed(int cpu,
 	int i;
 	unsigned int new_speed = 0;
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
-	unsigned int min_speed = shark_top_frequency, cpuid;
+	unsigned int min_speed = shark_top_frequency;
 #endif
 
 	/*
@@ -441,15 +485,8 @@ static int sprd_update_cpu_speed(int cpu,
 		min_speed = min(min_speed, sprd_cpufreq_status.percpu_target[i]);
 	}
 
-	if ((new_speed == min_speed) && (min_speed == shark_top_frequency)) {
-		if (num_online_cpus() < nr_cpu_ids) {
-			cpuid = cpumask_next_zero(0, cpu_online_mask);
-			if (enabled_dhp) {
-				pr_debug("# we gonna plug cpu%d\n", cpuid);
-				cpu_up(cpuid);
-			}
-		}
-	}
+	if ((new_speed == min_speed) && (min_speed == shark_top_frequency))
+		schedule_delayed_work_on(0, &plugin_work, msecs_to_jiffies(plugin_delay));
 
 	if (new_speed < bottom_freq)
 		new_speed = bottom_freq;
