@@ -33,7 +33,7 @@
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
 #include <video/isp_drv_kernel.h>
-
+#include <linux/clk.h>
 #include <asm/cacheflush.h>
 
 #include <mach/hardware.h>
@@ -101,7 +101,7 @@ struct isp_device_t
 };
 
 static atomic_t s_isp_users = ATOMIC_INIT(0);
-
+static struct clk* s_isp_clk_mm_i = NULL;
 struct mutex s_isp_lock;	/*for the isp driver, protect the isp module; protect only one user open this module*/
 static struct proc_dir_entry*  isp_proc_file;
 
@@ -167,6 +167,32 @@ static struct platform_driver isp_driver = {
 	},
 };
 
+int32_t _isp_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
+{
+	int                     ret = 0;
+	if (NULL == s_isp_clk_mm_i) {
+		s_isp_clk_mm_i = clk_get(NULL, "clk_mm_i");
+		if (IS_ERR(s_isp_clk_mm_i)) {
+			printk("isp_is_clk_mm_i_eb: get fail. \n");
+			return -1;
+		}
+	}
+
+	if (is_clk_mm_i_eb) {
+		ret = clk_enable(s_isp_clk_mm_i);
+		if (ret) {
+			printk("isp_is_clk_mm_i_eb: enable fail.\n");
+			return -1;
+		}
+	} else {
+		clk_disable(s_isp_clk_mm_i);
+		clk_put(s_isp_clk_mm_i);
+		s_isp_clk_mm_i = NULL;
+	}
+
+	return 0;
+}
+
 static int32_t _isp_module_eb(void)
 {
 	int32_t ret = 0;
@@ -175,6 +201,7 @@ static int32_t _isp_module_eb(void)
 	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", (uint32_t)ISP_CORE_CLK_EB, (uint32_t)ISP_MODULE_EB);
 
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
+		ret = _isp_is_clk_mm_i_eb(1);
 		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
 	}
@@ -191,6 +218,7 @@ static int32_t _isp_module_dis(void)
 	if (0x00 == atomic_dec_return(&s_isp_users)) {
 		ISP_AWR(ISP_MODULE_EB, ~ISP_EB_BIT);
 		ISP_AWR(ISP_CORE_CLK_EB, ~ISP_CORE_CLK_EB_BIT);
+		ret = _isp_is_clk_mm_i_eb(0);
 	}
 	return ret;
 }

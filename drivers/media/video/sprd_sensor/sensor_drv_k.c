@@ -132,8 +132,8 @@
 #define BIT_31                                         0x80000000
 
 
-//#define LOCAL                           static
-#define LOCAL
+#define LOCAL                           static
+//#define LOCAL
 
 #define PNULL                             ((void *)0)
 
@@ -167,11 +167,10 @@ typedef struct sensor_mem_tag {
 	size_t  size;
 } SENSOR_MEM_T;
 
+LOCAL struct clk *s_sensor_clk_mm_i = NULL;
 LOCAL struct mutex sensor_lock;
 LOCAL wait_queue_head_t wait_queue_sensor;
 struct semaphore g_sem_sensor;
-LOCAL DEFINE_SPINLOCK(sensor_spin_lock);
-
 LOCAL uint32_t g_sensor_id = SENSOR_ID_MAX;
 
 LOCAL uint32_t s_sensor_mclk = 0;
@@ -228,6 +227,32 @@ LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
 	{48, "clk_48m"},
 	{26, "ext_26m"}
 };
+
+int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
+{
+	int                     ret = 0;
+	if (NULL == s_sensor_clk_mm_i) {
+		s_sensor_clk_mm_i = clk_get(NULL, "clk_mm_i");
+		if (IS_ERR(s_sensor_clk_mm_i)) {
+			printk("sensor_is_clk_mm_i_eb: get fail.\n");
+			return -1;
+		}
+	}
+
+	if (is_clk_mm_i_eb) {
+		ret = clk_enable(s_sensor_clk_mm_i);
+		if (ret) {
+			printk("sensor_is_clk_mm_i_eb: enable fail.\n");
+			return -1;
+		}
+	} else {
+		clk_disable(s_sensor_clk_mm_i);
+		clk_put(s_sensor_clk_mm_i);
+		s_sensor_clk_mm_i = NULL;
+	}
+
+	return 0;
+}
 
 LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
 {
@@ -1234,6 +1259,7 @@ sensor_k_writei2c_return:
 
 int sensor_k_open(struct inode *node, struct file *file)
 {
+	int	ret = 0;
 #if 0//def CONFIG_ARCH_SCX35
 	uint32_t bit_value;
 	bit_value = BIT_1;
@@ -1244,12 +1270,15 @@ int sensor_k_open(struct inode *node, struct file *file)
 
 	REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
 #endif
-	return 0;
+	ret = _sensor_is_clk_mm_i_eb(1);
+	return ret;
 }
 
 int sensor_k_release(struct inode *node, struct file *file)
 {
-	return 0;
+	int	ret = 0;
+	ret = _sensor_is_clk_mm_i_eb(0);
+	return ret;
 }
 
 LOCAL ssize_t sensor_k_read(struct file *filp, char __user *ubuf, size_t cnt, loff_t *gpos)

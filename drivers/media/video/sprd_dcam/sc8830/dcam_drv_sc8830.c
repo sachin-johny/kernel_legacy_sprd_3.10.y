@@ -28,8 +28,8 @@
 #include "gen_scale_coef.h"
 
 
-//#define LOCAL    static
-#define LOCAL
+#define LOCAL    static
+/*#define LOCAL*/
 
 //#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
@@ -208,6 +208,7 @@ struct dcam_module {
 LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
 LOCAL struct clk*              s_dcam_clk = NULL;
+LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
 LOCAL struct dcam_module*      s_p_dcam_mod;
 LOCAL uint32_t                 s_dcam_irq = 0x5A0000A5;
 LOCAL dcam_isr_func            s_user_func[DCAM_IRQ_NUMBER];
@@ -271,6 +272,8 @@ LOCAL void        _dcam_path_done_notice(enum dcam_path_index path_index);
 LOCAL void        _dcam_sof_notice(void);
 LOCAL void        _dcam_rot_done(void);
 LOCAL void        _dcam_err_pre_proc(void);
+LOCAL int32_t    _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb);
+
 
 LOCAL const dcam_isr isr_list[DCAM_IRQ_NUMBER] = {
 	_dcam_isp_root,
@@ -542,7 +545,14 @@ int32_t dcam_module_en(void)
 	printk("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
 
 	if (atomic_inc_return(&s_dcam_users) == 1) {
+		ret = _dcam_is_clk_mm_i_eb(1);
+		if (ret) {
+			return -DCAM_RTN_MAX;
+		}
 		ret = dcam_set_clk(DCAM_CLK_256M);
+		if (ret) {
+			return -DCAM_RTN_MAX;
+		}
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
 		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
 		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
@@ -599,7 +609,7 @@ int32_t dcam_module_en(void)
 int32_t dcam_module_dis(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-
+	int	ret = 0;
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
@@ -607,7 +617,10 @@ int32_t dcam_module_dis(void)
 		dcam_set_clk(DCAM_CLK_NONE);
 		printk("DCAM: un register isr \n");
 		free_irq(DCAM_IRQ, (void*)&s_dcam_irq);
-
+		ret = _dcam_is_clk_mm_i_eb(0);
+		if (ret) {
+			rtn =  -DCAM_RTN_MAX;
+		}
 		//dcam_print_clock();
 #if 0
 		{
@@ -636,7 +649,7 @@ int32_t dcam_module_dis(void)
 
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
-	return -rtn;
+	return rtn;
 }
 
 int32_t dcam_reset(enum dcam_rst_mode reset_mode)
@@ -706,6 +719,31 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	DCAM_TRACE("DCAM: reset: path=%x  end \n", reset_mode);
 
 	return -rtn;
+}
+
+int32_t _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
+{
+	int                     ret = 0;
+	if (NULL == s_dcam_clk_mm_i) {
+		s_dcam_clk_mm_i = clk_get(NULL, "clk_mm_i");
+		if (IS_ERR(s_dcam_clk_mm_i)) {
+			printk("dcam_is_clk_mm_i_eb: get fail.\n");
+			return -1;
+		}
+	}
+	if (is_clk_mm_i_eb) {
+		ret = clk_enable(s_dcam_clk_mm_i);
+		if (ret) {
+			printk("dcam_is_clk_mm_i_eb: enable fail.\n");
+			return -1;
+		}
+	} else {
+		clk_disable(s_dcam_clk_mm_i);
+		clk_put(s_dcam_clk_mm_i);
+		s_dcam_clk_mm_i = NULL;
+	}
+
+	return 0;
 }
 
 int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
