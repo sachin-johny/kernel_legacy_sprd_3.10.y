@@ -10,7 +10,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
+#include <linux/module.h>
 #include <linux/sched.h>
 #include <linux/cpuidle.h>
 #include <linux/cpu_pm.h>
@@ -18,19 +18,26 @@
 #include <linux/clockchips.h>
 #include <linux/suspend.h>
 #include <asm/proc-fns.h>
+#include <mach/sci.h>
+#include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
 
 
 /*#define SC_IDLE_DEBUG 1*/
-
+extern u32 emc_clk_get(void);
 #ifdef SC_IDLE_DEBUG
 unsigned int idle_debug_state[NR_CPUS];
 #endif
 
 #define SC_CPUIDLE_STATE_NUM		ARRAY_SIZE(cpuidle_params_table)
 #define WAIT_WFI_TIMEOUT		(20)
-
+#define LIGHT_SLEEP_ENABLE		(BIT_DMA_ACT_LIGHT_EN | BIT_MCU_LIGHT_SLEEP_EN)
 static unsigned int idle_disabled_by_suspend;
+
+static int light_sleep_en = 0;
+static int cpuidle_debug = 0;
+module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
+module_param_named(light_sleep_en, light_sleep_en, int, S_IRUGO | S_IWUSR);
 
 /* Machine specific information to be recorded in the C-state driver_data */
 struct sc_idle_statedata {
@@ -104,22 +111,60 @@ static void set_cpu_pd(void *data)
 	return;
 }
 
-/*
-* TODO:  light sleep enable
-*/
-static void sc_cpuidle_light_sleep_en(void)
+static void sc_cpuidle_debug(void)
 {
-	return;
+	unsigned int val = sci_glb_read(REG_AP_AHB_MCU_PAUSE, -1UL);
+	if( !(val&BIT_MCU_LIGHT_SLEEP_EN) ){
+		printk("*** %s, REG_AP_AHB_MCU_PAUSE:0x%x ***\n", __func__, val );
+		printk("*** %s, REG_AP_AHB_AHB_EB:0x%x ***\n",
+				__func__, sci_glb_read(REG_AP_AHB_AHB_EB, -1UL));
+		printk("*** %s, REG_AON_APB_APB_EB0:0x%x ***\n",
+				__func__, sci_glb_read(REG_AON_APB_APB_EB0, -1UL));
+		printk("*** %s, REG_AP_AHB_CA7_STANDBY_STATUS:0x%x ***\n",
+				__func__, sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL));
+		printk("*** %s, REG_PMU_APB_CP_SLP_STATUS_DBG0:0x%x ***\n",
+				__func__, sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL));
+		printk("*** %s, REG_PMU_APB_CP_SLP_STATUS_DBG1:0x%x ***\n",
+				__func__, sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL));
+	}else
+		printk("*** %s, enter light sleep ***\n", __func__ );
+}
+
+static void sc_cpuidle_light_sleep_en(int cpu)
+{
+
+	if(emc_clk_get() > 200){
+		return;
+	}else if(light_sleep_en){
+		sci_glb_set(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG,
+				BIT_AP_EMC_AUTO_GATE_EN |
+				BIT_CA7_EMC_AUTO_GATE_EN |
+				BIT_CA7_CORE_AUTO_GATE_EN);
+		/*
+		 * if DAP clock is disabled, arm core can not be attached.
+		 * it is no necessary only disable DAP in core 0, just for debug
+		 */
+		if (cpu == 0) {
+			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+		}
+		sci_glb_set(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
+	}
+	if(cpuidle_debug){
+		sc_cpuidle_debug();
+	}
 }
 
 /*
-* TODO: light sleep disable, light sleep must be disabled before deep-sleep
+* light sleep must be disabled before deep-sleep
 */
 static void sc_cpuidle_light_sleep_dis(void)
 {
+	if(light_sleep_en){
+		sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
+	}
 	return;
 }
-
 /**
  * sc_enter_idle - Programs arm core to enter the specified state
  * @dev: cpuidle device
@@ -157,7 +202,7 @@ static int sc_enter_idle(struct cpuidle_device *dev,
 		/*
 		*   TODO: enter light sleep
 		*/
-		sc_cpuidle_light_sleep_en();
+		sc_cpuidle_light_sleep_en(cpu_id);
 		cpu_do_idle();
 		sc_cpuidle_light_sleep_dis();
 		break;
@@ -176,7 +221,7 @@ static int sc_enter_idle(struct cpuidle_device *dev,
 			 */
 			clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu_id);
 		}else{
-			sc_cpuidle_light_sleep_en();
+			sc_cpuidle_light_sleep_en(cpu_id);
 			cpu_do_idle();
 			sc_cpuidle_light_sleep_dis();
 		}
