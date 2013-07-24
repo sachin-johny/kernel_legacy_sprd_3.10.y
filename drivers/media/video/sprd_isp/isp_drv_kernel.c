@@ -323,7 +323,7 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 		s_isp_alloc_order = get_order(len);
 		s_isp_alloc_addr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP, s_isp_alloc_order);
 		if (NULL == (void*)s_isp_alloc_addr) {
-			ISP_PRINT("ISP_RAW:_isp_alloc null error\n");
+			ISP_PRINT("ISP_RAW:_isp_alloc order:0x%x, addr:0x%x, len:0x%x error\n", s_isp_alloc_order, s_isp_alloc_addr, s_isp_alloc_len);
 			return 1;
 		}
 		ptr = (void*)s_isp_alloc_addr;
@@ -652,8 +652,6 @@ static ssize_t _isp_kernel_read (struct file *pf, char __user *buf, size_t count
 	char *tmp_buf = 0;
 	char *reg_base_add = 0;
 
-	//ISP_PRINT("isp_k: read called\n");
-
 	if(pf == 0|| buf == 0||p == 0) {
 		ret = -EFAULT;
 		ISP_PRINT("isp_k: read invalidate param, pf = 0x%x, buf = 0x%x, p = 0x%x\n", (int32_t)pf, (int32_t)buf, (uint32_t)p );
@@ -903,6 +901,8 @@ static int32_t _isp_kernel_proc_read (char *page, char **start, off_t off, int c
 	uint32_t	 reg_buf_len = 200;
 	uint32_t	 print_len = 0, print_cnt = 0;
 	uint32_t	*reg_ptr = 0;
+
+	ISP_PRINT ("isp_k: _isp_kernel_proc_read 0x%d, 0x%d, 0x%d, 0x%d, 0x%d \n", page, start, off, count, eof, data);
 
 	(void)start; (void)off; (void)count; (void)eof;
 
