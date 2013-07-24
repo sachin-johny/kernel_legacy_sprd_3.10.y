@@ -233,18 +233,16 @@ int panel_ready(struct sprdfb_device *dev)
 }
 
 
-static struct panel_spec *adapt_panel_from_uboot(uint16_t dev_id)
+static struct panel_spec *adapt_panel_from_uboot(struct sprdfb_device *dev )
 {
 	struct panel_cfg *cfg;
 	struct list_head *panel_list;
+        uint16_t dev_id = dev->dev_id;
+        struct panel_spec *panel = NULL;
 
 	//pr_debug("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev_id);
 
-	if (lcd_id_from_uboot == 0) {
-		printk("sprdfb: [%s]: Not got lcd id from uboot\n", __FUNCTION__);
-		return NULL;
-	}
 
 	if(SPRDFB_MAINLCD_ID == dev_id){
 		panel_list = &panel_list_main;
@@ -253,12 +251,21 @@ static struct panel_spec *adapt_panel_from_uboot(uint16_t dev_id)
 	}
 
 	list_for_each_entry(cfg, panel_list, list) {
+                if(!panel) /*save the first panel*/
+                    panel = cfg->panel;
+
 		if(lcd_id_from_uboot == cfg->lcd_id) {
 			printk(KERN_INFO "sprdfb: [%s]: LCD Panel 0x%x is attached!\n", __FUNCTION__,cfg->lcd_id);
 			return cfg->panel;
 		}
 	}
+
 	printk(KERN_ERR "sprdfb: [%s]: Failed to match LCD Panel from uboot!\n", __FUNCTION__);
+        if (lcd_id_from_uboot == 0) {
+		printk("sprdfb: [%s]: Not got lcd id from uboot, suppose no panel\n", __FUNCTION__);
+                dev->no_panel = 1;
+		return panel;
+	}
 
 	return NULL;
 }
@@ -307,7 +314,7 @@ bool sprdfb_panel_get(struct sprdfb_device *dev)
 
 	printk("sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 
-	panel = adapt_panel_from_uboot(dev->dev_id);
+	panel = adapt_panel_from_uboot(dev);
 	if (panel) {
 		dev->panel_ready = true;
 		panel_mount(dev, panel);

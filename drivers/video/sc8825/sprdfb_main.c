@@ -16,6 +16,7 @@
 #include <linux/earlysuspend.h>
 #include <linux/platform_device.h>
 #include <linux/fb.h>
+#include <linux/delay.h>
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
@@ -189,6 +190,12 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 		printk(KERN_ERR "sprdfb:[%s]: Invalid Device status %d", __FUNCTION__, dev->enable);
 		return -1;
 	}
+
+        /* if no panel exits, exit*/
+        if(dev->no_panel){
+            mdelay(10);
+            return 0;
+        }
 
 	ret = dev->ctrl->refresh(dev);
 	if (ret) {
@@ -416,6 +423,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 		printk(KERN_ERR "sprdfb: sprdfb_probe register framebuffer fail.\n");
 		goto cleanup;
 	}
+
 	platform_set_drvdata(pdev, dev);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND

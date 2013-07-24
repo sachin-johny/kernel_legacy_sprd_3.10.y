@@ -339,7 +339,7 @@ static int32_t hx8363_read_id(struct panel_spec *self)
 	//to be added here
 
 
-	return 0x18; // id;
+	return 0x84; // id;
 }
 
 static struct panel_operations lcd_hx8363_mcu_operations = {
@@ -396,7 +396,7 @@ struct panel_spec lcd_hx8363_mcu_spec = {
 struct panel_cfg lcd_hx8363_mcu = {
 	/* this panel can only be main lcd */
 	.dev_id = SPRDFB_MAINLCD_ID,
-	.lcd_id = 0x18,
+	.lcd_id = 0x84,
 	.lcd_name = "lcd_hx8363_mcu",
 	.panel = &lcd_hx8363_mcu_spec,
 };

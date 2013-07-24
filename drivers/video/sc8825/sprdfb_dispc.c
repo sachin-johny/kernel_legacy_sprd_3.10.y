@@ -852,7 +852,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 		}
 		/*enable dispc update done INT*/
 		dispc_write((1<<4), DISPC_INT_EN);
-	}else{
+	}else if(!dev->no_panel){
 		/* enable dispc DONE  INT*/
 		dispc_write((1<<0), DISPC_INT_EN);
 	}

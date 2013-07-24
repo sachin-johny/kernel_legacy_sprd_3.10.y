@@ -105,6 +105,8 @@ typedef struct overlay_display{
 struct sprdfb_device {
 	struct fb_info	*fb;
 
+
+        uint16_t                no_panel;
 	uint16_t		enable;
 	uint16_t	 	dev_id; /*main_lcd, sub_lcd*/
 
