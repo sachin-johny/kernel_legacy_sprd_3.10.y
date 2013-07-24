@@ -95,6 +95,7 @@ struct jpg_dev{
 
 	struct clk *jpg_clk;
 	struct clk *jpg_parent_clk;
+	struct clk *mm_clk;
 
 	struct jpg_fh *jpg_fp;
 };
@@ -140,7 +141,8 @@ static int find_jpg_freq_level(unsigned long freq)
 
 static void disable_jpg (struct jpg_fh *jpg_fp)
 {
-	//clk_disable(jpg_hw_dev.jpg_clk);
+	clk_disable(jpg_hw_dev.jpg_clk);
+    clk_disable(jpg_hw_dev.mm_clk);
 	jpg_fp->is_clock_enabled= 0;
 	pr_debug("jpg ioctl JPG_DISABLE\n");
 
@@ -197,7 +199,18 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case JPG_ENABLE:
 		pr_debug("jpg ioctl JPG_ENABLE\n");
+		ret = clk_enable(jpg_hw_dev.mm_clk);
+		if (ret)
+		{
+			printk(KERN_ERR "JPG enable mm clk error!\n");
+			return ret;
+		}
 		ret = clk_enable(jpg_hw_dev.jpg_clk);
+		if (ret)
+		{
+			printk(KERN_ERR "JPG enable vsp clk error!\n");
+			return ret;
+		}
 		jpg_fp->is_clock_enabled= 1;
 		break;
 	case JPG_DISABLE:
@@ -463,6 +476,7 @@ static int jpg_release (struct inode *inode, struct file *filp)
 	if (jpg_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
 		clk_disable(jpg_hw_dev.jpg_clk);
+		clk_disable(jpg_hw_dev.mm_clk);
 	}
 
 	if (jpg_fp->is_jpg_aquired) {
@@ -526,10 +540,23 @@ static int jpg_probe(struct platform_device *pdev)
 		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
 		//cmd0 = 0xFFFFFFFF;
 		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
+#if 0		
 	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x0);
 	__raw_writel(cmd0|(1<<6)|(1<<5), SPRD_MMAHB_BASE + 0x0);
 	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x08);
         __raw_writel(cmd0|(1<<8)|(1<<7)|(1<<6), SPRD_MMAHB_BASE + 0x8);	
+#else
+	clk_mm_i = clk_get(NULL, "clk_mm_i");
+	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
+		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+			"clk_mm_i");
+		printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
+		ret = -EINVAL;
+		goto errout;
+	} else {
+		jpg_hw_dev.mm_clk= clk_mm_i;
+	}
+#endif
 
 #endif
 

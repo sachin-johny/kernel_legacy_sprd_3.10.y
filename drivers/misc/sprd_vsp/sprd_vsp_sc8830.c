@@ -76,6 +76,7 @@ struct vsp_dev{
 
 	struct clk *vsp_clk;
 	struct clk *vsp_parent_clk;
+    struct clk *mm_clk;
 
 	struct vsp_fh *vsp_fp;
 };
@@ -122,6 +123,7 @@ static int find_vsp_freq_level(unsigned long freq)
 static void disable_vsp (struct vsp_fh *vsp_fp)
 {
 	clk_disable(vsp_hw_dev.vsp_clk);
+    clk_disable(vsp_hw_dev.mm_clk);
 	vsp_fp->is_clock_enabled= 0;
 	pr_debug("vsp ioctl VSP_DISABLE\n");
 
@@ -178,7 +180,18 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case VSP_ENABLE:
 		pr_debug("vsp ioctl VSP_ENABLE\n");
+		ret = clk_enable(vsp_hw_dev.mm_clk);
+		if (ret)
+		{
+			printk(KERN_ERR "VSP enable mm clk error!\n");
+			return ret;
+		}
 		ret = clk_enable(vsp_hw_dev.vsp_clk);
+		if (ret)
+		{
+			printk(KERN_ERR "VSP enable vsp clk error!\n");
+			return ret;
+		}
 		vsp_fp->is_clock_enabled= 1;
 		break;
 	case VSP_DISABLE:
@@ -339,6 +352,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
 	if (vsp_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
 		clk_disable(vsp_hw_dev.vsp_clk);
+        clk_disable(vsp_hw_dev.mm_clk);
 	}
 
 	if (vsp_fp->is_vsp_aquired) {
@@ -367,6 +381,7 @@ static struct miscdevice vsp_dev = {
 
 static int vsp_probe(struct platform_device *pdev)
 {
+	struct clk *clk_mm_i;
 	struct clk *clk_vsp;
 	struct clk *clk_parent;
 	char *name_parent;
@@ -393,12 +408,23 @@ static int vsp_probe(struct platform_device *pdev)
 	// Open VSP in MM top.
 	//VSP_WRITE_REG(0x60d00000, (1<<6)|(1<<3),  "[3]: VSP_eb, [6]: CKG_eb");
 	//VSP_WRITE_REG(0x60d00008, (1<<8)|(1<<7)|(1<<5), "[5]: VSP_AXI_CKG_EN, [7]: MM_AXI_CKG_EN, [8]: MM_MTX_AXI_CKG_EN");
+#if 0
 	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x0);
         __raw_writel(cmd0|(1<<6)|(1<<3), SPRD_MMAHB_BASE + 0x0);	
 	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x8);
         __raw_writel(cmd0|(1<<8)|(1<<7)|(1<<5), SPRD_MMAHB_BASE + 0x8);	
-
-
+#else
+	clk_mm_i = clk_get(NULL, "clk_mm_i");
+	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
+		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+			"clk_mm_i");
+		printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
+		ret = -EINVAL;
+		goto errout;
+	} else {
+		vsp_hw_dev.mm_clk= clk_mm_i;
+	}
+#endif
 #endif
 
 	clk_vsp = clk_get(NULL, "clk_vsp");
