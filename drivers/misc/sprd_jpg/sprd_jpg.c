@@ -505,6 +505,7 @@ static struct miscdevice jpg_dev = {
 
 static int jpg_probe(struct platform_device *pdev)
 {
+	struct clk *clk_mm_i;
 	struct clk *clk_jpg;
 	struct clk *clk_parent;
 	char *name_parent;
