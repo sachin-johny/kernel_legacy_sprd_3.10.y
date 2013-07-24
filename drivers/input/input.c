@@ -264,7 +264,6 @@ static void input_handle_event(struct input_dev *dev,
 #if defined(CONFIG_SPRD_DEBUG)
 		else {
 			if(code != BTN_TOUCH && value == 0) {
-				printk("%s no info : 0x%lx code :%u\n", __func__, *dev->key, code);
 				sprd_debug_check_crash_key(code ,value);
 			}
 		}
