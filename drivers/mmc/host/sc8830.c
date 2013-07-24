@@ -287,13 +287,13 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 			sdhci_sdclk_enable(host, 0);
 			udelay(200);
 			clk_disable(host->clk);
-			printk("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
+			pr_debug("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
 			host->clock = 0;
 			host_data->clk_enable = 0;
 		}
 	}else{
 		if (0 == host_data->clk_enable) {
-			printk("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
+			pr_debug("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
 			clk_enable(host->clk);
 			sdhci_sdclk_enable(host, 1);
 			host_data->clk_enable = 1;
@@ -592,8 +592,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		sdhci_host_g = host;
 #endif
 
-	sdhci_dumpregs(host);
-
 	return 0;
 
 err_add_host:
@@ -704,7 +702,7 @@ static int sdhci_pm_suspend(struct device *dev) {
             }
     }
 	printk("%s,sdhci_pm_suspend end",mmc_hostname(host->mmc));
-	sdhci_dumpregs(host);
+
     	return retval;
 }
 
@@ -727,7 +725,7 @@ static int sdhci_pm_resume(struct device *dev) {
             pm_runtime_put_autosuspend(dev);
 #endif
 	printk("%s,sdhci_pm_resume end",mmc_hostname(host->mmc));
-	sdhci_dumpregs(host);
+
     	return retval;
 }
 
