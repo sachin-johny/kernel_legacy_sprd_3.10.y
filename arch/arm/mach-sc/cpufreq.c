@@ -238,9 +238,10 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 	struct unplug_work_info *puwi = container_of(work,
 		struct unplug_work_info, unplug_work.work);
 	if (puwi->need_unplug) {
-		pr_info("---###--- we gonna unplug cpu%d\n", puwi->cpuid);
-		if (enabled_dhp)
+		if (enabled_dhp) {
+			pr_info("---###--- we gonna unplug cpu%d\n", puwi->cpuid);
 			cpu_down(puwi->cpuid);
+		}
 	} else
 		pr_info("---###--- ok do nonthing for cpu%d ###\n", puwi->cpuid);
 
@@ -277,6 +278,7 @@ static ssize_t store_enabled(struct kobject *kobj, struct attribute *attr,
 			      const char *buf, size_t n)
 {
 	unsigned long val;
+	int cpu;
 
 	if (strict_strtoul(buf, 10, &val))
 		return -EINVAL;
@@ -285,6 +287,16 @@ static ssize_t store_enabled(struct kobject *kobj, struct attribute *attr,
 		return -EINVAL;
 
 	enabled_dhp = val;
+	smp_wmb();
+	/* plug-in all offline cpu mandatory if we didn't
+	 * enbale CPU_DYNAMIC_HOTPLUG
+         */
+	if (!enabled_dhp) {
+		for_each_cpu(cpu, cpu_possible_mask) {
+			if (!cpu_online(cpu))
+				cpu_up(cpu);
+		}
+	}
 	return n;
 }
 
@@ -373,6 +385,15 @@ static void sprd_auto_hotplug_exit(void)
 }
 #endif
 
+static unsigned int sprd_raw_get_cpufreq(void)
+{
+#if defined(CONFIG_ARCH_SCX35)
+	return clk_get_rate(sprd_cpufreq_conf->clk) / 1000;
+#elif defined(CONFIG_ARCH_SC8825)
+	return get_mcu_clk_freq() / 1000;
+#endif
+}
+
 static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 {
 #if defined(CONFIG_ARCH_SCX35)
@@ -408,8 +429,9 @@ static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 		} \
 	} while (0)
 	trace_cpu_frequency(freq->new, cpu);
-
-	if (freq->new > freq->old) {
+	pr_debug("---### freq->new=%u, freq->old=%u, real=%u, index=%d\n",
+		freq->new, freq->old, sprd_raw_get_cpufreq(), index);
+	if (freq->new >= sprd_raw_get_cpufreq()) {
 		CPUFREQ_SET_VOLTAGE();
 		CPUFREQ_SET_CLOCK();
 	} else {
@@ -424,15 +446,6 @@ static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 	set_mcu_clk_freq(freq->new * 1000);
 #endif
 	return;
-}
-
-static unsigned int sprd_raw_get_cpufreq(void)
-{
-#if defined(CONFIG_ARCH_SCX35)
-	return clk_get_rate(sprd_cpufreq_conf->clk) / 1000;
-#elif defined(CONFIG_ARCH_SC8825)
-	return get_mcu_clk_freq() / 1000;
-#endif
 }
 
 static void sprd_real_set_cpufreq(int cpu, unsigned int new_speed, int index)
@@ -461,10 +474,25 @@ static void sprd_real_set_cpufreq(int cpu, unsigned int new_speed, int index)
 	return;
 }
 
+static void sprd_find_real_index(unsigned int new_speed, int *index)
+{
+	int i;
+	struct cpufreq_frequency_table *pfreq = sprd_cpufreq_conf->freq_tbl;
+
+	*index = pfreq[0].index;
+	for (i = 0; (pfreq[i].frequency != CPUFREQ_TABLE_END); i++) {
+		if (new_speed == pfreq[i].frequency) {
+			*index = pfreq[i].index;
+			break;
+		}
+	}
+	return;
+}
+
 static int sprd_update_cpu_speed(int cpu,
 	unsigned int target_speed, int index)
 {
-	int i;
+	int i, real_index = 0;
 	unsigned int new_speed = 0;
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 	unsigned int min_speed = shark_top_frequency;
@@ -495,7 +523,11 @@ static int sprd_update_cpu_speed(int cpu,
 	if (new_speed > sprd_cpufreq_conf->limited_max_freq)
 		new_speed = sprd_cpufreq_conf->limited_max_freq;
 
-	sprd_real_set_cpufreq(cpu, new_speed, index);
+	if (new_speed != sprd_cpufreq_conf->freq_tbl[index].frequency)
+		sprd_find_real_index(new_speed, &real_index);
+	else
+		real_index = index;
+	sprd_real_set_cpufreq(cpu, new_speed, real_index);
 	return 0;
 }
 
