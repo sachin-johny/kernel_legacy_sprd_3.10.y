@@ -559,7 +559,7 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	return 0;
 }
 
-static int __init sci_clock_dump(void)
+int __init sci_clock_dump(void)
 {
 	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
 	while (cl < (struct clk_lookup *)&__clkinit_end) {
@@ -656,7 +656,10 @@ int __init sci_clock_init(void)
 }
 
 arch_initcall(sci_clock_init);
+
+/* FIXME: clock dump fail when gpu/mm domain power off
 late_initcall_sync(sci_clock_dump);
+*/
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum Clock Driver");
