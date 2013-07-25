@@ -68,6 +68,15 @@ show up in /proc/sys/kernel:
 - version
 
 ==============================================================
+iso_cpu: (BFS CPU scheduler only).
+
+This sets the percentage cpu that the unprivileged SCHED_ISO tasks can
+run effectively at realtime priority, averaged over a rolling five
+seconds over the -whole- system, meaning all cpus.
+ 
+Set to 70 (percent) by default.
+
+==============================================================
 
 acpi_video_flags:
 
@@ -244,6 +253,20 @@ l2cr: (PPC only)
 
 This flag controls the L2 cache of G3 processor boards. If
 0, the cache is disabled. Enabled if nonzero.
+
+==============================================================
+ 
+rr_interval: (BFS CPU scheduler only)
+
+This is the smallest duration that any cpu process scheduling unit
+will run for. Increasing this value can increase throughput of cpu
+bound tasks substantially but at the expense of increased latencies
+overall. Conversely decreasing it will decrease average and maximum
+latencies but at the expense of throughput. This value is in
+milliseconds and the default value chosen depends on the number of
+cpus available at scheduler initialisation with a minimum of 6.
+
+Valid values are from 1-5000.
 
 ==============================================================
 
