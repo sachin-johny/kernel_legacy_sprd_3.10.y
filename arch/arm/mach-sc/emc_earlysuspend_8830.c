@@ -451,7 +451,11 @@ static int __init emc_early_suspend_init(void)
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	cp_code_init();
 	__emc_timing_reg_init();
+	/*
+	* move this early_suspend to dfs governor(governor_ondemand.c)
+	* TODO: clean code
 	register_early_suspend(&emc_early_suspend_desc);
+	*/
 	emc_debugfs_creat();
 #ifdef EMC_FREQ_AUTO_TEST
 	__emc_freq_test();

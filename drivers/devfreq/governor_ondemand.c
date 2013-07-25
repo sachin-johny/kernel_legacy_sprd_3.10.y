@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/devfreq.h>
 #include <linux/math64.h>
+#include <linux/earlysuspend.h>
 #include "governor.h"
 
 /* Default constants for DevFreq-Ondemand (DFO) */
@@ -32,50 +33,73 @@ struct dfs_request_state{
 };
 static struct dfs_request_state user_requests;
 static struct devfreq *g_devfreq; /* for requests from kernel */
+static int gov_eb;
 struct userspace_data {
 	int req_bw;
 	unsigned long set_freq;
+	unsigned long set_count;
 	unsigned long upthreshold;
 	unsigned long downdifferential;
 	unsigned long (*convert_bw_to_freq)(u32 req_bw);
-	bool enable;
+	bool enable; /*sysfs only*/
+	bool devfreq_enable;
 };
 
 /************ kernel interface *****************/
 /*
-*  add a new ddr bandwidth request.
-*  @req_bw: KB
+* set ddr frequnecy
+* @freq: KHz
+* if ddr frequency is set through this function, DVS is disabled
 */
-void dfs_add_request(u32 req_bw)
+int dfs_set_freq(int freq)
 {
-	u32 req_freq;
 	struct userspace_data *user_data;
-	req_freq = 0;
-	if(g_devfreq && g_devfreq->data){
-		user_data = (struct userspace_data *)(g_devfreq->data);
-		if(user_data->convert_bw_to_freq){
-			req_freq = (user_data->convert_bw_to_freq)(req_bw);
+	int err;
+
+	if(freq < 0){
+		err = -1;
+		goto done;
+	}
+	user_data = (struct userspace_data *)(g_devfreq->data);
+	mutex_lock(&g_devfreq->lock);
+	if(user_data){
+		if(freq > 0){
+			user_data->set_count++;
+			user_data->devfreq_enable = false;
+			if(freq > user_data->set_freq)
+				user_data->set_freq = freq;
+		}else{
+			if(user_data->set_count > 0){
+				user_data->set_count--;
+				if(user_data->set_count == 0){
+					user_data->set_freq = 0;
+					user_data->devfreq_enable = true;
+				}
+			}
 		}
 	}
-	pr_debug("*** %s, pid:%u, req_bw:%u, req_freq:%u ***\n",
-				__func__, current->pid, req_bw, req_freq );
-	if(req_freq){
-		mutex_lock(&g_devfreq->lock);
-		user_requests.req_sum += req_freq;
-		update_devfreq(g_devfreq);
-		mutex_unlock(&g_devfreq->lock);
-	}
+	err = update_devfreq(g_devfreq);
+	mutex_unlock(&g_devfreq->lock);
+done:
+	pr_debug("*** %s, set freq:%d KHz, set_count:%lu ***\n", __func__, freq, user_data->set_count );
+	return err;
 }
 
 /*
-*  Remove a ddr bandwidth request.
+*  add a new ddr bandwidth request.
 *  @req_bw: KB
+*      + addition(add>=0) or - subtraction(add<0)
 */
-void dfs_remove_request(u32 req_bw)
+void dfs_request_bw(int req_bw)
 {
-	u32 req_freq;
+	u32 req_freq = 0;
+	int add = 1;
 	struct userspace_data *user_data;
-	req_freq = 0;
+
+	if (req_bw < 0) {
+		req_bw = -req_bw;
+		add = -1;
+	}
 
 	if(g_devfreq && g_devfreq->data){
 		user_data = (struct userspace_data *)(g_devfreq->data);
@@ -83,11 +107,14 @@ void dfs_remove_request(u32 req_bw)
 			req_freq = (user_data->convert_bw_to_freq)(req_bw);
 		}
 	}
-	pr_debug("*** %s, pid:%u, req_bw:%u, req_freq:%u ***\n",
-				__func__, current->pid, req_bw, req_freq );
+	pr_debug("*** %s, pid:%u, %creq_bw:%u, req_freq:%u ***\n",
+				__func__, current->pid, add>=0?'+':'-', req_bw, req_freq );
 	if(req_freq){
 		mutex_lock(&g_devfreq->lock);
-		user_requests.req_sum -= req_freq;
+		if(add >= 0)
+			user_requests.req_sum += req_freq;
+		else
+			user_requests.req_sum -= req_freq;
 		if(user_requests.req_sum < 0)
 			user_requests.req_sum = 0;
 		update_devfreq(g_devfreq);
@@ -95,6 +122,33 @@ void dfs_remove_request(u32 req_bw)
 	}
 }
 
+/************ early suspend  *****************/
+
+static void devfreq_early_suspend(struct early_suspend *h)
+{
+	dfs_set_freq(200000);
+	gov_eb = 0;
+}
+
+static void devfreq_late_resume(struct early_suspend *h)
+{
+	dfs_set_freq(0);
+}
+
+static struct early_suspend devfreq_early_suspend_desc = {
+        .level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 100,
+        .suspend = devfreq_early_suspend,
+        .resume = devfreq_late_resume,
+};
+
+static void devfreq_enable_late_resume(struct early_suspend *h)
+{
+	gov_eb = 1;
+}
+static struct early_suspend devfreq_enable_desc = {
+        .level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN,
+        .resume = devfreq_enable_late_resume,
+};
 /************ userspace interface *****************/
 
 static ssize_t store_upthreshold(struct device *dev, struct device_attribute *attr,
@@ -197,6 +251,7 @@ static ssize_t store_request(struct device *dev, struct device_attribute *attr,
 		err = count;
 	mutex_unlock(&devfreq->lock);
 	return err;
+
 }
 
 static ssize_t show_request(struct device *dev, struct device_attribute *attr,
@@ -254,17 +309,10 @@ static ssize_t store_freq(struct device *dev, struct device_attribute *attr,
 	unsigned long wanted;
 	int err = 0;
 
-	mutex_lock(&devfreq->lock);
-	data = devfreq->data;
 	sscanf(buf, "%lu", &wanted);
-	if(data){
-		data->set_freq = wanted;
-		pr_debug("*** %s, set freq:%lu KHz***\n", __func__, wanted);
-	}
-	err = update_devfreq(devfreq);
+	err = dfs_set_freq(wanted);
 	if (err == 0)
 		err = count;
-	mutex_unlock(&devfreq->lock);
 	return err;
 }
 
@@ -278,7 +326,7 @@ static ssize_t show_freq(struct device *dev, struct device_attribute *attr,
 	mutex_lock(&devfreq->lock);
 	data = devfreq->data;
 	if(data)
-		err = sprintf(buf, "%lu KHz\n", data->set_freq);
+		err = sprintf(buf, "%lu KHz, set count:%lu\n", data->set_freq, data->set_count);
 	mutex_unlock(&devfreq->lock);
 	return err;
 }
@@ -323,6 +371,11 @@ static int devfreq_ondemand_init(struct devfreq *devfreq)
 	devfreq->data = data;
 	g_devfreq = devfreq;
 	err = sysfs_create_group(&devfreq->dev.kobj, &dev_attr_group);
+	register_early_suspend(&devfreq_early_suspend_desc);
+	/*
+	* disable DFS before DISPC late resume
+	*/
+	register_early_suspend(&devfreq_enable_desc);
 out:
 	return err;
 }
@@ -349,7 +402,8 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	req_freq = user_requests.req_sum;
 
 	if (data) {
-		if (data->enable==false || data->set_freq){
+		if (data->enable==false || !(data->devfreq_enable) ||
+					data->set_freq || !gov_eb){
 			*freq = (data->set_freq?data->set_freq:max)+req_freq ;
 			return 0;
 		}

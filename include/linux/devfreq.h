@@ -195,14 +195,9 @@ extern const struct devfreq_governor devfreq_simple_ondemand;
 #endif
 #ifdef CONFIG_DEVFREQ_GOV_ONDEMAND
 extern const struct devfreq_governor devfreq_ondemand;
-void dfs_add_request(u32 req_bw);
-void dfs_remove_request(u32 req_bw);
+void dfs_request_bw(int req_bw);
 #else
-static inline void dfs_add_request(u32 req_bw)
-{
-	return;
-}
-static inline void dfs_remove_request(u32 req_bw)
+static inline void dfs_request_bw(int req_bw)
 {
 	return;
 }
