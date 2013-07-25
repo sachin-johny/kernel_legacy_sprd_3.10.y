@@ -574,6 +574,7 @@ void reset_sensor_param(void)
 	if(INVALID_VALUE != g_dcam_info.sensor_work_mode)
 		Sensor_Ioctl(SENSOR_IOCTL_VIDEO_MODE,
 			     g_dcam_info.sensor_work_mode);
+	g_dcam_info.focus_param = 0;
 }
 static int init_sensor_parameters(void *priv)
 {
