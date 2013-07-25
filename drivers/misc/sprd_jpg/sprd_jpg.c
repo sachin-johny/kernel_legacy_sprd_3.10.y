@@ -142,7 +142,6 @@ static int find_jpg_freq_level(unsigned long freq)
 static void disable_jpg (struct jpg_fh *jpg_fp)
 {
 	clk_disable(jpg_hw_dev.jpg_clk);
-    clk_disable(jpg_hw_dev.mm_clk);
 	jpg_fp->is_clock_enabled= 0;
 	pr_debug("jpg ioctl JPG_DISABLE\n");
 
@@ -199,18 +198,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case JPG_ENABLE:
 		pr_debug("jpg ioctl JPG_ENABLE\n");
-		ret = clk_enable(jpg_hw_dev.mm_clk);
-		if (ret)
-		{
-			printk(KERN_ERR "JPG enable mm clk error!\n");
-			return ret;
-		}
-		ret = clk_enable(jpg_hw_dev.jpg_clk);
-		if (ret)
-		{
-			printk(KERN_ERR "JPG enable vsp clk error!\n");
-			return ret;
-		}
+
+		clk_enable(jpg_hw_dev.jpg_clk);		
 		jpg_fp->is_clock_enabled= 1;
 		break;
 	case JPG_DISABLE:
@@ -465,6 +454,8 @@ static int jpg_open(struct inode *inode, struct file *filp)
 	jpg_hw_dev.condition_work_BSM= 0;
 	jpg_hw_dev.jpg_int_status = 0;
 
+	clk_enable(jpg_hw_dev.mm_clk);
+		
 	printk(KERN_INFO "vsp_open %p\n", jpg_fp);
 	return 0;
 }
@@ -485,6 +476,9 @@ static int jpg_release (struct inode *inode, struct file *filp)
 	}
 
 	kfree(filp->private_data);
+	
+    clk_disable(jpg_hw_dev.mm_clk);
+	
 	return 0;
 }
 
