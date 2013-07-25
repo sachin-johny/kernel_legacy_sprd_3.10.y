@@ -13,5 +13,12 @@
 #ifndef _SPRD_DMA_COPY_REG_H_
 #define _SPRD_DMA_COPY_REG_H_
 
+/*#define DMA_COPY_DEBUG*/
+
+#ifdef DMA_COPY_DEBUG
+#define DMA_COPY_PRINT printk
+#else
+#define DMA_COPY_PRINT pr_debug
+#endif
 
 #endif //_ROT_REG_H_
