@@ -110,7 +110,8 @@ int smsg_ipc_create(uint8_t dst, struct smsg_ipc *ipc)
 		ipc->irq_handler = smsg_irq_handler;
 	}
 
-	mutex_init(&(ipc->txlock));
+	spin_lock_init(&(ipc->txpinlock));
+
 	smsg_ipcs[dst] = ipc;
 
 	/* explicitly call irq handler in case of missing irq on boot */
@@ -207,6 +208,7 @@ int smsg_send(uint8_t dst, struct smsg *msg, int timeout)
 	struct smsg_ipc *ipc = smsg_ipcs[dst];
 	uint32_t txpos;
 	int rval = 0;
+	unsigned long flags;
 
 	if (!ipc->channels[msg->channel]) {
 		printk(KERN_ERR "channel %d not inited!\n", msg->channel);
@@ -224,40 +226,12 @@ int smsg_send(uint8_t dst, struct smsg *msg, int timeout)
 	pr_debug("send smsg: channel=%d, type=%d, flag=0x%04x, value=0x%08x\n",
 			msg->channel, msg->type, msg->flag, msg->value);
 
-	if (timeout == 0) {
-		if (!mutex_trylock(&(ipc->txlock))) {
-			printk(KERN_INFO "send smsg busy!\n");
-			return -EBUSY;
-		}
-
-		/* no wait */
-		if ((int)(readl(ipc->txbuf_wrptr) -
-			readl(ipc->txbuf_rdptr)) >= ipc->txbuf_size) {
-
-			printk(KERN_WARNING "smsg txbuf is full!\n");
-			rval = -EBUSY;
-
-			goto send_failed;
-		}
-	} else {
-		mutex_lock(&(ipc->txlock));
-
-		/* wait timeout */
-		if (timeout < 0) {
-			timeout =  3600 * 1000;	/* 1 hour */
-		}
-
-		while ((int)(readl(ipc->txbuf_wrptr) -
-			readl(ipc->txbuf_rdptr)) >= ipc->txbuf_size) {
-			if (timeout < 0) {
-				printk(KERN_WARNING "smsg txbuf is full, timeout!\n");
-				rval = -ETIME;
-
-				goto send_failed;
-			}
-			msleep(10);
-			timeout -= 10;
-		}
+	spin_lock_irqsave(&(ipc->txpinlock), flags);
+	if ((int)(readl(ipc->txbuf_wrptr) -
+		readl(ipc->txbuf_rdptr)) >= ipc->txbuf_size) {
+		printk(KERN_WARNING "smsg txbuf is full!\n");
+		rval = -EBUSY;
+		goto send_failed;
 	}
 
 	/* calc txpos and write smsg */
@@ -274,7 +248,7 @@ int smsg_send(uint8_t dst, struct smsg *msg, int timeout)
 	ipc->txirq_trigger();
 
 send_failed:
-	mutex_unlock(&(ipc->txlock));
+	spin_unlock_irqrestore(&(ipc->txpinlock), flags);
 
 	return rval;
 }
@@ -309,30 +283,32 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 		}
 	} else if (timeout < 0) {
 		mutex_lock(&(ch->rxlock));
+		if (readl(ch->wrptr) == readl(ch->rdptr)) {
+			/* wait forever */
+			rval = wait_event_interruptible(ch->rxwait,
+					readl(ch->wrptr) != readl(ch->rdptr));
+			if (rval < 0) {
+				printk(KERN_WARNING "smsg_recv wait interrupted!\n");
 
-		/* wait forever */
-		rval = wait_event_interruptible(ch->rxwait,
-				readl(ch->wrptr) != readl(ch->rdptr));
-		if (rval < 0) {
-			printk(KERN_WARNING "smsg_recv wait interrupted!\n");
-
-			goto recv_failed;
+				goto recv_failed;
+			}
 		}
 	} else {
 		mutex_lock(&(ch->rxlock));
+		if (readl(ch->wrptr) == readl(ch->rdptr)) {
+			/* wait timeout */
+			rval = wait_event_interruptible_timeout(ch->rxwait,
+				readl(ch->wrptr) != readl(ch->rdptr), timeout);
+			if (rval < 0) {
+				printk(KERN_WARNING "smsg_recv wait interrupted!\n");
 
-		/* wait timeout */
-		rval = wait_event_interruptible_timeout(ch->rxwait,
-			readl(ch->wrptr) != readl(ch->rdptr), timeout);
-		if (rval < 0) {
-			printk(KERN_WARNING "smsg_recv wait interrupted!\n");
+				goto recv_failed;
+			} else if (rval == 0) {
+				printk(KERN_WARNING "smsg_recv wait timeout!\n");
+				rval = -ETIME;
 
-			goto recv_failed;
-		} else if (rval == 0) {
-			printk(KERN_WARNING "smsg_recv wait timeout!\n");
-			rval = -ETIME;
-
-			goto recv_failed;
+				goto recv_failed;
+			}
 		}
 	}
 
@@ -351,6 +327,7 @@ recv_failed:
 
 	return rval;
 }
+
 
 #if defined(CONFIG_DEBUG_FS)
 static int smsg_debug_show(struct seq_file *m, void *private)

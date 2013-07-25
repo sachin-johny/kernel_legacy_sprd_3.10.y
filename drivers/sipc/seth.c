@@ -94,7 +94,7 @@ seth_rx_handler (void* data)
 		return;
 	}
 
-	ret = sblock_receive(pdata->dst, pdata->channel, &blk, 0);
+	ret = sblock_receive(pdata->dst, pdata->channel, &blk, -1);
 	if (ret) {
 		SETH_ERR ("receive sblock failed (%d)\n", ret);
 		seth->stats.rx_errors++;
@@ -179,8 +179,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	if(ret) {
 		SETH_INFO("Get free sblock failed(%d), drop data!\n", ret);
 		seth->stats.tx_fifo_errors++;
-		seth->stopped = 1;
-		netif_stop_queue (dev);
+		/*netif_stop_queue (dev); */
 		return NETDEV_TX_BUSY;
 	}
 
@@ -199,7 +198,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		SETH_INFO("send sblock failed(%d)!\n", ret);
 		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
-		netif_stop_queue (dev);
+		/*netif_stop_queue (dev); */
 		return NETDEV_TX_BUSY;
 	}
 

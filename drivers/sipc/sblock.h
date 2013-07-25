@@ -85,6 +85,8 @@ struct sblock_mgr {
 
 	uint32_t		txblksz;
 	uint32_t		rxblksz;
+	uint32_t		txblknum;
+	uint32_t		rxblknum;
 
 	struct sblock_ring	*ring;
 	struct task_struct	*thread;
