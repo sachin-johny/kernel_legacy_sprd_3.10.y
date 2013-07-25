@@ -196,6 +196,26 @@ const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
 	{LDO_V_38, 4300},
 };
 
+const static struct sprd_codec_ldo_v_map ldo_vcom_v_map[] = {
+	/*{      , 3400}, */
+	{LDO_V_29, 3800},
+	{LDO_V_31, 3900},
+	{LDO_V_32, 4000},
+	{LDO_V_33, 4100},
+	{LDO_V_34, 4200},
+	{LDO_V_35, 4300},
+	{LDO_V_36, 4400},
+	{LDO_V_38, 4500},
+};
+
+struct sprd_codec_ldo_cfg {
+	const struct sprd_codec_ldo_v_map *v_map;
+	int v_map_size;
+};
+
+static struct sprd_codec_ldo_cfg s_vcom = { ldo_v_map, ARRAY_SIZE(ldo_v_map) };
+static struct sprd_codec_ldo_cfg s_vpa = { ldo_v_map, ARRAY_SIZE(ldo_v_map) };
+
 struct sprd_codec_inter_pa {
 	/* FIXME little endian */
 	int LDO_V_sel:4;
@@ -324,27 +344,38 @@ static void sprd_codec_print_regs(struct snd_soc_codec *codec)
 	}
 }
 #endif
+static inline int _sprd_codec_ldo_cfg_set(struct sprd_codec_ldo_cfg *p_v_cfg, const struct sprd_codec_ldo_v_map
+					  *v_map, const int v_map_size)
+{
+	p_v_cfg->v_map = v_map;
+	p_v_cfg->v_map_size = v_map_size;
+	return 0;
+}
 
-static inline int _sprd_codec_hold(int index, int volt)
+static inline int _sprd_codec_hold(int index, int volt,
+				   const struct sprd_codec_ldo_v_map *v_map)
 {
 	int scope = 40;		/* unit: mv */
-	int ret = ((ldo_v_map[index].volt - volt) <= scope);
+	int ret = ((v_map[index].volt - volt) <= scope);
 	if (index >= 1) {
-		return (ret || ((volt - ldo_v_map[index - 1].volt) <= scope));
+		return (ret || ((volt - v_map[index - 1].volt) <= scope));
 	}
 	return ret;
 }
 
-static int sprd_codec_auto_ldo_volt(void (*set_level) (int), int init)
+static int sprd_codec_auto_ldo_volt(void (*set_level) (int),
+				    const struct sprd_codec_ldo_v_map *v_map,
+				    const int v_map_size, int init)
 {
 	int i;
 	int volt = sprd_get_vbat_voltage();
 	sprd_codec_dbg("Entering %s get %d\n", __func__, volt);
-	for (i = 0; i < ARRAY_SIZE(ldo_v_map); i++) {
-		if (volt <= ldo_v_map[i].volt) {
-			sprd_codec_dbg("hold %d\n", _sprd_codec_hold(i, volt));
-			if (init || !_sprd_codec_hold(i, volt)) {
-				set_level(ldo_v_map[i].ldo_v_level);
+	for (i = 0; i < v_map_size; i++) {
+		if (volt <= v_map[i].volt) {
+			sprd_codec_dbg("hold %d\n",
+				       _sprd_codec_hold(i, volt, v_map));
+			if (init || !_sprd_codec_hold(i, volt, v_map)) {
+				set_level(v_map[i].ldo_v_level);
 			}
 			return 0;
 		}
@@ -449,7 +480,9 @@ static int vcmadcr_set(struct snd_soc_codec *codec)
 
 static int sprd_codec_is_ai_enable(struct snd_soc_codec *codec)
 {
-	return !!(snd_soc_read(codec, AAICR3) & (BIT(AIL_ADCR) | BIT(AIL_ADCL) | BIT(AIR_ADCR) | BIT(AIR_ADCL)));
+	return ! !(snd_soc_read(codec, AAICR3) &
+		   (BIT(AIL_ADCR) | BIT(AIL_ADCL) | BIT(AIR_ADCR) |
+		    BIT(AIR_ADCL)));
 }
 
 static int ailadcl_set(struct snd_soc_codec *codec, int on)
@@ -846,6 +879,18 @@ static inline void sprd_codec_inter_pa_init(void)
 	inter_pa.setting.DTRI_F_sel = 0x01;
 }
 
+static inline int sprd_codec_pa_ldo_auto(int init)
+{
+	return sprd_codec_auto_ldo_volt
+	    (sprd_codec_pa_ldo_v_sel, s_vpa.v_map, s_vpa.v_map_size, init);
+}
+
+static inline int sprd_codec_pa_ldo_cfg(const struct sprd_codec_ldo_v_map
+					*v_map, const int v_map_size)
+{
+	return _sprd_codec_ldo_cfg_set(&s_vpa, v_map, v_map_size);
+}
+
 int sprd_inter_speaker_pa(int on)
 {
 	pr_info("inter PA switch %s\n", on ? "ON" : "OFF");
@@ -856,8 +901,7 @@ int sprd_inter_speaker_pa(int on)
 		sprd_codec_pa_ldo_en(inter_pa.setting.is_LDO_mode);
 		if (inter_pa.setting.is_LDO_mode) {
 			if (inter_pa.setting.is_auto_LDO_mode) {
-				sprd_codec_auto_ldo_volt
-				    (sprd_codec_pa_ldo_v_sel, 1);
+				sprd_codec_pa_ldo_auto(1);
 			} else {
 				sprd_codec_pa_ldo_v_sel(inter_pa.setting.
 							LDO_V_sel);
@@ -939,7 +983,8 @@ static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 		pr_err("sprd_codec not supports rate %d\n", rate);
 		break;
 	}
-	sprd_codec_dbg("set playback rate 0x%x\n", snd_soc_read(codec, AUD_DAC_CTL));
+	sprd_codec_dbg("set playback rate 0x%x\n",
+		       snd_soc_read(codec, AUD_DAC_CTL));
 	return 0;
 }
 
@@ -958,7 +1003,7 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec_dbg("%s ad %d da %d \n", __func__,
-			sprd_codec->ad_sample_val, sprd_codec->da_sample_val);
+		       sprd_codec->ad_sample_val, sprd_codec->da_sample_val);
 	if (sprd_codec->ad_sample_val) {
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 					      sprd_codec->ad_sample_val, 0x0F,
@@ -983,6 +1028,18 @@ static int sprd_codec_update_bits(struct snd_soc_codec *codec,
 	}
 }
 
+static inline int sprd_codec_vcom_ldo_auto(int init)
+{
+	return sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, s_vcom.v_map,
+					s_vcom.v_map_size, init);
+}
+
+static inline int sprd_codec_vcom_ldo_cfg(const struct sprd_codec_ldo_v_map
+					  *v_map, const int v_map_size)
+{
+	return _sprd_codec_ldo_cfg_set(&s_vcom, v_map, v_map_size);
+}
+
 static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 {
 	int i;
@@ -1000,7 +1057,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_analog_reg_enable();
 		arch_audio_codec_enable();
 		arch_audio_codec_reset();
-		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
+		sprd_codec_vcom_ldo_auto(1);
 
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
 			sprd_codec_power.supplies[i].supply =
@@ -1633,13 +1690,14 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 		case SND_SOC_DAPM_PRE_PMD:
 			sprd_codec_pa_sw_clr(SPRD_CODEC_PA_SW_AOL);
 			return 0;
-		default: break;
+		default:
+			break;
 		}
 	}
 
 	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
-			SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT,
-			(snd_soc_read(codec, DCR1) & BIT(AOL_EN)));
+		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT,
+		       (snd_soc_read(codec, DCR1) & BIT(AOL_EN)));
 
 	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
 		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_RIGHT,
@@ -1998,7 +2056,8 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ARRAY_SIZE(spkr_mixer_controls)),
 	SND_SOC_DAPM_PGA_S("SPKL Switch", 5, SOC_REG(DCR1), AOL_EN, 0,
 			   spk_switch_event,
-			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMD),
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
+			   SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("SPKR Switch", 5, SOC_REG(DCR1), AOR_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
@@ -2652,11 +2711,11 @@ static void sprd_codec_power_changed(struct power_supply *psy)
 	mutex_lock(&inter_pa_mutex);
 	if (inter_pa.set && inter_pa.setting.is_LDO_mode
 	    && inter_pa.setting.is_auto_LDO_mode) {
-		sprd_codec_auto_ldo_volt(sprd_codec_pa_ldo_v_sel, 0);
+		sprd_codec_pa_ldo_auto(0);
 	}
 	mutex_unlock(&inter_pa_mutex);
 	if (atomic_read(&sprd_codec_power.ldo_refcount) >= 1) {
-		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 0);
+		sprd_codec_vcom_ldo_auto(0);
 	}
 #endif
 	sprd_codec_dbg("Leaving %s\n", __func__);
@@ -3036,6 +3095,8 @@ static struct platform_driver sprd_codec_codec_driver = {
 
 static int sprd_codec_init(void)
 {
+	/* SC8825C need change the v_map */
+	sprd_codec_vcom_ldo_cfg(ldo_vcom_v_map, ARRAY_SIZE(ldo_vcom_v_map));
 	sprd_codec_inter_pa_init();
 	arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
 	return platform_driver_register(&sprd_codec_codec_driver);
