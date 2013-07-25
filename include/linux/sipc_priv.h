@@ -14,7 +14,7 @@
 #ifndef __SIPC_PRIV_H
 #define __SIPC_PRIV_H
 
-#define SMSG_CACHE_NR		64
+#define SMSG_CACHE_NR		256
 
 struct smsg_channel {
 	/* wait queue for recv-buffer */
@@ -58,7 +58,7 @@ struct smsg_ipc {
 	struct task_struct	*thread;
 
 	/* lock for send-buffer */
-	struct mutex		txlock;
+	spinlock_t		txpinlock;
 
 	/* all fixed channels receivers */
 	struct smsg_channel	*channels[SMSG_CH_NR];

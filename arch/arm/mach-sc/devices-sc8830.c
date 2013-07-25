@@ -1033,8 +1033,8 @@ static struct spipe_init_data sprd_stty_td_pdata = {
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_TTY,
 	.ringnr		= 32,
-	.txbuf_size	= 1024,
-	.rxbuf_size	= 1024,
+	.txbuf_size	= 2*1024,
+	.rxbuf_size	= 2*1024,
 };
 struct platform_device sprd_stty_td_device = {
 	.name           = "spipe",
@@ -1046,7 +1046,7 @@ static struct seth_init_data sprd_seth0_td_pdata = {
 	.name		= "seth_td0",
 	.dst		= SIPC_ID_CPT,
 	.channel	= SMSG_CH_DATA0,
-	.blocknum	= 256,
+	.blocknum	= 128,
 };
 struct platform_device sprd_seth0_td_device = {
 	.name           = "seth",
@@ -1221,8 +1221,8 @@ static struct spipe_init_data sprd_stty_wcdma_pdata = {
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_TTY,
 	.ringnr		= 32,
-	.txbuf_size	= 1024,
-	.rxbuf_size	= 1024,
+	.txbuf_size	= 2*1024,
+	.rxbuf_size	= 2*1024,
 };
 struct platform_device sprd_stty_wcdma_device = {
 	.name           = "spipe",
@@ -1234,7 +1234,7 @@ static struct seth_init_data sprd_seth0_wcdma_pdata = {
 	.name		= "seth_w0",
 	.dst		= SIPC_ID_CPW,
 	.channel	= SMSG_CH_DATA0,
-	.blocknum	= 256,
+	.blocknum	= 128,
 };
 struct platform_device sprd_seth0_wcdma_device = {
 	.name           = "seth",

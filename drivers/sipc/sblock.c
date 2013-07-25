@@ -35,14 +35,19 @@ void sblock_put(uint8_t dst, uint8_t channel, struct sblock *blk)
 {
 	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
 	void* virt_addr;
-	uint32_t index;
+	uint32_t index =0;
 	unsigned long flags;
 
+	if (!sblock) {
+		return;
+	}
 	spin_lock_irqsave(&sblock->ring->plock, flags);
 	virt_addr = (void*)(blk->addr);
 	index = (virt_addr - sblock->smem_virt) / sblock->ring->header->txblk_size;
-	list_add_tail(&sblock->ring->txunits[index].list, &sblock->ring->txpool);
-	sblock->ring->txblk_count++;
+	if (index < sblock->txblknum ) {
+		list_add_tail(&sblock->ring->txunits[index].list, &sblock->ring->txpool);
+		sblock->ring->txblk_count++;
+	}
 	spin_unlock_irqrestore(&sblock->ring->plock, flags);
 }
 
@@ -156,6 +161,9 @@ int sblock_create(uint8_t dst, uint8_t channel,
 	sblock->channel = channel;
 	sblock->txblksz = txblocksize;
 	sblock->rxblksz = rxblocksize;
+	sblock->txblknum = txblocknum;
+	sblock->rxblknum = rxblocknum;
+
 
 	/* allocate smem */
 	hsize = sizeof(struct sblock_ring_header);
