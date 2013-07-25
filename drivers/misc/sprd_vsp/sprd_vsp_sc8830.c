@@ -123,7 +123,6 @@ static int find_vsp_freq_level(unsigned long freq)
 static void disable_vsp (struct vsp_fh *vsp_fp)
 {
 	clk_disable(vsp_hw_dev.vsp_clk);
-    clk_disable(vsp_hw_dev.mm_clk);
 	vsp_fp->is_clock_enabled= 0;
 	pr_debug("vsp ioctl VSP_DISABLE\n");
 
@@ -180,18 +179,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case VSP_ENABLE:
 		pr_debug("vsp ioctl VSP_ENABLE\n");
-		ret = clk_enable(vsp_hw_dev.mm_clk);
-		if (ret)
-		{
-			printk(KERN_ERR "VSP enable mm clk error!\n");
-			return ret;
-		}
-		ret = clk_enable(vsp_hw_dev.vsp_clk);
-		if (ret)
-		{
-			printk(KERN_ERR "VSP enable vsp clk error!\n");
-			return ret;
-		}
+		clk_enable(vsp_hw_dev.vsp_clk);
 		vsp_fp->is_clock_enabled= 1;
 		break;
 	case VSP_DISABLE:
@@ -341,6 +329,8 @@ static int vsp_open(struct inode *inode, struct file *filp)
 	vsp_fp->is_clock_enabled = 0;
 	vsp_fp->is_vsp_aquired = 0;
 
+    clk_enable(vsp_hw_dev.mm_clk);
+	
 	printk(KERN_INFO "vsp_open %p\n", vsp_fp);
 	return 0;
 }
@@ -352,7 +342,6 @@ static int vsp_release (struct inode *inode, struct file *filp)
 	if (vsp_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
 		clk_disable(vsp_hw_dev.vsp_clk);
-        clk_disable(vsp_hw_dev.mm_clk);
 	}
 
 	if (vsp_fp->is_vsp_aquired) {
@@ -361,6 +350,9 @@ static int vsp_release (struct inode *inode, struct file *filp)
 	}
 
 	kfree(filp->private_data);
+
+    clk_disable(vsp_hw_dev.mm_clk);
+
 	return 0;
 }
 
