@@ -10,6 +10,8 @@
 #include "csi_types.h"
 #include "csi_driver.h"
 
+#define SPRD_CSI2_REG_SIZE             0x40
+
 typedef int (*csi2_isr_func)(u32 err_id, u32 err_status, void* u_data);
 
 /* enumerators index the handler array rather than masks */
@@ -60,6 +62,7 @@ u8 csi_api_reset_controller(void);
 u8 csi_api_core_write(csi_registers_t address, u32 data);
 u32 csi_api_core_read(csi_registers_t address);
 int csi_reg_isr(csi2_isr_func user_func, void* user_data);
+int csi_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
 
 #endif /* CSI_API_H_ */
 

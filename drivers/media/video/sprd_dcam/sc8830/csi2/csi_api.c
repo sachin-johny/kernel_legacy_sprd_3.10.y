@@ -630,3 +630,20 @@ int csi_reg_isr(csi2_isr_func user_func, void* user_data)
 	spin_unlock_irqrestore(&csi2_lock, flag);
 	return 0;
 }
+
+int csi_read_registers(u32* reg_buf, u32 *buf_len)
+{
+	u32                *reg_addr = (u32*)SPRD_CSI2_BASE;
+
+	if (NULL == reg_buf || NULL == buf_len || 0 != (*buf_len % 4)) {
+		return -1;
+	}
+
+	while (buf_len != 0 && (u32)reg_addr < (SPRD_CSI2_BASE + SPRD_CSI2_REG_SIZE)) {
+		*reg_buf++ = *(volatile u32*)reg_addr++;
+		*buf_len -= 4;
+	}
+
+	*buf_len = SPRD_CSI2_REG_SIZE;
+	return 0;
+}
