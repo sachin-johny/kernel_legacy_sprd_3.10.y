@@ -124,14 +124,4 @@ enum{
 };
 
 
-void dsi_enable(void);
-
-
-void dispc_print_clk(void);
-
-
-
-
-
-
 #endif

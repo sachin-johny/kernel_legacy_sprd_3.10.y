@@ -19,9 +19,15 @@
 
 void dsi_enable(void)
 {
-	sci_glb_set(DSI_BIT_EB, DSI_REG_EB);  //enable dphy
+	sci_glb_set(DSI_REG_EB, DSI_BIT_EB);  //enable dphy
 
 }
+
+void dsi_disable(void)
+{
+	sci_glb_clr(DSI_REG_EB, DSI_BIT_EB);
+}
+
 
 void dispc_print_clk(void)
 {

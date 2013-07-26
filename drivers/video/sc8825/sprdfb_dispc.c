@@ -1019,6 +1019,7 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 		mdelay(50); /*fps>20*/
 
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
+		sci_glb_clr(DISPC_CORE_EN, BIT_DISPC_CORE_EN);
 		sci_glb_clr(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 	}else{
 		printk(KERN_ERR "sprdfb: [%s]: Invalid device status %d\n", __FUNCTION__, dev->enable);
@@ -1038,7 +1039,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 
 		dispc_ctx.vsync_done = 1;
-		if (dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */
+		if (1){//(dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
 			dev->is_deepsleep=true;
 			sprdfb_dispc_early_init(dev);

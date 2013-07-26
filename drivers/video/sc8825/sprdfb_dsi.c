@@ -389,6 +389,7 @@ int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 	}
 
 	mdelay(10);
+	dsi_disable();
 	return 0;
 }
 
