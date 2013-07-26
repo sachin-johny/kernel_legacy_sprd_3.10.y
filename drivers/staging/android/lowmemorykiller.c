@@ -116,8 +116,9 @@ struct lmk_wl{
 
 /*note: task name limit 16 characters, intercept last 16 characters*/
 static struct lmk_wl lmk_wl_info[MAX_LMK_WHITE_LIST]={
-    {"ndroid.launcher", NULL}, 
-    {"thunderst.radio", NULL},
+    {"ndroid.launcher", NULL},//for not frequently load launcher after exist game
+    {"thunderst.radio", NULL},//for background radio paly not easily exited
+    {"comcat.activity", NULL}//fot MTBF test not easily exited
 };
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
