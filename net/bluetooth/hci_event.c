@@ -1567,7 +1567,7 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	struct hci_ev_disconn_complete *ev = (void *) skb->data;
 	struct hci_conn *conn;
 
-	BT_DBG("%s status %d", hdev->name, ev->status);
+	BT_DBG("hci_disconn_complete_evt %s status %d", hdev->name, ev->status);
 
 	if (ev->status) {
 		mgmt_disconnect_failed(hdev->id);

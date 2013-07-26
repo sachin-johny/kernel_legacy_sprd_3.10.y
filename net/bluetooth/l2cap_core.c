@@ -2690,7 +2690,7 @@ static inline int l2cap_disconnect_req(struct l2cap_conn *conn, struct l2cap_cmd
 	scid = __le16_to_cpu(req->scid);
 	dcid = __le16_to_cpu(req->dcid);
 
-	BT_DBG("scid 0x%4.4x dcid 0x%4.4x", scid, dcid);
+	BT_DBG("l2cap_disconnect_req scid 0x%4.4x dcid 0x%4.4x", scid, dcid);
 
 	chan = l2cap_get_chan_by_scid(conn, dcid);
 	if (!chan)
@@ -2730,7 +2730,7 @@ static inline int l2cap_disconnect_rsp(struct l2cap_conn *conn, struct l2cap_cmd
 	scid = __le16_to_cpu(rsp->scid);
 	dcid = __le16_to_cpu(rsp->dcid);
 
-	BT_DBG("dcid 0x%4.4x scid 0x%4.4x", dcid, scid);
+	BT_DBG("l2cap_disconnect_rsp dcid 0x%4.4x scid 0x%4.4x", dcid, scid);
 
 	chan = l2cap_get_chan_by_scid(conn, scid);
 	if (!chan)
