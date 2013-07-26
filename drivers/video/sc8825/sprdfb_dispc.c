@@ -100,7 +100,6 @@ static int overlay_close(struct sprdfb_device *dev);
 
 static int sprdfb_dispc_clk_disable(struct sprdfb_dispc_context *dispc_ctx_ptr, SPRDFB_DYNAMIC_CLK_SWITCH_E clock_switch_type);
 static int sprdfb_dispc_clk_enable(struct sprdfb_dispc_context *dispc_ctx_ptr, SPRDFB_DYNAMIC_CLK_SWITCH_E clock_switch_type);
-static void dispc_clk_clear_status(struct sprdfb_dispc_context *dispc_ctx_ptr);
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev);
 static void dispc_reset(void);
 static void dispc_module_enable(void);
@@ -628,7 +627,6 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 	}
 
 	spin_lock_init(&dispc_ctx.clk_spinlock);
-	dispc_clk_clear_status(&dispc_ctx);
 	dispc_ctx.is_resume=false;
 
 	dispc_ctx.vsync_done = 1;
@@ -818,14 +816,6 @@ ERROR_CLK_ENABLE:
 
 	printk("sprdfb:sprdfb_dispc_clk_enable error!!!!!!\n");
 	return ret;
-}
-
-static void dispc_clk_clear_status(struct sprdfb_dispc_context *dispc_ctx_ptr)
-{
-	printk("sprdfb:[%s]\n",__FUNCTION__);
-	dispc_ctx_ptr->clk_is_open=false;
-	dispc_ctx_ptr->clk_is_refreshing=false;
-	dispc_ctx_ptr->clk_open_count=0;
 }
 
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
