@@ -41,5 +41,10 @@ void dispc_dpi_clk_set(unsigned int clk_src, unsigned int clk_div);
 
 u32 dispc_glb_read(u32 reg);
 
+void dsi_enable(void);
+void dsi_disable(void);
+
+void dispc_print_clk(void);
+
 
 #endif

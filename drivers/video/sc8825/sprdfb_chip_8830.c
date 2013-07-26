@@ -30,6 +30,14 @@ void dsi_enable(void)
 	printk("BIT_DPHY_REF_CKG_EN:%lx,BIT_DPHY_CFG_CKG_EN:%lx \n",BIT_DPHY_REF_CKG_EN,BIT_DPHY_CFG_CKG_EN);
 }
 
+void dsi_disable(void)
+{
+	sci_glb_clr(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_REF_CKG_EN);
+	sci_glb_clr(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_CFG_CKG_EN);
+	sci_glb_clr(DSI_REG_EB, DSI_BIT_EB);
+}
+
+
 void dispc_print_clk(void)
 {
 	printk("sprdfb:0x402e0004 = 0x%x\n", dispc_glb_read((SPRD_AONAPB_BASE+0x4)));

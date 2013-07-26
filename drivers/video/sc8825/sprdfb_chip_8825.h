@@ -120,16 +120,4 @@ enum{
 	DISPC_DPI_SEL_128M
 };
 
-
-
-void dsi_enable(void);
-
-void dispc_print_clk(void);
-
-
-
-
-
-
-
 #endif
