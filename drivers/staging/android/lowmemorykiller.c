@@ -59,7 +59,7 @@
 static DECLARE_WAIT_QUEUE_HEAD(lowmemkiller_wait);
 #endif
 
-#define LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
+#undef LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
 
 #ifdef LMK_SYSTEM_PROCESS_LEAK_MEM_DETECT
 #define LMK_LEAK_MEM_ACCOUNT                    0x5
@@ -554,7 +554,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		si_swapinfo(&si);	
 		zram_swap_size = (si.totalswap - si.freeswap);
 
-		lowmem_print(2,"\r\n[LMK_swap] init oom_adj_index:%d, other_free:%d, other_file:%d\r\n", oom_adj_index, other_free, other_file);
+		lowmem_print(4,"\r\n[LMK_swap] init oom_adj_index:%d, other_free:%d, other_file:%d\r\n", oom_adj_index, other_free, other_file);
                 if( min_adj == OOM_ADJUST_MAX + 1)
 		{
 			lowmem_print(2,"\r\n[LMK_swap] Cache value high: other_free:%d, other_file:%d, zram_swap_size:%d\r\n",
@@ -589,7 +589,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				min_adj = lowmem_adj[0];
 			}
 		}		
-		lowmem_print(2, "\r\n[LMK_swap] zram_swap_size:%d, min_adj:%d, reserve_pages=%d \r\n", \
+		lowmem_print(4, "\r\n[LMK_swap] zram_swap_size:%d, min_adj:%d, reserve_pages=%d \r\n", \
 					    zram_swap_size, min_adj, totalreserve_pages);
 
 		
@@ -618,7 +618,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 #ifdef  CONFIG_ZRAM_FOR_ANDROID
 	if(current_is_kswapd()){
-		lowmem_print(2,"[LMK_swap] other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n",
+		lowmem_print(4,"[LMK_swap] other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n",
 						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
 
                 if(lowmem_swap_app_enable && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) \
@@ -682,7 +682,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
             }
 
 #ifdef  CONFIG_ZRAM_FOR_ANDROID
-            lowmem_print(2,"[LMK] kill process start ,other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n", 
+            lowmem_print(4,"[LMK] kill process start ,other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n", 
 						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
 #endif
             lowmem_white_list_init();
@@ -779,7 +779,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #ifdef CONFIG_ANDROID_LMK_ENHANCE
 	    for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
 		if (selected[i]) {
-			lowmem_print(1, "[LMK] send sigkill to %d (%s), adj %d, size %d\n",
+			lowmem_print(2, "[LMK] send sigkill to %d (%s), adj %d, size %d\n",
 				selected[i]->pid, selected[i]->comm,
 				selected_oom_adj[i], selected_tasksize[i]);
 			lowmem_deathpending[i] = selected[i];
@@ -796,7 +796,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	    }
 #else
 	    if (selected) {
-		lowmem_print(1, "[LMK] send sigkill to %d (%s), adj %d, size %d\n",
+		lowmem_print(2, "[LMK] send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_adj, selected_tasksize);
 		lowmem_deathpending = selected;
@@ -833,7 +833,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
                  }     
              }
 	read_unlock(&tasklist_lock);
-        lowmem_print(2, "lowmem_shrink %lu, %x, return %d\n",
+        lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 
         return rem;

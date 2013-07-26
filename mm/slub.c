@@ -27,8 +27,9 @@
 #include <linux/memory.h>
 #include <linux/math64.h>
 #include <linux/fault-inject.h>
-
+#include <linux/hardirq.h>
 #include <trace/events/kmem.h>
+#include <linux/sched.h>
 
 /*
  * Lock order:
@@ -107,6 +108,110 @@
  * 			options set. This moves	slab handling out of
  * 			the fast path and disables lockless freelists.
  */
+
+#undef SLUB_LEAK_DEBUG
+#ifdef SLUB_LEAK_DEBUG
+#define SLUB_PROCESS_NUM     0x80
+#define SLUB_PROCESS_LEAK    0x10000
+struct slub_inf{
+    char name[TASK_COMM_LEN];//account process name.
+    int alloc_size;
+    int free_size;
+    bool valid;
+};
+
+static bool alinit=false;
+struct slub_inf  slub_info[SLUB_PROCESS_NUM];
+DEFINE_SPINLOCK(slub_debug_lock);
+
+static void slub_trace_init(void)
+{
+    int count=0;
+
+    if(alinit)
+        return;
+
+    alinit=true;
+
+    printk("%s, %d enter\n", __func__, __LINE__);
+    for(count=0; count<SLUB_PROCESS_NUM; count++){
+            memset((char*)&slub_info[count].name[0],0, TASK_COMM_LEN);
+            slub_info[count].valid = false;
+            slub_info[count].alloc_size = 0;
+            slub_info[count].free_size = 0;
+     }
+}
+
+void slub_record(int size, bool alloc)
+{
+    int count=0x0;
+    int find_seat=SLUB_PROCESS_NUM;
+    int alloc_size=0x0;
+
+    spin_lock(&slub_debug_lock);
+    slub_trace_init();
+    //not in process context
+    if(in_interrupt()){
+        slub_info[0].valid=true;
+        if(alloc){
+            slub_info[0].alloc_size += size;
+        }else{
+            slub_info[0].free_size += size;
+        }
+        if(slub_info[0].alloc_size >slub_info[0].free_size){
+            alloc_size = slub_info[0].alloc_size-slub_info[0].free_size;
+            if(alloc_size > SLUB_PROCESS_LEAK){
+                //dump_stack();
+                WARN_ON(1);
+                printk("Warning: in irq alloc 0x%x\n", alloc_size);
+            }
+        }
+        spin_unlock(&slub_debug_lock);
+        return;
+    }
+
+    //exit if not in system process context
+    if(!current || (current->signal && (current->signal->oom_adj>=0))){
+        spin_unlock(&slub_debug_lock);
+        return;
+    }
+
+    for(count=1; count<SLUB_PROCESS_NUM; count++){
+        if(slub_info[count].valid){
+            if(!strcmp((char*)&slub_info[count].name[0], current->comm)){
+                 if(alloc){
+                    slub_info[count].alloc_size += size;
+                 }else{
+                    slub_info[count].free_size += size;
+                 }
+                 if(slub_info[count].alloc_size >slub_info[count].free_size){
+                     alloc_size = slub_info[count].alloc_size-slub_info[count].free_size;
+                     if(alloc_size > SLUB_PROCESS_LEAK){
+                        //dump_stack();
+                         WARN_ON(1);
+                         printk("Warning: [%s] alloc 0x%x\n", current->comm, alloc_size);
+                      }
+                 }
+                 break;
+            }
+        }else{
+            find_seat=count;
+        }
+    }
+
+    if((count==SLUB_PROCESS_NUM) && (find_seat!=SLUB_PROCESS_NUM)){
+        strcpy((char*)&slub_info[find_seat].name[0], current->comm);
+        slub_info[find_seat].valid=true;
+        if(alloc){
+            slub_info[find_seat].alloc_size += size;
+        }else{
+            slub_info[find_seat].free_size += size;
+        }
+    }
+    spin_unlock(&slub_debug_lock);
+}
+EXPORT_SYMBOL(slub_record);
+#endif
 
 #define SLAB_DEBUG_FLAGS (SLAB_RED_ZONE | SLAB_POISON | SLAB_STORE_USER | \
 		SLAB_TRACE | SLAB_DEBUG_FREE)
@@ -1187,7 +1292,11 @@ static struct page *allocate_slab(struct kmem_cache *s, gfp_t flags, int node)
 	struct kmem_cache_order_objects oo = s->oo;
 	gfp_t alloc_gfp;
 
-	flags |= s->allocflags;
+#ifdef SLUB_LEAK_DEBUG
+        if(s)
+            slub_record(s->size, true);
+#endif
+        flags |= s->allocflags;
 
 	/*
 	 * Let the initial higher-order allocation fail under memory pressure
@@ -1285,7 +1394,12 @@ static void __free_slab(struct kmem_cache *s, struct page *page)
 	int order = compound_order(page);
 	int pages = 1 << order;
 
-	if (kmem_cache_debug(s)) {
+#ifdef SLUB_LEAK_DEBUG
+        if(s)
+            slub_record(s->size, false);
+#endif
+
+        if (kmem_cache_debug(s)) {
 		void *p;
 
 		slab_pad_check(s, page);
@@ -2945,7 +3059,7 @@ void kfree(const void *x)
 		put_page(page);
 		return;
 	}
-	slab_free(page->slab, page, object, _RET_IP_);
+        slab_free(page->slab, page, object, _RET_IP_);
 }
 EXPORT_SYMBOL(kfree);
 

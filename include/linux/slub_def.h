@@ -149,6 +149,7 @@ struct kmem_cache {
  */
 extern struct kmem_cache *kmalloc_caches[SLUB_PAGE_SHIFT];
 
+
 /*
  * Sorry that the following has to be that ugly but some versions of GCC
  * have trouble with constant propagation and loops.
@@ -254,7 +255,7 @@ static __always_inline void *kmalloc_large(size_t size, gfp_t flags)
 
 static __always_inline void *kmalloc(size_t size, gfp_t flags)
 {
-	if (__builtin_constant_p(size)) {
+        if (__builtin_constant_p(size)) {
 		if (size > SLUB_MAX_SIZE)
 			return kmalloc_large(size, flags);
 
