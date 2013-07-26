@@ -1031,11 +1031,9 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		dispc_ctx.vsync_done = 1;
 		if (1){//(dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
-			dev->is_deepsleep=true;
 			sprdfb_dispc_early_init(dev);
 			sprdfb_dispc_init(dev);
 			sprdfb_panel_resume(dev, true);
-			dev->is_deepsleep=false;
 		}else {
 			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
 

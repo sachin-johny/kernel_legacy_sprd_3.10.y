@@ -361,11 +361,9 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		}
 	}else{
 		//resume
-		printk(KERN_INFO "sprdfb:[%s]: resume, is_deepsleep=%d\n", __FUNCTION__,dev->is_deepsleep);
-		if(dev->is_deepsleep){
-			dsi_enable();
-			dsi_reset();
-		}
+		printk(KERN_INFO "sprdfb:[%s]: resume\n", __FUNCTION__);
+		dsi_enable();
+		dsi_reset();
 		result=sprdfb_dsih_init(dev);
 	}
 

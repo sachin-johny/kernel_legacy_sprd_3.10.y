@@ -114,7 +114,6 @@ struct sprdfb_device {
 
 	uint16_t		panel_ready; /*panel has been inited by uboot*/
 	uint16_t		panel_if_type; /*panel IF*/
-	bool			is_deepsleep;
 
 	union{
 		uint32_t	mcu_timing[MCU_LCD_TIMING_KIND_MAX];
