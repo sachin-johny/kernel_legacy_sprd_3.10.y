@@ -37,7 +37,7 @@
 
 
 #define VSP_MINOR MISC_DYNAMIC_MINOR
-#define VSP_TIMEOUT_MS 1000
+#define VSP_TIMEOUT_MS 500
 
 #define USE_INTERRUPT
 /*#define RT_VSP_THREAD*/
