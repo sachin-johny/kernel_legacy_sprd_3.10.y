@@ -559,9 +559,12 @@ int __init sci_clk_register(struct clk_lookup *cl)
 	return 0;
 }
 
-int __init sci_clock_dump(void)
+static int __init sci_clock_dump(void)
 {
+	clk_enable(&clk_mm_i);
+#if 0
 	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
+	clk_enable(&clk_gpu_i);
 	while (cl < (struct clk_lookup *)&__clkinit_end) {
 		struct clk *c = cl->clk;
 		struct clk *p = clk_get_parent(c);
@@ -575,6 +578,9 @@ int __init sci_clock_dump(void)
 		cl++;
 	}
 	debug("okay\n");
+	clk_disable(&clk_gpu_i);
+#endif
+	clk_disable(&clk_mm_i);
 	return 0;
 }
 
@@ -658,8 +664,8 @@ int __init sci_clock_init(void)
 arch_initcall(sci_clock_init);
 
 /* FIXME: clock dump fail when gpu/mm domain power off
-late_initcall_sync(sci_clock_dump);
 */
+late_initcall_sync(sci_clock_dump);
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum Clock Driver");

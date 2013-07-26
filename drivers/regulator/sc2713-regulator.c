@@ -583,7 +583,7 @@ static int dcdc_set_trimming(struct regulator_dev *rdev,
 	/* FIXME: dcdc core ctrl should be keeped after trimming.
 	 * but now, uV_offset is used for dcdc set/get correct voltage.
 	 */
-	rdev->constraints->uV_offset = ctl_vol - def_vol * 1000;
+	rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;
 	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
