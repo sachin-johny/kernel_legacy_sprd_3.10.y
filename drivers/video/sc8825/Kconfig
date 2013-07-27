@@ -85,7 +85,7 @@ config FB_VSYNC_SUPPORT
 config FB_ESD_SUPPORT
 	boolean "support esd check"
 	depends on FB_SC8825 || FB_SCX35
-	default y
+	default n
 
 config FB_DYNAMIC_CLK_SUPPORT
 	boolean "support close clk dynamically"
