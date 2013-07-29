@@ -1549,8 +1549,6 @@ int usb_register_hotplug_callback(struct usb_hotplug_callback *cb)
 {
 	int ret = 0;
 	int plug_irq = usb_get_vbus_irq();
-	if(in_calibration())
-		return ret;
 	if (cb){
 		hotplug_cb = cb;
 		enable_irq(plug_irq);
