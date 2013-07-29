@@ -301,6 +301,14 @@ static int __dma_cfg_check_and_convert(u32 dma_chn,
 
 static void __inline __dma_int_clr(u32 dma_chn)
 {
+	u32 reg_val;
+
+	reg_val = __raw_readl(DMA_CHN_INT(dma_chn));
+	__raw_writel(0x1f << 24 | reg_val, DMA_CHN_INT(dma_chn));
+}
+
+static void __inline __dma_int_dis(u32 dma_chn)
+{
 	__raw_writel(0x1f << 24, DMA_CHN_INT(dma_chn));
 }
 
@@ -540,7 +548,7 @@ int sci_dma_free(u32 dma_chn)
 
 	__dma_stop_and_disable(dma_chn);
 
-	__dma_int_clr(dma_chn);
+	__dma_int_dis(dma_chn);
 
 	/*set a valid dma chn for CID, the CID is start with 1 */
 	__dma_set_uid(0, dma_chns[dma_chn].dev_id);
