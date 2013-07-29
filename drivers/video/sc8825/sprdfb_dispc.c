@@ -626,7 +626,6 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 		printk(KERN_INFO "sprdfb: dispc_module_init. call only once!");
 	}
 
-	spin_lock_init(&dispc_ctx.clk_spinlock);
 	dispc_ctx.is_resume=false;
 
 	dispc_ctx.vsync_done = 1;
@@ -663,6 +662,10 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
+
+        if(!dispc_ctx.is_inited){
+	    spin_lock_init(&dispc_ctx.clk_spinlock);
+	}
 
 	ret = dispc_clk_init(dev);
 	if(ret){
