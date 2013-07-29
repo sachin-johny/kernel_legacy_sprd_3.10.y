@@ -468,6 +468,7 @@ int Sensor_SetMCLK(uint32_t mclk)
 static struct regulator *s_camvio_regulator = NULL;
 static struct regulator *s_camavdd_regulator = NULL;
 static struct regulator *s_camdvdd_regulator = NULL;
+static struct regulator *s_vddrf1_regulator = NULL;
 
 static void _sensor_regulator_disable(uint32_t power_on_count, struct regulator * ptr_cam_regulator)
 {
@@ -489,6 +490,26 @@ void Sensor_SetVoltage(SENSOR_AVDD_VAL_E dvdd_val, SENSOR_AVDD_VAL_E avdd_val,
 	SENSOR_PRINT
 	    ("SENSOR:Sensor_SetVoltage,dvdd_val=%d,avdd_val=%d,iodd_val=%d.\n",
 	     dvdd_val, avdd_val, iodd_val);
+
+        if (NULL == s_vddrf1_regulator) {
+            s_vddrf1_regulator = regulator_get(NULL, "vddrf1");
+            if (IS_ERR(s_vddrf1_regulator)) {
+                pr_err("SENSOR:could not get vddrf1.\n");
+                return;
+            }
+        }
+
+        if(SENSOR_AVDD_CLOSED == iodd_val)
+        {
+            SENSOR_PRINT("SENSOR: Sensor_SetVoltage.... disable s_vddrf1_regulator.\n");
+            regulator_disable(s_vddrf1_regulator);
+        }
+        else
+        {
+            SENSOR_PRINT("SENSOR:set s_vddrf1_regulator voltage to level 1800mv\n");
+            regulator_set_voltage(s_vddrf1_regulator,1800000,1800000);
+            regulator_enable(s_vddrf1_regulator);
+        }
 
 	if(NULL == s_camvio_regulator) {
 		s_camvio_regulator = regulator_get(NULL, REGU_NAME_CAMVIO);
