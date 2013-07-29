@@ -93,6 +93,7 @@ static __init void __irq_init(void)
 	/*enable all intc*/
 	sci_glb_set(REG_AP_APB_APB_EB, BIT_INTC0_EB | BIT_INTC1_EB |
 			BIT_INTC2_EB | BIT_INTC3_EB);
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_INTC_EB);
 }
 
 #else
