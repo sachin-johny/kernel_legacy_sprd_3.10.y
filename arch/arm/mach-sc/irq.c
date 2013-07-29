@@ -89,6 +89,10 @@ static __init void __irq_init(void)
 {
 	if (soc_is_scx35_v0())
 		sci_glb_clr(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG,BIT_CA7_CORE_AUTO_GATE_EN);
+
+	/*enable all intc*/
+	sci_glb_set(REG_AP_APB_APB_EB, BIT_INTC0_EB | BIT_INTC1_EB |
+			BIT_INTC2_EB | BIT_INTC3_EB);
 }
 
 #else
