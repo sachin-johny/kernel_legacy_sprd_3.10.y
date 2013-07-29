@@ -17,11 +17,18 @@
 #include <linux/input.h>
 #include <linux/platform_device.h>
 
+//Bug 185497, step 0: Button state
+enum {
+	HEADSET_BUTTON_STATE_RELASED = 0,
+	HEADSET_BUTTON_STATE_PRESSED = 1,
+};
+
 struct headset_button {
 	int adc_min;
 	int adc_max;
 	int code;
 	unsigned int type;	/* input event type (EV_KEY, EV_SW, EV_ABS) */
+	int state;          /* Bug 185497, step 0: Record Headset button state, 0: RELASED, 1:PRESSED */
 };
 
 struct sprd_headset_buttons_platform_data {

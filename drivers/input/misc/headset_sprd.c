@@ -293,6 +293,28 @@ static void headset_pwr_on(int pwr_on)
 	}
 }
 
+//Bug 185497, step 5: Release all buttons  when head set plug out
+static void headset_button_release(void)
+{
+    struct sprd_headset *ht = &headset;
+	struct headset_button_data *ht_button = &ht->button;
+	struct sprd_headset_buttons_platform_data *pdata = ht_button->platform_data;
+       int i;
+	for (i = 0; i < pdata->nbuttons; i++) {
+        //Bug 185497, Release All pressed buttons 
+		if ( HEADSET_BUTTON_STATE_PRESSED == pdata->headset_button[i].state )
+		{
+			input_event(ht_button->input_dev, EV_KEY, pdata->headset_button[i].code, 0);
+			pr_info("SPRD_HEADSET::%s button = %d, relase\n", __FUNCTION__, pdata->headset_button[i].code);
+			input_sync(ht_button->input_dev);
+			pdata->headset_button[i].state = HEADSET_BUTTON_STATE_RELASED;
+		}	
+	
+	} 
+       
+}
+
+
 static void headset_button_work_func(struct work_struct *work)
 {
 	struct headset_button_data *ht_button = container_of(work, struct headset_button_data, work);
@@ -323,8 +345,24 @@ static void headset_button_work_func(struct work_struct *work)
 			key_code = KEY_RESERVED;
 		}
 		input_event(ht_button->input_dev, EV_KEY, key_code, 1);
+		
+		//Bug 185497, step 2: Record button as pressed
+		for (i = 0; i < pdata->nbuttons; i++) {
+			if (key_code == pdata->headset_button[i].code) {
+				pdata->headset_button[i].state = HEADSET_BUTTON_STATE_PRESSED;
+				break;
+			} 
+		}
 	} else {
 		input_event(ht_button->input_dev, EV_KEY, key_code, 0);
+		
+		//Bug 185497, step 3: Record button as relesed
+		for (i = 0; i < pdata->nbuttons; i++) {
+			if (key_code == pdata->headset_button[i].code) {
+				pdata->headset_button[i].state = HEADSET_BUTTON_STATE_RELASED;
+				break;
+			} 
+		}
 	}
 	input_sync(ht_button->input_dev);
 }
@@ -399,6 +437,10 @@ static void headset_detect_work_func(struct work_struct *work)
 		}
 		ht_detect->type = BIT_HEADSET_OUT;
 		switch_set_state(&ht_detect->sdev, ht_detect->type);
+
+		
+        //Bug 185497,  step 4: Release all headset buttons  when head set plug out
+         headset_button_release();
 	}
 }
 
@@ -580,6 +622,8 @@ static __devinit int headset_buttons_probe(struct platform_device *pdev)
 		struct headset_button *button = &pdata->headset_button[i];
 		unsigned int type = button->type ?: EV_KEY;
 		input_set_capability(input_dev, type, button->code);
+		//Bug 185497, step 1: Button state should be relesed as defalut
+		button->state = HEADSET_BUTTON_STATE_RELASED;
 	}
 
 	error = input_register_device(input_dev);
