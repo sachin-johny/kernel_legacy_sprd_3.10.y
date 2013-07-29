@@ -41,6 +41,21 @@ struct sprd_spi_devdata {
 	struct list_head msg_queue;
 	struct work_struct work;
 	struct workqueue_struct *work_queue;
+	/* backup list
+	 *0  clk_div
+	 *1  ctl0
+	 *2  ctl1
+	 *3  ctl2
+	 *4  ctl3
+	 *5  ctl4
+	 *6  ctl5
+	 *7  int_en
+	 *8  dsp_wait
+	 *9  ctl6
+	 *10 ctl7
+	 */
+	u32 reg_backup[11];
+	bool is_active;
 };
 
 extern void clk_force_disable(struct clk *);
@@ -365,7 +380,45 @@ static int sprd_spi_transfer(struct spi_device *spi_dev, struct spi_message *msg
 	return 0;
 }
 
+/*this function must be exectued in spi's clk is enable*/
+static void sprd_spi_backup_config(struct sprd_spi_devdata *spi_chip)
+{
+	u32 reg_base;
 
+	reg_base = (u32)spi_chip->reg_base;
+
+	spi_chip->reg_backup[0] = __raw_readl(reg_base + SPI_CLKD);
+	spi_chip->reg_backup[1] = __raw_readl(reg_base + SPI_CTL0);
+	spi_chip->reg_backup[2] = __raw_readl(reg_base + SPI_CTL1);
+	spi_chip->reg_backup[3] = __raw_readl(reg_base + SPI_CTL2);
+	spi_chip->reg_backup[4] = __raw_readl(reg_base + SPI_CTL3);
+	spi_chip->reg_backup[5] = __raw_readl(reg_base + SPI_CTL4);
+	spi_chip->reg_backup[6] = __raw_readl(reg_base + SPI_CTL5);
+	spi_chip->reg_backup[7] = __raw_readl(reg_base + SPI_INT_EN);
+	spi_chip->reg_backup[8] = __raw_readl(reg_base + SPI_DSP_WAIT);
+	spi_chip->reg_backup[9] = __raw_readl(reg_base + SPI_CTL6);
+	spi_chip->reg_backup[10] = __raw_readl(reg_base + SPI_CTL7);
+}
+
+/*this function must be exectued in spi's clk is enable*/
+static void sprd_spi_restore_config(const struct sprd_spi_devdata *spi_chip)
+{
+	u32 reg_base;
+
+	reg_base = (u32)spi_chip->reg_base;
+
+	__raw_writel(spi_chip->reg_backup[0], reg_base + SPI_CLKD);
+	__raw_writel(spi_chip->reg_backup[1], reg_base + SPI_CTL0);
+	__raw_writel(spi_chip->reg_backup[2], reg_base + SPI_CTL1);
+	__raw_writel(spi_chip->reg_backup[3], reg_base + SPI_CTL2);
+	__raw_writel(spi_chip->reg_backup[4], reg_base + SPI_CTL3);
+	__raw_writel(spi_chip->reg_backup[5], reg_base + SPI_CTL4);
+	__raw_writel(spi_chip->reg_backup[6], reg_base + SPI_CTL5);
+	__raw_writel(spi_chip->reg_backup[7], reg_base + SPI_INT_EN);
+	__raw_writel(spi_chip->reg_backup[8], reg_base + SPI_DSP_WAIT);
+	__raw_writel(spi_chip->reg_backup[9], reg_base + SPI_CTL6);
+	__raw_writel(spi_chip->reg_backup[10], reg_base + SPI_CTL7);
+}
 
 static int sprd_spi_setup(struct spi_device *spi_dev)
 {
@@ -467,6 +520,9 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 
 	/*wait the clk config become effective*/
 	msleep(5);
+
+	sprd_spi_backup_config(spi_chip);
+	spi_chip->is_active = true;
 
 	/*disable the clk after config complete*/
 	clk_disable(spi_chip->clk);
@@ -598,13 +654,27 @@ static int sprd_spi_suspend(struct platform_device *pdev, pm_message_t mesg)
 		return -1;
 	}
 
-	clk_force_disable(spi_chip->clk);
+	if (spi_chip->is_active)
+		clk_force_disable(spi_chip->clk);
 
 	return 0;
 }
 
 static int sprd_spi_resume(struct platform_device *pdev)
 {
+	struct spi_master *master = platform_get_drvdata(pdev);
+
+	struct sprd_spi_devdata *spi_chip = spi_master_get_devdata(master);
+
+	if (spi_chip->is_active) {
+
+		clk_enable(spi_chip->clk);
+
+		sprd_spi_restore_config(spi_chip);
+
+		clk_force_disable(spi_chip->clk);
+	}
+
 	return 0;
 }
 
