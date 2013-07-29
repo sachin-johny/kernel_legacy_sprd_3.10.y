@@ -434,10 +434,19 @@
 #define SPRD_IRAM0_PHYS			0X0
 #define SPRD_IRAM0_SIZE			SZ_8K
 
+#if 0
 #define SPRD_IRAM1_BASE			SCI_IOMAP(0x3e0000)
 #define SPRD_IRAM1_PHYS			0X50000000
 #define SPRD_IRAM1_SIZE			(SZ_32K + SZ_16K + SZ_4K)
+#else
+#define SPRD_IRAM1_BASE			SCI_IOMAP(0x3d4000)
+#define SPRD_IRAM1_PHYS			0x50000000
+#define SPRD_IRAM1_SIZE			(SZ_8K + SZ_4K)
 
+#define SPRD_IRAM2_BASE			SCI_IOMAP(0x3d7000)
+#define SPRD_IRAM2_PHYS			0x50004000
+#define SPRD_IRAM2_SIZE			(SZ_32K + SZ_4K)
+#endif
 /*begin mapping adie master and slave address */
 #define SPRD_ADI_BASE			SCI_IOMAP(0x3f0000)
 #define SPRD_ADI_PHYS			0X40030000
