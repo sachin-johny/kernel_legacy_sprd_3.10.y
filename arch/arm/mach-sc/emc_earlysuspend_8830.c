@@ -53,10 +53,19 @@
 
 #define DMC_CHANGE_FREQ_WAIT_TIMEOUT		100
 static u32 max_clk = 0;
+static volatile u32 cp_code_init_ref = 0x0;
+static volatile u32 cp_code_addr = 0x0;
+static volatile u32 switch_cnt =0x0;
 static DEFINE_MUTEX(emc_mutex);
 u32 emc_clk_get(void);
-#define CP2_FLAGS_ADDR	(SPRD_IRAM1_BASE + 0x47FC)
-#define CP2_PARAM_ADDR	(SPRD_IRAM1_BASE + 0x4700)
+#if 0
+#define CP2_FLAGS_ADDR	(SPRD_IRAM1_BASE + 0x3FFC)
+#define CP2_PARAM_ADDR	(SPRD_IRAM1_BASE + 0x3F00)
+#else
+#define CP2_DEBUG_ADDR	(cp_code_addr + 0xFF8)
+#define CP2_FLAGS_ADDR	(cp_code_addr + 0xFFC)
+#define CP2_PARAM_ADDR	(cp_code_addr + 0xF00)
+#endif
 #define uint32 u32
 
 #define debug(format, arg...) pr_debug("emc_freq" "" format, ## arg)
@@ -131,16 +140,20 @@ static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 }
 static void cp_code_init(void)
 {
-	if(chip_id == 0) {
-		memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_es, sizeof(cp_code_data_es));
-	}
-	else {
-		memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_cs, sizeof(cp_code_data_cs));
+	if(!cp_code_init_ref) {
+		cp_code_addr = (volatile u32)ioremap(0x50003000,0x1000);
+		if(chip_id == 0) {
+			//memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_es, sizeof(cp_code_data_es));
+			memcpy((void *)cp_code_addr, cp_code_data_es, sizeof(cp_code_data_es));
+		}
+		else {
+			//memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_cs, sizeof(cp_code_data_cs));
+			memcpy((void *)cp_code_addr, cp_code_data_cs, sizeof(cp_code_data_cs));
+		}
 	}
 }
 static void close_cp(void)
 {
-	volatile u32 i;
 	u32 value;
 	u32 times;
 
@@ -157,16 +170,15 @@ static void close_cp(void)
 	//info("__emc_clk_set flag =  0x%08x , phy register = 0x%08x\n", __raw_readl(CP2_FLAGS_ADDR), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x4));
 	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x10));
 	//info("__emc_clk_set flag REG_AON_CLK_EMC_CFG = 0x%08x\n", __raw_readl(REG_AON_CLK_EMC_CFG));
-	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-	for(i = 0; i < 0x1000; i++);
-	sci_glb_set(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//cp2 force sleep
-	for(i = 0; i < 0x1000; i++);
-	sci_glb_set(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power off cp2
+	//sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
+	udelay(200);
+	//sci_glb_set(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//cp2 force sleep
+	//for(i = 0; i < 0x1000; i++);
+	//sci_glb_set(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power off cp2
 }
 static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 {
 	u32 flag = 0;
-	volatile u32 i;
 	ddr_dfs_val_t * ret_timing;
 	ret_timing = __dmc_param_config(clk);
 	if(!ret_timing) {
@@ -179,16 +191,21 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
 	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
-	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-	for(i = 0; i < 0x1000; i++);
-	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
-	for(i = 0; i < 0x1000; i++);
-	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//close cp2 force sleep
-	for(i = 0; i < 0x1000; i++);
+	if(!cp_code_init_ref) {
+		sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
+		udelay(500);
+		sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
+		udelay(500);
+		sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//close cp2 force sleep
+		udelay(500);
+		__raw_writel(flag, CP2_FLAGS_ADDR);
+		udelay(500);
+		sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
+		udelay(500);
+		cp_code_init_ref++;
+	}
 	__raw_writel(flag, CP2_FLAGS_ADDR);
-	for(i = 0; i < 0x1000; i++);
-	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-	for(i = 0; i < 0x1000; i++);
+	sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
 	close_cp();
 	return 0;
 }
@@ -359,7 +376,7 @@ static struct early_suspend emc_early_suspend_desc = {
 };
 #ifdef EMC_FREQ_AUTO_TEST
 static u32 emc_freq_valid_array[] = {
-	100,
+	//100,
 	200,
 	332,
 	400,
@@ -377,7 +394,7 @@ static int emc_freq_test_thread(void * data)
 		i = i % (sizeof(emc_freq_valid_array)/ sizeof(emc_freq_valid_array[0]));
 		printk("emc_freq_test_thread i = %x\n", i);
 		emc_clk_set(emc_freq_valid_array[i], 0);
-		schedule_timeout(50);
+		schedule_timeout(10);
 	}
 	return 0;
 }
@@ -443,9 +460,9 @@ static int __init emc_early_suspend_init(void)
 	u32 val;
 	__raw_writel(1, REG_AON_CLK_PUB_AHB_CFG);
 	//__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
-	val = __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x02c);
-	val &= ~(1 << 4);
-	__raw_writel(val,SPRD_LPDDR2_PHY_BASE + 0x02c);
+	//val = __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x02c);
+	//val &= ~(1 << 4);
+	//__raw_writel(val,SPRD_LPDDR2_PHY_BASE + 0x02c);
 
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
