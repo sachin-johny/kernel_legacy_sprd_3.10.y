@@ -58,6 +58,7 @@ int dfs_set_freq(int freq)
 
 	if(freq < 0){
 		err = -1;
+		pr_debug("*** %s,freq < 0\n",__func__);
 		goto done;
 	}
 	user_data = (struct userspace_data *)(g_devfreq->data);
@@ -80,8 +81,8 @@ int dfs_set_freq(int freq)
 	}
 	err = update_devfreq(g_devfreq);
 	mutex_unlock(&g_devfreq->lock);
-done:
 	pr_debug("*** %s, set freq:%d KHz, set_count:%lu ***\n", __func__, freq, user_data->set_count );
+done:
 	return err;
 }
 
