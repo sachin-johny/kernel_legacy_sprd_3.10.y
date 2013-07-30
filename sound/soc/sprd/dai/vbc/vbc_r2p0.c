@@ -127,7 +127,6 @@ struct vbc_equ {
 	void *data[VBC_CHAN_MAX];
 	void (*vbc_eq_apply) (struct snd_soc_dai * codec_dai, void *data,
 			      enum vbc_chan chan);
-	int vbc_idx;
 };
 
 typedef int (*vbc_dma_set) (int enable);
@@ -1703,8 +1702,8 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	}
 
 	vbc_eq_setting.codec_dai = codec_dai;
-	if (vbc_eq_setting.is_active[vbc_idx])
-		vbc_eq_try_apply(codec_dai, vbc_eq_setting.vbc_idx);
+	if (vbc_eq_setting.is_active[vbc_idx] && vbc_eq_setting.data[vbc_idx])
+		vbc_eq_try_apply(codec_dai, vbc_idx);
 
 	vbc_try_dg_set(vbc_idx, VBC_LEFT);
 	vbc_try_dg_set(vbc_idx, VBC_RIGHT);
@@ -2182,7 +2181,7 @@ static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 	if (ret < profile_max) {
 		vbc_eq_setting.now_profile[id] = ret;
 	}
-	if (vbc_eq_setting.is_active[id])
+	if (vbc_eq_setting.is_active[id] && vbc_eq_setting.data[id])
 		vbc_eq_try_apply(vbc_eq_setting.codec_dai, id);
 
 	vbc_dbg("Leaving %s\n", __func__);
@@ -2249,11 +2248,18 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 		goto load_err1;
 	}
 
-	len = vbc_eq_setting.hdr.num_da * sizeof(struct vbc_da_eq_profile);
-
 	if (old_num_da != vbc_eq_setting.hdr.num_da) {
+		if (vbc_eq_setting.now_profile[VBC_CHAN_DA]  >= vbc_eq_setting.hdr.num_da)
+			vbc_eq_setting.now_profile[VBC_CHAN_DA] = 0;
 		vbc_safe_kfree(&vbc_eq_setting.data[VBC_CHAN_DA]);
 	}
+
+	if (vbc_eq_setting.hdr.num_da  == 0) {
+		offset += sizeof(struct vbc_fw_header);
+		goto check_ad01;
+	}
+
+	len = vbc_eq_setting.hdr.num_da * sizeof(struct vbc_da_eq_profile);
 	if (vbc_eq_setting.data[VBC_CHAN_DA] == NULL) {
 		vbc_eq_setting.data[VBC_CHAN_DA] = kzalloc(len, GFP_KERNEL);
 		if (vbc_eq_setting.data[VBC_CHAN_DA] == NULL) {
@@ -2278,12 +2284,19 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 			goto eq_err1;
 		}
 	}
-
-	len = vbc_eq_setting.hdr.num_ad01 * sizeof(struct vbc_ad_eq_profile);
-
+check_ad01:
 	if (old_num_ad01 != vbc_eq_setting.hdr.num_ad01) {
+		if (vbc_eq_setting.now_profile[VBC_CHAN_AD01]  >= vbc_eq_setting.hdr.num_ad01)
+			vbc_eq_setting.now_profile[VBC_CHAN_AD01] = 0;
 		vbc_safe_kfree(&vbc_eq_setting.data[VBC_CHAN_AD01]);
 	}
+
+	if (vbc_eq_setting.hdr.num_ad01  == 0) {
+		offset += vbc_eq_setting.hdr.num_da * sizeof(struct vbc_da_eq_profile);
+		goto check_ad23;
+	}
+
+	len = vbc_eq_setting.hdr.num_ad01 * sizeof(struct vbc_ad_eq_profile);
 	if (vbc_eq_setting.data[VBC_CHAN_AD01] == NULL) {
 		vbc_eq_setting.data[VBC_CHAN_AD01] = kzalloc(len, GFP_KERNEL);
 		if (vbc_eq_setting.data[VBC_CHAN_AD01] == NULL) {
@@ -2308,12 +2321,18 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 			goto eq_err2;
 		}
 	}
-
-	len = vbc_eq_setting.hdr.num_ad23 * sizeof(struct vbc_ad_eq_profile);
-
+check_ad23:
 	if (old_num_ad23 != vbc_eq_setting.hdr.num_ad23) {
+		if (vbc_eq_setting.now_profile[VBC_CHAN_AD23]  >= vbc_eq_setting.hdr.num_ad23)
+			vbc_eq_setting.now_profile[VBC_CHAN_AD23] = 0;
 		vbc_safe_kfree(&vbc_eq_setting.data[VBC_CHAN_AD23]);
 	}
+	if (vbc_eq_setting.hdr.num_ad23  == 0) {
+		ret = 0;
+		goto eq_out;
+	}
+
+	len = vbc_eq_setting.hdr.num_ad23 * sizeof(struct vbc_ad_eq_profile);
 	if (vbc_eq_setting.data[VBC_CHAN_AD23] == NULL) {
 		vbc_eq_setting.data[VBC_CHAN_AD23] = kzalloc(len, GFP_KERNEL);
 		if (vbc_eq_setting.data[VBC_CHAN_AD23] == NULL) {
@@ -2355,7 +2374,7 @@ req_fw_err:
 	mutex_unlock(&load_mutex);
 	if (ret >= 0) {
 		for (i = 0; i <= 2; i++) {
-			if (vbc_eq_setting.is_active[i])
+			if (vbc_eq_setting.is_active[i] && vbc_eq_setting.data[i])
 				vbc_eq_try_apply(vbc_eq_setting.codec_dai, i);
 		}
 	}
@@ -2439,7 +2458,7 @@ static int vbc_eq_switch_put(struct snd_kcontrol *kcontrol,
 	}
 	if ((ret == 0) || (ret == 1)) {
 		vbc_eq_setting.is_active[id] = ret;
-		if (vbc_eq_setting.is_active[id]) {
+		if (vbc_eq_setting.is_active[id] && vbc_eq_setting.data[id]) {
 			vbc_eq_setting.vbc_eq_apply = vbc_eq_profile_apply;
 			vbc_eq_try_apply(vbc_eq_setting.codec_dai, id);
 		} else {
