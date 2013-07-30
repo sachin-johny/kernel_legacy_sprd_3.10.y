@@ -2214,6 +2214,55 @@ exit:
 	return ret;
 }
 
+LOCAL void sprd_v4l2_print_reg(void)
+{
+	uint32_t*                reg_buf;
+	uint32_t                 reg_buf_len = 0x400;
+	int                      ret;
+	uint32_t                 print_len = 0, print_cnt = 0;
+
+	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
+	ret = dcam_read_registers(reg_buf, &reg_buf_len);
+	if (ret)
+		return;
+
+	printk("dcam registers \n");
+	while (print_len < reg_buf_len) {
+		printk("offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
+			print_len,
+			reg_buf[print_cnt],
+			reg_buf[print_cnt+1],
+			reg_buf[print_cnt+2],
+			reg_buf[print_cnt+3]);
+		print_cnt += 4;
+		print_len += 16;
+	}
+
+	ret = csi_read_registers(reg_buf, &reg_buf_len);
+	if (ret)
+		return;
+
+	print_len = 0;
+	print_cnt = 0;
+	printk("csi registers \n");
+	while (print_len < reg_buf_len) {
+		printk("offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
+			print_len,
+			reg_buf[print_cnt],
+			reg_buf[print_cnt+1],
+			reg_buf[print_cnt+2],
+			reg_buf[print_cnt+3]);
+		print_cnt += 4;
+		print_len += 16;
+	}
+
+	udelay(1);
+	kfree(reg_buf);
+
+	return;
+
+}
+
 LOCAL void sprd_timer_callback(unsigned long data)
 {
 	struct dcam_dev          *dev = (struct dcam_dev*)data;
@@ -2229,6 +2278,7 @@ LOCAL void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		printk("DCAM timeout.\n");
+		sprd_v4l2_print_reg();
 		node.irq_flag = V4L2_TX_ERR;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
