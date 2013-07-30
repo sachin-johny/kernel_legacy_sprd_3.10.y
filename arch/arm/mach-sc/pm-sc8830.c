@@ -84,7 +84,8 @@ static void setup_autopd_mode(void)
 	sci_adi_clr(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
 	//sci_adi_set(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_LDORF2_LP_EN | BIT_SLP_LDORF1_LP_EN | BIT_SLP_LDORF0_LP_EN);
-	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_LDORF2_LP_EN | BIT_SLP_LDORF1_LP_EN | BIT_SLP_LDORF0_LP_EN);
+
+	//sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_LDORF2_LP_EN | BIT_SLP_LDORF1_LP_EN | BIT_SLP_LDORF0_LP_EN);
 
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 7<<4);
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 5<<4);
@@ -161,12 +162,14 @@ void disable_ahb_module(void)
 	sci_glb_clr(REG_AP_AHB_AHB_EB, 0x1fff);
 
 	// AP_PERI_FORCE_SLP
+
 	sci_glb_set(REG_AP_AHB_AP_SYS_FORCE_SLEEP_CFG, BIT_AP_PERI_FORCE_SLP);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN);
 
 	//AP_SYS_AUTO_SLEEP_CFG
 	sci_glb_set(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3B);
+
 	return;
 }
 void bak_restore_ahb(int bak)
@@ -386,6 +389,13 @@ void print_last_reg(void)
 	printk("ANA_REG_GLB_AUD_SLP_CTRL4 --- 0x%08x\n", ldo_aud_ctrl4);
 	printk("ANA_REG_GLB_XTL_WAIT_CTRL --- 0x%08x\n", xtl_wait_ctrl);
 
+	printk("ANA_REG_GLB_PWR_XTL_EN0 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN0));
+	printk("ANA_REG_GLB_PWR_XTL_EN1 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN1));
+	printk("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
+	printk("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
+	printk("ANA_REG_GLB_PWR_XTL_EN4 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN4));
+	printk("ANA_REG_GLB_PWR_XTL_EN5 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN5));
+
 	printk("mm reg\n");
 	printk("REG_MM_AHB_AHB_EB ---- 0x%08x\n", mm_apb);
 
@@ -587,6 +597,16 @@ void int_work_round(void)
 	//sci_glb_set(SPRD_PMU_BASE + 0xa8, 1<<1);
 	sci_adi_clr(ANA_EIC_BASE + 0x18, 0x20);
 }
+void show_deep_reg_status(void)
+{
+	printk("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00B4, -1UL));
+	printk("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00B8, -1UL));
+	printk("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00BC, -1UL));
+	printk("PWR_STATUS3_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00C0, -1UL));
+
+}
+
+
 extern void pm_debug_set_wakeup_timer(void);
 extern void pm_debug_set_apwdt(void);
 int deep_sleep(int from_idle)
@@ -600,6 +620,10 @@ int deep_sleep(int from_idle)
 		show_pin_reg();
 		enable_mcu_deep_sleep();
 		disable_ahb_module();
+	    //disable_pmu_ddr_module();
+	    
+		sci_glb_set(SPRD_PMU_BASE+0x00F4, 0x3FF);
+		
 		disable_dma();
 		//disable_mm();
 		//disable_ana_module();
@@ -615,8 +639,10 @@ int deep_sleep(int from_idle)
 		//pm_debug_set_wakeup_timer();
 		//force_mcu_core_sleep();
 		//bak_last_reg();
+
 		__raw_writel(0x0, REG_PMU_APB_CA7_C0_CFG);
 	}
+	show_deep_reg_status();
 
 	ret = sp_pm_collapse(0, 1);
 
@@ -632,9 +658,10 @@ int deep_sleep(int from_idle)
 		hard_irq_set();
 		sci_glb_clr(REG_AP_APB_APB_EB, 0xf<<19);
 		disable_mcu_deep_sleep();
+		sci_glb_set(SPRD_PMU_BASE+0x00F4, 0);
+
 		RESTORE_GLOBAL_REG;
 	}
-
 
 	udelay(5);
 	if (ret) cpu_init();
@@ -661,6 +688,7 @@ int sprd_cpu_deep_sleep(unsigned int cpu)
 	__raw_writel(0x02004000, SPRD_INTC0_BASE + 0x8);//intc0
 	__raw_writel(0xffffffff, SPRD_INTC0_BASE + 0x100c);//intc1
 #endif	
+
 
 	time = get_sys_cnt();
 	if (!hw_irqs_disabled())  {
@@ -694,7 +722,8 @@ int sprd_cpu_deep_sleep(unsigned int cpu)
 	} else {
 		/*printk("###### %s,	DEEP ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_DEP);
-#if 0
+#if 1
+
 		ret = deep_sleep(0);
 #else
 		//pm_debug_set_wakeup_timer();
@@ -716,7 +745,13 @@ void sc_default_idle(void)
 	local_irq_enable();
 	return;
 }
-void pm_ana_ldo_config(void){}
+void pm_ana_ldo_config(void)
+{
+	/*set vddcore deep sleep voltage to 0.9v*/
+	sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
+	/*open vddcore lp mode*/
+	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_DCDCCORE_LP_EN);
+}
 static void init_led(void){}
 static struct timespec persistent_ts;
 static u64 persistent_ms, last_persistent_ms;
