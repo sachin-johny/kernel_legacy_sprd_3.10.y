@@ -241,6 +241,8 @@ struct sprd_vbc_mux_op {
 	sprd_vbc_mux_set set;
 };
 struct sprd_vbc_mux_op sprd_vbc_mux[SPRD_VBC_MUX_MAX];
+static int fm_input_from_ad01 = 0;
+static int fm_input_from_ad23 = 0;
 
 /* vbc local power suppliy and chan on */
 static struct vbc_refcount {
@@ -437,6 +439,9 @@ static int vbc_da_iismux_set(int port)
 	return 0;
 }
 
+static int vbc_try_ad_iismux_set(int port);
+static int vbc_try_ad23_iismux_set(int port);
+
 sprd_vbc_mux_set vbc_mux_cfg[SPRD_VBC_MUX_MAX] = {
 	vbc_st0_chnmux_set,
 	vbc_st1_chnmux_set,
@@ -446,8 +451,8 @@ sprd_vbc_mux_set vbc_mux_cfg[SPRD_VBC_MUX_MAX] = {
 	vbc_ad1_inmux_set,
 	vbc_ad2_inmux_set,
 	vbc_ad3_inmux_set,
-	vbc_ad_iismux_set,
-	vbc_ad23_iismux_set
+	vbc_try_ad_iismux_set,
+	vbc_try_ad23_iismux_set
 };
 
 static inline void vbc_safe_mem_release(void **free)
@@ -1064,6 +1069,16 @@ static int vbc_try_st_dg_set(int id)
 	return 0;
 }
 
+static int vbc_try_src_set(int is_ad23)
+{
+#ifdef CONFIG_SPRD_VBC_SRC_OPEN
+	vbc_adc_src_set(fm_sample_rate, is_ad23);
+#else
+	vbc_adc_src_set(0, is_ad23);
+#endif
+	return 0;
+}
+
 static int vbc_try_da_iismux_set(void)
 {
 	vbc_da_iismux_set(vbc_da_iis_port == 0 ?
@@ -1071,15 +1086,29 @@ static int vbc_try_da_iismux_set(void)
 	return 0;
 }
 
-static int vbc_try_ad_iismux_set(void)
+static int vbc_try_ad_iismux_set(int port)
 {
-	vbc_ad_iismux_set(sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val);
+	vbc_ad_iismux_set(port);
+	/*adc src setting for fm function */
+	if (port == 1 && port == 2) {
+		fm_input_from_ad01 = 1;
+		vbc_try_src_set(0);
+	} else {
+		fm_input_from_ad01 = 0;
+	}
 	return 0;
 }
 
-static int vbc_try_ad23_iismux_set(void)
+static int vbc_try_ad23_iismux_set(int port)
 {
-	vbc_ad23_iismux_set(sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val);
+	vbc_ad23_iismux_set(port);
+	/*adc23 src setting for fm function */
+	if (port == 1 && port == 2) {
+		fm_input_from_ad23 = 1;
+		vbc_try_src_set(1);
+	} else {
+		fm_input_from_ad23 = 0;
+	}
 	return 0;
 }
 
@@ -1104,14 +1133,21 @@ static int vbc_try_ad_dgmux_set(int id)
 	return 0;
 }
 
+static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec)
+{
+#ifdef CONFIG_SPRD_VBC_SRC_OPEN
+	sprd_codec_set_da_sample_rate(codec, 44100);
+#else
+	sprd_codec_set_da_sample_rate(codec, fm_sample_rate);
+#endif
+	return 0;
+}
+
 int dig_fm_event(struct snd_soc_dapm_widget *w,
 		 struct snd_kcontrol *k, int event)
 {
 	vbc_dbg("Entering %s switch %s\n", __func__,
 		SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
-	fm_set_vbc_buffer_size();	/*No use in FM function, just for debug VBC */
-	vbc_try_st_dg_set(VBC_LEFT);
-	vbc_try_st_dg_set(VBC_RIGHT);
 	vbc_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	vbc_dbg("Leaving %s\n", __func__);
 	return 0;
@@ -1371,34 +1407,40 @@ static int vbc_power_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
-static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec)
+static int dfm_event(struct snd_soc_dapm_widget *w,
+		     struct snd_kcontrol *kcontrol, int event)
 {
-#ifdef CONFIG_SPRD_VBC_SRC_OPEN
-	vbc_dbg("vbc src open\n");
-	if (sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 1
-	    || sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 2)
-		vbc_adc_src_set(fm_sample_rate, 0);
-	if (sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 1
-	    || sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 2)
-		vbc_adc_src_set(fm_sample_rate, 1);
-	sprd_codec_set_da_sample_rate(codec, 44100);
-#else
-	vbc_dbg("vbc src close\n");
-	if (sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 1
-	    || sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val == 2)
-		vbc_adc_src_set(0, 0);
-	if (sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 1
-	    || sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val == 2)
-		vbc_adc_src_set(0, 1);
-	sprd_codec_set_da_sample_rate(codec, fm_sample_rate);
-#endif
-	return 0;
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		fm_set_vbc_buffer_size();	/*No use in FM function, just for debug VBC */
+		vbc_try_st_dg_set(VBC_LEFT);
+		vbc_try_st_dg_set(VBC_RIGHT);
+		/*eq setting */
+		if (!vbc_eq_setting.codec_dai)
+			vbc_eq_setting.codec_dai = 1;
+		if (vbc_eq_setting.is_active[VBC_CHAN_DA]
+		    && vbc_eq_setting.data[VBC_CHAN_DA])
+			vbc_eq_try_apply(vbc_eq_setting.codec_dai, VBC_CHAN_DA);
+		/*codec sample rate setting */
+		vbc_fm_try_set_sample_rate(codec);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	vbc_dbg("Leaving %s\n", __func__);
+
+	return ret;
 }
 
 static int mux_event(struct snd_soc_dapm_widget *w,
 		     struct snd_kcontrol *kcontrol, int event)
 {
-	struct snd_soc_codec *codec = w->codec;
 	unsigned int id = FUN_REG(w->reg);
 	struct sprd_vbc_mux_op *mux = &(sprd_vbc_mux[id]);
 	int ret = 0;
@@ -1410,11 +1452,6 @@ static int mux_event(struct snd_soc_dapm_widget *w,
 	case SND_SOC_DAPM_PRE_PMU:
 		mux->set = vbc_mux_cfg[id];
 		ret = mux->set(mux->val);
-		/*ADC01/ADC23  SRC set for FM input */
-		if ((id == SPRD_VBC_AD_IISMUX || id == SPRD_VBC_AD23_IISMUX)
-		    && (mux->val == 1 || mux->val == 2)) {
-			vbc_fm_try_set_sample_rate(codec);
-		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		mux->set = 0;
@@ -1451,8 +1488,6 @@ int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
 	unsigned int mask = (1 << fls(max)) - 1;
 	struct sprd_vbc_mux_op *mux = &(sprd_vbc_mux[reg]);
 	int ret = 0;
-	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
-	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
 
 	pr_info("set MUX[%s] to %d\n", vbc_mux_debug_str[reg],
 		ucontrol->value.enumerated.item[0]);
@@ -1470,12 +1505,6 @@ int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
 	if (mux->set) {
 		ret = mux->set(mux->val);
 	}
-	/*ADC01/ADC23  SRC set for FM input */
-	if ((reg == SPRD_VBC_AD_IISMUX || reg == SPRD_VBC_AD23_IISMUX)
-	    && (mux->val == 1 || mux->val == 2)) {
-		vbc_fm_try_set_sample_rate(codec);
-	}
-
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
 }
@@ -1534,7 +1563,8 @@ static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 			   VBDAPATH_DA0_ADDFM_SHIFT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("DA1 FM Mixer", 4, SOC_REG(DAPATCHCTL),
 			   VBDAPATH_DA1_ADDFM_SHIFT, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("DFM", 4, SND_SOC_NOPM, 0, 0, NULL, 0),
+	SND_SOC_DAPM_PGA_S("DFM", 4, SND_SOC_NOPM, 0, 0, dfm_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 
 	/*VBC Chan Switch */
 	SND_SOC_DAPM_PGA_S("DA0 Switch", 5, SND_SOC_NOPM, 0, 0,
@@ -1691,12 +1721,12 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 		vbc_try_da_iismux_set();
 	} else if (vbc_idx == 1) {
 		vbc_set_buffer_size(VBC_FIFO_FRAME_NUM, 0, 0);
-		vbc_try_ad_iismux_set();
+		vbc_try_ad_iismux_set(sprd_vbc_mux[SPRD_VBC_AD_IISMUX].val);
 		vbc_try_ad_dgmux_set(0);
 		vbc_try_ad_dgmux_set(1);
 	} else {
 		vbc_set_buffer_size(0, 0, VBC_FIFO_FRAME_NUM);
-		vbc_try_ad23_iismux_set();
+		vbc_try_ad23_iismux_set(sprd_vbc_mux[SPRD_VBC_AD23_IISMUX].val);
 		vbc_try_ad_dgmux_set(2);
 		vbc_try_ad_dgmux_set(3);
 	}
@@ -2249,12 +2279,13 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 	}
 
 	if (old_num_da != vbc_eq_setting.hdr.num_da) {
-		if (vbc_eq_setting.now_profile[VBC_CHAN_DA]  >= vbc_eq_setting.hdr.num_da)
+		if (vbc_eq_setting.now_profile[VBC_CHAN_DA] >=
+		    vbc_eq_setting.hdr.num_da)
 			vbc_eq_setting.now_profile[VBC_CHAN_DA] = 0;
 		vbc_safe_kfree(&vbc_eq_setting.data[VBC_CHAN_DA]);
 	}
 
-	if (vbc_eq_setting.hdr.num_da  == 0) {
+	if (vbc_eq_setting.hdr.num_da == 0) {
 		offset += sizeof(struct vbc_fw_header);
 		goto check_ad01;
 	}
@@ -2286,13 +2317,16 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 	}
 check_ad01:
 	if (old_num_ad01 != vbc_eq_setting.hdr.num_ad01) {
-		if (vbc_eq_setting.now_profile[VBC_CHAN_AD01]  >= vbc_eq_setting.hdr.num_ad01)
+		if (vbc_eq_setting.now_profile[VBC_CHAN_AD01] >=
+		    vbc_eq_setting.hdr.num_ad01)
 			vbc_eq_setting.now_profile[VBC_CHAN_AD01] = 0;
 		vbc_safe_kfree(&vbc_eq_setting.data[VBC_CHAN_AD01]);
 	}
 
-	if (vbc_eq_setting.hdr.num_ad01  == 0) {
-		offset += vbc_eq_setting.hdr.num_da * sizeof(struct vbc_da_eq_profile);
+	if (vbc_eq_setting.hdr.num_ad01 == 0) {
+		offset +=
+		    vbc_eq_setting.hdr.num_da *
+		    sizeof(struct vbc_da_eq_profile);
 		goto check_ad23;
 	}
 
@@ -2323,11 +2357,12 @@ check_ad01:
 	}
 check_ad23:
 	if (old_num_ad23 != vbc_eq_setting.hdr.num_ad23) {
-		if (vbc_eq_setting.now_profile[VBC_CHAN_AD23]  >= vbc_eq_setting.hdr.num_ad23)
+		if (vbc_eq_setting.now_profile[VBC_CHAN_AD23] >=
+		    vbc_eq_setting.hdr.num_ad23)
 			vbc_eq_setting.now_profile[VBC_CHAN_AD23] = 0;
 		vbc_safe_kfree(&vbc_eq_setting.data[VBC_CHAN_AD23]);
 	}
-	if (vbc_eq_setting.hdr.num_ad23  == 0) {
+	if (vbc_eq_setting.hdr.num_ad23 == 0) {
 		ret = 0;
 		goto eq_out;
 	}
@@ -2374,7 +2409,8 @@ req_fw_err:
 	mutex_unlock(&load_mutex);
 	if (ret >= 0) {
 		for (i = 0; i <= 2; i++) {
-			if (vbc_eq_setting.is_active[i] && vbc_eq_setting.data[i])
+			if (vbc_eq_setting.is_active[i]
+			    && vbc_eq_setting.data[i])
 				vbc_eq_try_apply(vbc_eq_setting.codec_dai, i);
 		}
 	}
@@ -2722,7 +2758,10 @@ static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
 		texts->texts[ucontrol->value.integer.value[0]]);
 	fm_sample_rate = (ucontrol->value.integer.value[0] ? 48000 : 32000);
 	vbc_fm_try_set_sample_rate(codec);
-
+	if (fm_input_from_ad01)
+		vbc_try_src_set(0);
+	if (fm_input_from_ad23)
+		vbc_try_src_set(1);
 	vbc_dbg("Leaving %s\n", __func__);
 	return 1;
 }
