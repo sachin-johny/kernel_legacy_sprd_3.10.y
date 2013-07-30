@@ -137,7 +137,7 @@
 #define BLC_VALUE1                                     (DCAM_BASE + 0x015CUL)
 #define BLC_VALUE2                                     (DCAM_BASE + 0x0160UL)
 
-#define DCAM_END                                       (DCAM_BASE + 0x0200UL)
+#define DCAM_END                                       BLC_VALUE2
 
 
 #define DCAM_EB_BIT                                    BIT_0

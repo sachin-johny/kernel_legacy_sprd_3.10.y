@@ -269,7 +269,6 @@ LOCAL int         _dcam_internal_init(void);
 LOCAL void        _dcam_internal_deinit(void);
 LOCAL void        _dcam_wait_path_done(enum dcam_path_index path_index);
 LOCAL void        _dcam_path_done_notice(enum dcam_path_index path_index);
-LOCAL void        _dcam_sof_notice(void);
 LOCAL void        _dcam_rot_done(void);
 LOCAL void        _dcam_err_pre_proc(void);
 LOCAL int32_t    _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb);
@@ -609,7 +608,8 @@ int32_t dcam_module_en(void)
 int32_t dcam_module_dis(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-	int	ret = 0;
+	int	                    ret = 0;
+
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
@@ -3034,7 +3034,8 @@ LOCAL void    _dcam_sensor_sof(void)
 		(*user_func)(NULL, data);
 	}
 
-	return;}
+	return;
+}
 
 LOCAL void    _dcam_sensor_eof(void)
 {
@@ -3282,7 +3283,6 @@ LOCAL void    _dcam_path2_done(void)
 	uint32_t                coef_copy = 0;
 
 	if (atomic_read(&s_resize_flag)) {
-		printk("DCAM: 2 not valid \n");
 		frame = NULL;
 	} else {
 		DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);

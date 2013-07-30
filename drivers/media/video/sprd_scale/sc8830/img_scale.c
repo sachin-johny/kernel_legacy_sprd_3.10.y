@@ -75,21 +75,11 @@ static void scale_done(struct scale_frame* frame, void* u_data)
 	up(&p_user->sem_done);
 }
 
-static int img_scale_open(struct inode *node, struct file *pf)
+static int img_scale_hw_init(void)
 {
 	int ret = 0;
-	struct scale_user *p_user = NULL;
 
-	mutex_lock(&scale_dev_open_mutex);
-
-	SCALE_TRACE("img_scale_open \n");
-
-	p_user = scale_get_user(current->pid);
-	if (NULL == p_user) {
-		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
-		return -1;
-	}
-	pf->private_data = p_user;
+	SCALE_TRACE("img_scale_hw_init, %d \n", scale_users.counter);
 
 	if (1 == atomic_inc_return(&scale_users)) {
 		ret = scale_module_en();
@@ -114,15 +104,46 @@ reg_faile:
 	scale_module_dis();
 faile:
 	atomic_dec(&scale_users);
-	p_user->pid = INVALID_USER_ID;
-	pf->private_data = NULL;
 exit:
+	return ret;
+
+}
+
+static int img_scale_hw_deinit(void)
+{
+	int ret = 0;
+
+	SCALE_TRACE("img_scale_hw_deinit, %d \n", scale_users.counter);
+
+	if (0 == atomic_dec_return(&scale_users)) {
+		scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
+		scale_module_dis();
+	}
+
+	return ret;
+}
+
+static int img_scale_open(struct inode *node, struct file *pf)
+{
+	int ret = 0;
+	struct scale_user *p_user = NULL;
+
+	mutex_lock(&scale_dev_open_mutex);
+
+	SCALE_TRACE("img_scale_open \n");
+
+	p_user = scale_get_user(current->pid);
+	if (NULL == p_user) {
+		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
+		return -1;
+	}
+	pf->private_data = p_user;
+
 	mutex_unlock(&scale_dev_open_mutex);
 
 	SCALE_TRACE("img_scale_open %d \n", ret);
 
 	return ret;
-
 }
 
 ssize_t img_scale_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
@@ -155,11 +176,6 @@ static int img_scale_release(struct inode *node, struct file *file)
 {
 	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
 
-	if (0 == atomic_dec_return(&scale_users)) {
-		scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
-		scale_module_dis();
-	}
-
 	SCALE_TRACE("img_scale_release \n");
 	return 0;
 }
@@ -187,7 +203,7 @@ static long img_scale_ioctl(struct file *file,
 		}
 	}
 	if (SCALE_IO_IS_DONE == cmd) {
-		ret = down_timeout(&(((struct scale_user *)(file->private_data))->sem_done), msecs_to_jiffies(SCALE_TIMEOUT));
+		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
 		if (ret) {
 			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
 			ret = -ERESTARTSYS;
@@ -212,13 +228,19 @@ static long img_scale_ioctl(struct file *file,
 			mutex_lock(&scale_param_cfg_mutex);
 		}
 
-		ret = scale_cfg(_IOC_NR(cmd), data);
-
-		if (SCALE_IO_STOP == cmd) {
+		if (SCALE_IO_INIT == cmd) {
+			ret = img_scale_hw_init();
+		} else if (SCALE_IO_DEINIT == cmd) {
+			ret = img_scale_hw_deinit();
 			cur_task_pid = INVALID_USER_ID;
 			mutex_unlock(&scale_param_cfg_mutex);
+		} else {
+			ret = scale_cfg(_IOC_NR(cmd), data);
 		}
+
 	}
+
+	SCALE_TRACE("img_scale_ioctl,io 0x%x, done \n", cmd);
 
 exit:
 	if (ret) {

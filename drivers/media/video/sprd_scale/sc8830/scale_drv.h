@@ -16,7 +16,7 @@
 #include <linux/types.h>
 #include "sc8830_reg_scale.h"
 
-/*#define SCALE_DEBUG*/
+#define SCALE_DEBUG
 
 #ifdef SCALE_DEBUG
 	#define SCALE_TRACE             printk
@@ -80,6 +80,8 @@ enum scale_cfg_id {
 	SCALE_CONTINUE,
 	SCALE_IS_DONE,
 	SCALE_STOP,
+	SCALE_INIT,
+	SCALE_DEINIT,
 	SCALE_CFG_ID_E_MAX
 };
 

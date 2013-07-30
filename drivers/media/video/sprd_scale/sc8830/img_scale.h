@@ -29,6 +29,8 @@
 #define SCALE_IO_START                             _IO(SCALE_IO_MAGIC,  SCALE_START)
 #define SCALE_IO_CONTINUE                          _IO(SCALE_IO_MAGIC,  SCALE_CONTINUE)
 #define SCALE_IO_STOP                              _IO(SCALE_IO_MAGIC,  SCALE_STOP)
+#define SCALE_IO_INIT                              _IO(SCALE_IO_MAGIC,  SCALE_INIT)
+#define SCALE_IO_DEINIT                            _IO(SCALE_IO_MAGIC,  SCALE_DEINIT)
 #define SCALE_IO_IS_DONE                           _IOR(SCALE_IO_MAGIC, SCALE_IS_DONE,            struct scale_frame)
 
 
