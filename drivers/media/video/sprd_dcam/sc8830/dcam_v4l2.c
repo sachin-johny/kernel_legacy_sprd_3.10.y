@@ -2538,65 +2538,66 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 	(void)start; (void)off; (void)count; (void)eof;
 
 	len += sprintf(page + len, "Context for DCAM device \n");
-	len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "SPRD_ION_SIZE: 0x%x \n", SPRD_ION_SIZE);
 	len += sprintf(page + len, "the configuration of CAP \n");
-	len += sprintf(page + len, "1. interface mode %d \n", dev->dcam_cxt.if_mode);
-	len += sprintf(page + len, "2. sensor mode %d \n", dev->dcam_cxt.sn_mode);
-	len += sprintf(page + len, "3. YUV pattern %d \n", dev->dcam_cxt.yuv_ptn);
-	len += sprintf(page + len, "4. sync polarities v %d h %d p %d href %d \n",
+	len += sprintf(page + len, " 1. interface mode,       %d \n", dev->dcam_cxt.if_mode);
+	len += sprintf(page + len, " 2. sensor mode,          %d \n", dev->dcam_cxt.sn_mode);
+	len += sprintf(page + len, " 3. YUV pattern,          %d \n", dev->dcam_cxt.yuv_ptn);
+	len += sprintf(page + len, " 4. sync polarities,      v %d h %d p %d href %d \n",
 			dev->dcam_cxt.sync_pol.vsync_pol, 
 			dev->dcam_cxt.sync_pol.hsync_pol,
 			dev->dcam_cxt.sync_pol.pclk_pol,
 			dev->dcam_cxt.sync_pol.need_href);
-	len += sprintf(page + len, "5. Data bit-width %d \n", dev->dcam_cxt.data_bits);
-	len += sprintf(page + len, "6. need ISP %d \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].is_from_isp);
-	len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, " 5. Data bit-width,       %d \n", dev->dcam_cxt.data_bits);
+	len += sprintf(page + len, " 6. need ISP,             %d \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].is_from_isp);
+	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "the configuration of PATH1 \n");
-	len += sprintf(page + len, "1. input rect %d %d %d %d \n",
+	len += sprintf(page + len, " 1. input rect,           %d %d %d %d \n",
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].in_rect.x,
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].in_rect.y,
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].in_rect.w,
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].in_rect.h);
-	len += sprintf(page + len, "2. output size %d %d \n",
+	len += sprintf(page + len, " 2. output size,          %d %d \n",
 		dev->dcam_cxt.dcam_path[DCAM_PATH1].out_size.w,
 		dev->dcam_cxt.dcam_path[DCAM_PATH1].out_size.h);
-	len += sprintf(page + len, "3. output format %d \n",
+	len += sprintf(page + len, " 3. output format,        %d \n",
 		dev->dcam_cxt.dcam_path[DCAM_PATH1].out_fmt);
-	len += sprintf(page + len, "4. frame index based on 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_id_base);
-	len += sprintf(page + len, "5. frame count 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_cnt_act);
-	len += sprintf(page + len, "6. frame type 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_type);
+	len += sprintf(page + len, " 4. frame base index,     0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_id_base);
+	len += sprintf(page + len, " 5. frame count,          0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_cnt_act);
+	len += sprintf(page + len, " 6. frame type,           0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_type);
 	for (print_cnt = 0; print_cnt < DCAM_PATH_1_FRM_CNT_MAX; print_cnt ++) {
-		len += sprintf(page + len, "%d. frame buffer0  0x%x 0x%x 0x%x \n",
+		len += sprintf(page + len, "%2d. frame buffer%d, 0x%08x 0x%08x 0x%08x \n",
 			(6 + print_cnt),
+			print_cnt,
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_addr[print_cnt].yaddr,
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_addr[print_cnt].uaddr,
 			dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_addr[print_cnt].vaddr);
 	}
 
 	if (dev->dcam_cxt.dcam_path[DCAM_PATH2].is_work) {
-		len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, "*************************************************************** \n");
 		len += sprintf(page + len, "the configuration of PATH2 \n");
-		len += sprintf(page + len, "1. input rect %d %d %d %d \n",
+		len += sprintf(page + len, " 1. input rect,       %d %d %d %d \n",
 				dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect.x,
 				dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect.y,
 				dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect.w,
 				dev->dcam_cxt.dcam_path[DCAM_PATH2].in_rect.h);
-		len += sprintf(page + len, "2. output size %d %d \n",
+		len += sprintf(page + len, " 2. output size,      %d %d \n",
 			dev->dcam_cxt.dcam_path[DCAM_PATH2].out_size.w,
 			dev->dcam_cxt.dcam_path[DCAM_PATH2].out_size.h);
-		len += sprintf(page + len, "3. output format %d \n",
+		len += sprintf(page + len, " 3. output format,    %d \n",
 			dev->dcam_cxt.dcam_path[DCAM_PATH2].out_fmt);
-		len += sprintf(page + len, "4. frame index based on 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_id_base);
-		len += sprintf(page + len, "5. frame count 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_cnt_act);
-		len += sprintf(page + len, "6. frame type 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_type);
+		len += sprintf(page + len, " 4. frame base index, 0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH2].frm_id_base);
+		len += sprintf(page + len, " 5. frame count,      0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH2].frm_cnt_act);
+		len += sprintf(page + len, " 6. frame type,       0x%x \n", dev->dcam_cxt.dcam_path[DCAM_PATH2].frm_type);
 		for (print_cnt = 0; print_cnt < DCAM_PATH_2_FRM_CNT_MAX; print_cnt ++) {
-			len += sprintf(page + len, "%d. frame buffer %d,  0x%x 0x%x 0x%x \n",
+			len += sprintf(page + len, "%2d. frame buffer%d, 0x%8x 0x%8x 0x%8x \n",
 				(6 + print_cnt),
 				print_cnt,
-				dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_addr[print_cnt].yaddr,
-				dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_addr[print_cnt].uaddr,
-				dev->dcam_cxt.dcam_path[DCAM_PATH1].frm_addr[print_cnt].vaddr);
+				dev->dcam_cxt.dcam_path[DCAM_PATH2].frm_addr[print_cnt].yaddr,
+				dev->dcam_cxt.dcam_path[DCAM_PATH2].frm_addr[print_cnt].uaddr,
+				dev->dcam_cxt.dcam_path[DCAM_PATH2].frm_addr[print_cnt].vaddr);
 		}
 
 	}
@@ -2606,11 +2607,11 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 	if (ret)
 		return len;
 
-	len += sprintf(page + len, "********************************************* \n");
+	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "dcam registers \n");
 	print_cnt = 0;
 	while (print_len < reg_buf_len) {
-		len += sprintf(page + len, "offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
+		len += sprintf(page + len, "offset 0x%03x: 0x%08x, 0x%08x, 0x%08x, 0x%08x \n",
 			print_len,
 			reg_buf[print_cnt],
 			reg_buf[print_cnt+1],
@@ -2619,7 +2620,26 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 		print_cnt += 4;
 		print_len += 16;
 	}
-	len += sprintf(page + len, "********************************************* \n");
+
+	ret = csi_read_registers(reg_buf, &reg_buf_len);
+	if (ret)
+		return len;
+
+	len += sprintf(page + len, "*************************************************************** \n");
+	len += sprintf(page + len, "csi host registers \n");
+	print_cnt = 0;
+	print_len = 0;
+	while (print_len < reg_buf_len) {
+		len += sprintf(page + len, "offset 0x%03x: 0x%08x, 0x%08x, 0x%08x, 0x%08x \n",
+			print_len,
+			reg_buf[print_cnt],
+			reg_buf[print_cnt+1],
+			reg_buf[print_cnt+2],
+			reg_buf[print_cnt+3]);
+		print_cnt += 4;
+		print_len += 16;
+	}
+	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "The end of DCAM device \n");
 	msleep(10);
 	kfree(reg_buf);
