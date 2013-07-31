@@ -910,7 +910,7 @@ static int sprd_pcm_mmap(struct snd_pcm_substream *substream,
 #else
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	return remap_pfn_range(vma, vma->vm_start,
-			       runtime->dma_addr,
+			       runtime->dma_addr >> PAGE_SHIFT,
 			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
 #endif
 }
