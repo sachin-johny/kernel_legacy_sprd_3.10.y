@@ -553,7 +553,6 @@ static __used void wait_until_uart1_tx_done(void)
 }
 #define SAVE_GLOBAL_REG do{ \
 	bak_restore_ahb(1); \
-	bak_restore_mm(1); \
 	bak_restore_aon(1); \
 	bak_restore_apb(1); \
 	}while(0)
@@ -561,7 +560,6 @@ static __used void wait_until_uart1_tx_done(void)
 	bak_restore_apb(0); \
 	bak_restore_aon(0); \
 	bak_restore_ahb(0); \
-	bak_restore_mm(0); \
 	}while(0)
 
 /* arm core sleep*/
