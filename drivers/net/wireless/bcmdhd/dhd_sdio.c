@@ -5762,9 +5762,9 @@ dhdsdio_probe_attach(struct dhd_bus *bus, osl_t *osh, void *sdh, void *regsva,
 	DHD_ERROR(("F1 signature read @0x18000000=0x%4x\n",
 	       enum_base4));
 	 /* return if there are something about SPI or SDIO bus. */
-	if (enum_base4 != 0x16044330) {
-		return FALSE;
-	}
+//	if (enum_base4 != 0x16044330) {
+//		return FALSE;
+//	}
 
 #endif /* DHD_DEBUG */
 
