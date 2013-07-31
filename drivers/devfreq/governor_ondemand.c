@@ -78,10 +78,14 @@ int dfs_set_freq(int freq)
 				}
 			}
 		}
+		pr_debug("*** %s, set freq:%d KHz, set_count:%lu ***\n", __func__, freq, user_data->set_count );
+	}
+	else
+	{
+		pr_debug("*** %s,user_data == 0\n",__func__);
 	}
 	err = update_devfreq(g_devfreq);
-	mutex_unlock(&g_devfreq->lock);
-	pr_debug("*** %s, set freq:%d KHz, set_count:%lu ***\n", __func__, freq, user_data->set_count );
+	mutex_unlock(&g_devfreq->lock);	
 done:
 	return err;
 }
