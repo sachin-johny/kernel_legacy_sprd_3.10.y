@@ -24,6 +24,12 @@
 
 #ifndef __ASSEMBLY__
 void __init ana_init_irq(void);
+
+/*raw interrupt intc interrupt enable */
+void sci_intc_unmask(u32 irq);
+/*raw interrupt intc interrupt disable */
+void sci_intc_mask(u32 irq);
+
 #endif
 
 #endif

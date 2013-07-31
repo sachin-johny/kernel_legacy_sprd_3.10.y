@@ -17,6 +17,7 @@
 #include <linux/irq.h>
 #include <linux/interrupt.h>
 #include <linux/io.h>
+#include <linux/module.h>
 
 #include <asm/hardware/gic.h>
 
@@ -45,9 +46,10 @@ struct intc {
 };
 
 struct intc_mux_irq {/*multi irqs mapping to one bit*/
-	int irq_number;
-	int intc_base;
-	int bits;
+	u32 irq_number;
+	u32 intc_base;
+	u32 bits;
+	u32 is_unmask;
 };
 
 #if defined(CONFIG_ARCH_SCX35)
@@ -62,24 +64,24 @@ static const struct intc _intc[] = {
 		{SPRD_INTC2_BASE, 66, 95, 64},
 		{SPRD_INTC3_BASE, 98, 124, 96},
 };
-static const struct intc_mux_irq _mux[] = {
-		{30,SPRD_INT_BASE,2},{31,SPRD_INT_BASE,2},{28,SPRD_INT_BASE,2},
-		{121,SPRD_INT_BASE,2},{120,SPRD_INT_BASE,2},{119,SPRD_INT_BASE,2},
-		{118,SPRD_INT_BASE,2},{29,SPRD_INT_BASE,2},
-		{21,SPRD_INT_BASE,3},{22,SPRD_INT_BASE,3},{23,SPRD_INT_BASE,3},{24,SPRD_INT_BASE,3},
-		{35,SPRD_INT_BASE,4},{36,SPRD_INT_BASE,4},{38,SPRD_INT_BASE,4},{25,SPRD_INT_BASE,4},
-		{27,SPRD_INT_BASE,4},{20,SPRD_INT_BASE,4},{34,SPRD_INT_BASE,4},
-		{41,SPRD_INT_BASE,5},{40,SPRD_INT_BASE,5},{42,SPRD_INT_BASE,5},{44,SPRD_INT_BASE,5},
-		{45,SPRD_INT_BASE,5},{43,SPRD_INT_BASE,5},
-		{39,SPRD_INT_BASE,6},
-		{85,SPRD_INT_BASE,7},{84,SPRD_INT_BASE,7},{83,SPRD_INT_BASE,7},
-		{67,SPRD_INT_BASE,8},{68,SPRD_INT_BASE,8},{69,SPRD_INT_BASE,8},
-		{70,SPRD_INT_BASE,9},{71,SPRD_INT_BASE,9},{72,SPRD_INT_BASE,9},
-		{73,SPRD_INT_BASE,10},{74,SPRD_INT_BASE,10},
-		{123,SPRD_INT_BASE,11},{124,SPRD_INT_BASE,11},
-		{26,SPRD_INT_BASE,12},{122,SPRD_INT_BASE,12},
-		{86,SPRD_INT_BASE,13},
-		{37,SPRD_INT_BASE,14},
+static struct intc_mux_irq _mux[] = {
+		{30,SPRD_INT_BASE,2,0},{31,SPRD_INT_BASE,2,0},{28,SPRD_INT_BASE,2,0},
+		{121,SPRD_INT_BASE,2,0},{120,SPRD_INT_BASE,2,0},{119,SPRD_INT_BASE,2,0},
+		{118,SPRD_INT_BASE,2,0},{29,SPRD_INT_BASE,2,0},
+		{21,SPRD_INT_BASE,3,0},{22,SPRD_INT_BASE,3,0},{23,SPRD_INT_BASE,3,0},{24,SPRD_INT_BASE,3,0},
+		{35,SPRD_INT_BASE,4,0},{36,SPRD_INT_BASE,4,0},{38,SPRD_INT_BASE,4,0},{25,SPRD_INT_BASE,4,0},
+		{27,SPRD_INT_BASE,4,0},{20,SPRD_INT_BASE,4,0},{34,SPRD_INT_BASE,4,0},
+		{41,SPRD_INT_BASE,5,0},{40,SPRD_INT_BASE,5,0},{42,SPRD_INT_BASE,5,0},{44,SPRD_INT_BASE,5,0},
+		{45,SPRD_INT_BASE,5,0},{43,SPRD_INT_BASE,5,0},
+		{39,SPRD_INT_BASE,6,0},
+		{85,SPRD_INT_BASE,7,0},{84,SPRD_INT_BASE,7,0},{83,SPRD_INT_BASE,7,0},
+		{67,SPRD_INT_BASE,8,0},{68,SPRD_INT_BASE,8,0},{69,SPRD_INT_BASE,8,0},
+		{70,SPRD_INT_BASE,9,0},{71,SPRD_INT_BASE,9,0},{72,SPRD_INT_BASE,9,0},
+		{73,SPRD_INT_BASE,10,0},{74,SPRD_INT_BASE,10,0},
+		{123,SPRD_INT_BASE,11,0},{124,SPRD_INT_BASE,11,0},
+		{26,SPRD_INT_BASE,12,0},{122,SPRD_INT_BASE,12,0},
+		{86,SPRD_INT_BASE,13,0},
+		{37,SPRD_INT_BASE,14,0},
 };
 
 #define LEGACY_FIQ_BIT	(32)
@@ -94,6 +96,18 @@ static __init void __irq_init(void)
 	sci_glb_set(REG_AP_APB_APB_EB, BIT_INTC0_EB | BIT_INTC1_EB |
 			BIT_INTC2_EB | BIT_INTC3_EB);
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_INTC_EB);
+
+	/*disable default for startup*/
+	__raw_writel(~0, SPRD_INTC0_BASE + INTC_IRQ_DIS);
+	__raw_writel(~0, SPRD_INTC0_BASE + INTC_FIQ_DIS);
+	__raw_writel(~0, SPRD_INTC1_BASE + INTC_IRQ_DIS);
+	__raw_writel(~0, SPRD_INTC1_BASE + INTC_FIQ_DIS);
+	__raw_writel(~0, SPRD_INTC2_BASE + INTC_IRQ_DIS);
+	__raw_writel(~0, SPRD_INTC2_BASE + INTC_FIQ_DIS);
+	__raw_writel(~0, SPRD_INTC3_BASE + INTC_IRQ_DIS);
+	__raw_writel(~0, SPRD_INTC3_BASE + INTC_FIQ_DIS);
+	__raw_writel(~0, SPRD_INT_BASE + INTC_IRQ_DIS);
+	__raw_writel(~0, SPRD_INT_BASE + INTC_FIQ_DIS);
 }
 
 #else
@@ -103,7 +117,7 @@ static const struct intc _intc[] = {
 		{SPRD_INTC1_BASE, 32, 61, 32},
 };
 
-static const struct intc_mux_irq _mux[] = {};
+static struct intc_mux_irq _mux[] = {};
 
 #define LEGACY_FIQ_BIT	(31)
 #define LEGACY_IRQ_BIT	(28)
@@ -123,13 +137,14 @@ static __init void __irq_init(void)
 }
 #endif
 
-static inline int __irq_mux_irq_find(u32 irq, u32 *base, u32 *bit)
+static inline int __irq_mux_irq_find(u32 irq, u32 *base, u32 *bit, int *p_index)
 {
 	int s = ARRAY_SIZE(_mux);
 	while (s--)
 		if (_mux[s].irq_number == irq) {
 			*base = _mux[s].intc_base;
 			*bit = _mux[s].bits;
+			*p_index = s;
 			return 0;
 		}
 	return -ENXIO;
@@ -147,9 +162,33 @@ static inline int __irq_find_base(u32 irq, u32 *base, u32 *bit)
 	return -ENXIO;
 }
 
-static void sci_irq_mask(struct irq_data *data)
+static inline void __mux_irq(u32 irq, u32 offset, u32 is_unmask)
 {
-	unsigned int irq = SCI_GET_INTC_IRQ(data->irq);
+	u32 base, bit, s;
+	int index = 0;
+	int dont_mask = 0;
+	if (!__irq_mux_irq_find(irq, &base, &bit, &index)) {
+		_mux[index].is_unmask = !!is_unmask;
+
+		if (is_unmask) {/*if any one need unmask(wakeup source), let the irq mux bit enable*/
+			__raw_writel(1 << bit, base + offset);
+		} else {/*maybe mask*/
+			s = ARRAY_SIZE(_mux);
+			while (s--) {
+				if (_mux[s].is_unmask) {
+					dont_mask = 1;
+					break;
+				}
+			}
+			if (!dont_mask)
+				__raw_writel(1 << bit, base + offset);
+		}
+	}
+}
+
+void sci_intc_mask(u32 __irq)
+{
+	unsigned int irq = SCI_GET_INTC_IRQ(__irq);
 	u32 base;
 	u32 bit;
 	u32 offset = INTC_IRQ_DIS;
@@ -157,15 +196,15 @@ static void sci_irq_mask(struct irq_data *data)
 	if (unlikely(irq == (IRQ_CA7WDG_INT - IRQ_GIC_START)))
 		offset = INTC_FIQ_DIS;
 #endif
-	if (!__irq_mux_irq_find(irq, &base, &bit))
-		__raw_writel(1 << bit, base + offset);
+	__mux_irq(irq, offset, 0);
 	if (!__irq_find_base(irq, &base, &bit))
 		__raw_writel(1 << bit, base + offset);
 }
+EXPORT_SYMBOL(sci_intc_mask);
 
-static void sci_irq_unmask(struct irq_data *data)
+void sci_intc_unmask(u32 __irq)
 {
-	unsigned int irq = SCI_GET_INTC_IRQ(data->irq);
+	unsigned int irq = SCI_GET_INTC_IRQ(__irq);
 	u32 base;
 	u32 bit;
 	u32 offset = INTC_IRQ_EN;
@@ -173,13 +212,24 @@ static void sci_irq_unmask(struct irq_data *data)
 	if (unlikely(irq == (IRQ_CA7WDG_INT - IRQ_GIC_START)))
 		offset = INTC_FIQ_EN;
 #endif
-	if (!__irq_mux_irq_find(irq, &base, &bit))
-		__raw_writel(1 << bit, base + offset);
+	__mux_irq(irq, offset, 1);
 	if (!__irq_find_base(irq, &base, &bit))
 		__raw_writel(1 << bit, base + offset);
 }
 
-static int sci_set_wake(struct irq_data *d, unsigned int on)
+EXPORT_SYMBOL(sci_intc_unmask);
+
+static void __irq_mask(struct irq_data *data)
+{
+	sci_intc_mask(data->irq);
+}
+
+static void __irq_unmask(struct irq_data *data)
+{
+	sci_intc_unmask(data->irq);
+}
+
+static int __set_wake(struct irq_data *d, unsigned int on)
 {
 	/*we don't add mask/unmask in this now,  this is not mean mask interrupt*/
 	return 0;
@@ -189,9 +239,9 @@ void __init sci_init_irq(void)
 {
 	gic_init(0, 29, (void __iomem *)CORE_GIC_DIS_VA,
 		 (void __iomem *)CORE_GIC_CPU_VA);
-	gic_arch_extn.irq_mask = sci_irq_mask;
-	gic_arch_extn.irq_unmask = sci_irq_unmask;
-	gic_arch_extn.irq_set_wake = sci_set_wake;
+	gic_arch_extn.irq_mask = __irq_mask;
+	gic_arch_extn.irq_unmask = __irq_unmask;
+	gic_arch_extn.irq_set_wake = __set_wake;
 
 	ana_init_irq();
 
