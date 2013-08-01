@@ -1691,6 +1691,23 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		break;
 	}
 
+	case DCAM_PATH_DATA_ENDIAN:
+	{
+		struct dcam_endian_sel *endian = (struct dcam_endian_sel*)param;
+
+		DCAM_CHECK_PARAM_ZERO_POINTER(param);
+
+		if (endian->y_endian >= DCAM_ENDIAN_MAX ||
+			endian->uv_endian >= DCAM_ENDIAN_MAX) {
+			rtn = DCAM_RTN_PATH_ENDIAN_ERR;
+		} else {
+			path->data_endian.y_endian	= endian->y_endian;
+			path->valid_param.data_endian = 1;
+		}
+		break;
+	}
+
+
 	case DCAM_PATH_ENABLE:
 	{
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
@@ -2315,9 +2332,13 @@ LOCAL void _dcam_path0_set(void)
 		REG_MWR(DCAM_PATH0_CFG, BIT_1 | BIT_0, path->frame_deci << 0);
 	}
 
-	dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
-	dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_19, BIT_19, DCAM_ENDIAN_REG); // axi read
-
+	if (path->valid_param.data_endian) {
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_5 | BIT_4, path->data_endian.y_endian << 4, DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
+		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_19, BIT_19, DCAM_ENDIAN_REG); // axi read
+		DCAM_TRACE("DCAM DRV: path 0: data_endian y=0x%x, uv=0x%x \n",
+			path->data_endian.y_endian, path->data_endian.uv_endian);
+	}
 
 }
 LOCAL void _dcam_path1_set(void)

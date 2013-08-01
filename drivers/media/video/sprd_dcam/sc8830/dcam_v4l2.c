@@ -418,6 +418,7 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 
 	case V4L2_PIX_FMT_JPEG:
 		path->out_fmt = 0; // 0 - word, 1 - half word
+		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
 		break;
 
 	default:
@@ -933,12 +934,12 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 
 	} else if (V4L2_BUF_TYPE_PRIVATE == frame->type) {
 		path = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
+	} else {
+		path = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 		if (DCAM_CAP_MODE_JPEG == dev->dcam_cxt.sn_mode) {
 			dcam_cap_get_info(DCAM_CAP_JPEG_GET_LENGTH, &node.reserved);
 			DCAM_TRACE("V4L2: sprd_v4l2_tx_done, JPEG length 0x%x \n", node.reserved);
 		}
-	} else {
-		path = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	}
 	fmr_index = frame->fid - path->frm_id_base;
 	if (fmr_index >= path->frm_cnt_act) {
@@ -1097,6 +1098,9 @@ LOCAL int sprd_v4l2_path0_cfg(path_cfg_func path_cfg,
 	V4L2_RTN_IF_ERR(ret);
 
 	ret = path_cfg(DCAM_PATH_FRAME_TYPE, &path_spec->frm_type);
+	V4L2_RTN_IF_ERR(ret);
+
+	ret = path_cfg(DCAM_PATH_DATA_ENDIAN, &path_spec->end_sel);
 	V4L2_RTN_IF_ERR(ret);
 
 	ret = path_cfg(DCAM_PATH_FRM_DECI, &path_spec->path_frm_deci);
