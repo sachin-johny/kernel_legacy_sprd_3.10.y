@@ -289,7 +289,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		cmd0 = (int)arg;
 		if(3 == cmd0) //MBIO
 		{
-			printk("jpg ioctl JPG_ACQUAIRE_MBIO_DONE E\n");
+			//printk("jpg ioctl JPG_ACQUAIRE_MBIO_DONE E\n");
 			ret = wait_event_interruptible_timeout(
 				jpg_hw_dev.wait_queue_work_MBIO,
 				jpg_hw_dev.condition_work_MBIO,
@@ -316,16 +316,16 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			else //catched an init
 			{
 				ret = 0;
-				printk("jpg_int_status %x",__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET));
+				//printk("jpg_int_status %x",__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET));
 			}
 				
-			printk(KERN_ERR "JPG_ACQUAIRE_MBIO_DONE X %x\n",ret);
+			//printk(KERN_ERR "JPG_ACQUAIRE_MBIO_DONE X %x\n",ret);
 			jpg_hw_dev.jpg_int_status &= (~0x8);
 			jpg_hw_dev.condition_work_MBIO= 0;
 		}
 		else if(1 == cmd0)
 		{
-			printk("jpg ioctl JPG_ACQUAIRE_VLC_DONE E\n");
+			//printk("jpg ioctl JPG_ACQUAIRE_VLC_DONE E\n");
 			ret = wait_event_interruptible_timeout(
 				jpg_hw_dev.wait_queue_work_VLC,
 				jpg_hw_dev.condition_work_VLC,
@@ -352,10 +352,10 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			else //catched an init
 			{
 				ret = 4;
-				printk("jpg_int_status %x",__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET));
+			//	printk("jpg_int_status %x",__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET));
 			}
 				
-			printk(KERN_ERR "JPG_ACQUAIRE_VLC_DONE %x\n",ret);
+			//printk(KERN_ERR "JPG_ACQUAIRE_VLC_DONE %x\n",ret);
 			jpg_hw_dev.jpg_int_status &=(~0x2);
 			jpg_hw_dev.condition_work_VLC= 0;
 		}
@@ -379,7 +379,7 @@ static irqreturn_t jpg_isr(int irq, void *data)
 	int int_status;
 	
 	int_status   =__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
-	printk(KERN_INFO "jpg_isr JPG_INT_STS %x\n",int_status);
+	//printk(KERN_INFO "jpg_isr JPG_INT_STS %x\n",int_status);
         if((int_status) & 0xb) // JPEG ENC 
 	{
 		int ret = 7; // 7 : invalid
@@ -391,7 +391,7 @@ static irqreturn_t jpg_isr(int irq, void *data)
 			
 			jpg_hw_dev.condition_work_MBIO= 1;
 			wake_up_interruptible(&jpg_hw_dev.wait_queue_work_MBIO);
-			printk(KERN_ERR "jpg_isr MBIO");
+	//		printk(KERN_ERR "jpg_isr MBIO");
 		}
 		if((int_status >> 0) & 0x1)  // JPEG ENC BSM INIT
 		{
@@ -409,7 +409,7 @@ static irqreturn_t jpg_isr(int irq, void *data)
 			
 			jpg_hw_dev.condition_work_VLC= 1;
 			wake_up_interruptible(&jpg_hw_dev.wait_queue_work_VLC);
-			printk(KERN_ERR "jpg_isr VLC");
+	//		printk(KERN_ERR "jpg_isr VLC");
 		}
 
 		// jpg_hw_dev.jpg_int_status = ret;
