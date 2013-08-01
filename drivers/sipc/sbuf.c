@@ -336,8 +336,11 @@ int sbuf_write(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 		/* update tx wrptr */
 		ringhd->txbuf_wrptr = ringhd->txbuf_wrptr + txsize;
-		smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_WRPTR, bufid);
-		smsg_send(dst, &mevt, -1);
+		/* tx ringbuf is empty, so need to notify peer side */
+		if(ringhd->txbuf_wrptr - ringhd->txbuf_rdptr == txsize) {
+			smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_WRPTR, bufid);
+			smsg_send(dst, &mevt, -1);
+		}
 
 		left -= txsize;
 		buf += txsize;
@@ -472,8 +475,14 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 		/* update rx rdptr */
 		ringhd->rxbuf_rdptr = ringhd->rxbuf_rdptr + rxsize;
-		smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_RDPTR, bufid);
-		smsg_send(dst, &mevt, -1);
+		/* rx ringbuf is full ,so need to notify peer side */
+		if(ringhd->rxbuf_wrptr - ringhd->rxbuf_rdptr == ringhd->rxbuf_size - rxsize) {
+			smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_RDPTR, bufid);
+			smsg_send(dst, &mevt, -1);
+		} else if (ringhd->rxbuf_wrptr - ringhd->rxbuf_rdptr > ringhd->rxbuf_size - rxsize) {
+			/* ring buf has overlap , it shoud not happen so bug_on */
+			BUG_ON(1);
+		}
 
 		left -= rxsize;
 		buf += rxsize;
