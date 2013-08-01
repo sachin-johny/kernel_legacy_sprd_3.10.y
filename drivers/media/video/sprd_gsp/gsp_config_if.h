@@ -182,42 +182,42 @@ extern   "C"
 #define GSP_EMC_GAP_SET(interval)\
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb = (interval)
 #define GSP_L0_ADDR_SET(addr)\
-    *(GSP_DATA_ADDR_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_y_addr_u) = (addr)
+    *(volatile GSP_DATA_ADDR_T*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_y_addr_u) = (addr)
 #define GSP_L1_ADDR_SET(addr)\
-    *(GSP_DATA_ADDR_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_y_addr_u) = (addr)
+    *(volatile GSP_DATA_ADDR_T*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_y_addr_u) = (addr)
 #define GSP_Ld_ADDR_SET(addr)\
-    *(GSP_DATA_ADDR_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_des_y_addr_u) = (addr)
+    *(volatile GSP_DATA_ADDR_T*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_des_y_addr_u) = (addr)
 
-#define GSP_L0_PITCH_GET()  (*(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u))
+#define GSP_L0_PITCH_GET()  (*(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u))
 #define GSP_L0_PITCH_SET(pitch)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u) = (pitch)
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u) = (pitch)
 #define GSP_L1_PITCH_SET(pitch)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_pitch_u) = (pitch)
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_pitch_u) = (pitch)
 #define GSP_Ld_PITCH_SET(pitch)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_des_pitch_u) = (pitch)
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_des_pitch_u) = (pitch)
 
 
 #define GSP_L0_CLIPRECT_SET(rect)\
-    *(GSP_RECT_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_clip_start_u) = (rect)
+    *(volatile GSP_RECT_T*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_clip_start_u) = (rect)
 #define GSP_L1_CLIPRECT_SET(rect)\
-    *(GSP_RECT_T*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_clip_start_u) = (rect)
+    *(volatile GSP_RECT_T*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_clip_start_u) = (rect)
 
 
 #define GSP_L0_DESRECT_SET(rect)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_des_start_u) = *((uint32_t*)&(rect).st_x);\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_des_size_u) = *((uint32_t*)&(rect).rect_w)
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_des_start_u) = *((uint32_t*)&(rect).st_x);\
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_des_size_u) = *((uint32_t*)&(rect).rect_w)
 #define GSP_L1_DESPOS_SET(pos)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_des_start_u) = *(uint32_t*)(&(pos))
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_des_start_u) = *(uint32_t*)(&(pos))
 
 
 #define GSP_L0_GREY_SET(grey)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_grey_rgb_u) = *(uint32_t*)(&(grey))
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_grey_rgb_u) = *(uint32_t*)(&(grey))
 #define GSP_L1_GREY_SET(grey)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_grey_rgb_u) = *(uint32_t*)(&(grey))
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_grey_rgb_u) = *(uint32_t*)(&(grey))
 
 
 #define GSP_L0_ENDIAN_SET(endian_mode)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_endian_u) = \
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_endian_u) = \
       (((endian_mode).y_word_endn & 0x03) << 0)\
      |(((endian_mode).y_lng_wrd_endn & 0x01) << 2)\
      |(((endian_mode).uv_word_endn & 0x03) << 3)\
@@ -227,7 +227,7 @@ extern   "C"
      |(((endian_mode).rgb_swap_mode & 0x07) << 9)\
      |(((endian_mode).a_swap_mode & 0x01) << 12)
 #define GSP_L1_ENDIAN_SET(endian_mode)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_endian_u) = \
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_endian_u) = \
       (((endian_mode).y_word_endn & 0x03) << 0)\
      |(((endian_mode).y_lng_wrd_endn & 0x01) << 2)\
      |(((endian_mode).uv_word_endn & 0x03) << 3)\
@@ -237,7 +237,7 @@ extern   "C"
      |(((endian_mode).rgb_swap_mode & 0x07) << 9)\
      |(((endian_mode).a_swap_mode & 0x01) << 12)
 #define GSP_Ld_ENDIAN_SET(endian_mode)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_des_data_endian_u) = \
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_des_data_endian_u) = \
       (((endian_mode).y_word_endn & 0x03) << 0)\
      |(((endian_mode).y_lng_wrd_endn & 0x01) << 2)\
      |(((endian_mode).uv_word_endn & 0x03) << 3)\
@@ -248,14 +248,14 @@ extern   "C"
      |(((endian_mode).a_swap_mode & 0x01) << 12)
 
 #define GSP_L0_ALPHA_SET(alpha)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_alpha_u) = (alpha)
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_alpha_u) = (alpha)
 #define GSP_L1_ALPHA_SET(alpha)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_alpha_u) = (alpha)
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_alpha_u) = (alpha)
 
 #define GSP_L0_COLORKEY_SET(colorkey)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_ck_u) = *(uint32_t*)(&(colorkey))
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_ck_u) = *(uint32_t*)(&(colorkey))
 #define GSP_L1_COLORKEY_SET(colorkey)\
-    *(uint32_t*)(&((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_ck_u) = *(uint32_t*)(&(colorkey))
+    *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_ck_u) = *(uint32_t*)(&(colorkey))
 
 #define GSP_L0_IMGFORMAT_SET(format)\
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_cfg_u.mBits.img_format_l0 = (format)
