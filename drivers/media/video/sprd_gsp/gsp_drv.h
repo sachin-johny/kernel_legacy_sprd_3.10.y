@@ -26,10 +26,10 @@
 
 #define GSP_GET_RECT_FROM_PART_POINTS(pp,rect)\
 {\
-    rect.st_x = MIN(pp.st_x,pp.end_x);\
-    rect.st_y = MIN(pp.st_y,pp.end_y);\
-    rect.rect_w = MAX(pp.st_x,pp.end_x) - rect.st_x + 1;\
-    rect.rect_h = MAX(pp.st_y,pp.end_y) - rect.st_y + 1;\
+    rect.st_x = (MIN(pp.st_x,pp.end_x)&(~0x1));\
+    rect.st_y = (MIN(pp.st_y,pp.end_y)&(~0x1));\
+    rect.rect_w = ((MAX(pp.st_x,pp.end_x) - rect.st_x + 1)&(~0x1));\
+    rect.rect_h = ((MAX(pp.st_y,pp.end_y) - rect.st_y + 1)&(~0x1));\
 }
 
 //a rectangle's left-top point and right-bottom point

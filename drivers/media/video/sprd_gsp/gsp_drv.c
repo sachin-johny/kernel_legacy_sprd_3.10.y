@@ -123,6 +123,239 @@ static gsp_user* gsp_get_user(pid_t user_pid)
     return ret_user;
 }
 
+
+static void printCfgInfo(void)
+{
+    printk("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& \n");
+    printk( "misc: ahb_clock %d|gsp_clock %d|dithering_en %d|gsp_gap %d\n",
+            s_gsp_cfg.misc_info.ahb_clock,
+            s_gsp_cfg.misc_info.gsp_clock,
+            s_gsp_cfg.misc_info.dithering_en,
+            s_gsp_cfg.misc_info.gsp_gap);
+
+    printk( "L0: format:%d,pitch:%d,clip(x:%d,y:%d,w:%d,h:%d) =rot:%d=> des(x:%d,y:%d,w:%d,h:%d)\n",
+            s_gsp_cfg.layer0_info.img_format,
+            s_gsp_cfg.layer0_info.pitch,
+            s_gsp_cfg.layer0_info.clip_rect.st_x,
+            s_gsp_cfg.layer0_info.clip_rect.st_y,
+            s_gsp_cfg.layer0_info.clip_rect.rect_w,
+            s_gsp_cfg.layer0_info.clip_rect.rect_h,
+            s_gsp_cfg.layer0_info.rot_angle,
+            s_gsp_cfg.layer0_info.des_rect.st_x,
+            s_gsp_cfg.layer0_info.des_rect.st_y,
+            s_gsp_cfg.layer0_info.des_rect.rect_w,
+            s_gsp_cfg.layer0_info.des_rect.rect_h);
+    printk( "L0: alpha:%d,colorkey_en:%d,pallet_en:%d,scaling_en:%d,layer_en:%d,pmargb_en:%d,pmargb_mod:%d\n",
+            s_gsp_cfg.layer0_info.alpha,
+            s_gsp_cfg.layer0_info.colorkey_en,
+            s_gsp_cfg.layer0_info.pallet_en,
+            s_gsp_cfg.layer0_info.scaling_en,
+            s_gsp_cfg.layer0_info.layer_en,
+            s_gsp_cfg.layer0_info.pmargb_en,
+            s_gsp_cfg.layer0_info.pmargb_mod);
+    printk( "L0: col_tap_mode:%d,row_tap_mode:%d,a_swap_mode:%d,rgb_swap_mode:%d,va_word_endn:%d,va_lng_wrd_endn:%d,uv_word_endn:%d,uv_lng_wrd_endn:%d,y_word_endn:%d,y_lng_wrd_endn:%d\n",
+            s_gsp_cfg.layer0_info.col_tap_mode,
+            s_gsp_cfg.layer0_info.row_tap_mode,
+            s_gsp_cfg.layer0_info.endian_mode.a_swap_mode,
+            s_gsp_cfg.layer0_info.endian_mode.rgb_swap_mode,
+            s_gsp_cfg.layer0_info.endian_mode.va_word_endn,
+            s_gsp_cfg.layer0_info.endian_mode.va_lng_wrd_endn,
+            s_gsp_cfg.layer0_info.endian_mode.uv_word_endn,
+            s_gsp_cfg.layer0_info.endian_mode.uv_lng_wrd_endn,
+            s_gsp_cfg.layer0_info.endian_mode.y_word_endn,
+            s_gsp_cfg.layer0_info.endian_mode.y_lng_wrd_endn);
+    printk( "L0: addr_y:0x%08x,addr_uv:0x%08x,addr_v:0x%08x,(grey r:%d,g:%d,b:%d,a:%d),(colorkey r:%d,g:%d,b:%d,a:%d)\n",
+            s_gsp_cfg.layer0_info.src_addr.addr_y,
+            s_gsp_cfg.layer0_info.src_addr.addr_uv,
+            s_gsp_cfg.layer0_info.src_addr.addr_v,
+            s_gsp_cfg.layer0_info.grey.r_val,
+            s_gsp_cfg.layer0_info.grey.g_val,
+            s_gsp_cfg.layer0_info.grey.b_val,
+            s_gsp_cfg.layer0_info.grey.a_val,
+            s_gsp_cfg.layer0_info.colorkey.r_val,
+            s_gsp_cfg.layer0_info.colorkey.g_val,
+            s_gsp_cfg.layer0_info.colorkey.b_val,
+            s_gsp_cfg.layer0_info.colorkey.a_val);
+
+
+    printk( "L1: format:%d,pitch:%d,clip(x:%d,y:%d,w:%d,h:%d) =rot:%d=> des(x:%d,y:%d)\n",
+            s_gsp_cfg.layer1_info.img_format,
+            s_gsp_cfg.layer1_info.pitch,
+            s_gsp_cfg.layer1_info.clip_rect.st_x,
+            s_gsp_cfg.layer1_info.clip_rect.st_y,
+            s_gsp_cfg.layer1_info.clip_rect.rect_w,
+            s_gsp_cfg.layer1_info.clip_rect.rect_h,
+            s_gsp_cfg.layer1_info.rot_angle,
+            s_gsp_cfg.layer1_info.des_pos.pos_pt_x,
+            s_gsp_cfg.layer1_info.des_pos.pos_pt_y);
+    printk( "L1: alpha:%d,colorkey_en:%d,pallet_en:%d,layer_en:%d,pmargb_en:%d,pmargb_mod:%d\n",
+            s_gsp_cfg.layer1_info.alpha,
+            s_gsp_cfg.layer1_info.colorkey_en,
+            s_gsp_cfg.layer1_info.pallet_en,
+            s_gsp_cfg.layer1_info.layer_en,
+            s_gsp_cfg.layer1_info.pmargb_en,
+            s_gsp_cfg.layer1_info.pmargb_mod);
+
+    printk( "L1: col_tap_mode:%d,row_tap_mode:%d,a_swap_mode:%d,rgb_swap_mode:%d,va_word_endn:%d,va_lng_wrd_endn:%d,uv_word_endn:%d,uv_lng_wrd_endn:%d,y_word_endn:%d,y_lng_wrd_endn:%d\n",
+            s_gsp_cfg.layer1_info.col_tap_mode,
+            s_gsp_cfg.layer1_info.row_tap_mode,
+            s_gsp_cfg.layer1_info.endian_mode.a_swap_mode,
+            s_gsp_cfg.layer1_info.endian_mode.rgb_swap_mode,
+            s_gsp_cfg.layer1_info.endian_mode.va_word_endn,
+            s_gsp_cfg.layer1_info.endian_mode.va_lng_wrd_endn,
+            s_gsp_cfg.layer1_info.endian_mode.uv_word_endn,
+            s_gsp_cfg.layer1_info.endian_mode.uv_lng_wrd_endn,
+            s_gsp_cfg.layer1_info.endian_mode.y_word_endn,
+            s_gsp_cfg.layer1_info.endian_mode.y_lng_wrd_endn);
+    printk( "L1: addr_y:0x%08x,addr_uv:0x%08x,addr_v:0x%08x,(grey r:%d,g:%d,b:%d,a:%d),(colorkey r:%d,g:%d,b:%d,a:%d)\n",
+            s_gsp_cfg.layer1_info.src_addr.addr_y,
+            s_gsp_cfg.layer1_info.src_addr.addr_uv,
+            s_gsp_cfg.layer1_info.src_addr.addr_v,
+            s_gsp_cfg.layer1_info.grey.r_val,
+            s_gsp_cfg.layer1_info.grey.g_val,
+            s_gsp_cfg.layer1_info.grey.b_val,
+            s_gsp_cfg.layer1_info.grey.a_val,
+            s_gsp_cfg.layer1_info.colorkey.r_val,
+            s_gsp_cfg.layer1_info.colorkey.g_val,
+            s_gsp_cfg.layer1_info.colorkey.b_val,
+            s_gsp_cfg.layer1_info.colorkey.a_val);
+
+
+    printk( "Ld cfg:fmt:%d|pitch %04d|cmpr8 %d\n",
+            s_gsp_cfg.layer_des_info.img_format,
+            s_gsp_cfg.layer_des_info.pitch,
+            s_gsp_cfg.layer_des_info.compress_r8_en);
+    printk( "Ld Yaddr 0x%08x|Uaddr 0x%08x|Vaddr 0x%08x\n",
+            s_gsp_cfg.layer_des_info.src_addr.addr_y,
+            s_gsp_cfg.layer_des_info.src_addr.addr_uv,
+            s_gsp_cfg.layer_des_info.src_addr.addr_v);
+    printk( "Ld:a_swap_mode:%d,rgb_swap_mode:%d,va_word_endn:%d,va_lng_wrd_endn:%d,uv_word_endn:%d,uv_lng_wrd_endn:%d,y_word_endn:%d,y_lng_wrd_endn:%d\n",
+            s_gsp_cfg.layer_des_info.endian_mode.a_swap_mode,
+            s_gsp_cfg.layer_des_info.endian_mode.rgb_swap_mode,
+            s_gsp_cfg.layer_des_info.endian_mode.va_word_endn,
+            s_gsp_cfg.layer_des_info.endian_mode.va_lng_wrd_endn,
+            s_gsp_cfg.layer_des_info.endian_mode.uv_word_endn,
+            s_gsp_cfg.layer_des_info.endian_mode.uv_lng_wrd_endn,
+            s_gsp_cfg.layer_des_info.endian_mode.y_word_endn,
+            s_gsp_cfg.layer_des_info.endian_mode.y_lng_wrd_endn);
+    printk("&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&& \n");
+}
+
+
+static void printGPSReg(void)
+{
+    GSP_REG_T *g_gsp_reg = (GSP_REG_T *)GSP_REG_BASE;
+
+    printk("********************************************* \n");
+
+
+    printk( "misc: run %d|busy %d|errflag %d|errcode %02d|dither %d|pmmod0 %d|pmmod1 %d|pmen %d|scale %d|reserv2 %d|scl_stat_clr %d|l0en %d|l1en %d|rb %d\n",
+            g_gsp_reg->gsp_cfg_u.mBits.gsp_run,
+            g_gsp_reg->gsp_cfg_u.mBits.gsp_busy,
+            g_gsp_reg->gsp_cfg_u.mBits.error_flag,
+            g_gsp_reg->gsp_cfg_u.mBits.error_code,
+            g_gsp_reg->gsp_cfg_u.mBits.dither_en,
+            g_gsp_reg->gsp_cfg_u.mBits.pmargb_mod0,
+            g_gsp_reg->gsp_cfg_u.mBits.pmargb_mod1,
+            g_gsp_reg->gsp_cfg_u.mBits.pmargb_en,
+            g_gsp_reg->gsp_cfg_u.mBits.scale_en,
+            g_gsp_reg->gsp_cfg_u.mBits.reserved2,
+            g_gsp_reg->gsp_cfg_u.mBits.scale_status_clr,
+            g_gsp_reg->gsp_cfg_u.mBits.l0_en,
+            g_gsp_reg->gsp_cfg_u.mBits.l1_en,
+            g_gsp_reg->gsp_cfg_u.mBits.dist_rb);
+    printk( "misc: inten %d|intmod %d|intclr %d\n",
+            g_gsp_reg->gsp_int_cfg_u.mBits.int_en,
+            g_gsp_reg->gsp_int_cfg_u.mBits.int_mod,
+            g_gsp_reg->gsp_int_cfg_u.mBits.int_clr);
+
+
+    printk( "L0 cfg:fmt %d|rot %d|ck %d|pallet %d|rowtap %d|coltap %d\n",
+            g_gsp_reg->gsp_layer0_cfg_u.mBits.img_format_l0,
+            g_gsp_reg->gsp_layer0_cfg_u.mBits.rot_mod_l0,
+            g_gsp_reg->gsp_layer0_cfg_u.mBits.ck_en_l0,
+            g_gsp_reg->gsp_layer0_cfg_u.mBits.pallet_en_l0,
+            g_gsp_reg->gsp_layer0_cfg_u.mBits.row_tap_mod,
+            g_gsp_reg->gsp_layer0_cfg_u.mBits.col_tap_mod);
+    printk( "L0 blockalpha %03d, pitch %04d,(%04d,%04d)%04dx%04d => (%04d,%04d)%04dx%04d\n",
+            g_gsp_reg->gsp_layer0_alpha_u.mBits.alpha_l0,
+            g_gsp_reg->gsp_layer0_pitch_u.mBits.pitch0,
+            g_gsp_reg->gsp_layer0_clip_start_u.mBits.clip_start_x_l0,
+            g_gsp_reg->gsp_layer0_clip_start_u.mBits.clip_start_y_l0,
+            g_gsp_reg->gsp_layer0_clip_size_u.mBits.clip_size_x_l0,
+            g_gsp_reg->gsp_layer0_clip_size_u.mBits.clip_size_y_l0,
+            g_gsp_reg->gsp_layer0_des_start_u.mBits.des_start_x_l0,
+            g_gsp_reg->gsp_layer0_des_start_u.mBits.des_start_y_l0,
+            g_gsp_reg->gsp_layer0_des_size_u.mBits.des_size_x_l0,
+            g_gsp_reg->gsp_layer0_des_size_u.mBits.des_size_y_l0);
+    printk( "L0 Yaddr 0x%08x|Uaddr 0x%08x|Vaddr 0x%08x\n",
+            g_gsp_reg->gsp_layer0_y_addr_u.dwValue,
+            g_gsp_reg->gsp_layer0_uv_addr_u.dwValue,
+            g_gsp_reg->gsp_layer0_va_addr_u.dwValue);
+    printk( "L0 grey(%03d,%03d,%03d) colorkey(%03d,%03d,%03d)\n",
+            g_gsp_reg->gsp_layer0_grey_rgb_u.mBits.layer0_grey_r,
+            g_gsp_reg->gsp_layer0_grey_rgb_u.mBits.layer0_grey_g,
+            g_gsp_reg->gsp_layer0_grey_rgb_u.mBits.layer0_grey_b,
+            g_gsp_reg->gsp_layer0_ck_u.mBits.ck_r_l0,
+            g_gsp_reg->gsp_layer0_ck_u.mBits.ck_g_l0,
+            g_gsp_reg->gsp_layer0_ck_u.mBits.ck_b_l0);
+    printk( "L0 endian: y %d|u %d|v %d|rgb %d|alpha %d\n",
+            g_gsp_reg->gsp_layer0_endian_u.mBits.y_endian_mod_l0,
+            g_gsp_reg->gsp_layer0_endian_u.mBits.uv_endian_mod_l0,
+            g_gsp_reg->gsp_layer0_endian_u.mBits.va_endian_mod_l0,
+            g_gsp_reg->gsp_layer0_endian_u.mBits.rgb_swap_mod_l0,
+            g_gsp_reg->gsp_layer0_endian_u.mBits.a_swap_mod_l0);
+
+
+    printk( "L1 cfg:fmt %d|rot %d|ck %d|pallet %d\n",
+            g_gsp_reg->gsp_layer1_cfg_u.mBits.img_format_l1,
+            g_gsp_reg->gsp_layer1_cfg_u.mBits.rot_mod_l1,
+            g_gsp_reg->gsp_layer1_cfg_u.mBits.ck_en_l1,
+            g_gsp_reg->gsp_layer1_cfg_u.mBits.pallet_en_l1);
+    printk( "L1 blockalpha %03d, pitch %04d,(%04d,%04d)%04dx%04d => (%04d,%04d)\n",
+            g_gsp_reg->gsp_layer1_alpha_u.mBits.alpha_l1,
+            g_gsp_reg->gsp_layer1_pitch_u.mBits.pitch1,
+            g_gsp_reg->gsp_layer1_clip_start_u.mBits.clip_start_x_l1,
+            g_gsp_reg->gsp_layer1_clip_start_u.mBits.clip_start_y_l1,
+            g_gsp_reg->gsp_layer1_clip_size_u.mBits.clip_size_x_l1,
+            g_gsp_reg->gsp_layer1_clip_size_u.mBits.clip_size_y_l1,
+            g_gsp_reg->gsp_layer1_des_start_u.mBits.des_start_x_l1,
+            g_gsp_reg->gsp_layer1_des_start_u.mBits.des_start_y_l1);
+    printk( "L1 Yaddr 0x%08x|Uaddr 0x%08x|Vaddr 0x%08x\n",
+            g_gsp_reg->gsp_layer1_y_addr_u.dwValue,
+            g_gsp_reg->gsp_layer1_uv_addr_u.dwValue,
+            g_gsp_reg->gsp_layer1_va_addr_u.dwValue);
+    printk( "L1 grey(%03d,%03d,%03d) colorkey(%03d,%03d,%03d)\n",
+            g_gsp_reg->gsp_layer1_grey_rgb_u.mBits.grey_r_l1,
+            g_gsp_reg->gsp_layer1_grey_rgb_u.mBits.grey_g_l1,
+            g_gsp_reg->gsp_layer1_grey_rgb_u.mBits.grey_b_l1,
+            g_gsp_reg->gsp_layer1_ck_u.mBits.ck_r_l1,
+            g_gsp_reg->gsp_layer1_ck_u.mBits.ck_g_l1,
+            g_gsp_reg->gsp_layer1_ck_u.mBits.ck_b_l1);
+    printk( "L1 endian: y %d|u %d|v %d|rgb %d|alpha %d\n",
+            g_gsp_reg->gsp_layer1_endian_u.mBits.y_endian_mod_l1,
+            g_gsp_reg->gsp_layer1_endian_u.mBits.uv_endian_mod_l1,
+            g_gsp_reg->gsp_layer1_endian_u.mBits.va_endian_mod_l1,
+            g_gsp_reg->gsp_layer1_endian_u.mBits.rgb_swap_mod_l1,
+            g_gsp_reg->gsp_layer1_endian_u.mBits.a_swap_mod_l1);
+
+
+    printk( "Ld cfg:fmt %d|cmpr8 %d|pitch %04d\n",
+            g_gsp_reg->gsp_des_data_cfg_u.mBits.des_img_format,
+            g_gsp_reg->gsp_des_data_cfg_u.mBits.compress_r8,
+            g_gsp_reg->gsp_des_pitch_u.mBits.des_pitch);
+    printk( "Ld Yaddr 0x%08x|Uaddr 0x%08x|Vaddr 0x%08x\n",
+            g_gsp_reg->gsp_des_y_addr_u.dwValue,
+            g_gsp_reg->gsp_des_uv_addr_u.dwValue,
+            g_gsp_reg->gsp_des_v_addr_u.dwValue);
+    printk( "Ld endian: y %d|u %d|v %d|rgb %d|alpha %d\n",
+            g_gsp_reg->gsp_des_data_endian_u.mBits.y_endian_mod,
+            g_gsp_reg->gsp_des_data_endian_u.mBits.uv_endian_mod,
+            g_gsp_reg->gsp_des_data_endian_u.mBits.v_endian_mod,
+            g_gsp_reg->gsp_des_data_endian_u.mBits.rgb_swap_mod,
+            g_gsp_reg->gsp_des_data_endian_u.mBits.a_swap_mod);
+    printk( "********************************************* \n");
+}
 #ifdef GSP_WORK_AROUND1
 const int32_t g_half_pi_cos[8]= {0,0/*-270*/,-1/*-180*/,0/*-90*/,1/*0*/,0/*90*/,-1/*180*/,0/*270*/};
 #define half_pi_cos(r)  (g_half_pi_cos[(r)+4])
@@ -860,8 +1093,8 @@ static uint32_t GSP_Gen_CMDQ(GSP_LAYER1_REG_T *pDescriptors_walk,GSP_L1_L0_RELAT
     {
         GSP_GET_RECT_FROM_PART_POINTS(parts_Points_src[i],rect);
         GSP_L1_CLIPRECT_SET(rect);
-        pos.pos_pt_x = parts_Points_des[i].st_x;
-        pos.pos_pt_y = parts_Points_des[i].st_y;
+        pos.pos_pt_x = (parts_Points_des[i].st_x&(~0x1));
+        pos.pos_pt_y = (parts_Points_des[i].st_y&(~0x1));
         GSP_L1_DESPOS_SET(pos);
 
         pDescriptors_walk[i] = *(volatile GSP_LAYER1_REG_T *)GSP_L1_BASE;
@@ -936,8 +1169,8 @@ static uint32_t GSP_Gen_CMDQ(GSP_LAYER1_REG_T *pDescriptors_walk,GSP_L1_L0_RELAT
     {
         GSP_GET_RECT_FROM_PART_POINTS(parts_Points_src_matrix[i],rect);
         GSP_L1_CLIPRECT_SET(rect);
-        pos.pos_pt_x = parts_Points_des[i].st_x;
-        pos.pos_pt_y = parts_Points_des[i].st_y;
+        pos.pos_pt_x = (parts_Points_des[i].st_x&(~0x1));
+        pos.pos_pt_y = (parts_Points_des[i].st_y&(~0x1));
         GSP_L1_DESPOS_SET(pos);
 
         pDescriptors_walk[i] = *(volatile GSP_LAYER1_REG_T *)GSP_L1_BASE;
@@ -947,6 +1180,27 @@ static uint32_t GSP_Gen_CMDQ(GSP_LAYER1_REG_T *pDescriptors_walk,GSP_L1_L0_RELAT
     return part_cnt-1;
 }
 
+void printCMDQ(GSP_LAYER1_REG_T *pDescriptors, uint32_t c)
+{
+    uint32_t i = 0;
+    while(i < c)
+    {
+        printk("CMDQ[%d]cfg:%08x\n",i,pDescriptors->gsp_layer1_cfg_u.dwValue);
+        printk("CMDQ[%d]YADDR:%08x\n",i,pDescriptors->gsp_layer1_y_addr_u.dwValue);
+        printk("CMDQ[%d]UADDR:%08x\n",i,pDescriptors->gsp_layer1_uv_addr_u.dwValue);
+        printk("CMDQ[%d]VADDR:%08x\n",i,pDescriptors->gsp_layer1_va_addr_u.dwValue);
+        printk("CMDQ[%d]Pitch:%08x\n",i,pDescriptors->gsp_layer1_pitch_u.dwValue);
+        printk("CMDQ[%d]clip x:%04d y:%04d\n",i,pDescriptors->gsp_layer1_clip_start_u.mBits.clip_start_x_l1,pDescriptors->gsp_layer1_clip_start_u.mBits.clip_start_y_l1);
+        printk("CMDQ[%d]clip w:%04d h:%04d\n",i,pDescriptors->gsp_layer1_clip_size_u.mBits.clip_size_x_l1,pDescriptors->gsp_layer1_clip_size_u.mBits.clip_size_y_l1);
+        printk("CMDQ[%d]des x:%04d y:%04d\n",i,pDescriptors->gsp_layer1_des_start_u.mBits.des_start_x_l1,pDescriptors->gsp_layer1_des_start_u.mBits.des_start_y_l1);
+        printk("CMDQ[%d]GREY:%08x\n",i,pDescriptors->gsp_layer1_grey_rgb_u.dwValue);
+        printk("CMDQ[%d]Endian:%08x\n",i,pDescriptors->gsp_layer1_endian_u.dwValue);
+        printk("CMDQ[%d]Alpha:%08x\n",i,pDescriptors->gsp_layer1_alpha_u.dwValue);
+        printk("CMDQ[%d]CK:%08x\n",i,pDescriptors->gsp_layer1_ck_u.dwValue);
+        i++;
+        pDescriptors++;
+    }
+}
 
 /*
 CMDQ is a special-GSP-mode, designed to blend small L1 area with Ld, so GSP will read Ld image data,
@@ -1007,7 +1261,7 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
     PART_POINTS L0_des_Points = {0};
     PART_POINTS L1_des_Points = {0};
     uint32_t descriptors_byte_len = 0;
-    GSP_LAYER1_REG_T *pDescriptors = NULL;//vitrual address of descriptors of Layer1 bitblt CMDQ
+    static GSP_LAYER1_REG_T *pDescriptors = NULL;//vitrual address of descriptors of Layer1 bitblt CMDQ
     dma_addr_t      Descriptors_pa = 0;//physic address of descriptors, points to the same memory with pDescriptors
     GSP_CMDQ_REG_T CmdQCfg;//CMDQ config register structer
 
@@ -1024,12 +1278,24 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
        ||s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_90_M
        ||s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_270_M)
     {
+        //check have 1/2 scaling down, if not exit just return
+        if(!(s_gsp_cfg.layer0_info.clip_rect.rect_w >= s_gsp_cfg.layer0_info.des_rect.rect_h*2
+                ||s_gsp_cfg.layer0_info.clip_rect.rect_h >= s_gsp_cfg.layer0_info.des_rect.rect_w*2))
+        {
+            return GSP_NO_ERR;
+        }
         L1_des_w = s_gsp_cfg.layer1_info.clip_rect.rect_h;
         L1_des_h = s_gsp_cfg.layer1_info.clip_rect.rect_w;
 
     }
     else
     {
+        //check have 1/2 scaling down, if not exit just return
+        if(!(s_gsp_cfg.layer0_info.clip_rect.rect_w >= s_gsp_cfg.layer0_info.des_rect.rect_w*2
+                ||s_gsp_cfg.layer0_info.clip_rect.rect_h >= s_gsp_cfg.layer0_info.des_rect.rect_h*2))
+        {
+            return GSP_NO_ERR;
+        }
         L1_des_w = s_gsp_cfg.layer1_info.clip_rect.rect_w;
         L1_des_h = s_gsp_cfg.layer1_info.clip_rect.rect_h;
     }
@@ -1046,12 +1312,7 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
     L1_des_Points.end_y = L1_des_Points.st_y + L1_des_h - 1;
 
 
-    //check have 1/2 scaling down, if not exit just return
-    if(!(s_gsp_cfg.layer0_info.clip_rect.rect_w >= s_gsp_cfg.layer0_info.des_rect.rect_w*2
-         ||s_gsp_cfg.layer0_info.clip_rect.rect_h >= s_gsp_cfg.layer0_info.des_rect.rect_h*2))
-    {
-        return GSP_NO_ERR;
-    }
+
     //if they not overlap,its ok,just return
     if(GSP_layer0_layer1_overlap() == 0)
     {
@@ -1157,16 +1418,25 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
 
     //alloc no-cache and no-buffer descriptor memory for CMDQ
     descriptors_byte_len = sizeof(GSP_LAYER1_REG_T) * CMDQ_DPT_DEPTH;
+    if(pDescriptors == NULL)
+    {
     pDescriptors = (GSP_LAYER1_REG_T *)dma_alloc_coherent(NULL,
                    descriptors_byte_len,
                    &Descriptors_pa,
                    GFP_KERNEL|GFP_DMA);
+        if(pDescriptors)
+        {
+            printk("GSP_work_around1%d:pid:0x%08x, alloced CMDQ descriptor memory,va:0x%08x pa:0x%08x size:%d B \n",__LINE__,pUserdata->pid,
+                   (unsigned int)pDescriptors,Descriptors_pa,descriptors_byte_len);
+        }
+    }
     if (!pDescriptors)
     {
-        printk("gsp_drv_ioctl:pid:0x%08x, can't alloc CMDQ descriptor memory!! just disable L1 !! L%d \n",pUserdata->pid,__LINE__);
+        printk("GSP_work_around1:pid:0x%08x, can't alloc CMDQ descriptor memory!! just disable L1 !! L%d \n",pUserdata->pid,__LINE__);
         GSP_L1_ENABLE_SET(0);
         return GSP_KERNEL_WORKAROUND_ALLOC_ERR;
     }
+    memset((void*)pDescriptors,0,descriptors_byte_len);    
     blockcnt = GSP_Gen_CMDQ(pDescriptors,relation);
 
     //if(relation == L1_L0_RELATIONSHIP_BP)//bug 181964 ,in video, there are more 2 line white pixel under video-image, ASIC CMDQ's bug.
@@ -1231,8 +1501,9 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
             GSP_TRACE("%s%d:pid:0x%08x, trigger CMDQ[%d] %s!\n",__func__,__LINE__,pUserdata->pid,i,(ret)?"failed":"success");
             if(ret)
             {
-                printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !! er_code:%d \n",__func__,__LINE__,pUserdata->pid,ret);
-
+                printk("%s%d:pid:0x%08x, CMDQ[%d] trigger err. ignor not overlaped area of Layer1 !! er_code:%d \n",__func__,__LINE__,pUserdata->pid,i,ret);
+                printCMDQ(pDescriptors,blockcnt+1);
+                printGPSReg();
                 ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
                 ERR_RECORD_INDEX_ADD_WP();
                 break;
@@ -1272,11 +1543,13 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
     GSP_CFG_L1_PARAM(pDescriptors[blockcnt]);
 
     //free descriptor buffer
+    if(0)   //don't free , alloc once
+    {
     dma_free_coherent(NULL,
                       descriptors_byte_len,
                       pDescriptors,
                       Descriptors_pa);
-
+    }
     return ret;
 
 }
@@ -1739,11 +2012,12 @@ static long gsp_drv_ioctl(struct file *file,
                     GSP_TRACE("%s:pid:0x%08x, config hw %s!, L%d \n",__func__,pUserdata->pid,(ret>0)?"failed":"success",__LINE__);
                     if(ret)
                     {
-                        //ret |= 0x80000000;
+                    printCfgInfo();
+                    printGPSReg();
                         GSP_Deinit();
                         gsp_cur_client_pid = INVALID_USER_ID;
                         up(&gsp_hw_resource_sem);
-                        GSP_TRACE("%s:pid:0x%08x, release hw sema, L%d \n",__func__,pUserdata->pid,__LINE__);
+                    printk("%s%d:pid:0x%08x, gsp config err:%d, release hw sema.\n",__func__,__LINE__,pUserdata->pid,ret);
                     }
                 }
             }
@@ -1803,6 +2077,8 @@ static long gsp_drv_ioctl(struct file *file,
                 if(ret)
                 {
                     printk("%s%d:pid:0x%08x, trigger failed!! err_code:%d \n",__func__,__LINE__,pUserdata->pid,ret);
+                printCfgInfo();
+                printGPSReg();
                     ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
                     ERR_RECORD_INDEX_ADD_WP();
                     GSP_Deinit();
