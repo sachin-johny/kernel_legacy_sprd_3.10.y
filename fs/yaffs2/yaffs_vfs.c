@@ -1539,15 +1539,20 @@ static int yaffs_statfs(struct dentry *dentry, struct kstatfs *buf)
 
 static void yaffs_flush_inodes(struct super_block *sb)
 {
-	struct inode *iptr;
+	struct inode *iptr, *next;
 	struct yaffs_obj *obj;
 
-	list_for_each_entry(iptr, &sb->s_inodes, i_sb_list) {
+	list_for_each_entry_safe(iptr, next,  &sb->s_inodes, i_sb_list) {
 		obj = yaffs_inode_to_obj(iptr);
 		if (obj) {
 			yaffs_trace(YAFFS_TRACE_OS,
 				"flushing obj %d", obj->obj_id);
-			yaffs_flush_file(obj, 1, 0);
+			if(next == iptr){
+                            yaffs_trace(YAFFS_TRACE_OS,
+				"yaffs_flus_inodes err pointer to themself");
+                            break;
+                        }
+                        yaffs_flush_file(obj, 1, 0);
 		}
 	}
 }
