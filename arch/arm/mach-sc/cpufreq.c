@@ -168,8 +168,9 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 static unsigned int shark_top_frequency;
 #define SHARK_TDPLL_FREQUENCY	(768000)
 static unsigned int shark_limited_max_frequency;
-#define SHARK_FAKE_FREQUENCY	(1)
-
+/* we need large fake freq to unplug cpu quickly */
+#define SHARK_FAKE_FREQUENCY	(100000)
+#if 1
 static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
 	.freq_tbl = {
 		/* {0, 1200000}, */
@@ -186,7 +187,24 @@ static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
 		1000000,
 	},
 };
-
+#else
+static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
+	.freq_tbl = {
+		{0, 1200000},
+		{1, 1000000},
+		{2, SHARK_TDPLL_FREQUENCY},
+		{3, 600000},
+		{4, CPUFREQ_TABLE_END},
+	},
+	.vddarm_mv = {
+		1250000,
+		1150000,
+		1100000,
+		1050000,
+		1000000,
+	},
+};
+#endif
 static struct cpufreq_table_data sc8830_cpufreq_table_data_es = {
 	.freq_tbl = {
 		{0, 1000000},
@@ -228,7 +246,7 @@ struct unplug_work_info {
 };
 /* milliseconds */
 static int unplug_delay = 500;
-static int plugin_delay = 750;
+static int plugin_delay = 1000;
 //we enable dynamic cpu hotplug by default
 static int enabled_dhp = 1;
 
@@ -775,6 +793,8 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 		enabled_dhp = 0;
 #endif
 		sprd_cpufreq_conf->limited_max_freq = shark_limited_max_frequency;
+		/* 3rd param(index): wrong index maybe, but function will find a right one anyway */
+		sprd_update_cpu_speed(0, sprd_cpufreq_conf->limited_max_freq, 0);
 #if defined(CONFIG_SMP)
 		/* unplug all online cpu except cpu0 mandatory */
 		for_each_online_cpu(cpu) {
