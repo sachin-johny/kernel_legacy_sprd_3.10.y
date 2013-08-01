@@ -91,4 +91,9 @@ config FB_DYNAMIC_CLK_SUPPORT
 	boolean "support close clk dynamically"
 	depends on FB_SC8825 || FB_SCX35
 	default n
+
+config FB_DYNAMIC_FPS_SUPPORT
+	boolean "support change fps dynamically"
+	depends on FB_SC8825 || FB_SCX35
+	default n
 endif

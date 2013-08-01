@@ -38,6 +38,7 @@
 #define SPRDFB_SATURATION (73)
 #define SPRDFB_BRIGHTNESS (2)
 
+
 typedef enum
 {
    SPRDFB_DYNAMIC_CLK_FORCE,		//force enable/disable
@@ -79,7 +80,6 @@ struct sprdfb_dispc_context {
 
 static struct sprdfb_dispc_context dispc_ctx = {0};
 
-void clk_force_disable(struct clk *clk);
 extern void sprdfb_panel_suspend(struct sprdfb_device *dev);
 extern void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep);
 extern void sprdfb_panel_before_refresh(struct sprdfb_device *dev);
@@ -88,6 +88,11 @@ extern void sprdfb_panel_invalidate(struct panel_spec *self);
 extern void sprdfb_panel_invalidate_rect(struct panel_spec *self,
 				uint16_t left, uint16_t top,
 				uint16_t right, uint16_t bottom);
+
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+extern int32_t dsi_dpi_init(struct sprdfb_device *dev);
+static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level);
+#endif
 
 #ifdef CONFIG_FB_ESD_SUPPORT
 extern uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev);
@@ -482,7 +487,10 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 
 		dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC/dividor;
 
-		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
+//		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
+                 sci_glb_write(REG_AP_CLK_DISPC0_DPI_CFG, ((dividor-1) << 8), 0xffffff00);
+                 dispc_print_clk();
+
 		if(ret){
 			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 		}
@@ -861,6 +869,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 
 static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 {
+	uint32_t reg_val = 0;
 	struct fb_info *fb = dev->fb;
 
 	uint32_t base = fb->fix.smem_start + fb->fix.line_length * fb->var.yoffset;
@@ -924,6 +933,31 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		dispc_write(fb->var.xres, DISPC_OSD_PITCH);
 
 		dispc_write(size, DISPC_SIZE_XY);
+
+#ifdef  BIT_PER_PIXEL_SURPPORT
+	        /* data format */
+	        if (fb->var.bits_per_pixel == 32) {
+		        /* ABGR */
+		        reg_val |= (3 << 4);
+		        /* rb switch */
+		        reg_val |= (1 << 15);
+		        dispc_clear_bits(0x30000,DISPC_CTRL);
+	        } else {
+		        /* RGB565 */
+		        reg_val |= (5 << 4);
+		        /* B2B3B0B1 */
+		        reg_val |= (2 << 8);
+
+		        dispc_clear_bits(0x30000,DISPC_CTRL);
+		        dispc_set_bits(0x10000,DISPC_CTRL);
+	        }
+	        reg_val |= (1 << 0);
+
+	        /* alpha mode select  - block alpha*/
+	        reg_val |= (1 << 2);
+
+	        dispc_write(reg_val, DISPC_OSD_CTRL);
+#endif
 
 		if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 			sprdfb_panel_invalidate(dev->panel);
@@ -1552,6 +1586,54 @@ static void dispc_run_for_feature(struct sprdfb_device *dev)
 	}
 }
 
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+static int32_t sprdfb_update_fps_clock(struct sprdfb_device *dev, int fps_level)
+{
+    uint32_t fps,dpi_clock;
+    struct panel_spec* panel = dev->panel;
+    fps = panel->fps;
+    dpi_clock = dev->dpi_clock;
+
+    printk("sprdfb:sprdfb_update_fps_clock--fps_level:%d \n",fps_level);
+    if((fps_level < 40) || (fps_level > 64)) {
+	printk("sprdfb: invalid fps set!\n");
+	return -1;
+    }
+
+    panel->fps = fps_level;
+
+    dispc_update_clock(dev);
+    dsi_dpi_init(dev);
+
+    panel->fps = fps;
+    dev->dpi_clock = dpi_clock;
+    return 0;
+}
+
+
+static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
+{
+    int32_t ret = 0;
+    if(NULL == dev || 0 == dev->enable){
+		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_fps fail. (dev not enable)\n");
+		return -1;
+	}
+    if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+		dispc_ctx.vsync_waiter ++;
+		dispc_sync(dev);
+                sprdfb_panel_change_fps(dev,fps_level);
+	}else{
+	        down(&dev->refresh_lock);
+		dispc_stop_for_feature(dev);
+
+                ret = sprdfb_update_fps_clock(dev,fps_level);
+
+                dispc_run_for_feature(dev);
+	        up(&dev->refresh_lock);
+	}
+    return ret;
+}
+#endif
 
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",
@@ -1571,6 +1653,9 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 #endif
 #ifdef CONFIG_FB_VSYNC_SUPPORT
 	.wait_for_vsync = spdfb_dispc_wait_for_vsync,
+#endif
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+    .change_fps = sprdfb_dispc_change_fps,
 #endif
 };
 

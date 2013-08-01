@@ -129,7 +129,7 @@ static int32_t dsi_edpi_init(void)
 	return 0;
 }
 
-static int32_t dsi_dpi_init(struct sprdfb_device *dev)
+int32_t dsi_dpi_init(struct sprdfb_device *dev)
 {
 	dsih_dpi_video_t dpi_param;
 	dsih_error_t result;

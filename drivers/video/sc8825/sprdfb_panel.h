@@ -141,6 +141,7 @@ struct panel_operations {
 	int32_t (*panel_set_direction)(struct panel_spec *self, uint16_t direction);
 	uint32_t (*panel_readid)(struct panel_spec *self);
 	int32_t (*panel_esd_check)(struct panel_spec *self);
+	int32_t (*panel_change_fps)(struct panel_spec *self, int fps_level);
 };
 
 /* MCU LCD specific properties */
@@ -293,5 +294,7 @@ struct panel_cfg {
 };
 
 int sprdfb_panel_register(struct panel_cfg *cfg);
+
+void sprdfb_panel_change_fps(struct sprdfb_device *dev, int fps_level);
 
 #endif
