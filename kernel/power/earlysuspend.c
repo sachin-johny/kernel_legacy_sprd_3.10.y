@@ -41,11 +41,18 @@ module_param_named(debug_mask, debug_mask, int, S_IRUGO | S_IWUSR | S_IWGRP);
 
 static DEFINE_MUTEX(early_suspend_lock);
 static LIST_HEAD(early_suspend_handlers);
+static void early_sys_sync(struct work_struct *work);
 static void early_suspend(struct work_struct *work);
 static void late_resume(struct work_struct *work);
+static DECLARE_WORK(early_sys_sync_work, early_sys_sync);
 static DECLARE_WORK(early_suspend_work, early_suspend);
 static DECLARE_WORK(late_resume_work, late_resume);
 static DEFINE_SPINLOCK(state_lock);
+//
+
+struct wake_lock sys_sync_wake_lock;
+struct workqueue_struct *sys_sync_work_queue;
+
 enum {
 	SUSPEND_REQUESTED = 0x1,
 	SUSPENDED = 0x2,
@@ -78,6 +85,15 @@ void unregister_early_suspend(struct early_suspend *handler)
 	mutex_unlock(&early_suspend_lock);
 }
 EXPORT_SYMBOL(unregister_early_suspend);
+
+static void early_sys_sync(struct work_struct *work)
+{
+    wake_lock(&sys_sync_wake_lock);
+    pr_info("harry, early_sys_sync: start\n");
+    sys_sync();
+    pr_info("harry, early_sys_sync: end\n");
+    wake_unlock(&sys_sync_wake_lock);
+}
 
 static void early_suspend(struct work_struct *work)
 {
@@ -189,6 +205,7 @@ void request_suspend_state(suspend_state_t new_state)
 	}
 	if (!old_sleep && new_state != PM_SUSPEND_ON) {
 		state |= SUSPEND_REQUESTED;
+        queue_work(sys_sync_work_queue, &early_sys_sync_work);
 		queue_work(suspend_work_queue, &early_suspend_work);
 	} else if (old_sleep && new_state == PM_SUSPEND_ON) {
 		state &= ~SUSPEND_REQUESTED;
@@ -203,3 +220,28 @@ suspend_state_t get_suspend_state(void)
 {
 	return requested_suspend_state;
 }
+
+
+static int __init org_wakelocks_init(void)
+{
+    int ret = 0;
+
+    wake_lock_init(&sys_sync_wake_lock, WAKE_LOCK_SUSPEND, "sys_sync");
+
+    sys_sync_work_queue = create_singlethread_workqueue("fs_sync");
+    if (sys_sync_work_queue == NULL) {
+        pr_err("[wakelocks_init] fs_sync workqueue create failed\n");
+        ret = -ENOMEM;
+    }
+    return ret;
+}
+
+static void  __exit org_wakelocks_exit(void)
+{
+    destroy_workqueue(sys_sync_work_queue);
+}
+
+core_initcall(org_wakelocks_init);
+module_exit(org_wakelocks_exit);
+
+
