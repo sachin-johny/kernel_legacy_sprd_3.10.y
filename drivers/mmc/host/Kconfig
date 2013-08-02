@@ -283,7 +283,7 @@ config MMC_SDHCI_SC8810
 
 config MMC_CARD_HOTPLUG
 	bool "Spreadtrum SC88XX SD Host Controller Hot-Plug support"
-	depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825
+	depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825 || MMC_SDHCI_SCX35
 	default n
 	help
 	  This selects the Secure Digital Host Controller Interface (SDHCI) to
