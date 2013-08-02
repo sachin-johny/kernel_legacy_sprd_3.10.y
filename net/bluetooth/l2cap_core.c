@@ -2716,7 +2716,7 @@ static inline int l2cap_disconnect_req(struct l2cap_conn *conn, struct l2cap_cmd
 	l2cap_chan_del(chan, ECONNRESET);
 	bh_unlock_sock(sk);
 
-	chan->ops->close(chan->data);
+        chan->ops->close(chan->data);
 	return 0;
 }
 
@@ -2750,7 +2750,7 @@ static inline int l2cap_disconnect_rsp(struct l2cap_conn *conn, struct l2cap_cmd
 	l2cap_chan_del(chan, 0);
 	bh_unlock_sock(sk);
 
-	chan->ops->close(chan->data);
+        chan->ops->close(chan->data);
 	return 0;
 }
 
