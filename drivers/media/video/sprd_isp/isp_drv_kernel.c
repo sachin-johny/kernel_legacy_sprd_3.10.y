@@ -934,6 +934,11 @@ static int32_t _isp_kernel_proc_read (char *page, char **start, off_t off, int c
 
 	(void)start; (void)off; (void)count; (void)eof;
 
+	if(0x00==g_isp_device.reg_base_addr)
+	{
+		return 0x00;
+	}
+
 	reg_ptr = (uint32_t*)g_isp_device.reg_base_addr;
 	len += sprintf(page + len, "Context for ISP device \n");
 	len += sprintf(page + len, "********************************************* \n");
