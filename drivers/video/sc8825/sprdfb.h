@@ -22,6 +22,7 @@
 #include <linux/wait.h>
 
 //#define FB_CHECK_ESD_BY_TE_SUPPORT
+#define BIT_PER_PIXEL_SURPPORT
 
 enum{
 	SPRDFB_PANEL_IF_DBI = 0,
@@ -172,6 +173,11 @@ struct display_ctrl {
 #ifdef CONFIG_FB_VSYNC_SUPPORT
 	int32_t 	(*wait_for_vsync) 	(struct sprdfb_device *dev);
 #endif
+
+#ifdef  CONFIG_FB_DYNAMIC_FPS_SUPPORT
+	int32_t 	(*change_fps) 	(struct sprdfb_device *dev, int fps_level);
+#endif
+
 };
 
 

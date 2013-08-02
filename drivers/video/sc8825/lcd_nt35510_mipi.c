@@ -123,6 +123,18 @@ static LCM_Init_Code sleep_out[] =  {
 {LCM_SLEEP(20)},
 };
 
+static LCM_Init_Code change_fps_40[] =  {
+{LCM_SEND(8), {6, 0, 0xF0,0x55,0xAA,0x52,0x08,0x00}},
+{LCM_SEND(8), {6, 0, 0xBD,0x02,0x46,0x1C,0x1C,0x00}},
+{LCM_SEND(8), {6, 0, 0xF0,0x55,0xAA,0x52,0x00,0x00}},
+};
+
+static LCM_Init_Code change_fps_60[] =  {
+{LCM_SEND(8), {6, 0, 0xF0,0x55,0xAA,0x52,0x08,0x00}},
+{LCM_SEND(8), {6, 0, 0xBD,0x01,0x84,0x1C,0x1C,0x00}},
+{LCM_SEND(8), {6, 0, 0xF0,0x55,0xAA,0x52,0x00,0x00}},
+};
+
 static int32_t nt35510_mipi_init(struct panel_spec *self)
 {
 	int32_t i;
@@ -188,10 +200,43 @@ static int32_t nt35510_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
+static int32_t nt35510_change_fps(struct panel_spec *self, int fps_level)
+{
+	int32_t i;
+	LCM_Init_Code *change_fps = NULL;
+	unsigned int tag;
+	int32_t size = 0;
+
+	mipi_gen_write_t mipi_gen_write = self->info.mipi->ops->mipi_gen_write;
+
+	printk(KERN_DEBUG "nt35510_change_fps, fps_level = %d\n", fps_level);
+
+	if(fps_level < 50){
+		change_fps = change_fps_40;
+		size = ARRAY_SIZE(change_fps_40);
+	}else{
+	    change_fps = change_fps_60;
+		size = ARRAY_SIZE(change_fps_60);
+    }
+
+	for(i = 0; i <size ; i++){
+		tag = (change_fps->tag >>24);
+		if(tag & LCM_TAG_SEND){
+			mipi_gen_write(change_fps->data, (change_fps->tag & LCM_TAG_MASK));
+		}else if(tag & LCM_TAG_SLEEP){
+			msleep((change_fps->tag & LCM_TAG_MASK));
+		}
+		change_fps++;
+	}
+	return 0;
+
+}
+
 static struct panel_operations lcd_nt35510_mipi_operations = {
 	.panel_init = nt35510_mipi_init,
 	.panel_readid = nt35510_readid,
 	.panel_enter_sleep = nt35510_enter_sleep,
+	.panel_change_fps= nt35510_change_fps,
 };
 
 static struct timing_rgb lcd_nt35510_mipi_timing = {

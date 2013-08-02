@@ -409,6 +409,16 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 	}
 }
 
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+void sprdfb_panel_change_fps(struct sprdfb_device *dev, int fps_level)
+{
+	if (dev->panel->ops->panel_change_fps!= NULL) {
+        printk("sprdfb: [%s] fps_level= %d\n", __FUNCTION__,fps_level);
+		dev->panel->ops->panel_change_fps(dev->panel,fps_level);
+	}
+}
+#endif
+
 #ifdef CONFIG_FB_ESD_SUPPORT
 /*return value:  0--panel OK.1-panel has been reset*/
 uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)

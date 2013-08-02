@@ -64,10 +64,8 @@ static int frame_count = 0;
 
 static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb);
-#if defined( CONFIG_FB_LCD_OVERLAY_SUPPORT) || defined(CONFIG_FB_VSYNC_SUPPORT)
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg);
-#endif
 
 static struct fb_ops sprdfb_ops = {
 	.owner = THIS_MODULE,
@@ -76,9 +74,7 @@ static struct fb_ops sprdfb_ops = {
 	.fb_fillrect = cfb_fillrect,
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
-#if defined( CONFIG_FB_LCD_OVERLAY_SUPPORT) || defined(CONFIG_FB_VSYNC_SUPPORT)
 	.fb_ioctl = sprdfb_ioctl,
-#endif
 };
 
 static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
@@ -215,7 +211,6 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 	return 0;
 }
 
-#if defined( CONFIG_FB_LCD_OVERLAY_SUPPORT) || defined(CONFIG_FB_VSYNC_SUPPORT)
 #include <video/sprd_fb.h>
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
@@ -253,6 +248,14 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		break;
 #endif
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+    case SPRD_FB_CHANGE_FPS:
+		printk(KERN_INFO "sprdfb: [%s]: SPRD_FB_CHANGE_FPS\n", __FUNCTION__);
+		if(NULL != dev->ctrl->change_fps){
+			result = dev->ctrl->change_fps(dev, (int)arg);
+		}
+		break;
+#endif
 	default:
 		printk(KERN_INFO "sprdfb: [%s]: unknown cmd(%d)\n", __FUNCTION__, cmd);
 		break;
@@ -262,7 +265,6 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 	return result;
 }
 
-#endif
 
 static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 {
@@ -271,7 +273,9 @@ static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb)
 		(var->xres_virtual != fb->var.xres_virtual) ||
 		(var->yres_virtual != fb->var.yres_virtual) ||
 		(var->xoffset != fb->var.xoffset) ||
+#ifndef BIT_PER_PIXEL_SURPPORT
 		(var->bits_per_pixel != fb->var.bits_per_pixel) ||
+#endif
 		(var->grayscale != fb->var.grayscale))
 			return -EINVAL;
 	return 0;
