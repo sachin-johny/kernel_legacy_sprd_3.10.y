@@ -36,6 +36,8 @@ static int is_print_irq = 1;
 static int is_print_wakeup = 1;
 static int is_print_irq_runtime = 0;
 static int is_print_time = 1;
+static int print_thread_enable = 1;
+static int print_thread_interval = 30;
 static unsigned int core_time = 0;
 static unsigned int mcu_time = 0;
 static unsigned int lit_time = 0;
@@ -456,15 +458,91 @@ static struct wake_lock messages_wakelock;
 #endif
 
 #define PM_PRINT_ENABLE
+static void print_eb_info(void)
+{
+	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl;
+
+	ahb_eb = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
+	apb_eb0 = sci_glb_read(REG_AON_APB_APB_EB0, -1UL);
+	cp_slp_status0 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL);
+	cp_slp_status1 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL);
+	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
+	printk("####----------- ahb_eb : 0x%08x\n", ahb_eb);
+	printk("####----------- aon_apb_eb0 : 0x%08x\n", apb_eb0);
+	printk("####----------- CP_SLP_STATUS_DBG0 : 0x%08x\n", cp_slp_status0);
+	printk("####----------- CP_SLP_STATUS_DBG1 : 0x%08x\n", cp_slp_status1);
+	printk("####----------- ldo_pd_ctrl : 0x%08x\n", ldo_pd_ctrl);
+
+	if (apb_eb0 & BIT_GPU_EB)	/* M1 */
+		printk("###---- BIT_GPU_EB still set ----###\n");
+	else if (apb_eb0 & BIT_MM_EB)	/* M0 */
+		printk("###---- BIT_MM_EB still set ----###\n");
+	else if (apb_eb0 & BIT_CA7_DAP_EB)
+		printk("###---- BIT_CA7_DAP_EB still set ----###\n");
+
+	if (ahb_eb & BIT_GSP_EB)		/* M2 */
+		printk("###---- BIT_GSP_EB still set ----###\n");
+	else if (ahb_eb & BIT_DISPC1_EB)	/* M2 */
+		printk("###---- BIT_DISPC1_EB still set ----###\n");
+	else if (ahb_eb & BIT_DISPC0_EB)	/* M2 */
+		printk("###---- BIT_DISPC0_EB still set ----###\n");
+	else if (ahb_eb & BIT_SDIO0_EB)
+		printk("###---- SDIO0_EB still set ----###\n");
+	else if (ahb_eb & BIT_SDIO1_EB)
+		printk("###---- SDIO1_EB still set ----###\n");
+	else if (ahb_eb & BIT_SDIO2_EB)
+		printk("###---- BIT_SDIO2_EB still set ----###\n");
+	else if (ahb_eb & BIT_USB_EB)
+		printk("###---- BIT_USB_EB still set ----###\n");
+	else if (ahb_eb & BIT_DMA_EB)
+		printk("###---- BIT_DMA_EB still set ----###\n");
+	else if (ahb_eb & BIT_NFC_EB)
+		printk("###---- BIT_NFC_EB still set ----###\n");
+	else if (ahb_eb & BIT_EMMC_EB)
+		printk("###---- BIT_EMMC_EB still set ----###\n");
+	else if (ahb_eb & BIT_DMA_EB)
+		printk("###---- BIT_DMA_EB still set ----###\n");
+
+
+	if (!(ldo_pd_ctrl & BIT_LDO_LPREF_PD_SW))
+		printk("###---- BIT_LDO_LPREF_PD_SW power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_DCDC_WPA_PD))
+		printk("###---- BIT_DCDC_WPA_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_CLSG_PD))
+		printk("###---- BIT_LDO_CLSG_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_USB_PD))
+		printk("###---- BIT_LDO_USB_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_CAMMOT_PD))
+		printk("###---- BIT_LDO_CAMMOT_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_CAMIO_PD))
+		printk("###---- BIT_LDO_CAMIO_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_CAMD_PD))
+		printk("###---- BIT_LDO_CAMD_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_CAMA_PD))
+		printk("###---- BIT_LDO_CAMA_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_SIM2_PD))
+		printk("###---- BIT_LDO_SIM2_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_SIM1_PD))
+		printk("###---- BIT_LDO_SIM1_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_SIM0_PD))
+		printk("###---- BIT_LDO_SIM0_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_SD_PD))
+		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
+	else if (!(ldo_pd_ctrl & BIT_LDO_AVDD18_PD))
+		printk("###---- BIT_LDO_AVDD18_PD power on! ----###\n");
+}
+
 static int print_thread(void * data)
 {
 	while(1){
 		wake_lock(&messages_wakelock);
+		if (print_thread_enable)
+			print_eb_info();
 		has_wake_lock(WAKE_LOCK_SUSPEND);
 		msleep(100);
 		wake_unlock(&messages_wakelock);
 		set_current_state(TASK_INTERRUPTIBLE);
-		schedule_timeout(30 * HZ);
+		schedule_timeout(print_thread_interval * HZ);
 	}
 	return 0;
 }
@@ -490,6 +568,10 @@ static void debugfs_init(void)
 			   &is_print_irq_runtime);
 	debugfs_create_u32("print_time", 0644, dentry_debug_root,
 			   &is_print_time);
+	debugfs_create_u32("print_thread_enable", 0644, dentry_debug_root,
+			   &print_thread_enable);
+	debugfs_create_u32("print_thread_interval", 0644, dentry_debug_root,
+			   &print_thread_interval);
 }
 static irqreturn_t sys_cnt_isr(int irq, void *dev_id)
 {
