@@ -34,7 +34,7 @@ unsigned int idle_debug_state[NR_CPUS];
 #define LIGHT_SLEEP_ENABLE		(BIT_DMA_ACT_LIGHT_EN | BIT_MCU_LIGHT_SLEEP_EN)
 static unsigned int idle_disabled_by_suspend;
 
-static int light_sleep_en = 0;
+static int light_sleep_en = 1;
 static int cpuidle_debug = 0;
 module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
 module_param_named(light_sleep_en, light_sleep_en, int, S_IRUGO | S_IWUSR);
@@ -114,7 +114,7 @@ static void set_cpu_pd(void *data)
 static void sc_cpuidle_debug(void)
 {
 	unsigned int val = sci_glb_read(REG_AP_AHB_MCU_PAUSE, -1UL);
-	if( !(val&BIT_MCU_LIGHT_SLEEP_EN) ){
+	if( val&BIT_MCU_LIGHT_SLEEP_EN ){
 		printk("*** %s, REG_AP_AHB_MCU_PAUSE:0x%x ***\n", __func__, val );
 		printk("*** %s, REG_AP_AHB_AHB_EB:0x%x ***\n",
 				__func__, sci_glb_read(REG_AP_AHB_AHB_EB, -1UL));
@@ -126,8 +126,10 @@ static void sc_cpuidle_debug(void)
 				__func__, sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL));
 		printk("*** %s, REG_PMU_APB_CP_SLP_STATUS_DBG1:0x%x ***\n",
 				__func__, sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL));
+		printk("*** %s, DDR_OP_MODE:0x%x ***\n",
+				__func__, __raw_readl(SPRD_LPDDR2_BASE + 0x03fc) );
 	}else
-		printk("*** %s, enter light sleep ***\n", __func__ );
+		printk("*** %s, LIGHT_SLEEP_EN can not be set ***\n", __func__ );
 }
 
 static void sc_cpuidle_light_sleep_en(int cpu)
@@ -160,7 +162,7 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 static void sc_cpuidle_light_sleep_dis(void)
 {
 	if(light_sleep_en){
-		sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+		sci_glb_set(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
 		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
 	}
 	return;
