@@ -1166,18 +1166,23 @@ static void sprd_codec_auxmic_delay_worker(struct work_struct *work)
 	sprd_codec_auxmic_bias_en(on);
 }
 
-static int sprd_codec_mic_bias_inter(int on, atomic_t * v)
+static int sprd_codec_mic_bias_inter(int on, atomic_t * v,
+				     spinlock_t * bias_lock)
 {
+	int ret = 0;
+
+	spin_lock(bias_lock);
 	if (on) {
 		atomic_inc(v);
-		return 1;
+		ret = 1;
 	} else {
 		if (atomic_read(v) > 0) {
 			atomic_dec(v);
-			return 1;
+			ret = 1;
 		}
 	}
-	return 0;
+	spin_unlock(bias_lock);
+	return ret;
 }
 
 static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
@@ -1190,7 +1195,10 @@ static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
 
 int sprd_codec_mic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.mic_on)) {
+	static DEFINE_SPINLOCK(mic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.mic_on, &mic_bias_lock)) {
+		pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
 					     sprd_codec_mic_delay_worker);
 		schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
@@ -1203,7 +1211,10 @@ EXPORT_SYMBOL(sprd_codec_mic_bias_control);
 
 int sprd_codec_auxmic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.auxmic_on)) {
+	static DEFINE_SPINLOCK(auxmic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.auxmic_on, &auxmic_bias_lock)) {
+		pr_info("auxmic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work
 		    (&sprd_codec_power.auxmic_delayed_work,
 		     sprd_codec_auxmic_delay_worker);
