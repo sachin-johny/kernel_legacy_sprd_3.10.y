@@ -156,6 +156,8 @@ void sdhci_dumpregs(struct sdhci_host *host)
 		       readl(host->ioaddr + SDHCI_ADMA_ERROR),
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
+	printk(KERN_ERR DRIVER_NAME ": host->cmd : 0x%x \n\r", host->cmd);
+
 #ifdef CONFIG_MMC_SDHCI_SCX35
 	printk(KERN_ERR DRIVER_NAME ": INTC1[0x71500008] : 0x%x (emmc is bit28)\n\r",
 			readl(SPRD_INTC1_BASE + 0x08));
@@ -1098,11 +1100,7 @@ static void sdhci_send_command(struct sdhci_host *host, struct mmc_command *cmd)
 		mdelay(1);
 	}
 
-	if(host->suspending){
-		mod_timer(&host->timer, jiffies + HZ / 5);
-	}else{
-		mod_timer(&host->timer, jiffies + 10 * HZ);
-	}
+	mod_timer(&host->timer, jiffies + 5 * HZ);
 
 	host->cmd = cmd;
 
