@@ -305,6 +305,7 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	return;
 }
 
+#if 0
 static int __regulator_force_disable(struct regulator *regulator)
 {
 	int i = 0;
@@ -315,7 +316,7 @@ static int __regulator_force_disable(struct regulator *regulator)
 	printk("__regulator_force_disable count= %d\n",i);
 	return 0;
 }
-
+#endif
 /*
 *   The vdd_sdio is supplied by external LDO, power bit in register xxx is useless
 */
@@ -356,9 +357,9 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 			mmc_hostname(host->mmc), power, volt_level);
 	if(volt_level == 0){
 		if (host->vmmc)
-			ret = __regulator_force_disable(host->vmmc);
+			ret = regulator_disable(host->vmmc);
 		if (host->vmmc_ext)
-			ret = __regulator_force_disable(host->vmmc_ext);
+			ret = regulator_disable(host->vmmc_ext);
 	}else{
 		if(host->vmmc){
 			ret = regulator_set_voltage(host->vmmc, volt_level,

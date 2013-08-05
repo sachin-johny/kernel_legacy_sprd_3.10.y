@@ -1063,17 +1063,6 @@ EXPORT_SYMBOL(mmc_regulator_get_ocrmask);
  * a particular supply voltage.  This would normally be called from the
  * set_ios() method.
  */
-static int __regulator_force_disable(struct regulator *regulator)
-{
-	int i = 0;
-	while(1 == regulator_is_enabled(regulator)) {
-		regulator_disable(regulator);
-		i++;
-	};
-	printk("__regulator_force_disable count= %d\n",i);
-	return 0;
-}
-
 int mmc_regulator_set_ocr(struct mmc_host *mmc,
 			struct regulator *supply,
 			unsigned short vdd_bit)
@@ -1120,7 +1109,7 @@ int mmc_regulator_set_ocr(struct mmc_host *mmc,
 				mmc->regulator_enabled = true;
 		}
 	} else if (mmc->regulator_enabled) {
-		result = __regulator_force_disable(supply);
+		result = regulator_disable(supply);
 		if (result == 0)
 			mmc->regulator_enabled = false;
 	}
