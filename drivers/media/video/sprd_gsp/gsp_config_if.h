@@ -155,6 +155,7 @@ extern   "C"
 
 #else
 #include <mach/sci.h>
+#define GSP_REG_READ(reg)  (*(volatile uint32_t*)reg)
 #define GSP_EMC_MATRIX_ENABLE()     sci_glb_set(GSP_EMC_MATRIX_BASE, GSP_EMC_MATRIX_BIT)
 #define GSP_CLOCK_SET(sel)          sci_glb_write(GSP_CLOCK_BASE, (sel), 0x3)
 #define GSP_AUTO_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_AUTO_GATE_ENABLE_BIT)

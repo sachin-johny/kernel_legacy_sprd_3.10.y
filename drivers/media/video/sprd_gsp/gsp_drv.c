@@ -36,6 +36,7 @@
 #ifdef GSP_WORK_AROUND1
 #include <linux/dma-mapping.h>
 #endif
+static volatile uint32_t gsp_coef_force_calc = 0;
 
 static ulong gsp_gap = 0;
 module_param(gsp_gap, ulong, 0644);//S_IRUGO|S_IWUGO
@@ -1471,7 +1472,7 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
     }
     else if (ret == -ETIME)
     {
-        printk("%s:pid:0x%08x, wait done sema 10-jiffies-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
+            printk("%s:pid:0x%08x, wait done sema 30-jiffies-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
             ret = GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT;
     }
     else if (ret)// == -EINTR
@@ -1518,6 +1519,12 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
             else if (ret == -ETIME)
             {
                 printk("%s%d:pid:0x%08x, wait done sema 30-jiffies-timeout,it's abnormal!!\n",__func__,__LINE__,pUserdata->pid);
+                printk("%s%d:EMC_MATRIX:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
+                       GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT,
+                       ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
+                       GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
+                       GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT);
+				
                 printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !! \n",__func__,__LINE__,pUserdata->pid);
                 ret = GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT;
                 break;
@@ -1717,7 +1724,7 @@ static void GSP_Coef_Tap_Convert(uint8_t h_tap,uint8_t v_tap)
 }
 
 
-static int32_t GSP_Scaling_Coef_Gen_And_Config(void)
+static int32_t GSP_Scaling_Coef_Gen_And_Config(uint32_t* force_calc)
 {
     uint8_t     h_tap = 8;
     uint8_t     v_tap = 8;
@@ -1806,7 +1813,8 @@ static int32_t GSP_Scaling_Coef_Gen_And_Config(void)
         coef_in_h = CEIL(after_rotate_h,coef_factor_h);
         coef_out_w = s_gsp_cfg.layer0_info.des_rect.rect_w;
         coef_out_h = s_gsp_cfg.layer0_info.des_rect.rect_h;
-        if(coef_in_w_last != coef_in_w
+        if(*force_calc == 1
+			||coef_in_w_last != coef_in_w
            || coef_in_h_last != coef_in_h
            || coef_out_w_last != coef_out_w
            || coef_out_h_last != coef_out_h)
@@ -1840,6 +1848,7 @@ static int32_t GSP_Scaling_Coef_Gen_And_Config(void)
             coef_in_h_last = coef_in_h;
             coef_out_w_last = coef_out_w;
             coef_out_h_last = coef_out_h;
+			*force_calc = 0;
         }
 
 		GSP_Coef_Tap_Convert(h_tap,v_tap);
@@ -2062,7 +2071,8 @@ static long gsp_drv_ioctl(struct file *file,
                     }
                 }
 #endif
-                ret = GSP_Scaling_Coef_Gen_And_Config();
+                ret = GSP_Scaling_Coef_Gen_And_Config(&gsp_coef_force_calc);
+
                 if(ret)
                 {
                     goto exit;
@@ -2128,7 +2138,12 @@ static long gsp_drv_ioctl(struct file *file,
                 }
                 else if (ret == -ETIME)
                 {
-                    printk("%s:pid:0x%08x, wait done sema 10-jiffies-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
+                printk("%s%d:pid:0x%08x, wait done sema 60-jiffies-timeout,it's abnormal!!!!!!!! \n",__func__,__LINE__,pUserdata->pid);
+                printk("%s%d:EMC_MATRIX:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
+                       GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT,
+                       ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
+                       GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
+                       GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT);
                     ret = GSP_KERNEL_WAITDONE_TIMEOUT;
                 }
                 else if (ret)// == -EINTR
@@ -2446,6 +2461,28 @@ static irqreturn_t gsp_irq_handler(int32_t irq, void *dev_id)
 }
 
 #endif
+
+
+static int gsp_suspend(struct platform_device *pdev,pm_message_t state)
+{
+	printk("%s%d\n",__func__,__LINE__);
+	return 0;
+}
+
+static int gsp_resume(struct platform_device *pdev)
+{
+	printk("%s%d\n",__func__,__LINE__);
+	gsp_coef_force_calc = 1;
+
+    GSP_EMC_MATRIX_ENABLE();
+    GSP_EMC_GAP_SET(0);
+    GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
+    GSP_AUTO_GATE_ENABLE();//bug 198152
+    //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
+    //GSP_ENABLE_MM();
+	return 0;
+}
+
 int32_t gsp_drv_probe(struct platform_device *pdev)
 {
     int32_t ret = 0;
@@ -2532,6 +2569,8 @@ static struct platform_driver gsp_drv_driver =
 {
     .probe = gsp_drv_probe,
     .remove = gsp_drv_remove,
+	.suspend = gsp_suspend,
+	.resume = gsp_resume,
     .driver =
     {
         .owner = THIS_MODULE,
