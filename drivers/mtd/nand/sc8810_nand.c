@@ -478,14 +478,16 @@ void fixon_timeout_restore_reg(void)
 
 unsigned long fixon_timeout_function(unsigned int flag)
 {
-	unsigned int ret, nfc_cmd, nfc_clr_raw, value, nfc_clr_raw_2, nfc_cmd_2, nfc_clr_raw_3, nfc_cmd_3;
-
-	ret = 0;
-	nfc_cmd = nfc_reg_read(NFC_CMD);
-	nfc_clr_raw = nfc_reg_read(NFC_CLR_RAW);
-	printk(" %s enter, flag=0x%x, REG_NFC_CMD[0x%08x],  REG_NFC_CLR_RAW[0x%08x]\n",\
+	unsigned int nfc_cmd, nfc_clr_raw, value, nfc_clr_raw_2, nfc_cmd_2, nfc_clr_raw_3, nfc_cmd_3;
+        unsigned int ret, count, retry=3;
+        do{
+	    ret = 0;
+	    nfc_cmd = nfc_reg_read(NFC_CMD);
+	    nfc_clr_raw = nfc_reg_read(NFC_CLR_RAW);
+	    printk(" %s enter, flag=0x%x, REG_NFC_CMD[0x%08x],  REG_NFC_CLR_RAW[0x%08x]\n",\
                     __func__,flag, nfc_cmd, nfc_clr_raw);
-        if (nfc_cmd & 0x80000000) { /* Bit31 is 1 */
+
+            if (nfc_cmd & 0x80000000) { /* Bit31 is 1 */
 		printk("Bit31 of REG_NFC_CMD is 1, memory or nfc is wrong\n");
 		printk("clear the current command\n");
 		value = nfc_reg_read(NFC_CFG0);
@@ -536,7 +538,7 @@ unsigned long fixon_timeout_function(unsigned int flag)
 				printk("Id is wrong, please check flash, nfc or timing\n");
                 } else
 		        printk("NFC_DONE_RAW is 0, please check flash, nfc or timing[0x%08x]\n", flag);
-	} else {
+	    } else {
 		if (flag == NFC_ECC_EVENT) {
 			if (nfc_clr_raw & NFC_ECC_DONE_RAW) {/* NFC_ECC_EVENT is 1 */
 				printk("NFC_ECC_EVENT is 1, can not occur timeout\n");
@@ -556,9 +558,14 @@ unsigned long fixon_timeout_function(unsigned int flag)
                                 ret=0;
                         }
 		}
-    }
+            }
+            //for NFC no recovery error judgement more cautious
+            if((ret==0x0) && (retry!=0x0))
+                for(count=0x0; count<0x8000; count++);
 
-	return ret;
+        }while((ret==0) && retry--);
+
+        return ret;
 }
 
 static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
