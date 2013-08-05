@@ -91,21 +91,27 @@ seth_rx_handler (void* data)
 	if (seth->state != DEV_ON) {
 		SETH_ERR ("rx_handler the state of %s is off!\n", seth->netdev->name);
 		seth->stats.rx_errors++;
-		return;
+		ret = sblock_receive(pdata->dst, pdata->channel, &blk, -1);
+		if (ret) {
+			SETH_ERR ("receive sblock failed (%d)\n", ret);
+			seth->stats.rx_errors++;
+			return;
+		}
+		goto rx_failed;
 	}
 
 	ret = sblock_receive(pdata->dst, pdata->channel, &blk, -1);
 	if (ret) {
 		SETH_ERR ("receive sblock failed (%d)\n", ret);
 		seth->stats.rx_errors++;
-		return;
+		goto rx_failed;
 	}
 	
 	skb = dev_alloc_skb (blk.length + NET_IP_ALIGN); //16 bytes align
 	if (!skb) {
 		SETH_ERR ("alloc skbuff failed!\n");
 		seth->stats.rx_dropped++;
-		return;
+		goto rx_failed;
 	}
 
 	skb_reserve(skb, NET_IP_ALIGN);
@@ -125,10 +131,12 @@ seth_rx_handler (void* data)
 
 	seth->netdev->last_rx = jiffies;
 
+rx_failed:
 	ret = sblock_release(pdata->dst, pdata->channel, &blk);
 	if (ret) {
 		SETH_ERR ("release sblock failed (%d)\n", ret);
 	}
+	return;
 }
 
 static void
@@ -179,7 +187,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	if(ret) {
 		SETH_INFO("Get free sblock failed(%d), drop data!\n", ret);
 		seth->stats.tx_fifo_errors++;
-		/*netif_stop_queue (dev); */
+		netif_stop_queue (dev);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -311,7 +319,7 @@ static int __devinit seth_probe(struct platform_device *pdev)
 	seth->stopped = 0;
 
 	netdev->netdev_ops = &seth_ops;
-	netdev->watchdog_timeo = 5*HZ;
+	netdev->watchdog_timeo = 1*HZ;
 	netdev->irq = 0;
 	netdev->dma = 0;
 
