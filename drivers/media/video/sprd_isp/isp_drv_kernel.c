@@ -105,8 +105,10 @@ static atomic_t s_isp_users = ATOMIC_INIT(0);
 static struct clk* s_isp_clk_mm_i = NULL;
 struct mutex s_isp_lock;	/*for the isp driver, protect the isp module; protect only one user open this module*/
 static struct proc_dir_entry*  isp_proc_file;
+static struct clk*              s_isp_clk = NULL;
 
 struct isp_device_t g_isp_device = { 0 };
+#define ISP_CLOCK_PARENT                              "clk_256m"
 
 uint32_t s_dcam_int_eb = 0x00;
 uint32_t s_isp_alloc_addr = 0x00;
@@ -114,7 +116,7 @@ uint32_t s_isp_alloc_order = 0x00;
 uint32_t s_isp_alloc_len = 0x00;
 
 static DEFINE_SPINLOCK(isp_spin_lock);
-
+static int32_t _isp_set_clk(enum isp_clk_sel clk_sel);
 static int32_t _isp_module_eb(void);
 static int32_t _isp_module_dis(void);
 static int  _isp_registerirq(void);
@@ -202,7 +204,13 @@ static int32_t _isp_module_eb(void)
 	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", (uint32_t)ISP_CORE_CLK_EB, (uint32_t)ISP_MODULE_EB);
 
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
+
 		ret = _isp_is_clk_mm_i_eb(1);
+		ret = _isp_set_clk(ISP_CLK_256M);
+		if (unlikely(0 != ret)) {
+			ISP_PRINT("isp_k: set clock error\n");
+			ret = -EIO;
+		}
 		sci_glb_set(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		sci_glb_set(ISP_MODULE_EB, ISP_EB_BIT);
 	}
@@ -217,8 +225,15 @@ static int32_t _isp_module_dis(void)
 	int32_t	ret = 0;
 
 	if (0x00 == atomic_dec_return(&s_isp_users)) {
+
 		sci_glb_clr(ISP_MODULE_EB, ISP_EB_BIT);
 		sci_glb_clr(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
+
+		ret = _isp_set_clk(ISP_CLK_NONE);
+		if (unlikely(0 != ret)) {
+			ISP_PRINT("isp_k: close clock error\n");
+			ret = -EFAULT;
+		}
 		ret = _isp_is_clk_mm_i_eb(0);
 	}
 	return ret;
@@ -367,11 +382,68 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 
 static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 {
+	struct clk              *clk_parent;
+	char                    *parent = ISP_CLOCK_PARENT;
 	int32_t       rtn = 0;
 
 #if defined(CONFIG_ARCH_SCX35)
-	ISP_WRITEL(ISP_CLOCK, 0x3);
+	switch (clk_sel) {
+	case ISP_CLK_256M:
+		parent = ISP_CLOCK_PARENT;
+		break;
+	case ISP_CLK_128M:
+		parent = "clk_128m";
+		break;
+	case ISP_CLK_48M:
+		parent = "clk_48m";
+		break;
+	case ISP_CLK_76M8:
+		parent = "clk_76p8m";
+		break;
 
+	case ISP_CLK_NONE:
+		ISP_PRINT("isp_k: ISP close CLK %d \n", (int)clk_get_rate(s_isp_clk));
+		if (s_isp_clk) {
+			clk_disable(s_isp_clk);
+			clk_put(s_isp_clk);
+			s_isp_clk = NULL;
+		}
+		return 0;
+	default:
+		parent = "clk_128m";
+		break;
+	}
+
+	if (NULL == s_isp_clk) {
+		s_isp_clk = clk_get(NULL, "clk_isp");
+		if (IS_ERR(s_isp_clk)) {
+			ISP_PRINT("isp_k: clk_get fail, %d \n", (int)s_isp_clk);
+			return -1;
+		} else {
+			ISP_PRINT("isp_k: get clk_parent ok \n");
+		}
+	} else {
+		clk_disable(s_isp_clk);
+	}
+
+	clk_parent = clk_get(NULL, parent);
+	if (IS_ERR(clk_parent)) {
+		ISP_PRINT("isp_k: dcam_set_clk fail, %d \n", (int)clk_parent);
+		return -1;
+	} else {
+		ISP_PRINT("isp_k: get clk_parent ok \n");
+	}
+
+	rtn = clk_set_parent(s_isp_clk, clk_parent);
+	if(rtn){
+		ISP_PRINT("isp_k: clk_set_parent fail, %d \n", rtn);
+	}
+
+	rtn = clk_enable(s_isp_clk);
+	if (rtn) {
+		ISP_PRINT("isp_k: enable isp clk error.\n");
+		return -1;
+	}
 #endif
 
 	return rtn;
@@ -592,7 +664,6 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 		return ret;
 	}
 
-	_isp_set_clk(0);
 	g_isp_device.reg_base_addr = (uint32_t)ISP_BASE_ADDR;
 	g_isp_device.size = ISP_REG_MAX_SIZE;
 
@@ -909,7 +980,8 @@ static int32_t _isp_kernel_release (struct inode *node, struct file *pf)
 	ISP_PRINT ("isp_k: release start \n");
 
 	_isp_unregisterirq();
-	_isp_module_dis();
+	ret = _isp_module_dis();
+
 	_isp_free();
 	ret = _isp_put_ctlr(&g_isp_device);
 	if (unlikely (ret) ) {
