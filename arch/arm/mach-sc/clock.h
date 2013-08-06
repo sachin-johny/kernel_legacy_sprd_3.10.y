@@ -16,7 +16,7 @@
 #undef debug
 #define debug(format, arg...) pr_debug("clk: " "@@@%s: " format, __func__, ## arg)
 #define debug0(format, arg...)// pr_info("clk: " "@@@%s: " format, __func__, ## arg)
-#define debug2(format, arg...) pr_info("clk: " "@@@%s: " format, __func__, ## arg)
+#define debug2(format, arg...) pr_debug("clk: " "@@@%s: " format, __func__, ## arg)
 
 /**
  * struct clk_sel - list of sources for a given clock (pll)

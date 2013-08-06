@@ -34,6 +34,7 @@
 #include <linux/clk.h>
 #include <linux/clkdev.h>
 #include <linux/cpufreq.h>
+#include <linux/delay.h>
 
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
@@ -338,6 +339,16 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 	return rate;
 }
 
+static int __pll_enable_time(struct clk *c, unsigned long old_rate)
+{
+	/* FIXME: for mpll, each step (100MHz) takes 50us */
+	u32 rate = c->ops->get_rate(c) / 1000000;
+	int dly = abs(rate - old_rate) * 50 / 100;
+	WARN_ON(dly > 1000);
+	udelay(dly);
+	return 0;
+}
+
 static int sci_pll_set_rate(struct clk *c, unsigned long rate)
 {
 	u32 mn = 1, mn_shift;
@@ -351,9 +362,11 @@ static int sci_pll_set_rate(struct clk *c, unsigned long rate)
 		WARN(1, "warning: clock (%s) not support set\n", c->regs->name);
  */
 	} else {
+		u32 old_rate = c->ops->get_rate(c) / 1000000;
 		mn = rate / sci_pll_get_refin_rate(c);
 		sci_glb_write(c->regs->div.reg, mn << mn_shift,
 			      c->regs->div.mask);
+		__pll_enable_time(c, old_rate);
 	}
 
 	debug2("pll %p (%s) set rate %lu\n", c, c->regs->name, rate);
@@ -487,12 +500,13 @@ static __init int __clk_is_dummy_pll(struct clk *c)
 	return (c->regs->enb.reg & 1) || strstr(c->regs->name, "pll");
 }
 
+/*
 static __init int __clk_is_dummy_internal(struct clk *c)
 {
 	int i = strlen(c->regs->name);
 	return c->regs->name[i - 2] == '_' && c->regs->name[i - 1] == 'i';
 }
-
+*/
 static __init int __clk_add_alias(struct clk *c)
 {
 	int i = strlen(c->regs->name);
@@ -535,7 +549,6 @@ int __init sci_clk_register(struct clk_lookup *cl)
 		clk_set_rate(c, clk_get_rate(c));
 #endif
 	}
-
 #if defined(CONFIG_ARCH_SCX35)
 	if (strcmp(c->regs->name, "clk_mm_i") == 0) {
 		c->enable = sci_mm_enable;
@@ -582,10 +595,6 @@ static int __init sci_clock_dump(void)
 #endif
 	clk_disable(&clk_mm_i);
 	return 0;
-}
-
-void sci_clock_dump_active(void)
-{
 }
 
 static int
