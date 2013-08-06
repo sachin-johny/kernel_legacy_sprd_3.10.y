@@ -33,6 +33,7 @@
 #include <linux/delay.h>
 #include <linux/proc_fs.h>
 #include <video/isp_drv_kernel.h>
+#include <mach/sci.h>
 #include <linux/clk.h>
 #include <asm/cacheflush.h>
 
@@ -202,8 +203,8 @@ static int32_t _isp_module_eb(void)
 
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 		ret = _isp_is_clk_mm_i_eb(1);
-		ISP_OWR(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
-		ISP_OWR(ISP_MODULE_EB, ISP_EB_BIT);
+		sci_glb_set(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
+		sci_glb_set(ISP_MODULE_EB, ISP_EB_BIT);
 	}
 
 	ISP_PRINT("_isp_module_eb: end\n");
@@ -216,8 +217,8 @@ static int32_t _isp_module_dis(void)
 	int32_t	ret = 0;
 
 	if (0x00 == atomic_dec_return(&s_isp_users)) {
-		ISP_AWR(ISP_MODULE_EB, ~ISP_EB_BIT);
-		ISP_AWR(ISP_CORE_CLK_EB, ~ISP_CORE_CLK_EB_BIT);
+		sci_glb_clr(ISP_MODULE_EB, ISP_EB_BIT);
+		sci_glb_clr(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 		ret = _isp_is_clk_mm_i_eb(0);
 	}
 	return ret;
@@ -245,20 +246,20 @@ static int32_t _isp_module_rst(void)
 		ISP_WRITEL(ISP_INT_CLEAR, ISP_IRQ_HW_MASK);
 
 #if defined(CONFIG_ARCH_SCX35)
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
-		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_LOG_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
+		sci_glb_clr(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
 
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
-		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_CFG_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
+		sci_glb_clr(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
 #elif defined(CONFIG_ARCH_SC8825)
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
-		ISP_OWR(ISP_MODULE_RESET, ISP_RST_BIT);
-		ISP_AWR(ISP_MODULE_RESET, ~ISP_RST_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
+		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
+		sci_glb_clr(ISP_MODULE_RESET, ISP_RST_BIT);
 #else
 #error "Unknown architecture specification"
 #endif
@@ -930,7 +931,7 @@ static int32_t _isp_kernel_proc_read (char *page, char **start, off_t off, int c
 	uint32_t	 print_len = 0, print_cnt = 0;
 	uint32_t	*reg_ptr = 0;
 
-	ISP_PRINT ("isp_k: _isp_kernel_proc_read 0x%d, 0x%d, 0x%d, 0x%d, 0x%d \n", page, start, off, count, eof, data);
+	ISP_PRINT ("isp_k: _isp_kernel_proc_read 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x \n", (uint32_t)page, (uint32_t)start, (uint32_t)off, (uint32_t)count, (uint32_t)eof, (uint32_t)data);
 
 	(void)start; (void)off; (void)count; (void)eof;
 
