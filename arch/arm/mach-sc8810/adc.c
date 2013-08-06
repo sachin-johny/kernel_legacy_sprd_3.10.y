@@ -227,7 +227,7 @@ static DEFINE_SPINLOCK(adc_lock);
 #define BIT_CLK_AUXAD_EN						( BIT(14) )
 #define ADC_HW_CH_ID_MSK            (0x1F)
 #define CP_PA_TEMPRATURE_HW_CFG        (4)
-#define CP_PA_TEMPRATURE_CHANNEL        (16)
+#define CP_PA_TEMPRATURE_CHANNEL        (0)
 
 void sci_adc_hw_slow_init(void)
 {
