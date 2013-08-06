@@ -467,7 +467,6 @@ static int jpg_release (struct inode *inode, struct file *filp)
 	if (jpg_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
 		clk_disable(jpg_hw_dev.jpg_clk);
-		clk_disable(jpg_hw_dev.mm_clk);
 	}
 
 	if (jpg_fp->is_jpg_aquired) {

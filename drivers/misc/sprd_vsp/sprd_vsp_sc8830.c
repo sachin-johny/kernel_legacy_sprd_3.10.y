@@ -257,11 +257,6 @@ by clk_get()!\n", "clk_vsp", name_parent);
         __raw_writel((1<<11), SPRD_MMAHB_BASE + 0x2004);
 		break;
 
-    case VSP_RELEASE_MMCLK:
-    	printk(KERN_INFO "VSP_RELEASE_MMCLK\n");
-		clk_disable(vsp_hw_dev.mm_clk);
-		break;
-
 	default:
 		return -EINVAL;
 	}
@@ -356,6 +351,8 @@ static int vsp_release (struct inode *inode, struct file *filp)
 
 	kfree(filp->private_data);
     filp->private_data=NULL;
+	
+    clk_disable(vsp_hw_dev.mm_clk);
 
 	return 0;
 }
