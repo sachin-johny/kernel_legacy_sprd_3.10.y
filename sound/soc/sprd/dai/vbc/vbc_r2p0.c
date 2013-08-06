@@ -1090,7 +1090,7 @@ static int vbc_try_ad_iismux_set(int port)
 {
 	vbc_ad_iismux_set(port);
 	/*adc src setting for fm function */
-	if (port == 1 && port == 2) {
+	if (port == 1 || port == 2) {
 		fm_input_from_ad01 = 1;
 		vbc_try_src_set(0);
 	} else {
@@ -1103,7 +1103,7 @@ static int vbc_try_ad23_iismux_set(int port)
 {
 	vbc_ad23_iismux_set(port);
 	/*adc23 src setting for fm function */
-	if (port == 1 && port == 2) {
+	if (port == 1 || port == 2) {
 		fm_input_from_ad23 = 1;
 		vbc_try_src_set(1);
 	} else {
