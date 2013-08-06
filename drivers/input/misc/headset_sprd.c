@@ -90,6 +90,7 @@ typedef enum sprd_headset_type{
 	HEADSET_TYPE_MAX,
 }SPRD_HEADSET_TYPE;
 
+static DEFINE_SPINLOCK(headmic_bias_lock);
 static int irq_enable = 0;
 extern int sprd_codec_headmic_bias_control(int on);
 
@@ -277,20 +278,24 @@ static void headset_irq_enable(int enable, unsigned int irq)
 
 static void headset_pwr_on(int pwr_on)
 {
-	static int flag = 1;
-	if (pwr_on) {
-		if (flag) {
-			sprd_codec_headmic_bias_control(1);
-			flag = 0;
-			return;
-		}
-	} else {
-		if (!flag) {
-			sprd_codec_headmic_bias_control(0);
-			flag = 1;
-			return;
-		}
-	}
+    unsigned long flags;
+    static int pwr_down_flags = 1;
+
+    spin_lock_irqsave(&headmic_bias_lock, flags);
+    if (pwr_on) {
+        if (pwr_down_flags) {
+            sprd_codec_headmic_bias_control(1);
+            pwr_down_flags = 0;
+        }
+    } else {
+        if (pwr_down_flags) {
+            sprd_codec_headmic_bias_control(0);
+            pwr_down_flags = 1;
+        }
+    }
+    spin_unlock_irqrestore(&headmic_bias_lock, flags);
+
+    return;
 }
 
 //Bug 185497, step 5: Release all buttons  when head set plug out

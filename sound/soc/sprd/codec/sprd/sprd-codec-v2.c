@@ -1096,7 +1096,8 @@ static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 		pr_err("sprd_codec not supports rate %d\n", rate);
 		break;
 	}
-	sprd_codec_dbg("set playback rate 0x%x\n", snd_soc_read(codec, AUD_DAC_CTL));
+	sprd_codec_dbg("set playback rate 0x%x\n",
+		       snd_soc_read(codec, AUD_DAC_CTL));
 	return 0;
 }
 
@@ -1115,7 +1116,7 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec_dbg("%s ad %d da %d \n", __func__,
-			sprd_codec->ad_sample_val, sprd_codec->da_sample_val);
+		       sprd_codec->ad_sample_val, sprd_codec->da_sample_val);
 	if (sprd_codec->ad_sample_val) {
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 					      sprd_codec->ad_sample_val, 0x0F,
@@ -1277,18 +1278,23 @@ static void sprd_codec_headmic_delay_worker(struct work_struct *work)
 	sprd_codec_headmic_bias_en(on);
 }
 
-static int sprd_codec_mic_bias_inter(int on, atomic_t * v)
+static int sprd_codec_mic_bias_inter(int on, atomic_t * v,
+				     spinlock_t * bias_lock)
 {
+	int ret = 0;
+
+	spin_lock(bias_lock);
 	if (on) {
 		atomic_inc(v);
-		return 1;
+		ret = 1;
 	} else {
 		if (atomic_read(v) > 0) {
 			atomic_dec(v);
-			return 1;
+			ret = 1;
 		}
 	}
-	return 0;
+	spin_unlock(bias_lock);
+	return ret;
 }
 
 static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
@@ -1301,7 +1307,10 @@ static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
 
 int sprd_codec_mic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.mic_on)) {
+	static DEFINE_SPINLOCK(mic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.mic_on, &mic_bias_lock)) {
+		pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
 					     sprd_codec_mic_delay_worker);
 		schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
@@ -1314,7 +1323,10 @@ EXPORT_SYMBOL(sprd_codec_mic_bias_control);
 
 int sprd_codec_auxmic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.auxmic_on)) {
+	static DEFINE_SPINLOCK(auxmic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.auxmic_on, &auxmic_bias_lock)) {
+		pr_info("auxmic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work
 		    (&sprd_codec_power.auxmic_delayed_work,
 		     sprd_codec_auxmic_delay_worker);
@@ -1328,7 +1340,10 @@ EXPORT_SYMBOL(sprd_codec_auxmic_bias_control);
 
 int sprd_codec_headmic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.headmic_on)) {
+	static DEFINE_SPINLOCK(headmic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.headmic_on, &headmic_bias_lock)) {
+		pr_info("headmic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work
 		    (&sprd_codec_power.headmic_delayed_work,
 		     sprd_codec_headmic_delay_worker);
@@ -1350,8 +1365,10 @@ static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 	sprd_codec_sample_rate_setting(sprd_codec);
 
 	/* SC7710/SC8830 ask from ASIC to set initial value */
-	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI), BIT(SEL_VCMI));
-	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(VCMI_FAST_EN), BIT(VCMI_FAST_EN));
+	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI),
+			    BIT(SEL_VCMI));
+	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(VCMI_FAST_EN),
+			    BIT(VCMI_FAST_EN));
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -2186,7 +2203,8 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ARRAY_SIZE(spkr_mixer_controls)),
 	SND_SOC_DAPM_PGA_S("SPKL Switch", 5, SOC_REG(DCR2_DCR1), AOL_EN, 0,
 			   spk_switch_event,
-			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMD),
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
+			   SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("SPKR Switch", 5, SOC_REG(DCR2_DCR1), AOR_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
