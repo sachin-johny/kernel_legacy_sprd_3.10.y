@@ -194,18 +194,22 @@ static int i2s_calc_clk(struct i2s_priv *i2s)
 	case 8000:
 	case 16000:
 	case 32000:
+	case 48000:
 		{
-			struct clk *clk_128m;
-			clk_128m = clk_get(NULL, "clk_128m");
-			if (IS_ERR(clk_128m)) {
-				int ret = PTR_ERR(clk_128m);
+			struct clk *clk_parent;
+			if (config->fs == 48000)
+				clk_parent = clk_get(NULL, "clk_76m8");
+			else
+				clk_parent = clk_get(NULL, "clk_128m");
+			if (IS_ERR(clk_parent)) {
+				int ret = PTR_ERR(clk_parent);
 				pr_err("i2s get clock source error %d!\n", ret);
 				return ret;
 			}
-			clk_set_parent(i2s->i2s_clk, clk_128m);
-			source_clk = clk_get_rate(clk_128m);
+			clk_set_parent(i2s->i2s_clk, clk_parent);
+			source_clk = clk_get_rate(clk_parent);
 			clk_set_rate(i2s->i2s_clk, source_clk);
-			clk_put(clk_128m);
+			clk_put(clk_parent);
 		}
 		break;
 	default:

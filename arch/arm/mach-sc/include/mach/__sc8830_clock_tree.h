@@ -305,19 +305,19 @@ SCI_CLK_ADD(clk_spi2, 0, REG_AP_APB_APB_EB, BIT(7),
 
 SCI_CLK_ADD(clk_iis0, 0, REG_AP_APB_APB_EB, BIT(1),
 	REG_AP_CLK_IIS0_CFG, BIT(8)|BIT(9)|BIT(10), REG_AP_CLK_IIS0_CFG, BIT(0)|BIT(1),
-	3, &ext_26m, &clk_51m2, &clk_128m);
+	3, &ext_26m, &clk_76m8, &clk_128m);
 
 SCI_CLK_ADD(clk_iis1, 0, REG_AP_APB_APB_EB, BIT(2),
 	REG_AP_CLK_IIS1_CFG, BIT(8)|BIT(9)|BIT(10), REG_AP_CLK_IIS1_CFG, BIT(0)|BIT(1),
-	3, &ext_26m, &clk_51m2, &clk_128m);
+	3, &ext_26m, &clk_76m8, &clk_128m);
 
 SCI_CLK_ADD(clk_iis2, 0, REG_AP_APB_APB_EB, BIT(3),
 	REG_AP_CLK_IIS2_CFG, BIT(8)|BIT(9)|BIT(10), REG_AP_CLK_IIS2_CFG, BIT(0)|BIT(1),
-	3, &ext_26m, &clk_51m2, &clk_128m);
+	3, &ext_26m, &clk_76m8, &clk_128m);
 
 SCI_CLK_ADD(clk_iis3, 0, REG_AP_APB_APB_EB, BIT(4),
 	REG_AP_CLK_IIS3_CFG, BIT(8)|BIT(9)|BIT(10), REG_AP_CLK_IIS3_CFG, BIT(0)|BIT(1),
-	3, &ext_26m, &clk_51m2, &clk_128m);
+	3, &ext_26m, &clk_76m8, &clk_128m);
 
 SCI_CLK_ADD(clk_gpu_top_i, 0, REG_PMU_APB_PD_GPU_TOP_CFG+1, BIT(25),
 	0, 0, 0, 0,
