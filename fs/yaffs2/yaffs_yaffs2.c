@@ -1062,6 +1062,13 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 			yaffs_trace(YAFFS_TRACE_BAD_BLOCKS,
 				"block %d is bad", blk);
 		} else if (state == YAFFS_BLOCK_STATE_EMPTY) {
+			/*erase all empty block when scan*/
+			if (!yaffs_erase_block(dev, blk)) {
+				dev->n_erase_failures++;
+				yaffs_trace(YAFFS_TRACE_ERROR | YAFFS_TRACE_BAD_BLOCKS,
+				  "**>> Erasure failed %d", blk);
+				continue;
+			}
 			yaffs_trace(YAFFS_TRACE_SCAN_DEBUG, "Block empty ");
 			dev->n_erased_blocks++;
 			dev->n_free_chunks += dev->param.chunks_per_block;
@@ -1578,9 +1585,7 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 					}
 
 				}
-
-			}
-
+                        }
 		}		/* End of scanning for each chunk */
 
 		if (state == YAFFS_BLOCK_STATE_NEEDS_SCANNING) {
