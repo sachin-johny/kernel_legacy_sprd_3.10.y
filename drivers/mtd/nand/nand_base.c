@@ -2719,7 +2719,8 @@ static int nand_block_markbad(struct mtd_info *mtd, loff_t ofs)
 			return 0;
 		return ret;
 	}
-
+        printk("%s, %d, following warning only for trace mark bad callback\n", __func__, __LINE__);
+        WARN_ON(1);
 	return chip->block_markbad(mtd, ofs);
 }
 

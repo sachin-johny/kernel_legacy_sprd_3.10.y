@@ -1141,7 +1141,7 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 
 			chunk = blk * dev->param.chunks_per_block + c;
 
-			result = yaffs_rd_chunk_tags_nand(dev, chunk, NULL,
+			result = yaffs_rd_chunk_tags_nand(dev, chunk, chunk_data,
 							  &tags);
 
 			/* Let's have a good look at this chunk... */
@@ -1203,7 +1203,7 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 
 				dev->n_free_chunks++;
 
-			} else if (tags.obj_id > YAFFS_MAX_OBJECT_ID ||
+                        }else if (tags.obj_id > YAFFS_MAX_OBJECT_ID ||
 				   tags.chunk_id > YAFFS_MAX_CHUNK_ID ||
 				   (tags.chunk_id > 0
 				    && tags.n_bytes > dev->data_bytes_per_chunk)
