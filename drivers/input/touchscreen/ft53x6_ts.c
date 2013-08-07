@@ -42,6 +42,21 @@
 #include <linux/earlysuspend.h>
 #endif
 
+//#define FT53X6_DBG
+#ifdef FT53X6_DBG
+#define ENTER printk(KERN_INFO "[FT53X6_DBG] func: %s  line: %04d\n", __func__, __LINE__);
+#define PRINT_DBG(x...)  printk(KERN_INFO "[FT53X6_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[FT53X6_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[FT53X6_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[FT53X6_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[FT53X6_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[FT53X6_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[FT53X6_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
 #define	USE_THREADED_IRQ	1
 #define	TOUCH_VIRTUAL_KEYS
 #define	MULTI_PROTOCOL_TYPE_B	1
@@ -874,13 +889,54 @@ static void ft5x0x_ts_reset(void)
 	msleep(200);
 }
 
+#if 0
+//for future use
+
+struct regulator *vdd28 = NULL;
+
+static void ft53x6_power_off(void)
+{
+	if(vdd28 != NULL)
+		regulator_force_disable(vdd28);
+	PRINT_INFO("power off\n");
+}
+
+static void ft53x6_power_on(void)
+{
+	int err = 0;
+
+	if(vdd28 == NULL) {
+		vdd28 = regulator_get(NULL, "vdd28");
+		if (IS_ERR(vdd28)) {
+			PRINT_ERR("regulator_get failed\n");
+			return;
+		}
+		err = regulator_set_voltage(vdd28,2800000,2800000);
+		if (err)
+			PRINT_ERR("regulator_set_voltage failed\n");
+	}
+	regulator_enable(vdd28);
+
+	PRINT_INFO("power on\n");
+}
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
+	int ret = -1;
+	int count = 5;
 	pr_info("==%s==\n", __FUNCTION__);
-	ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
+	ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
+	while(ret == 0 && count != 0) {
+			PRINT_ERR("trying to enter hibernate again. ret = %d\n", ret);
+			msleep(10);
+			ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
+			count--;
+	}
 	disable_irq(this_client->irq);
 	ft5x0x_clear_report_data(g_ft5x0x_ts);
+	//gpio_set_value(g_ft5x0x_ts->platform_data->reset_gpio_number, 0);//for future use
 }
 
 static void ft5x0x_ts_resume(struct early_suspend *handler)
