@@ -90,7 +90,7 @@ static void setup_autopd_mode(void)
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 7<<4);
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 5<<4);
 	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
-	sci_glb_set(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
+	sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);
 	/* KEEP eMMC/SD power */
@@ -656,8 +656,7 @@ int deep_sleep(int from_idle)
 		hard_irq_set();
 		sci_glb_clr(REG_AP_APB_APB_EB, 0xf<<19);
 		disable_mcu_deep_sleep();
-		sci_glb_set(SPRD_PMU_BASE+0x00F4, 0);
-
+		sci_glb_clr(SPRD_PMU_BASE+0x00F4, 0x3FF);
 		RESTORE_GLOBAL_REG;
 	}
 
