@@ -1046,7 +1046,6 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 		mdelay(50); /*fps>20*/
 
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
-		sci_glb_clr(DISPC_CORE_EN, BIT_DISPC_CORE_EN);
 		sci_glb_clr(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 	}else{
 		printk(KERN_ERR "sprdfb: [%s]: Invalid device status %d\n", __FUNCTION__, dev->enable);
