@@ -53,7 +53,7 @@
 #include <mach/adc.h>
 
 #undef debug
-#define debug(format, arg...) pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
+#define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
 #define debug0(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 #define debug2(format, arg...)	pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 
@@ -341,6 +341,7 @@ struct dcdc_cal_t {
 
 static int __dcdc_get_offset(struct regulator_dev *rdev)
 {
+#ifdef CONFIG_ARCH_SCX35
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct dcdc_cal_t *dcdc = (struct dcdc_cal_t *)DCDC_CAL_CONF_BASE;
 	int i;
@@ -351,6 +352,7 @@ static int __dcdc_get_offset(struct regulator_dev *rdev)
 			return dcdc[i].cal_vol * 1000;	/*uV */
 		}
 	}
+#endif
 	return 0;
 }
 
@@ -463,9 +465,49 @@ exit:
 	return ret;
 }
 
+static int dcdcldo_set_trimming(struct regulator_dev *rdev, int def_vol,
+				int to_vol, int adc_vol)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	int ret = -EINVAL;
+
+	if (regs->vol_trm) {
+		u32 trim = desc->ops->trimming_def_val;
+		if (adc_vol > to_vol) {
+			trim -=
+			    ((adc_vol - to_vol) * 100 * 32) / (adc_vol * 25);
+		} else {
+			trim +=
+			    DIV_ROUND_UP((to_vol - adc_vol) * 100 * 32,
+					 (adc_vol * 25));
+		}
+		if (trim > BIT(5) - 1)
+			goto exit;
+		debug("regu %p (%s) trimming %d = %d %+d%%, got [%02X]\n",
+		      regs, desc->desc.name, to_vol, adc_vol,
+		      ((int)trim - 0x10) * 25 / 32, trim);
+
+#if !defined(CONFIG_REGULATOR_CAL_DUMMY)
+		ANA_REG_SET(regs->vol_trm,
+			    trim << __ffs(regs->vol_trm_bits),
+			    regs->vol_trm_bits);
+		ret = 0;
+#endif
+	}
+
+exit:
+	return ret;
+}
+
 static int ldo_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
 	return 1000 * to_vol * 20 / 32;	/*uV */
+}
+
+static int dcdcldo_get_trimming_step(struct regulator_dev *rdev, int to_vol)
+{
+	return 1000 * to_vol * 25 / 32;	/*uV */
 }
 
 /* FIXME: patch for sc7710 BA version */
@@ -602,7 +644,7 @@ static int dcdc_set_trimming(struct regulator_dev *rdev,
 			     int def_vol, int to_vol, int adc_vol)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	int ret, acc_vol = desc->ops->get_trimming_step(rdev, to_vol);
+	int acc_vol = desc->ops->get_trimming_step(rdev, to_vol);
 /**
  * FIXME: no need division?
 	int ctl_vol = DIV_ROUND_UP(def_vol * to_vol * 1000, adc_vol) + acc_vol;
@@ -610,13 +652,12 @@ static int dcdc_set_trimming(struct regulator_dev *rdev,
 	int ctl_vol = 1000 * (to_vol - (adc_vol - def_vol)) + acc_vol;	/*uV */
 
 	/* FIXME: dcdc core ctrl should be keeped after trimming.
-	 * but now, uV_offset is used for dcdc set/get correct voltage.
+	 * but now, uV_offset is used for dcdc set/get correct voltage API.
 	 */
-	rdev->constraints->uV_offset = 0;
-	ret = rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
-	BUG_ON(ret);
 	rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;
-	return ret;
+	debug("regu (%s) ctl %d to %d, offset %dmv\n", desc->desc.name,
+	      ctl_vol / 1000, to_vol, rdev->constraints->uV_offset / 1000);
+	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
 static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
@@ -668,8 +709,8 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			    "not found %s closely ctrl bits for %dmV\n",
 			    desc->desc.name, mv);
 
-	debug("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
-	      mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
+	debug2("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
+	       mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
 
 #if !defined(CONFIG_REGULATOR_CAL_DUMMY)
 	/* dcdc calibration control bits (default 00000),
@@ -1118,11 +1159,8 @@ retry:
 	ctl_vol = rdev->desc->ops->get_voltage(rdev);
 	if (IS_ERR_VALUE(ctl_vol)) {
 		debug0("no valid %s vol ctrl bits\n", desc->desc.name);
-	} else {		/* dcdc/ldo maybe had been adjusted or opened in uboot-spl */
-		/* FIXME: ops->get_voltage would be ideal vol, not ctrl vol, so revert the offset */
-		ctl_vol += rdev->constraints->uV_offset;
+	} else			/* dcdc/ldo maybe had been adjusted or opened in uboot-spl */
 		ctl_vol /= 1000;
-	}
 
 	if (!def_vol)
 		def_vol = (IS_ERR_VALUE(ctl_vol)) ? regs->vol_def : ctl_vol;
@@ -1280,6 +1318,13 @@ static struct sci_regulator_ops sci_ldo_ops = {
 	.trimming_def_val = 0x10,	/* 100% */
 	.get_trimming_step = ldo_get_trimming_step,
 	.set_trimming = ldo_set_trimming,
+	.calibrate = regu_calibrate,
+};
+
+static struct sci_regulator_ops sci_dcdcldo_ops = {
+	.trimming_def_val = 0x10,	/* 100% */
+	.get_trimming_step = dcdcldo_get_trimming_step,
+	.set_trimming = dcdcldo_set_trimming,
 	.calibrate = regu_calibrate,
 };
 
@@ -1587,6 +1632,13 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		    REGULATOR_CHANGE_CURRENT;
 		desc->desc.type = REGULATOR_CURRENT;
 	}
+
+	if (desc->regs->typ == VDD_TYP_LDO) {	/*FIXME: reconfig dcdcldo ops */
+		if ((desc->regs->cal_ctl_bits & 0xFFFF0000) ==
+		    (BIT(17) | BIT(18) | BIT(20))) {
+			desc->ops = &sci_dcdcldo_ops;
+		}
+	}
 #endif
 
 /* FIXME: patch for sc7710 BA version */
@@ -1687,8 +1739,8 @@ static int __init regu_driver_init(void)
 		debugfs_root = NULL;
 	}
 
-	debugfs_create_u64("ana_addr", S_IRUGO | S_IWUSR,
-			   debugfs_root, (u64 *) & ana_addr);
+	debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
+			   debugfs_root, (u32 *) & ana_addr);
 	debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
 			    debugfs_root, &ana_addr, &fops_ana_addr);
 	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
