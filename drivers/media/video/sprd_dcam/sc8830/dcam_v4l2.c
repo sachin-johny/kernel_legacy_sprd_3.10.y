@@ -43,6 +43,7 @@
 #define LOCAL
 
 #define DCAM_MODULE_NAME                        "DCAM"
+#define DCAM_PROC_FILE_NAME                     "driver/video0"
 #define DCAM_MINOR                              MISC_DYNAMIC_MINOR
 #define DCAM_INVALID_FOURCC                     0xFFFFFFFF
 #define DCAM_MAJOR_VERSION                      1
@@ -178,6 +179,7 @@ struct dcam_dev {
 	struct timer_list        dcam_timer;
 	atomic_t                 run_flag;
 	uint32_t                 got_resizer;
+	struct proc_dir_entry*   proc_file;
 };
 
 #ifndef __SIMULATOR__
@@ -194,15 +196,13 @@ LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_reg_path2_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_path2_isr(struct dcam_dev* param);
-
+LOCAL int sprd_v4l2_proc_read(char *page, char **start,off_t off, int count, int *eof, void *data);
 
 LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
 	sprd_v4l2_tx_error,
 	sprd_v4l2_no_mem
 };
-
-LOCAL struct proc_dir_entry*  v4l2_proc_file;
 
 LOCAL struct dcam_format dcam_img_fmt[] = {
 	{
@@ -2414,11 +2414,20 @@ LOCAL int sprd_v4l2_open(struct file *file)
 exit:
 	if (unlikely(ret)) {
 		atomic_dec(&dev->users);
+	} else {
+		dev->proc_file = create_proc_read_entry(DCAM_PROC_FILE_NAME,
+						0444,
+						NULL,
+						sprd_v4l2_proc_read,
+						(void*)dev);
+		if (unlikely(NULL == dev->proc_file)) {
+			printk("V4L2: Can't create an entry for video0 in /proc \n");
+			ret = ENOMEM;
+		}
 	}
 	mutex_unlock(&dev->dcam_mutex);
 
 	DCAM_TRACE("sprd_v4l2_open %d \n", ret);
-
 	return ret;
 }
 
@@ -2509,7 +2518,11 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	int                      ret = 0;
 
 	DCAM_TRACE("V4L2: sprd_v4l2_close. \n");
-
+	if (dev->proc_file) {
+		DCAM_TRACE("V4L2: sprd_v4l2_remove \n");
+		remove_proc_entry(DCAM_PROC_FILE_NAME, NULL);
+		dev->proc_file = NULL;
+	}
 	mutex_lock(&dev->dcam_mutex);
 	ret = dcam_module_dis();
 	if (unlikely(0 != ret)) {
@@ -2532,7 +2545,6 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 			int            *eof,
 			void           *data)
 {
-
 	int                      len = 0, ret;
 	struct dcam_dev          *dev = (struct dcam_dev*)data;
 	uint32_t*                reg_buf;
@@ -2762,17 +2774,6 @@ LOCAL int __init create_instance(int inst)
 	v4l2_info(&dev->v4l2_dev, "V4L2 device registered as /dev/video%d\n",
 		  vfd->num);
 
-	v4l2_proc_file = create_proc_read_entry("driver/video0",
-						0444,
-						NULL,
-						sprd_v4l2_proc_read,
-						(void*)dev);
-	if (unlikely(NULL == v4l2_proc_file)) {
-		printk("V4L2: Can't create an entry for video0 in /proc \n");
-		ret = ENOMEM;
-		goto rel_vdev;
-	}
-
 	return 0;
 rel_vdev:
 	video_device_release(vfd);
@@ -2800,11 +2801,6 @@ int sprd_v4l2_probe(struct platform_device *pdev)
 LOCAL int sprd_v4l2_remove(struct platform_device *dev)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
-
-	if (v4l2_proc_file) {
-		DCAM_TRACE("V4L2: sprd_v4l2_remove \n");
-		remove_proc_entry("driver/video0", NULL);
-	}
 
 	return ret;
 }
@@ -2843,6 +2839,6 @@ module_init(sprd_v4l2_init);
 module_exit(sprd_v4l2_exit);
 
 MODULE_DESCRIPTION("DCAM Driver");
-MODULE_AUTHOR("REF_Image@Spreadtrum");
+MODULE_AUTHOR("Multimedia_Camera@Spreadtrum");
 MODULE_LICENSE("GPL");
 
