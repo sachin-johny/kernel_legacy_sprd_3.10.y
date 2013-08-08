@@ -657,15 +657,30 @@ void sprd_stop_recharge(struct sprd_battery_data *data)
 void sprd_set_sw(struct sprd_battery_data *data, int switchpoint)
 {
 	BUG_ON(switchpoint > 31);
-	sci_adi_write(ANA_CHGR_CTRL1,
-		      ((switchpoint << CHGR_SW_POINT_SHIFT) &
-		       CHGR_SW_POINT_MSK), (CHGR_SW_POINT_MSK));
+
+#ifdef CONFIG_ARCH_SC7710
+    if (ANA_CHIP_ID_BA == sci_get_ana_chip_id())
+        sci_adi_write(ANA_CHGR_CTRL1,
+                  ((switchpoint << CHGR_SW_POINT_SHIFT_METAL) &
+                   CHGR_SW_POINT_MSK_METAL), (CHGR_SW_POINT_MSK_METAL));
+    else
+#endif
+		sci_adi_write(ANA_CHGR_CTRL1,
+				((switchpoint << CHGR_SW_POINT_SHIFT) &
+				 CHGR_SW_POINT_MSK), (CHGR_SW_POINT_MSK));
 }
 
 uint32_t sprd_get_sw(struct sprd_battery_data *data)
 {
-	return ((sci_adi_read(ANA_CHGR_CTRL1) & CHGR_SW_POINT_MSK) >>
-		CHGR_SW_POINT_SHIFT);
+#ifdef CONFIG_ARCH_SC7710
+    if (ANA_CHIP_ID_BA == sci_get_ana_chip_id())
+        return ((sci_adi_read(ANA_CHGR_CTRL1) & CHGR_SW_POINT_MSK_METAL) >>
+		    CHGR_SW_POINT_SHIFT_METAL);
+	else
+#endif
+		return ((sci_adi_read(ANA_CHGR_CTRL1) & CHGR_SW_POINT_MSK) >>
+			CHGR_SW_POINT_SHIFT);
+
 }
 
 uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
