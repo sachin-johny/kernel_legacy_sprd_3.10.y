@@ -170,7 +170,7 @@ static unsigned int shark_top_frequency;
 static unsigned int shark_limited_max_frequency;
 /* we need large fake freq to unplug cpu quickly */
 #define SHARK_FAKE_FREQUENCY	(100000)
-#if 1
+#if 0
 static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
 	.freq_tbl = {
 		/* {0, 1200000}, */
