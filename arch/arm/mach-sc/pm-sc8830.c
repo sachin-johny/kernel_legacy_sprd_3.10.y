@@ -215,7 +215,6 @@ void disable_aon_module(void)
 	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_AON_TMR_EB | BIT_AP_TMR0_EB);
 	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_AP_TMR2_EB | BIT_AP_TMR1_EB);
 	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_DISP_EMC_EB);
-	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_USB_PHY_PD);
 }
 void bak_restore_aon(int bak)
 {
@@ -227,8 +226,6 @@ void bak_restore_aon(int bak)
 	}else{
 		if(apb_eb1 & BIT_DISP_EMC_EB)
 			sci_glb_set(REG_AON_APB_APB_EB1, BIT_DISP_EMC_EB);
-		if(pwr_ctl & BIT_USB_PHY_PD)
-			sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_USB_PHY_PD);
 		sci_glb_write(REG_AON_APB_APB_EB0, apb_eb0, -1UL);
 		sci_glb_write(REG_AON_APB_APB_EB1, apb_eb1, -1UL);
 	}
@@ -237,14 +234,14 @@ void bak_restore_aon(int bak)
 void disable_ana_module(void)
 {
 	sci_adi_set(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
-		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD | BIT_LDO_USB_PD | BIT_DCDC_WPA_PD);
+		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD);
 }
 void bak_restore_ana(int bak)
 {
 	static uint32_t ldo_pd_ctrl;
 	static uint32_t mask;
 	mask = BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
-		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD | BIT_LDO_USB_PD | BIT_DCDC_WPA_PD;
+		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD;
 	if(bak){
 		ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
 	}else{
