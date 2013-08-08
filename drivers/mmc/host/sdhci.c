@@ -2084,9 +2084,11 @@ static void sdhci_do_enable_preset_value(struct sdhci_host *host, bool enable)
 		return;
 
 	spin_lock_irqsave(&host->lock, flags);
-
+#if defined( CONFIG_MMC_SDHCI_SC8825 ) || defined (CONFIG_MMC_SDHCI_SCX35)
+	ctrl = sdhci_readl(host, SDHCI_HOST_CONTROL2 & (~0x3));
+#else
 	ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
-
+#endif
 	/*
 	 * We only enable or disable Preset Value if they are not already
 	 * enabled or disabled respectively. Otherwise, we bail out.
