@@ -89,7 +89,12 @@ static void setup_autopd_mode(void)
 
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 7<<4);
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 5<<4);
-	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+	if (soc_is_scx35_v1()) {
+		sci_glb_set(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+	}
+	else {
+		sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+	}
 	sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);
@@ -246,6 +251,25 @@ void bak_restore_ana(int bak)
 		sci_adi_write(ANA_REG_GLB_LDO_PD_CTRL, ldo_pd_ctrl, mask);
 	}
 	return;
+}
+static void bak_restore_pub(int bak)
+{
+	static u32 ddr_dqs1;
+	static u32 ddr_dqs2;
+	static u32 ddr_dqs3;
+	/*v0 not set auto power down*/
+	if (soc_is_scx35_v0()) {
+		return ;
+	}
+	if(bak) {
+		ddr_dqs1 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG1, -1UL);
+		ddr_dqs2 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG2, -1UL);
+		ddr_dqs3 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG3, -1UL);
+	} else {
+		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG1, ddr_dqs1, -1UL);
+		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG2, ddr_dqs2, -1UL);
+		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG3, ddr_dqs3, -1UL);
+	}
 }
 #define REG_PIN_XTLEN                   ( SPRD_PIN_BASE + 0x0138 )
 #define REG_PIN_CHIP_SLEEP              ( SPRD_PIN_BASE + 0x0208 )
@@ -555,11 +579,13 @@ static __used void wait_until_uart1_tx_done(void)
 	bak_restore_ahb(1); \
 	bak_restore_aon(1); \
 	bak_restore_apb(1); \
+	bak_restore_pub(1); \
 	}while(0)
 #define RESTORE_GLOBAL_REG do{ \
 	bak_restore_apb(0); \
 	bak_restore_aon(0); \
 	bak_restore_ahb(0); \
+	bak_restore_pub(0); \
 	}while(0)
 
 /* arm core sleep*/
