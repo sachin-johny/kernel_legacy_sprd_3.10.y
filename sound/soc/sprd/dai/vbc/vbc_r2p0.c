@@ -173,11 +173,7 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 		 .src_step = 2,
 		 .des_step = 0,
 		 },
-#ifdef CONFIG_SPRD_VBC_LR_INVERT
-	.dev_paddr = {PHYS_VBDA1, PHYS_VBDA0},
-#else
 	.dev_paddr = {PHYS_VBDA0, PHYS_VBDA1},
-#endif
 };
 
 static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
@@ -436,6 +432,27 @@ static int vbc_da_iismux_set(int port)
 {
 	vbc_reg_write(VBIISSEL, port << VBIISSEL_DA_PORT_SHIFT,
 		      VBIISSEL_DA_PORT_MASK);
+	return 0;
+}
+
+static int vbc_iis_high_for_da1(int enable)
+{
+	vbc_reg_write(VBIISSEL, (enable ? 1 : 0)  << VBIISSEL_DA_LRCK,
+		      1 << VBIISSEL_DA_LRCK);
+	return 0;
+}
+
+static int vbc_iis_high_for_ad1(int enable)
+{
+	vbc_reg_write(VBIISSEL, (enable ? 1 : 0)  << VBIISSEL_AD01_LRCK,
+		      1 << VBIISSEL_AD01_LRCK);
+	return 0;
+}
+
+static int vbc_iis_high_for_ad2(int enable)
+{
+	vbc_reg_write(VBDATASWT, (enable ? 1 : 0)  << VBDATASWT_AD23_LRCK,
+		      1 << VBDATASWT_AD23_LRCK);
 	return 0;
 }
 
@@ -1718,6 +1735,11 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		vbc_da_buffer_clear_all(dai);
 		vbc_set_buffer_size(0, VBC_FIFO_FRAME_NUM, 0);
+#ifdef CONFIG_SPRD_VBC_LR_INVERT
+		vbc_iis_high_for_da1(0);
+#else
+		vbc_iis_high_for_da1(1);
+#endif
 		vbc_try_da_iismux_set();
 	} else if (vbc_idx == 1) {
 		vbc_set_buffer_size(VBC_FIFO_FRAME_NUM, 0, 0);
@@ -1926,12 +1948,7 @@ static int vbc_drv_probe(struct platform_device *pdev)
 	vbc_dbg("Entering %s\n", __func__);
 
 	for (i = 0; i < 2; i++) {
-#ifdef CONFIG_SPRD_VBC_LR_INVERT
-		vbc_pcm_stereo_out.channels[i] =
-		    arch_audio_vbc_da_dma_info(1 - i);
-#else
 		vbc_pcm_stereo_out.channels[i] = arch_audio_vbc_da_dma_info(i);
-#endif
 		vbc_pcm_stereo_in.channels[i] = arch_audio_vbc_ad_dma_info(i);
 		vbc_pcm23_stereo_in.channels[i] =
 		    arch_audio_vbc_ad23_dma_info(i);
@@ -2438,14 +2455,8 @@ static int vbc_switch_put(struct snd_kcontrol *kcontrol,
 	if (ucontrol->value.integer.value[0] == 3) {	/*switch to cp2-arm */
 
 		arch_audio_vbc_switch(AUDIO_TO_CP2_ARM_CTRL);
-
-#ifdef CONFIG_SPRD_VBC_LR_INVERT
-		vbc_pcm_stereo_out.dev_paddr[0] = CP2_PHYS_VBDA1;
-		vbc_pcm_stereo_out.dev_paddr[1] = CP2_PHYS_VBDA0;
-#else
 		vbc_pcm_stereo_out.dev_paddr[0] = CP2_PHYS_VBDA0;
 		vbc_pcm_stereo_out.dev_paddr[1] = CP2_PHYS_VBDA1;
-#endif
 	} else {
 		arch_audio_vbc_switch(ucontrol->value.integer.value[0] == 0 ?
 				      AUDIO_TO_CP0_DSP_CTRL
@@ -2453,13 +2464,8 @@ static int vbc_switch_put(struct snd_kcontrol *kcontrol,
 					  1) ? AUDIO_TO_CP1_DSP_CTRL :
 					 AUDIO_TO_AP_ARM_CTRL));
 		if (vbc_control == 3 && ucontrol->value.integer.value[0] == 2) {	/*cp2--> ap */
-#ifdef CONFIG_SPRD_VBC_LR_INVERT
-			vbc_pcm_stereo_out.dev_paddr[0] = PHYS_VBDA1;
-			vbc_pcm_stereo_out.dev_paddr[1] = PHYS_VBDA0;
-#else
 			vbc_pcm_stereo_out.dev_paddr[0] = PHYS_VBDA0;
 			vbc_pcm_stereo_out.dev_paddr[1] = PHYS_VBDA1;
-#endif
 		}
 	}
 	vbc_control = ucontrol->value.integer.value[0];
