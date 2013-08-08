@@ -8,6 +8,7 @@
 enum sprd_thm_sensor_id {
 	SPRD_ARM_SENSOR = 0,
 	SPRD_PMIC_SENSOR = 1,
+	SPRD_MAX_SENSOR = 2,
 };
 struct sprd_trip_point {
 	unsigned long temp;

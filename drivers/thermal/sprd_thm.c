@@ -306,11 +306,15 @@ static int sprd_thermal_suspend(struct platform_device *pdev,
 {
 	struct sprd_thermal_zone *pzone = platform_get_drvdata(pdev);
 	flush_work(&pzone->therm_work);
+	sprd_thm_hw_suspend(pzone);
 	return 0;
 }
 
 static int sprd_thermal_resume(struct platform_device *pdev)
 {
+	struct sprd_thermal_zone *pzone = platform_get_drvdata(pdev);
+	sprd_thm_hw_resume(pzone);
+
 	return 0;
 }
 

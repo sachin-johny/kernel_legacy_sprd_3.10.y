@@ -276,6 +276,37 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 
 }
 
+u16 int_ctrl_reg[SPRD_MAX_SENSOR];
+int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone)
+{
+	u32 local_sen_id = 0;
+	u32 local_sensor_addr;
+	u32 int_sts;
+	int ret = 0;
+
+	local_sensor_addr =
+	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
+	int_ctrl_reg[pzone->sensor_id] = __thm_reg_read((local_sensor_addr + SENSOR_INT_CTRL));
+
+	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), 0, ~0);	//disable all int
+	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
+
+}
+int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone)
+{
+	u32 local_sen_id = 0;
+	u32 local_sensor_addr;
+	u32 int_sts;
+	int ret = 0;
+
+	local_sensor_addr =
+	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
+
+	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
+	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), int_ctrl_reg[pzone->sensor_id], ~0);	//enable int of saved
+	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x9, 0);
+}
+
 int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 {
 	u32 local_sen_id = 0;
