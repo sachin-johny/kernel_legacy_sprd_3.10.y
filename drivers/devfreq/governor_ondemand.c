@@ -16,6 +16,7 @@
 #include <linux/slab.h>
 #include <linux/devfreq.h>
 #include <linux/math64.h>
+#include <linux/module.h>
 #include <linux/earlysuspend.h>
 #include "governor.h"
 
@@ -33,7 +34,7 @@ struct dfs_request_state{
 };
 static struct dfs_request_state user_requests;
 static struct devfreq *g_devfreq; /* for requests from kernel */
-static int gov_eb;
+static int gov_eb = 1;
 struct userspace_data {
 	int req_bw;
 	unsigned long set_freq;
@@ -368,7 +369,8 @@ static int devfreq_ondemand_init(struct devfreq *devfreq)
 	data->set_freq = 0;
 	data->upthreshold = DFO_UPTHRESHOLD;
 	data->downdifferential = DFO_DOWNDIFFERENCTIAL;
-	data->enable = false;
+	data->enable = true;
+	data->devfreq_enable = true;
 	if(devfreq->data){
 		data->convert_bw_to_freq = devfreq->data;
 		pr_info("*** %s, data->convert_bw_to_freq:%pf ***\n", __func__, data->convert_bw_to_freq);
@@ -409,7 +411,9 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	if (data) {
 		if (data->enable==false || !(data->devfreq_enable) ||
 					data->set_freq || !gov_eb){
-			*freq = (data->set_freq?data->set_freq:max)+req_freq ;
+			if(user_requests.ddr_freq_after_req == 0)
+				user_requests.ddr_freq_after_req = max;
+			*freq = (data->set_freq?data->set_freq:user_requests.ddr_freq_after_req);
 			return 0;
 		}
 		if (data->upthreshold)
@@ -425,6 +429,7 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	/* Assume MAX if it is going to be divided by zero */
 	if (stat.total_time == 0) {
 		*freq = max;
+		user_requests.ddr_freq_after_req = *freq;
 		pr_debug("*** %s, stat.total_time == 0, freq:%lu ***\n", __func__, *freq);
 		return 0;
 	}
@@ -439,6 +444,7 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	if (stat.busy_time * 100 >
 	    stat.total_time * dfso_upthreshold) {
 		*freq = max;
+		user_requests.ddr_freq_after_req = *freq;
 		pr_debug("*** %s, set max freq:%lu ***\n", __func__, *freq);
 		return 0;
 	}
@@ -446,6 +452,7 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	/* Set MAX if we do not know the initial frequency */
 	if (stat.current_frequency == 0) {
 		*freq = max;
+		user_requests.ddr_freq_after_req = *freq;
 		pr_debug("*** %s, stat.current_frequency == 0, freq:%lu ***\n", __func__, *freq);
 		return 0;
 	}
@@ -454,6 +461,7 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	if (stat.busy_time * 100 >
 	    stat.total_time * (dfso_upthreshold - dfso_downdifferential)) {
 		*freq = stat.current_frequency + req_freq;
+		user_requests.ddr_freq_after_req = *freq;
 		pr_debug("*** %s, Keep the current frequency %lu, req_freq:%lu ***\n",
 				__func__, stat.current_frequency, req_freq);
 		return 0;
@@ -466,6 +474,7 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	b *= 100;
 	b = div_u64(b, (dfso_upthreshold - dfso_downdifferential / 2));
 	*freq = (unsigned long) b + req_freq;
+	user_requests.ddr_freq_after_req = *freq;
 	pr_debug("*** %s, calculate freq:%lu, req_freq:%lu ***\n",
 				__func__, (unsigned long)b, req_freq);
 

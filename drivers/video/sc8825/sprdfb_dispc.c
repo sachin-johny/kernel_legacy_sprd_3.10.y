@@ -17,6 +17,7 @@
 #include <linux/io.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
+#include <linux/devfreq.h>
 //#include <mach/hardware.h>
 //#include <mach/globalregs.h>
 //#include <mach/irqs.h>
@@ -110,6 +111,8 @@ static void dispc_reset(void);
 static void dispc_module_enable(void);
 static void dispc_stop_for_feature(struct sprdfb_device *dev);
 static void dispc_run_for_feature(struct sprdfb_device *dev);
+static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state);
+
 
 
 static irqreturn_t dispc_isr(int irq, void *data)
@@ -622,6 +625,12 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	return 0;
 }
 
+struct devfreq_dbs sprd_fb_notify = {
+	.level = 0,
+	.data = &dispc_ctx,
+	.devfreq_notifier = sprdfb_dispc_change_threshold,
+};
+
 static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
@@ -663,6 +672,9 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 	}
 
 	dispc_ctx.is_inited = true;
+
+	devfreq_notifier_register(&sprd_fb_notify);
+
 	return 0;
 
 }
@@ -1633,6 +1645,31 @@ static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
     return ret;
 }
 #endif
+
+static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state)
+{
+	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_device *)h->data;
+	struct sprdfb_device *dev = dispc_ctx->dev;
+	unsigned int ret = 0;
+	if(NULL == dev || 0 == dev->enable){
+		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
+		return 1;
+	}
+	printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold state=%u\n", state);
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+		down(&dev->refresh_lock);
+		dispc_stop_for_feature(dev);
+		if(state == DEVFREQ_PRE_CHANGE){
+			dispc_write(0x9600960, 0x0c);
+		}else{
+			dispc_write(0x5000500, 0x0c);
+		}
+		dispc_run_for_feature(dev);
+		up(&dev->refresh_lock);
+	}
+	return ret;
+}
+
 
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",

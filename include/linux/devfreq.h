@@ -166,6 +166,23 @@ struct devfreq {
 	unsigned long max_freq;
 };
 
+enum {
+	DEVFREQ_ONDEMAND_LEVEL = 0,
+};
+
+
+#define	DEVFREQ_PRE_CHANGE	(0)
+#define	DEVFREQ_POST_CHANGE	(1)
+
+struct devfreq_dbs {
+	struct list_head link;
+	int level;
+	void *data;
+	unsigned int (*devfreq_notifier)(struct devfreq_dbs *h, unsigned int state);
+};
+
+typedef unsigned int (*forbidden_func)(struct devfreq_dbs *h);
+
 #if defined(CONFIG_PM_DEVFREQ)
 extern struct devfreq *devfreq_add_device(struct device *dev,
 				  struct devfreq_dev_profile *profile,
@@ -196,8 +213,18 @@ extern const struct devfreq_governor devfreq_simple_ondemand;
 #ifdef CONFIG_DEVFREQ_GOV_ONDEMAND
 extern const struct devfreq_governor devfreq_ondemand;
 void dfs_request_bw(int req_bw);
+int devfreq_notifier_register(struct devfreq_dbs *handler);
+int devfreq_notifier_unregister(struct devfreq_dbs *handler);
 #else
 static inline void dfs_request_bw(int req_bw)
+{
+	return;
+}
+inline int devfreq_notifier_register(struct devfreq_dbs *handler)
+{
+	return;
+}
+inline int devfreq_notifier_unregister(struct devfreq_dbs *handler)
 {
 	return;
 }

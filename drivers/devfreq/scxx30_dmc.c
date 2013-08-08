@@ -15,17 +15,28 @@
 #include <linux/jiffies.h>
 #include <linux/slab.h>
 #include <linux/math64.h>
-#include <linux/mutex.h>
+#include <linux/spinlock.h>
 #include <linux/suspend.h>
 #include <linux/opp.h>
 #include <linux/devfreq.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/module.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
+#include <linux/bitops.h>
+#include <mach/irqs.h>
+#include <mach/hardware.h>
 
 #ifdef CONFIG_BUS_MONITOR
 #include <mach/bm_sc8830.h>
 #endif
+
+#define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
+#define CP0_AP_MCU_IRQ1_CLR	BIT(2)
+#define CP1_AP_MCU_IRQ1_CLR	BIT(6)
+#define CPT_SHARE_MEM		(CPT_RING_ADDR + 0x880)
+#define CPW_SHARE_MEM		(CPW_RING_ADDR + 0x880)
 
 extern u32 emc_clk_set(u32 new_clk, u32 sene);
 extern u32 emc_clk_get(void);
@@ -64,10 +75,11 @@ struct dmcfreq_data {
 	struct devfreq *devfreq;
 	bool disabled;
 	struct opp *curr_opp;
-
+	void __iomem *cpt_share_mem_base;
+	void __iomem *cpw_share_mem_base;
 	struct notifier_block pm_notifier;
 	unsigned long last_jiffies;
-	struct mutex lock;
+	spinlock_t lock;
 };
 
 #define SCXX30_LV_NUM (LV_4)
@@ -77,6 +89,77 @@ struct dmcfreq_data {
 #define SCXX30_POLLING_MS (500)
 #define BOOT_TIME	(40*HZ)
 static u32 boot_done;
+
+/************ devfreq notifier *****************/
+static LIST_HEAD(devfreq_dbs_handlers);
+static DEFINE_MUTEX(devfreq_dbs_lock);
+
+/* register a callback function called before DDR frequency change
+*  @handler: callback function
+*/
+int devfreq_notifier_register(struct devfreq_dbs *handler)
+{
+
+	struct list_head *pos;
+	struct devfreq_dbs *e;
+
+	mutex_lock(&devfreq_dbs_lock);
+	list_for_each(pos, &devfreq_dbs_handlers) {
+		e = list_entry(pos, struct devfreq_dbs, link);
+		if(e == handler){
+			printk("***** %s, %pf already exsited ****\n",
+					__func__, e->devfreq_notifier);
+			return -1;
+		}
+	}
+	list_for_each(pos, &devfreq_dbs_handlers) {
+		struct devfreq_dbs *e;
+		e = list_entry(pos, struct devfreq_dbs, link);
+		if (e->level > handler->level)
+			break;
+	}
+	list_add_tail(&handler->link, pos);
+	mutex_unlock(&devfreq_dbs_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(devfreq_notifier_register);
+
+/* unregister a callback function called before DDR frequency change
+*  @handler: callback function
+*/
+int devfreq_notifier_unregister(struct devfreq_dbs *handler)
+{
+	mutex_lock(&devfreq_dbs_lock);
+	list_del(&handler->link);
+	mutex_unlock(&devfreq_dbs_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(devfreq_notifier_unregister);
+
+static unsigned int devfreq_change_notification(unsigned int state)
+{
+	struct devfreq_dbs *pos;
+	int forbidden;
+
+	mutex_lock(&devfreq_dbs_lock);
+	list_for_each_entry(pos, &devfreq_dbs_handlers, link) {
+		if (pos->devfreq_notifier != NULL) {
+			pr_debug("%s: state:%u, calling %pf\n", __func__, state, pos->devfreq_notifier);
+			forbidden = pos->devfreq_notifier(pos, state);
+			if(forbidden){
+				mutex_unlock(&devfreq_dbs_lock);
+				return forbidden;
+			}
+			pr_debug("%s: calling %pf done \n",
+						__func__, pos->devfreq_notifier );
+		}
+	}
+	mutex_unlock(&devfreq_dbs_lock);
+	return 0;
+}
+/************ devfreq notifier *****************/
 
 static unsigned long scxx30_max_freq(struct dmcfreq_data *data)
 {
@@ -112,9 +195,9 @@ static int scxx30_convert_bw_to_freq(int bw)
 	freq = 0;
 	/*freq = dmc_convert_bw_to_freq(bw);*/
 	/*
-	* freq(KHz)*2(DDR)*32(BUS width)/8 = bw(KB)*8(efficiency ratio)
+	* freq(KHz)*2(DDR)*32(BUS width)/8 = bw(KB)*4(efficiency ratio 25%)
 	*/
-	freq = bw;
+	freq = bw/2;
 
 	return freq;
 }
@@ -129,6 +212,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	struct opp *opp = devfreq_recommended_opp(dev, _freq, flags);
 	unsigned long freq = opp_get_freq(opp);
 	unsigned long old_freq = emc_clk_get()*1000 ;
+	unsigned char cp_req;
 
 	if(time_before(jiffies, boot_done)){
 		return 0;
@@ -142,20 +226,42 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	if (old_freq == freq)
 		return 0;
 
+	if(data->cpt_share_mem_base){
+		cp_req = readb(data->cpt_share_mem_base);
+	}
+	if(cp_req){
+		pr_debug("*** %s, cpt:cp_req:%u ***\n", __func__, cp_req);
+		return 0;
+	}else{
+		if(data->cpw_share_mem_base){
+			cp_req = readb(data->cpw_share_mem_base);
+		}
+		pr_debug("*** %s, cpw:cp_req:%u ***\n", __func__, cp_req);
+		if(cp_req)
+			return 0;
+	}
+
 	dev_dbg(dev, "targetting %lukHz %luuV\n", freq, opp_get_voltage(opp));
-
-	mutex_lock(&data->lock);
-
-	if (data->disabled)
-		goto out;
 	freq = freq/1000; /* conver KHz to MHz */
+
+		/* Keep the current frequency if forbidden */
+	if( devfreq_change_notification(DEVFREQ_PRE_CHANGE) ){
+		return 0;
+	}
+
+	spin_lock(&data->lock);
+	if (data->disabled){
+		goto out;
+	}
+
 	err = emc_clk_set(freq, 1);
 	data->curr_opp = opp;
-	pr_debug("*** %s, old_freq:%luKHz, set emc done, err:%d, current freq:%uKHz ***\n",
-			__func__, old_freq, err, emc_clk_get()*1000 );
 
 out:
-	mutex_unlock(&data->lock);
+	spin_unlock(&data->lock);
+	devfreq_change_notification(DEVFREQ_POST_CHANGE);
+	pr_debug("*** %s, old_freq:%luKHz, set emc done, err:%d, current freq:%uKHz ***\n",
+			__func__, old_freq, err, emc_clk_get()*1000 );
 	return err;
 }
 
@@ -185,7 +291,7 @@ static int scxx30_dmc_get_dev_status(struct device *dev,
 	*/
 	if(interval){
 		stat->busy_time = (u32)div_u64(trans_bw*HZ, interval); /* BW: B/s */
-		stat->total_time = total_bw*125 ;   /* BW: KB*1000/8(efficiency ratio) B/s */
+		stat->total_time = total_bw*250 ;   /* BW: KB*1000/4(efficiency ratio 25%) B/s */
 	}else{
 		stat->busy_time = 0 ;
 		stat->total_time = 0;
@@ -248,26 +354,57 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		mutex_lock(&data->lock);
+		spin_lock(&data->lock);
 		data->disabled = true;
 		/*
 		* DMC must be set 200MHz before deep sleep in ES chips
 		*/
 		emc_clk_set(200, 1);
-		mutex_unlock(&data->lock);
+		spin_unlock(&data->lock);
 		return NOTIFY_OK;
 #if 0
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		/* Reactivate */
-		mutex_lock(&data->lock);
+		spin_lock(&data->lock);
 		data->disabled = false;
-		mutex_unlock(&data->lock);
+		spin_unlock(&data->lock);
 		return NOTIFY_OK;
 #endif
 	}
 
 	return NOTIFY_DONE;
+}
+
+static void inline scxx30_set_max(struct dmcfreq_data *data)
+{
+	unsigned long max;
+	unsigned long flags;
+
+	spin_lock_irqsave(&data->lock, flags);
+	max = scxx30_max_freq(data);
+	emc_clk_set(max, 1);
+	spin_unlock_irqrestore(&data->lock, flags);
+
+}
+
+static irqreturn_t scxx30_cp0_irq_handler(int irq, void *data)
+{
+	struct dmcfreq_data *usr = (struct dmcfreq_data *)data;
+	scxx30_set_max(usr);
+	__raw_writel(CP0_AP_MCU_IRQ1_CLR, CP2AP_INT_CTRL);
+
+	return IRQ_HANDLED;
+}
+
+static irqreturn_t scxx30_cp1_irq_handler(int irq, void *data)
+{
+
+	struct dmcfreq_data *usr = (struct dmcfreq_data *)data;
+	scxx30_set_max(usr);
+	__raw_writel(CP1_AP_MCU_IRQ1_CLR, CP2AP_INT_CTRL);
+
+	return IRQ_HANDLED;
 }
 
 static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
@@ -286,7 +423,7 @@ static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
 	data->type = pdev->id_entry->driver_data;
 	data->pm_notifier.notifier_call = scxx30_dmcfreq_pm_notifier;
 	data->dev = dev;
-	mutex_init(&data->lock);
+	spin_lock_init(&data->lock);
 
 	switch (data->type) {
 	case TYPE_DMC_SCXX30:
@@ -332,9 +469,43 @@ static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
 	dmc_mon_cnt_start( );
 #endif
 	boot_done = jiffies + BOOT_TIME;
+
+	/* register isr */
+	err = request_irq(IRQ_CP0_MCU1_INT, scxx30_cp0_irq_handler, IRQF_DISABLED, "dfs_cp0_int1", data);
+	if (err) {
+		printk(KERN_ERR ": failed to cp0 int1 request irq!\n");
+		err = -EINVAL;
+		goto err_devfreq_add;
+	}
+	err = request_irq(IRQ_CP1_MCU1_INT, scxx30_cp1_irq_handler, IRQF_DISABLED, "dfs_cp1_int1", data);
+	if (err) {
+		printk(KERN_ERR ": failed to cp1 int1 request irq!\n");
+		err = -EINVAL;
+		goto err_cp1_irq;
+	}
+
+	data->cpt_share_mem_base = ioremap(CPT_SHARE_MEM, 128);
+	if (!data->cpt_share_mem_base){
+		printk("*** %s, remap CPT_SHARE_MEM error ***\n", __func__);
+		err = -ENOMEM;
+		goto err_irq;
+	}
+	data->cpw_share_mem_base = ioremap(CPW_SHARE_MEM, 128);
+	if (!data->cpw_share_mem_base){
+		printk("*** %s, remap CPW_SHARE_MEM error ***\n", __func__);
+		err = -ENOMEM;
+		goto err_map;
+	}
+
 	pr_info(" %s done,  current freq:%lu \n", __func__, opp_get_freq(data->curr_opp));
 	return 0;
 
+err_map:
+	iounmap(data->cpt_share_mem_base);
+err_irq:
+	free_irq(IRQ_CP1_MCU1_INT, data);
+err_cp1_irq:
+	free_irq(IRQ_CP0_MCU1_INT, data);
 err_devfreq_add:
 	devfreq_remove_device(data->devfreq);
 err_opp_add:
@@ -349,14 +520,19 @@ static __devexit int scxx30_dmcfreq_remove(struct platform_device *pdev)
 	unregister_pm_notifier(&data->pm_notifier);
 	devfreq_remove_device(data->devfreq);
 	kfree(data);
-
+	free_irq(IRQ_CP0_MCU1_INT, data);
+	free_irq(IRQ_CP1_MCU1_INT, data);
+	iounmap(data->cpt_share_mem_base);
+	iounmap(data->cpw_share_mem_base);
 	return 0;
 }
 
 static int scxx30_dmcfreq_resume(struct device *dev)
 {
 	struct dmcfreq_data *data = dev_get_drvdata(dev);
+	spin_lock(&data->lock);
 	data->disabled = false;
+	spin_unlock(&data->lock);
 #ifdef CONFIG_BUS_MONITOR
 	dmc_mon_cnt_clr( );
 	dmc_mon_cnt_start( );
