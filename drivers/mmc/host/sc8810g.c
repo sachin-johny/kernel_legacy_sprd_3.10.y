@@ -596,7 +596,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	host->mmc->caps |= MMC_CAP_HW_RESET;
     switch(pdev->id) {
     case SDC_SLAVE_CP:
-        host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
+        host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~SDHCI_CAN_VDD_330);
         host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
         host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
         host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;// | MMC_PM_WAKE_SDIO_IRQ;
