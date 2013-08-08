@@ -499,9 +499,8 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 
 		dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC/dividor;
 
-//		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
-                 sci_glb_write(REG_AP_CLK_DISPC0_DPI_CFG, ((dividor-1) << 8), 0xffffff00);
-                 dispc_print_clk();
+		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
+                dispc_print_clk();
 
 		if(ret){
 			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");

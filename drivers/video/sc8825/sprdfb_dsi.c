@@ -35,11 +35,13 @@ struct sprdfb_dsi_context {
 	struct clk		*clk_dsi;
 	bool			is_inited;
 	uint32_t		status;/*0- normal, 1- uninit, 2-abnormal*/
+	struct sprdfb_device	*dev;
 
 	dsih_ctrl_t	dsi_inst;
 };
 
 static struct sprdfb_dsi_context dsi_ctx;
+
 
 static int32_t sprdfb_dsi_set_lp_mode(void);
 static int32_t sprdfb_dsi_set_ulps_mode(void);
@@ -68,12 +70,27 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 {
 	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST1);
 	uint32_t i;
+	struct sprdfb_dsi_context *dsi_ctx = (struct sprdfb_dsi_context *)data;
+	struct sprdfb_device *dev = dsi_ctx->dev;
+	dsih_ctrl_t* dsi_instance = &(dsi_ctx->dsi_inst);
+	dphy_t *phy = &(dsi_instance->phy_instance);
+	struct panel_spec* panel = dev->panel;
+	struct info_mipi * mipi = panel->info.mipi;
+
 	printk(KERN_ERR "sprdfb: [%s](0x%x)!\n", __FUNCTION__, reg_val);
 
 	if(BIT(7) == (reg_val & BIT(7))){
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
 		/*need delay 1us*/
 		printk("sprdfb: reset dsi host!\n");
+		printk("sprdfb: mipi->lan_number:%d ,mipi->phy_feq:%d \n",mipi->lan_number,mipi->phy_feq);
+		if(NULL == phy){
+		    printk("sprdfb: the phy is null \n");
+		    return IRQ_NONE;
+		}
+
+                mipi_dsih_dphy_configure(phy,  mipi->lan_number, mipi->phy_feq);
+
 		{/*for debug*/
 			for(i=0;i<256;i+=16){
 				printk("sprdfb: %x: 0x%x, 0x%x, 0x%x, 0x%x\n", i, dsi_core_read_function(SPRD_MIPI_DSIC_BASE, i),
@@ -341,6 +358,8 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 {
 	dsih_error_t result = OK;
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
+	dsi_ctx.dev = dev;
+
 
 	if(!dsi_ctx.is_inited){
 		//init
