@@ -77,11 +77,6 @@ sprd_pm_va_to_iram:
 	dsb
 	isb
 #if 0
-5:  b 5b
-#endif
-	ldr r0, =0xf5160000
-	bl emc_suspend
-#if 0
 4:  b 4b
 #endif
 	nop
@@ -90,8 +85,11 @@ sprd_pm_va_to_iram:
 	dsb
 	isb
 	wfi
-	ldr r0, =0xf5160000
-	bl emc_resume
+	mov 	r0, #0x400
+	/*wait 60us for clk is safely closed*/
+5:  	sub	r0, r0, #0x1
+	cmp	r0, #0x0
+	bne  	5b
 	ldmfd sp!, {lr}
 #if 0
 	ldr r0, =REG_UART1_ENABLE_VIR
@@ -110,6 +108,7 @@ loopq:
 	b loopq
 
 #endif
+	mov r0, #0
 	mov pc, lr
 	nop
 	nop
@@ -119,48 +118,6 @@ loopq:
 	nop
 
 ENDPROC(sc8830_standby_iram)
-
-
-/* r0 is the phy or vir addr of lpddr2 */
-ENTRY(emc_resume)
-	mov pc, lr
-	ldr r1, =0x30
-	add r2, r0, r1
-	ldr r1, =0xa
-	str r1, [r2]
-	mov pc, lr
-	ldr r1, =0x7ffff /* should larger than 5us */
-2:  sub	r1, r1, #0x1
-    cmp	r1, #0x0
-    bne  2b
-	mov pc, lr
-	mov r2, r0  /* bak r0 */
-	ldr r0, =0x7ffff /* should larger than 5us */
-1:  sub	r0, r0, #0x1
-    cmp	r0, #0x0
-    bne  1b
-	mov pc, lr
-	mov r0, r2
-	ldr r1, =0x10004
-	add r2, r0, r1
-	ldr r1, =0x40011
-	str r1, [r2]
-	bx      lr
-	mov pc, lr
-ENDPROC(emc_resume)
-ENTRY(emc_suspend)
-	mov pc, lr
-	ldr r1, =0x30
-	add r2, r0, r1
-	ldr r1, =0x1
-	str r1, [r2]
-	mov pc, lr
-	ldr r0, =0x7ffff /* should larger than 5us */
-1:  sub	r0, r0, #0x1
-    cmp	r0, #0x0
-    bne  1b
-	mov pc, lr
-ENDPROC(emc_suspend)
 
 ENTRY(sc8830_standby_exit_iram)
 
@@ -247,20 +204,6 @@ loopbd:
 #if 0
 loopbd:
 	b loopbd
-#endif
-	ldr r0, =SPRD_LPDDR2_PHYS
-	bl emc_resume
-#if 0
-	ldr r0, =SPRD_LPDDR2_PHYS
-	bl emc_suspend
-	ldr r0, =0xffff
-1:  sub	r0, r0, #0x1
-    cmp	r0, #0x0
-    bne  1b
-	ldr r0, =SPRD_LPDDR2_PHYS
-	bl emc_resume
-loopbb:
-	b loopbb
 #endif
 	/*
 	*  convert to physical address,
