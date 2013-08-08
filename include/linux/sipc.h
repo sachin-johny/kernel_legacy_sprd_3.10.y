@@ -71,6 +71,7 @@ enum {
 	SMSG_TYPE_SMEM_DONE,	/* return of alloc/free smem */
 	SMSG_TYPE_FUNC_CALL,	/* RPC func, value=addr */
 	SMSG_TYPE_FUNC_RETURN,	/* return of RPC func */
+	SMSG_TYPE_DIE,
 	SMSG_TYPE_NR,		/* total type number */
 };
 
