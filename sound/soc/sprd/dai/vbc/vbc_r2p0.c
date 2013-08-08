@@ -153,11 +153,12 @@ static int vbc_da_iis_port;
 static int adc_dgmux_val[ADC_DGMUX_MAX];
 static int fm_sample_rate = 32000;
 struct st_hpf_dg {
-	int dg_switch[2];
+	int hpf_switch[2];
 	int dg_val[2];
+	int hpf_val[2];
 };
 
-static struct st_hpf_dg st_dg = { {0, 0}, {0x18, 0x18} };
+static struct st_hpf_dg st_dg = { {0, 0}, {0x18, 0x18}, {0x3, 0x3} };
 
 static void vbc_eq_try_apply(struct snd_soc_dai *codec_dai,
 			     enum vbc_chan chan_id);
@@ -1045,22 +1046,38 @@ static inline int vbc_ad3_dg_set(int enable, int dg)
 	return 0;
 }
 
-static inline int vbc_st0_dg_set(int enable, int dg)
+static inline int vbc_st0_dg_set(int dg)
+{
+	vbc_reg_write(STCTL0, (0x7F & dg) << 4, 0x7F0);
+	return 0;
+}
+
+static inline int vbc_st1_dg_set(int dg)
+{
+	vbc_reg_write(STCTL1, (0x7F & dg) << 4, 0x7F0);
+	return 0;
+}
+
+static inline int vbc_st0_hpf_set(int enable, int hpf_val)
 {
 	if (enable) {
-		vbc_reg_write(STCTL0, (0x80 | (0xFF & dg)) << 4, 0xFF0);
+		vbc_reg_write(STCTL0, BIT(VBST_HPF_0), BIT(VBST_HPF_0));
+		vbc_reg_write(STCTL0, 0xF & hpf_val, 0xF);
 	} else {
-		vbc_reg_write(STCTL0, 0, 0x800);
+		vbc_reg_write(STCTL0, 0, BIT(VBST_HPF_0));
+		vbc_reg_write(STCTL0, 3, 0xF);
 	}
 	return 0;
 }
 
-static inline int vbc_st1_dg_set(int enable, int dg)
+static inline int vbc_st1_hpf_set(int enable, int hpf_val)
 {
 	if (enable) {
-		vbc_reg_write(STCTL1, (0x80 | (0xFF & dg)) << 8, 0xFF0);
+		vbc_reg_write(STCTL1, BIT(VBST_HPF_1), BIT(VBST_HPF_1));
+		vbc_reg_write(STCTL1, 0xF & hpf_val, 0xF);
 	} else {
-		vbc_reg_write(STCTL1, 0, 0x800);
+		vbc_reg_write(STCTL1, 0, BIT(VBST_HPF_1));
+		vbc_reg_write(STCTL1, 3, 0xF);
 	}
 	return 0;
 }
@@ -1079,9 +1096,19 @@ static int vbc_try_dg_set(int vbc_idx, int id)
 static int vbc_try_st_dg_set(int id)
 {
 	if (id == VBC_LEFT) {
-		vbc_st0_dg_set(st_dg.dg_switch[id], st_dg.dg_val[id]);
+		vbc_st0_dg_set(st_dg.dg_val[id]);
 	} else {
-		vbc_st1_dg_set(st_dg.dg_switch[id], st_dg.dg_val[id]);
+		vbc_st1_dg_set(st_dg.dg_val[id]);
+	}
+	return 0;
+}
+
+static int vbc_try_st_hpf_set(int id)
+{
+	if (id == VBC_LEFT) {
+		vbc_st0_hpf_set(st_dg.hpf_switch[id], st_dg.hpf_val[id]);
+	} else {
+		vbc_st1_hpf_set(st_dg.hpf_switch[id], st_dg.hpf_val[id]);
 	}
 	return 0;
 }
@@ -2214,9 +2241,9 @@ static int vbc_eq_profile_put(struct snd_kcontrol *kcontrol,
 	profile_max =
 	    ((id ==
 	      0) ? vbc_eq_setting.hdr.num_da : ((id ==
-						 1) ? vbc_eq_setting.
-						hdr.num_ad01 : vbc_eq_setting.
-						hdr.num_ad23));
+						 1) ? vbc_eq_setting.hdr.
+						num_ad01 : vbc_eq_setting.hdr.
+						num_ad23));
 	pr_info("vbc %s eq select %ld max %d\n",
 		((id == 0) ? "DA" : ((id == 1) ? "AD01" : "AD23")),
 		ucontrol->value.integer.value[0], profile_max);
@@ -2653,37 +2680,74 @@ static int vbc_dg_switch_put(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
-static int vbc_st_dg_switch_get(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
+static int vbc_st_hpf_switch_get(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
 	int id = FUN_REG(mc->reg);
 
-	ucontrol->value.integer.value[0] = st_dg.dg_switch[id];
+	ucontrol->value.integer.value[0] = st_dg.hpf_switch[id];
 	return 0;
 }
 
-static int vbc_st_dg_switch_put(struct snd_kcontrol *kcontrol,
-				struct snd_ctl_elem_value *ucontrol)
+static int vbc_st_hpf_switch_put(struct snd_kcontrol *kcontrol,
+				 struct snd_ctl_elem_value *ucontrol)
 {
 	int ret = 0;
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
 	int id = FUN_REG(mc->reg);
 
-	pr_info("VBC ST%s DG switch %s\n",
+	pr_info("VBC ST%s HPF switch %s\n",
 		id == VBC_LEFT ? "L" : "R",
 		ucontrol->value.integer.value[0] ? "ON" : "OFF");
 
 	ret = ucontrol->value.integer.value[0];
-	if (ret == st_dg.dg_switch[id]) {
+	if (ret == st_dg.hpf_switch[id]) {
 		return ret;
 	}
 
-	st_dg.dg_switch[id] = ret;
+	st_dg.hpf_switch[id] = ret;
 
-	vbc_try_st_dg_set(id);
+	vbc_try_st_hpf_set(id);
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static int vbc_st_hpf_get(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+
+	ucontrol->value.integer.value[0] = st_dg.hpf_val[id];
+	return 0;
+}
+
+static int vbc_st_hpf_put(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+
+	pr_info("VBC ST%s HPF set 0x%02x\n",
+		id == VBC_LEFT ? "L" : "R",
+		(int)ucontrol->value.integer.value[0]);
+
+	ret = ucontrol->value.integer.value[0];
+	if (ret == st_dg.hpf_val[id]) {
+		return ret;
+	}
+	if (ret <= VBC_DG_VAL_MAX) {
+		st_dg.hpf_val[id] = ret;
+	}
+
+	vbc_try_st_hpf_set(id);
 
 	vbc_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -2842,10 +2906,14 @@ static const struct snd_kcontrol_new vbc_controls[] = {
 	SOC_SINGLE_EXT("VBC ADC23R DG Switch", FUN_REG(VBC_RIGHT),
 		       VBC_CHAN_AD23, 1, 0, vbc_dg_switch_get,
 		       vbc_dg_switch_put),
-	SOC_SINGLE_EXT("VBC STL DG Switch", FUN_REG(VBC_LEFT),
-		       0, 1, 0, vbc_st_dg_switch_get, vbc_st_dg_switch_put),
-	SOC_SINGLE_EXT("VBC STR DG Switch", FUN_REG(VBC_RIGHT),
-		       0, 1, 0, vbc_st_dg_switch_get, vbc_st_dg_switch_put),
+	SOC_SINGLE_EXT("VBC STL HPF Switch", FUN_REG(VBC_LEFT),
+		       0, 1, 0, vbc_st_hpf_switch_get, vbc_st_hpf_switch_put),
+	SOC_SINGLE_EXT("VBC STR HPF Switch", FUN_REG(VBC_RIGHT),
+		       0, 1, 0, vbc_st_hpf_switch_get, vbc_st_hpf_switch_put),
+	SOC_SINGLE_EXT("VBC STL HPF Set", FUN_REG(VBC_LEFT),
+		       0, VBC_DG_VAL_MAX, 0, vbc_st_hpf_get, vbc_st_hpf_put),
+	SOC_SINGLE_EXT("VBC STR HPF Set", FUN_REG(VBC_RIGHT),
+		       0, VBC_DG_VAL_MAX, 0, vbc_st_hpf_get, vbc_st_hpf_put),
 
 	SOC_SINGLE_EXT("VBC AD0 DG Mux", FUN_REG(ADC0_DGMUX), 0, 1, 0,
 		       adc_dgmux_get, adc_dgmux_put),
