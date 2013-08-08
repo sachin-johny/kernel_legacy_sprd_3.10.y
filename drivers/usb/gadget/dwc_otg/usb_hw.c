@@ -153,6 +153,7 @@ static void usb_startup(void)
 	usb_ldo_switch(1);
 	mdelay(10);
 	usb_enable_module(1);
+	mdelay(2);
 #if defined(CONFIG_ARCH_SCX35)
 	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
 	mdelay(5);
