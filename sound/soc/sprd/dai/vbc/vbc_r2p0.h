@@ -246,7 +246,9 @@ enum vbc_chan {
 #define 	VBADCSRC_F1_SEL_23	(12)
     /*STCTL0 */
 #define     VBST_EN_0			(12)
+#define 	 VBST_HPF_0		(11)
     /*STCTL1 */
+#define 	 VBST_HPF_1		(11)
 #define     VBST_EN_1	                  (12)
 #define 	VBST0_SEL_CHN		(13)
 #define 	VBST1_SEL_CHN		(14)
