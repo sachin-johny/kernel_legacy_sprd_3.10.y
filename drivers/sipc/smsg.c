@@ -49,7 +49,8 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 			readl(ipc->rxbuf_wrptr), readl(ipc->rxbuf_rdptr), rxpos);
 		pr_debug("irq read smsg: channel=%d, type=%d, flag=0x%04x, value=0x%08x\n",
 			msg->channel, msg->type, msg->flag, msg->value);
-
+		if(msg->type == SMSG_TYPE_DIE)
+			panic("cpcrash");
 		if (msg->channel >= SMSG_CH_NR || msg->type >= SMSG_TYPE_NR) {
 			/* invalid msg */
 			printk(KERN_ERR "invalid smsg: channel=%d, type=%d, flag=0x%04x, value=0x%08x\n",
