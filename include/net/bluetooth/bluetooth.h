@@ -82,7 +82,8 @@ int bt_printk(const char *level, const char *fmt, ...);
 
 #define BT_INFO(fmt, arg...)   bt_printk(KERN_INFO, pr_fmt(fmt), ##arg)
 #define BT_ERR(fmt, arg...)    bt_printk(KERN_ERR, pr_fmt(fmt), ##arg)
-#define BT_DBG(fmt, arg...)    bt_printk(KERN_ERR, pr_fmt(fmt), ##arg)
+//#define BT_DBG(fmt, arg...)    bt_printk(KERN_ERR, pr_fmt(fmt), ##arg)
+#define BT_DBG(fmt, arg...)  printk(KERN_ERR "%s: " fmt "\n" , __func__ , ## arg)
 
 /* Connection and socket states */
 enum {
