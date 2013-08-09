@@ -256,6 +256,15 @@ static void dispc_dithering_enable(bool enable)
 	}
 }
 
+static void dispc_pwr_enable(bool enable)
+{
+	if(enable){
+		dispc_set_bits(BIT(7), DISPC_CTRL);
+	}else{
+		dispc_clear_bits(BIT(7), DISPC_CTRL);
+	}
+}
+
 static void dispc_set_exp_mode(uint16_t exp_mode)
 {
 	uint32_t reg_val = dispc_read(DISPC_CTRL);
@@ -851,6 +860,8 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	dispc_dithering_enable(true);
 	/*use MSBs as img exp mode*/
 	dispc_set_exp_mode(0x0);
+	//enable DISPC Power Control
+	dispc_pwr_enable(true);
 
 	if(dispc_ctx.is_first_frame){
 		dispc_layer_init(&(dev->fb->var));
@@ -1648,7 +1659,7 @@ static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
 
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state)
 {
-	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_device *)h->data;
+	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
 	struct sprdfb_device *dev = dispc_ctx->dev;
 	unsigned int ret = 0;
 	if(NULL == dev || 0 == dev->enable){
