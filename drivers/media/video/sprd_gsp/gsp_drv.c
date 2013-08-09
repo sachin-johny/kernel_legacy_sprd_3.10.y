@@ -435,8 +435,19 @@ static uint32_t GSP_get_points_in_layer0(void)
 
     des_rect1.st_x = s_gsp_cfg.layer1_info.des_pos.pos_pt_x;
     des_rect1.st_y = s_gsp_cfg.layer1_info.des_pos.pos_pt_y;
+	    if(s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_90
+            ||s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_270
+            ||s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_90_M
+            ||s_gsp_cfg.layer1_info.rot_angle == GSP_ROT_ANGLE_270_M)
+    {
+        des_rect1.rect_w = s_gsp_cfg.layer1_info.clip_rect.rect_h;
+        des_rect1.rect_h = s_gsp_cfg.layer1_info.clip_rect.rect_w;
+    }
+    else
+    {
     des_rect1.rect_w = s_gsp_cfg.layer1_info.clip_rect.rect_w;
     des_rect1.rect_h = s_gsp_cfg.layer1_info.clip_rect.rect_h;
+    }
 
     cnt += GSP_point_in_layer0(des_rect1.st_x,des_rect1.st_y);
     cnt += GSP_point_in_layer0(des_rect1.st_x+des_rect1.rect_w-1,des_rect1.st_y);
@@ -778,7 +789,7 @@ static uint32_t GSP_Gen_CMDQ(GSP_LAYER1_REG_T *pDescriptors_walk,GSP_L1_L0_RELAT
 
             i++;
             parts_Points_des[i].st_x = L1_des_Points.st_x;
-            parts_Points_des[i].st_y = L0_des_Points.st_y + 1;
+        parts_Points_des[i].st_y = L0_des_Points.end_y + 1;
             parts_Points_des[i].end_x = L1_des_Points.end_x;
             parts_Points_des[i].end_y = L1_des_Points.end_y;
 
@@ -1524,7 +1535,8 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
                        ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
                        GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
                        GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT);
-				
+                printCfgInfo();
+                printGPSReg();
                 printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !! \n",__func__,__LINE__,pUserdata->pid);
                 ret = GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT;
                 break;
@@ -2049,7 +2061,7 @@ static long gsp_drv_ioctl(struct file *file,
                 ret = GSP_work_around1(pUserdata);
                 if(ret)
                 {
-                    //goto exit;
+                goto exit;
                 }
 
                 if(gsp_workaround_perf == PERF_MAGIC)
@@ -2144,6 +2156,8 @@ static long gsp_drv_ioctl(struct file *file,
                        ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
                        GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
                        GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT);
+                printCfgInfo();
+                printGPSReg();
                     ret = GSP_KERNEL_WAITDONE_TIMEOUT;
                 }
                 else if (ret)// == -EINTR
