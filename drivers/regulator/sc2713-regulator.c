@@ -12,6 +12,9 @@
  * GNU General Public License for more details.
  *
  * Fixes:
+ *		0.4
+ *		Bug#183980 add dcdc and pll enable time
+ *		Change-Id: I6e6e06ee0beb306cd846964d0ba24aef449e5beb
  *		0.3
  *		Bug#164001 add dcdc mem/gen/wpa/wrf map
  *		Change-Id: I07dac5700c0907aca99f6112bd4b5799358a9a88
@@ -129,6 +132,7 @@ enum {
 static DEFINE_MUTEX(adc_chan_mutex);
 static int __is_trimming(struct regulator_dev *);
 static int __regu_calibrate(struct regulator_dev *, int, int);
+extern int sci_efuse_calibration_get(u32 * p_cal_data);
 
 #define SCI_REGU_REG(VDD, TYP, PD_SET, SET_BIT, PD_RST, RST_BIT, SLP_CTL, SLP_CTL_BIT, \
                      VOL_TRM, VOL_TRM_BITS, CAL_CTL, CAL_CTL_BITS, VOL_DEF, \
@@ -221,9 +225,9 @@ static int ldo_is_on(struct regulator_dev *rdev)
 	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
 	if (regs->pd_rst && regs->pd_set) {
-        /*for pd_rst has higher prioty than pd_set, what's more, their reset values are the same, 0*/
+		/*for pd_rst has higher prioty than pd_set, what's more, their reset values are the same, 0 */
 		ret = ! !(ANA_REG_GET(regs->pd_rst) & regs->pd_rst_bit);
-        /* FIXME: when reset, pd_set & pd_rst are all zero, always get here*/
+		/* FIXME: when reset, pd_set & pd_rst are all zero, always get here */
 		if (ret == ! !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit))
 			ret = -EINVAL;
 	} else if (regs->pd_rst) {
@@ -327,6 +331,31 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 
 static unsigned long trimming_state[2] = { 0, 0 };	/* max 64 bits */
 
+/* FIXME: get dcdc cal offset config from uboot */
+#define DCDC_CAL_CONF_BASE	(SPRD_IRAM0_BASE + 0x1f00)
+#define DCDC_MAX_CNT		(4)
+struct dcdc_cal_t {
+	char name[32];
+	int cal_vol;
+};
+
+static int __dcdc_get_offset(struct regulator_dev *rdev)
+{
+#ifdef CONFIG_ARCH_SCX35
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	struct dcdc_cal_t *dcdc = (struct dcdc_cal_t *)DCDC_CAL_CONF_BASE;
+	int i;
+	for (i = 0; i < DCDC_MAX_CNT; i++) {
+		if (0 == strcmp(dcdc[i].name, desc->desc.name)) {
+			debug("regu %p (%s) offset %+dmV\n", desc->regs,
+			      desc->desc.name, dcdc[i].cal_vol);
+			return dcdc[i].cal_vol * 1000;	/*uV */
+		}
+	}
+#endif
+	return 0;
+}
+
 static int __is_trimming(struct regulator_dev *rdev)
 {
 	int id;
@@ -343,13 +372,14 @@ static int __init_trimming(struct regulator_dev *rdev)
 	int ret = -EINVAL;
 	u32 trim = 0;
 
-	if (!regs->vol_trm || !regs->vol_def || !desc->ops)
+	if (!regs->vol_trm || !desc->ops)
 		goto exit;
 
 	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
 	    >> __ffs(regs->vol_trm_bits);
-
-	if (trim != desc->ops->trimming_def_val && !(regs->vol_def & 1)) {
+	if (0 == regs->vol_def && desc->regs->typ == 2 /*DCDC*/) {
+		rdev->constraints->uV_offset = __dcdc_get_offset(rdev);
+	} else if (trim != desc->ops->trimming_def_val && !(regs->vol_def & 1)) {
 		/* some DCDC/LDOs had been calibrated in uboot-spl */
 		debug("regu %p (%s) trimming ok before startup\n", regs,
 		      desc->desc.name);
@@ -435,9 +465,49 @@ exit:
 	return ret;
 }
 
+static int dcdcldo_set_trimming(struct regulator_dev *rdev, int def_vol,
+				int to_vol, int adc_vol)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const struct sci_regulator_regs *regs = desc->regs;
+	int ret = -EINVAL;
+
+	if (regs->vol_trm) {
+		u32 trim = desc->ops->trimming_def_val;
+		if (adc_vol > to_vol) {
+			trim -=
+			    ((adc_vol - to_vol) * 100 * 32) / (adc_vol * 25);
+		} else {
+			trim +=
+			    DIV_ROUND_UP((to_vol - adc_vol) * 100 * 32,
+					 (adc_vol * 25));
+		}
+		if (trim > BIT(5) - 1)
+			goto exit;
+		debug("regu %p (%s) trimming %d = %d %+d%%, got [%02X]\n",
+		      regs, desc->desc.name, to_vol, adc_vol,
+		      ((int)trim - 0x10) * 25 / 32, trim);
+
+#if !defined(CONFIG_REGULATOR_CAL_DUMMY)
+		ANA_REG_SET(regs->vol_trm,
+			    trim << __ffs(regs->vol_trm_bits),
+			    regs->vol_trm_bits);
+		ret = 0;
+#endif
+	}
+
+exit:
+	return ret;
+}
+
 static int ldo_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
 	return 1000 * to_vol * 20 / 32;	/*uV */
+}
+
+static int dcdcldo_get_trimming_step(struct regulator_dev *rdev, int to_vol)
+{
+	return 1000 * to_vol * 25 / 32;	/*uV */
 }
 
 /* FIXME: patch for sc7710 BA version */
@@ -582,9 +652,11 @@ static int dcdc_set_trimming(struct regulator_dev *rdev,
 	int ctl_vol = 1000 * (to_vol - (adc_vol - def_vol)) + acc_vol;	/*uV */
 
 	/* FIXME: dcdc core ctrl should be keeped after trimming.
-	 * but now, uV_offset is used for dcdc set/get correct voltage.
+	 * but now, uV_offset is used for dcdc set/get correct voltage API.
 	 */
-	rdev->constraints->uV_offset = ctl_vol - def_vol * 1000;
+	rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;
+	debug("regu (%s) ctl %d to %d, offset %dmv\n", desc->desc.name,
+	      ctl_vol / 1000, to_vol, rdev->constraints->uV_offset / 1000);
 	return rdev->desc->ops->set_voltage(rdev, ctl_vol, ctl_vol, 0);
 }
 
@@ -602,12 +674,25 @@ static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
 	return j;
 }
 
+static int __dcdc_enable_time(struct regulator_dev *rdev, int old_vol)
+{
+	int vol = rdev->desc->ops->get_voltage(rdev) / 1000;
+	if (vol > old_vol) {
+		/* FIXME: for dcdc, each step (50mV) takes 10us */
+		int dly = (vol - old_vol) * 10 / 50;
+		WARN_ON(dly > 1000);
+		udelay(dly);
+	}
+	return 0;
+}
+
 static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			    int max_uV, unsigned *selector)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
 	int i, mv = min_uV / 1000;
+	int old_vol = rdev->desc->ops->get_voltage(rdev) / 1000;
 
 	debug0("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
 
@@ -624,8 +709,8 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			    "not found %s closely ctrl bits for %dmV\n",
 			    desc->desc.name, mv);
 
-	debug("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
-	      mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
+	debug2("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
+	       mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
 
 #if !defined(CONFIG_REGULATOR_CAL_DUMMY)
 	/* dcdc calibration control bits (default 00000),
@@ -651,6 +736,8 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			ANA_REG_SET(regs->vol_ctl, i | (max - i) << 4, -1);
 		}
 	}
+
+	__dcdc_enable_time(rdev, old_vol);
 #endif
 
 	return 0;
@@ -901,6 +988,17 @@ static int __init __adc_cal_setup(char *str)
 }
 
 early_param("adc_cal", __adc_cal_setup);
+
+static int __init __adc_cal_fuse_setup(void)
+{
+	if (!__is_valid_adc_cal() &&
+	    sci_efuse_calibration_get((u32 *) adc_data)) {
+		debug("%d : %d -- %d : %d\n",
+		      (int)adc_data[0][0], (int)adc_data[0][1],
+		      (int)adc_data[1][0], (int)adc_data[1][1]);
+	}
+	return 0;
+}
 
 static int __adc2vbat(int adc_res)
 {
@@ -1159,6 +1257,30 @@ int regulator_strongly_disable(struct regulator *regulator)
 
 EXPORT_SYMBOL_GPL(regulator_strongly_disable);
 
+/**
+ * regulator_calibrate - force calibrate the regulator to the ideal value
+ * @regulator: regulator source
+ *
+ */
+int regulator_calibrate(struct regulator *regulator, int to_vol)
+{
+	struct regulator_dev *rdev = regulator_get_drvdata(regulator);
+	int ret = -1;
+
+	if (rdev) {
+		struct sci_regulator_desc *desc = __get_desc(rdev);
+		if (desc && desc->ops) {
+			mutex_lock(&rdev->mutex);
+			ret = desc->ops->calibrate(rdev, 0, to_vol);
+			mutex_unlock(&rdev->mutex);
+		}
+	}
+
+	return ret;
+}
+
+EXPORT_SYMBOL_GPL(regulator_calibrate);
+
 static struct regulator_ops ldo_ops = {
 	.enable = ldo_turn_on,
 	.disable = ldo_turn_off,
@@ -1196,6 +1318,13 @@ static struct sci_regulator_ops sci_ldo_ops = {
 	.trimming_def_val = 0x10,	/* 100% */
 	.get_trimming_step = ldo_get_trimming_step,
 	.set_trimming = ldo_set_trimming,
+	.calibrate = regu_calibrate,
+};
+
+static struct sci_regulator_ops sci_dcdcldo_ops = {
+	.trimming_def_val = 0x10,	/* 100% */
+	.get_trimming_step = dcdcldo_get_trimming_step,
+	.set_trimming = dcdcldo_set_trimming,
 	.calibrate = regu_calibrate,
 };
 
@@ -1503,6 +1632,13 @@ void *__devinit sci_regulator_register(struct platform_device *pdev,
 		    REGULATOR_CHANGE_CURRENT;
 		desc->desc.type = REGULATOR_CURRENT;
 	}
+
+	if (desc->regs->typ == VDD_TYP_LDO) {	/*FIXME: reconfig dcdcldo ops */
+		if ((desc->regs->cal_ctl_bits & 0xFFFF0000) ==
+		    (BIT(17) | BIT(18) | BIT(20))) {
+			desc->ops = &sci_dcdcldo_ops;
+		}
+	}
 #endif
 
 /* FIXME: patch for sc7710 BA version */
@@ -1603,8 +1739,8 @@ static int __init regu_driver_init(void)
 		debugfs_root = NULL;
 	}
 
-	debugfs_create_u64("ana_addr", S_IRUGO | S_IWUSR,
-			   debugfs_root, (u64 *) & ana_addr);
+	debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
+			   debugfs_root, (u32 *) & ana_addr);
 	debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
 			    debugfs_root, &ana_addr, &fops_ana_addr);
 	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
@@ -1633,6 +1769,8 @@ int __init sci_regulator_init(void)
 		.name = "sc2713-regulator",
 		.id = -1,
 	};
+
+	__adc_cal_fuse_setup();
 	return platform_device_register(&regulator_device);
 }
 
@@ -1641,4 +1779,4 @@ subsys_initcall(regu_driver_init);
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum voltage regulator driver");
 MODULE_AUTHOR("robot <zhulin.lian@spreadtrum.com>");
-MODULE_VERSION("0.3");
+MODULE_VERSION("0.4");
