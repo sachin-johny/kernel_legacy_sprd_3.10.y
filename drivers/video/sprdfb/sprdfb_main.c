@@ -117,7 +117,7 @@ static void setup_fb_info(struct sprdfb_device *dev)
 	fb->flags = FBINFO_DEFAULT;
 
 	/* finish setting up the fb_info struct */
-	strncpy(fb->fix.id, "tigerfb", 16);
+	strncpy(fb->fix.id, "sprdfb", 16);
 	fb->fix.ypanstep = 1;
 	fb->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb->fix.visual = FB_VISUAL_TRUECOLOR;
