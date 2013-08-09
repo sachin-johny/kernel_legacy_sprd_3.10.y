@@ -675,6 +675,10 @@ static int have_callable_console(void)
  * See the vsnprintf() documentation for format string extensions over C99.
  */
 
+#ifdef CONFIG_OMIT_PRINTK
+#undef printk
+#endif
+
 asmlinkage int printk(const char *fmt, ...)
 {
 	va_list args;
@@ -689,11 +693,17 @@ asmlinkage int printk(const char *fmt, ...)
 	}
 #endif
 	va_start(args, fmt);
+#ifndef CONFIG_OMIT_PRINTK
 	r = vprintk(fmt, args);
+#endif
 	va_end(args);
 
 	return r;
 }
+#ifdef CONFIG_OMIT_PRINTK
+#define printk(format, args...)        \
+               do{}while(0)
+#endif
 
 /* cpu currently holding logbuf_lock */
 static volatile unsigned int printk_cpu = UINT_MAX;
@@ -764,6 +774,10 @@ static inline void printk_delay(void)
 	}
 }
 
+
+#ifdef CONFIG_OMIT_PRINTK
+#undef vprintk
+#endif
 asmlinkage int vprintk(const char *fmt, va_list args)
 {
 	int printed_len = 0;
@@ -904,6 +918,12 @@ out_restore_irqs:
 	preempt_enable();
 	return printed_len;
 }
+
+#ifdef CONFIG_OMIT_PRINTK
+#define vprintk(format, args...)       \
+	    do{}while(0)
+#endif
+
 EXPORT_SYMBOL(printk);
 EXPORT_SYMBOL(vprintk);
 

@@ -248,10 +248,18 @@ extern struct pid *session_of_pgrp(struct pid *pgrp);
 #define FW_INFO		"[Firmware Info]: "
 
 #ifdef CONFIG_PRINTK
+
+#ifdef CONFIG_OMIT_PRINTK
+#define vprintk(format, args...) \
+              do{}while(0)
+#define printk(format, args...)        \
+               do{}while(0)
+#else
 asmlinkage int vprintk(const char *fmt, va_list args)
-	__attribute__ ((format (printf, 1, 0)));
+      __attribute__ ((format (printf, 1, 0)));
 asmlinkage int printk(const char * fmt, ...)
-	__attribute__ ((format (printf, 1, 2))) __cold;
+       __attribute__ ((format (printf, 1, 2))) __cold;
+#endif
 
 extern int __printk_ratelimit(const char *func);
 #define printk_ratelimit() __printk_ratelimit(__func__)
