@@ -835,7 +835,9 @@ static ssize_t kmsg_write(struct file *file, const char __user *buf,
 	ret = -EFAULT;
 	if (!copy_from_user(tmp, buf, count)) {
 		tmp[count] = 0;
+#ifndef CONFIG_OMIT_PRINTK
 		ret = printk("%s", tmp);
+#endif
 		if (ret > count)
 			/* printk can add a prefix */
 			ret = count;

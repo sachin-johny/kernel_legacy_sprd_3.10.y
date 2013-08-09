@@ -905,6 +905,13 @@ config PRINTK
 	  very difficult to diagnose system problems, saying N here is
 	  strongly discouraged.
 
+config OMIT_PRINTK
+	default 0
+	bool "omit the printk's args" if PRINTK
+	help
+	  This option omits printk's args.Then it can reduce the size of
+	  static string, and slim the kernel image.
+
 config BUG
 	bool "BUG() support" if EMBEDDED
 	default y
