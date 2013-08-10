@@ -382,7 +382,7 @@ static void SetVerRegisterCoef(uint32_t * reg_coef_lum_ptr,
 	uint32_t cnts = 0;
 	uint32_t i = 0, j = 0;
 
-	if(2 * o_h < i_h) {
+	if(2 * o_h <= i_h) {
 		for(i = 0; i < 9; i++) {
 			for(j = 0; j < 16; j++) {
 				reg_coef_lum_ptr[cnts++] = *(y_coef_ptr +i * 16 + j);
@@ -405,7 +405,7 @@ static void SetVerRegisterCoef(uint32_t * reg_coef_lum_ptr,
 				reg_coef_lum_ptr[cnts++] = *(y_coef_ptr +i * 16 + j);
 
 		cnts = 0;
-		if((o_h < i_h) && is_scaling2yuv420) {
+		if((o_h <= i_h) && is_scaling2yuv420) {
 			for(i = 0; i < 9; i++) {
 				for(j = 0; j < 16; j++) {
 					reg_coef_ch_ptr[cnts++] = *(uv_coef_ptr +i * 16 + j);
