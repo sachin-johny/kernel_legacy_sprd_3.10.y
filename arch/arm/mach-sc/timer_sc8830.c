@@ -78,6 +78,9 @@ static __iomem void *base_syscnt = (__iomem void *)SPRD_SYSCNT_BASE;
 #define	SYSCNT_CTL	(base_syscnt + 0x0008)
 #define	SYSCNT_SHADOW_CNT	(base_syscnt + 0x000C)
 
+static int sched_clock_source_freq;
+static int gptimer_clock_source_freq;
+
 static inline void __gptimer_ctl(int cpu, int timer_id, int enable, int mode)
 {
 	__raw_writel(enable | mode, TIMER_CTL(cpu, timer_id));
@@ -270,7 +273,34 @@ static void sprd_gptimer_clockevent_init(unsigned int irq, const char *name,
 }
 
 /* ****************************************************************** */
-static void __gptimer_clocksource_init(const char *name, unsigned long hz)
+void __gptimer_clocksource_resume(struct clocksource *cs)
+{
+	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
+		__raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+}
+void __gptimer_clocksource_suspend(struct clocksource *cs)
+{
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
+		__raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
+}
+cycle_t __gptimer_clocksource_read(struct clocksource *cs)
+{
+	return ~readl_relaxed(TIMER_VALUE(e_cpu, SOURCE_TIMER));
+}
+
+struct clocksource clocksource_sprd = {
+	.name		= "gptimer2",
+	.rating		= 300,
+	.read		= __gptimer_clocksource_read,
+	.mask		= CLOCKSOURCE_MASK(32),
+	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
+	.resume		= __gptimer_clocksource_resume,
+	.suspend		= __gptimer_clocksource_suspend,
+};
+
+static void __gptimer_clocksource_init(void)
 {
 	/* disalbe irq since it's just a read source */
 	__raw_writel(0, TIMER_INT(e_cpu, SOURCE_TIMER));
@@ -279,8 +309,8 @@ static void __gptimer_clocksource_init(const char *name, unsigned long hz)
 	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, SOURCE_TIMER));
 	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
 
-	clocksource_mmio_init(TIMER_VALUE(e_cpu, SOURCE_TIMER), name,
-			      hz, 300, 32, clocksource_mmio_readl_down);
+	if (clocksource_register_hz(&clocksource_sprd,gptimer_clock_source_freq))
+		printk("%s: can't register clocksource\n", clocksource_sprd.name);
 }
 
 static void __syscnt_clocksource_init(const char *name, unsigned long hz)
@@ -302,9 +332,6 @@ static void __init __sched_clock_init(unsigned long rate)
 {
 	setup_sched_clock(__update_sched_clock, 32, rate);
 }
-
-static int sched_clock_source_freq;
-static int gptimer_clock_source_freq;
 
 void __init sci_enable_timer_early(void)
 {
@@ -356,7 +383,7 @@ void __init sci_timer_init(void)
 #endif
 #endif
 	/* setup timer2 and syscnt as clocksource */
-	__gptimer_clocksource_init("gptimer2", gptimer_clock_source_freq);
+	__gptimer_clocksource_init();
 	__syscnt_clocksource_init("syscnt", 1000);
 	/* setup timer1 of aon timer as clockevent. */
 	sprd_gptimer_clockevent_init(BC_IRQ, "bctimer", 32768);
