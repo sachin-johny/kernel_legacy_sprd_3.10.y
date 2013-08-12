@@ -165,10 +165,10 @@ struct sci_keypad_t {
 #if	DEBUG_KEYPAD
 static void dump_keypad_register(void)
 {
-#define INT_MASK_STS                (SPRD_INTC0_BASE + 0x0000)
-#define INT_RAW_STS                 (SPRD_INTC0_BASE + 0x0004)
-#define INT_EN                      (SPRD_INTC0_BASE + 0x0008)
-#define INT_DIS                     (SPRD_INTC0_BASE + 0x000C)
+#define INT_MASK_STS                (SPRD_INTC1_BASE + 0x0000)
+#define INT_RAW_STS                 (SPRD_INTC1_BASE + 0x0004)
+#define INT_EN                      (SPRD_INTC1_BASE + 0x0008)
+#define INT_DIS                     (SPRD_INTC1_BASE + 0x000C)
 
 	printk("\nREG_INT_MASK_STS = 0x%08x\n", __raw_readl(INT_MASK_STS));
 	printk("REG_INT_RAW_STS = 0x%08x\n", __raw_readl(INT_RAW_STS));
@@ -498,6 +498,30 @@ static int sci_keypad_suspend(struct platform_device *dev, pm_message_t state)
 
 static int sci_keypad_resume(struct platform_device *dev)
 {
+       struct sci_keypad_platform_data *pdata = dev->dev.platform_data;
+	unsigned long value;
+
+       __keypad_enable();
+	__raw_writel(KPD_INT_ALL, KPD_INT_CLR);
+	__raw_writel(CFG_ROW_POLARITY | CFG_COL_POLARITY, KPD_POLARITY);
+	__raw_writel(1, KPD_CLK_DIV_CNT);
+	__raw_writel(0xc, KPD_LONG_KEY_CNT);
+	__raw_writel(0x5, KPD_DEBOUNCE_CNT);
+
+	value = KPD_INT_DOWNUP;
+	if (pdata->support_long_key)
+		value |= KPD_INT_LONG;
+	__raw_writel(value, KPD_INT_EN);
+	value = KPD_SLEEP_CNT_VALUE(1000);
+	__raw_writel(value, KPD_SLEEP_CNT);
+
+	value =
+	    KPD_EN | KPD_SLEEP_EN | pdata->
+	    rows_choose_hw | pdata->cols_choose_hw;
+	if (pdata->support_long_key)
+		value |= KPD_LONG_KEY_EN;
+	__raw_writel(value, KPD_CTRL);
+
 	return 0;
 }
 #else
