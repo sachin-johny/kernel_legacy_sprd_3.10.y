@@ -332,7 +332,7 @@ sprd_i2c_master_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg *msgs,
 		ret = sprd_i2c_handle_msg(i2c_adap, &msgs[im], im == num - 1);
 	}
 
-	return im;
+	return (ret >= 0)? im : -1;
 }
 
 static u32 sprd_i2c_func(struct i2c_adapter *adap)
