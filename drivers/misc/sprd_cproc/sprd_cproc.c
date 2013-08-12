@@ -29,6 +29,8 @@
 
 #define CPROC_WDT_TRUE   1
 #define CPROC_WDT_FLASE  0
+/*used for ioremap to limit vmalloc size, shi yunlong*/
+#define CPROC_VMALLOC_SIZE_LIMIT 4096
 
 enum {
 	CP_NORMAL_STATUS=0,
@@ -74,7 +76,6 @@ struct cproc_device {
 	int					status;
 	struct cproc_proc_fs		procfs;
 };
-
 
 static int sprd_cproc_open(struct inode *inode, struct file *filp)
 {
@@ -128,6 +129,8 @@ static const struct file_operations sprd_cproc_fops = {
 static int cproc_proc_open(struct inode *inode, struct file *filp)
 {
 	struct cproc_proc_entry *entry = (struct cproc_proc_entry *)PDE(inode)->data;
+	/*move remap to writing or reading, shi yunlong*/
+/*
 	struct cproc_device *cproc = entry->cproc;
 
 	cproc->vbase = ioremap(cproc->initdata->base, cproc->initdata->maxsz);
@@ -135,6 +138,7 @@ static int cproc_proc_open(struct inode *inode, struct file *filp)
 		printk(KERN_ERR "Unable to map cproc base: 0x%08x\n", cproc->initdata->base);
 		return -ENOMEM;
 	}
+*/
 
 	filp->private_data = entry;
 
@@ -143,10 +147,13 @@ static int cproc_proc_open(struct inode *inode, struct file *filp)
 
 static int cproc_proc_release(struct inode *inode, struct file *filp)
 {
+	/*move remap to writing or reading, shi yunlong*/
+/*
 	struct cproc_proc_entry *entry = (struct cproc_proc_entry *)filp->private_data;
 	struct cproc_device *cproc = entry->cproc;
 
 	iounmap(cproc->vbase);
+*/
 
 	return 0;
 }
@@ -160,8 +167,9 @@ static ssize_t cproc_proc_read(struct file *filp,
 	unsigned int len;
 	void *vmem;
 	int rval;
+	size_t r, i;/*count ioremap, shi yunlong*/
 
-//	pr_debug("cproc proc read type: %s ppos %ll\n", type, *ppos);
+/*	pr_debug("cproc proc read type: %s ppos %ll\n", type, *ppos);*/
 
 	if (strcmp(type, "mem") == 0) {
 		if (*ppos >= cproc->initdata->maxsz) {
@@ -170,11 +178,40 @@ static ssize_t cproc_proc_read(struct file *filp,
 		if ((*ppos + count) > cproc->initdata->maxsz) {
 			count = cproc->initdata->maxsz - *ppos;
 		}
+
+		/*remap and unmap in each read operation, shi yunlong, begin*/
+		/*
 		vmem = cproc->vbase + *ppos;
 		if (copy_to_user(buf, vmem, count)) {
 			printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
 			return -EFAULT;
 		}
+		*/
+		r = count, i = 0;
+		do{
+			uint32_t copy_size = CPROC_VMALLOC_SIZE_LIMIT;
+			vmem = ioremap(cproc->initdata->base + *ppos + CPROC_VMALLOC_SIZE_LIMIT*i, CPROC_VMALLOC_SIZE_LIMIT);
+			if (!vmem) {
+				uint32_t addr = cproc->initdata->base + *ppos + CPROC_VMALLOC_SIZE_LIMIT*i;
+				printk(KERN_ERR "Unable to map cproc base: 0x%08x\n", addr);
+				if(i > 0){
+					*ppos += CPROC_VMALLOC_SIZE_LIMIT*i;
+					return CPROC_VMALLOC_SIZE_LIMIT*i;
+				}else{
+					return -ENOMEM;
+				}
+			}
+			if(r < CPROC_VMALLOC_SIZE_LIMIT) copy_size = r;
+			if (copy_to_user(buf, vmem, copy_size)) {
+				printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+				iounmap(vmem);
+				return -EFAULT;
+			}
+			iounmap(vmem);
+			r -= copy_size;
+			i++;
+		}while(r > 0);
+		/*remap and unmap in each read operation, shi yunlong, end*/
 	} else if (strcmp(type, "status") == 0) {
 		if (cproc->status >= CP_MAX_STATUS) {
 			return -EINVAL;
@@ -219,6 +256,7 @@ static ssize_t cproc_proc_write(struct file *filp,
 	char *type = entry->name;
 	uint32_t base, size, offset;
 	void *vmem;
+	size_t r, i;/*count ioremap, shi yunlong*/
 
 	pr_debug("cproc proc write type: %s\n!", type);
 
@@ -256,11 +294,40 @@ static ssize_t cproc_proc_write(struct file *filp,
 
 	pr_debug("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
 	count = min((size-offset), count);
+	/*remap and unmap in each write operation, shi yunlong, begin*/
+	/*
 	vmem = cproc->vbase + (base - cproc->initdata->base) + offset;
 
 	if (copy_from_user(vmem, buf, count)) {
 		return -EFAULT;
 	}
+	*/
+	r = count, i = 0;
+	do{
+		uint32_t copy_size = CPROC_VMALLOC_SIZE_LIMIT;
+		vmem = ioremap(base + offset + CPROC_VMALLOC_SIZE_LIMIT*i, CPROC_VMALLOC_SIZE_LIMIT);
+		if (!vmem) {
+			uint32_t addr = base + offset + CPROC_VMALLOC_SIZE_LIMIT*i;
+			printk(KERN_ERR "Unable to map cproc base: 0x%08x\n", addr);
+			if(i > 0){
+				*ppos += CPROC_VMALLOC_SIZE_LIMIT*i;
+				return CPROC_VMALLOC_SIZE_LIMIT*i;
+			}else{
+				return -ENOMEM;
+			}
+		}
+		if(r < CPROC_VMALLOC_SIZE_LIMIT) copy_size = r;
+		if (copy_from_user(vmem, buf+CPROC_VMALLOC_SIZE_LIMIT*i, copy_size)) {
+			printk(KERN_ERR "cproc_proc_write copy data from user error !\n");
+			iounmap(vmem);
+			return -EFAULT;
+		}
+		iounmap(vmem);
+		r -= copy_size;
+		i++;
+	}while(r > 0);
+	/*remap and unmap in each write operation, shi yunlong, end*/
+
 	*ppos += count;
 	return count;
 }
