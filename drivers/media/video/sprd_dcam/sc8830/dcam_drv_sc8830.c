@@ -201,12 +201,11 @@ struct dcam_module {
 	uint32_t                   wait_stop;
 	struct semaphore           resize_done_sema;
 	uint32_t                   wait_resize_done;
-	struct clk                 *ccir_clk;
-	struct clk                 *mipi_clk;
 };
 
 LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
+LOCAL struct clk*              s_mipi_clk = NULL;
 LOCAL struct clk*              s_dcam_clk = NULL;
 LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
 LOCAL struct dcam_module*      s_p_dcam_mod = 0;
@@ -259,10 +258,6 @@ LOCAL void        _dcam_raw_slice_done(void);
 LOCAL irqreturn_t _dcam_isr_root(int irq, void *dev_id);
 LOCAL void        _dcam_wait_for_stop(void);
 LOCAL void        _dcam_stopped(void);
-LOCAL int32_t     _dcam_mipi_clk_en(void);
-LOCAL int32_t     _dcam_mipi_clk_dis(void);
-LOCAL int32_t     _dcam_ccir_clk_en(void);
-LOCAL int32_t     _dcam_ccir_clk_dis(void);
 LOCAL int32_t     _dcam_path_check_deci(enum dcam_path_index path_index, uint32_t *is_deci);
 extern void       _dcam_isp_root(void);
 LOCAL int         _dcam_internal_init(void);
@@ -479,7 +474,7 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_cap_desc    *cap_desc = NULL;
-	int                     ret = 0;
+	//int                     ret = 0;
 
 	if (if_mode >= DCAM_CAP_IF_MODE_MAX) {
 		rtn = -DCAM_RTN_CAP_IF_MODE_ERR;
@@ -496,13 +491,13 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 			/*REG_OWR(DCAM_MATRIX_EB, BIT_10|BIT_5);*/
 			if (DCAM_CAP_IF_CSI2 == if_mode) {
 			/*	REG_OWR(CSI2_DPHY_EB, MIPI_EB_BIT);*/
-				ret = _dcam_mipi_clk_en();
+				//ret = _dcam_mipi_clk_en();
 				dcam_glb_reg_owr(DCAM_CFG, BIT_9, DCAM_CFG_REG);
 				REG_MWR(CAP_MIPI_CTRL, BIT_2 | BIT_1, sn_mode << 1);
 			} else {
 				/*REG_OWR(DCAM_EB, CCIR_IN_EB_BIT);
 				REG_OWR(DCAM_EB, CCIR_EB_BIT);*/
-				ret = _dcam_ccir_clk_en();
+				//ret = _dcam_ccir_clk_en();
 				dcam_glb_reg_mwr(DCAM_CFG, BIT_9, 0 << 9, DCAM_CFG_REG);
 				REG_MWR(CAP_CCIR_CTRL, BIT_2 | BIT_1, sn_mode << 1);
 			}
@@ -523,12 +518,12 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 	if (DCAM_CAP_IF_CSI2 == if_mode) {
 		/*REG_MWR(CSI2_DPHY_EB, MIPI_EB_BIT, 0 << 10);*/
 		dcam_glb_reg_mwr(DCAM_CFG, BIT_9, 0 << 9, DCAM_CFG_REG);
-		_dcam_mipi_clk_dis();
+		//_dcam_mipi_clk_dis();
 	} else {
 		/*REG_MWR(DCAM_EB, CCIR_IN_EB_BIT, 0 << 2);
 		REG_MWR(DCAM_EB, CCIR_EB_BIT, 0 << 9);*/
 		dcam_glb_reg_mwr(DCAM_CFG, BIT_9, 0 << 9, DCAM_CFG_REG);
-		_dcam_ccir_clk_dis();
+		//_dcam_ccir_clk_dis();
 	}
 
 	_dcam_internal_deinit();
@@ -553,16 +548,10 @@ int32_t dcam_module_en(void)
 			return -DCAM_RTN_MAX;
 		}
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
-		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
-		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
-		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
-		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
+		dcam_reset(DCAM_RST_ALL);
 		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 		memset((void*)s_user_func, 0, sizeof(s_user_func));
 		memset((void*)s_user_data, 0, sizeof(s_user_data));
-		dcam_glb_reg_owr(DCAM_INT_MASK,
-						DCAM_IRQ_LINE_MASK,
-						DCAM_INIT_MASK_REG);
 		printk("DCAM: register isr, 0x%x \n", REG_RD(DCAM_INT_MASK));
 		ret = request_irq(DCAM_IRQ,
 				_dcam_isr_root,
@@ -695,10 +684,8 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 		break;
 
 	case DCAM_RST_ALL:
-		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT);
-		sci_glb_set(DCAM_RST, CCIR_RST_BIT);
-		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT);
-		sci_glb_clr(DCAM_RST, CCIR_RST_BIT);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
 		dcam_glb_reg_owr(DCAM_INT_MASK,
 						DCAM_IRQ_LINE_MASK,
 						DCAM_INIT_MASK_REG);
@@ -813,72 +800,70 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 	return rtn;
 }
 
-int32_t _dcam_mipi_clk_en(void)
+int32_t dcam_mipi_clk_en(void)
 {
 	int                     ret = 0;
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
-
-	if (NULL == s_p_dcam_mod->mipi_clk) {
-		s_p_dcam_mod->mipi_clk = clk_get(NULL, "clk_dcam_mipi");
+	if (NULL == s_mipi_clk) {
+		s_mipi_clk = clk_get(NULL, "clk_dcam_mipi");
 	}
 
-	if (IS_ERR(s_p_dcam_mod->mipi_clk)) {
+	if (IS_ERR(s_mipi_clk)) {
 		printk("DCAM: get dcam mipi clk error \n");
 		return -1;
 	} else {
-		ret = clk_enable(s_p_dcam_mod->mipi_clk);
+		ret = clk_enable(s_mipi_clk);
 		if (ret) {
 			printk("DCAM: enable dcam mipi clk error %d \n", ret);
 			return -1;
 		}
 	}
 
-	return 0;
+	return ret;
 }
 
-int32_t _dcam_mipi_clk_dis(void)
+int32_t dcam_mipi_clk_dis(void)
 {
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
-
-	if (s_p_dcam_mod->mipi_clk) {
-		clk_disable(s_p_dcam_mod->mipi_clk);
-		clk_put(s_p_dcam_mod->mipi_clk);
+	if (s_mipi_clk) {
+		clk_disable(s_mipi_clk);
+		clk_put(s_mipi_clk);
+		s_mipi_clk = NULL;
 	}
 	return 0;
 }
 
-int32_t _dcam_ccir_clk_en(void)
+int32_t dcam_ccir_clk_en(void)
 {
+/*
 	int                     ret = 0;
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
-
-	if (NULL == s_p_dcam_mod->ccir_clk) {
-		s_p_dcam_mod->ccir_clk = clk_get(NULL, "clk_ccir");
+	if (s_ccir_clk) {
+		s_ccir_clk = clk_get(NULL, "clk_ccir");
 	}
 
-	if (IS_ERR(s_p_dcam_mod->ccir_clk)) {
+	if (IS_ERR(s_ccir_clk)) {
 		printk("DCAM: get dcam ccir clk error \n");
 		return -1;
 	} else {
-		ret = clk_enable(s_p_dcam_mod->ccir_clk);
+		ret = clk_enable(s_ccir_clk);
 		if (ret) {
 			printk("DCAM: enable dcam ccir clk error %d \n", ret);
 			return -1;
 		}
 	}
+*/
 	return 0;
 }
 
-int32_t _dcam_ccir_clk_dis(void)
+int32_t dcam_ccir_clk_dis(void)
 {
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
-
-	if (s_p_dcam_mod->ccir_clk) {
-		clk_disable(s_p_dcam_mod->ccir_clk);
-		clk_put(s_p_dcam_mod->ccir_clk);
+/*
+	if (s_ccir_clk) {
+		clk_disable(s_ccir_clk);
+		clk_put(s_ccir_clk);
+		s_ccir_clk = NULL;
 	}
+*/
 	return 0;
 }
 
@@ -1027,11 +1012,14 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 	printk("DCAM PATH S: %d \n", path_index);
 
 	if (0 == cap_en) {
+#ifdef DCAM_DEBUG
+		REG_MWR(CAP_CCIR_FRM_CTRL, BIT_5 | BIT_4, 1 << 4);
+		REG_MWR(CAP_MIPI_FRM_CTRL, BIT_5 | BIT_4, 1 << 4);
+#endif
 		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_0, 1 << 0, DCAM_CONTROL_REG); /* Cap force copy */
 		//REG_MWR(DCAM_CONTROL, BIT_1, 1 << 1); /* Cap auto  copy */
 		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_2, 1 << 2, DCAM_CONTROL_REG); /* Cap Enable */
 	}
-
 	if ((DCAM_PATH_IDX_0 & path_index) && s_p_dcam_mod->dcam_path0.valide) {
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_0, false);
 		DCAM_RTN_IF_ERR;
@@ -2169,7 +2157,9 @@ int32_t    dcam_resize_end(void)
 {
 	atomic_dec(&s_resize_flag);
 
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
+	if (DCAM_ADDR_INVALIDE(s_p_dcam_mod)) {
+		return 0;
+	}
 
 	if (s_p_dcam_mod) {
 		if (s_p_dcam_mod->wait_resize_done) {
@@ -3385,12 +3375,12 @@ LOCAL void    _dcam_mipi_ov(void)
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
-	printk("DCAM: _mipi_overflow \n");
 
 	if (user_func) {
 		(*user_func)(NULL, data);
 	}
 
+	printk("DCAM: _mipi_overflow \n");
 	return;
 }
 
@@ -3453,10 +3443,11 @@ LOCAL void    _dcam_raw_slice_done(void)
 LOCAL void    _dcam_err_pre_proc(void)
 {
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
-
-	printk("DCAM: error happened, status 0x%x, ISP int 0x%x \n",
+/*
+	printk("DCAM: err, 0x%x, ISP int 0x%x \n",
 		REG_RD(DCAM_INT_STS),
 		REG_RD(SPRD_ISP_BASE + 0x2080));
+*/
 	_dcam_reg_trace();
 	_dcam_stopped();
 	if (s_p_dcam_mod->dcam_path2.valide) {
@@ -3472,6 +3463,9 @@ LOCAL void    _dcam_wait_for_stop(void)
 	int                     rtn = -1;
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
+	if (DCAM_CAPTURE_MODE_SINGLE == s_p_dcam_mod->dcam_mode) {
+		return;
+	}
 
 	DCAM_TRACE("DCAM: Wait for stop \n");
 	s_p_dcam_mod->wait_stop = 1;
@@ -3504,9 +3498,6 @@ LOCAL int  _dcam_internal_init(void)
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
 	memset((void*)s_p_dcam_mod, 0, sizeof(struct dcam_module));
-	s_p_dcam_mod->ccir_clk  = NULL;
-	s_p_dcam_mod->mipi_clk  = NULL;
-
 	sema_init(&s_p_dcam_mod->stop_sema, 0);
 	sema_init(&s_p_dcam_mod->dcam_path0.tx_done_sema, 0);
 	sema_init(&s_p_dcam_mod->dcam_path1.tx_done_sema, 0);
@@ -3533,6 +3524,9 @@ LOCAL void _dcam_wait_path_done(enum dcam_path_index path_index, uint32_t *p_fla
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
+	if (DCAM_CAPTURE_MODE_SINGLE == s_p_dcam_mod->dcam_mode) {
+		return;
+	}
 	if (DCAM_PATH_IDX_0 == path_index) {
 		p_path = &s_p_dcam_mod->dcam_path0;
 	} else if (DCAM_PATH_IDX_1 == path_index) {
@@ -3584,4 +3578,21 @@ LOCAL void _dcam_path_done_notice(enum dcam_path_index path_index)
 	return;
 }
 
+void mm_clk_register_trace(void)
+{
+   uint32_t i = 0;
 
+   printk("mm_clk_reg, part 1 \n");
+   for (i = 0 ; i <= 8; i += 4 ) {
+		printk("MMAHB: %x val:%x \b\n",
+			(SPRD_MMAHB_BASE + i),
+			__raw_readl(SPRD_MMAHB_BASE + i));
+   }
+
+   printk("mm_clk_reg, part 2 \n");
+   for (i = 0x20 ; i <= 0x38; i += 4 ) {
+		printk("MMCKG: %x val:%x \b\n",
+			(SPRD_MMCKG_BASE + i),
+			__raw_readl(SPRD_MMCKG_BASE + i));
+   }
+}

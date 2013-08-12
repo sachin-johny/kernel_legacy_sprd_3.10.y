@@ -37,6 +37,8 @@
 
 #include "dcam_drv_sc8830.h"
 #include "csi2/csi_api.h"
+#include <mach/hardware.h>
+#include <asm/io.h>
 
 
 //#define LOCAL   static
@@ -89,6 +91,11 @@ enum
 {
 	PATH_IDLE  = 0x00,
 	PATH_RUN,
+};
+
+enum mipi_if_status {
+	IF_OPEN = 0,
+	IF_CLOSE
 };
 
 LOCAL int video_nr = -1;
@@ -146,6 +153,7 @@ struct dcam_path_spec {
 
 struct dcam_info {
 	uint32_t                   if_mode;
+	uint32_t                   if_inited;
 	uint32_t                   sn_mode;
 	uint32_t                   yuv_ptn;
 	uint32_t                   data_bits;
@@ -965,6 +973,7 @@ LOCAL int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
+	atomic_set(&dev->run_flag, 1);//to avoid time out processing
 	node.irq_flag = V4L2_TX_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
@@ -972,6 +981,8 @@ LOCAL int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 
 	up(&dev->irq_sem);
 
+	DCAM_TRACE("V4L2: tx_error \n");
+	//mm_clk_register_trace();
 	return ret;
 }
 
@@ -983,7 +994,9 @@ LOCAL int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
+	atomic_set(&dev->run_flag, 1);//to avoid time out processing
 
+	DCAM_TRACE("V4L2: no mem \n");
 	node.irq_flag = V4L2_NO_MEM;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
@@ -1004,8 +1017,9 @@ LOCAL int sprd_v4l2_csi2_error(uint32_t err_id, uint32_t err_status, void* u_dat
 	if (NULL == u_data || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
-	printk("V4L2: csi2_error \n");
+	atomic_set(&dev->run_flag, 1);//to avoid time out processing
 
+	DCAM_TRACE("V4L2: csi2_error \n");
 	node.irq_flag = V4L2_CSI2_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
@@ -1882,7 +1896,7 @@ LOCAL int v4l2_streamon(struct file *file,
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n", 
 		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
-
+#if 0
 	/* config CSI2 host firstly */
 	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
 		ret = csi_api_init();
@@ -1894,6 +1908,7 @@ LOCAL int v4l2_streamon(struct file *file,
 		ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
 		V4L2_RTN_IF_ERR(ret);
 	}
+#endif
 
 	/* dcam driver module initialization */
 	ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
@@ -2013,10 +2028,10 @@ LOCAL int v4l2_streamoff(struct file *file,
 	}
 
 	atomic_set(&dev->stream_on, 0);
-	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
+/*	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
 		ret = csi_api_close();
 		V4L2_PRINT_IF_ERR(ret);
-	}
+	}*/
 
 	ret = dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 	V4L2_PRINT_IF_ERR(ret);
@@ -2078,39 +2093,69 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 		ret = -EFAULT;
 		V4L2_RTN_IF_ERR(ret);
 	}
+	if (IF_OPEN == timing_param[DCAM_TIMING_LEN-2]) {
+		dev->dcam_cxt.if_mode     = timing_param[DCAM_TIMING_LEN-1];
+		dev->dcam_cxt.sn_mode     = timing_param[0];
+		dev->dcam_cxt.yuv_ptn     = timing_param[1];
+		dev->dcam_cxt.frm_deci    = timing_param[3];
 
-	dev->dcam_cxt.if_mode     = timing_param[DCAM_TIMING_LEN-1];
-	dev->dcam_cxt.sn_mode     = timing_param[0];
-	dev->dcam_cxt.yuv_ptn     = timing_param[1];
-	dev->dcam_cxt.frm_deci    = timing_param[3];
+		DCAM_TRACE("V4L2: interface %d, mode %d frm_deci %d \n",
+			dev->dcam_cxt.if_mode,
+			dev->dcam_cxt.sn_mode,
+			dev->dcam_cxt.frm_deci);
 
-	DCAM_TRACE("V4L2: interface %d, mode %d frm_deci %d \n",
-		dev->dcam_cxt.if_mode,
-		dev->dcam_cxt.sn_mode,
-		dev->dcam_cxt.frm_deci);
-
-	if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
-		/* CCIR interface */
-		dev->dcam_cxt.sync_pol.vsync_pol = timing_param[4];
-		dev->dcam_cxt.sync_pol.hsync_pol = timing_param[5];
-		dev->dcam_cxt.sync_pol.pclk_pol  = timing_param[6];
-		dev->dcam_cxt.data_bits          = 8;
-		DCAM_TRACE("V4L2: CIR interface, vsync %d hsync %d pclk %d bits %d \n",
-			dev->dcam_cxt.sync_pol.vsync_pol,
-			dev->dcam_cxt.sync_pol.hsync_pol,
-			dev->dcam_cxt.sync_pol.pclk_pol,
-			dev->dcam_cxt.data_bits);
+		if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
+			/* CCIR interface */
+			dev->dcam_cxt.sync_pol.vsync_pol = timing_param[4];
+			dev->dcam_cxt.sync_pol.hsync_pol = timing_param[5];
+			dev->dcam_cxt.sync_pol.pclk_pol  = timing_param[6];
+			dev->dcam_cxt.data_bits          = 8;
+			DCAM_TRACE("V4L2: CIR interface, vsync %d hsync %d pclk %d bits %d \n",
+				dev->dcam_cxt.sync_pol.vsync_pol,
+				dev->dcam_cxt.sync_pol.hsync_pol,
+				dev->dcam_cxt.sync_pol.pclk_pol,
+				dev->dcam_cxt.data_bits);
+			ret = dcam_ccir_clk_en();
+			V4L2_RTN_IF_ERR(ret);
+		} else {
+			/* MIPI interface */
+			dev->dcam_cxt.sync_pol.need_href = timing_param[4];
+			dev->dcam_cxt.is_loose           = timing_param[6];
+			dev->dcam_cxt.data_bits          = timing_param[5];
+			dev->dcam_cxt.lane_num           = timing_param[7];
+			DCAM_TRACE("V4L2: MIPI interface, ref %d is_loose %d bits %d lanes %d \n",
+				dev->dcam_cxt.sync_pol.need_href,
+				dev->dcam_cxt.is_loose,
+				dev->dcam_cxt.data_bits,
+				dev->dcam_cxt.lane_num);
+			/* config CSI2 host firstly */
+			ret = dcam_mipi_clk_en();
+			V4L2_RTN_IF_ERR(ret);
+			udelay(1);
+			ret = csi_api_init();
+			V4L2_RTN_IF_ERR(ret);
+			ret = csi_api_start();
+			V4L2_RTN_IF_ERR(ret);
+			ret = csi_reg_isr(sprd_v4l2_csi2_error, (void*)dev);
+			V4L2_RTN_IF_ERR(ret);
+			ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
+			V4L2_RTN_IF_ERR(ret);
+		}
+		dev->dcam_cxt.if_inited = 1;
 	} else {
 		/* MIPI interface */
-		dev->dcam_cxt.sync_pol.need_href = timing_param[4];
-		dev->dcam_cxt.is_loose           = timing_param[6];
-		dev->dcam_cxt.data_bits          = timing_param[5];
-		dev->dcam_cxt.lane_num           = timing_param[7];
-		DCAM_TRACE("V4L2: MIPI interface, ref %d is_loose %d bits %d lanes %d \n",
-			dev->dcam_cxt.sync_pol.need_href,
-			dev->dcam_cxt.is_loose,
-			dev->dcam_cxt.data_bits,
-			dev->dcam_cxt.lane_num);
+		if (dev->dcam_cxt.if_inited) {
+			if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
+				ret = dcam_ccir_clk_dis();
+				V4L2_RTN_IF_ERR(ret);
+			} else {
+				ret = csi_api_close();
+				V4L2_PRINT_IF_ERR(ret);
+				ret = dcam_mipi_clk_dis();
+				V4L2_RTN_IF_ERR(ret);
+			}
+			dev->dcam_cxt.if_inited = 0;
+		}
 	}
 	
 exit:
@@ -2230,9 +2275,10 @@ LOCAL void sprd_v4l2_print_reg(void)
 	if (ret)
 		return;
 
+	mm_clk_register_trace();
 	printk("dcam registers \n");
 	while (print_len < reg_buf_len) {
-		printk("offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
+		printk("offset 0x%3x : 0x%8x, 0x%8x, 0x%8x, 0x%8x \n",
 			print_len,
 			reg_buf[print_cnt],
 			reg_buf[print_cnt+1],
@@ -2250,7 +2296,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 	print_cnt = 0;
 	printk("csi registers \n");
 	while (print_len < reg_buf_len) {
-		printk("offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
+		printk("offset 0x%3x : 0x%8x, 0x%8x, 0x%8x, 0x%8x \n",
 			print_len,
 			reg_buf[print_cnt],
 			reg_buf[print_cnt+1],
@@ -2282,7 +2328,7 @@ LOCAL void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		printk("DCAM timeout.\n");
-		sprd_v4l2_print_reg();
+		//sprd_v4l2_print_reg();
 		node.irq_flag = V4L2_TIMEOUT;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);

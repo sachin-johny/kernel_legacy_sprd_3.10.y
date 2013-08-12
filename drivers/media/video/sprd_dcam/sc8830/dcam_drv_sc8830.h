@@ -17,7 +17,6 @@
 #include <linux/types.h>
 #include "sc8830_reg_dcam.h"
 
-
 //#define DCAM_DEBUG
 
 #ifdef DCAM_DEBUG
@@ -353,6 +352,10 @@ int32_t    dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 			enum dcam_cap_sensor_mode sn_mode);
 int32_t    dcam_module_en(void);
 int32_t    dcam_module_dis(void);
+int32_t    dcam_mipi_clk_en(void);
+int32_t    dcam_mipi_clk_dis(void);
+int32_t    dcam_ccir_clk_en(void);
+int32_t    dcam_ccir_clk_dis(void);
 int32_t    dcam_reset(enum dcam_rst_mode reset_mode);
 int32_t    dcam_set_clk(enum dcam_clk_sel clk_sel);
 int32_t    dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
@@ -383,4 +386,6 @@ int32_t    dcam_stop_cap(void);
 void       dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id);
 void       dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id);
 void       dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id);
+void       mm_clk_register_trace(void);
+
 #endif //_DCAM_DRV_8830_H_
