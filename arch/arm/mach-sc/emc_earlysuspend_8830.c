@@ -206,26 +206,12 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	if(clk == 333) {
 		clk = 332;
 	}
-	cp_code_init();
+	//cp_code_init();
 	info("__emc_clk_set clk = %d,  dll_enable = %d, bps_200 = %x\n", clk, dll_enable, bps_200);
 	flag = (EMC_DDR_TYPE_LPDDR2 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
 	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
-	if(!cp_code_init_ref) {
-		sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-		udelay(200);
-		sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
-		mdelay(4);
-		sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//close cp2 force sleep
-		mdelay(2);
-		__raw_writel(flag, CP2_FLAGS_ADDR);
-		udelay(200);
-		sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-		udelay(200);
-		wait_cp2_run();
-		cp_code_init_ref++;
-	}
 	__raw_writel(flag, CP2_FLAGS_ADDR);
 	sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
 	close_cp();
@@ -234,21 +220,27 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	}
 	return 0;
 }
+static u32 is_current_set = 0;
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
 	u32 dll_enable = 1;
 	u32 old_clk;
-	mutex_lock(&emc_mutex);
+	//mutex_lock(&emc_mutex);
 	if(new_clk > max_clk) {
 		new_clk = max_clk;
 	}
 	if(emc_clk_get() == new_clk) {
-		mutex_unlock(&emc_mutex);
+	//	mutex_unlock(&emc_mutex);
 		return 0;
 	}
 	if(new_clk <= 200) {
 		dll_enable = 0;
 	}
+	if(is_current_set == 1) {
+		panic("now other thread set dmc clk\n");
+		return 0;
+	}
+	is_current_set ++;
 	old_clk = emc_clk_get();
 	//info("REG_AON_CLK_PUB_AHB_CFG = %x\n", __raw_readl(REG_AON_CLK_PUB_AHB_CFG));
 	//info("emc_clk_set old = %d, new = %d\n", old_clk, new_clk);
@@ -292,7 +284,8 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	else {
 		__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 	}
-	mutex_unlock(&emc_mutex);
+	//mutex_unlock(&emc_mutex);
+	is_current_set --;
 	return 0;
 }
 EXPORT_SYMBOL(emc_clk_set);
@@ -480,6 +473,19 @@ static void __emc_timing_reg_init(void)
 		__timing_reg_dump(&__emc_param_configs[i]);
 	}
 }
+static void cp2_init(void)
+{
+	cp_code_init();
+	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
+	udelay(200);
+	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
+	mdelay(4);
+	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//close cp2 force sleep
+	mdelay(2);
+	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
+	udelay(200);
+	wait_cp2_run();
+}
 static int __init emc_early_suspend_init(void)
 {
 	//u32 val;
@@ -491,8 +497,9 @@ static int __init emc_early_suspend_init(void)
 
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
-	cp_code_init();
+	//cp_code_init();
 	__emc_timing_reg_init();
+	cp2_init();
 	/*
 	* move this early_suspend to dfs governor(governor_ondemand.c)
 	* TODO: clean code
