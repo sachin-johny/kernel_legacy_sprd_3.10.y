@@ -67,6 +67,14 @@ config MACH_SPX35EB
 	help
 	  SPX35EB board based on SC8830 serial.
 
+config MACH_SP8835EB
+	bool "sp8835eb Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  SP8835EB board based on SC8830 serial.
+
 config MACH_SPX35EA
 	bool "sp8830ea Phone Board"
 	depends on ARCH_SC
