@@ -2032,7 +2032,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0),
 	SND_SOC_DAPM_DAC_E("DAC", "Playback", SND_SOC_NOPM, 0, 0, NULL, 0),
 #ifdef CONFIG_CODEC_NO_HP_POP
-	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event,
+	SND_SOC_DAPM_PGA_S("HP POP", 9, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			   SND_SOC_DAPM_POST_PMU),
 #else
 	SND_SOC_DAPM_SUPPLY_S("HP POP", 4, SND_SOC_NOPM, 0, 0, hp_pop_event,
