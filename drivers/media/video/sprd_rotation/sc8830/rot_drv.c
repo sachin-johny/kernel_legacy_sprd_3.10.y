@@ -273,6 +273,7 @@ void rot_k_done(void)
 {
 	DECLARE_ROTATION_PARAM_ENTRY(s);
 
+	dcam_rotation_start();
 	rot_k_set_src_addr(s->s_addr);
 	rot_k_set_dst_addr(s->d_addr);
 	rot_k_set_img_size(&(s->img_size));

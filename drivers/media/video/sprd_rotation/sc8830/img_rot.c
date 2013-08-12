@@ -28,6 +28,7 @@
 #include <linux/kthread.h>
 #include "img_rot.h"
 #include <linux/delay.h>
+#include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
 
 /*#define ROTATION_DEBUG 0*/
 
@@ -80,6 +81,7 @@ static struct rot_user *rot_get_user(pid_t user_pid)
 static void rot_k_irq(void)
 {
 	ROTATE_TRACE("%s, come\n", __func__ );
+	dcam_rotation_end();
 	rot_condition = 1;
 	wake_up(&wait_queue);
 	ROTATE_TRACE("rotation_dma_irq X .\n");

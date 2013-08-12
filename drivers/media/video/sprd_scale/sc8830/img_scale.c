@@ -20,6 +20,7 @@
 #include <asm/uaccess.h>
 #include "img_scale.h"
 #include <linux/kthread.h>
+#include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
 
 #define PARAM_SIZE 128
 #define SCALE_USER_MAX 4
@@ -95,9 +96,11 @@ static int img_scale_hw_init(void)
 			ret = -EACCES;
 			goto reg_faile;
 		} else {
+			dcam_resize_start();
 			goto exit;
 		}
 	} else {
+		dcam_resize_start();
 		goto exit;
 	}
 reg_faile:
@@ -272,6 +275,7 @@ static int img_scale_proc_read(char *page,
 			int *eof,
 			void *data)
 {
+#if 0
 	int len = 0, ret;
 	uint32_t *reg_buf;
 	uint32_t reg_buf_len = 0x800;
@@ -303,6 +307,9 @@ static int img_scale_proc_read(char *page,
 	kfree(reg_buf);
 
 	return len;
+#else
+	return 0;
+#endif
 }
 
 int img_scale_probe(struct platform_device *pdev)

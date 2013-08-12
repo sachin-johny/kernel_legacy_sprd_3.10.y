@@ -201,10 +201,13 @@ struct dcam_module {
 	uint32_t                   wait_stop;
 	struct semaphore           resize_done_sema;
 	uint32_t                   wait_resize_done;
+	struct semaphore           rotation_done_sema;
+	uint32_t                   wait_rotation_done;
 };
 
 LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
+LOCAL atomic_t                 s_rotation_flag = ATOMIC_INIT(0);
 LOCAL struct clk*              s_mipi_clk = NULL;
 LOCAL struct clk*              s_dcam_clk = NULL;
 LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
@@ -1081,8 +1084,13 @@ int32_t dcam_stop_cap(void)
 	DCAM_TRACE("DCAM: stop cap, s_resize_flag %d \n", atomic_read(&s_resize_flag));
 	if (atomic_read(&s_resize_flag)) {
 		s_p_dcam_mod->wait_resize_done = 1;
-		rtn = down_interruptible(&s_p_dcam_mod->resize_done_sema);
+		rtn = down_timeout(&s_p_dcam_mod->resize_done_sema, DCAM_PATH_TIMEOUT);
 	}
+	if (atomic_read(&s_rotation_flag)) {
+		s_p_dcam_mod->wait_rotation_done = 1;
+		rtn = down_timeout(&s_p_dcam_mod->rotation_done_sema, DCAM_PATH_TIMEOUT);
+	}
+
 	dcam_reset(DCAM_RST_ALL);
 	DCAM_TRACE("DCAM: stop cap, Out \n");
 
@@ -2165,6 +2173,29 @@ int32_t    dcam_resize_end(void)
 		if (s_p_dcam_mod->wait_resize_done) {
 			up(&s_p_dcam_mod->resize_done_sema);
 			s_p_dcam_mod->wait_resize_done = 0;
+		}
+	}
+	return 0;
+}
+
+int32_t    dcam_rotation_start(void)
+{
+	atomic_inc(&s_rotation_flag);
+	return 0;
+}
+
+int32_t    dcam_rotation_end(void)
+{
+	atomic_dec(&s_rotation_flag);
+
+	if (DCAM_ADDR_INVALIDE(s_p_dcam_mod)) {
+		return 0;
+	}
+
+	if (s_p_dcam_mod) {
+		if (s_p_dcam_mod->wait_rotation_done) {
+			up(&s_p_dcam_mod->rotation_done_sema);
+			s_p_dcam_mod->wait_rotation_done = 0;
 		}
 	}
 	return 0;
@@ -3502,7 +3533,8 @@ LOCAL int  _dcam_internal_init(void)
 	sema_init(&s_p_dcam_mod->dcam_path0.tx_done_sema, 0);
 	sema_init(&s_p_dcam_mod->dcam_path1.tx_done_sema, 0);
 	sema_init(&s_p_dcam_mod->dcam_path2.tx_done_sema, 0);
-
+	sema_init(&s_p_dcam_mod->resize_done_sema, 0);
+	sema_init(&s_p_dcam_mod->rotation_done_sema, 0);
 	return ret;
 }
 LOCAL void _dcam_internal_deinit(void)

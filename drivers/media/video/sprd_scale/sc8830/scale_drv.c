@@ -148,7 +148,6 @@ int32_t scale_start(void)
 
 	SCALE_TRACE("SCALE DRV: scale_start: %d \n", g_path->scale_mode);
 
-	dcam_resize_start();
 	if (SCALE_MODE_NORMAL == g_path->scale_mode) {
 		if (g_path->output_size.w > SCALE_FRAME_WIDTH_MAX) {
 			rtn = SCALE_RTN_SC_ERR;
@@ -185,7 +184,6 @@ int32_t scale_start(void)
 	return SCALE_RTN_SUCCESS;
 
 exit:
-	dcam_resize_end();
 	printk("SCALE DRV: ret %d \n", rtn);
 	return rtn;
 }
@@ -280,6 +278,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 		if (size->w > SCALE_FRAME_WIDTH_MAX ||
 			size->h > SCALE_FRAME_HEIGHT_MAX) {
 			rtn = SCALE_RTN_SRC_SIZE_ERR;
+			dcam_resize_end();
 		} else {
 			reg_val = size->w | (size->h << 16);
 			REG_WR(SCALE_SRC_SIZE, reg_val);
@@ -312,6 +311,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			rect->w > SCALE_FRAME_WIDTH_MAX ||
 			rect->h > SCALE_FRAME_HEIGHT_MAX) {
 			rtn = SCALE_RTN_TRIM_SIZE_ERR;
+			dcam_resize_end();
 		} else {
 			reg_val = rect->x | (rect->y << 16);
 			REG_WR(SCALE_TRIM_START, reg_val);
@@ -338,6 +338,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 		} else {
 			rtn = SCALE_RTN_IN_FMT_ERR;
 			g_path->input_format = SCALE_FTM_MAX;
+			dcam_resize_end();
 		}
 		break;
 
@@ -351,6 +352,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 
 		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
 			rtn = SCALE_RTN_ADDR_ERR;
+			dcam_resize_end();
 		} else {
 			g_path->input_addr.yaddr = p_addr->yaddr;
 			g_path->input_addr.uaddr = p_addr->uaddr;
@@ -371,6 +373,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 		if (endian->y_endian >= SCALE_ENDIAN_MAX ||
 			endian->uv_endian >= SCALE_ENDIAN_MAX) {
 			rtn = SCALE_RTN_ENDIAN_ERR;
+			dcam_resize_end();
 		} else {
 			dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT | SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
 			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_Y_ENDIAN_MASK, endian->y_endian, DCAM_ENDIAN_REG);
@@ -390,6 +393,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 		if (size->w > SCALE_FRAME_WIDTH_MAX ||
 			size->h > SCALE_FRAME_HEIGHT_MAX) {
 			rtn = SCALE_RTN_SRC_SIZE_ERR;
+			dcam_resize_end();
 		} else {
 			reg_val = size->w | (size->h << 16);
 			REG_WR(SCALE_DST_SIZE, reg_val);
@@ -415,6 +419,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 		} else {
 			rtn = SCALE_RTN_OUT_FMT_ERR;
 			g_path->output_format = SCALE_FTM_MAX;
+			dcam_resize_end();
 		}
 		break;
 	}
@@ -427,6 +432,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 
 		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
 			rtn = SCALE_RTN_ADDR_ERR;
+			dcam_resize_end();
 		} else {
 			g_path->output_addr.yaddr = p_addr->yaddr;
 			g_path->output_addr.uaddr = p_addr->uaddr;
@@ -447,6 +453,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 		if (endian->y_endian >= SCALE_ENDIAN_MAX ||
 			endian->uv_endian >= SCALE_ENDIAN_MAX) {
 			rtn = SCALE_RTN_ENDIAN_ERR;
+			dcam_resize_end();
 		} else {
 			dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT|SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
 			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_Y_ENDIAN_MASK, (endian->y_endian << 10), DCAM_ENDIAN_REG);
@@ -464,6 +471,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 
 		if (mode >= SCALE_MODE_MAX) {
 			rtn = SCALE_RTN_MODE_ERR;
+			dcam_resize_end();
 		} else {
 			g_path->scale_mode = mode;
 			if (SCALE_MODE_NORMAL == mode) {
@@ -488,6 +496,7 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 
 		if (height > SCALE_FRAME_HEIGHT_MAX || (height % SCALE_SLICE_HEIGHT_ALIGNED)) {
 			rtn = SCALE_RTN_PARA_ERR;
+			dcam_resize_end();
 		} else {
 			g_path->slice_height = height;
 			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, height);
@@ -498,6 +507,9 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 	case SCALE_START:
 	{
 		rtn = scale_start();
+		if (rtn) {
+			dcam_resize_end();
+		}
 		break;
 
 	}
