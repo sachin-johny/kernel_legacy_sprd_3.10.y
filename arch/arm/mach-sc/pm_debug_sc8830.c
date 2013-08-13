@@ -459,7 +459,7 @@ static struct wake_lock messages_wakelock;
 #endif
 
 #define PM_PRINT_ENABLE
-static void print_eb_info(void)
+static void print_debug_info(void)
 {
 	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl;
 
@@ -473,6 +473,14 @@ static void print_eb_info(void)
 	printk("####----------- CP_SLP_STATUS_DBG0 : 0x%08x\n", cp_slp_status0);
 	printk("####----------- CP_SLP_STATUS_DBG1 : 0x%08x\n", cp_slp_status1);
 	printk("####----------- ldo_pd_ctrl : 0x%08x\n", ldo_pd_ctrl);
+	printk("####----------- REG_PMU_APB_PWR_STATUS0_DBG : 0x%x ***\n",
+			sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
+	printk("####----------- REG_PMU_APB_PWR_STATUS1_DBG : 0x%x ***\n",
+			sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
+	printk("####----------- REG_PMU_APB_PWR_STATUS2_DBG : 0x%x ***\n",
+			sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
+	printk("####----------- REG_PMU_APB_PWR_STATUS3_DBG : 0x%x ***\n",
+			sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL));
 
 	if (apb_eb0 & BIT_GPU_EB)	/* M1 */
 		printk("###---- BIT_GPU_EB still set ----###\n");
@@ -538,7 +546,7 @@ static int print_thread(void * data)
 	while(1){
 		wake_lock(&messages_wakelock);
 		if (print_thread_enable)
-			print_eb_info();
+			print_debug_info();
 		has_wake_lock(WAKE_LOCK_SUSPEND);
 		msleep(100);
 		wake_unlock(&messages_wakelock);
