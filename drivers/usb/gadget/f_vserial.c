@@ -37,7 +37,7 @@
 
 #include <linux/sched.h>
 
-#define VSER_BULK_BUFFER_SIZE           4096
+#define VSER_BULK_BUFFER_SIZE           (4096*16)
 
 /* number of tx requests to allocate */
 #define TX_REQ_MAX 4
@@ -380,6 +380,10 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 
 		/* get an idle tx request to use */
 		req = 0;
+
+        if(list_empty(&dev->tx_idle)){
+               printk("%s: tx buffer is full!!!!\n",__func__);
+        }
 		ret = wait_event_interruptible(dev->write_wq,
 			((req = vser_req_get(dev, &dev->tx_idle)) || dev->wr_error));
 
