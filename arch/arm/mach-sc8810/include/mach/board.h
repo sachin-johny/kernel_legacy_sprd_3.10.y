@@ -69,7 +69,7 @@ int __init sprd_i2c_init(void);
 #define SPRD_ROT_MEM_SIZE       0//(1024*512)
 #define SPRD_SCALE_MEM_SIZE     0//(1024*512)
 #define SPRD_IO_MEM_SIZE        (SPRD_PMEM_SIZE+SPRD_PMEM_ADSP_SIZE+ \
-                               SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE + 115*1024*1024)
+                               SPRD_ROT_MEM_SIZE+SPRD_SCALE_MEM_SIZE + 128*1024*1024)
 
 #define SPRD_PMEM_BASE          ((256*1024*1024)-SPRD_IO_MEM_SIZE)
 #define SPRD_PMEM_ADSP_BASE     (SPRD_PMEM_BASE+SPRD_PMEM_SIZE)
