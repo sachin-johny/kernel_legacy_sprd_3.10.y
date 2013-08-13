@@ -148,16 +148,19 @@ static inline int mmc_get_devidx(struct gendisk *disk)
 static void mmc_blk_put(struct mmc_blk_data *md)
 {
 	mutex_lock(&open_lock);
-	md->usage--;
-	if (md->usage == 0) {
-		int devidx = mmc_get_devidx(md->disk);
-		blk_cleanup_queue(md->queue.queue);
+	if (md){
+		md->usage--;
+		if (md->usage == 0) {
+			int devidx = mmc_get_devidx(md->disk);
+			blk_cleanup_queue(md->queue.queue);
 
-		__clear_bit(devidx, dev_use);
+			__clear_bit(devidx, dev_use);
 
-		put_disk(md->disk);
-		kfree(md);
+			put_disk(md->disk);
+			kfree(md);
+		}
 	}
+
 	mutex_unlock(&open_lock);
 }
 
@@ -294,7 +297,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	struct mmc_data data = {0};
 	struct mmc_request mrq = {NULL};
 	struct scatterlist sg;
-	int err;
+	int err = 0;
 
 	/*
 	 * The caller must have CAP_SYS_RAWIO, and must be calling this on the

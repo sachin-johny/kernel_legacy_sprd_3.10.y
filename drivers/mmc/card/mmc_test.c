@@ -830,7 +830,7 @@ static int mmc_test_nonblock_transfer(struct mmc_test_card *test,
 		dev_addr += blocks;
 	}
 
-	done_areq = mmc_start_req(test->card->host, NULL, &ret);
+	mmc_start_req(test->card->host, NULL, &ret);
 
 	return ret;
 err:

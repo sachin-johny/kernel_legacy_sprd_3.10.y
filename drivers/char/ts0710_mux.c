@@ -1720,7 +1720,6 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 
 				queue_data = 0;
 				post_recv = 0;
-				flow_control = 0;
 				recv_room = 65535;
 				if (tty->receive_room)
 					recv_room = tty->receive_room;
@@ -1733,7 +1732,6 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 						post_recv = 1;
 					} else if (recv_room < uih_len) {
 						queue_data = 1;
-						//flow_control = 1;
 					}
 
 				}
@@ -1818,12 +1816,6 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 					}	/* End recv_info->total == 0 */
 					mutex_unlock(&recv_info->recv_lock);
 				}	/* End Queue data */
-
-				if (flow_control) {
-					TS0710_DEBUG("recv_data : send flow off\n");
-					/* Do something for flow control */
-					ts0710_flow_off(tty, dlci, ts0710);
-				}
 
 				if (post_recv) {
 					TS0710_DEBUG("recv_data : enter queue delay work\n");

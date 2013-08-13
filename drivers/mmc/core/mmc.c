@@ -392,7 +392,7 @@ static int mmc_read_ext_csd(struct mmc_card *card, u8 *ext_csd)
 			 * calculate the enhanced data area offset, in bytes
 			 */
 			card->ext_csd.enhanced_area_offset =
-				(ext_csd[139] << 24) + (ext_csd[138] << 16) +
+				(u32)(ext_csd[139] << 24) + (ext_csd[138] << 16) +
 				(ext_csd[137] << 8) + ext_csd[136];
 			if (mmc_card_blockaddr(card))
 				card->ext_csd.enhanced_area_offset <<= 9;
@@ -490,9 +490,6 @@ static int mmc_compare_ext_csds(struct mmc_card *card, unsigned bus_width)
 			err = -EINVAL;
 		goto out;
 	}
-
-	if (bus_width == MMC_BUS_WIDTH_1)
-		goto out;
 
 	/* only compare read only fields */
 	err = (!(card->ext_csd.raw_partition_support ==

@@ -556,7 +556,7 @@ int mmc_send_hpi_cmd(struct mmc_card *card, u32 *status)
 {
 	struct mmc_command cmd = {0};
 	unsigned int opcode;
-	unsigned int flags;
+	unsigned int flags = 0;
 	int err;
 
 	opcode = card->ext_csd.hpi_cmd;
