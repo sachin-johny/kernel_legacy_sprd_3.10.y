@@ -72,6 +72,17 @@ config FB_LCD_HX8363_MCU
 	depends on FB_SC7710 || FB_SC8825
 	default n
 
+config FB_LCD_ILI9488_RGB_SPID
+       boolean "suppport ili9488 rgb panel" 
+       depends on FB_SC7710 || FB_SC8825
+       default n
+
+config FB_LCD_ILI9806C_RGB_SPI
+       boolean "suppport ili9806c rgb panel" 
+       depends on FB_SC7710 || FB_SC8825
+       default n
+
+
 config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
 	depends on FB_SC8825
