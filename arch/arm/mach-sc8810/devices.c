@@ -188,9 +188,22 @@ struct platform_device sprd_otg_device = {
 	.resource	= sprd_otg_resource,
 };
 
+/*if the backlight is driven by pwm, please config the pwm info
+ *if the backlight is driven by PWMB, the pwm index is 1 as following
+ */
+struct resource sprd_bl_resource[] = {
+	[0] = {
+		.start	= 1,
+		.end	= 1,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
 struct platform_device sprd_backlight_device = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
+	.num_resources	= ARRAY_SIZE(sprd_bl_resource),
+	.resource	= sprd_bl_resource,
 };
 
 static struct resource sprd_i2c_resources0[] = {
