@@ -289,7 +289,7 @@ int sdhci_hal_gpio_irq_init(void)
 	DBG("sdhci_hal_gpio init \n");
 
         cp_to_ap_rdy_irq = gpio_to_irq(GPIO_CP_TO_AP_RDY);
-	if (cp_to_ap_rdy_irq < 0)
+	if ((int)cp_to_ap_rdy_irq < 0)
 		return -1;
 	ret = request_threaded_irq(cp_to_ap_rdy_irq, cp_to_ap_rdy_handle,
 		NULL, IRQF_DISABLED|IRQF_TRIGGER_RISING |IRQF_TRIGGER_FALLING, "cp_to_ap_rdy_irq", NULL);
@@ -299,7 +299,7 @@ int sdhci_hal_gpio_irq_init(void)
 	}
 
         cp_to_ap_rts_irq = gpio_to_irq(GPIO_CP_TO_AP_RTS);
-	if (cp_to_ap_rts_irq < 0)
+	if ((int)cp_to_ap_rts_irq < 0)
 		return -1;
 	ret = request_threaded_irq(cp_to_ap_rts_irq, cp_to_ap_rts_irq_handle,
 		NULL, IRQF_DISABLED|IRQF_TRIGGER_LOW |IRQF_NO_SUSPEND, "cp_to_ap_rts_irq", NULL);
