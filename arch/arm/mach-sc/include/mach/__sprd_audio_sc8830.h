@@ -137,6 +137,7 @@ static inline int arch_audio_vbc_disable(void)
 	return ret;
 }
 
+static inline int arch_audio_vbc_reset(void);
 static inline int arch_audio_vbc_switch(int master)
 {
 	int ret = 0;
@@ -151,6 +152,7 @@ static inline int arch_audio_vbc_switch(int master)
 
 	switch (master) {
 	case AUDIO_TO_AP_ARM_CTRL:
+		arch_audio_vbc_reset();
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(0) | BITS_VBC_DA01_INT_SYS_SEL(0)
 		    | BITS_VBC_AD01_INT_SYS_SEL(0)
