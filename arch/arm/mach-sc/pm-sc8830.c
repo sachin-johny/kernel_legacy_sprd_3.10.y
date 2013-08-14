@@ -742,7 +742,7 @@ int sprd_cpu_deep_sleep(unsigned int cpu)
 	} else {
 		/*printk("###### %s,	DEEP ###\n", __func__ );*/
 		set_sleep_mode(SLP_MODE_DEP);
-#if 1
+#ifndef CONFIG_MACH_SPX35EC
 
 		ret = deep_sleep(0);
 #else
