@@ -288,11 +288,13 @@ struct platform_device sprd_otg_device = {
 	.resource	= sprd_otg_resource,
 };
 
-/*if the backlight is driven by pwm, please config the pwm info*/
+/*if the backlight is driven by pwm, please config the pwm info
+ *if the backlight is driven by PWMD, the pwm index is 3 as following
+ */
 struct resource sprd_bl_resource[] = {
 	[0] = {
-		.start	= 0,
-		.end	= 0,
+		.start	= 3,
+		.end	= 3,
 		.flags	= IORESOURCE_IO,
 	},
 };
