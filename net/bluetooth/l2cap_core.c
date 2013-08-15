@@ -239,7 +239,7 @@ static void l2cap_chan_timeout(struct work_struct *work)
 	struct l2cap_conn *conn = chan->conn;
 	int reason;
 
-	BT_DBG("chan %p state %s", chan, state_to_string(chan->state));
+	BT_DBG("enter func % s, chan %p, state %s", __func__,chan, state_to_string(chan->state));
 
 	mutex_lock(&conn->chan_lock);
 	l2cap_chan_lock(chan);
@@ -284,18 +284,42 @@ struct l2cap_chan *l2cap_chan_create(struct sock *sk)
 
 	atomic_set(&chan->refcnt, 1);
 
-	BT_DBG("sk %p chan %p", sk, chan);
-
 	return chan;
 }
 
-void l2cap_chan_destroy(struct l2cap_chan *chan)
+/*void l2cap_chan_destroy(struct l2cap_chan *chan)
 {
+           WARN_ON(1);
+           printk("enter func %s, chan %p, global %p,nex %p,pre %p\n",__func__,chan,&chan->global_l,(&chan->global_l)->next,(&chan->global_l)->prev);	  
 	write_lock(&chan_list_lock);
+	
 	list_del(&chan->global_l);
 	write_unlock(&chan_list_lock);
 
+         
 	l2cap_chan_put(chan);
+}*/
+
+static void l2cap_chan_destroy(struct l2cap_chan *chan)
+{
+	write_lock(&chan_list_lock);
+	
+	list_del(&chan->global_l);
+	write_unlock(&chan_list_lock);
+
+	kfree(chan);
+}
+
+void l2cap_chan_hold(struct l2cap_chan *c)
+{
+	atomic_inc(&c->refcnt);
+}
+
+void l2cap_chan_put(struct l2cap_chan *c)
+{
+	if (atomic_dec_and_test(&c->refcnt))
+		//kfree(c);
+		l2cap_chan_destroy(c); 
 }
 
 void __l2cap_chan_add(struct l2cap_conn *conn, struct l2cap_chan *chan)
@@ -436,7 +460,7 @@ void l2cap_chan_close(struct l2cap_chan *chan, int reason)
 	struct l2cap_conn *conn = chan->conn;
 	struct sock *sk = chan->sk;
 
-	BT_DBG("chan %p state %s sk %p", chan,
+	BT_DBG("enter func %s chan %p state %s sk %p",__func__, chan,
 					state_to_string(chan->state), sk);
 
 	switch (chan->state) {
