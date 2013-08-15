@@ -786,6 +786,7 @@ static inline int vbc_enable(int enable)
 	return 0;
 }
 
+static void vbc_da_buffer_clear_all(struct snd_soc_dai *dai);
 static inline int vbc_power_enable(int enable)
 {
 	if (enable) {
@@ -793,6 +794,7 @@ static inline int vbc_power_enable(int enable)
 		if (atomic_read(&vbc_refcnt.vbc_power_on) == 1) {
 			arch_audio_vbc_enable();
 			vbc_reg_enable();
+			vbc_da_buffer_clear_all(1);
 			pr_info("VBC Power ON\n");
 		}
 	} else {
@@ -1760,7 +1762,7 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	vbc_power_enable(1);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		vbc_da_buffer_clear_all(dai);
+		/*vbc_da_buffer_clear_all(dai);*/
 		vbc_set_buffer_size(0, VBC_FIFO_FRAME_NUM, 0);
 #ifdef CONFIG_SPRD_VBC_LR_INVERT
 		vbc_iis_high_for_da1(0);
