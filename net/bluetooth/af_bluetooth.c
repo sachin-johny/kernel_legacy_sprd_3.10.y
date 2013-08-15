@@ -44,6 +44,7 @@
 #include <linux/android_aid.h>
 #endif
 
+#define CONFIG_BT_SOCK_DEBUG
 #ifndef CONFIG_BT_SOCK_DEBUG
 #undef  BT_DBG
 #define BT_DBG(D...)
