@@ -31,6 +31,18 @@ config CAMERA_NO_ROTATION
 endchoice
 
 choice
+	prompt "Camera capture mode"
+	default CAMERA_NON_ZSL
+
+config CAMERA_ZSL
+	bool "zsl capture"
+
+config CAMERA_NON_ZSL
+	bool "non zsl capture"
+
+endchoice
+
+choice
 	prompt "Sensor Output"
 	default SENSOR_OUTPUT_YUV
 
