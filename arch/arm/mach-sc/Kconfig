@@ -146,6 +146,23 @@ config SC_VIBRATOR
         select ANDROID_TIMED_OUTPUT
         default n
 
+comment "SC8830 ADIE type"
+
+config SC_INTERNAL_ADI
+	bool "spreadtrum sc internal adi"
+	default y
+	depends on ARCH_SCX35
+
+config SC_INTERNAL_ADC
+	bool "spreadtrum sc internal adc"
+	default y
+	depends on ARCH_SCX35
+
+config SC_INTERNAL_WATCHDOG
+	bool "spreadtrum sc internal watchdog"
+	default y
+	depends on ARCH_SCX35
+
 config FIX_V7TAGRAM_BUG
         bool "fix arm-v7 scu tag ram bug"
         default n

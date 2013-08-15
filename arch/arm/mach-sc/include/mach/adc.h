@@ -77,6 +77,7 @@ struct adc_sample_data {
 	int *pbuf;
 };
 
+#ifdef CONFIG_SC_INTERNAL_ADC
 extern void sci_adc_init(void __iomem * adc_base);
 extern void sci_adc_dump_register(void);
 
@@ -91,6 +92,7 @@ extern int sci_adc_get_values(struct adc_sample_data *adc);
  */
 void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int* div_numerators,
 			unsigned int* div_denominators );
+
 /*
  * Use this interface to get one adc value and this function have set default
  * adc sample behavior.
@@ -118,4 +120,32 @@ static inline int sci_adc_get_value(unsigned int channel, int scale)
 	return result[0];
 }
 
+#else
+static inline void sci_adc_init(void __iomem * adc_base) {}
+
+static inline void sci_adc_dump_register(void) {}
+
+/*
+* Use this interface to get adc values and you can config adc sample behavior.
+* The max number adc value is 16 now, Pls notice the return value;
+*/
+static inline int sci_adc_get_values(struct adc_sample_data *adc)
+{
+	WARN(1, "Not implement\n");
+	return 0; /*TODO:should return ENODEV*/
+}
+
+/*
+ * get adc channel voltage divider ratio.
+ */
+static inline void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int* div_numerators,
+			unsigned int* div_denominators ) {}
+
+static inline int sci_adc_get_value(unsigned int channel, int scale)
+{
+	WARN(1, "Not implement\n");
+	return 0; /*TODO:should return ENODEV*/
+}
+
+#endif
 #endif

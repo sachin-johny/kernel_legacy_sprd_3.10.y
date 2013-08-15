@@ -14,6 +14,7 @@
 #ifndef __ADI_H__
 #define __ADI_H__
 
+#ifdef  CONFIG_SC_INTERNAL_ADI
 int sci_adi_init(void);
 
 int sci_adi_read(u32 reg);
@@ -36,7 +37,41 @@ int sci_adi_p2v(u32 paddr, u32 *vaddr);
  */
 int sci_adi_write_fast(u32 reg, u16 val, u32 sync);
 int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk);
+#else
+static inline int sci_adi_init(void)
+{
+	return -ENODEV;
+}
 
+static inline int sci_adi_read(u32 reg)
+{
+	return -ENODEV;
+}
+
+static inline int sci_is_adi_vaddr(u32 vaddr)
+{
+	return 0;
+}
+
+/*
+ * using adi method to translate pysical address to virtual address
+ * return 0 is ok.
+ */
+static inline int sci_adi_p2v(u32 paddr, u32 *vaddr)
+{
+	return -ENODEV;
+}
+
+static inline int sci_adi_write_fast(u32 reg, u16 val, u32 sync)
+{
+	return -ENODEV;
+}
+
+static inline int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
+{
+	return -ENODEV;
+}
+#endif
 static inline int sci_adi_raw_write(u32 reg, u16 val)
 {
 	return sci_adi_write_fast(reg, val, 1);

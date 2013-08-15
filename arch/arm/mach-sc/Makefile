@@ -1,6 +1,9 @@
 obj-y += irq.o arch_init.o arch_lock.o \
-         reserve.o adi.o adie_irq.o adc.o efuse.o \
-         watchdog.o common.o glb.o
+         reserve.o adie_irq.o efuse.o common.o glb.o
+
+obj-$(CONFIG_SC_INTERNAL_ADI) += adi.o
+obj-$(CONFIG_SC_INTERNAL_ADC) += adc.o
+obj-$(CONFIG_SC_INTERNAL_WATCHDOG) += watchdog.o
 
 obj-$(CONFIG_ARCH_SC8825) += dcdc_cal.o timer_sc8825.o
 obj-$(CONFIG_ARCH_SC8825) += devices-sc8825.o io-sc8825.o  clock-sc8825.o arch_misc.o globalregs.o

@@ -122,6 +122,8 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/sci.h>
 #include <mach/hardware.h>
+
+#ifdef CONFIG_SC_INTERNAL_WATCHDOG
 static inline void FEED_ALL_WDG(int chip_margin, int ap_margin,
 		int ca7_margin, int ca7_irq_margin)
 {
@@ -129,6 +131,10 @@ static inline void FEED_ALL_WDG(int chip_margin, int ap_margin,
 	WDG_LOAD_TIMER_VALUE(chip_margin * WDG_CLK);
 	CA7_WDG_LOAD_TIMER_VALUE(ca7_margin * WDG_CLK, (ca7_margin - ca7_irq_margin) * WDG_CLK);
 }
+#else
+static inline void FEED_ALL_WDG(int chip_margin, int ap_margin,
+		int ca7_margin, int ca7_irq_margin) { }
+#endif
 
 #define ENABLE_ALL_WDG() \
 	do { \
@@ -165,6 +171,7 @@ static inline void FEED_ALL_WDG(int chip_margin, int ap_margin,
 #define WATCHDOG_FEED_BY_THREAD \
 		(WATCHDOG_FEED_BY_KERNEL_THREAD | WATCHDOG_FEED_BY_USER_THREAD)
 
+#ifdef CONFIG_SC_INTERNAL_WATCHDOG
 static inline void watchdog_start(int chip_margin, int ap_margin,
 		int ca7_margin, int ca7_irq_margin)
 {
@@ -194,6 +201,10 @@ static inline void watchdog_start(int chip_margin, int ap_margin,
 }
 
 #else
+static inline void watchdog_start(int chip_margin, int ap_margin,
+		int ca7_margin, int ca7_irq_margin) { }
+#endif
+#else
 
 #define WDG_LOAD_TIMER_VALUE(value) \
         do{\
@@ -214,7 +225,15 @@ static inline void watchdog_start(int chip_margin, int ap_margin,
 #define HWRST_STATUS_CFTREBOOT (0x90)
 #define HWRST_STATUS_AUTODLOADER (0xa0)
 
+#ifdef CONFIG_SC_INTERNAL_WATCHDOG
 void sprd_set_reboot_mode(const char *cmd);
 void sprd_turnon_watchdog(unsigned int ms);
 void sprd_turnoff_watchdog(void);
+#else
+static inline void sprd_set_reboot_mode(const char *cmd) {}
+
+static inline void sprd_turnon_watchdog(unsigned int ms) {}
+
+static inline void sprd_turnoff_watchdog(void) {}
+#endif
 #endif
