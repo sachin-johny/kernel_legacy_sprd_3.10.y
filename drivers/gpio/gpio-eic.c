@@ -418,6 +418,7 @@ static int sci_gpio_irq_set_wake(struct irq_data *data, unsigned int on)
 
 static struct irq_chip d_gpio_irq_chip = {
 	.name = "irq-d-gpio",
+	.irq_disable = sci_gpio_irq_mask,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_gpio_irq_unmask,
@@ -427,6 +428,7 @@ static struct irq_chip d_gpio_irq_chip = {
 
 static struct irq_chip a_gpio_irq_chip = {
 	.name = "irq-a-gpio",
+	.irq_disable = sci_gpio_irq_mask,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_gpio_irq_unmask,
@@ -440,6 +442,7 @@ static struct irq_chip a_gpio_irq_chip = {
  */
 static struct irq_chip d_eic_irq_chip = {
 	.name = "irq-d-eic",
+	.irq_disable = sci_gpio_irq_mask,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_eic_irq_unmask,
@@ -448,6 +451,7 @@ static struct irq_chip d_eic_irq_chip = {
 
 static struct irq_chip a_eic_irq_chip = {
 	.name = "irq-a-eic",
+	.irq_disable = sci_gpio_irq_mask,
 	.irq_ack = sci_gpio_irq_ack,
 	.irq_mask = sci_gpio_irq_mask,
 	.irq_unmask = sci_eic_irq_unmask,
