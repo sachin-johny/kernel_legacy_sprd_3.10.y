@@ -44,6 +44,7 @@ extern void complete_xiso_ep(dwc_otg_pcd_ep_t * ep);
 //#define PRINT_CFI_DMA_DESCS
 
 #define DEBUG_EP0
+#define USB_DEBUG
 
 /**
  * This function updates OTG.
@@ -4422,6 +4423,22 @@ int32_t dwc_otg_pcd_handle_out_nak_effective(dwc_otg_pcd_t * pcd)
 	gintsts_data_t gintsts;
 	depctl_data_t doepctl;
 	int i;
+#ifdef USB_DEBUG
+	dwc_otg_core_if_t *core_if = GET_CORE_IF(pcd);
+	dwc_otg_core_global_regs_t *global_reg = core_if->core_global_regs;
+	gintsts_data_t gintr_status;
+	gintmsk_data_t ginmak_status;
+	gintsts_data_t gintr_status1;
+
+
+	gintr_status.d32 = dwc_otg_read_core_intr(core_if);
+	gintr_status1.d32= DWC_READ_REG32(&global_reg->gintsts);
+	ginmak_status.d32= DWC_READ_REG32(&global_reg->gintmsk);
+
+	printk( "dwc_otg_pcd_handle_intr gintsts&gintmsk=%08x\n", gintr_status.d32);
+	printk( "dwc_otg_pcd_handle_intr gintsts =%08x\n ", gintr_status1.d32);
+	printk( "dwc_otg_pcd_handle_intr gintmsk=%08x\n ",ginmak_status.d32);
+#endif
 
 	/* Disable the Global OUT NAK Effective Interrupt */
 	intr_mask.b.goutnakeff = 1;
