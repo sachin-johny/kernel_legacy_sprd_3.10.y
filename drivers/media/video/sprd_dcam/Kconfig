@@ -18,6 +18,7 @@ config CAMERA_8M
 
 endchoice
 
+if 0
 choice
 	prompt "Camera rotation"
 	default CAMERA_NO_ROTATION
@@ -29,6 +30,7 @@ config CAMERA_NO_ROTATION
 	bool "sensor don't rotate"
 
 endchoice
+endif
 
 choice
 	prompt "Camera capture mode"
