@@ -407,9 +407,13 @@ static void print_gr(void)
 #define	ANA_AUDIO_PA_CTRL1	(LDO_REG_BASE  + 0x7C)
 #endif
 
+extern int sprd_show_bat_voltage(void);
+
 static void print_ana(void)
 {
 	u32 val, val1;
+        int bat_voltage;
+
 	val = sci_adi_read(ANA_LDO_PD_RESET);
 	val1 = sci_adi_read(ANA_LDO_PD_SET);
 	printk("##: ANA_LDO_PD_RESET = %04x.\n", val);
@@ -508,6 +512,7 @@ static void print_ana(void)
 	else if (!(val & AUDIO_PA_LDO_ENABLE_RST)) printk("##: Audo PA_LDO is not stopped.\n");
 	printk("\n===========================\n");
 #endif
+        printk("##: Battery Voltage = %d\n", sprd_show_bat_voltage());
 }
 
 /*is dsp sleep :for debug */

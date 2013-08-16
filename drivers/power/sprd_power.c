@@ -328,6 +328,22 @@ static ssize_t sprd_set_caliberate(struct device *dev,
 	return count;
 }
 
+int sprd_show_bat_voltage(void)
+{
+    int adc_value;
+    int voltage;
+
+    adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+    if (adc_value < 0)
+        voltage = 0;
+    else
+        voltage = sprd_bat_adc_to_vol(battery_data, adc_value);
+
+    return voltage;
+		
+}
+
+
 static ssize_t sprd_show_caliberate(struct device *dev,
 				    struct device_attribute *attr, char *buf)
 {
