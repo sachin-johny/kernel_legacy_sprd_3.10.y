@@ -23,7 +23,6 @@
 #endif
 
 #ifndef __ASSEMBLY__
-void __init ana_init_irq(void);
 
 /*raw interrupt intc interrupt enable */
 void sci_intc_unmask(u32 irq);

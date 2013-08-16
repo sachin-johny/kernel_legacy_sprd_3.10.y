@@ -37,7 +37,12 @@ int sci_adi_p2v(u32 paddr, u32 *vaddr);
  */
 int sci_adi_write_fast(u32 reg, u16 val, u32 sync);
 int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk);
+void __init ana_init_irq(void);
+
 #else
+
+#include <asm-generic/errno-base.h>
+
 static inline int sci_adi_init(void)
 {
 	return -ENODEV;
@@ -71,6 +76,9 @@ static inline int sci_adi_write(u32 reg, u16 or_val, u16 clear_msk)
 {
 	return -ENODEV;
 }
+
+static inline void ana_init_irq(void){ }
+
 #endif
 static inline int sci_adi_raw_write(u32 reg, u16 val)
 {

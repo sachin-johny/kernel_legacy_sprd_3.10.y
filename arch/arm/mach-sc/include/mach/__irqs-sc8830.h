@@ -185,10 +185,6 @@
 #define FIQ_START	(0)
 #define NR_FIQS		(NR_SCI_PHY_IRQS)
 
-#ifndef __ASSEMBLY__
-void __init ana_init_irq(void);
-#endif
-
 
 /* redefined some MACROS for module code*/
 #define IRQ_TIMER1_INT			IRQ_AONTMR0_INT

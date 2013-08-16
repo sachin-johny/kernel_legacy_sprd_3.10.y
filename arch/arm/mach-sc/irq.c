@@ -27,6 +27,7 @@
 #include <mach/sci.h>
 #include <mach/arch_misc.h>
 #include <asm/fiq.h>
+#include <mach/adi.h>
 
 /* general interrupt registers */
 #define	INTC_IRQ_MSKSTS		(0x0000)

@@ -1,7 +1,7 @@
 obj-y += irq.o arch_init.o arch_lock.o \
-         reserve.o adie_irq.o efuse.o common.o glb.o
+         reserve.o efuse.o common.o glb.o
 
-obj-$(CONFIG_SC_INTERNAL_ADI) += adi.o
+obj-$(CONFIG_SC_INTERNAL_ADI) += adi.o adie_irq.o
 obj-$(CONFIG_SC_INTERNAL_ADC) += adc.o
 obj-$(CONFIG_SC_INTERNAL_WATCHDOG) += watchdog.o
 
