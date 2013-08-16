@@ -96,6 +96,12 @@ config SPRD_SCXX30_DMC_FREQ
 	  It reads PPMU counters of memory controllers and adjusts
 	  the operating frequencies with OPP support.
 
+config SCXX30_AP_DFS
+       bool "Spreadtrum scxx30 DFS in AP side"
+       depends on SPRD_SCXX30_DMC_FREQ
+       help
+         This adds the DMCFREQ drive, DFS run in AP side
+
 config SPRD_DMC_FREQ_DEBUG
 	bool "Spreadtrum scxx30 Memory Bus DMCFREQ Driver debug"
 	depends on SPRD_SCXX30_DMC_FREQ
