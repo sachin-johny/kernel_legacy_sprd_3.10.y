@@ -293,7 +293,10 @@ static struct sprd_codec_power_suppliy {
 	atomic_t auxmic_on;
 	atomic_t headmic_on;
 	atomic_t ldo_refcount;
-	int audio_ldo_open_ok;
+        int micbias_status;
+        int auxmicbias_status;
+        int headmicbias_status;
+        int audio_ldo_open_ok;
 } sprd_codec_power;
 
 #define SPRD_CODEC_PA_SW_AOL (BIT(0))
@@ -1148,7 +1151,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 	struct snd_soc_codec *codec = 0;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
-	atomic_inc(&sprd_codec_power.ldo_refcount);
+        atomic_inc(&sprd_codec_power.ldo_refcount);
 	if (atomic_read(&sprd_codec_power.ldo_refcount) == 1) {
 		sprd_codec_dbg("ldo on!\n");
 		if (sprd_codec) {
@@ -1241,7 +1244,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_reset();
 		arch_audio_codec_disable();
 		arch_audio_codec_analog_reg_disable();
-		sprd_codec_dbg("ldo off!\n");
+		sprd_codec_dbg("ldo off\n");
 	}
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
@@ -1260,22 +1263,37 @@ static int sprd_codec_ldo_control(int on)
 static void sprd_codec_mic_delay_worker(struct work_struct *work)
 {
 	int on = atomic_read(&sprd_codec_power.mic_on) > 0;
-	sprd_codec_ldo_control(on);
-	sprd_codec_mic_bias_en(on);
+        if (sprd_codec_power.micbias_status != on) {
+            sprd_codec_ldo_control(on);
+	    sprd_codec_mic_bias_en(on);
+            sprd_codec_power.micbias_status = on;
+        } else {
+            pr_info("mic bias already %s\n", on ? "ON" : "OFF");
+        }
 }
 
 static void sprd_codec_auxmic_delay_worker(struct work_struct *work)
 {
 	int on = atomic_read(&sprd_codec_power.auxmic_on) > 0;
-	sprd_codec_ldo_control(on);
-	sprd_codec_auxmic_bias_en(on);
+	if (sprd_codec_power.auxmicbias_status != on) {
+            sprd_codec_ldo_control(on);
+	    sprd_codec_auxmic_bias_en(on);
+            sprd_codec_power.auxmicbias_status = on;
+        } else {
+            pr_info("auxmic bias already %s\n", on ? "ON" : "OFF");
+        }
 }
 
 static void sprd_codec_headmic_delay_worker(struct work_struct *work)
 {
 	int on = atomic_read(&sprd_codec_power.headmic_on) > 0;
-	sprd_codec_ldo_control(on);
-	sprd_codec_headmic_bias_en(on);
+	if (sprd_codec_power.headmicbias_status != on) {
+            sprd_codec_ldo_control(on);
+	    sprd_codec_headmic_bias_en(on);
+            sprd_codec_power.headmicbias_status = on;
+        } else {
+            pr_info("headmic bias already %s\n", on ? "ON" : "OFF");
+        }
 }
 
 static int sprd_codec_mic_bias_inter(int on, atomic_t * v,
@@ -1313,9 +1331,9 @@ int sprd_codec_mic_bias_control(int on)
 		pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
 					     sprd_codec_mic_delay_worker);
-		schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
-				      msecs_to_jiffies(1));
-	}
+                schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
+                                      msecs_to_jiffies(1));
+        }
 	return 0;
 }
 
@@ -1330,8 +1348,8 @@ int sprd_codec_auxmic_bias_control(int on)
 		sprd_codec_init_delayed_work
 		    (&sprd_codec_power.auxmic_delayed_work,
 		     sprd_codec_auxmic_delay_worker);
-		schedule_delayed_work(&sprd_codec_power.auxmic_delayed_work,
-				      msecs_to_jiffies(1));
+                schedule_delayed_work(&sprd_codec_power.auxmic_delayed_work,
+                                      msecs_to_jiffies(1));
 	}
 	return 0;
 }
