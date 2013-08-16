@@ -162,49 +162,6 @@ loopp:
 	ldr r0, =0x0020
 	bl my_delay
 
-#if 0
-loopbd:
-	b loopbd
-#endif
-	ldr r0, =0x71300000
-	ldr r1, [r0]
-	orr r1, #0x40000
-	str r1, [r0]
-	ldr r0, =0x0120
-	bl my_delay
-
-	adr r0, reg_ca7_ckg
-	ldr r1, [r0]
-	ldr r0, =0x20d0000c
-	ldr r2, =0xfffffff0
-	and r3, r2, r1
-	str r3, [r0]
-	ldr r0, =0x020
-	bl my_delay
-	ldr r0, =0x20d0000c
-	str r1, [r0]
-	ldr r0, =0x020
-	bl my_delay
-
-	adr r0, reg_clk_ahb
-	ldr r1, [r0]
-	ldr r0, =0x71200020
-	str r1, [r0]
-	ldr r0, =0x0120
-	bl my_delay
-
-	adr r0, reg_clk_apb
-	ldr r1, [r0]
-	ldr r0, =0x71200024
-	str r1, [r0]
-	ldr r0, =0x0120
-	bl my_delay
-
-
-#if 0
-loopbd:
-	b loopbd
-#endif
 	/*
 	*  convert to physical address,
 	*  need to find a more elegent way.
@@ -269,14 +226,6 @@ ENDPROC(dead)
 	.globl sleep_asm_counter
 sleep_asm_counter:
 	.long	0x0
-reg_ca7_ckg: /* REG_AP_AHB_CA7_CKG_CFG */
-	.long	0x0
-reg_clk_ahb: /* REG_AP_CLK_AP_AHB_CFG */
-	.long	0x0
-reg_clk_apb: /* REG_AP_CLK_AP_APB_CFG */
-	.long	0x0
-
-
 str_a2:	.asciz	"from deep!"
 str_a1:	.asciz	"dead!"
 
@@ -315,28 +264,6 @@ ENTRY(sp_pm_collapse)
 	mrc     p15, 0, r9, c13, c0, 3 /* TPIDRURO */
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
 	stmia   r0!, {r1-r9, ip}
-#if 0
-3:	b 3b
-#endif
-	ldr r1, =sc8830_standby_iram
-	ldr r2, =iram_start
-	ldr r2, [r2, #0]
-	sub r2, r2, r1
-	ldr		r0, =0xf513000c
-	ldr		r1, [r0]
-	ldr		r0, =reg_ca7_ckg
-	add		r0, r2
-	str		r1, [r0]
-	ldr		r0, =0xf53a0020
-	ldr		r1, [r0]
-	ldr		r0, =reg_clk_ahb
-	add		r0, r2
-	str		r1, [r0]
-	ldr		r0, =0xf53a0024
-	ldr		r1, [r0]
-	ldr		r0, =reg_clk_apb
-	add		r0, r2
-	str		r1, [r0]
 
 	bl	v7_flush_dcache_all
 #if 0
