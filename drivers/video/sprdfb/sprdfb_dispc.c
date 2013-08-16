@@ -213,13 +213,9 @@ static irqreturn_t dispc_isr(int irq, void *data)
 /* dispc soft reset */
 static void dispc_reset(void)
 {
-	printk("REG_AHB_SOFT_RST:%x ,BIT_DISPC_SOFT_RST:%lx \n",REG_AHB_SOFT_RST,BIT_DISPC_SOFT_RST);
-	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
 	sci_glb_set(REG_AHB_SOFT_RST, (BIT_DISPC_SOFT_RST) );
-	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
  	udelay(10);
 	sci_glb_clr(REG_AHB_SOFT_RST, (BIT_DISPC_SOFT_RST) );
-	printk("REG_AHB_SOFT_RST:%x \n",dispc_glb_read(REG_AHB_SOFT_RST));
 }
 
 static inline void dispc_set_bg_color(uint32_t bg_color)
@@ -500,13 +496,12 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 		dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC/dividor;
 
 		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
-                dispc_print_clk();
 
 		if(ret){
 			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 		}
 
-		printk("sprdfb:[%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
+		pr_debug("sprdfb:[%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
 	}
 
 }
@@ -528,16 +523,8 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
 
-	dispc_print_clk();
-	printk("zcf:BIT_DISPC_CORE_EN:%lx,DISPC_CORE_EN:%x\n",BIT_DISPC_CORE_EN,DISPC_CORE_EN);
-	printk("zcf:BIT_DISPC_EMC_EN:%lx,DISPC_EMC_EN:%x\n",BIT_DISPC_EMC_EN,DISPC_EMC_EN);
-	printk("zcf:DISPC_CORE_EN:%x\n",dispc_glb_read(DISPC_CORE_EN));
-	printk("zcf:DISPC_EMC_EN:%x\n",dispc_glb_read(DISPC_EMC_EN));
 	sci_glb_set(DISPC_CORE_EN, BIT_DISPC_CORE_EN);
 	sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
-
-	printk("zcf:DISPC_CORE_EN:%x\n",dispc_glb_read(DISPC_CORE_EN));
-	printk("zcf:DISPC_EMC_EN:%x\n",dispc_glb_read(DISPC_EMC_EN));
 
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {

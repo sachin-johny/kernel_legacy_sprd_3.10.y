@@ -107,13 +107,9 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 
 static void dsi_reset(void)
 {
-	printk("zcf:DSI_AHB_SOFT_RST:%x,BIT_DSI_SOFT_RST:%lx\n",DSI_AHB_SOFT_RST,BIT_DSI_SOFT_RST);
-	printk("zcf:DSI_AHB_SOFT_RST:%x \n",dispc_glb_read(DSI_AHB_SOFT_RST));
 	sci_glb_set(DSI_AHB_SOFT_RST, BIT_DSI_SOFT_RST);
-	printk("zcf:DSI_AHB_SOFT_RST:%x \n",dispc_glb_read(DSI_AHB_SOFT_RST));
  	udelay(10);
 	sci_glb_clr(DSI_AHB_SOFT_RST, BIT_DSI_SOFT_RST);
-	printk("zcf:DSI_AHB_SOFT_RST:%x \n",dispc_glb_read(DSI_AHB_SOFT_RST));
 }
 
 static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)

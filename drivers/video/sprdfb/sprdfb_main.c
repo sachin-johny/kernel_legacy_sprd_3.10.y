@@ -302,7 +302,7 @@ static void sprdfb_late_resume (struct early_suspend* es)
 {
 	struct sprdfb_device *dev = container_of(es, struct sprdfb_device, early_suspend);
 	struct fb_info *fb = dev->fb;
-	printk("sprdfb: [%s]\n",__FUNCTION__);
+	pr_debug("sprdfb: [%s]\n",__FUNCTION__);
 
 	if (!lock_fb_info(fb)) {
 		return ;
