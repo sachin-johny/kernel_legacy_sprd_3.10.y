@@ -196,6 +196,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_a7_pmu_device,
 	&sprd_thm_device,
 	&sprd_thm_a_device,
+	&sprd_headset_detect_device,
+	&sprd_headset_button_device,
 };
 
 /* BT suspend/resume */

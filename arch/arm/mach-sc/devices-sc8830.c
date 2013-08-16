@@ -32,6 +32,7 @@
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <mach/board.h>
+#include <linux/headset_sprd.h>
 
 #include "devices.h"
 
@@ -668,6 +669,53 @@ struct platform_device sprd_audio_cpu_dai_i2s_device3 = {
 struct platform_device sprd_audio_codec_null_codec_device = {
 	.name           = "null-codec",
 	.id             =  -1,
+};
+
+static struct headset_button sprd_headset_button[] = {
+	{
+		.adc_min			= 0x0000,
+		.adc_max			= 0x00C8,
+		.code			= KEY_MEDIA,
+	},
+	{
+		.adc_min			= 0x00C9,
+		.adc_max			= 0x02BC,
+		.code			= KEY_VOLUMEUP,
+	},
+	{
+		.adc_min			= 0x02BD,
+		.adc_max			= 0x0514,
+		.code			= KEY_VOLUMEDOWN,
+	},
+};
+
+static struct sprd_headset_buttons_platform_data sprd_headset_button_data = {
+	.headset_button	= sprd_headset_button,
+	.nbuttons	= ARRAY_SIZE(sprd_headset_button),
+};
+
+static struct sprd_headset_detect_platform_data sprd_headset_detect_data = {
+	.switch_gpio	= HEADSET_SWITCH_GPIO,
+	.detect_gpio	= HEADSET_DETECT_GPIO,
+	.button_gpio	= HEADSET_BUTTON_GPIO,
+	.detect_active_low	= 1,
+	.button_active_low	= 1,
+};
+
+struct platform_device sprd_headset_button_device = {
+	.name	= "headset-buttons",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &sprd_headset_button_data,
+	},
+};
+
+struct platform_device sprd_headset_detect_device = {
+	.name	= "headset-detect",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &sprd_headset_detect_data,
+	},
 };
 
 static struct resource sprd_battery_resources[] = {
