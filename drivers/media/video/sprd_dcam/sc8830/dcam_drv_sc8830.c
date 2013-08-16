@@ -1115,6 +1115,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		_dcam_wait_path_done(DCAM_PATH_IDX_0, &s_p_dcam_mod->dcam_path0.need_stop);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
 			_dcam_wait_for_stop();
+			_dcam_wait_for_stop();
 		}
 		dcam_reset(DCAM_RST_PATH0);
 		_dcam_frm_clear(DCAM_PATH_IDX_0);
@@ -1125,6 +1126,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 	if ((DCAM_PATH_IDX_1 & path_index) && s_p_dcam_mod->dcam_path1.valide) {
 		_dcam_wait_path_done(DCAM_PATH_IDX_1, &s_p_dcam_mod->dcam_path1.need_stop);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
+			_dcam_wait_for_stop();
 			_dcam_wait_for_stop();
 		}
 		dcam_reset(DCAM_RST_PATH1);
@@ -1137,6 +1139,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		DCAM_TRACE("DCAM: stop path2 In \n");
 		_dcam_wait_path_done(DCAM_PATH_IDX_2, &s_p_dcam_mod->dcam_path2.need_stop);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
+			_dcam_wait_for_stop();
 			_dcam_wait_for_stop();
 		}
 		DCAM_TRACE("DCAM: stop path2 Out \n");
