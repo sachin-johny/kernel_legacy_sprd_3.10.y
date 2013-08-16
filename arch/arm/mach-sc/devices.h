@@ -50,6 +50,8 @@ extern struct platform_device sprd_audio_cpu_dai_i2s_device1;
 #ifdef CONFIG_ARCH_SCX35
 extern struct platform_device sprd_audio_cpu_dai_i2s_device2;
 extern struct platform_device sprd_audio_cpu_dai_i2s_device3;
+extern struct platform_device sprd_headset_detect_device;
+extern struct platform_device sprd_headset_button_device;
 #endif
 extern struct platform_device sprd_audio_codec_null_codec_device;
 extern struct platform_device sprd_battery_device;
