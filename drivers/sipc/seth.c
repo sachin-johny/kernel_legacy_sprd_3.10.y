@@ -70,11 +70,45 @@ seth_tx_ready_handler (void* data)
 	}
 	else {
 		seth->state = DEV_OFF;
-		if (!netif_carrier_ok (seth->netdev)) {
+		if (netif_carrier_ok (seth->netdev)) {
 		netif_carrier_off (seth->netdev);
 		/*
 		netif_carrier_on (seth->netdev);
 		*/
+		}
+	}
+}
+
+/*
+ * Tx_open handler.
+ */
+static void
+seth_tx_open_handler (void* data)
+{
+	SEth* seth = (SEth*) data;
+
+	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
+	if (seth->state != DEV_ON) {
+		seth->state = DEV_ON;
+		if (!netif_carrier_ok (seth->netdev)) {
+			netif_carrier_on (seth->netdev);
+		}
+	}
+}
+
+/*
+ * Tx_close handler.
+ */
+static void
+seth_tx_close_handler (void* data)
+{
+	SEth* seth = (SEth*) data;
+
+	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
+	if (seth->state != DEV_OFF) {
+		seth->state = DEV_OFF;
+		if (netif_carrier_ok (seth->netdev)) {
+			netif_carrier_off (seth->netdev);
 		}
 	}
 }
@@ -155,6 +189,14 @@ seth_handler (int event, void* data)
 		case SBLOCK_NOTIFY_STATUS:
 			SETH_DEBUG ("SBLOCK_NOTIFY_STATUS is received\n");
 			seth_tx_ready_handler(seth);
+			break;
+		case SBLOCK_NOTIFY_OPEN:
+			SETH_DEBUG ("SBLOCK_NOTIFY_OPEN is received\n");
+			seth_tx_open_handler(seth);
+			break;
+		case SBLOCK_NOTIFY_CLOSE:
+			SETH_DEBUG ("SBLOCK_NOTIFY_CLOSE is received\n");
+			seth_tx_close_handler(seth);
 			break;
 		default:
 			SETH_ERR ("Received event is invalid(event=%d)\n", event);

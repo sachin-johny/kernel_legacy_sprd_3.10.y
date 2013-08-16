@@ -274,6 +274,8 @@ void sblock_destroy(uint8_t dst, uint8_t channel);
 #define	SBLOCK_NOTIFY_GET	0x01
 #define	SBLOCK_NOTIFY_RECV	0x02
 #define	SBLOCK_NOTIFY_STATUS	0x03
+#define	SBLOCK_NOTIFY_OPEN	0x04
+#define	SBLOCK_NOTIFY_CLOSE	0x05
 /**
  * sblock_register_notifier -- register a callback that's called
  * 		when a tx sblock is available or a rx block is received.
