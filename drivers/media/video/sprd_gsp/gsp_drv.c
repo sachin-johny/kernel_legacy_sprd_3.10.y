@@ -75,6 +75,7 @@ static struct semaphore         gsp_hw_resource_sem;//cnt == 1,only one thread c
 static struct semaphore         gsp_wait_interrupt_sem;// init to 0, gsp done/timeout/client discard release sem
 GSP_CONFIG_INFO_T               s_gsp_cfg;//protect by gsp_hw_resource_sem
 static struct proc_dir_entry    *gsp_drv_proc_file;
+struct clk						*g_gsp_emc_clk;
 
 
 #define GSP_ERR_RECORD_CNT  8
@@ -1531,10 +1532,10 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
             {
                 printk("%s%d:pid:0x%08x, wait done sema 30-jiffies-timeout,it's abnormal!!\n",__func__,__LINE__,pUserdata->pid);
                 printk("%s%d:EMC_MATRIX:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
-                       GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT,
+                       (uint32_t)(GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT),
                        ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
                        GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
-                       GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT);
+                       (uint32_t)(GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT));
                 printCfgInfo();
                 printGPSReg();
                 printk("%s%d:pid:0x%08x, ignor not overlaped area of Layer1 !! \n",__func__,__LINE__,pUserdata->pid);
@@ -2026,19 +2027,26 @@ static long gsp_drv_ioctl(struct file *file,
                     }
                     //s_gsp_cfg.misc_info.dithering_en = 1;//dither enabled default
                     s_gsp_cfg.misc_info.ahb_clock = ahb_clock;
-                    s_gsp_cfg.misc_info.gsp_clock = gsp_clock;
-                    s_gsp_cfg.misc_info.gsp_gap = gsp_gap;
-
+                    s_gsp_cfg.misc_info.gsp_clock = gsp_clock;                    
+                    if(gsp_gap & 0x100)
+                    {
+                    	s_gsp_cfg.misc_info.gsp_gap = (gsp_gap & 0xff);
+                    }
+					else
+					{
+						gsp_gap = s_gsp_cfg.misc_info.gsp_gap;
+					}
+					
                     ret = GSP_Info_Config();
                     GSP_TRACE("%s:pid:0x%08x, config hw %s!, L%d \n",__func__,pUserdata->pid,(ret>0)?"failed":"success",__LINE__);
                     if(ret)
                     {
-                    printCfgInfo();
-                    printGPSReg();
-                        GSP_Deinit();
-                        gsp_cur_client_pid = INVALID_USER_ID;
-                        up(&gsp_hw_resource_sem);
-                    printk("%s%d:pid:0x%08x, gsp config err:%d, release hw sema.\n",__func__,__LINE__,pUserdata->pid,ret);
+						printCfgInfo();
+						printGPSReg();
+						GSP_Deinit();
+						gsp_cur_client_pid = INVALID_USER_ID;
+						up(&gsp_hw_resource_sem);
+						printk("%s%d:pid:0x%08x, gsp config err:%d, release hw sema.\n",__func__,__LINE__,pUserdata->pid,ret);
                     }
                 }
             }
@@ -2099,8 +2107,8 @@ static long gsp_drv_ioctl(struct file *file,
                 if(ret)
                 {
                     printk("%s%d:pid:0x%08x, trigger failed!! err_code:%d \n",__func__,__LINE__,pUserdata->pid,ret);
-                printCfgInfo();
-                printGPSReg();
+	                printCfgInfo();
+	                printGPSReg();
                     ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
                     ERR_RECORD_INDEX_ADD_WP();
                     GSP_Deinit();
@@ -2152,10 +2160,10 @@ static long gsp_drv_ioctl(struct file *file,
                 {
                 printk("%s%d:pid:0x%08x, wait done sema 60-jiffies-timeout,it's abnormal!!!!!!!! \n",__func__,__LINE__,pUserdata->pid);
                 printk("%s%d:EMC_MATRIX:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
-                       GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT,
+                       (uint32_t)(GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT),
                        ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
                        GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
-                       GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT);
+                       (uint32_t)(GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT));
                 printCfgInfo();
                 printGPSReg();
                     ret = GSP_KERNEL_WAITDONE_TIMEOUT;
@@ -2488,8 +2496,8 @@ static int gsp_resume(struct platform_device *pdev)
 	printk("%s%d\n",__func__,__LINE__);
 	gsp_coef_force_calc = 1;
 
-    GSP_EMC_MATRIX_ENABLE();
-    GSP_EMC_GAP_SET(0);
+    //GSP_EMC_MATRIX_ENABLE();
+    //GSP_EMC_GAP_SET(0);
     GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
     GSP_AUTO_GATE_ENABLE();//bug 198152
     //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
@@ -2497,6 +2505,36 @@ static int gsp_resume(struct platform_device *pdev)
 	return 0;
 }
 
+static int32_t gsp_emc_clock_init(void)
+{
+    struct clk *emc_clk_parent = NULL;
+    int ret = 0;
+
+    emc_clk_parent = clk_get(NULL, GSP_EMC_CLOCK_PARENT_NAME);
+    if (IS_ERR(emc_clk_parent)) {
+        printk(KERN_ERR "gsp: get emc clk_parent failed!\n");
+        return -1;
+    } else {
+        printk(KERN_INFO "gsp: get emc clk_parent ok!\n");//pr_debug
+    }
+
+    g_gsp_emc_clk = clk_get(NULL, GSP_EMC_CLOCK_NAME);
+    if (IS_ERR(g_gsp_emc_clk)) {
+        printk(KERN_ERR "gsp: get emc clk failed!\n");
+        return -1;
+    } else {
+        printk(KERN_INFO "gsp: get emc clk ok!\n");//pr_debug
+    }
+
+    ret = clk_set_parent(g_gsp_emc_clk, emc_clk_parent);
+    if(ret) {
+        printk(KERN_ERR "gsp: gsp set emc clk parent failed!\n");
+    } else {
+        printk(KERN_INFO "gsp: gsp set emc clk parent ok!\n");//pr_debug
+    }
+
+    return ret;
+}
 int32_t gsp_drv_probe(struct platform_device *pdev)
 {
     int32_t ret = 0;
@@ -2504,22 +2542,26 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
 
     GSP_TRACE("gsp_probe enter .\n");
     printk("%s,AHB clock :%d\n", __func__,GSP_AHB_CLOCK_GET());
-    GSP_EMC_MATRIX_ENABLE();
-    GSP_EMC_GAP_SET(0);
+    //GSP_EMC_MATRIX_ENABLE();
+    //GSP_EMC_GAP_SET(0);
     GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
     GSP_AUTO_GATE_ENABLE();
     //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
     GSP_ENABLE_MM();
 
+    ret = gsp_emc_clock_init();
+    if (ret) {
+        printk(KERN_ERR "gsp emc clock init failed. \n");
+        goto exit;
+    }
     ret = misc_register(&gsp_drv_dev);
     if (ret)
     {
-        GSP_TRACE("gsp cannot register miscdev (%d)\n", ret);
+        printk(KERN_ERR "gsp cannot register miscdev (%d)\n", ret);
         goto exit;
     }
 
-
-    ret = request_irq(IRQ_GSP_INT,//TB_GSP_INT
+    ret = request_irq(TB_GSP_INT,//
                       gsp_irq_handler,
                       0,//IRQF_SHARED
                       "GSP",

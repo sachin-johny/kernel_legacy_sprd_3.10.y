@@ -23,8 +23,10 @@ extern   "C"
      **                         Dependencies                                      *
      **---------------------------------------------------------------------------*/
 #include <video/gsp_types_shark.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/globalregs.h> //define IRQ_GSP_INT
 #include <linux/delay.h>
+#include <linux/clk.h>
 
 //#include "gsp_types_shark.h"
 //#include "shark_reg_int.h" //for INT1_IRQ_EN
@@ -66,16 +68,11 @@ extern   "C"
      **                         Macro Definition                              *
      **---------------------------------------------------------------------------*/
 
-    //GSP job config relative
 
+#if 0
+//GSP job config relative
 #define GSP_MOD_EN          (SPRD_AHB_BASE)
 #define GSP_SOFT_RESET      (SPRD_AHB_BASE + 0x04)
-
-#define GSP_REG_BASE        (SPRD_GSP_BASE)
-#define GSP_HOR_COEF_BASE   (GSP_REG_BASE + 0x90)
-#define GSP_VER_COEF_BASE   (GSP_REG_BASE + 0x110)
-#define GSP_L1_BASE			(GSP_REG_BASE + 0x60)
-
 
 //GSP DDR access relative
 //#define SPRD_AONAPB_PHYS		0X402E0000
@@ -87,35 +84,72 @@ extern   "C"
 #define GSP_CLOCK_BASE		(SPRD_APBCKG_BASE + 0x28)
 #define GSP_CLOCK_256M_BIT  (3)// div form  PLL clock, use[1:0] 2bit,  0:96M 1:153.6M 2:192M 3:256M
 
-
 //force enable GSP inner work loggy clock, used for debug
 //#define SPRD_AHB_PHYS			0X20D00000
 #define GSP_AUTO_GATE_ENABLE_BASE		(SPRD_AHB_BASE + 0x40)
 #define GSP_AUTO_GATE_ENABLE_BIT		(1<<8)//[8] is gate switch, 1:GSP work clk enable by busy signal, 0:force enable, control by busy will save power
 
-
-    //GSP register set clock , through AHB bus
+//GSP register set clock , through AHB bus
 //#define SPRD_APBCKG_PHYS      0X71200000
 #define GSP_AHB_CLOCK_BASE      (SPRD_APBCKG_BASE + 0x20)
 #define GSP_AHB_CLOCK_26M_BIT   (0)// [1:0] is used by GSP, 0:26M
 #define GSP_AHB_CLOCK_192M_BIT  (3)// [1:0] is used by GSP, 0:26M 1:76M 2:128M 3:192M
 
-    //interrupt relative
+
+//interrupt relative
 #define TB_GSP_INT 			(0x33)  //gsp hardware irq number
 #define GSP_IRQ_BIT			(1<<19) //gsp hardware irq bit, == (TB_GSP_INT % 32)
-
-
-
-
-#define GSP_MOD_EN_BIT      (1<<3) //gsp chip module enable bit
 #define GSP_SOFT_RST_BIT    (1<<3) //gsp chip module soft reset bit
-#define GSP_IRQ_BIT         (1<<19) //gsp chip module soft reset bit
+#define GSP_MOD_EN_BIT      (1<<3) //gsp chip module enable bit
 
+#else
+//GSP job config relative
+#define GSP_MOD_EN          (REG_AP_AHB_AHB_EB)
+#define GSP_SOFT_RESET      (REG_AP_AHB_AHB_RST)
+
+//GSP DDR access relative
+//#define SPRD_AONAPB_PHYS		0X402E0000
+#define GSP_EMC_MATRIX_BASE		(REG_AON_APB_APB_EB1) // GSP access DDR through matrix to AXI, must enable gsp-gate on this matrix
+#define GSP_EMC_MATRIX_BIT		(BIT_DISP_EMC_EB) // [11] gsp-gate bit on matrix , EMC is DDR controller, should always enabled
+
+//GSP inner work loggy clock ctl
+//#define SPRD_APBCKG_PHYS		0X71200000
+#define GSP_CLOCK_BASE		(REG_AP_CLK_GSP_CFG)
+#define GSP_CLOCK_256M_BIT  (3)// div form  PLL clock, use[1:0] 2bit,  0:96M 1:153.6M 2:192M 3:256M
+
+
+//force enable GSP inner work loggy clock, used for debug
+//#define SPRD_AHB_PHYS			0X20D00000
+#define GSP_AUTO_GATE_ENABLE_BASE		(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG)
+#define GSP_AUTO_GATE_ENABLE_BIT		(BIT_GSP_AUTO_GATE_EN)//[8] is gate switch, 1:GSP work clk enable by busy signal, 0:force enable, control by busy will save power
+#define GSP_CKG_FORCE_ENABLE_BIT		(BIT_GSP_CKG_FORCE_EN)
+
+//GSP register set clock , through AHB bus
+//#define SPRD_APBCKG_PHYS      0X71200000
+#define GSP_AHB_CLOCK_BASE      (REG_AP_CLK_AP_AHB_CFG)
+#define GSP_AHB_CLOCK_26M_BIT   (0)// [1:0] is used by GSP, 0:26M
+#define GSP_AHB_CLOCK_192M_BIT  (3)// [1:0] is used by GSP, 0:26M 1:76M 2:128M 3:192M
+
+//interrupt relative
+#define TB_GSP_INT 			(IRQ_GSP_INT)  //gsp hardware irq number
+#define GSP_IRQ_BIT			SCI_INTC_IRQ_BIT(TB_GSP_INT) //gsp hardware irq bit, == (TB_GSP_INT % 32)
+#define GSP_SOFT_RST_BIT    (BIT_GSP_SOFT_RST) //gsp chip module soft reset bit
+#define GSP_MOD_EN_BIT      (BIT_GSP_EB) //gsp chip module enable bit
+
+#endif
+
+
+#define GSP_REG_BASE        (SPRD_GSP_BASE)
+#define GSP_HOR_COEF_BASE   (GSP_REG_BASE + 0x90)
+#define GSP_VER_COEF_BASE   (GSP_REG_BASE + 0x110)
+#define GSP_L1_BASE			(GSP_REG_BASE + 0x60)
 
 #ifndef GSP_ASSERT
 #define GSP_ASSERT()        do{}while(1)
 #endif
 
+#define GSP_EMC_CLOCK_PARENT_NAME		("clk_aon_apb")
+#define GSP_EMC_CLOCK_NAME				("clk_disp_emc")
 
 
 #if 0
@@ -163,6 +197,8 @@ extern   "C"
 #define GSP_AHB_CLOCK_GET()      	sci_glb_read(GSP_AHB_CLOCK_BASE,0x3)
 
 
+
+#if 0
 //0x402B001C multi-media force shutdown [25]
 //0x402E0000 MM enable
 #define GSP_ENABLE_MM(addr)\
@@ -170,6 +206,17 @@ extern   "C"
     sci_glb_clr((SPRD_PMU_BASE+0x1c),(1<<25));\
     sci_glb_set(SPRD_AONAPB_BASE,(1<<25));\
 }
+#else
+//0x402B001C multi-media force shutdown [25]
+//0x402E0000 MM enable
+#define GSP_ENABLE_MM(addr)\
+{\
+    sci_glb_clr((REG_PMU_APB_PD_MM_TOP_CFG),(BIT_PD_MM_TOP_FORCE_SHUTDOWN));\
+    sci_glb_set(REG_AON_APB_APB_EB0,(BIT_PD_MM_TOP_FORCE_SHUTDOWN));\
+}
+
+#endif
+
 
 #define GSP_HWMODULE_SOFTRESET()\
     sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
