@@ -51,4 +51,9 @@
 
 #define GPIO_SDIO_DETECT      140
 
+#define GPIO_NFC_IRQ     57
+
+#define GPIO_NFC_VEN     49
+#define GPIO_NFC_FIRM    50
+
 #endif

@@ -4,7 +4,7 @@
 
 menuconfig NFC_DEVICES
 	bool "Near Field Communication (NFC) devices"
-	default n
+	default y
 	---help---
 	  You'll have to say Y if your computer contains an NFC device that
 	  you want to use under Linux.
@@ -17,8 +17,7 @@ if NFC_DEVICES
 config PN544_NFC
 	tristate "PN544 NFC driver"
 	depends on I2C
-	select CRC_CCITT
-	default n
+	default y
 	---help---
 	  Say yes if you want PN544 Near Field Communication driver.
 	  This is for i2c connected version. If unsure, say N here.
