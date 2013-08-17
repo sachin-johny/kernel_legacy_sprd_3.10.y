@@ -46,8 +46,63 @@ extern void sc8830_standby_iram_end(void);
 extern void sc8830_standby_exit_iram(void);
 extern int sc_cpuidle_init(void);
 void pm_ana_ldo_config(void);
-
-
+struct ap_ahb_reg_bak {
+	u32 ahb_eb;
+	u32 ca7_ckg_cfg;
+	u32 misc_ckg_en;
+	u32 misc_cfg;
+};
+struct ap_clk_reg_bak {
+	u32 ap_ahb_cfg;
+	u32 ap_apb_cfg;
+	u32 clk_gsp_cfg;
+	u32 dispc0_cfg;
+	u32 dispc0_dbi_cfg;
+	u32 dispc0_dpi_cfg;
+	u32 dispc1_cfg;
+	u32 dispc1_dbi_cfg;
+	u32 dispc1_dpi_cfg;
+	u32 nfc_cfg;
+	u32 sdio0_cfg;
+	u32 sdio1_cfg;
+	u32 sdio2_cfg;
+	u32 emmc_cfg;
+	u32 gps_cfg;
+	u32 gps_tcxo_cfg;
+	u32 usb_ref_cfg;
+	u32 uart0_cfg;
+	u32 uart1_cfg;
+	u32 uart2_cfg;
+	u32 uart3_cfg;
+	u32 uart4_cfg;
+	u32 i2c0_cfg;
+	u32 i2c1_cfg;
+	u32 i2c2_cfg;
+	u32 i2c3_cfg;
+	u32 i2c4_cfg;
+	u32 spi0_cfg;
+	u32 spi1_cfg;
+	u32 spi2_cfg;
+	u32 iis0_cfg;
+	u32 iis1_cfg;
+	u32 iis2_cfg;
+	u32 iis3_cfg;
+};
+struct ap_apb_reg_bak {
+	u32 apb_eb;
+	u32 usb_phy_tune;
+	u32 usb_phy_ctrl;
+	u32 apb_misc_ctrl;
+};
+struct pub_reg_bak {
+	u32 ddr_qos_cfg1;
+	u32 ddr_qos_cfg2;
+	u32 ddr_qos_cfg3;
+};
+static struct ap_ahb_reg_bak ap_ahb_reg_saved;
+static struct ap_clk_reg_bak ap_clk_reg_saved;
+static struct ap_apb_reg_bak ap_apb_reg_saved;
+static struct pub_reg_bak pub_reg_saved;
 static void setup_autopd_mode(void)
 {
 	if (soc_is_scx35_v0())
@@ -179,12 +234,19 @@ void disable_ahb_module(void)
 }
 void bak_restore_ahb(int bak)
 {
-	static uint32_t ahb_eb;
+	volatile u32 i;
 	if(bak){
-		ahb_eb = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
-	}else{
-		sci_glb_clr(REG_AP_AHB_AP_SYS_FORCE_SLEEP_CFG, BIT_AP_PERI_FORCE_SLP);
-		sci_glb_write(REG_AP_AHB_AHB_EB, ahb_eb, -1UL);
+		ap_ahb_reg_saved.ahb_eb                 = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
+		ap_ahb_reg_saved.ca7_ckg_cfg            = sci_glb_read(REG_AP_AHB_CA7_CKG_CFG, -1UL);
+		ap_ahb_reg_saved.misc_ckg_en            = sci_glb_read(REG_AP_AHB_MISC_CKG_EN, -1UL);
+		ap_ahb_reg_saved.misc_cfg               = sci_glb_read(REG_AP_AHB_MISC_CFG, -1UL);
+	} else{
+		sci_glb_write(REG_AP_AHB_AHB_EB, 	ap_ahb_reg_saved.ahb_eb, -1UL);
+		sci_glb_write(REG_AP_AHB_CA7_CKG_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg & (~0x7), -1UL);
+		for(i = 0; i < 20; i++);
+		sci_glb_write(REG_AP_AHB_CA7_CKG_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg, -1UL);
+		sci_glb_write(REG_AP_AHB_MISC_CKG_EN, 	ap_ahb_reg_saved.misc_ckg_en, -1UL);
+		sci_glb_write(REG_AP_AHB_MISC_CFG, 	ap_ahb_reg_saved.misc_cfg, -1UL);
 	}
 	return;
 }
@@ -199,13 +261,143 @@ void disable_apb_module(void)
 }
 void bak_restore_apb(int bak)
 {
-	static uint32_t apb_eb;
 	if(bak){
-		apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
+		ap_apb_reg_saved.apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
+		ap_apb_reg_saved.apb_misc_ctrl = sci_glb_read(REG_AP_APB_APB_MISC_CTRL, -1UL);
 	}else{
-		sci_glb_write(REG_AP_APB_APB_EB, apb_eb, -1UL);
+		sci_glb_write(REG_AP_APB_APB_EB, ap_apb_reg_saved.apb_eb, -1UL);
+		sci_glb_write(REG_AP_APB_APB_MISC_CTRL, ap_apb_reg_saved.apb_misc_ctrl, -1UL);
 	}
 	return;
+}
+static void bak_ap_clk_reg(int bak)
+{
+	volatile u32 i;
+	if(bak) {
+		ap_clk_reg_saved.ap_ahb_cfg      = sci_glb_read(REG_AP_CLK_AP_AHB_CFG      , -1UL);
+		ap_clk_reg_saved.ap_apb_cfg      = sci_glb_read(REG_AP_CLK_AP_APB_CFG      , -1UL);
+		ap_clk_reg_saved.clk_gsp_cfg     = sci_glb_read(REG_AP_CLK_GSP_CFG         , -1UL);
+		ap_clk_reg_saved.dispc0_cfg      = sci_glb_read(REG_AP_CLK_DISPC0_CFG      , -1UL);
+		ap_clk_reg_saved.dispc0_dbi_cfg  = sci_glb_read(REG_AP_CLK_DISPC0_DBI_CFG  , -1UL);
+		ap_clk_reg_saved.dispc0_dpi_cfg  = sci_glb_read(REG_AP_CLK_DISPC0_DPI_CFG  , -1UL);
+		ap_clk_reg_saved.dispc1_cfg      = sci_glb_read(REG_AP_CLK_DISPC1_CFG      , -1UL);
+		ap_clk_reg_saved.dispc1_dbi_cfg  = sci_glb_read(REG_AP_CLK_DISPC1_DBI_CFG  , -1UL);
+		ap_clk_reg_saved.dispc1_dpi_cfg  = sci_glb_read(REG_AP_CLK_DISPC1_DPI_CFG  , -1UL);
+		ap_clk_reg_saved.nfc_cfg         = sci_glb_read(REG_AP_CLK_NFC_CFG         , -1UL);
+		ap_clk_reg_saved.sdio0_cfg       = sci_glb_read(REG_AP_CLK_SDIO0_CFG       , -1UL);
+		ap_clk_reg_saved.sdio1_cfg       = sci_glb_read(REG_AP_CLK_SDIO1_CFG       , -1UL);
+		ap_clk_reg_saved.sdio2_cfg       = sci_glb_read(REG_AP_CLK_SDIO2_CFG       , -1UL);
+		ap_clk_reg_saved.emmc_cfg        = sci_glb_read(REG_AP_CLK_EMMC_CFG        , -1UL);
+		ap_clk_reg_saved.gps_cfg         = sci_glb_read(REG_AP_CLK_GPS_CFG         , -1UL);
+		ap_clk_reg_saved.gps_tcxo_cfg    = sci_glb_read(REG_AP_CLK_GPS_TCXO_CFG    , -1UL);
+		ap_clk_reg_saved.usb_ref_cfg     = sci_glb_read(REG_AP_CLK_USB_REF_CFG     , -1UL);
+		ap_clk_reg_saved.uart0_cfg       = sci_glb_read(REG_AP_CLK_UART0_CFG       , -1UL);
+		ap_clk_reg_saved.uart1_cfg       = sci_glb_read(REG_AP_CLK_UART1_CFG       , -1UL);
+		ap_clk_reg_saved.uart2_cfg       = sci_glb_read(REG_AP_CLK_UART2_CFG       , -1UL);
+		ap_clk_reg_saved.uart3_cfg       = sci_glb_read(REG_AP_CLK_UART3_CFG       , -1UL);
+		ap_clk_reg_saved.uart4_cfg       = sci_glb_read(REG_AP_CLK_UART4_CFG       , -1UL);
+		ap_clk_reg_saved.i2c0_cfg        = sci_glb_read(REG_AP_CLK_I2C0_CFG        , -1UL);
+		ap_clk_reg_saved.i2c1_cfg        = sci_glb_read(REG_AP_CLK_I2C1_CFG        , -1UL);
+		ap_clk_reg_saved.i2c2_cfg        = sci_glb_read(REG_AP_CLK_I2C2_CFG        , -1UL);
+		ap_clk_reg_saved.i2c3_cfg        = sci_glb_read(REG_AP_CLK_I2C3_CFG        , -1UL);
+		ap_clk_reg_saved.i2c4_cfg        = sci_glb_read(REG_AP_CLK_I2C4_CFG        , -1UL);
+		ap_clk_reg_saved.spi0_cfg        = sci_glb_read(REG_AP_CLK_SPI0_CFG        , -1UL);
+		ap_clk_reg_saved.spi1_cfg        = sci_glb_read(REG_AP_CLK_SPI1_CFG        , -1UL);
+		ap_clk_reg_saved.spi2_cfg        = sci_glb_read(REG_AP_CLK_SPI2_CFG        , -1UL);
+		ap_clk_reg_saved.iis0_cfg        = sci_glb_read(REG_AP_CLK_IIS0_CFG        , -1UL);
+		ap_clk_reg_saved.iis1_cfg        = sci_glb_read(REG_AP_CLK_IIS1_CFG        , -1UL);
+		ap_clk_reg_saved.iis2_cfg        = sci_glb_read(REG_AP_CLK_IIS2_CFG        , -1UL);
+		ap_clk_reg_saved.iis3_cfg        = sci_glb_read(REG_AP_CLK_IIS3_CFG        , -1UL);
+	}
+	else {
+		sci_glb_write(REG_AP_CLK_AP_AHB_CFG      , ap_clk_reg_saved.ap_ahb_cfg      ,-1UL);
+		sci_glb_write(REG_AP_CLK_AP_APB_CFG      , ap_clk_reg_saved.ap_apb_cfg      ,-1UL);
+		sci_glb_write(REG_AP_CLK_GSP_CFG         , ap_clk_reg_saved.clk_gsp_cfg     ,-1UL);
+		sci_glb_write(REG_AP_CLK_DISPC0_CFG      , ap_clk_reg_saved.dispc0_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC0_CFG      , ap_clk_reg_saved.dispc0_cfg      ,-1UL);
+		sci_glb_write(REG_AP_CLK_DISPC0_DBI_CFG  , ap_clk_reg_saved.dispc0_dbi_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC0_DBI_CFG  , ap_clk_reg_saved.dispc0_dbi_cfg  ,-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC0_DPI_CFG  , ap_clk_reg_saved.dispc0_dpi_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC0_DPI_CFG  , ap_clk_reg_saved.dispc0_dpi_cfg  ,-1UL);
+		sci_glb_write(REG_AP_CLK_DISPC1_CFG      , ap_clk_reg_saved.dispc1_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC1_CFG      , ap_clk_reg_saved.dispc1_cfg      ,-1UL);
+		sci_glb_write(REG_AP_CLK_DISPC1_DBI_CFG  , ap_clk_reg_saved.dispc1_dbi_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC1_DBI_CFG  , ap_clk_reg_saved.dispc1_dbi_cfg  ,-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC1_DPI_CFG  , ap_clk_reg_saved.dispc1_dpi_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_DISPC1_DPI_CFG  , ap_clk_reg_saved.dispc1_dpi_cfg  ,-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_NFC_CFG         , ap_clk_reg_saved.nfc_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_NFC_CFG         , ap_clk_reg_saved.nfc_cfg         ,-1UL);
+		sci_glb_write(REG_AP_CLK_SDIO0_CFG       , ap_clk_reg_saved.sdio0_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_SDIO0_CFG       , ap_clk_reg_saved.sdio0_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_SDIO1_CFG       , ap_clk_reg_saved.sdio1_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_SDIO2_CFG       , ap_clk_reg_saved.sdio2_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_EMMC_CFG        , ap_clk_reg_saved.emmc_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_GPS_CFG         , ap_clk_reg_saved.gps_cfg         ,-1UL);
+		sci_glb_write(REG_AP_CLK_GPS_TCXO_CFG    , ap_clk_reg_saved.gps_tcxo_cfg    ,-1UL);
+		sci_glb_write(REG_AP_CLK_USB_REF_CFG     , ap_clk_reg_saved.usb_ref_cfg     ,-1UL);
+		sci_glb_write(REG_AP_CLK_UART0_CFG       , ap_clk_reg_saved.uart0_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_UART0_CFG       , ap_clk_reg_saved.uart0_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_UART1_CFG       , ap_clk_reg_saved.uart1_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_UART1_CFG       , ap_clk_reg_saved.uart1_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_UART2_CFG       , ap_clk_reg_saved.uart2_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_UART2_CFG       , ap_clk_reg_saved.uart2_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_UART3_CFG       , ap_clk_reg_saved.uart3_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_UART3_CFG       , ap_clk_reg_saved.uart3_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_UART4_CFG       , ap_clk_reg_saved.uart4_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_UART4_CFG       , ap_clk_reg_saved.uart4_cfg       ,-1UL);
+		sci_glb_write(REG_AP_CLK_I2C0_CFG        , ap_clk_reg_saved.i2c0_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_I2C0_CFG        , ap_clk_reg_saved.i2c0_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_I2C1_CFG        , ap_clk_reg_saved.i2c1_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_I2C1_CFG        , ap_clk_reg_saved.i2c1_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_I2C2_CFG        , ap_clk_reg_saved.i2c2_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_I2C2_CFG        , ap_clk_reg_saved.i2c2_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_I2C3_CFG        , ap_clk_reg_saved.i2c3_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_I2C3_CFG        , ap_clk_reg_saved.i2c3_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_I2C4_CFG        , ap_clk_reg_saved.i2c4_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_I2C4_CFG        , ap_clk_reg_saved.i2c4_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_SPI0_CFG        , ap_clk_reg_saved.spi0_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_SPI0_CFG        , ap_clk_reg_saved.spi0_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_SPI1_CFG        , ap_clk_reg_saved.spi1_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_SPI1_CFG        , ap_clk_reg_saved.spi1_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_SPI2_CFG        , ap_clk_reg_saved.spi2_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_SPI2_CFG        , ap_clk_reg_saved.spi2_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_IIS0_CFG        , ap_clk_reg_saved.iis0_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_IIS0_CFG        , ap_clk_reg_saved.iis0_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_IIS1_CFG        , ap_clk_reg_saved.iis1_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_IIS1_CFG        , ap_clk_reg_saved.iis1_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_IIS2_CFG        , ap_clk_reg_saved.iis2_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_IIS2_CFG        , ap_clk_reg_saved.iis2_cfg        ,-1UL);
+		sci_glb_write(REG_AP_CLK_IIS3_CFG        , ap_clk_reg_saved.iis3_cfg  & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_IIS3_CFG        , ap_clk_reg_saved.iis3_cfg        ,-1UL);
+	}
 }
 void disable_aon_module(void)
 {
@@ -251,21 +443,18 @@ void bak_restore_ana(int bak)
 }
 static void bak_restore_pub(int bak)
 {
-	static u32 ddr_dqs1;
-	static u32 ddr_dqs2;
-	static u32 ddr_dqs3;
 	/*v0 not set auto power down*/
 	if (soc_is_scx35_v0()) {
 		return ;
 	}
 	if(bak) {
-		ddr_dqs1 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG1, -1UL);
-		ddr_dqs2 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG2, -1UL);
-		ddr_dqs3 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG3, -1UL);
+		pub_reg_saved.ddr_qos_cfg1 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG1, -1UL);
+		pub_reg_saved.ddr_qos_cfg2 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG2, -1UL);
+		pub_reg_saved.ddr_qos_cfg3 = sci_glb_read(REG_PUB_APB_DDR_QOS_CFG3, -1UL);
 	} else {
-		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG1, ddr_dqs1, -1UL);
-		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG2, ddr_dqs2, -1UL);
-		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG3, ddr_dqs3, -1UL);
+		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG1, pub_reg_saved.ddr_qos_cfg1, -1UL);
+		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG2, pub_reg_saved.ddr_qos_cfg2, -1UL);
+		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG3, pub_reg_saved.ddr_qos_cfg3, -1UL);
 	}
 }
 #define REG_PIN_XTLEN                   ( SPRD_PIN_BASE + 0x0138 )
@@ -573,13 +762,15 @@ static __used void wait_until_uart1_tx_done(void)
 	}
 }
 #define SAVE_GLOBAL_REG do{ \
+	bak_restore_apb(1); \
+	bak_ap_clk_reg(1); \
 	bak_restore_ahb(1); \
 	bak_restore_aon(1); \
-	bak_restore_apb(1); \
 	bak_restore_pub(1); \
 	}while(0)
 #define RESTORE_GLOBAL_REG do{ \
 	bak_restore_apb(0); \
+	bak_ap_clk_reg(0); \
 	bak_restore_aon(0); \
 	bak_restore_ahb(0); \
 	bak_restore_pub(0); \
