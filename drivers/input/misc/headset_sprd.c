@@ -73,7 +73,7 @@
 #define HID_CFG3 (0x0040)
 #define HID_CFG4 (0x0044)
 #endif
-#define HEADMIC_DETECT_GLB_REG(X)   (ANA_REGS_GLB_BASE + (X))//yasin 0x40038800+0x0000 ???
+#define HEADMIC_DETECT_GLB_REG(X)   (ANA_REGS_GLB_BASE + (X))//0x40038800+0x0000
 
 #define HEADMIC_DETECT_INSRT_VOL_SHIFT  (5)
 #define HEADMIC_DETECT_INSRT_VOL_MSK    (0x3 << HEADMIC_DETECT_INSRT_VOL_SHIFT)
@@ -138,15 +138,8 @@ struct workqueue_struct *reg_dump_work_queue;
 static int adie_chip_id = 0;
 extern int sprd_codec_headmic_bias_control(int on);
 
+#if 0
 static BLOCKING_NOTIFIER_HEAD(headset_plug_notify_list);
-
-static struct sprd_headset headset = {
-	.detect = {
-		.sdev = {
-			.name = "h2w",
-		}
-	},
-};
 
 int register_headset_plug_notifier(struct notifier_block *nb)
 {
@@ -159,6 +152,15 @@ int unregister_headset_plug_notifier(struct notifier_block *nb)
 	return blocking_notifier_chain_unregister(&headset_plug_notify_list, nb);
 }
 EXPORT_SYMBOL(unregister_headset_plug_notifier);
+#endif
+
+static struct sprd_headset headset = {
+	.detect = {
+		.sdev = {
+			.name = "h2w",
+		}
+	},
+};
 
 /*  on = 0: open headmic detect circuit */
 static void headset_detect_circuit(unsigned on)
@@ -434,39 +436,43 @@ static void headset_detect_work_func(struct work_struct *work)
 
 	ENTER
 	//headset_pwr_on(1);
-	state = gpio_get_value(pdata->detect_gpio);//headset_plug_in();
+	state = gpio_get_value(pdata->detect_gpio);//state = headset_plug_in();
 
 	irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
-	blocking_notifier_call_chain(&headset_plug_notify_list, state, ht_detect);
+	//blocking_notifier_call_chain(&headset_plug_notify_list, state, ht_detect);
 	if(state) {
 		headset_mic_level(1);
 		gpio_direction_output(pdata->switch_gpio, 0);
 		mdelay(30);
-
 		headset_type = detect_headset_type();
-		PRINT_INFO("headset_type = %d\n", headset_type);
-
 		switch (headset_type) {
 		case HEADSET_NORTH_AMERICA:
+			PRINT_INFO("headset_type = %d (HEADSET_NORTH_AMERICA)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 1);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
 			headset_mic_level(1);
 			headset_irq_enable(1, ht->button.irq);
 			break;
 		case HEADSET_NORMAL:
+			PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
 			headset_mic_level(1);
 			headset_irq_enable(1, ht->button.irq);
 			break;
 		case HEADSET_NO_MIC:
+			PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_LOW);
 			headset_irq_enable(1, ht->button.irq);
 			headset_mic_level(0);
 			break;
 		case HEADSET_APPLE:
+			PRINT_INFO("headset_type = %d (HEADSET_APPLE)\n", headset_type);
+			PRINT_INFO("we have not yet implemented this in the code\n");
+			break;
 		default:
+			PRINT_INFO("headset_type = %d (HEADSET_UNKNOWN)\n", headset_type);
 			break;
 		}
 
@@ -487,7 +493,6 @@ static void headset_detect_work_func(struct work_struct *work)
 	} else {
 		//headset_pwr_on(0);
 		if (ht_detect->headphone) {
-
 			PRINT_INFO("headphone plug out\n");
 		}
 		else {
@@ -495,8 +500,8 @@ static void headset_detect_work_func(struct work_struct *work)
 		}
 		ht_detect->type = BIT_HEADSET_OUT;
 		switch_set_state(&ht_detect->sdev, ht_detect->type);
-        //Bug 185497,  step 4: Release all headset buttons  when head set plug out
-         headset_button_release();
+		//Bug 185497,  step 4: Release all headset buttons  when head set plug out
+		headset_button_release();
 		gpio_direction_output(pdata->switch_gpio, 1);//force a choice of HEADSET_NORTH_AMERICA for next insert
 	}
 }
@@ -783,23 +788,10 @@ fail1:
 #ifdef CONFIG_PM
 static int headset_suspend(struct platform_device *dev, pm_message_t state)
 {
-	int irq_en = 0;
-
 	PRINT_INFO("suspend (det_irq=%d    but_irq=%d)\n", headset.detect.irq, headset.button.irq);
-
-	irq_en = sci_adi_read(ANA_CTL_EIC_BASE + 0x18);
-	PRINT_INFO("before disable: ANA EIC int en 0x%08x\n", irq_en);
-
-	disable_irq(headset.detect.irq);
 	//disable_irq(headset.button.irq);
+	disable_irq(headset.detect.irq);
 
-	if (0xA000 == adie_chip_id)
-		headset_reg_clr_bit((ANA_CTL_EIC_BASE + 0x18), (BIT(4)));
-	else
-		headset_reg_clr_bit((ANA_CTL_EIC_BASE + 0x18), (BIT(5)));
-
-	irq_en = sci_adi_read(ANA_CTL_EIC_BASE + 0x18);
-	PRINT_INFO("after disable: ANA EIC int en 0x%08x\n", irq_en);
 #if 0
 	headset_reg_msk_or(0x01, HEADMIC_BUTTON_REG(HID_CFG0), 0x01);
 	headset_reg_msk_or(0x32, HEADMIC_BUTTON_REG(HID_CFG2), 0x0f);
@@ -809,30 +801,19 @@ static int headset_suspend(struct platform_device *dev, pm_message_t state)
 	headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
 	//headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
 #endif
+
 	headset_pwr_on(0);
 	return 0;
 }
 
 static int headset_resume(struct platform_device *dev)
 {
-	int irq_en = 0;
-
 	PRINT_INFO("resume (det_irq=%d    but_irq=%d)\n", headset.detect.irq, headset.button.irq);
 	headset_pwr_on(1);
-
-	irq_en = sci_adi_read(ANA_CTL_EIC_BASE + 0x18);
-	PRINT_INFO("before enable: ANA EIC int en 0x%08x\n", irq_en);
-
-	//enable_irq(headset.button.irq);
+	msleep(20);
 	enable_irq(headset.detect.irq);
+	//enable_irq(headset.button.irq);
 
-	if (0xA000 == adie_chip_id)
-		headset_reg_set_bit((ANA_CTL_EIC_BASE + 0x18), (BIT(4)));
-	else
-		headset_reg_set_bit((ANA_CTL_EIC_BASE + 0x18), (BIT(5)));
-
-	irq_en = sci_adi_read(ANA_CTL_EIC_BASE + 0x18);
-	PRINT_INFO("after enable: ANA EIC int en 0x%08x\n", irq_en);
 #if 0
 	//headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
 	headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
@@ -841,6 +822,7 @@ static int headset_resume(struct platform_device *dev)
 	headset_reg_clr_bit(HEADMIC_BUTTON_REG(HID_CFG3), 0xffff);
 	headset_reg_clr_bit(HEADMIC_BUTTON_REG(HID_CFG4), 0xffff);
 #endif
+
 	return 0;
 }
 #else
