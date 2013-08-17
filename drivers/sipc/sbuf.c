@@ -479,9 +479,6 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 		if(ringhd->rxbuf_wrptr - ringhd->rxbuf_rdptr == ringhd->rxbuf_size - rxsize) {
 			smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_RDPTR, bufid);
 			smsg_send(dst, &mevt, -1);
-		} else if (ringhd->rxbuf_wrptr - ringhd->rxbuf_rdptr > ringhd->rxbuf_size - rxsize) {
-			/* ring buf has overlap , it shoud not happen so bug_on */
-			BUG_ON(1);
 		}
 
 		left -= rxsize;
