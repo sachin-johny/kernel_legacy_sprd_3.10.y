@@ -24,6 +24,7 @@
 #include <linux/spipe.h>
 #include <linux/spool.h>
 #include <linux/seth.h>
+#include <linux/stty.h>
 #include <linux/sprd_thm.h>
 #include <sound/saudio.h>
 #include <asm/pmu.h>
@@ -1346,6 +1347,123 @@ struct platform_device sprd_saudio_wcdma_device = {
 	.dev        = {.platform_data=&sprd_saudio_wcdma},
 };
 #endif
+
+#ifdef CONFIG_SIPC_WCN
+
+#define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x54)
+#define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xA8)
+#define WCN_REG_STATUS_ADDR                    (SPRD_PMU_BASE + 0xC0)
+
+static int native_wcnmodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x80000};
+	memcpy(SPRD_IRAM1_BASE + 0x3000, cp2data, sizeof(cp2data));
+
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x02000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	while(1)
+	{
+		state = __raw_readl(WCN_REG_STATUS_ADDR);
+		if (!(state & (0xf<<28)))
+		break;
+	}
+
+	/* clear cp2 force deep sleep */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x10000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	/* clear reset cp2*/
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~0x00000004));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+	return 0;
+}
+static int native_wcnmodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp2 */
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) | 0x00000004));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+
+	/* cp2 force deep sleep */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | ~0x10000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | ~0x02000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+	return 0;
+}
+
+static struct cproc_init_data sprd_cproc_wcn_pdata = {
+	.devname        = "cpwcn",
+	.base           = WCN_START_ADDR,
+	.maxsz          = WCN_TOTAL_SIZE,
+	.start          = native_wcnmodem_start,
+	.stop           = native_wcnmodem_stop,
+	.wdtirq         = IRQ_CP2_WDG_INT,
+	.segnr          = 1,
+	.segs           = {
+		{
+		.name  = "modem",
+		.base  = WCN_START_ADDR + 0x80000,
+		.maxsz = 0x00800000,
+		},
+	},
+};
+struct platform_device sprd_cproc_wcn_device = {
+	.name           = "sprd_cproc",
+	.id             = 2,
+	.dev            = {.platform_data = &sprd_cproc_wcn_pdata},
+};
+
+
+static struct spipe_init_data sprd_spipe_wcn_pdata = {
+	.name           = "spipe_wcn",
+	.dst            = SIPC_ID_WCN,
+	.channel        = SMSG_CH_PIPE,
+	.ringnr         = 12,
+	.txbuf_size     = 4096,
+	.rxbuf_size     = 4096,
+};
+struct platform_device sprd_spipe_wcn_device = {
+	.name           = "spipe",
+	.id             = 6,
+	.dev            = {.platform_data = &sprd_spipe_wcn_pdata},
+};
+
+static struct spipe_init_data sprd_slog_wcn_pdata = {
+	.name           = "slog_wcn",
+	.dst            = SIPC_ID_WCN,
+	.channel        = SMSG_CH_PLOG,
+	.ringnr         = 1,
+	.txbuf_size     = 32 * 1024,
+	.rxbuf_size     = 256 * 1024,
+};
+struct platform_device sprd_slog_wcn_device = {
+	.name           = "spipe",
+	.id             = 7,
+	.dev            = {.platform_data = &sprd_slog_wcn_pdata},
+};
+
+static struct stty_init_data sprd_sttybt_td_pdata = {
+	.name		= "sttybt",
+	.dst		= SIPC_ID_WCN,
+	.channel	= SMSG_CH_PIPE,
+	.bufid		= 10,
+};
+struct platform_device sprd_sttybt_td_device = {
+	.name           = "sttybt",
+	.id             = 0,
+	.dev		= {.platform_data = &sprd_sttybt_td_pdata},
+};
+
+#endif
+
 
 struct sysdump_mem sprd_dump_mem[] = {
 	{

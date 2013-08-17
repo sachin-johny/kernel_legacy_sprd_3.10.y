@@ -31,4 +31,12 @@ config SIPC_SETH
          This driver supports the Spreadtrum Ethernet based on share
          memory. Say Y here if you want to use it.
 
+config SIPC_STTY
+       bool "Sprd Stty driver"
+       default n
+       depends on SIPC
+       help
+         This driver supports the Spreadtrum Ethernet based on share
+         memory. Say Y here if you want to use it.
+
 endmenu

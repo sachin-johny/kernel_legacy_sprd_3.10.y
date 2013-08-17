@@ -191,6 +191,13 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_saudio_wcdma_device,
  	&sprd_saudio_voip_device, 
 #endif
+#ifdef CONFIG_SIPC_WCN
+	&sprd_cproc_wcn_device,
+	&sprd_spipe_wcn_device,
+	&sprd_slog_wcn_device,
+	&sprd_sttybt_td_device,
+#endif
+
 	&kb_backlight_device,
 	&sprd_a7_pmu_device,
 	&sprd_thm_device,
