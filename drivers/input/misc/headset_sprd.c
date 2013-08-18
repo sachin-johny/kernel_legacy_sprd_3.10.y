@@ -373,7 +373,7 @@ static void headset_button_release(void)
 		if ( HEADSET_BUTTON_STATE_PRESSED == pdata->headset_button[i].state )
 		{
 			input_event(ht_button->input_dev, EV_KEY, pdata->headset_button[i].code, 0);
-			pr_info("SPRD_HEADSET::%s button = %d, relase\n", __FUNCTION__, pdata->headset_button[i].code);
+			PRINT_INFO("button = %d, relase\n", pdata->headset_button[i].code);
 			input_sync(ht_button->input_dev);
 			pdata->headset_button[i].state = HEADSET_BUTTON_STATE_RELASED;
 		}
@@ -401,7 +401,7 @@ static void headset_button_work_func(struct work_struct *work)
 	adc_mic = adc_val[ADC_FIFO_CNT/2];
 	msleep(200);
 	state = state | headset_button_down();
-	pr_info("SPRD_HEADSET::%s adc_mic = %d state = %d\n", __FUNCTION__, adc_mic, state);
+	PRINT_INFO("adc_mic = %d state = %d\n", adc_mic, state);
 	if(state) {
 		for (i = 0; i < pdata->nbuttons; i++) {
 			if (adc_mic >= pdata->headset_button[i].adc_min &&
@@ -470,7 +470,7 @@ static void headset_detect_work_func(struct work_struct *work)
 			PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_LOW);
-			headset_irq_enable(1, ht->button.irq);
+			headset_irq_enable(0, ht->button.irq);
 			headset_mic_level(0);
 			break;
 		case HEADSET_APPLE:
@@ -505,6 +505,8 @@ static void headset_detect_work_func(struct work_struct *work)
 		/***polling ana_sts0 to avoid the hardware defect***/
 
 	} else {
+
+		headset_irq_enable(0, ht->button.irq);
 
 		/***polling ana_sts0 to avoid the hardware defect***/
 		if (0xA000 != adie_chip_id) {
@@ -654,9 +656,12 @@ static void sts_check_func(struct work_struct *work)
 
 	ana_sts0 = sci_adi_read(ANA_AUDCFGA_INT_BASE+0xC0);//arm base address:0x40038600
 
-	PRINT_INFO("sts_check_func\n");
+	PRINT_DBG("sts_check_func\n");
 
 	if(((0x00000060 & ana_sts0) != 0x00000060) && (1 == plug_in)) {
+
+		headset_irq_enable(0, ht->button.irq);
+
 		if (ht_detect->headphone) {
 			PRINT_INFO("headphone plug out\n");
 		}
@@ -694,7 +699,7 @@ static void sts_check_func(struct work_struct *work)
 			PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_LOW);
-			headset_irq_enable(1, ht->button.irq);
+			headset_irq_enable(0, ht->button.irq);
 			headset_mic_level(0);
 			break;
 		case HEADSET_APPLE:
@@ -752,7 +757,7 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
 
 	error = switch_dev_register(&ht->detect.sdev);
 	if (error < 0) {
-		pr_err("switch_dev_register failed!\n");
+		PRINT_ERR("switch_dev_register failed!\n");
 		return error;
 	}
 
@@ -901,7 +906,7 @@ fail1:
 static int headset_suspend(struct platform_device *dev, pm_message_t state)
 {
 	PRINT_INFO("suspend (det_irq=%d    but_irq=%d)\n", headset.detect.irq, headset.button.irq);
-	//disable_irq(headset.button.irq);
+	disable_irq(headset.button.irq);
 	disable_irq(headset.detect.irq);
 
 #if 0
@@ -924,7 +929,7 @@ static int headset_resume(struct platform_device *dev)
 	headset_pwr_on(1);
 	msleep(20);
 	enable_irq(headset.detect.irq);
-	//enable_irq(headset.button.irq);
+	enable_irq(headset.button.irq);
 
 #if 0
 	//headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
