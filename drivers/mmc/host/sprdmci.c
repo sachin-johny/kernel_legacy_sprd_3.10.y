@@ -40,7 +40,7 @@
 #include "sdhci.h"
 #include "sprdmci.h"
 
-#define SDHCI_BUS_SCAN
+//#define SDHCI_BUS_SCAN
 #define MMC_HOST_WAKEUP_SUPPORTED
 #define INT_IRQ_EN				(SPRD_INTCV_BASE + 0x08)
 #define HOST_WAKEUP_GPIO  22
