@@ -135,6 +135,12 @@ struct work_struct reg_dump_work;
 struct workqueue_struct *reg_dump_work_queue;
 #endif
 
+/***polling ana_sts0 to avoid the hardware defect***/
+struct delayed_work sts_check_work;
+struct workqueue_struct *sts_check_work_queue;
+static int plug_in = 1;//default is plug in
+/***polling ana_sts0 to avoid the hardware defect***/
+
 static int adie_chip_id = 0;
 extern int sprd_codec_headmic_bias_control(int on);
 
@@ -490,7 +496,23 @@ static void headset_detect_work_func(struct work_struct *work)
 			switch_set_state(&ht_detect->sdev, ht_detect->type);
 			PRINT_INFO("headset plug in\n");
 		}
+
+		/***polling ana_sts0 to avoid the hardware defect***/
+		if (0xA000 != adie_chip_id) {
+			plug_in = 1;
+			queue_delayed_work(sts_check_work_queue, &sts_check_work, msecs_to_jiffies(1000));
+		}
+		/***polling ana_sts0 to avoid the hardware defect***/
+
 	} else {
+
+		/***polling ana_sts0 to avoid the hardware defect***/
+		if (0xA000 != adie_chip_id) {
+			cancel_delayed_work_sync(&sts_check_work);
+			plug_in = 0;
+		}
+		/***polling ana_sts0 to avoid the hardware defect***/
+
 		//headset_pwr_on(0);
 		if (ht_detect->headphone) {
 			PRINT_INFO("headphone plug out\n");
@@ -621,6 +643,90 @@ static void reg_dump_func(struct work_struct *work)
 }
 #endif
 
+/***polling ana_sts0 to avoid the hardware defect***/
+static void sts_check_func(struct work_struct *work)
+{
+	int ana_sts0 = 0;
+	struct sprd_headset *ht = &headset;
+	struct headset_detect_data *ht_detect = &headset.detect;
+	struct sprd_headset_detect_platform_data *pdata = headset.detect.platform_data;
+	SPRD_HEADSET_TYPE headset_type;
+
+	ana_sts0 = sci_adi_read(ANA_AUDCFGA_INT_BASE+0xC0);//arm base address:0x40038600
+
+	PRINT_INFO("sts_check_func\n");
+
+	if(((0x00000060 & ana_sts0) != 0x00000060) && (1 == plug_in)) {
+		if (ht_detect->headphone) {
+			PRINT_INFO("headphone plug out\n");
+		}
+		else {
+			PRINT_INFO("headset plug out\n");
+		}
+		ht_detect->type = BIT_HEADSET_OUT;
+		switch_set_state(&ht_detect->sdev, ht_detect->type);
+		//Bug 185497,  step 4: Release all headset buttons  when head set plug out
+		headset_button_release();
+		gpio_direction_output(pdata->switch_gpio, 1);//force a choice of HEADSET_NORTH_AMERICA for next insert
+		plug_in = 0;
+	}
+	if(((0x00000060 & ana_sts0) == 0x00000060) && (0 == plug_in)) {
+		headset_mic_level(1);
+		gpio_direction_output(pdata->switch_gpio, 0);
+		mdelay(30);
+		headset_type = detect_headset_type();
+		switch (headset_type) {
+		case HEADSET_NORTH_AMERICA:
+			PRINT_INFO("headset_type = %d (HEADSET_NORTH_AMERICA)\n", headset_type);
+			gpio_direction_output(pdata->switch_gpio, 1);
+			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
+			headset_mic_level(1);
+			headset_irq_enable(1, ht->button.irq);
+			break;
+		case HEADSET_NORMAL:
+			PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
+			gpio_direction_output(pdata->switch_gpio, 0);
+			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
+			headset_mic_level(1);
+			headset_irq_enable(1, ht->button.irq);
+			break;
+		case HEADSET_NO_MIC:
+			PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
+			gpio_direction_output(pdata->switch_gpio, 0);
+			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_LOW);
+			headset_irq_enable(1, ht->button.irq);
+			headset_mic_level(0);
+			break;
+		case HEADSET_APPLE:
+			PRINT_INFO("headset_type = %d (HEADSET_APPLE)\n", headset_type);
+			PRINT_INFO("we have not yet implemented this in the code\n");
+			break;
+		default:
+			PRINT_INFO("headset_type = %d (HEADSET_UNKNOWN)\n", headset_type);
+			break;
+		}
+
+		if(headset_type == HEADSET_NO_MIC)
+			ht_detect->headphone = 1;
+		else
+			ht_detect->headphone = 0;
+
+		if (ht_detect->headphone) {
+			ht_detect->type = BIT_HEADSET_NO_MIC;
+			switch_set_state(&ht_detect->sdev, ht_detect->type);
+			PRINT_INFO("headphone plug in\n");
+		} else {
+			ht_detect->type = BIT_HEADSET_MIC;
+			switch_set_state(&ht_detect->sdev, ht_detect->type);
+			PRINT_INFO("headset plug in\n");
+		}
+		plug_in = 1;
+	}
+	queue_delayed_work(sts_check_work_queue, &sts_check_work, msecs_to_jiffies(1000));
+	return;
+}
+/***polling ana_sts0 to avoid the hardware defect***/
+
 static __devinit int headset_detect_probe(struct platform_device *pdev)
 {
 	struct sprd_headset_detect_platform_data *pdata = pdev->dev.platform_data;
@@ -728,10 +834,16 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
 	}
 
 #ifdef SPRD_HEADSET_DBG
-		INIT_WORK(&reg_dump_work, reg_dump_func);
-		reg_dump_work_queue = create_singlethread_workqueue("headset_reg_dump");
-		queue_work(reg_dump_work_queue, &reg_dump_work);
+	INIT_WORK(&reg_dump_work, reg_dump_func);
+	reg_dump_work_queue = create_singlethread_workqueue("headset_reg_dump");
+	queue_work(reg_dump_work_queue, &reg_dump_work);
 #endif
+
+	/***polling ana_sts0 to avoid the hardware defect***/
+	INIT_DELAYED_WORK(&sts_check_work, sts_check_func);
+	sts_check_work_queue = create_singlethread_workqueue("headset_sts_check");
+	/***polling ana_sts0 to avoid the hardware defect***/
+
 	PRINT_INFO("headset_detect_probe probe success\n");
 	return 0;
 
