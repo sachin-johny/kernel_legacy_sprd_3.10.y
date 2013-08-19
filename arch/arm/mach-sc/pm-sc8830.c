@@ -960,8 +960,12 @@ void pm_ana_ldo_config(void)
 {
 	/*set vddcore deep sleep voltage to 0.9v*/
 	sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
-	/*open vddcore lp mode*/
-	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_DCDCCORE_LP_EN);
+	/*open vddcore lp VDDMEM, DCDCGEN mode*/
+	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_DCDCCORE_LP_EN | BIT_SLP_DCDCMEM_LP_EN | BIT_SLP_DCDCGEN_LP_EN);
+	/*open vdd28, vdd18 lp mode*/
+	sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL3, BIT_SLP_LDOVDD28_LP_EN | BIT_SLP_LDOVDD18_LP_EN);
+	/*ddr2_buf quiesent curretn set to 4-5uA in deep sleep mode*/
+	sci_adi_clr(ANA_REG_GLB_DDR2_CTRL, BITS_DDR2_BUF_S_DS(0x3));
 }
 static void init_led(void){}
 static struct timespec persistent_ts;
