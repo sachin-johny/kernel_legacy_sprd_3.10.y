@@ -86,7 +86,7 @@ static const struct snd_pcm_hardware sprd_pcm_hardware = {
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	    SNDRV_PCM_INFO_INTERLEAVED |
 #endif
-	    SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME,
+	    SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME | SNDRV_PCM_INFO_NO_PERIOD_WAKEUP,
 	.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	/* 16bits, stereo-2-channels */
 	.period_bytes_min = VBC_FIFO_FRAME_NUM * 4,
@@ -724,8 +724,11 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 
 	sci_dma_config((u32)(rtd->uid_cid_map[0]), (struct sci_dma_cfg *)(rtd->dma_cfg_array),
 		       params_periods(params), &dma_reg_addr[0]);
-	ret = sci_dma_register_irqhandle(rtd->uid_cid_map[0], rtd->params->irq_type,	/*dma->irq_type */
+	if (!(params->flags & SNDRV_PCM_HW_PARAMS_NO_PERIOD_WAKEUP)) {
+		pr_info("register irq for dma chan id %d", rtd->uid_cid_map[0]);
+		ret = sci_dma_register_irqhandle(rtd->uid_cid_map[0], rtd->params->irq_type,	/*dma->irq_type */
 					 sprd_pcm_dma_irq_ch, substream);
+	}
 
 	if (used_chan_count > 1) {
 		dma_reg_addr[1].phys_addr =
@@ -740,9 +743,12 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		sci_dma_config((u32)(rtd->uid_cid_map[1]),
 			       (struct sci_dma_cfg *)(rtd->dma_cfg_array + runtime->hw.periods_max),
 			       params_periods(params), &dma_reg_addr[1]);
-		ret = sci_dma_register_irqhandle(rtd->uid_cid_map[1], rtd->params->irq_type,	/*dma->irq_type */
+		if (!(params->flags & SNDRV_PCM_HW_PARAMS_NO_PERIOD_WAKEUP)) {
+			pr_info("register irq for dma chan id %d", rtd->uid_cid_map[1]);
+			ret = sci_dma_register_irqhandle(rtd->uid_cid_map[1], rtd->params->irq_type,	/*dma->irq_type */
 						 sprd_pcm_dma_irq_ch,
 						 substream);
+		}
 
 	}
 
