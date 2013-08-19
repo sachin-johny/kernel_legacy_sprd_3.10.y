@@ -26,7 +26,7 @@ if BLOCK
 config LBDAF
 	bool "Support for large (2TB+) block devices and files"
 	depends on !64BIT
-	default y
+	default n
 	help
 	  Enable block devices or files of size 2TB and larger.
 
