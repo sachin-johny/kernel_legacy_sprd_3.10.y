@@ -77,7 +77,7 @@
             #define SPRD_ION_SIZE	(20*1024*1024)
         #else
 			#if defined(CONFIG_CAMERA_8M)
-				#if defined(CONFIG_CAMERA_NO_ROTATION)
+				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
 					#if defined(CONFIG_CAMERA_ZSL)
 						/*ZSL 48.8*/
 						#define SPRD_CAPTURE_SIZE	(50*1024*1024)
@@ -97,7 +97,7 @@
 
 				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
 			#elif defined(CONFIG_CAMERA_5M)
-				#if defined(CONFIG_CAMERA_NO_ROTATION)
+				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
 					#if defined(CONFIG_CAMERA_ZSL)
 						/*ZSL 43.8*/
 						#define SPRD_CAPTURE_SIZE	(45*1024*1024)
@@ -117,7 +117,7 @@
 
 				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
 			#elif defined(CONFIG_CAMERA_3M)
-				#if defined(CONFIG_CAMERA_NO_ROTATION)
+				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
 					#if defined(CONFIG_CAMERA_ZSL)
 						/*ZSL 40.8*/
 						#define SPRD_CAPTURE_SIZE	(42*1024*1024)
@@ -137,7 +137,7 @@
 
 				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
 			#elif defined(CONFIG_CAMERA_2M)
-				#if defined(CONFIG_CAMERA_NO_ROTATION)
+				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
 					#if defined(CONFIG_CAMERA_ZSL)
 						/*ZSL 39.8*/
 						#define SPRD_CAPTURE_SIZE	(41*1024*1024)
