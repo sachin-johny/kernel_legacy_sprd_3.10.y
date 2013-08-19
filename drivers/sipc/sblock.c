@@ -88,7 +88,7 @@ static int sblock_thread(void *data)
 			/* handle channel recovery */
 			smsg_close_ack(sblock->dst, sblock->channel);
 			if (sblock->handler) {
-				sblock->handler(SBLOCK_NOTIFY_STATUS, sblock->data);
+				sblock->handler(SBLOCK_NOTIFY_CLOSE, sblock->data);
 			}
 			sblock->state = SBLOCK_STATE_IDLE;
 			break;
@@ -99,7 +99,7 @@ static int sblock_thread(void *data)
 					SMSG_DONE_SBLOCK_INIT, sblock->smem_addr);
 			smsg_send(sblock->dst, &mcmd, -1);
 			if (sblock->handler) {
-				sblock->handler(SBLOCK_NOTIFY_STATUS, sblock->data);
+				sblock->handler(SBLOCK_NOTIFY_OPEN, sblock->data);
 			}
 			sblock->state = SBLOCK_STATE_READY;
 			break;
