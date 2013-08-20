@@ -608,7 +608,7 @@ LOCAL SENSOR_IOCTL_FUNC_TAB_T s_OV7675_ioctl_func_tab =
         PNULL,							// extend information about sensor	
         SENSOR_AVDD_1800MV,                     // iovdd
         SENSOR_AVDD_UNUSED,                    // dvdd
-        3,                     // skip frame num before preview 
+        5,                      // skip frame num before preview
         1,                      // skip frame num before capture
         1,                      // deci frame num during preview
         1,                      // deci frame num during video preview
