@@ -461,26 +461,34 @@ static struct wake_lock messages_wakelock;
 #define PM_PRINT_ENABLE
 static void print_debug_info(void)
 {
-	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl;
+	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl,
+			ap_apb_eb, apb_pwrstatus0, apb_pwrstatus1, apb_pwrstatus2,
+			apb_pwrstatus3, mpll_cfg, dpll_cfg;
 
 	ahb_eb = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
+	ap_apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
 	apb_eb0 = sci_glb_read(REG_AON_APB_APB_EB0, -1UL);
 	cp_slp_status0 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL);
 	cp_slp_status1 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL);
+	apb_pwrstatus0 = sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL);
+	apb_pwrstatus1 = sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL);
+	apb_pwrstatus2 = sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL);
+	apb_pwrstatus3 = sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL);
+	mpll_cfg = sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL);
+	dpll_cfg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
-	printk("####----------- ahb_eb : 0x%08x\n", ahb_eb);
-	printk("####----------- aon_apb_eb0 : 0x%08x\n", apb_eb0);
-	printk("####----------- CP_SLP_STATUS_DBG0 : 0x%08x\n", cp_slp_status0);
-	printk("####----------- CP_SLP_STATUS_DBG1 : 0x%08x\n", cp_slp_status1);
-	printk("####----------- ldo_pd_ctrl : 0x%08x\n", ldo_pd_ctrl);
-	printk("####----------- REG_PMU_APB_PWR_STATUS0_DBG : 0x%x ***\n",
-			sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
-	printk("####----------- REG_PMU_APB_PWR_STATUS1_DBG : 0x%x ***\n",
-			sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
-	printk("####----------- REG_PMU_APB_PWR_STATUS2_DBG : 0x%x ***\n",
-			sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
-	printk("####----------- REG_PMU_APB_PWR_STATUS3_DBG : 0x%x ***\n",
-			sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL));
+	printk("###---- REG_AP_AHB_AHB_EB : 0x%08x\n", ahb_eb);
+	printk("###---- REG_AP_APB_APB_EB : 0x%08x\n", ap_apb_eb);
+	printk("###---- REG_AON_APB_APB_EB0 : 0x%08x\n", apb_eb0);
+	printk("###---- REG_PMU_APB_CP_SLP_STATUS_DBG0 : 0x%08x\n", cp_slp_status0);
+	printk("###---- REG_PMU_APB_CP_SLP_STATUS_DBG1 : 0x%08x\n", cp_slp_status1);
+	printk("###---- REG_PMU_APB_PWR_STATUS0_DBG : 0x%08x\n", apb_pwrstatus0);
+	printk("###---- REG_PMU_APB_PWR_STATUS1_DBG : 0x%08x\n", apb_pwrstatus1);
+	printk("###---- REG_PMU_APB_PWR_STATUS2_DBG : 0x%08x\n", apb_pwrstatus2);
+	printk("###---- REG_PMU_APB_PWR_STATUS3_DBG : 0x%08x\n", apb_pwrstatus3);
+	printk("###---- REG_AON_APB_MPLL_CFG : 0x%08x\n", mpll_cfg);
+	printk("###---- REG_AON_APB_DPLL_CFG : 0x%08x\n", dpll_cfg);
+	printk("###---- ANA_REG_GLB_LDO_PD_CTRL : 0x%08x\n", ldo_pd_ctrl);
 
 	if (apb_eb0 & BIT_GPU_EB)	/* M1 */
 		printk("###---- BIT_GPU_EB still set ----###\n");
@@ -488,6 +496,57 @@ static void print_debug_info(void)
 		printk("###---- BIT_MM_EB still set ----###\n");
 	else if (apb_eb0 & BIT_CA7_DAP_EB)
 		printk("###---- BIT_CA7_DAP_EB still set ----###\n");
+	else if (apb_eb0 & BIT_I2C_EB)
+		printk("###---- BIT_I2C_EB still set ----###\n");
+
+	if (ap_apb_eb & BIT_INTC3_EB)
+		printk("###---- BIT_INTC3_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_INTC2_EB)
+		printk("###---- BIT_INTC2_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_INTC1_EB)
+		printk("###---- BIT_INTC1_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_INTC0_EB)
+		printk("###---- BIT_INTC0_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_AP_CKG_EB)
+		printk("###---- BIT_AP_CKG_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_UART4_EB)
+		printk("###---- BIT_UART4_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_UART3_EB)
+		printk("###---- BIT_UART3_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_UART2_EB)
+		printk("###---- BIT_UART2_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_UART1_EB)
+		printk("###---- BIT_UART1_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_UART0_EB)
+		printk("###---- BIT_UART0_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_I2C4_EB)
+		printk("###---- BIT_I2C4_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_I2C3_EB)
+		printk("###---- BIT_I2C3_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_I2C2_EB)
+		printk("###---- BIT_I2C2_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_I2C1_EB)
+		printk("###---- BIT_I2C1_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_I2C0_EB)
+		printk("###---- BIT_I2C0_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_SPI2_EB)
+		printk("###---- BIT_SPI2_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_SPI1_EB)
+		printk("###---- BIT_SPI1_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_SPI0_EB)
+		printk("###---- BIT_SPI0_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_IIS3_EB)
+		printk("###---- BIT_IIS3_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_IIS2_EB)
+		printk("###---- BIT_IIS2_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_IIS1_EB)
+		printk("###---- BIT_IIS1_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_IIS0_EB)
+		printk("###---- BIT_IIS0_EB still set ----###\n");
+	else if (ap_apb_eb & BIT_SIM0_EB)
+		printk("###---- BIT_SIM0_EB still set ----###\n");
+
+
 
 	if (ahb_eb & BIT_GSP_EB)		/* M2 */
 		printk("###---- BIT_GSP_EB still set ----###\n");
@@ -509,8 +568,20 @@ static void print_debug_info(void)
 		printk("###---- BIT_NFC_EB still set ----###\n");
 	else if (ahb_eb & BIT_EMMC_EB)
 		printk("###---- BIT_EMMC_EB still set ----###\n");
-	else if (ahb_eb & BIT_DMA_EB)
-		printk("###---- BIT_DMA_EB still set ----###\n");
+	else if (ahb_eb & BIT_BUSMON2_EB)
+		printk("###---- BIT_BUSMON2_EB still set ----###\n");
+	else if (ahb_eb & BIT_BUSMON1_EB)
+		printk("###---- BIT_BUSMON1_EB still set ----###\n");
+	else if (ahb_eb & BIT_BUSMON0_EB)
+		printk("###---- BIT_BUSMON0_EB still set ----###\n");
+	else if (ahb_eb & BIT_DSI_EB)
+		printk("###---- BIT_DSI_EB still set ----###\n");
+	else if (ahb_eb & BIT_DRM_EB)
+		printk("###---- BIT_DRM_EB still set ----###\n");
+	else if (ahb_eb & BIT_GPS_EB)
+		printk("###---- BIT_GPS_EB still set ----###\n");
+	else if (ahb_eb & BIT_SPINLOCK_EB)
+		printk("###---- BIT_SPINLOCK_EB still set ----###\n");
 
 
 	if (!(ldo_pd_ctrl & BIT_LDO_LPREF_PD_SW))
