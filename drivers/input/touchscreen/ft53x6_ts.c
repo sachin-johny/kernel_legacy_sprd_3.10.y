@@ -59,7 +59,7 @@
 
 #define	USE_THREADED_IRQ	1
 #define	TOUCH_VIRTUAL_KEYS
-#define	MULTI_PROTOCOL_TYPE_B	1
+#define	MULTI_PROTOCOL_TYPE_B	0
 #define	TS_MAX_FINGER		5
 
 #define	FTS_PACKET_LENGTH	128
@@ -826,7 +826,7 @@ static int ft5x0x_update_data(void)
 		y = (s16)(buf[6*i+5] & 0x0F)<<8 | (s16)buf[6*i+6];
 		if((buf[6*i+3] & 0x40) == 0x0) {
 		#if MULTI_PROTOCOL_TYPE_B
-			input_mt_slot(data->input_dev, i);
+			input_mt_slot(data->input_dev, buf[6*i+5]>>4);
 			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, true);
 		#endif
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
@@ -839,15 +839,18 @@ static int ft5x0x_update_data(void)
 		}
 		else {
 		#if MULTI_PROTOCOL_TYPE_B
-			input_mt_slot(data->input_dev, i);
+			input_mt_slot(data->input_dev, buf[6*i+5]>>4);
 			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
 		#endif
-			input_report_key(data->input_dev, BTN_TOUCH, 0);
+		}
+	}
+	if(event->touch_point==0)
+	{
+		input_report_key(data->input_dev, BTN_TOUCH, 0);
 		#if !MULTI_PROTOCOL_TYPE_B
 			input_mt_sync(data->input_dev);
 		#endif
-		}
-		
+
 	}
 	input_sync(data->input_dev);
 
