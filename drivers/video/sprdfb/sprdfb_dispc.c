@@ -32,6 +32,7 @@
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
 #define DISPC_DBI_CLOCK (256*1000000)
 #define DISPC_DPI_CLOCK_PARENT ("clk_384m")
+#define DISPC_EMC_EN_PARENT ("clk_aon_apb")
 
 #define SPRDFB_DPI_CLOCK_SRC (384000000)
 
@@ -52,6 +53,7 @@ struct sprdfb_dispc_context {
 	struct clk		*clk_dispc;
 	struct clk 		*clk_dispc_dpi;
 	struct clk 		*clk_dispc_dbi;
+	struct clk 		*clk_dispc_emc;
 	bool			is_inited;
 	bool			is_first_frame;
 	bool			is_resume;
@@ -519,12 +521,12 @@ static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
 static int32_t dispc_clk_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
-	struct clk *clk_parent1, *clk_parent2, *clk_parent3;
+	struct clk *clk_parent1, *clk_parent2, *clk_parent3, *clk_parent4;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
 
 	sci_glb_set(DISPC_CORE_EN, BIT_DISPC_CORE_EN);
-	sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
+//	sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 	if (IS_ERR(clk_parent1)) {
@@ -548,6 +550,14 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		return -1;
 	} else {
 		pr_debug(KERN_INFO "sprdfb: get clk_parent3 ok!\n");
+	}
+
+	clk_parent4 = clk_get(NULL, DISPC_EMC_EN_PARENT);
+	if (IS_ERR(clk_parent3)) {
+		printk(KERN_WARNING "sprdfb: get clk_parent4 fail!\n");
+		return -1;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_parent4 ok!\n");
 	}
 
 	dispc_ctx.clk_dispc = clk_get(NULL, DISPC_PLL_CLK);
@@ -574,6 +584,14 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		pr_debug(KERN_INFO "sprdfb: get clk_dispc_dpi ok!\n");
 	}
 
+	dispc_ctx.clk_dispc_emc = clk_get(NULL, DISPC_EMC_CLK);
+	if (IS_ERR(dispc_ctx.clk_dispc_emc)) {
+		printk(KERN_WARNING "sprdfb: get clk_dispc_dpi fail!\n");
+		return -1;
+	} else {
+		pr_debug(KERN_INFO "sprdfb: get clk_dispc_emc ok!\n");
+	}
+
 	ret = clk_set_parent(dispc_ctx.clk_dispc, clk_parent1);
 	if(ret){
 		printk(KERN_ERR "sprdfb: dispc set clk parent fail\n");
@@ -597,6 +615,11 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 	}
 
+	ret = clk_set_parent(dispc_ctx.clk_dispc_emc, clk_parent4);
+	if(ret){
+		printk(KERN_ERR "sprdfb: dispc set emc clk parent fail\n");
+	}
+
 	if(0 != dev->panel->fps){
 		dispc_update_clock(dev);
 	}else{
@@ -605,6 +628,12 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		if(ret){
 			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 		}
+	}
+
+	ret = clk_enable(dispc_ctx.clk_dispc_emc);
+	if(ret){
+		printk("sprdfb:enable clk_dispc_emc error!!!\n");
+		ret=-1;
 	}
 
 	ret = sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
@@ -1057,8 +1086,9 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		mdelay(50); /*fps>20*/
 
+                clk_disable(dispc_ctx.clk_dispc_emc);
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
-		sci_glb_clr(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
+//		sci_glb_clr(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 	}else{
 		printk(KERN_ERR "sprdfb: [%s]: Invalid device status %d\n", __FUNCTION__, dev->enable);
 	}
@@ -1074,7 +1104,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 			printk(KERN_WARNING "sprdfb:[%s] clk enable fail!!\n",__FUNCTION__);
 			//return 0;
 		}
-		sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
+//		sci_glb_set(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 
 		dispc_ctx.vsync_done = 1;
 		if (1){//(dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */

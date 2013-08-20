@@ -27,6 +27,7 @@
 #define DISPC_PLL_CLK				("clk_disc0")
 #define DISPC_DBI_CLK				("clk_disc0_dbi")
 #define DISPC_DPI_CLK				("clk_disc0_dpi")
+#define DISPC_EMC_CLK				("clk_disp_emc")
 #define DISPC_DPI_CLOCK 			(384*1000000/7)
 
 #define SPRD_MIPI_DSIC_BASE 		SPRD_DSI_BASE
