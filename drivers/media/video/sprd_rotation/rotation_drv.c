@@ -473,29 +473,40 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 	return ret;
 }
 
-static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
+static BOOLEAN user_va2pa(struct mm_struct *mm, uint32_t addr, uint32_t *pa)
 {
-        pgd_t *pgd = pgd_offset(mm, addr);
-        uint32_t pa = 0;
+    pgd_t *pgd = pgd_offset(mm, addr);
+    BOOLEAN pa_flag = 0;
 
-        if (!pgd_none(*pgd)) {
-                pud_t *pud = pud_offset(pgd, addr);
-                if (!pud_none(*pud)) {
-                        pmd_t *pmd = pmd_offset(pud, addr);
-                        if (!pmd_none(*pmd)) {
-                                pte_t *ptep, pte;
+    if (!pgd_none(*pgd)) {
+        pud_t *pud = pud_offset(pgd, addr);
+        if (!pud_none(*pud)) {
+            pmd_t *pmd = pmd_offset(pud, addr);
+            if (!pmd_none(*pmd)) {
+                pte_t *ptep, pte;
 
-                                ptep = pte_offset_map(pmd, addr);
-                                pte = *ptep;
-                                if (pte_present(pte))
-                                        pa = pte_val(pte) & PAGE_MASK;
-                                pte_unmap(ptep);
-                        }
+                ptep = pte_offset_map(pmd, addr);
+                pte = *ptep;
+                if (pte_present(pte))
+                {
+                    *pa = pte_val(pte) & PAGE_MASK;
+                    pa_flag=1;
                 }
+                else
+                    printk("user_va2pa pte err! vir=0x%x, phy=0x%x, dst_vir_addr = 0x%x\n", addr, *pa, (void *)(pte_val(pte)));
+                pte_unmap(ptep);
+            }
+            else
+                printk("user_va2pa pmd err N.03: \n");
         }
+        else
+            printk("user_va2pa pud err N.02: \n");
+    }
+    else
+        printk("user_va2pa pgd err N.01: \n");
 
-		//printk("user_va2pa: vir=%x, phy=%x \n", addr, pa);
-        return pa;
+    //printk("user_va2pa: vir=%x, phy=%x \n", addr, pa);
+    return pa_flag;
 }
 
 static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
@@ -568,13 +579,18 @@ static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
 
 	do_gettimeofday(&time1);
 	//printk("pid = %d = 0x%x \n", current->pid, current->pid);
-	for (i = 0; i < list_size; i++) {
-		dma_dst_phy = user_va2pa(current->mm, dst_vir_addr+i*list_copy_size);
-		if (0 == dma_dst_phy) {
-			printk("rotation dst addr error, vir=0x%x, phy=0x%x\n",dst_vir_addr, dma_dst_phy);
-			ret = -EFAULT;
-			goto rotation_start_copy_data_to_virtual_exit;
-		}
+        for (i = 0; i < list_size; i++) {
+            //dma_dst_phy = user_va2pa(current->mm, dst_vir_addr+i*list_copy_size);
+            if (0 == user_va2pa(current->mm, dst_vir_addr+i*list_copy_size, &dma_dst_phy)) {
+                printk("rotation dst addr error vir=0x%x, phy=0x%x, i=%d, pid=%d, size=%d \n",
+                        (dst_vir_addr+i*list_copy_size),
+                        dma_dst_phy,
+                        i,
+                        current->pid,
+                        list_copy_size);
+                ret = -EFAULT;
+                goto rotation_start_copy_data_to_virtual_exit;
+            }
 		//sprd_dma_default_linklist_setting(dma_cfg + i);
 		dma_cfg[i].cfg = DMA_LIT_ENDIAN | DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32 | DMA_REQMODE_LIST;
 		dma_cfg[i].elem_postm = 0x4 << 16 | 0x4;
@@ -692,10 +708,23 @@ static int rotation_start_copy_data_from_virtual(ROTATION_PARAM_T * param_ptr)
 
 	memset(dma_cfg, 0x0, sizeof(*dma_cfg) * list_size);
 
-	do_gettimeofday(&time1);
-	//printk("pid = %d = 0x%x \n", current->pid, current->pid);
-	for (i = 0; i < list_size; i++) {
-		dma_src_phy = user_va2pa(current->mm, src_vir_addr+i*list_copy_size);
+        do_gettimeofday(&time1);
+        //printk("pid = %d = 0x%x \n", current->pid, current->pid);
+        //for (i = 0; i < list_size; i++) {
+        //	dma_src_phy = user_va2pa(current->mm, src_vir_addr+i*list_copy_size);
+        for (i = 0; i < list_size; i++) {
+
+            if (0 == user_va2pa(current->mm, src_vir_addr+i*list_copy_size, &dma_src_phy)) {
+                printk("rotation dst addr error vir=0x%x, phy=0x%x, i=%d, pid=%d, size=%d \n",
+                        (src_vir_addr+i*list_copy_size),
+                        dma_src_phy,
+                        i,
+                        current->pid,
+                        list_copy_size);
+                ret = -EFAULT;
+                goto rotation_start_copy_data_from_virtual_exit;
+            }
+
 		//sprd_dma_default_linklist_setting(dma_cfg + i);
 		dma_cfg[i].cfg = DMA_LIT_ENDIAN | DMA_SDATA_WIDTH32 | DMA_DDATA_WIDTH32 | DMA_REQMODE_LIST;
 		dma_cfg[i].elem_postm = 0x4 << 16 | 0x4;
@@ -733,6 +762,7 @@ static int rotation_start_copy_data_from_virtual(ROTATION_PARAM_T * param_ptr)
 
 	sprd_dma_channel_stop(ch_id);
 
+rotation_start_copy_data_from_virtual_exit:
 	sprd_dma_free(ch_id);
 
 	dma_free_writecombine(NULL, sizeof(*dma_cfg) * list_size, dma_cfg, dma_cfg_phy);
