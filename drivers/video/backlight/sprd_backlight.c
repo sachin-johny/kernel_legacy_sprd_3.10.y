@@ -21,8 +21,8 @@
 #include <linux/earlysuspend.h>
 
 #include <mach/hardware.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
-#include <mach/regs_ana_glb_sc7710.h>
 
 /* register definitions */
 #define        PWM_PRESCALE    (0x0000)
@@ -41,15 +41,23 @@
  * 2) white led mode //you need to deifine SPRD_BACKLIGHT_WHITELED
  *	2.1) series mode //whiteled driven by dimming PWM,
 	you need to define the DIMMING_PWD_BASE
- *	2.1) parallel mode //whiteled driven by pd PWM,
+ *	2.2) parallel mode //whiteled driven by pd PWM,
  *	you need to define the PD_PWD_BASE
  */
 
 #ifdef CONFIG_ARCH_SC7710
-#define SPRD_BACKLIGHT_WHITELED
-#define SPRD_DIM_PWM_MODE
-#define DIMMING_PWD_BASE	(SPRD_MISC_BASE + 0x8020)
-#define PD_PWM_BASE		DIMMING_PWD_BASE
+
+#if 0
+	/*if backlight is driven by pwm, use this MACRO */
+	#define SPRD_BACKLIGHT_PWM
+#else
+	/*backlight is driven by whiteled default */
+	#define SPRD_BACKLIGHT_WHITELED
+	#define SPRD_DIM_PWM_MODE
+	#define DIMMING_PWD_BASE	(SPRD_MISC_BASE + 0x8020)
+	#define PD_PWM_BASE		DIMMING_PWD_BASE
+#endif
+
 #endif
 
 enum bl_pwm_mode {
@@ -89,7 +97,7 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 			sprdbl.suspend ||
 			bldev->props.brightness == 0) {
 		/* disable backlight */
-		pwm_write(bl->pwm, 0, PWM_PRESCALE);
+		pwm_write(sprdbl.pwm_index, 0, PWM_PRESCALE);
 		clk_disable(sprdbl.clk);
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
@@ -118,7 +126,7 @@ static int sprd_bl_pwm_get_brightness(struct backlight_device *bldev)
 
 static const struct backlight_ops sprd_backlight_ops = {
 	.update_status = sprd_bl_pwm_update_status,
-	.get_brightness = sprd_bl_pwm_get_brightnes,
+	.get_brightness = sprd_bl_pwm_get_brightness,
 };
 
 #elif defined(SPRD_BACKLIGHT_WHITELED)
@@ -173,7 +181,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			/*series mode*/
 			/*whiteled config*/
 			led_level = sprd_caculate_brightness(bl_brightness >> 2);
-			if (led_level < 0) {
+			if ((int)led_level < 0) {
 				return led_level;
 			}
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL2);
@@ -245,20 +253,21 @@ static int __devinit sprd_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
 	struct backlight_device *bldev;
+
+#ifdef SPRD_BACKLIGHT_PWM
 	struct resource *pwm_res;
 	char pwm_clk_name[32];
 
-#ifdef SPRD_BACKLIGHT_PWM
 	pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (IS_ERR(pwm_res)) {
-		printkk("Can't get pwm resource");
+		printk("Can't get pwm resource");
 		return -ENODEV;
 	}
 
 	sprdbl.pwm_index = pwm_res->start;
 	/*fixme, the pwm's clk name must like this:clk_pwmx*/
-	sprintf(pwm_clk_name, "%s%d", "clk_pwm", sprdbl.pwm);
-	sprdbl.clk = clk_get(NULL, pwm_clk_name);
+	sprintf(pwm_clk_name, "%s%d", "clk_pwm", sprdbl.pwm_index);
+	sprdbl.clk = clk_get(&pdev->dev, pwm_clk_name);
 	if (IS_ERR(sprdbl.clk)) {
 		printk("Can't get pwm's clk");
 		return -ENODEV;
@@ -276,6 +285,7 @@ static int __devinit sprd_backlight_probe(struct platform_device *pdev)
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = PWM_MOD_MAX;
 	props.type = BACKLIGHT_RAW;
+	/*the default brightness = 1/2 max brightness */
 	props.brightness = PWM_MOD_MAX >> 1;
 	props.power = FB_BLANK_UNBLANK;
 
