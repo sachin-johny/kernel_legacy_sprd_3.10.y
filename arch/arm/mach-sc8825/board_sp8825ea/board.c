@@ -58,6 +58,8 @@
 #include <mach/sys_debug.h>
 #endif
 
+#include <linux/pn544.h>  //add by jerry
+
 extern void __init sc8825_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sc8825_init_irq(void);
@@ -276,6 +278,22 @@ static struct mpu_platform_data mpu9150_platform_data = {
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
 
+static struct pn544_i2c_platform_data pn544_nfc_info={
+
+	.irq_gpio=GPIO_NFC_IRQ,
+	.ven_gpio=GPIO_NFC_VEN,
+	.firm_gpio=GPIO_NFC_FIRM,
+};
+
+
+
+static struct i2c_board_info i2c3_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("pn544", 0x28),
+		.platform_data = &pn544_nfc_info,
+	},
+};
+
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
@@ -307,6 +325,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 
 static int sc8810_add_i2c_devices(void)
 {
+	i2c_register_board_info(3, i2c3_boardinfo, ARRAY_SIZE(i2c3_boardinfo));
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
