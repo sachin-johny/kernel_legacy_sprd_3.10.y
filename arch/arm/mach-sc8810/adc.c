@@ -171,9 +171,11 @@ static DEFINE_SPINLOCK(adc_lock);
 		hw_local_irq_restore(hw_flags)
 #else
 /*FIXME:If we have not hwspinlock , we need use spinlock to do it*/
+static DEFINE_SPINLOCK(adc_lock);
 #define sci_adc_lock() 		do { \
-		                /*FIXME: add hwlock here*/;} while(0)
-#define sci_adc_unlock() 	do {/*FIXME: add hwlock here*/;} while(0)
+				spin_lock_irqsave(&adc_lock, flags);} while(0)
+#define sci_adc_unlock() 	do { \
+				spin_unlock_irqrestore(&adc_lock, flags);} while(0)
 #endif
 
 #define ADC_CTL		(0x00)
