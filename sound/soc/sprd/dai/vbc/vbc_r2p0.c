@@ -45,7 +45,12 @@
 #define vbc_dbg(...)
 #endif
 
+#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
 void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate);
+void sprd_codec_set_ad01_sample_rate(struct snd_soc_codec *codec, int rate);
+void sprd_codec_set_ad23_sample_rate(struct snd_soc_codec *codec, int rate);
+
+#endif
 
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define SOC_REG(r) ((unsigned short)(r))
@@ -253,6 +258,14 @@ static struct vbc_refcount {
 	atomic_t ad3_on;
 } vbc_refcnt;
 
+enum {
+	VBC_LOOP_SWITCH_START = 0,
+	VBC_AD01_LOOP_SWITCH = VBC_LOOP_SWITCH_START,
+	VBC_AD23_LOOP_SWITCH,
+	VBC_LOOP_SWITCH_MAX
+};
+static int vbc_loop_switch[VBC_LOOP_SWITCH_MAX];
+
 static char *vbc_get_chan_name(int chan_id)
 {
 	return ((chan_id == 0) ? "DAC" : ((chan_id == 1) ? "ADC01" : "ADC23"));
@@ -438,24 +451,26 @@ static int vbc_da_iismux_set(int port)
 
 static int vbc_iis_high_for_da1(int enable)
 {
-	vbc_reg_write(VBIISSEL, (enable ? 1 : 0)  << VBIISSEL_DA_LRCK,
+	vbc_reg_write(VBIISSEL, (enable ? 1 : 0) << VBIISSEL_DA_LRCK,
 		      1 << VBIISSEL_DA_LRCK);
 	return 0;
 }
 
+#if 0
 static int vbc_iis_high_for_ad1(int enable)
 {
-	vbc_reg_write(VBIISSEL, (enable ? 1 : 0)  << VBIISSEL_AD01_LRCK,
+	vbc_reg_write(VBIISSEL, (enable ? 1 : 0) << VBIISSEL_AD01_LRCK,
 		      1 << VBIISSEL_AD01_LRCK);
 	return 0;
 }
 
 static int vbc_iis_high_for_ad2(int enable)
 {
-	vbc_reg_write(VBDATASWT, (enable ? 1 : 0)  << VBDATASWT_AD23_LRCK,
+	vbc_reg_write(VBDATASWT, (enable ? 1 : 0) << VBDATASWT_AD23_LRCK,
 		      1 << VBDATASWT_AD23_LRCK);
 	return 0;
 }
+#endif
 
 static int vbc_try_ad_iismux_set(int port);
 static int vbc_try_ad23_iismux_set(int port);
@@ -525,6 +540,15 @@ inline int vbc_mux_reg_read(int reg)
 }
 
 EXPORT_SYMBOL_GPL(vbc_mux_reg_read);
+
+inline int vbc_switch_reg_read(int reg)
+{
+	int id = FUN_REG(reg) - VBC_SWITCH_REG_BASE;
+
+	return vbc_loop_switch[id];
+}
+
+EXPORT_SYMBOL_GPL(vbc_switch_reg_read);
 
 static int vbc_set_buffer_size(int ad_buffer_size, int da_buffer_size,
 			       int ad23_buffer_size)
@@ -786,7 +810,7 @@ static inline int vbc_enable(int enable)
 	return 0;
 }
 
-static void vbc_da_buffer_clear_all(struct snd_soc_dai *dai);
+static void vbc_da_buffer_clear_all(void);
 static inline int vbc_power_enable(int enable)
 {
 	if (enable) {
@@ -794,7 +818,7 @@ static inline int vbc_power_enable(int enable)
 		if (atomic_read(&vbc_refcnt.vbc_power_on) == 1) {
 			arch_audio_vbc_enable();
 			vbc_reg_enable();
-			vbc_da_buffer_clear_all(1);
+			vbc_da_buffer_clear_all();
 			pr_info("VBC Power ON\n");
 		}
 	} else {
@@ -866,7 +890,7 @@ static void vbc_da_buffer_clear(int id)
 	}
 }
 
-static void vbc_da_buffer_clear_all(struct snd_soc_dai *dai)
+static void vbc_da_buffer_clear_all(void)
 {
 	int ret;
 
@@ -1179,13 +1203,20 @@ static int vbc_try_ad_dgmux_set(int id)
 	return 0;
 }
 
-static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec)
+static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec, int chan)
 {
+	int sample_rate = fm_sample_rate;
+
 #ifdef CONFIG_SPRD_VBC_SRC_OPEN
-	sprd_codec_set_da_sample_rate(codec, 44100);
-#else
-	sprd_codec_set_da_sample_rate(codec, fm_sample_rate);
+	sample_rate =  44100;
 #endif
+	if (chan == VBC_CHAN_DA)
+		sprd_codec_set_da_sample_rate(codec, sample_rate);
+	if (chan == VBC_CHAN_AD01)
+		sprd_codec_set_ad01_sample_rate(codec, sample_rate);
+	if (chan == VBC_CHAN_AD23)
+		sprd_codec_set_ad23_sample_rate(codec, sample_rate);
+
 	return 0;
 }
 
@@ -1458,6 +1489,8 @@ static int dfm_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	int ret = 0;
+
+	vbc_dbg("Entering %s event is %s\n", __func__, get_event_name(event));
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		fm_set_vbc_buffer_size();	/*No use in FM function, just for debug VBC */
@@ -1465,12 +1498,86 @@ static int dfm_event(struct snd_soc_dapm_widget *w,
 		vbc_try_st_dg_set(VBC_RIGHT);
 		/*eq setting */
 		if (!vbc_eq_setting.codec_dai)
-			vbc_eq_setting.codec_dai = 1;
+			vbc_eq_setting.codec_dai = (struct snd_soc_dai *)1;
 		if (vbc_eq_setting.is_active[VBC_CHAN_DA]
 		    && vbc_eq_setting.data[VBC_CHAN_DA])
 			vbc_eq_try_apply(vbc_eq_setting.codec_dai, VBC_CHAN_DA);
+#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
 		/*codec sample rate setting */
-		vbc_fm_try_set_sample_rate(codec);
+		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_DA);
+#endif
+		vbc_enable(1);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		vbc_enable(0);
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	vbc_dbg("Leaving %s\n", __func__);
+
+	return ret;
+}
+
+static int aud_event(struct snd_soc_dapm_widget *w,
+		     struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	vbc_dbg("Entering %s event is %s\n", __func__, get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/*eq setting */
+		if (!vbc_eq_setting.codec_dai)
+			vbc_eq_setting.codec_dai = (struct snd_soc_dai *)1;
+		if (vbc_eq_setting.is_active[VBC_CHAN_AD01]
+		    && vbc_eq_setting.data[VBC_CHAN_AD01])
+			vbc_eq_try_apply(vbc_eq_setting.codec_dai,
+					 VBC_CHAN_AD01);
+#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
+		/*codec sample rate setting */
+		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_AD01);
+#endif
+		vbc_try_src_set(0);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	vbc_dbg("Leaving %s\n", __func__);
+
+	return ret;
+}
+
+static int aud1_event(struct snd_soc_dapm_widget *w,
+		      struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	vbc_dbg("Entering %s event is %s\n", __func__, get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/*eq setting */
+		if (!vbc_eq_setting.codec_dai)
+			vbc_eq_setting.codec_dai = (struct snd_soc_dai *)1;
+		if (vbc_eq_setting.is_active[VBC_CHAN_AD23]
+		    && vbc_eq_setting.data[VBC_CHAN_AD23])
+			vbc_eq_try_apply(vbc_eq_setting.codec_dai,
+					 VBC_CHAN_AD23);
+#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
+		/*codec sample rate setting */
+		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_AD23);
+#endif
+		vbc_try_src_set(1);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		break;
@@ -1575,6 +1682,53 @@ static const struct snd_kcontrol_new vbc_mux[SPRD_VBC_MUX_MAX] = {
 	SND_SOC_DAPM_MUX_E(wname, FUN_REG(wreg), 0, 0, &vbc_mux[wreg], mux_event, \
 							SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD)
 
+static int vbc_loop_switch_get(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg) - VBC_SWITCH_REG_BASE;
+	ucontrol->value.integer.value[0] = vbc_loop_switch[id];
+	return 0;
+}
+
+static int vbc_loop_switch_put(struct snd_kcontrol *kcontrol,
+			       struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg) - VBC_SWITCH_REG_BASE;
+
+	pr_info("VBC AD%s LOOP Switch set %x\n",
+		id == 0 ? "01" : "23", (int)ucontrol->value.integer.value[0]);
+
+	ret = ucontrol->value.integer.value[0];
+	if (ret == vbc_loop_switch[id]) {
+		return ret;
+	}
+
+	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
+
+	vbc_loop_switch[id] = ret;
+
+	vbc_dbg("Leaving %s\n", __func__);
+	return ret;
+}
+
+static const struct snd_kcontrol_new vbc_loop_control[] = {
+	SOC_SINGLE_EXT("Switch",
+		       FUN_REG(VBC_AD01_LOOP_SWITCH + VBC_SWITCH_REG_BASE),
+		       0, 1, 0,
+		       vbc_loop_switch_get,
+		       vbc_loop_switch_put),
+	SOC_SINGLE_EXT("Switch",
+		       FUN_REG(VBC_AD23_LOOP_SWITCH + VBC_SWITCH_REG_BASE),
+		       0, 1, 0,
+		       vbc_loop_switch_get,
+		       vbc_loop_switch_put),
+};
+
 static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 	/*power */
 	SND_SOC_DAPM_SUPPLY("VBC Power", SND_SOC_NOPM, 0, 0,
@@ -1636,6 +1790,15 @@ static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("AD3 Switch", 5, SND_SOC_NOPM, 0, 0,
 			   vbc_ad3_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	/*AUD loop var vbc switch */
+	SND_SOC_DAPM_PGA_S("Aud input", 4, SND_SOC_NOPM, 0, 0, aud_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_S("Aud1 input", 4, SND_SOC_NOPM, 0, 0, aud1_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_SWITCH("Aud Loop in VBC", SND_SOC_NOPM, 0, 0,
+			    &vbc_loop_control[VBC_AD01_LOOP_SWITCH]),
+	SND_SOC_DAPM_SWITCH("Aud1 Loop in VBC", SND_SOC_NOPM, 0, 0,
+			    &vbc_loop_control[VBC_AD23_LOOP_SWITCH]),
 };
 
 /* sprd_vbc supported interconnection*/
@@ -1644,16 +1807,28 @@ static const struct snd_soc_dapm_route vbc_intercon[] = {
 	/* digital fm playback need to open DA Clk and DA power */
 	{"DFM", NULL, "VBC Power"},
 	{"DFM", NULL, "DA Clk"},
+	{"Aud input", NULL, "AD Clk"},
+	{"Aud1 input", NULL, "AD Clk"},
 
 	/********************** capture in  path in vbc ********************/
 	/*AD input route */
+	{"Aud input", NULL, "Digital ADCL Switch"},
+	{"Aud input", NULL, "Digital ADCR Switch"},
+	{"Aud Loop in VBC", "Switch", "Aud input"},
+
+	{"Aud1 input", NULL, "Digital ADC1L Switch"},
+	{"Aud1 input", NULL, "Digital ADC1R Switch"},
+	{"Aud1 Loop in VBC", "Switch", "Aud1 input"},
+
 	/*AD01 */
 	{"AD IISMUX", "DIGFM", "Dig FM Jack"},
 	{"AD IISMUX", "EXTDIGFM", "Dig FM Jack"},
+	{"AD IISMUX", "AUDIIS0", "Aud Loop in VBC"},
 
 	/*AD23 */
 	{"AD23 IISMUX", "DIGFM", "Dig FM Jack"},
 	{"AD23 IISMUX", "EXTDIGFM", "Dig FM Jack"},
+	{"AD23 IISMUX", "AUDIIS1", "Aud1 Loop in VBC"},
 
 	{"AD0 INMUX", "IIS0AD0", "AD IISMUX"},
 	{"AD0 INMUX", "IIS1AD0", "AD IISMUX"},
@@ -1762,7 +1937,6 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 	vbc_power_enable(1);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		/*vbc_da_buffer_clear_all(dai);*/
 		vbc_set_buffer_size(0, VBC_FIFO_FRAME_NUM, 0);
 #ifdef CONFIG_SPRD_VBC_LR_INVERT
 		vbc_iis_high_for_da1(0);
@@ -1815,7 +1989,7 @@ static void vbc_shutdown(struct snd_pcm_substream *substream,
 
 	/* vbc da close MUST clear da buffer */
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
-		vbc_da_buffer_clear_all(dai);
+		vbc_da_buffer_clear_all();
 		vbc_eq_setting.codec_dai = 0;
 	}
 
@@ -2829,10 +3003,16 @@ static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
 	pr_info("fm_sample_rate is %s\n",
 		texts->texts[ucontrol->value.integer.value[0]]);
 	fm_sample_rate = (ucontrol->value.integer.value[0] ? 48000 : 32000);
-	vbc_fm_try_set_sample_rate(codec);
-	if (fm_input_from_ad01)
+#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
+	vbc_fm_try_set_sample_rate(codec, VBC_CHAN_DA);
+	if (vbc_loop_switch[0])
+		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_AD01);
+	if (vbc_loop_switch[1])
+		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_AD23);
+#endif
+	if (fm_input_from_ad01 || vbc_loop_switch[0])
 		vbc_try_src_set(0);
-	if (fm_input_from_ad23)
+	if (fm_input_from_ad23 || vbc_loop_switch[1])
 		vbc_try_src_set(1);
 	vbc_dbg("Leaving %s\n", __func__);
 	return 1;
