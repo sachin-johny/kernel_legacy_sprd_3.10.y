@@ -132,9 +132,9 @@
 #define NFC_RESET_TIMEOUT			(0x2fff)
 #define NFC_STATUS_TIMEOUT			(0x4fff)
 #define NFC_READID_TIMEOUT			(0x2fff)
-#define NFC_ERASE_TIMEOUT			(0x100000)
-#define NFC_READ_TIMEOUT			(0x20000)
-#define NFC_WRITE_TIMEOUT			(0x40000)
+#define NFC_ERASE_TIMEOUT			(0x200000)
+#define NFC_READ_TIMEOUT			(0x40000)
+#define NFC_WRITE_TIMEOUT			(0xc0000)
 
 #define NF_MC_CMD_ID				(0xFD)
 #define NF_MC_ADDR_ID				(0xF1)
@@ -163,6 +163,12 @@ struct sc8810_ecc_param {
 	u8 *sts;
 };
 
+enum NAND_ERR_CORRECT_S{
+    NAND_FATAL_ERROR=0,
+    NAND_ERR_NEED_RETRY,
+    NAND_ERR_FIXED,
+    NAND_NO_ERROR
+};
 unsigned int sc8810_ecc_encode(struct sc8810_ecc_param *param);
 unsigned int ecc_mode_convert(u32 mode);
 
