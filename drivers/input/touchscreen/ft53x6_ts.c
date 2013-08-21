@@ -1200,6 +1200,27 @@ static const struct i2c_device_id ft5x0x_ts_id[] = {
 	{ FT5X0X_NAME, 0 },{ }
 };
 
+static int ft5x0x_suspend(struct i2c_client *client, pm_message_t mesg)
+{
+	int ret = -1;
+	int count = 5;
+	PRINT_INFO("ft5x0x_suspend\n");
+	ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
+	if(ret != 0)
+		PRINT_INFO("CTP is in hibernate mode. ret = %d\n", ret);
+	while(ret == 0 && count != 0) {
+			PRINT_ERR("trying to enter hibernate again. ret = %d\n", ret);
+			msleep(10);
+			ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
+			count--;
+	}
+	return 0;
+}
+static int ft5x0x_resume(struct i2c_client *client)
+{
+	PRINT_INFO("ft5x0x_resume\n");
+	return 0;
+}
 
 MODULE_DEVICE_TABLE(i2c, ft5x0x_ts_id);
 
@@ -1211,6 +1232,8 @@ static struct i2c_driver ft5x0x_ts_driver = {
 		.name	= FT5X0X_NAME,
 		.owner	= THIS_MODULE,
 	},
+	.suspend = ft5x0x_suspend,
+	.resume = ft5x0x_resume,
 };
 
 static int __init ft5x0x_ts_init(void)
