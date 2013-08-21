@@ -113,7 +113,7 @@ static void __sci_axi_bm_cnt_start(void)
 
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		val = __raw_readl(AXI_BM_INTC_REG(bm_index));
-		val |= (AXI_BM_EN | AXI_BM_CNT_EN | AXI_BM_CNT_START);
+		val |= (AXI_BM_EN | AXI_BM_CNT_EN | AXI_BM_CNT_START | AXI_BM_INT_CLR);
 		__raw_writel(val, AXI_BM_INTC_REG(bm_index));
 	}
 	return;
