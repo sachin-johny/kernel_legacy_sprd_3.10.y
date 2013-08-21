@@ -215,7 +215,7 @@ static int sprd_kb_led_probe(struct platform_device *dev)
 		return ret;
 	}
 	
-	led->value = LED_FULL;
+	led->value = 50;
 	led->enabled = 0;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	led->early_suspend.suspend = sprd_led_early_suspend;
