@@ -27,3 +27,9 @@ config SPRD_VBC_SRC_OPEN
 	default n
 	help
 	  say Y then the VBC will open adc SRC for FM  function.
+
+config FM_SAMPLE_RATE_SETTING
+	bool "FM sample rate setting in vbc"
+	default y
+	help
+	  say Y then the VBC will set codec sample rate for FM  function.

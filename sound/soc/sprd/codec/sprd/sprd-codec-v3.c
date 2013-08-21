@@ -1131,6 +1131,19 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 	snd_soc_update_bits(codec, SOC_REG(AUD_ADC_CTL), mask, set << shift);
 	return 0;
 }
+
+void sprd_codec_set_ad01_sample_rate(struct snd_soc_codec *codec, int rate)
+{
+	sprd_codec_set_ad_sample_rate(codec, rate,  0x0F, 0);
+}
+EXPORT_SYMBOL(sprd_codec_set_ad01_sample_rate);
+
+void sprd_codec_set_ad23_sample_rate(struct snd_soc_codec *codec, int rate)
+{
+	sprd_codec_set_ad_sample_rate(codec, rate,  0xF0, 4);
+}
+EXPORT_SYMBOL(sprd_codec_set_ad23_sample_rate);
+
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec_dbg("%s ad %d da %d ad1 %d\n", __func__,
@@ -2783,6 +2796,7 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 int vbc_reg_read(int reg);
 int vbc_reg_write2(int reg, int val);
 int vbc_mux_reg_read(int reg);
+int vbc_switch_reg_read(int reg);
 
 static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 				    unsigned int reg)
@@ -2809,7 +2823,11 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 	} else if (IS_SPRD_VBC_MUX_RANG(FUN_REG(reg))) {
 		sprd_codec_dbg("read the register is vbc  MUX  reg(%d) = 0x%x\n", FUN_REG(reg), vbc_mux_reg_read(reg));
 		return vbc_mux_reg_read(reg);
+	} else if (IS_SPRD_VBC_SWITCH_RANG(FUN_REG(reg))) {
+		sprd_codec_dbg("read the register is vbc  SWITCH  reg(%d) = 0x%x\n", FUN_REG(reg), vbc_switch_reg_read(reg));
+		return vbc_switch_reg_read(reg);
 	}
+
 	sprd_codec_dbg("read the register is not codec's reg = 0x%x\n", reg);
 	return 0;
 }
