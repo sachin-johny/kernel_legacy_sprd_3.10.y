@@ -48,6 +48,7 @@
 #include <gps/gpsctl.h>
 #include <linux/interrupt.h>
 #include <linux/headset_sprd.h>
+#include <linux/regulator/consumer.h>
 
 extern void __init sc8810_reserve(void);
 extern void __init sc8810_map_io(void);
@@ -491,6 +492,25 @@ void register_cp_watchdog_handler(void)
                 pr_err("request of irq%d failed\n", IRQ_CP_WDG_INT);
         }
 }
+
+static int __init dummy_power_init(void)
+{
+    int ret;
+    struct regulator * reg = regulator_get(NULL, "vddmem_l");
+
+    if (!IS_ERR(reg)) {
+        ret = regulator_force_disable(reg);
+        if (ret)
+            printk(KERN_WARNING "Fail to disable vddmem_l\n");
+
+        regulator_put(reg);
+    }
+
+    return ret;
+}
+
+late_initcall(dummy_power_init);
+
 static void __init sc8810_init_machine(void)
 {
 	sci_adc_init((void __iomem *)ADC_REG_BASE);
