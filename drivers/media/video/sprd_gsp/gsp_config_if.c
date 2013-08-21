@@ -20,6 +20,7 @@
 
 #include "gsp_config_if.h"
 uint32_t testregsegment[0x190]= {0};
+extern struct clk	*g_gsp_emc_clk;
 
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
@@ -130,6 +131,14 @@ LOCAL void GSP_SetMiscParameter(void)
 
 PUBLIC void GSP_Init(void)
 {
+    int ret = 0;
+    ret = clk_enable(g_gsp_emc_clk);
+    if(ret) {
+        printk(KERN_ERR "%s: enable emc clock failed!\n",__FUNCTION__);
+        return;
+    } else {
+        pr_debug(KERN_INFO "%s: enable emc clock ok!\n",__FUNCTION__);
+    }
     GSP_HWMODULE_ENABLE();
     GSP_HWMODULE_SOFTRESET();
 
@@ -146,9 +155,9 @@ PUBLIC void GSP_Init(void)
 }
 PUBLIC void GSP_Deinit(void)
 {
+    clk_disable(g_gsp_emc_clk);
     GSP_IRQSTATUS_CLEAR();
     GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
-
     GSP_HWMODULE_DISABLE();//disable may not use the enable regiter
 }
 
