@@ -557,7 +557,7 @@ enum NAND_ERR_CORRECT_S fixon_timeout_function(unsigned int flag, unsigned int c
             printk("NFC_DONE_RAW is 0, nand controller reinit[0x%08x]\n", flag);
             ret = fixon_reset_function();
         }
-        if(!(nfc_cmd & 0x80000000) && cmd_has_high)
+        if((ret==NAND_ERR_NEED_RETRY) && !(nfc_cmd & 0x80000000) && cmd_has_high)
             ret = NAND_ERR_FIXED;
         return ret;
 }
