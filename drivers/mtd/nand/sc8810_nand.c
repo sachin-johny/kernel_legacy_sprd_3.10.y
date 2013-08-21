@@ -79,6 +79,7 @@ static __attribute__((aligned(4))) unsigned char io_wr_port[NAND_MAX_PAGESIZE + 
 static unsigned char fix_timeout_id[8];
 static unsigned long fix_timeout_reg[8];
 static struct wake_lock nfc_wakelock;
+static void set_nfc_timing(struct sc8810_nand_timing_param *nand_timing, u32 nfc_clk_MHz);
 
 /* 4kB or 8KB PageSize nand flash config table
  * id(5 bytes), pagesize, oobsize, 512, eccbit
@@ -475,115 +476,114 @@ void fixon_timeout_restore_reg(void)
 	}*/
 }
 
-
-unsigned long fixon_timeout_function(unsigned int flag)
+enum NAND_ERR_CORRECT_S  fixon_reset_function(void)
 {
-	unsigned int nfc_cmd, nfc_clr_raw, value, nfc_clr_raw_2, nfc_cmd_2, nfc_clr_raw_3, nfc_cmd_3;
-        unsigned int ret, count, retry=3;
-        do{
-	    ret = 0;
-	    nfc_cmd = nfc_reg_read(NFC_CMD);
-	    nfc_clr_raw = nfc_reg_read(NFC_CLR_RAW);
-	    printk(" %s enter, flag=0x%x, REG_NFC_CMD[0x%08x],  REG_NFC_CLR_RAW[0x%08x]\n",\
-                    __func__,flag, nfc_cmd, nfc_clr_raw);
+        unsigned int nfc_clr_raw, nfc_cmd;
+        enum  NAND_ERR_CORRECT_S  ret;
 
-            if (nfc_cmd & 0x80000000) { /* Bit31 is 1 */
-		printk("Bit31 of REG_NFC_CMD is 1, memory or nfc is wrong\n");
-		printk("clear the current command\n");
-		value = nfc_reg_read(NFC_CFG0);
-		value |= 0x2;
-		nfc_reg_write(NFC_CFG0, value);
-		mdelay(10);
-		nfc_reg_write(NFC_CLR_RAW, 0xffff0000); /* clear all interrupt status */
-		printk("send readid command\n");
-		fixon_timeout_send_readid_command();
-		mdelay(10);
-		nfc_clr_raw = nfc_reg_read(NFC_CLR_RAW);
-		printk("NFC_DONE_RAW bit[0x%08x]\n", nfc_clr_raw);
-		nfc_reg_write(NFC_CLR_RAW, 0xffff0000); /* clear all interrupt status */
-		if (nfc_clr_raw & NFC_DONE_RAW) { /* NFC_DONE_RAW is 1 */
-			printk("NFC_DONE_RAW is 1\n");
-			value = fixon_timeout_check_id();
-			if (value == 1) {
-				printk("Id is right, step 3\n");
-				printk("send reset flash command\n");
-				fixon_timeout_send_reset_flash_command();
-				mdelay(20);
-				nfc_clr_raw_2 = nfc_reg_read(NFC_CLR_RAW);
-				nfc_cmd_2 = nfc_reg_read(NFC_CMD);
-				printk("2NFC_DONE_RAW bit[0x%08x]  NFC_VALID bit[0x%08x]\n", nfc_clr_raw_2, nfc_cmd_2);
-				nfc_reg_write(NFC_CLR_RAW, 0xffff0000); /* clear all interrupt status */
-				if (((nfc_clr_raw_2 & NFC_DONE_RAW) == 1) && ((nfc_cmd_2 & 0x80000000) == 0)) {
-					printk("2nfc/flash/hardware are all right, execute again\n");
-					ret = 1;
-				} else {
-					printk("nfc timing is wrong, reset nfc and test again\n");
-					sc8810_nand_hw_init();
-					mdelay(10);
-					printk("send reset flash command\n");
-					fixon_timeout_send_reset_flash_command();
-					mdelay(20);
-					nfc_clr_raw_3 = nfc_reg_read(NFC_CLR_RAW);
-					nfc_cmd_3 = nfc_reg_read(NFC_CMD);
-				        printk("3NFC_DONE_RAW bit[0x%08x]  NFC_VALID bit[0x%08x]\n",\
-                                                nfc_clr_raw_3, nfc_cmd_3);
-					nfc_reg_write(NFC_CLR_RAW, 0xffff0000); /* clear all interrupt status */
-					if (((nfc_clr_raw_3 & NFC_DONE_RAW) == 1) && ((nfc_cmd_3 & 0x80000000) == 0)) {
-						printk("3nfc/flash/hardware are all right, execute again\n");
-						ret = 1;
-					} else
-						printk("nfc timing is wrong!!!\n");
-				}
-			} else
-				printk("Id is wrong, please check flash, nfc or timing\n");
-                } else
-		        printk("NFC_DONE_RAW is 0, please check flash, nfc or timing[0x%08x]\n", flag);
-	    } else {
-		if (flag == NFC_ECC_EVENT) {
-			if (nfc_clr_raw & NFC_ECC_DONE_RAW) {/* NFC_ECC_EVENT is 1 */
-				printk("NFC_ECC_EVENT is 1, can not occur timeout\n");
-                                ret=2;
-                        }
-			else{
-				printk("NFC_ECC_EVENT is 0, software clear bit%d, please check software\n", flag);
-                                ret=0;
-                        }
-		} else if (flag == NFC_DONE_EVENT) {
-			if (nfc_clr_raw & NFC_DONE_RAW) /* NFC_DONE_RAW is 1 */{
-				printk("NFC_DONE_RAW is 1, can not occur timeout\n");
-                                ret=2;
-                        }
-			else{
-				printk("NFC_DONE_RAW is 0, software clear bit%d, please check software\n", flag);
-                                ret=0;
-                        }
-		}
-            }
-            //for NFC no recovery error judgement more cautious
-            if((ret==0x0) && (retry!=0x0))
-                for(count=0x0; count<0x8000; count++);
-
-        }while((ret==0) && retry--);
+        printk("%s enter\n", __func__);
+	sc8810_nand_hw_init();
+	if (ptr_nand_spec != NULL)
+	    set_nfc_timing(&ptr_nand_spec->timing_cfg, 153);
+        mdelay(2);
+	printk("send reset flash command\n");
+	fixon_timeout_send_reset_flash_command();
+	mdelay(5);
+	nfc_clr_raw = nfc_reg_read(NFC_CLR_RAW);
+	nfc_cmd = nfc_reg_read(NFC_CMD);
+	printk("3NFC_DONE_RAW bit[0x%08x],NFC_VALID bit[0x%08x]\n",nfc_clr_raw, nfc_cmd);
+	nfc_reg_write(NFC_CLR_RAW, 0xffff0000); /* clear all interrupt status */
+	if (((nfc_clr_raw & NFC_DONE_RAW) == 1) && ((nfc_cmd & 0x80000000) == 0)) {
+		printk("3nfc/flash/hardware are all right, execute again\n");
+		ret = NAND_ERR_NEED_RETRY;
+	} else{
+	        ret = NAND_FATAL_ERROR;
+                printk("%s is wrong!!!\n", __func__);
+	}
 
         return ret;
 }
 
-static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
+enum NAND_ERR_CORRECT_S fixon_timeout_function(unsigned int flag, unsigned int cmd_has_high)
+{
+	unsigned int nfc_cmd, nfc_clr_raw, value, nfc_clr_raw_2, nfc_cmd_2;
+        enum NAND_ERR_CORRECT_S  ret= NAND_NO_ERROR;
+
+        mdelay(5);
+        //read command register
+        nfc_cmd = nfc_reg_read(NFC_CMD);
+        //clear the current command
+        value = nfc_reg_read(NFC_CFG0);
+        value |= 0x2;
+        nfc_reg_write(NFC_CFG0, value);
+        mdelay(5);
+        //clear all interrupt status */
+        nfc_reg_write(NFC_CLR_RAW, 0xffff0000);
+        printk("send readid command\n");
+        //check procedure after small reset
+        fixon_timeout_send_readid_command();
+        mdelay(5);
+        nfc_clr_raw = nfc_reg_read(NFC_CLR_RAW);
+        printk(" %s enter, flag=0x%x, cmd_has_high=0x%x, REG_NFC_CMD[0x%08x],  REG_NFC_CLR_RAW[0x%08x]\n",\
+                __func__,flag,  cmd_has_high, nfc_cmd, nfc_clr_raw);
+        printk("NFC_DONE_RAW bit[0x%08x]\n", nfc_clr_raw);
+        //clear all interrupt status */
+        nfc_reg_write(NFC_CLR_RAW, 0xffff0000);
+        if (nfc_clr_raw & NFC_DONE_RAW) { /* NFC_DONE_RAW is 1 */
+                printk("NFC_DONE_RAW is 1\n");
+                //check id
+                value = fixon_timeout_check_id();
+                if (value == 1) {
+                        printk("Id is right, step 3\n");
+                        printk("send reset flash command\n");
+                        fixon_timeout_send_reset_flash_command();
+                        mdelay(5);
+                        nfc_clr_raw_2 = nfc_reg_read(NFC_CLR_RAW);
+                        nfc_cmd_2 = nfc_reg_read(NFC_CMD);
+                        printk("2NFC_DONE_RAW bit[0x%08x]  NFC_VALID bit[0x%08x]\n", nfc_clr_raw_2, nfc_cmd_2);
+                        nfc_reg_write(NFC_CLR_RAW, 0xffff0000); /* clear all interrupt status */
+                        if (((nfc_clr_raw_2 & NFC_DONE_RAW) == 1) && ((nfc_cmd_2 & 0x80000000) == 0)) {
+                                printk("2nfc/flash/hardware are all right, execute again\n");
+                                ret = NAND_ERR_NEED_RETRY;
+                        } else {
+                                printk("done status not come, reset nand controller\n");
+                                ret = fixon_reset_function();
+                        }
+                } else{
+                    printk("Id is wrong, reset nand controller\n");
+                    ret = fixon_reset_function();
+                }
+        } else{
+            printk("NFC_DONE_RAW is 0, nand controller reinit[0x%08x]\n", flag);
+            ret = fixon_reset_function();
+        }
+        if(!(nfc_cmd & 0x80000000) && cmd_has_high)
+            ret = NAND_ERR_FIXED;
+        return ret;
+}
+
+static enum NAND_ERR_CORRECT_S sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 {
 	unsigned int event = 0;
 	unsigned int value;
+        unsigned int nfc_cmd;
         unsigned int counter=0;
 	unsigned int is_timeout = 0;
-	unsigned int ret = 0;
+        unsigned int cmd_has_high=0;
+        enum NAND_ERR_CORRECT_S ret = NAND_NO_ERROR;
 
 	while (((event & flag) != flag) && (counter< NFC_TIMEOUT_VAL)) {
         	value = nfc_reg_read(NFC_CLR_RAW);
+                nfc_cmd = nfc_reg_read(NFC_CMD);
 
         	if (value & NFC_ECC_DONE_RAW)
 			event |= NFC_ECC_EVENT;
 
 		if (value & NFC_DONE_RAW)
 			event |= NFC_DONE_EVENT;
+
+                if (((nfc_cmd & 0x80000000) == 0x80000000) && !cmd_has_high)
+                        cmd_has_high=1;
 
                 counter++;
 		if (flag == NFC_DONE_EVENT) {
@@ -607,7 +607,7 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 		}
 
 		if (is_timeout == 1) {
-			printk("nfc cmd[0x%08x] timeout[0x%08x] and reset nand controller.\n", cmd, counter);
+			printk("nfc cmd[0x%08x] timeout[0x%08x] cmd_has_high:%d and reset nand controller.\n", cmd, counter, cmd_has_high);
 			break;
 		}
 	}
@@ -618,14 +618,13 @@ static int sc8810_nfc_wait_command_finish(unsigned int flag, int cmd)
 
 	if (is_timeout == 1) {
 	        int i;
-	        for (i=0; i<40; i+=4)
-                {
-                    printk("\r\nnfc cmd reg addr:0x%x, value:0x%xx!\r\n", NFC_CMD+i, nfc_reg_read(NFC_CMD+i));
-                 }
-
-		ret = fixon_timeout_function(flag);
-		if (ret == 0) {
-			panic("nfc cmd timeout, check nfc, flash, hardware\n");
+                ret = fixon_timeout_function(flag, cmd_has_high);
+		if (ret == NAND_FATAL_ERROR) {
+			for (i=0; i<40; i+=4)
+                        {
+                            printk("\r\nnfc cmd reg addr:0x%x, value:0x%xx!\r\n", NFC_CMD+i, nfc_reg_read(NFC_CMD+i));
+                        }
+                        panic("nfc cmd timeout, check nfc, flash, hardware\n");
 			while (1);
 		}
         }
@@ -781,22 +780,22 @@ static void set_nfc_timing(struct sc8810_nand_timing_param *nand_timing, u32 nfc
 	u32 value = 0;
 	u32 cycles;
 	cycles = nand_timing->acs_time * nfc_clk_MHz / 1000 + 1;
-	value |= ((cycles & 0x1F) << NFC_ACS_OFFSET);
+	value |= (min(cycles, 0x1F) << NFC_ACS_OFFSET);
 
 	cycles = nand_timing->rwh_time * nfc_clk_MHz / 1000 + 2;
-	value |= ((cycles & 0x1F) << NFC_RWH_OFFSET);
+	value |= (min(cycles, 0x1F) << NFC_RWH_OFFSET);
 
 	cycles = (nand_timing->rwl_time+DELAY_RWL) * nfc_clk_MHz / 1000 + 1;
-	value |= ((cycles & 0x3F) << NFC_RWL_OFFSET);
+	value |= (min(cycles,  0x3F) << NFC_RWL_OFFSET);
 
 	cycles = nand_timing->acr_time * nfc_clk_MHz / 1000 + 1;
-	value |= ((cycles & 0x1F) << NFC_ACR_OFFSET);
+	value |= (min(cycles,  0x1F) << NFC_ACR_OFFSET);
 
 	cycles = nand_timing->rr_time * nfc_clk_MHz / 1000 + 1;
-	value |= ((cycles & 0x1F) << NFC_RR_OFFSET);
+	value |= (min(cycles,  0x1F) << NFC_RR_OFFSET);
 
 	cycles = nand_timing->ceh_time * nfc_clk_MHz / 1000 + 1;
-	value |= ((cycles & 0x3F) << NFC_CEH_OFFSET);
+	value |= (min(cycles,  0x3F) << NFC_CEH_OFFSET);
 
         nfc_reg_write(NFC_TIMING, value);
 
@@ -880,8 +879,9 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 {
 	struct nand_chip *chip = (struct nand_chip *)(mtd->priv);
 	u32 eccsize, size = 0;
-	int ret = 0;
         int time=2;
+        enum NAND_ERR_CORRECT_S ret = NAND_NO_ERROR;
+
 
 	if (ctrl & NAND_CLE) {
 		switch (cmd) {
@@ -908,11 +908,13 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			fixon_timeout_save_reg();
                         nfc_mcr_inst_exc_for_id();
                         ret=sc8810_nfc_wait_command_finish(NFC_DONE_EVENT,cmd);
-			while((ret==1)&&time--){
+			while((ret==NAND_ERR_NEED_RETRY)&&time--){
                                 fixon_timeout_restore_reg();
 				nfc_mcr_inst_exc_for_id();
 				ret = sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
                         }
+                        if(ret==NAND_ERR_NEED_RETRY)
+                            panic("%s, %d, retry error\n", __func__, __LINE__);
                         memcpy(io_wr_port, (void *)NFC_MBUF_ADDR, 1);
 			//printf("read status3  0x%x, 0x%x\r\n", io_wr_port[0], nfc_reg_read(NFC_MBUF_ADDR));
 			nand_add_cmd(0x22);
@@ -953,11 +955,13 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			fixon_timeout_save_reg();
 			nfc_mcr_inst_exc();
 			ret = sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
-			while((ret == 1) && time--) {
+			while((ret == NAND_ERR_NEED_RETRY) && time--) {
 				fixon_timeout_restore_reg();
 				nfc_mcr_inst_exc();
 				ret = sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			}
+                        if(ret==NAND_ERR_NEED_RETRY)
+                            panic("%s, %d, retry error\n", __func__, __LINE__);
                         nand_add_cmd(0x55);
 			wake_unlock(&nfc_wakelock);
 			break;
@@ -981,11 +985,13 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			fixon_timeout_save_reg();
 			nfc_mcr_inst_exc();
 			ret = sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
-			while((ret == 1)&& time--) {
+			while((ret == NAND_ERR_NEED_RETRY)&& time--) {
 				fixon_timeout_restore_reg();
 				nfc_mcr_inst_exc();
 				ret=sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			}
+                        if(ret==NAND_ERR_NEED_RETRY)
+                            panic("%s, %d, retry error\n", __func__, __LINE__);
                         nand_add_cmd(0x77);
 			wake_unlock(&nfc_wakelock);
 			break;
@@ -1008,11 +1014,13 @@ static void sc8810_nand_hwcontrol(struct mtd_info *mtd, int cmd, unsigned int ct
 			nfc_mcr_inst_exc();
 			ret = sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			//fixon_timeout_restore_reg();
-			while((ret == 1) && time--) {
+			while((ret == NAND_ERR_NEED_RETRY) && time--) {
 				fixon_timeout_restore_reg();
 				nfc_mcr_inst_exc();
 				ret=sc8810_nfc_wait_command_finish(NFC_DONE_EVENT, cmd);
 			}
+                        if(ret==NAND_ERR_NEED_RETRY)
+                            panic("%s, %d, retry error\n", __func__, __LINE__);
                         nand_add_cmd(0x99);
 			wake_unlock(&nfc_wakelock);
 			break;
