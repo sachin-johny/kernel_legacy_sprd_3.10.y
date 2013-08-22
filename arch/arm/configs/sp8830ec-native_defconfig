@@ -1140,7 +1140,7 @@ CONFIG_WLAN=y
 CONFIG_WLAN_SDIO=y
 # CONFIG_WIFI_CONTROL_FUNC is not set
 # CONFIG_ATH_COMMON is not set
-CONFIG_BCMDHD=m
+#CONFIG_BCMDHD is not set
 CONFIG_BCMDHD_FW_PATH="/system/etc/wifi/fw_bcmdhd.bin"
 CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"
 CONFIG_DHD_USE_SCHED_SCAN=y
@@ -1149,6 +1149,9 @@ CONFIG_DHD_USE_SCHED_SCAN=y
 # CONFIG_IWM is not set
 # CONFIG_LIBERTAS is not set
 # CONFIG_MWIFIEX is not set
+CONFIG_ITTIAM=m
+CONFIG_ITM_WLAN_PM_POWERSAVE=y
+# CONFIG_ITM_WLAN_PM_SLEEP is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers

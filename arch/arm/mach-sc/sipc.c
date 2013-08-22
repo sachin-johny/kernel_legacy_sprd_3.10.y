@@ -135,6 +135,31 @@ static int __init sipc_wcn_init(void)
 }
 #endif
 
+static int __init itm_sblock_init(void)
+{
+	int ret;
+
+	ret = sblock_create(3, 7,
+			    64, 1516,
+			    64, 1516);
+	if (ret) {
+		printk(KERN_ERR "Failed to create data sblock (%d)\n", ret);
+		return -ENOMEM;
+	}
+
+	ret = sblock_create(3, 8,
+			    1, (10 * 1024),
+			    1, (10 * 1024));
+	if (ret) {
+		printk(KERN_ERR "Failed to create event sblock (%d)\n", ret);
+		sblock_destroy(3, 7);
+		return -ENOMEM;
+	}
+
+	printk(KERN_ERR "create sblock successfully\n");
+	return 0;
+}
+
 static int __init sipc_init(void)
 {
 	uint32_t smem_size = 0;
@@ -154,6 +179,7 @@ static int __init sipc_init(void)
 #endif
 
 	smem_init(SIPC_SMEM_ADDR, smem_size);
+	itm_sblock_init();
 	return 0;
 }
 

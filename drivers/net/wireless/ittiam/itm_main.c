@@ -1,0 +1,444 @@
+/*
+ * Copyright (C) 2013 Spreadtrum Communications Inc.
+ *
+ * Authors:
+ * Keguang Zhang <keguang.zhang@spreadtrum.com>
+ * Danny Deng <danny.deng@spreadtrum.com>
+ *
+ * This software is licensed under the terms of the GNU General Public
+ * License version 2, as published by the Free Software Foundation, and
+ * may be copied, distributed, and modified under those terms.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ */
+
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/string.h>
+#include <linux/delay.h>
+#include <linux/errno.h>
+#include <linux/interrupt.h>
+#include <linux/init.h>
+#include <linux/netdevice.h>
+#include <linux/skbuff.h>
+#include <linux/wakelock.h>
+#include <linux/workqueue.h>
+#include <linux/ipv6.h>
+#include <linux/ip.h>
+#include <asm/byteorder.h>
+#include <linux/platform_device.h>
+
+#include <linux/sipc.h>
+
+#include "ittiam.h"
+#include "itm_sipc.h"
+#include "itm_cfg80211.h"
+#include "itm_npi.h"
+
+#define ITM_DEV_NAME		"itm_wlan"
+#define ITM_INTF_NAME		"wlan%d"
+
+/*
+ * Tx_ready handler.
+ */
+static void itm_wlan_tx_ready_handler(struct itm_priv *priv)
+{
+	/*TODO*/
+}
+
+static void itm_wlan_rx_handler(struct itm_priv *priv)
+{
+	struct sblock blk;
+	struct sk_buff *skb;
+	int ret;
+
+	ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
+	if (ret) {
+		dev_err(&priv->ndev->dev, "Failed to receive sblock (%d)\n",
+			ret);
+		priv->ndev->stats.rx_errors++;
+		return;
+	}
+
+	skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);	/*16 bytes align */
+	if (!skb) {
+		dev_err(&priv->ndev->dev, "Failed to allocate skbuff!\n");
+		priv->ndev->stats.rx_dropped++;
+		return;
+	}
+
+	skb_reserve(skb, NET_IP_ALIGN);
+
+	memcpy(skb->data, blk.addr, blk.length);
+
+	skb_put(skb, blk.length);
+
+	skb->dev = priv->ndev;
+	skb->protocol = eth_type_trans(skb, priv->ndev);
+	skb->ip_summed = CHECKSUM_UNNECESSARY;
+
+	priv->ndev->stats.rx_packets++;
+	priv->ndev->stats.rx_bytes += skb->len;
+
+	netif_rx(skb);
+
+	priv->ndev->last_rx = jiffies;
+
+	ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
+	if (ret)
+		dev_err(&priv->ndev->dev, "Failed to release sblock (%d)\n",
+			ret);
+}
+
+static void itm_wlan_handler(int event, void *data)
+{
+	struct itm_priv *priv = (struct itm_priv *)data;
+
+	switch (event) {
+	case SBLOCK_NOTIFY_GET:
+		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_GET is received\n");
+		break;
+	case SBLOCK_NOTIFY_RECV:
+		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_RECV is received\n");
+		itm_wlan_rx_handler(priv);
+		break;
+	case SBLOCK_NOTIFY_STATUS:
+		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
+		itm_wlan_tx_ready_handler(priv);
+		break;
+	default:
+		dev_err(&priv->ndev->dev,
+			"Received event is invalid(event=%d)\n", event);
+	}
+}
+
+/*
+ * Transmit interface
+ */
+static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+{
+	struct itm_priv *priv = netdev_priv(dev);
+	struct sblock blk;
+	int ret;
+
+	/*
+	 * Get a free sblock.
+	 */
+
+	ret = sblock_get(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0xFFFFFFFF);
+	if (ret) {
+		dev_err(&dev->dev, "Failed to get free sblock (%d)\n", ret);
+		netif_stop_queue(dev);
+		priv->ndev->stats.tx_fifo_errors++;
+		priv->stopped = 1;
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_BUSY;
+	}
+
+	if (blk.length < skb->len) {
+		dev_err(&dev->dev, "The size of sblock is so tiny!\n");
+		priv->ndev->stats.tx_fifo_errors++;
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_BUSY;
+	}
+
+	blk.length = skb->len;
+	memcpy(blk.addr, skb->data, skb->len);
+	ret = sblock_send(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
+	if (ret) {
+		dev_err(&dev->dev, "Failed to send sblock (%d)\n", ret);
+		priv->ndev->stats.tx_fifo_errors++;
+		dev_kfree_skb_any(skb);
+		return NETDEV_TX_BUSY;
+	}
+
+	/*
+	 * Statistics.
+	 */
+	priv->ndev->stats.tx_bytes += skb->len;
+	priv->ndev->stats.tx_packets++;
+	dev->trans_start = jiffies;
+
+	dev_kfree_skb_any(skb);
+
+	return NETDEV_TX_OK;
+}
+
+/*
+ * Open interface
+ */
+static int itm_wlan_open(struct net_device *dev)
+{
+	struct itm_priv *priv = netdev_priv(dev);
+
+	/* Reset stats */
+	memset(&priv->ndev->stats, 0, sizeof(priv->ndev->stats));
+
+	/*TODO*/
+	netif_start_queue(dev);
+
+	return 0;
+}
+
+/*
+ * Close interface
+ */
+static int itm_wlan_close(struct net_device *dev)
+{
+	struct itm_priv *priv = netdev_priv(dev);
+
+	netif_stop_queue(dev);
+
+	/*TODO*/
+
+	return 0;
+}
+
+static struct net_device_stats *itm_wlan_get_stats(struct net_device *dev)
+{
+	struct itm_priv *priv = netdev_priv(dev);
+
+	return &(dev->stats);
+}
+
+static void itm_wlan_tx_timeout(struct net_device *dev)
+{
+	struct itm_priv *priv = netdev_priv(dev);
+
+	dev_dbg(&dev->dev, "%s\n", __func__);
+
+	/*TODO*/
+}
+
+static int itm_wlan_ioctl(struct net_device *dev,
+		struct ifreq *req, int cmd)
+{
+	switch (cmd) {
+	case SIOCDEVPRIVATE + 1:
+		return itm_cfg80211_android_priv_cmd(dev, req);
+		break;
+	default:
+		dev_err(&dev->dev,
+			"ioctl cmd %d is not supported\n", cmd);
+		return -ENOTSUPP;
+	}
+
+	return 0;
+}
+
+#ifdef	CONFIG_PM
+static int itm_wlan_suspend(struct device *dev)
+{
+	struct net_device *ndev = dev_get_drvdata(dev);
+	struct itm_priv *priv = netdev_priv(ndev);
+	int ret = 0;
+
+	dev_dbg(dev, "%s\n", __func__);
+	netif_stop_queue(ndev);
+
+#if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
+	ret = itm_wlan_pm_enter_ps_cmd(priv->wlan_sipc);
+#elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
+	ret = itm_wlan_pm_suspend_cmd(priv->wlan_sipc);
+#endif
+	if (ret)
+		dev_err(dev, "Failed to suspend (%d)\n", ret);
+
+	return ret;
+}
+
+static int itm_wlan_resume(struct device *dev)
+{
+	struct net_device *ndev = dev_get_drvdata(dev);
+	struct itm_priv *priv = netdev_priv(ndev);
+	int ret = 0;
+
+	dev_dbg(dev, "%s\n", __func__);
+
+#if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
+	ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
+#elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
+	ret = itm_wlan_pm_resume_cmd(priv->wlan_sipc);
+#endif
+	if (ret)
+		dev_err(dev, "Failed to resume (%d)\n", ret);
+
+	netif_wake_queue(ndev);
+	return ret;
+}
+
+static const struct dev_pm_ops itm_wlan_pm = {
+	.suspend = itm_wlan_suspend,
+	.resume = itm_wlan_resume,
+};
+#else
+static const struct dev_pm_ops itm_wlan_pm;
+#endif /* CONFIG_PM */
+
+static struct net_device_ops itm_wlan_ops = {
+	.ndo_open = itm_wlan_open,
+	.ndo_stop = itm_wlan_close,
+	.ndo_start_xmit = itm_wlan_start_xmit,
+	.ndo_get_stats = itm_wlan_get_stats,
+	.ndo_tx_timeout = itm_wlan_tx_timeout,
+	.ndo_do_ioctl = itm_wlan_ioctl,
+};
+
+/*
+ * Initialize WLAN device.
+ */
+static int __devinit itm_wlan_probe(struct platform_device *pdev)
+{
+	struct net_device *ndev;
+	struct itm_priv *priv;
+	int ret;
+
+	ndev =
+	    alloc_netdev(sizeof(struct itm_priv), ITM_INTF_NAME, ether_setup);
+	if (!ndev) {
+		dev_err(&pdev->dev, "Failed to allocate net_device\n");
+		ret = -ENOMEM;
+		goto out;
+	}
+
+	priv = netdev_priv(ndev);
+	priv->ndev = ndev;
+	priv->stopped = 0;
+
+	ndev->netdev_ops = &itm_wlan_ops;
+	ndev->watchdog_timeo = msecs_to_jiffies(500);
+
+	/*FIXME*/
+	/* If get mac from cfg file error, got random addr */
+	ret = itm_get_mac_from_cfg(priv);
+	if (ret)
+		random_ether_addr(ndev->dev_addr);
+/*
+	ret = sblock_create(WLAN_CP_ID, WLAN_SBLOCK_CH,
+			    WLAN_SBLOCK_NUM, WLAN_SBLOCK_SIZE,
+			    WLAN_SBLOCK_NUM, WLAN_SBLOCK_SIZE);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to create sblock (%d)\n", ret);
+		goto err_sblock;
+	}
+*/
+	ret =
+	    sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
+				     itm_wlan_handler, priv);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to regitster sblock notifier (%d)\n", ret);
+		goto err_notify_sblock;
+	}
+
+	/*Init MAC and get the capabilities */
+#if 0
+	ret = itm_hw_init();
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to detect MAC controller (%d)\n",
+			ret);
+		goto err_notify_sblock;
+	}
+#endif
+
+	ret = itm_wdev_alloc(priv, &pdev->dev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to register wiphy (%d)\n", ret);
+		goto err_notify_sblock;
+	}
+
+	/* register new Ethernet interface */
+	ret = register_netdev(ndev);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to regitster net_dev (%d)\n", ret);
+		goto err_register_netdev;
+	}
+
+	ret = npi_init_netlink();
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
+		goto err_npi_netlink;
+	}
+	platform_set_drvdata(pdev, ndev);
+
+	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
+
+	return 0;
+err_npi_netlink:
+	unregister_netdev(ndev);
+err_register_netdev:
+	itm_wdev_free(priv);
+err_notify_sblock:
+	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
+/*err_sblock:
+	free_netdev(ndev);*/
+out:
+	return ret;
+}
+
+/*
+ * Cleanup WLAN device.
+ */
+static int __devexit itm_wlan_remove(struct platform_device *pdev)
+{
+	struct net_device *ndev = platform_get_drvdata(pdev);
+	struct itm_priv *priv = netdev_priv(ndev);
+	int ret;
+
+/*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
+	/* FIXME it is a ugly method */
+	ret =
+		sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
+					 NULL, NULL);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to regitster sblock notifier (%d)\n", ret);
+	}
+
+	unregister_netdev(ndev);
+	itm_wdev_free(priv);
+	free_netdev(ndev);
+	npi_exit_netlink();
+	platform_set_drvdata(pdev, NULL);
+
+	return 0;
+}
+
+static struct platform_driver itm_wlan_driver = {
+	.probe = itm_wlan_probe,
+	.remove = __devexit_p(itm_wlan_remove),
+	.driver = {
+		   .owner = THIS_MODULE,
+		   .name = ITM_DEV_NAME,
+		   .pm = &itm_wlan_pm,
+		   },
+};
+
+static struct platform_device *itm_wlan_device;
+static int __init itm_wlan_init(void)
+{
+	pr_info("ITTIAM Wireless Network Adapter (%s %s)\n", __DATE__,
+		__TIME__);
+	itm_wlan_device =
+	    platform_device_register_simple(ITM_DEV_NAME, 0, NULL, 0);
+	if (IS_ERR(itm_wlan_device))
+		return PTR_ERR(itm_wlan_device);
+
+	return platform_driver_register(&itm_wlan_driver);
+}
+
+static void __exit itm_wlan_exit(void)
+{
+	platform_driver_unregister(&itm_wlan_driver);
+	platform_device_unregister(itm_wlan_device);
+	itm_wlan_device = NULL;
+}
+
+module_init(itm_wlan_init);
+module_exit(itm_wlan_exit);
+
+MODULE_DESCRIPTION("ITTIAM Wireless Network Adapter");
+MODULE_LICENSE("GPL");
