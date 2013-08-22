@@ -58,14 +58,9 @@ static volatile u32 cp_code_addr = 0x0;
 static volatile u32 switch_cnt =0x0;
 static DEFINE_MUTEX(emc_mutex);
 u32 emc_clk_get(void);
-#if 0
-#define CP2_FLAGS_ADDR	(SPRD_IRAM1_BASE + 0x3FFC)
-#define CP2_PARAM_ADDR	(SPRD_IRAM1_BASE + 0x3F00)
-#else
-#define CP2_DEBUG_ADDR	(cp_code_addr + 0xFF8)
-#define CP2_FLAGS_ADDR	(cp_code_addr + 0xFFC)
-#define CP2_PARAM_ADDR	(cp_code_addr + 0xF00)
-#endif
+#define CP_DEBUG_ADDR	(cp_code_addr + 0xFF8)
+#define CP_FLAGS_ADDR	(cp_code_addr + 0xFFC)
+#define CP_PARAM_ADDR	(cp_code_addr + 0xF00)
 #define uint32 u32
 
 #define debug(format, arg...) pr_debug("emc_freq" "" format, ## arg)
@@ -135,39 +130,43 @@ static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 	}
 	//__timing_reg_dump(ret_timing);
 	if(ret_timing) {
-		memcpy((void *)CP2_PARAM_ADDR, ret_timing, sizeof(ddr_dfs_val_t));
+		memcpy((void *)CP_PARAM_ADDR, ret_timing, sizeof(ddr_dfs_val_t));
 	}
 	return ret_timing;
 }
 static void cp_code_init(void)
 {
-	if(!cp_code_init_ref) {
-		cp_code_addr = (volatile u32)ioremap(0x50003000,0x1000);
-		if(chip_id == 0) {
-			memcpy((void *)cp_code_addr, cp_code_data_cs, sizeof(cp_code_data_cs));
-		}
-		else {
-			//memcpy((void *)SPRD_IRAM1_BASE + (12 * 1024), cp_code_data_cs, sizeof(cp_code_data_cs));
-			memcpy((void *)cp_code_addr, cp_code_data_cs, sizeof(cp_code_data_cs));
-		}
-	}
+	u32 *copy_data;
+	u32 copy_size;
+	u32 code_phy_addr;
+#ifdef CONFIG_DFS_AT_CP0
+	copy_data = cp0_dfs_code_data;
+	copy_size = sizeof(cp0_dfs_code_data);
+	code_phy_addr = 0x50000000;
+#else
+	copy_data = cp0_dfs_code_data;
+	copy_size = sizeof(cp0_dfs_code_data);
+	code_phy_addr = 0x50003000;
+#endif
+	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
+	memcpy((void *)cp_code_addr, (void *)copy_data, copy_size);
 }
 static void close_cp(void)
 {
 	u32 value;
 	u32 times;
 
-	value = __raw_readl(CP2_FLAGS_ADDR);
+	value = __raw_readl(CP_FLAGS_ADDR);
 	times = 0;
 	while((value & EMC_FREQ_SWITCH_STATUS_MASK) != (EMC_FREQ_SWITCH_COMPLETE << EMC_FREQ_SWITCH_STATUS_OFFSET)) {
-		value = __raw_readl(CP2_FLAGS_ADDR);
+		value = __raw_readl(CP_FLAGS_ADDR);
 		mdelay(2);
 		if(times >= 100) {
 			break;
 		}
 		times ++;
 	}
-	info("__emc_clk_set flag =  0x%08x ,- 4 = 0x%08x phy register = 0x%08x\n", __raw_readl(CP2_FLAGS_ADDR),__raw_readl(CP2_FLAGS_ADDR - 4), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x4));
+	info("__emc_clk_set flag =  0x%08x ,- 4 = 0x%08x phy register = 0x%08x\n", __raw_readl(CP_FLAGS_ADDR),__raw_readl(CP_FLAGS_ADDR - 4), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x4));
 	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x10));
 	//info("__emc_clk_set flag REG_AON_CLK_EMC_CFG = 0x%08x\n", __raw_readl(REG_AON_CLK_EMC_CFG));
 	//sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
@@ -176,20 +175,20 @@ static void close_cp(void)
 	//for(i = 0; i < 0x1000; i++);
 	//sci_glb_set(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power off cp2
 }
-static void wait_cp2_run(void)
+static void wait_cp_run(void)
 {
 	u32 val;
 	u32 times = 0;
-	val = __raw_readl(CP2_FLAGS_ADDR - 4);
+	val = __raw_readl(CP_FLAGS_ADDR - 4);
 	while(val != 0x11223344/*cp2 run flag*/) {
 		mdelay(2);
-		val = __raw_readl(CP2_FLAGS_ADDR - 4);
+		val = __raw_readl(CP_FLAGS_ADDR - 4);
 		times ++;
 		if(times >= 10) {
 			panic("wait_cp2_run timeout\n");
 		}
 	}
-	__raw_writel(0x44332211, CP2_FLAGS_ADDR - 4)/*for watchdog, so clear it*/;
+	__raw_writel(0x44332211, CP_FLAGS_ADDR - 4)/*for watchdog, so clear it*/;
 }
 static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 {
@@ -212,11 +211,15 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
 	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
-	__raw_writel(flag, CP2_FLAGS_ADDR);
+	__raw_writel(flag, CP_FLAGS_ADDR);
+#ifdef CONFIG_DFS_AT_CP0
+	sci_glb_set(SPRD_IPI_BASE,1 << 0);//send ipi interrupt to cp0
+#else
 	sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
+#endif
 	close_cp();
 	if(emc_clk_get() != clk) {
-		info("clk set error, set clk = %d, get clk = %d\n", emc_clk_get());
+		info("clk set error, set clk = %d, get clk = %d\n", clk, emc_clk_get());
 	}
 	return 0;
 }
@@ -473,9 +476,18 @@ static void __emc_timing_reg_init(void)
 		__timing_reg_dump(&__emc_param_configs[i]);
 	}
 }
-static void cp2_init(void)
+static void cp_init(void)
 {
 	cp_code_init();
+#ifdef CONFIG_DFS_AT_CP0 //dfs is at cp0
+	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//reset cp0
+	udelay(200);
+	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, 1 << 25);//power on cp0
+	mdelay(4);
+	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, 1 << 28);//close cp0 force sleep
+	mdelay(2);
+	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//release cp0
+#else
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 	udelay(200);
 	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
@@ -483,8 +495,8 @@ static void cp2_init(void)
 	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//close cp2 force sleep
 	mdelay(2);
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-	udelay(200);
-	wait_cp2_run();
+#endif
+	wait_cp_run();
 }
 static int __init emc_early_suspend_init(void)
 {
@@ -499,7 +511,7 @@ static int __init emc_early_suspend_init(void)
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	//cp_code_init();
 	__emc_timing_reg_init();
-	cp2_init();
+	cp_init();
 	/*
 	* move this early_suspend to dfs governor(governor_ondemand.c)
 	* TODO: clean code
