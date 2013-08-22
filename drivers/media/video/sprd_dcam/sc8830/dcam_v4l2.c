@@ -2265,15 +2265,20 @@ exit:
 
 LOCAL void sprd_v4l2_print_reg(void)
 {
-	uint32_t*                reg_buf;
+	uint32_t*                reg_buf = NULL;
 	uint32_t                 reg_buf_len = 0x400;
 	int                      ret;
 	uint32_t                 print_len = 0, print_cnt = 0;
 
 	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
-	ret = dcam_read_registers(reg_buf, &reg_buf_len);
-	if (ret)
+	if (NULL == reg_buf)
 		return;
+
+	ret = dcam_read_registers(reg_buf, &reg_buf_len);
+	if (ret) {
+		kfree(reg_buf);
+		return;
+	}
 
 	mm_clk_register_trace();
 	printk("dcam registers \n");
@@ -2289,8 +2294,10 @@ LOCAL void sprd_v4l2_print_reg(void)
 	}
 
 	ret = csi_read_registers(reg_buf, &reg_buf_len);
-	if (ret)
+	if (ret) {
+		kfree(reg_buf);
 		return;
+	}
 
 	print_len = 0;
 	print_cnt = 0;
@@ -2666,8 +2673,10 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 
 	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
 	ret = dcam_read_registers(reg_buf, &reg_buf_len);
-	if (ret)
+	if (ret) {
+		kfree(reg_buf);
 		return len;
+	}
 
 	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "dcam registers \n");
@@ -2684,8 +2693,10 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 	}
 
 	ret = csi_read_registers(reg_buf, &reg_buf_len);
-	if (ret)
+	if (ret) {
+		kfree(reg_buf);
 		return len;
+	}
 
 	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "csi host registers \n");
