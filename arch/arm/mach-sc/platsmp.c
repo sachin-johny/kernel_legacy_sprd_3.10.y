@@ -31,6 +31,7 @@
 
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/sci.h>
 
 extern void sci_secondary_startup(void);
 
@@ -45,6 +46,29 @@ static int __cpuinit boot_secondary_cpus(int cpu_id, u32 paddr)
 }
 
 #elif (defined CONFIG_ARCH_SCX35)
+
+#define CA7_CORE1_PD (BIT(8)|BIT(9)|BIT(10))
+#define CA7_CORE2_PD (BIT(12)|BIT(13)|BIT(14))
+#define CA7_CORE3_PD (BIT(16)|BIT(17)|BIT(18))
+int scxx30_all_nonboot_cpus_died(void)
+{
+	u32 val;
+	u32 core1_pd , core2_pd , core3_pd;
+
+	val = sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL);
+
+	core1_pd = val & CA7_CORE1_PD;
+	core2_pd = val & CA7_CORE2_PD;
+	core3_pd = val & CA7_CORE3_PD;
+
+	if(core1_pd && core2_pd && core3_pd){
+		pr_debug("*** %s, REG_PMU_APB_PWR_STATUS0_DBG:0x%x ***\n", __func__, val);
+		return 1;
+	}
+	else
+		return 0;
+}
+
 int poweron_cpus(int cpu)
 {
 	u32 poweron, val;

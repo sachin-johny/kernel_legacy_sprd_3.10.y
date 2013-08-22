@@ -27,6 +27,7 @@
 #include <linux/bitops.h>
 #include <mach/irqs.h>
 #include <mach/hardware.h>
+#include <linux/cpu.h>
 
 #ifdef CONFIG_BUS_MONITOR
 #include <mach/bm_sc8830.h>
@@ -40,6 +41,7 @@
 
 extern u32 emc_clk_set(u32 new_clk, u32 sene);
 extern u32 emc_clk_get(void);
+extern int scxx30_all_nonboot_cpus_died(void);
 
 enum scxx30_dmc_type {
 	TYPE_DMC_SCXX30 ,
@@ -89,6 +91,36 @@ struct dmcfreq_data {
 #define SCXX30_POLLING_MS (500)
 #define BOOT_TIME	(40*HZ)
 static u32 boot_done;
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
+static struct dmcfreq_data *g_dmcfreq_data;
+#endif
+static void inline scxx30_set_max(struct dmcfreq_data *data);
+
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
+static int devfreq_cpu_callback(struct notifier_block *nfb,
+		unsigned long action, void *hcpu)
+{
+	long cpu = (long)hcpu;
+	int err = 0;
+
+	switch (action) {
+	case CPU_UP_PREPARE:
+		if(num_online_cpus() == 1 && scxx30_all_nonboot_cpus_died() ){
+			if(g_dmcfreq_data){
+				pr_debug("*** %s, set ddr freq max ***\n", __func__ );
+				scxx30_set_max(g_dmcfreq_data);
+			}
+		}
+		break;
+	}
+
+	return notifier_from_errno(err);
+}
+
+static struct notifier_block devfreq_cpu_notifier = {
+	&devfreq_cpu_callback, NULL, 0
+};
+#endif
 
 /************ devfreq notifier *****************/
 static LIST_HEAD(devfreq_dbs_handlers);
@@ -213,6 +245,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	unsigned long freq = opp_get_freq(opp);
 	unsigned long old_freq = emc_clk_get()*1000 ;
 	unsigned char cp_req;
+	unsigned long spinlock_flags;
 
 	if(time_before(jiffies, boot_done)){
 		return 0;
@@ -222,6 +255,13 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 		return PTR_ERR(opp);
 
 	pr_debug("*** %s, old_freq:%luKHz, freq:%luKHz ***\n", __func__, old_freq, freq);
+
+#ifdef CONFIG_SCXX30_AP_DFS
+	if (num_online_cpus() != 1){
+		printk("*** %s, num_online_cpus:%d ***\n", __func__, num_online_cpus() );
+		return 0;
+	}
+#endif
 
 	if (old_freq == freq)
 		return 0;
@@ -249,16 +289,27 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 		return 0;
 	}
 
+#ifdef CONFIG_SCXX30_AP_DFS
+	spin_lock_irqsave(&data->lock, spinlock_flags);
+	if (!scxx30_all_nonboot_cpus_died() || data->disabled){
+#else
 	spin_lock(&data->lock);
 	if (data->disabled){
+#endif
 		goto out;
 	}
-
+	/*
+	*TODO:time spent on emc_clk_set() should be optimized
+	*/
 	err = emc_clk_set(freq, 1);
 	data->curr_opp = opp;
 
 out:
+#ifdef CONFIG_SCXX30_AP_DFS
+	spin_unlock_irqrestore(&data->lock, spinlock_flags);
+#else
 	spin_unlock(&data->lock);
+#endif
 	devfreq_change_notification(DEVFREQ_POST_CHANGE);
 	pr_debug("*** %s, old_freq:%luKHz, set emc done, err:%d, current freq:%uKHz ***\n",
 			__func__, old_freq, err, emc_clk_get()*1000 );
@@ -497,6 +548,10 @@ static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
 		goto err_map;
 	}
 
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
+	register_cpu_notifier(&devfreq_cpu_notifier);
+	g_dmcfreq_data = data;
+#endif
 	pr_info(" %s done,  current freq:%lu \n", __func__, opp_get_freq(data->curr_opp));
 	return 0;
 
