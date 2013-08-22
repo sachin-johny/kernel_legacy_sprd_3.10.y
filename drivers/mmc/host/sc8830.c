@@ -516,12 +516,10 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	if(host_data->platdata->vdd_name) {
 	    host->vmmc = regulator_get(NULL, host_data->platdata->vdd_name);
 	    BUG_ON(IS_ERR(host->vmmc));
-	    regulator_enable(host->vmmc);
 	 }
 	if(host_data->platdata->vdd_ext_name) {
 	    host->vmmc_ext = regulator_get(NULL, host_data->platdata->vdd_ext_name);
 	    BUG_ON(IS_ERR(host->vmmc_ext));
-	    regulator_enable(host->vmmc_ext);
 	}
 
 	host->clk = NULL;
