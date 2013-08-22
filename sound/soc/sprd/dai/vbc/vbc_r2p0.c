@@ -49,7 +49,6 @@
 void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate);
 void sprd_codec_set_ad01_sample_rate(struct snd_soc_codec *codec, int rate);
 void sprd_codec_set_ad23_sample_rate(struct snd_soc_codec *codec, int rate);
-
 #endif
 
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
@@ -1203,6 +1202,7 @@ static int vbc_try_ad_dgmux_set(int id)
 	return 0;
 }
 
+#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
 static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec, int chan)
 {
 	int sample_rate = fm_sample_rate;
@@ -1219,6 +1219,7 @@ static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec, int chan)
 
 	return 0;
 }
+#endif
 
 int dig_fm_event(struct snd_soc_dapm_widget *w,
 		 struct snd_kcontrol *k, int event)
@@ -1525,59 +1526,25 @@ static int aud_event(struct snd_soc_dapm_widget *w,
 		     struct snd_kcontrol *kcontrol, int event)
 {
 	struct snd_soc_codec *codec = w->codec;
+	unsigned int id = FUN_REG(w->reg);
 	int ret = 0;
 
-	vbc_dbg("Entering %s event is %s\n", __func__, get_event_name(event));
+	vbc_dbg("Entering %s event is %s\n chan is ad%s", __func__, get_event_name(event), (id == VBC_CHAN_AD01)?"01":"23");
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
 		/*eq setting */
 		if (!vbc_eq_setting.codec_dai)
 			vbc_eq_setting.codec_dai = (struct snd_soc_dai *)1;
-		if (vbc_eq_setting.is_active[VBC_CHAN_AD01]
-		    && vbc_eq_setting.data[VBC_CHAN_AD01])
+		if (vbc_eq_setting.is_active[id]
+		    && vbc_eq_setting.data[id])
 			vbc_eq_try_apply(vbc_eq_setting.codec_dai,
-					 VBC_CHAN_AD01);
+					 id);
 #ifdef CONFIG_FM_SAMPLE_RATE_SETTING
 		/*codec sample rate setting */
-		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_AD01);
+		vbc_fm_try_set_sample_rate(codec, id);
 #endif
 		vbc_try_src_set(0);
-		break;
-	case SND_SOC_DAPM_PRE_PMD:
-		break;
-	default:
-		BUG();
-		ret = -EINVAL;
-	}
-
-	vbc_dbg("Leaving %s\n", __func__);
-
-	return ret;
-}
-
-static int aud1_event(struct snd_soc_dapm_widget *w,
-		      struct snd_kcontrol *kcontrol, int event)
-{
-	struct snd_soc_codec *codec = w->codec;
-	int ret = 0;
-
-	vbc_dbg("Entering %s event is %s\n", __func__, get_event_name(event));
-
-	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
-		/*eq setting */
-		if (!vbc_eq_setting.codec_dai)
-			vbc_eq_setting.codec_dai = (struct snd_soc_dai *)1;
-		if (vbc_eq_setting.is_active[VBC_CHAN_AD23]
-		    && vbc_eq_setting.data[VBC_CHAN_AD23])
-			vbc_eq_try_apply(vbc_eq_setting.codec_dai,
-					 VBC_CHAN_AD23);
-#ifdef CONFIG_FM_SAMPLE_RATE_SETTING
-		/*codec sample rate setting */
-		vbc_fm_try_set_sample_rate(codec, VBC_CHAN_AD23);
-#endif
-		vbc_try_src_set(1);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		break;
@@ -1791,9 +1758,9 @@ static const struct snd_soc_dapm_widget vbc_dapm_widgets[] = {
 			   vbc_ad3_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	/*AUD loop var vbc switch */
-	SND_SOC_DAPM_PGA_S("Aud input", 4, SND_SOC_NOPM, 0, 0, aud_event,
+	SND_SOC_DAPM_PGA_S("Aud input", 4, FUN_REG(VBC_CHAN_AD01), 0, 0, aud_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("Aud1 input", 4, SND_SOC_NOPM, 0, 0, aud1_event,
+	SND_SOC_DAPM_PGA_S("Aud1 input", 4,  FUN_REG(VBC_CHAN_AD23), 0, 0, aud_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_SWITCH("Aud Loop in VBC", SND_SOC_NOPM, 0, 0,
 			    &vbc_loop_control[VBC_AD01_LOOP_SWITCH]),
