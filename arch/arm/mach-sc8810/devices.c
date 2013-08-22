@@ -21,6 +21,7 @@
 #include <mach/dma.h>
 #include <mach/board.h>
 #ifdef CONFIG_ARCH_SC7710
+#include <mach/kpd.h>
 #include <mach/globalregs.h>
 #endif
 #include "devices.h"
@@ -332,7 +333,23 @@ struct platform_device sprd_spi1_device = {
     .num_resources = ARRAY_SIZE(spi1_resources),
 };
 
+#if defined (CONFIG_ARCH_SC7710)
+#define CUSTOM_KEYPAD_ROWS          (0)/*example SCI_ROW2 |SCI_ROW3 |SCI_ROW4*/
+#define CUSTOM_KEYPAD_COLS          (0) /*example SCI_COL2 |SCI_COL3 |SCI_COL4*/
+#define ROWS	(3)
+#define COLS	(3)
 
+struct sprd_keypad_platform_data sprd_keypad_data = {
+	.rows_choose_hw = CUSTOM_KEYPAD_ROWS,
+	.cols_choose_hw = CUSTOM_KEYPAD_COLS,
+	.rows = ROWS,
+	.cols = COLS,
+	.repeat = 0,
+	.debounce_time = 5000,
+	.coldrive_time = 1000,
+	.keyup_test_interval = 50,
+};
+#endif
 static struct resource sprd_keypad_resources[] = {
         {
                 .start = IRQ_KPD_INT,
@@ -344,6 +361,11 @@ static struct resource sprd_keypad_resources[] = {
 struct platform_device sprd_keypad_device = {
         .name           = "sprd-keypad",
         .id             = -1,
+#if defined (CONFIG_ARCH_SC7710)
+        .dev           = {
+		.platform_data = &sprd_keypad_data,
+		},
+#endif
         .num_resources  = ARRAY_SIZE(sprd_keypad_resources),
         .resource       = sprd_keypad_resources,
 };

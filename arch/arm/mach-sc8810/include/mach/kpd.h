@@ -18,6 +18,7 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <mach/adi.h>
+#include <linux/input.h>
 
 #define KPD_REG_BASE                (SPRD_KPD_BASE)
 
@@ -25,6 +26,27 @@
 #define KPD_INT_EN              	(KPD_REG_BASE + 0x0004)
 #define KPD_INT_RAW_STATUS          (KPD_REG_BASE + 0x0008)
 #define KPD_INT_MASK_STATUS     	(KPD_REG_BASE + 0x000C)
+
+#define KPD_SLEEP_EN				(0x01 << 1)
+
+//chip define begin
+#define SCI_COL7	(0x01 << 15)
+#define SCI_COL6	(0x01 << 14)
+#define SCI_COL5	(0x01 << 13)
+#define SCI_COL4	(0x01 << 12)
+#define SCI_COL3	(0x01 << 11)
+#define SCI_COL2	(0x01 << 10)
+
+#define SCI_ROW7	(0x01 << 23)
+#define SCI_ROW6	(0x01 << 22)
+#define SCI_ROW5	(0x01 << 21)
+#define SCI_ROW4	(0x01 << 20)
+#define SCI_ROW3	(0x01 << 19)
+#define SCI_ROW2	(0x01 << 18)
+//chip define end
+
+#define KPDCTL_ROW_MSK                  (0x3f << 18)	/* enable rows 2 - 7 */
+#define KPDCTL_COL_MSK                  (0x3f << 10)	/* enable cols 2 - 7 */
 
 #define KPD_INT_CLR             	(KPD_REG_BASE + 0x0010)
 #define KPD_POLARITY            	(KPD_REG_BASE + 0x0018)
@@ -35,9 +57,6 @@
 #define KPD_CLK_DIV_CNT         	(KPD_REG_BASE + 0x0028)
 #define KPD_KEY_STATUS          	(KPD_REG_BASE + 0x002C)
 #define KPD_SLEEP_STATUS        	(KPD_REG_BASE + 0x0030)
-
-#define CUSTOM_KEYPAD_ROWS          3
-#define CUSTOM_KEYPAD_COLS          3
 
 #define KPD_ROW_MIN_NUM             4	/* keypad row min value */
 #define KPD_COL_MIN_NUM             3	/* keypad col min value */
@@ -92,6 +111,8 @@ struct sprd_keypad_t {
 };
 
 struct sprd_keypad_platform_data {
+	int rows_choose_hw;	/* choose chip keypad controler rows */
+	int cols_choose_hw;	/* choose chip keypad controler cols */
 	int rows;		/* keypad rows */
 	int cols;		/* keypad cols */
 	unsigned short repeat;
@@ -100,7 +121,7 @@ struct sprd_keypad_platform_data {
 	unsigned int keyup_test_interval;	/* in ms */
 };
 
-unsigned short sprd_keymap[] = {
+static unsigned short sprd_keymap[] = {
 	KEYCODE(0x00),
 	KEYCODE(0x01),
 	KEYCODE(0x10),
@@ -108,14 +129,4 @@ unsigned short sprd_keymap[] = {
 	KEYCODE(0x20),
 	KEY_POWER,
 };
-
-struct sprd_keypad_platform_data sprd_keypad_data = {
-	.rows = CUSTOM_KEYPAD_ROWS,
-	.cols = CUSTOM_KEYPAD_COLS,
-	.repeat = 0,
-	.debounce_time = 5000,
-	.coldrive_time = 1000,
-	.keyup_test_interval = 50,
-};
-
 #endif
