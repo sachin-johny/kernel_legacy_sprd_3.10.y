@@ -1741,7 +1741,15 @@ int hci_register_dev(struct hci_dev *hdev)
 	/* Do not allow HCI_AMP devices to register at index 0,
 	 * so the index can be used as the AMP controller ID.
 	 */
+	 
 	id = (hdev->dev_type == HCI_BREDR) ? 0 : 1;
+
+	hdev->workqueue = alloc_workqueue(hdev->name, WQ_HIGHPRI | WQ_UNBOUND |
+							WQ_MEM_RECLAIM, 1);
+	if (!hdev->workqueue) {
+		error = -ENOMEM;
+		return error;
+	}
 
 	write_lock(&hci_dev_list_lock);
 
@@ -1819,12 +1827,6 @@ int hci_register_dev(struct hci_dev *hdev)
 
 	write_unlock(&hci_dev_list_lock);
 
-	hdev->workqueue = alloc_workqueue(hdev->name, WQ_HIGHPRI | WQ_UNBOUND |
-							WQ_MEM_RECLAIM, 1);
-	if (!hdev->workqueue) {
-		error = -ENOMEM;
-		goto err;
-	}
 
 	error = hci_add_sysfs(hdev);
 	if (error < 0)
