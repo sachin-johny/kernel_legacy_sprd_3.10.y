@@ -41,6 +41,7 @@ static inline void arch_idle(void)
                 }while(0)
 
 #define HWRST_STATUS_RECOVERY (0x20)
+#define HWRST_STATUS_FASTBOOT (0X30)
 #define HWRST_STATUS_NORMAL (0X40)
 #define HWRST_STATUS_ALARM (0X50)
 #define HWRST_STATUS_SLEEP (0X60)
@@ -53,18 +54,20 @@ static inline void arch_reset(char mode, const char *cmd)
     for(i=0xffff; i>0;i--);
     if(!(strncmp(cmd, "recovery", 8))){
        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
-	}else if(!strncmp(cmd, "alarm", 5)){
+    }else if(!strncmp(cmd, "alarm", 5)){
        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_ALARM);
-	}else if(!strncmp(cmd, "fastsleep", 9)){
+    }else if(!strncmp(cmd, "fastsleep", 9)){
        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
 /*	
-	}else if(!strncmp(cmd, "reboot:",7)){
+    }else if(!strncmp(cmd, "reboot:",7)){
        ANA_REG_SET(ANA_RST_STATUS,HWRST_STATUS_NORMAL);
 */
+    }else if(!strncmp(cmd, "bootloader", 10)){
+       ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
     }else{
-		  hw_rst = ANA_REG_GET(ANA_RST_STATUS);
-		  hw_rst &= 0xf00;
-		  hw_rst |= HWRST_STATUS_NORMAL;
+         hw_rst = ANA_REG_GET(ANA_RST_STATUS);
+         hw_rst &= 0xf00;
+         hw_rst |= HWRST_STATUS_NORMAL;
         ANA_REG_SET(ANA_RST_STATUS, hw_rst);
     }
     // turn on watch dog clock
