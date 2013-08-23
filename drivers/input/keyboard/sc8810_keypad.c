@@ -31,7 +31,11 @@
 #include <linux/sysrq.h>
 #include <mach/globalregs.h>
 #include <linux/input-hook.h>
+#if defined (CONFIG_ARCH_SC7710)
+#include <mach/kpd.h>
+#else
 #include "sc8810_keypad.h"
+#endif
 
 #define keypad_readl(off)           __raw_readl(off)
 #define keypad_writel(off, val)     __raw_writel((val), (off))
@@ -285,7 +289,9 @@ static int __devinit sprd_keypad_probe(struct platform_device *pdev)
 	int i, error, key_type;
 	unsigned long value;
 
+#if !defined (CONFIG_ARCH_SC7710)
 	pdev->dev.platform_data = &sprd_keypad_data;
+#endif
 	pdata = pdev->dev.platform_data;
 	if (!pdata->rows || !pdata->cols) {
 		dev_err(&pdev->dev, "no rows, cols or keymap from pdata\n");
@@ -295,6 +301,7 @@ static int __devinit sprd_keypad_probe(struct platform_device *pdev)
 	sprd_keypad = kzalloc(sizeof(struct sprd_keypad_t), GFP_KERNEL);
 	if (!sprd_keypad)
 		return -ENOMEM;
+
 	platform_set_drvdata(pdev, sprd_keypad);
 	sprd_keypad->keycode = sprd_keymap;
 	sprd_keypad->irq = platform_get_irq(pdev, 0);
@@ -317,11 +324,15 @@ static int __devinit sprd_keypad_probe(struct platform_device *pdev)
 	else if (unlikely(pdata->rows > KPD_ROW_MAX_NUM))
 		pdata->rows = KPD_ROW_MAX_NUM;
 
+#if defined (CONFIG_ARCH_SC7710)
+	key_type = KPD_SLEEP_EN | (pdata->rows_choose_hw & KPDCTL_ROW_MSK) |
+	    (pdata->cols_choose_hw & KPDCTL_COL_MSK);
+#else
 	key_type = ((((~(0xffffffff << (pdata->cols - KPD_COL_MIN_NUM))) << 20)
-		     | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) <<
-			16))
-		    & (KPDCTL_ROW | KPDCTL_COL));
-
+			 | ((~(0xffffffff << (pdata->rows - KPD_ROW_MIN_NUM))) <<
+			 16))
+			 & (KPDCTL_ROW | KPDCTL_COL));
+#endif
 	value = 0x6 | key_type;
 	keypad_writel(KPD_CTRL, value);
 
