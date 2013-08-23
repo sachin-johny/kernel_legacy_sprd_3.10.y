@@ -136,6 +136,9 @@ static DECLARE_RWSEM(shrinker_rwsem);
 #define scanning_global_lru(sc)	(1)
 #endif
 
+
+
+
 static struct zone_reclaim_stat *get_reclaim_stat(struct zone *zone,
 						  struct scan_control *sc)
 {
@@ -154,6 +157,11 @@ static unsigned long zone_nr_lru_pages(struct zone *zone,
 	return zone_page_state(zone, NR_LRU_BASE + lru);
 }
 
+static inline int hpage_nr_pages(struct page *page)
+{
+	return 1;
+}
+#define hpage_nr_pages(x) 1
 
 /*
  * Add a shrinker callback to be called from the vm
@@ -620,7 +628,10 @@ static enum page_references page_check_references(struct page *page,
 /*
  * shrink_page_list() returns the number of reclaimed pages
  */
-static unsigned long shrink_page_list(struct list_head *page_list,
+#ifndef CONFIG_ZRAM_FOR_ANDROID
+static
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
+unsigned long shrink_page_list(struct list_head *page_list,
 					struct scan_control *sc,
 					enum pageout_io sync_writeback)
 {
@@ -672,7 +683,8 @@ static unsigned long shrink_page_list(struct list_head *page_list,
 			 * for any page for which writeback has already
 			 * started.
 			 */
-			if (sync_writeback == PAGEOUT_IO_SYNC && may_enter_fs)
+			if ((sync_writeback == PAGEOUT_IO_SYNC) &&
+			    may_enter_fs)
 				wait_on_page_writeback(page);
 			else
 				goto keep_locked;
@@ -1021,7 +1033,10 @@ static unsigned long isolate_pages_global(unsigned long nr,
  * clear_active_flags() is a helper for shrink_active_list(), clearing
  * any active bits from the pages in the list.
  */
-static unsigned long clear_active_flags(struct list_head *page_list,
+#ifndef CONFIG_ZRAM_FOR_ANDROID
+static
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
+unsigned long clear_active_flags(struct list_head *page_list,
 					unsigned int *count)
 {
 	int nr_active = 0;
@@ -1085,6 +1100,40 @@ int isolate_lru_page(struct page *page)
 	}
 	return ret;
 }
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+/**
+ * isolate_lru_page_compcache - tries to isolate a page for compcache
+ * @page: page to isolate from its LRU list
+ *
+ * Isolates a @page from an LRU list, clears PageLRU,but
+ * does not adjusts the vmstat statistic
+ * Returns 0 if the page was removed from an LRU list.
+ * Returns -EBUSY if the page was not on an LRU list.
+ */
+int isolate_lru_page_compcache(struct page *page)
+{
+	int ret = -EBUSY;
+
+	VM_BUG_ON(!page_count(page));
+
+	if (PageLRU(page)) {
+		struct zone *zone = page_zone(page);
+
+		spin_lock_irq(&zone->lru_lock);
+		if (PageLRU(page)) {
+			int lru = page_lru(page);
+			ret = 0;
+			get_page(page);
+			ClearPageLRU(page);
+			list_del(&page->lru);
+			mem_cgroup_del_lru_list(page, lru);
+		}
+		spin_unlock_irq(&zone->lru_lock);
+	}
+	return ret;
+}
+#endif
+
 
 /*
  * Are there way too many processes in the direct reclaim path already?
@@ -1109,6 +1158,88 @@ static int too_many_isolated(struct zone *zone, int file,
 	}
 
 	return isolated > inactive;
+}
+
+/*
+ * TODO: Try merging with migrations version of putback_lru_pages
+ */
+static noinline_for_stack void
+putback_lru_pages(struct zone *zone, struct scan_control *sc,
+				unsigned long nr_anon, unsigned long nr_file,
+				struct list_head *page_list)
+{
+	struct page *page;
+	struct pagevec pvec;
+	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(zone, sc);
+
+	pagevec_init(&pvec, 1);
+
+	/*
+	 * Put back any unfreeable pages.
+	 */
+	spin_lock(&zone->lru_lock);
+	while (!list_empty(page_list)) {
+		int lru;
+		page = lru_to_page(page_list);
+		VM_BUG_ON(PageLRU(page));
+		list_del(&page->lru);
+		if (unlikely(!page_evictable(page, NULL))) {
+			spin_unlock_irq(&zone->lru_lock);
+			putback_lru_page(page);
+			spin_lock_irq(&zone->lru_lock);
+			continue;
+		}
+		SetPageLRU(page);
+		lru = page_lru(page);
+		add_page_to_lru_list(zone, page, lru);
+		if (is_active_lru(lru)) {
+			int file = is_file_lru(lru);
+			int numpages = hpage_nr_pages(pages);
+			reclaim_stat->recent_rotated[file] += numpages;
+		}
+		if (!pagevec_add(&pvec, page)) {
+			spin_unlock_irq(&zone->lru_lock);
+			__pagevec_release(&pvec);
+			spin_lock_irq(&zone->lru_lock);
+		}
+	}
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, -nr_anon);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, -nr_file);
+
+	spin_unlock_irq(&zone->lru_lock);
+	pagevec_release(&pvec);
+}
+
+
+static noinline_for_stack void update_isolated_counts(struct zone *zone,
+					struct scan_control *sc,
+					unsigned long *nr_anon,
+					unsigned long *nr_file,
+					struct list_head *isolated_list)
+{
+	unsigned long nr_active;
+	unsigned int count[NR_LRU_LISTS] = { 0, };
+	struct zone_reclaim_stat *reclaim_stat = get_reclaim_stat(zone, sc);
+
+	nr_active = clear_active_flags(isolated_list, count);
+	__count_vm_events(PGDEACTIVATE, nr_active);
+
+	__mod_zone_page_state(zone, NR_ACTIVE_FILE,
+			      -count[LRU_ACTIVE_FILE]);
+	__mod_zone_page_state(zone, NR_INACTIVE_FILE,
+			      -count[LRU_INACTIVE_FILE]);
+	__mod_zone_page_state(zone, NR_ACTIVE_ANON,
+			      -count[LRU_ACTIVE_ANON]);
+	__mod_zone_page_state(zone, NR_INACTIVE_ANON,
+			      -count[LRU_INACTIVE_ANON]);
+
+	*nr_anon = count[LRU_ACTIVE_ANON] + count[LRU_INACTIVE_ANON];
+	*nr_file = count[LRU_ACTIVE_FILE] + count[LRU_INACTIVE_FILE];
+	__mod_zone_page_state(zone, NR_ISOLATED_ANON, *nr_anon);
+	__mod_zone_page_state(zone, NR_ISOLATED_FILE, *nr_file);
+
+	reclaim_stat->recent_scanned[0] += *nr_anon;
+	reclaim_stat->recent_scanned[1] += *nr_file;
 }
 
 /*
@@ -1199,7 +1330,7 @@ static unsigned long shrink_inactive_list(unsigned long max_scan,
 		spin_unlock_irq(&zone->lru_lock);
 
 		nr_scanned += nr_scan;
-		nr_freed = shrink_page_list(&page_list, sc, PAGEOUT_IO_ASYNC);
+		nr_freed = shrink_page_list(&page_list,sc,PAGEOUT_IO_ASYNC);
 
 		/*
 		 * If we are direct reclaiming for contiguous pages and we do
@@ -1218,8 +1349,7 @@ static unsigned long shrink_inactive_list(unsigned long max_scan,
 			nr_active = clear_active_flags(&page_list, count);
 			count_vm_events(PGDEACTIVATE, nr_active);
 
-			nr_freed += shrink_page_list(&page_list, sc,
-							PAGEOUT_IO_SYNC);
+			nr_freed += shrink_page_list(&page_list, sc, PAGEOUT_IO_SYNC);
 		}
 
 		nr_reclaimed += nr_freed;
@@ -1281,6 +1411,44 @@ static inline void note_zone_scanning_priority(struct zone *zone, int priority)
 	if (priority < zone->prev_priority)
 		zone->prev_priority = priority;
 }
+
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+extern int lowmemkiller_reclaim_adj;
+unsigned long
+zone_id_shrink_pagelist(struct zone *zone, struct list_head *page_list, unsigned int nr_to_reclaim)
+{
+	unsigned long nr_reclaimed = 0;
+	unsigned long nr_anon;
+	unsigned long nr_file;
+	struct scan_control sc = {
+		.gfp_mask = GFP_USER,
+		.may_writepage = 1,
+		.nr_to_reclaim = nr_to_reclaim, //nr_to_reclaim > 256 ? 256 : nr_to_reclaim ,
+		.may_unmap = 1,
+		.may_swap = 1,
+		.swappiness = vm_swappiness,
+		.order = 0,
+		.mem_cgroup = NULL,
+		.nodemask = NULL,
+	};
+	spin_lock_irq(&zone->lru_lock);
+
+	update_isolated_counts(zone, &sc, &nr_anon, &nr_file, page_list);
+
+	spin_unlock_irq(&zone->lru_lock);
+
+	nr_reclaimed = shrink_page_list(page_list,&sc,PAGEOUT_IO_SYNC);
+
+	__count_zone_vm_events(PGSTEAL, zone, nr_reclaimed);
+
+	putback_lru_pages(zone, &sc, nr_anon, nr_file, page_list);
+
+	return nr_reclaimed;
+}
+
+EXPORT_SYMBOL(zone_id_shrink_pagelist);
+#endif /* CONFIG_ZRAM_FOR_ANDROID */
+
 
 /*
  * This moves pages from the active list to the inactive list.
@@ -1517,6 +1685,11 @@ static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
 	return shrink_inactive_list(nr_to_scan, zone, sc, priority, file);
 }
 
+#ifdef CONFIG_ZRAM
+static int vmscan_swappiness_ratio = 1;
+module_param_named(vmscan_swappiness_ratio, vmscan_swappiness_ratio, int, S_IRUGO | S_IWUSR);
+#endif
+
 /*
  * Smallish @nr_to_scan's are deposited in @nr_saved_scan,
  * until we collected @swap_cluster_max pages to scan.
@@ -1607,12 +1780,24 @@ static void get_scan_count(struct zone *zone, struct scan_control *sc,
 		spin_unlock_irq(&zone->lru_lock);
 	}
 
+
 	/*
 	 * With swappiness at 100, anonymous and file have the same priority.
 	 * This scanning priority is essentially the inverse of IO cost.
 	 */
+#ifdef CONFIG_ZRAM
+	if (vmscan_swappiness_ratio) {
+		anon_prio = (sc->swappiness * anon) / (anon + file + 1);
+		file_prio =   (200 - sc->swappiness) * file / (anon + file + 1);
+	}else{
+		anon_prio = sc->swappiness;
+		file_prio = 200 - sc->swappiness;
+	}
+#else // CONFIG_ZRAM	 
 	anon_prio = sc->swappiness;
 	file_prio = 200 - sc->swappiness;
+#endif
+
 
 	/*
 	 * The amount of pressure on anon vs file pages is inversely

@@ -1683,6 +1683,11 @@ CONFIG_RAMZSWAP_STATS=y
 # CONFIG_BATMAN_ADV is not set
 # CONFIG_FB_SM7XX is not set
 
+CONFIG_XVMALLOC=y
+CONFIG_ZRAM=y
+# CONFIG_ZRAM_DEBUG is not set
+CONFIG_ZRAM_FOR_ANDROID=y
+
 #
 # Texas Instruments shared transport line discipline
 #
