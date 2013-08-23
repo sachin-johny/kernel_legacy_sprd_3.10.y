@@ -135,6 +135,7 @@ static int __init sipc_wcn_init(void)
 }
 #endif
 
+#ifdef CONFIG_MACH_SPX35EC
 static int __init itm_sblock_init(void)
 {
 	int ret;
@@ -159,6 +160,7 @@ static int __init itm_sblock_init(void)
 	printk(KERN_ERR "create sblock successfully\n");
 	return 0;
 }
+#endif
 
 static int __init sipc_init(void)
 {
@@ -179,7 +181,10 @@ static int __init sipc_init(void)
 #endif
 
 	smem_init(SIPC_SMEM_ADDR, smem_size);
+
+#ifdef CONFIG_MACH_SPX35EC
 	itm_sblock_init();
+#endif
 	return 0;
 }
 
