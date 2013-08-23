@@ -144,8 +144,8 @@ static void cp_code_init(void)
 	copy_size = sizeof(cp0_dfs_code_data);
 	code_phy_addr = 0x50000000;
 #else
-	copy_data = cp0_dfs_code_data;
-	copy_size = sizeof(cp0_dfs_code_data);
+	copy_data = cp2_dfs_code_data;
+	copy_size = sizeof(cp2_dfs_code_data);
 	code_phy_addr = 0x50003000;
 #endif
 	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
