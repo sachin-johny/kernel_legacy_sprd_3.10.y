@@ -220,6 +220,8 @@ NPI_SET_CMD(start_rx_data, NPI_CMD_RX_START, NLNPI_CMD_RX_START,
 	    NLNPI_ATTR_RX_START)
 NPI_SET_CMD(stop_rx_data, NPI_CMD_RX_STOP, NLNPI_CMD_RX_STOP,
 	    NLNPI_ATTR_RX_STOP)
+NPI_SET_CMD(set_debug, NPI_CMD_DEBUG, NLNPI_CMD_SET_DEBUG,
+	    NLNPI_ATTR_SET_DEBUG)
 #define NPI_GET_CMD(name, npi_cmd, nl_cmd, attr, arg_attr)	\
 static int npi_ ## name ## _cmd(struct sk_buff *skb_2,		\
 			 struct genl_info *info)		\
@@ -283,6 +285,8 @@ NPI_GET_CMD(get_mac, NPI_CMD_MAC, NLNPI_CMD_GET_MAC, NLNPI_ATTR_GET_MAC,
 	    NLNPI_ATTR_GET_NO_ARG)
 NPI_GET_CMD(get_reg, NPI_CMD_REG, NLNPI_CMD_GET_REG, NLNPI_ATTR_GET_REG,
 	    NLNPI_ATTR_GET_REG_ARG)
+NPI_GET_CMD(get_debug, NPI_CMD_DEBUG, NLNPI_CMD_GET_DEBUG, NLNPI_ATTR_GET_DEBUG,
+	    NLNPI_ATTR_GET_DEBUG_ARG)
 
 static int npi_stop_cmd(struct sk_buff *skb_2, struct genl_info *info)
 {
@@ -363,6 +367,9 @@ static struct nla_policy npi_genl_policy[NLNPI_ATTR_MAX + 1] = {
 	[NLNPI_ATTR_GET_REG] = {.type = NLA_U32},
 	[NLNPI_ATTR_GET_NO_ARG] = {.type = NLA_UNSPEC,},
 	[NLNPI_ATTR_GET_REG_ARG] = {.len = 6},
+	[NLNPI_ATTR_SET_DEBUG] = {.type = NLA_BINARY, .len = 38}, /* max len */
+	[NLNPI_ATTR_GET_DEBUG] = {.type = NLA_U32},
+	[NLNPI_ATTR_GET_DEBUG_ARG] = {.type = NLA_BINARY, .len = 32},
 };
 
 /* Generic Netlink operations array */
@@ -477,6 +484,16 @@ static struct genl_ops npi_ops[] = {
 	 .policy = npi_genl_policy,
 	 .doit = npi_get_reg_cmd,
 	 },
+	{
+	 .cmd = NLNPI_CMD_SET_DEBUG,
+	 .policy = npi_genl_policy,
+	 .doit = npi_set_debug_cmd,
+	},
+	{
+	 .cmd = NLNPI_CMD_GET_DEBUG,
+	 .policy = npi_genl_policy,
+	 .doit = npi_get_debug_cmd,
+	},
 };
 
 int npi_init_netlink(void)

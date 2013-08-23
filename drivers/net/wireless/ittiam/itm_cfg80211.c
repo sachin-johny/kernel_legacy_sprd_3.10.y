@@ -18,6 +18,8 @@
  * GNU General Public License for more details.
  */
 
+#define DEBUG 1
+
 #include <linux/spinlock.h>
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
@@ -311,9 +313,10 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 			scan_ssids->len = ssids[i].ssid_len;
 			memcpy(scan_ssids->ssid, ssids[i].ssid,
 			       ssids[i].ssid_len);
-			scan_ssids_len += (ssids[i].ssid_len + 1);
+			scan_ssids_len += (ssids[i].ssid_len
+					+ sizeof(scan_ssids->len));
 			scan_ssids = (struct wlan_sipc_scan_ssid *)
-				(sipc_data + ssids[i].ssid_len + 1);
+					(sipc_data + scan_ssids_len);
 		}
 	}
 	priv->scan_request = request;
@@ -363,7 +366,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		return -EAGAIN;
 	}
 
-	dev_dbg(&priv->ndev->dev, "Begin connect\n");
+	dev_dbg(&priv->ndev->dev, "Begin connect: %s\n", sme->ssid);
 	/* Get request status, type, bss, ie and so on */
 	/* Set appending ie */
 	/* Set wps ie */
@@ -639,6 +642,8 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			"itm_wlan_set_essid_cmd failed with ret %d\n", ret);
 		return ret;
 	}
+	memcpy(priv->ssid, sme->ssid, sme->ssid_len);
+	priv->ssid_len = sme->ssid_len;
 
 	priv->connect_status = ITM_CONNECTING;
 	return ret;
@@ -657,6 +662,8 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
 		return -EAGAIN;
 	}
+
+	dev_dbg(&priv->ndev->dev, "Begin disconnect: %s\n", priv->ssid);
 
 	ret = itm_wlan_disconnect_cmd(priv->wlan_sipc, reason_code);
 	if (ret < 0) {
@@ -1000,6 +1007,8 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 		kfree(pos);
 
 		if (!netif_carrier_ok(priv->ndev)) {
+			dev_dbg(&priv->ndev->dev,
+				"netif_carrier_on, ssid:%s\n", priv->ssid);
 			netif_carrier_on(priv->ndev);
 			netif_wake_queue(priv->ndev);
 		}
@@ -1026,9 +1035,11 @@ out:
 
 void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 {
-	u16 reason_code;
+	struct cfg80211_bss *bss;
+	u16 reason_code = 0;
 
-	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);
+	/* This should filled if disconnect reason is not only one */
+/*	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);*/
 	if (priv->scan_request) {
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
@@ -1040,12 +1051,20 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
 	} else if (priv->connect_status == ITM_CONNECTED) {
+		bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
+				       priv->bssid, priv->ssid, priv->ssid_len,
+				       WLAN_CAPABILITY_ESS,
+				       WLAN_CAPABILITY_ESS);
+		if (bss)
+			cfg80211_unlink_bss(priv->wdev->wiphy, bss);
+
 		cfg80211_disconnected(priv->ndev, reason_code,
 				      NULL, 0, GFP_KERNEL);
 	}
 
 	priv->connect_status = ITM_DISCONNECTED;
 	if (netif_carrier_ok(priv->ndev)) {
+		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
 		netif_carrier_off(priv->ndev);
 		netif_stop_queue(priv->ndev);
 	}

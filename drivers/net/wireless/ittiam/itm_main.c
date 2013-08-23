@@ -15,6 +15,8 @@
  * GNU General Public License for more details.
  */
 
+#define DEBUG 1
+
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -41,12 +43,41 @@
 #define ITM_DEV_NAME		"itm_wlan"
 #define ITM_INTF_NAME		"wlan%d"
 
+#define SETH_RESEND_MAX_NUM	10
+
 /*
  * Tx_ready handler.
  */
 static void itm_wlan_tx_ready_handler(struct itm_priv *priv)
 {
-	/*TODO*/
+	if (!netif_carrier_ok(priv->ndev)) {
+		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
+		netif_carrier_on(priv->ndev);
+	}
+}
+
+/*
+ * Tx_open handler.
+ */
+static void
+itm_wlan_tx_open_handler (struct itm_priv *priv)
+{
+	if (!netif_carrier_ok(priv->ndev)) {
+		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
+		netif_carrier_on(priv->ndev);
+	}
+}
+
+/*
+ * Tx_close handler.
+ */
+static void
+itm_wlan_tx_close_handler (struct itm_priv *priv)
+{
+	if (netif_carrier_ok(priv->ndev)) {
+		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
+		netif_carrier_off(priv->ndev);
+	}
 }
 
 static void itm_wlan_rx_handler(struct itm_priv *priv)
@@ -67,7 +98,7 @@ static void itm_wlan_rx_handler(struct itm_priv *priv)
 	if (!skb) {
 		dev_err(&priv->ndev->dev, "Failed to allocate skbuff!\n");
 		priv->ndev->stats.rx_dropped++;
-		return;
+		goto rx_failed;
 	}
 
 	skb_reserve(skb, NET_IP_ALIGN);
@@ -87,10 +118,13 @@ static void itm_wlan_rx_handler(struct itm_priv *priv)
 
 	priv->ndev->last_rx = jiffies;
 
+rx_failed:
 	ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 	if (ret)
-		dev_err(&priv->ndev->dev, "Failed to release sblock (%d)\n",
-			ret);
+		dev_err(&priv->ndev->dev,
+			"Failed to release sblock (%d)\n", ret);
+	return;
+
 }
 
 static void itm_wlan_handler(int event, void *data)
@@ -108,6 +142,14 @@ static void itm_wlan_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
 		itm_wlan_tx_ready_handler(priv);
+		break;
+	case SBLOCK_NOTIFY_OPEN:
+		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_OPEN is received\n");
+		itm_wlan_tx_open_handler(priv);
+		break;
+	case SBLOCK_NOTIFY_CLOSE:
+		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_CLOSE is received\n");
+		itm_wlan_tx_close_handler(priv);
 		break;
 	default:
 		dev_err(&priv->ndev->dev,
@@ -128,21 +170,21 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	 * Get a free sblock.
 	 */
 
-	ret = sblock_get(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0xFFFFFFFF);
+	ret = sblock_get(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 	if (ret) {
 		dev_err(&dev->dev, "Failed to get free sblock (%d)\n", ret);
 		netif_stop_queue(dev);
 		priv->ndev->stats.tx_fifo_errors++;
-		priv->stopped = 1;
-		dev_kfree_skb_any(skb);
 		return NETDEV_TX_BUSY;
 	}
 
 	if (blk.length < skb->len) {
 		dev_err(&dev->dev, "The size of sblock is so tiny!\n");
 		priv->ndev->stats.tx_fifo_errors++;
+		sblock_put(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 		dev_kfree_skb_any(skb);
-		return NETDEV_TX_BUSY;
+		priv->txrcnt = 0;
+		return NETDEV_TX_OK;
 	}
 
 	blk.length = skb->len;
@@ -150,8 +192,11 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	ret = sblock_send(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 	if (ret) {
 		dev_err(&dev->dev, "Failed to send sblock (%d)\n", ret);
+		sblock_put(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 		priv->ndev->stats.tx_fifo_errors++;
-		dev_kfree_skb_any(skb);
+		if (priv->txrcnt > SETH_RESEND_MAX_NUM)
+			netif_stop_queue(dev);
+
 		return NETDEV_TX_BUSY;
 	}
 
@@ -161,6 +206,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	priv->ndev->stats.tx_bytes += skb->len;
 	priv->ndev->stats.tx_packets++;
 	dev->trans_start = jiffies;
+	priv->txrcnt = 0;
 
 	dev_kfree_skb_any(skb);
 
@@ -209,8 +255,8 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 	struct itm_priv *priv = netdev_priv(dev);
 
 	dev_dbg(&dev->dev, "%s\n", __func__);
-
-	/*TODO*/
+	dev->trans_start = jiffies;
+	netif_wake_queue(dev);
 }
 
 static int itm_wlan_ioctl(struct net_device *dev,
@@ -309,7 +355,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	priv->stopped = 0;
 
 	ndev->netdev_ops = &itm_wlan_ops;
-	ndev->watchdog_timeo = msecs_to_jiffies(500);
+	ndev->watchdog_timeo = 1*HZ;
 
 	/*FIXME*/
 	/* If get mac from cfg file error, got random addr */

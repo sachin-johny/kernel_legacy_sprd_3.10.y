@@ -33,6 +33,7 @@ struct itm_priv {
 	spinlock_t scan_req_lock;	/* spinlock for scan request */
 
 	int stopped;			/* sblock indicator */
+	int txrcnt;			/* seth tx resend count*/
 
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
