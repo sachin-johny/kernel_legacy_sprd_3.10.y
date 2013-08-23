@@ -1192,7 +1192,6 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 
 	if(clock){
 		host->mmc->max_discard_to = (1 << 27) /( clock/1000);
-		printk(KERN_INFO "--------max_discard_to %d,%d",clock ,host->mmc->max_discard_to);
 	}
 	if (clock && clock == host->clock)
 		return;
@@ -2985,7 +2984,6 @@ int sdhci_add_host(struct sdhci_host *host)
 		host->timeout_clk = mmc->f_max / 1000;
 
 	mmc->max_discard_to = (1 << 27) / host->timeout_clk;
-	printk(KERN_INFO "--------max_discard_to init %d",mmc->max_discard_to);
 
 	mmc->caps |= MMC_CAP_SDIO_IRQ | MMC_CAP_ERASE | MMC_CAP_CMD23;
 

@@ -536,7 +536,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		case 1:
 		        host->mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_DISABLE_TIMEOUT_IRQ ;
 		        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER | MMC_PM_DISABLE_TIMEOUT_IRQ;
-		        #if !defined(CONFIG_BCMDHD) && !defined(CONFIG_BCMDHD89) && !defined(CONFIG_BCM4329)
+		        #if defined(CONFIG_RTL8723AS) || defined(CONFIG_ATH_COMMON)
 		        host->mmc->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
 		        host->mmc->pm_flags |=  MMC_PM_WAKE_SDIO_IRQ;
         			#endif
