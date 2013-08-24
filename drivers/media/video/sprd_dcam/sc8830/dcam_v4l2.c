@@ -973,6 +973,7 @@ LOCAL int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 	if (NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
+	memset((void*)&node, 0, sizeof(struct dcam_node));
 	atomic_set(&dev->run_flag, 1);//to avoid time out processing
 	node.irq_flag = V4L2_TX_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
@@ -981,7 +982,7 @@ LOCAL int sprd_v4l2_tx_error(struct dcam_frame *frame, void* param)
 
 	up(&dev->irq_sem);
 
-	DCAM_TRACE("V4L2: tx_error \n");
+	printk("V4L2: tx_error \n");
 	//mm_clk_register_trace();
 	return ret;
 }
@@ -996,14 +997,13 @@ LOCAL int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 		return -EINVAL;
 	atomic_set(&dev->run_flag, 1);//to avoid time out processing
 
-	DCAM_TRACE("V4L2: no mem \n");
+	memset((void*)&node, 0, sizeof(struct dcam_node));
 	node.irq_flag = V4L2_NO_MEM;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
 		return ret;
-
 	up(&dev->irq_sem);
-
+	printk("V4L2: no mem \n");
 	return ret;
 }
 
@@ -1019,13 +1019,13 @@ LOCAL int sprd_v4l2_csi2_error(uint32_t err_id, uint32_t err_status, void* u_dat
 
 	atomic_set(&dev->run_flag, 1);//to avoid time out processing
 
-	DCAM_TRACE("V4L2: csi2_error \n");
+	memset((void*)&node, 0, sizeof(struct dcam_node));
 	node.irq_flag = V4L2_CSI2_ERR;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
 		return ret;
-
 	up(&dev->irq_sem);
+	printk("V4L2: csi2_error, %d 0x%x \n", err_id, err_status);
 
 	return ret;
 
@@ -2429,13 +2429,6 @@ LOCAL int sprd_v4l2_open(struct file *file)
 	ret = dcam_module_en();
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to enable dcam module \n");
-		ret = -EIO;
-		goto exit;
-	}
-
-	ret = dcam_reset(DCAM_RST_ALL);
-	if (unlikely(0 != ret)) {
-		printk("V4L2: Failed to reset dcam path1 \n");
 		ret = -EIO;
 		goto exit;
 	}
