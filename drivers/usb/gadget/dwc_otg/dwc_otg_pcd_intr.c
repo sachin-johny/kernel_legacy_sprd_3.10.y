@@ -2861,6 +2861,7 @@ static void handle_ep0(dwc_otg_pcd_t * pcd)
 	desc_sts_data_t desc_sts;
 	deptsiz0_data_t deptsiz;
 	uint32_t byte_count;
+	depctl_data_t depctl;
 
 #ifdef DEBUG_EP0
 	print_ep0_state(pcd);
@@ -2956,6 +2957,11 @@ static void handle_ep0(dwc_otg_pcd_t * pcd)
 
 	case EP0_IN_STATUS_PHASE:
 	case EP0_OUT_STATUS_PHASE:
+		depctl.d32 = dwc_read_reg32(&core_if->dev_if->in_ep_regs[0]->diepctl);
+		if(depctl.b.epena){
+			depctl.b.epdis = 1;
+			dwc_write_reg32(&core_if->dev_if->in_ep_regs[0]->diepctl,depctl.d32);
+		}
 		ep0_complete_request(ep0);
 		pcd->ep0state = EP0_IDLE;
 		ep0->stopped = 1;
