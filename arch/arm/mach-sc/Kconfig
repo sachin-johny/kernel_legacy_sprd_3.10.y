@@ -167,6 +167,7 @@ config FIX_V7TAGRAM_BUG
         bool "fix arm-v7 scu tag ram bug"
         default n
 	depends on ARCH_SCX35
+	depends on SMP
 
 config SPRD_CPU_DYNAMIC_HOTPLUG
 	bool "cpu dynamic hotplug with DVFS"
