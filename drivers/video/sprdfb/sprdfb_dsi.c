@@ -57,12 +57,20 @@ static void dsi_core_write_function(uint32_t addr, uint32_t offset, uint32_t dat
 	sci_glb_write((addr + offset), data, 0xffffffff);
 }
 
-
+static uint32_t sot_ever_happened = 0;
 static irqreturn_t dsi_isr0(int irq, void *data)
 {
 	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
+	uint32_t mask = 0;
 	printk(KERN_ERR "sprdfb: [%s](0x%x)!\n", __FUNCTION__, reg_val);
 
+	printk("Warning: sot_ever_happened:(0x%x)!\n",sot_ever_happened);
+	if(reg_val & 0x1) {
+		sot_ever_happened = 1;
+		mask = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0);
+		mask |= 0x1;
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0, mask);
+	}
 	return IRQ_HANDLED;
 }
 

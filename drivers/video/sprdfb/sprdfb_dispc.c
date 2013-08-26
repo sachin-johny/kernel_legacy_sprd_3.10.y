@@ -116,7 +116,7 @@ static void dispc_run_for_feature(struct sprdfb_device *dev);
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state);
 
 
-
+static uint32_t underflow_ever_happened = 0;
 static irqreturn_t dispc_isr(int irq, void *data)
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)data;
@@ -130,10 +130,13 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	reg_val = dispc_read(DISPC_INT_STATUS);
 
 	pr_debug("dispc_isr (0x%x)\n",reg_val );
+	pr_debug("Warning: underflow_ever_happened:(0x%x)!\n",underflow_ever_happened);
 
 	if(reg_val & 0x04){
 		printk("Warning: dispc underflow (0x%x)!\n",reg_val);
+		underflow_ever_happened = 1;
 		dispc_write(0x04, DISPC_INT_CLR);
+		dispc_clear_bits(BIT(2), DISPC_INT_EN);
 	}
 
 	if(NULL == dev){
