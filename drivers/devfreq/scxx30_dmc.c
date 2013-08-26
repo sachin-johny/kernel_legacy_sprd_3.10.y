@@ -77,8 +77,12 @@ struct dmcfreq_data {
 	struct devfreq *devfreq;
 	bool disabled;
 	struct opp *curr_opp;
+#ifdef CONFIG_SIPC_TD
 	void __iomem *cpt_share_mem_base;
+#endif
+#ifdef CONFIG_SIPC_WCDMA
 	void __iomem *cpw_share_mem_base;
+#endif
 	struct notifier_block pm_notifier;
 	unsigned long last_jiffies;
 	spinlock_t lock;
@@ -265,22 +269,24 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 
 	if (old_freq == freq)
 		return 0;
-
+#ifdef CONFIG_SIPC_TD
 	if(data->cpt_share_mem_base){
 		cp_req = readb(data->cpt_share_mem_base);
-	}
-	if(cp_req){
-		pr_debug("*** %s, cpt:cp_req:%u ***\n", __func__, cp_req);
-		return 0;
-	}else{
-		if(data->cpw_share_mem_base){
-			cp_req = readb(data->cpw_share_mem_base);
-		}
-		pr_debug("*** %s, cpw:cp_req:%u ***\n", __func__, cp_req);
-		if(cp_req)
+		if(cp_req){
+			printk("*** %s, cpt:cp_req:%u ***\n", __func__, cp_req);
 			return 0;
+		}
 	}
-
+#endif
+#ifdef CONFIG_SIPC_WCDMA
+	if(data->cpw_share_mem_base){
+		cp_req = readb(data->cpw_share_mem_base);
+		if(cp_req){
+			printk("*** %s, cpw:cp_req:%u ***\n", __func__, cp_req);
+			return 0;
+		}
+	}
+#endif
 	dev_dbg(dev, "targetting %lukHz %luuV\n", freq, opp_get_voltage(opp));
 	freq = freq/1000; /* conver KHz to MHz */
 
@@ -534,19 +540,22 @@ static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
 		err = -EINVAL;
 		goto err_cp1_irq;
 	}
-
+#ifdef CONFIG_SIPC_TD
 	data->cpt_share_mem_base = ioremap(CPT_SHARE_MEM, 128);
 	if (!data->cpt_share_mem_base){
 		printk("*** %s, remap CPT_SHARE_MEM error ***\n", __func__);
 		err = -ENOMEM;
 		goto err_irq;
 	}
+#endif
+#ifdef CONFIG_SIPC_WCDMA
 	data->cpw_share_mem_base = ioremap(CPW_SHARE_MEM, 128);
 	if (!data->cpw_share_mem_base){
 		printk("*** %s, remap CPW_SHARE_MEM error ***\n", __func__);
 		err = -ENOMEM;
 		goto err_map;
 	}
+#endif
 
 #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
 	register_cpu_notifier(&devfreq_cpu_notifier);
@@ -556,7 +565,9 @@ static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
 	return 0;
 
 err_map:
+#ifdef CONFIG_SIPC_TD
 	iounmap(data->cpt_share_mem_base);
+#endif
 err_irq:
 	free_irq(IRQ_CP1_MCU1_INT, data);
 err_cp1_irq:
@@ -577,8 +588,12 @@ static __devexit int scxx30_dmcfreq_remove(struct platform_device *pdev)
 	kfree(data);
 	free_irq(IRQ_CP0_MCU1_INT, data);
 	free_irq(IRQ_CP1_MCU1_INT, data);
+#ifdef CONFIG_SIPC_TD
 	iounmap(data->cpt_share_mem_base);
+#endif
+#ifdef CONFIG_SIPC_WCDMA
 	iounmap(data->cpw_share_mem_base);
+#endif
 	return 0;
 }
 
