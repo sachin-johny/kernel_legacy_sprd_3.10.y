@@ -533,6 +533,9 @@ static inline int arch_audio_codec_analog_enable(void)
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_AUD_EN, BIT_RTC_AUD_EN);
 	/*26M*/
 	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_XTL_EN, BIT_XTL_EN);
+
+	/* FIXME: disable deepsleep force power off audio ldo */
+	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
 #endif
 
 	return ret;
