@@ -112,8 +112,8 @@ u8 csi_api_start(void)
 			break;                                                                                                         
 		}                                                                                                                  
 		/* MASK all interrupts */                                                                                          
-		csi_event_enable(0xffffffff, 1);
-		csi_event_enable(0xffffffff, 2);
+		csi_event_disable(0xffffffff, 1);
+		csi_event_disable(0xffffffff, 2);
 		ret = request_irq(IRQ_CSI_INT0,
 				(irq_handler_t)csi_api_event1_handler,
 				IRQF_SHARED, 
