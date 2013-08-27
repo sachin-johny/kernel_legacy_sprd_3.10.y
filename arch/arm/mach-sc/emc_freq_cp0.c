@@ -6,6 +6,7 @@
  **                            Macro Define
  **---------------------------------------------------------------------------*/
 #define REG32(x)                           (*((volatile uint32 *)(x)))
+#define REG16(x)                           (*((volatile uint16 *)(x)))
 #define UMCTL2_REG_GET(reg_addr)             (*((volatile uint32 *)(reg_addr)))
 #define UMCTL2_REG_SET( reg_addr, value )    *(volatile uint32 *)(reg_addr) = value
 #define UMCTL_REG_BASE (0x01000000)
@@ -409,20 +410,6 @@ typedef struct
     uint32 publ_dx3dqstr;
 }ddr_dfs_val_t;
 ddr_dfs_val_t *timing;
-static uint32 reg_bits_set(uint32 addr, 
-                           uint8 start_bitpos,
-                           uint8 bit_num,
-                           uint32 value)
-{
-    /*create bit mask according to input param*/
-    uint32 bit_mask = (1<<bit_num)-1;
-    uint32 reg_data = *((volatile uint32*)(addr));
-    
-    reg_data &= ~(bit_mask<<start_bitpos);
-    reg_data |= ((value&bit_mask)<<start_bitpos);
-    
-    *((volatile uint32*)(addr)) = reg_data;
-}
 static void assert_reset_dll(void)
 {
 	REG32(PUBL_ACDLLCR)  &= ~(0x1<<30);
@@ -470,10 +457,8 @@ static void move_upctl_state_to_self_refresh(void)
 }
 static void move_upctl_state_exit_self_refresh(u32 dll_enable)
 {
-	uint32 val;
-
 	if(dll_enable == EMC_DLL_SWITCH_DISABLE_MODE) {
- 		REG32(UMCTL_DFILPCFG0) = 0x0700f100;
+		REG32(UMCTL_DFILPCFG0) = 0x0700f100;
 		REG32(UMCTL_PWRCTL)    = 0x9;
 	}
 	else{
@@ -508,7 +493,7 @@ static void set_ddrphy_dll_bps200_mode(u32 bps200)
 	}
 }
 static void ddr_clk_set(uint32 new_clk, uint32 delay);
-static void ddr_timing_update();
+static void ddr_timing_update(void);
 
 static void switch_100_200(u32 bsp_200)
 {
@@ -563,9 +548,8 @@ static void dll_enable_set(u32 dll_mode)
 	move_upctl_state_to_self_refresh();
 	disable_cam_command_deque();
 	REG32(UMCTL_DFIMISC) &= ~(1 << 0);
-	REG32(FLAG_ADDR - 4) = 0X11223044;
 	wait_queue_complete();
-	
+
 	//phy clock close
 //	REG32(PMU_APB_BASE + 0xc8) &= ~(1 << 2);
 	REG32(PMU_APB_BASE + 0xc8) &= ~(1 << 6);
@@ -579,7 +563,6 @@ static void dll_enable_set(u32 dll_mode)
 		for(i = 0 ; i < 2; i++);
 //		deassert_reset_dll();
 		REG32(PUBL_PIR) |= (1 << 4) | (1 << 0);
-		REG32(FLAG_ADDR - 4) = 0X11223144;
 		while((REG32(PUBL_PGSR) & 1) != 1);
 		while((REG32(PUBL_PGSR) & 1) != 1);
 		REG32(PUBL_PIR) |= (1 << 4);
@@ -595,11 +578,10 @@ static void dll_enable_set(u32 dll_mode)
 		deassert_reset_dll();
 		for(i = 0 ; i < 20; i++);
 	}
-	REG32(FLAG_ADDR - 4) = 0X11223244;
+
 	REG32(UMCTL_DFIMISC) |= (1 << 0);
 	enable_cam_command_deque();
 	move_upctl_state_exit_self_refresh(dll_mode);
-	REG32(FLAG_ADDR - 4) = 0X11223344;
 }
 void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode, uint32 bps_200)
 {
@@ -700,72 +682,155 @@ static void ddr_clk_set(uint32 new_clk, uint32 delay)
 //		ddr_autorefresh_timing_update();
 	}
 }
-
+#define BIT_0               0x00000001
+#define BIT_1               0x00000002
+#define BIT_2               0x00000004
+#define BIT_3               0x00000008
+#define BIT_4               0x00000010
+#define BIT_5               0x00000020
+#define BIT_6               0x00000040
+#define BIT_7               0x00000080
+#define BIT_8               0x00000100
+#define BIT_9               0x00000200
+#define BIT_10              0x00000400
+#define BIT_11              0x00000800
+#define BIT_12              0x00001000
+#define BIT_13              0x00002000
+#define BIT_14              0x00004000
+#define BIT_15              0x00008000
+#define BIT_16              0x00010000
+#define BIT_17              0x00020000
+#define BIT_18              0x00040000
+#define BIT_19              0x00080000
+#define BIT_20              0x00100000
+#define BIT_21              0x00200000
+#define BIT_22              0x00400000
+#define BIT_23              0x00800000
+#define BIT_24              0x01000000
+#define BIT_25              0x02000000
+#define BIT_26              0x04000000
+#define BIT_27              0x08000000
+#define BIT_28              0x10000000
+#define BIT_29              0x20000000
+#define BIT_30              0x40000000
+#define BIT_31              0x80000000
 
 void SLEEP_Init(void)
 {
-	#define APB_SLP_CTL0								(0x40060030)
-	#define APB_FORCE_ON								(1 << 2)
-	#define APB_FORCE_SLEEP							(1 << 1)
+#define AHB_SLP_CTL (0x20100000 + 0x44)
+#define ARM_DAHB_SLEEP_EN (1 << 4)
+#define MCUMTX_AUTO_GATE_EN (1 << 3)
+#define MCU_AUTO_GATE_EN (1 << 2)
+#define AHB_AUTO_GATE_EN (1 << 2)
+#define ARM_AUTO_GATE_EN (1 << 0)
+	REG32(AHB_SLP_CTL) |= (MCUMTX_AUTO_GATE_EN) | (MCU_AUTO_GATE_EN) | (AHB_AUTO_GATE_EN) | (ARM_AUTO_GATE_EN);
+#define PD_CP0_ARM9_0_CFG 0x022B0024
+#define PD_CP0_ARM9_0_AUTO_SHUTDOWN_EN (1 << 24)
+#define PD_CP0_ARM9_1_CFG 0x022B0028
+#define PD_CP0_ARM9_1_FORCE_SHUTDOWN_EN (1 << 25)
+#define PD_CP0_ARM9_2_CFG 0x022B002C
+#define PD_CP0_ARM9_2_FORCE_SHUTDOWN_EN (1 << 25)
+
+#define PD_CP0_HU3GE_CFG 0x022B0030
+#define PD_CP0_HU3GE_AUTO_SHUTDOWN_EN (1 << 24)
+#define PD_CP0_GSM_CFG 0x022B0034
+#define PD_CP0_GSM_AUTO_SHUTDOWN_EN (1 << 24)
+#define PD_CP0_TD_CFG 0x022B0048
+#define PD_CP0_TD_AUTO_SHUTDOWN_EN (1 << 24)
+#define PD_CP0_L1RAM_CFG 0x022B0038
+#define PD_CP0_L1RAM_AUTO_SHUTDOWN_EN (1 << 24)
+#define PD_CP0_L1RAM_FORCE_SHUTDOWN_EN (1 << 25)
+#define PD_CP_SYS_CFG	0x022B0050
+
+#define WCDMA_AHB_PAUSE1	0x1010002c
+#define WCDMA_MCU1_CORE_SLEEP	BIT_0
+#define WCDMA_MCU1_SYS_SLEEP	BIT_1
+#define WCDMA_MCU1_DEEP_SLEEP	BIT_2
+#define WCDMA_MCU1_APB_SLEEP	BIT_3
+
+#define WCDMA_AHB_PAUSE2	0x10100030
+#define WCDMA_MCU2_CORE_SLEEP	BIT_0
+#define WCDMA_MCU2_SYS_SLEEP	BIT_1
+#define WCDMA_MCU2_DEEP_SLEEP	BIT_2
+#define WCDMA_MCU2_APB_SLEEP	BIT_3
+
+#define WCDMA_AHB_SLEEP_CTL	0x10100034
+#define WCDMA_ARM1_AUTO_GATE	BIT_0
+#define WCDMA_ARM2_AUTO_GATE	BIT_1
+#define WCDMA_AHB_AUTO_GATE	BIT_2
+#define WCDMA_MCU_AUTO_GATE	BIT_3
+#define WCDMA_MCUMTX_AUTO_GATE	BIT_4
+
+#define MCU_FORCE_WSYS_STOP	BIT_1
+#define AHB_MISC_CTL	(0x20100000 + 0x0020)
+#define WCDMA_ASHB_EN	BIT_0
+#define APB_EB0_STS	(0x40010000 + 0x0008)
+#define AHB_EB0_STS	(0x20100000 + 0x0008)
+#define APB_SLP_CTL	(0x40010000 + 0x44)
+
+	REG32(WCDMA_AHB_PAUSE1) |= (WCDMA_MCU1_CORE_SLEEP | WCDMA_MCU1_SYS_SLEEP | WCDMA_MCU1_DEEP_SLEEP | WCDMA_MCU1_APB_SLEEP);
+	REG32(WCDMA_AHB_PAUSE2) |= (WCDMA_MCU2_CORE_SLEEP | WCDMA_MCU2_SYS_SLEEP | WCDMA_MCU2_DEEP_SLEEP | WCDMA_MCU2_APB_SLEEP);
+	REG32(WCDMA_AHB_SLEEP_CTL) |= (WCDMA_ARM1_AUTO_GATE | WCDMA_ARM2_AUTO_GATE | WCDMA_AHB_AUTO_GATE | WCDMA_MCU_AUTO_GATE | WCDMA_MCUMTX_AUTO_GATE);
 	
-	#define AHB_SLP_CTL0								(0x604000D0)
-	#define APB_STOP										(1 << 5)
-	#define MCU_FORCE_SYS_SLP						(1 << 0)
-	#define MCU_CORE_SLP								(1 << 1)
-	
-	#define AHB_SLP_CTL1								(0x604000D4)
-	#define MCU_SYS_SLP_EN							(1 << 3)
-	#define MCU_DEEP_SLP_EN							(1 << 4)
-	#define MCU_LIGHT_SLP_EN						(1 << 8)
-	
-	#define PD_CP_ARM9_CFG							0x022B0054
-	#define PD_CP_ARM9_AUTO_SHUTDOWN_EN	(1 << 24)
-	#define PD_CP_WIFI_CFG							0x022B0058
-	#define PD_CP_WIFI_AUTO_SHUTDOWN_EN	(1 << 24)
-	
-	#define APB_EB0_STS									0x40060018
-	#define APB_EB0_MSK									0x01FBFFFC
-	
-	#define AHB_EB0_STS									0x60400008
-	#define AHB_EB0_MSK									0x0000000F
-	
-//	REG32(APB_SLP_CTL0) |= APB_FORCE_SLEEP;
-	
-//	REG32(AHB_SLP_CTL1) |= (MCU_SYS_SLP_EN | MCU_LIGHT_SLP_EN | MCU_DEEP_SLP_EN);
-	
-	REG32(PD_CP_ARM9_CFG) |= PD_CP_ARM9_AUTO_SHUTDOWN_EN;
-	REG32(PD_CP_WIFI_CFG) |= PD_CP_WIFI_AUTO_SHUTDOWN_EN;
-	
-	REG32(APB_EB0_STS)		&= ~APB_EB0_MSK;
-	REG32(AHB_EB0_STS)    &= ~AHB_EB0_MSK;
-	
+	REG32(PD_CP0_ARM9_0_CFG) |= PD_CP0_ARM9_0_AUTO_SHUTDOWN_EN;
+	REG32(PD_CP0_ARM9_1_CFG) |= PD_CP0_ARM9_1_FORCE_SHUTDOWN_EN;
+	REG32(PD_CP0_ARM9_2_CFG) |= PD_CP0_ARM9_2_FORCE_SHUTDOWN_EN;
+}
+static void dsp_deep_sleep(void)
+{
+	REG32(0x20100044) &= ~(BIT_4); //disable arm2dsp bridge sleep
+	REG32(0x20100050) |= (BIT_2); //OPEN ARM2DSP bridge
+	REG32(0X50130014) |= (BIT_8 | BIT_9 | BIT_10);
+	REG32(0X50130030) |= (BIT_13);
+	REG16(0X50640256) |= (BIT_15);
+	REG16(0X50640254) |= (BIT_15);
+	REG16(0X506402EA) |= (BIT_12);
+	REG32(0x20100044) |= (BIT_4); //enable arm2dsp bridge sleep
+	REG32(0x20100050) &= ~(BIT_2); //disable ARM2DSP bridge
+}
+static void wcdma_sleep(void)
+{
+	REG32(APB_SLP_CTL) |= MCU_FORCE_WSYS_STOP;
+	REG32(AHB_MISC_CTL) &= ~(WCDMA_ASHB_EN);
+	REG32(AHB_SLP_CTL) |= (ARM_DAHB_SLEEP_EN);
+}
+extern void WaitForInt(void);
+static void enter_deepsleep(void)
+{
+	REG32(APB_EB0_STS) = 0;
+	REG32(AHB_EB0_STS) = 0;
+#define AHB_PAUSE 0x20100040
+	REG32(AHB_PAUSE) = 0x16;
+	WaitForInt();
+}
+static void clk_config(void)
+{
+	volatile uint32 i;
+	REG32(0x2010004c) |= (1 << 12) | (2 << 4);//AHB clk div set to 1, spb sel to 76.8
+	for(i = 0; i < 20; i++);
+	REG32(0x2010004c) |= (1 << 0);//ARM clk set to 307.2M WPLL
 }
 #define INTC0_REG_BASE		0x40000000
 #define TB_AP2CP_INT0		0xa
-#define	TB_AP2CP_INT1		0xb
 void main_entry(void)
 {
-	
 	uint32 ddr_type;
 	uint32 clk;
 	uint32 reg_val;
-	uint32 dll_mode;
-	uint32 bps_200;
-	volatile uint32 i;
+	uint32 dll_mode,bps_200;
 
+	clk_config();
 	//enable ipi interrupt
 	REG32(INTC0_REG_BASE + 0x8) = (1 << TB_AP2CP_INT0);
 
-	REG32(0x40060044) |= (1 << 0);//AHB clk div set to 1
-	for(i = 0; i < 20; i++);
-	REG32(0x40060040) |= (3 <<5);//ARM clk set to 312M
 	REG32(FLAG_ADDR - 4) = 0X11223344;
 	SLEEP_Init();
+	dsp_deep_sleep();
+	wcdma_sleep();
 	while(1){
-		REG32(AHB_SLP_CTL1) |= (MCU_SYS_SLP_EN | MCU_LIGHT_SLP_EN | MCU_DEEP_SLP_EN);
-		WaitForInt();
+		enter_deepsleep();
 		REG32(FLAG_ADDR - 4) = 0x11223345;
-		REG32(0x400E0004) = 0x1;//clear ipi int0
+		REG32(0x4000F004) = 0x1;//clear ipi int0
 		reg_val = REG32(FLAG_ADDR);
 		ddr_type = (reg_val & EMC_DDR_TYPE_MASK) >> EMC_DDR_TYPE_OFFSET;
 		clk = (reg_val & EMC_CLK_FREQ_MASK) >> EMC_CLK_FREQ_OFFSET;
@@ -773,10 +838,8 @@ void main_entry(void)
 		bps_200 = (reg_val & EMC_BSP_BPS_200_MASK) >> EMC_BSP_BPS_200_OFFSET;
 		REG32(PUBL_DSGCR) &= ~(0x10);
 		timing = (ddr_dfs_val_t *)(CP2_PARAM_ADDR);
-		umctl2_freq_set(clk, ddr_type, dll_mode, bps_200);
+		umctl2_freq_set(clk, ddr_type, dll_mode,bps_200);
 		REG32(FLAG_ADDR) |= (EMC_FREQ_SWITCH_COMPLETE << EMC_FREQ_SWITCH_STATUS_OFFSET);
 		REG32(FLAG_ADDR - 4) = 0x11223346;
-
 	}
-
 }
