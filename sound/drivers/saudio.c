@@ -33,7 +33,8 @@
 #include <linux/io.h>
 #include <sound/saudio.h>
 
-#define ETRACE(x...)			pr_debug(KERN_ERR "Error: " x)
+#define ETRACE(x...)           printk(KERN_ERR "Error: " x)
+#define WTRACE(x...)		pr_debug(KERN_ERR x)
 
 #define ADEBUG()			pr_debug(KERN_ERR "saudio.c: function: %s,line %d\n",__FUNCTION__,__LINE__)
 
@@ -326,8 +327,14 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 		runtime->hw = snd_card_saudio_capture;
 	}
 	mutex_lock(&dev_ctrl->mutex);
-	saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
+	result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 			       SAUDIO_CMD_OPEN, stream_id);
+        if(result)
+        {
+            ETRACE("saudio.c: snd_card_saudio_pcm_open: saudio_send_common_cmd result is %d", result);
+            mutex_unlock(&dev_ctrl->mutex);
+            return result;
+        }
 	result = saudio_wait_common_cmd(dev_ctrl->dst,
 					dev_ctrl->channel,
 					SAUDIO_CMD_OPEN_RET, 0);
@@ -346,8 +353,14 @@ static int snd_card_saudio_pcm_close(struct snd_pcm_substream *substream)
 	ADEBUG();
 	dev_ctrl = (struct saudio_dev_ctrl *)&(saudio->dev_ctrl[dev]);
 	mutex_lock(&dev_ctrl->mutex);
-	saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
+	result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 			       SAUDIO_CMD_CLOSE, stream_id);
+         if(result)
+        {
+            ETRACE("saudio.c: snd_card_saudio_pcm_close: saudio_send_common_cmd result is %d", result);
+            mutex_unlock(&dev_ctrl->mutex);
+            return result;
+        }
 	result =
 	    saudio_wait_common_cmd(dev_ctrl->dst,
 				   dev_ctrl->channel,
@@ -382,8 +395,14 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 		stream->stream_state = SAUDIO_TRIGGERED;
 		result = saudio_data_trigger_process(stream, &msg);
 		mutex_lock(&dev_ctrl->mutex);
-		saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
+		result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 				       SAUDIO_CMD_START, stream->stream_id);
+             if(result)
+            {
+                ETRACE("saudio.c: snd_card_saudio_pcm_trigger: RESUME, send_common_cmd result is %d", result);
+                mutex_unlock(&dev_ctrl->mutex);
+                return result;
+            }
 		mutex_unlock(&dev_ctrl->mutex);
 
 		break;
@@ -391,8 +410,14 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		mutex_lock(&dev_ctrl->mutex);
 		stream->stream_state = SAUDIO_STOPPED;
-		saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
+		result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 				       SAUDIO_CMD_STOP, stream->stream_id);
+             if(result)
+            {
+                ETRACE("saudio.c: snd_card_saudio_pcm_trigger: SUSPEND, send_common_cmd result is %d", result);
+                mutex_unlock(&dev_ctrl->mutex);
+                return result;
+            }
 		mutex_unlock(&dev_ctrl->mutex);
 		break;
 	default:
@@ -688,7 +713,7 @@ static int saudio_data_transfer_process(struct saudio_stream *stream,
 			result =
 			    sblock_get(stream->dst, stream->channel, &blk, 0);
 			if (result) {
-				ETRACE
+				WTRACE
 				    ("saudio.c: sblock get failed result is %d,dst is %d,channel is %d,periods_tosend is %d \n",
 				     result, stream->dst, stream->channel,
 				     stream->periods_tosend);
