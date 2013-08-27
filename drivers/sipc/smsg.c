@@ -29,6 +29,11 @@
 
 static struct smsg_ipc *smsg_ipcs[SIPC_ID_NR];
 
+static ushort debug_enable = 0;
+
+module_param_named(debug_enable, debug_enable, ushort, 0644);
+
+
 irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 {
 	struct smsg_ipc *ipc = (struct smsg_ipc *)dev_id;
@@ -49,8 +54,16 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 			readl(ipc->rxbuf_wrptr), readl(ipc->rxbuf_rdptr), rxpos);
 		pr_debug("irq read smsg: channel=%d, type=%d, flag=0x%04x, value=0x%08x\n",
 			msg->channel, msg->type, msg->flag, msg->value);
-		if(msg->type == SMSG_TYPE_DIE)
-			panic("cpcrash");
+		if(msg->type == SMSG_TYPE_DIE) {
+			if(debug_enable)
+				panic("cpcrash");
+			else {
+				/* update smsg rdptr */
+				writel(readl(ipc->rxbuf_rdptr) + 1, ipc->rxbuf_rdptr);
+
+				continue;
+			}
+		}
 		if (msg->channel >= SMSG_CH_NR || msg->type >= SMSG_TYPE_NR) {
 			/* invalid msg */
 			printk(KERN_ERR "invalid smsg: channel=%d, type=%d, flag=0x%04x, value=0x%08x\n",
