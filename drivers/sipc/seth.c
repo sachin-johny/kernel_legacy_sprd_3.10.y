@@ -42,6 +42,7 @@
 #define DEV_ON 1
 #define DEV_OFF 0
 
+#define SETH_RESEND_MAX_NUM	10
 /*
  * Device instance data.
  */
@@ -50,7 +51,8 @@ typedef struct SEth {
 	struct net_device* netdev;	/* Linux net device */
 	struct seth_init_data* pdata;	/* platform data */
 	int state;			/* device state */
-	int stopped;			/* sblock indicator */
+	int stopped;		/* sblock indicator */
+	int txrcnt;			/* seth tx resend count*/
 } SEth;
 
 /*
@@ -238,6 +240,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
 		dev_kfree_skb_any(skb);
+		seth->txrcnt = 0;
 		return NETDEV_TX_OK;
 	}
 
@@ -248,7 +251,10 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		SETH_INFO("send sblock failed(%d)!\n", ret);
 		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
-		/*netif_stop_queue (dev); */
+		if (seth->txrcnt > SETH_RESEND_MAX_NUM) {
+			netif_stop_queue (dev);
+		}
+		seth->txrcnt ++;
 		return NETDEV_TX_BUSY;
 	}
 
@@ -258,6 +264,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 	seth->stats.tx_bytes += skb->len;
 	seth->stats.tx_packets++;
 	dev->trans_start = jiffies;
+	seth->txrcnt = 0;
 
 	dev_kfree_skb_any(skb);
 
