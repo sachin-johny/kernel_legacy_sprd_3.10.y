@@ -44,10 +44,6 @@
 
 #include <trace/events/asoc.h>
 
-/* dapm power widgets should protect */
-static DEFINE_MUTEX(widget_power_mutex);
-
-
 #define DAPM_UPDATE_STAT(widget, val) widget->dapm->card->dapm_stats.val++;
 
 /* dapm power sequences - make this per codec in the future */
@@ -212,6 +208,21 @@ static int soc_widget_write(struct snd_soc_dapm_widget *w, int reg, int val)
 	return -1;
 }
 
+static inline void soc_widget_lock(struct snd_soc_dapm_widget *w)
+{
+	if (w->codec && !w->codec->using_regmap)
+		mutex_lock(&w->codec->mutex);
+	else if (w->platform)
+		mutex_lock(&w->platform->mutex);
+}
+
+static inline void soc_widget_unlock(struct snd_soc_dapm_widget *w)
+{
+	if (w->codec && !w->codec->using_regmap)
+		mutex_unlock(&w->codec->mutex);
+	else if (w->platform)
+		mutex_unlock(&w->platform->mutex);
+}
 static int soc_widget_update_bits(struct snd_soc_dapm_widget *w,
 	unsigned short reg, unsigned int mask, unsigned int value)
 {
@@ -225,18 +236,24 @@ static int soc_widget_update_bits(struct snd_soc_dapm_widget *w,
 		if (ret != 0)
 			return ret;
 	} else {
+		soc_widget_lock(w);
 		ret = soc_widget_read(w, reg);
-		if (ret < 0)
+		if (ret < 0) {
+			soc_widget_unlock(w);
 			return ret;
+		}
 
 		old = ret;
 		new = (old & ~mask) | (value & mask);
 		change = old != new;
 		if (change) {
 			ret = soc_widget_write(w, reg, new);
-			if (ret < 0)
+			if (ret < 0) {
+				soc_widget_unlock(w);
 				return ret;
+			}
 		}
+		soc_widget_unlock(w);
 	}
 
 	return change;
@@ -1424,8 +1441,6 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 
 	trace_snd_soc_dapm_start(card);
 
-	mutex_lock(&widget_power_mutex);
-
 	list_for_each_entry(d, &card->dapm_list, list) {
 		if (d->n_widgets || d->codec == NULL) {
 			if (d->idle_bias_off)
@@ -1529,8 +1544,6 @@ static int dapm_power_widgets(struct snd_soc_dapm_context *dapm, int event)
 
 	/* Now power up. */
 	dapm_seq_run(dapm, &up_list, event, true);
-
-	mutex_unlock(&widget_power_mutex);
 
 	/* Run all the bias changes in parallel */
 	list_for_each_entry(d, &dapm->card->dapm_list, list)
@@ -3239,9 +3252,13 @@ EXPORT_SYMBOL_GPL(snd_soc_dapm_free);
 
 static void soc_dapm_shutdown_codec(struct snd_soc_dapm_context *dapm)
 {
+	struct snd_soc_card *card = dapm->card;
 	struct snd_soc_dapm_widget *w;
 	LIST_HEAD(down_list);
 	int powerdown = 0;
+
+
+	mutex_lock(&card->dapm_mutex);
 
 	list_for_each_entry(w, &dapm->card->widgets, list) {
 		if (w->dapm != dapm)
@@ -3265,6 +3282,8 @@ static void soc_dapm_shutdown_codec(struct snd_soc_dapm_context *dapm)
 			snd_soc_dapm_set_bias_level(dapm,
 						    SND_SOC_BIAS_STANDBY);
 	}
+
+	mutex_unlock(&card->dapm_mutex);
 }
 
 /*
