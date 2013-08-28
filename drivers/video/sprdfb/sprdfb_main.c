@@ -131,9 +131,11 @@ static void setup_fb_info(struct sprdfb_device *dev)
 	fb->var.yres_virtual = panel->height * FRAMEBUFFER_NR;
 	fb->var.bits_per_pixel = dev->bpp;
 	if(0 != dev->panel->fps){
-		fb->var.pixclock = (1000 * 1000 * 1000) / (dev->panel->fps * panel->width * panel->height) * 1000;
+//		fb->var.pixclock = (1000 * 1000 * 1000) / (dev->panel->fps * panel->width * panel->height) * 1000;
+		fb->var.pixclock = ((1000000000 /panel->width) * 1000) / (dev->panel->fps * panel->height);
 	}else{
-		fb->var.pixclock = (1000 * 1000 * 1000) / (SPRDFB_DEFAULT_FPS * panel->width * panel->height) * 1000;
+//		fb->var.pixclock = (1000 * 1000 * 1000) / (SPRDFB_DEFAULT_FPS * panel->width * panel->height) * 1000;
+		fb->var.pixclock = ((1000000000 /panel->width) * 1000) / (SPRDFB_DEFAULT_FPS * panel->height);
 	}
 	fb->var.accel_flags = 0;
 	fb->var.yoffset = 0;
