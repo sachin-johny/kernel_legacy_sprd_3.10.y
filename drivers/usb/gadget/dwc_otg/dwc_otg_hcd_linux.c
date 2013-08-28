@@ -528,7 +528,7 @@ int hcd_init(
 		usb_set_id_irq_type(otg_cable_irq, OTG_CABLE_PLUG_IN);
 		otg_cable_connected = usb_get_id_state();
 		pr_info("now usb id state is :%d\n", otg_cable_connected);
-		retval = request_irq(otg_cable_irq, usb_otg_cable_detect_handler, 0,
+		retval = request_irq(otg_cable_irq, usb_otg_cable_detect_handler, IRQF_NO_SUSPEND,
 				"usb otg cable detect", otg_dev);
 	}
 
