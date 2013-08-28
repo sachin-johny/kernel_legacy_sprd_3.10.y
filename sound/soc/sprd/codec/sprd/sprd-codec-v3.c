@@ -878,8 +878,8 @@ int sprd_inter_speaker_pa(int on)
 				sprd_codec_auto_ldo_volt
 				    (sprd_codec_pa_ldo_v_sel, 1);
 			} else {
-				sprd_codec_pa_ldo_v_sel(inter_pa.setting.
-							LDO_V_sel);
+				sprd_codec_pa_ldo_v_sel(inter_pa.
+							setting.LDO_V_sel);
 			}
 		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
@@ -1108,14 +1108,16 @@ static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 		pr_err("sprd_codec not supports rate %d\n", rate);
 		break;
 	}
-	sprd_codec_dbg("set playback rate 0x%x\n", snd_soc_read(codec, AUD_DAC_CTL));
+	sprd_codec_dbg("set playback rate 0x%x\n",
+		       snd_soc_read(codec, AUD_DAC_CTL));
 	return 0;
 }
 
 void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate)
 {
-	sprd_codec_set_sample_rate(codec, rate,  0x0F, 0);
+	sprd_codec_set_sample_rate(codec, rate, 0x0F, 0);
 }
+
 EXPORT_SYMBOL(sprd_codec_set_da_sample_rate);
 
 static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
@@ -1134,20 +1136,23 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 
 void sprd_codec_set_ad01_sample_rate(struct snd_soc_codec *codec, int rate)
 {
-	sprd_codec_set_ad_sample_rate(codec, rate,  0x0F, 0);
+	sprd_codec_set_ad_sample_rate(codec, rate, 0x0F, 0);
 }
+
 EXPORT_SYMBOL(sprd_codec_set_ad01_sample_rate);
 
 void sprd_codec_set_ad23_sample_rate(struct snd_soc_codec *codec, int rate)
 {
-	sprd_codec_set_ad_sample_rate(codec, rate,  0xF0, 4);
+	sprd_codec_set_ad_sample_rate(codec, rate, 0xF0, 4);
 }
+
 EXPORT_SYMBOL(sprd_codec_set_ad23_sample_rate);
 
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec_dbg("%s ad %d da %d ad1 %d\n", __func__,
-			sprd_codec->ad_sample_val, sprd_codec->da_sample_val, sprd_codec->ad1_sample_val);
+		       sprd_codec->ad_sample_val, sprd_codec->da_sample_val,
+		       sprd_codec->ad1_sample_val);
 	if (sprd_codec->ad_sample_val) {
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
 					      sprd_codec->ad_sample_val, 0x0F,
@@ -1155,8 +1160,8 @@ static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 	}
 	if (sprd_codec->ad1_sample_val) {
 		sprd_codec_set_ad_sample_rate(sprd_codec->codec,
-						  sprd_codec->ad1_sample_val, 0xF0,
-						  4);
+					      sprd_codec->ad1_sample_val, 0xF0,
+					      4);
 	}
 	if (sprd_codec->da_sample_val) {
 		sprd_codec_set_sample_rate(sprd_codec->codec,
@@ -1211,8 +1216,8 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 			sprd_codec_power.audio_ldo_open_ok = 1;
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
-				regulator_set_mode(sprd_codec_power.supplies[i].
-						   consumer,
+				regulator_set_mode(sprd_codec_power.
+						   supplies[i].consumer,
 						   REGULATOR_MODE_STANDBY);
 		}
 
@@ -1265,8 +1270,8 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		if (sprd_codec_power.audio_ldo_open_ok) {
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
-				regulator_set_mode(sprd_codec_power.supplies[i].
-						   consumer,
+				regulator_set_mode(sprd_codec_power.
+						   supplies[i].consumer,
 						   REGULATOR_MODE_NORMAL);
 
 			regulator_bulk_free(ARRAY_SIZE
@@ -1295,37 +1300,56 @@ static int sprd_codec_ldo_control(int on)
 
 static void sprd_codec_mic_delay_worker(struct work_struct *work)
 {
+	static int is_on = 0;
 	int on = atomic_read(&sprd_codec_power.mic_on) > 0;
+	if (is_on == on) {
+		return;
+	}
+	is_on = on;
 	sprd_codec_ldo_control(on);
 	sprd_codec_mic_bias_en(on);
 }
 
 static void sprd_codec_auxmic_delay_worker(struct work_struct *work)
 {
+	static int is_on = 0;
 	int on = atomic_read(&sprd_codec_power.auxmic_on) > 0;
+	if (is_on == on) {
+		return;
+	}
+	is_on = on;
 	sprd_codec_ldo_control(on);
 	sprd_codec_auxmic_bias_en(on);
 }
 
 static void sprd_codec_headmic_delay_worker(struct work_struct *work)
 {
+	static int is_on = 0;
 	int on = atomic_read(&sprd_codec_power.headmic_on) > 0;
+	if (is_on == on) {
+		return;
+	}
+	is_on = on;
 	sprd_codec_ldo_control(on);
 	sprd_codec_headmic_bias_en(on);
 }
 
-static int sprd_codec_mic_bias_inter(int on, atomic_t * v)
+static int sprd_codec_mic_bias_inter(int on, atomic_t * v,
+				     spinlock_t * bias_lock)
 {
+	int ret = 0;
+	spin_lock(bias_lock);
 	if (on) {
 		atomic_inc(v);
-		return 1;
+		ret = 1;
 	} else {
 		if (atomic_read(v) > 0) {
 			atomic_dec(v);
-			return 1;
+			ret = 1;
 		}
 	}
-	return 0;
+	spin_unlock(bias_lock);
+	return ret;
 }
 
 static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
@@ -1338,7 +1362,10 @@ static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
 
 int sprd_codec_mic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.mic_on)) {
+	static DEFINE_SPINLOCK(mic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.mic_on, &mic_bias_lock)) {
+		pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
 					     sprd_codec_mic_delay_worker);
 		schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
@@ -1351,7 +1378,10 @@ EXPORT_SYMBOL(sprd_codec_mic_bias_control);
 
 int sprd_codec_auxmic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.auxmic_on)) {
+	static DEFINE_SPINLOCK(auxmic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.auxmic_on, &auxmic_bias_lock)) {
+		pr_info("auxmic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work
 		    (&sprd_codec_power.auxmic_delayed_work,
 		     sprd_codec_auxmic_delay_worker);
@@ -1365,7 +1395,10 @@ EXPORT_SYMBOL(sprd_codec_auxmic_bias_control);
 
 int sprd_codec_headmic_bias_control(int on)
 {
-	if (sprd_codec_mic_bias_inter(on, &sprd_codec_power.headmic_on)) {
+	static DEFINE_SPINLOCK(headmic_bias_lock);
+	if (sprd_codec_mic_bias_inter
+	    (on, &sprd_codec_power.headmic_on, &headmic_bias_lock)) {
+		pr_info("headmic bias switch %s\n", on ? "ON" : "OFF");
 		sprd_codec_init_delayed_work
 		    (&sprd_codec_power.headmic_delayed_work,
 		     sprd_codec_headmic_delay_worker);
@@ -1386,8 +1419,10 @@ static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 	sprd_codec_sample_rate_setting(sprd_codec);
 
 	/* SC7710/SC8830 ask from ASIC to set initial value */
-	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI), BIT(SEL_VCMI));
-	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(VCMI_FAST_EN), BIT(VCMI_FAST_EN));
+	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(SEL_VCMI),
+			    BIT(SEL_VCMI));
+	snd_soc_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(VCMI_FAST_EN),
+			    BIT(VCMI_FAST_EN));
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return ret;
@@ -1472,7 +1507,7 @@ static int digital_power_event(struct snd_soc_dapm_widget *w,
 		sprd_codec_digital_open(w->codec);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		/*maybe ADC module use it, so we cann't close it*/
+		/*maybe ADC module use it, so we cann't close it */
 		/*arch_audio_codec_digital_disable(); */
 		arch_audio_codec_digital_reg_disable();
 		break;
@@ -2091,7 +2126,6 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	if (mixer->set)
 		ret = mixer->set(codec, mixer->on);
 
-
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
 	return ret;
@@ -2252,7 +2286,8 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ARRAY_SIZE(spkr_mixer_controls)),
 	SND_SOC_DAPM_PGA_S("SPKL Switch", 5, SOC_REG(DCR2_DCR1), AOL_EN, 0,
 			   spk_switch_event,
-			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD | SND_SOC_DAPM_PRE_PMD),
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
+			   SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("SPKR Switch", 5, SOC_REG(DCR2_DCR1), AOR_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
@@ -2501,7 +2536,6 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"Digital ADC1R Switch", NULL, "ADie Digital ADCR Switch"},
 	{"ADC1", NULL, "Digital ADC1L Switch"},
 	{"ADC1", NULL, "Digital ADC1R Switch"},
-
 
 	{"Mic Bias", NULL, "MIC"},
 	{"AuxMic Bias", NULL, "AUXMIC"},
@@ -2793,6 +2827,7 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SPRD_CODEC_MIC_BIAS("HEADMIC Bias Switch", SPRD_CODEC_HEADMIC_BIAS),
 };
+
 int vbc_reg_read(int reg);
 int vbc_reg_write2(int reg, int val);
 int vbc_mux_reg_read(int reg);
@@ -2816,21 +2851,27 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 		int id = FUN_REG(reg);
 		struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 		return mixer->on;
-	} else if (IS_SPRD_VBC_RANG(reg |SPRD_VBC_BASE_HI)) {
-		sprd_codec_dbg("read the register is vbc's reg = 0x%x\n", (reg - VBC_REG_OFFSET));
+	} else if (IS_SPRD_VBC_RANG(reg | SPRD_VBC_BASE_HI)) {
+		sprd_codec_dbg("read the register is vbc's reg = 0x%x\n",
+			       (reg - VBC_REG_OFFSET));
 		reg |= SPRD_VBC_BASE_HI;
 		return vbc_reg_read(reg);
 	} else if (IS_SPRD_VBC_MUX_RANG(FUN_REG(reg))) {
-		sprd_codec_dbg("read the register is vbc  MUX  reg(%d) = 0x%x\n", FUN_REG(reg), vbc_mux_reg_read(reg));
+		sprd_codec_dbg
+		    ("read the register is vbc  MUX  reg(%d) = 0x%x\n",
+		     FUN_REG(reg), vbc_mux_reg_read(reg));
 		return vbc_mux_reg_read(reg);
 	} else if (IS_SPRD_VBC_SWITCH_RANG(FUN_REG(reg))) {
-		sprd_codec_dbg("read the register is vbc  SWITCH  reg(%d) = 0x%x\n", FUN_REG(reg), vbc_switch_reg_read(reg));
+		sprd_codec_dbg
+		    ("read the register is vbc  SWITCH  reg(%d) = 0x%x\n",
+		     FUN_REG(reg), vbc_switch_reg_read(reg));
 		return vbc_switch_reg_read(reg);
 	}
 
 	sprd_codec_dbg("read the register is not codec's reg = 0x%x\n", reg);
 	return 0;
 }
+
 static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 			    unsigned int val)
 {
@@ -2840,8 +2881,10 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 	} else if (IS_SPRD_CODEC_DP_RANG(reg | SPRD_CODEC_DP_BASE_HI)) {
 		reg |= SPRD_CODEC_DP_BASE_HI;
 		return __raw_writel(val, reg);
-	} else if (IS_SPRD_VBC_RANG(reg |SPRD_VBC_BASE_HI)) {
-		sprd_codec_dbg("write the register is vbc's reg = 0x%x, val = %d\n", (reg - VBC_REG_OFFSET), val);
+	} else if (IS_SPRD_VBC_RANG(reg | SPRD_VBC_BASE_HI)) {
+		sprd_codec_dbg
+		    ("write the register is vbc's reg = 0x%x, val = %d\n",
+		     (reg - VBC_REG_OFFSET), val);
 		reg |= SPRD_VBC_BASE_HI;
 		return vbc_reg_write2(reg, val);
 	}
@@ -2924,7 +2967,7 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 	int ret = 0;
 
 	sprd_codec_dbg("Entering %s\n", __func__);
-	if (dai->id == SPRD_CODEC_IIS1_ID)   /*codec_dai_1 has no playback*/
+	if (dai->id == SPRD_CODEC_IIS1_ID)	/*codec_dai_1 has no playback */
 		return 0;
 
 	if (atomic_read(&sprd_codec->power_refcount) >= 1) {
@@ -2971,7 +3014,7 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 	.hw_params = sprd_codec_pcm_hw_params,
 	.hw_free = sprd_codec_pcm_hw_free,
-	/*.digital_mute = sprd_codec_digital_mute,*/
+	/*.digital_mute = sprd_codec_digital_mute, */
 };
 
 #ifdef CONFIG_PM
@@ -3094,36 +3137,36 @@ static int sprd_codec_audio_ldo(struct sprd_codec_priv *sprd_codec)
 /* PCM Playing and Recording default in full duplex mode */
 struct snd_soc_dai_driver sprd_codec_dai[] = {
 	{
-		.name = "sprd-codec-i2s",
-		.playback = {
-			.stream_name = "Playback",
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = SPRD_CODEC_PCM_RATES,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		},
-		.capture = {
-			.stream_name = "Main-Capture",
-			.channels_min = 1,
-			.channels_max = 2,
-			.rates = SPRD_CODEC_PCM_AD_RATES,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		},
-		.ops = &sprd_codec_dai_ops,
-	},
-	/*digital  ad1*/
+	 .name = "sprd-codec-i2s",
+	 .playback = {
+		      .stream_name = "Playback",
+		      .channels_min = 1,
+		      .channels_max = 2,
+		      .rates = SPRD_CODEC_PCM_RATES,
+		      .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		      },
+	 .capture = {
+		     .stream_name = "Main-Capture",
+		     .channels_min = 1,
+		     .channels_max = 2,
+		     .rates = SPRD_CODEC_PCM_AD_RATES,
+		     .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		     },
+	 .ops = &sprd_codec_dai_ops,
+	 },
+	/*digital  ad1 */
 	{
-		.id = SPRD_CODEC_IIS1_ID,
-		.name = "codec-i2s-ext",
-		.capture = {
-			.stream_name = "Ext-Capture",
-			.channels_min = 1,
-			.channels_max =2,
-			.rates = SPRD_CODEC_PCM_AD_RATES,
-			.formats = SNDRV_PCM_FMTBIT_S16_LE,
-		},
-		.ops = &sprd_codec_dai_ops,
-	},
+	 .id = SPRD_CODEC_IIS1_ID,
+	 .name = "codec-i2s-ext",
+	 .capture = {
+		     .stream_name = "Ext-Capture",
+		     .channels_min = 1,
+		     .channels_max = 2,
+		     .rates = SPRD_CODEC_PCM_AD_RATES,
+		     .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		     },
+	 .ops = &sprd_codec_dai_ops,
+	 },
 };
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
@@ -3183,7 +3226,7 @@ static __devinit int sprd_codec_probe(struct platform_device *pdev)
 				  GFP_KERNEL);
 	if (sprd_codec == NULL)
 		return -ENOMEM;
-	sprd_codec->da_sample_val = 44100; /*inital value for FM route*/
+	sprd_codec->da_sample_val = 44100;	/*inital value for FM route */
 
 	platform_set_drvdata(pdev, sprd_codec);
 
