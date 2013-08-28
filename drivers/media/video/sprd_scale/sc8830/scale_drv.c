@@ -561,7 +561,8 @@ static int32_t _scale_cfg_scaler(void)
 	SCALE_RTN_IF_ERR;
 
 	if (g_path->sc_input_size.w != g_path->output_size.w ||
-		g_path->sc_input_size.h != g_path->output_size.h) {
+		g_path->sc_input_size.h != g_path->output_size.h ||
+		SCALE_YUV420 == g_path->input_format) {
 		REG_MWR(SCALE_CFG, SCALE_BYPASS_BIT, 0);
 		rtn = _scale_set_sc_coeff();
 	} else {
