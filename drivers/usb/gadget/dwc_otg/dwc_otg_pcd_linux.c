@@ -1394,7 +1394,7 @@ int pcd_init(
 		usb_set_vbus_irq_type(plug_irq, VBUS_PLUG_IN);
 		gadget_wrapper->vbus = usb_get_vbus_state();
 		pr_info("now usb vbus is :%d\n", gadget_wrapper->vbus);
-		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED,
+		retval = request_irq(plug_irq, usb_detect_handler, IRQF_SHARED | IRQF_NO_SUSPEND,
 				"usb detect", otg_dev->pcd);
 	}
 	spin_lock_init(&gadget_wrapper->lock);
