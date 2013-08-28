@@ -24,6 +24,21 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 
+//#define SPRD_BACKLIGHT_DBG
+#ifdef SPRD_BACKLIGHT_DBG
+#define ENTER printk(KERN_INFO "[SPRD_BACKLIGHT_DBG] func: %s  line: %04d\n", __func__, __LINE__);
+#define PRINT_DBG(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_BACKLIGHT_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_BACKLIGHT_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
 /* register definitions */
 #define        PWM_PRESCALE    (0x0000)
 #define        PWM_CNT         (0x0004)
@@ -34,7 +49,7 @@
 #define        PWM_ENABLE      (1 << 8)
 #define        PWM_SCALE       1
 #define        PWM_REG_MSK     0xffff
-#define        PWM_MOD_MAX     0xff
+#define        PWM_MOD_MAX     0x7f
 
 /* sprdtrum backlight have two driven mode:
  * 1) pwm mode  //you need to define SPRD_BACKLIGHT_PWM
@@ -141,6 +156,7 @@ static u32 sprd_caculate_brightness(u32 level)
 	int output_mv;
 
 	output_mv = level * OUTPUT_STEP;
+	PRINT_DBG("set output_mv=%d\n", output_mv);
 	if (output_mv <= 192) {
 		return STEP_3mv_BASE + (level << 2);
 	} else {
@@ -181,6 +197,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			/*series mode*/
 			/*whiteled config*/
 			led_level = sprd_caculate_brightness(bl_brightness >> 2);
+			PRINT_DBG("caculated led_level=%d\n", led_level);
 			if ((int)led_level < 0) {
 				return led_level;
 			}
