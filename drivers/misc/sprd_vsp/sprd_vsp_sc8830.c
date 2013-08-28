@@ -34,7 +34,7 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/globalregs.h>
-
+#include <mach/sci.h>
 
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_TIMEOUT_MS 500
@@ -169,13 +169,13 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			clk_put(vsp_hw_dev.vsp_parent_clk);
 			vsp_hw_dev.vsp_parent_clk = clk_parent;
 		}
-		printk(KERN_INFO "VSP_CONFIG_FREQ %d\n", vsp_hw_dev.freq_div);
+		pr_debug(KERN_INFO "VSP_CONFIG_FREQ %d\n", vsp_hw_dev.freq_div);
 		break;
 	case VSP_GET_FREQ:
 		frequency = clk_get_rate(vsp_hw_dev.vsp_clk);
 		ret = find_vsp_freq_level(frequency);
 		put_user(ret, (int __user *)arg);
-		printk(KERN_INFO "vsp ioctl VSP_GET_FREQ %d\n", ret);
+		pr_debug(KERN_INFO "vsp ioctl VSP_GET_FREQ %d\n", ret);
 		break;
 	case VSP_ENABLE:
 		pr_debug("vsp ioctl VSP_ENABLE\n");
@@ -246,15 +246,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 #endif
 	case VSP_RESET:
 		pr_debug("vsp ioctl VSP_RESET\n");
-//		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
-//		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
-	        __raw_writel((1<<11)|(1<<4), SPRD_MMAHB_BASE + 0x1004);	
-	        __raw_writel((1<<4), SPRD_MMAHB_BASE + 0x2004);	//Reset VSP 
+	        sci_glb_set(SPRD_MMAHB_BASE + 0x1004, BIT(11)|BIT(4));	
+	        sci_glb_set(SPRD_MMAHB_BASE + 0x2004, BIT(4));	//Reset VSP 
 
-		break;
-	case VSP_START:
-		pr_debug("vsp ioctl VSP_START\n");
-        __raw_writel((1<<11), SPRD_MMAHB_BASE + 0x2004);
 		break;
 
 	default:
@@ -354,6 +348,8 @@ static int vsp_release (struct inode *inode, struct file *filp)
 	
     clk_disable(vsp_hw_dev.mm_clk);
 
+	printk(KERN_INFO "vsp_release %p\n", vsp_fp);
+
 	return 0;
 }
 
@@ -394,19 +390,6 @@ static int vsp_probe(struct platform_device *pdev)
 	vsp_hw_dev.vsp_parent_clk = NULL;
 
 #if defined(CONFIG_ARCH_SCX35)
-	// Open MM top power.
-	//*(volatile uint32 *)(0x402b001c) &= 0xfdffffff;
-	//*(volatile uint32 *)(0x402e0000) |= 0x02000000;
-
-	// Open VSP in MM top.
-	//VSP_WRITE_REG(0x60d00000, (1<<6)|(1<<3),  "[3]: VSP_eb, [6]: CKG_eb");
-	//VSP_WRITE_REG(0x60d00008, (1<<8)|(1<<7)|(1<<5), "[5]: VSP_AXI_CKG_EN, [7]: MM_AXI_CKG_EN, [8]: MM_MTX_AXI_CKG_EN");
-#if 0
-	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x0);
-        __raw_writel(cmd0|(1<<6)|(1<<3), SPRD_MMAHB_BASE + 0x0);	
-	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x8);
-        __raw_writel(cmd0|(1<<8)|(1<<7)|(1<<5), SPRD_MMAHB_BASE + 0x8);	
-#else
 	clk_mm_i = clk_get(NULL, "clk_mm_i");
 	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
 		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
@@ -417,7 +400,6 @@ static int vsp_probe(struct platform_device *pdev)
 	} else {
 		vsp_hw_dev.mm_clk= clk_mm_i;
 	}
-#endif
 #endif
 
 	clk_vsp = clk_get(NULL, "clk_vsp");

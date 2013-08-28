@@ -29,7 +29,6 @@
 #define VSP_RELEASE     _IO(SPRD_VSP_IOCTL_MAGIC, 6)
 #define VSP_COMPLETE       _IO(SPRD_VSP_IOCTL_MAGIC, 7)
 #define VSP_RESET       _IO(SPRD_VSP_IOCTL_MAGIC, 8)
-#define VSP_START            _IO(SPRD_VSP_IOCTL_MAGIC, 9)
 
 enum sprd_vsp_frequency_e{ 
 	VSP_FREQENCY_LEVEL_0 = 0,
@@ -50,7 +49,6 @@ VSP_DISABLE:disable vsp clock
 VSP_COMPLETE:all the preparing work is done and start the vsp, the vsp finishes 
 its job after this command retruns.
 VSP_RESET:reset vsp hardware
-VSP_START: start openrisc,and it can control VSP to begin decode/encode.
 VSP_CONFIG_FREQ/VSP_GET_FREQ:set/get vsp frequency,the parameter is of 
 type sprd_vsp_frequency_e, the smaller the faster
 */

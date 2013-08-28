@@ -33,7 +33,7 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/globalregs.h>
-
+#include <mach/sci.h>
 
 #define JPG_MINOR MISC_DYNAMIC_MINOR
 #define JPG_TIMEOUT_MS 1000
@@ -47,9 +47,6 @@
 #define JPG_CLK_EN_REG  0x60d00000  //bit[5]
 #define AXI_CLK_EN_REG  0x60d00008      //bit[6]
 
-//#define SPRD_JPG_BASE SPRD_MEA_BASE
-//#define SPRD_JPG_PHYS SPRD_MEA_PHYS
-
 #define GLB_CTRL_OFFSET		0x00
 #define MB_CFG_OFFSET		0x04
 
@@ -60,20 +57,6 @@
 #define GLB_INT_EN_OFFSET	0x24
 #define GLB_INT_CLR_OFFSET	0x28
 #define GLB_INT_RAW_OFFSET	0x2C
-
-
-#if 0//defined(CONFIG_ARCH_SC8825)
-#ifdef USE_INTERRUPT
-#undef USE_INTERRUPT
-#endif
-
-#define DCAM_CLOCK_EN		SPRD_AHB_BASE+0x0200//0x20900000
-#define AHB_CTRL2                       SPRD_AHB_BASE+0x0208
-//#define DCAM_CLK_FREQUENCE	0x8b00000c
-#define PLL_SRC                            SPRD_GREG_BASE+0x0070  //0x4B000070
-
-#endif
-
 
 struct jpg_fh{
 	int is_jpg_aquired;
@@ -188,7 +171,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			clk_put(jpg_hw_dev.jpg_parent_clk);
 			jpg_hw_dev.jpg_parent_clk = clk_parent;
 		}
-		printk(KERN_INFO "JPG_CONFIG_FREQ %d\n", jpg_hw_dev.freq_div);
+		pr_debug(KERN_INFO "JPG_CONFIG_FREQ %d\n", jpg_hw_dev.freq_div);
 		break;
 	case JPG_GET_FREQ:
 		frequency = clk_get_rate(jpg_hw_dev.jpg_clk);
@@ -242,11 +225,11 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			jpg_hw_dev.condition_work_VLC,
 			msecs_to_jiffies(JPG_TIMEOUT_MS));
 		if (ret == -ERESTARTSYS) {
-			printk("KERN_ERR jpg error start -ERESTARTSYS\n");
+			printk(KERN_ERR "jpg error start -ERESTARTSYS\n");
 			jpg_hw_dev.jpg_int_status |= 1<<30;
 			ret = -EINVAL;
 		} else if (ret == 0) {
-			printk("KERN_ERR jpg error start  timeout\n");
+			printk(KERN_ERR "jpg error start  timeout\n");
 			jpg_hw_dev.jpg_int_status |= 1<<31;
 			ret = -ETIMEDOUT;
 		} else {
@@ -268,20 +251,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 #endif
 	case JPG_RESET:
 		pr_debug("jpg ioctl JPG_RESET\n");
-        #if 0
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT(15), AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(15), AHB_SOFT_RST);
-        #else
-            {
-                //unsigned int cmd = __raw_readl(JPG_RESET_REG);
-            
-               // __raw_writel((cmd |(1<<6)),JPG_RESET_REG);
-               // __raw_writel((cmd |(0<<6)),JPG_RESET_REG);
-				unsigned int cmd = __raw_readl(SPRD_MMAHB_BASE+0x04);
-				__raw_writel((cmd |(1<<6)),SPRD_MMAHB_BASE+0x04);
-				__raw_writel((cmd &(~(1<<6))),SPRD_MMAHB_BASE+0x04);
-            }
-        #endif
+		sci_glb_set(SPRD_MMAHB_BASE+0x04, BIT(6));
+		sci_glb_clr(SPRD_MMAHB_BASE+0x04, BIT(6));
+
 		break;
 
 	case JPG_ACQUAIRE_MBIO_VLC_DONE:
@@ -296,10 +268,10 @@ by clk_get()!\n", "clk_vsp", name_parent);
 				msecs_to_jiffies(JPG_TIMEOUT_MS));
 			
 			if (ret == -ERESTARTSYS) {
-				printk("KERN_ERR jpg error start -ERESTARTSYS\n");
+				printk(KERN_ERR "jpg error start -ERESTARTSYS\n");
 				ret = -EINVAL;
 			} else if (ret == 0) {
-				printk("KERN_ERR jpg error start  timeout\n");
+				printk(KERN_ERR "jpg error start  timeout\n");
 				ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
 				printk("jpg_int_status %x",ret);
 				ret = -ETIMEDOUT;
@@ -332,10 +304,10 @@ by clk_get()!\n", "clk_vsp", name_parent);
 				msecs_to_jiffies(JPG_TIMEOUT_MS));
 			
 			if (ret == -ERESTARTSYS) {
-				printk("KERN_ERR jpg error start -ERESTARTSYS\n");
+				printk(KERN_ERR "jpg error start -ERESTARTSYS\n");
 				ret = -EINVAL;
 			} else if (ret == 0) {
-				printk("KERN_ERR jpg error start  timeout\n");
+				printk(KERN_ERR "jpg error start  timeout\n");
 				ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
 				printk("jpg_int_status %x",ret);
 				ret = -ETIMEDOUT;
@@ -456,7 +428,7 @@ static int jpg_open(struct inode *inode, struct file *filp)
 
 	clk_enable(jpg_hw_dev.mm_clk);
 		
-	printk(KERN_INFO "vsp_open %p\n", jpg_fp);
+	printk(KERN_INFO "jpg_open %p\n", jpg_fp);
 	return 0;
 }
 
@@ -477,7 +449,9 @@ static int jpg_release (struct inode *inode, struct file *filp)
 	kfree(filp->private_data);
 	
     clk_disable(jpg_hw_dev.mm_clk);
-	
+    
+	printk(KERN_INFO "jpg_release %p\n", jpg_fp);
+
 	return 0;
 }
 
@@ -523,23 +497,6 @@ static int jpg_probe(struct platform_device *pdev)
 	jpg_hw_dev.jpg_parent_clk = NULL;
 
 #if defined(CONFIG_ARCH_SCX35)
-		//cmd0 = __raw_readl(AHB_CTRL2);//,"AHB_CTRL2:Read the AHB_CTRL2 CLOCK");
-		//cmd0 |= 0x440;
-		//__raw_writel(cmd0,AHB_CTRL2);//,"AHB_CTRL2:enable MMMTX_CLK_EN");
-
-		//cmd0 = __raw_readl(PLL_SRC);//"PLL_SRC:Read the PLL_SRC CLOCK");
-		//cmd0 &=~(0xc);//192M
-		//__raw_writel(cmd0,PLL_SRC);//"PLL_SRC:set vsp clock");
-
-		//cmd0 = __raw_readl(DCAM_CLOCK_EN);//,"DCAM_CLOCK_EN:Read the DCAM_CLOCK_EN ");
-		//cmd0 = 0xFFFFFFFF;
-		//__raw_writel(cmd0,DCAM_CLOCK_EN);//"DCAM_CLOCK_EN:enable DCAM_CLOCK_EN");
-#if 0		
-	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x0);
-	__raw_writel(cmd0|(1<<6)|(1<<5), SPRD_MMAHB_BASE + 0x0);
-	cmd0 = __raw_readl(SPRD_MMAHB_BASE + 0x08);
-        __raw_writel(cmd0|(1<<8)|(1<<7)|(1<<6), SPRD_MMAHB_BASE + 0x8);	
-#else
 	clk_mm_i = clk_get(NULL, "clk_mm_i");
 	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
 		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
@@ -550,8 +507,6 @@ static int jpg_probe(struct platform_device *pdev)
 	} else {
 		jpg_hw_dev.mm_clk= clk_mm_i;
 	}
-#endif
-
 #endif
 
 	clk_jpg = clk_get(NULL, "clk_jpg");
