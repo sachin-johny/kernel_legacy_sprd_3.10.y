@@ -322,42 +322,43 @@ static int headset_plug_in(void)
 		return 0;
 }
 
-static void headset_irq_enable(int enable, unsigned int irq)
+static void headset_irq_button_enable(int enable, unsigned int irq)
 {
-	static int flag = 1;
-	if (!enable) {
-		if (flag) {
-			disable_irq(irq);
-			flag = 0;
+	static int current_irq_state = 1;//irq is enabled after request_irq()
+
+	if (1 == enable) {
+		if (0 == current_irq_state) {
+			enable_irq(irq);
+			current_irq_state = 1;
 			return;
 		}
 	} else {
-		if (!flag) {
-			enable_irq(irq);
-			flag = 1;
+		if (1 == current_irq_state) {
+			disable_irq(irq);
+			current_irq_state = 0;
 			return;
 		}
 	}
 }
 
-static void headset_pwr_on(int pwr_on)
+static void headmicbias_power_on(int on)
 {
-    unsigned long flags;
-    static int pwr_down_flags = 1;
+    unsigned long spin_lock_flags;
+    static int current_power_state = 0;
 
-    spin_lock_irqsave(&headmic_bias_lock, flags);
-    if (pwr_on) {
-        if (pwr_down_flags) {
+    spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
+    if (1 == on) {
+        if (0 == current_power_state) {
             sprd_codec_headmic_bias_control(1);
-            pwr_down_flags = 0;
+            current_power_state = 1;
         }
     } else {
-        if (pwr_down_flags) {
+        if (1 == current_power_state) {
             sprd_codec_headmic_bias_control(0);
-            pwr_down_flags = 1;
+            current_power_state = 0;
         }
     }
-    spin_unlock_irqrestore(&headmic_bias_lock, flags);
+    spin_unlock_irqrestore(&headmic_bias_lock, spin_lock_flags);
 
     return;
 }
@@ -441,7 +442,7 @@ static void headset_detect_work_func(struct work_struct *work)
 	int state;
 
 	ENTER
-	//headset_pwr_on(1);
+	//headmicbias_power_on(1);
 	state = gpio_get_value(pdata->detect_gpio);//state = headset_plug_in();
 
 	irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
@@ -457,20 +458,20 @@ static void headset_detect_work_func(struct work_struct *work)
 			gpio_direction_output(pdata->switch_gpio, 1);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
 			headset_mic_level(1);
-			headset_irq_enable(1, ht->button.irq);
+			headset_irq_button_enable(1, ht->button.irq);
 			break;
 		case HEADSET_NORMAL:
 			PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
 			headset_mic_level(1);
-			headset_irq_enable(1, ht->button.irq);
+			headset_irq_button_enable(1, ht->button.irq);
 			break;
 		case HEADSET_NO_MIC:
 			PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_LOW);
-			headset_irq_enable(0, ht->button.irq);
+			headset_irq_button_enable(0, ht->button.irq);
 			headset_mic_level(0);
 			break;
 		case HEADSET_APPLE:
@@ -506,7 +507,7 @@ static void headset_detect_work_func(struct work_struct *work)
 
 	} else {
 
-		headset_irq_enable(0, ht->button.irq);
+		headset_irq_button_enable(0, ht->button.irq);
 
 		/***polling ana_sts0 to avoid the hardware defect***/
 		if (0xA000 != adie_chip_id) {
@@ -515,7 +516,7 @@ static void headset_detect_work_func(struct work_struct *work)
 		}
 		/***polling ana_sts0 to avoid the hardware defect***/
 
-		//headset_pwr_on(0);
+		//headmicbias_power_on(0);
 		if (ht_detect->headphone) {
 			PRINT_INFO("headphone plug out\n");
 		}
@@ -660,7 +661,7 @@ static void sts_check_func(struct work_struct *work)
 
 	if(((0x00000060 & ana_sts0) != 0x00000060) && (1 == plug_in)) {
 
-		headset_irq_enable(0, ht->button.irq);
+		headset_irq_button_enable(0, ht->button.irq);
 
 		if (ht_detect->headphone) {
 			PRINT_INFO("headphone plug out\n");
@@ -686,20 +687,20 @@ static void sts_check_func(struct work_struct *work)
 			gpio_direction_output(pdata->switch_gpio, 1);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
 			headset_mic_level(1);
-			headset_irq_enable(1, ht->button.irq);
+			headset_irq_button_enable(1, ht->button.irq);
 			break;
 		case HEADSET_NORMAL:
 			PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_HIGH);
 			headset_mic_level(1);
-			headset_irq_enable(1, ht->button.irq);
+			headset_irq_button_enable(1, ht->button.irq);
 			break;
 		case HEADSET_NO_MIC:
 			PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
 			gpio_direction_output(pdata->switch_gpio, 0);
 			irq_set_irq_type(ht->button.irq, IRQF_TRIGGER_LOW);
-			headset_irq_enable(0, ht->button.irq);
+			headset_irq_button_enable(0, ht->button.irq);
 			headset_mic_level(0);
 			break;
 		case HEADSET_APPLE:
@@ -816,7 +817,7 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
 	}
 
 	/* disable button irq before headset detected*/
-	headset_irq_enable(0, ht->button.irq);
+	headset_irq_button_enable(0, ht->button.irq);
 
 	ht->detect.irq = gpio_to_irq(pdata->detect_gpio);
 	if (ht->detect.irq < 0) {
@@ -829,7 +830,7 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
 
 	irqflags = pdata->detect_active_low ? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
 
-	headset_pwr_on(1);
+	headmicbias_power_on(1);
 
 	error = request_irq(ht->detect.irq, headset_detect_irq_handler,
 							irqflags, "headset_detect", ht);
@@ -906,7 +907,7 @@ fail1:
 static int headset_suspend(struct platform_device *dev, pm_message_t state)
 {
 	PRINT_INFO("suspend (det_irq=%d    but_irq=%d)\n", headset.detect.irq, headset.button.irq);
-	disable_irq(headset.button.irq);
+	headset_irq_button_enable(0, headset.button.irq);
 	disable_irq(headset.detect.irq);
 
 #if 0
@@ -919,17 +920,17 @@ static int headset_suspend(struct platform_device *dev, pm_message_t state)
 	//headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
 #endif
 
-	headset_pwr_on(0);
+	headmicbias_power_on(0);
 	return 0;
 }
 
 static int headset_resume(struct platform_device *dev)
 {
 	PRINT_INFO("resume (det_irq=%d    but_irq=%d)\n", headset.detect.irq, headset.button.irq);
-	headset_pwr_on(1);
+	headmicbias_power_on(1);
 	msleep(20);
 	enable_irq(headset.detect.irq);
-	enable_irq(headset.button.irq);
+	//enable_irq(headset.button.irq);
 
 #if 0
 	//headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
