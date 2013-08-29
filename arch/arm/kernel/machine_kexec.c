@@ -122,3 +122,24 @@ void machine_kexec(struct kimage *image)
 	flush_cache_all();
 	cpu_reset(reboot_code_buffer_phys);
 }
+
+#ifdef CONFIG_SPRD_KDUMP
+unsigned int  sprd_kdump_enable = 0;
+void machine_crash_swreset(void)
+{
+    printk(KERN_INFO "SW reset on crash!\n");
+
+    flush_cache_all();
+    outer_flush_all();
+    outer_disable();
+
+    if (sprd_kdump_enable) {
+        arm_pm_restart(0, "crash");
+    }  else {
+        //arm_pm_restart(0, "panic");
+    }
+
+    printk(KERN_INFO "out %s!\n", __func__);
+}
+#endif
+

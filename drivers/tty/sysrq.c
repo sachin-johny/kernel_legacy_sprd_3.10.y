@@ -140,6 +140,30 @@ static struct sysrq_key_op sysrq_crash_op = {
 	.enable_mask	= SYSRQ_ENABLE_DUMP,
 };
 
+#ifdef CONFIG_SPRD_KDUMP
+#include <linux/kexec.h>
+static void sysrq_handle_kdump_enable(int key)
+{
+	sprd_kdump_enable = 1;
+}
+static struct sysrq_key_op sysrq_kdump_enable_op = {
+	.handler	= sysrq_handle_kdump_enable,
+	.help_msg	= "Enable-SPRD-Kdump(X)",
+	.action_msg	= "Enable SPRD Kdump",
+	.enable_mask	= SYSRQ_ENABLE_DUMP,
+};
+static void sysrq_handle_kdump_disable(int key)
+{
+	sprd_kdump_enable = 0;
+}
+static struct sysrq_key_op sysrq_kdump_disable_op = {
+	.handler	= sysrq_handle_kdump_disable,
+	.help_msg	= "Disable-SPRD-Kdump(Y)",
+	.action_msg	= "Disable SPRD Kdump",
+	.enable_mask	= SYSRQ_ENABLE_DUMP,
+};
+#endif
+
 static void sysrq_handle_reboot(int key)
 {
 	lockdep_off();
@@ -449,9 +473,14 @@ static struct sysrq_key_op *sysrq_key_table[36] = {
 	NULL,				/* v */
 	&sysrq_showstate_blocked_op,	/* w */
 	/* x: May be registered on ppc/powerpc for xmon */
+#ifdef CONFIG_SPRD_KDUMP
+	&sysrq_kdump_enable_op,  /* x */
+	&sysrq_kdump_disable_op, /* y */
+#else
 	NULL,				/* x */
 	/* y: May be registered on sparc64 for global register dump */
 	NULL,				/* y */
+#endif
 	&sysrq_ftrace_dump_op,		/* z */
 };
 

@@ -1986,6 +1986,12 @@ config KEXEC
 	  initially work for you.  It may help to enable device hotplugging
 	  support.
 
+config SPRD_KDUMP
+	bool "Perform Spreadtrum Kdump at a panic (EXPERIMENTAL)"
+	depends on EXPERIMENTAL
+	depends on KEXEC
+	help
+	  New mechanism for Spreadtrum kdump.
 config ATAGS_PROC
 	bool "Export atags in procfs"
 	depends on KEXEC

@@ -134,7 +134,12 @@ static void trigger_watch_powerkey(void *private)
 	handle_sysrq('w');
 #endif
 	pr_warn("!!!! trigger_watch_powerkey !!!! do emergency_restart\n");
-	emergency_restart();
+#ifdef CONFIG_SPRD_KDUMP
+    panic("Reboot by powerkey timeout!!!!!!\n");
+#else
+    emergency_restart();
+#endif
+
 	pr_err("%s should never reach here!\n", __func__);
 }
 

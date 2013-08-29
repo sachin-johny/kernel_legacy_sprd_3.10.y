@@ -76,8 +76,14 @@
 #define HWRST_STATUS_SPECIAL (0x70)
 #define HWRST_STATUS_PANIC (0X80)
 
+#ifdef CONFIG_SPRD_KDUMP
+#define HWRST_STATUS_NW_PANIC (0Xa0)
+#endif
+
 void sprd_set_reboot_mode(const char *cmd)
 {
+	if(cmd)
+		printk("sprd_set_reboot_mode:cmd=%s\n",cmd);
 	if (cmd && !(strncmp(cmd, "recovery", 8))) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
 	} else if (cmd && !strncmp(cmd, "alarm", 5)) {
@@ -90,7 +96,13 @@ void sprd_set_reboot_mode(const char *cmd)
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_PANIC);
 	} else if (cmd && !strncmp(cmd, "special", 7)) {
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
-	} else if(cmd){
+	}
+#ifdef CONFIG_SPRD_KDUMP
+	else if (cmd && !strncmp(cmd, "crash", 5)) {
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NW_PANIC);
+	}
+#endif
+	else if(cmd){
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
 	}else{
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
