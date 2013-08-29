@@ -114,6 +114,15 @@ static const struct snd_pcm_hardware sprd_i2s_pcm_hardware = {
 	.buffer_bytes_max = I2S_BUFFER_BYTES_MAX,
 };
 
+atomic_t  lightsleep_refcnt;
+
+int sprd_lightsleep_disable(const char *id, int disalbe)  __attribute__((weak,alias("__sprd_lightsleep_disable")));
+
+static int __sprd_lightsleep_disable(const char *id, int disable)
+{
+	sprd_pcm_dbg("Entering %s disable lightsleep:%d\n", __func__, disable);
+	return 0;
+}
 static inline int sprd_is_vaudio(struct snd_soc_dai *cpu_dai)
 {
 	return ((cpu_dai->driver->id == VAUDIO_MAGIC_ID) ||(cpu_dai->driver->id == VAUDIO_MAGIC_ID+1));
@@ -255,6 +264,8 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		    dma_alloc_writecombine(substream->pcm->card->dev,
 				       hw_chan * PAGE_SIZE,
 				       &rtd->dma_desc_array_phys, GFP_KERNEL);
+		if (atomic_inc_return(&lightsleep_refcnt) == 1)
+			sprd_lightsleep_disable("audio", 1);
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	} else {
 		runtime->hw.periods_max =
@@ -306,6 +317,8 @@ err2:
 err1:
 	pr_err("dma_desc_array alloc fail!\n");
 	kfree(rtd);
+	if (!atomic_dec_return(&lightsleep_refcnt))
+		sprd_lightsleep_disable("audio", 0);
 out:
 	sprd_pcm_dbg("return %i\n", ret);
 	sprd_pcm_dbg("Leaving %s\n", __func__);
@@ -322,12 +335,18 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 	if (rtd->buffer_in_iram)
 		sprd_buffer_iram_restore();
-	else
+	else {
 #endif
 	dma_free_writecombine(substream->pcm->card->dev,
 			  rtd->hw_chan * PAGE_SIZE,
 			  rtd->dma_desc_array,
 			  rtd->dma_desc_array_phys);
+	if (!atomic_dec_return(&lightsleep_refcnt))
+		sprd_lightsleep_disable("audio", 0);
+#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+	}
+#endif
+
 #ifdef DMA_VER_R4P0
 	kfree(rtd->dma_cfg_array);
 #endif
