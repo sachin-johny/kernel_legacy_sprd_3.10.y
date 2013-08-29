@@ -583,9 +583,6 @@ static __devexit int scxx30_dmcfreq_remove(struct platform_device *pdev)
 {
 	struct dmcfreq_data *data = platform_get_drvdata(pdev);
 
-	unregister_pm_notifier(&data->pm_notifier);
-	devfreq_remove_device(data->devfreq);
-	kfree(data);
 	free_irq(IRQ_CP0_MCU1_INT, data);
 	free_irq(IRQ_CP1_MCU1_INT, data);
 #ifdef CONFIG_SIPC_TD
@@ -594,6 +591,9 @@ static __devexit int scxx30_dmcfreq_remove(struct platform_device *pdev)
 #ifdef CONFIG_SIPC_WCDMA
 	iounmap(data->cpw_share_mem_base);
 #endif
+	unregister_pm_notifier(&data->pm_notifier);
+	devfreq_remove_device(data->devfreq);
+	kfree(data);
 	return 0;
 }
 
