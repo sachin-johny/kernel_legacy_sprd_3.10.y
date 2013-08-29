@@ -75,5 +75,9 @@ obj-$(CONFIG_TOUCHSCREEN_FT5X0X)	+= ft5x0x_ts_v1.o
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX)	+= zinitix_touch.o
 obj-$(CONFIG_TOUCHSCREEN_QT602240)	+= qt602240_ts.o
 obj-$(CONFIG_TOUCHSCREEN_FT53x6)	+= ft53x6_ts.o
+
+
+obj-$(CONFIG_TOUCHSCREEN_FOCALTECH)     += focaltech/
+
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX_BT404)	+= zinitix_touch_bt404.o
 obj-$(CONFIG_TOUCHSCREEN_SC8810) += tp_sprd.o

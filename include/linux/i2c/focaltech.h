@@ -1,11 +1,42 @@
 #ifndef __LINUX_FT5X0X_TS_H__
 #define __LINUX_FT5X0X_TS_H__
 
-#define FT5X0X_NAME			"ft5x0x_ts"
-#define FT5206_TS_DEVICE		"ft5x0x_ts"
-#define FT5206_TS_NAME			"ft5x0x_ts"
-#define FT5206_TS_ADDR			0x38
-#define FT53x6_TS_ADDR			0x38
+
+#define SCREEN_MAX_X    320
+#define SCREEN_MAX_Y    480
+
+#define FT5x0x_REG_FW_VER		0xA6
+#define PRESS_MAX       255
+#define FT5x0x_REG_POINT_RATE	0x88
+#define TOUCH_VIRTUAL_KEYS
+
+//#define FT5206_TS_DEVICE			"msg2133"
+//#define FOCALTECH_TS_DEVICE   	       	"ft5x0x_ts"
+#define FOCALTECH_TS_NAME	   	       	"focaltech_ts"
+#define FOCALTECH_TS_ADDR				0x38
+
+/*register address*/
+#define FT_REG_CHIP_ID				0xA3    //chip ID 
+#define FT_REG_FW_VER				0xA6   //FW  version 
+#define FT_REG_VENDOR_ID			0xA8   // TP vendor ID 
+#define TPD_MAX_POINTS_2                        2
+#define TPD_MAX_POINTS_5                        5
+#define TPD_MAXPOINTS_10                        10
+#define AUTO_CLB_NEED                              1
+#define AUTO_CLB_NONEED                          0
+
+struct Upgrade_Info {
+        u8 CHIP_ID;
+        u8 FTS_NAME[20];
+        u8 TPD_MAX_POINTS;
+        u8 AUTO_CLB;
+	u16 delay_aa;		/*delay of write FT_UPGRADE_AA */
+	u16 delay_55;		/*delay of write FT_UPGRADE_55 */
+	u8 upgrade_id_1;	/*upgrade id 1 */
+	u8 upgrade_id_2;	/*upgrade id 2 */
+	u16 delay_readid;	/*delay of read id */
+	u16 delay_earse_flash; /*delay of earse flash*/
+};
 
 struct ft5x0x_ts_platform_data{
 	int irq_gpio_number;
@@ -13,13 +44,19 @@ struct ft5x0x_ts_platform_data{
 	const char *vdd_name;
 };
 
+
+
+int ft5x0x_i2c_Read(struct i2c_client *client, char *writebuf, int writelen,		    char *readbuf, int readlen);
+int ft5x0x_i2c_Write(struct i2c_client *client, char *writebuf, int writelen);
+
+
 enum ft5x0x_ts_regs {
 	FT5X0X_REG_THGROUP					= 0x80,
 	FT5X0X_REG_THPEAK						= 0x81,
 	FT5X0X_REG_THCAL						= 0x82,
 	FT5X0X_REG_THWATER					= 0x83,
 	FT5X0X_REG_THTEMP					= 0x84,
-	FT5X0X_REG_THDIFF						= 0x85,
+	FT5X0X_REG_THDIFF						= 0x85,				
 	FT5X0X_REG_CTRL						= 0x86,
 	FT5X0X_REG_TIMEENTERMONITOR			= 0x87,
 	FT5X0X_REG_PERIODACTIVE				= 0x88,
@@ -48,10 +85,10 @@ enum ft5x0x_ts_regs {
 	FT5X0X_REG_K_Y_LOW             			= 0x9f,
 	FT5X0X_REG_AUTO_CLB_MODE			= 0xa0,
 	FT5X0X_REG_LIB_VERSION_H 				= 0xa1,
-	FT5X0X_REG_LIB_VERSION_L 				= 0xa2,
+	FT5X0X_REG_LIB_VERSION_L 				= 0xa2,		
 	FT5X0X_REG_CIPHER						= 0xa3,
 	FT5X0X_REG_MODE						= 0xa4,
-	FT5X0X_REG_PMODE						= 0xa5,	/* Power Consume Mode */
+	FT5X0X_REG_PMODE						= 0xa5,	/* Power Consume Mode		*/	
 	FT5X0X_REG_FIRMID						= 0xa6,
 	FT5X0X_REG_STATE						= 0xa7,
 	FT5X0X_REG_FT5201ID					= 0xa8,
