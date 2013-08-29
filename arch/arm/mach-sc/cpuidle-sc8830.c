@@ -31,7 +31,7 @@ unsigned int idle_debug_state[NR_CPUS];
 
 #define SC_CPUIDLE_STATE_NUM		ARRAY_SIZE(cpuidle_params_table)
 #define WAIT_WFI_TIMEOUT		(20)
-#define LIGHT_SLEEP_ENABLE		(BIT_DMA_ACT_LIGHT_EN | BIT_MCU_LIGHT_SLEEP_EN)
+#define LIGHT_SLEEP_ENABLE		(BIT_MCU_LIGHT_SLEEP_EN)
 static unsigned int idle_disabled_by_suspend;
 
 static int light_sleep_en = 1;
