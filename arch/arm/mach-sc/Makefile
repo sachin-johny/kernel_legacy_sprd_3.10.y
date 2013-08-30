@@ -10,10 +10,9 @@ obj-$(CONFIG_ARCH_SC8825) += devices-sc8825.o io-sc8825.o  clock-sc8825.o arch_m
 obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o pin_switch.o
 obj-$(CONFIG_ARCH_SCX35) += emc_earlysuspend_8830.o timer_sc8830.o
 
-obj-$(CONFIG_PM) += pm.o emc_repower.o
+obj-$(CONFIG_PM) += pm.o
 obj-$(CONFIG_FIX_V7TAGRAM_BUG) += fix_v7_tag_ram_bug.o
 obj-$(CONFIG_CPU_FREQ) += cpufreq.o
-CFLAGS_emc_repower.o += -fPIC
 ifeq ($(CONFIG_BUS_MONITOR),y)
 obj-$(CONFIG_ARCH_SCX35) += bm_sc8830.o
 endif
@@ -23,7 +22,8 @@ ifeq ($(CONFIG_CPU_IDLE),y)
 endif
 
 ifeq ($(CONFIG_PM),y)
-	obj-$(CONFIG_ARCH_SC8825) += pm-sc8825.o standby-sc8825.o pm_debug.o
+	obj-$(CONFIG_ARCH_SC8825) += pm-sc8825.o standby-sc8825.o pm_debug.o emc_repower.o
+	CFLAGS_emc_repower.o += -fPIC
 	obj-$(CONFIG_ARCH_SCX35) += pm-sc8830.o standby-sc8830.o pm_debug_sc8830.o
 endif
 
