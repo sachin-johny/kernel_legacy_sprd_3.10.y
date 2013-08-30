@@ -14,6 +14,10 @@
 #include <linux/kernel.h>
 #include <linux/bitops.h>
 #include <linux/module.h>
+#include <linux/kthread.h>
+#include <linux/interrupt.h>
+#include <linux/semaphore.h>
+#include <linux/slab.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
@@ -51,7 +55,50 @@
 #define AXI_BM_CNT_EN			BIT(1)
 #define AXI_BM_CNT_START		BIT(3)
 #define AXI_BM_CNT_CLR			BIT(4)
+#define AXI_BM_INT_EN			BIT(28)
 #define AXI_BM_INT_CLR			BIT(29)
+
+#define AXI_PER_LOG
+
+#ifdef AXI_PER_LOG
+
+#include <linux/fs.h>
+#include <linux/uaccess.h>
+#include <linux/kthread.h>
+
+#define PER_COUTN_LIST_SIZE 128
+/*the buf can store 8 secondes data*/
+#define PER_COUNT_RECORD_SIZE 800
+#define PER_COUNT_BUF_SIZE (64 * 4 * PER_COUNT_RECORD_SIZE)
+
+#define LOG_FILE_PATH "/mnt/obb/axi_per_log"
+/*the log file size about 1.5Mbytes per min*/
+#define LOG_FILE_SECONDS (60  * 30)
+#define LOG_FILE_MAX_RECORDS (LOG_FILE_SECONDS * 100)
+
+static struct file *log_file;
+
+static DEFINE_SPINLOCK(bm_lock);
+static struct semaphore bm_seam;
+
+static void *per_buf;
+static int per_count_list[PER_COUTN_LIST_SIZE];
+static int list_write_index;
+
+struct bm_per_info {
+	u32 t_start;
+	u32 t_stop;
+	u32 tmp1;
+	u32 tmp2;
+	u32 per_data[10][6];
+};
+
+static int buf_read_index;
+static int buf_write_index;
+static bool bm_irq_in_process;
+long long t_stamp;
+
+#endif
 
 #if CONFIG_BUS_MONITOR_DEBUG
 static void __sci_axi_bm_debug(void)
@@ -113,7 +160,11 @@ static void __sci_axi_bm_cnt_start(void)
 
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		val = __raw_readl(AXI_BM_INTC_REG(bm_index));
+#ifdef AXI_PER_LOG
+		val |= (AXI_BM_EN | AXI_BM_CNT_EN | AXI_BM_CNT_START | AXI_BM_INT_EN);
+#else
 		val |= (AXI_BM_EN | AXI_BM_CNT_EN | AXI_BM_CNT_START | AXI_BM_INT_CLR);
+#endif
 		__raw_writel(val, AXI_BM_INTC_REG(bm_index));
 	}
 	return;
@@ -236,6 +287,23 @@ unsigned int dmc_mon_cnt_bw(void)
 {
 	int chn;
 	u32 cnt;
+#ifdef AXI_PER_LOG
+	int i, read_index;
+	cnt = 0x0;
+	/*read the last 50 records(500ms)*/
+	read_index = list_write_index - 1;
+	if (read_index < 0) {
+		read_index = PER_COUTN_LIST_SIZE - 1;
+	}
+
+	for (i = 0; i < 50; i++) {
+		cnt += per_count_list[read_index];
+		if (--read_index < 0)
+			read_index = PER_COUTN_LIST_SIZE - 1;
+	}
+
+	return cnt;
+#endif
 
 	cnt = 0;
 	for (chn = AXI_BM0; chn <= AXI_BM9; chn++) {
@@ -251,6 +319,9 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_bw);
 
 void dmc_mon_cnt_clr(void)
 {
+#ifdef AXI_PER_LOG
+	return;
+#endif
 	__sci_axi_bm_cnt_clr();
 	return;
 }
@@ -258,6 +329,10 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_clr);
 
 void dmc_mon_cnt_start(void)
 {
+#ifdef AXI_PER_LOG
+	return;
+#endif
+	__sci_axi_bm_cnt_start();
 	__sci_bm_glb_count_enable(true);
 	__sci_axi_bm_cnt_start();
 	return;
@@ -266,15 +341,197 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_start);
 
 void dmc_mon_cnt_stop(void)
 {
+#ifdef AXI_PER_LOG
+	return;
+#endif
 	__sci_bm_glb_count_enable(false);
 	__sci_axi_bm_cnt_stop();
 	return;
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_stop);
 
+#ifdef AXI_PER_LOG
+static void __sci_axi_bm_set_winlen(void)
+{
+	int bm_index;
+	u32 axi_clk, win_len;
+
+	/*the win len is 10ms*/
+	axi_clk = __raw_readl(REG_AON_APB_DPLL_CFG) & 0x7ff;
+	axi_clk = axi_clk << 2;
+	/*the win_len = (axk_clk / 1000) * 10 */
+	win_len = axi_clk * 10000;
+
+	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
+		__raw_writel(win_len, AXI_BM_CNT_WIN_LEN_REG(bm_index));
+	}
+}
+
+static irqreturn_t __bm_isr(int irq_num, void *dev)
+{
+	int bm_chn;
+	u32 rwbw_cnt;
+	struct bm_per_info *bm_info;
+	bm_info = (struct bm_per_info *)per_buf;
+
+	spin_lock(&bm_lock);
+
+	/*only one precess handle the bm's irq is this case */
+	if (!bm_irq_in_process) {
+		bm_irq_in_process = true;
+	} else {
+		spin_unlock(&bm_lock);
+		return IRQ_NONE;
+	}
+
+	rwbw_cnt = 0x0;
+
+	__sci_axi_bm_cnt_stop();
+
+	/*count stop time stamp */
+	bm_info[buf_write_index].t_stop = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+
+	for (bm_chn = 0; bm_chn < 10; bm_chn++) {
+		bm_info[buf_write_index].per_data[bm_chn][0] = __raw_readl(AXI_BM_RTRANS_IN_WIN_REG(bm_chn));
+		bm_info[buf_write_index].per_data[bm_chn][1] = __raw_readl(AXI_BM_RBW_IN_WIN_REG(bm_chn));
+		bm_info[buf_write_index].per_data[bm_chn][2] = __raw_readl(AXI_BM_RLATENCY_IN_WIN_REG(bm_chn));
+
+		bm_info[buf_write_index].per_data[bm_chn][3] = __raw_readl(AXI_BM_WTRANS_IN_WIN_REG(bm_chn));
+		bm_info[buf_write_index].per_data[bm_chn][4] = __raw_readl(AXI_BM_WBW_IN_WIN_REG(bm_chn));
+		bm_info[buf_write_index].per_data[bm_chn][5] = __raw_readl(AXI_BM_WLATENCY_IN_WIN_REG(bm_chn));
+
+		rwbw_cnt += bm_info[buf_write_index].per_data[bm_chn][1];
+		rwbw_cnt += bm_info[buf_write_index].per_data[bm_chn][4];
+	}
+
+	per_count_list[list_write_index] = rwbw_cnt;
+	if (++list_write_index == PER_COUTN_LIST_SIZE) {
+		list_write_index = 0;
+	}
+
+	if (__raw_readl(REG_PUB_APB_BUSMON_CNT_START) == 0x1) {
+		if (++buf_write_index == PER_COUNT_RECORD_SIZE) {
+			buf_write_index = 0;
+		}
+
+		/*wake up the thread to output log per 4 second*/
+		if ((buf_write_index == 0) ||
+			buf_write_index == (PER_COUNT_RECORD_SIZE >> 1) ) {
+#if 0
+			int this_cpu;
+			this_cpu = smp_processor_id();
+			t_stamp = cpu_clock(this_cpu);
+#endif
+//			printk("wake up axi_per_log\n");
+			up(&bm_seam);
+		}
+	}
+	__sci_axi_bm_int_clr();
+	__sci_axi_bm_cnt_clr();
+	__sci_axi_bm_set_winlen();
+
+	/*count start time stamp */
+	bm_info[buf_write_index].t_start = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+
+	__sci_axi_bm_cnt_start();
+
+	bm_irq_in_process = false;
+
+	spin_unlock(&bm_lock);
+
+	return IRQ_HANDLED;
+}
+
+
+static int bm_output_log(void *p)
+{
+	mm_segment_t old_fs;
+	int ret;
+	struct bm_per_info *bm_info;
+
+	bm_info = (struct bm_per_info *)per_buf;
+
+	while (1) {
+		down(&bm_seam);
+
+		if (!log_file) {
+			log_file = filp_open(LOG_FILE_PATH, O_RDWR | O_CREAT | O_TRUNC, 0644);
+			if (IS_ERR(log_file) || !log_file || !log_file->f_dentry) {
+				pr_err("file_open(%s) for create failed\n", LOG_FILE_PATH);
+				return -ENODEV;
+			}
+		}
+		switch (buf_write_index) {
+		case 0:
+			buf_read_index = PER_COUNT_RECORD_SIZE >> 1;
+			break;
+		case (PER_COUNT_RECORD_SIZE >> 1):
+			buf_read_index = 0x0;
+			break;
+		default:
+			pr_err("get buf_read_indiex failed!\n");
+		}
+#if 0
+		unsigned long nanosec_rem;
+
+		nanosec_rem = do_div(t_stamp, 1000000000);
+
+		sprintf(log_file_path, "%s%5lu.%06lu-log",
+				LOG_FILE_PRFEX,
+				(unsigned long) t_stamp,
+				nanosec_rem / 1000);
+#endif
+		old_fs = get_fs();
+		set_fs(get_ds());
+
+		ret = vfs_write(log_file,
+			(const char *)(bm_info + buf_read_index),
+			sizeof(struct bm_per_info) *(PER_COUNT_RECORD_SIZE >> 1),
+			&log_file->f_pos);
+
+		set_fs(old_fs);
+
+		/*raw back file write*/
+		if (log_file->f_pos >= (sizeof(struct bm_per_info) * LOG_FILE_MAX_RECORDS)) {
+			log_file->f_pos = 0x0;
+		}
+	}
+
+	filp_close(log_file, NULL);
+
+	return 0;
+
+}
+
+#endif
+
+
 static int __init sci_bm_init(void)
 {
 	int bm_index;
+	int ret;
+
+#ifdef AXI_PER_LOG
+	struct task_struct *t;
+	per_buf = kmalloc(PER_COUNT_BUF_SIZE, GFP_KERNEL);
+	if (!per_buf) {
+		pr_err("kmalloc failed!\n");
+		return -ENOMEM;
+	}
+
+	ret = request_irq(IRQ_AXI_BM_PUB_INT, __bm_isr, IRQF_TRIGGER_NONE, "axi_bm_per", NULL);
+	if (ret) {
+		pr_err("request_irq(%d) failed!\n", IRQ_AXI_BM_PUB_INT);
+		return ret;
+	}
+
+	__sci_bm_glb_count_enable(false);
+
+	sema_init(&bm_seam, 0);
+
+	t = kthread_run(bm_output_log, NULL, "%s", "bm_per_log");
+	/*fixme */
+#endif
 
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		__sci_bm_glb_reset_and_enable(bm_index, true);
@@ -287,13 +544,22 @@ static int __init sci_bm_init(void)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
 	}
 
+#ifdef AXI_PER_LOG
+	__sci_axi_bm_set_winlen();
+	__sci_bm_glb_count_enable(false);
+	__sci_axi_bm_cnt_start();
+#endif
+
 	return 0;
 }
 
 static void __exit sci_bm_exit(void)
 {
 	int bm_index;
-
+#ifdef AXI_PER_LOG
+	kfree(per_buf);
+	filp_close(log_file, NULL);
+#endif
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		__sci_bm_glb_reset_and_enable(bm_index, false);
 	}
