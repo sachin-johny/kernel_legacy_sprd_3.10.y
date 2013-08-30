@@ -26,59 +26,15 @@
 #include <mach/adi.h>
 #include <mach/adc.h>
 #include <mach/usb.h>
+#include <mach/irqs.h>
+#include <linux/irq.h>
+#include <asm/io.h>
+#include <linux/interrupt.h>
 
-#include "sprd_2713_charge.h"
+#include "sprd_battery.h"
+
+#define sprd_battery_data sprdbat_drivier_data
 extern int sci_adc_get_value(unsigned chan, int scale);
-
-uint16_t adc_voltage_table[2][2] = {
-	{3310, 4200},
-	{2832, 3600},
-};
-
-uint16_t voltage_capacity_table[][2] = {
-	{4150, 100},
-	{4060, 90},
-	{3980, 80},
-	{3900, 70},
-	{3840, 60},
-	{3800, 50},
-	{3760, 40},
-	{3730, 30},
-	{3700, 20},
-	{3650, 15},
-	{3600, 5},
-	{3400, 0},
-};
-
-uint16_t ac_charging_voltage_capacity_table[][2] = {
-	{PREVCHGEND, 100},
-	{4140, 90},
-	{4100, 80},
-	{4030, 70},
-	{3980, 60},
-	{3940, 50},
-	{3900, 40},
-	{3870, 30},
-	{3840, 20},
-	{3790, 15},
-	{3740, 5},
-	{3250, 0},
-};
-
-uint16_t usb_charging_voltage_capacity_table[][2] = {
-	{PREVCHGEND, 100},
-	{4120, 90},
-	{4060, 80},
-	{4000, 70},
-	{3940, 60},
-	{3900, 50},
-	{3860, 40},
-	{3830, 30},
-	{3800, 20},
-	{3750, 15},
-	{3700, 5},
-	{3250, 0},
-};
 
 #ifdef CONFIG_BATTERY_TEMP_DECT
 int32_t temp_adc_table[][2] = {
@@ -109,7 +65,7 @@ int32_t temp_adc_table[][2] = {
 	{-300, 0x364}
 };
 
-int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue)
+int sprdchg_adc_to_temp(uint16_t adcvalue)
 {
 	int table_size = ARRAY_SIZE(temp_adc_table);
 	int index;
@@ -148,179 +104,14 @@ int sprd_adc_to_temp(struct sprd_battery_data *data, uint16_t adcvalue)
 }
 #endif
 
-uint32_t sprd_adc_to_cur(struct sprd_battery_data * data, uint16_t voltage)
+#define VOL_TO_CUR_PARAM (576)
+uint32_t sprdchg_adc_to_cur(uint32_t cur_type, uint16_t voltage)
 {
-	uint16_t cur_type = data->cur_type;
 	uint32_t bat_numerators, bat_denominators;
 	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
 			      &bat_denominators);
 	return (((uint32_t) voltage * cur_type * bat_numerators) /
 		VOL_TO_CUR_PARAM) / bat_denominators;
-}
-
-uint16_t sprd_bat_adc_to_vol(struct sprd_battery_data * data, uint16_t adcvalue)
-{
-	int32_t temp;
-	unsigned long flag;
-	spin_lock_irqsave(&(data->lock), flag);
-	temp = adc_voltage_table[0][1] - adc_voltage_table[1][1];
-	temp = temp * (adcvalue - adc_voltage_table[0][0]);
-	temp = temp / (adc_voltage_table[0][0] - adc_voltage_table[1][0]);
-	temp = temp + adc_voltage_table[0][1];
-	spin_unlock_irqrestore(&data->lock, flag);
-	return temp;
-}
-
-uint16_t sprd_charger_adc_to_vol(struct sprd_battery_data * data,
-				 uint16_t adcvalue)
-{
-	uint32_t result;
-	uint32_t vbat_vol = sprd_bat_adc_to_vol(data, adcvalue);
-	uint32_t m, n;
-	uint32_t bat_numerators, bat_denominators;
-	uint32_t vchg_numerators, vchg_denominators;
-
-	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
-			      &bat_denominators);
-	sci_adc_get_vol_ratio(ADC_CHANNEL_VCHG, 0, &vchg_numerators,
-			      &vchg_denominators);
-
-	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
-	n = bat_denominators * vchg_numerators;
-	m = vbat_vol * bat_numerators * (vchg_denominators);
-	result = (m + n / 2) / n;
-	return result;
-
-}
-
-uint32_t sprd_vol_to_percent(struct sprd_battery_data * data, uint32_t voltage,
-			     int update)
-{
-	uint16_t percentum;
-	int32_t temp;
-	uint16_t table_size;
-	int pos = 0;
-	static uint16_t pre_percentum = 0xffff;
-	int is_charging = data->charging;
-	int is_usb;
-
-	if (data->usb_online)
-		is_usb = 1;
-	else
-		is_usb = 0;
-
-	if (update) {
-		pre_percentum = 0xffff;
-		return 0;
-	}
-
-	if (is_charging) {
-		if (is_usb) {
-			table_size =
-			    ARRAY_SIZE(usb_charging_voltage_capacity_table);
-			for (pos = table_size - 1; pos > 0; pos--) {
-				if (voltage <
-				    usb_charging_voltage_capacity_table[pos][0])
-					break;
-			}
-			if (pos == table_size - 1) {
-				percentum = 0;
-			} else {
-				temp =
-				    usb_charging_voltage_capacity_table[pos][1]
-				    - usb_charging_voltage_capacity_table[pos +
-									  1][1];
-				temp =
-				    temp * (voltage -
-					    usb_charging_voltage_capacity_table
-					    [pos][0]);
-				temp =
-				    temp /
-				    (usb_charging_voltage_capacity_table[pos][0]
-				     - usb_charging_voltage_capacity_table[pos +
-									   1]
-				     [0]);
-				temp =
-				    temp +
-				    usb_charging_voltage_capacity_table[pos][1];
-				if (temp > 100)
-					temp = 100;
-				percentum = temp;
-			}
-		} else {
-			table_size =
-			    ARRAY_SIZE(ac_charging_voltage_capacity_table);
-			for (pos = table_size - 1; pos > 0; pos--) {
-				if (voltage <
-				    ac_charging_voltage_capacity_table[pos][0])
-					break;
-			}
-			if (pos == table_size - 1) {
-				percentum = 0;
-			} else {
-				temp =
-				    ac_charging_voltage_capacity_table[pos][1] -
-				    ac_charging_voltage_capacity_table[pos +
-								       1][1];
-				temp =
-				    temp * (voltage -
-					    ac_charging_voltage_capacity_table
-					    [pos][0]);
-				temp =
-				    temp /
-				    (ac_charging_voltage_capacity_table[pos][0]
-				     - ac_charging_voltage_capacity_table[pos +
-									  1]
-				     [0]);
-				temp =
-				    temp +
-				    ac_charging_voltage_capacity_table[pos][1];
-				if (temp > 100)
-					temp = 100;
-				percentum = temp;
-			}
-		}
-
-		if (pre_percentum == 0xffff)
-			pre_percentum = percentum;
-		else if (pre_percentum > percentum)
-			percentum = pre_percentum;
-		else
-			pre_percentum = percentum;
-
-	} else {
-		table_size = ARRAY_SIZE(voltage_capacity_table);
-		for (pos = 0; pos < table_size - 1; pos++) {
-			if (voltage > voltage_capacity_table[pos][0])
-				break;
-		}
-		if (pos == 0) {
-			percentum = 100;
-		} else {
-			temp =
-			    voltage_capacity_table[pos][1] -
-			    voltage_capacity_table[pos - 1][1];
-			temp =
-			    temp * (voltage - voltage_capacity_table[pos][0]);
-			temp =
-			    temp / (voltage_capacity_table[pos][0] -
-				    voltage_capacity_table[pos - 1][0]);
-			temp = temp + voltage_capacity_table[pos][1];
-			if (temp < 0)
-				temp = 0;
-			percentum = temp;
-		}
-
-		if (pre_percentum == 0xffff)
-			pre_percentum = percentum;
-		else if (pre_percentum < percentum)
-			percentum = pre_percentum;
-		else
-			pre_percentum = percentum;
-
-	}
-
-	return percentum;
 }
 
 void __weak udc_enable(void)
@@ -335,46 +126,9 @@ void __weak udc_disable(void)
 {
 }
 
-enum sprd_adapter_type {
-	ADP_TYPE_UNKNOW = 0,	//unknow adapter type
-	ADP_TYPE_CDP = 1,	//Charging Downstream Port,USB&standard charger
-	ADP_TYPE_DCP = 2,	//Dedicated Charging Port, standard charger
-	ADP_TYPE_SDP = 4,	//Standard Downstream Port,USB and nonstandard charge
-};
-int sprd_charger_is_adapter(struct sprd_battery_data *data)
-{
-	int ret = ADP_TYPE_UNKNOW;
-	int charger_status;
-
-	charger_status = sci_adi_read(ANA_REG_GLB_CHGR_STATUS)
-	    & (BIT_CDP_INT | BIT_DCP_INT | BIT_SDP_INT);
-
-	switch (charger_status) {
-	case BIT_CDP_INT:
-		ret = ADP_TYPE_CDP;
-		break;
-	case BIT_DCP_INT:
-		ret = ADP_TYPE_DCP;
-		break;
-	case BIT_SDP_INT:
-		ret = ADP_TYPE_SDP;
-		break;
-	default:
-		break;
-	}
-	//temp code
-	if (ret == ADP_TYPE_DCP) {
-		return 1;
-	} else {
-		return 0;
-	}
-	//temp end
-	return ret;
-}
-
 #define VPROG_RESULT_NUM 10
 #define VBAT_RESULT_DELAY 10
-int32_t sprd_get_vprog(struct sprd_battery_data * data)
+int32_t sprdchg_get_vprog(struct sprd_battery_data *data)
 {
 	int i, temp;
 	volatile int j;
@@ -404,115 +158,225 @@ int32_t sprd_get_vprog(struct sprd_battery_data * data)
 	return vprog_result[VPROG_RESULT_NUM / 2];
 }
 
-int32_t sprd_get_chg_current(struct sprd_battery_data * data)
-{
-	int32_t vbat, isense;
-	int32_t cnt = 0;
+//the following functions are new API
 
-	for (cnt = 0; cnt < 8; cnt++) {
-		isense =
-		    sprd_bat_adc_to_vol(data,
-					sci_adc_get_value(ADC_CHANNEL_ISENSE,
-							  false));
-		vbat =
-		    sprd_bat_adc_to_vol(data,
-					sci_adc_get_value(ADC_CHANNEL_VBAT,
-							  false));
-		if (isense >= vbat) {
-			break;
-		}
+#define	TIMER_LOAD  ((__iomem void *)SPRD_APTIMER1_BASE + 0x20+ 0x0000)
+#define	TIMER_VALUE ((__iomem void *)SPRD_APTIMER1_BASE + 0x20 + 0x0004)
+#define	TIMER_CTL   ((__iomem void *)SPRD_APTIMER1_BASE + 0x20 + 0x0008)
+#define	TIMER_INT   ((__iomem void *)SPRD_APTIMER1_BASE + 0x20  + 0x000C)
+
+#define	ONETIME_MODE	(0 << 6)
+#define	PERIOD_MODE	(1 << 6)
+
+#define	TIMER_DISABLE	(0 << 7)
+#define	TIMER_ENABLE	(1 << 7)
+
+#define	TIMER_INT_EN	(1 << 0)
+#define	TIMER_INT_STS	(1 << 2)
+#define	TIMER_INT_CLR	(1 << 3)
+#define	TIMER_INT_BUSY	(1 << 4)
+
+void sprdchg_timer_enable(uint32_t cycles)
+{
+	__raw_writel(TIMER_DISABLE | PERIOD_MODE, TIMER_CTL);
+	__raw_writel(32768 * cycles, TIMER_LOAD);
+	__raw_writel(TIMER_ENABLE | PERIOD_MODE, TIMER_CTL);
+	__raw_writel(TIMER_INT_EN, TIMER_INT);
+}
+
+void sprdchg_timer_disable(void)
+{
+	__raw_writel(TIMER_DISABLE | PERIOD_MODE, TIMER_CTL);
+}
+
+static int (*sprdchg_tm_cb) (void *data) = NULL;
+static irqreturn_t _sprdchg_timer_interrupt(int irq, void *dev_id)
+{
+	unsigned int value;
+
+	printk("_sprdchg_timer_interrupt\n");
+
+	value = __raw_readl(TIMER_INT);
+	value |= TIMER_INT_CLR;
+	__raw_writel(value, TIMER_INT);
+	if (sprdchg_tm_cb) {
+		sprdchg_tm_cb(dev_id);
 	}
-	if (isense > vbat) {
-#ifdef CONFIG_ARCH_SC7710
-		return ((isense - vbat) * 100 / 36);
-#else
-		return ((isense - vbat) * 10);	//(vol/0.1ohm)
-#endif
-	} else {
-		printk(KERN_ERR
-		       "chg_current err......................isense:%d..................vbat:%d\n",
-		       isense, vbat);
-		return 0;
-	}
+	return IRQ_HANDLED;
 }
 
-void sprd_stop_charge(struct sprd_battery_data *data)
+int sprdchg_timer_init(int (*fn_cb) (void *data), void *data)
 {
-	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      BIT_CHGR_PD_RTCSET,
-		      BIT_CHGR_PD_RTCCLR | BIT_CHGR_PD_RTCSET);
-}
+	int ret = -ENODEV;
+	sci_glb_set(REG_AON_APB_APB_EB1, BIT_AP_TMR1_EB);
+	sprdchg_timer_disable();
+	sprdchg_tm_cb = fn_cb;
+	ret = request_irq(IRQ_APTMR3_INT, _sprdchg_timer_interrupt,
+			  IRQF_NO_SUSPEND | IRQF_TIMER, "battery_timer", data);
 
-void sprd_start_charge(struct sprd_battery_data *data)
-{
-	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      BIT_CHGR_PD_RTCCLR,
-		      BIT_CHGR_PD_RTCCLR | BIT_CHGR_PD_RTCSET);
-}
-
-void sprd_set_recharge(struct sprd_battery_data *data)
-{
-	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_RECHG);
-}
-
-void sprd_stop_recharge(struct sprd_battery_data *data)
-{
-	sci_adi_clr(ANA_REG_GLB_CHGR_CTRL2, BIT_RECHG);
-}
-
-void sprd_set_sw(struct sprd_battery_data *data, unsigned int switchpoint)
-{
-	BUG_ON(switchpoint > CHG_SWITPOINT_HIGHEST);
-	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      BITS_CHGR_CV_V(switchpoint), BITS_CHGR_CV_V(~0));
-
-}
-
-uint32_t sprd_get_sw(struct sprd_battery_data *data)
-{
-	int shft = __ffs(BITS_CHGR_CV_V(~0));
-	return (sci_adi_read(ANA_REG_GLB_CHGR_CTRL0) & BITS_CHGR_CV_V(~0)) >>
-	    shft;
-}
-
-uint32_t sprd_adjust_sw(struct sprd_battery_data * data, bool up_or_down)
-{
-	uint8_t chg_switchpoint;
-	int shft = __ffs(BITS_CHGR_CV_V(~0));
-
-	chg_switchpoint =
-	    (sci_adi_read(ANA_REG_GLB_CHGR_CTRL0) & BITS_CHGR_CV_V(~0)) >> shft;
-
-	if (up_or_down) {
-		if (chg_switchpoint < CHG_SWITPOINT_HIGHEST) {
-			chg_switchpoint++;
-		} else {
-			chg_switchpoint = CHG_SWITPOINT_HIGHEST;
-		}
-
-	} else {
-		if (chg_switchpoint > CHG_SWITPOINT_LOWEST) {
-			chg_switchpoint--;
-		} else {
-			chg_switchpoint = CHG_SWITPOINT_LOWEST;
-		}
+	if (ret) {
+		printk(KERN_ERR "request battery timer irq %d failed\n",
+		       IRQ_AONTMR0_INT);
 	}
 
-	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      BITS_CHGR_CV_V(chg_switchpoint), BITS_CHGR_CV_V(~0));
-	return chg_switchpoint;
+	return 0;
 }
 
-void sprd_set_chg_cur(uint32_t chg_current)
+struct sprdbat_auxadc_cal adc_cal = {
+	4200, 3310,
+	3600, 2832,
+	SPRDBAT_AUXADC_CAL_NO,
+};
+
+static int __init adc_cal_start(char *str)
+{
+	unsigned int adc_data[2] = { 0 };
+	char *cali_data = &str[1];
+	if (str) {
+		pr_info("adc_cal%s!\n", str);
+		sscanf(cali_data, "%d,%d", &adc_data[0], &adc_data[1]);
+		pr_info("adc_data: 0x%x 0x%x!\n", adc_data[0], adc_data[1]);
+		adc_cal.p0_vol = adc_data[0] & 0xffff;
+		adc_cal.p0_adc = (adc_data[0] >> 16) & 0xffff;
+		adc_cal.p1_vol = adc_data[1] & 0xffff;
+		adc_cal.p1_adc = (adc_data[1] >> 16) & 0xffff;
+		adc_cal.cal_type = SPRDBAT_AUXADC_CAL_NV;
+		printk
+		    ("auxadc cal from cmdline ok!!! adc_data[0]: 0x%x, adc_data[1]:0x%x\n",
+		     adc_data[0], adc_data[1]);
+	}
+	return 1;
+}
+
+__setup("adc_cal", adc_cal_start);
+#include <linux/gpio.h>
+
+void sprdchg_init(void)
+{
+	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+		      BITS_CHGR_CV_V(0), BITS_CHGR_CV_V(~0));
+
+	if (adc_cal.cal_type == SPRDBAT_AUXADC_CAL_NO) {
+		extern int sci_efuse_calibration_get(unsigned int *p_cal_data);
+		unsigned int efuse_cal_data[2] = { 0 };
+		if (sci_efuse_calibration_get(efuse_cal_data)) {
+			adc_cal.p0_vol = efuse_cal_data[0] & 0xffff;
+			adc_cal.p0_adc = (efuse_cal_data[0] >> 16) & 0xffff;
+			adc_cal.p1_vol = efuse_cal_data[1] & 0xffff;
+			adc_cal.p1_adc = (efuse_cal_data[1] >> 16) & 0xffff;
+			adc_cal.cal_type = SPRDBAT_AUXADC_CAL_CHIP;
+			printk
+			    ("auxadc cal from efuse ok!!! efuse_cal_data[0]: 0x%x, efuse_cal_data[1]:0x%x\n",
+			     efuse_cal_data[0], efuse_cal_data[1]);
+		}
+	}
+	sci_adi_write((ANA_CTL_EIC_BASE + 0x50), 7, (0xFFF));
+	printk("ANA_CTL_EIC_BASE0x%x\n", sci_adi_read(ANA_CTL_EIC_BASE + 0x50));
+}
+
+int sprdchg_read_temp(void)
+{
+	return 200;
+}
+
+uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue)
+{
+	int32_t temp;
+
+	temp = adc_cal.p0_vol - adc_cal.p1_vol;
+	temp = temp * (adcvalue - adc_cal.p0_adc);
+	temp = temp / (adc_cal.p0_adc - adc_cal.p1_adc);
+	temp = temp + adc_cal.p1_vol;
+
+	return temp;
+}
+
+static uint16_t sprdbat_charger_adc_to_vol(uint16_t adcvalue)
+{
+	uint32_t result;
+	uint32_t vbat_vol = sprdchg_bat_adc_to_vol(adcvalue);
+	uint32_t m, n;
+	uint32_t bat_numerators, bat_denominators;
+	uint32_t vchg_numerators, vchg_denominators;
+
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+			      &bat_denominators);
+	sci_adc_get_vol_ratio(SPRDBAT_ADC_CHANNEL_VCHG, 0, &vchg_numerators,
+			      &vchg_denominators);
+
+	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
+	n = bat_denominators * vchg_numerators;
+	m = vbat_vol * bat_numerators * (vchg_denominators);
+	result = (m + n / 2) / n;
+	return result;
+
+}
+
+uint32_t sprdchg_read_vchg_vol(void)
+{
+	int vchg_value;
+	vchg_value = sci_adc_get_value(SPRDBAT_ADC_CHANNEL_VCHG, false);
+	return sprdbat_charger_adc_to_vol(vchg_value);
+}
+
+int sprdchg_charger_is_adapter(void)
+{
+	int ret = ADP_TYPE_SDP;
+	int charger_status;
+
+	charger_status = sci_adi_read(ANA_REG_GLB_CHGR_STATUS)
+	    & (BIT_CDP_INT | BIT_DCP_INT | BIT_SDP_INT);
+
+	switch (charger_status) {
+	case BIT_CDP_INT:
+		ret = ADP_TYPE_CDP;
+		break;
+	case BIT_DCP_INT:
+		ret = ADP_TYPE_DCP;
+		break;
+	case BIT_SDP_INT:
+		ret = ADP_TYPE_SDP;
+		break;
+	default:
+		ret = ADP_TYPE_SDP;
+		break;
+	}
+	return ret;
+}
+
+void sprdchg_set_chg_ovp(uint32_t ovp_vol)
 {
 	uint32_t temp;
 
-	if (chg_current > SPRD_CHG_CUR_MAX) {
-		chg_current = SPRD_CHG_CUR_MAX;
+	if (ovp_vol > SPRDBAT_CHG_OVP_LEVEL_MAX) {
+		ovp_vol = SPRDBAT_CHG_OVP_LEVEL_MAX;
 	}
 
-	if (chg_current < SPRD_CHG_CUR_MIN) {
-		chg_current = SPRD_CHG_CUR_MIN;
+	if (ovp_vol < SPRDBAT_CHG_OVP_LEVEL_MIN) {
+		ovp_vol = SPRDBAT_CHG_OVP_LEVEL_MIN;
+	}
+
+	temp = ((ovp_vol - SPRDBAT_CHG_OVP_LEVEL_MIN) / 100);
+
+	sci_adi_clr(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
+
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL1,
+		      BITS_VCHG_OVP_V(temp), BITS_VCHG_OVP_V(~0));
+
+	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
+}
+
+void sprdchg_set_chg_cur(uint32_t chg_current)
+{
+	uint32_t temp;
+
+	if (chg_current > SPRDBAT_CHG_CUR_LEVEL_MAX) {
+		chg_current = SPRDBAT_CHG_CUR_LEVEL_MAX;
+	}
+
+	if (chg_current < SPRDBAT_CHG_CUR_LEVEL_MIN) {
+		chg_current = SPRDBAT_CHG_CUR_LEVEL_MIN;
 	}
 
 	temp = ((chg_current - 300) / 50);
@@ -525,131 +389,126 @@ void sprd_set_chg_cur(uint32_t chg_current)
 	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 }
 
-void sprd_chg_init(void)
+void sprdchg_set_cccvpoint(unsigned int cvpoint)
 {
-	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
+	BUG_ON(cvpoint > SPRDBAT_CCCV_MAX);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      BITS_CHGR_CV_V(0), BITS_CHGR_CV_V(~0));
+		      BITS_CHGR_CV_V(cvpoint), BITS_CHGR_CV_V(~0));
+
 }
 
-/* TODO: put these struct into sprd_battery_data */
-uint32_t temp_buf[CONFIG_AVERAGE_CNT];
-uint32_t vprog_buf[CONFIG_AVERAGE_CNT];
-uint32_t vbat_buf[CONFIG_AVERAGE_CNT];
-
-uint32_t vbat_capacity_buff[VBAT_CAPACITY_BUFF_CNT];
-uint32_t vchg_buf[_VCHG_BUF_SIZE];
-
-void put_vbat_capacity_value(uint32_t vbat)
+uint32_t sprdchg_get_cccvpoint(void)
 {
-	static int buff_pointer = 0;
+	int shft = __ffs(BITS_CHGR_CV_V(~0));
+	return (sci_adi_read(ANA_REG_GLB_CHGR_CTRL0) & BITS_CHGR_CV_V(~0)) >>
+	    shft;
+}
 
-	vbat_capacity_buff[buff_pointer] = vbat;
-	buff_pointer++;
-	if (VBAT_CAPACITY_BUFF_CNT == buff_pointer) {
-		buff_pointer = 0;
+static void _sprdchg_set_recharge(void)
+{
+	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_RECHG);
+}
+
+static void _sprdchg_stop_recharge(void)
+{
+	sci_adi_clr(ANA_REG_GLB_CHGR_CTRL2, BIT_RECHG);
+}
+
+void sprdchg_stop_charge(void)
+{
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+		      BIT_CHGR_PD_RTCSET,
+		      BIT_CHGR_PD_RTCCLR | BIT_CHGR_PD_RTCSET);
+	_sprdchg_stop_recharge();
+}
+
+void sprdchg_start_charge(void)
+{
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+		      BIT_CHGR_PD_RTCCLR,
+		      BIT_CHGR_PD_RTCCLR | BIT_CHGR_PD_RTCSET);
+	_sprdchg_set_recharge();
+}
+
+static uint32_t _sprdchg_read_chg_current(void)
+{
+	uint32_t vbat, isense;
+	uint32_t cnt = 0;
+
+	for (cnt = 0; cnt < 3; cnt++) {
+		isense =
+		    sprdchg_bat_adc_to_vol(sci_adc_get_value(ADC_CHANNEL_ISENSE,
+							     false));
+		vbat =
+		    sprdchg_bat_adc_to_vol(sci_adc_get_value(ADC_CHANNEL_VBAT,
+							     false));
+		if (isense >= vbat) {
+			break;
+		}
+	}
+	if (isense > vbat) {
+		uint32_t temp = ((isense - vbat) * 1000) / 68;	//(vol/68mohm)
+		printk(KERN_ERR
+		       "sprdchg: sprdchg_read_chg_current:%d\n",
+		       temp);
+		return temp;
+	} else {
+		printk(KERN_ERR
+		       "chg_current warning....isense:%d....vbat:%d\n",
+		       isense, vbat);
+		return 0;
 	}
 }
 
-uint32_t get_vbat_capacity_value(void)
+uint32_t sprdchg_read_chg_current(void)
 {
-	unsigned long sum = 0;
-	int i;
-	for (i = 0; i < VBAT_CAPACITY_BUFF_CNT; i++)
-		sum += vbat_capacity_buff[i];
+#define CUR_RESULT_NUM 9
 
-	return sum / VBAT_CAPACITY_BUFF_CNT;
-}
+	int i, temp;
+	volatile int j;
+	uint32_t cur_result[CUR_RESULT_NUM];
 
-void put_temp_value(struct sprd_battery_data *data, uint32_t temp)
-{
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT - 1; i++) {
-		temp_buf[i] = temp_buf[i + 1];
+	for (i = 0; i < CUR_RESULT_NUM; i++) {
+		cur_result[i] = _sprdchg_read_chg_current();
 	}
 
-	temp_buf[CONFIG_AVERAGE_CNT - 1] = temp;
-}
-
-uint32_t get_temp_value(struct sprd_battery_data *data)
-{
-	unsigned long sum = 0;
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT; i++)
-		sum += temp_buf[i];
-
-	return sum / CONFIG_AVERAGE_CNT;
-}
-
-void put_vprog_value(struct sprd_battery_data *data, uint32_t vprog)
-{
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT - 1; i++) {
-		vprog_buf[i] = vprog_buf[i + 1];
+	for (j = 1; j <= CUR_RESULT_NUM - 1; j++) {
+		for (i = 0; i < CUR_RESULT_NUM - j; i++) {
+			if (cur_result[i] > cur_result[i + 1]) {
+				temp = cur_result[i];
+				cur_result[i] = cur_result[i + 1];
+				cur_result[i + 1] = temp;
+			}
+		}
 	}
 
-	vprog_buf[i] = vprog;
+	return cur_result[CUR_RESULT_NUM / 2];
 }
 
-uint32_t get_vprog_value(struct sprd_battery_data *data)
+uint32_t chg_cur_buf[SPRDBAT_AVERAGE_COUNT];
+void sprdchg_put_chgcur(uint32_t chging_current)
 {
-	int i, sum = 0;
-	for (i = 0; i < CONFIG_AVERAGE_CNT; i++) {
-		sum = sum + vprog_buf[i];
+	static uint32_t cnt = 0;
+
+	if (cnt == SPRDBAT_AVERAGE_COUNT) {
+		cnt = 0;
 	}
-	return sum / CONFIG_AVERAGE_CNT;
+	chg_cur_buf[cnt++] = chging_current;
 }
 
-void update_vprog_value(struct sprd_battery_data *data, uint32_t vprog)
+uint32_t sprdchg_get_chgcur_ave(void)
 {
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT; i++) {
-		vprog_buf[i] = vprog;
+	uint32_t i, sum = 0;
+	for (i = 0; i < SPRDBAT_AVERAGE_COUNT; i++) {
+		sum = sum + chg_cur_buf[i];
 	}
+	return sum / SPRDBAT_AVERAGE_COUNT;
 }
 
-void put_vbat_value(struct sprd_battery_data *data, uint32_t vbat)
+uint32_t sprdchg_read_vbat_vol(void)
 {
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT - 1; i++) {
-		vbat_buf[i] = vbat_buf[i + 1];
-	}
-
-	vbat_buf[CONFIG_AVERAGE_CNT - 1] = vbat;
-}
-
-uint32_t get_vbat_value(struct sprd_battery_data *data)
-{
-	unsigned long sum = 0;
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT; i++)
-		sum += vbat_buf[i];
-
-	return sum / CONFIG_AVERAGE_CNT;
-}
-
-void update_vbat_value(struct sprd_battery_data *data, uint32_t vbat)
-{
-	int i;
-	for (i = 0; i < CONFIG_AVERAGE_CNT; i++)
-		vbat_buf[i] = vbat;
-}
-
-void put_vchg_value(uint32_t vchg)
-{
-	int i;
-
-	for (i = 0; i < _VCHG_BUF_SIZE - 1; i++) {
-		vchg_buf[i] = vchg_buf[i + 1];
-	}
-	vchg_buf[i] = vchg;
-}
-
-uint32_t get_vchg_value(void)
-{
-	int i, sum = 0;
-	for (i = 0; i < _VCHG_BUF_SIZE; i++) {
-		sum = sum + vchg_buf[i];
-	}
-	return sum / _VCHG_BUF_SIZE;
+	uint32_t voltage;
+	voltage =
+	    sprdchg_bat_adc_to_vol(sci_adc_get_value(ADC_CHANNEL_VBAT, false));
+	return voltage;
 }

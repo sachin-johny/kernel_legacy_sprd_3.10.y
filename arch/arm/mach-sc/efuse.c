@@ -244,6 +244,11 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 
 	return 1;
 }
+int sci_efuse_cv_get(unsigned int *p_cal_data)
+{
+	return 0;
+}
+
 
 EXPORT_SYMBOL(sci_efuse_calibration_get);
 

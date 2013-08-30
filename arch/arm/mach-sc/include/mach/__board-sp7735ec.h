@@ -38,7 +38,7 @@
 #define EIC_POWER_PBINT2        (A_EIC_START + 1)
 #define EIC_POWER_PBINT         (A_EIC_START + 2)
 #define EIC_AUD_HEAD_BUTTON     (A_EIC_START + 3)
-#define EIC_AUD_HEAD_INST       (A_EIC_START + 4)
+#define EIC_CHG_CV_STATE       (A_EIC_START + 4)
 #define EIC_AUD_HEAD_INST2      (A_EIC_START + 5)
 #define EIC_VCHG_OVI            (A_EIC_START + 6)
 #define EIC_VBAT_OVI            (A_EIC_START + 7)
