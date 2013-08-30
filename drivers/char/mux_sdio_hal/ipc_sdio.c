@@ -49,6 +49,8 @@
 static int tx_packet_count=0;
 
 extern void wait_modem_normal(void);
+extern void modem_intf_state_change(int alive_status,int assert_status);
+extern void modem_reboot_type_set(int type);
 
 #define IPC_DBG(f, x...) 	pr_debug(IPC_DRIVER_NAME " [%s()]: " f, __func__,## x)
 
@@ -93,7 +95,7 @@ typedef struct MIPC_TRANSFER_Tag
 
 static struct kfifo  s_mipc_rx_cache_kfifo;
 
-u8*   s_mipc_rx_buf = NULL;  
+u8*   s_mipc_rx_buf = NULL;
 
 #define MAX_MIPC_TX_FRAME_NUM    3
 MIPC_TRANSF_FRAME_T   s_tx_transfer_frame[MAX_MIPC_TX_FRAME_NUM];
@@ -138,7 +140,7 @@ void  mux_ipc_enable(u8  is_enable)
 		printk("Error: mux ipc module is not initialized!\r\n");
 		return;
 	}
-	
+
 	if(is_enable)
 	{
 		kfifo_reset(&s_mipc_rx_cache_kfifo);
@@ -174,7 +176,7 @@ int mux_ipc_sdio_stop(int mode)
 	}
 
     wake_up_interruptible(&s_mux_read_rts);
-	   
+
     return 0;
 }
 
@@ -199,11 +201,11 @@ int mux_ipc_sdio_read(char *buf, size_t  count)
 
     IPC_DBG("[mipc]mux_ipc_sdio_read read len:%d\r\n", count);
     ret = kfifo_out(&s_mipc_rx_cache_kfifo,buf,count);
-	
+
     ipc_info_mux_read(ret);
 
-    ipc_info_sdio_read_saved_count(kfifo_len(&s_mipc_rx_cache_kfifo));	
-	
+    ipc_info_sdio_read_saved_count(kfifo_len(&s_mipc_rx_cache_kfifo));
+
     return ret;
 }
 
@@ -259,7 +261,7 @@ static void _transfer_frame_init(void)
  	s_mipc_rx_buf =  (u8*) __get_free_pages(GFP_KERNEL, get_order(MAX_MIPC_RX_FRAME_SIZE));
 
 	WARN_ON(NULL == s_mipc_rx_buf);
-	
+
 	if(kfifo_alloc(&s_mipc_rx_cache_kfifo,MAX_MIPC_RX_CACHE_SIZE, GFP_KERNEL))
 	{
 		printk("_transfer_frame_init: kfifo rx cache no memory!\r\n");
@@ -339,7 +341,7 @@ static  u32 _GetFrameFromTxTransfer(MIPC_TRANSF_FRAME_T* * out_frame_ptr)
 	 *out_frame_ptr = frame_ptr;
 	 return 0;
  }
- 
+
 static  u32  _IsTransferFifoEmpty(MIPC_TRANSFER_T* transfer_ptr)
  {
 	u32  ret = 0;
@@ -454,7 +456,7 @@ u32 mux_ipc_GetTxTransferSavedCount(void)
     MIPC_TRANSFER_T* transfer_ptr  = &s_mipc_tx_tansfer;
     mutex_lock(&transfer_ptr->transfer_mutex);
     count = transfer_ptr->counter;
-    mutex_unlock(&transfer_ptr->transfer_mutex); 
+    mutex_unlock(&transfer_ptr->transfer_mutex);
     return count;
 }
 static size_t sdio_write_modem_data(const u8 * buf, u32 len)
@@ -463,19 +465,19 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 	u32  result =  SDHCI_TRANSFER_OK;
 	u32 resend_count = 0;
 	mutex_lock(&ipc_mutex);/*get  lock */
-	
-	wake_lock(&s_ipc_sdio_tx_wake_lock);	
-	
+
+	wake_lock(&s_ipc_sdio_tx_wake_lock);
+
 	do
 	{
-	        ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECT_REQ);	
+	        ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECT_REQ);
 		if(SDHCI_SUCCESS != sdhci_connect(SDHCI_TRANSFER_DIRECT_WRITE))
 		{
-			ipc_info_error_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECT_TIMEOUT);	
-			result = SDHCI_TRANSFER_TIMEOUT; 
+			ipc_info_error_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECT_TIMEOUT);
+			result = SDHCI_TRANSFER_TIMEOUT;
 			break;
 		}
-		ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECTED);	
+		ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_CONNECTED);
 		ret = sprd_sdio_channel_tx(buf, len);
 		if(!ret)
 		{
@@ -497,7 +499,7 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 			result = SDHCI_TRANSFER_TIMEOUT;
 			break;
 		}
-        
+
 		ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_DISCONNECTED);
 		if(result)
 		{
@@ -508,13 +510,22 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 
 	if(SDHCI_TRANSFER_TIMEOUT == result)
 	{
-		ret = 0;
+                ret = 0;
 		sdhci_resetconnect(MUX_IPC_ENABLE);
+		//because cp disable watchdog, so when cp occure uncaught error,
+                //cp will not notify ap to reboot modem,so under this condition,
+                //ap_cp communication probleam will not be recovered, so ap should
+                //reboot cp instead.
+                //note:if cp enable watchdog debug mode, for debug purpose, you
+                //should disable ap reboot cp process.
+                printk("[mipc]SDIO write timeout, reboot cp aggressively\n");
+                modem_reboot_type_set(1);
+                modem_intf_state_change(0, 0);
 	}
 	ipc_info_change_status(IPC_TX_CHANNEL, IPC_STATUS_IDLE);
 
-	wake_unlock(&s_ipc_sdio_tx_wake_lock);	
-		
+	wake_unlock(&s_ipc_sdio_tx_wake_lock);
+
 	mutex_unlock(&ipc_mutex); /* release lock */
 	return ret;
 
@@ -540,7 +551,7 @@ static bool VerifyPacketHeader(struct packet_header *header)
 			|| (header->length > MAX_MIPC_RX_FRAME_SIZE)
 			||(header->frame_num != crc_value))
 		{
-			printk("[mipc]:%s error, tag:0x%X, type:0x%X, len:0x%X, crc:0x%X, calc_crc:0x%X\r\n", 
+			printk("[mipc]:%s error, tag:0x%X, type:0x%X, len:0x%X, crc:0x%X, calc_crc:0x%X\r\n",
 				 __func__, header->tag , header->type, header->length,header->frame_num, crc_value);
 			return false;
 		}
@@ -550,7 +561,7 @@ static bool VerifyPacketHeader(struct packet_header *header)
 		if ( (header->tag != HEADER_TAG) || (header->type != HEADER_TYPE)
 			|| (header->length > MAX_MIPC_RX_FRAME_SIZE))
 		{
-			printk("[mipc]:%s error, tag:0x%X, type:0x%X, len:0x%X, frame_num:0x%X\r\n", 
+			printk("[mipc]:%s error, tag:0x%X, type:0x%X, len:0x%X, frame_num:0x%X\r\n",
 				 __func__, header->tag , header->type, header->length,header->frame_num);
 			return false;
 		}
@@ -574,20 +585,20 @@ u32  process_modem_packet(unsigned long data)
 	do
 	{
 	    IPC_DBG(" spi_read_modem_data xxxx................\r\n");
-		
-		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECT_REQ);	 
-		
+
+		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECT_REQ);
+
 		if( SDHCI_SUCCESS !=  sdhci_connect(SDHCI_TRANSFER_DIRECT_READ))
 		{
-			ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECT_TIMEOUT);	 
+			ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECT_TIMEOUT);
 			result = SDHCI_TRANSFER_TIMEOUT;
 			break;
 		}
 
-		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECTED);	 
-		
+		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_CONNECTED);
+
 		memset(s_mipc_rx_buf, 0xaa, MAX_MIPC_RX_FRAME_SIZE);
-		
+
 		ret = sdio_read_modem_data(s_mipc_rx_buf,  MAX_MIPC_RX_FRAME_SIZE);
 		if (!ret)
 		{
@@ -610,16 +621,16 @@ u32  process_modem_packet(unsigned long data)
 				printk("[mipc]SDIO READ FAIL, ret:%d\r \n", ret);
 		}
 
-		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECT_REQ);	
+		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECT_REQ);
 		if(SDHCI_SUCCESS !=  sdhci_disconnect(result))
 		{
-			ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECT_TIMEOUT);	
+			ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECT_TIMEOUT);
 			result = SDHCI_TRANSFER_TIMEOUT;
 			break;
 		}
-		
-		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECTED);	
-		
+
+		ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_DISCONNECTED);
+
 		if(result)
 		{
 			resend_count++;
@@ -630,21 +641,30 @@ u32  process_modem_packet(unsigned long data)
 
 	if(SDHCI_TRANSFER_TIMEOUT == result)
 	{
-		sdhci_resetconnect(MUX_IPC_ENABLE);
+                sdhci_resetconnect(MUX_IPC_ENABLE);
+                //because cp disable watchdog, so when cp occure uncaught error,
+                //cp will not notify ap to reboot modem,so under this condition,
+                //ap_cp communication probleam will not be recovered, so ap should
+                //reboot cp instead.
+                //note:if cp enable watchdog debug mode, for debug purpose, you
+                //should disable ap reboot cp process.
+                printk("[mipc]SDIO read timeout, reboot cp aggressively\n");
+                modem_reboot_type_set(1);
+                modem_intf_state_change(0, 0);
 	}
 
 	ipc_info_change_status(IPC_RX_CHANNEL, IPC_STATUS_IDLE);
 	mutex_unlock(&ipc_mutex);
 
 	wake_unlock(&s_ipc_sdio_rx_wake_lock);
-	
+
 	if(!result)
 	{
 		u32  send_cnt = 0;
 		ipc_info_rate(IPC_RX_CHANNEL, packet->length*1000/MAX_MIPC_RX_FRAME_SIZE);
 		ipc_info_sdio_read(packet->length);
 
-			
+
 		while( kfifo_avail(&s_mipc_rx_cache_kfifo) < packet->length)
 		{
 			if(send_cnt++ > 20)
@@ -653,28 +673,28 @@ u32  process_modem_packet(unsigned long data)
 			    printk("[MIPC] MIPC Rx Cache Full!\r\n");
 			}
 			ipc_info_mux_read_overflow(1);
-			msleep(10);	
+			msleep(10);
 		}
-		
+
 		IPC_DBG("[mipc]Success receive data len:%d\r\n",  packet->length);
-		
+
 		receve_len  = packet->length;
 
 		if(sdio_transfer_frame_check_enable && sdio_frame_check(&s_mipc_rx_buf[sizeof(struct packet_header )], packet->length))
 		{
 			printk("[mipc]:sdio receved data frame error!\r\n");
-		}	
-		
+		}
+
 		kfifo_in(&s_mipc_rx_cache_kfifo,&s_mipc_rx_buf[sizeof(struct packet_header )], packet->length);
-		
+
 		wake_up_interruptible(&s_mux_read_rts);
 	}
 	else
 	{
-		receve_len  = 0;		
+		receve_len  = 0;
 		printk("[mipc] receive data fail! result:%d\r\n", result);
 	}
-	
+
 	return receve_len;
 }
 
@@ -716,7 +736,7 @@ static int mux_ipc_tx_thread(void *data)
 					}
 					msleep(sdio_tx_wait_time);
 				}
-				
+
 				if(_FlushTxTransfer())
 				{
 					printk("No Data To Send\n");
@@ -746,10 +766,10 @@ static int mux_ipc_tx_thread(void *data)
 				while(!_is_mux_ipc_enable())
 				{
 					printk("mux ipc tx Thread Wait enable!\r\n");
-					msleep(40);  
+					msleep(40);
 				}
 				printk("mux ipc tx Thread Wait enable Finished!\r\n");
-				break;		
+				break;
 			}
 		}
 	}
@@ -812,7 +832,7 @@ u32 s_mipc_rx_event_flags = 0;
 	if(ipc_status && even_flag)
 	{
 	      	s_mipc_rx_event_flags = even_flag;
-		wake_lock(&s_ipc_sdio_rx_wake_lock);	
+		wake_lock(&s_ipc_sdio_rx_wake_lock);
 	  	wake_up(&s_mux_ipc_rx_wq);
         status = 0;
 	}
@@ -868,7 +888,7 @@ static int modem_sdio_probe(struct platform_device *pdev)
 
 	printk("modem_spi_probe\n");
 	wake_lock_init(&s_ipc_sdio_tx_wake_lock, WAKE_LOCK_SUSPEND, "ipc_sdio_tx");
-	wake_lock_init(&s_ipc_sdio_rx_wake_lock, WAKE_LOCK_SUSPEND, "ipc_sdio_rx");	
+	wake_lock_init(&s_ipc_sdio_rx_wake_lock, WAKE_LOCK_SUSPEND, "ipc_sdio_rx");
 	mutex_init(&ipc_mutex);
 	mux_ipc_create_tx_thread();
         mux_ipc_create_rx_thread();

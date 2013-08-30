@@ -451,6 +451,39 @@ static ssize_t modem_intf_modempower_store(struct device *dev,struct device_attr
 
 DEVICE_ATTR(modempower, S_IRUGO | S_IWUSR, modem_intf_modempower_show,modem_intf_modempower_store);
 
+static int s_modem_reboot_type = 0;//0:passive(default); 1:aggressive
+
+static int modem_reboot_type_get(void)
+{
+    return s_modem_reboot_type;
+}
+
+void modem_reboot_type_set(int type)
+{
+    s_modem_reboot_type=type;
+}
+
+static ssize_t modem_intf_modemreboot_type_show(struct device *dev,struct device_attribute *attr, char *buf)
+{
+	int ret;
+	snprintf(buf,2,"%d\n",modem_reboot_type_get());
+	printk("s_modem_reboot_type = %d\n", modem_reboot_type_get());
+        modem_reboot_type_set(0);
+	return strlen(buf);
+}
+
+static ssize_t modem_intf_modemreboot_type_store(struct device *dev,struct device_attribute *attr, const char *buf, size_t size)
+{
+        if(buf == NULL)
+		return 0;
+        s_modem_reboot_type = simple_strtoul(buf, NULL, 2);
+	printk("__func__: s_modem_reboot_type=0x%x\n", s_modem_reboot_type);
+        return size;
+}
+
+DEVICE_ATTR(modemreboot_type, S_IRUGO | S_IWUSR, modem_intf_modemreboot_type_show,modem_intf_modemreboot_type_store);
+
+
 
 static int modem_intf_driver_probe(struct platform_device *_dev)
 {
@@ -490,6 +523,7 @@ static int modem_intf_driver_probe(struct platform_device *_dev)
         
 	retval = device_create_file(&_dev->dev, &dev_attr_state);
 	retval = device_create_file(&_dev->dev, &dev_attr_modempower);
+        retval = device_create_file(&_dev->dev, &dev_attr_modemreboot_type);
         modem_gpio_init(&modem_intf_device->modem_config);
 	modem_intf_register_device_operation(modem_sdio_drv_init());
 	modem_gpio_status=0;
