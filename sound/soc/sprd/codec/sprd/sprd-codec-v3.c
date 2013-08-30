@@ -881,6 +881,8 @@ int sprd_inter_speaker_pa(int on)
 				sprd_codec_pa_ldo_v_sel(inter_pa.
 							setting.LDO_V_sel);
 			}
+		} else {
+			sprd_codec_pa_sw_set(SPRD_CODEC_PA_SW_AOL);
 		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
 		sprd_codec_pa_en(1);
