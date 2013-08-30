@@ -60,6 +60,7 @@ struct sysdump_info {
 	int elfhdr_size;
 	int mem_num;
 	unsigned long dump_mem_paddr;
+	int crash_key;
 };
 
 struct sysdump_extra {
@@ -381,10 +382,18 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 		reason, sizeof(sprd_sysdump_extra.reason));
 	sprd_sysdump_extra.enter_id = enter_id;
 
-	sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_IO_MEM_BASE);
-	printk("vaddr is %p,paddr is %p\n",sprd_sysdump_info, (void *)SPRD_IO_MEM_BASE);
+	sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_SYSDUMP_MAGIC);
+	printk("vaddr is %p,paddr is %p\n",sprd_sysdump_info, (void *)SPRD_SYSDUMP_MAGIC);
 	memcpy(sprd_sysdump_info->magic, SYSDUMP_MAGIC,
 			sizeof(sprd_sysdump_info->magic));
+
+	if (reason != NULL && !strcmp(reason, "Crash Key")) {
+		sprd_sysdump_info->crash_key = 1;
+	} else {
+		sprd_sysdump_info->crash_key = 0;
+	}
+
+	printk("reason: %s, sprd_sysdump_info->crash_key: %d\n", reason, sprd_sysdump_info->crash_key);
 
 	t = cpu_clock(smp_processor_id());
 	nanosec_rem = do_div(t, 1000000000);
