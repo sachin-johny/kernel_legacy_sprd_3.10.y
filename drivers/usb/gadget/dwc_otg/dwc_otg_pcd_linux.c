@@ -694,7 +694,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 		 *this is soft disconnct, and maybe the timer started
 		 *by plugin still work, need cancel this timer like plugout
 		 */
-		
+		cancel_delayed_work_sync(&d->cable2pc);
 		__udc_shutdown();
 	}
 	mutex_unlock(&udc_lock);
@@ -1124,6 +1124,7 @@ static void __udc_shutdown(void)
 	pr_info("USB:shutdown udc\n");
 	if (d->udc_startup) {
 		dwc_otg_pcd_stop(d->pcd);
+		dwc_otg_disable_global_interrupts(GET_CORE_IF(d->pcd));
 		udc_disable();
 		d->udc_startup = 0;
 		wake_unlock(&usb_wake_lock);
@@ -1241,6 +1242,7 @@ static void usb_detect_works(struct work_struct *work)
 		}
 	} else {
 		pr_info("usb detect plug out,vbus pull down\n");
+		cancel_delayed_work_sync(&d->cable2pc);
 		__udc_shutdown();
 		hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
 	}
