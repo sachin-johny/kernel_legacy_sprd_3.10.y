@@ -876,11 +876,13 @@ int sprd_inter_speaker_pa(int on)
 			}
 		}
 		sprd_codec_pa_dtri_f_sel(inter_pa.setting.DTRI_F_sel);
+                udelay(10);
 		sprd_codec_pa_en(1);
 		inter_pa.set = 1;
 	} else {
 		inter_pa.set = 0;
 		sprd_codec_pa_en(0);
+                udelay(10);
 		sprd_codec_pa_ldo_en(0);
 	}
 	mutex_unlock(&inter_pa_mutex);
@@ -1006,11 +1008,13 @@ int sprd_inter_headphone_pa(int on)
 		sprd_codec_hp_pa_hpl_en(1);
 		sprd_codec_hp_pa_hpr_en(1);
 		sprd_codec_hp_pa_ref_en(1);
+                udelay(10);
 		sprd_codec_hp_pa_en(1);
 		inter_hp_pa.set = 1;
 	} else {
 		inter_hp_pa.set = 0;
 		sprd_codec_hp_pa_en(0);
+                udelay(10);
 		sprd_codec_hp_pa_ref_en(0);
 		sprd_codec_hp_pa_hpl_en(0);
 		sprd_codec_hp_pa_hpr_en(0);
@@ -2186,7 +2190,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   dac_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 #ifdef CONFIG_CODEC_NO_HP_POP
-	SND_SOC_DAPM_PGA_S("HP POP", 6, SND_SOC_NOPM, 0, 0, hp_pop_event,
+	SND_SOC_DAPM_PGA_S("HP POP", 9, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			   SND_SOC_DAPM_POST_PMU),
 #else
 	SND_SOC_DAPM_SUPPLY_S("HP POP", 4, SND_SOC_NOPM, 0, 0, hp_pop_event,
