@@ -72,6 +72,7 @@ struct sysdump_extra {
 
 struct sysdump_config {
 	int enable;
+	int crashkey_only;
 	int dump_modem;
 	int reboot;
 	char dump_path[128];
@@ -88,6 +89,7 @@ struct sysdump_extra sprd_sysdump_extra = {
 
 static struct sysdump_config sysdump_conf = {
 	.enable = 1,
+	.crashkey_only = 0,
 	.dump_modem = 1,
 	.reboot = 1,
 	.dump_path = "",
@@ -690,6 +692,9 @@ void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs)
 	if (!sysdump_conf.enable)
 		return;
 
+	if ((sysdump_conf.crashkey_only) && !(reason != NULL && !strcmp(reason, "Crash Key")))
+		return;
+
 	/* this should before smp_send_stop() to make sysdump_ipi enable */
 	sprd_sysdump_extra.enter_cpu = smp_processor_id();
 
@@ -754,6 +759,13 @@ static ctl_table sysdump_sysctl_table[] = {
 	{
 		.procname       = "sysdump_enable",
 		.data           = &sysdump_conf.enable,
+		.maxlen         = sizeof(int),
+		.mode           = 0644,
+		.proc_handler   = proc_dointvec,
+	},
+	{
+		.procname       = "sysdump_crashkey_only",
+		.data           = &sysdump_conf.crashkey_only,
 		.maxlen         = sizeof(int),
 		.mode           = 0644,
 		.proc_handler   = proc_dointvec,
