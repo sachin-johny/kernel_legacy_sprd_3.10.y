@@ -1018,6 +1018,7 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 	long oom_adjust;
 	unsigned long flags;
 	int err;
+	char comm[TASK_COMM_LEN];
 
 	memset(buffer, 0, sizeof(buffer));
 	if (count > sizeof(buffer) - 1)
@@ -1045,6 +1046,11 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 		put_task_struct(task);
 		return -EACCES;
 	}
+
+	/*ace add for moneky nice start*/
+	memset(comm, 0, sizeof(comm));
+	if(!strncmp("commands.monkey", get_task_comm(comm, task), 15)) oom_adjust = -16;
+	/*ace add for moneky nice end*/
 
 	task->signal->oom_adj = oom_adjust;
 
