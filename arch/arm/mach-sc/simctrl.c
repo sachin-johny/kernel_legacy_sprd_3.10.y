@@ -38,9 +38,11 @@ struct simdesc {
 #ifdef CONFIG_ARCH_SCX35
 
 static struct simdesc sim_cards[] = {
-	{ "0", "t", SPRD_PIN_BASE + 0x08, 0x00100000 },
-	{ "1", "w", SPRD_PIN_BASE + 0x08, 0x00400000 },
+	{ "0", "n", SPRD_PIN_BASE + 0x08, 0x00100000 },
+	{ "1", "n", SPRD_PIN_BASE + 0x08, 0x00400000 },
+	{ "2", "n", SPRD_PIN_BASE + 0x08, 0x01000000 },
 };
+
 static int sim_count = ARRAY_SIZE(sim_cards);
 #else
 static struct simdesc sim_cards[] = {
