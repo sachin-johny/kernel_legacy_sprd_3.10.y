@@ -31,7 +31,7 @@
 #include <asm/uaccess.h>
 #include <linux/gpio.h>
 #include <linux/regulator/consumer.h>
-#include <linux/i2c/ft53x6_ts.h>
+//#include <linux/i2c/ft53x6_ts.h>
 #include <mach/regulator.h>
 #include <linux/input/mt.h>
 
@@ -57,6 +57,14 @@
 #define PRINT_ERR(format,x...)  printk(KERN_ERR "[FT53X6_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
 #endif
 
+#define APK_DEBUG
+#define SPRD_AUTO_UPGRADE
+#define SYSFS_DEBUG
+#define FTS_CTL_IIC
+#include <linux/i2c/focaltech.h>
+#include <linux/i2c/focaltech_ex_fun.h>
+#include <linux/i2c/focaltech_ctl.h>
+
 #define	USE_THREADED_IRQ	1
 #define	TOUCH_VIRTUAL_KEYS
 #define	MULTI_PROTOCOL_TYPE_B	0
@@ -64,6 +72,7 @@
 
 #define	FTS_PACKET_LENGTH	128
 
+#if 0
 static unsigned char FT5316_FW[]=
 {
 #include "ft5316_720p.i"
@@ -75,6 +84,7 @@ static unsigned char FT5306_FW[]=
 };
 
 static unsigned char *CTPM_FW = FT5306_FW;
+#endif
 static int fw_size;
 
 static struct ft5x0x_ts_data *g_ft5x0x_ts;
@@ -82,12 +92,29 @@ static struct i2c_client *this_client;
 
 static unsigned char suspend_flag = 0;
 
+
+ struct Upgrade_Info fts_updateinfo[] =
+{
+        {0x55,"FT5x06",TPD_MAX_POINTS_5,AUTO_CLB_NEED,50, 30, 0x79, 0x03, 1, 2000},
+        {0x08,"FT5606",TPD_MAX_POINTS_5,AUTO_CLB_NEED,50, 30, 0x79, 0x06, 100, 2000},
+	{0x0a,"FT5x16",TPD_MAX_POINTS_5,AUTO_CLB_NEED,50, 30, 0x79, 0x07, 1, 1500},
+	{0x05,"FT6208",TPD_MAX_POINTS_2,AUTO_CLB_NONEED,60, 30, 0x79, 0x05, 10, 2000},
+	{0x06,"FT6x06",TPD_MAX_POINTS_2,AUTO_CLB_NONEED,100, 30, 0x79, 0x08, 10, 2000},
+	{0x55,"FT5x06i",TPD_MAX_POINTS_5,AUTO_CLB_NEED,50, 30, 0x79, 0x03, 1, 2000},
+	{0x14,"FT5336",TPD_MAX_POINTS_5,AUTO_CLB_NEED,30, 30, 0x79, 0x11, 10, 2000},
+	{0x13,"FT3316",TPD_MAX_POINTS_5,AUTO_CLB_NEED,30, 30, 0x79, 0x11, 10, 2000},
+	{0x12,"FT5436i",TPD_MAX_POINTS_5,AUTO_CLB_NEED,30, 30, 0x79, 0x11, 10, 2000},
+	{0x11,"FT5336i",TPD_MAX_POINTS_5,AUTO_CLB_NEED,30, 30, 0x79, 0x11, 10, 2000},
+};
+				
+struct Upgrade_Info fts_updateinfo_curr;
+#if 0//dennis
 /* Attribute */
 static ssize_t ft5x0x_show_suspend(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
 static ssize_t ft5x0x_show_version(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t ft5x0x_update(struct device* cd, struct device_attribute *attr, const char* buf, size_t len);
-
+#endif
 static unsigned char ft5x0x_read_fw_ver(void);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -128,7 +155,7 @@ struct ft5x0x_ts_data {
 	struct ft5x0x_ts_platform_data	*platform_data;
 };
 
-
+#if 0//dennis
 static DEVICE_ATTR(suspend, S_IRUGO | S_IWUSR, ft5x0x_show_suspend, ft5x0x_store_suspend);
 static DEVICE_ATTR(update, S_IRUGO | S_IWUSR, ft5x0x_show_version, ft5x0x_update);
 
@@ -214,7 +241,7 @@ static int ft5x0x_create_sysfs(struct i2c_client *client)
 
 	return err;
 }
-
+#endif
 static int ft5x0x_i2c_rxdata(char *rxdata, int length)
 {
 	int ret = 0;
@@ -329,14 +356,17 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 	*pdata = buf[1];
 	return ret;
 }
+
+
 #ifdef TOUCH_VIRTUAL_KEYS
 
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{
+{ 
+    #if 0
 	unsigned char uc_reg_value;
 
 	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
-
+      
 	if (uc_reg_value == 0x0a || uc_reg_value == 0x0)
 		return sprintf(buf,
         		 __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":133:1360:107:87"
@@ -349,11 +379,19 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":280:1020:80:65"
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":470:1020:80:65"
 	 		"\n");
-}
+     #endif
+	 
+    return sprintf(buf,
+        		 __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":133:1360:107:87"
+	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":373:1360:107:87"
+	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":627:1360:107:87"
+			"\n");
+	 
+ }
 
 static struct kobj_attribute virtual_keys_attr = {
     .attr = {
-        .name = "virtualkeys.ft5x0x_ts",
+        .name = "virtualkeys.focaltech_ts",
         .mode = S_IRUGO,
     },
     .show = &virtual_keys_show,
@@ -402,386 +440,7 @@ static unsigned char ft5x0x_read_fw_ver(void)
 	return(ver);
 }
 
-#define CONFIG_SUPPORT_FTS_CTP_UPG
-#ifdef CONFIG_SUPPORT_FTS_CTP_UPG
 
-typedef enum
-{
-    ERR_OK,
-    ERR_MODE,
-    ERR_READID,
-    ERR_ERASE,
-    ERR_STATUS,
-    ERR_ECC,
-    ERR_DL_ERASE_FAIL,
-    ERR_DL_PROGRAM_FAIL,
-    ERR_DL_VERIFY_FAIL
-}E_UPGRADE_ERR_TYPE;
-
-typedef unsigned char         FTS_BYTE;     //8 bit
-typedef unsigned short        FTS_WORD;    //16 bit
-typedef unsigned int          FTS_DWRD;    //16 bit
-typedef unsigned char         FTS_BOOL;    //8 bit
-
-#define FTS_NULL                0x0
-#define FTS_TRUE                0x01
-#define FTS_FALSE              0x0
-
-#define I2C_CTPM_ADDRESS       0x70
-
-/*
-[function]:
-    callback: read data from ctpm by i2c interface,implemented by special user;
-[parameters]:
-    bt_ctpm_addr[in]    :the address of the ctpm;
-    pbt_buf[out]        :data buffer;
-    dw_lenth[in]        :the length of the data buffer;
-[return]:
-    FTS_TRUE     :success;
-    FTS_FALSE    :fail;
-*/
-FTS_BOOL i2c_read_interface(FTS_BYTE bt_ctpm_addr, FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
-{
-    int ret;
-
-    ret=i2c_master_recv(this_client, pbt_buf, dw_lenth);
-
-    if(ret<=0)
-    {
-        printk("[TSP]i2c_read_interface error\n");
-        return FTS_FALSE;
-    }
-
-    return FTS_TRUE;
-}
-
-/*
-[function]:
-    callback: write data to ctpm by i2c interface,implemented by special user;
-[parameters]:
-    bt_ctpm_addr[in]    :the address of the ctpm;
-    pbt_buf[in]        :data buffer;
-    dw_lenth[in]        :the length of the data buffer;
-[return]:
-    FTS_TRUE     :success;
-    FTS_FALSE    :fail;
-*/
-FTS_BOOL i2c_write_interface(FTS_BYTE bt_ctpm_addr, FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
-{
-    int ret;
-    ret=i2c_master_send(this_client, pbt_buf, dw_lenth);
-    if(ret<=0)
-    {
-        printk("[TSP]i2c_write_interface error line = %d, ret = %d\n", __LINE__, ret);
-        return FTS_FALSE;
-    }
-
-    return FTS_TRUE;
-}
-
-/*
-[function]:
-    send a command to ctpm.
-[parameters]:
-    btcmd[in]        :command code;
-    btPara1[in]    :parameter 1;
-    btPara2[in]    :parameter 2;
-    btPara3[in]    :parameter 3;
-    num[in]        :the valid input parameter numbers, if only command code needed and no parameters followed,then the num is 1;
-[return]:
-    FTS_TRUE    :success;
-    FTS_FALSE    :io fail;
-*/
-FTS_BOOL cmd_write(FTS_BYTE btcmd,FTS_BYTE btPara1,FTS_BYTE btPara2,FTS_BYTE btPara3,FTS_BYTE num)
-{
-    FTS_BYTE write_cmd[4] = {0};
-
-    write_cmd[0] = btcmd;
-    write_cmd[1] = btPara1;
-    write_cmd[2] = btPara2;
-    write_cmd[3] = btPara3;
-    return i2c_write_interface(I2C_CTPM_ADDRESS, write_cmd, num);
-}
-
-/*
-[function]:
-    write data to ctpm , the destination address is 0.
-[parameters]:
-    pbt_buf[in]    :point to data buffer;
-    bt_len[in]        :the data numbers;
-[return]:
-    FTS_TRUE    :success;
-    FTS_FALSE    :io fail;
-*/
-FTS_BOOL byte_write(FTS_BYTE* pbt_buf, FTS_DWRD dw_len)
-{
-    return i2c_write_interface(I2C_CTPM_ADDRESS, pbt_buf, dw_len);
-}
-
-/*
-[function]:
-    read out data from ctpm,the destination address is 0.
-[parameters]:
-    pbt_buf[out]    :point to data buffer;
-    bt_len[in]        :the data numbers;
-[return]:
-    FTS_TRUE    :success;
-    FTS_FALSE    :io fail;
-*/
-FTS_BOOL byte_read(FTS_BYTE* pbt_buf, FTS_BYTE bt_len)
-{
-    return i2c_read_interface(I2C_CTPM_ADDRESS, pbt_buf, bt_len);
-}
-
-
-/*
-[function]:
-    burn the FW to ctpm.
-[parameters]:(ref. SPEC)
-    pbt_buf[in]    :point to Head+FW ;
-    dw_lenth[in]:the length of the FW + 6(the Head length);
-    bt_ecc[in]    :the ECC of the FW
-[return]:
-    ERR_OK        :no error;
-    ERR_MODE    :fail to switch to UPDATE mode;
-    ERR_READID    :read id fail;
-    ERR_ERASE    :erase chip fail;
-    ERR_STATUS    :status error;
-    ERR_ECC        :ecc error.
-*/
-
-E_UPGRADE_ERR_TYPE  fts_ctpm_fw_upgrade(FTS_BYTE* pbt_buf, FTS_DWRD dw_lenth)
-{
-    FTS_BYTE reg_val[2] = {0};
-    FTS_DWRD i = 0;
-
-    FTS_DWRD  packet_number;
-    FTS_DWRD  j;
-    FTS_DWRD  temp;
-    FTS_DWRD  lenght;
-    FTS_BYTE  packet_buf[FTS_PACKET_LENGTH + 6];
-    FTS_BYTE  auc_i2c_write_buf[10];
-    FTS_BYTE bt_ecc;
-    int      i_ret;
-
-    /*********Step 1:Reset  CTPM *****/
-    /*write 0xaa to register 0xfc*/
-    ft5x0x_write_reg(0xfc,0xaa);
-    msleep(50);
-     /*write 0x55 to register 0xfc*/
-    ft5x0x_write_reg(0xfc,0x55);
-    printk("[TSP] Step 1: Reset CTPM test, bin-length=%d\n",dw_lenth);
-
-    msleep(100);
-
-    /*********Step 2:Enter upgrade mode *****/
-    do
-    {
-        i ++;
-        auc_i2c_write_buf[0] = 0x55;
-	i_ret = ft5x0x_i2c_txdata(auc_i2c_write_buf, 1);
-        i_ret |= auc_i2c_write_buf[0] = 0xaa;
-        ft5x0x_i2c_txdata(auc_i2c_write_buf, 1);
-        msleep(5);
-    }while(i_ret <= 0 && i < 5 );
-    /*********Step 3:check READ-ID***********************/
-    cmd_write(0x90,0x00,0x00,0x00,4);
-    byte_read(reg_val,2);
-    if (reg_val[0] == 0x79 && (reg_val[1] == 0x07 || reg_val[1] == 0x03))
-    {
-        printk("[TSP] Step 3: CTPM ID,ID1 = 0x%x,ID2 = 0x%x\n",reg_val[0],reg_val[1]);
-    }
-    else
-    {
-        printk("%s: ERR_READID, ID1 = 0x%x,ID2 = 0x%x\n", __func__,reg_val[0],reg_val[1]);
-        return ERR_READID;
-        //i_is_new_protocol = 1;
-    }
-
-     /*********Step 4:erase app*******************************/
-    cmd_write(0x61,0x00,0x00,0x00,1);
-
-    msleep(1500);
-    printk("[TSP] Step 4: erase.\n");
-
-    /*********Step 5:write firmware(FW) to ctpm flash*********/
-    bt_ecc = 0;
-    printk("[TSP] Step 5: start upgrade.\n");
-    dw_lenth = dw_lenth - 8;
-    packet_number = (dw_lenth) / FTS_PACKET_LENGTH;
-    packet_buf[0] = 0xbf;
-    packet_buf[1] = 0x00;
-    for (j=0;j<packet_number;j++)
-    {
-        temp = j * FTS_PACKET_LENGTH;
-        packet_buf[2] = (FTS_BYTE)(temp>>8);
-        packet_buf[3] = (FTS_BYTE)temp;
-        lenght = FTS_PACKET_LENGTH;
-        packet_buf[4] = (FTS_BYTE)(lenght>>8);
-        packet_buf[5] = (FTS_BYTE)lenght;
-
-        for (i=0;i<FTS_PACKET_LENGTH;i++)
-        {
-            packet_buf[6+i] = pbt_buf[j*FTS_PACKET_LENGTH + i];
-            bt_ecc ^= packet_buf[6+i];
-        }
-
-        byte_write(&packet_buf[0],FTS_PACKET_LENGTH + 6);
-        msleep(FTS_PACKET_LENGTH/6 + 1);
-        if ((j * FTS_PACKET_LENGTH % 1024) == 0)
-        {
-              printk("[TSP] upgrade the 0x%x th byte.\n", ((unsigned int)j) * FTS_PACKET_LENGTH);
-        }
-    }
-
-    if ((dw_lenth) % FTS_PACKET_LENGTH > 0)
-    {
-        temp = packet_number * FTS_PACKET_LENGTH;
-        packet_buf[2] = (FTS_BYTE)(temp>>8);
-        packet_buf[3] = (FTS_BYTE)temp;
-
-        temp = (dw_lenth) % FTS_PACKET_LENGTH;
-        packet_buf[4] = (FTS_BYTE)(temp>>8);
-        packet_buf[5] = (FTS_BYTE)temp;
-
-        for (i=0;i<temp;i++)
-        {
-            packet_buf[6+i] = pbt_buf[ packet_number*FTS_PACKET_LENGTH + i]; 
-            bt_ecc ^= packet_buf[6+i];
-        }
-
-        byte_write(&packet_buf[0],temp+6);
-        msleep(20);
-    }
-
-    //send the last six byte
-    for (i = 0; i<6; i++)
-    {
-        temp = 0x6ffa + i;
-        packet_buf[2] = (FTS_BYTE)(temp>>8);
-        packet_buf[3] = (FTS_BYTE)temp;
-        temp =1;
-        packet_buf[4] = (FTS_BYTE)(temp>>8);
-        packet_buf[5] = (FTS_BYTE)temp;
-        packet_buf[6] = pbt_buf[ dw_lenth + i];
-        bt_ecc ^= packet_buf[6];
-
-        byte_write(&packet_buf[0],7);
-        msleep(20);
-    }
-
-    /*********Step 6: read out checksum***********************/
-    /*send the opration head*/
-    cmd_write(0xcc,0x00,0x00,0x00,1);
-    byte_read(reg_val,1);
-    printk("[TSP] Step 6:  ecc read 0x%x, new firmware 0x%x. \n", reg_val[0], bt_ecc);
-    if(reg_val[0] != bt_ecc)
-    {
-        printk("%s: ERR_ECC\n", __func__);
-        return ERR_ECC;
-    }
-
-    /*********Step 7: reset the new FW***********************/
-    cmd_write(0x07,0x00,0x00,0x00,1);
-
-    return ERR_OK;
-}
-
-int fts_ctpm_auto_clb(void)
-{
-    unsigned char uc_temp;
-    unsigned char i ;
-
-    printk("[FTS] start auto CLB.\n");
-    msleep(200);
-    ft5x0x_write_reg(0, 0x40);
-    msleep(100);   //make sure already enter factory mode
-    ft5x0x_write_reg(2, 0x4);  //write command to start calibration
-    msleep(300);
-    for(i=0;i<100;i++)
-    {
-        ft5x0x_read_reg(0,&uc_temp);
-        if ( ((uc_temp&0x70)>>4) == 0x0)  //return to normal mode, calibration finish
-        {
-            break;
-        }
-        msleep(200);
-        printk("[FTS] waiting calibration %d\n",i);
-    }
-    printk("[FTS] calibration OK.\n");
-
-    msleep(300);
-    ft5x0x_write_reg(0, 0x40);  //goto factory mode
-    msleep(100);   //make sure already enter factory mode
-    ft5x0x_write_reg(2, 0x5);  //store CLB result
-    msleep(300);
-    ft5x0x_write_reg(0, 0x0); //return to normal mode
-    msleep(300);
-    printk("[FTS] store CLB result OK.\n");
-    return 0;
-}
-
-int fts_ctpm_fw_upgrade_with_i_file(void)
-{
-   FTS_BYTE*     pbt_buf = FTS_NULL;
-   int i_ret;
-
-    //=========FW upgrade========================*/
-   pbt_buf = CTPM_FW;
-   /*call the upgrade function*/
-   i_ret =  fts_ctpm_fw_upgrade(pbt_buf,fw_size);
-   if (i_ret != 0)
-   {
-	printk("[FTS] upgrade failed i_ret = %d.\n", i_ret);
-       //error handling ...
-       //TBD
-   }
-   else
-   {
-       printk("[FTS] upgrade successfully.\n");
-       fts_ctpm_auto_clb();  //start auto CLB
-   }
-
-   return i_ret;
-}
-
-#if 0
-static int fts_ctpm_fw_update(void)
-{
-    int ret = 0;
-    const struct firmware *fw;
-    unsigned char *fw_buf;
-    struct platform_device *pdev;
-
-    pdev = platform_device_register_simple("ft5206_ts", 0, NULL, 0);
-    if (IS_ERR(pdev)) {
-        printk("%s: Failed to register firmware\n", __func__);
-        return -1;
-    }
-
-    ret = request_firmware(&fw, "ft5306_fw.bin", &pdev->dev);
-    if (ret) {
-		printk("%s: request_firmware error\n",__func__);
-		platform_device_unregister(pdev);
-        return -1;
-    }
-
-    platform_device_unregister(pdev);
-    printk("%s:fw size=%d\n", __func__,fw->size);
-
-    fw_buf = kzalloc(fw->size, GFP_KERNEL | GFP_DMA);
-    memcpy(fw_buf, fw->data, fw->size);
-
-    fts_ctpm_fw_upgrade(fw_buf, fw->size);
-
-    printk("%s: update finish\n", __func__);
-    release_firmware(fw);
-    kfree(fw_buf);
-
-    return 0;
-}
-#endif
-#endif
 
 static void ft5x0x_clear_report_data(struct ft5x0x_ts_data *ft5x0x_ts)
 {
@@ -986,6 +645,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	struct ft5x0x_ts_platform_data *pdata = client->dev.platform_data;
 	int err = 0;
 	unsigned char uc_reg_value;
+	u8 chip_id,i;
 
 	pr_info("[FST] %s: probe\n",__func__);
 
@@ -1019,35 +679,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 		err = -ENODEV;
 		goto exit_alloc_data_failed;
 	}
-
-	pr_info("[FST] FT5X0X_REG_CIPHER is 0x%x\n",uc_reg_value);
-
-	/*
-	 * Normally FT5306 chip id is 0x55, FT5316 chip id is 0x0a,
-	 * but if the device power off when downloading firmware,
-	 * FT5306 chip id changes to 0xa3, FT5316 changes to 0x0,
-	 * and the firmware need to be downloaded first next time.
-	 */
-	if (uc_reg_value == 0x55 || uc_reg_value == 0xa3) {
-		CTPM_FW = FT5306_FW;
-		fw_size = sizeof(FT5306_FW);
-		if(uc_reg_value == 0xa3) {
-			msleep(100);
-			fts_ctpm_fw_upgrade_with_i_file();
-		}
-	} else if (uc_reg_value == 0x0a || uc_reg_value == 0x0) {
-		CTPM_FW = FT5316_FW;
-		fw_size = sizeof(FT5316_FW);
-		if(uc_reg_value == 0x0) {
-			msleep(100);
-			fts_ctpm_fw_upgrade_with_i_file();
-		}
-	} else {
-		pr_err("[FST] unknown chip id %x\n", uc_reg_value);
-		err = -ENODEV;
-		goto exit_chip_check_failed;
-	}
-
+       
 	/* set report rate, about 70HZ */
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
 #if !USE_THREADED_IRQ
@@ -1092,6 +724,11 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	input_mt_init_slots(input_dev, TS_MAX_FINGER);
 #endif
 
+	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, 720, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, 1280, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
+	#if 0
 	/*ft5306's firmware is qhd, ft5316's firmware is 720p*/
 	if (uc_reg_value == 0x0a || uc_reg_value == 0x0) {
 		input_set_abs_params(input_dev,
@@ -1109,10 +746,12 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	input_set_abs_params(input_dev,
 			     ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 
+	#endif
+
 	set_bit(EV_ABS, input_dev->evbit);
 	set_bit(EV_KEY, input_dev->evbit);
 
-	input_dev->name = FT5X0X_NAME;
+	input_dev->name = FOCALTECH_TS_NAME;
 	err = input_register_device(input_dev);
 	if (err) {
 		dev_err(&client->dev,
@@ -1140,18 +779,42 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	register_early_suspend(&ft5x0x_ts->early_suspend);
 #endif
 
-	/* get chip firmware version */
-	uc_reg_value = ft5x0x_read_fw_ver();
-	pr_info("[FST] Firmware version = 0x%x\n", uc_reg_value);
-	pr_info("[FST] New Firmware version = 0x%x\n", CTPM_FW[fw_size-2]);
+       #if 1//find chip info  dennis add
+      		i2c_smbus_read_i2c_block_data(client,FT_REG_CHIP_ID,1,&chip_id);
+		printk("%s chip_id = %x\n", __func__, chip_id);
+		for(i=0;i<sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info);i++)
+                {
+                    if(chip_id==fts_updateinfo[i].CHIP_ID)
+                    {
+                        memcpy(&fts_updateinfo_curr, &fts_updateinfo[i], sizeof(struct Upgrade_Info));
+                        break;
+                    }
+                }
+                if(i>=sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info))
+                {
+                        memcpy(&fts_updateinfo_curr, &fts_updateinfo[0], sizeof(struct Upgrade_Info));
+                }
+       #endif
 
-	if(uc_reg_value != CTPM_FW[fw_size-2])
-	{
-		fts_ctpm_fw_upgrade_with_i_file();
-	}
+#ifdef SYSFS_DEBUG	
+fts_create_sysfs(client);
+#endif
 
-	ft5x0x_create_sysfs(client);
+#ifdef FTS_CTL_IIC	
+if (ft_rw_iic_drv_init(client) < 0)	
+{
+	dev_err(&client->dev, "%s:[FTS] create fts control iic driver failed\n",	__func__);
+}
+#endif
 
+#ifdef SPRD_AUTO_UPGRADE
+	printk("********************Enter CTP Auto Upgrade********************\n");
+	fts_ctpm_auto_upgrade(client);
+#endif   
+
+#ifdef APK_DEBUG
+	ft5x0x_create_apk_debug_channel(client);
+#endif
 	return 0;
 
 exit_irq_request_failed:
@@ -1174,7 +837,17 @@ static int __devexit ft5x0x_ts_remove(struct i2c_client *client)
 	struct ft5x0x_ts_data *ft5x0x_ts = i2c_get_clientdata(client);
 
 	pr_info("==ft5x0x_ts_remove=\n");
-
+	
+	#ifdef SYSFS_DEBUG
+	fts_release_sysfs(client);
+	#endif
+	#ifdef FTS_CTL_IIC	
+	ft_rw_iic_drv_exit();
+	#endif
+	#ifdef APK_DEBUG
+	ft5x0x_release_apk_debug_channel();
+	#endif
+	
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&ft5x0x_ts->early_suspend);
 #endif
@@ -1197,7 +870,7 @@ static int __devexit ft5x0x_ts_remove(struct i2c_client *client)
 }
 
 static const struct i2c_device_id ft5x0x_ts_id[] = {
-	{ FT5X0X_NAME, 0 },{ }
+	{ FOCALTECH_TS_NAME, 0 },{ }
 };
 
 static int ft5x0x_suspend(struct i2c_client *client, pm_message_t mesg)
@@ -1229,7 +902,7 @@ static struct i2c_driver ft5x0x_ts_driver = {
 	.remove		= __devexit_p(ft5x0x_ts_remove),
 	.id_table	= ft5x0x_ts_id,
 	.driver	= {
-		.name	= FT5X0X_NAME,
+		.name	= FOCALTECH_TS_NAME,
 		.owner	= THIS_MODULE,
 	},
 	.suspend = ft5x0x_suspend,

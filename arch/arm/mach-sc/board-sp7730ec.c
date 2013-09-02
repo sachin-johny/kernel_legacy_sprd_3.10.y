@@ -27,7 +27,8 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-#include <linux/i2c/ft53x6_ts.h>
+//#include <linux/i2c/ft53x6_ts.h>
+#include <linux/i2c/focaltech.h>
 #if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
 #include <linux/i2c/lis3dh.h>
 #endif
@@ -385,7 +386,7 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 
 static struct i2c_board_info i2c0_boardinfo[] = {
 	{
-		I2C_BOARD_INFO(FT5X0X_NAME, FT53x6_TS_ADDR),
+		I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
 		.platform_data = &ft5x0x_ts_info,
 	},
 };
