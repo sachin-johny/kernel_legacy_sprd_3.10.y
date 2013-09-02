@@ -95,7 +95,7 @@ int poweron_cpus(int cpu)
 
 int powerdown_cpus(int cpu)
 {
-	u32 poweron, val;
+	u32 poweron, val, i = 0;
 	if (cpu == 1)
 		poweron = REG_PMU_APB_PD_CA7_C1_CFG;
 	else if (cpu == 2)
@@ -107,6 +107,20 @@ int powerdown_cpus(int cpu)
 
 	val = (BIT_PD_CA7_C3_FORCE_SHUTDOWN | __raw_readl(poweron)) &~(BIT_PD_CA7_C3_AUTO_SHUTDOWN_EN);
 	writel(val, poweron);
+
+
+	while (i < 20) {
+		//check power down?
+		if (((__raw_readl(REG_PMU_APB_PWR_STATUS0_DBG) >> (4 * (cpu_logical_map(cpu) + 1))) & 0x0f) == 0x07) {
+			break;
+		}
+		udelay(60);
+		i++;
+	}
+	printk("powerdown_cpus i=%d !!\n", i);
+	BUG_ON(i >= 20);
+	udelay(60);
+
 	return 0;
 }
 

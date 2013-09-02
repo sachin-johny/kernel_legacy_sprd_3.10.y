@@ -41,7 +41,8 @@ pen:	ldr	r7, [r6]
 	.long	pen_release
 
 ENTRY(sci_shark_enter_lowpower)
-	//stmfd 	sp!, {r4-r12, lr}
+	stmfd 	sp!, {r4-r12, lr}
+	bl      v7_flush_dcache_all		@flush d-cache
 	mrc     p15, 0, r1, c1, c0, 0
 	bic     r0, r1, #(1 << 2)		@disable d-cache
 	mcr     p15, 0, r0, c1, c0, 0
@@ -56,10 +57,21 @@ ENTRY(sci_shark_enter_lowpower)
 	isb
 	dsb
 	nop
+	nop
+	nop
+	nop
+	nop
+	nop
 
-_loop_wfi:
 	wfi
-	b 	_loop_wfi
 
-	//ldmfd 	sp!, {r4-r12, pc}
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+	ldmfd 	sp!, {r4-r12, pc}
 ENDPROC(sci_shark_enter_lowpower)
