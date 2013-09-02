@@ -92,7 +92,7 @@ struct clock_name_map_t{
 
 static struct clock_name_map_t clock_name_map[] = {
 						{256000000,"clk_256m"},
-						{192000000,"clk_192p6m"},
+						{192000000,"clk_192m"},
 						{128000000,"clk_128m"},
 						{76800000,"clk_76m8"}
 						};
@@ -101,7 +101,7 @@ static int max_freq_level = ARRAY_SIZE(clock_name_map);
 
 static char *jpg_get_clk_src_name(unsigned int freq_level)
 {
-	if (freq_level >= max_freq_level - 1) {
+	if (freq_level >= max_freq_level ) {
 		printk(KERN_INFO "set freq_level to 0");
 		freq_level = 0;
 	}
