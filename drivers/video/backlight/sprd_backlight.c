@@ -50,6 +50,7 @@
 #define        PWM_SCALE       1
 #define        PWM_REG_MSK     0xffff
 #define        PWM_MOD_MAX     0xff
+#define        BRIGHTNESS_DIV   0x04
 
 /* sprdtrum backlight have two driven mode:
  * 1) pwm mode  //you need to define SPRD_BACKLIGHT_PWM
@@ -189,8 +190,8 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 		}
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
-		if((bl_brightness > 0) && (bl_brightness < 8))
-			bl_brightness = 8;
+		if((bl_brightness > 0) && (bl_brightness < (1 << BRIGHTNESS_DIV)))
+			bl_brightness = (1 << BRIGHTNESS_DIV);
 		pwm_level = bl_brightness & 0x3;
 		/*duty ratio = 25% 50% 75% or 100%*/
 		pwm_level = (PWM_MOD_MAX >> 2) * (pwm_level + 1) & PWM_MOD_MAX;
@@ -198,7 +199,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 		if (sprdbl.pwm_mode == dim_pwm) {
 			/*series mode*/
 			/*whiteled config*/
-			led_level = sprd_caculate_brightness(bl_brightness >> 3);
+			led_level = sprd_caculate_brightness(bl_brightness >> BRIGHTNESS_DIV);
 			PRINT_DBG("user requested brightness = %d, caculated led_level = %d\n", bldev->props.brightness, led_level);
 			if ((int)led_level < 0) {
 				return led_level;
