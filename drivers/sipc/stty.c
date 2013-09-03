@@ -24,6 +24,8 @@
 #include <linux/vt_kern.h>
 #include <linux/init.h>
 #include <linux/console.h>
+#include <linux/delay.h>
+
 
 #include <linux/compat.h>
 #include <linux/tty_flip.h>
@@ -47,15 +49,19 @@ static int stty_thread(void *data)
 	int i, cnt = 0;
 	unsigned char buf[STTY_MAX_DATA_LEN] = {0};
 
-	while(!kthread_should_stop()){
+	while(!kthread_should_stop()) {
 
 		cnt = sbuf_read(stty->pdata->dst, stty->pdata->channel,
 						stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, -1);
-		if(cnt > 0){
-			for(i = 0;i < cnt; i++) {
+		if (cnt > 0) {
+			for(i = 0; i < cnt; i++) {
 				tty_insert_flip_char(stty->tty, buf[i], TTY_NORMAL);
 			}
 			tty_schedule_flip(stty->tty);
+		} else if (cnt == -ENODEV) {
+			msleep(2000);
+		} else {
+			msleep(40);
 		}
 	}
 
@@ -66,6 +72,7 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 {
 	struct stty_device *stty = stty_ipc;
 	tty->driver_data = NULL;
+
 	if(stty == NULL) {
 		printk(KERN_INFO "stty open err NULL!\n");
 		return -ENOMEM;
@@ -189,8 +196,8 @@ static int __devinit stty_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, stty);
 	stty_ipc = stty;
-
 	wake_up_process(stty->thread);
+
 	return 0;
 }
 
