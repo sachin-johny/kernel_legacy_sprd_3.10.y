@@ -666,15 +666,14 @@ struct emc_repower_param *repower_param;
 
 
 #define SPRD_RESET_VECTORS 0X00000000
-#define IRAM_START_PHY 	SPRD_IRAM_PHYS
-#define SLEEP_CODE_SIZE 4096
-#define EMC_REINIT_CODE_SIZE 4096
+#define SLEEP_RESUME_CODE_PHYS 	0X400
+#define SLEEP_CODE_SIZE 0x800
 
 static int init_reset_vector(void)
 {
 	sp_pm_reset_vector = (u32 *)SPRD_IRAM0_BASE;
 
-	iram_start = (void __iomem *)(SPRD_IRAM_BASE);
+	iram_start = (void __iomem *)(SPRD_IRAM0_BASE + SLEEP_RESUME_CODE_PHYS);
 	/* copy sleep code to (IRAM). */
 	if ((sc8830_standby_iram_end - sc8830_standby_iram) > SLEEP_CODE_SIZE) {
 		panic("##: code size is larger than expected, need more memory!\n");
@@ -704,7 +703,7 @@ void set_reset_vector(void)
 	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 2] = 0xE51FF004; /* ldr pc, 4 */
 
 	sp_pm_reset_vector[SAVED_VECTOR_SIZE - 1] = (sc8830_standby_exit_iram -
-		sc8830_standby_iram + IRAM_START_PHY); /* place v7_standby_iram here */
+		sc8830_standby_iram + SLEEP_RESUME_CODE_PHYS); /* place v7_standby_iram here */
 }
 
 void restore_reset_vector(void)
