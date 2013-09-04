@@ -118,7 +118,7 @@ static int ft_rw_iic_drv_RDWR(struct i2c_client *client, unsigned long arg)
 	u8 __user **data_ptrs;
 	struct ft_rw_i2c * i2c_rw_msg;
 	int ret = 0;
-	int i;
+	int i,j;
 
 	if (!access_ok(VERIFY_READ, (struct ft_rw_i2c_queue *)arg, sizeof(struct ft_rw_i2c_queue)))
 		return -EFAULT;
@@ -141,12 +141,14 @@ static int ft_rw_iic_drv_RDWR(struct i2c_client *client, unsigned long arg)
 	if (copy_from_user(i2c_rw_msg, i2c_rw_queue.i2c_queue,
 			i2c_rw_queue.queuenum*sizeof(struct ft_rw_i2c))) {
 		kfree(i2c_rw_msg);
+		i2c_rw_msg = NULL;
 		return -EFAULT;
 	}
 
 	data_ptrs = kmalloc(i2c_rw_queue.queuenum * sizeof(u8 __user *), GFP_KERNEL);
 	if (data_ptrs == NULL) {
 		kfree(i2c_rw_msg);
+		i2c_rw_msg = NULL;
 		return -ENOMEM;
 	}
 	
@@ -172,11 +174,15 @@ static int ft_rw_iic_drv_RDWR(struct i2c_client *client, unsigned long arg)
 	}
 
 	if (ret < 0) {
-		int j;
 		for (j=0; j<i; ++j)
+		{
 			kfree(i2c_rw_msg[j].buf);
+			i2c_rw_msg[j].buf = NULL;
+		}
 		kfree(data_ptrs);
+		data_ptrs = NULL;
 		kfree(i2c_rw_msg);
+		i2c_rw_msg = NULL;
 		return ret;
 	}
 
@@ -191,7 +197,15 @@ static int ft_rw_iic_drv_RDWR(struct i2c_client *client, unsigned long arg)
 			ret = ft_rw_iic_drv_mywrite(client,
 					i2c_rw_msg[i].buf, i2c_rw_msg[i].length);
 	}
-
+	for (j=0; j<i; ++j)
+	{
+	       if(i2c_rw_msg[j].buf != NULL)
+			kfree(i2c_rw_msg[j].buf);
+	}
+	if(data_ptrs != NULL)
+		kfree(data_ptrs);
+	if(i2c_rw_msg != NULL)
+		kfree(i2c_rw_msg);
 	return ret;
 	
 }

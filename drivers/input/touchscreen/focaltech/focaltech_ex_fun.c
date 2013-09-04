@@ -69,7 +69,7 @@ static DEFINE_MUTEX(g_device_mutex);
 int fts_i2c_Read(struct i2c_client *client, char *writebuf,
 		    int writelen, char *readbuf, int readlen)
 {
-	int ret,i;
+	int ret;
 	
 #if 1//for normal I2c transfer
 	if (writelen > 0) {
@@ -160,7 +160,7 @@ int fts_i2c_Read(struct i2c_client *client, char *writebuf,
 int fts_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 {
 	int ret;
-	int i = 0;
+	//int i = 0;
 	//printk("fts_i2c_Write  %d  %x  %x %x %x",writelen,writebuf,I2CDMABuf_va,I2CDMABuf_pa,client);
 	
   // client->addr = client->addr & I2C_MASK_FLAG;
@@ -484,7 +484,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 	u8 packet_buf[FTS_PACKET_LENGTH + 6];
 	u8 auc_i2c_write_buf[10];
 	u8 bt_ecc;
-	int i_ret;
+	//int i_ret;
       // struct Upgrade_Info upgradeinfo;
 	   
 	//fts_get_upgrade_info(&upgradeinfo);
@@ -775,6 +775,7 @@ int fts_ctpm_fw_upgrade_with_app_file(struct i2c_client *client,
 		dev_err(&client->dev, "%s() - ERROR: request_firmware failed\n",
 					__func__);
 		kfree(pbt_buf);
+		pbt_buf = NULL;
 		//return -EIO;
 		i_ret = -EIO;
 		goto err_ret;
@@ -791,7 +792,7 @@ int fts_ctpm_fw_upgrade_with_app_file(struct i2c_client *client,
 err_ret:
 	
 	
-	
+	if(pbt_buf != NULL)
 	kfree(pbt_buf);
     
 	return i_ret;
@@ -908,12 +909,12 @@ static ssize_t fts_fwupdate_store(struct device *dev,
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
-	struct fts_ts_data *data = NULL;
+	//struct fts_ts_data *data = NULL;
 	u8 uc_host_fm_ver;
 	int i_ret;
 	struct i2c_client *client = container_of(dev, struct i2c_client, dev);
 
-	data = (struct fts_ts_data *)i2c_get_clientdata(client);
+	//data = (struct fts_ts_data *)i2c_get_clientdata(client);
 
 	mutex_lock(&g_device_mutex);
 
@@ -1132,9 +1133,9 @@ static int ft5x0x_debug_read( char *page, char **start,
 	off_t off, int count, int *eof, void *data )
 {
 	struct i2c_client *client = (struct i2c_client *)ft5x0x_proc_entry->data;
-	int ret = 0, err = 0;
-	u8 tx = 0, rx = 0;
-	int i, j;
+	int ret = 0;
+	//u8 tx = 0, rx = 0;
+	//int i, j;
 	unsigned char buf[PAGE_SIZE];
 	int num_read_chars = 0;
 	int readlen = 0;
