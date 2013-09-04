@@ -664,6 +664,7 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 		return ret;
 	}
 
+	ret = _isp_registerirq();
 	g_isp_device.reg_base_addr = (uint32_t)ISP_BASE_ADDR;
 	g_isp_device.size = ISP_REG_MAX_SIZE;
 
@@ -1180,6 +1181,7 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 			case ISP_IO_STOP: {
 			unsigned long flag = 0;
 			struct isp_node node = { 0 };
+			ret = _isp_en_irq(0);//dis-enable the interrupt
 			ISP_PRINT("isp_k: ioctl  stop start !\n");
 			spin_lock_irqsave(&isp_spin_lock,flag);
 			node.dcam_irq_val = ISP_INT_STOP;
@@ -1198,9 +1200,9 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 					goto ISP_IOCTL_LOCKED_CMD_EXIT;
 				}
 				ret = _isp_en_irq(int_num);
-				ret = _isp_registerirq();
+				//ret = _isp_registerirq();
 				if (unlikely(ret)) {
-					ISP_PRINT ("isp_k:register interrupt error \n");
+					ISP_PRINT ("isp_k:enable  interrupt error \n");
 					ret = -EFAULT;
 				}
 			}
