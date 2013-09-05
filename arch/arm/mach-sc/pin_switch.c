@@ -144,6 +144,8 @@ static int pin_switch_dir_debug_set(void *data, u64 val)
 	struct sci_pin_switch *p = data;
 	if (val == 1)
 		val = p->func;
+	else			/*if val = 0 or other value, just ignore it*/
+		return 0;
 	read_write_pin_switch(0, val, p);
 	return 0;
 }
@@ -153,11 +155,10 @@ static int pin_switch_dir_debug_get(void *data, u64 * val)
 	struct sci_pin_switch *p = data;
 	int func_tmp;
 	func_tmp = read_write_pin_switch(1, (int)val, p);
-	if (p->func == func_tmp) {
+	if (p->func == func_tmp)
 		*val = 1;
-	} else {
+	else
 		*val = 0;
-	}
 	return 0;
 }
 
