@@ -580,13 +580,13 @@ static int eic_gpio_probe(struct platform_device *pdev)
 
 
 	if (-1 != r[ENUM_ID_D_GPIO].irq) {
-		setup_irq(r[ENUM_ID_D_GPIO].irq, &__d_gpio_irq);
 		gpio_irq_init(r[ENUM_ID_D_GPIO].irq, &d_sci_gpio.chip, &d_gpio_irq_chip);
+		setup_irq(r[ENUM_ID_D_GPIO].irq, &__d_gpio_irq);
 	}
 
 	if (-1 != r[ENUM_ID_D_EIC].irq) {
-		setup_irq(r[ENUM_ID_D_EIC].irq, &__d_eic_irq);
 		gpio_irq_init(r[ENUM_ID_D_EIC].irq, &d_sci_eic.chip, &d_eic_irq_chip);
+		setup_irq(r[ENUM_ID_D_EIC].irq, &__d_eic_irq);
 	}
 
 	if (-1 != r[ENUM_ID_A_GPIO].irq)
