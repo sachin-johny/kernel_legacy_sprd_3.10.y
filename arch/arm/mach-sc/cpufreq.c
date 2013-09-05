@@ -25,6 +25,7 @@
 #include <linux/debugfs.h>
 #include <linux/cpu.h>
 #include <linux/thermal.h>
+#include <linux/earlysuspend.h>
 #include <linux/regulator/consumer.h>
 #include <asm/system.h>
 #include <trace/events/power.h>
@@ -163,7 +164,8 @@ struct cpufreq_conf sc8825_cpufreq_conf = {
 	.freq_tbl = sc8825_cpufreq_table_data.freq_tbl,
 	.vddarm_mv = sc8825_cpufreq_table_data.vddarm_mv,
 };
-
+#define DVFS_BOOT_TIME	(30 * HZ)
+static unsigned long boot_done;
 /* khz */
 static unsigned int shark_top_frequency;
 #define SHARK_TDPLL_FREQUENCY	(768000)
@@ -474,7 +476,7 @@ static void sprd_real_set_cpufreq(int cpu, unsigned int new_speed, int index)
 		mutex_unlock(&freq_lock);
 		return;
 	}
-	pr_debug("$$$ sprd_real_set_cpufreq %u khz on cpu%d\n",
+	pr_info("$$$ sprd_real_set_cpufreq %u khz on cpu%d\n",
 		new_speed, smp_processor_id());
 	global_freqs.new = new_speed;
 
@@ -557,6 +559,7 @@ static int sprd_cpufreq_pm_notify(struct notifier_block *nb,
 	/* in suspend and hibernation process, we need set frequency to the orignal
 	 * one to make sure all things go right */
 	if (event == PM_SUSPEND_PREPARE || event == PM_HIBERNATION_PREPARE) {
+		printk("---xing--- dvfs get suspend notify\n");
 		sprd_cpufreq_status.is_suspend = true;
 
 		for_each_online_cpu(i) {
@@ -577,8 +580,8 @@ static int sprd_cpufreq_pm_notify(struct notifier_block *nb,
 			pr_err("cpufreq: Failed to find orignal cpu frequency in table\n");
 		} else
 			sprd_update_cpu_speed(0, sprd_cpufreq_conf->orignal_freq, i);
-	} else if (event == PM_POST_SUSPEND || event == PM_POST_HIBERNATION)
-		sprd_cpufreq_status.is_suspend = false;
+	}/*  else if (event == PM_POST_SUSPEND || event == PM_POST_HIBERNATION)
+		sprd_cpufreq_status.is_suspend = false; */
 
 	return NOTIFY_OK;
 }
@@ -586,8 +589,23 @@ static int sprd_cpufreq_pm_notify(struct notifier_block *nb,
 static struct notifier_block sprd_cpufreq_pm_notifier = {
 	.notifier_call = sprd_cpufreq_pm_notify,
 };
+#ifdef CONFIG_EARLYSUSPEND
+static struct early_suspend sprd_cpufreq_earlysuspend_notify;
 
+static void sprd_cpufreq_earlysuspend(struct early_suspend *h)
+{
+	printk("--xing--- %s do nothing\n", __func__);
+	return;
+}
 
+static void sprd_cpufreq_lateresume(struct early_suspend *h)
+{
+	printk("--xing--- %s\n", __func__);
+	sprd_cpufreq_status.is_suspend = false;
+	return;
+}
+
+#endif
 static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 {
 	if (policy->cpu > CONFIG_NR_CPUS) {
@@ -611,6 +629,13 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 #endif
 	if (true == sprd_cpufreq_status.is_suspend)
 		return 0;
+
+	/* delay 30s to enable dvfs&dynamic-hotplug,
+         * except requirment from termal-cooling device
+         */
+	if(time_before(jiffies, boot_done)){
+		return 0;
+	}
 
 	table = cpufreq_frequency_get_table(policy->cpu);
 
@@ -717,8 +742,15 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 	if (ret != 0)
 		pr_err("%s --- Failed to config freq table: %d\n", __FUNCTION__, ret);
 
-	if (policy->cpu == 0)
+	if (policy->cpu == 0) {
 		register_pm_notifier(&sprd_cpufreq_pm_notifier);
+#ifdef CONFIG_EARLYSUSPEND
+		sprd_cpufreq_earlysuspend_notify.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+		sprd_cpufreq_earlysuspend_notify.suspend = sprd_cpufreq_earlysuspend;
+		sprd_cpufreq_earlysuspend_notify.resume = sprd_cpufreq_lateresume;
+		register_early_suspend(&sprd_cpufreq_earlysuspend_notify);
+#endif
+	}
 
 	pr_err("sprd_cpufreq_driver_init policy->cpu = %d, policy->cur = %u, cpu = %d, ret = %d\n",
 		policy->cpu, policy->cur, smp_processor_id(), ret);
@@ -728,9 +760,12 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 
 static int sprd_cpufreq_exit(struct cpufreq_policy *policy)
 {
-	if (policy->cpu == 0)
+	if (policy->cpu == 0) {
+#ifdef CONFIG_EARLYSUSPEND
+		unregister_early_suspend(&sprd_cpufreq_earlysuspend_notify);
+#endif
 		unregister_pm_notifier(&sprd_cpufreq_pm_notifier);
-
+	}
 	return 0;
 }
 
@@ -883,6 +918,7 @@ static int __init sprd_cpufreq_modinit(void)
 #if defined(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)
 	sprd_auto_hotplug_init();
 #endif
+	boot_done = jiffies + DVFS_BOOT_TIME;
 	ret = cpufreq_register_notifier(
 		&sprd_cpufreq_policy_nb, CPUFREQ_POLICY_NOTIFIER);
 	if (ret)
