@@ -50,4 +50,4 @@ sprd_8810_battery-y := sprd_power.o sprd_8810_charge.o
 obj-$(CONFIG_SPRD_8825_POWER)	+= sprd_8825_battery.o
 sprd_8825_battery-y := sprd_power.o sprd_8825_charge.o
 obj-$(CONFIG_SPRD_2713_POWER)  += sprd_2713_battery.o
-sprd_2713_battery-y := sprd_2713_power.o sprd_2713_charge.o
+sprd_2713_battery-y := sprd_2713_power.o sprd_2713_charge.o sprd_2713_fgu.o
