@@ -46,6 +46,7 @@ typedef enum {
 #define REG_ROTATION_ORIGWIDTH (ROT_BASE + 0x8004UL)
 #define REG_ROTATION_OFFSET_START (ROT_BASE + 0x8008UL)
 #define REG_ROTATION_IMG_SIZE (ROT_BASE + 0x800CUL)
+#define REG_ROTATION_AHB_RESET (SPRD_MMAHB_BASE + 0x04UL)
 
 #define ROT_IRQ_BIT (1 << 15)
 #define ROT_START_BIT (1 << 5)
@@ -58,6 +59,8 @@ typedef enum {
 #define ROT_PIXEL_FORMAT_BIT (1 << 1)
 #define ROT_MODE_MASK (3 << 2)
 #define ROT_UV_MODE_BIT (1 << 4)
+
+#define ROT_AHB_RESET_BIT (1 << 10)
 
 #ifdef __cplusplus
 }

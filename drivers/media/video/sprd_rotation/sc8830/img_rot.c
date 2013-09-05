@@ -30,8 +30,6 @@
 #include <linux/delay.h>
 #include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
 
-/*#define ROTATION_DEBUG 0*/
-
 #define ROT_TIMEOUT 5000/*ms*/
 #define ROTATION_MINOR MISC_DYNAMIC_MINOR
 #define ROT_USER_MAX 4
@@ -45,12 +43,11 @@ struct rot_user {
 	struct semaphore sem_done;
 };
 
-static wait_queue_head_t wait_queue;
 static struct semaphore g_sem_dev_open;
 static struct semaphore g_sem_rot;
+static struct semaphore g_sem_rot_done;
 static struct rot_user *g_rot_user = NULL;
 static atomic_t rot_users = ATOMIC_INIT(0);
-static int rot_condition;
 static pid_t cur_task_pid;
 
 static struct rot_user *rot_get_user(pid_t user_pid)
@@ -80,29 +77,20 @@ static struct rot_user *rot_get_user(pid_t user_pid)
 
 static void rot_k_irq(void)
 {
-	ROTATE_TRACE("%s, come\n", __func__ );
+	ROTATE_TRACE("rot_k_irq start.\n");
 	dcam_rotation_end();
-	rot_condition = 1;
-	wake_up(&wait_queue);
-	ROTATE_TRACE("rotation_dma_irq X .\n");
-}
-
-static void rot_k_condition_init(void)
-{
-	rot_condition = 0;
+	up(&g_sem_rot_done);
+	ROTATE_TRACE("rot_k_irq end.\n");
 }
 
 static int rot_k_wait_stop(void)
 {
 	int ret = 0;
-	ROTATE_TRACE("rotation_dma_wait_stop E .\n");
-	ret = wait_event_timeout(wait_queue, rot_condition,msecs_to_jiffies(ROT_TIMEOUT));
-	ROTATE_TRACE("ok to rotation_dma_wait_stop.\n");
-	if (ret) {
-		return 0;
-	} else {
-		return -1;
-	}
+	ROTATE_TRACE("rot_k_wait_stop start.\n");
+	ret = down_timeout(&g_sem_rot_done, msecs_to_jiffies(ROT_TIMEOUT));
+	ROTATE_TRACE("rot_k_wait_stop end.\n");
+	udelay(1);
+	return ret;
 }
 
 static int rot_k_start(void)
@@ -110,8 +98,7 @@ static int rot_k_start(void)
 	int ret = 0;
 	struct rot_user *p_user = NULL;
 
-	rot_k_condition_init();
-	rot_k_done();
+	rot_k_register_cfg();
 
 	if (0 == rot_k_is_end()) {
 		ret = rot_k_wait_stop();
@@ -119,11 +106,9 @@ static int rot_k_start(void)
 			printk("rot_k_thread y wait error \n");
 			goto rot_exit;
 		}
-
 		ROTATE_TRACE("rot_k_start y done, uv start. \n");
-		rot_k_condition_init();
 		rot_k_set_UV_param();
-		rot_k_done();
+		rot_k_register_cfg();
 	}
 	ret = rot_k_wait_stop();
 	if (ret) {
@@ -260,8 +245,6 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 				if(((struct rot_user *)(file->private_data))->is_rot_enable) {
 					((struct rot_user *)(file->private_data))->is_rot_enable = 0;
-					if (!rot_condition)
-						ret = -1;
 					up(&g_sem_rot);
 				}
 
@@ -309,8 +292,8 @@ int rot_k_probe(struct platform_device *pdev)
 	}
 
 	sema_init(&g_sem_rot, 1);
+	sema_init(&g_sem_rot_done, 0);
 	sema_init(&g_sem_dev_open, 1);
-	init_waitqueue_head(&wait_queue);
 	p_user = g_rot_user;
 	for (i = 0; i < ROT_USER_MAX; i++) {
 		p_user->pid = INVALID_USER_ID;

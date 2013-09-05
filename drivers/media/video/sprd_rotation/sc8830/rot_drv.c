@@ -16,11 +16,11 @@
 #include <asm/io.h>
 #include <video/sprd_rot_k.h>
 #include <mach/hardware.h>
+#include <mach/sci.h>
 #include "rot_drv.h"
 #include "sc8830_reg_rot.h"
 #include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
 
-/*#define ROTATION_DEBUG 0*/
 #define ALGIN_FOUR 0x03
 
 #define REG_RD(a) __raw_readl(a)
@@ -80,6 +80,12 @@ int rot_k_module_dis(void)
 	}
 
 	return ret;
+}
+
+static void rot_k_ahb_reset(void)
+{
+	sci_glb_set(REG_ROTATION_AHB_RESET, ROT_AHB_RESET_BIT);
+	sci_glb_clr(REG_ROTATION_AHB_RESET, ROT_AHB_RESET_BIT);
 }
 
 static void rot_k_set_src_addr(uint32_t src_addr)
@@ -269,10 +275,11 @@ int rot_k_set_UV_param(void)
 	return 0;
 }
 
-void rot_k_done(void)
+void rot_k_register_cfg(void)
 {
 	DECLARE_ROTATION_PARAM_ENTRY(s);
 
+	rot_k_ahb_reset();
 	dcam_rotation_start();
 	rot_k_set_src_addr(s->s_addr);
 	rot_k_set_dst_addr(s->d_addr);
@@ -283,7 +290,7 @@ void rot_k_done(void)
 	rot_k_set_endian(s->src_endian, s->dst_endian);
 	rot_k_enable();
 	rot_k_start();
-	ROTATE_TRACE("ok to rotation_done.\n");
+	ROTATE_TRACE("rot_k_register_cfg.\n");
 }
 
 void rot_k_close(void)
@@ -294,7 +301,7 @@ void rot_k_close(void)
 static int rot_k_check_param(ROT_CFG_T * param_ptr)
 {
 	if (NULL == param_ptr) {
-		ROTATE_TRACE("Rotation: the param ptr is null.\n");
+		printk("Rotation: the param ptr is null.\n");
 		return -1;
 	}
 
@@ -304,18 +311,18 @@ static int rot_k_check_param(ROT_CFG_T * param_ptr)
 	|| (param_ptr->dst_addr.y_addr & ALGIN_FOUR)
 	|| (param_ptr->dst_addr.u_addr & ALGIN_FOUR)
 	|| (param_ptr->dst_addr.v_addr & ALGIN_FOUR)) {
-		ROTATE_TRACE("Rotation: the addr not algin.\n");
+		printk("Rotation: the addr not algin.\n");
 		return -1;
 	}
 
 	if (!(ROT_YUV422 == param_ptr->format || ROT_YUV420 == param_ptr->format
 		||ROT_RGB565 == param_ptr->format)) {
-		ROTATE_TRACE("Rotation: data for err : %d.\n", param_ptr->format);
+		printk("Rotation: data for err : %d.\n", param_ptr->format);
 		return -1;
 	}
 
 	if (ROT_MIRROR < param_ptr->angle) {
-		ROTATE_TRACE("Rotation: data angle err : %d.\n", param_ptr->angle);
+		printk("Rotation: data angle err : %d.\n", param_ptr->angle);
 		return -1;
 	}
 #if 0
