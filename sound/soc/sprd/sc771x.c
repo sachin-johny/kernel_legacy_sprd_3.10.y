@@ -49,6 +49,8 @@ enum {
 
 static struct sc771x_priv {
 	int func[SC771X_FUNC_MAX];
+	int hp_mute;
+	int hp_mute_on;
 } sc771x;
 
 static const char *func_name[SC771X_FUNC_MAX] = {
@@ -111,6 +113,9 @@ static inline void local_cpu_hp_pa_control(bool enable)
 
 static void audio_headphone_enable(int enable)
 {
+	if (enable && sc771x.hp_mute) {
+		enable = 0;
+        }
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
 		audio_pa_amplifier->headset.control(enable, NULL);
 	else
@@ -122,6 +127,7 @@ static int sc771x_hp_event(struct snd_soc_dapm_widget *w,
 {
 	sc771x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
+	sc771x.hp_mute_on = (! !SND_SOC_DAPM_EVENT_ON(event));
 	audio_headphone_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	sc771x_dbg("Leaving %s\n", __func__);
 	return 0;
@@ -205,8 +211,31 @@ static int sc771x_func_set(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int sc771x_mute_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = sc771x.hp_mute;
+	return 0;
+}
+
+static int sc771x_mute_set(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	pr_info("hp is %s\n",
+		ucontrol->value.integer.value[0] ? "Mute" : "Unmute");
+
+	if (sc771x.hp_mute == ucontrol->value.integer.value[0])
+		return 0;
+
+	sc771x.hp_mute = ucontrol->value.integer.value[0];
+	audio_headphone_enable(sc771x.hp_mute_on);
+	return 1;
+}
+
 #define SC771X_CODEC_FUNC(xname, xreg) \
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, sc771x_func_get, sc771x_func_set)
+#define SC771X_CODEC_MUTE(xname, xreg) \
+	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, sc771x_mute_get, sc771x_mute_set)
 
 static const struct snd_kcontrol_new sprd_codec_sc771x_controls[] = {
 	SC771X_CODEC_FUNC("Speaker Function", SC771X_FUNC_SPKL),
@@ -217,6 +246,8 @@ static const struct snd_kcontrol_new sprd_codec_sc771x_controls[] = {
 	SC771X_CODEC_FUNC("Mic Function", SC771X_FUNC_MIC),
 	SC771X_CODEC_FUNC("Aux Mic Function", SC771X_FUNC_AUXMIC),
 	SC771X_CODEC_FUNC("HP Mic Function", SC771X_FUNC_HP_MIC),
+
+	SC771X_CODEC_MUTE("HeadPhone Mute", SC771X_FUNC_HP),
 };
 
 static int sc771x_late_probe(struct snd_soc_card *card)
