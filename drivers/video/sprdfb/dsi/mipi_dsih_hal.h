@@ -61,7 +61,69 @@
 #define R_DSI_HOST_ERROR_ST1        0x48UL                                                                                              
 #define R_DSI_HOST_ERROR_MSK0       0x4CUL                                                                                              
 #define R_DSI_HOST_ERROR_MSK1       0x50UL                                                                                              
-                                                                                                                                        
+
+
+typedef enum _Dsi_Int0_Type_ {
+    ack_with_err_0,
+    ack_with_err_1,
+    ack_with_err_2,
+    ack_with_err_3,
+    ack_with_err_4,
+    ack_with_err_5,
+    ack_with_err_6,
+    ack_with_err_7,
+    ack_with_err_8,
+    ack_with_err_9,
+    ack_with_err_10,
+    ack_with_err_11,
+    ack_with_err_12,
+    ack_with_err_13,
+    ack_with_err_14,
+    ack_with_err_15,
+    dphy_errors_0,
+    dphy_errors_1,
+    dphy_errors_2,
+    dphy_errors_3,
+    dphy_errors_4,
+    DSI_INT0_MAX,
+}Dsi_Int0_Type;
+
+typedef enum _Dsi_Int1_Type_ {
+    to_hs_tx,
+    to_lp_rx,
+    ecc_single_err,
+    ecc_multi_err,
+    crc_err,
+    pkt_size_err,
+    eopt_err,
+    dpi_pld_wr_err,
+    gen_cmd_wr_err,
+    gen_pld_wr_err,
+    gen_pld_send_err,
+    gen_pld_rd_err,
+    gen_pld_recv_err,
+    dbi_cmd_wr_err,
+    dbi_pld_wr_err,
+    dbi_pld_rd_err,
+    dbi_pld_recv_err,
+    dbi_illegal_comm_err,
+    DSI_INT1_MAX,
+}Dsi_Int1_Type;
+#define DSI_INT_MASK0_SET(bit,val)\
+{\
+	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0);\
+	reg_val = (val == 1)?(reg_val | (1UL<<bit)):(reg_val & (~(1UL<<bit)));\
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0, reg_val);\
+}
+
+#define DSI_INT_MASK1_SET(bit,val)\
+{\
+	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK1);\
+	reg_val = (val == 1)?(reg_val | (1UL<<bit)):(reg_val & (~(1UL<<bit)));\
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK1, reg_val);\
+}
+
+
 uint32_t mipi_dsih_hal_get_version(dsih_ctrl_t * instance);                                                                             
 void mipi_dsih_hal_power(dsih_ctrl_t * instance, int on);                                                                               
 int mipi_dsih_hal_get_power(dsih_ctrl_t * instance);                                                                                    

@@ -31,6 +31,16 @@
 #include <mach/sci.h>
 
 
+typedef struct _trick_item_
+{
+	volatile uint32_t trick_en;// trick enable flag
+	volatile uint32_t interval;// this interruption should be re-enable after interval time later, time count by jiffies
+	volatile uint32_t begin_jiffies;// this variable recorrd the jiffies last time the interrupt occur
+	volatile uint32_t disable_cnt;
+	volatile uint32_t enable_cnt;
+}
+Trick_Item;
+
 void __raw_bits_set_value(unsigned int reg, unsigned int value, unsigned int bit, unsigned int mask);
 
 void dispc_pll_clk_set(unsigned int clk_src, unsigned int clk_div);
