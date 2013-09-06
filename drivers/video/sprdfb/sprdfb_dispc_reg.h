@@ -72,6 +72,23 @@
 #define AHB_MATRIX_CLOCK (0x0208)
 #define REG_AHB_MATRIX_CLOCK (AHB_MATRIX_CLOCK + SPRD_AHB_BASE)
 
+typedef enum _DispC_Int_Type_
+{
+	DISPC_INT_DONE,
+	DISPC_INT_TE,
+	DISPC_INT_ERR,// underflow err
+	DISPC_INT_EDPI_TE,
+	DISPC_INT_UPDATE_DONE,
+	DISPC_INT_MAX,
+}DispC_Int_Type;
+
+#define DISPC_INTERRUPT_SET(bit,val)\
+{\
+	uint32_t reg_val = dispc_read(DISPC_INT_EN);\
+	reg_val = (val == 1)?(reg_val | (1UL<<bit)):(reg_val & (~(1UL<<bit)));\
+	dispc_write(reg_val, DISPC_INT_EN);\
+}
+
 static inline uint32_t dispc_read(uint32_t reg)
 {
 	return dispc_glb_read(SPRD_DISPC_BASE + reg);

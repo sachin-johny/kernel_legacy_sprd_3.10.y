@@ -116,7 +116,74 @@ static void dispc_run_for_feature(struct sprdfb_device *dev);
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state);
 
 
-static uint32_t underflow_ever_happened = 0;
+//
+static volatile Trick_Item s_trick_record[DISPC_INT_MAX]= {
+    //en interval begin dis_cnt en_cnt
+    {0,  0,  0,  0,  0},//DISPC_INT_DONE
+    {0,  0,  0,  0,  0},//DISPC_INT_TE
+    {1,300,  0,  0,  0},//DISPC_INT_ERR, interval == 3s
+    {0,  0,  0,  0,  0},//DISPC_INT_EDPI_TE
+    {0,  0,  0,  0,  0},//DISPC_INT_UPDATE_DONE
+};
+
+/*
+func:dispc_irq_trick
+desc:if a xxx interruption come many times in a short time, print the firt one, mask the follows.
+     a fixed-long time later, enable this interruption.
+*/
+static void dispc_irq_trick_in(uint32_t int_status)
+{
+	static uint32_t mask_irq_times = 0;
+	uint32_t i = 0;
+
+	while(i < DISPC_INT_MAX) {
+		if((int_status & (1UL << i))
+		&& s_trick_record[i].trick_en != 0) {
+			if(s_trick_record[i].begin_jiffies == 0) {
+				//disable this interruption
+				DISPC_INTERRUPT_SET(i,0);
+				s_trick_record[i].begin_jiffies = jiffies;
+				s_trick_record[i].disable_cnt++;
+				mask_irq_times++;
+				pr_debug("%s[%d]: INT[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record[i].disable_cnt);
+			}
+		}
+		i++;
+	}
+	pr_debug("%s[%d]: total mask_irq_times:0x%08x \n",__func__,__LINE__,mask_irq_times);
+}
+
+/*
+func:dispc_irq_trick
+desc:if a xxx interruption come many times in a short time, print the firt one, mask the follows.
+     a fixed-long time later, enable this interruption.
+*/
+static void dispc_irq_trick_out(void)
+{
+	static uint32_t open_irq_times = 0;
+	uint32_t i = 0;
+
+	while(i < DISPC_INT_MAX) {
+		if((s_trick_record[i].trick_en != 0)
+		&& (s_trick_record[i].begin_jiffies > 0)) {
+			if((s_trick_record[i].begin_jiffies + s_trick_record[i].interval) < jiffies) {
+				//re-enable this interruption
+				DISPC_INTERRUPT_SET(i,1);
+				s_trick_record[i].begin_jiffies = 0;
+				s_trick_record[i].enable_cnt++;
+				open_irq_times++;
+				pr_debug("%s[%d]: INT[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record[i].enable_cnt);
+			}
+		}
+		i++;
+	}
+	pr_debug("%s[%d]: total open_irq_times:0x%08x \n",__func__,__LINE__,open_irq_times);
+}
+
+extern void dsi_irq_trick(uint32_t int_id,uint32_t int_status);
+
+
+//static uint32_t underflow_ever_happened = 0;
 static irqreturn_t dispc_isr(int irq, void *data)
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)data;
@@ -130,13 +197,14 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	reg_val = dispc_read(DISPC_INT_STATUS);
 
 	pr_debug("dispc_isr (0x%x)\n",reg_val );
-	pr_debug("Warning: underflow_ever_happened:(0x%x)!\n",underflow_ever_happened);
+	//printk("%s%d: underflow_ever_happened:0x%08x \n",__func__,__LINE__,underflow_ever_happened);
+	dispc_irq_trick_in(reg_val);
 
 	if(reg_val & 0x04){
 		printk("Warning: dispc underflow (0x%x)!\n",reg_val);
-		underflow_ever_happened = 1;
+		//underflow_ever_happened++;
 		dispc_write(0x04, DISPC_INT_CLR);
-		dispc_clear_bits(BIT(2), DISPC_INT_EN);
+		//dispc_clear_bits(BIT(2), DISPC_INT_EN);
 	}
 
 	if(NULL == dev){
@@ -443,6 +511,8 @@ static void dispc_run(struct sprdfb_device *dev)
 		/* start refresh */
 		dispc_set_bits((1 << 4), DISPC_CTRL);
 	}
+	dispc_irq_trick_out();
+	dsi_irq_trick(0,0);
 }
 
 static void dispc_stop(struct sprdfb_device *dev)

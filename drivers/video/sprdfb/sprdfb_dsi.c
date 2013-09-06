@@ -57,13 +57,136 @@ static void dsi_core_write_function(uint32_t addr, uint32_t offset, uint32_t dat
 	sci_glb_write((addr + offset), data, 0xffffffff);
 }
 
-static uint32_t sot_ever_happened = 0;
+
+//
+static Trick_Item s_trick_record0[DSI_INT0_MAX]= {
+	//en interval begin dis_cnt en_cnt
+	{1,300,  0,  0,  0},//ack_with_err_0
+	{0,  0,  0,  0,  0},//ack_with_err_1
+	{0,  0,  0,  0,  0},//ack_with_err_2
+	{0,  0,  0,  0,  0},//ack_with_err_3
+	{0,  0,  0,  0,  0},//ack_with_err_4
+	{0,  0,  0,  0,  0},//ack_with_err_5
+	{0,  0,  0,  0,  0},//ack_with_err_6
+	{0,  0,  0,  0,  0},//ack_with_err_7
+	{0,  0,  0,  0,  0},//ack_with_err_8
+	{0,  0,  0,  0,  0},//ack_with_err_9
+	{0,  0,  0,  0,  0},//ack_with_err_10
+	{0,  0,  0,  0,  0},//ack_with_err_11
+	{0,  0,  0,  0,  0},//ack_with_err_12
+	{0,  0,  0,  0,  0},//ack_with_err_13
+	{0,  0,  0,  0,  0},//ack_with_err_14
+	{0,  0,  0,  0,  0},//ack_with_err_15
+	{0,  0,  0,  0,  0},//dphy_errors_0
+	{0,  0,  0,  0,  0},//dphy_errors_1
+	{0,  0,  0,  0,  0},//dphy_errors_2
+	{0,  0,  0,  0,  0},//dphy_errors_3
+	{0,  0,  0,  0,  0},//dphy_errors_4
+};
+
+static Trick_Item s_trick_record1[DSI_INT1_MAX]= {
+	//en interval begin dis_cnt en_cnt
+	{0,  0,  0,  0,  0},//to_hs_tx
+	{0,  0,  0,  0,  0},//to_lp_rx
+	{0,  0,  0,  0,  0},//ecc_single_err
+	{0,  0,  0,  0,  0},//ecc_multi_err
+	{0,  0,  0,  0,  0},//crc_err
+	{0,  0,  0,  0,  0},//pkt_size_err
+	{0,  0,  0,  0,  0},//eopt_err
+	{0,  0,  0,  0,  0},//dpi_pld_wr_err
+	{0,  0,  0,  0,  0},//gen_cmd_wr_err
+	{0,  0,  0,  0,  0},//gen_pld_wr_err
+	{0,  0,  0,  0,  0},//gen_pld_send_err
+	{0,  0,  0,  0,  0},//gen_pld_rd_err
+	{0,  0,  0,  0,  0},//gen_pld_recv_err
+	{0,  0,  0,  0,  0},//dbi_cmd_wr_err
+	{0,  0,  0,  0,  0},//dbi_pld_wr_err
+	{0,  0,  0,  0,  0},//dbi_pld_rd_err
+	{0,  0,  0,  0,  0},//dbi_pld_recv_err
+	{0,  0,  0,  0,  0},//dbi_illegal_comm_err
+};
+
+
+
+
+
+/*
+func:dsi_irq0_trick
+desc:if a xxx interruption come many times in a short time, print the firt one, mask the follows.
+     a fixed-long time later, enable this interruption.
+*/
+void dsi_irq_trick(uint32_t int_id,uint32_t int_status)
+{
+	static uint32_t mask_irq0_times = 0;
+	static uint32_t open_irq0_times = 0;
+	static uint32_t mask_irq1_times = 0;
+	static uint32_t open_irq1_times = 0;
+	uint32_t i = 0;
+
+	while(i < DSI_INT0_MAX) {
+		if(s_trick_record0[i].trick_en != 0) {
+			if(((int_id == 0) && (int_status & (1UL << i)))
+				&& (s_trick_record0[i].begin_jiffies == 0)) {
+				//disable this interruption
+				DSI_INT_MASK0_SET(i,1);
+				s_trick_record0[i].begin_jiffies = jiffies;
+				s_trick_record0[i].disable_cnt++;
+				mask_irq0_times++;
+				pr_debug("%s[%d]: INT0[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record0[i].disable_cnt);
+			}
+
+			if((s_trick_record0[i].begin_jiffies > 0)
+				&& ((s_trick_record0[i].begin_jiffies + s_trick_record0[i].interval) < jiffies)) {
+				//re-enable this interruption
+				DSI_INT_MASK0_SET(i,0);
+				s_trick_record0[i].begin_jiffies = 0;
+				s_trick_record0[i].enable_cnt++;
+				open_irq0_times++;
+				pr_debug("%s[%d]: INT0[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record0[i].enable_cnt);
+			}
+		}
+		i++;
+	}
+
+	i = 0;
+	while(i < DSI_INT1_MAX) {
+		if(s_trick_record1[i].trick_en != 0) {
+			if(((int_id == 1) && (int_status & (1UL << i)))
+				&& (s_trick_record1[i].begin_jiffies == 0)) {
+				//disable this interruption
+				DSI_INT_MASK1_SET(i,1);
+				s_trick_record1[i].begin_jiffies = jiffies;
+				s_trick_record1[i].disable_cnt++;
+				mask_irq1_times++;
+				pr_debug("%s[%d]: INT1[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record1[i].disable_cnt);
+			}
+
+			if((s_trick_record1[i].begin_jiffies > 0)
+				&& ((s_trick_record1[i].begin_jiffies + s_trick_record1[i].interval) < jiffies)) {
+				//re-enable this interruption
+				DSI_INT_MASK1_SET(i,0);
+				s_trick_record1[i].begin_jiffies = 0;
+				s_trick_record1[i].enable_cnt++;
+				open_irq1_times++;
+				pr_debug("%s[%d]: INT1[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record1[i].enable_cnt);
+			}
+		}
+		i++;
+	}
+	if(int_status) {
+		printk("%s[%d]:total DSI_mask0:0x%08x DSI_open0:0x%08x; DSI_mask1:0x%08x DSI_open1:0x%08x\n",__func__,__LINE__,
+		mask_irq0_times,open_irq0_times,
+		mask_irq1_times,open_irq1_times);
+	}
+}
+
+//static uint32_t sot_ever_happened = 0;
 static irqreturn_t dsi_isr0(int irq, void *data)
 {
 	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
-	uint32_t mask = 0;
+	//uint32_t mask = 0;
 	printk(KERN_ERR "sprdfb: [%s](0x%x)!\n", __FUNCTION__, reg_val);
-
+	/*
 	printk("Warning: sot_ever_happened:(0x%x)!\n",sot_ever_happened);
 	if(reg_val & 0x1) {
 		sot_ever_happened = 1;
@@ -71,6 +194,8 @@ static irqreturn_t dsi_isr0(int irq, void *data)
 		mask |= 0x1;
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0, mask);
 	}
+	*/
+	dsi_irq_trick(0,reg_val);
 	return IRQ_HANDLED;
 }
 
@@ -93,8 +218,9 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 		printk("sprdfb: reset dsi host!\n");
 		printk("sprdfb: mipi->lan_number:%d ,mipi->phy_feq:%d \n",mipi->lan_number,mipi->phy_feq);
 		if(NULL == phy){
-		    printk("sprdfb: the phy is null \n");
-		    return IRQ_NONE;
+			printk("sprdfb: the phy is null \n");
+			dsi_irq_trick(1,reg_val);
+			return IRQ_NONE;
 		}
 
                 mipi_dsih_dphy_configure(phy,  mipi->lan_number, mipi->phy_feq);
@@ -110,6 +236,7 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 		}
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
 	}
+	dsi_irq_trick(1,reg_val);
 	return IRQ_HANDLED;
 }
 
@@ -282,8 +409,8 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 	dphy_t *phy = &(dsi_instance->phy_instance);
 	struct info_mipi * mipi = dev->panel->info.mipi;
 
-	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
-	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
+	//dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);//yintianci
+	//dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		dsi_edpi_init();
