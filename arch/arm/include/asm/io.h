@@ -27,7 +27,9 @@
 #include <asm/byteorder.h>
 #include <asm/memory.h>
 #include <asm-generic/pci_iomap.h>
-
+#ifdef CONFIG_SPRD_DEBUG
+#include <linux/regs_debug.h>
+#endif
 /*
  * ISA I/O bus memory addresses are 1:1 with the physical address.
  */
@@ -47,6 +49,7 @@ extern void __raw_readsb(const void __iomem *addr, void *data, int bytelen);
 extern void __raw_readsw(const void __iomem *addr, void *data, int wordlen);
 extern void __raw_readsl(const void __iomem *addr, void *data, int longlen);
 
+#ifndef CONFIG_SPRD_DEBUG
 #define __raw_writeb(v,a)	(__chk_io_ptr(a), *(volatile unsigned char __force  *)(a) = (v))
 #define __raw_writew(v,a)	(__chk_io_ptr(a), *(volatile unsigned short __force *)(a) = (v))
 #define __raw_writel(v,a)	(__chk_io_ptr(a), *(volatile unsigned int __force   *)(a) = (v))
@@ -54,6 +57,46 @@ extern void __raw_readsl(const void __iomem *addr, void *data, int longlen);
 #define __raw_readb(a)		(__chk_io_ptr(a), *(volatile unsigned char __force  *)(a))
 #define __raw_readw(a)		(__chk_io_ptr(a), *(volatile unsigned short __force *)(a))
 #define __raw_readl(a)		(__chk_io_ptr(a), *(volatile unsigned int __force   *)(a))
+#else
+extern struct sprd_debug_regs_access sprd_debug_last_regs_access[NR_CPUS];
+#define __raw_writeb(v,a) 	({sprd_debug_regs_write_start(v, a); \
+				__chk_io_ptr(a); \
+				*(volatile unsigned char __force  *)(a) = (v); \
+				sprd_debug_regs_access_done(); \
+				})
+#define __raw_writew(v,a) 	({sprd_debug_regs_write_start(v, a); \
+				__chk_io_ptr(a); \
+				*(volatile unsigned short __force  *)(a) = (v); \
+				sprd_debug_regs_access_done(); \
+				})
+#define __raw_writel(v,a) 	({sprd_debug_regs_write_start(v, a); \
+				__chk_io_ptr(a); \
+				*(volatile unsigned int __force  *)(a) = (v); \
+				sprd_debug_regs_access_done(); \
+				})
+
+#define __raw_readb(a)		({sprd_debug_regs_read_start(a);\
+				volatile unsigned char v;	\
+				__chk_io_ptr(a); \
+				v = *(volatile unsigned char __force  *)(a); \
+				sprd_debug_regs_access_done(); \
+				v;\
+				})
+#define __raw_readw(a)		({sprd_debug_regs_read_start(a);\
+				volatile unsigned short v;	\
+				__chk_io_ptr(a); \
+				v = *(volatile unsigned short __force  *)(a); \
+				sprd_debug_regs_access_done(); \
+				v;\
+				})
+#define __raw_readl(a)		({sprd_debug_regs_read_start(a);\
+				volatile unsigned int v;	\
+				__chk_io_ptr(a); \
+				v = *(volatile unsigned int __force  *)(a); \
+				sprd_debug_regs_access_done(); \
+				v;\
+				})
+#endif
 
 /*
  * Architecture ioremap implementation.

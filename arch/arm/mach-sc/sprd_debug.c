@@ -30,10 +30,11 @@
 #include <linux/fs.h>
 #include <linux/seq_file.h>
 #include <mach/pm_debug.h>
-
+#include <linux/regs_debug.h>
 
 #define MY_DEBUG 0
-
+struct sprd_debug_regs_access sprd_debug_last_regs_access[NR_CPUS] = {0};
+EXPORT_SYMBOL(sprd_debug_last_regs_access);
 
 /* enable/disable sprd_debug feature
  * level = 0 when enable = 0 && enable_user = 0
