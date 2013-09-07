@@ -432,8 +432,8 @@ struct shark_reg_cfg_t fm_reg_init_des[] = {
 	{FM_REG_AGC_BOND_TBL6	,	-29UL},
 	{FM_REG_AGC_BOND_TBL7	,	-21UL},
 	{FM_REG_AGC_BOND_TBL8	,	-13UL},
-	{FM_REG_AGC_BOND_TBL9	,	10}
-
+	{FM_REG_AGC_BOND_TBL9	,	10},
+	{FM_REG_SPUR_FREQ0               ,           0x0000081e}
 };
 
 #endif
