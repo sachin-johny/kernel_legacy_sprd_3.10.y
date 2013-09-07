@@ -1643,39 +1643,53 @@ int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 }
 
 #define ITM_MAC_ADDR_PATH "/system/lib/modules/mac_addr.cfg"
+#define ENG_MAC_ADDR_PATH "/data/wifimac.txt"
+#define FROM_ITM	1
+#define FROM_ENG	2
 int itm_get_mac_from_cfg(struct itm_priv *priv)
 {
 	struct file *fp = 0;
 	mm_segment_t fs;
 	loff_t *pos;
 	u8 file_data[64] = { 0 };
-	u8 mac_addr[17] = { 0 };
+	u8 mac_addr[18] = { 0 };
 	u8 *tmp_p = NULL;
+	u8 flag = 0;
 
 	fp = filp_open(ITM_MAC_ADDR_PATH, O_RDONLY, 0);
+	flag = FROM_ITM;
 	if (IS_ERR(fp)) {
-		return -ENOENT;
-	} else {
-		fs = get_fs();
-		set_fs(KERNEL_DS);
-
-		pos = &(fp->f_pos);
-		vfs_read(fp, file_data, sizeof(file_data), pos);
-		tmp_p = strstr(file_data, "mac=");
-		if (tmp_p != NULL) {
-			tmp_p += strlen("mac=");
-			memcpy(mac_addr, tmp_p, 17);
-			sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
-			       (unsigned int *)&(priv->ndev->dev_addr[0]),
-			       (unsigned int *)&(priv->ndev->dev_addr[1]),
-			       (unsigned int *)&(priv->ndev->dev_addr[2]),
-			       (unsigned int *)&(priv->ndev->dev_addr[3]),
-			       (unsigned int *)&(priv->ndev->dev_addr[4]),
-			       (unsigned int *)&(priv->ndev->dev_addr[5]));
-		}
-
-		filp_close(fp, NULL);
-		set_fs(fs);
+		fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
+		flag = FROM_ENG;
+		if (IS_ERR(fp))
+			return -ENOENT;
 	}
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = &(fp->f_pos);
+	vfs_read(fp, file_data, sizeof(file_data), pos);
+	if (flag == FROM_ITM)
+		tmp_p = strstr(file_data, "mac=");
+	else
+		tmp_p = file_data;
+	if (tmp_p != NULL) {
+		if (flag == FROM_ITM)
+			tmp_p += strlen("mac=");
+		memcpy(mac_addr, tmp_p, 18);
+		printk(KERN_ERR "mac is %s, tmp is %s\n", mac_addr, tmp_p);
+		sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
+		       (unsigned int *)&(priv->ndev->dev_addr[0]),
+		       (unsigned int *)&(priv->ndev->dev_addr[1]),
+		       (unsigned int *)&(priv->ndev->dev_addr[2]),
+		       (unsigned int *)&(priv->ndev->dev_addr[3]),
+		       (unsigned int *)&(priv->ndev->dev_addr[4]),
+		       (unsigned int *)&(priv->ndev->dev_addr[5]));
+	}
+
+	filp_close(fp, NULL);
+	set_fs(fs);
+
 	return 0;
 }
