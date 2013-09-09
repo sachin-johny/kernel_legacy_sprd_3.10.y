@@ -627,7 +627,9 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 	if (conn->pending_sec_level > sec_level)
 		sec_level = conn->pending_sec_level;
 
-	if (sec_level > conn->sec_level)
+	if(conn->link_mode & HCI_LM_ENCRYPT)
+                return 1;
+	else if (sec_level > conn->sec_level)
 		conn->pending_sec_level = sec_level;
 	else if (conn->link_mode & HCI_LM_AUTH)
 		return 1;
