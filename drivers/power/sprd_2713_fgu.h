@@ -12,5 +12,6 @@ u32 sprdfgu_read_soc(void);
 int sprdfgu_read_batcurrent(void);
 uint32_t sprdfgu_read_vbat_vol(void);
 uint32_t sprdfgu_read_vbat_ocv(void);
+int sprdfgu_is_new_chip(void);
 #endif
 
