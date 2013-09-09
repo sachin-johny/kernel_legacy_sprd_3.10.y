@@ -637,7 +637,7 @@ static int ltr558_probe(struct i2c_client *client,
 	if (client->irq > 0) {
 		ret =
 		    request_irq(client->irq, ltr558_irq_handler,
-				IRQ_TYPE_LEVEL_LOW, client->name, ltr_558als);
+				IRQF_TRIGGER_LOW | IRQF_NO_SUSPEND, client->name, ltr_558als);
 		if (ret < 0) {
 			free_irq(client->irq, ltr_558als);
 			client->irq = 0;
