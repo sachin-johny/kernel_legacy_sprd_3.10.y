@@ -191,6 +191,12 @@ static int sprdfgu_cal_init(void)
 	     cur_1000ma_adc, vol_1000mv_adc, vol_offset, cur_offset);
 }
 
+int sprdfgu_is_new_chip(void)
+{
+	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
+	return (0xA000 != achip_id_low) ? 1 : 0;
+}
+
 static u32 fgu_adc2vol_mv(u32 adc)
 {
 	return ((adc + vol_offset) * 1000) / vol_1000mv_adc;

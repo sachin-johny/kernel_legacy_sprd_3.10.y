@@ -63,10 +63,11 @@ enum sprdbat_event {
 };
 
 static struct sprdbat_drivier_data *sprdbat_data;
-static uint32_t sprdbat_cv_irq_dis;
+static uint32_t sprdbat_cv_irq_dis = 1;
 static uint32_t sprdbat_average_cnt;
 static unsigned long sprdbat_update_capacity_time;
 static uint32_t sprdbat_trickle_chg;
+static uint32_t sprdbat_start_chg;
 
 static void sprdbat_change_module_state(uint32_t event);
 
@@ -426,10 +427,10 @@ static int sprdbat_start_charge(void)
 	     sprdbat_data->bat_info.bat_health,
 	     sprdbat_data->bat_info.chg_start_time,
 	     sprdbat_data->bat_info.chg_current_type);
-	mdelay(2);
+
 	sprdbat_trickle_chg = 0;
-	sprdbat_cv_irq_dis = 0;
-	enable_irq(sprdbat_data->irq_chg_cv_state);
+	sprdbat_start_chg = 1;
+
 	return 0;
 }
 
@@ -733,6 +734,7 @@ static void sprdbat_cv_irq_works(struct work_struct *work)
 	     POWER_SUPPLY_STATUS_DISCHARGING)
 	    || (sprdbat_data->bat_info.chg_stop_flags !=
 		SPRDBAT_CHG_END_NONE_BIT)) {
+		mutex_unlock(&sprdbat_data->lock);	//fixed
 		SPRDBAT_DEBUG("sprdbat_cv_irq_works return \n");
 		return;
 	} else {
@@ -825,7 +827,8 @@ static void sprdbat_print_battery_log(void)
 
 	{
 		extern int sprd_thm_temp_read(u32 sensor);
-		printk(KERN_ERR "CHIP THM:arm sensor temp:%d,pmic sensor temp:%d \n",
+		printk(KERN_ERR
+		       "CHIP THM:arm sensor temp:%d,pmic sensor temp:%d \n",
 		       sprd_thm_temp_read(0), sprd_thm_temp_read(1));
 	}
 
@@ -1001,6 +1004,7 @@ static int sprdbat_is_chg_timeout(void)
 static void sprdbat_charge_works(struct work_struct *work)
 {
 	uint32_t cur;
+	unsigned long irq_flag = 0;
 
 	SPRDBAT_DEBUG("sprdbat_charge_works----------start\n");
 
@@ -1012,6 +1016,15 @@ static void sprdbat_charge_works(struct work_struct *work)
 		return;
 	}
 
+	if (sprdbat_start_chg) {
+		local_irq_save(irq_flag);
+		if (sprdbat_cv_irq_dis) {
+			sprdbat_cv_irq_dis = 0;
+			enable_irq(sprdbat_data->irq_chg_cv_state);
+		}
+		local_irq_restore(irq_flag);
+		sprdbat_start_chg = 0;
+	}
 	SPRDBAT_DEBUG("sprdbat_charge_works----------vbat_vol %d,ocv:%d\n",
 		      sprdbat_data->bat_info.vbat_vol,
 		      sprdbat_data->bat_info.vbat_ocv);
@@ -1163,7 +1176,14 @@ static int sprdbat_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "not io resource\n");
 		goto err_io_resource;
 	}
-	data->gpio_chg_cv_state = res->start;
+
+	if (sprdfgu_is_new_chip()) {
+		SPRDBAT_DEBUG("new chip\n");
+		data->gpio_chg_cv_state = res->start;
+	} else {
+		SPRDBAT_DEBUG("old chip\n");
+		data->gpio_chg_cv_state = A_GPIO_START + 3;
+	}
 
 	res = platform_get_resource(pdev, IORESOURCE_IO, 2);
 	if (unlikely(!res)) {
