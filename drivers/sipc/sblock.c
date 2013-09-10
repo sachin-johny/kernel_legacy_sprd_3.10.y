@@ -287,7 +287,7 @@ int sblock_register_notifier(uint8_t dst, uint8_t channel,
 		printk(KERN_ERR "sblock-%d-%d not ready!\n", dst, channel);
 		return -ENODEV;
 	}
-#ifndef CONFIG_MACH_SPX35EC
+#ifndef CONFIG_SIPC_WCN
 	if (sblock->handler) {
 		printk(KERN_ERR "sblock handler already registered\n");
 		return -EBUSY;

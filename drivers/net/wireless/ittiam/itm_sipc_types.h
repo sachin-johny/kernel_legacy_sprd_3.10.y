@@ -137,6 +137,11 @@ enum wlan_sipc_status {
 	WLAN_SIPC_STATUS_ERR = -1,
 };
 
+/* The reason code is defined by CP2 */
+enum wlan_sipc_disconnect_reason {
+	STATION_LEAVING = 0xc1,
+};
+
 /* ITM_WLAN SIPC DATA*/
 struct wlan_sipc_data {
 	u32 msg_hdr;

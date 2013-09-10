@@ -182,7 +182,7 @@ static int __init sipc_init(void)
 
 	smem_init(SIPC_SMEM_ADDR, smem_size);
 
-#ifdef CONFIG_MACH_SPX35EC
+#ifdef CONFIG_SIPC_WCN
 	itm_sblock_init();
 #endif
 	return 0;
