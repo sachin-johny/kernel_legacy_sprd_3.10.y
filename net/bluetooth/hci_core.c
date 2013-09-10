@@ -1774,9 +1774,13 @@ int hci_register_dev(struct hci_dev *hdev)
 	hdev->io_capability = 0x03; /* No Input No Output */
 
 	hdev->idle_timeout = 0;
+#ifdef CONFIG_BT_SHARK
+	hdev->sniff_max_interval = 8000;
+	hdev->sniff_min_interval = 800;
+#else
 	hdev->sniff_max_interval = 800;
 	hdev->sniff_min_interval = 80;
-
+#endif
 	INIT_WORK(&hdev->rx_work, hci_rx_work);
 	INIT_WORK(&hdev->cmd_work, hci_cmd_work);
 	INIT_WORK(&hdev->tx_work, hci_tx_work);

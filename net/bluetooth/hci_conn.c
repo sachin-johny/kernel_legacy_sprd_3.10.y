@@ -397,8 +397,13 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 		if (lmp_esco_capable(hdev)) {
 			/* HCI Setup Synchronous Connection Command uses
 			   reverse logic on the EDR_ESCO_MASK bits */
+#ifdef CONFIG_BT_SHARK
+			/*set esco packet type by remote feature and local feature*/
+			conn->pkt_type = (pkt_type  & hdev->esco_type )^ EDR_ESCO_MASK;
+#else
 			conn->pkt_type = (pkt_type ^ EDR_ESCO_MASK) &
 					hdev->esco_type;
+#endif
 		} else {
 			/* Legacy HCI Add Sco Connection Command uses a
 			   shifted bitmask */
@@ -626,10 +631,11 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 
 	if (conn->pending_sec_level > sec_level)
 		sec_level = conn->pending_sec_level;
-
+#ifdef CONFIG_BT_SHARK
 	if(conn->link_mode & HCI_LM_ENCRYPT)
                 return 1;
-	else if (sec_level > conn->sec_level)
+#endif
+	if (sec_level > conn->sec_level)
 		conn->pending_sec_level = sec_level;
 	else if (conn->link_mode & HCI_LM_AUTH)
 		return 1;

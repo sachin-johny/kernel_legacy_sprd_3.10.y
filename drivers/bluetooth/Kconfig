@@ -250,4 +250,13 @@ config BT_BCM4330
 	  Say Y here to compile support for Broadcomm's BCM4330 LPM driver
 	  into the kernel or say M to compile it as module.
 
+config BT_SHARK
+	tristate "SPRD SHARK LPM driver"
+	help
+	  This enables the Bluetooth driver for SPRD's BT/FM/WLAN
+	  combo devices. This makes use of shared transport line discipline
+	  core driver to communicate with the BT core of the combo chip.
+
+	  Say Y here to compile support for SPRD's SHARK LPM driver
+	  into the kernel or say M to compile it as module.
 endmenu

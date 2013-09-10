@@ -720,6 +720,28 @@ static void hci_set_le_support(struct hci_dev *hdev)
 			     &cp);
 }
 
+#ifdef CONFIG_BT_SHARK/*sent hci setup command*/
+static void hci_setup_features(struct hci_dev *hdev)
+{
+	if (hdev->features[3] & LMP_RSSI_INQ)
+	hci_setup_inquiry_mode(hdev);
+
+	if (hdev->features[7] & LMP_INQ_TX_PWR)
+		hci_send_cmd(hdev, HCI_OP_READ_INQ_RSP_TX_POWER, 0, NULL);
+
+	if (hdev->features[7] & LMP_EXTFEATURES) {
+		struct hci_cp_read_local_ext_features cp;
+
+		cp.page = 0x01;
+		hci_send_cmd(hdev, HCI_OP_READ_LOCAL_EXT_FEATURES,
+							sizeof(cp), &cp);
+	}
+
+	if (hdev->features[4] & LMP_LE)
+		hci_set_le_support(hdev);
+}
+#endif
+
 static void hci_cc_read_local_ext_features(struct hci_dev *hdev,
 							struct sk_buff *skb)
 {
@@ -2105,8 +2127,46 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff 
 	if (!conn)
 		goto unlock;
 
+#ifdef CONFIG_BT_SHARK
+	if (!ev->status){
+		memcpy(conn->features, ev->features, 8);
+		//xiangxin: set right esco_type for goer
+		hdev->esco_type = SCO_ESCO_MASK;
+		if (hdev->features[3] & conn->features[3] & 0x80)
+		{
+			hdev->esco_type |= ESCO_EV3;
+		}
+		if (hdev->features[4] & conn->features[4] & 0x01)
+		{
+			hdev->esco_type |= ESCO_EV4;
+		}
+		if (hdev->features[4] & conn->features[4] & 0x02)
+		{
+			hdev->esco_type |= ESCO_EV5;
+		}
+		if (hdev->features[5] & conn->features[5] & 0x20)
+		{
+			hdev->esco_type |= ESCO_2EV3;
+			if (hdev->features[5] & conn->features[5] & 0x80)
+			{
+				hdev->esco_type |= ESCO_2EV5;
+			}
+		}
+		if (hdev->features[5] & conn->features[5] & 0x40)
+		{
+			hdev->esco_type |= ESCO_3EV3;
+			if (hdev->features[5] & conn->features[5] & 0x80)
+			{
+				hdev->esco_type |= ESCO_3EV5;
+			}
+		}
+		BT_INFO("[bt] remote features[3] 0x%x, features[4] 0x%x sco_packet 0x%x",
+					conn->features[3], conn->features[4], hdev->esco_type);
+	}
+#else
 	if (!ev->status)
 		memcpy(conn->features, ev->features, 8);
+#endif
 
 	if (conn->state != BT_CONFIG)
 		goto unlock;
@@ -2238,6 +2298,9 @@ static inline void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *sk
 		break;
 
 	case HCI_OP_WRITE_SSP_MODE:
+#ifdef CONFIG_BT_SHARK
+        hci_setup_features(hdev);
+#endif
 		hci_cc_write_ssp_mode(hdev, skb);
 		break;
 
@@ -2946,8 +3009,13 @@ static inline void hci_sync_conn_complete_evt(struct hci_dev *hdev, struct sk_bu
 	case 0x1a:	/* Unsupported Remote Feature */
 	case 0x1f:	/* Unspecified error */
 		if (conn->out && conn->attempt < 2) {
+#ifdef CONFIG_BT_SHARK
+//set right esco_type for goer
+			conn->pkt_type = (hdev->esco_type & (__u16)(~SCO_ESCO_MASK)) | (hdev->esco_type | EDR_ESCO_MASK);
+#else
 			conn->pkt_type = (hdev->esco_type & SCO_ESCO_MASK) |
 					(hdev->esco_type & EDR_ESCO_MASK);
+#endif
 			hci_setup_sync(conn, conn->link->handle);
 			goto unlock;
 		}
