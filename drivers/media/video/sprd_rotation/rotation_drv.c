@@ -37,6 +37,8 @@
 #define DISABLE_AHB_SLEEP 0
 #define ENABLE_AHB_SLEEP 1
 
+#define ROT_TIMEOUT         100/*ms*/
+
 typedef struct _dma_rotation_tag {
 	ROTATION_SIZE_T img_size;
 	ROTATION_DATA_FORMAT_E data_format;
@@ -328,9 +330,13 @@ int rotation_dma_wait_stop(void)
 	int ret = 0;
 	DECLARE_ROTATION_PARAM_ENTRY(s);
 	RTT_PRINT("rotation_dma_wait_stop E .\n");
-	if (wait_event_interruptible(wait_queue, condition)) {
-		ret = -EFAULT;
+
+  if (!wait_event_interruptible_timeout(wait_queue, condition,msecs_to_jiffies(ROT_TIMEOUT))) {
+      ret = -EFAULT;
+		printk("dma timeout. rotation_dma_wait_stop  \n");
+      sprd_dma_dump_regs();
 	}
+
 	sprd_dma_stop(s->ch_id);
 	sprd_dma_free(s->ch_id);
 	RTT_PRINT("ok to rotation_dma_wait_stop.\n");
@@ -462,10 +468,18 @@ static int rotation_start_copy_data(ROTATION_PARAM_T * param_ptr)
 	sprd_dma_channel_config(ch_id, DMA_NORMAL, &dma_desc);
 	sprd_dma_set_irq_type(ch_id, TRANSACTION_DONE, 1);
 	/*printk("wjp:before rotation_start_copy_data start!\n");*/
+
+   //default pri of ch_id is 0
+   //sprd_dma_set_chn_pri(ch_id, 2);
+
 	sprd_dma_channel_start(ch_id);
-	if (wait_event_interruptible(wait_queue, condition)) {
-		ret = -EFAULT;
+
+	if (!wait_event_interruptible_timeout(wait_queue, condition,msecs_to_jiffies(ROT_TIMEOUT))) {
+      ret = -EFAULT;
+		printk("dma timeout. rotation_start_copy_data  \n");
+      sprd_dma_dump_regs();
 	}
+
 	sprd_dma_channel_stop(ch_id);
 	sprd_dma_free(ch_id);
 	/* do_gettimeofday(&te);*/
@@ -619,11 +633,15 @@ static int rotation_start_copy_data_to_virtual(ROTATION_PARAM_T * param_ptr)
 	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
 
 	condition = 0;
-
+   //default pri of ch_id is 0
+   //sprd_dma_set_chn_pri(ch_id, 2);
 	sprd_dma_channel_start(ch_id);
 
-	if (wait_event_interruptible(wait_queue, condition)) {
-		ret = -EFAULT;
+
+  if (!wait_event_interruptible_timeout(wait_queue, condition,msecs_to_jiffies(ROT_TIMEOUT))) {
+      ret = -EFAULT;
+		printk("dma timeout. rotation_start_copy_data_to_virtual \n");
+      sprd_dma_dump_regs();
 	}
 
 	sprd_dma_channel_stop(ch_id);
@@ -753,11 +771,14 @@ static int rotation_start_copy_data_from_virtual(ROTATION_PARAM_T * param_ptr)
 	sprd_dma_set_irq_type(ch_id, LINKLIST_DONE, 1);
 
 	condition = 0;
-
+   //default pri of ch_id is 0
+   //sprd_dma_set_chn_pri(ch_id, 2);
 	sprd_dma_channel_start(ch_id);
 
-	if (wait_event_interruptible(wait_queue, condition)) {
-		ret = -EFAULT;
+  if (!wait_event_interruptible_timeout(wait_queue, condition,msecs_to_jiffies(ROT_TIMEOUT))) {
+      ret = -EFAULT;
+		printk("dma timeout. rotation_start_copy_data_from_virtual \n");
+      sprd_dma_dump_regs();
 	}
 
 	sprd_dma_channel_stop(ch_id);
