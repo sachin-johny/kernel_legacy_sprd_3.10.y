@@ -63,6 +63,7 @@ extern void dmc_mon_cnt_stop(void);
 extern void dmc_mon_cnt_start(void);
 extern void dmc_mon_cnt_clr(void);
 extern unsigned int dmc_mon_cnt_bw(void);
+extern void dmc_mon_resume(void);
 
 #endif
 

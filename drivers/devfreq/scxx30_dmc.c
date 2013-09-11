@@ -604,6 +604,7 @@ static int scxx30_dmcfreq_resume(struct device *dev)
 	data->disabled = false;
 	spin_unlock(&data->lock);
 #ifdef CONFIG_BUS_MONITOR
+	dmc_mon_resume();
 	dmc_mon_cnt_clr( );
 	dmc_mon_cnt_start( );
 #endif

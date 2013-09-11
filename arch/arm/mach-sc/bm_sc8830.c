@@ -84,6 +84,7 @@ static struct semaphore bm_seam;
 static void *per_buf;
 static int per_count_list[PER_COUTN_LIST_SIZE];
 static int list_write_index;
+static bool glb_count_flag;
 
 struct bm_per_info {
 	u32 t_start;
@@ -320,9 +321,10 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_bw);
 void dmc_mon_cnt_clr(void)
 {
 #ifdef AXI_PER_LOG
-	return;
-#endif
+
+#else
 	__sci_axi_bm_cnt_clr();
+#endif
 	return;
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_clr);
@@ -330,11 +332,12 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_clr);
 void dmc_mon_cnt_start(void)
 {
 #ifdef AXI_PER_LOG
-	return;
-#endif
+
+#else
 	__sci_axi_bm_cnt_start();
 	__sci_bm_glb_count_enable(true);
 	__sci_axi_bm_cnt_start();
+#endif
 	return;
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_start);
@@ -342,13 +345,45 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_start);
 void dmc_mon_cnt_stop(void)
 {
 #ifdef AXI_PER_LOG
-	return;
-#endif
+
+#else
 	__sci_bm_glb_count_enable(false);
 	__sci_axi_bm_cnt_stop();
+#endif
 	return;
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_stop);
+
+static void __sci_axi_bm_set_winlen(void);
+void dmc_mon_resume(void)
+{
+#ifdef AXI_PER_LOG
+	u32 bm_index;
+
+	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
+		__sci_bm_glb_reset_and_enable(bm_index, true);
+	}
+	__sci_axi_bm_init();
+	__sci_axi_bm_cnt_clr();
+	__sci_axi_bm_int_clr();
+
+	/*reset the record*/
+	buf_write_index = 0;
+	buf_read_index = 0;
+	list_write_index = 0;
+
+	__sci_bm_glb_count_enable(glb_count_flag);
+
+	__sci_axi_bm_set_winlen();
+	__sci_axi_bm_cnt_start();
+
+#else
+
+#endif
+	return;
+}
+EXPORT_SYMBOL_GPL(dmc_mon_resume);
+
 
 #ifdef AXI_PER_LOG
 static void __sci_axi_bm_set_winlen(void)
@@ -410,6 +445,7 @@ static irqreturn_t __bm_isr(int irq_num, void *dev)
 	}
 
 	if (__raw_readl(REG_PUB_APB_BUSMON_CNT_START) == 0x1) {
+		glb_count_flag = true;
 		if (++buf_write_index == PER_COUNT_RECORD_SIZE) {
 			buf_write_index = 0;
 		}
@@ -422,10 +458,12 @@ static irqreturn_t __bm_isr(int irq_num, void *dev)
 			this_cpu = smp_processor_id();
 			t_stamp = cpu_clock(this_cpu);
 #endif
-//			printk("wake up axi_per_log\n");
 			up(&bm_seam);
 		}
+	} else {
+		glb_count_flag = false;
 	}
+
 	__sci_axi_bm_int_clr();
 	__sci_axi_bm_cnt_clr();
 	__sci_axi_bm_set_winlen();
