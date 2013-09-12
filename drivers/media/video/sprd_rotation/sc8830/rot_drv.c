@@ -149,7 +149,7 @@ static void rot_k_disable(void)
 
 static void rot_k_start(void)
 {
-	REG_OWR(REG_ROTATION_CTRL, ROT_START_BIT);
+	dcam_glb_reg_owr(REG_ROTATION_CTRL, ROT_START_BIT, DCAM_CONTROL_REG);
 }
 
 
@@ -158,7 +158,6 @@ int rot_k_isr(struct dcam_frame* dcam_frm, void* u_data)
 	unsigned long flag;
 
 	(void)dcam_frm; (void)u_data;
-	//printk("Rot, 0x%x \n", status);
 
 	spin_lock_irqsave(&rot_lock, flag);
 
