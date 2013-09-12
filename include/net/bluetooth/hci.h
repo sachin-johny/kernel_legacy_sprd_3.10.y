@@ -24,12 +24,7 @@
 
 #ifndef __HCI_H
 #define __HCI_H
-#ifdef CONFIG_BT_SHARK
-// 672 is for TROUT BT controller buffer
-#define HCI_MAX_ACL_SIZE        672
-#else
 #define HCI_MAX_ACL_SIZE        1024
-#endif
 #define HCI_MAX_SCO_SIZE	255
 #define HCI_MAX_EVENT_SIZE	260
 #define HCI_MAX_FRAME_SIZE	(HCI_MAX_ACL_SIZE + 4)
