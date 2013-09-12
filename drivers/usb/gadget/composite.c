@@ -718,6 +718,7 @@ int usb_add_config(struct usb_composite_dev *cdev,
 			config->bConfigurationValue,
 			config->label, config);
 
+	printk("%s(%d) %s \n",current->comm,current->pid,__func__);
 	if (!config->bConfigurationValue || !bind)
 		goto done;
 
@@ -817,8 +818,8 @@ int usb_remove_config(struct usb_composite_dev *cdev,
 	if (cdev->config == config)
 		reset_config(cdev);
 
-	list_del(&config->list);
-
+	__list_del_entry(&config->list);
+	printk("%s(%d) %s \n",current->comm,current->pid,__func__);
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	return unbind_config(cdev, config);
