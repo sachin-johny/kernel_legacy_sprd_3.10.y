@@ -56,7 +56,7 @@
  *	 or macros.
  *
  */
-
+#include <linux/kernel.h> //for debug
 #include "dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
@@ -4959,6 +4959,7 @@ void dwc_otg_flush_tx_fifo(dwc_otg_core_if_t * core_if, const int num)
 	do {
 		greset.d32 = DWC_READ_REG32(&global_regs->grstctl);
 		if (++count > 10000) {
+			dump_stack();
 			DWC_WARN("%s() HANG! GRSTCTL=%0x GNPTXSTS=0x%08x\n",
 				 __func__, greset.d32,
 				 DWC_READ_REG32(&global_regs->gnptxsts));
