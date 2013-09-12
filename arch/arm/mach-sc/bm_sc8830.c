@@ -58,9 +58,9 @@
 #define AXI_BM_INT_EN			BIT(28)
 #define AXI_BM_INT_CLR			BIT(29)
 
-#define AXI_PER_LOG
+#define DDR_MONITOR_LOG
 
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 
 #include <linux/fs.h>
 #include <linux/uaccess.h>
@@ -161,7 +161,7 @@ static void __sci_axi_bm_cnt_start(void)
 
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		val = __raw_readl(AXI_BM_INTC_REG(bm_index));
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 		val |= (AXI_BM_EN | AXI_BM_CNT_EN | AXI_BM_CNT_START | AXI_BM_INT_EN);
 #else
 		val |= (AXI_BM_EN | AXI_BM_CNT_EN | AXI_BM_CNT_START | AXI_BM_INT_CLR);
@@ -288,7 +288,7 @@ unsigned int dmc_mon_cnt_bw(void)
 {
 	int chn;
 	u32 cnt;
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 	int i, read_index;
 	cnt = 0x0;
 	/*read the last 50 records(500ms)*/
@@ -320,7 +320,7 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_bw);
 
 void dmc_mon_cnt_clr(void)
 {
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 
 #else
 	__sci_axi_bm_cnt_clr();
@@ -331,7 +331,7 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_clr);
 
 void dmc_mon_cnt_start(void)
 {
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 
 #else
 	__sci_axi_bm_cnt_start();
@@ -344,7 +344,7 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_start);
 
 void dmc_mon_cnt_stop(void)
 {
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 
 #else
 	__sci_bm_glb_count_enable(false);
@@ -357,7 +357,7 @@ EXPORT_SYMBOL_GPL(dmc_mon_cnt_stop);
 static void __sci_axi_bm_set_winlen(void);
 void dmc_mon_resume(void)
 {
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 	u32 bm_index;
 
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
@@ -366,11 +366,6 @@ void dmc_mon_resume(void)
 	__sci_axi_bm_init();
 	__sci_axi_bm_cnt_clr();
 	__sci_axi_bm_int_clr();
-
-	/*reset the record*/
-	buf_write_index = 0;
-	buf_read_index = 0;
-	list_write_index = 0;
 
 	__sci_bm_glb_count_enable(glb_count_flag);
 
@@ -385,7 +380,7 @@ void dmc_mon_resume(void)
 EXPORT_SYMBOL_GPL(dmc_mon_resume);
 
 
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 static void __sci_axi_bm_set_winlen(void)
 {
 	int bm_index;
@@ -549,7 +544,7 @@ static int __init sci_bm_init(void)
 	int bm_index;
 	int ret;
 
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 	struct task_struct *t;
 	per_buf = kmalloc(PER_COUNT_BUF_SIZE, GFP_KERNEL);
 	if (!per_buf) {
@@ -582,7 +577,7 @@ static int __init sci_bm_init(void)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
 	}
 
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 	__sci_axi_bm_set_winlen();
 	__sci_bm_glb_count_enable(false);
 	__sci_axi_bm_cnt_start();
@@ -594,7 +589,7 @@ static int __init sci_bm_init(void)
 static void __exit sci_bm_exit(void)
 {
 	int bm_index;
-#ifdef AXI_PER_LOG
+#ifdef DDR_MONITOR_LOG
 	kfree(per_buf);
 	filp_close(log_file, NULL);
 #endif
