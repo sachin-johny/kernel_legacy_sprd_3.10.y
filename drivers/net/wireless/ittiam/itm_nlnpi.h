@@ -60,6 +60,8 @@ enum nlnpi_commands {
 	NLNPI_CMD_SET_REG,
 	NLNPI_CMD_SET_DEBUG,
 	NLNPI_CMD_GET_DEBUG,
+	NLNPI_CMD_SET_SBLOCK,
+	NLNPI_CMD_GET_SBLOCK,
 	/* add new commands above here */
 
 	/* used to define NLNPI_CMD_MAX below */
@@ -111,6 +113,7 @@ enum nlnpi_attrs {
 	NLNPI_ATTR_SET_DEBUG,
 	NLNPI_ATTR_GET_DEBUG,
 	NLNPI_ATTR_GET_DEBUG_ARG,
+	NLNPI_ATTR_SBLOCK_ARG,
 	/* add attributes here, update the policy in itm_nlnpi.c */
 
 	__NLNPI_ATTR_AFTER_LAST,

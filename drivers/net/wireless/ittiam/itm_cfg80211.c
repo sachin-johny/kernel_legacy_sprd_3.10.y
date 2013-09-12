@@ -1035,11 +1035,12 @@ out:
 
 void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 {
-	struct cfg80211_bss *bss;
+	struct cfg80211_bss *bss = NULL;
 	u16 reason_code = 0;
+	bool found = false;
 
 	/* This should filled if disconnect reason is not only one */
-/*	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);*/
+	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);
 	if (priv->scan_request) {
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
@@ -1051,20 +1052,29 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
 	} else if (priv->connect_status == ITM_CONNECTED) {
-		bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
-				       priv->bssid, priv->ssid, priv->ssid_len,
-				       WLAN_CAPABILITY_ESS,
-				       WLAN_CAPABILITY_ESS);
-		if (bss)
-			cfg80211_unlink_bss(priv->wdev->wiphy, bss);
-
+		if (reason_code == STATION_LEAVING) {
+			do {
+				bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
+						       priv->bssid, priv->ssid,
+						       priv->ssid_len,
+						       WLAN_CAPABILITY_ESS,
+						       WLAN_CAPABILITY_ESS);
+				if (bss) {
+					cfg80211_unlink_bss(priv->wdev->wiphy,
+							    bss);
+					found = true;
+				} else {
+					found = false;
+				}
+			} while (found);
+		}
 		cfg80211_disconnected(priv->ndev, reason_code,
 				      NULL, 0, GFP_KERNEL);
 	}
 
 	priv->connect_status = ITM_DISCONNECTED;
 	if (netif_carrier_ok(priv->ndev)) {
-		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
+		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
 		netif_carrier_off(priv->ndev);
 		netif_stop_queue(priv->ndev);
 	}
