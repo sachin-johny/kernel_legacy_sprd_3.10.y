@@ -32,7 +32,7 @@ struct itm_priv {
 	struct wireless_dev *wdev;	/* Linux wireless device */
 	spinlock_t scan_req_lock;	/* spinlock for scan request */
 
-	int stopped;			/* sblock indicator */
+	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/
 
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */

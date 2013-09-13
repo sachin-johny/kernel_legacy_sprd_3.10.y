@@ -53,6 +53,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *itm_priv);
 void itm_cfg80211_disconnect_done(struct itm_priv *itm_priv);
 void itm_cfg80211_report_scan_done(struct itm_priv *itm_priv, bool aborted);
 void itm_cfg80211_report_ready(struct itm_priv *itm_priv);
+void itm_cfg80211_report_tx_busy(struct itm_priv *itm_priv);
 int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req);
 int itm_get_mac_from_cfg(struct itm_priv *priv);
 int itm_wdev_alloc(struct itm_priv *priv, struct device *dev);

@@ -1192,6 +1192,25 @@ void itm_cfg80211_report_ready(struct itm_priv *priv)
 	return;
 }
 
+void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
+{
+	u8 busy_flag = 0;
+
+	/* busy_flag is 1 mean stop tx otherwise wake tx */
+	memcpy(&busy_flag, priv->wlan_sipc->event_buf->u.event.variable, 1);
+	if (busy_flag) {
+		atomic_set(&priv->stopped, 1);
+		netif_stop_queue(priv->ndev);
+		dev_dbg(&priv->ndev->dev, "tx busy event, stop queue\n");
+	} else {
+		atomic_set(&priv->stopped, 0);
+		netif_wake_queue(priv->ndev);
+		dev_dbg(&priv->ndev->dev, "tx ok event, wake up queue\n");
+	};
+
+	return;
+}
+
 static int itm_wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 				     struct net_device *ndev,
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38)) || \
