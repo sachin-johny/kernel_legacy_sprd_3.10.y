@@ -992,6 +992,12 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 	printk(KERN_INFO "sprdfb:[%s], dev->enable = %d\n",__FUNCTION__, dev->enable);
 
 	if (0 != dev->enable){
+		if(dev->panel->is_clean_lcd){
+			dispc_osd_enable(false);
+			dispc_set_bg_color(0x00);
+			sprdfb_dispc_refresh(dev);
+			msleep(30);
+		}
 
 		if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 			dispc_ctx.is_wait_for_suspend=true;
@@ -1068,13 +1074,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		}
 
 		dev->enable = 1;
-		if(dev->panel->is_clean_lcd){
-			dispc_osd_enable(false);
-			dispc_set_bg_color(0x00);
-			sprdfb_dispc_refresh(dev);
-			msleep(30);
-			dispc_ctx.is_resume=true;
-		}
+		dispc_ctx.is_resume=true;
 	}
 	printk(KERN_INFO "sprdfb:[%s], leave dev->enable= %d\n",__FUNCTION__, dev->enable);
 
