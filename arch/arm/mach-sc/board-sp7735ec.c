@@ -690,10 +690,6 @@ static void __init sc8830_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
-    sprd_ramconsole_init();
-#endif
-
 }
 
 extern void __init  sci_enable_timer_early(void);
