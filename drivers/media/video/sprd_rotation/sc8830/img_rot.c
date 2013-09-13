@@ -136,7 +136,8 @@ static int rot_k_open(struct inode *node, struct file *file)
 	p_user = rot_get_user(current->pid);
 	if (NULL == p_user) {
 		printk("rot_k_open user cnt full  pid:%d. \n",current->pid);
-		return -1;
+		ret = -EBUSY;
+		goto exit;
 	}
 	file->private_data = p_user;
 	if (1 == atomic_inc_return(&rot_users)) {
