@@ -257,7 +257,7 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 		local_irq_save(irq_flag);
 		sprdbat_data->bat_info.cccv_point = set_value;
 		sprdchg_set_cccvpoint(sprdbat_data->bat_info.cccv_point);
-		if (sprdbat_cv_irq_dis) {
+		if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
 			sprdbat_cv_irq_dis = 0;
 			sprdbat_trickle_chg = 0;
 			enable_irq(sprdbat_data->irq_chg_cv_state);
@@ -683,12 +683,18 @@ static int sprdbat_adjust_cccvpoint(uint32_t vbat_now)
 
 		SPRDBAT_DEBUG("sprdbat_adjust_cccvpoint turn high cv:0x%x\n",
 			      cv);
-		BUG_ON(cv > SPRDBAT_CCCV_MAX);
+		//BUG_ON(cv > SPRDBAT_CCCV_MAX);
+		if (cv > SPRDBAT_CCCV_MAX) {
+			cv = SPRDBAT_CCCV_MAX;
+		}
 		sprdbat_data->bat_info.cccv_point = cv;
 		sprdchg_set_cccvpoint(cv);
 	} else {
 		cv = sprdchg_get_cccvpoint();
-		BUG_ON(cv < (SPRDBAT_CCCV_MIN + 2));
+		//BUG_ON(cv < (SPRDBAT_CCCV_MIN + 2));
+		if (cv < (SPRDBAT_CCCV_MIN + 2)) {
+			cv = SPRDBAT_CCCV_MIN + 2;
+		}
 		cv -= 2;
 		sprdbat_data->bat_info.cccv_point = cv;
 		SPRDBAT_DEBUG("sprdbat_adjust_cccvpoint turn low cv:0x%x\n",
@@ -834,6 +840,7 @@ static void sprdbat_print_battery_log(void)
 
 	get_monotonic_boottime(&cur_time);
 
+	SPRDBAT_DEBUG("CHIP ID is new chip?:%d\n", sprdfgu_is_new_chip());
 	SPRDBAT_DEBUG("cur_time:%ld\n", cur_time.tv_sec);
 	SPRDBAT_DEBUG("module_state:%d\n", sprdbat_data->bat_info.module_state);
 	SPRDBAT_DEBUG("capacity:%d\n", sprdbat_data->bat_info.capacity);
@@ -1018,7 +1025,7 @@ static void sprdbat_charge_works(struct work_struct *work)
 
 	if (sprdbat_start_chg) {
 		local_irq_save(irq_flag);
-		if (sprdbat_cv_irq_dis) {
+		if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
 			sprdbat_cv_irq_dis = 0;
 			enable_irq(sprdbat_data->irq_chg_cv_state);
 		}
