@@ -58,7 +58,7 @@
 #define AXI_BM_INT_EN			BIT(28)
 #define AXI_BM_INT_CLR			BIT(29)
 
-#define DDR_MONITOR_LOG
+//#define DDR_MONITOR_LOG
 
 #ifdef DDR_MONITOR_LOG
 
