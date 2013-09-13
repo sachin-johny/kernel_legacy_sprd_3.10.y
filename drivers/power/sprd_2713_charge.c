@@ -391,6 +391,10 @@ void sprdchg_set_chg_cur(uint32_t chg_current)
 
 void sprdchg_set_cccvpoint(unsigned int cvpoint)
 {
+	if (!sprdfgu_is_new_chip()) {
+		printk(KERN_ERR "sprdchg: sprdchg_set_cccvpoint old chip!\n");
+		cvpoint = 16;
+	}
 	BUG_ON(cvpoint > SPRDBAT_CCCV_MAX);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BITS_CHGR_CV_V(cvpoint), BITS_CHGR_CV_V(~0));
@@ -448,9 +452,7 @@ static uint32_t _sprdchg_read_chg_current(void)
 	}
 	if (isense > vbat) {
 		uint32_t temp = ((isense - vbat) * 1000) / 68;	//(vol/68mohm)
-		printk(KERN_ERR
-		       "sprdchg: sprdchg_read_chg_current:%d\n",
-		       temp);
+		printk(KERN_ERR "sprdchg: sprdchg_read_chg_current:%d\n", temp);
 		return temp;
 	} else {
 		printk(KERN_ERR
