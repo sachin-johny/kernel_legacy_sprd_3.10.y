@@ -1114,7 +1114,24 @@ static void __udc_startup(void)
 		d->udc_startup = 1;
 	}
 }
-
+static void dwc_otg_clear_all_int(dwc_otg_core_if_t *core_if)
+{
+	uint32_t inep_intr;
+	uint32_t outep_intr;
+	uint32_t gintsts;
+	uint32_t epnum = 0;
+	dwc_otg_dev_if_t *dev_if = core_if->dev_if;
+	for(epnum=0;epnum<MAX_EPS_CHANNELS;epnum++){
+		inep_intr = DWC_READ_REG32(&dev_if->in_ep_regs[epnum]->diepint);
+		DWC_WRITE_REG32(&dev_if->in_ep_regs[epnum]->diepint, inep_intr);
+	}
+	for(epnum=0;epnum<MAX_EPS_CHANNELS;epnum++){
+		outep_intr = DWC_READ_REG32(&dev_if->out_ep_regs[epnum]->doepint);
+		DWC_WRITE_REG32(&dev_if->out_ep_regs[epnum]->doepint, outep_intr);
+	}
+	gintsts = DWC_READ_REG32(&core_if->core_global_regs->gintsts);
+	DWC_WRITE_REG32(&core_if->core_global_regs->gintsts, gintsts);
+}
 static void __udc_shutdown(void)
 {
 	struct gadget_wrapper *d;
@@ -1123,8 +1140,9 @@ static void __udc_shutdown(void)
 
 	pr_info("USB:shutdown udc\n");
 	if (d->udc_startup) {
-		dwc_otg_pcd_stop(d->pcd);
 		dwc_otg_disable_global_interrupts(GET_CORE_IF(d->pcd));
+		dwc_otg_clear_all_int(GET_CORE_IF(d->pcd));
+		dwc_otg_pcd_stop(d->pcd);
 		udc_disable();
 		d->udc_startup = 0;
 		wake_unlock(&usb_wake_lock);
