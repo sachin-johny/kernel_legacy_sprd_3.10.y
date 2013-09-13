@@ -154,6 +154,8 @@ struct scale_frame {
 typedef void (*scale_isr_func)(struct scale_frame* frame, void* u_data);
 int32_t scale_module_en(void);
 int32_t scale_module_dis(void);
+int  scale_coeff_alloc(void);
+void  scale_coeff_free(void);
 int32_t scale_start(void);
 int32_t scale_stop(void);
 int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_data);

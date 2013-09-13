@@ -210,6 +210,7 @@ struct dcam_module {
 	struct semaphore           rotation_done_sema;
 	uint32_t                   wait_rotation_done;
 	uint32_t                   err_happened;
+	struct semaphore           scale_coeff_mem_sema;
 };
 
 LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
@@ -222,6 +223,7 @@ LOCAL struct dcam_module*      s_p_dcam_mod = 0;
 LOCAL uint32_t                 s_dcam_irq = 0x5A0000A5;
 LOCAL dcam_isr_func            s_user_func[DCAM_IRQ_NUMBER];
 LOCAL void*                    s_user_data[DCAM_IRQ_NUMBER];
+LOCAL uint32_t                 *s_dcam_scaling_coeff_addr = NULL;
 
 LOCAL DEFINE_MUTEX(dcam_sem);
 LOCAL DEFINE_SPINLOCK(dcam_lock);
@@ -457,32 +459,6 @@ void dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_i
 	}
 }
 
-void dcam_print_clock(void)
-{
-#if 0
-	uint32_t ahb_en, ahb_rst, gen_ckg_cfg;
-	uint32_t clk_ahb, clk_sensor, clk_ccir, clk_dcam;
-
-	ahb_en         = REG_RD(SPRD_MMAHB_BASE);
-	ahb_rst        = REG_RD(SPRD_MMAHB_BASE + 0x4);
-	gen_ckg_cfg    = REG_RD(SPRD_MMAHB_BASE + 0x8);
-
-	clk_ahb        = REG_RD(SPRD_MMCKG_BASE + 0x20);
-	clk_sensor     = REG_RD(SPRD_MMCKG_BASE + 0x24);
-	clk_ccir       = REG_RD(SPRD_MMCKG_BASE + 0x28);
-	clk_dcam       = REG_RD(SPRD_MMCKG_BASE + 0x2c);
-
-	printk("dcam_print_clock: start \n");
-	printk("ahb_en=0x%x, ahb_rst=0x%x, gen_ckg_cfg=0x%x \n", ahb_en, ahb_rst, gen_ckg_cfg);
-	printk("clk_ahb=0x%x, clk_sensor=0x%x, clk_ccir=0x%x, clk_dcam=0x%x \n",
-		clk_ahb, clk_sensor, clk_ccir, clk_dcam);
-	printk("dcam_print_clock end \n");
-
-#endif
-
-	return;
-}
-
 int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 	              enum dcam_cap_sensor_mode sn_mode)
 {
@@ -519,8 +495,6 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 		}
 	}
 
-
-	//dcam_print_clock();
 	return -rtn;
 }
 
@@ -541,25 +515,53 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 	}
 
 	_dcam_internal_deinit();
-	dcam_print_clock();
 
 	return -rtn;
+}
+
+LOCAL int  _dcam_scale_coeff_alloc(void)
+{
+	int ret = 0;
+
+	if (NULL == s_dcam_scaling_coeff_addr) {
+		s_dcam_scaling_coeff_addr = (uint32_t *)kmalloc(DCAM_SC_COEFF_BUF_SIZE, GFP_KERNEL);
+		if (NULL == s_dcam_scaling_coeff_addr) {
+			printk("DCAM: _dcam_scale_coeff_alloc fail.\n");
+			ret = -1;
+		}
+	}
+	return ret;
+}
+
+LOCAL void  _dcam_scale_coeff_free(void)
+{
+	if (s_dcam_scaling_coeff_addr) {
+		kfree(s_dcam_scaling_coeff_addr);
+		s_dcam_scaling_coeff_addr = NULL;
+	}
+}
+
+LOCAL uint32_t *dcam_get_scale_coeff_addr(void)
+{
+	return s_dcam_scaling_coeff_addr;
 }
 
 int32_t dcam_module_en(void)
 {
 	int	ret = 0;
 
-	printk("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
+	DCAM_TRACE("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
 
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		ret = _dcam_is_clk_mm_i_eb(1);
 		if (ret) {
-			return -DCAM_RTN_MAX;
+			ret = -DCAM_RTN_MAX;
+			goto fail_exit;
 		}
 		ret = dcam_set_clk(DCAM_CLK_256M);
 		if (ret) {
-			return -DCAM_RTN_MAX;
+			ret = -DCAM_RTN_MAX;
+			goto fail_exit;
 		}
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
 		dcam_reset(DCAM_RST_ALL);
@@ -574,37 +576,20 @@ int32_t dcam_module_en(void)
 				(void*)&s_dcam_irq);
 		if (ret) {
 			DCAM_TRACE("DCAM: dcam_start, error %d \n", ret);
-			return -DCAM_RTN_MAX;
+			ret = -DCAM_RTN_MAX;
+			goto fail_exit;
 		}
-
-		dcam_print_clock();
-#if 0
-		{
-			uint32_t bit_value;
-			// 0x60d0_000
-			printk("dcam_module_en: start enable module and set clock  \n");
-			
-			bit_value = BIT_0 | BIT_4 | BIT_6;
-			REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value);  // CSI enable
-
-			bit_value = BIT_0 | BIT_7 | BIT_8 | BIT_9;
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
-
-			bit_value = BIT_0 | BIT_1 | BIT_3 | BIT_7 | BIT_8;
-			REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
-
-			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-			REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
-
-			REG_MWR(SPRD_MMCKG_BASE + 0x20, 0xf, 0x3);  // ahb clock: 76, 128, 192, 256
+		ret = _dcam_scale_coeff_alloc();
+		if (ret) {
+			ret = -DCAM_RTN_MAX;
+			goto fail_exit;
 		}
-#endif
 		DCAM_TRACE("DCAM: dcam_module_en end \n");
 	}
 	DCAM_TRACE("DCAM: dcam_module_en, Out %d \n", s_dcam_users.counter);
-
-/*MODULE_EN_END:*/
+	return 0;
+fail_exit:
+	atomic_dec(&s_dcam_users);
 	return ret;
 }
 
@@ -624,32 +609,8 @@ int32_t dcam_module_dis(void)
 		if (ret) {
 			rtn =  -DCAM_RTN_MAX;
 		}
-		//dcam_print_clock();
-#if 0
-		{
-			uint32_t bit_value;
-			// 0x60d0_000
-			printk("dcam_module_dis: start enable module and set clock  \n");
-
-
-			bit_value = BIT_0 | BIT_1 | BIT_5 | BIT_7 | BIT_8 | BIT_9;
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, bit_value); // reset
-			REG_MWR(SPRD_MMAHB_BASE+0x4, bit_value, 0x0);
-
-			bit_value = BIT_0 | BIT_1 | BIT_2 | BIT_3;
-			REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, 0); // ckg_cfg
-
-			bit_value = BIT_0 | BIT_1| BIT_4;
-			REG_MWR(SPRD_MMAHB_BASE, bit_value, 0);  // CSI enable
-
-			//REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-			//REG_MWR(SPRD_MMCKG_BASE + 0x2c, 0xf, 0x3);  // dcam clock: 76, 128, 192, 256
-
-			printk("dcam_module_dis: end\n");
-		}
-#endif
+		_dcam_scale_coeff_free();
 	}
-
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
 	return rtn;
@@ -3013,7 +2974,7 @@ LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		path->output_size.h, scale2yuv420);
 
 
-	tmp_buf = (uint32_t *)kmalloc(DCAM_SC_COEFF_BUF_SIZE, GFP_KERNEL);
+	tmp_buf = dcam_get_scale_coeff_addr();
 
 	if (NULL == tmp_buf) {
 		return -DCAM_RTN_PATH_NO_MEM;
@@ -3022,6 +2983,8 @@ LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 	h_coeff = tmp_buf;
 	v_coeff = tmp_buf + (DCAM_SC_COEFF_COEF_SIZE/4);
 	v_chroma_coeff = v_coeff + (DCAM_SC_COEFF_COEF_SIZE/4);
+
+	down(&s_p_dcam_mod->scale_coeff_mem_sema);
 
 	if (!(Dcam_GenScaleCoeff((int16_t)path->sc_input_size.w,
 		(int16_t)path->sc_input_size.h,
@@ -3035,8 +2998,8 @@ LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 		&uv_tap,
 		tmp_buf + (DCAM_SC_COEFF_COEF_SIZE*3/4),
 		DCAM_SC_COEFF_TMP_SIZE))) {
-		kfree(tmp_buf);
-		DCAM_TRACE("DCAM: _dcam_set_sc_coeff Dcam_GenScaleCoeff error! \n");
+		printk("DCAM: _dcam_set_sc_coeff Dcam_GenScaleCoeff error! \n");
+		up(&s_p_dcam_mod->scale_coeff_mem_sema);
 		return -DCAM_RTN_PATH_GEN_COEFF_ERR;
 	}
 
@@ -3062,7 +3025,7 @@ LOCAL int32_t _dcam_set_sc_coeff(enum dcam_path_index path_index)
 	path->scale_tap.uv_tap = uv_tap;
 	path->valid_param.scale_tap = 1;
 
-	kfree(tmp_buf);
+	up(&s_p_dcam_mod->scale_coeff_mem_sema);
 
 	return DCAM_RTN_SUCCESS;
 }
@@ -3631,6 +3594,7 @@ LOCAL int  _dcam_internal_init(void)
 	sema_init(&s_p_dcam_mod->dcam_path2.tx_done_sema, 0);
 	sema_init(&s_p_dcam_mod->resize_done_sema, 0);
 	sema_init(&s_p_dcam_mod->rotation_done_sema, 0);
+	sema_init(&s_p_dcam_mod->scale_coeff_mem_sema, 1);
 	return ret;
 }
 LOCAL void _dcam_internal_deinit(void)

@@ -91,6 +91,7 @@ static struct scale_desc scale_path;
 static struct scale_desc *g_path = &scale_path;
 static uint32_t s_wait_flag = 0;
 static struct semaphore scale_done_sema = __SEMAPHORE_INITIALIZER(scale_done_sema, 0);
+static uint32_t *s_scaler_scaling_coeff_addr = NULL;
 
 static DEFINE_SPINLOCK(scale_lock);
 static int32_t _scale_cfg_scaler(void);
@@ -140,6 +141,33 @@ static int32_t scale_check_deci_slice_mode(uint32_t deci_val, uint32_t slice_h)
 		}
 	}
 	return rtn;
+}
+
+int  scale_coeff_alloc(void)
+{
+	int ret = 0;
+
+	if (NULL == s_scaler_scaling_coeff_addr) {
+		s_scaler_scaling_coeff_addr = (uint32_t *)kmalloc(SC_COEFF_BUF_SIZE, GFP_KERNEL);
+		if (NULL == s_scaler_scaling_coeff_addr) {
+			printk("SCALE DRV: scale_coeff_alloc fail.\n");
+			ret = -1;
+		}
+	}
+	return ret;
+}
+
+void  scale_coeff_free(void)
+{
+	if (s_scaler_scaling_coeff_addr) {
+		kfree(s_scaler_scaling_coeff_addr);
+		s_scaler_scaling_coeff_addr = NULL;
+	}
+}
+
+static uint32_t *get_scale_coeff_addr(void)
+{
+	return s_scaler_scaling_coeff_addr;
 }
 
 int32_t scale_start(void)
@@ -649,7 +677,7 @@ static int32_t _scale_set_sc_coeff(void)
 	if(SCALE_YUV420 == g_path->output_format)
 		scale2yuv420 = 1;
 
-	tmp_buf = (uint32_t *)kmalloc(SC_COEFF_BUF_SIZE, GFP_KERNEL);
+	tmp_buf = get_scale_coeff_addr();
 	if (NULL == tmp_buf) {
 		printk("SCALE DRV: No mem to alloc coeff buffer! \n");
 		return SCALE_RTN_NO_MEM;
@@ -671,7 +699,6 @@ static int32_t _scale_set_sc_coeff(void)
 		&uv_tap,
 		tmp_buf + (SC_COEFF_COEF_SIZE*3/4),
 		SC_COEFF_TMP_SIZE))) {
-		kfree(tmp_buf);
 		printk("SCALE DRV: _scale_set_sc_coeff error! \n");
 		return SCALE_RTN_GEN_COEFF_ERR;
 	}
@@ -696,8 +723,6 @@ static int32_t _scale_set_sc_coeff(void)
 
 	REG_MWR(SCALE_CFG, (BIT_19 | BIT_18 | BIT_17 | BIT_16), ((y_tap & 0x0F) << 16));
 	REG_MWR(SCALE_CFG, (BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11), ((uv_tap & 0x1F) << 11));
-
-	kfree(tmp_buf);
 
 	return SCALE_RTN_SUCCESS;
 }

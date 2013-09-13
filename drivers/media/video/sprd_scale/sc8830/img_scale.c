@@ -81,33 +81,25 @@ static int img_scale_hw_init(void)
 {
 	int ret = 0;
 
-	SCALE_TRACE("img_scale_hw_init, %d \n", scale_users.counter);
+	ret = scale_module_en();
+	if (unlikely(ret)) {
+		printk("Failed to enable scale module \n");
+		ret = -EIO;
+		goto exit;
+	}
 
-	if (1 == atomic_inc_return(&scale_users)) {
-		ret = scale_module_en();
-		if (unlikely(ret)) {
-			printk("Failed to enable scale module \n");
-			ret = -EIO;
-			goto faile;
-		}
-
-		ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
-		if (unlikely(ret)) {
-			printk("Failed to register ISR \n");
-			ret = -EACCES;
-			goto reg_faile;
-		} else {
-			dcam_resize_start();
-			goto exit;
-		}
+	ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
+	if (unlikely(ret)) {
+		printk("Failed to register ISR \n");
+		ret = -EACCES;
+		goto reg_faile;
 	} else {
 		dcam_resize_start();
 		goto exit;
 	}
+
 reg_faile:
 	scale_module_dis();
-faile:
-	atomic_dec(&scale_users);
 exit:
 	return ret;
 
@@ -117,12 +109,8 @@ static int img_scale_hw_deinit(void)
 {
 	int ret = 0;
 
-	SCALE_TRACE("img_scale_hw_deinit, %d \n", scale_users.counter);
-
-	if (0 == atomic_dec_return(&scale_users)) {
-		scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
-		scale_module_dis();
-	}
+	scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
+	scale_module_dis();
 
 	return ret;
 }
@@ -136,13 +124,25 @@ static int img_scale_open(struct inode *node, struct file *pf)
 
 	SCALE_TRACE("img_scale_open \n");
 
+	atomic_inc(&scale_users);
+
 	p_user = scale_get_user(current->pid);
 	if (NULL == p_user) {
 		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
-		return -1;
+		ret = -1;
+		goto open_fail;
+	} else {
+		pf->private_data = p_user;
 	}
-	pf->private_data = p_user;
 
+	ret = scale_coeff_alloc();
+	if (0 == ret) {
+		goto open_exit;
+	}
+
+open_fail:
+	atomic_dec(&scale_users);
+open_exit:
 	mutex_unlock(&scale_dev_open_mutex);
 
 	SCALE_TRACE("img_scale_open %d \n", ret);
@@ -178,6 +178,10 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 static int img_scale_release(struct inode *node, struct file *file)
 {
+	if (0 == atomic_dec_return(&scale_users)) {
+		scale_coeff_free();
+	}
+
 	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
 
 	SCALE_TRACE("img_scale_release \n");
