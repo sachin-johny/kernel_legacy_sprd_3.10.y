@@ -532,7 +532,7 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 
 int trout_fm_get_frequency(u16 *freq)
 {
-	*freq = shark_fm_info.freq_seek;
+       *freq = ((shark_fm_info.freq_seek >> 1) + 1);
 
 	return 0;
 }
