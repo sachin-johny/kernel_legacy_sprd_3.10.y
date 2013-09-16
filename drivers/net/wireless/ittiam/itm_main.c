@@ -34,6 +34,7 @@
 #include <linux/platform_device.h>
 
 #include <linux/sipc.h>
+#include <linux/atomic.h>
 
 #include "ittiam.h"
 #include "itm_sipc.h"
@@ -257,6 +258,7 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 	dev_dbg(&dev->dev, "%s\n", __func__);
 	dev->trans_start = jiffies;
 	netif_wake_queue(dev);
+	dev_dbg(&dev->dev, "tx_timeout and wake queue\n");
 }
 
 static int itm_wlan_ioctl(struct net_device *dev,
@@ -352,8 +354,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 
 	priv = netdev_priv(ndev);
 	priv->ndev = ndev;
-	priv->stopped = 0;
-
+	atomic_set(&priv->stopped, 0);
 	ndev->netdev_ops = &itm_wlan_ops;
 	ndev->watchdog_timeo = 1*HZ;
 
