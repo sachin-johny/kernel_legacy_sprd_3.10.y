@@ -38,14 +38,14 @@ static void getIoResource(struct platform_device  *pdev)
 	if (!res) {
 		printk("couldn't bt_power gpio\n");
 	}
-
+        else
 	bt_power = res->start;
 
 	res = platform_get_resource_byname(pdev, IORESOURCE_IO,"bt_reset");
 	if (!res) {
 		printk("couldn't find bt_reset gpio\n");
 	}
-
+        else
 	bt_reset = res->start;
 
 	printk("bt_reset = %ld, bt_power = %ld\n", bt_reset, bt_power);
