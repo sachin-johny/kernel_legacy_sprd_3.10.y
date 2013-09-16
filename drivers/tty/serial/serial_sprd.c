@@ -242,8 +242,6 @@ static inline void serial_sprd_rx_chars(int irq, void *dev_id)
 			else if (lsr & UART_LSR_FE)
 				flag = TTY_FRAME;
 		}
-		if (uart_handle_sysrq_char(port, ch))
-			goto ignore_char;
 
 		uart_insert_char(port, lsr, UART_LSR_OE, ch, flag);
 ignore_char:

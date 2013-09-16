@@ -2281,7 +2281,7 @@ static int received_cbw(struct fsg_dev *fsg, struct fsg_buffhd *bh)
 	if (common->data_size == 0)
 		common->data_dir = DATA_DIR_NONE;
 	common->lun = cbw->Lun;
-	if (common->lun >= 0 && common->lun < common->nluns)
+	if (common->lun < common->nluns)
 		common->curlun = &common->luns[common->lun];
 	else
 		common->curlun = NULL;
