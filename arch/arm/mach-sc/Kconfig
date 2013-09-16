@@ -99,6 +99,14 @@ config MACH_SP7730EC
 	help
 	  SP7730EC board based on SC8830 serial.
 
+config MACH_SP5735
+	bool "sp5735 Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  SP5735 board based on SC8830 serial.
+
 config MACH_SPX35FPGA
 	bool "sp8830 FPGA Board"
 	depends on ARCH_SC

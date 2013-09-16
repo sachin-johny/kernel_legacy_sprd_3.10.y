@@ -38,6 +38,10 @@
 #include "__board-sp7730ec.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP5735
+#include "__board-sp5735.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP5735PAD
 #include "__board-sp5735pad.h"
 #endif
