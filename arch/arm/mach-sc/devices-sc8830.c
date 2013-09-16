@@ -1164,6 +1164,7 @@ static struct saudio_init_data sprd_saudio_td={
 	SMSG_CH_VBC,
 	SMSG_CH_PLAYBACK,
 	SMSG_CH_CAPTURE,
+	SMSG_CH_MONITOR_AUDIO,
 };
 
 struct platform_device sprd_saudio_td_device = {
@@ -1353,6 +1354,7 @@ static struct saudio_init_data sprd_saudio_wcdma={
 	SMSG_CH_VBC,
 	SMSG_CH_PLAYBACK,
 	SMSG_CH_CAPTURE,
+	SMSG_CH_MONITOR_AUDIO,
 };
 
 struct platform_device sprd_saudio_wcdma_device = {
@@ -1632,6 +1634,7 @@ static struct saudio_init_data sprd_saudio_voip={
 	SMSG_CH_CTRL_VOIP,
 	SMSG_CH_PLAYBACK_VOIP,
 	SMSG_CH_CAPTURE_VOIP,
+	SMSG_CH_MONITOR_VOIP,
 };
 
 struct platform_device sprd_saudio_voip_device = {

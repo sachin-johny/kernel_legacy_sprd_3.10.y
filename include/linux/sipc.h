@@ -51,9 +51,11 @@ enum {
 	SMSG_CH_VBC,		/* audio conrol channel */
 	SMSG_CH_PLAYBACK, 	/* audio playback channel */
 	SMSG_CH_CAPTURE,	/* audio capture channel */
+	SMSG_CH_MONITOR_AUDIO,	/* audio monitor channel */
 	SMSG_CH_CTRL_VOIP,	/* audio voip conrol channel */
 	SMSG_CH_PLAYBACK_VOIP, 	/* audio voip playback channel */
 	SMSG_CH_CAPTURE_VOIP,	/* audio voip capture channel */
+	SMSG_CH_MONITOR_VOIP,	/* audio voip monitor channel */
 	SMSG_CH_NR,		/* total channel number */
 };
 

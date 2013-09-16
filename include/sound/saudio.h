@@ -19,6 +19,7 @@ struct saudio_init_data {
 	uint8_t			ctrl_channel;
 	uint8_t                     playback_channel;
 	uint8_t                     capture_channel;
+	uint8_t                     monitor_channel;
 };
 
 
