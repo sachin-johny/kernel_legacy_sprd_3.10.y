@@ -146,6 +146,44 @@ static int vbc_routing_put_volsw(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
+#ifdef CONFIG_SND_FOR_TROUT_FM
+#ifndef CONFIG_TROUT_FM_I2S_PORT
+#define CONFIG_TROUT_FM_I2S_PORT 0
+#endif
+extern int trout_fm_playback(int i2s_port);
+extern int trout_fm_playstop(int i2s_port);
+static int trout_fm_linein = 0;
+int trout_fm_linein_get(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	ucontrol->value.integer.value[0] = trout_fm_linein;
+	return 0;
+}
+
+int trout_fm_linein_put(struct snd_kcontrol *kcontrol,
+	struct snd_ctl_elem_value *ucontrol)
+{
+	int ret = 0;
+	int val;
+	val = ucontrol->value.integer.value[0];
+	if (val == trout_fm_linein) {
+		return 0;
+	}
+#if 1
+	if (val) {
+		ret = trout_fm_playback(CONFIG_TROUT_FM_I2S_PORT);
+	} else {
+		ret = trout_fm_playstop(CONFIG_TROUT_FM_I2S_PORT);
+	}
+#endif
+	if (ret < 0) {
+		return ret;
+	}
+	trout_fm_linein = val;
+	return ret;
+}
+#endif
+
 static const struct snd_kcontrol_new vbc_snd_controls[] = {
     // Mic
     SOC_ENUM("Micphone", vbc_mic12_enum),
@@ -183,7 +221,11 @@ static const struct snd_kcontrol_new vbc_snd_controls[] = {
     SOC_SINGLE_TLV("BypassFM Left Playback Volume", VBCGR2, 0, 0x1f, 1, dac_tlv_fm),
     SOC_SINGLE_TLV("BypassFM Right Playback Volume",VBCGR3, 0, 0x1f, 1, dac_tlv_fm),
     // Linein
+#ifdef CONFIG_SND_FOR_TROUT_FM
+    SOC_SINGLE_EXT("LineinFM", SND_SOC_NOPM, 0, 1, 0, trout_fm_linein_get, trout_fm_linein_put),
+#else
     SOC_SINGLE("LineinFM", VBPMR1, SB_LIN, 1, 1),
+#endif
 #if defined(CONFIG_ARCH_SC8800G)
     SOC_SINGLE("LineinFM_Record", ANA_CHGR_CTL0, 15, 1, 0),
 #elif defined(CONFIG_ARCH_SC8810)
@@ -1262,6 +1304,7 @@ static int vbc_trigger(struct snd_pcm_substream *substream, int cmd, struct snd_
                 pr_warn("vbc 1111111111111111\n");
             }
 #endif
+	    vbc_reg_VBDABUFFDTA_set(VBENABLE, 1);
             break;
         case SNDRV_PCM_TRIGGER_STOP:
             // vbc_power_down(substream->stream);
@@ -1990,3 +2033,46 @@ module_exit(vbc_exit);
 MODULE_DESCRIPTION("ALSA SoC SpreadTrum VBC codec");
 MODULE_AUTHOR("Luther Ge <luther.ge@spreadtrum.com>");
 MODULE_LICENSE("GPL");
+
+#ifdef CONFIG_SND_FOR_TROUT_FM
+
+void trout_fm_vbc_enable(void)
+{
+	vbc_reg_VBDABUFFDTA_set(VBENABLE, 1);
+}
+EXPORT_SYMBOL_GPL(trout_fm_vbc_enable);
+
+void trout_fm_vbc_disable(void)
+{
+	vbc_reg_VBDABUFFDTA_set(VBENABLE, 0);
+}
+EXPORT_SYMBOL_GPL(trout_fm_vbc_disable);
+
+void trout_fm_vbc_init(void)
+{
+	vbc_buffer_clear_all();
+	vbc_set_AD_DA_fifo_frame_num(VBC_FIFO_FRAME_NUM, VBC_FIFO_FRAME_NUM);
+	vbc_reg_VBAICR_set(VBCAICR_MODE_ADC_I2S    |
+			VBCAICR_MODE_DAC_I2S    |
+			VBCAICR_MODE_ADC_SERIAL |
+			VBCAICR_MODE_DAC_SERIAL);
+
+	vbc_reg_VBCR2_set(DAC_ADWL, DAC_DATA_WIDTH_16_bit);
+	vbc_reg_VBCR2_set(ADC_ADWL, ADC_DATA_WIDTH_16_bit);
+	vbc_reg_write(VBCCR2, 4, VBC_RATE_32000, 0xf);
+        vbc_reg_VBDABUFFDTA_set(VBDA0DMA_EN, 1);
+        vbc_reg_VBDABUFFDTA_set(VBDA1DMA_EN, 1);
+	vbc_codec_unmute();
+}
+EXPORT_SYMBOL_GPL(trout_fm_vbc_init);
+
+void trout_fm_vbc_deinit(void)
+{
+	vbc_codec_mute();
+        vbc_reg_VBDABUFFDTA_set(VBDA0DMA_EN, 0);
+        vbc_reg_VBDABUFFDTA_set(VBDA1DMA_EN, 0);
+	vbc_buffer_clear_all();
+}
+EXPORT_SYMBOL_GPL(trout_fm_vbc_deinit);
+
+#endif

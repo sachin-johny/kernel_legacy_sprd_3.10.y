@@ -938,3 +938,141 @@ module_exit(sc88xx_soc_platform_exit);
 MODULE_DESCRIPTION("ASoC SC88XX PCM DMA");
 MODULE_AUTHOR("Luther Ge <luther.ge@spreadtrum.com>");
 MODULE_LICENSE("GPL");
+
+#ifdef CONFIG_SND_FOR_TROUT_FM
+/* TROUT FM PLAYBACK */
+#include "i2s.h"
+extern void trout_fm_vbc_enable(void);
+extern void trout_fm_vbc_disable(void);
+extern void trout_fm_vbc_init(void);
+extern void trout_fm_vbc_deinit(void);
+
+static struct i2s_config trout_fm_i2s =
+{
+	.fs = 32000,
+	.slave_timeout = 0xF11,
+	.bus_type = I2S_BUS,
+	.byte_per_chan = I2S_BPCH_16,
+	.mode = I2S_SLAVER,
+	.lsb = I2S_MSB,
+	.rtx_mode = I2S_RX_MODE,
+	.sync_mode = I2S_LRCK,
+	.lrck_inv = I2S_L_LEFT,
+	.clk_inv = I2S_CLK_N,
+	.i2s_bus_mode = I2S_COMPATIBLE,
+	.rx_watermark = 20,
+};
+
+static void trout_fm_vbc_transfer(int on)
+{
+	pr_info("[trout_fm] %s on %d\n", __func__, on);
+	if (on) {
+		trout_fm_vbc_enable();
+	} else {
+		trout_fm_vbc_disable();
+	}
+}
+
+static struct i2s_from_fm_to_vbc_config trout_vbc =
+{
+	.config = &trout_fm_i2s,
+	.vbc_transfer_enable = trout_fm_vbc_transfer,
+};
+
+extern void print_dma_config(sprd_dma_desc *dma_desc);
+static int trout_fm_vbc_dma_config(struct i2s_from_fm_to_vbc_config *vbc_config)
+{
+	sprd_dma_ctrl ctrl;
+	int total_len = vbc_config->bytes >> 2;
+	int burst_size = VBC_FIFO_FRAME_NUM * 2;
+	sprd_dma_desc *dma_desc = vbc_config->dma_desc;
+	u16 * da0_addr = vbc_config->addr;
+	u16 * da1_addr = vbc_config->addr;
+	da1_addr += 1;
+
+	pr_info("[trout_fm] %s total_len %d burst_size %d\n", __func__, total_len, burst_size);
+
+	BUG_ON(0 != (total_len % burst_size));
+
+	ctrl.dma_desc = &dma_desc[0];
+	ctrl.dma_desc_phy = vbc_config->dma_desc_phys;
+	sprd_dma_setup_cfg(&ctrl,
+			DMA_VB_DA0, /* chan id */
+			DMA_LINKLIST, /* dma mode */
+			INT_NONE, /* interrupt type */
+			DMA_INCREASE, /* src */
+			DMA_NOCHANGE, /* dst */
+			SRC_BURST_MODE_SINGLE, /* src */
+			SRC_BURST_MODE_SINGLE, /* dst */
+			burst_size, /* burst size */
+			16, 16, /* data width */
+			da0_addr, /* source address */
+			VBDA0 - SPRD_VB_BASE + SPRD_VB_PHYS, /* destination address */
+			total_len); /* total length */
+	dma_desc[0].cfg &= ~DMA_REQMODE_INFIINITE;
+	dma_desc[0].cfg |= DMA_REQMODE_NORMAL;
+	dma_desc[0].pmod = (4 << SRC_ELEM_POSTM_SHIFT);
+	dma_desc[1] = dma_desc[0];
+	dma_desc[1].dsrc = da0_addr + (vbc_config->bytes >> 2);
+	dma_desc[0].llptr = vbc_config->dma_desc_phys + sizeof(sprd_dma_desc);
+	dma_desc[1].llptr = vbc_config->dma_desc_phys;
+	sprd_dma_setup(&ctrl);
+	print_dma_config(ctrl.dma_desc);
+	print_dma_config(&dma_desc[1]);
+	sprd_dma_start(DMA_VB_DA0);
+
+	ctrl.dma_desc = &dma_desc[2];
+	ctrl.dma_desc_phy = vbc_config->dma_desc_phys + (2 * sizeof(sprd_dma_desc));
+	sprd_dma_setup_cfg(&ctrl,
+			DMA_VB_DA1, /* chan id */
+			DMA_LINKLIST, /* dma mode */
+			INT_NONE, /* interrupt type */
+			DMA_INCREASE, /* src */
+			DMA_NOCHANGE, /* dst */
+			SRC_BURST_MODE_SINGLE, /* src */
+			SRC_BURST_MODE_SINGLE, /* dst */
+			burst_size, /* burst size */
+			16, 16, /* data width */
+			da1_addr, /* source address */
+			VBDA1 - SPRD_VB_BASE + SPRD_VB_PHYS, /* destination address */
+			total_len); /* total length */
+	dma_desc[2].cfg &= ~DMA_REQMODE_INFIINITE;
+	dma_desc[2].cfg |= DMA_REQMODE_NORMAL;
+	dma_desc[2].pmod = (4 << SRC_ELEM_POSTM_SHIFT);
+	dma_desc[3] = dma_desc[2];
+	dma_desc[3].dsrc = da1_addr + (vbc_config->bytes >> 2);
+	dma_desc[2].llptr = vbc_config->dma_desc_phys + (3 * sizeof(sprd_dma_desc));
+	dma_desc[3].llptr = vbc_config->dma_desc_phys + (2 * sizeof(sprd_dma_desc));
+	print_dma_config(ctrl.dma_desc);
+	print_dma_config(&dma_desc[3]);
+	sprd_dma_setup(&ctrl);
+	sprd_dma_start(DMA_VB_DA1);
+}
+
+int trout_fm_playback(int i2s_port)
+{
+	int ret = 0;
+	pr_info("[trout_fm] %s i2s port %d\n", __func__, i2s_port);
+	ret = i2s_from_fm_to_vbc_config(i2s_port, &trout_vbc);
+	if (ret < 0) {
+		pr_err("[trout_fm] i2s enable error!\n");
+		return ret;
+	}
+	trout_fm_vbc_dma_config(&trout_vbc);
+	trout_fm_vbc_init();
+	trout_fm_vbc_disable();
+	i2s_from_fm_to_vbc_enable(i2s_port);
+	return ret;
+}
+EXPORT_SYMBOL_GPL(trout_fm_playback);
+
+int trout_fm_playstop(int i2s_port)
+{
+	pr_info("[trout_fm] %s i2s port %d\n", __func__, i2s_port);
+	i2s_from_fm_to_vbc_disable(i2s_port);
+	trout_fm_vbc_deinit();
+	return 0;
+}
+EXPORT_SYMBOL_GPL(trout_fm_playstop);
+
+#endif

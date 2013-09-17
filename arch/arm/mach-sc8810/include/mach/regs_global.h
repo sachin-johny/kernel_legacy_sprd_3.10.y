@@ -137,6 +137,7 @@
 #define SWRST_SPI1_RST                  BIT_15
 //reserved
 #define SWRST_IIS_RST                   BIT_16
+#define SWRST_IIS1_RST                  BIT_17
 //reserved
 #define SWRST_SYST_RST                  BIT_19
 #define SWRST_PINREG_RST                BIT_20

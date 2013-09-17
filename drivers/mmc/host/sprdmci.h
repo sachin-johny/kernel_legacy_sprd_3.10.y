@@ -14,5 +14,17 @@
 struct sprd_host_data {
 	int detect_irq;
 };
+
+//add by chengwg.
+#ifdef CONFIG_MMC_DEV_TROUT
+struct trout_scan_info {
+        int scan_rst;
+        struct completion trout_scan_comp;
+};
+
+extern struct trout_scan_info trout_info;
+
+#endif
+
 #endif
 

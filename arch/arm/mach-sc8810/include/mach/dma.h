@@ -14,6 +14,7 @@
  */
 
 #ifndef __ASM_ARCH_SPRD_DMA_H
+#define __ASM_ARCH_SPRD_DMA_H
 
 #include <linux/list.h>
 #include <mach/hardware.h>
@@ -195,6 +196,8 @@
 #define DMA_SPI1_RX                     0x17
 #define DMA_DRM_RAW                     0x1D
 #define DMA_DRM_CPT                     0x1E
+#define DMA_IIS1_TX                     0x18
+#define DMA_IIS1_RX                     0x19
 #define DMA_VB_AD                       DMA_VB_AD0
 #define DMA_USB_EP1                     DMA_SOFT0
 #define DMA_USB_EP3                     DMA_SOFT0

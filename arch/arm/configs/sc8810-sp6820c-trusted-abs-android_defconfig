@@ -1509,6 +1509,8 @@ CONFIG_MMC_BLOCK_DEFERRED_RESUME=y
 # CONFIG_SDIO_UART is not set
 # CONFIG_MMC_TEST is not set
 
+CONFIG_MMC_DEV_TROUT=y
+
 #
 # MMC/SD/SDIO Host Controller Drivers
 #

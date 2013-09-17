@@ -8,3 +8,29 @@ config SND_SC88XX_SOC_SPRDPHONE
       Say Y if you want to built in to kernel, Say M for ko module.
 
 endmenu
+
+
+config IIS_FOR_TROUT_FM
+	tristate
+	default n
+
+config SND_FOR_TROUT_FM
+	tristate "trout FM connect to I2S and then use sound modules playback"
+	select IIS_FOR_TROUT_FM
+	depends on !SND_SPRD_SOC_IIS_FM
+	default n
+
+config SND_SPRD_SOC_IIS_FM
+	select SND_SPRD_SOC_I2S
+	select SND_SOC_NULL_CODEC
+	tristate "iis-fm  -- ASoC Audio card for iis-external FM"
+	default y
+	help
+		Say Y if your FM is master i2s and use i2s record pcm wave.
+
+config SPRD_IIS_DEBUG
+	bool "iis-fm debug option"
+	default y
+
+source "sound/soc/sc88xx/dai/i2s/Kconfig"
+source "sound/soc/sc88xx/codec/null-codec/Kconfig"
