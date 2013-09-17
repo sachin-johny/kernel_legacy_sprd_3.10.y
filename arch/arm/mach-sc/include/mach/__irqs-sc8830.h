@@ -171,13 +171,13 @@
 #define IRQ_ANA_AUD_HEAD_BUTTON_INT		SCI_EXT_IRQ(6)
 #define IRQ_ANA_AUD_PROTECT_INT			SCI_EXT_IRQ(7)
 #define IRQ_ANA_THM_OTP_INT			SCI_EXT_IRQ(8)
-#define IRQ_ANA_DCD_OTP_INT			SCI_EXT_IRQ(9)
+#define IRQ_ANA_DCD_OTP_INT			SCI_EXT_IRQ(10)/*bit9 is reserved in adie intc*/
 
 #define IRQ_ANA_INT_START		IRQ_ANA_ADC_INT
-#define NR_ANA_IRQS			(10)
+#define NR_ANA_IRQS			(11)
 
 /* sc8830 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
-#define GPIO_IRQ_START			SCI_EXT_IRQ(10)
+#define GPIO_IRQ_START			SCI_EXT_IRQ(11)
 
 #define NR_GPIO_IRQS	( 320 )
 
