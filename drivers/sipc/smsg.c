@@ -81,19 +81,20 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 					msg->type == SMSG_TYPE_OPEN &&
 					msg->flag == SMSG_OPEN_MAGIC) {
 
-				ipc->states[msg->channel] |= CHAN_STATE_CPREADY;
+				ipc->states[msg->channel] = CHAN_STATE_WAITING;
 			} else {
 				/* drop this bad msg since channel is not opened */
 				printk(KERN_ERR "smsg channel %d not opened! "
 					"drop smsg: type=%d, flag=0x%04x, value=0x%08x\n",
 					msg->channel, msg->type, msg->flag, msg->value);
 			}
-
 			/* update smsg rdptr */
 			writel(readl(ipc->rxbuf_rdptr) + 1, ipc->rxbuf_rdptr);
 
 			continue;
 		}
+
+		atomic_inc(&(ch->busy));
 
 		if ((int)(readl(ch->wrptr) - readl(ch->rdptr)) >= SMSG_CACHE_NR) {
 			/* msg cache is full, drop this msg */
@@ -111,6 +112,8 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 		writel(readl(ipc->rxbuf_rdptr) + 1, ipc->rxbuf_rdptr);
 
 		wake_up_interruptible_all(&(ch->rxwait));
+
+		atomic_dec(&(ch->busy));
 	}
 
 	return IRQ_HANDLED;
@@ -168,22 +171,29 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 		return -ENOMEM;
 	}
 
+	atomic_set(&(ch->busy), 1);
 	init_waitqueue_head(&(ch->rxwait));
 	mutex_init(&(ch->rxlock));
 	ipc->channels[channel] = ch;
-	ipc->states[channel] |= CHAN_STATE_APREADY;
 
 	smsg_set(&mopen, channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
 	rval = smsg_send(dst, &mopen, timeout);
 	if (rval != 0) {
 		printk(KERN_ERR "smsg_ch_open smsg send error, errno %d!\n", rval);
-		kfree(ipc->channels[channel]);
+		ipc->states[channel] = CHAN_STATE_UNUSED;
 		ipc->channels[channel] = NULL;
+		atomic_dec(&(ch->busy));
+		/* guarantee that channel resource isn't used in irq handler  */
+		while(atomic_read(&(ch->busy))) {
+			;
+		}
+		kfree(ch);
+
 		return rval;
 	}
 
 	/* open msg might be got before */
-	if (ipc->states[channel] & CHAN_STATE_CPREADY) {
+	if (ipc->states[channel] == CHAN_STATE_WAITING) {
 		goto open_done;
 	}
 
@@ -191,22 +201,35 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 	rval = smsg_recv(dst, &mrecv, timeout);
 	if (rval != 0) {
 		printk(KERN_ERR "smsg_ch_open smsg receive error, errno %d!\n", rval);
-		kfree(ipc->channels[channel]);
+		ipc->states[channel] = CHAN_STATE_UNUSED;
 		ipc->channels[channel] = NULL;
+		atomic_dec(&(ch->busy));
+		/* guarantee that channel resource isn't used in irq handler  */
+		while(atomic_read(&(ch->busy))) {
+			;
+		}
+		kfree(ch);
+
 		return rval;
 	}
 
 	if (mrecv.type != SMSG_TYPE_OPEN || mrecv.flag != SMSG_OPEN_MAGIC) {
-		printk(KERN_ERR "Got bad open msg on channel %d-%d\n",
-				dst, channel);
-		kfree(ipc->channels[channel]);
+		printk(KERN_ERR "Got bad open msg on channel %d-%d\n", dst, channel);
+		ipc->states[channel] = CHAN_STATE_UNUSED;
 		ipc->channels[channel] = NULL;
+		atomic_dec(&(ch->busy));
+		/* guarantee that channel resource isn't used in irq handler  */
+		while(atomic_read(&(ch->busy))) {
+			;
+		}
+		kfree(ch);
+
 		return -EIO;
 	}
 
 open_done:
 	ipc->states[channel] = CHAN_STATE_OPENED;
-
+	atomic_dec(&(ch->busy));
 	return 0;
 }
 
@@ -223,12 +246,25 @@ int smsg_ch_close(uint8_t dst, uint8_t channel,  int timeout)
 	smsg_set(&mclose, channel, SMSG_TYPE_CLOSE, SMSG_CLOSE_MAGIC, 0);
 	smsg_send(dst, &mclose, timeout);
 
-	ipc->states[channel] = CHAN_STATE_UNUSED;
+	ipc->states[channel] = CHAN_STATE_FREE;
 	wake_up_interruptible_all(&(ch->rxwait));
 
-	kfree(ch);
-	ipc->channels[channel] = NULL;
+	/* wait for the channel beeing unused */
+	while(atomic_read(&(ch->busy))) {
+		;
+	}
 
+	ipc->states[channel] = CHAN_STATE_UNUSED;
+
+	/* maybe channel has been free for smsg_ch_open failed */
+	if (ipc->channels[channel]){
+		ipc->channels[channel] = NULL;
+		/* guarantee that channel resource isn't used in irq handler */
+		while(atomic_read(&(ch->busy))) {
+			;
+		}
+		kfree(ch);
+	}
 	return 0;
 }
 
@@ -298,9 +334,13 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 	pr_debug("smsg_recv: dst=%d, channel=%d, timeout=%d\n",
 			dst, msg->channel, timeout);
 
+	atomic_inc(&(ch->busy));
+
 	if (timeout == 0) {
 		if (!mutex_trylock(&(ch->rxlock))) {
 			printk(KERN_INFO "recv smsg busy!\n");
+			atomic_dec(&(ch->busy));
+
 			return -EBUSY;
 		}
 
@@ -316,15 +356,15 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 		/* wait forever */
 		rval = wait_event_interruptible(ch->rxwait,
 				(readl(ch->wrptr) != readl(ch->rdptr)) ||
-				(ipc->states[msg->channel] == CHAN_STATE_UNUSED));
+				(ipc->states[msg->channel] == CHAN_STATE_FREE));
 		if (rval < 0) {
 			printk(KERN_WARNING "smsg_recv wait interrupted!\n");
 
 			goto recv_failed;
 		}
 
-		if (ipc->states[msg->channel] == CHAN_STATE_UNUSED) {
-			printk(KERN_ERR "smsg_recv smsg channel is unused!\n");
+		if (ipc->states[msg->channel] == CHAN_STATE_FREE) {
+			printk(KERN_WARNING "smsg_recv smsg channel is free!\n");
 			rval = -EIO;
 
 			goto recv_failed;
@@ -334,7 +374,7 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 		/* wait timeout */
 		rval = wait_event_interruptible_timeout(ch->rxwait,
 			(readl(ch->wrptr) != readl(ch->rdptr)) ||
-			(ipc->states[msg->channel] == CHAN_STATE_UNUSED), timeout);
+			(ipc->states[msg->channel] == CHAN_STATE_FREE), timeout);
 		if (rval < 0) {
 			printk(KERN_WARNING "smsg_recv wait interrupted!\n");
 
@@ -346,8 +386,8 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 			goto recv_failed;
 		}
 
-		if (ipc->states[msg->channel] == CHAN_STATE_UNUSED) {
-			printk(KERN_ERR "smsg_recv smsg channel is unused!\n");
+		if (ipc->states[msg->channel] == CHAN_STATE_FREE) {
+			printk(KERN_ERR "smsg_recv smsg channel is free!\n");
 			rval = -EIO;
 
 			goto recv_failed;
@@ -366,7 +406,7 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 
 recv_failed:
 	mutex_unlock(&(ch->rxlock));
-
+	atomic_dec(&(ch->busy));
 	return rval;
 }
 

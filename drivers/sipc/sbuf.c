@@ -44,6 +44,8 @@ static int sbuf_thread(void *data)
 	rval = smsg_ch_open(sbuf->dst, sbuf->channel, -1);
 	if (rval != 0) {
 		printk(KERN_ERR "Failed to open channel %d\n", sbuf->channel);
+		/* assign NULL to thread poniter as failed to open channel */
+		sbuf->thread = NULL;
 		return rval;
 	}
 
@@ -51,7 +53,13 @@ static int sbuf_thread(void *data)
 	while (!kthread_should_stop()) {
 		/* monitor sbuf rdptr/wrptr update smsg */
 		smsg_set(&mrecv, sbuf->channel, 0, 0, 0);
-		smsg_recv(sbuf->dst, &mrecv, -1);
+		rval = smsg_recv(sbuf->dst, &mrecv, -1);
+
+		if (rval == -EIO) {
+		/* channel state is free */
+			msleep(5);
+			continue;
+		}
 
 		pr_debug("sbuf thread recv msg: dst=%d, channel=%d, "
 				"type=%d, flag=0x%04x, value=0x%08x\n",
@@ -201,17 +209,29 @@ void sbuf_destroy(uint8_t dst, uint8_t channel)
 	struct sbuf_mgr *sbuf = sbufs[dst][channel];
 	int i;
 
-	sbuf->state = SBUF_STATE_IDLE;
-	smsg_ch_close(dst, channel, -1);
-	kthread_stop(sbuf->thread);
-
-	for (i = 0; i < sbuf->ringnr; i++) {
-		wake_up_interruptible_all(&sbuf->rings[i].txwait);
-		wake_up_interruptible_all(&sbuf->rings[i].rxwait);
+	if (sbuf == NULL) {
+		return;
 	}
 
-	kfree(sbuf->rings);
-	iounmap(sbuf->smem_virt);
+	sbuf->state = SBUF_STATE_IDLE;
+	smsg_ch_close(dst, channel, -1);
+
+	/* stop sbuf thread if it's created successfully and still alive */
+	if (!IS_ERR_OR_NULL(sbuf->thread)) {
+		kthread_stop(sbuf->thread);
+	}
+
+	if (sbuf->rings) {
+		for (i = 0; i < sbuf->ringnr; i++) {
+			wake_up_interruptible_all(&sbuf->rings[i].txwait);
+			wake_up_interruptible_all(&sbuf->rings[i].rxwait);
+		}
+		kfree(sbuf->rings);
+	}
+
+	if (sbuf->smem_virt) {
+		iounmap(sbuf->smem_virt);
+	}
 	smem_free(sbuf->smem_addr, sbuf->smem_size);
 	kfree(sbuf);
 

@@ -20,6 +20,8 @@ struct smsg_channel {
 	/* wait queue for recv-buffer */
 	wait_queue_head_t	rxwait;
 	struct mutex		rxlock;
+	/* record the runtime status of smsg channel */
+	atomic_t 		busy;
 
 	/* cached msgs for recv */
 	uint32_t		wrptr[1];
@@ -68,9 +70,9 @@ struct smsg_ipc {
 };
 
 #define CHAN_STATE_UNUSED	0
-#define CHAN_STATE_APREADY	1
-#define CHAN_STATE_CPREADY 	2
-#define CHAN_STATE_OPENED	(CHAN_STATE_APREADY | CHAN_STATE_CPREADY)
+#define CHAN_STATE_WAITING 	1
+#define CHAN_STATE_OPENED	2
+#define CHAN_STATE_FREE 	3
 
 /* create/destroy smsg ipc between AP/CP */
 int smsg_ipc_create(uint8_t dst, struct smsg_ipc *ipc);

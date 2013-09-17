@@ -66,13 +66,22 @@ static int sblock_thread(void *data)
 	rval = smsg_ch_open(sblock->dst, sblock->channel, -1);
 	if (rval != 0) {
 		printk(KERN_ERR "Failed to open channel %d\n", sblock->channel);
+		/* assign NULL to thread poniter as failed to open channel */
+		sblock->thread = NULL;
 		return rval;
 	}
+
 	/* handle the sblock events */
 	while (!kthread_should_stop()) {
+
 		/* monitor sblock recv smsg */
 		smsg_set(&mrecv, sblock->channel, 0, 0, 0);
-		smsg_recv(sblock->dst, &mrecv, -1);
+		rval = smsg_recv(sblock->dst, &mrecv, -1);
+		if (rval == -EIO) {
+		/* channel state is FREE */
+			msleep(5);
+			continue;
+		}
 
 		pr_debug("sblock thread recv msg: dst=%d, channel=%d, "
 				"type=%d, flag=0x%04x, value=0x%08x\n",
@@ -138,6 +147,7 @@ static int sblock_thread(void *data)
 		}
 	}
 
+	printk(KERN_WARNING "sblock %d-%d thread stop", sblock->dst, sblock->channel);
 	return rval;
 }
 
@@ -262,16 +272,29 @@ void sblock_destroy(uint8_t dst, uint8_t channel)
 {
 	struct sblock_mgr *sblock = sblocks[dst][channel];
 
+	if (sblock == NULL) {
+		return;
+	}
+
 	sblock->state = SBLOCK_STATE_IDLE;
 	smsg_ch_close(dst, channel, -1);
-	kthread_stop(sblock->thread);
 
-	wake_up_interruptible_all(&sblock->ring->recvwait);
-	wake_up_interruptible_all(&sblock->ring->getwait);
+	/* stop sblock thread if it's created successfully and still alive */
+	if (!IS_ERR_OR_NULL(sblock->thread)) {
+		kthread_stop(sblock->thread);
+	}
 
-	kfree(sblock->ring->txunits);
-	kfree(sblock->ring);
-	iounmap(sblock->smem_virt);
+	if (sblock->ring) {
+		wake_up_interruptible_all(&sblock->ring->recvwait);
+		wake_up_interruptible_all(&sblock->ring->getwait);
+		if (sblock->ring->txunits) {
+			kfree(sblock->ring->txunits);
+		}
+		kfree(sblock->ring);
+	}
+	if (sblock->smem_virt) {
+		iounmap(sblock->smem_virt);
+	}
 	smem_free(sblock->smem_addr, sblock->smem_size);
 	kfree(sblock);
 
