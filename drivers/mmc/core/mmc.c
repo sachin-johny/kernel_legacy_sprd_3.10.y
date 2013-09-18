@@ -1482,7 +1482,7 @@ static void mmc_detect(struct mmc_host *host)
 			BUG_ON(!host->card);
 
 			mmc_claim_host(host);
-
+#if 0
 			for(i=0x0; i<EMMC_VENDOR_MAX; i++) {
 				if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_SUMSUNG)
 				break;
@@ -1497,7 +1497,13 @@ static void mmc_detect(struct mmc_host *host)
 				else if (!mmc_host_is_spi(host))
 					mmc_deselect_cards(host);
 			}
-			host->card->state &= ~MMC_STATE_HIGHSPEED;
+#else
+		if (mmc_card_can_sleep(host))
+			err = mmc_card_sleep(host);
+		else if (!mmc_host_is_spi(host))
+			mmc_deselect_cards(host);
+#endif
+		host->card->state &= ~MMC_STATE_HIGHSPEED;
 		mmc_release_host(host);
 
 		return err;
@@ -1519,7 +1525,7 @@ static int mmc_resume(struct mmc_host *host)
 	BUG_ON(!host->card);
 
 	mmc_claim_host(host);
-
+#if 0
         for(i=0x0; i<EMMC_VENDOR_MAX; i++) {
 	   if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_HYNIX)
                 break;
@@ -1539,6 +1545,10 @@ static int mmc_resume(struct mmc_host *host)
           mmc_power_up(host);
           err = mmc_init_card(host, host->ocr, host->card);
         }
+#else
+	mmc_power_up(host);
+	err = mmc_init_card(host, host->ocr, host->card);
+#endif
         mmc_release_host(host);
 	return err;
 }
