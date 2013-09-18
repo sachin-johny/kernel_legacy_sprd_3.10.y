@@ -2054,6 +2054,18 @@ rebalance:
 	if (page)
 		goto got_pg;
 
+	/*acean: for order=2, 16k alloc, start*/
+	if((2 == order) && (ZONE_NORMAL == high_zoneidx)) {
+#if defined(WANT_PAGE_VIRTUAL)
+		page = container_of((void *)(sprd_16k_alloc()), struct page, virtual);
+#else
+		page = pfn_to_page(PFN_DOWN(__pa(sprd_16k_alloc())));
+#endif
+	}
+	if (page)
+		goto got_pg;
+	/*acean: for order=2, 16k alloc, end*/
+
 	/*
 	 * If we failed to make any progress reclaiming, then we are
 	 * running out of options and have to consider going OOM
