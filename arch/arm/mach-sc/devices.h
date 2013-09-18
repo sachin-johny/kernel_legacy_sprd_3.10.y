@@ -100,7 +100,6 @@ extern struct platform_device sprd_seth0_wcdma_device;
 extern struct platform_device sprd_seth1_wcdma_device;
 extern struct platform_device sprd_seth2_wcdma_device;
 extern struct platform_device sprd_saudio_wcdma_device;
-extern struct platform_device sprd_saudio_voip_device;
 #endif
 #ifdef CONFIG_SIPC_WCN
 extern struct platform_device sprd_spipe_wcn_device;
@@ -108,7 +107,7 @@ extern struct platform_device sprd_slog_wcn_device;
 extern struct platform_device sprd_cproc_wcn_device;
 extern struct platform_device sprd_sttybt_td_device;
 #endif
-
+extern struct platform_device sprd_saudio_voip_device;
 extern struct platform_device sprd_a7_pmu_device;
 
 #endif
