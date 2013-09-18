@@ -118,6 +118,8 @@ void ion_carveout_heap_unmap_dma(struct ion_heap *heap,
 				 struct ion_buffer *buffer)
 {
 	sg_free_table(buffer->sg_table);
+	kfree(buffer->sg_table);
+	buffer->sg_table = NULL;
 }
 
 void *ion_carveout_heap_map_kernel(struct ion_heap *heap,
