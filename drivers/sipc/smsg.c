@@ -425,10 +425,10 @@ static int smsg_debug_show(struct seq_file *m, void *private)
 		seq_printf(m, "sipc: %s: \n", smsg_sipc->name);
 		seq_printf(m, "dst: 0x%0x, irq: 0x%0x\n",
 			   smsg_sipc->dst, smsg_sipc->irq);
-		seq_printf(m, "txbufAddr: 0x%0x, txbufsize: 0x%0x, txbufrdptr: 0x%0x, txbufwrptr: 0x%0x\n",
-			   smsg_sipc->txbuf_addr, smsg_sipc->txbuf_size, smsg_sipc->txbuf_rdptr, smsg_sipc->txbuf_wrptr);
-		seq_printf(m, "rxbufAddr: 0x%0x, rxbufsize: 0x%0x, rxbufrdptr: 0x%0x, rxbufwrptr: 0x%0x\n",
-			   smsg_sipc->rxbuf_addr, smsg_sipc->rxbuf_size, smsg_sipc->rxbuf_rdptr, smsg_sipc->rxbuf_wrptr);
+		seq_printf(m, "txbufAddr: 0x%0x, txbufsize: 0x%0x, txbufrdptr: [0x%0x]=%lu, txbufwrptr: [0x%0x]=%lu\n",
+			   smsg_sipc->txbuf_addr, smsg_sipc->txbuf_size, smsg_sipc->txbuf_rdptr, readl(smsg_sipc->txbuf_rdptr), smsg_sipc->txbuf_wrptr, readl(smsg_sipc->txbuf_wrptr));
+		seq_printf(m, "rxbufAddr: 0x%0x, rxbufsize: 0x%0x, rxbufrdptr: [0x%0x]=%lu, rxbufwrptr: [0x%0x]=%lu\n",
+			   smsg_sipc->rxbuf_addr, smsg_sipc->rxbuf_size, smsg_sipc->rxbuf_rdptr, readl(smsg_sipc->rxbuf_rdptr), smsg_sipc->rxbuf_wrptr, readl(smsg_sipc->rxbuf_wrptr));
 
 		for (j=0;  j<SMSG_CH_NR; j++) {
 			seq_printf(m, "channel[%d] states: %d\n", j, smsg_sipc->states[j]);
