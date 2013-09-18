@@ -839,7 +839,7 @@ static void __exit bluesleep_exit(void)
 	destroy_workqueue(hostwake_work_queue);
 }
 
-//module_init(bluesleep_init);
+module_init(bluesleep_init);
 module_exit(bluesleep_exit);
 
 MODULE_DESCRIPTION("Bluetooth Sleep Mode Driver ver %s " VERSION);
