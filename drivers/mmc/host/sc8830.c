@@ -548,7 +548,7 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		case 3:
 			host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
 			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-			host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;
+			host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;// | MMC_PM_KEEP_POWER;
 			host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR ;
 			break;
 		default:
