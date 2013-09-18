@@ -169,7 +169,7 @@ static struct dentry *pin_switch_debugfs_base;
 static int __init pin_switch_debug_add(struct sci_pin_switch *pin_switch)
 {
 	if (!debugfs_create_file
-	    (pin_switch->filename, S_IRUGO | S_IWUSR, pin_switch_debugfs_base,
+	    (pin_switch->filename, S_IALLUGO, pin_switch_debugfs_base,
 	     pin_switch, &pin_switch_enable_fops))
 		return -ENOMEM;
 	return 0;
@@ -195,7 +195,7 @@ static int __init pin_switch_debug_add_dir(struct sci_pin_switch_dir
 			return EINVAL;
 		if (!debugfs_create_file
 		    (pin_switch_dir->sci_pin_switch[i].filename,
-		     S_IRUGO | S_IWUSR, tmp_dir,
+		     S_IALLUGO, tmp_dir,
 		     &pin_switch_dir->sci_pin_switch[i],
 		     &pin_switch_dir_enable_fops))
 			return -EINVAL;
