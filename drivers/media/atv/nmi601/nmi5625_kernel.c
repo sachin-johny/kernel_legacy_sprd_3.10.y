@@ -94,13 +94,15 @@ static int nmi5625_release(struct inode * inode, struct file * file)
 	func_exit();
 	return ret;
 }
-static u8 i2cBuf[32];
+
+#define NMI_I2C_RW_LENGTH	256
+static u8 i2cBuf[NMI_I2C_RW_LENGTH];
+
 static int nmi5625_ioctl(struct file *file,
 		    unsigned int cmd, unsigned long arg)
 {
     struct nmi_5625_dev *d = file->private_data;
     int ret = 0;
-    #define NMI_I2C_RW_LENGTH	256
 
     dPrint(N_TRACE,"[nmi-debug]%s: enter --> cmd = %d\n", __func__,cmd&0xffff0000);
 
