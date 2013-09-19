@@ -166,6 +166,10 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 	struct smsg mopen, mrecv;
 	uint32_t rval = 0;
 
+	if(!ipc) {
+	    return -ENODEV;
+	}
+
 	ch = kzalloc(sizeof(struct smsg_channel), GFP_KERNEL);
 	if (!ch) {
 		return -ENOMEM;
@@ -275,6 +279,10 @@ int smsg_send(uint8_t dst, struct smsg *msg, int timeout)
 	int rval = 0;
 	unsigned long flags;
 
+	if(!ipc) {
+	    return -ENODEV;
+	}
+
 	if (!ipc->channels[msg->channel]) {
 		printk(KERN_ERR "channel %d not inited!\n", msg->channel);
 		return -ENODEV;
@@ -325,6 +333,10 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 	struct smsg_channel *ch = ipc->channels[msg->channel];
 	uint32_t rd;
 	int rval = 0;
+
+	if(!ipc) {
+	    return -ENODEV;
+	}
 
 	if (!ch) {
 		printk(KERN_ERR "channel %d not opened!\n", msg->channel);
