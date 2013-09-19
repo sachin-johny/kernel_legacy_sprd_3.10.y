@@ -72,25 +72,25 @@
 
 #define DEBUG_SENSOR_DRV
 #ifdef  DEBUG_SENSOR_DRV
-#define SENSOR_PRINT                                   pr_debug
+#define SENSOR_PRINT                      pr_debug
 #else
 #define SENSOR_PRINT(...)
 #endif
-#define SENSOR_PRINT_ERR                               printk
-#define SENSOR_PRINT_HIGH                              printk
+#define SENSOR_PRINT_ERR                  printk
+#define SENSOR_PRINT_HIGH                 printk
 
-#define SENSOR_K_SUCCESS                               0
-#define SENSOR_K_FAIL                                  (-1)
-#define SENSOR_K_FALSE                                 0
-#define SENSOR_K_TRUE                                  1
+#define SENSOR_K_SUCCESS                  0
+#define SENSOR_K_FAIL                     (-1)
+#define SENSOR_K_FALSE                    0
+#define SENSOR_K_TRUE                     1
 
-#define _pard(a)                                       __raw_readl(a)
+#define _pard(a)                          __raw_readl(a)
 
-#define REG_RD(a)                                      __raw_readl(a)
-#define REG_WR(a,v)                                    __raw_writel(v,a)
-#define REG_AWR(a,v)                                   __raw_writel((__raw_readl(a) & v), a)
-#define REG_OWR(a,v)                                   __raw_writel((__raw_readl(a) | v), a)
-#define REG_XWR(a,v)                                   __raw_writel((__raw_readl(a) ^ v), a)
+#define REG_RD(a)                         __raw_readl(a)
+#define REG_WR(a,v)                       __raw_writel(v,a)
+#define REG_AWR(a,v)                      __raw_writel((__raw_readl(a) & v), a)
+#define REG_OWR(a,v)                      __raw_writel((__raw_readl(a) | v), a)
+#define REG_XWR(a,v)                      __raw_writel((__raw_readl(a) ^ v), a)
 #define REG_MWR(a,m,v)                                 \
 	do {                                            \
 		uint32_t _tmp = __raw_readl(a);          \
@@ -98,41 +98,41 @@
 		__raw_writel(_tmp | ((m) & (v)), (a));   \
 	}while(0)
 
-#define BIT_0                                          0x01
-#define BIT_1                                          0x02
-#define BIT_2                                          0x04
-#define BIT_3                                          0x08
-#define BIT_4                                          0x10
-#define BIT_5                                          0x20
-#define BIT_6                                          0x40
-#define BIT_7                                          0x80
-#define BIT_8                                          0x0100
-#define BIT_9                                          0x0200
-#define BIT_10                                         0x0400
-#define BIT_11                                         0x0800
-#define BIT_12                                         0x1000
-#define BIT_13                                         0x2000
-#define BIT_14                                         0x4000
-#define BIT_15                                         0x8000
-#define BIT_16                                         0x010000
-#define BIT_17                                         0x020000
-#define BIT_18                                         0x040000
-#define BIT_19                                         0x080000
-#define BIT_20                                         0x100000
-#define BIT_21                                         0x200000
-#define BIT_22                                         0x400000
-#define BIT_23                                         0x800000
-#define BIT_24                                         0x01000000
-#define BIT_25                                         0x02000000
-#define BIT_26                                         0x04000000
-#define BIT_27                                         0x08000000
-#define BIT_28                                         0x10000000
-#define BIT_29                                         0x20000000
-#define BIT_30                                         0x40000000
-#define BIT_31                                         0x80000000
+#define BIT_0                             0x01
+#define BIT_1                             0x02
+#define BIT_2                             0x04
+#define BIT_3                             0x08
+#define BIT_4                             0x10
+#define BIT_5                             0x20
+#define BIT_6                             0x40
+#define BIT_7                             0x80
+#define BIT_8                             0x0100
+#define BIT_9                             0x0200
+#define BIT_10                            0x0400
+#define BIT_11                            0x0800
+#define BIT_12                            0x1000
+#define BIT_13                            0x2000
+#define BIT_14                            0x4000
+#define BIT_15                            0x8000
+#define BIT_16                            0x010000
+#define BIT_17                            0x020000
+#define BIT_18                            0x040000
+#define BIT_19                            0x080000
+#define BIT_20                            0x100000
+#define BIT_21                            0x200000
+#define BIT_22                            0x400000
+#define BIT_23                            0x800000
+#define BIT_24                            0x01000000
+#define BIT_25                            0x02000000
+#define BIT_26                            0x04000000
+#define BIT_27                            0x08000000
+#define BIT_28                            0x10000000
+#define BIT_29                            0x20000000
+#define BIT_30                            0x40000000
+#define BIT_31                            0x80000000
 
 
-#define LOCAL                           static
+#define LOCAL                             static
 //#define LOCAL
 
 #define PNULL                             ((void *)0)
@@ -140,7 +140,6 @@
 #define NUMBER_MAX                        0x7FFFFFF
 
 #define SENSOR_MINOR                      MISC_DYNAMIC_MINOR
-#define init_MUTEX(sem)                   sema_init(sem, 1)
 #define SLEEP_MS(ms)                      msleep(ms)
 
 #define SENSOR_I2C_OP_TRY_NUM             4
@@ -154,6 +153,36 @@
 #define SENSOR_LOW_EIGHT_BIT              0xff
 
 #define SENSOR_WRITE_DELAY                0xffff
+#define DEBUG_STR                         "Error L %d, %s \n"
+#define DEBUG_ARGS                        __LINE__,__FUNCTION__
+#define SENSOR_MCLK_SRC_NUM               4
+#define SENSOR_MCLK_DIV_MAX               4
+#define ABS(a)                            ((a) > 0 ? (a) : -(a))
+#define SENSOR_LOWEST_ADDR                0x800
+#define SENSOR_ADDR_INVALID(addr)         ((uint32_t)(addr) < SENSOR_LOWEST_ADDR)
+
+#define SENSOR_CHECK_ZERO(a)                                      \
+	do {                                                       \
+		if (SENSOR_ADDR_INVALID(a)) {                       \
+			printk("SENSOR, zero pointer \n");           \
+			printk(DEBUG_STR, DEBUG_ARGS);               \
+			return -EFAULT;                              \
+		}                                                   \
+	} while(0)
+
+#define SENSOR_CHECK_ZERO_VOID(a)                                 \
+	do {                                                       \
+		if (SENSOR_ADDR_INVALID(a)) {                       \
+			printk("SENSOR, zero pointer \n");           \
+			printk(DEBUG_STR, DEBUG_ARGS);               \
+			return;                                      \
+		}                                                   \
+	} while(0)
+
+typedef struct SN_MCLK {
+	int        clock;
+	char       *src_name;
+} SN_MCLK;
 
 typedef enum {
 	SENSOR_MAIN = 0,
@@ -162,93 +191,70 @@ typedef enum {
 	SENSOR_ID_MAX
 } SENSOR_ID_E;
 
-typedef struct sensor_mem_tag {
+struct sensor_mem_tag {
 	void    *buf_ptr;
 	size_t  size;
-} SENSOR_MEM_T;
-
-LOCAL struct clk *s_sensor_clk_mm_i = NULL;
-LOCAL struct mutex sensor_lock;
-LOCAL wait_queue_head_t wait_queue_sensor;
-struct semaphore g_sem_sensor;
-LOCAL uint32_t g_sensor_id = SENSOR_ID_MAX;
-
-LOCAL uint32_t s_sensor_mclk = 0;
-static struct clk *s_ccir_clk = NULL;
-LOCAL struct clk *s_ccir_enable_clk = NULL;
-
-LOCAL struct i2c_client *this_client = NULL;
-
-LOCAL SENSOR_MEM_T s_sensor_mem = {0};
-
-
-LOCAL const struct i2c_device_id sensor_device_id[] = {
-	{SENSOR_MAIN_I2C_NAME, 0},
-	{SENSOR_SUB_I2C_NAME, 1},
-	{}
 };
 
-LOCAL uint32_t iopower_on_count = 0;
-LOCAL uint32_t avddpower_on_count = 0;
-LOCAL uint32_t dvddpower_on_count = 0;
-LOCAL uint32_t motpower_on_count = 0;
-
-LOCAL struct regulator *s_camvio_regulator = NULL;
-LOCAL struct regulator *s_camavdd_regulator = NULL;
-LOCAL struct regulator *s_camdvdd_regulator = NULL;
-LOCAL struct regulator *s_cammot_regulator = NULL;
-
-LOCAL unsigned short sensor_main_force[] =
-	{2, SENSOR_MAIN_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
-LOCAL const unsigned short *const sensor_main_forces[] =
-	{sensor_main_force, NULL };
-LOCAL unsigned short sensor_main_default_addr_list[] =
-	{SENSOR_MAIN_I2C_ADDR, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END};
-LOCAL unsigned short sensor_sub_force[] =
-	{2, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END, I2C_CLIENT_END};
-LOCAL const unsigned short *const sensor_sub_forces[] =
-	{sensor_sub_force, NULL};
-LOCAL unsigned short sensor_sub_default_addr_list[] =
-	{SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END};
-
-
-#define SENSOR_MCLK_SRC_NUM            4
-#define SENSOR_MCLK_DIV_MAX            4
-#define ABS(a) ((a) > 0 ? (a) : -(a))
-
-typedef struct SN_MCLK {
-	int clock;
-	char *src_name;
-} SN_MCLK;
-
-LOCAL const SN_MCLK sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
-	{96, "clk_96m"},
-	{77, "clk_76m8"},
-	{48, "clk_48m"},
-	{26, "ext_26m"}
+struct sensor_module {
+	uint32_t                        sensor_id;
+	uint32_t                        sensor_mclk;
+	uint32_t                        iopower_on_count;
+	uint32_t                        avddpower_on_count;
+	uint32_t                        dvddpower_on_count;
+	uint32_t                        motpower_on_count;
+	struct mutex                    sensor_lock;
+	struct clk                      *sensor_clk_mm_i;
+	struct clk                      *ccir_clk;
+	struct clk                      *ccir_enable_clk;
+	struct i2c_client               *cur_i2c_client;
+	struct regulator                *camvio_regulator;
+	struct regulator                *camavdd_regulator;
+	struct regulator                *camdvdd_regulator;
+	struct regulator                *cammot_regulator;
+	struct i2c_driver               sensor_i2c_driver;
+	struct sensor_mem_tag           sensor_mem;
 };
+
+LOCAL const SN_MCLK                     c_sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
+						{96, "clk_96m"},
+						{77, "clk_76m8"},
+						{48, "clk_48m"},
+						{26, "ext_26m"}
+};
+LOCAL const unsigned short              c_sensor_main_default_addr_list[] =
+						{SENSOR_MAIN_I2C_ADDR, SENSOR_SUB_I2C_ADDR, I2C_CLIENT_END};
+LOCAL const struct i2c_device_id        c_sensor_device_id[] = {
+						{SENSOR_MAIN_I2C_NAME, 0},
+						{SENSOR_SUB_I2C_NAME, 1},
+						{}
+};
+
+LOCAL struct sensor_module * s_p_sensor_mod = PNULL;
 
 int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 {
 	int                     ret = 0;
-	if (NULL == s_sensor_clk_mm_i) {
-		s_sensor_clk_mm_i = clk_get(NULL, "clk_mm_i");
-		if (IS_ERR(s_sensor_clk_mm_i)) {
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+
+	if (NULL == s_p_sensor_mod->sensor_clk_mm_i) {
+		s_p_sensor_mod->sensor_clk_mm_i = clk_get(NULL, "clk_mm_i");
+		if (IS_ERR(s_p_sensor_mod->sensor_clk_mm_i)) {
 			printk("sensor_is_clk_mm_i_eb: get fail.\n");
 			return -1;
 		}
 	}
 
 	if (is_clk_mm_i_eb) {
-		ret = clk_enable(s_sensor_clk_mm_i);
+		ret = clk_enable(s_p_sensor_mod->sensor_clk_mm_i);
 		if (ret) {
 			printk("sensor_is_clk_mm_i_eb: enable fail.\n");
 			return -1;
 		}
 	} else {
-		clk_disable(s_sensor_clk_mm_i);
-		clk_put(s_sensor_clk_mm_i);
-		s_sensor_clk_mm_i = NULL;
+		clk_disable(s_p_sensor_mod->sensor_clk_mm_i);
+		clk_put(s_p_sensor_mod->sensor_clk_mm_i);
+		s_p_sensor_mod->sensor_clk_mm_i = NULL;
 	}
 
 	return 0;
@@ -256,27 +262,33 @@ int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 
 LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
 {
-	if(PNULL == s_sensor_mem.buf_ptr) {
-		s_sensor_mem.buf_ptr = kmalloc(size, flags);
-		if(PNULL != s_sensor_mem.buf_ptr) {
-			s_sensor_mem.size = size;
-		}
-		return s_sensor_mem.buf_ptr;
+	if (SENSOR_ADDR_INVALID(s_p_sensor_mod)) {        \
+		printk("SENSOR, zero pointer \n");         \
+		printk(DEBUG_STR, DEBUG_ARGS);             \
+		return PNULL;                              \
+	}
 
-	} else if (size <= s_sensor_mem.size) {
-		return s_sensor_mem.buf_ptr;
+	if(PNULL == s_p_sensor_mod->sensor_mem.buf_ptr) {
+		s_p_sensor_mod->sensor_mem.buf_ptr = kmalloc(size, flags);
+		if(PNULL != s_p_sensor_mod->sensor_mem.buf_ptr) {
+			s_p_sensor_mod->sensor_mem.size = size;
+		}
+		return s_p_sensor_mod->sensor_mem.buf_ptr;
+
+	} else if (size <= s_p_sensor_mod->sensor_mem.size) {
+		return s_p_sensor_mod->sensor_mem.buf_ptr;
 
 	}  else {
 		//realloc memory
-		kfree(s_sensor_mem.buf_ptr);
-		s_sensor_mem.buf_ptr = PNULL;
-		s_sensor_mem.size = 0;
-		s_sensor_mem.buf_ptr = kmalloc(size, flags);
-		if (PNULL != s_sensor_mem.buf_ptr) {
-			s_sensor_mem.size = size;
+		kfree(s_p_sensor_mod->sensor_mem.buf_ptr);
+		s_p_sensor_mod->sensor_mem.buf_ptr = PNULL;
+		s_p_sensor_mod->sensor_mem.size = 0;
+		s_p_sensor_mod->sensor_mem.buf_ptr = kmalloc(size, flags);
+		if (PNULL != s_p_sensor_mod->sensor_mem.buf_ptr) {
+			s_p_sensor_mod->sensor_mem.size = size;
 		}
 
-	return s_sensor_mem.buf_ptr;
+	return s_p_sensor_mod->sensor_mem.buf_ptr;
 	}
 }
 
@@ -298,12 +310,15 @@ LOCAL void _Sensor_K_kfree(void *p)
 
 LOCAL uint32_t Sensor_K_GetCurId(void)
 {
-	return g_sensor_id;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+	return s_p_sensor_mod->sensor_id;
 }
 LOCAL int sensor_probe(struct i2c_client *client,
 			const struct i2c_device_id *id)
 {
-	int res = 0;
+	int                res = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+
 	SENSOR_PRINT_HIGH(KERN_INFO "SENSOR:sensor_probe E.\n");
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		SENSOR_PRINT_HIGH(KERN_INFO "SENSOR: %s: func check failed\n",
@@ -311,14 +326,10 @@ LOCAL int sensor_probe(struct i2c_client *client,
 		res = -ENODEV;
 		goto out;
 	}
-	this_client = client;
-/*	if (SENSOR_MAIN_I2C_ADDR != (this_client->addr & (~0xFF))) {
-		this_client->addr =
-		    (this_client->addr & (~0xFF)) |
-		    (sensor_main_force[1] & 0xFF);
-	}*/
+	s_p_sensor_mod->cur_i2c_client = client;
+
 	SENSOR_PRINT_HIGH(KERN_INFO "sensor_probe, addr 0x%x\n",
-		this_client->addr);
+		s_p_sensor_mod->cur_i2c_client->addr);
 	return 0;
 out:
 	return res;
@@ -340,12 +351,6 @@ LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 {
 	SENSOR_PRINT_HIGH("SENSOR: pwdn %d\n", power_level);
-/*
-	SENSOR_PRINT("SENSOR: _Sensor_K_PowerDown PIN_CTL_CCIRPD1-> 0x8C000344 0x%x\n",
-		_pard(PIN_CTL_CCIRPD1));
-	SENSOR_PRINT("SENSOR: _Sensor_K_PowerDown PIN_CTL_CCIRPD0-> 0x8C000348 0x%x\n",
-		_pard(PIN_CTL_CCIRPD0));
-*/
 
 	switch (Sensor_K_GetCurId()) {
 	case SENSOR_MAIN:
@@ -375,38 +380,48 @@ LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
 
 LOCAL void _sensor_regulator_disable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
 {
+	SENSOR_CHECK_ZERO_VOID(s_p_sensor_mod);
+
 	while (*power_on_count > 0) {
 		regulator_disable(ptr_cam_regulator);
 		(*power_on_count)--;
 	}
 	SENSOR_PRINT("sensor pwr off done: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
-		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
+		s_p_sensor_mod->iopower_on_count,
+		s_p_sensor_mod->avddpower_on_count,
+		s_p_sensor_mod->dvddpower_on_count,
+		s_p_sensor_mod->motpower_on_count);
 
 }
 
 LOCAL int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * ptr_cam_regulator)
 {
 	int err;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	err = regulator_enable(ptr_cam_regulator);
 	(*power_on_count)++;
 
 	SENSOR_PRINT("sensor pwr on done: cnt=0x%x, io=%x, av=%x, dv=%x, mo=%x \n", *power_on_count,
-		iopower_on_count, avddpower_on_count, dvddpower_on_count, motpower_on_count);
+		s_p_sensor_mod->iopower_on_count,
+		s_p_sensor_mod->avddpower_on_count,
+		s_p_sensor_mod->dvddpower_on_count,
+		s_p_sensor_mod->motpower_on_count);
 
 	return err;
 }
 
 LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 {
-	int err = 0;
-	uint32_t volt_value = 0;
+	int                  err = 0;
+	uint32_t             volt_value = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set CAMMOT val %d\n",cammot_val);
 
-	if (NULL == s_cammot_regulator) {
-		s_cammot_regulator = regulator_get(NULL, REGU_NAME_CAMMOT);
-		if (IS_ERR(s_cammot_regulator)) {
+	if (NULL == s_p_sensor_mod->cammot_regulator) {
+		s_p_sensor_mod->cammot_regulator = regulator_get(NULL, REGU_NAME_CAMMOT);
+		if (IS_ERR(s_p_sensor_mod->cammot_regulator)) {
 			SENSOR_PRINT_ERR("SENSOR:get cammot.fail\n");
 			return SENSOR_K_FAIL;
 		}
@@ -414,7 +429,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 
 	switch (cammot_val) {
 	case SENSOR_VDD_2800MV:
-		err = regulator_set_voltage(s_cammot_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->cammot_regulator,
 					SENSOER_VDD_2800MV,
 					SENSOER_VDD_2800MV);
 		volt_value = SENSOER_VDD_2800MV;
@@ -422,7 +437,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 			SENSOR_PRINT_ERR("SENSOR:set cammot 2.8 fail\n");
 		break;
 	case SENSOR_VDD_3000MV:
-		err = regulator_set_voltage(s_cammot_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->cammot_regulator,
 					SENSOER_VDD_3000MV,
 					SENSOER_VDD_3000MV);
 		volt_value = SENSOER_VDD_3000MV;
@@ -431,7 +446,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		break;
 #if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_3300MV:
-		err = regulator_set_voltage(s_cammot_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->cammot_regulator,
 					SENSOER_VDD_3300MV,
 					SENSOER_VDD_3300MV);
 		volt_value = SENSOER_VDD_3300MV;
@@ -440,7 +455,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		break;
 #else
 	case SENSOR_VDD_2500MV:
-		err = regulator_set_voltage(s_cammot_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->cammot_regulator,
 					SENSOER_VDD_2500MV,
 					SENSOER_VDD_2500MV);
 		volt_value = SENSOER_VDD_2500MV;
@@ -449,7 +464,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		break;
 #endif
 	case SENSOR_VDD_1800MV:
-		err = regulator_set_voltage(s_cammot_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->cammot_regulator,
 					SENSOER_VDD_1800MV,
 					SENSOER_VDD_1800MV);
 		volt_value = SENSOER_VDD_1800MV;
@@ -467,19 +482,17 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		/* err = regulator_enable(s_cammot_regulator); */
-		err = _sensor_regulator_enable(&motpower_on_count, s_cammot_regulator);
+		err = _sensor_regulator_enable(&s_p_sensor_mod->motpower_on_count, s_p_sensor_mod->cammot_regulator);
 		if (err) {
-			regulator_put(s_cammot_regulator);
-			s_cammot_regulator = NULL;
+			regulator_put(s_p_sensor_mod->cammot_regulator);
+			s_p_sensor_mod->cammot_regulator = NULL;
 			SENSOR_PRINT_ERR("SENSOR:can't en cammot.\n");
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		/* regulator_disable(s_cammot_regulator); */
-		_sensor_regulator_disable(&motpower_on_count, s_cammot_regulator);
-		regulator_put(s_cammot_regulator);
-		s_cammot_regulator = NULL;
+		_sensor_regulator_disable(&s_p_sensor_mod->motpower_on_count, s_p_sensor_mod->cammot_regulator);
+		regulator_put(s_p_sensor_mod->cammot_regulator);
+		s_p_sensor_mod->cammot_regulator = NULL;
 		SENSOR_PRINT("SENSOR:dis cammot.\n");
 	}
 
@@ -488,21 +501,22 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 
 LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 {
-	int err = 0;
-	uint32_t volt_value = 0;
+	int                err = 0;
+	uint32_t           volt_value = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set AVDD val %d\n",avdd_val);
 
-	if (NULL == s_camavdd_regulator) {
-		s_camavdd_regulator = regulator_get(NULL, REGU_NAME_CAMAVDD);
-		if (IS_ERR(s_camavdd_regulator)) {
+	if (NULL == s_p_sensor_mod->camavdd_regulator) {
+		s_p_sensor_mod->camavdd_regulator = regulator_get(NULL, REGU_NAME_CAMAVDD);
+		if (IS_ERR(s_p_sensor_mod->camavdd_regulator)) {
 			SENSOR_PRINT_ERR("SENSOR:get avdd.fail\n");
 			return SENSOR_K_FAIL;
 		}
 	}
 	switch (avdd_val) {
 	case SENSOR_VDD_2800MV:
-		err = regulator_set_voltage(s_camavdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camavdd_regulator,
 					SENSOER_VDD_2800MV,
 					SENSOER_VDD_2800MV);
 		volt_value = SENSOER_VDD_2800MV;
@@ -510,7 +524,7 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 			SENSOR_PRINT_ERR("SENSOR:set avdd to 2.8 fail\n");
 		break;
 	case SENSOR_VDD_3000MV:
-		err = regulator_set_voltage(s_camavdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camavdd_regulator,
 					SENSOER_VDD_3000MV,
 					SENSOER_VDD_3000MV);
 		volt_value = SENSOER_VDD_3000MV;
@@ -518,7 +532,7 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 			SENSOR_PRINT_ERR("SENSOR:set avdd to 3.0 fail\n");
 		break;
 	case SENSOR_VDD_2500MV:
-		err = regulator_set_voltage(s_camavdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camavdd_regulator,
 					SENSOER_VDD_2500MV,
 					SENSOER_VDD_2500MV);
 		volt_value = SENSOER_VDD_2500MV;
@@ -526,7 +540,7 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 			SENSOR_PRINT_ERR("SENSOR:set avdd to 2.5 fail\n");
 		break;
 	case SENSOR_VDD_1800MV:
-		err = regulator_set_voltage(s_camavdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camavdd_regulator,
 					SENSOER_VDD_1800MV,
 					SENSOER_VDD_1800MV);
 		volt_value = SENSOER_VDD_1800MV;
@@ -544,19 +558,17 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		/* err = regulator_enable(s_camavdd_regulator);*/
-		err = _sensor_regulator_enable(&avddpower_on_count,  s_camavdd_regulator);
+		err = _sensor_regulator_enable(&s_p_sensor_mod->avddpower_on_count, s_p_sensor_mod->camavdd_regulator);
 		if (err) {
-			regulator_put(s_camavdd_regulator);
-			s_camavdd_regulator = NULL;
+			regulator_put(s_p_sensor_mod->camavdd_regulator);
+			s_p_sensor_mod->camavdd_regulator = NULL;
 			SENSOR_PRINT_ERR("SENSOR:can't en avdd.\n");
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		/* regulator_disable(s_camavdd_regulator); */
-		_sensor_regulator_disable(&avddpower_on_count,  s_camavdd_regulator);
-		regulator_put(s_camavdd_regulator);
-		s_camavdd_regulator = NULL;
+		_sensor_regulator_disable(&s_p_sensor_mod->avddpower_on_count, s_p_sensor_mod->camavdd_regulator);
+		regulator_put(s_p_sensor_mod->camavdd_regulator);
+		s_p_sensor_mod->camavdd_regulator = NULL;
 		SENSOR_PRINT("SENSOR:dis avdd.\n");
 	}
 
@@ -565,14 +577,15 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 
 LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 {
-	int err = 0;
-	uint32_t volt_value = 0;
+	int                  err = 0;
+	uint32_t             volt_value = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set DVDD val %d\n",dvdd_val);
 
-	if (NULL == s_camdvdd_regulator) {
-		s_camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
-		if (IS_ERR(s_camdvdd_regulator)) {
+	if (NULL == s_p_sensor_mod->camdvdd_regulator) {
+		s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
+		if (IS_ERR(s_p_sensor_mod->camdvdd_regulator)) {
 			SENSOR_PRINT_ERR("SENSOR:get dvdd fail\n");
 			return SENSOR_K_FAIL;
 		}
@@ -580,7 +593,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 	switch (dvdd_val) {
 #if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_1200MV:
-		err = regulator_set_voltage(s_camdvdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camdvdd_regulator,
 					SENSOER_VDD_1200MV,
 					SENSOER_VDD_1200MV);
 		volt_value = SENSOER_VDD_1200MV;
@@ -589,7 +602,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		break;
 #else
 	case SENSOR_VDD_2800MV:
-		err = regulator_set_voltage(s_camdvdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camdvdd_regulator,
 					SENSOER_VDD_2800MV,
 					SENSOER_VDD_2800MV);
 		volt_value = SENSOER_VDD_2800MV;
@@ -599,7 +612,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 #endif
 
 	case SENSOR_VDD_1800MV:
-		err = regulator_set_voltage(s_camdvdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camdvdd_regulator,
 					SENSOER_VDD_1800MV,
 					SENSOER_VDD_1800MV);
 		volt_value = SENSOER_VDD_1800MV;
@@ -607,7 +620,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 			SENSOR_PRINT_ERR("SENSOR:set dvdd to 1.8 fail\n");
 		break;
 	case SENSOR_VDD_1500MV:
-		err = regulator_set_voltage(s_camdvdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camdvdd_regulator,
 					SENSOER_VDD_1500MV,
 					SENSOER_VDD_1500MV);
 		volt_value = SENSOER_VDD_1500MV;
@@ -615,7 +628,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 			SENSOR_PRINT_ERR("SENSOR:set dvdd to 1.5 fail\n");
 		break;
 	case SENSOR_VDD_1300MV:
-		err = regulator_set_voltage(s_camdvdd_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camdvdd_regulator,
 					SENSOER_VDD_1300MV,
 					SENSOER_VDD_1300MV);
 		volt_value = SENSOER_VDD_1300MV;
@@ -635,19 +648,17 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		/* err = regulator_enable(s_camdvdd_regulator); */
-		err = _sensor_regulator_enable(&dvddpower_on_count,  s_camdvdd_regulator);
+		err = _sensor_regulator_enable(&s_p_sensor_mod->dvddpower_on_count,  s_p_sensor_mod->camdvdd_regulator);
 		if (err) {
-			regulator_put(s_camdvdd_regulator);
-			s_camdvdd_regulator = NULL;
+			regulator_put(s_p_sensor_mod->camdvdd_regulator);
+			s_p_sensor_mod->camdvdd_regulator = NULL;
 			SENSOR_PRINT_ERR("SENSOR:can't en dvdd.\n");
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		/* regulator_disable(s_camdvdd_regulator); */
-		_sensor_regulator_disable(&dvddpower_on_count,  s_camdvdd_regulator);
-		regulator_put(s_camdvdd_regulator);
-		s_camdvdd_regulator = NULL;
+		_sensor_regulator_disable(&s_p_sensor_mod->dvddpower_on_count,  s_p_sensor_mod->camdvdd_regulator);
+		regulator_put(s_p_sensor_mod->camdvdd_regulator);
+		s_p_sensor_mod->camdvdd_regulator = NULL;
 		SENSOR_PRINT("SENSOR:dis dvdd.\n");
 	}
 
@@ -656,21 +667,22 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 
 LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 {
-	int err = 0;
-	uint32_t volt_value = 0;
+	int                    err = 0;
+	uint32_t               volt_value = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set IOVDD val %d\n",iodd_val);
 
-	if(NULL == s_camvio_regulator) {
-		s_camvio_regulator = regulator_get(NULL, REGU_NAME_CAMVIO);
-		if (IS_ERR(s_camvio_regulator)) {
+	if(NULL == s_p_sensor_mod->camvio_regulator) {
+		s_p_sensor_mod->camvio_regulator = regulator_get(NULL, REGU_NAME_CAMVIO);
+		if (IS_ERR(s_p_sensor_mod->camvio_regulator)) {
 			SENSOR_PRINT_ERR("SENSOR:get camvio.fail\n");
 			return SENSOR_K_FAIL;
 		}
 	}
 	switch (iodd_val) {
 	case SENSOR_VDD_2800MV:
-		err = regulator_set_voltage(s_camvio_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camvio_regulator,
 					SENSOER_VDD_2800MV,
 					SENSOER_VDD_2800MV);
 		volt_value = SENSOER_VDD_2800MV;
@@ -680,7 +692,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 
 #if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_2500MV:
-		err = regulator_set_voltage(s_camvio_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camvio_regulator,
 					SENSOER_VDD_2500MV,
 					SENSOER_VDD_2500MV);
 		volt_value = SENSOER_VDD_2500MV;
@@ -688,7 +700,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 			SENSOR_PRINT_ERR("SENSOR:set camvio to 2.5 fail\n");
 		break;
 	case SENSOR_VDD_1500MV:
-		err = regulator_set_voltage(s_camvio_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camvio_regulator,
 					SENSOER_VDD_1500MV,
 					SENSOER_VDD_1500MV);
 		volt_value = SENSOER_VDD_1500MV;
@@ -697,7 +709,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 		break;
 #else
 	case SENSOR_VDD_3800MV:
-		err = regulator_set_voltage(s_camvio_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camvio_regulator,
 					SENSOER_VDD_3800MV,
 					SENSOER_VDD_3800MV);
 		volt_value = SENSOER_VDD_3800MV;
@@ -707,7 +719,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 
 	case SENSOR_VDD_1200MV:
 		err =
-		    regulator_set_voltage(s_camvio_regulator,
+		    regulator_set_voltage(s_p_sensor_mod->camvio_regulator,
 					  SENSOER_VDD_1200MV,
 					  SENSOER_VDD_1200MV);
 		volt_value = SENSOER_VDD_1200MV;
@@ -718,7 +730,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 #endif
 
 	case SENSOR_VDD_1800MV:
-		err = regulator_set_voltage(s_camvio_regulator,
+		err = regulator_set_voltage(s_p_sensor_mod->camvio_regulator,
 					SENSOER_VDD_1800MV,
 					SENSOER_VDD_1800MV);
 		volt_value = SENSOER_VDD_1800MV;
@@ -736,19 +748,17 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 		return SENSOR_K_FAIL;
 	}
 	if (0 != volt_value) {
-		/* err = regulator_enable(s_camvio_regulator); */
-		err = _sensor_regulator_enable(&iopower_on_count,    s_camvio_regulator);
+		err = _sensor_regulator_enable(&s_p_sensor_mod->iopower_on_count, s_p_sensor_mod->camvio_regulator);
 		if (err) {
-			regulator_put(s_camvio_regulator);
-			s_camvio_regulator = NULL;
+			regulator_put(s_p_sensor_mod->camvio_regulator);
+			s_p_sensor_mod->camvio_regulator = NULL;
 			SENSOR_PRINT_ERR("SENSOR:can't en camvio.\n");
 			return SENSOR_K_FAIL;
 		}
 	} else {
-		/* regulator_disable(s_camvio_regulator); */
-		_sensor_regulator_disable(&iopower_on_count,    s_camvio_regulator);
-		regulator_put(s_camvio_regulator);
-		s_camvio_regulator = NULL;
+		_sensor_regulator_disable(&s_p_sensor_mod->iopower_on_count, s_p_sensor_mod->camvio_regulator);
+		regulator_put(s_p_sensor_mod->camvio_regulator);
+		s_p_sensor_mod->camvio_regulator = NULL;
 		SENSOR_PRINT("SENSOR:dis camvio.\n");
 	}
 
@@ -758,9 +768,16 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 			uint8_t * clk_div)
 {
-	uint8_t i, j, mark_src = 0, mark_div = 0, mark_src_tmp = 0;
-	int clk_tmp, src_delta, src_delta_min = NUMBER_MAX;
-	int div_delta_min = NUMBER_MAX;
+	uint8_t               i = 0;
+	uint8_t               j = 0;
+	uint8_t               mark_src = 0;
+	uint8_t               mark_div = 0;
+	uint8_t               mark_src_tmp = 0;
+	int                   clk_tmp = NUMBER_MAX;
+	int                   src_delta = NUMBER_MAX;
+	int                   src_delta_min = NUMBER_MAX;
+	int                   div_delta_min = NUMBER_MAX;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT("SENSOR sel mclk %d.\n", clk_set);
 	if (clk_set > 96 || !clk_src_name || !clk_div) {
@@ -770,7 +787,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 		clk_tmp = (int)(clk_set * (i + 1));
 		src_delta_min = NUMBER_MAX;
 		for (j = 0; j < SENSOR_MCLK_SRC_NUM; j++) {
-			src_delta = ABS(sensor_mclk_tab[j].clock - clk_tmp);
+			src_delta = ABS(c_sensor_mclk_tab[j].clock - clk_tmp);
 			if (src_delta < src_delta_min) {
 				src_delta_min = src_delta;
 				mark_src_tmp = j;
@@ -785,36 +802,32 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	SENSOR_PRINT("src %d, div=%d .\n", mark_src,
 		mark_div);
 
-	*clk_src_name = sensor_mclk_tab[mark_src].src_name;
+	*clk_src_name = c_sensor_mclk_tab[mark_src].src_name;
 	*clk_div = mark_div + 1;
 
 	return SENSOR_K_SUCCESS;
 }
 
-#if 0//def CONFIG_ARCH_SCX35
 LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 {
-}
-#else
-LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
-{
-	struct clk *clk_parent = NULL;
-	int ret;
-	char *clk_src_name = NULL;
-	uint8_t clk_div;
+	struct clk            *clk_parent = NULL;
+	int                   ret;
+	char                  *clk_src_name = NULL;
+	uint8_t               clk_div;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("SENSOR: set mclk org = %d, clk = %d\n",
-					s_sensor_mclk, mclk);
+				s_p_sensor_mod->sensor_mclk, mclk);
 
-	if ((0 != mclk) && (s_sensor_mclk != mclk)) {
-		if (s_ccir_clk) {
-			clk_disable(s_ccir_clk);
+	if ((0 != mclk) && (s_p_sensor_mod->sensor_mclk != mclk)) {
+		if (s_p_sensor_mod->ccir_clk) {
+			clk_disable(s_p_sensor_mod->ccir_clk);
 			SENSOR_PRINT("###sensor ccir clk off ok.\n");
 		} else {
-			s_ccir_clk = clk_get(NULL, SENSOR_CLK);
-			if (IS_ERR(s_ccir_clk)) {
+			s_p_sensor_mod->ccir_clk = clk_get(NULL, SENSOR_CLK);
+			if (IS_ERR(s_p_sensor_mod->ccir_clk)) {
 				SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
-				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n",s_ccir_clk);
+				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n",s_p_sensor_mod->ccir_clk);
 			} else {
 				SENSOR_PRINT("###sensor ccir clk get ok.\n");
 			}
@@ -835,37 +848,37 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 		}
 		SENSOR_PRINT("clk_get clk_src_name=%s done\n", clk_src_name);
 
-		ret = clk_set_parent(s_ccir_clk, clk_parent);
+		ret = clk_set_parent(s_p_sensor_mod->ccir_clk, clk_parent);
 		if (ret) {
 			SENSOR_PRINT_ERR("###:clock: clk_set_parent() failed!parent \n");
 			return -EINVAL;
 		}
-		SENSOR_PRINT("clk_set_parent s_ccir_clk=%s done\n", (char *)(s_ccir_clk));
+		SENSOR_PRINT("clk_set_parent s_ccir_clk=%s done\n", (char *)(s_p_sensor_mod->ccir_clk));
 
-		ret = clk_set_rate(s_ccir_clk, (mclk * SENOR_CLK_M_VALUE));
+		ret = clk_set_rate(s_p_sensor_mod->ccir_clk, (mclk * SENOR_CLK_M_VALUE));
 		if (ret) {
 			SENSOR_PRINT_ERR("###:clock: clk_set_rate failed!\n");
 			return -EINVAL;
 		}
-		SENSOR_PRINT("clk_set_rate s_ccir_clk=%s done\n", (char *)(s_ccir_clk));
+		SENSOR_PRINT("clk_set_rate s_ccir_clk=%s done\n", (char *)(s_p_sensor_mod->ccir_clk));
 
-		ret = clk_enable(s_ccir_clk);
+		ret = clk_enable(s_p_sensor_mod->ccir_clk);
 		if (ret) {
 			SENSOR_PRINT_ERR("###:clock: clk_enable() failed!\n");
 		} else {
 			SENSOR_PRINT("######ccir enable clk ok\n");
 		}
 
-		if (NULL == s_ccir_enable_clk) {
-			s_ccir_enable_clk = clk_get(NULL, "clk_ccir");
-			if (IS_ERR(s_ccir_enable_clk)) {
+		if (NULL == s_p_sensor_mod->ccir_enable_clk) {
+			s_p_sensor_mod->ccir_enable_clk = clk_get(NULL, "clk_ccir");
+			if (IS_ERR(s_p_sensor_mod->ccir_enable_clk)) {
 				SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
-				SENSOR_PRINT_ERR("###: s_ccir_enable_clk = %p.\n", s_ccir_enable_clk);
+				SENSOR_PRINT_ERR("###: ccir_enable_clk = %p.\n", s_p_sensor_mod->ccir_enable_clk);
 				return -EINVAL;
 			} else {
-				SENSOR_PRINT("###sensor s_ccir_enable_clk clk_get ok.\n");
+				SENSOR_PRINT("###sensor ccir_enable_clk clk_get ok.\n");
 			}
-			ret = clk_enable(s_ccir_enable_clk);
+			ret = clk_enable(s_p_sensor_mod->ccir_enable_clk);
 			if (ret) {
 				SENSOR_PRINT_ERR("###:clock: clk_enable() failed!\n");
 			} else {
@@ -873,26 +886,26 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 			}
 		}
 
-		s_sensor_mclk = mclk;
+		s_p_sensor_mod->sensor_mclk = mclk;
 		SENSOR_PRINT("SENSOR: set mclk %d Hz.\n",
-			s_sensor_mclk);
+			s_p_sensor_mod->sensor_mclk);
 	} else if (0 == mclk) {
-		if (s_ccir_clk) {
-			clk_disable(s_ccir_clk);
+		if (s_p_sensor_mod->ccir_clk) {
+			clk_disable(s_p_sensor_mod->ccir_clk);
 			SENSOR_PRINT("###sensor clk disable ok.\n");
-			clk_put(s_ccir_clk);
+			clk_put(s_p_sensor_mod->ccir_clk);
 			SENSOR_PRINT("###sensor clk put ok.\n");
-			s_ccir_clk = NULL;
+			s_p_sensor_mod->ccir_clk = NULL;
 		}
 
-		if (s_ccir_enable_clk) {
-			clk_disable(s_ccir_enable_clk);
+		if (s_p_sensor_mod->ccir_enable_clk) {
+			clk_disable(s_p_sensor_mod->ccir_enable_clk);
 			SENSOR_PRINT("###sensor clk disable ok.\n");
-			clk_put(s_ccir_enable_clk);
+			clk_put(s_p_sensor_mod->ccir_enable_clk);
 			SENSOR_PRINT("###sensor clk put ok.\n");
-			s_ccir_enable_clk = NULL;
+			s_p_sensor_mod->ccir_enable_clk = NULL;
 		}
-		s_sensor_mclk = 0;
+		s_p_sensor_mod->sensor_mclk = 0;
 		SENSOR_PRINT("SENSOR: Disable MCLK !!!");
 	} else {
 		SENSOR_PRINT("SENSOR: Do nothing !! ");
@@ -900,7 +913,6 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 	SENSOR_PRINT_HIGH("SENSOR: set mclk X\n");
 	return 0;
 }
-#endif
 
 LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
@@ -917,14 +929,16 @@ LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 
 LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 {
-	g_sensor_id = sensor_id;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+	s_p_sensor_mod->sensor_id = sensor_id;
 
 	return SENSOR_K_SUCCESS;
 }
 
 LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 {
-	g_sensor_id = SENSOR_ID_MAX;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+	s_p_sensor_mod->sensor_id = SENSOR_ID_MAX;
 
 	SENSOR_PRINT_HIGH("-I2C %d OK.\n", sensor_id);
 
@@ -944,14 +958,15 @@ LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
 
 LOCAL int _Sensor_K_ReadReg(SENSOR_REG_BITS_T_PTR pReg)
 {
-	uint8_t cmd[2] = { 0 };
-	uint16_t w_cmd_num = 0;
-	uint16_t r_cmd_num = 0;
-	uint8_t buf_r[2] = { 0 };
-	int32_t ret = SENSOR_K_SUCCESS;
-	struct i2c_msg msg_r[2];
-	uint16_t reg_addr;
-	int i;
+	uint8_t                cmd[2] = { 0 };
+	uint16_t               w_cmd_num = 0;
+	uint16_t               r_cmd_num = 0;
+	uint8_t                buf_r[2] = { 0 };
+	int32_t                ret = SENSOR_K_SUCCESS;
+	struct i2c_msg         msg_r[2];
+	uint16_t               reg_addr;
+	int                    i;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	reg_addr = pReg->reg_addr;
 
@@ -969,18 +984,18 @@ LOCAL int _Sensor_K_ReadReg(SENSOR_REG_BITS_T_PTR pReg)
 	}
 
 	for (i = 0; i < SENSOR_I2C_OP_TRY_NUM; i++) {
-		msg_r[0].addr = this_client->addr;
+		msg_r[0].addr = s_p_sensor_mod->cur_i2c_client->addr;
 		msg_r[0].flags = 0;
 		msg_r[0].buf = cmd;
 		msg_r[0].len = w_cmd_num;
-		msg_r[1].addr = this_client->addr;
+		msg_r[1].addr = s_p_sensor_mod->cur_i2c_client->addr;
 		msg_r[1].flags = I2C_M_RD;
 		msg_r[1].buf = buf_r;
 		msg_r[1].len = r_cmd_num;
-		ret = i2c_transfer(this_client->adapter, msg_r, 2);
+		ret = i2c_transfer(s_p_sensor_mod->cur_i2c_client->adapter, msg_r, 2);
 		if (ret != 2) {
 			SENSOR_PRINT_ERR("SENSOR:read reg fail, ret %d, addr 0x%x \n",
-			     				ret, this_client->addr);
+					ret, s_p_sensor_mod->cur_i2c_client->addr);
 			SLEEP_MS(20);
 			ret = SENSOR_K_FAIL;
 		} else {
@@ -995,14 +1010,15 @@ LOCAL int _Sensor_K_ReadReg(SENSOR_REG_BITS_T_PTR pReg)
 
 LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 {
-	uint8_t cmd[4] = { 0 };
-	uint32_t index = 0;
-	uint32_t cmd_num = 0;
-	struct i2c_msg msg_w;
-	int32_t ret = SENSOR_K_SUCCESS;
-	uint16_t subaddr;
-	uint16_t data;
-	int i;
+	uint8_t            cmd[4] = { 0 };
+	uint32_t           index = 0;
+	uint32_t           cmd_num = 0;
+	struct i2c_msg     msg_w;
+	int32_t            ret = SENSOR_K_SUCCESS;
+	uint16_t           subaddr;
+	uint16_t           data;
+	int                i;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	subaddr = pReg->reg_addr;
 	data = pReg->reg_value;
@@ -1029,14 +1045,14 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 
 	if (SENSOR_WRITE_DELAY != subaddr) {
 		for (i = 0; i < SENSOR_I2C_OP_TRY_NUM; i++) {
-			msg_w.addr = this_client->addr;
+			msg_w.addr = s_p_sensor_mod->cur_i2c_client->addr;
 			msg_w.flags = 0;
 			msg_w.buf = cmd;
 			msg_w.len = index;
-			ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+			ret = i2c_transfer(s_p_sensor_mod->cur_i2c_client->adapter, &msg_w, 1);
 			if (ret != 1) {
 				SENSOR_PRINT_ERR("_Sensor_K_WriteReg failed:i2cAddr=%x, addr=%x, value=%x, bit=%d \n",
-						this_client->addr, pReg->reg_addr, pReg->reg_value, pReg->reg_bits);
+						s_p_sensor_mod->cur_i2c_client->addr, pReg->reg_addr, pReg->reg_value, pReg->reg_bits);
 				ret = SENSOR_K_FAIL;
 				continue;
 			} else {
@@ -1139,15 +1155,15 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 
 LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 {
-	char *pBuff = PNULL;
-	uint32_t cnt = pRegTab->reg_count;
-	int ret = SENSOR_K_SUCCESS;
-	uint32_t size;
-	SENSOR_REG_T_PTR sensor_reg_ptr;
-	SENSOR_REG_BITS_T reg_bit;
-	uint32_t i;
-	int rettmp;
-	struct timeval time1, time2;
+	char                   *pBuff = PNULL;
+	uint32_t               cnt = pRegTab->reg_count;
+	int                    ret = SENSOR_K_SUCCESS;
+	uint32_t               size;
+	SENSOR_REG_T_PTR       sensor_reg_ptr;
+	SENSOR_REG_BITS_T      reg_bit;
+	uint32_t               i;
+	int                    rettmp;
+	struct timeval         time1, time2;
 
 	do_gettimeofday(&time1);
 	
@@ -1191,10 +1207,8 @@ _Sensor_K_WriteRegTab_return:
 		_Sensor_K_kfree(pBuff);
 
 	do_gettimeofday(&time2);
-	
 	SENSOR_PRINT("sensor w RegTab: done, ret %d, cnt %d, time %d us \n", ret, cnt,
 		(uint32_t)((time2.tv_sec - time1.tv_sec)*1000000+(time2.tv_usec - time1.tv_usec)));
-	
 	return ret;
 }
 
@@ -1205,7 +1219,7 @@ LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 #elif defined (CONFIG_ARCH_SC8825)
 	sc8810_i2c_set_clk(SENSOR_I2C_ID, clock);
 #elif defined (CONFIG_ARCH_SCX35)
-	//sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
+
 #endif
 
 	SENSOR_PRINT("sensor set i2c clk %d  \n", clock);
@@ -1215,10 +1229,11 @@ LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 
 LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
 {
-	char *pBuff = PNULL;
-	struct i2c_msg msg_w;
-	uint32_t cnt = pI2cTab->i2c_count;
-	int ret = SENSOR_K_FAIL;
+	char            *pBuff = PNULL;
+	struct          i2c_msg msg_w;
+	uint32_t        cnt = pI2cTab->i2c_count;
+	int             ret = SENSOR_K_FAIL;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	pBuff = _Sensor_K_kmalloc(cnt, GFP_KERNEL);
 	if (PNULL == pBuff) {
@@ -1238,7 +1253,7 @@ LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
 	msg_w.buf = pBuff;
 	msg_w.len = cnt;
 
-	ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+	ret = i2c_transfer(s_p_sensor_mod->cur_i2c_client->adapter, &msg_w, 1);
 	if (ret != 1) {
 		SENSOR_PRINT_ERR("SENSOR: w reg fail, ret: %d, addr: 0x%x\n",
 		ret, msg_w.addr);
@@ -1251,7 +1266,6 @@ sensor_k_writei2c_return:
 		_Sensor_K_kfree(pBuff);
 
 	SENSOR_PRINT("sensor w done, ret %d \n", ret);
-
 	return ret;
 }
 
@@ -1260,16 +1274,6 @@ sensor_k_writei2c_return:
 int sensor_k_open(struct inode *node, struct file *file)
 {
 	int	ret = 0;
-#if 0//def CONFIG_ARCH_SCX35
-	uint32_t bit_value;
-	bit_value = BIT_1;
-	REG_MWR(SPRD_MMAHB_BASE, bit_value, bit_value); // ckg_cfg
-
-	bit_value = BIT_2;
-	REG_MWR(SPRD_MMAHB_BASE+0x8, bit_value, bit_value); // ckg_cfg
-
-	REG_MWR(SPRD_MMCKG_BASE + 0x24, 0xfff, 0x101);  // sensor clock
-#endif
 	ret = _sensor_is_clk_mm_i_eb(1);
 	return ret;
 }
@@ -1288,11 +1292,12 @@ LOCAL ssize_t sensor_k_read(struct file *filp, char __user *ubuf, size_t cnt, lo
 
 LOCAL ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t cnt, loff_t *gpos)
 {
-	char buf[64];
-	char *pBuff = PNULL;
-	struct i2c_msg msg_w;
-	int ret = SENSOR_K_FAIL;
-	int need_alloc = 1;
+	char           buf[64];
+	char           *pBuff = PNULL;
+	struct         i2c_msg msg_w;
+	int            ret = SENSOR_K_FAIL;
+	int            need_alloc = 1;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT("sensor w cnt %d, buf %d\n", cnt, sizeof(buf));
 
@@ -1313,16 +1318,16 @@ LOCAL ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t 
 		SENSOR_PRINT_ERR("sensor w ERR: copy user fail, size %d\n", cnt);
 		goto sensor_k_write_return;
 	}
-    printk("sensor clnt addr 0x%x.\n",this_client->addr);
-	msg_w.addr = this_client->addr;
+	printk("sensor clnt addr 0x%x.\n", s_p_sensor_mod->cur_i2c_client->addr);
+	msg_w.addr = s_p_sensor_mod->cur_i2c_client->addr;
 	msg_w.flags = 0;
 	msg_w.buf = pBuff;
 	msg_w.len = cnt;
 
-	ret = i2c_transfer(this_client->adapter, &msg_w, 1);
+	ret = i2c_transfer(s_p_sensor_mod->cur_i2c_client->adapter, &msg_w, 1);
 	if (ret != 1) {
 		SENSOR_PRINT_ERR("SENSOR: w reg fail, ret %d, w addr: 0x%x,\n",
-				ret, this_client->addr);
+				ret, s_p_sensor_mod->cur_i2c_client->addr);
 	} else {
 		ret = SENSOR_K_SUCCESS;
 	}
@@ -1332,27 +1337,28 @@ sensor_k_write_return:
 		_Sensor_K_kfree(pBuff);
 
 	SENSOR_PRINT("sensor w done, ret %d \n", ret);
-
 	return ret;
 }
 
-#if 1	//wujinyou
 #define I2C_WRITE_BURST_LENGTH    512
 
 int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 {
 	uint32_t              rtn = 0;
-	int ret = 0;
+	int                   ret = 0;
 	uint32_t              i = 0;
 	uint32_t              written_num = 0;
 	uint16_t              wr_reg = 0;
 	uint16_t              wr_val = 0;
 	uint32_t              wr_num_once = 0;
-	//uint32_t              init_table_size = (sizeof(HI351_common)/sizeof(HI351_common[0]));	//NUMBER_OF_ARRAY(HI351_common);
-	//SENSOR_REG_T_PTR    p_reg_table = HI351_common;
 	uint8_t               *p_reg_val_tmp = 0;
-	struct i2c_msg msg_w;
-	struct i2c_client *i2c_client = this_client;    //Sensor_GetI2CClien();
+	struct i2c_msg        msg_w;
+	struct i2c_client     *i2c_client = PNULL;
+
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+
+	i2c_client = s_p_sensor_mod->cur_i2c_client;
+
 	printk("SENSOR: burst w Init\n");
 	if (0 == i2c_client) {
 		SENSOR_PRINT_ERR("SENSOR: burst w Init err, i2c_clnt NULL!.\n");
@@ -1382,9 +1388,7 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 			}
 		} else {
 			p_reg_val_tmp[0] = (uint8_t)(wr_reg);
-		//	SENSOR_PRINT("SENSOR: HI351_InitExt, val 0x%x.\n",p_reg_val_tmp[0]);
 			p_reg_val_tmp[1] = (uint8_t)(wr_val);
-		//	SENSOR_PRINT("SENSOR: HI351_InitExt, val 0x%x.\n",p_reg_val_tmp[1]);
 
 			if ((0x0e == wr_reg) && (0x01 == wr_val)) {
 				for (i = written_num + 1; i < init_table_size; i++) {
@@ -1395,12 +1399,7 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 						p_reg_val_tmp[wr_num_once+1] = (uint8_t)(wr_val);
 						wr_num_once ++;
 					}
-				/*SENSOR_PRINT("SENSOR: HI351_InitExt senderror, val {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x}.\n",
-				        p_reg_val_tmp[0],p_reg_val_tmp[1],p_reg_val_tmp[2],p_reg_val_tmp[3],
-				        p_reg_val_tmp[4],p_reg_val_tmp[5],p_reg_val_tmp[6],p_reg_val_tmp[7],
-				        p_reg_val_tmp[8],p_reg_val_tmp[9],p_reg_val_tmp[10],p_reg_val_tmp[11]);  */
 				}
-				//printk("aiden: write length=%d \n", wr_num_once);
 			}
 			msg_w.addr = i2c_client->addr;
 			msg_w.flags = 0;
@@ -1415,19 +1414,6 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 					SENSOR_PRINT("SENSOR: i2c w once err\n");
 				rtn = 1;
 				break;
-			} else {
-#if 0
-				SENSOR_PRINT("SENSOR: HI351_InitExt, i2c write once from %d {0x%x 0x%x}, total %d registers {0x%x 0x%x}\n",
-				      written_num,cmd[0],cmd[1],wr_num_once,p_reg_val_tmp[0],p_reg_val_tmp[1]);
-				if(wr_num_once > 1)
-				{
-					SENSOR_PRINT("SENSOR: HI351_InitExt, val {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x} {0x%x 0x%x}.\n",
-				          p_reg_val_tmp[0],p_reg_val_tmp[1],p_reg_val_tmp[2],p_reg_val_tmp[3],
-				          p_reg_val_tmp[4],p_reg_val_tmp[5],p_reg_val_tmp[6],p_reg_val_tmp[7],
-				          p_reg_val_tmp[8],p_reg_val_tmp[9],p_reg_val_tmp[10],p_reg_val_tmp[11]);
-
-				}
-#endif
 			}
 		}
 		written_num += wr_num_once - 1;
@@ -1436,15 +1422,14 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 	_Sensor_K_kfree(p_reg_val_tmp);
 	return rtn;
 }
-#endif
-
 
 LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 				unsigned long arg)
 {
 	int ret = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
-	mutex_lock(&sensor_lock);
+	mutex_lock(&s_p_sensor_mod->sensor_lock);
 
 	switch (cmd) {
 	case SENSOR_IO_PD:
@@ -1531,7 +1516,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 
 	case SENSOR_IO_SET_ID:
 		{
-			ret = copy_from_user(&g_sensor_id, (uint32_t *) arg, sizeof(uint32_t));
+			ret = copy_from_user(&s_p_sensor_mod->sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 		}
 		break;
 
@@ -1549,8 +1534,8 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint16_t i2c_addr;
 			ret = copy_from_user(&i2c_addr, (uint16_t *) arg, sizeof(uint16_t));
 			if (0 == ret) {
-				this_client->addr = (this_client->addr & (~0xFF)) |i2c_addr;
-				printk("SENSOR_IO_I2C_ADDR: addr = %x, %x \n", i2c_addr, this_client->addr);
+				s_p_sensor_mod->cur_i2c_client->addr = (s_p_sensor_mod->cur_i2c_client->addr & (~0xFF)) |i2c_addr;
+				printk("SENSOR_IO_I2C_ADDR: addr = %x, %x \n", i2c_addr, s_p_sensor_mod->cur_i2c_client->addr);
 			}
 		}
 		break;
@@ -1622,26 +1607,21 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 		{
 			SENSOR_FLASH_LEVEL_T flash_level;
 			ret = copy_from_user(&flash_level, (SENSOR_FLASH_LEVEL_T *) arg, sizeof(SENSOR_FLASH_LEVEL_T));
-
 			if (0 == ret) {
 				ret = _Sensor_K_GetFlashLevel(&flash_level);
 				if(SENSOR_K_FAIL != ret){
 					ret = copy_to_user((SENSOR_FLASH_LEVEL_T *)arg, &flash_level, sizeof(SENSOR_FLASH_LEVEL_T));
 				}
 			}
-
 		}
 		break;
 
 	default:
 		SENSOR_PRINT("sensor_k_ioctl: inv cmd %x  \n", cmd);
 		break;
-
 	}
 
-
-	mutex_unlock(&sensor_lock);
-
+	mutex_unlock(&s_p_sensor_mod->sensor_lock);
 	return (long)ret;
 }
 
@@ -1661,11 +1641,11 @@ LOCAL struct miscdevice sensor_dev = {
 	.fops = &sensor_fops,
 };
 
-LOCAL struct i2c_driver sensor_i2c_driver;
 int sensor_k_probe(struct platform_device *pdev)
 {
-	int ret = 0;
-	uint32_t tmp = 0;
+	int              ret = 0;
+	uint32_t         tmp = 0;
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	printk(KERN_ALERT "sensor probe called\n");
 
@@ -1704,17 +1684,15 @@ int sensor_k_probe(struct platform_device *pdev)
 	}
 #endif
 
-	init_waitqueue_head(&wait_queue_sensor);
-	memset(&sensor_i2c_driver, 0, sizeof(struct i2c_driver));
-	sensor_i2c_driver.driver.owner = THIS_MODULE;
-	sensor_i2c_driver.probe  = sensor_probe;
-	sensor_i2c_driver.remove = sensor_remove;
-	sensor_i2c_driver.detect = sensor_detect;
-	sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
-	sensor_i2c_driver.id_table = sensor_device_id;
-	sensor_i2c_driver.address_list = &sensor_main_default_addr_list[0];
+	s_p_sensor_mod->sensor_i2c_driver.driver.owner = THIS_MODULE;
+	s_p_sensor_mod->sensor_i2c_driver.probe  = sensor_probe;
+	s_p_sensor_mod->sensor_i2c_driver.remove = sensor_remove;
+	s_p_sensor_mod->sensor_i2c_driver.detect = sensor_detect;
+	s_p_sensor_mod->sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
+	s_p_sensor_mod->sensor_i2c_driver.id_table = c_sensor_device_id;
+	s_p_sensor_mod->sensor_i2c_driver.address_list = &c_sensor_main_default_addr_list[0];
 
-	ret = i2c_add_driver(&sensor_i2c_driver);
+	ret = i2c_add_driver(&s_p_sensor_mod->sensor_i2c_driver);
 	if (ret) {
 		SENSOR_PRINT_ERR("+I2C err %d.\n", ret);
 		return SENSOR_K_FAIL;
@@ -1761,12 +1739,18 @@ LOCAL struct platform_driver sensor_dev_driver = {
 int __init sensor_k_init(void)
 {
 	printk(KERN_INFO "sensor_k_init called !\n");
+
+	s_p_sensor_mod = (struct sensor_module *)kmalloc(sizeof(struct sensor_module), GFP_KERNEL);
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+	memset((void*)s_p_sensor_mod, 0, sizeof(struct sensor_module));
+	s_p_sensor_mod->sensor_id = SENSOR_ID_MAX;
+	mutex_init(&s_p_sensor_mod->sensor_lock);
+
 	if (platform_driver_register(&sensor_dev_driver) != 0) {
 		printk("platform device register Failed \n");
 		return SENSOR_K_FAIL;
 	}
-	init_MUTEX(&g_sem_sensor);
-	mutex_init(&sensor_lock);
+
 	return 0;
 }
 
@@ -1774,6 +1758,13 @@ void sensor_k_exit(void)
 {
 	printk(KERN_INFO "sensor_k_exit called !\n");
 	platform_driver_unregister(&sensor_dev_driver);
+
+	if (SENSOR_ADDR_INVALID(s_p_sensor_mod)) {
+		printk("SENSOR: Invalid addr, 0x%x", (uint32_t)s_p_sensor_mod);
+	} else {
+		kfree(s_p_sensor_mod);
+		s_p_sensor_mod = NULL;
+	}
 }
 
 module_init(sensor_k_init);
@@ -1781,3 +1772,4 @@ module_exit(sensor_k_exit);
 
 MODULE_DESCRIPTION("Sensor Driver");
 MODULE_LICENSE("GPL");
+

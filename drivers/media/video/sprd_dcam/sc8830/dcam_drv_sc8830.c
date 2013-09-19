@@ -2771,6 +2771,7 @@ LOCAL int32_t _dcam_path_scaler(enum dcam_path_index path_index)
 		cfg_reg = DCAM_PATH2_CFG;
 	}
 
+	DCAM_CHECK_ZERO(path);
 	if (DCAM_RAWRGB == path->output_format ||
 		DCAM_JPEG == path->output_format) {
 		DCAM_TRACE("DCAM: _dcam_path_scaler out format is %d, no need scaler \n", path->output_format);
@@ -2871,6 +2872,7 @@ LOCAL int32_t _dcam_calc_sc_size(enum dcam_path_index path_index)
 		cfg_reg = DCAM_PATH2_CFG;
 	}
 
+	DCAM_CHECK_ZERO(path);
 	if (path->input_rect.w > (path->output_size.w * DCAM_SC_COEFF_DOWN_MAX * (1<<DCAM_PATH_DECI_FAC_MAX)) ||
 		path->input_rect.h > (path->output_size.h * DCAM_SC_COEFF_DOWN_MAX * (1<<DCAM_PATH_DECI_FAC_MAX)) ||
 		path->input_rect.w * DCAM_SC_COEFF_UP_MAX < path->output_size.w ||
