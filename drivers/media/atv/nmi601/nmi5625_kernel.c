@@ -155,7 +155,7 @@ static int nmi5625_ioctl(struct file *file,
                 u8 *kbuf = &i2cBuf[0];
                 int size = cmd&0xffff;	/* Note: I used the lower 16 bits for size */	
                 int len = size;
-                dPrint(N_TRACE,"NM5625_ATV_I2C_READ\n");
+                //dPrint(N_TRACE,"NM5625_ATV_I2C_READ\n");
                 mutex_lock(&d->mu);
                 while(len) {
                     int sz;
@@ -174,7 +174,7 @@ static int nmi5625_ioctl(struct file *file,
                     len -= sz;
                 }
                 //nmi_i2c_read(0x60,kbuf,size);
-                dPrint(N_TRACE,"nmi: read buf is (%x), size is (%d)\n",*kbuf,size);
+                //dPrint(N_TRACE,"nmi: read buf is (%x), size is (%d)\n",*kbuf,size);
 
                 if (copy_to_user(arg, i2cBuf, size) ) {
                     dPrint(N_ERR, "nmi: failed copy to user...\n");
@@ -192,14 +192,14 @@ static int nmi5625_ioctl(struct file *file,
                 u8 *kbuf = &i2cBuf[0];
                 int size = cmd&0xffff;	/* Note: I used the lower 16 bits for size */
                 int len = size;
-                dPrint(N_TRACE,"NM5625_ATV_I2C_WRITE\n");
+                //dPrint(N_TRACE,"NM5625_ATV_I2C_WRITE\n");
 
                 if (copy_from_user(kbuf, arg, size)) {					
                     dPrint(N_ERR, "nmi: failed copy from user...\n");
                     ret = -EFAULT;
                     goto _fail_;
                 }
-                dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
+                //dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
                 mutex_lock(&d->mu);
                 while(len){
                     int sz;
@@ -218,7 +218,7 @@ static int nmi5625_ioctl(struct file *file,
                     len -= sz;
                 }
                 //nmi_i2c_write(0x60,kbuf,size);
-                dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
+                //dPrint(N_TRACE,"nmi: write buf is (%x), size is (%d)\n",*kbuf,size);
 
                 mutex_unlock(&d->mu);
             }
