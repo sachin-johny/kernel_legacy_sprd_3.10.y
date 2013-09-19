@@ -862,6 +862,7 @@ static int saudio_snd_card_free(struct snd_saudio *saudio)
 	printk("saudio:saudio_snd_card free in");
 	queue_work(saudio->queue,&saudio->card_free_work);
 	printk("saudio:saudio_snd_card free out %d",result);
+	return 0;
 }
 
 static void saudio_snd_wait_modem_restart(struct snd_saudio *saudio)
@@ -872,7 +873,7 @@ static void saudio_snd_wait_modem_restart(struct snd_saudio *saudio)
 	while(1) {
 	    result = saudio_wait_common_cmd(dev_ctrl->dst,dev_ctrl->monitor_channel,SAUDIO_CMD_HANDSHAKE,0,-1);
 	    if(result) {
-		schedule_timeout(msecs_to_jiffies(100));
+		schedule_timeout_interruptible(msecs_to_jiffies(100));
 		printk(KERN_ERR "saudio_wait_monitor_cmd error %d\n",result);
 		continue;
 	    }
@@ -965,6 +966,10 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 	struct snd_card *saudio_card = NULL;
 
 	ADEBUG();
+
+	if(!saudio) {
+	    return -1;
+	}
 
 	result = snd_card_create(SNDRV_DEFAULT_IDX1, saudio->dev_ctrl[0].name, THIS_MODULE,
 				 sizeof( struct snd_saudio *), &saudio_card);
@@ -1074,6 +1079,10 @@ static int __devinit snd_saudio_probe(struct platform_device *devptr)
 	saudio->queue=create_singlethread_workqueue("saudio");  
 	if(!saudio->queue) {
 	    printk("saudio:workqueue create error %d",saudio->queue);
+	    if(saudio) {
+		kfree(saudio);
+		saudio = NULL;
+	    }
 	    return -1;
 	}
 	printk("saudio:workqueue create ok");
