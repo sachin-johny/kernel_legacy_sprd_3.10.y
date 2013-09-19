@@ -126,7 +126,7 @@ static struct usb_descriptor_header *hs_vser_descs[] = {
 
 /* temporary variable used between vser_open() and vser_gadget_bind() */
 static struct vser_dev *_vser_dev;
-
+static int vser_transfer_count = 0;
 static inline struct vser_dev *func_to_vser(struct usb_function *f)
 {
 	return container_of(f, struct vser_dev, function);
@@ -208,7 +208,7 @@ static void vser_complete_in(struct usb_ep *ep, struct usb_request *req)
 		dev->wr_error = 1;
 
 	vser_req_put(dev, &dev->tx_idle, req);
-
+	vser_transfer_count++;
 	wake_up(&dev->write_wq);
 }
 
@@ -371,6 +371,9 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 			return ret;
 		}
 	}
+        if(list_empty(&dev->tx_idle)){
+               printk("%s: tx buffer is full!!!!(%d)\n",__func__,vser_transfer_count);
+        }
 	while (count > 0) {
 		if (dev->wr_error) {
 			DBG(cdev, "vser_write dev->wr_error\n");
@@ -381,9 +384,6 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 		/* get an idle tx request to use */
 		req = 0;
 
-        if(list_empty(&dev->tx_idle)){
-               printk("%s: tx buffer is full!!!!\n",__func__);
-        }
 		ret = wait_event_interruptible(dev->write_wq,
 			((req = vser_req_get(dev, &dev->tx_idle)) || dev->wr_error));
 
@@ -435,6 +435,7 @@ static int vser_open(struct inode *ip, struct file *fp)
 	if (_lock(&_vser_dev->open_excl))
 		return -EBUSY;
 	*/
+	vser_transfer_count = 0;
 	spin_lock_irq(&dev->lock);
 	fp->private_data = dev;
 

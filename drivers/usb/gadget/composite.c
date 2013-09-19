@@ -739,7 +739,7 @@ int usb_add_config(struct usb_composite_dev *cdev,
 
 	status = bind(config);
 	if (status < 0) {
-		list_del(&config->list);
+		__list_del_entry(&config->list);
 		config->cdev = NULL;
 	} else {
 		unsigned	i;
