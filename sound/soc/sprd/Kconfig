@@ -92,6 +92,14 @@ config SPRD_AUDIO_BUFFER_USE_IRAM
 	   sometimes, use IRAM maybe reduce power consumption.
            but, it will cause system more busy, becuase the buffer smaller.
 
+config SPRD_IRAM_BACKUP
+	bool "backup IRAM when sound playback"
+	depends on SPRD_AUDIO_BUFFER_USE_IRAM
+	default n
+	help
+	  Say Y if you want backup IRAM when playback. sometimes, IRAM maybe shared with other modules,
+	  then you need to open this.
+
 config SPRD_AUDIO_USE_INTER_HP_PA
 	bool "use spreadtrum internal headphone pa"
 	default n

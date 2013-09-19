@@ -144,17 +144,22 @@ static inline const char *sprd_dai_pcm_name(struct snd_soc_dai *cpu_dai)
 }
 
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
+#ifdef CONFIG_SPRD_IRAM_BACKUP
 static char *s_mem_for_iram = 0;
+#endif
 static char *s_iram_remap_base = 0;
 
 static int sprd_buffer_iram_backup(void)
 {
+#ifdef CONFIG_SPRD_IRAM_BACKUP
 	void __iomem *iram_start;
 	sprd_pcm_dbg("Entering %s 0x%x\n", __func__, (int)s_mem_for_iram);
+#endif
 	if (!s_iram_remap_base) {
 		s_iram_remap_base =
 		    ioremap_nocache(SPRD_IRAM_ALL_PHYS, SPRD_IRAM_ALL_SIZE);
 	}
+#ifdef CONFIG_SPRD_IRAM_BACKUP
 	if (!s_mem_for_iram) {
 		s_mem_for_iram = kzalloc(SPRD_IRAM_ALL_SIZE, GFP_KERNEL);
 	} else {
@@ -167,12 +172,14 @@ static int sprd_buffer_iram_backup(void)
 	}
 	iram_start = (void __iomem *)(s_iram_remap_base);
 	memcpy_fromio(s_mem_for_iram, iram_start, SPRD_IRAM_ALL_SIZE);
+#endif
 	sprd_pcm_dbg("Leaving %s\n", __func__);
 	return 0;
 }
 
 static int sprd_buffer_iram_restore(void)
 {
+#ifdef CONFIG_SPRD_IRAM_BACKUP
 	void __iomem *iram_start;
 	sprd_pcm_dbg("Entering %s 0x%x\n", __func__, (int)s_mem_for_iram);
 	if (!s_mem_for_iram) {
@@ -183,6 +190,7 @@ static int sprd_buffer_iram_restore(void)
 	memcpy_toio(iram_start, s_mem_for_iram, SPRD_IRAM_ALL_SIZE);
 	kfree(s_mem_for_iram);
 	s_mem_for_iram = 0;
+#endif
 	sprd_pcm_dbg("Leaving %s\n", __func__);
 	return 0;
 }
