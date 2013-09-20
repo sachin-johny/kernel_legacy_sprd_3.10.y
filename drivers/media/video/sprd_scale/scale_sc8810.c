@@ -732,7 +732,28 @@ int _SCALE_ContinueSlice(long unsigned int data)
 	rtn_drv =
 	    _SCALE_DriverPath2Config(ISP_PATH_INPUT_RECT_PHY, (void *)&rect);
 	ISP_RTN_IF_ERR(rtn_drv);
+        if(p_path->slice_height == 0)
+        {
+          SCALE_PRINT_ERR("DIV0 error:p_path(%d,%d,%d,%d,%d),p_isp_reg(%d,%d,%d)\n",
+            p_path->slice_count,
+            p_path->slice_line_count,
+            p_path->output_size.h,
+            p_path->input_range.h,
+            p_path->is_last_slice,
+            p_isp_reg->slice_ver_cnt_u.mBits.slice_line_output,
+            p_isp_reg->slice_ver_cnt_u.mBits.slice_line_input,
+            p_isp_reg->slice_ver_cnt_u.mBits.last_slice);
+          SCALE_PRINT_ERR("DIV0 error:register(0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x,0x%08x)\n",
+            p_isp_reg->rev_path_cfg_u.dwValue,
+            p_isp_reg->rev_src_size_u.dwValue,
+            p_isp_reg->rev_trim_start_u.dwValue,
+            p_isp_reg->rev_trim_size_u.dwValue,
+            p_isp_reg->rev_des_size_u.dwValue,
+            p_isp_reg->slice_ver_cnt_u.dwValue,
+            p_isp_reg->endian_sel_u.dwValue);
 
+            ISP_RTN_IF_ERR(ISP_DRV_RTN_PARA_ERR);
+        }
 	if (p_path->slice_count ==
 	    (p_path->input_range.h / p_path->slice_height)) {
 		p_path->slice_height =
