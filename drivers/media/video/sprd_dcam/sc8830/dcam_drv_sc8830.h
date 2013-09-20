@@ -273,6 +273,12 @@ enum dcam_glb_reg_id {
 	DCAM_REG_MAX
 };
 
+enum dcam_v4l2_wtite_cmd_id {
+	DCAM_V4L2_WRITE_STOP = 0x5AA5,
+	DCAM_V4L2_WRITE_FREE_FRAME = 0xA55A,
+	DCAM_V4L2_WRITE_MAX
+};
+
 struct dcam_cap_sync_pol {
 	uint8_t               vsync_pol;
 	uint8_t               hsync_pol;

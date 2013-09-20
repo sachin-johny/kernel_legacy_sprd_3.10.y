@@ -107,10 +107,21 @@ int32_t scale_module_en(void)
 	ret = dcam_get_resizer(0);
 	if (ret) {
 		printk("scale_module_en, failed to get review path %d \n", ret);
-		return ret;
+		goto fail_get_resizer;
 	}
+
 	ret = dcam_module_en();
+	if (ret) {
+		printk("scale_module_en, failed to enable scale module %d \n", ret);
+		goto fail_dcam_eb;
+	}
+
 	memset(g_path, 0, sizeof(scale_path));
+	return ret;
+
+fail_dcam_eb:
+	dcam_rel_resizer();
+fail_get_resizer:
 	return ret;
 }
 
@@ -121,10 +132,12 @@ int32_t scale_module_dis(void)
 	ret = dcam_module_dis();
 	if (ret) {
 		printk("scale_module_dis, failed to disable scale module %d \n", ret);
-		return ret;
 	}
 
 	ret = dcam_rel_resizer();
+	if (ret) {
+		printk("scale_module_dis, failed to free review path %d \n", ret);
+	}
 
 	return ret;
 }
