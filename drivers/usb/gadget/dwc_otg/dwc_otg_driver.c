@@ -691,7 +691,6 @@ static int dwc_otg_driver_probe(
 		dev_err(&_dev->dev, "Bad value for SNPSID: 0x%08x\n",
 			dwc_otg_get_gsnpsid(dwc_otg_device->core_if));
 		dwc_otg_cil_remove(dwc_otg_device->core_if);
-		dwc_free(dwc_otg_device);
 		retval = -EINVAL;
 		goto fail;
 	}

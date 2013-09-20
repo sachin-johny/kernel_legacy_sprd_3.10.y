@@ -281,9 +281,9 @@ void dwc_otg_cil_remove(dwc_otg_core_if_t * core_if)
 	if (core_if->host_if) {
 		dwc_free(core_if->host_if);
 	}
-	dwc_free(core_if);
 	DWC_TIMER_FREE(core_if->wkp_timer);
 	DWC_FREE(core_if->core_params);
+	dwc_free(core_if);
 }
 
 /**
@@ -589,22 +589,13 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 			 * a soft reset immediately after setting phyif.  */
 			usbcfg.b.ulpi_utmi_sel = core_if->core_params->phy_type;
 			//if (usbcfg.b.ulpi_utmi_sel == 1) { //sword BUG
-			if (usbcfg.b.ulpi_utmi_sel == 2) {
-				/* ULPI interface */
-				usbcfg.b.phyif = 0;
-				usbcfg.b.ddrsel =
-				    core_if->core_params->phy_ulpi_ddr;
-			} else {
 				/* UTMI+ interface */
-				if (core_if->core_params->phy_utmi_width == 16) {
-					usbcfg.b.phyif = 1;
-
-				} else {
-					usbcfg.b.phyif = 0;
-				}
-				usbcfg.b.ulpi_utmi_sel = 0;
-
+			if (core_if->core_params->phy_utmi_width == 16) {
+				usbcfg.b.phyif = 1;
+			} else {
+				usbcfg.b.phyif = 0;
 			}
+			usbcfg.b.ulpi_utmi_sel = 0;
 
 			dwc_write_reg32(&global_regs->gusbcfg, usbcfg.d32);
 			/* Reset after setting the PHY parameters */

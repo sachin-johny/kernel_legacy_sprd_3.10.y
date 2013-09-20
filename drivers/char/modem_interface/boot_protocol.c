@@ -277,9 +277,10 @@ static void boot_ack(struct modem_message_node *msg,struct modem_intf_device *de
 			if(device->out_transfer_pending){
 				device->out_transfer_pending = 0;
 				device->out_transfering = send_bffer_index = pingpang_buffer_send(&device->send_buffer);
-
-				data = (unsigned short *)device->send_buffer.buffer[send_bffer_index].addr;
-				device->op->write((char *)data,SETUP_PACKET_SIZE);
+				if(send_bffer_index <=1){
+					data = (unsigned short *)device->send_buffer.buffer[send_bffer_index].addr;
+					device->op->write((char *)data,SETUP_PACKET_SIZE);
+				}
 
 				device->status = (int)MBUS_DL_SETUP;
 			} else {

@@ -82,7 +82,7 @@ static int dloader_open(struct inode *inode,struct file *filp)
 	}
 	dl_dev->mode = MODEM_MODE_BOOT;
 
-	printk(KERN_INFO "DLoader_open %d times: %d\n", dl_dev->open_count, rval);
+	printk(KERN_INFO "DLoader_open %d \n", dl_dev->open_count);
 	return 0;
 }
 static int dloader_read(struct file *filp,char __user *buf,size_t count,loff_t *pos)

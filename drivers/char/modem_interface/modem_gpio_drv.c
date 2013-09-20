@@ -98,9 +98,10 @@ int modem_gpio_init(void *para)
 	
 	gpio_direction_input(cp_alive_gpio);
 	gpio_export(cp_alive_gpio,0);
-	cp_alive_gpio_irq = gpio_to_irq(cp_alive_gpio);
-	if (cp_alive_gpio_irq < 0)
+	status = gpio_to_irq(cp_alive_gpio);
+	if (status < 0)
 		return -1;
+	cp_alive_gpio_irq = status;
 	error = request_threaded_irq(cp_alive_gpio_irq, cp_alive_gpio_handle, 
 		NULL, IRQF_DISABLED|IRQF_TRIGGER_RISING |IRQF_TRIGGER_FALLING, "modem_boot", para);
 	if (error) {
@@ -119,9 +120,10 @@ int modem_gpio_init(void *para)
         gpio_export(cp_crash_gpio,0);
         gpio_direction_input(cp_crash_gpio);
 
-        cp_crash_gpio_irq = gpio_to_irq(cp_crash_gpio);
-        if (cp_crash_gpio_irq < 0)
+        status = gpio_to_irq(cp_crash_gpio);
+        if (status < 0)
                 return -1;
+	cp_crash_gpio_irq = status;
         error = request_threaded_irq(cp_crash_gpio_irq, cp_crash_gpio_handle,
                 NULL, IRQF_DISABLED|IRQF_TRIGGER_RISING |IRQF_TRIGGER_FALLING, "modem_crash", para);
         if (error) {
