@@ -19,7 +19,7 @@
 #include <linux/clk.h>
 #include <linux/err.h>
 #include <asm/io.h>
-
+#include <linux/kthread.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
@@ -2113,6 +2113,7 @@ int32_t    dcam_get_resizer(uint32_t wait_opt)
 {
 	int32_t                 rtn = 0;
 
+	printk("resizer_get:%d\n",current->pid);
 	if( 0 == wait_opt) {
 		rtn = mutex_trylock(&dcam_sem) ? 0 : 1;
 		return rtn;
@@ -2126,8 +2127,9 @@ int32_t    dcam_get_resizer(uint32_t wait_opt)
 
 int32_t    dcam_rel_resizer(void)
 {
-	 mutex_unlock(&dcam_sem);
-	 return 0;
+	printk("resizer_put:%d\n",current->pid);
+	mutex_unlock(&dcam_sem);
+	return 0;
 }
 
 int32_t    dcam_resize_start(void)

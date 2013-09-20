@@ -2510,7 +2510,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 	ret = copy_from_user((void*)&buf, u_data, sizeof(struct v4l2_buffer));
 
 	switch (buf.flags) {
-	case 0:
+	case DCAM_V4L2_WRITE_STOP:
 		mutex_lock(&dev->dcam_mutex);
 		ret = sprd_v4l2_tx_stop(dev);
 		if (ret)
@@ -2520,7 +2520,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 		mutex_unlock(&dev->dcam_mutex);
 	break;
 
-	case 1:
+	case DCAM_V4L2_WRITE_FREE_FRAME:
 		if (V4L2_BUF_TYPE_VIDEO_CAPTURE == buf.type) {
 			path = &info->dcam_path[DCAM_PATH1];
 		} else if (V4L2_BUF_TYPE_PRIVATE == buf.type) {
@@ -2529,7 +2529,6 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 			path = &info->dcam_path[DCAM_PATH0];
 		} else {
 			printk("V4L2 error: v4l2_qbuf, type 0x%x \n", buf.type);
-			mutex_unlock(&dev->dcam_mutex);
 			return -EINVAL;
 		}
 
