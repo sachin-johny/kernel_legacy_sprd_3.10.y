@@ -330,13 +330,14 @@ send_failed:
 int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 {
 	struct smsg_ipc *ipc = smsg_ipcs[dst];
-	struct smsg_channel *ch = ipc->channels[msg->channel];
+	struct smsg_channel *ch;
 	uint32_t rd;
 	int rval = 0;
 
 	if(!ipc) {
 	    return -ENODEV;
 	}
+	ch = ipc->channels[msg->channel];
 
 	if (!ch) {
 		printk(KERN_ERR "channel %d not opened!\n", msg->channel);
