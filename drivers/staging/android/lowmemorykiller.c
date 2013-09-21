@@ -270,8 +270,9 @@ lowmem_print(3, "totalreserve_pages %d\n", totalreserve_pages);
 
 		if( min_adj == OOM_ADJUST_MAX + 1)
 		{
-			printk("\r\n[LMK] Cache value high: other_free:%d, other_file:%d, lowmem_minfile[%d]:%d\r\n", 
+			lowmem_print(3, "Cache value high: other_free:%d, other_file:%d, lowmem_minfile[%d]:%d\r\n", 
 					    other_free,other_file, array_size -1, lowmem_minfree[array_size - 1]);
+
 			oom_adj_index = ARRAY_SIZE(lowmem_adj) - 1;
 		}
 
