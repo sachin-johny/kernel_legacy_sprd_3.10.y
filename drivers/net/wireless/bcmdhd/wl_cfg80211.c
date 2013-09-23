@@ -3231,7 +3231,7 @@ wl_cfg80211_get_key(struct wiphy *wiphy, struct net_device *dev,
 	params.key_len = (u8) min_t(u8, DOT11_MAX_KEY_SIZE, key.len);
 	memcpy(params.key, key.data, params.key_len);
 
-	wldev_iovar_getint_bsscfg(dev, "wsec", &wsec, bssidx);
+	err = wldev_iovar_getint_bsscfg(dev, "wsec", &wsec, bssidx);
 	if (unlikely(err)) {
 		WL_ERR(("WLC_GET_WSEC error (%d)\n", err));
 		return err;

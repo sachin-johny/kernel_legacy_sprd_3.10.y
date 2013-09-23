@@ -570,11 +570,16 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	char iovbuf[32];
 	int bcn_li_dtim = 3;
 	uint roamvar = 1;
-
+	if(!dhd)
+	{
+		DHD_ERROR(("%s: input parm ptr dhd is null!!! \n", __FUNCTION__));
+		return 0;
+	}
 	DHD_TRACE(("%s: enter, value = %d in_suspend=%d\n",
 		__FUNCTION__, value, dhd->in_suspend));
 
 	dhd_suspend_lock(dhd);
+
 	if (dhd && dhd->up) {
 		if (value && dhd->in_suspend) {
 
@@ -3893,9 +3898,9 @@ void dhd_detach(dhd_pub_t *dhdp)
 		ASSERT(ifp);
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2, 6, 31))
-		if (ifp->net->open)
+		if (ifp->net && ifp->net->open)
 #else
-		if (ifp->net->netdev_ops == &dhd_ops_pri)
+		if ((ifp->net) && (ifp->net->netdev_ops == &dhd_ops_pri))
 #endif
 		{
 			if (ifp->net) {

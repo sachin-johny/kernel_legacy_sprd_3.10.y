@@ -175,7 +175,7 @@ pktq_penq(struct pktq *pq, int prec, void *p)
 
 	q = &pq->q[prec];
 
-	if (q->head)
+	if ((q->head) && (q->tail))
 		PKTSETLINK(q->tail, p);
 	else
 		q->head = p;
@@ -206,6 +206,9 @@ pktq_penq_head(struct pktq *pq, int prec, void *p)
 
 	if (q->head == NULL)
 		q->tail = p;
+
+	if (p == NULL)
+		return NULL;
 
 	PKTSETLINK(p, q->head);
 	q->head = p;
