@@ -411,6 +411,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 	}else{
 		dev->panel_ready = false;
 	}
+	dev->ctrl->logo_proc(dev);
 	dev->ctrl->early_init(dev);
 
 	if(!dev->panel_ready){

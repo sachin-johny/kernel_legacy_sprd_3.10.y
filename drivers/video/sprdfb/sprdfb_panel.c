@@ -27,6 +27,7 @@ static LIST_HEAD(panel_list_sub);/* for sub_lcd */
 static DEFINE_MUTEX(panel_mutex);
 
 static uint32_t lcd_id_from_uboot = 0;
+uint32_t lcd_base_from_uboot = 0;
 
 extern struct panel_if_ctrl sprdfb_mcu_ctrl;
 extern struct panel_if_ctrl sprdfb_rgb_ctrl;
@@ -69,6 +70,15 @@ static int __init lcd_id_get(char *str)
 	return 1;
 }
 __setup("lcd_id=", lcd_id_get);
+static int __init lcd_base_get(char *str)
+{
+	if (str != NULL) {
+		sscanf(&str[0], "%x", &lcd_base_from_uboot);
+	}
+	printk(KERN_INFO "sprdfb: [%s]LCD Panel Base from uboot: 0x%x\n", __FUNCTION__, lcd_base_from_uboot);
+	return 1;
+}
+__setup("lcd_base=", lcd_base_get);
 
 static int32_t panel_reset_dispc(struct panel_spec *self)
 {

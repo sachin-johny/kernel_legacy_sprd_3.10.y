@@ -1775,12 +1775,165 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 }
 #endif
 
+//begin bug210112
+#include <mach/board.h>
+extern uint32_t lcd_base_from_uboot;
+
+static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
+{
+	uint32_t i;
+	unsigned long flags;
+	pr_debug("%s:[%d] panel_if_type:%d\n",__func__,__LINE__,dev->panel_if_type);
+
+	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type) {
+		sprdfb_panel_invalidate(dev->panel);
+	}
+
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type) {
+		local_irq_save(flags);
+		dispc_set_bits(BIT(4), DISPC_DPI_CTRL);//sw
+		dispc_clear_bits(BIT(4), DISPC_CTRL);//stop running
+		while(dispc_read(DISPC_DPI_STS1) & BIT(16));
+		udelay(25);
+
+		dispc_clear_bits(0x1f, DISPC_INT_EN);//disable all interrupt
+		dispc_set_bits(0x1f, DISPC_INT_CLR);// clear all interruption
+
+		dispc_set_bits(BIT(5), DISPC_DPI_CTRL);//update
+		udelay(30);
+		dispc_clear_bits(BIT(4), DISPC_DPI_CTRL);//SW and VSync
+		dispc_set_bits(BIT(4), DISPC_CTRL);//run
+		local_irq_restore(flags);
+	} else {
+		/* start refresh */
+		dispc_set_bits((1 << 4), DISPC_CTRL);
+		for(i=0; i<500; i++) {
+			if(0x1 != (dispc_read(DISPC_INT_RAW) & (1<<0))) {
+				udelay(1000);
+			} else {
+				break;
+			}
+		}
+		if(i >= 1000) {
+			printk("sprdfb:[%s] wait dispc done int time out!! (0x%x)\n", __func__, dispc_read(DISPC_INT_RAW));
+		} else {
+			printk("sprdfb:[%s] got dispc done int (0x%x)\n", __func__, dispc_read(DISPC_INT_RAW));
+		}
+		dispc_set_bits((1<<0), DISPC_INT_CLR);
+	}
+	return 0;
+}
+
+
+static void sprdfb_dispc_logo_config(struct sprdfb_device *dev,uint32_t logo_dst_p)
+{
+    uint32_t reg_val = 0;
+
+    pr_debug("%s[%d] enter,dev:0x%08x\n",__func__,__LINE__,dev);
+
+    dispc_clear_bits((1<<0),DISPC_IMG_CTRL);
+    dispc_clear_bits((1<<0),DISPC_OSD_CTRL);
+
+    /******************* OSD layer setting **********************/
+
+    /* OSD layer alpha value */
+    dispc_write(0xff, DISPC_OSD_ALPHA);
+
+    reg_val = (( dev->panel->width & 0xfff) | ((dev->panel->height & 0xfff ) << 16));
+    dispc_write(reg_val, DISPC_OSD_SIZE_XY);
+    dispc_write(reg_val, DISPC_SIZE_XY);
+
+    /* OSD layer start position */
+    dispc_write(0, DISPC_OSD_DISP_XY);
+
+    /* OSD layer pitch */
+    reg_val = ( dev->panel->width & 0xfff) ;
+    dispc_write(reg_val, DISPC_OSD_PITCH);
+
+    /*OSD base address*/
+    dispc_write(logo_dst_p, DISPC_OSD_BASE_ADDR);
+
+    /* OSD color_key value */
+    dispc_set_osd_ck(0x0);
+
+    reg_val = 0;
+    /*enable OSD layer*/
+    reg_val |= (1 << 0);
+
+    /*disable  color key */
+
+    /* alpha mode select  - block alpha*/
+    reg_val |= (1 << 2);
+
+    /* data format */
+    /* RGB565 */
+    reg_val |= (5 << 4);
+    /* B2B3B0B1 */
+    reg_val |= (2 << 8);
+
+    dispc_write(reg_val, DISPC_OSD_CTRL);
+
+    dispc_clear_bits(0x30000,DISPC_CTRL);
+    dispc_set_bits(0x10000,DISPC_CTRL);
+}
+
+void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
+{
+	//inline size_t roundUpToPageSize(size_t x) {    return (x + (PAGE_SIZE-1)) & ~(PAGE_SIZE-1);}
+	uint32_t kernel_fb_size = 0;
+	uint32_t logo_src_v = 0;
+	uint32_t logo_dst_v = 0;//use the second frame buffer	,virtual
+	uint32_t logo_dst_p = 0;//use the second frame buffer ,physical
+	uint32_t logo_size = 0;// should be rgb565
+
+	pr_debug("%s[%d] enter.\n",__func__,__LINE__);
+
+	if(dev == NULL) {
+		printk("%s[%d]: dev == NULL, return without process logo!!\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
+		return;
+	}
+
+	if(lcd_base_from_uboot == 0) {
+		printk("%s[%d]: lcd_base_from_uboot == 0, return without process logo!!\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
+		return;
+	}
+
+#define USE_OVERLAY_BUFF
+	logo_size = dev->panel->width * dev->panel->height * 2;// should be rgb565
+#ifndef USE_OVERLAY_BUFF
+	kernel_fb_size = dev->panel->width * dev->panel->height * (dev->bpp / 8);
+	kernel_fb_size = 0;
+	logo_dst_v = dev->fb->screen_base + kernel_fb_size;//use the second frame buffer
+	logo_dst_p = dev->fb->fix.smem_start + kernel_fb_size;//use the second frame buffer
+#else
+	logo_dst_p = SPRD_ION_OVERLAY_BASE-logo_size;//use overlay frame buffer
+	logo_dst_v =  (uint32_t)ioremap(logo_dst_p, logo_size);
+#endif
+	logo_src_v =  (uint32_t)ioremap(lcd_base_from_uboot, logo_size);
+
+	printk("%s[%d]: lcd_base_from_uboot: 0x%08x, logo_src_v:0x%08x\n",__func__,__LINE__,lcd_base_from_uboot,logo_src_v);
+	printk("%s[%d]: logo_dst_p:0x%08x,logo_dst_v:0x%08x\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
+	memcpy(logo_dst_v, logo_src_v, logo_size);
+
+	iounmap(logo_src_v);
+#ifdef USE_OVERLAY_BUFF
+	iounmap(logo_dst_v);
+#endif
+	//dispc_print_osd_config(__func__,__LINE__);
+	sprdfb_dispc_logo_config(dev,logo_dst_p);
+	sprdfb_dispc_refresh_logo(dev);
+	//dispc_print_osd_config(__func__,__LINE__);
+}
+
+//end bug210112
+
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",
 	.early_init		= sprdfb_dispc_early_init,
 	.init		 	= sprdfb_dispc_init,
 	.uninit		= sprdfb_dispc_uninit,
 	.refresh		= sprdfb_dispc_refresh,
+	.logo_proc		= sprdfb_dispc_logo_proc,
 	.suspend		= sprdfb_dispc_suspend,
 	.resume		= sprdfb_dispc_resume,
 	.update_clk	= dispc_update_clock,

@@ -156,6 +156,7 @@ struct display_ctrl {
 	int32_t	(*uninit)		  (struct sprdfb_device *dev);
 
 	int32_t 	(*refresh)	  (struct sprdfb_device *dev);
+	int32_t 	(*logo_proc)	  (struct sprdfb_device *dev);
 
 	int32_t	(*suspend)	  (struct sprdfb_device *dev);
 	int32_t 	(*resume)	  (struct sprdfb_device *dev);
