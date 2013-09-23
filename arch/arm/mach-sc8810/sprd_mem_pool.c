@@ -24,12 +24,13 @@
 #include <linux/mutex.h>
 #include <asm/current.h>
 #include <asm/uaccess.h>
+#include <linux/pagemap.h>
+#include <linux/pfn.h>
+#include <linux/memory.h>
+
 
 /*used for debug*/
-#define DEBUG_PRINT
-#ifndef DEBUG_PRINT
-#	define printk 
-#endif
+#define DEBUG_PRINT	0
 
 
 #define ENTRY_ORDER	2					/* order==2, 16KB */
@@ -53,12 +54,12 @@ struct status {
 /*stats end*/
 
 
+static unsigned long alloc_flag = 0;
 static unsigned long buf_node[NODE_LIST_NODE_COUNT];
 static struct workqueue_struct *sprd_16k_alloc_wq = NULL;
 static struct work_struct sprd_16k_alloc_work;
 static struct mutex pool_lock;
 static struct status stats;
-static unsigned long alloc_flag = 0;
 
 static void dumpstack(void)
 {
@@ -117,7 +118,7 @@ static unsigned long _16k_get_pageinfo(void)
 
 	/*page counts over 16k*/
 	for(; order < MAX_ORDER; order++) {
-		page_count_over_16k += (zone->free_area[order].nr_free << ((1 << (order - 2)) - 1)) ;
+		page_count_over_16k += (zone->free_area[order].nr_free << (order - 2));
 		stats.orders[order] = zone->free_area[order].nr_free;
 	}
 
@@ -130,9 +131,9 @@ static void sprd_16k_alloc_delay(struct work_struct *work)
 	unsigned long p_sub = 0;
 
 	if(SYS_PAGE_COUNT_THRESHOLD > _16k_get_pageinfo()) goto queuework;
-#if 0
+#if DEBUG_PRINT
 	printk("__16K__ALLOC__DELAY__: work active!!! \
-			free node / used node / node16k: %lu / %lu / %lu\n", stats.free, stats.used, _16k_get_pageinfo()); ////
+			free node / used node / node16k: %lu / %lu / %lu\n", stats.free, stats.used, _16k_get_pageinfo());
 #endif
 
 	p_sub = get_first_node(NODE_USED);
@@ -153,17 +154,17 @@ queuework:
 	queue_work(sprd_16k_alloc_wq, &sprd_16k_alloc_work);
 }
 
-unsigned long sprd_16k_alloc(void)
+static unsigned long sprd_16k_alloc(void)
 {
 	unsigned long address = 0;
 	unsigned long p_sub = 0;
 
-	if(!alloc_flag) return address;
-
 	mutex_lock(&pool_lock); /*lock*/
+
 	p_sub = get_first_node(NODE_FREE);
 	if(NODE_LIST_NODE_COUNT == p_sub) {
 		mutex_unlock(&pool_lock); /*unlock*/
+
 		printk("__16K__ALLOC__: 16k buffer empty!!!  free / used / sys // peak / total: %lu / %lu / %lu // %lu / %lu\n", 
 				stats.free, stats.used, _16k_get_pageinfo(), stats.alloc_peak, stats.alloc_total_count);
 		dumpstack();
@@ -172,33 +173,53 @@ unsigned long sprd_16k_alloc(void)
 
 	address = buf_node[p_sub];
 	buf_node[p_sub] = 0;
+
 	mutex_unlock(&pool_lock); /*unlock*/
 
 	/*stats start*/
 	stats.free--;
 	stats.used++;
-	if(stats.alloc_peak < stats.used) stats.alloc_peak = stats.used;
-	(stats.alloc_total_count < MAX_ALLOC_COUNT) ? (stats.alloc_total_count++) : (stats.alloc_total_count = MAX_ALLOC_COUNT);
 	/*stats end*/
 
-#if 0
-	printk("__16K__ALLOC__: allocated from 16k buffer!!! free / used / sys // peak / total: %lu / %lu / %lu // %lu / %lu\n",
-		   	stats.free, stats.used, _16k_get_pageinfo(), stats.alloc_peak, stats.alloc_total_count); ////
-	dumpstack(); ////
-#endif
-
 	/*feather-weight : reduce "self-work aquire self-pool" counts*/
-	if(strncmp(current->comm, "buf-16k-alloc", 13)) {
+	if(strncmp(current->comm, "sprd-page-alloc", 13)) {
 		queue_work(sprd_16k_alloc_wq, &sprd_16k_alloc_work);
-#if 0
-		printk("__16K__ALLOC__: queue_work\n"); ///
+
+		/*stats start*/
+		if(stats.alloc_peak < stats.used) stats.alloc_peak = stats.used;
+		(stats.alloc_total_count < MAX_ALLOC_COUNT) ? (stats.alloc_total_count++) : (stats.alloc_total_count = MAX_ALLOC_COUNT);
+		/*stats end*/
+
+#if DEBUG_PRINT
+		printk("__16K__ALLOC__: allocated from 16k buffer!!! free / used / sys // peak / total: %lu / %lu / %lu // %lu / %lu\n",
+				stats.free, stats.used, _16k_get_pageinfo(), stats.alloc_peak, stats.alloc_total_count);
+		dumpstack();
 #endif
 	}
 
 	return address;
 }
 
-EXPORT_SYMBOL_GPL(sprd_16k_alloc);
+struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long zoneidx)
+{
+	unsigned long address = 0;
+	struct page *page = NULL;
+
+	if((!alloc_flag) || (ENTRY_ORDER != order) || (ZONE_NORMAL != zoneidx)) goto Failed;
+
+	address = sprd_16k_alloc();
+	if(!address) goto Failed;
+
+#if defined(WANT_PAGE_VIRTUAL)
+	page = container_of((void *)(address), struct page, virtual);
+#else
+	page = pfn_to_page(PFN_DOWN(__pa(address)));
+#endif
+	return page;
+
+Failed:
+	return NULL;
+}
 
 static int sprd_16k_info_show(struct seq_file *m, void *v)
 {
@@ -276,11 +297,11 @@ static int __init sprd_16k_pool_init(void)
 	}
 
 	/*create self workqueue & init work*/
-	sprd_16k_alloc_wq = create_workqueue("buf-16k-alloc");
+	sprd_16k_alloc_wq = create_workqueue("sprd-page-alloc");
 	INIT_WORK(&sprd_16k_alloc_work, sprd_16k_alloc_delay); 
 	
 	/*create proc file*/
-	proc_create("buf_16k_pool", 0, NULL, &sprd_16k_info_pool_fops);
+	proc_create("sprd_pages", 0, NULL, &sprd_16k_info_pool_fops);
 	return 0;
 }
 

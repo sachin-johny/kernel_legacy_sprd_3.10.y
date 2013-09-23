@@ -1,6 +1,6 @@
 #ifndef __SPRD_MEM_POOL_H
 #define __SPRD_MEM_POOL_H
- 
-extern unsigned long sprd_16k_alloc(void);
+
+extern struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long zoneidx);
 
 #endif

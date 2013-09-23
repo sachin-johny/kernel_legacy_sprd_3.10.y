@@ -2054,17 +2054,12 @@ rebalance:
 	if (page)
 		goto got_pg;
 
-	/*acean: for order=2, 16k alloc, start*/
-	if((2 == order) && (ZONE_NORMAL == high_zoneidx)) {
-#if defined(WANT_PAGE_VIRTUAL)
-		page = container_of((void *)(sprd_16k_alloc()), struct page, virtual);
-#else
-		page = pfn_to_page(PFN_DOWN(__pa(sprd_16k_alloc())));
-#endif
-	}
+#ifdef CONFIG_SPRD_MEM_POOL
+	/*for sprd page alloc*/
+	page  = sprd_page_alloc(gfp_mask, order, high_zoneidx);
 	if (page)
 		goto got_pg;
-	/*acean: for order=2, 16k alloc, end*/
+#endif
 
 	/*
 	 * If we failed to make any progress reclaiming, then we are
