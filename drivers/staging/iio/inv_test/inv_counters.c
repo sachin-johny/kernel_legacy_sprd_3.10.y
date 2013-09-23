@@ -37,7 +37,7 @@ struct inv_counters {
 
 static struct inv_counters Counters;
 
-void inv_counters_set_i2cirq(enum irqtype type, int irq)
+void inv_iio_counters_set_i2cirq(enum irqtype type, int irq)
 {
 	switch (type) {
 	case MPU:
@@ -67,59 +67,59 @@ static ssize_t i2c_counters_show(struct class *cls,
 		Counters.i2c_compassreads, Counters.i2c_compasswrites);
 }
 
-void inv_counters_tempread(int count)
+void inv_iio_counters_tempread(int count)
 {
 	Counters.i2c_tempreads += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_tempread);
+EXPORT_SYMBOL_GPL(inv_iio_counters_tempread);
 
-void inv_counters_mpuread(int count)
+void inv_iio_counters_mpuread(int count)
 {
 	Counters.i2c_mpureads += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_mpuread);
+EXPORT_SYMBOL_GPL(inv_iio_counters_mpuread);
 
-void inv_counters_mpuwrite(int count)
+void inv_iio_counters_mpuwrite(int count)
 {
 	Counters.i2c_mpuwrites += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_mpuwrite);
+EXPORT_SYMBOL_GPL(inv_iio_counters_mpuwrite);
 
-void inv_counters_accelread(int count)
+void inv_iio_counters_accelread(int count)
 {
 	Counters.i2c_accelreads += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_accelread);
+EXPORT_SYMBOL_GPL(inv_iio_counters_accelread);
 
-void inv_counters_accelwrite(int count)
+void inv_iio_counters_accelwrite(int count)
 {
 	Counters.i2c_accelwrites += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_accelwrite);
+EXPORT_SYMBOL_GPL(inv_iio_counters_accelwrite);
 
-void inv_counters_compassread(int count)
+void inv_iio_counters_compassread(int count)
 {
 	Counters.i2c_compassreads += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_compassread);
+EXPORT_SYMBOL_GPL(inv_iio_counters_compassread);
 
-void inv_counters_compasswrite(int count)
+void inv_iio_counters_compasswrite(int count)
 {
 	Counters.i2c_compasswrites += count;
 }
-EXPORT_SYMBOL_GPL(inv_counters_compasswrite);
+EXPORT_SYMBOL_GPL(inv_iio_counters_compasswrite);
 
-void inv_counters_compassirq(void)
+void inv_iio_counters_compassirq(void)
 {
 	Counters.i2c_compassirq++;
 }
-EXPORT_SYMBOL_GPL(inv_counters_compassirq);
+EXPORT_SYMBOL_GPL(inv_iio_counters_compassirq);
 
-void inv_counters_accelirq(void)
+void inv_iio_counters_accelirq(void)
 {
 	Counters.i2c_accelirq++;
 }
-EXPORT_SYMBOL_GPL(inv_counters_accelirq);
+EXPORT_SYMBOL_GPL(inv_iio_counters_accelirq);
 
 static struct class_attribute inv_class_attr[] = {
 	__ATTR(i2c_counter, S_IRUGO, i2c_counters_show, NULL),

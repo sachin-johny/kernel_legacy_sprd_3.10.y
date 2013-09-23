@@ -126,6 +126,7 @@ static int ami306_wait_data_ready(struct inv_ami306_state_s *st,
 		else if (buf & AMI_STA1_DOR_BIT)
 			return INV_ERROR_COMPASS_DATA_OVERFLOW;
 	}
+
 	return INV_ERROR_COMPASS_DATA_NOT_READY;
 }
 int ami306_read_raw_data(struct inv_ami306_state_s *st,
@@ -139,6 +140,7 @@ int ami306_read_raw_data(struct inv_ami306_state_s *st,
 	dat[0] = le16_to_cpup((__le16 *)(&buf[0]));
 	dat[1] = le16_to_cpup((__le16 *)(&buf[2]));
 	dat[2] = le16_to_cpup((__le16 *)(&buf[4]));
+
 	return 0;
 }
 
@@ -163,6 +165,7 @@ static int ami306_force_measurement(struct inv_ami306_state_s *st,
 	status = ami306_read_raw_data(st, ver);
 	if (status)
 		return status;
+
 	return result;
 }
 
@@ -243,6 +246,7 @@ static int ami306_start_sensor(struct inv_ami306_state_s *st)
 
 	/* Step 4 */
 	result = ami306_write_offset(st->i2c, st->fine);
+
 	return result;
 }
 
@@ -251,30 +255,30 @@ int set_ami306_enable(struct iio_dev *indio_dev, int state)
 	struct inv_ami306_state_s *st = iio_priv(indio_dev);
 	int result;
 	char buf;
-	if (state) {
-		buf = (AMI_CTRL1_PC1 | AMI_CTRL1_FS1_FORCE);
-		result = i2c_write(st->i2c, REG_AMI_CTRL1, 1, &buf);
-		if (result < 0)
-			return result;
 
-		result =  ami306_read_param(st);
+	buf = (AMI_CTRL1_PC1 | AMI_CTRL1_FS1_FORCE);
+	result = i2c_write(st->i2c, REG_AMI_CTRL1, 1, &buf);
+	if (result < 0)
+		return result;
+
+	result =  ami306_read_param(st);
+	if (result)
+		return result;
+	if (late_initialize) {
+		result = ami306_initial_b0_adjust(st);
 		if (result)
 			return result;
-		if (late_initialize) {
-			result = ami306_initial_b0_adjust(st);
-			if (result)
-				return result;
-			late_initialize = false;
-		}
-		result = ami306_start_sensor(st);
-		if (result)
-			return result;
-		buf = AMI_CTRL3_FORCE_BIT;
-		st->timestamp = iio_get_time_ns();
-		result = i2c_write(st->i2c, REG_AMI_CTRL3, 1, &buf);
-		if (result)
-			return result;
+		late_initialize = false;
 	}
+	result = ami306_start_sensor(st);
+	if (result)
+		return result;
+	buf = AMI_CTRL3_FORCE_BIT;
+	st->timestamp = iio_get_time_ns();
+	result = i2c_write(st->i2c, REG_AMI_CTRL3, 1, &buf);
+	if (result)
+		return result;
+
 	return 0;
 }
 
@@ -287,8 +291,11 @@ static int ami306_read_raw(struct iio_dev *indio_dev,
 			      int *val2,
 			      long mask) {
 	struct inv_ami306_state_s  *st = iio_priv(indio_dev);
+
 	switch (mask) {
 	case 0:
+		if (!(iio_buffer_enabled(indio_dev)))
+			return -EINVAL;
 		if (chan->type == IIO_MAGN) {
 			*val = st->compass_data[chan->channel2 - IIO_MOD_X];
 			return IIO_VAL_INT;
@@ -304,25 +311,6 @@ static int ami306_read_raw(struct iio_dev *indio_dev,
 	default:
 		return -EINVAL;
 	}
-}
-
-/**
- *  ami306_write_raw() - write raw method.
- */
-static int ami306_write_raw(struct iio_dev *indio_dev,
-			       struct iio_chan_spec const *chan,
-			       int val,
-			       int val2,
-			       long mask) {
-	int result;
-	switch (mask) {
-	case IIO_CHAN_INFO_SCALE:
-		result = -EINVAL;
-		return result;
-	default:
-		return -EINVAL;
-	}
-	return 0;
 }
 
 /**
@@ -382,10 +370,17 @@ static void ami306_work_func(struct work_struct *work)
 	struct iio_dev *indio_dev = iio_priv_to_dev(st);
 	unsigned long delay = msecs_to_jiffies(st->delay);
 
+	mutex_lock(&indio_dev->mlock);
+	if (!(iio_buffer_enabled(indio_dev)))
+		goto error_ret;
+
 	st->timestamp = iio_get_time_ns();
 	schedule_delayed_work(&st->work, delay);
 	inv_read_ami306_fifo(indio_dev);
 	INV_I2C_INC_COMPASSIRQ();
+
+error_ret:
+	mutex_unlock(&indio_dev->mlock);
 }
 
 static const struct iio_chan_spec compass_channels[] = {
@@ -431,7 +426,6 @@ static const struct attribute_group inv_attribute_group = {
 static const struct iio_info ami306_info = {
 	.driver_module = THIS_MODULE,
 	.read_raw = &ami306_read_raw,
-	.write_raw = &ami306_write_raw,
 	.attrs = &inv_attribute_group,
 };
 
@@ -457,7 +451,6 @@ static int inv_ami306_probe(struct i2c_client *client,
 	}
 	st = iio_priv(indio_dev);
 	st->i2c = client;
-	st->sl_handle = client->adapter;
 	st->plat_data =
 		*(struct mpu_platform_data *)dev_get_platdata(&client->dev);
 	st->delay = 10;

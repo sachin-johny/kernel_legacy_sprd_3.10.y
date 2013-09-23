@@ -44,7 +44,7 @@
 #include "inv_mpu_iio.h"
 
 /**
- * inv_mpu_data_rdy_trigger_set_state() set datardy interrupt state
+ * inv_mpu_data_rdy_trigger_set_state() set data ready interrupt state
  **/
 static int inv_mpu_data_rdy_trigger_set_state(struct iio_trigger *trig,
 						bool state)
