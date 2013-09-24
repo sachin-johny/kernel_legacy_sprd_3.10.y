@@ -69,6 +69,10 @@ static void panic_blink_one_second(void)
 	}
 }
 
+#ifdef CONFIG_SPRD_SYSDUMP
+	extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
+#endif
+
 /**
  *	panic - halt the system
  *	@fmt: The text string to print
@@ -98,6 +102,10 @@ NORET_TYPE void panic(const char * fmt, ...)
 	printk(KERN_EMERG "Kernel panic - not syncing: %s\n",buf);
 #ifdef CONFIG_DEBUG_BUGVERBOSE
 	dump_stack();
+#endif
+
+#ifdef CONFIG_SPRD_SYSDUMP
+	sysdump_enter(0, buf, NULL);
 #endif
 
 	/*

@@ -28,6 +28,10 @@
 #include <linux/smp_lock.h>
 #include "input-compat.h"
 
+#if defined(CONFIG_SPRD_DEBUG)
+#include <mach/sprd_debug.h>
+#endif
+
 MODULE_AUTHOR("Vojtech Pavlik <vojtech@suse.cz>");
 MODULE_DESCRIPTION("Input core");
 MODULE_LICENSE("GPL");
@@ -182,6 +186,7 @@ static void input_stop_autorepeat(struct input_dev *dev)
 #define INPUT_PASS_TO_DEVICE	2
 #define INPUT_PASS_TO_ALL	(INPUT_PASS_TO_HANDLERS | INPUT_PASS_TO_DEVICE)
 
+
 static void input_handle_event(struct input_dev *dev,
 			       unsigned int type, unsigned int code, int value)
 {
@@ -214,6 +219,10 @@ static void input_handle_event(struct input_dev *dev,
 
 			if (value != 2) {
 				__change_bit(code, dev->key);
+#if defined(CONFIG_SPRD_DEBUG)
+				if(code != BTN_TOUCH)
+					sprd_debug_check_crash_key(code ,value);
+#endif
 				if (value)
 					input_start_autorepeat(dev, code);
 				else
@@ -222,6 +231,13 @@ static void input_handle_event(struct input_dev *dev,
 
 			disposition = INPUT_PASS_TO_HANDLERS;
 		}
+#if defined(CONFIG_SPRD_DEBUG)
+		else {
+			if(code != BTN_TOUCH && value == 0) {
+				sprd_debug_check_crash_key(code ,value);
+			}
+		}
+#endif
 		break;
 
 	case EV_SW:

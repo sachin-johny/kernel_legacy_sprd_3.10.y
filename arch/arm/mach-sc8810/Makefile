@@ -26,4 +26,4 @@ obj-$(CONFIG_SC8800G_VIBRATOR) += vibrator.o
 obj-$(CONFIG_CACHE_L2X0_310)	+= cache-l3x0.o
 
 obj-$(CONFIG_SPRD_MEM_POOL)	+= sprd_mem_pool.o
-
+obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o

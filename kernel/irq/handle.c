@@ -24,6 +24,10 @@
 
 #include "internals.h"
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
 /*
  * lockdep: we want to handle all irq_desc locks as a single lock-class:
  */
@@ -371,9 +375,15 @@ irqreturn_t handle_IRQ_event(unsigned int irq, struct irqaction *action)
 	unsigned int status = 0;
 
 	do {
+#ifdef CONFIG_SPRD_DEBUG
+		sprd_debug_irq_log(irq, (void *)action->handler, 1); 
+#endif
 		trace_irq_handler_entry(irq, action);
 		ret = action->handler(irq, action->dev_id);
 		trace_irq_handler_exit(irq, action, ret);
+#ifdef CONFIG_SPRD_DEBUG
+		sprd_debug_irq_log(irq, (void *)action->handler, 2);
+#endif
 
 		switch (ret) {
 		case IRQ_WAKE_THREAD:

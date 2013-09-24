@@ -39,6 +39,11 @@
 #include <asm/localtimer.h>
 #include <asm/smp_plat.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
+
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -528,6 +533,10 @@ nk_do_IPI (int xirq, void* dev_id)
 	unsigned int cpu = smp_processor_id();
 	struct ipi_data *ipi = &per_cpu(ipi_data, cpu);
 
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 1);
+#endif
+
 	ipi->ipi_count++;
 
 	for (;;) {
@@ -579,6 +588,9 @@ nk_do_IPI (int xirq, void* dev_id)
 			}
 		} while (msgs);
 	}
+#ifdef CONFIG_SPRD_DEBUG
+    sprd_debug_irq_log(ipinr, do_IPI, 2);
+#endif
         return IRQ_HANDLED;
 }
 
@@ -590,6 +602,10 @@ asmlinkage void __exception do_IPI(struct pt_regs *regs)
 	struct ipi_data *ipi = &per_cpu(ipi_data, cpu);
 	struct pt_regs *old_regs = set_irq_regs(regs);
 
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 1);
+#endif
+
 	ipi->ipi_count++;
 
 	for (;;) {
@@ -641,7 +657,9 @@ asmlinkage void __exception do_IPI(struct pt_regs *regs)
 			}
 		} while (msgs);
 	}
-
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 2);
+#endif
 	set_irq_regs(old_regs);
 }
 

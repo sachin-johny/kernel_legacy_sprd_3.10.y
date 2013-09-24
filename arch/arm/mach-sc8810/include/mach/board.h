@@ -91,6 +91,8 @@ int __init sprd_i2c_init(void);
 # define RAM_CONSOLE_START   (SPRD_PMEM_BASE - RAM_CONSOLE_SIZE)
 #endif
 
+#define SPRD_SYSDUMP_MAGIC	(128*1024*1024 - SZ_1M)
+
 extern int in_factory_mode(void);
 extern int in_calibration(void);
 extern int in_abnormal_mode(void);

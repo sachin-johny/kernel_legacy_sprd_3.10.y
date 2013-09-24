@@ -36,6 +36,11 @@
 #define CREATE_TRACE_POINTS
 #include <trace/events/workqueue.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
+
 /*
  * The per-CPU workqueue (if single thread, we always use the first
  * possible cpu).
@@ -410,6 +415,9 @@ static void run_workqueue(struct cpu_workqueue_struct *cwq)
 		work_clear_pending(work);
 		lock_map_acquire(&cwq->wq->lockdep_map);
 		lock_map_acquire(&lockdep_map);
+#ifdef CONFIG_SPRD_DEBUG
+		sprd_debug_work_log(cwq, work, f);
+#endif
 		f(work);
 		lock_map_release(&lockdep_map);
 		lock_map_release(&cwq->wq->lockdep_map);

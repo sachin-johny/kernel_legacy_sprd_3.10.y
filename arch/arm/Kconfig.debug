@@ -27,6 +27,13 @@ config ARM_UNWIND
 	  the performance is not affected. Currently, this feature
 	  only works with EABI compilers. If unsure say Y.
 
+config SPRD_SYSDUMP
+        tristate "Enable SPRD sysdump handler"
+        depends on ARCH_SC8810
+        help
+          This option enables Spreadtrum sysdump which prepare debug info
+	  for u-boot to write into mmc storage after kernel panics.
+
 config DEBUG_USER
 	bool "Verbose user fault messages"
 	help
@@ -127,5 +134,15 @@ config DEBUG_S3C_UART
 
 	  The uncompressor code port configuration is now handled
 	  by CONFIG_S3C_LOWLEVEL_UART_PORT.
+
+config SPRD_DEBUG
+	bool "Enable SPRD DEBUG"
+
+config SPRD_DEBUG_SCHED_LOG
+	bool "SPRD Scheduler Logging Feature"
+	depends on SPRD_DEBUG
+	default n
+	help
+	  SPRD Scheduler Logging Feature for Debug use.
 
 endmenu

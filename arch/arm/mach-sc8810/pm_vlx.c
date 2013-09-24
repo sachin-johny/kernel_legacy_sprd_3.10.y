@@ -25,6 +25,10 @@
 #include <mach/irqs.h>
 #include <mach/pm_wakesource.h>
 
+#if defined(CONFIG_SPRD_DEBUG)
+/* For saving Fault status */
+#include <mach/sprd_debug.h>
+#endif
 
 #define ANA_INT_STATUS             (SPRD_MISC_BASE +0x380+ 0x00)
 #define ANA_INT_RAW                  (SPRD_MISC_BASE + 0x380 + 0x04)
@@ -349,6 +353,10 @@ static int __init sc8800g_pm_init(void)
 #ifdef CONFIG_SUSPEND
 	suspend_set_ops(&sc8800g_pm_ops);
 #endif /* CONFIG_SUSPEND */
+
+#if defined(CONFIG_SPRD_DEBUG)
+    sprd_debug_init();
+#endif
 
     return 0;
 }

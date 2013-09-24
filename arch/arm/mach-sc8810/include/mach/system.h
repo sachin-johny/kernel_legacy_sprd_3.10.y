@@ -45,27 +45,36 @@ static inline void arch_idle(void)
 #define HWRST_STATUS_NORMAL (0X40)
 #define HWRST_STATUS_ALARM (0X50)
 #define HWRST_STATUS_SLEEP (0X60)
+#define HWRST_STATUS_SPECIAL (0x70)
+#define HWRST_STATUS_PANIC (0x80)
+
 
 static inline void arch_reset(char mode, const char *cmd)
 {
 	/* our chip reset code */
 	 volatile unsigned hw_rst;
     volatile int i;
+ 
     for(i=0xffff; i>0;i--);
+
     if(!(strncmp(cmd, "recovery", 8))){
-       ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
-    }else if(!strncmp(cmd, "alarm", 5)){
-       ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_ALARM);
-    }else if(!strncmp(cmd, "fastsleep", 9)){
-       ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
+        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_RECOVERY);
+    } else if(!strncmp(cmd, "alarm", 5)){
+        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_ALARM);
+    } else if(!strncmp(cmd, "fastsleep", 9)){
+        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_SLEEP);
 /*	
     }else if(!strncmp(cmd, "reboot:",7)){
        ANA_REG_SET(ANA_RST_STATUS,HWRST_STATUS_NORMAL);
 */
     }else if(!strncmp(cmd, "bootloader", 10)){
-       ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
+        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_FASTBOOT);
+    } else if (cmd && !strncmp(cmd, "panic", 5)) {
+        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_PANIC);
+    } else if (cmd && !strncmp(cmd, "special", 7)) {
+        ANA_REG_SET(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
     }else{
-         hw_rst = ANA_REG_GET(ANA_RST_STATUS);
+	hw_rst = ANA_REG_GET(ANA_RST_STATUS);
          hw_rst &= 0xf00;
          hw_rst |= HWRST_STATUS_NORMAL;
         ANA_REG_SET(ANA_RST_STATUS, hw_rst);

@@ -26,6 +26,12 @@
 
 #include "fault.h"
 
+#if defined(CONFIG_SPRD_DEBUG)
+/* For saving Fault status */
+#include <mach/sprd_debug.h>
+#endif
+
+
 /*
  * Fault status register encodings.  We steal bit 31 for our own purposes.
  */
@@ -132,6 +138,12 @@ __do_kernel_fault(struct mm_struct *mm, unsigned long addr, unsigned int fsr,
 	if (fixup_exception(regs))
 		return;
 
+#if defined(CONFIG_SPRD_DEBUG)
+	/* For saving Fault status */
+	sprd_debug_save_pte((void *)regs, (int)current);
+#endif
+
+
 	/*
 	 * No handler, we'll have to terminate things with extreme prejudice.
 	 */
@@ -157,6 +169,11 @@ __do_user_fault(struct task_struct *tsk, unsigned long addr,
 		struct pt_regs *regs)
 {
 	struct siginfo si;
+
+#if defined(CONFIG_SPRD_DEBUG)
+	/* For saving Fault status */
+	sprd_debug_save_pte((void *)regs, (int)current);
+#endif
 
 #ifdef CONFIG_DEBUG_USER
 	if (user_debug & UDBG_SEGV) {
