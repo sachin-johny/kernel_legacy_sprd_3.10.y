@@ -146,8 +146,8 @@
 //#define VOL_OFFSET  -22
 //#define CURRENT_OFFSET  87
 
-static int cur_1000ma_adc;
-static int vol_1000mv_adc;
+static int cur_1000ma_adc = 2872;
+static int vol_1000mv_adc = 678;
 static int vol_offset;
 static int cur_offset;
 
