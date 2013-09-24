@@ -507,9 +507,6 @@ static void hci_setup_event_mask(struct hci_dev *hdev)
 
 	if (hdev->features[7] & LMP_LSTO)
 		events[6] |= 0x80; /* Link Supervision Timeout Changed */
-#ifdef CONFIG_BT_BEKEN3211
-        hdev->features[6] &= ~LMP_SIMPLE_PAIR;
-#endif
 
 	if (hdev->features[6] & LMP_SIMPLE_PAIR) {
 		events[6] |= 0x01;	/* IO Capability Request */
@@ -550,12 +547,12 @@ static void hci_setup(struct hci_dev *hdev)
 
 	if (hdev->lmp_ver > 1)
 		hci_send_cmd(hdev, HCI_OP_READ_LOCAL_COMMANDS, 0, NULL);
-
+#ifndef CONFIG_BT_BEKEN3211
 	if (hdev->features[6] & LMP_SIMPLE_PAIR) {
 		u8 mode = 0x01;
 		hci_send_cmd(hdev, HCI_OP_WRITE_SSP_MODE, sizeof(mode), &mode);
 	}
-
+#endif
 	if (hdev->features[3] & LMP_RSSI_INQ)
 		hci_setup_inquiry_mode(hdev);
 
