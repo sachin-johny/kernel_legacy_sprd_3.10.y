@@ -43,6 +43,10 @@
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
 
+#ifdef CONFIG_BT_SHARK/*declare hci_encrypt_change_info to save encrypt infromation*/
+static struct hci_ev_encrypt_change hci_encrypt_ev_info = {0xFF,0xFFFF,0xFF};
+#endif
+
 /* Handle HCI Event packets */
 
 static void hci_cc_inquiry_cancel(struct hci_dev *hdev, struct sk_buff *skb)
@@ -1948,7 +1952,10 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 {
 	struct hci_ev_auth_complete *ev = (void *) skb->data;
 	struct hci_conn *conn;
-
+#ifdef CONFIG_BT_SHARK
+	struct hci_ev_encrypt_change *ev1 = &hci_encrypt_ev_info;
+	struct hci_conn *conn1;
+#endif
 	BT_DBG("%s status %d", hdev->name, ev->status);
 
 	hci_dev_lock(hdev);
@@ -1974,7 +1981,13 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 	clear_bit(HCI_CONN_REAUTH_PEND, &conn->flags);
 
 	if (conn->state == BT_CONFIG) {
+#ifndef CONFIG_BT_SHARK
 		if (!ev->status && hci_conn_ssp_enabled(conn)) {
+#else
+/*add a condition to judge the acl link*/
+		if (!ev->status && hci_conn_ssp_enabled(conn) &&
+			(conn->handle != hci_encrypt_ev_info.handle)){
+#endif
 			struct hci_cp_set_conn_encrypt cp;
 			cp.handle  = ev->handle;
 			cp.encrypt = 0x01;
@@ -1994,7 +2007,12 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 	}
 
 	if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->flags)) {
+#ifndef CONFIG_BT_SHARK
 		if (!ev->status) {
+#else/*add a condition to judge the acl link*/
+		if (!ev->status &&
+		(conn->handle != hci_encrypt_ev_info.handle)){
+#endif
 			struct hci_cp_set_conn_encrypt cp;
 			cp.handle  = ev->handle;
 			cp.encrypt = 0x01;
@@ -2005,7 +2023,38 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 			hci_encrypt_cfm(conn, ev->status, 0x00);
 		}
 	}
+#ifdef CONFIG_BT_SHARK
 
+	conn1 = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev1->handle));
+	if (conn1) {
+		if (!ev1->status) {
+			if (ev1->encrypt) {
+				/* Encryption implies authentication */
+				conn1->link_mode |= HCI_LM_AUTH;
+				conn1->link_mode |= HCI_LM_ENCRYPT;
+				conn1->sec_level = conn->pending_sec_level;
+				BT_DBG("1%d status %d", ev1->encrypt,ev1->status);
+			} else{
+				conn1->link_mode &= ~HCI_LM_ENCRYPT;
+				BT_DBG("2%d status %d", ev1->encrypt,ev1->status);
+			}
+		}
+
+		clear_bit(HCI_CONN_ENCRYPT_PEND, &conn1->flags);
+
+		if (conn1->state == BT_CONFIG) {
+			if (!ev1->status)
+				conn1->state = BT_CONNECTED;
+
+					hci_proto_connect_cfm(conn1, ev1->status);
+					hci_conn_put(conn1);
+					BT_DBG("3%d status %d", hci_encrypt_ev_info.encrypt, conn1->state);
+		} else
+			hci_encrypt_cfm(conn1, ev1->status, ev1->encrypt);
+		memset(&hci_encrypt_ev_info, 0xFF, sizeof(hci_encrypt_ev_info));
+		BT_DBG("4%d status %d", hci_encrypt_ev_info.encrypt, hci_encrypt_ev_info.status);
+	}
+#endif
 unlock:
 	hci_dev_unlock(hdev);
 }
@@ -2087,7 +2136,14 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
 		} else
 			hci_encrypt_cfm(conn, ev->status, ev->encrypt);
 	}
-
+#ifdef CONFIG_BT_SHARK
+/*save the encrypt information*/
+	else
+	{
+		memcpy(&hci_encrypt_ev_info, ev, sizeof(hci_encrypt_ev_info));
+		BT_DBG("hci_encrypt change event end!!!!!!!!");
+	}
+#endif
 unlock:
 	hci_dev_unlock(hdev);
 }
