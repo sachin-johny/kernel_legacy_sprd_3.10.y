@@ -245,6 +245,7 @@ static uint32_t nt35516_readid(struct panel_spec *self)
 
 	printk("lcd_nt35516_mipi read id!\n");
 	mipi_set_cmd_mode();
+	mipi_eotp_set(0,1);
 
 	for(j = 0; j < 4; j++){
 		rd_prepare = rd_prep_code;
@@ -257,16 +258,16 @@ static uint32_t nt35516_readid(struct panel_spec *self)
 			}
 			rd_prepare++;
 		}
-		mipi_eotp_set(0,0);
 		read_rtn = mipi_force_read(0xc5, 3,(uint8_t *)read_data);
-		mipi_eotp_set(1,1);
 		printk("lcd_nt35516_mipi read id 0xc5 value is 0x%x, 0x%x, 0x%x!\n", read_data[0], read_data[1], read_data[2]);
 
-		if((0x55 == read_data[0])&&(0x16 == read_data[1])&&(0x00 == read_data[2])){
+		if((0x55 == read_data[0])&&(0x16 == read_data[1])){
 			printk("lcd_nt35516_mipi read id success!\n");
+			mipi_eotp_set(1,1);
 			return 0x16;
 		}
 	}
+	mipi_eotp_set(1,1);
 	return 0x0;
 }
 
@@ -315,7 +316,7 @@ static uint32_t nt35516_readpowermode(struct panel_spec *self)
 	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
 	pr_debug("lcd_nt35516_mipi read power mode!\n");
-
+	mipi_eotp_set(0,1);
 	for(j = 0; j < 4; j++){
 		rd_prepare = rd_prep_code_1;
 		for(i = 0; i < ARRAY_SIZE(rd_prep_code_1); i++){
@@ -327,16 +328,15 @@ static uint32_t nt35516_readpowermode(struct panel_spec *self)
 			}
 			rd_prepare++;
 		}
-		mipi_eotp_set(0,0);
 		read_rtn = mipi_force_read(0x0A, 1,(uint8_t *)read_data);
-		mipi_eotp_set(1,1);
 		printk("lcd_nt35516 mipi read power mode 0x0A value is 0x%x! , read result(%d)\n", read_data[0], read_rtn);
 		if((0x9c == read_data[0])  && (0 == read_rtn)){
 			pr_debug("lcd_nt35516_mipi read power mode success!\n");
+			mipi_eotp_set(1,1);
 			return 0x9c;
 		}
 	}
-
+	mipi_eotp_set(1,1);
 	return 0x0;
 }
 
