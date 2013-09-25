@@ -29,6 +29,10 @@
 #include <linux/memcontrol.h>
 #include <linux/security.h>
 
+#ifdef CONFIG_ANDROID_OOM_NOTIFY
+extern int oom_notify_enable;
+#endif
+
 int sysctl_panic_on_oom;
 int sysctl_oom_kill_allocating_task;
 int sysctl_oom_dump_tasks;
@@ -415,6 +419,15 @@ static void __oom_kill_task(struct task_struct *p, int verbose)
 	set_tsk_thread_flag(p, TIF_MEMDIE);
 
 	force_sig(SIGKILL, p);
+#ifdef CONFIG_ANDROID_OOM_NOTIFY
+	if(oom_notify_enable && (p->pid == current->pid))
+	{
+		char comm[TASK_COMM_LEN+1]={0};
+		printk("the current process will be kill for oom\n");
+		memcpy(comm,p->comm, TASK_COMM_LEN);
+		do_mm_report(comm);
+	}
+#endif
 }
 
 static int oom_kill_task(struct task_struct *p)

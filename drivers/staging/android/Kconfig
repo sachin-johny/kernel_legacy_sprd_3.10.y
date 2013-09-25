@@ -89,6 +89,11 @@ config ANDROID_LOW_MEMORY_KILLER
 	default N
 	---help---
 	  Register processes to be killed when memory is low
+config ANDROID_OOM_NOTIFY
+	bool "oom notify"
+	default N
+	---help---
+	  give a notification when current process be killed by oom
 
 endif # if ANDROID
 
