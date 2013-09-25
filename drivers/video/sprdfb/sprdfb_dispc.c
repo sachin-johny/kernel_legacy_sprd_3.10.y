@@ -26,6 +26,7 @@
 #include "sprdfb.h"
 #include "sprdfb_chip_common.h"
 
+#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
 
 #define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
@@ -110,11 +111,11 @@ static int sprdfb_dispc_clk_disable(struct sprdfb_dispc_context *dispc_ctx_ptr, 
 static int sprdfb_dispc_clk_enable(struct sprdfb_dispc_context *dispc_ctx_ptr, SPRDFB_DYNAMIC_CLK_SWITCH_E clock_switch_type);
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev);
 static void dispc_reset(void);
+static void dispc_stop(struct sprdfb_device *dev);
 static void dispc_module_enable(void);
 static void dispc_stop_for_feature(struct sprdfb_device *dev);
 static void dispc_run_for_feature(struct sprdfb_device *dev);
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state);
-
 
 //
 static volatile Trick_Item s_trick_record[DISPC_INT_MAX]= {
@@ -480,19 +481,31 @@ static int32_t dispc_sync(struct sprdfb_device *dev)
 
 static void dispc_run(struct sprdfb_device *dev)
 {
+	uint32_t flags = 0;
+	uint32_t switch_flags = 0;
+
 	if(0 == dev->enable){
 		return;
 	}
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+#ifdef SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
+		if(((dispc_read(DISPC_IMG_CTRL) & 0x1) != (dispc_read(SHDW_IMG_CTRL) & 0x1))// layer switch
+		||((dispc_read(DISPC_OSD_CTRL) & 0x1) != (dispc_read(SHDW_OSD_CTRL) & 0x1))// layer switch
+		||((dispc_read(DISPC_IMG_CTRL) & 0xf0) != (dispc_read(SHDW_IMG_CTRL) & 0xf0))// color switch
+		||((dispc_read(DISPC_OSD_CTRL) & 0xf0) != (dispc_read(SHDW_OSD_CTRL) & 0xf0))){// color switch
+			local_irq_save(flags);
+			dispc_stop(dev);// stop dispc first , or the vactive will never be set to zero
+			while(dispc_read(DISPC_DPI_STS1) & BIT(16));// wait until frame send over
+			switch_flags = 1;
+		}
+#endif
 		if(!dispc_ctx.is_first_frame){
 			dispc_ctx.vsync_done = 0;
 			dispc_ctx.vsync_waiter ++;
 		}
-
 		/*dpi register update*/
 		dispc_set_bits(BIT(5), DISPC_DPI_CTRL);
-
 		udelay(30);
 
 		if(dispc_ctx.is_first_frame){
@@ -503,9 +516,15 @@ static void dispc_run(struct sprdfb_device *dev)
 			dispc_set_bits((1 << 4), DISPC_CTRL);
 
 			dispc_ctx.is_first_frame = false;
-		}else{
+		} else {
 			dispc_sync(dev);
 		}
+#ifdef SHARK_LAYER_COLOR_SWITCH_FEATURE
+		if(switch_flags == 1){
+			local_irq_restore(flags);
+			pr_debug("srpdfb: [%s] color or layer swithed\n", __FUNCTION__);
+		}
+#endif
 	}else{
 		dispc_ctx.vsync_done = 0;
 		/* start refresh */
