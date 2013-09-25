@@ -37,7 +37,8 @@
 #include <mach/sci.h>
 
 #define VSP_MINOR MISC_DYNAMIC_MINOR
-#define VSP_TIMEOUT_MS 500
+#define VSP_AQUIRE_TIMEOUT_MS 500
+#define VSP_INIT_TIMEOUT_MS 100
 
 #define USE_INTERRUPT
 /*#define RT_VSP_THREAD*/
@@ -188,7 +189,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 	case VSP_ACQUAIRE:
 		pr_debug("vsp ioctl VSP_ACQUAIRE begin\n");
 		ret = down_timeout(&vsp_hw_dev.vsp_mutex,
-				msecs_to_jiffies(VSP_TIMEOUT_MS));
+				msecs_to_jiffies(VSP_AQUIRE_TIMEOUT_MS));
 		if (ret) {
 			printk(KERN_ERR "vsp error timeout\n");
 			up(&vsp_hw_dev.vsp_mutex);
@@ -220,7 +221,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		ret = wait_event_interruptible_timeout(
 			vsp_hw_dev.wait_queue_work,
 			vsp_hw_dev.condition_work,
-			msecs_to_jiffies(VSP_TIMEOUT_MS));
+			msecs_to_jiffies(VSP_INIT_TIMEOUT_MS));
 		if (ret == -ERESTARTSYS) {
 			printk("KERN_ERR vsp error start -ERESTARTSYS\n");
 			vsp_hw_dev.vsp_int_status |= 1<<30;
