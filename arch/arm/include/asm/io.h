@@ -58,21 +58,24 @@ extern void __raw_readsl(const void __iomem *addr, void *data, int longlen);
 #define __raw_readw(a)		(__chk_io_ptr(a), *(volatile unsigned short __force *)(a))
 #define __raw_readl(a)		(__chk_io_ptr(a), *(volatile unsigned int __force   *)(a))
 #else
-extern struct sprd_debug_regs_access sprd_debug_last_regs_access[NR_CPUS];
+extern struct sprd_debug_regs_access *sprd_debug_last_regs_access;
 #define __raw_writeb(v,a) 	({sprd_debug_regs_write_start(v, a); \
 				__chk_io_ptr(a); \
 				*(volatile unsigned char __force  *)(a) = (v); \
 				sprd_debug_regs_access_done(); \
+				v;\
 				})
 #define __raw_writew(v,a) 	({sprd_debug_regs_write_start(v, a); \
 				__chk_io_ptr(a); \
 				*(volatile unsigned short __force  *)(a) = (v); \
 				sprd_debug_regs_access_done(); \
+				v;\
 				})
 #define __raw_writel(v,a) 	({sprd_debug_regs_write_start(v, a); \
 				__chk_io_ptr(a); \
 				*(volatile unsigned int __force  *)(a) = (v); \
 				sprd_debug_regs_access_done(); \
+				v;\
 				})
 
 #define __raw_readb(a)		({sprd_debug_regs_read_start(a);\

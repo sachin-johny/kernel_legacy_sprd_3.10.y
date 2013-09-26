@@ -6,9 +6,9 @@
 #include <linux/jiffies.h>
 
 struct sprd_debug_regs_access{
-	unsigned int vaddr;
-	unsigned int value;
-	unsigned int pc;
+	u32 vaddr;
+	u32 value;
+	u32 pc;
 	unsigned long time;
 	unsigned int status;
 };
@@ -21,11 +21,12 @@ struct sprd_debug_regs_access{
 			: "=&r" (cpu_id), "=&r" (lr)			\
 			:						\
 			: "memory");					\
+		if(sprd_debug_last_regs_access){			\
 		sprd_debug_last_regs_access[cpu_id].value = 0;		\
-		sprd_debug_last_regs_access[cpu_id].vaddr = a;		\
+		sprd_debug_last_regs_access[cpu_id].vaddr = (u32)a;	\
 		sprd_debug_last_regs_access[cpu_id].pc = lr;		\
 		sprd_debug_last_regs_access[cpu_id].time = jiffies;	\
-		sprd_debug_last_regs_access[cpu_id].status = 0;		\
+		sprd_debug_last_regs_access[cpu_id].status = 0;}	\
 		})
 
 #define sprd_debug_regs_write_start(v, a)	({u32 cpu_id, lr;	\
@@ -36,11 +37,12 @@ struct sprd_debug_regs_access{
 			: "=&r" (cpu_id), "=&r" (lr)			\
 			:						\
 			: "memory");					\
-		sprd_debug_last_regs_access[cpu_id].value = (v);	\
-		sprd_debug_last_regs_access[cpu_id].vaddr = (a);	\
+		if(sprd_debug_last_regs_access){			\
+		sprd_debug_last_regs_access[cpu_id].value = (u32)(v);	\
+		sprd_debug_last_regs_access[cpu_id].vaddr = (u32)(a);	\
 		sprd_debug_last_regs_access[cpu_id].pc = lr;		\
 		sprd_debug_last_regs_access[cpu_id].time = jiffies;	\
-		sprd_debug_last_regs_access[cpu_id].status = 0;		\
+		sprd_debug_last_regs_access[cpu_id].status = 0;}	\
 		})
 
 #define sprd_debug_regs_access_done()	({u32 cpu_id, lr;		\
@@ -51,8 +53,9 @@ struct sprd_debug_regs_access{
 			: "=&r" (cpu_id), "=&r" (lr)			\
 			:						\
 			: "memory");					\
+		if(sprd_debug_last_regs_access){			\
 		sprd_debug_last_regs_access[cpu_id].time = jiffies;	\
-		sprd_debug_last_regs_access[cpu_id].status = 1;		\
+		sprd_debug_last_regs_access[cpu_id].status = 1;}	\
 		})
 
 #endif

@@ -23,6 +23,7 @@
 #include <linux/uaccess.h>
 #include <linux/proc_fs.h>
 #include <linux/module.h>
+#include <linux/dma-mapping.h>
 
 #include <mach/hardware.h>
 #include <mach/system.h>
@@ -33,7 +34,8 @@
 #include <linux/regs_debug.h>
 
 #define MY_DEBUG 0
-struct sprd_debug_regs_access sprd_debug_last_regs_access[NR_CPUS] = {0};
+
+struct sprd_debug_regs_access *sprd_debug_last_regs_access;
 EXPORT_SYMBOL(sprd_debug_last_regs_access);
 
 /* enable/disable sprd_debug feature
@@ -139,10 +141,16 @@ static void sprd_debug_set_build_info(void)
 
 __init int sprd_debug_init(void)
 {
+	u32 addr;
+
 	if (!sprd_debug_level.en.kernel_fault)
 		return -1;
 
 	sprd_debug_set_build_info();
+	sprd_debug_last_regs_access = (struct sprd_debug_regs_access*)dma_alloc_coherent(
+				NULL, sizeof(struct sprd_debug_regs_access)*NR_CPUS, &addr, GFP_KERNEL);
+	printk("*** %s, size:%u, sprd_debug_last_regs_access:%p *** \n",
+		__func__, sizeof(struct sprd_debug_regs_access)*NR_CPUS, sprd_debug_last_regs_access);
 
 	return 0;
 }
