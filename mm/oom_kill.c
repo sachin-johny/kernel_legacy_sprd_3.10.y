@@ -417,17 +417,19 @@ static void __oom_kill_task(struct task_struct *p, int verbose)
 	 */
 	set_oom_timeslice(p);
 	set_tsk_thread_flag(p, TIF_MEMDIE);
+#ifdef CONFIG_ANDROID_OOM_NOTIFY
+		printk("oom:  p->signal->oom_adj %d\n",p->signal->oom_adj);
+		if(oom_notify_enable && ( p->signal->oom_adj == 0))
+		{
+			char comm[TASK_COMM_LEN+1]={0};
+			printk("the current process will be kill for oom\n");
+			memcpy(comm,p->comm, TASK_COMM_LEN);
+			do_mm_report(comm);
+		}
+#endif
 
 	force_sig(SIGKILL, p);
-#ifdef CONFIG_ANDROID_OOM_NOTIFY
-	if(oom_notify_enable && (p->pid == current->pid))
-	{
-		char comm[TASK_COMM_LEN+1]={0};
-		printk("the current process will be kill for oom\n");
-		memcpy(comm,p->comm, TASK_COMM_LEN);
-		do_mm_report(comm);
-	}
-#endif
+
 }
 
 static int oom_kill_task(struct task_struct *p)
