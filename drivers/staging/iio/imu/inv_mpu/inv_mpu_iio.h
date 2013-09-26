@@ -27,10 +27,9 @@
 #include <linux/i2c.h>
 #include <linux/kfifo.h>
 #include <linux/miscdevice.h>
-#include <linux/input.h>
 #include <linux/spinlock.h>
 #include <linux/mpu.h>
-
+#include <linux/input.h>
 #include "iio.h"
 #include "buffer.h"
 
@@ -101,6 +100,8 @@ enum inv_devices {
 	INV_MPU6050,
 	INV_MPU9150,
 	INV_MPU6500,
+	INV_MPU9250,
+	INV_MPU6XXX,
 	INV_NUM_PARTS
 };
 
@@ -136,7 +137,6 @@ struct inv_hw_s {
  *  struct inv_chip_config_s - Cached chip configuration data.
  *  @fsr:		Full scale range.
  *  @lpf:		Digital low pass filter frequency.
- *  @clk_src:		Clock source.
  *  @accl_fs:		accel full scale range.
  *  @self_test_run_once flag for self test run ever.
  *  @has_footer:	MPU3050 specific work around.
@@ -152,7 +152,6 @@ struct inv_hw_s {
  *  @dmp_on:		dmp is on/off.
  *  @dmp_int_on:        dmp interrupt on/off.
  *  @dmp_event_int_on:  dmp event interrupt on/off.
- *  @orientation_on:	dmp is on/off.
  *  @firmware_loaded:	flag indicate firmware loaded or not.
  *  @lpa_mod:		low power mode.
  *  @tap_on:		tap on/off.
@@ -168,7 +167,6 @@ struct inv_hw_s {
 struct inv_chip_config_s {
 	u32 fsr:2;
 	u32 lpf:3;
-	u32 clk_src:1;
 	u32 accl_fs:2;
 	u32 self_test_run_once:1;
 	u32 has_footer:1;
@@ -184,7 +182,6 @@ struct inv_chip_config_s {
 	u32 dmp_on:1;
 	u32 dmp_int_on:1;
 	u32 dmp_event_int_on:1;
-	u32 orientation_on:1;
 	u32 firmware_loaded:1;
 	u32 lpa_mode:1;
 	u32 tap_on:1;
@@ -257,21 +254,13 @@ struct inv_tap_s {
 
 /**
  *  struct accel_mot_int_s structure to store motion interrupt data
- *  @zrmot_thr:  zero motion threshold.
- *  @zrmot_dur:  zero motion duration.
  *  @mot_thr:    motion threshold.
  *  @mot_dur:    motion duration.
- *  @zrmot_on:   flag to indicate zero motion detection on;
- *  @zrmot_status: flag to indicate zero motion status;
  *  @mot_on:     flag to indicate motion detection on;
  */
 struct accel_mot_int_s {
-	u8 zrmot_thr;
-	u8 zrmot_dur;
-	u8 mot_thr;
-	u8 mot_dur;
-	u8 zrmot_on:1;
-	u8 zrmot_status:1;
+	u16 mot_thr;
+	u32 mot_dur;
 	u8 mot_on:1;
 };
 
@@ -290,10 +279,14 @@ struct inv_mpu_slave;
  *  @client:		i2c client handle.
  *  @plat_data:		platform data.
  *  @mpu_slave:		mpu slave handle.
- *  int (*set_power_state)(struct inv_mpu_iio_s *, int on): function ptr
- *  int (*switch_gyro_engine)(struct inv_mpu_iio_s *, int on): function ptr
- *  int (*switch_accl_engine)(struct inv_mpu_iio_s *, int on): function ptr
- *  int (*init_config)(struct iio_dev *indio_dev): function ptr
+ *  (*set_power_state)(struct inv_mpu_iio_s *, int on): function ptr
+ *  (*switch_gyro_engine)(struct inv_mpu_iio_s *, int on): function ptr
+ *  (*switch_accl_engine)(struct inv_mpu_iio_s *, int on): function ptr
+ *  (*compass_en)(struct inv_mpu_iio_s *, struct iio_buffer *, bool);
+ *  (*quaternion_en)(struct inv_mpu_iio_s *, struct iio_buffer *, bool)
+ *  (*gyro_en)(struct inv_mpu_iio_s *, struct iio_buffer *, bool): func ptr.
+ *  (*accl_en)(struct inv_mpu_iio_s *, struct iio_buffer *, bool): func ptr.
+ *  (*init_config)(struct iio_dev *indio_dev): function ptr
  * void (*setup_reg)(struct inv_reg_map_s *reg): function ptr
  *  @timestamps:        kfifo queue to store time stamp.
  *  @compass_st_upper:  compass self test upper limit.
@@ -312,13 +305,14 @@ struct inv_mpu_slave;
  *  @compass_counter:   slow down compass rate.
  *  @sample_divider:    sample divider for dmp.
  *  @fifo_divider:      fifo divider for dmp.
- *  @orient_data:       orientation data.
  *  @display_orient_data:display orient data.
  *  @tap_data:          tap data.
  *  @num_channels:      number of channels for current chip.
  *  @sl_handle:         Handle to I2C port.
  *  @irq_dur_ns:        duration between each irq.
  *  @last_isr_time:     last isr time.
+ *  @mpu6500_last_motion_time: MPU6500 last real motion interrupt time.
+ *  @name: name for distiguish MPU6050 and MPU6500 in MPU6XXX.
  */
 struct inv_mpu_iio_s {
 #define TIMESTAMP_FIFO_SIZE 16
@@ -338,6 +332,14 @@ struct inv_mpu_iio_s {
 	int (*set_power_state)(struct inv_mpu_iio_s *, bool on);
 	int (*switch_gyro_engine)(struct inv_mpu_iio_s *, bool on);
 	int (*switch_accl_engine)(struct inv_mpu_iio_s *, bool on);
+	int (*compass_en)(struct inv_mpu_iio_s *,
+				struct iio_buffer *ring, bool on);
+	int (*quaternion_en)(struct inv_mpu_iio_s *,
+				struct iio_buffer *ring, bool on);
+	int (*gyro_en)(struct inv_mpu_iio_s *,
+				struct iio_buffer *ring, bool on);
+	int (*accl_en)(struct inv_mpu_iio_s *,
+				struct iio_buffer *ring, bool on);
 	int (*init_config)(struct iio_dev *indio_dev);
 	void (*setup_reg)(struct inv_reg_map_s *reg);
 	DECLARE_KFIFO(timestamps, u64, TIMESTAMP_FIFO_SIZE);
@@ -358,17 +360,14 @@ struct inv_mpu_iio_s {
 	u8 compass_dmp_divider;
 	u8 sample_divider;
 	u8 fifo_divider;
-	u8 orient_data;
 	u8 display_orient_data;
 	u8 tap_data;
 	enum inv_channel_num num_channels;
 	void *sl_handle;
 	u32 irq_dur_ns;
 	u64 last_isr_time;
-#ifdef CONFIG_INV_TESTING
-	u32 i2c_readcount;
-	u32 i2c_writecount;
-#endif
+	u64 mpu6500_last_motion_time;
+	u8 name[20];
 };
 
 /* produces an unique identifier for each device based on the
@@ -471,8 +470,6 @@ struct inv_mpu_slave {
 #define REG_ACCEL_CONFIG	0x1C
 #define REG_ACCEL_MOT_THR       0x1F
 #define REG_ACCEL_MOT_DUR       0x20
-#define REG_ACCEL_ZRMOT_THR     0x21
-#define REG_ACCEL_ZRMOT_DUR     0x22
 
 #define REG_FIFO_EN             0x23
 #define BIT_ACCEL_OUT			0x08
@@ -517,7 +514,6 @@ struct inv_mpu_slave {
 #define REG_EXT_SENS_DATA_00    0x49
 
 #define REG_ACCEL_INTEL_STATUS  0x61
-#define ZRMOT_STATUS                    0x1
 
 #define REG_I2C_SLV1_DO         0x64
 
@@ -536,6 +532,7 @@ struct inv_mpu_slave {
 #define BIT_H_RESET                     0x80
 #define BIT_SLEEP                       0x40
 #define BIT_CYCLE                       0x20
+#define BIT_CLK_MASK                    0x7
 
 #define REG_PWR_MGMT_2          0x6C
 #define BIT_PWR_ACCL_STBY               0x38
@@ -557,7 +554,8 @@ struct inv_mpu_slave {
 #define REG_6500_ACCEL_WOM_THR  0x1F
 
 #define REG_6500_ACCEL_INTEL_CTRL 0x69
-#define BIT_INTEL_ENABLE                 0x80
+#define BIT_ACCEL_INTEL_ENABLE          0x80
+#define BIT_ACCEL_INTEL_MODE            0x40
 
 /* data definitions */
 #define DMP_START_ADDR           0x400
@@ -566,6 +564,7 @@ struct inv_mpu_slave {
 #define DMP_DIS_ORIEN_SHIFT      6
 
 #define BYTES_FOR_DMP            16
+#define BYTES_FOR_EVENTS         4
 #define QUATERNION_BYTES         16
 #define BYTES_PER_SENSOR         6
 #define MPU3050_FOOTER_SIZE      2
@@ -578,6 +577,11 @@ struct inv_mpu_slave {
 #define MPU3050_TEMP_SCALE       3834792L
 #define MPU6050_TEMP_OFFSET	 2462307L
 #define MPU6050_TEMP_SCALE       2977653L
+#define MPU6XXX_MAX_MOTION_THRESH (255*4)
+#define MPU6XXX_MOTION_THRESH_SHIFT 5
+#define MPU6050_MOTION_DUR_DEFAULT  1
+#define MPU6050_ID               0x68
+#define MPU6050_MAX_MOTION_DUR   255
 #define MPU_TEMP_SHIFT           16
 #define LPA_FREQ_SHIFT           6
 #define COMPASS_RATE_SCALE       10
@@ -591,9 +595,10 @@ struct inv_mpu_slave {
 #define INIT_ZMOT_THR            128
 
 /*---- MPU6500 ----*/
-#define MAX_6500_LPA_FREQ_PARAM  11
 #define MPU6500_ID               0x70      /* unique WHOAMI */
 #define MPU6500_PRODUCT_REVISION 1
+#define MPU6500_MEM_REV_ADDR     0x17
+#define MPU6500_REV              2
 
 /*---- MPU9250 ----*/
 #define MPU9250_ID               0x71      /* unique WHOAMI */
@@ -632,6 +637,7 @@ struct inv_mpu_slave {
 #define MAX_FIFO_RATE                         1000
 #define MIN_FIFO_RATE                         4
 #define ONE_K_HZ                              1000
+#define NS_PER_MS_SHIFT                       20
 
 /* flick related defines */
 #define DATA_INT                              2097
@@ -660,21 +666,9 @@ struct inv_mpu_slave {
 		INV_TAP_AXIS_Z)
 
 #define INT_SRC_TAP    0x01
-#define INT_SRC_ORIENT 0x02
 #define INT_SRC_DISPLAY_ORIENT  0x08
 #define INT_SRC_SHAKE           0x10
 
-
-/*orientation related */
-#define INV_X_UP                          0x01
-#define INV_X_DOWN                        0x02
-#define INV_Y_UP                          0x04
-#define INV_Y_DOWN                        0x08
-#define INV_Z_UP                          0x10
-#define INV_Z_DOWN                        0x20
-#define INV_ORIENTATION_ALL               0x3F
-
-#define INV_ORIENTATION_FLIP              0x40
 #define INV_X_AXIS_INDEX                  0x00
 #define INV_Y_AXIS_INDEX                  0x01
 #define INV_Z_AXIS_INDEX                  0x02
@@ -690,6 +684,8 @@ struct inv_mpu_slave {
 #define INV_ALL                           0xFFFF
 #define INV_ELEMENT_MASK                  0x00FF
 #define INV_GYRO_ACC_MASK                 0x007E
+#define INV_ACCL_MASK                     0x70
+#define INV_GYRO_MASK                     0xE
 /* scan element definition */
 enum inv_mpu_scan {
 	INV_MPU_SCAN_QUAT_R = 0,
@@ -761,12 +757,9 @@ enum MPU_IIO_ATTR_ADDR {
 	ATTR_DMP_INT_ON,
 	ATTR_DMP_EVENT_INT_ON,
 	ATTR_DMP_OUTPUT_RATE,
-	ATTR_DMP_ORIENTATION_ON,
 	ATTR_DMP_QUATERNION_ON,
 	ATTR_DMP_DISPLAY_ORIENTATION_ON,
-	ATTR_LPA_MODE,
 	ATTR_LPA_FREQ,
-	ATTR_CLK_SRC,
 	ATTR_SELF_TEST,
 	ATTR_KEY,
 	ATTR_GYRO_MATRIX,
@@ -777,9 +770,6 @@ enum MPU_IIO_ATTR_ADDR {
 	ATTR_COMPASS_ENABLE,
 	ATTR_POWER_STATE,
 	ATTR_FIRMWARE_LOADED,
-	ATTR_ZERO_MOTION_ON,
-	ATTR_ZERO_MOTION_DURATION,
-	ATTR_ZERO_MOTION_THRESHOLD,
 	ATTR_MOTION_ON,
 	ATTR_MOTION_DURATION,
 	ATTR_MOTION_THRESHOLD,
@@ -835,7 +825,6 @@ int set_inv_enable(struct iio_dev *indio_dev, bool enable);
 int inv_set_interrupt_on_gesture_event(struct inv_mpu_iio_s *st, bool on);
 int inv_send_quaternion(struct inv_mpu_iio_s *st, bool on);
 int inv_set_display_orient_interrupt_dmp(struct inv_mpu_iio_s *st, bool on);
-int inv_enable_orientation_dmp(struct inv_mpu_iio_s *st, bool on);
 int inv_set_fifo_rate(struct inv_mpu_iio_s *st, u16 fifo_rate);
 u16 inv_dmp_get_address(u16 key);
 int inv_q30_mult(int a, int b);
@@ -850,14 +839,6 @@ int inv_i2c_single_write_base(struct inv_mpu_iio_s *st,
 	u16 i2c_addr, u8 reg, u8 data);
 int inv_do_test(struct inv_mpu_iio_s *st, int self_test_flag,
 		int *gyro_result, int *accl_result);
-int mpu_memory_write(struct i2c_adapter *i2c_adap,
-			    u8 mpu_addr,
-			    u16 mem_addr,
-			    u32 len, u8 const *data);
-int mpu_memory_read(struct i2c_adapter *i2c_adap,
-			   u8 mpu_addr,
-			   u16 mem_addr,
-			   u32 len, u8 *data);
 int inv_hw_self_test(struct inv_mpu_iio_s *st);
 int inv_hw_self_test_6500(struct inv_mpu_iio_s *st);
 void inv_recover_setting(struct inv_mpu_iio_s *st);
@@ -865,11 +846,21 @@ s64 get_time_ns(void);
 int write_be32_key_to_mem(struct inv_mpu_iio_s *st,
 					u32 data, int key);
 int inv_set_accel_bias_dmp(struct inv_mpu_iio_s *st);
+int inv_send_sensor_data(struct inv_mpu_iio_s *st, u16 elements);
+int inv_send_interrupt_word(struct inv_mpu_iio_s *st, bool on);
+int mpu_memory_write(struct inv_mpu_iio_s *st, u8 mpu_addr, u16 mem_addr,
+		     u32 len, u8 const *data);
+int mpu_memory_read(struct inv_mpu_iio_s *st, u8 mpu_addr, u16 mem_addr,
+		    u32 len, u8 *data);
+int mpu_memory_write_unaligned(struct inv_mpu_iio_s *st, u16 key, int len,
+							u8 const *d);
+/* used to print i2c data using pr_debug */
+char *wr_pr_debug_begin(u8 const *data, u32 len, char *string);
+char *wr_pr_debug_end(char *string);
 
-#define mem_w(a, b, c) mpu_memory_write(st->sl_handle,\
-			st->i2c_addr, a, b, c)
-#define mem_w_key(key, b, c) mpu_memory_write(st->sl_handle,\
-			st->i2c_addr, inv_dmp_get_address(key), b, c)
+#define mem_w(a, b, c) \
+	mpu_memory_write(st, st->i2c_addr, a, b, c)
+#define mem_w_key(key, b, c) mpu_memory_write_unaligned(st, key, b, c)
 #define inv_i2c_read(st, reg, len, data) \
 	inv_i2c_read_base(st, st->i2c_addr, reg, len, data)
 #define inv_i2c_single_write(st, reg, data) \
@@ -879,5 +870,6 @@ int inv_set_accel_bias_dmp(struct inv_mpu_iio_s *st);
 #define inv_secondary_write(reg, data) \
 	inv_i2c_single_write_base(st, st->plat_data.secondary_i2c_addr, \
 		reg, data)
+
 #endif  /* #ifndef _INV_MPU_IIO_H_ */
 

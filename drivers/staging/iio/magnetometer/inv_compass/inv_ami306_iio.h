@@ -73,21 +73,24 @@ struct ami_sensor_parametor {
 
 /**
  *  struct inv_ami306_state_s - Driver state variables.
+ *  @plat_data:         board file platform data.
  *  @i2c:		i2c client handle.
- *  @sl_handle:         Handle to I2C port.
+ *  @trig:              not used. for compatibility.
+ *  @param:             ami specific sensor data.
+ *  @work:              work data structure.
+ *  @delay:             delay between each scheduled work.
+ *  @fine:               fine tunign parameters.
+ *  @compass_data:      compass data store.
+ *  @timestamp:         time stamp.
  */
 struct inv_ami306_state_s {
 	struct mpu_platform_data plat_data;
 	struct i2c_client *i2c;
-	struct inv_chip_chan_info *chan_info;
 	struct iio_trigger  *trig;
 	struct ami_sensor_parametor param;
-	unsigned char i2c_addr;
-	void *sl_handle;
 	struct delayed_work work;
 	int delay;
-	char enable;
-	char fine[3];
+	s8 fine[3];
 	short compass_data[3];
 	s64 timestamp;
 };

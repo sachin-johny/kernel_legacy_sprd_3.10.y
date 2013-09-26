@@ -102,18 +102,34 @@ void inv_ami306_unconfigure_ring(struct iio_dev *indio_dev)
 static int inv_ami306_postenable(struct iio_dev *indio_dev)
 {
 	struct inv_ami306_state_s *st = iio_priv(indio_dev);
+	struct iio_buffer *ring = indio_dev->buffer;
 	int result;
 
+	/* when all the outputs are disabled, even though buffer/enable is on,
+	   do nothing */
+	if (!(iio_scan_mask_query(indio_dev, ring, INV_AMI306_SCAN_MAGN_X) ||
+	    iio_scan_mask_query(indio_dev, ring, INV_AMI306_SCAN_MAGN_Y) ||
+	    iio_scan_mask_query(indio_dev, ring, INV_AMI306_SCAN_MAGN_Z)))
+		return 0;
+
 	result = set_ami306_enable(indio_dev, true);
-	schedule_delayed_work(&st->work,
-		msecs_to_jiffies(st->delay));
+	if (result)
+		return result;
+	schedule_delayed_work(&st->work, msecs_to_jiffies(st->delay));
+
 	return 0;
 }
 
 static int inv_ami306_predisable(struct iio_dev *indio_dev)
 {
+	struct iio_buffer *ring = indio_dev->buffer;
 	struct inv_ami306_state_s *st = iio_priv(indio_dev);
+
 	cancel_delayed_work_sync(&st->work);
+	clear_bit(INV_AMI306_SCAN_MAGN_X, ring->scan_mask);
+	clear_bit(INV_AMI306_SCAN_MAGN_Y, ring->scan_mask);
+	clear_bit(INV_AMI306_SCAN_MAGN_Z, ring->scan_mask);
+
 	return 0;
 }
 
