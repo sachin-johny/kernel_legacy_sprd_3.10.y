@@ -57,7 +57,6 @@ struct sprdfb_dispc_context {
 	struct clk 		*clk_dispc_emc;
 	bool			is_inited;
 	bool			is_first_frame;
-	bool			is_resume;
 	bool			clk_is_open;
 	bool			clk_is_refreshing;
 	int				clk_open_count;
@@ -760,9 +759,6 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 	else{
 		printk(KERN_INFO "sprdfb: dispc_module_init. call only once!");
 	}
-
-	dispc_ctx.is_resume=false;
-
 	dispc_ctx.vsync_done = 1;
 	dispc_ctx.vsync_waiter = 0;
 	init_waitqueue_head(&(dispc_ctx.vsync_queue));
@@ -1000,6 +996,33 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	return 0;
 }
 
+static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
+{
+	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+
+	down(&dev->refresh_lock);
+	if(!dispc_ctx.is_first_frame || NULL== dev){
+		printk("sprdfb:[%s] not first_frame\n",__FUNCTION__);
+		up(&dev->refresh_lock);
+		return;
+	}
+	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+		sprdfb_panel_invalidate(dev->panel);
+	}
+	printk("sprdfb:[%s] clean lcd!\n",__FUNCTION__);
+	struct fb_info *fb = dev->fb;
+	uint32_t size = (fb->var.xres & 0xffff) | ((fb->var.yres) << 16);
+	dispc_write(size, DISPC_SIZE_XY);
+
+	dispc_osd_enable(false);
+	dispc_set_bg_color(0x00);
+	dispc_run(dev);
+	dispc_osd_enable(true);
+	up(&dev->refresh_lock);
+	mdelay(30);
+}
+
+
 static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 {
 	uint32_t reg_val = 0;
@@ -1118,12 +1141,6 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 ERROR_REFRESH:
 	up(&dev->refresh_lock);
-    if(dev->panel->is_clean_lcd){
-		if(dispc_ctx.is_resume){
-			dispc_osd_enable(true);
-			dispc_ctx.is_resume =false;
-		}
-    }
 
 	pr_debug("DISPC_CTRL: 0x%x\n", dispc_read(DISPC_CTRL));
 	pr_debug("DISPC_SIZE_XY: 0x%x\n", dispc_read(DISPC_SIZE_XY));
@@ -1212,11 +1229,7 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 
 		dev->enable = 1;
 		if(dev->panel->is_clean_lcd){
-			dispc_osd_enable(false);
-			dispc_set_bg_color(0x00);
-			sprdfb_dispc_refresh(dev);
-			mdelay(30);
-			dispc_ctx.is_resume=true;
+			sprdfb_dispc_clean_lcd(dev);
 		}
 
 	}
