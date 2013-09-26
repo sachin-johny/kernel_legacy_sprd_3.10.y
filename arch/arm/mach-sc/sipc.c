@@ -135,7 +135,7 @@ static int __init sipc_wcn_init(void)
 }
 #endif
 
-#ifdef CONFIG_MACH_SPX35EC
+#ifdef CONFIG_SIPC_WCN
 static int __init itm_sblock_init(void)
 {
 	int ret;

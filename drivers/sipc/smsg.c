@@ -136,7 +136,7 @@ int smsg_ipc_create(uint8_t dst, struct smsg_ipc *ipc)
 
 	/* register IPI irq */
 	rval = request_irq(ipc->irq, ipc->irq_handler,
-			0, ipc->name, ipc);
+			IRQF_NO_SUSPEND, ipc->name, ipc);
 	if (rval != 0) {
 		printk(KERN_ERR "Failed to request irq %s: %d\n",
 				ipc->name, ipc->irq);
