@@ -70,13 +70,41 @@ early_initcall(arch_init);
 #include <mach/globalregs.h>
 #include <mach/regs_ana_glb_sc7710.h>
 
+static int glb_ana_chipid = 0;
+
 /*some chip init global helper functions */
+#define	AUDIO_ANA_CTRL				(SPRD_MISC_BASE + 0x0888)
+#define CODEC_AP_AUDIF_BASE			(SPRD_MISC_PHYS + 0x0700)
+#define HEADSET_INSERT_MIC_BIT				(BIT(6))
+#define AUDIO_ARM_EN						(BIT(0))
+#define AUDIO_SWITCH_ARM					(BIT(15))
+
+void __init sc8810_init_ana_chipid(void)
+{
+	int reg_val;
+
+	glb_ana_chipid = ((sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16) | sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW));
+
+	if (glb_ana_chipid == ANA_CHIP_ID_BA) {
+
+		reg_val = sci_adi_read(AUDIO_ANA_CTRL);
+
+		sci_adi_set(AUDIO_ANA_CTRL, reg_val | AUDIO_ARM_EN | AUDIO_SWITCH_ARM);
+
+		if (!(sci_adi_read(CODEC_AP_AUDIF_BASE + 0xC0) & HEADSET_INSERT_MIC_BIT)) {
+			glb_ana_chipid = ANA_CHIP_ID_BB;
+		}
+
+		sci_adi_set(AUDIO_ANA_CTRL, reg_val);
+	}
+}
+
 int sci_get_chipid(void)
 {
 	return sprd_greg_read(REG_TYPE_AHB_GLOBAL, CHIP_ID);
 }
 int sci_get_ana_chipid(void)
 {
-	return ((sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16) | sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW));
+	return glb_ana_chipid;
 }
 #endif

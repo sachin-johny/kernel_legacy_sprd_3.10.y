@@ -333,6 +333,7 @@ register offset.
 /*A-Die chip id define*/
 #define ANA_CHIP_ID_AA	0x7710A000
 #define ANA_CHIP_ID_BA	0x7710A001
+#define ANA_CHIP_ID_BB	0x7710A002
 
 #ifndef ANA_REGS_GLB_BASE
 #define ANA_REGS_GLB_BASE       (SPRD_MISC_BASE + 0x0800)

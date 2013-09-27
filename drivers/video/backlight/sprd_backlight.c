@@ -63,7 +63,7 @@
 enum bl_pwm_mode {
 	normal_pwm,
 	dim_pwm,
-	pd_pwd,
+	pd_pwm,
 };
 
 struct sprd_bl_devdata {
@@ -155,6 +155,53 @@ static u32 sprd_caculate_brightness(u32 level)
 	return -EINVAL;
 }
 
+static void series_whiteled_en(bool is_enable)
+{
+	if (ANA_CHIP_ID_BB == sci_get_ana_chipid()) {
+		/*ANA_CHIP_ID_BB version */
+		if (is_enable) {
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+		} else {
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+		}
+	} else {
+		/*ANA_CHIP_ID_AA and ANA_CHIP_ID_BA version */
+		if (is_enable) {
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+		} else {
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+		}
+	}
+}
+
+static void para_whiteled_en(bool is_enable)
+{
+	if (ANA_CHIP_ID_BB == sci_get_ana_chipid()) {
+		/*ANA_CHIP_ID_BB version */
+		if (is_enable) {
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PON);
+
+		} else {
+//			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PON);
+		}
+	} else {
+		/*ANA_CHIP_ID_AA and ANA_CHIP_ID_BA version */
+		if (is_enable) {
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PON);
+		} else {
+//			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PON);
+		}
+	}
+}
+
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 {
 	u32 bl_brightness, led_level, pwm_level;
@@ -166,10 +213,9 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			bldev->props.brightness == 0) {
 		/* disable backlight */
 		if (sprdbl.pwm_mode == dim_pwm) {
-			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+			series_whiteled_en(false);
 		} else {
-			/*yes, 1 is disbale and 0 is enable*/
-			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PON);
+			para_whiteled_en(false);
 		}
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
@@ -184,11 +230,14 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			if ((int)led_level < 0) {
 				return led_level;
 			}
+			#if 1
+			/*BIT_WHTLED_PWM_SEL == 0*/
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL2);
 			reg_val &= ~(0x7f << 3);
 			reg_val |= led_level << 3;
 			sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL2, reg_val);
-			#if 0
+			#else
+			/*BIT_WHTLED_PWM_SEL == 1*/
 			/*dimming pwm config*/
 			sci_adi_raw_write(DIMMING_PWD_BASE + PWM_SCALE, PWM_PRESCALE);
 			sci_adi_raw_write(DIMMING_PWD_BASE + PWM_CNT,
@@ -196,26 +245,32 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			sci_adi_raw_write(DIMMING_PWD_BASE + PWM_SCALE,
 					PWM_SCALE | PWM_ENABLE);
 			#endif
-			/*enable the whiteled bootst output*/
-			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
-			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+			series_whiteled_en(true);
+
 		} else {
 			/*parallel mode*/
-			led_level = (bl_brightness >> 2) & 0x3f;
-			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL0);
-			reg_val &= ~(0x3f << 1);
-			reg_val |= led_level << 1;
-			sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL0, reg_val);
+			#if 1
+			/*BIT_WHTLED_PWM_SEL == 0*/
 
+			/*the PWM_MOD_MAX = 255, the whtled_v has 64 steps
+			 * ([5mA ~ 45mA]), so the val that fill in WHTLED_CTL1 bit[5, 0]
+			 * = bl_brighness / 4
+			 */
+			led_level = (bl_brightness >> 2) & 0x3f;
+			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL1);
+			reg_val &= ~(0x3f );
+			reg_val |= led_level;
+			sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL1, reg_val);
+			#else
+			/*BIT_WHTLED_PWM_SEL == 1*/
 			sci_adi_raw_write(PD_PWM_BASE + PWM_SCALE, PWM_PRESCALE);
 			sci_adi_raw_write(PD_PWM_BASE + PWM_CNT,
 					(pwm_level << 8) | PWM_MOD_MAX);
 
 			sci_adi_raw_write(PD_PWM_BASE + PWM_SCALE,
 					PWM_SCALE | PWM_ENABLE);
-
-			sci_adi_clr(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
-			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PON);
+			#endif
+			para_whiteled_en(true);
 		}
 	}
 
@@ -278,7 +333,7 @@ static int __devinit sprd_backlight_probe(struct platform_device *pdev)
 #ifdef SPRD_DIM_PWM_MODE
 	sprdbl.pwm_mode = dim_pwm;
 #else
-	sprdbl.pwm_mode = pd_pwd;
+	sprdbl.pwm_mode = pd_pwm;
 #endif
 
 #endif
