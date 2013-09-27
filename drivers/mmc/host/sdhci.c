@@ -2668,6 +2668,10 @@ int sdhci_resume_host(struct sdhci_host *host)
 	if (ret){
 		return ret;
 	}
+	if(!(host->mmc->card)){
+		/* power off ldo_sdio1 if device is off */
+		sdhci_set_power(host, -1);
+	}
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	sdhci_enable_card_detection(host);
 #endif
