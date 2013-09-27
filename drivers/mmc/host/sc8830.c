@@ -327,7 +327,6 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 	int ret;
 	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
-	spin_unlock_irq(host->mmc);
 	if(host->vmmc == NULL){
 		/* in chip tiger, sdio_vdd is not supplied by host,
 		 * but regulator(LDO)
@@ -368,7 +367,6 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 			if(ret){
 				printk(KERN_ERR "%s, set voltage error:%d\n",
 					mmc_hostname(host->mmc), ret);
-				spin_lock_irq(host->mmc);
 				return;
 			}
 			printk(KERN_ERR "%s, enabel regulator\n",mmc_hostname(host->mmc));
@@ -376,7 +374,6 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 			if(ret){
 				printk(KERN_ERR "%s, enabel regulator error:%d\n",
 					mmc_hostname(host->mmc), ret);
-				spin_lock_irq(host->mmc);
 				return;
 			}
 		}
@@ -386,19 +383,16 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 			if(ret){
 				printk(KERN_ERR "%s, vmmc_ext set voltage error:%d\n",
 					mmc_hostname(host->mmc), ret);
-				spin_lock_irq(host->mmc);
 				return;
 			}
 			ret = regulator_enable(host->vmmc_ext);
 			if(ret){
 				printk(KERN_ERR "%s, vmmc_ext enabel regulator error:%d\n",
 					mmc_hostname(host->mmc), ret);
-				spin_lock_irq(host->mmc);
 				return;
 			}
 		}
 	}
-	spin_lock_irq(host->mmc);
 	return;
 }
 
