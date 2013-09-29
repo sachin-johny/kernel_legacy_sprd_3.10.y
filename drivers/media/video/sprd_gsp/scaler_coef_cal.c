@@ -506,7 +506,7 @@ static void GSP_Rearrang_Coeff(void* src, void*dst, int32_t tap)
             {
                 for(j = 0; j< tap; j++)
                 {
-                    *(dst_ptr + i * 8 +1 + j) = *(src_ptr + i * 8 + j);
+                    *(dst_ptr + i * 8 + j) = *(src_ptr + i * 8 + j);
                 }
             }
         }

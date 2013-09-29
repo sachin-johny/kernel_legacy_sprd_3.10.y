@@ -115,7 +115,14 @@ extern   "C"
 //GSP inner work loggy clock ctl
 //#define SPRD_APBCKG_PHYS		0X71200000
 #define GSP_CLOCK_BASE		(REG_AP_CLK_GSP_CFG)
-#define GSP_CLOCK_256M_BIT  (3)// div form  PLL clock, use[1:0] 2bit,  0:96M 1:153.6M 2:192M 3:256M
+typedef enum _GSP_core_freq_
+{
+	GSP_CLOCK_96M_BIT,
+	GSP_CLOCK_153P6M_BIT,
+	GSP_CLOCK_192M_BIT,
+	GSP_CLOCK_256M_BIT
+}
+GSP_CORE_GREQ;
 
 
 //force enable GSP inner work loggy clock, used for debug
@@ -189,7 +196,7 @@ extern   "C"
 
 #else
 #include <mach/sci.h>
-#define GSP_REG_READ(reg)  (*(volatile uint32_t*)reg)
+#define GSP_REG_READ(reg)  (*(volatile uint32_t*)(reg))
 #define GSP_EMC_MATRIX_ENABLE()     sci_glb_set(GSP_EMC_MATRIX_BASE, GSP_EMC_MATRIX_BIT)
 #define GSP_CLOCK_SET(sel)          sci_glb_write(GSP_CLOCK_BASE, (sel), 0x3)
 #define GSP_AUTO_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_AUTO_GATE_ENABLE_BIT)

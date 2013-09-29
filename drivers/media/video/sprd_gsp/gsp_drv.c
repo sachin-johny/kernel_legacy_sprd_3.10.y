@@ -247,10 +247,30 @@ static void printCfgInfo(void)
 static void printGPSReg(void)
 {
     GSP_REG_T *g_gsp_reg = (GSP_REG_T *)GSP_REG_BASE;
+    uint32_t i = 0;
 
     printk("********************************************* \n");
+    printk("GSP_EN			0x%08x: 0x%08x; 0x%08x: 0x%08x; 0x%08x: 0x%08x;\n",
+           (0X20D00000),GSP_REG_READ(GSP_MOD_EN),
+           (0X20D01000),GSP_REG_READ(GSP_MOD_EN+0x1000),
+           (0X20D02000),GSP_REG_READ(GSP_MOD_EN+0x1000));//
+    printk("GSP_RESET		0x%08x: 0x%08x; 0x%08x: 0x%08x; 0x%08x: 0x%08x;\n",
+           (0X20D00004),GSP_REG_READ(GSP_SOFT_RESET),
+           (0X20D01004),GSP_REG_READ(GSP_SOFT_RESET+0x1000),
+           (0X20D02004),GSP_REG_READ(GSP_SOFT_RESET+0x1000));//
+    printk("AUTO_GATE		0x%08x: 0x%08x; 0x%08x: 0x%08x; 0x%08x: 0x%08x;\n",
+           (0X20D00040),GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE),
+           (0X20D01040),GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE+0x1000),
+           (0X20D02040),GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE+0x1000));//
+    printk("GSP_CLOCK		0x%08x: 0x%08x \n",(0X71200028),GSP_REG_READ(GSP_CLOCK_BASE));
+    printk("AHB_CLOCK		0x%08x: 0x%08x \n",(0X71200020),GSP_REG_READ(GSP_AHB_CLOCK_BASE));
+    printk("EMC_EN			0x%08x: 0x%08x \n",(0X402E0004),GSP_REG_READ(GSP_EMC_MATRIX_BASE));
 
-
+    while(i < 0x198)
+    {
+        printk("0x%08x: 0x%08x \n",(0x20a00000+i),GSP_REG_READ(GSP_REG_BASE+i));
+        i += 4;
+    }
     printk( "misc: run %d|busy %d|errflag %d|errcode %02d|dither %d|pmmod0 %d|pmmod1 %d|pmen %d|scale %d|reserv2 %d|scl_stat_clr %d|l0en %d|l1en %d|rb %d\n",
             g_gsp_reg->gsp_cfg_u.mBits.gsp_run,
             g_gsp_reg->gsp_cfg_u.mBits.gsp_busy,
