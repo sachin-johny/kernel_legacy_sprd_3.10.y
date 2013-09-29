@@ -26,6 +26,7 @@ ifeq ($(CONFIG_PM),y)
 	CFLAGS_emc_repower.o += -fPIC
 	obj-$(CONFIG_ARCH_SCX35) += pm-sc8830.o standby-sc8830.o pm_debug_sc8830.o
 endif
+obj-$(CONFIG_SPRD_MEM_POOL) += sprd_mem_pool.o
 obj-$(CONFIG_SCXX30_AP_DFS) += ap_dmc_freq.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o

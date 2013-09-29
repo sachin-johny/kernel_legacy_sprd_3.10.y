@@ -64,6 +64,10 @@
 #include <asm/div64.h>
 #include "internal.h"
 
+#ifdef CONFIG_SPRD_MEM_POOL
+#include <mach/sprd_mem_pool.h>
+#endif
+
 #ifdef CONFIG_USE_PERCPU_NUMA_NODE_ID
 DEFINE_PER_CPU(int, numa_node);
 EXPORT_PER_CPU_SYMBOL(numa_node);
@@ -2030,6 +2034,13 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 		preferred_zone, migratetype);
 	if (page)
 		goto out;
+
+#ifdef CONFIG_SPRD_MEM_POOL
+	/*for sprd page alloc*/
+	page  = sprd_page_alloc(gfp_mask, order, high_zoneidx);
+	if (page)
+		goto out;
+#endif
 
 	if (!(gfp_mask & __GFP_NOFAIL)) {
 		/* The OOM killer will not help higher order allocs */

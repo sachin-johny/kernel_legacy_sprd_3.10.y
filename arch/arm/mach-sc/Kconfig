@@ -137,6 +137,12 @@ config MACH_SPX15FPGA
 
 endmenu
 
+config SPRD_MEM_POOL
+    bool "Using a memory pool to alloc 16k and 8k pages"
+    default n
+    help
+      This option enables memmory pool for allocating thread stack and pgd table.
+
 config SPRD_ION_SIZE
         int "size for ion"
         range 1 64
