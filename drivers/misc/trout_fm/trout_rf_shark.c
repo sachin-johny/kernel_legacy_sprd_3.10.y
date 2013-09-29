@@ -324,8 +324,13 @@ int shark_fm_cfg_rf_reg(void)
 int trout_fm_init(void)
 {
 	u32 reg_data;
+	u32 tmp_data;
+	
 	int result;
 
+            /*enable the FM ADC clock*/
+	WRITE_REG(0x06F,0x0601);
+			
 	/*added by xuede to route FMIQD0 to IIS0DI and FMIQD1 to IISD0DO*/
 	READ_REG(PINMAP_FOR_FMIQ, &reg_data);
 	reg_data |= 3<<16;
@@ -370,6 +375,31 @@ int trout_fm_init(void)
 	WRITE_REG(FM_REG_RF_CTL, ((0x404<<16)|(0x0402)));
 	WRITE_REG(FM_REG_RF_CTL1, ((0x0466<<16)|(0x0043)));
 
+           
+           /*modify the register value to avoid the fm no voice when system go to deep sleep*/
+           READ_REG(0x402E1000, &tmp_data);
+	TROUT_PRINT("trout_fm_init  before 0x402A008C = %x",tmp_data);	   
+	tmp_data |= 1<<20;
+	WRITE_REG(0x402E1000, tmp_data);
+	
+           tmp_data  = 0;
+           READ_REG(0x402B00C4, &tmp_data);
+	TROUT_PRINT("trout_fm_init  before 0x402A0088 = %x",tmp_data);
+	tmp_data |= 1<<8;
+	WRITE_REG(0x402B00C4, tmp_data);
+
+	tmp_data  = 0;
+          READ_REG(0x402A0404, &tmp_data);
+	TROUT_PRINT("trout_fm_init  before 0x402A0404 = %x",tmp_data);
+	tmp_data |= 2;
+	WRITE_REG(0x402A0404, tmp_data);
+
+	tmp_data  = 0;
+          READ_REG(0x402A0408, &tmp_data);
+           TROUT_PRINT("trout_fm_init  before 0x402A0408 = %x",tmp_data);
+	tmp_data |= 2;
+	WRITE_REG(0x402A0408, tmp_data);
+      
 	shark_fm_info.freq_seek = 860*2;
 	/*result = request_irq(INT_NUM_FM_test,\
 	  fm_interrupt, IRQF_DISABLED, "Trout_FM", NULL);*/
@@ -568,4 +598,3 @@ int trout_fm_rf_spi_read(u32 addr, u32 *data)
 
 	return 0;
 }
-
