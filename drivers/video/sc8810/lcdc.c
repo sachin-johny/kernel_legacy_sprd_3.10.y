@@ -188,7 +188,8 @@ static void lcdc_mcu_init(void)
 	reg_val =  (1 << 0);
 
 	/* FMARK pol */
-	reg_val |= (1 << 2);
+	//reg_val |= (1 << 2);
+	reg_val |= (1 << 1);	//@6821
 
 	/* dithering enable*/
 	reg_val |= (1 << 4);
@@ -364,7 +365,6 @@ static uint32_t lcdc_lcm_configure_path1(struct lcd_spec * panel)
 }
 
 #ifdef CONFIG_FB_LCDC_CS1
-
 static uint32_t lcdc_lcm_configure(struct sprdfb_device *dev)
 {
 	struct lcd_spec *panel = dev->panel;
@@ -414,6 +414,7 @@ static void lcdc_update_lcm_path1(struct sprdfb_device *dev)
 typedef void (*update_lcm_func)(struct sprdfb_device *dev);
 
 #ifdef CONFIG_FB_LCDC_CS1
+
 update_lcm_func update_lcm[] = {
 	lcdc_update_lcm_path1,   /*main LCD*/
 	lcdc_update_lcm_path0,
