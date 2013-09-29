@@ -173,7 +173,7 @@
         #if defined(CONFIG_CMA)
             #define SPRD_ION_OVERLAY_SIZE   (0 * SZ_1M)
         #else
-            #define SPRD_ION_OVERLAY_SIZE   (25 * SZ_1M)
+            #define SPRD_ION_OVERLAY_SIZE   (12 * SZ_1M)
         #endif
     #else
         #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
