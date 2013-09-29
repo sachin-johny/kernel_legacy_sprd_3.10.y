@@ -193,6 +193,46 @@ itm_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 				   },
 };
 
+#define WLAN_EID_VENDOR_SPECIFIC 221
+static bool itm_is_wps_ie(const u8 *pos)
+{
+	return (pos[0] == WLAN_EID_VENDOR_SPECIFIC &&
+		pos[1] >= 4 &&
+		pos[2] == 0x00 && pos[3] == 0x50 && pos[4] == 0xf2 &&
+		pos[5] == 0x04);
+}
+
+static bool itm_find_wpsie(const u8 *ies, size_t ies_len,
+			  u8 *buf, size_t *wps_len)
+{
+	const u8 *pos;
+	size_t len = 0;
+	bool flags = false;
+
+	/*
+	 * Filter out RSN/WPA IE(s)
+	 */
+	if (ies && ies_len) {
+		pos = ies;
+
+		while (pos + 1 < ies + ies_len) {
+			if (pos + 2 + pos[1] > ies + ies_len)
+				break;
+
+			if (itm_is_wps_ie(pos)) {
+				memcpy(buf + len, pos, 2 + pos[1]);
+				len += 2 + pos[1];
+				flags = true;
+			}
+
+			pos += 2 + pos[1];
+		}
+	}
+
+	*wps_len = len;
+	return flags;
+}
+
 static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 				   u8 key_index, u32 cipher, const u8 *key_seq,
 				   const u8 *macaddr)
@@ -320,6 +360,9 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 		}
 	}
 	priv->scan_request = request;
+	/* Arm scan timeout timer */
+	mod_timer(&priv->scan_timeout,
+		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
 
 	n = min(request->n_channels, 4U);
 	for (i = 0; i < n; i++) {
@@ -336,6 +379,7 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 		dev_err(&priv->ndev->dev,
 			"itm_wlan_scan_cmd failed with ret %d\n",
 			ret);
+		del_timer_sync(&priv->scan_timeout);
 		priv->scan_request = NULL;
 		kfree(sipc_data);
 		return ret;
@@ -360,6 +404,8 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	    (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104);
 	int is_wapi = false;
 	int auth_type = 0;
+	u8 *buf = NULL;
+	size_t wps_len = 0;
 
 	if (priv->cp2_status != ITM_READY) {
 		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
@@ -377,13 +423,21 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 				sme->ie_len);
 			return -EOPNOTSUPP;
 		}
-		ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc, WPS_ASSOC_IE,
-					      sme->ie, sme->ie_len);
-		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_wps_ie failed with ret %d\n",
-				ret);
-			return ret;
+		buf = kmalloc(sme->ie_len, GFP_KERNEL);
+		if (buf == NULL)
+			return -ENOMEM;
+
+		if (itm_find_wpsie(sme->ie, sme->ie_len,
+				   buf, &wps_len) == true) {
+			ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc,
+						      WPS_ASSOC_IE,
+						      buf, wps_len);
+			if (ret) {
+				dev_err(&priv->ndev->dev,
+					"itm_wlan_set_wps_ie failed with ret %d\n",
+					ret);
+				return ret;
+			}
 		}
 	}
 
@@ -674,6 +728,7 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 
 out:
 	if (priv->scan_request) {
+		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 	}
@@ -1017,6 +1072,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	return;
 out:
 	if (priv->scan_request) {
+		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 	}
@@ -1042,6 +1098,7 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 	/* This should filled if disconnect reason is not only one */
 	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);
 	if (priv->scan_request) {
+		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 	}
@@ -1052,7 +1109,8 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
 	} else if (priv->connect_status == ITM_CONNECTED) {
-		if (reason_code == STATION_LEAVING) {
+		if (reason_code == AP_LEAVING /*||
+		    reason_code == AP_DEAUTH*/) {
 			do {
 				bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
 						       priv->bssid, priv->ssid,
@@ -1078,6 +1136,20 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 		netif_carrier_off(priv->ndev);
 		netif_stop_queue(priv->ndev);
 	}
+	return;
+}
+
+static void itm_cfg80211_scan_timeout(unsigned long data)
+{
+	struct itm_priv *priv = (struct itm_priv *)data;
+
+	if (priv->scan_request) {
+		dev_err(&priv->ndev->dev, "scan timer expired!");
+		cfg80211_scan_done(priv->scan_request, true);
+		priv->scan_request = NULL;
+		return;
+	}
+	dev_err(&priv->ndev->dev, "wrong scan timer expired!");
 	return;
 }
 
@@ -1173,12 +1245,14 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	}
 
 	kfree(mgmt);
+	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
 	priv->scan_request = NULL;
 
 	return;
 
 out:
+	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, true);
 	priv->scan_request = NULL;
 
@@ -1604,6 +1678,11 @@ int itm_wdev_alloc(struct itm_priv *priv, struct device *dev)
 	priv->cp2_status = ITM_READY;
 	/*spin_lock_init(&priv->scan_req_lock); */
 
+	/* Init scan_timeout timer */
+	init_timer(&priv->scan_timeout);
+	priv->scan_timeout.data = (unsigned long) priv;
+	priv->scan_timeout.function = itm_cfg80211_scan_timeout;
+
 	wdev->netdev = ndev;
 
 	/* This informs a default interface */
@@ -1640,6 +1719,7 @@ void itm_wdev_free(struct itm_priv *priv)
 		return;
 
 	/*spin_lock_bh(&priv->scan_req_lock); */
+	del_timer_sync(&priv->scan_timeout);
 
 	if (priv->scan_request != NULL) {
 		if (priv->scan_request->wiphy != priv->wdev->wiphy) {
@@ -1707,7 +1787,6 @@ int itm_get_mac_from_cfg(struct itm_priv *priv)
 		if (flag == FROM_ITM)
 			tmp_p += strlen("mac=");
 		memcpy(mac_addr, tmp_p, 18);
-		printk(KERN_ERR "mac is %s, tmp is %s\n", mac_addr, tmp_p);
 		sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
 		       (unsigned int *)&(priv->ndev->dev_addr[0]),
 		       (unsigned int *)&(priv->ndev->dev_addr[1]),

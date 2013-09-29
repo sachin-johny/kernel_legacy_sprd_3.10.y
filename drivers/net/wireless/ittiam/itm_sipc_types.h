@@ -139,7 +139,8 @@ enum wlan_sipc_status {
 
 /* The reason code is defined by CP2 */
 enum wlan_sipc_disconnect_reason {
-	STATION_LEAVING = 0xc1,
+	AP_LEAVING = 0xc1,
+	AP_DEAUTH = 0xc4,
 };
 
 /* ITM_WLAN SIPC DATA*/

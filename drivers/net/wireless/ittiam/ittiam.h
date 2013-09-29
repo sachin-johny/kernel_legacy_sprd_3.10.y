@@ -41,6 +41,7 @@ struct itm_priv {
 
 	/* CFG80211 */
 	struct cfg80211_scan_request *scan_request;
+	struct timer_list scan_timeout; /* Timer for catch scan event timeout */
 	int connect_status;
 	int mode;
 	int ssid_len;

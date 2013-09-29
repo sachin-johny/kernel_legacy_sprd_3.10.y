@@ -45,6 +45,8 @@
 
 #define WLAN_MAX_KEY_INDEX		3
 
+#define ITM_SCAN_TIMER_INTERVAL_MS	8000
+
 #define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 /* emulate a modern version */
 #define LINUX_VERSION_CODE KERNEL_VERSION(3, 4, 5)
