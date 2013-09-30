@@ -818,6 +818,8 @@ static void reg_dump_func(struct work_struct *work)
 
         int arm_module_en = 0;
         int arm_clk_en = 0;
+        int i = 0;
+        int hbd[20] = {0};
 
         gpio_detect = gpio_get_value(headset.platform_data->gpio_detect);
         gpio_button = gpio_get_value(headset.platform_data->gpio_button);
@@ -845,6 +847,17 @@ static void reg_dump_func(struct work_struct *work)
         PRINT_INFO("arm_module_en|arm_clk_en|ana_cfg0  |ana_cfg1  |ana_cfg20 |ana_sts0  |hid_cfg2  |hid_cfg3  |hid_cfg4  |hid_cfg0\n");
         PRINT_INFO("0x%08X   |0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    arm_module_en, arm_clk_en, ana_cfg0, ana_cfg1, ana_cfg20, ana_sts0, hid_cfg2, hid_cfg3, hid_cfg4, hid_cfg0);
+
+        for(i=0; i<20; i++)
+                hbd[i] = sci_adi_read(ANA_HDT_INT_BASE + (i*4));
+
+        PRINT_INFO(" hbd_cfg0 | hbd_cfg1 | hbd_cfg2 | hbd_cfg3 | hbd_cfg4 | hbd_cfg5 | hbd_cfg6 | hbd_cfg7 | hbd_cfg8 | hbd_cfg9\n");
+        PRINT_INFO("0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
+                   hbd[0], hbd[1], hbd[2], hbd[3], hbd[4], hbd[5], hbd[6], hbd[7], hbd[8], hbd[9]);
+
+        PRINT_INFO("hbd_cfg10 |hbd_cfg11 |hbd_cfg12 |hbd_cfg13 |hbd_cfg14 |hbd_cfg15 |hbd_cfg16 | hbd_sts0 | hbd_sts1 | hbd_sts2\n");
+        PRINT_INFO("0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
+                   hbd[10], hbd[11], hbd[12], hbd[13], hbd[14], hbd[15], hbd[16], hbd[17], hbd[18], hbd[19]);
 
         queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
         return;
@@ -1128,9 +1141,10 @@ failed_to_request_gpio_switch:
 #ifdef CONFIG_PM
 static int headset_suspend(struct platform_device *dev, pm_message_t state)
 {
-        headset_irq_button_enable(0, headset.irq_button);
+        //headset_irq_button_enable(0, headset.irq_button);
         headset_irq_detect_enable(0, headset.irq_detect);
 
+#if 0
         /***polling ana_sts0 to avoid the hardware defect***/
         if (0xA000 != adie_chip_id) {
                 cancel_delayed_work_sync(&sts_check_work);
@@ -1145,6 +1159,7 @@ static int headset_suspend(struct platform_device *dev, pm_message_t state)
                 switch_set_state(&headset.sdev, headset.type);
                 PRINT_INFO("headset plug out (headset_suspend)\n");
         }
+#endif
 
 #ifdef SPRD_HEADSET_HEADMICBIAS_POLLING
         headset_micbias_polling_en(0);
@@ -1157,12 +1172,14 @@ static int headset_suspend(struct platform_device *dev, pm_message_t state)
 
 static int headset_resume(struct platform_device *dev)
 {
+#if 0
         gpio_direction_output(headset.platform_data->gpio_switch, 0);
         plug_status = 0;
         if (0xA000 != adie_chip_id) {
                 sts_check_work_need_to_cancel =1;
                 plug_status_when_clg_on = 0;
         }
+#endif
 
         headmicbias_power_on(1);
         msleep(5);
@@ -1173,10 +1190,13 @@ static int headset_resume(struct platform_device *dev)
         PRINT_INFO("resume (det_irq=%d    but_irq=%d)\n", headset.irq_detect, headset.irq_button);
         active_status = 1;
 
+#if 0
         if(1 == headset.platform_data->irq_trigger_level_detect)
                 irq_set_irq_type(headset.irq_detect, IRQF_TRIGGER_HIGH);
         else
                 irq_set_irq_type(headset.irq_detect, IRQF_TRIGGER_LOW);
+#endif
+
         headset_irq_detect_enable(1, headset.irq_detect);
         return 0;
 }
