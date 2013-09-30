@@ -26,10 +26,14 @@
 
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
+#include <linux/wakelock.h>
+
 
 static struct smsg_ipc *smsg_ipcs[SIPC_ID_NR];
 
 static ushort debug_enable = 0;
+
+extern struct wake_lock sipc_wake_lock;
 
 module_param_named(debug_enable, debug_enable, ushort, 0644);
 
@@ -115,6 +119,8 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 
 		atomic_dec(&(ch->busy));
 	}
+
+	wake_lock_timeout(&sipc_wake_lock, HZ / 2);
 
 	return IRQ_HANDLED;
 }

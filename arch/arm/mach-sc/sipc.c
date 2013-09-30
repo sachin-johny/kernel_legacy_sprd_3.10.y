@@ -24,6 +24,10 @@
 
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
+#include <linux/syscore_ops.h>
+#include <linux/wakelock.h>
+
+
 
 #define SMSG_TXBUF_ADDR		(0)
 #define SMSG_TXBUF_SIZE		(SZ_1K)
@@ -35,6 +39,19 @@
 #define SMSG_TXBUF_WRPTR	(SMSG_RINGHDR + 4)
 #define SMSG_RXBUF_RDPTR	(SMSG_RINGHDR + 8)
 #define SMSG_RXBUF_WRPTR	(SMSG_RINGHDR + 12)
+
+struct wake_lock sipc_wake_lock;
+
+static int sipc_syscore_suspend(void)
+{
+	int ret = has_wake_lock(WAKE_LOCK_SUSPEND) ? -EAGAIN : 0;
+	return ret;
+}
+
+static struct syscore_ops sipc_syscore_ops = {
+	.suspend    = sipc_syscore_suspend,
+};
+
 
 #ifdef CONFIG_SIPC_TD
 extern uint32_t cpt_rxirq_status(void);
@@ -165,6 +182,9 @@ static int __init itm_sblock_init(void)
 static int __init sipc_init(void)
 {
 	uint32_t smem_size = 0;
+
+	wake_lock_init(&sipc_wake_lock, WAKE_LOCK_SUSPEND, "sipc");
+
 #ifdef CONFIG_SIPC_TD
 	smem_size += CPT_SMEM_SIZE;
 	sipc_td_init();
@@ -185,6 +205,7 @@ static int __init sipc_init(void)
 #ifdef CONFIG_SIPC_WCN
 	itm_sblock_init();
 #endif
+	register_syscore_ops(&sipc_syscore_ops);
 	return 0;
 }
 
