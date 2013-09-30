@@ -13,9 +13,13 @@
 #include "trout_rf_common.h"
 #include "trout_interface.h"
 
+#include <linux/wakelock.h>
+
 #define TROUT_FM_VERSION	"v0.9"
 
 struct trout_interface *p_trout_interface;
+
+static struct wake_lock	fm_wake_lock;
 
 int trout_fm_set_volume(u8 iarg)
 {
@@ -72,6 +76,8 @@ int trout_fm_open(struct inode *inode, struct file *filep)
 	}
 
 	TROUT_PRINT("Open shark fm module success.");
+
+	wake_lock(&fm_wake_lock);
 
 	return 0;
 }
@@ -185,6 +191,7 @@ int trout_fm_release(struct inode *inode, struct file *filep)
 
 	trout_fm_deinit();
 
+        wake_unlock(&fm_wake_lock);
 	return 0;
 }
 
@@ -242,6 +249,9 @@ int __init init_fm_driver(void)
 
 	TROUT_PRINT("trout_fm_init success.\n");
 
+	wake_lock_init(&fm_wake_lock, WAKE_LOCK_SUSPEND,
+			"trout_fm");
+
 	return 0;
 }
 
@@ -254,6 +264,8 @@ void __exit exit_fm_driver(void)
 		p_trout_interface->exit();
 		p_trout_interface = NULL;
 	}
+
+	wake_lock_destroy(&fm_wake_lock);
 }
 
 module_init(init_fm_driver);
