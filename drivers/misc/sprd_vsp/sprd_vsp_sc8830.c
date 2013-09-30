@@ -251,6 +251,15 @@ by clk_get()!\n", "clk_vsp", name_parent);
 	        sci_glb_set(SPRD_MMAHB_BASE + 0x2004, BIT(4));	//Reset VSP 
 
 		break;
+    case VSP_HW_INFO:
+	{
+		u32 mm_eb_reg;
+                    
+		pr_debug("vsp ioctl VSP_HW_INFO\n");
+		mm_eb_reg = sci_glb_read(SPRD_AONAPB_BASE, 0xFFFFFFFF);
+		put_user(mm_eb_reg, (int __user *)arg);
+	}
+		break;
 
 	default:
 		return -EINVAL;
