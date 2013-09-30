@@ -1752,7 +1752,7 @@ int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 }
 
 #define ITM_MAC_ADDR_PATH "/system/lib/modules/mac_addr.cfg"
-#define ENG_MAC_ADDR_PATH "/data/wifimac.txt"
+#define ENG_MAC_ADDR_PATH "/productinfo/wifimac.txt"
 #define FROM_ITM	1
 #define FROM_ENG	2
 int itm_get_mac_from_cfg(struct itm_priv *priv)
