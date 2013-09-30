@@ -7,18 +7,20 @@
 #include <linux/fs.h>
 #include <linux/syslog.h>
 #include <linux/sched.h>
+#include <linux/mutex.h>
 #include <asm/uaccess.h>
 #include <asm/io.h>
 
 
 
 DECLARE_WAIT_QUEUE_HEAD(report_wait);
-static DEFINE_SPINLOCK(reportbuf_lock);
+//static DEFINE_SPINLOCK(reportbuf_lock);
+struct mutex lock;
 #define BUF_LEN 16
 static int report_buf_len = BUF_LEN;
 char mm_report_buf[BUF_LEN][TASK_COMM_LEN+1];
 static int record_size = TASK_COMM_LEN ;
-int oom_notify_enable = 1;
+int oom_notify_enable = 0;
 
 #define REPORT_BUF_MASK (report_buf_len-1)
 #define REPORT_BUF(idx) (mm_report_buf[(idx) & REPORT_BUF_MASK])
@@ -61,14 +63,14 @@ static int do_read_memory_report(char __user *buf, int len)
 	total =len;
 	if (len >record_size)
 		len = record_size;
-	spin_lock_irq(&reportbuf_lock);
+	mutex_lock(&lock);
 	while (!error && (report_start != report_end)) {
 		memset(record, 0, TASK_COMM_LEN+1);
 		memcpy(record,REPORT_BUF(report_start), TASK_COMM_LEN);
 		printk("do_read_memory_report report_start %d, report_end %d\n", report_start, report_end);
 		printk("do_read_memory_report %s, %d, %d\n",record, len, record_size);
 		report_start++; 
-		spin_unlock_irq(&reportbuf_lock);
+		
 		error = copy_to_user(buf,record,len);
 		i++;
 		if((i+1)*len < total)
@@ -79,10 +81,8 @@ static int do_read_memory_report(char __user *buf, int len)
 		{
 			break;
 		}
-		cond_resched();
-		spin_lock_irq(&reportbuf_lock);
 	}
-	spin_unlock_irq(&reportbuf_lock);
+	mutex_unlock(&lock);
 	if (!error)
 		error = i*len;
 out:
@@ -190,6 +190,7 @@ static int __init init_memory_report(void)
     pe = proc_create("oom_notify", S_IRUSR|S_IWUSR, NULL, &memory_report_fops);
     if (!pe)
 		return -ENOMEM;
+    mutex_init(&lock);	
     return 0;
 }
 
