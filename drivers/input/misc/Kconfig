@@ -406,4 +406,12 @@ config INPUT_PCAP
 	  To compile this driver as a module, choose M here: the
 	  module will be called pcap_keys.
 
+config INPUT_LIS3DH_SP6821A
+	tristate "INPUT_LIS3DH_SP6821A"
+	depends on I2C
+	help
+	  lis3dh for sp6821a only.
+
+	  To compile this driver as a module, choose M here.
+
 endif
