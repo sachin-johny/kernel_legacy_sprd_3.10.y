@@ -201,46 +201,57 @@ static irqreturn_t sprd_keypad_isr(int irq, void *dev_id)
 		static unsigned long key_panic_check_times = 0;
 		struct task_struct *g, *p;
 		int i;
+                char *cmdline=saved_command_line;
+                int usrdebug=0;
 
-		if (check_key_down(key_status, SPRD_CAMERA_KEY) &&
-			check_key_down(key_status, SPRD_VOL_DOWN_KEY) && key_status != key_status_prev) {
-			if(!key_panic_check_times){
-				printk("!!!! Combine key: vol_down + camera !!!! first dump important task\n");
-				printk("current\n");
-				printk("PID %d is %s\n",task_pid_nr(current),current->comm);
-				show_stack(current,NULL);
-				do_each_thread(g, p) {
-					for(i=0;i<(sizeof(tasks)/sizeof(tasks[0]));i++) {
-						if (!strncmp(p->comm,tasks[i].name,tasks[i].name_len)) {
-							printk("PID %d is %s\n",task_pid_nr(p),p->comm);
-							show_stack(p, NULL);
-						}
-					}
-				} while_each_thread(g, p);
-			}  else {
-				panic("!!!! Combine key: vol_down + camera !!!! second panic\n");
-			}
-			key_panic_check_times++;
-		}
+                if(cmdline=strstr(cmdline, "usrdebug=")){
+                    cmdline += 9;
+                    if((cmdline[0]=='y') || (cmdline[0]=='Y')){
+                        usrdebug=1;
+                    }
+                }
 
-		if (check_key_down(key_status, SPRD_CAMERA_KEY) &&
-			check_key_down(key_status, SPRD_VOL_UP_KEY) && key_status != key_status_prev) {
-			unsigned long flags;
-			static int rebooted = 0;
-			local_irq_save(flags);
-			if (rebooted == 0) {
-				rebooted = 1;
-				pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
-				/* handle_sysrq('t'); */
-				handle_sysrq('m');
-				handle_sysrq('w');
-				handle_sysrq('b');
-				pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
-				rebooted = 0;
-			}
-			local_irq_restore(flags);
-		}
-		key_status_prev = key_status;
+                if(usrdebug){
+                    if (check_key_down(key_status, SPRD_CAMERA_KEY) &&
+                            check_key_down(key_status, SPRD_VOL_DOWN_KEY) && key_status != key_status_prev) {
+                            if(!key_panic_check_times){
+                                    printk("!!!! Combine key: vol_down + camera !!!! first dump important task\n");
+                                    printk("current\n");
+                                    printk("PID %d is %s\n",task_pid_nr(current),current->comm);
+                                    show_stack(current,NULL);
+                                    do_each_thread(g, p) {
+                                            for(i=0;i<(sizeof(tasks)/sizeof(tasks[0]));i++) {
+                                                    if (!strncmp(p->comm,tasks[i].name,tasks[i].name_len)) {
+                                                            printk("PID %d is %s\n",task_pid_nr(p),p->comm);
+                                                            show_stack(p, NULL);
+                                                    }
+                                            }
+                                    } while_each_thread(g, p);
+                            }  else {
+                                    panic("!!!! Combine key: vol_down + camera !!!! second panic\n");
+                            }
+                            key_panic_check_times++;
+                    }
+
+                    if (check_key_down(key_status, SPRD_CAMERA_KEY) &&
+                            check_key_down(key_status, SPRD_VOL_UP_KEY) && key_status != key_status_prev) {
+                            unsigned long flags;
+                            static int rebooted = 0;
+                            local_irq_save(flags);
+                            if (rebooted == 0) {
+                                    rebooted = 1;
+                                    pr_warn("!!!!!! Combine Key : vol_up + camera is Down !!!!!!\n");
+                                    /* handle_sysrq('t'); */
+                                    handle_sysrq('m');
+                                    handle_sysrq('w');
+                                    handle_sysrq('b');
+                                    pr_warn("!!!!!! /proc/sys/kernel/sysrq is disabled !!!!!!\n");
+                                    rebooted = 0;
+                            }
+                            local_irq_restore(flags);
+                    }
+                    key_status_prev = key_status;
+                }
 	}
 #endif
 
