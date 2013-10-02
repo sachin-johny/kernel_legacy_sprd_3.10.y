@@ -188,8 +188,7 @@ static void lcdc_mcu_init(void)
 	reg_val =  (1 << 0);
 
 	/* FMARK pol */
-	//reg_val |= (1 << 2);
-	reg_val |= (1 << 1);	//@6821
+	reg_val |= (1 << 2);
 
 	/* dithering enable*/
 	reg_val |= (1 << 4);
