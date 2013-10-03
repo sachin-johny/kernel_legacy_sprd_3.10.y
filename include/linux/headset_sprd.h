@@ -49,11 +49,11 @@ struct sprd_headset_detect_platform_data {
 };
 
 struct headset_button_data {
-	struct sprd_headset_buttons_platform_data *platform_data;
-	struct input_dev *input_dev;
-	struct work_struct work;
-	struct timer_list timer;
-	int irq;
+        struct sprd_headset_buttons_platform_data *platform_data;
+        struct input_dev *input_dev;
+        struct work_struct work;
+        struct timer_list timer;
+        int irq;
 };
 
 struct headset_detect_data {
@@ -61,7 +61,6 @@ struct headset_detect_data {
 	struct switch_dev sdev;
 	struct work_struct work;
 	struct timer_list timer;
-	struct timer_list irq_timer;
 	int headphone;
 	int irq;
 	int type;

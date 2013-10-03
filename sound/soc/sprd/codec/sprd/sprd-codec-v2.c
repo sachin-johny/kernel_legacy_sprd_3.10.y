@@ -1337,52 +1337,68 @@ static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
 	}
 }
 
-int sprd_codec_mic_bias_control(int on)
+int sprd_codec_mic_bias_control(int on, int sync)
 {
-	static DEFINE_SPINLOCK(mic_bias_lock);
-	if (sprd_codec_mic_bias_inter
-	    (on, &sprd_codec_power.mic_on, &mic_bias_lock)) {
-		pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
-		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
-					     sprd_codec_mic_delay_worker);
-                schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
-                                      msecs_to_jiffies(1));
+        static DEFINE_SPINLOCK(mic_bias_lock);
+        if (sprd_codec_mic_bias_inter
+                        (on, &sprd_codec_power.mic_on, &mic_bias_lock)) {
+                pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
+                if (sync) {
+                        sprd_codec_mic_delay_worker(NULL);
+                } else {
+                        sprd_codec_init_delayed_work(
+                                        &sprd_codec_power.mic_delayed_work,
+                                        sprd_codec_mic_delay_worker);
+                        schedule_delayed_work(
+                                        &sprd_codec_power.mic_delayed_work,
+                                        msecs_to_jiffies(1));
+                }
         }
-	return 0;
+        return 0;
 }
 
 EXPORT_SYMBOL(sprd_codec_mic_bias_control);
 
-int sprd_codec_auxmic_bias_control(int on)
+int sprd_codec_auxmic_bias_control(int on, int sync)
 {
-	static DEFINE_SPINLOCK(auxmic_bias_lock);
-	if (sprd_codec_mic_bias_inter
-	    (on, &sprd_codec_power.auxmic_on, &auxmic_bias_lock)) {
-		pr_info("auxmic bias switch %s\n", on ? "ON" : "OFF");
-		sprd_codec_init_delayed_work
-		    (&sprd_codec_power.auxmic_delayed_work,
-		     sprd_codec_auxmic_delay_worker);
-                schedule_delayed_work(&sprd_codec_power.auxmic_delayed_work,
-                                      msecs_to_jiffies(1));
-	}
-	return 0;
+        static DEFINE_SPINLOCK(auxmic_bias_lock);
+        if (sprd_codec_mic_bias_inter
+                        (on, &sprd_codec_power.auxmic_on, &auxmic_bias_lock)) {
+                pr_info("auxmic bias switch %s\n", on ? "ON" : "OFF");
+                if (sync) {
+                        sprd_codec_auxmic_delay_worker(NULL);
+                } else {
+                        sprd_codec_init_delayed_work(
+                                        &sprd_codec_power.auxmic_delayed_work,
+                                        sprd_codec_auxmic_delay_worker);
+                        schedule_delayed_work(
+                                        &sprd_codec_power.auxmic_delayed_work,
+                                        msecs_to_jiffies(1));
+                }
+        }
+        return 0;
 }
 
 EXPORT_SYMBOL(sprd_codec_auxmic_bias_control);
 
-int sprd_codec_headmic_bias_control(int on)
+int sprd_codec_headmic_bias_control(int on, int sync)
 {
-	static DEFINE_SPINLOCK(headmic_bias_lock);
-	if (sprd_codec_mic_bias_inter
-	    (on, &sprd_codec_power.headmic_on, &headmic_bias_lock)) {
-		pr_info("headmic bias switch %s\n", on ? "ON" : "OFF");
-		sprd_codec_init_delayed_work
-		    (&sprd_codec_power.headmic_delayed_work,
-		     sprd_codec_headmic_delay_worker);
-		schedule_delayed_work(&sprd_codec_power.headmic_delayed_work,
-				      msecs_to_jiffies(1));
-	}
-	return 0;
+        static DEFINE_SPINLOCK(headmic_bias_lock);
+        if (sprd_codec_mic_bias_inter
+                        (on, &sprd_codec_power.headmic_on, &headmic_bias_lock)) {
+                pr_info("headmic bias switch %s\n", on ? "ON" : "OFF");
+                if (sync) {
+                        sprd_codec_headmic_delay_worker(NULL);
+                } else {
+                        sprd_codec_init_delayed_work(
+                                        &sprd_codec_power.headmic_delayed_work,
+                                        sprd_codec_headmic_delay_worker);
+                        schedule_delayed_work(
+                                        &sprd_codec_power.headmic_delayed_work,
+                                        msecs_to_jiffies(1));
+                }
+        }
+        return 0;
 }
 
 EXPORT_SYMBOL(sprd_codec_headmic_bias_control);
