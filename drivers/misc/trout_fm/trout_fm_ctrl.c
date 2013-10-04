@@ -6,20 +6,17 @@
 #include <linux/ioctl.h>
 #include <linux/err.h>
 #include <linux/errno.h>
-#include <linux/suspend.h>
 #include  <linux/module.h>
 
 #include "trout_fm_ctrl.h"
 #include "trout_rf_common.h"
 #include "trout_interface.h"
 
-#include <linux/wakelock.h>
-
 #define TROUT_FM_VERSION	"v0.9"
 
-struct trout_interface *p_trout_interface;
 
-static struct wake_lock	fm_wake_lock;
+
+struct trout_interface *p_trout_interface;
 
 int trout_fm_set_volume(u8 iarg)
 {
@@ -31,6 +28,58 @@ int trout_fm_get_volume(void)
 {
 	TROUT_PRINT("FM get volume.");
 	return 0;
+}
+
+/*add open vddrf2*/
+static DEFINE_MUTEX(vddrf_mutex);
+#define REGULATOR_MODE_FAST			0x1
+#define REGULATOR_MODE_NORMAL			0x2
+#define REGULATOR_MODE_IDLE			0x4
+#define REGULATOR_MODE_STANDBY			0x8
+extern int regulator_enable(struct regulator *regu);
+extern int regulator_set_mode(struct regulator *regu, unsigned int mode);
+extern int regulator_disable(struct regulator *regu);
+extern void regulator_put(struct regulator *regu);
+extern struct regulator *regulator_get(struct device *dev, const char *id);
+
+static void trout_chip_vdd_input(bool turn_on)
+{
+
+   struct regulator *regu = NULL;
+   mutex_lock(&vddrf_mutex);
+   
+   regu = regulator_get(NULL, "vddrf2");  
+ 
+    if (turn_on)
+    {
+	if (regu)
+	{   
+	        //printk("trout_chip_vdd_input in on \n");
+		//regu = regulator_get(NULL, "vddrf2");
+		if (IS_ERR(regu))
+		{	
+		pr_err("Failed to request %ld: %s\n",
+			PTR_ERR(regu), "vddrf2");
+			BUG_ON(1);
+		}
+		regulator_set_mode(regu, REGULATOR_MODE_NORMAL);
+		regulator_enable(regu);
+	}
+        /* keep VDDRF2 on in deep sleep */
+       mdelay(5);
+    }
+    else {
+	//printk("trout_chip_vdd_input in off \n");
+        mdelay(5);
+        if(regu != NULL) {
+		regulator_set_mode(regu, REGULATOR_MODE_STANDBY);
+		regulator_disable(regu);
+		regulator_put(regu);
+		regu = NULL;
+        }
+    }
+    mutex_unlock(&vddrf_mutex);
+   return 0;
 }
 
 int trout_fm_open(struct inode *inode, struct file *filep)
@@ -54,6 +103,7 @@ int trout_fm_open(struct inode *inode, struct file *filep)
 		return ret;
 	}
 */
+        trout_chip_vdd_input(false);
 	ret = trout_fm_init();
 	if (ret < 0) {
 		TROUT_PRINT("trout_fm_init failed!");
@@ -77,8 +127,6 @@ int trout_fm_open(struct inode *inode, struct file *filep)
 
 	TROUT_PRINT("Open shark fm module success.");
 
-	wake_lock(&fm_wake_lock);
-
 	return 0;
 }
 
@@ -97,8 +145,10 @@ int trout_fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 			ret = -EFAULT;
 
 		if (iarg == 1)
-			ret = trout_fm_en();
+		
+			ret = trout_fm_en();	
 		else
+		    
 			ret = trout_fm_dis();
 
 		break;
@@ -190,8 +240,7 @@ int trout_fm_release(struct inode *inode, struct file *filep)
 	TROUT_PRINT("trout_fm_misc_release");
 
 	trout_fm_deinit();
-
-        wake_unlock(&fm_wake_lock);
+        trout_chip_vdd_input(true);
 	return 0;
 }
 
@@ -249,9 +298,6 @@ int __init init_fm_driver(void)
 
 	TROUT_PRINT("trout_fm_init success.\n");
 
-	wake_lock_init(&fm_wake_lock, WAKE_LOCK_SUSPEND,
-			"trout_fm");
-
 	return 0;
 }
 
@@ -264,8 +310,6 @@ void __exit exit_fm_driver(void)
 		p_trout_interface->exit();
 		p_trout_interface = NULL;
 	}
-
-	wake_lock_destroy(&fm_wake_lock);
 }
 
 module_init(init_fm_driver);
