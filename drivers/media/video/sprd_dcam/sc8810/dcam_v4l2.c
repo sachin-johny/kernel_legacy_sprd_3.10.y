@@ -1720,8 +1720,9 @@ static int vidioc_querymenu(struct file *file, void *priv, struct v4l2_querymenu
 	printk("V4l2:vidioc_querymenu start \n");
 
 	size = qm->index;
-
+	printk("V4l2 pmem base 0x%x \n", PMEM_BASE_PHY_ADDR);
 	p_memptr = (unsigned int)ioremap(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
+	printk("V4l2:p_memptr addr 0x&x \n", p_memptr);
 	if (NULL == p_memptr) 
 	{
 		printk("V4L2: vidioc_querymenu error ####: Can't ioremap for PMEM_BASE_PHY_ADDR!\n");
