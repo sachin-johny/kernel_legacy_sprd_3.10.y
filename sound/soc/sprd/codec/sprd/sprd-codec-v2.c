@@ -63,6 +63,7 @@
 #define SPRD_CODEC_AP_BASE_HI (SPRD_CODEC_AP_BASE & 0xFFFF0000)
 #define SPRD_CODEC_DP_BASE_HI (SPRD_CODEC_DP_BASE & 0xFFFF0000)
 
+#ifdef SPRD_AUDIO_LDO_SUPPLIES
 #define SPRD_CODEC_NUM_SUPPLIES 8
 static const char *sprd_codec_supply_names[SPRD_CODEC_NUM_SUPPLIES] = {
 	"audio_auxmicbias",	/* AUXMICBIAS_EN        (0) */
@@ -74,6 +75,7 @@ static const char *sprd_codec_supply_names[SPRD_CODEC_NUM_SUPPLIES] = {
 	"audio_bg",		/* BG_EN                (6) */
 	"audio_vb",		/* VB_EN                (7) */
 };
+#endif /* SPRD_AUDIO_LDO_SUPPLIES */
 
 enum {
 	SPRD_CODEC_PGA_SPKL = 0,
@@ -285,7 +287,9 @@ struct sprd_codec_priv {
 
 /* codec local power suppliy */
 static struct sprd_codec_power_suppliy {
+#ifdef SPRD_AUDIO_LDO_SUPPLIES
 	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
+#endif /* SPRD_AUDIO_LDO_SUPPLIES */
 	struct delayed_work mic_delayed_work;
 	struct delayed_work auxmic_delayed_work;
 	struct delayed_work headmic_delayed_work;
@@ -296,7 +300,9 @@ static struct sprd_codec_power_suppliy {
         int micbias_status;
         int auxmicbias_status;
         int headmicbias_status;
+#ifdef SPRD_AUDIO_LDO_SUPPLIES
         int audio_ldo_open_ok;
+#endif /* SPRD_AUDIO_LDO_SUPPLIES */
 } sprd_codec_power;
 
 #define SPRD_CODEC_PA_SW_AOL (BIT(0))
@@ -1167,6 +1173,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_reset();
 		sprd_codec_auto_ldo_volt(sprd_codec_vcm_v_sel, 1);
 
+#ifdef SPRD_AUDIO_LDO_SUPPLIES
 		for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies); i++)
 			sprd_codec_power.supplies[i].supply =
 			    sprd_codec_supply_names[i];
@@ -1186,6 +1193,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 						   consumer,
 						   REGULATOR_MODE_STANDBY);
 		}
+#endif /* SPRD_AUDIO_LDO_SUPPLIES */
 
 		sprd_codec_update_bits(codec, SOC_REG(PMUR4_PMUR3),
 				       BIT(BG_IBIAS_EN), BIT(BG_IBIAS_EN));
@@ -1233,6 +1241,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		sprd_codec_update_bits(codec, SOC_REG(PMUR4_PMUR3), BIT(BG_EN),
 				       0);
 
+#ifdef SPRD_AUDIO_LDO_SUPPLIES
 		if (sprd_codec_power.audio_ldo_open_ok) {
 			for (i = 0; i < ARRAY_SIZE(sprd_codec_power.supplies);
 			     i++)
@@ -1244,6 +1253,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 					    (sprd_codec_power.supplies),
 					    sprd_codec_power.supplies);
 		}
+#endif /* SPRD_AUDIO_LDO_SUPPLIES */
 
 		arch_audio_codec_reset();
 		arch_audio_codec_disable();
