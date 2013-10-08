@@ -80,23 +80,30 @@ static void cp_code_init(void)
 {
 	u32 *copy_data;
 	u32 copy_size;
+#ifdef CONFIG_DFS_AT_CP1
+	copy_data = cp1_dfs_code_data;
+	copy_size = sizeof(cp1_dfs_code_data);
+	cp_code_addr = (volatile u32)(SPRD_IRAM1_BASE + 0x1800);
+#else
 	u32 code_phy_addr;
 #ifdef CONFIG_DFS_AT_CP0
 	copy_data = cp0_dfs_code_data;
 	copy_size = sizeof(cp0_dfs_code_data);
 	code_phy_addr = 0x50000000;
+	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
 #else
 	copy_data = cp2_dfs_code_data;
 	copy_size = sizeof(cp2_dfs_code_data);
 	code_phy_addr = 0x50003000;
-#endif
 	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
+#endif
+#endif
 	memcpy((void *)cp_code_addr, (void *)copy_data, copy_size);
 }
 static void close_cp(void)
 {
-	u32 value;
-	u32 times;
+	u32 value = 0;
+	u32 times = 0;
 
 	value = __raw_readl(CP_FLAGS_ADDR);
 	times = 0;
@@ -160,6 +167,8 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	__raw_writel(flag, CP_FLAGS_ADDR);
 #ifdef CONFIG_DFS_AT_CP0
 	sci_glb_set(SPRD_IPI_BASE,1 << 0);//send ipi interrupt to cp0
+#elif defined(CONFIG_DFS_AT_CP1)
+	sci_glb_set(SPRD_IPI_BASE,1 << 4);//send ipi interrupt to cp1
 #else
 	sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
 #endif
@@ -240,7 +249,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	}
 	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
 #endif
-	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
+//	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 	return 0;
 }
 EXPORT_SYMBOL(emc_clk_set);
@@ -453,6 +462,14 @@ static void cp_init(void)
 	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, 1 << 28);//close cp0 force sleep
 	mdelay(2);
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//release cp0
+#elif defined (CONFIG_DFS_AT_CP1) //dfs is at cp1
+	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 1);//reset cp1
+	udelay(200);
+	sci_glb_clr(REG_PMU_APB_PD_CP1_SYS_CFG, 1 << 25);//power on cp1
+	mdelay(4);
+	sci_glb_clr(REG_PMU_APB_PD_CP1_SYS_CFG, 1 << 28);//close cp1 force sleep
+	mdelay(2);
+	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 1);//reset cp1
 #else
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 	udelay(200);
@@ -467,14 +484,6 @@ static void cp_init(void)
 #endif
 static int __init emc_early_suspend_init(void)
 {
-	int ret;
-	//u32 val;
-	//__raw_writel(1, REG_AON_CLK_PUB_AHB_CFG);
-	//__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
-	//val = __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x02c);
-	//val &= ~(1 << 4);
-	//__raw_writel(val,SPRD_LPDDR2_PHY_BASE + 0x02c);
-
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	//cp_code_init();
