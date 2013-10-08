@@ -18,6 +18,8 @@
 #error  "Don't include this file directly, include <mach/board.h>"
 #endif
 
+#include <asm/sizes.h>
+
 #define GPIO_TOUCH_RESET         81
 #define GPIO_TOUCH_IRQ           82
 
@@ -71,4 +73,9 @@
 #define GPIO_GYRO_INT1 163
 #define GPIO_M_RSTN	161
 #define GPIO_M_DRDY 164
+
+/* General Info for ION*/
+#define SPRD_ION_SIZE            (64 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (12 * SZ_1M)
+
 #endif
