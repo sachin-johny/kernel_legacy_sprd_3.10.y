@@ -28,6 +28,13 @@
 #define LCD_MODE_RGB			1
 #define LCD_MODE_DSI			2
 
+/* LCD suspend mode */
+
+/* SEND_SLEEP_CMD refer to send enter sleep cmd to panel before reset panel, 
+ssd panel need hs clk before enter sleep or reset panel */
+#define SEND_SLEEP_CMD		1
+
+
 /* bus mode */
 #define LCD_BUS_8080			0
 #define LCD_BUS_6800			1
@@ -273,6 +280,7 @@ struct panel_spec {
 	uint16_t width;
 	uint16_t height;
 	uint32_t fps;
+	uint16_t suspend_mode;
 	uint16_t type; /*mcu, rgb, mipi*/
 	uint16_t direction;
 	bool	 is_clean_lcd;
