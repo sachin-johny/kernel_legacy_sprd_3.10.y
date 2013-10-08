@@ -558,7 +558,7 @@ int hwspin_lock_free(struct hwspinlock *hwlock)
 	struct hwspinlock *tmp;
 	int ret;
 
-	if (!hwlock) {
+	if (!hwlock || !hwlock->bank) {
 		pr_err("invalid hwlock\n");
 		return -EINVAL;
 	}

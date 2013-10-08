@@ -91,6 +91,12 @@ static int mmc_schedule_delayed_work(struct delayed_work *work,
 	return queue_delayed_work(workqueue, work, delay);
 }
 
+int mmc_schedule_card_removal_work(struct delayed_work *work,
+				     unsigned long delay)
+{
+	return queue_delayed_work(workqueue, work, delay);
+}
+
 /*
  * Internal function. Flush all scheduled work from the MMC work queue.
  */
@@ -209,24 +215,24 @@ mmc_start_request(struct mmc_host *host, struct mmc_request *mrq)
 			 mrq->sbc->arg, mrq->sbc->flags);
 	}
 
-	pr_debug("%s: starting CMD%u arg %08x flags %08x\n",
-		 mmc_hostname(host), mrq->cmd->opcode,
-		 mrq->cmd->arg, mrq->cmd->flags);
+//	pr_debug("%s: starting CMD%u arg %08x flags %08x\n",
+//		 mmc_hostname(host), mrq->cmd->opcode,
+//		 mrq->cmd->arg, mrq->cmd->flags);
 
-	if (mrq->data) {
-		pr_debug("%s:     blksz %d blocks %d flags %08x "
-			"tsac %d ms nsac %d\n",
-			mmc_hostname(host), mrq->data->blksz,
-			mrq->data->blocks, mrq->data->flags,
-			mrq->data->timeout_ns / 1000000,
-			mrq->data->timeout_clks);
-	}
+//	if (mrq->data) {
+//		pr_debug("%s:     blksz %d blocks %d flags %08x "
+//			"tsac %d ms nsac %d\n",
+//			mmc_hostname(host), mrq->data->blksz,
+//			mrq->data->blocks, mrq->data->flags,
+//			mrq->data->timeout_ns / 1000000,
+//			mrq->data->timeout_clks);
+//	}
 
-	if (mrq->stop) {
-		pr_debug("%s:     CMD%u arg %08x flags %08x\n",
-			 mmc_hostname(host), mrq->stop->opcode,
-			 mrq->stop->arg, mrq->stop->flags);
-	}
+//	if (mrq->stop) {
+//		pr_debug("%s:     CMD%u arg %08x flags %08x\n",
+//			 mmc_hostname(host), mrq->stop->opcode,
+//			 mrq->stop->arg, mrq->stop->flags);
+//	}
 
 	WARN_ON(!host->claimed);
 
@@ -861,6 +867,107 @@ unsigned int mmc_align_data_size(struct mmc_card *card, unsigned int sz)
 EXPORT_SYMBOL(mmc_align_data_size);
 
 /**
+ *	mmc_host_enable - enable a host.
+ *	@host: mmc host to enable
+ *
+ *	Hosts that support power saving can use the 'enable' and 'disable'
+ *	methods to exit and enter power saving states. For more information
+ *	see comments for struct mmc_host_ops.
+ */
+int mmc_host_enable(struct mmc_host *host)
+{
+
+	if (!(host->caps & MMC_CAP_DISABLE))
+		return 0;
+
+	if (host->en_dis_recurs)
+		return 0;
+
+	if (host->nesting_cnt++)
+		return 0;
+
+
+	cancel_delayed_work_sync(&host->disable);
+
+	if (host->enabled)
+		return 0;
+
+	if (host->ops->enable) {
+		int err;
+
+		host->en_dis_recurs = 1;
+		mmc_host_clk_hold(host);
+		err = host->ops->enable(host);
+		mmc_host_clk_release(host);
+		host->en_dis_recurs = 0;
+
+		if (err) {
+			pr_debug("%s: enable error %d\n",
+				 mmc_hostname(host), err);
+			return err;
+		}
+	}
+	host->enabled = 1;
+	return 0;
+}
+EXPORT_SYMBOL(mmc_host_enable);
+
+static int mmc_host_do_disable(struct mmc_host *host, int lazy)
+{
+	if (host->ops->disable) {
+		int err;
+
+		host->en_dis_recurs = 1;
+		mmc_host_clk_hold(host);
+		err = host->ops->disable(host);
+		mmc_host_clk_release(host);
+		host->en_dis_recurs = 0;
+
+		if (err < 0) {
+			pr_debug("%s: disable error %d\n",
+				 mmc_hostname(host), err);
+			return err;
+		}
+		if (err > 0) {
+			unsigned long delay = msecs_to_jiffies(err);
+
+			mmc_schedule_delayed_work(&host->disable, delay);
+		}
+	}
+	host->enabled = 0;
+	return 0;
+}
+
+/**
+ *	mmc_host_disable - disable a host.
+ *	@host: mmc host to disable
+ *
+ *	Hosts that support power saving can use the 'enable' and 'disable'
+ *	methods to exit and enter power saving states. For more information
+ *	see comments for struct mmc_host_ops.
+ */
+int mmc_host_disable(struct mmc_host *host)
+{
+	int err;
+
+	if (!(host->caps & MMC_CAP_DISABLE))
+		return 0;
+
+	if (host->en_dis_recurs)
+		return 0;
+
+	if (--host->nesting_cnt)
+		return 0;
+
+	if (!host->enabled)
+		return 0;
+
+	err = mmc_host_do_disable(host, 0);
+	return err;
+}
+EXPORT_SYMBOL(mmc_host_disable);
+
+/**
  *	__mmc_claim_host - exclusively claim a host
  *	@host: mmc host to claim
  *	@abort: whether or not the operation should be aborted
@@ -975,7 +1082,8 @@ static inline void mmc_set_ios(struct mmc_host *host)
 
 	if (ios->clock > 0)
 		mmc_set_ungated(host);
-	host->ops->set_ios(host, ios);
+	if(host->ops)
+		host->ops->set_ios(host, ios);
 }
 
 /*
@@ -1467,7 +1575,7 @@ void mmc_set_driver_type(struct mmc_host *host, unsigned int drv_type)
  * If a host does all the power sequencing itself, ignore the
  * initial MMC_POWER_UP stage.
  */
-static void mmc_power_up(struct mmc_host *host)
+void mmc_power_up(struct mmc_host *host)
 {
 	int bit;
 
@@ -2210,15 +2318,19 @@ static void mmc_hw_reset_for_init(struct mmc_host *host)
 
 int mmc_can_reset(struct mmc_card *card)
 {
-	u8 rst_n_function;
-
 	if (!mmc_card_mmc(card))
 		return 0;
+#if 0
+	u8 rst_n_function;
 	rst_n_function = card->ext_csd.rst_n_function;
 	if ((rst_n_function & EXT_CSD_RST_N_EN_MASK) != EXT_CSD_RST_N_ENABLED)
 		return 0;
 	return 1;
+#endif
+/*for emmc reset use power off mode*/
+	return 1;
 }
+
 EXPORT_SYMBOL(mmc_can_reset);
 
 static int mmc_do_hw_reset(struct mmc_host *host, int check)
@@ -2228,14 +2340,16 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 	if (!host->bus_ops->power_restore)
 		return -EOPNOTSUPP;
 
-	if (!(host->caps & MMC_CAP_HW_RESET) || !host->ops->hw_reset)
+	if (!(host->caps & MMC_CAP_HW_RESET) || !host->ops->hw_reset){
 		return -EOPNOTSUPP;
-
+		}
 	if (!card)
 		return -EINVAL;
 
-	if (!mmc_can_reset(card))
-		return -EOPNOTSUPP;
+	if(!mmc_card_sd(card)){
+		if (!mmc_can_reset(card)){
+			return -EOPNOTSUPP;}
+	}
 
 	mmc_host_clk_hold(host);
 	mmc_set_clock(host, host->f_init);
@@ -2356,6 +2470,39 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 
 	return ret;
 }
+
+void mmc_remove_sd_card(struct work_struct *work)
+{
+	struct mmc_host *host =
+		container_of(work, struct mmc_host, remove.work);
+	printk(KERN_INFO "%s: %s\n", mmc_hostname(host),
+		__func__);
+
+	if (!host->card || host->card->removed) {
+		printk(KERN_INFO "%s:%s card already removed\n",
+			__func__, mmc_hostname(host));
+		return;
+	}
+
+	if(!mmc_card_sd(host->card))
+		return;
+	wake_lock(&host->detect_wake_lock);
+	mmc_bus_get(host);
+	if (host->bus_ops && !host->bus_dead) {
+		if (host->bus_ops->remove)
+			host->bus_ops->remove(host);
+		mmc_claim_host(host);
+		mmc_detach_bus(host);
+		mmc_release_host(host);
+	}
+	mmc_bus_put(host);
+	mmc_power_off(host);
+	wake_unlock(&host->detect_wake_lock);
+	printk(KERN_INFO "%s: %s exit\n", mmc_hostname(host),
+		__func__);
+
+}
+EXPORT_SYMBOL(mmc_remove_sd_card);
 
 int mmc_detect_card_removed(struct mmc_host *host)
 {
@@ -2698,6 +2845,12 @@ int mmc_suspend_host(struct mmc_host *host)
 		wake_unlock(&host->detect_wake_lock);
 	mmc_flush_scheduled_work();
 
+	if(work_busy(&host->disable.work))
+		printk("%s, %s, disable work  busy\n",  mmc_hostname(host), __func__ );
+	else{
+		printk("%s, %s, disable work  idle\n",  mmc_hostname(host), __func__ );
+		mmc_flush_scheduled_work();
+	} 
 	mmc_bus_get(host);
 	if (host->bus_ops && !host->bus_dead) {
 		if (host->bus_ops->suspend) {
@@ -2728,9 +2881,9 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
-	if (!err && !mmc_card_keep_power(host))
+	if (!err && !mmc_card_keep_power(host)){
 		mmc_power_off(host);
-
+	}
 out:
 	return err;
 }
@@ -2775,10 +2928,11 @@ int mmc_resume_host(struct mmc_host *host)
 			pr_warning("%s: error %d during resume "
 					    "(card was removed?)\n",
 					    mmc_hostname(host), err);
-			err = 0;
+			/* err = 0; //original */
 		}
 	}
-	host->pm_flags &= ~MMC_PM_KEEP_POWER;
+/*	host->pm_flags &= ~MMC_PM_KEEP_POWER;
+*/
 	mmc_bus_put(host);
 
 	return err;

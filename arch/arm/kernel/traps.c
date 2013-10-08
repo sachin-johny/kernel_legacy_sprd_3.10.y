@@ -282,8 +282,14 @@ static unsigned long oops_begin(void)
 	return flags;
 }
 
+#ifdef CONFIG_SPRD_SYSDUMP /* TODO: jianjun.he */
+	extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
+#endif
 static void oops_end(unsigned long flags, struct pt_regs *regs, int signr)
 {
+#ifdef CONFIG_SPRD_SYSDUMP /* TODO: jianjun.he */
+	sysdump_enter(1, "oops", regs);
+#endif
 	if (regs && kexec_should_crash(current))
 		crash_kexec(regs);
 

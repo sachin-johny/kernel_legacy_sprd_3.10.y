@@ -24,6 +24,7 @@
 #include "mmc_ops.h"
 #include "sd.h"
 #include "sd_ops.h"
+#include "../host/sdhci.h"
 
 static const unsigned int tran_exp[] = {
 	10000,		100000,		1000000,	10000000,
@@ -714,7 +715,7 @@ int mmc_sd_get_cid(struct mmc_host *host, u32 ocr, u32 *cid, u32 *rocr)
 	u32 max_current;
 	int retries = 10;
 
-try_again:
+//try_again:
 	if (!retries) {
 		ocr &= ~SD_OCR_S18R;
 		pr_warning("%s: Skipping voltage switch\n",
@@ -763,6 +764,7 @@ try_again:
 	 * In case CCS and S18A in the response is set, start Signal Voltage
 	 * Switch procedure. SPI mode doesn't support CMD11.
 	 */
+/*
 	if (!mmc_host_is_spi(host) && rocr &&
 	   ((*rocr & 0x41000000) == 0x41000000)) {
 		err = mmc_set_signal_voltage(host, MMC_SIGNAL_VOLTAGE_180);
@@ -774,7 +776,7 @@ try_again:
 			goto try_again;
 		}
 	}
-
+*/
 	if (mmc_host_is_spi(host))
 		err = mmc_send_cid(host, cid);
 	else
@@ -996,6 +998,16 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		 * Attempt to change to high-speed (if supported)
 		 */
 		err = mmc_sd_switch_hs(card);
+/*
+ * FIXME: Set sdcard to normal mode in FPGA forcely,
+ *        because of low sdio clock frequency.
+ *        Delete CONFIG_MACH_SPX35FPGA after chips back.
+ */
+#if defined(CONFIG_MACH_SP8825_FPGA)
+		mmc_set_clock(host, 24000000);
+#elif defined(CONFIG_MACH_SPX35FPGA)
+		mmc_set_clock(host, 2000000);
+#else
 		if (err > 0)
 			mmc_sd_go_highspeed(card);
 		else if (err)
@@ -1017,15 +1029,18 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 
 			mmc_set_bus_width(host, MMC_BUS_WIDTH_4);
 		}
+#endif
+
 	}
 
 	host->card = card;
+	printk("mmc_sd_init_card success\n");
 	return 0;
 
 free_card:
 	if (!oldcard)
 		mmc_remove_card(card);
-
+	printk("mmc_sd_init_card err\n");
 	return err;
 }
 
@@ -1087,6 +1102,24 @@ static void mmc_sd_detect(struct mmc_host *host)
 
 	mmc_release_host(host);
 
+   /*
+     *Sometimes when you unplug the sd card, sd card's pin is still on
+     * connected state because of the card slot, querying the card
+     * status is normal, leading to not be able to remove the
+     * swap cards, thus add sdcard_present to check card.
+    */
+#if  defined(CONFIG_MMC_CARD_HOTPLUG)
+	int is_present ;
+	is_present = sdcard_present(mmc_priv(host));
+	if(!is_present || err) {
+		mmc_sd_remove(host);
+
+		mmc_claim_host(host);
+		mmc_detach_bus(host);
+		mmc_power_off(host);
+		mmc_release_host(host);
+	}
+#else
 	if (err) {
 		mmc_sd_remove(host);
 
@@ -1095,6 +1128,7 @@ static void mmc_sd_detect(struct mmc_host *host)
 		mmc_power_off(host);
 		mmc_release_host(host);
 	}
+#endif
 }
 
 /*
@@ -1282,7 +1316,6 @@ int mmc_attach_sd(struct mmc_host *host)
 	if (err)
 		goto err;
 #endif
-
 	mmc_release_host(host);
 	err = mmc_add_card(host->card);
 	mmc_claim_host(host);

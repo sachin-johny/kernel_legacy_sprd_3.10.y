@@ -864,6 +864,16 @@ config ARCH_OMAP1
 	help
 	  Support for older TI OMAP1 (omap7xx, omap15xx or omap16xx)
 
+config ARCH_SC
+	bool "Spreadtrum SOC"
+	select ARCH_REQUIRE_GPIOLIB
+	select CLKDEV_LOOKUP
+	select GENERIC_CLOCKEVENTS
+	select NEED_MACH_GPIO_H
+	select HAVE_CLK
+	help
+	  Support for Spreadtrum sci based systems.
+
 endchoice
 
 menu "Multiple platform selection"
@@ -1027,6 +1037,8 @@ source "arch/arm/mach-vt8500/Kconfig"
 source "arch/arm/mach-w90x900/Kconfig"
 
 source "arch/arm/mach-zynq/Kconfig"
+
+source "arch/arm/mach-sc/Kconfig"
 
 # Definitions to make life easier
 config ARCH_ACORN

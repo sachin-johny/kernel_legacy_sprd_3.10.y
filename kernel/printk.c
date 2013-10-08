@@ -212,6 +212,7 @@ struct log {
 	u8 facility;		/* syslog facility */
 	u8 flags:5;		/* internal record flags */
 	u8 level:3;		/* syslog level */
+	int cpu;			/* the print cpu */
 };
 
 /*
@@ -310,7 +311,7 @@ static u32 log_next(u32 idx)
 static void log_store(int facility, int level,
 		      enum log_flags flags, u64 ts_nsec,
 		      const char *dict, u16 dict_len,
-		      const char *text, u16 text_len)
+		      const char *text, u16 text_len, int cpu)
 {
 	struct log *msg;
 	u32 size, pad_len;
@@ -355,6 +356,7 @@ static void log_store(int facility, int level,
 	msg->facility = facility;
 	msg->level = level & 7;
 	msg->flags = flags & 0x1f;
+	msg->cpu = cpu;
 	if (ts_nsec > 0)
 		msg->ts_nsec = ts_nsec;
 	else
@@ -887,6 +889,12 @@ static size_t print_time(u64 ts, char *buf)
 	return sprintf(buf, "[%5lu.%06lu] ",
 		       (unsigned long)ts, rem_nsec / 1000);
 }
+static size_t print_cpu(int cpu, char *buf)
+{
+	if (!buf)
+		return snprintf(NULL, 0, "c%d ", cpu);
+	return sprintf(buf, "c%d ", cpu);
+}
 
 static size_t print_prefix(const struct log *msg, bool syslog, char *buf)
 {
@@ -908,6 +916,7 @@ static size_t print_prefix(const struct log *msg, bool syslog, char *buf)
 	}
 
 	len += print_time(msg->ts_nsec, buf ? buf + len : NULL);
+	len += print_cpu(msg->cpu, buf? buf+len:NULL);
 	return len;
 }
 
@@ -1409,6 +1418,7 @@ static struct cont {
 	u8 facility;			/* log level of first message */
 	enum log_flags flags;		/* prefix, newline flags */
 	bool flushed:1;			/* buffer sealed and committed */
+	int cpu;
 } cont;
 
 static void cont_flush(enum log_flags flags)
@@ -1425,7 +1435,7 @@ static void cont_flush(enum log_flags flags)
 		 * line. LOG_NOCONS suppresses a duplicated output.
 		 */
 		log_store(cont.facility, cont.level, flags | LOG_NOCONS,
-			  cont.ts_nsec, NULL, 0, cont.buf, cont.len);
+			  cont.ts_nsec, NULL, 0, cont.buf, cont.len, cont.cpu);
 		cont.flags = flags;
 		cont.flushed = true;
 	} else {
@@ -1434,7 +1444,7 @@ static void cont_flush(enum log_flags flags)
 		 * just submit it to the store and free the buffer.
 		 */
 		log_store(cont.facility, cont.level, flags, 0,
-			  NULL, 0, cont.buf, cont.len);
+			  NULL, 0, cont.buf, cont.len, cont.cpu);
 		cont.len = 0;
 	}
 }
@@ -1547,7 +1557,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 		printed_len += strlen(recursion_msg);
 		/* emit KERN_CRIT message */
 		log_store(0, 2, LOG_PREFIX|LOG_NEWLINE, 0,
-			  NULL, 0, recursion_msg, printed_len);
+			  NULL, 0, recursion_msg, printed_len, logbuf_cpu);
 	}
 
 	/*
@@ -1603,7 +1613,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 		/* buffer line if possible, otherwise store it right away */
 		if (!cont_add(facility, level, text, text_len))
 			log_store(facility, level, lflags | LOG_CONT, 0,
-				  dict, dictlen, text, text_len);
+				  dict, dictlen, text, text_len, logbuf_cpu);
 	} else {
 		bool stored = false;
 
@@ -1621,7 +1631,7 @@ asmlinkage int vprintk_emit(int facility, int level,
 
 		if (!stored)
 			log_store(facility, level, lflags, 0,
-				  dict, dictlen, text, text_len);
+				  dict, dictlen, text, text_len, logbuf_cpu);
 	}
 	printed_len += text_len;
 

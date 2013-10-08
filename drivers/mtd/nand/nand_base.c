@@ -352,9 +352,8 @@ static int nand_block_bad(struct mtd_info *mtd, loff_t ofs, int getchip)
 static int nand_default_block_markbad(struct mtd_info *mtd, loff_t ofs)
 {
 	struct nand_chip *chip = mtd->priv;
-	uint8_t buf[2] = { 0, 0 };
-	int block, res, ret = 0, i = 0;
-	int write_oob = !(chip->bbt_options & NAND_BBT_NO_OOB_BBM);
+	uint8_t buf[2] = { 0x55, 0xaa };
+	int block, ret, i = 0;
 
 	if (write_oob) {
 		struct erase_info einfo;
@@ -3327,6 +3326,16 @@ ident_done:
 		*maf_id, *dev_id, nand_manuf_ids[maf_idx].name,
 		chip->onfi_version ? chip->onfi_params.model : type->name,
 		(int)(chip->chipsize >> 20), mtd->writesize, mtd->oobsize);
+
+#ifdef CONFIG_MTD_NAND_SC8810
+	sprintf(chip->flashname, "NAND device: Manufacturer ID:"
+	       " 0x%02x, Chip ID: 0x%02x (%s %s)\n", *maf_id, *dev_id,
+	       nand_manuf_ids[maf_idx].name, type->name);
+#endif
+
+#ifdef	CONFIG_ARCH_SC8810
+	chip->nfc_hardware_config(mtd, chip, id_data);
+#endif
 
 	return type;
 }

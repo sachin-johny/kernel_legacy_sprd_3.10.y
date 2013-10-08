@@ -185,7 +185,7 @@ static inline int fsg_num_buffers_validate(void)
 }
 
 /* Default size of buffer length. */
-#define FSG_BUFLEN	((u32)16384)
+#define FSG_BUFLEN	((u32)32768)
 
 /* Maximal number of LUNs supported in mass storage function */
 #define FSG_MAX_LUNS	8
@@ -651,11 +651,6 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	struct rw_semaphore	*filesem = dev_get_drvdata(dev);
 	int		rc = 0;
 
-	if (curlun->prevent_medium_removal && fsg_lun_is_open(curlun)) {
-		LDBG(curlun, "eject attempt prevented\n");
-		return -EBUSY;				/* "Door is locked" */
-	}
-
 	/* Remove a trailing newline */
 	if (count > 0 && buf[count-1] == '\n')
 		((char *) buf)[count-1] = 0;		/* Ugh! */
@@ -675,3 +670,38 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	up_write(filesem);
 	return (rc < 0 ? rc : count);
 }
+static ssize_t fsg_show_cdrom(struct device *dev, struct device_attribute *attr,
+                           char *buf)
+{
+        struct fsg_lun  *curlun = fsg_lun_from_dev(dev);
+
+        return sprintf(buf, "%d\n", curlun->cdrom);
+}
+static ssize_t fsg_store_cdrom(struct device *dev, struct device_attribute *attr,
+                            const char *buf, size_t count)
+{
+        ssize_t         rc;
+        struct fsg_lun  *curlun = fsg_lun_from_dev(dev);
+        struct rw_semaphore     *filesem = dev_get_drvdata(dev);
+        unsigned        cdrom;
+
+        if (sscanf(buf, "%d", &cdrom) != 1)
+                return -EINVAL;
+
+        /*
+         * Allow the write-enable status to change only while the
+         * backing file is closed.
+         */
+        down_read(filesem);
+        if (fsg_lun_is_open(curlun)) {
+                LDBG(curlun, "read-only status change prevented\n");
+                rc = -EBUSY;
+        } else {
+                curlun->cdrom = cdrom;
+                LDBG(curlun, "file storage set to cdrom: %d\n", curlun->cdrom);
+                rc = count;
+        }
+        up_read(filesem);
+        return rc;
+}
+

@@ -41,6 +41,13 @@ config ARM_UNWIND
 	  the performance is not affected. Currently, this feature
 	  only works with EABI compilers. If unsure say Y.
 
+config SPRD_SYSDUMP
+        tristate "Enable SPRD sysdump handler"
+        depends on ARCH_SC
+        help
+          This option enables Spreadtrum sysdump which prepare debug info
+	  for u-boot to write into mmc storage after kernel panics.
+
 config OLD_MCOUNT
 	bool
 	depends on FUNCTION_TRACER && FRAME_POINTER
@@ -712,5 +719,15 @@ config PID_IN_CONTEXTIDR
 	  the PROCID field of the CONTEXTIDR register, at the expense of some
 	  additional instructions during context switch. Say Y here only if you
 	  are planning to use hardware trace tools with this kernel.
+
+config SPRD_DEBUG
+	bool "Enable SPRD DEBUG"
+
+config SPRD_DEBUG_SCHED_LOG
+	bool "SPRD Scheduler Logging Feature"
+	depends on SPRD_DEBUG
+	default n
+	help
+	  SPRD Scheduler Logging Feature for Debug use.
 
 endmenu

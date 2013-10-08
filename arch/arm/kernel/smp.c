@@ -46,6 +46,10 @@
 #include <asm/virt.h>
 #include <asm/mach/arch.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
 /*
  * as from 2.5, kernels no longer have an init_tasks structure
  * so we need some other way of telling a new secondary core
@@ -650,6 +654,9 @@ asmlinkage void __exception_irq_entry do_IPI(int ipinr, struct pt_regs *regs)
 	handle_IPI(ipinr, regs);
 }
 
+#ifdef CONFIG_SPRD_SYSDUMP
+		extern void sysdump_ipi(struct pt_regs *regs);
+#endif
 void handle_IPI(int ipinr, struct pt_regs *regs)
 {
 	unsigned int cpu = smp_processor_id();
@@ -657,6 +664,10 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	if (ipinr < NR_IPI)
 		__inc_irq_stat(cpu, ipi_irqs[ipinr]);
+
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 1);
+#endif
 
 	switch (ipinr) {
 	case IPI_WAKEUP:
@@ -688,6 +699,9 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 
 	case IPI_CPU_STOP:
 		irq_enter();
+#ifdef CONFIG_SPRD_SYSDUMP
+		sysdump_ipi(regs);
+#endif
 		ipi_cpu_stop(cpu);
 		irq_exit();
 		break;
@@ -701,6 +715,11 @@ void handle_IPI(int ipinr, struct pt_regs *regs)
 		       cpu, ipinr);
 		break;
 	}
+
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_irq_log(ipinr, do_IPI, 2);
+#endif
+
 	set_irq_regs(old_regs);
 }
 

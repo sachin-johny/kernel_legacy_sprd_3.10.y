@@ -754,6 +754,7 @@ int usb_add_config(struct usb_composite_dev *cdev,
 			config->bConfigurationValue,
 			config->label, config);
 
+	printk("%s(%d) %s \n",current->comm, current->pid,__func__);
 	status = usb_add_config_only(cdev, config);
 	if (status)
 		goto done;
@@ -852,8 +853,8 @@ void usb_remove_config(struct usb_composite_dev *cdev,
 	if (cdev->config == config)
 		reset_config(cdev);
 
-	list_del(&config->list);
-
+	__list_del_entry(&config->list);
+	printk("%s(%d) %s \n",current->comm,current->pid,__func__);
 	spin_unlock_irqrestore(&cdev->lock, flags);
 
 	unbind_config(cdev, config);
@@ -1493,6 +1494,12 @@ void composite_disconnect(struct usb_gadget *gadget)
 		reset_config(cdev);
 	if (cdev->driver->disconnect)
 		cdev->driver->disconnect(cdev);
+	if(cdev->delayed_status !=0)
+	{
+		INFO(cdev,"delayed status mismatch .. resetting\n");
+		cdev->delayed_status = 0;
+	}
+
 	spin_unlock_irqrestore(&cdev->lock, flags);
 }
 
