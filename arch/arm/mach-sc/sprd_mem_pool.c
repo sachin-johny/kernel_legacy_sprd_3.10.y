@@ -76,7 +76,7 @@ struct status {
 };
 
 /*global variables*/
-static unsigned long alloc_flag = 1;
+static unsigned long alloc_flag = 0;
 static unsigned long node_list_8k[LIST_8K];
 static unsigned long node_list_16k[LIST_16K];
 static struct workqueue_struct *sprd_alloc_wq = NULL;

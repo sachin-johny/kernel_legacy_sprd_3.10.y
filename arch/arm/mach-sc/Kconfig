@@ -139,7 +139,7 @@ endmenu
 
 config SPRD_MEM_POOL
     bool "Using a memory pool to alloc 16k and 8k pages"
-    default n
+    default y
     help
       This option enables memmory pool for allocating thread stack and pgd table.
 
