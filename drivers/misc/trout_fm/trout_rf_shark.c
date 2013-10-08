@@ -306,16 +306,20 @@ int shark_fm_cfg_rf_reg(void)
 
 	shark_fm_rf_mspi_init();
 
-	/*shark_fm_rf_write(0x151, 0x0022);*/
-	shark_fm_rf_write(0x077, 0x0F000);  /*disable WB ctrl by BB [15:12]*/
-	shark_fm_rf_write(0x614, 0xB036);  /*disable WAGC ctrl by BB [8] = 0*/
-	/*shark_fm_rf_write(0x6f,0x201)*/
-	shark_fm_rf_write(0x07D, 0x0100);   /*enable RC tuner read back*/
-	shark_fm_rf_write(0x431, 0x8022);   /*enable FM overload detect*/
-	shark_fm_rf_write(0x478, 0x009f);
+
+	shark_fm_rf_write(0x471, 0x0FFF);
+        shark_fm_rf_write(0x477, 0xFFFF);
+        shark_fm_rf_write(0x478, 0x001F);
+        shark_fm_rf_write(0x478, 0x009F);
+        shark_fm_rf_write(0x06F, 0x0201);
+        shark_fm_rf_write(0x431, 0x8022);
+
+        shark_fm_rf_write(0x06F, 0x0601);
 	shark_fm_rf_write(0x404, 0x0333);
 	shark_fm_rf_write(0x400, 0x0011);
 	shark_fm_rf_write(0x402, 0x07A6);
+	shark_fm_rf_write(0x404, 0x0333);
+
 	msleep(20);
 
 	return 0;
@@ -324,14 +328,11 @@ int shark_fm_cfg_rf_reg(void)
 int trout_fm_init(void)
 {
 	u32 reg_data;
-	u32 tmp_data;
 	
 	int result;
 
-            /*enable the FM ADC clock*/
-	WRITE_REG(0x06F,0x0601);
 			
-	/*added by xuede to route FMIQD0 to IIS0DI and FMIQD1 to IISD0DO*/
+   /*added by xuede to route FMIQD0 to IIS0DI and FMIQD1 to IISD0DO*/
 	READ_REG(PINMAP_FOR_FMIQ, &reg_data);
 	reg_data |= 3<<16;
 	WRITE_REG(PINMAP_FOR_FMIQ, reg_data);
@@ -359,7 +360,25 @@ int trout_fm_init(void)
 	READ_REG(PINMAP_FOR_TPCK, &reg_data);
 	reg_data |= 3<<4;
 	WRITE_REG(PINMAP_FOR_TPCK, reg_data);
-	/*enable the power of CCIR*/
+
+  /*modify the register value to avoid the fm no voice when system go to deep sleep*/
+        READ_REG(SHARK_APB_EB0_SET, &reg_data);
+	reg_data |= 1<<20;
+	WRITE_REG(SHARK_APB_EB0_SET, reg_data);
+	
+        READ_REG(SHARK_PMU_SLEEP_CTRL, &reg_data);
+	reg_data |= 1<<8;
+	WRITE_REG(SHARK_PMU_SLEEP_CTRL, reg_data);
+
+        READ_REG(PINMAP_FOR_IIS0DO, &reg_data);
+	reg_data |= 2;
+	WRITE_REG(PINMAP_FOR_IIS0DO, reg_data);
+
+        READ_REG(PINMAP_FOR_IIS0DI, &reg_data);
+	reg_data |= 2;
+	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
+
+   /*enable the power of CCIR*/
 	WRITE_REG(0x4003881C, 0x0);
 	/* added end*/
 	if (enable_shark_fm() != 0)
@@ -375,31 +394,10 @@ int trout_fm_init(void)
 	WRITE_REG(FM_REG_RF_CTL, ((0x404<<16)|(0x0402)));
 	WRITE_REG(FM_REG_RF_CTL1, ((0x0466<<16)|(0x0043)));
 
-           
-           /*modify the register value to avoid the fm no voice when system go to deep sleep*/
-           READ_REG(0x402E1000, &tmp_data);
-	TROUT_PRINT("trout_fm_init  before 0x402A008C = %x",tmp_data);	   
-	tmp_data |= 1<<20;
-	WRITE_REG(0x402E1000, tmp_data);
-	
-           tmp_data  = 0;
-           READ_REG(0x402B00C4, &tmp_data);
-	TROUT_PRINT("trout_fm_init  before 0x402A0088 = %x",tmp_data);
-	tmp_data |= 1<<8;
-	WRITE_REG(0x402B00C4, tmp_data);
+        
 
-	tmp_data  = 0;
-          READ_REG(0x402A0404, &tmp_data);
-	TROUT_PRINT("trout_fm_init  before 0x402A0404 = %x",tmp_data);
-	tmp_data |= 2;
-	WRITE_REG(0x402A0404, tmp_data);
 
-	tmp_data  = 0;
-          READ_REG(0x402A0408, &tmp_data);
-           TROUT_PRINT("trout_fm_init  before 0x402A0408 = %x",tmp_data);
-	tmp_data |= 2;
-	WRITE_REG(0x402A0408, tmp_data);
-      
+
 	shark_fm_info.freq_seek = 860*2;
 	/*result = request_irq(INT_NUM_FM_test,\
 	  fm_interrupt, IRQF_DISABLED, "Trout_FM", NULL);*/
