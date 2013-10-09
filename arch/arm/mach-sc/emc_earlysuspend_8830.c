@@ -250,6 +250,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
 #endif
 //	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
+	printk("sys timer = 0x%08x, ap sys count = 0x%08x\n", __raw_readl(SPRD_SYSTIMER_CMP_BASE + 4) * 305 / 10000, __raw_readl(SPRD_SYSCNT_BASE + 0xc));
 	return 0;
 }
 EXPORT_SYMBOL(emc_clk_set);
@@ -487,6 +488,8 @@ static int __init emc_early_suspend_init(void)
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	//cp_code_init();
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AON_SYST_EB); //enable aon sys timer
+	printk("sys timer = 0x%08x, ap sys count = 0x%08x\n", __raw_readl(SPRD_SYSTIMER_CMP_BASE + 4) * 305 / 10000, __raw_readl(SPRD_SYSCNT_BASE + 0xc));
 	__emc_timing_reg_init();
 #ifndef CONFIG_SCXX30_AP_DFS
 	cp_init();
