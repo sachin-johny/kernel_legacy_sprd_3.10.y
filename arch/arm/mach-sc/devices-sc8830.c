@@ -988,7 +988,7 @@ static int native_tdmodem_start(void *arg)
 {
 	u32 state;
 	u32 value;
-	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
+	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x300000};
 	memcpy((void *)(SPRD_IRAM1_BASE + 0x1800), cp1data, sizeof(cp1data));
 
 	/* clear cp1 force shutdown */
@@ -1038,13 +1038,13 @@ static struct cproc_init_data sprd_cproc_td_pdata = {
 	.segs		= {
 		{
 			.name  = "modem",
-			.base  = CPT_START_ADDR + 0x500000,
+			.base  = CPT_START_ADDR + 0x300000,
 			.maxsz = 0x00800000,
 		},
 		{
 			.name  = "dsp",
 			.base  = CPT_START_ADDR + 0x20000,
-			.maxsz = 0x003E0000,
+			.maxsz = 0x002E0000,
 		},
 	},
 };
