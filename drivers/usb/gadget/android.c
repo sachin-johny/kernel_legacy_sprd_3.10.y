@@ -1035,39 +1035,90 @@ static struct android_usb_function vser_function = {
 	.ctrlrequest	= vser_function_ctrlrequest,
 };
 
-
+struct gser_function_config {
+	int instances_on;
+	struct usb_function *f_gser[GSER_PORT_MAX_COUNT];
+	struct usb_function_instance *f_gser_inst[GSER_PORT_MAX_COUNT];
+};
 static int  gser_port_count=1;
 static int gser_function_init(struct android_usb_function *f,
 					struct usb_composite_dev *cdev)
 {
-#if 0
-	return gserial_setup(cdev->gadget, GSER_PORT_MAX_COUNT);
-#else
-	return -1;
-#endif
+	int i;
+	int ret;
+	struct gser_function_config *config;
+
+	config = kzalloc(sizeof(struct gser_function_config), GFP_KERNEL);
+	if (!config)
+		return -ENOMEM;
+	f->config = config;
+
+	for (i = 0; i < GSER_PORT_MAX_COUNT; i++) {
+		config->f_gser_inst[i] = usb_get_function_instance("gser");
+		if (IS_ERR(config->f_gser_inst[i])) {
+			ret = PTR_ERR(config->f_gser_inst[i]);
+			goto err_usb_get_function_instance;
+		}
+		config->f_gser[i] = usb_get_function(config->f_gser_inst[i]);
+		if (IS_ERR(config->f_gser[i])) {
+			ret = PTR_ERR(config->f_gser[i]);
+			goto err_usb_get_function;
+		}
+	}
+	return 0;
+err_usb_get_function_instance:
+	while (i-- > 0) {
+		usb_put_function(config->f_gser[i]);
+err_usb_get_function:
+		usb_put_function_instance(config->f_gser_inst[i]);
+	}
+	return ret;
 }
 
 static void gser_function_cleanup(struct android_usb_function *f)
 {
-	//gserial_cleanup();
+	int i;
+	struct gser_function_config *config = f->config;
+
+	for (i = 0; i < GSER_PORT_MAX_COUNT; i++) {
+		usb_put_function(config->f_gser[i]);
+		usb_put_function_instance(config->f_gser_inst[i]);
+	}
+	kfree(f->config);
+	f->config = NULL;
 }
 
 static int gser_function_bind_config(struct android_usb_function *f,
 						struct usb_configuration *c)
 {
 	int i;
-	int ret = -1;
+	int ret = 0;
+	struct gser_function_config *config = f->config;
 
-#if 0
-	for(i=0;i<gser_port_count;i++){
-		ret = gser_bind_config(c, i);
-		if(ret){
-			pr_err("Can not bind GSER%d\n",i);
-			break;
+	config->instances_on = gser_port_count;
+	for (i = 0; i < config->instances_on; i++) {
+		ret = usb_add_function(c, config->f_gser[i]);
+		if (ret) {
+			pr_err("Could not bind gser%u config\n", i);
+			goto err_usb_add_function;
 		}
 	}
-#endif
+
+	return 0;
+
+err_usb_add_function:
+	while (i-- > 0)
+		usb_remove_function(c, config->f_gser[i]);
 	return ret;
+}
+static void gser_function_unbind_config(struct android_usb_function *f,
+				       struct usb_configuration *c)
+{
+	int i;
+	struct gser_function_config *config = f->config;
+
+	for (i = 0; i < config->instances_on; i++)
+		usb_remove_function(c, config->f_gser[i]);
 }
 
 static int gser_function_ctrlrequest(struct android_usb_function *f,
@@ -1091,10 +1142,7 @@ static ssize_t gser_port_store(struct device *dev,
 static ssize_t gser_port_show(struct device *dev,
 		struct device_attribute *attr, char *buf)
 {
-	struct android_usb_function *f = dev_get_drvdata(dev);
-	struct audio_source_config *config = f->config;
-
-	/* print PCM card and device numbers */
+	/* print gser instance numbers */
 	return sprintf(buf, "%d \n",gser_port_count );
 }
 static DEVICE_ATTR(port_count, S_IRUGO | S_IWUSR, gser_port_show, gser_port_store);
@@ -1108,6 +1156,7 @@ static struct android_usb_function gser_function = {
 	.init		= gser_function_init,
 	.cleanup	= gser_function_cleanup,
 	.bind_config	= gser_function_bind_config,
+	.unbind_config	= gser_function_unbind_config,
 	.ctrlrequest	= gser_function_ctrlrequest,
 	.attributes	= gser_function_attributes,
 };
@@ -1178,7 +1227,6 @@ static struct android_usb_function audio_source_function = {
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
 	&adb_function,
-	&acm_function,
 	&mtp_function,
 	&ptp_function,
 	&rndis_function,
@@ -1187,7 +1235,7 @@ static struct android_usb_function *supported_functions[] = {
 	&audio_source_function,
 #ifdef CONFIG_USB_SPRD_DWC
 	&vser_function,
-	//&gser_function,
+	&gser_function,
 #else
 	&acm_function,
 #endif
