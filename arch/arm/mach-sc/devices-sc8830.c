@@ -502,6 +502,16 @@ struct platform_device sprd_sdio1_device = {
 	.dev = { .platform_data = &sprd_sdio1_pdata },
 };
 
+struct platform_device sprd_vsp_device = {
+	.name	= "sprd_vsp",
+	.id	= -1,
+};
+
+struct platform_device sprd_jpg_device = {
+	.name	= "sprd_jpg",
+	.id	= -1,
+};
+
 static struct resource sprd_sdio2_resources[] = {
 	[0] = {
 	       .start = SPRD_SDIO2_BASE,

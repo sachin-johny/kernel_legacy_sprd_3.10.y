@@ -531,6 +531,9 @@ config SRAM
 	  the genalloc API. It is supposed to be used for small on-chip SRAM
 	  areas found on many SoCs.
 
+source "drivers/misc/sprd_vsp/Kconfig"
+source "drivers/misc/sprd_jpg/Kconfig"
+
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
 source "drivers/misc/cb710/Kconfig"

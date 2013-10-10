@@ -976,6 +976,9 @@ CONFIG_UID_STAT=y
 # CONFIG_SRAM is not set
 # CONFIG_C2PORT is not set
 
+CONFIG_SPRD_VSP=y
+CONFIG_SPRD_JPG=y
+
 #
 # EEPROM support
 #
