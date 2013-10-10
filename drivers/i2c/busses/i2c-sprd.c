@@ -417,7 +417,10 @@ static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 {
 #if defined(CONFIG_ARCH_SCX35)
 	char buf[256] = { 0 };
-	sprintf(buf, "clk_i2c%d", pi2c->adap.nr);
+	if (unlikely(pi2c->adap.nr >= 5))
+		strcpy(buf, "clk_i2c");
+	else
+		sprintf(buf, "clk_i2c%d", pi2c->adap.nr);
 	dev_info(&pi2c->adap.dev, "%s buf=%s", __func__, buf);
 
 	pi2c->clk = clk_get(&pi2c->adap.dev, buf);
