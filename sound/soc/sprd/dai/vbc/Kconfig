@@ -17,8 +17,8 @@ config SPRD_VBC_INTERLEAVED
 
 config SPRD_VBC_LR_INVERT
 	bool "VBC Support buffer0 and buffer1 invert"
-	default n
-	depends on SND_SOC_DOLPHIN
+	default y
+	depends on SND_SOC_DOLPHIN ||SND_SPRD_SOC_VBC_R2P0 ||SND_SPRD_SOC_VBC
 	help
 	 say Y then the VBC will support invert the LR channel.
 
