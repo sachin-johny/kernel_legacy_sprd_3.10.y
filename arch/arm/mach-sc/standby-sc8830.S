@@ -57,6 +57,50 @@
 	bne	2b
 	.endm
 
+	.macro sleep_trace_orr_phys
+	stmfd sp!, {r1, r2}
+	ldr r1, =sleep_trace_flag
+	ldr r2, =0xc0000000
+	sub r1, r1, r2
+	ldr r2, =(CONFIG_PHYS_OFFSET)
+	add r1, r2, r1
+	ldr r2, [r1]
+	orr r0, r0, r2
+	str r0, [r1]
+	ldmfd   sp!, {r1,r2}
+	.endm
+
+	.macro sleep_trace_and_phys
+	stmfd sp!, {r1, r2}
+	ldr r1, =sleep_trace_flag
+	ldr r2, =0xc0000000
+	sub r1, r1, r2
+	ldr r2, =(CONFIG_PHYS_OFFSET)
+	add r1, r2, r1
+	ldr r2, [r1]
+	and r0, r0, r2
+	str r0, [r1]
+	ldmfd   sp!, {r1,r2}
+	.endm
+
+	.macro sleep_trace_orr
+	stmfd sp!, {r1, r2}
+	ldr r1, =sleep_trace_flag
+	ldr r2, [r1]
+	orr r0, r0, r2
+	str r0, [r1]
+	ldmfd   sp!, {r1,r2}
+	.endm
+
+	.macro sleep_trace_and
+	stmfd sp!, {r1, r2}
+	ldr r1, =sleep_trace_flag
+	ldr r2, [r1]
+	and r0, r0, r2
+	str r0, [r1]
+	ldmfd   sp!, {r1,r2}
+	.endm
+
 	.text
 	.align 12
 ENTRY(sc8830_standby_iram)
@@ -79,6 +123,8 @@ sprd_pm_va_to_iram:
 #if 0
 4:  b 4b
 #endif
+	mov r0, #0
+	sleep_trace_and
 	nop
 	nop
 	nop
@@ -108,6 +154,8 @@ loopq:
 	b loopq
 
 #endif
+	mov r0, #0x10000
+	sleep_trace_orr
 	mov r0, #0
 	mov pc, lr
 	nop
@@ -127,6 +175,11 @@ ENTRY(sc8830_standby_exit_iram)
 	ldr r1, =0x00d3
 	cmp r0, r1
 	msr cpsr_c, r1
+
+	ldr r13, =0x0c00
+	mov r0, #1
+	sleep_trace_orr_phys
+
 #if 0
 5:	b 5b
 #endif
@@ -158,9 +211,14 @@ loopp:
 	*/
 
 #endif
+	mov 	r0, #2
+	sleep_trace_orr_phys
 
 	ldr r0, =0x0020
 	bl my_delay
+
+	mov 	r0, #4
+	sleep_trace_orr_phys
 
 	/*
 	*  convert to physical address,
@@ -225,6 +283,8 @@ ENDPROC(dead)
 
 	.globl sleep_asm_counter
 sleep_asm_counter:
+	.long	0x0
+sleep_trace_flag:
 	.long	0x0
 str_a2:	.asciz	"from deep!"
 str_a1:	.asciz	"dead!"
@@ -310,6 +370,10 @@ ENDPROC(sp_pm_collapse)
 ENTRY(sp_pm_collapse_exit)
 	mov r0, #'Z'
 	bl printch
+
+	mov 	r0, #8
+	sleep_trace_orr_phys
+
 	ldr     r1, =sp_saved_state
 	ldr     r2, =sp_pm_collapse_exit
 	adr     r3, sp_pm_collapse_exit
@@ -335,7 +399,6 @@ ENTRY(sp_pm_collapse_exit)
 	mcr     p15, 0, r11, c13, c0, 1 /* context ID */
 	isb
 	ldmdb   r1!, {r4-r14}
-
 #if 0
 3:	b 3b
 	mov r0, #'Y'
@@ -359,8 +422,10 @@ ENTRY(sp_pm_collapse_exit)
 	mcr     p15, 0, r3, c7, c10, 1  /* flush_pmd */
 	dsb
 	isb
+
 	mcr     p15, 0, r2, c1, c0, 0   /* MMU control */
 	isb
+
 sp_pm_mapped_pa:
 	/* Switch to virtual */
 	adr     r2, sp_pm_pa_to_va
@@ -396,6 +461,9 @@ sp_pm_pa_to_va:
 #if 0
 2:	b	2b
 #endif
+	mov 	r0, #0x10
+	sleep_trace_orr
+
 	mov     r0, #1
 	bx      lr
 	nop
