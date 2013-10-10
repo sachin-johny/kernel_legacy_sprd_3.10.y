@@ -363,7 +363,7 @@ struct shark_fm_info_t shark_fm_info = {
 struct shark_reg_cfg_t fm_reg_init_des[] = {
 	{FM_REG_FM_CTRL	,		0x00001011},
 	/*{FM_REG_FM_CTRL	,			0x00023111},*/
-	{FM_REG_FM_EN	,			0x000036EE},
+	{FM_REG_FM_EN	,			0x000032EE},
 	{FM_REG_CHAN	,			(899-1)*2},
 	/*{FM_REG_CHAN	,			899},*/
 	{FM_REG_AGC_TBL_CLK,		0x00000000},
@@ -374,7 +374,7 @@ struct shark_reg_cfg_t fm_reg_init_des[] = {
 	{FM_REG_BAND_SPACE	,		0x00000002},
 	/*{FM_REG_RFREG_ADDR	,	0x0},*/
 	{FM_REG_ADC_INFCTRL, 0}, /*0x00067f7f}, new*/
-	{FM_REG_SEEK_CH_TH	,		800},
+	{FM_REG_SEEK_CH_TH	,		2000},
 	{FM_REG_AGC_TBL_RFRSSI0,	0x00020800},
 	{FM_REG_AGC_TBL_RFRSSI1,	(31 << 24) | (5 << 16) | (3000)},
 	{FM_REG_AGC_TBL_WBRSSI	,	0x00F60C12},
