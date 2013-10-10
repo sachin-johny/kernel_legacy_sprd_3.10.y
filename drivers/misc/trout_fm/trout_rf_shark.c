@@ -315,10 +315,10 @@ int shark_fm_cfg_rf_reg(void)
         shark_fm_rf_write(0x431, 0x8022);
 
         shark_fm_rf_write(0x06F, 0x0601);
-	shark_fm_rf_write(0x404, 0x0333);
+	shark_fm_rf_write(0x404, 0x0335);
 	shark_fm_rf_write(0x400, 0x0011);
 	shark_fm_rf_write(0x402, 0x07A6);
-	shark_fm_rf_write(0x404, 0x0333);
+	shark_fm_rf_write(0x404, 0x0335);
 
 	msleep(20);
 
