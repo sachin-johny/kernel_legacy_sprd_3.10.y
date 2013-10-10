@@ -61,6 +61,16 @@ static unsigned int sdio_wakeup_irq;
 static struct sdhci_host *sdhci_host_g = NULL;
 #endif
 
+#ifdef CONFIG_PM
+#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_SPRD_SRT
+static struct sdhci_host * sdhci_host_sdcard =NULL;
+static struct platform_device *emmc_plat_dev=NULL;;
+#endif
+#endif
+#endif
+
+
 extern void mmc_power_off(struct mmc_host* mmc);
 extern void mmc_power_up(struct mmc_host* mmc);
 
@@ -550,6 +560,13 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
 			host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;// | MMC_PM_KEEP_POWER;
 			host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR ;
+			#ifdef CONFIG_PM
+			#ifdef CONFIG_PM_RUNTIME
+			#ifdef CONFIG_SPRD_SRT
+				emmc_plat_dev=pdev;
+			#endif
+			#endif
+			#endif
 			break;
 		default:
 			BUG();
@@ -579,6 +596,12 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			break;
 			}
 #endif
+	#ifdef CONFIG_PM_RUNTIME
+	#if CONFIG_SPRD_SRT
+		if (pdev->id == 0)
+			sdhci_host_sdcard = host;
+	#endif
+	#endif
 
 	ret = sdhci_add_host(host);
 	if (ret) {
@@ -770,6 +793,90 @@ static void __exit sdhci_sprd_exit(void)
 {
 	platform_driver_unregister(&sdhci_sprd_driver);
 }
+
+
+
+#ifdef CONFIG_PM
+#ifdef CONFIG_PM_RUNTIME
+#ifdef CONFIG_SPRD_SRT
+
+/*BEGIN stub code for SRT eMMC  time out test case*/
+static struct wake_lock srt_suspend_wakelock,srt_idle_wakelock;
+void srt_begin_test(){
+	wake_lock_init(&srt_suspend_wakelock, WAKE_LOCK_SUSPEND,"srt_suspend_wakelock");
+	wake_lock_init(&srt_idle_wakelock, WAKE_LOCK_IDLE,"srt_idle_wakelock");
+	wake_lock(&srt_suspend_wakelock);
+	wake_lock(&srt_idle_wakelock);
+}
+void srt_end_test(){
+	wake_unlock(&srt_idle_wakelock);
+	wake_unlock(&srt_suspend_wakelock);
+	wake_lock_destroy(&srt_idle_wakelock);
+	wake_lock_destroy(&srt_suspend_wakelock);
+}
+void sprd_srt_emmc_test(int action,int count){
+	#define SRT_EMMC_PMRUNTIME 0
+	#define SRT_EMMC_PM		 1
+	if(emmc_plat_dev ){
+		struct device *dev = &emmc_plat_dev->dev;
+		if(SRT_EMMC_PMRUNTIME==action){
+			int loop=0;
+			srt_begin_test();
+			for(loop=0;loop<count;loop++){
+				printk( "SRT emmc_pm_manage PMRT testing %d\n",loop);
+				if (!pm_runtime_suspended(dev)){
+					sprd_mmc_host_runtime_suspend(dev);
+				}
+				if (pm_runtime_suspended(dev)){
+					sprd_mmc_host_runtime_resume(dev);
+				}
+			}
+			srt_end_test();
+		}
+		if(SRT_EMMC_PM==action){
+			int loop=0;
+			srt_begin_test();
+			for(loop=0;loop<count;loop++){
+				printk( "SRT emmc_pm_manage PM testing %d\n",loop);
+				device_lock(dev);
+				sdhci_pm_suspend(dev);
+				device_unlock(dev);
+				device_lock(dev);
+				sdhci_pm_resume(dev);
+				device_unlock(dev);
+			}
+			srt_end_test();
+		}
+	}else{
+		printk(KERN_ERR "SRT sprd_srt_emmc_test emmc_plat_dev  error[%x]",emmc_plat_dev);
+	}
+}
+EXPORT_SYMBOL_GPL(sprd_srt_emmc_test);
+/*END stub code for SRT eMMC  time out test case*/
+
+/*BEGIN stub code for SRT sd hotplug test case*/
+int mmc_schedule_card_removal_work(struct delayed_work *work, unsigned long delay);
+void sprd_srt_sdcard_plug(int plug){
+	#define SD_PLUG_IN 0
+	#define SD_PLUG_OUT 1
+	if(sdhci_host_sdcard && (sdhci_host_sdcard->mmc)){
+		if(SD_PLUG_IN==plug){
+			mmc_detect_change(sdhci_host_sdcard->mmc, 0);
+		}
+		if(SD_PLUG_OUT==plug){
+			mmc_schedule_card_removal_work(&sdhci_host_sdcard->mmc->remove, 0);
+		}
+	}else{
+		printk(KERN_ERR "sprd_srt_sdcard_plug sdhci_host_sdcard  error[%x]",sdhci_host_sdcard);
+	}
+}
+
+EXPORT_SYMBOL_GPL(sprd_srt_sdcard_plug);
+/*END stub code for SRT sd hotplug test case */
+
+#endif
+#endif
+#endif
 
 module_init(sdhci_sprd_init);
 module_exit(sdhci_sprd_exit);
