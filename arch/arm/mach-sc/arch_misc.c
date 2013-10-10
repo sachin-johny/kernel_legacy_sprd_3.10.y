@@ -74,6 +74,8 @@ static void __iomap_page(unsigned long virt, unsigned long size, int enable)
 
 int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 {
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	if (enable) {
 		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
 		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
@@ -103,6 +105,7 @@ int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_VSP_BASE, SZ_4K, enable);
 	}
+#endif
 	return 0;
 }
 
@@ -110,11 +113,12 @@ void __init sc_init_chip_id(void)
 {
 #if defined(CONFIG_ARCH_SC8825)
 	chip_id = __raw_readl(REG_AHB_CHIP_ID);
-#endif
-#if defined(CONFIG_ARCH_SCX35)
+#elif defined(CONFIG_ARCH_SCX35)
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	if (chip_id == 0)
 		chip_id = SCX35_ALPHA_TAPOUT;	//alpha Tapout.
+#else
+	#error "Is chip_id ..?"
 #endif
 }
 

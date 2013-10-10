@@ -272,6 +272,8 @@ u32 emc_clk_get(void)
 	u32 reg_val;
 	u32 sel;
 	u32 clk;
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	reg_val = sci_glb_read(REG_AON_CLK_EMC_CFG, -1);
 	sel = reg_val & 0x3;
 	div = (reg_val >> 8) & 0x3;
@@ -292,6 +294,7 @@ u32 emc_clk_get(void)
 		break;
 	}
 	clk = pll_clk / (div + 1);
+#endif
 	return clk;
 }
 EXPORT_SYMBOL(emc_clk_get);
@@ -444,6 +447,8 @@ static void emc_dfs_code_copy(u8 * dest)
 #else
 static void cp_init(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	cp_code_init();
 #ifdef CONFIG_DFS_AT_CP0 //dfs is at cp0
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//reset cp0
@@ -463,11 +468,13 @@ static void cp_init(void)
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 #endif
 	wait_cp_run();
+#endif
 }
 #endif
 static int __init emc_early_suspend_init(void)
 {
-	int ret;
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	//u32 val;
 	//__raw_writel(1, REG_AON_CLK_PUB_AHB_CFG);
 	//__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
@@ -497,6 +504,7 @@ static int __init emc_early_suspend_init(void)
 	emc_debugfs_creat();
 #ifdef EMC_FREQ_AUTO_TEST
 	__emc_freq_test();
+#endif
 #endif
 	return 0;
 }

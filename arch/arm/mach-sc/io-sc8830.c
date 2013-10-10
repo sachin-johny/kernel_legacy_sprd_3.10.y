@@ -139,7 +139,13 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_IRAM(IRAM0),
 	SPRD_IRAM(IRAM0H),
 	SPRD_DEVICE(IRAM1),
-	SPRD_DEVICE(IRAM2)
+	SPRD_DEVICE(IRAM2),
+#if defined(CONFIG_ARCH_SCX15)
+	SPRD_DEVICE(ZIPENC),
+	SPRD_DEVICE(ZIPDEC),
+	SPRD_DEVICE(GSPMMU),
+	SPRD_DEVICE(MMMMU),
+#endif
 };
 
 void __init sci_map_io(void)

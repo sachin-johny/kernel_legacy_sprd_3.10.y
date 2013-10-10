@@ -501,9 +501,12 @@ static inline int arch_audio_codec_analog_reg_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	ret =
 		sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN,
 						BIT_ANA_AUD_EN);
+#endif
 #endif
 
 	return ret;
@@ -514,7 +517,10 @@ static inline int arch_audio_codec_analog_reg_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	ret = sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, 0, BIT_ANA_AUD_EN);
+#endif
 #endif
 
 	return ret;
@@ -525,6 +531,8 @@ static inline int arch_audio_codec_analog_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	/*AUDIF , 6.5M*/
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
@@ -537,6 +545,7 @@ static inline int arch_audio_codec_analog_enable(void)
 	/* FIXME: disable deepsleep force power off audio ldo */
 	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
 #endif
+#endif
 
 	return ret;
 }
@@ -546,9 +555,11 @@ static inline int arch_audio_codec_digital_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	/*internal digital 26M enable*/
 	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE), (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
-
+#endif
 #endif
 
 	return ret;
@@ -559,6 +570,8 @@ static inline int arch_audio_codec_analog_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	/*AUDIF , 6.5M*/
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
@@ -567,6 +580,7 @@ static inline int arch_audio_codec_analog_disable(void)
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, 0, BIT_RTC_AUD_EN);
 	/*26M  this is shared with adc, so we cann't close it */
 	/*sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN);*/
+#endif
 #endif
 
 	return ret;

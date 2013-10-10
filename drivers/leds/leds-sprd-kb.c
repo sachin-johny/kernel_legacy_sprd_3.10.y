@@ -279,7 +279,7 @@ static struct platform_driver sprd_kpled_driver = {
 	.shutdown = sprd_kpled_shutdown,
 };
 
-static int __devinit sprd_kpled_init(void)
+static int __init sprd_kpled_init(void)
 {
 	return platform_driver_register(&sprd_kpled_driver);
 }
