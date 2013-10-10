@@ -391,6 +391,52 @@ struct platform_device sprd_keypad_device = {
 	.resource = sci_keypad_resources,
 };
 
+static struct resource sprd_dcam_resources[] = {
+	{
+		.start	= SPRD_ISP_BASE,
+		.end	= SPRD_ISP_BASE + SPRD_ISP_SIZE - 1,
+		.flags	= IORESOURCE_MEM,
+	},
+	{
+		.start	= IRQ_ISP_INT,
+		.end	= IRQ_ISP_INT,
+		.flags	= IORESOURCE_IRQ,
+	},
+};
+struct platform_device sprd_dcam_device = {
+	.name		= "sprd_dcam",
+	.id		= 0,
+	.num_resources	= ARRAY_SIZE(sprd_dcam_resources),
+	.resource	= sprd_dcam_resources,
+};
+struct platform_device sprd_scale_device = {
+	.name	= "sprd_scale",
+	.id	= -1,
+};
+
+struct platform_device sprd_gsp_device =
+{
+    .name	= "sprd_gsp",
+    .id	= -1,
+};
+struct platform_device sprd_rotation_device = {
+	.name	= "sprd_rotation",
+	.id	= -1,
+};
+
+struct platform_device sprd_sensor_device = {
+	.name	= "sprd_sensor",
+	.id	= -1,
+};
+struct platform_device sprd_isp_device = {
+	.name = "sprd_isp",
+	.id = -1,
+};
+
+struct platform_device sprd_dma_copy_device = {
+	.name	= "sprd_dma_copy",
+	.id	= -1,
+};
 static struct resource sprd_sdio0_resources[] = {
 	[0] = {
 		.start = SPRD_SDIO0_BASE,
