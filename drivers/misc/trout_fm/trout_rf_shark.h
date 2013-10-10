@@ -209,6 +209,8 @@
 #define SHARK_APB_EB0               (SHARK_APB_BASE_ADDR+0x0000)
 #define SHARK_APB_EB1               (SHARK_APB_BASE_ADDR+0x0004)
 #define SHARK_APB_RST0              (SHARK_APB_BASE_ADDR+0x0008)
+#define SHARK_APB_EB0_SET           (SHARK_APB_BASE_ADDR+0x1000)
+
 
 #define SHARK_AHB_BASE_ADDR         0x71300000
 #define SHARK_AHB_EB                (SHARK_APB_BASE_ADDR+0x0000)
@@ -223,6 +225,9 @@
 #define  PINMAP_FOR_TPDP           (PINMAP_ADDR + 0x0390)
 #define  PINMAP_FOR_TPDN           (PINMAP_ADDR + 0x039C)
 #define  PINMAP_FOR_TPCK           (PINMAP_ADDR + 0x03A0)
+
+#define  SHARK_PMU_BASE_ADDR        0x402B0000
+#define  SHARK_PMU_SLEEP_CTRL       (SHARK_PMU_BASE_ADDR+0x00C4)
 
 #define SHARK_FM_MSPI_BASE          0x40070000
 #define SHARK_MSPI_CFG0             (SHARK_FM_MSPI_BASE + 0x0000)

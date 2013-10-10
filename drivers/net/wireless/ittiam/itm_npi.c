@@ -225,6 +225,8 @@ NPI_SET_CMD(set_debug, NPI_CMD_DEBUG, NLNPI_CMD_SET_DEBUG,
 	    NLNPI_ATTR_SET_DEBUG)
 NPI_SET_CMD(get_sblock, NPI_CMD_GET_SBLOCK, NLNPI_CMD_GET_SBLOCK,
 	    NLNPI_ATTR_SBLOCK_ARG)
+NPI_SET_CMD(sin_wave, NPI_CMD_SIN_WAVE, NLNPI_CMD_SIN_WAVE,
+	    NLNPI_ATTR_SIN_WAVE)
 
 #define NPI_GET_CMD(name, npi_cmd, nl_cmd, attr, arg_attr)	\
 static int npi_ ## name ## _cmd(struct sk_buff *skb_2,		\
@@ -442,6 +444,7 @@ static struct nla_policy npi_genl_policy[NLNPI_ATTR_MAX + 1] = {
 	[NLNPI_ATTR_GET_DEBUG] = {.type = NLA_U32},
 	[NLNPI_ATTR_GET_DEBUG_ARG] = {.type = NLA_BINARY, .len = 32},
 	[NLNPI_ATTR_SBLOCK_ARG] = {.len = 8},
+	[NLNPI_ATTR_SIN_WAVE] = {.type = NLA_UNSPEC,},
 };
 
 /* Generic Netlink operations array */
@@ -575,6 +578,11 @@ static struct genl_ops npi_ops[] = {
 	 .cmd = NLNPI_CMD_GET_SBLOCK,
 	 .policy = npi_genl_policy,
 	 .doit = npi_get_sblock_cmd,
+	},
+	{
+	 .cmd = NLNPI_CMD_SIN_WAVE,
+	 .policy = npi_genl_policy,
+	 .doit = npi_sin_wave_cmd,
 	},
 };
 
