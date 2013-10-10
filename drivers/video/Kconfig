@@ -2472,6 +2472,8 @@ config FB_SIMPLE
 	  through device tree, or potentially plain old platform data in the
 	  future.
 
+source "drivers/video/sprdfb/Kconfig"
+
 source "drivers/video/omap/Kconfig"
 source "drivers/video/omap2/Kconfig"
 source "drivers/video/exynos/Kconfig"
