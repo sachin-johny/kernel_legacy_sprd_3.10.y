@@ -448,6 +448,16 @@ void __trout_fm_show_status(void)
 int trout_fm_deinit(void)
 {
 	/*free_irq(INT_NUM_FM_test, fm_interrupt);*/
+    u32 reg_data;
+	 
+    shark_fm_rf_write(0x400, 0x0000);
+    shark_fm_rf_write(0x6F, 0x201);
+	
+    READ_REG(SHARK_PMU_SLEEP_CTRL, &reg_data);
+    reg_data &= (~BIT_8);
+    WRITE_REG(SHARK_PMU_SLEEP_CTRL, reg_data);
+
+
 	return 0;
 }
 

@@ -30,57 +30,7 @@ int trout_fm_get_volume(void)
 	return 0;
 }
 
-/*add open vddrf2*/
-static DEFINE_MUTEX(vddrf_mutex);
-#define REGULATOR_MODE_FAST			0x1
-#define REGULATOR_MODE_NORMAL			0x2
-#define REGULATOR_MODE_IDLE			0x4
-#define REGULATOR_MODE_STANDBY			0x8
-extern int regulator_enable(struct regulator *regu);
-extern int regulator_set_mode(struct regulator *regu, unsigned int mode);
-extern int regulator_disable(struct regulator *regu);
-extern void regulator_put(struct regulator *regu);
-extern struct regulator *regulator_get(struct device *dev, const char *id);
 
-static void trout_chip_vdd_input(bool turn_on)
-{
-
-   struct regulator *regu = NULL;
-   mutex_lock(&vddrf_mutex);
-   
-   regu = regulator_get(NULL, "vddrf2");  
- 
-    if (turn_on)
-    {
-	if (regu)
-	{   
-	        //printk("trout_chip_vdd_input in on \n");
-		//regu = regulator_get(NULL, "vddrf2");
-		if (IS_ERR(regu))
-		{	
-		pr_err("Failed to request %ld: %s\n",
-			PTR_ERR(regu), "vddrf2");
-			BUG_ON(1);
-		}
-		regulator_set_mode(regu, REGULATOR_MODE_NORMAL);
-		regulator_enable(regu);
-	}
-        /* keep VDDRF2 on in deep sleep */
-       mdelay(5);
-    }
-    else {
-	//printk("trout_chip_vdd_input in off \n");
-        mdelay(5);
-        if(regu != NULL) {
-		regulator_set_mode(regu, REGULATOR_MODE_STANDBY);
-		regulator_disable(regu);
-		regulator_put(regu);
-		regu = NULL;
-        }
-    }
-    mutex_unlock(&vddrf_mutex);
-   return 0;
-}
 
 int trout_fm_open(struct inode *inode, struct file *filep)
 {
@@ -103,7 +53,7 @@ int trout_fm_open(struct inode *inode, struct file *filep)
 		return ret;
 	}
 */
-        trout_chip_vdd_input(false);
+
 	ret = trout_fm_init();
 	if (ret < 0) {
 		TROUT_PRINT("trout_fm_init failed!");
@@ -240,7 +190,7 @@ int trout_fm_release(struct inode *inode, struct file *filep)
 	TROUT_PRINT("trout_fm_misc_release");
 
 	trout_fm_deinit();
-        trout_chip_vdd_input(true);
+
 	return 0;
 }
 
