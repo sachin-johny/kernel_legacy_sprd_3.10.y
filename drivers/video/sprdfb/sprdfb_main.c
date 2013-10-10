@@ -95,7 +95,7 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 	dev->fb->screen_base = (char*)addr;
 #else
 	dev->fb->fix.smem_start = SPRD_FB_MEM_BASE;
-	printk("sprdfb:setup_fb_mem--smem_start:%lx,len:%d\n",dev->fb->fix.smem_start,len);
+	printk("sprdfb:setup_fb_mem--smem_start:%lx,len:%d,reserved len:%d\n",dev->fb->fix.smem_start,len,SPRD_FB_MEM_SIZE);
 	addr =  (uint32_t)ioremap(SPRD_FB_MEM_BASE, len);
 	if (!addr) {
 		printk(KERN_ERR "Unable to map framebuffer base: 0x%08x\n", addr);
@@ -408,10 +408,10 @@ static int sprdfb_probe(struct platform_device *pdev)
 	}
 	if(sprdfb_panel_get(dev)){
 		dev->panel_ready = true;
+		dev->ctrl->logo_proc(dev);
 	}else{
 		dev->panel_ready = false;
 	}
-	dev->ctrl->logo_proc(dev);
 	dev->ctrl->early_init(dev);
 
 	if(!dev->panel_ready){

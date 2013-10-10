@@ -711,7 +711,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		printk(KERN_ERR "sprdfb: dispc set emc clk parent fail\n");
 	}
 
-	if(0 != dev->panel->fps){
+	if((dev->panel != NULL) && (0 != dev->panel->fps)){
 		dispc_update_clock(dev);
 	}else{
 		dev->dpi_clock = DISPC_DPI_CLOCK;
