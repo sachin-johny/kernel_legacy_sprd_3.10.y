@@ -21,7 +21,6 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
-#include <mach/__regs_sc8830_pub_apb.h>
 #include <mach/bm_sc8830.h>
 
 /*NOTE: depends on ioremap in io.c */

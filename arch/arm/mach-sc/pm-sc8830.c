@@ -273,6 +273,8 @@ void bak_restore_apb(int bak)
 static void bak_ap_clk_reg(int bak)
 {
 	volatile u32 i;
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	if(bak) {
 		ap_clk_reg_saved.ap_ahb_cfg      = sci_glb_read(REG_AP_CLK_AP_AHB_CFG      , -1UL);
 		ap_clk_reg_saved.ap_apb_cfg      = sci_glb_read(REG_AP_CLK_AP_APB_CFG      , -1UL);
@@ -398,6 +400,7 @@ static void bak_ap_clk_reg(int bak)
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_IIS3_CFG        , ap_clk_reg_saved.iis3_cfg        ,-1UL);
 	}
+#endif
 }
 void disable_aon_module(void)
 {
@@ -556,7 +559,10 @@ void bak_last_reg(void)
 	ldo_slp_ctrl1 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
 	ldo_slp_ctrl2 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL2);
 	ldo_slp_ctrl3 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL3);
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	ldo_aud_ctrl4 = sci_adi_read(ANA_REG_GLB_AUD_SLP_CTRL4);
+#endif
 	xtl_wait_ctrl = sci_adi_read(ANA_REG_GLB_XTL_WAIT_CTRL);
 
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
@@ -604,8 +610,10 @@ void print_last_reg(void)
 	printk("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
 	printk("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
 	printk("ANA_REG_GLB_PWR_XTL_EN4 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN4));
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	printk("ANA_REG_GLB_PWR_XTL_EN5 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN5));
-
+#endif
 	printk("mm reg\n");
 	printk("REG_MM_AHB_AHB_EB ---- 0x%08x\n", mm_apb);
 
@@ -957,6 +965,8 @@ void sc_default_idle(void)
 }
 void pm_ana_ldo_config(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	/*set vddcore deep sleep voltage to 0.9v*/
 	sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
 	/*open vddcore lp VDDMEM, DCDCGEN mode*/
@@ -965,6 +975,7 @@ void pm_ana_ldo_config(void)
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL3, BIT_SLP_LDOVDD28_LP_EN | BIT_SLP_LDOVDD18_LP_EN);
 	/*ddr2_buf quiesent curretn set to 4-5uA in deep sleep mode*/
 	sci_adi_clr(ANA_REG_GLB_DDR2_CTRL, BITS_DDR2_BUF_S_DS(0x3));
+#endif
 }
 static void init_led(void){}
 
@@ -973,9 +984,12 @@ static void sc8830_power_off(void)
 	/*turn off all modules's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
 
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	/*turn off system core's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, 0X7fff);
+#endif
 }
 
 static void sc8830_machine_restart(char mode, const char *cmd)

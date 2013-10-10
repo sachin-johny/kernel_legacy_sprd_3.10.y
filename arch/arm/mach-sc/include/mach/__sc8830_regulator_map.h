@@ -21,6 +21,8 @@
  * Voltage Trimming (8)Ctrl and (9)Bits, Calibration (10)Ctrl and (11)Bits,
  * Voltage (12)Default, Voltage (13)Ctrl and (14)Bits, Voltage Select (15)Count and Voltage (16)List[ ... ...]
  */
+#if defined(CONFIG_ARCH_SCX15)
+#else
 
     SCI_REGU_REG(vddcore, 2, ANA_REG_GLB_LDO_DCDC_PD_RTCSET, BIT(9), ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, BIT(9), 0, 0,
 	ANA_REG_GLB_DCDC_CORE_ADI, BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4), ANA_REG_GLB_LDO_CAL_SEL, BIT(16)|BIT(18)|BIT(19),
@@ -129,4 +131,5 @@
     SCI_REGU_REG(led_flash, 4, 0, 0, ANA_REG_GLB_FLASH_CTRL, BIT(15), 0, 0,
 	ANA_REG_GLB_FLASH_CTRL, BIT(4)|BIT(5)|BIT(6), 0, 0,
 	4000, ANA_REG_GLB_FLASH_CTRL, BIT(0)|BIT(1)|BIT(2)|BIT(3), 0);
+#endif
 

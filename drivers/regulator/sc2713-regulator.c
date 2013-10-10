@@ -1755,11 +1755,14 @@ static int __init regu_driver_init(void)
 			   debugfs_root, (u64 *) & adc_data);
 #endif
 
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	pr_info("%s chip id: (%08x), bond opt (%08x)\n",
 		sci_regulator_driver.driver.name,
 		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
 		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW),
 		ANA_REG_GET(ANA_REG_GLB_ANA_STATUS));
+#endif
 
 #if defined(CONFIG_REGULATOR_ADC_DEBUG)
 	/*FIXME: enable all DCDC/LDOs for debug purpose */

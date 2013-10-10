@@ -548,6 +548,7 @@ static int eic_gpio_probe(struct platform_device *pdev)
 	sci_glb_set(REG_GLB_GEN0, BIT_RTC_EIC_EB);
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
+#elif defined(CONFIG_ARCH_SCX15)
 #elif defined(CONFIG_ARCH_SCX35)
 	sci_glb_set(REG_AON_APB_APB_EB0,BIT_GPIO_EB | BIT_EIC_EB);
 	sci_glb_set(REG_AON_APB_APB_RTC_EB,BIT_EIC_RTC_EB);

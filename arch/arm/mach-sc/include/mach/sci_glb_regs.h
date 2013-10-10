@@ -27,20 +27,46 @@
 #include "__regs_emc.h"
 #include "__regs_glb.h"
 
+#elif defined(CONFIG_ARCH_SCX15)
+#define REGS_ANA_APB_IF_BASE	ANA_REGS_GLB_BASE
+#include "./chip_x15/__regs_ana_apb_if.h"
+#include "./chip_x15/__regs_aon_apb.h"
+#include "./chip_x15/__regs_ap_ahb.h"
+#include "./chip_x15/__regs_ap_apb.h"
+#include "./chip_x15/__regs_cp_apb_rf.h"
+#include "./chip_x15/__regs_wcdma_ahb_rf.h"
+#include "./chip_x15/__regs_mm_ahb_rf.h"
+#include "./chip_x15/__regs_pmu_apb.h"
+#include "./chip_x15/__regs_pub_apb.h"
+#include "./chip_x15/__regs_avs_apb.h"
+#ifndef BIT_GPIO_EB
+#define BIT_GPIO_EB	BIT_AON_GPIO_EB
+#endif
+#define ANA_REG_GLB_LDO_SLP_CTRL0	ANA_REG_GLB_PWR_SLP_CTRL0
+#define ANA_REG_GLB_LDO_SLP_CTRL1	ANA_REG_GLB_PWR_SLP_CTRL1
+#define ANA_REG_GLB_LDO_SLP_CTRL2	ANA_REG_GLB_PWR_SLP_CTRL2
+#define ANA_REG_GLB_LDO_SLP_CTRL3	ANA_REG_GLB_PWR_SLP_CTRL3
+#define REG_AON_APB_CHIP_ID	REG_AON_APB_AON_CHIP_ID
+#ifndef REG_GLB_CLR
+#define REG_GLB_CLR(A)                  ( A + 0x2000 )
+#endif
+#ifndef REG_GLB_SET
+#define REG_GLB_SET(A)                  ( A + 0x1000 )
+#endif
 #elif defined(CONFIG_ARCH_SCX35)
 
-#include "__regs_sc8830_ana_glb.h"
-#include "__regs_sc8830_aon_apb.h"
-#include "__regs_sc8830_aon_clk.h"
-#include "__regs_sc8830_ap_ahb.h"
-#include "__regs_sc8830_ap_apb.h"
-#include "__regs_sc8830_ap_clk.h"
-#include "__regs_sc8830_gpu_apb.h"
-#include "__regs_sc8830_gpu_clk.h"
-#include "__regs_sc8830_mm_ahb.h"
-#include "__regs_sc8830_mm_clk.h"
-#include "__regs_sc8830_pmu_apb.h"
-#include "__regs_sc8830_pub_apb.h"
+#include "./chip_x35/__regs_sc8830_ana_glb.h"
+#include "./chip_x35/__regs_sc8830_aon_apb.h"
+#include "./chip_x35/__regs_sc8830_aon_clk.h"
+#include "./chip_x35/__regs_sc8830_ap_ahb.h"
+#include "./chip_x35/__regs_sc8830_ap_apb.h"
+#include "./chip_x35/__regs_sc8830_ap_clk.h"
+#include "./chip_x35/__regs_sc8830_gpu_apb.h"
+#include "./chip_x35/__regs_sc8830_gpu_clk.h"
+#include "./chip_x35/__regs_sc8830_mm_ahb.h"
+#include "./chip_x35/__regs_sc8830_mm_clk.h"
+#include "./chip_x35/__regs_sc8830_pmu_apb.h"
+#include "./chip_x35/__regs_sc8830_pub_apb.h"
 
 
 #else

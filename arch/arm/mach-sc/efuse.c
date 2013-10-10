@@ -183,6 +183,8 @@ static __inline int __adie_fuse_getdata(void)
 	}
 	val = sci_adi_read(ANA_REG_GLB_AFUSE_OUT_LOW);
 	val |= (sci_adi_read(ANA_REG_GLB_AFUSE_OUT_HIGH)) << 16;
+#elif defined(CONFIG_ARCH_SCX15)
+	timeout = 0;
 #elif defined(CONFIG_ARCH_SCX35)
 	/* wait for maximum of 100 msec */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_READ_REQ, 1);
@@ -410,6 +412,8 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 0);
 	v = ~(BITS_AFUSE_RD_DLY_PROT(AFUSE_DLY_PROT_KEY));	/*release lock */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 1);
+#elif defined(CONFIG_ARCH_SCX15)
+	v = v;
 #elif defined(CONFIG_ARCH_SCX35)
 	//v = BITS_AFUSE_READ_DLY_PROT(AFUSE_DLY_PROT_KEY);	/*get lock */
 	v |= BITS_AFUSE_READ_DLY(read_delay);

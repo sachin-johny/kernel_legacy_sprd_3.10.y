@@ -574,6 +574,8 @@ int __init sci_clk_register(struct clk_lookup *cl)
 
 static int __init sci_clock_dump(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	clk_enable(&clk_mm_i);
 #if 0
 	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
@@ -594,6 +596,7 @@ static int __init sci_clock_dump(void)
 	clk_disable(&clk_gpu_i);
 #endif
 	clk_disable(&clk_mm_i);
+#endif
 	return 0;
 }
 
@@ -615,7 +618,8 @@ static struct notifier_block __clk_cpufreq_notifier_block = {
 
 int __init sci_clock_init(void)
 {
-#if defined(CONFIG_ARCH_SCX35)
+#if defined(CONFIG_ARCH_SCX15)
+#elif defined(CONFIG_ARCH_SCX35)
 	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
 		     & ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN),
 		     REG_PMU_APB_PD_MM_TOP_CFG);
@@ -637,7 +641,7 @@ int __init sci_clock_init(void)
 	__raw_writel(__raw_readl(REG_MM_CLK_MM_AHB_CFG) | 0x3,
 		     REG_MM_CLK_MM_AHB_CFG);
 #endif
-
+#ifndef CONFIG_MACH_SPX15FPGA
 #if defined(CONFIG_DEBUG_FS)
 	clk_debugfs_root = debugfs_create_dir("sprd-clock", NULL);
 	if (IS_ERR_OR_NULL(clk_debugfs_root))
@@ -667,6 +671,7 @@ int __init sci_clock_init(void)
 	/* keep track of cpu frequency transitions */
 	cpufreq_register_notifier(&__clk_cpufreq_notifier_block,
 				  CPUFREQ_TRANSITION_NOTIFIER);
+#endif
 	return 0;
 }
 

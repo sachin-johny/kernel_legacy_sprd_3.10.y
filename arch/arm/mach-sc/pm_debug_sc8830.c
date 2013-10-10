@@ -461,6 +461,8 @@ static struct wake_lock messages_wakelock;
 #define PM_PRINT_ENABLE
 static void print_debug_info(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl,
 			ap_apb_eb, apb_pwrstatus0, apb_pwrstatus1, apb_pwrstatus2,
 			apb_pwrstatus3, mpll_cfg, dpll_cfg;
@@ -610,6 +612,7 @@ static void print_debug_info(void)
 		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
 	else if (!(ldo_pd_ctrl & BIT_LDO_AVDD18_PD))
 		printk("###---- BIT_LDO_AVDD18_PD power on! ----###\n");
+#endif
 }
 
 static int print_thread(void * data)

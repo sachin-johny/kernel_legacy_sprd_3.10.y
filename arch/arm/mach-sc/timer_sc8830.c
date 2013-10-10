@@ -353,8 +353,10 @@ void __init sci_enable_timer_early(void)
 			__raw_writel(TIMER_INT_CLR, TIMER_INT(i, j));
 		}
 	}
-
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	val = sci_glb_read(REG_AON_CLK_AON_APB_CFG, -1) & 0x3;
+#endif
 	if (val == 0x1)
 		sched_clock_source_freq = 76800000;
 	else if (val == 0x2)

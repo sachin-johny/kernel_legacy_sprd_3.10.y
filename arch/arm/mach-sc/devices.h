@@ -59,6 +59,8 @@ extern struct platform_device sprd_jpg_device;
 #ifdef CONFIG_ION
 extern struct platform_device sprd_ion_dev;
 #endif
+extern struct platform_device sprd_iommu_gsp_device;
+extern struct platform_device sprd_iommu_mm_device;
 extern struct platform_device sprd_sdio0_device;
 extern struct platform_device sprd_sdio1_device;
 extern struct platform_device sprd_sdio2_device;
@@ -109,5 +111,8 @@ extern struct platform_device sprd_sttybt_td_device;
 #endif
 
 extern struct platform_device sprd_a7_pmu_device;
+extern struct platform_device sprd_memnand_system_device;
+extern struct platform_device sprd_memnand_userdata_device;
+extern struct platform_device sprd_memnand_cache_device;
 
 #endif

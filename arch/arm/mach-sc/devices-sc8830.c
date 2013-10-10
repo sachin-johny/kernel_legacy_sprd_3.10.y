@@ -26,9 +26,60 @@
 #include <mach/board.h>
 #include <mach/gpio.h>
 #include <linux/pstore_ram.h>
+#include <linux/sprd_iommu.h>
+#include <linux/headset_sprd.h>
 
 #include "devices.h"
 
+static struct resource sprd_memnand_system_resources[] = {
+	[0] = {
+		.start = SPRD_MEMNAND_SYSTEM_BASE,
+		.end = SPRD_MEMNAND_SYSTEM_BASE + SPRD_MEMNAND_SYSTEM_SIZE-1,
+		.name = "goldfish_memnand",
+		.flags = IORESOURCE_MEM,
+	},
+};
+struct platform_device sprd_memnand_system_device  = {
+	.name           = "goldfish_memnand",
+	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_memnand_system_resources),
+	.resource       = sprd_memnand_system_resources,
+	.dev        = {.platform_data="system"},
+};
+static struct resource sprd_memnand_userdata_resources[] = {
+	[0] = {
+		.start = SPRD_MEMNAND_USERDATA_BASE,
+		.end = SPRD_MEMNAND_USERDATA_BASE + SPRD_MEMNAND_USERDATA_SIZE-1,
+		.name = "goldfish_memnand",
+		.flags = IORESOURCE_MEM,
+	},
+};
+struct platform_device sprd_memnand_userdata_device  = {
+	.name           = "goldfish_memnand",
+	.id             =  1,
+	.num_resources  = ARRAY_SIZE(sprd_memnand_userdata_resources),
+	.resource       = sprd_memnand_userdata_resources,
+	.dev        = {.platform_data="userdata"},
+};
+
+
+
+static struct resource sprd_memnand_cache_resources[] = {
+	[0] = {
+		.start = SPRD_MEMNAND_CACHE_BASE,
+		.end = SPRD_MEMNAND_CACHE_BASE + SPRD_MEMNAND_CACHE_SIZE-1,
+		.name = "goldfish_memnand",
+		.flags = IORESOURCE_MEM,
+	},
+};
+
+struct platform_device sprd_memnand_cache_device  = {
+	.name           = "goldfish_memnand",
+	.id             =  2,
+	.num_resources  = ARRAY_SIZE(sprd_memnand_cache_resources),
+	.resource       = sprd_memnand_cache_resources,
+	.dev        = {.platform_data="cache"},
+};
 
 static struct resource sprd_serial_resources0[] = {
 	[0] = {
@@ -211,6 +262,37 @@ struct platform_device sprd_hwspinlock_device1 = {
 	.resource	= sprd_hwspinlock_resources1,
 };
 
+static struct resource sprd_lcd_resources[] = {
+	[0] = {
+		.start = SPRD_LCDC_BASE,
+		.end = SPRD_LCDC_BASE + SPRD_LCDC_SIZE - 1,
+		.name = "lcd_res",
+		.flags = IORESOURCE_MEM,
+	},
+	[1] = {
+		.start = IRQ_DISPC0_INT,
+		.end = IRQ_DISPC0_INT,
+		.flags = IORESOURCE_IRQ,
+	},
+	
+	[2] = {
+		.start = IRQ_DISPC1_INT,
+		.end = IRQ_DISPC1_INT,
+		.flags = IORESOURCE_IRQ,
+	}
+};
+struct platform_device sprd_lcd_device0 = {
+	.name           = "sprd_fb",
+	.id             =  0,
+	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
+	.resource       = sprd_lcd_resources,
+};
+struct platform_device sprd_lcd_device1 = {
+	.name           = "sprd_fb",
+	.id             =  1,
+	.num_resources  = ARRAY_SIZE(sprd_lcd_resources),
+	.resource       = sprd_lcd_resources,
+};
 static struct resource sprd_otg_resource[] = {
 	[0] = {
 		.start = SPRD_USB_BASE,
@@ -229,6 +311,24 @@ struct platform_device sprd_otg_device = {
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
 	.resource	= sprd_otg_resource,
+};
+
+/*if the backlight is driven by pwm, please config the pwm info
+ *if the backlight is driven by PWMD, the pwm index is 3 as following
+ */
+struct resource sprd_bl_resource[] = {
+	[0] = {
+		.start	= 3,
+		.end	= 3,
+		.flags	= IORESOURCE_IO,
+	},
+};
+
+struct platform_device sprd_backlight_device = {
+	.name           = "sprd_backlight",
+	.id             =  -1,
+	.num_resources	= ARRAY_SIZE(sprd_bl_resource),
+	.resource	= sprd_bl_resource,
 };
 
 static struct resource sprd_i2c_resources0[] = {
@@ -376,6 +476,14 @@ struct platform_device sprd_spi2_device = {
 	.num_resources = ARRAY_SIZE(spi2_resources),
 };
 
+struct platform_device sprd_ahb_bm_device = {
+	.name = "sprd_ahb_busmonitor",
+	.id = 0,
+};
+struct platform_device sprd_axi_bm0_device = {
+	.name = "sprd_axi_busmonitor",
+	.id = 0,
+};
 static struct resource sci_keypad_resources[] = {
 	{
 	        .start = IRQ_KPD_INT,
@@ -390,6 +498,215 @@ struct platform_device sprd_keypad_device = {
 	.num_resources = ARRAY_SIZE(sci_keypad_resources),
 	.resource = sci_keypad_resources,
 };
+struct platform_device sprd_audio_platform_pcm_device = {
+	.name           = "sprd-pcm-audio",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_cpu_dai_vaudio_device = {
+	.name           = "vaudio",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_cpu_dai_vbc_device = {
+	.name           = "vbc",
+	.id             =  -1,
+};
+
+struct platform_device sprd_audio_codec_sprd_codec_device = {
+	.name           = "sprd-codec",
+	.id             =  -1,
+};
+
+static struct resource sprd_i2s_resources0[] = {
+        [0] = {
+                .start = SPRD_IIS0_BASE,
+                .end   = SPRD_IIS0_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS0_PHYS,
+                .end   = SPRD_IIS0_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS_TX,
+                .end   = DMA_IIS_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+
+struct platform_device sprd_audio_cpu_dai_i2s_device = {
+	.name           = "i2s",
+	.id             =  0,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources0),
+        .resource       = sprd_i2s_resources0,
+};
+
+static struct resource sprd_i2s_resources1[] = {
+        [0] = {
+                .start = SPRD_IIS1_BASE,
+                .end   = SPRD_IIS1_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS1_PHYS,
+                .end   = SPRD_IIS1_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS1_TX,
+                .end   = DMA_IIS1_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+
+struct platform_device sprd_audio_cpu_dai_i2s_device1 = {
+	.name           = "i2s",
+	.id             =  1,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources1),
+        .resource       = sprd_i2s_resources1,
+};
+static struct resource sprd_i2s_resources2[] = {
+        [0] = {
+                .start = SPRD_IIS2_BASE,
+                .end   = SPRD_IIS2_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS2_PHYS,
+                .end   = SPRD_IIS2_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS2_TX,
+                .end   = DMA_IIS2_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+struct platform_device sprd_audio_cpu_dai_i2s_device2 = {
+	.name           = "i2s",
+	.id             =  2,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources2),
+        .resource       = sprd_i2s_resources2,
+};
+static struct resource sprd_i2s_resources3[] = {
+        [0] = {
+                .start = SPRD_IIS3_BASE,
+                .end   = SPRD_IIS3_BASE + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [1] = {
+                .start = SPRD_IIS3_PHYS,
+                .end   = SPRD_IIS3_PHYS + SZ_4K -1,
+                .flags = IORESOURCE_MEM,
+        },
+        [2] = {
+                .start = DMA_IIS3_TX,
+                .end   = DMA_IIS3_RX,
+                .flags = IORESOURCE_DMA,
+        }
+};
+struct platform_device sprd_audio_cpu_dai_i2s_device3 = {
+	.name           = "i2s",
+	.id             =  3,
+        .num_resources  = ARRAY_SIZE(sprd_i2s_resources3),
+        .resource       = sprd_i2s_resources3,
+};
+struct platform_device sprd_audio_codec_null_codec_device = {
+	.name           = "null-codec",
+	.id             =  -1,
+};
+static struct headset_button sprd_headset_button[] = {
+	{
+		.adc_min			= 0x0000,
+		.adc_max			= 0x00C8,
+		.code			= KEY_MEDIA,
+	},
+	{
+		.adc_min			= 0x00C9,
+		.adc_max			= 0x02BC,
+		.code			= KEY_VOLUMEUP,
+	},
+	{
+		.adc_min			= 0x02BD,
+		.adc_max			= 0x0514,
+		.code			= KEY_VOLUMEDOWN,
+	},
+};
+static struct sprd_headset_buttons_platform_data sprd_headset_button_data = {
+	.headset_button	= sprd_headset_button,
+	.nbuttons	= ARRAY_SIZE(sprd_headset_button),
+};
+static struct sprd_headset_detect_platform_data sprd_headset_detect_data = {
+	.switch_gpio	= HEADSET_SWITCH_GPIO,
+	.detect_gpio	= HEADSET_DETECT_GPIO,
+	.button_gpio	= HEADSET_BUTTON_GPIO,
+	.detect_active_low	= 1,
+	.button_active_low	= 1,
+};
+
+struct platform_device sprd_headset_button_device = {
+	.name	= "headset-buttons",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &sprd_headset_button_data,
+	},
+};
+
+struct platform_device sprd_headset_detect_device = {
+	.name	= "headset-detect",
+	.id	= -1,
+	.dev	= {
+		.platform_data	= &sprd_headset_detect_data,
+	},
+};
+
+static struct resource sprd_battery_resources[] = {
+        [0] = {
+                .start = EIC_CHARGER_DETECT,
+                .end = EIC_CHARGER_DETECT,
+                .flags = IORESOURCE_IO,
+        }
+};
+struct platform_device sprd_battery_device = {
+        .name           = "sprd-battery",
+        .id             =  0,
+        .num_resources  = ARRAY_SIZE(sprd_battery_resources),
+        .resource       = sprd_battery_resources,
+};
+
+#if defined(CONFIG_ARCH_SCX15)
+static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
+	.id=0,
+	.name="sprd_iommu_gsp",
+	.iova_base=0x10000000,
+	.iova_size=0x1000000,
+	.pgt_base=SPRD_GSPMMU_BASE,
+	.pgt_size=0x4000,
+};
+
+struct platform_device sprd_iommu_gsp_device = {
+	.name = "sprd_iommu",
+	.id = 0,
+	.dev = {.platform_data = &sprd_iommu_gsp_data },
+};
+
+static struct sprd_iommu_init_data sprd_iommu_mm_data = {
+	.id=1,
+	.name="sprd_iommu_mm",
+	.iova_base=0x20000000,
+	.iova_size=0x4000000,
+	.pgt_base=SPRD_MMMMU_BASE,
+	.pgt_size=0x10000,
+};
+
+struct platform_device sprd_iommu_mm_device = {
+	.name = "sprd_iommu",
+	.id = 1,
+	.dev = {.platform_data = &sprd_iommu_mm_data },
+};
+#endif
 
 static struct resource sprd_dcam_resources[] = {
 	{

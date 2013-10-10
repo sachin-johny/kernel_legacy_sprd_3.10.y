@@ -41,6 +41,10 @@ config ARCH_SCX15
 endmenu
 
 
+config SC_FPGA
+       bool
+       default n
+
 menu "Spreadtrum Board Type"
 
 config MACH_SP8825EA
@@ -103,6 +107,7 @@ config MACH_SPX35FPGA
 	bool "sp8830 FPGA Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+        select  SC_FPGA
 	default n
 	help
 	  SPX35 fpga board based on SC8830 serial.
@@ -122,6 +127,7 @@ config MACH_SPX15FPGA
 	depends on ARCH_SCX35
 	depends on ARCH_SCX15
 	default y
+        select  SC_FPGA
 	help
 	  SPX15 fpga board based on dolphin serial.
 
