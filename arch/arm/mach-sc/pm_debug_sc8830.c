@@ -621,7 +621,7 @@ static int print_thread(void * data)
 		wake_lock(&messages_wakelock);
 		if (print_thread_enable)
 			print_debug_info();
-		//has_wake_lock(WAKE_LOCK_SUSPEND);
+		has_wake_lock(WAKE_LOCK_SUSPEND);
 		msleep(100);
 		wake_unlock(&messages_wakelock);
 		set_current_state(TASK_INTERRUPTIBLE);
