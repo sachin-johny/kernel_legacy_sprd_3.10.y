@@ -1345,12 +1345,10 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->pwr == pwr)
 		return -1;
 
+	host->pwr = pwr;
+
 	if (pwr == 0) {
 		sdhci_writeb(host, 0, SDHCI_POWER_CONTROL);
-
-		if (host->ops->set_power)
-			host->ops->set_power(host, pwr);
-		host->pwr = pwr;
 		return 0;
 	}
 
@@ -1368,10 +1366,6 @@ static int sdhci_set_power(struct sdhci_host *host, unsigned short power)
 	if (host->quirks & SDHCI_QUIRK_NO_SIMULT_VDD_AND_POWER)
 		sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);
 
-	if (host->ops->set_power){
-		host->ops->set_power(host, pwr);
-		host->pwr = pwr;
-        }
 	pwr |= SDHCI_POWER_ON;
 
 	sdhci_writeb(host, pwr, SDHCI_POWER_CONTROL);

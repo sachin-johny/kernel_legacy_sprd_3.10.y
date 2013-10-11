@@ -409,7 +409,7 @@ static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 static struct sdhci_ops sdhci_sprd_ops = {
 	.get_max_clock		= sdhci_sprd_get_max_clk,
 	.set_clock		= sdhci_sprd_enable_clock,
-	.set_power		= sdhci_sprd_set_power,
+	//.set_power		= sdhci_sprd_set_power,
 };
 
 static void sdhci_module_init(struct sdhci_host* host)
