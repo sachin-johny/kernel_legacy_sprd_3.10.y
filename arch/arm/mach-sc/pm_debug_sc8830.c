@@ -643,7 +643,7 @@ static ssize_t timestamp_read(struct file *file, char __user *addr, size_t len,
 	static int t;
 	t = 0;
 
-	if ((!addr) || (len < 0))
+	if ((!addr) || (len == 0))
 		return -EINVAL;
 
 	if (len < sizeof(st))
