@@ -76,7 +76,7 @@ struct status {
 };
 
 /*global variables*/
-static unsigned long alloc_flag = 0;
+static unsigned long alloc_flag = 1;
 static unsigned long node_list_8k[LIST_8K];
 static unsigned long node_list_16k[LIST_16K];
 static struct workqueue_struct *sprd_alloc_wq = NULL;
@@ -92,6 +92,17 @@ static void dumpstack(void)
 	printk("Process Name: %s, Process Pid: %d, Parent Name: %s, Parent Pid: %d\n", 
 			current->comm, current->pid, current->parent->comm, current->parent->pid);
 	dump_stack();
+}
+
+static struct page *address_to_pages(unsigned long address)
+{
+	if(!address) return NULL;
+
+#if defined(WANT_PAGE_VIRTUAL)
+	return container_of((void *)(address), struct page, virtual);
+#else
+	return virt_to_page(address);
+#endif
 }
 
 static unsigned long get_first_node(int sprdcondition, unsigned int order)
@@ -328,16 +339,17 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 	printk("__SPRD__INNNNN: alloc_flag = %lu, zoneidx = %lu, order = %u\n", alloc_flag, zoneidx, order);
 #endif
 
-	if((!alloc_flag) || (ZONE_NORMAL != zoneidx) || ((ENTRY_8K != order) && (ENTRY_16K != order))) goto Failed;
+	if((!alloc_flag) || (GFP_KERNEL != gfp_mask) || (ZONE_NORMAL != zoneidx) || ((ENTRY_8K != order) && (ENTRY_16K != order))) goto Failed;
 
 	address = sprd_one_node_alloc(order);
 	if(!address) goto Failed;
 
-#if defined(WANT_PAGE_VIRTUAL)
-	page = container_of((void *)(address), struct page, virtual);
-#else
-	page = pfn_to_page(PFN_DOWN(__pa(address)));
+	page = address_to_pages(address);
+
+#if DEBUG_PRINT
+	printk("__SPRD__OUTTTT: page = %p\n", page);
 #endif
+
 	return page;
 
 Failed:
@@ -369,11 +381,17 @@ static int sprd_show_pages_info(struct seq_file *m, void *v)
 
 	seq_printf(m, "node_list_8k info:\n");
 	for(i = 0; i < LIST_8K; i++) {
-		seq_printf(m, "    subscript / value : %lu / %p\n", i, (void *)(node_list_8k[i]));
+		struct page *page = NULL;
+		page = address_to_pages(node_list_8k[i]);
+		seq_printf(m, "    subscript / value / page / page->flags: %lu / %p / %p / %lx\n",
+				i, (void *)(node_list_8k[i]), page, (page ? page->flags : 0x0));
 	}
 	seq_printf(m, "node_list_16k info:\n");
 	for(i = 0; i < LIST_16K; i++) {
-		seq_printf(m, "    subscript / value : %lu / %p\n", i, (void *)(node_list_16k[i]));
+		struct page *page = NULL;
+		page = address_to_pages(node_list_16k[i]);
+		seq_printf(m, "    subscript / value / page / page->flags: %lu / %p / %p / %lx\n",
+				i, (void *)(node_list_16k[i]), page, (page ? page->flags : 0x0));
 	}
 
 	return 0;
