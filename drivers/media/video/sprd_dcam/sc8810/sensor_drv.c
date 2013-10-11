@@ -144,7 +144,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id);
  static int sensor_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	int res = 0;
-	printk( KERN_INFO "SENSOR:sensor_probe E.\n");
+	SENSOR_PRINT( KERN_INFO "SENSOR:sensor_probe E.\n");
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		printk(KERN_INFO  "SENSOR: %s: functionality check failed\n", __FUNCTION__);
 		res = -ENODEV;
@@ -161,7 +161,7 @@ LOCAL int _Sensor_SetId(SENSOR_ID_E sensor_id);
 			this_client->addr = (this_client->addr & (~0xFF)) | (sensor_sub_force[1]&0xFF); 
 		}
 	}
-	printk( KERN_INFO "sensor_probe,this_client->addr =0x%x\n",this_client->addr );
+	SENSOR_PRINT( KERN_INFO "sensor_probe,this_client->addr =0x%x\n",this_client->addr );
 	mdelay(1);  //FROM 20 TO 1
 	
 	return 0;
@@ -315,7 +315,7 @@ PUBLIC void Sensor_Reset(uint32_t level)
 {
 	int err = 0xff;
 	SENSOR_IOCTL_FUNC_PTR	reset_func;
-	printk("Sensor_Reset");
+	SENSOR_PRINT("Sensor_Reset");
 
 	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
 
@@ -344,7 +344,7 @@ void Sensor_QReset(uint32_t level)
 {
 	int err = 0xff;
 	SENSOR_IOCTL_FUNC_PTR reset_func;
-	printk("Sensor_Reset.\n");
+	SENSOR_PRINT("Sensor_Reset.\n");
 
 	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
 
@@ -370,7 +370,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char** clk_src_name,uint8_t* clk_d
 	int           clk_tmp,src_delta,src_delta_min = NUMBER_MAX;
 	int           div_delta,div_delta_min = NUMBER_MAX;
 
-	printk("SENSOR:select_sensor_mclk,clk_set=%d.\n",clk_set);
+	SENSOR_PRINT("SENSOR:select_sensor_mclk,clk_set=%d.\n",clk_set);
 	if(clk_set > 96 || !clk_src_name || !clk_div)
 	{
 		return SENSOR_FAIL;
@@ -398,7 +398,7 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char** clk_src_name,uint8_t* clk_d
 		}
 	}
 
-	printk("SENSOR:select_sensor_mclk,clk_src=%d,clk_div=%d .\n",mark_src,mark_div);
+	SENSOR_PRINT("SENSOR:select_sensor_mclk,clk_src=%d,clk_div=%d .\n",mark_src,mark_div);
 
 	*clk_src_name = sensor_mclk_tab[mark_src].src_name;
 	*clk_div = mark_div+1;
@@ -829,7 +829,7 @@ PUBLIC BOOLEAN Sensor_SetResetLevel(BOOLEAN plus_level)
 void Sensor_Reset_EX(uint32_t power_down, uint32_t level)
 {
 	SENSOR_IOCTL_FUNC_PTR reset_func = 0;
-	printk("Sensor_Reset_EX.\n");
+	SENSOR_PRINT("Sensor_Reset_EX.\n");
 
 	reset_func = s_sensor_info_ptr->ioctl_func_tab_ptr->reset;
 	Sensor_PowerDown(!power_down);
@@ -1327,7 +1327,7 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 		{		
 			if(SENSOR_MAIN == sensor_id)
 			{			
-				printk("_Sensor_I2CInit,sensor_main_force[1] =%d \n",sensor_main_force[1] );
+				SENSOR_PRINT("_Sensor_I2CInit,sensor_main_force[1] =%d \n",sensor_main_force[1] );
 				sensor_i2c_driver.driver.name = SENSOR_MAIN_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_main_id;
 				sensor_i2c_driver.address_list= &sensor_main_default_addr_list[0];
@@ -1335,7 +1335,7 @@ LOCAL void  _Sensor_I2CInit(SENSOR_ID_E sensor_id)
 		    	}
 		    	else  if(SENSOR_SUB == sensor_id)
 		    	{		    
-				printk("_Sensor_I2CInit,sensor_sub_force[1] =%d \n",sensor_sub_force[1] );
+				SENSOR_PRINT("_Sensor_I2CInit,sensor_sub_force[1] =%d \n",sensor_sub_force[1] );
 		    		sensor_i2c_driver.driver.name = SENSOR_SUB_I2C_NAME;
 				sensor_i2c_driver.id_table = sensor_sub_id;
 				sensor_i2c_driver.address_list= &sensor_sub_default_addr_list[0];    				
@@ -1575,7 +1575,7 @@ LOCAL uint32_t _Sensor_Register(SENSOR_ID_E sensor_id)
 	}
 	if(s_sensor_identified && (5 != sensor_id)) {
 		sensor_index = s_sensor_index[sensor_id];
-		printk("_Sensor_Identify:sensor_index=%d.\n",sensor_index);
+		SENSOR_PRINT("_Sensor_Identify:sensor_index=%d.\n",sensor_index);
 		if(0xFF != sensor_index) {
 			valid_tab_index_max=Sensor_GetInforTabLenght(sensor_id)-SENSOR_ONE_I2C;
 			if(sensor_index>=valid_tab_index_max)
@@ -1663,7 +1663,7 @@ LOCAL void _Sensor_SetStatus(SENSOR_ID_E sensor_id)
 LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR sensor_register_info_ptr )
 {
 	uint32_t ret_val = SENSOR_FAIL;
-	printk("_sensor_com_init: in\n");
+	SENSOR_PRINT("_sensor_com_init: in\n");
 	if (SENSOR_TRUE == sensor_register_info_ptr->is_register[sensor_id]) {
 		_Sensor_SetStatus(sensor_id);
 		s_sensor_init = SENSOR_TRUE;
@@ -1671,7 +1671,7 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
 		if (5 != Sensor_GetCurId())
                 {
 			this_client->addr = (this_client->addr & (~0xFF)) |(s_sensor_info_ptr->salve_i2c_addr_w & 0xFF);
-		printk("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,this_client->addr);
+		SENSOR_PRINT("Sensor_Init:sensor_id :%d,addr=0x%x\n", sensor_id,this_client->addr);
                 }
                 if(PNULL != s_sensor_info_ptr->ioctl_func_tab_ptr->identify)
                 {
@@ -1683,12 +1683,12 @@ LOCAL uint32_t _sensor_com_init(uint32_t sensor_id, SENSOR_REGISTER_INFO_T_PTR s
                 }
 		ret_val = SENSOR_SUCCESS;
 
-		printk("_sensor_com_init: before sensor_mode\n");
+		SENSOR_PRINT("_sensor_com_init: before sensor_mode\n");
 		if (SENSOR_SUCCESS != Sensor_SetMode(SENSOR_MODE_COMMON_INIT)) {
 			SENSOR_PRINT_ERR("Sensor: _sensor_com_init set init mode error!\n");
 			ret_val = SENSOR_FAIL;
 		}
-		printk("_sensor_com_init: after sensor_mode\n");
+		SENSOR_PRINT("_sensor_com_init: after sensor_mode\n");
 		s_sensor_init = SENSOR_TRUE;
 	}
 	else {
@@ -1719,7 +1719,7 @@ uint32_t Sensor_Init(uint32_t sensor_id)
 
 	if(s_sensor_identified)
 	{
-		printk("SENSOR:  Sensor_Register\n");
+		SENSOR_PRINT("SENSOR:  Sensor_Register\n");
 		_Sensor_Register(SENSOR_MAIN);
 		_Sensor_Register(SENSOR_SUB);
 
@@ -2005,13 +2005,13 @@ PUBLIC ERR_SENSOR_E Sensor_SetTiming(SENSOR_MODE_E mode)
 	do_gettimeofday(&time1);
 
 
-	printk("Sensor_SetTiming  start: sensor_id=%d,  mode=%d \n", Sensor_GetCurId(), mode);
+	SENSOR_PRINT("Sensor_SetTiming  start: sensor_id=%d,  mode=%d \n", Sensor_GetCurId(), mode);
 	ret_val = _sensor_com_init(Sensor_GetCurId(), sensor_register_info_ptr);
 	Sensor_SetMode(mode);
 
 	do_gettimeofday(&time2);
 
-	printk("Sensor_SetTiming  end, ret = %d, time=%d ms \n", ret_val,
+	SENSOR_PRINT("Sensor_SetTiming  end, ret = %d, time=%d ms \n", ret_val,
 		(time2.tv_sec-time1.tv_sec)*1000 + (time2.tv_usec-time1.tv_usec)/1000);
 
 	return ret_val;
@@ -2043,7 +2043,7 @@ PUBLIC int Sensor_CheckTiming(SENSOR_MODE_E mode)
 	uint32_t cur_id = s_sensor_register_info_ptr->cur_id;
 	int ret = SENSOR_SUCCESS;	
 	
-	printk("SENSOR: Sensor_CheckTiming -> mode = %d,sensor_id=%d.\n", mode,cur_id);      
+	SENSOR_PRINT("SENSOR: Sensor_CheckTiming -> mode = %d,sensor_id=%d.\n", mode,cur_id);
 
 	if(0!=cur_id)
 		return 0;
@@ -2078,7 +2078,7 @@ PUBLIC uint32_t Sensor_SetFlash(uint32_t flash_mode)
 
 	s_flash_mode = flash_mode;
 	
-	printk("Sensor_SetFlash:flash_mode=0x%x .\n",flash_mode);
+	SENSOR_PRINT("Sensor_SetFlash:flash_mode=0x%x .\n",flash_mode);
 	//printk("Sensor_SetFlash:PIN_CTL_GPIO135->0x%x,PIN_CTL_GPIO144->0x%x .\n",_pard(PIN_CTL_GPIO135),_pard(PIN_CTL_GPIO144));
 
 	switch (flash_mode)

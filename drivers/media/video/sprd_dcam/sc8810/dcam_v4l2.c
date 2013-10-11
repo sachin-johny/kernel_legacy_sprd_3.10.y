@@ -1436,7 +1436,7 @@ static int vidioc_handle_ctrl(struct v4l2_control *ctrl)
 		default:
 			break;
 	}
-	printk("V4L2:vidioc_handle_ctrl,ret=%d.\n",ret);
+	DCAM_V4L2_PRINT("V4L2:vidioc_handle_ctrl,ret=%d.\n",ret);
 	return ret;
 }
 
