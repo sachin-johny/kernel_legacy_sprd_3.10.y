@@ -205,7 +205,7 @@ static long img_scale_ioctl(struct file *file,
 
 	if (param_size) {
 		if (copy_from_user(data, (void*)arg, param_size)) {
-			printk("img_scale_ioctl, failed to copy_from_user \n");
+			printk("img_scale_ioctl, failed to copy param \n");
 			ret = -EFAULT;
 			goto exit;
 		}
@@ -213,21 +213,21 @@ static long img_scale_ioctl(struct file *file,
 	if (SCALE_IO_IS_DONE == cmd) {
 		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
 		if (ret) {
-			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
-			ret = -ERESTARTSYS;
-			goto exit;
+			printk("img_scale_ioctl, failed to down, %d \n", ret);
+			frm_rtn.scale_result = SCALE_PROCESS_SYS_BUSY;
 		} else {
 			if (frm_rtn.type) {
-				SCALE_TRACE("abnormal scale done \n");
+				printk("scale exit \n");
 				ret = -1;
-				goto exit;
-			}
-			if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
-				printk("img_scale_ioctl, failed to copy_to_user \n");
-				ret = -EFAULT;
-				goto exit;
+				frm_rtn.scale_result = SCALE_PROCESS_EXIT;
+			} else {
+				frm_rtn.scale_result = SCALE_PROCESS_SUCCESS;
 			}
 		}
+		if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
+			printk("img_scale_ioctl, failed to copy frame info \n");
+		}
+
 	} else {
 		if (cur_task_pid == INVALID_USER_ID) {
 			mutex_lock(&scale_param_cfg_mutex);
@@ -252,7 +252,7 @@ static long img_scale_ioctl(struct file *file,
 
 exit:
 	if (ret) {
-		SCALE_TRACE("img_scale_ioctl, error code 0x%x \n", ret);
+		printk("img_scale_ioctl, error code %d \n", ret);
 	}
 	return ret;
 

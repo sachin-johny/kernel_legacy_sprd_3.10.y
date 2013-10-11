@@ -112,6 +112,12 @@ enum scle_mode {
 	SCALE_MODE_MAX
 };
 
+enum scale_process {
+	SCALE_PROCESS_SUCCESS = 0,
+	SCALE_PROCESS_EXIT = -1,
+	SCALE_PROCESS_SYS_BUSY = -2,
+	SCALE_PROCESS_MAX = 0xFF
+};
 struct scale_endian_sel {
 	uint8_t               y_endian;
 	uint8_t               uv_endian;
@@ -149,6 +155,7 @@ struct scale_frame {
 	uint32_t                uaddr;
 	uint32_t                vaddr;
 	struct scale_endian_sel endian;
+	enum scale_process scale_result;
 };
 
 typedef void (*scale_isr_func)(struct scale_frame* frame, void* u_data);

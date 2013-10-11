@@ -1794,7 +1794,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 			if (unlikely(path->frm_cnt_act < path_cnt)) {
 				/* it is not permited to use the parameter p->bytesused */
 				path->frm_addr[path->frm_cnt_act].yaddr = p->m.userptr;
-				path->frm_addr[path->frm_cnt_act].uaddr = p->input;
+				path->frm_addr[path->frm_cnt_act].uaddr = p->length;
 				path->frm_addr[path->frm_cnt_act].vaddr = p->reserved;
 				path->frm_cnt_act++;
 			} else {

@@ -753,6 +753,7 @@ int _scale_isr_root(struct dcam_frame* dcam_frm, void* u_data)
 	SCALE_TRACE("SCALE DRV: _scale_isr_root \n");
 	spin_lock_irqsave(&scale_lock, flag);
 	if (g_path->user_func) {
+		memset(&frame, 0, sizeof(frame));
 		frame.yaddr = g_path->output_addr.yaddr;
 		frame.uaddr = g_path->output_addr.uaddr;
 		frame.vaddr = g_path->output_addr.vaddr;
