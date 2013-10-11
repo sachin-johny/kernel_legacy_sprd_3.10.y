@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/interrupt.h>
+#include <linux/spinlock.h>
 #include <linux/fb.h>
 #include <linux/gpio.h>
 #include <linux/workqueue.h>
@@ -56,6 +57,10 @@ typedef struct sprd_lcd_controller {
 
 	struct sprdfb_device  *main_dev;
 
+	bool			clk_is_open;
+	bool			is_suspend;
+	spinlock_t 		clk_spinlock;
+
 	/* overlay */
 	uint32_t  overlay_state;
 
@@ -72,6 +77,38 @@ typedef struct sprd_lcd_controller {
 } sprd_lcd_controller;
 
 static sprd_lcd_controller lcdc;
+
+static int lcdc_clk_disable(void)
+{
+	unsigned long irqflags;
+
+	LCDC_PRINT(3, ("sprdfb:[%s],clk_is_open=%d \n", __FUNCTION__,lcdc.clk_is_open));
+	if(lcdc.clk_is_open){
+		spin_lock_irqsave(&lcdc.clk_spinlock, irqflags);
+		clk_disable(lcdc.clk_lcdc);
+		lcdc.clk_is_open=false;
+		spin_unlock_irqrestore(&lcdc.clk_spinlock,irqflags);
+	}
+	LCDC_PRINT(3, ("sprdfb:[%s],lcdc_clk_disable 0x20900200 =0x%x\n", __FUNCTION__,__raw_readl(AHB_CTL0)));
+
+	return 0;
+}
+
+static int lcdc_clk_enable(void)
+{
+	unsigned long irqflags;
+
+	LCDC_PRINT(3, ("sprdfb:[%s],clk_is_open=%d \n", __FUNCTION__,lcdc.clk_is_open));
+	if(!lcdc.clk_is_open){
+		spin_lock_irqsave(&lcdc.clk_spinlock, irqflags);
+		clk_enable(lcdc.clk_lcdc);
+		lcdc.clk_is_open = true;
+		spin_unlock_irqrestore(&lcdc.clk_spinlock,irqflags);
+	}
+
+	return 0;
+}
+
 
 static int32_t lcm_send_cmd (uint32_t cmd)
 {
@@ -469,6 +506,7 @@ irqreturn_t lcdc_isr(int irq, void *data)
 		lcdc_write(1, LCDC_IRQ_CLR);
 
 		lcdc->vsync_done = 1;
+		lcdc_clk_disable();
 		if (dev->vsync_waiter) {
 			dev->vsync_waiter = 0;
 			wake_up_interruptible(&(lcdc->vsync_queue));
@@ -727,14 +765,16 @@ static inline void lcdc_start(uint32_t run)
 static int do_lcdc_refresh(struct sprdfb_device *dev)
 {
 	struct fb_info *fb = dev->fb;
+	bool is_start=false;
 
 	LCDC_PRINT(3, ("lcdc: [%s]\n", __FUNCTION__));
 
-	if (sprd_lcdc_sync() != 0) {
+	if (lcdc.is_suspend || sprd_lcdc_sync() != 0) {
 		printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
 		return 0;
 	}
 
+	lcdc_clk_enable();
 	if (dev->device_id != 0) {
 		lcdc.dev = dev;
 
@@ -766,6 +806,7 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 					dev->update_lcm(dev);
 				}
 				lcdc_start(dev->run);
+				is_start=true;
 			}
 		} else
 	#endif
@@ -779,6 +820,7 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 				}
 				if (!(dev->panel->cap & LCD_CAP_MANUAL_REFRESH)) {
 					lcdc_start(dev->run);
+					is_start=true;
 				}
 			}
 		}
@@ -795,10 +837,16 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 					real_dev->update_lcm(real_dev);
 				}
 				lcdc_start(real_dev->run);
+				is_start=true;
 			}
 		} else {
 			printk(KERN_ERR "sprdfb simulator can not do pan_display !!!!\n");
 		}
+	}
+
+	if(!is_start){
+		printk(KERN_ERR "sprdfb do_lcdc_refresh disable clk!!!!\n");
+		lcdc_clk_disable();
 	}
 
 	LCDC_PRINT(3, ("[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_CTRL)));
@@ -864,7 +912,7 @@ int lcdc_ioctl(struct sprdfb_device *dev, unsigned int cmd, unsigned long arg)
 int lcdc_suspend(struct sprdfb_device *dev)
 {
 	down(&lcdc.waitlock);
-
+	LCDC_PRINT(2, ("sprdfb lcdc_suspend %d, %d!\n", dev->device_id, lcdc.state));
 	//printk("lcdc_suspend %d, %d!\n", dev->device_id, lcdc.state);
 
 	if (dev->device_id != 0) {
@@ -876,6 +924,7 @@ int lcdc_suspend(struct sprdfb_device *dev)
 		}
 
 		if (dev->panel->ops->lcd_enter_sleep != NULL) {
+			lcdc_clk_enable();
 			dev->reserved[1] = dev->timing[0];
 			dev->update_lcm(dev);
 			dev->panel->ops->lcd_enter_sleep(dev->panel,1);
@@ -887,11 +936,12 @@ int lcdc_suspend(struct sprdfb_device *dev)
 	if ((lcdc.state & LCD_MAIN_PNALE_SUSPEND)
 			&& (lcdc.state & LCD_SUB_PANEL_SUSPEND) ){
 		printk("clk_disable\n");
-		clk_disable(lcdc.clk_lcdc);
+		lcdc_clk_disable();
 	}
 #else
-	clk_disable(lcdc.clk_lcdc);
+	lcdc_clk_disable();
 #endif
+	lcdc.is_suspend = true;
 	up(&lcdc.waitlock);
 	return 0;
 }
@@ -900,12 +950,10 @@ int lcdc_resume(struct sprdfb_device *dev)
 {
 	down(&lcdc.waitlock);
 
-	LCDC_PRINT(2, ("lcdc_suspend %d, %d!\n", dev->device_id, lcdc.state));
+	LCDC_PRINT(2, ("sprdfb lcdc_resume %d, %d!\n", dev->device_id, lcdc.state));
 
-	if (lcdc.clk_lcdc->usecount == 0) {
-		clk_enable(lcdc.clk_lcdc);
-	}
-
+	lcdc_clk_enable();
+	lcdc.is_suspend = false;
 	if (lcdc_read(LCDC_CTRL) == 0) {
 		lcdc.state |= LCD_PANEL_DEEP_SLEEP;
 		hw_lcdc_reset();
@@ -961,8 +1009,8 @@ int lcdc_hardware_init(void)
 	if (clk == NULL) {
 		panic("can not get clk_lcdc!!!!!\n");
 	}
-	clk_enable(clk);
 	lcdc.clk_lcdc = clk;
+	lcdc_clk_enable();
 
 	/* get current clk_ahb rate : ? MHz */
 	clk = clk_get(NULL,"clk_ahb");
@@ -992,9 +1040,7 @@ int lcdc_hardware_init(void)
 
 int lcdc_hardware_close(void)
 {
-	if (lcdc.clk_lcdc->usecount > 0) {
-		clk_disable(lcdc.clk_lcdc);
-	}
+	lcdc_clk_disable();
 	printk("lcdc_close \n");
 	return 0;
 }
@@ -1079,19 +1125,25 @@ static int overlay_do_update(overlay_rect *rect)
 		}
 		lcdc_start(dev->run);
 	}
+
+	return 0;
 }
 
 int overlay_update(int type, overlay_rect *rect, unsigned char *buffer)
 {
 	int ret;
 	down(&lcdc.waitlock);
-	if (lcdc.overlay_state != 1 || sprd_lcdc_sync() != 0) {
+	if (lcdc.overlay_state != 1 || lcdc.is_suspend || sprd_lcdc_sync() != 0) {
 		up(&lcdc.waitlock);
 		printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
 		return 0;
 	}
+	lcdc_clk_enable();
 	overlay_configure(type, rect, buffer);
 	ret = overlay_do_update(rect);
+	if(0 != ret){
+		lcdc_clk_disable();
+	}
 	up(&lcdc.waitlock);
 	return ret;
 }
@@ -1106,8 +1158,10 @@ int overlay_close(void)
 		printk(KERN_ERR "overlay_close error!\n");
 		return 0;
 	}
+	lcdc_clk_enable();
 	lcdc_set_bits(BIT(0), LCDC_IMG_CTRL);	/* disable the image layer */
 	lcdc.overlay_state = 0;
+	lcdc_clk_disable();
 	up(&lcdc.waitlock);
 }
 
