@@ -14,6 +14,10 @@ ifeq ($(CONFIG_BUS_MONITOR),y)
 obj-$(CONFIG_ARCH_SCX35) += bm_sc8830.o
 endif
 
+ifeq ($(CONFIG_CPU_IDLE),y)
+	obj-$(CONFIG_ARCH_SCX35) += cpuidle-sc8830.o
+endif
+
 ifeq ($(CONFIG_PM),y)
 	obj-$(CONFIG_ARCH_SCX35) += pm-sc8830.o standby-sc8830.o pm_debug_sc8830.o
 endif
