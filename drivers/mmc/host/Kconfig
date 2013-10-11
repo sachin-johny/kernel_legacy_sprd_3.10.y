@@ -329,6 +329,12 @@ config MMC_SDHCI_SCX35
 	  If you have SC8830 platform with SD Host Controller, say Y or M here.
 	  If unsure, say N.
 
+config SPRD_SRT
+	tristate "Spreadtrum SRT support"
+	help
+	  If you have SPRD_SRT, say Y or M here.
+	  If unsure, say N.
+
 choice
 	prompt "Atmel SD/MMC Driver"
 	depends on AVR32 || ARCH_AT91
