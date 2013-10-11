@@ -728,22 +728,25 @@ static int sprd_mmc_host_runtime_suspend(struct device *dev) {
 }
 
 static int sprd_mmc_host_runtime_resume(struct device *dev) {
+    int rc = -EBUSY;
     unsigned long flags;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
-        mmc_claim_host(mmc);
-        if(host->ops->set_clock) {
-            spin_lock_irqsave(&host->lock, flags);
-            host->ops->set_clock(host, 1);
-            spin_unlock_irqrestore(&host->lock, flags);
-            mdelay(10);
+        if(mmc_try_claim_host(mmc)) {
+            if(host->ops->set_clock) {
+                spin_lock_irqsave(&host->lock, flags);
+                host->ops->set_clock(host, 1);
+                spin_unlock_irqrestore(&host->lock, flags);
+                mdelay(1);
+            }
+            sdhci_runtime_resume_host(host);
+            mmc_release_host(mmc);
+            rc=0;
         }
-        sdhci_runtime_resume_host(host);
-        mmc_release_host(mmc);
     }
-    return 0;
+    return rc;
 }
 
 static int sprd_mmc_host_runtime_idle(struct device *dev) {
