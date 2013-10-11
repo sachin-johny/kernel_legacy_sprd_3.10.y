@@ -344,7 +344,23 @@ static void emc_debugfs_creat(void)
 	debugfs_create_file("delay", S_IRUGO | S_IWUGO,
 			    debug_root, &emc_delay, &fops_emc_delay);
 }
-
+static void emc_earlysuspend(struct early_suspend *h)
+{
+#ifndef EMC_FREQ_AUTO_TEST
+	emc_clk_set(200, EMC_FREQ_NORMAL_SCENE);
+#endif
+}
+static void emc_late_resume(struct early_suspend *h)
+{
+#ifndef EMC_FREQ_AUTO_TEST
+	emc_clk_set(max_clk, EMC_FREQ_NORMAL_SCENE);
+#endif
+}
+static struct early_suspend emc_early_suspend_desc = {
+	.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 100,
+	.suspend = emc_earlysuspend,
+	.resume = emc_late_resume,
+};
 #ifdef EMC_FREQ_AUTO_TEST
 static u32 emc_freq_valid_array[] = {
 	//100,
@@ -497,10 +513,11 @@ static int __init emc_early_suspend_init(void)
 	}
 #endif
 	/*
-	* move this early_suspend to dfs governor(governor_ondemand.c)
-	* TODO: clean code
-	register_early_suspend(&emc_early_suspend_desc);
+	* if DFS is not configurated, we keep ddr 200MHz when screen off
 	*/
+#ifndef CONFIG_SPRD_SCXX30_DMC_FREQ
+	register_early_suspend(&emc_early_suspend_desc);
+#endif
 	emc_debugfs_creat();
 #ifdef EMC_FREQ_AUTO_TEST
 	__emc_freq_test();
@@ -510,7 +527,9 @@ static int __init emc_early_suspend_init(void)
 }
 static void  __exit emc_early_suspend_exit(void)
 {
-	//unregister_early_suspend(&emc_early_suspend_desc);
+#ifndef CONFIG_SPRD_SCXX30_DMC_FREQ
+	unregister_early_suspend(&emc_early_suspend_desc);
+#endif
 }
 
 module_init(emc_early_suspend_init);

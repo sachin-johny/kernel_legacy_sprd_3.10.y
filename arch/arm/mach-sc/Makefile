@@ -6,7 +6,7 @@ obj-$(CONFIG_SC_INTERNAL_ADC) += adc.o
 obj-$(CONFIG_SC_INTERNAL_WATCHDOG) += watchdog.o
 
 obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o pin_switch.o
-obj-$(CONFIG_ARCH_SCX35) += timer_sc8830.o
+obj-$(CONFIG_ARCH_SCX35) += emc_earlysuspend_8830.o timer_sc8830.o
 
 obj-$(CONFIG_PM) += pm.o
 obj-$(CONFIG_FIX_V7TAGRAM_BUG) += fix_v7_tag_ram_bug.o
