@@ -287,7 +287,7 @@ uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue)
 	temp = adc_cal.p0_vol - adc_cal.p1_vol;
 	temp = temp * (adcvalue - adc_cal.p0_adc);
 	temp = temp / (adc_cal.p0_adc - adc_cal.p1_adc);
-	temp = temp + adc_cal.p1_vol;
+	temp = temp + adc_cal.p0_vol;
 
 	return temp;
 }

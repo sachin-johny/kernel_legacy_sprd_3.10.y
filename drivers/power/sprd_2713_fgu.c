@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 #include <linux/kernel.h>
+#include <linux/module.h>
 #include <linux/err.h>
 #include <mach/hardware.h>
 #include <mach/sci.h>
@@ -20,6 +21,9 @@
 #include <linux/wakelock.h>
 #include <linux/hrtimer.h>
 #include <linux/delay.h>
+#include <linux/device.h>
+#include <linux/platform_device.h>
+#include <linux/power_supply.h>
 
 #define REGS_FGU_BASE ANA_FPU_INT_BASE
 
@@ -163,10 +167,61 @@ static int cur_offset;
 #define VOL_0mv_ADC   4076
 #define VOL_40mv_ADC    6790
 #define CUR_0ma_ADC 7944
+
 #define VOL_0mv_IDEA_ADC    4096
 #define CUR_0ma_IDEA_ADC    8192
 #define FGU_IMPEDANCE   212	//21.2moh
 #define FGU_IMPEDANCE_IDEA  200	//200
+
+static int fgu_nv_4200mv = 2865;
+static int fgu_nv_3600mv = 2460;
+static int fgu_0_cur_adc = 8019;
+
+extern int in_calibration(void);
+static int __init fgu_cal_start(char *str)
+{
+	unsigned int fgu_data[3] = { 0 };
+	char *cali_data = &str[1];
+	if (str) {
+		pr_info("fgu_cal%s!\n", str);
+		sscanf(cali_data, "%d,%d,%d", &fgu_data[0], &fgu_data[1],
+		       &fgu_data[2]);
+		pr_info("fgu_data: 0x%x 0x%x,0x%x!\n", fgu_data[0], fgu_data[1],
+			fgu_data[2]);
+		fgu_nv_4200mv = (fgu_data[0] >> 16) & 0xffff;
+		fgu_nv_3600mv = (fgu_data[1] >> 16) & 0xffff;
+		fgu_0_cur_adc = fgu_data[2];
+	}
+	return 1;
+}
+
+__setup("fgu_cal", fgu_cal_start);
+
+static int sprdfgu_cal_from_nv(void)
+{
+	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
+	vol_1000mv_adc = ((fgu_nv_4200mv - fgu_nv_3600mv) * 10 + 3) / 6;
+	vol_offset = 0 - (fgu_nv_4200mv * 10 - vol_1000mv_adc * 42) / 10;
+	cur_offset = CUR_0ma_IDEA_ADC - fgu_0_cur_adc;
+	cur_1000ma_adc =
+	    (vol_1000mv_adc * 4 * FGU_IMPEDANCE +
+	     FGU_IMPEDANCE_IDEA / 2) / FGU_IMPEDANCE_IDEA;
+
+	if (0xA000 == achip_id_low) {
+		vol_offset = 327;
+		cur_offset = 59;
+		cur_1000ma_adc = 1760;
+		vol_1000mv_adc = 500;
+	}
+	printk
+	    ("sprdfgu_cal_from_nv fgu_nv_4200mv = %d,fgu_nv_3600mv = %d,fgu_0_cur_adc = %d\n",
+	     fgu_nv_4200mv, fgu_nv_3600mv, fgu_0_cur_adc);
+	printk
+	    ("sprdfgu_cal_from_nv cur_1000ma_adc = %d,vol_1000mv_adc = %d,vol_offset = %d,cur_offset = %d\n",
+	     cur_1000ma_adc, vol_1000mv_adc, vol_offset, cur_offset);
+	return 0;
+}
+
 static int sprdfgu_cal_init(void)
 {
 	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
@@ -189,8 +244,10 @@ static int sprdfgu_cal_init(void)
 	printk
 	    ("cur_1000ma_adc = %d,vol_1000mv_adc = %d,vol_offset = %d,cur_offset = %d\n",
 	     cur_1000ma_adc, vol_1000mv_adc, vol_offset, cur_offset);
+	return 0;
 }
 
+#define fgu_cal_init sprdfgu_cal_from_nv
 int sprdfgu_is_new_chip(void)
 {
 	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
@@ -272,9 +329,9 @@ uint32_t sprdfgu_read_vbat_vol(void)
 	u32 cur_vol_raw;
 	uint32_t temp;
 	cur_vol_raw = sci_adi_read(REG_FGU_VOLT_VAL);
-	//FGU_DEBUG("cur_vol_raw = %x\n", cur_vol_raw);
+	FGU_DEBUG("cur_vol_raw = %d\n", cur_vol_raw);
 	temp = fgu_adc2vol_mv(cur_vol_raw);
-	//FGU_DEBUG("sprdfgu_read_vbat_vol : %d\n", temp);
+	FGU_DEBUG("sprdfgu_read_vbat_vol : %d\n", temp);
 	return temp;
 }
 
@@ -287,7 +344,7 @@ static inline u32 fgu_ocv_vol_get(void)
 {
 	u32 ocv_vol_raw;
 	ocv_vol_raw = sci_adi_read(REG_FGU_OCV_VAL);
-	//FGU_DEBUG("ocv_vol_raw = %x\n", ocv_vol_raw);
+	FGU_DEBUG("ocv_vol_raw = %x\n", ocv_vol_raw);
 	return fgu_adc2vol_mv(ocv_vol_raw);
 }
 
@@ -296,7 +353,7 @@ static inline int fgu_cur_current_get(void)
 	int current_raw;
 
 	current_raw = sci_adi_read(REG_FGU_CURT_VAL);
-	//FGU_DEBUG("current_raw: 0x%x\n", current_raw);
+	FGU_DEBUG("current_raw: %d\n", current_raw);
 
 	return fgu_adc2cur_ma(current_raw - 0x2000);
 
@@ -305,7 +362,7 @@ static inline int fgu_cur_current_get(void)
 int sprdfgu_read_batcurrent(void)
 {
 	int temp = fgu_cur_current_get();
-	//FGU_DEBUG("sprdfgu_read_batcurrent : %d\n", temp);
+	FGU_DEBUG("sprdfgu_read_batcurrent : %d\n", temp);
 	return temp;
 }
 
@@ -326,8 +383,10 @@ static void fgu_handler(unsigned long data)
 	FGU_DEBUG("pocv_raw = 0x%x,pocv_voltage = %d\n", pocv_raw,
 		  fgu_adc2vol_mv(pocv_raw));
 	FGU_DEBUG("current current = %d\n", fgu_cur_current_get());
+	FGU_DEBUG("REG_FGU_CURT_OFFSET--- = %d\n",
+		  sci_adi_read(REG_FGU_CURT_OFFSET));
 	FGU_DEBUG("dump fgu message@@@@@@@@@@@@@--!!!-@@@@@@@@@@@@@@end\n");
-	mod_timer(&fgu_timer, jiffies + 60 * HZ);
+	mod_timer(&fgu_timer, jiffies + 45 * HZ);
 }
 
 static void fgu_hw_init(void)
@@ -336,15 +395,17 @@ static void fgu_hw_init(void)
 	int current_raw;
 	FGU_DEBUG("FGU_Init\n");
 
-	sci_adi_set(ANA_REG_GLB_MP_MISC_CTRL, (BIT(1)));
-	sci_adi_write(ANA_REG_GLB_DCDC_CTRL2, (4 << 8), (7 << 8));
+	//sci_adi_set(ANA_REG_GLB_MP_MISC_CTRL, (BIT(1)));
+	//sci_adi_write(ANA_REG_GLB_DCDC_CTRL2, (4 << 8), (7 << 8));
 
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_FGU_EN);
 	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_FGU_EN | BIT_RTC_FGUA_EN);
-	sci_adi_clr(REG_FGU_CONFIG, BIT_VOLT_H_VALID);
+	//sci_adi_clr(REG_FGU_CONFIG, BIT_VOLT_H_VALID);
 	//sci_adi_clr(REG_FGU_CONFIG, BIT_AD1_ENABLE);
-	sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
-	sci_adi_write(REG_FGU_CONFIG, BITS_VOLT_DUTY(3), BITS_VOLT_DUTY(3));	//mingwei
+	sci_adi_write(REG_FGU_CONFIG, BITS_VOLT_DUTY(3), BITS_VOLT_DUTY(3)|BIT_VOLT_H_VALID);
+	if (!in_calibration()) {
+		sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
+	}
 
 	mdelay(3);
 
@@ -372,25 +433,155 @@ static void fgu_hw_init(void)
 	mod_timer(&fgu_timer, jiffies + 45 * HZ);
 }
 
-int sprdfgu_init(void)
+struct power_supply sprdfgu;
+static ssize_t sprdfgu_store_attribute(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count);
+static ssize_t sprdfgu_show_attribute(struct device *dev,
+				      struct device_attribute *attr, char *buf);
+
+#define SPRDFGU_ATTR(_name)                         \
+{                                       \
+	.attr = { .name = #_name, .mode = S_IRUGO | S_IWUSR | S_IWGRP, },  \
+	.show = sprdfgu_show_attribute,                  \
+	.store = sprdfgu_store_attribute,                              \
+}
+#define SPRDFGU_ATTR_RO(_name)                         \
+{                                       \
+	.attr = { .name = #_name, .mode = S_IRUGO, },  \
+	.show = sprdfgu_show_attribute,                  \
+}
+#define SPRDFGU_ATTR_WO(_name)                         \
+{                                       \
+	.attr = { .name = #_name, .mode = S_IWUSR | S_IWGRP, },  \
+	.store = sprdfgu_store_attribute,                              \
+}
+
+static struct device_attribute sprdfgu_attribute[] = {
+	SPRDFGU_ATTR_RO(fgu_vol_adc),
+	SPRDFGU_ATTR_RO(fgu_current_adc),
+	SPRDFGU_ATTR_RO(fgu_vol),
+	SPRDFGU_ATTR_RO(fgu_current),
+};
+
+enum SPRDFGU_ATTRIBUTE {
+	FGU_VOL_ADC = 0,
+	FGU_CURRENT_ADC,
+	FGU_VOL,
+	FGU_CURRENT,
+};
+
+static ssize_t sprdfgu_store_attribute(struct device *dev,
+				       struct device_attribute *attr,
+				       const char *buf, size_t count)
 {
-	sprdfgu_cal_init();
+	unsigned long set_value;
+	const ptrdiff_t off = attr - sprdfgu_attribute;
+
+	set_value = simple_strtoul(buf, NULL, 10);
+	pr_info("sprdfgu_store_attribute value %d %lu\n", off, set_value);
+
+	switch (off) {
+	default:
+		count = -EINVAL;
+		break;
+	}
+	return count;
+}
+
+static ssize_t sprdfgu_show_attribute(struct device *dev,
+				      struct device_attribute *attr, char *buf)
+{
+	int i = 0;
+	const ptrdiff_t off = attr - sprdfgu_attribute;
+
+	switch (off) {
+	case FGU_VOL_ADC:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			       sci_adi_read(REG_FGU_VOLT_VAL));
+		break;
+	case FGU_CURRENT_ADC:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			       sci_adi_read(REG_FGU_CURT_VAL));
+
+		break;
+	case FGU_VOL:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			       sprdfgu_read_vbat_vol());
+		break;
+	case FGU_CURRENT:
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+			       sprdfgu_read_batcurrent());
+		break;
+	default:
+		i = -EINVAL;
+		break;
+	}
+
+	return i;
+}
+
+static int sprdfgu_creat_attr(struct device *dev)
+{
+	int i, rc;
+
+	for (i = 0; i < ARRAY_SIZE(sprdfgu_attribute); i++) {
+		rc = device_create_file(dev, &sprdfgu_attribute[i]);
+		if (rc)
+			goto sprd_attrs_failed;
+	}
+	goto sprd_attrs_succeed;
+
+sprd_attrs_failed:
+	while (i--)
+		device_remove_file(dev, &sprdfgu_attribute[i]);
+
+sprd_attrs_succeed:
+	return rc;
+}
+
+int sprdfgu_init(struct platform_device *pdev)
+{
+	int ret = 0;
+
+	fgu_cal_init();
 	fgu_hw_init();
+
+	sprdfgu.name = "sprdfgu";
+	ret = power_supply_register(&pdev->dev, &sprdfgu);
+	if (ret) {
+		pr_err("register power supply error!\n");
+		return -EFAULT;
+	}
+	sprdfgu_creat_attr(sprdfgu.dev);
+	return ret;
 }
 
 uint16_t voltage_capacity_table[][2] = {
-	{4180, 100},
-	{4100, 95},
-	{3980, 80},
-	{3900, 70},
-	{3840, 60},
-	{3800, 50},
-	{3760, 40},
-	{3730, 30},
-	{3700, 20},
-	{3650, 15},
-	{3600, 5},
-	{3400, 0},
+	{4180, 100}
+	,
+	{4100, 95}
+	,
+	{3980, 80}
+	,
+	{3900, 70}
+	,
+	{3840, 60}
+	,
+	{3800, 50}
+	,
+	{3760, 40}
+	,
+	{3730, 30}
+	,
+	{3700, 20}
+	,
+	{3650, 15}
+	,
+	{3600, 5}
+	,
+	{3400, 0}
+	,
 };
 
 uint32_t sprdfgu_read_capacity(void)

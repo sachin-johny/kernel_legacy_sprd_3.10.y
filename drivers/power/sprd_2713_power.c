@@ -39,7 +39,7 @@
 
 #define SPRDBAT__DEBUG
 #ifdef SPRDBAT__DEBUG
-#define SPRDBAT_DEBUG(format, arg...) printk("sprd battery: " "---" format, ## arg)
+#define SPRDBAT_DEBUG(format, arg...) printk("sprdbat: " "---" format, ## arg)
 #else
 #define SPRDBAT_DEBUG(format, arg...)
 #endif
@@ -68,6 +68,7 @@ static uint32_t sprdbat_average_cnt;
 static unsigned long sprdbat_update_capacity_time;
 static uint32_t sprdbat_trickle_chg;
 static uint32_t sprdbat_start_chg;
+extern struct sprdbat_auxadc_cal adc_cal;
 
 static void sprdbat_change_module_state(uint32_t event);
 
@@ -248,10 +249,13 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 		sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
 		break;
 	case BATTERY_0:
-		//remove
+		adc_cal.p0_vol = set_value& 0xffff; //only for debug
+		adc_cal.p0_adc = (set_value >> 16) & 0xffff;
 		break;
 	case BATTERY_1:
-		//remove
+		adc_cal.p1_vol = set_value & 0xffff;
+		adc_cal.p1_adc = (set_value >> 16) & 0xffff;
+		adc_cal.cal_type = SPRDBAT_AUXADC_CAL_NV;
 		break;
 	case HW_SWITCH_POINT:
 		local_irq_save(irq_flag);
@@ -388,6 +392,7 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 	data->bat_info.capacity = sprdfgu_read_capacity();
 	data->bat_info.soc = sprdfgu_read_soc();
 	data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
+	data->bat_info.vbat_ocv = sprdfgu_read_vbat_ocv();
 	data->bat_info.cur_temp = sprdbat_read_temp();
 	data->bat_info.bat_current = sprdfgu_read_batcurrent();
 	data->bat_info.chging_current = 0;
@@ -637,6 +642,7 @@ static char *supply_list[] = {
 
 static char *battery_supply_list[] = {
 	"audio-ldo",
+	"sprdfgu",
 };
 
 static int sprdbat_timer_handler(void *data)
@@ -1110,7 +1116,7 @@ static void sprdbat_charge_works(struct work_struct *work)
 	}
 
 	if (sprdbat_data->bat_info.chg_stop_flags & SPRDBAT_CHG_END_FULL_BIT) {
-		if (sprdbat_data->bat_info.vbat_vol <
+		if (sprdbat_data->bat_info.vbat_ocv <
 		    sprdbat_data->bat_param.rechg_vol) {
 			SPRDBAT_DEBUG("SPRDBAT_RECHARGE_E\n");
 			sprdbat_change_module_state(SPRDBAT_RECHARGE_E);
@@ -1245,7 +1251,7 @@ static int sprdbat_probe(struct platform_device *pdev)
 	sprdchg_set_chg_ovp(data->bat_param.ovp_stop);
 
 	sprdchg_init();
-	sprdfgu_init();
+	sprdfgu_init(pdev);
 
 	sprdbat_info_init(data);
 
