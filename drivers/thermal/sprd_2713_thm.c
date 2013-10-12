@@ -281,7 +281,6 @@ int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone)
 {
 	u32 local_sen_id = 0;
 	u32 local_sensor_addr;
-	u32 int_sts;
 	int ret = 0;
 
 	local_sensor_addr =
@@ -290,13 +289,12 @@ int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone)
 
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), 0, ~0);	//disable all int
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
-
+	return ret;
 }
 int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone)
 {
 	u32 local_sen_id = 0;
 	u32 local_sensor_addr;
-	u32 int_sts;
 	int ret = 0;
 
 	local_sensor_addr =
@@ -305,6 +303,7 @@ int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone)
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), int_ctrl_reg[pzone->sensor_id], ~0);	//enable int of saved
 	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x9, 0);
+	return ret;
 }
 
 int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)

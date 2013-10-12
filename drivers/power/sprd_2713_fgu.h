@@ -6,7 +6,7 @@
 #if defined(CONFIG_ARCH_SCX35)
 #include "sprd_2713_charge.h"
 #endif
-int sprdfgu_init(void);
+int sprdfgu_init(struct platform_device *pdev);
 uint32_t sprdfgu_read_capacity(void);
 u32 sprdfgu_read_soc(void);
 int sprdfgu_read_batcurrent(void);

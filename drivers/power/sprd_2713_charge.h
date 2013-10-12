@@ -22,7 +22,7 @@
 #define SPRDBAT_CHG_END_VOL_PURE			(4200)
 #define SPRDBAT_CHG_END_H			(4225)
 #define SPRDBAT_CHG_END_L			(4190)
-#define SPRDBAT_RECHG_VOL	4100	//recharge voltage
+#define SPRDBAT_RECHG_VOL	4135	//recharge voltage
 
 #define SPRDBAT_CHG_OVP_LEVEL_MIN       5600
 #define SPRDBAT_CHG_OVP_LEVEL_MAX   9000
