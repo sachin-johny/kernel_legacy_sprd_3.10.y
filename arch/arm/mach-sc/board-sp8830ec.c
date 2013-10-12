@@ -203,6 +203,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_thm_device,
 	&sprd_thm_a_device,
 	&sprd_headset_device,
+	&trout_fm_device,
+	
 };
 
 /* BT suspend/resume */
