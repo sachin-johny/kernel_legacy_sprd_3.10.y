@@ -1775,6 +1775,7 @@ force_ro_fail:
 #define CID_MANFID_TOSHIBA	0x11
 #define CID_MANFID_MICRON	0x13
 #define CID_MANFID_SAMSUNG	0x15
+#define CID_MANFID_KINGSTON 0x41
 
 static const struct mmc_fixup blk_fixups[] =
 {
@@ -1788,6 +1789,8 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_INAND_CMD38),
 	MMC_FIXUP("SEM32G", CID_MANFID_SANDISK, 0x100, add_quirk,
 		  MMC_QUIRK_INAND_CMD38),
+	MMC_FIXUP("SD8GB", CID_MANFID_KINGSTON, 0x3432, add_quirk,
+		  MMC_QUIRK_BLK_NO_CMD23),
 
 	/*
 	 * Some MMC cards experience performance degradation with CMD23
