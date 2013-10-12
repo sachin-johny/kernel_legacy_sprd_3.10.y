@@ -106,6 +106,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_device_rtc,
 	&sprd_eic_gpio_device,
 	&sprd_nand_device,
+	&sprd_lcd_device0,
 #ifdef CONFIG_PSTORE_RAM
 	&sprd_ramoops_device,
 #endif
