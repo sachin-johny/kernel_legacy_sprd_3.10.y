@@ -1001,7 +1001,7 @@ static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	down(&dev->refresh_lock);
-	if(!dispc_ctx.is_first_frame || NULL== dev){
+	if(!dispc_ctx.is_first_frame){
 		printk("sprdfb:[%s] not first_frame\n",__FUNCTION__);
 		up(&dev->refresh_lock);
 		return;
