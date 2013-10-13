@@ -50,7 +50,14 @@
 #define        PWM_SCALE       1
 #define        PWM_REG_MSK     0xffff
 #define        PWM_MOD_MAX     0xff
-#define        BRIGHTNESS_DIV   0x04
+
+/*****************************************
+*  level              mV            step
+*  0 ~  63      0  mV ~ 189 mV      3 mV
+* 64 ~  95     192 mV ~ 378 mV      6 mV
+* 96 ~ 127     384 mV ~ 756 mV     12 mV
+******************************************/
+#define        MAX_CURRENT_LEVEL    70
 
 /* sprdtrum backlight have two driven mode:
  * 1) pwm mode  //you need to define SPRD_BACKLIGHT_PWM
@@ -147,31 +154,6 @@ static const struct backlight_ops sprd_backlight_ops = {
 
 #elif defined(SPRD_BACKLIGHT_WHITELED)
 
-#define OUTPUT_STEP	12
-#define STEP_3mv_BASE	0x0
-#define STEP_6mv_BASE	0x40
-#define STEP_12mv_BASE	0x60
-
-static u32 sprd_caculate_brightness(u32 level)
-{
-	int output_mv;
-
-	output_mv = level * OUTPUT_STEP;
-	PRINT_DBG("set output_mv=%d\n", output_mv);
-	if (output_mv <= 192) {
-		return STEP_3mv_BASE + (level << 2);
-	} else {
-		if (output_mv <= 384) {
-			return STEP_6mv_BASE + (((output_mv - 192) / 12) << 1);
-		} else {
-			if (output_mv <= 756)
-				return STEP_12mv_BASE + ((output_mv - 384) / 12);
-		}
-	}
-
-	return -EINVAL;
-}
-
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 {
 	u32 bl_brightness, led_level, pwm_level;
@@ -190,8 +172,6 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 		}
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
-		if((bl_brightness > 0) && (bl_brightness < (1 << BRIGHTNESS_DIV)))
-			bl_brightness = (1 << BRIGHTNESS_DIV);
 		pwm_level = bl_brightness & 0x3;
 		/*duty ratio = 25% 50% 75% or 100%*/
 		pwm_level = (PWM_MOD_MAX >> 2) * (pwm_level + 1) & PWM_MOD_MAX;
@@ -199,7 +179,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 		if (sprdbl.pwm_mode == dim_pwm) {
 			/*series mode*/
 			/*whiteled config*/
-			led_level = sprd_caculate_brightness(bl_brightness >> BRIGHTNESS_DIV);
+			led_level = ((MAX_CURRENT_LEVEL + 1) * bl_brightness) / (PWM_MOD_MAX + 1);
 			PRINT_DBG("user requested brightness = %d, caculated led_level = %d\n", bldev->props.brightness, led_level);
 			if ((int)led_level < 0) {
 				return led_level;
