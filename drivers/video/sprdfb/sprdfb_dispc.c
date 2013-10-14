@@ -1945,6 +1945,12 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 #endif
 	logo_src_v =  (uint32_t)ioremap(lcd_base_from_uboot, logo_size);
 
+	if (!logo_src_v || !logo_dst_v) {
+		printk(KERN_ERR "%s[%d]: Unable to map boot logo memory: src-0x%08x, dst-0x%0x8\n", __func__,
+		    __LINE__,logo_src_v, logo_dst_v);
+		return;
+	}
+
 	printk("%s[%d]: lcd_base_from_uboot: 0x%08x, logo_src_v:0x%08x\n",__func__,__LINE__,lcd_base_from_uboot,logo_src_v);
 	printk("%s[%d]: logo_dst_p:0x%08x,logo_dst_v:0x%08x\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
 	memcpy(logo_dst_v, logo_src_v, logo_size);
