@@ -266,7 +266,7 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd);
 struct ion_allocation_data {
 	size_t len;
 	size_t align;
-	unsigned int heap_id_mask;
+	unsigned int heap_mask;
 	unsigned int flags;
 	struct ion_handle *handle;
 };

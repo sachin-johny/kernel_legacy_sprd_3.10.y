@@ -26,7 +26,7 @@
 #include "ion_priv.h"
 
 #define ION_CMA_ALLOCATE_FAILED -1
-
+#if 0
 struct ion_cma_heap {
 	struct ion_heap heap;
 	struct device *dev;
@@ -203,3 +203,4 @@ void ion_cma_heap_destroy(struct ion_heap *heap)
 
 	kfree(cma_heap);
 }
+#endif

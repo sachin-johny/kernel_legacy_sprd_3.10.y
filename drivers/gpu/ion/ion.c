@@ -847,7 +847,7 @@ static void ion_buffer_sync_for_device(struct ion_buffer *buffer,
 
 		if (ion_buffer_page_is_dirty(page))
 			__dma_page_cpu_to_dev(page, 0, PAGE_SIZE, dir);
-		ion_buffer_page_clean(buffer->pages + i);
+ 		ion_buffer_page_clean(buffer->pages + i);
 	}
 	list_for_each_entry(vma_list, &buffer->vmas, list) {
 		struct vm_area_struct *vma = vma_list->vma;
@@ -1134,7 +1134,7 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
 		handle = ion_alloc(client, data.len, data.align,
-					     data.heap_id_mask, data.flags);
+					     data.heap_mask, data.flags);
 
 		if (IS_ERR(handle))
 			return PTR_ERR(handle);
