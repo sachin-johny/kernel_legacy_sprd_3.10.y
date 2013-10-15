@@ -17,6 +17,12 @@ config FB_SCX35
 	help
           Frame buffer driver for sc8830 based boards.
 
+config SPRD_FB_SIZE
+	int "MB size for frame buffer, should larger or equal lcd_w*lcd_h*4*2"
+	range 1 16
+	default 8
+	depends on FB_SC8825 || FB_SCX35
+
 config FB_LCD_HX8369
 	boolean "support HX8369 panel"
 	depends on FB_SC8825 || FB_SCX35

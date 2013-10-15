@@ -117,7 +117,13 @@
 #endif
 
 #ifdef CONFIG_FB_LCD_RESERVE_MEM
+
+#if defined(CONFIG_SPRD_FB_SIZE)
+#define SPRD_FB_MEM_SIZE	(CONFIG_SPRD_FB_SIZE * SZ_1M)
+#else
 #define SPRD_FB_MEM_SIZE	SZ_8M
+#endif
+
 #define SPRD_FB_MEM_BASE	(SPRD_RAM_CONSOLE_START - SPRD_FB_MEM_SIZE)
 #endif
 
