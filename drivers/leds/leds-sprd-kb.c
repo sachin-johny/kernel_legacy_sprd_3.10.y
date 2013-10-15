@@ -104,6 +104,7 @@ static void sprd_kpled_set_brightness( unsigned long  brightness)
 #ifdef CONFIG_ARCH_SCX35
 	/*brightness steps = 16*/
 	brightness_level = brightness_level/16;
+	brightness_level = 0;//set brightness_level = 0 for reducing power consumption
 #else
 	/*brightness steps = 8*/
 	brightness_level = brightness_level/32;
