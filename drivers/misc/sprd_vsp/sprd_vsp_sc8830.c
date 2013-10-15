@@ -121,23 +121,6 @@ static int find_vsp_freq_level(unsigned long freq)
 	return level;
 }
 
-static void disable_vsp (struct vsp_fh *vsp_fp)
-{
-	clk_disable(vsp_hw_dev.vsp_clk);
-	vsp_fp->is_clock_enabled= 0;
-	pr_debug("vsp ioctl VSP_DISABLE\n");
-
-	return;
-}
-
-static void release_vsp(struct vsp_fh *vsp_fp)
-{
-	pr_debug("vsp ioctl VSP_RELEASE\n");
-	vsp_fp->is_vsp_aquired = 0;
-	up(&vsp_hw_dev.vsp_mutex);
-
-	return;
-}
 #if defined(CONFIG_ARCH_SCX35)
 #ifdef USE_INTERRUPT
 static irqreturn_t vsp_isr(int irq, void *data);
@@ -157,14 +140,12 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
 		clk_parent = clk_get(NULL, name_parent);
 		if ((!clk_parent )|| IS_ERR(clk_parent)) {
-			printk(KERN_ERR "clock[%s]: failed to get parent [%s] \
-by clk_get()!\n", "clk_vsp", name_parent);
+			printk(KERN_ERR "clock[%s]: failed to get parent [%s] by clk_get()!\n", "clk_vsp", name_parent);
 			return -EINVAL;
 		}
 		ret = clk_set_parent(vsp_hw_dev.vsp_clk, clk_parent);
 		if (ret) {
-			printk(KERN_ERR "clock[%s]: clk_set_parent() failed!",
-				"clk_vsp");
+			printk(KERN_ERR "clock[%s]: clk_set_parent() failed!","clk_vsp");
 			return -EINVAL;
 		} else {
 			clk_put(vsp_hw_dev.vsp_parent_clk);
@@ -180,11 +161,19 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		break;
 	case VSP_ENABLE:
 		pr_debug("vsp ioctl VSP_ENABLE\n");
-		clk_enable(vsp_hw_dev.vsp_clk);
+		ret = clk_enable(vsp_hw_dev.vsp_clk);
+		if (ret) {
+			printk(KERN_ERR "###:vsp_hw_dev.vsp_clk: clk_enable() failed!\n");
+			return ret;
+		} else {
+			pr_debug("###vsp_hw_dev.vsp_clk: clk_enable() ok.\n");
+		}
 		vsp_fp->is_clock_enabled= 1;
 		break;
 	case VSP_DISABLE:
-		disable_vsp(vsp_fp);
+		pr_debug("vsp ioctl VSP_DISABLE\n");
+		clk_disable(vsp_hw_dev.vsp_clk);		
+		vsp_fp->is_clock_enabled = 0;
 		break;
 	case VSP_ACQUAIRE:
 		pr_debug("vsp ioctl VSP_ACQUAIRE begin\n");
@@ -213,7 +202,9 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		pr_debug("vsp ioctl VSP_ACQUAIRE end\n");
 		break;
 	case VSP_RELEASE:
-		release_vsp(vsp_fp);
+		pr_debug("vsp ioctl VSP_RELEASE\n");
+		vsp_fp->is_vsp_aquired = 0;
+		up(&vsp_hw_dev.vsp_mutex);
 		break;
 #ifdef USE_INTERRUPT
 	case VSP_COMPLETE:
@@ -324,6 +315,7 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static int vsp_open(struct inode *inode, struct file *filp)
 {
+	int ret;
 	struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
 	if (vsp_fp == NULL) {
 		printk(KERN_ERR "vsp open error occured\n");
@@ -333,7 +325,14 @@ static int vsp_open(struct inode *inode, struct file *filp)
 	vsp_fp->is_clock_enabled = 0;
 	vsp_fp->is_vsp_aquired = 0;
 
-    clk_enable(vsp_hw_dev.mm_clk);
+	printk(KERN_INFO "VSP mmi_clk open");
+	ret = clk_enable(vsp_hw_dev.mm_clk);
+	if (ret) {
+		printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
+		return ret;
+	} else {
+		pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+	}
 	
 	printk(KERN_INFO "vsp_open %p\n", vsp_fp);
 	return 0;
@@ -341,6 +340,7 @@ static int vsp_open(struct inode *inode, struct file *filp)
 
 static int vsp_release (struct inode *inode, struct file *filp)
 {
+	int ret;
 	struct vsp_fh *vsp_fp = filp->private_data;
 
 	if (vsp_fp->is_clock_enabled) {
@@ -355,7 +355,8 @@ static int vsp_release (struct inode *inode, struct file *filp)
 
 	kfree(filp->private_data);
     filp->private_data=NULL;
-	
+
+    printk(KERN_INFO "VSP mmi_clk close");	
     clk_disable(vsp_hw_dev.mm_clk);
 
 	printk(KERN_INFO "vsp_release %p\n", vsp_fp);
