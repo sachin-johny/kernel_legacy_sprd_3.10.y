@@ -345,10 +345,7 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 	if(!address) goto Failed;
 
 	page = address_to_pages(address);
-
-#if DEBUG_PRINT
-	printk("__SPRD__OUTTTT: page = %p\n", page);
-#endif
+	printk("__SPRD_PAGE_ALLOC: Succeed alloc page = %p\n", page);
 
 	return page;
 
