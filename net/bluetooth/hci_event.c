@@ -1877,9 +1877,12 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 			struct hci_cp_accept_conn_req cp;
 
 			bacpy(&cp.bdaddr, &ev->bdaddr);
-
+#ifndef CONFIG_BT_SHARK
 			if (lmp_rswitch_capable(hdev) && ((mask & HCI_LM_MASTER)
 						|| is_sco_active(hdev)))
+#else
+			if (lmp_rswitch_capable(hdev))
+#endif
 				cp.role = 0x00; /* Become master */
 			else
 				cp.role = 0x01; /* Remain slave */
