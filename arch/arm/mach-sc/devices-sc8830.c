@@ -708,6 +708,13 @@ struct platform_device sprd_headset_device = {
 	},
 };
 
+#ifdef CONFIG_RF_SHARK
+struct platform_device trout_fm_device = {
+	.name = "trout_fm",
+	.id = -1,
+};
+#endif
+
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,

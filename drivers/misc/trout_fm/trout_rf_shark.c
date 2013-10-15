@@ -195,6 +195,26 @@ int trout_fm_get_status(int *status)
 	return 0;
 }
 
+void trout_fm_enter_sleep(void)
+{
+	u32 reg_data;
+	
+	READ_REG(FM_REG_FM_EN, &reg_data);
+	reg_data &= ~(BIT_2 | BIT_3);
+	WRITE_REG(FM_REG_FM_EN, reg_data);
+    
+    shark_fm_rf_write(0x404, 0x0313);
+}
+
+void trout_fm_exit_sleep(void)
+{
+	u32 reg_data;
+	
+	READ_REG(FM_REG_FM_EN, &reg_data);
+	reg_data |= (BIT_2 | BIT_3);
+	WRITE_REG(FM_REG_FM_EN, reg_data);
+}
+
 void shark_fm_int_en()
 {
 	shark_fm_info.int_happen = 1;

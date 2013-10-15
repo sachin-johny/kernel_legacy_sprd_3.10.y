@@ -7,6 +7,7 @@
 #include <linux/err.h>
 #include <linux/errno.h>
 #include  <linux/module.h>
+#include <linux/platform_device.h>
 
 #include "trout_fm_ctrl.h"
 #include "trout_rf_common.h"
@@ -207,7 +208,8 @@ struct miscdevice trout_fm_misc_device = {
 	.fops = &trout_fm_misc_fops,
 };
 
-int __init init_fm_driver(void)
+
+static int trout_fm_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 	char *ver_str = TROUT_FM_VERSION;
@@ -251,8 +253,9 @@ int __init init_fm_driver(void)
 	return 0;
 }
 
-void __exit exit_fm_driver(void)
-{
+static int trout_fm_remove(struct platform_device *pdev)
+{	
+
 	TROUT_PRINT("exit_fm_driver!\n");
 	misc_deregister(&trout_fm_misc_device);
 
@@ -260,6 +263,53 @@ void __exit exit_fm_driver(void)
 		p_trout_interface->exit();
 		p_trout_interface = NULL;
 	}
+}
+
+#ifdef CONFIG_PM
+static int trout_fm_suspend(struct platform_device *dev, pm_message_t state)
+{
+    trout_fm_enter_sleep();
+	
+    return 0;
+}
+
+static int trout_fm_resume(struct platform_device *dev)
+{
+    trout_fm_exit_sleep();
+	
+    return 0;
+}
+#else
+#define trout_fmt_suspend NULL
+#define trout_fm_resume NULL
+#endif
+
+
+static struct platform_driver trout_fm_driver = {
+	.driver = {
+		.name = "trout_fm",
+		.owner = THIS_MODULE,
+	},
+	.probe = trout_fm_probe,
+	.remove = trout_fm_remove,
+	.suspend = trout_fm_suspend,
+    .resume = trout_fm_resume,
+};
+
+int __init init_fm_driver(void)
+{
+    int ret;
+
+	ret = platform_driver_register(&trout_fm_driver);
+	if (ret)
+		TROUT_PRINT("trout_fm: probe failed: %d\n", ret);
+
+	return ret;
+}
+
+void __exit exit_fm_driver(void)
+{
+    platform_driver_unregister(&trout_fm_driver);
 }
 
 module_init(init_fm_driver);
