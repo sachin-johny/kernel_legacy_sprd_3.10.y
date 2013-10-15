@@ -295,7 +295,24 @@ static unsigned char char2bin( char m)
 	}
 	return 0;
 }
+void get_random_bytes(void *buf, int nbytes);
 
+static int wifi_mac_rand(char *wifimac)
+{
+	int randnum1 = 0;
+	int randnum2 = 0;
+	int ret = 0;
+	get_random_bytes(&randnum1, sizeof(int));
+	get_random_bytes(&randnum2, sizeof(int));
+
+	ret = sprintf(wifimac,"00:%02x:%02x:%02x:%02x:%02x",(unsigned char)((randnum1)&0xFF), \
+						(unsigned char)((randnum1>>8)&0xFF),\
+						(unsigned char)((randnum2)&0xFF) ,\
+						(unsigned char)((randnum2>>8)&0xFF) ,\
+						(unsigned char)((randnum2>>16)&0xFF));
+
+	return ret;
+}
 static int wlan_device_get_mac_addr(unsigned char *buf)
 {
 
@@ -307,13 +324,29 @@ static int wlan_device_get_mac_addr(unsigned char *buf)
 		pr_err("%s, null parameter !!\n", __func__);
 		return -EFAULT;
 	}
-	fp = open_image(CUSTOMER_MAC_FILE);
-	if (fp == NULL)
-		return -EFAULT;
-	mac_len = get_image_block(macaddr, 17, fp);
-	if (mac_len < 17)
-		return -EFAULT;
 
+
+
+/*
+        fp = open_image(CUSTOMER_MAC_FILE);
+        if (fp == NULL)
+                return -EFAULT;
+        mac_len = get_image_block(macaddr, 17, fp);
+        if (mac_len < 17)
+                return -EFAULT;
+*/
+
+        fp = open_image(CUSTOMER_MAC_FILE);
+        if((fp == NULL)||((mac_len = get_image_block(macaddr, 17, fp))<17))
+        {
+                pr_info("\nwill gen random addr because macaddr is %d!!!\n",macaddr);
+                if(17 == wifi_mac_rand(macaddr))
+		{
+			return -EFAULT;
+		}
+
+        }
+	pr_info("\ngaole:wifi mac addr: %s!!!\n",macaddr);
 
 	wlan_mac_addr[0] = (unsigned char)((char2bin(macaddr[0]) << 4) | char2bin(macaddr[1]));
 	wlan_mac_addr[1] = (unsigned char)((char2bin(macaddr[3]) << 4) | char2bin(macaddr[4]));
