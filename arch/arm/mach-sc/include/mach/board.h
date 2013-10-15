@@ -78,10 +78,10 @@
         #if defined(CONFIG_CMA)
             #define SPRD_ION_SIZE	(20*1024*1024)
         #else
-		    #ifndef SPRD_ION_SIZE	/* should be defined in "__board-sp**.h" already */
-		    #define SPRD_ION_SIZE	(64 * SZ_1M)
-		    #endif
-		#endif
+            #ifndef SPRD_ION_SIZE	/* should be defined in "__board-sp**.h" already */
+            #define SPRD_ION_SIZE	(76 * SZ_1M)
+            #endif
+        #endif
     #else
         #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE*1024*1024)
     #endif
