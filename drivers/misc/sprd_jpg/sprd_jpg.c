@@ -426,6 +426,7 @@ static int jpg_open(struct inode *inode, struct file *filp)
 	jpg_hw_dev.condition_work_BSM= 0;
 	jpg_hw_dev.jpg_int_status = 0;
 
+	printk("JPEG mmi_clk open");
 	clk_enable(jpg_hw_dev.mm_clk);
 		
 	printk(KERN_INFO "jpg_open %p\n", jpg_fp);
@@ -447,7 +448,8 @@ static int jpg_release (struct inode *inode, struct file *filp)
 	}
 
 	kfree(filp->private_data);
-	
+
+    printk("JPEG mmi_clk close");	
     clk_disable(jpg_hw_dev.mm_clk);
     
 	printk(KERN_INFO "jpg_release %p\n", jpg_fp);
