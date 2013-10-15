@@ -325,12 +325,9 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			dcam_resize_end();
 		} else {
 			reg_val = size->w | (size->h << 16);
-			REG_WR(SCALE_SRC_SIZE, reg_val);
 			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT, 0);
 			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, 0);
 			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, size->w);
-			REG_WR(SCALE_REV_BURST_IN_TRIM_START, 0);
-			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
 			g_path->input_size.w = size->w;
 			g_path->input_size.h = size->h;
 		}
@@ -358,9 +355,12 @@ int32_t scale_cfg(enum scale_cfg_id id, void *param)
 			dcam_resize_end();
 		} else {
 			reg_val = rect->x | (rect->y << 16);
-			REG_WR(SCALE_TRIM_START, reg_val);
+			REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
+			REG_WR(SCALE_TRIM_START, 0);
 			reg_val = rect->w | (rect->h << 16);
+			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
 			REG_WR(SCALE_TRIM_SIZE, reg_val);
+			REG_WR(SCALE_SRC_SIZE, reg_val);
 			memcpy((void*)&g_path->input_rect,
 				(void*)rect,
 				sizeof(struct scale_rect));
@@ -636,8 +636,8 @@ static int32_t _scale_calc_sc_size(void)
 			g_path->input_rect.h > g_path->output_size.h * SCALE_SC_COEFF_MAX) {
 			for (i = 0; i < SCALE_DECI_FAC_MAX; i++) {
 				div_factor = (uint32_t)(SCALE_SC_COEFF_MAX * (1 << (1 + i)));
-				if (g_path->input_rect.w < (g_path->output_size.w * div_factor) &&
-					g_path->input_rect.h < (g_path->output_size.h * div_factor)) {
+				if (g_path->input_rect.w <= (g_path->output_size.w * div_factor) &&
+					g_path->input_rect.h <= (g_path->output_size.h * div_factor)) {
 					break;
 				}
 			}

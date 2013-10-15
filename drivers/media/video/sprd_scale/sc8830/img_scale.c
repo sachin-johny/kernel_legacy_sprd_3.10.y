@@ -213,11 +213,11 @@ static long img_scale_ioctl(struct file *file,
 	if (SCALE_IO_IS_DONE == cmd) {
 		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
 		if (ret) {
+			ret = 0;
 			printk("img_scale_ioctl, failed to down, %d \n", ret);
 			frm_rtn.scale_result = SCALE_PROCESS_SYS_BUSY;
 		} else {
 			if (frm_rtn.type) {
-				printk("scale exit \n");
 				ret = -1;
 				frm_rtn.scale_result = SCALE_PROCESS_EXIT;
 			} else {
@@ -252,7 +252,7 @@ static long img_scale_ioctl(struct file *file,
 
 exit:
 	if (ret) {
-		printk("img_scale_ioctl, error code %d \n", ret);
+		SCALE_TRACE("img_scale_ioctl, error code %d \n", ret);
 	}
 	return ret;
 
