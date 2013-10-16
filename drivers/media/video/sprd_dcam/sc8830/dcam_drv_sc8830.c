@@ -1361,6 +1361,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 		uint32_t         tmp = 0;
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
+#if 0
 		if (rect->x > DCAM_CAP_FRAME_WIDTH_MAX ||
 		rect->y > DCAM_CAP_FRAME_HEIGHT_MAX ||
 		rect->w > DCAM_CAP_FRAME_WIDTH_MAX ||
@@ -1368,6 +1369,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 			rtn = DCAM_RTN_CAP_FRAME_SIZE_ERR;
 			return -rtn;
 		}
+#endif
 
 		if (DCAM_CAP_IF_CCIR == cap_desc->interface) {
 			if (DCAM_CAP_MODE_RAWRGB == cap_desc->input_format) {
@@ -1553,10 +1555,13 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		DCAM_TRACE("DCAM: DCAM_PATH0_INPUT_SIZE {%d %d} \n", size->w, size->h);
+#if 0
 		if (size->w > DCAM_PATH_FRAME_WIDTH_MAX ||
 		size->h > DCAM_PATH_FRAME_HEIGHT_MAX) {
 			rtn = DCAM_RTN_PATH_SRC_SIZE_ERR;
-		} else {
+		} else
+#endif
+		 {
 			path->input_size.w = size->w;
 			path->input_size.h = size->h;
 			path->valid_param.input_size = 1;
