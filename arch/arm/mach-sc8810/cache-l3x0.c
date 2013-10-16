@@ -448,12 +448,11 @@ static void l3x0_init(void __iomem *base, __u32 aux_val, __u32 aux_mask)
 	outer_cache.flush_range = l2x0_flush_range;
 	outer_cache.sync = l2x0_cache_sync;
 
-	/*	
 	outer_cache.flush_all = l2x0_flush_all;
 	outer_cache.inv_all = l2x0_inv_all;
 	outer_cache.disable = l2x0_disable;
-	outer_cache.set_debug = l2x0_set_debug;
-	*/
+	//outer_cache.set_debug = l2x0_set_debug;
+
 
 
 //	printk(KERN_INFO "%s cache controller enabled\n", type);

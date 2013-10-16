@@ -498,13 +498,13 @@ void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs)
 	printk("\n");
 
 	flush_cache_all();
-	//outer_flush_all();
+	outer_flush_all();
 	mdelay(1000);
 
 	sysdump_prepare_info(enter_id, reason, regs);
 
 	flush_cache_all();
-	//outer_flush_all();
+	outer_flush_all();
 	mdelay(1000);
 
 	printk("\n");

@@ -30,7 +30,7 @@
 
 #include <mach/system.h>
 
-/* #define WDT_DEBUG */
+#define WDT_DEBUG
 #define WDT "SPRD_WDT "
 #ifdef WDT_DEBUG
 #define DEBUG_PRINT printk

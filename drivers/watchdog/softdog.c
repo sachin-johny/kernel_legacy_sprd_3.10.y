@@ -48,6 +48,7 @@
 #include <linux/init.h>
 #include <linux/jiffies.h>
 #include <linux/uaccess.h>
+#include <linux/mm.h>
 
 #define PFX "SoftDog: "
 
@@ -112,6 +113,8 @@ static void watchdog_fire(unsigned long data)
 	else {
 		printk(KERN_CRIT PFX "Initiating system reboot: %u %u\n", nfc_wait_times, nfc_wait_long);
 		/* FIXME: we expect to see more info by doing panic */
+		/* show memory */
+		show_mem();
 		panic(PFX "Timeout!!!\n");
 		emergency_restart();
 		printk(KERN_CRIT PFX "Reboot didn't ?????\n");
