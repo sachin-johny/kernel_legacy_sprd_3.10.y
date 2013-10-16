@@ -214,11 +214,10 @@ int nandmtd2_query_block(struct yaffs_dev *dev, int block_no,
 			*state = YAFFS_BLOCK_STATE_EMPTY;
 		}
 		/*if ecc unfixed, set the block empty. This block will be erased when allocate.*/
-		if(t.ecc_result == YAFFS_ECC_RESULT_UNFIXED)
-		{
+		if(t.ecc_result == YAFFS_ECC_RESULT_UNFIXED){
 			printk("yaffsdebug : unfixed ecc error when scan block, seqnum:0x%x\n",t.seq_number);
 			*seq_number = 0;
-			*state = YAFFS_BLOCK_STATE_EMPTY;
+			*state = YAFFS_BLOCK_STATE_ECC_ERROR;
 		}
 	}
 	yaffs_trace(YAFFS_TRACE_MTD,

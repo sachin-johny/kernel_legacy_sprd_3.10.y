@@ -267,8 +267,12 @@ enum yaffs_block_state {
 	YAFFS_BLOCK_STATE_COLLECTING,
 	/* This block is being garbage collected */
 
-	YAFFS_BLOCK_STATE_DEAD
+	YAFFS_BLOCK_STATE_DEAD,
 	    /* This block has failed and is not in use */
+
+        YAFFS_BLOCK_STATE_ECC_ERROR
+	    /* This block is in ecc error state, need erase */
+
 };
 
 #define	YAFFS_NUMBER_OF_BLOCK_STATES (YAFFS_BLOCK_STATE_DEAD + 1)
