@@ -1371,7 +1371,7 @@ static int native_wcnmodem_start(void *arg)
 	u32 state;
 	u32 value;
 
-	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x80000};
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
 	memcpy(SPRD_IRAM1_BASE + 0x3000, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
@@ -1422,7 +1422,7 @@ static struct cproc_init_data sprd_cproc_wcn_pdata = {
 	.segs           = {
 		{
 		.name  = "modem",
-		.base  = WCN_START_ADDR + 0x80000,
+		.base  = WCN_START_ADDR + 0x60000,
 		.maxsz = 0x00800000,
 		},
 	},
