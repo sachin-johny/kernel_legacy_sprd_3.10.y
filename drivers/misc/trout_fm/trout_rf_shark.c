@@ -363,7 +363,7 @@ int trout_fm_init(void)
 	reg_data |= 2<<4;
 	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
    /* added end*/
-
+#if 0
    /*added by  xuede to route debug IQ data to PAD*/
 	READ_REG(PINMAP_FOR_IQDEBUG, &reg_data);
 	reg_data |= 1<<20;
@@ -380,7 +380,7 @@ int trout_fm_init(void)
 	READ_REG(PINMAP_FOR_TPCK, &reg_data);
 	reg_data |= 3<<4;
 	WRITE_REG(PINMAP_FOR_TPCK, reg_data);
-
+#endif
   /*modify the register value to avoid the fm no voice when system go to deep sleep*/
         READ_REG(SHARK_APB_EB0_SET, &reg_data);
 	reg_data |= 1<<20;
