@@ -46,6 +46,8 @@
 
 #define SETH_RESEND_MAX_NUM	10
 
+void ittiam_nvm_init(void );
+
 /*
  * Tx_ready handler.
  */
@@ -410,7 +412,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_npi_netlink;
 	}
 	platform_set_drvdata(pdev, ndev);
-
+	ittiam_nvm_init();
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
