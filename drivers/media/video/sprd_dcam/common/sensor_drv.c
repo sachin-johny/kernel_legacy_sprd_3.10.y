@@ -288,7 +288,7 @@ void Sensor_QReset(uint32_t level)
 		}
 		gpio_direction_output(GPIO_SENSOR_RESET, level);
 		gpio_set_value(GPIO_SENSOR_RESET, level);
-		msleep(20);
+		msleep(5);
 		gpio_set_value(GPIO_SENSOR_RESET, !level);
 		gpio_free(GPIO_SENSOR_RESET);
 	}

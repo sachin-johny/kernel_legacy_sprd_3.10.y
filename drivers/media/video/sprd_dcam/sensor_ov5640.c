@@ -343,10 +343,10 @@ LOCAL const SENSOR_REG_T ov5640_640X480[] = {
 
 LOCAL const SENSOR_REG_T ov5640_common_init[] = {
 	{0x4202, 0x0f},/*kenxu add 20120207 for stream off*/
-	{SENSOR_WRITE_DELAY, 0x10},
+	//{SENSOR_WRITE_DELAY, 0x10},
 	{0x3103, 0x11},		/* sysclk from pad*/
 	{0x3008, 0x82},		/*software reset*/
-	{SENSOR_WRITE_DELAY, 0x10},
+	{SENSOR_WRITE_DELAY, 0x5},
 	{0x3008, 0x42},		/*software power down*/
 	{0x3103, 0x03},		/*sysclk from pll*/
 	{0x3017, 0xff},		/*Frex, Vsync, Href, PCLK, D[9:6] output*/
@@ -589,7 +589,7 @@ LOCAL const SENSOR_REG_T ov5640_common_init[] = {
 
 LOCAL const SENSOR_REG_T ov5640_640X480_new[] = {
 	{0x4202, 0x0f},		/*kenxu add 20120207 for stream off*/
-	{SENSOR_WRITE_DELAY, 0x22},
+	//{SENSOR_WRITE_DELAY, 0x22},
 	//PLL
 	{0x3034, 0x1a},
 	{0x3035, 0x11},		/* MIPI global timing*/
@@ -1197,13 +1197,13 @@ LOCAL uint32_t _ov5640_PowerOn(uint32_t power_on)
 		Sensor_PowerDown(power_down);
 		// Open power
 		Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);
-		msleep(20);
-		Sensor_SetMCLK(SENSOR_DEFALUT_MCLK);
 		msleep(10);
+		Sensor_SetMCLK(SENSOR_DEFALUT_MCLK);
+		msleep(1);
 		Sensor_PowerDown(!power_down);
                 msleep(5);
 		// Reset sensor
-		Sensor_Reset(reset_level);
+		//Sensor_Reset(reset_level);
 	} else {
 		Sensor_PowerDown(power_down);
 		Sensor_SetMCLK(SENSOR_DISABLE_MCLK);
