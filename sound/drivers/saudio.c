@@ -62,6 +62,7 @@
 #define USE_PERIODS_MAX			1024
 
 #define CMD_TIMEOUT			msecs_to_jiffies(5000)
+#define CMD_MODEM_RESET_TIMEOUT		msecs_to_jiffies(10000)
 
 #define SAUDIO_CMD_NONE			0x00000000
 #define SAUDIO_CMD_OPEN			0x00000001
@@ -71,6 +72,7 @@
 #define SAUDIO_CMD_PREPARE		0x00000010
 #define SAUDIO_CMD_TRIGGER              0x00000020
 #define SAUDIO_CMD_HANDSHAKE            0x00000040
+#define SAUDIO_CMD_RESET		0x00000080
 
 #define SAUDIO_CMD_OPEN_RET		0x00010000
 #define SAUDIO_CMD_CLOSE_RET		0x00020000
@@ -79,6 +81,7 @@
 #define SAUDIO_CMD_PREPARE_RET		0x00100000
 #define SAUDIO_CMD_TRIGGER_RET		0x00200000
 #define SAUDIO_CMD_HANDSHAKE_RET	0x00400000
+#define SAUDIO_CMD_RESET_RET		0x00800000
 
 #define SAUDIO_DATA_PCM			0x00000040
 #define SAUDIO_DATA_SILENCE		0x00000080
@@ -144,7 +147,6 @@ enum snd_status {
 	SAUDIO_ABORT,
 };
 
-
 struct saudio_dev_ctrl;
 struct snd_saudio;
 
@@ -187,17 +189,20 @@ struct snd_saudio {
 	struct snd_card *card;
 	struct snd_pcm *pcm[SAUDIO_DEV_MAX];
 	struct saudio_dev_ctrl dev_ctrl[SAUDIO_DEV_MAX];
-	wait_queue_head_t	wait;
+	wait_queue_head_t wait;
 	struct platform_device *pdev;
-	struct workqueue_struct *queue;  
-	struct work_struct  card_free_work;  
+	struct workqueue_struct *queue;
+	struct work_struct card_free_work;
+	uint32_t dst;
+	uint32_t channel;
+	uint32_t in_init;
 };
-
 
 static int saudio_snd_card_free(struct snd_saudio *saudio);
 
 static int saudio_send_common_cmd(uint32_t dst, uint32_t channel,
-				      uint32_t cmd, uint32_t subcmd,int32_t timeout)
+				  uint32_t cmd, uint32_t subcmd,
+				  int32_t timeout)
 {
 	int result = 0;
 	struct sblock blk = { 0 };
@@ -218,14 +223,14 @@ static int saudio_send_common_cmd(uint32_t dst, uint32_t channel,
 }
 
 static int saudio_wait_common_cmd(uint32_t dst, uint32_t channel,
-				      uint32_t cmd, uint32_t subcmd,int32_t timeout)
+				  uint32_t cmd, uint32_t subcmd,
+				  int32_t timeout)
 {
 	int result = 0;
 	struct sblock blk = { 0 };
 	struct cmd_common *common = NULL;
 	ADEBUG();
-	result =
-	    sblock_receive(dst, channel, (struct sblock *)&blk, timeout);
+	result = sblock_receive(dst, channel, (struct sblock *)&blk, timeout);
 	if (result < 0) {
 		ETRACE("sblock_receive dst %d, channel %d result is %d \n", dst,
 		       channel, result);
@@ -252,6 +257,29 @@ static int saudio_wait_common_cmd(uint32_t dst, uint32_t channel,
 	return result;
 }
 
+static int saudio_clear_ctrl_cmd(struct snd_saudio *saudio)
+{
+	int result = 0;
+	int i = 0;
+	struct sblock blk = { 0 };
+	struct saudio_dev_ctrl *dev_ctrl = NULL;
+
+	for (i = 0; i < SAUDIO_DEV_MAX; i++) {	/* now only support  one device */
+		dev_ctrl = &saudio->dev_ctrl[i];
+		do {
+			result =
+			    sblock_receive(dev_ctrl->dst, dev_ctrl->channel,
+					   (struct sblock *)&blk, 0);
+			if (!result) {
+				sblock_release(dev_ctrl->dst, dev_ctrl->channel,
+					       &blk);
+			}
+		} while (!result);
+	}
+
+	return result;
+}
+
 static int saudio_pcm_lib_malloc_pages(struct snd_pcm_substream *substream,
 				       size_t size)
 {
@@ -270,7 +298,8 @@ static int saudio_pcm_lib_free_pages(struct snd_pcm_substream *substream)
 	return 0;
 }
 
-static int saudio_snd_mmap(struct snd_pcm_substream *substream, struct vm_area_struct *vma)
+static int saudio_snd_mmap(struct snd_pcm_substream *substream,
+			   struct vm_area_struct *vma)
 {
 	ADEBUG();
 	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
@@ -345,9 +374,12 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 	}
 	mutex_lock(&dev_ctrl->mutex);
 	result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
-			       SAUDIO_CMD_OPEN, stream_id,CMD_TIMEOUT);
+					SAUDIO_CMD_OPEN, stream_id,
+					CMD_TIMEOUT);
 	if (result) {
-		ETRACE("saudio.c: snd_card_saudio_pcm_open: saudio_send_common_cmd result is %d", result);
+		ETRACE
+		    ("saudio.c: snd_card_saudio_pcm_open: saudio_send_common_cmd result is %d",
+		     result);
 		saudio_snd_card_free(saudio);
 		mutex_unlock(&dev_ctrl->mutex);
 		return result;
@@ -355,9 +387,9 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 	pr_info("%s send cmd done\n", __func__);
 	result = saudio_wait_common_cmd(dev_ctrl->dst,
 					dev_ctrl->channel,
-					SAUDIO_CMD_OPEN_RET, 0,CMD_TIMEOUT);
-	if(result)
-	    saudio_snd_card_free(saudio);
+					SAUDIO_CMD_OPEN_RET, 0, CMD_TIMEOUT);
+	if (result)
+		saudio_snd_card_free(saudio);
 	mutex_unlock(&dev_ctrl->mutex);
 	pr_info("%s OUT, result=%d\n", __func__, result);
 
@@ -373,13 +405,17 @@ static int snd_card_saudio_pcm_close(struct snd_pcm_substream *substream)
 	int result = 0;
 	ADEBUG();
 
-	pr_info("%s IN, stream_id=%d\n", __func__, stream_id);
 	dev_ctrl = (struct saudio_dev_ctrl *)&(saudio->dev_ctrl[dev]);
+	pr_info("%s IN, stream_id=%d,dst %d, channel %d\n", __func__, stream_id,
+		dev_ctrl->dst, dev_ctrl->channel);
 	mutex_lock(&dev_ctrl->mutex);
 	result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
-			       SAUDIO_CMD_CLOSE, stream_id,CMD_TIMEOUT);
+					SAUDIO_CMD_CLOSE, stream_id,
+					CMD_TIMEOUT);
 	if (result) {
-		ETRACE("saudio.c: snd_card_saudio_pcm_close: saudio_send_common_cmd result is %d", result);
+		ETRACE
+		    ("saudio.c: snd_card_saudio_pcm_close: saudio_send_common_cmd result is %d",
+		     result);
 		saudio_snd_card_free(saudio);
 		mutex_unlock(&dev_ctrl->mutex);
 		return result;
@@ -388,18 +424,19 @@ static int snd_card_saudio_pcm_close(struct snd_pcm_substream *substream)
 	result =
 	    saudio_wait_common_cmd(dev_ctrl->dst,
 				   dev_ctrl->channel,
-				   SAUDIO_CMD_CLOSE_RET, 0,CMD_TIMEOUT);
-	if(result)
-	    saudio_snd_card_free(saudio);
+				   SAUDIO_CMD_CLOSE_RET, 0, CMD_TIMEOUT);
+	if (result)
+		saudio_snd_card_free(saudio);
 	mutex_unlock(&dev_ctrl->mutex);
-	pr_info("%s OUT, result=%d\n", __func__, result);
+	pr_info("%s OUT, result=%d,dst %d, channel %d\n", __func__, result,
+		dev_ctrl->dst, dev_ctrl->channel);
 
 	return result;
 
 }
 
 static int saudio_data_trigger_process(struct saudio_stream *stream,
-					   struct saudio_msg *msg);
+				       struct saudio_msg *msg);
 
 static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 				       int cmd)
@@ -419,15 +456,20 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
 	case SNDRV_PCM_TRIGGER_RESUME:
-		pr_info("%s IN, TRIGGER_START, stream_id=%d\n", __func__, stream_id);
+		pr_info("%s IN, TRIGGER_START, stream_id=%d\n", __func__,
+			stream_id);
 		msg.stream_id = stream_id;
 		stream->stream_state = SAUDIO_TRIGGERED;
 		result = saudio_data_trigger_process(stream, &msg);
 		mutex_lock(&dev_ctrl->mutex);
-		result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
-				       SAUDIO_CMD_START, stream->stream_id,CMD_TIMEOUT);
+		result =
+		    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
+					   SAUDIO_CMD_START, stream->stream_id,
+					   CMD_TIMEOUT);
 		if (result) {
-			ETRACE("saudio.c: snd_card_saudio_pcm_trigger: RESUME, send_common_cmd result is %d", result);
+			ETRACE
+			    ("saudio.c: snd_card_saudio_pcm_trigger: RESUME, send_common_cmd result is %d",
+			     result);
 			saudio_snd_card_free(saudio);
 			mutex_unlock(&dev_ctrl->mutex);
 			return result;
@@ -438,13 +480,18 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 		break;
 	case SNDRV_PCM_TRIGGER_STOP:
 	case SNDRV_PCM_TRIGGER_SUSPEND:
-		pr_info("%s IN, TRIGGER_STOP, stream_id=%d\n", __func__, stream_id);
+		pr_info("%s IN, TRIGGER_STOP, stream_id=%d\n", __func__,
+			stream_id);
 		mutex_lock(&dev_ctrl->mutex);
 		stream->stream_state = SAUDIO_STOPPED;
-		result = saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
-				       SAUDIO_CMD_STOP, stream->stream_id,CMD_TIMEOUT);
+		result =
+		    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
+					   SAUDIO_CMD_STOP, stream->stream_id,
+					   CMD_TIMEOUT);
 		if (result) {
-			ETRACE("saudio.c: snd_card_saudio_pcm_trigger: SUSPEND, send_common_cmd result is %d", result);
+			ETRACE
+			    ("saudio.c: snd_card_saudio_pcm_trigger: SUSPEND, send_common_cmd result is %d",
+			     result);
 			saudio_snd_card_free(saudio);
 			mutex_unlock(&dev_ctrl->mutex);
 			return result;
@@ -498,7 +545,7 @@ static int snd_card_saudio_hw_params(struct snd_pcm_substream *substream,
 
 static int snd_card_saudio_hw_free(struct snd_pcm_substream *substream)
 {
-	int ret=0;
+	int ret = 0;
 	const struct snd_saudio *saudio = snd_pcm_substream_chip(substream);
 	const int stream_id = substream->pstr->stream;
 	const int dev = substream->pcm->device;
@@ -640,6 +687,8 @@ static struct snd_saudio *saudio_card_probe(struct saudio_init_data *init_data)
 	saudio->dev_ctrl[0].channel = init_data->ctrl_channel;
 	saudio->dev_ctrl[0].monitor_channel = init_data->monitor_channel;
 	saudio->dev_ctrl[0].dst = init_data->dst;
+	saudio->dst = init_data->dst;
+	saudio->channel = init_data->ctrl_channel;
 	memcpy(saudio->dev_ctrl[0].name, init_data->name,
 	       SAUDIO_CARD_NAME_LEN_MAX);
 	saudio->dev_ctrl[0].stream[SNDRV_PCM_STREAM_PLAYBACK].channel =
@@ -650,11 +699,12 @@ static struct snd_saudio *saudio_card_probe(struct saudio_init_data *init_data)
 	    init_data->capture_channel;
 	saudio->dev_ctrl[0].stream[SNDRV_PCM_STREAM_CAPTURE].dst =
 	    init_data->dst;
+
 	return saudio;
 }
 
 static int saudio_data_trigger_process(struct saudio_stream *stream,
-					   struct saudio_msg *msg)
+				       struct saudio_msg *msg)
 {
 	int32_t result = 0;
 	struct sblock blk = { 0 };
@@ -707,7 +757,7 @@ static int saudio_data_trigger_process(struct saudio_stream *stream,
 }
 
 static int saudio_data_transfer_process(struct saudio_stream *stream,
-					    struct saudio_msg *msg)
+					struct saudio_msg *msg)
 {
 	struct snd_pcm_runtime *runtime = stream->substream->runtime;
 	struct sblock blk = { 0 };
@@ -801,7 +851,7 @@ static int saudio_cmd_prepare_process(struct saudio_dev_ctrl *dev_ctrl,
 				      struct saudio_msg *msg)
 {
 	struct sblock blk;
-	struct snd_saudio *saudio=NULL;
+	struct snd_saudio *saudio = NULL;
 	int32_t result = 0;
 	struct snd_pcm_runtime *runtime =
 	    dev_ctrl->stream[msg->stream_id].substream->runtime;
@@ -813,7 +863,7 @@ static int saudio_cmd_prepare_process(struct saudio_dev_ctrl *dev_ctrl,
 	if (!result) {
 		struct cmd_prepare *prepare = (struct cmd_prepare *)blk.addr;
 		prepare->common.command = SAUDIO_CMD_PREPARE;
-		prepare->common.sub_cmd=msg->stream_id;
+		prepare->common.sub_cmd = msg->stream_id;
 		prepare->rate = runtime->rate;
 		prepare->channels = runtime->channels;
 		prepare->format = runtime->format;
@@ -829,9 +879,9 @@ static int saudio_cmd_prepare_process(struct saudio_dev_ctrl *dev_ctrl,
 		result =
 		    saudio_wait_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 					   SAUDIO_CMD_PREPARE_RET,
-					   0,CMD_TIMEOUT);
-		if(result) 
-		    saudio_snd_card_free(saudio);
+					   0, CMD_TIMEOUT);
+		if (result)
+			saudio_snd_card_free(saudio);
 
 		mutex_unlock(&dev_ctrl->mutex);
 	}
@@ -856,12 +906,16 @@ static void sblock_notifier(int event, void *data)
 		}
 	}
 }
+
 static int saudio_snd_card_free(struct snd_saudio *saudio)
 {
 	int result = 0;
-	printk("saudio:saudio_snd_card free in");
-	queue_work(saudio->queue,&saudio->card_free_work);
-	printk("saudio:saudio_snd_card free out %d",result);
+	printk(KERN_INFO "saudio:saudio_snd_card free in dst %d,channel %d\n",
+	       saudio->dst, saudio->channel);
+	queue_work(saudio->queue, &saudio->card_free_work);
+	printk(KERN_INFO
+	       "saudio:saudio_snd_card free out %d ,dst %d, channel %d\n",
+	       result, saudio->dst, saudio->channel);
 	return 0;
 }
 
@@ -870,25 +924,61 @@ static void saudio_snd_wait_modem_restart(struct snd_saudio *saudio)
 	struct saudio_dev_ctrl *dev_ctrl = NULL;
 	int result = 0;
 	dev_ctrl = &saudio->dev_ctrl[0];
-	while(1) {
-	    result = saudio_wait_common_cmd(dev_ctrl->dst,dev_ctrl->monitor_channel,SAUDIO_CMD_HANDSHAKE,0,-1);
-	    if(result) {
-		schedule_timeout_interruptible(msecs_to_jiffies(100));
-		printk(KERN_ERR "saudio_wait_monitor_cmd error %d\n",result);
-		continue;
-	    }
-	    else {
-		while(1) {
-		    result=saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->monitor_channel, SAUDIO_CMD_HANDSHAKE_RET,0,-1);
-		    if(!result) {
-			break;
-		    }
-		    printk(KERN_ERR "saudio_send_monitor_cmd error %d\n",result);
-		    schedule_timeout(msecs_to_jiffies(100));
+	while (1) {
+		result =
+		    saudio_wait_common_cmd(dev_ctrl->dst,
+					   dev_ctrl->monitor_channel,
+					   SAUDIO_CMD_HANDSHAKE, 0, -1);
+		if (result) {
+			schedule_timeout_interruptible(msecs_to_jiffies(100));
+			printk(KERN_ERR "saudio_wait_monitor_cmd error %d\n",
+			       result);
+			continue;
+		} else {
+			while (1) {
+				result =
+				    saudio_send_common_cmd(dev_ctrl->dst,
+							   dev_ctrl->
+							   monitor_channel,
+							   SAUDIO_CMD_HANDSHAKE_RET,
+							   0, -1);
+				if (!result) {
+					break;
+				}
+				printk(KERN_ERR
+				       "saudio_send_monitor_cmd error %d\n",
+				       result);
+				schedule_timeout_interruptible(msecs_to_jiffies
+							       (100));
+			}
 		}
-	    }
-	    break;
+		break;
 	}
+}
+
+static int saudio_snd_notify_modem_clear(struct snd_saudio *saudio)
+{
+	struct saudio_dev_ctrl *dev_ctrl = NULL;
+	int result = 0;
+	dev_ctrl = &saudio->dev_ctrl[0];
+	printk(KERN_INFO "saudio.c:saudio_snd_notify_mdem_clear in");
+	result =
+	    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->monitor_channel,
+				   SAUDIO_CMD_RESET, 0, -1);
+	if (result) {
+		printk(KERN_ERR "saudio_send_modem_reset_cmd error %d\n",
+		       result);
+	}
+	else {
+	    result =
+		saudio_wait_common_cmd(dev_ctrl->dst, dev_ctrl->monitor_channel,
+				       SAUDIO_CMD_RESET_RET, 0, CMD_MODEM_RESET_TIMEOUT);
+	    if (result) {
+		    printk(KERN_ERR "saudio_wait_monitor_cmd error %d\n", result);
+	    }
+	}
+	printk(KERN_INFO "saudio.c:saudio_snd_notify_mdem_clear out");
+	return result;
 }
 
 static int saudio_snd_init_ipc(struct snd_saudio *saudio)
@@ -899,7 +989,6 @@ static int saudio_snd_init_ipc(struct snd_saudio *saudio)
 	struct saudio_dev_ctrl *dev_ctrl = NULL;
 
 	ADEBUG();
-
 
 	for (i = 0; i < SAUDIO_DEV_MAX; i++) {	/* now only support  one device */
 		dev_ctrl = &saudio->dev_ctrl[i];
@@ -948,11 +1037,6 @@ static int saudio_snd_init_ipc(struct snd_saudio *saudio)
 	ADEBUG();
 	return result;
 __nodev:
-        if(saudio) {
-            if(saudio->card) {
-                snd_card_free(saudio->card);
-            }
-        }
 	ETRACE("initialization failed\n");
 	return result;
 }
@@ -967,15 +1051,18 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 
 	ADEBUG();
 
-	if(!saudio) {
-	    return -1;
+	if (!saudio) {
+		return -1;
 	}
 
-	result = snd_card_create(SNDRV_DEFAULT_IDX1, saudio->dev_ctrl[0].name, THIS_MODULE,
-				 sizeof( struct snd_saudio *), &saudio_card);
-	if(!saudio_card) {
-	    printk(KERN_ERR "saudio:snd_card_create faild result is %d\n",result);
-	    return -1;
+	result =
+	    snd_card_create(SNDRV_DEFAULT_IDX1, saudio->dev_ctrl[0].name,
+			    THIS_MODULE, sizeof(struct snd_saudio *),
+			    &saudio_card);
+	if (!saudio_card) {
+		printk(KERN_ERR "saudio:snd_card_create faild result is %d\n",
+		       result);
+		return -1;
 	}
 	saudio->card = saudio_card;
 	saudio_card->private_data = saudio;
@@ -992,6 +1079,7 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 
 			stream->stream_state = SAUDIO_IDLE;
 			stream->stream_id = j;
+			stream->saudio = saudio;
 			mutex_init(&stream->mutex);
 		}
 	}
@@ -1005,70 +1093,99 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 
 	err = snd_card_register(saudio->card);
 	if (err == 0) {
-		ETRACE("snd_card create ok\n");
+		printk(KERN_INFO "saudio.c:snd_card create ok\n");
 		return 0;
 	}
 __nodev:
-        if(saudio) {
-            if(saudio->card) {
-                snd_card_free(saudio->card);
-            }
-        }
-	ETRACE("initialization failed\n");
+	if (saudio) {
+		if (saudio->card) {
+			snd_card_free(saudio->card);
+		}
+	}
+	printk("saudio.c:initialization failed\n");
 	return err;
 }
 
 static int saudio_ctrl_thread(void *data)
 {
-        int result = 0;
+	int result = 0;
 	struct snd_saudio *saudio = (struct snd_saudio *)data;
 	ADEBUG();
 	daemonize("saudio");
 
-        result = saudio_snd_init_ipc(saudio);
-        if(result) {
-            printk(KERN_ERR "saudio:saudio_snd_init_ipc error %d\n",result);
-            return -1;
-        }
-       while(1) {
-	    printk(KERN_INFO "saudio: waiting for modem boot handshake\n");
-	    saudio_snd_wait_modem_restart(saudio);
-	    printk(KERN_INFO "saudio: modem boot and handshake ok\n");
-	    if(saudio->card) {
-		printk(KERN_INFO "saudio: snd card free in\n");
-		result = snd_card_free(saudio->card);
-		saudio->card = NULL;
-		printk(KERN_INFO "saudio: snd card free reulst %d\n",result);
-	    }
+	result = saudio_snd_init_ipc(saudio);
+	if (result) {
+		printk(KERN_ERR "saudio:saudio_snd_init_ipc error %d\n",
+		       result);
+		return -1;
+	}
+	while (1) {
+		printk(KERN_INFO
+		       "%s,saudio: waiting for modem boot handshake,dst %d,channel %d\n",
+		       __func__, saudio->dst, saudio->channel);
+		saudio_snd_wait_modem_restart(saudio);
 
-	    flush_workqueue(saudio->queue);
+		saudio->in_init = 1;
 
-	    result = saudio_snd_init_card(saudio);
-	    printk(KERN_INFO "saudio: snd card init reulst %d\n",result);
-        }
+		printk(KERN_INFO
+		       "%s,saudio: modem boot and handshake ok,dst %d, channel %d\n",
+		       __func__, saudio->dst, saudio->channel);
+		saudio_snd_card_free(saudio);
+		printk(KERN_INFO
+		       "saudio_ctrl_thread flush work queue in dst %d, channel %d\n",
+		       saudio->dst, saudio->channel);
+
+		flush_workqueue(saudio->queue);
+
+		saudio->in_init = 0;
+
+		printk(KERN_INFO
+		       "saudio_ctrl_thread flush work queue out,dst %d, channel %d\n",
+		       saudio->dst, saudio->channel);
+
+		if(saudio_snd_notify_modem_clear(saudio)) {
+			printk(KERN_ERR " saudio_ctrl_thread modem error again when notify modem clear \n");
+		    continue;
+		}
+
+		saudio_clear_ctrl_cmd(saudio);
+
+		result = saudio_snd_init_card(saudio);
+		printk(KERN_INFO
+		       "saudio: snd card init reulst %d, dst %d, channel %d\n",
+		       result, saudio->dst, saudio->channel);
+	}
 	ETRACE("saudio_ctrl_thread  create  ok\n");
 
 	return 0;
 }
 
-static void saudio_work_card_free_handler(struct work_struct *data)  
-{  
-	printk(KERN_INFO "saudio: card free handler in");
-	struct snd_saudio * saudio = container_of(data,struct snd_saudio,card_free_work);
-	if(saudio->card) {
-	    int result;
-	    printk(KERN_INFO "saudio: work_handler:snd card free in\n");
-	    result = snd_card_free(saudio->card);
-	    saudio->card = NULL;
-	    printk(KERN_INFO "saudio: work_handler:snd card free reulst %d\n",result);
+static void saudio_work_card_free_handler(struct work_struct *data)
+{
+	printk(KERN_INFO "saudio: card free handler in\n");
+	struct snd_saudio *saudio =
+	    container_of(data, struct snd_saudio, card_free_work);
+	if (saudio->card) {
+		int result;
+		printk(KERN_INFO
+		       "saudio: work_handler:snd card free in,dst %d, channel %d\n",
+		       saudio->dst, saudio->channel);
+		result = snd_card_free(saudio->card);
+		saudio->card = NULL;
+		if (!saudio->in_init)
+			saudio_send_common_cmd(saudio->dst, saudio->channel, 0,
+					       SAUDIO_CMD_HANDSHAKE, -1);
+		printk(KERN_INFO
+		       "saudio: work_handler:snd card free reulst %d,dst %d, channel %d\n",
+		       result, saudio->dst, saudio->channel);
 	}
-	printk(KERN_INFO "saudio: card free handler out");
-}  
+	printk(KERN_INFO "saudio: card free handler out\n");
+}
 
 static int __devinit snd_saudio_probe(struct platform_device *devptr)
 {
 	struct snd_saudio *saudio = NULL;
-	static pid_t thread_id = (pid_t) -1;
+	static pid_t thread_id = (pid_t) - 1;
 	struct saudio_init_data *init_data = devptr->dev.platform_data;
 	ADEBUG();
 	if (!(saudio = saudio_card_probe(init_data))) {
@@ -1076,24 +1193,24 @@ static int __devinit snd_saudio_probe(struct platform_device *devptr)
 	}
 	saudio->pdev = devptr;
 
-	saudio->queue=create_singlethread_workqueue("saudio");  
-	if(!saudio->queue) {
-	    printk("saudio:workqueue create error %d",saudio->queue);
-	    if(saudio) {
-		kfree(saudio);
-		saudio = NULL;
-	    }
-	    return -1;
+	saudio->queue = create_singlethread_workqueue("saudio");
+	if (!saudio->queue) {
+		printk("saudio:workqueue create error %d", saudio->queue);
+		if (saudio) {
+			kfree(saudio);
+			saudio = NULL;
+		}
+		return -1;
 	}
 	printk("saudio:workqueue create ok");
-	INIT_WORK(&saudio->card_free_work,saudio_work_card_free_handler);
+	INIT_WORK(&saudio->card_free_work, saudio_work_card_free_handler);
 
 	platform_set_drvdata(devptr, saudio);
 
 	thread_id = kernel_thread(saudio_ctrl_thread, saudio, 0);
 	if (thread_id < 0) {
 		ETRACE("virtual audio cmd kernel thread creation failure \n");
-		destroy_workqueue(saudio->queue);  
+		destroy_workqueue(saudio->queue);
 		saudio->queue = NULL;
 		kfree(saudio);
 		platform_set_drvdata(devptr, NULL);
@@ -1107,14 +1224,14 @@ static int __devexit snd_saudio_remove(struct platform_device *devptr)
 	struct snd_saudio *saudio = platform_get_drvdata(devptr);
 
 	if (saudio) {
-	    if(saudio->queue)
-		destroy_workqueue(saudio->queue);  
-	    if (saudio->pdev) {
-		    platform_device_unregister(saudio->pdev);
-	    }
-	    if (saudio->card)
-		    snd_card_free(saudio->card);
-	    kfree(saudio);
+		if (saudio->queue)
+			destroy_workqueue(saudio->queue);
+		if (saudio->pdev) {
+			platform_device_unregister(saudio->pdev);
+		}
+		if (saudio->card)
+			snd_card_free(saudio->card);
+		kfree(saudio);
 	}
 	return 0;
 }
@@ -1133,7 +1250,7 @@ static int __init alsa_card_saudio_init(void)
 	int err;
 	err = platform_driver_register(&snd_saudio_driver);
 	if (err < 0)
-            printk("saudio: platform_driver_register err %d\n",err);
+		printk("saudio: platform_driver_register err %d\n", err);
 	return 0;
 }
 
@@ -1144,4 +1261,4 @@ static void __exit alsa_card_saudio_exit(void)
 }
 
 module_init(alsa_card_saudio_init)
-module_exit(alsa_card_saudio_exit)
+    module_exit(alsa_card_saudio_exit)
