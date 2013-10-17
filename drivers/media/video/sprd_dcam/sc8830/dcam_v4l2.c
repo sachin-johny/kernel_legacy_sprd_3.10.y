@@ -2338,7 +2338,7 @@ LOCAL void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		printk("DCAM timeout.\n");
-		//sprd_v4l2_print_reg();
+		sprd_v4l2_print_reg();
 		node.irq_flag = V4L2_TIMEOUT;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
