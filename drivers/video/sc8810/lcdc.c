@@ -506,7 +506,7 @@ irqreturn_t lcdc_isr(int irq, void *data)
 		lcdc_write(1, LCDC_IRQ_CLR);
 
 		lcdc->vsync_done = 1;
-		lcdc_clk_disable();
+//		lcdc_clk_disable();
 		if (dev->vsync_waiter) {
 			dev->vsync_waiter = 0;
 			wake_up_interruptible(&(lcdc->vsync_queue));
@@ -770,7 +770,7 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 	LCDC_PRINT(3, ("lcdc: [%s]\n", __FUNCTION__));
 
 	if (lcdc.is_suspend || sprd_lcdc_sync() != 0) {
-		printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
+		printk(KERN_ERR "sprdfb do_lcdc_refresh can not do pan_display !!!!\n");
 		return 0;
 	}
 
@@ -846,7 +846,7 @@ static int do_lcdc_refresh(struct sprdfb_device *dev)
 
 	if(!is_start){
 		printk(KERN_ERR "sprdfb do_lcdc_refresh disable clk!!!!\n");
-		lcdc_clk_disable();
+//		lcdc_clk_disable();
 	}
 
 	LCDC_PRINT(3, ("[%s] LCDC_CTRL: 0x%x\n", __FUNCTION__, lcdc_read(LCDC_CTRL)));
@@ -919,7 +919,7 @@ int lcdc_suspend(struct sprdfb_device *dev)
 		if (!(dev->panel->cap & LCD_CAP_MANUAL_REFRESH)
 			 && sprd_lcdc_sync() != 0) {
 			up(&lcdc.waitlock);
-			printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
+			printk(KERN_ERR "sprdfb lcdc_suspend can not do pan_display !!!!\n");
 			return 0;
 		}
 
@@ -1142,7 +1142,7 @@ int overlay_update(int type, overlay_rect *rect, unsigned char *buffer)
 	overlay_configure(type, rect, buffer);
 	ret = overlay_do_update(rect);
 	if(0 != ret){
-		lcdc_clk_disable();
+//		lcdc_clk_disable();
 	}
 	up(&lcdc.waitlock);
 	return ret;
@@ -1161,7 +1161,7 @@ int overlay_close(void)
 	lcdc_clk_enable();
 	lcdc_set_bits(BIT(0), LCDC_IMG_CTRL);	/* disable the image layer */
 	lcdc.overlay_state = 0;
-	lcdc_clk_disable();
+//	lcdc_clk_disable();
 	up(&lcdc.waitlock);
 }
 
