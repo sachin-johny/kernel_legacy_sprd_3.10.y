@@ -510,18 +510,34 @@ static inline  void ddr_timing_update(ddr_dfs_val_t *timing)
 	REG32(PUBL_DX3GCR) = timing->publ_dx3gcr;
 	enable_cam_command_deque();
 }__attribute__((always_inline))
+static int get_dpll_refin(void)
+{
+	return ((REG32(SPRD_AONAPB_PHYS + 0X18) >> 24) & 0x3);
+}__attribute__((always_inline))
 static void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
 {
 	uint32 reg_val;
-	uint32 old_clk;
+	uint32 old_dpll;
+	uint32 new_dpll;
 	uint32 steps;
 	uint32 i;
 	uint32 j;
 	reg_val = REG32(SPRD_AONAPB_PHYS + 0X18);
-	old_clk = reg_val & 0xfff;
-	old_clk *= 4;
-	if(old_clk > new_clk) {
-		steps = (old_clk - new_clk) / 4;
+	old_dpll = reg_val & 0xfff;
+	if(0 == get_dpll_refin()) {
+		new_dpll = new_clk >> 1;
+		delay = 1;
+	}
+	else if(1 == get_dpll_refin()) {
+		new_dpll = new_clk >> 2;
+		delay = 5;
+	}
+	else {
+		//not support other refin
+		while(1);
+	}
+	if(old_dpll > new_dpll) {
+		steps = (old_dpll - new_dpll);
 //		ddr_autorefresh_timing_update();
 		for(i = 0; i < steps; i++) {
 			REG32(SPRD_AONAPB_PHYS + 0X18) = REG32(SPRD_AONAPB_PHYS + 0X18) - 1;
@@ -529,9 +545,9 @@ static void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
 		}
 		ddr_timing_update(timing);
 	}
-	else if(old_clk < new_clk){
+	else if(old_dpll < new_dpll){
 		ddr_timing_update(timing);
-		steps = (new_clk - old_clk) / 4;
+		steps = (new_dpll - old_dpll);
 		for(i = 0; i < steps; i++) {
 			REG32(SPRD_AONAPB_PHYS + 0X18) = REG32(SPRD_AONAPB_PHYS + 0X18) + 1;
 			for(j = 0; j < delay; j++);
