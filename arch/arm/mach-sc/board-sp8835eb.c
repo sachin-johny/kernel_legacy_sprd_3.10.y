@@ -122,6 +122,9 @@ static struct platform_device *devices[] __initdata = {
 	//&sprd_sdio0_device,
 	//&sprd_sdio1_device,
 	/* &sprd_sdio2_device, */
+#ifdef CONFIG_ION
+	&sprd_ion_dev,
+#endif
 	&sprd_vsp_device,
 	&sprd_jpg_device,
 	&sprd_dcam_device,
