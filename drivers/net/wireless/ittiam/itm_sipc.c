@@ -32,6 +32,8 @@
 #include "itm_sipc.h"
 #include "itm_cfg80211.h"
 
+extern WIFI_nvm_data *get_gWIFI_nvm_data(void );
+
 /* sbuf should be created and initilized */
 int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 {
@@ -861,12 +863,13 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	open->mode = mode;
 	if (mac_addr)
 		memcpy(open->mac, mac_addr, 6);
+	memcpy((unsigned char *)(&(open->nvm_data)), (unsigned char *)( get_gWIFI_nvm_data() ), sizeof(WIFI_nvm_data) );
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
 		+ sizeof(struct wlan_sipc_mac_open);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_DEV_OPEN);
-
+	printk("%s(), send cmd len:%d\n",__func__, wlan_sipc->wlan_sipc_send_len);
 	if (ret) {
 		pr_err("return wrong status code is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);

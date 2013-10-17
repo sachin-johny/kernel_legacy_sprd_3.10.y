@@ -21,6 +21,8 @@
 #ifndef __ITM_SIPC_TYPES_H__
 #define __ITM_SIPC_TYPES_H__
 
+#include "WIFI_nvm_data.h"
+
 /*MSG TAG*/
 #define MSG_TYPE_MASK		0x0000FFFF
 #define MSG_LEN_MASK		0xFFFF0000
@@ -140,7 +142,7 @@ enum wlan_sipc_status {
 /* The reason code is defined by CP2 */
 enum wlan_sipc_disconnect_reason {
 	AP_LEAVING = 0xc1,
-	AP_DEAUTH = 0xc4,
+        AP_DEAUTH = 0xc4,
 };
 
 /* ITM_WLAN SIPC DATA*/
@@ -205,6 +207,7 @@ struct wlan_sipc_beacon {
 struct wlan_sipc_mac_open {
 	u8 mode;	/* AP or STATION mode */
 	u8 mac[6];
+	WIFI_nvm_data nvm_data;
 } __packed;
 
 /* wlan_sipc wps ie struct */
