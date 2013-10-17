@@ -45,7 +45,7 @@
 
 #define SETH_RESEND_MAX_NUM	10
 
-void ittiam_nvm_init(void );
+void ittiam_nvm_init(void);
 
 /*
  * Tx_ready handler.
@@ -61,8 +61,7 @@ static void itm_wlan_tx_ready_handler(struct itm_priv *priv)
 /*
  * Tx_open handler.
  */
-static void
-itm_wlan_tx_open_handler (struct itm_priv *priv)
+static void itm_wlan_tx_open_handler(struct itm_priv *priv)
 {
 	if (!netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
@@ -73,8 +72,7 @@ itm_wlan_tx_open_handler (struct itm_priv *priv)
 /*
  * Tx_close handler.
  */
-static void
-itm_wlan_tx_close_handler (struct itm_priv *priv)
+static void itm_wlan_tx_close_handler(struct itm_priv *priv)
 {
 	if (netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
@@ -82,121 +80,136 @@ itm_wlan_tx_close_handler (struct itm_priv *priv)
 	}
 }
 
-static void itm_wlan_rx_handler(struct itm_priv *priv)
+static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 {
+	struct itm_priv *priv = container_of(napi, struct itm_priv, napi);
 	struct sblock blk;
 	struct sk_buff *skb;
-	int ret;
+	int ret, work_done;
 	u16 decryp_data_len = 0;
 	struct wlan_sblock_recv_data *data;
 
-	ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
-	if (ret) {
-		dev_err(&priv->ndev->dev, "Failed to receive sblock (%d)\n",
-			ret);
-		priv->ndev->stats.rx_errors++;
-		return;
-	}
+	for (work_done = 0; work_done < budget; work_done++) {
+		ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
+		if (ret) {
+			dev_dbg(&priv->ndev->dev,
+				"Failed to receive sblock (%d)\n", ret);
+			break;
+		}
 
-	skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);	/*16 bytes align */
-	if (!skb) {
-		dev_err(&priv->ndev->dev, "Failed to allocate skbuff!\n");
-		priv->ndev->stats.rx_dropped++;
-		goto rx_failed;
-	}
-
-	data = (struct wlan_sblock_recv_data *)blk.addr;
-	/* Temporary solution to avoid version error, will be deleted later */
-	if (data->u1.nomal.resv[11] != 0xff ||
-	    data->u1.nomal.resv[12] != 0xff) {
-		skb_reserve(skb, NET_IP_ALIGN);
-		memcpy(skb->data, blk.addr, blk.length);
-		skb_put(skb, blk.length);
-		goto out;
-	}
-	if (data->is_encrypted == 1) {
-		if (priv->connect_status == ITM_CONNECTED &&
-		    priv->cipher_type == WAPI &&
-		    priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&
-		    priv->key_len[PAIRWISE][priv->key_index[PAIRWISE]] != 0) {
-			u8 snap_header[6] = {0xaa, 0xaa, 0x03,
-					     0x00, 0x00, 0x00};
-			skb_reserve(skb, NET_IP_ALIGN);
-			decryp_data_len = wlan_rx_wapi_decryption(priv,
-					(u8 *)&data->u2.encrypt,
-					data->u1.encrypt.header_len,
-					(blk.length -
-					sizeof(data->is_encrypted) -
-					sizeof(data->u1) -
-					data->u1.encrypt.header_len),
-					(skb->data + 12));
-			if (decryp_data_len == 0) {
-				dev_err(&priv->ndev->dev,
-					"wapi data decryption failed!\n");
-				priv->ndev->stats.rx_dropped++;
-				goto rx_failed;
-			}
-			if (memcmp((skb->data + 12), snap_header,
-				   sizeof(snap_header)) == 0) {
-				skb_reserve(skb, 6);
-				/* copy the eth address from eth header,
-				 * but not copy eth type
-				 */
-				memcpy(skb->data,
-				       data->u2.encrypt.mac_header.addr1, 6);
-				memcpy(skb->data + 6,
-				       data->u2.encrypt.mac_header.addr2, 6);
-				skb_put(skb, (decryp_data_len + 6));
-			} else {
-				/* copy eth header*/
-				memcpy(skb->data,
-				       data->u2.encrypt.mac_header.addr3, 6);
-				memcpy(skb->data + 6,
-				       data->u2.encrypt.mac_header.addr2, 6);
-				skb_put(skb, (decryp_data_len + 12));
-			}
-		} else {
-			dev_err(&priv->ndev->dev, "wrong encryption data!\n");
+		skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);	/*16 bytes align */
+		if (!skb) {
+			dev_err(&priv->ndev->dev,
+				"Failed to allocate skbuff!\n");
 			priv->ndev->stats.rx_dropped++;
 			goto rx_failed;
 		}
-	} else if (data->is_encrypted == 0) {
-		skb_reserve(skb, NET_IP_ALIGN);
-		/* dec the first encrypt byte */
-		memcpy(skb->data, (u8 *)&data->u2, (blk.length -
-		       sizeof(data->is_encrypted) -
-		       sizeof(data->u1)));
-		skb_put(skb, (blk.length -
-		       sizeof(data->is_encrypted) -
-		       sizeof(data->u1)));
-	} else {
-		dev_err(&priv->ndev->dev, "wrong data fromat recieve!\n");
-		priv->ndev->stats.rx_dropped++;
-		goto rx_failed;
-	}
+
+		data = (struct wlan_sblock_recv_data *)blk.addr;
+		/* Temporary solution to avoid version error, will be deleted later */
+		if (data->u1.nomal.resv[11] != 0xff ||
+		    data->u1.nomal.resv[12] != 0xff) {
+			skb_reserve(skb, NET_IP_ALIGN);
+			memcpy(skb->data, blk.addr, blk.length);
+			skb_put(skb, blk.length);
+			goto out;
+		}
+		if (data->is_encrypted == 1) {
+			if (priv->connect_status == ITM_CONNECTED &&
+			    priv->cipher_type == WAPI &&
+			    priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&
+			    priv->key_len[PAIRWISE][priv->
+						    key_index[PAIRWISE]] != 0) {
+				u8 snap_header[6] = {0xaa, 0xaa, 0x03,
+						     0x00, 0x00, 0x00};
+				skb_reserve(skb, NET_IP_ALIGN);
+				decryp_data_len = wlan_rx_wapi_decryption(priv,
+						   (u8 *) & data-> u2.encrypt,
+						   data->u1.encrypt.header_len,
+						   (blk.length -
+						   sizeof(data->is_encrypted) -
+						   sizeof(data->u1) -
+						   data->u1.encrypt.header_len),
+						   (skb-> data + 12));
+				if (decryp_data_len == 0) {
+					dev_err(&priv->ndev->dev,
+						"wapi data decryption failed!\n");
+					priv->ndev->stats.rx_dropped++;
+					goto rx_failed;
+				}
+				if (memcmp((skb->data + 12), snap_header,
+					   sizeof(snap_header)) == 0) {
+					skb_reserve(skb, 6);
+					/* copy the eth address from eth header,
+					 * but not copy eth type
+					 */
+					memcpy(skb->data,
+					       data->u2.encrypt.mac_header.
+					       addr1, 6);
+					memcpy(skb->data + 6,
+					       data->u2.encrypt.mac_header.
+					       addr2, 6);
+					skb_put(skb, (decryp_data_len + 6));
+				} else {
+					/* copy eth header */
+					memcpy(skb->data,
+					       data->u2.encrypt.mac_header.
+					       addr3, 6);
+					memcpy(skb->data + 6,
+					       data->u2.encrypt.mac_header.
+					       addr2, 6);
+					skb_put(skb, (decryp_data_len + 12));
+				}
+			} else {
+				dev_err(&priv->ndev->dev,
+					"wrong encryption data!\n");
+				priv->ndev->stats.rx_dropped++;
+				goto rx_failed;
+			}
+		} else if (data->is_encrypted == 0) {
+			skb_reserve(skb, NET_IP_ALIGN);
+			/* dec the first encrypt byte */
+			memcpy(skb->data, (u8 *) & data->u2,
+			       (blk.length - sizeof(data->is_encrypted) -
+			       sizeof(data->u1)));
+			skb_put(skb,
+				(blk.length - sizeof(data->is_encrypted) -
+				 sizeof(data->u1)));
+		} else {
+			dev_err(&priv->ndev->dev,
+				"wrong data fromat recieve!\n");
+			priv->ndev->stats.rx_dropped++;
+			goto rx_failed;
+		}
 
 out:
 #ifdef DUMP_RECEIVE_PACKET
-	print_hex_dump(KERN_DEBUG, "receive packet: ", DUMP_PREFIX_OFFSET,
-		       16, 1, skb->data, skb->len, 0);
+		print_hex_dump(KERN_DEBUG, "receive packet: ",
+			       DUMP_PREFIX_OFFSET, 16, 1, skb->data, skb->len,
+			       0);
 #endif
-	skb->dev = priv->ndev;
-	skb->protocol = eth_type_trans(skb, priv->ndev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+		skb->dev = priv->ndev;
+		skb->protocol = eth_type_trans(skb, priv->ndev);
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-	priv->ndev->stats.rx_packets++;
-	priv->ndev->stats.rx_bytes += skb->len;
+		priv->ndev->stats.rx_packets++;
+		priv->ndev->stats.rx_bytes += skb->len;
 
-	netif_rx(skb);
-
-	priv->ndev->last_rx = jiffies;
+		/*netif_rx(skb);*/
+		netif_receive_skb(skb);
 
 rx_failed:
-	ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
-	if (ret)
-		dev_err(&priv->ndev->dev,
-			"Failed to release sblock (%d)\n", ret);
-	return;
+		ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
+		if (ret)
+			dev_err(&priv->ndev->dev,
+				"Failed to release sblock (%d)\n", ret);
+	}
+	if (work_done < budget) {
+		napi_gro_flush(napi);
+		__napi_complete(napi);
+	}
+
+	return work_done;
 }
 
 static void itm_wlan_handler(int event, void *data)
@@ -209,7 +222,10 @@ static void itm_wlan_handler(int event, void *data)
 		break;
 	case SBLOCK_NOTIFY_RECV:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_RECV is received\n");
-		itm_wlan_rx_handler(priv);
+		/*itm_wlan_rx_handler(priv);*/
+		if (likely(napi_schedule_prep(&priv->napi))) {
+			__napi_schedule(&priv->napi);
+		}
 		break;
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
@@ -310,7 +326,7 @@ static int itm_wlan_open(struct net_device *dev)
 	/* Reset stats */
 	memset(&priv->ndev->stats, 0, sizeof(priv->ndev->stats));
 
-	/*TODO*/
+	napi_enable(&priv->napi);
 	netif_start_queue(dev);
 
 	return 0;
@@ -321,9 +337,10 @@ static int itm_wlan_open(struct net_device *dev)
  */
 static int itm_wlan_close(struct net_device *dev)
 {
-	netif_stop_queue(dev);
+	struct itm_priv *priv = netdev_priv(dev);
 
-	/*TODO*/
+	netif_stop_queue(dev);
+	napi_disable(&priv->napi);
 
 	return 0;
 }
@@ -341,16 +358,14 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 	dev_info(&dev->dev, "tx_timeout and wake queue\n");
 }
 
-static int itm_wlan_ioctl(struct net_device *dev,
-		struct ifreq *req, int cmd)
+static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
 	switch (cmd) {
 	case SIOCDEVPRIVATE + 1:
 		return itm_cfg80211_android_priv_cmd(dev, req);
 		break;
 	default:
-		dev_err(&dev->dev,
-			"ioctl cmd %d is not supported\n", cmd);
+		dev_err(&dev->dev, "ioctl cmd %d is not supported\n", cmd);
 		return -ENOTSUPP;
 	}
 
@@ -366,6 +381,7 @@ static int itm_wlan_suspend(struct device *dev)
 
 	dev_info(dev, "%s\n", __func__);
 	netif_stop_queue(ndev);
+	napi_disable(&priv->napi);
 
 #if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 	ret = itm_wlan_pm_enter_ps_cmd(priv->wlan_sipc);
@@ -394,7 +410,8 @@ static int itm_wlan_resume(struct device *dev)
 	if (ret)
 		dev_err(dev, "Failed to resume (%d)\n", ret);
 
-	netif_wake_queue(ndev);
+	napi_enable(&priv->napi);
+	netif_start_queue(ndev);
 	return ret;
 }
 
@@ -436,7 +453,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	priv->ndev = ndev;
 	atomic_set(&priv->stopped, 0);
 	ndev->netdev_ops = &itm_wlan_ops;
-	ndev->watchdog_timeo = 1*HZ;
+	ndev->watchdog_timeo = 1 * HZ;
 
 	/*FIXME*/
 	/* If get mac from cfg file error, got random addr */
@@ -466,6 +483,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 		goto err_notify_sblock;
 	}
+
+	netif_napi_add(ndev, &priv->napi, itm_wlan_rx_handler, 64);
 
 	/*Init MAC and get the capabilities */
 #if 0
@@ -505,6 +524,7 @@ err_npi_netlink:
 err_register_netdev:
 	itm_wdev_free(priv);
 err_notify_sblock:
+	netif_napi_del(&priv->napi);
 	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
 /*err_sblock:
 	free_netdev(ndev);*/

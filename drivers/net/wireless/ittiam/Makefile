@@ -1,4 +1,4 @@
-ccflags-y += -DDEBUG
+#ccflags-y += -DDEBUG
 #ccflags-y += -DDUMP_TRANSMIT_PACKET
 #ccflags-y += -DDUMP_RECEIVE_PACKET
 #ccflags-y += -DDUMP_COMMAND

@@ -23,6 +23,7 @@
 
 #include <linux/netdevice.h>
 #include <linux/spinlock.h>
+#include <linux/netdevice.h>
 #include <linux/ieee80211.h>
 #include <linux/if_ether.h>
 #include "itm_sipc_types.h"
@@ -32,9 +33,10 @@ struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
 	spinlock_t scan_req_lock;	/* spinlock for scan request */
+	struct napi_struct napi;
+
 	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/
-
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;
