@@ -159,6 +159,7 @@ struct dcam_info {
 	uint32_t                   data_bits;
 	uint32_t                   is_loose;
 	uint32_t                   lane_num;
+	uint32_t                   pclk;
 	struct dcam_cap_sync_pol   sync_pol;
 	uint32_t                   frm_deci;
 	struct dcam_cap_dec        img_deci;
@@ -2123,16 +2124,18 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 			dev->dcam_cxt.is_loose           = timing_param[6];
 			dev->dcam_cxt.data_bits          = timing_param[5];
 			dev->dcam_cxt.lane_num           = timing_param[7];
-			DCAM_TRACE("V4L2: MIPI interface, ref %d is_loose %d bits %d lanes %d \n",
+			dev->dcam_cxt.pclk = timing_param[8];
+			DCAM_TRACE("V4L2: MIPI interface, ref %d is_loose %d bits %d lanes %d pclk %d\n",
 				dev->dcam_cxt.sync_pol.need_href,
 				dev->dcam_cxt.is_loose,
 				dev->dcam_cxt.data_bits,
-				dev->dcam_cxt.lane_num);
+				dev->dcam_cxt.lane_num,
+				dev->dcam_cxt.pclk);
 			/* config CSI2 host firstly */
 			ret = dcam_mipi_clk_en();
 			V4L2_RTN_IF_ERR(ret);
 			udelay(1);
-			ret = csi_api_init();
+			ret = csi_api_init(dev->dcam_cxt.pclk);
 			V4L2_RTN_IF_ERR(ret);
 			ret = csi_api_start();
 			V4L2_RTN_IF_ERR(ret);

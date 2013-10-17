@@ -47,7 +47,7 @@ static void csi_enable(void)
     sci_glb_clr(CSI2_RST, CSI2_RST_BIT);
 }
 
-u8 csi_api_init(void)
+u8 csi_api_init(u32 pclk)
 {
     csi_error_t e = SUCCESS;
     u32 base_address = SPRD_CSI2_BASE;
@@ -61,7 +61,7 @@ u8 csi_api_init(void)
             LOG_ERROR("Unable to initialise driver");                                                                      
             break;                                                                                                         
         } 
-        dphy_init();
+        dphy_init(pclk);
     }while(0);
 
     return e;

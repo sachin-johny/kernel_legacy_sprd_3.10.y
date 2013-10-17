@@ -43,7 +43,7 @@ typedef enum
     ERROR_NOT_REGISTERED = 0xC5
 } csi_api_error_t;
 
-u8 csi_api_init(void);
+u8 csi_api_init(u32 pclk);
 u8 csi_api_start(void);
 //u8 csi_api_start(u32 base_address);
 u8 csi_api_close(void);
