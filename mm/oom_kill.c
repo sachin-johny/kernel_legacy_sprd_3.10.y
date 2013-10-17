@@ -73,6 +73,7 @@ static int has_intersects_mems_allowed(struct task_struct *tsk)
  * 5) we try to kill the process the user expects us to kill, this
  *    algorithm has been meticulously tuned to meet the principle
  *    of least surprise ... (be careful when you change it)
+ * 6) we don't want to kill the process still in the unterruptible state
  */
 
 unsigned long badness(struct task_struct *p, unsigned long uptime)
@@ -180,13 +181,22 @@ unsigned long badness(struct task_struct *p, unsigned long uptime)
 		points /= 8;
 
 	/*
+	 * The unterruptible task cannot be killed,
+	 * which couldn't receive any signal including SIGKILL.
+	 */
+	if (p->state == TASK_UNINTERRUPTIBLE)
+		points /= 16;
+
+	/*
 	 * Adjust the score by oom_adj.
 	 */
 	if (oom_adj) {
 		if (oom_adj > 0) {
 			if (!points)
 				points = 1;
-			points <<= oom_adj;
+	/* Don't raise the score for the unterruptible task */
+			if (p->state != TASK_UNINTERRUPTIBLE)
+				points <<= oom_adj;
 		} else
 			points >>= -(oom_adj);
 	}
