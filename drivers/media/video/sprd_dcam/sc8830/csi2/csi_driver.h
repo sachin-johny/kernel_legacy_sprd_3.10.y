@@ -31,6 +31,7 @@
 #define PHY_TESTDIN_W 8
 #define PHY_TESTDOUT_W 8
 
+#define CSI_PCLK_CFG_COUNTER 29
 
 typedef enum                                                                            
 {                                                                                       
@@ -102,7 +103,14 @@ typedef enum
     USER_DEFINED_8BIT_DATA_TYPE_8 = 0x37                                                
 } csi_data_type_t;                                                                      
 
-void dphy_init(void);                                                                                        
+struct csi_pclk_cfg {
+	u32 pclk_start;
+	u32 pclk_end;
+	u8    hsfreqrange;
+	u8    hsrxthssettle;
+};
+
+void dphy_init(u32 pclk);
 u8 csi_init(u32 base_address);
 u8 csi_close(void);
 u8 csi_get_on_lanes(void);

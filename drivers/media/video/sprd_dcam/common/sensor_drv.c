@@ -924,7 +924,7 @@ LOCAL void Sensor_SetExportInfo(SENSOR_EXP_INFO_T * exp_info_ptr)
 		    &(sensor_info_ptr->resolution_tab_info_ptr[i]);
 		if ((PNULL != resolution_info_ptr->sensor_reg_tab_ptr)
 		    || ((0x00 != resolution_info_ptr->width)
-			&& (0x00 != resolution_info_ptr->width))) {
+			&& (0x00 != resolution_info_ptr->height))) {
 			exp_info_ptr->sensor_mode_info[i].mode = i;
 			exp_info_ptr->sensor_mode_info[i].width =
 			    resolution_info_ptr->width;
