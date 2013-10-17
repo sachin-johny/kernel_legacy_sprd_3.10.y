@@ -85,6 +85,10 @@ extern   "C"
 #define ISP_CORE_CLK_EB_BIT	BIT_4
 #define ISP_AXI_MASTER_STOP_BIT BIT_0
 
+#define ISP_IRQ_HW_MASK_V0001 (0x1fffffff)
+#define ISP_IRQ_NUM_V0001 (29)
+#define ISP_TMP_BUF_SIZE_MAX_V0001 (32 * 1024)
+
 #ifdef __cplusplus
 }
 #endif
