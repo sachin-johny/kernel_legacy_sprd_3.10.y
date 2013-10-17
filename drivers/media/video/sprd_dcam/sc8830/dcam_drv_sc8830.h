@@ -393,6 +393,8 @@ void       dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id);
 void       dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id);
 void       dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id);
 void       mm_clk_register_trace(void);
+int        dcam_scale_coeff_alloc(void);
+void       dcam_scale_coeff_free(void);
 int32_t    dcam_rotation_start(void);
 int32_t    dcam_rotation_end(void);
 

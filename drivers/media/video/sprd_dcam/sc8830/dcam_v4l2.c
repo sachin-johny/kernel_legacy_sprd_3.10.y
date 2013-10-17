@@ -2874,6 +2874,11 @@ int __init sprd_v4l2_init(void)
 		printk("platform device register Failed \n");
 		return -1;
 	}
+
+	if (dcam_scale_coeff_alloc()) {
+		return -1;
+	}
+
 	printk(KERN_INFO "Video Technology Magazine Virtual Video "
 	       "Capture Board ver %u.%u.%u successfully loaded.\n",
 	       (DCAM_VERSION >> 16) & 0xFF, (DCAM_VERSION >> 8) & 0xFF,
@@ -2883,6 +2888,7 @@ int __init sprd_v4l2_init(void)
 
 void sprd_v4l2_exit(void)
 {
+	dcam_scale_coeff_free();
 	platform_driver_unregister(&sprd_v4l2_driver);
 	release();
 }

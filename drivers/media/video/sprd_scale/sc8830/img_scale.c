@@ -135,14 +135,8 @@ static int img_scale_open(struct inode *node, struct file *pf)
 		pf->private_data = p_user;
 	}
 
-	ret = scale_coeff_alloc();
-	if (0 == ret) {
-		goto open_exit;
-	}
-
 open_fail:
 	atomic_dec(&scale_users);
-open_exit:
 	mutex_unlock(&scale_dev_open_mutex);
 
 	SCALE_TRACE("img_scale_open %d \n", ret);
@@ -178,9 +172,7 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 static int img_scale_release(struct inode *node, struct file *file)
 {
-	if (0 == atomic_dec_return(&scale_users)) {
-		scale_coeff_free();
-	}
+	atomic_dec(&scale_users);
 
 	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
 
@@ -394,11 +386,17 @@ int __init img_scale_init(void)
 		printk("platform device register Failed \n");
 		return -1;
 	}
+
+	if (scale_coeff_alloc()) {
+		return -1;
+	}
+
 	return 0;
 }
 
 void img_scale_exit(void)
 {
+	scale_coeff_free();
 	platform_driver_unregister(&img_scale_driver);
 }
 

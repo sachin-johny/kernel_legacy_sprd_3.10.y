@@ -519,7 +519,7 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 	return -rtn;
 }
 
-LOCAL int  _dcam_scale_coeff_alloc(void)
+int dcam_scale_coeff_alloc(void)
 {
 	int ret = 0;
 
@@ -533,7 +533,7 @@ LOCAL int  _dcam_scale_coeff_alloc(void)
 	return ret;
 }
 
-LOCAL void  _dcam_scale_coeff_free(void)
+void dcam_scale_coeff_free(void)
 {
 	if (s_dcam_scaling_coeff_addr) {
 		kfree(s_dcam_scaling_coeff_addr);
@@ -579,11 +579,7 @@ int32_t dcam_module_en(void)
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
-		ret = _dcam_scale_coeff_alloc();
-		if (ret) {
-			ret = -DCAM_RTN_MAX;
-			goto fail_exit;
-		}
+
 		DCAM_TRACE("DCAM: dcam_module_en end \n");
 	}
 	DCAM_TRACE("DCAM: dcam_module_en, Out %d \n", s_dcam_users.counter);
@@ -609,7 +605,6 @@ int32_t dcam_module_dis(void)
 		if (ret) {
 			rtn =  -DCAM_RTN_MAX;
 		}
-		_dcam_scale_coeff_free();
 	}
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
