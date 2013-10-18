@@ -801,7 +801,7 @@ static void light_sleep(void)
 }
 void int_work_round(void)
 {
-	sci_glb_set(SPRD_AONAPB_BASE + 0x8, (0x1<<30 | 1<<8 /*| 1<<1 */ )); 
+	//sci_glb_set(SPRD_AONAPB_BASE + 0x8, (0x1<<30 | 1<<8 /*| 1<<1 */ ));
 	//sci_glb_clr(SPRD_LPDDR2_PHY_BASE + 0x2c, BIT(4));
 	//sci_glb_set(SPRD_LPDDR2_PHY_BASE + 0x2c, BIT(4));
 	//sci_glb_write(SPRD_LPDDR2_BASE + 0x30, 0, -1UL);
