@@ -684,7 +684,7 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
             spin_lock_irqsave(&host->lock, flags);
             host->ops->set_clock(host, 1);
             spin_unlock_irqrestore(&host->lock, flags);
-            mdelay(10);
+            mdelay(5);
         }
         sdhci_runtime_resume_host(host);
     }
