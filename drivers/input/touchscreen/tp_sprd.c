@@ -29,6 +29,21 @@
 #define TP_PRINT(...)
 #endif
 
+//#define TP_SPRD_DBG
+#ifdef TP_SPRD_DBG
+#define ENTER printk(KERN_INFO "[TP_SPRD_DBG] func: %s  line: %04d\n", __func__, __LINE__);
+#define PRINT_DBG(x...)  printk(KERN_INFO "[TP_SPRD_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[TP_SPRD_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[TP_SPRD_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[TP_SPRD_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#else
+#define ENTER
+#define PRINT_DBG(x...)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[TP_SPRD_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[TP_SPRD_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[TP_SPRD_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#endif
+
 #define SCI_PASSERT(condition, format...)  \
 	do {		\
 		if(!(condition)) { \
@@ -138,9 +153,9 @@
     }while(0)
 
 #define X_MIN	0
-#define X_MAX	0x3ff
+#define X_MAX	1023
 #define Y_MIN	0
-#define Y_MAX	0x3ff
+#define Y_MAX	1023
 
 #define TPC_CHANNEL_X       2
 #define TPC_CHANNEL_Y       3
@@ -339,7 +354,7 @@ static int tp_fetch_data (TPC_DATA_U *tp_data)
         cur_data.data.x  = ANA_REG_GET (TPC_X_DATA);
         cur_data.data.y  = ANA_REG_GET (TPC_Y_DATA);
         
-        TP_PRINT("x=%d,y=%d\n",cur_data.data.x,cur_data.data.y);
+        PRINT_DBG("adc current value x=%d,y=%d\n",cur_data.data.x,cur_data.data.y);
 
         if(cur_data.data.x <= X_MIN || cur_data.data.x >= X_MAX || 
             cur_data.data.y <= Y_MIN || cur_data.data.y >= Y_MAX)
@@ -380,13 +395,13 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
     int32_t xl,yl;
     
    	TP_PRINT ("TP: enter tp_irq!\n");
-	
+	ENTER
 	int_status = ANA_REG_GET (TPC_INT_STS);
 
     //Pen Down interrtup
     if (int_status & TPC_DOWN_IRQ_MSK_BIT)
     {
-        TP_PRINT("DOWN\n");
+        PRINT_DBG("DOWN\n");
         tp->is_first_down = 1;
 
         //Clear down interrupt*/
@@ -401,7 +416,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
     //Pen Up interrupt
     else if (int_status & TPC_UP_IRQ_MSK_BIT)
     {
-        TP_PRINT("UP\n");
+        PRINT_DBG("UP\n");
         
         //disable interrupt
         ANA_REG_AND (TPC_INT_EN, ~TPC_DONE_IRQ_MSK_BIT);
@@ -427,7 +442,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                     //TP_PRINT("fetch data finish\n");
                     //xd=765-tp->tp_data.data.x;
                     //yd=816-tp->tp_data.data.y;
-                    if (cal_mode_en == 0) {
+                    if (1) {
                         #if 0
                         xd=X_MAX-tp->tp_data.data.x;
                         yd=Y_MAX-tp->tp_data.data.y;
@@ -445,6 +460,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                         #endif
                         xl = tp->tp_data.data.x;
                         yl = tp->tp_data.data.y;
+                        PRINT_DBG("xl=%d    yl=%d\n",xl,yl);
 
                         input_report_abs(tp->input, ABS_X, xl);
                         input_report_abs(tp->input, ABS_Y, yl);
