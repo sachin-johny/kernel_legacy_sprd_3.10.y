@@ -283,7 +283,8 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
 			break;
 
 		if(i < SPRD_RTC_SET_MAX){
-			msleep(1);
+		//	msleep(1);
+			mdelay(1);
 			i++;
 		}else{
 			return 1;
