@@ -237,39 +237,42 @@ static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 				   u8 key_index, u32 cipher, const u8 *key_seq,
 				   const u8 *macaddr)
 {
-	u8 cipher_type;
+	u8 pn_key[16] = { 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36,
+			  0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36};
 	int ret;
 
-	if (priv->wep_key_len[0] || priv->wep_key_len[1] ||
-	    priv->wep_key_len[2] || priv->wep_key_len[3]) {
+	if (priv->key_len[pairwise][0] || priv->key_len[pairwise][1] ||
+	    priv->key_len[pairwise][2] || priv->key_len[pairwise][3]) {
 		/* Only set wep keys if we have at least one of them.
 		   pairwise: 0:GTK 1:PTK */
 		switch (cipher) {
 		case WLAN_CIPHER_SUITE_WEP40:
-			cipher_type = WEP40;
+			priv->cipher_type = WEP40;
 			break;
 		case WLAN_CIPHER_SUITE_WEP104:
-			cipher_type = WEP104;
+			priv->cipher_type = WEP104;
 			break;
 		case WLAN_CIPHER_SUITE_TKIP:
-			cipher_type = TKIP;
+			priv->cipher_type = TKIP;
 			break;
 		case WLAN_CIPHER_SUITE_CCMP:
-			cipher_type = CCMP;
+			priv->cipher_type = CCMP;
 			break;
 		case WLAN_CIPHER_SUITE_SMS4:
-			cipher_type = WAPI;
+			priv->cipher_type = WAPI;
 			break;
 		default:
 			dev_err(&priv->ndev->dev,
-				"Invalid cipher select: %d\n", cipher);
+				"Invalid cipher select: %d\n",
+				priv->cipher_type);
 			return -EINVAL;
 		}
+		memcpy(priv->key_txrsc[pairwise], pn_key, sizeof(pn_key));
 		ret = itm_wlan_add_key_cmd(priv->wlan_sipc,
-					   priv->wep_key[key_index],
-					   priv->wep_key_len[key_index],
+					   priv->key[pairwise][key_index],
+					   priv->key_len[pairwise][key_index],
 					   pairwise, key_index,
-					   key_seq, cipher_type, macaddr);
+					   key_seq, priv->cipher_type, macaddr);
 		if (ret < 0) {
 			dev_err(&priv->ndev->dev,
 				"itm_wlan_add_key_cmd failed %d\n", ret);
@@ -413,6 +416,9 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	}
 
 	dev_dbg(&priv->ndev->dev, "Begin connect: %s\n", sme->ssid);
+
+	/* To avoid confused wapi frame */
+	priv->cipher_type = NONE;
 	/* Get request status, type, bss, ie and so on */
 	/* Set appending ie */
 	/* Set wps ie */
@@ -597,9 +603,9 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	    sme->crypto.ciphers_pairwise[0] == WLAN_CIPHER_SUITE_WEP104) {
 		dev_dbg(&priv->ndev->dev,
 			"Don't need to set PSK since driver is using WEP\n");
-		priv->wep_index = sme->key_idx;
-		priv->wep_key_len[sme->key_idx] = sme->key_len;
-		memcpy(priv->wep_key[sme->key_idx], sme->key, sme->key_len);
+		priv->key_index[GROUP] = sme->key_idx;
+		priv->key_len[GROUP][sme->key_idx] = sme->key_len;
+		memcpy(priv->key[GROUP][sme->key_idx], sme->key, sme->key_len);
 		ret = itm_wlan_add_cipher_key(priv, 0, sme->key_idx,
 					      sme->crypto.ciphers_pairwise[0],
 					      NULL, NULL);
@@ -699,6 +705,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	memcpy(priv->ssid, sme->ssid, sme->ssid_len);
 	priv->ssid_len = sme->ssid_len;
 
+	memcpy(priv->bssid, sme->bssid, 6);
 	priv->connect_status = ITM_CONNECTING;
 	return ret;
 }
@@ -768,9 +775,9 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 			return ret;
 		}
 	} else if (priv->mode == ITM_STATION_MODE) {
-		priv->wep_index = idx;
-		priv->wep_key_len[idx] = params->key_len;
-		memcpy(priv->wep_key[idx], params->key, params->key_len);
+		priv->key_index[pairwise] = idx;
+		priv->key_len[pairwise][idx] = params->key_len;
+		memcpy(priv->key[pairwise][idx], params->key, params->key_len);
 		ret = itm_wlan_add_cipher_key(priv, pairwise, idx,
 					      params->cipher,
 					      params->seq, mac_addr);
@@ -805,12 +812,13 @@ static int itm_wlan_cfg80211_del_key(struct wiphy *wiphy,
 		return -ENOENT;
 	}
 
-	if (!priv->wep_key_len[key_index]) {
+	if (!priv->key_len[pairwise][key_index]) {
 		dev_err(&priv->ndev->dev, "index %d is empty\n", key_index);
 		return 0;
 	}
 
-	priv->wep_key_len[key_index] = 0;
+	priv->key_len[pairwise][key_index] = 0;
+	priv->cipher_type = NONE;
 
 	return itm_wlan_del_key_cmd(priv->wlan_sipc, key_index, mac_addr);
 }
@@ -1056,8 +1064,6 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 					bssid_ptr, req_ie_ptr, req_ie_len,
 					resp_ie_ptr, resp_ie_len,
 					WLAN_STATUS_SUCCESS, GFP_KERNEL);
-
-		memcpy(priv->bssid, bssid_ptr, bssid_len);
 
 		kfree(pos);
 

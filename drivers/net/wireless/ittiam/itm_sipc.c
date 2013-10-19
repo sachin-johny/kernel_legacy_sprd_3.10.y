@@ -833,7 +833,7 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	memcpy(wps_ptr->value, ie, len);
 
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-			+ sizeof(wps_ptr->len) + len;
+			+ sizeof(wps_ptr) + len;
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_WPS_IE);
