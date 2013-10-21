@@ -404,7 +404,12 @@ int sci_dma_start(u32 dma_chn, u32 dev_id)
 	if (dma_chn > DMA_CHN_MAX)
 		return -EINVAL;
 
+	mutex_lock(&dma_mutex);
+
 	dma_chns[dma_chn].dev_id = dev_id;
+
+	mutex_unlock(&dma_mutex);
+
 	/*fixme, need to check dev_id */
 	__dma_set_uid(dma_chn, dev_id);
 
@@ -550,10 +555,10 @@ int sci_dma_free(u32 dma_chn)
 
 	__dma_int_dis(dma_chn);
 
+	mutex_lock(&dma_mutex);
+
 	/*set a valid dma chn for CID, the CID is start with 1 */
 	__dma_set_uid(0, dma_chns[dma_chn].dev_id);
-
-	mutex_lock(&dma_mutex);
 
 	memset(dma_chns + dma_chn, 0x0, sizeof(*dma_chns));
 
