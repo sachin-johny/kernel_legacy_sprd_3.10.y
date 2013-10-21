@@ -345,9 +345,8 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 
 	page = address_to_pages(address);
 
-#if DEBUG_PRINT
-	printk("__SPRD__OUTTTT: page = %p\n", page);
-#endif
+	printk("__SPRD__OUTTTT: Process Name: %s, Process Pid: %d, Parent Name: %s, Parent Pid: %d, page: %p, free_8k: %lu, free_16k: %lu\n",
+			current->comm, current->pid, current->parent->comm, current->parent->pid, page, stats.free_8k, stats.free_16k);
 
 	return page;
 
