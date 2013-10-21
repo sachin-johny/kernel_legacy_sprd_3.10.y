@@ -64,7 +64,11 @@ static LIST_HEAD(codec_list);
  * It can be used to eliminate pops between different playback streams, e.g.
  * between two audio tracks.
  */
+#ifdef CONFIG_SND_SOC_DAPM_POWER_DOWN
+static int pmdown_time = CONFIG_SND_SOC_PM_DOWN_TIME;
+#else
 static int pmdown_time = 5000;
+#endif
 module_param(pmdown_time, int, 0);
 MODULE_PARM_DESC(pmdown_time, "DAPM stream powerdown time (msecs)");
 

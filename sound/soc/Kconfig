@@ -28,6 +28,23 @@ config SND_SOC_AC97_BUS
 config SND_SOC_DMAENGINE_PCM
 	bool
 
+config SND_SOC_DAPM_POWER_DOWN
+	bool "config snd soc DAPM stream pmdown time"
+	default y
+	help
+	 Say Y if you want config  DAPM stream powerdown time (msecs).
+	  or will use default pmdown time (5ms).
+
+config SND_SOC_PM_DOWN_TIME
+	int "DAPM stream powerdown time (msecs)"
+	depends on SND_SOC_DAPM_POWER_DOWN
+	range 0 10000
+	default 0
+	help
+	  if defined SND_SOC_DAPM_POWER_DOWN , maybe need this delay
+	  for DAPM powerdown
+	  this delay time value, unit is MS.
+
 # All the supported SoCs
 source "sound/soc/atmel/Kconfig"
 source "sound/soc/au1x/Kconfig"
