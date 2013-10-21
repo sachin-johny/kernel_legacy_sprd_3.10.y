@@ -101,15 +101,16 @@
 
 /* Channel x dma contral regisers address */
 #define DMA_CHx_CTL_BASE                (DMA_REG_BASE + 0x0400)
-#define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + 0x20 * x )
-#define DMA_CHx_CFG(x)                  (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_CFG)
-#define DMA_CHx_TOTAL_LEN(x)		(DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_TOTAL_LEN)
-#define DMA_CHx_SRC_ADDR(x)             (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_SRC_ADDR)
-#define DMA_CHx_DEST_ADDR(x)            (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_DEST_ADDR)
-#define DMA_CHx_LLPTR(x)                (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_LLPTR)
-#define DMA_CHx_SDEP(x)                 (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_SDEP)
-#define DMA_CHx_SBP(x)                  (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_SBP)
-#define DMA_CHx_DBP(x)                  (DMA_CHx_CTL_BASE + 0x20 * x + DMA_CH_DBP)
+#define DMA_CHx_OFFSET			(0x20)
+#define DMA_CHx_BASE(x)                 (DMA_CHx_CTL_BASE + DMA_CHx_OFFSET * x )
+#define DMA_CHx_CFG(x)                  (DMA_CHx_BASE(x) + DMA_CH_CFG)
+#define DMA_CHx_TOTAL_LEN(x)		(DMA_CHx_BASE(x) + DMA_CH_TOTAL_LEN)
+#define DMA_CHx_SRC_ADDR(x)             (DMA_CHx_BASE(x) + DMA_CH_SRC_ADDR)
+#define DMA_CHx_DEST_ADDR(x)            (DMA_CHx_BASE(x) + DMA_CH_DEST_ADDR)
+#define DMA_CHx_LLPTR(x)                (DMA_CHx_BASE(x) + DMA_CH_LLPTR)
+#define DMA_CHx_SDEP(x)                 (DMA_CHx_BASE(x) + DMA_CH_SDEP)
+#define DMA_CHx_SBP(x)                  (DMA_CHx_BASE(x) + DMA_CH_SBP)
+#define DMA_CHx_DBP(x)                  (DMA_CHx_BASE(x) + DMA_CH_DBP)
 
 /*there is no different between full and std chn is DMA r1p0*/
 struct sci_dma_reg {
@@ -144,7 +145,8 @@ struct sci_dma_reg {
 #define DMA_DEGUG_STS	(DMA_REG_BASE + 0x0020)
 #define DMA_ARB_SEL_STS	(DMA_REG_BASE + 0x0024)
 
-#define DMA_CHx_BASE(x)	(DMA_REG_BASE + 0x1000 + 0x40 * (x - 1))
+#define DMA_CHx_OFFSET	(0x40)
+#define DMA_CHx_BASE(x)	(DMA_REG_BASE + 0x1000 + DMA_CHx_OFFSET * (x - 1))
 
 #define DMA_CHN_PAUSE(x)	(DMA_CHx_BASE(x) + 0x0000)
 #define DMA_CHN_REQ(x)		(DMA_CHx_BASE(x) + 0x0004)
@@ -213,7 +215,7 @@ struct sci_dma_reg {
 	u32 des_addr;
 	u32 frg_len;
 	u32 blk_len;
-	/*only full chn have following regs*/
+	/* only full chn have following regs */
 	union {
 		struct {
 			u32 trsc_len;

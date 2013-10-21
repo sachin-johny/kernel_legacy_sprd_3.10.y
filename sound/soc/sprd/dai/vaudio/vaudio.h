@@ -1,5 +1,9 @@
 /*
- * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * sound/soc/sprd/dai/vaudio/vaudio.h
+ *
+ * SpreadTrum Vaudio for the dsp stream.
+ *
+ * Copyright (C) 2012 SpreadTrum Ltd.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -10,18 +14,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef __SPRD_VAUDIO_PCM_H
+#define __SPRD_VAUDIO_PCM_H
 
-#ifndef __ASM_ARCH_AUDIO_GLB_H
-#define __ASM_ARCH_AUDIO_GLB_H
+#define VAUDIO_MAGIC_ID		(0x5AD)
 
-#if defined(CONFIG_ARCH_SCX35)
-#include "__sprd_audio_sc8830.h"
-#elif defined(CONFIG_ARCH_SC8825)
-#include "__sprd_audio_sc8825.h"
-#else
-#error "Unknown architecture specification"
-#endif
-
-#include "__sprd_audio_power.h"
-
-#endif
+#endif /* __SPRD_VAUDIO_PCM_H */

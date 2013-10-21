@@ -55,6 +55,8 @@
 #ifdef CONFIG_TOUCHSCREEN_FOCALTECH
 #include <linux/i2c/focaltech.h>
 #endif
+#include <mach/i2s.h>
+
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -150,6 +152,28 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&kb_backlight_device,
 	&sprd_a7_pmu_device,
+};
+
+static struct platform_device *late_devices[] __initdata = {
+	/* 1. CODECS */
+	&sprd_audio_sprd_codec_v3_device,
+	&sprd_audio_null_codec_device,
+
+	/* 2. CPU DAIS */
+	&sprd_audio_vbc_r2p0_device,
+	&sprd_audio_vaudio_device,
+	&sprd_audio_i2s0_device,
+	&sprd_audio_i2s1_device,
+	&sprd_audio_i2s2_device,
+	&sprd_audio_i2s3_device,
+
+	/* 3. PLATFORM */
+	&sprd_audio_platform_pcm_device,
+
+	/* 4. MACHINE */
+	&sprd_audio_vbc_r2p0_sprd_codec_v3_device,
+	&sprd_audio_i2s_null_codec_device,
+
 };
 
 /* BT suspend/resume */
@@ -612,6 +636,29 @@ static inline int	__sci_get_chip_id(void)
 	return __raw_readl(CHIP_ID_LOW_REG);
 }
 
+/*i2s0 config for BT, use pcm mode*/
+static struct i2s_config i2s0_config = {
+	.fs = 8000,
+	.slave_timeout = 0xF11,
+	.bus_type = PCM_BUS,
+	.byte_per_chan = I2S_BPCH_16,
+	.mode = I2S_MASTER,
+	.lsb = I2S_LSB,
+	.rtx_mode = I2S_RTX_MODE,
+	.sync_mode = I2S_LRCK,
+	.lrck_inv = I2S_L_LEFT,	/*NOTE: MUST I2S_L_LEFT in pcm mode*/
+	.clk_inv = I2S_CLK_N,
+	.pcm_bus_mode = I2S_SHORT_FRAME,
+	.pcm_slot = 0x1,
+	.pcm_cycle = 1,
+	.tx_watermark = 8,
+	.rx_watermark = 24,
+};
+/*you can change param here to config the i2s modules*/
+static struct i2s_config i2s1_config = {0};
+static struct i2s_config i2s2_config = {0};
+static struct i2s_config i2s3_config = {0};
+
 static void __init sc8830_init_machine(void)
 {
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
@@ -624,10 +671,19 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	platform_device_add_data(&sprd_serial_device3,(const void*)&plat_data3,sizeof(plat_data3));
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
+	platform_device_add_data(&sprd_audio_i2s0_device,(const void*)&i2s0_config,sizeof(i2s0_config));
+	platform_device_add_data(&sprd_audio_i2s1_device,(const void*)&i2s1_config,sizeof(i2s1_config));
+	platform_device_add_data(&sprd_audio_i2s2_device,(const void*)&i2s2_config,sizeof(i2s2_config));
+	platform_device_add_data(&sprd_audio_i2s3_device,(const void*)&i2s3_config,sizeof(i2s3_config));
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+}
+
+static void __init sc8830_init_late(void)
+{
+	platform_add_devices(late_devices, ARRAY_SIZE(late_devices));
 }
 
 extern void __init  sci_enable_timer_early(void);
@@ -650,5 +706,6 @@ MACHINE_START(SCPHONE, "sc8830")
 	.init_irq	= sci_init_irq,
 	.init_time		= sci_timer_init,
 	.init_machine	= sc8830_init_machine,
+	.init_late	= sc8830_init_late,
 MACHINE_END
 

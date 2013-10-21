@@ -1,5 +1,9 @@
 /*
- * Copyright (C) 2012 Spreadtrum Communications Inc.
+ * sound/soc/sprd/sprd-asoc-debug.h
+ *
+ * SPRD ASoC Debug include -- SpreadTrum ASOC Debug.
+ *
+ * Copyright (C) 2013 SpreadTrum Ltd.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -10,18 +14,22 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef __SPRD_ASOC_DEBUG_H
+#define __SPRD_ASOC_DEBUG_H
 
-#ifndef __ASM_ARCH_AUDIO_GLB_H
-#define __ASM_ARCH_AUDIO_GLB_H
-
-#if defined(CONFIG_ARCH_SCX35)
-#include "__sprd_audio_sc8830.h"
-#elif defined(CONFIG_ARCH_SC8825)
-#include "__sprd_audio_sc8825.h"
+#define pr_color_terminal 0
+#if pr_color_terminal
+#define pr_col_s "\e[35m"
+#define pr_col_e "\e[0m"
 #else
-#error "Unknown architecture specification"
+#define pr_col_s
+#define pr_col_e
 #endif
 
-#include "__sprd_audio_power.h"
+#define pr_id "ASoC:"
+#define pr_s pr_col_s "[" pr_id
+#define pr_e "] " pr_col_e
 
-#endif
+#define pr_sprd_fmt(id) pr_s id pr_e
+
+#endif /* __SPRD_ASOC_DEBUG_H */

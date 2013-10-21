@@ -47,23 +47,11 @@ enum {
 };
 
 #if FIXED_AUDIO
-#define VBC_REG_OFFSET          (0x1000)
-#define VBC_BASE		(SPRD_VBC_BASE + VBC_REG_OFFSET)
-#define VBC_END			(VBC_BASE + 0x0758)
-#define IS_SPRD_VBC_RANG(reg) (((reg) >= VBC_BASE) && ((reg) < VBC_END))
-#define SPRD_VBC_BASE_HI  (VBC_BASE & 0xFFFF0000)
-
-#define VBC_MUX_REG_BASE		(100)
-#define VBC_MUX_REG_MAX		(50)
-#define IS_SPRD_VBC_MUX_RANG(reg)	((reg) >= VBC_MUX_REG_BASE && (reg) < (VBC_MUX_REG_BASE + VBC_MUX_REG_MAX))
-
-#define VBC_SWITCH_REG_BASE		(200)
-#define VBC_SWITCH_REG_MAX		(10)
-#define IS_SPRD_VBC_SWITCH_RANG(reg)	((reg) >= VBC_SWITCH_REG_BASE && (reg) < (VBC_SWITCH_REG_BASE + VBC_SWITCH_REG_MAX))
+#define VBC_BASE		(SPRD_VBC_BASE)
 
 #define CODEC_DP_BASE 		SPRD_AUDIO_BASE
 
-/*CODEC_AP_BASE: the bit15 cann't be 1 for asoc reg.*/
+/* CODEC_AP_BASE: the bit15 cann't be 1 for asoc reg.*/
 #if (ANA_AUDCFGA_INT_BASE & BIT(15))
 #define CODEC_AP_BASE   (ANA_AUDCFGA_INT_BASE & ~(BIT(15)))
 #define CODEC_AP_OFFSET   (0x8000)
@@ -73,15 +61,18 @@ enum {
 #endif
 
 #define VBC_PHY_BASE		SPRD_VBC_PHYS
+/* for CP2 */
+#define VBC_CP2_PHY_BASE	(0x02020000)
+#define CP2_PHYS_VBDA0		(VBC_CP2_PHY_BASE + 0x0000)
+#define CP2_PHYS_VBDA1		(VBC_CP2_PHY_BASE + 0x0004)
+
 #define CODEC_DP_PHY_BASE	SPRD_AUDIO_PHYS
 #define CODEC_AP_PHY_BASE	(SPRD_ADISLAVE_PHYS + 0x0600)
 #define CODEC_AP_IRQ		(IRQ_ANA_AUD_INT)
 #define CODEC_DP_IRQ		(IRQ_REQ_AUD_INT)
 
-#ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
 #define SPRD_IRAM_ALL_PHYS	  (SPRD_IRAM2_PHYS)
 #define SPRD_IRAM_ALL_SIZE	  (SPRD_IRAM2_SIZE)
-#endif
 
 #define CLASS_G_LDO_ID			"vddclsg"
 #endif
@@ -174,7 +165,7 @@ static inline int arch_audio_vbc_switch(int master)
 		    | BITS_VBC_AD23_DMA_SYS_SEL(1);
 		sci_glb_write(REG_AON_APB_VBC_CTRL, val, mask);
 		sci_glb_write(REG_AON_APB_VBC_CTRL, 0,
-			(BIT_VBC_DMA_CP0_ARM_SEL |
+			      (BIT_VBC_DMA_CP0_ARM_SEL |
 			       BIT_VBC_DMA_CP0_ARM_SEL));
 		break;
 	case AUDIO_TO_CP1_DSP_CTRL:
@@ -501,12 +492,9 @@ static inline int arch_audio_codec_analog_reg_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-#if defined(CONFIG_ARCH_SCX15)
-#else
 	ret =
-		sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN,
-						BIT_ANA_AUD_EN);
-#endif
+	    sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN,
+			  BIT_ANA_AUD_EN);
 #endif
 
 	return ret;
@@ -517,10 +505,7 @@ static inline int arch_audio_codec_analog_reg_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-#if defined(CONFIG_ARCH_SCX15)
-#else
 	ret = sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, 0, BIT_ANA_AUD_EN);
-#endif
 #endif
 
 	return ret;
@@ -531,20 +516,18 @@ static inline int arch_audio_codec_analog_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-#if defined(CONFIG_ARCH_SCX15)
-#else
-	/*AUDIF , 6.5M*/
+	/* AUDIF , 6.5M */
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
-	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
-	/*RTC*/
+	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN,
+		      BIT_CLK_AUD_6P5M_TX_INV_EN);
+	/* RTC */
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_AUD_EN, BIT_RTC_AUD_EN);
-	/*26M*/
+	/* 26M */
 	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_XTL_EN, BIT_XTL_EN);
 
 	/* FIXME: disable deepsleep force power off audio ldo */
 	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
-#endif
 #endif
 
 	return ret;
@@ -555,11 +538,10 @@ static inline int arch_audio_codec_digital_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-#if defined(CONFIG_ARCH_SCX15)
-#else
-	/*internal digital 26M enable*/
-	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE), (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
-#endif
+	/* internal digital 26M enable */
+	sci_glb_write(REG_AON_APB_SINDRV_CTRL,
+		      (BIT_SINDRV_ENA | BIT_SINDRV_ENA_SQUARE),
+		      (BIT_SINDRV_ENA | BIT_SINDRV_ENA_SQUARE));
 #endif
 
 	return ret;
@@ -570,17 +552,15 @@ static inline int arch_audio_codec_analog_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-#if defined(CONFIG_ARCH_SCX15)
-#else
-	/*AUDIF , 6.5M*/
+	/* AUDIF , 6.5M */
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
-	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN, BIT_CLK_AUD_6P5M_TX_INV_EN);
-	/*RTC*/
+	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN,
+		      BIT_CLK_AUD_6P5M_TX_INV_EN);
+	/* RTC */
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, 0, BIT_RTC_AUD_EN);
-	/*26M  this is shared with adc, so we cann't close it */
-	/*sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN);*/
-#endif
+	/* 26M  this is shared with adc, so we cann't close it */
+	/* sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, 0, BIT_XTL_EN); */
 #endif
 
 	return ret;
@@ -591,8 +571,9 @@ static inline int arch_audio_codec_digital_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	/*internal digital 26M disable*/
-	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  0,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
+	/* internal digital 26M disable */
+	sci_glb_write(REG_AON_APB_SINDRV_CTRL, 0,
+		      (BIT_SINDRV_ENA | BIT_SINDRV_ENA_SQUARE));
 
 #endif
 
@@ -697,7 +678,7 @@ static inline int arch_audio_codec_analog_reset(void)
 /* ------------------------------------------------------------------------- */
 
 /* i2s setting */
-static inline const char * arch_audio_i2s_clk_name(int id)
+static inline const char *arch_audio_i2s_clk_name(int id)
 {
 #if FIXED_AUDIO
 	switch (id) {
@@ -864,7 +845,7 @@ static inline int arch_audio_i2s_reset(int id)
 	return ret;
 }
 
-/*sc8830 AP IIS and CP IIS are different. AP IIS cann't switch to other master*/
+/* sc8830 AP IIS and CP IIS are different. AP IIS cann't switch to other master*/
 static inline int arch_audio_i2s_switch(int id, int master)
 {
 	int ret = 0;

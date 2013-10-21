@@ -38,21 +38,12 @@ extern struct platform_device sprd_spi0_device;
 extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_spi2_device;
 extern struct platform_device sprd_keypad_device;
-extern struct platform_device sprd_audio_platform_pcm_device;
 extern struct platform_device sprd_thm_device;
 extern struct platform_device sprd_thm_a_device;
-extern struct platform_device sprd_audio_cpu_dai_vaudio_device;
-extern struct platform_device sprd_audio_cpu_dai_vbc_device;
-extern struct platform_device sprd_audio_codec_sprd_codec_device;
-extern struct platform_device sprd_audio_cpu_dai_i2s_device;
-extern struct platform_device sprd_audio_cpu_dai_i2s_device1;
 #ifdef CONFIG_ARCH_SCX35
-extern struct platform_device sprd_audio_cpu_dai_i2s_device2;
-extern struct platform_device sprd_audio_cpu_dai_i2s_device3;
 extern struct platform_device sprd_headset_detect_device;
 extern struct platform_device sprd_headset_button_device;
 #endif
-extern struct platform_device sprd_audio_codec_null_codec_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_jpg_device;
@@ -114,5 +105,17 @@ extern struct platform_device sprd_a7_pmu_device;
 extern struct platform_device sprd_memnand_system_device;
 extern struct platform_device sprd_memnand_userdata_device;
 extern struct platform_device sprd_memnand_cache_device;
+
+extern struct platform_device sprd_audio_vbc_r2p0_sprd_codec_v3_device;
+extern struct platform_device sprd_audio_i2s_null_codec_device;
+extern struct platform_device sprd_audio_platform_pcm_device;
+extern struct platform_device sprd_audio_vaudio_device;
+extern struct platform_device sprd_audio_vbc_r2p0_device;
+extern struct platform_device sprd_audio_i2s0_device;
+extern struct platform_device sprd_audio_i2s1_device;
+extern struct platform_device sprd_audio_i2s2_device;
+extern struct platform_device sprd_audio_i2s3_device;
+extern struct platform_device sprd_audio_sprd_codec_v3_device;
+extern struct platform_device sprd_audio_null_codec_device;
 
 #endif
