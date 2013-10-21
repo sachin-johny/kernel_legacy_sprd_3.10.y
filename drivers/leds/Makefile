@@ -48,7 +48,8 @@ obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
 obj-$(CONFIG_LEDS_SC8810_KB)		+= leds-sc8810-kb.o
 # SPRD keyboard-backlight Drivers
 obj-$(CONFIG_LEDS_SPRD_KB)	+= leds-sprd-kb.o
-
+# SPRD rgb led Drivers
+obj-$(CONFIG_LEDS_SPRD_RGB)	+= leds-sprd-rgb.o
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 
