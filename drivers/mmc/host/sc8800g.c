@@ -137,8 +137,10 @@ static unsigned int sdhci_sprd_get_base_clock(struct sdhci_host *host){
 
 
 static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock){
+	unsigned long flags;
    unsigned int val = __raw_readl(AHB_CTL0);
 
+   local_irq_save(flags);
    pr_debug("%s, set ahb clk:%u\n", __func__, clock);
    if(clock == 0){
       if(!strcmp(host->hw_name, "Spread SDIO host0")){
@@ -151,6 +153,7 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
           __raw_writel(val, AHB_CTL0);
 	  host->clock = 0;
       }	
+	  local_irq_restore(flags);
    }else{
       if(!strcmp(host->hw_name, "Spread SDIO host0")){
           val |= AHB_CTL0_SDIO0_EN;
@@ -160,6 +163,7 @@ static void sdhci_sprd_set_ahb_clock(struct sdhci_host *host, unsigned int clock
 	  val |= AHB_CTL0_SDIO1_EN;
           __raw_writel(val, AHB_CTL0);
        }
+	   local_irq_restore(flags);
        udelay(1000);
    }
 
