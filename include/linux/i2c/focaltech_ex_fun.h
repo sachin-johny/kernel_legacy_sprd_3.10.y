@@ -19,10 +19,13 @@
 #define FT_UPGRADE_AA					0xAA
 #define FT_UPGRADE_55 					0x55
 
+#define    BL_VERSION_LZ4        0
+#define    BL_VERSION_Z7        1
+#define    BL_VERSION_GZF        2
 
 
 /*****************************************************************************/
-#define PAGE_SIZE                                        128
+//#define PAGE_SIZE                                        128
 #define FTS_PACKET_LENGTH        		       128
 #define FTS_SETTING_BUF_LEN      		128
 #define FTS_DMA_BUF_SIZE 				1024

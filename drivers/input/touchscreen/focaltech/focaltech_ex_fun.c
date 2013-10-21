@@ -160,7 +160,10 @@ int fts_i2c_Read(struct i2c_client *client, char *writebuf,
 int fts_i2c_Write(struct i2c_client *client, char *writebuf, int writelen)
 {
 	int ret;
+
 	//int i = 0;
+
+
 	//printk("fts_i2c_Write  %d  %x  %x %x %x",writelen,writebuf,I2CDMABuf_va,I2CDMABuf_pa,client);
 	
   // client->addr = client->addr & I2C_MASK_FLAG;
@@ -471,12 +474,15 @@ void delay_qt_ms(unsigned long  w_ms)
 	}
 }
 
+extern void focaltech_get_upgrade_array(struct i2c_client *client);
+
 int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth)
 {
 	u8 reg_val[2] = {0};
 	u32 i = 0;
 	u8 is_5336_new_bootloader = 0;
+	u8 is_5336_fwsize_30 = 0;
 	u32 packet_number;
 	u32 j=0;
 	u32 temp;
@@ -488,6 +494,17 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
       // struct Upgrade_Info upgradeinfo;
 	   
 	//fts_get_upgrade_info(&upgradeinfo);
+	
+	focaltech_get_upgrade_array(client);
+	
+	if(*(pbt_buf+dw_lenth-12) == 30)
+	{
+		is_5336_fwsize_30 = 1;
+	}
+	else 
+	{
+		is_5336_fwsize_30 = 0;
+	}
 	for (i = 0; i < FTS_UPGRADE_LOOP; i++) 
 	{
 	        msleep(100);
@@ -562,26 +579,56 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 	
 	auc_i2c_write_buf[0] = 0xcd;
 	fts_i2c_Read(client, auc_i2c_write_buf, 1, reg_val, 1);
-	if (reg_val[0] > 4)
-		is_5336_new_bootloader = 1;
+	/*********0705 mshl ********************/
+	/*if (reg_val[0] > 4)
+		is_5336_new_bootloader = 1;*/
+
+	if (reg_val[0] <= 4)
+	{
+		is_5336_new_bootloader = BL_VERSION_LZ4 ;
+	}
+	else if(reg_val[0] == 7)
+	{
+		is_5336_new_bootloader = BL_VERSION_Z7 ;
+	}
+	else if(reg_val[0] >= 0x0f && ((fts_updateinfo_curr.CHIP_ID==0x11) ||(fts_updateinfo_curr.CHIP_ID==0x12) ||(fts_updateinfo_curr.CHIP_ID==0x13) ||(fts_updateinfo_curr.CHIP_ID==0x14)))
+	{
+		is_5336_new_bootloader = BL_VERSION_GZF ;
+	}
+	else
+	{
+		is_5336_new_bootloader = BL_VERSION_LZ4 ;
+	}
+
 
 	printk("[FTS] Step 4:erase app and panel paramenter area\n");
 	/*Step 4:erase app and panel paramenter area*/
-	//printk("Step 4:erase app and panel paramenter area\n");
+	printk("Step 4:erase app and panel paramenter area\n");
 	auc_i2c_write_buf[0] = 0x61;
 	fts_i2c_Write(client, auc_i2c_write_buf, 1);	/*erase app area */
 	msleep(fts_updateinfo_curr.delay_earse_flash);
 	/*erase panel parameter area */
-	auc_i2c_write_buf[0] = 0x63;
-	fts_i2c_Write(client, auc_i2c_write_buf, 1);
+	if(is_5336_fwsize_30)
+	{
+	    auc_i2c_write_buf[0] = 0x63;
+	    fts_i2c_Write(client, auc_i2c_write_buf, 1);
+	}
 	msleep(100);
 
 	printk("[FTS] Step 5:write firmware(FW) to ctpm flash\n");
 	/*********Step 5:write firmware(FW) to ctpm flash*********/
 	bt_ecc = 0;
-	//printk("Step 5:write firmware(FW) to ctpm flash\n");
+	printk("Step 5:write firmware(FW) to ctpm flash\n");
 
-	dw_lenth = dw_lenth - 8;
+	//dw_lenth = dw_lenth - 8;
+	if(is_5336_new_bootloader == BL_VERSION_LZ4 || is_5336_new_bootloader == BL_VERSION_Z7 )
+	{
+		dw_lenth = dw_lenth - 8;
+	}
+	else if(is_5336_new_bootloader == BL_VERSION_GZF) 
+	{
+	      dw_lenth = dw_lenth - 14;
+	}
 	packet_number = (dw_lenth) / FTS_PACKET_LENGTH;
 	packet_buf[0] = 0xbf;
 	packet_buf[1] = 0x00;
@@ -622,7 +669,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 		fts_i2c_Write(client, packet_buf, temp + 6);
 		msleep(20);
 	}
-
+#if 0
 	/*send the last six byte*/
 	for (i = 0; i<6; i++)
 	{
@@ -640,11 +687,64 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 		fts_i2c_Write(client, packet_buf, 7);
 		msleep(20);
 	}
+#else
+	/*send the last six byte*/
+	if(is_5336_new_bootloader == BL_VERSION_LZ4 || is_5336_new_bootloader == BL_VERSION_Z7 )
+	{
+		for (i = 0; i<6; i++)
+		{
+			if (is_5336_new_bootloader  == BL_VERSION_Z7 ) 
+			{
+				temp = 0x7bfa + i;
+			}
+			else if(is_5336_new_bootloader == BL_VERSION_LZ4)
+			{
+				temp = 0x6ffa + i;
+			}
+			packet_buf[2] = (u8)(temp>>8);
+			packet_buf[3] = (u8)temp;
+			temp =1;
+			packet_buf[4] = (u8)(temp>>8);
+			packet_buf[5] = (u8)temp;
+			packet_buf[6] = pbt_buf[ dw_lenth + i]; 
+			bt_ecc ^= packet_buf[6];
+  
+			fts_i2c_Write(client, packet_buf, 7);
+			msleep(20);
+		}
+	}
+	else if(is_5336_new_bootloader == BL_VERSION_GZF)
+	{
+	    
+		for (i = 0; i<12; i++)
+		{
+			if (is_5336_fwsize_30) 
+			{
+				temp = 0x7ff4 + i;
+			}
+			else 
+			{
+				temp = 0x7bf4 + i;
+			}
+			packet_buf[2] = (u8)(temp>>8);
+			packet_buf[3] = (u8)temp;
+			temp =1;
+			packet_buf[4] = (u8)(temp>>8);
+			packet_buf[5] = (u8)temp;
+			packet_buf[6] = pbt_buf[ dw_lenth + i]; 
+			bt_ecc ^= packet_buf[6];
+  
+			fts_i2c_Write(client, packet_buf, 7);
+			msleep(20);
 
+		}
+	}
+
+#endif
 	printk("[FTS] Step 6: read out checksum\n");
 	/*********Step 6: read out checksum***********************/
 	/*send the opration head */
-	//printk("Step 6: read out checksum\n");
+	printk("Step 6: read out checksum\n");
 	auc_i2c_write_buf[0] = 0xcc;
 	fts_i2c_Read(client, auc_i2c_write_buf, 1, reg_val, 1);
 	if (reg_val[0] != bt_ecc) {
@@ -656,14 +756,13 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 
 	printk("[FTS] Step 7: reset the new FW\n");
 	/*********Step 7: reset the new FW***********************/
-	//printk("Step 7: reset the new FW\n");
+	printk("Step 7: reset the new FW\n");
 	auc_i2c_write_buf[0] = 0x07;
 	fts_i2c_Write(client, auc_i2c_write_buf, 1);
 	msleep(300);	/*make sure CTP startup normally */
 
 	return 0;
 }
-
 /*sysfs debug*/
 
 /*
@@ -1132,8 +1231,10 @@ static ssize_t ft5x0x_debug_read(struct file *filp, char __user *page, size_t le
 {
 	struct i2c_client *client = (struct i2c_client *)PDE_DATA(file_inode(filp));
 	int ret = 0;
+
 	//u8 tx = 0, rx = 0;
 	//int i, j;
+
 	unsigned char buf[PAGE_SIZE];
 	int num_read_chars = 0;
 	int readlen = 0;
