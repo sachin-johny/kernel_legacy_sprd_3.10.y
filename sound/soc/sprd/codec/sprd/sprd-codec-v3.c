@@ -1437,6 +1437,7 @@ static int sprd_codec_digital_open(struct snd_soc_codec *codec)
 
 	sprd_codec_dbg("Entering %s\n", __func__);
 
+	snd_soc_update_bits(codec, SOC_REG(AUD_DAC_CTL), BIT(DAC_MUTE_EN), 0);
 	sprd_codec_sample_rate_setting(sprd_codec);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
