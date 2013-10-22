@@ -248,7 +248,7 @@ struct unplug_work_info {
 };
 /* milliseconds */
 static int unplug_delay = 500;
-static int plugin_delay = 1000;
+static int plugin_delay = 2000;
 //we enable dynamic cpu hotplug by default
 static int enabled_dhp = 1;
 
