@@ -255,6 +255,19 @@ static void set_nfc_timing(struct sc8810_nand_timing_param *nand_timing, u32 nfc
 static void sc8810_wait_op_done(void);
 #endif
 
+static void nand_write_REG_AHB_CTL0(int is_or)
+{
+        unsigned long flags;
+
+        local_irq_save(flags);
+        if (1 == is_or) {
+	    REG_AHB_CTL0 |= BIT_8;
+        } else {
+	    REG_AHB_CTL0 &= ~BIT_8;
+        }
+        local_irq_restore(flags);
+}
+
 static void nfc_reg_write(unsigned int addr, unsigned int value)
 {
 	writel(value, addr);
@@ -282,7 +295,8 @@ static void sc8810_reset_nfc(void)
 {
 	int ik_cnt = 0;
 
-	REG_AHB_CTL0 |= BIT_8;
+        nand_write_REG_AHB_CTL0(1);
+
 	REG_AHB_SOFT_RST |= BIT_5;
 	for(ik_cnt = 0; ik_cnt < 0xffff; ik_cnt++);
 	REG_AHB_SOFT_RST &= ~BIT_5;
@@ -1209,11 +1223,12 @@ static void sc8810_nand_select_chip(struct mtd_info *mtd, int chip)
 	int ik_cnt = 0;
 
 	if (chip != -1) {
-		REG_AHB_CTL0 |= BIT_8;//no BIT_9 /* enabel nfc clock */
-		for(ik_cnt = 0; ik_cnt < 10000; ik_cnt ++);
-	} else
-		REG_AHB_CTL0 &= ~BIT_8; /* disabel nfc clock */
+            nand_write_REG_AHB_CTL0(1);
 
+            for(ik_cnt = 0; ik_cnt < 10000; ik_cnt ++);
+	} else {
+            nand_write_REG_AHB_CTL0(0);
+        }
 }
 static int sc8810_nand_calculate_ecc(struct mtd_info *mtd, const u_char *dat, u_char *ecc_code)
 {
@@ -1260,7 +1275,8 @@ static void sc8810_nand_hw_init(void)
 {
 	int ik_cnt = 0;
 
-	REG_AHB_CTL0 |= BIT_8;//no BIT_9
+        nand_write_REG_AHB_CTL0(1);
+
 	REG_AHB_SOFT_RST |= BIT_5;
 	for(ik_cnt = 0; ik_cnt < 0xffff; ik_cnt++);
 	REG_AHB_SOFT_RST &= ~BIT_5;
@@ -1611,7 +1627,7 @@ static int sprd_nand_probe(struct platform_device *pdev)
 	}
 	add_mtd_partitions(sprd_mtd, partitions, num_partitions);
 
-	REG_AHB_CTL0 &= ~BIT_8; /* disabel nfc clock */
+        nand_write_REG_AHB_CTL0(0);
 
 	return 0;
 release:
@@ -1645,7 +1661,8 @@ static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 #else
 	nfc_reg_cfg0 = nfc_reg_read(NFC_CFG0); /* save CS_SEL */
 	nfc_reg_write(NFC_CFG0, (nfc_reg_cfg0 | BIT_6)); /* deset CS_SEL */
-	REG_AHB_CTL0 &= ~BIT_8; /* disabel nfc clock */
+
+        nand_write_REG_AHB_CTL0(0);
 #endif
 
 	return 0;
@@ -1663,7 +1680,8 @@ static int sprd_nand_resume(struct platform_device *dev)
 #else
 	int ik_cnt = 0;
 
-	REG_AHB_CTL0 |= BIT_8;//no BIT_9 /* enable nfc clock */
+        nand_write_REG_AHB_CTL0(1);
+
 	REG_AHB_SOFT_RST |= BIT_5;
 	for(ik_cnt = 0; ik_cnt < 0xffff; ik_cnt++);
 	REG_AHB_SOFT_RST &= ~BIT_5;
