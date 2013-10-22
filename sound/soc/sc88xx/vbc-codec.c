@@ -1536,7 +1536,7 @@ static inline void local_cpu_pa_control(bool enable)
 	b_internal_pa_open = enable;
 	if (enable) {
 		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, (0x1101 |( (cur_internal_pa_gain <<4) & 0x00F0)));
-		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x5e41);
+		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x6e41);
 	} else {
 		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL0, 0x182);
 		ADI_Analogdie_reg_write(ANA_AUDIO_PA_CTRL1, 0x1242);
