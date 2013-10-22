@@ -112,7 +112,7 @@ static void sprd_kpled_set_brightness( unsigned long  brightness)
 	
 	// Set Output Current
 	sci_adi_write(KPLED_CTL, ((brightness_level << KPLED_V_SHIFT) & KPLED_V_MSK), KPLED_V_MSK);
-	PRINT_INFO("reg:0x%08X set_val:0x%08X  brightness:%ld  brightness_level:%ld(0~15)\n", \
+	PRINT_DBG("reg:0x%08X set_val:0x%08X  brightness:%ld  brightness_level:%ld(0~15)\n", \
 		KPLED_CTL, kpled_read(KPLED_CTL), brightness, brightness_level);
 }
 
@@ -125,7 +125,7 @@ static void sprd_kpled_enable(struct sprd_kpled *led)
 	sci_adi_set(KPLED_CTL, KPLED_PD_RST);
 #endif
 
-	PRINT_INFO("sprd_kpled_enable\n");
+	PRINT_DBG("sprd_kpled_enable\n");
 	sprd_kpled_set_brightness(led->value);
 	led->enabled = 1;
 }
@@ -139,7 +139,7 @@ static void sprd_kpled_disable(struct sprd_kpled *led)
 	sci_adi_set(KPLED_CTL, KPLED_PD_SET);
 #endif
 
-	PRINT_INFO("sprd_kpled_disable\n");
+	PRINT_DBG("sprd_kpled_disable\n");
 	led->enabled = 0;
 }
 
