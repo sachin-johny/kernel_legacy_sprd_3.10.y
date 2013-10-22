@@ -333,9 +333,8 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 	unsigned long address = 0;
 	struct page *page = NULL;
 
-#if DEBUG_PRINT
-	printk("__SPRD__INNNNN: alloc_flag = %lu, zoneidx = %lu, order = %u\n", alloc_flag, zoneidx, order);
-#endif
+	printk("__SPRD__ALLOC__: gfp_mask = %lu, alloc_flag = %lu, zoneidx = %lu, order = %u, free_8k = %lu, free_16k = %lu\n",
+			gfp_mask, alloc_flag, zoneidx, order, stats.free_8k, stats.free_16k);
 
 	if((!alloc_flag) || (GFP_KERNEL != gfp_mask) || (ZONE_NORMAL != zoneidx) || ((ENTRY_8K != order) && (ENTRY_16K != order)))
 		goto Failed;
@@ -345,7 +344,7 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 
 	page = address_to_pages(address);
 
-	printk("__SPRD__OUTTTT: Process Name: %s, Process Pid: %d, Parent Name: %s, Parent Pid: %d, page: %p, free_8k: %lu, free_16k: %lu\n",
+	printk("__SPRD__ALLOC__: Process Name: %s, Process Pid: %d, Parent Name: %s, Parent Pid: %d, page: %p, free_8k: %lu, free_16k: %lu\n",
 			current->comm, current->pid, current->parent->comm, current->parent->pid, page, stats.free_8k, stats.free_16k);
 
 	return page;
