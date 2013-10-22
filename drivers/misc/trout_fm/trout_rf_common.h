@@ -28,8 +28,11 @@ extern int trout_fm_seek(u16 frequency, u8 seek_dir,
 			 u32 time_out, u16 *freq_found);
 extern int trout_fm_get_frequency(u16 *freq);
 extern int trout_fm_stop_seek(void);
-extern int trout_fm_enter_sleep(void);
-extern int trout_fm_exit_sleep(void);
+extern void trout_fm_enter_sleep(void);
+extern void trout_fm_exit_sleep(void);
+extern void trout_fm_mute(void);
+extern void trout_fm_unmute(void);
+
 
 extern int trout_fm_rf_spi_write(u32 addr, u32 data);
 extern int trout_fm_rf_spi_read(u32 addr, u32 *data);
