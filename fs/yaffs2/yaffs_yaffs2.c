@@ -996,7 +996,11 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 	struct yaffs_obj *parent;
 	int n_blocks = dev->internal_end_block - dev->internal_start_block + 1;
 	int is_unlinked;
-	u8 *chunk_data;
+        int tick=0;
+	int total_empty_erase_tick=0;
+        int total_ecc_error_tick=0;
+        int total_check_tick=0;
+        u8 *chunk_data;
 
 	int file_size;
 	int is_shrink;
@@ -1063,6 +1067,7 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 				"block %d is bad", blk);
 		} else if (state == YAFFS_BLOCK_STATE_EMPTY) {
 #if 0
+                        tick=jiffies;
                         /*erase all empty block when scan*/
 			if (!yaffs_erase_block(dev, blk)) {
 				dev->n_erase_failures++;
@@ -1071,18 +1076,21 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 				continue;
 			}
 #endif
+                        total_empty_erase_tick +=(jiffies-tick);
                         yaffs_trace(YAFFS_TRACE_SCAN_DEBUG, "Block empty ");
 			dev->n_erased_blocks++;
 			dev->n_free_chunks += dev->param.chunks_per_block;
 		} else if (state == YAFFS_BLOCK_STATE_ECC_ERROR) {
 			/*erase all ecc error block when scan*/
-			if (!yaffs_erase_block(dev, blk)) {
+			tick=jiffies;
+                        if (!yaffs_erase_block(dev, blk)) {
 				dev->n_erase_failures++;
 				yaffs_trace(YAFFS_TRACE_ERROR | YAFFS_TRACE_BAD_BLOCKS,
 				  "**>> Erasure failed %d", blk);
 				continue;
 			}
-			yaffs_trace(YAFFS_TRACE_SCAN_DEBUG, "Block empty ");
+			total_ecc_error_tick +=(jiffies-tick);
+                        yaffs_trace(YAFFS_TRACE_SCAN_DEBUG, "Block empty ");
 			dev->n_erased_blocks++;
 			dev->n_free_chunks += dev->param.chunks_per_block;
 		} else if (state == YAFFS_BLOCK_STATE_NEEDS_SCANNING) {
@@ -1109,7 +1117,11 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 		bi++;
 	}
 
-	yaffs_trace(YAFFS_TRACE_SCAN, "%d blocks to be sorted...", n_to_scan);
+        yaffs_trace(YAFFS_TRACE_SCAN, "yaffs partition %s erase empty block tick:%d(ms)",\
+                dev->param.name, jiffies_to_msecs(total_empty_erase_tick));
+	yaffs_trace(YAFFS_TRACE_SCAN, "yaffs partition %s ecc errror tick:%d(ms)", \
+                dev->param.name, jiffies_to_msecs(total_ecc_error_tick));
+        yaffs_trace(YAFFS_TRACE_SCAN, "%d blocks to be sorted...", n_to_scan);
 
 	cond_resched();
 
@@ -1154,8 +1166,14 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 
 			chunk = blk * dev->param.chunks_per_block + c;
 
-			result = yaffs_rd_chunk_tags_nand(dev, chunk, chunk_data,
-							  &tags);
+                        tick=jiffies;
+                        if(!strcmp(dev->param.name, "system")){
+			    result = yaffs_rd_chunk_tags_nand(dev, chunk, NULL, &tags);
+                        }else{
+                            result = yaffs_rd_chunk_tags_nand(dev, chunk, chunk_data, &tags);
+                        }
+
+                        total_check_tick +=(jiffies-tick);
 
 			/* Let's have a good look at this chunk... */
 
@@ -1616,6 +1634,8 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 		}
 
 	}
+
+        yaffs_trace(YAFFS_TRACE_SCAN,"yaffs partition %s check tick:%d(ms)", dev->param.name, jiffies_to_msecs(total_check_tick));
 
 Error:
 
