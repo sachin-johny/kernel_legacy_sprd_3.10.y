@@ -1876,7 +1876,7 @@ struct snd_soc_dai vbc_dai[] = {
 		.rates = VBC_PCM_RATES,
 		.formats = VBC_PCM_FORMATS,},
 	.ops = &vbc_dai_ops,
-	.symmetric_rates = 1,
+	/*.symmetric_rates = 1,*/
 },
 };
 EXPORT_SYMBOL_GPL(vbc_dai);

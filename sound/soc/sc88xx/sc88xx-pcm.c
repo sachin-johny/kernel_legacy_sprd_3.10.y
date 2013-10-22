@@ -42,13 +42,13 @@ static const struct snd_pcm_hardware sc88xx_pcm_hardware = {
 #if !SC88XX_PCM_DMA_SG_CIRCLE
 #define PCM_DMA_SG_DESC_RESERVED   (2*4)
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
-    .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
+    .period_bytes_max	= VBC_FIFO_FRAME_NUM * 4,
 #else
 #define PCM_DMA_SG_DESC_RESERVED   (0)
     .period_bytes_min	= VBC_FIFO_FRAME_NUM*2*2, // 16bits, stereo-2-channels
-    .period_bytes_max	= VBC_FIFO_FRAME_NUM*2*2,
+    .period_bytes_max	= VBC_FIFO_FRAME_NUM * 4,
 #endif
-    .periods_min        = 64,
+    .periods_min        = 2,
     .periods_max        = /*18*/4*PAGE_SIZE/(2*sizeof(sprd_dma_desc)) - PCM_DMA_SG_DESC_RESERVED, // DA0, DA1 sg are combined
 #define PCM_DUMMY_DATA_RESERVED_BYTES (0)// PAGE_SIZE)
     .buffer_bytes_max	= /*6 **/256 * 1024 - PCM_DUMMY_DATA_RESERVED_BYTES,
@@ -87,12 +87,12 @@ int sc88xx_pcm_open(struct snd_pcm_substream *substream)
 	 * of the DMA burst size.  Let's add a rule to enforce that.
 	 */
 	ret = snd_pcm_hw_constraint_step(runtime, 0,
-		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, 32);
+		SNDRV_PCM_HW_PARAM_PERIOD_BYTES, runtime->hw.period_bytes_min);
 	if (ret)
 		goto out;
 
 	ret = snd_pcm_hw_constraint_step(runtime, 0,
-		SNDRV_PCM_HW_PARAM_BUFFER_BYTES, 32);
+		SNDRV_PCM_HW_PARAM_BUFFER_BYTES, runtime->hw.period_bytes_min);
 	if (ret)
 		goto out;
 
