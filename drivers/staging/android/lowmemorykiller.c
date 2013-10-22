@@ -832,7 +832,10 @@ module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
 
-module_init(lowmem_init);
+/*
+ * late_initcall guarantees the lowmemory shrink is at the tail of shinkers
+ */
+late_initcall(lowmem_init);
 module_exit(lowmem_exit);
 
 MODULE_LICENSE("GPL");
