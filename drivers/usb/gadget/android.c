@@ -1235,7 +1235,7 @@ static struct android_usb_function *supported_functions[] = {
 	&audio_source_function,
 #ifdef CONFIG_USB_SPRD_DWC
 	&vser_function,
-	&gser_function,
+	//&gser_function,
 #else
 	&acm_function,
 #endif
