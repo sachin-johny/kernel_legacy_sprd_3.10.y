@@ -21,6 +21,7 @@
 #ifndef __ITM_SIPC_TYPES_H__
 #define __ITM_SIPC_TYPES_H__
 
+#include <linux/ieee80211.h>
 #include "WIFI_nvm_data.h"
 
 /*MSG TAG*/
@@ -221,6 +222,34 @@ struct wlan_sipc_wps_ie {
 struct wlan_sipc_scan_ssid {
 	u8 len;
 	u8 ssid[0];
+} __packed;
+
+/* sblock data */
+struct wlan_sblock_recv_data {
+	u8 is_encrypted;
+	union {
+		u8 resv[13];
+		struct {
+			u8 resv[13];
+		} __packed nomal;
+		struct {
+			u16 header_len;
+			/* followed by reseved data */
+			u8 resv[11];
+		} __packed encrypt;
+	} u1;
+	union {
+		struct {
+			u8 eth_header[14];
+			/* followed by nomal data */
+			u8 variable[0];
+		} __packed nomal;
+		struct {
+			struct ieee80211_hdr_3addr mac_header;
+			/* followed by nomal data */
+			u8 variable[0];
+		} __packed encrypt;
+	} u2;
 } __packed;
 
 #endif/*__ITM_SIPC_TYPES_H__*/

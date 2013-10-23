@@ -47,6 +47,10 @@
 
 #define ITM_SCAN_TIMER_INTERVAL_MS	8000
 
+/* parise or group key type */
+#define GROUP				0
+#define PAIRWISE			1
+
 #define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
 /* emulate a modern version */
 #define LINUX_VERSION_CODE KERNEL_VERSION(3, 4, 5)

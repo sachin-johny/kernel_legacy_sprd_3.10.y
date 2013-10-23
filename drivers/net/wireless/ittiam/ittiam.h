@@ -21,6 +21,7 @@
 #ifndef __ITTIAM_H__
 #define __ITTIAM_H__
 
+#include <linux/netdevice.h>
 #include <linux/spinlock.h>
 #include <linux/ieee80211.h>
 #include <linux/if_ether.h>
@@ -31,7 +32,6 @@ struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
 	spinlock_t scan_req_lock;	/* spinlock for scan request */
-
 	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/
 
@@ -49,9 +49,11 @@ struct itm_priv {
 	u8 bssid[ETH_ALEN];
 
 	/* Encryption stuff */
-	u8 wep_index;
-	u8 wep_key[4][WLAN_MAX_KEY_LEN];
-	u8 wep_key_len[4];
+	u8 cipher_type;
+	u8 key_index[2];
+	u8 key[2][4][WLAN_MAX_KEY_LEN];
+	u8 key_len[2][4];
+	u8 key_txrsc[2][WLAN_MAX_KEY_LEN];
 };
 
 #endif/*__ITTIAM_H__*/
