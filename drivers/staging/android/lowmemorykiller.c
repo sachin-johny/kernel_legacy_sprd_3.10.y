@@ -154,7 +154,6 @@ enum pageout_io {
 
 static struct task_struct *lowmem_deathpending;
 static unsigned long lowmem_deathpending_timeout;
-static int fudgeswap = 512;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -210,7 +209,7 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 	int selected_tasksize = 0;
 	int selected_oom_adj;
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free = global_page_state(NR_FREE_PAGES);
+	int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
 
@@ -219,21 +218,13 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 	int to_reclaimed = 0;
 #endif  /*CONFIG_ZRAM_FOR_ANDROID*/
 
-
-#ifdef  CONFIG_ZRAM
-lowmem_print(3, "totalreserve_pages %d\n", totalreserve_pages);
-      /*  other_free -= totalreserve_pages;
-	if(other_free < 0)	
-	{
-		other_free = 0;
-	}*/
-
-	other_file  -=  total_swapcache_pages;
-        if(other_file < 0)
-        {
-        	other_file = 0;
-        }
-#endif  /*CONFIG_ZRAM*/
+#ifdef CONFIG_ZRAM
+	other_file -= total_swapcache_pages;
+	lowmem_print(4, "other_free %d, other_file %d, "
+			"totalreserve %d, totalswap %d\n",
+			other_free, other_file,
+			totalreserve_pages, total_swapcache_pages);
+#endif /* CONFIG_ZRAM */
 
 
 	/*
@@ -246,18 +237,6 @@ lowmem_print(3, "totalreserve_pages %d\n", totalreserve_pages);
 	if (lowmem_deathpending &&
 	    time_before_eq(jiffies, lowmem_deathpending_timeout))
 		return 0;
-	#ifdef CONFIG_SWAP
-	 if(fudgeswap != 0){
-		struct sysinfo si;
-		si_swapinfo(&si);
-		if(si.freeswap > 0){
-			if(fudgeswap > si.freeswap)
-				other_file += si.freeswap;
-			else
-				other_file += fudgeswap;
-	    }
-	}
-	#endif
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -741,26 +720,16 @@ static DEVICE_ATTR(lmk_state, 0664, lmk_state_show, lmk_state_store);
  */
 static int param_get_minfree_stat(char *buffer, struct kernel_param *kp)
 {
-	int other_free = global_page_state(NR_FREE_PAGES);
+	int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	int other_file = global_page_state(NR_FILE_PAGES) -
-	                 global_page_state(NR_SHMEM);
-	
-#ifdef CONFIG_SWAP
-	if(fudgeswap != 0){
-		struct sysinfo si;
-		si_swapinfo(&si);
-		
-		if(si.freeswap > 0){
-			if(fudgeswap > si.freeswap)
-				other_file += si.freeswap;
-			else
-				other_file += fudgeswap;
-		}
-	}
-#endif
-       return sprintf(buffer,"other_free:  %d kB\nother_file:  %d kB",
-                      other_free << (PAGE_SHIFT - 10),
-                      other_file << (PAGE_SHIFT - 10));
+				global_page_state(NR_SHMEM);
+#ifdef CONFIG_ZRAM
+	other_file -= total_swapcache_pages;
+#endif /* CONFIG_ZRAM */
+
+	return sprintf(buffer,"other_free:  %d kB\nother_file:  %d kB",
+			other_free << (PAGE_SHIFT - 10),
+			other_file << (PAGE_SHIFT - 10));
 }
 module_param_call(minfree_stat, NULL, param_get_minfree_stat, NULL, S_IRUGO);
 
@@ -821,10 +790,6 @@ module_param_named(default_interval_time, default_interval_time, int, S_IRUGO | 
 #endif
 
 module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
-#ifdef CONFIG_SWAP
-module_param_named(fudgeswap, fudgeswap, int, 
-                    S_IRUGO | S_IWUSR);
-#endif
 
 module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 			 S_IRUGO | S_IWUSR);
