@@ -22,6 +22,15 @@ struct trout_interface *p_trout_interface;
 int trout_fm_set_volume(u8 iarg)
 {
 	TROUT_PRINT("FM set volume : %i.", iarg);
+	if(0 == iarg)
+	{
+	     trout_fm_mute(); 
+	}
+	else
+	{
+            trout_fm_unmute();
+	}
+	
 	return 0;
 }
 

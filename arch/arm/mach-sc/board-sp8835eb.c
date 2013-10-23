@@ -104,6 +104,7 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
+static struct platform_device sprd_rgb_led_device;
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -194,6 +195,7 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&sprd_saudio_voip_device,
 	&kb_backlight_device,
+        &sprd_rgb_led_device,
 	&sprd_a7_pmu_device,
 	&sprd_thm_device,
 	&sprd_thm_a_device,
@@ -250,6 +252,11 @@ static struct platform_device kb_backlight_device = {
 	.id             =  -1,
 };
 
+/* rgb led */
+static struct platform_device sprd_rgb_led_device = {
+	.name           = "rgb-led",
+	.id             =  -1,
+};
 static struct sys_timer __timer = {
 	.init = sci_timer_init,
 };

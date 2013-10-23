@@ -215,6 +215,24 @@ void trout_fm_exit_sleep(void)
 	WRITE_REG(FM_REG_FM_EN, reg_data);
 }
 
+void trout_fm_mute(void)
+{
+	u32 reg_data;
+
+	READ_REG(FM_REG_HW_MUTE, &reg_data);
+	reg_data |= BIT_0;
+	WRITE_REG(FM_REG_HW_MUTE, reg_data);
+}
+
+void trout_fm_unmute(void)
+{
+	u32 reg_data;
+
+	READ_REG(FM_REG_HW_MUTE, &reg_data);
+	reg_data &= ~BIT_0;
+	WRITE_REG(FM_REG_HW_MUTE, reg_data);
+}
+
 void shark_fm_int_en()
 {
 	shark_fm_info.int_happen = 1;
