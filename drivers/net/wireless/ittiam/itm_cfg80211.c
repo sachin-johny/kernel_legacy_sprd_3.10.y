@@ -1757,7 +1757,7 @@ int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 	return 0;
 }
 
-#define ITM_MAC_ADDR_PATH "/system/lib/modules/mac_addr.cfg"
+#define ITM_MAC_ADDR_PATH "/productinfo/wifimac_random.txt"
 #define ENG_MAC_ADDR_PATH "/productinfo/wifimac.txt"
 #define FROM_ITM	1
 #define FROM_ENG	2
@@ -1771,11 +1771,11 @@ int itm_get_mac_from_cfg(struct itm_priv *priv)
 	u8 *tmp_p = NULL;
 	u8 flag = 0;
 
-	fp = filp_open(ITM_MAC_ADDR_PATH, O_RDONLY, 0);
-	flag = FROM_ITM;
+	fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
+	flag = FROM_ENG;
 	if (IS_ERR(fp)) {
-		fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
-		flag = FROM_ENG;
+		fp = filp_open(ITM_MAC_ADDR_PATH, O_RDONLY, 0);
+		flag = FROM_ITM;
 		if (IS_ERR(fp))
 			return -ENOENT;
 	}
@@ -1806,4 +1806,46 @@ int itm_get_mac_from_cfg(struct itm_priv *priv)
 	set_fs(fs);
 
 	return 0;
+}
+
+int itm_set_mac_from_cfg(struct itm_priv *priv)
+{
+	int ret = 0;
+	struct file *fp;
+	mm_segment_t old_fs;
+	u8 buf[22] = { 0 };
+
+	/* change to KERNEL_DS address limit */
+	old_fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	/* open file to write */
+	fp = filp_open(ITM_MAC_ADDR_PATH, O_WRONLY|O_CREAT, 0644);
+	if (!fp) {
+		ret = -1;
+		goto exit;
+	}
+
+	sprintf(buf, "mac=%02x:%02x:%02x:%02x:%02x:%02x",
+		(priv->ndev->dev_addr[0]),
+		(priv->ndev->dev_addr[1]),
+		(priv->ndev->dev_addr[2]),
+		(priv->ndev->dev_addr[3]),
+		(priv->ndev->dev_addr[4]),
+		(priv->ndev->dev_addr[5]));
+	/* Write buf to file */
+	if (!fp->f_op->write && !fp->f_op->aio_write) {
+		ret = -2;
+		goto exit;
+	}
+	fp->f_op->write(fp, buf, sizeof(buf), &fp->f_pos);
+
+exit:
+	/* close file before return */
+	if (fp)
+		filp_close(fp, NULL);
+	/* restore previous address limit */
+	set_fs(old_fs);
+
+	return ret;
 }
