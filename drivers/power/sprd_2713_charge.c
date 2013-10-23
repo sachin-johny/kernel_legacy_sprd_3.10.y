@@ -271,7 +271,7 @@ void sprdchg_init(void)
 			     efuse_cal_data[0], efuse_cal_data[1]);
 		}
 	}
-	sci_adi_write((ANA_CTL_EIC_BASE + 0x50), 7, (0xFFF));
+	sci_adi_write((ANA_CTL_EIC_BASE + 0x50), 100, (0xFFF));	//eic debunce
 	printk("ANA_CTL_EIC_BASE0x%x\n", sci_adi_read(ANA_CTL_EIC_BASE + 0x50));
 }
 

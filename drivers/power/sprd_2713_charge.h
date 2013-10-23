@@ -20,7 +20,7 @@
 #define ONE_CCCV_STEP_VOL   75	//7.5mV
 
 #define SPRDBAT_CHG_END_VOL_PURE			(4200)
-#define SPRDBAT_CHG_END_H			(4225)
+#define SPRDBAT_CHG_END_H			(4230)
 #define SPRDBAT_CHG_END_L			(4190)
 #define SPRDBAT_RECHG_VOL	4135	//recharge voltage
 
@@ -36,7 +36,7 @@
 #define SPRDBAT_DCP_CUR_LEVEL    800	//AC
 #define SPRDBAT_CDP_CUR_LEVEL    800	//AC&USB
 
-#define SPRDBAT_CHG_END_CUR     90
+#define SPRDBAT_CHG_END_CUR     70
 
 #define SPRDBAT_OTP_HIGH_STOP     600	//60C
 #define SPRDBAT_OTP_HIGH_RESTART    (550)	//55C

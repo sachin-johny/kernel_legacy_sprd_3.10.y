@@ -119,5 +119,6 @@ struct sprdbat_auxadc_cal {
 
 #define sprdbat_read_vbat_vol sprdfgu_read_vbat_vol
 #define sprdbat_read_temp sprdchg_read_temp
+#define sprdbat_adp_plug_nodify sprdfgu_adp_status_set
 
 #endif /* _CHG_DRVAPI_H_ */

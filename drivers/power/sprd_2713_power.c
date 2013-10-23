@@ -46,6 +46,7 @@
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
 #define SPRDBAT_ONE_PERCENT_TIME   30
+#define SPRDBAT_VALID_CAP   10
 
 enum sprdbat_event {
 	SPRDBAT_ADP_PLUGIN_E,
@@ -68,6 +69,9 @@ static uint32_t sprdbat_average_cnt;
 static unsigned long sprdbat_update_capacity_time;
 static uint32_t sprdbat_trickle_chg;
 static uint32_t sprdbat_start_chg;
+static uint32_t poweron_capacity;
+static struct notifier_block sprdbat_notifier;
+
 extern struct sprdbat_auxadc_cal adc_cal;
 
 static void sprdbat_change_module_state(uint32_t event);
@@ -219,6 +223,7 @@ static struct device_attribute sprd_caliberate[] = {
 	SPRDBAT_CALIBERATE_ATTR(hw_switch_point),
 	SPRDBAT_CALIBERATE_ATTR_RO(charger_voltage),
 	SPRDBAT_CALIBERATE_ATTR_RO(real_time_vbat_adc),
+	SPRDBAT_CALIBERATE_ATTR_WO(save_capacity),
 };
 
 enum sprdbat_attribute {
@@ -230,6 +235,7 @@ enum sprdbat_attribute {
 	HW_SWITCH_POINT,
 	CHARGER_VOLTAGE,
 	BATTERY_ADC,
+	SAVE_CAPACITY,
 };
 
 static ssize_t sprdbat_store_caliberate(struct device *dev,
@@ -249,7 +255,7 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 		sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
 		break;
 	case BATTERY_0:
-		adc_cal.p0_vol = set_value& 0xffff; //only for debug
+		adc_cal.p0_vol = set_value & 0xffff;	//only for debug
 		adc_cal.p0_adc = (set_value >> 16) & 0xffff;
 		break;
 	case BATTERY_1:
@@ -267,6 +273,24 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 			enable_irq(sprdbat_data->irq_chg_cv_state);
 		}
 		local_irq_restore(irq_flag);
+		break;
+	case SAVE_CAPACITY:
+		{
+			int temp = set_value - poweron_capacity;
+
+			pr_info("battery temp:%d\n", temp);
+			if (abs(temp) > SPRDBAT_VALID_CAP || 0 == set_value) {
+				pr_info("battery poweron capacity:%lu,%d\n",
+					set_value, poweron_capacity);
+				sprdbat_data->bat_info.capacity =
+				    poweron_capacity;
+			} else {
+				pr_info("battery old capacity:%lu,%d\n",
+					set_value, poweron_capacity);
+				sprdbat_data->bat_info.capacity = set_value;
+			}
+			power_supply_changed(&sprdbat_data->battery);
+		}
 		break;
 	default:
 		count = -EINVAL;
@@ -389,7 +413,8 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 	data->bat_info.chg_start_time = 0;
 	get_monotonic_boottime(&cur_time);
 	sprdbat_update_capacity_time = cur_time.tv_sec;
-	data->bat_info.capacity = sprdfgu_read_capacity();
+	data->bat_info.capacity = ~0;
+	poweron_capacity = sprdfgu_poweron_capacity();
 	data->bat_info.soc = sprdfgu_read_soc();
 	data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
 	data->bat_info.vbat_ocv = sprdfgu_read_vbat_ocv();
@@ -602,6 +627,8 @@ static int plugin_callback(int usb_cable, void *data)
 		power_supply_changed(&sprdbat_data->ac);
 	else
 		power_supply_changed(&sprdbat_data->usb);
+
+	sprdbat_adp_plug_nodify(1);
 	SPRDBAT_DEBUG("plugin_callback: end...\n");
 	return 0;
 }
@@ -626,7 +653,7 @@ static int plugout_callback(int usb_cable, void *data)
 		power_supply_changed(&sprdbat_data->ac);
 	else
 		power_supply_changed(&sprdbat_data->usb);
-
+	sprdbat_adp_plug_nodify(0);
 	return 0;
 }
 
@@ -698,10 +725,10 @@ static int sprdbat_adjust_cccvpoint(uint32_t vbat_now)
 	} else {
 		cv = sprdchg_get_cccvpoint();
 		//BUG_ON(cv < (SPRDBAT_CCCV_MIN + 2));
-		if (cv < (SPRDBAT_CCCV_MIN + 2)) {
-			cv = SPRDBAT_CCCV_MIN + 2;
+		if (cv < (SPRDBAT_CCCV_MIN + 1)) {
+			cv = SPRDBAT_CCCV_MIN + 1;
 		}
-		cv -= 2;
+		cv -= 1;
 		sprdbat_data->bat_info.cccv_point = cv;
 		SPRDBAT_DEBUG("sprdbat_adjust_cccvpoint turn low cv:0x%x\n",
 			      cv);
@@ -863,7 +890,9 @@ static void sprdbat_update_capacty(void)
 	uint32_t fgu_capacity = sprdfgu_read_capacity();
 	uint32_t flush_time = 0;
 	struct timespec cur_time;
-
+	if (sprdbat_data->bat_info.capacity == ~0) {
+		return;
+	}
 	get_monotonic_boottime(&cur_time);
 	flush_time = cur_time.tv_sec - sprdbat_update_capacity_time;
 
@@ -1128,6 +1157,16 @@ static void sprdbat_charge_works(struct work_struct *work)
 	SPRDBAT_DEBUG("sprdbat_charge_works----------end\n");
 }
 
+static int sprdbat_fgu_event(struct notifier_block *this, unsigned long event,
+			     void *ptr)
+{
+	SPRDBAT_DEBUG("sprdbat_fgu_event---vol:%d\n", sprdbat_read_vbat_vol());
+	mutex_lock(&sprdbat_data->lock);
+	sprdbat_adjust_cccvpoint(sprdbat_read_vbat_vol());
+	mutex_unlock(&sprdbat_data->lock);
+	return 0;
+}
+
 static int sprdbat_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
@@ -1254,7 +1293,8 @@ static int sprdbat_probe(struct platform_device *pdev)
 	sprdfgu_init(pdev);
 
 	sprdbat_info_init(data);
-
+	sprdbat_notifier.notifier_call = sprdbat_fgu_event;
+	sprdfgu_register_notifier(&sprdbat_notifier);
 	usb_register_hotplug_callback(&power_cb);
 
 	schedule_delayed_work(&data->battery_work,
@@ -1304,12 +1344,20 @@ static int sprdbat_remove(struct platform_device *pdev)
 static int sprdbat_resume(struct platform_device *pdev)
 {
 	schedule_delayed_work(&sprdbat_data->battery_sleep_work, 0);
+	sprdfgu_pm_op(0);
+	return 0;
+}
+
+static int sprdbat_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	sprdfgu_pm_op(1);
 	return 0;
 }
 
 static struct platform_driver sprdbat_driver = {
 	.probe = sprdbat_probe,
 	.remove = sprdbat_remove,
+	.suspend = sprdbat_suspend,
 	.resume = sprdbat_resume,
 	.driver = {
 		   .name = "sprd-battery"}
