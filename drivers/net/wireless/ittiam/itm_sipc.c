@@ -1200,7 +1200,6 @@ int itm_wlan_pm_resume_cmd(struct wlan_sipc *wlan_sipc)
 int itm_wlan_pm_enter_ps_cmd(struct wlan_sipc *wlan_sipc)
 {
 	int ret;
-	u16 status;
 
 	pr_debug("enter ps cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
@@ -1214,32 +1213,14 @@ int itm_wlan_pm_enter_ps_cmd(struct wlan_sipc *wlan_sipc)
 		return ret;
 	}
 	pr_debug("enter ps cmd send successfully\n");
-	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
-				    WIFI_CMD_PM_ENTER_PS);
-
-	if (ret) {
-		pr_err("enter ps cmd recv error with ret is %d\n", ret);
-		mutex_unlock(&wlan_sipc->cmd_lock);
-		return ret;
-	}
-
-	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
-
-	if (status) {
-		pr_err("enter ps return wrong status code is %d\n", status);
-		mutex_unlock(&wlan_sipc->cmd_lock);
-		return -EIO;
-	}
-
 	mutex_unlock(&wlan_sipc->cmd_lock);
-	pr_debug("enter ps cmd return status code successfully\n");
+
 	return 0;
 }
 
 int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
 {
 	int ret;
-	u16 status;
 
 	pr_debug("exit ps cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
@@ -1253,24 +1234,7 @@ int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
 		return ret;
 	}
 	pr_debug("exit ps cmd send successfully\n");
-	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
-				    WIFI_CMD_PM_EXIT_PS);
-
-	if (ret) {
-		pr_err("exit ps cmd recv error with ret is %d\n", ret);
-		mutex_unlock(&wlan_sipc->cmd_lock);
-		return ret;
-	}
-
-	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
-
-	if (status) {
-		pr_err("exit ps return wrong status code is %d\n", status);
-		mutex_unlock(&wlan_sipc->cmd_lock);
-		return -EIO;
-	}
-
 	mutex_unlock(&wlan_sipc->cmd_lock);
-	pr_debug("exit ps cmd return status code successfully\n");
+
 	return 0;
 }
