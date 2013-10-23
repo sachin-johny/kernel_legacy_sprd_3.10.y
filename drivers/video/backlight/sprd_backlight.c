@@ -57,7 +57,8 @@
 * 64 ~  95     192 mV ~ 378 mV      6 mV
 * 96 ~ 127     384 mV ~ 756 mV     12 mV
 ******************************************/
-#define        MAX_CURRENT_LEVEL    70
+#define        MAX_VOLTAGE_LEVEL    70
+#define        MIN_VOLTAGE_LEVEL    4
 
 /* sprdtrum backlight have two driven mode:
  * 1) pwm mode  //you need to define SPRD_BACKLIGHT_PWM
@@ -179,7 +180,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 		if (sprdbl.pwm_mode == dim_pwm) {
 			/*series mode*/
 			/*whiteled config*/
-			led_level = ((MAX_CURRENT_LEVEL + 1) * bl_brightness) / (PWM_MOD_MAX + 1);
+			led_level = (((MAX_VOLTAGE_LEVEL - MIN_VOLTAGE_LEVEL + 1) * bl_brightness) / (PWM_MOD_MAX + 1)) + MIN_VOLTAGE_LEVEL;
 			PRINT_DBG("user requested brightness = %d, caculated led_level = %d\n", bldev->props.brightness, led_level);
 			if ((int)led_level < 0) {
 				return led_level;
