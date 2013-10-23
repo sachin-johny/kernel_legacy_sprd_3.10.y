@@ -49,7 +49,35 @@
 #include <linux/swap.h>
 
 static uint32_t lowmem_debug_level = 2;
-static int lowmem_adj[6] = {
+
+#ifdef CONFIG_ZRAM
+#define LOWMEM_ADJ_ZRAM_LEVEL	9
+static short lowmem_adj[LOWMEM_ADJ_ZRAM_LEVEL] = {
+	0,
+	1,
+	2,
+	4,
+	6,
+	8,
+	9,
+	12,
+	15,
+};
+static int lowmem_adj_size = LOWMEM_ADJ_ZRAM_LEVEL;
+static size_t lowmem_minfree[LOWMEM_ADJ_ZRAM_LEVEL] = {
+	4 * 256,	/* 4MB */
+	12 * 256,	/* 12MB */
+	16 * 256,	/* 16MB */
+	24 * 256,	/* 24MB */
+	28 * 256,	/* 28MB */
+	32 * 256,	/* 32MB */
+	36 * 256,	/* 36MB */
+	40 * 256,	/* 40MB */
+	48 * 256,	/* 48MB */
+};
+static int lowmem_minfree_size = LOWMEM_ADJ_ZRAM_LEVEL;
+#else /* CONFIG_ZRAM */
+static short lowmem_adj[6] = {
 	0,
 	1,
 	6,
@@ -63,6 +91,7 @@ static size_t lowmem_minfree[6] = {
 	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 4;
+#endif /* CONFIG_ZRAM */
 
 static pid_t last_killed_pid = 0;
 
@@ -74,30 +103,23 @@ static  unsigned int  swap_interval_time = 2*HZ;
 
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
-static unsigned int  kill_home_adj_wmark = 6;
+static unsigned int kill_home_adj_wmark = LOWMEM_ADJ_ZRAM_LEVEL;
 static uint32_t lowmem_swap_app_enable = 1;
 static uint32_t lowmem_minfile_check_enable = 0;
 static uint32_t lowmem_last_swap_time = 0;
+static int lowmem_minfile_size = LOWMEM_ADJ_ZRAM_LEVEL;
 
-static size_t lowmem_minfile[6] = {
-	9 * 1024,	  //96MB
-	8* 1024,	 //88MB
-	7 * 1024,	 //80MB
-	5 * 1024,	 //60MB
-	4* 1024,	 //40MB
-	2 * 1024,	//20MB		
+static size_t lowmem_minfile[LOWMEM_ADJ_ZRAM_LEVEL] = {
+	9 * 1024,	/* 36MB */
+	8 * 1024,	/* 32MB */
+	7 * 1024,	/* 28MB */
+	6 * 1024,	/* 24MB */
+	5 * 1024,	/* 20MB */
+	4 * 1024,	/* 16MB */
+	3 * 1024,	/* 12MB */
+	2 * 1024,	/* 8MB */
+	1 * 1024,	/* 4MB */
 };
-static int lowmem_minfile_size = 6;
-
-static size_t swap_reclaim_adj[6] = {
-        0,
-        0,
-        0,
-        5,
-        7,
-        9,
-};
-static int swap_reclaim_adj_size = 6;
 
 static struct class *lmk_class;
 static struct device *lmk_dev;
@@ -794,10 +816,6 @@ module_param_named(lowmem_minfile_check_enable, lowmem_minfile_check_enable, int
 module_param_named(kill_home_adj_wmark, kill_home_adj_wmark, int, S_IRUGO | S_IWUSR);
 module_param_array_named(lowmem_minfile, lowmem_minfile, int, &lowmem_minfile_size,
 			 S_IRUGO | S_IWUSR);
-
-module_param_array_named(swap_reclaim_adj, swap_reclaim_adj, int, &swap_reclaim_adj_size,
-
-                         S_IRUGO | S_IWUSR);
 module_param_named(default_interval_time, default_interval_time, int, S_IRUGO | S_IWUSR);
 
 #endif
