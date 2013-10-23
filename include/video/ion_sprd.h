@@ -32,7 +32,7 @@
 
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_CARVEOUT_ID0)
 
-#define ION_DRIVER_VERSION 0
+#define ION_DRIVER_VERSION 1
 
 struct ion_phys_data {
 	int fd_buffer;
