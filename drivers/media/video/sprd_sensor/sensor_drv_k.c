@@ -37,11 +37,13 @@
 
 #if defined (CONFIG_ARCH_SC8825)
 #include <mach/i2c-sprd.h>
+#define SENSOR_I2C_ID                        1
 #elif defined (CONFIG_ARCH_SC8810)
 #include <mach/i2c-sc8810.h>
 #elif defined (CONFIG_ARCH_SCX35)
 #include <mach/i2c-sprd.h>
 #include <mach/adi.h>
+#define SENSOR_I2C_ID                        0
 #endif
 
 #include <video/sensor_drv_k.h>
@@ -1214,14 +1216,7 @@ _Sensor_K_WriteRegTab_return:
 
 LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 {
-#if defined (CONFIG_ARCH_SC8825)
 	sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
-#elif defined (CONFIG_ARCH_SC8825)
-	sc8810_i2c_set_clk(SENSOR_I2C_ID, clock);
-#elif defined (CONFIG_ARCH_SCX35)
-
-#endif
-
 	SENSOR_PRINT("sensor set i2c clk %d  \n", clock);
 
 	return SENSOR_K_SUCCESS;
