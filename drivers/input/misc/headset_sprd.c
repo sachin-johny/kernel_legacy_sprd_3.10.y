@@ -976,8 +976,8 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
         msleep(5);//this time delay is necessary here
 #ifdef SPRD_HEADSET_HEADMICBIAS_POLLING
         headset_micbias_polling_en(1);
-#endif
         msleep(DELAY_AFTER_POWER_ON);
+#endif
 
         PRINT_INFO("D-die chip id = 0x%08X\n", __raw_readl(REG_AON_APB_CHIP_ID));
         PRINT_INFO("A-die chip id HIGH = 0x%08X\n", sci_adi_read(ANA_CTL_GLB_BASE+0x010C));
@@ -1185,8 +1185,8 @@ static int headset_resume(struct platform_device *dev)
         msleep(5);
 #ifdef SPRD_HEADSET_HEADMICBIAS_POLLING
         headset_micbias_polling_en(1);
-#endif
         msleep(DELAY_AFTER_POWER_ON);
+#endif
         PRINT_INFO("resume (det_irq=%d    but_irq=%d)\n", headset.irq_detect, headset.irq_button);
         active_status = 1;
 
