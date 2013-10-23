@@ -592,6 +592,19 @@ uint8_t Dcam_GenScaleCoeff(int16_t i_w,
 	int16_t coef_len = 0;
 	GSC_MEM_POOL pool = { 0 };
 
+	if (0 == i_w || 0 == i_h || 0 == o_w || (0 == o_h) \
+		|| (NULL == coeff_h_ptr) || (NULL == coeff_v_lum_ptr) \
+		|| (NULL == coeff_v_ch_ptr) || (NULL == scaler_tap) \
+		|| (NULL == chrome_tap) || (NULL == temp_buf_ptr)) {
+
+		printk("GenScaleCoeff: i_w: %d, i_h: %d, o_w:%d, o_h: %d, coef_h:0x%x, coef_v_lum:0x%x, \
+			coef_v_chr: 0x%x, y_tap: 0x%x, ch_tap: 0x%x, tmp_buf:0x%x",
+			i_w, i_h, o_w, o_h, (uint32_t)coeff_h_ptr, (uint32_t)coeff_v_lum_ptr, \
+			(uint32_t)coeff_v_ch_ptr, (uint32_t)scaler_tap, (uint32_t)chrome_tap, (uint32_t)temp_buf_ptr);
+
+		return FALSE;
+	}
+
 	/* init pool and allocate static array */
 	if (!_InitPool(temp_buf_ptr, temp_buf_size, &pool)) {
 		return FALSE;
