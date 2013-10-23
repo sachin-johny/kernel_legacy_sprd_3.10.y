@@ -32,7 +32,9 @@
 #include <linux/kthread.h>
 
 #define STTY_DEV_MAX_NR 	1
-#define STTY_MAX_DATA_LEN 	4096
+#define STTY_MAX_DATA_LEN 		4096
+#define STTY_THREAD_MAX_TIME		1000
+
 
 struct stty_device {
 	struct stty_init_data	*pdata;
@@ -41,18 +43,20 @@ struct stty_device {
 	struct task_struct		*thread;
 };
 
-static struct stty_device *stty_ipc;
-
 static int stty_thread(void *data)
 {
 	struct stty_device *stty = data;
 	int i, cnt = 0;
 	unsigned char buf[STTY_MAX_DATA_LEN] = {0};
 
+	if (data == NULL) {
+		return;
+	}
+
 	while(!kthread_should_stop()) {
 
 		cnt = sbuf_read(stty->pdata->dst, stty->pdata->channel,
-						stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, -1);
+						stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, STTY_THREAD_MAX_TIME);
 		if (cnt > 0) {
 			for(i = 0; i < cnt; i++) {
 				tty_insert_flip_char(stty->tty, buf[i], TTY_NORMAL);
@@ -70,27 +74,62 @@ static int stty_thread(void *data)
 
 static int stty_open(struct tty_struct *tty, struct file * filp)
 {
-	struct stty_device *stty = stty_ipc;
-	tty->driver_data = NULL;
+	struct stty_device *stty = NULL;
+	struct tty_driver *driver = NULL;
+	int rval= 0;
 
-	if(stty == NULL) {
-		printk(KERN_INFO "stty open err NULL!\n");
+	if (tty == NULL) {
+		printk(KERN_ERR "stty open input tty is NULL!\n");
 		return -ENOMEM;
 	}
+	driver = tty->driver;
+	stty = (struct stty_device *)driver->driver_state;
+
+	if(stty == NULL) {
+		printk(KERN_ERR "stty open input stty NULL!\n");
+		return -ENOMEM;
+	}
+	printk( "stty_open  device addr: 0x%0x, tty addr:0x%0x\n", (void *)stty, (void *)tty);
+
 	if (sbuf_status(stty->pdata->dst, stty->pdata->channel) != 0) {
 		printk(KERN_ERR "stty_open sbuf not ready to open!dst=%d,channel=%d\n"
 			,stty->pdata->dst,stty->pdata->channel);
 		return -ENODEV;
 	}
 	stty->tty = tty;
+	tty->driver_data = (void *)stty;
 
-	tty->driver_data = stty;
+	stty->thread = kthread_create(stty_thread, stty,
+			"stty-%d-%d", stty->pdata->dst, stty->pdata->channel);
+	if (IS_ERR(stty->thread)) {
+		printk(KERN_ERR "stty open kthread_create err!\n");
+		rval = PTR_ERR(stty->thread);
+		return rval;
+	}
+	wake_up_process(stty->thread);
 
 	return 0;
 }
 
 static void stty_close(struct tty_struct *tty, struct file * filp)
 {
+	struct stty_device *stty = NULL;
+	if (tty == NULL) {
+		printk(KERN_ERR "stty close input tty is NULL!\n");
+		return;
+	}
+	stty = (struct stty_device *) tty->driver_data;
+	if (stty == NULL) {
+		printk(KERN_ERR "stty close s tty is NULL!\n");
+		return;
+	}
+
+	printk( "stty_close device addr: 0x%0x, tty addr: 0x%0x\n", (void *)stty, (void *)tty);
+	if (IS_ERR_OR_NULL(stty->thread)) {
+		printk(KERN_ERR "stty close s thread is NULL!\n");
+		return;
+	}
+	kthread_stop(stty->thread);
 	return;
 }
 
@@ -147,6 +186,7 @@ static int stty_driver_init(struct stty_device *device)
 	driver->flags = TTY_DRIVER_INSTALLED | TTY_DRIVER_REAL_RAW;
 	driver->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
 	driver->driver_state = (void*)device;
+	device->driver = driver;
 	 /* initialize the tty driver */
 	tty_set_operations(driver, &stty_ops);
 	ret = tty_register_driver(driver);
@@ -154,7 +194,6 @@ static int stty_driver_init(struct stty_device *device)
 		put_tty_driver(driver);
 		return ret;
 	}
-	device->driver = driver;
 	return ret;
 }
 
@@ -184,19 +223,8 @@ static int __devinit stty_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	stty->thread = kthread_create(stty_thread, stty,
-			"stty-%d-%d", pdata->dst, pdata->channel);
-	if (IS_ERR(stty->thread)) {
-		stty_driver_exit(stty);
-		kfree(stty);
-		printk(KERN_ERR "stty kthread_create err!\n");
-		rval = PTR_ERR(stty->thread);
-		return rval;
-	}
-
+	printk( "stty_probe init device addr: 0x%0x\n", (void *)stty);
 	platform_set_drvdata(pdev, stty);
-	stty_ipc = stty;
-	wake_up_process(stty->thread);
 
 	return 0;
 }
