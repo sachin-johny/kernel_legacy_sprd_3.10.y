@@ -757,6 +757,18 @@ void set_bdi_congested(struct backing_dev_info *bdi, int sync)
 }
 EXPORT_SYMBOL(set_bdi_congested);
 
+static long __congestion_wait(int sync, long timeout, int state)
+{
+	long ret;
+	DEFINE_WAIT(wait);
+	wait_queue_head_t *wqh = &congestion_wqh[sync];
+
+	prepare_to_wait(wqh, &wait, state);
+	ret = io_schedule_timeout(timeout);
+	finish_wait(wqh, &wait);
+	return ret;
+}
+
 /**
  * congestion_wait - wait for a backing_dev to become uncongested
  * @sync: SYNC or ASYNC IO
@@ -768,14 +780,17 @@ EXPORT_SYMBOL(set_bdi_congested);
  */
 long congestion_wait(int sync, long timeout)
 {
-	long ret;
-	DEFINE_WAIT(wait);
-	wait_queue_head_t *wqh = &congestion_wqh[sync];
-
-	prepare_to_wait(wqh, &wait, TASK_UNINTERRUPTIBLE);
-	ret = io_schedule_timeout(timeout);
-	finish_wait(wqh, &wait);
-	return ret;
+	return __congestion_wait(sync, timeout, TASK_UNINTERRUPTIBLE);
 }
 EXPORT_SYMBOL(congestion_wait);
 
+/**
+ * congestion_wait_killable - killable edition of congestion_wait
+ * @sync: SYNC or ASYNC IO
+ * @timeout: timeout in jiffies
+ */
+long congestion_wait_killable(int sync, long timeout)
+{
+	return __congestion_wait(sync, timeout, TASK_KILLABLE);
+}
+EXPORT_SYMBOL(congestion_wait_killable);

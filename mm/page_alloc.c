@@ -1742,7 +1742,7 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 
 	/* Acquire the OOM killer lock for the zones in zonelist */
 	if (!try_set_zone_oom(zonelist, gfp_mask)) {
-		schedule_timeout_uninterruptible(1);
+		schedule_timeout_killable(1);
 		return NULL;
 	}
 
@@ -2103,7 +2103,7 @@ no_progress:
 			goto no_progress;
 		}
 		/* Wait for some write requests to complete then retry */
-		congestion_wait(BLK_RW_ASYNC, HZ/50);
+		congestion_wait_killable(BLK_RW_ASYNC, HZ/50);
 		goto rebalance;
 	}
 
