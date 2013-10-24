@@ -75,6 +75,7 @@
 /*the log file size about 1.5Mbytes per min*/
 #define LOG_FILE_SECONDS (60  * 30)
 #define LOG_FILE_MAX_RECORDS (LOG_FILE_SECONDS * 100)
+#define CONFIG_BUS_MONITOR_DEBUG (0)
 
 static struct file *log_file;
 
@@ -354,7 +355,9 @@ void dmc_mon_cnt_stop(void)
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_stop);
 
+#ifdef DDR_MONITOR_LOG
 static void __sci_axi_bm_set_winlen(void);
+#endif
 void dmc_mon_resume(void)
 {
 #ifdef DDR_MONITOR_LOG
