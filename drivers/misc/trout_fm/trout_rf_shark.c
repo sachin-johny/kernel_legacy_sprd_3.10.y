@@ -9,8 +9,12 @@
 #include <linux/slab.h>
 #include <linux/spi/spi.h>
 #include <linux/interrupt.h>
+#include <linux/clk.h>
 #include "trout_fm_ctrl.h"
 #include "trout_rf_shark.h"
+
+
+static struct clk *g_cpll_clk = NULL;
 
 void select_mspi_bus(void)
 {
@@ -233,6 +237,51 @@ void trout_fm_unmute(void)
 	WRITE_REG(FM_REG_HW_MUTE, reg_data);
 }
 
+void trout_fm_open_cpll(void)
+{
+
+   int ret;
+
+   if(NULL == g_cpll_clk)
+   {
+       g_cpll_clk = clk_get(NULL, "clk_cpll");
+	   
+       if (IS_ERR(g_cpll_clk)) 
+       {
+           TROUT_PRINT("trout_fm: clk_get fail, %d \n", (int)g_cpll_clk);
+    	   return -1;
+       }
+       else 
+       {
+    	   TROUT_PRINT("trout_fm: get clk_parent ok \n");
+       }
+    
+       ret = clk_enable(g_cpll_clk);
+       if(ret) 
+       {
+            TROUT_PRINT( "%s: enable cpll clock failed!\n",__FUNCTION__);
+            return;
+       } 
+       else 
+       {
+            TROUT_PRINT( "%s: enable cpll clock ok!\n",__FUNCTION__);
+       }
+   }
+}
+
+void trout_fm_close_cpll(void)
+{
+
+   int ret;
+
+   if(NULL != g_cpll_clk)
+   {
+       clk_disable(g_cpll_clk);
+	   clk_put(g_cpll_clk);
+	   g_cpll_clk = NULL;
+   }
+}
+
 void shark_fm_int_en()
 {
 	shark_fm_info.int_happen = 1;
@@ -369,6 +418,7 @@ int trout_fm_init(void)
 	
 	int result;
 
+    trout_fm_open_cpll();
 			
    /*added by xuede to route FMIQD0 to IIS0DI and FMIQD1 to IISD0DO*/
 	READ_REG(PINMAP_FOR_FMIQ, &reg_data);
@@ -495,7 +545,7 @@ int trout_fm_deinit(void)
     reg_data &= (~BIT_8);
     WRITE_REG(SHARK_PMU_SLEEP_CTRL, reg_data);
 
-
+    trout_fm_close_cpll();
 	return 0;
 }
 
