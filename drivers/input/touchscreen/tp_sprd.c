@@ -442,7 +442,7 @@ static irqreturn_t tp_irq(int irq, void *dev_id)
                     //TP_PRINT("fetch data finish\n");
                     //xd=765-tp->tp_data.data.x;
                     //yd=816-tp->tp_data.data.y;
-                    if (1) {
+                    if (cal_mode_en == 0) {
                         #if 0
                         xd=X_MAX-tp->tp_data.data.x;
                         yd=Y_MAX-tp->tp_data.data.y;
