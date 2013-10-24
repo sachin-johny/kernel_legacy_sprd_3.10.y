@@ -94,7 +94,7 @@ struct dmcfreq_data {
 #define SCXX30_INITIAL_FREQ SCXX30_MAX_FREQ
 #define SCXX30_POLLING_MS (500)
 #define BOOT_TIME	(40*HZ)
-static u32 boot_done;
+static unsigned long boot_done;
 #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
 static struct dmcfreq_data *g_dmcfreq_data;
 #endif
@@ -249,7 +249,6 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	unsigned long freq = opp_get_freq(opp);
 	unsigned long old_freq = emc_clk_get()*1000 ;
 	unsigned char cp_req;
-	unsigned long spinlock_flags;
 
 	if(time_before(jiffies, boot_done)){
 		return 0;
@@ -563,12 +562,15 @@ static __devinit int scxx30_dmcfreq_probe(struct platform_device *pdev)
 #endif
 	pr_info(" %s done,  current freq:%lu \n", __func__, opp_get_freq(data->curr_opp));
 	return 0;
-
+#ifdef CONFIG_SIPC_WCDMA
 err_map:
+#endif
 #ifdef CONFIG_SIPC_TD
 	iounmap(data->cpt_share_mem_base);
 #endif
+#ifdef CONFIG_SIPC_TD
 err_irq:
+#endif
 	free_irq(IRQ_CP1_MCU1_INT, data);
 err_cp1_irq:
 	free_irq(IRQ_CP0_MCU1_INT, data);
