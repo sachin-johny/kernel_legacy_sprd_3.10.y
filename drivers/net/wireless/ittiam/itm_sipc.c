@@ -19,9 +19,6 @@
  * GNU General Public License for more details.
  */
 
-#define DEBUG
-#define ITM_SIPC_DEBUG
-
 #include <linux/proc_fs.h>
 #include <linux/printk.h>
 #include <linux/sipc.h>
@@ -42,10 +39,6 @@ int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 	u32 msg_hdr;
 	u16 cmd_tag;
 	int send_len;
-#ifdef ITM_SIPC_DEBUG
-	u32 i;
-	u8 *data;
-#endif
 
 	msg_hdr = ITM_WLAN_MSG(ITM_WLAN_MSG_CMD, len);
 	cmd_tag = ITM_WLAN_CMD_TAG(type, CMD_DIR_AP2CP, CMD_LEVEL_NORMAL, id);
@@ -59,14 +52,6 @@ int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 			      send_buf, len,
 			      msecs_to_jiffies(DEFAULT_WAIT_SBUF_TIME));
 
-#ifdef ITM_SIPC_DEBUG
-	if (send_len > 0) {
-		data = (u8 *)send_buf;
-		for (i = 0; i < send_len; i++)
-			pr_debug("Send value is :\t\t0x%01x\n", (*data++));
-	}
-#endif
-
 	if (send_len < 0) {
 		pr_err("sbuf_write error (%d)\n", send_len);
 		return send_len;
@@ -75,6 +60,10 @@ int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 		       send_len);
 		return -EIO;
 	} else {
+#ifdef DUMP_COMMAND
+		print_hex_dump(KERN_DEBUG, "cmd: ", DUMP_PREFIX_OFFSET,
+				16, 1, send_buf, send_len, 0);
+#endif
 		return 0;
 	}
 }
@@ -91,10 +80,6 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 	u8 cmd_dir;
 	u8 cmd_id;
 	int recv_len;
-#ifdef ITM_SIPC_DEBUG
-	u32 i;
-	u8 *data;
-#endif
 
 	/* TODO sipc-sbuf ops */
 	recv_len = sbuf_read(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
@@ -108,10 +93,9 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 		pr_err("sbuf_read not completely with recv len %d\n", recv_len);
 		return -EIO;
 	}
-#ifdef ITM_SIPC_DEBUG
-	data = (u8 *)recv_buf;
-	for (i = 0; i < recv_len; i++)
-		pr_debug("Recv value is :\t\t0x%01x\n", (*data++));
+#ifdef DUMP_COMMAND_RESPONSE
+	print_hex_dump(KERN_DEBUG, "cmd rsp: ", DUMP_PREFIX_OFFSET,
+			16, 1, recv_buf, recv_len, 0);
 #endif
 
 	msg_hdr = le32_to_cpu(recv_buf->msg_hdr);
@@ -922,10 +906,6 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 	u8 event_type;
 	u8 event_id;
 	int ret;
-#ifdef ITM_SIPC_DEBUG
-	u8 *data;
-	u32 i;
-#endif
 
 	ret = sblock_receive(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH, &blk, 0);
 	if (ret) {
@@ -960,13 +940,10 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 	if (event_type == EVENT_TYPE_SYSERR)
 		pr_err("Recv event type is syserr\n");
 
-#ifdef ITM_SIPC_DEBUG
+#ifdef DUMP_EVENT
 	if (event_id != WIFI_EVENT_SCANDONE) {
-		data = (u8 *)blk.addr;
-		pr_debug("Recv sblock8 len is :\t\t0x%01x\n", blk.length);
-		for (i = 0; i < blk.length; i++)
-			pr_debug("Recv sblock8 value is :\t\t0x%01x\n",
-				 (*data++));
+		print_hex_dump(KERN_DEBUG, "event: ", DUMP_PREFIX_OFFSET,
+				16, 1, blk.addr, blk.length, 0);
 	}
 #endif
 

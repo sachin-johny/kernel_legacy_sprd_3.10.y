@@ -15,8 +15,6 @@
  * GNU General Public License for more details.
  */
 
-#define DEBUG 1
-
 #include <linux/module.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
@@ -178,6 +176,10 @@ static void itm_wlan_rx_handler(struct itm_priv *priv)
 	}
 
 out:
+#ifdef DUMP_RECEIVE_PACKET
+	print_hex_dump(KERN_DEBUG, "receive packet: ", DUMP_PREFIX_OFFSET,
+		       16, 1, skb->data, skb->len, 0);
+#endif
 	skb->dev = priv->ndev;
 	skb->protocol = eth_type_trans(skb, priv->ndev);
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
@@ -271,6 +273,10 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		memcpy(((u8 *)blk.addr), skb->data, skb->len);
 	}
 
+#ifdef DUMP_TRANSMIT_PACKET
+	print_hex_dump(KERN_DEBUG, "transmit packet: ", DUMP_PREFIX_OFFSET,
+		       16, 1, skb->data, skb->len, 0);
+#endif
 	ret = sblock_send(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 	if (ret) {
 		dev_err(&dev->dev, "Failed to send sblock (%d)\n", ret);
@@ -329,10 +335,10 @@ static struct net_device_stats *itm_wlan_get_stats(struct net_device *dev)
 
 static void itm_wlan_tx_timeout(struct net_device *dev)
 {
-	dev_dbg(&dev->dev, "%s\n", __func__);
+	dev_info(&dev->dev, "%s\n", __func__);
 	dev->trans_start = jiffies;
 	netif_wake_queue(dev);
-	dev_dbg(&dev->dev, "tx_timeout and wake queue\n");
+	dev_info(&dev->dev, "tx_timeout and wake queue\n");
 }
 
 static int itm_wlan_ioctl(struct net_device *dev,
@@ -358,7 +364,7 @@ static int itm_wlan_suspend(struct device *dev)
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret = 0;
 
-	dev_dbg(dev, "%s\n", __func__);
+	dev_info(dev, "%s\n", __func__);
 	netif_stop_queue(ndev);
 
 #if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
@@ -378,7 +384,7 @@ static int itm_wlan_resume(struct device *dev)
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret = 0;
 
-	dev_dbg(dev, "%s\n", __func__);
+	dev_info(dev, "%s\n", __func__);
 
 #if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 	ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
