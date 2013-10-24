@@ -152,7 +152,7 @@ static struct attribute *default_attrs[] = {
 };
 static struct attribute_group stats_attr_group = {
 	.attrs = default_attrs,
-	.name = "stats"
+	.name = NULL
 };
 
 static int freq_table_get_index(struct cpufreq_stats *stat, unsigned int freq)
