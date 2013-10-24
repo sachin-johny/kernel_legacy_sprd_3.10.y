@@ -2275,7 +2275,7 @@ wl_iw_parse_channel_list_tlv(char** list_str, uint16* channel_list,
 		return -1;
 	}
 
-	str = list_str;	
+	str = (char *)list_str;
 	while (*bytes_left > 0) {
 
 		if (str[0] != CSCAN_TLV_TYPE_CHANNEL_IE) {
