@@ -317,7 +317,7 @@ static int wlan_device_get_mac_addr(unsigned char *buf)
 {
 
 	char macaddr[20];
-	int mac_len = 0;
+	int mac_len = -1;
 	void *fp;
 
 	if (!buf){
@@ -339,9 +339,10 @@ static int wlan_device_get_mac_addr(unsigned char *buf)
         fp = open_image(CUSTOMER_MAC_FILE);
         if((fp == NULL)||((mac_len = get_image_block(macaddr, 17, fp))<17))
         {
-                pr_info("\nwill gen random addr because macaddr is %d!!!\n",macaddr);
-                if(17 == wifi_mac_rand(macaddr))
+                pr_info("\nwill gen random addr because mac_len is %d!!!\n",mac_len);
+                if(17 > wifi_mac_rand(macaddr))
 		{
+			pr_info("\ngaole:wifi_mac_rand fail!!!\n");
 			return -EFAULT;
 		}
 
