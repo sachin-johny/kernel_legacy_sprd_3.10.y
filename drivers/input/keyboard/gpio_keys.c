@@ -328,6 +328,7 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 {
 	const struct gpio_keys_button *button = bdata->button;
 	struct input_dev *input = bdata->input;
+	static int last_state = 0;
 	unsigned int type = button->type ?: EV_KEY;
 	int state = (gpio_get_value_cansleep(button->gpio) ? 1 : 0) ^ button->active_low;
 
@@ -335,7 +336,14 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		if (state)
 			input_event(input, type, button->code, button->value);
 	} else {
+		/* raise the missing key event */
+		if (last_state == state) {
+			input_event(input, type, button->code, !state);
+		}
+
 		input_event(input, type, button->code, !!state);
+
+		last_state = state;
 	}
 	input_sync(input);
 }
@@ -503,6 +511,8 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 	 */
 	if (!button->can_disable)
 		irqflags |= IRQF_SHARED;
+
+	irqflags |= IRQF_NO_SUSPEND;
 
 	error = request_any_context_irq(bdata->irq, isr, irqflags, desc, bdata);
 	if (error < 0) {
@@ -805,8 +815,11 @@ static int gpio_keys_resume(struct device *dev)
 		if (bdata->button->wakeup && device_may_wakeup(dev))
 			disable_irq_wake(bdata->irq);
 
-		if (gpio_is_valid(bdata->button->gpio))
-			gpio_keys_gpio_report_event(bdata);
+		if (gpio_is_valid(bdata->button->gpio)) {
+			int gpio_value = gpio_get_value(bdata->button->gpio);
+			if (gpio_value != bdata->button->active_low)
+				gpio_keys_gpio_report_event(bdata);
+		}
 	}
 	input_sync(ddata->input);
 
