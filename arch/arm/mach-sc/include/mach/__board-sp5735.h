@@ -59,13 +59,13 @@
 #define GPIO_CMMB_INT           143
 #define GPIO_CMMB_26M_CLK_EN    197
 
-#define GPIO_BT_RESET       233
-#define GPIO_BT_POWER       231
-#define GPIO_BT2AP_WAKE     232
-#define GPIO_AP2BT_WAKE     235
+#define GPIO_BT_RESET       125//233//LiWei modified
+#define GPIO_BT_POWER       126//231//LiWei modified
+#define GPIO_BT2AP_WAKE     127//232//LiWei modified
+#define GPIO_AP2BT_WAKE     128//235//LiWei modified
 
-#define GPIO_WIFI_SHUTDOWN	230
-#define GPIO_WIFI_IRQ		234
+#define GPIO_WIFI_SHUTDOWN	129//230//LiWei modified
+#define GPIO_WIFI_IRQ		130//234//LiWei modified
 
 #define GPIO_PROX_INT 162
 #define GPIO_GYRO_INT1 163
