@@ -1015,5 +1015,12 @@ config USB_CORE_IP_293A
 	help
 	   the new ip version 293a, should write 0 to softdiscon bit.
 
+config USB_PAD_EXTERNAL_BOOST
+	boolean "usb host boost type"
+        depends on USB_GADGET_SPRD_DWC
+	
+	help
+	   usb pad use external boost type.
+
 
 endif # USB_GADGET
