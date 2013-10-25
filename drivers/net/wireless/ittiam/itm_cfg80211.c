@@ -18,8 +18,6 @@
  * GNU General Public License for more details.
  */
 
-#define DEBUG 1
-
 #include <linux/spinlock.h>
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
