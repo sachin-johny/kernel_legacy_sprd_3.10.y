@@ -83,7 +83,7 @@ enum {
 	L_SLEEP,	/* light sleep */
 	CORE_PD,	/* cpu core power down except cpu0 */
 };
-
+#if 0
 static void set_cpu_pd(void *data)
 {
 	int cpu_id = *((int*)data);
@@ -110,6 +110,7 @@ static void set_cpu_pd(void *data)
 
 	return;
 }
+#endif
 
 static void sc_cpuidle_debug(void)
 {
@@ -261,7 +262,7 @@ static inline void sc_fill_cstate(struct cpuidle_driver *drv, struct cpuidle_dev
 {
 	char *descr = sc_cpuidle_desc[idx];
 	struct cpuidle_state *state = &drv->states[idx];
-	struct cpuidle_state_usage *state_usage = &dev->states_usage[idx];
+	//struct cpuidle_state_usage *state_usage = &dev->states_usage[idx];
 
 	sprintf(state->name, "C%d", idx + 1);
 	strncpy(state->desc, descr, CPUIDLE_DESC_LEN);
