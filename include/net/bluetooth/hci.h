@@ -101,8 +101,7 @@ enum {
 #define HCISETSCOMTU	_IOW('H', 228, int)
 
 #define HCIINQUIRY	_IOR('H', 240, int)
-
-/* HCI timeouts */
+#define SPRDSENDA2DPADDR    _IOW('H', 241, int)
 #define HCI_CONNECT_TIMEOUT	(40000)	/* 40 seconds */
 #define HCI_DISCONN_TIMEOUT	(2000)	/* 2 seconds */
 #define HCI_PAIRING_TIMEOUT	(60000)	/* 60 seconds */
