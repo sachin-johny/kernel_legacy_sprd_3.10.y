@@ -164,8 +164,9 @@ static int sci_adc_config(struct adc_sample_data *adc)
 void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
 			   unsigned int *div_denominators)
 {
+#if !defined(CONFIG_ARCH_SCX35)
 	unsigned int chip_id = 0;
-
+#endif
 	switch (channel_id) {
 
 	case ADC_CHANNEL_0:
