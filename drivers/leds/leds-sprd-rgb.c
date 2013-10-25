@@ -163,11 +163,17 @@ static void sprd_rgbled_set(struct led_classdev *led_cdev,
 
 static void sprd_rgbled_shutdown(struct platform_device *dev)
 {
-	struct sprd_rgbled *led = platform_get_drvdata(dev);
+    int i;
 
-	mutex_lock(&led->mutex);
-	sprd_rgbled_disable(led);
-	mutex_unlock(&led->mutex);
+    for (i = 0; i < SPRD_LED_TYPE_TOTAL; i++)
+    {
+        if (!g_sprd_rgbled[i])
+            continue;
+		
+    	mutex_lock(&g_sprd_rgbled[i]->mutex);
+	sprd_rgbled_disable(g_sprd_rgbled[i]);
+	mutex_unlock(&g_sprd_rgbled[i]->mutex);
+    }
 }
 
 
