@@ -233,7 +233,10 @@ config DFS_AT_CP1
 	bool "scxx35 DFS at cp1, please make sure the cp1 is not used for communicatin, default at cp2"
 	default n
 	depends on ARCH_SCX35
-
+config DDR3_DFS
+	bool "scxx35 DDR3 DFS, please make sure the cp0 is not used for communicatin, default is LPDDR2 DFS"
+	default n
+	depends on ARCH_SCX35
 config BUS_MONITOR_DEBUG
         bool "debug scxx35 AHB and DMC bus monitors"
         default n
