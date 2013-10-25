@@ -147,6 +147,29 @@ static int panel_reset(struct sprdfb_device *dev)
 	return 0;
 }
 
+static int panel_sleep(struct sprdfb_device *dev)
+{
+	if((NULL == dev) || (NULL == dev->panel)){
+		printk(KERN_ERR "sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return -1;
+	}
+
+	pr_debug("sprdfb: [%s], enter\n",__FUNCTION__);
+
+	//send sleep cmd to lcd
+	if (dev->panel->ops->panel_enter_sleep != NULL) {
+		dev->panel->ops->panel_enter_sleep(dev->panel,1);
+	}
+	msleep(100);
+	//clk/data lane enter LP
+	if((NULL != dev->panel->if_ctrl->panel_if_before_panel_reset)
+		&&(SPRDFB_PANEL_TYPE_MIPI == dev->panel->type))
+	{
+		dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
+	}
+	return 0;
+}
+
 static void panel_set_resetpin(uint16_t dev_id,  uint32_t status, struct panel_spec *panel )
 {
 	pr_debug("sprdfb: [%s].\n",__FUNCTION__);
@@ -554,8 +577,12 @@ void sprdfb_panel_suspend(struct sprdfb_device *dev)
 	}
 	msleep(100);
 #else
-	//step1 reset panel
-	panel_reset(dev);
+	//step1 send lcd sleep cmd or reset panel directly
+	if(dev->panel->suspend_mode == SEND_SLEEP_CMD){
+		panel_sleep(dev);
+	}else{
+		panel_reset(dev);
+	}
 #endif
 
 	//step2 clk/data lane enter ulps
