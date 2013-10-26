@@ -233,6 +233,7 @@ void usb_set_vbus_irq_type(int irq, int irq_type)
 #ifndef DWC_DEVICE_ONLY
 void charge_pump_set(int state)
 {
+#ifndef CONFIG_USB_PAD_EXTERNAL_BOOST
 	struct regulator *usb_regulator = NULL;
 #define  USB_CHG_PUMP_NAME	"chg_pump"
 
@@ -247,6 +248,9 @@ void charge_pump_set(int state)
 		}
 		regulator_put(usb_regulator);
 	}
+#else
+        gpio_set_value(HEADSET_SWITCH_GPIO, state);
+#endif
 }
 
 int usb_alloc_id_irq(void)
