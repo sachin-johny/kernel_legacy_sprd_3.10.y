@@ -34,6 +34,7 @@
 #include <linux/hardirq.h> /* for BUG_ON(!in_atomic()) only */
 #include <linux/memcontrol.h>
 #include <linux/mm_inline.h> /* for page_is_file_cache() */
+#include <linux/android_pmem.h>
 #include "internal.h"
 
 /*
@@ -450,7 +451,9 @@ int add_to_page_cache_lru(struct page *page, struct address_space *mapping,
 
 	ret = add_to_page_cache(page, mapping, offset, gfp_mask);
 	if (ret == 0) {
-		if (page_is_file_cache(page))
+		if (PagePmemBacked(page))
+			pmem_pagecache_complete(page);
+		else if (page_is_file_cache(page))
 			lru_cache_add_file(page);
 		else
 			lru_cache_add_anon(page);
@@ -1000,7 +1003,7 @@ find_page:
 		if (!page) {
 			page_cache_sync_readahead(mapping,
 					ra, filp,
-					index, last_index - index);
+					index, last_index - index, 0);
 			page = find_get_page(mapping, index);
 			if (unlikely(page == NULL))
 				goto no_cached_page;
@@ -1368,7 +1371,7 @@ do_readahead(struct address_space *mapping, struct file *filp,
 	if (!mapping || !mapping->a_ops || !mapping->a_ops->readpage)
 		return -EINVAL;
 
-	force_page_cache_readahead(mapping, filp, index, nr);
+	force_page_cache_readahead(mapping, filp, index, nr, 0);
 	return 0;
 }
 
@@ -1408,14 +1411,19 @@ SYSCALL_ALIAS(sys_readahead, SyS_readahead);
  * This adds the requested page to the page cache if it isn't already there,
  * and schedules an I/O to read in its contents from disk.
  */
-static int page_cache_read(struct file *file, pgoff_t offset)
+static int page_cache_read(struct file *file, pgoff_t offset,
+			   int allow_pmem_pagecache)
 {
 	struct address_space *mapping = file->f_mapping;
 	struct page *page; 
 	int ret;
 
 	do {
-		page = page_cache_alloc_cold(mapping);
+		if (allow_pmem_pagecache)
+			page = pmem_pagecache_alloc(
+				mapping_gfp_mask(mapping)|__GFP_COLD);
+		if (!page)
+			page = page_cache_alloc_cold(mapping);
 		if (!page)
 			return -ENOMEM;
 
@@ -1441,7 +1449,8 @@ static int page_cache_read(struct file *file, pgoff_t offset)
 static void do_sync_mmap_readahead(struct vm_area_struct *vma,
 				   struct file_ra_state *ra,
 				   struct file *file,
-				   pgoff_t offset)
+				   pgoff_t offset,
+				   int allow_pmem_pagecache)
 {
 	unsigned long ra_pages;
 	struct address_space *mapping = file->f_mapping;
@@ -1453,7 +1462,7 @@ static void do_sync_mmap_readahead(struct vm_area_struct *vma,
 	if (VM_SequentialReadHint(vma) ||
 			offset - 1 == (ra->prev_pos >> PAGE_CACHE_SHIFT)) {
 		page_cache_sync_readahead(mapping, ra, file, offset,
-					  ra->ra_pages);
+					  ra->ra_pages, allow_pmem_pagecache);
 		return;
 	}
 
@@ -1475,7 +1484,7 @@ static void do_sync_mmap_readahead(struct vm_area_struct *vma,
 		ra->start = max_t(long, 0, offset - ra_pages/2);
 		ra->size = ra_pages;
 		ra->async_size = 0;
-		ra_submit(ra, mapping, file);
+		ra_submit(ra, mapping, file, allow_pmem_pagecache);
 	}
 }
 
@@ -1523,11 +1532,16 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 	pgoff_t offset = vmf->pgoff;
 	struct page *page;
 	pgoff_t size;
+	int allow_pmem_pagecache = 0;
 	int ret = 0;
 
 	size = (i_size_read(inode) + PAGE_CACHE_SIZE - 1) >> PAGE_CACHE_SHIFT;
 	if (offset >= size)
 		return VM_FAULT_SIGBUS;
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	allow_pmem_pagecache = !(vma->vm_flags & VM_WRITE) &&
+				(vma->vm_flags & VM_EXEC); /* so */
+#endif
 
 	/*
 	 * Do we have something in the page cache already?
@@ -1549,7 +1563,7 @@ int filemap_fault(struct vm_area_struct *vma, struct vm_fault *vmf)
 		}
 	} else {
 		/* No page in the page cache at all */
-		do_sync_mmap_readahead(vma, ra, file, offset);
+		do_sync_mmap_readahead(vma, ra, file, offset, allow_pmem_pagecache);
 		count_vm_event(PGMAJFAULT);
 		ret = VM_FAULT_MAJOR;
 retry_find:
@@ -1585,7 +1599,7 @@ no_cached_page:
 	 * We're only likely to ever get here if MADV_RANDOM is in
 	 * effect.
 	 */
-	error = page_cache_read(file, offset);
+	error = page_cache_read(file, offset, allow_pmem_pagecache);
 
 	/*
 	 * The page we want has now been added to the page cache.

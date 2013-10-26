@@ -98,5 +98,19 @@ static inline int pmem_remap(struct pmem_region *region, struct file *file,
 			     unsigned operation) { return -ENOSYS; }
 #endif
 
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+struct page *pmem_pagecache_alloc(gfp_t gfp);
+int pmem_pagecache_release(struct page* page);
+int pmem_pagecache_complete(struct page* page);
+int pmem_pagecache_shrink(unsigned long max_scan);
+void pmem_activate_page(struct page *page);
+#else
+static inline struct page *pmem_pagecache_alloc(gfp_t gfp) { return NULL; }
+static inline int pmem_pagecache_release(struct page* page) { return -ENOSYS; }
+static inline int pmem_pagecache_complete(struct page* page) { return -ENOSYS; }
+static inline int pmem_pagecache_shrink(unsigned long max_scan) { return 0; }
+static inline void pmem_activate_page(struct page* page) { }
+#endif
+
 #endif //_ANDROID_PPP_H_
 

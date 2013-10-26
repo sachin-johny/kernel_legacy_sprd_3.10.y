@@ -21,8 +21,12 @@
 #include <linux/list.h>
 #include <linux/debugfs.h>
 #include <linux/android_pmem.h>
+#include <linux/page-flags.h>
 #include <linux/mempolicy.h>
 #include <linux/sched.h>
+#include <linux/memcontrol.h>
+#include <linux/rmap.h>
+#include <linux/rbtree.h>
 #include <asm/io.h>
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -37,18 +41,26 @@
  * the file should not be released until put_pmem_file is called */
 #define PMEM_FLAGS_BUSY 0x1
 /* indicates that this is a suballocation of a larger master range */
-#define PMEM_FLAGS_CONNECTED 0x1 << 1
+#define PMEM_FLAGS_CONNECTED (0x1 << 1)
 /* indicates this is a master and not a sub allocation and that it is mmaped */
-#define PMEM_FLAGS_MASTERMAP 0x1 << 2
+#define PMEM_FLAGS_MASTERMAP (0x1 << 2)
 /* submap and unsubmap flags indicate:
  * 00: subregion has never been mmaped
  * 10: subregion has been mmaped, reference to the mm was taken
  * 11: subretion has ben released, refernece to the mm still held
  * 01: subretion has been released, reference to the mm has been released
  */
-#define PMEM_FLAGS_SUBMAP 0x1 << 3
-#define PMEM_FLAGS_UNSUBMAP 0x1 << 4
+#define PMEM_FLAGS_SUBMAP (0x1 << 3)
+#define PMEM_FLAGS_UNSUBMAP (0x1 << 4)
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+/* indicates that this is a pagecache page */
+#define PMEM_FLAGS_PAGECACHE (0x1 << 5)
 
+extern void __clear_page_mlock(struct page *page);
+extern int prep_new_page(struct page *page, int order, gfp_t gfp_flags);
+#else
+#define PMEM_FLAGS_PAGECACHE (0)
+#endif
 
 struct pmem_data {
 	/* in alloc mode: an index into the bitmap
@@ -68,12 +80,16 @@ struct pmem_data {
 	pid_t pid;
 	/* file descriptor of the master */
 	int master_fd;
-	/* file struct of the master */
-	struct file *master_file;
+	/* private_data of the master file */
+	struct pmem_data *master_data;
 	/* a list of currently available regions if this is a suballocation */
 	struct list_head region_list;
 	/* a linked list of data so we can access them for debugging */
 	struct list_head list;
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	/* rb tree to track page */
+	struct rb_node node;
+#endif
 #if PMEM_DEBUG
 	int ref;
 #endif
@@ -124,8 +140,18 @@ struct pmem_info {
 	unsigned cached;
 	unsigned buffered;
 	/* in no_allocator mode the first mapper gets the whole space and sets
-	 * this flag */
-	unsigned allocated;
+	 * this flag to -1, otherwise, it means the number of cached pages */
+	int cachedpages;
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	/* indicates the number of all allocated pages. */
+	int allocated;
+	/* indicates it's shrinking pages for page cache. */
+	atomic_t shrinking;
+	/* pagecache_lock protects both lru and rb tree */
+	spinlock_t pagecache_lock;
+	struct list_head pagecache_lru;
+	struct rb_root pagecaches;
+#endif
 	/* for debugging, creates a list of pmem file structs, the
 	 * data_list_sem should be taken before pmem_data->sem if both are
 	 * needed */
@@ -168,6 +194,8 @@ static int id_count;
 #define PMEM_IS_PAGE_ALIGNED(addr) (!((addr) & (~PAGE_MASK)))
 #define PMEM_IS_SUBMAP(data) ((data->flags & PMEM_FLAGS_SUBMAP) && \
 	(!(data->flags & PMEM_FLAGS_UNSUBMAP)))
+#define PMEM_INDEX(id, addr) ((addr - pmem[id].base) / PMEM_MIN_ALLOC)
+#define PMEM_PAGECACHE(data) (data->flags & PMEM_FLAGS_PAGECACHE)
 
 static int pmem_release(struct inode *, struct file *);
 static int pmem_mmap(struct file *, struct vm_area_struct *);
@@ -224,23 +252,33 @@ static int is_master_owner(struct file *file)
 	if (!is_pmem_file(file) || !has_allocation(file))
 		return 0;
 	data = (struct pmem_data *)file->private_data;
+	if (PMEM_PAGECACHE(data))
+		return 0;
 	if (PMEM_FLAGS_MASTERMAP & data->flags)
 		return 1;
 	master_file = fget_light(data->master_fd, &put_needed);
-	if (master_file && data->master_file == master_file)
+	if (master_file &&
+	    data->master_data == (struct pmem_data *)master_file->private_data)
 		ret = 1;
 	fput_light(master_file, put_needed);
 	return ret;
 }
 
-static int pmem_free(int id, int index)
+static int pmem_free(int id, struct pmem_data *data)
 {
 	/* caller should hold the write lock on pmem_sem! */
+	int index = data->index;
 	int buddy, curr = index;
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	int order = pmem[id].bitmap[curr].order;
+#endif
 	DLOG("index %d\n", index);
 
-	if (pmem[id].no_allocator) {
+	if (pmem[id].no_allocator && pmem[id].cachedpages < 0) {
+		pmem[id].cachedpages = 0;
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
 		pmem[id].allocated = 0;
+#endif
 		return 0;
 	}
 	/* clean up the bitmap, merging any buddies */
@@ -261,45 +299,53 @@ static int pmem_free(int id, int index)
 		}
 	} while (curr < pmem[id].num_entries);
 
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	if (PMEM_PAGECACHE(data))
+		pmem[id].cachedpages -= 1<<order;
+	pmem[id].allocated -= 1<<order;
+#endif
 	return 0;
 }
 
-static void pmem_revoke(struct file *file, struct pmem_data *data);
+static void pmem_revoke(int id, struct pmem_data *data);
 
-static int pmem_release(struct inode *inode, struct file *file)
+static int pmem_release_data(int id, struct pmem_data *data)
 {
-	struct pmem_data *data = (struct pmem_data *)file->private_data;
 	struct pmem_region_node *region_node;
 	struct list_head *elt, *elt2;
-	int id = get_id(file), ret = 0;
+	int ret = 0;
 
+	if (!PMEM_PAGECACHE(data)) {
+		down(&pmem[id].data_list_sem);
 
-	down(&pmem[id].data_list_sem);
 	/* if this file is a master, revoke all the memory in the connected
 	 *  files */
-	if (PMEM_FLAGS_MASTERMAP & data->flags) {
-		struct pmem_data *sub_data;
-		list_for_each(elt, &pmem[id].data_list) {
-			sub_data = list_entry(elt, struct pmem_data, list);
-			down_read(&sub_data->sem);
-			if (PMEM_IS_SUBMAP(sub_data) &&
-			    file == sub_data->master_file) {
-				up_read(&sub_data->sem);
-				pmem_revoke(file, sub_data);
-			}  else
-				up_read(&sub_data->sem);
+		if (PMEM_FLAGS_MASTERMAP & data->flags) {
+			struct pmem_data *sub_data;
+
+			list_for_each(elt, &pmem[id].data_list) {
+				sub_data = list_entry(elt, struct pmem_data, list);
+				down_read(&sub_data->sem);
+				if (PMEM_IS_SUBMAP(sub_data) &&
+					    data == sub_data->master_data) {
+					up_read(&sub_data->sem);
+					pmem_revoke(id, sub_data);
+				}  else
+					up_read(&sub_data->sem);
+			}
 		}
+
+		list_del(&data->list);
+		up(&pmem[id].data_list_sem);
 	}
-	list_del(&data->list);
-	up(&pmem[id].data_list_sem);
 
 
 	down_write(&data->sem);
 
 	/* if its not a conencted file and it has an allocation, free it */
-	if (!(PMEM_FLAGS_CONNECTED & data->flags) && has_allocation(file)) {
+	if (!(PMEM_FLAGS_CONNECTED & data->flags) && data->index >= 0) {
 		down_write(&pmem[id].bitmap_sem);
-		ret = pmem_free(id, data->index);
+		ret = pmem_free(id, data);
 		up_write(&pmem[id].bitmap_sem);
 	}
 
@@ -311,8 +357,6 @@ static int pmem_release(struct inode *inode, struct file *file)
 			data->task = NULL;
 		}
 
-	file->private_data = NULL;
-
 	list_for_each_safe(elt, elt2, &data->region_list) {
 		region_node = list_entry(elt, struct pmem_region_node, list);
 		list_del(elt);
@@ -322,47 +366,72 @@ static int pmem_release(struct inode *inode, struct file *file)
 
 	up_write(&data->sem);
 	kfree(data);
+	return ret;
+}
+
+static int pmem_release(struct inode *inode, struct file *file)
+{
+	int id = get_id(file), ret = 0;
+	struct pmem_data *data = (struct pmem_data *)file->private_data;
+	if (data) {
+		ret = pmem_release_data(id, data);
+		if (ret)
+			return ret;
+	}
+	file->private_data = NULL;
 	if (pmem[id].release)
 		ret = pmem[id].release(inode, file);
 
 	return ret;
 }
 
-static int pmem_open(struct inode *inode, struct file *file)
+static struct pmem_data * pmem_init_data(int id)
 {
 	struct pmem_data *data;
-	int id = get_id(file);
-	int ret = 0;
-
-	DLOG("current %u file %p(%d)\n", current->pid, file, file_count(file));
-	/* setup file->private_data to indicate its unmapped */
-	/*  you can only open a pmem device one time */
-	if (file->private_data != NULL && file->private_data != &pmem[id].dev)
-		return -1;
 	data = kmalloc(sizeof(struct pmem_data), GFP_KERNEL);
 	if (!data) {
 		printk("pmem: unable to allocate memory for pmem metadata.");
-		return -1;
+		return NULL;
 	}
 	data->flags = 0;
 	data->index = -1;
 	data->task = NULL;
 	data->vma = NULL;
 	data->pid = 0;
-	data->master_file = NULL;
+	data->master_data = NULL;
+	data->master_fd = id;
 #if PMEM_DEBUG
 	data->ref = 0;
 #endif
 	INIT_LIST_HEAD(&data->region_list);
 	init_rwsem(&data->sem);
 
-	file->private_data = data;
 	INIT_LIST_HEAD(&data->list);
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	rb_init_node(&data->node);
+#endif
+	return data;
+}
 
+static int pmem_open(struct inode *inode, struct file *file)
+{
+	int id = get_id(file);
+	struct pmem_data *data;
+
+	DLOG("current %u file %p(%d)\n", current->pid, file, file_count(file));
+	/* setup file->private_data to indicate its unmapped */
+	/*  you can only open a pmem device one time */
+	if (file->private_data != NULL && file->private_data != &pmem[id].dev)
+		return -1;
+	data = pmem_init_data(id);
+	if (!data)
+		return -1;
+
+	file->private_data = data;
 	down(&pmem[id].data_list_sem);
 	list_add(&data->list, &pmem[id].data_list);
 	up(&pmem[id].data_list_sem);
-	return ret;
+	return 0;
 }
 
 static unsigned long pmem_order(unsigned long len)
@@ -377,27 +446,197 @@ static unsigned long pmem_order(unsigned long len)
 	return i;
 }
 
-static int pmem_allocate(int id, unsigned long len)
+static unsigned long pmem_start_addr(int id, struct pmem_data *data)
 {
-	/* caller should hold the write lock on pmem_sem! */
+	if (pmem[id].no_allocator && !PMEM_PAGECACHE(data))
+		return PMEM_START_ADDR(id, 0);
+	else
+		return PMEM_START_ADDR(id, data->index);
+}
+
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+static int pmem_rb_insert(struct rb_root *root, struct pmem_data *data)
+{
+	struct rb_node **new = &(root->rb_node), *parent = NULL;
+
+	/* Figure out where to put new node */
+	while (*new) {
+		struct pmem_data *this = container_of(*new, struct pmem_data, node);
+		parent = *new;
+		if (data->index < this->index)
+			new = &((*new)->rb_left);
+		else if (data->index > this->index)
+			new = &((*new)->rb_right);
+		else
+			return -EEXIST;
+	}
+
+	/* Add new node and rebalance tree. */
+	rb_link_node(&data->node, parent, new);
+	rb_insert_color(&data->node, root);
+	return 0;
+}
+
+static struct pmem_data *pmem_rb_search(struct rb_root *root, int index)
+{
+	struct rb_node *node = root->rb_node;
+
+	while (node) {
+		struct pmem_data *data = container_of(node, struct pmem_data, node);
+
+		if (index < data->index)
+			node = node->rb_left;
+		else if (index > data->index)
+			node = node->rb_right;
+		else
+			return data;
+	}
+	return NULL;
+}
+
+static int __pmem_pagecache_shrink(int id, unsigned long max_scan, int tryhard)
+{
+	int shrunk = 0;
+	struct page *page;
+	struct pmem_data *data;
+	struct address_space *mapping;
+
+	atomic_inc(&pmem[id].shrinking);
+	mem_cgroup_uncharge_start();
+repeat:
+	page = NULL;
+	spin_lock(&pmem[id].pagecache_lock);
+	list_for_each_entry(data, &pmem[id].pagecache_lru, list) {
+		int locked;
+		page = phys_to_page(pmem_start_addr(id, data));
+
+		locked = trylock_page(page);
+		if (!(tryhard || locked)) {
+			page = NULL;
+			continue;
+		}
+		list_del_init(&data->list);
+		spin_unlock(&pmem[id].pagecache_lock);
+		if (!locked) {
+			might_sleep();
+			__lock_page(page);
+		}
+
+		mapping = page_mapping(page);
+		if (unlikely(TestClearPageMlocked(page)))
+			__clear_page_mlock(page);
+		if (page_has_private(page) &&
+			!try_to_release_page(page, GFP_KERNEL)) {
+			printk(KERN_ERR "pmem: pagecache_shrink: "
+				"failed to release page %p\n", page);
+		} else {
+			if (page_mapped(page) && mapping)
+				try_to_unmap(page, TTU_UNMAP|TTU_IGNORE_ACCESS);
+			BUG_ON(page_mapped(page) || PageDirty(page));
+			if (mapping) {
+				spin_lock_irq(&mapping->tree_lock);
+				__remove_from_page_cache(page);
+				spin_unlock_irq(&mapping->tree_lock);
+				mem_cgroup_uncharge_cache_page(page);
+			}
+		}
+		unlock_page(page);
+		break;
+	}
+
+	if (page) {
+		if (likely(page_count(page) > 0)) {
+			page_cache_release(page);	/* pagecache ref */
+			shrunk++;
+		}
+		if (shrunk < max_scan && !list_empty(&pmem[id].pagecache_lru))
+			goto repeat;
+	} else
+		spin_unlock(&pmem[id].pagecache_lock);
+
+	mem_cgroup_uncharge_end();
+	atomic_dec(&pmem[id].shrinking);
+	return shrunk;
+}
+
+int pmem_pagecache_shrink(unsigned long max_scan)
+{
+	int id, shrunk;
+
+	for (id = 0, shrunk = 0; id < id_count && shrunk < max_scan; id++) {
+		down_read(&pmem[id].bitmap_sem);
+		shrunk += pmem[id].num_entries - pmem[id].allocated;
+		up_read(&pmem[id].bitmap_sem);
+		if (shrunk > max_scan)
+			shrunk = max_scan;
+	}
+
+	for (id = 0; id < id_count && shrunk < max_scan; id++)
+		if (pmem[id].cachedpages > 0)
+			shrunk += __pmem_pagecache_shrink(id, max_scan - shrunk, 0);
+	return shrunk;
+}
+
+void pmem_activate_page(struct page *page)
+{
+	unsigned long addr = page_to_phys(page);
+	int id, index;
+	struct pmem_data *data;
+
+	for (id = 0, data = NULL; id < id_count && !data; id++) {
+		if (pmem[id].cachedpages <= 0)
+			continue;
+		index = PMEM_INDEX(id, addr);
+		spin_lock(&pmem[id].pagecache_lock);
+		data = pmem_rb_search(&pmem[id].pagecaches, index);
+		if (data) {
+			list_del(&data->list);
+			list_add_tail(&data->list, &pmem[id].pagecache_lru);
+		}
+		spin_unlock(&pmem[id].pagecache_lock);
+	}
+}
+#endif
+
+static int pmem_allocate(int id, unsigned long len, int pagecached)
+{
 	/* return the corresponding pdata[] entry */
 	int curr = 0;
 	int end = pmem[id].num_entries;
 	int best_fit = -1;
 	unsigned long order = pmem_order(len);
 
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	int tryhard = 0;
+	if (pagecached && atomic_read(&pmem[id].shrinking))
+		return -1;
+#endif
 	if (pmem[id].no_allocator) {
 		DLOG("no allocator");
-		if ((len > pmem[id].size) || pmem[id].allocated)
+		if ((len > pmem[id].size) || pmem[id].cachedpages < 0)
 			return -1;
-		pmem[id].allocated = 1;
-		return len;
+		if (!pagecached) {
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+			while (pmem[id].cachedpages > 0 && tryhard < 2) {
+				__pmem_pagecache_shrink(id,
+						(unsigned long)-1, tryhard++);
+				cond_resched();
+			}
+			if (pmem[id].cachedpages > 0)
+				return -1;
+			pmem[id].allocated = pmem[id].num_entries;
+#endif
+			pmem[id].cachedpages = -1;
+			return len;
+		}
 	}
 
 	if (order > PMEM_MAX_ORDER)
 		return -1;
 	DLOG("order %lx\n", order);
 
+retry:
+	down_write(&pmem[id].bitmap_sem);
 	/* look through the bitmap:
 	 * 	if you find a free slot of the correct order use it
 	 * 	otherwise, use the best fit (smallest with size > order) slot
@@ -421,7 +660,22 @@ static int pmem_allocate(int id, unsigned long len)
 	 * return an error
 	 */
 	if (best_fit < 0) {
-		printk("pmem: no space left to allocate!\n");
+		up_write(&pmem[id].bitmap_sem);
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+		if (pagecached)
+			return -1;
+		while (pmem[id].cachedpages > 0 && tryhard < 2) {
+			if (__pmem_pagecache_shrink(id, 1<<order, tryhard++)) {
+				curr = 0;
+				tryhard = 0;
+				goto retry;
+			}
+			cond_resched();
+		}
+		DLOG("pmem: cachedpages %d, allocated %d, requested size %d\n",
+		     pmem[id].cachedpages, pmem[id].allocated, len);
+#endif
+		DLOG("pmem: no space left to allocate!\n");
 		return -1;
 	}
 
@@ -436,6 +690,12 @@ static int pmem_allocate(int id, unsigned long len)
 		PMEM_ORDER(id, buddy) = PMEM_ORDER(id, best_fit);
 	}
 	pmem[id].bitmap[best_fit].allocated = 1;
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	if (pagecached)
+		pmem[id].cachedpages += 1<<order;
+	pmem[id].allocated += 1<<order;
+#endif
+	up_write(&pmem[id].bitmap_sem);
 	return best_fit;
 }
 
@@ -453,15 +713,6 @@ static pgprot_t phys_mem_access_prot(struct file *file, pgprot_t vma_prot)
 	return vma_prot;
 }
 
-static unsigned long pmem_start_addr(int id, struct pmem_data *data)
-{
-	if (pmem[id].no_allocator)
-		return PMEM_START_ADDR(id, 0);
-	else
-		return PMEM_START_ADDR(id, data->index);
-
-}
-
 static void *pmem_start_vaddr(int id, struct pmem_data *data)
 {
 	return pmem_start_addr(id, data) - pmem[id].base + pmem[id].vbase;
@@ -469,11 +720,103 @@ static void *pmem_start_vaddr(int id, struct pmem_data *data)
 
 static unsigned long pmem_len(int id, struct pmem_data *data)
 {
-	if (pmem[id].no_allocator)
+	if (pmem[id].no_allocator && pmem[id].cachedpages < 0)
 		return data->index;
 	else
 		return PMEM_LEN(id, data->index);
 }
+
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+struct page *pmem_pagecache_alloc(gfp_t gfp)
+{
+	struct page *page;
+	struct pmem_data *data;
+	int id, index = -1;
+
+	page = NULL, data = NULL;
+	for (id = 0; id < id_count; id++) {
+		data = pmem_init_data(id);
+		if (!data)
+			continue;
+		index = pmem_allocate(id, PAGE_SIZE, 1);
+		if (index != -1)
+			break;
+		pmem_release_data(id, data);
+	}
+	if (id >= id_count)
+		return NULL;
+
+	data->flags |= PMEM_FLAGS_PAGECACHE;
+	data->index = index;
+	page = phys_to_page(pmem_start_addr(id, data));
+	ClearPageReserved(page);
+	ClearPagePmemBacked(page);
+	/* Clean the pagecount set in stage of bootmem */
+	atomic_set(&page->_count, 0);
+	if (prep_new_page(page, 0, gfp)) {
+		dump_page(page);
+		BUG();
+	}
+	SetPagePmemBacked(page);
+
+	spin_lock(&pmem[id].pagecache_lock);
+	pmem_rb_insert(&pmem[id].pagecaches, data);
+	spin_unlock(&pmem[id].pagecache_lock);
+	return page;
+}
+
+int pmem_pagecache_release(struct page *page)
+{
+	unsigned long addr = page_to_phys(page);
+	int id, index;
+	struct pmem_data *data;
+
+	data = NULL;
+	for (id = 0, data = NULL; id < id_count && !data; id++) {
+		if (pmem[id].cachedpages <= 0)
+			continue;
+		index = PMEM_INDEX(id, addr);
+
+		spin_lock(&pmem[id].pagecache_lock);
+		data = pmem_rb_search(&pmem[id].pagecaches, index);
+		if (!data) {
+			spin_unlock(&pmem[id].pagecache_lock);
+			continue;
+		}
+		list_del_init(&data->list);
+		rb_erase(&data->node, &pmem[id].pagecaches);
+		spin_unlock(&pmem[id].pagecache_lock);
+
+		atomic_inc(&page->_count);
+		SetPagePmemBacked(page);
+		SetPageReserved(page);
+		pmem_release_data(id, data);
+		return 0;
+	}
+	return -1;
+}
+
+int pmem_pagecache_complete(struct page *page)
+{
+	int id, index;
+	unsigned long addr = page_to_phys(page);
+	struct pmem_data *data;
+
+	/* The page has been released. */
+	if (PageReserved(page) || !page_count(page))
+		return -1;
+
+	for (id = 0, data = NULL; id < id_count && !data; id++) {
+		index = PMEM_INDEX(id, addr);
+		spin_lock(&pmem[id].pagecache_lock);
+		data = pmem_rb_search(&pmem[id].pagecaches, index);
+		if (data)
+			list_add_tail(&data->list, &pmem[id].pagecache_lru);
+		spin_unlock(&pmem[id].pagecache_lock);
+	}
+	return data ? 0 : -1;
+}
+#endif
 
 static int pmem_map_garbage(int id, struct vm_area_struct *vma,
 			    struct pmem_data *data, unsigned long offset,
@@ -579,7 +922,6 @@ static struct vm_operations_struct vm_ops = {
 static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 {
 	struct pmem_data *data;
-	int index;
 	unsigned long vma_size =  vma->vm_end - vma->vm_start;
 	int ret = 0, id = get_id(file);
 
@@ -605,15 +947,11 @@ static int pmem_mmap(struct file *file, struct vm_area_struct *vma)
 		goto error;
 	}
 	/* if file->private_data == unalloced, alloc*/
-	if (data && data->index == -1) {
-		down_write(&pmem[id].bitmap_sem);
-		index = pmem_allocate(id, vma->vm_end - vma->vm_start);
-		up_write(&pmem[id].bitmap_sem);
-		data->index = index;
-	}
+	if (data && data->index == -1)
+		data->index = pmem_allocate(id, vma->vm_end - vma->vm_start, 0);
 	/* either no space was available or an error occured */
 	if (!has_allocation(file)) {
-		ret = -EINVAL;
+		ret = -ENOMEM;
 		printk("pmem: could not find allocation for map.\n");
 		goto error;
 	}
@@ -875,7 +1213,7 @@ static int pmem_connect(unsigned long connect, struct file *file)
 	data->index = src_data->index;
 	data->flags |= PMEM_FLAGS_CONNECTED;
 	data->master_fd = connect;
-	data->master_file = src_file;
+	data->master_data = src_data;
 
 err_bad_file:
 	fput_light(src_file, put_needed);
@@ -894,7 +1232,7 @@ static void pmem_unlock_data_and_mm(struct pmem_data *data,
 	}
 }
 
-static int pmem_lock_data_and_mm(struct file *file, struct pmem_data *data,
+static int pmem_lock_data_and_mm(struct pmem_data *data,
 				 struct mm_struct **locked_mm)
 {
 	int ret = 0;
@@ -967,7 +1305,7 @@ int pmem_remap(struct pmem_region *region, struct file *file,
 		return 0;
 
 	/* lock the mm and data */
-	ret = pmem_lock_data_and_mm(file, data, &mm);
+	ret = pmem_lock_data_and_mm(data, &mm);
 	if (ret)
 		return 0;
 
@@ -1041,16 +1379,15 @@ err:
 	return ret;
 }
 
-static void pmem_revoke(struct file *file, struct pmem_data *data)
+static void pmem_revoke(int id, struct pmem_data *data)
 {
 	struct pmem_region_node *region_node;
 	struct list_head *elt, *elt2;
 	struct mm_struct *mm = NULL;
-	int id = get_id(file);
 	int ret = 0;
 
-	data->master_file = NULL;
-	ret = pmem_lock_data_and_mm(file, data, &mm);
+	data->master_data = NULL;
+	ret = pmem_lock_data_and_mm(data, &mm);
 	/* if lock_data_and_mm fails either the task that mapped the fd, or
 	 * the vma that mapped it have already gone away, nothing more
 	 * needs to be done */
@@ -1161,7 +1498,7 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 			if (has_allocation(file))
 				return -EINVAL;
 			data = (struct pmem_data *)file->private_data;
-			data->index = pmem_allocate(id, arg);
+			data->index = pmem_allocate(id, arg, 0);
 			break;
 		}
 	case PMEM_CONNECT:
@@ -1276,6 +1613,13 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 	init_rwsem(&pmem[id].bitmap_sem);
 	init_MUTEX(&pmem[id].data_list_sem);
 	INIT_LIST_HEAD(&pmem[id].data_list);
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	spin_lock_init(&pmem[id].pagecache_lock);
+	INIT_LIST_HEAD(&pmem[id].pagecache_lru);
+	atomic_set(&pmem[id].shrinking, 0);
+	pmem[id].allocated = 0;
+	pmem[id].pagecaches = RB_ROOT;
+#endif
 	pmem[id].dev.name = pdata->name;
 	pmem[id].dev.minor = id;
 	pmem[id].dev.fops = &pmem_fops;
@@ -1318,8 +1662,7 @@ int pmem_setup(struct android_pmem_platform_data *pdata,
 		goto error_cant_remap;
 
 	pmem[id].garbage_pfn = page_to_pfn(alloc_page(GFP_KERNEL));
-	if (pmem[id].no_allocator)
-		pmem[id].allocated = 0;
+	pmem[id].cachedpages = 0;
 
 #if PMEM_DEBUG
 	debugfs_create_file(pdata->name, S_IFREG | S_IRUGO, NULL, (void *)id,
