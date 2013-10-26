@@ -690,10 +690,10 @@ LOCAL void Sensor_PowerOn(BOOLEAN power_on)
 	else
 	{
 		if(power_on) {
-			Sensor_PowerDown(power_down);
 			// Open power
 			Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);
 			msleep(10);
+			Sensor_PowerDown(power_down);
 			Sensor_SetMCLK(SENSOR_DEFALUT_MCLK); 
 			msleep(5);
 			Sensor_PowerDown(!power_down);
@@ -736,9 +736,9 @@ LOCAL void Sensor_PowerOn_Ex(uint32_t sensor_id)
 		power_func(1);
 	} else {
 
-			Sensor_PowerDown(power_down);
 			Sensor_SetVoltage(dvdd_val, avdd_val, iovdd_val);
 			msleep(10);
+			Sensor_PowerDown(power_down);
 			Sensor_SetMCLK(SENSOR_DEFALUT_MCLK);
 			msleep(5);
 		
