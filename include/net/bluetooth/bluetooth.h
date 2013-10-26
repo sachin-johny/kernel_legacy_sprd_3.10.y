@@ -178,4 +178,6 @@ extern void bt_sysfs_cleanup(void);
 
 extern struct dentry *bt_debugfs;
 
+bool hci_is_a2dp_device(bdaddr_t *addr);
+
 #endif /* __BLUETOOTH_H */

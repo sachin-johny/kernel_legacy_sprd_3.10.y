@@ -215,7 +215,7 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 	/* Read Buffer Size (ACL mtu, max pkt, etc.) */
 	hci_send_cmd(hdev, HCI_OP_READ_BUFFER_SIZE, 0, NULL);
 
-#if 0
+//#if 0
 	/* Host buffer size */
 	{
 		struct hci_cp_host_buffer_size cp;
@@ -225,7 +225,7 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 		cp.sco_max_pkt = cpu_to_le16(0xffff);
 		hci_send_cmd(hdev, HCI_OP_HOST_BUFFER_SIZE, sizeof(cp), &cp);
 	}
-#endif
+//#endif
 
 	/* Read BD Address */
 	hci_send_cmd(hdev, HCI_OP_READ_BD_ADDR, 0, NULL);
@@ -1351,7 +1351,8 @@ void hci_send_sco(struct hci_conn *conn, struct sk_buff *skb)
 EXPORT_SYMBOL(hci_send_sco);
 
 /* ---- HCI TX task (outgoing data) ---- */
-
+static int file_packet = 0;
+static int wait_count  = 0;
 /* HCI Connection scheduler */
 static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int *quote)
 {
@@ -1359,12 +1360,21 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 	struct hci_conn *conn = NULL;
 	int num = 0, min = ~0;
 	struct list_head *p;
-
+	bool is_a2dp_device_exist = false;
 	/* We don't have to lock device here. Connections are always
 	 * added and removed with TX task disabled. */
 	list_for_each(p, &h->list) {
 		struct hci_conn *c;
 		c = list_entry(p, struct hci_conn, list);
+		if((ACL_LINK == type)&&hci_is_a2dp_device(&c->dst))
+		{
+		    is_a2dp_device_exist = true;
+		    if(! skb_queue_empty(&c->data_q))
+	    	{
+	    		conn = c;
+	    		break;
+	    	}
+		}
 
 		if (c->type != type || skb_queue_empty(&c->data_q))
 			continue;
@@ -1379,13 +1389,50 @@ static inline struct hci_conn *hci_low_sent(struct hci_dev *hdev, __u8 type, int
 			conn = c;
 		}
 	}
+   	if(is_a2dp_device_exist &&type == ACL_LINK)
+	{
 
-	if (conn) {
-		int cnt = (type == ACL_LINK ? hdev->acl_cnt : hdev->sco_cnt);
-		int q = cnt / num;
-		*quote = q ? q : 1;
-	} else
-		*quote = 0;
+		BT_DBG("is a2dp_device_exist %d",is_a2dp_device_exist);
+		if (conn)
+		{
+			int cnt = (type == ACL_LINK ? hdev->acl_cnt : hdev->sco_cnt);
+			int q = cnt;
+			if(hci_is_a2dp_device(&conn->dst))
+			{
+				*quote = q ? q : 1;
+				file_packet = 0;
+				wait_count = 0;
+
+			}else if(wait_count < 1)
+			{
+				*quote = 1;
+				wait_count++;
+			}
+			else
+			{
+				BT_DBG("sleep");
+				// usleep(3);
+			}
+		}
+		else
+		{
+			*quote = 0;
+		}
+	}
+       else
+   	{
+		wait_count = 0;
+		if (conn)
+		{
+			int cnt = (type == ACL_LINK ? hdev->acl_cnt : hdev->sco_cnt);
+			int q = cnt / num;
+			*quote = q ? q : 1;
+		}
+		else
+		{
+			*quote = 0;
+		}
+   	}
 
 	BT_DBG("conn %p quote %d", conn, *quote);
 	return conn;

@@ -201,6 +201,40 @@ static inline int hci_sock_bound_ioctl(struct sock *sk, unsigned int cmd, unsign
 	}
 }
 
+static bdaddr_t a2dp_addr;
+static bool    is_a2dp_exist = false;
+static int hci_save_a2dp_addr(arg)
+{
+   // bdaddr_t dst; 
+    bdaddr_t tmp_addr;
+    int handle;
+
+    if (copy_from_user(&a2dp_addr, arg, sizeof(a2dp_addr)))
+        return -EFAULT;
+    memset(&tmp_addr, 0, sizeof(bdaddr_t));
+
+    if(memcmp(&a2dp_addr, &tmp_addr, sizeof(bdaddr_t)))
+    {
+        is_a2dp_exist = true;
+    }
+    else
+    {
+        is_a2dp_exist = false;
+    }
+
+    return 0;
+}
+
+bool hci_is_a2dp_device(bdaddr_t *addr)
+{
+    bool status;
+
+    status = (is_a2dp_exist && (0 == memcmp(&(a2dp_addr.b[0]), &(addr->b[0]), sizeof(bdaddr_t))));
+
+    return status;
+}
+
+
 static int hci_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
 {
 	struct sock *sk = sock->sk;
@@ -253,6 +287,14 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long a
 
 	case HCIINQUIRY:
 		return hci_inquiry(argp);
+	case SPRDSENDA2DPADDR:
+		BT_DBG("SPRDINTERCMD");
+		if (!capable(CAP_NET_ADMIN))
+			return -EACCES;
+               return hci_save_a2dp_addr(argp);
+        //break;
+
+
 
 	default:
 		lock_sock(sk);
