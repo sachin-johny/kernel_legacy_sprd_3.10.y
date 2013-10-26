@@ -73,6 +73,11 @@ config FB_LCD_SSD2075_MIPI
 	depends on FB_SC8825 || FB_SCX35
 	default n
 
+config FB_LCD_NT51017_MIPI_LVDS
+        boolean "support nt51017 lvds panel"
+        depends on FB_SC8825 || FB_SCX35
+        default n
+
 config FB_LCD_RESERVE_MEM
         boolean "support FB reserve mem"
         depends on FB_SC8825 || FB_SCX35
