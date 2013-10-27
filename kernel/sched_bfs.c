@@ -72,6 +72,10 @@
 #include <asm/tlb.h>
 #include <asm/unistd.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
 #define CREATE_TRACE_POINTS
 #include <trace/events/sched.h>
 
@@ -3003,6 +3007,10 @@ need_resched_nonpreemptible:
 		idle = rq->idle;
 	} else
 		grq_unlock_irq();
+
+#ifdef CONFIG_SPRD_DEBUG
+	sprd_debug_task_log(cpu, rq->curr);
+#endif
 
 rerun_prev_unlocked:
 	if (unlikely(reacquire_kernel_lock(current) < 0)) {
