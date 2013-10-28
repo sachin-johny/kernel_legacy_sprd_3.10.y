@@ -72,6 +72,7 @@ static struct snd_soc_dapm_widget *dapm_find_widget(struct snd_soc_dapm_context
  *
  *  refer to snd_soc_dapm_ignore_suspend
  */
+#if 0
 static int vaudio_dapm_ignore_suspend(struct snd_soc_dapm_context *dapm,
 				      const char *pin, int ignore)
 {
@@ -86,7 +87,7 @@ static int vaudio_dapm_ignore_suspend(struct snd_soc_dapm_context *dapm,
 
 	return 0;
 }
-
+#endif
 static int sprd_vaudio_startup(struct snd_pcm_substream *substream,
 			       struct snd_soc_dai *dai)
 {
