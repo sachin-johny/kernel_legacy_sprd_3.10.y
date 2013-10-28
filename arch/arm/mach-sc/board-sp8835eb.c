@@ -120,6 +120,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_spi1_device,
 	&sprd_spi2_device,
 	&sprd_keypad_device,
+	&sprd_battery_device,
 	&sprd_emmc_device,
 	//&sprd_sdio0_device,
 	//&sprd_sdio1_device,

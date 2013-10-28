@@ -355,6 +355,11 @@ config AB8500_BM
 	help
 	  Say Y to include support for AB8500 battery management.
 
+config SPRD_2713_POWER
+       tristate "Spreadtrum sp2713 SoC's power supply& mesurement controller"
+       help
+        Say Y to include support for Spreadtrum SoC's power supply and
+        mesurement controller driver
 config BATTERY_GOLDFISH
 	tristate "Goldfish battery driver"
 	depends on GENERIC_HARDIRQS

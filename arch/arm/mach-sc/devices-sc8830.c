@@ -548,15 +548,31 @@ static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,
                 .end = EIC_CHARGER_DETECT,
+                .name = "charger_detect",
+                .flags = IORESOURCE_IO,
+        },
+        [1] = {
+                .start = EIC_CHG_CV_STATE,
+                .end = EIC_CHG_CV_STATE,
+                .name = "chg_cv_state",
+                .flags = IORESOURCE_IO,
+        },
+        [2] = {
+                .start = EIC_VCHG_OVI,
+                .end = EIC_VCHG_OVI,
+                .name = "vchg_ovi",
                 .flags = IORESOURCE_IO,
         }
+
 };
+
 struct platform_device sprd_battery_device = {
         .name           = "sprd-battery",
         .id             =  0,
         .num_resources  = ARRAY_SIZE(sprd_battery_resources),
         .resource       = sprd_battery_resources,
 };
+
 
 #if defined(CONFIG_ARCH_SCX15)
 static struct sprd_iommu_init_data sprd_iommu_gsp_data = {

@@ -45,6 +45,7 @@ extern struct platform_device sprd_headset_detect_device;
 extern struct platform_device sprd_headset_button_device;
 #endif
 extern struct platform_device sprd_battery_device;
+extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_jpg_device;
 #ifdef CONFIG_ION
