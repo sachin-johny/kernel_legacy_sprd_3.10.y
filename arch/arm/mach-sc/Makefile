@@ -45,6 +45,7 @@ obj-$(CONFIG_MACH_SP8835EB) += board-sp8835eb.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX35EC) += board-sp8830ec.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8830SSW) += board-sp8830ssw.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730EC) += board-sp7730ec.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP7730ECTRISIM) += board-sp7730ectrisim.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735) += board-sp5735.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735PAD) += board-sp5735pad.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX35FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o dma_r4p0.o
