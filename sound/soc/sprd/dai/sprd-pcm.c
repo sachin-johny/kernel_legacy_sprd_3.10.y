@@ -832,8 +832,8 @@ static int sprd_pcm_preallocate_dma_buffer(struct snd_pcm *pcm, int stream)
 
 static u64 sprd_pcm_dmamask = DMA_BIT_MASK(32);
 static struct snd_dma_buffer *save_p_buf = 0;
-static struct snd_dma_buffer *save_c_buf = 0;
-static struct snd_dma_buffer *save_c23_buf = 0;
+#define VBC_CHAN (2)
+static struct snd_dma_buffer *save_c_buf[VBC_CHAN] = { 0 };
 
 static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 {
@@ -870,38 +870,20 @@ static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 
 	substream = pcm->streams[SNDRV_PCM_STREAM_CAPTURE].substream;
 	if (substream) {
+		int id = cpu_dai->driver->id;
 		struct snd_dma_buffer *buf = &substream->dma_buffer;
-		if (sprd_is_i2s(cpu_dai)) {
+		if (sprd_is_i2s(cpu_dai) || !save_c_buf[id]) {
 			ret = sprd_pcm_preallocate_dma_buffer(pcm,
 							      SNDRV_PCM_STREAM_CAPTURE);
 			if (ret)
 				goto out;
-		} else if (!strcmp(rtd->cpu_dai->name, "vbc")
-			   || !strcmp(rtd->cpu_dai->name, "vaudio")) {
-			if (!save_c_buf) {
-				ret = sprd_pcm_preallocate_dma_buffer(pcm,
-								      SNDRV_PCM_STREAM_CAPTURE);
-				if (ret)
-					goto out;
-				save_c_buf = buf;
-				sp_asoc_pr_dbg("Capture AD01 alloc memery\n");
-			} else {
-				memcpy(buf, save_c_buf, sizeof(*buf));
-				sp_asoc_pr_dbg("Capture AD01 share memery\n");
+			if (!sprd_is_i2s(cpu_dai)) {
+				save_c_buf[id] = buf;
 			}
-		} else if (!strcmp(rtd->cpu_dai->name, "vbc-ad23")
-			   || !strcmp(rtd->cpu_dai->name, "vaudio-ad23")) {
-			if (!save_c23_buf) {
-				ret = sprd_pcm_preallocate_dma_buffer(pcm,
-								      SNDRV_PCM_STREAM_CAPTURE);
-				if (ret)
-					goto out;
-				save_c23_buf = buf;
-				sp_asoc_pr_dbg("Capture AD23 alloc memery\n");
-			} else {
-				memcpy(buf, save_c23_buf, sizeof(*buf));
-				sp_asoc_pr_dbg("capture AD23 share memery\n");
-			}
+			sp_asoc_pr_dbg("Capture alloc memery %d\n", id);
+		} else {
+			memcpy(buf, save_c_buf[id], sizeof(*buf));
+			sp_asoc_pr_dbg("Capture share memery %d\n", id);
 		}
 	}
 out:
@@ -914,6 +896,7 @@ static void sprd_pcm_free_dma_buffers(struct snd_pcm *pcm)
 	struct snd_pcm_substream *substream;
 	struct snd_dma_buffer *buf;
 	int stream;
+	int i;
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -935,11 +918,10 @@ static void sprd_pcm_free_dma_buffers(struct snd_pcm *pcm)
 		if (buf == save_p_buf) {
 			save_p_buf = 0;
 		}
-		if (buf == save_c_buf) {
-			save_c_buf = 0;
-		}
-		if (buf == save_c23_buf) {
-			save_c23_buf = 0;
+		for (i = 0; i < VBC_CHAN; i++) {
+			if (buf == save_c_buf[i]) {
+				save_c_buf[i] = 0;
+			}
 		}
 	}
 }
