@@ -78,6 +78,11 @@ config FB_LCD_NT51017_MIPI_LVDS
         depends on FB_SC8825 || FB_SCX35
         default n
 
+config FB_LCD_HX8369B_MIPI
+	boolean "support hx8369b mipi panel"
+	depends on FB_SC8825 || FB_SCX35
+	default n
+
 config FB_LCD_RESERVE_MEM
         boolean "support FB reserve mem"
         depends on FB_SC8825 || FB_SCX35

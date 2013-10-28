@@ -18,3 +18,4 @@ obj-$(CONFIG_FB_LCD_NT35512_MIPI) += lcd_nt35512_mipi.o
 obj-$(CONFIG_FB_LCD_OTM8018B_MIPI) += lcd_otm_8018b_mipi.o
 obj-$(CONFIG_FB_LCD_SSD2075_MIPI) += lcd_ssd2075_mipi.o
 obj-$(CONFIG_FB_LCD_NT51017_MIPI_LVDS) += lcd_nt51017_mipi_lvds.o
+obj-$(CONFIG_FB_LCD_HX8369B_MIPI) += lcd_hx8369b_mipi.o
