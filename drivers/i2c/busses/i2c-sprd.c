@@ -20,7 +20,6 @@
 #include <linux/i2c.h>
 #include <linux/err.h>
 #include <linux/clk.h>
-
 #include <asm/io.h>
 
 #include <mach/globalregs.h>
@@ -73,6 +72,11 @@
 /*The corresponding bit of I2C_CMD_BUF_CTL register*/
 #define I2C_CTL_CMDBUF_EN	(1 << 0)	/* Enable the cmd buffer mode */
 #define I2C_CTL_CMDBUF_EXEC	(1 << 1)	/* Start to exec the cmd in the cmd buffer */
+
+#ifdef CONFIG_I2C_RESUME_EARLY
+#include <linux/syscore_ops.h>
+static struct platform_device *pdev_chip_i2c[SPRD_I2C_CTL_ID];
+#endif
 
 /* i2c data structure*/
 struct sprd_i2c {
@@ -511,6 +515,9 @@ static int sprd_i2c_probe(struct platform_device *pdev)
 	sprd_i2c_ctl_id[pdev->id] = pi2c;
 	platform_set_drvdata(pdev, pi2c);
 
+#ifdef CONFIG_I2C_RESUME_EARLY
+	pdev_chip_i2c[pdev->id] = pdev;
+#endif
 	return 0;
 
 release_region:
@@ -532,6 +539,10 @@ static int sprd_i2c_remove(struct platform_device *pdev)
 	//release_mem_region(res->start, resource_size(res));
 
 	platform_set_drvdata(pdev, NULL);
+
+#ifdef CONFIG_I2C_RESUME_EARLY
+	pdev_chip_i2c[pdev->id] = NULL;
+#endif
 
 	return 0;
 }
@@ -567,7 +578,7 @@ static int i2c_controller_suspend(struct platform_device *pdev,
 		l2c_saved_regs[pi2c->adap.nr].cmd_buf = __raw_readl(pi2c->membase + I2C_CMD_BUF);
 		l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl = __raw_readl(pi2c->membase + I2C_CMD_BUF_CTL);
 	}
-	if (!IS_ERR(pi2c->clk))
+	if (pi2c && !IS_ERR(pi2c->clk))
 		clk_disable(pi2c->clk);
 	return 0;
 }
@@ -601,6 +612,47 @@ static int i2c_controller_resume(struct platform_device *pdev)
 	}
 	return 0;
 }
+
+#ifdef CONFIG_I2C_RESUME_EARLY
+static int i2c_controller_suspend_late(void)
+{
+	int i;
+	pm_message_t state = {
+		.event = 0
+	};
+
+	for (i = 0; i < ARRAY_SIZE(sprd_i2c_ctl_id); i++) {
+		if (pdev_chip_i2c[i] == NULL)
+			continue;
+		i2c_controller_suspend(pdev_chip_i2c[i], state);
+	}
+
+	return 0;
+}
+
+static void i2c_controller_resume_early(void)
+{
+	int i;
+
+	for (i = 0; i < ARRAY_SIZE(sprd_i2c_ctl_id); i++) {
+		if (pdev_chip_i2c[i] == NULL)
+			continue;
+		i2c_controller_resume(pdev_chip_i2c[i]);
+	}
+}
+
+static struct syscore_ops sprd_i2c_syscore_ops = {
+	.suspend = i2c_controller_suspend_late,
+	.resume = i2c_controller_resume_early,
+};
+
+static int __init sprd_i2c_syscore_init(void)
+{
+	register_syscore_ops(&sprd_i2c_syscore_ops);
+	return 0;
+}
+subsys_initcall(sprd_i2c_syscore_init);
+#endif /* CONFIG_I2C_RESUME_EARLY */
 #else
 #define i2c_controller_suspend	NULL
 #define i2c_controller_resume	NULL
@@ -613,8 +665,10 @@ static struct platform_driver sprd_i2c_driver = {
 		   .owner = THIS_MODULE,
 		   .name = "sprd-i2c",
 		   },
+#ifndef CONFIG_I2C_RESUME_EARLY
 	.suspend = i2c_controller_suspend,
 	.resume = i2c_controller_resume,
+#endif
 };
 
 static int __init sprd_i2c_init(void)
