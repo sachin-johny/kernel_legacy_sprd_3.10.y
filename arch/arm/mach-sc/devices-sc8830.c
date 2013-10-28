@@ -758,6 +758,13 @@ static struct ion_platform_data ion_pdata = {
 #else
 static struct ion_platform_heap ion_pheaps[] = {
                 {
+                        .id     = ION_HEAP_TYPE_SYSTEM,
+                        .type   = ION_HEAP_TYPE_SYSTEM,
+                        .name   = "ion_system_heap",
+//                        .base   = SPRD_ION_BASE,
+//                        .size   = SPRD_ION_SIZE,
+                },
+                {
                         .id     = ION_HEAP_TYPE_CARVEOUT,
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_carveout_heap",
