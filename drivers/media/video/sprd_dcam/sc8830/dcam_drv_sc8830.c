@@ -935,6 +935,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 			dcam_glb_reg_mwr(DCAM_CONTROL, BIT_0, 1 << 0, DCAM_CONTROL_REG); /* Cap force copy */
 			dcam_glb_reg_owr(DCAM_CFG, BIT_0, DCAM_CFG_REG);             /* Enable Path 0 */
 			dcam_glb_reg_mwr(DCAM_CONTROL, BIT_1, 1 << 1, DCAM_CONTROL_REG); /* Cap auto copy, trigger path 0 enable */
+			sci_glb_set(DCAM_EB, CCIR_EB_BIT);
 		} else {
 			dcam_glb_reg_owr(DCAM_CFG, BIT_0, DCAM_CFG_REG);             /* Enable Path 0 */
 		}
@@ -989,6 +990,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_0, 1 << 0, DCAM_CONTROL_REG); /* Cap force copy */
 		//REG_MWR(DCAM_CONTROL, BIT_1, 1 << 1); /* Cap auto  copy */
 		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_2, 1 << 2, DCAM_CONTROL_REG); /* Cap Enable */
+		sci_glb_set(DCAM_EB, CCIR_EB_BIT);
 	}
 	if ((DCAM_PATH_IDX_0 & path_index) && s_p_dcam_mod->dcam_path0.valide) {
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_0, false);
@@ -1058,6 +1060,7 @@ int32_t dcam_stop_cap(void)
 		rtn = down_timeout(&s_p_dcam_mod->rotation_done_sema, DCAM_PATH_TIMEOUT);
 	}
 
+	sci_glb_clr(DCAM_EB, CCIR_EB_BIT);
 	dcam_reset(DCAM_RST_ALL);
 	DCAM_TRACE("DCAM: stop cap, Out \n");
 
