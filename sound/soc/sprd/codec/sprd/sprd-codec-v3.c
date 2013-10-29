@@ -2184,13 +2184,12 @@ const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 /* sprd_codec supported interconnection*/
 static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	/* Power */
+	{"Analog Power", NULL, "VCOM_BUF"},
+	{"Analog Power", NULL, "VBO"},
 	{"DA Clk", NULL, "Analog Power"},
 	{"DA Clk", NULL, "Digital Power"},
 	{"DAC", NULL, "DA Clk"},
-	{"DAC", NULL, "VCOM_BUF"},
-	{"DA Clk", NULL, "VCOM_BUF"},
 
-	{"AD IBUF", NULL, "VCOM_BUF"},
 	{"AD IBUF", NULL, "Analog Power"},
 	{"AD Clk", NULL, "Digital Power"},
 	{"AD Clk", NULL, "AD IBUF"},
@@ -2200,11 +2199,6 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 
 	{"ADCL PGA", NULL, "AD IBUF"},
 	{"ADCR PGA", NULL, "AD IBUF"},
-
-	{"AD Clk", NULL, "VBO"},
-	{"HPL Switch", NULL, "VBO"},
-	{"HPR Switch", NULL, "VBO"},
-	{"EAR Switch", NULL, "VBO"},
 
 	{"HP POP", NULL, "DRV Clk"},
 	{"HPL Switch", NULL, "DRV Clk"},
