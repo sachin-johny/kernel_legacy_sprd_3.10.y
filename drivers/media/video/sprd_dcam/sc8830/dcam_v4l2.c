@@ -2273,7 +2273,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 	int                      ret;
 	uint32_t                 print_len = 0, print_cnt = 0;
 
-	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
+	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);/*need fixme,can't use kmalloc*/
 	if (NULL == reg_buf)
 		return;
 
@@ -2338,7 +2338,7 @@ LOCAL void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		printk("DCAM timeout.\n");
-		sprd_v4l2_print_reg();
+		/*sprd_v4l2_print_reg();*/
 		node.irq_flag = V4L2_TIMEOUT;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
