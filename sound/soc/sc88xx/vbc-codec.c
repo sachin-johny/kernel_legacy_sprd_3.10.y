@@ -738,12 +738,24 @@ void headset_plug_status(int status)
 #endif
 EXPORT_SYMBOL_GPL(headset_plug_status);
 
+static inline int mode_incall(void)
+{
+    return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
+}
+
 void vbc_power_down(unsigned int value)
 {
     int use_delay;
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
     int power_down_force = 0;
 #endif
+
+    printk("audio %s\n", __func__);
+    if ( mode_incall() ) {
+        printk("DSP ctrl audio codec ......\n");
+        return;
+    }
+
 #if !VBC_DYNAMIC_POWER_MANAGEMENT
     if (value != -1) {
         power_down_force = !!(value & VBC_CODEC_POWER_DOWN_FORCE);
@@ -948,10 +960,6 @@ void vbc_power_on(unsigned int value)
 }
 EXPORT_SYMBOL_GPL(vbc_power_on);
 
-static inline int mode_incall(void)
-{
-    return !(__raw_readl(SPRD_VBC_ALSA_CTRL2ARM_REG) & ARM_VB_ACC);
-}
 
 static int vbc_reset(struct snd_soc_codec *codec, int poweron, int check_incall)
 {
