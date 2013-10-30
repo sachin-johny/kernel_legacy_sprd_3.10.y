@@ -49,7 +49,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth);
 
 static unsigned char CTPM_FW[] = {
-#include "Ft5x16_720P_Ver0x0f_app.i"
+
 };
 
 static DEFINE_MUTEX(g_device_mutex);
