@@ -43,7 +43,6 @@ typedef enum {
 #define SENSOR_MAIN_I2C_ADDR                 0x30
 #define SENSOR_SUB_I2C_ADDR                  0x21
 
-#define SENSOR_I2C_ID                        1
 #define SENSOR_I2C_BUST_NB                   7
 
 

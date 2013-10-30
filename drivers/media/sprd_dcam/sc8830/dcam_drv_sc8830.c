@@ -519,7 +519,7 @@ int32_t dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 	return -rtn;
 }
 
-LOCAL int  _dcam_scale_coeff_alloc(void)
+int dcam_scale_coeff_alloc(void)
 {
 	int ret = 0;
 
@@ -533,7 +533,7 @@ LOCAL int  _dcam_scale_coeff_alloc(void)
 	return ret;
 }
 
-LOCAL void  _dcam_scale_coeff_free(void)
+void dcam_scale_coeff_free(void)
 {
 	if (s_dcam_scaling_coeff_addr) {
 		kfree(s_dcam_scaling_coeff_addr);
@@ -579,11 +579,7 @@ int32_t dcam_module_en(void)
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
-		ret = _dcam_scale_coeff_alloc();
-		if (ret) {
-			ret = -DCAM_RTN_MAX;
-			goto fail_exit;
-		}
+
 		DCAM_TRACE("DCAM: dcam_module_en end \n");
 	}
 	DCAM_TRACE("DCAM: dcam_module_en, Out %d \n", s_dcam_users.counter);
@@ -609,7 +605,6 @@ int32_t dcam_module_dis(void)
 		if (ret) {
 			rtn =  -DCAM_RTN_MAX;
 		}
-		_dcam_scale_coeff_free();
 	}
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
@@ -919,7 +914,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
-	DCAM_TRACE("DCAM: start_path: path %d, mode %x path 0,1,2 {%d %d %d} \n",
+	printk("DCAM: start_path: path %d, mode %x path 0,1,2 {%d %d %d} \n",
 		path_index,
 		s_p_dcam_mod->dcam_mode,
 		s_p_dcam_mod->dcam_path0.valide,
@@ -1026,7 +1021,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		}
 	}
 
-	DCAM_TRACE("DCAM: start_path E\n");
+	printk("DCAM: start_path E\n");
 	return -rtn;
 }
 
@@ -1361,6 +1356,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 		uint32_t         tmp = 0;
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
+#if 0
 		if (rect->x > DCAM_CAP_FRAME_WIDTH_MAX ||
 		rect->y > DCAM_CAP_FRAME_HEIGHT_MAX ||
 		rect->w > DCAM_CAP_FRAME_WIDTH_MAX ||
@@ -1368,6 +1364,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 			rtn = DCAM_RTN_CAP_FRAME_SIZE_ERR;
 			return -rtn;
 		}
+#endif
 
 		if (DCAM_CAP_IF_CCIR == cap_desc->interface) {
 			if (DCAM_CAP_MODE_RAWRGB == cap_desc->input_format) {
@@ -1553,10 +1550,13 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		DCAM_TRACE("DCAM: DCAM_PATH0_INPUT_SIZE {%d %d} \n", size->w, size->h);
+#if 0
 		if (size->w > DCAM_PATH_FRAME_WIDTH_MAX ||
 		size->h > DCAM_PATH_FRAME_HEIGHT_MAX) {
 			rtn = DCAM_RTN_PATH_SRC_SIZE_ERR;
-		} else {
+		} else
+#endif
+		 {
 			path->input_size.w = size->w;
 			path->input_size.h = size->h;
 			path->valid_param.input_size = 1;

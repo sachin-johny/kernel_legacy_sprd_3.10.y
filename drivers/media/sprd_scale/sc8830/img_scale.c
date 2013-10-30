@@ -135,14 +135,8 @@ static int img_scale_open(struct inode *node, struct file *pf)
 		pf->private_data = p_user;
 	}
 
-	ret = scale_coeff_alloc();
-	if (0 == ret) {
-		goto open_exit;
-	}
-
 open_fail:
 	atomic_dec(&scale_users);
-open_exit:
 	mutex_unlock(&scale_dev_open_mutex);
 
 	SCALE_TRACE("img_scale_open %d \n", ret);
@@ -178,9 +172,7 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 static int img_scale_release(struct inode *node, struct file *file)
 {
-	if (0 == atomic_dec_return(&scale_users)) {
-		scale_coeff_free();
-	}
+	atomic_dec(&scale_users);
 
 	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
 
@@ -205,7 +197,7 @@ static long img_scale_ioctl(struct file *file,
 
 	if (param_size) {
 		if (copy_from_user(data, (void*)arg, param_size)) {
-			printk("img_scale_ioctl, failed to copy_from_user \n");
+			printk("img_scale_ioctl, failed to copy param \n");
 			ret = -EFAULT;
 			goto exit;
 		}
@@ -213,21 +205,21 @@ static long img_scale_ioctl(struct file *file,
 	if (SCALE_IO_IS_DONE == cmd) {
 		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
 		if (ret) {
-			printk("img_scale_ioctl, failed to down, 0x%x \n", ret);
-			ret = -ERESTARTSYS;
-			goto exit;
+			ret = 0;
+			printk("img_scale_ioctl, failed to down, %d \n", ret);
+			frm_rtn.scale_result = SCALE_PROCESS_SYS_BUSY;
 		} else {
 			if (frm_rtn.type) {
-				SCALE_TRACE("abnormal scale done \n");
 				ret = -1;
-				goto exit;
-			}
-			if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
-				printk("img_scale_ioctl, failed to copy_to_user \n");
-				ret = -EFAULT;
-				goto exit;
+				frm_rtn.scale_result = SCALE_PROCESS_EXIT;
+			} else {
+				frm_rtn.scale_result = SCALE_PROCESS_SUCCESS;
 			}
 		}
+		if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
+			printk("img_scale_ioctl, failed to copy frame info \n");
+		}
+
 	} else {
 		if (cur_task_pid == INVALID_USER_ID) {
 			mutex_lock(&scale_param_cfg_mutex);
@@ -252,7 +244,7 @@ static long img_scale_ioctl(struct file *file,
 
 exit:
 	if (ret) {
-		SCALE_TRACE("img_scale_ioctl, error code 0x%x \n", ret);
+		SCALE_TRACE("img_scale_ioctl, error code %d \n", ret);
 	}
 	return ret;
 
@@ -393,11 +385,17 @@ int __init img_scale_init(void)
 		printk("platform device register Failed \n");
 		return -1;
 	}
+
+	if (scale_coeff_alloc()) {
+		return -1;
+	}
+
 	return 0;
 }
 
 void img_scale_exit(void)
 {
+	scale_coeff_free();
 	platform_driver_unregister(&img_scale_driver);
 }
 

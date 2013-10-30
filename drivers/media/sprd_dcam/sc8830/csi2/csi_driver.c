@@ -7,6 +7,37 @@
 
 static int csi_core_initialized = 0;
 
+static const struct csi_pclk_cfg csi_pclk_setting[CSI_PCLK_CFG_COUNTER] = {
+	{80,    90,   0x00, 4},
+	{90,   100, 0x10, 4},
+	{100, 110, 0x20, 4},
+	{110, 130, 0x01, 6},
+	{130, 140, 0x11, 6},
+	{140, 150, 0x21, 6},
+	{150, 170, 0x02, 9},
+	{170, 180, 0x12, 9},
+	{180, 200, 0x22, 9},
+	{200, 220, 0x03, 10},
+	{220, 240, 0x13, 10},
+	{240, 250, 0x23, 10},
+	{250, 270, 0x04, 13},
+	{270, 300, 0x14, 13},
+	{300, 330, 0x05, 17},
+	{330, 360, 0x15, 17},
+	{360, 400, 0x25, 17},
+	{400, 450, 0x06, 23},
+	{450, 500, 0x16, 23},
+	{500, 550, 0x07, 28},
+	{550, 600, 0x17, 28},
+	{600, 650, 0x08, 33},
+	{650, 700, 0x18, 33},
+	{700, 750, 0x09, 38},
+	{750, 800, 0x19, 38},
+	{800, 850, 0x29, 38},
+	{850, 900, 0x39, 38},
+	{900, 950, 0x0A, 52},
+	{950, 1000, 0x1A, 52}
+};
 
 static void dphy_write(u8 test_code, u8 test_data, u8* test_out)
 {
@@ -55,9 +86,31 @@ static void dphy_cfg_done(void)
 	udelay(1);
 }
 
-void dphy_init(void)
+static void csi_get_pclk_cfg(u32 pclk, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
+{
+	u32 i = 0;
+	int rtn = -1;
+
+	for (i =0 ; i < CSI_PCLK_CFG_COUNTER; i++) {
+		if ( pclk >= csi_pclk_setting[i].pclk_start && pclk < csi_pclk_setting[i].pclk_end) {
+			csi_pclk_cfg_ptr->hsfreqrange = csi_pclk_setting[i].hsfreqrange;
+			csi_pclk_cfg_ptr->hsrxthssettle = csi_pclk_setting[i].hsrxthssettle;
+			rtn = 0;
+			break;
+		}
+	}
+
+	if (rtn) {
+		csi_pclk_cfg_ptr->hsfreqrange = csi_pclk_setting[CSI_PCLK_CFG_COUNTER -2].hsfreqrange;
+		csi_pclk_cfg_ptr->hsrxthssettle = csi_pclk_setting[CSI_PCLK_CFG_COUNTER -2].hsrxthssettle;
+		LOG_ERROR("sensor pclk error : set default !");
+	}
+}
+
+void dphy_init(u32 pclk)
 {
     u8 temp = 0;
+    struct csi_pclk_cfg csi_pclk_cfg_val = {0, 0, 0, 0};
 
     csi_core_write_part(PHY_SHUTDOWNZ,  0, 0, 1);
     csi_core_write_part(DPHY_RSTZ, 0, 0, 1);
@@ -65,17 +118,18 @@ void dphy_init(void)
     udelay(1);
     csi_core_write_part(PHY_TST_CRTL0, 0, PHY_TESTCLR, 1);
     udelay(1);
-
     dphy_cfg_start();
 
+    csi_get_pclk_cfg(pclk, &csi_pclk_cfg_val);
     dphy_write(0x34, 0x14, &temp);
-    dphy_write(0x44, 0x14, &temp);
+    dphy_write(0x44, (((csi_pclk_cfg_val.hsfreqrange & 0x3F) << 1) & 0x7E), &temp);
+    dphy_write(0x75, (0x80 | (csi_pclk_cfg_val.hsrxthssettle & 0x7F)), &temp);
     dphy_write(0x54, 0x14, &temp);
     dphy_write(0x64, 0x14, &temp);
     dphy_write(0x74, 0x14, &temp);
 
     dphy_cfg_done();
-
+   
 }
 
 
