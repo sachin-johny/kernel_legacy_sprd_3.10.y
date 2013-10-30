@@ -1111,6 +1111,13 @@ err_usb_add_function:
 		usb_remove_function(c, config->f_gser[i]);
 	return ret;
 }
+/**
+ *should notice that when adb disable/enable, it will call usb_remove_config/usb_add_config
+ *and in usb_remove_config it will call unbind_config , it will also delete function list and unbind  
+ *the gser function;
+ *in kernel 3.4 no acm_function_unbind_config, so now we don't use gser_function_unbind_config
+ *to avoid kernel data abort. because in current s/w architecture it will delete function list two times.
+ */
 static void gser_function_unbind_config(struct android_usb_function *f,
 				       struct usb_configuration *c)
 {
@@ -1156,7 +1163,7 @@ static struct android_usb_function gser_function = {
 	.init		= gser_function_init,
 	.cleanup	= gser_function_cleanup,
 	.bind_config	= gser_function_bind_config,
-	.unbind_config	= gser_function_unbind_config,
+	//.unbind_config	= gser_function_unbind_config,
 	.ctrlrequest	= gser_function_ctrlrequest,
 	.attributes	= gser_function_attributes,
 };
@@ -1235,7 +1242,7 @@ static struct android_usb_function *supported_functions[] = {
 	&audio_source_function,
 #ifdef CONFIG_USB_SPRD_DWC
 	&vser_function,
-	//&gser_function,
+	&gser_function,
 #else
 	&acm_function,
 #endif
