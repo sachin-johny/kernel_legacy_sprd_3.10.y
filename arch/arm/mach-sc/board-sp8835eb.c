@@ -153,6 +153,33 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&kb_backlight_device,
 	&sprd_a7_pmu_device,
+#ifdef CONFIG_SIPC_TD
+	&sprd_cproc_td_device,
+	&sprd_spipe_td_device,
+	&sprd_slog_td_device,
+	&sprd_stty_td_device,
+	&sprd_seth0_td_device,
+	&sprd_seth1_td_device,
+	&sprd_seth2_td_device,
+	&sprd_saudio_td_device,
+#ifdef CONFIG_SIPC_SPOOL
+	&sprd_spool_td_device,
+#endif
+#endif
+#ifdef CONFIG_SIPC_WCDMA
+	&sprd_cproc_wcdma_device,
+	&sprd_spipe_wcdma_device,
+	&sprd_slog_wcdma_device,
+	&sprd_stty_wcdma_device,
+	&sprd_seth0_wcdma_device,
+	&sprd_seth1_wcdma_device,
+	&sprd_seth2_wcdma_device,
+	&sprd_saudio_wcdma_device,
+#ifdef CONFIG_SIPC_SPOOL
+	&sprd_spool_wcdma_device,
+#endif
+#endif
+	&sprd_saudio_voip_device,
 };
 
 static struct platform_device *late_devices[] __initdata = {

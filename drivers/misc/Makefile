@@ -57,3 +57,4 @@ obj-$(CONFIG_SRAM)		+= sram.o
 
 obj-y		+= sprd_vsp/
 obj-y		+= sprd_jpg/
+obj-y		+= sprd_cproc/

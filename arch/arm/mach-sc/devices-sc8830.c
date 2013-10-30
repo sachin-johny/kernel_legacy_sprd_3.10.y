@@ -18,6 +18,13 @@
 #include <linux/mmc/sdhci.h>
 #include <linux/gpio.h>
 
+#include <linux/sprd_cproc.h>
+#include <linux/sipc.h>
+#include <linux/spipe.h>
+#include <linux/spool.h>
+#include <linux/seth.h>
+#include <linux/stty.h>
+#include <sound/saudio.h>
 #include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
@@ -1139,3 +1146,569 @@ struct platform_device sprd_audio_null_codec_device = {
 	.name		= "null-codec",
 	.id		= -1,
 };
+
+#ifdef CONFIG_SIPC_TD
+
+#define TD_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x50)
+#define TD_REG_RESET_ADDR			(SPRD_PMU_BASE + 0xA8)
+#define TD_REG_STATUS_ADDR			(SPRD_PMU_BASE + 0xBC)
+static int native_tdmodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x300000};
+	memcpy((void *)(SPRD_IRAM1_BASE + 0x1800), cp1data, sizeof(cp1data));
+
+	/* clear cp1 force shutdown */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x02000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+
+	while(1)
+	{
+		state = __raw_readl(TD_REG_STATUS_ADDR);
+		if (!(state & (0xf<<16)))
+			break;
+	}
+
+	/* clear cp1 force deep sleep */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x10000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+
+	/* clear reset cp1 */
+	value = ((__raw_readl(TD_REG_RESET_ADDR) & ~0x00000002));
+	__raw_writel(value, TD_REG_RESET_ADDR);
+	return 0;
+}
+static int native_tdmodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp1 */
+	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x00000002));
+	__raw_writel(value, TD_REG_RESET_ADDR);
+
+	/* cp1 force deep sleep */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) | 0x10000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+
+	/* cp1 force shutdown */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) | 0x02000000));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+	return 0;
+}
+static struct cproc_init_data sprd_cproc_td_pdata = {
+	.devname	= "cpt",
+	.base		= CPT_START_ADDR,
+	.maxsz		= CPT_TOTAL_SIZE,
+	.start		= native_tdmodem_start,
+	.stop 		= native_tdmodem_stop,
+	.wdtirq		= IRQ_CP1_WDG_INT,
+	.segnr		= 2,
+	.segs		= {
+		{
+			.name  = "modem",
+			.base  = CPT_START_ADDR + 0x300000,
+			.maxsz = 0x00800000,
+		},
+		{
+			.name  = "dsp",
+			.base  = CPT_START_ADDR + 0x20000,
+			.maxsz = 0x002E0000,
+		},
+	},
+};
+struct platform_device sprd_cproc_td_device = {
+	.name           = "sprd_cproc",
+	.id             = 0,
+	.dev		= {.platform_data = &sprd_cproc_td_pdata},
+};
+
+static struct spipe_init_data sprd_spipe_td_pdata = {
+	.name		= "spipe_td",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_PIPE,
+	.ringnr		= 9,
+	.txbuf_size	= 4096,
+	.rxbuf_size	= 4096,
+};
+struct platform_device sprd_spipe_td_device = {
+	.name           = "spipe",
+	.id             = 0,
+	.dev		= {.platform_data = &sprd_spipe_td_pdata},
+};
+
+static struct spipe_init_data sprd_slog_td_pdata = {
+	.name		= "slog_td",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_PLOG,
+	.ringnr		= 1,
+	.txbuf_size	= 32*1024,
+	.rxbuf_size	= 256 * 1024,
+};
+struct platform_device sprd_slog_td_device = {
+	.name           = "spipe",
+	.id             = 1,
+	.dev		= {.platform_data = &sprd_slog_td_pdata},
+};
+
+static struct spipe_init_data sprd_stty_td_pdata = {
+	.name		= "stty_td",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_TTY,
+	.ringnr		= 32,
+	.txbuf_size	= 2*1024,
+	.rxbuf_size	= 2*1024,
+};
+struct platform_device sprd_stty_td_device = {
+	.name           = "spipe",
+	.id             = 2,
+	.dev		= {.platform_data = &sprd_stty_td_pdata},
+};
+
+static struct seth_init_data sprd_seth0_td_pdata = {
+	.name		= "seth_td0",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA0,
+	.blocknum	= 128,
+};
+struct platform_device sprd_seth0_td_device = {
+	.name           = "seth",
+	.id             =  0,
+	.dev		= {.platform_data = &sprd_seth0_td_pdata},
+};
+
+static struct seth_init_data sprd_seth1_td_pdata = {
+	.name		= "seth_td1",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA1,
+	.blocknum	= 64,
+};
+struct platform_device sprd_seth1_td_device = {
+	.name           = "seth",
+	.id             =  1,
+	.dev		= {.platform_data = &sprd_seth1_td_pdata},
+};
+
+static struct seth_init_data sprd_seth2_td_pdata = {
+	.name		= "seth_td2",
+	.dst		= SIPC_ID_CPT,
+	.channel	= SMSG_CH_DATA2,
+	.blocknum	= 64,
+};
+struct platform_device sprd_seth2_td_device = {
+	.name           = "seth",
+	.id             =  2,
+	.dev		= {.platform_data = &sprd_seth2_td_pdata},
+};
+
+static struct spool_init_data sprd_spool_td_pdata = {
+	.name 		= "spool_td",
+	.dst 		= SIPC_ID_CPT,
+	.channel 	= SMSG_CH_CTRL,
+	.txblocknum 	= 64,
+	.txblocksize 	= 1516,
+	.rxblocknum 	= 64,
+	.rxblocksize 	= 1516,
+};
+struct platform_device sprd_spool_td_device = {
+	.name 		= "spool",
+	.id 		= 0,
+	.dev 		= {.platform_data = &sprd_spool_td_pdata},
+};
+
+static struct saudio_init_data sprd_saudio_td={
+	"VIRTUAL AUDIO",
+	SIPC_ID_CPT,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
+	SMSG_CH_MONITOR_AUDIO,
+};
+
+struct platform_device sprd_saudio_td_device = {
+	.name       = "saudio",
+	.id         = 0,
+	.dev        = {.platform_data=&sprd_saudio_td},
+};
+
+#endif
+
+#ifdef CONFIG_SIPC_WCDMA
+
+#define WCDMA_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x3C)
+#define WCDMA_REG_RESET_ADDR			(SPRD_PMU_BASE + 0xA8)
+#define WCDMA_REG_STATUS_ADDR			(SPRD_PMU_BASE + 0xB8)
+
+static int native_wcdmamodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+
+	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
+	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
+
+	/* clear cp0 force shutdown */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x02000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	while(1)
+	{
+		state = __raw_readl(WCDMA_REG_STATUS_ADDR);
+		if (!(state & (0xf<<28)))
+			break;
+	}
+
+	/* clear cp0 force deep sleep */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x10000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	/* clear reset cp0 cp1 */
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) & ~0x00000001));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+	return 0;
+}
+static int native_wcdmamodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp0 */
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x00000001));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+
+	/* cp0 force deep sleep */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | ~0x10000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	/* clear cp0 force shutdown */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | ~0x02000000));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	return 0;
+}
+
+static struct cproc_init_data sprd_cproc_wcdma_pdata = {
+	.devname	= "cpw",
+	.base		= CPW_START_ADDR,
+	.maxsz		= CPW_TOTAL_SIZE,
+	.start		= native_wcdmamodem_start,
+	.stop 		= native_wcdmamodem_stop,
+	.wdtirq		= IRQ_CP0_WDG_INT,
+	.segnr		= 2,
+	.segs		= {
+		{
+			.name  = "modem",
+			.base  = CPW_START_ADDR + 0x500000,
+			.maxsz = 0x00800000,
+		},
+		{
+			.name  = "dsp",
+			.base  = CPW_START_ADDR + 0x20000,
+			.maxsz = 0x003E0000,
+		},
+	},
+};
+struct platform_device sprd_cproc_wcdma_device = {
+	.name           = "sprd_cproc",
+	.id             = 1,
+	.dev		= {.platform_data = &sprd_cproc_wcdma_pdata},
+};
+
+
+static struct spipe_init_data sprd_spipe_wcdma_pdata = {
+	.name		= "spipe_w",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_PIPE,
+	.ringnr		= 9,
+	.txbuf_size	= 4096,
+	.rxbuf_size	= 4096,
+};
+struct platform_device sprd_spipe_wcdma_device = {
+	.name           = "spipe",
+	.id             = 3,
+	.dev		= {.platform_data = &sprd_spipe_wcdma_pdata},
+};
+
+static struct spipe_init_data sprd_slog_wcdma_pdata = {
+	.name		= "slog_w",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_PLOG,
+	.ringnr		= 1,
+	.txbuf_size	= 32 * 1024,
+	.rxbuf_size	= 256 * 1024,
+};
+struct platform_device sprd_slog_wcdma_device = {
+	.name           = "spipe",
+	.id             = 4,
+	.dev		= {.platform_data = &sprd_slog_wcdma_pdata},
+};
+
+static struct spipe_init_data sprd_stty_wcdma_pdata = {
+	.name		= "stty_w",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_TTY,
+	.ringnr		= 32,
+	.txbuf_size	= 2*1024,
+	.rxbuf_size	= 2*1024,
+};
+struct platform_device sprd_stty_wcdma_device = {
+	.name           = "spipe",
+	.id             = 5,
+	.dev		= {.platform_data = &sprd_stty_wcdma_pdata},
+};
+
+static struct seth_init_data sprd_seth0_wcdma_pdata = {
+	.name		= "seth_w0",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_DATA0,
+	.blocknum	= 128,
+};
+struct platform_device sprd_seth0_wcdma_device = {
+	.name           = "seth",
+	.id             =  3,
+	.dev		= {.platform_data = &sprd_seth0_wcdma_pdata},
+};
+
+static struct seth_init_data sprd_seth1_wcdma_pdata = {
+	.name		= "seth_w1",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_DATA1,
+	.blocknum	= 64,
+};
+struct platform_device sprd_seth1_wcdma_device = {
+	.name           = "seth",
+	.id             =  4,
+	.dev		= {.platform_data = &sprd_seth1_wcdma_pdata},
+};
+
+static struct seth_init_data sprd_seth2_wcdma_pdata = {
+	.name		= "seth_w2",
+	.dst		= SIPC_ID_CPW,
+	.channel	= SMSG_CH_DATA2,
+	.blocknum	= 64,
+};
+struct platform_device sprd_seth2_wcdma_device = {
+	.name           = "seth",
+	.id             =  5,
+	.dev		= {.platform_data = &sprd_seth2_wcdma_pdata},
+};
+
+static struct spool_init_data sprd_spool_wcdma_pdata = {
+	.name 		= "spool_w",
+	.dst 		= SIPC_ID_CPW,
+	.channel 	= SMSG_CH_CTRL,
+	.txblocknum 	= 64,
+	.txblocksize	= 1516,
+	.rxblocknum 	= 64,
+	.rxblocksize 	= 1516,
+};
+struct platform_device sprd_spool_wcdma_device = {
+	.name 		= "spool",
+	.id 		= 1,
+	.dev 		= {.platform_data = &sprd_spool_wcdma_pdata},
+};
+
+static struct saudio_init_data sprd_saudio_wcdma={
+	"VIRTUAL AUDIO W",
+	SIPC_ID_CPW,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
+	SMSG_CH_MONITOR_AUDIO,
+};
+
+struct platform_device sprd_saudio_wcdma_device = {
+	.name       = "saudio",
+	.id         = 1,
+	.dev        = {.platform_data=&sprd_saudio_wcdma},
+};
+
+#endif
+
+#ifdef CONFIG_SIPC_WCN
+
+#define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x54)
+#define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xA8)
+#define WCN_REG_STATUS_ADDR                    (SPRD_PMU_BASE + 0xC0)
+
+static int native_wcnmodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
+	memcpy(SPRD_IRAM1_BASE + 0x3000, cp2data, sizeof(cp2data));
+
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x02000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	while(1)
+	{
+		state = __raw_readl(WCN_REG_STATUS_ADDR);
+		if (!(state & (0xf<<28)))
+		break;
+	}
+
+	/* clear cp2 force deep sleep */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x10000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	/* clear reset cp2*/
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~0x00000004));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+	return 0;
+}
+static int native_wcnmodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp2 */
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) | 0x00000004));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+
+	/* cp2 force deep sleep */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | ~0x10000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | ~0x02000000));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+	return 0;
+}
+
+static struct cproc_init_data sprd_cproc_wcn_pdata = {
+	.devname        = "cpwcn",
+	.base           = WCN_START_ADDR,
+	.maxsz          = WCN_TOTAL_SIZE,
+	.start          = native_wcnmodem_start,
+	.stop           = native_wcnmodem_stop,
+	.wdtirq         = IRQ_CP2_WDG_INT,
+	.segnr          = 1,
+	.segs           = {
+		{
+		.name  = "modem",
+		.base  = WCN_START_ADDR + 0x60000,
+		.maxsz = 0x00800000,
+		},
+	},
+};
+struct platform_device sprd_cproc_wcn_device = {
+	.name           = "sprd_cproc",
+	.id             = 2,
+	.dev            = {.platform_data = &sprd_cproc_wcn_pdata},
+};
+
+
+static struct spipe_init_data sprd_spipe_wcn_pdata = {
+	.name           = "spipe_wcn",
+	.dst            = SIPC_ID_WCN,
+	.channel        = SMSG_CH_PIPE,
+	.ringnr         = 12,
+	.txbuf_size     = 4096,
+	.rxbuf_size     = 4096,
+};
+struct platform_device sprd_spipe_wcn_device = {
+	.name           = "spipe",
+	.id             = 6,
+	.dev            = {.platform_data = &sprd_spipe_wcn_pdata},
+};
+
+static struct spipe_init_data sprd_slog_wcn_pdata = {
+	.name           = "slog_wcn",
+	.dst            = SIPC_ID_WCN,
+	.channel        = SMSG_CH_PLOG,
+	.ringnr         = 1,
+	.txbuf_size     = 32 * 1024,
+	.rxbuf_size     = 256 * 1024,
+};
+struct platform_device sprd_slog_wcn_device = {
+	.name           = "spipe",
+	.id             = 7,
+	.dev            = {.platform_data = &sprd_slog_wcn_pdata},
+};
+
+static struct stty_init_data sprd_sttybt_td_pdata = {
+	.name		= "sttybt",
+	.dst		= SIPC_ID_WCN,
+	.channel	= SMSG_CH_PIPE,
+	.bufid		= 10,
+};
+struct platform_device sprd_sttybt_td_device = {
+	.name           = "sttybt",
+	.id             = 0,
+	.dev		= {.platform_data = &sprd_sttybt_td_pdata},
+};
+
+#endif
+
+static struct saudio_init_data sprd_saudio_voip={
+	"saudiovoip",
+#ifdef CONFIG_VOIP_CPT
+	SIPC_ID_CPT,
+#else
+	SIPC_ID_CPW,
+#endif
+	SMSG_CH_CTRL_VOIP,
+	SMSG_CH_PLAYBACK_VOIP,
+	SMSG_CH_CAPTURE_VOIP,
+	SMSG_CH_MONITOR_VOIP,
+};
+
+struct platform_device sprd_saudio_voip_device = {
+	.name       = "saudio",
+	.id         = 2,
+	.dev        = {.platform_data=&sprd_saudio_voip},
+};
+
+#define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
+#define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
+
+
+#define AP2CPW_IRQ0_TRIG	0x01
+#define CPW2AP_IRQ0_CLR		0x01
+uint32_t cpw_rxirq_status(void)
+{
+	return 1;
+}
+
+void cpw_rxirq_clear(void)
+{
+	__raw_writel(CPW2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void cpw_txirq_trigger(void)
+{
+	__raw_writel(AP2CPW_IRQ0_TRIG, AP2CP_INT_CTRL);
+}
+
+
+#define AP2CPT_IRQ0_TRIG	0x10
+#define CPT2AP_IRQ0_CLR		0x10
+uint32_t cpt_rxirq_status(void)
+{
+	return 1;
+}
+
+void cpt_rxirq_clear(void)
+{
+	__raw_writel(CPT2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void cpt_txirq_trigger(void)
+{
+	__raw_writel(AP2CPT_IRQ0_TRIG, AP2CP_INT_CTRL);
+}
+
+#define AP2WCN_IRQ0_TRIG	0x100
+#define WCN2AP_IRQ0_CLR		0x100
+uint32_t wcn_rxirq_status(void)
+{
+	return 1;
+}
+
+void wcn_rxirq_clear(void)
+{
+	__raw_writel(WCN2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+}
+
+void wcn_txirq_trigger(void)
+{
+	__raw_writel(AP2WCN_IRQ0_TRIG, AP2CP_INT_CTRL);
+}
+

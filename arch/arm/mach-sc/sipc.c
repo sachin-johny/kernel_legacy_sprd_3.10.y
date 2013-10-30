@@ -25,6 +25,7 @@
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
 
+
 #define SMSG_TXBUF_ADDR		(0)
 #define SMSG_TXBUF_SIZE		(SZ_1K)
 #define SMSG_RXBUF_ADDR		(SMSG_TXBUF_SIZE)
@@ -126,7 +127,7 @@ static int __init sipc_wcn_init(void)
 	smsg_ipc_wcn.txbuf_rdptr = base + SMSG_TXBUF_RDPTR;
 	smsg_ipc_wcn.txbuf_wrptr = base + SMSG_TXBUF_WRPTR;
 
-	smsg_ipc_wcn.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);;
+	smsg_ipc_wcn.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);
 	smsg_ipc_wcn.rxbuf_addr = base + SMSG_RXBUF_ADDR;
 	smsg_ipc_wcn.rxbuf_rdptr = base + SMSG_RXBUF_RDPTR;
 	smsg_ipc_wcn.rxbuf_wrptr = base + SMSG_RXBUF_WRPTR;
@@ -135,7 +136,7 @@ static int __init sipc_wcn_init(void)
 }
 #endif
 
-#ifdef CONFIG_MACH_SPX35EC
+#ifdef CONFIG_SIPC_WCN
 static int __init itm_sblock_init(void)
 {
 	int ret;
@@ -165,6 +166,9 @@ static int __init itm_sblock_init(void)
 static int __init sipc_init(void)
 {
 	uint32_t smem_size = 0;
+
+	smsg_suspend_init();
+
 #ifdef CONFIG_SIPC_TD
 	smem_size += CPT_SMEM_SIZE;
 	sipc_td_init();
