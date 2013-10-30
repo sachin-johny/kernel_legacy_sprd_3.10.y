@@ -137,4 +137,8 @@ obj-$(CONFIG_HYPERV)		+= hv/
 obj-$(CONFIG_PM_DEVFREQ)	+= devfreq/
 
 obj-$(CONFIG_SIPC)		+= sipc/
+
 obj-$(CONFIG_SENSORS)       += sensor/
+
+obj-y += benchmark/
+
