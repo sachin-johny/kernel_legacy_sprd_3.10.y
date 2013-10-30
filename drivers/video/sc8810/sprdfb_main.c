@@ -43,7 +43,7 @@
 */
 
 /* Module parameter to control log level */
-int sprdfb_debug_level = 1;
+int sprdfb_debug_level = 2;
 module_param(sprdfb_debug_level, int, S_IRUSR | S_IWUSR | S_IWGRP | S_IRGRP | S_IROTH); /* rw-rw-r-- */
 MODULE_PARM_DESC(sprdfb_debug_level, "Higher number, more dmesg output");
 

@@ -624,6 +624,14 @@ static int sprd_lcdc_sync(void)
 			          lcdc.vsync_done, msecs_to_jiffies(100));
 	if (!ret) { /* time out */
 		printk(KERN_ERR "lcdc: sprd_lcdc_sync time out!!!!!\n");
+		{/*for debug*/
+			int32_t i;
+			for(i=0;i<320;i+=16){
+				printk("sprdfb: %x: 0x%x, 0x%x, 0x%x, 0x%x\n", i, lcdc_read(i), lcdc_read(i+4), lcdc_read(i+8), lcdc_read(i+12));
+			}
+			printk("**************************************\n");
+			LCDC_PRINT(2, ("sprdfb:[%s],sprd_lcdc_sync 0x20900200 =0x%x\n", __FUNCTION__,__raw_readl(AHB_CTL0)));
+		}
 		lcdc.vsync_done = 1;
 		return -1;
 	}
