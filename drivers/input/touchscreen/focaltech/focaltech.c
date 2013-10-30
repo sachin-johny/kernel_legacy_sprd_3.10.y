@@ -58,7 +58,7 @@
 #endif
 
 #define APK_DEBUG
-#define SPRD_AUTO_UPGRADE
+//#define SPRD_AUTO_UPGRADE
 #define SYSFS_DEBUG
 #define FTS_CTL_IIC
 #include <linux/i2c/focaltech.h>
