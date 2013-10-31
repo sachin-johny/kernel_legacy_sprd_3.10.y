@@ -28,6 +28,12 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
+#if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
+#include <linux/i2c/lis3dh.h>
+#endif
+#if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
+#include <linux/i2c/ltr_558als.h>
+#endif
 //#include <linux/i2c/ft53x6_ts.h>
 //#include <linux/i2c/lis3dh.h>
 //#include <linux/i2c/ltr_558als.h>
