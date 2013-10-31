@@ -37,6 +37,10 @@
 #define SN65DSI83
 //#define CHIPONE
 
+/* MUST define ONLY ONE */
+//#define LINES_ALL_RIGHT
+#define LINES_ONLY_CLK_RIGHT
+//#define LINES_ALL_WRONG // this macro defined only for chipone
 
 
 #define I2CID_BRIDGE                2
@@ -78,9 +82,9 @@ const static __u8 i2c_msg_buf[][2] = {
 		{0x11, 0x00},
 		{0x12, 0x31},
 		{0x13, 0x00},
-#if 0
+#ifdef LINES_ALL_RIGHT
 		{0x18, 0x18},/* all the line is right */
-#else
+#elif defined LINES_ONLY_CLK_RIGHT
         {0x18, 0xF8},/* only clock line is right */
 #endif
 		{0x19, 0x0C},/* 0x00 */
@@ -139,7 +143,13 @@ const static __u8 i2c_msg_buf[][2] = {
 		{0x69, 0x1C},/*0x1F*/
 		{0x6B, 0x22},
 		{0x5C, 0xFF},
+#ifdef LINES_ALL_RIGHT
+        {0x13, 0x10},
+#elif defined LINES_ONLY_CLK_RIGHT
+        {0x13, 0x1F},
+#elif defined LINES_ALL_WRONG
 		{0x13, 0x5F},
+#endif
 		/*{0x10, 0x47},add*/
 		/*{0x2A, 0x31},modify*/
 		/*{0x2E, 0x40},add*/
@@ -332,10 +342,10 @@ static int32_t nt51017_power(struct panel_spec *self, uint8_t power)//0:power do
 	static uint8_t is_requested = 0;
 	
 	if(!is_requested){//should request gpio
-		//if (gpio_request(GPIOID_VDDPWR, "VDDPWR")){
-		//	printk("kernel GPIO%d requeste failed!\n", GPIOID_VDDPWR);
-		//	return 0;
-		//}
+		if (gpio_request(GPIOID_VDDPWR, "VDDPWR")){
+			printk("kernel GPIO%d requeste failed!\n", GPIOID_VDDPWR);
+			return 0;
+		}
 
 		if (gpio_request(GPIOID_LCDPWR, "LCDPWR")){
 			printk("kernel GPIO%d requeste failed!\n", GPIOID_LCDPWR);
@@ -346,11 +356,11 @@ static int32_t nt51017_power(struct panel_spec *self, uint8_t power)//0:power do
 	}
 
 	if (is_requested){
-		//gpio_direction_output(GPIOID_VDDPWR, power);
+		gpio_direction_output(GPIOID_VDDPWR, power);
 		gpio_direction_output(GPIOID_LCDPWR, power);
 
 		if (!power){//power down, should free gpio
-			//gpio_free(GPIOID_VDDPWR);
+			gpio_free(GPIOID_VDDPWR);
 			gpio_free(GPIOID_LCDPWR);
 			is_requested = 0;
 		}
