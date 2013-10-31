@@ -970,4 +970,16 @@ config TOUCHSCREEN_ZINITIX_BT404
           To compile this driver as a module, choose M here: the
           module will be called zinitix_touch_bt404.c.
 
+config TOUCHSCREEN_MMS136
+	tristate "MMS136 touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you want to support MMS136 based touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here:the module
+	  be called mms136_ts
+
 endif

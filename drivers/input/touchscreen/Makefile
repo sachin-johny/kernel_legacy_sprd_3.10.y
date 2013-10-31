@@ -79,3 +79,4 @@ obj-$(CONFIG_TOUCHSCREEN_FOCALTECH)     += focaltech/
 obj-$(CONFIG_TOUCHSCREEN_GOODIX)    += goodix/
 obj-$(CONFIG_TOUCHSCREEN_ZINITIX_BT404)	+= zinitix_touch_bt404.o
 obj-$(CONFIG_TOUCHSCREEN_SC8810) += tp_sprd.o
+obj-$(CONFIG_TOUCHSCREEN_MMS136)    += mms136_ts.o
