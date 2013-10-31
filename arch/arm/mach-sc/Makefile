@@ -43,6 +43,7 @@ obj-$(CONFIG_MACH_SPX35EA) += board-sp8830ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX35EB) += board-sp8830eb.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8835EB) += board-sp8835eb.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX35EC) += board-sp8830ec.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP8830SSW) += board-sp8830ssw.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730EC) += board-sp7730ec.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735) += board-sp5735.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735PAD) += board-sp5735pad.o dma_r4p0.o
