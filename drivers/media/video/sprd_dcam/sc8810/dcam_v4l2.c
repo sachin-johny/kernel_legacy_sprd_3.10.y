@@ -1707,35 +1707,43 @@ void vidioc_get_exif(JINF_EXIF_INFO_T *exif_ptr, uint32_t size)
 }
 
 
-#define PMEM_BASE_PHY_ADDR 		SPRD_PMEM_BASE 
-#define PMEM_SIZE  					SPRD_IO_MEM_SIZE
-#define GET_VA(base, pmem_ptr) 		(base-PMEM_BASE_PHY_ADDR+pmem_ptr)
-
+#define CAMERA_EXIF_SIZE	64*1024
 /* Use querymenu to get jpeg exif info */
 static int vidioc_querymenu(struct file *file, void *priv, struct v4l2_querymenu *qm)
 {
-	uint32_t p_memptr;
 	uint32_t size;
+	int32_t ret = 0;
+	uint8_t *pdata = NULL;
+
 
 	printk("V4l2:vidioc_querymenu start \n");
 
 	size = qm->index;
-	printk("V4l2 pmem base 0x%x \n", PMEM_BASE_PHY_ADDR);
-	p_memptr = (unsigned int)ioremap(PMEM_BASE_PHY_ADDR, PMEM_SIZE);
-	printk("V4l2:p_memptr addr 0x&x \n", p_memptr);
-	if (NULL == p_memptr) 
-	{
-		printk("V4L2: vidioc_querymenu error ####: Can't ioremap for PMEM_BASE_PHY_ADDR!\n");
-		return -ENOMEM;
+
+
+	printk("V4l2:vidioc_querymenu size=%d,id=0x%x \n",size,qm->id);
+
+	if (size > CAMERA_EXIF_SIZE) {
+		size = CAMERA_EXIF_SIZE;
 	}
 
-	g_dc_exif_info_ptr = (JINF_EXIF_INFO_T*)GET_VA(qm->id, p_memptr);
+	pdata = kmalloc(size, GFP_KERNEL);
+	if (pdata) {
+		g_dc_exif_info_ptr = (JINF_EXIF_INFO_T*)pdata;
+		vidioc_get_exif(g_dc_exif_info_ptr, size);
 
-	printk("V4l2:vidioc_querymenu set: id=%x, index = %x, g_dc_exif_info_ptr=%x \n",  qm->id, qm->index, (uint32_t)g_dc_exif_info_ptr);
-
-	vidioc_get_exif(g_dc_exif_info_ptr, size);
-
-	iounmap(p_memptr);
+		ret = copy_to_user(qm->id,pdata,size);
+		if (ret) {
+			printk("V4l2:vidioc_querymenu copy_to_user fail ret=%d \n",ret);
+		}
+		if (pdata) {
+			kfree(pdata);
+			pdata = NULL;
+		}
+	} else {
+		printk("V4l2:vidioc_querymenu malloc fail size=%d \n",size);
+		return -ENOMEM;
+	}
 
 	return 0;
 }
