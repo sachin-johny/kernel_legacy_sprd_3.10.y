@@ -955,10 +955,52 @@ void sc_default_idle(void)
 	local_irq_enable();
 	return;
 }
+/*config dcdc core deep sleep voltage*/
+static void dcdc_core_ds_config(void)
+{
+	u32 dcdc_core_ctl_adi = 0;
+	u32 val = 0;
+	u32 dcdc_core_ctl_ds = -1;
+	dcdc_core_ctl_adi = sci_adi_read(ANA_REG_GLB_DCDC_CORE_ADI);
+	dcdc_core_ctl_adi = dcdc_core_ctl_adi >> 0x5;
+	dcdc_core_ctl_adi = dcdc_core_ctl_adi & 0x7;
+	/*only support dcdc_core_ctl_adi 0.9v,1.0v, 1.1v, 1.2v, 1.3v*/
+	switch(dcdc_core_ctl_adi) {
+	case 0://1.1v
+		dcdc_core_ctl_ds = 0x3; //0.9v
+		break;
+	case 4: //1.0v
+		dcdc_core_ctl_ds = 0x2;//0.8v
+		break;
+	case 6: //1.2v
+		dcdc_core_ctl_ds = 0x4;//1.0v
+		break;
+	case 7: //1.3v
+		dcdc_core_ctl_ds = 0x0;//1.1v
+		break;
+	case 3: //0.9v
+		dcdc_core_ctl_ds = 0x1;//0.7v
+		break;
+	case 1: //0.7v
+	case 2: //0.8v
+	case 5: //0.65v
+		//unvalid value
+		break;
+	}
+	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n", dcdc_core_ctl_adi, dcdc_core_ctl_ds);
+	/*valid value*/
+	if(dcdc_core_ctl_ds != -1) {
+		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
+		val &= ~(0x7);
+		val |= dcdc_core_ctl_ds;
+		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
+	}
+}
 void pm_ana_ldo_config(void)
 {
 	/*set vddcore deep sleep voltage to 0.9v*/
-	sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
+	//sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
+	dcdc_core_ds_config();
 	/*open vddcore lp VDDMEM, DCDCGEN mode*/
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_DCDCCORE_LP_EN | BIT_SLP_DCDCMEM_LP_EN | BIT_SLP_DCDCGEN_LP_EN);
 	/*open vdd28, vdd18 lp mode*/
@@ -1005,7 +1047,6 @@ static void sc8830_machine_restart(char mode, const char *cmd)
 
 	while (1);
 }
-
 void sc_pm_init(void)
 {
 	
