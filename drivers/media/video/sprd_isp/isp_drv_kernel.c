@@ -220,7 +220,7 @@ static int32_t _isp_module_eb(void)
 	int32_t ret = 0;
 
 
-	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", (uint32_t)ISP_CORE_CLK_EB, (uint32_t)ISP_MODULE_EB);
+//	ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", (uint32_t)ISP_CORE_CLK_EB, (uint32_t)ISP_MODULE_EB);
 
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 
