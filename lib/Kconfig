@@ -98,10 +98,10 @@ config ZLIB_DEFLATE
 	tristate
 
 config LZO_COMPRESS
-	tristate "lzo compress"
+	tristate
 
 config LZO_DECOMPRESS
-	 tristate "lzo compress"
+	tristate
 
 #
 # These all provide a common interface (hence the apparent duplication with
