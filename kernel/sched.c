@@ -2984,7 +2984,7 @@ calc_load(unsigned long load, unsigned long exp, unsigned long active)
  * calc_load - update the avenrun load estimates 10 ticks after the
  * CPUs have updated calc_load_tasks.
  */
-void calc_global_load(unsigned long ticks)
+void calc_global_load(void)
 {
 	unsigned long upd = calc_load_update + 10;
 	long active;
@@ -4982,9 +4982,9 @@ void __sched io_schedule(void)
 
 	delayacct_blkio_start();
 	atomic_inc(&rq->nr_iowait);
-	current->sched_in_iowait = 1;
+	current->in_iowait = 1;
 	schedule();
-	current->sched_in_iowait = 0;
+	current->in_iowait = 0;
 	atomic_dec(&rq->nr_iowait);
 	delayacct_blkio_end();
 }
@@ -4997,9 +4997,9 @@ long __sched io_schedule_timeout(long timeout)
 
 	delayacct_blkio_start();
 	atomic_inc(&rq->nr_iowait);
-	current->sched_in_iowait = 1;
+	current->in_iowait = 1;
 	ret = schedule_timeout(timeout);
-	current->sched_in_iowait = 0;
+	current->in_iowait = 0;
 	atomic_dec(&rq->nr_iowait);
 	delayacct_blkio_end();
 	return ret;
