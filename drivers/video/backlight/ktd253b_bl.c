@@ -42,7 +42,11 @@
 //#include <linux/broadcom/PowerManager.h>
 
 int current_intensity;
+#ifdef CONFIG_MACH_SP8830SSW
+static int backlight_pin = 214;
+#else
 static int backlight_pin = 136;
+#endif
 
 static DEFINE_SPINLOCK(bl_ctrl_lock);
 static int lcd_brightness = 0;

@@ -326,7 +326,8 @@ static void mms_ts_vdd_enable(bool on)
 	static struct regulator *ts_vdd = NULL;
 
 	if (ts_vdd == NULL) {
-		ts_vdd = regulator_get(NULL, "vdd_tsp");
+		ts_vdd = regulator_get(NULL, "vddsim2");
+
 		if (IS_ERR(ts_vdd)) {
 			pr_err("Get regulator of TSP error!\n");
 			return;
