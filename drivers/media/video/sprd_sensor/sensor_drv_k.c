@@ -54,10 +54,23 @@
 
 #if defined(CONFIG_ARCH_SCX35)
 
-#define REGU_NAME_CAMAVDD    "vddcama"
 #define REGU_NAME_CAMVIO     "vddcamio"
+
+#if defined(CONFIG_MACH_SP8830SSW)
+//#ifdef CONFIG_CAMERA_POWER_SUB_CAMDVDD_18V
+#define REGU_NAME_CAMMOT       "vddcammot"
+#define REGU_NAME_SUB_CAMDVDD  "vvt_1.8"
+#define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
+#define REGU_NAME_CAMDVDD	"RT5033_REGULATORDCDC1"
+#else
+#define REGU_NAME_CAMMOT       "vddcammot"
+#define REGU_NAME_SUB_CAMDVDD  "vddcamd"
+#define GPIO_SUB_SENSOR_RESET        GPIO_SENSOR_RESET
+//#endif
+#define REGU_NAME_CAMAVDD    "vddcama"
 #define REGU_NAME_CAMDVDD    "vddcamd"
-#define REGU_NAME_CAMMOT     "vddcammot"
+#endif
+
 #define SENSOR_CLK           "clk_sensor"
 
 #else
@@ -918,6 +931,33 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
+
+#if defined(CONFIG_MACH_SP8830SSW)  //change sub camera reset  ao.sun 20130828
+       SENSOR_PRINT("SENSOR:_Sensor_K_Reset, reset_val=%d  camera:%d (0:main 1:sub)\n",level, Sensor_K_GetCurId());
+ 
+       switch (Sensor_K_GetCurId()) {
+               case SENSOR_MAIN:
+               {
+                               gpio_direction_output(GPIO_SENSOR_RESET, level);
+                               gpio_set_value(GPIO_SENSOR_RESET, level);
+                               SLEEP_MS(width);
+                               gpio_set_value(GPIO_SENSOR_RESET, !level);
+                               mdelay(1);
+                               break;
+               }
+               case SENSOR_SUB:
+               {
+                               gpio_direction_output(GPIO_SUB_SENSOR_RESET, level);
+                               gpio_set_value(GPIO_SUB_SENSOR_RESET, level);
+                               SLEEP_MS(width);
+                               gpio_set_value(GPIO_SUB_SENSOR_RESET, !level);
+                               mdelay(1);
+                               break;
+               }
+               default:
+                       break;
+       }
+#else
 	SENSOR_PRINT_HIGH("sensor rst, lvl %d w %d.\n", level, width);
 
 	gpio_direction_output(GPIO_SENSOR_RESET, level);
@@ -925,7 +965,7 @@ LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 	SLEEP_MS(width);
 	gpio_set_value(GPIO_SENSOR_RESET, !level);
 	mdelay(1);
-
+#endif
 	return SENSOR_K_SUCCESS;
 }
 
@@ -1075,17 +1115,49 @@ LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 	switch (flash_mode) {
 	case 1:        /*flash on */
 	case 2:        /*for torch */
+#if defined(CONFIG_MACH_SP8830SSW)
+               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
+               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
+               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
+               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
+
+#else
 		/*low light */
 		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_LOW_VAL); // 0x3 = 110ma
+#endif
 		break;
 	case 0x11:
+#if defined(CONFIG_MACH_SP8830SSW)
+               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
+               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
+               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
+               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
+               SLEEP_MS(10);
+               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
+               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
+               SLEEP_MS(10);
+               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
+               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
+               SLEEP_MS(10);
+               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
+               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
+
+#else
 		/*high light */
 		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_HIGH_VAL); // 0xf = 470ma
+#endif
 		break;
 	case 0x10:     /*close flash */
 	case 0x0:
+#if defined(CONFIG_MACH_SP8830SSW)
+		gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
+               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
+               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
+               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
+#else
 		/*close the light */
 		sci_adi_clr(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT);
+#endif
 		break;
 	default:
 		SENSOR_PRINT_HIGH("_Sensor_K_SetFlash unknow mode:flash_mode 0x%x \n", flash_mode);
