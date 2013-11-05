@@ -47,7 +47,9 @@
 #endif
 
 #include <linux/swap.h>
-
+#ifdef CONFIG_ANDROID_OOM_NOTIFY
+extern int oom_notify_enable;
+#endif
 static uint32_t lowmem_debug_level = 2;
 
 #ifdef CONFIG_ZRAM
@@ -433,6 +435,16 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 			     selected_oom_adj, selected_tasksize);
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
+#ifdef CONFIG_ANDROID_OOM_NOTIFY
+		//printk("oom:  selected->signal->oom_adj %d\n",selected->signal->oom_adj);
+		if(oom_notify_enable && ( selected->signal->oom_adj == 0))
+		{
+			char comm[TASK_COMM_LEN+1]={0};
+			//printk("the current process will be kill for oom\n");
+			memcpy(comm,selected->comm, TASK_COMM_LEN);
+			do_mm_report(comm);
+		}
+#endif
 		force_sig(SIGKILL, selected);
 		if(selected->pid == last_killed_pid && selected->signal->oom_adj > 2) {
 			selected->signal->oom_adj--;
