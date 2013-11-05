@@ -378,8 +378,12 @@ void sprdchg_set_chg_cur(uint32_t chg_current)
 	if (chg_current < SPRDBAT_CHG_CUR_LEVEL_MIN) {
 		chg_current = SPRDBAT_CHG_CUR_LEVEL_MIN;
 	}
-
-	temp = ((chg_current - 300) / 50);
+	if (chg_current < 1400) {
+		temp = ((chg_current - 300) / 50);
+	} else {
+		temp = ((chg_current - 1400) / 100);
+		temp += 0x16;
+	}
 
 	sci_adi_clr(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 
