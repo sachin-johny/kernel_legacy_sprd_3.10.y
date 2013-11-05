@@ -247,7 +247,7 @@ static int sprd_kpled_probe(struct platform_device *dev)
 	register_early_suspend(&led->early_suspend);
 #endif
 
-	led->value = 15;//set default brightness
+	led->value = 5;//set default brightness
 	led->enabled = 1;
 	led->suspend = 0;
 	schedule_work(&led->work);

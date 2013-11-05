@@ -2194,8 +2194,7 @@ CONFIG_LEDS_CLASS=y
 # CONFIG_LEDS_OT200 is not set
 # CONFIG_LEDS_BLINKM is not set
 # CONFIG_LEDS_SC8810_KB is not set
-# CONFIG_LEDS_SPRD_KB is not set
-
+CONFIG_LEDS_SPRD_KB=y
 #
 # LED Triggers
 #
