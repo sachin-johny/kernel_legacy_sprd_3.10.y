@@ -18,9 +18,9 @@
 #include <linux/irq.h>
 #include <linux/bitmap.h>
 
-#include <linux/iio/iio.h>
-#include <linux/iio/trigger_consumer.h>
-#include <linux/iio/kfifo_buf.h>
+#include "iio.h"
+#include "trigger_consumer.h"
+#include "kfifo_buf.h"
 
 #include "iio_simple_dummy.h"
 
@@ -37,7 +37,7 @@ static const s16 fakedata[] = {
  * @irq: the interrupt number
  * @p: private data - always a pointer to the poll func.
  *
- * This is the guts of buffered capture. On a trigger event occurring,
+ * This is the guts of buffered capture. On a trigger event occuring,
  * if the pollfunc is attached then this handler is called as a threaded
  * interrupt (and hence may sleep). It is responsible for grabbing data
  * from the device and pushing it into the associated buffer.
@@ -46,12 +46,16 @@ static irqreturn_t iio_simple_dummy_trigger_h(int irq, void *p)
 {
 	struct iio_poll_func *pf = p;
 	struct iio_dev *indio_dev = pf->indio_dev;
+	struct iio_buffer *buffer = indio_dev->buffer;
 	int len = 0;
-	u16 *data;
-
-	data = kmalloc(indio_dev->scan_bytes, GFP_KERNEL);
+	/*
+	 * The datasize is obtained from the buffer. It was stored when
+	 * the preenable setup function was called.
+	 */
+	size_t datasize = buffer->access->get_bytes_per_datum(buffer);
+	u16 *data = kmalloc(datasize, GFP_KERNEL);
 	if (data == NULL)
-		goto done;
+		return -ENOMEM;
 
 	if (!bitmap_empty(indio_dev->active_scan_mask, indio_dev->masklength)) {
 		/*
@@ -60,37 +64,37 @@ static irqreturn_t iio_simple_dummy_trigger_h(int irq, void *p)
 		 *   up a fast read.  The capture will consist of all of them.
 		 *   Hence we just call the grab data function and fill the
 		 *   buffer without processing.
-		 * software scans: can be considered to be random access
+		 * sofware scans: can be considered to be random access
 		 *   so efficient reading is just a case of minimal bus
 		 *   transactions.
 		 * software culled hardware scans:
 		 *   occasionally a driver may process the nearest hardware
 		 *   scan to avoid storing elements that are not desired. This
-		 *   is the fiddliest option by far.
-		 * Here let's pretend we have random access. And the values are
+		 *   is the fidliest option by far.
+		 * Here lets pretend we have random access. And the values are
 		 * in the constant table fakedata.
 		 */
 		int i, j;
 		for (i = 0, j = 0;
 		     i < bitmap_weight(indio_dev->active_scan_mask,
 				       indio_dev->masklength);
-		     i++, j++) {
-			j = find_next_bit(indio_dev->active_scan_mask,
-					  indio_dev->masklength, j);
-			/* random access read from the 'device' */
+		     i++) {
+			j = find_next_bit(buffer->scan_mask,
+					  indio_dev->masklength, j + 1);
+			/* random access read form the 'device' */
 			data[i] = fakedata[j];
 			len += 2;
 		}
 	}
-	/* Store the timestamp at an 8 byte aligned offset */
-	if (indio_dev->scan_timestamp)
-		*(s64 *)((u8 *)data + ALIGN(len, sizeof(s64)))
+	/* Store a timestampe at an 8 byte boundary */
+	if (buffer->scan_timestamp)
+		*(s64 *)(((phys_addr_t)data + len
+				+ sizeof(s64) - 1) & ~(sizeof(s64) - 1))
 			= iio_get_time_ns();
-	iio_push_to_buffers(indio_dev, (u8 *)data);
+	buffer->access->store_to(buffer, (u8 *)data, pf->timestamp);
 
 	kfree(data);
 
-done:
 	/*
 	 * Tell the core we are done with this trigger and ready for the
 	 * next one.
@@ -125,8 +129,7 @@ static const struct iio_buffer_setup_ops iio_simple_dummy_buffer_setup_ops = {
 	.predisable = &iio_triggered_buffer_predisable,
 };
 
-int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev,
-	const struct iio_chan_spec *channels, unsigned int num_channels)
+int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev)
 {
 	int ret;
 	struct iio_buffer *buffer;
@@ -155,7 +158,7 @@ int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev,
 	 * occurs, this function is run. Typically this grabs data
 	 * from the device.
 	 *
-	 * NULL for the bottom half. This is normally implemented only if we
+	 * NULL for the top half. This is normally implemented only if we
 	 * either want to ping a capture now pin (no sleeping) or grab
 	 * a timestamp as close as possible to a data ready trigger firing.
 	 *
@@ -182,15 +185,8 @@ int iio_simple_dummy_configure_buffer(struct iio_dev *indio_dev,
 	 * driven by a trigger.
 	 */
 	indio_dev->modes |= INDIO_BUFFER_TRIGGERED;
-
-	ret = iio_buffer_register(indio_dev, channels, num_channels);
-	if (ret)
-		goto error_dealloc_pollfunc;
-
 	return 0;
 
-error_dealloc_pollfunc:
-	iio_dealloc_pollfunc(indio_dev->pollfunc);
 error_free_buffer:
 	iio_kfifo_free(indio_dev->buffer);
 error_ret:
@@ -204,7 +200,6 @@ error_ret:
  */
 void iio_simple_dummy_unconfigure_buffer(struct iio_dev *indio_dev)
 {
-	iio_buffer_unregister(indio_dev);
 	iio_dealloc_pollfunc(indio_dev->pollfunc);
 	iio_kfifo_free(indio_dev->buffer);
 }

@@ -1,4 +1,4 @@
-#include <linux/iio/sysfs.h>
+#include "../sysfs.h"
 
 /* metering ic types of attribute */
 

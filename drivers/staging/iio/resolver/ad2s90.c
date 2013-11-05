@@ -16,8 +16,8 @@
 #include <linux/sysfs.h>
 #include <linux/module.h>
 
-#include <linux/iio/iio.h>
-#include <linux/iio/sysfs.h>
+#include "../iio.h"
+#include "../sysfs.h"
 
 struct ad2s90_state {
 	struct mutex lock;
@@ -55,16 +55,15 @@ static const struct iio_chan_spec ad2s90_chan = {
 	.type = IIO_ANGL,
 	.indexed = 1,
 	.channel = 0,
-	.info_mask_separate = BIT(IIO_CHAN_INFO_RAW),
 };
 
-static int ad2s90_probe(struct spi_device *spi)
+static int __devinit ad2s90_probe(struct spi_device *spi)
 {
 	struct iio_dev *indio_dev;
 	struct ad2s90_state *st;
 	int ret = 0;
 
-	indio_dev = iio_device_alloc(sizeof(*st));
+	indio_dev = iio_allocate_device(sizeof(*st));
 	if (indio_dev == NULL) {
 		ret = -ENOMEM;
 		goto error_ret;
@@ -93,15 +92,15 @@ static int ad2s90_probe(struct spi_device *spi)
 	return 0;
 
 error_free_dev:
-	iio_device_free(indio_dev);
+	iio_free_device(indio_dev);
 error_ret:
 	return ret;
 }
 
-static int ad2s90_remove(struct spi_device *spi)
+static int __devexit ad2s90_remove(struct spi_device *spi)
 {
 	iio_device_unregister(spi_get_drvdata(spi));
-	iio_device_free(spi_get_drvdata(spi));
+	iio_free_device(spi_get_drvdata(spi));
 
 	return 0;
 }
@@ -118,7 +117,7 @@ static struct spi_driver ad2s90_driver = {
 		.owner = THIS_MODULE,
 	},
 	.probe = ad2s90_probe,
-	.remove = ad2s90_remove,
+	.remove = __devexit_p(ad2s90_remove),
 	.id_table = ad2s90_id,
 };
 module_spi_driver(ad2s90_driver);

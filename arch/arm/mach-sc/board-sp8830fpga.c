@@ -416,8 +416,8 @@ static struct mpu_platform_data mpu9150_platform_data = {
 	.sec_slave_id = COMPASS_ID_AK8963,
 	.secondary_i2c_addr = 0x0C,
 	.secondary_orientation = { 0, -1, 0,
-					1, 0, 0,
-					0, 0, 1 },
+					-1, 0, 0,
+					0, 0, -1 },
 	.key = {0xec, 0x06, 0x17, 0xdf, 0x77, 0xfc, 0xe6, 0xac,
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
