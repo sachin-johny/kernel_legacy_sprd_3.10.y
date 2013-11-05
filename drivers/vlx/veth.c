@@ -422,7 +422,7 @@ veth_rx_xirq (void* cookie, NkXIrq xirq)
 #endif
 	skb->dev       = veth->netdev;
 	skb->protocol  = eth_type_trans (skb, veth->netdev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+	skb->ip_summed = CHECKSUM_NONE;
 
 	veth->stats.rx_packets++;
 	veth->stats.rx_bytes += skb->len;
