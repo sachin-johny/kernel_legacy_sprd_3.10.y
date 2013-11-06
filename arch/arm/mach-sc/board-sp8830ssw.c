@@ -344,6 +344,10 @@ static void mms_ts_vdd_enable(bool on)
 
 static void touchkey_led_vdd_enable(bool on)
 {
+
+	printk("%s touchkey led dont goto suspend! \n",__FUNCTION__);
+	return;
+
 	static struct regulator *keyled_vdd = NULL;
 
 	if (keyled_vdd == NULL) {
