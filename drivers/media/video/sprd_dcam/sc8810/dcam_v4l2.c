@@ -1708,12 +1708,14 @@ void vidioc_get_exif(JINF_EXIF_INFO_T *exif_ptr, uint32_t size)
 
 
 #define CAMERA_EXIF_SIZE	64*1024
+uint8_t *p_exif_data = NULL;
+
 /* Use querymenu to get jpeg exif info */
 static int vidioc_querymenu(struct file *file, void *priv, struct v4l2_querymenu *qm)
 {
 	uint32_t size;
 	int32_t ret = 0;
-	uint8_t *pdata = NULL;
+
 
 
 	printk("V4l2:vidioc_querymenu start \n");
@@ -1727,18 +1729,14 @@ static int vidioc_querymenu(struct file *file, void *priv, struct v4l2_querymenu
 		size = CAMERA_EXIF_SIZE;
 	}
 
-	pdata = kmalloc(size, GFP_KERNEL);
-	if (pdata) {
-		g_dc_exif_info_ptr = (JINF_EXIF_INFO_T*)pdata;
+	if (p_exif_data) {
+		g_dc_exif_info_ptr = (JINF_EXIF_INFO_T*)p_exif_data;
 		vidioc_get_exif(g_dc_exif_info_ptr, size);
 
-		ret = copy_to_user(qm->id,pdata,size);
+		ret = copy_to_user(qm->id,p_exif_data,size);
 		if (ret) {
 			printk("V4l2:vidioc_querymenu copy_to_user fail ret=%d \n",ret);
-		}
-		if (pdata) {
-			kfree(pdata);
-			pdata = NULL;
+			return -EIO;
 		}
 	} else {
 		printk("V4l2:vidioc_querymenu malloc fail size=%d \n",size);
@@ -2973,6 +2971,15 @@ int dcam_probe(struct platform_device *pdev)
 
 	mutex_init(lock);	
 
+	if (!p_exif_data) {
+		p_exif_data = kmalloc(CAMERA_EXIF_SIZE, GFP_KERNEL);
+		if (!p_exif_data) {
+			printk("###DCAM:dcam_probe malloc fail size=%d\n",CAMERA_EXIF_SIZE);
+		}
+	} else {
+		printk("###DCAM:dcam_probe fail exif exist\n");
+	}
+
 	printk(KERN_ALERT "dcam_probe Success.\n");
 
 	return 0;
@@ -2982,6 +2989,12 @@ int dcam_probe(struct platform_device *pdev)
 static int dcam_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "dcam_remove called !\n");
+
+	if (p_exif_data) {
+		kfree(p_exif_data);
+		p_exif_data = NULL;
+		printk("###DCAM:dcam_remove free p_exif_data.\n");
+	}
 
 	misc_deregister(&dcam_v4l2_dev);
 
