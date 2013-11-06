@@ -41,6 +41,7 @@
 #include <linux/dma-mapping.h>
 
 #include <mach/hardware.h>
+#include <linux/sprd_2351.h>
 
 
 #define CGX_PLATFORM_NAME "SPRD_FPGA_FPGA"
@@ -54,27 +55,15 @@
 #define NUMBER_64K                      (64*1024)
 
 
-#define MAX_DMA_CHUNK_SIZE				(0x80000)  // 512K
+#define MAX_DMA_CHUNK_SIZE				(0x80000)	// 512K
 #define MAX_DMA_TRANSFER_TASKS			(64)		/**< Maximum number of DMA tasks */
 
 
-#if 0
-#define CG_DRIVER_GPIO_TCXO			(23)   
+#define CG_DRIVER_GPIO_TCXO_EN	    (22)
+#define CG_DRIVER_GPIO_GPS_MRSTN    (22)
 
-#define CG_DRIVER_GPIO_TCXO_EN	    (23)   
+#define SPRD_GPS_LNA_EN    (50)
 
-#define CG_DRIVER_GPIO_GPS_RF_RSTN  (23)   
-
-#define CG_DRIVER_GPIO_GPS_MRSTN    (23)   
-#else
-#define CG_DRIVER_GPIO_TCXO			(22)   
-
-#define CG_DRIVER_GPIO_TCXO_EN	    (22)   
-
-#define CG_DRIVER_GPIO_GPS_RF_RSTN  (22)   
-
-#define CG_DRIVER_GPIO_GPS_MRSTN    (22)   
-#endif
 
 
 /**
@@ -85,7 +74,7 @@
         TODO: modify by sprd
 	
 */
-#define CG_DRIVER_CGCORE_BASE_PA    0x21C00000 //(0xFCB0B000)/* cg ip base */
+#define CG_DRIVER_CGCORE_BASE_PA    0x21C00000 /* cg ip base */
 
 #define CG_DRIVER_GPIO_BASE_PA		(0x8A000000)
 
@@ -94,32 +83,8 @@
 
 #define CG_DRIVER_CLK_BASE_PA		(0xFC802000)
 
-#define CG_DRIVER_DMA_BASE_PA		   (20100000)
-
-/*************************************************************************************/
-
-
-
-
-
-/* macro to get at IO space when running virtually */
-#ifdef CONFIG_MMU
-	#ifdef CONFIG_SMP
-		#define IO_ADDRESS(addr)  ((((addr)&0xffff0000) == 0x20300000) ? (0xFF800000 |((addr)&0xffff)) : (addr))
-	#else
-		#define IO_ADDRESS(addr)  ((((addr)&0xffff0000) == 0x10220000) ? (0xFF800000 |((addr)&0xffff)) : (addr))
-	#endif
-	#define __IO_ADDRESS(addr)   IO_ADDRESS(addr)
-#else
-	#define IO_ADDRESS(x)		(x)
-#endif
-
-#define REG_BASE_IOCFG		      0x20041000
-#define REG_IO_BASE               (IO_ADDRESS(REG_BASE_IOCFG))  // FPGA is not need
 
 /** 
-
-
 	\name Memory Mapping (Virtual Memory Addresses)
 	in Linux, the driver run in kernel space, and can access all physical addresses directly,
 	so, VA=PA 
@@ -127,38 +92,17 @@
  */
 
 /** Virtual base address for CGsnap registers */
-#define CG_DRIVER_CGCORE_BASE_VA	ioremap(CG_DRIVER_CGCORE_BASE_PA,4)//(IO_ADDRESS(CG_DRIVER_CGCORE_BASE_PA))	
+#define CG_DRIVER_CGCORE_BASE_VA	SPRD_GPS_BASE
 
-/** Virtual base address for GPIO controller registers */
-#define CG_DRIVER_GPIO_BASE_VA		(IO_ADDRESS(CG_DRIVER_GPIO_BASE_PA))
-
-/** Virtual base address for Interrupt controller registers */
-#define CG_DRIVER_INTR_BASE_VA		(IO_ADDRESS(CG_DRIVER_INTR_BASE_PA))
-
-/** Virtual base address for DMA controller registers */
-#define CG_DRIVER_CLK_BASE_VA		(IO_ADDRESS(CG_DRIVER_CLK_BASE_PA))
-
-/** Virtual base address for DMA controller registers */
-#define CG_DRIVER_DMA_BASE_VA		(IO_ADDRESS(CG_DRIVER_DMA_BASE_PA))
 
 /*bxd add for RF config*/
-#define CG_RF_ARM_BASE_VA 		ioremap(0x402a0000,4)
-#define CG_RF_APB_EB0_BASE_VA 	ioremap(0x402e0000,4)
-#define CG_RF_MSPI_BASE_VA 		ioremap(0x40070000,4)
+#define CG_RF_ARM_BASE_VA 			SPRD_PIN_BASE
+#define CG_RF_MSPI_BASE_VA 			SPRD_RFSPI_BASE
 
 
 /** Virtual base address for CGsnap sclk */
-#define CG_DRIVER_SCLK_VA	ioremap(0x20d00000,4)
+#define CG_DRIVER_SCLK_VA			SPRD_AHB_BASE
 
-
-#ifdef CG_DRIVER_RTC_BASE_VA
-	/** Virtual base address for RTC controller registers */
-	#define CG_DRIVER_RTC_BASE_VA		(IO_ADDRESS(CG_DRIVER_RTC_BASE_PA))
-#endif
-#ifdef CG_DRIVER_REVISION_BASE_PA
-	/** Virtual base address for revision controller registers */
-	#define CG_DRIVER_REVISION_BASE_VA  (IO_ADDRESS(CG_DRIVER_REVISION_BASE_PA))
-#endif
 /** \} Memory Mapping */
 
 
@@ -252,6 +196,7 @@
 
 #define CGX5000_DR							(0 + 18)
 
+extern struct sprd_2351_interface *gps_rf_ops;
 
 
 

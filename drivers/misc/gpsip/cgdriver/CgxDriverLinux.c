@@ -42,8 +42,6 @@
 #include <linux/cdev.h>
 #include <linux/interrupt.h>
 #include <linux/workqueue.h>
-//bxd
-//#include <linux/sysdev.h>
 #include <linux/poll.h>
 #include <linux/device.h>
 #include <linux/major.h>
@@ -53,8 +51,6 @@
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
 
-//bxd
-#include "sysdev.h"
 #include "CgTypes.h"
 #include "CgReturnCodes.h"
 #include "CgCpu.h"
@@ -64,8 +60,6 @@
 
 #include "platform.h"
 #include "CgCpuOs.h"
-
-#include "gps_dma.h"
 
 
 extern U32 CGCORE_REG_OFFSET_CORE_RESETS;
@@ -109,6 +103,8 @@ typedef struct {
 
 // Use a static DriverContext, as only one driver instance is needed
 static DRVCONTEXT			   DrvContext;
+//bxd add for first alloc mem failed from engine
+static void *init_buff_ptr;
 
 static void GpsIntr_BH(struct work_struct *work);
 DECLARE_WORK( girq_work, GpsIntr_BH );
@@ -197,55 +193,10 @@ void DataReady_TH_start(void )
 }
 #endif
 
-extern int dma_int_count;
-extern u32 dma_block_count;
-extern u32 total_len;
-extern u32 block_size;
-extern u32 dma_block_size;
-extern TCgCpuDmaTask gChunksList[MAX_DMA_TRANSFER_TASKS];
-extern int blocks_required;
-u32 transfer_len;
 
 void CCgCpuDmaHandle(int irq,void* dev_id)
 {
-
-	dma_int_count++;
-
-	printk("CCgCpuDmaHandle dma_int_count:%d\n",dma_int_count);
-	if(dma_block_count > 0)
-	{
-		if(total_len <= dma_block_size)
-		{
-			transfer_len += gChunksList[blocks_required-1].length;
-			total_len -= gChunksList[blocks_required-1].length;
-		}
-		else
-		{
-			transfer_len += dma_block_size;
-			total_len -= dma_block_size;
-		}
-		if((transfer_len >= block_size)||(total_len<=0))
-		{
-			if(total_len<=0)
-				transfer_len -= gChunksList[blocks_required-1].length;
-			else
-				transfer_len -= block_size;
-			//blocks_required--;
-			//printk("blocks_required:%d\n",blocks_required);
-			//printk("CCgCpuDmaHandle transfer_len:%d\n",transfer_len);
-			//printk("CCgCpuDmaHandle total_len:%d\n",total_len);
-			//printk("blocks_required:%d\n",blocks_required);
-			CgxDriverDataReadyInterruptHandler(&DrvContext, &DrvContext.state);
-
-		}
-	}
-	else
-	{
-		CgxDriverDataReadyInterruptHandler(&DrvContext, &DrvContext.state);
-	}
-	//DataReady_TH(0,NULL);
-	//dump_stack();
-
+	CgxDriverDataReadyInterruptHandler(&DrvContext, &DrvContext.state);
 }
 
 
@@ -400,10 +351,11 @@ TCgReturnCode CgxDriverTransferEndWait(void *pDriver, U32 aTimeoutMS)
 			return ECgResume;
 			}
 		//DBGMSG1( "Waiting for completion... Semaphore=%u", pDriverInfo->xferCompleted.done );
-
-                rv = wait_for_completion_interruptible_timeout( &pDriverInfo->xferCompleted, timeout );
-		if (rv != -ERESTARTSYS)
-			break;
+			/*bxd modify because of can't entry susnpend when use wait_for_completion_interruptible_timeout func */
+            //rv = wait_for_completion_interruptible_timeout( &pDriverInfo->xferCompleted, timeout );
+			rv = wait_for_completion_timeout( &pDriverInfo->xferCompleted, timeout );
+			if (rv != -ERESTARTSYS)
+				break;
 		}
 
 	if ((rv == 0) && (timeout > 0))
@@ -439,6 +391,11 @@ unsigned char buf_data[6*1024*1024];
  void* buf_data;
 #endif
 
+void clear_buf_data(void)
+{
+	memset(DrvContext.xfer_buff_ptr,0,DrvContext.xfer_buff_len);
+}
+
 TCgReturnCode CgxDriverAllocInternalBuff(void *pDriver, unsigned long aLength, void **apBuffer, U32 aProcessID)
 {
 	DBG_FUNC_NAME("CgxDriverAllocInternalBuff")
@@ -454,7 +411,11 @@ TCgReturnCode CgxDriverAllocInternalBuff(void *pDriver, unsigned long aLength, v
 
       #ifndef FIX_MEMORY
 	DrvContext.xfer_buff_pg_order = get_order(aLength);
-	DrvContext.xfer_buff_ptr	  = (void *)__get_free_pages(GFP_KERNEL, DrvContext.xfer_buff_pg_order);
+	//bxd add for first alloc mem failed from engine
+	if(init_buff_ptr != NULL)
+		DrvContext.xfer_buff_ptr = init_buff_ptr;
+	else
+		DrvContext.xfer_buff_ptr	  = (void *)__get_free_pages(GFP_KERNEL, DrvContext.xfer_buff_pg_order);
 	DrvContext.xfer_buff_len	  = PAGE_SIZE * (1 << DrvContext.xfer_buff_pg_order);
         buf_data  = DrvContext.xfer_buff_ptr;
         #else
@@ -512,12 +473,17 @@ TCgReturnCode CgxDriverFreeInternalBuff(void *pDriver, U32 unUsed)
 		return ECgNotAllowed;
 
 #ifndef FIX_MEMORY
-	free_pages((unsigned long)DrvContext.xfer_buff_ptr, DrvContext.xfer_buff_pg_order);
+//bxd
+	//free_pages((unsigned long)DrvContext.xfer_buff_ptr, DrvContext.xfer_buff_pg_order);
 #endif
 
 	DrvContext.xfer_buff_ptr	  = NULL;
 	DrvContext.xfer_buff_len	  = 0;
 	DrvContext.xfer_buff_pg_order = 0;
+
+	//bxd add for first alloc mem failed from engine
+	//if(init_buff_ptr != NULL)
+	//	init_buff_ptr = NULL;
 
 	return ECgOk;
 }
@@ -853,30 +819,43 @@ static int CGX_AddSysDev(struct sys_device *dev)
 #endif
 
 
-static int CGX_PMSuspend(struct sys_device *dev, pm_message_t state)
+static int CGX_PMSuspend(struct device *dev, pm_message_t state)
 {
 	//DBGMSG( "Got to CGX_PMSuspend\n" );
-	CgxDriverPowerDown();
+	printk("%s\n",__func__);
+	if (DrvContext.nNumOpens > 0)
+	{
+		CgxDriverPowerDown();
+		CgxDriverRFPowerDown();
+	}
 	return 0;
 }
 
 
-static int CGX_PMResume(struct sys_device *dev)
+static int CGX_PMResume(struct device *dev)
 {
 	//DBGMSG( "Got to CGX_PMResume\n" );
-	DrvContext.state.flags.resume = 1;
-	DrvContext.pm_resumed = 'R';
+	printk("%s\n",__func__);
+	if (DrvContext.nNumOpens > 0)
+	{
 
-	/* awake read()ers and poll()ers (select) */
-	wake_up_interruptible(&DrvContext.resumeq);
+		DrvContext.state.flags.resume = 1;
+	#if 0
+		DrvContext.pm_resumed = 'R';
 
-	/* signal async readers */
-	if (DrvContext.async_queue)
-		kill_fasync(&DrvContext.async_queue, SIGIO, POLL_IN);
+		/* awake read()ers and poll()ers (select) */
+		wake_up_interruptible(&DrvContext.resumeq);
 
-	CgxDriverPowerUp();
+		/* signal async readers */
+		if (DrvContext.async_queue)
+			kill_fasync(&DrvContext.async_queue, SIGIO, POLL_IN);
+	#endif
+		CgxDriverPowerUp();
+		CgxDriverRFPowerUp();
+	}
 	return 0;
 }
+
 
 
 //======================================================================
@@ -897,37 +876,6 @@ struct file_operations cgx_fops = {
 		.mmap =	  CGX_Mmap,
 };
 
-
-extern struct sysdev_class cpu_sysdev_class;
-static struct sysdev_driver cgxdrv_driver = {
-#if 0
-#warning CGX_AddSysDev is needed, only for debugging !
-	.add		= CGX_AddSysDev,
-#endif
-	.suspend	= CGX_PMSuspend,
-	.resume		= CGX_PMResume,
-};
-
-#define REG_CORE_RESET    (IO_ADDRESS(0xFCB0B000)+0xFC)
-#define REG_CORE_VERSION  (IO_ADDRESS(0xFCB0B000)+0x44)
-#define REG_CORE_CYCLE    (IO_ADDRESS(0xFCB0B000)+0x20)
-
-//bxd
-int sysdev_driver_register( struct sysdev_class *a,struct sysdev_driver *b)
-{
-
-return 0;
-}
-
-
-int sysdev_driver_unregister( struct sysdev_class *a,struct sysdev_driver *b)
-{
-
-return 0;
-
-}
-
-
 static int __init  CGX_Init(void)
 {
 	DBG_FUNC_NAME("CGX_Init")
@@ -937,6 +885,12 @@ static int __init  CGX_Init(void)
 /* 	DBGMSG( "Entering..." ); */
 
 	DBGMSG("Initializing");
+	//bxd add for first alloc mem failed from engine
+	init_buff_ptr = (void *)__get_free_pages(GFP_KERNEL, 8);
+	if(init_buff_ptr == NULL)
+		printk("init_buff_ptr alloc failed\n");
+
+	sprd_get_rf2351_ops(&gps_rf_ops);
 
 #ifdef CGCORE_ACCESS_VIA_SPI
 
@@ -947,12 +901,6 @@ static int __init  CGX_Init(void)
 	/* Init structure */
 	memset (&(DrvContext), 0, sizeof (DRVCONTEXT));
 	init_waitqueue_head(&DrvContext.resumeq);
-
-	rv = sysdev_driver_register(&cpu_sysdev_class,&cgxdrv_driver);
-	if (rv) {
-		printk(KERN_ERR MODULE_NAME " Error %d registering sysdev driver\n", rv);
-		goto out;
-	}
 
 	/* Register char dev (Major can be provided at load time) */
 	if (cgxdrv_major) {
@@ -966,13 +914,13 @@ static int __init  CGX_Init(void)
 
 	if (rv < 0) {
 	  printk(KERN_ERR MODULE_NAME " Error can't get major %d\r\n", cgxdrv_major);
-	  goto out1;
+	  goto out;
 	}
 
 	if ( CgxDriverConstruct(&DrvContext, &DrvContext.state) != ECgOk ) {
 	  DBGMSG("CgxDriverConstruct Failed");
 	  rv = -ENOMEM;
-	  goto out2;
+	  goto out1;
 	}
 
 	// Device is ready... Activate it
@@ -983,7 +931,7 @@ static int __init  CGX_Init(void)
 	if (rv) {
 	  // Cleanup
 	  DBGMSG1(" Error %d adding cgxdrv device\r\n", rv);
-	  goto out3;
+	  goto out2;
 	}
 
     /* Create the device class. */
@@ -992,6 +940,11 @@ static int __init  CGX_Init(void)
     {
         DBGMSG(" Error: create cgxdrv class failed\r\n");
     }
+
+	//bxd
+	gps_class->suspend = CGX_PMSuspend;
+	gps_class->resume = CGX_PMResume;
+
     /* register in /dev */
     gps_dev = device_create(gps_class, NULL, devno, NULL, "cgxdrv");
     if (IS_ERR(gps_dev))
@@ -1014,15 +967,13 @@ static int __init  CGX_Init(void)
 
 	goto out;
 
-out3:
+out2:
 	/*
 	 * XXX-PK-XXX: FIXME: Add CgxDriverConstruct Cleanup
 	 * For example: free IRQs, destroy workqueues, etc.
 	 */
-out2:
-	unregister_chrdev_region( devno, 1 );
 out1:
-	sysdev_driver_unregister(&cpu_sysdev_class,&cgxdrv_driver);
+	unregister_chrdev_region( devno, 1 );
 out:
 	return rv;
 }
@@ -1077,6 +1028,7 @@ static void	 __exit  CGX_Deinit(void)
 
     //free_irq(TEMPLATE_CPU_DMA_IRQ, NULL);
 
+	sprd_put_rf2351_ops(&gps_rf_ops);
 	CgxDriverFreeInternalBuff(&DrvContext, 0);
 
 	cdev_del(&DrvContext.cdev);
@@ -1085,7 +1037,7 @@ static void	 __exit  CGX_Deinit(void)
     class_destroy(gps_class);
 
 	unregister_chrdev_region(MKDEV(cgxdrv_major, 0), 1);
-	sysdev_driver_unregister(&cpu_sysdev_class,&cgxdrv_driver);
+
     printk(KERN_ERR "CGX_Deinit out");
 }
 

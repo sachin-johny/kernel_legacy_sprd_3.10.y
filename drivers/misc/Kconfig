@@ -523,6 +523,7 @@ source "drivers/misc/sprd_jpg/Kconfig"
 source "drivers/misc/sprd_busmonitor/Kconfig"
 source "drivers/misc/sprd_cproc/Kconfig"
 source "drivers/misc/sprd_blc/Kconfig"
+source "drivers/misc/sprd_2351/Kconfig"
 
 config APANIC
 	bool "Android kernel panic diagnostics driver"

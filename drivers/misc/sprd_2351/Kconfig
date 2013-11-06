@@ -1,0 +1,5 @@
+config SPRD_2351
+	bool "SPRD RF 2351 Driver"
+	default n
+	help
+	  If you say yes here you can use the sprd 2351 rf.

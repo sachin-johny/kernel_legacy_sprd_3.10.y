@@ -24,6 +24,7 @@
 */
 
 
+#include <linux/delay.h>
 
 #include "CgxDriverCore.h"
 #include "CgCpu.h"
@@ -56,8 +57,9 @@ const TCgVersion gCgDriverVersion = {
 	CG_BUILD_MODE				/**< Build Mode (Text) - Release/Test/Debug */
 };
 
-//bxd add for statistics how many block is be required from cellgudie.
-extern int blocks_required;
+extern void gps_chip_power_on(void);
+extern void gps_chip_power_off(void);
+extern void gps_gpio_request(void);
 
 #define CG_MATH_ALIGNMENT(__var__,__base__)    __var__ = (__base__) * ((U32)(((__var__) + ((__base__)/2)) / (__base__)))
 
@@ -148,7 +150,7 @@ TCgReturnCode CgxDriverDestroy(void *pDriver)
 
 TCgReturnCode CgxDriverConstruct(void *pDriver, TCgxDriverState *pState)
 {
-	DBG_FUNC_NAME("CgxDriverConstruct")
+	//DBG_FUNC_NAME("CgxDriverConstruct")
 	TCgReturnCode rc = ECgOk;
 	rc = CgCpuAllocateVa();
 	memset(gChunksList,0,sizeof(TCgCpuDmaTask)*MAX_DMA_TRANSFER_TASKS);
@@ -169,7 +171,7 @@ TCgReturnCode CgxDriverConstruct(void *pDriver, TCgxDriverState *pState)
 	// set up GPS interrupt handler
 	if (OK(rc)) rc = CgxDriverGpsInterruptPrepare();
 	if (OK(rc)) rc = CgxDriverGpsInterruptHandlerStart(pDriver);
-
+#if 0
 	// enable IP (not-reset)
 	if (OK(rc)) rc = CgCpuGpioModeSet(CG_DRIVER_GPIO_GPS_MRSTN, ECG_CPU_GPIO_OUTPUT);
        if (OK(rc)) rc = CgCpuIPMasterResetOn();
@@ -187,15 +189,19 @@ TCgReturnCode CgxDriverConstruct(void *pDriver, TCgxDriverState *pState)
     DBGMSG1("CGCORE_CORE_RESETS_ENABLE = 0x%08X", CGCORE_CORE_RESETS_ENABLE);
 
 	// Setup GPIO for RF-Power, and power up RF chip
-	if (OK(rc)) rc = CgCpuGpioModeSet(CG_DRIVER_GPIO_RF_PD, ECG_CPU_GPIO_OUTPUT);
-	if (OK(rc)) rc = CgxDriverRFPowerUp();
+	//if (OK(rc)) rc = CgCpuGpioModeSet(CG_DRIVER_GPIO_RF_PD, ECG_CPU_GPIO_OUTPUT);
+	//if (OK(rc)) rc = CgxDriverRFPowerUp();
 
     if (OK(rc)) rc = CgCpuGpioModeSet(CG_DRIVER_GPIO_TCXO_EN, ECG_CPU_GPIO_OUTPUT);
 	if (OK(rc)) rc = CgxDriverTcxoControl(TRUE);
+	gps_chip_power_off();
+#endif
+
+	gps_gpio_request();
 
 	pState->constructionRc = rc;	// For later reference (if needed by application)
-
 	pState->flags.resume = FALSE;
+
 	return rc;
 }
 
@@ -208,7 +214,6 @@ TCgReturnCode CgxDriverPowerUp(void)
 
 	// In order to power up the CGsnap, do a dummy access
 	rc = CGCORE_READ_REG(CGCORE_REG_OFFSET_VERSION, &version );
-
 	return rc;
 }
 
@@ -222,21 +227,12 @@ TCgReturnCode CgxDriverPowerDown(void)
 	return rc;
 }
 
-
-static unsigned int block_num;
-unsigned int get_block_num(void )
-{
-
-    return block_num;
-}
 #if 0
 //gaole add
 void CgCoreReleaseRes(void)
 {
 	printk("\n gaole:  run to CgCoreReleaseRes \n");
 	memset(gChunksList,0,sizeof(TCgCpuDmaTask)*MAX_DMA_TRANSFER_TASKS);
-
-	block_num = 0;
 }
 
 void CgGpsReset(void)
@@ -253,7 +249,6 @@ split blocks to chunks
 last chunk might be small
 last chunk generate app event
 start of block aligned to chunk size
-
 */
 
 TCgReturnCode CgxDriverPrepareRecieve(
@@ -280,7 +275,9 @@ TCgReturnCode CgxDriverPrepareRecieve(
 	DBGMSG1("dest address value = 0x%x", *((U32*)apBuf + 128) );
 
 	pState->transfer.blockSize = ((aBlockLength == 0) || (length < aBlockLength)) ? length : aBlockLength;
-	chunkSize = MIN(MAX_DMA_CHUNK_SIZE, pState->transfer.blockSize);
+	/*bxd modify for not limted to 512k Bytes each block*/
+	chunkSize =  pState->transfer.blockSize;
+	//chunkSize = MIN(MAX_DMA_CHUNK_SIZE, pState->transfer.blockSize);
 	chunksInBlock = pState->transfer.blockSize / chunkSize;
 
 
@@ -300,7 +297,6 @@ TCgReturnCode CgxDriverPrepareRecieve(
 	pState->transfer.bytes.received = 0;
 
 	pState->transfer.blocks.required = (length + pState->transfer.blockSize - 1) / pState->transfer.blockSize;
-	blocks_required = pState->transfer.blocks.required;
 	DBGMSG1("%d blocks required", pState->transfer.blocks.required);
 	pState->transfer.lastBlockSize = length - (pState->transfer.blocks.required - 1) * pState->transfer.blockSize;
 	DBGMSG1("last block size: %d bytes", pState->transfer.lastBlockSize);
@@ -355,9 +351,8 @@ TCgReturnCode CgxDriverPrepareRecieve(
 		gChunksList[pState->transfer.chunks.required].length = more;
 				DBGMSG3("last chunk out of %02d in block: % 6d bytes @ 0x%08X", chunksInBlock, more, dest);
 		pState->transfer.chunks.required++;
-		}
+	}
 
-        block_num =	pState->transfer.chunks.required;
 	DBGMSG1("%d chunks required", pState->transfer.chunks.required);
 
 	if (length > pState->transfer.blockSize * pState->transfer.blocks.required) {
@@ -713,6 +708,8 @@ TCgReturnCode CgxDriverPowerOn(void)
 {
 	TCgReturnCode rc = ECgOk;
 
+	gps_chip_power_on();
+
 	// Enable clock to the GPS device
 	rc = CGCoreEnable(CGCORE_ENABLE_TCXO);
 
@@ -725,6 +722,7 @@ TCgReturnCode CgxDriverPowerOff(void)
 
 	// Disable clock to the GPS device
 	rc = CGCoreDisable(CGCORE_ENABLE_TCXO);
+	gps_chip_power_off();
 
 	return rc;
 }
@@ -734,9 +732,9 @@ TCgReturnCode CgxDriverTcxoControl(u32 aEnable)
 	TCgReturnCode rc = ECgOk;
 
 	if(aEnable)
-		CgxDriverPowerOn();
+		CGCoreEnable(CGCORE_ENABLE_TCXO);
 	else
-		CgxDriverPowerOff();
+		CGCoreDisable(CGCORE_ENABLE_TCXO);;
 
 	return rc;
 }

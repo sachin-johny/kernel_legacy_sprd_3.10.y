@@ -239,9 +239,9 @@ TCgReturnCode CgxDriverExecute(
 
 				if ( isBlockCanceled(pState, pControl->wait.blockNumber + 1) )
 				{
-					U32 requestedDmaCount = 0;
-					CgCpuDmaRequestedCount(CG_DRIVER_DMA_CHANNEL_READ, &requestedDmaCount);
-					length = (U32) pState->transfer.cancel.onByte % requestedDmaCount;
+					//U32 requestedDmaCount = 0;
+					//CgCpuDmaRequestedCount(CG_DRIVER_DMA_CHANNEL_READ, &requestedDmaCount);
+					//length = (U32) pState->transfer.cancel.onByte % requestedDmaCount;
 				}
 				DBGMSG4("size %d  s_vir 0x%x, 0x%x ,0x%x", length,(U32)pState->buffer.virtAddr,
                                 gChunksList[pControl->wait.blockNumber].address,pState->transfer.bufferPhys);
@@ -375,7 +375,7 @@ TCgReturnCode CgxDriverGpsInterruptHandler(void *pDriver, TCgxDriverState *pStat
 		}
 		else
 		{
-			printk("problem!\n");
+			DBGMSG("problem!\n");
 			//			if (pState->transfer.cancel.request)
 			//				DBGMSG1("transfer.cancel.request=%d!", pState->transfer.cancel.request);
 			//			if (pState->transfer.done)
@@ -389,18 +389,18 @@ TCgReturnCode CgxDriverGpsInterruptHandler(void *pDriver, TCgxDriverState *pStat
 	{
 		if (pState->transfer.cancel.request)
 		{
-			printk("Snap end due to : cancel\n");
+			DBGMSG("Snap end due to : cancel\n");
 			rc = CgCpuDmaStop(CG_DRIVER_DMA_CHANNEL_READ);
 			rc = CgxDriverDataReadyInterruptHandler(pDriver, pState);
 		}
 		else
 		{
-			printk("Snap end due to : normal\n");
+			DBGMSG("Snap end due to : normal\n");
 		}
 	}
 
 	if (intcode & CGCORE_INT_OVERRUN) {
-		printk("Snap overrun\n");
+		DBGMSG("Snap overrun\n");
 		pState->flags.overrun = TRUE;
 		pState->counters.interrupt.overrun++;
 		if (pState->flags.wait) // release a waiting thread, if any
