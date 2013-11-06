@@ -956,6 +956,17 @@ CONFIG_SPRD_BLC=y
 # CONFIG_GPS_IRQ is not set
 # CONFIG_C2PORT is not set
 
+# FM modules
+#
+CONFIG_TROUT_FM=m
+# CONFIG_INTERFACE_SHARED is not set
+CONFIG_INTERFACE_ONCHIP=y
+# CONFIG_RF_55 is not set
+# CONFIG_RF_2829 is not set
+CONFIG_RF_SHARK=y
+#
+
+
 #
 # EEPROM support
 #
