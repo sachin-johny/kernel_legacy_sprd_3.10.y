@@ -714,7 +714,8 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 {
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
-
+	struct cfg80211_bss *bss = NULL;
+	bool found = false;
 	int ret;
 
 	if (priv->cp2_status != ITM_READY) {
@@ -728,10 +729,26 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 	if (ret < 0) {
 		dev_err(&priv->ndev->dev,
 			"swifi_disconnect_cmd failed with ret %d\n", ret);
-		goto out;
 	}
+	cfg80211_disconnected(priv->ndev, reason_code,
+			      NULL, 0, GFP_KERNEL);
+	priv->connect_status = ITM_DISCONNECTED;
 
-out:
+	do {
+		bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
+				       priv->bssid, priv->ssid,
+				       priv->ssid_len,
+				       WLAN_CAPABILITY_ESS,
+				       WLAN_CAPABILITY_ESS);
+		if (bss) {
+			cfg80211_unlink_bss(priv->wdev->wiphy,
+					    bss);
+			found = true;
+		} else {
+			found = false;
+		}
+	} while (found);
+
 	if (priv->scan_request) {
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
