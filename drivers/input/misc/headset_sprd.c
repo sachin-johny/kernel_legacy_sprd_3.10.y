@@ -147,7 +147,7 @@ static struct workqueue_struct *reg_dump_work_queue;
 /***polling ana_sts0 to avoid the hardware defect***/
 static struct delayed_work sts_check_work;
 static struct workqueue_struct *sts_check_work_queue;
-static int plug_status_when_clg_on = 1;//default is plug in
+static int plug_status_when_clg_on = 0;
 static int sts_check_work_need_to_cancel = 1;
 /***polling ana_sts0 to avoid the hardware defect***/
 
@@ -1164,7 +1164,17 @@ static int headset_suspend(struct platform_device *dev, pm_message_t state)
 #ifdef SPRD_HEADSET_HEADMICBIAS_POLLING
         headset_micbias_polling_en(0);
 #endif
-        headmicbias_power_on(0);
+
+        if((0 == plug_status) && (0 == plug_status_when_clg_on)) {
+                headmicbias_power_on(0);
+                PRINT_INFO("set headmicbias power off. (plug_status = %d,  plug_status_when_clg_on = %d)\n",
+					plug_status, plug_status_when_clg_on);
+        }
+        else {
+                PRINT_INFO("keep headmicbias power on. (plug_status = %d,  plug_status_when_clg_on = %d)\n",
+					plug_status, plug_status_when_clg_on);
+        }
+
         active_status = 0;
         PRINT_INFO("suspend (det_irq=%d    but_irq=%d)\n", headset.irq_detect, headset.irq_button);
         return 0;
@@ -1182,6 +1192,8 @@ static int headset_resume(struct platform_device *dev)
 #endif
 
         headmicbias_power_on(1);
+        PRINT_INFO("set headmicbias power on. (plug_status = %d,  plug_status_when_clg_on = %d)\n",
+			plug_status, plug_status_when_clg_on);
         msleep(5);
 #ifdef SPRD_HEADSET_HEADMICBIAS_POLLING
         headset_micbias_polling_en(1);
