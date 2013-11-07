@@ -442,7 +442,7 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 			if (rval < 0) {
 				printk(KERN_WARNING "sbuf_read wait interrupted!\n");
 			} else if (rval == 0) {
-				printk(KERN_WARNING "sbuf_read wait timeout!\n");
+				pr_debug( "sbuf_read wait timeout!\n");
 				rval = -ETIME;
 			}
 
