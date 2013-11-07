@@ -95,9 +95,9 @@ static const u32 vbc_da_eq_profile_default[VBC_DA_EFFECT_PARAS_LEN] = {
 	0x000001e0,		/*  DAALCCTL0       */
 	0x00002000,		/*  DAALCCTL1       */
 	0x000004fe,		/*  DAALCCTL2       */
-	0x00000000,		/*  DAALCCTL3       */
+	0x0000001f,		/*  DAALCCTL3       */
 	0x0000ffe2,		/*  DAALCCTL4       */
-	0x00006666,		/*  DAALCCTL5       */
+	0x00007fff,		/*  DAALCCTL5       */
 	0x0000028c,		/*  DAALCCTL6       */
 	0x00000010,		/*  DAALCCTL7       */
 	0x000004dd,		/*  DAALCCTL8       */
@@ -2648,11 +2648,13 @@ static int step_action_set_reg(int reg, int r)
 
 static void gray_set_reg(u32 reg, int from, int to)
 {
+	vbc_dbg("gray set reg(0x%x) = (0x%x)  from (0x%x))\n", reg, to, from);
 	gray(reg, from, to, step_action_set_reg);
 }
 
 static void vbc_eq_iir_ab_clr(u32 reg_addr)
 {
+	vbc_dbg("reg(0x%x) = 0\n", reg_addr);
 	vbc_reg_write2(reg_addr + 0x8, 0);	/*b0_H */
 	vbc_reg_write2(reg_addr + 0xC, 0);	/*b0_L */
 	vbc_reg_write2(reg_addr + 0x18, 0);	/*b1_H */
@@ -3148,10 +3150,12 @@ req_fw_err:
 			*)(vbc_eq_setting.data[VBC_CHAN_DA]))
 			  [0]);
 		u32 *data = profile->effect_paras;
-		if (data[vbc_da_eq_reg_offset(DAHPCTL)] & VBDAC_ALC_DP_T_MODE)
+		if (data[vbc_da_eq_reg_offset(DAHPCTL)] & BIT(VBDAC_ALC_DP_T_MODE))
 			alc_dp_t_mode = 1;
 		else
 			alc_dp_t_mode = 0;
+		vbc_dbg("DAHPCTL:%x----alc_dp_t_mode:%d", data[vbc_da_eq_reg_offset(DAHPCTL)],
+			alc_dp_t_mode);
 		for (i = 0; i <= 2; i++) {
 			if (vbc_eq_setting.is_active[i]
 			    && vbc_eq_setting.data[i])
