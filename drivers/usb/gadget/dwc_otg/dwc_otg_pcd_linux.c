@@ -80,6 +80,7 @@
 #include "dwc_otg_pcd.h"
 #include "dwc_otg_dbg.h"
 #include "usb_hw.h"
+#include <linux/reboot.h>
 
 static struct gadget_wrapper {
 	dwc_otg_pcd_t *pcd;
@@ -1216,6 +1217,12 @@ static void usb_detect_works(struct work_struct *work)
 	}
 	mutex_unlock(&udc_lock);
 	switch_set_state(&d->sdev, !!plug_in);
+
+	/*power off when bootmode is charger mode, but usb plug out*/
+        if ( (strstr(saved_command_line,"androidboot.mode=charger")!=NULL)
+             && !plug_in ){
+            kernel_power_off();
+        }
 }
 
 static irqreturn_t usb_detect_handler(int irq, void *dev_id)
