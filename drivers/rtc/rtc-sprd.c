@@ -50,6 +50,11 @@
 #define ANA_RTC_INT_MSK                 (RTC_BASE + 0x3C)
 #define ANA_RTC_SPG_UPD			(RTC_BASE + 0x54)
 #if defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SC7710)
+#define ANA_RTC_SEC_ALM_VAL	 (RTC_BASE + 0x40)
+#define ANA_RTC_MIN_ALM_VAL	(RTC_BASE + 0x44)
+#define ANA_RTC_HRS_ALM_VAL	(RTC_BASE + 0x48)
+#define ANA_RTC_DAY_ALM_VAL	(RTC_BASE + 0x4c)
+
 #define ANA_RTC_AUX_SEC_ALM		(RTC_BASE + 0x60)
 #define ANA_RTC_AUX_MIN_ALM		(RTC_BASE + 0x64)
 #define ANA_RTC_AUX_HOUR_ALM		(RTC_BASE + 0x68)
@@ -74,10 +79,9 @@
 #define RTC_DAY_ALM_ACK_BIT         BIT(15)        /* Day alm ack int enable */
 
 #define RTC_UPD_TIME_MASK (RTC_SEC_ACK_BIT | RTC_MIN_ACK_BIT | RTC_HOUR_ACK_BIT | RTC_DAY_ACK_BIT)
-#define RTC_INT_ALL_MSK (0xFFFF&(~(BIT(5)|BIT(6)|BIT(7))))
-
 #define RTC_ALM_TIME_MASK (RTC_SEC_ALM_ACK_BIT | RTC_MIN_ALM_ACK_BIT | RTC_HOUR_ALM_ACK_BIT | RTC_DAY_ALM_ACK_BIT)
-
+//#define RTC_INT_ALL_MSK (0xFFFF&(~(BIT(5)|BIT(6)|BIT(7))))
+#define RTC_INT_ALL_MSK	(0xffff & ~(RTC_ALM_TIME_MASK | BIT(5) | BIT(6) | BIT(7)))
 
 #define RTC_SEC_MASK 0x3F
 #define RTC_MIN_MASK 0x3F
@@ -85,7 +89,7 @@
 #define RTC_DAY_MASK 0xFFFF
 
 #define SPRD_RTC_GET_MAX 10
-#define SPRD_RTC_SET_MAX 150
+#define SPRD_RTC_SET_MAX 40
 #define SPRD_RTC_UNLOCK	0xa5
 #define SPRD_RTC_LOCK	(~SPRD_RTC_UNLOCK)
 
@@ -221,7 +225,7 @@ static int sprd_rtc_set_sec(unsigned long secs)
 			break;
 
 		if(i < SPRD_RTC_SET_MAX){
-			msleep(1);
+			msleep(10);
 			i++;
 		}else{
 			return 1;
@@ -242,12 +246,13 @@ static inline unsigned long sprd_rtc_get_alarm_sec(void)
 
 	return ((((day*24) + hour)*60 + min)*60 + sec);
 }
+
 static int sprd_rtc_set_alarm_sec(unsigned long secs)
 {
 	unsigned sec, min, hour, day;
 	unsigned long temp;
-	unsigned set_mask = 0, int_rsts;
-	int i = 0;
+	u32 timeout = 0;
+	static bool rtc_alarm_in_update = false;
 
 	sec = secs % 60;
 	temp = (secs - sec)/60;
@@ -257,40 +262,32 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
 	temp = (temp - hour)/24;
 	day = temp;
 
-	sci_adi_set(ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
+	if (rtc_alarm_in_update) {
+		while ((sci_adi_read(ANA_RTC_INT_RSTS) & RTC_ALM_TIME_MASK) !=
+			RTC_ALM_TIME_MASK)
+		{
+			msleep(10);
+			if (timeout++ > SPRD_RTC_SET_MAX) {
+				printk("rtc set alarm timeout!\n");
+				/*fixme*/
+				break;
+			}
+		}
+	}
 
+	printk("++++++rtc set alarm and delay is %d !++++++\n", timeout * 10);
+
+	sci_adi_set(ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
 
 	sci_adi_raw_write(ANA_RTC_SEC_ALM, sec);
-	set_mask |= RTC_SEC_ALM_ACK_BIT;
 
 	sci_adi_raw_write(ANA_RTC_MIN_ALM, min);
-	set_mask |= RTC_MIN_ALM_ACK_BIT;
 
 	sci_adi_raw_write(ANA_RTC_HOUR_ALM, hour);
-	set_mask |= RTC_HOUR_ALM_ACK_BIT;
 
 	sci_adi_raw_write(ANA_RTC_DAY_ALM, day);
-	set_mask |= RTC_DAY_ALM_ACK_BIT;
 
-	/*
-	 * wait till all update done
-	 */
-
-	do{
-		int_rsts = sci_adi_read(ANA_RTC_INT_RSTS) & RTC_ALM_TIME_MASK;
-
-		if(set_mask == int_rsts)
-			break;
-
-		if(i < SPRD_RTC_SET_MAX){
-		//	msleep(1);
-			mdelay(1);
-			i++;
-		}else{
-			return 1;
-		}
-	}while(1);
-	sci_adi_set(ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
+	rtc_alarm_in_update = true;
 
 	return 0;
 }
@@ -369,8 +366,6 @@ static int sprd_rtc_set_alarm(struct device *dev,
 {
 	unsigned long secs;
 	unsigned temp;
-	unsigned long read_secs;
-	int i = 0,n;
 
 	sci_adi_raw_write(ANA_RTC_INT_CLR, RTC_ALARM_BIT);
 
@@ -386,17 +381,9 @@ static int sprd_rtc_set_alarm(struct device *dev,
 
 		secs = secs - secs_start_year_to_1970;
 		wake_lock(&rtc_wake_lock);
-		n = 2;
-		while(sprd_rtc_set_alarm_sec(secs)!=0&&(n--)>0);
-		do {
-			if(i!=0){
-				n = 2;
-				while(sprd_rtc_set_alarm_sec(secs)!=0&&(n--)>0);
-			}
-			read_secs = sprd_rtc_get_alarm_sec();
-			msleep(1);
-			i++;
-		}while(read_secs != secs && i < SPRD_RTC_SET_MAX);
+
+		sprd_rtc_set_alarm_sec(secs);
+
 		/*unlock the rtc alrm int*/
 		sci_adi_raw_write(ANA_RTC_SPG_UPD, SPRD_RTC_UNLOCK);
 		wake_unlock(&rtc_wake_lock);
