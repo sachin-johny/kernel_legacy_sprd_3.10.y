@@ -156,7 +156,14 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	if(clk == 333) {
 		clk = 332;
 	}
+#ifdef CONFIG_DDR3_DFS
+	if(clk == 200) {
+		clk = 192;
+	}
+	flag = (EMC_DDR_TYPE_DDR3 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
+#else
 	flag = (EMC_DDR_TYPE_LPDDR2 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
+#endif
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
 	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
@@ -173,7 +180,7 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
 #endif
 	close_cp();
-	info("__emc_clk_set clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",clk, sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
+	info("__emc_clk_set clk = %d real_clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",clk,emc_clk_get(), sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 #endif
 	if(emc_clk_get() != clk) {
 		info("clk set error, set clk = %d, get clk = %d\n", clk, emc_clk_get());
@@ -215,6 +222,16 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	//info("REG_AON_CLK_PUB_AHB_CFG = %x\n", __raw_readl(REG_AON_CLK_PUB_AHB_CFG));
 	//info("emc_clk_set old = %d, new = %d\n", old_clk, new_clk);
 	//info("emc_clk_set clk = %d, sene = %d, dll_enable = %d, emc_delay = %x\n", new_clk, sene,dll_enable, emc_delay);
+#ifdef CONFIG_DDR3_DFS
+	if(new_clk == 200) {
+		new_clk = 192;
+	}
+	if((old_clk == 532)&&(new_clk == 192)){
+		__emc_clk_set(192,0,EMC_DLL_SWITCH_DISABLE_MODE,EMC_BSP_BPS_200_NOT_CHANGE);
+	} else if ((old_clk == 192)&&(new_clk == 532)){
+		__emc_clk_set(532,0,EMC_DLL_SWITCH_DISABLE_MODE,EMC_BSP_BPS_200_NOT_CHANGE);
+	}
+#else
 	if((old_clk > 200) && (new_clk == 200)) {
 		if(old_clk > 332) {
 			__emc_clk_set(332, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
@@ -235,6 +252,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	else {
 		__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 	}
+#endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
 #ifdef EMC_FREQ_AUTO_TEST
@@ -353,6 +371,12 @@ static void emc_debugfs_creat(void)
 }
 
 #ifdef EMC_FREQ_AUTO_TEST
+#ifdef CONFIG_DDR3_DFS
+static u32 emc_freq_valid_array[] = {
+	192,
+	532
+};
+#else
 static u32 emc_freq_valid_array[] = {
 	//100,
 	200,
@@ -360,6 +384,7 @@ static u32 emc_freq_valid_array[] = {
 	400,
 	532,
 };
+#endif
 static struct wake_lock emc_freq_test_wakelock;
 static int emc_freq_test_thread(void * data)
 {

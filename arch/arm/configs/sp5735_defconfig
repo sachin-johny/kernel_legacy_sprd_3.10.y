@@ -333,6 +333,7 @@ CONFIG_BUS_MONITOR=y
 # CONFIG_BUS_MONITOR_DEBUG is not set
 # CONFIG_DFS_AT_CP0 is not set
 CONFIG_DDR3_DFS=y
+CONFIG_DFS_AT_CP1=y
 #
 # Processor Type
 #
