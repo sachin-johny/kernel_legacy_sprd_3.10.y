@@ -45,10 +45,10 @@ extern   "C"
 
 #define CHGMNG_STOP_VPROG 80//0x70              // Isense stop point
 
-#define CHARGE_VBAT_STATISTIC_BUFFERSIZE 16
+#define CHARGE_VBAT_STATISTIC_BUFFERSIZE 4
 
 #define CHGMNG_PLUST_TIMES  3
-#define CHARGE_BEFORE_STOP 600
+#define CHARGE_BEFORE_STOP 300
 #define CHARGE_OVER_TIME 21600 /* set for charge over time, 6 hours */
 
 #define VPROG_RESULT_NUM     10       //ADC sampling number
@@ -68,8 +68,8 @@ extern   "C"
 #define VCHG_DIV_P2             1000
 
 
-#define CV_STOP_CURRENT 130
-#define CC_CV_SWITCH_POINT 120
+#define CV_STOP_CURRENT 180
+#define CC_CV_SWITCH_POINT 170
 
 #define OVP_OVER_VOL 6500   //6.5V
 #define OVP_RECV_VOL 5800   //5.8V
