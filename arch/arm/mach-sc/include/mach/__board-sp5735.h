@@ -71,4 +71,9 @@
 #define GPIO_GYRO_INT1 163
 #define GPIO_M_RSTN	161
 #define GPIO_M_DRDY 164
+
+/* General Info for ION*/
+#define SPRD_ION_SIZE            (76 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (12 * SZ_1M)
+
 #endif
