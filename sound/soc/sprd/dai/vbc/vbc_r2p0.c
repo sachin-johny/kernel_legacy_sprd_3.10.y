@@ -3550,18 +3550,32 @@ static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
+static int fm_resample_switch_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+#ifdef CONFIG_SPRD_VBC_SRC_OPEN
+    ucontrol->value.integer.value[0] = 1;
+#else
+    ucontrol->value.integer.value[0] = 0;
+#endif
+	return 0;
+}
+
+
 static const char *switch_function[] =
     { "cp0-dsp", "cp1-dsp", "ap", "cp2-arm" };
 static const char *eq_load_function[] = { "idle", "loading" };
 static const char *da_iis_mux_function[] =
     { "sprd-codec", "ext-codec-4", "ext-codec-6" };
 static const char *fm_sample_rate_function[] = { "32000", "48000" };
+static const char *fm_resample_switch[] = { "disable", "enable" };
 
 static const struct soc_enum vbc_enum[] = {
 	SOC_ENUM_SINGLE_EXT(4, switch_function),
 	SOC_ENUM_SINGLE_EXT(2, eq_load_function),
 	SOC_ENUM_SINGLE_EXT(3, da_iis_mux_function),
 	SOC_ENUM_SINGLE_EXT(2, fm_sample_rate_function),
+	SOC_ENUM_SINGLE_EXT(2, fm_resample_switch),
 };
 
 static const struct snd_kcontrol_new vbc_controls[] = {
@@ -3641,6 +3655,7 @@ static const struct snd_kcontrol_new vbc_controls[] = {
 		     dac_iismux_put),
 	SOC_ENUM_EXT("FM Sample Rate", vbc_enum[3], fm_sample_rate_get,
 		     fm_sample_rate_set),
+	SOC_ENUM_EXT("FM Resample Switch", vbc_enum[4], fm_resample_switch_get, NULL),
 
 	SOC_SINGLE_EXT("VBC DA EQ Profile Select", FUN_REG(VBC_CHAN_DA), 0,
 		       VBC_EQ_PROFILE_CNT_MAX, 0,
