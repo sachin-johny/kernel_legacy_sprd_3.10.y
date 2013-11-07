@@ -311,13 +311,13 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 	/* check we are client side */
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_AP:
+		break;
 /*	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
 	 */
 	case NL80211_IFTYPE_STATION:
 		break;
 	default:
-		break;
 		return -EOPNOTSUPP;
 	}
 
@@ -360,12 +360,6 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 					(sipc_data + scan_ssids_len);
 		}
 	}
-	priv->scan_request = request;
-	if (!wake_lock_active(&priv->scan_done_lock))
-		wake_lock(&priv->scan_done_lock);
-	/* Arm scan timeout timer */
-	mod_timer(&priv->scan_timeout,
-		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
 
 	n = min(request->n_channels, 4U);
 	for (i = 0; i < n; i++) {
@@ -382,11 +376,16 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 		dev_err(&priv->ndev->dev,
 			"itm_wlan_scan_cmd failed with ret %d\n",
 			ret);
-		del_timer_sync(&priv->scan_timeout);
-		priv->scan_request = NULL;
 		kfree(sipc_data);
 		return ret;
 	}
+
+	if (!wake_lock_active(&priv->scan_done_lock))
+		wake_lock(&priv->scan_done_lock);
+	/* Arm scan timeout timer */
+	mod_timer(&priv->scan_timeout,
+		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
+	priv->scan_request = request;
 
 	kfree(sipc_data);
 
@@ -732,9 +731,6 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 		dev_err(&priv->ndev->dev,
 			"swifi_disconnect_cmd failed with ret %d\n", ret);
 	}
-	cfg80211_disconnected(priv->ndev, reason_code,
-			      NULL, 0, GFP_KERNEL);
-	priv->connect_status = ITM_DISCONNECTED;
 
 	do {
 		bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
@@ -750,14 +746,6 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 			found = false;
 		}
 	} while (found);
-
-	if (priv->scan_request) {
-		del_timer_sync(&priv->scan_timeout);
-		cfg80211_scan_done(priv->scan_request, true);
-		priv->scan_request = NULL;
-		if (wake_lock_active(&priv->scan_done_lock))
-			wake_unlock(&priv->scan_done_lock);
-	}
 
 	return ret;
 }
@@ -1096,12 +1084,14 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 
 	return;
 out:
-	if (priv->scan_request) {
+	if (priv->scan_request &&
+	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 		if (wake_lock_active(&priv->scan_done_lock))
 			wake_unlock(&priv->scan_done_lock);
+		atomic_dec(&priv->scan_status);
 	}
 	if (priv->connect_status == ITM_CONNECTING) {
 		cfg80211_connect_result(priv->ndev,
@@ -1124,12 +1114,14 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 
 	/* This should filled if disconnect reason is not only one */
 	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);
-	if (priv->scan_request) {
+	if (priv->scan_request &&
+	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 		if (wake_lock_active(&priv->scan_done_lock))
 			wake_unlock(&priv->scan_done_lock);
+		atomic_dec(&priv->scan_status);
 	}
 	if (priv->connect_status == ITM_CONNECTING) {
 		cfg80211_connect_result(priv->ndev,
@@ -1172,15 +1164,17 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 {
 	struct itm_priv *priv = (struct itm_priv *)data;
 
-	if (priv->scan_request) {
-		dev_err(&priv->ndev->dev, "scan timer expired!");
+	if (priv->scan_request &&
+	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
+		dev_err(&priv->ndev->dev, "scan timer expired!\n");
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 		if (wake_lock_active(&priv->scan_done_lock))
 			wake_unlock(&priv->scan_done_lock);
+		atomic_dec(&priv->scan_status);
 		return;
 	}
-	dev_err(&priv->ndev->dev, "wrong scan timer expired!");
+	dev_err(&priv->ndev->dev, "wrong scan timer expired!\n");
 	return;
 }
 
@@ -1199,8 +1193,14 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	u32 left = priv->wlan_sipc->wlan_sipc_event_len;
 	const u8 *pos = priv->wlan_sipc->event_buf->u.event.variable;
 
+	if (atomic_add_unless(&priv->scan_status, 1, 1) == 0) {
+		dev_err(&priv->ndev->dev, "scan event is aborted\n");
+		return;
+	}
+
 	if (!priv->scan_request) {
-		dev_err(&priv->ndev->dev, "priv->scan_req is null\n");
+		dev_err(&priv->ndev->dev, "priv->scan_request is null\n");
+		atomic_dec(&priv->scan_status);
 		return;
 	}
 
@@ -1281,6 +1281,7 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	priv->scan_request = NULL;
 	if (wake_lock_active(&priv->scan_done_lock))
 		wake_unlock(&priv->scan_done_lock);
+	atomic_dec(&priv->scan_status);
 
 	return;
 
@@ -1290,6 +1291,7 @@ out:
 	priv->scan_request = NULL;
 	if (wake_lock_active(&priv->scan_done_lock))
 		wake_unlock(&priv->scan_done_lock);
+	atomic_dec(&priv->scan_status);
 
 	return;
 }
@@ -1706,12 +1708,12 @@ int itm_wdev_alloc(struct itm_priv *priv, struct device *dev)
 
 	/*Init wdev_priv */
 	priv->scan_request = NULL;
+	atomic_set(&priv->scan_status, 0);
 	priv->connect_status = ITM_DISCONNECTED;
 	memset(priv->bssid, 0, sizeof(priv->bssid));
 	priv->mode = ITM_NONE_MODE;
 	/* FIXME it will be modify when cp2 code ready */
 	priv->cp2_status = ITM_READY;
-	/*spin_lock_init(&priv->scan_req_lock); */
 
 	/* Init scan_timeout timer */
 	init_timer(&priv->scan_timeout);
@@ -1753,10 +1755,10 @@ void itm_wdev_free(struct itm_priv *priv)
 	if (priv->wdev == NULL)
 		return;
 
-	/*spin_lock_bh(&priv->scan_req_lock); */
 	del_timer_sync(&priv->scan_timeout);
 
-	if (priv->scan_request != NULL) {
+	if (priv->scan_request &&
+	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
 		if (priv->scan_request->wiphy != priv->wdev->wiphy) {
 			dev_err(&priv->wdev->netdev->dev,
 				"Scan request is from a wrong wiphy device\n");
@@ -1768,11 +1770,10 @@ void itm_wdev_free(struct itm_priv *priv)
 		priv->scan_request = NULL;
 		if (wake_lock_active(&priv->scan_done_lock))
 			wake_unlock(&priv->scan_done_lock);
+		atomic_dec(&priv->scan_status);
 	}
 
 	itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
-
-	/*spin_unlock_bh(&priv->scan_req_lock); */
 
 	wiphy_unregister(priv->wdev->wiphy);
 	wiphy_free(priv->wdev->wiphy);

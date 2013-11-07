@@ -33,7 +33,6 @@
 struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
-	spinlock_t scan_req_lock;	/* spinlock for scan request */
 	struct napi_struct napi;
 
 	atomic_t stopped;		/* sblock indicator */
@@ -42,6 +41,7 @@ struct itm_priv {
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;
+	atomic_t scan_status;
 
 	/* CFG80211 */
 	struct cfg80211_scan_request *scan_request;

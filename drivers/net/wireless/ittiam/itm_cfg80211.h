@@ -111,6 +111,9 @@ enum cp2_state {
 };
 
 enum wlan_state {
+	ITM_UNKOWN = 0,
+	ITM_SCANNING,
+	ITM_SCAN_ABORTING,
 	ITM_DISCONNECTED,
 	ITM_CONNECTING,
 	ITM_CONNECTED
