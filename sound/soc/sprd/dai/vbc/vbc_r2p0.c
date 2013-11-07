@@ -1132,10 +1132,14 @@ static inline int vbc_power_enable(int enable)
 		}
 	} else {
 		if (atomic_dec_and_test(&vbc_refcnt.vbc_power_on)) {
-			arch_audio_vbc_reset();
-			arch_audio_vbc_disable();
-			vbc_reg_disable();
-			pr_info("VBC Power Off\n");
+			if (arch_audio_vbc_switch(AUDIO_NO_CHANGE) == AUDIO_TO_AP_ARM_CTRL) {
+				arch_audio_vbc_reset();
+				arch_audio_vbc_disable();
+				vbc_reg_disable();
+				pr_info("VBC Power Off\n");
+			}
+			else
+				pr_info("Not Reset or power off VBC in CP side!\n");
 		}
 		if (atomic_read(&vbc_refcnt.vbc_power_on) < 0) {
 			atomic_set(&vbc_refcnt.vbc_power_on, 0);
