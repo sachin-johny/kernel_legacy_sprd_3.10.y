@@ -458,14 +458,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	/*FIXME*/
 	/* If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
-	if (ret) {
+	if (ret)
 		random_ether_addr(ndev->dev_addr);
-		ret = itm_set_mac_from_cfg(priv);
-		if (ret) {
-			dev_err(&pdev->dev, "Failed to set random mac addr\n");
-			goto out;
-		}
-	}
 /*
 	ret = sblock_create(WLAN_CP_ID, WLAN_SBLOCK_CH,
 			    WLAN_SBLOCK_NUM, WLAN_SBLOCK_SIZE,
