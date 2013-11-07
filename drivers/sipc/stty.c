@@ -33,7 +33,7 @@
 
 #define STTY_DEV_MAX_NR 	1
 #define STTY_MAX_DATA_LEN 		4096
-#define STTY_THREAD_MAX_TIME		1000
+#define STTY_THREAD_MAX_TIME		100
 
 
 struct stty_device {
@@ -65,7 +65,7 @@ static int stty_thread(void *data)
 		} else if (cnt == -ENODEV) {
 			msleep(2000);
 		} else {
-			msleep(40);
+			msleep(100);
 		}
 	}
 
