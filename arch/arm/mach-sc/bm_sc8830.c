@@ -400,6 +400,9 @@ static void __sci_axi_bm_set_winlen(void)
 	}
 }
 
+
+extern u32 emc_clk_get(void);
+
 static irqreturn_t __bm_isr(int irq_num, void *dev)
 {
 	int bm_chn;
@@ -468,6 +471,8 @@ static irqreturn_t __bm_isr(int irq_num, void *dev)
 
 	/*count start time stamp */
 	bm_info[buf_write_index].t_start = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+	bm_info[buf_write_index].tmp1    = emc_clk_get();
+	bm_info[buf_write_index].tmp2    = __raw_readl(REG_AON_APB_DPLL_CFG);
 
 	__sci_axi_bm_cnt_start();
 
