@@ -505,6 +505,7 @@ static int __init emc_early_suspend_init(void)
 #ifndef CONFIG_SCXX30_AP_DFS
 	cp_init();
 #else
+	int ret;
 	emc_dfs_code_copy((u8 *)SPRD_IRAM0H_BASE);
 	ret = ioremap_page_range(SPRD_IRAM0H_PHYS, SPRD_IRAM0H_PHYS+SZ_4K, SPRD_IRAM0H_PHYS, PAGE_KERNEL_EXEC);
 	if(ret){

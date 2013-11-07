@@ -15,11 +15,9 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
-#include <linux/i2c/ft53x6_ts.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
-#include <linux/persistent_ram.h>
 #include <linux/input/matrix_keypad.h>
 #include <mach/hardware.h>
 #include <mach/__sc8830_dmc_dfs.h>
