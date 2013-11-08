@@ -206,8 +206,18 @@ static int wait_for_discard(void *word)
 	return 0;
 }
 
+#ifdef CONFIG_ZRAM
+/* For ZRAM, we don't need to consider disk seek times as the generic
+ * block device.
+ * reducing the number of swap pages per cluster can reduce the
+ * response time of kswapd and make it more active.
+ */
+#define SWAPFILE_CLUSTER	64
+#define LATENCY_LIMIT		64
+#else
 #define SWAPFILE_CLUSTER	256
 #define LATENCY_LIMIT		256
+#endif
 
 static inline unsigned long scan_swap_map(struct swap_info_struct *si,
 					  unsigned char usage)
