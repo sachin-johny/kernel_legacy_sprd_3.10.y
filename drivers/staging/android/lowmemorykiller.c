@@ -107,20 +107,21 @@ static  unsigned int  swap_interval_time = 2*HZ;
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 static unsigned int kill_home_adj_wmark = LOWMEM_ADJ_ZRAM_LEVEL;
 static uint32_t lowmem_swap_app_enable = 1;
-static uint32_t lowmem_minfile_check_enable = 0;
+static uint32_t lowmem_minfreeswap_check = 0;
 static uint32_t lowmem_last_swap_time = 0;
-static int lowmem_minfile_size = LOWMEM_ADJ_ZRAM_LEVEL;
+static int lowmem_minfreeswap_size = LOWMEM_ADJ_ZRAM_LEVEL;
 
-static size_t lowmem_minfile[LOWMEM_ADJ_ZRAM_LEVEL] = {
-	9 * 1024,	/* 36MB */
-	8 * 1024,	/* 32MB */
-	7 * 1024,	/* 28MB */
-	6 * 1024,	/* 24MB */
-	5 * 1024,	/* 20MB */
-	4 * 1024,	/* 16MB */
-	3 * 1024,	/* 12MB */
-	2 * 1024,	/* 8MB */
-	1 * 1024,	/* 4MB */
+/* the percentage of free swap */
+static size_t lowmem_minfreeswap[LOWMEM_ADJ_ZRAM_LEVEL] = {
+	0,
+	6,
+	12,
+	20,
+	25,
+	32,
+	50,
+	63,
+	80,
 };
 
 static struct class *lmk_class;
@@ -216,8 +217,9 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 						global_page_state(NR_SHMEM);
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID			
-	int  oom_adj_index = 0;
 	int to_reclaimed = 0;
+	struct sysinfo si = {0};
+	si_swapinfo(&si);
 #endif  /*CONFIG_ZRAM_FOR_ANDROID*/
 
 #ifdef CONFIG_ZRAM
@@ -248,12 +250,27 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 		if (other_free < lowmem_minfree[i] &&
 		    other_file < lowmem_minfree[i]) {
 			min_adj = lowmem_adj[i];
-#ifdef CONFIG_ZRAM_FOR_ANDROID				    
-		       oom_adj_index = i;
-#endif
 			break;
 		}
 	}
+#ifdef CONFIG_ZRAM_FOR_ANDROID
+	if (lowmem_minfreeswap_check && si.totalswap) {
+		unsigned int freeswap_rate = si.freeswap * 100 / si.totalswap;
+
+		/* Reduce min_adj according to the predefined freeswap levels
+		 */
+		if (min_adj == OOM_ADJUST_MAX + 1)
+			i = array_size - 1;
+		for (; i > 0; --i)
+			if (lowmem_minfreeswap[i] < freeswap_rate)
+				break;
+		if (i != array_size - 1)
+			min_adj = lowmem_adj[i];
+
+		lowmem_print(4, "lowmem_shrink freeswap %d rate %d%\n",
+			     si.freeswap, freeswap_rate);
+	}
+#endif
 	if (nr_to_scan > 0)
 		lowmem_print(3, "lowmem_shrink %d, %x, ofree %d %d, ma %d\n",
 			     nr_to_scan, gfp_mask, other_free, other_file,
@@ -262,56 +279,6 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
 		global_page_state(NR_INACTIVE_FILE);
-#ifdef CONFIG_ZRAM_FOR_ANDROID
-	if(lowmem_minfile_check_enable && nr_to_scan > 0)
-	{
-		int t = 0;
-		unsigned int zram_swap_size = 0;
-		struct sysinfo si = {0};
-		si_swapinfo(&si);	
-		zram_swap_size = (si.totalswap - si.freeswap);
-
-		if( min_adj == OOM_ADJUST_MAX + 1)
-		{
-			lowmem_print(3, "Cache value high: other_free:%d, other_file:%d, lowmem_minfile[%d]:%d\r\n", 
-					    other_free,other_file, array_size -1, lowmem_minfree[array_size - 1]);
-
-			oom_adj_index = ARRAY_SIZE(lowmem_adj) - 1;
-		}
-
-		//Recalculate min_adj value according to swapped size
-		for(t = oom_adj_index; t  >= 0; t--)
-		{
-			if(zram_swap_size < lowmem_minfile[t])
-			{
-				min_adj = lowmem_adj[t];
-				break;
-			}
-		}
-
-
-		if( zram_swap_size  >=  lowmem_minfile[0]) 
-		{
-			if ((min_adj == lowmem_adj[0]) && ((other_file + other_free) < (totalreserve_pages << 1)))
-			{
-				printk("\r\n[LMK] WARN No Memory: other_free:%d, other_file:%d, lowmem_minfile[0]:%d, min_adj:%d, totalreserve_pages:%d, zram_swap_size:%d\r\n", 
-					    other_free,other_file, lowmem_minfile[0], min_adj, totalreserve_pages << 1, zram_swap_size);
-				min_adj = 0;
-			}
-			else
-			{
-				min_adj = lowmem_adj[0];
-			}
-		}		
-
-		
-		if(min_adj  != lowmem_adj[oom_adj_index])
-		{
-			lowmem_print(4, "[LMK]adjudge adj, old: %d, new:%d\r\n", lowmem_adj[oom_adj_index], min_adj);
-		}
-		
-	}
-#endif
 	if (nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
 		lowmem_print(5, "lowmem_shrink %d, %x, return %d\n",
 			     nr_to_scan, gfp_mask, rem);
@@ -320,60 +287,44 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 	selected_oom_adj = min_adj;
 
 #ifdef  CONFIG_ZRAM_FOR_ANDROID
-	lowmem_print(4,"[LMK] other_free:%d, other_file:%d, min_free[%d]:%d, min_adj:%d\r\n", 
-						   other_free,other_file, oom_adj_index, lowmem_minfree[oom_adj_index], min_adj);
-	if(lowmem_swap_app_enable)
-	{
-		if(current_is_kswapd() && ((jiffies -lowmem_last_swap_time) >= swap_interval_time) && (min_adj > 1))
+	if (lowmem_swap_app_enable && si.totalswap) {
+		if (current_is_kswapd() &&
+			((jiffies -lowmem_last_swap_time) >= swap_interval_time)
+			 && (min_adj > 1))
 		{
-			int times = 0;
-			struct sysinfo si = {0};
+			int times;
+			/* buddy pages/2 */
+			int swap_to_scan = getbuddyfreepages() >> 1;
 
-			int  swap_to_scan = getbuddyfreepages()  >>  1;   //buddy pages /2
-			
 			if(swap_to_scan > 1024)
-			{
 				swap_to_scan = 1024;
-			}
 
 			if(swap_to_scan > (SWAP_CLUSTER_MAX  << 1) )  //Only run at buddy pages enough
-			{
 				to_reclaimed = swap_to_zram(swap_to_scan, min_adj, 1);
-			}
-			
+
 			lowmem_print(2,"[LMK]swap_to_scan:%d, to_reclaimed:%d, time:%d s\r\n",  swap_to_scan, to_reclaimed, jiffies/HZ);
-			
+
 			if(to_reclaimed >= swap_to_scan)
 			{
-			         swap_interval_time = default_interval_time;
-				return rem - to_reclaimed;							
+				swap_interval_time = default_interval_time;
+				return rem - to_reclaimed;
 			}
 
 			if(0 == to_reclaimed)
-			{
 			       times = 5;
-			}
 			else
 			{
 				times = swap_to_scan/to_reclaimed;
 				if(times > 5)
-				{
 					times = 5;
-				}
 			}
-			
 			swap_interval_time = default_interval_time * times;
-			lowmem_last_swap_time =  jiffies;	   
+			lowmem_last_swap_time = jiffies;
 
-			si_swapinfo(&si);
-
-			if( (si.totalswap - si.freeswap) < lowmem_minfile[oom_adj_index])
-			{
+			if ((si.freeswap * 100 / si.totalswap) >
+				lowmem_minfreeswap[i])
 				return rem - to_reclaimed;
-			}
-
 		}
-		
 	}
 #endif
 
@@ -793,10 +744,10 @@ static void __exit lowmem_exit(void)
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
 module_param_named(lowmem_swap_app_enable, lowmem_swap_app_enable, int, S_IRUGO | S_IWUSR);
-module_param_named(lowmem_minfile_check_enable, lowmem_minfile_check_enable, int, S_IRUGO | S_IWUSR);
+module_param_named(lowmem_minfreeswap_check, lowmem_minfreeswap_check, int, S_IRUGO | S_IWUSR);
 module_param_named(kill_home_adj_wmark, kill_home_adj_wmark, int, S_IRUGO | S_IWUSR);
-module_param_array_named(lowmem_minfile, lowmem_minfile, int, &lowmem_minfile_size,
-			 S_IRUGO | S_IWUSR);
+module_param_array_named(lowmem_minfreeswap, lowmem_minfreeswap, int,
+			 &lowmem_minfreeswap_size, S_IRUGO | S_IWUSR);
 module_param_named(default_interval_time, default_interval_time, int, S_IRUGO | S_IWUSR);
 
 #endif
