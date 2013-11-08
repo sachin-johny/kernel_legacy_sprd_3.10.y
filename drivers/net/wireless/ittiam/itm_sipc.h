@@ -188,6 +188,6 @@ extern void itm_wlan_sipc_free(struct itm_priv *itm_priv);
 extern int itm_wlan_pm_suspend_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_pm_resume_cmd(struct wlan_sipc *wlan_sipc);
 
-extern int itm_wlan_pm_enter_ps_cmd(struct wlan_sipc *wlan_sipc);
+extern int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv);
 extern int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc);
 #endif/*__ITM_SIPC_CMD_H__*/

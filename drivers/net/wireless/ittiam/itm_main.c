@@ -384,7 +384,7 @@ static int itm_wlan_suspend(struct device *dev)
 	napi_disable(&priv->napi);
 
 #if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
-	ret = itm_wlan_pm_enter_ps_cmd(priv->wlan_sipc);
+	ret = itm_wlan_pm_enter_ps_cmd(priv);
 #elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
 	ret = itm_wlan_pm_suspend_cmd(priv->wlan_sipc);
 #endif
@@ -509,6 +509,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_register_netdev;
 	}
 
+	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
+
 	ret = npi_init_netlink();
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
@@ -551,6 +553,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
 
+	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_netdev(ndev);
 	itm_wdev_free(priv);
 	free_netdev(ndev);

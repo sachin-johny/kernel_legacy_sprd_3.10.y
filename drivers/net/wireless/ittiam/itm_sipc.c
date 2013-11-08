@@ -24,6 +24,9 @@
 #include <linux/sipc.h>
 #include <asm/byteorder.h>
 #include <linux/sipc.h>
+#include <linux/netdevice.h>
+#include <linux/etherdevice.h>
+#include <linux/inetdevice.h>
 
 #include "itm_sipc_types.h"
 #include "itm_sipc.h"
@@ -1174,14 +1177,22 @@ int itm_wlan_pm_resume_cmd(struct wlan_sipc *wlan_sipc)
 	return 0;
 }
 
-int itm_wlan_pm_enter_ps_cmd(struct wlan_sipc *wlan_sipc)
+int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv)
 {
 	int ret;
+	struct wlan_sipc *wlan_sipc = itm_priv->wlan_sipc;
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct in_device *ip = (struct in_device *)itm_priv->ndev->ip_ptr;
+	struct in_ifaddr *in = ip->ifa_list;
+
+	if (in != NULL)
+		memcpy(send_buf->u.cmd.variable, &in->ifa_address, 4);
 
 	pr_debug("enter ps cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
-	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
+	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
+			       CMD_TYPE_SET,
 			       WIFI_CMD_PM_ENTER_PS);
 
 	if (ret) {

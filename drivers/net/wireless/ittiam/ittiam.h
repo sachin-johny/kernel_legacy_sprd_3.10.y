@@ -26,8 +26,9 @@
 #include <linux/netdevice.h>
 #include <linux/ieee80211.h>
 #include <linux/if_ether.h>
-#include "itm_sipc_types.h"
+#include <linux/wakelock.h>
 
+#include "itm_sipc_types.h"
 
 struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
@@ -37,6 +38,7 @@ struct itm_priv {
 
 	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/
+	struct wake_lock scan_done_lock;
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;

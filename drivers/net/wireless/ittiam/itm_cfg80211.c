@@ -361,6 +361,8 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 		}
 	}
 	priv->scan_request = request;
+	if (!wake_lock_active(&priv->scan_done_lock))
+		wake_lock(&priv->scan_done_lock);
 	/* Arm scan timeout timer */
 	mod_timer(&priv->scan_timeout,
 		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
@@ -753,6 +755,8 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
+		if (wake_lock_active(&priv->scan_done_lock))
+			wake_unlock(&priv->scan_done_lock);
 	}
 
 	return ret;
@@ -1096,6 +1100,8 @@ out:
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
+		if (wake_lock_active(&priv->scan_done_lock))
+			wake_unlock(&priv->scan_done_lock);
 	}
 	if (priv->connect_status == ITM_CONNECTING) {
 		cfg80211_connect_result(priv->ndev,
@@ -1122,6 +1128,8 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
+		if (wake_lock_active(&priv->scan_done_lock))
+			wake_unlock(&priv->scan_done_lock);
 	}
 	if (priv->connect_status == ITM_CONNECTING) {
 		cfg80211_connect_result(priv->ndev,
@@ -1168,6 +1176,8 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 		dev_err(&priv->ndev->dev, "scan timer expired!");
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
+		if (wake_lock_active(&priv->scan_done_lock))
+			wake_unlock(&priv->scan_done_lock);
 		return;
 	}
 	dev_err(&priv->ndev->dev, "wrong scan timer expired!");
@@ -1269,6 +1279,8 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
 	priv->scan_request = NULL;
+	if (wake_lock_active(&priv->scan_done_lock))
+		wake_unlock(&priv->scan_done_lock);
 
 	return;
 
@@ -1276,6 +1288,8 @@ out:
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, true);
 	priv->scan_request = NULL;
+	if (wake_lock_active(&priv->scan_done_lock))
+		wake_unlock(&priv->scan_done_lock);
 
 	return;
 }
@@ -1752,6 +1766,8 @@ void itm_wdev_free(struct itm_priv *priv)
 		}
 
 		priv->scan_request = NULL;
+		if (wake_lock_active(&priv->scan_done_lock))
+			wake_unlock(&priv->scan_done_lock);
 	}
 
 	itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
