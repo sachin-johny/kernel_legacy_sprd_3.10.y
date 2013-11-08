@@ -2009,7 +2009,8 @@ const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("DACR Mute", 6, FUN_REG(SPRD_CODEC_PGA_DACR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_DAC_E("DAC", "Playback", FUN_REG(SPRD_CODEC_PLAYBACK), 0,
+	SND_SOC_DAPM_DAC_E("DAC", "Playback-Vaudio",
+			   FUN_REG(SPRD_CODEC_PLAYBACK), 0,
 			   0,
 			   chan_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
@@ -2112,7 +2113,8 @@ const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_PGA_S("ADCR Mute", 3, FUN_REG(SPRD_CODEC_PGA_ADCR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_ADC_E("ADC", "Main-Capture", FUN_REG(SPRD_CODEC_CAPTRUE),
+	SND_SOC_DAPM_ADC_E("ADC", "Main-Capture-Vaudio",
+			   FUN_REG(SPRD_CODEC_CAPTRUE),
 			   0, 0,
 			   chan_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
@@ -2150,7 +2152,8 @@ const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ADC1_EN_L, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("Digital ADC1R Switch", 5, SOC_REG(AUD_TOP_CTL),
 			   ADC1_EN_R, 0, NULL, 0),
-	SND_SOC_DAPM_ADC_E("ADC1", "Ext-Capture", FUN_REG(SPRD_CODEC_CAPTRUE1),
+	SND_SOC_DAPM_ADC_E("ADC1", "Ext-Capture-Vaudio",
+			   FUN_REG(SPRD_CODEC_CAPTRUE1),
 			   0, 0,
 			   chan_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
@@ -2875,6 +2878,26 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 		     },
 	 .ops = &sprd_codec_dai_ops,
 	 },
+#ifdef CONFIG_SND_SOC_SPRD_VAUDIO
+	{
+	 .name = "sprd-codec-v3-vaudio",
+	 .playback = {
+		      .stream_name = "Playback-Vaudio",
+		      .channels_min = 1,
+		      .channels_max = 2,
+		      .rates = SPRD_CODEC_PCM_RATES,
+		      .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		      },
+	 .capture = {
+		     .stream_name = "Main-Capture-Vaudio",
+		     .channels_min = 1,
+		     .channels_max = 2,
+		     .rates = SPRD_CODEC_PCM_AD_RATES,
+		     .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		     },
+	 .ops = &sprd_codec_dai_ops,
+	 },
+#endif
 	/*digital  ad1 */
 	{
 	 .id = SPRD_CODEC_IIS1_ID,
@@ -2888,6 +2911,21 @@ struct snd_soc_dai_driver sprd_codec_dai[] = {
 		     },
 	 .ops = &sprd_codec_dai_ops,
 	 },
+#ifdef CONFIG_SND_SOC_SPRD_VAUDIO
+	/*digital  ad1 */
+	{
+	 .id = SPRD_CODEC_IIS1_ID,
+	 .name = "codec-vaudio-ext",
+	 .capture = {
+		     .stream_name = "Ext-Capture-Vaudio",
+		     .channels_min = 1,
+		     .channels_max = 2,
+		     .rates = SPRD_CODEC_PCM_AD_RATES,
+		     .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		     },
+	 .ops = &sprd_codec_dai_ops,
+	 },
+#endif
 };
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
@@ -2942,8 +2980,9 @@ static int sprd_codec_probe(struct platform_device *pdev)
 	sprd_codec_inter_hp_pa_init();
 	arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
 
-	sprd_codec = devm_kzalloc(&pdev->dev, sizeof(struct sprd_codec_priv),
-				  GFP_KERNEL);
+	sprd_codec =
+	    devm_kzalloc(&pdev->dev, sizeof(struct sprd_codec_priv),
+			 GFP_KERNEL);
 	if (sprd_codec == NULL)
 		return -ENOMEM;
 	sprd_codec->da_sample_val = 44100;	/*inital value for FM route */
@@ -2971,7 +3010,8 @@ static int sprd_codec_probe(struct platform_device *pdev)
 	}
 
 	ret = snd_soc_register_codec(&pdev->dev,
-				     &soc_codec_dev_sprd_codec, sprd_codec_dai,
+				     &soc_codec_dev_sprd_codec,
+				     sprd_codec_dai,
 				     ARRAY_SIZE(sprd_codec_dai));
 	if (ret != 0) {
 		pr_err("ERR:Failed to register CODEC: %d\n", ret);

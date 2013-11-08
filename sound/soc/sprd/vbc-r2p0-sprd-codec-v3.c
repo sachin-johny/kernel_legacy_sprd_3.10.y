@@ -462,7 +462,7 @@ static struct snd_soc_dai_link shark_dai[] = {
 	 .codec_name = "sprd-codec-v3",
 	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio",
-	 .codec_dai_name = "sprd-codec-v3-i2s",
+	 .codec_dai_name = "sprd-codec-v3-vaudio",
 	 },
 #endif
 	{
@@ -482,7 +482,7 @@ static struct snd_soc_dai_link shark_dai[] = {
 	 .codec_name = "sprd-codec-v3",
 	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio-ad23",
-	 .codec_dai_name = "codec-i2s-ext",
+	 .codec_dai_name = "codec-vaudio-ext",
 	 },
 #endif
 };
