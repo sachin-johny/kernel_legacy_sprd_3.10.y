@@ -19,6 +19,9 @@
 #define FT_UPGRADE_AA					0xAA
 #define FT_UPGRADE_55 					0x55
 
+#define    BL_VERSION_LZ4        0
+#define    BL_VERSION_Z7        1
+#define    BL_VERSION_GZF        2
 
 
 /*****************************************************************************/
