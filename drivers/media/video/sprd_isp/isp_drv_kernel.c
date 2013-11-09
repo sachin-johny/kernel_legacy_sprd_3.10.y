@@ -230,8 +230,8 @@ static int32_t _isp_module_eb(void)
 			ISP_PRINT("isp_k: set clock error\n");
 			ret = -EIO;
 		}
-		sci_glb_set(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
-		sci_glb_set(ISP_MODULE_EB, ISP_EB_BIT);
+//		sci_glb_set(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
+//		sci_glb_set(ISP_MODULE_EB, ISP_EB_BIT);
 	}
 
 	ISP_PRINT("_isp_module_eb: end\n");
@@ -245,8 +245,8 @@ static int32_t _isp_module_dis(void)
 
 	if (0x00 == atomic_dec_return(&s_isp_users)) {
 
-		sci_glb_clr(ISP_MODULE_EB, ISP_EB_BIT);
-		sci_glb_clr(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
+//		sci_glb_clr(ISP_MODULE_EB, ISP_EB_BIT);
+//		sci_glb_clr(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 
 		ret = _isp_set_clk(ISP_CLK_NONE);
 		if (unlikely(0 != ret)) {
