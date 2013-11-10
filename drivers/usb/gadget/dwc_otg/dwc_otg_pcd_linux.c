@@ -1302,6 +1302,25 @@ static irqreturn_t usb_detect_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+int epmic_event_handler(int level)
+{
+	struct gadget_wrapper *d;
+
+#ifndef DWC_DEVICE_ONLY
+	/*   
+	 *if otg cable is connected , id state =0
+	 *as host turn on vbus, in this case shouldn't call this handler
+	 */
+	if(!usb_get_id_state())
+		return 0;
+#endif
+	d = gadget_wrapper;
+	d->vbus = level;
+	queue_work(d->detect_wq, &d->detect_work);
+	return 0;
+}
+EXPORT_SYMBOL(epmic_event_handler);
+
 static int cable_is_connected(void)
 {
 	if (usb_get_vbus_state())

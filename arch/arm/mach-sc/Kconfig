@@ -176,6 +176,11 @@ config SC_VIBRATOR
         select ANDROID_TIMED_OUTPUT
         default n
 
+config EIRQ_NUM
+        int "number for external irq region desc request"
+        range 0 1024
+	default 0
+
 comment "SC8830 ADIE type"
 
 config SC_INTERNAL_ADI
