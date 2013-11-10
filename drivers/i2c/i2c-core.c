@@ -280,13 +280,74 @@ show_modalias(struct device *dev, struct device_attribute *attr, char *buf)
 	return sprintf(buf, "%s%s\n", I2C_MODULE_PREFIX, client->name);
 }
 
+static u8 i2clientR_buf_len;
+static u8 i2clientW_buf_len;
+static u8 i2clientR_buf[64];
+static u8 i2clientW_buf[64];
+#define _I2CCLIENT_OP(x) \
+	u8 command; u8 length; \
+	struct i2c_client *client = to_i2c_client(dev); \
+	/* sscanf(buf, "%x,%x,%n", &command, &length, &offset); */ \
+	command = buf[0]; length = buf[1]; \
+	pr_emerg("i2client%c cmd=%x, len=%x\n", x ? 'R':'W', command, length); \
+	if (x) { \
+		i2clientR_buf_len = length; \
+		i2c_smbus_read_i2c_block_data(client, command, length, i2clientR_buf); \
+	} else { \
+		i2clientW_buf_len = 2 + length; \
+		memcpy(i2clientW_buf, buf, i2clientW_buf_len); \
+		i2c_smbus_write_i2c_block_data(client, command, length, buf + 2); \
+	} \
+	return size;
+
+static inline ssize_t format_hexstring(char *result, char *data, u32 len)
+{
+	int count = 0;
+	char *p = result;
+	for (; len; len--) {
+		p += sprintf(p, "%02x", *data++);
+		if ((++count % 8) == 0)
+			p += sprintf(p, "\n");
+	}
+	p += sprintf(p, "\n");
+	return p - result;
+}
+
+static ssize_t
+show_i2clientR(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return format_hexstring(buf, i2clientR_buf, i2clientR_buf_len);
+}
+
+static ssize_t
+store_i2clientR(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	_I2CCLIENT_OP(1);
+}
+
+static ssize_t
+show_i2clientW(struct device *dev, struct device_attribute *attr, char *buf)
+{
+	return format_hexstring(buf, i2clientW_buf, i2clientW_buf_len);
+}
+
+static ssize_t
+store_i2clientW(struct device *dev, struct device_attribute *attr, const char *buf, size_t size)
+{
+	_I2CCLIENT_OP(0);
+}
+
 static DEVICE_ATTR(name, S_IRUGO, show_name, NULL);
 static DEVICE_ATTR(modalias, S_IRUGO, show_modalias, NULL);
+static DEVICE_ATTR(i2clientR, S_IRUGO | S_IWUSR, show_i2clientR, store_i2clientR);
+static DEVICE_ATTR(i2clientW, S_IRUGO | S_IWUSR, show_i2clientW, store_i2clientW);
 
 static struct attribute *i2c_dev_attrs[] = {
 	&dev_attr_name.attr,
 	/* modalias helps coldplug:  modprobe $(cat .../modalias) */
 	&dev_attr_modalias.attr,
+	&dev_attr_i2clientR.attr,
+	&dev_attr_i2clientW.attr,
 	NULL
 };
 
