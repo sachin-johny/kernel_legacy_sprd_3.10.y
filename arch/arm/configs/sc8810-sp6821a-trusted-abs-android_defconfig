@@ -1670,7 +1670,7 @@ CONFIG_ZRAM_FOR_ANDROID=y
 #
 # File systems
 #
-# CONFIG_EXT2_FS is not set
+CONFIG_EXT2_FS=y
 # CONFIG_EXT3_FS is not set
 # CONFIG_EXT4_FS is not set
 # CONFIG_REISERFS_FS is not set
