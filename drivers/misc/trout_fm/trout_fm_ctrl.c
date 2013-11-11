@@ -19,9 +19,13 @@
 
 struct trout_interface *p_trout_interface;
 
+static int g_volume = 0;
+
 int trout_fm_set_volume(u8 iarg)
 {
 	TROUT_PRINT("FM set volume : %i.", iarg);
+        
+       g_volume = (int)iarg;
 	if(0 == iarg)
 	{
 	     trout_fm_mute(); 
@@ -37,14 +41,13 @@ int trout_fm_set_volume(u8 iarg)
 int trout_fm_get_volume(void)
 {
 	TROUT_PRINT("FM get volume.");
-	return 0;
+	return g_volume;
 }
 
 
 
 int trout_fm_open(struct inode *inode, struct file *filep)
 {
-	int i;
 	int ret = -EINVAL;
 	int status;
 
