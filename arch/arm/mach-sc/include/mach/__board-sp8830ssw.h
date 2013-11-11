@@ -76,6 +76,16 @@
 #define GPIO_M_RSTN	161
 #define GPIO_M_DRDY 164
 
+#define GPIO_IF_PMIC_SDA 124
+#define GPIO_IF_PMIC_SCL 125
+#define GPIO_IF_PMIC_IRQ 126
+#define GPIO_FUELGAUGE_SCL 65
+#define GPIO_FUELGAUGE_SDA 66
+#define GPIO_FUELGAUGE_ALERT 114
+#define GPIO_MUIC_SDA	108
+#define GPIO_MUIC_SCL	109
+#define GPIO_MUIC_IRQ	110
+
 /* General Info for ION*/
 #define SPRD_ION_SIZE            (50 * SZ_1M)
 #define SPRD_ION_OVERLAY_SIZE    (8 * SZ_1M)

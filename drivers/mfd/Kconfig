@@ -20,6 +20,13 @@ config MFD_88PM860X
 	  select individual components like voltage regulators, RTC and
 	  battery-charger under the corresponding menus.
 
+config MFD_RT8973
+	tristate "Richtek RT8973 MUIC"
+	depends on I2C
+	default n
+	help
+	  Support RT8973 MUIC
+
 config MFD_SM501
 	tristate "Support for Silicon Motion SM501"
 	 ---help---
@@ -105,6 +112,15 @@ config UCB1400_CORE
 
 	  To compile this driver as a module, choose M here: the
 	  module will be called ucb1400_core.
+
+config MFD_RT5033
+        tristate "Support for Richtek RT5033 I/F PMIC"
+	depends on I2C
+	select MFD_CORE
+	default n
+	help
+	  If you say yes to this option, support will be included for the
+	  RT5033 I/F PMIC chip.
 
 config TPS6105X
 	tristate "TPS61050/61052 Boost Converters"

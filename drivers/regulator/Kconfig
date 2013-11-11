@@ -223,6 +223,12 @@ config REGULATOR_PCF50633
 	 Say Y here to support the voltage regulators and convertors
 	 on PCF50633
 
+config REGULATOR_RT5033	
+	depends on MFD_RT5033
+	tristate "RT5033 LDO and Buck"
+	help
+	  Say y here to support the regulators found on the Richtek RT5033 I/F PMIC.
+
 config REGULATOR_S5M8767
 	tristate "Samsung S5M8767A voltage regulator"
 	depends on MFD_S5M_CORE

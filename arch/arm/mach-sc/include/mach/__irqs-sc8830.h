@@ -181,7 +181,17 @@
 
 #define NR_GPIO_IRQS	( 320 )
 
+#if (defined(CONFIG_EIRQ_NUM) && CONFIG_EIRQ_NUM)
+#ifndef CONFIG_SPARSE_IRQ
+/* For external irq region desc request */
+#define __NR_IRQS			(NR_SCI_PHY_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
+#define NR_IRQS				(__NR_IRQS + CONFIG_EIRQ_NUM)
+#else
+#error 'Dont support CONFIG_EIRQ_NUM & CONFIG_SPARSE_IRQ coexist'
+#endif /* CONFIG_SPARSE_IRQ */
+#else
 #define NR_IRQS				(NR_SCI_PHY_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
+#endif /* CONFIG_EIRQ_NUM */
 #define FIQ_START	(0)
 #define NR_FIQS		(NR_SCI_PHY_IRQS)
 
