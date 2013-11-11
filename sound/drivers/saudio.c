@@ -365,7 +365,7 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 	stream->hwptr_done = 0;
 	stream->last_getblk_count = 0;
 	stream->last_elapsed_count = 0;
-	stream->blk_count = sblock_get_free_count(stream->dst, stream->channel);
+	stream->blk_count = SAUDIO_STREAM_BLOCK_COUNT;
 
 	if (stream_id == SNDRV_PCM_STREAM_PLAYBACK) {
 		runtime->hw = snd_card_saudio_playback;
@@ -835,7 +835,7 @@ static int saudio_data_transfer_process(struct saudio_stream *stream,
 		}
 	}
 
-	while (elapsed_blks) {
+	while (elapsed_blks > 0) {
 		elapsed_blks--;
 		stream->hwptr_done++;
 		stream->hwptr_done %= runtime->periods;
