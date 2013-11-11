@@ -638,6 +638,31 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	ft5x0x_ts_reset();
 }
 
+void focaltech_get_upgrade_array(struct i2c_client *client)
+{
+
+	u8 chip_id;
+	u32 i;
+
+	i2c_smbus_read_i2c_block_data(client,FT_REG_CHIP_ID,1,&chip_id);
+
+	printk("%s chip_id = %x\n", __func__, chip_id);
+
+	for(i=0;i<sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info);i++)
+	{
+		if(chip_id==fts_updateinfo[i].CHIP_ID)
+		{
+			memcpy(&fts_updateinfo_curr, &fts_updateinfo[i], sizeof(struct Upgrade_Info));
+			break;
+		}
+	}
+
+	if(i >= sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info))
+	{
+		memcpy(&fts_updateinfo_curr, &fts_updateinfo[0], sizeof(struct Upgrade_Info));
+	}
+}
+
 static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ft5x0x_ts_data *ft5x0x_ts;
@@ -779,22 +804,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	register_early_suspend(&ft5x0x_ts->early_suspend);
 #endif
 
-       #if 1//find chip info  dennis add
-      		i2c_smbus_read_i2c_block_data(client,FT_REG_CHIP_ID,1,&chip_id);
-		printk("%s chip_id = %x\n", __func__, chip_id);
-		for(i=0;i<sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info);i++)
-                {
-                    if(chip_id==fts_updateinfo[i].CHIP_ID)
-                    {
-                        memcpy(&fts_updateinfo_curr, &fts_updateinfo[i], sizeof(struct Upgrade_Info));
-                        break;
-                    }
-                }
-                if(i>=sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info))
-                {
-                        memcpy(&fts_updateinfo_curr, &fts_updateinfo[0], sizeof(struct Upgrade_Info));
-                }
-       #endif
+   focaltech_get_upgrade_array(client);
 
 #ifdef SYSFS_DEBUG	
 fts_create_sysfs(client);

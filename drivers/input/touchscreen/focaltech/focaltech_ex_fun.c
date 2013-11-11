@@ -471,6 +471,7 @@ void delay_qt_ms(unsigned long  w_ms)
 	}
 }
 
+extern void focaltech_get_upgrade_array(struct i2c_client *client);
 int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth)
 {
@@ -486,9 +487,10 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 	u8 auc_i2c_write_buf[10];
 	u8 bt_ecc;
 	int i_ret;
-      // struct Upgrade_Info upgradeinfo;
-	   
+	// struct Upgrade_Info upgradeinfo;
 	//fts_get_upgrade_info(&upgradeinfo);
+	 focaltech_get_upgrade_array(client);
+
 	if(*(pbt_buf+dw_lenth-12) == 30)
 	{
 		is_5336_fwsize_30 = 1;
@@ -583,9 +585,13 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 	{
 		is_5336_new_bootloader = BL_VERSION_Z7 ;
 	}
-	else if(reg_val[0] >= 0x0f)
+	else if(reg_val[0] >= 0x0f && ((fts_updateinfo_curr.CHIP_ID==0x11) ||(fts_updateinfo_curr.CHIP_ID==0x12) ||(fts_updateinfo_curr.CHIP_ID==0x13) ||(fts_updateinfo_curr.CHIP_ID==0x14)))
 	{
 		is_5336_new_bootloader = BL_VERSION_GZF ;
+	}
+	else
+	{
+		is_5336_new_bootloader = BL_VERSION_LZ4 ;
 	}
 
 
