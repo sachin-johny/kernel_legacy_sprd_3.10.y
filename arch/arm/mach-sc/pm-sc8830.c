@@ -985,11 +985,12 @@ void read_persistent_clock(struct timespec *ts)
 static void sc8830_power_off(void)
 {
 	/*turn off all modules's ldo*/
-	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
+	//sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
 
 	/*turn off system core's ldo*/
-	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);
-	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, 0X7fff);
+	//sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);
+	//sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, 0X7fff);
+	sci_adi_set(ANA_REG_GLB_MP_PWR_CTRL0,  BIT_PWR_OFF_SEQ_EN); //auto poweroff by chip
 }
 
 static void sc8830_machine_restart(char mode, const char *cmd)
