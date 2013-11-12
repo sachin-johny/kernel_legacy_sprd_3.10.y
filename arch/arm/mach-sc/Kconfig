@@ -176,6 +176,11 @@ config SC_VIBRATOR
         select ANDROID_TIMED_OUTPUT
         default n
 
+config SC_VIBRATOR_GPIO
+        bool "vibrator for SC serials by gpio"
+        default n
+	depends on SC_VIBRATOR
+
 config EIRQ_NUM
         int "number for external irq region desc request"
         range 0 1024

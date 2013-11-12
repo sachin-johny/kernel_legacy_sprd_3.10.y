@@ -86,6 +86,8 @@
 #define GPIO_MUIC_SCL	109
 #define GPIO_MUIC_IRQ	110
 
+#define GPIO_VIBRATOR_INT 117
+
 /* General Info for ION*/
 #define SPRD_ION_SIZE            (50 * SZ_1M)
 #define SPRD_ION_OVERLAY_SIZE    (8 * SZ_1M)
