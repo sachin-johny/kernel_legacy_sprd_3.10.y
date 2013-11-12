@@ -295,19 +295,19 @@ void print_hard_irq_inloop(int ret)
 		}
 	}
 
-	if(0){
+	if (sprd_hard_irq[35]) {
 		for(i=0; i<(GPIO_GROUP_NUM/2); i++){
 			j = 2*i;
 			gpio_irq[j]= __raw_readl(SPRD_GPIO_BASE + 0x100*i + REG_GPIO_MIS);
 			gpio_irq[j+1]= __raw_readl(SPRD_GPIO_BASE + 0x100*i + 0x80 + REG_GPIO_MIS);
-			printk("gpio_irq[%d]:0x%x, gpio_irq[%d]:0x%x \n", j, gpio_irq[j], j+1, gpio_irq[j+1]);
+	//		printk("gpio_irq[%d]:0x%x, gpio_irq[%d]:0x%x \n", j, gpio_irq[j], j+1, gpio_irq[j+1]);
 		}
 		for(i=0; i<GPIO_GROUP_NUM; i++){
 			if(gpio_irq[i] != 0){
 				val = gpio_irq[i];
 				while(val){
 					j = __ffs(val);
-					printk("gpio irq number : %d \n", (j+16*(i+1)) );
+					printk("irq from gpio%d\n", j + 16*i);
 					val &= ~(1<<j);
 				}
 			}
