@@ -559,6 +559,23 @@ out:
         return;
 }
 
+static int get_plug_state(struct sprd_headset_platform_data *pdata, int state)
+{
+	int plug_state = -1;		// -1:error, 0:plug out, 1:plug in
+
+	if (plug_status == 1 && ((pdata->irq_trigger_level_detect && 0 == state)
+			|| (0 == pdata->irq_trigger_level_detect && 1 == state))) {
+		PRINT_INFO("headset plug out\n");
+		plug_state = 0;
+	} else if (plug_status == 0 && ((pdata->irq_trigger_level_detect && 1 == state)
+			|| (0 == pdata->irq_trigger_level_detect && 0 == state))) {
+		PRINT_INFO("headset plug in\n");
+		plug_state = 1;
+	}
+
+	return plug_state;
+}
+
 static void headset_detect_work_func(struct work_struct *work)
 {
         struct sprd_headset *ht = &headset;
@@ -566,6 +583,7 @@ static void headset_detect_work_func(struct work_struct *work)
         SPRD_HEADSET_TYPE headset_type;
         int state = 0;
         int ana_sts0 = 0;
+		int plug_state;
 
         down(&headset_sem);
 
@@ -590,7 +608,9 @@ static void headset_detect_work_func(struct work_struct *work)
                 }
         }
 
-        if(1 == state && 0 == plug_status) {
+		plug_state = get_plug_state(pdata, state);
+
+		if(plug_state == 1) {
                 headset_type = headset_type_detect(gpio_detect_value);
                 switch (headset_type) {
                 case HEADSET_TYPE_ERR:
@@ -658,7 +678,7 @@ static void headset_detect_work_func(struct work_struct *work)
                         irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_HIGH);
 
                 headset_irq_detect_enable(1, ht->irq_detect);
-        } else if(0 == state && 1 == plug_status) {
+		} else if(plug_state == 0) {
 
                 headset_irq_button_enable(0, ht->irq_button);
 

@@ -262,4 +262,9 @@ config BUS_MONITOR_DEBUG
         bool "debug scxx35 AHB and DMC bus monitors"
         default n
 	depends on BUS_MONITOR
+
+config EAR_LOW_LEVEL_DETECT
+        bool "ear detecting trigger is low level"
+        default n
+
 endif
