@@ -225,6 +225,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_thm_device,
 	&sprd_thm_a_device,
 	&gpio_button_device,
+	&sprd_headset_device,
 	&gpsctl_dev
 };
 

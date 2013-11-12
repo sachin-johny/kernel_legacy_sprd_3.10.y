@@ -694,7 +694,11 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.gpio_switch = HEADSET_SWITCH_GPIO,
 	.gpio_detect = HEADSET_DETECT_GPIO,
 	.gpio_button = HEADSET_BUTTON_GPIO,
+#ifdef CONFIG_EAR_LOW_LEVEL_DETECT
+	.irq_trigger_level_detect = 0,
+#else
 	.irq_trigger_level_detect = 1,
+#endif
 	.irq_trigger_level_button = 1,
 	.headset_buttons = sprd_headset_buttons,
 	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
