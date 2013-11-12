@@ -1922,6 +1922,10 @@ static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
 	return shrink_inactive_list(nr_to_scan, mz, sc, priority, file);
 }
 
+#ifdef CONFIG_ZRAM
+static int vmscan_swappiness_ratio = 1;
+module_param_named(vmscan_swappiness_ratio, vmscan_swappiness_ratio, int, S_IRUGO | S_IWUSR);
+#endif
 static int vmscan_swappiness(struct mem_cgroup_zone *mz,
 			     struct scan_control *sc)
 {
@@ -1995,8 +1999,23 @@ static void get_scan_count(struct mem_cgroup_zone *mz, struct scan_control *sc,
 	 * With swappiness at 100, anonymous and file have the same priority.
 	 * This scanning priority is essentially the inverse of IO cost.
 	 */
+	
+#ifdef CONFIG_ZRAM
+    {
+		unsigned long tmp;
+		tmp = vmscan_swappiness(mz, sc);
+		if (vmscan_swappiness_ratio) {
+			anon_prio = (tmp * anon) / (anon + file + 1);
+			file_prio =   (200 - tmp) * file / (anon + file + 1);
+		}else{
+			anon_prio = tmp;
+			file_prio = 200 - tmp;
+		}
+	}
+#else // CONFIG_ZRAM	 
 	anon_prio = vmscan_swappiness(mz, sc);
 	file_prio = 200 - vmscan_swappiness(mz, sc);
+#endif
 
 	/*
 	 * OK, so we have swap space and a fair amount of page cache
