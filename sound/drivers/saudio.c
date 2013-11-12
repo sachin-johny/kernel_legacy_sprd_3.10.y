@@ -198,6 +198,8 @@ struct snd_saudio {
 	uint32_t in_init;
 };
 
+static DEFINE_MUTEX(snd_sound);
+
 static int saudio_snd_card_free(struct snd_saudio *saudio);
 
 static int saudio_send_common_cmd(uint32_t dst, uint32_t channel,
@@ -1055,6 +1057,8 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 		return -1;
 	}
 
+	mutex_lock(&snd_sound);
+
 	result =
 	    snd_card_create(SNDRV_DEFAULT_IDX1, saudio->dev_ctrl[0].name,
 			    THIS_MODULE, sizeof(struct snd_saudio *),
@@ -1062,6 +1066,7 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 	if (!saudio_card) {
 		printk(KERN_ERR "saudio:snd_card_create faild result is %d\n",
 		       result);
+		mutex_unlock(&snd_sound);
 		return -1;
 	}
 	saudio->card = saudio_card;
@@ -1071,8 +1076,10 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 		dev_ctrl = &saudio->dev_ctrl[i];
 		mutex_init(&dev_ctrl->mutex);
 		err = snd_card_saudio_pcm(saudio, i, 1);
-		if (err < 0)
+		if (err < 0) {
+			mutex_unlock(&snd_sound);
 			goto __nodev;
+		}
 		for (j = 0; j < SAUDIO_STREAM_MAX; j++) {
 			stream = &dev_ctrl->stream[j];
 			stream->dev_ctrl = dev_ctrl;
@@ -1092,6 +1099,9 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 	       SAUDIO_CARD_NAME_LEN_MAX);
 
 	err = snd_card_register(saudio->card);
+
+	mutex_unlock(&snd_sound);
+
 	if (err == 0) {
 		printk(KERN_INFO "saudio.c:snd_card create ok\n");
 		return 0;
@@ -1099,7 +1109,9 @@ static int saudio_snd_init_card(struct snd_saudio *saudio)
 __nodev:
 	if (saudio) {
 		if (saudio->card) {
+			mutex_lock(&snd_sound);
 			snd_card_free(saudio->card);
+			mutex_unlock(&snd_sound);
 		}
 	}
 	printk("saudio.c:initialization failed\n");
@@ -1170,7 +1182,9 @@ static void saudio_work_card_free_handler(struct work_struct *data)
 		printk(KERN_INFO
 		       "saudio: work_handler:snd card free in,dst %d, channel %d\n",
 		       saudio->dst, saudio->channel);
+		mutex_lock(&snd_sound);
 		result = snd_card_free(saudio->card);
+		mutex_unlock(&snd_sound);
 		saudio->card = NULL;
 		if (!saudio->in_init)
 			saudio_send_common_cmd(saudio->dst, saudio->channel, 0,
@@ -1229,8 +1243,11 @@ static int __devexit snd_saudio_remove(struct platform_device *devptr)
 		if (saudio->pdev) {
 			platform_device_unregister(saudio->pdev);
 		}
-		if (saudio->card)
+		if (saudio->card) {
+			mutex_lock(&snd_sound);
 			snd_card_free(saudio->card);
+			mutex_unlock(&snd_sound);
+		}
 		kfree(saudio);
 	}
 	return 0;
