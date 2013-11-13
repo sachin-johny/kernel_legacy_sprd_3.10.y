@@ -30,11 +30,34 @@
 
 static struct sbuf_mgr *sbufs[SIPC_ID_NR][SMSG_CH_NR];
 
+/* recover sbuf ring buffer */
+static void sbuf_recover(void* data)
+{
+	struct sbuf_mgr *sbuf = data;
+	int i;
+	volatile struct sbuf_ring_header *ringhd;
+	sbuf->state = SBUF_STATE_IDLE;
+	for (i = 0; i < sbuf->ringnr; i++) {
+		ringhd = sbuf->rings[i].header;
+		/* clean txbuf */
+		wake_up_interruptible_all(&(sbuf->rings[i].txwait));
+		mutex_lock(&(sbuf->rings[i].txlock));
+		ringhd->txbuf_wrptr = ringhd->txbuf_rdptr;
+		mutex_unlock(&(sbuf->rings[i].txlock));
+		/* clean rxbuf */
+		wake_up_interruptible_all(&(sbuf->rings[i].rxwait));
+		mutex_lock(&(sbuf->rings[i].rxlock));
+		ringhd->rxbuf_rdptr = ringhd->rxbuf_wrptr;
+		mutex_unlock(&(sbuf->rings[i].rxlock));
+	}
+}
+
 static int sbuf_thread(void *data)
 {
 	struct sbuf_mgr *sbuf = data;
 	struct smsg mcmd, mrecv;
 	int rval, bufid;
+	int recovered = 0;
 	struct sched_param param = {.sched_priority = 90};
 
 	/*set the thread as a real time thread, and its priority is 90*/
@@ -68,6 +91,10 @@ static int sbuf_thread(void *data)
 
 		switch (mrecv.type) {
 		case SMSG_TYPE_OPEN:
+			/* clean the ring buffers for sbuf reinit */
+			if (recovered) {
+				sbuf_recover(sbuf);
+			}
 			/* handle channel recovery */
 			smsg_open_ack(sbuf->dst, sbuf->channel);
 			break;
@@ -83,6 +110,7 @@ static int sbuf_thread(void *data)
 					SMSG_DONE_SBUF_INIT, sbuf->smem_addr);
 			smsg_send(sbuf->dst, &mcmd, -1);
 			sbuf->state = SBUF_STATE_READY;
+			recovered = 1;
 			break;
 		case SMSG_TYPE_EVENT:
 			bufid = mrecv.value;

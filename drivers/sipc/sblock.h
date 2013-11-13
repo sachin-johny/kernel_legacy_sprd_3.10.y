@@ -25,14 +25,29 @@
 #define SBLOCK_STATE_IDLE		0
 #define SBLOCK_STATE_READY		1
 
+#define SBLOCK_TXUNIT_STATE_READY 	0
+#define SBLOCK_TXUNIT_STATE_PENDING 	1
+#define SBLOCK_TXUNIT_STATE_SENT 	2
+
+/* states for rxunit */
+#define SBLOCK_RXUNIT_STATE_FREE 	0 /* default state of rxunits */
+#define SBLOCK_RXUNIT_STATE_RECV 	1 /* AP received sblock, but not released it yet */
+#define SBLOCK_RXUNIT_STATE_PENDING 	2 /* CP reset, but AP didn't release the sblock yet */
+#define SBLOCK_RXUNIT_STATE_CONFLICT 	3 /* In pending state, received the sblock before released */
 struct sblock_blks {
 	uint32_t		addr; /*phy address*/
 	uint32_t		length;
 };
 
 struct sblock_txunit {
+	uint8_t 		state;
 	void*			addr; /*virt address*/
 	struct list_head	list;
+};
+
+struct sblock_rxunit {
+	uint8_t  		state;
+	uint32_t 		capture;
 };
 
 /* ring block header */
@@ -61,6 +76,8 @@ struct sblock_ring {
 	struct sblock_blks	*txblks;     /* virt of header->txblk_blks */
 	struct sblock_blks	*rxblks;     /* virt of header->rxblk_blks */
 
+	struct sblock_rxunit 	*rxunits;    /* rxblk units */
+	spinlock_t 		elock;
 	struct sblock_txunit	*txunits;    /* txblk units pool */
 	struct list_head	txpool;
 	spinlock_t		plock;
