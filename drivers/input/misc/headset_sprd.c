@@ -85,8 +85,34 @@
 #endif
 #define HEADMIC_DETECT_GLB_REG(X)   (ANA_REGS_GLB_BASE + (X))
 
+#define HID_TMR_T1T2_STEP_SHIFT (5)
+#define HID_TMR_T0_SHIFT (0)
+#define HID_TMR_T1_SHIFT (0)
+#define HID_TMR_T2_SHIFT (0)
+
+#define HID_TMR_T1T2_STEP_MASK (0x1F << HID_TMR_T1T2_STEP_SHIFT)
+#define HID_TMR_T0_MASK (0x1F << HID_TMR_T0_SHIFT)
+#define HID_TMR_T1_MASK (0xFFFF << HID_TMR_T1_SHIFT)
+#define HID_TMR_T2_MASK (0xFFFF << HID_TMR_T2_SHIFT)
+
+#define HID_TMR_T1T2_STEP_VAL (0x1)
+#define HID_TMR_T0_VAL (0xF)
+#define HID_TMR_T1_VAL (0xF)
+#define HID_TMR_T2_VAL (0xF)
+
 #define HEADMIC_DETECT_INSRT_VOL_SHIFT  (5)
-#define HEADMIC_DETECT_INSRT_VOL_MSK    (0x3 << HEADMIC_DETECT_INSRT_VOL_SHIFT)
+#define HEADMIC_DETECT_INSRT_VOL_MASK    (0x3 << HEADMIC_DETECT_INSRT_VOL_SHIFT)
+
+#define AUDIO_MICBIAS_HV_EN (BIT(2))
+#define AUDIO_MICBIAS_V_SHIFT (3)
+#define AUDIO_MICBIAS_V_MASK (0x3 << AUDIO_MICBIAS_V_SHIFT)
+#define AUDIO_MICBIAS_V_1P7_OR_2P2 (0)
+#define AUDIO_MICBIAS_V_1P9_OR_2P4 (1)
+#define AUDIO_MICBIAS_V_2P1_OR_2P7 (2)
+#define AUDIO_MICBIAS_V_2P3_OR_3P0 (3)
+
+#define AUDIO_HEAD_SBUT_SHIFT (1)
+#define AUDIO_HEAD_SBUT_MASK (0xF << AUDIO_HEAD_SBUT_SHIFT)
 
 #define HEADMIC_DETECT_INSRT_2P1V (3)
 #define HEADMIC_DETECT_INSRT_2P3V (2)
@@ -106,11 +132,11 @@
 	sci_adi_read(addr);	\
 } while(0)
 
-#define headset_reg_msk_or(val, addr, msk)  \
+#define headset_reg_set_val(addr, val, mask, shift)  \
     do {    \
         uint32_t temp;    \
         temp = sci_adi_read(addr);  \
-        temp = (temp & (~msk)) | val;   \
+        temp = (temp & (~mask)) | ((val) << (shift));   \
         sci_adi_raw_write(addr, temp);    \
     } while(0)
 
@@ -196,7 +222,10 @@ static void headset_detect_init(void)
         headset_detect_clk_en();
         headset_reg_set_bit(HEADMIC_DETECT_REG(0xA0), (HEADMIC_DET_ADC_BUF | HEADMIC_DET_ADC_EN));
         /* set headset detect voltage */
-        headset_reg_msk_or(HEADMIC_DETECT_INSRT_2P1V, HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_INSRT_VOL_MSK);
+        headset_reg_set_val(HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_INSRT_2P1V, HEADMIC_DETECT_INSRT_VOL_MASK, HEADMIC_DETECT_INSRT_VOL_SHIFT);
+        /*set headmicbias voltage*/
+        headset_reg_set_val(HEADMIC_DETECT_REG(0x40), AUDIO_MICBIAS_V_2P1_OR_2P7, AUDIO_MICBIAS_V_MASK, AUDIO_MICBIAS_V_SHIFT);
+        headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), AUDIO_MICBIAS_HV_EN);
 }
 
 /* is_set = 1, headset_mic to AUXADC */
@@ -212,9 +241,9 @@ static void set_adc_to_headmic(unsigned is_set)
 static void headset_mic_level(int level)
 {
         if (level)
-                headset_reg_msk_or(0x02, HEADMIC_DETECT_REG(0xA0), 0x1e);
+                headset_reg_set_val(HEADMIC_DETECT_REG(0xA0), 0x1, AUDIO_HEAD_SBUT_MASK, AUDIO_HEAD_SBUT_SHIFT);
         else
-                headset_reg_msk_or(0x16, HEADMIC_DETECT_REG(0xA0), 0x1e);
+                headset_reg_set_val(HEADMIC_DETECT_REG(0xA0), 0xF, AUDIO_HEAD_SBUT_MASK, AUDIO_HEAD_SBUT_SHIFT);
 }
 
 #ifdef SPRD_HEADSET_HEADMICBIAS_POLLING
@@ -224,11 +253,11 @@ static void headset_micbias_polling_en(int en)
                 //step 1: enable clk for register accessable
                 headset_detect_clk_en();
                 //step 2: start polling & set timer
-                headset_reg_msk_or(0x0020, HEADMIC_BUTTON_REG(HID_CFG2), 0x03E0);//step for T1 & T2 [9:5]
-                headset_reg_msk_or(0x000F, HEADMIC_BUTTON_REG(HID_CFG2), 0x001F);//T0 timer count [4:0]
-                headset_reg_msk_or(0x000F, HEADMIC_BUTTON_REG(HID_CFG3), 0xFFFF);//T1 timer count [15:0]
-                headset_reg_msk_or(0x000F, HEADMIC_BUTTON_REG(HID_CFG4), 0xFFFF);//T2 timer count [15:0]
-                headset_reg_msk_or(0x0001, HEADMIC_BUTTON_REG(HID_CFG0), 0x0001);//polling enable [0]
+                headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG2), HID_TMR_T1T2_STEP_VAL, HID_TMR_T1T2_STEP_MASK, HID_TMR_T1T2_STEP_SHIFT);//step for T1 & T2 [9:5]
+                headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG2), HID_TMR_T0_VAL, HID_TMR_T0_MASK, HID_TMR_T0_SHIFT);//T0 timer count [4:0]
+                headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG3), HID_TMR_T1_VAL, HID_TMR_T1_MASK, HID_TMR_T1_SHIFT);//T1 timer count [15:0]
+                headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG4), HID_TMR_T2_VAL, HID_TMR_T2_MASK, HID_TMR_T2_SHIFT);//T2 timer count [15:0]
+                headset_reg_set_bit(HEADMIC_BUTTON_REG(HID_CFG0), BIT(0));//polling enable [0]
                 //step 3: disable headmicbias
                 headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
                 //headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
@@ -244,7 +273,7 @@ static void headset_micbias_polling_en(int en)
                 //headset_reg_clr_bit(HEADMIC_DETECT_REG(0x40), BIT(1));
                 headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), BIT(5));
                 //step 2: stop polling
-                headset_reg_clr_bit(HEADMIC_BUTTON_REG(HID_CFG0), 0x0001);
+                headset_reg_clr_bit(HEADMIC_BUTTON_REG(HID_CFG0), BIT(0));
                 PRINT_INFO("headmicbias polling disable\n");
                 PRINT_DBG("ANA_CFG0(0x%08X)  HID_CFG0(0x%08X)  HID_CFG2(0x%08X)  HID_CFG3(0x%08X)  HID_CFG4(0x%08X)\n",
                           sci_adi_read(HEADMIC_DETECT_REG(0x40)),
