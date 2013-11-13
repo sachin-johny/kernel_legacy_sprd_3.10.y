@@ -396,6 +396,8 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
  */
 static void __oom_kill_task(struct task_struct *p, int verbose)
 {
+	struct task_struct *tp;
+
 	if (is_global_init(p)) {
 		WARN_ON(1);
 		printk(KERN_WARNING "tried to kill init!\n");
@@ -426,7 +428,22 @@ static void __oom_kill_task(struct task_struct *p, int verbose)
 	 * exit() and clear out its resources quickly...
 	 */
 	p->rt.time_slice = HZ;
-	set_tsk_thread_flag(p, TIF_MEMDIE);
+	tp = p;
+	/*
+	 * In some situation, a thread group member holds the mm->mmap_sem
+	 * as a writer and then blocks waiting for memory.
+	 * After that, the oom-killer chooses this particular thread group
+	 * to die to release some memory. since the mm->mmap_sem is held,
+	 * the thread group cannot finish the exit routine,
+	 * therefore no memory can be released, which leads to a deadlock
+	 * situation.
+	 * Here grants TIF_MEMDIE to all thread group members to avoid the
+	 * deadlock.
+	 */
+	do {
+		set_tsk_thread_flag(tp, TIF_MEMDIE);
+	} while_each_thread(p, tp);
+
 #ifdef CONFIG_ANDROID_OOM_NOTIFY
 		printk("oom:  p->signal->oom_adj %d\n",p->signal->oom_adj);
 		if(oom_notify_enable && ( p->signal->oom_adj == 0))
