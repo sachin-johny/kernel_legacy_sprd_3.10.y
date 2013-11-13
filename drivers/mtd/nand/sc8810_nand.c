@@ -1395,6 +1395,13 @@ void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u8 id[8]
 				mtd->oobsize = nand_config_item.oobsize;
 			break;
 		}
+	} else if ((nand_config_item.pagesize == 2048) && (nand_config_item.eccbit == 8) ) {
+	    this->ecc.size = nand_config_item.eccsize;
+	    g_info.ecc_mode = nand_config_item.eccbit;
+	    mtd->oobsize = nand_config_item.oobsize;
+           this->ecc.bytes = 14;
+           this->ecc.layout = &_nand_oob_128;
+	   printk("%s ecc size=%d, ecc mode=%d\n",__func__, this->ecc.size, g_info.ecc_mode);
 	}
 
 	if(nand_check_2bitconfig_4bitecc())
