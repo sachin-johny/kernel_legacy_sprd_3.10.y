@@ -1167,7 +1167,6 @@ static struct regulator_init_data rt5033_buck_data = {
 	.constraints = {
 		.min_uV = 1200000,
 		.max_uV = 1200000,
-		.apply_uV = 1,
 		.valid_modes_mask = REGULATOR_MODE_NORMAL,
 		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
 	},

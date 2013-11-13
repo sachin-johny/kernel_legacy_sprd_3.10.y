@@ -72,13 +72,6 @@ static const unsigned int rt5033_dcdc_output_list[] = {
 	2300*1000,
 	2400*1000,
 	2500*1000,
-	2100*1000,
-	2200*1000,
-	2300*1000,
-	2400*1000,
-	2500*1000,
-	2400*1000,
-	2500*1000,
 	2600*1000,
 	2700*1000,
 	2800*1000,
@@ -99,13 +92,6 @@ static const unsigned int rt5033_ldo_output_list[] = {
 	2100*1000,
 	2200*1000,
 	2300*1000,
-	2400*1000,
-	2500*1000,
-	2100*1000,
-	2200*1000,
-	2300*1000,
-	2400*1000,
-	2500*1000,
 	2400*1000,
 	2500*1000,
 	2600*1000,
@@ -146,7 +132,7 @@ static const unsigned int rt5033_safe_ldo_output_list[] = {
 static inline int rt5033_regulator_check_range(struct rt5033_regulator_info *info,
 		int min_uV, int max_uV)
 {
-	if (min_uV < info->min_uV || min_uV > info->max_uV)
+	if (min_uV < info->min_uV || max_uV > info->max_uV)
 		return -EINVAL;
 
 	return 0;
@@ -322,7 +308,7 @@ static struct regulator_ops rt5033_regulator_ldo_dcdc_ops = {
 
 static struct rt5033_regulator_info rt5033_regulator_infos[] = {
 	RT5033_REGULATOR_DECL(LDO_SAFE, 3300, 4950, rt5033_safe_ldo_output_list),
-	RT5033_REGULATOR_DECL(LDO1, 2200, 2200, rt5033_ldo_output_list),
+	RT5033_REGULATOR_DECL(LDO1, 1200, 3300, rt5033_ldo_output_list),
 	RT5033_REGULATOR_DECL(DCDC1, 1000, 3300, rt5033_dcdc_output_list),
 };
 
