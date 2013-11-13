@@ -61,4 +61,5 @@ obj-y		+= sprd_jpg/
 obj-y		+= sprd_busmonitor/
 obj-y		+= sprd_cproc/
 obj-y		+= sprd_blc/
+obj-y		+= sprd_2351/
 obj-$(CONFIG_TROUT_FM)		+= trout_fm/

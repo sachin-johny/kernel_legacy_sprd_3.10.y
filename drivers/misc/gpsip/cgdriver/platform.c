@@ -24,10 +24,7 @@
 */
 
 #include <asm/uaccess.h>
-//#include <bsp.h>	// TODO - if this file is needed, compile kernel accrodingly, and un-remark
-//bxd
-//#include <mach/irqs.h>
-
+#include <mach/gpio.h>
 
 #include "CgxDriverApi.h"
 #include "CgCpu.h"
@@ -36,11 +33,11 @@
 #include "CgxDriverOs.h"
 #include "CgxDriverCore.h"
 
-
-
+extern TCgReturnCode CGCoreSclkEnable(void);
 
 /** Native byte order for this CPU */
 const TCgByteOrder CGX_DRIVER_NATIVE_BYTE_ORDER = ECG_BYTE_ORDER_4321;	// SPRD_FPGA is little endian
+struct sprd_2351_interface *gps_rf_ops;
 
 /*
     Reset the core and timers and initialize GPIO (direction and special function)
@@ -214,113 +211,172 @@ TCgReturnCode CgxDriverReadDataTail(unsigned char *aTargetVirtualAddress, unsign
 	return ECgOk;
 }
 
+static void gps_reg_init(void)
+{
+	U32 value;
+
+	/*gps real select*/
+	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0x0, (U32 *)&value);
+	value |= 1<<20;
+	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0x0,value);
+
+	/*GPS_D pin reg config*/
+	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X01d4, (U32 *)&value);
+	value &= ~(1<<4);
+	value |= 1<<5;
+	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0X01d4,value);
+}
+
+static TCgReturnCode CgxDriverRFInit(void)
+{
+	u32 value;
+	gps_rf_ops->write_reg(0x0700,0x0001);
+	gps_rf_ops->write_reg(0x004a,0xf417);
+	gps_rf_ops->write_reg(0x076c,0x0721);
+	gps_rf_ops->write_reg(0x0763,0x5141);
+	gps_rf_ops->write_reg(0x0738,0x5400);
+	gps_rf_ops->write_reg(0x0704,0xef00);
+	gps_rf_ops->write_reg(0X077b,0x0102);
+
+	#if 1 /*for 26M  TCXO*/
+	gps_rf_ops->write_reg(0X073c,0x08d2);
+	gps_rf_ops->write_reg(0X0702,0x3d61);
+	#else /*for 16M  TCXO*/
+	gps_rf_ops->write_reg(0x073c,0x0000);
+	gps_rf_ops->write_reg(0X0702,0x6180);
+	#endif
+
+	/* for IF*/
+	#if 0
+	gps_rf_ops->write_reg(0x075d,0x88e6);
+	gps_rf_ops->write_reg(0x070a,0x7835);
+	#endif
+
+#if 1
+	/*for debug log */
+	gps_rf_ops->read_reg(0x004a,&value);
+	printk("0x004af417 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0x076c,&value);
+	printk("0x076c0721 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0x0763,&value);
+	printk("0x07635141 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0x0738,&value);
+	printk("0x07385400 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0x0704,&value);
+	printk("0x0704ef00 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0X077b,&value);
+	printk("0x077b0102 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0x0700,&value);
+	printk("0x07000001 value: %x\n", value);
+
+	#if 1 /*for 26M  TCXO*/
+	gps_rf_ops->read_reg(0X073c,&value);
+	printk("0x073c08d2 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0X0702,&value);
+	printk("0x07023d61 value: %x\n", value);
+	#else /*for 16M  TCXO*/
+	gps_rf_ops->read_reg(0x073c,&value);
+	printk("0x073c0000 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0X0702,&value);
+	printk("0x07026180 value: %x\n", value);
+	#endif
+
+	/* for IF*/
+	#if 0
+	gps_rf_ops->read_reg(0x075d,&value);
+	printk("0x075d88e6 value: %x\n", value);
+
+	gps_rf_ops->read_reg(0x070a,&value);
+	printk("0x070a7835 value: %x\n", value);
+	#endif
+#endif
+
+	return 0;
+
+}
+
+void gps_gpio_request(void)
+{
+	int ret;
+	ret = gpio_request (SPRD_GPS_LNA_EN, "gps_lna");
+	if (ret){
+		printk ("GPS_LNE request err: %d\n", SPRD_GPS_LNA_EN);
+	}
+}
+
+static void gps_lna_enable(void)
+{
+	gpio_direction_output(SPRD_GPS_LNA_EN,1);
+}
+
+static void gps_lna_disable(void)
+{
+	gpio_direction_output(SPRD_GPS_LNA_EN,0);
+}
+
 TCgReturnCode CgxDriverRFPowerDown(void)
 {
 	//DBG_FUNC_NAME("CgxDriverRFPowerDown")
 	TCgReturnCode rc = ECgOk;
-	int value;
-	// TODO : implement
 
-	/*RF4in1 0X0700*/
-	value = 0x07000000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
+	printk("%s\n",__func__);
 
+	gps_rf_ops->write_reg(0x0700,0x0000);
+	gps_lna_disable();
 	return rc;
 }
 
 TCgReturnCode CgxDriverRFPowerUp(void)
 {
-	//DBG_FUNC_NAME("CgxDriverRFPowerUp")
+	//DBG_FUNC_NAME("CgxDriverRFPowerDown")
 	TCgReturnCode rc = ECgOk;
-	int value;
-	// TODO : implement
-	//bxd add for RF config
 
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X0038, (U32 *)&value);
-	value = (1<<4)|value;
-	value = (0<<5)|value;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0X0038,value);
+	printk("%s\n",__func__);
 
-
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X003C, (U32 *)&value);
-	value = (1<<4)|value;
-	value = (0<<5)|value;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0X003C,value);
-
-
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X0040, (U32 *)&value);
-	value = (1<<4)|value;
-	value = (0<<5)|value;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0X0040,value);
-
-
-	CgxCpuReadMemory((U32)CG_RF_APB_EB0_BASE_VA, 0x0, (U32 *)&value);
-	value = (1<<23)|value;
-	CgxCpuWriteMemory((U32)CG_RF_APB_EB0_BASE_VA, 0x0,value);
-
-
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0x0, (U32 *)&value);
-	value = (1<<26)|value;
-	value = (1<<20)|value;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0x0,value);
-
-
-
-	/*RF4in1 0X04a*/
-	value = 0x004af417;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x804a0000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	/*RF4in1 0X0738*/
-	value = 0x07385400;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x87380000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	/*RF4in1 0X076c*/
-	value = 0x076c0721;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x876c0000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	/*RF4in1 0X0763*/
-	value = 0x07635141;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x87630000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	/*RF4in1 0X0704*/
-	value = 0x0704ef00;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x87040000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	/*RF4in1 0X0700*/
-	value = 0x07000001;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x87000000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	/*RF4in1 0X073c*/
-	value = 0x073c08da;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x000c,value);
-	value = 0x873c0000;
-	CgxCpuWriteMemory((U32)CG_RF_MSPI_BASE_VA, 0x0010,value);
-
-
-	//CgxCpuReadMemory(CG_DRIVER_SCLK_VA, 0x0, &value);
-	//value = (1<<5)|value;
-	//value = (1<<12)|value;
-	//CgxCpuWriteMemory(CG_DRIVER_SCLK_VA, 0x0,value);
-
+	gps_lna_enable();
+	CgxDriverRFInit();
 	return rc;
+}
+
+void gps_chip_power_on(void)
+{
+	printk("%s\n",__func__);
+
+	gps_rf_ops->mspi_enable();
+
+	//enable gps sysclk
+	CGCoreSclkEnable();
+
+	//gps core reset
+	CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, 0xfc,0xf);
+	gps_reg_init();
+	CgxDriverRFPowerUp();
+}
+
+void gps_chip_power_off(void)
+{
+	int value;
+
+	printk("%s\n",__func__);
+
+	CgxDriverRFPowerDown();
+
+	//gps core reset
+	CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, 0xfc,0x0);
+
+	//disable gps sysclk
+	CgxCpuReadMemory((U32)CG_DRIVER_SCLK_VA, 0x0, (U32 *)&value);
+	value &= ~(1<<12);
+	CgxCpuWriteMemory((U32)CG_DRIVER_SCLK_VA, 0x0,value);
+	gps_rf_ops->mspi_disable();
 }
 
 
