@@ -200,7 +200,7 @@ struct snd_saudio {
 
 static DEFINE_MUTEX(snd_sound);
 
-static int saudio_snd_card_free(struct snd_saudio *saudio);
+static int saudio_snd_card_free(const struct snd_saudio *saudio);
 
 static int saudio_send_common_cmd(uint32_t dst, uint32_t channel,
 				  uint32_t cmd, uint32_t subcmd,
@@ -607,12 +607,14 @@ void saudio_pcm_lib_preallocate_free_for_all(struct snd_pcm *pcm)
 	for (stream = 0; stream < 2; stream++)
 		for (substream = pcm->streams[stream].substream; substream;
 		     substream = substream->next) {
-			iounmap(substream->dma_buffer.area);
-			smem_free(substream->dma_buffer.addr,
-				  substream->dma_buffer.bytes);
-			substream->dma_buffer.addr = (dma_addr_t) NULL;
-			substream->dma_buffer.area = (int8_t *) NULL;
-			substream->dma_buffer.bytes = 0;
+			if(substream->dma_buffer.addr) {
+			    iounmap(substream->dma_buffer.area);
+			    smem_free(substream->dma_buffer.addr,
+				      substream->dma_buffer.bytes);
+			    substream->dma_buffer.addr = (dma_addr_t) NULL;
+			    substream->dma_buffer.area = (int8_t *) NULL;
+			    substream->dma_buffer.bytes = 0;
+			}
 		}
 }
 
@@ -632,23 +634,36 @@ int saudio_pcm_lib_preallocate_pages_for_all(struct snd_pcm *pcm,
 
 			int addr = smem_alloc(size);
 
-			dmab->dev.type = type;
-			dmab->dev.dev = data;
-			dmab->area = ioremap(addr, size);
-			dmab->addr = addr;
-			dmab->bytes = size;
-			memset(dmab->area, 0x5a, size);
-			pr_debug
-			    ("saudio_pcm_lib_preallocate_pages_for_all:saudio.c: dmab addr is %x, area is %x,size is %d",
-			     (uint32_t) dmab->addr, (uint32_t) dmab->area,
-			     size);
-			if (substream->dma_buffer.bytes > 0)
-				substream->buffer_bytes_max =
-				    substream->dma_buffer.bytes;
-			substream->dma_max = max;
+			if(addr) {
+			    dmab->dev.type = type;
+			    dmab->dev.dev = data;
+			    dmab->area = ioremap(addr, size);
+			    dmab->addr = addr;
+			    dmab->bytes = size;
+			    memset(dmab->area, 0x5a, size);
+			    pr_debug
+				("saudio_pcm_lib_preallocate_pages_for_all:saudio.c: dmab addr is %x, area is %x,size is %d",
+				 (uint32_t) dmab->addr, (uint32_t) dmab->area,
+				 size);
+			    if (substream->dma_buffer.bytes > 0)
+				    substream->buffer_bytes_max =
+					substream->dma_buffer.bytes;
+			    substream->dma_max = max;
+			}
+			else {
+			    printk("saudio: prealloc smem error \n");
+			    memset(dmab,0,sizeof(struct snd_dma_buffer));
+			    substream->dma_max = 0;
+			    substream->buffer_bytes_max = 0;
+			    goto ERR;
+
+			}
 		}
 	}
 	return 0;
+ERR:
+	saudio_pcm_lib_preallocate_free_for_all(pcm);
+	return -1;
 }
 
 static int __devinit snd_card_saudio_pcm(struct snd_saudio *saudio, int device,
@@ -671,11 +686,15 @@ static int __devinit snd_card_saudio_pcm(struct snd_saudio *saudio, int device,
 	pcm->info_flags = 0;
 	strcpy(pcm->name, "SAUDIO PCM");
 	pcm->private_free = saudio_pcm_lib_preallocate_free_for_all;
-	saudio_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_CONTINUOUS,
+	err = saudio_pcm_lib_preallocate_pages_for_all(pcm, SNDRV_DMA_TYPE_CONTINUOUS,
 						 snd_dma_continuous_data
 						 (GFP_KERNEL), MAX_BUFFER_SIZE,
 						 MAX_BUFFER_SIZE);
-	return 0;
+	if(err) {
+	    printk("saudio:snd_card_saudio_pcm: prealloc pages error\n");
+	    saudio->pcm[device] = NULL;
+	}
+	return err;
 }
 
 static struct snd_saudio *saudio_card_probe(struct saudio_init_data *init_data)
@@ -832,7 +851,7 @@ static int saudio_data_transfer_process(struct saudio_stream *stream,
 
 				sblock_send(stream->dst, stream->channel, &blk);
 				stream->last_elapsed_count++;
-				schedule_timeout(msecs_to_jiffies(1));
+				schedule_timeout_interruptible(msecs_to_jiffies(5));
 			}
 		}
 	}
@@ -909,12 +928,12 @@ static void sblock_notifier(int event, void *data)
 	}
 }
 
-static int saudio_snd_card_free(struct snd_saudio *saudio)
+static int saudio_snd_card_free(const struct snd_saudio *saudio)
 {
 	int result = 0;
 	printk(KERN_INFO "saudio:saudio_snd_card free in dst %d,channel %d\n",
 	       saudio->dst, saudio->channel);
-	queue_work(saudio->queue, &saudio->card_free_work);
+	queue_work(saudio->queue, (struct work_struct *)&saudio->card_free_work);
 	printk(KERN_INFO
 	       "saudio:saudio_snd_card free out %d ,dst %d, channel %d\n",
 	       result, saudio->dst, saudio->channel);
@@ -932,7 +951,7 @@ static void saudio_snd_wait_modem_restart(struct snd_saudio *saudio)
 					   dev_ctrl->monitor_channel,
 					   SAUDIO_CMD_HANDSHAKE, 0, -1);
 		if (result) {
-			schedule_timeout_interruptible(msecs_to_jiffies(100));
+			schedule_timeout_interruptible(msecs_to_jiffies(1000));
 			printk(KERN_ERR "saudio_wait_monitor_cmd error %d\n",
 			       result);
 			continue;
@@ -951,7 +970,7 @@ static void saudio_snd_wait_modem_restart(struct snd_saudio *saudio)
 				       "saudio_send_monitor_cmd error %d\n",
 				       result);
 				schedule_timeout_interruptible(msecs_to_jiffies
-							       (100));
+							       (1000));
 			}
 		}
 		break;
@@ -1111,6 +1130,7 @@ __nodev:
 		if (saudio->card) {
 			mutex_lock(&snd_sound);
 			snd_card_free(saudio->card);
+			saudio->card = NULL;
 			mutex_unlock(&snd_sound);
 		}
 	}
@@ -1174,9 +1194,10 @@ static int saudio_ctrl_thread(void *data)
 
 static void saudio_work_card_free_handler(struct work_struct *data)
 {
-	printk(KERN_INFO "saudio: card free handler in\n");
 	struct snd_saudio *saudio =
 	    container_of(data, struct snd_saudio, card_free_work);
+	printk(KERN_INFO "saudio: card free handler in\n");
+
 	if (saudio->card) {
 		int result;
 		printk(KERN_INFO
@@ -1209,7 +1230,7 @@ static int __devinit snd_saudio_probe(struct platform_device *devptr)
 
 	saudio->queue = create_singlethread_workqueue("saudio");
 	if (!saudio->queue) {
-		printk("saudio:workqueue create error %d", saudio->queue);
+		printk("saudio:workqueue create error %d\n", (int)saudio->queue);
 		if (saudio) {
 			kfree(saudio);
 			saudio = NULL;
@@ -1246,6 +1267,7 @@ static int __devexit snd_saudio_remove(struct platform_device *devptr)
 		if (saudio->card) {
 			mutex_lock(&snd_sound);
 			snd_card_free(saudio->card);
+			saudio->card = NULL;
 			mutex_unlock(&snd_sound);
 		}
 		kfree(saudio);
