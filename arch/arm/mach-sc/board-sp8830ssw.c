@@ -1412,6 +1412,7 @@ static struct platform_device kb_backlight_device = {
 static struct gpio_keys_button gpio_buttons[] = {
         {
                 .gpio           = GPIO_HOME_KEY,
+				.irqflags		= IRQF_TRIGGER_LOW,
                 .code           = KEY_HOMEPAGE,
                 .desc           = "Home Key",
                 .active_low     = 1,

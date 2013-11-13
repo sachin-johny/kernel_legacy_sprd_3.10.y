@@ -37,6 +37,7 @@ struct gpio_button_data {
 	struct work_struct work;
 	unsigned int timer_debounce;	/* in msecs */
 	unsigned int irq;
+	unsigned long irqflags;
 	spinlock_t lock;
 	bool disabled;
 	bool key_pressed;
@@ -481,8 +482,12 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 			    gpio_keys_gpio_timer, (unsigned long)bdata);
 
 		isr = gpio_keys_gpio_isr;
-		irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
-
+		if (button->irqflags) {
+			irqflags = button->irqflags;
+		} else {
+			irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
+		}
+		bdata->irqflags = irqflags;
 	} else {
 		if (!button->irq) {
 			dev_err(dev, "No IRQ specified\n");
