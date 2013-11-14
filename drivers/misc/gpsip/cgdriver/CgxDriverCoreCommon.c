@@ -173,9 +173,18 @@ TCgReturnCode CgxDriverExecute(
 				pResults->rc = CgxDriverTransferEndWait(pDriver, pControl->wait.timeoutMS);
 			}
 		}
-		else
-			pResults->rc = ECgCanceled;
-
+		else{
+				pResults->rc = ECgCanceled;
+				if ( !isBlockCanceled(pState, pControl->wait.blockNumber))
+				{
+					 printk("kyle last block\n");
+					  if ( !wasBlockReceived(pState, pControl->wait.blockNumber + 1))
+					  {
+							pState->flags.wait = TRUE;
+							pResults->rc = CgxDriverTransferEndWait(pDriver,pControl->wait.timeoutMS);
+					  }
+				}
+        }
 		pState->flags.wait = FALSE;
 		if (!OK(pResults->rc) && (pResults->rc != ECgCanceled))
 		{
