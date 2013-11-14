@@ -672,11 +672,11 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	}
 	mutex_unlock(&client->lock);
 
-	seq_printf(s, "%16.16s: %16.16s\n", "heap_name", "size_in_bytes");
+	seq_printf(s, "%32.32: %32.32s\n", "heap_name", "size_in_bytes");
 	for (i = 0; i < ION_NUM_HEAP_IDS; i++) {
 		if (!names[i])
 			continue;
-		seq_printf(s, "%16.16s: %16u\n", names[i], sizes[i]);
+		seq_printf(s, "%32.32s: %32u\n", names[i], sizes[i]);
 	}
 	return 0;
 }

@@ -24,7 +24,7 @@
 struct ion_device *idev;
 int num_heaps;
 struct ion_heap **heaps;
-#if 0
+#if 1
 static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 {
         pgd_t *pgd = pgd_offset(mm, addr);
@@ -72,6 +72,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 			return PTR_ERR(handle);
 
 		ret = ion_phys(client, handle, &data.phys, &data.size);
+		ion_free(client, handle);
 		if (ret)
 			return ret;
 
@@ -79,13 +80,11 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 				&data, sizeof(data))) {
 			return -EFAULT;
 		}
-		ion_free(client, handle);
-
 		break;
 	}
 	case ION_SPRD_CUSTOM_MSYNC:
 	{
-#if 1
+#if 0
 		struct ion_msync_data data;
 		void *kaddr;
 		void *paddr;

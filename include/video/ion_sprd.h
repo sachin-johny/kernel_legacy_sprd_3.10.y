@@ -29,8 +29,16 @@
 #define ION_HEAP_IOMMU_ID2   	12
 #define ION_HEAP_IOMMU_ID3   	13
 
-
+#ifdef ION_HEAP_CARVEOUT_MASK
+#undef ION_HEAP_CARVEOUT_MASK
+#endif
 #define ION_HEAP_CARVEOUT_MASK		(1 << ION_HEAP_CARVEOUT_ID0)
+
+#ifdef ION_HEAP_SYSTEM_MASK
+#undef ION_HEAP_SYSTEM_MASK
+#endif
+#define ION_HEAP_SYSTEM_MASK       (1 << 0)
+
 
 #define ION_DRIVER_VERSION 1
 
@@ -40,6 +48,12 @@ struct ion_phys_data {
 	size_t size;
 };
 
+struct ion_mmu_data {
+	int fd_buffer;
+	unsigned long iova_addr;
+	size_t iova_size;
+};
+
 struct ion_msync_data {
 	int fd_buffer;
 	void *vaddr;
@@ -47,9 +61,24 @@ struct ion_msync_data {
 	size_t size;
 };
 
+struct ion_map_data {
+	int fd_buffer;
+	unsigned long dev_addr;
+};
+
+struct ion_unmap_data {
+	int fd_buffer;
+};
+
 enum ION_SPRD_CUSTOM_CMD {
 	ION_SPRD_CUSTOM_PHYS,
-	ION_SPRD_CUSTOM_MSYNC
+	ION_SPRD_CUSTOM_MSYNC,
+
+	/* to get/free mmu iova */ //added by yfs
+	ION_SPRD_CUSTOM_GSP_MAP,
+	ION_SPRD_CUSTOM_GSP_UNMAP,
+	ION_SPRD_CUSTOM_MM_MAP,
+	ION_SPRD_CUSTOM_MM_UNMAP,
 };
 
 #endif /* _ION_SPRD_H */
