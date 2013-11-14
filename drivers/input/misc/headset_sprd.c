@@ -222,7 +222,11 @@ static void headset_detect_init(void)
         headset_detect_clk_en();
         headset_reg_set_bit(HEADMIC_DETECT_REG(0xA0), (HEADMIC_DET_ADC_BUF | HEADMIC_DET_ADC_EN));
         /* set headset detect voltage */
+#ifdef CONFIG_MACH_SP8830SSW
+        headset_reg_set_val(HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_INSRT_2P7V, HEADMIC_DETECT_INSRT_VOL_MASK, HEADMIC_DETECT_INSRT_VOL_SHIFT);
+#else
         headset_reg_set_val(HEADMIC_DETECT_REG(0xA0), HEADMIC_DETECT_INSRT_2P1V, HEADMIC_DETECT_INSRT_VOL_MASK, HEADMIC_DETECT_INSRT_VOL_SHIFT);
+#endif
         /*set headmicbias voltage*/
         headset_reg_set_val(HEADMIC_DETECT_REG(0x40), AUDIO_MICBIAS_V_2P1_OR_2P7, AUDIO_MICBIAS_V_MASK, AUDIO_MICBIAS_V_SHIFT);
         headset_reg_set_bit(HEADMIC_DETECT_REG(0x40), AUDIO_MICBIAS_HV_EN);
