@@ -439,7 +439,7 @@ static const struct i2c_device_id rt5033_mfd_id_table[] = {
 	{ "rt5033-mfd", 0 },
 	{ },
 };
-MODULE_DEVICE_TABLE(i2c, rt5033_mfd_id_table);
+MODULE_DEVICE_TABLE(i2c, rt5033_id_table);
 
 
 #ifdef CONFIG_PM
@@ -456,7 +456,7 @@ static struct i2c_driver rt5033_mfd_driver = {
 		.owner	= THIS_MODULE,
 #ifdef CONFIG_PM
 		.pm		= &rt5033_pm,
-//		.shutdown = rt5033_shutdown,
+		.shutdown = rt5033_shutdown,
 #endif
 	},
 

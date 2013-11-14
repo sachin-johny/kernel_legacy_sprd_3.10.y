@@ -1,4 +1,4 @@
-/* drivers/lights/rt5033_fled.c
+/* drivers/leds/rt5033_fled.c
  * RT5033 Flash LED Driver
  *
  * Copyright (C) 2013 Richtek Technology Corp.
@@ -173,25 +173,27 @@ static int rt5033_fled_set_mode(struct rt_fled_info *fled_info, flashlight_mode_
             info->torch_current = fled_info->hal->fled_get_torch_current(fled_info);
             ta_exist = check_ta_status(fled_info);
             if (ta_exist)
-                info->ta_good = check_ta_good_enough(info, info->torch_current * 2 / 100);
+                info->ta_good = check_ta_good_enough(info, info->torch_current * 2 / 1000);
             else
                 info->ta_good = 0;
             rt5033_fled_set_ta_status(info->i2c_client, info->ta_good, ta_exist);
             rt5033_set_uug_status(info->i2c_client, (info->ta_good) ? 0x02 : 0x00);
             rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION1, 0x04);
+            rt5033_set_bits(info->i2c_client, RT5033_FLED_CONTROL2, (1 << 7)); // Enable AUTO TRACK
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
             break;
         case FLASHLIGHT_MODE_FLASH:
             info->strobe_current = fled_info->hal->fled_get_torch_current(fled_info);
             ta_exist = check_ta_status(fled_info);
             if (ta_exist)
-                info->ta_good = check_ta_good_enough(info, info->strobe_current * 2 / 100);
+                info->ta_good = check_ta_good_enough(info, info->strobe_current * 2 / 1000);
             else
                 info->ta_good = 0;
             rt5033_fled_set_ta_status(info->i2c_client, info->ta_good, ta_exist);
             rt5033_set_uug_status(info->i2c_client, (info->ta_good) ? 0x02 : 0x00);
-            rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
+            rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x00);
             rt5033_set_bits(info->i2c_client, RT5033_FLED_FUNCTION1, 0x04);
+            rt5033_clr_bits(info->i2c_client, RT5033_FLED_CONTROL2, (1 << 7)); // DISABLE AUTO TRACK
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
             break;
         default:
@@ -221,7 +223,9 @@ static int rt5033_fled_strobe(struct rt_fled_info *fled_info)
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x81);
             break;
         case FLASHLIGHT_MODE_MIXED:
+            rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
             rt5033_set_bits(info->i2c_client, RT5033_FLED_FUNCTION1, 0x04);
+            rt5033_clr_bits(info->i2c_client, RT5033_FLED_CONTROL2, (1 << 7)); // DISABLE AUTO TRACK
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x81);
             break;
         default:

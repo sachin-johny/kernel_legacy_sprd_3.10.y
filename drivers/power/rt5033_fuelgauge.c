@@ -101,7 +101,7 @@ unsigned int fg_get_soc(struct i2c_client *client)
 	offset_table_prop OffsAnswer;
 	#endif /*	ENABLE_SOC_OFFSET	*/
 
-	unsigned int soc_val;/* = 10;  10 means 10%*/
+	unsigned int soc_val;
 
 	// read rt5033 fg registers for debugging.
 	ret = fg_get_vbat(client);
@@ -194,17 +194,14 @@ unsigned int fg_get_soc(struct i2c_client *client)
 
 	if (ret<0) {
 		pr_err("%s: read soc reg fail", __func__);
-		soc_val = 50;
+		soc_val = 500;
 	} else {
 		soc_val = ((ret)>>8)*10 + (ret&0x00ff)*10/256 + offset;
-		if (soc_val >= ROUNDUP_SOC_TH)
-			soc_val = DIV_ROUND_UP(soc_val, 10);
-		else
-			soc_val = 0;
 	}
+	fuelgauge->info.batt_soc = soc_val;
 	// report FG_SOC for debugging.
 	pr_info("%s : FG_SOC = %d\n", __func__,soc_val);
-	return soc_val*10;
+	return soc_val;
 }
 
 unsigned int fg_get_ocv(struct i2c_client *client)
@@ -802,8 +799,6 @@ bool sec_hal_fg_get_property(struct i2c_client *client,
 	fuelgauge->info.flag_chg_status = (value.intval==POWER_SUPPLY_STATUS_CHARGING)?1:0;
 
 	switch (psp) {
-    case POWER_SUPPLY_PROP_STATUS:
-        break;
 		/* Cell voltage (VCELL, mV) */
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
 		val->intval = fg_get_vbat(client);
@@ -829,7 +824,7 @@ bool sec_hal_fg_get_property(struct i2c_client *client,
         break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL:
 		val->intval =
-            (fuelgauge->info.batt_soc == 100) ? true : false;
+            (fuelgauge->info.batt_soc >= 1000) ? true : false;
 		break;
 		/* SOC (%) */
 	case POWER_SUPPLY_PROP_CAPACITY:
@@ -853,8 +848,6 @@ bool sec_hal_fg_set_property(struct i2c_client *client,
 {
     struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
 	switch (psp) {
-	case POWER_SUPPLY_PROP_ONLINE:
-		break;
 		/* Battery Temperature */
 	case POWER_SUPPLY_PROP_TEMP:
 	case POWER_SUPPLY_PROP_TEMP_AMBIENT:

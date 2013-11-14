@@ -308,7 +308,7 @@ static struct regulator_ops rt5033_regulator_ldo_dcdc_ops = {
 
 static struct rt5033_regulator_info rt5033_regulator_infos[] = {
 	RT5033_REGULATOR_DECL(LDO_SAFE, 3300, 4950, rt5033_safe_ldo_output_list),
-	RT5033_REGULATOR_DECL(LDO1, 1200, 3300, rt5033_ldo_output_list),
+	RT5033_REGULATOR_DECL(LDO1, 1200, 3000, rt5033_ldo_output_list),
 	RT5033_REGULATOR_DECL(DCDC1, 1000, 3300, rt5033_dcdc_output_list),
 };
 

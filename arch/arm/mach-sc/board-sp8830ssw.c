@@ -452,17 +452,17 @@ static gain_table_prop rt5033_battery_param2[] =
 
 static gain_table_prop rt5033_battery_param3[] =
 {
-	{3300, 15, 65, 45, 225},
-	{3400, 15, 65, 45, 225},
-	{3500, 15, 65, 45, 225},
-	{3600, 15, 65, 45, 225},
-	{3700, 15, 65, 45, 225},
-	{3800, 15, 65, 45, 225},
-	{3900, 15, 65, 45, 225},
-	{4000, 15, 65, 45, 225},
-	{4100, 15, 65, 45, 225},
-	{4200, 15, 65, 45, 225},
-	{4300, 15, 65, 45, 225},
+	{3300, 25, 33, 45, 215},
+	{3400, 25, 33, 45, 215},
+	{3500, 25, 33, 45, 215},
+	{3600, 25, 33, 45, 215},
+	{3700, 25, 33, 45, 215},
+	{3800, 25, 33, 45, 215},
+	{3900, 25, 33, 45, 215},
+	{4000, 25, 33, 45, 215},
+	{4100, 25, 33, 45, 215},
+	{4200, 25, 33, 45, 215},
+	{4300, 25, 33, 45, 215},
 };
 
 static gain_table_prop rt5033_battery_param4[] =
@@ -1061,7 +1061,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
         .temp_low_threshold_lpm = -80,
         .temp_low_recovery_lpm = 0,
 
-	.full_check_type = SEC_BATTERY_FULLCHARGED_SOC,
+	.full_check_type = SEC_BATTERY_FULLCHARGED_CHGPSY,
 	.full_check_type_2nd = SEC_BATTERY_FULLCHARGED_TIME,
 	.full_check_count = 1,
 	/* .full_check_adc_1st = 26500, */

@@ -39,7 +39,7 @@
 
 #include <linux/battery/sec_charging_common.h>
 
-#define RT5033_DRV_VER "1.0.5_G"
+#define RT5033_DRV_VER "1.0.6_S"
 
 #ifdef CONFIG_RT5033_SADDR
 #define RT5033FG_SLAVE_ADDR_MSB (0x40)

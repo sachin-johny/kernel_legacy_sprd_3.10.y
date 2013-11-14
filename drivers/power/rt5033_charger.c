@@ -329,14 +329,14 @@ static void rt5033_set_mivr_level(struct rt5033_charger_data *charger)
     int mivr;
     switch (charger->cable_type)
     {
-        case POWER_SUPPLY_TYPE_USB ... POWER_SUPPLY_TYPE_USB:
+        case POWER_SUPPLY_TYPE_USB ... POWER_SUPPLY_TYPE_USB_ACA:
             mivr = RT5033_MIVR_4800MV;
         break;
         default:
             mivr = RT5033_MIVR_4400MV;
     }
     rt5033_assign_bits(charger->rt5033->i2c_client,
-                       RT5033_CHG_CTRL5, RT5033_MIVR_MASK, mivr << RT5033_MIVR_SHIFT);
+                       RT5033_CHG_CTRL4, RT5033_MIVR_MASK, mivr << RT5033_MIVR_SHIFT);
 }
 
 static void rt5033_configure_charger(struct rt5033_charger_data *charger)
