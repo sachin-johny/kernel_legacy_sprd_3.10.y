@@ -370,6 +370,11 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 
 	BUG_ON(irq != bdata->irq);
 
+	if (irqd_get_trigger_type(irq_get_irq_data(irq)) != bdata->irqflags) {
+		pr_info("wake up cpu from deepsleep by gpio edge interrupt!");
+		irq_set_irq_type(bdata->irq, bdata->irqflags);
+	}
+
 	if (bdata->timer_debounce)
 		mod_timer(&bdata->timer,
 			jiffies + msecs_to_jiffies(bdata->timer_debounce));
@@ -482,11 +487,7 @@ static int __devinit gpio_keys_setup_key(struct platform_device *pdev,
 			    gpio_keys_gpio_timer, (unsigned long)bdata);
 
 		isr = gpio_keys_gpio_isr;
-		if (button->irqflags) {
-			irqflags = button->irqflags;
-		} else {
-			irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
-		}
+		irqflags = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING;
 		bdata->irqflags = irqflags;
 	} else {
 		if (!button->irq) {
@@ -797,7 +798,11 @@ static int __devexit gpio_keys_remove(struct platform_device *pdev)
 static int gpio_keys_suspend(struct device *dev)
 {
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	struct gpio_button_data *bdata = &ddata->data[0];
 	int i;
+
+	if (bdata->button->ds_irqflags)
+		irq_set_irq_type(bdata->irq, bdata->button->ds_irqflags);
 
 	if (device_may_wakeup(dev)) {
 		for (i = 0; i < ddata->n_buttons; i++) {
@@ -813,7 +818,11 @@ static int gpio_keys_suspend(struct device *dev)
 static int gpio_keys_resume(struct device *dev)
 {
 	struct gpio_keys_drvdata *ddata = dev_get_drvdata(dev);
+	struct gpio_button_data *bdata = &ddata->data[0];
 	int i;
+
+	if (bdata->button->ds_irqflags)
+		irq_set_irq_type(bdata->irq, bdata->irqflags);
 
 	for (i = 0; i < ddata->n_buttons; i++) {
 		struct gpio_button_data *bdata = &ddata->data[i];

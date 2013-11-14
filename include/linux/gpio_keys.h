@@ -15,7 +15,7 @@ struct gpio_keys_button {
 	bool can_disable;
 	int value;		/* axis value for EV_ABS */
 	unsigned int irq;	/* Irq number in case of interrupt keys */
-	unsigned long irqflags;
+	unsigned long ds_irqflags; /* deepsleep irq flags */
 };
 
 struct gpio_keys_platform_data {
