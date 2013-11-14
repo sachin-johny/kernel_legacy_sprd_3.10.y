@@ -444,6 +444,12 @@ config DEBUG_MUTEXES
 	 This feature allows mutex semantics violations to be detected and
 	 reported.
 
+config DEBUG_SEMAPHORES
+	bool "Semaphore debugging: track the owner of semaphore"
+	depends on DEBUG_KERNEL
+	help
+	 This feature records the owner of semaphore in an extra field.
+
 config DEBUG_LOCK_ALLOC
 	bool "Lock debugging: detect incorrect freeing of live locks"
 	depends on DEBUG_KERNEL && TRACE_IRQFLAGS_SUPPORT && STACKTRACE_SUPPORT && LOCKDEP_SUPPORT

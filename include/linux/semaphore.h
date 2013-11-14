@@ -17,13 +17,24 @@ struct semaphore {
 	spinlock_t		lock;
 	unsigned int		count;
 	struct list_head	wait_list;
+#ifdef CONFIG_DEBUG_SEMAPHORES
+	struct task_struct 	*owner;
+#endif
 };
+
+#ifdef CONFIG_DEBUG_SEMAPHORES
+#define __SEMAPHORE_OWNER_INITIALIZER	\
+	.owner		= 0,
+#else
+#define __SEMAPHORE_OWNER_INITIALIZER
+#endif
 
 #define __SEMAPHORE_INITIALIZER(name, n)				\
 {									\
 	.lock		= __SPIN_LOCK_UNLOCKED((name).lock),		\
 	.count		= n,						\
 	.wait_list	= LIST_HEAD_INIT((name).wait_list),		\
+	__SEMAPHORE_OWNER_INITIALIZER					\
 }
 
 #define DECLARE_MUTEX(name)	\

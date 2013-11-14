@@ -59,6 +59,9 @@ void down(struct semaphore *sem)
 		sem->count--;
 	else
 		__down(sem);
+#ifdef CONFIG_DEBUG_SEMAPHORES
+	sem->owner = current;
+#endif
 	spin_unlock_irqrestore(&sem->lock, flags);
 }
 EXPORT_SYMBOL(down);
@@ -82,6 +85,10 @@ int down_interruptible(struct semaphore *sem)
 		sem->count--;
 	else
 		result = __down_interruptible(sem);
+#ifdef CONFIG_DEBUG_SEMAPHORES
+	if (!result)
+		sem->owner = current;
+#endif
 	spin_unlock_irqrestore(&sem->lock, flags);
 
 	return result;
@@ -108,6 +115,10 @@ int down_killable(struct semaphore *sem)
 		sem->count--;
 	else
 		result = __down_killable(sem);
+#ifdef CONFIG_DEBUG_SEMAPHORES
+	if (!result)
+		sem->owner = current;
+#endif
 	spin_unlock_irqrestore(&sem->lock, flags);
 
 	return result;
@@ -134,8 +145,12 @@ int down_trylock(struct semaphore *sem)
 
 	spin_lock_irqsave(&sem->lock, flags);
 	count = sem->count - 1;
-	if (likely(count >= 0))
+	if (likely(count >= 0)) {
 		sem->count = count;
+#ifdef CONFIG_DEBUG_SEMAPHORES
+		sem->owner = current;
+#endif
+	}
 	spin_unlock_irqrestore(&sem->lock, flags);
 
 	return (count < 0);
@@ -162,6 +177,10 @@ int down_timeout(struct semaphore *sem, long jiffies)
 		sem->count--;
 	else
 		result = __down_timeout(sem, jiffies);
+#ifdef CONFIG_DEBUG_SEMAPHORES
+	if (!result)
+		sem->owner = current;
+#endif
 	spin_unlock_irqrestore(&sem->lock, flags);
 
 	return result;
@@ -184,6 +203,9 @@ void up(struct semaphore *sem)
 		sem->count++;
 	else
 		__up(sem);
+#ifdef CONFIG_DEBUG_SEMAPHORES
+	sem->owner = (unsigned long)-1;
+#endif
 	spin_unlock_irqrestore(&sem->lock, flags);
 }
 EXPORT_SYMBOL(up);
