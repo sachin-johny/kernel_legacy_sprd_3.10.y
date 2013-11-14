@@ -43,7 +43,7 @@
 //typedef unsigned int    uint32_t; 
 
 #define DSIH_PIXEL_TOLERANCE  2                                                        
-#define DSIH_FIFO_ACTIVE_WAIT 500    /* no of tries to access the fifo*/
+#define DSIH_FIFO_ACTIVE_WAIT 5000    /* no of tries to access the fifo*/
 #define DSIH_PHY_ACTIVE_WAIT  200                                                      
 #define ONE_MS_ACTIVE_WAIT    50000 /* 50MHz processor */                              
 #define DEFAULT_BYTE_CLOCK    864000 /* a value to start PHY PLL - random */           
@@ -174,6 +174,7 @@ typedef struct dsih_ctrl_t
 {                                                                                      
     uint32_t address;                                                                  
     dphy_t phy_instance;                                                               
+    uint32_t phy_feq;
     uint8_t max_lanes;                                                                 
     uint8_t max_hs_to_lp_cycles;                                                       
     uint8_t max_lp_to_hs_cycles;                                                       

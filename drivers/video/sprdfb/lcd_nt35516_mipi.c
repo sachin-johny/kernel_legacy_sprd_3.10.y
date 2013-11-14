@@ -336,6 +336,8 @@ static uint32_t nt35516_readpowermode(struct panel_spec *self)
 			return 0x9c;
 		}
 	}
+
+	printk("lcd_nt35516 mipi read power mode fail!0x0A value is 0x%x! , read result(%d)\n", read_data[0], read_rtn);
 	mipi_eotp_set(1,1);
 	return 0x0;
 }

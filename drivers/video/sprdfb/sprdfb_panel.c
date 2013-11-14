@@ -31,8 +31,9 @@ uint32_t lcd_base_from_uboot = 0;
 
 extern struct panel_if_ctrl sprdfb_mcu_ctrl;
 extern struct panel_if_ctrl sprdfb_rgb_ctrl;
+#ifndef CONFIG_FB_SCX15
 extern struct panel_if_ctrl sprdfb_mipi_ctrl;
-
+#endif
 extern void sprdfb_panel_remove(struct sprdfb_device *dev);
 
 #ifdef CONFIG_FB_SC8825
@@ -147,6 +148,29 @@ static int panel_reset(struct sprdfb_device *dev)
 	return 0;
 }
 
+static int panel_sleep(struct sprdfb_device *dev)
+{
+	if((NULL == dev) || (NULL == dev->panel)){
+		printk(KERN_ERR "sprdfb: [%s]: Invalid param\n", __FUNCTION__);
+		return -1;
+	}
+
+	pr_debug("sprdfb: [%s], enter\n",__FUNCTION__);
+
+	//send sleep cmd to lcd
+	if (dev->panel->ops->panel_enter_sleep != NULL) {
+		dev->panel->ops->panel_enter_sleep(dev->panel,1);
+	}
+	msleep(100);
+	//clk/data lane enter LP
+	if((NULL != dev->panel->if_ctrl->panel_if_before_panel_reset)
+		&&(SPRDFB_PANEL_TYPE_MIPI == dev->panel->type))
+	{
+		dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
+	}
+	return 0;
+}
+
 static void panel_set_resetpin(uint16_t dev_id,  uint32_t status, struct panel_spec *panel )
 {
 	pr_debug("sprdfb: [%s].\n",__FUNCTION__);
@@ -202,9 +226,11 @@ static bool panel_check(struct panel_cfg *cfg)
 	case SPRDFB_PANEL_TYPE_RGB:
 		cfg->panel->if_ctrl = &sprdfb_rgb_ctrl;
 		break;
+#ifndef CONFIG_FB_SCX15
 	case SPRDFB_PANEL_TYPE_MIPI:
 		cfg->panel->if_ctrl = &sprdfb_mipi_ctrl;
 		break;
+#endif
 	default:
 		printk("sprdfb: [%s]: erro panel type.(%d,%d, %d)",__FUNCTION__, cfg->dev_id, cfg->lcd_id, cfg->panel->type);
 		cfg->panel->if_ctrl = NULL;
@@ -318,7 +344,9 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	list_for_each_entry(cfg, panel_list, list) {
 		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
+#ifndef CONFIG_MACH_SPX15FPGA
 		dev->ctrl->update_clk(dev);
+#endif
 		panel_init(dev);
 		panel_reset(dev);
 		id = dev->panel->ops->panel_readid(dev->panel);
@@ -554,8 +582,12 @@ void sprdfb_panel_suspend(struct sprdfb_device *dev)
 	}
 	msleep(100);
 #else
-	//step1 reset panel
-	panel_reset(dev);
+	//step1 send lcd sleep cmd or reset panel directly
+	if(dev->panel->suspend_mode == SEND_SLEEP_CMD){
+		panel_sleep(dev);
+	}else{
+		panel_reset(dev);
+	}
 #endif
 
 	//step2 clk/data lane enter ulps

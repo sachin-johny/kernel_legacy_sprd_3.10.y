@@ -429,7 +429,7 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 */
 //	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
 //	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
-
+	dsi_instance->phy_feq = dev->panel->info.mipi->phy_feq;
 	result = mipi_dsih_open(dsi_instance);
 	if(OK != result){
 		printk(KERN_ERR "sprdfb: [%s]: mipi_dsih_open fail (%d)!\n", __FUNCTION__, result);

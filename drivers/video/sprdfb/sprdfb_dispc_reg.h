@@ -44,9 +44,15 @@
 #define DISPC_OSD_CK			(0x0058)
 
 #define DISPC_Y2R_CTRL			(0x0060)
+#ifdef CONFIG_ARCH_SCX15
+#define DISPC_Y2R_Y_PARAM		(0x0064)
+#define DISPC_Y2R_U_PARAM		(0x0068)
+#define DISPC_Y2R_V_PARAM		(0x006c)
+#else
 #define DISPC_Y2R_CONTRAST		(0x0064)
 #define DISPC_Y2R_SATURATION		(0x0068)
 #define DISPC_Y2R_BRIGHTNESS		(0x006c)
+#endif
 
 #define DISPC_INT_EN			(0x0070)
 #define DISPC_INT_CLR			(0x0074)
