@@ -210,7 +210,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_spool_wcdma_device,
 #endif
 	&sprd_saudio_wcdma_device,
-	&sprd_saudio_voip_device,
+	// &sprd_saudio_voip_device,
 #endif
 #if defined(CONFIG_BATTERY_SAMSUNG)
 	&sec_device_battery,
