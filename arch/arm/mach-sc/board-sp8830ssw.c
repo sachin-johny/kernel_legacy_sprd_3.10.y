@@ -58,6 +58,7 @@
 #include <linux/regulator/machine.h>
 #include <linux/ktd253b_bl.h>
 #include <gps/gpsctl.h>
+#include <sound/audio_pa.h>
 
 #define GPIO_HOME_KEY 113 /* PIN LCD_D[5] */
 
@@ -1584,25 +1585,53 @@ struct platform_device audio_pa_amplifier_device = {
 	.id = -1,
 };
 
-static int audio_pa_amplifier_l(u32 cmd, void *data)
+static int audio_pa_headset_amplifier_init(void)
+{
+	int ret;
+
+	ret = gpio_request(HEADSET_AMP_GPIO, "headset amplifier");
+	if (ret) {
+		pr_err("%s: request gpio error\n", __func__);
+		return ret;
+	}
+
+	gpio_direction_output(HEADSET_AMP_GPIO, 0);
+
+	return 0;
+}
+
+static int audio_pa_headset_amplifier_ctrl(u32 cmd, void *data)
 {
 	int ret = 0;
+
 	if (cmd < 0) {
-		/* get speaker amplifier status : enabled or disabled */
+		/* get heaset amplifier status : enabled or disabled */
 		ret = 0;
 	} else {
-		/* set speaker amplifier */
+		/* set heaset amplifier */
+		if (cmd == 0) {
+			gpio_set_value(HEADSET_AMP_GPIO, 0);
+		}
+		else {
+			gpio_set_value(HEADSET_AMP_GPIO, 1);
+		}
 	}
+
 	return ret;
 }
 
+static _audio_pa_control _audio_pa_amplifier = {
+	.headset = {
+		.init = audio_pa_headset_amplifier_init,
+		.control = audio_pa_headset_amplifier_ctrl,
+	},
+};
+
 static int sc8810_add_misc_devices(void)
 {
-	if (0) {
-		platform_set_drvdata(&audio_pa_amplifier_device, audio_pa_amplifier_l);
-		if (platform_device_register(&audio_pa_amplifier_device))
-			pr_err("faile to install audio_pa_amplifier_device\n");
-	}
+	platform_set_drvdata(&audio_pa_amplifier_device, &_audio_pa_amplifier);
+	if (platform_device_register(&audio_pa_amplifier_device))
+		pr_err("faile to install audio_pa_amplifier_device\n");
 	return 0;
 }
 
