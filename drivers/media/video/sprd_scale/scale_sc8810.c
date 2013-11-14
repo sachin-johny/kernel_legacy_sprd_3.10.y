@@ -1250,7 +1250,12 @@ int _SCALE_DriverIODone(void)
 		SCALE_PRINT_ERR("_SCALE_DriverIODone: 0,ret=%d .\n ", ret);
 	}
 	down(&g_sem);
-	down_interruptible(&g_sem);
+	ret = down_timeout(&g_sem,msecs_to_jiffies(100));
+	if (ret) {
+		SCALE_PRINT_ERR("%s:down g_sem timeout.\n",__func__);
+		up(&g_sem);
+		return ret;
+	}
 	while (1) {
 		if (1 == _SCALE_IsContinueSlice()) {
 			_SCALE_ContinueSlice(0);
@@ -1428,7 +1433,9 @@ static int SCALE_ioctl(struct file *fl, unsigned int cmd, unsigned long param) {
 		}
 		break;
 	case SCALE_IOC_DONE:
-		_SCALE_DriverIODone();
+		if (0 != _SCALE_DriverIODone()) {
+			ret = -1;
+		}
 		break;
 	case SCALE_IOC_YUV422_YUV420:
 		{
