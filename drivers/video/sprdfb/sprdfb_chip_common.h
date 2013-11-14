@@ -16,6 +16,8 @@
 
 #if defined(CONFIG_FB_SCX35)
 #include "sprdfb_chip_8830.h"
+#elif defined(CONFIG_FB_SCX15)
+#include "sprdfb_chip_7715.h"
 #elif defined(CONFIG_FB_SC8825)
 #include "sprdfb_chip_8825.h"
 #elif defined(CONFIG_FB_SC7710)

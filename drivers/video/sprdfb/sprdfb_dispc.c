@@ -29,20 +29,40 @@
 #include "sprdfb_chip_common.h"
 
 #define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
+#if defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_STAR2)
+#define DISPC_CLOCK_PARENT ("clk_192m")
+#define DISPC_CLOCK (192*1000000)
+#define DISPC_DBI_CLOCK_PARENT ("clk_256m")
+#define DISPC_DBI_CLOCK (256*1000000)
+#define DISPC_DPI_CLOCK_PARENT ("clk_192m")
+#define SPRDFB_DPI_CLOCK_SRC (192000000)
 
+#else
 #define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
 #define DISPC_DBI_CLOCK (256*1000000)
 #define DISPC_DPI_CLOCK_PARENT ("clk_384m")
-#define DISPC_EMC_EN_PARENT ("clk_aon_apb")
-
 #define SPRDFB_DPI_CLOCK_SRC (384000000)
 
+#endif
+
+
+#define DISPC_EMC_EN_PARENT ("clk_aon_apb")
+
+
+#ifdef CONFIG_ARCH_SCX15
+#define SPRDFB_BRIGHTNESS		(0x02<<16)// 9-bits
+#define SPRDFB_CONTRAST			(0xEF<<0) //10-bits
+#define SPRDFB_OFFSET_U			(0x80<<16)//8-bits
+#define SPRDFB_SATURATION_U		(0xEF<<0)//10-bits
+#define SPRDFB_OFFSET_V			(0x80<<16)//8-bits
+#define SPRDFB_SATURATION_V		(0xEF<<0)//10-bits
+#else
 #define SPRDFB_CONTRAST (74)
 #define SPRDFB_SATURATION (73)
 #define SPRDFB_BRIGHTNESS (2)
-
+#endif
 
 typedef enum
 {
@@ -532,7 +552,10 @@ static void dispc_run(struct sprdfb_device *dev)
 		dispc_set_bits((1 << 4), DISPC_CTRL);
 	}
 	dispc_irq_trick_out();
+#if defined(CONFIG_ARCH_SCX15)
+#else
 	dsi_irq_trick(0,0);
+#endif
 }
 
 static void dispc_stop(struct sprdfb_device *dev)
@@ -1427,9 +1450,15 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 
 	if(type < SPRD_DATA_TYPE_RGB888) {
 		dispc_write(1, DISPC_Y2R_CTRL);
+#ifdef CONFIG_ARCH_SCX15
+		dispc_write(SPRDFB_BRIGHTNESS|SPRDFB_CONTRAST, DISPC_Y2R_Y_PARAM);
+		dispc_write(SPRDFB_OFFSET_U|SPRDFB_SATURATION_U, DISPC_Y2R_U_PARAM);
+		dispc_write(SPRDFB_OFFSET_V|SPRDFB_SATURATION_V, DISPC_Y2R_V_PARAM);
+#else
 		dispc_write(SPRDFB_CONTRAST, DISPC_Y2R_CONTRAST);
 		dispc_write(SPRDFB_SATURATION, DISPC_Y2R_SATURATION);
 		dispc_write(SPRDFB_BRIGHTNESS, DISPC_Y2R_BRIGHTNESS);
+#endif
 	}
 
 	pr_debug("DISPC_IMG_CTRL: 0x%x\n", dispc_read(DISPC_IMG_CTRL));
@@ -1439,10 +1468,15 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 	pr_debug("DISPC_IMG_PITCH: 0x%x\n", dispc_read(DISPC_IMG_PITCH));
 	pr_debug("DISPC_IMG_DISP_XY: 0x%x\n", dispc_read(DISPC_IMG_DISP_XY));
 	pr_debug("DISPC_Y2R_CTRL: 0x%x\n", dispc_read(DISPC_Y2R_CTRL));
+#ifdef CONFIG_ARCH_SCX15
+	pr_debug("DISPC_Y2R_Y_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_Y_PARAM));
+	pr_debug("DISPC_Y2R_U_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_U_PARAM));
+	pr_debug("DISPC_Y2R_V_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_V_PARAM));
+#else
 	pr_debug("DISPC_Y2R_CONTRAST: 0x%x\n", dispc_read(DISPC_Y2R_CONTRAST));
 	pr_debug("DISPC_Y2R_SATURATION: 0x%x\n", dispc_read(DISPC_Y2R_SATURATION));
 	pr_debug("DISPC_Y2R_BRIGHTNESS: 0x%x\n", dispc_read(DISPC_Y2R_BRIGHTNESS));
-
+#endif
 	return 0;
 }
 
