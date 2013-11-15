@@ -63,3 +63,4 @@ obj-y		+= sprd_cproc/
 obj-y		+= sprd_blc/
 obj-y		+= sprd_2351/
 obj-$(CONFIG_TROUT_FM)		+= trout_fm/
+obj-$(CONFIG_SPRD_SRT)		+= sprd_srt/
