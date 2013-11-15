@@ -1214,6 +1214,9 @@ CONFIG_WLAN=y
 # CONFIG_LIBERTAS is not set
 # CONFIG_WL_TI is not set
 # CONFIG_MWIFIEX is not set
+CONFIG_ITTIAM=m
+CONFIG_ITM_WLAN_PM_POWERSAVE=y
+# CONFIG_ITM_WLAN_PM_SLEEP is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
