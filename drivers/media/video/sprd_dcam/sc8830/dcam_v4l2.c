@@ -1021,6 +1021,7 @@ LOCAL int sprd_v4l2_tx_stop(void* param)
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
 	struct dcam_node         node;
 
+	memset((void*)&node, 0, sizeof(struct dcam_node));
 	node.irq_flag = V4L2_TX_STOP;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
@@ -1892,12 +1893,15 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	DCAM_TRACE("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
 
 	p->flags = node.irq_flag;
-	p->type  = node.f_type;
-	p->index = node.index;
-	p->reserved = node.height;
-	p->sequence = node.reserved;
-	path = &dev->dcam_cxt.dcam_path[p->type];
-	memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
+
+	if (V4L2_TX_DONE == node.irq_flag) {
+		p->type  = node.f_type;
+		p->index = node.index;
+		p->reserved = node.height;
+		p->sequence = node.reserved;
+		path = &dev->dcam_cxt.dcam_path[p->type];
+		memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
+	}
 
 	DCAM_TRACE("V4L2: v4l2_dqbuf, flag 0x%x type 0x%x index 0x%x \n", p->flags, p->type, p->index);
 
