@@ -1511,7 +1511,7 @@ exit_check_functionality_failed:
 	return err;
 }
 
-static int __devexit lis3dh_acc_remove(struct i2c_client *client)
+static int  lis3dh_acc_remove(struct i2c_client *client)
 {
 	/* TODO: revisit ordering here once _probe order is finalized */
 	struct lis3dh_acc_data *acc = i2c_get_clientdata(client);
@@ -1591,7 +1591,7 @@ static struct i2c_driver lis3dh_acc_driver = {
 		   .name = LIS3DH_ACC_I2C_NAME,
 		   },
 	.probe = lis3dh_acc_probe,
-	.remove = __devexit_p(lis3dh_acc_remove),
+	.remove = lis3dh_acc_remove,
 	.resume = lis3dh_acc_resume,
 	.suspend = lis3dh_acc_suspend,
 	.id_table = lis3dh_acc_id,
