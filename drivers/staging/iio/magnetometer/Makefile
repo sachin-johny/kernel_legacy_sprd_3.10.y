@@ -1,6 +1,5 @@
 #
-# Makefile for the industrial I/O core.
+# Makefile for industrial I/O Magnetometer sensors
 #
 
-obj-y += inv_compass/
-
+obj-$(CONFIG_SENSORS_HMC5843)	+= hmc5843.o
