@@ -18,7 +18,7 @@ typedef struct
 	int  num;
 } nvm_cali_cmd;
 
-static char *WIFI_NVM_FILE =  "/system/etc/wifi/2351_wifi_configure.ini";
+static char *WIFI_NVM_FILE =  "/productinfo/2351_wifi_configure.ini";
 static WIFI_nvm_data   g_wifi_nvm_data;
 static struct delayed_work wifiNvm_work;
 static struct workqueue_struct *wifiNvm_workqueue = NULL;
