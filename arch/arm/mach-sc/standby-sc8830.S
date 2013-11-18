@@ -14,7 +14,7 @@
 #define CONFIG_NR_CPUS 1
 #endif
 
-#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 10)
+#define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 11)
 #define REG_UART1_ENABLE_VIR	0xf53b0000
 #define REG_UART1_ENABLE_PHY	0x71300000
 #define REG_UART1_ENABLE_BIT	(0x1 << 14)
@@ -262,8 +262,9 @@ ENTRY(sp_pm_collapse)
 	mrc     p15, 0, r7, c1, c0, 1 /* ACTLR */
 	mrc     p15, 0, r8, c2, c0, 1 /* TTBR1 */
 	mrc     p15, 0, r9, c13, c0, 3 /* TPIDRURO */
+	mrc     p15, 0, r10, c13, c0, 4 /* TPIDRURW */
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
-	stmia   r0!, {r1-r9, ip}
+	stmia   r0!, {r1-r10, ip}
 
 	bl	v7_flush_dcache_all
 #if 0
@@ -324,7 +325,7 @@ ENTRY(sp_pm_collapse_exit)
 	add	r1, r1, r2
 #endif
 
-	ldmdb   r1!, {r2-r11}
+	ldmdb   r1!, {r2-r12}
 	mcr     p15, 0, r4, c3, c0, 0 /* dacr */
 	mcr     p15, 0, r3, c2, c0, 0 /* TTBR0 */
 	mcr     p15, 0, r6, c10, c2, 0 /* PRRR */
@@ -332,7 +333,8 @@ ENTRY(sp_pm_collapse_exit)
 	mcr     p15, 0, r8, c1, c0, 1 /* ACTLR */
 	mcr     p15, 0, r9, c2, c0, 1 /* TTBR1 */
 	mcr     p15, 0, r10, c13, c0, 3 /* TPIDRURO */
-	mcr     p15, 0, r11, c13, c0, 1 /* context ID */
+	mcr     p15, 0, r11, c13, c0, 4 /* TPIDRURW */
+	mcr     p15, 0, r12, c13, c0, 1 /* context ID */
 	isb
 	ldmdb   r1!, {r4-r14}
 
