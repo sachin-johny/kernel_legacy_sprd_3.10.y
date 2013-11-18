@@ -383,7 +383,8 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		return ret;
 	}
 
-	if (!wake_lock_active(&priv->scan_done_lock))
+	if (priv->scan_done_lock.link.next == LIST_POISON1 ||
+	    priv->scan_done_lock.link.prev == LIST_POISON2)
 		wake_lock(&priv->scan_done_lock);
 	/* Arm scan timeout timer */
 	mod_timer(&priv->scan_timeout,
@@ -1092,7 +1093,8 @@ out:
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
-		if (wake_lock_active(&priv->scan_done_lock))
+		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+		    priv->scan_done_lock.link.prev != LIST_POISON2)
 			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 	}
@@ -1122,7 +1124,8 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
-		if (wake_lock_active(&priv->scan_done_lock))
+		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+		    priv->scan_done_lock.link.prev != LIST_POISON2)
 			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 	}
@@ -1172,7 +1175,8 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 		dev_err(&priv->ndev->dev, "scan timer expired!\n");
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
-		if (wake_lock_active(&priv->scan_done_lock))
+		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+		    priv->scan_done_lock.link.prev != LIST_POISON2)
 			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 		return;
@@ -1285,7 +1289,8 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
 	priv->scan_request = NULL;
-	if (wake_lock_active(&priv->scan_done_lock))
+	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+	    priv->scan_done_lock.link.prev != LIST_POISON2)
 		wake_unlock(&priv->scan_done_lock);
 	atomic_dec(&priv->scan_status);
 
@@ -1295,7 +1300,8 @@ out:
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, true);
 	priv->scan_request = NULL;
-	if (wake_lock_active(&priv->scan_done_lock))
+	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+	    priv->scan_done_lock.link.prev != LIST_POISON2)
 		wake_unlock(&priv->scan_done_lock);
 	atomic_dec(&priv->scan_status);
 
@@ -1795,7 +1801,8 @@ void itm_wdev_free(struct itm_priv *priv)
 		}
 
 		priv->scan_request = NULL;
-		if (wake_lock_active(&priv->scan_done_lock))
+		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+		    priv->scan_done_lock.link.prev != LIST_POISON2)
 			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 	}

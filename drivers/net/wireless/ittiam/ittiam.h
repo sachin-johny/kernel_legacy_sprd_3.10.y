@@ -45,9 +45,6 @@
 #define __devexit_p(x)	x
 #endif
 
-#define DUMP_COMMAND
-#define DUMP_COMMAND_RESPONSE
-
 struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
