@@ -3920,7 +3920,7 @@ static int mms_ts_suspend(struct device *dev)
 		goto out;
 #ifdef CONFIG_LEDS_CLASS
 	if (info->pdata->use_touchkey) {
-		info->tkey_led_reserved = false;
+		info->tkey_led_reserved = true;
 		info->pdata->tkey_led_vdd_on(0);
 	}
 #endif

@@ -28,6 +28,7 @@
 #define CAM_FLASH_ENT_GPIO		112
 #define SPRD_FLASH_ON			1
 #define SPRD_FLASH_OFF			0
+#define GPIO_TOUCHKEY_LED_EN	 116
 
 #define SPRD_FLASH_OFST          0x890
 #define SPRD_FLASH_CTRL_BIT      0x8000

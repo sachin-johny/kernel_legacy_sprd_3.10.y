@@ -1498,30 +1498,19 @@ static void mms_ts_vdd_enable(bool on)
 
 static void touchkey_led_vdd_enable(bool on)
 {
+        static int ret = 0;
 
-#if 1
-	printk("%s touchkey led dont goto suspend! \n",__FUNCTION__);
-	return;
-#else
-	static struct regulator *keyled_vdd = NULL;
-
-	if (keyled_vdd == NULL) {
-		keyled_vdd = regulator_get(NULL, "vdd_keyled");
-		if (IS_ERR(keyled_vdd)) {
-			pr_err("Get regulator of key led error!\n");
-			return;
-		}
-	}
-	if (on) {
-		regulator_set_voltage(keyled_vdd, 3300000, 3300000);
-		regulator_enable(keyled_vdd);
-	}
-	else if (regulator_is_enabled(keyled_vdd)) {
-		regulator_disable(keyled_vdd);
-	}
-#endif
+        if (ret == 0) {
+                ret = gpio_request(GPIO_TOUCHKEY_LED_EN, "touchkey_led_en");
+                if (ret) {
+                        printk("%s: request gpio error\n", __func__);
+                        return -EIO;
+                }
+                gpio_direction_output(GPIO_TOUCHKEY_LED_EN, 0);
+                ret = 1;
+        }
+        gpio_set_value(GPIO_TOUCHKEY_LED_EN,on);
 }
-
 
 static struct serial_data plat_data0 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
