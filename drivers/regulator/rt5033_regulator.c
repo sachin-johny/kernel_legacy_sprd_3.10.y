@@ -22,6 +22,7 @@
 #define ALIAS_NAME "rt5033-regulator"
 
 #define EN_BUCK_IRQ 1
+#define EN_VDDA_UV_IRQ 0
 #define EN_LDO_IRQ 0
 #define EN_SLDO_IRQ 0
 
@@ -455,6 +456,9 @@ static irqreturn_t rt5033_pmic_ot_event_handler(int irq, void *data)
     pr_info("PMIC OT\n");
     return IRQ_HANDLED;
 }
+#endif /* EN_BUCK_IRQ */
+
+#if EN_VDDA_UV_IRQ
 
 static irqreturn_t rt5033_pmic_vdda_uv_event_handler(int irq, void *data)
 {
@@ -465,7 +469,7 @@ static irqreturn_t rt5033_pmic_vdda_uv_event_handler(int irq, void *data)
     pr_info("PMIC VDDA UV\n");
     return IRQ_HANDLED;
 }
-#endif /* EN_BUCK_IRQ */
+#endif /* EN_VDDA_UV_IRQ */
 
 #if EN_SLDO_IRQ
 static irqreturn_t rt5033_pmic_safeldo_lv_event_handler(int irq, void *data)
@@ -508,12 +512,14 @@ const struct rt5033_pmic_irq_handler rt5033_pmic_buck_irq_handlers[] = {
         .handler = rt5033_pmic_ot_event_handler,
         .irq_index = RT5033_OT_IRQ,
     },
+#endif /* EN_BUCK_IRQ */
+#if EN_VDDA_UV_IRQ
     {
         .name = "PMIC VDDA UV",
         .handler = rt5033_pmic_vdda_uv_event_handler,
         .irq_index = RT5033_VDDA_UV_IRQ,
     },
-#endif
+#endif /* EN_VDDA_UV_IRQ */
 };
 
 const struct rt5033_pmic_irq_handler rt5033_pmic_safeldo_irq_handlers[] = {

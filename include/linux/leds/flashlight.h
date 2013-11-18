@@ -45,6 +45,7 @@ struct flashlight_ops {
     int (*list_color_temperature)(struct flashlight_device *, int);
     int (*strobe_charge)(struct flashlight_device *,
                          flashlight_charge_event_cb, void *, int);
+    int (*strobe)(struct flashlight_device *);
 	int (*suspend)(struct flashlight_device *, pm_message_t);
 	int (*resume)(struct flashlight_device *);
 };
@@ -54,7 +55,7 @@ struct flashlight_properties {
 	enum flashlight_type type;
     /* Xenon type flashlight doesn't support torch mode */
     enum flashlight_mode mode;
-    /* Color temperature, unit: K, 0 means unknow */
+    /* Color temperature, unit: K, 0 means unknown */
     int color_temperature;
     int torch_brightness;
     int torch_max_brightness;
@@ -99,6 +100,8 @@ extern int flashlight_set_strobe_timeout(
                         int min_ms, int max_ms);
 extern int flashlight_set_mode(struct flashlight_device *flashlight_dev,
                                int mode);
+
+extern int flashlight_strobe(struct flashlight_device *flashlight_dev);
 
 /* flashlight_charge_event_cb(void *data, int remains)
  * description :
