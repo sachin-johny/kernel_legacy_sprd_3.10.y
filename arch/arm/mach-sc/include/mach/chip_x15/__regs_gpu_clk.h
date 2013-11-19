@@ -15,17 +15,18 @@
  * Automatically generated C header: do not edit *
  *************************************************
  */
-#ifndef __ASM_ARCH_SCI_CLOCK_TREE_H
-#define __ASM_ARCH_SCI_CLOCK_TREE_H
 
-#if defined(CONFIG_ARCH_SCX15)
-#include "chip_x15/__clock_tree.h"
-#elif defined(CONFIG_ARCH_SCX35)
-#include "chip_x35/__clock_tree.h"
-#elif defined(CONFIG_ARCH_SC8825)
-#include "__sc8825_clock_tree.h"
-#else
-#error "Unknown architecture specification"
-#endif
+#ifndef __REGS_GPU_CLK_H__
+#define __REGS_GPU_CLK_H__
 
+#ifndef __SCI_GLB_REGS_H__
+#error  "Don't include this file directly, include <mach/sci_glb_regs.h>"
 #endif
+#define REGS_GPU_CLK
+
+/* registers definitions for controller REGS_GPU_CLK */
+#define REG_GPU_CLK_GPU_CFG             SCI_ADDR(REGS_GPU_CLK_BASE, 0x0020)
+
+/* vars definitions for controller REGS_GPU_CLK */
+
+#endif /* __REGS_GPU_CLK_H__ */

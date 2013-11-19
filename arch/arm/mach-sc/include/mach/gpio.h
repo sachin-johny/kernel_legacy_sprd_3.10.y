@@ -29,7 +29,11 @@
 #define	D_GPIO_NR		256
 
 #define	A_GPIO_START	( D_GPIO_START + D_GPIO_NR )
+#if defined(CONFIG_ARCH_SCX15)
+#define	A_GPIO_NR		0
+#else
 #define	A_GPIO_NR		32
+#endif
 
 #define	D_EIC_START		( A_GPIO_START + A_GPIO_NR)
 #define	D_EIC_NR		16

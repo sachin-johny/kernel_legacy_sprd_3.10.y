@@ -50,6 +50,9 @@
 #include "__board-sp7735ec.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7715EA
+#include "__board-sp7715ea.h"
+#endif
 #include <asm/sizes.h>
 
 

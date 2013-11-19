@@ -981,10 +981,17 @@ static void init_led(void){}
 
 static void sc8830_power_off(void)
 {
+	u32 reg_val;
 	/*turn off all modules's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
 
 #if defined(CONFIG_ARCH_SCX15)
+	sci_adi_raw_write(ANA_REG_GLB_PWR_WR_PROT_VALUE,BITS_PWR_WR_PROT_VALUE(0x6e7f));
+	do{
+		reg_val = (sci_adi_read(ANA_REG_GLB_PWR_WR_PROT_VALUE) & BIT_PWR_WR_PROT);
+	}while(reg_val == 0);
+	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL,0xfff);
+	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD,0x7fff);
 #else
 	/*turn off system core's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);

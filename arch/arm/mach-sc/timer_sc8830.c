@@ -339,7 +339,7 @@ void __init sci_enable_timer_early(void)
 {
 	/* enable timer & syscnt in global regs */
 	int i = 0, j = 0;
-	u32 val = 26000000;
+	u32 val = -1;
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AON_TMR_EB | BIT_AP_SYST_EB | BIT_AP_TMR0_EB);
 #if defined CONFIG_LOCAL_TIMERS && !defined CONFIG_HAVE_ARM_ARCH_TIMER
 	sci_glb_set(REG_AON_APB_APB_EB1, BIT_AP_TMR2_EB | BIT_AP_TMR1_EB);

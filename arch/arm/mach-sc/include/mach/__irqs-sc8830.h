@@ -163,7 +163,11 @@
 
 /* analog die interrupt number */
 #define IRQ_ANA_ADC_INT			SCI_EXT_IRQ(0)
+#if defined(CONFIG_ARCH_SCX15)
+#define IRQ_ANA_GPIO_INT		-1
+#else
 #define IRQ_ANA_GPIO_INT		SCI_EXT_IRQ(1)
+#endif
 #define IRQ_ANA_RTC_INT			SCI_EXT_IRQ(2)
 #define IRQ_ANA_WDG_INT			SCI_EXT_IRQ(3)
 #define IRQ_ANA_FGU_INT			SCI_EXT_IRQ(4)

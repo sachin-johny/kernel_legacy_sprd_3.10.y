@@ -546,7 +546,7 @@ config REGULATOR_SPRD_MAP
 	string "regulator map file name"
 	depends on REGULATOR_SPRD || REGULATOR_SC2713
 	default "mach/__sc7710_regulator_map.h" if ARCH_SC7710
-	default "mach/__sc8830_regulator_map.h" if ARCH_SCX35
+	default "mach/chip_x35/__regulator_map.h" if ARCH_SCX35
 	default "mach/__regulator_map.h"
 endif
 

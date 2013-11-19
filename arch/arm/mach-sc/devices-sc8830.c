@@ -675,11 +675,20 @@ static struct resource sprd_sdio0_resources[] = {
 
 static struct sprd_host_platdata sprd_sdio0_pdata = {
 	.hw_name = "sprd-sdcard",
+#ifdef CONFIG_ARCH_SCX15
+	.detect_gpio = 193,
+#else
 	.detect_gpio = 71,
+#endif
 	.vdd_name = "vddsd",
 	.clk_name = "clk_sdio0",
+#ifdef CONFIG_ARCH_SCX15
+	.clk_parent = "clk_384m",
+	.max_clock = 384000000,
+#else
 	.clk_parent = "clk_192m",
 	.max_clock = 192000000,
+#endif
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 };
@@ -859,6 +868,16 @@ struct platform_device sprd_emmc_device = {
 };
 
 struct sysdump_mem sprd_dump_mem[] = {
+#if defined(CONFIG_ARCH_SCX15)
+	{
+		.paddr      = CONFIG_PHYS_OFFSET,
+		.vaddr      = PAGE_OFFSET,
+		.soff       = 0xffffffff,
+		.size       = CPW_START_ADDR - CONFIG_PHYS_OFFSET,
+		.type       = SYSDUMP_RAM,
+	},
+#else
+
 	{
 		.paddr		= CONFIG_PHYS_OFFSET,
 		.vaddr		= PAGE_OFFSET,
@@ -886,6 +905,7 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.size		= CPW_START_ADDR - (CPT_START_ADDR + CPT_TOTAL_SIZE),
 		.type		= SYSDUMP_RAM,
 	},
+#endif
 	{
 		.paddr		= CPW_START_ADDR,
 		.vaddr		= PAGE_OFFSET +

@@ -68,7 +68,11 @@
 
 #ifdef CONFIG_ARCH_SCX35
 #define WDG_NEW_VERSION
+#ifdef CONFIG_ARCH_SCX15
+#define ANA_RST_STATUS          (ANA_REG_BASE + 0x118)
+#else
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0xE8)
+#endif
 #define ANA_AGEN                (ANA_REG_BASE + 0x00)
 #define ANA_RTC_CLK_EN		(ANA_REG_BASE + 0x08)
 

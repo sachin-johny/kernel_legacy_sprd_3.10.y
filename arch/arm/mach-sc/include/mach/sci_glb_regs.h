@@ -39,6 +39,11 @@
 #include "./chip_x15/__regs_pmu_apb.h"
 #include "./chip_x15/__regs_pub_apb.h"
 #include "./chip_x15/__regs_avs_apb.h"
+#include "./chip_x15/__regs_aon_clk.h"
+#include "./chip_x15/__regs_ap_clk.h"
+#include "./chip_x15/__regs_mm_clk.h"
+#include "./chip_x15/__regs_gpu_apb.h"
+#include "./chip_x15/__regs_gpu_clk.h"
 #ifndef BIT_GPIO_EB
 #define BIT_GPIO_EB	BIT_AON_GPIO_EB
 #endif
@@ -55,18 +60,18 @@
 #endif
 #elif defined(CONFIG_ARCH_SCX35)
 
-#include "./chip_x35/__regs_sc8830_ana_glb.h"
-#include "./chip_x35/__regs_sc8830_aon_apb.h"
-#include "./chip_x35/__regs_sc8830_aon_clk.h"
-#include "./chip_x35/__regs_sc8830_ap_ahb.h"
-#include "./chip_x35/__regs_sc8830_ap_apb.h"
-#include "./chip_x35/__regs_sc8830_ap_clk.h"
-#include "./chip_x35/__regs_sc8830_gpu_apb.h"
-#include "./chip_x35/__regs_sc8830_gpu_clk.h"
-#include "./chip_x35/__regs_sc8830_mm_ahb.h"
-#include "./chip_x35/__regs_sc8830_mm_clk.h"
-#include "./chip_x35/__regs_sc8830_pmu_apb.h"
-#include "./chip_x35/__regs_sc8830_pub_apb.h"
+#include "./chip_x35/__regs_ana_glb.h"
+#include "./chip_x35/__regs_aon_apb.h"
+#include "./chip_x35/__regs_aon_clk.h"
+#include "./chip_x35/__regs_ap_ahb.h"
+#include "./chip_x35/__regs_ap_apb.h"
+#include "./chip_x35/__regs_ap_clk.h"
+#include "./chip_x35/__regs_gpu_apb.h"
+#include "./chip_x35/__regs_gpu_clk.h"
+#include "./chip_x35/__regs_mm_ahb.h"
+#include "./chip_x35/__regs_mm_clk.h"
+#include "./chip_x35/__regs_pmu_apb.h"
+#include "./chip_x35/__regs_pub_apb.h"
 
 
 #else

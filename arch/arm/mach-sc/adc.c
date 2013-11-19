@@ -161,6 +161,47 @@ static int sci_adc_config(struct adc_sample_data *adc)
 	return ret;
 }
 
+#if defined(CONFIG_ARCH_SCX15)
+#define RATIO(_n_, _d_) (_n_ << 16 | _d_)
+static int sci_adc_ratio(int channel, int mux)
+{
+	switch (channel) {
+	case 0x00:
+	case 0x01:
+	case 0x02:
+	case 0x03:
+		return RATIO(4, 25);
+	case 0x05:		//vbat
+		return RATIO(7, 29);
+	case 0x0D:		//dcdccore
+	case 0x0E:		//dcdcarm
+		return RATIO(4, 5);
+	case 0x0F:		//dcdcmem
+		return RATIO(3, 5);
+	case 0x10:		//dcdcgen
+		return RATIO(4, 9);
+	case 0x15:		//DCDC Supply LDO, VDD18/CAMIO/CAMD/EMMCIO
+		return RATIO(1, 2);
+	case 0x13:		//DCDCVBATBK
+	case 0x14:		//DCDCHEADMIC
+	case 0x16:		//VBATD Domain LDO, VDD25/SD/USB/SIM0/SIM1/SIM2
+	case 0x17:		//VBATA Domain LDO,  VDD28/CAMA/CAMMOT/EMMCCORE/CON/DCXO/RF0
+	case 0x1E:		//DP from terminal
+	case 0x1F:		//DM from terminal
+		return RATIO(1, 3);
+	default:
+		return RATIO(1, 1);
+	}
+	return RATIO(1, 1);
+}
+void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
+			   unsigned int *div_denominators)
+{
+	unsigned int ratio = sci_adc_ratio(channel_id, 0);
+	*div_numerators = ratio >> 16;
+	*div_denominators = ratio << 16 >> 16;
+}
+#else
 void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
 			   unsigned int *div_denominators)
 {
@@ -294,6 +335,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 		break;
 	}
 }
+#endif
 int sci_adc_get_values(struct adc_sample_data *adc)
 {
 	unsigned long flags;
