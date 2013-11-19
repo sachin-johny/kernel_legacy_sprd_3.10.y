@@ -302,12 +302,21 @@ struct l2cap_chan *l2cap_chan_create(struct sock *sk)
 
 static void l2cap_chan_destroy(struct l2cap_chan *chan)
 {
-	write_lock(&chan_list_lock);
+//	write_lock(&chan_list_lock);
 	
-	list_del(&chan->global_l);
-	write_unlock(&chan_list_lock);
+//	list_del(&chan->global_l);
+//	write_unlock(&chan_list_lock);
 
-	kfree(chan);
+           struct l2cap_conn *conn = chan->conn;
+
+           mutex_lock(&conn->chan_lock);
+           if (atomic_dec_and_test(&chan->refcnt)) {
+                      write_lock(&chan_list_lock);
+                      list_del(&chan->global_l);
+                      write_unlock(&chan_list_lock);
+		kfree(chan);
+	}
+	mutex_unlock(&conn->chan_lock);
 }
 
 void l2cap_chan_hold(struct l2cap_chan *c)
@@ -317,7 +326,7 @@ void l2cap_chan_hold(struct l2cap_chan *c)
 
 void l2cap_chan_put(struct l2cap_chan *c)
 {
-	if (atomic_dec_and_test(&c->refcnt))
+	//if (atomic_dec_and_test(&c->refcnt))
 		//kfree(c);
 		l2cap_chan_destroy(c); 
 }
