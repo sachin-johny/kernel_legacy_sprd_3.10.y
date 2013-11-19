@@ -36,6 +36,8 @@
 #include <linux/wakelock.h>
 
 
+#include <linux/dma-mapping.h>
+#include <mach/dma.h>
 
 #define IRQ_WAKEUP 	0
 
@@ -63,12 +65,16 @@
 
 /*UART FIFO watermark*/
 #define SP_TX_FIFO		0x40
-#define SP_RX_FIFO		0x40
+#define SP_RX_FIFO		0x60
 /*UART IEN*/
 #define UART_IEN_RX_FIFO_FULL	(0x1<<0)
 #define UART_IEN_TX_FIFO_EMPTY	(0x1<<1)
 #define UART_IEN_BREAK_DETECT	(0x1<<7)
 #define UART_IEN_TIMEOUT     	(0x1<<13)
+
+/*DMA enable bit*/
+#define UART_DMA_EN_BIT (0x1 << 15)
+#define DMA_MAX_TRSC_LEN (0xFFFFFFF)
 
 /*data length*/
 #define UART_DATA_BIT	(0x3<<2)
@@ -91,7 +97,7 @@
 #define UART_LSR_BI	(0x1<<7)
 #define UART_LSR_DR	(0x1<<8)
 /*flow control */
-#define RX_HW_FLOW_CTL_THRESHOLD	0x40
+#define RX_HW_FLOW_CTL_THRESHOLD	0x68
 #define RX_HW_FLOW_CTL_EN		(0x1<<7)
 #define TX_HW_FLOW_CTL_EN		(0x1<<8)
 /*status indicator*/
@@ -118,7 +124,24 @@
 #define BAUD_2500000_48M 0x0013
 #define BAUD_3000000_48M 0x0010
 
+#define UART_DMA_BUF_SIZE (SP_RX_FIFO << 3)
 
+struct uart_dma_info {
+	/*following vals will be init in probe function */
+	u32 uart_phy_base;
+	void *dma_buf_v;
+	dma_addr_t dma_buf_p;
+	u32 dma_tx_dev_id;
+	u32 dma_rx_dev_id;
+	spinlock_t uart_dma_lock;
+
+	/*following vals will be init in start up function */
+	u32 dma_rx_chn;
+	u32 dma_tx_chn;
+	u32 dma_buf_read_offset;
+	u32 dma_buf_write_offset;
+	u32 dma_rx_size;
+};
 
 static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ
 static bool is_uart_rx_wakeup;
@@ -176,9 +199,19 @@ static void serial_sprd_start_tx(struct uart_port *port)
 	}
 }
 
+static int serial_sprd_rx_dma_config(struct uart_port *port);
 static void serial_sprd_stop_rx(struct uart_port *port)
 {
 	unsigned int ien, iclr;
+	unsigned int ctrl1;
+	struct uart_dma_info *dma_info = (struct uart_dma_info *)port->private_data;
+
+	if (dma_info) {
+		/*disable the uart dma mode*/
+		ctrl1 = serial_in(port, ARM_UART_CTL1);
+		ctrl1 &= ~UART_DMA_EN_BIT;
+		serial_out(port, ARM_UART_CTL1, ctrl1);
+	}
 
 	iclr = serial_in(port, ARM_UART_ICLR);
 	ien = serial_in(port, ARM_UART_IEN);
@@ -205,7 +238,7 @@ static inline void serial_sprd_rx_chars(int irq, void *dev_id)
 	unsigned int status, ch, flag, lsr, max_count = 2048;
 
 	status = serial_in(port, ARM_UART_STS1);
-	lsr = serial_in(port, ARM_UART_STS0);
+	lsr = serial_in(port, ARM_UART_STS2);
 	while ((status & 0x00ff) && max_count--) {
 		ch = serial_in(port, ARM_UART_RXD);
 		flag = TTY_NORMAL;
@@ -246,7 +279,7 @@ static inline void serial_sprd_rx_chars(int irq, void *dev_id)
 		uart_insert_char(port, lsr, UART_LSR_OE, ch, flag);
 ignore_char:
 		status = serial_in(port, ARM_UART_STS1);
-		lsr = serial_in(port, ARM_UART_STS0);
+		lsr = serial_in(port, ARM_UART_STS2);
 	}
 	//tty->low_latency = 1;
 	tty_flip_buffer_push(tty);
@@ -292,22 +325,38 @@ static inline void serial_sprd_tx_chars(int irq, void *dev_id)
 static irqreturn_t serial_sprd_interrupt_chars(int irq, void *dev_id)
 {
 	struct uart_port *port = (struct uart_port *)dev_id;
+	struct uart_dma_info *dma_info = (struct uart_dma_info *)port->private_data;
 	int pass_counter = 0;
 
 	do {
 		if (!
-		    (serial_in(port, ARM_UART_STS0) &
+		    (serial_in(port, ARM_UART_STS2) &
 		     serial_in(port, ARM_UART_IEN))) {
 			break;
 		}
-		if (serial_in(port, ARM_UART_STS0) &
-		    (UART_STS_RX_FIFO_FULL | UART_STS_BREAK_DETECT |
-		     UART_STS_TIMEOUT)) {
-			serial_sprd_rx_chars(irq, port);
+
+		if(!dma_info) {
+			if (serial_in(port, ARM_UART_STS2) &
+				(UART_STS_RX_FIFO_FULL |
+				 UART_STS_BREAK_DETECT |
+				 UART_STS_TIMEOUT)) {
+
+				serial_sprd_rx_chars(irq, port);
+			 }
 		}
-		if (serial_in(port, ARM_UART_STS0) & UART_STS_TX_FIFO_EMPTY) {
+		else {
+			if (serial_in(port, ARM_UART_STS2) &
+				(UART_STS_BREAK_DETECT |
+				 UART_STS_TIMEOUT)) {
+
+				serial_sprd_rx_chars(irq, port);
+			 }
+		}
+
+		if (serial_in(port, ARM_UART_STS2) & UART_STS_TX_FIFO_EMPTY) {
 			serial_sprd_tx_chars(irq, port);
 		}
+
 		serial_out(port, ARM_UART_ICLR, 0xffffffff);
 	} while (pass_counter++ < 50);
 
@@ -344,6 +393,45 @@ static irqreturn_t wakeup_rx_interrupt(int irq,void *dev_id)
 	return IRQ_HANDLED;
 }
 
+static void serial_sprd_uart_dma_rx_irqhandler(int dma_chn, void *data)
+{
+	struct uart_port *port;
+	struct uart_dma_info *dma_info;
+	unsigned char *recv_buf;
+	u32 recv_size;
+
+	port = (struct uart_port *)data;
+	dma_info = (struct uart_dma_info *)port->private_data;
+
+	spin_lock(&dma_info->uart_dma_lock);
+
+	dma_info->dma_buf_write_offset += SP_RX_FIFO;
+	dma_info->dma_rx_size += SP_RX_FIFO;
+
+	recv_buf = (unsigned char *)(dma_info->dma_buf_v) + dma_info->dma_buf_read_offset;
+	recv_size = dma_info->dma_buf_write_offset - dma_info->dma_buf_read_offset;
+	
+	port->icount.rx += recv_size;
+	tty_insert_flip_string(port->state->port.tty,
+			recv_buf, recv_size);
+	tty_flip_buffer_push(port->state->port.tty);
+
+	dma_info->dma_buf_read_offset += recv_size;
+	if (dma_info->dma_buf_read_offset == UART_DMA_BUF_SIZE) {
+		dma_info->dma_buf_read_offset = 0x0;
+	}
+	if (dma_info->dma_buf_write_offset == UART_DMA_BUF_SIZE) {
+		dma_info->dma_buf_write_offset = 0x0;
+	}
+
+	if (dma_info->dma_rx_size > (DMA_MAX_TRSC_LEN - (SP_RX_FIFO << 2))) {
+		/*reset the rx dma chn*/
+		serial_sprd_rx_dma_config(port);
+	}
+
+	spin_unlock(&dma_info->uart_dma_lock);
+}
+
 /* FIXME: this pin config should be just defined int general pin mux table */
 static void serial_sprd_pin_config(void)
 {
@@ -351,13 +439,68 @@ static void serial_sprd_pin_config(void)
 	value = __raw_readl(SPRD_GREG_BASE + 0x08);
 	value |= 0x07 << 20;
 	__raw_writel(value, SPRD_GREG_BASE + 0x08);
-#endif	
+#endif
+}
+
+static int serial_sprd_rx_dma_config(struct uart_port *port)
+{
+	int ret;
+	struct uart_dma_info *dma_info = (struct uart_dma_info*)port->private_data;
+	/*the sci_dma_cfg struct must in inti with {0} */
+	struct sci_dma_cfg rx_dma_cfg;// , tx_dma_cfg;
+
+	dma_info = (struct uart_dma_info*)port->private_data;
+	/*config the rx dma chn*/
+	if (dma_info && dma_info->dma_rx_dev_id) {
+		if (dma_info->dma_rx_chn == 0) {
+			dma_info->dma_rx_chn = sci_dma_request("uart", FULL_DMA_CHN);
+			printk("alloc dma chn %d\n", dma_info->dma_rx_chn);
+			printk("the dma buf addr is %x\n", dma_info->dma_buf_p);
+		} else {
+			/*rset the dma chn */
+			sci_dma_stop(dma_info->dma_rx_chn, dma_info->dma_rx_dev_id);
+		}
+		/*fixme!*/
+		dma_info->dma_buf_read_offset = 0x0;
+		dma_info->dma_buf_write_offset = 0x0;
+		dma_info->dma_rx_size = 0x0;
+
+		/*the struct sci_dma_cfg must be init with {0}*/
+		memset(&rx_dma_cfg, 0x0, sizeof(rx_dma_cfg));
+
+		rx_dma_cfg.datawidth = BYTE_WIDTH;
+		rx_dma_cfg.src_addr = dma_info->uart_phy_base + ARM_UART_RXD;
+		rx_dma_cfg.des_addr = dma_info->dma_buf_p;
+		rx_dma_cfg.src_step = 0x0;
+		rx_dma_cfg.des_step = 0x1;
+		rx_dma_cfg.fragmens_len = SP_RX_FIFO;
+		rx_dma_cfg.block_len = SP_RX_FIFO;
+		/*we will never transfer 256Mbytes data in one times*/
+		rx_dma_cfg.transcation_len = DMA_MAX_TRSC_LEN;
+		rx_dma_cfg.req_mode = FRAG_REQ_MODE;
+		rx_dma_cfg.wrap_to = rx_dma_cfg.des_addr;
+		/*fixme, the wrap mode config */
+		rx_dma_cfg.wrap_ptr = dma_info->dma_buf_p + UART_DMA_BUF_SIZE -1;
+
+		ret = sci_dma_config(dma_info->dma_rx_chn, &rx_dma_cfg, 1, NULL);
+		/*fixme*/
+		ret = sci_dma_register_irqhandle(dma_info->dma_rx_chn, FRAG_DONE,
+				serial_sprd_uart_dma_rx_irqhandler, port);
+		/*fixme*/
+		sci_dma_start(dma_info->dma_rx_chn, dma_info->dma_rx_dev_id);
+	}
+
+	if (dma_info && dma_info->dma_tx_dev_id) {
+	}
+
+	return 0;
 }
 
 static int serial_sprd_startup(struct uart_port *port)
 {
 	int ret = 0;
 	unsigned int ien, ctrl1;
+	struct uart_dma_info *dma_info = (struct uart_dma_info*)port->private_data;
 
 	/* FIXME: don't know who change u0cts pin in 88 */
 	serial_sprd_pin_config();
@@ -367,13 +510,22 @@ static int serial_sprd_startup(struct uart_port *port)
 	serial_out(port,ARM_UART_CTL2,0x801);
 #endif
 
+	if(dma_info) {
+		/*disable the uart dma mode*/
+		ctrl1 = serial_in(port, ARM_UART_CTL1);
+		ctrl1 &= ~(UART_DMA_EN_BIT);
+		serial_out(port, ARM_UART_CTL1, ctrl1);
+
+		serial_sprd_rx_dma_config(port);
+	}
+
 	serial_out(port, ARM_UART_CTL2, ((SP_TX_FIFO << 8) | SP_RX_FIFO));
 	/* clear rx fifo */
 	while (serial_in(port, ARM_UART_STS1) & 0x00ff) {
 		serial_in(port, ARM_UART_RXD);
 	}
 	/* clear tx fifo */
-	while (serial_in(port, ARM_UART_STS1) & 0xff00) ;
+	while (serial_in(port, ARM_UART_STS1) & 0xff00);
 	/* clear interrupt */
 	serial_out(port, ARM_UART_IEN, 0x00);
 	serial_out(port, ARM_UART_ICLR, 0xffffffff);
@@ -391,7 +543,7 @@ static int serial_sprd_startup(struct uart_port *port)
 		int ret2 = 0;
 
 		if (!port->line) {
-			ret2 = request_irq(IRQ_WAKEUP,wakeup_rx_interrupt,IRQF_SHARED,"wakeup_rx",port);
+			ret2 = request_irq(IRQ_WAKEUP, wakeup_rx_interrupt, IRQF_SHARED, "wakeup_rx", port);
 			if(ret2)
 			{
 				printk("fail to request wakeup irq\n");
@@ -401,16 +553,38 @@ static int serial_sprd_startup(struct uart_port *port)
 	}
 
 	ctrl1 = serial_in(port, ARM_UART_CTL1);
-	ctrl1 |= 0x3e00 | SP_RX_FIFO;
+	if (dma_info) {
+		/*loopback test */
+		ctrl1 |= 0x3e00;
+	} else {
+		ctrl1 |= 0x3e00 | SP_RX_FIFO;
+	}
 	serial_out(port, ARM_UART_CTL1, ctrl1);
 
 	spin_lock(&port->lock);
 	/* enable interrupt */
 	ien = serial_in(port, ARM_UART_IEN);
-	ien |=
-	    UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY |
-	    UART_IEN_BREAK_DETECT | UART_IEN_TIMEOUT;
-	serial_out(port, ARM_UART_IEN, ien);
+	if (dma_info) {
+		if (dma_info->dma_rx_dev_id) {
+			ien |=
+				 UART_IEN_TX_FIFO_EMPTY |
+				 UART_IEN_BREAK_DETECT | UART_IEN_TIMEOUT;
+			serial_out(port, ARM_UART_IEN, ien);
+
+			/*enable the uart dma mode*/
+			ctrl1 = serial_in(port, ARM_UART_CTL1);
+			ctrl1 |= UART_DMA_EN_BIT;
+			serial_out(port, ARM_UART_CTL1, ctrl1);
+		}
+
+		if (dma_info->dma_tx_dev_id) {
+		}
+	} else {
+		ien |=
+			 UART_IEN_RX_FIFO_FULL | UART_IEN_TX_FIFO_EMPTY |
+			 UART_IEN_BREAK_DETECT | UART_IEN_TIMEOUT;
+		serial_out(port, ARM_UART_IEN, ien);
+	}
 
 	spin_unlock(&port->lock);
 
@@ -419,6 +593,26 @@ static int serial_sprd_startup(struct uart_port *port)
 
 static void serial_sprd_shutdown(struct uart_port *port)
 {
+	u32 ctrl1;
+	struct uart_dma_info *dma_info = (struct uart_dma_info *)port->private_data;
+
+	if (dma_info) {
+		/*disable the uart dma mode*/
+		ctrl1 = serial_in(port, ARM_UART_CTL1);
+		ctrl1 &= ~UART_DMA_EN_BIT;
+		serial_out(port, ARM_UART_CTL1, ctrl1);
+
+		if (dma_info->dma_rx_chn) {
+			sci_dma_free(dma_info->dma_rx_chn);
+			dma_info->dma_rx_chn = 0x0;
+		}
+
+		if (dma_info->dma_tx_chn) {
+			sci_dma_free(dma_info->dma_tx_chn);
+			dma_info->dma_tx_chn = 0x0;
+		}
+	}
+
 	serial_out(port, ARM_UART_IEN, 0x0);
 	serial_out(port, ARM_UART_ICLR, 0xffffffff);
 	free_irq(port->irq, port);
@@ -495,8 +689,8 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	/* flow control */
 	fc = serial_in(port, ARM_UART_CTL1);
 	fc &=
-	    ~(RX_HW_FLOW_CTL_THRESHOLD | RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
-	if (termios->c_cflag & CRTSCTS) {
+		~(0x7F | RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
+	if (termios->c_cflag & CRTSCTS) {	
 		fc |= RX_HW_FLOW_CTL_THRESHOLD;
 		fc |= RX_HW_FLOW_CTL_EN;
 		fc |= TX_HW_FLOW_CTL_EN;
@@ -506,7 +700,7 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	/* clock divider bit16~bit20 */
 	serial_out(port, ARM_UART_CLKD1, (quot & 0x1f0000) >> 16);
 	serial_out(port, ARM_UART_CTL0, lcr);
-	fc |= 0x3e00 | SP_RX_FIFO;
+	//fc |= 0x3e00 | SP_RX_FIFO;
 	serial_out(port, ARM_UART_CTL1, fc);
 }
 
@@ -612,7 +806,7 @@ static int clk_startup(struct platform_device *pdev)
 }
 
 static int serial_sprd_setup_port(struct platform_device *pdev, struct resource *mem,
-				   struct resource *irq)
+		          struct resource *irq, struct uart_dma_info *dma_info)
 {
 	struct serial_data plat_local_data;
 	struct uart_port *up;
@@ -635,6 +829,17 @@ static int serial_sprd_setup_port(struct platform_device *pdev, struct resource 
 	up->ops = &serial_sprd_ops;
 	up->flags = ASYNC_BOOT_AUTOCONF;
 
+	if (dma_info) {
+		dma_info->dma_buf_v = dma_alloc_writecombine(NULL, UART_DMA_BUF_SIZE,
+				&dma_info->dma_buf_p, GFP_KERNEL);
+		if (!dma_info->dma_buf_v) {
+			return -ENOMEM;
+		}
+
+		spin_lock_init(&(dma_info->uart_dma_lock));
+
+		up->private_data = dma_info;
+	}
 	serial_sprd_ports[pdev->id] = up;
 
 	clk_startup(pdev);
@@ -664,20 +869,21 @@ static void serial_sprd_console_write(struct console *co, const char *s,
 				       unsigned int count)
 {
 	struct uart_port *port = serial_sprd_ports[co->index];
-	int ien;
+	//int ien;
 	int locked = 1;
 	if (oops_in_progress)
 		locked = spin_trylock(&port->lock);
 	else
 		spin_lock(&port->lock);
 	/*firstly,save the IEN register and disable the interrupts */
-	ien = serial_in(port, ARM_UART_IEN);
-	serial_out(port, ARM_UART_IEN, 0x0);
+	/* No need to disable UART interrupts */
+	//ien = serial_in(port, ARM_UART_IEN);
+	//serial_out(port, ARM_UART_IEN, 0x0);
 
 	uart_console_write(port, s, count, serial_sprd_console_putchar);
 	/*finally,wait for  TXD FIFO to become empty and restore the IEN register */
 	wait_for_xmitr(port);
-	serial_out(port, ARM_UART_IEN, ien);
+	//serial_out(port, ARM_UART_IEN, ien);
 	if (locked)
 		spin_unlock(&port->lock);
 }
@@ -733,7 +939,8 @@ static struct uart_driver serial_sprd_reg = {
 static int serial_sprd_probe(struct platform_device *pdev)
 {
 	int ret;
-	struct resource *mem, *irq;
+	struct resource *mem, *irq, *dma_res, *phy_addr;
+	struct uart_dma_info *dma_info;
 
 
 	if (unlikely(pdev->id < 0 || pdev->id >= UART_NR_MAX)) {
@@ -753,7 +960,33 @@ static int serial_sprd_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 
-	ret = serial_sprd_setup_port(pdev, mem, irq);
+	/*if can't get the dma resource, use the normal mode */
+	dma_res = platform_get_resource_byname(pdev, IORESOURCE_DMA,
+			"serial_dma_rx_id");
+	if (dma_res) {
+		phy_addr = platform_get_resource_byname(pdev, IORESOURCE_MEM,
+				"serial_phy_addr");
+		if (!phy_addr) {
+			dev_err(&pdev->dev, "not provide uart %d phy addr resource\n",
+					pdev->id);
+			return -ENODEV;
+		}
+
+		dma_info = kzalloc(sizeof(*dma_info), GFP_KERNEL);
+		/*fixme*/
+		dma_info->uart_phy_base = phy_addr->start;
+		dma_info->dma_rx_dev_id = dma_res->start;
+
+		dma_res = platform_get_resource_byname(pdev, IORESOURCE_DMA,
+				"serial_dma_tx_id");
+		if (dma_res) {
+			dma_info->dma_tx_dev_id = dma_res->start;
+		}
+	} else {
+		dma_info = NULL;
+	}
+
+	ret = serial_sprd_setup_port(pdev, mem, irq, dma_info);
 	if (unlikely(ret != 0)) {
 		dev_err(&pdev->dev, "setup port failed\n");
 		return ret;
@@ -776,15 +1009,27 @@ static int serial_sprd_probe(struct platform_device *pdev)
 	return ret;
 }
 
-static int serial_sprd_remove(struct platform_device *dev)
+static int serial_sprd_remove(struct platform_device *pdev)
 {
-	struct uart_port *up = platform_get_drvdata(dev);
+	struct uart_port *up = platform_get_drvdata(pdev);
+	struct uart_dma_info *dma_info;
 
-	platform_set_drvdata(dev, NULL);
+	dma_info = (struct uart_dma_info *)up->private_data;
+	if (dma_info) {
+		if (dma_info->dma_buf_v) {
+			dma_free_writecombine(NULL, UART_DMA_BUF_SIZE,
+					(void *)dma_info->dma_buf_v, dma_info->dma_buf_p);
+		}
+		kfree(dma_info);
+
+		up->private_data = NULL;
+	}
+
+	platform_set_drvdata(pdev, NULL);
 	if (up) {
 		uart_remove_one_port(&serial_sprd_reg, up);
 		kfree(up);
-		serial_sprd_ports[dev->id] = NULL;
+		serial_sprd_ports[pdev->id] = NULL;
 	}
 	return 0;
 }
@@ -801,9 +1046,9 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 		  control as the AF3 to make the pin can be set to high*/
 		unsigned long fc = 0;
 		struct uart_port *port = serial_sprd_ports[0];
-		fc=serial_in(port,ARM_UART_CTL1);
-		fc &=~(RX_HW_FLOW_CTL_EN|TX_HW_FLOW_CTL_EN);
-		serial_out(port,ARM_UART_CTL1,fc);
+		fc=serial_in(port, ARM_UART_CTL1);
+		fc &= ~(RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
+		serial_out(port, ARM_UART_CTL1, fc);
 		__raw_writel( (BITS_PIN_DS(3)|BITS_PIN_AF(3)|BIT_PIN_WPU|BIT_PIN_SLP_WPU|BIT_PIN_SLP_OE), (CTL_PIN_BASE + REG_PIN_U0RTS));
 	}else{
 		pr_debug("BT host wake up feature has not been supported\n");
@@ -837,9 +1082,9 @@ static int serial_sprd_resume(struct platform_device *dev)
 		unsigned long fc = 0;
 		struct uart_port *port = serial_sprd_ports[0];
 		__raw_writel( (BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_NUL|BIT_PIN_SLP_Z), (CTL_PIN_BASE + REG_PIN_U0RTS));
-		fc=serial_in(port,ARM_UART_CTL1);
-		fc |=(RX_HW_FLOW_CTL_EN|TX_HW_FLOW_CTL_EN);
-		serial_out(port,ARM_UART_CTL1,fc);
+		fc = serial_in(port, ARM_UART_CTL1);
+		fc |= (RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
+		serial_out(port, ARM_UART_CTL1, fc);
 	}else{
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
