@@ -144,4 +144,6 @@ source "drivers/devfreq/Kconfig"
 
 source "drivers/sipc/Kconfig"
 
+source "drivers/sensor/Kconfig"
+
 endmenu
