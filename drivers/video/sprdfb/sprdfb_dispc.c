@@ -740,7 +740,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	return 0;
 }
 
-#ifdef SPRD_SCXX30_DMC_FREQ
+#ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
 struct devfreq_dbs sprd_fb_notify = {
 	.level = 0,
 	.data = &dispc_ctx,
@@ -787,7 +787,7 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 
 	dispc_ctx.is_inited = true;
 
-#ifdef SPRD_SCXX30_DMC_FREQ
+#ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
 	devfreq_notifier_register(&sprd_fb_notify);
 #endif
 	return 0;
@@ -1781,7 +1781,7 @@ static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
 }
 #endif
 
-#ifdef SPRD_SCXX30_DMC_FREQ
+#ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state)
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
