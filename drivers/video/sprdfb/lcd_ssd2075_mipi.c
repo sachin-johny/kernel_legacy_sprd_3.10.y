@@ -349,6 +349,7 @@ struct panel_spec lcd_ssd2075_mipi_spec = {
 	.width = 720,
 	.height = 1280,
 	.fps = 60,
+	.reset_timing = {20,20,120},
 	.suspend_mode = SEND_SLEEP_CMD,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
