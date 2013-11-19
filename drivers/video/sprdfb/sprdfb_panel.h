@@ -274,11 +274,18 @@ struct panel_if_ctrl{
 
 };
 
+struct reset_timing_s {
+    uint16_t time1;//high //ms
+    uint16_t time2;//low //ms
+    uint16_t time3;//high //ms
+};
+
 /* LCD abstraction */
 struct panel_spec {
 	uint32_t cap;
 	uint16_t width;
 	uint16_t height;
+	struct reset_timing_s reset_timing;
 	uint32_t fps;
 	uint16_t suspend_mode;
 	uint16_t type; /*mcu, rgb, mipi*/
