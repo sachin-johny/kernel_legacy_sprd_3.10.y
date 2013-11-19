@@ -1,4 +1,4 @@
-/* drivers/lights/rtfled.c
+/* drivers/leds/rtfled.c
  * Richtek Flash LED Universal Architecture
  *
  * Copyright (C) 2013 Richtek Technology Corp.
@@ -70,6 +70,12 @@ static int rtfled_set_mode(struct flashlight_device *flashlight_dev, int mode)
     return info->hal->fled_set_mode(info, mode);
 }
 
+static int rtfled_strobe(struct flashlight_device *flashlight_dev)
+{
+    rt_fled_info_t *info = flashlight_get_data(flashlight_dev);
+    return info->hal->fled_strobe(info);
+}
+
 static int rtfled_set_color_temperature(struct flashlight_device *flashlight_dev,
                                         int color_temp)
 {
@@ -105,6 +111,7 @@ static struct flashlight_ops rtfled_impl_ops = {
     .set_strobe_timeout = rtfled_set_strobe_timeout,
     .list_strobe_timeout = rtfled_list_strobe_timeout,
     .set_mode = rtfled_set_mode,
+    .strobe = rtfled_strobe,
     .set_color_temperature = rtfled_set_color_temperature,
     .list_color_temperature = rtfled_list_color_temperature,
 	.suspend = rtfled_suspend,
@@ -310,7 +317,7 @@ static int __devinit rtfled_probe(struct platform_device *pdev)
 
     RTINFO("Richtek FlashLED Driver is probing\n");
     rc = rtfled_check_hal_implement(info->hal);
-    if (rc<0) {
+    if (rc < 0) {
         RTERR("HAL implemented uncompletedly\n");
         goto err_check_hal;
     }
@@ -321,7 +328,7 @@ static int __devinit rtfled_probe(struct platform_device *pdev)
                                     info->init_props);
     if (info->hal->fled_init) {
         rc = info->hal->fled_init(info);
-        if (rc<0) {
+        if (rc < 0) {
             RTERR("Initialization failed\n");
             goto err_init;
         }
@@ -329,6 +336,7 @@ static int __devinit rtfled_probe(struct platform_device *pdev)
     RTINFO("Richtek FlashLED Driver initialized successfully\n");
 	return 0;
 err_init:
+    flashlight_device_unregister(info->flashlight_dev);
 err_check_hal:
     return rc;
 }

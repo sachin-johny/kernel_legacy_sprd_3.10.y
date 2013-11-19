@@ -37,6 +37,7 @@ typedef struct rt5033_fled_info {
     struct power_supply *psy_chg;
     int charging_current;
     int ta_good;
+    int led_count;
 } rt5033_fled_info_t;
 
 
@@ -53,12 +54,13 @@ static struct platform_device rt_fled_pdev = {
 
 
 
-int check_ta_good_enough(rt5033_fled_info_t *info, int cur_mA)
+int check_ta_good_enough(rt5033_fled_info_t *info, int cur_uA)
 {
 #ifdef CONFIG_CHARGER_RT5033
-    pr_info("chg current = %d (mA), fled consumption %d (*2) mA\n",
+    int cur_mA = info->led_count * cur_uA / 1000;
+    pr_info("chg current = %d (mA), fled consumption %d mA\n",
                 info->charging_current, cur_mA);
-    return (info->charging_current >= (cur_mA * 2 + 100))
+    return (info->charging_current >= (cur_mA + 100))
                 ? RT5033_TA_GOOD : RT5033_TA_NOT_GOOD;
 
 #else
@@ -127,6 +129,7 @@ static int rt5033_fled_init(struct rt_fled_info *fled_info)
                             info->pdata->fled_torch_current;
     rt5033_assign_bits(info->i2c_client, RT5033_FLED_CONTROL2,
                        0x3f, info->pdata->fled_mid_level);
+    info->led_count = info->pdata->fled1_en + info->pdata->fled2_en;
     mutex_unlock(&info->io_lock);
     return 0;
 }
@@ -163,7 +166,9 @@ static int rt5033_fled_set_mode(struct rt_fled_info *fled_info, flashlight_mode_
     switch (mode)
     {
         case FLASHLIGHT_MODE_OFF:
-            rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x0);
+            rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION2, 0x80);
+            usleep_range(500,1000);
+            rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
             rt5033_fled_set_ta_status(info->i2c_client, 0, 0);
             rt5033_set_uug_status(info->i2c_client, 0x02);
             rt5033_set_fled_osc_en(info->i2c_client, 0);
@@ -173,7 +178,7 @@ static int rt5033_fled_set_mode(struct rt_fled_info *fled_info, flashlight_mode_
             info->torch_current = fled_info->hal->fled_get_torch_current(fled_info);
             ta_exist = check_ta_status(fled_info);
             if (ta_exist)
-                info->ta_good = check_ta_good_enough(info, info->torch_current * 2 / 1000);
+                info->ta_good = check_ta_good_enough(info, info->torch_current);
             else
                 info->ta_good = 0;
             rt5033_fled_set_ta_status(info->i2c_client, info->ta_good, ta_exist);
@@ -186,7 +191,7 @@ static int rt5033_fled_set_mode(struct rt_fled_info *fled_info, flashlight_mode_
             info->strobe_current = fled_info->hal->fled_get_torch_current(fled_info);
             ta_exist = check_ta_status(fled_info);
             if (ta_exist)
-                info->ta_good = check_ta_good_enough(info, info->strobe_current * 2 / 1000);
+                info->ta_good = check_ta_good_enough(info, info->strobe_current);
             else
                 info->ta_good = 0;
             rt5033_fled_set_ta_status(info->i2c_client, info->ta_good, ta_exist);
@@ -266,7 +271,7 @@ static int rt5033_fled_troch_current_list(struct rt_fled_info *info, int selecto
 
 static int rt5033_fled_strobe_current_list(struct rt_fled_info *info, int selector)
 {
-    if (selector <0 || selector>= 31)
+    if (selector < 0 || selector >= 31)
         return -EINVAL;
     return (50 + selector*25)*1000;
 }
@@ -322,7 +327,7 @@ static int rt5033_fled_lv_protection_list(struct rt_fled_info *info, int selecto
 /* Return value : -EINVAL => selector parameter is out of range, otherwise time in ms*/
 static int rt5033_fled_strobe_timeout_list(struct rt_fled_info *info, int selector)
 {
-    if (selector <0 || selector>= 37)
+    if (selector < 0 || selector>= 37)
         return -EINVAL;
     return (64 + selector*32);
 }
@@ -333,7 +338,7 @@ static int rt5033_fled_set_torch_current_sel(struct rt_fled_info *fled_info,
     int rc;
     rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
     RTINFO("Set torch current to %d\n", selector);
-    if (selector < 0 || selector >=  info->
+    if (selector < 0 || selector >  info->
                 base.flashlight_dev->props.torch_max_brightness)
         return -EINVAL;
     rc = rt5033_assign_bits(info->i2c_client, RT5033_FLED_CONTROL1,
@@ -348,7 +353,7 @@ static int rt5033_fled_set_strobe_current_sel(struct rt_fled_info *fled_info,
     int rc;
     rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
     RTINFO("Set strobe current to %d\n", selector);
-    if (selector < 0 || selector >=  info->
+    if (selector < 0 || selector >  info->
                 base.flashlight_dev->props.strobe_max_brightness)
         return -EINVAL;
     rc = rt5033_assign_bits(info->i2c_client, RT5033_FLED_STROBE_CONTROL1,
@@ -453,7 +458,7 @@ static void rt5033_fled_shutdown(struct rt_fled_info *info)
     return;
 }
 
-struct rt_fled_hal rt5033_fled_hal = {
+static struct rt_fled_hal rt5033_fled_hal = {
     .fled_init = rt5033_fled_init,
     .fled_suspend = rt5033_fled_suspend,
     .fled_resume = rt5033_fled_resume,

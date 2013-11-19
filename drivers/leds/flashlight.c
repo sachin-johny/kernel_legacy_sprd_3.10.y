@@ -470,6 +470,20 @@ int flashlight_set_mode(struct flashlight_device *flashlight_dev,
 }
 EXPORT_SYMBOL(flashlight_set_mode);
 
+int flashlight_strobe(struct flashlight_device *flashlight_dev)
+{
+    if (flashlight_dev->props.mode == FLASHLIGHT_MODE_FLASH
+        || flashlight_dev->props.mode == FLASHLIGHT_MODE_MIXED)
+    {
+        if (flashlight_dev->ops == NULL ||
+            flashlight_dev->ops->strobe == NULL)
+            return -EINVAL;
+        return flashlight_dev->ops->strobe(flashlight_dev);
+    }
+    return -EINVAL;
+}
+EXPORT_SYMBOL(flashlight_strobe);
+
 static int flashlight_match_device_by_name(struct device *dev, void *data)
 {
 	const char *name = data;
