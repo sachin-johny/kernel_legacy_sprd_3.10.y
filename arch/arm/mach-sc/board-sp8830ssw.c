@@ -28,6 +28,8 @@
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #include <linux/i2c/mms_ts.h>
+#include <linux/gp2ap002a00f.h>
+#include <linux/bst_sensor_common.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <mach/board.h>
@@ -1565,9 +1567,125 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 	},
 };
 
+#if defined(CONFIG_SENSORS)
+
+#if defined(CONFIG_SENSORS_GP2A)
+/* -------------------------------------------------------------------------
+ ** GP2A PROXIMITY SENSOR PLATFORM-SPECIFIC CODE AND DATA
+ ** ------------------------------------------------------------------------- */
+struct regulator *gp2a_prox_led_reg;
+struct regulator *gp2a_prox_reg;
+
+static int __init gp2a_setup(struct i2c_client *client);
+static int  gp2a_power(bool on);
+
+static struct gp2a_platform_data gp2a_plat_data = {
+	.vout_gpio = GPIO_PROX_INT,
+	.hw_setup = gp2a_setup,
+	.hw_pwr = gp2a_power,
+	.wakeup = true,
+};
+
+static int __init gp2a_setup(struct i2c_client *client)
+{
+	int err;
+
+	gp2a_prox_led_reg = regulator_get(&client->dev, "vddrf1");
+	if (IS_ERR(gp2a_prox_led_reg)) {
+		pr_err("[%s] Failed to get v-prox-led-3.3v regulator for gp2a\n", __func__);
+		err = PTR_ERR(gp2a_prox_led_reg);
+		goto err;
+	}
+
+	regulator_set_voltage(gp2a_prox_led_reg, 2950000, 2950000);
+
+	gp2a_prox_reg = regulator_get(&client->dev, "vddcama");
+	if (IS_ERR(gp2a_prox_reg)) {
+		pr_err("[%s] Failed to get v-prox-3.3v regulator for gp2a\n", __func__);
+		err = PTR_ERR(gp2a_prox_reg);
+		gp2a_prox_reg = NULL;
+		goto err;
+	}
+
+	regulator_set_voltage(gp2a_prox_reg, 3000000, 3000000);
+
+	gp2a_power(true);
+
+return 0;
+
+err:
+	return err;
+}
+
+static int gp2a_power(bool on)
+{
+	if (!IS_ERR(gp2a_prox_led_reg))	{
+		if (on)
+			regulator_enable(gp2a_prox_led_reg);
+		else
+			regulator_disable(gp2a_prox_led_reg);
+	}
+
+	if (!IS_ERR(gp2a_prox_reg)) {
+		if (on)
+			regulator_enable(gp2a_prox_reg);
+		else
+			regulator_disable(gp2a_prox_reg);
+	}
+	return 0;
+}
+
+#endif
+
+#if defined(CONFIG_SENSORS_BMA2X2)
+static struct bosch_sensor_specific	__initdata bss_bma2x2 = {
+	.name = "bma2x2",
+	.place = 7,
+};
+#endif
+
+#if defined(CONFIG_SENSORS_BMM050)
+static struct bosch_sensor_specific	__initdata bss_bmm = {
+	.name = "bmm050",
+	.place = 7,
+};
+#endif
+
+static struct i2c_board_info i2c2_boardinfo[] = {
+#if defined(CONFIG_SENSORS_GP2A)
+{
+	/* for gp2a proximity driver */
+	I2C_BOARD_INFO("gp2ap002a00f", 0x44),
+	.platform_data = &gp2a_plat_data,
+},
+#endif
+
+#if defined(CONFIG_SENSORS_BMA2X2)
+{
+	/* for bma2x2 accelerometer  driver */
+	I2C_BOARD_INFO("bma2x2", 0x10),
+	.platform_data = &bss_bma2x2,
+},
+#endif
+
+#if defined(CONFIG_SENSORS_BMM050)
+{
+	/* for bmm050 magnetometer  driver */
+	I2C_BOARD_INFO("bmm050", 0x12),
+	.platform_data = &bss_bmm,
+},
+#endif
+};
+
+#endif
 
 static int sc8810_add_i2c_devices(void)
 {
+#if defined(CONFIG_SENSORS)
+	i2c2_boardinfo[0].irq = gpio_to_irq(GPIO_PROX_INT);
+
+	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
+#endif
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 #if defined(CONFIG_BATTERY_SAMSUNG)
