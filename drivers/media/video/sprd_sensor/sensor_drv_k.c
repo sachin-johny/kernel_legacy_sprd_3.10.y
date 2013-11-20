@@ -55,18 +55,15 @@
 #if defined(CONFIG_ARCH_SCX35)
 
 #define REGU_NAME_CAMVIO     "vddcamio"
+#define REGU_NAME_CAMMOT       "vddcammot"
 
 #if defined(CONFIG_MACH_SP8830SSW)
-//#ifdef CONFIG_CAMERA_POWER_SUB_CAMDVDD_18V
-#define REGU_NAME_CAMMOT       "vddcammot"
-#define REGU_NAME_SUB_CAMDVDD  "vvt_1.8"
+#define REGU_NAME_SUB_CAMDVDD  "avdd18"
 #define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
 #define REGU_NAME_CAMDVDD	"RT5033_REGULATORDCDC1"
 #else
-#define REGU_NAME_CAMMOT       "vddcammot"
 #define REGU_NAME_SUB_CAMDVDD  "vddcamd"
 #define GPIO_SUB_SENSOR_RESET        GPIO_SENSOR_RESET
-//#endif
 #define REGU_NAME_CAMAVDD    "vddcama"
 #define REGU_NAME_CAMDVDD    "vddcamd"
 #endif
@@ -246,6 +243,7 @@ LOCAL const struct i2c_device_id        c_sensor_device_id[] = {
 };
 
 LOCAL struct sensor_module * s_p_sensor_mod = PNULL;
+SENSOR_PROJECT_FUNC_T s_sensor_project_func = {PNULL};
 
 int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 {
@@ -599,12 +597,27 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 	SENSOR_PRINT_HIGH("sensor set DVDD val %d\n",dvdd_val);
 
 	if (NULL == s_p_sensor_mod->camdvdd_regulator) {
-		s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
+		switch (Sensor_K_GetCurId()) {
+			case SENSOR_MAIN:
+			{
+				s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
+					break;
+			}
+			case SENSOR_SUB:
+			{
+				SENSOR_PRINT("SENSOR:_Sensor_K_SetVoltage_DVDD, dvdd_val=%d  thi is sub camera \n", dvdd_val);
+				s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_SUB_CAMDVDD);
+					break;
+			}
+			default:
+				break;
+		}
 		if (IS_ERR(s_p_sensor_mod->camdvdd_regulator)) {
 			SENSOR_PRINT_ERR("SENSOR:get dvdd fail\n");
 			return SENSOR_K_FAIL;
 		}
 	}
+
 	switch (dvdd_val) {
 #if defined (CONFIG_ARCH_SCX35)
 	case SENSOR_VDD_1200MV:
@@ -931,41 +944,31 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 
 LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 {
+	SENSOR_PRINT("SENSOR:_Sensor_K_Reset, reset_val=%d  camera:%d (0:main 1:sub)\n",level, Sensor_K_GetCurId());
 
-#if defined(CONFIG_MACH_SP8830SSW)  //change sub camera reset  ao.sun 20130828
-       SENSOR_PRINT("SENSOR:_Sensor_K_Reset, reset_val=%d  camera:%d (0:main 1:sub)\n",level, Sensor_K_GetCurId());
- 
-       switch (Sensor_K_GetCurId()) {
-               case SENSOR_MAIN:
-               {
-                               gpio_direction_output(GPIO_SENSOR_RESET, level);
-                               gpio_set_value(GPIO_SENSOR_RESET, level);
-                               SLEEP_MS(width);
-                               gpio_set_value(GPIO_SENSOR_RESET, !level);
-                               mdelay(1);
-                               break;
-               }
-               case SENSOR_SUB:
-               {
-                               gpio_direction_output(GPIO_SUB_SENSOR_RESET, level);
-                               gpio_set_value(GPIO_SUB_SENSOR_RESET, level);
-                               SLEEP_MS(width);
-                               gpio_set_value(GPIO_SUB_SENSOR_RESET, !level);
-                               mdelay(1);
-                               break;
-               }
-               default:
-                       break;
-       }
-#else
-	SENSOR_PRINT_HIGH("sensor rst, lvl %d w %d.\n", level, width);
+	switch (Sensor_K_GetCurId()) {
+	case SENSOR_MAIN:
+	{
+		gpio_direction_output(GPIO_SENSOR_RESET, level);
+		gpio_set_value(GPIO_SENSOR_RESET, level);
+		SLEEP_MS(width);
+		gpio_set_value(GPIO_SENSOR_RESET, !level);
+		mdelay(1);
+		break;
+	}
+	case SENSOR_SUB:
+	{
+		gpio_direction_output(GPIO_SUB_SENSOR_RESET, level);
+		gpio_set_value(GPIO_SUB_SENSOR_RESET, level);
+		SLEEP_MS(width);
+		gpio_set_value(GPIO_SUB_SENSOR_RESET, !level);
+		mdelay(1);
+		break;
+	}
+	default:
+		break;
+	}
 
-	gpio_direction_output(GPIO_SENSOR_RESET, level);
-	gpio_set_value(GPIO_SENSOR_RESET, level);
-	SLEEP_MS(width);
-	gpio_set_value(GPIO_SENSOR_RESET, !level);
-	mdelay(1);
-#endif
 	return SENSOR_K_SUCCESS;
 }
 
@@ -1112,52 +1115,26 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 #if defined (CONFIG_ARCH_SCX35)
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {
+	if(PNULL != s_sensor_project_func.SetFlash)
+	{
+		printk("_Sensor_K_SetFlash call s_sensor_project_func.SetFlash \n");
+		return s_sensor_project_func.SetFlash(flash_mode);
+	}
+
 	switch (flash_mode) {
 	case 1:        /*flash on */
 	case 2:        /*for torch */
-#if defined(CONFIG_MACH_SP8830SSW)
-               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
-               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
-               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
-               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
-
-#else
 		/*low light */
 		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_LOW_VAL); // 0x3 = 110ma
-#endif
 		break;
 	case 0x11:
-#if defined(CONFIG_MACH_SP8830SSW)
-               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
-               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
-               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
-               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_ON);
-               SLEEP_MS(10);
-               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
-               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
-               SLEEP_MS(10);
-               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
-               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
-               SLEEP_MS(10);
-               gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
-               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_ON);
-
-#else
 		/*high light */
 		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_HIGH_VAL); // 0xf = 470ma
-#endif
 		break;
 	case 0x10:     /*close flash */
 	case 0x0:
-#if defined(CONFIG_MACH_SP8830SSW)
-		gpio_direction_output(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
-               gpio_set_value(CAM_FLASH_ENF_GPIO, SPRD_FLASH_OFF);
-               gpio_direction_output(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
-               gpio_set_value(CAM_FLASH_ENT_GPIO, SPRD_FLASH_OFF);
-#else
 		/*close the light */
 		sci_adi_clr(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT);
-#endif
 		break;
 	default:
 		SENSOR_PRINT_HIGH("_Sensor_K_SetFlash unknow mode:flash_mode 0x%x \n", flash_mode);
@@ -1177,7 +1154,6 @@ LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
 
 	return SENSOR_K_SUCCESS;
 }
-
 #else
 LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
 {

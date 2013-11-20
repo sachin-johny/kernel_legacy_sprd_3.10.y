@@ -61,6 +61,8 @@
 #include <linux/ktd253b_bl.h>
 #include <gps/gpsctl.h>
 #include <sound/audio_pa.h>
+#include <video/sensor_drv_k.h>
+#include <linux/leds/flashlight.h>
 
 #define GPIO_HOME_KEY 113 /* PIN LCD_D[5] */
 
@@ -73,6 +75,7 @@ extern int __init sci_regulator_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
+extern SENSOR_PROJECT_FUNC_T s_sensor_project_func;
 
 /*keypad define */
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
@@ -1837,6 +1840,39 @@ static void __init sc8830_init_machine(void)
 
 }
 
+static int _Sensor_K_SetFlash(uint32_t flash_mode)
+{
+	struct flashlight_device* flash_ptr = NULL;
+	flash_ptr = find_flashlight_by_name("rt-flash-led");
+	if(NULL == flash_ptr)
+	{
+		printk("_Sensor_K_SetFlash: flash_ptr is PNULL  \n");
+		return -1;
+	}
+	flashlight_set_mode(flash_ptr, FLASHLIGHT_MODE_FLASH);
+
+	switch (flash_mode) {
+	case 1:        /*flash on */
+	case 2:        /*for torch */
+		flashlight_strobe(flash_ptr);
+		break;
+	case 0x11:
+		flashlight_strobe(flash_ptr);
+		break;
+	case 0x10:     /*close flash */
+	case 0x0:
+		flashlight_set_mode(flash_ptr, FLASHLIGHT_MODE_OFF);
+		break;
+	default:
+		printk("_Sensor_K_SetFlash unknow mode:flash_mode 0x%x \n", flash_mode);
+		break;
+	}
+
+	printk("_Sensor_K_SetFlash: sp8830ssw flash_mode 0x%x  \n", flash_mode);
+
+	return 0;
+}
+
 extern void __init  sci_enable_timer_early(void);
 static void __init sc8830_init_early(void)
 {
@@ -1849,6 +1885,7 @@ static void __init sc8830_init_early(void)
 #endif
 	/*ipi reg init for sipc*/
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
+	s_sensor_project_func.SetFlash = _Sensor_K_SetFlash;
 }
 
 
