@@ -552,8 +552,11 @@ static int eic_gpio_probe(struct platform_device *pdev)
 #elif defined(CONFIG_ARCH_SCX35)
 	sci_glb_set(REG_AON_APB_APB_EB0,BIT_GPIO_EB | BIT_EIC_EB);
 	sci_glb_set(REG_AON_APB_APB_RTC_EB,BIT_EIC_RTC_EB);
+
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
-		    BIT_ANA_EIC_EN | BIT_ANA_GPIO_EN);
+		    BIT_ANA_EIC_EN);
+	sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_GPIO_EN, 
+		BIT_ANA_GPIO_EN);
 	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN,BIT_RTC_EIC_EN);
 #endif
 
@@ -574,10 +577,17 @@ static int eic_gpio_probe(struct platform_device *pdev)
 	a_sci_eic.chip.base  = r[ENUM_ID_A_EIC].chip_base;
 	a_sci_eic.chip.ngpio = r[ENUM_ID_A_EIC].chip_ngpio;
 
-	gpiochip_add(&d_sci_eic.chip);
-	gpiochip_add(&d_sci_gpio.chip);
-	gpiochip_add(&a_sci_eic.chip);
-	gpiochip_add(&a_sci_gpio.chip);
+	if (d_sci_eic.chip.ngpio > 0)
+		gpiochip_add(&d_sci_eic.chip);
+
+	if (d_sci_gpio.chip.ngpio > 0)
+		gpiochip_add(&d_sci_gpio.chip);
+
+	if (a_sci_eic.chip.ngpio > 0)
+		gpiochip_add(&a_sci_eic.chip);
+
+	if (a_sci_gpio.chip.ngpio > 0)
+		gpiochip_add(&a_sci_gpio.chip);
 
 
 	if (-1 != r[ENUM_ID_D_GPIO].irq) {
@@ -603,10 +613,14 @@ static int eic_gpio_remove(struct platform_device *pdev)
 {
 	int ret = 0;
 
-	ret += gpiochip_remove(&d_sci_eic.chip);
-	ret += gpiochip_remove(&d_sci_gpio.chip);
-	ret += gpiochip_remove(&a_sci_eic.chip);
-	ret += gpiochip_remove(&a_sci_gpio.chip);
+	if (d_sci_eic.chip.ngpio > 0)
+		ret += gpiochip_remove(&d_sci_eic.chip);
+	if (d_sci_gpio.chip.ngpio > 0)
+		ret += gpiochip_remove(&d_sci_gpio.chip);
+	if (a_sci_eic.chip.ngpio > 0)
+		ret += gpiochip_remove(&a_sci_eic.chip);
+	if (a_sci_gpio.chip.ngpio > 0)
+		ret += gpiochip_remove(&a_sci_gpio.chip);
 
 	return ret;
 }

@@ -25,6 +25,12 @@
 
 #include <mach/globalregs.h>
 
+#ifdef CONFIG_ARCH_SCX35
+#include <mach/hardware.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+#endif
+
 #define SPRD_I2C_CTL_ID	(6)
 
 /*Note: The defined below are for tiger and later chipset. */
@@ -351,7 +357,11 @@ static void sprd_i2c_set_clk(struct sprd_i2c *pi2c, unsigned int freq)
 	unsigned int i2c_div;
 
 	apb_clk = 26000000;
+#ifdef CONFIG_ARCH_SCX15
+	i2c_div = apb_clk / (4 * freq) - 3;
+#else
 	i2c_div = apb_clk / (4 * freq) - 1;
+#endif
 
 	__raw_writel(i2c_div & 0xffff, pi2c->membase + I2C_CLKD0);
 	__raw_writel(i2c_div >> 16, pi2c->membase + I2C_CLKD1);
@@ -381,7 +391,10 @@ static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 {
 #if defined(CONFIG_ARCH_SCX35)
 	char buf[256] = { 0 };
-	sprintf(buf, "clk_i2c%d", pi2c->adap.nr);
+	if (unlikely(pi2c->adap.nr >= 5)) /* dolphin less than 5 and shark's i2c device that large than 5 is named clk_i2c' */
+		strcpy(buf, "clk_i2c");
+	else
+		sprintf(buf, "clk_i2c%d", pi2c->adap.nr);
 	dev_info(&pi2c->adap.dev, "%s buf=%s", __func__, buf);
 
 	pi2c->clk = clk_get(&pi2c->adap.dev, buf);
@@ -544,6 +557,7 @@ static int i2c_controller_resume(struct platform_device *pdev)
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].rst, pi2c->membase + I2C_RST);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf, pi2c->membase + I2C_CMD_BUF);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl, pi2c->membase + I2C_CMD_BUF_CTL);
+
 	}
 	return 0;
 }
