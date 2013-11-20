@@ -227,8 +227,29 @@ static int lowmem_adj_array_set(const char *val, const struct kernel_param *kp)
 	return ret;
 }
 
+static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj)
+{
+	if (oom_score_adj == OOM_SCORE_ADJ_MAX)
+		return OOM_ADJUST_MAX;
+	else
+		return  (oom_score_adj * (-OOM_DISABLE) + OOM_SCORE_ADJ_MAX - 1) /  OOM_SCORE_ADJ_MAX; 
+}
+
+static uint32_t oom_score_to_oom_enable = 1;
+
 static int lowmem_adj_array_get(char *buffer, const struct kernel_param *kp)
 {
+	if(oom_score_to_oom_enable)
+	{
+		int oom_adj[6] = {0};
+		int t = 0;
+		for(t = 0; t < 6; t++)
+		{
+			oom_adj[t] = lowmem_oom_score_adj_to_oom_adj(lowmem_adj[t]);
+		}
+		return sprintf(buffer, "%d,%d,%d,%d,%d,%d", oom_adj[0], oom_adj[1], oom_adj[2], oom_adj[3], oom_adj[4], oom_adj[5]);
+	}
+
 	return param_array_ops.get(buffer, kp);
 }
 
@@ -259,6 +280,12 @@ __module_param_call(MODULE_PARAM_PREFIX, adj,
 		    .arr = &__param_arr_adj,
 		    S_IRUGO | S_IWUSR, -1);
 __MODULE_PARM_TYPE(adj, "array of int");
+
+module_param_array_named(oom_score_adj, lowmem_adj, int, &lowmem_adj_size,
+			 S_IRUGO | S_IWUSR);
+
+module_param_named(oom_score_to_oom_enable, oom_score_to_oom_enable, uint, S_IRUGO | S_IWUSR);
+ 
 #else
 module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 			 S_IRUGO | S_IWUSR);
