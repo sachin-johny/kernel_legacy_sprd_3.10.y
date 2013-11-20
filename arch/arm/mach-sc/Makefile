@@ -34,5 +34,6 @@ endif
 obj-$(CONFIG_MACH_SPX35EB) += board-sp8830eb.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8835EB) += board-sp8835eb.o dma_r4p0.o
 obj-$(CONFIG_MACH_SPX15FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o dma_r4p0.o
+obj-$(CONFIG_MACH_SPX35EC) += board-sp8830ec.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715EA) += board-sp7715ea.o dma_r4p0.o
 obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o
