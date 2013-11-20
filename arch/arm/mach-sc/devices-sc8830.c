@@ -411,27 +411,6 @@ struct platform_device sprd_i2c_device3 = {
 	.resource       = sprd_i2c_resources3,
 };
 
-static struct resource sprd_i2c_resources5[] = {
-	[0] = {
-		.start = SPRD_I2C_BASE,
-		.end   = SPRD_I2C_BASE + SZ_4K -1,
-		.name  = "i2c5_res",
-		.flags = IORESOURCE_MEM,
-	},
-	[1] = {
-		.start = IRQ_AONI2C_INT,
-		.end   = IRQ_AONI2C_INT,
-		.flags = IORESOURCE_IRQ,
-	}
-};
-
-struct platform_device sprd_i2c_device5 = {
-	.name           = "sprd-i2c",
-	.id             =  5,
-	.num_resources  = ARRAY_SIZE(sprd_i2c_resources5),
-	.resource       = sprd_i2c_resources5,
-};
-
 /* 8810 SPI devices.  */
 static struct resource spi0_resources[] = {
     [0] = {
@@ -603,17 +582,10 @@ struct platform_device sprd_audio_cpu_dai_vbc_device = {
 	.id             =  -1,
 };
 
-#ifdef CONFIG_SND_SPRD_SOC_SC8830_D2200
-struct platform_device sprd_d2200_audio_device = {
-	.name		= "sc883x-d2200-audio",
-	.id		= -1,
-};
-#else
 struct platform_device sprd_audio_codec_sprd_codec_device = {
 	.name           = "sprd-codec",
 	.id             =  -1,
 };
-#endif /* CONFIG_SND_SPRD_SOC_SC8830_D2200 */
 
 static struct resource sprd_i2s_resources0[] = {
         [0] = {
@@ -742,7 +714,11 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.gpio_switch = HEADSET_SWITCH_GPIO,
 	.gpio_detect = HEADSET_DETECT_GPIO,
 	.gpio_button = HEADSET_BUTTON_GPIO,
-	.irq_trigger_level_detect = 1,
+#ifdef CONFIG_EAR_LOW_LEVEL_DETECT
+   .irq_trigger_level_detect = 0,
+#else
+   .irq_trigger_level_detect = 1,
+#endif
 	.irq_trigger_level_button = 1,
 	.headset_buttons = sprd_headset_buttons,
 	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
@@ -755,6 +731,13 @@ struct platform_device sprd_headset_device = {
 		.platform_data = &sprd_headset_pdata,
 	},
 };
+
+#ifdef CONFIG_RF_SHARK
+struct platform_device trout_fm_device = {
+	.name = "trout_fm",
+	.id = -1,
+};
+#endif
 
 static struct resource sprd_battery_resources[] = {
         [0] = {
@@ -1412,7 +1395,7 @@ static int native_wcnmodem_start(void *arg)
 	u32 state;
 	u32 value;
 
-	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x80000};
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
 	memcpy(SPRD_IRAM1_BASE + 0x3000, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
@@ -1463,7 +1446,7 @@ static struct cproc_init_data sprd_cproc_wcn_pdata = {
 	.segs           = {
 		{
 		.name  = "modem",
-		.base  = WCN_START_ADDR + 0x80000,
+		.base  = WCN_START_ADDR + 0x60000,
 		.maxsz = 0x00800000,
 		},
 	},

@@ -410,7 +410,7 @@ static void serial_sprd_uart_dma_rx_irqhandler(int dma_chn, void *data)
 
 	recv_buf = (unsigned char *)(dma_info->dma_buf_v) + dma_info->dma_buf_read_offset;
 	recv_size = dma_info->dma_buf_write_offset - dma_info->dma_buf_read_offset;
-	
+
 	port->icount.rx += recv_size;
 	tty_insert_flip_string(port->state->port.tty,
 			recv_buf, recv_size);
@@ -690,7 +690,7 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	fc = serial_in(port, ARM_UART_CTL1);
 	fc &=
 		~(0x7F | RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
-	if (termios->c_cflag & CRTSCTS) {	
+	if (termios->c_cflag & CRTSCTS) {
 		fc |= RX_HW_FLOW_CTL_THRESHOLD;
 		fc |= RX_HW_FLOW_CTL_EN;
 		fc |= TX_HW_FLOW_CTL_EN;
@@ -869,21 +869,20 @@ static void serial_sprd_console_write(struct console *co, const char *s,
 				       unsigned int count)
 {
 	struct uart_port *port = serial_sprd_ports[co->index];
-	//int ien;
+	int ien;
 	int locked = 1;
 	if (oops_in_progress)
 		locked = spin_trylock(&port->lock);
 	else
 		spin_lock(&port->lock);
 	/*firstly,save the IEN register and disable the interrupts */
-	/* No need to disable UART interrupts */
-	//ien = serial_in(port, ARM_UART_IEN);
-	//serial_out(port, ARM_UART_IEN, 0x0);
+	ien = serial_in(port, ARM_UART_IEN);
+	serial_out(port, ARM_UART_IEN, 0x0);
 
 	uart_console_write(port, s, count, serial_sprd_console_putchar);
 	/*finally,wait for  TXD FIFO to become empty and restore the IEN register */
 	wait_for_xmitr(port);
-	//serial_out(port, ARM_UART_IEN, ien);
+	serial_out(port, ARM_UART_IEN, ien);
 	if (locked)
 		spin_unlock(&port->lock);
 }
