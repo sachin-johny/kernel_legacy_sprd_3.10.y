@@ -300,6 +300,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		priv->ndev->stats.tx_fifo_errors++;
 		if (priv->txrcnt > SETH_RESEND_MAX_NUM)
 			netif_stop_queue(dev);
+		priv->txrcnt++;
 		return NETDEV_TX_BUSY;
 	}
 
@@ -380,7 +381,7 @@ static int itm_wlan_suspend(struct device *dev)
 	int ret = 0;
 
 	dev_info(dev, "%s\n", __func__);
-	netif_stop_queue(ndev);
+	netif_device_detach(ndev);
 	napi_disable(&priv->napi);
 
 #if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
@@ -411,7 +412,7 @@ static int itm_wlan_resume(struct device *dev)
 		dev_err(dev, "Failed to resume (%d)\n", ret);
 
 	napi_enable(&priv->napi);
-	netif_start_queue(ndev);
+	netif_device_attach(ndev);
 	return ret;
 }
 
