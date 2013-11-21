@@ -64,6 +64,13 @@
 #include <video/sensor_drv_k.h>
 #include <linux/leds/flashlight.h>
 
+// gps for marvell
+#include <linux/proc_fs.h>
+#include <linux/io.h>
+#include <asm/uaccess.h>
+#include <linux/module.h>
+// gps for marvell
+
 #define GPIO_HOME_KEY 113 /* PIN LCD_D[5] */
 
 extern void __init sci_reserve(void);
@@ -105,6 +112,8 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 	.debounce_time = 5000,
 };
 
+//for CSR GPS
+#if 0
 static struct platform_gpsctl_data pdata_gpsctl = {
         .reset_pin = 167,
         .onoff_pin = 168,
@@ -116,6 +125,7 @@ static struct platform_device gpsctl_dev = {
         .name = "gpsctl",
         .dev.platform_data = &pdata_gpsctl,
 };
+#endif
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -231,8 +241,8 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_thm_device,
 	&sprd_thm_a_device,
 	&gpio_button_device,
-	&sprd_headset_device,
-	&gpsctl_dev
+	&sprd_headset_device
+	//&gpsctl_dev /*for CSR GPS*/
 };
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
@@ -1499,6 +1509,232 @@ static void mms_ts_vdd_enable(bool on)
 	}
 }
 
+// GPS for marvell
+
+#ifdef CONFIG_PROC_FS
+
+static int gps_enable_control(int flag)
+{
+        static struct regulator *gps_regulator = NULL;
+        static int f_enabled = 0;
+        printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
+		
+        if (flag && (!f_enabled)) {
+                      gps_regulator = regulator_get(NULL, "v_gps_1.8v");
+                      if (IS_ERR(gps_regulator)) {
+                                   gps_regulator = NULL;
+                                   return EIO;
+                      } else {
+                                   regulator_set_voltage(gps_regulator, 1800000, 1800000);
+                                   regulator_enable(gps_regulator);
+                      }
+                      f_enabled = 1;
+        }
+        if (f_enabled && (!flag))
+        {
+                      if (gps_regulator) {
+                                   regulator_disable(gps_regulator);
+                                   regulator_put(gps_regulator);
+                                   gps_regulator = NULL;
+                      }
+                      f_enabled = 0;
+        }
+        return 0;
+}
+
+/* GPS: power on/off control */
+static void gps_power_on(void)
+{
+	unsigned int gps_rst_n,gps_on;
+
+
+	gps_rst_n = GPIO_GPS_RESET;
+	if (gpio_request(gps_rst_n, "gpio_gps_rst")) {
+		pr_err("Request GPIO failed, gpio: %d\n", gps_rst_n);
+		return;
+	}
+	
+	gps_on = GPIO_GPS_ONOFF;
+	if (gpio_request(gps_on, "gpio_gps_on")) {
+		pr_err("Request GPIO failed,gpio: %d\n", gps_on);
+		goto out;
+	}
+
+	gpio_direction_output(gps_rst_n, 0);
+	gpio_direction_output(gps_on, 0);
+
+	gps_enable_control(1);
+	
+	mdelay(10);
+//	gpio_direction_output(gps_rst_n, 1);
+	mdelay(10);
+//	gpio_direction_output(gps_on, 1);
+
+	pr_info("gps chip powered on\n");
+
+	gpio_free(gps_on);
+out:
+	gpio_free(gps_rst_n);
+
+#ifdef CONFIG_SEC_GPIO_DVS
+	/************************ Caution !!! ****************************/
+	/* This function must be located in appropriate INIT position
+	 * in accordance with the specification of each BB vendor.
+	 */
+	/************************ Caution !!! ****************************/
+	gpio_dvs_check_initgpio();
+#endif
+
+	return;
+}
+
+static void gps_power_off(void)
+{
+	unsigned int gps_rst_n, gps_on;
+
+
+
+	gps_on = GPIO_GPS_ONOFF;
+	if (gpio_request(gps_on, "gpio_gps_on")) {
+		pr_err("Request GPIO failed,gpio: %d\n", gps_on);
+		return;
+	}
+	
+
+	gps_rst_n = GPIO_GPS_RESET;
+	if (gpio_request(gps_rst_n, "gpio_gps_rst")) {
+		pr_debug("Request GPIO failed, gpio: %d\n", gps_rst_n);
+		goto out2;
+	}
+	
+
+	gpio_direction_output(gps_rst_n, 0);
+	gpio_direction_output(gps_on, 0);
+
+	gps_enable_control(0);
+
+	pr_info("gps chip powered off\n");
+
+	gpio_free(gps_rst_n);
+out2:
+	gpio_free(gps_on);
+	return;
+}
+
+static void gps_reset(int flag)
+{
+	unsigned int gps_rst_n;
+	
+
+	gps_rst_n = GPIO_GPS_RESET;
+	if (gpio_request(gps_rst_n, "gpio_gps_rst")) {
+		pr_err("Request GPIO failed, gpio: %d\n", gps_rst_n);
+		return;
+	}
+
+	gpio_direction_output(gps_rst_n, flag);
+	gpio_free(gps_rst_n);
+	printk(KERN_INFO "gps chip reset with %s\n", flag ? "ON" : "OFF");
+}
+
+static void gps_on_off(int flag)
+{
+	unsigned int gps_on;
+
+	
+	gps_on = GPIO_GPS_ONOFF;
+	if (gpio_request(gps_on, "gpio_gps_on")) {
+		pr_err("Request GPIO failed, gpio: %d\n", gps_on);
+		return;
+	}
+
+	gpio_direction_output(gps_on, flag);
+	gpio_free(gps_on);
+	printk(KERN_INFO "gps chip onoff with %s\n", flag ? "ON" : "OFF");
+}
+
+#define SIRF_STATUS_LEN	16
+static char sirf_status[SIRF_STATUS_LEN] = "off";
+
+static ssize_t sirf_read_proc(char *page, char **start, off_t off,
+		int count, int *eof, void *data)
+{
+	int len = strlen(sirf_status);
+	
+
+	sprintf(page, "%s\n", sirf_status);
+	return len + 1;
+}
+
+static ssize_t sirf_write_proc(struct file *filp,
+		const char *buff, size_t len, loff_t *off)
+{
+	char messages[256];
+	int flag, ret;
+	char buffer[7];
+
+	if (len > 255)
+		len = 255;
+
+	memset(messages, 0, sizeof(messages));
+	
+
+	if (!buff || copy_from_user(messages, buff, len))
+		return -EFAULT;
+
+	if (strlen(messages) > (SIRF_STATUS_LEN - 1)) {
+		pr_warning("[ERROR] messages too long! (%d) %s\n",
+			strlen(messages), messages);
+		return -EFAULT;
+	}
+
+	if (strncmp(messages, "off", 3) == 0) {
+		strcpy(sirf_status, "off");
+		gps_power_off();
+	} else if (strncmp(messages, "on", 2) == 0) {
+		strcpy(sirf_status, "on");
+		gps_power_on();
+	} else if (strncmp(messages, "reset", 5) == 0) {
+		strcpy(sirf_status, messages);
+		ret = sscanf(messages, "%s %d", buffer, &flag);
+		if (ret == 2){
+			gps_reset(flag);
+		}
+	} else if (strncmp(messages, "sirfon", 6) == 0) {
+		strcpy(sirf_status, messages);
+		ret = sscanf(messages, "%s %d", buffer, &flag);
+		if (ret == 2){
+			gps_on_off(flag);
+		}
+	} else
+		pr_info("usage: echo {on/off} > /proc/driver/sirf\n");
+
+	return len;
+}
+
+static void create_sirf_proc_file(void)
+{
+	struct proc_dir_entry *sirf_proc_file = NULL;
+
+	/*
+	 * CSR and Marvell GPS lib will both use this file
+	 * "/proc/drver/gps" may be modified in future
+	 */
+	sirf_proc_file = create_proc_entry("driver/sirf", 0644, NULL);
+	if (!sirf_proc_file) {
+		pr_err("sirf proc file create failed!\n");
+		return;
+	}
+	
+
+	sirf_proc_file->read_proc = sirf_read_proc;
+	sirf_proc_file->write_proc = (write_proc_t  *)sirf_write_proc;
+}
+
+
+#endif
+// GPS for marvell
+
 static void touchkey_led_vdd_enable(bool on)
 {
         static int ret = 0;
@@ -1832,6 +2068,13 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device3,(const void*)&plat_data3,sizeof(plat_data3));
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 	platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
+
+	// GPS for marvell
+#ifdef CONFIG_PROC_FS
+	/* create proc for gps GPS control */
+	create_sirf_proc_file();
+#endif
+// GPS for marvell
 
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
