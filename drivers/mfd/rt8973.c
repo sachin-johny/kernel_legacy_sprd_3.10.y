@@ -458,7 +458,7 @@ static void rt8973_preprocess_status(rt8973_chip_t *chip)
 	    (chip->curr_status.cable_type !=
 	     chip->prev_status.cable_type) ? 1 : 0;
 	chip->curr_status.dcdt_status =
-	    (chip->curr_status.irq_flags[8] & 0x08) ? 1 : 0;
+	    (chip->curr_status.irq_flags[0] & 0x08) ? 1 : 0;
 	chip->curr_status.usb_connect =
 	    ((chip->curr_status.cable_type ==
 	      MUIC_RT8973_CABLE_TYPE_USB) ||
@@ -929,8 +929,8 @@ static void rt8973_init_regs(rt8973_chip_t *chip)
 		rt8973_set_bits(chip, RT8973_REG_CONTROL, 0x08);
 	/* Disable Connect */
 	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK1, 0x20);
-	/* Only UVLO */
-	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK2, 0xFC);
+	/* Only mask OCP_LATCH and POR */
+	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK2, 0x24);
 	/* enable interrupt */
 	rt8973_clr_bits(chip, RT8973_REG_CONTROL, 0x01);
 }
