@@ -766,7 +766,7 @@ static void __init sc8830_fixup(struct machine_desc *desc,
 {
 }
 
-MACHINE_START(SCPHONE, "sc8830")
+MACHINE_START(SCPHONE, "scx15")
 	.reserve	= sci_reserve,
 	.map_io		= sci_map_io,
 	.fixup		= sc8830_fixup,
