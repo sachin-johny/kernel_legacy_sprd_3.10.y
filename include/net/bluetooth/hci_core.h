@@ -333,6 +333,7 @@ struct hci_conn {
 	void		*sco_data;
 	void		*smp_conn;
 
+	__u16		esco_type;
 	struct hci_conn	*link;
 
 	void (*connect_cfm_cb)	(struct hci_conn *conn, u8 status);

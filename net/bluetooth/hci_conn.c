@@ -364,13 +364,20 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 					__u16 pkt_type, bdaddr_t *dst)
 {
 	struct hci_conn *conn;
-
+#ifdef CONFIG_BT_SHARK
+	struct hci_conn *conn_acl;
+#endif
 	BT_DBG("%s dst %s", hdev->name, batostr(dst));
 
 	conn = kzalloc(sizeof(struct hci_conn), GFP_KERNEL);
 	if (!conn)
 		return NULL;
-
+#ifdef CONFIG_BT_SHARK
+	conn_acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
+	if(conn_acl){
+		conn->esco_type = conn_acl->esco_type;
+	}
+#endif
 	bacpy(&conn->dst, dst);
 	conn->hdev  = hdev;
 	conn->type  = type;
@@ -399,7 +406,7 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 			   reverse logic on the EDR_ESCO_MASK bits */
 #ifdef CONFIG_BT_SHARK
 			/*set esco packet type by remote feature and local feature*/
-			conn->pkt_type = (pkt_type  & hdev->esco_type )^ EDR_ESCO_MASK;
+			conn->pkt_type = (pkt_type  & conn->esco_type )^ EDR_ESCO_MASK;
 #else
 			conn->pkt_type = (pkt_type ^ EDR_ESCO_MASK) &
 					hdev->esco_type;
@@ -632,8 +639,11 @@ static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 	if (conn->pending_sec_level > sec_level)
 		sec_level = conn->pending_sec_level;
 #ifdef CONFIG_BT_SHARK
-	if(conn->link_mode & HCI_LM_ENCRYPT)
-                return 1;
+	if(conn->link_mode & HCI_LM_ENCRYPT){
+		printk("hci_conn_auth return ");
+		return 1;
+	}
+	printk("hci_conn_auth conn auth ");
 #endif
 	if (sec_level > conn->sec_level)
 		conn->pending_sec_level = sec_level;

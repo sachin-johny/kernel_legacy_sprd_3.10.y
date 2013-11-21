@@ -2190,37 +2190,37 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff 
 	if (!ev->status){
 		memcpy(conn->features, ev->features, 8);
 		//xiangxin: set right esco_type for goer
-		hdev->esco_type = SCO_ESCO_MASK;
+		conn->esco_type = (SCO_ESCO_MASK);
 		if (hdev->features[3] & conn->features[3] & 0x80)
 		{
-			hdev->esco_type |= ESCO_EV3;
+			conn->esco_type |= (ESCO_EV3);
 		}
 		if (hdev->features[4] & conn->features[4] & 0x01)
 		{
-			hdev->esco_type |= ESCO_EV4;
+			conn->esco_type |= (ESCO_EV4);
 		}
 		if (hdev->features[4] & conn->features[4] & 0x02)
 		{
-			hdev->esco_type |= ESCO_EV5;
+			conn->esco_type |= (ESCO_EV5);
 		}
 		if (hdev->features[5] & conn->features[5] & 0x20)
 		{
-			hdev->esco_type |= ESCO_2EV3;
+			conn->esco_type |= (ESCO_2EV3);
 			if (hdev->features[5] & conn->features[5] & 0x80)
 			{
-				hdev->esco_type |= ESCO_2EV5;
+				conn->esco_type |= (ESCO_2EV5);
 			}
 		}
 		if (hdev->features[5] & conn->features[5] & 0x40)
 		{
-			hdev->esco_type |= ESCO_3EV3;
+			conn->esco_type |= (ESCO_3EV3);
 			if (hdev->features[5] & conn->features[5] & 0x80)
 			{
-				hdev->esco_type |= ESCO_3EV5;
+				conn->esco_type |= (ESCO_3EV5);
 			}
 		}
 		BT_INFO("[bt] remote features[3] 0x%x, features[4] 0x%x sco_packet 0x%x",
-					conn->features[3], conn->features[4], hdev->esco_type);
+					conn->features[3], conn->features[4], conn->esco_type);
 	}
 #else
 	if (!ev->status)
@@ -3070,7 +3070,7 @@ static inline void hci_sync_conn_complete_evt(struct hci_dev *hdev, struct sk_bu
 		if (conn->out && conn->attempt < 2) {
 #ifdef CONFIG_BT_SHARK
 //set right esco_type for goer
-			conn->pkt_type = (hdev->esco_type & (__u16)(~SCO_ESCO_MASK)) | (hdev->esco_type | EDR_ESCO_MASK);
+			conn->pkt_type = (conn->esco_type & (__u16)(~SCO_ESCO_MASK)) | (conn->esco_type | EDR_ESCO_MASK);
 #else
 			conn->pkt_type = (hdev->esco_type & SCO_ESCO_MASK) |
 					(hdev->esco_type & EDR_ESCO_MASK);
