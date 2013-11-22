@@ -391,7 +391,7 @@ int wl_android_wifi_on(struct net_device *dev)
 
 /* enable SDIO clock */
 #ifndef SPRD_SPI
-        sdhci_device_attach(1);
+       // sdhci_device_attach(1);
 #endif
 	dhd_net_if_lock(dev);
 	if (!g_wifi_on) {
@@ -431,7 +431,7 @@ int wl_android_wifi_off(struct net_device *dev)
 	bcm_mdelay(500);
 /* disale SDIO clock */
 #ifndef SPRD_SPI
-        sdhci_device_attach(0);
+        //sdhci_device_attach(0);
 #endif
 	return ret;
 }
