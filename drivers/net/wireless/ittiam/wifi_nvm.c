@@ -258,4 +258,12 @@ void ittiam_nvm_init(void )
 	return;
 }
 
+void ittiam_nvm_deinit(void)
+{
+	if(wifiNvm_workqueue) {
+		cancel_delayed_work(&wifiNvm_work);
+		flush_workqueue(wifiNvm_workqueue);
+		destroy_workqueue(wifiNvm_workqueue);
+	}
+}
 
