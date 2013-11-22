@@ -1070,7 +1070,7 @@ static struct android_usb_function gser_function = {
 	.init		= gser_function_init,
 	.cleanup	= gser_function_cleanup,
 	.bind_config	= gser_function_bind_config,
-	.unbind_config	= gser_function_unbind_config,
+	//.unbind_config	= gser_function_unbind_config,
 	.ctrlrequest	= gser_function_ctrlrequest,
 	.attributes	= gser_function_attributes,
 };
