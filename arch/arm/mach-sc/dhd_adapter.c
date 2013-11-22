@@ -207,7 +207,7 @@ int wlan_device_power(int on)
 
 	if(on) {
 		for (i = 0; i <= 200; i++) {
-			if(!sdhci_wifi_detect_isbusy())
+			//if(!sdhci_wifi_detect_isbusy())
 				break;
 			msleep(100);
 		}
@@ -272,7 +272,7 @@ int wlan_device_set_carddetect(int val)
 #endif
 
 #ifdef CONFIG_WLAN_SDIO
-	sdhci_bus_scan(); 
+//	sdhci_bus_scan(); 
 #endif
 	return 0;
 }
