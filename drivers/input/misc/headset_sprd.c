@@ -1153,6 +1153,9 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
         queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
 #endif
 
+        wake_lock_init(&headset_detect_wakelock, WAKE_LOCK_SUSPEND, "headset_detect_wakelock");
+        wake_lock_init(&headset_button_wakelock, WAKE_LOCK_SUSPEND, "headset_button_wakelock");
+
         irqflags = pdata->irq_trigger_level_button ? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
         ret = request_irq(ht->irq_button, headset_button_irq_handler, irqflags | IRQF_NO_SUSPEND, "headset_button", ht);
         if (ret) {
@@ -1167,9 +1170,6 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
                 PRINT_ERR("failed to request IRQ_%d(GPIO_%d)\n", ht->irq_detect, pdata->gpio_detect);
                 goto failed_to_request_irq_headset_detect;
         }
-
-        wake_lock_init(&headset_detect_wakelock, WAKE_LOCK_SUSPEND, "headset_detect_wakelock");
-        wake_lock_init(&headset_button_wakelock, WAKE_LOCK_SUSPEND, "headset_button_wakelock");
 
 #ifdef SPRD_HEADSET_SYS_SUPPORT
         ret = headset_suspend_sysfs_init();
