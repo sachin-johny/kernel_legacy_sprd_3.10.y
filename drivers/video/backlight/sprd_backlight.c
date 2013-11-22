@@ -47,7 +47,16 @@
 #define        PWM_PAT_HIG     (0x0010)
 
 #define        PWM_ENABLE      (1 << 8)
+#define        PWM_DUTY            (1 << 8)
+#define        PWM_MOD             0
+#define        PWM_DIV             0x190
+#define        PWM_LOW             0xffff
+#define        PWM_HIG             0xffff
+#ifdef         CONFIG_ARCH_SCX15
+#define        PWM_SCALE           0xd
+#else
 #define        PWM_SCALE       1
+#endif
 #define        PWM_REG_MSK     0xffff
 #define        PWM_MOD_MAX     0xff
 
@@ -261,15 +270,20 @@ static void sprd_backlight_lateresume(struct early_suspend *h)
 static void srpd_backlight_init(void)
 {
 	PRINT_INFO("srpd_backlight_init");
-	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL1, 0x6000);
-	__raw_writel(0x100, ANA_PWM_BASE+4);
-	__raw_writel(0x190, ANA_PWM_BASE+8);
-	__raw_writel(0xFFFF, ANA_PWM_BASE+0xc);
-	__raw_writel(0xFFFF, ANA_PWM_BASE+0x10);
-	__raw_writel(0x10d, ANA_PWM_BASE+0);
-	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL0, 0x181);
-	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL1, 0xd480);
-	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL2, 0x0);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN );
+
+	sci_adi_raw_write(PD_PWM_BASE+PWM_CNT, PWM_DUTY | PWM_MOD);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_TONE_DIV, PWM_DIV);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_PRESCALE, PWM_ENABLE | PWM_SCALE);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_PAT_LOW, PWM_LOW);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_PAT_HIG, PWM_HIG);
+
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PD);
+
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_RTC_PWM0_EN);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN);
 }
 #endif
 static int sprd_backlight_probe(struct platform_device *pdev)
