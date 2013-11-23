@@ -948,6 +948,10 @@ static ssize_t oom_adjust_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
+	/*ace add for moneky nice start*/
+	if(!strncmp("commands.monkey", current->comm, 15)) oom_adjust = -16;
+	/*ace add for moneky nice end*/
+
 	/*
 	 * Warn that /proc/pid/oom_adj is deprecated, see
 	 * Documentation/feature-removal-schedule.txt.
