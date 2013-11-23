@@ -340,8 +340,10 @@ static void print_kpad(void)
 #endif	
 }
 
+#ifdef CONFIG_POWER_KEY_WATCHDOG
 extern int powerkey_wdt_start(void);
 extern int powerkey_wdt_verify(void);
+#endif
 
 void change_state(struct kpd_key_t *key_ptr)
 {   
@@ -363,12 +365,13 @@ void change_state(struct kpd_key_t *key_ptr)
         	input_sync(sprd_kpad->input);
 		printk("%dD\n", key);
 
+#ifdef CONFIG_POWER_KEY_WATCHDOG
 		/* when pwerkey is released, trigger a watch dog that
 		 * will be stopped when suspend state is requested */
 		if (key == POWRER_KEY_VAL) {
 			powerkey_wdt_start();
 		}
-
+#endif
 	} else {
         	/* Change state from TB_KPD_PRESSED to TB_KPD_RELEASED */
 		key = sprd_kpad_find_key(sprd_kpad, sprd_kpad->input, key_ptr->key_code);		
@@ -379,11 +382,13 @@ void change_state(struct kpd_key_t *key_ptr)
 			pb_keystatus4sleep = 0;	/* UP */
 		printk("%dU\n", key);
 
+#ifdef CONFIG_POWER_KEY_WATCHDOG
 		/* pwerkey watchdog can be only triggered by a short click ( < 1s ),
  		 * add a check to filter long click */
 		if (key == POWRER_KEY_VAL) {
 			powerkey_wdt_verify();
 		}
+#endif
     	}
 }
 

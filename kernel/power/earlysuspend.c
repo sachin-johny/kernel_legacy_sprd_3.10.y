@@ -168,15 +168,19 @@ abort:
 	mutex_unlock(&early_suspend_lock);
 }
 
+#ifdef CONFIG_POWER_KEY_WATCHDOG
 extern int powerkey_wdt_stop(void);
+#endif
 
 void request_suspend_state(suspend_state_t new_state)
 {
 	unsigned long irqflags;
 	int old_sleep;
 
+#ifdef CONFIG_POWER_KEY_WATCHDOG
 	/* when we get here, means userspace service work well, stop reboot watchdog */
 	powerkey_wdt_stop();
+#endif
 
 	spin_lock_irqsave(&state_lock, irqflags);
 	old_sleep = state & SUSPEND_REQUESTED;

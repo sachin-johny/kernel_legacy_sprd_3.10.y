@@ -98,6 +98,12 @@ extern unsigned long nfc_wait_long;
 
 static void watchdog_fire(unsigned long data)
 {
+
+	if(1) {
+		printk("bypass soft watchdog\n");
+		return;
+	}
+ 
 	if (test_and_clear_bit(0, &orphan_timer))
 		module_put(THIS_MODULE);
  
