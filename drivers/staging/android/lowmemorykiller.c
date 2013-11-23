@@ -743,18 +743,18 @@ static void __exit lowmem_exit(void)
 }
 
 #ifdef CONFIG_ZRAM_FOR_ANDROID
-module_param_named(lowmem_swap_app_enable, lowmem_swap_app_enable, int, S_IRUGO | S_IWUSR);
-module_param_named(lowmem_minfreeswap_check, lowmem_minfreeswap_check, int, S_IRUGO | S_IWUSR);
-module_param_named(kill_home_adj_wmark, kill_home_adj_wmark, int, S_IRUGO | S_IWUSR);
-module_param_array_named(lowmem_minfreeswap, lowmem_minfreeswap, int,
+module_param_named(lowmem_swap_app_enable, lowmem_swap_app_enable, uint, S_IRUGO | S_IWUSR);
+module_param_named(lowmem_minfreeswap_check, lowmem_minfreeswap_check, uint, S_IRUGO | S_IWUSR);
+module_param_named(kill_home_adj_wmark, kill_home_adj_wmark, uint, S_IRUGO | S_IWUSR);
+module_param_array_named(lowmem_minfreeswap, lowmem_minfreeswap, uint,
 			 &lowmem_minfreeswap_size, S_IRUGO | S_IWUSR);
-module_param_named(default_interval_time, default_interval_time, int, S_IRUGO | S_IWUSR);
+module_param_named(default_interval_time, default_interval_time, uint, S_IRUGO | S_IWUSR);
 
 #endif
 
 module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
 
-module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
+module_param_array_named(adj, lowmem_adj, short, &lowmem_adj_size,
 			 S_IRUGO | S_IWUSR);
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
