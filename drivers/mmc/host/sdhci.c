@@ -160,7 +160,7 @@ void sdhci_dumpregs(struct sdhci_host *host)
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
 	printk(KERN_ERR DRIVER_NAME ": host->cmd : 0x%x \n\r", host->cmd);
-
+#if !defined(CONFIG_ARCH_SCX15)
 #ifdef CONFIG_MMC_SDHCI_SCX35
 	printk(KERN_ERR DRIVER_NAME ": INTC1[0x71500008] : 0x%x (emmc is bit28)\n\r",
 			readl(SPRD_INTC1_BASE + 0x08));
@@ -195,7 +195,7 @@ void sdhci_dumpregs(struct sdhci_host *host)
 			readl(REG_AP_CLK_SDIO2_CFG),readl(REG_AP_CLK_EMMC_CFG));
 	  printk(KERN_ERR DRIVER_NAME ": AHB_CLK_SEL : 0x%x \n\r", readl(REG_AP_CLK_AP_AHB_CFG));
 #endif
-
+#endif
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
 }
 

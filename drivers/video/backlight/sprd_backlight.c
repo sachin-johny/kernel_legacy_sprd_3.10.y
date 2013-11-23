@@ -186,8 +186,15 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 				return led_level;
 			}
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL1);
+
+#ifdef CONFIG_ARCH_SCX15
+			reg_val &= ~(0x7f << 6);
+			reg_val |= led_level << 6;
+#else
 			reg_val &= ~(0x7f << 5);
 			reg_val |= led_level << 5;
+#endif
+
 			sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL1, reg_val);
 			#if 0
 			/*dimming pwm config*/
@@ -250,6 +257,21 @@ static void sprd_backlight_lateresume(struct early_suspend *h)
 }
 #endif
 
+#ifdef CONFIG_ARCH_SCX15
+static void srpd_backlight_init(void)
+{
+	PRINT_INFO("srpd_backlight_init");
+	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL1, 0x6000);
+	__raw_writel(0x100, ANA_PWM_BASE+4);
+	__raw_writel(0x190, ANA_PWM_BASE+8);
+	__raw_writel(0xFFFF, ANA_PWM_BASE+0xc);
+	__raw_writel(0xFFFF, ANA_PWM_BASE+0x10);
+	__raw_writel(0x10d, ANA_PWM_BASE+0);
+	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL0, 0x181);
+	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL1, 0xd480);
+	sci_adi_raw_write(ANA_REG_GLB_WHTLED_CTRL2, 0x0);
+}
+#endif
 static int sprd_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
@@ -283,6 +305,11 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 #endif
 
 #endif
+
+#ifdef CONFIG_ARCH_SCX15
+	srpd_backlight_init();
+#endif
+
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = PWM_MOD_MAX;
 	props.type = BACKLIGHT_RAW;
