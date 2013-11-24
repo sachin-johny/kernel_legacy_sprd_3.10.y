@@ -379,20 +379,22 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":373:1360:107:87"
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":627:1360:107:87"
 			"\n");
-	else
+#endif
+#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_512x960
 		return sprintf(buf,
          		__stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":100:1020:80:65"
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":280:1020:80:65"
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":470:1020:80:65"
 	 		"\n");
-     #endif
-	 
+#endif
+
+#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_720x1280
     return sprintf(buf,
         		 __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":133:1360:107:87"
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":373:1360:107:87"
 	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":627:1360:107:87"
 			"\n");
-	 
+#endif
  }
 
 static struct kobj_attribute virtual_keys_attr = {
@@ -886,9 +888,14 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 #if MULTI_PROTOCOL_TYPE_B
 	input_mt_init_slots(input_dev, TS_MAX_FINGER,0);
 #endif
-
+#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_720x1280
 	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, 720, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, 1280, 0, 0);
+#endif
+#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_512x960
+	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, 512, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, 960, 0, 0);
+#endif
 	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 	#if 0
