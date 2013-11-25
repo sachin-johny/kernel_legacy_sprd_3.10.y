@@ -113,9 +113,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device1,
 	&sprd_serial_device2,
 	&sprd_device_rtc,
-#if 0
 	&sprd_eic_gpio_device,
-#endif
 	&sprd_nand_device,
 	&sprd_lcd_device0,
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
