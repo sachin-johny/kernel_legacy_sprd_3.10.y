@@ -632,10 +632,7 @@ static int init_sensor_parameters(void *priv)
 		if(init_param.input_size.w <= width)
 		{
 			g_dcam_info.snapshot_m = sensor_info_ptr->sensor_mode_info[i].mode;
-			if(g_dcam_info.snapshot_m < SENSOR_MODE_PREVIEW_TWO)
-				g_dcam_info.preview_m = SENSOR_MODE_PREVIEW_ONE;
-			else
-				g_dcam_info.preview_m = SENSOR_MODE_PREVIEW_TWO;			
+			g_dcam_info.preview_m = g_dcam_info.snapshot_m;
 
 			g_dcam_info.input_size.w = width;
 			g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[i].height;
