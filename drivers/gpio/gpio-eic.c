@@ -533,13 +533,11 @@ static void gpio_irq_init(int irq, struct gpio_chip *gpiochip,
 	}
 }
 
-
 static int eic_gpio_probe(struct platform_device *pdev)
 {
 	struct eic_gpio_resource *r = pdev->dev.platform_data;
 	if (!r)
 		BUG();
-
 
 	/* enable EIC */
 #if defined(CONFIG_ARCH_SC8825)
@@ -549,32 +547,32 @@ static int eic_gpio_probe(struct platform_device *pdev)
 	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
 		    BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
 #elif defined(CONFIG_ARCH_SCX15)
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB | BIT_EIC_EB);
+	sci_glb_set(REG_AON_APB_APB_RTC_EB, BIT_EIC_RTC_EB);
+	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_EIC_EN);
+	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EIC_EN);
 #elif defined(CONFIG_ARCH_SCX35)
-	sci_glb_set(REG_AON_APB_APB_EB0,BIT_GPIO_EB | BIT_EIC_EB);
-	sci_glb_set(REG_AON_APB_APB_RTC_EB,BIT_EIC_RTC_EB);
-
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB | BIT_EIC_EB);
+	sci_glb_set(REG_AON_APB_APB_RTC_EB, BIT_EIC_RTC_EB);
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
-		    BIT_ANA_EIC_EN);
-	sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_GPIO_EN, 
-		BIT_ANA_GPIO_EN);
-	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN,BIT_RTC_EIC_EN);
+		    BIT_ANA_EIC_EN | BIT_ANA_GPIO_EN);
+	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EIC_EN);
 #endif
 
-
-	d_sci_gpio.base_addr  = r[ENUM_ID_D_GPIO].base_addr;
-	d_sci_gpio.chip.base  = r[ENUM_ID_D_GPIO].chip_base;
+	d_sci_gpio.base_addr = r[ENUM_ID_D_GPIO].base_addr;
+	d_sci_gpio.chip.base = r[ENUM_ID_D_GPIO].chip_base;
 	d_sci_gpio.chip.ngpio = r[ENUM_ID_D_GPIO].chip_ngpio;
 
-	d_sci_eic.base_addr  = r[ENUM_ID_D_EIC].base_addr;
-	d_sci_eic.chip.base  = r[ENUM_ID_D_EIC].chip_base;
+	d_sci_eic.base_addr = r[ENUM_ID_D_EIC].base_addr;
+	d_sci_eic.chip.base = r[ENUM_ID_D_EIC].chip_base;
 	d_sci_eic.chip.ngpio = r[ENUM_ID_D_EIC].chip_ngpio;
 
-	a_sci_gpio.base_addr  = r[ENUM_ID_A_GPIO].base_addr;
-	a_sci_gpio.chip.base  = r[ENUM_ID_A_GPIO].chip_base;
+	a_sci_gpio.base_addr = r[ENUM_ID_A_GPIO].base_addr;
+	a_sci_gpio.chip.base = r[ENUM_ID_A_GPIO].chip_base;
 	a_sci_gpio.chip.ngpio = r[ENUM_ID_A_GPIO].chip_ngpio;
 
-	a_sci_eic.base_addr  = r[ENUM_ID_A_EIC].base_addr;
-	a_sci_eic.chip.base  = r[ENUM_ID_A_EIC].chip_base;
+	a_sci_eic.base_addr = r[ENUM_ID_A_EIC].base_addr;
+	a_sci_eic.chip.base = r[ENUM_ID_A_EIC].chip_base;
 	a_sci_eic.chip.ngpio = r[ENUM_ID_A_EIC].chip_ngpio;
 
 	if (d_sci_eic.chip.ngpio > 0)
@@ -589,22 +587,25 @@ static int eic_gpio_probe(struct platform_device *pdev)
 	if (a_sci_gpio.chip.ngpio > 0)
 		gpiochip_add(&a_sci_gpio.chip);
 
-
 	if (-1 != r[ENUM_ID_D_GPIO].irq) {
-		gpio_irq_init(r[ENUM_ID_D_GPIO].irq, &d_sci_gpio.chip, &d_gpio_irq_chip);
+		gpio_irq_init(r[ENUM_ID_D_GPIO].irq, &d_sci_gpio.chip,
+			      &d_gpio_irq_chip);
 		setup_irq(r[ENUM_ID_D_GPIO].irq, &__d_gpio_irq);
 	}
 
 	if (-1 != r[ENUM_ID_D_EIC].irq) {
-		gpio_irq_init(r[ENUM_ID_D_EIC].irq, &d_sci_eic.chip, &d_eic_irq_chip);
+		gpio_irq_init(r[ENUM_ID_D_EIC].irq, &d_sci_eic.chip,
+			      &d_eic_irq_chip);
 		setup_irq(r[ENUM_ID_D_EIC].irq, &__d_eic_irq);
 	}
 
 	if (-1 != r[ENUM_ID_A_GPIO].irq)
-		gpio_irq_init(r[ENUM_ID_A_GPIO].irq, &a_sci_gpio.chip, &a_gpio_irq_chip);
+		gpio_irq_init(r[ENUM_ID_A_GPIO].irq, &a_sci_gpio.chip,
+			      &a_gpio_irq_chip);
 
 	if (-1 != r[ENUM_ID_A_EIC].irq)
-		gpio_irq_init(r[ENUM_ID_A_EIC].irq, &a_sci_eic.chip, &a_eic_irq_chip);
+		gpio_irq_init(r[ENUM_ID_A_EIC].irq, &a_sci_eic.chip,
+			      &a_eic_irq_chip);
 
 	return 0;
 }
@@ -626,20 +627,22 @@ static int eic_gpio_remove(struct platform_device *pdev)
 }
 
 static struct platform_driver eic_gpio_driver = {
-	.driver.name	= "eic-gpio",
-	.driver.owner	= THIS_MODULE,
-	.probe		= eic_gpio_probe,
-	.remove		= eic_gpio_remove,
+	.driver.name = "eic-gpio",
+	.driver.owner = THIS_MODULE,
+	.probe = eic_gpio_probe,
+	.remove = eic_gpio_remove,
 };
 
 static int __init eic_gpio_init(void)
 {
 	return platform_driver_register(&eic_gpio_driver);
 }
+
 postcore_initcall(eic_gpio_init);
 
 static void __exit eic_gpio_exit(void)
 {
 	return platform_driver_unregister(&eic_gpio_driver);
 }
+
 module_exit(eic_gpio_exit);
