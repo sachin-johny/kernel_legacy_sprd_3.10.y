@@ -42,6 +42,10 @@
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
+#ifdef CONFIG_BT_SHARK
+#include <linux/wakelock.h>
+extern struct wake_lock bt_wake_lock;
+#endif
 
 static void hci_le_connect(struct hci_conn *conn)
 {
@@ -813,9 +817,14 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	}
 
 timer:
-	if (hdev->idle_timeout > 0)
+	if (hdev->idle_timeout > 0){
 		mod_timer(&conn->idle_timer,
 			jiffies + msecs_to_jiffies(hdev->idle_timeout));
+#ifdef CONFIG_BT_SHARK
+		BT_DBG("idle_timeout %d", hdev->idle_timeout);
+		wake_lock_timeout(&bt_wake_lock, HZ*(hdev->idle_timeout/1000+1));
+#endif
+	}
 }
 
 /* Drop all connection on the device */

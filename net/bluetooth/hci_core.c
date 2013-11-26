@@ -44,7 +44,9 @@
 #include <linux/timer.h>
 #include <linux/crypto.h>
 #include <net/sock.h>
-
+#ifdef CONFIG_BT_SHARK
+#include <linux/wakelock.h>
+#endif
 #include <linux/uaccess.h>
 #include <asm/unaligned.h>
 
@@ -56,7 +58,9 @@
 static void hci_rx_work(struct work_struct *work);
 static void hci_cmd_work(struct work_struct *work);
 static void hci_tx_work(struct work_struct *work);
-
+#ifdef CONFIG_BT_SHARK
+struct wake_lock bt_wake_lock;
+#endif
 /* HCI device list */
 LIST_HEAD(hci_dev_list);
 DEFINE_RWLOCK(hci_dev_list_lock);
@@ -1784,8 +1788,9 @@ int hci_register_dev(struct hci_dev *hdev)
 	INIT_WORK(&hdev->rx_work, hci_rx_work);
 	INIT_WORK(&hdev->cmd_work, hci_cmd_work);
 	INIT_WORK(&hdev->tx_work, hci_tx_work);
-
-
+#ifdef CONFIG_BT_SHARK
+	wake_lock_init(&bt_wake_lock, WAKE_LOCK_SUSPEND, "bt_wake_lock");
+#endif
 	skb_queue_head_init(&hdev->rx_q);
 	skb_queue_head_init(&hdev->cmd_q);
 	skb_queue_head_init(&hdev->raw_q);
@@ -1871,7 +1876,9 @@ void hci_unregister_dev(struct hci_dev *hdev)
 	int i;
 
 	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
-
+#ifdef CONFIG_BT_SHARK
+	wake_lock_destroy(&bt_wake_lock);
+#endif
 	set_bit(HCI_UNREGISTER, &hdev->dev_flags);
 
 	write_lock(&hci_dev_list_lock);
