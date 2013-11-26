@@ -108,7 +108,7 @@ int powerdown_cpus(int cpu)
 	val = (BIT_PD_CA7_C3_FORCE_SHUTDOWN | __raw_readl(poweron)) &~(BIT_PD_CA7_C3_AUTO_SHUTDOWN_EN);
 	writel(val, poweron);
 
-
+	dsb();
 	while (i < 20) {
 		//check power down?
 		if (((__raw_readl(REG_PMU_APB_PWR_STATUS0_DBG) >> (4 * (cpu_logical_map(cpu) + 1))) & 0x0f) == 0x07) {
@@ -118,7 +118,10 @@ int powerdown_cpus(int cpu)
 		i++;
 	}
 	printk("powerdown_cpus i=%d !!\n", i);
-	BUG_ON(i >= 20);
+	if (i >= 20) {
+		printk("cpu%d pd_cfg: 0x%x\n", cpu, __raw_readl(poweron));
+		BUG();
+	}
 	udelay(60);
 
 	return 0;
