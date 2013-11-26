@@ -55,6 +55,7 @@ extern void __init sc8810_init_irq(void);
 extern void __init sc8810_timer_init(void);
 extern int __init sci_regulator_init(void);
 extern void __init sc8810_clock_init(void);
+extern void __init sc8810_init_ana_chipid(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
@@ -520,6 +521,8 @@ static void __init sc8810_init_early(void)
 	/* earlier init request than irq and timer */
 	sc8810_clock_init();
 
+        /* init ana chip id */
+	sc8810_init_ana_chipid();
 }
 
 MACHINE_START(SC8810OPENPHONE, "sc7710g")
