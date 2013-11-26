@@ -188,6 +188,8 @@ static int sts_check_work_need_to_cancel = 1;
 /***polling ana_sts0 to avoid the hardware defect***/
 
 static DEFINE_SPINLOCK(headmic_bias_lock);
+static DEFINE_SPINLOCK(irq_button_lock);
+static DEFINE_SPINLOCK(irq_detect_lock);
 static int adie_type = 0; //1=AC, 2=BA, 3=BB
 static int gpio_detect_value_last = 0;
 static int gpio_button_value_last = 0;
@@ -236,7 +238,7 @@ static void headset_detect_init(void)
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_SDET_2P7_OR_1P7, AUDIO_HEAD_SDET_MASK, AUDIO_HEAD_SDET_SHIFT);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_INS_VREF_2P1_OR_1P4, AUDIO_HEAD_INS_VREF_MASK, AUDIO_HEAD_INS_VREF_SHIFT);
         /*set headmicbias voltage*/
-        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG0), AUDIO_MICBIAS_V_2P1_OR_2P7, AUDIO_MICBIAS_V_MASK, AUDIO_MICBIAS_V_SHIFT);
+        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG0), AUDIO_MICBIAS_V_2P3_OR_3P0, AUDIO_MICBIAS_V_MASK, AUDIO_MICBIAS_V_SHIFT);
         headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG0), AUDIO_MICBIAS_HV_EN);
 }
 
@@ -297,40 +299,46 @@ static void headset_micbias_polling_en(int en)
 
 static void headset_irq_button_enable(int enable, unsigned int irq)
 {
+        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
 
+        spin_lock_irqsave(&irq_button_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
                         current_irq_state = 1;
-                        return;
                 }
         } else {
                 if (1 == current_irq_state) {
                         disable_irq_nosync(irq);
                         current_irq_state = 0;
-                        return;
                 }
         }
+        spin_unlock_irqrestore(&irq_button_lock, spin_lock_flags);
+
+        return;
 }
 
 static void headset_irq_detect_enable(int enable, unsigned int irq)
 {
+        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
 
+        spin_lock_irqsave(&irq_detect_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
                         current_irq_state = 1;
-                        return;
                 }
         } else {
                 if (1 == current_irq_state) {
                         disable_irq_nosync(irq);
                         current_irq_state = 0;
-                        return;
                 }
         }
+        spin_unlock_irqrestore(&irq_detect_lock, spin_lock_flags);
+
+        return;
 }
 
 static void headmicbias_power_on(int on)
@@ -626,7 +634,6 @@ static void headset_detect_work_func(struct work_struct *work)
 
         if(0 == plug_state_last) {
                 if(adie_type >= 3) {
-                        headset_micbias_polling_en(0);
                         headmicbias_power_on(1);
                 }
         }
@@ -760,7 +767,6 @@ out:
                 if(adie_type >= 3) {
                         headmicbias_power_on(0);
                         msleep(100);
-                        headset_micbias_polling_en(1);
                 }
         }
 
@@ -940,8 +946,8 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
 {
         struct sprd_headset *ht = dev;
 
-        wake_lock(&headset_button_wakelock);
         headset_irq_button_enable(0, ht->irq_button);
+        wake_lock(&headset_button_wakelock);
         gpio_button_value_last = gpio_get_value(ht->platform_data->gpio_button);
         PRINT_DBG("headset_button_irq_handler: IRQ_%d(GPIO_%d) = %d\n",
                   ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last);
@@ -953,8 +959,8 @@ static irqreturn_t headset_detect_irq_handler(int irq, void *dev)
 {
         struct sprd_headset *ht = dev;
 
-        wake_lock(&headset_detect_wakelock);
         headset_irq_detect_enable(0, ht->irq_detect);
+        wake_lock(&headset_detect_wakelock);
         gpio_detect_value_last = gpio_get_value(ht->platform_data->gpio_detect);
         PRINT_DBG("headset_detect_irq_handler: IRQ_%d(GPIO_%d) = %d\n",
                   ht->irq_detect, ht->platform_data->gpio_detect, gpio_detect_value_last);
@@ -1048,9 +1054,7 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
         ENTER
 
         ht->platform_data = pdata;
-        if(adie_type >= 3)
-                headset_micbias_polling_en(1);
-        else
+        if(adie_type < 3)
                 headmicbias_power_on(1);
         msleep(5);//this time delay is necessary here
 
@@ -1207,7 +1211,6 @@ failed_to_request_gpio_detect:
         gpio_free(pdata->gpio_switch);
 failed_to_request_gpio_switch:
 
-        headset_micbias_polling_en(0);
         headmicbias_power_on(0);
         PRINT_ERR("headset_detect_probe failed\n");
         return ret;
