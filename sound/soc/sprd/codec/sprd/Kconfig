@@ -32,4 +32,11 @@ config SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA
 	help
 	  Say Y if you want use sprdtrume internal headphone pa
 
+config SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+	depends on SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA && ARCH_SCX15
+	bool "use spreadtrum internal headphone pa for version 2"
+	default y
+	help
+	  Say Y if you want use sprdtrume internal headphone pa for version2
+
 endmenu

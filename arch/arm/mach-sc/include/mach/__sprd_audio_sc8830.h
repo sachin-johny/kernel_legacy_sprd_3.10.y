@@ -147,7 +147,6 @@ static inline int arch_audio_vbc_switch(int master)
 
 	switch (master) {
 	case AUDIO_TO_AP_ARM_CTRL:
-		arch_audio_vbc_reset();
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(0) | BITS_VBC_DA01_INT_SYS_SEL(0)
 		    | BITS_VBC_AD01_INT_SYS_SEL(0)
@@ -155,8 +154,10 @@ static inline int arch_audio_vbc_switch(int master)
 		    BITS_VBC_DA01_DMA_SYS_SEL(0) | BITS_VBC_AD01_DMA_SYS_SEL(0)
 		    | BITS_VBC_AD23_DMA_SYS_SEL(0);
 		sci_glb_write(REG_AON_APB_VBC_CTRL, val, mask);
+		arch_audio_vbc_reset();
 		break;
 	case AUDIO_TO_CP0_DSP_CTRL:
+		arch_audio_vbc_reset();
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(1) | BITS_VBC_DA01_INT_SYS_SEL(1)
 		    | BITS_VBC_AD01_INT_SYS_SEL(1)
@@ -169,6 +170,7 @@ static inline int arch_audio_vbc_switch(int master)
 			       BIT_VBC_DMA_CP0_ARM_SEL));
 		break;
 	case AUDIO_TO_CP1_DSP_CTRL:
+		arch_audio_vbc_reset();
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(2) | BITS_VBC_DA01_INT_SYS_SEL(2)
 		    | BITS_VBC_AD01_INT_SYS_SEL(2)
@@ -181,6 +183,7 @@ static inline int arch_audio_vbc_switch(int master)
 			       BIT_VBC_DMA_CP1_ARM_SEL));
 		break;
 	case AUDIO_TO_CP0_ARM_CTRL:
+		arch_audio_vbc_reset();
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(1) | BITS_VBC_DA01_INT_SYS_SEL(1)
 		    | BITS_VBC_AD01_INT_SYS_SEL(1)
@@ -194,6 +197,7 @@ static inline int arch_audio_vbc_switch(int master)
 			       BIT_VBC_DMA_CP0_ARM_SEL));
 		break;
 	case AUDIO_TO_CP1_ARM_CTRL:
+		arch_audio_vbc_reset();
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(2) | BITS_VBC_DA01_INT_SYS_SEL(2)
 		    | BITS_VBC_AD01_INT_SYS_SEL(2)
@@ -519,17 +523,26 @@ static inline int arch_audio_codec_analog_enable(void)
 	/* AUDIF , 6.5M */
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
+#if defined(CONFIG_ARCH_SCX15)
+	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL0, BIT_CLK_AUD_6P5M_TX_INV_EN,
+		      BIT_CLK_AUD_6P5M_TX_INV_EN);
+#else
 	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN,
 		      BIT_CLK_AUD_6P5M_TX_INV_EN);
+#endif
 	/* RTC */
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_AUD_EN, BIT_RTC_AUD_EN);
 	/* 26M */
 	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_XTL_EN, BIT_XTL_EN);
 
 	/* FIXME: disable deepsleep force power off audio ldo */
+#if defined(CONFIG_ARCH_SCX15)
+	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL, 0, 0xFFFF);
+#else
 	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
 #endif
 
+#endif
 	return ret;
 }
 
@@ -555,8 +568,13 @@ static inline int arch_audio_codec_analog_disable(void)
 	/* AUDIF , 6.5M */
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
+#if defined(CONFIG_ARCH_SCX15)
+	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL0, BIT_CLK_AUD_6P5M_TX_INV_EN,
+		      BIT_CLK_AUD_6P5M_TX_INV_EN);
+#else
 	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN,
 		      BIT_CLK_AUD_6P5M_TX_INV_EN);
+#endif
 	/* RTC */
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, 0, BIT_RTC_AUD_EN);
 	/* 26M  this is shared with adc, so we cann't close it */

@@ -363,7 +363,11 @@ static inline int vreg_enable(void)
 	arch_audio_codec_analog_reg_enable();
 	arch_audio_codec_analog_reset();
 	/* Disable Sleep Control Audio Power */
+#if defined(CONFIG_ARCH_SCX15)
+	ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL, 0, 0xFFFF);
+#else
 	ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
+#endif
 	return ret;
 }
 
