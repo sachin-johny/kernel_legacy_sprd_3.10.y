@@ -38,8 +38,8 @@
 #include "__board-sp7730ec.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP5735PAD
-#include "__board-sp5735pad.h"
+#ifdef	CONFIG_MACH_SP5735EA
+#include "__board-sp5735ea.h"
 #endif
 
 #if defined (CONFIG_MACH_SPX35FPGA) || defined (CONFIG_MACH_SPX15FPGA)

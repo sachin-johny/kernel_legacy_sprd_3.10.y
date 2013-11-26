@@ -55,13 +55,13 @@ config MACH_SP8825EA
 	help
 	  sp8825 EB board based on SC8825 serial.
 
-config MACH_SP5735PAD
-	bool "sp5735pad Pad Board"
+config MACH_SP5735EA
+	bool "sp5735ea PAD Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	default n
 	help
-	  SP5735PAD board based on SC8830 serial.
+	  SP5735ea board based on SC8830 serial.
 
 config MACH_SPX35EB
 	bool "sp8830eb Phone Board"
