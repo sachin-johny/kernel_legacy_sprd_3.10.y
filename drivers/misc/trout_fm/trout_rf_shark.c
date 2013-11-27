@@ -619,7 +619,7 @@ int trout_fm_set_tune(u16 freq)
 
 int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 {
-	int ret;
+	int ret = 0;
 
 	TROUT_PRINT("FM seek, freq(%i) dir(%i) timeout(%i).",
 		    frequency, seek_dir, time_out);
@@ -653,7 +653,7 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 
 	shark_fm_int_clr();
 
-	return 0;
+	return ret;
 }
 
 int trout_fm_get_frequency(u16 *freq)
