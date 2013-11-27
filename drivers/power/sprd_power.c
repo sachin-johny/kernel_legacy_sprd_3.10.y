@@ -60,6 +60,7 @@
 #endif
 
 //#define BATTERY_HAVE_TEMP
+#define SYSTEM_TEMP_GPIO    90
 
 struct sprd_battery_data {
 	uint32_t reg_base;
@@ -208,11 +209,17 @@ static int sprd_battery_get_property(struct power_supply *psy,
     case POWER_SUPPLY_PROP_VOLTAGE_NOW:
         val->intval = data->voltage*1000;
         break;
-#if BATTERY_HAVE_TEMP 
     case POWER_SUPPLY_PROP_TEMP:
-        val->intval = data->temp;
-        break;
+        if (gpio_get_value(SYSTEM_TEMP_GPIO)) {
+              val->intval = 850;
+        } else {
+#if BATTERY_HAVE_TEMP
+              val->intval = data->temp;
+#else
+              val->intval = 200;
 #endif
+        }
+        break;
 	default:
 		ret = -EINVAL;
 		break;
@@ -228,9 +235,7 @@ static enum power_supply_property sprd_battery_props[] = {
 	POWER_SUPPLY_PROP_TECHNOLOGY,
 	POWER_SUPPLY_PROP_CAPACITY,
 	POWER_SUPPLY_PROP_VOLTAGE_NOW,
-#if BATTERY_HAVE_TEMP
-    POWER_SUPPLY_PROP_TEMP,
-#endif
+	POWER_SUPPLY_PROP_TEMP,
 };
 
 static enum power_supply_property sprd_ac_props[] = {
@@ -697,7 +702,12 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
     }else{
         DEBUG("charge in sleep\n");
     }
-
+    //use charge module to detect system temp, it's not charge code
+    {
+        if (gpio_get_value(SYSTEM_TEMP_GPIO)) {
+            battery_notify = 1;
+        }
+    }
     usb_online = battery_data->usb_online;
     ac_online = battery_data->ac_online;
 
@@ -1103,6 +1113,9 @@ retry_adc:
 	if (ret)
 		goto err_request_irq_failed;
 #endif
+
+	gpio_request(SYSTEM_TEMP_GPIO, "system temp");
+	gpio_direction_input(SYSTEM_TEMP_GPIO);
 
 	sprd_creat_caliberate_attr(data->battery.dev);
 
