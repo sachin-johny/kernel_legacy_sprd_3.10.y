@@ -129,14 +129,8 @@ void SPI_PinCfg( void )
 
 bool sprdfb_spi_init(struct sprdfb_device *dev)
 {
-//	SPI_PinCfg();
+	SPI_Init( SPI_USED_ID, spi_int_parm );
 
-	SPI_Enable(SPI_USED_ID, true);     
-	SPI_Init( spi_int_parm ); 
-
-	SPI_ClkSetting( SPI_USED_ID, SPICLK_SEL_192M, 0);
-	//SPI_SetDatawidth(9);  
-//	SPI_SetSpiMode( SPIMODE_3WIRE_9BIT_SDIO );
 	return true;
 }
 
