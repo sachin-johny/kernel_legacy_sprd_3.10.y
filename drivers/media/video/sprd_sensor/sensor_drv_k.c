@@ -1324,6 +1324,12 @@ int sensor_k_open(struct inode *node, struct file *file)
 int sensor_k_release(struct inode *node, struct file *file)
 {
 	int	ret = 0;
+	_Sensor_K_SetVoltage_CAMMOT(SENSOR_VDD_CLOSED);
+	_Sensor_K_SetVoltage_AVDD(SENSOR_VDD_CLOSED);
+	_Sensor_K_SetVoltage_DVDD(SENSOR_VDD_CLOSED);
+	_Sensor_K_SetVoltage_IOVDD(SENSOR_VDD_CLOSED);
+	_Sensor_K_SetMCLK(0);
+	_Sensor_K_SetFlash(0);
 	ret = _sensor_is_clk_mm_i_eb(0);
 	return ret;
 }

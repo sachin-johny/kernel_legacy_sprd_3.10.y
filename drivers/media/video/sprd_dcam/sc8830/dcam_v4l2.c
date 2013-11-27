@@ -2613,6 +2613,24 @@ LOCAL int sprd_v4l2_close(struct file *file)
 		dev->proc_file = NULL;
 	}
 	mutex_lock(&dev->dcam_mutex);
+	dcam_reset(DCAM_RST_ALL);
+	if (dev->got_resizer) {
+		dcam_rel_resizer();
+		dev->got_resizer = 0;
+		sprd_v4l2_unreg_path2_isr(dev);
+	}
+	if (dev->dcam_cxt.if_inited) {
+		if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
+			dcam_ccir_clk_dis();
+		} else {
+			csi_api_close();
+			dcam_mipi_clk_dis();
+		}
+		dev->dcam_cxt.if_inited = 0;
+	}
+	atomic_set(&dev->stream_on, 0);
+	dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
+	sprd_v4l2_local_deinit(dev);
 	ret = dcam_module_dis();
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to enable dcam module \n");

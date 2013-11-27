@@ -566,6 +566,8 @@ int32_t dcam_module_en(void)
 		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
 		dcam_reset(DCAM_RST_ALL);
 		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
+		atomic_set(&s_resize_flag, 0);
+		atomic_set(&s_rotation_flag, 0);
 		memset((void*)s_user_func, 0, sizeof(s_user_func));
 		memset((void*)s_user_data, 0, sizeof(s_user_data));
 		printk("DCAM: register isr, 0x%x \n", REG_RD(DCAM_INT_MASK));

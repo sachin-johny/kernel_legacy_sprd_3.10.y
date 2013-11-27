@@ -39,7 +39,6 @@ struct rot_user {
 	pid_t pid;
 	uint32_t is_exit_force;
 	uint32_t is_rot_enable;
-	struct semaphore sem_open;
 	struct semaphore sem_done;
 };
 
@@ -183,12 +182,18 @@ static ssize_t rot_k_write(struct file *file, const char __user * u_data, size_t
 
 static int rot_k_release(struct inode *node, struct file *file)
 {
-	((struct rot_user *)(file->private_data))->pid = INVALID_USER_ID;
-
 	if (0 == atomic_dec_return(&rot_users)) {
 		rot_k_isr_reg(NULL);
 		rot_k_module_dis();
+		sema_init(&g_sem_rot, 1);
+		sema_init(&g_sem_rot_done, 0);
+		sema_init(&g_sem_dev_open, 1);
 	}
+
+	((struct rot_user *)(file->private_data))->pid = INVALID_USER_ID;
+	((struct rot_user *)(file->private_data))->is_exit_force = 0;
+	((struct rot_user *)(file->private_data))->is_rot_enable = 0;
+	sema_init(&(((struct rot_user *)(file->private_data))->sem_done), 0);
 
 	return 0;
 }
@@ -236,21 +241,31 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 
 	case ROT_IO_IS_DONE:
 		{
-			down(&(((struct rot_user *)(file->private_data))->sem_done));
-			{
-				int ret = 0;
+			int ret = 0;
+			uint32_t rot_status = (uint32_t)ROTATE_PROCESS_SUCCESS;
+			ret = down_interruptible(&(((struct rot_user *)(file->private_data))->sem_done));
+			if (ret) {
+				ret = 0;
+				rot_status = (uint32_t)ROTATE_PROCESS_SYS_BUSY;
+				printk("rot_k_ioctl, interruptible\n");
+			} else {
+				rot_status = (uint32_t)ROTATE_PROCESS_SUCCESS;
 				if (((struct rot_user *)(file->private_data))->is_exit_force) {
 					((struct rot_user *)(file->private_data))->is_exit_force = 0;
 					ret = -1;
+					rot_status = (uint32_t)ROTATE_PROCESS_EXIT;
 				}
 
 				if(((struct rot_user *)(file->private_data))->is_rot_enable) {
 					((struct rot_user *)(file->private_data))->is_rot_enable = 0;
 					up(&g_sem_rot);
 				}
-
-				return ret;
 			}
+			if (copy_to_user((void*)arg, &rot_status, sizeof(uint32_t))) {
+				printk("rot_k_ioctl, failed to copy frame info \n");
+			}
+			return ret;
+
 		}
 
 	default:
@@ -300,7 +315,6 @@ int rot_k_probe(struct platform_device *pdev)
 		p_user->pid = INVALID_USER_ID;
 		p_user->is_exit_force = 0;
 		p_user->is_rot_enable = 0;
-		sema_init(&p_user->sem_open, 1);
 		sema_init(&p_user->sem_done, 0);
 		p_user ++;
 	}
