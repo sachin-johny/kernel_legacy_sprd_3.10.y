@@ -610,9 +610,9 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 static void ft5x0x_ts_resume_work(struct work_struct *work)
 {
 	pr_info("==%s==\n", __FUNCTION__);
-	enable_irq(this_client->irq);
 	ft5x0x_ts_reset();
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
+	enable_irq(this_client->irq);
 }
 #endif
 
