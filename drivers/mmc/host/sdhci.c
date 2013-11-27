@@ -1491,6 +1491,12 @@ static void sdhci_do_set_ios(struct sdhci_host *host, struct mmc_ios *ios)
 	if (host->vmmc && vdd_bit != -1) {
 		spin_unlock_irqrestore(&host->lock, flags);
 		mmc_regulator_set_ocr(host->mmc, host->vmmc, vdd_bit);
+		if(host->vmmc_ext){
+			if(vdd_bit)
+			mmc_regulator_set_ocr(host->mmc, host->vmmc_ext, ilog2(MMC_VDD_30_31));
+			else
+			mmc_regulator_set_ocr(host->mmc, host->vmmc_ext, 0);
+		}
 		spin_lock_irqsave(&host->lock, flags);
 	}
 

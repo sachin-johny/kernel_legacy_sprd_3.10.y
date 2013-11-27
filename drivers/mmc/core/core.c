@@ -1080,12 +1080,13 @@ int mmc_regulator_set_ocr(struct mmc_host *mmc,
 		 * a 0.1V range goof (it's a small error percentage).
 		 */
 		tmp = vdd_bit - ilog2(MMC_VDD_165_195);
+
 		if (tmp == 0) {
-			min_uV = 1650 * 1000;
-			max_uV = 1950 * 1000;
+			min_uV = 1800 * 1000;
+			max_uV = min_uV;
 		} else {
 			min_uV = 1900 * 1000 + tmp * 100 * 1000;
-			max_uV = min_uV + 100 * 1000;
+			max_uV = min_uV ;
 		}
 
 		/* avoid needless changes to this voltage; the regulator
@@ -1098,17 +1099,18 @@ int mmc_regulator_set_ocr(struct mmc_host *mmc,
 
 		if (voltage < 0)
 			result = voltage;
-		else if (voltage < min_uV || voltage > max_uV)
+		else if (voltage < min_uV || voltage > max_uV){
 			result = regulator_set_voltage(supply, min_uV, max_uV);
+		}
 		else
 			result = 0;
 
-		if (result == 0 && !mmc->regulator_enabled) {
+		if (vdd_bit) {
 			result = regulator_enable(supply);
 			if (!result)
 				mmc->regulator_enabled = true;
 		}
-	} else if (mmc->regulator_enabled) {
+	} else  {
 		result = regulator_disable(supply);
 		if (result == 0)
 			mmc->regulator_enabled = false;
