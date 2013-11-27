@@ -73,3 +73,4 @@ obj-$(CONFIG_TOUCHSCREEN_WM97XX_ZYLONITE)	+= zylonite-wm97xx.o
 obj-$(CONFIG_TOUCHSCREEN_W90X900)	+= w90p910_ts.o
 obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_FOCALTECH)     += focaltech/
+obj-$(CONFIG_TOUCHSCREEN_IST30XX) += ist30xx.o ist30xx_update.o ist30xx_factory.o ist30xx_tracking.o ist30xx_misc.o ist30xx_sys.o

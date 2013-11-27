@@ -323,6 +323,13 @@ struct platform_device sprd_otg_device = {
 /*if the backlight is driven by pwm, please config the pwm info
  *if the backlight is driven by PWMD, the pwm index is 3 as following
  */
+#ifdef CONFIG_BACKLIGHT_KTD2801
+struct platform_device sprd_backlight_device = {
+	.name           = "sprd_backlight",
+	.id             =  -1,
+};
+
+#else
 struct resource sprd_bl_resource[] = {
 	[0] = {
 		.start	= 3,
@@ -337,7 +344,7 @@ struct platform_device sprd_backlight_device = {
 	.num_resources	= ARRAY_SIZE(sprd_bl_resource),
 	.resource	= sprd_bl_resource,
 };
-
+#endif
 static struct resource sprd_i2c_resources0[] = {
 	[0] = {
 		.start = SPRD_I2C0_BASE,

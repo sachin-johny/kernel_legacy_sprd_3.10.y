@@ -140,6 +140,15 @@ config MACH_SP7715EA
 	help
 	  SP7715EA board based on dolphin serial.
 
+config MACH_STAR2
+	bool "star2 Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	  STAR2 board based on dolphin serial.
+
 endmenu
 
 config SPRD_ION_SIZE

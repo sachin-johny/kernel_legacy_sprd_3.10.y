@@ -53,6 +53,10 @@
 #ifdef	CONFIG_MACH_SP7715EA
 #include "__board-sp7715ea.h"
 #endif
+
+#ifdef  CONFIG_MACH_STAR2
+#include "__board-star2.h"
+#endif
 #include <asm/sizes.h>
 
 

@@ -914,4 +914,15 @@ config TOUCHSCREEN_RESOLUTION_720x1280
              Say Y here, and a list of supported resolution will be displayed.
              This option doesn't affect the kernel.
 
+config TOUCHSCREEN_IST30XX
+        tristate "IST30XX I2C Touchscreen"
+        depends on I2C
+           help
+             Say Y here if you have the Imagis IST30XX I2C touchscreen
+             connected to your system.
+
+             If unsure, say N.
+
+             To compile this driver as a module, choose M here: the
+             module will be called ist30xx.
 endif
