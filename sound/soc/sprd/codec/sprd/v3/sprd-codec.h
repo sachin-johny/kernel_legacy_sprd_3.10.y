@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/codec/sprd/sprd-codec-v3.h
+ * sound/soc/sprd/codec/sprd/v3/sprd-codec.h
  *
  * SPRD-CODEC -- SpreadTrum Tiger intergrated codec.
  *
@@ -14,8 +14,8 @@
  * MERCHANTABILITY ork FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __SPRD_CODEC_V3_H
-#define __SPRD_CODEC_V3_H
+#ifndef __SPRD_CODEC_H
+#define __SPRD_CODEC_H
 
 #include <mach/hardware.h>
 #include <mach/globalregs.h>
@@ -180,6 +180,16 @@
 #define VCM_CAL_MASK		(0x1F)
 
 /* PMUR8_PMUR7 */
+#define PA_OVP_V		(13)
+#define PA_OVP_V_MASK		(0x7)
+#define PA_OVP_542		(0)
+#define PA_OVP_527		(1)
+#define PA_OVP_512		(2)
+#define PA_OVP_496		(3)
+#define PA_OVP_481		(4)
+#define PA_OVP_465		(5)
+#define PA_OVP_450		(6)
+#define PA_OVP_435		(7)
 
 /* CCR */
 #define ADC_CLK_EN		(7)
@@ -322,6 +332,7 @@
 #define HP_POP_FLG		(4)
 #define HP_POP_FLG_MASK		(0x03)
 #define HP_POP_FLG_NEAR_CMP	(3)
+#define OVP_FLAG		(2)
 
 #define SPRD_CODEC_DP_BASE (CODEC_DP_BASE)
 
@@ -395,4 +406,4 @@
 
 #define SPRD_CODEC_IIS1_ID  111
 
-#endif /* __SPRD_CODEC_V3_H */
+#endif /* __SPRD_CODEC_H */

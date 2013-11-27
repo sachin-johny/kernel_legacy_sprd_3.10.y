@@ -1,7 +1,7 @@
 menu "SPRD Codec"
 
-config SND_SOC_SPRD_CODEC_V3
-	tristate # "Sprd-codec-r3p0"
+source "sound/soc/sprd/codec/sprd/v1/Kconfig"
+source "sound/soc/sprd/codec/sprd/v3/Kconfig"
 
 config SND_SOC_SPRD_CODEC_EAR_WITH_IN_SPK
 	bool "Earpiece with in Speaker"
@@ -26,16 +26,4 @@ config SND_SOC_SPRD_HP_POP_DELAY_TIME
 	  if defined CODEC_NO_HP_POP , maybe need this delay
 	  for reduce external hp amplifier noise.
 	  this delay time value, unit is MS.
-
-config SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA
-	bool "Use spreadtrum internal HeadPhone PA"
-	help
-	  Say Y if you want use sprdtrume internal headphone pa
-
-config SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
-	depends on SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA
-	bool "use spreadtrum internal headphone pa for version 2"
-	help
-	  Say Y if you want use sprdtrume internal headphone pa for version2
-
 endmenu

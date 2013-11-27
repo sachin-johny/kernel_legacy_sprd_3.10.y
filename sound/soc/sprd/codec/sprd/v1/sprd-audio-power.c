@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/codec/sprd/sprd-audio-power.c
+ * sound/soc/sprd/codec/sprd/v1/sprd-audio-power.c
  *
  * SPRD-AUDIO-POWER -- SpreadTrum intergrated audio power supply.
  *
@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
+#include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt("POWER") fmt
 
 #include <linux/module.h>
@@ -30,7 +30,7 @@
 
 #include <mach/sprd-audio.h>
 #include "sprd-audio-power.h"
-#include "../../sprd-asoc-common.h"
+#include "sprd-asoc-common.h"
 
 struct sprd_audio_power_info {
 	int id;
@@ -206,7 +206,7 @@ static int sprd_audio_power_set_mode(struct regulator_dev *rdev, unsigned mode)
 	int ret = 0;
 	struct sprd_audio_power_info *info = rdev_get_drvdata(rdev);
 
-	sp_asoc_pr_dbg("%s Set Mode\n", rdev->desc->name);
+	sp_asoc_pr_dbg("%s Set Mode 0x%x\n", rdev->desc->name, mode);
 
 	if (!info->sleep_ctrl) {
 		return ret;
@@ -246,8 +246,7 @@ static const u16 VPA_VSEL_table[] = {
 };
 
 static const u16 VMIC_VSEL_table[] = {
-	1700, 2210, 1900, 2470,
-	2100, 2730, 2300, 3000,
+	2100, 1900, 2300, 2500,
 };
 
 static const u16 VBG_IBAIS_VSEL_table[] = {
@@ -339,35 +338,12 @@ static struct regulator_ops sprd_audio_power_ops = {
 	.get_status = sprd_audio_power_get_status,
 };
 
-static int sprd_audio_power_sleep_ctrl(void *data, int en)
-{
-	struct sprd_audio_power_info *info = data;
-	int reg, mask, value;
-	switch (info->desc.id) {
-	case SPRD_AUDIO_POWER_HEADMICBIAS:
-		reg = PMUR2_PMUR1;
-		mask = BIT(HEADMIC_SLEEP_EN);
-		value = en ? mask : 0;
-		return sprd_power_u_bits(info, reg, mask, value);
-		break;
-	default:
-		BUG_ON(0);
-	}
-	return 0;
-}
-
 static inline int vreg_enable(void)
 {
 	int ret = 0;
-	arch_audio_codec_switch(AUDIO_TO_AP_ARM_CTRL);
+	arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
 	arch_audio_codec_analog_reg_enable();
 	arch_audio_codec_analog_reset();
-	/* Disable Sleep Control Audio Power */
-#if defined(CONFIG_ARCH_SCX15)
-	ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL, 0, 0xFFFF);
-#else
-	ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
-#endif
 	return ret;
 }
 
@@ -383,24 +359,20 @@ static inline int vreg_disable(void)
  * software control over them after boot.
  */
 SPRD_AUDIO_POWER_REG_LDO(VREG, 1, vreg_enable, vreg_disable);
-SPRD_AUDIO_POWER_SIMPLE_LDO(VB, "VREG", 2, PMUR2_PMUR1, BIT(VB_EN), NULL, 0, 0);
-SPRD_AUDIO_POWER_SIMPLE_LDO(BG, "VB", 3, PMUR4_PMUR3, BIT(BG_EN), NULL, 0, 0);
-SPRD_AUDIO_POWER_LDO(BG_IBIAS, "BG", 4, PMUR4_PMUR3, BIT(BG_IBIAS_EN), NULL,
-		     PMUR4_PMUR3, BG_I_MASK, BG_I, VBG_IBAIS_VSEL_table, 0, 0);
-SPRD_AUDIO_POWER_LDO(VCOM, "BG_IBIAS", 5, PMUR4_PMUR3, BIT(VCM_EN), NULL,
-		     PMUR4_PMUR3, VCM_V_MASK, VCM_V, VCOM_VSEL_table, 0, 0);
-SPRD_AUDIO_POWER_SIMPLE_LDO(VCOM_BUF, "VCOM", 6, PMUR4_PMUR3, BIT(VCM_BUF_EN),
-			    NULL, 0, 0);
-SPRD_AUDIO_POWER_SIMPLE_LDO(VBO, "VB", 7, PMUR2_PMUR1, BIT(VBO_EN), NULL,
-			    0, 0);
-SPRD_AUDIO_POWER_LDO(MICBIAS, "VCOM", 8, PMUR4_PMUR3, BIT(MICBIAS_EN), NULL,
-		     PMUR2_PMUR1, MICBIAS_V_MASK, MICBIAS_V, VMIC_VSEL_table, 0,
-		     0);
-SPRD_AUDIO_POWER_SIMPLE_LDO(AUXMICBIAS, "VCOM", 9, PMUR4_PMUR3,
-			    BIT(AUXMICBIAS_EN), NULL, 0, 0);
-SPRD_AUDIO_POWER_SIMPLE_LDO(HEADMICBIAS, "VCOM", 10, PMUR2_PMUR1,
-			    BIT(HEADMICBIAS_EN), sprd_audio_power_sleep_ctrl, 0,
+SPRD_AUDIO_POWER_SIMPLE_LDO(VB, "VREG", 2, PMUR1, BIT(VB_EN), NULL, 0, 0);
+SPRD_AUDIO_POWER_SIMPLE_LDO(BG, "VB", 3, PMUR1, BIT(BG_EN), NULL, 0, 0);
+SPRD_AUDIO_POWER_SIMPLE_LDO(BG_IBIAS, "BG", 4, PMUR1, BIT(BG_IBIAS_EN), NULL, 0,
 			    0);
+SPRD_AUDIO_POWER_LDO(VCOM, "BG_IBIAS", 5, PMUR1, BIT(VCM_EN), NULL, PMUR3,
+		     VCM_V_MASK, VCM_V, VCOM_VSEL_table, 0, 0);
+SPRD_AUDIO_POWER_SIMPLE_LDO(VCOM_BUF, "VCOM", 6, PMUR1, BIT(VCM_BUF_EN), NULL,
+			    0, 0);
+SPRD_AUDIO_POWER_SIMPLE_LDO(VBO, "VB", 7, PMUR1, BIT(VBO_EN), NULL, 0, 0);
+SPRD_AUDIO_POWER_LDO(MICBIAS, "VCOM", 8, PMUR1, BIT(MICBIAS_EN), NULL,
+		     PMUR3, MICBIAS_V_MASK, MICBIAS_V, VMIC_VSEL_table, 0, 0);
+SPRD_AUDIO_POWER_LDO(AUXMICBIAS, "VCOM", 9, PMUR1, BIT(AUXMICBIAS_EN), NULL,
+		     PMUR3, AUXMICBIAS_V_MASK, AUXMICBIAS_V, VMIC_VSEL_table, 0,
+		     0);
 
 #define SPRD_OF_MATCH(comp, label) \
 	{ \
@@ -418,7 +390,6 @@ static const struct of_device_id sprd_audio_power_of_match[] = {
 	SPRD_OF_MATCH("sp,audio-vbo", VBO),
 	SPRD_OF_MATCH("sp,audio-micbias", MICBIAS),
 	SPRD_OF_MATCH("sp,audio-auxmicbias", AUXMICBIAS),
-	SPRD_OF_MATCH("sp,audio-headmicbias", HEADMICBIAS),
 };
 
 static int sprd_audio_power_probe(struct platform_device *pdev)
@@ -538,7 +509,6 @@ static struct platform_device sprd_audio_regulator_devices[] = {
 	SPRD_AUDIO_DEVICE(VBO),
 	SPRD_AUDIO_DEVICE(MICBIAS),
 	SPRD_AUDIO_DEVICE(AUXMICBIAS),
-	SPRD_AUDIO_DEVICE(HEADMICBIAS),
 };
 
 static int sprd_audio_power_add_devices(void)

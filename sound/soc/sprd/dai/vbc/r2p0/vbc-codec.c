@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/dai/vbc/vbc-r2p0-codec.c
+ * sound/soc/sprd/dai/vbc/r2p0/vbc-codec.c
  *
  * SPRD SoC VBC Codec -- SpreadTrum SOC VBC Codec function.
  *
@@ -14,8 +14,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
-#define pr_fmt(fmt) pr_sprd_fmt("VBCDC") fmt
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
@@ -36,8 +34,8 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
-#include "../../sprd-asoc-common.h"
-#include "vbc-r2p0-codec.h"
+#include "sprd-asoc-common.h"
+#include "vbc-codec.h"
 
 #ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
 void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate);
@@ -368,6 +366,7 @@ struct vbc_equ {
 			      int vbc_idx);
 };
 
+static void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx);
 static void vbc_eq_try_apply(struct snd_soc_codec *codec, int vbc_idx);
 
 #define VBC_DG_VAL_MAX (0x7F)
@@ -404,7 +403,7 @@ enum {
 #define IS_SPRD_VBC_MUX_RANG(reg) ((reg) >= SPRD_VBC_MUX_START && (reg) < (SPRD_VBC_MUX_MAX))
 #define SPRD_VBC_MUX_IDX(reg) (reg - SPRD_VBC_MUX_START)
 
-const char *vbc_mux_debug_str[SPRD_VBC_MUX_MAX] = {
+static const char *vbc_mux_debug_str[SPRD_VBC_MUX_MAX] = {
 	"st0 chan mux",
 	"st1 chan mux",
 	"st0 mux",
@@ -670,14 +669,14 @@ static inline int vbc_st1_hpf_set(int enable, int hpf_val)
 static inline void vbc_da_alc_mode_set(int dp_t_mode)
 {
 	vbc_reg_update(DAHPCTL, dp_t_mode ? BIT(VBDAC_ALC_DP_T_MODE) : 0,
-		      BIT(VBDAC_ALC_DP_T_MODE));
+		       BIT(VBDAC_ALC_DP_T_MODE));
 }
 
 static inline void vbc_da_eq4_pos_sel(int pos)
 {
 	/*EQ4 pos sel */
 	vbc_reg_update(DAHPCTL, pos ? BIT(VBDAC_EQ4_POS_SEL) : 0,
-		      BIT(VBDAC_EQ4_POS_SEL));
+		       BIT(VBDAC_EQ4_POS_SEL));
 }
 
 static int vbc_try_dg_set(struct vbc_codec_priv *vbc_codec, int vbc_idx, int id)
@@ -1019,8 +1018,8 @@ static int mux_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
-int sprd_vbc_mux_get(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol)
+static int sprd_vbc_mux_get(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
@@ -1035,8 +1034,8 @@ int sprd_vbc_mux_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol)
+static int sprd_vbc_mux_put(struct snd_kcontrol *kcontrol,
+			    struct snd_ctl_elem_value *ucontrol)
 {
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_dapm_widget *widget = wlist->widgets[0];
@@ -1229,17 +1228,17 @@ static const struct snd_soc_dapm_route vbc_codec_intercon[] = {
 	{"DFM", NULL, "VBC Power"},
 
 	/********************** capture in  path in vbc ********************/
-	/*AD input route */
+	/* AD input route */
 	{"Aud Loop in VBC", "Switch", "Aud input"},
 
 	{"Aud1 Loop in VBC", "Switch", "Aud1 input"},
 
-	/*AD01 */
+	/* AD01 */
 	{"AD IISMUX", "DIGFM", "Dig FM Jack"},
 	{"AD IISMUX", "EXTDIGFM", "Dig FM Jack"},
 	{"AD IISMUX", "AUDIIS0", "Aud Loop in VBC"},
 
-	/*AD23 */
+	/* AD23 */
 	{"AD23 IISMUX", "DIGFM", "Dig FM Jack"},
 	{"AD23 IISMUX", "EXTDIGFM", "Dig FM Jack"},
 	{"AD23 IISMUX", "AUDIIS1", "Aud1 Loop in VBC"},
@@ -1399,7 +1398,7 @@ static inline void vbc_da_eq_reg_set(u32 reg, void *data)
 	if (reg == DAHPCTL) {
 		/*EQ set */
 		vbc_reg_update(DAHPCTL, effect_paras[vbc_da_eq_reg_offset(reg)],
-			      0x1FF);
+			       0x1FF);
 	} else {
 		vbc_reg_write(reg, effect_paras[vbc_da_eq_reg_offset(reg)]);
 	}
@@ -1419,7 +1418,7 @@ static inline void vbc_ad_eq_reg_set(u32 reg, void *data)
 	u32 *effect_paras = (u32 *) data;
 	if (reg == ADHPCTL) {
 		vbc_reg_update(ADHPCTL, effect_paras[vbc_da_eq_reg_offset(reg)],
-			      0xC0);
+			       0xC0);
 	} else {
 		vbc_reg_write(reg, effect_paras[vbc_ad_eq_reg_offset(reg)]);
 	}
@@ -1470,7 +1469,8 @@ static int step_action_set_reg(int reg, int r)
 
 static void gray_set_reg(u32 reg, int from, int to)
 {
-	sp_asoc_pr_dbg("gray set reg(0x%x) = (0x%x)  from (0x%x))\n", reg, to, from);
+	sp_asoc_pr_dbg("gray set reg(0x%x) = (0x%x)  from (0x%x))\n", reg, to,
+		       from);
 	gray(reg, from, to, step_action_set_reg);
 }
 
@@ -1563,7 +1563,7 @@ static void vbc_eq_reg_apply(struct snd_soc_codec *codec, void *data,
 		}
 		/*iir state clear */
 		vbc_reg_update(DAHPCTL, BIT(VBDAEQ_HP_REG_CLR),
-			      BIT(VBDAEQ_HP_REG_CLR));
+			       BIT(VBDAEQ_HP_REG_CLR));
 
 		/*a,b set */
 		if (val & VBDAC_EQ6_EN)
@@ -1618,7 +1618,7 @@ static void vbc_eq_reg_apply(struct snd_soc_codec *codec, void *data,
 	} else {
 #if 0
 		val = ((u32 *) data)[vbc_ad_eq_reg_offset(ADHPCTL)];
-		if (chan_id == VBC_CHAN_AD01) {
+		if (vbc_idx == VBC_CAPTRUE) {
 			/*AD01 EQ6 set */
 			for (reg = AD01_HPCOEF42_H; reg >= AD01_HPCOEF0_H;
 			     reg -= 0x38) {
@@ -1688,17 +1688,21 @@ static void vbc_eq_profile_apply(struct snd_soc_codec *codec, void *data,
 	}
 }
 
-void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx)
+static void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx)
 {
-	if (vbc_idx == VBC_PLAYBACK)
+	switch (vbc_idx) {
+	case VBC_PLAYBACK:
 		vbc_eq_profile_apply(codec,
-				     &vbc_da_eq_profile_default, VBC_PLAYBACK);
-	else if (vbc_idx == VBC_CAPTRUE)
+				     &vbc_da_eq_profile_default, vbc_idx);
+		break;
+	case VBC_CAPTRUE:
+	case VBC_CAPTRUE1:
 		vbc_eq_profile_apply(codec,
-				     &vbc_ad_eq_profile_default, VBC_CAPTRUE);
-	else if (vbc_idx == VBC_CAPTRUE1)
-		vbc_eq_profile_apply(codec,
-				     &vbc_ad_eq_profile_default, VBC_CAPTRUE1);
+				     &vbc_ad_eq_profile_default, vbc_idx);
+		break;
+	default:
+		break;
+	}
 }
 
 static void vbc_eq_try_apply(struct snd_soc_codec *codec, int vbc_idx)
@@ -1917,16 +1921,18 @@ req_fw_err:
 	mutex_unlock(&vbc_codec->load_mutex);
 	if (ret >= 0) {
 		struct vbc_da_eq_profile *profile =
-			&(((struct vbc_da_eq_profile
+		    &(((struct vbc_da_eq_profile
 			*)(p_eq_setting->data[VBC_PLAYBACK]))
-			  [0]);
+		      [0]);
 		u32 *data = profile->effect_paras;
-		if (data[vbc_da_eq_reg_offset(DAHPCTL)] & BIT(VBDAC_ALC_DP_T_MODE))
+		if (data[vbc_da_eq_reg_offset(DAHPCTL)] &
+		    BIT(VBDAC_ALC_DP_T_MODE))
 			vbc_codec->alc_dp_t_mode = 1;
 		else
 			vbc_codec->alc_dp_t_mode = 0;
-		sp_asoc_pr_dbg("DAHPCTL:%x----alc_dp_t_mode:%d", data[vbc_da_eq_reg_offset(DAHPCTL)],
-			vbc_codec->alc_dp_t_mode);
+		sp_asoc_pr_dbg("DAHPCTL:%x----alc_dp_t_mode:%d",
+			       data[vbc_da_eq_reg_offset(DAHPCTL)],
+			       vbc_codec->alc_dp_t_mode);
 		for (i = 0; i <= 2; i++) {
 			if (p_eq_setting->is_active[i]
 			    && p_eq_setting->data[i])
@@ -1997,7 +2003,7 @@ static int vbc_eq_switch_put(struct snd_kcontrol *kcontrol,
 		return ret;
 	}
 
-	sp_asoc_pr_info("VBC %s eq switch %s\n", vbc_get_name(id),
+	sp_asoc_pr_info("VBC %s EQ Switch %s\n", vbc_get_name(id),
 			STR_ON_OFF(ucontrol->value.integer.value[0]));
 
 	if ((ret == 0) || (ret == 1)) {
@@ -2032,7 +2038,7 @@ static int vbc_eq_load_put(struct snd_kcontrol *kcontrol,
 	int ret;
 	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
 
-	sp_asoc_pr_info("VBC eq %s\n",
+	sp_asoc_pr_info("VBC EQ %s\n",
 			texts->texts[ucontrol->value.integer.value[0]]);
 
 	ret = ucontrol->value.integer.value[0];
@@ -2156,7 +2162,7 @@ static int vbc_dg_switch_put(struct snd_kcontrol *kcontrol,
 		return ret;
 	}
 
-	sp_asoc_pr_info("VBC %s%d DG switch %s\n",
+	sp_asoc_pr_info("VBC %s%d DG Switch %s\n",
 			vbc_get_name(vbc_idx), id,
 			STR_ON_OFF(ucontrol->value.integer.value[0]));
 
@@ -2195,7 +2201,7 @@ static int vbc_st_hpf_switch_put(struct snd_kcontrol *kcontrol,
 		return ret;
 	}
 
-	sp_asoc_pr_info("VBC ST%d HPF switch %s\n", id,
+	sp_asoc_pr_info("VBC ST%d HPF Switch %s\n", id,
 			STR_ON_OFF(ucontrol->value.integer.value[0]));
 
 	vbc_codec->st_dg.hpf_switch[id] = ret;
@@ -2527,7 +2533,7 @@ static struct snd_soc_codec_driver soc_codec_dev_vbc_codec = {
 	.num_controls = ARRAY_SIZE(vbc_codec_snd_controls),
 };
 
-int sprd_vbc_codec_probe(struct platform_device *pdev)
+static int sprd_vbc_codec_probe(struct platform_device *pdev)
 {
 	struct vbc_codec_priv *vbc_codec;
 	int ret;
@@ -2572,7 +2578,7 @@ int sprd_vbc_codec_probe(struct platform_device *pdev)
 	return ret;
 }
 
-int sprd_vbc_codec_remove(struct platform_device *pdev)
+static int sprd_vbc_codec_remove(struct platform_device *pdev)
 {
 	struct vbc_codec_priv *vbc_codec = platform_get_drvdata(pdev);
 	vbc_codec->vbc_eq_setting.dev = 0;

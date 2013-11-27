@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/dai/vbc/vbc_r2p0.h
+ * sound/soc/sprd/dai/vbc/r2p0/vbc.h
  *
  * SPRD SoC VBC -- SpreadTrum SOC for VBC DAI function.
  *
@@ -14,9 +14,9 @@
  * MERCHANTABILITY ork FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __VBC_R2P0_H
-#define __VBC_R2P0_H
+#ifndef __VBC_H
+#define __VBC_H
 
-#include "vbc-r2p0-comm.h"
+#include "vbc-comm.h"
 
-#endif /* __VBC_R2P0_H */
+#endif /* __VBC_H */

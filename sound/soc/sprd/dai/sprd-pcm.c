@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../sprd-asoc-debug.h"
+#include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt(" PCM ") fmt
 
 #include <linux/module.h>
@@ -41,7 +41,7 @@
 #include <mach/dma_reg.h>
 #include <mach/sprd-audio.h>
 
-#include "../sprd-asoc-common.h"
+#include "sprd-asoc-common.h"
 #include "sprd-pcm.h"
 #include "vaudio/vaudio.h"
 #include <mach/i2s.h>

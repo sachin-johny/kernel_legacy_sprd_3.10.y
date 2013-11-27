@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
+#include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt(" I2S ") fmt
 
 #include <linux/module.h>
@@ -38,8 +38,8 @@
 
 #include <mach/hardware.h>
 
-#include "../../sprd-asoc-common.h"
-#include "../sprd-pcm.h"
+#include "sprd-asoc-common.h"
+#include "sprd-pcm.h"
 #include <mach/i2s.h>
 
 /* register offset */
@@ -107,17 +107,18 @@ static struct sprd_pcm_dma_params i2s_pcm_stereo_in = {
 
 static DEFINE_SPINLOCK(i2s_lock);
 
-inline int i2s_reg_read(unsigned int reg)
+static inline int i2s_reg_read(unsigned int reg)
 {
 	return __raw_readl((void *__iomem)reg);
 }
 
-inline void i2s_reg_raw_write(unsigned int reg, int val)
+static inline void i2s_reg_raw_write(unsigned int reg, int val)
 {
 	__raw_writel(val, (void *__iomem)reg);
 }
 
-int i2s_reg_write(unsigned int reg, int val)
+#if 0
+static int i2s_reg_write(unsigned int reg, int val)
 {
 	spin_lock(&i2s_lock);
 	i2s_reg_raw_write(reg, val);
@@ -126,11 +127,12 @@ int i2s_reg_write(unsigned int reg, int val)
 		       i2s_reg_read(reg));
 	return 0;
 }
+#endif
 
 /*
  * Returns 1 for change, 0 for no change, or negative error code.
  */
-int i2s_reg_update(unsigned int reg, int val, int mask)
+static int i2s_reg_update(unsigned int reg, int val, int mask)
 {
 	int new, old;
 	spin_lock(&i2s_lock);
@@ -170,44 +172,47 @@ static int i2s_calc_clk(struct i2s_priv *i2s)
 	int source_clk;
 	int bit;
 	int val;
+	struct clk *clk_parent;
 	switch (config->fs) {
 	case 8000:
 	case 16000:
 	case 32000:
+		clk_parent = clk_get(NULL, "clk_128m");
+		break;
+	case 9600:
+	case 12000:
+	case 24000:
 	case 48000:
-		{
-			struct clk *clk_parent;
-			if (config->fs == 48000)
-				clk_parent = clk_get(NULL, "clk_76m8");
-			else
-				clk_parent = clk_get(NULL, "clk_128m");
-			if (IS_ERR(clk_parent)) {
-				int ret = PTR_ERR(clk_parent);
-				pr_err("ERR:I2S Get Clock Source Error %d!\n",
-				       ret);
-				return ret;
-			}
-			clk_set_parent(i2s->i2s_clk, clk_parent);
-			source_clk = clk_get_rate(clk_parent);
-			clk_set_rate(i2s->i2s_clk, source_clk);
-			clk_put(clk_parent);
-		}
+		clk_parent = clk_get(NULL, "clk_76m8");
 		break;
 	default:
 		pr_err("ERR:I2S Can't Support %d Clock\n", config->fs);
-		return 0;
+		return -ENOTSUPP;
 	}
+
+	if (IS_ERR(clk_parent)) {
+		int ret = PTR_ERR(clk_parent);
+		pr_err("ERR:I2S Get Clock Source Error %d!\n", ret);
+		return ret;
+	}
+	clk_set_parent(i2s->i2s_clk, clk_parent);
+	source_clk = clk_get_rate(clk_parent);
+	clk_set_rate(i2s->i2s_clk, source_clk);
+	clk_put(clk_parent);
+
 	sp_asoc_pr_dbg("I2S Source Clock is %d HZ\n", source_clk);
 	cycle = (PCM_BUS == config->bus_type) ? (config->pcm_cycle + 1) : 2;
 	bit = 8 << config->byte_per_chan;
 	bit_clk = config->fs * cycle * bit;
 	sp_asoc_pr_dbg("I2S BIT Clock is %d HZ\n", bit_clk);
+	if (source_clk % (bit_clk << 1))
+		return -ENOTSUPP;
 	val = (source_clk / bit_clk) >> 1;
 	--val;
 	return val;
 }
 
-static void i2s_set_clk(struct i2s_priv *i2s)
+static int i2s_set_clkd(struct i2s_priv *i2s)
 {
 	int shift = 0;
 	int mask = 0xFFFF << shift;
@@ -215,7 +220,16 @@ static void i2s_set_clk(struct i2s_priv *i2s)
 	unsigned int reg = I2S_REG(i2s, IIS_CLKD);
 	sp_asoc_pr_dbg("%s\n", __func__);
 	val = i2s_calc_clk(i2s);
+	if (val < 0)
+		return val;
 	i2s_reg_update(reg, val, mask);
+	return 0;
+}
+
+static int i2s_set_clk_m_n(struct i2s_priv *i2s)
+{
+	/* This will support futher */
+	return -ENOTSUPP;
 }
 
 static void i2s_set_bus_type(struct i2s_priv *i2s)
@@ -418,7 +432,20 @@ static int i2s_get_data_position(struct i2s_priv *i2s)
 	return 0;
 }
 
-static int i2s_config(struct i2s_priv *i2s)
+static int i2s_config_rate(struct i2s_priv *i2s)
+{
+	int ret = 0;
+	struct i2s_config *config = &i2s->config;
+	if (I2S_MASTER == config->mode) {
+		ret = i2s_set_clkd(i2s);
+	}
+	if (ret) {
+		ret = i2s_set_clk_m_n(i2s);
+	}
+	return ret;
+}
+
+static int i2s_config_apply(struct i2s_priv *i2s)
 {
 	int ret = 0;
 	struct i2s_config *config = &i2s->config;
@@ -450,9 +477,8 @@ static int i2s_config(struct i2s_priv *i2s)
 		i2s_set_pcm_slot(i2s);
 		i2s_set_pcm_cycle(i2s);
 	}
-	if (I2S_MASTER == config->mode) {
-		i2s_set_clk(i2s);
-	}
+
+	ret = i2s_config_rate(i2s);
 
 	return ret;
 }
@@ -502,7 +528,7 @@ static int i2s_open(struct i2s_priv *i2s)
 		i2s_global_enable(i2s);
 		i2s_soft_reset(i2s);
 		i2s_dma_ctrl(i2s, 0);
-		ret = i2s_config(i2s);
+		ret = i2s_config_apply(i2s);
 		clk_enable(i2s->i2s_clk);
 	}
 
@@ -554,6 +580,7 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 			 struct snd_pcm_hw_params *params,
 			 struct snd_soc_dai *dai)
 {
+	int ret = 0;
 	struct sprd_pcm_dma_params *dma_data;
 	struct i2s_config *config = dai->ac97_pdata;
 	struct i2s_priv *i2s = container_of(config, struct i2s_priv, config);
@@ -578,19 +605,27 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 
 	snd_soc_dai_set_dma_data(dai, substream, dma_data);
 
+	i2s->config.fs = params_rate(params);
+	ret = i2s_config_rate(i2s);
+	if (ret) {
+		return ret;
+	}
+
 	switch (params_format(params)) {
 	case SNDRV_PCM_FORMAT_S16_LE:
 		break;
 	default:
+		ret = -ENOTSUPP;
 		pr_err("ERR:I2S Only Supports format S16_LE now!\n");
 		break;
 	}
 
 	if (params_channels(params) > 2) {
+		ret = -ENOTSUPP;
 		pr_err("ERR:I2S Can not Supports Grate 2 Channels\n");
 	}
 
-	return 0;
+	return ret;
 }
 
 static int i2s_trigger(struct snd_pcm_substream *substream, int cmd,

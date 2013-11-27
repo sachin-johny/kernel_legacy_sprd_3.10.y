@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
+#include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt(" DSP ") fmt
 
 #include <linux/module.h>
@@ -34,7 +34,7 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
-#include "../../sprd-asoc-common.h"
+#include "sprd-asoc-common.h"
 #include "vaudio.h"
 
 static int sprd_vaudio_startup(struct snd_pcm_substream *substream,

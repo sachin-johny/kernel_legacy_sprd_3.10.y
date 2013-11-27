@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/dai/vbc/vbc-r2p0-comm.c
+ * sound/soc/sprd/dai/vbc/r1p0/vbc-comm.c
  *
  * SPRD SoC VBC -- SpreadTrum SOC DAI for VBC Common function.
  *
@@ -14,9 +14,6 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
-#define pr_fmt(fmt) pr_sprd_fmt("VBCOM") fmt
-
 #include <linux/kernel.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
@@ -32,8 +29,8 @@
 #include <linux/io.h>
 #include <sound/soc.h>
 
-#include "../../sprd-asoc-common.h"
-#include "vbc-r2p0-comm.h"
+#include "sprd-asoc-common.h"
+#include "vbc-comm.h"
 
 static DEFINE_SPINLOCK(vbc_lock);
 
@@ -44,52 +41,27 @@ static struct vbc_refcount {
 	atomic_t chan_on[VBC_IDX_MAX][2];
 } vbc_refcnt;
 
-struct sprd_vbc_src_reg_info {
-	int reg;
-	int clr_bit;
-	int f1f2f3_bp_bit;
-	int f1_sel_bit;
-	int en_bit;
-};
-
-struct sprd_vbc_src_info {
-	int need;
-	int opened;
-	struct sprd_vbc_src_reg_info reg_info;
-};
-
-static struct sprd_vbc_src_info vbc_src[VBC_IDX_MAX] = {
-	{0, 0, {0}},
-	{0, 0,
-	 {ADCSRCCTL, VBADCSRC_CLR_01, VBADCSRC_F1F2F3_BP_01, VBADCSRC_F1_SEL_01,
-	  VBADCSRC_EN_01}},
-	{0, 0,
-	 {ADCSRCCTL, VBADCSRC_CLR_23, VBADCSRC_F1F2F3_BP_23, VBADCSRC_F1_SEL_23,
-	  VBADCSRC_EN_23}},
-};
-
 static const char *sprd_vbc_name[VBC_IDX_MAX] = {
 	"DAC",
-	"ADC01",
-	"ADC23",
+	"ADC",
 };
 
-inline const char *vbc_get_name(int vbc_idx)
+static inline const char *vbc_get_name(int vbc_idx)
 {
 	return sprd_vbc_name[vbc_idx];
 }
 
-inline int vbc_reg_read(unsigned int reg)
+static inline int vbc_reg_read(unsigned int reg)
 {
 	return __raw_readl((void *__iomem)reg);
 }
 
-inline void vbc_reg_raw_write(unsigned int reg, int val)
+static inline void vbc_reg_raw_write(unsigned int reg, int val)
 {
 	__raw_writel(val, (void *__iomem)reg);
 }
 
-int vbc_reg_write(unsigned int reg, int val)
+static int vbc_reg_write(unsigned int reg, int val)
 {
 	spin_lock(&vbc_lock);
 	vbc_reg_raw_write(reg, val);
@@ -102,7 +74,7 @@ int vbc_reg_write(unsigned int reg, int val)
 /*
  * Returns 1 for change, 0 for no change, or negative error code.
  */
-int vbc_reg_update(unsigned int reg, int val, int mask)
+static int vbc_reg_update(unsigned int reg, int val, int mask)
 {
 	int new, old;
 	spin_lock(&vbc_lock);
@@ -116,12 +88,12 @@ int vbc_reg_update(unsigned int reg, int val, int mask)
 }
 
 static struct clk *s_vbc_clk = 0;
-void vbc_clk_set(struct clk *clk)
+static void vbc_clk_set(struct clk *clk)
 {
 	s_vbc_clk = clk;
 }
 
-struct clk *vbc_clk_get(void)
+static struct clk *vbc_clk_get(void)
 {
 	return s_vbc_clk;
 }
@@ -144,7 +116,7 @@ static inline void vbc_reg_disable(void)
 	}
 }
 
-int vbc_power(int enable)
+static int vbc_power(int enable)
 {
 	int i;
 	atomic_t *vbc_power_on = &vbc_refcnt.vbc_power_on;
@@ -175,52 +147,24 @@ int vbc_power(int enable)
 
 static inline int vbc_da_enable_raw(int enable, int chan)
 {
-	vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBDACHEN_SHIFT + chan)),
-		       (1 << (VBDACHEN_SHIFT + chan)));
-	return 0;
+	int ret;
+	if (enable) {
+		ret = arch_audio_vbc_da_enable(chan);
+	} else {
+		ret = arch_audio_vbc_da_disable(chan);
+	}
+	return ret;
 }
 
 static inline int vbc_ad_enable_raw(int enable, int chan)
 {
-	vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBADCHEN_SHIFT + chan)),
-		       (1 << (VBADCHEN_SHIFT + chan)));
-	return 0;
-}
-
-static inline int vbc_ad23_enable_raw(int enable, int chan)
-{
-	vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBAD23CHEN_SHIFT + chan)),
-		       (1 << (VBAD23CHEN_SHIFT + chan)));
-	return 0;
-}
-static inline void vbc_da_eq6_enable(int enable)
-{
-	vbc_reg_update(DAHPCTL, (enable ? BIT(VBDAC_EQ6_EN) : 0),
-		      BIT(VBDAC_EQ6_EN));
-}
-
-static inline void vbc_da_eq4_enable(int enable)
-{
-	vbc_reg_update(DAHPCTL, (enable ? BIT(VBDAC_EQ4_EN) : 0),
-		      BIT(VBDAC_EQ4_EN));
-}
-
-static inline void vbc_da_alc_enable(int enable)
-{
-	vbc_reg_update(DAHPCTL, (enable ? BIT(VBDAC_ALC_EN) : 0),
-		      BIT(VBDAC_ALC_EN));
-}
-
-static inline void vbc_ad01_eq6_enable(int enable)
-{
-	vbc_reg_update(ADHPCTL, (enable ? BIT(VBADC01_EQ6_EN) : 0),
-		      BIT(VBADC01_EQ6_EN));
-}
-
-static inline void vbc_ad23_eq6_enable(int enable)
-{
-	vbc_reg_update(ADHPCTL, (enable ? BIT(VBADC23_EQ6_EN) : 0),
-		      BIT(VBADC23_EQ6_EN));
+	int ret;
+	if (enable) {
+		ret = arch_audio_vbc_ad_enable(chan);
+	} else {
+		ret = arch_audio_vbc_ad_disable(chan);
+	}
+	return ret;
 }
 
 static inline int vbc_enable_set(int enable)
@@ -234,10 +178,9 @@ typedef int (*vbc_chan_enable_raw) (int enable, int chan);
 static vbc_chan_enable_raw vbc_chan_enable_fun[VBC_IDX_MAX] = {
 	vbc_da_enable_raw,
 	vbc_ad_enable_raw,
-	vbc_ad23_enable_raw,
 };
 
-int vbc_chan_enable(int enable, int vbc_idx, int chan)
+static int vbc_chan_enable(int enable, int vbc_idx, int chan)
 {
 	atomic_t *chan_on = &vbc_refcnt.chan_on[vbc_idx][chan];
 	if (enable) {
@@ -262,29 +205,18 @@ int vbc_chan_enable(int enable, int vbc_idx, int chan)
 	return 0;
 }
 
-int vbc_enable(int enable)
+static int vbc_enable(int enable)
 {
 	atomic_t *vbc_on = &vbc_refcnt.vbc_on;
 	if (enable) {
 		atomic_inc(vbc_on);
 		if (atomic_read(vbc_on) == 1) {
-			vbc_da_eq6_enable(1);
-			vbc_da_alc_enable(1);
-			/*todo??*/
-			/*vbc_da_eq4_enable(1);*/
-			/*vbc_ad01_eq6_enable(1); */
-			/*vbc_ad23_eq6_enable(1); */
 			vbc_enable_set(1);
 			sp_asoc_pr_dbg("VBC Enable\n");
 		}
 	} else {
 		if (atomic_dec_and_test(vbc_on)) {
 			vbc_enable_set(0);
-			vbc_da_eq6_enable(0);
-			vbc_da_alc_enable(0);
-			/*vbc_da_eq4_enable(0);*/
-			/*vbc_ad01_eq6_enable(0); */
-			/*vbc_ad23_eq6_enable(0); */
 			sp_asoc_pr_dbg("VBC Disable");
 		}
 		if (atomic_read(vbc_on) < 0) {
@@ -293,85 +225,5 @@ int vbc_enable(int enable)
 	}
 
 	sp_asoc_pr_dbg("VBC EN REF: %d", atomic_read(vbc_on));
-	return 0;
-}
-
-int vbc_src_need_set(int need, int vbc_idx)
-{
-	vbc_src[vbc_idx].need = need;
-	return 0;
-}
-
-int vbc_src_need_get(int vbc_idx)
-{
-	return vbc_src[vbc_idx].need;
-}
-
-int vbc_src_is_opened(int vbc_idx)
-{
-	return vbc_src[vbc_idx].opened;
-}
-
-int vbc_src_set(int rate, int vbc_idx)
-{
-	int f1f2f3_bp;
-	int f1_sel;
-	int en_sel;
-	int val;
-	int mask;
-	struct sprd_vbc_src_reg_info *reg_info = &vbc_src[vbc_idx].reg_info;
-
-	if (!vbc_src[vbc_idx].reg_info.reg) {
-		return -EINVAL;
-	}
-
-	if (!vbc_src_need_get(vbc_idx)) {
-		rate = 0;
-	}
-
-	sp_asoc_pr_dbg("Rate:%d, Chan: %s", rate, vbc_get_name(vbc_idx));
-
-	/*src_clr */
-	vbc_reg_update(vbc_src[vbc_idx].reg_info.reg,
-		       (1 << reg_info->clr_bit), (1 << reg_info->clr_bit));
-	udelay(10);
-	vbc_reg_update(reg_info->reg, 0, (1 << reg_info->clr_bit));
-
-	switch (rate) {
-	case 32000:
-		f1f2f3_bp = 0;
-		f1_sel = 1;
-		en_sel = 1;
-		break;
-	case 48000:
-		f1f2f3_bp = 0;
-		f1_sel = 0;
-		en_sel = 1;
-		break;
-	case 44100:
-		f1f2f3_bp = 1;
-		f1_sel = 0;
-		en_sel = 1;
-		break;
-	default:
-		f1f2f3_bp = 0;
-		f1_sel = 0;
-		en_sel = 0;
-		break;
-	}
-
-	/*src_set */
-	mask = (1 << reg_info->f1f2f3_bp_bit)
-	    | (1 << reg_info->f1_sel_bit)
-	    | (1 << reg_info->en_bit);
-
-	val = (f1f2f3_bp << reg_info->f1f2f3_bp_bit)
-	    | (f1_sel << reg_info->f1_sel_bit)
-	    | (en_sel << reg_info->en_bit);
-
-	vbc_reg_update(reg_info->reg, val, mask);
-
-	vbc_src[vbc_idx].opened = en_sel;
-
 	return 0;
 }

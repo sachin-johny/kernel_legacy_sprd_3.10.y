@@ -115,7 +115,6 @@ static inline int arch_audio_vbc_enable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	//sci_glb_set(REG_GLB_BUSCLK, BIT_ARM_VBC_ANAON);
 #endif
 
 	return ret;
@@ -126,7 +125,6 @@ static inline int arch_audio_vbc_disable(void)
 	int ret = 0;
 
 #if FIXED_AUDIO
-	//sci_glb_clr(REG_GLB_BUSCLK, BIT_ARM_VBC_ANAON);
 #endif
 
 	return ret;
@@ -373,6 +371,7 @@ static inline int arch_audio_vbc_da_int_clr(void)
 #if FIXED_AUDIO
 	sci_glb_set((SPRD_INTC0_BASE + 0x0C), IRQ_REQ_AUD_VBC_DA_INT);
 #endif
+
 	return ret;
 }
 
@@ -510,6 +509,14 @@ static inline int arch_audio_codec_analog_reg_enable(void)
 	ret =
 	    sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN,
 			  BIT_ANA_AUD_EN);
+	if (ret >= 0) {
+		/* Disable Sleep Control Audio Power */
+#if defined(CONFIG_ARCH_SCX15)
+		ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL, 0, 0xFFFF);
+#else
+		ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
+#endif
+	}
 #endif
 
 	return ret;
@@ -674,6 +681,7 @@ static inline int arch_audio_codec_reset(void)
 static inline int arch_audio_codec_digital_reset(void)
 {
 	int ret = 0;
+
 #if FIXED_AUDIO
 	sci_glb_set(REG_AON_APB_APB_RST0, BIT_AUD_SOFT_RST);
 	sci_glb_set(REG_AON_APB_APB_RST0, BIT_AUDIF_SOFT_RST);
@@ -688,6 +696,7 @@ static inline int arch_audio_codec_digital_reset(void)
 static inline int arch_audio_codec_analog_reset(void)
 {
 	int ret = 0;
+
 #if FIXED_AUDIO
 	int mask =
 	    BIT_ANA_AUD_SOFT_RST | BIT_ANA_AUDTX_SOFT_RST |
@@ -723,8 +732,8 @@ static inline const char *arch_audio_i2s_clk_name(int id)
 	default:
 		break;
 	}
-	return NULL;
 #endif
+	return NULL;
 }
 
 static inline int arch_audio_i2s_enable(int id)
@@ -888,6 +897,8 @@ static inline int arch_audio_i2s_switch(int id, int master)
 		break;
 	}
 #endif
+
 	return ret;
 }
+
 #endif
