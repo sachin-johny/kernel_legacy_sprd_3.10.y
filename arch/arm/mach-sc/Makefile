@@ -16,11 +16,11 @@ obj-$(CONFIG_ARCH_SCX35) += bm_sc8830.o
 endif
 
 ifeq ($(CONFIG_CPU_IDLE),y)
-	obj-$(CONFIG_ARCH_SCX35) += cpuidle-sc8830.o
+	obj-$(CONFIG_ARCH_SCX35) += cpuidle-scx35.o
 endif
 
 ifeq ($(CONFIG_PM),y)
-	obj-$(CONFIG_ARCH_SCX35) += pm-sc8830.o standby-sc8830.o pm_debug_sc8830.o
+	obj-$(CONFIG_ARCH_SCX35) += pm-scx35.o standby-scx35.o pm_debug_scx35.o
 endif
 obj-$(CONFIG_SCXX30_AP_DFS) += ap_dmc_freq.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
