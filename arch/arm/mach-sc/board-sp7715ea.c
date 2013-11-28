@@ -324,6 +324,11 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 	.vdd_name 			= "vdd28",
+	.virtualkeys = {
+	         89,907,72,55,
+	         249,907,72,55,
+	         418,907,72,55
+        },
 };
 
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))

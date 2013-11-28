@@ -315,6 +315,11 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number    = GPIO_TOUCH_IRQ,
 	.reset_gpio_number  = GPIO_TOUCH_RESET,
 	.vdd_name           = "vdd28",
+	.virtualkeys = {
+	         133,1360,107,87,
+	         373,1360,107,87,
+	         627,1360,107,87
+        },
 };
 #endif
 

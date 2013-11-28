@@ -367,35 +367,14 @@ static int ft5x0x_read_reg(u8 addr, u8 *pdata)
 #ifdef TOUCH_VIRTUAL_KEYS
 
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
-{ 
-    #if 0
-	unsigned char uc_reg_value;
-
-	ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
-      
-	if (uc_reg_value == 0x0a || uc_reg_value == 0x0)
-		return sprintf(buf,
-        		 __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":133:1360:107:87"
-	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":373:1360:107:87"
-	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":627:1360:107:87"
-			"\n");
-#endif
-#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_512x960
-		return sprintf(buf,
-         		__stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":100:1020:80:65"
-	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":280:1020:80:65"
-	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":470:1020:80:65"
-	 		"\n");
-#endif
-
-#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_720x1280
-    return sprintf(buf,
-        		 __stringify(EV_KEY) ":" __stringify(KEY_MENU)   ":133:1360:107:87"
-	 		":" __stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE)   ":373:1360:107:87"
-	 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":627:1360:107:87"
-			"\n");
-#endif
- }
+{
+	struct ft5x0x_ts_data *data = i2c_get_clientdata(this_client);
+	struct ft5x0x_ts_platform_data *pdata = data->platform_data;
+	return sprintf(buf,"%s:%s:%d:%d:%d:%d:%s:%s:%d:%d:%d:%d:%s:%s:%d:%d:%d:%d\n"
+		,__stringify(EV_KEY), __stringify(KEY_MENU),pdata ->virtualkeys[0],pdata ->virtualkeys[1],pdata ->virtualkeys[2],pdata ->virtualkeys[3]
+		,__stringify(EV_KEY), __stringify(KEY_HOMEPAGE),pdata ->virtualkeys[4],pdata ->virtualkeys[5],pdata ->virtualkeys[6],pdata ->virtualkeys[7]
+		,__stringify(EV_KEY), __stringify(KEY_BACK),pdata ->virtualkeys[8],pdata ->virtualkeys[9],pdata ->virtualkeys[10],pdata ->virtualkeys[11]);
+}
 
 static struct kobj_attribute virtual_keys_attr = {
     .attr = {
