@@ -352,16 +352,29 @@ static int32_t nt51017_power(struct panel_spec *self, uint8_t power)//0:power do
 			return 0;
 		}
 
+#ifdef CHIPONE
+		if (gpio_request(GPIOID_ADDR, "ADDR")){
+			printk("kernel GPIO%d requeste failed!\n", GPIOID_ADDR);
+			return 0;
+		}
+#endif
+
 		is_requested = 1;
 	}
 
 	if (is_requested){
 		gpio_direction_output(GPIOID_VDDPWR, power);
 		gpio_direction_output(GPIOID_LCDPWR, power);
+#ifdef CHIPONE
+		gpio_direction_output(GPIOID_ADDR, power);// drive ADDR to High
+#endif
 
 		if (!power){//power down, should free gpio
 			gpio_free(GPIOID_VDDPWR);
 			gpio_free(GPIOID_LCDPWR);
+#ifdef CHIPONE
+			gpio_free(GPIOID_ADDR);
+#endif
 			is_requested = 0;
 		}
 	}
