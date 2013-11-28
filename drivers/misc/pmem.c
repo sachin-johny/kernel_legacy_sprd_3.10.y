@@ -821,6 +821,27 @@ end:
 	up_read(&data->sem);
 }
 
+void flush_pmem_file_vsp(struct file *file, void *vaddr, void *paddr, int size)
+{
+	struct pmem_data *data;
+	int id;
+	if (!is_pmem_file(file) || !has_allocation(file)) {
+		return;
+	}
+	id = get_id(file);
+	data = (struct pmem_data *)file->private_data;
+	if (!pmem[id].cached || file->f_flags & O_SYNC)
+		return;
+	down_read(&data->sem);
+
+        //printk(KERN_INFO "pmem flush vaddr: %0x, paddr: %0x, size: %0x", vaddr, paddr, size);
+
+        dmac_flush_range(vaddr, vaddr + size);
+        outer_clean_range(paddr, paddr + size);
+
+	up_read(&data->sem);
+}
+
 static int pmem_connect(unsigned long connect, struct file *file)
 {
 	struct pmem_data *data = (struct pmem_data *)file->private_data;
@@ -1147,6 +1168,18 @@ static long pmem_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		DLOG("connect\n");
 		return pmem_connect(arg, file);
 		break;
+	case PMEM_CACHE_FLUSH_VSP:
+		{
+			struct pmem_msync_data msync_data;
+			DLOG("flush\n");
+                       //printk(KERN_INFO "pmem flush 1");
+			if (copy_from_user(&msync_data, (void __user *)arg,
+					    sizeof(struct pmem_msync_data)))
+				return -EFAULT;
+                        //printk(KERN_INFO "pmem flush 2");
+			flush_pmem_file_vsp(file, msync_data.vaddr, msync_data.paddr, msync_data.size);
+			break;
+		}
 	case PMEM_CACHE_FLUSH:
 		{
 			struct pmem_region region;

@@ -34,6 +34,7 @@
  */
 #define PMEM_GET_TOTAL_SIZE	_IOW(PMEM_IOCTL_MAGIC, 7, unsigned int)
 #define PMEM_CACHE_FLUSH	_IOW(PMEM_IOCTL_MAGIC, 8, unsigned int)
+#define PMEM_CACHE_FLUSH_VSP	_IOW(PMEM_IOCTL_MAGIC, 9, unsigned int)
 
 struct android_pmem_platform_data
 {
@@ -57,6 +58,12 @@ struct pmem_region {
 	unsigned long len;
 };
 
+struct pmem_msync_data {
+	void *vaddr;
+	void *paddr;
+	size_t size;
+};
+
 #ifdef CONFIG_ANDROID_PMEM
 int is_pmem_file(struct file *file);
 int get_pmem_file(int fd, unsigned long *start, unsigned long *vstart,
@@ -65,6 +72,7 @@ int get_pmem_user_addr(struct file *file, unsigned long *start,
 		       unsigned long *end);
 void put_pmem_file(struct file* file);
 void flush_pmem_file(struct file *file, unsigned long start, unsigned long len);
+void flush_pmem_file_vsp(struct file *file, void *vaddr, void *paddr, int size);
 int pmem_setup(struct android_pmem_platform_data *pdata,
 	       long (*ioctl)(struct file *, unsigned int, unsigned long),
 	       int (*release)(struct inode *, struct file *));
@@ -81,6 +89,7 @@ static inline int get_pmem_user_addr(struct file *file, unsigned long *start,
 static inline void put_pmem_file(struct file* file) { return; }
 static inline void flush_pmem_file(struct file *file, unsigned long start,
 				   unsigned long len) { return; }
+static inline void flush_pmem_file_vsp(struct file *file, void *vaddr, void *paddr, int size) { return; }
 static inline int pmem_setup(struct android_pmem_platform_data *pdata,
 	      long (*ioctl)(struct file *, unsigned int, unsigned long),
 	      int (*release)(struct inode *, struct file *)) { return -ENOSYS; }
