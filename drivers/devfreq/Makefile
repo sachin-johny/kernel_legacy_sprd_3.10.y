@@ -7,4 +7,4 @@ obj-$(CONFIG_DEVFREQ_GOV_ONDEMAND)	+= governor_ondemand.o
 
 # DEVFREQ Drivers
 obj-$(CONFIG_ARM_EXYNOS4_BUS_DEVFREQ)	+= exynos4_bus.o
-obj-$(CONFIG_SPRD_SCXX30_DMC_FREQ)	+= scxx30_dmc.o
+obj-$(CONFIG_SPRD_SCX35_DMC_FREQ)	+= scx35_dmc.o

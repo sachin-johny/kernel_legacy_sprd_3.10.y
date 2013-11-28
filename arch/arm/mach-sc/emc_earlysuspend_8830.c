@@ -516,7 +516,7 @@ static int __init emc_early_suspend_init(void)
 	/*
 	* if DFS is not configurated, we keep ddr 200MHz when screen off
 	*/
-#ifndef CONFIG_SPRD_SCXX30_DMC_FREQ
+#ifndef CONFIG_SPRD_SCX35_DMC_FREQ
 	register_early_suspend(&emc_early_suspend_desc);
 #endif
 	emc_debugfs_creat();
@@ -528,7 +528,7 @@ static int __init emc_early_suspend_init(void)
 }
 static void  __exit emc_early_suspend_exit(void)
 {
-#ifndef CONFIG_SPRD_SCXX30_DMC_FREQ
+#ifndef CONFIG_SPRD_SCX35_DMC_FREQ
 	unregister_early_suspend(&emc_early_suspend_desc);
 #endif
 }

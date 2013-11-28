@@ -41,7 +41,9 @@
 
 extern u32 emc_clk_set(u32 new_clk, u32 sene);
 extern u32 emc_clk_get(void);
+#ifdef CONFIG_SMP
 extern int scxx30_all_nonboot_cpus_died(void);
+#endif
 
 enum scxx30_dmc_type {
 	TYPE_DMC_SCXX30 ,
@@ -95,12 +97,12 @@ struct dmcfreq_data {
 #define SCXX30_POLLING_MS (500)
 #define BOOT_TIME	(40*HZ)
 static u32 boot_done;
-#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCX35_DMC_FREQ_AP)
 static struct dmcfreq_data *g_dmcfreq_data;
 #endif
 static void inline scxx30_set_max(struct dmcfreq_data *data);
 
-#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCX35_DMC_FREQ_AP)
 static int devfreq_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
 {
@@ -260,7 +262,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 
 	pr_debug("*** %s, old_freq:%luKHz, freq:%luKHz ***\n", __func__, old_freq, freq);
 
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 	if (num_online_cpus() != 1){
 		printk("*** %s, num_online_cpus:%d ***\n", __func__, num_online_cpus() );
 		return 0;
@@ -295,13 +297,18 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 		return 0;
 	}
 
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 	spin_lock_irqsave(&data->lock, spinlock_flags);
+#ifdef CONFIG_SMP
 	if (!scxx30_all_nonboot_cpus_died() || data->disabled){
+#else
+	if (data->disabled){
+#endif
 #else
 	spin_lock(&data->lock);
 	if (data->disabled){
 #endif
+		printk("*** %s, data->disabled, goto out ***\n", __func__ );
 		goto out;
 	}
 	/*
@@ -311,7 +318,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	data->curr_opp = opp;
 
 out:
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 	spin_unlock_irqrestore(&data->lock, spinlock_flags);
 #else
 	spin_unlock(&data->lock);
@@ -419,7 +426,6 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		emc_clk_set(200, 1);
 		spin_unlock(&data->lock);
 		return NOTIFY_OK;
-#if 0
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		/* Reactivate */
@@ -427,7 +433,6 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		data->disabled = false;
 		spin_unlock(&data->lock);
 		return NOTIFY_OK;
-#endif
 	}
 
 	return NOTIFY_DONE;
@@ -540,7 +545,7 @@ static int scxx30_dmcfreq_probe(struct platform_device *pdev)
 		err = -EINVAL;
 		goto err_cp1_irq;
 	}
-#ifndef CONFIG_SIPC_TD
+#ifdef CONFIG_SIPC_TD
 	data->cpt_share_mem_base = ioremap(CPT_SHARE_MEM, 128);
 	if (!data->cpt_share_mem_base){
 		printk("*** %s, remap CPT_SHARE_MEM error ***\n", __func__);
@@ -557,7 +562,7 @@ static int scxx30_dmcfreq_probe(struct platform_device *pdev)
 	}
 #endif
 
-#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCXX30_AP_DFS)
+#if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCX35_DMC_FREQ_AP)
 	register_cpu_notifier(&devfreq_cpu_notifier);
 	g_dmcfreq_data = data;
 #endif
