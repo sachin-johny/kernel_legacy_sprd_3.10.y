@@ -25,6 +25,7 @@
 #include <linux/sched.h>
 #include <linux/shrinker.h>
 #include <linux/types.h>
+#include <linux/sprd_iommu.h>
 
 struct ion_buffer *ion_handle_buffer(struct ion_handle *handle);
 
@@ -74,6 +75,8 @@ struct ion_buffer {
 	int dmap_cnt;
 	struct sg_table *sg_table;
 	struct page **pages;
+	int iomap_cnt[IOMMU_MAX];
+	unsigned long iova[IOMMU_MAX];
 	struct list_head vmas;
 	/* used to track orphaned buffers */
 	int handle_count;
@@ -111,6 +114,8 @@ struct ion_heap_ops {
 	void (*unmap_kernel) (struct ion_heap *heap, struct ion_buffer *buffer);
 	int (*map_user) (struct ion_heap *mapper, struct ion_buffer *buffer,
 			 struct vm_area_struct *vma);
+	int (*map_iommu)(struct ion_buffer *buffer, int domain_num, unsigned long *ptr_iova);
+	int (*unmap_iommu)(struct ion_buffer *buffer, int domain_num);
 };
 
 /**

@@ -135,7 +135,9 @@ static struct platform_device *devices[] __initdata = {
 #endif
 #if defined(CONFIG_ARCH_SCX15)
 	&sprd_gsp_device,
-	&sprd_iommu_gsp_device,
+#endif
+#if defined(CONFIG_SPRD_IOMMU)
+	//&sprd_iommu_gsp_device,
 	&sprd_iommu_mm_device,
 #endif
 	&sprd_emmc_device,

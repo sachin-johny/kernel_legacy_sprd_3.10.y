@@ -588,7 +588,7 @@ struct platform_device sprd_battery_device = {
 };
 
 
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_SPRD_IOMMU)
 static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
 	.id=0,
 	.name="sprd_iommu_gsp",

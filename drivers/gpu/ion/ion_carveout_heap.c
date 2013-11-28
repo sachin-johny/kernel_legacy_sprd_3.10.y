@@ -143,6 +143,33 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 			       pgprot_noncached(vma->vm_page_prot));
 }
 
+#if defined(CONFIG_SPRD_IOMMU)
+int ion_carveout_heap_map_iommu(struct ion_buffer *buffer, int domain_num, unsigned long *ptr_iova)
+{
+	int ret=0;
+	if(0==buffer->iomap_cnt[domain_num])
+	{
+		buffer->iova[domain_num]=sprd_iova_alloc(domain_num,buffer->size);
+		ret = sprd_iova_map(domain_num,buffer->iova[domain_num],buffer);
+	}
+	*ptr_iova=buffer->iova[domain_num];
+	buffer->iomap_cnt[domain_num]++;
+	return ret;
+}
+int ion_carveout_heap_unmap_iommu(struct ion_buffer *buffer, int domain_num)
+{
+	int ret=0;
+	buffer->iomap_cnt[domain_num]--;
+	if(0==buffer->iomap_cnt[domain_num])
+	{
+		ret=sprd_iova_unmap(domain_num,buffer->iova[domain_num],buffer);
+		sprd_iova_free(domain_num,buffer->iova[domain_num],buffer->size);
+		buffer->iova[domain_num]=0;
+	}
+	return ret;
+}
+#endif
+
 static struct ion_heap_ops carveout_heap_ops = {
 	.allocate = ion_carveout_heap_allocate,
 	.free = ion_carveout_heap_free,
@@ -152,6 +179,10 @@ static struct ion_heap_ops carveout_heap_ops = {
 	.map_user = ion_carveout_heap_map_user,
 	.map_kernel = ion_carveout_heap_map_kernel,
 	.unmap_kernel = ion_carveout_heap_unmap_kernel,
+#if defined(CONFIG_SPRD_IOMMU)
+	.map_iommu = ion_carveout_heap_map_iommu,
+	.unmap_iommu = ion_carveout_heap_unmap_iommu,
+#endif
 };
 
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)

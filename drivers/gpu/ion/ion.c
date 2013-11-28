@@ -609,6 +609,64 @@ static void ion_handle_kmap_put(struct ion_handle *handle)
 		ion_buffer_kmap_put(buffer);
 }
 
+int ion_map_iommu(struct ion_client *client, struct ion_handle *handle, int domain_no, unsigned long *ptr_iova)
+{
+	struct ion_buffer *buffer;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to map_kernel.\n",
+		       __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	buffer = handle->buffer;
+
+	if (!handle->buffer->heap->ops->map_iommu) {
+		pr_err("%s: map_kernel is not implemented by this heap.\n",
+		       __func__);
+		mutex_unlock(&client->lock);
+		return -ENODEV;
+	}
+
+	mutex_lock(&buffer->lock);
+	handle->buffer->heap->ops->map_iommu(buffer,domain_no,ptr_iova);
+	mutex_unlock(&buffer->lock);
+	mutex_unlock(&client->lock);
+	return 0;
+}
+EXPORT_SYMBOL(ion_map_iommu);
+
+int ion_unmap_iommu(struct ion_client *client, struct ion_handle *handle, int domain_no)
+{
+	struct ion_buffer *buffer;
+
+	mutex_lock(&client->lock);
+	if (!ion_handle_validate(client, handle)) {
+		pr_err("%s: invalid handle passed to map_kernel.\n",
+		       __func__);
+		mutex_unlock(&client->lock);
+		return -EINVAL;
+	}
+
+	buffer = handle->buffer;
+
+	if (!handle->buffer->heap->ops->map_iommu) {
+		pr_err("%s: map_kernel is not implemented by this heap.\n",
+		       __func__);
+		mutex_unlock(&client->lock);
+		return -ENODEV;
+	}
+
+	mutex_lock(&buffer->lock);
+	handle->buffer->heap->ops->unmap_iommu(buffer,domain_no);
+	mutex_unlock(&buffer->lock);
+	mutex_unlock(&client->lock);
+	return 0;
+}
+EXPORT_SYMBOL(ion_unmap_iommu);
+
 void *ion_map_kernel(struct ion_client *client, struct ion_handle *handle)
 {
 	struct ion_buffer *buffer;

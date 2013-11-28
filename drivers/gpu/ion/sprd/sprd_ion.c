@@ -11,6 +11,7 @@
  * GNU General Public License for more details.
  */
 
+#include <linux/export.h>
 #include <linux/err.h>
 #include <linux/ion.h>
 #include <linux/platform_device.h>
@@ -49,6 +50,12 @@ static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
         return pa;
 }
 #endif
+
+struct ion_client *sprd_ion_client_create(const char *name)
+{
+	return ion_client_create(idev,name);
+}
+EXPORT_SYMBOL(sprd_ion_client_create);
 
 static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 				unsigned long arg)
@@ -125,6 +132,156 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 #endif
 		break;
 	}
+#if defined(CONFIG_SPRD_IOMMU)
+	case ION_SPRD_CUSTOM_GSP_MAP:
+	{
+		struct ion_mmu_data data;
+		struct ion_handle *handle;
+
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(data))) {
+			return -EFAULT;
+		}
+
+		handle = ion_import_dma_buf(client, data.fd_buffer);
+
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+
+		mutex_lock(&(ion_handle_buffer(handle))->lock);
+		if(0==(ion_handle_buffer(handle))->iomap_cnt[IOMMU_GSP])
+		{
+			(ion_handle_buffer(handle))->iova[IOMMU_GSP]=sprd_iova_alloc(IOMMU_GSP,(ion_handle_buffer(handle))->size);
+			ret = sprd_iova_map(IOMMU_GSP,(ion_handle_buffer(handle))->iova[IOMMU_GSP],ion_handle_buffer(handle));
+		}
+		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_GSP]++;
+		data.iova_addr=(ion_handle_buffer(handle))->iova[IOMMU_GSP];
+		data.iova_size=(ion_handle_buffer(handle))->size;
+		mutex_unlock(&(ion_handle_buffer(handle))->lock);
+		ion_free(client, handle);
+		if (ret)
+		{
+			sprd_iova_free(IOMMU_GSP,data.iova_addr,data.iova_size);
+			return ret;
+		}
+
+		if (copy_to_user((void __user *)arg,
+				&data, sizeof(data))) {
+			return -EFAULT;
+		}
+		break;
+	}
+	case ION_SPRD_CUSTOM_GSP_UNMAP:
+	{
+		struct ion_mmu_data data;
+		struct ion_handle *handle;
+
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(data))) {
+			return -EFAULT;
+		}
+
+		handle = ion_import_dma_buf(client, data.fd_buffer);
+
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+
+		mutex_lock(&(ion_handle_buffer(handle))->lock);
+		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_GSP]--;
+		if(0==(ion_handle_buffer(handle))->iomap_cnt[IOMMU_GSP])
+		{
+			ret=sprd_iova_unmap(IOMMU_GSP,(ion_handle_buffer(handle))->iova[IOMMU_GSP],ion_handle_buffer(handle));
+			sprd_iova_free(IOMMU_GSP,(ion_handle_buffer(handle))->iova[IOMMU_GSP],(ion_handle_buffer(handle))->size);
+			(ion_handle_buffer(handle))->iova[IOMMU_GSP]=0;
+		}
+		mutex_unlock(&(ion_handle_buffer(handle))->lock);
+		data.iova_addr=0;
+		data.iova_size=0;
+		ion_free(client, handle);
+		if (ret)
+			return ret;
+
+		if (copy_to_user((void __user *)arg,
+				&data, sizeof(data))) {
+			return -EFAULT;
+		}
+		break;
+	}
+	case ION_SPRD_CUSTOM_MM_MAP:
+	{
+		struct ion_mmu_data data;
+		struct ion_handle *handle;
+
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(data))) {
+			return -EFAULT;
+		}
+
+		handle = ion_import_dma_buf(client, data.fd_buffer);
+
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+
+		mutex_lock(&(ion_handle_buffer(handle))->lock);
+		if(0==(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM])
+		{
+			(ion_handle_buffer(handle))->iova[IOMMU_MM]=sprd_iova_alloc(IOMMU_MM,(ion_handle_buffer(handle))->size);
+			ret = sprd_iova_map(IOMMU_MM,(ion_handle_buffer(handle))->iova[IOMMU_MM],ion_handle_buffer(handle));
+		}
+		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM]++;
+		data.iova_size=(ion_handle_buffer(handle))->size;
+		data.iova_addr=(ion_handle_buffer(handle))->iova[IOMMU_MM];
+		mutex_unlock(&(ion_handle_buffer(handle))->lock);
+		ion_free(client, handle);
+		if (ret)
+		{
+			sprd_iova_free(IOMMU_MM,data.iova_addr,data.iova_size);
+			return ret;
+		}
+
+		if (copy_to_user((void __user *)arg,
+				&data, sizeof(data))) {
+			return -EFAULT;
+		}
+		break;
+	}
+	case ION_SPRD_CUSTOM_MM_UNMAP:
+	{
+		struct ion_mmu_data data;
+		struct ion_handle *handle;
+
+		if (copy_from_user(&data, (void __user *)arg,
+				sizeof(data))) {
+			return -EFAULT;
+		}
+
+		handle = ion_import_dma_buf(client, data.fd_buffer);
+
+		if (IS_ERR(handle))
+			return PTR_ERR(handle);
+
+		mutex_lock(&(ion_handle_buffer(handle))->lock);
+		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM]--;
+		if(0==(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM])
+		{
+			ret=sprd_iova_unmap(IOMMU_MM,(ion_handle_buffer(handle))->iova[IOMMU_MM],(ion_handle_buffer(handle)));
+			sprd_iova_free(IOMMU_MM,(ion_handle_buffer(handle))->iova[IOMMU_MM],(ion_handle_buffer(handle))->size);
+			(ion_handle_buffer(handle))->iova[IOMMU_MM]=0;
+		}
+		mutex_unlock(&(ion_handle_buffer(handle))->lock);
+		data.iova_addr=0;
+		data.iova_size=0;
+		ion_free(client, handle);
+		if (ret)
+			return ret;
+
+		if (copy_to_user((void __user *)arg,
+				&data, sizeof(data))) {
+			return -EFAULT;
+		}
+		break;
+	}
+#endif
 	default:
 		return -ENOTTY;
 	}
