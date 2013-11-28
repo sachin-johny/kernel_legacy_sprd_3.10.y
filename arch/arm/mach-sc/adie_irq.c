@@ -36,7 +36,9 @@
 #if defined(CONFIG_ARCH_SC8825)
 /* vars definitions for controller ANA_CTL_INT */
 #define MASK_ANA_INT                    ( 0xFF )
-
+#elif defined(CONFIG_ARCH_SCX15)
+/* vars definitions for controller ANA_CTL_INT */
+#define MASK_ANA_INT                    ( 0x3FF )
 #elif defined(CONFIG_ARCH_SCX35)
 /* vars definitions for controller ANA_CTL_INT */
 #define MASK_ANA_INT                    ( 0x7FF )

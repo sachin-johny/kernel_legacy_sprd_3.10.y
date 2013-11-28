@@ -163,44 +163,49 @@ static int sci_adc_config(struct adc_sample_data *adc)
 
 #if defined(CONFIG_ARCH_SCX15)
 #define RATIO(_n_, _d_) (_n_ << 16 | _d_)
-static int sci_adc_ratio(int channel, int mux)
+static int sci_adc_ratio(int channel, int scale, int mux)
 {
 	switch (channel) {
-	case 0x00:
-	case 0x01:
-	case 0x02:
-	case 0x03:
-		return RATIO(4, 25);
-	case 0x05:		//vbat
+	case ADC_CHANNEL_0:
+	case ADC_CHANNEL_1:
+	case ADC_CHANNEL_2:
+	case ADC_CHANNEL_3:
+		return (scale ? RATIO(400, 1025) : RATIO(1, 1));
+	case ADC_CHANNEL_VBAT:		//vbat
+	case ADC_CHANNEL_ISENSE:
 		return RATIO(7, 29);
-	case 0x0D:		//dcdccore
-	case 0x0E:		//dcdcarm
-		return RATIO(4, 5);
-	case 0x0F:		//dcdcmem
-		return RATIO(3, 5);
-	case 0x10:		//dcdcgen
+	case ADC_CHANNEL_DCDCCORE:		//dcdccore
+	case ADC_CHANNEL_DCDCARM:		//dcdcarm
+		return (scale ? RATIO(4, 5) : RATIO(1, 1));
+	case ADC_CHANNEL_DCDCMEM:		//dcdcmem
+		return (scale ? RATIO(3, 5) : RATIO(4, 5));
+	case ADC_CHANNEL_DCDCLDO:	//dcdcgen
 		return RATIO(4, 9);
-	case 0x15:		//DCDC Supply LDO, VDD18/CAMIO/CAMD/EMMCIO
+	case 0x14 /* ADC_CHANNEL_HEADMIC */:	//DCDCHEADMIC
+		return (scale ? RATIO(1, 3) : RATIO(1, 1));
+	case ADC_CHANNEL_LDO0:		//DCDC Supply LDO, VDD18/CAMIO/CAMD/EMMCIO
 		return RATIO(1, 2);
-	case 0x13:		//DCDCVBATBK
-	case 0x14:		//DCDCHEADMIC
-	case 0x16:		//VBATD Domain LDO, VDD25/SD/USB/SIM0/SIM1/SIM2
-	case 0x17:		//VBATA Domain LDO,  VDD28/CAMA/CAMMOT/EMMCCORE/CON/DCXO/RF0
-	case 0x1E:		//DP from terminal
-	case 0x1F:		//DM from terminal
+	case ADC_CHANNEL_VBATBK:	//DCDCVBATBK
+	case ADC_CHANNEL_LDO1:		//VBATD Domain LDO, VDD25/SD/USB/SIM0/SIM1/SIM2
+	case ADC_CHANNEL_LDO2:		//VBATA Domain LDO,  VDD28/CAMA/CAMMOT/EMMCCORE/CON/DCXO/RF0
+	case ADC_CHANNEL_USBDP:		//DP from terminal
+	case ADC_CHANNEL_USBDM:		//DM from terminal
 		return RATIO(1, 3);
+
 	default:
 		return RATIO(1, 1);
 	}
 	return RATIO(1, 1);
 }
+
 void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
 			   unsigned int *div_denominators)
 {
-	unsigned int ratio = sci_adc_ratio(channel_id, 0);
+	unsigned int ratio = sci_adc_ratio(channel_id, scale, 0);
 	*div_numerators = ratio >> 16;
 	*div_denominators = ratio << 16 >> 16;
 }
+
 #else
 void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
 			   unsigned int *div_denominators)
@@ -336,6 +341,7 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div
 	}
 }
 #endif
+
 int sci_adc_get_values(struct adc_sample_data *adc)
 {
 	unsigned long flags;

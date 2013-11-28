@@ -18,8 +18,12 @@
 #error  "Don't include this file directly, include <mach/irqs.h>"
 #endif
 
-#define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 125)
 #define IRQ_GIC_START			(32)
+#if defined(CONFIG_ARCH_SCX15)
+#define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 127)
+#else
+#define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 125)
+#endif
 
 #define SCI_IRQ(_X_)			(IRQ_GIC_START + (_X_))
 #define SCI_EXT_IRQ(_X_)		(NR_SCI_PHY_IRQS + (_X_))
@@ -146,9 +150,13 @@
 #define IRQ_APTMR2_INT			SCI_IRQ(119)
 #define IRQ_APTMR3_INT			SCI_IRQ(120)
 #define IRQ_APTMR4_INT			SCI_IRQ(121)
-#define IRQ_AVS_INT			SCI_IRQ(122)
+#define IRQ_AVS_INT				SCI_IRQ(122)
 #define IRQ_APWDG_INT			SCI_IRQ(123)
 #define IRQ_CA7WDG_INT			SCI_IRQ(124)
+#if defined(CONFIG_ARCH_SCX15)
+#define IRQ_ZIPDEC_INT			SCI_IRQ(125)
+#define IRQ_ZIPENC_INT			SCI_IRQ(126)
+#endif
 
 #define IRQ_SIPC_CPW			IRQ_CP0_MCU0_INT
 #define IRQ_SIPC_CPT			IRQ_CP1_MCU0_INT
@@ -174,16 +182,26 @@
 #define IRQ_ANA_EIC_INT			SCI_EXT_IRQ(5)
 #define IRQ_ANA_AUD_HEAD_BUTTON_INT		SCI_EXT_IRQ(6)
 #define IRQ_ANA_AUD_PROTECT_INT			SCI_EXT_IRQ(7)
+#if defined(CONFIG_ARCH_SCX15)
+#define IRQ_ANA_CAL_INT			SCI_EXT_IRQ(8)
+#define IRQ_ANA_TPC_INT			SCI_EXT_IRQ(9)
+#define NR_ANA_IRQS			(10)
+#else
 #define IRQ_ANA_THM_OTP_INT			SCI_EXT_IRQ(8)
 #define IRQ_ANA_DCD_OTP_INT			SCI_EXT_IRQ(10)/*bit9 is reserved in adie intc*/
+#define NR_ANA_IRQS			(11)
+#endif
 
 #define IRQ_ANA_INT_START		IRQ_ANA_ADC_INT
-#define NR_ANA_IRQS			(11)
 
+#if defined(CONFIG_ARCH_SCX15)
+#define GPIO_IRQ_START			SCI_EXT_IRQ(10)
+#define NR_GPIO_IRQS	( 320 )
+#else
 /* sc8830 gpio&eic pin interrupt number, total is 320, which is bigger than 256 */
 #define GPIO_IRQ_START			SCI_EXT_IRQ(11)
-
 #define NR_GPIO_IRQS	( 320 )
+#endif
 
 #define NR_IRQS				(NR_SCI_PHY_IRQS + NR_ANA_IRQS + NR_GPIO_IRQS)
 #define FIQ_START	(0)
