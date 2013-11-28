@@ -26,12 +26,10 @@
 #include <linux/module.h>
 #include <linux/wakelock.h>
 
-#ifdef CONFIG_ARCH_SCX35
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/arch_misc.h>
-#endif
 
 //#define SPRD_HEADSET_DBG
 //#define SPRD_HEADSET_REG_DUMP
@@ -51,6 +49,26 @@
 #define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format, adie_type, __func__, __LINE__, ## x)
 #endif
 
+#if (defined(CONFIG_ARCH_SCX15))
+        #define ADIE_CHID_LOW 0x0134
+        #define ADIE_CHID_HIGH 0x0138
+#else
+        #if (defined(CONFIG_ARCH_SCX35))
+                #define ADIE_CHID_LOW 0x0108
+                #define ADIE_CHID_HIGH 0x010C
+        #endif
+#endif
+
+#if (defined(CONFIG_ARCH_SCX15))
+        #define CLK_AUD_HID_EN (BIT(4))
+        #define CLK_AUD_HBD_EN (BIT(3))
+#else
+        #if (defined(CONFIG_ARCH_SCX35))
+                #define CLK_AUD_HID_EN (BIT(5))
+                #define CLK_AUD_HBD_EN (BIT(4))
+        #endif
+#endif
+
 #define ADC_FIFO_CNT (5)
 #define ADC_GND (100)
 #define DEBANCE_LOOP_COUNT_TYPE_DETECT (5)
@@ -59,28 +77,18 @@
 #define ADC_CHECK_INTERVAL_BUTTON_DETECT (0)
 #define ADC_DEBANCE_VALUE (100)
 
-#ifdef CONFIG_ARCH_SCX35
 #define HEADMIC_DETECT_BASE (ANA_AUDCFGA_INT_BASE)
-#else
-#define HEADMIC_DETECT_BASE (SPRD_MISC_BASE + 0x700)
-#endif
 #define HEADMIC_DETECT_REG(X) (HEADMIC_DETECT_BASE + (X))
 
-#ifdef CONFIG_ARCH_SCX35
+#define HDT_EN (BIT(5))
+#define AUD_EN (BIT(4))
+
 #define HEADMIC_BUTTON_BASE (ANA_HDT_INT_BASE)
 #define HEADMIC_BUTTON_REG(X) (HEADMIC_BUTTON_BASE + (X))
 #define HID_CFG0 (0x0080)
 #define HID_CFG2 (0x0088)
 #define HID_CFG3 (0x008C)
 #define HID_CFG4 (0x0090)
-#else
-#define HEADMIC_BUTTON_BASE (SPRD_MISC_BASE + 0xe00)
-#define HEADMIC_BUTTON_REG(X) (HEADMIC_BUTTON_BASE + (X))
-#define HID_CFG0 (0x0034)
-#define HID_CFG2 (0x003C)
-#define HID_CFG3 (0x0040)
-#define HID_CFG4 (0x0044)
-#endif
 
 #define ANA_CFG0 (0x0040)
 #define ANA_CFG1 (0x0044)
@@ -113,28 +121,63 @@
 #define AUDIO_MICBIAS_V_2P1_OR_2P7 (2)
 #define AUDIO_MICBIAS_V_2P3_OR_3P0 (3)
 
-#define AUDIO_HEAD_SDET_SHIFT (5)
+#if (defined(CONFIG_ARCH_SCX15))
+        #define AUDIO_HEAD_SDET_SHIFT (4)
+#else
+        #if (defined(CONFIG_ARCH_SCX35))
+                #define AUDIO_HEAD_SDET_SHIFT (5)
+        #endif
+#endif
 #define AUDIO_HEAD_SDET_MASK (0x3 << AUDIO_HEAD_SDET_SHIFT)
 #define AUDIO_HEAD_SDET_2P1_OR_1P4 (3)
 #define AUDIO_HEAD_SDET_2P3_OR_1P5 (2)
 #define AUDIO_HEAD_SDET_2P5_OR_1P6 (1)
 #define AUDIO_HEAD_SDET_2P7_OR_1P7 (0)
 
-#define AUDIO_HEAD_INS_VREF_SHIFT (8)
+#if (defined(CONFIG_ARCH_SCX15))
+        #define AUDIO_HEAD_INS_VREF_SHIFT (7)
+#else
+        #if (defined(CONFIG_ARCH_SCX35))
+                #define AUDIO_HEAD_INS_VREF_SHIFT (8)
+        #endif
+#endif
 #define AUDIO_HEAD_INS_VREF_MASK (0x3 << AUDIO_HEAD_INS_VREF_SHIFT)
 #define AUDIO_HEAD_INS_VREF_2P1_OR_1P4 (3)
 #define AUDIO_HEAD_INS_VREF_2P3_OR_1P5 (2)
 #define AUDIO_HEAD_INS_VREF_2P5_OR_1P6 (1)
 #define AUDIO_HEAD_INS_VREF_2P7_OR_1P7 (0)
 
-#define AUDIO_HEAD_SBUT_SHIFT (1)
+#if (defined(CONFIG_ARCH_SCX15))
+        #define AUDIO_HEAD_SBUT_SHIFT (0)
+#else
+        #if (defined(CONFIG_ARCH_SCX35))
+                #define AUDIO_HEAD_SBUT_SHIFT (1)
+        #endif
+#endif
 #define AUDIO_HEAD_SBUT_MASK (0xF << AUDIO_HEAD_SBUT_SHIFT)
 
 #define AUDIO_HEADMIC_ADC_SEL (BIT(13))
 #define AUDIO_HEAD_INS_HMBIAS_EN (BIT(11))
 
-#define AUDIO_HEAD_BUF_EN (BIT(15))
-#define AUDIO_HEAD2ADC_EN (BIT(14))
+#if (defined(CONFIG_ARCH_SCX15))
+        #define AUDIO_V2ADC_EN (BIT(15))
+        #define AUDIO_HEAD_BUF_EN (BIT(14))
+        #define AUDIO_HEAD2ADC_SEL_SHIFT (12)
+        #define AUDIO_HEAD2ADC_SEL_MASK (0x3 << AUDIO_HEAD2ADC_SEL_SHIFT)
+        #define AUDIO_HEAD2ADC_SEL_DISABLE (0)
+        #define AUDIO_HEAD2ADC_SEL_MIC_IN (1)
+        #define AUDIO_HEAD2ADC_SEL_L_INT (2)
+        #define AUDIO_HEAD2ADC_SEL_DRO_L (3)
+#else
+        #if (defined(CONFIG_ARCH_SCX35))
+                #define AUDIO_V2ADC_EN (BIT(14))
+                #define AUDIO_HEAD_BUF_EN (BIT(15))
+                #define AUDIO_HEAD2ADC_SEL_SHIFT (13)
+                #define AUDIO_HEAD2ADC_SEL_MASK (0x1 << AUDIO_HEAD2ADC_SEL_SHIFT)
+                #define AUDIO_HEAD2ADC_SEL_MIC_IN (1)
+                #define AUDIO_HEAD2ADC_SEL_L_INT (0)
+        #endif
+#endif
 
 #define ABS(x) (((x) < (0)) ? (-x) : (x))
 
@@ -219,21 +262,18 @@ static void headset_detect_circuit(unsigned on)
 
 static void headset_detect_clk_en(void)
 {
-#ifdef CONFIG_ARCH_SCX35
-        //address:0x4003_8800+0x00 (for shark) AUD_EN (audio module en) & HDT_EN (audio HDT module en)
-        headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x00), (BIT(4) | BIT(5)));
-        //address:0x4003_8800+0x04 (for shark) CLK_AUD_HBD_en & CLK_AUD_HID_en
-        headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x04), (BIT(4) | BIT(5)));
-#else
-        //address:0x8200_0800+0x84 (for 7710) CLK_AUD_HID_en & CLK_AUD_HBD_en
-        headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x84), (BIT(14) | BIT(15)));
-#endif
+        //address:0x4003_8800+0x00
+        headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x00), (HDT_EN | AUD_EN));
+        //address:0x4003_8800+0x04
+        headset_reg_set_bit(HEADMIC_DETECT_GLB_REG(0x04), (CLK_AUD_HID_EN | CLK_AUD_HBD_EN));
 }
 
 static void headset_detect_init(void)
 {
         headset_detect_clk_en();
-        headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), (AUDIO_HEAD_BUF_EN | AUDIO_HEAD2ADC_EN));
+        headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_BUF_EN);
+        headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
+        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_MIC_IN, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
         /* set headset detect voltage */
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_SDET_2P7_OR_1P7, AUDIO_HEAD_SDET_MASK, AUDIO_HEAD_SDET_SHIFT);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_INS_VREF_2P1_OR_1P4, AUDIO_HEAD_INS_VREF_MASK, AUDIO_HEAD_INS_VREF_SHIFT);
@@ -246,9 +286,9 @@ static void headset_detect_init(void)
 static void set_adc_to_headmic(unsigned is_set)
 {
         if (is_set) {
-                headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEADMIC_ADC_SEL);
+                headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_MIC_IN, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
         } else {
-                headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEADMIC_ADC_SEL);
+                headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_L_INT, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
         }
 }
 
@@ -407,7 +447,12 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         int gpio_detect_value_current = 0;
 
         ENTER
-        gpio_direction_output(pdata->gpio_switch, 0);
+
+        if(0 != pdata->gpio_switch)
+                gpio_direction_output(pdata->gpio_switch, 0);
+        else
+                PRINT_INFO("automatic type switch is unsupported\n");
+
         headset_mic_level(1);
         headset_detect_init();
         headset_detect_circuit(1);
@@ -667,15 +712,18 @@ static void headset_detect_work_func(struct work_struct *work)
                         goto out;
                 case HEADSET_NORTH_AMERICA:
                         PRINT_INFO("headset_type = %d (HEADSET_NORTH_AMERICA)\n", headset_type);
-                        gpio_direction_output(pdata->gpio_switch, 1);
+                        if(0 != pdata->gpio_switch)
+                                gpio_direction_output(pdata->gpio_switch, 1);
                         break;
                 case HEADSET_NORMAL:
                         PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
-                        gpio_direction_output(pdata->gpio_switch, 0);
+                        if(0 != pdata->gpio_switch)
+                                gpio_direction_output(pdata->gpio_switch, 0);
                         break;
                 case HEADSET_NO_MIC:
                         PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
-                        gpio_direction_output(pdata->gpio_switch, 0);
+                        if(0 != pdata->gpio_switch)
+                                gpio_direction_output(pdata->gpio_switch, 0);
                         break;
                 case HEADSET_APPLE:
                         PRINT_INFO("headset_type = %d (HEADSET_APPLE)\n", headset_type);
@@ -821,15 +869,18 @@ static void headset_sts_check_func(struct work_struct *work)
                         goto out;
                 case HEADSET_NORTH_AMERICA:
                         PRINT_INFO("headset_type = %d (HEADSET_NORTH_AMERICA)\n", headset_type);
-                        gpio_direction_output(pdata->gpio_switch, 1);
+                        if(0 != pdata->gpio_switch)
+                                gpio_direction_output(pdata->gpio_switch, 1);
                         break;
                 case HEADSET_NORMAL:
                         PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
-                        gpio_direction_output(pdata->gpio_switch, 0);
+                        if(0 != pdata->gpio_switch)
+                                gpio_direction_output(pdata->gpio_switch, 0);
                         break;
                 case HEADSET_NO_MIC:
                         PRINT_INFO("headset_type = %d (HEADSET_NO_MIC)\n", headset_type);
-                        gpio_direction_output(pdata->gpio_switch, 0);
+                        if(0 != pdata->gpio_switch)
+                                gpio_direction_output(pdata->gpio_switch, 0);
                         break;
                 case HEADSET_APPLE:
                         PRINT_INFO("headset_type = %d (HEADSET_APPLE)\n", headset_type);
@@ -925,7 +976,7 @@ static void reg_dump_func(struct work_struct *work)
         PRINT_INFO("arm_module_en|arm_clk_en|ana_cfg0  |ana_cfg1  |ana_cfg20 |ana_sts0  |hid_cfg2  |hid_cfg3  |hid_cfg4  |hid_cfg0\n");
         PRINT_INFO("0x%08X   |0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    arm_module_en, arm_clk_en, ana_cfg0, ana_cfg1, ana_cfg20, ana_sts0, hid_cfg2, hid_cfg3, hid_cfg4, hid_cfg0);
-
+#if 0
         for(i=0; i<20; i++)
                 hbd[i] = sci_adi_read(ANA_HDT_INT_BASE + (i*4));
 
@@ -936,7 +987,7 @@ static void reg_dump_func(struct work_struct *work)
         PRINT_INFO("hbd_cfg10 |hbd_cfg11 |hbd_cfg12 |hbd_cfg13 |hbd_cfg14 |hbd_cfg15 |hbd_cfg16 | hbd_sts0 | hbd_sts1 | hbd_sts2\n");
         PRINT_INFO("0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    hbd[10], hbd[11], hbd[12], hbd[13], hbd[14], hbd[15], hbd[16], hbd[17], hbd[18], hbd[19]);
-
+#endif
         queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
         return;
 }
@@ -1035,20 +1086,29 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
         int i = 0;
         int ret = -1;
         int ana_sts0 = 0;
-        int adie_chip_id = 0;
+        int adie_chip_id_low = 0;
+        int adie_chip_id_high = 0;
 
-        adie_chip_id = sci_adi_read(ANA_CTL_GLB_BASE+0x0108);//A-die chip id LOW
+        adie_chip_id_low = sci_adi_read(ANA_CTL_GLB_BASE+ADIE_CHID_LOW);//A-die chip id LOW
+        adie_chip_id_high = sci_adi_read(ANA_CTL_GLB_BASE+ADIE_CHID_HIGH);//A-die chip id HIGH
 
         sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN, BIT_ANA_AUD_EN);//arm base address:0x40038800 for register accessable
         ana_sts0 = sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0);//arm base address:0x40038600
 
-        if (0xA000 == adie_chip_id)
-                adie_type = 1;//AC
-        else if (0xA001 == adie_chip_id) {
-                if ((0x00000040 & ana_sts0) == 0x00000040)
-                        adie_type = 2;//BA
-                else if ((0x00000040 & ana_sts0) == 0x00000000)
-                        adie_type = 3;//BB
+        if (0x2713 == adie_chip_id_high) {
+                if (0xA000 == adie_chip_id_low)
+                        adie_type = 1;//AC
+                else if (0xA001 == adie_chip_id_low) {
+                        if ((0x00000040 & ana_sts0) == 0x00000040)
+                                adie_type = 2;//BA
+                        else if ((0x00000040 & ana_sts0) == 0x00000000)
+                                adie_type = 3;//BB
+                }
+        } else {
+                if (0x2711 == adie_chip_id_high)
+                        adie_type = 4;//Dolphin
+                else
+                        adie_type = 5;//unknow
         }
 
         ENTER
@@ -1059,8 +1119,8 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
         msleep(5);//this time delay is necessary here
 
         PRINT_INFO("D-die chip id = 0x%08X\n", __raw_readl(REG_AON_APB_CHIP_ID));
-        PRINT_INFO("A-die chip id HIGH = 0x%08X\n", sci_adi_read(ANA_CTL_GLB_BASE+0x010C));
-        PRINT_INFO("A-die chip id LOW = 0x%08X\n", adie_chip_id);
+        PRINT_INFO("A-die chip id HIGH = 0x%08X\n", adie_chip_id_high);
+        PRINT_INFO("A-die chip id LOW = 0x%08X\n", adie_chip_id_low);
 
         if (1 == adie_type) {
                 pdata->gpio_detect -= 1;
@@ -1069,11 +1129,15 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
                 PRINT_INFO("use EIC_AUD_HEAD_INST2 (EIC5, GPIO_%d) for insert detecting\n", pdata->gpio_detect);
         }
 
-        ret = gpio_request(pdata->gpio_switch, "headset_switch");
-        if (ret < 0) {
-                PRINT_ERR("failed to request GPIO_%d(headset_switch)\n", pdata->gpio_switch);
-                goto failed_to_request_gpio_switch;
+        if(0 != pdata->gpio_switch) {
+                ret = gpio_request(pdata->gpio_switch, "headset_switch");
+                if (ret < 0) {
+                        PRINT_ERR("failed to request GPIO_%d(headset_switch)\n", pdata->gpio_switch);
+                        goto failed_to_request_gpio_switch;
+                }
         }
+        else
+                PRINT_INFO("automatic type switch is unsupported\n");
 
         ret = gpio_request(pdata->gpio_detect, "headset_detect");
         if (ret < 0) {
@@ -1087,7 +1151,8 @@ static __devinit int headset_detect_probe(struct platform_device *pdev)
                 goto failed_to_request_gpio_button;
         }
 
-        gpio_direction_output(pdata->gpio_switch, 0);
+        if(0 != pdata->gpio_switch)
+                gpio_direction_output(pdata->gpio_switch, 0);
         gpio_direction_input(pdata->gpio_detect);
         gpio_direction_input(pdata->gpio_button);
         ht->irq_detect = gpio_to_irq(pdata->gpio_detect);
@@ -1208,7 +1273,8 @@ failed_to_register_switch_dev:
 failed_to_request_gpio_button:
         gpio_free(pdata->gpio_detect);
 failed_to_request_gpio_detect:
-        gpio_free(pdata->gpio_switch);
+        if(0 != pdata->gpio_switch)
+                gpio_free(pdata->gpio_switch);
 failed_to_request_gpio_switch:
 
         headmicbias_power_on(0);
