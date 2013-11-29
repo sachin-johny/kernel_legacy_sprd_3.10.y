@@ -562,7 +562,7 @@ static inline int arch_audio_codec_digital_enable(void)
 
 #if FIXED_AUDIO
 	/*internal digital 26M enable*/
-	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE), (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
+	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  BIT_SINDRV_ENA , BIT_SINDRV_ENA);
 
 #endif
 
@@ -593,7 +593,7 @@ static inline int arch_audio_codec_digital_disable(void)
 
 #if FIXED_AUDIO
 	/*internal digital 26M disable*/
-	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  0,  (BIT_SINDRV_ENA |BIT_SINDRV_ENA_SQUARE));
+	sci_glb_write(REG_AON_APB_SINDRV_CTRL,  0,  BIT_SINDRV_ENA);
 
 #endif
 
