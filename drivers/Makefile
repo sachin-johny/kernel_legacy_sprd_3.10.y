@@ -155,3 +155,4 @@ obj-$(CONFIG_IPACK_BUS)		+= ipack/
 obj-$(CONFIG_NTB)		+= ntb/
 
 obj-$(CONFIG_SIPC)		+= sipc/
+obj-$(CONFIG_SENSORS)		+= sensor/
