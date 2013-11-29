@@ -34,6 +34,10 @@
 #include "__board-sp8830ec.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP8830SSW
+#include "__board-sp8830ssw.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7730EC
 #include "__board-sp7730ec.h"
 #endif

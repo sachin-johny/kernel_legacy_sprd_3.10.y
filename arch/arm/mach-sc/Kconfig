@@ -95,6 +95,14 @@ config MACH_SPX35EC
 	help
 	  SPX35EC board based on SC8830 serial.
 
+config MACH_SP8830SSW
+	bool "sp8830ssw Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  Samsung SP8830SSW board based on SC8830 serial.
+
 config MACH_SP7730EC
 	bool "sp7730ec Phone Board"
 	depends on ARCH_SC
@@ -167,6 +175,16 @@ config SC_VIBRATOR
         bool "vibrator for SC serials"
         select ANDROID_TIMED_OUTPUT
         default n
+
+config SC_VIBRATOR_GPIO
+        bool "vibrator for SC serials by gpio"
+        default n
+	depends on SC_VIBRATOR
+
+config EIRQ_NUM
+        int "number for external irq region desc request"
+        range 0 1024
+	default 0
 
 comment "SC8830 ADIE type"
 
@@ -241,4 +259,9 @@ config BUS_MONITOR_DEBUG
         bool "debug scxx35 AHB and DMC bus monitors"
         default n
 	depends on BUS_MONITOR
+
+config EAR_LOW_LEVEL_DETECT
+        bool "ear detecting trigger is low level"
+        default n
+
 endif

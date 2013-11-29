@@ -21,6 +21,12 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+
+#ifdef CONFIG_SC_VIBRATOR_GPIO
+#include <linux/gpio.h>
+#include <mach/board.h>
+#endif
+
 #ifdef CONFIG_ARCH_SCX35
 #include <mach/sci_glb_regs.h>
 #define ANA_VIBRATOR_CTRL0      (ANA_REG_GLB_VIBR_CTRL0)
@@ -58,6 +64,7 @@ static int vibe_state = 0;
 
 static void set_vibrator(int on)
 {
+#ifndef CONFIG_SC_VIBRATOR_GPIO
 	/* unlock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
 #ifdef CONFIG_ARCH_SCX35
@@ -74,10 +81,14 @@ static void set_vibrator(int on)
 #endif
 	/* lock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
+#else
+       gpio_set_value(GPIO_VIBRATOR_INT, on);
+#endif
 }
 
 static void vibrator_hw_init(void)
 {
+#ifndef CONFIG_SC_VIBRATOR_GPIO
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
 #ifdef CONFIG_ARCH_SCX35
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_VIBR_EN, BIT_RTC_VIBR_EN);
@@ -95,6 +106,10 @@ static void vibrator_hw_init(void)
 	/* set stable current level */
 	sci_adi_write(ANA_VIBRATOR_CTRL1, VIBRATOR_INIT_STATE_CNT, 0xffff);
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
+#else
+        gpio_request(GPIO_VIBRATOR_INT, "vibrator");
+        gpio_direction_output(GPIO_VIBRATOR_INT, 0);
+#endif
 }
 
 static void update_vibrator(struct work_struct *work)
