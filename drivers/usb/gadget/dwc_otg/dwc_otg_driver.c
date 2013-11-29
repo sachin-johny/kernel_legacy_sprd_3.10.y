@@ -751,8 +751,7 @@ static int dwc_otg_driver_probe(
 	 */
 	DWC_DEBUGPL(DBG_CIL, "registering (common) handler for irq%d\n",
 		    irq);
-//sword
-#ifndef DWC_DEVICE_ONLY
+
 	/*
 	 *no need to use comm_irq if the usb IP core can work only in device mode
 	 *but if support otg, we should use common_irq
@@ -768,7 +767,6 @@ static int dwc_otg_driver_probe(
 	} else {
 		dwc_otg_device->common_irq_installed = 1;
 	}
-#endif
 
 #if 0//ndef DWC_DEVICE_ONLY //no need
 	/*

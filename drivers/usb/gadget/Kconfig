@@ -1014,5 +1014,12 @@ config USB_CORE_IP_293A
 	help
 	   the new ip version 293a, should write 0 to softdiscon bit.
 
+config SPRD_USB_DEVICE_ONLY
+        boolean "whether support USB otg"
+        depends on USB_GADGET_SPRD_DWC
+
+        help
+           the chip can only support device mode, do not support otg.
+
 
 endif # USB_GADGET

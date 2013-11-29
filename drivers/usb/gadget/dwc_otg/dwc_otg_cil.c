@@ -1346,22 +1346,14 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 			 * a soft reset immediately after setting phyif.  */
 			usbcfg.b.ulpi_utmi_sel = core_if->core_params->phy_type;
 			//if (usbcfg.b.ulpi_utmi_sel == 1) { //sword BUG
-			if (usbcfg.b.ulpi_utmi_sel == 2) {
-				/* ULPI interface */
-				usbcfg.b.phyif = 0;
-				usbcfg.b.ddrsel =
-				    core_if->core_params->phy_ulpi_ddr;
+			if (core_if->core_params->phy_utmi_width == 16) {
+				usbcfg.b.phyif = 1;
+
 			} else {
-				/* UTMI+ interface */
-				if (core_if->core_params->phy_utmi_width == 16) {
-					usbcfg.b.phyif = 1;
-
-				} else {
-					usbcfg.b.phyif = 0;
-				}
-				usbcfg.b.ulpi_utmi_sel = 0;
-
+				usbcfg.b.phyif = 0;
 			}
+			usbcfg.b.ulpi_utmi_sel = 0;
+
 			DWC_WRITE_REG32(&global_regs->gusbcfg, usbcfg.d32);
 			/* Reset after setting the PHY parameters */
 			dwc_otg_core_reset(core_if);
@@ -3689,10 +3681,6 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			deptsiz.b.pktcnt =
 			    (ep->xfer_len - ep->xfer_count - 1 +
 			     ep->maxpacket) / ep->maxpacket;
-			if (deptsiz.b.pktcnt > MAX_PKT_CNT) {
-				deptsiz.b.pktcnt = MAX_PKT_CNT;
-				deptsiz.b.xfersize = deptsiz.b.pktcnt * ep->maxpacket;
-			} 
 			if (ep->type == DWC_OTG_EP_TYPE_ISOC) 
 				deptsiz.b.mc = deptsiz.b.pktcnt;
 		}
@@ -3806,9 +3794,6 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 			deptsiz.b.pktcnt =
 			    (ep->xfer_len - ep->xfer_count +
 			     (ep->maxpacket - 1)) / ep->maxpacket;
-			if (deptsiz.b.pktcnt > MAX_PKT_CNT) {
-				deptsiz.b.pktcnt = MAX_PKT_CNT;
-			}
 			if (!core_if->dma_desc_enable) {
 				ep->xfer_len =
 			    		deptsiz.b.pktcnt * ep->maxpacket + ep->xfer_count;
@@ -3930,7 +3915,6 @@ void dwc_otg_ep_start_zl_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 	gintmsk_data_t intr_mask = {.d32 = 0 };
 
 	DWC_DEBUGPL((DBG_PCDV | DBG_CILV), "%s()\n", __func__);
-	DWC_PRINTF("zero length transfer is called\n");
 
 	/* IN endpoint */
 	if (ep->is_in == 1) {

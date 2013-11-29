@@ -191,7 +191,7 @@ int usb_alloc_vbus_irq(void)
 	gpio_request(EIC_CHARGER_DETECT,"sprd_ogt");
 	gpio_direction_input(EIC_CHARGER_DETECT);
 	irq = gpio_to_irq(EIC_CHARGER_DETECT);
-	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+	//set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
 
 	return irq;
 }

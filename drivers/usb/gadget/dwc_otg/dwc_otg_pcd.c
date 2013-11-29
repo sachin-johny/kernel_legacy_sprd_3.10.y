@@ -1311,18 +1311,16 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 	return pcd;
 #ifdef DWC_UTE_CFI
 fail:
-#endif
 	if (pcd->setup_pkt)
 		DWC_FREE(pcd->setup_pkt);
 	if (pcd->status_buf)
 		DWC_FREE(pcd->status_buf);
-#ifdef DWC_UTE_CFI
 	if (pcd->cfi)
 		DWC_FREE(pcd->cfi);
-#endif
 	if (pcd)
 		DWC_FREE(pcd);
 	return NULL;
+#endif
 
 }
 
