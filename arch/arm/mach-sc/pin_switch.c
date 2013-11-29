@@ -1,10 +1,12 @@
 #include <linux/io.h>
 #include <linux/module.h>
-#include <linux/debugfs.h>
+#include <linux/proc_fs.h>
+#include <linux/seq_file.h>
+#include <asm/uaccess.h>
 #include <linux/printk.h>
 #include <mach/hardware.h>
 
-#ifdef CONFIG_DEBUG_FS
+#ifdef CONFIG_PROC_FS
 struct sci_pin_switch {
 	const char *dirname;
 	const char *filename;
@@ -14,6 +16,7 @@ struct sci_pin_switch {
 	u32 func;
 };
 static struct sci_pin_switch sci_pin_switch_array[] = {
+#if !defined(CONFIG_ARCH_SCX15)
 	{"", "vbc_dac_iislrck_pin_in_sel", 0x4, 24, 1, 0},
 	{"", "vbc_dac_iisclk_pin_in_sel", 0x4, 23, 1, 0},
 	{"", "vbc_adc_iislrck_pin_in_sel", 0x4, 22, 1, 0},
@@ -27,6 +30,7 @@ static struct sci_pin_switch sci_pin_switch_array[] = {
 	{"", "iis2lrck_pin_in_sel", 0x4, 14, 1, 0},
 	{"", "iis2di_pin_in_sel", 0x4, 13, 1, 0},
 	{"", "iis2clk_pin_in_sel", 0x4, 12, 1, 0},
+#endif
 	{"", "iis23_loop_sel", 0xc, 5, 1, 0},
 	{"", "iis13_loop_sel", 0xc, 4, 1, 0},
 	{"", "iis12_loop_sel", 0xc, 3, 1, 0},
@@ -44,10 +48,11 @@ static struct sci_pin_switch bt_iis_sys_sel_array[] = {
 	{"bt_iis_sys_sel", "cp1_iis1", 0x8, 28, 4, 5},
 	{"bt_iis_sys_sel", "cp1_iis2", 0x8, 28, 4, 6},
 	{"bt_iis_sys_sel", "cp1_iis3", 0x8, 28, 4, 7},
-	{"bt_iis_sys_sel", "cp2_iis0", 0x8, 28, 4, 8},
-	{"bt_iis_sys_sel", "cp2_iis1", 0x8, 28, 4, 9},
-	{"bt_iis_sys_sel", "cp2_iis2", 0x8, 28, 4, 10},
-	{"bt_iis_sys_sel", "cp2_iis3", 0x8, 28, 4, 11},
+	{"bt_iis_sys_sel", "ap_iis0", 0x8, 28, 4, 8},
+	{"bt_iis_sys_sel", "ap_iis1", 0x8, 28, 4, 9},
+	{"bt_iis_sys_sel", "ap_iis2", 0x8, 28, 4, 10},
+	{"bt_iis_sys_sel", "ap_iis3", 0x8, 28, 4, 11},
+	{"bt_iis_sys_sel", "vbc_iis", 0x8, 28, 4, 12},
 };
 
 static struct sci_pin_switch iis_0_array[] = {
@@ -64,6 +69,7 @@ static struct sci_pin_switch iis_1_array[] = {
 	{"iis1_sys_sel", "cp2_iis1", 0xc, 9, 2, 3},
 };
 
+#if !defined(CONFIG_ARCH_SCX15)
 static struct sci_pin_switch iis_2_array[] = {
 	{"iis2_sys_sel", "ap_iis2", 0xc, 12, 2, 0},
 	{"iis2_sys_sel", "cp0_iis2", 0xc, 12, 2, 1},
@@ -77,19 +83,20 @@ static struct sci_pin_switch iis_3_array[] = {
 	{"iis3_sys_sel", "cp1_iis3", 0xc, 15, 2, 2},
 	{"iis3_sys_sel", "cp2_iis3", 0xc, 15, 2, 3},
 };
+#endif
 
 static struct sci_pin_switch_dir {
 	struct sci_pin_switch *sci_pin_switch;
 	u32 array_size;
-};
-
-static struct sci_pin_switch_dir sci_pin_switch_dir_array[] = {
+} sci_pin_switch_dir_array[] = {
 	{bt_iis_sys_sel_array, ARRAY_SIZE(bt_iis_sys_sel_array)},
 	{iis_0_array, ARRAY_SIZE(iis_0_array)},
 	{iis_1_array, ARRAY_SIZE(iis_1_array)},
+#if !defined(CONFIG_ARCH_SCX15)
 	{iis_2_array, ARRAY_SIZE(iis_1_array)},
 	{iis_3_array, ARRAY_SIZE(iis_1_array)},
-};
+#endif
+	};
 
 /*
 *	#define IIS_TO_AP		(0)
@@ -100,10 +107,10 @@ static struct sci_pin_switch_dir sci_pin_switch_dir_array[] = {
 */
 static int read_write_pin_switch(int is_read, int v, struct sci_pin_switch *p)
 {
-	u32 shift = p->bit_offset;
-	u32 mask = (1 << (p->bit_width)) - 1;
-	u32 pin_ctl_reg = SPRD_PIN_BASE + p->reg;
 	int val = 0;
+	u32 shift = p->bit_offset;
+	u32 pin_ctl_reg = SPRD_PIN_BASE + p->reg;
+	u32 mask = (1 << (p->bit_width)) - 1;
 	if ((shift > 31))
 		BUG_ON(1);
 	if (v > mask)
@@ -122,103 +129,153 @@ static int read_write_pin_switch(int is_read, int v, struct sci_pin_switch *p)
 	return val;
 }
 
-static int pin_switch_debug_set(void *data, u64 val)
+static int pin_switch_proc_show(struct seq_file *m, void *v)
 {
-	struct sci_pin_switch *p = data;
+	int val = 0;
+	struct sci_pin_switch *p = (struct sci_pin_switch *)(m->private);
+	val = read_write_pin_switch(1, (int)val, p);
+	seq_printf(m, "%s:%d\n", p->filename, val);
+	return 0;
+}
+
+static int pin_switch_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, pin_switch_proc_show, PDE_DATA(inode));
+}
+
+static ssize_t pin_switch_proc_write(struct file *file,
+				     const char __user * buffer,
+				     size_t count, loff_t * pos)
+{
+	char lbuf[32];
+	long val = 0;
+	struct sci_pin_switch *p =
+	    (struct sci_pin_switch *)(PDE_DATA(file_inode(file)));
+	if (count >= sizeof(lbuf))
+		count = sizeof(lbuf) - 1;
+	if (copy_from_user(lbuf, buffer, count))
+		return -EFAULT;
+	lbuf[count] = 0;
+	val = simple_strtol(lbuf, NULL, 0);
 	read_write_pin_switch(0, val, p);
+	return count;
+}
+
+static const struct file_operations pin_switch_fops = {
+	.open = pin_switch_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = pin_switch_proc_write,
+};
+
+static int pin_switch_dir_proc_show(struct seq_file *m, void *v)
+{
+	int val = 0;
+	int func_tmp = 0;
+	struct sci_pin_switch *p = (struct sci_pin_switch *)m->private;
+	func_tmp = read_write_pin_switch(1, val, p);
+	if (p->func == func_tmp)
+		val = 1;
+	else
+		val = 0;
+	seq_printf(m, "%s:%d\n", p->filename, val);
 	return 0;
 }
 
-static int pin_switch_debug_get(void *data, u64 * val)
+static int pin_switch_dir_proc_open(struct inode *inode, struct file *file)
 {
-	struct sci_pin_switch *p = data;
-	*val = read_write_pin_switch(1, (int)val, p);
-	return 0;
+	return single_open(file, pin_switch_dir_proc_show, PDE_DATA(inode));
 }
 
-DEFINE_SIMPLE_ATTRIBUTE(pin_switch_enable_fops, pin_switch_debug_get,
-			pin_switch_debug_set, "%llu\n");
-
-static int pin_switch_dir_debug_set(void *data, u64 val)
+static ssize_t pin_switch_dir_proc_write(struct file *file,
+					 const char __user * buffer,
+					 size_t count, loff_t * pos)
 {
-	struct sci_pin_switch *p = data;
+	char lbuf[32];
+	int val = 0;
+	struct sci_pin_switch *p =
+	    (struct sci_pin_switch *)(PDE_DATA(file_inode(file)));
+	if (count >= sizeof(lbuf))
+		count = sizeof(lbuf) - 1;
+	if (copy_from_user(lbuf, buffer, count))
+		return -EFAULT;
+	lbuf[count] = 0;
+	val = simple_strtol(lbuf, NULL, 0);
 	if (val == 1)
 		val = p->func;
-	else			/*if val = 0 or other value, just ignore it*/
+	else			/*if val = 0 or other value, just ignore it */
 		return 0;
 	read_write_pin_switch(0, val, p);
-	return 0;
+	return count;
 }
 
-static int pin_switch_dir_debug_get(void *data, u64 * val)
-{
-	struct sci_pin_switch *p = data;
-	int func_tmp;
-	func_tmp = read_write_pin_switch(1, (int)val, p);
-	if (p->func == func_tmp)
-		*val = 1;
-	else
-		*val = 0;
-	return 0;
-}
+static const struct file_operations pin_switch_dir_fops = {
+	.open = pin_switch_dir_proc_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release,
+	.write = pin_switch_dir_proc_write,
+};
 
-DEFINE_SIMPLE_ATTRIBUTE(pin_switch_dir_enable_fops, pin_switch_dir_debug_get,
-			pin_switch_dir_debug_set, "%llu\n");
-
-static struct dentry *pin_switch_debugfs_base;
-static int __init pin_switch_debug_add(struct sci_pin_switch *pin_switch)
+static struct proc_dir_entry *pin_switch_proc_base;
+static int __init pin_switch_proc_add(struct sci_pin_switch *pin_switch)
 {
-	if (!debugfs_create_file
-	    (pin_switch->filename, S_IRUGO | S_IWUSR, pin_switch_debugfs_base,
-	     pin_switch, &pin_switch_enable_fops))
+	struct proc_dir_entry *tmp_proc;
+	tmp_proc =
+	    proc_create_data(pin_switch->filename, S_IALLUGO,
+			     pin_switch_proc_base, &pin_switch_fops,
+			     pin_switch);
+	if (!tmp_proc)
 		return -ENOMEM;
 	return 0;
 }
 
-static int __init pin_switch_debug_add_dir(struct sci_pin_switch_dir
-					   *pin_switch_dir)
+static int __init pin_switch_proc_add_dir(struct sci_pin_switch_dir
+					  *pin_switch_dir)
 {
-	static struct dentry *tmp_dir;
+	struct proc_dir_entry *tmp_proc_dir;
+	struct proc_dir_entry *tmp_proc;
 	int i;
-
 	if (pin_switch_dir->sci_pin_switch->dirname == NULL)
 		return EINVAL;
 	/* has dir name, first create parent dir */
-	tmp_dir =
-	    debugfs_create_dir(pin_switch_dir->sci_pin_switch->dirname,
-			       pin_switch_debugfs_base);
-	if (!tmp_dir)
+	tmp_proc_dir =
+	    proc_mkdir(pin_switch_dir->sci_pin_switch->dirname,
+		       pin_switch_proc_base);
+	if (!tmp_proc_dir)
 		return -ENOMEM;
 
 	for (i = 0; i < pin_switch_dir->array_size; ++i) {
 		if (pin_switch_dir->sci_pin_switch[i].filename == NULL)
 			return EINVAL;
-		if (!debugfs_create_file
-		    (pin_switch_dir->sci_pin_switch[i].filename,
-		     S_IRUGO | S_IWUSR, tmp_dir,
-		     &pin_switch_dir->sci_pin_switch[i],
-		     &pin_switch_dir_enable_fops))
+		tmp_proc =
+		    proc_create_data(pin_switch_dir->sci_pin_switch[i].filename,
+				     S_IALLUGO, tmp_proc_dir,
+				     &pin_switch_dir_fops,
+				     &pin_switch_dir->sci_pin_switch[i]);
+		if (!tmp_proc)
 			return -EINVAL;
 	}
 	return 0;
 }
 
-int __init pin_switch_debug_init(void)
+int __init pin_switch_proc_init(void)
 {
 	int i;
-	pin_switch_debugfs_base = debugfs_create_dir("pin_switch", NULL);
-	if (!pin_switch_debugfs_base)
+	pin_switch_proc_base = proc_mkdir("pin_switch", NULL);
+	if (!pin_switch_proc_base)
 		return -ENOMEM;
 	for (i = 0; i < ARRAY_SIZE(sci_pin_switch_array); ++i) {
-		pin_switch_debug_add(&sci_pin_switch_array[i]);
+		pin_switch_proc_add(&sci_pin_switch_array[i]);
 	}
 	for (i = 0; i < ARRAY_SIZE(sci_pin_switch_dir_array); ++i) {
-		pin_switch_debug_add_dir(&sci_pin_switch_dir_array[i]);
+		pin_switch_proc_add_dir(&sci_pin_switch_dir_array[i]);
 	}
 	return 0;
 }
 
-late_initcall(pin_switch_debug_init);
+late_initcall(pin_switch_proc_init);
 #else
-#error "CONFIG_DEBUG_FS needed by mach-sc/pin_switch"
-#endif /* CONFIG_DEBUG_FS */
+#error "CONFIG_PROC_FS needed by mach-sc/pin_switch"
+#endif /* CONFIG_PROC_FS */

@@ -38,6 +38,9 @@
 #define REG_EFUSE_BLK_FLAGS             (SPRD_EFUSE_BASE + 0x0018)
 #define REG_EFUSE_BLK_CLR               (SPRD_EFUSE_BASE + 0x001c)
 #define REG_EFUSE_MAGIC_NUMBER          (SPRD_EFUSE_BASE + 0x0020)
+#ifdef CONFIG_SC_X15
+#define REG_EFUSE_STROBE_LOW_WIDTH		(SPRD_EFUSE_BASE + 0x0024)
+#endif
 
 #define ANA_PROT_KEY		(0xc686)
 
@@ -164,6 +167,9 @@ static __inline int __ddie_fuse_read(u32 blk)
 //Need confirm.
 static __inline int __adie_fuse_getdata(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+	return 0;
+#else
 	int val = 0;
 	unsigned long timeout;
 
@@ -183,8 +189,6 @@ static __inline int __adie_fuse_getdata(void)
 	}
 	val = sci_adi_read(ANA_REG_GLB_AFUSE_OUT_LOW);
 	val |= (sci_adi_read(ANA_REG_GLB_AFUSE_OUT_HIGH)) << 16;
-#elif defined(CONFIG_ARCH_SCX15)
-	timeout = 0;
 #elif defined(CONFIG_ARCH_SCX35)
 	/* wait for maximum of 100 msec */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, BIT_AFUSE_READ_REQ, 1);
@@ -204,15 +208,18 @@ static __inline int __adie_fuse_getdata(void)
 	mutex_unlock(&adie_fuse_lock);
 
 	return val;
+#endif /* CONFIG_ARCH_SCX15 */
 }
 
 int sci_efuse_get(u32 blk)
 {
 	pr_debug("sci_efuse_get, blk = %d\n", blk);
-	if (blk & ADIE_EFUSE_MSK)
-		return __adie_fuse_getdata();
-	else
-		return __ddie_fuse_read(blk);
+
+#if defined(CONFIG_ARCH_SCX15)
+	return __ddie_fuse_read(blk);
+#else
+	return __adie_fuse_getdata();
+#endif
 }
 
 EXPORT_SYMBOL(sci_efuse_get);
@@ -228,7 +235,7 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 	int data;
 	unsigned short adc_temp;
 
-	data =  __adie_fuse_getdata();
+	data = sci_efuse_get(CAL_DATA_BLK);
 
 	data &= ~(1 << 31);
 
@@ -246,13 +253,58 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 
 	return 1;
 }
+EXPORT_SYMBOL(sci_efuse_calibration_get);
+
 int sci_efuse_cv_get(unsigned int *p_cal_data)
 {
 	return 0;
 }
 
+/*
+ * sci_efuse_get_cal - read adc data saved in efuse
+ * @pdata: adc data pointer
+ * pdata[0] -> 4.2v
+ * pdata[1] -> 3.6v
+ * pdata[2] -> 0.4v
+ * @num: the length of adc data
+ *
+ * retruns 0 if success, else
+ * returns negative number.
+ */
+#define DELTA2ADC(_delta_, _Ideal_) 		( ((_delta_) + (_Ideal_) - 128) << 2 )
+#define ADC_VOL(_delta_, _Ideal_, vol)	((DELTA2ADC(_delta_, _Ideal_) << 16) | (vol))
 
-EXPORT_SYMBOL(sci_efuse_calibration_get);
+int sci_efuse_get_cal(unsigned int * pdata, int num)
+{
+	int i;
+	u32 efuse_data;
+	u8* delta = (u8*) &efuse_data;
+	const u16 ideal[3][2] = {
+		{4200, 830},	/* FIXME: efuse only support 10bits */
+		{3600, 711},
+		{400,   79},
+	};
+
+	efuse_data = (u32) sci_efuse_get(CAL_DATA_BLK);
+
+	pr_info("%s efuse data: 0x%08x\n", __func__, efuse_data);
+
+	if (!(efuse_data & BIT(31)) || (!pdata)) {
+		return -1;
+	}
+
+	WARN_ON(!((delta[0] > delta[1]) && (delta[1] > delta[2])));
+
+	pr_info("adc_cal: ");
+	for(i = 0; i < num; i++) {
+		pdata[i] = (unsigned int) ADC_VOL(delta[i], ideal[i][1], ideal[i][0]);
+		pr_info("0x%08x ", pdata[i]);
+	}
+	pr_info("\n");
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sci_efuse_get_cal);
 
 /*
  * below code is for test ,maybe used in the future.
@@ -404,6 +456,9 @@ void sci_ddie_fuse_bist(u32 start_blk, u32 size)
 
 void sci_adie_fuse_set_readdly(u32 read_delay)
 {
+#if defined(CONFIG_ARCH_SCX15)
+	return;
+#else
 	u32 v = 0;
 	mutex_lock(&adie_fuse_lock);
 #if defined(CONFIG_ARCH_SC8825)
@@ -412,8 +467,6 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 0);
 	v = ~(BITS_AFUSE_RD_DLY_PROT(AFUSE_DLY_PROT_KEY));	/*release lock */
 	sci_adi_write_fast(ANA_REG_GLB_AFUSE_CTRL, v, 1);
-#elif defined(CONFIG_ARCH_SCX15)
-	v = v;
 #elif defined(CONFIG_ARCH_SCX35)
 	//v = BITS_AFUSE_READ_DLY_PROT(AFUSE_DLY_PROT_KEY);	/*get lock */
 	v |= BITS_AFUSE_READ_DLY(read_delay);
@@ -423,6 +476,7 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 
 #endif
 	mutex_unlock(&adie_fuse_lock);
+#endif /* CONFIG_ARCH_SCX15 */
 }
 
 #ifdef CONFIG_EFUSE_TEST
@@ -448,10 +502,6 @@ static struct sci_fuse sci_fuse_array[] = {
 	{"ddie-fuse5", 5, 0},
 	{"ddie-fuse6", 6, 0},
 	{"ddie-fuse7", 7, 0},
-	{"iis-0", 0, 2},
-	{"iis-1", 1, 2},
-	{"iis-2", 2, 2},
-	{"iis-3", 3, 2},
 };
 
 #define IIS_TO_AP	(0)
@@ -459,32 +509,6 @@ static struct sci_fuse sci_fuse_array[] = {
 #define IIS_TO_CP1	(2)
 #define IIS_TO_CP2	(3)
 #define PIN_CTL_REG3 (SPRD_PIN_BASE + 0xc)
-
-static int read_write_i2s_switch_pin(int is_read, int v, struct sci_fuse *p)
-{
-	u32 shift = 0;
-	u32 mask = 0x7;
-	int val = 0;
-	if (p->blk_id == 0)
-		shift = 6;
-	else if (p->blk_id == 1)
-		shift = 9;
-	else if (p->blk_id == 2)
-		shift = 12;
-	else if (p->blk_id == 3)
-		shift = 15;
-	else
-		BUG_ON(1);
-	val = __raw_readl(PIN_CTL_REG3);
-	if (is_read) {
-		return val;
-	} else {
-		val &= ~(mask<<shift);
-		val |= (v& mask)<<shift;
-		__raw_writel(val,PIN_CTL_REG3);
-	}
-	return val;
-}
 
 #ifdef CONFIG_EFUSE_TEST
 static void efuse_dump_register(u32 en)
@@ -519,10 +543,6 @@ static void efuse_dump_register(u32 en)
 static int fuse_debug_set(void *data, u64 val)
 {
 	struct sci_fuse *p = data;
-	if (p->is_adie_fuse == 2) {
-		read_write_i2s_switch_pin(0, val, p);
-		return 0;
-	}
 	if (!(p->is_adie_fuse))
 		sci_ddie_fuse_program(p->blk_id, (int)val);
 
@@ -532,11 +552,6 @@ static int fuse_debug_set(void *data, u64 val)
 static int fuse_debug_get(void *data, u64 * val)
 {
 	struct sci_fuse *p = data;
-
-	if (p->is_adie_fuse == 2) {
-		*val = read_write_i2s_switch_pin(1, (int)val, p);
-		return 0;
-	}
 
 	if (p->is_adie_fuse)
 		*val = __adie_fuse_getdata();

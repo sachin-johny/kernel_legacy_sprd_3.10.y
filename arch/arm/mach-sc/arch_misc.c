@@ -74,8 +74,6 @@ static void __iomap_page(unsigned long virt, unsigned long size, int enable)
 
 int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 {
-#if defined(CONFIG_ARCH_SCX15)
-#else
 	if (enable) {
 		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
 		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
@@ -105,7 +103,6 @@ int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_VSP_BASE, SZ_4K, enable);
 	}
-#endif
 	return 0;
 }
 

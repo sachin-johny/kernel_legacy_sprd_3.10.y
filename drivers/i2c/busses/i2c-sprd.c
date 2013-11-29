@@ -165,6 +165,34 @@ static inline void sprd_i2c_clear_int(struct sprd_i2c *pi2c)
 	__raw_writel(cmd, pi2c->membase + I2C_CMD);
 }
 
+static inline void dump_i2c_reg(struct sprd_i2c *pi2c)
+{
+	printk(KERN_ERR ": ======dump i2c-%d reg=======\n", pi2c->adap.nr);
+	printk(KERN_ERR ": I2C_CTRL:0x%x\n",__raw_readl(pi2c->membase + I2C_CTL));
+	printk(KERN_ERR ": I2C_CMD:0x%x\n",__raw_readl(pi2c->membase + I2C_CMD));
+	printk(KERN_ERR ": I2C_DVD0:0x%x\n",__raw_readl(pi2c->membase + I2C_CLKD0));
+	printk(KERN_ERR ": I2C_DVD1:0x%x\n",__raw_readl(pi2c->membase + I2C_CLKD1));
+	printk(KERN_ERR ": I2C_RST:0x%x\n",__raw_readl(pi2c->membase + I2C_RST));
+	printk(KERN_ERR ": I2C_CMD_BUF:0x%x\n",__raw_readl(pi2c->membase + I2C_CMD_BUF));
+	printk(KERN_ERR ": I2C_CMD_BUF_CTL:0x%x\n",__raw_readl(pi2c->membase + I2C_CMD_BUF_CTL));
+#ifdef CONFIG_ARCH_SCX35
+	printk(KERN_ERR ": 26M clock status:%d\n", (__raw_readl(REG_PMU_APB_CGM_AP_EN)&BIT_CGM_26M_AP_EN) ? 1:0);
+	printk(KERN_ERR ": BASE_CLK_SEL i2c[0~5],: 0x%x, 0x%x, 0x%x, 0x%x, 0x%x, 0x%x \n\r",
+	__raw_readl(REG_AP_CLK_I2C0_CFG), __raw_readl(REG_AP_CLK_I2C1_CFG),
+    __raw_readl(REG_AP_CLK_I2C2_CFG), __raw_readl(REG_AP_CLK_I2C3_CFG),
+    __raw_readl(REG_AP_CLK_I2C4_CFG), __raw_readl(REG_AON_CLK_I2C_CFG));
+    printk(KERN_ERR ": BASE ENABLE I2C[0~5],: %d, %d, %d, %d, %d, %d \n\r",
+	(__raw_readl(REG_AP_APB_APB_EB) & BIT_I2C0_EB)? 1:0, (__raw_readl(REG_AP_APB_APB_EB) & BIT_I2C1_EB)? 1:0,
+	(__raw_readl(REG_AP_APB_APB_EB) & BIT_I2C2_EB)? 1:0, (__raw_readl(REG_AP_APB_APB_EB) & BIT_I2C3_EB)? 1:0,
+    (__raw_readl(REG_AP_APB_APB_EB) & BIT_I2C4_EB)? 1:0, (__raw_readl(REG_AON_APB_APB_EB0) & BIT_I2C_EB)? 1:0 );
+	printk(KERN_ERR ": BASE RESET I2C[0~5],: %d, %d, %d, %d, %d, %d \n\r",
+    (__raw_readl(REG_AP_APB_APB_RST) & BIT_I2C0_SOFT_RST)? 1:0, (__raw_readl(REG_AP_APB_APB_RST) & BIT_I2C1_SOFT_RST)? 1:0,
+    (__raw_readl(REG_AP_APB_APB_RST) & BIT_I2C2_SOFT_RST)? 1:0, (__raw_readl(REG_AP_APB_APB_RST) & BIT_I2C3_SOFT_RST)? 1:0,
+    (__raw_readl(REG_AP_APB_APB_RST) & BIT_I2C4_SOFT_RST)? 1:0, (__raw_readl(REG_AON_APB_APB_RST0) & BIT_I2C_SOFT_RST)? 1:0);
+ #endif
+
+}
+
 static inline int sprd_wait_trx_done(struct sprd_i2c *pi2c)
 {
 	int rc;
@@ -172,6 +200,7 @@ static inline int sprd_wait_trx_done(struct sprd_i2c *pi2c)
 	rc = sprd_i2c_wait_int(pi2c);
 	if (rc < 0) {
 		dev_err(&pi2c->adap.dev, "%s() err! rc=%d\n", __func__, rc);
+		dump_i2c_reg(pi2c);
 		return rc;
 	}
 
@@ -313,6 +342,7 @@ sprd_i2c_handle_msg(struct i2c_adapter *i2c_adap, struct i2c_msg *pmsg,
 	rc = sprd_i2c_send_target_addr(pi2c, pmsg);
 	if (rc < 0) {
 		dev_err(&i2c_adap->dev, "%s() rc=%d\n", __func__, rc);
+		dump_i2c_reg(pi2c);
 		return rc;
 	}
 
@@ -530,6 +560,9 @@ static int i2c_controller_suspend(struct platform_device *pdev,
 	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
 
 	if (pi2c && (pi2c->adap.nr < ARRAY_SIZE(l2c_saved_regs))) {
+		printk(KERN_ERR ":===dump i2c-%d reg when suspend\n", pi2c->adap.nr);
+		dump_i2c_reg(pi2c);
+
 		l2c_saved_regs[pi2c->adap.nr].ctl = __raw_readl(pi2c->membase + I2C_CTL);
 		l2c_saved_regs[pi2c->adap.nr].cmd = __raw_readl(pi2c->membase + I2C_CMD);
 		l2c_saved_regs[pi2c->adap.nr].div0 = __raw_readl(pi2c->membase + I2C_CLKD0);
@@ -550,6 +583,16 @@ static int i2c_controller_resume(struct platform_device *pdev)
 	if (pi2c && !IS_ERR(pi2c->clk))
 		clk_enable(pi2c->clk);
 	if (pi2c) {
+		printk(KERN_ERR ":===dump i2c-%d reg when resume\n", pi2c->adap.nr);
+		printk(KERN_ERR ":l2c_saved_regs[%d].ctl =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].ctl);
+		printk(KERN_ERR ":l2c_saved_regs[%d].cmd =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].cmd);
+		printk(KERN_ERR ":l2c_saved_regs[%d].div0 =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].div0);
+		printk(KERN_ERR ":l2c_saved_regs[%d].div1 =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].div1);
+		printk(KERN_ERR ":l2c_saved_regs[%d].rst =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].rst);
+		printk(KERN_ERR ":l2c_saved_regs[%d].cmd_buf =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].cmd_buf);
+		printk(KERN_ERR ":l2c_saved_regs[%d].cmd_buf_ctl =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl);
+
+        printk(KERN_ERR ": 26M clock status:%d\n", (__raw_readl(REG_PMU_APB_CGM_AP_EN)&BIT_CGM_26M_AP_EN) ? 1:0);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].ctl, pi2c->membase + I2C_CTL);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd, pi2c->membase + I2C_CMD);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].div0, pi2c->membase + I2C_CLKD0);
@@ -557,6 +600,7 @@ static int i2c_controller_resume(struct platform_device *pdev)
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].rst, pi2c->membase + I2C_RST);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf, pi2c->membase + I2C_CMD_BUF);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl, pi2c->membase + I2C_CMD_BUF_CTL);
+		dump_i2c_reg(pi2c);
 
 	}
 	return 0;
