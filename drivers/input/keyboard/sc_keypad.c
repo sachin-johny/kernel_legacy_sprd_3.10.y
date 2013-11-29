@@ -373,7 +373,7 @@ static int sci_keypad_probe(struct platform_device *pdev)
 		goto out2;
 	}
 	error =
-	    request_irq(sci_kpd->irq, sci_keypad_isr, 0, "sci-keypad", sci_kpd);
+	    request_irq(sci_kpd->irq, sci_keypad_isr, IRQF_NO_SUSPEND, "sci-keypad", sci_kpd);
 	if (error) {
 		dev_err(&pdev->dev, "unable to claim irq %d\n", sci_kpd->irq);
 		goto out2;
