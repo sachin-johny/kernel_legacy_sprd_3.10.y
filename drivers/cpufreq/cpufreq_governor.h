@@ -183,6 +183,33 @@ struct cs_dbs_tuners {
 	unsigned int freq_step;
 };
 
+struct sd_dbs_tuners {
+	unsigned int ignore_nice;
+	unsigned int sampling_rate;
+	unsigned int sampling_down_factor;
+	unsigned int up_threshold;
+	unsigned int adj_up_threshold;
+	unsigned int powersave_bias;
+	unsigned int io_is_busy;
+
+	unsigned int cpu_hotplug_disable;
+	unsigned int is_suspend;
+	unsigned int cpu_score_up_threshold;
+	unsigned int load_critical;
+	unsigned int load_hi;
+	unsigned int load_mid;
+	unsigned int load_light;
+	unsigned int load_lo;
+	int load_critical_score;
+	int load_hi_score;
+	int load_mid_score;
+	int load_light_score;
+	int load_lo_score;
+	unsigned int cpu_down_threshold;
+	unsigned int cpu_down_count;
+	unsigned int cpu_num_limit;
+};
+
 /* Common Governer data across policies */
 struct dbs_data;
 struct common_dbs_data {
