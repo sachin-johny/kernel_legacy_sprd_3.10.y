@@ -24,6 +24,23 @@ config LEDS_CLASS
 
 comment "LED drivers"
 
+config FLASHLIGHT
+	bool "Flashlight Support"
+	help
+	  This option enables the led sysfs class in /sys/class/flashlight.
+
+config RT_FLASH_LED
+	tristate "Richtek flash LED driver support"
+	depends on FLASHLIGHT
+	help
+	  Say Y here to enable Richtek's flash LED driver HAL architecture
+
+config FLED_RT5033
+	tristate "Richtek RT5033 flash LED driver"
+	depends on RT_FLASH_LED && MFD_RT5033
+	help
+	  A driver for Richtek RT5033 flash LED
+
 config LEDS_88PM860X
 	tristate "LED Support for Marvell 88PM860x PMIC"
 	depends on LEDS_CLASS

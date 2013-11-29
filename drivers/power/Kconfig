@@ -204,6 +204,14 @@ config BATTERY_MAX17042
 	  with MAX17042. This driver also supports max17047/50 chips which are
 	  improved version of max17042.
 
+config BATTERY_SAMSUNG
+	tristate "samsung battery driver"
+	help
+	 Say Y to include support for samsung battery driver
+	 This battery driver integrated all battery-related functions
+	 To see battery-related functions,
+	 refer to sec_charging_common.h
+
 config BATTERY_Z2
 	tristate "Z2 battery driver"
 	depends on I2C && MACH_ZIPIT2
@@ -227,6 +235,24 @@ config CHARGER_PCF50633
 	depends on MFD_PCF50633
 	help
 	 Say Y to include support for NXP PCF50633 Main Battery Charger.
+
+config CHARGER_RT5033
+	tristate "RT5033 charger driver"
+	depends on MFD_RT5033 && I2C
+	default n
+	help
+	 Say Y to include support
+	 for Richtek RT5033 charger driver..
+
+config FUELGAUGE_RT5033
+	tristate "RT5033 fuel gauge driver"
+	default n
+	depends on BATTERY_SAMSUNG
+	help
+	 Say Y to include support
+	 for RT5033 fuel gauge driver.
+	 This driver source code implemented
+	 all functions for RT5033 fuel gauge.
 
 config BATTERY_JZ4740
 	tristate "Ingenic JZ4740 battery"

@@ -53,7 +53,11 @@ obj-$(CONFIG_LEDS_RENESAS_TPU)		+= leds-renesas-tpu.o
 obj-$(CONFIG_LEDS_MAX8997)		+= leds-max8997.o
 obj-$(CONFIG_LEDS_LM355x)		+= leds-lm355x.o
 obj-$(CONFIG_LEDS_BLINKM)		+= leds-blinkm.o
-obj-$(CONFIG_LEDS_SC8810_KB)       += leds-sc8810-kb.o
+obj-$(CONFIG_LEDS_SC8810_KB)		+= leds-sc8810-kb.o
+# richteck
+obj-$(CONFIG_FLASHLIGHT)		+= flashlight.o
+obj-$(CONFIG_RT_FLASH_LED)		+= rtfled.o
+obj-$(CONFIG_FLED_RT5033)       += rt5033_fled.o
 # SPRD keyboard-backlight Drivers
 obj-$(CONFIG_LEDS_SPRD_KB) += leds-sprd-kb.o
 
