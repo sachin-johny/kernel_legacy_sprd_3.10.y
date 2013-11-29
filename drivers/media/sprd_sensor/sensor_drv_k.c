@@ -953,7 +953,7 @@ LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
 
 	gpio_direction_output(GPIO_SENSOR_RESET, plus_level);
 	gpio_set_value(GPIO_SENSOR_RESET, plus_level);
-	SLEEP_MS(100);
+
 
 	return SENSOR_K_SUCCESS;
 }
