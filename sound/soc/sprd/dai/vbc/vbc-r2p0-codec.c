@@ -598,7 +598,7 @@ static const struct soc_enum vbc_mux_sel_enum[SPRD_VBC_MUX_MAX] = {
 static int vbc_chan_event(struct snd_soc_dapm_widget *w,
 			  struct snd_kcontrol *kcontrol, int event)
 {
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct snd_soc_codec *codec = w->codec;
 	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
