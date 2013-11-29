@@ -102,7 +102,7 @@
     #elif defined(CONFIG_CAMERA_5M)
     #define SPRD_ION_SIZE   (19*1024*1024)
     #elif defined(CONFIG_CAMERA_3M)
-    #define SPRD_ION_SIZE   (13*1024*1024)
+    #define SPRD_ION_SIZE   (16*1024*1024)
     #elif defined(CONFIG_CAMERA_2M)
         #ifdef CONFIG_CAMERA_ROTATION
         #define SPRD_ION_SIZE   (13*1024*1024)
