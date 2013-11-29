@@ -403,6 +403,11 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 		.platform_data = &ft5x0x_ts_info,
 #endif
 	},
+#if(defined(CONFIG_TOUCHSCREEN_GOODIX)||defined(CONFIG_TOUCHSCREEN_GOODIX_MODULE))
+        {
+                I2C_BOARD_INFO("goodix_ts", 0x5D),
+        },
+#endif
 };
 
 static int sc8810_add_i2c_devices(void)
