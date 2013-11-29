@@ -191,6 +191,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_slog_wcn_device,
 	&sprd_sttybt_td_device,
 #endif
+	&sprd_headset_device,
 };
 
 static struct platform_device *late_devices[] __initdata = {

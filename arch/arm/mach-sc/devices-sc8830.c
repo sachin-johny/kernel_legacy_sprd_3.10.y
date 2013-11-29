@@ -513,48 +513,43 @@ struct platform_device sprd_keypad_device = {
 	.resource = sci_keypad_resources,
 };
 
-static struct headset_button sprd_headset_button[] = {
-	{
-		.adc_min			= 0x0000,
-		.adc_max			= 0x00C8,
-		.code			= KEY_MEDIA,
-	},
-	{
-		.adc_min			= 0x00C9,
-		.adc_max			= 0x02BC,
-		.code			= KEY_VOLUMEUP,
-	},
-	{
-		.adc_min			= 0x02BD,
-		.adc_max			= 0x0514,
-		.code			= KEY_VOLUMEDOWN,
-	},
-};
-static struct sprd_headset_buttons_platform_data sprd_headset_button_data = {
-	.headset_button	= sprd_headset_button,
-	.nbuttons	= ARRAY_SIZE(sprd_headset_button),
-};
-static struct sprd_headset_detect_platform_data sprd_headset_detect_data = {
-	.switch_gpio	= HEADSET_SWITCH_GPIO,
-	.detect_gpio	= HEADSET_DETECT_GPIO,
-	.button_gpio	= HEADSET_BUTTON_GPIO,
-	.detect_active_low	= 1,
-	.button_active_low	= 1,
-};
 
-struct platform_device sprd_headset_button_device = {
-	.name	= "headset-buttons",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &sprd_headset_button_data,
+
+static struct headset_buttons sprd_headset_buttons[] = {
+	{
+		.adc_min = 0x0000,
+		.adc_max = 0x00C8,
+		.code = KEY_MEDIA,
+	},
+	{
+		.adc_min = 0x00C9,
+		.adc_max = 0x02BC,
+		.code = KEY_VOLUMEUP,
+	},
+	{
+		.adc_min = 0x02BD,
+		.adc_max = 0x0514,
+		.code = KEY_VOLUMEDOWN,
 	},
 };
-
-struct platform_device sprd_headset_detect_device = {
-	.name	= "headset-detect",
-	.id	= -1,
-	.dev	= {
-		.platform_data	= &sprd_headset_detect_data,
+static struct sprd_headset_platform_data sprd_headset_pdata = {
+	.gpio_switch = HEADSET_SWITCH_GPIO,
+	.gpio_detect = HEADSET_DETECT_GPIO,
+	.gpio_button = HEADSET_BUTTON_GPIO,
+#ifdef CONFIG_EAR_LOW_LEVEL_DETECT
+	.irq_trigger_level_detect = 0,
+#else
+	.irq_trigger_level_detect = 1,
+#endif
+	.irq_trigger_level_button = 1,
+	.headset_buttons = sprd_headset_buttons,
+	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
+};
+struct platform_device sprd_headset_device = {
+	.name = "headset-detect",
+	.id = -1,
+	.dev = {
+		.platform_data = &sprd_headset_pdata,
 	},
 };
 

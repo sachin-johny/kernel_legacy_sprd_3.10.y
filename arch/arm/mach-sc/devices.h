@@ -40,11 +40,8 @@ extern struct platform_device sprd_spi2_device;
 extern struct platform_device sprd_keypad_device;
 extern struct platform_device sprd_thm_device;
 extern struct platform_device sprd_thm_a_device;
-#ifdef CONFIG_ARCH_SCX35
-extern struct platform_device sprd_headset_detect_device;
-extern struct platform_device sprd_headset_button_device;
-#endif
 extern struct platform_device sprd_battery_device;
+extern struct platform_device sprd_headset_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_jpg_device;
