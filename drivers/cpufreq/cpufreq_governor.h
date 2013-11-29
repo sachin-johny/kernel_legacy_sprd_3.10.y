@@ -78,7 +78,10 @@ static ssize_t show_##file_name##_gov_sys				\
 (struct kobject *kobj, struct attribute *attr, char *buf)		\
 {									\
 	struct _gov##_dbs_tuners *tuners = _gov##_dbs_cdata.gdbs_data->tuners; \
-	return sprintf(buf, "%u\n", tuners->file_name);			\
+	if(tuners->file_name > 0)						\
+		return sprintf(buf, "%u\n", tuners->file_name);			\
+	else									\
+		return sprintf(buf, "%d\n", tuners->file_name);			\
 }									\
 									\
 static ssize_t show_##file_name##_gov_pol					\
