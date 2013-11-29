@@ -591,6 +591,7 @@ static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
 	.iova_size=0x1000000,
 	.pgt_base=SPRD_GSPMMU_BASE,
 	.pgt_size=0x4000,
+	.ctrl_reg=SPRD_GSPMMU_BASE+0x4000,
 };
 
 struct platform_device sprd_iommu_gsp_device = {
@@ -606,6 +607,7 @@ static struct sprd_iommu_init_data sprd_iommu_mm_data = {
 	.iova_size=0x4000000,
 	.pgt_base=SPRD_MMMMU_BASE,
 	.pgt_size=0x10000,
+	.ctrl_reg=SPRD_MMMMU_BASE+0x10000,
 };
 
 struct platform_device sprd_iommu_mm_device = {
