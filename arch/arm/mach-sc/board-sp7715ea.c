@@ -151,9 +151,10 @@ static struct platform_device *devices[] __initdata = {
 #if !defined(CONFIG_ARCH_SCX15)
 	&sprd_sdio2_device,
 #endif
-#if 0
+
 	&sprd_vsp_device,
 	&sprd_jpg_device,
+#if 0
 	&sprd_isp_device,
 	&sprd_ahb_bm0_device,
 	&sprd_ahb_bm1_device,

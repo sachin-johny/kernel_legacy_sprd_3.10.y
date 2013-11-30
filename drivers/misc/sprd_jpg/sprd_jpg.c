@@ -91,10 +91,17 @@ struct clock_name_map_t{
 };
 
 static struct clock_name_map_t clock_name_map[] = {
-						{256000000,"clk_256m"},
+#if defined(CONFIG_ARCH_SCX15)
 						{192000000,"clk_192m"},
+						{153000000,"clk_153p6m"},
 						{128000000,"clk_128m"},
 						{76800000,"clk_76m8"}
+#else
+						{256000000,"clk_256m"},
+						{192000000,"clk_192p6m"},
+						{128000000,"clk_128m"},
+						{76800000,"clk_76m8"}
+#endif
 						};
 
 static int max_freq_level = ARRAY_SIZE(clock_name_map);
@@ -426,6 +433,7 @@ static int jpg_open(struct inode *inode, struct file *filp)
 	jpg_hw_dev.condition_work_BSM= 0;
 	jpg_hw_dev.jpg_int_status = 0;
 
+	printk("JPEG mmi_clk open");
 	clk_enable(jpg_hw_dev.mm_clk);
 		
 	printk(KERN_INFO "jpg_open %p\n", jpg_fp);
@@ -447,7 +455,8 @@ static int jpg_release (struct inode *inode, struct file *filp)
 	}
 
 	kfree(filp->private_data);
-	
+
+    printk("JPEG mmi_clk close");	
     clk_disable(jpg_hw_dev.mm_clk);
     
 	printk(KERN_INFO "jpg_release %p\n", jpg_fp);
