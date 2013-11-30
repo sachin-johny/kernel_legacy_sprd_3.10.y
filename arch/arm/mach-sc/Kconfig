@@ -209,6 +209,16 @@ config FIX_V7TAGRAM_BUG
 	depends on ARCH_SCX35
 	depends on SMP
 
+config DDR_VALIDITY_TEST
+	bool "test ddr validity before go into ddr"
+	default n
+
+config SPRD_CPU_DYNAMIC_HOTPLUG
+	bool "cpu dynamic hotplug with DVFS"
+	default n
+	depends on HOTPLUG_CPU
+	depends on ARCH_SCX35
+
 config SPRD_DCDC_DEBUG
 	tristate "Enable dcdc debug module"
 	default n

@@ -127,6 +127,48 @@ ENTRY(sc8830_standby_exit_iram)
 	ldr r1, =0x00d3
 	cmp r0, r1
 	msr cpsr_c, r1
+
+#ifdef CONFIG_DDR_VALIDITY_TEST
+	ldr r0, =REG_UART1_ENABLE_PHY
+	ldr r1, [r0]
+	orr r1, r1, #REG_UART1_ENABLE_BIT
+	str r1, [r0]
+	ldr r0, =UART1_CKD_PHY
+	ldr r1, =0xe2
+	str r1, [r0]
+	ldr r0, =UART1_CTR0_PHY
+	ldr r1, =0x1c
+	str r1, [r0]
+
+	/* we will test 64kB ddr */
+	ldr r4, =0x10000
+	ldr r3, =0x12345678
+	ldr r5, =0x87654321
+	mov r0, #0x100
+	ldr r1, [r0]
+	cmp r1, #0x0
+	beq finish
+	add r4, r1
+loop:
+	ldr r2, [r1]
+	teq r2, r3
+	bne bad
+	str r5, [r1]
+	ldr r2, [r1]
+	teq r2, r5
+	str r3, [r1]
+	bne bad
+	add r1, #0x4
+	cmp r1, r4
+	blt loop
+	adr r0, str_a4
+	bl printascii_phy
+	b finish
+bad:
+	adr r0, str_a3
+	bl printascii_phy
+finish:
+#endif
 #if 0
 5:	b 5b
 #endif
@@ -139,7 +181,7 @@ ENTRY(sc8830_standby_exit_iram)
 	cmp r1, #32
 	bleq dead
 */
-#if 1
+#ifndef CONFIG_DDR_VALIDITY_TEST
 	ldr r0, =REG_UART1_ENABLE_PHY
 	ldr r1, [r0]
 	orr r1, r1, #REG_UART1_ENABLE_BIT
@@ -150,6 +192,7 @@ ENTRY(sc8830_standby_exit_iram)
 	ldr r0, =UART1_CTR0_PHY
 	ldr r1, =0x1c
 	str r1, [r0]
+#endif
 loopp:
 	adr	r0, str_a2
 	bl	printascii_phy
@@ -157,7 +200,6 @@ loopp:
 	b loopp
 	*/
 
-#endif
 
 	ldr r0, =0x0020
 	bl my_delay
@@ -226,6 +268,9 @@ ENDPROC(dead)
 	.globl sleep_asm_counter
 sleep_asm_counter:
 	.long	0x0
+
+str_a4:	.asciz	"Y!\n"
+str_a3:	.asciz	"N!\n"
 str_a2:	.asciz	"from deep!"
 str_a1:	.asciz	"dead!"
 

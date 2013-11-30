@@ -132,9 +132,6 @@ static void setup_autopd_mode(void)
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_IO_EN | BIT_SLP_LDORF0_PD_EN | BIT_SLP_LDORF1_PD_EN | BIT_SLP_LDORF2_PD_EN);
 	//sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_IO_EN | BIT_SLP_LDORF0_PD_EN | BIT_SLP_LDORF1_PD_EN | BIT_SLP_LDORF2_PD_EN);
 
-	/* don't power down emmccore & emmcio */
-	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN | BIT_SLP_LDOEMMCIO_PD_EN);
-
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDO_PD_EN);
 	sci_adi_clr(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
 	//sci_adi_set(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_SLP_XTLBUF_PD_EN);
@@ -714,6 +711,25 @@ void set_reset_vector(void)
 		sc8830_standby_iram + SLEEP_RESUME_CODE_PHYS); /* place v7_standby_iram here */
 }
 
+#include <linux/slab.h>
+static unsigned long *vtest = NULL;
+static unsigned long *ptest = NULL;
+static void test_memory(void)
+{
+	int i;
+	vtest = kmalloc(64*1024, GFP_KERNEL);
+	if (vtest) {
+		printk("%s %p %p\n", __func__, vtest, virt_to_phys(vtest));
+		for (i = 0; i < (64*1024/4); i++) {
+			vtest[i] = 0x12345678;
+		}
+		ptest = virt_to_phys(vtest);
+	} else {
+		printk("error kmalloc\n");
+	}
+	sp_pm_reset_vector[64] = ptest;
+}
+
 void restore_reset_vector(void)
 {
 	int i;
@@ -1028,6 +1044,9 @@ void sc_pm_init(void)
 	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN | BIT_MCU_LIGHT_SLEEP_EN | \
 		BIT_MCU_SYS_SLEEP_EN | BIT_MCU_CORE_SLEEP);
 	set_reset_vector();
+#ifdef CONFIG_DDR_VALIDITY_TEST
+	test_memory();
+#endif
 #ifndef CONFIG_SPRD_PM_DEBUG
 	pm_debug_init();
 #endif
