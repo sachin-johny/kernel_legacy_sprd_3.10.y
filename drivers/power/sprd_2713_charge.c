@@ -378,8 +378,12 @@ void sprdchg_set_chg_cur(uint32_t chg_current)
 	if (chg_current < SPRDBAT_CHG_CUR_LEVEL_MIN) {
 		chg_current = SPRDBAT_CHG_CUR_LEVEL_MIN;
 	}
-
-	temp = ((chg_current - 300) / 50);
+	if (chg_current < 1400) {
+		temp = ((chg_current - 300) / 50);
+	} else {
+		temp = ((chg_current - 1400) / 100);
+		temp += 0x16;
+	}
 
 	sci_adi_clr(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 
@@ -420,17 +424,29 @@ static void _sprdchg_stop_recharge(void)
 
 void sprdchg_stop_charge(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+		      BIT_CHGR_PD,
+		      BIT_CHGR_PD);
+#else
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BIT_CHGR_PD_RTCSET,
 		      BIT_CHGR_PD_RTCCLR | BIT_CHGR_PD_RTCSET);
+#endif
 	_sprdchg_stop_recharge();
 }
 
 void sprdchg_start_charge(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+		      0,
+		      BIT_CHGR_PD);
+#else
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BIT_CHGR_PD_RTCCLR,
 		      BIT_CHGR_PD_RTCCLR | BIT_CHGR_PD_RTCSET);
+#endif
 	_sprdchg_set_recharge();
 }
 

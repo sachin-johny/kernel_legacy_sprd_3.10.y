@@ -3,7 +3,7 @@
 #define _SPRD_2713_FGU_H_
 
 #include <linux/types.h>
-#if defined(CONFIG_ARCH_SCX35)
+#if defined(CONFIG_SPRD_2713_POWER)
 #include "sprd_2713_charge.h"
 #endif
 
@@ -11,7 +11,7 @@
 
 #define SPRDFGU_BATTERY_CAPACITY    2050    //mAh
 
-#define SPRDFGU_BATTERY_SAFETY_VOL   (SPRDBAT_CHG_END_H + 5)
+#define SPRDFGU_BATTERY_SAFETY_VOL   (SPRDBAT_CHG_END_H + 55)
 #define SPRDFGU_BATTERY_FULL_VOL   SPRDBAT_CHG_END_L
 
 #define SPRDFGU_CAPACITY_FROM_VOL
@@ -19,7 +19,7 @@
 #define SPRDFGU_BATTERY_WARNING_VOL    3640    //mAh
 #define SPRDFGU_BATTERY_SHUTDOWN_VOL   3400
 #else
-#define SPRDFGU_BATTERY_WARNING_VOL    3735    //mAh
+#define SPRDFGU_BATTERY_WARNING_VOL    3691    //mAh
 #define SPRDFGU_BATTERY_SHUTDOWN_VOL   3400
 #endif
 

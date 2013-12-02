@@ -1254,7 +1254,7 @@ static void usb_detect_works(struct work_struct *work)
 	mutex_lock(&udc_lock);
 	if (plug_in){
 		pr_info("usb detect plug in,vbus pull up\n");
-		//hotplug_callback(VBUS_PLUG_IN, 0);
+		hotplug_callback(VBUS_PLUG_IN, 0);
 		if(get_usb_first_enable_store_flag()){
 			queue_delayed_work(d->cable2pc_wq, &d->cable2pc,CABLE_TIMEOUT);
 			__udc_startup();
@@ -1263,7 +1263,7 @@ static void usb_detect_works(struct work_struct *work)
 		pr_info("usb detect plug out,vbus pull down\n");
 		cancel_delayed_work_sync(&d->cable2pc);
 		__udc_shutdown();
-		//hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
+		hotplug_callback(VBUS_PLUG_OUT, cable_is_usb());
 	}
 	mutex_unlock(&udc_lock);
 	switch_set_state(&d->sdev, !!plug_in);

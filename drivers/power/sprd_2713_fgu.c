@@ -193,11 +193,15 @@ static int cur_offset;
 #define FGU_IMPEDANCE_IDEA  200	//200
 
 #define FGU_CUR_SAMPLE_HZ   2
-
+#if defined(CONFIG_ARCH_SCX15)
+static int fgu_nv_4200mv = 2752;
+static int fgu_nv_3600mv = 2374;
+static int fgu_0_cur_adc = 8338;
+#else
 static int fgu_nv_4200mv = 2865;
 static int fgu_nv_3600mv = 2460;
 static int fgu_0_cur_adc = 8019;
-
+#endif
 static int battery_internal_impedance = 250;
 
 static int pcapacity;
@@ -373,7 +377,7 @@ static int sprdfgu_cal_from_nv(void)
 	    (vol_1000mv_adc * 4 * FGU_IMPEDANCE +
 	     FGU_IMPEDANCE_IDEA / 2) / FGU_IMPEDANCE_IDEA;
 
-	if (0xA000 == achip_id_low) {
+	if (!sprdfgu_is_new_chip()) {
 		vol_offset = 327;
 		cur_offset = 59;
 		cur_1000ma_adc = 1760;
@@ -400,7 +404,7 @@ static int sprdfgu_cal_from_chip(void)
 	    / FGU_IMPEDANCE_IDEA;
 	vol_1000mv_adc = ((VOL_40mv_ADC - VOL_0mv_ADC) + 2) / 4;
 
-	if (0xA000 == achip_id_low) {
+	if (!sprdfgu_is_new_chip()) {
 		vol_offset = 327;
 		cur_offset = 59;
 		cur_1000ma_adc = 1760;
@@ -415,8 +419,12 @@ static int sprdfgu_cal_from_chip(void)
 
 int sprdfgu_is_new_chip(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
+	return 1;
+#else
 	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
 	return (0xA000 != achip_id_low) ? 1 : 0;
+#endif
 }
 
 static u32 sprdfgu_adc2vol_mv(u32 adc)
@@ -846,8 +854,10 @@ static void sprdfgu_hw_init(void)
 	u32 pocv_raw;
 	FGU_DEBUG("FGU_Init\n");
 
+#if !defined(CONFIG_ARCH_SCX15)
 	sci_adi_set(ANA_REG_GLB_MP_MISC_CTRL, (BIT(1)));
 	sci_adi_write(ANA_REG_GLB_DCDC_CTRL2, (4 << 8), (7 << 8));
+#endif
 
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_FGU_EN);
 	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_FGU_EN | BIT_RTC_FGUA_EN);

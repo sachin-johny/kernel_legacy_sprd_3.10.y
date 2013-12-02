@@ -20,7 +20,7 @@
 #include <linux/power_supply.h>
 #include <mach/adc.h>
 
-#if defined(CONFIG_ARCH_SCX35)
+#if defined(CONFIG_SPRD_2713_POWER)
 #include "sprd_2713_charge.h"
 #include "sprd_2713_fgu.h"
 #endif
