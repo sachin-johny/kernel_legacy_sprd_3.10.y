@@ -510,6 +510,7 @@ static void cp_init(void)
 #endif
 static int __init emc_early_suspend_init(void)
 {
+	int ret;
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	//cp_code_init();
