@@ -1432,14 +1432,17 @@ static int chan_event(struct snd_soc_dapm_widget *w,
 }
 
 static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr,
-			    int try_on)
+			    int try_on, int need_set)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int reg = ID_FUN(id, lr);
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[reg]);
 	if (try_on) {
 		mixer->set = mixer_setting[reg];
-		return mixer->set(codec, mixer->on);
+		/* NOTES: reduce linein pop noise must open ADCL/R ->HP MIXER
+		   AFTER delay 250ms for both ADCL/ADCR switch complete. */
+		if (need_set)
+			return mixer->set(codec, mixer->on);
 	} else {
 		mixer_setting[reg] (codec, 0);
 		mixer->set = 0;
@@ -1448,21 +1451,21 @@ static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr,
 }
 
 static inline int _mixer_setting(struct snd_soc_codec *codec, int start,
-				 int end, int lr, int try_on)
+				 int end, int lr, int try_on, int need_set)
 {
 	int id;
 	for (id = start; id < end; id++) {
-		_mixer_set_mixer(codec, id, lr, try_on);
+		_mixer_set_mixer(codec, id, lr, try_on, need_set);
 	}
 	return 0;
 }
 
 static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id,
-				     int try_on)
+				     int try_on, int need_set)
 {
 	int lr = id & 0x1;
 	id >>= 1;
-	return _mixer_setting(codec, id, id + 1, lr, try_on);
+	return _mixer_setting(codec, id, id + 1, lr, try_on, need_set);
 }
 
 #ifndef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
@@ -1654,14 +1657,21 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 		BUG();
 		ret = -EINVAL;
 	}
+	_mixer_setting(codec, SPRD_CODEC_HP_DACL,
+		       SPRD_CODEC_HP_ADCL, SPRD_CODEC_LEFT,
+		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPL_EN), 1);
 
 	_mixer_setting(codec, SPRD_CODEC_HP_DACL,
+		       SPRD_CODEC_HP_ADCL, SPRD_CODEC_RIGHT,
+		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPR_EN), 1);
+
+	_mixer_setting(codec, SPRD_CODEC_HP_ADCL,
 		       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_LEFT,
-		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPL_EN));
+		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPL_EN), 0);
 
-	_mixer_setting(codec, SPRD_CODEC_HP_DACL,
+	_mixer_setting(codec, SPRD_CODEC_HP_ADCL,
 		       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_RIGHT,
-		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPR_EN));
+		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPL_EN), 0);
 
 _pre_pmd:
 
@@ -1688,12 +1698,20 @@ static int spk_switch_event(struct snd_soc_dapm_widget *w,
 	}
 
 	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
-		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT,
-		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOL_EN)));
+		       SPRD_CODEC_SPK_ADCL, SPRD_CODEC_LEFT,
+		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOL_EN)), 1);
 
 	_mixer_setting(codec, SPRD_CODEC_SPK_DACL,
+		       SPRD_CODEC_SPK_ADCL, SPRD_CODEC_RIGHT,
+		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOR_EN)), 1);
+
+	_mixer_setting(codec, SPRD_CODEC_SPK_ADCL,
+		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_LEFT,
+		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOL_EN)), 0);
+
+	_mixer_setting(codec, SPRD_CODEC_SPK_ADCL,
 		       SPRD_CODEC_SPK_MIXER_MAX, SPRD_CODEC_RIGHT,
-		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOR_EN)));
+		       (snd_soc_read(codec, DCR2_DCR1) & BIT(AOR_EN)), 0);
 
 	return 0;
 }
@@ -1746,11 +1764,11 @@ static int adc_switch_event(struct snd_soc_dapm_widget *w,
 	if (is_right) {
 		adcpgar_set(codec, on);
 		_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
-			       SPRD_CODEC_RIGHT, on);
+			       SPRD_CODEC_RIGHT, on, 1);
 	} else {
 		adcpgal_set(codec, on);
 		_mixer_setting(codec, SPRD_CODEC_AIL, SPRD_CODEC_ADC_MIXER_MAX,
-			       SPRD_CODEC_LEFT, on);
+			       SPRD_CODEC_LEFT, on, 1);
 	}
 
 	return 0;
@@ -1765,7 +1783,6 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[id]);
 	int ret = 0;
 	int min = sprd_codec_pga_cfg[id].min;
-	static int s_need_wait = 1;
 
 	sp_asoc_pr_dbg("%s Set %s(%d) Event is %s\n", __func__,
 		       sprd_codec_pga_debug_str[id], pga->pgaval,
@@ -1773,28 +1790,56 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		if ((id == SPRD_CODEC_PGA_ADCL) || (id == SPRD_CODEC_PGA_ADCR)) {
-			if (s_need_wait == 1) {
-				/* NOTES: reduce linein pop noise must delay 250ms
-				   after linein mixer switch on.
-				   actually this function perform after
-				   adc_switch_event function for
-				   both ADCL/ADCR switch complete.
-				 */
-				sprd_codec_wait(250);
-				s_need_wait++;
-				sp_asoc_pr_dbg("ADC Switch ON delay\n");
-			}
-		}
 		pga->set = sprd_codec_pga_cfg[id].set;
 		ret = pga->set(codec, pga->pgaval);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
-		if ((id == SPRD_CODEC_PGA_ADCL) || (id == SPRD_CODEC_PGA_ADCR)) {
-			s_need_wait = 1;
-		}
 		pga->set = 0;
 		ret = sprd_codec_pga_cfg[id].set(codec, min);
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
+
+	return ret;
+}
+
+static int ana_loop_event(struct snd_soc_dapm_widget *w,
+		     struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	int id = FUN_REG(w->reg);
+	struct sprd_codec_mixer *mixer;
+	int ret = 0;
+	static int s_need_wait = 1;
+
+	sp_asoc_pr_dbg("Entering %s event is %s\n", __func__, get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_PRE_PMU:
+		/* NOTES: reduce linein pop noise must open ADCL/R ->HP/SPK MIXER
+			AFTER delay 250ms for both ADCL/ADCR switch complete.
+		*/
+		if (s_need_wait == 1) {
+			/* NOTES: reduce linein pop noise must delay 250ms
+			   after linein mixer switch on.
+			   actually this function perform after
+			   adc_switch_event function for
+			   both ADCL/ADCR switch complete.
+			 */
+			sprd_codec_wait(250);
+			s_need_wait++;
+			sp_asoc_pr_dbg("ADC Switch ON delay\n");
+		}
+		mixer = &(sprd_codec->mixer[id]);
+		if (mixer->set) {
+			mixer->set(codec, mixer->on);
+		}
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		s_need_wait = 1;
 		break;
 	default:
 		BUG();
@@ -1859,7 +1904,7 @@ static int mixer_event(struct snd_soc_dapm_widget *w,
 		ret = -EINVAL;
 	}
 	if (ret >= 0)
-		_mixer_setting_one(codec, id, mixer->on);
+		_mixer_setting_one(codec, id, mixer->on, 1);
 
 	return ret;
 }
@@ -1888,6 +1933,7 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
+	int need_set = !mc->shift;
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
@@ -1900,8 +1946,7 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 
 	/*update reg: must be set after snd_soc_dapm_put_enum_double->change = snd_soc_test_bits(widget->codec, e->reg, mask, val); */
 	mixer->on = ucontrol->value.integer.value[0];
-
-	if (mixer->set)
+	if (mixer->set && need_set)
 		ret = mixer->set(codec, mixer->on);
 
 	return ret;
@@ -1909,7 +1954,10 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 
 #define SPRD_CODEC_MIXER(xname, xreg)\
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
-
+/*Just for LINE IN path, mixer_set not really set mixer (ADCL/R -> HP/SPK L/R) here but
+setting in ana_loop_event, just remeber state here*/
+#define SPRD_CODEC_MIXER_NOSET(xname, xreg)\
+		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 1, 1, 0, mixer_get, mixer_set)
 /* ADCL Mixer */
 static const struct snd_kcontrol_new adcl_mixer_controls[] = {
 	SPRD_CODEC_MIXER("AILADCL Switch",
@@ -1944,9 +1992,9 @@ static const struct snd_kcontrol_new hpl_mixer_controls[] = {
 			 ID_FUN(SPRD_CODEC_HP_DACL, SPRD_CODEC_LEFT)),
 	SPRD_CODEC_MIXER("DACRHPL Switch",
 			 ID_FUN(SPRD_CODEC_HP_DACR, SPRD_CODEC_LEFT)),
-	SPRD_CODEC_MIXER("ADCLHPL Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCLHPL Switch",
 			 ID_FUN(SPRD_CODEC_HP_ADCL, SPRD_CODEC_LEFT)),
-	SPRD_CODEC_MIXER("ADCRHPL Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCRHPL Switch",
 			 ID_FUN(SPRD_CODEC_HP_ADCR, SPRD_CODEC_LEFT)),
 };
 
@@ -1956,9 +2004,9 @@ static const struct snd_kcontrol_new hpr_mixer_controls[] = {
 			 ID_FUN(SPRD_CODEC_HP_DACL, SPRD_CODEC_RIGHT)),
 	SPRD_CODEC_MIXER("DACRHPR Switch",
 			 ID_FUN(SPRD_CODEC_HP_DACR, SPRD_CODEC_RIGHT)),
-	SPRD_CODEC_MIXER("ADCLHPR Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCLHPR Switch",
 			 ID_FUN(SPRD_CODEC_HP_ADCL, SPRD_CODEC_RIGHT)),
-	SPRD_CODEC_MIXER("ADCRHPR Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCRHPR Switch",
 			 ID_FUN(SPRD_CODEC_HP_ADCR, SPRD_CODEC_RIGHT)),
 };
 
@@ -1968,9 +2016,9 @@ static const struct snd_kcontrol_new spkl_mixer_controls[] = {
 			 ID_FUN(SPRD_CODEC_SPK_DACL, SPRD_CODEC_LEFT)),
 	SPRD_CODEC_MIXER("DACRSPKL Switch",
 			 ID_FUN(SPRD_CODEC_SPK_DACR, SPRD_CODEC_LEFT)),
-	SPRD_CODEC_MIXER("ADCLSPKL Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCLSPKL Switch",
 			 ID_FUN(SPRD_CODEC_SPK_ADCL, SPRD_CODEC_LEFT)),
-	SPRD_CODEC_MIXER("ADCRSPKL Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCRSPKL Switch",
 			 ID_FUN(SPRD_CODEC_SPK_ADCR, SPRD_CODEC_LEFT)),
 };
 
@@ -1980,11 +2028,15 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 			 ID_FUN(SPRD_CODEC_SPK_DACL, SPRD_CODEC_RIGHT)),
 	SPRD_CODEC_MIXER("DACRSPKR Switch",
 			 ID_FUN(SPRD_CODEC_SPK_DACR, SPRD_CODEC_RIGHT)),
-	SPRD_CODEC_MIXER("ADCLSPKR Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCLSPKR Switch",
 			 ID_FUN(SPRD_CODEC_SPK_ADCL, SPRD_CODEC_RIGHT)),
-	SPRD_CODEC_MIXER("ADCRSPKR Switch",
+	SPRD_CODEC_MIXER_NOSET("ADCRSPKR Switch",
 			 ID_FUN(SPRD_CODEC_SPK_ADCR, SPRD_CODEC_RIGHT)),
 };
+/*ANA LOOP SWITCH*/
+#define SPRD_CODEC_LOOP_SWITCH(xname, xreg)\
+	SND_SOC_DAPM_PGA_S(xname, 7, FUN_REG(xreg), 0, 0, ana_loop_event,\
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD)
 
 #ifndef SND_SOC_DAPM_MICBIAS_E
 #define SND_SOC_DAPM_MICBIAS_E(wname, wreg, wshift, winvert, wevent, wflags) \
@@ -2071,6 +2123,22 @@ const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_MIXER("SPKR Mixer", SND_SOC_NOPM, 0, 0,
 			   &spkr_mixer_controls[0],
 			   ARRAY_SIZE(spkr_mixer_controls)),
+	SPRD_CODEC_LOOP_SWITCH("ADCLHPL Loop Switch",
+			 ID_FUN(SPRD_CODEC_HP_ADCL, SPRD_CODEC_LEFT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCRHPL Loop Switch",
+			 ID_FUN(SPRD_CODEC_HP_ADCR, SPRD_CODEC_LEFT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCLHPR Loop Switch",
+			 ID_FUN(SPRD_CODEC_HP_ADCL, SPRD_CODEC_RIGHT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCRHPR Loop Switch",
+			 ID_FUN(SPRD_CODEC_HP_ADCR, SPRD_CODEC_RIGHT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCLSPKL Loop Switch",
+			 ID_FUN(SPRD_CODEC_SPK_ADCL, SPRD_CODEC_LEFT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCRSPKL Loop Switch",
+			 ID_FUN(SPRD_CODEC_SPK_ADCR, SPRD_CODEC_LEFT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCLSPKR Loop Switch",
+			 ID_FUN(SPRD_CODEC_SPK_ADCL, SPRD_CODEC_RIGHT)),
+	SPRD_CODEC_LOOP_SWITCH("ADCRSPKR Loop Switch",
+			 ID_FUN(SPRD_CODEC_SPK_ADCR, SPRD_CODEC_RIGHT)),
 	SND_SOC_DAPM_PGA_S("SPKL Switch", 5, SOC_REG(DCR2_DCR1), AOL_EN, 0,
 			   spk_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
@@ -2249,10 +2317,15 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"HPR Mixer", "DACLHPR Switch", "DACL Switch"},
 	{"HPR Mixer", "DACRHPR Switch", "DACR Switch"},
 
-	{"HPL Mixer", "ADCLHPL Switch", "ADCL PGA"},
-	{"HPL Mixer", "ADCRHPL Switch", "ADCR PGA"},
-	{"HPR Mixer", "ADCLHPR Switch", "ADCL PGA"},
-	{"HPR Mixer", "ADCRHPR Switch", "ADCR PGA"},
+	{"ADCLHPL Loop Switch", NULL, "ADCL PGA"},
+	{"ADCLHPR Loop Switch", NULL, "ADCL PGA"},
+	{"ADCRHPL Loop Switch", NULL, "ADCR PGA"},
+	{"ADCRHPR Loop Switch", NULL, "ADCR PGA"},
+
+	{"HPL Mixer", "ADCLHPL Switch", "ADCLHPL Loop Switch"},
+	{"HPL Mixer", "ADCRHPL Switch", "ADCRHPL Loop Switch"},
+	{"HPR Mixer", "ADCLHPR Switch", "ADCLHPR Loop Switch"},
+	{"HPR Mixer", "ADCRHPR Switch", "ADCRHPR Loop Switch"},
 
 #ifdef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
 	{"HEAD_P_L", NULL, "HP POP"},
@@ -2275,10 +2348,15 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"SPKR Mixer", "DACLSPKR Switch", "DACL Switch"},
 	{"SPKR Mixer", "DACRSPKR Switch", "DACR Switch"},
 
-	{"SPKL Mixer", "ADCLSPKL Switch", "ADCL PGA"},
-	{"SPKL Mixer", "ADCRSPKL Switch", "ADCR PGA"},
-	{"SPKR Mixer", "ADCLSPKR Switch", "ADCL PGA"},
-	{"SPKR Mixer", "ADCRSPKR Switch", "ADCR PGA"},
+	{"ADCLSPKL Loop Switch", NULL, "ADCL PGA"},
+	{"ADCLSPKR Loop Switch", NULL, "ADCL PGA"},
+	{"ADCRSPKL Loop Switch", NULL, "ADCR PGA"},
+	{"ADCRSPKR Loop Switch", NULL, "ADCR PGA"},
+
+	{"SPKL Mixer", "ADCLSPKL Switch", "ADCLSPKL Loop Switch"},
+	{"SPKL Mixer", "ADCRSPKL Switch", "ADCRSPKL Loop Switch"},
+	{"SPKR Mixer", "ADCLSPKR Switch", "ADCLSPKR Loop Switch"},
+	{"SPKR Mixer", "ADCRSPKR Switch", "ADCRSPKR Loop Switch"},
 
 	{"SPKL Switch", NULL, "SPKL Mixer"},
 	{"SPKR Switch", NULL, "SPKR Mixer"},

@@ -72,18 +72,20 @@ struct vbc_ad_eq_profile {
 static const u32 vbc_da_eq_profile_default[VBC_DA_EFFECT_PARAS_LEN] = {
 /* TODO the default register value */
 	0x00000000,		/*  DAPATCHCTL      */
-	0x0000007F,		/*  DAHPCTL         */
-	0x00000000,		/*  DAALCCTL0       */
-	0x00000000,		/*  DAALCCTL1       */
-	0x00000000,		/*  DAALCCTL2       */
-	0x00000000,		/*  DAALCCTL3       */
-	0x00000000,		/*  DAALCCTL4       */
-	0x00000000,		/*  DAALCCTL5       */
-	0x00000000,		/*  DAALCCTL6       */
-	0x00000000,		/*  DAALCCTL7       */
-	0x00000000,		/*  DAALCCTL8       */
+	0x00000d7F,		/*  DAHPCTL         */
+	/*ALC default para */
+	0x000001e0,		/*  DAALCCTL0       */
+	0x00002000,		/*  DAALCCTL1       */
+	0x000004fe,		/*  DAALCCTL2       */
+	0x0000001f,		/*  DAALCCTL3       */
+	0x0000ffe2,		/*  DAALCCTL4       */
+	0x00007fff,		/*  DAALCCTL5       */
+	0x0000028c,		/*  DAALCCTL6       */
+	0x00000010,		/*  DAALCCTL7       */
+	0x000004dd,		/*  DAALCCTL8       */
 	0x00000000,		/*  DAALCCTL9       */
-	0x00000000,		/*  DAALCCTL10      */
+	0x00000062,		/*  DAALCCTL10      */
+
 	0x00000183,		/*  STCTL0          */
 	0x00000183,		/*  STCTL1          */
 	0x00000000,		/*  DACSRCCTL       */
@@ -91,16 +93,266 @@ static const u32 vbc_da_eq_profile_default[VBC_DA_EFFECT_PARAS_LEN] = {
 	0x00000000,		/*  VBNGCVTHD       */
 	0x00000000,		/*  VBNGCTTHD       */
 	0x00000000,		/*  VBNGCTL         */
-	0x00000000,		/*  HPCOEF0_H ~ HPCOEF71_H   */
-	0x00000000,		/*  HPCOEF0_L  ~ HPCOEF71_L   */
+
+	/*DA eq6 */
+	/*0x100  -- 0x134 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x138  -- 0x16c */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x170  -- 0x1a4 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x1a8  -- 0x1dc */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x1e0  -- 0x214 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x218  -- 0x24c */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x250  -- 0x254 */
+	0x00001000,
+	0x00000000,
+
+	/*DA eq4 */
+	/*0x258  -- 0x28c */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x290  -- 0x2c4 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x2c8  -- 0x2fc */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x300  -- 0x334 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x338  -- 0x33c */
+	0x00001000,
+	0x00000000,
 };
 
 static const u32 vbc_ad_eq_profile_default[VBC_AD_EFFECT_PARAS_LEN] = {
 /* TODO the default register value */
 	0x00000000,		/*  ADPATCHCTL      */
 	0x00000000,		/*  ADHPCTL         */
-	0x00000000,		/*  ADC01_HPCOEF0_H  or   ADC23_HPCOEF0_H   */
+	/*AD01/23 eq6 */
+	/*0x400  -- 0x434 */
+	0x00001000,		/*  ADC01_HPCOEF0_H  or   ADC23_HPCOEF0_H   */
 	0x00000000,		/*  ADC01_HPCOEF0_L  or ADC23_HPCOEF0_L     */
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x438  -- 0x46c */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x470  -- 0x4a4 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x4a8  -- 0x4dc */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x4e0  -- 0x514 */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x518  -- 0x54c */
+	0x00001000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00004000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	0x00000000,
+	/*0x550  -- 0x554 */
+	0x00001000,
+	0x00000000,
 };
 
 struct vbc_equ {
@@ -193,6 +445,7 @@ struct vbc_codec_priv {
 	int fm_sample_rate;
 	struct st_hpf_dg st_dg;
 	struct sprd_vbc_mux_op sprd_vbc_mux[SPRD_VBC_MUX_MAX];
+	int alc_dp_t_mode;
 };
 
 static int vbc_st0_chnmux_set(int val)
@@ -412,6 +665,19 @@ static inline int vbc_st1_hpf_set(int enable, int hpf_val)
 		vbc_reg_update(STCTL1, 3, 0xF);
 	}
 	return 0;
+}
+
+static inline void vbc_da_alc_mode_set(int dp_t_mode)
+{
+	vbc_reg_update(DAHPCTL, dp_t_mode ? BIT(VBDAC_ALC_DP_T_MODE) : 0,
+		      BIT(VBDAC_ALC_DP_T_MODE));
+}
+
+static inline void vbc_da_eq4_pos_sel(int pos)
+{
+	/*EQ4 pos sel */
+	vbc_reg_update(DAHPCTL, pos ? BIT(VBDAC_EQ4_POS_SEL) : 0,
+		      BIT(VBDAC_EQ4_POS_SEL));
 }
 
 static int vbc_try_dg_set(struct vbc_codec_priv *vbc_codec, int vbc_idx, int id)
@@ -670,6 +936,8 @@ static int dfm_event(struct snd_soc_dapm_widget *w,
 		if (p_eq_setting->is_active[VBC_PLAYBACK]
 		    && p_eq_setting->data[VBC_PLAYBACK])
 			vbc_eq_try_apply(codec, VBC_PLAYBACK);
+		else
+			vbc_eq_profile_close(vbc_codec->codec, VBC_PLAYBACK);
 #ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
 		/*codec sample rate setting */
 		vbc_fm_try_set_sample_rate(codec, VBC_PLAYBACK);
@@ -707,6 +975,8 @@ static int aud_event(struct snd_soc_dapm_widget *w,
 		if (p_eq_setting->is_active[vbc_idx]
 		    && p_eq_setting->data[vbc_idx])
 			vbc_eq_try_apply(codec, vbc_idx);
+		else
+			vbc_eq_profile_close(vbc_codec->codec, vbc_idx);
 #ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
 		/*codec sample rate setting */
 		vbc_fm_try_set_sample_rate(codec, vbc_idx);
@@ -1043,7 +1313,10 @@ int vbc_codec_startup(int vbc_idx, struct snd_soc_dai *dai)
 	if (p_eq_setting->is_active[vbc_idx]
 	    && p_eq_setting->data[vbc_idx])
 		vbc_eq_try_apply(vbc_codec->codec, vbc_idx);
+	else
+		vbc_eq_profile_close(vbc_codec->codec, vbc_idx);
 
+	vbc_da_alc_mode_set(vbc_codec->alc_dp_t_mode);
 	vbc_try_dg_set(vbc_codec, vbc_idx, VBC_LEFT);
 	vbc_try_dg_set(vbc_codec, vbc_idx, VBC_RIGHT);
 
@@ -1125,7 +1398,13 @@ static int vbc_ad_eq_reg_offset(u32 reg)
 static inline void vbc_da_eq_reg_set(u32 reg, void *data)
 {
 	u32 *effect_paras = (u32 *) data;
-	vbc_reg_write(reg, effect_paras[vbc_da_eq_reg_offset(reg)]);
+	if (reg == DAHPCTL) {
+		/*EQ set */
+		vbc_reg_update(DAHPCTL, effect_paras[vbc_da_eq_reg_offset(reg)],
+			      0x1FF);
+	} else {
+		vbc_reg_write(reg, effect_paras[vbc_da_eq_reg_offset(reg)]);
+	}
 }
 
 static inline void vbc_da_eq_reg_set_range(u32 reg_start, u32 reg_end,
@@ -1140,7 +1419,12 @@ static inline void vbc_da_eq_reg_set_range(u32 reg_start, u32 reg_end,
 static inline void vbc_ad_eq_reg_set(u32 reg, void *data)
 {
 	u32 *effect_paras = (u32 *) data;
-	vbc_reg_write(reg, effect_paras[vbc_ad_eq_reg_offset(reg)]);
+	if (reg == ADHPCTL) {
+		vbc_reg_update(ADHPCTL, effect_paras[vbc_da_eq_reg_offset(reg)],
+			      0xC0);
+	} else {
+		vbc_reg_write(reg, effect_paras[vbc_ad_eq_reg_offset(reg)]);
+	}
 }
 
 static inline void vbc_ad_eq_reg_set_range(u32 reg_start, u32 reg_end,
@@ -1152,33 +1436,249 @@ static inline void vbc_ad_eq_reg_set_range(u32 reg_start, u32 reg_end,
 	}
 }
 
+/*gray code change*/
+static void gray_dir(unsigned int *bit, int dir)
+{
+	if (dir) {
+		*bit >>= 1;
+	} else {
+		*bit <<= 1;
+	}
+}
+
+static int gray(u32 reg, int from, int to, int (*step_action) (int, int))
+{
+	int start_bit = (from > to) ? 31 : 0;
+	unsigned int bit = (1 << start_bit);
+	int r = from;
+	int diff = (from ^ to);
+	int i;
+	for (i = 0; i < 32; i++, gray_dir(&bit, start_bit)) {
+		if ((diff & bit)) {
+			r &= ~bit;
+			r |= (bit & to);
+			step_action(reg, r);
+		}
+	}
+	return 0;
+}
+
+static int step_action_set_reg(int reg, int r)
+{
+	vbc_reg_write(reg, r);
+	udelay(10);
+	return 0;
+}
+
+static void gray_set_reg(u32 reg, int from, int to)
+{
+	sp_asoc_pr_dbg("gray set reg(0x%x) = (0x%x)  from (0x%x))\n", reg, to, from);
+	gray(reg, from, to, step_action_set_reg);
+}
+
+static void vbc_eq_iir_ab_clr(u32 reg_addr)
+{
+	vbc_reg_write(reg_addr + 0x8, 0);	/*b0_H */
+	vbc_reg_write(reg_addr + 0xC, 0);	/*b0_L */
+	vbc_reg_write(reg_addr + 0x18, 0);	/*b1_H */
+	vbc_reg_write(reg_addr + 0x1C, 0);	/*b1_L */
+	vbc_reg_write(reg_addr + 0x28, 0);	/*b2_H */
+	vbc_reg_write(reg_addr + 0x2C, 0);	/*b2_L */
+	vbc_reg_write(reg_addr + 0x10, 0);	/*a0_H */
+	vbc_reg_write(reg_addr + 0x14, 0);	/*a0_L */
+	vbc_reg_write(reg_addr + 0x20, 0);	/*a1_H */
+	vbc_reg_write(reg_addr + 0x24, 0);	/*a1_L */
+	vbc_reg_write(reg_addr + 0x30, 0);	/*a2_H */
+	vbc_reg_write(reg_addr + 0x34, 0);	/*a2_L */
+}
+
+static void vbc_eq_iir_s_clr(u32 reg_addr)
+{
+#if 0
+	vbc_reg_write2(reg_addr, 0);	/*s0_H */
+	vbc_reg_write2(reg_addr + 0x4, 0);	/*s0_L */
+#else
+	u32 val = vbc_reg_read(reg_addr);
+	gray_set_reg(reg_addr, val, 0);
+	val = vbc_reg_read(reg_addr + 0x4);
+	gray_set_reg(reg_addr + 0x4, val, 0);
+#endif
+}
+
+static void vbc_eq_iir_ab_set_data(u32 reg_addr, void *data)
+{
+	vbc_da_eq_reg_set(reg_addr + 0x30, data);	/*a2_H */
+	vbc_da_eq_reg_set(reg_addr + 0x34, data);	/*a2_L */
+	vbc_da_eq_reg_set(reg_addr + 0x20, data);	/*a1_H */
+	vbc_da_eq_reg_set(reg_addr + 0x24, data);	/*a1_L */
+	vbc_da_eq_reg_set(reg_addr + 0x10, data);	/*a0_H */
+	vbc_da_eq_reg_set(reg_addr + 0x14, data);	/*a0_L */
+	vbc_da_eq_reg_set(reg_addr + 0x28, data);	/*b2_H */
+	vbc_da_eq_reg_set(reg_addr + 0x2C, data);	/*b2_L */
+	vbc_da_eq_reg_set(reg_addr + 0x18, data);	/*b1_H */
+	vbc_da_eq_reg_set(reg_addr + 0x1C, data);	/*b1_L */
+	vbc_da_eq_reg_set(reg_addr + 0x8, data);	/*b0_H */
+	vbc_da_eq_reg_set(reg_addr + 0xC, data);	/*b0_L */
+}
+
+static void vbc_eq_iir_s_set_data(u32 reg_addr, void *data)
+{
+#if 0
+	vbc_da_eq_reg_set(reg_addr, data);	/*s0_H */
+	vbc_da_eq_reg_set(reg_addr + 0x4, data);	/*s0_L */
+#else
+	u32 *effect_paras = (u32 *) data;
+	gray_set_reg(reg_addr, 0, effect_paras[vbc_da_eq_reg_offset(reg_addr)]);
+	gray_set_reg(reg_addr + 0x4, 0,
+		     effect_paras[vbc_da_eq_reg_offset(reg_addr + 0x4)]);
+#endif
+}
+
+static void vbc_da_alc_reg_set(void *data)
+{
+	u32 *effect_paras = (u32 *) data;
+	u32 reg_addr;
+	u32 val;
+	for (reg_addr = DAALCCTL0; reg_addr <= DAALCCTL10; reg_addr += 4) {
+		val = vbc_reg_read(reg_addr);
+		gray_set_reg(reg_addr, val,
+			     effect_paras[vbc_da_eq_reg_offset(reg_addr)]);
+	}
+}
+
 static void vbc_eq_reg_apply(struct snd_soc_codec *codec, void *data,
 			     int vbc_idx)
 {
+	u32 reg;
+	void *effect_paras;
+	int val;
 	if (vbc_idx == VBC_PLAYBACK) {
-		vbc_da_eq_reg_set_range(DAALCCTL0, DAALCCTL10, data);
-		vbc_da_eq_reg_set_range(HPCOEF0_H, HPCOEF71_L, data);
+		val = ((u32 *) data)[vbc_da_eq_reg_offset(DAHPCTL)];
+		/*DA EQ6 set */
+		/*s6-s0 clear */
+		for (reg = HPCOEF42_H; reg >= HPCOEF0_H; reg -= 0x38) {
+			vbc_eq_iir_s_clr(reg);
+		}
+		/*a,b clear */
+		for (reg = HPCOEF0_H; reg <= HPCOEF35_H; reg += 0x38) {
+			vbc_eq_iir_ab_clr(reg);
+		}
+		/*iir state clear */
+		vbc_reg_update(DAHPCTL, BIT(VBDAEQ_HP_REG_CLR),
+			      BIT(VBDAEQ_HP_REG_CLR));
+
+		/*a,b set */
+		if (val & VBDAC_EQ6_EN)
+			effect_paras = data;
+		else
+			effect_paras = &vbc_da_eq_profile_default;
+
+		for (reg = HPCOEF35_H; reg >= HPCOEF0_H; reg -= 0x38) {
+			vbc_eq_iir_ab_set_data(reg, effect_paras);
+		}
+		/*s0-s6 set */
+		for (reg = HPCOEF0_H; reg <= HPCOEF42_H; reg += 0x38) {
+			vbc_eq_iir_s_set_data(reg, effect_paras);
+		}
 
 		vbc_da_eq_reg_set(DAHPCTL, data);
-		/*FM function maybe use this regs,and EQ setting don't use them */
-		/*vbc_da_eq_reg_set(DAPATCHCTL, data); */
 
-		/*vbc_da_eq_reg_set(STCTL0, data); */
-		/*vbc_da_eq_reg_set(STCTL1, data); */
+		/*ALC set */
+		if (val & VBDAC_ALC_EN)
+			effect_paras = data;
+		else
+			effect_paras = &vbc_da_eq_profile_default;
+		vbc_da_alc_reg_set(effect_paras);
 
+		/*iir state set */
+		vbc_reg_update(DAHPCTL, 0, BIT(VBDAEQ_HP_REG_CLR));
+#if 0
+		/*DA EQ4 set */
+		for (reg = HPCOEF71_H; reg >= HPCOEF43_H; reg -= 0x38) {
+			vbc_eq_iir_s_clr(reg);
+		}
+		for (reg = HPCOEF43_H; reg <= HPCOEF64_H; reg += 0x38) {
+			vbc_eq_iir_ab_clr(reg);
+		}
+		if (val & VBDAC_EQ4_EN)
+			effect_paras = data;
+		else
+			effect_paras = &vbc_da_eq_profile_default;
+
+		for (reg = HPCOEF64_H; reg >= HPCOEF43_H; reg -= 0x38) {
+			vbc_eq_iir_ab_set_data(reg, effect_paras);
+		}
+		for (reg = HPCOEF43_H; reg <= HPCOEF71_H; reg += 0x38) {
+			vbc_eq_iir_s_set_data(reg, effect_paras);
+		}
+
+#endif
+		/*other */
 		vbc_da_eq_reg_set(DACSRCCTL, data);
 		vbc_da_eq_reg_set(MIXERCTL, data);
 		vbc_da_eq_reg_set_range(VBNGCVTHD, VBNGCTL, data);
 	} else {
-		vbc_ad_eq_reg_set(ADHPCTL, data);
-		/*vbc_ad_eq_reg_set(ADPATCHCTL, data); */
-		if (vbc_idx == VBC_CAPTRUE) {
-			vbc_ad_eq_reg_set_range(AD01_HPCOEF0_H, AD01_HPCOEF42_L,
-						data);
+#if 0
+		val = ((u32 *) data)[vbc_ad_eq_reg_offset(ADHPCTL)];
+		if (chan_id == VBC_CHAN_AD01) {
+			/*AD01 EQ6 set */
+			for (reg = AD01_HPCOEF42_H; reg >= AD01_HPCOEF0_H;
+			     reg -= 0x38) {
+				vbc_eq_iir_s_clr(reg);
+			}
+			for (reg = AD01_HPCOEF0_H; reg <= AD01_HPCOEF35_H;
+			     reg += 0x38) {
+				vbc_eq_iir_ab_clr(reg);
+			}
+			/*iir state clear */
+			vbc_reg_write(ADHPCTL, BIT(VBADC01EQ_HP_REG_CLR),
+				      BIT(VBADC01EQ_HP_REG_CLR));
+
+			if (val & VBADC01_EQ6_EN)
+				effect_paras = data;
+			else
+				effect_paras = &vbc_ad_eq_profile_default;
+
+			for (reg = AD01_HPCOEF35_H; reg >= AD01_HPCOEF0_H;
+			     reg -= 0x38) {
+				vbc_eq_iir_ab_set_data(reg, data);
+			}
+			for (reg = AD01_HPCOEF0_H; reg <= AD01_HPCOEF42_H;
+			     reg += 0x38) {
+				vbc_eq_iir_s_set_data(reg, data);
+			}
+			/*iir state set */
+			vbc_reg_write(ADHPCTL, 0, BIT(VBADC01EQ_HP_REG_CLR));
 		} else {
-			vbc_ad_eq_reg_set_range(AD23_HPCOEF0_H, AD23_HPCOEF42_L,
-						data);
+			/*AD23 EQ6 set */
+			for (reg = AD23_HPCOEF42_H; reg >= AD23_HPCOEF0_H;
+			     reg -= 0x38) {
+				vbc_eq_iir_s_clr(reg);
+			}
+			for (reg = AD23_HPCOEF0_H; reg <= AD23_HPCOEF35_H;
+			     reg += 0x38) {
+				vbc_eq_iir_ab_clr(reg);
+			}
+			/*iir state clear */
+			vbc_reg_write(ADHPCTL, BIT(VBADC23EQ_HP_REG_CLR),
+				      BIT(VBADC23EQ_HP_REG_CLR));
+
+			if (val & VBADC23_EQ6_EN)
+				effect_paras = data;
+			else
+				effect_paras = &vbc_ad_eq_profile_default;
+			for (reg = AD23_HPCOEF35_H; reg >= AD23_HPCOEF0_H;
+			     reg -= 0x38) {
+				vbc_eq_iir_ab_set_data(reg, data);
+			}
+			for (reg = AD23_HPCOEF0_H; reg <= AD23_HPCOEF42_H;
+			     reg += 0x38) {
+				vbc_eq_iir_s_set_data(reg, data);
+			}
+			/*iir state set */
+			vbc_reg_write(ADHPCTL, 0, BIT(VBADC23EQ_HP_REG_CLR));
 		}
+#endif
 	}
 }
 
@@ -1190,7 +1690,7 @@ static void vbc_eq_profile_apply(struct snd_soc_codec *codec, void *data,
 	}
 }
 
-static void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx)
+void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx)
 {
 	if (vbc_idx == VBC_PLAYBACK)
 		vbc_eq_profile_apply(codec,
@@ -1418,6 +1918,17 @@ req_fw_err:
 	p_eq_setting->is_loading = 0;
 	mutex_unlock(&vbc_codec->load_mutex);
 	if (ret >= 0) {
+		struct vbc_da_eq_profile *profile =
+			&(((struct vbc_da_eq_profile
+			*)(p_eq_setting->data[VBC_PLAYBACK]))
+			  [0]);
+		u32 *data = profile->effect_paras;
+		if (data[vbc_da_eq_reg_offset(DAHPCTL)] & BIT(VBDAC_ALC_DP_T_MODE))
+			vbc_codec->alc_dp_t_mode = 1;
+		else
+			vbc_codec->alc_dp_t_mode = 0;
+		sp_asoc_pr_dbg("DAHPCTL:%x----alc_dp_t_mode:%d", data[vbc_da_eq_reg_offset(DAHPCTL)],
+			vbc_codec->alc_dp_t_mode);
 		for (i = 0; i <= 2; i++) {
 			if (p_eq_setting->is_active[i]
 			    && p_eq_setting->data[i])
