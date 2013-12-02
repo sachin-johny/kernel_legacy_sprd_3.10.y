@@ -122,22 +122,30 @@ enum {
 /* DA HPF EQ6 start,  end */
 #define HPCOEF0_H		(ARM_VB_BASE + 0x0100)
 #define HPCOEF0_L		(ARM_VB_BASE + 0x0104)
+#define HPCOEF35_H		(ARM_VB_BASE + 0x0218)
+#define HPCOEF35_L		(ARM_VB_BASE + 0x021c)
 #define HPCOEF42_H		(ARM_VB_BASE + 0x0250)
 #define HPCOEF42_L		(ARM_VB_BASE + 0x0254)
 /*DA HPF EQ4  start,  end*/
 #define HPCOEF43_H		(ARM_VB_BASE + 0x0258)
 #define HPCOEF43_L		(ARM_VB_BASE + 0x025C)
+#define HPCOEF64_H		(ARM_VB_BASE + 0x0300)
+#define HPCOEF64_L		(ARM_VB_BASE + 0x0304)
 #define HPCOEF71_H		(ARM_VB_BASE + 0x0338)
 #define HPCOEF71_L		(ARM_VB_BASE + 0x033C)
 
 /* AD01 HPF EQ6 start,  end */
 #define AD01_HPCOEF0_H		(ARM_VB_BASE + 0x0400)
 #define AD01_HPCOEF0_L		(ARM_VB_BASE + 0x0404)
+#define AD01_HPCOEF35_H	(ARM_VB_BASE + 0x0418)
+#define AD01_HPCOEF35_L		(ARM_VB_BASE + 0x041c)
 #define AD01_HPCOEF42_H		(ARM_VB_BASE + 0x0550)
 #define AD01_HPCOEF42_L		(ARM_VB_BASE + 0x0554)
 /* AD23 HPF EQ6 start,  end */
 #define AD23_HPCOEF0_H		(ARM_VB_BASE + 0x0600)
 #define AD23_HPCOEF0_L		(ARM_VB_BASE + 0x0604)
+#define AD23_HPCOEF35_H	(ARM_VB_BASE + 0x0618)
+#define AD23_HPCOEF35_L		(ARM_VB_BASE + 0x061c)
 #define AD23_HPCOEF42_H		(ARM_VB_BASE + 0x0750)
 #define AD23_HPCOEF42_L		(ARM_VB_BASE + 0x0754)
 
@@ -230,6 +238,19 @@ enum {
 #define VBST_EN_1	               	(12)
 #define VBST0_SEL_CHN			(13)
 #define VBST1_SEL_CHN			(14)
+/*DAHPCTL*/
+#define VBDAEQ_HP_REG_CLR (9)
+#define  VBDAC_EQ6_EN		(10)
+#define  VBDAC_ALC_EN		(11)
+#define  VBDAC_EQ4_EN		(12)
+#define  VBDAC_EQ4_POS_SEL (13)
+#define VBDAC_ALC_DP_T_MODE (14)
+/*ADHPCTL*/
+#define  VBADC01_EQ6_EN		(0)
+#define  VBADC23_EQ6_EN		(1)
+#define  VBADC01EQ_HP_REG_CLR	(2)
+#define  VBADC23EQ_HP_REG_CLR	(3)
+
     enum {
 	VBC_LEFT = 0,
 	VBC_RIGHT = 1,
@@ -262,6 +283,7 @@ int vbc_src_set(int rate, int vbc_idx);
 int vbc_codec_startup(int vbc_idx, struct snd_soc_dai *dai);
 int fm_set_vbc_buffer_size(void);
 int vbc_set_phys_addr(int vbc_switch);
+void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx);
 
 static inline void vbc_safe_mem_release(void **free)
 {

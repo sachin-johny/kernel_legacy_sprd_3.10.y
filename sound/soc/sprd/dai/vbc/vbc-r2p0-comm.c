@@ -193,6 +193,35 @@ static inline int vbc_ad23_enable_raw(int enable, int chan)
 		       (1 << (VBAD23CHEN_SHIFT + chan)));
 	return 0;
 }
+static inline void vbc_da_eq6_enable(int enable)
+{
+	vbc_reg_update(DAHPCTL, (enable ? BIT(VBDAC_EQ6_EN) : 0),
+		      BIT(VBDAC_EQ6_EN));
+}
+
+static inline void vbc_da_eq4_enable(int enable)
+{
+	vbc_reg_update(DAHPCTL, (enable ? BIT(VBDAC_EQ4_EN) : 0),
+		      BIT(VBDAC_EQ4_EN));
+}
+
+static inline void vbc_da_alc_enable(int enable)
+{
+	vbc_reg_update(DAHPCTL, (enable ? BIT(VBDAC_ALC_EN) : 0),
+		      BIT(VBDAC_ALC_EN));
+}
+
+static inline void vbc_ad01_eq6_enable(int enable)
+{
+	vbc_reg_update(ADHPCTL, (enable ? BIT(VBADC01_EQ6_EN) : 0),
+		      BIT(VBADC01_EQ6_EN));
+}
+
+static inline void vbc_ad23_eq6_enable(int enable)
+{
+	vbc_reg_update(ADHPCTL, (enable ? BIT(VBADC23_EQ6_EN) : 0),
+		      BIT(VBADC23_EQ6_EN));
+}
 
 static inline int vbc_enable_set(int enable)
 {
@@ -239,12 +268,23 @@ int vbc_enable(int enable)
 	if (enable) {
 		atomic_inc(vbc_on);
 		if (atomic_read(vbc_on) == 1) {
+			vbc_da_eq6_enable(1);
+			vbc_da_alc_enable(1);
+			/*todo??*/
+			/*vbc_da_eq4_enable(1);*/
+			/*vbc_ad01_eq6_enable(1); */
+			/*vbc_ad23_eq6_enable(1); */
 			vbc_enable_set(1);
 			sp_asoc_pr_dbg("VBC Enable\n");
 		}
 	} else {
 		if (atomic_dec_and_test(vbc_on)) {
 			vbc_enable_set(0);
+			vbc_da_eq6_enable(0);
+			vbc_da_alc_enable(0);
+			/*vbc_da_eq4_enable(0);*/
+			/*vbc_ad01_eq6_enable(0); */
+			/*vbc_ad23_eq6_enable(0); */
 			sp_asoc_pr_dbg("VBC Disable");
 		}
 		if (atomic_read(vbc_on) < 0) {
