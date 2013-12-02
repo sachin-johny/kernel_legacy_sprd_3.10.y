@@ -43,23 +43,23 @@ struct stty_device {
 	struct task_struct		*thread;
 };
 
+static unsigned char s_buffer[STTY_MAX_DATA_LEN] = {0};
 static int stty_thread(void *data)
 {
 	struct stty_device *stty = data;
 	int i, cnt = 0;
-	unsigned char buf[STTY_MAX_DATA_LEN] = {0};
 
 	if (data == NULL) {
-		return;
+		return -1;
 	}
-
+	memset(s_buffer,0,STTY_MAX_DATA_LEN);
 	while(!kthread_should_stop()) {
 
 		cnt = sbuf_read(stty->pdata->dst, stty->pdata->channel,
-						stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, STTY_THREAD_MAX_TIME);
+						stty->pdata->bufid,(void *)s_buffer, STTY_MAX_DATA_LEN, STTY_THREAD_MAX_TIME);
 		if (cnt > 0) {
 			for(i = 0; i < cnt; i++) {
-				tty_insert_flip_char(stty->tty, buf[i], TTY_NORMAL);
+				tty_insert_flip_char(stty->tty, s_buffer[i], TTY_NORMAL);
 			}
 			tty_schedule_flip(stty->tty);
 		} else if (cnt == -ENODEV) {
@@ -89,7 +89,7 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 		printk(KERN_ERR "stty open input stty NULL!\n");
 		return -ENOMEM;
 	}
-	printk( "stty_open  device addr: 0x%0x, tty addr:0x%0x\n", (void *)stty, (void *)tty);
+	printk( "stty_open  device addr: 0x%0x, tty addr:0x%0x\n", (unsigned int *)stty, (unsigned int *)tty);
 
 	if (sbuf_status(stty->pdata->dst, stty->pdata->channel) != 0) {
 		printk(KERN_ERR "stty_open sbuf not ready to open!dst=%d,channel=%d\n"
@@ -124,7 +124,7 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 
-	printk( "stty_close device addr: 0x%0x, tty addr: 0x%0x\n", (void *)stty, (void *)tty);
+	printk( "stty_close device addr: 0x%0x, tty addr: 0x%0x\n", (unsigned int *)stty, (unsigned int *)tty);
 	if (IS_ERR_OR_NULL(stty->thread)) {
 		printk(KERN_ERR "stty close s thread is NULL!\n");
 		return;
@@ -223,7 +223,7 @@ static int __devinit stty_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-	printk( "stty_probe init device addr: 0x%0x\n", (void *)stty);
+	printk( "stty_probe init device addr: 0x%0x\n", (unsigned int *)stty);
 	platform_set_drvdata(pdev, stty);
 
 	return 0;
