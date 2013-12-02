@@ -28,7 +28,7 @@
 
 #define RT8973_DEVICE_NAME "rt8973"
 #define ALIAS_NAME RT8973_DEVICE_NAME
-#define RT8973_DRV_VER "2.0.1S"
+#define RT8973_DRV_VER "2.0.3S"
 #define RT8973_IRQF_MODE IRQF_TRIGGER_FALLING
 
 #define RT8973_REG_CHIP_ID          0x01
@@ -880,6 +880,7 @@ static void rt8973_irq_work(struct work_struct *work)
 			/* continue to process event */
 		} else {
 			chip->dcdt_retry_count++;
+			chip->curr_status = chip->prev_status; /* DCD_T -> roll back previous status */
 			RTINFO("DCD_T event triggered, do re-detect\n");
 			rt8973_clr_bits(chip, RT8973_REG_CONTROL, 0x60);
 			msleep_interruptible(1);
@@ -927,7 +928,7 @@ static void rt8973_init_regs(rt8973_chip_t *chip)
 	/* for rev 0, turn off i2c reset function */
 	if (((chip_id & 0xf8) >> 3) == 0)
 		rt8973_set_bits(chip, RT8973_REG_CONTROL, 0x08);
-	/* Disable Connect */
+	/* Only mask Connect */
 	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK1, 0x20);
 	/* Only mask OCP_LATCH and POR */
 	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK2, 0x24);
