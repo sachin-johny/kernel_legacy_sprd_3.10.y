@@ -29,7 +29,7 @@
 #include "sprdfb_chip_common.h"
 
 #define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
-#if defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_STAR2)
+#if defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_STAR2)  || defined(CONFIG_MACH_CORSICA_VE)
 #define DISPC_CLOCK_PARENT ("clk_192m")
 #define DISPC_CLOCK (192*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")

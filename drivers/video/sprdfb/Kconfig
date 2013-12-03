@@ -97,6 +97,12 @@ config FB_LCD_ILI9486
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
 	default n
 
+config FB_LCD_ILI9341
+	boolean "support ILI9341 mcu panel"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
+	default n
+
+
 config FB_LCD_NT51017_MIPI_LVDS
         boolean "support nt51017 lvds panel"
         depends on FB_SC8825 || FB_SCX35

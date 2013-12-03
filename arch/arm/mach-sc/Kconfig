@@ -157,6 +157,15 @@ config MACH_STAR2
 	help
 	  STAR2 board based on dolphin serial.
 
+config MACH_CORSICA_VE
+	bool "corsica_ve Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	  CORSICA_VE board based on dolphin serial.
+
 endmenu
 
 config SPRD_ION_SIZE

@@ -61,6 +61,11 @@
 #ifdef  CONFIG_MACH_STAR2
 #include "__board-star2.h"
 #endif
+
+#ifdef  CONFIG_MACH_CORSICA_VE
+#include "__board-corsica_ve.h"
+#endif
+
 #include <asm/sizes.h>
 
 
