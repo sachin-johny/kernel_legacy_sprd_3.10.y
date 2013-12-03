@@ -15,7 +15,6 @@
 #include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
-#include <linux/i2c/ft53x6_ts.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>

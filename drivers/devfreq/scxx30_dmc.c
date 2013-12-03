@@ -249,6 +249,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	unsigned long freq = opp_get_freq(opp);
 	unsigned long old_freq = emc_clk_get()*1000 ;
 	unsigned char cp_req;
+	unsigned long spinlock_flags;
 
 	if(time_before(jiffies, boot_done)){
 		return 0;
