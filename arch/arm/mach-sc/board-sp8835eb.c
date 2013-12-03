@@ -321,6 +321,8 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	         373,1360,107,87,
 	         627,1360,107,87
         },
+        .TP_MAX_X = 720,
+        .TP_MAX_Y = 1280,
 };
 #endif
 

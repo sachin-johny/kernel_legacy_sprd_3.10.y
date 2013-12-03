@@ -924,19 +924,6 @@ config TOUCHSCREEN_MMS136
 	  To compile this driver as a module, choose M here:the module
 	  be called mms136_ts
 
-config TOUCHSCREEN_RESOLUTION_512x960
-        tristate "touchscreen resolution 512x960"
-        depends on TOUCHSCREEN_FOCALTECH
-           help
-             Say Y here, and a list of supported resolution will be displayed.
-             This option doesn't affect the kernel.
-
-config TOUCHSCREEN_RESOLUTION_720x1280
-        tristate "touchscreen resolution 720x1280"
-        depends on TOUCHSCREEN_FOCALTECH
-           help
-             Say Y here, and a list of supported resolution will be displayed.
-             This option doesn't affect the kernel.
 
 config TOUCHSCREEN_IST30XX
         tristate "IST30XX I2C Touchscreen"
