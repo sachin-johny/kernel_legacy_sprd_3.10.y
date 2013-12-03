@@ -967,19 +967,19 @@ static void dcdc_core_ds_config(void)
 	/*only support dcdc_core_ctl_adi 0.9v,1.0v, 1.1v, 1.2v, 1.3v*/
 	switch(dcdc_core_ctl_adi) {
 	case 0://1.1v
-		dcdc_core_ctl_ds = 0x3; //0.9v
+		dcdc_core_ctl_ds = 0x4; //1.0v
 		break;
 	case 4: //1.0v
-		dcdc_core_ctl_ds = 0x2;//0.8v
+		dcdc_core_ctl_ds = 0x3;//0.9v
 		break;
 	case 6: //1.2v
-		dcdc_core_ctl_ds = 0x4;//1.0v
-		break;
-	case 7: //1.3v
 		dcdc_core_ctl_ds = 0x0;//1.1v
 		break;
+	case 7: //1.3v
+		dcdc_core_ctl_ds = 0x6;//1.2v
+		break;
 	case 3: //0.9v
-		dcdc_core_ctl_ds = 0x1;//0.7v
+		dcdc_core_ctl_ds = 0x2;//0.8v
 		break;
 	case 1: //0.7v
 	case 2: //0.8v
