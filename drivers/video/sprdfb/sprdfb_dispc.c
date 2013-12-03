@@ -1818,15 +1818,19 @@ static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
 #endif
 
 #ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
+/*return value:
+0 -- Allow DMC change frequency
+1 -- Don't allow DMC change frequency*/
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state)
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
 	struct sprdfb_device *dev = dispc_ctx->dev;
-	unsigned int ret = 0;
+
 	if(NULL == dev || 0 == dev->enable){
 		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
-		return 1;
+		return 0;
 	}
+
 	printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold state=%u\n", state);
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		down(&dev->refresh_lock);
@@ -1839,7 +1843,7 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 		dispc_run_for_feature(dev);
 		up(&dev->refresh_lock);
 	}
-	return ret;
+	return 0;
 }
 #endif
 
