@@ -867,14 +867,8 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 #if MULTI_PROTOCOL_TYPE_B
 	input_mt_init_slots(input_dev, TS_MAX_FINGER,0);
 #endif
-#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_720x1280
-	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, 720, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, 1280, 0, 0);
-#endif
-#ifdef CONFIG_TOUCHSCREEN_RESOLUTION_512x960
-	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, 512, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, 960, 0, 0);
-#endif
+	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, pdata->TP_MAX_X, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, pdata->TP_MAX_Y, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 	#if 0
