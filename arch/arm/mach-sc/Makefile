@@ -7,7 +7,7 @@ obj-$(CONFIG_SC_INTERNAL_WATCHDOG) += watchdog.o
 
 obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o pin_switch.o
 obj-$(CONFIG_ARCH_SCX35) += timer_sc8830.o
-obj-$(CONFIG_PM_DEVFREQ) += emc_earlysuspend_8830.o
+obj-$(CONFIG_PM_DEVFREQ) += dmc_freq.o
 
 obj-$(CONFIG_PM) += pm.o
 obj-$(CONFIG_FIX_V7TAGRAM_BUG) += fix_v7_tag_ram_bug.o
@@ -23,7 +23,7 @@ endif
 ifeq ($(CONFIG_PM),y)
 	obj-$(CONFIG_ARCH_SCX35) += pm-scx35.o standby-scx35.o pm_debug_scx35.o
 endif
-obj-$(CONFIG_SCXX30_AP_DFS) += ap_dmc_freq.o
+obj-$(CONFIG_SCX35_DMC_FREQ_AP) += dmc_freq_ap.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o

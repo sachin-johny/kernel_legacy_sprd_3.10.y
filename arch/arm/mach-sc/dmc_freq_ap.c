@@ -30,6 +30,7 @@
 
 #define UMCTL2_REG_(x) (UMCTL_REG_BASE+(x))
 
+#define SPRD_UART1_PHYS (0x70100000)
 /*
  *uMCTL2 DDRC registers
 */
@@ -325,6 +326,21 @@
 #define PUBL_DX8DQSTR       (PUBL_REG_BASE+0xF5*4) // R/W - DATX8 8 DQS Timing Register
 
 typedef unsigned long int	uint32;
+
+
+static inline uint32 reg_bits_set(uint32 addr,uint32 start_bitpos,uint32 bit_num,uint32 value)
+{
+    /*create bit mask according to input param*/
+    uint32 bit_mask = (1<<bit_num)-1;
+    uint32 reg_data = *((volatile uint32*)(addr));
+
+    reg_data &= ~(bit_mask<<start_bitpos);
+    reg_data |= ((value&bit_mask)<<start_bitpos);
+
+    *((volatile uint32*)(addr)) = reg_data;
+}__attribute__((always_inline))
+
+
 static inline  void assert_reset_dll(void)
 {
 	REG32(PUBL_ACDLLCR)  &= ~(0x1<<30);
@@ -416,7 +432,7 @@ static inline  void wait_queue_complete(void)
 {
 	volatile u32 i = 0;
 	volatile u32 value_temp;
-	while(i < 20)
+	while(i < 5)
 	{
 		value_temp = REG32(UMCTL_DBG1);
 		if(value_temp == 1) {
@@ -469,6 +485,9 @@ static inline  void dll_bypass_switch(u32 dll_mode, ddr_dfs_val_t *timing)
 }__attribute__((always_inline))
 static inline void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode,ddr_dfs_val_t *timing)
 {
+    #ifdef CONFIG_SCX35_DMC_FREQ_AP
+          ddr_clk_set(clk,0,timing);
+    #else
 	if(EMC_DLL_SWITCH_ENABLE_MODE == dll_mode) {
 		dll_bypass_switch(dll_mode, timing);
 		ddr_clk_set(clk, 10, timing);
@@ -480,6 +499,7 @@ static inline void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode,
 	else if(EMC_DLL_NOT_SWITCH_MODE) {
 		ddr_clk_set(clk, 10, timing);
 	}
+    #endif
 }__attribute__((always_inline))
 static inline  void ddr_timing_update(ddr_dfs_val_t *timing)
 {
@@ -508,7 +528,210 @@ static inline  void ddr_timing_update(ddr_dfs_val_t *timing)
 	REG32(PUBL_DX3GCR) = timing->publ_dx3gcr;
 	enable_cam_command_deque();
 }__attribute__((always_inline))
-static void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
+
+static int get_dpll_refin(void)
+{
+	return ((REG32(SPRD_AONAPB_PHYS + 0X18) >> 24) & 0x3);
+}__attribute__((always_inline))
+
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
+static inline void exit_lowpower_mode(void)
+{
+	uint32 val;
+
+	*(volatile uint32*)(UMCTL_PWRCTL) = 0x8;
+	val = *(volatile uint32*)(UMCTL_STAT);
+	//wait umctl2 core is in self-refresh mode
+	while((val & 0x7) != 1) {
+		val = *(volatile uint32*)(UMCTL_STAT);
+	}
+	*(volatile uint32*)(UMCTL_DFILPCFG0) = 0x0700f000;
+}__attribute__((always_inline))
+
+static inline void ddr_cam_command_dequeue(uint32 isEnable)
+{
+    if(isEnable)
+    {
+        *(volatile uint32*)(UMCTL_DBG1) &= ~(1<<0);
+    }
+    else
+    {
+        *(volatile uint32*)(UMCTL_DBG1) |= (1<<0);
+    }
+}__attribute__((always_inline))
+
+
+static inline void ddr_timing_update_ex(ddr_dfs_val_t *timing_param)
+{
+    //minimum time from refresh to refresh or active
+    reg_bits_set(UMCTL_RFSHTMG,0,9,timing_param->umctl2_rfshtmg);
+    //toggle this signel indicate refresh register has been update
+    *(volatile uint32*)(UMCTL_RFSHCTL3) ^= (1<<1);
+    //update umctl & publ timing
+    *(volatile uint32*)UMCTL_DRAMTMG0 = timing_param->umctl2_dramtmg0;
+    *(volatile uint32*)UMCTL_DRAMTMG1 = timing_param->umctl2_dramtmg1;
+    *(volatile uint32*)UMCTL_DRAMTMG2 = timing_param->umctl2_dramtmg2;
+    //*(volatile uint32*)UMCTL_DRAMTMG3 = timing_param->umctl2_dramtmg3;
+    *(volatile uint32*)UMCTL_DRAMTMG4 = timing_param->umctl2_dramtmg4;
+    //*(volatile uint32*)UMCTL_DRAMTMG5 = timing_param->umctl2_dramtmg5;
+    *(volatile uint32*)UMCTL_DRAMTMG6 = timing_param->umctl2_dramtmg6;
+    //*(volatile uint32*)UMCTL_DRAMTMG7 = timing_param->umctl2_dramtmg7;
+    //*(volatile uint32*)UMCTL_DRAMTMG8 = timing_param->umctl2_dramtmg8;
+	*(volatile uint32*)UMCTL_DRAMTMG8 = 1;
+
+    *(volatile uint32*)PUBL_DX0DQSTR = timing_param->publ_dx0dqstr;
+    *(volatile uint32*)PUBL_DX1DQSTR = timing_param->publ_dx1dqstr;
+    *(volatile uint32*)PUBL_DX2DQSTR = timing_param->publ_dx2dqstr;
+    *(volatile uint32*)PUBL_DX3DQSTR = timing_param->publ_dx3dqstr;
+    *(volatile uint32*)PUBL_DX0GCR = timing_param->publ_dx0gcr;
+    *(volatile uint32*)PUBL_DX1GCR = timing_param->publ_dx1gcr;
+    *(volatile uint32*)PUBL_DX2GCR = timing_param->publ_dx2gcr;
+    *(volatile uint32*)PUBL_DX3GCR = timing_param->publ_dx3gcr;
+}__attribute__((always_inline))
+
+static inline void uart_putch(uint32 c)
+{
+    *(volatile uint32*)SPRD_UART1_PHYS = c;
+}__attribute__((always_inline))
+
+static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
+{
+	volatile uint32 i;
+	uint32 reg;
+	uart_putch('0');
+	uart_putch('\n');
+    exit_lowpower_mode();
+	uart_putch('1');
+	uart_putch('\n');
+    //hold bus
+    ddr_cam_command_dequeue(0);
+	uart_putch('2');
+	uart_putch('\n');
+    //confirm hold bus success
+    //hold not trigger sdram initialization
+    *(volatile uint32*)UMCTL_DFIMISC &= ~0x1;
+    wait_queue_complete();
+    uart_putch('3');
+	uart_putch('\n');
+    //disable auto refresh
+    REG32(UMCTL_RFSHCTL3) |= (1<<0);
+    for(i=0;i<2;i++);
+	switch(new_clk)
+	{
+            case 192:
+            {
+                #if 0
+				//set tdpll clock divider
+                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x1);
+
+                for(i=0;i<0x2;i++);
+
+                //switch to tdpll source 384Mhz
+                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x2);
+
+                for(i=0;i<0x2;i++);
+                #endif
+				reg = REG32(SPRD_AONAPB_PHYS+0x0018);
+				reg &= ~((0x7ff<<0)|(0x3<<16)|(0x7<<20));        //DPLLN | IBIAS | LPF
+				reg |= (0x30<<0)|(0x1<<16)|(0x2<<20);
+				REG32(SPRD_AONAPB_PHYS+0x0018) = reg;
+
+                for(i=0;i<0x2;i++);
+
+                //phy clock close
+		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
+		        for(i=0;i<0x2;i++);
+                //close dll
+                disable_ddrphy_dll();
+
+                //phy clock open
+                *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) |= (1<<6);
+//              		*(volatile uint32*)0x022b00c8 |= (1<<2);
+                for(i=0;i<2;i++);
+                //deassert_reset_dll();
+
+// wait DLL lock in memory side;
+// use MRS to close the DLL in memory side in 192MHz
+                REG32(PUBL_PIR) |= (1 << 4) | (1 << 0);
+				while((REG32(PUBL_PGSR) & 1) != 1);
+				while((REG32(PUBL_PGSR) & 1) != 1);
+//				REG32(PUBL_PIR) |= (1 << 4);
+				REG32(UMCTL_PERFLPR1) &= ~0xFFFF;
+				REG32(UMCTL_PERFWR1) &= ~0xFFFF;
+
+                break;
+            }
+
+            case 332:
+            {
+                #if 0
+				//set dpll clock divider
+                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x0);
+
+                for(i=0;i<0x2;i++);
+
+                //switch to dpll source
+                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
+
+                for(i=0;i<0x2;i++);
+				#endif
+				reg = REG32(SPRD_AONAPB_PHYS+0x0018);
+				reg &= ~((0x7ff<<0)|(0x3<<16)|(0x7<<20));        //DPLLN | IBIAS | LPF
+				reg |= (0x53<<0)|(0x1<<16)|(0x6<<20);
+				REG32(SPRD_AONAPB_PHYS+0x0018) = reg;
+				for(i=0;i<0x2;i++);
+
+                //phy clock close
+		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
+		        for(i=0;i<0x2;i++);
+
+                assert_reset_dll();
+		        for(i=0;i<0x2;i++);
+                //open dll
+                enable_ddrphy_dll();
+
+                for(i=0;i<2;i++);
+
+                //phy clock open
+                *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) |= (1<<6);
+//                        *(volatile uint32*)0x022b00c8 |= (1<<2);
+                for(i=0;i<2;i++);
+                //release dll
+                deassert_reset_dll();
+                for(i=0;i<10;i++);
+
+	            REG32(UMCTL_PERFLPR1) |= 0x100;
+		        REG32(UMCTL_PERFWR1) |= 0x20;
+                break;
+            }
+            default:
+				break;
+    }
+
+	//enable auto refresh
+	REG32(UMCTL_RFSHCTL3) &= ~(1<<0);
+	uart_putch('4');
+	uart_putch('\n');
+    ddr_timing_update_ex(timing);
+	uart_putch('5');
+	uart_putch('\n');
+    *(volatile uint32*)UMCTL_DFIMISC |= (1<<0);
+    ddr_cam_command_dequeue(1);
+	uart_putch('6');
+	uart_putch('\n');
+    if(new_clk == 192)
+    {
+        REG32(UMCTL_DFILPCFG0) = 0x0700f100;
+		REG32(UMCTL_PWRCTL)    = 0x9;
+	}
+	else
+	{
+        REG32(UMCTL_PWRCTL)    = 0xa;
+	}
+}__attribute__((always_inline))
+
+#else
+static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
 {
 	uint32 reg_val;
 	uint32 old_clk;
@@ -537,6 +760,9 @@ static void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
 //		ddr_autorefresh_timing_update();
 	}
 }__attribute__((always_inline))
+#endif
+
+
 #define DFS_PARAM_ADDR	(0x1C00)
 #define DFS_AP_REQ_ARRAY_ADDR (SPRD_IRAM0_PHYS + 0x1BF0)
 inline void dev_freq_set(unsigned long req)
@@ -544,16 +770,34 @@ inline void dev_freq_set(unsigned long req)
 	u32 ddr_type;
 	u32 clk;
 	u32 dll_mode;
-	u32 i;
 	ddr_dfs_val_t *timing;
 	REG32(PUBL_DSGCR) &= ~(0x10);
-	for(i = 0; i < 1; i++) {
 		ddr_type = (req & EMC_DDR_TYPE_MASK) >> EMC_DDR_TYPE_OFFSET;
 		clk = (req & EMC_CLK_FREQ_MASK) >> EMC_CLK_FREQ_OFFSET;
 		dll_mode = (req & EMC_DLL_MODE_MASK);
 		timing = (ddr_dfs_val_t *)(DFS_PARAM_ADDR);
+
+		if(clk == 332)
+		{
+            timing += 1;
+		}
+
+		if(timing->ddr_clk != clk)
+		{
+			uart_putch('d');
+			uart_putch('f');
+			uart_putch('s');
+			uart_putch('e');
+			uart_putch('r');
+			uart_putch('r');
+			uart_putch('o');
+			uart_putch('r');
+			uart_putch('\n');
+			while(1);
+		}
 		umctl2_freq_set(clk, ddr_type, dll_mode, timing);
-	}
+
+
 } __attribute__((always_inline))
 void emc_dfs_main(unsigned long flag)
 {

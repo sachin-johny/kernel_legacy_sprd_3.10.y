@@ -43,7 +43,7 @@ static u32 chip_id = 0;
 static ddr_dfs_val_t __emc_param_configs[5];
 static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr);
 u32 emc_clk_get(void);
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 static void emc_dfs_code_copy(u8 * dest);
 static int emc_dfs_call(unsigned long flag);
 void emc_dfs_main(unsigned long flag);
@@ -67,7 +67,7 @@ static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 	}
 	//__timing_reg_dump(ret_timing);
 	if(ret_timing) {
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 		memcpy((void *)DDR_TIMING_REG_VAL_ADDR, ret_timing, sizeof(ddr_dfs_val_t));
 #else
 		memcpy((void *)CP_PARAM_ADDR, ret_timing, sizeof(ddr_dfs_val_t));
@@ -75,17 +75,26 @@ static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 	}
 	return ret_timing;
 }
-#ifndef CONFIG_SCXX30_AP_DFS
+#ifndef CONFIG_SCX35_DMC_FREQ_AP
 static void cp_code_init(void)
 {
 	u32 *copy_data;
 	u32 copy_size;
 	u32 code_phy_addr;
-#ifdef CONFIG_DFS_AT_CP0
+	
+#ifdef CONFIG_SCX35_DMC_FREQ_CP0
 	copy_data = cp0_dfs_code_data;
 	copy_size = sizeof(cp0_dfs_code_data);
 	code_phy_addr = 0x50000000;
-#else
+#endif
+
+#ifdef CONFIG_SCX35_DMC_FREQ_CP1
+    copy_data = cp1_dfs_code_data;
+	copy_size = sizeof(cp1_dfs_code_data);
+	code_phy_addr = 0x50001800;
+#endif
+
+#ifdef CONFIG_SCX35_DMC_FREQ_CP2
 	copy_data = cp2_dfs_code_data;
 	copy_size = sizeof(cp2_dfs_code_data);
 	code_phy_addr = 0x50003000;
@@ -149,25 +158,44 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	if(clk == 333) {
 		clk = 332;
 	}
+
+//#ifdef CONFIG_SCXX15_AP_DFS
+//	if(clk <= 200)
+//	{
+//		clk = 192;
+//	}
+//	else{
+//        clk = 332;
+//	}
+//#endif
 	flag = (EMC_DDR_TYPE_LPDDR2 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
 	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 	flush_cache_all();
 	cpu_suspend(flag, emc_dfs_call);
 #else
 	__raw_writel(flag, CP_FLAGS_ADDR);
-#ifdef CONFIG_DFS_AT_CP0
-	sci_glb_set(SPRD_IPI_BASE,1 << 0);//send ipi interrupt to cp0
-#else
-	sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
-#endif
+	#ifdef CONFIG_SCX35_DMC_FREQ_CP0
+		sci_glb_set(SPRD_IPI_BASE,1 << 0);//send ipi interrupt to cp0
+	#endif
+
+	#ifdef CONFIG_SCX35_DMC_FREQ_CP1
+		sci_glb_set(SPRD_IPI_BASE,1 << 4);//send ipi interrupt to cp0
+	#endif
+
+	#ifdef CONFIG_SCX35_DMC_FREQ_CP2
+		sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
+	#endif
 	close_cp();
 	info("__emc_clk_set clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",clk, sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 #endif
 	if(emc_clk_get() != clk) {
 		info("clk set error, set clk = %d, get clk = %d\n", clk, emc_clk_get());
+	}
+	else{
+        info("clk set success, set clk = %d, get clk = %d\n", clk, emc_clk_get());
 	}
 	return 0;
 }
@@ -206,6 +234,18 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	//info("REG_AON_CLK_PUB_AHB_CFG = %x\n", __raw_readl(REG_AON_CLK_PUB_AHB_CFG));
 	//info("emc_clk_set old = %d, new = %d\n", old_clk, new_clk);
 	//info("emc_clk_set clk = %d, sene = %d, dll_enable = %d, emc_delay = %x\n", new_clk, sene,dll_enable, emc_delay);
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
+	if(new_clk <= 200){
+		new_clk = 192;
+	}
+
+	if(new_clk == old_clk)
+	{
+        is_current_set --;
+		return 0;
+	}
+    __emc_clk_set(new_clk,0,EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
+#else
 	if((old_clk > 200) && (new_clk == 200)) {
 		if(old_clk > 332) {
 			__emc_clk_set(332, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
@@ -213,12 +253,12 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 		__emc_clk_set(200, 0, EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 	}
 	else if((old_clk == 200) && (new_clk > 200)) {
-#ifdef CONFIG_SCXX30_AP_DFS
-		__emc_clk_set(322, 0, EMC_DLL_SWITCH_ENABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-#else
+//#ifdef CONFIG_SCX35_DMC_FREQ_AP
+//		__emc_clk_set(322, 0, EMC_DLL_SWITCH_ENABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
+//#else
 		__emc_clk_set(200, 0, EMC_DLL_SWITCH_ENABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 		__emc_clk_set(332, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-#endif
+//#endif
 		if(new_clk > 332) {
 			__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 		}
@@ -226,6 +266,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	else {
 		__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 	}
+#endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
 #ifdef EMC_FREQ_AUTO_TEST
@@ -272,8 +313,6 @@ u32 emc_clk_get(void)
 	u32 reg_val;
 	u32 sel;
 	u32 clk;
-#if defined(CONFIG_ARCH_SCX15)
-#else
 	reg_val = sci_glb_read(REG_AON_CLK_EMC_CFG, -1);
 	sel = reg_val & 0x3;
 	div = (reg_val >> 8) & 0x3;
@@ -294,7 +333,6 @@ u32 emc_clk_get(void)
 		break;
 	}
 	clk = pll_clk / (div + 1);
-#endif
 	return clk;
 }
 EXPORT_SYMBOL(emc_clk_get);
@@ -399,7 +437,7 @@ static void __emc_freq_test(void)
 	}
 }
 #endif
-//#define DDR_TIMING_REG_VAL_ADDR	(SPRD_IRAM0_BASE + 0x1c00)
+
 static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr)
 {
 	debug("umctl2_rfshtmg %x\n", dfs_val_ptr->ddr_clk);
@@ -448,7 +486,7 @@ static void __emc_timing_reg_init(void)
 		__timing_reg_dump(&__emc_param_configs[i]);
 	}
 }
-#ifdef CONFIG_SCXX30_AP_DFS
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
 static int emc_dfs_call(unsigned long flag)
 {
 	cpu_switch_mm(init_mm.pgd, &init_mm);
@@ -463,10 +501,10 @@ static void emc_dfs_code_copy(u8 * dest)
 #else
 static void cp_init(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
-#else
+	
+#ifdef CONFIG_SCX35_DMC_FREQ_CP0 //dfs is at cp0
 	cp_code_init();
-#ifdef CONFIG_DFS_AT_CP0 //dfs is at cp0
+
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//reset cp0
 	udelay(200);
 	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, 1 << 25);//power on cp0
@@ -474,7 +512,27 @@ static void cp_init(void)
 	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, 1 << 28);//close cp0 force sleep
 	mdelay(2);
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//release cp0
-#else
+
+	wait_cp_run();
+#endif
+
+#ifdef CONFIG_SCX35_DMC_FREQ_CP1 //dfs is at cp1
+    cp_code_init();
+
+	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 1);//reset cp1
+	udelay(200);
+	sci_glb_clr(REG_PMU_APB_PD_CP1_SYS_CFG, 1 << 25);//power on cp1
+	mdelay(4);
+	sci_glb_clr(REG_PMU_APB_PD_CP1_SYS_CFG, 1 << 28);//close cp1 force sleep
+	mdelay(2);
+	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 1);//release cp1
+
+	wait_cp_run();
+#endif
+
+#ifdef CONFIG_SCX35_DMC_FREQ_CP2 //dfs is at cp2
+    cp_code_init();
+
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 	udelay(200);
 	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
@@ -482,15 +540,13 @@ static void cp_init(void)
 	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 28);//close cp2 force sleep
 	mdelay(2);
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
-#endif
+
 	wait_cp_run();
 #endif
 }
 #endif
 static int __init emc_early_suspend_init(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
-#else
 	//u32 val;
 	//__raw_writel(1, REG_AON_CLK_PUB_AHB_CFG);
 	//__raw_writel(3, REG_AON_CLK_AON_APB_CFG);
@@ -502,7 +558,7 @@ static int __init emc_early_suspend_init(void)
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	//cp_code_init();
 	__emc_timing_reg_init();
-#ifndef CONFIG_SCXX30_AP_DFS
+#ifndef CONFIG_SCX35_DMC_FREQ_AP
 	cp_init();
 #else
 	int ret;
@@ -522,7 +578,6 @@ static int __init emc_early_suspend_init(void)
 	emc_debugfs_creat();
 #ifdef EMC_FREQ_AUTO_TEST
 	__emc_freq_test();
-#endif
 #endif
 	return 0;
 }
