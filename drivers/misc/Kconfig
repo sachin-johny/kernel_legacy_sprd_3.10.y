@@ -534,6 +534,8 @@ config SRAM
 source "drivers/misc/sprd_vsp/Kconfig"
 source "drivers/misc/sprd_jpg/Kconfig"
 source "drivers/misc/sprd_cproc/Kconfig"
+source "drivers/misc/sprd_2351/Kconfig"
+source "drivers/misc/gpsip/Kconfig"
 
 source "drivers/misc/c2port/Kconfig"
 source "drivers/misc/eeprom/Kconfig"
