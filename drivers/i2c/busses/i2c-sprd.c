@@ -583,16 +583,18 @@ static int i2c_controller_suspend(struct platform_device *pdev,
 
 static int i2c_controller_resume(struct platform_device *pdev)
 {
+	unsigned int tmp;
 	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
 
 	if (pi2c && !IS_ERR(pi2c->clk))
 		clk_enable(pi2c->clk);
 	if (pi2c) {
-
-		__raw_writel(l2c_saved_regs[pi2c->adap.nr].ctl, pi2c->membase + I2C_CTL);
-		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd, pi2c->membase + I2C_CMD);
+	        tmp = __raw_readl( pi2c->membase + I2C_CTL);
+		__raw_writel(tmp & (~I2C_CTL_EN), pi2c->membase + I2C_CTL);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].div0, pi2c->membase + I2C_CLKD0);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].div1, pi2c->membase + I2C_CLKD1);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].ctl, pi2c->membase + I2C_CTL);
+		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd, pi2c->membase + I2C_CMD);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].rst, pi2c->membase + I2C_RST);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf, pi2c->membase + I2C_CMD_BUF);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl, pi2c->membase + I2C_CMD_BUF_CTL);
