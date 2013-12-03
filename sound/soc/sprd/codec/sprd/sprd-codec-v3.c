@@ -1876,7 +1876,7 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 
 	_mixer_setting(codec, SPRD_CODEC_HP_ADCL,
 		       SPRD_CODEC_HP_MIXER_MAX, SPRD_CODEC_RIGHT,
-		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPL_EN), 0);
+		       snd_soc_read(codec, DCR2_DCR1) & BIT(HPR_EN), 0);
 
 _pre_pmd:
 	sprd_codec_dbg("Leaving %s\n", __func__);
@@ -2178,10 +2178,12 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 
 #define SPRD_CODEC_MIXER(xname, xreg)\
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
+
 /*Just for LINE IN path, mixer_set not really set mixer (ADCL/R -> HP/SPK L/R) here but
 setting in ana_loop_event, just remeber state here*/
 #define SPRD_CODEC_MIXER_NOSET(xname, xreg)\
 		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 1, 1, 0, mixer_get, mixer_set)
+
 /* ADCL Mixer */
 static const struct snd_kcontrol_new adcl_mixer_controls[] = {
 	SPRD_CODEC_MIXER("AILADCL Switch",
@@ -2257,6 +2259,7 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 	SPRD_CODEC_MIXER_NOSET("ADCRSPKR Switch",
 			 ID_FUN(SPRD_CODEC_SPK_ADCR, SPRD_CODEC_RIGHT)),
 };
+
 /*ANA LOOP SWITCH*/
 #define SPRD_CODEC_LOOP_SWITCH(xname, xreg)\
 	SND_SOC_DAPM_PGA_S(xname, 7, FUN_REG(xreg), 0, 0, ana_loop_event,\
@@ -3089,6 +3092,7 @@ static int sprd_codec_digital_mute(struct snd_soc_dai *dai, int mute)
 	return ret;
 }
 #endif
+
 static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 	.hw_params = sprd_codec_pcm_hw_params,
 	.hw_free = sprd_codec_pcm_hw_free,
