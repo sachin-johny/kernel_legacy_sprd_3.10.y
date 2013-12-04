@@ -120,7 +120,7 @@ config FB_LCD_RESERVE_MEM
 
 config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
-	depends on FB_SC8825 || FB_SCX35
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
 	default n
 
 config FB_VSYNC_SUPPORT
