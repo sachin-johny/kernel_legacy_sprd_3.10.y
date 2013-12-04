@@ -866,10 +866,8 @@ static int vbc_chan_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
-	struct soc_mixer_control *mc =
-	    (struct soc_mixer_control *)kcontrol->private_value;
-	int vbc_idx = FUN_REG(mc->reg);
-	int chan = mc->shift;
+	int vbc_idx = FUN_REG(w->reg);
+	int chan = w->shift;
 	int ret = 0;
 
 	sp_asoc_pr_dbg("%s(%s%d) Event is %s\n", __func__,
