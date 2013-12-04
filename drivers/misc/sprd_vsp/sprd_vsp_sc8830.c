@@ -245,9 +245,9 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
     case VSP_RESET:
         pr_debug("vsp ioctl VSP_RESET\n");
-        sci_glb_set(SPRD_MMAHB_BASE + 0x1004, BIT(11)|BIT(4));
-        sci_glb_set(SPRD_MMAHB_BASE + 0x2004, BIT(4));	//Reset VSP
-
+        __raw_writel((1<<4) |(1<<11), SPRD_MMAHB_BASE + 0x1004);
+        udelay(1);
+        __raw_writel((1<<4) , SPRD_MMAHB_BASE + 0x2004);
         break;
     case VSP_HW_INFO:
     {
