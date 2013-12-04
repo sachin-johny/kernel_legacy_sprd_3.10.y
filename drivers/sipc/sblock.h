@@ -25,34 +25,17 @@
 #define SBLOCK_STATE_IDLE		0
 #define SBLOCK_STATE_READY		1
 
-#define SBLOCK_TXUNIT_STATE_READY 	0
-#define SBLOCK_TXUNIT_STATE_PENDING 	1
-#define SBLOCK_TXUNIT_STATE_SENT 	2
+#define SBLOCK_BLK_STATE_DONE 		0
+#define SBLOCK_BLK_STATE_PENDING 	1
 
-/* states for rxunit */
-#define SBLOCK_RXUNIT_STATE_FREE 	0 /* default state of rxunits */
-#define SBLOCK_RXUNIT_STATE_RECV 	1 /* AP received sblock, but not released it yet */
-#define SBLOCK_RXUNIT_STATE_PENDING 	2 /* CP reset, but AP didn't release the sblock yet */
-#define SBLOCK_RXUNIT_STATE_CONFLICT 	3 /* In pending state, received the sblock before released */
 struct sblock_blks {
 	uint32_t		addr; /*phy address*/
 	uint32_t		length;
 };
 
-struct sblock_txunit {
-	uint8_t 		state;
-	void*			addr; /*virt address*/
-	struct list_head	list;
-};
-
-struct sblock_rxunit {
-	uint8_t  		state;
-	uint32_t 		capture;
-};
-
 /* ring block header */
 struct sblock_ring_header {
-	/* send-block info */
+	/* get|send-block info */
 	uint32_t		txblk_addr;
 	uint32_t		txblk_count;
 	uint32_t		txblk_size;
@@ -60,7 +43,7 @@ struct sblock_ring_header {
 	uint32_t		txblk_rdptr;
 	uint32_t		txblk_wrptr;
 
-	/* recv-block info */
+	/* release|recv-block info */
 	uint32_t		rxblk_addr;
 	uint32_t		rxblk_count;
 	uint32_t		rxblk_size;
@@ -69,23 +52,28 @@ struct sblock_ring_header {
 	uint32_t		rxblk_wrptr;
 };
 
+struct sblock_header {
+	struct sblock_ring_header ring;
+	struct sblock_ring_header pool;
+};
+
 struct sblock_ring {
-	struct sblock_ring_header	*header;
+	struct sblock_header	*header;
 	void			*txblk_virt; /* virt of header->txblk_addr */
 	void			*rxblk_virt; /* virt of header->rxblk_addr */
-	struct sblock_blks	*txblks;     /* virt of header->txblk_blks */
-	struct sblock_blks	*rxblks;     /* virt of header->rxblk_blks */
 
-	struct sblock_rxunit 	*rxunits;    /* rxblk units */
-	spinlock_t 		elock;
-	struct sblock_txunit	*txunits;    /* txblk units pool */
-	struct list_head	txpool;
-	spinlock_t		plock;
+	struct sblock_blks	*r_txblks;     /* virt of header->ring->txblk_blks */
+	struct sblock_blks	*r_rxblks;     /* virt of header->ring->rxblk_blks */
+	struct sblock_blks 	*p_txblks;     /* virt of header->pool->txblk_blks */
+	struct sblock_blks 	*p_rxblks;     /* virt of header->pool->rxblk_blks */
 
-	uint32_t            txblk_count;
+	int 			*txrecord; /* record the state of every txblk */
+	int 			*rxrecord; /* record the state of every rxblk */
 
-	spinlock_t		txlock;
-	spinlock_t		rxlock;
+	spinlock_t		r_txlock; /* send */
+	spinlock_t		r_rxlock; /* recv */
+	spinlock_t 		p_txlock; /* get */
+	spinlock_t 		p_rxlock; /* release */
 
 	wait_queue_head_t	getwait;
 	wait_queue_head_t	recvwait;
