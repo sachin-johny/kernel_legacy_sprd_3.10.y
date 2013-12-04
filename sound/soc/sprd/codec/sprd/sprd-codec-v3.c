@@ -928,7 +928,7 @@ int sprd_inter_speaker_pa(int on)
 
 EXPORT_SYMBOL(sprd_inter_speaker_pa);
 
-#ifdef SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 static inline void sprd_codec_hp_classg_en(int on)
 {
 	int mask;
@@ -1058,7 +1058,7 @@ int sprd_inter_headphone_pa(int on)
 			}
 		}
 		sprd_codec_auxadc_en(1);
-#ifdef SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_classg_en(1);
 #endif
 		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
@@ -1066,7 +1066,7 @@ int sprd_inter_headphone_pa(int on)
 		sprd_codec_hp_pa_osc(inter_hp_pa.setting.class_g_osc);
 		sprd_codec_hp_pa_hpl_en(1);
 		sprd_codec_hp_pa_hpr_en(1);
-#ifndef SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+#ifndef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_pa_ref_en(1);
 #endif
 		sprd_codec_hp_pa_en(1);
@@ -1074,13 +1074,13 @@ int sprd_inter_headphone_pa(int on)
 	} else {
 		inter_hp_pa.set = 0;
 		sprd_codec_hp_pa_en(0);
-#ifndef SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+#ifndef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_pa_ref_en(0);
 #endif
 		sprd_codec_hp_pa_hpl_en(0);
 		sprd_codec_hp_pa_hpr_en(0);
 		sprd_codec_auxadc_en(0);
-#ifdef SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_classg_en(1);
 #endif
 		if (regulator) {
