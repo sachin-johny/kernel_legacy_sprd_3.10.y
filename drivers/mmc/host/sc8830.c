@@ -824,11 +824,21 @@ void sprd_srt_emmc_test(int action,int count){
 			srt_begin_test();
 			for(loop=0;loop<count;loop++){
 				printk( "SRT emmc_pm_manage PMRT testing %d\n",loop);
-				if (!pm_runtime_suspended(dev)){
+			/*	if (!pm_runtime_suspended(dev)){
 					sprd_mmc_host_runtime_suspend(dev);
 				}
 				if (pm_runtime_suspended(dev)){
 					sprd_mmc_host_runtime_resume(dev);
+				}*/
+				while(1){
+					if (pm_runtime_suspended(dev)){
+						sprd_mmc_host_runtime_resume(dev);
+						
+						break;
+					}else{
+						mdelay(1);
+						printk( "SRT pmruntime waiting\n");
+					}
 				}
 			}
 			srt_end_test();
