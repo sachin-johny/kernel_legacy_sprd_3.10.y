@@ -273,7 +273,7 @@
 #define AUD_NG_DA_EN	(6)
 #define AUD_NG_PA_EN	(5)
 /* DCR8_DCR7 */
-#ifdef SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 #define AUDIO_CLASSG_EN        (15)
 #define AUDIO_CHP_EN		(14)
 #define AUDIO_CHP_HPL_EN	(13)
