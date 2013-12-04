@@ -1037,10 +1037,13 @@ static inline void sprd_codec_inter_hp_pa_init(void)
 
 int sprd_inter_headphone_pa(int on)
 {
+#ifndef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 	static struct regulator *regulator = 0;
+#endif
 	sp_asoc_pr_info("inter HP PA Switch %s\n", STR_ON_OFF(on));
 	mutex_lock(&inter_hp_pa_mutex);
 	if (on) {
+#ifndef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		if (!regulator) {
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
@@ -1057,6 +1060,7 @@ int sprd_inter_headphone_pa(int on)
 				regulator = 0;
 			}
 		}
+#endif
 		sprd_codec_auxadc_en(1);
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_classg_en(1);
@@ -1083,12 +1087,14 @@ int sprd_inter_headphone_pa(int on)
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_classg_en(1);
 #endif
+#ifndef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		if (regulator) {
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);
 			regulator_put(regulator);
 			regulator = 0;
 		}
+#endif
 	}
 	mutex_unlock(&inter_hp_pa_mutex);
 	return 0;
@@ -1273,6 +1279,34 @@ int sprd_codec_headmic_bias_control(int on)
 {
 	int ret = 0;
 	struct regulator **regu = &sprd_codec_power.head_mic;
+#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
+	static struct regulator *regulator = 0;
+	if (on) {
+		if (!regulator) {
+			regulator = regulator_get(0, CLASS_G_LDO_ID);
+			if (IS_ERR(regulator)) {
+				pr_err("ERR:Failed to request %ld: %s\n",
+				       PTR_ERR(regulator), CLASS_G_LDO_ID);
+				BUG_ON(1);
+			}
+			regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
+			if (regulator_enable(regulator) < 0) {
+				regulator_set_mode(regulator,
+						   REGULATOR_MODE_NORMAL);
+				regulator_disable(regulator);
+				regulator_put(regulator);
+				regulator = 0;
+			}
+		}
+	} else {
+		if (regulator) {
+			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
+			regulator_disable(regulator);
+			regulator_put(regulator);
+			regulator = 0;
+		}
+	}
+#endif
 	sp_asoc_pr_info("HEADMIC BIAS Switch %s\n", STR_ON_OFF(on));
 	sprd_codec_power_get(regu, "HEADMICBIAS");
 	ret = sprd_codec_mic_bias_set(regu, on);
