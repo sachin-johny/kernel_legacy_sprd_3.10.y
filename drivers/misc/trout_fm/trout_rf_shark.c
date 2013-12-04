@@ -383,10 +383,6 @@ int shark_fm_cfg_rf_reg(void)
 	READ_REG(SHARK_APB_EB0, &reg_data);
 	reg_data |= (1<<23);
 	WRITE_REG(SHARK_APB_EB0, reg_data);
-
-	WRITE_REG(0x402A0038, 0x090); /*U0TXD-->RFSDA2*/
-	WRITE_REG(0x402A003C, 0x110); /*U0RXD-->RFSCK2*/
-	WRITE_REG(0x402A0040, 0x010); /*U0CTS-->RFSEN2*/
 	READ_REG(0X402A0000, &reg_data);
 	reg_data |= 0x1 << 26 ;
 	WRITE_REG(0x402A0000, reg_data); /*mspi read pin config*/
@@ -619,7 +615,7 @@ int trout_fm_set_tune(u16 freq)
 
 int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 {
-	int ret;
+	int ret = 0;
 
 	TROUT_PRINT("FM seek, freq(%i) dir(%i) timeout(%i).",
 		    frequency, seek_dir, time_out);
@@ -653,7 +649,7 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 
 	shark_fm_int_clr();
 
-	return 0;
+	return ret;
 }
 
 int trout_fm_get_frequency(u16 *freq)
