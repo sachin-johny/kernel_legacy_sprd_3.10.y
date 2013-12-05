@@ -69,7 +69,8 @@
         #endif
 #endif
 
-#define ADC_FIFO_CNT (5)
+#define ADC_READ_COUNT_BUTTON (1)
+#define ADC_READ_COUNT_DETECT (5)
 #define ADC_GND (100)
 #define DEBANCE_LOOP_COUNT_TYPE_DETECT (5)
 #define DEBANCE_LOOP_COUNT_BUTTON_DETECT (1)
@@ -461,13 +462,13 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         set_adc_to_headmic(1);
         msleep(50);
         for(i=0; i< DEBANCE_LOOP_COUNT_TYPE_DETECT; i++) {
-                for (j = 0; j < ADC_FIFO_CNT; j++) {
+                for (j = 0; j < ADC_READ_COUNT_DETECT; j++) {
                         adc_value = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
                         PRINT_DBG("adc_value[%d] = %d\n", j, adc_value);
                         adc_mic[i] += adc_value;
                         msleep(ADC_CHECK_INTERVAL_TYPE_DETECT);
                 }
-                adc_mic[i] = adc_mic[i] /ADC_FIFO_CNT;
+                adc_mic[i] = adc_mic[i] /ADC_READ_COUNT_DETECT;
                 adc_mic_average += adc_mic[i];
                 PRINT_DBG("the average adc_mic[%d] = %d\n", i, adc_mic[i]);
 
@@ -489,13 +490,13 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         set_adc_to_headmic(0);
         msleep(50);
         for(i=0; i< DEBANCE_LOOP_COUNT_TYPE_DETECT; i++) {
-                for (j = 0; j < ADC_FIFO_CNT; j++) {
+                for (j = 0; j < ADC_READ_COUNT_DETECT; j++) {
                         adc_value = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
                         PRINT_DBG("adc_value[%d] = %d\n", j, adc_value);
                         adc_left[i] += adc_value;
                         msleep(ADC_CHECK_INTERVAL_TYPE_DETECT);
                 }
-                adc_left[i] = adc_left[i] /ADC_FIFO_CNT;
+                adc_left[i] = adc_left[i] /ADC_READ_COUNT_DETECT;
                 adc_left_average += adc_left[i];
                 PRINT_DBG("the average adc_left[%d] = %d\n", i, adc_left[i]);
 
@@ -569,21 +570,24 @@ static void headset_button_work_func(struct work_struct *work)
 
         if(1 == button_state_current) {//pressed!
                 for(i=0; i< DEBANCE_LOOP_COUNT_BUTTON_DETECT; i++) {
-                        for (j = 0; j < ADC_FIFO_CNT; j++) {
+                        for (j = 0; j < ADC_READ_COUNT_BUTTON; j++) {
                                 adc_value = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
                                 PRINT_DBG("adc_value[%d] = %d\n", j, adc_value);
                                 adc_mic[i] += adc_value;
                                 msleep(ADC_CHECK_INTERVAL_BUTTON_DETECT);
                         }
-                        adc_mic[i] = adc_mic[i] /ADC_FIFO_CNT;
+                        adc_mic[i] = adc_mic[i] /ADC_READ_COUNT_BUTTON;
                         adc_mic_average += adc_mic[i];
                         PRINT_DBG("the average adc_mic[%d] = %d\n", i, adc_mic[i]);
 
+#if 0
                         gpio_button_value_current = gpio_get_value(pdata->gpio_button);
                         if(gpio_button_value_current != gpio_button_value_last) {
                                 PRINT_INFO("software debance (step 2: gpio check)!!!(headset_button_work_func)(pressed)\n");
                                 goto out;
                         }
+#endif
+
                 }
 
                 adc_max = array_get_max(adc_mic, DEBANCE_LOOP_COUNT_BUTTON_DETECT);
@@ -619,14 +623,16 @@ static void headset_button_work_func(struct work_struct *work)
                 }
                 headset_irq_button_enable(1, ht->irq_button);
         } else { //released!
+
+#if 0
                 for(i=0; i< DEBANCE_LOOP_COUNT_BUTTON_DETECT; i++) {
-                        for (j = 0; j < ADC_FIFO_CNT; j++) {
+                        for (j = 0; j < ADC_READ_COUNT_BUTTON; j++) {
                                 adc_value = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
                                 PRINT_DBG("adc_value[%d] = %d\n", j, adc_value);
                                 adc_mic[i] += adc_value;
                                 msleep(ADC_CHECK_INTERVAL_BUTTON_DETECT);
                         }
-                        adc_mic[i] = adc_mic[i] /ADC_FIFO_CNT;
+                        adc_mic[i] = adc_mic[i] /ADC_READ_COUNT_BUTTON;
                         PRINT_DBG("the average adc_mic[%d] = %d\n", i, adc_mic[i]);
 
                         gpio_button_value_current = gpio_get_value(pdata->gpio_button);
@@ -642,6 +648,7 @@ static void headset_button_work_func(struct work_struct *work)
                         PRINT_INFO("software debance (step 3: adc check)!!!(headset_button_work_func)(released)\n");
                         goto out;
                 }
+#endif
 
                 if(1 == button_state_last) {
                         input_event(ht->input_dev, EV_KEY, current_key_code, 0);
