@@ -749,9 +749,7 @@ struct platform_device sprd_jpg_device = {
 
 #ifdef CONFIG_ION
 #ifdef CONFIG_CMA
-static struct ion_platform_data ion_pdata = {
-        .nr = 2,
-        .heaps = {
+static struct ion_platform_heap ion_pheaps[] = {
                 {
                         .id     = ION_HEAP_TYPE_CARVEOUT,
                         .type   = ION_HEAP_TYPE_CUSTOM,
@@ -766,7 +764,6 @@ static struct ion_platform_data ion_pdata = {
                         .base   = SPRD_ION_OVERLAY_BASE,
                         .size   = SPRD_ION_OVERLAY_SIZE,
                 },
-        }
 };
 #else
 static struct ion_platform_heap ion_pheaps[] = {
@@ -794,11 +791,12 @@ static struct ion_platform_heap ion_pheaps[] = {
                 },
 #endif
 };
+#endif
+
 static struct ion_platform_data ion_pdata = {
         .nr = sizeof(ion_pheaps)/sizeof(ion_pheaps[0]),
         .heaps = &ion_pheaps[0],
 };
-#endif
 
 struct platform_device sprd_ion_dev = {
         .name = "ion-sprd",
