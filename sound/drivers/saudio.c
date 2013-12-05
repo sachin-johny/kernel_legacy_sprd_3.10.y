@@ -465,20 +465,17 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 		msg.stream_id = stream_id;
 		stream->stream_state = SAUDIO_TRIGGERED;
 		result = saudio_data_trigger_process(stream, &msg);
-		mutex_lock(&dev_ctrl->mutex);
 		result =
 		    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 					   SAUDIO_CMD_START, stream->stream_id,
-					   CMD_TIMEOUT);
+					   0);
 		if (result) {
 			ETRACE
 			    ("saudio.c: snd_card_saudio_pcm_trigger: RESUME, send_common_cmd result is %d",
 			     result);
 			saudio_snd_card_free(saudio);
-			mutex_unlock(&dev_ctrl->mutex);
 			return result;
 		}
-		mutex_unlock(&dev_ctrl->mutex);
 		pr_info("%s OUT, TRIGGER_START, result=%d\n", __func__, result);
 
 		break;
@@ -486,21 +483,18 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		pr_info("%s IN, TRIGGER_STOP, stream_id=%d\n", __func__,
 			stream_id);
-		mutex_lock(&dev_ctrl->mutex);
 		stream->stream_state = SAUDIO_STOPPED;
 		result =
 		    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 					   SAUDIO_CMD_STOP, stream->stream_id,
-					   CMD_TIMEOUT);
+					   0);
 		if (result) {
 			ETRACE
 			    ("saudio.c: snd_card_saudio_pcm_trigger: SUSPEND, send_common_cmd result is %d",
 			     result);
 			saudio_snd_card_free(saudio);
-			mutex_unlock(&dev_ctrl->mutex);
 			return result;
 		}
-		mutex_unlock(&dev_ctrl->mutex);
 		pr_info("%s OUT, TRIGGER_STOP, result=%d\n", __func__, result);
 
 		break;
