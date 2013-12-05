@@ -50,14 +50,23 @@
 #ifdef CONFIG_ARCH_SC8825
 #define ANA_LED_CTRL           (ANA_REG_BASE + 0X70)
 #else
+#ifdef CONFIG_ARCH_SCX15
+#define ANA_LED_CTRL           (ANA_REG_BASE + 0XE0)
+#else
 #ifdef CONFIG_ARCH_SCX35
 #define ANA_LED_CTRL           (ANA_REG_BASE + 0XA0)
 #else
 #define ANA_LED_CTRL           (ANA_REG_BASE + 0X68)
 #endif
 #endif
+#endif
 
 #define KPLED_CTL               ANA_LED_CTRL
+#ifdef CONFIG_ARCH_SCX15
+#define KPLED_PD_SET              (1 << 0)
+#define KPLED_V_SHIFT            4
+#define KPLED_V_MSK               (0x0F << KPLED_V_SHIFT)
+#else
 #ifdef CONFIG_ARCH_SCX35
 #define KPLED_PD_SET            (1 << 1)
 #define KPLED_V_SHIFT           4
@@ -67,6 +76,7 @@
 #define KPLED_PD_RST            (1 << 12)
 #define KPLED_V_SHIFT           7
 #define KPLED_V_MSK             (0x07 << KPLED_V_SHIFT)
+#endif
 #endif
 
 /* sprd keypad backlight */
@@ -104,6 +114,7 @@ static void sprd_kpled_set_brightness( unsigned long  brightness)
 #ifdef CONFIG_ARCH_SCX35
 	/*brightness steps = 16*/
 	brightness_level = brightness_level/16;
+	brightness_level = 0;//set brightness_level = 0 for reducing power consumption
 #else
 	/*brightness steps = 8*/
 	brightness_level = brightness_level/32;
