@@ -177,6 +177,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_seth0_td_device,
 	&sprd_seth1_td_device,
 	&sprd_seth2_td_device,
+	&sprd_saudio_td_device,
 #endif
 #ifdef CONFIG_SIPC_WCDMA
 	&sprd_cproc_wcdma_device,
@@ -186,6 +187,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_seth0_wcdma_device,
 	&sprd_seth1_wcdma_device,
 	&sprd_seth2_wcdma_device,
+	&sprd_saudio_wcdma_device,
 #endif
 #ifdef CONFIG_SIPC_WCN
 	&sprd_cproc_wcn_device,
