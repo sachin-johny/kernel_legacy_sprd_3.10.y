@@ -33,6 +33,7 @@
 #include <linux/memory.h>
 #include <linux/io.h>
 #include <linux/workqueue.h>
+#include <linux/kthread.h>
 #include <sound/saudio.h>
 
 #define ETRACE(x...)           printk(KERN_ERR "Error: " x)
@@ -196,6 +197,7 @@ struct snd_saudio {
 	uint32_t dst;
 	uint32_t channel;
 	uint32_t in_init;
+	struct task_struct * thread_id;
 };
 
 static DEFINE_MUTEX(snd_sound);
@@ -463,20 +465,17 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 		msg.stream_id = stream_id;
 		stream->stream_state = SAUDIO_TRIGGERED;
 		result = saudio_data_trigger_process(stream, &msg);
-		mutex_lock(&dev_ctrl->mutex);
 		result =
 		    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 					   SAUDIO_CMD_START, stream->stream_id,
-					   CMD_TIMEOUT);
+					   0);
 		if (result) {
 			ETRACE
 			    ("saudio.c: snd_card_saudio_pcm_trigger: RESUME, send_common_cmd result is %d",
 			     result);
 			saudio_snd_card_free(saudio);
-			mutex_unlock(&dev_ctrl->mutex);
 			return result;
 		}
-		mutex_unlock(&dev_ctrl->mutex);
 		pr_info("%s OUT, TRIGGER_START, result=%d\n", __func__, result);
 
 		break;
@@ -484,21 +483,18 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 	case SNDRV_PCM_TRIGGER_SUSPEND:
 		pr_info("%s IN, TRIGGER_STOP, stream_id=%d\n", __func__,
 			stream_id);
-		mutex_lock(&dev_ctrl->mutex);
 		stream->stream_state = SAUDIO_STOPPED;
 		result =
 		    saudio_send_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 					   SAUDIO_CMD_STOP, stream->stream_id,
-					   CMD_TIMEOUT);
+					   0);
 		if (result) {
 			ETRACE
 			    ("saudio.c: snd_card_saudio_pcm_trigger: SUSPEND, send_common_cmd result is %d",
 			     result);
 			saudio_snd_card_free(saudio);
-			mutex_unlock(&dev_ctrl->mutex);
 			return result;
 		}
-		mutex_unlock(&dev_ctrl->mutex);
 		pr_info("%s OUT, TRIGGER_STOP, result=%d\n", __func__, result);
 
 		break;
@@ -666,7 +662,7 @@ ERR:
 	return -1;
 }
 
-static int __devinit snd_card_saudio_pcm(struct snd_saudio *saudio, int device,
+static int  snd_card_saudio_pcm(struct snd_saudio *saudio, int device,
 					 int substreams)
 {
 	struct snd_pcm *pcm;
@@ -1143,7 +1139,6 @@ static int saudio_ctrl_thread(void *data)
 	int result = 0;
 	struct snd_saudio *saudio = (struct snd_saudio *)data;
 	ADEBUG();
-	daemonize("saudio");
 
 	result = saudio_snd_init_ipc(saudio);
 	if (result) {
@@ -1151,7 +1146,7 @@ static int saudio_ctrl_thread(void *data)
 		       result);
 		return -1;
 	}
-	while (1) {
+	while (!kthread_should_stop()) {
 		printk(KERN_INFO
 		       "%s,saudio: waiting for modem boot handshake,dst %d,channel %d\n",
 		       __func__, saudio->dst, saudio->channel);
@@ -1217,10 +1212,9 @@ static void saudio_work_card_free_handler(struct work_struct *data)
 	printk(KERN_INFO "saudio: card free handler out\n");
 }
 
-static int __devinit snd_saudio_probe(struct platform_device *devptr)
+static int snd_saudio_probe(struct platform_device *devptr)
 {
 	struct snd_saudio *saudio = NULL;
-	static pid_t thread_id = (pid_t) - 1;
 	struct saudio_init_data *init_data = devptr->dev.platform_data;
 	ADEBUG();
 	if (!(saudio = saudio_card_probe(init_data))) {
@@ -1242,23 +1236,29 @@ static int __devinit snd_saudio_probe(struct platform_device *devptr)
 
 	platform_set_drvdata(devptr, saudio);
 
-	thread_id = kernel_thread(saudio_ctrl_thread, saudio, 0);
-	if (thread_id < 0) {
+	saudio->thread_id = kthread_create(saudio_ctrl_thread, saudio, "saudio-%d-%d",saudio->dst,saudio->channel);
+	if (IS_ERR(saudio->thread_id)) {
 		ETRACE("virtual audio cmd kernel thread creation failure \n");
 		destroy_workqueue(saudio->queue);
 		saudio->queue = NULL;
+		saudio->thread_id = NULL;
 		kfree(saudio);
 		platform_set_drvdata(devptr, NULL);
-		return thread_id;
+		return -1;
 	}
+	wake_up_process(saudio->thread_id);
 	return 0;
 }
 
-static int __devexit snd_saudio_remove(struct platform_device *devptr)
+static int snd_saudio_remove(struct platform_device *devptr)
 {
 	struct snd_saudio *saudio = platform_get_drvdata(devptr);
 
 	if (saudio) {
+		if (!IS_ERR_OR_NULL(saudio->thread_id)) {
+		    kthread_stop(saudio->thread_id);
+		    saudio->thread_id = NULL;
+		}
 		if (saudio->queue)
 			destroy_workqueue(saudio->queue);
 		if (saudio->pdev) {
@@ -1279,7 +1279,7 @@ static int __devexit snd_saudio_remove(struct platform_device *devptr)
 
 static struct platform_driver snd_saudio_driver = {
 	.probe = snd_saudio_probe,
-	.remove = __devexit_p(snd_saudio_remove),
+	.remove = snd_saudio_remove,
 	.driver = {
 		   .name = SND_SAUDIO_DRIVER},
 };
@@ -1300,4 +1300,4 @@ static void __exit alsa_card_saudio_exit(void)
 }
 
 module_init(alsa_card_saudio_init)
-    module_exit(alsa_card_saudio_exit)
+module_exit(alsa_card_saudio_exit)
