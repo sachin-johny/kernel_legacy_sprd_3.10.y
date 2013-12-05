@@ -73,7 +73,7 @@
 #define GPIO_M_DRDY 164
 
 /* General Info for ION*/
-#define SPRD_ION_SIZE            (76 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE    (12 * SZ_1M)
+#define SPRD_ION_SIZE            (24 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (11 * SZ_1M)
 
 #endif
