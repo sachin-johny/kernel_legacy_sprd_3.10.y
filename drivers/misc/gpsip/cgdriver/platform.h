@@ -62,7 +62,11 @@
 #define CG_DRIVER_GPIO_TCXO_EN	    (22)
 #define CG_DRIVER_GPIO_GPS_MRSTN    (22)
 
+#if defined(CONFIG_DOLPHIN_CHIP_2351)
 #define SPRD_GPS_LNA_EN    (35)
+#elif defined(CONFIG_SHARK_CHIP_2351)
+#define SPRD_GPS_LNA_EN    (50)
+#endif
 
 
 
@@ -98,7 +102,9 @@
 /*bxd add for RF config*/
 #define CG_RF_ARM_BASE_VA 			SPRD_PIN_BASE
 #define CG_RF_MSPI_BASE_VA 			SPRD_RFSPI_BASE
+#if defined(CONFIG_DOLPHIN_CHIP_2351)
 #define CG_SPRD_AONAPB_BASE_VA			SPRD_AONAPB_BASE
+#endif
 
 
 /** Virtual base address for CGsnap sclk */

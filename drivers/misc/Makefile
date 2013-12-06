@@ -57,6 +57,7 @@ obj-$(CONFIG_LATTICE_ECP3_CONFIG)	+= lattice-ecp3-config.o
 obj-$(CONFIG_SRAM)		+= sram.o
 obj-y		+= sprd_2351/
 obj-$(CONFIG_CGX)		+= gpsip/
+obj-$(CONFIG_TROUT_FM)		+= trout_fm/
 
 obj-y		+= sprd_vsp/
 obj-y		+= sprd_jpg/
