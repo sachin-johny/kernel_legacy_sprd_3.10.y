@@ -146,19 +146,18 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_emmc_device,
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
-#if !defined(CONFIG_ARCH_SCX15)
-	&sprd_sdio2_device,
-#endif
-#if 0
-	&sprd_vsp_device,
-	&sprd_jpg_device,
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
 	&sprd_sensor_device,
-	&sprd_isp_device,
 	&sprd_dma_copy_device,
-
+#if !defined(CONFIG_ARCH_SCX15)
+	&sprd_sdio2_device,
+#endif
+	&sprd_vsp_device,
+	&sprd_jpg_device,
+#if 0
+	&sprd_isp_device,
 	&sprd_ahb_bm0_device,
 	&sprd_ahb_bm1_device,
 	&sprd_ahb_bm2_device,
@@ -180,6 +179,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_seth0_td_device,
 	&sprd_seth1_td_device,
 	&sprd_seth2_td_device,
+	&sprd_saudio_td_device,
 #endif
 #ifdef CONFIG_SIPC_WCDMA
 	&sprd_cproc_wcdma_device,
@@ -189,6 +189,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_seth0_wcdma_device,
 	&sprd_seth1_wcdma_device,
 	&sprd_seth2_wcdma_device,
+	&sprd_saudio_wcdma_device,
 #endif
 #if 0
 //#ifdef CONFIG_SIPC_WCN
