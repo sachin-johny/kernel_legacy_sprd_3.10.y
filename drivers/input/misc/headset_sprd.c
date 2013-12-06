@@ -249,7 +249,97 @@ static struct sprd_headset headset = {
         },
 };
 
-extern int sprd_codec_headmic_bias_control(int on);
+static struct sprd_headset_power {
+	struct regulator *head_mic;
+	struct regulator *vcom_buf;
+	struct regulator *vbo;
+} sprd_hts_power;
+
+static int sprd_headset_power_get(struct device *dev,
+				  struct regulator **regu, const char *id)
+{
+	if (!*regu) {
+		*regu = regulator_get(dev, id);
+		if (IS_ERR(*regu)) {
+			pr_err("ERR:Failed to request %ld: %s\n",
+			       PTR_ERR(*regu), id);
+			*regu = 0;
+			return PTR_ERR(*regu);
+		}
+	}
+	return 0;
+}
+
+static int sprd_headset_power_init(struct device *dev)
+{
+	int ret = 0;
+	ret =
+	    sprd_headset_power_get(dev, &sprd_hts_power.head_mic,
+				   "HEADMICBIAS");
+	if (ret) {
+		sprd_hts_power.head_mic = 0;
+		return ret;
+	}
+
+	ret = sprd_headset_power_get(dev, &sprd_hts_power.vcom_buf, "VCOM_BUF");
+	if (ret) {
+		sprd_hts_power.vcom_buf = 0;
+		goto __err1;
+	}
+
+	ret = sprd_headset_power_get(dev, &sprd_hts_power.vbo, "VBO");
+	if (ret) {
+		sprd_hts_power.vbo = 0;
+		goto __err2;
+	}
+
+	goto __ok;
+__err2:
+	regulator_put(sprd_hts_power.vcom_buf);
+__err1:
+	regulator_put(sprd_hts_power.head_mic);
+__ok:
+	return ret;
+}
+
+static void sprd_headset_power_deinit(void)
+{
+	regulator_put(sprd_hts_power.head_mic);
+	regulator_put(sprd_hts_power.vcom_buf);
+	regulator_put(sprd_hts_power.vbo);
+}
+
+static int sprd_headset_audio_block_is_running(struct device *dev)
+{
+	return regulator_is_enabled(sprd_hts_power.vcom_buf)
+	    || regulator_is_enabled(sprd_hts_power.vbo);
+}
+
+static int sprd_headset_headmic_bias_control(struct device *dev, int on)
+{
+	int ret = 0;
+	if (!sprd_hts_power.head_mic) {
+		return -1;
+	}
+	if (on) {
+		ret = regulator_enable(sprd_hts_power.head_mic);
+	} else {
+		ret = regulator_disable(sprd_hts_power.head_mic);
+	}
+	if (!ret) {
+		/* Set HEADMIC_SLEEP when audio block closed */
+		if (sprd_headset_audio_block_is_running(dev)) {
+			ret =
+			    regulator_set_mode(sprd_hts_power.head_mic,
+					       REGULATOR_MODE_NORMAL);
+		} else {
+			ret =
+			    regulator_set_mode(sprd_hts_power.head_mic,
+					       REGULATOR_MODE_STANDBY);
+		}
+	}
+	return ret;
+}
 
 /*  on = 0: open headmic detect circuit */
 static void headset_detect_circuit(unsigned on)
@@ -382,26 +472,26 @@ static void headset_irq_detect_enable(int enable, unsigned int irq)
         return;
 }
 
-static void headmicbias_power_on(int on)
+static void headmicbias_power_on(struct device *dev, int on)
 {
-        unsigned long spin_lock_flags;
-        static int current_power_state = 0;
+	unsigned long spin_lock_flags;
+	static int current_power_state = 0;
 
-        spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
-        if (1 == on) {
-                if (0 == current_power_state) {
-                        sprd_codec_headmic_bias_control(1);
-                        current_power_state = 1;
-                }
-        } else {
-                if (1 == current_power_state) {
-                        sprd_codec_headmic_bias_control(0);
-                        current_power_state = 0;
-                }
-        }
-        spin_unlock_irqrestore(&headmic_bias_lock, spin_lock_flags);
+	spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
+	if (1 == on) {
+		if (0 == current_power_state) {
+			sprd_headset_headmic_bias_control(dev, 1);
+			current_power_state = 1;
+		}
+	} else {
+		if (1 == current_power_state) {
+			sprd_headset_headmic_bias_control(dev, 0);
+			current_power_state = 0;
+		}
+	}
+	spin_unlock_irqrestore(&headmic_bias_lock, spin_lock_flags);
 
-        return;
+	return;
 }
 
 static int array_get_min(int* array, int size)
@@ -672,6 +762,7 @@ out:
         return;
 }
 
+#define to_device(x) container_of((x), struct device, platform_data)
 static void headset_detect_work_func(struct work_struct *work)
 {
         struct sprd_headset *ht = &headset;
@@ -686,7 +777,7 @@ static void headset_detect_work_func(struct work_struct *work)
 
         if(0 == plug_state_last) {
                 if(adie_type >= 3) {
-                        headmicbias_power_on(1);
+			headmicbias_power_on(to_device(pdata), 1);
                 }
         }
         msleep(100);
@@ -820,7 +911,7 @@ out:
 
         if(0 == plug_state_last) {
                 if(adie_type >= 3) {
-                        headmicbias_power_on(0);
+			headmicbias_power_on(to_device(pdata), 0);
                         msleep(100);
                 }
         }
@@ -1121,8 +1212,13 @@ static int headset_detect_probe(struct platform_device *pdev)
         ENTER
 
         ht->platform_data = pdata;
+
+	ret = sprd_headset_power_init(&pdev->dev);
+	if (ret)
+		goto failed_to_request_gpio_switch;
+
         if(adie_type < 3)
-                headmicbias_power_on(1);
+		headmicbias_power_on(&pdev->dev, 1);
         msleep(5);//this time delay is necessary here
 
         PRINT_INFO("D-die chip id = 0x%08X\n", __raw_readl(REG_AON_APB_CHIP_ID));
@@ -1284,7 +1380,7 @@ failed_to_request_gpio_detect:
                 gpio_free(pdata->gpio_switch);
 failed_to_request_gpio_switch:
 
-        headmicbias_power_on(0);
+	headmicbias_power_on(&pdev->dev, 0);
         PRINT_ERR("headset_detect_probe failed\n");
         return ret;
 }
@@ -1329,6 +1425,7 @@ static int __init headset_init(void)
 
 static void __exit headset_exit(void)
 {
+	sprd_headset_power_deinit();
         platform_driver_unregister(&headset_detect_driver);
 }
 
