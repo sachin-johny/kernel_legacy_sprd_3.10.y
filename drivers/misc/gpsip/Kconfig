@@ -1,10 +1,6 @@
-#
-# CGX GPS subsystem configuration
-#
-menu "GPS modules"
 config CGX
 	bool "Sprd gps"
-	default n
+	depends on SPRD_2351
 	help
 	  GPS can locate you position
 
@@ -19,4 +15,3 @@ config CGX_VIRTUALCOM
 	depends on CGX
 	help
 	  GPS can locate you position
-endmenu

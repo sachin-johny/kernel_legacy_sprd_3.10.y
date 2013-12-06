@@ -42,6 +42,9 @@ extern struct platform_device sprd_thm_device;
 extern struct platform_device sprd_thm_a_device;
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_headset_device;
+#ifdef  CONFIG_RF_SHARK
+extern struct platform_device trout_fm_device;
+#endif
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_jpg_device;

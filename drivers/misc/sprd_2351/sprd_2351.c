@@ -112,11 +112,12 @@ static void sprd_rfspi_pin_init(void)
 	value |= 1<<20;
 	sprd_reg_write(APB_EB0,value);
 
+#if defined(CONFIG_SHARK_CHIP_2351)
 	/*RFSDA2 source select function 2 of U0TXD*/
-	//sprd_reg_read(PIN_CTRL_REG0,&value);
-	//value |= 1<<26;
-	//sprd_reg_write(PIN_CTRL_REG0,value);
-
+	sprd_reg_read(PIN_CTRL_REG0,&value);
+	value |= 1<<26;
+	sprd_reg_write(PIN_CTRL_REG0,value);
+#endif
 	/*Select U0TXD function 2*/
 	sprd_reg_read(RFSDA2,&value);
 	value |= 1<<4;
