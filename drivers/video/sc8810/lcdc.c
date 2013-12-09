@@ -1011,6 +1011,7 @@ int lcdc_hardware_init(void)
 	struct clk * clk;
 
 	memset(&lcdc, 0, sizeof(lcdc));
+	spin_lock_init(&lcdc.clk_spinlock);
 
 	/* get current clk_lcdc */
 	clk = clk_get(NULL,"clk_lcdc");
