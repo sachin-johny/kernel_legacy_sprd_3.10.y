@@ -312,6 +312,7 @@ static long ltr558_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
 	int flag;
+	int val = 0;
 
 	dbg_mesg("++, cmd = %d,%d\n", _IOC_NR(cmd), cmd);
 
@@ -371,6 +372,20 @@ static long ltr558_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 				return -EFAULT;
 		}
 		break;
+
+	case LTR_IOCTL_GET_LDATA:
+		{
+			printk("LTR_IOCTL_GET_LDATA\n");
+			if(1 == l_flag)
+				val = ltr558_als_read(l_gainrange);
+			else
+				printk("error!light sensor is disabled\n");
+			dbg_mesg("l -> val=0x%04x\n", val);
+			if (copy_to_user(argp, &val, sizeof(val)))
+				return -EFAULT;
+		}
+		break;
+
 	default:
 		break;
 	}
