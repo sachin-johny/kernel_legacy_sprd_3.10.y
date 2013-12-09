@@ -702,7 +702,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	{
 		pr_err("[FST] read chip id error %x\n", uc_reg_value);
 		err = -ENODEV;
-		goto exit_alloc_data_failed;
+		goto exit_chip_check_failed;
 	}
        
 	/* set report rate, about 70HZ */
@@ -834,6 +834,8 @@ exit_input_register_device_failed:
 exit_input_dev_alloc_failed:
 exit_create_singlethread:
 exit_chip_check_failed:
+	gpio_free(pdata->irq_gpio_number);
+	gpio_free(pdata->reset_gpio_number);
 	kfree(ft5x0x_ts);
 exit_alloc_data_failed:
 exit_check_functionality_failed:
