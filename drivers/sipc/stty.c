@@ -33,11 +33,11 @@
 
 #define STTY_DEV_MAX_NR 	1
 #define STTY_MAX_DATA_LEN 		4096
-#define STTY_THREAD_MAX_TIME		1000
-
+#define STTY_THREAD_MAX_TIME	500
 
 struct stty_device {
 	struct stty_init_data	*pdata;
+	struct tty_port 		*port;
 	struct tty_struct 		*tty;
 	struct tty_driver 		*driver;
 	struct task_struct		*thread;
@@ -59,9 +59,9 @@ static int stty_thread(void *data)
 						stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, STTY_THREAD_MAX_TIME);
 		if (cnt > 0) {
 			for(i = 0; i < cnt; i++) {
-				tty_insert_flip_char(stty->tty, buf[i], TTY_NORMAL);
+				tty_insert_flip_char(stty->port, buf[i], TTY_NORMAL);
 			}
-			tty_schedule_flip(stty->tty);
+			tty_schedule_flip(stty->port);
 		} else if (cnt == -ENODEV) {
 			msleep(2000);
 		} else {
@@ -129,7 +129,9 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 		printk(KERN_ERR "stty close s thread is NULL!\n");
 		return;
 	}
+	printk( "stty begin to stop thread");
 	kthread_stop(stty->thread);
+	printk( "stty thread stop done");
 	return;
 }
 
@@ -163,10 +165,28 @@ static const struct tty_operations stty_ops = {
 	.write_room  = stty_write_room,
 };
 
+static struct tty_port *stty_port_init()
+{
+	struct tty_port *port = NULL;
+
+	port = kzalloc(sizeof(struct tty_port),GFP_KERNEL);
+	if (port == NULL) {
+		printk(KERN_ERR "stty_port_init Failed to allocate device!\n");
+		return NULL;
+	}
+	tty_port_init(port);
+	return port;
+}
+
 static int stty_driver_init(struct stty_device *device)
 {
 	struct tty_driver *driver;
 	int ret = 0;
+
+	device->port = stty_port_init();
+	if (!device->port) {
+		return -ENOMEM;
+	}
 
 	driver = alloc_tty_driver(STTY_DEV_MAX_NR);
 	if (!driver)
@@ -180,18 +200,18 @@ static int stty_driver_init(struct stty_device *device)
 	driver->driver_name = device->pdata->name;
 	driver->name = device->pdata->name;
 	driver->major = 0;
-	driver->type = TTY_DRIVER_TYPE_SERIAL;
-	driver->subtype = SERIAL_TYPE_NORMAL;
+	driver->type = TTY_DRIVER_TYPE_SYSTEM;
+	driver->subtype = SYSTEM_TYPE_TTY;
 	driver->init_termios = tty_std_termios;
-	driver->flags = TTY_DRIVER_INSTALLED | TTY_DRIVER_REAL_RAW;
-	driver->init_termios.c_cflag = B9600 | CS8 | CREAD | HUPCL | CLOCAL;
 	driver->driver_state = (void*)device;
 	device->driver = driver;
 	 /* initialize the tty driver */
 	tty_set_operations(driver, &stty_ops);
+	tty_port_link_device(device->port, driver, 0);
 	ret = tty_register_driver(driver);
 	if (ret) {
 		put_tty_driver(driver);
+		tty_port_destroy(device->port);
 		return ret;
 	}
 	return ret;
@@ -201,6 +221,7 @@ static void stty_driver_exit(struct stty_device *device)
 {
 	struct tty_driver *driver = device->driver;
 	tty_unregister_driver(driver);
+	tty_port_destroy(device->port);
 }
 
 static int  stty_probe(struct platform_device *pdev)
@@ -235,6 +256,7 @@ static int  stty_remove(struct platform_device *pdev)
 
 	stty_driver_exit(stty);
 	kthread_stop(stty->thread);
+	kfree(stty->port);
 	kfree(stty);
 	platform_set_drvdata(pdev, NULL);
 	return 0;
