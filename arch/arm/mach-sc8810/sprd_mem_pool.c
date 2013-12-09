@@ -56,8 +56,8 @@ typedef enum {
 
 /*node counts*/
 typedef enum {
-	LIST_8K = 5,
-	LIST_16K = 15
+	LIST_8K = 15,
+	LIST_16K = 10
 }node_count;
 
 /*stats record*/
