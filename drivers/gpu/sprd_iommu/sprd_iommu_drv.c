@@ -109,6 +109,15 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 		kfree(iommu_dev);
 	}
 
+	iommu_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
+	iommu_dev->misc_dev.name = pdata->name;
+	iommu_dev->misc_dev.fops = NULL;
+	iommu_dev->misc_dev.parent = NULL;
+	err = misc_register(&iommu_dev->misc_dev);
+	if (err) {
+		pr_err("iommu %s : failed to register misc device.\n",pdata->name);
+		return err;
+	}
 	sprd_iommu_sysfs_register(iommu_dev,iommu_dev->init_data->name);
 	platform_set_drvdata(pdev, iommu_dev);
 	printk("sprd_iommu id:%d, name:%s, dev->pgt:0x%lx, dev->pool:0x%p mmu_clock:0x%p\n",
@@ -119,6 +128,7 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 static int sprd_iommu_remove(struct platform_device *pdev)
 {
 	struct sprd_iommu_dev *iommu_dev=platform_get_drvdata(pdev); 
+	misc_deregister(&iommu_dev->misc_dev);
 	sprd_iommu_sysfs_unregister(iommu_dev,iommu_dev->init_data->name);
 	iommu_dev->ops->exit(iommu_dev);
 	gen_pool_destroy(iommu_dev->pool);

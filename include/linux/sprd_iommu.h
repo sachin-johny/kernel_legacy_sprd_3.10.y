@@ -2,6 +2,7 @@
 #define _SPRD_IOMMU_H
 
 #include <linux/ion.h>
+#include <linux/miscdevice.h>
 
 #define MMU_START_MB_ADDR(_x_)		( (_x_) << 20 & (BIT(20)|BIT(21)|BIT(22)|BIT(23)|BIT(24)|BIT(25)|BIT(26)|BIT(27)|BIT(28)|BIT(29)|BIT(30)|BIT(31)) )
 #define MMU_RAMCLK_DIV2_EN(_x_)		( (_x_) << 2 & (BIT(2)) )
@@ -24,6 +25,7 @@ struct sprd_iommu_init_data {
 };
 
 struct sprd_iommu_dev {
+	struct miscdevice misc_dev;
 	struct sprd_iommu_init_data *init_data;
 	struct gen_pool *pool;
 	struct sprd_iommu_ops *ops;
