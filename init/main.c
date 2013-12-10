@@ -75,6 +75,7 @@
 #include <linux/blkdev.h>
 #include <linux/elevator.h>
 #include <linux/random.h>
+#include <linux/bootperf.h>
 
 #include <asm/io.h>
 #include <asm/bugs.h>
@@ -664,14 +665,27 @@ static int __init_or_module do_one_initcall_debug(initcall_t fn)
 	unsigned long long duration;
 	int ret;
 
+	char name[256]={0};
+#ifndef CONFIG_BOOT_PERF
 	pr_debug("calling  %pF @ %i\n", fn, task_pid_nr(current));
+#endif
 	calltime = ktime_get();
 	ret = fn();
 	rettime = ktime_get();
 	delta = ktime_sub(rettime, calltime);
 	duration = (unsigned long long) ktime_to_ns(delta) >> 10;
+#ifdef CONFIG_BOOT_PERF
+	if(duration >1000)
+	{
+		memset(name,0,256);
+		snprintf(name, 255, "%pF", fn);
+		log_boot(name,  duration);
+	}
+
+#else
 	pr_debug("initcall %pF returned %d after %lld usecs\n",
 		 fn, ret, duration);
+#endif
 
 	return ret;
 }
@@ -680,6 +694,9 @@ int __init_or_module do_one_initcall(initcall_t fn)
 {
 	int count = preempt_count();
 	int ret;
+#ifdef CONFIG_BOOT_PERF
+	initcall_debug =1;
+#endif
 
 	if (initcall_debug)
 		ret = do_one_initcall_debug(fn);

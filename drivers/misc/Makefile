@@ -63,3 +63,5 @@ obj-y		+= sprd_vsp/
 obj-y		+= sprd_jpg/
 obj-y		+= sprd_cproc/
 obj-$(CONFIG_SPRD_SRT_KO)		+= sprd_srt/
+obj-$(CONFIG_BENCHMARK)  += benchmark/
+obj-$(CONFIG_BOOT_PERF)  += bootperf/

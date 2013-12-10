@@ -139,5 +139,4 @@ source "drivers/staging/goldfish/Kconfig"
 source "drivers/staging/netlogic/Kconfig"
 
 source "drivers/staging/dwc2/Kconfig"
-
 endif # STAGING
