@@ -155,12 +155,12 @@ TCgReturnCode CgxDriverConstruct(void *pDriver, TCgxDriverState *pState)
 	rc = CgCpuAllocateVa();
 	memset(gChunksList,0,sizeof(TCgCpuDmaTask)*MAX_DMA_TRANSFER_TASKS);
 
-
+#if 0
 	if (OK(rc)) rc = CgCpuDmaCreate(CG_DRIVER_DMA_CHANNEL_READ, CGCORE_BASE_ADDR + 0x00000070);
 
 	// set up DMA interrupt handler
 	if (OK(rc)) rc = CgxDriverDmaInterruptPrepare();
-
+#endif
 
 	if (OK(rc)) rc = CgxDriverDataReadyInterruptHandlerStart(pDriver);
 

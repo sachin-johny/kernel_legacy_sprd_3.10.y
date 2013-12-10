@@ -607,16 +607,11 @@ static int	 CGX_Close( struct inode *inode, struct file *filp)
 
 	}
 	CgGpsReset();
-
-	/*
-	rc = CgCpuDmaDestroy(0,0);
-	if(ECgOk  !=  rc)
-	{
-		printk("\n gaole: run CgCpuDmaDestroy error,error code is %d",rc);
-
-	}*/
-	// gaole add end
 #endif
+
+	CgCpuDmaDestroy(0,0);
+	// gaole add end
+
 
 	if (DrvContext.nNumOpens)
 		DrvContext.nNumOpens--;
@@ -699,6 +694,7 @@ static int CGX_Open( struct inode *inode, struct file *filp )
 	/*
 	 * XXX-PK-XXX: Hold lock on DrvContext
 	 */
+	CgCpuDmaCreate(0,0);
 
 /* 	DBGMSG( "Entering..." ); */
 
