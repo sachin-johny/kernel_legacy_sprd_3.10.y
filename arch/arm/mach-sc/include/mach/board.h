@@ -173,7 +173,7 @@
 
 				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
 			#else
-				#define SPRD_ION_SIZE	(100*1024*1024)
+				#define SPRD_ION_SIZE	(50*1024*1024)
 			#endif
         #endif
     #else
