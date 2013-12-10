@@ -383,7 +383,6 @@ int sblock_create(uint8_t dst, uint8_t channel,
 		kfree(sblock->ring->txrecord);
 		kfree(sblock->ring->rxrecord);
 		kfree(sblock->ring);
-		kfree(sblock);
 		result = PTR_ERR(sblock->thread);
 		kfree(sblock);
 		return result;
