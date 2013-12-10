@@ -22,9 +22,15 @@
 
 #include <asm/cacheflush.h>
 
+#include "sprd_fence.h"
+
 struct ion_device *idev;
 int num_heaps;
 struct ion_heap **heaps;
+
+struct fence_sync sprd_fence;
+struct sync_fence *current_fence = NULL;
+
 #if 1
 static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 {
@@ -282,7 +288,51 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		break;
 	}
 #endif
+        case ION_SPRD_CUSTOM_FENCE_CREATE:
+        {
+            struct ion_fence_data data;
+
+            if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
+            {
+                pr_err("FENCE_CREATE user data is err\n");
+                return -EFAULT;
+            }
+
+            if (data.name == NULL)
+            {
+                pr_err("FENCE_CREATE user data is NULL\n");
+                return -EINVAL;
+            }
+
+            data.fence_fd = sprd_fence_create(data.name, &sprd_fence, data.value, &current_fence);
+            if (current_fence == NULL)
+            {
+                pr_err("sprd_create_fence failed\n");
+                return -EFAULT;
+            }
+
+            if (copy_to_user((void __user *)arg, &data, sizeof(data)))
+            {
+                sync_fence_put(current_fence);
+                pr_err("copy_to_user fence failed\n");
+                return -EFAULT;
+            }
+
+            break;
+        }
+        case ION_SPRD_CUSTOM_FENCE_SIGNAL:
+        {
+            sprd_fence_signal(&sprd_fence);
+
+            break;
+        }
+        case ION_SPRD_CUSTOM_FENCE_DUP:
+        {
+            break;
+
+        }
 	default:
+                pr_err("sprd_ion Do not support cmd: %d\n", cmd);
 		return -ENOTTY;
 	}
 
@@ -338,6 +388,7 @@ int sprd_ion_probe(struct platform_device *pdev)
 	struct ion_platform_data *pdata = pdev->dev.platform_data;
 	int err;
 	int i;
+        int ret = -1;
 
 	num_heaps = pdata->nr;
 
@@ -361,6 +412,14 @@ int sprd_ion_probe(struct platform_device *pdev)
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
+
+        ret = sprd_create_timeline(&sprd_fence);
+        if (ret != 0)
+        {
+            pr_err("sprd_create_timeline failed\n");
+            goto err;
+        }
+
 	return 0;
 err:
 	for (i = 0; i < num_heaps; i++) {
@@ -380,6 +439,9 @@ int sprd_ion_remove(struct platform_device *pdev)
 	for (i = 0; i < num_heaps; i++)
 		__ion_heap_destroy(heaps[i]);
 	kfree(heaps);
+
+        sprd_destroy_timeline(&sprd_fence);
+
 	return 0;
 }
 

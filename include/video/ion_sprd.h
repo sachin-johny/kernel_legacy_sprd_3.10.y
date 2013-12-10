@@ -72,6 +72,12 @@ struct ion_unmap_data {
 	int fd_buffer;
 };
 
+struct ion_fence_data {
+    int fence_fd;
+    char name[32];
+    unsigned long value;
+};
+
 enum ION_SPRD_CUSTOM_CMD {
 	ION_SPRD_CUSTOM_PHYS,
 	ION_SPRD_CUSTOM_MSYNC,
@@ -81,6 +87,9 @@ enum ION_SPRD_CUSTOM_CMD {
 	ION_SPRD_CUSTOM_GSP_UNMAP,
 	ION_SPRD_CUSTOM_MM_MAP,
 	ION_SPRD_CUSTOM_MM_UNMAP,
+        ION_SPRD_CUSTOM_FENCE_CREATE,
+        ION_SPRD_CUSTOM_FENCE_SIGNAL,
+        ION_SPRD_CUSTOM_FENCE_DUP,
 };
 
 #endif /* _ION_SPRD_H */
