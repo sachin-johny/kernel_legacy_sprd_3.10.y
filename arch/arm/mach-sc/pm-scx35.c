@@ -141,12 +141,16 @@ static void setup_autopd_mode(void)
 
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 7<<4);
 	//sci_glb_set(REG_PMU_APB_DDR_SLEEP_CTRL, 5<<4);
+#if defined(CONFIG_ARCH_SCX15)
+       sci_glb_set(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+#else
 	if (soc_is_scx35_v1()) {
 		sci_glb_set(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 	}
 	else {
 		sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 	}
+#endif
 	sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);
@@ -527,6 +531,12 @@ uint32_t ldo_slp_ctrl0, ldo_slp_ctrl1, ldo_slp_ctrl2, xtl_wait_ctrl, ldo_slp_ctr
 uint32_t mm_apb, ldo_pd_ctrl, arm_module_en;
 uint32_t cp_slp_status_dbg0, cp_slp_status_dbg1, sleep_ctrl, ddr_sleep_ctrl, sleep_status, pwr_ctrl, ca7_standby_status;
 uint32_t pd_pub_sys;
+#if defined(CONFIG_ARCH_SCX15)
+uint32_t ldo_dcdc_pd_ctrl;
+uint32_t xtl0_rel_cfg, xtl1_rel_cfg, xtl2_rel_cfg, xtlbuf0_rel_cfg, xtlbuf1_rel_cfg;
+uint32_t mpll_rel_cfg, dpll_rel_cfg, tdpll_rel_cfg, wpll_rel_cfg, cpll_rel_cfg, wifipll1_rel_cfg, wifipll2_rel_cfg;
+uint32_t ddr_chn_sleep_ctrl0, ddr_chn_sleep_ctrl1;
+#endif
 void bak_last_reg(void)
 {
 	pd_pub_sys = __raw_readl(REG_PMU_APB_PD_PUB_SYS_CFG);
@@ -539,6 +549,23 @@ void bak_last_reg(void)
 	sleep_ctrl = __raw_readl(REG_PMU_APB_SLEEP_CTRL);
 	ddr_sleep_ctrl = __raw_readl(REG_PMU_APB_DDR_SLEEP_CTRL);
 	sleep_status = __raw_readl(REG_PMU_APB_SLEEP_STATUS);
+
+#if defined(CONFIG_ARCH_SCX15)
+	xtl0_rel_cfg = __raw_readl(REG_PMU_APB_XTL0_REL_CFG);
+	xtl1_rel_cfg = __raw_readl(REG_PMU_APB_XTL1_REL_CFG);
+	xtl2_rel_cfg = __raw_readl(REG_PMU_APB_XTL2_REL_CFG);
+	xtlbuf0_rel_cfg = __raw_readl(REG_PMU_APB_XTLBUF0_REL_CFG);
+	xtlbuf1_rel_cfg = __raw_readl(REG_PMU_APB_XTLBUF1_REL_CFG);
+	mpll_rel_cfg = __raw_readl(REG_PMU_APB_MPLL_REL_CFG);
+	dpll_rel_cfg = __raw_readl(REG_PMU_APB_DPLL_REL_CFG);
+	tdpll_rel_cfg = __raw_readl(REG_PMU_APB_TDPLL_REL_CFG);
+	wpll_rel_cfg = __raw_readl(REG_PMU_APB_WPLL_REL_CFG);
+	cpll_rel_cfg = __raw_readl(REG_PMU_APB_CPLL_REL_CFG);
+	wifipll1_rel_cfg = __raw_readl(REG_PMU_APB_WIFIPLL1_REL_CFG);
+	wifipll2_rel_cfg = __raw_readl(REG_PMU_APB_WIFIPLL2_REL_CFG);
+	ddr_chn_sleep_ctrl0 = __raw_readl(REG_PMU_APB_DDR_CHN_SLEEP_CTRL0);
+	ddr_chn_sleep_ctrl1 = __raw_readl(REG_PMU_APB_DDR_CHN_SLEEP_CTRL1);
+#endif
 
 	apb_eb0 = __raw_readl(REG_AON_APB_APB_EB0);
 	apb_eb1 = __raw_readl(REG_AON_APB_APB_EB1);
@@ -561,7 +588,9 @@ void bak_last_reg(void)
 	ldo_aud_ctrl4 = sci_adi_read(ANA_REG_GLB_AUD_SLP_CTRL4);
 #endif
 	xtl_wait_ctrl = sci_adi_read(ANA_REG_GLB_XTL_WAIT_CTRL);
-
+#if defined(CONFIG_ARCH_SCX15)
+	ldo_dcdc_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_DCDC_PD);
+#endif
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
 	arm_module_en = sci_adi_read(ANA_REG_GLB_ARM_MODULE_EN);
 }
@@ -578,6 +607,22 @@ void print_last_reg(void)
 	printk("REG_PMU_APB_SLEEP_CTRL ----- 0x%08x\n", sleep_ctrl);
 	printk("REG_PMU_APB_DDR_SLEEP_CTRL ----- 0x%08x\n", ddr_sleep_ctrl);
 	printk("REG_PMU_APB_SLEEP_STATUS ----- 0x%08x\n", sleep_status);
+#if defined(CONFIG_ARCH_SCX15)
+	printk("REG_PMU_APB_XTL0_REL_CFG ----- 0x%08x\n", xtl0_rel_cfg);
+	printk("REG_PMU_APB_XTL1_REL_CFG ----- 0x%08x\n", xtl1_rel_cfg);
+	printk("REG_PMU_APB_XTL2_REL_CFG ----- 0x%08x\n", xtl2_rel_cfg);
+	printk("REG_PMU_APB_XTLBUF0_REL_CFG ----- 0x%08x\n", xtlbuf0_rel_cfg);
+	printk("REG_PMU_APB_XTLBUF1_REL_CFG ----- 0x%08x\n", xtlbuf1_rel_cfg);
+	printk("REG_PMU_APB_MPLL_REL_CFG ----- 0x%08x\n", mpll_rel_cfg);
+	printk("REG_PMU_APB_DPLL_REL_CFG ----- 0x%08x\n", dpll_rel_cfg);
+	printk("REG_PMU_APB_TDPLL_REL_CFG ----- 0x%08x\n", tdpll_rel_cfg);
+	printk("REG_PMU_APB_WPLL_REL_CFG ----- 0x%08x\n", wpll_rel_cfg);
+	printk("REG_PMU_APB_CPLL_REL_CFG ----- 0x%08x\n", cpll_rel_cfg);
+	printk("REG_PMU_APB_WIFIPLL1_REL_CFG ----- 0x%08x\n", wifipll1_rel_cfg);
+	printk("REG_PMU_APB_WIFIPLL2_REL_CFG ----- 0x%08x\n", wifipll2_rel_cfg);
+	printk("REG_PMU_APB_DDR_CHN_SLEEP_CTRL0 ----- 0x%08x\n", ddr_chn_sleep_ctrl0);
+	printk("REG_PMU_APB_DDR_CHN_SLEEP_CTRL1 ----- 0x%08x\n", ddr_chn_sleep_ctrl1);
+#endif
 
 	printk("aon apb reg\n");
 	printk("REG_AON_APB_APB_EB0  ----- 0x%08x\n", apb_eb0);
@@ -615,6 +660,9 @@ void print_last_reg(void)
 	printk("REG_MM_AHB_AHB_EB ---- 0x%08x\n", mm_apb);
 
 	printk("ana reg\n");
+#if defined(CONFIG_ARCH_SCX15)
+	printk("ANA_REG_GLB_LDO_DCDC_PD --- 0x%08x\n", ldo_dcdc_pd_ctrl);
+#endif
 	printk("ANA_REG_GLB_LDO_PD_CTRL --- 0x%08x\n", ldo_pd_ctrl);
 	printk("ANA_REG_GLB_ARM_MODULE_EN --- 0x%08x\n", arm_module_en);
 }
