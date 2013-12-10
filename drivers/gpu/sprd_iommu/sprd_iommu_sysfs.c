@@ -80,35 +80,6 @@ static const struct file_operations pgt_fops = {
 	.release = single_release,
 };
 
-static int test_show(struct seq_file *s, void *unused)
-{
-	struct sprd_iommu_dev *iommu_dev = (struct sprd_iommu_dev *)s->private;
-	if(0==strncmp("sprd_iommu_gsp",iommu_dev->init_data->name,14))
-	{
-		sprd_iommu_gsp_backup(iommu_dev);
-		sprd_iommu_gsp_restore(iommu_dev);
-	}
-	if(0==strncmp("sprd_iommu_mm",iommu_dev->init_data->name,13))
-	{
-		sprd_iommu_mm_backup(iommu_dev);
-		sprd_iommu_mm_restore(iommu_dev);
-	}
-	return 0;
-}
-
-static int test_open(struct inode *inode, struct file *file)
-{
-	return single_open(file, test_show, inode->i_private);
-}
-
-static const struct file_operations test_fops = {
-	.owner = THIS_MODULE,
-	.open  = test_open,
-	.read  = seq_read,
-	.llseek = seq_lseek,
-	.release = single_release,
-};
-
 int sprd_iommu_sysfs_register(struct sprd_iommu_dev *device, const char *dev_name)
 {
 	iommu_debugfs_dir = debugfs_create_dir(dev_name, NULL);
@@ -123,7 +94,6 @@ int sprd_iommu_sysfs_register(struct sprd_iommu_dev *device, const char *dev_nam
 		{
 			debugfs_create_file("iova", 0444, iommu_debugfs_dir, device, &iova_fops);
 			debugfs_create_file("pgtable", 0444, iommu_debugfs_dir, device, &pgt_fops);
-			debugfs_create_file("test", 0444, iommu_debugfs_dir, device, &test_fops);
 		}
 	}
 	return 0;
