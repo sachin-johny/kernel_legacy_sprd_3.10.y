@@ -40,6 +40,7 @@ static struct proc_dir_entry *img_scale_proc_file;
 static struct scale_frame frm_rtn;
 static struct scale_user *g_scale_user = NULL;
 static pid_t cur_task_pid;
+static uint32_t is_scale_hw_inited;
 
 static struct scale_user *scale_get_user(pid_t user_pid)
 {
@@ -101,6 +102,9 @@ static int img_scale_hw_init(void)
 reg_faile:
 	scale_module_dis();
 exit:
+	if (0 == ret) {
+		is_scale_hw_inited = 1;
+	}
 	return ret;
 
 }
@@ -111,6 +115,8 @@ static int img_scale_hw_deinit(void)
 
 	scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
 	scale_module_dis();
+
+	is_scale_hw_inited = 0;
 
 	return ret;
 }
@@ -133,10 +139,12 @@ static int img_scale_open(struct inode *node, struct file *pf)
 		goto open_fail;
 	} else {
 		pf->private_data = p_user;
+		goto exit;
 	}
 
 open_fail:
 	atomic_dec(&scale_users);
+exit:
 	mutex_unlock(&scale_dev_open_mutex);
 
 	SCALE_TRACE("img_scale_open %d \n", ret);
@@ -172,9 +180,16 @@ ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 static int img_scale_release(struct inode *node, struct file *file)
 {
-	atomic_dec(&scale_users);
-
+	if (0 == atomic_dec_return(&scale_users)) {
+		if (is_scale_hw_inited) {
+			img_scale_hw_deinit();
+		}
+		mutex_init(&scale_param_cfg_mutex);
+		mutex_init(&scale_dev_open_mutex);
+		cur_task_pid = INVALID_USER_ID;
+	}
 	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
+	sema_init(&(((struct scale_user *)(file->private_data))->sem_done), 0);
 
 	SCALE_TRACE("img_scale_release \n");
 	return 0;
@@ -206,7 +221,7 @@ static long img_scale_ioctl(struct file *file,
 		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
 		if (ret) {
 			ret = 0;
-			printk("img_scale_ioctl, failed to down, %d \n", ret);
+			printk("img_scale_ioctl, interruptible\n");
 			frm_rtn.scale_result = SCALE_PROCESS_SYS_BUSY;
 		} else {
 			if (frm_rtn.type) {
@@ -349,6 +364,7 @@ int img_scale_probe(struct platform_device *pdev)
 		p_user++;
 	}
 	cur_task_pid = INVALID_USER_ID;
+	is_scale_hw_inited = 0;
 exit:
 	return ret;
 }

@@ -103,6 +103,7 @@ static uint32_t                    g_isp_irq = 0x12345678;/*for share irq handle
 #define ISP_IRQ_NUM ISP_IRQ_NUM_V0001
 #define ISP_IRQ_HW_MASK ISP_IRQ_HW_MASK_V0001
 #endif
+#define ISP_TIME_OUT_MAX (500)
 
 struct isp_node {
 	uint32_t	isp_irq_val;
@@ -220,9 +221,6 @@ static int32_t _isp_module_eb(void)
 {
 	int32_t ret = 0;
 
-
-	//ISP_PRINT("_isp_module_eb: clk_eb = 0x%x, en = 0x%x\n", (uint32_t)ISP_CORE_CLK_EB, (uint32_t)ISP_MODULE_EB);
-
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 
 		ret = _isp_is_clk_mm_i_eb(1);
@@ -231,8 +229,6 @@ static int32_t _isp_module_eb(void)
 			ISP_PRINT("isp_k: set clock error\n");
 			ret = -EIO;
 		}
-		sci_glb_set(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
-		sci_glb_set(ISP_MODULE_EB, ISP_EB_BIT);
 	}
 
 	ISP_PRINT("_isp_module_eb: end\n");
@@ -245,9 +241,6 @@ static int32_t _isp_module_dis(void)
 	int32_t	ret = 0;
 
 	if (0x00 == atomic_dec_return(&s_isp_users)) {
-
-		sci_glb_clr(ISP_MODULE_EB, ISP_EB_BIT);
-		sci_glb_clr(ISP_CORE_CLK_EB, ISP_CORE_CLK_EB_BIT);
 
 		ret = _isp_set_clk(ISP_CLK_NONE);
 		if (unlikely(0 != ret)) {
@@ -263,7 +256,7 @@ static int32_t _isp_module_rst(void)
 {
 	int32_t ret = 0;
 	uint32_t reg_value=0x00;
-	int i =0;
+	int32_t time_out_cnt = 0;
 
 	if (0x00 != atomic_read(&s_isp_users)) {
 
@@ -271,11 +264,15 @@ static int32_t _isp_module_rst(void)
 		ISP_OWR(ISP_AXI_MASTER_STOP, BIT_0);
 #endif
 		reg_value=ISP_READL(ISP_AXI_MASTER);
-		while(0x00==(reg_value&0x08))
+		while((0x00==(reg_value&0x08)) && (time_out_cnt < ISP_TIME_OUT_MAX))
 		{
-			i++;
+			time_out_cnt++;
 			udelay(50);
 			reg_value=ISP_READL(ISP_AXI_MASTER);
+		}
+		if (time_out_cnt >= ISP_TIME_OUT_MAX) {
+			ret = -1;
+			ISP_PRINT("_isp_module_rst: time out\n");
 		}
 
 		ISP_WRITEL(ISP_INT_CLEAR, ISP_IRQ_HW_MASK);
@@ -310,6 +307,7 @@ static int32_t _isp_module_rst(void)
 static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t counts)
 {
 	int32_t ret = 0;
+	int32_t time_out_cnt = 0;
 	uint32_t reg_value=0x00;
 
 	if((0x00!=s_isp_alloc_addr)
@@ -326,14 +324,18 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 
 		reg_value=ISP_READL(ISP_INT_RAW);
 
-		while(0x00==(reg_value&ISP_INT_LENS_LOAD)) {
+		while((0x00==(reg_value&ISP_INT_LENS_LOAD)) && (time_out_cnt < ISP_TIME_OUT_MAX)) {
 			msleep(1);
 			reg_value=ISP_READL(ISP_INT_RAW);
+			time_out_cnt++;
 		}
-
+		if (time_out_cnt >= ISP_TIME_OUT_MAX) {
+			ret = -1;
+			ISP_PRINT("isp_k: isp load lnc param time out\n");
+		}
 		ISP_OWR(ISP_INT_CLEAR, ISP_INT_LENS_LOAD);
 	}else {
-		ISP_PRINT("ISP_RAW: isp load lnc param error\n");
+		ISP_PRINT("isp_k: isp load lnc param error\n");
 	}
 
 	return ret;
@@ -675,18 +677,6 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	g_isp_dev_ptr->reg_base_addr = (uint32_t)ISP_BASE_ADDR;
 	g_isp_dev_ptr->size = ISP_REG_MAX_SIZE;
 
-/*
-	if (!g_isp_dev_ptr->buf_addr) {
-		g_isp_dev_ptr->buf_len = ISP_BUF_MAX_SIZE;
-		g_isp_dev_ptr->buf_addr = (uint32_t)vmalloc(ISP_BUF_MAX_SIZE);
-		if (0 == g_isp_dev_ptr->buf_addr) {
-			ret = -EFAULT;
-			ISP_PRINT ("isp_k: open: malloc failed \n");
-			goto ISP_K_OPEN_ERROR_EXIT;
-		}
-	}
-	memset((void*)g_isp_dev_ptr->buf_addr, 0x00, ISP_BUF_MAX_SIZE);
-*/
 	ret = _isp_module_eb();
 	if (unlikely(0 != ret)) {
 		ISP_PRINT("isp_k: enable isp module error\n");
@@ -711,14 +701,7 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	return ret;
 
 ISP_K_OPEN_ERROR_EXIT:
-/*
-	if (g_isp_dev_ptr->buf_addr) {
-		kfree(g_isp_dev_ptr->buf_addr);
-		g_isp_dev_ptr->buf_addr = 0;
-		g_isp_dev_ptr->buf_len = 0;
-	}
-*/
-	ret =  _isp_get_ctlr(g_isp_dev_ptr);
+	ret =  _isp_put_ctlr(g_isp_dev_ptr);
 	if (unlikely(ret)) {
 		ISP_PRINT ("isp_k: get control error \n");
 		ret = -EFAULT;
@@ -793,18 +776,14 @@ static int32_t _isp_kernel_release (struct inode *node, struct file *pf)
 	int ret = 0;
 	ISP_PRINT ("isp_k: release start \n");
 
+	mutex_lock(&s_isp_lock);
+
 	_isp_unregisterirq();
 	ret = _isp_module_dis();
 
-	//_isp_free();
+	mutex_unlock(&s_isp_lock);
+
 	ISP_CHECK_ZERO(g_isp_dev_ptr);
-/*
-	if (g_isp_dev_ptr->buf_addr) {
-		vfree(g_isp_dev_ptr->buf_addr);
-		g_isp_dev_ptr->buf_addr = 0;
-		g_isp_dev_ptr->buf_len = 0;
-	}
-*/
 	ret = _isp_put_ctlr(g_isp_dev_ptr);
 	if (unlikely (ret) ) {
 		ISP_PRINT ("isp_k: release control error \n");
@@ -822,7 +801,6 @@ static int32_t _isp_kernel_release (struct inode *node, struct file *pf)
 static int32_t _isp_kernel_proc_read (char *page, char **start, off_t off, int count, int *eof, void *data)
 {
 	int	 len = 0;
-
 	uint32_t	 reg_buf_len = 200;
 	uint32_t	 print_len = 0, print_cnt = 0;
 	uint32_t	*reg_ptr = 0;
@@ -854,7 +832,6 @@ static int32_t _isp_kernel_proc_read (char *page, char **start, off_t off, int c
 	return len;
 }
 #endif
-
 /**********************************************************
 *the io controller of isp
 *unsigned int cmd:
@@ -944,8 +921,8 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 			}
 			IO_READ_EXIT:
 			if(reg_bits_ptr) {
-				memset(g_isp_dev_ptr->buf_addr, 0x00, buf_size);
-				reg_bits_ptr = 0;
+				memset((void *)g_isp_dev_ptr->buf_addr, 0x00, buf_size);
+				reg_bits_ptr = NULL;
 			}
 			}
 			break;
@@ -979,8 +956,8 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 
 			IO_WRITE_EXIT:
 			if(reg_bits_ptr) {
-				memset(g_isp_dev_ptr->buf_addr, 0x00, buf_size);
-				reg_bits_ptr = 0;
+				memset((void *)g_isp_dev_ptr->buf_addr, 0x00, buf_size);
+				reg_bits_ptr = NULL;
 			}
 
 			}
@@ -1087,8 +1064,8 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 
 				IO_LNC_PARAM_EXIT:
 				if(addr) {
-					memset(g_isp_dev_ptr->buf_addr, 0x00, buf_size);
-					addr = 0;
+					memset((void *)g_isp_dev_ptr->buf_addr, 0x00, buf_size);
+					addr = NULL;
 				}
 			}
 			break;
@@ -1105,6 +1082,7 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 				if(buf_size > g_isp_dev_ptr->buf_len)
 				{
 					ret = -EFAULT;
+					ISP_PRINT("isp_k: isp_io_lnc: buf len failed\n");
 					goto IO_LNC_EXIT;
 				}
 				reg_bits_ptr = (struct isp_reg_bits*) g_isp_dev_ptr->buf_addr;
@@ -1122,8 +1100,8 @@ static long _isp_kernel_ioctl( struct file *fl, unsigned int cmd, unsigned long 
 				}
 				IO_LNC_EXIT:
 				if(reg_bits_ptr) {
-					memset(g_isp_dev_ptr->buf_addr, 0x00, buf_size);
-					reg_bits_ptr = 0;
+					memset((void *)g_isp_dev_ptr->buf_addr, 0x00, buf_size);
+					reg_bits_ptr = NULL;
 				}
 			}
 			break;
@@ -1246,7 +1224,7 @@ static int32_t __init isp_kernel_init(void)
 ISP_K_INIT_EXIT:
 	_isp_free();
 	if (g_isp_dev_ptr->buf_addr) {
-		kfree(g_isp_dev_ptr->buf_addr);
+		kfree((void *)g_isp_dev_ptr->buf_addr);
 		g_isp_dev_ptr->buf_addr = 0;
 		g_isp_dev_ptr->buf_len = 0;
 	}
@@ -1267,7 +1245,7 @@ static void isp_kernel_exit(void)
 	_isp_free();
 	ISP_CHECK_ZERO_VOID(g_isp_dev_ptr);
 	if (g_isp_dev_ptr->buf_addr) {
-		kfree(g_isp_dev_ptr->buf_addr);
+		kfree((void *)g_isp_dev_ptr->buf_addr);
 		g_isp_dev_ptr->buf_addr = 0;
 		g_isp_dev_ptr->buf_len = 0;
 	}

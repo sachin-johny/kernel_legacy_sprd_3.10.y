@@ -21,6 +21,14 @@
 	#define ROTATE_TRACE pr_debug
 #endif
 
+
+enum rotation_process {
+	ROTATE_PROCESS_SUCCESS = 0,
+	ROTATE_PROCESS_EXIT = -1,
+	ROTATE_PROCESS_SYS_BUSY = -2,
+	ROTATE_PROCESS_MAX = 0xFF
+};
+
 typedef void (*rot_isr_func)(void);
 int rot_k_module_en(void);
 int rot_k_module_dis(void);
