@@ -51,14 +51,14 @@ void trout_fm_config_xtl(void)
 {
 	u32 reg_data;
 	
-       READ_REG(SHARK_AON_CLK_FM_CFG, &reg_data);
-	reg_data |= 1;
-	WRITE_REG(SHARK_AON_CLK_FM_CFG, reg_data);
+    //READ_REG(SHARK_AON_CLK_FM_CFG, &reg_data);
+	//reg_data |= 1;
+	//WRITE_REG(SHARK_AON_CLK_FM_CFG, reg_data);
 		
-       READ_REG(SHARK_APB_EB0_SET, &reg_data);
+	READ_REG(SHARK_APB_EB0_SET, &reg_data);
 	reg_data |= 1<<20;
 	WRITE_REG(SHARK_APB_EB0_SET, reg_data);
-       READ_REG(SHARK_PMU_SLEEP_CTRL, &reg_data);
+	READ_REG(SHARK_PMU_SLEEP_CTRL, &reg_data);
 	reg_data |= 1<<8;
 	WRITE_REG(SHARK_PMU_SLEEP_CTRL, reg_data);
 }
@@ -249,10 +249,36 @@ int shark_fm_cfg_rf_reg(void)
 }
 
 int trout_fm_init(void)
-{	
+{
+	u32 reg_data;
+
 	sprd_get_rf2351_ops(&fm_rf_ops);
 	fm_rf_ops->mspi_enable();
-		
+
+	trout_fm_config_xtl();
+	/*added by xuede to route FMIQD0 to IIS0DI and FMIQD1 to IISD0DO*/
+	READ_REG(PINMAP_FOR_FMIQ, &reg_data);
+	reg_data |= 3<<16;
+	WRITE_REG(PINMAP_FOR_FMIQ, reg_data);
+	READ_REG(PINMAP_FOR_IIS0DO, &reg_data);
+	reg_data |= 2<<4;
+	WRITE_REG(PINMAP_FOR_IIS0DO, reg_data);
+	READ_REG(PINMAP_FOR_IIS0DI, &reg_data);
+	reg_data |= 2<<4;
+	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
+
+	READ_REG(PINMAP_FOR_IIS0DO, &reg_data);
+	reg_data |= 2;
+	WRITE_REG(PINMAP_FOR_IIS0DO, reg_data);
+
+	READ_REG(PINMAP_FOR_IIS0DI, &reg_data);
+	reg_data |= 2;
+	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
+	/* added end*/
+
+	/*enable the power of CCIR*/
+	WRITE_REG(0x4003881C, 0x0);
+
 	if (enable_shark_fm() != 0)
 		return -1;
 	msleep(20);
