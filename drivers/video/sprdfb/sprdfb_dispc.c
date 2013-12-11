@@ -504,6 +504,7 @@ static void dispc_run(struct sprdfb_device *dev)
 {
 	uint32_t flags = 0;
 	uint32_t switch_flags = 0;
+	int i = 0;
 
 	if(0 == dev->enable){
 		return;
@@ -517,7 +518,11 @@ static void dispc_run(struct sprdfb_device *dev)
 		||((dispc_read(DISPC_OSD_CTRL) & 0xf0) != (dispc_read(SHDW_OSD_CTRL) & 0xf0))){// color switch
 			local_irq_save(flags);
 			dispc_stop(dev);// stop dispc first , or the vactive will never be set to zero
-			while(dispc_read(DISPC_DPI_STS1) & BIT(16));// wait until frame send over
+			while(dispc_read(DISPC_DPI_STS1) & BIT(16)){// wait until frame send over
+				if(0x0 == ++i%10000){
+					printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
+				}
+			}
 			switch_flags = 1;
 		}
 #endif
@@ -1751,9 +1756,15 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 
 static void dispc_stop_for_feature(struct sprdfb_device *dev)
 {
+	int i = 0;
+
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		dispc_stop(dev);
-		while(dispc_read(DISPC_DPI_STS1) & BIT(16));
+		while(dispc_read(DISPC_DPI_STS1) & BIT(16)){
+			if(0x0 == ++i%10000){
+				printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
+			}
+		}
 		udelay(25);
 	}
 }
@@ -1865,7 +1876,11 @@ static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 		local_irq_save(flags);
 		dispc_set_bits(BIT(4), DISPC_DPI_CTRL);//sw
 		dispc_clear_bits(BIT(4), DISPC_CTRL);//stop running
-		while(dispc_read(DISPC_DPI_STS1) & BIT(16));
+		while(dispc_read(DISPC_DPI_STS1) & BIT(16)){
+			if(0x0 == ++i%10000){
+				printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
+			}
+		}
 		udelay(25);
 
 		dispc_clear_bits(0x1f, DISPC_INT_EN);//disable all interrupt

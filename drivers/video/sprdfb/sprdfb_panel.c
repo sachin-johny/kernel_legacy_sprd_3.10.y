@@ -83,14 +83,28 @@ __setup("lcd_base=", lcd_base_get);
 
 static int32_t panel_reset_dispc(struct panel_spec *self)
 {
+        uint16_t timing1, timing2, timing3;
+
+        if((NULL != self) && (0 != self->reset_timing.time1) &&
+            (0 != self->reset_timing.time2) && (0 != self->reset_timing.time3)) {
+            timing1 = self->reset_timing.time1;
+            timing2 = self->reset_timing.time2;
+            timing3 = self->reset_timing.time3;
+        }else {
+            timing1 = 20;
+            timing2 = 20;
+            timing3 = 120;
+        }
+
 	dispc_write(1, DISPC_RSTN);
-	mdelay(20);
+	mdelay(timing1);
 	dispc_write(0, DISPC_RSTN);
-	mdelay(20);
+	mdelay(timing2);
 	dispc_write(1, DISPC_RSTN);
 
 	/* wait 10ms util the lcd is stable */
-	msleep(120);
+	msleep(timing3); 
+
 	return 0;
 }
 

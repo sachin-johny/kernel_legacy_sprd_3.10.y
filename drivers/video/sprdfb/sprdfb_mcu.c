@@ -25,8 +25,13 @@
 
 static int32_t lcdc_mcu_send_cmd(uint32_t cmd)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(lcdc_read(LCM_CTRL) & BIT(20));
+	while(lcdc_read(LCM_CTRL) & BIT(20)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
+		}
+	}
 
 	lcdc_write(cmd, LCM_CMD);
 
@@ -35,13 +40,23 @@ static int32_t lcdc_mcu_send_cmd(uint32_t cmd)
 
 static int32_t lcdc_mcu_send_cmd_data(uint32_t cmd, uint32_t data)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(lcdc_read(LCM_CTRL) & BIT(20));
+	while(lcdc_read(LCM_CTRL) & BIT(20)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting 1!\n", __FUNCTION__);
+		}
+	}
 
 	lcdc_write(cmd, LCM_CMD);
 
+	i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(lcdc_read(LCM_CTRL) & BIT(20));
+	while(lcdc_read(LCM_CTRL) & BIT(20)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting 2!\n", __FUNCTION__);
+		}
+	}
 
 	lcdc_write(data, LCM_DATA);
 
@@ -50,8 +65,13 @@ static int32_t lcdc_mcu_send_cmd_data(uint32_t cmd, uint32_t data)
 
 static int32_t lcdc_mcu_send_data(uint32_t data)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(lcdc_read(LCM_CTRL) & BIT(20));
+	while(lcdc_read(LCM_CTRL) & BIT(20)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
+		}
+	}
 
 	lcdc_write(data, LCM_DATA);
 
@@ -60,8 +80,13 @@ static int32_t lcdc_mcu_send_data(uint32_t data)
 
 static uint32_t lcdc_mcu_read_data(void)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(lcdc_read(LCM_CTRL) & BIT(20));
+	while(lcdc_read(LCM_CTRL) & BIT(20)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
+		}
+	}
 	lcdc_write(1 << 24, LCM_DATA);
 	udelay(50);
 	return lcdc_read(LCM_RDDATA);
@@ -69,8 +94,13 @@ static uint32_t lcdc_mcu_read_data(void)
 
 static int32_t dispc_mcu_send_cmd(uint32_t cmd)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5));
+	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
+		}
+	}
 
 	dispc_write(cmd, DISPC_DBI_CMD);
 
@@ -79,13 +109,23 @@ static int32_t dispc_mcu_send_cmd(uint32_t cmd)
 
 static int32_t dispc_mcu_send_cmd_data(uint32_t cmd, uint32_t data)
 {
+	int i=0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5));
+	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting 1!\n", __FUNCTION__);
+		}
+	}
 
 	dispc_write(cmd, DISPC_DBI_CMD);
 
+	i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5));
+	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting 2!\n", __FUNCTION__);
+		}
+	}
 
 	dispc_write(data, DISPC_DBI_DATA);
 
@@ -94,8 +134,13 @@ static int32_t dispc_mcu_send_cmd_data(uint32_t cmd, uint32_t data)
 
 static int32_t dispc_mcu_send_data(uint32_t data)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5));
+	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
+		}
+	}
 
 	dispc_write(data, DISPC_DBI_DATA);
 
@@ -104,8 +149,13 @@ static int32_t dispc_mcu_send_data(uint32_t data)
 
 static uint32_t dispc_mcu_read_data(void)
 {
+	int i = 0;
 	/* busy wait for ahb fifo full sign's disappearance */
-	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5));
+	while(dispc_read(DISPC_DBI_QUEUE) & BIT(5)){
+		if(0x0 == ++i%10000){
+			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
+		}
+	}
 	dispc_write(1 << 24, DISPC_DBI_DATA);
 	udelay(50);
 	return dispc_read(DISPC_DBI_RDATA);
