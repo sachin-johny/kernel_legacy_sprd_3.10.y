@@ -63,6 +63,10 @@ void __weak panic_smp_self_stop(void)
 		cpu_relax();
 }
 
+#ifdef CONFIG_SPRD_SYSDUMP
+	extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
+#endif
+
 /**
  *	panic - halt the system
  *	@fmt: The text string to print
@@ -114,6 +118,9 @@ void panic(const char *fmt, ...)
 		dump_stack();
 #endif
 
+#ifdef CONFIG_SPRD_SYSDUMP
+	sysdump_enter(0,buf,NULL);
+#endif
 	/*
 	 * If we have crashed and we have a crash kernel loaded let it handle
 	 * everything else.
