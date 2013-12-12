@@ -336,7 +336,7 @@ inline struct regulator_dev* rt5033_regulator_register(struct regulator_desc *re
 		.init_data = init_data,
 		.driver_data = driver_data,
 	};
-	return regulator_register(&regulator_desc, &config);
+	return regulator_register(regulator_desc, &config);
 #elif (LINUX_VERSION_CODE>=KERNEL_VERSION(3,0,0))
 	return regulator_register(regulator_desc, dev,
 			init_data, driver_data, NULL);
