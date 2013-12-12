@@ -682,4 +682,11 @@ config INPUT_LTR558_I2C
 
 	  To compile this driver as a module, choose M here.
 
+config INPUT_SPRD_CALI_HEADSET
+      tristate "Sprd platform builtin headset & button detect driver for calibration"
+      help
+       Say Y here if you are using for calibration.
+
+       To compile this driver as a module, choose M here: the
+       module will be called headset.
 endif

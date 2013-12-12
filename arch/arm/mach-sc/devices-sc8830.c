@@ -34,8 +34,13 @@
 #include <mach/gpio.h>
 #include <linux/pstore_ram.h>
 #include <linux/sprd_iommu.h>
+#ifdef CONFIG_MACH_STAR2
+#include <linux/headset_sprd_cali.h>
+#else
 #include <linux/headset_sprd.h>
+#endif
 #include <linux/usb/gadget.h>
+
 
 #include "devices.h"
 
@@ -521,6 +526,33 @@ struct platform_device sprd_keypad_device = {
 
 
 static struct headset_buttons sprd_headset_buttons[] = {
+#ifdef CONFIG_MACH_STAR2
+	{
+		.adc_min = 0,
+		.adc_max = 83,  //calibration 83 is 76mv
+		.code = KEY_MEDIA,
+	},
+	{
+		.adc_min = 86,
+		.adc_max = 164,
+		.code = KEY_VOLUMEUP,
+	},
+	{
+		.adc_min = 187,
+		.adc_max = 373,
+		.code = KEY_VOLUMEDOWN,
+	},
+         {
+                .adc_min = 0,
+                .adc_max = 556,
+                .type = HEADSET_NO_MIC,
+        },
+	{
+		.adc_min = 628,
+		.adc_max = 2453,
+		.type = HEADSET_NORTH_AMERICA,
+	},
+#else
 	{
 		.adc_min = 0x0000,
 		.adc_max = 0x00C8,
@@ -536,6 +568,8 @@ static struct headset_buttons sprd_headset_buttons[] = {
 		.adc_max = 0x0514,
 		.code = KEY_VOLUMEDOWN,
 	},
+
+#endif
 };
 static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.gpio_switch = HEADSET_SWITCH_GPIO,
