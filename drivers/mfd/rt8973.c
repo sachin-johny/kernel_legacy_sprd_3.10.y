@@ -273,6 +273,7 @@ enum {
 	USB_SHIFT,
 	UART_SHIFT,
 	JIG_SHIFT,
+	TYPE1_CHG_SHIFT,
 };
 
 struct rt8973_status {
@@ -297,6 +298,7 @@ struct rt8973_status {
 			uint32_t usb_connect:1;
 			uint32_t uart_connect:1;
 			uint32_t jig_connect:1;
+			uint32_t type1_charger_connect:1;
 		};
 		uint32_t status;
 	};
@@ -492,6 +494,8 @@ static void rt8973_preprocess_status(rt8973_chip_t *chip)
 	      MUIC_RT8973_CABLE_TYPE_JIG_UART_OFF_WITH_VBUS) ||
 	     (chip->curr_status.cable_type ==
 	      MUIC_RT8973_CABLE_TYPE_JIG_UART_ON_WITH_VBUS)) ? 1 : 0;
+    chip->curr_status.type1_charger_connect = (chip->curr_status.cable_type ==
+	      MUIC_RT8973_CABLE_TYPE_TYPE1_CHARGER) ? 1 : 0;
 }
 
 #define FLAG_HIGH           (0x01)
@@ -739,7 +743,45 @@ static void rt8973_jig_detach_handler(struct rt8973_chip *chip,
 		chip->pdata->jig_callback(type, 0);
 }
 
+static void rt8973_type1_chg_attach_handler(struct rt8973_chip *chip,
+				      const struct rt8973_event_handler
+				      *handler, unsigned int old_status,
+				      unsigned int new_status)
+{
+	RTINFO("Type1 Charger attached\n");
+	/* Make switch connect to USB path */
+	rt8973_reg_write(chip, RT8973_REG_MANUAL_SW1, 0x24);
+	/* Change to manual-config */
+	rt8973_clr_bits(chip, RT8973_REG_CONTROL, 1 << 2);
+}
+
+static void rt8973_type1_chg_detach_handler(struct rt8973_chip *chip,
+				      const struct rt8973_event_handler
+				      *handler, unsigned int old_status,
+				      unsigned int new_status)
+{
+	RTINFO("Type1 Charger detached\n");
+	/* Make switch opened */
+	rt8973_reg_write(chip, RT8973_REG_MANUAL_SW1, 0x00);
+	/* Change to auto-config */
+	rt8973_set_bits(chip, RT8973_REG_CONTROL, 1 << 2);
+
+}
+
+
 struct rt8973_event_handler normal_event_handlers[] = {
+    {
+        .name = "Type1 charger attached",
+        .bit_mask = (1 << TYPE1_CHG_SHIFT),
+        .type = FLAG_RISING,
+        .handler = rt8973_type1_chg_attach_handler,
+    },
+    {
+        .name = "Type1 charger detached",
+        .bit_mask = (1 << TYPE1_CHG_SHIFT),
+        .type = FLAG_FALLING,
+        .handler = rt8973_type1_chg_detach_handler,
+    },
 	{
 	 .name = "Cable changed",
 	 .bit_mask = (1 << CABLE_CHG_SHIFT),
@@ -859,7 +901,8 @@ static void rt8973_irq_work(struct work_struct *work)
 	       "ocp = %d, ovp = %d, otp = %d,\n"
 	       "adc_chg = %d, cable_chg = %d\n"
 	       "otg = %d, dcdt = %d, usb = %d,\n"
-	       "uart = %d, jig = %d\n",
+	       "uart = %d, jig = %d\n"
+	       "type1 charger = %d\n",
 	       chip->curr_status.cable_type,
 	       chip->curr_status.vbus_status,
 	       chip->curr_status.accessory_status,
@@ -871,7 +914,9 @@ static void rt8973_irq_work(struct work_struct *work)
 	       chip->curr_status.otg_status,
 	       chip->curr_status.dcdt_status,
 	       chip->curr_status.usb_connect,
-	       chip->curr_status.uart_connect, chip->curr_status.jig_connect);
+	       chip->curr_status.uart_connect,
+	       chip->curr_status.jig_connect,
+	       chip->curr_status.type1_charger_connect);
 	rt8973_process_urgent_evt(chip);
 	if (chip->curr_status.dcdt_status) {
 		if (chip->dcdt_retry_count >= DCD_T_RETRY) {
