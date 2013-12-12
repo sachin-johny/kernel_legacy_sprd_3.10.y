@@ -256,7 +256,10 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			 * ([5mA ~ 45mA]), so the val that fill in WHTLED_CTL1 bit[5, 0]
 			 * = bl_brighness / 4
 			 */
-			led_level = (bl_brightness >> 2) & 0x3f;
+            /* 7710 BB whtled parallel backlight current is too large
+             * so decrease brightness value by half
+             * */
+			led_level = (bl_brightness >> 3) & 0x3f;
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL1);
 			reg_val &= ~(0x3f );
 			reg_val |= led_level;
