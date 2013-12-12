@@ -416,6 +416,11 @@ static int jpg_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static int jpg_open(struct inode *inode, struct file *filp)
 {
+	struct clk *clk_mm_i;
+	struct clk *clk_jpg;
+	struct clk *clk_parent;
+	char *name_parent;
+	int ret_val,ret;
 	struct jpg_fh *jpg_fp = kmalloc(sizeof(struct jpg_fh), GFP_KERNEL);
 	if (jpg_fp == NULL) {
 		printk(KERN_ERR "jpg open error occured\n");
@@ -433,11 +438,68 @@ static int jpg_open(struct inode *inode, struct file *filp)
 	jpg_hw_dev.condition_work_BSM= 0;
 	jpg_hw_dev.jpg_int_status = 0;
 
-	printk("JPEG mmi_clk open");
-	clk_enable(jpg_hw_dev.mm_clk);
-		
+#if defined(CONFIG_ARCH_SCX35)
+	clk_mm_i = clk_get(NULL, "clk_mm_i");
+	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
+		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+			"clk_mm_i");
+		printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
+		ret = -EINVAL;
+		goto errout;
+	} else {
+		jpg_hw_dev.mm_clk= clk_mm_i;
+	}
+#endif
+        printk("JPEG mmi_clk open");
+        clk_enable(jpg_hw_dev.mm_clk);
+
+	clk_jpg = clk_get(NULL, "clk_jpg");
+	if (IS_ERR(clk_jpg) || (!clk_jpg)) {
+		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+			"clk_vsp");
+		printk(KERN_ERR "###: jpg_clk =  %p\n", clk_jpg);
+		ret = -EINVAL;
+		goto errout;
+	} else {
+		jpg_hw_dev.jpg_clk = clk_jpg;
+	}
+
+	name_parent = jpg_get_clk_src_name(jpg_hw_dev.freq_div);
+	clk_parent = clk_get(NULL, name_parent);
+	if ((!clk_parent )|| IS_ERR(clk_parent) ) {
+		printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
+by clk_get()!\n", "clk_jpg", name_parent);
+		ret = -EINVAL;
+		goto errout;
+	} else {
+		jpg_hw_dev.jpg_parent_clk = clk_parent;
+	}
+
+	ret_val = clk_set_parent(jpg_hw_dev.jpg_clk, jpg_hw_dev.jpg_parent_clk);
+	if (ret_val) {
+		printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!",
+			"clk_jpg");
+		ret = -EINVAL;
+		goto errout;
+	}
+
+	printk("jpg parent clock name %s\n", name_parent);
+	printk("jpg_freq %d Hz",
+		(int)clk_get_rate(jpg_hw_dev.jpg_clk));
+
+
 	printk(KERN_INFO "jpg_open %p\n", jpg_fp);
 	return 0;
+
+errout:
+	if (jpg_hw_dev.jpg_clk) {
+		clk_put(jpg_hw_dev.jpg_clk);
+	}
+
+	if (jpg_hw_dev.jpg_parent_clk) {
+		clk_put(jpg_hw_dev.jpg_parent_clk);
+	}
+	return ret;
 }
 
 static int jpg_release (struct inode *inode, struct file *filp)
@@ -481,10 +543,7 @@ static struct miscdevice jpg_dev = {
 
 static int jpg_probe(struct platform_device *pdev)
 {
-	struct clk *clk_mm_i;
-	struct clk *clk_jpg;
-	struct clk *clk_parent;
-	char *name_parent;
+
 	int ret_val;
 	int ret;
 	int cmd0;
@@ -504,53 +563,8 @@ static int jpg_probe(struct platform_device *pdev)
 
 	jpg_hw_dev.jpg_clk = NULL;
 	jpg_hw_dev.jpg_parent_clk = NULL;
+	jpg_hw_dev.mm_clk= NULL;
 
-#if defined(CONFIG_ARCH_SCX35)
-	clk_mm_i = clk_get(NULL, "clk_mm_i");
-	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
-		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
-			"clk_mm_i");
-		printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
-		ret = -EINVAL;
-		goto errout;
-	} else {
-		jpg_hw_dev.mm_clk= clk_mm_i;
-	}
-#endif
-
-	clk_jpg = clk_get(NULL, "clk_jpg");
-	if (IS_ERR(clk_jpg) || (!clk_jpg)) {
-		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
-			"clk_vsp");
-		printk(KERN_ERR "###: jpg_clk =  %p\n", clk_jpg);
-		ret = -EINVAL;
-		goto errout;
-	} else {
-		jpg_hw_dev.jpg_clk = clk_jpg;
-	}
-
-	name_parent = jpg_get_clk_src_name(jpg_hw_dev.freq_div);
-	clk_parent = clk_get(NULL, name_parent);
-	if ((!clk_parent )|| IS_ERR(clk_parent) ) {
-		printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
-by clk_get()!\n", "clk_jpg", name_parent);
-		ret = -EINVAL;
-		goto errout;
-	} else {
-		jpg_hw_dev.jpg_parent_clk = clk_parent;
-	}
-
-	ret_val = clk_set_parent(jpg_hw_dev.jpg_clk, jpg_hw_dev.jpg_parent_clk);
-	if (ret_val) {
-		printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!",
-			"clk_jpg");
-		ret = -EINVAL;
-		goto errout;
-	}
-
-	printk("jpg parent clock name %s\n", name_parent);
-	printk("jpg_freq %d Hz",
-		(int)clk_get_rate(jpg_hw_dev.jpg_clk));
 
 	ret = misc_register(&jpg_dev);
 	if (ret) {

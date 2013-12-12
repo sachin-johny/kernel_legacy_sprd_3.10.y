@@ -332,6 +332,11 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 static int vsp_open(struct inode *inode, struct file *filp)
 {
     int ret;
+    int ret_val;
+    struct clk *clk_mm_i;
+    struct clk *clk_vsp;
+    struct clk *clk_parent;
+    char *name_parent;
     struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
     if (vsp_fp == NULL) {
         printk(KERN_ERR "vsp open error occured\n");
@@ -341,14 +346,61 @@ static int vsp_open(struct inode *inode, struct file *filp)
     vsp_fp->is_clock_enabled = 0;
     vsp_fp->is_vsp_aquired = 0;
 
-    printk(KERN_INFO "VSP mmi_clk open");
-    ret = clk_enable(vsp_hw_dev.mm_clk);
-    if (ret) {
-        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-        return ret;
+#if defined(CONFIG_ARCH_SCX35)
+    clk_mm_i = clk_get(NULL, "clk_mm_i");
+    if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
+        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+               "clk_mm_i");
+        printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
+        ret = -EINVAL;
+        goto errout;
     } else {
-        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+        vsp_hw_dev.mm_clk= clk_mm_i;
     }
+#endif
+
+	printk(KERN_INFO "VSP mmi_clk open");
+    	ret = clk_enable(vsp_hw_dev.mm_clk);
+    	if (ret) {
+        	printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
+        	return ret;
+    	} else {
+        	pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+    	}
+
+    clk_vsp = clk_get(NULL, "clk_vsp");
+    if (IS_ERR(clk_vsp) || (!clk_vsp)) {
+        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+               "clk_vsp");
+        printk(KERN_ERR "###: vsp_clk =  %p\n", clk_vsp);
+        ret = -EINVAL;
+        goto errout;
+    } else {
+        vsp_hw_dev.vsp_clk = clk_vsp;
+    }
+
+    name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
+    clk_parent = clk_get(NULL, name_parent);
+    if ((!clk_parent )|| IS_ERR(clk_parent) ) {
+        printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
+by clk_get()!\n", "clk_vsp", name_parent);
+        ret = -EINVAL;
+        goto errout;
+    } else {
+        vsp_hw_dev.vsp_parent_clk = clk_parent;
+    }
+
+    ret_val = clk_set_parent(vsp_hw_dev.vsp_clk, vsp_hw_dev.vsp_parent_clk);
+    if (ret_val) {
+        printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!",
+               "clk_vsp");
+        ret = -EINVAL;
+        goto errout;
+    }
+
+    printk("vsp parent clock name %s\n", name_parent);
+    printk("vsp_freq %d Hz",
+           (int)clk_get_rate(vsp_hw_dev.vsp_clk));
 
     init_waitqueue_head(&vsp_fp->wait_queue_work);
     vsp_fp->vsp_int_status = 0;
@@ -356,6 +408,15 @@ static int vsp_open(struct inode *inode, struct file *filp)
 
     printk(KERN_INFO "vsp_open %p\n", vsp_fp);
     return 0;
+errout:
+    if (vsp_hw_dev.vsp_clk) {
+        clk_put(vsp_hw_dev.vsp_clk);
+    }
+
+    if (vsp_hw_dev.vsp_parent_clk) {
+        clk_put(vsp_hw_dev.vsp_parent_clk);
+    }
+    return ret;
 }
 
 static int vsp_release (struct inode *inode, struct file *filp)
@@ -401,10 +462,7 @@ static struct miscdevice vsp_dev = {
 
 static int vsp_probe(struct platform_device *pdev)
 {
-    struct clk *clk_mm_i;
-    struct clk *clk_vsp;
-    struct clk *clk_parent;
-    char *name_parent;
+
     int ret_val;
     int ret;
     int cmd0;
@@ -418,53 +476,7 @@ printk(KERN_INFO "vsp_probe123 called !\n");
 
     vsp_hw_dev.vsp_clk = NULL;
     vsp_hw_dev.vsp_parent_clk = NULL;
-
-#if defined(CONFIG_ARCH_SCX35)
-    clk_mm_i = clk_get(NULL, "clk_mm_i");
-    if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
-        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
-               "clk_mm_i");
-        printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
-        ret = -EINVAL;
-        goto errout;
-    } else {
-        vsp_hw_dev.mm_clk= clk_mm_i;
-    }
-#endif
-
-    clk_vsp = clk_get(NULL, "clk_vsp");
-    if (IS_ERR(clk_vsp) || (!clk_vsp)) {
-        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
-               "clk_vsp");
-        printk(KERN_ERR "###: vsp_clk =  %p\n", clk_vsp);
-        ret = -EINVAL;
-        goto errout;
-    } else {
-        vsp_hw_dev.vsp_clk = clk_vsp;
-    }
-
-    name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
-    clk_parent = clk_get(NULL, name_parent);
-    if ((!clk_parent )|| IS_ERR(clk_parent) ) {
-        printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
-by clk_get()!\n", "clk_vsp", name_parent);
-        ret = -EINVAL;
-        goto errout;
-    } else {
-        vsp_hw_dev.vsp_parent_clk = clk_parent;
-    }
-
-    ret_val = clk_set_parent(vsp_hw_dev.vsp_clk, vsp_hw_dev.vsp_parent_clk);
-    if (ret_val) {
-        printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!",
-               "clk_vsp");
-        ret = -EINVAL;
-        goto errout;
-    }
-
-    printk("vsp parent clock name %s\n", name_parent);
-    printk("vsp_freq %d Hz",
-           (int)clk_get_rate(vsp_hw_dev.vsp_clk));
+    vsp_hw_dev.mm_clk= NULL;
 
     ret = misc_register(&vsp_dev);
     if (ret) {
