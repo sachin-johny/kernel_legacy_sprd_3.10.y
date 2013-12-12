@@ -2960,7 +2960,7 @@ static struct super_block *yaffs_internal_read_super(int yaffsVersion,
 #ifdef CONFIG_YAFFS_DISABLE_BLOCK_REFRESHING
 	param->refreshPeriod = 0;
 #else
-	param->refreshPeriod = 500;
+	param->refreshPeriod = 100;
 #endif
 
 #ifdef CONFIG_YAFFS__ALWAYS_CHECK_CHUNK_ERASED
