@@ -46,6 +46,8 @@ struct sprd_iommu_ops {
 	int (*iova_unmap)(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle);
 	int (*backup)(struct sprd_iommu_dev *dev);
 	int (*restore)(struct sprd_iommu_dev *dev);
+	int (*disable)(struct sprd_iommu_dev *dev);
+	int (*enable)(struct sprd_iommu_dev *dev);
 	int (*dump)(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length);
 };
 
@@ -59,4 +61,6 @@ extern unsigned long sprd_iova_alloc(int iommu_id, unsigned long iova_length);
 extern void sprd_iova_free(int iommu_id, unsigned long iova, unsigned long iova_length);
 extern int sprd_iova_map(int iommu_id, unsigned long iova, struct ion_buffer *handle);
 extern int sprd_iova_unmap(int iommu_id, unsigned long iova,  struct ion_buffer *handle);
+extern void sprd_iommu_module_enable(uint32_t iommu_id);
+extern void sprd_iommu_module_disable(uint32_t iommu_id);
 #endif

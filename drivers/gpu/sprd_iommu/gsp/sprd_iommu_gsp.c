@@ -18,26 +18,27 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
+int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev);
+int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev);
+
 int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
+	int err=-1;
 	dev->mmu_mclock= clk_get(NULL,"clk_disp_emc");
 	dev->mmu_pclock= clk_get(NULL,"clk_153m6");
 	dev->mmu_clock=clk_get(NULL,"clk_gsp");
 	if((NULL==dev->mmu_mclock)||(NULL==dev->mmu_pclock)||(NULL==dev->mmu_clock))
 		return -1;
-	clk_enable(dev->mmu_mclock);
-	clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
-	clk_enable(dev->mmu_clock);
-	udelay(300);
-	return sprd_iommu_init(dev,data);
+	sprd_iommu_gsp_enable(dev);
+	err=sprd_iommu_init(dev,data);
+	return err;
 }
 
 int sprd_iommu_gsp_exit(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
 	err=sprd_iommu_exit(dev);
-	clk_disable(dev->mmu_clock);
-	clk_disable(dev->mmu_mclock);
+	sprd_iommu_gsp_disable(dev);
 	return err;
 }
 
@@ -66,20 +67,39 @@ int sprd_iommu_gsp_backup(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
 	err=sprd_iommu_backup(dev);
-	clk_disable(dev->mmu_clock);
-	clk_disable(dev->mmu_mclock);
+	sprd_iommu_gsp_disable(dev);
 	return err;
 }
 
 int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
+	sprd_iommu_gsp_enable(dev);
+	err=sprd_iommu_restore(dev);
+	return err;
+}
+
+int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
+{
+	sprd_iommu_disable(dev);
+	clk_disable(dev->mmu_clock);
+	clk_disable(dev->mmu_mclock);
+	return 0;
+}
+
+int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
+{
 	clk_enable(dev->mmu_mclock);
 	clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
 	clk_enable(dev->mmu_clock);
 	udelay(300);
-	err=sprd_iommu_restore(dev);
-	return err;
+	sprd_iommu_enable(dev);
+	return 0;
+}
+
+int sprd_iommu_gsp_dump(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length)
+{
+	return sprd_iommu_dump(dev,iova,iova_length);
 }
 
 struct sprd_iommu_ops iommu_gsp_ops={
@@ -91,5 +111,8 @@ struct sprd_iommu_ops iommu_gsp_ops={
 	.iova_unmap=sprd_iommu_gsp_iova_unmap,
 	.backup=sprd_iommu_gsp_backup,
 	.restore=sprd_iommu_gsp_restore,
+	.disable=sprd_iommu_gsp_disable,
+	.enable=sprd_iommu_gsp_enable,
+	.dump=sprd_iommu_gsp_dump,
 };
 

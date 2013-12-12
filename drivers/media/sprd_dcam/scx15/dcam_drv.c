@@ -31,6 +31,8 @@
 #include "dcam_drv.h"
 #include "gen_scale_coef.h"
 
+#include <linux/sprd_iommu.h>
+
 
 #define LOCAL    static
 /*#define LOCAL*/
@@ -771,7 +773,17 @@ int32_t _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 			printk("dcam_is_clk_mm_i_eb: enable fail.\n");
 			return -1;
 		}
+#if defined(CONFIG_SPRD_IOMMU)
+		{
+			sprd_iommu_module_enable(IOMMU_MM);
+		}
+#endif
 	} else {
+#if defined(CONFIG_SPRD_IOMMU)
+		{
+			sprd_iommu_module_disable(IOMMU_MM);
+		}
+#endif
 		clk_disable(s_dcam_clk_mm_i);
 		clk_put(s_dcam_clk_mm_i);
 		s_dcam_clk_mm_i = NULL;

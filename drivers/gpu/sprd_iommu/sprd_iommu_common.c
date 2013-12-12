@@ -168,3 +168,18 @@ int sprd_iommu_restore(struct sprd_iommu_dev *dev)
 	mutex_unlock(&dev->mutex_pgt);
 	return 0;
 }
+
+int sprd_iommu_disable(struct sprd_iommu_dev *dev)
+{
+	return 0;
+}
+
+int sprd_iommu_enable(struct sprd_iommu_dev *dev)
+{
+	return 0;
+}
+
+int sprd_iommu_dump(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length)
+{
+	return 0;
+}

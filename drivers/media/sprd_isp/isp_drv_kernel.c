@@ -46,6 +46,8 @@
 #error "Unknown architecture specification"
 #endif
 
+#include <linux/sprd_iommu.h>
+
 
 #define DEBUG_ISP_DRV
 #ifdef DEBUG_ISP_DRV
@@ -208,7 +210,17 @@ int32_t _isp_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 			printk("isp_is_clk_mm_i_eb: enable fail.\n");
 			return -1;
 		}
+#if defined(CONFIG_SPRD_IOMMU)
+		{
+			sprd_iommu_module_enable(IOMMU_MM);
+		}
+#endif
 	} else {
+#if defined(CONFIG_SPRD_IOMMU)
+		{
+			sprd_iommu_module_disable(IOMMU_MM);
+		}
+#endif
 		clk_disable(g_isp_dev_ptr->s_isp_clk_mm_i);
 		clk_put(g_isp_dev_ptr->s_isp_clk_mm_i);
 		g_isp_dev_ptr->s_isp_clk_mm_i = NULL;

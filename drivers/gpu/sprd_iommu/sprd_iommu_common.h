@@ -44,6 +44,8 @@ int sprd_iommu_backup(struct sprd_iommu_dev *dev);
 
 int sprd_iommu_restore(struct sprd_iommu_dev *dev);
 
+int sprd_iommu_disable(struct sprd_iommu_dev *dev);
+int sprd_iommu_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_dump(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length);
 
 #endif

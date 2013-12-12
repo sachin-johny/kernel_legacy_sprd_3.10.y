@@ -35,6 +35,8 @@
 #include <mach/globalregs.h>
 #include <mach/sci.h>
 
+#include <linux/sprd_iommu.h>
+
 #define JPG_MINOR MISC_DYNAMIC_MINOR
 #define JPG_TIMEOUT_MS 1000
 
@@ -487,6 +489,11 @@ by clk_get()!\n", "clk_jpg", name_parent);
 	printk("jpg_freq %d Hz",
 		(int)clk_get_rate(jpg_hw_dev.jpg_clk));
 
+#if defined(CONFIG_SPRD_IOMMU)
+	{
+		sprd_iommu_module_enable(IOMMU_MM);
+	}
+#endif
 
 	printk(KERN_INFO "jpg_open %p\n", jpg_fp);
 	return 0;
@@ -505,6 +512,12 @@ errout:
 static int jpg_release (struct inode *inode, struct file *filp)
 {
 	struct jpg_fh *jpg_fp = filp->private_data;
+
+#if defined(CONFIG_SPRD_IOMMU)
+	{
+		sprd_iommu_module_disable(IOMMU_MM);
+	}
+#endif
 
 	if (jpg_fp->is_clock_enabled) {
 		printk(KERN_ERR "error occured and close clock \n");
