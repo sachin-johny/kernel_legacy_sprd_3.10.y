@@ -48,4 +48,16 @@ int sprd_ext_earpiece_ctrl(int id, int on);
 int sprd_ext_mic_ctrl(int id, int on);
 int sprd_ext_fm_ctrl(int id, int on);
 
+typedef int (*sprd_audio_hook_func)(int id, int on);
+
+struct sprd_audio_ext_hook {
+	sprd_audio_hook_func ext_speaker_ctrl;
+	sprd_audio_hook_func ext_headphone_ctrl;
+	sprd_audio_hook_func ext_earpiece_ctrl;
+	sprd_audio_hook_func ext_mic_ctrl;
+	sprd_audio_hook_func ext_fm_ctrl;
+};
+
+extern struct sprd_audio_ext_hook sprd_audio_hook;
+
 #endif /* __LINUX_SND_SOC_SPRD_AUDIO_HOOK_H */

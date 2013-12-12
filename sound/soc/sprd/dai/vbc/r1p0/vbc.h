@@ -1,9 +1,9 @@
 /*
- * sound/soc/sprd/codec/null-codec/null-codec.h
+ * sound/soc/sprd/dai/vbc/r1p0/vbc.h
  *
- * NULL-CODEC -- SpreadTrum just for codec code.
+ * SPRD SoC VBC -- SpreadTrum SOC for VBC DAI function.
  *
- * Copyright (C) 2012 SpreadTrum Ltd.
+ * Copyright (C) 2013 SpreadTrum Ltd.
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -14,7 +14,9 @@
  * MERCHANTABILITY ork FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __NULL_CODEC_H
-#define __NULL_CODEC_H
+#ifndef __VBC_H
+#define __VBC_H
 
-#endif /* __NULL_CODEC_H */
+#include "vbc-comm.h"
+
+#endif /* __VBC_H */

@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
+#include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt("NULCD") fmt
 
 #include <linux/module.h>
@@ -32,7 +32,7 @@
 #include <sound/core.h>
 #include <sound/soc.h>
 
-#include "../../sprd-asoc-common.h"
+#include "sprd-asoc-common.h"
 #include "null-codec.h"
 
 /* PCM Playing and Recording default in full duplex mode */

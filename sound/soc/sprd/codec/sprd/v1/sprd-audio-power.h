@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/codec/sprd/sprd-audio-power.h
+ * sound/soc/sprd/codec/sprd/v1/sprd-audio-power.h
  *
  * SPRD-AUDIO-POWER -- SpreadTrum intergrated audio power supply.
  *
@@ -18,7 +18,7 @@
 #ifndef __SPRD_AUDIO_POWER_H
 #define __SPRD_AUDIO_POWER_H
 
-#include "sprd-codec-v3.h"
+#include "sprd-codec.h"
 
 #define SPRD_AUDIO_POWER_VREG 		1
 #define SPRD_AUDIO_POWER_VB 		2
@@ -29,6 +29,5 @@
 #define SPRD_AUDIO_POWER_VBO 		7
 #define SPRD_AUDIO_POWER_MICBIAS 	8
 #define SPRD_AUDIO_POWER_AUXMICBIAS 	9
-#define SPRD_AUDIO_POWER_HEADMICBIAS 	10
 
 #endif

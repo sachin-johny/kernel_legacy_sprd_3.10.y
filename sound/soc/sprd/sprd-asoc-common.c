@@ -33,55 +33,65 @@
 
 #include "sprd-asoc-common.h"
 
+struct sprd_audio_ext_hook sprd_audio_hook = { 0 };
+
+EXPORT_SYMBOL(sprd_audio_hook);
+
+#define SAFE_CALL(func) do { \
+	if (func) { \
+		ret = func(id, on); \
+	} \
+} while(0)
+
 int sprd_ext_speaker_ctrl(int id, int on)
-    __attribute__ ((weak, alias("__sprd_ext_speaker_ctrl")));
+{
+	int ret = NO_HOOK;
+	sp_asoc_pr_dbg("external Speaker(%d) Hook; on=%d\n", id, on);
+	SAFE_CALL(sprd_audio_hook.ext_speaker_ctrl);
+	return ret;
+}
+
 EXPORT_SYMBOL(sprd_ext_speaker_ctrl);
 
-static int __sprd_ext_speaker_ctrl(int id, int on)
+int sprd_ext_headphone_ctrl(int id, int on)
 {
-	sp_asoc_pr_dbg("No external Speaker(%d) Hook; on=%d\n", id, on);
-	return NO_HOOK;
+	int ret = NO_HOOK;
+	sp_asoc_pr_dbg("external Headphone(%d) Hook; on=%d\n", id, on);
+	SAFE_CALL(sprd_audio_hook.ext_headphone_ctrl);
+	return ret;
 }
 
-int sprd_ext_headphone_ctrl(int id, int on)
-    __attribute__ ((weak, alias("__sprd_ext_headphone_ctrl")));
 EXPORT_SYMBOL(sprd_ext_headphone_ctrl);
 
-static int __sprd_ext_headphone_ctrl(int id, int on)
+int sprd_ext_earpiece_ctrl(int id, int on)
 {
-	sp_asoc_pr_dbg("No external headphone(%d) Hook; on=%d\n", id, on);
-	return NO_HOOK;
+	int ret = NO_HOOK;
+	sp_asoc_pr_dbg("external Earpiece(%d) Hook; on=%d\n", id, on);
+	SAFE_CALL(sprd_audio_hook.ext_earpiece_ctrl);
+	return ret;
 }
 
-int sprd_ext_earpiece_ctrl(int id, int on)
-    __attribute__ ((weak, alias("__sprd_ext_earpiece_ctrl")));
 EXPORT_SYMBOL(sprd_ext_earpiece_ctrl);
 
-static int __sprd_ext_earpiece_ctrl(int id, int on)
+int sprd_ext_mic_ctrl(int id, int on)
 {
-	sp_asoc_pr_dbg("No external earpiece(%d) Hook; on=%d\n", id, on);
-	return NO_HOOK;
+	int ret = NO_HOOK;
+	sp_asoc_pr_dbg("external MIC(%d) Hook; on=%d\n", id, on);
+	SAFE_CALL(sprd_audio_hook.ext_mic_ctrl);
+	return ret;
 }
 
-int sprd_ext_mic_ctrl(int id, int on)
-    __attribute__ ((weak, alias("__sprd_ext_mic_ctrl")));
 EXPORT_SYMBOL(sprd_ext_mic_ctrl);
 
-static int __sprd_ext_mic_ctrl(int id, int on)
-{
-	sp_asoc_pr_dbg("No external mic(%d) Hook; on=%d\n", id, on);
-	return NO_HOOK;
-}
-
 int sprd_ext_fm_ctrl(int id, int on)
-    __attribute__ ((weak, alias("__sprd_ext_fm_ctrl")));
-EXPORT_SYMBOL(sprd_ext_fm_ctrl);
-
-static int __sprd_ext_fm_ctrl(int id, int on)
 {
-	sp_asoc_pr_dbg("No external fm(%d) Hook; on=%d\n", id, on);
-	return NO_HOOK;
+	int ret = NO_HOOK;
+	sp_asoc_pr_dbg("external FM(%d) Hook; on=%d\n", id, on);
+	SAFE_CALL(sprd_audio_hook.ext_fm_ctrl);
+	return ret;
 }
+
+EXPORT_SYMBOL(sprd_ext_fm_ctrl);
 
 /* spreadtrum audio debug */
 

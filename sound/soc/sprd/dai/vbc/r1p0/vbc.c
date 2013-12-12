@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/dai/vbc/vbc-r2p0.c
+ * sound/soc/sprd/dai/vbc/r1p0/vbc.c
  *
  * SPRD SoC VBC -- SpreadTrum SOC for VBC DAI function.
  *
@@ -14,7 +14,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "../../sprd-asoc-debug.h"
+#include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt(" VBC ") fmt
 
 #include <linux/module.h>
@@ -37,9 +37,9 @@
 #include <sound/pcm_params.h>
 #include <sound/tlv.h>
 
-#include "../../sprd-asoc-common.h"
-#include "../sprd-pcm.h"
-#include "vbc-r2p0.h"
+#include "sprd-asoc-common.h"
+#include "sprd-pcm.h"
+#include "vbc.h"
 
 typedef int (*vbc_dma_set) (int enable);
 
@@ -82,18 +82,6 @@ static struct sprd_pcm_dma_params vbc_pcm_stereo_in = {
 	.dev_paddr = {PHYS_VBAD0, PHYS_VBAD1},
 };
 
-static struct sprd_pcm_dma_params vbc_pcm23_stereo_in = {
-	.name = "VBC PCM23 Stereo in",
-	.irq_type = BLK_DONE,
-	.desc = {
-		 .datawidth = SHORT_WIDTH,
-		 .fragmens_len = VBC_FIFO_FRAME_NUM * 2,
-		 .src_step = 0,
-		 .des_step = 2,
-		 },
-	.dev_paddr = {PHYS_VBAD2, PHYS_VBAD3},
-};
-
 static struct sprd_vbc_priv vbc[VBC_IDX_MAX];
 
 static int vbc_iis_high_for_da1(int enable)
@@ -106,15 +94,8 @@ static int vbc_iis_high_for_da1(int enable)
 #if 0
 static int vbc_iis_high_for_ad1(int enable)
 {
-	vbc_reg_update(VBIISSEL, (enable ? 1 : 0) << VBIISSEL_AD01_LRCK,
-		       1 << VBIISSEL_AD01_LRCK);
-	return 0;
-}
-
-static int vbc_iis_high_for_ad2(int enable)
-{
-	vbc_reg_update(VBDATASWT, (enable ? 1 : 0) << VBDATASWT_AD23_LRCK,
-		       1 << VBDATASWT_AD23_LRCK);
+	vbc_reg_update(VBIISSEL, (enable ? 1 : 0) << VBIISSEL_AD_LRCK,
+		       1 << VBIISSEL_AD_LRCK);
 	return 0;
 }
 #endif
@@ -137,7 +118,7 @@ static int vbc_set_buffer_size(int vbc_idx, int buffer_size)
 	return 0;
 }
 
-int fm_set_vbc_buffer_size(void)
+static int fm_set_vbc_buffer_size(void)
 {
 	int i;
 	for (i = SPRD_VBC_PLAYBACK_COUNT; i < VBC_IDX_MAX; i++) {
@@ -168,20 +149,6 @@ static inline int vbc_ad1_dma_set(int enable)
 	return 0;
 }
 
-static inline int vbc_ad2_dma_set(int enable)
-{
-	vbc_reg_update(VBADDMA, ((enable ? 1 : 0) << VBAD2DMA_EN),
-		       (1 << VBAD2DMA_EN));
-	return 0;
-}
-
-static inline int vbc_ad3_dma_set(int enable)
-{
-	vbc_reg_update(VBADDMA, ((enable ? 1 : 0) << VBAD3DMA_EN),
-		       (1 << VBAD3DMA_EN));
-	return 0;
-}
-
 static inline int vbc_da0_dma_set(int enable)
 {
 	vbc_reg_update(VBDABUFFDTA, ((enable ? 1 : 0) << VBDA0DMA_EN),
@@ -207,7 +174,7 @@ static void vbc_da_buffer_clear(int id)
 	}
 }
 
-void vbc_da_buffer_clear_all(int vbc_idx)
+static void vbc_da_buffer_clear_all(int vbc_idx)
 {
 	int i;
 
@@ -246,16 +213,6 @@ static int vbc_ad_arch_disable(int chan)
 	return vbc_chan_enable(0, VBC_CAPTRUE, chan);
 }
 
-static int vbc_ad23_arch_enable(int chan)
-{
-	return vbc_chan_enable(1, VBC_CAPTRUE1, chan);
-}
-
-static int vbc_ad23_arch_disable(int chan)
-{
-	return vbc_chan_enable(0, VBC_CAPTRUE1, chan);
-}
-
 static struct sprd_vbc_priv vbc[VBC_IDX_MAX] = {
 	/* All Playback */
 	{			/*PlayBack */
@@ -274,17 +231,10 @@ static struct sprd_vbc_priv vbc[VBC_IDX_MAX] = {
 	 .buf_info = {VBBUFFSIZE, VBADBUFFERSIZE_SHIFT, VBADBUFFERSIZE_MASK,
 		      VBC_FIFO_FRAME_NUM},
 	 },
-	{			/*Capture for ad23 */
-	 .dma_set = {vbc_ad2_dma_set, vbc_ad3_dma_set},
-	 .arch_enable = vbc_ad23_arch_enable,
-	 .arch_disable = vbc_ad23_arch_disable,
-	 .buf_info = {VBBUFFAD23, VBAD23BUFFERSIZE_SHIFT, VBAD23BUFFERSIZE_MASK,
-		      VBC_FIFO_FRAME_NUM},
-	 },
 };
 
 /* NOTE:
-   this index need use for the [struct sprd_vbc_priv] vbc[3] index
+   this index need use for the [struct sprd_vbc_priv] vbc[2] index
    default MUST return 0.
  */
 static inline int vbc_str_2_index(int stream, int id)
@@ -340,7 +290,6 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 	struct sprd_pcm_dma_params *dma_data[VBC_IDX_MAX] = {
 		&vbc_pcm_stereo_out,
 		&vbc_pcm_stereo_in,
-		&vbc_pcm23_stereo_in,
 	};
 
 	vbc_idx = vbc_str_2_index(substream->stream, dai->id);
@@ -365,19 +314,6 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 #ifdef CONFIG_SND_SOC_SPRD_VBC_LR_INVERT
 	if (vbc[vbc_idx].used_chan_count == 2) {
 		vbc_iis_high_for_da1(0);
-	}
-#endif
-
-#ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
-	vbc_src_set(0, vbc_idx);	/*close adc src */
-	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
-		if (params_rate(params) == 44100) {
-			/* SRC Source sample rate maybe different */
-			if (!vbc_src_is_opened(vbc_idx)) {
-				vbc_src_set(CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE,
-					    vbc_idx);
-			}
-		}
 	}
 #endif
 
@@ -431,9 +367,9 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 	.trigger = vbc_trigger,
 };
 
-struct snd_soc_dai_driver vbc_dai[] = {
+static struct snd_soc_dai_driver vbc_dai[] = {
 	{
-	 .name = "vbc-r2p0",
+	 .name = "vbc-r1p0",
 	 .id = 0,
 	 .playback = {
 		      .channels_min = 1,
@@ -451,37 +387,13 @@ struct snd_soc_dai_driver vbc_dai[] = {
 		     },
 	 .ops = &vbc_dai_ops,
 	 },
-	{
-	 .name = "vbc-r2p0-ad23",
-	 .id = 1,
-	 .capture = {
-		     .channels_min = 1,
-		     .channels_max = 2,	/* AD23 */
-		     .rates = SNDRV_PCM_RATE_CONTINUOUS,
-		     .rate_max = 96000,
-		     .formats = SNDRV_PCM_FMTBIT_S16_LE,
-		     },
-	 .ops = &vbc_dai_ops,
-	 },
 };
 
 static const struct snd_soc_component_driver sprd_vbc_component = {
 	.name = "vbc",
 };
 
-int vbc_set_phys_addr(int vbc_switch)
-{
-	if (vbc_switch == AUDIO_TO_CP2_ARM_CTRL) {	/*switch to cp2-arm */
-		vbc_pcm_stereo_out.dev_paddr[0] = CP2_PHYS_VBDA0;
-		vbc_pcm_stereo_out.dev_paddr[1] = CP2_PHYS_VBDA1;
-	} else {
-		vbc_pcm_stereo_out.dev_paddr[0] = PHYS_VBDA0;
-		vbc_pcm_stereo_out.dev_paddr[1] = PHYS_VBDA1;
-	}
-	return 0;
-}
-
-int sprd_vbc_codec_probe(struct platform_device *pdev);
+static int sprd_vbc_codec_probe(struct platform_device *pdev);
 static int vbc_drv_probe(struct platform_device *pdev)
 {
 	int i;
@@ -490,9 +402,9 @@ static int vbc_drv_probe(struct platform_device *pdev)
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
-	arch_audio_vbc_switch(AUDIO_TO_AP_ARM_CTRL);
+	arch_audio_vbc_switch(AUDIO_TO_ARM_CTRL);
 	ret = arch_audio_vbc_switch(AUDIO_NO_CHANGE);
-	if (ret != AUDIO_TO_AP_ARM_CTRL) {
+	if (ret != AUDIO_TO_ARM_CTRL) {
 		pr_err("Failed to Switch VBC to AP\n");
 		return -1;
 	}
@@ -500,8 +412,6 @@ static int vbc_drv_probe(struct platform_device *pdev)
 	for (i = 0; i < 2; i++) {
 		vbc_pcm_stereo_out.channels[i] = arch_audio_vbc_da_dma_info(i);
 		vbc_pcm_stereo_in.channels[i] = arch_audio_vbc_ad_dma_info(i);
-		vbc_pcm23_stereo_in.channels[i] =
-		    arch_audio_vbc_ad23_dma_info(i);
 	}
 
 	/* 1. probe CODEC */
@@ -534,7 +444,7 @@ probe_err:
 	return ret;
 }
 
-int sprd_vbc_codec_remove(struct platform_device *pdev);
+static int sprd_vbc_codec_remove(struct platform_device *pdev);
 static int vbc_drv_remove(struct platform_device *pdev)
 {
 	struct clk *vbc_clk = vbc_clk_get();
@@ -553,7 +463,7 @@ static int vbc_drv_remove(struct platform_device *pdev)
 
 static struct platform_driver vbc_driver = {
 	.driver = {
-		   .name = "vbc-r2p0",
+		   .name = "vbc-r1p0",
 		   .owner = THIS_MODULE,
 		   },
 
@@ -563,7 +473,11 @@ static struct platform_driver vbc_driver = {
 
 module_platform_driver(vbc_driver);
 
+/* include the other module of VBC */
+#include "vbc-comm.c"
+#include "vbc-codec.c"
+
 MODULE_DESCRIPTION("SPRD ASoC VBC CUP-DAI driver");
 MODULE_AUTHOR("Zhenfang Wang <zhenfang.wang@spreadtrum.com>");
 MODULE_LICENSE("GPL");
-MODULE_ALIAS("cpu-dai:vbc-r2p0");
+MODULE_ALIAS("cpu-dai:vbc-r1p0");

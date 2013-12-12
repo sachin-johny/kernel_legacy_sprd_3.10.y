@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/dai/vbc/vbc-r2p0-comm.h
+ * sound/soc/sprd/dai/vbc/r2p0/vbc-comm.h
  *
  * SPRD SoC VBC -- SpreadTrum SOC DAI for VBC Common function.
  *
@@ -14,8 +14,8 @@
  * MERCHANTABILITY ork FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __VBC_R2P0_COMM_H
-#define __VBC_R2P0_COMM_H
+#ifndef __VBC_COMM_H
+#define __VBC_COMM_H
 
 #include <mach/sprd-audio.h>
 
@@ -52,7 +52,7 @@ enum {
 	ST_INPUT_ZERO,
 };
 
-/*AD DGMUX NUM*/
+/* AD DGMUX NUM*/
 enum {
 	ADC0_DGMUX = 0,
 	ADC1_DGMUX,
@@ -126,7 +126,7 @@ enum {
 #define HPCOEF35_L		(ARM_VB_BASE + 0x021c)
 #define HPCOEF42_H		(ARM_VB_BASE + 0x0250)
 #define HPCOEF42_L		(ARM_VB_BASE + 0x0254)
-/*DA HPF EQ4  start,  end*/
+/* DA HPF EQ4  start,  end*/
 #define HPCOEF43_H		(ARM_VB_BASE + 0x0258)
 #define HPCOEF43_L		(ARM_VB_BASE + 0x025C)
 #define HPCOEF64_H		(ARM_VB_BASE + 0x0300)
@@ -175,7 +175,7 @@ enum {
 #define VBAD2DMA_EN	 	(0)
 #define VBAD3DMA_EN		(1)
 
- /*VBIISSEL*/
+ /* VBIISSEL */
 #define VBIISSEL_AD01_PORT_SHIFT	(0)
 #define VBIISSEL_AD01_PORT_MASK		(0x7)
 #define VBIISSEL_AD23_PORT_SHIFT	(3)
@@ -184,14 +184,14 @@ enum {
 #define VBIISSEL_DA_PORT_MASK		(0x7<<VBIISSEL_DA_PORT_SHIFT)
 #define VBIISSEL_DA_LRCK		(14)
 #define VBIISSEL_AD01_LRCK		(13)
-     /*VBDATASWT*/
+     /* VBDATASWT */
 #define VBDATASWT_AD23_LRCK		(6)
-     /*DAPATHCTL*/
+     /* DAPATHCTL */
 #define VBDAPATH_DA0_ADDFM_SHIFT	(0)
 #define VBDAPATH_DA0_ADDFM_MASK		(0x3<<VBDAPATH_DA0_ADDFM_SHIFT)
 #define VBDAPATH_DA1_ADDFM_SHIFT	(2)
 #define VBDAPATH_DA1_ADDFM_MASK		(0x3<<VBDAPATH_DA1_ADDFM_SHIFT)
-     /*ADPATHCTL*/
+     /* ADPATHCTL */
 #define VBADPATH_AD0_INMUX_SHIFT    	(0)
 #define VBADPATH_AD0_INMUX_MASK    	(0x3<<VBADPATH_AD0_INMUX_SHIFT)
 #define VBADPATH_AD1_INMUX_SHIFT    	(2)
@@ -212,14 +212,14 @@ enum {
 #define VBADPATH_ST0_INMUX_MASK		(0x3<<VBADPATH_ST0_INMUX_SHIFT)
 #define VBADPATH_ST1_INMUX_SHIFT	(14)
 #define VBADPATH_ST1_INMUX_MASK		(0x3<<VBADPATH_ST1_INMUX_SHIFT)
-     /*DACSRCCTL*/
+     /* DACSRCCTL */
 #define VBDACSRC_EN			(0)
 #define VBDACSRC_CLR			(1)
 #define VBDACSRC_F1F2F3_BP		(3)
 #define VBDACSRC_F1_SEL			(4)
 #define	VBDACSRC_F0_BP			(5)
 #define VBDACSRC_F0_SEL			(6)
-     /*ADCSRCCTL*/
+     /* ADCSRCCTL */
 #define VBADCSRC_EN_01			(0)
 #define VBADCSRC_CLR_01			(1)
 #define VBADCSRC_PAUSE_01		(2)
@@ -230,28 +230,28 @@ enum {
 #define VBADCSRC_PAUSE_23		(10)
 #define VBADCSRC_F1F2F3_BP_23		(11)
 #define VBADCSRC_F1_SEL_23		(12)
-/*STCTL0 */
+/* STCTL0 */
 #define VBST_EN_0			(12)
 #define VBST_HPF_0			(11)
-/*STCTL1 */
+/* STCTL1 */
 #define VBST_HPF_1			(11)
 #define VBST_EN_1	               	(12)
 #define VBST0_SEL_CHN			(13)
 #define VBST1_SEL_CHN			(14)
-/*DAHPCTL*/
+     /* DAHPCTL */
 #define VBDAEQ_HP_REG_CLR (9)
 #define  VBDAC_EQ6_EN		(10)
 #define  VBDAC_ALC_EN		(11)
 #define  VBDAC_EQ4_EN		(12)
 #define  VBDAC_EQ4_POS_SEL (13)
 #define VBDAC_ALC_DP_T_MODE (14)
-/*ADHPCTL*/
+     /* ADHPCTL */
 #define  VBADC01_EQ6_EN		(0)
 #define  VBADC23_EQ6_EN		(1)
 #define  VBADC01EQ_HP_REG_CLR	(2)
 #define  VBADC23EQ_HP_REG_CLR	(3)
 
-    enum {
+enum {
 	VBC_LEFT = 0,
 	VBC_RIGHT = 1,
 };
@@ -264,26 +264,25 @@ enum {
 	VBC_IDX_MAX
 };
 
-const char *vbc_get_name(int vbc_idx);
+static const char *vbc_get_name(int vbc_idx);
 
-int vbc_reg_read(unsigned int reg);
-void vbc_reg_raw_write(unsigned int reg, int val);
-int vbc_reg_write(unsigned int reg, int val);
-int vbc_reg_update(unsigned int reg, int val, int mask);
-void vbc_da_buffer_clear_all(int vbc_idx);
-int vbc_enable(int enable);
-void vbc_clk_set(struct clk *clk);
-struct clk *vbc_clk_get(void);
-int vbc_power(int enable);
-int vbc_chan_enable(int enable, int vbc_idx, int chan);
-int vbc_src_need_set(int need, int vbc_idx);
-int vbc_src_need_get(int vbc_idx);
-int vbc_src_is_opened(int vbc_idx);
-int vbc_src_set(int rate, int vbc_idx);
-int vbc_codec_startup(int vbc_idx, struct snd_soc_dai *dai);
-int fm_set_vbc_buffer_size(void);
-int vbc_set_phys_addr(int vbc_switch);
-void vbc_eq_profile_close(struct snd_soc_codec *codec, int vbc_idx);
+static int vbc_reg_read(unsigned int reg);
+static void vbc_reg_raw_write(unsigned int reg, int val);
+static int vbc_reg_write(unsigned int reg, int val);
+static int vbc_reg_update(unsigned int reg, int val, int mask);
+static void vbc_da_buffer_clear_all(int vbc_idx);
+static int vbc_enable(int enable);
+static void vbc_clk_set(struct clk *clk);
+static struct clk *vbc_clk_get(void);
+static int vbc_power(int enable);
+static int vbc_chan_enable(int enable, int vbc_idx, int chan);
+static int vbc_src_need_set(int need, int vbc_idx);
+static int vbc_src_need_get(int vbc_idx);
+static int vbc_src_is_opened(int vbc_idx);
+static int vbc_src_set(int rate, int vbc_idx);
+static int vbc_codec_startup(int vbc_idx, struct snd_soc_dai *dai);
+static int fm_set_vbc_buffer_size(void);
+static int vbc_set_phys_addr(int vbc_switch);
 
 static inline void vbc_safe_mem_release(void **free)
 {
@@ -295,4 +294,4 @@ static inline void vbc_safe_mem_release(void **free)
 
 #define vbc_safe_kfree(p) vbc_safe_mem_release((void**)p)
 
-#endif /* __VBC_R2P0_COMM_H */
+#endif /* __VBC_COMM_H */
