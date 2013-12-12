@@ -75,4 +75,5 @@ obj-$(CONFIG_TOUCHSCREEN_TPS6507X)	+= tps6507x-ts.o
 obj-$(CONFIG_TOUCHSCREEN_FOCALTECH)     += focaltech/
 obj-$(CONFIG_TOUCHSCREEN_MMS136)	+= mms136_ts.o
 obj-$(CONFIG_TOUCHSCREEN_IST30XX) += ist30xx.o ist30xx_update.o ist30xx_factory.o ist30xx_tracking.o ist30xx_misc.o ist30xx_sys.o
+obj-$(CONFIG_TOUCHSCREEN_IST30XXB) += ist30xxb.o ist30xxb_update.o ist30xxb_tracking.o ist30xxb_misc.o ist30xxb_sys.o
 obj-$(CONFIG_TOUCHSCREEN_GOODIX)    += goodix/
