@@ -39,6 +39,7 @@
  */
 #include "dwc_otg_os_dep.h"
 #include "dwc_otg_core_if.h"
+#include <linux/usb/gadget.h>
 
 /* Type declarations */
 struct dwc_otg_pcd;
@@ -66,6 +67,8 @@ typedef struct dwc_otg_device {
 	/** Flag to indicate whether the common IRQ handler is installed. */
 	uint8_t common_irq_installed;
 
+	/**For host charge pump external boost mode. */
+	 struct sprd_boost_platform_data platform_data;
 } dwc_otg_device_t;
 
 /*We must clear S3C24XX_EINTPEND external interrupt register 

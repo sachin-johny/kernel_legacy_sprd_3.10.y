@@ -38,6 +38,7 @@
 #include "usb.h"
 #include "dwc_otg_cil.h"
 #include "dwc_otg_pcd_if.h"
+#include <linux/usb/ch9.h>
 struct cfiobject;
 
 /**

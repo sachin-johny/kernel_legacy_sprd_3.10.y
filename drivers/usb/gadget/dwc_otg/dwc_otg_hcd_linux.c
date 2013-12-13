@@ -60,6 +60,9 @@
 
 #include <linux/usb.h>
 #include <linux/usb/hcd.h>
+#ifdef CONFIG_USB_PAD_EXTERNAL_BOOST
+#include <linux/usb/gadget.h>
+#endif
 
 #include "dwc_otg_hcd_if.h"
 #include "dwc_otg_dbg.h"
@@ -380,6 +383,9 @@ static int32_t otg_cable_connect_fun(void *dev)
 void usb_otg_cable_detect_work(void *p)
 {
 	dwc_otg_device_t *otg_dev = p;
+#ifdef CONFIG_USB_PAD_EXTERNAL_BOOST
+	 struct sprd_boost_platform_data *platform_data =&otg_dev->platform_data;
+#endif
 	int value = 0;
 	int vbus_irq;
 	
@@ -389,14 +395,22 @@ void usb_otg_cable_detect_work(void *p)
 		pr_info("usb otg cable detect work plug out\n");
 
 		otg_cable_disconnect(otg_dev->core_if);
-		charge_pump_set(0);
+#ifndef CONFIG_USB_PAD_EXTERNAL_BOOST
+                charge_pump_set(0);
+#else
+		charge_pump_set(platform_data->gpio_boost,0);
+#endif
 		udc_disable();
 		mdelay(10);//charge pump need time to turn off
 		enable_irq(vbus_irq);
 	} else {
 		pr_info("usb otg cable detect work plug in\n");
 
-		charge_pump_set(1);
+#ifndef CONFIG_USB_PAD_EXTERNAL_BOOST
+                charge_pump_set(1);
+#else
+		charge_pump_set(platform_data->gpio_boost,1);
+#endif
 		udc_enable();
 		dwc_otg_core_fore_host(otg_dev->core_if);
 		dwc_otg_core_init(otg_dev->core_if);

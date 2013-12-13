@@ -232,6 +232,7 @@ void usb_set_vbus_irq_type(int irq, int irq_type)
 }
 
 #ifndef DWC_DEVICE_ONLY
+#ifndef CONFIG_USB_PAD_EXTERNAL_BOOST
 void charge_pump_set(int state)
 {
 	struct regulator *usb_regulator = NULL;
@@ -249,6 +250,14 @@ void charge_pump_set(int state)
 		regulator_put(usb_regulator);
 	}
 }
+#else
+void charge_pump_set(int gpio,int state)
+{
+        gpio_request(gpio, "chg_ pump");
+        gpio_direction_output(gpio,1);
+        gpio_set_value(gpio, state);
+}
+#endif
 
 int usb_alloc_id_irq(void)
 {

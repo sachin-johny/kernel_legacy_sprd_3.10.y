@@ -35,6 +35,7 @@
 #include <linux/pstore_ram.h>
 #include <linux/sprd_iommu.h>
 #include <linux/headset_sprd.h>
+#include <linux/usb/gadget.h>
 
 #include "devices.h"
 
@@ -312,12 +313,16 @@ static struct resource sprd_otg_resource[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+static struct sprd_boost_platform_data sprd_otg_pdata = {
+	.gpio_boost = HEADSET_SWITCH_GPIO,
+};
 
 struct platform_device sprd_otg_device = {
 	.name		= "dwc_otg",
 	.id		= 0,
 	.num_resources	= ARRAY_SIZE(sprd_otg_resource),
 	.resource	= sprd_otg_resource,
+	.dev = { .platform_data = &sprd_otg_pdata },
 };
 
 /*if the backlight is driven by pwm, please config the pwm info

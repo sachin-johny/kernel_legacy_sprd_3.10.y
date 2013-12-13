@@ -5,7 +5,11 @@ extern int usb_alloc_vbus_irq(void);
 extern void usb_free_vbus_irq(int irq);
 extern int usb_get_vbus_irq(void);
 extern int usb_get_vbus_state(void);
+#ifndef CONFIG_USB_PAD_EXTERNAL_BOOST
 extern void charge_pump_set(int state);
+#else
+extern void charge_pump_set(int gpio,int state);
+#endif
 extern void udc_enable(void);
 extern void udc_disable(void);
 extern int usb_alloc_id_irq(void);
