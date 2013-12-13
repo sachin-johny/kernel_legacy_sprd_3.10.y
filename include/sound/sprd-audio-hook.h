@@ -58,6 +58,7 @@ struct sprd_audio_ext_hook {
 	sprd_audio_hook_func ext_fm_ctrl;
 };
 
-extern struct sprd_audio_ext_hook sprd_audio_hook;
+int sprd_ext_hook_register(struct sprd_audio_ext_hook *hook);
+int sprd_ext_hook_unregister(struct sprd_audio_ext_hook *hook);
 
 #endif /* __LINUX_SND_SOC_SPRD_AUDIO_HOOK_H */
