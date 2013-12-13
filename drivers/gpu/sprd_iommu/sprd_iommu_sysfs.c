@@ -52,6 +52,7 @@ static int pgt_show(struct seq_file *s, void *unused)
 	struct sprd_iommu_dev *iommu_dev = (struct sprd_iommu_dev *)s->private;
 	int i=0;
 	seq_printf(s,"iommu_name:%s  pgt_base:0x%lx  pgt_size:0x%x\n",iommu_dev->init_data->name,iommu_dev->init_data->pgt_base,iommu_dev->init_data->pgt_size);
+	iommu_dev->ops->enable(iommu_dev);
 	mutex_lock(&iommu_dev->mutex_pgt);
 	for(i=0;i<(iommu_dev->init_data->pgt_size>>2);i++)
 	{
@@ -64,6 +65,7 @@ static int pgt_show(struct seq_file *s, void *unused)
 		seq_printf(s,"%8x,",*(((uint32_t*)iommu_dev->init_data->pgt_base)+i));
 	}
 	mutex_unlock(&iommu_dev->mutex_pgt);
+	iommu_dev->ops->disable(iommu_dev);
 	return 0;
 }
 

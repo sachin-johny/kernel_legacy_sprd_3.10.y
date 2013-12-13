@@ -37,6 +37,8 @@
 #include <mach/globalregs.h>
 #include <mach/sci.h>
 
+#include <linux/sprd_iommu.h>
+
 #define VSP_MINOR MISC_DYNAMIC_MINOR
 #define VSP_AQUIRE_TIMEOUT_MS 500
 #define VSP_INIT_TIMEOUT_MS 200
@@ -406,6 +408,12 @@ by clk_get()!\n", "clk_vsp", name_parent);
     vsp_fp->vsp_int_status = 0;
     vsp_fp->condition_work = 0;
 
+#if defined(CONFIG_SPRD_IOMMU)
+	{
+		sprd_iommu_module_enable(IOMMU_MM);
+	}
+#endif
+
     printk(KERN_INFO "vsp_open %p\n", vsp_fp);
     return 0;
 errout:
@@ -423,6 +431,12 @@ static int vsp_release (struct inode *inode, struct file *filp)
 {
     int ret;
     struct vsp_fh *vsp_fp = filp->private_data;
+
+#if defined(CONFIG_SPRD_IOMMU)
+	{
+		sprd_iommu_module_disable(IOMMU_MM);
+	}
+#endif
 
     if (vsp_fp->is_clock_enabled) {
         printk(KERN_ERR "error occured and close clock \n");

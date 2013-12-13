@@ -49,6 +49,8 @@
 #include <video/sensor_drv_k.h>
 #include "sensor_drv_sprd.h"
 
+#include <linux/sprd_iommu.h>
+
 /* FIXME: Move to camera device platform data later */
 /*#if defined(CONFIG_ARCH_SC8825)*/
 
@@ -253,7 +255,17 @@ int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 			printk("sensor_is_clk_mm_i_eb: enable fail.\n");
 			return -1;
 		}
+#if defined(CONFIG_SPRD_IOMMU)
+		{
+			sprd_iommu_module_enable(IOMMU_MM);
+		}
+#endif
 	} else {
+#if defined(CONFIG_SPRD_IOMMU)
+		{
+			sprd_iommu_module_disable(IOMMU_MM);
+		}
+#endif
 		clk_disable(s_p_sensor_mod->sensor_clk_mm_i);
 		clk_put(s_p_sensor_mod->sensor_clk_mm_i);
 		s_p_sensor_mod->sensor_clk_mm_i = NULL;
