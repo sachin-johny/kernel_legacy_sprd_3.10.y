@@ -148,6 +148,11 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 ssize_t sec_usb_show_attrs(struct device *dev,
 				struct device_attribute *attr, char *buf);
 
+ssize_t sec_usb_store_attrs(
+					struct device *dev,
+					struct device_attribute *attr,
+					const char *buf, size_t count);
+
 ssize_t sec_bat_store_attrs(struct device *dev,
 				struct device_attribute *attr,
 				const char *buf, size_t count);
@@ -156,6 +161,7 @@ ssize_t sec_bat_store_attrs(struct device *dev,
 {									\
 	.attr = {.name = #_name, .mode = 0664},	\
 	.show = sec_usb_show_attrs,					\
+	.store = sec_usb_store_attrs,				\
 }
 
 
