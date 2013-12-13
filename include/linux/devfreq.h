@@ -222,11 +222,11 @@ static inline void dfs_request_bw(int req_bw)
 }
 inline int devfreq_notifier_register(struct devfreq_dbs *handler)
 {
-	return;
+	return 0;
 }
 inline int devfreq_notifier_unregister(struct devfreq_dbs *handler)
 {
-	return;
+	return 0;
 }
 #endif
 /**

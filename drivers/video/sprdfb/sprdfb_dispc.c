@@ -17,7 +17,9 @@
 #include <linux/io.h>
 #include <linux/fb.h>
 #include <linux/delay.h>
+#ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
 #include <linux/devfreq.h>
+#endif
 #include <linux/irqreturn.h>
 #include <linux/interrupt.h>
 //#include <mach/hardware.h>
