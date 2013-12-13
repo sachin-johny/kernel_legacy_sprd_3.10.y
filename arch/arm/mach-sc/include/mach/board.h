@@ -131,7 +131,7 @@
 					#endif
 				#endif
 
-				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
+				#define SPRD_ION_SIZE	(1*1024*1024) //(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
 			#elif defined(CONFIG_CAMERA_3M)
 				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
 					#if defined(CONFIG_CAMERA_ZSL)

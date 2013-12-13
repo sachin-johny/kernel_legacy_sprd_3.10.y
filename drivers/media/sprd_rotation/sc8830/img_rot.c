@@ -28,7 +28,7 @@
 #include <linux/kthread.h>
 #include "img_rot.h"
 #include <linux/delay.h>
-#include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
+#include "../../sprd_dcam/sc8830/dcam_drv.h"
 
 #define ROT_TIMEOUT 5000/*ms*/
 #define ROTATION_MINOR MISC_DYNAMIC_MINOR

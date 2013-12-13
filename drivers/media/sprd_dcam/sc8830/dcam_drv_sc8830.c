@@ -24,7 +24,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 
-#include "dcam_drv_sc8830.h"
+#include "dcam_drv.h"
 #include "gen_scale_coef.h"
 
 

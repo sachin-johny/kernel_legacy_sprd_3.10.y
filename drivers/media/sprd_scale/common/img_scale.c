@@ -21,7 +21,7 @@
 #include <video/sprd_scale_k.h>
 #include "img_scale.h"
 #include <linux/kthread.h>
-#include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
+#include "dcam_drv.h"
 
 #define PARAM_SIZE 128
 #define SCALE_USER_MAX 4
