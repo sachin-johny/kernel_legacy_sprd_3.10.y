@@ -19,7 +19,7 @@
 #include <mach/sci.h>
 #include "rot_drv.h"
 #include "sc8830_reg_rot.h"
-#include "../../sprd_dcam/sc8830/dcam_drv_sc8830.h"
+#include "../../sprd_dcam/sc8830/dcam_drv.h"
 
 #define ALGIN_FOUR 0x03
 #define IO_PTR    volatile void __iomem *

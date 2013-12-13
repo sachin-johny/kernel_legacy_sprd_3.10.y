@@ -20,7 +20,7 @@
 #include <mach/hardware.h>
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
-#include "../../sprd_dcam/sc8830/dcam_drv.h"
+#include "../../sprd_dcam/scx15/dcam_drv.h"
 
 /*#define SCALE_DRV_DEBUG*/
 #define SCALE_LOWEST_ADDR 0x800
@@ -220,8 +220,9 @@ int32_t scale_start(void)
 	_scale_reg_trace();
 
 	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
-	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
 	atomic_inc(&g_path->start_flag);
+	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
+	SCALE_TRACE("SCALE DRV: start done %d \n", atomic_read(&g_path->start_flag));
 	return SCALE_RTN_SUCCESS;
 
 exit:

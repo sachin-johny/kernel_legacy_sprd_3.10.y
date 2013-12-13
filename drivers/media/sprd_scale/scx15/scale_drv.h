@@ -10,14 +10,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
 #ifndef _SCALE_DRV_H_
 #define _SCALE_DRV_H_
 
 #include <linux/types.h>
-#include "sc8825_reg_scale.h"
+#include "reg_scale.h"
 
-//#define SCALE_DEBUG
+/*#define SCALE_DEBUG*/
 
 #ifdef SCALE_DEBUG
 	#define SCALE_TRACE             printk
@@ -43,9 +42,9 @@ enum scale_drv_rtn {
 	SCALE_RTN_SUB_SAMPLE_ERR,
 	SCALE_RTN_ADDR_ERR,
 	SCALE_RTN_NO_MEM,
-	SCALE_RTN_GEN_COEFF_ERR,    
-	SCALE_RTN_SRC_ERR,  
-	SCALE_RTN_ENDIAN_ERR,  
+	SCALE_RTN_GEN_COEFF_ERR,
+	SCALE_RTN_SRC_ERR,
+	SCALE_RTN_ENDIAN_ERR,
 	SCALE_RTN_MAX
 };
 
@@ -81,6 +80,8 @@ enum scale_cfg_id {
 	SCALE_CONTINUE,
 	SCALE_IS_DONE,
 	SCALE_STOP,
+	SCALE_INIT,
+	SCALE_DEINIT,
 	SCALE_CFG_ID_E_MAX
 };
 
@@ -101,15 +102,22 @@ enum scale_data_endian {
 	SCALE_ENDIAN_LITTLE,
 	SCALE_ENDIAN_HALFBIG,
 	SCALE_ENDIAN_HALFLITTLE,
-	SCALE_ENDIAN_MAX        
+	SCALE_ENDIAN_MAX
 };
 
 enum scle_mode {
 	SCALE_MODE_NORMAL = 0,
 	SCALE_MODE_SLICE,
+	SCALE_MODE_SLICE_READDR,
 	SCALE_MODE_MAX
 };
 
+enum scale_process {
+	SCALE_PROCESS_SUCCESS = 0,
+	SCALE_PROCESS_EXIT = -1,
+	SCALE_PROCESS_SYS_BUSY = -2,
+	SCALE_PROCESS_MAX = 0xFF
+};
 struct scale_endian_sel {
 	uint8_t               y_endian;
 	uint8_t               uv_endian;
@@ -142,21 +150,22 @@ struct scale_frame {
 	uint32_t                fid;
 	uint32_t                width;
 	uint32_t                height;
+	uint32_t                height_uv;
 	uint32_t                yaddr;
 	uint32_t                uaddr;
 	uint32_t                vaddr;
 	struct scale_endian_sel endian;
+	enum scale_process scale_result;
 };
 
 typedef void (*scale_isr_func)(struct scale_frame* frame, void* u_data);
-int32_t    scale_module_en(void);
-int32_t    scale_module_dis(void);
-int32_t    scale_reset(void);
-int32_t    scale_set_clk(enum scale_clk_sel clk_sel);
-int32_t    scale_start(void);
-int32_t    scale_stop(void);
-int32_t    scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_data);
-int32_t    scale_cfg(enum scale_cfg_id id, void *param);
-int32_t    scale_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
-#endif //_SCALE_DRV_H_
-
+int32_t scale_module_en(void);
+int32_t scale_module_dis(void);
+int  scale_coeff_alloc(void);
+void  scale_coeff_free(void);
+int32_t scale_start(void);
+int32_t scale_stop(void);
+int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_data);
+int32_t scale_cfg(enum scale_cfg_id id, void *param);
+int32_t scale_read_registers(uint32_t* reg_buf, uint32_t *buf_len);
+#endif
