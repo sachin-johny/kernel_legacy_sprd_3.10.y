@@ -58,6 +58,10 @@
 #include <mach/gpio-mint.h>
 #endif
 
+#ifdef  CONFIG_MACH_SP6821A
+#include <mach/gpio-sp6821a.h>
+#endif
+
 #ifdef  CONFIG_MACH_SS7710G
 #include <mach/gpio-ss7710g.h>
 #endif

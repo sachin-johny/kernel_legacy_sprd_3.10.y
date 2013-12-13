@@ -26,6 +26,7 @@ sprdboard-$(CONFIG_MACH_AMAZING)  += board-amazing/
 sprdboard-$(CONFIG_MACH_KYLETD)  += board-kyletd/
 sprdboard-$(CONFIG_MACH_KYLEW)  += board-kylew/
 sprdboard-$(CONFIG_MACH_MINT)  += board-mint/
+sprdboard-$(CONFIG_MACH_SP6821A)  += board-sp6821a/
 sprdboard-$(CONFIG_MACH_SP8810EB) += board-sp8810eb/
 sprdboard-$(CONFIG_MACH_Z788)  += board-z788/
 sprdboard-$(CONFIG_MACH_SP7710G_OPENPHONE)  += board-sp7710g_openphone/
