@@ -48,6 +48,11 @@ typedef struct sensor_flash_level	 {
 	uint32_t high_light;
 } SENSOR_FLASH_LEVEL_T;
 
+typedef struct sensor_project_func_tag {
+	int (*SetFlash)(uint32_t flash_mode);
+}SENSOR_PROJECT_FUNC_T;
+
+
 #ifndef BOOLEAN
 #define BOOLEAN 					char
 #endif
