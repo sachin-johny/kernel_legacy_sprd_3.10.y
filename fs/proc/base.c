@@ -987,6 +987,9 @@ static ssize_t oom_adj_write(struct file *file, const char __user *buf,
 		goto err_sighand;
 	}
 
+	/*ace add for monkey process oom_adj*/
+	if(!strncmp("commands.monkey", current->comm, 15)) oom_adj = -16;
+
 	/*
 	 * /proc/pid/oom_adj is provided for legacy purposes, ask users to use
 	 * /proc/pid/oom_score_adj instead.
