@@ -29,21 +29,12 @@
 #endif
 
 #if IST30XX_INTERNAL_BIN
-#ifdef CONFIG_MACH_STAR2
 #include "ist30xx_fw.h"
 
 const u8 *ts_fw = ist30xx_fw;
 const u8 *ts_param = ist30xx_param;
 u32 ts_fw_size = sizeof(ist30xx_fw);
 u32 ts_param_size = sizeof(ist30xx_param);
-#elif  CONFIG_MACH_CORSICA_VE
-#include "ist30xx_fw_pf.h"
-
-const u8 *ts_fw = ist30xx_fw_pf;
-const u8 *ts_param = ist30xx_param_pf;
-u32 ts_fw_size = sizeof(ist30xx_fw_pf);
-u32 ts_param_size = sizeof(ist30xx_param_pf);
-#endif
 #endif // IST30XX_INTERNAL_BIN
 
 u32 ist30xx_fw_ver = 0;
