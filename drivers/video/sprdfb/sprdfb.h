@@ -143,6 +143,9 @@ struct sprdfb_device {
 #endif
 #endif
 
+	uint32_t logo_buffer_addr_v;
+	uint32_t logo_buffer_size;
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif

@@ -23,6 +23,7 @@
 //#include <mach/hardware.h>
 //#include <mach/globalregs.h>
 //#include <mach/irqs.h>
+#include <asm/cacheflush.h>
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb_panel.h"
 #include "sprdfb.h"
@@ -1172,6 +1173,12 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 ERROR_REFRESH:
 	up(&dev->refresh_lock);
 
+	if(0 != dev->logo_buffer_addr_v){
+		printk("sprdfb: free logo proc buffer!\n");
+		free_pages(dev->logo_buffer_addr_v, get_order(dev->logo_buffer_size));
+		dev->logo_buffer_addr_v = 0;
+	}
+
 	pr_debug("DISPC_CTRL: 0x%x\n", dispc_read(DISPC_CTRL));
 	pr_debug("DISPC_SIZE_XY: 0x%x\n", dispc_read(DISPC_SIZE_XY));
 
@@ -1973,20 +1980,21 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 	uint32_t logo_dst_p = 0;//use the second frame buffer ,physical
 	uint32_t logo_size = 0;// should be rgb565
 
-	pr_debug("%s[%d] enter.\n",__func__,__LINE__);
+	pr_debug("sprdfb: %s[%d] enter.\n",__func__,__LINE__);
 
 	if(dev == NULL) {
-		printk("%s[%d]: dev == NULL, return without process logo!!\n",__func__,__LINE__);
+		printk("sprdfb: %s[%d]: dev == NULL, return without process logo!!\n",__func__,__LINE__);
 		return;
 	}
 
 	if(lcd_base_from_uboot == 0) {
-		printk("%s[%d]: lcd_base_from_uboot == 0, return without process logo!!\n",__func__,__LINE__);
+		printk("sprdfb: %s[%d]: lcd_base_from_uboot == 0, return without process logo!!\n",__func__,__LINE__);
 		return;
 	}
 
-#define USE_OVERLAY_BUFF
+//#define USE_OVERLAY_BUFF
 	logo_size = dev->panel->width * dev->panel->height * 2;// should be rgb565
+#if 0
 #ifndef USE_OVERLAY_BUFF
 	kernel_fb_size = dev->panel->width * dev->panel->height * (dev->bpp / 8);
 	kernel_fb_size = 0;
@@ -1995,6 +2003,20 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 #else
 	logo_dst_p = SPRD_ION_OVERLAY_BASE-logo_size;//use overlay frame buffer
 	logo_dst_v =  (uint32_t)ioremap(logo_dst_p, logo_size);
+#endif
+#else
+	dev->logo_buffer_size = logo_size;
+	dev->logo_buffer_addr_v = __get_free_pages(GFP_ATOMIC | __GFP_ZERO , get_order(logo_size));
+	if (!dev->logo_buffer_addr_v) {
+		printk(KERN_ERR "sprdfb: %s Failed to allocate logo proc buffer\n", __FUNCTION__);
+		return;
+	}
+	printk(KERN_INFO "sprdfb:  got %d bytes logo proc buffer at 0x%lx\n", logo_size,
+		dev->logo_buffer_addr_v);
+
+	logo_dst_v = dev->logo_buffer_addr_v;
+	logo_dst_p = __pa(dev->logo_buffer_addr_v);
+
 #endif
 	logo_src_v =  (uint32_t)ioremap(lcd_base_from_uboot, logo_size);
 
@@ -2008,9 +2030,13 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 	printk("%s[%d]: logo_dst_p:0x%08x,logo_dst_v:0x%08x\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
 	memcpy(logo_dst_v, logo_src_v, logo_size);
 
+	dmac_flush_range(logo_dst_v, logo_dst_v + logo_size);
+
 	iounmap(logo_src_v);
+#if 0
 #ifdef USE_OVERLAY_BUFF
 	iounmap(logo_dst_v);
+#endif
 #endif
 	//dispc_print_osd_config(__func__,__LINE__);
 	sprdfb_dispc_logo_config(dev,logo_dst_p);

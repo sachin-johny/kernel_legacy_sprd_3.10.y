@@ -406,6 +406,9 @@ static int sprdfb_probe(struct platform_device *pdev)
 		dev->ctrl = &sprdfb_lcdc_ctrl;
 #endif
 	}
+
+	dev->logo_buffer_addr_v = 0;
+
 	if(sprdfb_panel_get(dev)){
 		dev->panel_ready = true;
 		dev->ctrl->logo_proc(dev);
