@@ -446,7 +446,7 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 	}
 
 	while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5)){
-		if(0x0 == ++i%10000){
+		if(0x0 == ++i%500000){
 			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
 		}
 	}

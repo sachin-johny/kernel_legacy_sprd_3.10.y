@@ -522,7 +522,7 @@ static void dispc_run(struct sprdfb_device *dev)
 			local_irq_save(flags);
 			dispc_stop(dev);// stop dispc first , or the vactive will never be set to zero
 			while(dispc_read(DISPC_DPI_STS1) & BIT(16)){// wait until frame send over
-				if(0x0 == ++i%10000){
+				if(0x0 == ++i%500000){
 					printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
 				}
 			}
@@ -627,7 +627,7 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
 		}
 
-		pr_debug("sprdfb:[%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
+		printk("sprdfb:[%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
 	}
 
 }
@@ -1770,7 +1770,7 @@ static void dispc_stop_for_feature(struct sprdfb_device *dev)
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		dispc_stop(dev);
 		while(dispc_read(DISPC_DPI_STS1) & BIT(16)){
-			if(0x0 == ++i%10000){
+			if(0x0 == ++i%500000){
 				printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
 			}
 		}
@@ -1886,7 +1886,7 @@ static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 		dispc_set_bits(BIT(4), DISPC_DPI_CTRL);//sw
 		dispc_clear_bits(BIT(4), DISPC_CTRL);//stop running
 		while(dispc_read(DISPC_DPI_STS1) & BIT(16)){
-			if(0x0 == ++i%10000){
+			if(0x0 == ++i%500000){
 				printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
 			}
 		}
