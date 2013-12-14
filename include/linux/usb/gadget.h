@@ -179,10 +179,12 @@ struct usb_ep {
 };
 
 /**
-* for otg host external boost
+* for otg host GPIO use
 */
- struct sprd_boost_platform_data {
+ struct sprd_usb_platform_data {
         int gpio_boost;
+	int gpio_chgdet;
+	int gpio_otgdet;
 };
 /*-------------------------------------------------------------------------*/
 

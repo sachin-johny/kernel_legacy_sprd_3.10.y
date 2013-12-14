@@ -659,9 +659,7 @@ static int dwc_otg_driver_probe(
 {
 	int retval = 0;
 	dwc_otg_device_t *dwc_otg_device;
-#ifdef CONFIG_USB_PAD_EXTERNAL_BOOST
-	struct sprd_boost_platform_data *pdata= _dev->dev.platform_data;
-#endif
+	struct sprd_usb_platform_data *pdata= _dev->dev.platform_data;
 	int irq;
 
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
@@ -698,9 +696,7 @@ static int dwc_otg_driver_probe(
 	 * Device structure.
 	 */
 
-#ifdef CONFIG_USB_PAD_EXTERNAL_BOOST
 	memcpy(&dwc_otg_device->platform_data,pdata,sizeof(pdata));
-#endif
 	platform_set_drvdata(_dev, dwc_otg_device);
 
 	dev_dbg(&_dev->dev, "dwc_otg_device=0x%p\n", dwc_otg_device);

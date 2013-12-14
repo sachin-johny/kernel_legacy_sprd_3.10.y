@@ -1375,6 +1375,7 @@ int pcd_init(
 	)
 {
 	dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
+	struct sprd_usb_platform_data *pdata= _dev->dev.platform_data;
 	int retval = 0;
 	int irq;
 	int plug_irq;
@@ -1426,7 +1427,7 @@ int pcd_init(
 	 * setup usb cable detect interupt
 	 */
 	{
-		plug_irq = usb_alloc_vbus_irq();
+		plug_irq = usb_alloc_vbus_irq(pdata->gpio_chgdet);
 		if (plug_irq < 0) {
 			pr_warning("cannot alloc vbus irq\n");
 			return -EBUSY;
@@ -1481,6 +1482,7 @@ struct platform_device *_dev
 	)
 {
 	dwc_otg_device_t *otg_dev = platform_get_drvdata(_dev);
+	struct sprd_usb_platform_data *pdata= _dev->dev.platform_data;
 	dwc_otg_pcd_t *pcd = otg_dev->pcd;
 	int plug_irq;
 
@@ -1493,7 +1495,7 @@ struct platform_device *_dev
 	 */
 	free_irq(platform_get_irq(_dev, 0), pcd);
 	plug_irq = usb_get_vbus_irq();
-	usb_free_vbus_irq(plug_irq);
+	usb_free_vbus_irq(plug_irq,pdata->gpio_chgdet);
 	dwc_otg_pcd_remove(pcd);
 	destroy_workqueue(gadget_wrapper->detect_wq);
 	destroy_workqueue(gadget_wrapper->cable2pc_wq);

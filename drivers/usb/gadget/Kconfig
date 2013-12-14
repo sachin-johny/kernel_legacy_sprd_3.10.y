@@ -1021,12 +1021,11 @@ config SPRD_USB_DEVICE_ONLY
         help
            the chip can only support device mode, do not support otg.
 
-config USB_PAD_EXTERNAL_BOOST
-	boolean "usb host boost type"
+config SHARK_PAD_HW_V102
+	boolean "usb pad hardware version"
         depends on USB_GADGET_SPRD_DWC
 
 	help
-	   usb pad use external boost type.
-
+	   usb pad hardware version.
 
 endif # USB_GADGET

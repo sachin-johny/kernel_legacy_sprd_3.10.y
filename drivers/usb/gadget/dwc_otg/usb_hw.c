@@ -35,6 +35,10 @@
 #define  USB_CLK_NAME    "clk_usb_ref"
 #endif
 
+static int    gpio_vbus =0xffffffff ;
+static int    gpio_id=0xffffffff;
+
+#define GPIO_INVALID 0xffffffff
 
 extern int in_calibration(void);
 
@@ -184,28 +188,29 @@ void udc_disable(void)
 }
 
 
-int usb_alloc_vbus_irq(void)
+int usb_alloc_vbus_irq(int gpio)
 {
 	int irq;
 
-	gpio_request(EIC_CHARGER_DETECT,"sprd_ogt");
-	gpio_direction_input(EIC_CHARGER_DETECT);
-	irq = gpio_to_irq(EIC_CHARGER_DETECT);
+	gpio_request(gpio,"sprd_ogt");
+	gpio_direction_input(gpio);
+	irq = gpio_to_irq(gpio);
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+	gpio_vbus= gpio;
 
 	return irq;
 }
 
-void usb_free_vbus_irq(int irq)
+void usb_free_vbus_irq(int irq,int gpio)
 {
-	gpio_free(EIC_CHARGER_DETECT);
+	gpio_free(gpio);
 }
 
 int usb_get_vbus_irq(void)
 {
 	int value;
 
-	value = gpio_to_irq(EIC_CHARGER_DETECT);
+	value = gpio_to_irq(gpio_vbus);
 
 	return value;
 }
@@ -214,7 +219,7 @@ int usb_get_vbus_state(void)
 	int value;
 	if(in_calibration())
 		return 1;
-	value = gpio_get_value(EIC_CHARGER_DETECT);
+	value = gpio_get_value(gpio_vbus);
 	return !!value;
 }
 
@@ -232,57 +237,59 @@ void usb_set_vbus_irq_type(int irq, int irq_type)
 }
 
 #ifndef DWC_DEVICE_ONLY
-#ifndef CONFIG_USB_PAD_EXTERNAL_BOOST
-void charge_pump_set(int state)
+void charge_pump_set(int gpio,int state)
 {
 	struct regulator *usb_regulator = NULL;
 #define  USB_CHG_PUMP_NAME	"chg_pump"
 
-	if(usb_regulator == NULL){
-		usb_regulator = regulator_get(NULL,USB_CHG_PUMP_NAME);
-	}
-	if(usb_regulator){
-		if(state){
-			regulator_enable(usb_regulator);
-		}else{
-			regulator_disable(usb_regulator);
+        if( GPIO_INVALID !=gpio)
+        {
+		gpio_request(gpio, "chg_ pump");
+		gpio_direction_output(gpio,1);
+		gpio_set_value(gpio, state);
+        }
+	else
+	{
+		if(usb_regulator == NULL){
+			usb_regulator = regulator_get(NULL,USB_CHG_PUMP_NAME);
 		}
-		regulator_put(usb_regulator);
+		if(usb_regulator){
+			if(state){
+				regulator_enable(usb_regulator);
+			}else{
+				regulator_disable(usb_regulator);
+			}
+			regulator_put(usb_regulator);
+		}
 	}
 }
-#else
-void charge_pump_set(int gpio,int state)
-{
-        gpio_request(gpio, "chg_ pump");
-        gpio_direction_output(gpio,1);
-        gpio_set_value(gpio, state);
-}
-#endif
 
-int usb_alloc_id_irq(void)
+int usb_alloc_id_irq(int gpio)
 {
 	int irq;
 
-	gpio_request(USB_OTG_CABLE_DETECT,"USB OTG CABLE");
-	gpio_direction_input(USB_OTG_CABLE_DETECT);
-	irq = gpio_to_irq(USB_OTG_CABLE_DETECT);
+	gpio_request(gpio,"USB OTG CABLE");
+	gpio_direction_input(gpio);
+	irq = gpio_to_irq(gpio);
 #if defined(CONFIG_MACH_SPX35EA)
 	/**EA board H/W doesn't support OTG**/
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
 #endif
+	gpio_id=gpio;
+
 	return irq;
 }
 
-void usb_free_id_irq(int irq)
+void usb_free_id_irq(int irq,int gpio)
 {
-	gpio_free(USB_OTG_CABLE_DETECT);
+	gpio_free(gpio);
 }
 
 int usb_get_id_irq(void)
 {
 	int value;
 
-	value = gpio_to_irq(USB_OTG_CABLE_DETECT);
+	value = gpio_to_irq(gpio_id);
 
 	return value;
 }
@@ -293,7 +300,7 @@ int usb_get_id_state(void)
 	return 1;
 #else
 	int value;
-	value = gpio_get_value(USB_OTG_CABLE_DETECT);
+	value = gpio_get_value(gpio_id);
 	return !!value;
 #endif
 }

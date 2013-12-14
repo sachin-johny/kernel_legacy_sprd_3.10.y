@@ -318,8 +318,15 @@ static struct resource sprd_otg_resource[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
-static struct sprd_boost_platform_data sprd_otg_pdata = {
+static struct sprd_usb_platform_data sprd_otg_pdata = {
 	.gpio_boost = HEADSET_SWITCH_GPIO,
+#ifdef  CONFIG_SHARK_PAD_HW_V102
+	.gpio_chgdet = EIC_POWER_PBINT2,
+#else
+        .gpio_chgdet = EIC_CHARGER_DETECT,
+#endif
+	.gpio_otgdet = USB_OTG_CABLE_DETECT,
+
 };
 
 struct platform_device sprd_otg_device = {
