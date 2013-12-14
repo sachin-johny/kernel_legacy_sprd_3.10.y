@@ -411,7 +411,7 @@ static int sprd_asoc_remove(struct platform_device *pdev)
 static void sprd_asoc_shutdown(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
-	memset(&board, 0, sizeof(board));
+	memset(&board.func, 0, sizeof(board.func));
 	board_ext_control(&card->dapm, 0, BOARD_FUNC_MAX);
 }
 
