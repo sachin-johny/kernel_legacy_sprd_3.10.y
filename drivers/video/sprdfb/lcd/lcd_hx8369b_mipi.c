@@ -17,7 +17,7 @@
 #include <linux/kernel.h>
 #include <linux/bug.h>
 #include <linux/delay.h>
-#include "sprdfb_panel.h"
+#include "../sprdfb_panel.h"
 #include <mach/gpio.h>
 
 #define  LCD_DEBUG

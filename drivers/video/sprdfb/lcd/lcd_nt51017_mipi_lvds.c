@@ -22,7 +22,7 @@
 #include <linux/i2c.h>
 //#include <include/asm/gpio.h>
 //#include "sp8830_i2c.h"
-#include "sprdfb_panel.h"
+#include "../sprdfb_panel.h"
 
 //#define printk printf
 

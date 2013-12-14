@@ -13,7 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
-#include "sprdfb_panel.h"
+#include "../sprdfb_panel.h"
 
 
 static int32_t hx8363_init(struct panel_spec *self)
