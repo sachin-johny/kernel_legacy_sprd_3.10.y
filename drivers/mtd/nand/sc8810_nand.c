@@ -1029,6 +1029,10 @@ static void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *this, u
 				this->ecc.bytes = 14;
 				if (nand_config_table[index].oobsize == 224)
 					this->ecc.layout = &_nand_oob_224;
+				else if((nand_config_table[index].oobsize == 128) && (nand_config_table[index].eccbit == 8)){
+					this->ecc.layout = &_nand_oob_128 ;
+					printk("[yuelin] enter 8 bit ecc\n");
+				}
 				else
 					this->ecc.layout = &_nand_oob_256;
 				mtd->oobsize = nand_config_table[index].oobsize;
