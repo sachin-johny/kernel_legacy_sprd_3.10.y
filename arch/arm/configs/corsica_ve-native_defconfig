@@ -2360,7 +2360,7 @@ CONFIG_CLKSRC_MMIO=y
 #
 # Rpmsg drivers
 #
-CONFIG_PM_DEVFREQ=y
+# CONFIG_PM_DEVFREQ is not set
 
 #
 # DEVFREQ Governors
