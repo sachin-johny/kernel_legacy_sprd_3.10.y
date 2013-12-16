@@ -6,7 +6,7 @@ static int mmu_reg_write(u32 reg, u32 val, u32 msk)
 	return 0;
 }
 
-static unsigned int get_phys_addr(struct scatterlist *sg)
+unsigned int get_phys_addr(struct scatterlist *sg)
 {
 	/*
 	 * Try sg_dma_address first so that we can
