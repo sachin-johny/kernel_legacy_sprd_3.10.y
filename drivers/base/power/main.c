@@ -486,7 +486,8 @@ static int device_resume_noirq(struct device *dev, pm_message_t state)
 
 	error = dpm_run_callback(callback, dev, state, info);
 	if(callback){
-		printk("-------- resume %s  %pf with %d\n", dev->kobj.name, callback, error);
+		pr_debug("--------%s, resume %s  %pf with %d\n",
+				__func__, dev->kobj.name, callback, error);
 	}
 
 	TRACE_RESUME(error);
@@ -566,7 +567,8 @@ static int device_resume_early(struct device *dev, pm_message_t state)
 
 	error = dpm_run_callback(callback, dev, state, info);
 	if(callback){
-		printk("-------- resume %s %pf with %d\n", dev->kobj.name, callback, error);
+		pr_debug("-------- %s resume %s %pf with %d\n",
+				__func__, dev->kobj.name, callback, error);
 	}
 
 	TRACE_RESUME(error);
@@ -694,7 +696,8 @@ static int device_resume(struct device *dev, pm_message_t state, bool async)
 	error = dpm_run_callback(callback, dev, state, info);
 	dev->power.is_suspended = false;
 	if(callback){
-		printk("-------- resume %s %pf with %d\n", dev->kobj.name, callback, error);
+		pr_debug("-------- %s, resume %s %pf with %d\n",
+				__func__, dev->kobj.name, callback, error);
 	}
 
  Unlock:
@@ -923,7 +926,8 @@ static int device_suspend_noirq(struct device *dev, pm_message_t state)
 	}
 	error = dpm_run_callback(callback, dev, state, info);
 	if(callback){
-		printk("-------- suspend %s %pf with %d\n", dev->kobj.name, callback, error);
+		pr_debug("-------- %s, suspend %s %pf with %d\n",
+				__func__,  dev->kobj.name, callback, error);
 	}
 
 	return error;
@@ -1010,7 +1014,8 @@ static int device_suspend_late(struct device *dev, pm_message_t state)
 	}
 	error = dpm_run_callback(callback, dev, state, info);
 	if(callback){
-		printk("-------- suspend %s %pf with %d\n", dev->kobj.name, callback, error);
+		pr_debug("-------- %s, suspend %s %pf with %d\n",
+				__func__, dev->kobj.name, callback, error);
 	}
 
 	return error;
@@ -1178,7 +1183,8 @@ static int __device_suspend(struct device *dev, pm_message_t state, bool async)
 
 	error = dpm_run_callback(callback, dev, state, info);
 	if(callback){
-		printk("-------- suspend %s %pf with %d\n", dev->kobj.name, callback, error);
+		pr_debug("-------- %s, suspend %s %pf with %d\n",
+				__func__, dev->kobj.name, callback, error);
 	}
 
  End:
