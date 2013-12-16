@@ -28,6 +28,7 @@ static BLOCKING_NOTIFIER_HEAD(pm_chain_head);
 
 int register_pm_notifier(struct notifier_block *nb)
 {
+	pr_info("*** %s, nb->notifier_call:%pf ***\n", __func__, nb->notifier_call );
 	return blocking_notifier_chain_register(&pm_chain_head, nb);
 }
 EXPORT_SYMBOL_GPL(register_pm_notifier);

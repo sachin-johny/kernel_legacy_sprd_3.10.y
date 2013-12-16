@@ -1155,11 +1155,12 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 	/* in suspend and hibernation process, we need set frequency to the orignal
 	 * one to make sure all things go right */
 	if (event == PM_SUSPEND_PREPARE || event == PM_HIBERNATION_PREPARE) {
-		pr_info("recv pm suspend notify\n");
+		pr_info(" %s, recv pm suspend notify\n", __func__ );
 		if (sd_tuners->cpu_num_limit > 1)
 			sd_tuners->cpu_hotplug_disable = true;
 		sd_tuners->is_suspend = true;
 		dbs_freq_increase(policy, policy->max);
+		pr_info(" %s, recv pm suspend notify done\n", __func__ );
 	}
 
 	return NOTIFY_OK;
