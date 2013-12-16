@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef _SHARK_GSP_DRV_H_
-#define _SHARK_GSP_DRV_H_
+#ifndef __GSP_CONFIG_IF_H_
+#define __GSP_CONFIG_IF_H_
 
 #ifdef __cplusplus
 extern   "C"
@@ -30,6 +30,15 @@ extern   "C"
 
 //#include "gsp_types_shark.h"
 //#include "shark_reg_int.h" //for INT1_IRQ_EN
+
+
+#ifdef CONFIG_ARCH_SCX15
+#define GSP_IOMMU_WORKAROUND1
+#define CONFIG_HAS_EARLYSUSPEND_GSP// dolphin use early suspend, shark use suspend
+#else
+#define GSP_WORK_AROUND1
+#endif
+//#define GSP_DEBUG
 
 
     /**---------------------------------------------------------------------------*
@@ -155,6 +164,19 @@ GSP_CORE_GREQ;
 #define GSP_ASSERT()        do{}while(1)
 #endif
 
+#ifdef CONFIG_ARCH_SCX15// dolphin
+#define GSP_CLOCK_PARENT3		("clk_153m6")
+#define GSP_CLOCK_PARENT2		("clk_128m")
+#define GSP_CLOCK_PARENT1		("clk_96m")
+#define GSP_CLOCK_PARENT0		("clk_76m8")
+#else //shark
+#define GSP_CLOCK_PARENT3		("clk_256m")
+#define GSP_CLOCK_PARENT2		("clk_192m")
+#define GSP_CLOCK_PARENT1		("clk_153m6")
+#define GSP_CLOCK_PARENT0		("clk_96m")
+#endif
+#define GSP_CLOCK_NAME			("clk_gsp")
+
 #define GSP_EMC_CLOCK_PARENT_NAME		("clk_aon_apb")
 #define GSP_EMC_CLOCK_NAME				("clk_disp_emc")
 
@@ -197,9 +219,12 @@ GSP_CORE_GREQ;
 #else
 #include <mach/sci.h>
 #define GSP_REG_READ(reg)  (*(volatile uint32_t*)(reg))
+#define GSP_REG_WRITE(reg,value)	(*(volatile uint32_t*)reg = value)
+
 #define GSP_EMC_MATRIX_ENABLE()     sci_glb_set(GSP_EMC_MATRIX_BASE, GSP_EMC_MATRIX_BIT)
 #define GSP_CLOCK_SET(sel)          sci_glb_write(GSP_CLOCK_BASE, (sel), 0x3)
 #define GSP_AUTO_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_AUTO_GATE_ENABLE_BIT)
+#define GSP_FORCE_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_CKG_FORCE_ENABLE_BIT)
 #define GSP_AHB_CLOCK_SET(sel)      sci_glb_write(GSP_AHB_CLOCK_BASE, (sel), 0x3)
 #define GSP_AHB_CLOCK_GET()      	sci_glb_read(GSP_AHB_CLOCK_BASE,0x3)
 
@@ -224,11 +249,22 @@ GSP_CORE_GREQ;
 
 #endif
 
-
+#ifdef CONFIG_ARCH_SCX15
+//in dolphin,soft reset should not be called for iommu workaround
+#define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x4000)
+#define GSP_HWMODULE_SOFTRESET()\
+{\
+	sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
+	udelay(10);\
+	sci_glb_clr(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
+	GSP_REG_WRITE(GSP_MMU_CTRL_BASE,0x10000001);\
+}
+#else
 #define GSP_HWMODULE_SOFTRESET()\
     sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
     udelay(10);\
     sci_glb_clr(GSP_SOFT_RESET,GSP_SOFT_RST_BIT)
+#endif
 
 #define GSP_HWMODULE_ENABLE()       sci_glb_set(GSP_MOD_EN,GSP_MOD_EN_BIT)
 #define GSP_HWMODULE_DISABLE()		sci_glb_clr(GSP_MOD_EN,GSP_MOD_EN_BIT)
@@ -398,6 +434,8 @@ GSP_CORE_GREQ;
     PUBLIC void GSP_ConfigLayer(GSP_MODULE_ID_E layer_id);
     PUBLIC uint32_t GSP_Trigger(void);
     PUBLIC void GSP_Wait_Finish(void);
+    PUBLIC void GSP_module_enable(void);
+    PUBLIC void GSP_module_disable(void);
 
 
 

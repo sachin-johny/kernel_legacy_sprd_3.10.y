@@ -21,6 +21,7 @@
 #include "gsp_config_if.h"
 uint32_t testregsegment[0x190]= {0};
 extern struct clk	*g_gsp_emc_clk;
+extern struct clk	*g_gsp_clk;
 
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
@@ -129,6 +130,33 @@ LOCAL void GSP_SetMiscParameter(void)
     GSP_EMC_GAP_SET(s_gsp_cfg.misc_info.gsp_gap);
 }
 
+PUBLIC void GSP_module_enable(void)
+{
+	int ret = 0;
+	//GSP_HWMODULE_ENABLE();
+	if(g_gsp_clk != NULL){
+	    ret = clk_enable(g_gsp_clk);
+	    if(ret) {
+	        printk(KERN_ERR "%s: enable clock failed!\n",__FUNCTION__);
+	        return;
+	    } else {
+	        pr_debug(KERN_INFO "%s: enable clock ok!\n",__FUNCTION__);
+	    }
+	} else {
+		printk(KERN_ERR "%s: g_gsp_clk not init yet!\n",__FUNCTION__);
+	}
+}
+PUBLIC void GSP_module_disable(void)
+{
+	if(g_gsp_clk != NULL){
+	    //GSP_HWMODULE_DISABLE();//disable may not use the enable regiter
+	    clk_disable(g_gsp_clk);
+	} else {
+		printk(KERN_ERR "%s: g_gsp_clk not init yet!\n",__FUNCTION__);
+	}
+}
+
+
 PUBLIC void GSP_Init(void)
 {
     int ret = 0;
@@ -139,18 +167,9 @@ PUBLIC void GSP_Init(void)
     } else {
         pr_debug(KERN_INFO "%s: enable emc clock ok!\n",__FUNCTION__);
     }
-    GSP_HWMODULE_ENABLE();
-    GSP_HWMODULE_SOFTRESET();
-
-    /* move to module init
-        GSP_EMC_MATRIX_ENABLE();
-        GSP_EMC_GAP_SET(0);
-        GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);
-        GSP_AUTO_GATE_ENABLE();
-        //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_26M_BIT);
-        *(volatile unsigned long *)(SPRD_PMU_BASE+0x1c) &= ~(1<<25);
-        *(volatile unsigned long *)(SPRD_AONAPB_BASE) |= (1<<25);   //     MM enable
-    */
+#ifndef GSP_IOMMU_WORKAROUND1
+    GSP_HWMODULE_SOFTRESET();//workaround gsp-iommu bug
+#endif
     GSP_IRQMODE_SET(GSP_IRQ_MODE_LEVEL);
 }
 PUBLIC void GSP_Deinit(void)
@@ -158,7 +177,6 @@ PUBLIC void GSP_Deinit(void)
     clk_disable(g_gsp_emc_clk);
     GSP_IRQSTATUS_CLEAR();
     GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
-    GSP_HWMODULE_DISABLE();//disable may not use the enable regiter
 }
 
 PUBLIC void GSP_ConfigLayer(GSP_MODULE_ID_E layer_id)

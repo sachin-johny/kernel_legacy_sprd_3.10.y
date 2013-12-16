@@ -10,11 +10,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef __GSP_DRV_H__
+#define __GSP_DRV_H__
 
 #include "gsp_config_if.h"
 
 
-#define GSP_WORK_AROUND1
+
 #ifdef GSP_WORK_AROUND1
 #define TRANSLATION_CALC_OPT //cut down the times of multiplication in the translation-calculation.
 
@@ -74,7 +76,7 @@ typedef enum _L1_L0_RELATIONSHIP_TAG_
 
 #endif
 
-//#define GSP_DEBUG
+
 #ifdef GSP_DEBUG
 #define GSP_TRACE	printk
 #else
@@ -91,4 +93,4 @@ typedef struct _gsp_user
     struct semaphore sem_open;// one thread can open device once per time
 } gsp_user;
 
-
+#endif

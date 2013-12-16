@@ -1700,7 +1700,10 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 
 	dispc_clear_bits(BIT(0), DISPC_OSD_CTRL);
 	if(SPRD_OVERLAY_STATUS_ON == dispc_ctx.overlay_state){
-		overlay_start(dev, setting->layer_index);
+		if(overlay_start(dev, setting->layer_index) != 0){
+			printk("%s[%d] overlay_start() err, return without run dispc!\n",__func__,__LINE__);
+			goto ERROR_DISPLAY_OVERLAY;
+		}
 	}
 
 
