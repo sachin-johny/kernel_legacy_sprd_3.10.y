@@ -17,6 +17,16 @@
 #include <linux/init.h>
 #include <linux/version.h>
 
+#define RTFLED_INFO(format, args...) \
+    printk(KERN_INFO "%s:%s() line-%d: " format, \
+            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+#define RTFLED_WARN(format, args...) \
+    printk(KERN_WARNING "%s:%s() line-%d: " format, \
+            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+#define RTFLED_ERR(format, args...) \
+    printk(KERN_ERR "%s:%s() line-%d: " format, \
+            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+
 #define RT_FLED_DEVICE  "rt-flash-led"
 #define ALIAS_NAME RT_FLED_DEVICE
 
@@ -315,10 +325,10 @@ static int __init rtfled_probe(struct platform_device *pdev)
     BUG_ON(info == NULL);
     BUG_ON(info->hal == NULL);
 
-    RTINFO("Richtek FlashLED Driver is probing\n");
+    RTFLED_INFO("Richtek FlashLED Driver is probing\n");
     rc = rtfled_check_hal_implement(info->hal);
     if (rc < 0) {
-        RTERR("HAL implemented uncompletedly\n");
+        RTFLED_ERR("HAL implemented uncompletedly\n");
         goto err_check_hal;
     }
     platform_set_drvdata(pdev,info);
@@ -329,11 +339,11 @@ static int __init rtfled_probe(struct platform_device *pdev)
     if (info->hal->fled_init) {
         rc = info->hal->fled_init(info);
         if (rc < 0) {
-            RTERR("Initialization failed\n");
+            RTFLED_ERR("Initialization failed\n");
             goto err_init;
         }
     }
-    RTINFO("Richtek FlashLED Driver initialized successfully\n");
+    RTFLED_INFO("Richtek FlashLED Driver initialized successfully\n");
 	return 0;
 err_init:
     flashlight_device_unregister(info->flashlight_dev);

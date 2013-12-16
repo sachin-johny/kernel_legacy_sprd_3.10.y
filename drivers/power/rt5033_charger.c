@@ -157,9 +157,30 @@ static void rt5033_enable_charger_switch(struct rt5033_charger_data *charger,
 
 	} else {
         charger->charging_current = 0;
-	    rt5033_fled_set_ta_status(iic, 0, 0);
+#ifdef CONFIG_FLED_RT5033
+        if (charger->fled_info == NULL)
+            charger->fled_info = rt_fled_get_info_by_name(NULL);
+        if (charger->fled_info)
+        {
+            fled_mode = charger->fled_info->hal->fled_get_mode(charger->fled_info);
+            if (fled_mode == FLASHLIGHT_MODE_TORCH ||
+                fled_mode == FLASHLIGHT_MODE_MIXED) {
+                /* turn off led*/
+                charger->fled_info->hal->fled_set_mode(charger->fled_info,
+                                                       FLASHLIGHT_MODE_OFF);
+            }
+        }
+#endif /* CONFIG_FLED_RT5033 */
 		rt5033_set_bits(iic, RT5033_CHG_STAT_CTRL, RT5033_CHGENB_MASK);
-		rt5033_set_bits(iic, RT5033_UUG, 0x02); /*  turn on UUG */
+#ifdef CONFIG_FLED_RT5033
+        if (charger->fled_info) {
+            /* turn on again if original status is on*/
+            if (fled_mode == FLASHLIGHT_MODE_TORCH ||
+                fled_mode == FLASHLIGHT_MODE_MIXED)
+                charger->fled_info->hal->fled_set_mode(charger->fled_info,
+                                                       fled_mode);
+        }
+#endif /*CONFIG_FLED_RT5033*/
 	}
 
 }

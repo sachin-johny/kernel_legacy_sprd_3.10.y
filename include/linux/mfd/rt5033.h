@@ -39,7 +39,7 @@
 
 #include <linux/battery/sec_charging_common.h>
 
-#define RT5033_DRV_VER "1.0.6_S"
+#define RT5033_DRV_VER "1.0.7_S"
 
 #ifdef CONFIG_RT5033_SADDR
 #define RT5033FG_SLAVE_ADDR_MSB (0x40)
@@ -145,8 +145,7 @@ struct rt5033_mfd_chip
 	/* irq_status_index ^= 0x01; after access irq*/
 	int irq_status_index;
 	int irq;
-	int irq_masks_cur[RT5033_IRQ_REGS_NR];
-	int irq_masks_cache[RT5033_IRQ_REGS_NR];
+    uint8_t irq_masks_cache[RT5033_IRQ_REGS_NR];
 	int suspend_flag;
 
 #ifdef CONFIG_FLED_RT5033

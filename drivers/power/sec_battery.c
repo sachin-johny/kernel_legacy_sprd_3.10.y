@@ -2285,7 +2285,7 @@ ssize_t sec_usb_store_attrs(
 					struct device_attribute *attr,
 					const char *buf, size_t count)
 {
-	dev_dbg("%s is not implemented\n", __func__);
+	dev_dbg(dev, "%s is not implemented\n", __func__);
 	return -EINVAL;
 }
 

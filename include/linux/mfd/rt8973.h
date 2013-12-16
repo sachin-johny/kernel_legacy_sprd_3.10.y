@@ -42,6 +42,7 @@ enum {
 
     MUIC_RT8973_CABLE_TYPE_CDP, // USB Charging downstream port, usually treated as SDP
     MUIC_RT8973_CABLE_TYPE_UNKNOWN,
+    MUIC_RT8973_CABLE_TYPE_INVALID, // Un-initialized
 };
 
 typedef enum {
