@@ -17,6 +17,8 @@
 #include <linux/gpio.h>
 #include <linux/interrupt.h>
 #include <linux/i2c.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
 #include <linux/mfd/rt8973.h>
@@ -28,7 +30,7 @@
 
 #define RT8973_DEVICE_NAME "rt8973"
 #define ALIAS_NAME RT8973_DEVICE_NAME
-#define RT8973_DRV_VER "2.0.3S"
+#define RT8973_DRV_VER "2.0.5S"
 #define RT8973_IRQF_MODE IRQF_TRIGGER_FALLING
 
 #define RT8973_REG_CHIP_ID          0x01
@@ -56,13 +58,15 @@
 static struct gpio_edge_desc muic_int_gpio;
 #endif
 
+static irqreturn_t rt8973_irq_handler(int irq, void *data);
+
 struct device_desc {
 	char *name;
 	uint32_t reg_val;
 	int cable_type;
 };
 
-static struct device_desc device_to_cable_type_mapping[] = {
+static const struct device_desc device_to_cable_type_mapping[] = {
 	{
 	 .name = "OTG",
 	 .reg_val = RT8973_DEVICE1_OTG,
@@ -96,7 +100,7 @@ struct id_desc {
 	int cable_type_without_vbus;
 };
 
-struct id_desc id_to_cable_type_mapping[] = {
+static const struct id_desc id_to_cable_type_mapping[] = {
 	{
 	 /* 00000, 0 */
 	 .name = "OTG",
@@ -104,137 +108,137 @@ struct id_desc id_to_cable_type_mapping[] = {
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_OTG,
 	 },
 	{			/* 00001, 1 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 00010, 2 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 00011, 3 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 00100, 4 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 00101, 5 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 00110, 6 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 00111, 7 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01000, 8 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01001, 9 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01010, 10 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01011, 11 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01100, 12 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01101, 13 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01110, 14 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 01111, 15 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10000, 16 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10001, 17 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10010, 18 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10011, 19 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10100, 20 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10101, 21 */
-	 .name = "ADC0x15 Charger/Unknow",
+	 .name = "ADC0x15 Charger/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_0x15,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10110, 22 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 10111, 23 */
-	 .name = "Type 1 Charger/Unknow",
+	 .name = "Type 1 Charger/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_TYPE1_CHARGER,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 11000, 24 */
-	 .name = "FM BOOT OFF USB/Unknow",
+	 .name = "FM BOOT OFF USB/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_JIG_USB_OFF,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 11001, 25 */
-	 .name = "FM BOOT ON USB/Unknow",
+	 .name = "FM BOOT ON USB/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_JIG_USB_ON,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 11010, 26 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
 	{			/* 11011, 27 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
@@ -249,7 +253,7 @@ struct id_desc id_to_cable_type_mapping[] = {
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_JIG_UART_ON,
 	 },
 	{			/* 11110, 30 */
-	 .name = "AT&T TA/Unknow",
+	 .name = "AT&T TA/Unknown",
 	 .cable_type_with_vbus = MUIC_RT8973_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_RT8973_CABLE_TYPE_UNKNOWN,
 	 },
@@ -318,6 +322,7 @@ typedef struct rt8973_chip {
 	struct rt8973_status prev_status;
 	struct rt8973_status curr_status;
 	int dcdt_retry_count;
+	int irq;
 } rt8973_chip_t;
 
 #ifdef SAMSUNG_MVRL_MUIC_RT8973
@@ -608,6 +613,7 @@ static char *rt8973_cable_names[] = {
 
 	"MUIC_RT8973_CABLE_TYPE_CDP",
 	"MUIC_RT8973_CABLE_TYPE_UNKNOWN",
+	"MUIC_RT8973_CABLE_TYPE_INVALID",
 };
 #endif /*RTDBGINFO_LEVEL<=RTDBGLEVEL */
 
@@ -640,7 +646,8 @@ static void rt8973_otg_attach_handler(struct rt8973_chip *chip,
 {
 	RTINFO("OTG attached\n");
 	rt8973_reg_write(chip, RT8973_REG_MANUAL_SW1, 0x24);
-	rt8973_clr_bits(chip, RT8973_REG_CONTROL, 1 << 2);
+	/* Disable USBCHDEN and AutoConfig*/
+	rt8973_clr_bits(chip, RT8973_REG_CONTROL, (1 << 2) | (1 << 6));
 	if (chip->pdata->otg_callback)
 		chip->pdata->otg_callback(1);
 }
@@ -652,7 +659,8 @@ static void rt8973_otg_detach_handler(struct rt8973_chip *chip,
 {
 	RTINFO("OTG detached\n");
 	rt8973_reg_write(chip, RT8973_REG_MANUAL_SW1, 0x00);
-	rt8973_set_bits(chip, RT8973_REG_CONTROL, 1 << 2);
+	/* Enable USBCHDEN and AutoConfig*/
+	rt8973_set_bits(chip, RT8973_REG_CONTROL, (1 << 2) | (1 << 6));
 	if (chip->pdata->otg_callback)
 		chip->pdata->otg_callback(0);
 }
@@ -738,7 +746,7 @@ static void rt8973_jig_detach_handler(struct rt8973_chip *chip,
 {
 	jig_type_t type;
 	type = get_jig_type(chip->prev_status.cable_type);
-	RTINFO("JIG attached (type = %d)\n", (int)type);
+	RTINFO("JIG detached (type = %d)\n", (int)type);
 	if (chip->pdata->jig_callback)
 		chip->pdata->jig_callback(type, 0);
 }
@@ -890,11 +898,22 @@ static void rt8973_irq_work(struct work_struct *work)
 	rt8973_chip_t *chip = container_of(to_delayed_work(work),
 					   rt8973_chip_t, irq_work);
 	chip->prev_status = chip->curr_status;
+
 	ret = rt8973_update_regs(chip);
 	if (ret < 0) {
 		RTERR("Error : can't update(read) register status:%d\n", ret);
 		return;
 	}
+/* for printing out registers -- start */
+	pr_info("%s : INTF1 = 0x%x, INTF2 = 0x%x\n", __FUNCTION__,
+         (int)chip->curr_status.irq_flags[0],
+         (int)chip->curr_status.irq_flags[1]);
+	pr_info("%s : DEV1 = 0x%x, DEV2 = 0x%x\n", __FUNCTION__,
+         (int)chip->curr_status.device_reg[0],
+         (int)chip->curr_status.device_reg[1]);
+	pr_info("%s : ADC = 0x%x\n", __FUNCTION__,
+         (int)chip->curr_status.id_adc);
+/* for printint out registers -- end*/
 	rt8973_preprocess_status(chip);
 	RTINFO("Status : cable type = %d,\n"
 	       "vbus = %d, accessory = %d\n"
@@ -960,25 +979,36 @@ static bool rt8973_reset_check(struct i2c_client *iic)
 		RTERR("Error : can't read device ID from IC(%d)\n", ret);
 		return false;
 	}
+	if ((ret & 0x07) != 0x02) {
+	    RTERR("Error : vendor ID mismatch (0x%d)!\n", ret);
+	    return false;
+	}
 
-	i2c_smbus_write_byte_data(iic, RT8973_REG_RESET, 0x01);
-	msleep_interruptible(1);
+    /* write default value instead of sending reset command*/
+    /* REG[0x02] = 0xE5, REG[0x14] = 0x01*/
+	i2c_smbus_write_byte_data(iic, RT8973_REG_CONTROL, 0xE5);
+	i2c_smbus_write_byte_data(iic, RT8973_REG_MANUAL_SW2, 0x01);
 	return true;
 }
 
 static void rt8973_init_regs(rt8973_chip_t *chip)
 {
 	int chip_id = rt8973_reg_read(chip, RT8973_REG_CHIP_ID);
+	chip->curr_status.cable_type = MUIC_RT8973_CABLE_TYPE_INVALID;
 	chip->curr_status.id_adc = 0x1f;
 	/* for rev 0, turn off i2c reset function */
 	if (((chip_id & 0xf8) >> 3) == 0)
 		rt8973_set_bits(chip, RT8973_REG_CONTROL, 0x08);
-	/* Only mask Connect */
-	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK1, 0x20);
-	/* Only mask OCP_LATCH and POR */
-	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK2, 0x24);
+	/* Mask OTP, Connect, OVP, and Charger Detection*/
+	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK1, 0xB4);
+	/* Mask OCP_OVP, OCP_LATCH and POR */
+	rt8973_reg_write(chip, RT8973_REG_INTERRUPT_MASK2, 0xA4);
+	/* Dummy read */
+	rt8973_reg_read(chip, RT8973_REG_INT_FLAG1);
 	/* enable interrupt */
 	rt8973_clr_bits(chip, RT8973_REG_CONTROL, 0x01);
+	/* Execute 1st dectection */
+	queue_delayed_work(chip->wq, &chip->irq_work, 0);
 }
 
 #ifdef SAMSUNG_MVRL_MUIC_RT8973
@@ -1030,17 +1060,43 @@ static int sec_get_usb_vbus(unsigned int *level)
 }
 #endif
 
+static int rt8973_parse_dt(struct device *dev,
+                           struct rt8973_platform_data *pdata)
+{
+    struct device_node *np = dev->of_node;
+    enum of_gpio_flags irq_gpio_flags;
+
+    pdata->irq_gpio = of_get_named_gpio_flags(np, "rt8973,irq-gpio",
+                0, &irq_gpio_flags);
+    return 0;
+}
+
+
 static int __init rt8973_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
 {
-	struct rt8973_platform_data *pdata = client->dev.platform_data;
+	struct rt8973_platform_data *pdata;
 	struct rt8973_chip *chip;
 #ifdef SAMSUNG_MVRL_MUIC_RT8973
 	struct device *switch_dev;
 #endif
 	int ret;
 	RTINFO("Richtek RT8973 driver probing...\n");
-	BUG_ON(pdata == NULL);
+
+	if(client->dev.of_node) {
+	    pdata = devm_kzalloc(&client->dev,
+			sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Failed to allocate memory \n");
+			ret = -ENOMEM;
+			goto err_nomem;
+		}
+		ret = rt8973_parse_dt(&client->dev, pdata);
+		if (ret < 0)
+            goto err_parse_dt;
+	} else
+        pdata = client->dev.platform_data;
+
 #ifdef SAMSUNG_MVRL_MUIC_RT8973
 	pdata->irq_gpio = pxa_irq_to_gpio(client->irq);
 	RTINFO("GPIO MUIC INT No. = %d\n", pdata->irq_gpio);
@@ -1086,15 +1142,16 @@ static int __init rt8973_probe(struct i2c_client *client,
 				sec_get_usb_vbus);
 #endif
 	mutex_init(&chip->io_lock);
+	chip->irq = gpio_to_irq(pdata->irq_gpio);
 	RTINFO("Request IRQ %d(GPIO %d)...\n",
-	       gpio_to_irq(pdata->irq_gpio), pdata->irq_gpio);
-	ret = request_irq(gpio_to_irq(pdata->irq_gpio),
-			  rt8973_irq_handler, RT8973_IRQF_MODE,
-			  RT8973_DEVICE_NAME, chip);
+	       chip->irq, pdata->irq_gpio);
+	ret = request_irq(chip->irq, rt8973_irq_handler,
+                   RT8973_IRQF_MODE | IRQF_NO_SUSPEND,
+                   RT8973_DEVICE_NAME, chip);
 	if (ret < 0) {
 		RTERR
 		    ("Error : failed to request irq %d (gpio=%d, retval=%d)\n",
-		     gpio_to_irq(pdata->irq_gpio), pdata->irq_gpio, ret);
+		     chip->irq, pdata->irq_gpio, ret);
 		goto err_request_irq_fail;
 	}
 	rt8973_init_regs(chip);
@@ -1125,6 +1182,7 @@ err_request_irq_fail:
 err_nomem:
 err_reset_rt8973_fail:
 err_i2c_func:
+err_parse_dt:
 	return ret;
 }
 
@@ -1137,6 +1195,7 @@ static int __exit rt8973_remove(struct i2c_client *client)
 #endif
 	chip = i2c_get_clientdata(client);
 	if (chip) {
+	    free_irq(chip->irq, chip);
 		gpio_free(chip->pdata->irq_gpio);
 		mutex_destroy(&chip->io_lock);
 		if (chip->wq)
@@ -1154,10 +1213,21 @@ static void rt8973_shutdown(struct i2c_client *iic)
 	RTINFO("Shutdown : reset rt8973...\n");
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id rt8973_match_table[] = {
+	{ .compatible = "richtek,rt8973",},
+	{},
+};
+#else
+#define rt8973_match_table NULL
+#endif
+
+
 static struct i2c_driver rt8973_driver = {
 	.driver = {
 		   .name = RT8973_DEVICE_NAME,
 		   .owner = THIS_MODULE,
+		   .of_match_table = rt8973_match_table,
 		   },
 	.probe = rt8973_probe,
 	.remove = rt8973_remove,

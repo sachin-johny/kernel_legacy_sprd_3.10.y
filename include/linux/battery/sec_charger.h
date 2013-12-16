@@ -55,6 +55,8 @@
 #include <linux/battery/charger/ncp1851_charger.h>
 #elif defined(CONFIG_CHARGER_RT5033)
 #include <linux/battery/charger/rt5033_charger.h>
+#elif defined(CONFIG_CHARGER_RT9455)
+#include <linux/battery/charger/rt9455_charger.h>
 #endif
 
 struct sec_charger_info {

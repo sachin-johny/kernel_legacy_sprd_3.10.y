@@ -12,7 +12,6 @@
 
 #ifndef LINUX_LEDS_RTFLED_H
 #define LINUX_LEDS_RTFLED_H
-#include <linux/rtdefs.h>
 #include <linux/leds/flashlight.h>
 
 struct rt_fled_info;
