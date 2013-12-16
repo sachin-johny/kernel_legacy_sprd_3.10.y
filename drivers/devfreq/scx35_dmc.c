@@ -415,6 +415,7 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 {
 	struct dmcfreq_data *data = container_of(this, struct dmcfreq_data,
 						 pm_notifier);
+	printk("*** %s, event:0x%x ***\n", __func__, event );
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
@@ -434,6 +435,7 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		spin_unlock(&data->lock);
 		return NOTIFY_OK;
 	}
+	printk("*** %s, event:0x%x done***\n", __func__, event );
 
 	return NOTIFY_DONE;
 }
