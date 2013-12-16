@@ -17,7 +17,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
-#include "sprdfb_panel.h"
+#include "../sprdfb_panel.h"
 
 #define HX8363_SpiWriteCmd(cmd) \ 
 { \

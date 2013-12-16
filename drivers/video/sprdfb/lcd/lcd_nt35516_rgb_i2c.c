@@ -16,7 +16,7 @@
 
 #include <linux/kernel.h>
 #include <linux/delay.h>
-#include "sprdfb_panel.h"
+#include "../sprdfb_panel.h"
 
 #define NT35516_I2C_ADDR   0x4C
 #define NT35516_I2C_DATA_LENGHT      0x2 
