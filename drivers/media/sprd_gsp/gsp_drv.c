@@ -33,6 +33,10 @@
 #include "gsp_drv.h"
 #include "scaler_coef_cal.h"
 
+#ifdef CONFIG_HAS_EARLYSUSPEND_GSP
+#include <linux/earlysuspend.h>
+#endif
+
 #ifdef GSP_WORK_AROUND1
 #include <linux/dma-mapping.h>
 #endif
@@ -75,7 +79,8 @@ static struct semaphore         gsp_hw_resource_sem;//cnt == 1,only one thread c
 static struct semaphore         gsp_wait_interrupt_sem;// init to 0, gsp done/timeout/client discard release sem
 GSP_CONFIG_INFO_T               s_gsp_cfg;//protect by gsp_hw_resource_sem
 static struct proc_dir_entry    *gsp_drv_proc_file;
-struct clk						*g_gsp_emc_clk;
+struct clk						*g_gsp_emc_clk = NULL;
+struct clk						*g_gsp_clk = NULL;
 
 
 #define GSP_ERR_RECORD_CNT  8
@@ -93,6 +98,10 @@ static uint32_t g_gsp_reg_err_record_wp=0;
 #define ERR_RECORD_EMPTY()  (g_gsp_reg_err_record_rp == g_gsp_reg_err_record_wp)
 #define ERR_RECORD_FULL()   ((g_gsp_reg_err_record_wp+1)&(GSP_ERR_RECORD_CNT-1) == g_gsp_reg_err_record_rp)
 
+#ifdef CONFIG_HAS_EARLYSUSPEND_GSP
+static struct early_suspend s_earlysuspend = {0};
+#endif
+static volatile uint32_t s_suspend_resume_flag = 0;// 0 : resume, in ON state; 1: suspend, in OFF state
 
 static gsp_user gsp_user_array[GSP_MAX_USER];
 static gsp_user* gsp_get_user(pid_t user_pid)
@@ -1969,7 +1978,11 @@ static long gsp_drv_ioctl(struct file *file,
               pUserdata->pid,
               _IOC_NR(cmd),
               param_size);
-
+    if(s_suspend_resume_flag==1)
+    {
+        GSP_TRACE("%s[%d]: in suspend, ioctl just return!\n",__func__,__LINE__);
+        return ret;
+    }
     switch (cmd)
     {
         case GSP_IO_SET_PARAM:
@@ -2504,10 +2517,38 @@ static irqreturn_t gsp_irq_handler(int32_t irq, void *dev_id)
 
 #endif
 
+#ifdef CONFIG_HAS_EARLYSUSPEND_GSP
 
+static int gsp_early_suspend(struct platform_device *pdev,pm_message_t state)
+{
+	printk("%s%d\n",__func__,__LINE__);
+	GSP_module_disable();
+	s_suspend_resume_flag = 1;
+	return 0;
+}
+
+static int gsp_late_resume(struct platform_device *pdev)
+{
+	printk("%s%d\n",__func__,__LINE__);
+	gsp_coef_force_calc = 1;
+	GSP_module_enable();//
+
+	//GSP_EMC_MATRIX_ENABLE();
+	//GSP_EMC_GAP_SET(0);
+	//GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT//masked, clock set by select gsp clock parent
+	GSP_AUTO_GATE_ENABLE();//bug 198152
+	//GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
+	//GSP_ENABLE_MM();
+	s_suspend_resume_flag = 0;
+	return 0;
+}
+
+#else
 static int gsp_suspend(struct platform_device *pdev,pm_message_t state)
 {
 	printk("%s%d\n",__func__,__LINE__);
+	GSP_module_disable();
+	s_suspend_resume_flag = 1;
 	return 0;
 }
 
@@ -2515,19 +2556,25 @@ static int gsp_resume(struct platform_device *pdev)
 {
 	printk("%s%d\n",__func__,__LINE__);
 	gsp_coef_force_calc = 1;
+	GSP_module_enable();//
 
     //GSP_EMC_MATRIX_ENABLE();
     //GSP_EMC_GAP_SET(0);
-    GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
+    //GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT//masked, clock set by select gsp clock parent
     GSP_AUTO_GATE_ENABLE();//bug 198152
     //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
     //GSP_ENABLE_MM();
-	return 0;
+    s_suspend_resume_flag = 0;
+    return 0;
 }
 
-static int32_t gsp_emc_clock_init(void)
+#endif
+
+
+static int32_t gsp_clock_init(void)
 {
     struct clk *emc_clk_parent = NULL;
+    struct clk *gsp_clk_parent = NULL;
     int ret = 0;
 
     emc_clk_parent = clk_get(NULL, GSP_EMC_CLOCK_PARENT_NAME);
@@ -2549,12 +2596,38 @@ static int32_t gsp_emc_clock_init(void)
     ret = clk_set_parent(g_gsp_emc_clk, emc_clk_parent);
     if(ret) {
         printk(KERN_ERR "gsp: gsp set emc clk parent failed!\n");
+        return -1;
     } else {
         printk(KERN_INFO "gsp: gsp set emc clk parent ok!\n");//pr_debug
     }
 
+    gsp_clk_parent = clk_get(NULL, GSP_CLOCK_PARENT3);
+    if (IS_ERR(gsp_clk_parent)) {
+        printk(KERN_ERR "gsp: get clk_parent failed!\n");
+        return -1;
+    } else {
+        printk(KERN_INFO "gsp: get clk_parent ok!\n");
+    }
+
+    g_gsp_clk = clk_get(NULL, GSP_CLOCK_NAME);
+    if (IS_ERR(g_gsp_clk)) {
+        printk(KERN_ERR "gsp: get clk failed!\n");
+        return -1;
+    } else {
+        printk(KERN_INFO "gsp: get clk ok!\n");
+    }
+
+    ret = clk_set_parent(g_gsp_clk, gsp_clk_parent);
+    if(ret) {
+        printk(KERN_ERR "gsp: gsp set clk parent failed!\n");
+        return -1;
+    } else {
+        printk(KERN_INFO "gsp: gsp set clk parent ok!\n");
+    }
     return ret;
 }
+
+
 int32_t gsp_drv_probe(struct platform_device *pdev)
 {
     int32_t ret = 0;
@@ -2564,16 +2637,18 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
     printk("%s,AHB clock :%d\n", __func__,GSP_AHB_CLOCK_GET());
     //GSP_EMC_MATRIX_ENABLE();
     //GSP_EMC_GAP_SET(0);
-    GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
+    //GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
     GSP_AUTO_GATE_ENABLE();
     //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
     GSP_ENABLE_MM();
 
-    ret = gsp_emc_clock_init();
+    ret = gsp_clock_init();
     if (ret) {
         printk(KERN_ERR "gsp emc clock init failed. \n");
         goto exit;
     }
+    GSP_module_enable();
+
     ret = misc_register(&gsp_drv_dev);
     if (ret)
     {
@@ -2618,6 +2693,13 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
     sema_init(&gsp_hw_resource_sem, 1);
     sema_init(&gsp_wait_interrupt_sem, 0);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND_GSP
+    s_earlysuspend.suspend = gsp_early_suspend;
+    s_earlysuspend.resume  = gsp_late_resume;
+    s_earlysuspend.level   = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+    register_early_suspend(&s_earlysuspend);
+#endif
+
     return ret;
 
 exit2:
@@ -2645,8 +2727,10 @@ static struct platform_driver gsp_drv_driver =
 {
     .probe = gsp_drv_probe,
     .remove = gsp_drv_remove,
-	.suspend = gsp_suspend,
-	.resume = gsp_resume,
+#ifndef CONFIG_HAS_EARLYSUSPEND_GSP
+    .suspend = gsp_suspend,
+    .resume = gsp_resume,
+#endif
     .driver =
     {
         .owner = THIS_MODULE,
