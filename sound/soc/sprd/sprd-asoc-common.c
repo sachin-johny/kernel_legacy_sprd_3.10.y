@@ -70,7 +70,8 @@ int sprd_ext_speaker_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external Speaker(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook->ext_speaker_ctrl);
+	if (sprd_audio_hook)
+		SAFE_CALL(sprd_audio_hook->ext_speaker_ctrl);
 	return ret;
 }
 
@@ -80,7 +81,8 @@ int sprd_ext_headphone_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external Headphone(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook->ext_headphone_ctrl);
+	if (sprd_audio_hook)
+		SAFE_CALL(sprd_audio_hook->ext_headphone_ctrl);
 	return ret;
 }
 
@@ -90,7 +92,8 @@ int sprd_ext_earpiece_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external Earpiece(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook->ext_earpiece_ctrl);
+	if (sprd_audio_hook)
+		SAFE_CALL(sprd_audio_hook->ext_earpiece_ctrl);
 	return ret;
 }
 
@@ -100,7 +103,8 @@ int sprd_ext_mic_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external MIC(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook->ext_mic_ctrl);
+	if (sprd_audio_hook)
+		SAFE_CALL(sprd_audio_hook->ext_mic_ctrl);
 	return ret;
 }
 
@@ -110,7 +114,8 @@ int sprd_ext_fm_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external FM(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook->ext_fm_ctrl);
+	if (sprd_audio_hook)
+		SAFE_CALL(sprd_audio_hook->ext_fm_ctrl);
 	return ret;
 }
 
