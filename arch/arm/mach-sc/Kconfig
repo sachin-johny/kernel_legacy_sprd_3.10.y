@@ -166,6 +166,22 @@ config MACH_CORSICA_VE
 	help
 	  CORSICA_VE board based on dolphin serial.
 
+config MACH_SP8830GA
+	bool "sp8830ga Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  SP8830GA board based on SC8830 serial.
+
+config MACH_SP7730GA
+	bool "sp7730ga Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  SP7730GA board based on SC8830 serial.
+
 endmenu
 
 config SPRD_ION_SIZE
