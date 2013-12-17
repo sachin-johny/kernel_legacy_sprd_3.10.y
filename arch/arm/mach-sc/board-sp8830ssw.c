@@ -61,6 +61,7 @@
 #include <linux/i2c/mms_ts.h>
 #include <linux/gp2ap002a00f.h>
 #include <linux/bst_sensor_common.h>
+#include <sound/sprd-audio-hook.h>
 
 #define GPIO_HOME_KEY 113 /* PIN LCD_D[5] */
 
@@ -101,20 +102,6 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 	.repeat = 0,
 	.debounce_time = 5000,
 };
-
-#ifdef FANGHUA
-static struct platform_gpsctl_data pdata_gpsctl = {
-        .reset_pin = 167,
-        .onoff_pin = 168,
-        .clk_type = "clk_aux0",
-        .pwr_type = "v_gps_1.8v",
-};
-
-static struct platform_device gpsctl_dev = {
-        .name = "gpsctl",
-        .dev.platform_data = &pdata_gpsctl,
-};
-#endif
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -226,9 +213,6 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&gpio_button_device,
 	&sprd_headset_device,
-#ifdef FANGHUA
-	&gpsctl_dev
-#endif
 };
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
@@ -1702,63 +1686,44 @@ static int sc8810_add_i2c_devices(void)
 	return 0;
 }
 
-struct platform_device audio_pa_amplifier_device = {
-	.name = "speaker-pa",
-	.id = -1,
-};
-
-static int audio_pa_headset_amplifier_init(void)
+static int customer_ext_headphone_ctrl(int id, int on)
 {
+	static bool is_init = false;
 	int ret;
 
-	ret = gpio_request(HEADSET_AMP_GPIO, "headset amplifier");
-	if (ret) {
-		pr_err("%s: request gpio error\n", __func__);
-		return ret;
+	if (id != SPRD_AUDIO_ID_HEADPHONE) {
+		return HOOK_BPY;
 	}
 
-	gpio_direction_output(HEADSET_AMP_GPIO, 0);
-
-	return 0;
-}
-
-static int audio_pa_headset_amplifier_ctrl(u32 cmd, void *data)
-{
-	int ret = 0;
-
-	if (cmd < 0) {
-		/* get heaset amplifier status : enabled or disabled */
-		ret = 0;
-	} else {
-		/* set heaset amplifier */
-		if (cmd == 0) {
-			gpio_set_value(HEADSET_AMP_GPIO, 0);
+	if (!is_init) {
+		ret = gpio_request(HEADSET_AMP_GPIO, "headset amplifier");
+		if (ret) {
+			pr_err("%s: request gpio error\n", __func__);
+			return NO_HOOK;
 		}
-		else {
-			gpio_set_value(HEADSET_AMP_GPIO, 1);
-		}
+
+		gpio_direction_output(HEADSET_AMP_GPIO, 0);
+
+		is_init = true;
 	}
 
-	return ret;
+	/* set heaset amplifier */
+	if (!on) {
+		gpio_set_value(HEADSET_AMP_GPIO, 0);
+	}
+	else {
+		gpio_set_value(HEADSET_AMP_GPIO, 1);
+	}
+
+	return HOOK_OK;
 }
-
-#ifdef FANGHUA
-static _audio_pa_control _audio_pa_amplifier = {
-	.headset = {
-		.init = audio_pa_headset_amplifier_init,
-		.control = audio_pa_headset_amplifier_ctrl,
-	},
-};
-#endif
-
 
 static int sc8810_add_misc_devices(void)
 {
-#ifdef FANGHUA
-	platform_set_drvdata(&audio_pa_amplifier_device, &_audio_pa_amplifier);
-	if (platform_device_register(&audio_pa_amplifier_device))
-		pr_err("faile to install audio_pa_amplifier_device\n");
-#endif
+	static struct sprd_audio_ext_hook audio_hook = {0};
+	audio_hook.ext_headphone_ctrl = customer_ext_headphone_ctrl;
+
+	sprd_ext_hook_register(&audio_hook);
 
 	return 0;
 }
@@ -1899,9 +1864,7 @@ static void __init sc8830_init_early(void)
 	__clock_init_early();
 	sci_enable_timer_early();
 	sci_adi_init();
-#ifdef FANGHUA
-	persistent_ram_early_init(&sprd_console_ram);
-#endif
+
 	/*ipi reg init for sipc*/
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
