@@ -353,16 +353,16 @@ static struct timing_mcu lcd_ili9341_timing[] = {
 		.rlpw = 45,
 		.rhpw = 90,
 		.wcss = 30,
-		.wlpw = 15,
-		.whpw = 15,
+		.wlpw = 20,
+		.whpw = 20,
 	},
 	[MCU_LCD_GRAM_TIMING] = {
 		.rcss = 25,
 		.rlpw = 45,
 		.rhpw = 90,
 		.wcss = 30,
-		.wlpw = 15,
-		.whpw = 15,
+		.wlpw = 20,
+		.whpw = 20,
 	}
 };
 

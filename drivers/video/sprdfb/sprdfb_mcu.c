@@ -21,7 +21,7 @@
 #include "sprdfb_dispc_reg.h"
 #include "sprdfb_lcdc_reg.h"
 
-#define  CONFIG_FB_NO_FMARK    /*Jessica for FPGA test*/
+//#define  CONFIG_FB_NO_FMARK    /*Jessica for FPGA test*/
 
 static int32_t lcdc_mcu_send_cmd(uint32_t cmd)
 {
