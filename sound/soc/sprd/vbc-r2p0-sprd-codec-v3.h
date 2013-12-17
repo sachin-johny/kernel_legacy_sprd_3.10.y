@@ -128,6 +128,7 @@ static int vbc_r2p0_codec_v3_probe(struct platform_device *pdev)
 	struct snd_soc_card *card = &vbc_r2p0_codec_v3_card;
 	card->dev = &pdev->dev;
 	board_mute_init();
+	board_inter_pa_init();
 	return snd_soc_register_card(card);
 }
 
