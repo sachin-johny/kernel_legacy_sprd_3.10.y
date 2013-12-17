@@ -41,6 +41,7 @@ enum {
     MUIC_RT8973_CABLE_TYPE_JIG_UART_ON_WITH_VBUS,     //adc 0x1D
 
     MUIC_RT8973_CABLE_TYPE_CDP, // USB Charging downstream port, usually treated as SDP
+    MUIC_RT8973_CABLE_TYPE_LG_SPEC_USB, // LG special USB cable
     MUIC_RT8973_CABLE_TYPE_UNKNOWN,
     MUIC_RT8973_CABLE_TYPE_INVALID, // Un-initialized
 };
