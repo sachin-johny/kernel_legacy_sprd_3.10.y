@@ -457,7 +457,7 @@ static inline void sprd_codec_vcm_v_sel(struct snd_soc_codec *codec, int v_sel)
 	sp_asoc_pr_dbg("VCM Set %d\n", v_sel);
 	mask = VCM_V_MASK << VCM_V;
 	val = (v_sel << VCM_V) & mask;
-	snd_soc_update_bits(codec, SOC_REG(PMUR3), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(PMUR3), mask, val);
 }
 
 static int sprd_codec_pga_spk_set(struct snd_soc_codec *codec, int pgaval)
@@ -831,7 +831,7 @@ static inline void __sprd_codec_pa_sw_en(struct snd_soc_codec *codec, int on)
 	int val;
 	mask = BIT(PA_SW_EN);
 	val = on ? mask : 0;
-	snd_soc_update_bits(codec, SOC_REG(PMUR2), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(PMUR2), mask, val);
 }
 
 static inline void sprd_codec_pa_sw_set(struct snd_soc_codec *codec, int fun)
@@ -864,7 +864,7 @@ static inline void sprd_codec_pa_d_en(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
 	mask = BIT(PA_D_EN);
 	val = on ? mask : 0;
-	snd_soc_update_bits(codec, SOC_REG(DCR2), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(DCR2), mask, val);
 }
 
 static inline void sprd_codec_pa_demi_en(struct snd_soc_codec *codec, int on)
@@ -874,11 +874,11 @@ static inline void sprd_codec_pa_demi_en(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
 	mask = BIT(PA_DEMI_EN);
 	val = on ? mask : 0;
-	snd_soc_update_bits(codec, SOC_REG(DCR2), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(DCR2), mask, val);
 
 	mask = BIT(DRV_OCP_AOL_PD) | BIT(DRV_OCP_AOR_PD);
 	val = mask;
-	snd_soc_update_bits(codec, SOC_REG(DCR3), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(DCR3), mask, val);
 }
 
 static inline void sprd_codec_pa_ldo_en(struct snd_soc_codec *codec, int on)
@@ -888,7 +888,7 @@ static inline void sprd_codec_pa_ldo_en(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
 	mask = BIT(PA_LDO_EN);
 	val = on ? mask : 0;
-	snd_soc_update_bits(codec, SOC_REG(PMUR2), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(PMUR2), mask, val);
 	if (on) {
 		sprd_codec_pa_sw_clr(codec, SPRD_CODEC_PA_SW_AOL);
 	}
@@ -902,7 +902,7 @@ static inline void sprd_codec_pa_ldo_v_sel(struct snd_soc_codec *codec,
 	sp_asoc_pr_dbg("%s set %d\n", __func__, v_sel);
 	mask = PA_LDO_V_MASK << PA_LDO_V;
 	val = (v_sel << PA_LDO_V) & mask;
-	snd_soc_update_bits(codec, SOC_REG(PMUR4), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(PMUR4), mask, val);
 }
 
 static inline void sprd_codec_pa_ovp_v_sel(struct snd_soc_codec *codec,
@@ -913,7 +913,7 @@ static inline void sprd_codec_pa_ovp_v_sel(struct snd_soc_codec *codec,
 	sp_asoc_pr_dbg("%s set %d\n", __func__, v_sel);
 	mask = PA_OVP_V_MASK << PA_OVP_V;
 	val = (v_sel << PA_OVP_V) & mask;
-	snd_soc_update_bits(codec, SOC_REG(PMUR6), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(PMUR6), mask, val);
 	snd_soc_update_bits(codec, SOC_REG(AUDIF_OVPTMR_CTL), 0x1A, 0x3F);
 }
 
@@ -925,7 +925,7 @@ static inline void sprd_codec_pa_dtri_f_sel(struct snd_soc_codec *codec,
 	sp_asoc_pr_dbg("%s set %d\n", __func__, f_sel);
 	mask = PA_DTRI_F_MASK << PA_DTRI_F;
 	val = (f_sel << PA_DTRI_F) & mask;
-	snd_soc_update_bits(codec, SOC_REG(DCR2), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(DCR2), mask, val);
 }
 
 static inline void sprd_codec_pa_en(struct snd_soc_codec *codec, int on)
@@ -945,7 +945,7 @@ static inline void sprd_codec_pa_en(struct snd_soc_codec *codec, int on)
 			mask = BIT(PA_EN) | BIT(PA_LDO_EN);
 		val = 0;
 	}
-	snd_soc_update_bits(codec, SOC_REG(PMUR2), val, mask);
+	snd_soc_update_bits(codec, SOC_REG(PMUR2), mask, val);
 	spin_unlock(&sprd_codec->sprd_codec_pa_sw_lock);
 }
 
