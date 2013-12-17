@@ -54,6 +54,7 @@ struct board_mute {
 static struct board_priv {
 	int func[BOARD_FUNC_MAX];
 	struct board_mute m[BOARD_FUNC_MUTE_MAX];
+	int pa_type[BOARD_FUNC_MUTE_MAX];
 } board;
 
 #define BOARD_EXT_SPK "Ext Spk"
@@ -115,6 +116,40 @@ static inline void local_cpu_pa_control(struct snd_soc_card *card,
 	}
 }
 
+static void board_try_inter_pa_control(struct snd_soc_card *card, int id,
+				       bool sync)
+{
+	char *pa_name;
+
+	BUG_ON(id >= BOARD_FUNC_MUTE_MAX);
+
+	switch (id) {
+	case BOARD_FUNC_SPKL:
+		pa_name = BOARD_INTER_SPK_PA;
+		break;
+	case BOARD_FUNC_SPKR:
+		pa_name = BOARD_INTER_SPK2_PA;
+		break;
+	case BOARD_FUNC_HP:
+		pa_name = BOARD_INTER_HP_PA;
+		break;
+	default:
+		return;
+	}
+
+	if (board.pa_type[id] & HOOK_BPY) {
+		int enable = 1;
+		if (board.func[id] == SWITCH_FUN_ON) {
+			if (board.m[id].need_mute) {
+				enable = 0;
+			}
+		} else {
+			enable = 0;
+		}
+		local_cpu_pa_control(card, pa_name, enable, sync);
+	}
+}
+
 static int audio_speaker_enable_inter(struct snd_soc_card *card, int enable)
 {
 	int ret;
@@ -126,8 +161,6 @@ static int audio_speaker_enable_inter(struct snd_soc_card *card, int enable)
 		pr_err("ERR:Call external speaker control failed %d!\n", ret);
 		return ret;
 	}
-	if (HOOK_BPY & ret)
-		local_cpu_pa_control(card, BOARD_INTER_SPK_PA, enable, 0);
 	return ret;
 }
 
@@ -148,8 +181,6 @@ static int audio_speaker2_enable_inter(struct snd_soc_card *card, int enable)
 		pr_err("ERR:Call external speaker2 control failed %d!\n", ret);
 		return ret;
 	}
-	if (HOOK_OK & ret)
-		local_cpu_pa_control(card, BOARD_INTER_SPK2_PA, enable, 0);
 	return ret;
 }
 
@@ -170,8 +201,6 @@ static int audio_headphone_enable_inter(struct snd_soc_card *card, int enable)
 		pr_err("ERR:Call external headphone control failed %d!\n", ret);
 		return ret;
 	}
-	if (HOOK_BPY & ret)
-		local_cpu_pa_control(card, BOARD_INTER_HP_PA, enable, 0);
 	return ret;
 }
 
@@ -343,6 +372,7 @@ static int board_func_set(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	board.func[id] = ucontrol->value.integer.value[0];
+	board_try_inter_pa_control(card, id, 0);
 	board_ext_control(&card->dapm, id, id + 1);
 	return 1;
 }
@@ -373,7 +403,46 @@ static int board_mute_set(struct snd_kcontrol *kcontrol,
 
 	board.m[id].need_mute = ucontrol->value.integer.value[0];
 	board.m[id].mute_func(card, board.m[id].is_on);
+	board_try_inter_pa_control(card, id, 1);
 	return 1;
+}
+
+static void board_inter_pa_check(int func_id)
+{
+	switch (func_id) {
+	case BOARD_FUNC_SPKL:
+		board.pa_type[func_id] =
+		    sprd_ext_speaker_ctrl(SPRD_AUDIO_ID_SPEAKER, 0);
+		break;
+	case BOARD_FUNC_SPKR:
+		board.pa_type[func_id] =
+		    sprd_ext_speaker_ctrl(SPRD_AUDIO_ID_SPEAKER2, 0);
+		break;
+	case BOARD_FUNC_EAR:
+		board.pa_type[func_id] =
+		    sprd_ext_earpiece_ctrl(SPRD_AUDIO_ID_EARPIECE, 0);
+		break;
+	case BOARD_FUNC_HP:
+		board.pa_type[func_id] =
+		    sprd_ext_headphone_ctrl(SPRD_AUDIO_ID_HEADPHONE, 0);
+		break;
+	default:
+		return;
+	}
+}
+
+static void board_inter_pa_init(void)
+{
+	int id;
+	for (id = BOARD_FUNC_SPKL; id < BOARD_FUNC_MUTE_MAX; id++)
+		board_inter_pa_check(id);
+}
+
+static void board_inter_pa_control(struct snd_soc_card *card)
+{
+	int id;
+	for (id = BOARD_FUNC_SPKL; id < BOARD_FUNC_MUTE_MAX; id++)
+		board_try_inter_pa_control(card, id, 0);
 }
 
 static int board_late_probe(struct snd_soc_card *card)
@@ -381,6 +450,7 @@ static int board_late_probe(struct snd_soc_card *card)
 	int i;
 	sprd_audio_debug_init(card->snd_card);
 
+	board_inter_pa_control(card);
 	board_ext_control(&card->dapm, 0, BOARD_FUNC_MAX);
 
 	for (i = 0; i < BOARD_FUNC_MAX; i++) {
@@ -412,6 +482,7 @@ static void sprd_asoc_shutdown(struct platform_device *pdev)
 {
 	struct snd_soc_card *card = platform_get_drvdata(pdev);
 	memset(&board.func, 0, sizeof(board.func));
+	board_inter_pa_control(card);
 	board_ext_control(&card->dapm, 0, BOARD_FUNC_MAX);
 }
 
