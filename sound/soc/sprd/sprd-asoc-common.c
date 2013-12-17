@@ -33,9 +33,32 @@
 
 #include "sprd-asoc-common.h"
 
-struct sprd_audio_ext_hook sprd_audio_hook = { 0 };
+static struct sprd_audio_ext_hook *sprd_audio_hook = 0;
 
-EXPORT_SYMBOL(sprd_audio_hook);
+int sprd_ext_hook_register(struct sprd_audio_ext_hook *hook)
+{
+	if (sprd_audio_hook) {
+		pr_err("ERR:Already Registed Hook\n");
+		return -1;
+	}
+	sprd_audio_hook = hook;
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_ext_hook_register);
+
+int sprd_ext_hook_unregister(struct sprd_audio_ext_hook *hook)
+{
+	if (sprd_audio_hook != hook) {
+		pr_err("ERR:Maybe Unregister other's Hook?\n");
+		return -1;
+	}
+	sprd_audio_hook = 0;
+	return 0;
+}
+
+EXPORT_SYMBOL(sprd_ext_hook_unregister);
+
 
 #define SAFE_CALL(func) do { \
 	if (func) { \
@@ -47,7 +70,7 @@ int sprd_ext_speaker_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external Speaker(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook.ext_speaker_ctrl);
+	SAFE_CALL(sprd_audio_hook->ext_speaker_ctrl);
 	return ret;
 }
 
@@ -57,7 +80,7 @@ int sprd_ext_headphone_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external Headphone(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook.ext_headphone_ctrl);
+	SAFE_CALL(sprd_audio_hook->ext_headphone_ctrl);
 	return ret;
 }
 
@@ -67,7 +90,7 @@ int sprd_ext_earpiece_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external Earpiece(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook.ext_earpiece_ctrl);
+	SAFE_CALL(sprd_audio_hook->ext_earpiece_ctrl);
 	return ret;
 }
 
@@ -77,7 +100,7 @@ int sprd_ext_mic_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external MIC(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook.ext_mic_ctrl);
+	SAFE_CALL(sprd_audio_hook->ext_mic_ctrl);
 	return ret;
 }
 
@@ -87,7 +110,7 @@ int sprd_ext_fm_ctrl(int id, int on)
 {
 	int ret = NO_HOOK;
 	sp_asoc_pr_dbg("external FM(%d) Hook; on=%d\n", id, on);
-	SAFE_CALL(sprd_audio_hook.ext_fm_ctrl);
+	SAFE_CALL(sprd_audio_hook->ext_fm_ctrl);
 	return ret;
 }
 
