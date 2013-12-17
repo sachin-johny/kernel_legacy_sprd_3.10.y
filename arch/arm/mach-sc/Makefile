@@ -41,4 +41,6 @@ obj-$(CONFIG_MACH_SP7715EA) += board-sp7715ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_STAR2) += board-star2.o dma_r4p0.o
 obj-$(CONFIG_MACH_CORSICA_VE) += board-corsica_ve.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735EA) += board-sp5735ea.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP8830GA) += board-sp8830ga.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP7730GA) += board-sp7730ga.o dma_r4p0.o
 obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o

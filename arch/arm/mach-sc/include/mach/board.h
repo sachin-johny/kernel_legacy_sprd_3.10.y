@@ -34,6 +34,14 @@
 #include "__board-sp8830ec.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP8830GA
+#include "__board-sp8830ga.h"
+#endif
+
+#ifdef	CONFIG_MACH_SP7730GA
+#include "__board-sp7730ga.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP8830SSW
 #include "__board-sp8830ssw.h"
 #endif
@@ -200,8 +208,13 @@
 #endif
 
 #define SPRD_IO_MEM_SIZE	(SPRD_ION_SIZE + SPRD_ION_OVERLAY_SIZE)
+#ifdef CONFIG_MTD_NAND_SC8830
+#define SPRD_IO_MEM_BASE	\
+	((CONFIG_PHYS_OFFSET & (~(SZ_256M - 1))) + SZ_256M - SPRD_IO_MEM_SIZE)
+#else
 #define SPRD_IO_MEM_BASE	\
 	((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_IO_MEM_SIZE)
+#endif
 
 #define SPRD_ION_BASE		(SPRD_IO_MEM_BASE)
 #define SPRD_ION_OVERLAY_BASE   (SPRD_ION_BASE + SPRD_ION_SIZE)
