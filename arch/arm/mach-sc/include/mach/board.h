@@ -50,6 +50,10 @@
 #include "__board-sp7730ec.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7730ECTRISIM
+#include "__board-sp7730ectrisim.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP5735EA
 #include "__board-sp5735ea.h"
 #endif
