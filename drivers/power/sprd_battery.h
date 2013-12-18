@@ -75,6 +75,8 @@ struct sprdbat_info {
 	int bat_current;
 	uint32_t chg_current_type;
 	uint32_t adp_type;
+	uint32_t usb_online;
+	uint32_t ac_online;
 	uint32_t vchg_vol;
 	uint32_t cccv_point;
 	unsigned long chg_start_time;
@@ -106,7 +108,9 @@ struct sprdbat_drivier_data {
 	struct delayed_work battery_work;
 	struct delayed_work battery_sleep_work;
 	struct work_struct ovi_irq_work;
-	struct work_struct charge_work;
+	struct delayed_work * charge_work;
+	int (*start_charge)(void);
+	int (*stop_charge)(void);
 };
 
 struct sprdbat_auxadc_cal {
@@ -120,5 +124,19 @@ struct sprdbat_auxadc_cal {
 #define sprdbat_read_vbat_vol sprdfgu_read_vbat_vol
 #define sprdbat_read_temp sprdchg_read_temp
 #define sprdbat_adp_plug_nodify sprdfgu_adp_status_set
+
+#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+#define SPRDBAT_CHG_EVENT_EXT_OVI   1
+#define SPRDBAT_CHG_EVENT_EXT_OVI_RESTART   2
+void sprdchg_start_charge_ext(void);
+void sprdchg_stop_charge_ext(void);
+int sprdchg_is_chg_done_ext(void);
+int sprdchg_charge_init_ext(struct platform_device *pdev);
+void sprdchg_chg_monitor_cb_ext(void * data);
+void sprdchg_open_ovi_fun_ext(void);
+void sprdchg_close_ovi_fun_ext(void);
+void sprdbat_charge_event_ext(uint32_t event);
+
+#endif
 
 #endif /* _CHG_DRVAPI_H_ */

@@ -7,9 +7,11 @@
 #include "sprd_2713_charge.h"
 #endif
 
-
-
+#if defined(CONFIG_ARCH_SCX15)
+#define SPRDFGU_BATTERY_CAPACITY    1500    //mAh
+#else
 #define SPRDFGU_BATTERY_CAPACITY    2050    //mAh
+#endif
 
 #define SPRDFGU_BATTERY_SAFETY_VOL   (SPRDBAT_CHG_END_H + 55)
 #define SPRDFGU_BATTERY_FULL_VOL   SPRDBAT_CHG_END_L

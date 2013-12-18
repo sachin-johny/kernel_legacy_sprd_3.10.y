@@ -189,7 +189,11 @@ static int cur_offset;
 
 #define VOL_0mv_IDEA_ADC    4096
 #define CUR_0ma_IDEA_ADC    8192
+#if defined(CONFIG_ARCH_SCX15)
+#define FGU_IMPEDANCE   215	//21.5moh
+#else
 #define FGU_IMPEDANCE   212	//21.2moh
+#endif
 #define FGU_IMPEDANCE_IDEA  200	//200
 
 #define FGU_CUR_SAMPLE_HZ   2
@@ -242,50 +246,12 @@ uint16_t voltage_capacity_table[][2] = {
 	,
 };
 
-uint16_t soc_capacity_table[][2] = {
-	{4175, 100}
-	,
-	{4130, 95}
-	,
-	{4087, 90}
-	,
-	{4052, 85}
-	,
-	{3990, 80}
-	,
-	{3970, 75}
-	,
-	{3943, 70}
-	,
-	{3915, 65}
-	,
-	{3883, 60}
-	,
-	{3843, 55}
-	,
-	{3820, 50}
-	,
-	{3804, 45}
-	,
-	{3792, 40}
-	,
-	{3783, 35}
-	,
-	{3776, 30}
-	,
-	{3770, 25}
-	,
-	{3754, 20}
-	,
-	{3736, 15}
-	,
-	{3708, 10}
-	,
-	{3691, 5}
-	,
-	{SPRDFGU_BATTERY_SHUTDOWN_VOL, 0}
-	,
-};
+#if defined(CONFIG_ARCH_SCX15)
+#include "sprd_scx15_soc_table.h"
+#else
+#include "sprd_scx35_soc_table.h"
+#endif
+
 
 #ifdef SPRDFGU_CAPACITY_FROM_VOL
 #define capacity_table voltage_capacity_table

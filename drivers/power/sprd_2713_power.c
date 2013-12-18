@@ -46,7 +46,7 @@
 #if defined(CONFIG_ARCH_SCX15)
 int sprd_thm_temp_read(u32 sensor)
 {
-    return 0;
+	return 0;
 }
 #endif
 
@@ -70,6 +70,7 @@ enum sprdbat_event {
 };
 
 static struct sprdbat_drivier_data *sprdbat_data;
+struct delayed_work sprdbat_charge_work;
 static uint32_t sprdbat_cv_irq_dis = 1;
 static uint32_t sprdbat_average_cnt;
 static unsigned long sprdbat_update_capacity_time;
@@ -81,7 +82,15 @@ static struct notifier_block sprdbat_notifier;
 extern struct sprdbat_auxadc_cal adc_cal;
 
 static void sprdbat_change_module_state(uint32_t event);
+static int sprdbat_stop_charge(void);
 
+#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+static int sprdbat_stop_charge_ext(void);
+static int sprdbat_stop_chg_process_ext(void);
+static int sprdbat_start_chg_process_ext(void);
+static int plugin_callback_ext(int usb_cable, void *data);
+static int plugout_callback_ext(int usb_cable, void *data);
+#endif
 uint32_t sprd_get_vbat_voltage(void)
 {
 	return sprdbat_read_vbat_vol();
@@ -100,8 +109,7 @@ static int sprdbat_ac_get_property(struct power_supply *psy,
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (likely(psy->type == POWER_SUPPLY_TYPE_MAINS)) {
-			val->intval =
-			    (data->bat_info.adp_type == ADP_TYPE_DCP) ? 1 : 0;
+			val->intval = data->bat_info.ac_online ? 1 : 0;
 		} else {
 			ret = -EINVAL;
 		}
@@ -126,9 +134,7 @@ static int sprdbat_usb_get_property(struct power_supply *psy,
 
 	switch (psp) {
 	case POWER_SUPPLY_PROP_ONLINE:
-		val->intval = (data->bat_info.adp_type == ADP_TYPE_CDP
-			       || data->bat_info.adp_type ==
-			       ADP_TYPE_SDP) ? 1 : 0;
+		val->intval = data->bat_info.usb_online ? 1 : 0;
 		break;
 	default:
 		ret = -EINVAL;
@@ -259,6 +265,12 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 	switch (off) {
 	case STOP_CHARGE:
 		sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
+#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+		sprdbat_data->bat_info.ac_online = 0;
+		sprdbat_data->bat_info.usb_online = 0;
+		sprdchg_stop_charge();
+		sprdchg_stop_charge_ext();
+#endif
 		break;
 	case BATTERY_0:
 		adc_cal.p0_vol = set_value & 0xffff;	//only for debug
@@ -421,7 +433,7 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 	data->bat_info.chg_start_time = 0;
 	get_monotonic_boottime(&cur_time);
 	sprdbat_update_capacity_time = cur_time.tv_sec;
-	data->bat_info.capacity = sprdfgu_poweron_capacity();//~0;//modify in later
+	data->bat_info.capacity = sprdfgu_poweron_capacity();	//~0;//modify in later
 	poweron_capacity = sprdfgu_poweron_capacity();
 	data->bat_info.soc = sprdfgu_read_soc();
 	data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
@@ -500,7 +512,8 @@ static inline void _sprdbat_clear_stopflags(uint32_t flag_msk)
 			sprdbat_data->bat_info.module_state =
 			    POWER_SUPPLY_STATUS_CHARGING;
 		}
-		sprdbat_start_charge();
+		//sprdbat_start_charge();
+		sprdbat_data->start_charge();
 	} else if (sprdbat_data->
 		   bat_info.chg_stop_flags & SPRDBAT_CHG_END_OTP_OVERHEAT_BIT) {
 		sprdbat_data->bat_info.bat_health =
@@ -526,7 +539,8 @@ static inline void _sprdbat_set_stopflags(uint32_t flag)
 	SPRDBAT_DEBUG("_sprdbat_set_stopflags flags:0x%x\n", flag);
 
 	if (sprdbat_data->bat_info.chg_stop_flags == SPRDBAT_CHG_END_NONE_BIT) {
-		sprdbat_stop_charge();
+		//sprdbat_stop_charge();
+		sprdbat_data->stop_charge();
 	}
 	sprdbat_data->bat_info.chg_stop_flags |= flag;
 	if (sprdbat_data->bat_info.module_state == POWER_SUPPLY_STATUS_CHARGING) {
@@ -548,8 +562,8 @@ static void sprdbat_change_module_state(uint32_t event)
 		sprdbat_data->bat_param.chg_timeout =
 		    SPRDBAT_CHG_NORMAL_TIMEOUT;
 		_sprdbat_clear_stopflags(~0);
-		queue_work(sprdbat_data->monitor_wqueue,
-			   &sprdbat_data->charge_work);
+		queue_delayed_work(sprdbat_data->monitor_wqueue,
+				   sprdbat_data->charge_work, 2 * HZ);
 		break;
 	case SPRDBAT_ADP_PLUGOUT_E:
 		sprdbat_data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
@@ -557,7 +571,8 @@ static void sprdbat_change_module_state(uint32_t event)
 		    SPRDBAT_CHG_END_NONE_BIT;
 		sprdbat_data->bat_info.module_state =
 		    POWER_SUPPLY_STATUS_DISCHARGING;
-		sprdbat_stop_charge();
+		//sprdbat_stop_charge();
+		sprdbat_data->stop_charge();
 		break;
 	case SPRDBAT_OVI_STOP_E:
 		if (sprdbat_data->bat_info.bat_health ==
@@ -618,16 +633,39 @@ static void sprdbat_change_module_state(uint32_t event)
 static int plugin_callback(int usb_cable, void *data)
 {
 	SPRDBAT_DEBUG("charger plug in interrupt happen\n");
+
 	mutex_lock(&sprdbat_data->lock);
+#ifndef SPRDBAT_TWO_CHARGE_CHANNEL
+	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
+			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
+
 	sprdbat_data->bat_info.adp_type = sprdchg_charger_is_adapter();
-
+	if (sprdbat_data->bat_info.adp_type == ADP_TYPE_DCP) {
+		sprdbat_data->bat_info.ac_online = 1;
+	} else {
+		sprdbat_data->bat_info.usb_online = 1;
+	}
+	sprdbat_adp_plug_nodify(1);
+#else
+	if (sprdbat_data->bat_info.usb_online) {
+		sprdbat_stop_chg_process_ext();
+	} else {
+		sprdbat_adp_plug_nodify(1);
+	}
+	sprdbat_data->bat_info.ac_online = 1;
+	sprdbat_data->bat_info.adp_type = ADP_TYPE_DCP;
+	sprdbat_data->start_charge = sprdbat_start_charge;
+	sprdbat_data->stop_charge = sprdbat_stop_charge;
+	sprdbat_data->charge_work = &sprdbat_charge_work;
+#endif
 	sprdbat_change_module_state(SPRDBAT_ADP_PLUGIN_E);
-	mutex_unlock(&sprdbat_data->lock);
-
 	irq_set_irq_type(sprdbat_data->irq_vchg_ovi, IRQ_TYPE_LEVEL_HIGH);
 	enable_irq(sprdbat_data->irq_vchg_ovi);
 
 	sprdchg_timer_enable(SPRDBAT_POLL_TIMER_NORMAL);
+
+	mutex_unlock(&sprdbat_data->lock);
+
 	SPRDBAT_DEBUG("plugin_callback:sprdbat_data->bat_info.adp_type:%d\n",
 		      sprdbat_data->bat_info.adp_type);
 
@@ -636,7 +674,6 @@ static int plugin_callback(int usb_cable, void *data)
 	else
 		power_supply_changed(&sprdbat_data->usb);
 
-	sprdbat_adp_plug_nodify(1);
 	SPRDBAT_DEBUG("plugin_callback: end...\n");
 	return 0;
 }
@@ -645,31 +682,53 @@ static int plugout_callback(int usb_cable, void *data)
 {
 	uint32_t adp_type = sprdbat_data->bat_info.adp_type;
 
-	sprdbat_data->bat_info.adp_type = ADP_TYPE_UNKNOW;
 	SPRDBAT_DEBUG("charger plug out interrupt happen\n");
 
-	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
-			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
 	mutex_lock(&sprdbat_data->lock);
+
 	disable_irq_nosync(sprdbat_data->irq_vchg_ovi);
 
 	sprdchg_timer_disable();
 	sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
+
+#ifndef SPRDBAT_TWO_CHARGE_CHANNEL
+	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
+			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
+	sprdbat_adp_plug_nodify(0);
+	sprdbat_data->bat_info.adp_type = ADP_TYPE_UNKNOW;
+	sprdbat_data->bat_info.ac_online = 0;
+	sprdbat_data->bat_info.usb_online = 0;
+#else
+	sprdbat_data->bat_info.ac_online = 0;
+	if (sprdbat_data->bat_info.usb_online) {
+		sprdbat_start_chg_process_ext();
+	} else {
+		sprdbat_adp_plug_nodify(0);
+	}
+#endif
 	mutex_unlock(&sprdbat_data->lock);
 
 	if (adp_type == ADP_TYPE_DCP)
 		power_supply_changed(&sprdbat_data->ac);
 	else
 		power_supply_changed(&sprdbat_data->usb);
-	sprdbat_adp_plug_nodify(0);
 	return 0;
 }
 
+#ifndef SPRDBAT_TWO_CHARGE_CHANNEL
 static struct usb_hotplug_callback power_cb = {
 	.plugin = plugin_callback,
 	.plugout = plugout_callback,
 	.data = NULL,
 };
+#else
+static struct usb_hotplug_callback power_cb = {
+	.plugin = plugin_callback_ext,
+	.plugout = plugout_callback_ext,
+	.data = NULL,
+};
+
+#endif
 
 static char *supply_list[] = {
 	"battery",
@@ -691,7 +750,8 @@ static int sprdbat_timer_handler(void *data)
 	SPRDBAT_DEBUG("sprdbat_timer_handler----------bat_current %d\n",
 		      sprdbat_data->bat_info.bat_current);
 
-	queue_work(sprdbat_data->monitor_wqueue, &sprdbat_data->charge_work);
+	queue_delayed_work(sprdbat_data->monitor_wqueue,
+			   sprdbat_data->charge_work, 0);
 	return 0;
 }
 
@@ -811,6 +871,13 @@ static void sprdbat_ovi_irq_works(struct work_struct *work)
 		mutex_unlock(&sprdbat_data->lock);
 		return;
 	}
+#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+	if (!sprdbat_data->bat_info.ac_online) {
+		mutex_unlock(&sprdbat_data->lock);
+		return;
+	}
+#endif
+
 	if (value) {
 		if (!
 		    (SPRDBAT_CHG_END_OVP_BIT & sprdbat_data->
@@ -828,12 +895,12 @@ static void sprdbat_ovi_irq_works(struct work_struct *work)
 	mutex_unlock(&sprdbat_data->lock);
 }
 
-static void sprdbat_print_log(void)
+static void sprdbat_chg_print_log(void)
 {
 	struct timespec cur_time;
 	int value;
 
-	SPRDBAT_DEBUG("sprdbat_print_log\n");
+	SPRDBAT_DEBUG("sprdbat_chg_print_log\n");
 
 	value = gpio_get_value(sprdbat_data->gpio_chg_cv_state);
 
@@ -862,7 +929,7 @@ static void sprdbat_print_log(void)
 	SPRDBAT_DEBUG("cccv_point:%d\n", sprdbat_data->bat_info.cccv_point);
 	SPRDBAT_DEBUG("aux vbat vol:%d\n", sprdchg_read_vbat_vol());
 	SPRDBAT_DEBUG("vchg_vol:%d\n", sprdchg_read_vchg_vol());
-	SPRDBAT_DEBUG("sprdbat_print_log end\n");
+	SPRDBAT_DEBUG("sprdbat_chg_print_log end\n");
 
 }
 
@@ -1067,6 +1134,9 @@ static void sprdbat_charge_works(struct work_struct *work)
 	}
 
 	if (sprdbat_start_chg) {
+		sprdbat_data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
+		sprdbat_data->bat_info.vbat_ocv = sprdfgu_read_vbat_ocv();
+		sprdbat_data->bat_info.bat_current = sprdfgu_read_batcurrent();
 		local_irq_save(irq_flag);
 		if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
 			sprdbat_cv_irq_dis = 0;
@@ -1161,7 +1231,7 @@ static void sprdbat_charge_works(struct work_struct *work)
 	}
 
 	mutex_unlock(&sprdbat_data->lock);
-	sprdbat_print_log();
+	sprdbat_chg_print_log();
 	SPRDBAT_DEBUG("sprdbat_charge_works----------end\n");
 }
 
@@ -1174,6 +1244,226 @@ static int sprdbat_fgu_event(struct notifier_block *this, unsigned long event,
 	mutex_unlock(&sprdbat_data->lock);
 	return 0;
 }
+
+//external charge ic code
+#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+static struct delayed_work sprdbat_charge_work_ext;
+static struct work_struct sprdbat_chg_detect_work;
+static uint32_t sprdbat_chg_online;
+
+static void sprdbat_chg_detect_works(struct work_struct *work)
+{
+	if (sprdbat_chg_online) {
+		SPRDBAT_DEBUG
+		    ("sprdbat_chg_detect_works plug in,vbus pull up\n");
+		plugin_callback(0, 0);
+	} else {
+		SPRDBAT_DEBUG
+		    ("sprdbat_chg_detect_works plug out,vbus pull down\n");
+		plugout_callback(0, 0);
+	}
+}
+
+static irqreturn_t sprdbat_chg_detect_int(int irq, void *dev_id)
+{
+	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
+			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
+
+	sprdbat_chg_online = gpio_get_value(sprdbat_data->gpio_charger_detect);
+	SPRDBAT_DEBUG("sprdbat_chg_detect_int------sprdbat_chg_online:%d\n",
+		      sprdbat_chg_online);
+	irq_set_irq_type(irq,
+			 sprdbat_chg_online ? IRQF_TRIGGER_LOW :
+			 IRQF_TRIGGER_HIGH);
+
+	queue_work(sprdbat_data->monitor_wqueue, &sprdbat_chg_detect_work);
+
+	return IRQ_HANDLED;
+}
+
+static void sprdbat_charge_works_ext(struct work_struct *work)
+{
+	SPRDBAT_DEBUG("sprdbat_charge_works_ext----------start\n");
+
+	sprdchg_chg_monitor_cb_ext(NULL);
+	mutex_lock(&sprdbat_data->lock);
+
+	if (sprdbat_data->bat_info.module_state ==
+	    POWER_SUPPLY_STATUS_DISCHARGING) {
+		mutex_unlock(&sprdbat_data->lock);
+		return;
+	}
+	sprdbat_data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
+	sprdbat_data->bat_info.vbat_ocv = sprdfgu_read_vbat_ocv();
+	sprdbat_data->bat_info.bat_current = sprdfgu_read_batcurrent();
+
+	SPRDBAT_DEBUG("sprdbat_charge_works----------vbat_vol %d,ocv:%d\n",
+		      sprdbat_data->bat_info.vbat_vol,
+		      sprdbat_data->bat_info.vbat_ocv);
+	SPRDBAT_DEBUG("sprdbat_charge_works----------bat_current %d\n",
+		      sprdbat_data->bat_info.bat_current);
+	sprdbat_temp_monitor();
+
+	if (sprdbat_data->bat_info.chg_stop_flags == SPRDBAT_CHG_END_NONE_BIT) {
+		if (sprdbat_is_chg_timeout()) {
+			SPRDBAT_DEBUG("chg timeout\n");
+			if (sprdbat_data->bat_info.vbat_ocv >
+			    sprdbat_data->bat_param.rechg_vol) {
+				sprdbat_change_module_state(SPRDBAT_CHG_FULL_E);
+			} else {
+				sprdbat_data->bat_param.chg_timeout =
+				    SPRDBAT_CHG_SPECIAL_TIMEOUT;
+				sprdbat_change_module_state
+				    (SPRDBAT_CHG_TIMEOUT_E);
+			}
+		}
+
+		if (sprdchg_is_chg_done_ext()) {
+			SPRDBAT_DEBUG("SPRDBAT_CHG_FULL_E\n");
+			sprdbat_change_module_state(SPRDBAT_CHG_FULL_E);
+		}
+
+	}
+
+	if (sprdbat_data->bat_info.chg_stop_flags & SPRDBAT_CHG_END_TIMEOUT_BIT) {
+		SPRDBAT_DEBUG("SPRDBAT_CHG_TIMEOUT_RESTART_E\n");
+		sprdbat_change_module_state(SPRDBAT_CHG_TIMEOUT_RESTART_E);
+	}
+
+	if (sprdbat_data->bat_info.chg_stop_flags & SPRDBAT_CHG_END_FULL_BIT) {
+		if (sprdbat_data->bat_info.vbat_ocv <
+		    sprdbat_data->bat_param.rechg_vol) {
+			SPRDBAT_DEBUG("SPRDBAT_RECHARGE_E\n");
+			sprdbat_change_module_state(SPRDBAT_RECHARGE_E);
+		}
+	}
+
+	mutex_unlock(&sprdbat_data->lock);
+	sprdbat_chg_print_log();
+	SPRDBAT_DEBUG("sprdbat_charge_works_ext----------end\n");
+}
+
+void sprdbat_charge_event_ext(uint32_t event)
+{
+	mutex_lock(&sprdbat_data->lock);
+	if (sprdbat_data->bat_info.module_state ==
+	    POWER_SUPPLY_STATUS_DISCHARGING
+	    || sprdbat_data->bat_info.ac_online) {
+		mutex_unlock(&sprdbat_data->lock);
+		return;
+	}
+
+	switch (event) {
+	case SPRDBAT_CHG_EVENT_EXT_OVI:
+
+		if (!
+		    (SPRDBAT_CHG_END_OVP_BIT & sprdbat_data->
+		     bat_info.chg_stop_flags)) {
+			SPRDBAT_DEBUG("SPRDBAT_OVI_STOP_E\n");
+			sprdbat_change_module_state(SPRDBAT_OVI_STOP_E);
+		}
+		break;
+	case SPRDBAT_CHG_EVENT_EXT_OVI_RESTART:
+		if ((SPRDBAT_CHG_END_OVP_BIT & sprdbat_data->
+		     bat_info.chg_stop_flags)) {
+			SPRDBAT_DEBUG("SPRDBAT_OVI_RESTART_E\n");
+			sprdbat_change_module_state(SPRDBAT_OVI_RESTART_E);
+		}
+		break;
+	default:
+		break;
+	}
+	mutex_unlock(&sprdbat_data->lock);
+}
+
+static int sprdbat_start_charge_ext(void)
+{
+	struct timespec cur_time;
+
+	get_monotonic_boottime(&cur_time);
+	sprdbat_data->bat_info.chg_start_time = cur_time.tv_sec;
+	sprdchg_start_charge_ext();
+
+	SPRDBAT_DEBUG
+	    ("sprdbat_start_charge bat_health:%d,chg_start_time:%ld,chg_current_type:%d\n",
+	     sprdbat_data->bat_info.bat_health,
+	     sprdbat_data->bat_info.chg_start_time,
+	     sprdbat_data->bat_info.chg_current_type);
+	return 0;
+}
+
+static int sprdbat_stop_charge_ext(void)
+{
+	sprdbat_data->bat_info.chg_start_time = 0;
+
+	sprdchg_stop_charge_ext();
+
+	SPRDBAT_DEBUG("sprdbat_stop_charge\n");
+	return 0;
+}
+
+static int sprdbat_start_chg_process_ext(void)
+{
+	sprdbat_data->bat_info.adp_type = ADP_TYPE_SDP;
+	sprdbat_data->start_charge = sprdbat_start_charge_ext;
+	sprdbat_data->stop_charge = sprdbat_stop_charge_ext;
+	sprdbat_data->charge_work = &sprdbat_charge_work_ext;
+	sprdchg_open_ovi_fun_ext();
+	sprdchg_timer_enable(SPRDBAT_POLL_TIMER_NORMAL);
+	sprdbat_change_module_state(SPRDBAT_ADP_PLUGIN_E);
+	return 0;
+}
+
+static int sprdbat_stop_chg_process_ext(void)
+{
+	sprdbat_data->bat_info.adp_type = ADP_TYPE_UNKNOW;
+	sprdchg_close_ovi_fun_ext();
+	sprdchg_timer_disable();
+	sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
+	return 0;
+}
+
+static int plugin_callback_ext(int usb_cable, void *data)
+{
+	SPRDBAT_DEBUG("charger plugin_callback_ext happen\n");
+	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
+			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
+	mutex_lock(&sprdbat_data->lock);
+
+	sprdbat_data->bat_info.usb_online = 1;
+	if (!sprdbat_data->bat_info.ac_online) {
+		sprdbat_adp_plug_nodify(1);
+		sprdbat_start_chg_process_ext();
+	}
+	mutex_unlock(&sprdbat_data->lock);
+
+	power_supply_changed(&sprdbat_data->ac);
+	power_supply_changed(&sprdbat_data->usb);
+
+	SPRDBAT_DEBUG("plugin_callback_ext: end...\n");
+	return 0;
+}
+
+static int plugout_callback_ext(int usb_cable, void *data)
+{
+	sprdbat_data->bat_info.usb_online = 0;
+	SPRDBAT_DEBUG("charger plugout_callback_ext happen\n");
+
+	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
+			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
+	mutex_lock(&sprdbat_data->lock);
+	if (!sprdbat_data->bat_info.ac_online) {
+		sprdbat_adp_plug_nodify(0);
+		sprdbat_stop_chg_process_ext();
+	}
+	mutex_unlock(&sprdbat_data->lock);
+
+	power_supply_changed(&sprdbat_data->ac);
+	power_supply_changed(&sprdbat_data->usb);
+	return 0;
+}
+
+#endif
 
 static int sprdbat_probe(struct platform_device *pdev)
 {
@@ -1216,6 +1506,9 @@ static int sprdbat_probe(struct platform_device *pdev)
 	data->usb.type = POWER_SUPPLY_TYPE_USB;
 	data->usb.supplied_to = supply_list;
 	data->usb.num_supplicants = ARRAY_SIZE(supply_list);
+
+	data->start_charge = sprdbat_start_charge;
+	data->stop_charge = sprdbat_stop_charge;
 
 	ret = power_supply_register(&pdev->dev, &data->usb);
 	if (ret)
@@ -1291,7 +1584,8 @@ static int sprdbat_probe(struct platform_device *pdev)
 			  sprdbat_battery_sleep_works);
 	INIT_WORK(&data->ovi_irq_work, sprdbat_ovi_irq_works);
 
-	INIT_WORK(&data->charge_work, sprdbat_charge_works);
+	INIT_DELAYED_WORK(&sprdbat_charge_work, sprdbat_charge_works);
+	data->charge_work = &sprdbat_charge_work;
 	data->monitor_wqueue = create_singlethread_workqueue("sprdbat_monitor");
 	sprdchg_timer_init(sprdbat_timer_handler, data);
 
@@ -1299,7 +1593,22 @@ static int sprdbat_probe(struct platform_device *pdev)
 
 	sprdchg_init();
 	sprdfgu_init(pdev);
+#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+	sprdchg_charge_init_ext(pdev);
+	INIT_DELAYED_WORK(&sprdbat_charge_work_ext, sprdbat_charge_works_ext);
 
+	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
+	data->gpio_charger_detect = res->start;
+
+	gpio_request(data->gpio_charger_detect, "sprd_charger_detect");
+	gpio_direction_input(data->gpio_charger_detect);
+	data->irq_charger_detect = gpio_to_irq(data->gpio_charger_detect);
+
+	ret = request_irq(data->irq_charger_detect, sprdbat_chg_detect_int,
+		    IRQF_SHARED | IRQF_TRIGGER_HIGH, "sprdbat_charger_detect",
+		    data);
+	INIT_WORK(&sprdbat_chg_detect_work, sprdbat_chg_detect_works);
+#endif
 	sprdbat_info_init(data);
 	sprdbat_notifier.notifier_call = sprdbat_fgu_event;
 	sprdfgu_register_notifier(&sprdbat_notifier);

@@ -625,8 +625,27 @@ static struct resource sprd_battery_resources[] = {
                 .end = EIC_VCHG_OVI,
                 .name = "vchg_ovi",
                 .flags = IORESOURCE_IO,
+        },
+#ifdef CONFIG_SHARK_PAD_HW_V102
+        [3] = {
+                .start = GPIO_EXT_CHG_DONE,
+                .end = GPIO_EXT_CHG_DONE,
+                .name = "ext_charge_done",
+                .flags = IORESOURCE_IO,
+        },
+        [4] = {
+                .start = GPIO_EXT_CHG_EN,
+                .end = GPIO_EXT_CHG_EN,
+                .name = "ext_chg_en",
+                .flags = IORESOURCE_IO,
+        },
+        [5] = {
+                .start = GPIO_EXT_CHG_OVI,
+                .end = GPIO_EXT_CHG_OVI,
+                .name = "ext_vchg_ovi",
+                .flags = IORESOURCE_IO,
         }
-
+#endif
 };
 
 struct platform_device sprd_battery_device = {

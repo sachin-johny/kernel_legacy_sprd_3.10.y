@@ -56,6 +56,6 @@ obj-$(CONFIG_BATTERY_SAMSUNG)	+= sec_fuelgauge.o sec_battery.o
 obj-$(CONFIG_CHARGER_TPS65090)	+= tps65090-charger.o
 obj-$(CONFIG_POWER_RESET)	+= reset/
 obj-$(CONFIG_SPRD_2713_POWER)  += sprd_2713_battery.o
-sprd_2713_battery-y := sprd_2713_power.o sprd_2713_charge.o sprd_2713_fgu.o
+sprd_2713_battery-y := sprd_2713_power.o sprd_2713_charge.o sprd_2713_fgu.o sprd_charge_ext.o
 obj-$(CONFIG_FUELGAUGE_RT5033)	+= rt5033_fuelgauge.o
 obj-$(CONFIG_CHARGER_RT5033)    += rt5033_charger.o
