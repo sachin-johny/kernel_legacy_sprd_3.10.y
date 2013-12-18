@@ -797,9 +797,25 @@ static void __init sc8830_init_machine(void)
 
 }
 
+static void sprd_set_mic_bias(int uv)
+{
+	struct regulator *regu;
+	int ret;
+
+	regu = regulator_get(NULL, "VMICBIAS");
+	ret = IS_ERR(regu);
+	if (!IS_ERR(regu)) {
+		regulator_set_voltage(regu, uv, uv);
+		regulator_put(regu);
+	} else{
+		pr_err("sprd_set_mic_bias error  %d!", ret);
+	}
+}
+
 static void __init sc8830_init_late(void)
 {
 	platform_add_devices(late_devices, ARRAY_SIZE(late_devices));
+	sprd_set_mic_bias(2730000);
 }
 
 extern void __init  sci_enable_timer_early(void);

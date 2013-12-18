@@ -32,6 +32,16 @@
 #include "sprd-audio-power.h"
 #include "sprd-asoc-common.h"
 
+#ifdef CONFIG_AUDIO_POWER_ALLOW_UNSUPPORTED
+#define UNSUP_MASK	0x0000
+#else
+#define UNSUP_MASK	0x8000
+#endif
+
+#define UNSUP(x)	(UNSUP_MASK | (x))
+#define IS_UNSUP(x)	(UNSUP_MASK & (x))
+#define LDO_MV(x)	(~UNSUP_MASK & (x))
+
 struct sprd_audio_power_info {
 	int id;
 	/* enable/disable register information */
@@ -47,6 +57,8 @@ struct sprd_audio_power_info {
 	int v_shift;
 	int v_table_len;
 	const u16 *v_table;
+	int min_uV;
+	int max_uV;
 
 	/* unit: us */
 	int on_delay;
@@ -152,10 +164,39 @@ static int sprd_audio_power_is_enabled(struct regulator_dev *rdev)
 	return ! !is_enable;
 }
 
+static int audio_power_set_voltage(struct regulator_dev *rdev, int min_uV,
+				   int max_uV)
+{
+	struct sprd_audio_power_info *info = rdev_get_drvdata(rdev);
+	int vsel;
+
+	BUG_ON(!info->v_table);
+
+	for (vsel = 0; vsel < info->v_table_len; vsel++) {
+		int mV = info->v_table[vsel];
+		int uV;
+
+		if (IS_UNSUP(mV))
+			continue;
+		uV = LDO_MV(mV) * 1000;
+
+		/* use the first in-range value */
+		if (min_uV <= uV && uV <= max_uV) {
+			sp_asoc_pr_dbg("%s: %dus\n", __func__, uV);
+			sprd_power_u_bits(info,
+					  info->v_reg,
+					  info->v_mask << info->v_shift,
+					  vsel << info->v_shift);
+			return vsel;
+		}
+	}
+	return -EDOM;
+}
+
 static int sprd_audio_power_enable(struct regulator_dev *rdev)
 {
 	struct sprd_audio_power_info *info = rdev_get_drvdata(rdev);
-	int ret;
+	int ret = 0;
 
 	sp_asoc_pr_dbg("%s Enable\n", rdev->desc->name);
 
@@ -164,26 +205,33 @@ static int sprd_audio_power_enable(struct regulator_dev *rdev)
 					info->en_reg, info->en_bit,
 					info->en_bit);
 	} else {
-		ret = info->power_enable();
+		if (info->power_enable)
+			ret = info->power_enable();
 		info->en_bit = 1;
 	}
 
 	udelay(info->on_delay);
 
+	if (info->v_table) {
+		if (info->min_uV || info->max_uV)
+			audio_power_set_voltage(rdev, info->min_uV,
+						info->max_uV);
+	}
 	return ret;
 }
 
 static int sprd_audio_power_disable(struct regulator_dev *rdev)
 {
 	struct sprd_audio_power_info *info = rdev_get_drvdata(rdev);
-	int ret;
+	int ret = 0;
 
 	sp_asoc_pr_dbg("%s Disable\n", rdev->desc->name);
 
 	if (info->en_reg) {
 		ret = sprd_power_u_bits(info, info->en_reg, info->en_bit, 0);
 	} else {
-		ret = info->power_disable();
+		if (info->power_disable)
+			ret = info->power_disable();
 		info->en_bit = 0;
 	}
 
@@ -224,16 +272,6 @@ static int sprd_audio_power_set_mode(struct regulator_dev *rdev, unsigned mode)
 	}
 	return ret;
 }
-
-#ifdef CONFIG_AUDIO_POWER_ALLOW_UNSUPPORTED
-#define UNSUP_MASK	0x0000
-#else
-#define UNSUP_MASK	0x8000
-#endif
-
-#define UNSUP(x)	(UNSUP_MASK | (x))
-#define IS_UNSUP(x)	(UNSUP_MASK & (x))
-#define LDO_MV(x)	(~UNSUP_MASK & (x))
 
 static const u16 VCOM_VSEL_table[] = {
 	2900, 3100, 3200, 3300,
@@ -280,31 +318,20 @@ sprd_audio_power_set_voltage(struct regulator_dev *rdev, int min_uV, int max_uV,
 	struct sprd_audio_power_info *info = rdev_get_drvdata(rdev);
 	int vsel;
 
-	sp_asoc_pr_dbg("%s Set Voltage\n", rdev->desc->name);
+	sp_asoc_pr_info("%s Set Voltage %d--%d\n", rdev->desc->name, min_uV,
+			max_uV);
 
 	if (!info->v_table) {
 		return 0;
 	}
+	info->min_uV = min_uV;
+	info->max_uV = max_uV;
 
-	for (vsel = 0; vsel < info->v_table_len; vsel++) {
-		int mV = info->v_table[vsel];
-		int uV;
+	vsel = audio_power_set_voltage(rdev, min_uV, max_uV);
+	if (vsel != -EDOM)
+		*selector = vsel;
 
-		if (IS_UNSUP(mV))
-			continue;
-		uV = LDO_MV(mV) * 1000;
-
-		/* use the first in-range value */
-		if (min_uV <= uV && uV <= max_uV) {
-			*selector = vsel;
-			return sprd_power_u_bits(info,
-						 info->v_reg,
-						 info->v_mask << info->v_shift,
-						 vsel << info->v_shift);
-		}
-	}
-
-	return -EDOM;
+	return vsel;
 }
 
 static int sprd_audio_power_get_voltage(struct regulator_dev *rdev)
@@ -401,6 +428,8 @@ static int sprd_audio_power_probe(struct platform_device *pdev)
 	struct regulation_constraints *c;
 	struct regulator_dev *rdev;
 	struct regulator_config config = { };
+	int min_index = 0;
+	int max_index = 0;
 
 	id = pdev->id;
 
@@ -432,6 +461,20 @@ static int sprd_audio_power_probe(struct platform_device *pdev)
 	c->valid_modes_mask |= REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
 	c->valid_ops_mask |= REGULATOR_CHANGE_VOLTAGE
 	    | REGULATOR_CHANGE_MODE | REGULATOR_CHANGE_STATUS;
+
+	if (info->v_table) {
+		for (i = 0; i < info->v_table_len; i++) {
+			if (info->v_table[i] < info->v_table[min_index])
+				min_index = i;
+			if (info->v_table[i] > info->v_table[max_index])
+				max_index = i;
+		}
+		c->min_uV = LDO_MV((info->v_table)[min_index]) * 1000;
+		c->max_uV = LDO_MV((info->v_table)[max_index]) * 1000;
+		sp_asoc_pr_info("min_uV:%d, max_uV:%d\n", c->min_uV, c->max_uV);
+	}
+	info->min_uV = 0;
+	info->max_uV = 0;
 
 	config.dev = &pdev->dev;
 	config.init_data = initdata;
