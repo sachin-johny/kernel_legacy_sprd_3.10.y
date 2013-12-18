@@ -308,6 +308,7 @@ static void l2cap_chan_destroy(struct l2cap_chan *chan)
 	write_unlock(&chan_list_lock);
 
 	kfree(chan);
+	chan = NULL;
 }
 
 void l2cap_chan_hold(struct l2cap_chan *c)
@@ -3116,11 +3117,13 @@ static inline int l2cap_disconnect_req(struct l2cap_conn *conn, struct l2cap_cmd
 	sk->sk_shutdown = SHUTDOWN_MASK;
 	release_sock(sk);
 
+           chan->ops->close(chan->data);
+
 	l2cap_chan_del(chan, ECONNRESET);
 
 	l2cap_chan_unlock(chan);
 
-	chan->ops->close(chan->data);
+
 
 	mutex_unlock(&conn->chan_lock);
 
