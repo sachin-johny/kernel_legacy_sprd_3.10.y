@@ -1599,6 +1599,8 @@ static int __init gp2a_setup(struct i2c_client *client)
 
 	gp2a_power(true);
 
+	msleep(1); /* wait for chip power settle */
+
 return 0;
 
 err:
