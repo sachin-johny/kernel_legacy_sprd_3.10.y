@@ -254,7 +254,10 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 		}
 	}
 #ifdef CONFIG_ZRAM_FOR_ANDROID
-	if (lowmem_minfreeswap_check && si.totalswap) {
+/*
+	we don't want to reduce min_adj under 1 due to no free swap space.
+*/
+	if (lowmem_minfreeswap_check && si.totalswap && min_adj > 1) {
 		unsigned int freeswap_rate = si.freeswap * 100 / si.totalswap;
 
 		/* Reduce min_adj according to the predefined freeswap levels
@@ -266,6 +269,10 @@ static int lowmem_shrink(struct shrinker *s, int nr_to_scan, gfp_t gfp_mask)
 				break;
 		if (i != array_size - 1)
 			min_adj = lowmem_adj[i];
+		if(min_adj == 0)
+		{
+			min_adj = 1;
+		}
 
 		lowmem_print(4, "lowmem_shrink freeswap %d rate %d%\n",
 			     si.freeswap, freeswap_rate);
