@@ -1031,6 +1031,9 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 
 static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 {
+	struct fb_info *fb = dev->fb;
+	uint32_t size = (fb->var.xres & 0xffff) | ((fb->var.yres) << 16);
+
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	down(&dev->refresh_lock);
@@ -1043,14 +1046,13 @@ static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 		sprdfb_panel_invalidate(dev->panel);
 	}
 	printk("sprdfb:[%s] clean lcd!\n",__FUNCTION__);
-	struct fb_info *fb = dev->fb;
-	uint32_t size = (fb->var.xres & 0xffff) | ((fb->var.yres) << 16);
+
 	dispc_write(size, DISPC_SIZE_XY);
 
 	dispc_osd_enable(false);
 	dispc_set_bg_color(0x00);
 	dispc_run(dev);
-	dispc_osd_enable(true);
+	//dispc_osd_enable(true);
 	up(&dev->refresh_lock);
 	mdelay(30);
 }
@@ -1070,6 +1072,8 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		printk("sprdfb: [%s]: do not refresh in suspend!!!\n", __FUNCTION__);
 		goto ERROR_REFRESH;
 	}
+
+	dispc_osd_enable(true);
 
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
@@ -1848,6 +1852,7 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
 	struct sprdfb_device *dev = dispc_ctx->dev;
+	bool dispc_run;
 
 	if(NULL == dev || 0 == dev->enable){
 		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
@@ -1857,13 +1862,22 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 	printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold state=%u\n", state);
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		down(&dev->refresh_lock);
-		dispc_stop_for_feature(dev);
+		dispc_run = dispc_read(DISPC_CTRL) & BIT(4);
+		//if(!dispc_ctx->is_first_frame){
+		if(dispc_run){
+			dispc_stop_for_feature(dev);
+		}
+
 		if(state == DEVFREQ_PRE_CHANGE){
 			dispc_write(0x9600960, 0x0c);
 		}else{
 			dispc_write(0x5000500, 0x0c);
 		}
-		dispc_run_for_feature(dev);
+
+		if(dispc_run){
+			dispc_run_for_feature(dev);
+		}
+		//}
 		up(&dev->refresh_lock);
 	}
 	return 0;

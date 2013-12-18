@@ -419,6 +419,7 @@ struct panel_spec lcd_panel_hx8363_rgb_spi_spec = {
 	.fps = 61,
 	.type = LCD_MODE_RGB,
 	.direction = LCD_DIRECT_NORMAL,
+	.is_clean_lcd = true,
 	.info = {
 		.rgb = &lcd_hx8363_rgb_info
 	},
