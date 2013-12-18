@@ -833,6 +833,7 @@ static int serial_sprd_setup_port(struct platform_device *pdev, struct resource 
 		dma_info->dma_buf_v = dma_alloc_writecombine(NULL, UART_DMA_BUF_SIZE,
 				&dma_info->dma_buf_p, GFP_KERNEL);
 		if (!dma_info->dma_buf_v) {
+                        kfree(up);
 			return -ENOMEM;
 		}
 
