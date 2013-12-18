@@ -121,7 +121,8 @@ static void board_try_inter_pa_control(struct snd_soc_card *card, int id,
 {
 	char *pa_name;
 
-	BUG_ON(id >= BOARD_FUNC_MUTE_MAX);
+	if (id >= BOARD_FUNC_MUTE_MAX)
+		return;
 
 	switch (id) {
 	case BOARD_FUNC_SPKL:
