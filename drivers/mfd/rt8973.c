@@ -782,7 +782,7 @@ static void rt8973_lg_usb_detach_handler(struct rt8973_chip *chip,
 				      *handler, unsigned int old_status,
 				      unsigned int new_status)
 {
-	RTINFO("LG special USB cable attached\n");
+	RTINFO("LG special USB cable detached\n");
 	/* Make switch opened */
 	rt8973_reg_write(chip, RT8973_REG_MANUAL_SW1, 0x00);
 	/* Change to auto-config */
