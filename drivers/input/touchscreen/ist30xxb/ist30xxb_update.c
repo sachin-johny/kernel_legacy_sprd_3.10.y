@@ -27,10 +27,7 @@
 #endif
 
 #if IST30XX_INTERNAL_BIN
-#include "./firmware/IST30xxB_FW_Corsica_VE_Ver0002.h"
-# if IST30XX_MULTIPLE_TSP
-#  include "./firmware/ist30xxb_fw_synopex_v01.h"
-# endif
+#include "IST30xxB_FW_Corsica_VE_Ver0003.h"
 #endif // IST30XX_INTERNAL_BIN
 
 struct ist30xx_tags *ts_tags;

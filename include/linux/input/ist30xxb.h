@@ -80,10 +80,10 @@
 #define DEV_DEBUG   (4)
 #define DEV_VERB    (5)
 
-#define PRINT_TSP_LOG	(1)
+#define PRINT_TSP_LOG	(0)
 
 #define IST30XX_DEBUG_TAG       "[ TSP ]"
-#define IST30XX_DEBUG_LEVEL    6// DEV_DEBUG
+#define IST30XX_DEBUG_LEVEL       DEV_DEBUG
 //#define IST30XX_DEBUG_LEVEL     DEV_VERB
 
 #define tsp_err(fmt, ...)   tsp_printk(DEV_ERR, fmt, ## __VA_ARGS__)
@@ -206,7 +206,7 @@ struct ist30xx_tags {
 	char	magic2[8];
 };
 
-#include "../../drivers/input/touchscreen/ist30xxb_sec.h"
+#include "../../drivers/input/touchscreen/ist30xxb/ist30xxb_sec.h"
 #include <linux/earlysuspend.h>
 
 struct tsp_dev_info{
