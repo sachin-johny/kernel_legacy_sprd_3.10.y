@@ -44,6 +44,7 @@
 #define ITM_INTF_NAME		"wlan%d"
 
 #define SETH_RESEND_MAX_NUM	10
+#define SIOGETSSID 0x89F2
 
 void ittiam_nvm_init(void);
 
@@ -361,9 +362,23 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 
 static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
+	struct itm_priv *priv = netdev_priv(dev);
+	struct iwreq *wrq = (struct iwreq *)req;
+
 	switch (cmd) {
 	case SIOCDEVPRIVATE + 1:
 		return itm_cfg80211_android_priv_cmd(dev, req);
+		break;
+	case SIOGETSSID:
+		if (priv->ssid_len > 0) {
+			if (copy_to_user(wrq->u.essid.pointer, priv->ssid,
+					 priv->ssid_len))
+				return -EFAULT;
+			wrq->u.essid.length = priv->ssid_len;
+		} else {
+			dev_err(&dev->dev, "ssid len is zero\n");
+			return -EFAULT;
+		}
 		break;
 	default:
 		dev_err(&dev->dev, "ioctl cmd %d is not supported\n", cmd);
