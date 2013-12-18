@@ -71,4 +71,22 @@
 #define GPIO_GYRO_INT1 191
 #define GPIO_M_RSTN	188
 #define GPIO_M_DRDY 189
+
+/* ION config info
+LCD:
+   960x540
+
+Video Playing:
+   1080p 8 ref-frame
+
+Video Recording:
+   720p
+
+Camera:
+   8M,  support ZSL, support preview/capture rotation
+*/
+
+#define SPRD_ION_SIZE            (52 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (7 * SZ_1M)
+
 #endif

@@ -91,109 +91,15 @@
 #endif
 
 #ifdef CONFIG_ION
-    #if defined (CONFIG_ARCH_SC8825)
-        #if defined(CONFIG_CAMERA_8M)
-            #define SPRD_ION_SIZE	(23*1024*1024)
-        #elif defined(CONFIG_CAMERA_5M)
-            #define SPRD_ION_SIZE	(19*1024*1024)
-        #elif defined(CONFIG_CAMERA_3M)
-            #define SPRD_ION_SIZE	(13*1024*1024)
-        #elif defined(CONFIG_CAMERA_2M)
-            #ifdef CONFIG_CAMERA_ROTATION
-                #define SPRD_ION_SIZE	(13*1024*1024)
-            #else
-                #define SPRD_ION_SIZE	(8*1024*1024)
-            #endif
-        #else
-	    #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE * SZ_1M)
-        #endif
-    #elif defined (CONFIG_ARCH_SCX35)
+    #if defined (CONFIG_ARCH_SCX35)
         #if defined(CONFIG_CMA)
             #define SPRD_ION_SIZE	(20*1024*1024)
+        #elif defined(CONFIG_SPRD_IOMMU)
+            #define SPRD_ION_SIZE	(0*1024*1024)
         #else
-			#if defined(CONFIG_CAMERA_8M)
-				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*ZSL 48.8*/
-						#define SPRD_CAPTURE_SIZE	(50*1024*1024)
-					#else
-						/*NON-ZSL 23.8*/
-						#define SPRD_CAPTURE_SIZE	(25*1024*1024)
-					#endif
-				#else
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*rotation ZSL 61.6*/
-						#define SPRD_CAPTURE_SIZE	(63*1024*1024)
-					#else
-						/*rotation	NON-ZSL 45.6*/
-						#define SPRD_CAPTURE_SIZE	(47*1024*1024)
-					#endif
-				#endif
-
-				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
-			#elif defined(CONFIG_CAMERA_5M)
-				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*ZSL 43.8*/
-						#define SPRD_CAPTURE_SIZE	(45*1024*1024)
-					#else
-						/*NON-ZSL 23.8*/
-						#define SPRD_CAPTURE_SIZE	(25*1024*1024)
-					#endif
-				#else
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*rotation ZSL 56.6*/
-						#define SPRD_CAPTURE_SIZE	(58*1024*1024)
-					#else
-						/*rotation NON-ZSL 45.6*/
-						#define SPRD_CAPTURE_SIZE	(47*1024*1024)
-					#endif
-				#endif
-
-				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
-			#elif defined(CONFIG_CAMERA_3M)
-				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*ZSL 40.8*/
-						#define SPRD_CAPTURE_SIZE	(42*1024*1024)
-					#else
-						/*NON-ZSL 23.8*/
-						#define SPRD_CAPTURE_SIZE	(25*1024*1024)
-					#endif
-				#else
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*rotation ZSL 53.6*/
-						#define SPRD_CAPTURE_SIZE	(55*1024*1024)
-					#else
-						/*rotation NON-ZSL 45.6*/
-						#define SPRD_CAPTURE_SIZE	(47*1024*1024)
-					#endif
-				#endif
-
-				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
-			#elif defined(CONFIG_CAMERA_2M)
-				#if 0 //defined(CONFIG_CAMERA_NO_ROTATION)
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*ZSL 39.8*/
-						#define SPRD_CAPTURE_SIZE	(41*1024*1024)
-					#else
-						/*NON-ZSL 23.8*/
-						#define SPRD_CAPTURE_SIZE	(25*1024*1024)
-					#endif
-				#else
-					#if defined(CONFIG_CAMERA_ZSL)
-						/*rotation ZSL 51.6*/
-						#define SPRD_CAPTURE_SIZE	(53*1024*1024)
-					#else
-						/*rotation NON-ZSL 45.6*/
-						#define SPRD_CAPTURE_SIZE	(47*1024*1024)
-					#endif
-				#endif
-
-				#define SPRD_ION_SIZE	(SPRD_H264_DECODE_SIZE + SPRD_CAPTURE_SIZE)
-			#else
-				#define SPRD_ION_SIZE	(50*1024*1024)
-			#endif
+            #ifndef SPRD_ION_SIZE	/* should be defined in "__board-sp**.h" already */
+                #define SPRD_ION_SIZE	(76 * SZ_1M)
+            #endif
         #endif
     #else
         #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE*1024*1024)
@@ -204,7 +110,9 @@
         #if defined(CONFIG_CMA)
             #define SPRD_ION_OVERLAY_SIZE   (0 * SZ_1M)
         #else
-            #define SPRD_ION_OVERLAY_SIZE   (25 * SZ_1M)
+            #ifndef SPRD_ION_OVERLAY_SIZE	/* should be defined in "__board-sp**.h" already */
+                #define SPRD_ION_OVERLAY_SIZE	(12 * SZ_1M)
+            #endif
         #endif
     #else
         #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
