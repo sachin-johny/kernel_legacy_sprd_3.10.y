@@ -74,7 +74,7 @@
 
 /* ION config info
 LCD:
-   960x540
+   1024x768
 
 Video Playing:
    1080p 8 ref-frame
@@ -87,6 +87,6 @@ Camera:
 */
 
 #define SPRD_ION_SIZE            (52 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE    (7 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (11 * SZ_1M)
 
 #endif
