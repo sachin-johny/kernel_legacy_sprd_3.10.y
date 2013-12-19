@@ -4,6 +4,7 @@
  * Authors:
  * Keguang Zhang <keguang.zhang@spreadtrum.com>
  * Danny Deng <danny.deng@spreadtrum.com>
+ * Wenjie Zhang <wenjie.zhang@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -28,8 +29,12 @@
 #include <linux/workqueue.h>
 #include <linux/ipv6.h>
 #include <linux/ip.h>
+#include <linux/inetdevice.h>
 #include <asm/byteorder.h>
 #include <linux/platform_device.h>
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+#include <linux/earlysuspend.h>
+#endif
 
 #include <linux/sipc.h>
 #include <linux/atomic.h>
@@ -325,11 +330,12 @@ static int itm_wlan_open(struct net_device *dev)
 {
 	struct itm_priv *priv = netdev_priv(dev);
 
-	/* Reset stats */
-	memset(&priv->ndev->stats, 0, sizeof(priv->ndev->stats));
+	dev_info(&dev->dev, "%s\n", __func__);
 
+	/* if first open net device do nothing, otherwise act as resume */
 	napi_enable(&priv->napi);
-	netif_start_queue(dev);
+	if (netif_queue_stopped(dev))
+		netif_device_attach(dev);
 
 	return 0;
 }
@@ -340,8 +346,11 @@ static int itm_wlan_open(struct net_device *dev)
 static int itm_wlan_close(struct net_device *dev)
 {
 	struct itm_priv *priv = netdev_priv(dev);
+	dev_info(&dev->dev, "%s\n", __func__);
 
-	netif_stop_queue(dev);
+	/* if netdevice carrier off, do nothing */
+	if (netif_queue_stopped(dev))
+		netif_device_attach(dev);
 	napi_disable(&priv->napi);
 
 	return 0;
@@ -388,7 +397,36 @@ static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	return 0;
 }
 
-#ifdef	CONFIG_PM
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+static void itm_wlan_early_suspend(struct early_suspend *es)
+{
+	struct itm_priv *priv = container_of(es, struct itm_priv,
+					     early_suspend);
+	int ret = 0;
+
+	dev_info(&priv->ndev->dev, "%s\n", __func__);
+
+	ret = itm_wlan_pm_early_suspend_cmd(priv->wlan_sipc);
+	if (ret)
+		dev_err(&priv->ndev->dev, "Failed to early suspend (%d)\n",
+			ret);
+}
+
+static void itm_wlan_late_resume(struct early_suspend *es)
+{
+	struct itm_priv *priv = container_of(es, struct itm_priv,
+					     early_suspend);
+	int ret = 0;
+
+	dev_info(&priv->ndev->dev, "%s\n", __func__);
+
+	ret = itm_wlan_pm_later_resume_cmd(priv->wlan_sipc);
+	if (ret)
+		dev_err(&priv->ndev->dev, "Failed to late resume(%d)\n", ret);
+}
+#endif
+
+#if defined(CONFIG_PM) && defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 static int itm_wlan_suspend(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
@@ -396,14 +434,11 @@ static int itm_wlan_suspend(struct device *dev)
 	int ret = 0;
 
 	dev_info(dev, "%s\n", __func__);
+
 	netif_device_detach(ndev);
 	napi_disable(&priv->napi);
 
-#if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 	ret = itm_wlan_pm_enter_ps_cmd(priv);
-#elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
-	ret = itm_wlan_pm_suspend_cmd(priv->wlan_sipc);
-#endif
 	if (ret)
 		dev_err(dev, "Failed to suspend (%d)\n", ret);
 
@@ -418,11 +453,7 @@ static int itm_wlan_resume(struct device *dev)
 
 	dev_info(dev, "%s\n", __func__);
 
-#if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 	ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
-#elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
-	ret = itm_wlan_pm_resume_cmd(priv->wlan_sipc);
-#endif
 	if (ret)
 		dev_err(dev, "Failed to resume (%d)\n", ret);
 
@@ -437,7 +468,7 @@ static const struct dev_pm_ops itm_wlan_pm = {
 };
 #else
 static const struct dev_pm_ops itm_wlan_pm;
-#endif /* CONFIG_PM */
+#endif
 
 static struct net_device_ops itm_wlan_ops = {
 	.ndo_open = itm_wlan_open,
@@ -446,6 +477,42 @@ static struct net_device_ops itm_wlan_ops = {
 	.ndo_get_stats = itm_wlan_get_stats,
 	.ndo_tx_timeout = itm_wlan_tx_timeout,
 	.ndo_do_ioctl = itm_wlan_ioctl,
+};
+
+static int itm_inetaddr_event(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	struct itm_priv *priv;
+	struct net_device *dev;
+
+	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+
+	dev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
+
+	if (dev == NULL)
+		goto done;
+
+	priv = netdev_priv(dev);
+
+	if (!priv)
+		goto done;
+
+	switch (event) {
+	case NETDEV_UP:
+		itm_wlan_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
+		break;
+	case NETDEV_DOWN:
+		break;
+	default:
+		break;
+	}
+
+done:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block itm_inetaddr_cb = {
+	.notifier_call = itm_inetaddr_event,
 };
 
 /*
@@ -512,6 +579,10 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_notify_sblock;
 	}
 
+#ifdef CONFIG_INET
+	register_inetaddr_notifier(&itm_inetaddr_cb);
+#endif
+
 	/* register new Ethernet interface */
 	ret = register_netdev(ndev);
 	if (ret) {
@@ -527,7 +598,14 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_npi_netlink;
 	}
 	platform_set_drvdata(pdev, ndev);
+
 	ittiam_nvm_init();
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	priv->early_suspend.suspend = itm_wlan_early_suspend;
+	priv->early_suspend.resume  = itm_wlan_late_resume;
+	priv->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
+	register_early_suspend(&priv->early_suspend);
+#endif
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
@@ -563,8 +641,12 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
 
+	unregister_early_suspend(&priv->early_suspend);
 	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_netdev(ndev);
+#ifdef CONFIG_INET
+	unregister_inetaddr_notifier(&itm_inetaddr_cb);
+#endif
 	itm_wdev_free(priv);
 	free_netdev(ndev);
 	npi_exit_netlink();

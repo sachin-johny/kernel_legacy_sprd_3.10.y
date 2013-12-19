@@ -27,6 +27,9 @@
 #include <linux/ieee80211.h>
 #include <linux/if_ether.h>
 #include <linux/wakelock.h>
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+#include <linux/earlysuspend.h>
+#endif
 
 #include "itm_sipc_types.h"
 
@@ -34,6 +37,9 @@ struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
 	struct napi_struct napi;
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	struct early_suspend	early_suspend;
+#endif
 
 	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/

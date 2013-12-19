@@ -8,19 +8,19 @@ config ITTIAM
 if ITTIAM
 choice
 	prompt "SPRD WLAN sleep policy"
-	default ITM_WLAN_PM_POWERSAVE
+	default ITM_WLAN_PM_IRRELEVANT
+
+config ITM_WLAN_PM_IRRELEVANT
+	depends on ITTIAM && PM
+	bool "Irrelevant sleep policy"
+	help
+	  The WLAN power management is took care by firmware.
 
 config ITM_WLAN_PM_POWERSAVE
 	depends on ITTIAM && PM
-	bool "Power Save"
+	bool "Traditional sleep policy"
 	help
-	  Keep connection alive during sleep.
-
-config ITM_WLAN_PM_SLEEP
-	depends on ITTIAM && PM
-	bool "Sleep"
-	help
-	  Stop connection during sleep to maximize battery life.
+	  The WLAN power management is took care by system.
 
 endchoice
 endif

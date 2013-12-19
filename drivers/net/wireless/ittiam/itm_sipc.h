@@ -76,6 +76,9 @@ enum wlan_sipc_cmd_id {
 	WIFI_CMD_BEACON,
 	WIFI_CMD_NPI,
 	WIFI_CMD_WPS_IE,
+	WIFI_CMD_LINK_STATUS,
+	WIFI_CMD_PM_EARLY_SUSPEND,
+	WIFI_CMD_PM_LATER_RESUME,
 	WIFI_CMD_MAX
 };
 
@@ -185,9 +188,10 @@ extern int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode);
 extern int itm_wlan_sipc_alloc(struct itm_priv *itm_priv);
 extern void itm_wlan_sipc_free(struct itm_priv *itm_priv);
 
-extern int itm_wlan_pm_suspend_cmd(struct wlan_sipc *wlan_sipc);
-extern int itm_wlan_pm_resume_cmd(struct wlan_sipc *wlan_sipc);
-
+extern int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip);
 extern int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv);
 extern int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc);
+
+extern int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc);
+extern int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc);
 #endif/*__ITM_SIPC_CMD_H__*/
