@@ -150,6 +150,9 @@ static void setup_autopd_mode(void)
 	else {
 		sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 	}
+#if defined(CONFIG_SCX35_DMC_FREQ_DDR3)
+	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+#endif
 #endif
 #if defined(CONFIG_ARCH_SCX15)
        sci_glb_set(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);

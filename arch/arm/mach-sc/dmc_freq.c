@@ -43,11 +43,19 @@ static u32 chip_id = 0;
 static ddr_dfs_val_t __emc_param_configs[5];
 static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr);
 u32 emc_clk_get(void);
+static u32 get_dpll_clk(void);
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
 static void emc_dfs_code_copy(u8 * dest);
 static int emc_dfs_call(unsigned long flag);
 void emc_dfs_main(unsigned long flag);
 #endif
+#define MAX_DLL_DISABLE_CLK 200
+#define MIN_DPLL_CLK    250
+enum{
+	CLK_EMC_SELECT_26M = 0,
+	CLK_EMC_SELECT_TDPLL = 1,
+	CLK_EMC_SELECT_DPLL = 2,
+};
 //#define EMC_FREQ_AUTO_TEST
 static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 {
@@ -148,6 +156,7 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	u32 flag = 0;
 	ddr_dfs_val_t * ret_timing;
 	ret_timing = __dmc_param_config(clk);
+
 	if(!ret_timing) {
 		return -1;
 	}
@@ -169,17 +178,20 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 //	}
 //#endif
 #ifdef CONFIG_SCX35_DMC_FREQ_DDR3
-    if(clk <= 200)
-    {
-        clk = 192;
+	if(clk == 400){
+		clk = 384;
 	}
-    flag = (EMC_DDR_TYPE_DDR3 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
+	flag = (EMC_DDR_TYPE_DDR3 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
+	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
+	flag |= dll_enable;
+	flag |= 0x0 << EMC_CLK_DIV_OFFSET;
 #else
 	flag = (EMC_DDR_TYPE_LPDDR2 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
-#endif
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
 	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
+#endif
+
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
 	flush_cache_all();
 	cpu_suspend(flag, emc_dfs_call);
@@ -199,7 +211,8 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 		sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
 	#endif
 	close_cp();
-	info("__emc_clk_set clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",clk, sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
+	info("__emc_clk_set clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",
+				clk, sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 #endif
 	if(emc_clk_get() != clk) {
 		info("clk set error, set clk = %d, get clk = %d\n", clk, emc_clk_get());
@@ -209,10 +222,65 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	}
 	return 0;
 }
+
+static void __set_dpll_clk(u32 clk)
+{
+	u32 reg;
+	u32 dpll,dpll_lpf,dpll_ibias;
+	if(get_dpll_clk() == clk){
+		return;
+	}
+	reg = sci_glb_read(REG_AON_APB_DPLL_CFG,-1);
+	reg &= ~0x7ff;
+	reg &= ~BITS_DPLL_LPF(0x7);
+	reg &= ~BITS_DPLL_IBIAS(0x3);
+
+	if((reg & 0x03000000) == 0x00000000){
+		dpll = clk >> 1;
+	}
+	if((reg & 0x03000000) == 0x01000000) {
+		dpll = clk >> 2;
+	}
+	if((reg & 0x03000000) == 0x02000000) {
+		dpll = clk / 13;
+	}
+	if((reg & 0x03000000) == 0x03000000) {
+		dpll = clk / 26;
+	}
+	if(dpll < MIN_DPLL_CLK) {
+		dpll_lpf = 0x2;
+		dpll_ibias = 0x1;
+	} else {
+		dpll_lpf = 0x6;
+		dpll_ibias = 0x1;
+	}
+	reg |= dpll | BITS_DPLL_LPF(dpll_lpf) | BITS_DPLL_IBIAS(dpll_ibias);
+	sci_glb_write(REG_AON_APB_DPLL_CFG, reg, -1);
+	udelay(100);
+}
+static u32 get_emc_clk_select(u32 clk)
+{
+	u32 select;
+	switch(clk) {
+		case 26:
+			select = CLK_EMC_SELECT_26M;
+			break;
+		case 192:
+		case 384:
+		case 256:
+			select = CLK_EMC_SELECT_TDPLL;
+			break;
+		default:
+			select = CLK_EMC_SELECT_DPLL;
+			break;
+	 }
+	return select;
+}
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
-	u32 dll_enable = 1;
-	u32 old_clk;
+	u32 dll_enable = EMC_DLL_SWITCH_ENABLE_MODE;
+	u32 old_clk,old_select,new_select,div = 0x0;
+
 #ifdef EMC_FREQ_AUTO_TEST
 	u32 start_t1, end_t1;
 	unsigned long irq_flags;
@@ -224,7 +292,6 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	start_t1 = get_sys_cnt();
 	local_fiq_disable();
 #endif
-
 
     /*info("emc clk going on %d	#########################################################\n",new_clk);*/
 	//mutex_lock(&emc_mutex);
@@ -254,22 +321,56 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 
 	if(new_clk == old_clk)
 	{
-        is_current_set --;
+		is_current_set --;
 		return 0;
 	}
-    __emc_clk_set(new_clk,0,EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
+	__emc_clk_set(new_clk,0,EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 #else
 
-    #ifdef CONFIG_SCX35_DMC_FREQ_DDR3
-	if(new_clk <= 200) {
-		new_clk = 192;
+#ifdef CONFIG_SCX35_DMC_FREQ_DDR3
+	if( (new_clk >= 0) && (new_clk <= 200) )
+	{
+		new_clk = 200;
 	}
-	if((old_clk == 532)&&(new_clk == 192)){
-		__emc_clk_set(192,0,EMC_DLL_SWITCH_DISABLE_MODE,EMC_BSP_BPS_200_NOT_CHANGE);
-	} else if ((old_clk == 192)&&(new_clk == 532)){
-		__emc_clk_set(532,0,EMC_DLL_SWITCH_DISABLE_MODE,EMC_BSP_BPS_200_NOT_CHANGE);
+	else if((new_clk > 200) && (new_clk <=400))
+	{
+		new_clk = 384;
 	}
-    #else  //CONFIG_SCX35_DMC_FREQ_DDR3
+	else if(new_clk > 400)
+	{
+		new_clk = 532;
+	}
+
+	if(emc_clk_get() == new_clk)
+	{
+		is_current_set--;
+		return 0;
+	}
+
+	if(new_clk <= MAX_DLL_DISABLE_CLK){
+		dll_enable = EMC_DLL_SWITCH_DISABLE_MODE;
+	}
+	old_select = get_emc_clk_select(old_clk);
+	new_select = get_emc_clk_select(new_clk);
+
+	switch(new_select)
+	{
+		case CLK_EMC_SELECT_26M:
+			break;
+		case CLK_EMC_SELECT_TDPLL:
+			__emc_clk_set(new_clk, 0, dll_enable, 0);
+			break;
+		case CLK_EMC_SELECT_DPLL:
+			if(old_select == new_select){
+				__emc_clk_set(384, 0, EMC_DLL_SWITCH_ENABLE_MODE,0);
+			}
+			__set_dpll_clk(new_clk * (div + 1));
+			__emc_clk_set(new_clk, 0, dll_enable,0);
+			break;
+		default:
+			break;
+	}
+#else  //CONFIG_SCX35_DMC_FREQ_DDR3
    
 	if((old_clk > 200) && (new_clk == 200)) {
 		if(old_clk > 332) {
@@ -291,7 +392,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	else {
 		__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 	}
-	#endif   //config_ddr3_dfs
+#endif   //config_ddr3_dfs
 #endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
@@ -428,8 +529,9 @@ static struct early_suspend emc_early_suspend_desc = {
 #ifdef EMC_FREQ_AUTO_TEST
 #ifdef CONFIG_SCX35_DMC_FREQ_DDR3
 static u32 emc_freq_valid_array[] = {
-    192,
-	532,
+	200,
+	384,
+	532
 };
 #else
 static u32 emc_freq_valid_array[] = {
