@@ -6,6 +6,7 @@
  **                            Macro Define
  **---------------------------------------------------------------------------*/
 #define REG32(x)                           (*((volatile uint32 *)(x)))
+#define REG16(x)                           (*((volatile uint16 *)(x)))
 #define UMCTL2_REG_GET(reg_addr)             (*((volatile uint32 *)(reg_addr)))
 #define UMCTL2_REG_SET( reg_addr, value )    *(volatile uint32 *)(reg_addr) = value
 #define UMCTL_REG_BASE (0x01000000)
@@ -321,9 +322,9 @@
 #define EMC_DLL_SWITCH_DISABLE_MODE		0x0
 #define EMC_DLL_SWITCH_ENABLE_MODE		0x1
 #define EMC_DLL_NOT_SWITCH_MODE			0x2
-#define EMC_DLL_SET_BPS_200			0x3
-#define EMC_DLL_CLR_BPS_200			0x4
-#define EMC_DLL_MODE_MASK			(0xf)
+#define EMC_DLL_MODE_MASK			(0x3)
+#define EMC_CLK_DIV_OFFSET			2
+#define EMC_CLK_DIV_MASK			(0X3 << EMC_CLK_DIV_OFFSET)
 
 
 #define EMC_FREQ_SWITCH_STATUS_OFFSET		(4)
@@ -409,20 +410,6 @@ typedef struct
     uint32 publ_dx3dqstr;
 }ddr_dfs_val_t;
 ddr_dfs_val_t *timing;
-static uint32 reg_bits_set(uint32 addr, 
-                           uint8 start_bitpos,
-                           uint8 bit_num,
-                           uint32 value)
-{
-    /*create bit mask according to input param*/
-    uint32 bit_mask = (1<<bit_num)-1;
-    uint32 reg_data = *((volatile uint32*)(addr));
-    
-    reg_data &= ~(bit_mask<<start_bitpos);
-    reg_data |= ((value&bit_mask)<<start_bitpos);
-    
-    *((volatile uint32*)(addr)) = reg_data;
-}
 static void assert_reset_dll(void)
 {
 	REG32(PUBL_ACDLLCR)  &= ~(0x1<<30);
@@ -453,7 +440,7 @@ static void move_upctl_state_to_self_refresh(void)
 {
 	uint32 val;
 
-	REG32(UMCTL_PWRCTL) = 0;
+	REG32(UMCTL_PWRCTL) = 0x8;
 	val = REG32(UMCTL_STAT);
 	//wait umctl2 core is in self-refresh mode
 	while((val & 0x7) != 1) {
@@ -470,10 +457,8 @@ static void move_upctl_state_to_self_refresh(void)
 }
 static void move_upctl_state_exit_self_refresh(u32 dll_enable)
 {
-	uint32 val;
-
 	if(dll_enable == EMC_DLL_SWITCH_DISABLE_MODE) {
- 		REG32(UMCTL_DFILPCFG0) = 0x0700f100;
+		REG32(UMCTL_DFILPCFG0) = 0x0700f100;
 		REG32(UMCTL_PWRCTL)    = 0x9;
 	}
 	else{
@@ -508,7 +493,7 @@ static void set_ddrphy_dll_bps200_mode(u32 bps200)
 	}
 }
 static void ddr_clk_set(uint32 new_clk, uint32 delay);
-static void ddr_timing_update();
+static void ddr_timing_update(void);
 
 static void switch_100_200(u32 bsp_200)
 {
@@ -553,24 +538,77 @@ static void wait_queue_complete(void)
 		}
 	}
 }
-static void dll_enable_set(u32 dll_mode)
+#define AON_CLK_CONTROL_BASE	(0x022d0000)
+#define CLK_EMC_CFG	(AON_CLK_CONTROL_BASE + 0x24)
+static void ddr_timing_update(void);
+static int emc_clk_select(uint32 new_clk, uint32 div)
 {
 	volatile uint32 i;
-//	for(i = 0 ; i < 8; i++)
-//	{
-//		manual_issue_autorefresh();
-//	}
+	uint32 clk_emc_div;
+	uint32 clk_emc_sel;
+	uint32 val;
+
+	switch(new_clk){
+	case 384:
+		val = REG32(CLK_EMC_CFG);
+		val &= ~(1 << 8);
+		REG32(CLK_EMC_CFG) = val;
+		val &= ~(0x3);
+		val |= 2;
+		REG32(CLK_EMC_CFG) = val;
+		break;
+	case 192:
+		val = REG32(CLK_EMC_CFG);
+		val |= (1 << 8);
+		REG32(CLK_EMC_CFG) = val;
+		val &= ~(0x3);
+		val |= 2;
+		REG32(CLK_EMC_CFG) = val;
+		break;
+	default:
+		val = REG32(CLK_EMC_CFG);
+		val &= ~(1 << 8);
+		val |= (div << 8);
+		REG32(CLK_EMC_CFG) = val;
+		val |= 3;
+		REG32(CLK_EMC_CFG) = val;
+		break;
+	}
+//	val = (clk_emc_div << 8) | clk_emc_sel;
+//	REG32(CLK_EMC_CFG) = val;
+}
+#if 0
+void timer_init(void)
+{
+	REG32(0x40060018) = 0x820;
+	REG32(0x40020040) = 0xffffffff;
+	REG32(0x40020048) = 0xc0;
+}
+uint32 timer_get(void)
+{
+	return REG32(0x40020044);
+}
+#endif
+static void umctl2_clk_switch(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode, uint32 div)
+{
+	volatile uint32 i;
+	//uint32 time_before;
+	//time_before = timer_get();
 	move_upctl_state_to_self_refresh();
 	disable_cam_command_deque();
 	REG32(UMCTL_DFIMISC) &= ~(1 << 0);
-	REG32(FLAG_ADDR - 4) = 0X11223044;
 	wait_queue_complete();
-	
+	//disable auto refresh
+	REG32(UMCTL_RFSHCTL3) |= (1 << 0);
+	for(i = 0 ; i < 2; i++);
+	emc_clk_select(clk, div);
+	for(i = 0 ; i < 2; i++);
+
 	//phy clock close
 //	REG32(PMU_APB_BASE + 0xc8) &= ~(1 << 2);
 	REG32(PMU_APB_BASE + 0xc8) &= ~(1 << 6);
-//	for(i = 0 ; i < 2; i++);
 
+	for(i = 0 ; i < 2; i++);
 	if(dll_mode == EMC_DLL_SWITCH_DISABLE_MODE) {
 		disable_ddrphy_dll();
 		//phy clock open
@@ -579,12 +617,14 @@ static void dll_enable_set(u32 dll_mode)
 		for(i = 0 ; i < 2; i++);
 //		deassert_reset_dll();
 		REG32(PUBL_PIR) |= (1 << 4) | (1 << 0);
-		REG32(FLAG_ADDR - 4) = 0X11223144;
 		while((REG32(PUBL_PGSR) & 1) != 1);
 		while((REG32(PUBL_PGSR) & 1) != 1);
-		REG32(PUBL_PIR) |= (1 << 4);
+//		REG32(PUBL_PIR) |= (1 << 4);
+		REG32(UMCTL_PERFLPR1) &= ~0xFFFF;
+		REG32(UMCTL_PERFWR1) &= ~0xFFFF;
 	}
-	else if(dll_mode == EMC_DLL_SWITCH_ENABLE_MODE){
+	else if((dll_mode == EMC_DLL_SWITCH_ENABLE_MODE) || (dll_mode == EMC_DLL_NOT_SWITCH_MODE)){
+
 		assert_reset_dll();
 		for(i = 0 ; i < 2; i++);
 		enable_ddrphy_dll();
@@ -593,57 +633,28 @@ static void dll_enable_set(u32 dll_mode)
 		REG32(PMU_APB_BASE + 0xc8) |= (1 << 6);
 		for(i = 0 ; i < 2; i++);
 		deassert_reset_dll();
-		for(i = 0 ; i < 20; i++);
+		for(i = 0 ; i < 10; i++);
+		REG32(UMCTL_PERFLPR1) |= 0x100;
+		REG32(UMCTL_PERFWR1) |= 0x20;
 	}
-	REG32(FLAG_ADDR - 4) = 0X11223244;
+	//enable auto refresh
+	REG32(UMCTL_RFSHCTL3) &= ~(1 << 0);
+	ddr_timing_update();
 	REG32(UMCTL_DFIMISC) |= (1 << 0);
 	enable_cam_command_deque();
 	move_upctl_state_exit_self_refresh(dll_mode);
-	REG32(FLAG_ADDR - 4) = 0X11223344;
+	//REG32(FLAG_ADDR - 8) = time_before - timer_get();
 }
-void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode, uint32 bps_200)
+void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode,uint32 div)
 {
-	if(bps_200 == EMC_BSP_BPS_200_NOT_CHANGE) {
-		ddr_clk_set(clk, 5);
-	}
-	else {
-		switch_100_200(bps_200);
-	}
-	if((dll_mode != EMC_DLL_NOT_SWITCH_MODE)) {
-		dll_enable_set(dll_mode);
-	}
+	umctl2_clk_switch(clk, DDR_TYPE, dll_mode, div);
+	return;
 }
 #define CP2_PARAM_ADDR	(0xF00)
-static void ddr_autorefresh_timing_update(void)
+static void ddr_timing_update(void)
 {
-	uint32 t_rfc_nom_x32;
-	uint32 val;
-	t_rfc_nom_x32 = (timing->umctl2_rfshtmg >> 16) & 0xfff;
-	val = REG32(UMCTL_RFSHTMG);
-	val &= ~(0xfff << 16);
-	val |= (t_rfc_nom_x32 << 16);
-	disable_cam_command_deque();
-	REG32(UMCTL_RFSHTMG)  = val;
-//	REG32(UMCTL_RFSHCTL3) ^= (1 << 1);
-	manual_issue_autorefresh();
-	enable_cam_command_deque();
-}
-static void ddr_timing_update()
-{
-	volatile uint32 i;
-	uint32 val;
-	uint32 t_rfc_min;
-//	t_rfc_min = timing->umctl2_rfshtmg & 0x1ff;
-//	val = REG32(UMCTL_RFSHTMG);
-//	val &= ~(0x1ff);
-//	val |= t_rfc_min;
-
-	disable_cam_command_deque();
 	REG32(UMCTL_RFSHTMG)  = timing->umctl2_rfshtmg;
-//	REG32(UMCTL_RFSHTMG)  = val;
 	REG32(UMCTL_RFSHCTL3) ^= (1 << 1);
-//	manual_issue_autorefresh();
-
 	REG32(UMCTL_DRAMTMG0) = timing->umctl2_dramtmg0;
 	REG32(UMCTL_DRAMTMG1) = timing->umctl2_dramtmg1;
 	REG32(UMCTL_DRAMTMG2) = timing->umctl2_dramtmg2;
@@ -652,7 +663,7 @@ static void ddr_timing_update()
 	//REG32(UMCTL_DRAMTMG5) = timing->umctl2_dramtmg5;
 	REG32(UMCTL_DRAMTMG6) = timing->umctl2_dramtmg6;
 	//REG32(UMCTL_DRAMTMG7) = timing->umctl2_dramtmg7;
-	//REG32(UMCTL_DRAMTMG8) = timing->umctl2_dramtmg8;
+	REG32(UMCTL_DRAMTMG8) = 1;
 	REG32(PUBL_DX0DQSTR) = timing->publ_dx0dqstr;
 	REG32(PUBL_DX1DQSTR) = timing->publ_dx1dqstr;
 	REG32(PUBL_DX2DQSTR) = timing->publ_dx2dqstr;
@@ -661,46 +672,7 @@ static void ddr_timing_update()
 	REG32(PUBL_DX1GCR) = timing->publ_dx1gcr;
 	REG32(PUBL_DX2GCR) = timing->publ_dx2gcr;
 	REG32(PUBL_DX3GCR) = timing->publ_dx3gcr;
-
-#if 0
-	REG32(PUBL_PIR) |= (1 << 4) | (1 << 0);
-	while((REG32(PUBL_PGSR) & 1) != 1);
-	while((REG32(PUBL_PGSR) & 1) != 1);
-	REG32(PUBL_PIR) |= (1 << 4);
-	REG32(UMCTL_DFIMISC) |= (1 << 0);
-#endif
-	enable_cam_command_deque();
 }
-static void ddr_clk_set(uint32 new_clk, uint32 delay)
-{
-	uint32 reg_val;
-	uint32 old_clk;
-	uint32 steps;
-	uint32 i;
-	uint32 j;
-	reg_val = REG32(AON_APB_CKG_BASE + 0X18);
-	old_clk = reg_val & 0xfff;
-	old_clk *= 4;
-	if(old_clk > new_clk) {
-		steps = (old_clk - new_clk) / 4;
-//		ddr_autorefresh_timing_update();
-		for(i = 0; i < steps; i++) {
-			REG32(AON_APB_CKG_BASE + 0X18) = REG32(AON_APB_CKG_BASE + 0X18) - 1;
-			for(j = 0; j < delay; j++);
-		}
-		ddr_timing_update();
-	}
-	else if(old_clk < new_clk){
-		ddr_timing_update();
-		steps = (new_clk - old_clk) / 4;
-		for(i = 0; i < steps; i++) {
-			REG32(AON_APB_CKG_BASE + 0X18) = REG32(AON_APB_CKG_BASE + 0X18) + 1;
-			for(j = 0; j < delay; j++);
-		}
-//		ddr_autorefresh_timing_update();
-	}
-}
-
 
 void SLEEP_Init(void)
 {
@@ -750,7 +722,7 @@ void main_entry(void)
 	uint32 clk;
 	uint32 reg_val;
 	uint32 dll_mode;
-	uint32 bps_200;
+	uint32 div;
 	volatile uint32 i;
 
 	//enable ipi interrupt
@@ -764,18 +736,19 @@ void main_entry(void)
 	while(1){
 		REG32(AHB_SLP_CTL1) |= (MCU_SYS_SLP_EN | MCU_LIGHT_SLP_EN | MCU_DEEP_SLP_EN);
 		WaitForInt();
+		//timer_init();
 		REG32(FLAG_ADDR - 4) = 0x11223345;
 		REG32(0x400E0004) = 0x1;//clear ipi int0
 		reg_val = REG32(FLAG_ADDR);
 		ddr_type = (reg_val & EMC_DDR_TYPE_MASK) >> EMC_DDR_TYPE_OFFSET;
 		clk = (reg_val & EMC_CLK_FREQ_MASK) >> EMC_CLK_FREQ_OFFSET;
 		dll_mode = (reg_val & EMC_DLL_MODE_MASK);
-		bps_200 = (reg_val & EMC_BSP_BPS_200_MASK) >> EMC_BSP_BPS_200_OFFSET;
+		div = (reg_val & EMC_CLK_DIV_MASK) >> EMC_CLK_DIV_OFFSET;
 		REG32(PUBL_DSGCR) &= ~(0x10);
 		timing = (ddr_dfs_val_t *)(CP2_PARAM_ADDR);
-		umctl2_freq_set(clk, ddr_type, dll_mode, bps_200);
+		umctl2_freq_set(clk, ddr_type, dll_mode, div);
 		REG32(FLAG_ADDR) |= (EMC_FREQ_SWITCH_COMPLETE << EMC_FREQ_SWITCH_STATUS_OFFSET);
-		REG32(FLAG_ADDR - 4) = 0x11223346;
+		REG32(FLAG_ADDR - 4) = 0x11223367;
 
 	}
 
