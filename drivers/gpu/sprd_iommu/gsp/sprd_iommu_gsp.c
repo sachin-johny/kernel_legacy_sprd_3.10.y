@@ -111,13 +111,14 @@ int sprd_iommu_gsp_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size
 	}
 
 	for (i=0; i<GSP_IOMMU_PGT_SIZE; i++) {
-		// Since the control register occupies the first entry of the address FIFO of MMU,
-		// here we use the second one to set the page table RAM.
+		//the write sequence of pte address is managed in grey code
+		//after each write operation of pte address, clear the "address FIFO" of MMU
 		pgt_idx = (i >> 1) ^ i;
-		__raw_writel(gsp_iommu_pgt[pgt_idx] & (~0xFFF), (volatile uint32_t*)dev->init_data->pgt_base+(pgt_idx<<2));
-		__raw_writel(0, (volatile uint32_t*)dev->init_data->pgt_base+0x0000); // invalid
-		__raw_writel(0, (volatile uint32_t*)dev->init_data->pgt_base+0x0000); // invalid
-		__raw_writel(0, (volatile uint32_t*)dev->init_data->pgt_base+0x0000); // invalid
+		__raw_writel(gsp_iommu_pgt[pgt_idx], (volatile uint32_t*)(dev->init_data->pgt_base+(pgt_idx<<2)));
+		//clear the "address FIFO" of MMU
+		__raw_writel(gsp_iommu_pgt[0], (volatile uint32_t*)dev->init_data->pgt_base+0x0000);
+		__raw_writel(gsp_iommu_pgt[0], (volatile uint32_t*)dev->init_data->pgt_base+0x0000);
+		__raw_writel(gsp_iommu_pgt[0], (volatile uint32_t*)dev->init_data->pgt_base+0x0000);
 	}
 	mutex_unlock(&dev->mutex_pgt);
 
@@ -166,13 +167,14 @@ int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 
 	mutex_lock(&dev->mutex_pgt);
 	for (i=0; i<GSP_IOMMU_PGT_SIZE; i++) {
-		// Since the control register occupies the first entry of the address FIFO of MMU,
-		// here we use the second one to set the page table RAM.
+		//the write sequence of pte address is managed in grey code
+		//after each write operation of pte address, clear the "address FIFO" of MMU
 		pgt_idx = (i >> 1) ^ i;
-		__raw_writel(gsp_iommu_pgt[pgt_idx] & (~0xFFF), (volatile uint32_t*)dev->init_data->pgt_base+(pgt_idx<<2));
-		__raw_writel(0, (volatile uint32_t*)dev->init_data->pgt_base+0x0000); // invalid
-		__raw_writel(0, (volatile uint32_t*)dev->init_data->pgt_base+0x0000); // invalid
-		__raw_writel(0, (volatile uint32_t*)dev->init_data->pgt_base+0x0000); // invalid
+		__raw_writel(gsp_iommu_pgt[pgt_idx], (volatile uint32_t*)(dev->init_data->pgt_base+(pgt_idx<<2)));
+		//clear the "address FIFO" of MMU
+		__raw_writel(gsp_iommu_pgt[0], (volatile uint32_t*)dev->init_data->pgt_base+0x0000);
+		__raw_writel(gsp_iommu_pgt[0], (volatile uint32_t*)dev->init_data->pgt_base+0x0000);
+		__raw_writel(gsp_iommu_pgt[0], (volatile uint32_t*)dev->init_data->pgt_base+0x0000);
 	}
 	mutex_unlock(&dev->mutex_pgt);
 	return 0;
