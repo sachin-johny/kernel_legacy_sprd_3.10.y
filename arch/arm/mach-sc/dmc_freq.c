@@ -181,6 +181,9 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	if(clk == 400){
 		clk = 384;
 	}
+	if(clk == 466){
+		clk = 464;
+	}
 	flag = (EMC_DDR_TYPE_DDR3 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
@@ -335,10 +338,6 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	else if((new_clk > 200) && (new_clk <=400))
 	{
 		new_clk = 384;
-	}
-	else if(new_clk > 400)
-	{
-		new_clk = 532;
 	}
 
 	if(emc_clk_get() == new_clk)
