@@ -51,6 +51,7 @@ typedef struct SEth {
 	struct net_device* netdev;	/* Linux net device */
 	struct seth_init_data* pdata;	/* platform data */
 	int state;			/* device state */
+	int txstate;			/* device txstate */
 	int stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/
 } SEth;
@@ -66,12 +67,14 @@ seth_tx_ready_handler (void* data)
 	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
+		seth->txstate = DEV_ON;
 		if (!netif_carrier_ok (seth->netdev)) {
 			netif_carrier_on (seth->netdev);
 		}
 	}
 	else {
 		seth->state = DEV_OFF;
+		seth->txstate = DEV_OFF;
 		if (netif_carrier_ok (seth->netdev)) {
 		netif_carrier_off (seth->netdev);
 		/*
@@ -92,6 +95,7 @@ seth_tx_open_handler (void* data)
 	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
+		seth->txstate = DEV_ON;
 		if (!netif_carrier_ok (seth->netdev)) {
 			netif_carrier_on (seth->netdev);
 		}
@@ -109,6 +113,7 @@ seth_tx_close_handler (void* data)
 	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
 	if (seth->state != DEV_OFF) {
 		seth->state = DEV_OFF;
+		seth->txstate = DEV_OFF;
 		if (netif_carrier_ok (seth->netdev)) {
 			netif_carrier_off (seth->netdev);
 		}
@@ -175,6 +180,23 @@ rx_failed:
 	return;
 }
 
+/*
+ * Tx_close handler.
+ */
+static void
+seth_tx_pre_handler (void* data)
+{
+	SEth* seth = (SEth*) data;
+
+	if (seth->txstate != DEV_ON) {
+		seth->txstate = DEV_ON;
+		SETH_INFO ("seth_tx_ready_handler txstate %0x\n", seth->txstate );
+		seth->netdev->trans_start = jiffies;
+		netif_wake_queue(seth->netdev);
+	}
+}
+
+
 static void
 seth_handler (int event, void* data)
 {
@@ -183,6 +205,7 @@ seth_handler (int event, void* data)
 	switch(event) {
 		case SBLOCK_NOTIFY_GET:
 			SETH_DEBUG ("SBLOCK_NOTIFY_GET is received\n");
+			seth_tx_pre_handler(seth);
 			break;
 		case SBLOCK_NOTIFY_RECV:
 			SETH_DEBUG ("SBLOCK_NOTIFY_RECV is received\n");
@@ -232,6 +255,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		SETH_INFO("Get free sblock failed(%d), drop data!\n", ret);
 		seth->stats.tx_fifo_errors++;
 		netif_stop_queue (dev);
+		seth->txstate = DEV_OFF;
 		return NETDEV_TX_BUSY;
 	}
 
@@ -253,6 +277,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		seth->stats.tx_fifo_errors++;
 		if (seth->txrcnt > SETH_RESEND_MAX_NUM) {
 			netif_stop_queue (dev);
+			seth->txstate = DEV_OFF;
 		}
 		seth->txrcnt ++;
 		return NETDEV_TX_BUSY;
@@ -285,6 +310,8 @@ static int seth_open (struct net_device *dev)
 	seth->state = DEV_ON;
 	*/
 
+	seth->txstate = DEV_ON;
+
 	netif_start_queue(dev);
 
 	return 0;
@@ -295,11 +322,15 @@ static int seth_open (struct net_device *dev)
  */
 static int seth_close (struct net_device *dev)
 {
+	SEth* seth = netdev_priv(dev);
+
 	netif_stop_queue(dev);
 
 	/*
 	seth->state = DEV_OFF;
 	*/
+
+	seth->txstate = DEV_OFF;
 
 	return 0;
 }
@@ -312,9 +343,14 @@ static struct net_device_stats * seth_get_stats(struct net_device *dev)
 
 static void seth_tx_timeout(struct net_device *dev)
 {
+	SEth * seth = netdev_priv(dev);
+
 	SETH_INFO ("seth_tx_timeout()\n");
-	dev->trans_start = jiffies;
-	netif_wake_queue(dev);
+	if (seth->txstate != DEV_ON) {
+		seth->txstate = DEV_ON;
+		dev->trans_start = jiffies;
+		netif_wake_queue(dev);
+	}
 }
 
 /*
