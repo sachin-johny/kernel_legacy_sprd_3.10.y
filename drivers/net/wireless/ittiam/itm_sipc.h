@@ -27,7 +27,7 @@
 #include "ittiam.h"
 
 /* default command wait response time in msecs */
-#define DEFAULT_WAIT_SBUF_TIME		500
+#define DEFAULT_WAIT_SBUF_TIME		2000
 
 /*FIXME*/
 #define WLAN_CP_ID			SIPC_ID_WCN
