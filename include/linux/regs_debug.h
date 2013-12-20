@@ -22,7 +22,7 @@ struct sprd_debug_regs_access{
 			:						\
 			: "memory");					\
 		sprd_debug_last_regs_access[cpu_id].value = 0;		\
-		sprd_debug_last_regs_access[cpu_id].vaddr = a;		\
+		sprd_debug_last_regs_access[cpu_id].vaddr = (u32)(a);	\
 		sprd_debug_last_regs_access[cpu_id].pc = lr;		\
 		sprd_debug_last_regs_access[cpu_id].time = jiffies;	\
 		sprd_debug_last_regs_access[cpu_id].status = 0;		\
@@ -37,7 +37,7 @@ struct sprd_debug_regs_access{
 			:						\
 			: "memory");					\
 		sprd_debug_last_regs_access[cpu_id].value = (v);	\
-		sprd_debug_last_regs_access[cpu_id].vaddr = (a);	\
+		sprd_debug_last_regs_access[cpu_id].vaddr = (u32)(a);	\
 		sprd_debug_last_regs_access[cpu_id].pc = lr;		\
 		sprd_debug_last_regs_access[cpu_id].time = jiffies;	\
 		sprd_debug_last_regs_access[cpu_id].status = 0;		\

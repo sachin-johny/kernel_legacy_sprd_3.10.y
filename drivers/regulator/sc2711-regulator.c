@@ -290,7 +290,7 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	u32 vol;
 
 	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
-	       regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
+	       regs, desc->desc.name, regs->vol_ctl, 0, regs->vol_ctl_bits);
 
 	if (!regs->vol_ctl && regs->vol_trm && regs->vol_sel_cnt == 2) {
 		int shft = __ffs(regs->vol_trm_bits);
@@ -313,41 +313,54 @@ struct dcdc_cal_t {
 	int cal_vol;
 };
 
-static int __dcdc_get_offset(struct regulator_dev *rdev)
+typedef struct {
+	u16 ideal_vol;
+	const char name[14];
+}vol_para_t;
+
+#define PP_VOL_PARA		( 0x50005c20 )	/* assert in iram2 */
+#define TO_IRAM2(_p_)	( SPRD_IRAM2_BASE + (u32)(_p_) - SPRD_IRAM2_PHYS )
+#define IN_IRAM2(_p_)	( (u32)(_p_) >= SPRD_IRAM2_PHYS && (u32)(_p_) < SPRD_IRAM2_PHYS + SPRD_IRAM2_SIZE )
+
+int regulator_default_get(const char con_id[])
 {
-#if defined(xxxCONFIG_ARCH_SCX15)
-	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct dcdc_cal_t *dcdc = (struct dcdc_cal_t *)DCDC_CAL_CONF_BASE;
-	int i;
-	for (i = 0; i < DCDC_MAX_CNT; i++) {
-		if (0 == strcmp(dcdc[i].name, desc->desc.name)) {
-			debug("regu %p (%s) offset %+dmV\n", desc->regs,
-			      desc->desc.name, dcdc[i].cal_vol);
-			return dcdc[i].cal_vol * 1000;	/*uV */
+	int i = 0, res = 0;
+	vol_para_t *pvol_para = (vol_para_t *)__raw_readl((void *)TO_IRAM2(PP_VOL_PARA));
+
+	if (!(IN_IRAM2(pvol_para)))
+		return 0;
+
+	pvol_para = (vol_para_t *)TO_IRAM2(pvol_para);
+
+	if(strcmp((pvol_para)[0].name, "volpara_begin") || (0xfaed != (pvol_para)[0].ideal_vol))
+		return 0;
+
+	while(0 != strcmp((pvol_para)[i++].name, "volpara_end")) {
+		if (0 == strcmp((pvol_para)[i].name, con_id)) {
+			debug("%s name %s, ideal_vol %d\n", __func__, (pvol_para)[i].name, (pvol_para)[i].ideal_vol);
+			return res = (pvol_para)[i].ideal_vol;
 		}
 	}
-#endif
-	return 0;
+	return res;
 }
 
 static int __init_trimming(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	const struct sci_regulator_regs *regs = desc->regs;
-	int ret = -EINVAL;
-	u32 trim = 0;
+	int ctl_vol, to_vol;
 
-	if (!regs->vol_trm || !desc->ops)
+	if (!regs->vol_trm)
 		goto exit;
 
-	trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
-	    >> __ffs(regs->vol_trm_bits);
-	if (0 == regs->vol_def && desc->regs->typ == 2 /*DCDC*/) {
-		rdev->constraints->uV_offset = __dcdc_get_offset(rdev);
+	to_vol = regulator_default_get(desc->desc.name);
+	if (to_vol) {
+		ctl_vol = rdev->desc->ops->get_voltage(rdev);
+		rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;//uV
+		debug("regu %p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
 	}
-
 exit:
-	return ret;
+	return 0;
 }
 
 static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
@@ -894,7 +907,9 @@ static int debugfs_voltage_set(void *data, u64 val)
 {
 	struct regulator_dev *rdev = data;
 	if (rdev && rdev->desc->ops->set_voltage) {
-		rdev->desc->ops->set_voltage(rdev, val * 1000, val * 1000, 0);
+		u32 min_uV = (u32)val * 1000;
+		min_uV += rdev->constraints->uV_offset;
+		rdev->desc->ops->set_voltage(rdev, min_uV, min_uV, 0);
 	}
 	return 0;
 }
@@ -1066,6 +1081,15 @@ static int __init regu_driver_init(void)
 			    debugfs_root, &adc_chan, &fops_adc_chan);
 	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
 			   debugfs_root, (u64 *) & adc_data);
+
+	{//compatible with 8810 adc test
+		char str[NAME_MAX];
+		struct dentry *vol_root = debugfs_create_dir("vol", NULL);
+		sprintf(str, "../%s/vddarm/voltage", sci_regulator_driver.driver.name);
+		debugfs_create_symlink("dcdcarm", vol_root, str);
+		sprintf(str, "../%s/vddcore/voltage", sci_regulator_driver.driver.name);
+		debugfs_create_symlink("dcdc", vol_root, str);
+	}
 #endif
 
 	return platform_driver_register(&sci_regulator_driver);
