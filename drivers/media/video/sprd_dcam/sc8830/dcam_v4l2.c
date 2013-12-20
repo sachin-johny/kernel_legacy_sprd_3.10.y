@@ -2484,6 +2484,8 @@ LOCAL int sprd_v4l2_open(struct file *file)
 		goto exit;
 	}
 
+	sema_init(&dev->irq_sem, 0);
+
 	ret = sprd_init_timer(&dev->dcam_timer,(unsigned long)dev);
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to init timer \n");
