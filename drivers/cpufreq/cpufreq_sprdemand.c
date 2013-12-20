@@ -64,6 +64,8 @@
 #define GOVERNOR_BOOT_TIME	(30*HZ)
 static unsigned long boot_done;
 
+unsigned int cpu_hotplug_disable_set = false;
+
 struct unplug_work_info {
 	unsigned int cpuid;
 	struct delayed_work unplug_work;
@@ -842,6 +844,12 @@ static ssize_t store_cpu_hotplug_disable(struct dbs_data *dbs_data, const char *
 	}
 	if (sd_tuners->cpu_num_limit > 1)
 		sd_tuners->cpu_hotplug_disable = input;
+
+	if(sd_tuners->cpu_hotplug_disable > 0)
+		cpu_hotplug_disable_set = true;
+	else
+		cpu_hotplug_disable_set = false;
+
 	smp_wmb();
 	/* plug-in all offline cpu mandatory if we didn't
 	 * enbale CPU_DYNAMIC_HOTPLUG
@@ -1116,7 +1124,8 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 	if (state) {
 		pr_info("%s:cpufreq heating up\n", __func__);
 		if (sd_tuners->cpu_num_limit > 1)
-			sd_tuners->cpu_hotplug_disable = true;
+			if(cpu_hotplug_disable_set == false)
+				sd_tuners->cpu_hotplug_disable = true;
 		dbs_freq_increase(policy, policy->max-1);
 		/* unplug all online cpu except cpu0 mandatory */
 		for_each_online_cpu(cpu) {
@@ -1126,7 +1135,8 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 	} else {
 		pr_info("%s:cpufreq cooling down\n", __func__);
 		if (sd_tuners->cpu_num_limit > 1)
-			sd_tuners->cpu_hotplug_disable = false;
+			if(cpu_hotplug_disable_set == false)
+				sd_tuners->cpu_hotplug_disable = false;
 		/* plug-in all offline cpu mandatory if we didn't
 		  * enbale CPU_DYNAMIC_HOTPLUG
 		 */
@@ -1157,7 +1167,8 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 	if (event == PM_SUSPEND_PREPARE || event == PM_HIBERNATION_PREPARE) {
 		pr_info(" %s, recv pm suspend notify\n", __func__ );
 		if (sd_tuners->cpu_num_limit > 1)
-			sd_tuners->cpu_hotplug_disable = true;
+			if(cpu_hotplug_disable_set == false)
+				sd_tuners->cpu_hotplug_disable = true;
 		sd_tuners->is_suspend = true;
 		dbs_freq_increase(policy, policy->max);
 		pr_info(" %s, recv pm suspend notify done\n", __func__ );
@@ -1185,7 +1196,8 @@ static void sprdemand_gov_late_resume(struct early_suspend *h)
 
 	pr_info("%s\n", __func__);
 	if (sd_tuners->cpu_num_limit > 1)
-		sd_tuners->cpu_hotplug_disable = false;
+		if(cpu_hotplug_disable_set == false)
+			sd_tuners->cpu_hotplug_disable = false;
 	sd_tuners->is_suspend = false;
 	return;
 }
