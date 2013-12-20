@@ -43,12 +43,20 @@ static u32 chip_id = 0;
 static ddr_dfs_val_t __emc_param_configs[5];
 static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr);
 u32 emc_clk_get(void);
+static u32 get_dpll_clk(void);
 #ifdef CONFIG_SCXX30_AP_DFS
 static void emc_dfs_code_copy(u8 * dest);
 static int emc_dfs_call(unsigned long flag);
 void emc_dfs_main(unsigned long flag);
 #endif
 //#define EMC_FREQ_AUTO_TEST
+enum {
+	CLK_EMC_SELECT_26M = 0,
+	CLK_EMC_SELECT_TDPLL = 1,
+	CLK_EMC_SELECT_DPLL = 2,
+};
+#define MAX_DLL_DISABLE_CLK 200
+#define MIN_DPLL_CLK	250
 static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 {
 	u32 i;
@@ -141,7 +149,7 @@ static u32 get_sys_cnt(void)
 }
 #endif
 static u32 is_current_set = 0;
-static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
+static u32 __emc_clk_set(u32 clk, u32 div, u32 dll_enable)
 {
 	u32 flag = 0;
 	ddr_dfs_val_t * ret_timing;
@@ -166,7 +174,7 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 #endif
 	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
 	flag |= dll_enable;
-	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
+	flag |= div << EMC_CLK_DIV_OFFSET;
 #ifdef CONFIG_SCXX30_AP_DFS
 	flush_cache_all();
 	cpu_suspend(flag, emc_dfs_call);
@@ -187,10 +195,85 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	}
 	return 0;
 }
+static void __set_dpll_clk(u32 clk)
+{
+	u32 reg;
+	u32 dpll;
+	u32 dpll_lpf;
+	u32 dpll_ibias;
+	if(get_dpll_clk() == clk) {
+		return;
+	}
+	reg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1);
+	reg &= ~(0x7ff);
+	reg &= ~BITS_DPLL_LPF(0x7);
+	reg &= ~BITS_DPLL_IBIAS(0x3);
+	if((reg & 0x03000000) == 0x00000000) {
+		dpll = clk >> 1;
+	}
+	if((reg & 0x03000000) == 0x01000000) {
+		dpll = clk >> 2;
+	}
+	if((reg & 0x03000000) == 0x02000000) {
+		dpll = clk / 13;
+	}
+	if((reg & 0x03000000) == 0x03000000) {
+		dpll = clk / 26;
+	}
+	if(dpll < MIN_DPLL_CLK) {
+		dpll_lpf = 0x2;
+		dpll_ibias = 0x1;
+	}
+	else {
+		dpll_lpf = 0x6;
+		dpll_ibias = 0x1;
+	}
+	reg |= dpll | BITS_DPLL_LPF(dpll_lpf) | BITS_DPLL_IBIAS(dpll_ibias);
+	sci_glb_write(REG_AON_APB_DPLL_CFG, reg, -1);
+	udelay(100);
+}
+static u32 get_emc_clk_select(u32 clk)
+{
+	u32 select;
+	switch(clk) {
+	case 26:
+		select = CLK_EMC_SELECT_26M;
+		break;
+	case 192:
+	case 384:
+	case 256:
+		select = CLK_EMC_SELECT_TDPLL;
+		break;
+	default:
+		select = CLK_EMC_SELECT_DPLL;
+		break;
+	}
+	return select;
+}
+#ifdef EMC_FREQ_AUTO_TEST
+static void emc_clk_mutex_lock(void)
+{
+	mutex_lock(&emc_mutex);
+}
+static void emc_clk_mutxt_unlock(void)
+{
+	mutex_unlock(&emc_mutex);
+}
+#else
+static void emc_clk_mutex_lock(void)
+{
+}
+static void emc_clk_mutxt_unlock(void)
+{
+}
+#endif
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
-	u32 dll_enable = 1;
+	u32 dll_mode = EMC_DLL_SWITCH_ENABLE_MODE;
 	u32 old_clk;
+	u32 old_select;
+	u32 new_select;
+	u32 div = 0;
 #ifdef EMC_FREQ_AUTO_TEST
 	u32 start_t1, end_t1;
 	unsigned long irq_flags;
@@ -202,20 +285,21 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	start_t1 = get_sys_cnt();
 	local_fiq_disable();
 #endif
-	//mutex_lock(&emc_mutex);
+	emc_clk_mutex_lock();
 	if(new_clk > max_clk) {
 		new_clk = max_clk;
 	}
 	if(emc_clk_get() == new_clk) {
-	//	mutex_unlock(&emc_mutex);
+		emc_clk_mutxt_unlock();
 		return 0;
 	}
-	if(new_clk <= 200) {
-		dll_enable = 0;
+	if(new_clk <= MAX_DLL_DISABLE_CLK) {
+		dll_mode = EMC_DLL_SWITCH_DISABLE_MODE;
 	}
 	old_clk = emc_clk_get();
 	if(is_current_set == 1) {
 		panic("now other thread set dmc clk\n");
+		emc_clk_mutxt_unlock();
 		return 0;
 	}
 	is_current_set ++;
@@ -232,29 +316,34 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 		__emc_clk_set(532,0,EMC_DLL_SWITCH_DISABLE_MODE,EMC_BSP_BPS_200_NOT_CHANGE);
 	}
 #else
-	if((old_clk > 200) && (new_clk == 200)) {
-		if(old_clk > 332) {
-			__emc_clk_set(332, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
+	old_select = get_emc_clk_select(old_clk);
+	new_select = get_emc_clk_select(new_clk);
+	if(new_select == CLK_EMC_SELECT_26M) {
+		is_current_set --;
+		emc_clk_mutxt_unlock();
+		return;
+	}
+	else if(new_select == CLK_EMC_SELECT_TDPLL) {
+		__emc_clk_set(new_clk, div, dll_mode);
+	}
+	else  {
+		if(old_select == new_select) {
+			__emc_clk_set(384, div, EMC_DLL_SWITCH_ENABLE_MODE);
 		}
-		__emc_clk_set(200, 0, EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-	}
-	else if((old_clk == 200) && (new_clk > 200)) {
-#ifdef CONFIG_SCXX30_AP_DFS
-		__emc_clk_set(322, 0, EMC_DLL_SWITCH_ENABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-#else
-		__emc_clk_set(200, 0, EMC_DLL_SWITCH_ENABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-		__emc_clk_set(332, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-#endif
-		if(new_clk > 332) {
-			__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
+		if(new_clk <= MIN_DPLL_CLK) {
+			div = 0;
 		}
+		else {
+			div = 0;
+		}
+		__set_dpll_clk(new_clk * (div + 1));
+		__emc_clk_set(new_clk, div, dll_mode);
 	}
-	else {
-		__emc_clk_set(new_clk, 0, EMC_DLL_NOT_SWITCH_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
-	}
+
 #endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
+	emc_clk_mutxt_unlock();
 #ifdef EMC_FREQ_AUTO_TEST
 	local_fiq_enable();
 	end_t1 = get_sys_cnt();
@@ -265,7 +354,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	if(max_u_time < current_u_time) {
 		max_u_time = current_u_time;
 	}
-	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
+//	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
 #endif
 //	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 	printk("sys timer = 0x%08x, ap sys count = 0x%08x\n", __raw_readl(SPRD_SYSTIMER_CMP_BASE + 4) * 305 / 10000, __raw_readl(SPRD_SYSCNT_BASE + 0xc));
@@ -380,8 +469,7 @@ static u32 emc_freq_valid_array[] = {
 static u32 emc_freq_valid_array[] = {
 	//100,
 	200,
-	332,
-	400,
+	384,
 	532,
 };
 #endif
@@ -479,8 +567,14 @@ static void emc_dfs_code_copy(u8 * dest)
 #else
 static void cp_init(void)
 {
+	u32 val;
 	cp_code_init();
 #ifdef CONFIG_DFS_AT_CP0 //dfs is at cp0
+	val = BIT_PD_CP0_ARM9_0_AUTO_SHUTDOWN_EN;
+	val |= BITS_PD_CP0_ARM9_0_PWR_ON_DLY(0x8);
+	val |= BITS_PD_CP0_ARM9_0_PWR_ON_SEQ_DLY(0x6);
+	val |= BITS_PD_CP0_ARM9_0_ISO_ON_DLY(0x2);
+	sci_glb_write(REG_PMU_APB_PD_CP0_ARM9_0_CFG, val, -1);
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//reset cp0
 	udelay(200);
 	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, 1 << 25);//power on cp0
@@ -489,6 +583,11 @@ static void cp_init(void)
 	mdelay(2);
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 0);//release cp0
 #elif defined (CONFIG_DFS_AT_CP1) //dfs is at cp1
+	val = BIT_PD_CP1_ARM9_AUTO_SHUTDOWN_EN;
+	val |= BITS_PD_CP1_ARM9_PWR_ON_DLY(0x8);
+	val |= BITS_PD_CP1_ARM9_PWR_ON_SEQ_DLY(0x6);
+	val |= BITS_PD_CP1_ARM9_ISO_ON_DLY(0x2);
+	sci_glb_write(REG_PMU_APB_PD_CP1_ARM9_CFG, val, -1);
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 1);//reset cp1
 	udelay(200);
 	sci_glb_clr(REG_PMU_APB_PD_CP1_SYS_CFG, 1 << 25);//power on cp1
@@ -497,6 +596,11 @@ static void cp_init(void)
 	mdelay(2);
 	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 1 << 1);//reset cp1
 #else
+	val = BIT_PD_CP2_ARM9_AUTO_SHUTDOWN_EN;
+	val |= BITS_PD_CP2_ARM9_PWR_ON_DLY(0x8);
+	val |= BITS_PD_CP2_ARM9_PWR_ON_SEQ_DLY(0x4);
+	val |= BITS_PD_CP2_ARM9_ISO_ON_DLY(0x2);
+	sci_glb_write(REG_PMU_APB_PD_CP2_ARM9_CFG, val, -1);
 	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 1 << 2);//reset cp2
 	udelay(200);
 	sci_glb_clr(REG_PMU_APB_PD_CP2_SYS_CFG, 1 << 25);//power on cp2
