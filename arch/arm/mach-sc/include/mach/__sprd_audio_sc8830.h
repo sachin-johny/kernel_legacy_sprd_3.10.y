@@ -170,9 +170,11 @@ static inline int arch_audio_vbc_switch(int master)
 		sci_glb_write(REG_AON_APB_VBC_CTRL, val, mask);
 		sci_glb_clr(REG_AON_APB_AP_WPROT_EN, BIT(6));
 		arch_audio_vbc_reset();
+		arch_audio_vbc_reg_disable();
 		break;
 	case AUDIO_TO_CP0_DSP_CTRL:
 		arch_audio_vbc_reset();
+		arch_audio_vbc_reg_enable();
 		sci_glb_clr(REG_AON_APB_CP0_WPROT_EN, BIT(6));
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(1) | BITS_VBC_DA01_INT_SYS_SEL(1)
@@ -187,6 +189,7 @@ static inline int arch_audio_vbc_switch(int master)
 		break;
 	case AUDIO_TO_CP1_DSP_CTRL:
 		arch_audio_vbc_reset();
+		arch_audio_vbc_reg_enable();
 		sci_glb_clr(REG_AON_APB_CP1_WPROT_EN, BIT(6));
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(2) | BITS_VBC_DA01_INT_SYS_SEL(2)
@@ -201,6 +204,7 @@ static inline int arch_audio_vbc_switch(int master)
 		break;
 	case AUDIO_TO_CP0_ARM_CTRL:
 		arch_audio_vbc_reset();
+		arch_audio_vbc_reg_enable();
 		sci_glb_clr(REG_AON_APB_CP0_WPROT_EN, BIT(6));
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(1) | BITS_VBC_DA01_INT_SYS_SEL(1)
@@ -216,6 +220,7 @@ static inline int arch_audio_vbc_switch(int master)
 		break;
 	case AUDIO_TO_CP1_ARM_CTRL:
 		arch_audio_vbc_reset();
+		arch_audio_vbc_reg_enable();
 		sci_glb_clr(REG_AON_APB_CP1_WPROT_EN, BIT(6));
 		val =
 		    BITS_VBC_AFIFO_INT_SYS_SEL(2) | BITS_VBC_DA01_INT_SYS_SEL(2)
