@@ -53,6 +53,7 @@
 #include <linux/compaction.h>
 #include <trace/events/kmem.h>
 #include <linux/ftrace_event.h>
+#include <linux/android_pmem.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -500,6 +501,10 @@ static inline void __free_one_page(struct page *page,
 	if (unlikely(PageCompound(page)))
 		if (unlikely(destroy_compound_page(page, order)))
 			return;
+	if (unlikely(PagePmemBacked(page))) {
+		if (!pmem_pagecache_release(page))
+			return;
+	}
 
 	VM_BUG_ON(migratetype == -1);
 
@@ -562,6 +567,10 @@ static inline void free_page_mlock(struct page *page)
 
 static inline int free_pages_check(struct page *page)
 {
+	/* Both Reserved and PmemBacked tagged mean
+	   the pmem-backed page has been released. */
+	if (unlikely(PageReserved(page) && PagePmemBacked(page)))
+		return 1;
 	if (unlikely(page_mapcount(page) |
 		(page->mapping != NULL)  |
 		(atomic_read(&page->_count) != 0) |
@@ -760,7 +769,7 @@ static inline int check_new_page(struct page *page)
 	return 0;
 }
 
-static int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
+int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 {
 	int i;
 
@@ -1160,6 +1169,9 @@ void free_hot_cold_page(struct page *page, int cold)
 	unsigned long flags;
 	int migratetype;
 	int wasMlocked = __TestClearPageMlocked(page);
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	int wasPmemBacked = PagePmemBacked(page);
+#endif
 
 	if (!free_pages_prepare(page, 0))
 		return;
@@ -1171,6 +1183,15 @@ void free_hot_cold_page(struct page *page, int cold)
 		free_page_mlock(page);
 	__count_vm_event(PGFREE);
 
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	/* Free a pmem-backed page */
+	if (unlikely(wasPmemBacked)) {
+		local_irq_restore(flags);
+		if (!pmem_pagecache_release(page))
+			return;
+		local_irq_save(flags);
+	}
+#endif
 	/*
 	 * We only track unmovable, reclaimable and movable on pcp lists.
 	 * Free ISOLATE pages back to the allocator because they are being
@@ -5489,6 +5510,9 @@ static struct trace_print_flags pageflag_names[] = {
 #endif
 #ifdef CONFIG_MEMORY_FAILURE
 	{1UL << PG_hwpoison,		"hwpoison"	},
+#endif
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	{1UL << PG_pmembacked,		"pmembacked"	},
 #endif
 	{-1UL,				NULL		},
 };

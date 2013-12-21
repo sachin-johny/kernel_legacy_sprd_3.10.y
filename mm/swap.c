@@ -31,6 +31,7 @@
 #include <linux/backing-dev.h>
 #include <linux/memcontrol.h>
 #include <linux/gfp.h>
+#include <linux/android_pmem.h>
 
 #include "internal.h"
 
@@ -55,6 +56,9 @@ static void __page_cache_release(struct page *page)
 		__ClearPageLRU(page);
 		del_page_from_lru(zone, page);
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
+	} else if (PagePmemBacked(page)) {
+		ClearPageActive(page);
+		ClearPageUnevictable(page);
 	}
 	free_hot_cold_page(page, 0);
 }
@@ -205,11 +209,16 @@ void activate_page(struct page *page)
 void mark_page_accessed(struct page *page)
 {
 	if (!PageActive(page) && !PageUnevictable(page) &&
-			PageReferenced(page) && PageLRU(page)) {
-		activate_page(page);
+		PageReferenced(page)) {
+		if (PageLRU(page))
+			activate_page(page);
+		else if (PagePmemBacked(page))
+			SetPageActive(page);
 		ClearPageReferenced(page);
 	} else if (!PageReferenced(page)) {
 		SetPageReferenced(page);
+		if (PagePmemBacked(page) && PageActive(page))
+			pmem_activate_page(page);
 	}
 }
 
@@ -362,6 +371,9 @@ void release_pages(struct page **pages, int nr, int cold)
 			VM_BUG_ON(!PageLRU(page));
 			__ClearPageLRU(page);
 			del_page_from_lru(zone, page);
+		} else if (PagePmemBacked(page)) {
+			ClearPageActive(page);
+			ClearPageUnevictable(page);
 		}
 
 		if (!pagevec_add(&pages_to_free, page)) {

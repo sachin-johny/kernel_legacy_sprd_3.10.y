@@ -109,7 +109,7 @@ SYSCALL_DEFINE(fadvise64_64)(int fd, loff_t offset, loff_t len, int advice)
 		
 		ret = force_page_cache_readahead(mapping, file,
 				start_index,
-				nrpages);
+				nrpages, 0);
 		if (ret > 0)
 			ret = 0;
 		break;

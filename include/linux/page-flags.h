@@ -108,6 +108,9 @@ enum pageflags {
 #ifdef CONFIG_MEMORY_FAILURE
 	PG_hwpoison,		/* hardware poisoned page. Don't touch */
 #endif
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+	PG_pmembacked,		/* Page is backed by PMEM */
+#endif
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -280,6 +283,15 @@ TESTSCFLAG(HWPoison, hwpoison)
 #else
 PAGEFLAG_FALSE(HWPoison)
 #define __PG_HWPOISON 0
+#endif
+
+#ifdef CONFIG_ANDROID_PMEM_PAGECACHE
+PAGEFLAG(PmemBacked, pmembacked)
+TESTSCFLAG(PmemBacked, pmembacked)
+#define __PG_PMEMBACKED (1UL << PG_pmembacked)
+#else
+PAGEFLAG_FALSE(PmemBacked)
+#define __PG_PMEMBACKED 0
 #endif
 
 u64 stable_page_flags(struct page *page);
