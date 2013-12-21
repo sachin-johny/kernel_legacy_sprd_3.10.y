@@ -497,6 +497,9 @@ static int itm_inetaddr_event(struct notifier_block *this,
 	if (!priv)
 		goto done;
 
+	if (strncmp(dev->name, ITM_INTF_NAME, 4) != 0)
+		goto done;
+
 	switch (event) {
 	case NETDEV_UP:
 		itm_wlan_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
@@ -579,10 +582,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_notify_sblock;
 	}
 
-#ifdef CONFIG_INET
-	register_inetaddr_notifier(&itm_inetaddr_cb);
-#endif
-
 	/* register new Ethernet interface */
 	ret = register_netdev(ndev);
 	if (ret) {
@@ -605,6 +604,9 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	priv->early_suspend.resume  = itm_wlan_late_resume;
 	priv->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
 	register_early_suspend(&priv->early_suspend);
+#endif
+#ifdef CONFIG_INET
+	register_inetaddr_notifier(&itm_inetaddr_cb);
 #endif
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
@@ -643,10 +645,10 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 
 	unregister_early_suspend(&priv->early_suspend);
 	wake_lock_destroy(&priv->scan_done_lock);
-	unregister_netdev(ndev);
 #ifdef CONFIG_INET
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 #endif
+	unregister_netdev(ndev);
 	itm_wdev_free(priv);
 	free_netdev(ndev);
 	npi_exit_netlink();
