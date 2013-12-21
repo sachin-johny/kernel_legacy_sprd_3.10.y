@@ -2146,8 +2146,8 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int mixer_set(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol)
+static int mixer_need_set(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol, bool need_set)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -2157,7 +2157,6 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
-	int need_set = !mc->shift;
 
 	pr_info("set %s switch %s\n", sprd_codec_mixer_debug_str[id],
 		ucontrol->value.integer.value[0] ? "ON" : "OFF");
@@ -2169,11 +2168,24 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 
 	/*update reg: must be set after snd_soc_dapm_put_enum_double->change = snd_soc_test_bits(widget->codec, e->reg, mask, val); */
 	mixer->on = ucontrol->value.integer.value[0];
-	if (mixer->set && need_set)
+	if (mixer->set && need_set) {
 		ret = mixer->set(codec, mixer->on);
+	}
 	sprd_codec_dbg("Leaving %s\n", __func__);
 
 	return ret;
+}
+
+static int mixer_set_mem(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	return mixer_need_set(kcontrol, ucontrol, 0);
+}
+
+static int mixer_set(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	return mixer_need_set(kcontrol, ucontrol, 1);
 }
 
 #define SPRD_CODEC_MIXER(xname, xreg)\
@@ -2182,7 +2194,7 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 /*Just for LINE IN path, mixer_set not really set mixer (ADCL/R -> HP/SPK L/R) here but
 setting in ana_loop_event, just remeber state here*/
 #define SPRD_CODEC_MIXER_NOSET(xname, xreg)\
-		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 1, 1, 0, mixer_get, mixer_set)
+		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set_mem)
 
 /* ADCL Mixer */
 static const struct snd_kcontrol_new adcl_mixer_controls[] = {
