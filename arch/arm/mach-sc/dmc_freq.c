@@ -273,16 +273,16 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	u32 dll_enable = EMC_DLL_SWITCH_ENABLE_MODE;
 	u32 old_clk,old_select,new_select,div = 0x0;
 
-#ifdef EMC_FREQ_AUTO_TEST
-	u32 start_t1, end_t1;
+#if defined (EMC_FREQ_AUTO_TEST) || defined (CONFIG_SCX35_DMC_FREQ_AP)
+//	u32 start_t1, end_t1;
 	unsigned long irq_flags;
-	static u32 max_u_time = 0;
-	u32 current_u_time;
-	old_clk = emc_clk_get();
+//	static u32 max_u_time = 0;
+//	u32 current_u_time;
+	//old_clk = emc_clk_get();
 	local_irq_save(irq_flags);
-	local_irq_disable();
-	start_t1 = get_sys_cnt();
-	local_fiq_disable();
+	//local_irq_disable();
+//	start_t1 = get_sys_cnt();
+	//local_fiq_disable();
 #endif
 
     /*info("emc clk going on %d	#########################################################\n",new_clk);*/
@@ -360,17 +360,17 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 #endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
-#ifdef EMC_FREQ_AUTO_TEST
-	local_fiq_enable();
-	end_t1 = get_sys_cnt();
-	local_irq_enable();
+#if defined (EMC_FREQ_AUTO_TEST) || defined(CONFIG_SCX35_DMC_FREQ_AP)
+//	local_fiq_enable();
+//	end_t1 = get_sys_cnt();
+//	local_irq_enable();
 	local_irq_restore(irq_flags);
 
-	current_u_time = (start_t1 - end_t1)/128;
-	if(max_u_time < current_u_time) {
-		max_u_time = current_u_time;
-	}
-	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
+//	current_u_time = (start_t1 - end_t1)/128;
+//	if(max_u_time < current_u_time) {
+//		max_u_time = current_u_time;
+//	}
+//	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
 #endif
 	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 	return 0;
