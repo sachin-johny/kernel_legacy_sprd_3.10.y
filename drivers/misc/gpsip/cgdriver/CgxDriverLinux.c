@@ -819,7 +819,8 @@ static int CGX_PMSuspend(struct device *dev, pm_message_t state)
 {
 	//DBGMSG( "Got to CGX_PMSuspend\n" );
 	printk("%s\n",__func__);
-	if (DrvContext.nNumOpens > 0)
+	//if (DrvContext.nNumOpens > 0)
+	if(flag_power_up == 1)
 	{
 		CgxDriverPowerDown();
 		CgxDriverRFPowerDown();
@@ -832,7 +833,8 @@ static int CGX_PMResume(struct device *dev)
 {
 	//DBGMSG( "Got to CGX_PMResume\n" );
 	printk("%s\n",__func__);
-	if (DrvContext.nNumOpens > 0)
+	//if (DrvContext.nNumOpens > 0)
+	if(flag_power_up == 1)
 	{
 
 		DrvContext.state.flags.resume = 1;
