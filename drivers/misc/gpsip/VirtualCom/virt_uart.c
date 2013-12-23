@@ -235,8 +235,8 @@ out:
 	return rv;
 }
 
-//static const char idleOffMsg[] = "$PCGDC,IDLEOFF,1,*1\r\n";
-//static const char idleOnMsg[] = "$PCGDC,IDLEON,1,*1\r\n";
+static const char idleOffMsg[] = "$PCGDC,IDLEOFF,1,*1\r\n";
+static const char idleOnMsg[] = "$PCGDC,IDLEON,1,*1\r\n";
 
 static int count;
 static int	XVU_open(struct tty_struct *tty, struct file *filp)
@@ -302,12 +302,11 @@ if(count++ >= 2)
 
 out:
 	up(&xvu_dev.sem);
-#if 0
+
 	if ((rv == 0)&&(xvu_dev.endpoint[idx2].open_count == 1)&&(xvu_dev.endpoint[idx2+1].open_count == 1)){
 //	if ((rv == 0)&&(xvu_dev.endpoint[idx].open_count == 1)){
 		XVU_write(tty, idleOffMsg, sizeof(idleOffMsg));
 	}
-#endif
 
 	return rv;
 }
@@ -338,14 +337,11 @@ static void	XVU_close(struct tty_struct *tty, struct file *filp)
 	}
 
 	XVU_DBG( "Closing %d\n", idx );
-
-#if 0
 	if (xvu_dev.endpoint[idx].open_count <= 1) {
 		up(&xvu_dev.sem);
 		XVU_write(tty, idleOnMsg, sizeof(idleOnMsg));
 		down(&xvu_dev.sem);
 	}
-#endif
 
 	xvu_dev.endpoint[idx].open_count--;
 

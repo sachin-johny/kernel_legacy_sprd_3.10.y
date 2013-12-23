@@ -229,6 +229,7 @@ void CgGpsReset(void);
 #endif
 
 //#define CGCORE_ACCESS_VIA_SPI
+extern bool flag_power_up;
 
 #ifdef CGCORE_ACCESS_VIA_SPI
 extern  int gps_spi_write_bytes( unsigned int  len, unsigned int  addr,unsigned int data);

@@ -90,7 +90,7 @@ const U32 CGCORE_REG_OFFSET_CORE_RESETS = 0x000000FC;
 	#define RF_POWER_UP_VAL	(0)	// ACLYS requires '0' for PU
 #endif
 
-
+bool flag_power_up = 0;
 TCgReturnCode CgxDriverTcxoControl(u32 aEnable);
 
 #define CGCORE_ENABLE_CORE		(0x00000000)
@@ -212,6 +212,8 @@ TCgReturnCode CgxDriverPowerUp(void)
 	TCgReturnCode rc = ECgOk;
 	U32 version = 0;
 
+	flag_power_up = 1;
+
 	// In order to power up the CGsnap, do a dummy access
 	rc = CGCORE_READ_REG(CGCORE_REG_OFFSET_VERSION, &version );
 	return rc;
@@ -220,6 +222,8 @@ TCgReturnCode CgxDriverPowerUp(void)
 TCgReturnCode CgxDriverPowerDown(void)
 {
 	TCgReturnCode rc = ECgOk;
+
+	flag_power_up = 0;
 
 	// Write software power-down command to CGsnap
 	rc = CGCORE_WRITE_REG( CGCORE_REG_OFFSET_SOFT_CMD, CGCORE_SOFT_CMD_POWER_DOWN );
