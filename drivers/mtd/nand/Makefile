@@ -53,5 +53,6 @@ obj-$(CONFIG_MTD_NAND_BCM47XXNFLASH)	+= bcm47xxnflash/
 obj-$(CONFIG_MTD_NAND_SC8810)		+= sc8810_nand.o
 obj-$(CONFIG_MTD_NAND_SC8825)		+= sc8825_nand.o
 obj-$(CONFIG_MTD_NAND_DOLPHIN)		+= dolphin_nand.o
+obj-$(CONFIG_MTD_NAND_SC8830)		+= sc8830_nand.o
 
 nand-objs := nand_base.o nand_bbt.o
