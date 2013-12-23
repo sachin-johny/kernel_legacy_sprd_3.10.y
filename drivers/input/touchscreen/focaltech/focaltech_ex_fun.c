@@ -48,9 +48,14 @@ extern struct Upgrade_Info fts_updateinfo_curr;
 int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth);
 
+#ifdef CONFIG_TOUCHSCREEN_FIRMWARE_UPGRADE
 static unsigned char CTPM_FW[] = {
-#include "Ft5x16_720P_Ver0x0f_app.h"
+#include "FT5306_Spreadtrum_tiger_TRYLY_COB_0x2c_app_3.3V.h"
 };
+#else
+static unsigned char CTPM_FW[] = {
+};
+#endif
 
 static DEFINE_MUTEX(g_device_mutex);
 
