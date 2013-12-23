@@ -35,22 +35,13 @@
 #include <linux/oom.h>
 #include <linux/sched.h>
 #include <linux/notifier.h>
+#include <linux/fs.h>
+#include <linux/swap.h>
+#include <linux/kobject.h>
+#include <linux/slab.h>
+#include <linux/sysfs.h>
 
-#include <linux/memory.h>
-#include <linux/memory_hotplug.h>
-
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-#define LOWMEM_DEATHPENDING_DEPTH 3
-#endif
-
-#ifdef CONFIG_ANDROID_LMK_THREAD
-#include <linux/delay.h>
-#include <linux/kthread.h>
-#include <linux/freezer.h>
-static DECLARE_WAIT_QUEUE_HEAD(lowmemkiller_wait);
-#endif
-
-static uint32_t lowmem_debug_level = 2;
+static uint32_t lowmem_debug_level = 5;
 static int lowmem_adj[6] = {
 	0,
 	1,
@@ -65,14 +56,13 @@ static size_t lowmem_minfree[6] = {
 	16 * 1024,	/* 64MB */
 };
 static int lowmem_minfree_size = 4;
-static pid_t last_killed_pid = 0;
 
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-static struct task_struct *lowmem_deathpending[LOWMEM_DEATHPENDING_DEPTH] = {NULL,};
-#else
+static size_t lowmem_minfree_notif_trigger;
+
 static struct task_struct *lowmem_deathpending;
-#endif
 static unsigned long lowmem_deathpending_timeout;
+
+static struct kobject *lowmem_kobj;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -92,44 +82,53 @@ task_notify_func(struct notifier_block *self, unsigned long val, void *data)
 {
 	struct task_struct *task = data;
 
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-	int i = 0;
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++)
-		if (task == lowmem_deathpending[i]) {
-			lowmem_deathpending[i] = NULL;
-		break;
-	}
-#else
 	if (task == lowmem_deathpending)
 		lowmem_deathpending = NULL;
-#endif
+
 	return NOTIFY_OK;
 }
+
+static void lowmem_notify_killzone_approach(void);
+
+static inline void get_free_ram(int *p_other_free, int *p_other_file)
+{
+	int other_free = global_page_state(NR_FREE_PAGES);
+	int other_file = global_page_state(NR_FILE_PAGES) -
+						global_page_state(NR_SHMEM);	
+#ifdef CONFIG_ZRAM
+	other_free -= totalreserve_pages;
+	if(other_free < 0)	
+	{
+		other_free = 0;
+	}
+
+	other_file  -=  total_swapcache_pages;
+	if(other_file < 0)
+	{
+     		other_file = 0;
+	}
+#endif  /*CONFIG_ZRAM*/
+
+	*p_other_free = other_free;
+	*p_other_file = other_file;
+}
+
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *p;
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-	struct task_struct *selected[LOWMEM_DEATHPENDING_DEPTH] = {NULL,};
-#else
 	struct task_struct *selected = NULL;
-#endif
 	int rem = 0;
 	int tasksize;
 	int i;
 	int min_adj = OOM_ADJUST_MAX + 1;
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-	int selected_tasksize[LOWMEM_DEATHPENDING_DEPTH] = {0,};
-	int selected_oom_adj[LOWMEM_DEATHPENDING_DEPTH] = {OOM_ADJUST_MAX,};
-	int all_selected_oom = 0;
-#else
 	int selected_tasksize = 0;
 	int selected_oom_adj;
-#endif
 	int array_size = ARRAY_SIZE(lowmem_adj);
-	int other_free = global_page_state(NR_FREE_PAGES);
-	int other_file = global_page_state(NR_FILE_PAGES) -
-						global_page_state(NR_SHMEM);
+	int other_free = 0;
+	int other_file = 0;
+ 	int mm_rss = 0;
+	int mm_counter = 0;
 
 	/*
 	 * If we already have a death outstanding, then
@@ -138,17 +137,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	 * this pass.
 	 *
 	 */
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
-		if (lowmem_deathpending[i] &&
-			time_before_eq(jiffies, lowmem_deathpending_timeout))
-			return 0;
-	}
-#else
 	if (lowmem_deathpending &&
 	    time_before_eq(jiffies, lowmem_deathpending_timeout))
 		return 0;
-#endif
+
+	get_free_ram(&other_free, &other_file);
+
+	if (other_free < lowmem_minfree_notif_trigger &&
+			other_file < lowmem_minfree_notif_trigger) {
+		lowmem_notify_killzone_approach();
+	}
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -172,16 +170,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	if (sc->nr_to_scan <= 0 || min_adj == OOM_ADJUST_MAX + 1) {
 		lowmem_print(5, "lowmem_shrink %lu, %x, return %d\n",
 			     sc->nr_to_scan, sc->gfp_mask, rem);
-#ifndef CONFIG_ANDROID_LMK_THREAD
 		return rem;
-#endif
 	}
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++)
-		selected_oom_adj[i] = min_adj;
-#else
 	selected_oom_adj = min_adj;
-#endif
 
 	read_lock(&tasklist_lock);
 	for_each_process(p) {
@@ -201,35 +192,19 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			task_unlock(p);
 			continue;
 		}
+
+ 		mm_rss = get_mm_rss(mm);
+		mm_counter = get_mm_counter(mm, MM_SWAPENTS);		
+		lowmem_print(2, "lowmem_shrink mm_rss %d , mm_counter %d\n", mm_rss, mm_counter);			    
+#ifdef CONFIG_ZRAM
+		tasksize = mm_rss + mm_counter;
+#else		
 		tasksize = get_mm_rss(mm);
+#endif
+
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
-
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-		for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
-			if (all_selected_oom >= LOWMEM_DEATHPENDING_DEPTH) {
-				if (oom_adj < selected_oom_adj[i])
-					continue;
-			if (oom_adj == selected_oom_adj[i] &&
-				tasksize <= selected_tasksize[i])
-				continue;
-			} else if (selected[i])
-				continue;
-
-			selected[i] = p;
-			selected_tasksize[i] = tasksize;
-			selected_oom_adj[i] = oom_adj;
-
-			if (all_selected_oom < LOWMEM_DEATHPENDING_DEPTH)
-				all_selected_oom++;
-
-			lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
-				p->pid, p->comm, oom_adj, tasksize);
-
-			break;
-		}
-#else
 		if (selected) {
 			if (oom_adj < selected_oom_adj)
 				continue;
@@ -242,26 +217,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected_oom_adj = oom_adj;
 		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
 			     p->pid, p->comm, oom_adj, tasksize);
-#endif
 	}
-#ifdef CONFIG_ANDROID_LMK_ENHANCE
-	for (i = 0; i < LOWMEM_DEATHPENDING_DEPTH; i++) {
-		if (selected[i]) {
-			lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
-				selected[i]->pid, selected[i]->comm,
-				selected_oom_adj[i], selected_tasksize[i]);
-			lowmem_deathpending[i] = selected[i];
-			lowmem_deathpending_timeout = jiffies + HZ;
-			force_sig(SIGKILL, selected[i]);
- 
-                        if(selected[i]->pid == last_killed_pid && selected[i]->signal->oom_adj > 2) {
-                            selected[i]->signal->oom_adj--;
-                         } else
-                         last_killed_pid = selected[i]->pid;
-                         rem -= selected_tasksize[i];
-		}
-	}
-#else
 	if (selected) {
 		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
@@ -269,67 +225,105 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
 		force_sig(SIGKILL, selected);
-                if(selected->pid == last_killed_pid && selected->signal->oom_adj > 2) {
-                       selected->signal->oom_adj--;
-                } else
-                       last_killed_pid = selected->pid;
-
 		rem -= selected_tasksize;
 	}
-#endif
 	lowmem_print(4, "lowmem_shrink %lu, %x, return %d\n",
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	read_unlock(&tasklist_lock);
 	return rem;
 }
 
+static void lowmem_notify_killzone_approach(void)
+{
+	lowmem_print(3, "lowmem_shrink notify_killzone_approach\n");
+	sysfs_notify(lowmem_kobj, NULL, "notify_trigger_active");
+}
+
+static ssize_t lowmem_notify_trigger_active_show(struct kobject *k,
+		struct kobj_attribute *attr, char *buf)
+{
+	int other_free, other_file;
+	lowmem_print(3, "lowmem_shrink notify_trigger_active_show\n");
+	get_free_ram(&other_free, &other_file);
+	if (other_free < lowmem_minfree_notif_trigger &&
+			other_file < lowmem_minfree_notif_trigger)
+		return snprintf(buf, 3, "1\n");
+	else
+		return snprintf(buf, 3, "0\n");
+}
+
+static struct kobj_attribute lowmem_notify_trigger_active_attr =
+	__ATTR(notify_trigger_active, S_IRUGO,
+			lowmem_notify_trigger_active_show, NULL);
+
+static struct attribute *lowmem_default_attrs[] = {
+	&lowmem_notify_trigger_active_attr.attr,
+	NULL,
+};
+
+static ssize_t lowmem_show(struct kobject *k, struct attribute *attr, char *buf)
+{
+	struct kobj_attribute *kobj_attr;
+	kobj_attr = container_of(attr, struct kobj_attribute, attr);
+	return kobj_attr->show(k, kobj_attr, buf);
+}
+
+static const struct sysfs_ops lowmem_ops = {
+	.show = lowmem_show,
+};
+
+static void lowmem_kobj_release(struct kobject *kobj)
+{
+	/* Nothing to be done here */
+}
+
+static struct kobj_type lowmem_kobj_type = {
+	.release = lowmem_kobj_release,
+	.sysfs_ops = &lowmem_ops,
+	.default_attrs = lowmem_default_attrs,
+};
+
+
 static struct shrinker lowmem_shrinker = {
 	.shrink = lowmem_shrink,
 	.seeks = DEFAULT_SEEKS * 16
 };
 
-#ifdef CONFIG_ANDROID_LMK_THREAD
-static struct shrink_control sc;
-
-static void lowmem_killer(void) 
-{
-	set_user_nice(current, 5);
-        set_freezable();
-        sc.nr_to_scan = 1;
-        sc.gfp_mask = 0;
-
-        do {
-		int other_free;
-		int other_file;
-
-		lowmem_shrink(NULL, &sc);
-
-		wait_event_freezable_timeout(lowmemkiller_wait, false, msecs_to_jiffies(1000));
-
-        } while (1);
-
-        pr_debug("lowmemorykiller exiting\n");
-        return 0;
-}
-#endif
-
 static int __init lowmem_init(void)
 {
-#ifdef CONFIG_ANDROID_LMK_THREAD
-        kthread_run(lowmem_killer, NULL, "lowmemorykiller");
-#else
-        task_free_register(&task_nb);
-        register_shrinker(&lowmem_shrinker);
-#endif
+	int rc;
+	task_free_register(&task_nb);
+	register_shrinker(&lowmem_shrinker);
+
+	lowmem_kobj = kzalloc(sizeof(*lowmem_kobj), GFP_KERNEL);
+	if (!lowmem_kobj) {
+		rc = -ENOMEM;
+		goto err;
+	}
+
+	rc = kobject_init_and_add(lowmem_kobj, &lowmem_kobj_type,
+			mm_kobj, "lowmemkiller");
+	if (rc)
+		goto err_kobj;
+
 	return 0;
+
+err_kobj:
+	kfree(lowmem_kobj);
+
+err:
+	unregister_shrinker(&lowmem_shrinker);
+	task_free_unregister(&task_nb);
+
+	return rc;
 }
 
 static void __exit lowmem_exit(void)
 {
-#ifndef CONFIG_ANDROID_LMK_THREAD
+	kobject_put(lowmem_kobj);
+	kfree(lowmem_kobj);
 	unregister_shrinker(&lowmem_shrinker);
 	task_free_unregister(&task_nb);
-#endif
 }
 
 module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
@@ -338,7 +332,8 @@ module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
-
+module_param_named(notify_trigger, lowmem_minfree_notif_trigger, uint,
+			 S_IRUGO | S_IWUSR);
 module_init(lowmem_init);
 module_exit(lowmem_exit);
 
