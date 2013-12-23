@@ -17,6 +17,8 @@
 #include <linux/devfreq.h>
 #include <linux/math64.h>
 #include <linux/module.h>
+#include <linux/spinlock.h>
+#include <linux/timer.h>
 #include <linux/earlysuspend.h>
 #include "governor.h"
 
@@ -27,9 +29,17 @@
 /*
 * TODO: add kernel space requests
 */
-
+extern void devfreq_min_freq_cnt_reset(unsigned int, unsigned int);
+extern int devfreq_request_ignore(void);
+static void dfs_req_timer_timeout(unsigned long arg);
+#define REQ_TIMEOUT_DEF (HZ/20);
+static DEFINE_SPINLOCK(dfs_req_lock);
+static unsigned int dfs_req_timeout;
+static DEFINE_TIMER(dfs_req_timer, dfs_req_timer_timeout, 0, 0);
 struct dfs_request_state{
 	int req_sum;  /* in KHz */
+	int req_timeout;  /* in KHz */
+	int req_quirk;  /* in KHz */
 	u32 ddr_freq_after_req;  /* in KHz */
 };
 static struct dfs_request_state user_requests;
@@ -127,6 +137,115 @@ void dfs_request_bw(int req_bw)
 		mutex_unlock(&g_devfreq->lock);
 	}
 }
+
+/*
+* set request timer timeout
+* @timeout, ms
+*/
+void dfs_req_set_timeout(unsigned int timeout)
+{
+	spin_lock(&dfs_req_lock);
+	dfs_req_timeout = msecs_to_jiffies(timeout);
+	spin_unlock(&dfs_req_lock);
+}
+EXPORT_SYMBOL(dfs_req_set_timeout);
+
+/*
+* get request timer timeout
+* @return, ms
+*/
+unsigned int dfs_req_get_timeout(void)
+{
+	unsigned int timeout;
+
+	spin_lock(&dfs_req_lock);
+	timeout = dfs_req_timeout;
+	spin_unlock(&dfs_req_lock);
+
+	timeout = jiffies_to_msecs(timeout);
+	return timeout;
+}
+EXPORT_SYMBOL(dfs_req_get_timeout);
+
+static void dfs_req_timer_timeout(unsigned long arg)
+{
+	spin_lock(&dfs_req_lock);
+	user_requests.req_timeout = 0;
+	spin_unlock(&dfs_req_lock);
+	return;
+}
+
+/*
+*  add a new ddr bandwidth request. when time is up, request is cleared automatically
+*  @req_bw, KB
+*/
+void dfs_request_bw_timeout(unsigned int req_bw)
+{
+	struct userspace_data *user_data;
+	unsigned int req_freq;
+
+	req_freq = 0;
+	if(req_bw == 0)
+		return;
+
+	spin_lock(&dfs_req_lock);
+	if( user_requests.req_timeout ){
+		spin_unlock(&dfs_req_lock);
+		pr_debug("*** %s, ignore, req_timeout:%d ***\n", __func__, user_requests.req_timeout);
+		return;
+	}
+	spin_unlock(&dfs_req_lock);
+
+	if(g_devfreq && g_devfreq->data){
+		user_data = (struct userspace_data *)(g_devfreq->data);
+		if(user_data->convert_bw_to_freq){
+			req_freq = (user_data->convert_bw_to_freq)(req_bw);
+			printk("*** %s, req_freq:%d ***\n", __func__, req_freq );
+		}
+	}
+	spin_lock(&dfs_req_lock);
+	user_requests.req_timeout = req_freq;
+	spin_unlock(&dfs_req_lock);
+
+	if(req_freq)
+		mod_timer(&dfs_req_timer, jiffies+dfs_req_timeout);
+	else
+		del_timer_sync(&dfs_req_timer);
+
+	if(req_freq){
+		mutex_lock(&g_devfreq->lock);
+		update_devfreq(g_devfreq);
+		mutex_unlock(&g_devfreq->lock);
+	}
+}
+EXPORT_SYMBOL(dfs_request_bw_timeout);
+
+/*
+*  raise ddr frequency up temporarily
+*  @req_bw, KB
+*/
+void dfs_freq_raise_quirk(unsigned int req_bw)
+{
+	if(req_bw == 0)
+		return;
+
+	spin_lock(&dfs_req_lock);
+	if(user_requests.req_quirk || devfreq_request_ignore() ){
+		spin_unlock(&dfs_req_lock);
+		return;
+	}
+	user_requests.req_quirk = req_bw;
+	spin_unlock(&dfs_req_lock);
+
+	mutex_lock(&g_devfreq->lock);
+	devfreq_min_freq_cnt_reset(-1, 1);
+	update_devfreq(g_devfreq);
+	devfreq_min_freq_cnt_reset(-1, 0);
+	user_requests.req_quirk = 0;
+	mutex_unlock(&g_devfreq->lock);
+}
+EXPORT_SYMBOL(dfs_freq_raise_quirk);
+
 
 /************ early suspend  *****************/
 
@@ -383,6 +502,10 @@ static int devfreq_ondemand_init(struct devfreq *devfreq)
 	* disable DFS before DISPC late resume
 	*/
 	register_early_suspend(&devfreq_enable_desc);
+
+	spin_lock(&dfs_req_lock);
+	dfs_req_timeout = REQ_TIMEOUT_DEF;
+	spin_unlock(&dfs_req_lock);
 out:
 	return err;
 }
@@ -403,10 +526,20 @@ static int devfreq_ondemand_func(struct devfreq *df,
 	if (err)
 		return err;
 
+	if(user_requests.req_quirk &&
+		stat.current_frequency==df->min_freq){
+		/*
+		* QUIRK: only set frequency larger than minimum
+		*/
+		*freq = df->min_freq + 1;
+		pr_debug("*** %s, req_quirk, freq:%lu, return ***\n", __func__, *freq);
+		return 0;
+	}
+
 	/*
 	* TODO: add request frequency
 	*/
-	req_freq = user_requests.req_sum;
+	req_freq = user_requests.req_sum + user_requests.req_timeout;
 
 	if (data) {
 		if (data->enable==false || !(data->devfreq_enable) ||
