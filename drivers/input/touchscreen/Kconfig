@@ -869,6 +869,18 @@ config TOUCHSCREEN_IST30XX
           If unsure, say N.
 
           To compile this driver as a module, choose M here: the
-          module will be called ist30xx.   
+          module will be called ist30xx.
+
+config TOUCHSCREEN_MSG2136
+        tristate "MSG2136 I2C Touchscreen"
+        depends on I2C
+        help
+          Say Y here if you have the Imagis MSG2136 I2C touchscreen
+          connected to your system.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the
+          module will be called msg2136.
                     
 endif
