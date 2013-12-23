@@ -40,6 +40,7 @@
 #include <linux/headset_sprd.h>
 #endif
 #include <linux/usb/gadget.h>
+#include <video/ion_sprd.h>
 
 
 #include "devices.h"
@@ -801,50 +802,46 @@ struct platform_device sprd_jpg_device = {
 };
 
 #ifdef CONFIG_ION
-#ifdef CONFIG_CMA
 static struct ion_platform_heap ion_pheaps[] = {
                 {
-                        .id     = ION_HEAP_TYPE_CARVEOUT,
+                        .id     = ION_HEAP_ID_SYSTEM,
+                        .type   = ION_HEAP_TYPE_SYSTEM,
+                        .name   = "ion_heap_system",
+                },
+#ifdef CONFIG_CMA
+                {
+                        .id     = ION_HEAP_ID_MM,
                         .type   = ION_HEAP_TYPE_CUSTOM,
-                        .name   = "ion_cma_heap",
+                        .name   = "ion_heap_cma_mm",
                         .base   = SPRD_ION_BASE,
                         .size   = SPRD_ION_SIZE,
                 },
                 {
-                        .id     = ION_HEAP_TYPE_CARVEOUT + 1,
+                        .id     = ION_HEAP_ID_OVERLAY,
                         .type   = ION_HEAP_TYPE_CUSTOM,
-                        .name   = "ion_cma_heap_overlay",
+                        .name   = "ion_heap_cma_overlay",
                         .base   = SPRD_ION_OVERLAY_BASE,
                         .size   = SPRD_ION_OVERLAY_SIZE,
                 },
-};
 #else
-static struct ion_platform_heap ion_pheaps[] = {
                 {
-                        .id     = ION_HEAP_TYPE_SYSTEM,
-                        .type   = ION_HEAP_TYPE_SYSTEM,
-                        .name   = "ion_system_heap",
-//                        .base   = SPRD_ION_BASE,
-//                        .size   = SPRD_ION_SIZE,
-                },
-                {
-                        .id     = ION_HEAP_TYPE_CARVEOUT,
+                        .id     = ION_HEAP_ID_MM,
                         .type   = ION_HEAP_TYPE_CARVEOUT,
-                        .name   = "ion_carveout_heap",
+                        .name   = "ion_heap_carveout_mm",
                         .base   = SPRD_ION_BASE,
                         .size   = SPRD_ION_SIZE,
                 },
 #if CONFIG_SPRD_ION_OVERLAY_SIZE
                 {
-                        .id     = ION_HEAP_TYPE_CARVEOUT + 1,
+                        .id     = ION_HEAP_ID_OVERLAY,
                         .type   = ION_HEAP_TYPE_CARVEOUT,
-                        .name   = "ion_carveout_heap_overlay",
+                        .name   = "ion_heap_carveout_overlay",
                         .base   = SPRD_ION_OVERLAY_BASE,
                         .size   = SPRD_ION_OVERLAY_SIZE,
                 },
 #endif
-};
 #endif
+};
 
 static struct ion_platform_data ion_pdata = {
         .nr = sizeof(ion_pheaps)/sizeof(ion_pheaps[0]),
