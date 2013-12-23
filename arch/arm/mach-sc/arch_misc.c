@@ -48,6 +48,20 @@ u32 sci_get_chip_id(void)
 	return chip_id;
 }
 
+#if defined(CONFIG_ARCH_SCX15)
+u32 sci_get_ana_chip_id(void)
+{
+	return (u32)sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
+		(u32)(sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW) & ~MASK_ANA_VER);
+}
+
+int sci_get_ana_chip_ver(void)
+{
+	return ((u32)sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW) & MASK_ANA_VER);
+}
+
+#endif
+
 static void __iomap_page(unsigned long virt, unsigned long size, int enable)
 {
 	unsigned long addr = virt, end = virt + (size & ~(SZ_4K - 1));
@@ -117,7 +131,7 @@ void __init sc_init_chip_id(void)
 #if defined(CONFIG_ARCH_SC8825)
 	chip_id = __raw_readl(REG_AHB_CHIP_ID);
 #elif defined(CONFIG_ARCH_SCX35)
-	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
+	chip_id = __raw_readl((void *)REG_AON_APB_CHIP_ID);
 	if (chip_id == 0)
 		chip_id = SCX35_ALPHA_TAPOUT;	//alpha Tapout.
 #else
@@ -127,8 +141,8 @@ void __init sc_init_chip_id(void)
 
 static inline int __chip_raw_ddie_write(u32 vreg, u32 or_val, u32 clear_msk)
 {
-	u32 val = __raw_readl(vreg);
-	writel((val & ~clear_msk) | or_val, vreg);
+	u32 val = __raw_readl((void *)vreg);
+	writel((val & ~clear_msk) | or_val, (void *)vreg);
 	return 0;
 }
 
@@ -143,7 +157,7 @@ int sci_read_va(u32 vreg, u32 * val)
 		*val = sci_adi_read(vreg);
 	} else {
 		DEBUGSEE("ddie\n");
-		*val = __raw_readl(vreg);
+		*val = __raw_readl((void *)vreg);
 	}
 
 	return 0;
@@ -185,11 +199,11 @@ int sci_read_pa(u32 preg, u32 * val)
 				ret = -ENOMEM;
 				goto Exit;
 			}
-			*val = __raw_readl((u32) addr);
+			*val = __raw_readl((void *) addr);
 			iounmap(addr);
 		}
 	} else {
-		*val = __raw_readl((u32) addr);
+		*val = __raw_readl((void *) addr);
 	}
 Exit:
 	return ret;

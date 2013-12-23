@@ -30,7 +30,38 @@
  */
 u32 sci_get_chip_id(void);
 
+/**
+ * sci_get_ana_chip_id - read a-die chip id
+ *
+ * Return the a-die chip id, example: 0X2711A000
+ */
+u32 sci_get_ana_chip_id(void);
 
+#define MASK_ANA_VER	( 0xFFF )
+enum sci_ana_chip_ver {
+	SC2711AA = 0x000,
+	SC2711AB = 0x000,	/* discard */
+	SC2711AC = 0x001,
+	SC2711BA = 0x100,
+	//TODO: Add more ana chip version here
+};
+
+/**
+ * sci_get_ana_chip_ver - read a-die chip version
+ *
+ * Return the a-die chip version, example: 0X100
+ */
+int sci_get_ana_chip_ver(void);
+
+/**
+ * sci_ana_chip_vers_is_compatible
+ *
+ * Check if the given "chip_ver" string matches the a-die chip on board
+ */
+static inline int sci_ana_chip_ver_is_compatible(enum sci_ana_chip_ver compat)
+{
+	return sci_get_ana_chip_ver() == (u32)compat;
+}
 
 /**
  *
