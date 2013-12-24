@@ -263,9 +263,11 @@ int sblock_create(uint8_t dst, uint8_t channel,
 
 	/* allocate smem */
 	hsize = sizeof(struct sblock_header);
-	sblock->smem_size = hsize +
-		txblocknum * txblocksize + rxblocknum * rxblocksize +
-		(txblocknum + rxblocknum) * sizeof(struct sblock_blks);
+	sblock->smem_size = hsize +						/* for header*/
+		txblocknum * txblocksize + rxblocknum * rxblocksize + 		/* for blks */
+		(txblocknum + rxblocknum) * sizeof(struct sblock_blks) + 	/* for ring*/
+		(txblocknum + rxblocknum) * sizeof(struct sblock_blks); 	/* for pool*/
+
 	sblock->smem_addr = smem_alloc(sblock->smem_size);
 	if (!sblock->smem_addr) {
 		printk(KERN_ERR "Failed to allocate smem for sblock\n");
