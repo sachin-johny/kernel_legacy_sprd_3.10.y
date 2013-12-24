@@ -65,6 +65,16 @@ static unsigned long lowmem_deathpending_timeout;
 			pr_info(x);			\
 	} while (0)
 
+
+#ifdef CONFIG_ZRAM
+extern ssize_t zram_mem_free_percent(void);
+
+short cacl_zram_score_adj(void)
+{
+    return (short)(zram_mem_free_percent()*OOM_SCORE_ADJ_MAX/100);
+}
+#endif
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *tsk;
@@ -80,6 +90,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
 	int other_file = global_page_state(NR_FILE_PAGES) -
 						global_page_state(NR_SHMEM);
+#ifdef CONFIG_ZRAM
+	short zram_score_adj = 0;
+#endif
 
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
@@ -105,6 +118,17 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     sc->nr_to_scan, sc->gfp_mask, rem);
 		return rem;
 	}
+
+#ifdef CONFIG_ZRAM
+	zram_score_adj = cacl_zram_score_adj();
+	printk("ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
+	if(min_score_adj < zram_score_adj)
+	{
+		return rem;
+	}
+	min_score_adj = zram_score_adj;
+#endif
+
 	selected_oom_score_adj = min_score_adj;
 
 	rcu_read_lock();
