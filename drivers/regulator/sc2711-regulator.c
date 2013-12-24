@@ -40,6 +40,7 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+#include <mach/arch_misc.h>
 
 #undef debug
 #define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
@@ -85,7 +86,7 @@ struct sci_regulator_data {
 struct sci_regulator_desc {
 	struct regulator_desc desc;
 	struct sci_regulator_ops *ops;
-	const struct sci_regulator_regs *regs;
+	struct sci_regulator_regs *regs;
 	struct sci_regulator_data data;	/* FIXME: dynamic */
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry *debugfs;
@@ -109,7 +110,7 @@ extern int sci_efuse_calibration_get(u32 * p_cal_data);
                      VOL_TRM, VOL_TRM_BITS, CAL_CTL, CAL_CTL_BITS, VOL_DEF, \
                      VOL_CTL, VOL_CTL_BITS, VOL_SEL_CNT, ...)   \
 do { 														\
-	static const struct sci_regulator_regs REGS_##VDD = {	\
+	static struct sci_regulator_regs REGS_##VDD = {	\
 		.typ		= TYP,									\
 		.pd_set = PD_SET,                           		\
 		.pd_set_bit = SET_BIT,                      		\
@@ -1003,6 +1004,17 @@ void *sci_regulator_register(struct platform_device *pdev,
 	};
 
 	struct regulator_config config = { };
+
+	if (sci_ana_chip_ver_is_compatible(SC2711AA)) {
+		if (0 == strcmp(desc->desc.name, "vdd18") ||
+			0 == strcmp(desc->desc.name, "vddemmcio") ||
+			0 == strcmp(desc->desc.name, "vddcamd") ||
+			0 == strcmp(desc->desc.name, "vddcamio")) {
+
+			desc->regs->vol_sel[0] = 1400;
+			debug("%s vol base %d\n", desc->desc.name, desc->regs->vol_sel[0]);
+		}
+	}
 
 	desc->desc.id = atomic_inc_return(&idx) - 1;
 

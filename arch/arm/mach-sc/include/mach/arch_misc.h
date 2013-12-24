@@ -41,7 +41,7 @@ u32 sci_get_ana_chip_id(void);
 enum sci_ana_chip_ver {
 	SC2711AA = 0x000,
 	SC2711AB = 0x000,	/* discard */
-	SC2711AC = 0x001,
+	SC2711AC = 0x002,
 	SC2711BA = 0x100,
 	//TODO: Add more ana chip version here
 };
