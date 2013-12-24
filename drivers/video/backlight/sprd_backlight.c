@@ -57,8 +57,10 @@
 #else
 #define        PWM_SCALE       1
 #endif
+#define        PWM2_SCALE           0x0
 #define        PWM_REG_MSK     0xffff
 #define        PWM_MOD_MAX     0xff
+#define        PWM_DUTY_MAX     0x7f
 
 /*****************************************
 *  level              mV            step
@@ -78,9 +80,7 @@
  *	you need to define the PD_PWD_BASE
  */
 
-#ifdef CONFIG_ARCH_SCX35
-
-#if 0
+#ifdef CONFIG_BACKLIGHT_SPRD_PWM_MODE
 	/*if the backlight is driven by pwm, use this MACRO */
 	#define SPRD_BACKLIGHT_PWM
 #else
@@ -89,8 +89,6 @@
 	#define SPRD_DIM_PWM_MODE
 	#define DIMMING_PWD_BASE	(SPRD_MISC_BASE + 0x8020)
 	#define PD_PWM_BASE		DIMMING_PWD_BASE
-#endif
-
 #endif
 
 enum bl_pwm_mode {
@@ -113,14 +111,17 @@ static struct sprd_bl_devdata sprdbl;
 #if defined(SPRD_BACKLIGHT_PWM)
 static inline uint32_t pwm_read(int index, uint32_t reg)
 {
+	//this is the D-die PWM controller, here we use PWM2(index=3) for external backlight control.
        return __raw_readl(SPRD_PWM_BASE + index * 0x20 + reg);
 }
 
 static void pwm_write(int index, uint32_t value, uint32_t reg)
 {
+	//this is the D-die PWM controller, here we use PWM2(index=3) for external backlight control.
        __raw_writel(value, SPRD_PWM_BASE + index * 0x20 + reg);
 }
 
+//sprd used PWM2(mapped to gpio190) for external backlight control.
 static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 {
 	u32 bl_brightness;
@@ -134,21 +135,15 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 		clk_disable(sprdbl.clk);
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
-		#if 0
-		/*why??, the min brightness is 0x20?*/
-		if (bl_brightness < 0x20)
-			bl_brightness = 0x20;
-		#endif
-
+		bl_brightness = bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1);
+		PRINT_DBG("user requested brightness = %d, caculated brightness = %d\n", bldev->props.brightness, bl_brightness);
 		clk_enable(sprdbl.clk);
-
-		pwm_write(sprdbl.pwm_index, PWM_SCALE, PWM_PRESCALE);
+		pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
 		pwm_write(sprdbl.pwm_index, (bl_brightness << 8) | PWM_MOD_MAX, PWM_CNT);
 		pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_LOW);
 		pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_HIG);
-		pwm_write(sprdbl.pwm_index, PWM_SCALE | PWM_ENABLE, PWM_PRESCALE);
+		pwm_write(sprdbl.pwm_index, PWM_ENABLE, PWM_PRESCALE);
 	}
-
 	return 0;
 }
 
@@ -162,7 +157,29 @@ static const struct backlight_ops sprd_backlight_ops = {
 	.get_brightness = sprd_bl_pwm_get_brightness,
 };
 
-#elif defined(SPRD_BACKLIGHT_WHITELED)
+#else
+
+#ifdef CONFIG_ARCH_SCX15
+static void srpd_backlight_init(void)
+{
+	PRINT_INFO("srpd_backlight_init");
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN );
+
+	//this is the A-die PWM controller, it is used for white_led.
+	sci_adi_raw_write(PD_PWM_BASE+PWM_CNT, PWM_DUTY | PWM_MOD);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_TONE_DIV, PWM_DIV);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_PRESCALE, PWM_ENABLE | PWM_SCALE);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_PAT_LOW, PWM_LOW);
+	sci_adi_raw_write(PD_PWM_BASE+PWM_PAT_HIG, PWM_HIG);
+
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PD);
+
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_RTC_PWM0_EN);
+	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN);
+}
+#endif
 
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 {
@@ -249,8 +266,6 @@ static const struct backlight_ops sprd_backlight_ops = {
 	.update_status = sprd_bl_whiteled_update_status,
 	.get_brightness = sprd_bl_whiteled_get_brightness,
 };
-#else
-#error "please define the backlight control mode"
 #endif
 
 #ifdef CONFIG_EARLYSUSPEND
@@ -266,26 +281,6 @@ static void sprd_backlight_lateresume(struct early_suspend *h)
 }
 #endif
 
-#ifdef CONFIG_ARCH_SCX15
-static void srpd_backlight_init(void)
-{
-	PRINT_INFO("srpd_backlight_init");
-	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN );
-
-	sci_adi_raw_write(PD_PWM_BASE+PWM_CNT, PWM_DUTY | PWM_MOD);
-	sci_adi_raw_write(PD_PWM_BASE+PWM_TONE_DIV, PWM_DIV);
-	sci_adi_raw_write(PD_PWM_BASE+PWM_PRESCALE, PWM_ENABLE | PWM_SCALE);
-	sci_adi_raw_write(PD_PWM_BASE+PWM_PAT_LOW, PWM_LOW);
-	sci_adi_raw_write(PD_PWM_BASE+PWM_PAT_HIG, PWM_HIG);
-
-	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_SERIES_EN);
-	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_BOOST_EN);
-	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PD);
-
-	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_RTC_PWM0_EN);
-	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN);
-}
-#endif
 static int sprd_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
@@ -310,6 +305,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 		return -ENODEV;
 	}
 	sprdbl.pwm_mode = normal_pwm;
+	PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprdbl.pwm_index);
 #else
 
 #ifdef SPRD_DIM_PWM_MODE
@@ -318,10 +314,10 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	sprdbl.pwm_mode = pd_pwd;
 #endif
 
-#endif
-
 #ifdef CONFIG_ARCH_SCX15
 	srpd_backlight_init();
+#endif
+
 #endif
 
 	memset(&props, 0, sizeof(struct backlight_properties));
@@ -340,6 +336,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	}
 	sprdbl.bldev = bldev;
 	platform_set_drvdata(pdev, bldev);
+	bldev->ops->update_status(bldev);
 
 #ifdef CONFIG_EARLYSUSPEND
 	sprdbl.sprd_early_suspend_desc.level	= EARLY_SUSPEND_LEVEL_BLANK_SCREEN;

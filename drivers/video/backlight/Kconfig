@@ -154,9 +154,15 @@ endif # LCD_CLASS_DEVICE
 # Backlight
 #
 config BACKLIGHT_SPRD
-	tristate "SPRD Backlight(PWM mode and whiteled mode) Driver"
+	tristate "SPRD Backlight Driver (PWM mode and WHITE_LED mode)"
 	help
 	  Say Y to enable the SPRD backlight driver.
+
+config BACKLIGHT_SPRD_PWM_MODE
+	bool "SPRD Backlight use PWM mode"
+	depends on BACKLIGHT_SPRD
+	help
+	  Say Y to enable the SPRD backlight PWM mode.
 
 config BACKLIGHT_CLASS_DEVICE
         tristate "Lowlevel Backlight controls"

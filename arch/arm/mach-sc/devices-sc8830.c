@@ -350,8 +350,8 @@ struct platform_device sprd_backlight_device = {
 #else
 struct resource sprd_bl_resource[] = {
 	[0] = {
-		.start	= 3,
-		.end	= 3,
+		.start	= 2,
+		.end	= 2,
 		.flags	= IORESOURCE_IO,
 	},
 };
