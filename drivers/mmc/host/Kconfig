@@ -239,6 +239,19 @@ config MMC_SDHCI_SPEAR
 
 	  If unsure, say N.
 
+
+config MMC_SDHCI_SPRD
+	tristate "Spreadtrum SD Host Controller support"
+	depends on MMC_SDHCI
+	help
+	  This selects the Secure Digital Host Controller Interface (SDHCI)
+	  often referrered to as the HSMMC block in some of the SPREADTRUM range
+	  of SoC
+
+	  If you have a controller with this interface, say Y or M here.
+
+	  If unsure, say N.
+
 config MMC_SDHCI_S3C_DMA
 	bool "DMA support on S3C SDHCI"
 	depends on MMC_SDHCI_S3C
@@ -298,66 +311,7 @@ config MMC_AU1X
 	help
 	  This selects the AMD Alchemy(R) Multimedia card interface.
 	  If you have a Alchemy platform with a MMC slot, say Y or M here.
-	  If unsure, say N.
 
-config MMC_SDHCI_SC8810
-	tristate "Spreadtrum SC8810 SD Host Controller support"
-	depends on  ARCH_SC8810
-	select MMC_SDHCI
-	help
-	  This selects the Secure Digital Host Controller Interface (SDHCI)
-	  often referrered to as the HSMMC block in Spreadtrum's SC8810 SoC
-	  seriels.
-
-	  If you have SC8810 platform with SD Host Controller, say Y or M here.
-	  If unsure, say N.
-
-config MMC_CARD_HOTPLUG
-	bool "Spreadtrum SC88XX SD Host Controller Hot-Plug support"
-	depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825 || MMC_SDHCI_SCX35
-	default n
-	help
-	  This selects the Secure Digital Host Controller Interface (SDHCI) to
-	  Support Hot-Plug of MMC And SD Memory Card in Spreadtrum's SC8810 SoC
-	  seriels.
-
-	  If you have SC8810 platform support hot-plug, say Y here.
-	  If unsure, say N.
-
-config EMMC_HYNIX_LPDDR
-	bool "Spreadtrum SC8810 HYNIX LPDDR EMMC Host Controller support"
-	depends on MMC_SDHCI_SC8810
-	default n
-	help
-	  This selects the Secure Digital Host Controller Interface (SDHCI) to
-	  Support SK Hynix 4GB+4Gb LPDDR CiMCP of MMC Memory Card in
-          Spreadtrum's SC8810 SoC seriels.
-
-	  If you have SC8810 platform support HYNIX LPDDR EMMC, say Y here.
-	  If unsure, say N.
-
-config MMC_SDHCI_SC8825
-	tristate "Spreadtrum SC8825 SD Host Controller support"
-	depends on  ARCH_SC8825
-	select MMC_SDHCI
-	help
-	  This selects the Secure Digital Host Controller Interface (SDHCI)
-	  often referrered to as the HSMMC block in Spreadtrum's SC8825 SoC
-	  seriels.
-
-	  If you have SC8825 platform with SD Host Controller, say Y or M here.
-	  If unsure, say N.
-
-config MMC_SDHCI_SCX35
-	tristate "Spreadtrum SC8830 SD Host Controller support"
-	depends on  ARCH_SCX35
-	select MMC_SDHCI
-	help
-	  This selects the Secure Digital Host Controller Interface (SDHCI)
-	  often referrered to as the HSMMC block in Spreadtrum's SC8830 SoC
-	  seriels.
-
-	  If you have SC8830 platform with SD Host Controller, say Y or M here.
 	  If unsure, say N.
 
 config MMC_ATMELMCI
@@ -465,11 +419,11 @@ config MMC_S3C
 	  If unsure, say N.
 
 config MMC_S3C_HW_SDIO_IRQ
-	bool "Hardware support for SDIO IRQ"
-	depends on MMC_S3C
-	help
-	  Enable the hardware support for SDIO interrupts instead of using
-	  the generic polling code.
+       bool "Hardware support for SDIO IRQ"
+       depends on MMC_S3C
+       help
+         Enable the hardware support for SDIO interrupts instead of using
+	 the generic polling code.
 
 choice
 	prompt "Samsung S3C SD/MMC transfer code"
@@ -705,27 +659,3 @@ config MMC_REALTEK_PCI
 	help
 	  Say Y here to include driver code to support SD/MMC card interface
 	  of Realtek PCI-E card reader
-
-config MMC_BUS_SCAN
-       bool "Spreadtrum SC8810 SD Host Controller Bus-Scan support"
-       depends on MMC_SDHCI_SC8810 || MMC_SDHCI_SC8825 || MMC_SDHCI_SCX35
-       default y
-       help
-         This selects the Secure Digital Host Controller Interface (SDHCI) to
-         Support Bus-Scan of SDIO devices in Spreadtrum's SC8810 SoC
-         seriels.
-
-         If you have SC8810 platform support hot-plug, say Y here.
-         If unsure, say N.
-
-config MMC_HOST_WAKEUP_SUPPORTED
-   bool "Spreadtrum sc8810 SD Host Controller WakeUp support"
-   depends on MMC_SDHCI_SC8810
-        default n
-   help
-     This selects the Secure Digital Host Controller Interface (SDHCI) to
-     Support Wake-Up of SDIO in Spreadtrum's SC8810 SoC
-          seriels
-
-     If you have SC8810 platform support bus scan, say Y here.
-          If unsure, say N.

@@ -15,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/ion.h>
 #include <linux/input.h>
-#include <linux/mmc/sdhci.h>
+#include <linux/mmc/sdhci-sprd.h>
 #include <linux/gpio.h>
 
 #include <linux/sprd_cproc.h>
@@ -731,29 +731,32 @@ static struct resource sprd_sdio0_resources[] = {
 	}
 };
 
-static struct sprd_host_platdata sprd_sdio0_pdata = {
-	.hw_name = "sprd-sdcard",
+static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
+	.caps = MMC_CAP_HW_RESET | MMC_CAP_4_BIT_DATA,
+	.caps2 = MMC_CAP2_NO_PRESCAN_POWERUP | MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
 #ifdef CONFIG_ARCH_SCX15
 	.detect_gpio = 193,
 #else
 	.detect_gpio = 71,
 #endif
-	.vdd_name = "vddsd",
+	.vdd_vmmc = "vddsd",
+	.vdd_vqmmc = "vddsd",
 	.clk_name = "clk_sdio0",
 #ifdef CONFIG_ARCH_SCX15
-	.clk_parent = "clk_384m",
+	.clk_parent_name = "clk_384m",
 	.max_clock = 384000000,
 #else
-	.clk_parent = "clk_192m",
+	.clk_parent_name = "clk_192m",
 	.max_clock = 192000000,
 #endif
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
+	.runtime = 1,
 };
 
 struct platform_device sprd_sdio0_device = {
-	.name           = "sprd-sdhci",
-	.id             =  0,
+	.name           = "sprd-sdhci-shark",
+	.id             =  SDC_SLAVE_SD,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
 	.dev = { .platform_data = &sprd_sdio0_pdata },
@@ -773,19 +776,19 @@ static struct resource sprd_sdio1_resources[] = {
 	}
 };
 
-static struct sprd_host_platdata sprd_sdio1_pdata = {
-	.hw_name = "sprd-sdio1",
+static struct sprd_sdhci_host_platdata sprd_sdio1_pdata = {
+	.caps = MMC_CAP_HW_RESET | MMC_CAP_POWER_OFF_CARD | MMC_CAP_4_BIT_DATA,
 	.clk_name = "clk_sdio1",
-	.clk_parent = "clk_96m",
+	.clk_parent_name = "clk_96m",
 	.max_clock = 96000000,
 	.enb_bit = BIT_SDIO1_EB,
 	.rst_bit = BIT_SDIO1_SOFT_RST,
-	.regs.is_valid = 1,
+	.runtime = 1,
 };
 
 struct platform_device sprd_sdio1_device = {
-	.name           = "sprd-sdhci",
-	.id             =  1,
+	.name           = "sprd-sdhci-shark",
+	.id             =  SDC_SLAVE_WIFI,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
 	.dev = { .platform_data = &sprd_sdio1_pdata },
@@ -869,22 +872,24 @@ static struct resource sprd_sdio2_resources[] = {
 	       }
 };
 
-static struct sprd_host_platdata sprd_sdio2_pdata = {
-	.hw_name = "sprd-sdio2",
+static struct sprd_sdhci_host_platdata sprd_sdio2_pdata = {
+	.caps = MMC_CAP_HW_RESET | MMC_CAP_POWER_OFF_CARD | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR,
 	.clk_name = "clk_sdio2",
-	.clk_parent = "clk_96m",
+	.clk_parent_name = "clk_96m",
 	.max_clock = 96000000,
 	.enb_bit = BIT_SDIO2_EB,
 	.rst_bit = BIT_SDIO2_SOFT_RST,
+	.runtime = 1,
 };
 
 struct platform_device sprd_sdio2_device = {
-	.name = "sprd-sdhci",
-	.id = 2,
+	.name = "sprd-sdhci-shark",
+	.id = SDC_SLAVE_CP,
 	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource = sprd_sdio2_resources,
 	.dev = { .platform_data = &sprd_sdio2_pdata },
 };
+
 static struct resource sprd_emmc_resources[] = {
 	[0] = {
 	       .start = SPRD_EMMC_BASE,
@@ -899,21 +904,31 @@ static struct resource sprd_emmc_resources[] = {
 	       }
 };
 
-static struct sprd_host_platdata sprd_emmc_pdata = {
-	.hw_name = "sprd-emmc",
-	.vdd_name = "vddemmcio",
-	.vdd_ext_name = "vddemmccore",
+static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
+	.caps = MMC_CAP_HW_RESET | MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR,
+	.caps2 = MMC_CAP2_NO_PRESCAN_POWERUP | MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
+	.vdd_vmmc = "vddemmcio",
+	.vdd_vqmmc = "vddemmcio",
+	.vdd_extmmc = "vddemmccore",
 	.clk_name = "clk_emmc",
-	.clk_parent = "clk_192m",
+#ifdef CONFIG_ARCH_SCX15
+	.clk_parent_name = "clk_384m",
+	.max_clock = 384000000,
+#else
+	.clk_parent_name = "clk_192m",
 	.max_clock = 192000000,
+#endif
 	.enb_bit = BIT_EMMC_EB,
 	.rst_bit = BIT_EMMC_SOFT_RST,
-	.regs.is_valid = 1,
+	.write_delay = 0x20,
+	.read_pos_delay = 0x07,
+	.read_neg_delay = 0x05,
+	.runtime = 1,
 };
 
 struct platform_device sprd_emmc_device = {
-	.name = "sprd-sdhci",
-	.id = 3,
+	.name = "sprd-sdhci-shark",
+	.id = SDC_SLAVE_EMMC,
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
 	.dev = { .platform_data = &sprd_emmc_pdata },

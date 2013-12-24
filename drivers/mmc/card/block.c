@@ -417,7 +417,7 @@ static int mmc_blk_ioctl_cmd(struct block_device *bdev,
 	struct mmc_data data = {0};
 	struct mmc_request mrq = {NULL};
 	struct scatterlist sg;
-	int err = 0;
+	int err;
 	int is_rpmb = false;
 	u32 status = 0;
 
@@ -864,18 +864,13 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 			 int type)
 {
-	int err, retries;
+	int err;
 
 	if (md->reset_done & type)
-	{
-		printk("******* %s, md->reset_done:%d, type:%d, return -EEXIST *****\n", __func__, md->reset_done, type);
 		return -EEXIST;
-	}
+
 	md->reset_done |= type;
-	retries = 5;
-    do{
 	err = mmc_hw_reset(host);
-	}while(err && (err != -EOPNOTSUPP) && retries--);
 	/* Ensure we switch back to the correct partition */
 	if (err != -EOPNOTSUPP) {
 		struct mmc_blk_data *main_md = mmc_get_drvdata(host->card);
@@ -1010,7 +1005,7 @@ retry:
 			goto out;
 	}
 
-	if (mmc_can_sanitize(card) && (card->host->caps2 & MMC_CAP2_SANITIZE)) {
+	if (mmc_can_sanitize(card)) {
 		trace_mmc_blk_erase_start(EXT_CSD_SANITIZE_START, 0, 0);
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				 EXT_CSD_SANITIZE_START, 1, 0);
@@ -1150,8 +1145,6 @@ static int mmc_blk_err_check(struct mmc_card *card,
 			 * so make sure to check both the busy
 			 * indication and the card state.
 			 */
-			if(status != 0x900)
-				printk("%s: check cards status: 0x%x\n", mmc_hostname(card->host), status);
 		} while (!(status & R1_READY_FOR_DATA) ||
 			 (R1_CURRENT_STATE(status) == R1_STATE_PRG));
 	}
@@ -1710,24 +1703,6 @@ static void mmc_blk_revert_packed_req(struct mmc_queue *mq,
 	mmc_blk_clear_packed(mq_rq);
 }
 
-static __used void remove_sd_card(struct mmc_host *host)
-{
-	printk(KERN_INFO "%s: %s\n", mmc_hostname(host), __func__);
-	if (!host->card || host->card->removed) {
-		printk(KERN_INFO "%s: card already removed\n",
-			mmc_hostname(host));
-		return;
-	}
-	if (!mmc_card_present(host->card)) {
-		printk(KERN_INFO "%s: card is not present\n",
-			mmc_hostname(host));
-		return;
-	}
-	host->card->removed = 1;
-	mmc_schedule_card_removal_work(&host->remove, 0);
-}
-
-
 static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 {
 	struct mmc_blk_data *md = mq->data;
@@ -1881,6 +1856,7 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 			}
 		}
 	} while (ret);
+
 	return 1;
 
  cmd_abort:
@@ -2277,6 +2253,7 @@ force_ro_fail:
 #define CID_MANFID_TOSHIBA	0x11
 #define CID_MANFID_MICRON	0x13
 #define CID_MANFID_SAMSUNG	0x15
+#define CID_MANFID_KINGSTON 0x41
 
 static const struct mmc_fixup blk_fixups[] =
 {
@@ -2290,6 +2267,8 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_INAND_CMD38),
 	MMC_FIXUP("SEM32G", CID_MANFID_SANDISK, 0x100, add_quirk,
 		  MMC_QUIRK_INAND_CMD38),
+	MMC_FIXUP("SD8GB", CID_MANFID_KINGSTON, 0x3432, add_quirk,
+		  MMC_QUIRK_BLK_NO_CMD23),
 
 	/*
 	 * Some MMC cards experience performance degradation with CMD23
@@ -2334,10 +2313,12 @@ static const struct mmc_fixup blk_fixups[] =
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 	MMC_FIXUP("VZL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
-
 	MMC_FIXUP("N5U00M", CID_MANFID_SAMSUNG, 0x100, add_quirk_mmc,
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
-
+	MMC_FIXUP("N5WZMB", CID_MANFID_SAMSUNG, 0x100, add_quirk_mmc,
+		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+	MMC_FIXUP("KJS00M", CID_MANFID_SAMSUNG, 0x100, add_quirk_mmc,
+		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 	END_FIXUP
 };
 
