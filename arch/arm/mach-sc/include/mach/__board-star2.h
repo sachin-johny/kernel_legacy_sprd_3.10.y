@@ -55,8 +55,14 @@
 
 #define GPIO_BK                  136
 
+#define GPIO_GPS_RESET		    143
+#define GPIO_GPS_ONOFF          144
+
+#if 0
 #define GPIO_CMMB_RESET         144
 #define GPIO_CMMB_INT           143
+#endif
+
 #define GPIO_CMMB_26M_CLK_EN    197
 
 #define GPIO_BT_RESET       233
