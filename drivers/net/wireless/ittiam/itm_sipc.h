@@ -101,6 +101,8 @@ struct wlan_sipc {
 	spinlock_t lock;
 	/* mutex for protecting atomic command send/recv */
 	struct mutex cmd_lock;
+	/* mutex for protecting not sleep when command send/recv */
+	struct mutex pm_lock;
 
 	struct wlan_sipc_data *send_buf;
 	size_t wlan_sipc_send_len;

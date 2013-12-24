@@ -37,6 +37,8 @@ struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
 	struct napi_struct napi;
+	struct notifier_block pm_notifier;
+	bool pm_status;
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
 	struct early_suspend	early_suspend;
 #endif

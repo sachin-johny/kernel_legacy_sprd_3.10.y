@@ -32,6 +32,7 @@
 #include <linux/inetdevice.h>
 #include <asm/byteorder.h>
 #include <linux/platform_device.h>
+#include <linux/suspend.h>
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
 #include <linux/earlysuspend.h>
 #endif
@@ -518,6 +519,55 @@ static struct notifier_block itm_inetaddr_cb = {
 	.notifier_call = itm_inetaddr_event,
 };
 
+static int itm_pm_notifier(struct notifier_block *notifier,
+			   unsigned long pm_event,
+			   void *unused)
+{
+	int ret = NOTIFY_DONE;
+	struct itm_priv *priv = container_of(notifier,
+					     struct itm_priv,
+					     pm_notifier);
+
+	/* We should not suspend when there is sipc cmd send and
+	 * recv. */
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		if (!mutex_trylock(&priv->wlan_sipc->pm_lock)) {
+			priv->pm_status = false;
+			ret = NOTIFY_BAD;
+		} else {
+			priv->pm_status = true;
+			ret = NOTIFY_OK;
+		}
+		break;
+
+	/* Restore from hibernation failed. We need to clean
+	 * up in exactly the same way, so fall through. */
+	case PM_POST_SUSPEND:
+		if (priv->pm_status == true) {
+			mutex_unlock(&priv->wlan_sipc->pm_lock);
+			priv->pm_status = false;
+		}
+		ret = NOTIFY_OK;
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static void itm_register_pm_notifier(struct itm_priv *priv)
+{
+	priv->pm_notifier.notifier_call = itm_pm_notifier;
+	register_pm_notifier(&priv->pm_notifier);
+}
+
+static void itm_unregister_pm_notifier(struct itm_priv *priv)
+{
+	unregister_pm_notifier(&priv->pm_notifier);
+}
+
 /*
  * Initialize WLAN device.
  */
@@ -540,6 +590,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	atomic_set(&priv->stopped, 0);
 	ndev->netdev_ops = &itm_wlan_ops;
 	ndev->watchdog_timeo = 1 * HZ;
+
+	priv->pm_status = false;
 
 	/*FIXME*/
 	/* If get mac from cfg file error, got random addr */
@@ -608,6 +660,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 #ifdef CONFIG_INET
 	register_inetaddr_notifier(&itm_inetaddr_cb);
 #endif
+	/* Register PM notifiers */
+	itm_register_pm_notifier(priv);
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
@@ -643,6 +697,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
 
+	itm_unregister_pm_notifier(priv);
 	unregister_early_suspend(&priv->early_suspend);
 	wake_lock_destroy(&priv->scan_done_lock);
 #ifdef CONFIG_INET

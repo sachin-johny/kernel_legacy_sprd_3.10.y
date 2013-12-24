@@ -132,21 +132,19 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 {
 	u16 status;
-	int ret;
+	int ret = 0;
 
+	mutex_lock(&wlan_sipc->pm_lock);
 	/* TODO sipc-sbuf ops */
 	ret = sbuf_read(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
 			     wlan_sipc->recv_buf, 256, 0);
 	if (ret == -ENODATA) {
 		pr_debug("do not have dirty data in sbuf\n");
-	} else if (ret < 0) {
-		pr_err("sbuf recv channel error(%d)\n", ret);
-		return ret;
 	} else if (ret > 0) {
-		pr_err("dirty data still remain in sbuf(%d)\n", ret);
-		return ret;
-	} else {
 		pr_err("clean up dirty data in sbuf\n");
+	} else {
+		pr_err("sbuf recv channel error(%d)\n", ret);
+		goto out;
 	}
 
 	ret =
@@ -155,7 +153,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 
 	if (ret) {
 		pr_err("cmd send error with ret is %d\n", ret);
-		return ret;
+		goto out;
 	}
 
 	ret = wlan_sipc_cmd_receive(wlan_sipc, wlan_sipc->wlan_sipc_recv_len,
@@ -163,7 +161,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 
 	if (ret) {
 		pr_err("cmd recv error with ret is %d\n", ret);
-		return ret;
+		goto out;
 	}
 
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
@@ -171,10 +169,13 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 	/* FIXME consider return status */
 	if (status) {
 		pr_err("return wrong status code is %d\n", status);
+		mutex_unlock(&wlan_sipc->pm_lock);
 		return -EIO;
 	}
 
-	return 0;
+out:
+	mutex_unlock(&wlan_sipc->pm_lock);
+	return ret;
 }
 
 int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
@@ -1059,6 +1060,7 @@ int itm_wlan_sipc_alloc(struct itm_priv *itm_priv)
 
 	spin_lock_init(&wlan_sipc->lock);
 	mutex_init(&wlan_sipc->cmd_lock);
+	mutex_init(&wlan_sipc->pm_lock);
 
 	itm_priv->wlan_sipc = wlan_sipc;
 
