@@ -114,7 +114,6 @@
 #define  SDHCI_RESET_ALL	0x01
 #define  SDHCI_RESET_CMD	0x02
 #define  SDHCI_RESET_DATA	0x04
-#define  SDHCI_HW_RESET_CARD	0x08
 
 #define SDHCI_INT_STATUS	0x30
 #define SDHCI_INT_ENABLE	0x34
@@ -260,22 +259,6 @@
 #define SDHCI_MAX_DIV_SPEC_200	256
 #define SDHCI_MAX_DIV_SPEC_300	2046
 
-struct sprd_host_data {
-	int detect_irq;
-	struct sprd_host_platdata *platdata;
-	unsigned char clk_enable;
-	/* only used for emmc.*/
-	unsigned char sdr50_clk_pin;
-	unsigned char sdr50_data_pin;
-	unsigned char sdr50_write_delay;
-	unsigned char sdr50_read_pos_delay;
-
-	unsigned char ddr50_clk_pin;
-	unsigned char ddr50_write_delay;
-	unsigned char ddr50_read_pos_delay;
-	unsigned char ddr50_read_neg_delay;
-};
-
 /*
  * Host SDMA buffer boundary. Valid values from 4K to 512K in powers of 2.
  */
@@ -294,7 +277,6 @@ struct sdhci_ops {
 
 	void	(*set_clock)(struct sdhci_host *host, unsigned int clock);
 
-	void		(*set_power)(struct sdhci_host *host, unsigned int power);
 	int		(*enable_dma)(struct sdhci_host *host);
 	unsigned int	(*get_max_clock)(struct sdhci_host *host);
 	unsigned int	(*get_min_clock)(struct sdhci_host *host);
@@ -307,14 +289,9 @@ struct sdhci_ops {
 	void	(*platform_reset_enter)(struct sdhci_host *host, u8 mask);
 	void	(*platform_reset_exit)(struct sdhci_host *host, u8 mask);
 	int	(*set_uhs_signaling)(struct sdhci_host *host, unsigned int uhs);
-#if 0
 	void	(*hw_reset)(struct sdhci_host *host);
 	void	(*platform_suspend)(struct sdhci_host *host);
 	void	(*platform_resume)(struct sdhci_host *host);
-#else
-	void (*save_regs)(struct sdhci_host *host);
-	void (*restore_regs)(struct sdhci_host *host);
-#endif
 	void    (*adma_workaround)(struct sdhci_host *host, u32 intmask);
 	void	(*platform_init)(struct sdhci_host *host);
 };
@@ -412,32 +389,12 @@ static inline void *sdhci_priv(struct sdhci_host *host)
 	return (void *)host->private;
 }
 
-static inline void sdhci_sdclk_enable(struct sdhci_host *host, u8 val)
-{
-	u32 regVal;
-
-	regVal = sdhci_readl(host, SDHCI_CLOCK_CONTROL);
-	/* off sd_clk */
-	if (val == 0) {
-		if ((regVal & SDHCI_CLOCK_CARD_EN) != 0) {
-			regVal &= ~SDHCI_CLOCK_CARD_EN;
-			sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
-			udelay(200);
-		}
-	}
-	else {
-		regVal |= SDHCI_CLOCK_CARD_EN;
-		sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
-	}
-}
-
 extern void sdhci_card_detect(struct sdhci_host *host);
 extern int sdhci_add_host(struct sdhci_host *host);
 extern void sdhci_remove_host(struct sdhci_host *host, int dead);
-extern void sdhci_reinit(struct sdhci_host *host);
-extern int sdcard_present(struct sdhci_host *host);
+
 #ifdef CONFIG_PM
-int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state);
+extern int sdhci_suspend_host(struct sdhci_host *host);
 extern int sdhci_resume_host(struct sdhci_host *host);
 extern void sdhci_enable_irq_wakeups(struct sdhci_host *host);
 #endif
@@ -445,10 +402,6 @@ extern void sdhci_enable_irq_wakeups(struct sdhci_host *host);
 #ifdef CONFIG_PM_RUNTIME
 extern int sdhci_runtime_suspend_host(struct sdhci_host *host);
 extern int sdhci_runtime_resume_host(struct sdhci_host *host);
-#endif
-
-#ifdef CONFIG_MMC_DEBUG
-extern void sdhci_dumpregs(struct sdhci_host *host);
 #endif
 
 #endif /* __SDHCI_HW_H */

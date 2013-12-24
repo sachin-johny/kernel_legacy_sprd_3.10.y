@@ -66,17 +66,11 @@ config SDIO_UART
 	  SDIO function driver for SDIO cards that implements the UART
 	  class, as well as the GPS class which appears like a UART.
 
-config SDIO_CHANNEL
-        tristate "SDIO CHANNEL class support"
-        default n
-        help
-          SDIO function driver for Modem Devices.
-
 config SDIO_CARD
-	tristate "SDIO CARD class support"
-	default y
+	tristate "SDIO CARD class runtime support"
+	default n
 	help
-	SDIO card driver for WIFI Devices.
+	SDIO card driver for Devices supporting customized runtime.
 
 config MMC_TEST
 	tristate "MMC host test driver"
