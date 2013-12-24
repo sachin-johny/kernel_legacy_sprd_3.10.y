@@ -1425,17 +1425,16 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
       cinfo->count  = 0; //touch end
       msg2133_i2c_read(reg_val, 8);
 	
-	//retval = i2c_smbus_read_i2c_block_data(this_client, TPD_REG_BASE, 8, (unsigned char *)&g_operation_data);
-	//retval += i2c_smbus_read_i2c_block_data(this_client, TPD_REG_BASE + 8, 8, (((unsigned char *)(&g_operation_data)) + 8));
-
-	
-
 
 	cinfo->x1 =  ((reg_val[1] & 0xF0) << 4) | reg_val[2];	
 	cinfo->y1  =  ((reg_val[1] & 0x0F) << 8) | reg_val[3];
        dst_x = ((reg_val[4] & 0xF0) << 4) | reg_val[5];
        dst_y = ((reg_val[4] & 0x0F) << 8) | reg_val[6];
 
+       //PIXCIR_DBG("%s reg_val[8] = %d %d %d %d %d %d %d %d", __func__, reg_val[0],
+	//	reg_val[1],reg_val[2],reg_val[3],reg_val[4],reg_val[5],reg_val[6],reg_val[7]);
+
+       //PIXCIR_DBG(" x,y = %d %d, dst_x, y= %d %d ", cinfo->x1, cinfo->y1, dst_x, dst_y);
 
 	temp_checksum = tpd_check_sum(reg_val);
 
@@ -1515,19 +1514,10 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
 			if ((dst_x == 0) && (dst_y == 0))
 			{
 				cinfo->count  = 1; //one touch
-				#if 1
-				xysawp_temp=cinfo->x1;
-				cinfo->x1=2047-cinfo->y1;
-				cinfo->y1=xysawp_temp;
-				#endif
-				
-				//cinfo->x1 = (cinfo->x1 * MS_TS_MSG21XX_X_MAX) / 2048;
-			cinfo->x1 = 320-(cinfo->x1 * MS_TS_MSG21XX_X_MAX) / 2048;
-				#if 0
-				cinfo->y1 = ((cinfo->y1 * MS_TS_MSG21XX_Y_MAX)*17) / (2048*15);
-				#else
+								
+				cinfo->x1 = (cinfo->x1 * MS_TS_MSG21XX_X_MAX) / 2048;
 				cinfo->y1 = (cinfo->y1 * MS_TS_MSG21XX_Y_MAX) / 2048;
-				#endif
+				
 			}
 			else
 				{
@@ -1545,39 +1535,22 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
 				}
 
 				cinfo->x2 = (cinfo->x1 + dst_x);
-				cinfo->y2 = (cinfo->y1 + dst_y);
+				cinfo->y2 = (cinfo->y1 + dst_y);	
+
+				cinfo->x1 = (cinfo->x1 * MS_TS_MSG21XX_X_MAX) / 2048;
 				
-				#if 1
-				xysawp_temp=cinfo->x1;
-				cinfo->x1=2047-cinfo->y1;
-				cinfo->y1=xysawp_temp;
-
-				xysawp_temp=cinfo->x2;
-				cinfo->x2=2047-cinfo->y2;
-				cinfo->y2=xysawp_temp;
-				#endif
-			cinfo->x1 = 320- (cinfo->x1 * MS_TS_MSG21XX_X_MAX) / 2048;
-
-				//cinfo->x1 = (cinfo->x1 * MS_TS_MSG21XX_X_MAX) / 2048;
-				#if 0
-				cinfo->y1 = ((cinfo->y1 * MS_TS_MSG21XX_Y_MAX)*17) / (2048*15);
-				#else
 				cinfo->y1 = (cinfo->y1 * MS_TS_MSG21XX_Y_MAX) / 2048;
-				#endif
+				
 
-				//cinfo->x2 = (cinfo->x2 * MS_TS_MSG21XX_X_MAX) / 2048;
-			cinfo->x2 = 320-(cinfo->x2 * MS_TS_MSG21XX_X_MAX) / 2048;
-				#if 0
-				cinfo->y2 = ((cinfo->y2 * MS_TS_MSG21XX_Y_MAX)*17) / (2048*15);
-				#else
+				cinfo->x2 = (cinfo->x2 * MS_TS_MSG21XX_X_MAX) / 2048;
+				
 				cinfo->y2 = (cinfo->y2 * MS_TS_MSG21XX_Y_MAX) / 2048;
-				#endif
-
+				
 				do
 				{
-					if((cinfo->y1 >= 480)||(cinfo->y2 >= 480))
+					if((cinfo->y1 >= MS_TS_MSG21XX_Y_MAX)||(cinfo->y2 >= MS_TS_MSG21XX_Y_MAX))
 					{
-						if((cinfo->y2 >= 480)&&(cinfo->y1 <= 480))
+						if((cinfo->y2 >= MS_TS_MSG21XX_Y_MAX)&&(cinfo->y1 <= MS_TS_MSG21XX_Y_MAX))
 						{
 							if(cinfo->x2 <= 100)
 							{
@@ -1591,14 +1564,14 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
 						    		cinfo->y1 = 529; // final Y coordinate
 								break;
 							}
-							else if((cinfo->x2 >= 220 )&&(cinfo->x2 < 320))
+							else if((cinfo->x2 >= 220 )&&(cinfo->x2 < MS_TS_MSG21XX_X_MAX))
 							{
 							 	cinfo->x1 = 259; // final X coordinate
 						    		cinfo->y1 = 529; // final Y coordinate
 								break;
 							}
 						}
-						else if((cinfo->y2 >= 480)&&(cinfo->y1 >= 480))
+						else if((cinfo->y2 >= MS_TS_MSG21XX_Y_MAX)&&(cinfo->y1 >= MS_TS_MSG21XX_Y_MAX))
 						{
 							break;
 						}
@@ -1616,7 +1589,7 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
 						    		cinfo->y1 = 529; // final Y coordinate
 								break;
 							}
-							else if((cinfo->x1 >= 220 )&&(cinfo->x1 < 320))
+							else if((cinfo->x1 >= 220 )&&(cinfo->x1 < MS_TS_MSG21XX_X_MAX))
 							{
 							 	cinfo->x1 = 259; // final X coordinate
 						    		cinfo->y1 = 529; // final Y coordinate
@@ -1626,69 +1599,9 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
 					}
 				}while(0);
 
-				/* Calibrate if the touch panel was reversed in Y */
-	#if 0
-				cinfo->y2 = (MS_TS_MSG21XX_Y_MAX - cinfo->y2);
-	#endif
 			}
 		}
-#if 0
-		if(1==touchData.nTouchKeyMode)
-		{
-			if (touchData.nTouchKeyCode == 1)
-				touchkeycode = KEY_HOME;
-			if (touchData.nTouchKeyCode == 2)
-				touchkeycode = KEY_MENU;
-			if (touchData.nTouchKeyCode == 4)
-				touchkeycode = KEY_BACK;
 
-			if(preKeyStatus!=touchkeycode)
-			{
-				preKeyStatus=touchkeycode;
-				input_report_key(input, touchkeycode, 1);
-				//printk("&&&&&&&&useful key code report touch key code = %d\n",touchkeycode);
-			}
-			input_sync(input);
-		}
-        else
-        {
-		    preKeyStatus=0; //clear key status..
-
-            if((cinfo->count) == 0)   //touch end
-            {
-				//preFingerNum=0;
-				input_report_key(tpd->dev, KEY_MENU, 0);
-				input_report_key(tpd->dev, KEY_HOME, 0);
-				input_report_key(tpd->dev, KEY_BACK, 0);
-
-				input_report_abs(input, ABS_MT_TOUCH_MAJOR, 0);
-				input_mt_sync(input);
-				input_sync(input);
-            }
-            else //touch on screen
-            {
-			    /*
-				if(preFingerNum!=touchData->nFingerNum)   //for one touch <--> two touch issue
-				{
-					printk("langwenlong number has changed\n");
-					preFingerNum=touchData->nFingerNum;
-					input_report_abs(input, ABS_MT_TOUCH_MAJOR, 0);
-				    input_mt_sync(input);
-				    input_sync(input);
-				}*/
-
-				for(i = 0;i < (touchData->nFingerNum);i++)
-				{
-					input_report_abs(input, ABS_MT_TOUCH_MAJOR, 255);
-					input_report_abs(input, ABS_MT_POSITION_X, touchData->Point[i].X);
-					input_report_abs(input, ABS_MT_POSITION_Y, touchData->Point[i].Y);
-					input_mt_sync(input);
-				}
-
-				input_sync(input);
-			}
-		}
-#endif
         return 1;
     }
 	 
@@ -1707,73 +1620,6 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
         PIXCIR_DBG("===%s===\n",__func__);
 	rdbuf[0]=0;
 	//pixcir_i2c_rxdata(rdbuf, 27);
-
-#if 0
-
-
-        sy_rxdata(&cinfo, &pinfo);
-        touch = cinfo.count;
-	//button = rdbuf[1];
-	//p=&rdbuf[2];
-        p=(int*)&cinfo;
-        //printk("===touch:%d===",touch);
-	for (i=0; i<touch; i++)	{
-		//pix_id = (*(p+4));
-		//slot_id = ((pix_id & 7)<<1) | ((pix_id & 8)>>3);
-		point_slot[i].active = 1;
-		point_slot[i].finger_id = i;	
-		point_slot[i].posx = *(p+i*2);
-		point_slot[i].posy = *(p+i*2+1);
-		               
-	}
-
-
-
-        if(touch) 
-        {
-
-             input_report_key(tsdata->input, BTN_TOUCH, 1);
-            if(touch >0) {
-                //tpd_down(cinfo.x1, cinfo.y1, cinfo.p1);
-                /*ergate-026*/
-                input_report_abs(tsdata->input, ABS_MT_POSITION_X,  point_slot[0].posx);
-		input_report_abs(tsdata->input, ABS_MT_POSITION_Y,  point_slot[0].posy);
-		input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 15);
-		input_report_abs(tsdata->input, ABS_MT_WIDTH_MAJOR, 1);
-
-		input_mt_sync(tsdata->input);
-		//PIXCIR_DBG("%s: slot=%d,x%d=%d,y%d=%d\n",__func__, i, i/2,point_slot[0].posx, i/2, point_slot[0].posy);
-                      }
-
-             if(touch>1)
-             	{
-		  input_report_abs(tsdata->input, ABS_MT_POSITION_X,  point_slot[1].posx);
-		input_report_abs(tsdata->input, ABS_MT_POSITION_Y,  point_slot[1].posx);
-		input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 15);
-		input_report_abs(tsdata->input, ABS_MT_WIDTH_MAJOR, 1);
-		input_mt_sync(tsdata->input);
-                  /*ergate-001*/
-		  //if(cinfo.count>2) tpd_down(cinfo.x3, cinfo.y3, cinfo.p3);
-             
-                //input_sync(tpd->dev);
-                //TPD_DEBUG("press  --->\n");
-				
-            } else if(cinfo.count==0 && pinfo.count!=0) {
-
-                input_mt_sync(tsdata->input);
-                
-                /*ergate-026*/
-                printk("release --->\n"); 
-            }
-        
-      }
-      else {
-		//PIXCIR_DBG("%s: release\n",__func__);
-		input_report_key(tsdata->input, BTN_TOUCH, 0);
-		input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 0);
-	}
-    input_sync(tsdata->input); 
-#else
         //touch = rdbuf[0]&0x07;
         sy_rxdata(&cinfo, &pinfo);
         touch = cinfo.count;
@@ -1796,23 +1642,15 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
 		//input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 15);
 		for (i=0; i<touch; i++) {
 			if (point_slot[i].active == 1) {
-				if(point_slot[i].posy<0) {
-					//printk("\033[33;1m%s: dirty slot=%d,x%d=%d,y%d=%d\033[m\n", \
-						//__func__, i, i/2,point_slot[i].posx, i/2, point_slot[i].posy);
+				if(point_slot[i].posy<0) {					
 				} else {
-					if(point_slot[i].posx<0) {
-						//printk("\033[33;1m%s: slot=%d, convert x%d from %d to 0\033[m\n",\
-							//__func__, i, i/2,point_slot[i].posx);
+					if(point_slot[i].posx<0) {						
 						point_slot[i].posx = 0;
-					} else if (point_slot[i].posx>318) {
-						//printk("\033[33;1m%s: slot=%d, convert x%d from %d to 480\033[m\n",\
-							//__func__, i, i/2,point_slot[i].posx);
+					} else if (point_slot[i].posx>318) {					
 						point_slot[i].posx = 318;
 					}
 					input_report_abs(tsdata->input, ABS_MT_POSITION_X,  point_slot[i].posx);
 					input_report_abs(tsdata->input, ABS_MT_POSITION_Y,  point_slot[i].posy);
-				//	input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 15);
-				//	input_report_abs(tsdata->input, ABS_MT_WIDTH_MAJOR, 1);
 					input_mt_sync(tsdata->input);
 					PIXCIR_DBG("%s: slot=%d,x%d=%d,y%d=%d\n",__func__, i, i/2,point_slot[i].posx, i/2, point_slot[i].posy);
 				}
@@ -1841,8 +1679,6 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
 		}
 		point_slot[i].active = 0;
 	}
-#endif
-
 
 }
 
