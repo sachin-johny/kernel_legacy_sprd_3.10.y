@@ -73,9 +73,7 @@ static ddr_dfs_val_t *__dmc_param_config(u32 clk)
 	}
 	//__timing_reg_dump(ret_timing);
 	if(ret_timing) {
-#ifdef CONFIG_SCX35_DMC_FREQ_AP
-		memcpy((void *)DDR_TIMING_REG_VAL_ADDR, ret_timing, sizeof(ddr_dfs_val_t));
-#else
+#ifndef CONFIG_SCX35_DMC_FREQ_AP
 		memcpy((void *)CP_PARAM_ADDR, ret_timing, sizeof(ddr_dfs_val_t));
 #endif
 	}
@@ -148,70 +146,6 @@ static u32 get_sys_cnt(void)
 	return __raw_readl(SPRD_GPTIMER_BASE + 0x44);
 }
 #endif
-static u32 is_current_set = 0;
-static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
-{
-	u32 flag = 0;
-	ddr_dfs_val_t * ret_timing;
-	ret_timing = __dmc_param_config(clk);
-
-	if(!ret_timing) {
-		return -1;
-	}
-	clk = ret_timing->ddr_clk;
-	if(clk == 533) {
-		clk = 532;
-	}
-	if(clk == 333) {
-		clk = 332;
-	}
-#ifdef CONFIG_SCX35_DMC_FREQ_DDR3
-	if(clk == 400){
-		clk = 384;
-	}
-	if(clk == 466){
-		clk = 464;
-	}
-	flag = (EMC_DDR_TYPE_DDR3 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
-	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
-	flag |= dll_enable;
-	flag |= 0x0 << EMC_CLK_DIV_OFFSET;
-#else
-	flag = (EMC_DDR_TYPE_LPDDR2 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
-	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
-	flag |= dll_enable;
-	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
-#endif
-
-#ifdef CONFIG_SCX35_DMC_FREQ_AP
-	flush_cache_all();
-	cpu_suspend(flag, emc_dfs_call);
-#else
-	__raw_writel(flag, CP_FLAGS_ADDR);
-
-	#ifdef CONFIG_SCX35_DMC_FREQ_CP0
-		sci_glb_set(SPRD_IPI_BASE,1 << 0);//send ipi interrupt to cp0
-	#endif
-
-	#ifdef CONFIG_SCX35_DMC_FREQ_CP1
-		sci_glb_set(SPRD_IPI_BASE,1 << 4);//send ipi interrupt to cp1
-	#endif
-
-	#ifdef CONFIG_SCX35_DMC_FREQ_CP2
-		sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
-	#endif
-	close_cp();
-	info("__emc_clk_set clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",
-				clk, sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
-#endif
-	if(emc_clk_get() != clk) {
-		info("clk set error, set clk = %d, get clk = %d\n", clk, emc_clk_get());
-	}
-	else{
-        info("clk set success, set clk = %d, get clk = %d\n", clk, emc_clk_get());
-	}
-	return 0;
-}
 
 static void __set_dpll_clk(u32 clk)
 {
@@ -250,6 +184,96 @@ static void __set_dpll_clk(u32 clk)
 	sci_glb_write(REG_AON_APB_DPLL_CFG, reg, -1);
 	udelay(100);
 }
+
+static u32 is_current_set = 0;
+static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
+{
+	u32 flag = 0;
+	ddr_dfs_val_t * ret_timing;
+	ret_timing = __dmc_param_config(clk);
+
+	if(!ret_timing) {
+		return -1;
+	}
+	clk = ret_timing->ddr_clk;
+	if(clk == 533) {
+		clk = 532;
+	}
+	if(clk == 333) {
+		clk = 332;
+	}
+
+
+#ifdef CONFIG_SCX35_DMC_FREQ_DDR3
+	if(clk == 400){
+		clk = 384;
+	}
+	if(clk == 466){
+		clk = 464;
+	}
+	flag = (EMC_DDR_TYPE_DDR3 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
+	flag |= EMC_FREQ_NORMAL_SCENE << EMC_FREQ_SENE_OFFSET;
+	flag |= dll_enable;
+	flag |= 0x0 << EMC_CLK_DIV_OFFSET;
+#else
+	flag = (EMC_DDR_TYPE_LPDDR2 << EMC_DDR_TYPE_OFFSET) | (clk << EMC_CLK_FREQ_OFFSET);
+	flag |= sene << EMC_FREQ_SENE_OFFSET;
+	flag |= dll_enable;
+	flag |= bps_200 << EMC_BSP_BPS_200_OFFSET;
+#endif
+
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
+    if((sene<2) || (sene>4))
+    {
+        panic("invalid scene for ap dfs, valid number is only 2,3,4!\n");
+		return -1;
+	}
+
+	if((sene!=EMC_FREQ_NORMAL_SWITCH_SENE) && (clk != 192))
+	{
+        panic("invalid scene clk combination, sleep and resume must be tdpll 192M!\n");
+		return -1;
+	}
+
+    if(sene == EMC_FREQ_DEEP_SLEEP_SENE)
+    {
+        __set_dpll_clk(192);
+	}
+
+	flush_cache_all();
+	cpu_suspend(flag, emc_dfs_call);
+
+	if(sene == EMC_FREQ_RESUME_SENE)
+	{
+        __set_dpll_clk(332);
+	}
+#else
+	__raw_writel(flag, CP_FLAGS_ADDR);
+
+	#ifdef CONFIG_SCX35_DMC_FREQ_CP0
+		sci_glb_set(SPRD_IPI_BASE,1 << 0);//send ipi interrupt to cp0
+	#endif
+
+	#ifdef CONFIG_SCX35_DMC_FREQ_CP1
+		sci_glb_set(SPRD_IPI_BASE,1 << 4);//send ipi interrupt to cp1
+	#endif
+
+	#ifdef CONFIG_SCX35_DMC_FREQ_CP2
+		sci_glb_set(SPRD_IPI_BASE,1 << 8);//send ipi interrupt to cp2
+	#endif
+	close_cp();
+	info("__emc_clk_set clk = %d REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",
+				clk, sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
+#endif
+	if(emc_clk_get() != clk) {
+		info("clk set error, set clk = %d, get clk = %d, sence = %d\n", clk, emc_clk_get(), sene);
+	}
+	else{
+        info("clk set success, set clk = %d, get clk = %d, sence = %d\n", clk, emc_clk_get(), sene);
+	}
+	return 0;
+}
+
 static u32 get_emc_clk_select(u32 clk)
 {
 	u32 select;
@@ -273,16 +297,18 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	u32 dll_enable = EMC_DLL_SWITCH_ENABLE_MODE;
 	u32 old_clk,old_select,new_select,div = 0x0;
 
+#ifdef EMC_FREQ_AUTO_TEST
+    u32 start_t1, end_t1;
+	static u32 max_u_time = 0;
+	u32 current_u_time;
+
+	start_t1 = get_sys_cnt();
+#endif
+
 #if defined (EMC_FREQ_AUTO_TEST) || defined (CONFIG_SCX35_DMC_FREQ_AP)
-//	u32 start_t1, end_t1;
 	unsigned long irq_flags;
-//	static u32 max_u_time = 0;
-//	u32 current_u_time;
-	//old_clk = emc_clk_get();
+
 	local_irq_save(irq_flags);
-	//local_irq_disable();
-//	start_t1 = get_sys_cnt();
-	//local_fiq_disable();
 #endif
 
     /*info("emc clk going on %d	#########################################################\n",new_clk);*/
@@ -292,7 +318,8 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	}
 	if(emc_clk_get() == new_clk) {
 	//	mutex_unlock(&emc_mutex);
-		return 0;
+	        goto out;
+	//	return 0;
 	}
 	if(new_clk <= 200) {
 		dll_enable = 0;
@@ -300,7 +327,8 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	old_clk = emc_clk_get();
 	if(is_current_set == 1) {
 		panic("now other thread set dmc clk\n");
-		return 0;
+		goto out;
+	//	return 0;
 	}
 	is_current_set ++;
 	//info("REG_AON_CLK_PUB_AHB_CFG = %x\n", __raw_readl(REG_AON_CLK_PUB_AHB_CFG));
@@ -310,13 +338,21 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	if(new_clk <= 200){
 		new_clk = 192;
 	}
+	if(new_clk > 200)
+	{
+        new_clk = 332;
+	}
 
 	if(new_clk == old_clk)
 	{
-		is_current_set --;
-		return 0;
+        if(sene == EMC_FREQ_NORMAL_SWITCH_SENE)
+        {
+			is_current_set --;
+			goto out;
+        }
+	//	return 0;
 	}
-	__emc_clk_set(new_clk,0,EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
+    __emc_clk_set(new_clk,sene,EMC_DLL_SWITCH_DISABLE_MODE, EMC_BSP_BPS_200_NOT_CHANGE);
 #else
 	if( (new_clk >= 0) && (new_clk <= 200) )
 	{
@@ -330,7 +366,8 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	if(emc_clk_get() == new_clk)
 	{
 		is_current_set--;
-		return 0;
+		goto out;
+		//return 0;
 	}
 
 	if(new_clk <= MAX_DLL_DISABLE_CLK){
@@ -360,17 +397,21 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 #endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
-#if defined (EMC_FREQ_AUTO_TEST) || defined(CONFIG_SCX35_DMC_FREQ_AP)
-//	local_fiq_enable();
-//	end_t1 = get_sys_cnt();
-//	local_irq_enable();
-	local_irq_restore(irq_flags);
 
-//	current_u_time = (start_t1 - end_t1)/128;
-//	if(max_u_time < current_u_time) {
-//		max_u_time = current_u_time;
-//	}
-//	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
+out:
+#ifdef EMC_FREQ_AUTO_TEST
+	end_t1 = get_sys_cnt();
+
+	current_u_time = (start_t1 - end_t1)/128;
+	if(max_u_time < current_u_time) {
+		max_u_time = current_u_time;
+	}
+	info("**************emc dfs use  current = %08u max %08u\n", current_u_time, max_u_time);
+#endif
+
+
+#if defined (EMC_FREQ_AUTO_TEST) || defined(CONFIG_SCX35_DMC_FREQ_AP)
+	local_irq_restore(irq_flags);
 #endif
 	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 	return 0;
@@ -517,7 +558,7 @@ static int emc_freq_test_thread(void * data)
 		i = get_random_int();
 		i = i % (sizeof(emc_freq_valid_array)/ sizeof(emc_freq_valid_array[0]));
 		printk("emc_freq_test_thread i = %x\n", i);
-		emc_clk_set(emc_freq_valid_array[i], 0);
+		emc_clk_set(emc_freq_valid_array[i], EMC_FREQ_NORMAL_SWITCH_SENE);
 		schedule_timeout(10);
 	}
 	return 0;
@@ -660,13 +701,45 @@ static void cp_init(void)
 #endif
 }
 #endif
+
+
+static int dmcfreq_pm_notifier_do(struct notifier_block *this,
+		unsigned long event, void *ptr)
+{
+	unsigned long irq_flags;
+	printk("*** %s, event:0x%x ***\n", __func__, event );
+
+	switch (event) {
+	case PM_SUSPEND_PREPARE:
+		/*
+		* DMC must be set 200MHz before deep sleep in ES chips
+		*/
+		emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+		emc_clk_set(200, EMC_FREQ_DEEP_SLEEP_SENE);        //deep sleep tdpll192 to dpll   192
+		return NOTIFY_OK;
+	case PM_POST_RESTORE:
+	case PM_POST_SUSPEND:
+		/* Reactivate */
+		emc_clk_set(200, EMC_FREQ_RESUME_SENE);       //resume dpll192 -- tdpll192
+		emc_clk_set(max_clk, EMC_FREQ_NORMAL_SWITCH_SENE);   //nomarl tdpll192 -- dpll332
+		return NOTIFY_OK;
+	}
+	printk("*** %s, event:0x%x done***\n", __func__, event );
+
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block dmcfreq_pm_notifier = {
+	.notifier_call = dmcfreq_pm_notifier_do,
+};
+
+
 static int __init emc_early_suspend_init(void)
 {
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	__emc_timing_reg_init();
 #ifndef CONFIG_SCX35_DMC_FREQ_AP
-    /*info("init cp	$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$\n");*/
 	cp_init();
 #else
 	int ret;
@@ -681,18 +754,21 @@ static int __init emc_early_suspend_init(void)
 	* if DFS is not configurated, we keep ddr 200MHz when screen off
 	*/
 #ifndef CONFIG_SPRD_SCX35_DMC_FREQ
-	register_early_suspend(&emc_early_suspend_desc);
+    register_pm_notifier(&dmcfreq_pm_notifier);
+	//register_early_suspend(&emc_early_suspend_desc);
 #endif
 	emc_debugfs_creat();
 #ifdef EMC_FREQ_AUTO_TEST
 	__emc_freq_test();
 #endif
+
 	return 0;
 }
 static void  __exit emc_early_suspend_exit(void)
 {
 #ifndef CONFIG_SPRD_SCX35_DMC_FREQ
-	unregister_early_suspend(&emc_early_suspend_desc);
+    unregister_pm_notifier(&dmcfreq_pm_notifier);
+	//unregister_early_suspend(&emc_early_suspend_desc);
 #endif
 }
 
