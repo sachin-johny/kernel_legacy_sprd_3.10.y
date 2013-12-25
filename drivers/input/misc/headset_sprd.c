@@ -280,6 +280,7 @@ static int sprd_headset_power_init(struct device *dev)
 		sprd_hts_power.head_mic = 0;
 		return ret;
 	}
+	regulator_set_voltage(sprd_hts_power.head_mic, 950000, 950000);
 
 	ret = sprd_headset_power_get(dev, &sprd_hts_power.vcom_buf, "VCOM_BUF");
 	if (ret) {
@@ -401,7 +402,6 @@ static void headset_micbias_polling_en(int en)
                 headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG2), HID_TMR_T0_VAL, HID_TMR_T0_MASK, HID_TMR_T0_SHIFT);//T0 timer count [4:0]
                 headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG3), HID_TMR_T1_VAL, HID_TMR_T1_MASK, HID_TMR_T1_SHIFT);//T1 timer count [15:0]
                 headset_reg_set_val(HEADMIC_BUTTON_REG(HID_CFG4), HID_TMR_T2_VAL, HID_TMR_T2_MASK, HID_TMR_T2_SHIFT);//T2 timer count [15:0]
-                headset_reg_set_bit(HEADMIC_BUTTON_REG(HID_CFG0), BIT(0));//polling enable [0]
                 //step 3: disable headmicbias
                 headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG0), BIT(5));
                 //headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG0), BIT(1));
@@ -417,7 +417,6 @@ static void headset_micbias_polling_en(int en)
                 //headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG0), BIT(1));
                 headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG0), BIT(5));
                 //step 2: stop polling
-                headset_reg_clr_bit(HEADMIC_BUTTON_REG(HID_CFG0), BIT(0));
                 PRINT_INFO("headmicbias polling disable\n");
                 PRINT_DBG("ANA_CFG0(0x%08X)  HID_CFG0(0x%08X)  HID_CFG2(0x%08X)  HID_CFG3(0x%08X)  HID_CFG4(0x%08X)\n",
                           sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG0)),

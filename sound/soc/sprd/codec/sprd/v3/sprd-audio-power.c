@@ -292,6 +292,11 @@ static const u16 VBG_IBAIS_VSEL_table[] = {
 	150, 200, 250, 300,
 };
 
+static const u16 HIB_VSEL_table[] = {
+	1000, 950, 900, 850, 800, 750,
+	700, 650, 600, 550, 500, 450, 400,
+};
+
 static int sprd_audio_power_list_voltage(struct regulator_dev *rdev,
 					 unsigned index)
 {
@@ -420,9 +425,9 @@ SPRD_AUDIO_POWER_SIMPLE_LDO(MICBIAS, "VMICBIAS", 9, PMUR4_PMUR3,
 			    BIT(MICBIAS_EN), NULL, 0, 0);
 SPRD_AUDIO_POWER_SIMPLE_LDO(AUXMICBIAS, "VMICBIAS", 10, PMUR4_PMUR3,
 			    BIT(AUXMICBIAS_EN), NULL, 0, 0);
-SPRD_AUDIO_POWER_SIMPLE_LDO(HEADMICBIAS, "VMICBIAS", 11, PMUR2_PMUR1,
-			    BIT(HEADMICBIAS_EN), sprd_audio_power_sleep_ctrl, 0,
-			    0);
+SPRD_AUDIO_POWER_LDO(HEADMICBIAS, "VMICBIAS", 11, PMUR2_PMUR1, BIT(HEADMICBIAS_EN),
+	sprd_audio_power_sleep_ctrl, HIBDR2_HIBDR1, HIB_SBUT_MASK, HIB_SBUT, HIB_VSEL_table, 0,
+		     0);
 
 #define SPRD_OF_MATCH(comp, label) \
 	{ \

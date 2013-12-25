@@ -334,6 +334,11 @@
 #define HP_POP_FLG_NEAR_CMP	(3)
 #define OVP_FLAG		(2)
 
+/*HIB*/
+#define HIB_SBUT_MASK (0x0f)
+#define HIB_SBUT              (0)
+
+
 #define SPRD_CODEC_DP_BASE (CODEC_DP_BASE)
 
 #define AUD_TOP_CTL		(SPRD_CODEC_DP_BASE + 0x0000)
