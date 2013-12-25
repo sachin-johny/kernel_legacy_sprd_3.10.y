@@ -413,7 +413,7 @@ static inline  void enable_cam_command_deque(void)
 {
 	REG32(UMCTL_DBG1) &= ~(1 << 0);
 }__attribute__((always_inline))
-static inline  void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing);
+static inline  void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene, ddr_dfs_val_t *timing);
 static inline  void ddr_timing_update(ddr_dfs_val_t *timing);
 static inline  void manual_issue_autorefresh(void)
 {
@@ -483,21 +483,21 @@ static inline  void dll_bypass_switch(u32 dll_mode, ddr_dfs_val_t *timing)
 	enable_cam_command_deque();
 	move_upctl_state_exit_self_refresh(dll_mode);
 }__attribute__((always_inline))
-static inline void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode,ddr_dfs_val_t *timing)
+static inline void umctl2_freq_set(uint32 clk, uint32 DDR_TYPE, uint32 dll_mode,uint32 sene,ddr_dfs_val_t *timing)
 {
     #ifdef CONFIG_SCX35_DMC_FREQ_AP
-          ddr_clk_set(clk,0,timing);
+	    ddr_clk_set(clk,0,sene,timing);
     #else
 	if(EMC_DLL_SWITCH_ENABLE_MODE == dll_mode) {
 		dll_bypass_switch(dll_mode, timing);
-		ddr_clk_set(clk, 10, timing);
+		ddr_clk_set(clk, 10, sene,timing);
 	}
 	else if(EMC_DLL_SWITCH_DISABLE_MODE == dll_mode) {
-		ddr_clk_set(clk, 10, timing);
+		ddr_clk_set(clk, 10, sene,timing);
 		dll_bypass_switch(dll_mode, timing);
 	}
 	else if(EMC_DLL_NOT_SWITCH_MODE) {
-		ddr_clk_set(clk, 10, timing);
+		ddr_clk_set(clk, 10, sene,timing);
 	}
     #endif
 }__attribute__((always_inline))
@@ -564,8 +564,9 @@ static inline void ddr_cam_command_dequeue(uint32 isEnable)
 static inline void ddr_timing_update_ex(ddr_dfs_val_t *timing_param)
 {
     //minimum time from refresh to refresh or active
-    reg_bits_set(UMCTL_RFSHTMG,0,9,timing_param->umctl2_rfshtmg);
+    //reg_bits_set(UMCTL_RFSHTMG,0,9,timing_param->umctl2_rfshtmg);
     //toggle this signel indicate refresh register has been update
+	*(volatile uint32*)(UMCTL_RFSHTMG) = timing_param->umctl2_rfshtmg;
     *(volatile uint32*)(UMCTL_RFSHCTL3) ^= (1<<1);
     //update umctl & publ timing
     *(volatile uint32*)UMCTL_DRAMTMG0 = timing_param->umctl2_dramtmg0;
@@ -577,7 +578,7 @@ static inline void ddr_timing_update_ex(ddr_dfs_val_t *timing_param)
     *(volatile uint32*)UMCTL_DRAMTMG6 = timing_param->umctl2_dramtmg6;
     //*(volatile uint32*)UMCTL_DRAMTMG7 = timing_param->umctl2_dramtmg7;
     //*(volatile uint32*)UMCTL_DRAMTMG8 = timing_param->umctl2_dramtmg8;
-	*(volatile uint32*)UMCTL_DRAMTMG8 = 1;
+	//*(volatile uint32*)UMCTL_DRAMTMG8 = 1;
 
     *(volatile uint32*)PUBL_DX0DQSTR = timing_param->publ_dx0dqstr;
     *(volatile uint32*)PUBL_DX1DQSTR = timing_param->publ_dx1dqstr;
@@ -594,7 +595,7 @@ static inline void uart_putch(uint32 c)
     *(volatile uint32*)SPRD_UART1_PHYS = c;
 }__attribute__((always_inline))
 
-static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
+static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs_val_t *timing)
 {
 	volatile uint32 i;
 	uint32 reg;
@@ -620,23 +621,27 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timi
 	{
             case 192:
             {
-                #if 0
-				//set tdpll clock divider
-                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x1);
+                if((sene == EMC_FREQ_NORMAL_SWITCH_SENE) || (sene == EMC_FREQ_RESUME_SENE))
+                {
+					//set tdpll clock divider
+	                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x1);
 
-                for(i=0;i<0x2;i++);
+	                for(i=0;i<0x2;i++);
 
-                //switch to tdpll source 384Mhz
-                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x2);
+                    //switch to tdpll source 384Mhz
+                    reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x2);
 
-                for(i=0;i<0x2;i++);
-                #endif
-				reg = REG32(SPRD_AONAPB_PHYS+0x0018);
-				reg &= ~((0x7ff<<0)|(0x3<<16)|(0x7<<20));        //DPLLN | IBIAS | LPF
-				reg |= (0x30<<0)|(0x1<<16)|(0x2<<20);
-				REG32(SPRD_AONAPB_PHYS+0x0018) = reg;
+	                for(i=0;i<0x2;i++);
+                }
+				if(sene == EMC_FREQ_DEEP_SLEEP_SENE)
+				{
+					//switch to dpll source
+					reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x0);
 
-                for(i=0;i<0x2;i++);
+	                for(i=0;i<0x2;i++);
+					reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
+					for(i=0;i<0x2;i++);
+				}
 
                 //phy clock close
 		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
@@ -664,23 +669,15 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timi
 
             case 332:
             {
-                #if 0
-				//set dpll clock divider
-                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x0);
+                //config dpll divider
+				reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x0);
 
-                for(i=0;i<0x2;i++);
+				for(i=0;i<0x2;i++);
 
-                //switch to dpll source
+				//switch to dpll source
                 reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
 
                 for(i=0;i<0x2;i++);
-				#endif
-				reg = REG32(SPRD_AONAPB_PHYS+0x0018);
-				reg &= ~((0x7ff<<0)|(0x3<<16)|(0x7<<20));        //DPLLN | IBIAS | LPF
-				reg |= (0x53<<0)|(0x1<<16)|(0x6<<20);
-				REG32(SPRD_AONAPB_PHYS+0x0018) = reg;
-				for(i=0;i<0x2;i++);
-
                 //phy clock close
 		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
 		        for(i=0;i<0x2;i++);
@@ -731,7 +728,7 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timi
 }__attribute__((always_inline))
 
 #else
-static inline void ddr_clk_set(uint32 new_clk, uint32 delay, ddr_dfs_val_t *timing)
+static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs_val_t *timing)
 {
 	uint32 reg_val;
 	uint32 old_clk;
@@ -770,11 +767,13 @@ inline void dev_freq_set(unsigned long req)
 	u32 ddr_type;
 	u32 clk;
 	u32 dll_mode;
+	u32 sene;
 	ddr_dfs_val_t *timing;
 	REG32(PUBL_DSGCR) &= ~(0x10);
 		ddr_type = (req & EMC_DDR_TYPE_MASK) >> EMC_DDR_TYPE_OFFSET;
 		clk = (req & EMC_CLK_FREQ_MASK) >> EMC_CLK_FREQ_OFFSET;
 		dll_mode = (req & EMC_DLL_MODE_MASK);
+		sene = (req & EMC_FREQ_SENE_MASK) >> EMC_FREQ_SENE_OFFSET;
 		timing = (ddr_dfs_val_t *)(DFS_PARAM_ADDR);
 
 		if(clk == 332)
@@ -795,7 +794,7 @@ inline void dev_freq_set(unsigned long req)
 			uart_putch('\n');
 			while(1);
 		}
-		umctl2_freq_set(clk, ddr_type, dll_mode, timing);
+		umctl2_freq_set(clk, ddr_type, dll_mode,sene, timing);
 
 
 } __attribute__((always_inline))
@@ -804,11 +803,11 @@ void emc_dfs_main(unsigned long flag)
 	uint32_t reg, val;
 	/* disable mmu, cache */
 	asm volatile (
-			"ldr %1, =10000 \n"
-			"1: nop \n"
-			"sub %1, %1, #1 \n"
-			"cmp %1, #0 \n"
-			"bne 1b \n"
+//			"ldr %1, =10000 \n"
+//			"1: nop \n"
+//			"sub %1, %1, #1 \n"
+//			"cmp %1, #0 \n"
+//			"bne 1b \n"
 			"mrc p15, 0, %0, c1, c0, 0 \n"
 			"ldr %1, =0x1005 \n"
 			"bic %0, %0, %1 \n"

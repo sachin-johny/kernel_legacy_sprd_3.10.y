@@ -23,6 +23,9 @@
 
 #define EMC_FREQ_NORMAL_SCENE			0x0 //normal lcd power off
 #define EMC_FREQ_MP4_SENE			0x1 //play mp4 mode
+#define EMC_FREQ_NORMAL_SWITCH_SENE     0x02
+#define EMC_FREQ_DEEP_SLEEP_SENE        0x03
+#define EMC_FREQ_RESUME_SENE            0x04
 #define EMC_FREQ_SENE_OFFSET			24
 #define EMC_FREQ_SENE_MASK			(0xf << EMC_FREQ_SENE_OFFSET)
 

@@ -32,6 +32,10 @@
 #ifdef CONFIG_BUS_MONITOR
 #include <mach/bm_sc8830.h>
 #endif
+#define EMC_FREQ_NORMAL_SWITCH_SENE     0x02
+#define EMC_FREQ_DEEP_SLEEP_SENE        0x03
+#define EMC_FREQ_RESUME_SENE            0x04
+
 
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
 #define CP0_AP_MCU_IRQ1_CLR	BIT(2)
@@ -314,7 +318,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	/*
 	*TODO:time spent on emc_clk_set() should be optimized
 	*/
-	err = emc_clk_set(freq, 1);
+	err = emc_clk_set(freq, EMC_FREQ_NORMAL_SWITCH_SENE);     //tdpll    192
 	data->curr_opp = opp;
 
 out:
@@ -415,21 +419,38 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 {
 	struct dmcfreq_data *data = container_of(this, struct dmcfreq_data,
 						 pm_notifier);
+
+	unsigned long flags;
 	printk("*** %s, event:0x%x ***\n", __func__, event );
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
-		spin_lock(&data->lock);
-		data->disabled = true;
+
 		/*
 		* DMC must be set 200MHz before deep sleep in ES chips
 		*/
-		emc_clk_set(200, 1);
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
+	    spin_lock_irqsave(&data->lock, flags);
+		data->disabled = true;
+
+        emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+		emc_clk_set(200, EMC_FREQ_DEEP_SLEEP_SENE);        //deep sleep to dpll   192
+
+		spin_unlock_irqrestore(&data->lock, flags);
+#else
+        spin_lock(&data->lock);
+		data->disabled = true;
+
+		emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+
 		spin_unlock(&data->lock);
+#endif
+		
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		/* Reactivate */
+		emc_clk_set(200, EMC_FREQ_RESUME_SENE);       //resume dpll192 -- tdpll192
 		spin_lock(&data->lock);
 		data->disabled = false;
 		spin_unlock(&data->lock);
@@ -447,7 +468,7 @@ static void inline scxx30_set_max(struct dmcfreq_data *data)
 
 	spin_lock_irqsave(&data->lock, flags);
 	max = scxx30_max_freq(data);
-	emc_clk_set(max, 1);
+	emc_clk_set(max, EMC_FREQ_NORMAL_SWITCH_SENE);
 	spin_unlock_irqrestore(&data->lock, flags);
 
 }
