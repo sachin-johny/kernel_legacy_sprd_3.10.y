@@ -38,6 +38,7 @@ extern   "C"
 
 #define PREVRECHARGE        4160//795   // 4.1V. When the battery volume is lower than this value and the charger is still plugged in, we will
 // restart the charge process.
+#define CHGMNG_ULTRA_VOLTAGE (4550)
 #define CHGMNG_OVER_CHARGE (4300)
 #define PREVCHGEND      (4200)//816       // 4.22V. When the battery voltage is higher than this value, we will stop charging.
 

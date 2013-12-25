@@ -671,6 +671,12 @@ void charge_stop(struct sprd_battery_data * battery_data)
 //	battery_data->hw_switch_point = CHG_UpdateSwitchoverPoint(false);
     battery_data->in_precharge = 0;
 }
+
+void __weak sprd_vbatvolt_checkpoint(uint32_t volt_level, uint32_t adc_value)
+{
+	return ;
+}
+
 static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep)
 {
     uint32_t voltage=0;
@@ -745,7 +751,8 @@ static void charge_handler(struct sprd_battery_data * battery_data, int in_sleep
         adc_value = get_vbat_value();
         voltage = CHGMNG_AdcvalueToVoltage(adc_value);
         DEBUG("voltage %d\n", voltage);
-
+		/* FIXME: Enable Software OVP function */
+		sprd_vbatvolt_checkpoint(voltage, adc_value);
         DEBUG("charging %d in_precharge %d, usb %d, ac %d, start %d\n", battery_data->charging, battery_data->in_precharge,\
                     usb_online, ac_online, battery_data->precharge_start); 													   
 

@@ -397,6 +397,28 @@ int32_t CHG_GetVirtualVprog (void)
 
     return vprog_result[VPROG_RESULT_NUM/2];
 }
+
+#define MASK_DCDC_PDRSLOW      (BITS_DCDC_PDRSLOW(3)|BITS_DCDC_PDRSLOW_RST(3))
+#define DCDC_PDRSLOW(x)        (BITS_DCDC_PDRSLOW((x))|BITS_DCDC_PDRSLOW_RST(3-(x)))
+extern void (*pm_power_off)(void);
+void sprd_vbatvolt_checkpoint(uint32_t volt_level, uint32_t adc_value)
+{
+#if defined(CONFIG_ARCH_SC8810)
+	static int state = 0;
+	if (unlikely((volt_level > CHGMNG_ULTRA_VOLTAGE || adc_value > 1022) && state == 0)) {
+		pr_err("%s: Battery maybe ultra-voltage %d, %d\n", __func__, volt_level, adc_value);
+		state = 1;
+		if (pm_power_off)
+			pm_power_off();
+	}
+	else if (state != 0 && volt_level < (PREVCHGEND + 50)) {
+		state = 0;
+	}
+#endif
+
+	return ;
+}
+
 /**---------------------------------------------------------------------------*
  **                         Compiler Flag                                     *
  **---------------------------------------------------------------------------*/
