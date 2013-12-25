@@ -99,10 +99,17 @@ struct pub_reg_bak {
 	u32 ddr_qos_cfg2;
 	u32 ddr_qos_cfg3;
 };
+struct mm_reg_bak {
+	u32 mm_cfg1;
+	u32 mm_cfg2;
+};
 static struct ap_ahb_reg_bak ap_ahb_reg_saved;
 static struct ap_clk_reg_bak ap_clk_reg_saved;
 static struct ap_apb_reg_bak ap_apb_reg_saved;
 static struct pub_reg_bak pub_reg_saved;
+#if defined(CONFIG_ARCH_SCX15)
+static struct mm_reg_bak mm_reg_saved;
+#endif
 static void setup_autopd_mode(void)
 {
 	if (soc_is_scx35_v0())
@@ -278,6 +285,24 @@ void bak_restore_apb(int bak)
 	}
 	return;
 }
+#if defined(CONFIG_ARCH_SCX15)
+extern void __iomap_page(unsigned long virt, unsigned long size, int enable);
+void bak_restore_mm_scx15(int bak)
+{
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
+	__iomap_page(REGS_MM_AHB_BASE, SZ_4K, 1);
+	if(bak){
+		mm_reg_saved.mm_cfg1= sci_glb_read(SPRD_MMAHB_BASE, -1UL);
+		mm_reg_saved.mm_cfg2 = sci_glb_read(SPRD_MMAHB_BASE + 0x8, -1UL);
+	}else{
+		sci_glb_write(SPRD_MMAHB_BASE, mm_reg_saved.mm_cfg1, -1UL);
+		sci_glb_write(SPRD_MMAHB_BASE + 0x8, mm_reg_saved.mm_cfg2, -1UL);
+	}
+	__iomap_page(REGS_MM_AHB_BASE, SZ_4K, 0);
+	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
+	return;
+}
+#endif
 static void bak_ap_clk_reg(int bak)
 {
 	volatile u32 i;
@@ -907,6 +932,9 @@ int deep_sleep(int from_idle)
 	if(!from_idle){
 		SAVE_GLOBAL_REG;
 		/* some prepare here */
+#if defined(CONFIG_ARCH_SCX15)
+		bak_restore_mm_scx15(1);
+#endif
 		show_pin_reg();
 		enable_mcu_deep_sleep();
 		disable_ahb_module();
@@ -950,6 +978,9 @@ int deep_sleep(int from_idle)
 		disable_mcu_deep_sleep();
 		sci_glb_clr(SPRD_PMU_BASE+0x00F4, 0x3FF);
 		RESTORE_GLOBAL_REG;
+#if defined(CONFIG_ARCH_SCX15)
+		bak_restore_mm_scx15(0);
+#endif
 	}
 
 	udelay(5);

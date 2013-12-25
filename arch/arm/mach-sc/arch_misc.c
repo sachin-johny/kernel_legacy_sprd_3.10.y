@@ -62,7 +62,7 @@ int sci_get_ana_chip_ver(void)
 
 #endif
 
-static void __iomap_page(unsigned long virt, unsigned long size, int enable)
+void __iomap_page(unsigned long virt, unsigned long size, int enable)
 {
 	unsigned long addr = virt, end = virt + (size & ~(SZ_4K - 1));
 	u32 *pgd;
