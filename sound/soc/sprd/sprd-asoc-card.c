@@ -461,6 +461,9 @@ static int board_late_probe(struct snd_soc_card *card)
 	snd_soc_dapm_ignore_suspend(&card->dapm, BOARD_INTER_HP_PA);
 	snd_soc_dapm_ignore_suspend(&card->dapm, BOARD_INTER_SPK_PA);
 	snd_soc_dapm_ignore_suspend(&card->dapm, BOARD_INTER_SPK2_PA);
+	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm, "Playback-Vaudio");
+	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm, "Main-Capture-Vaudio");
+	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm, "Ext-Capture-Vaudio");
 	return 0;
 }
 
