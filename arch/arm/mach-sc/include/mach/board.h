@@ -50,6 +50,10 @@
 #include "__board-sp7730ec.h"
 #endif
 
+#ifdef	CONFIG_MACH_SC9620OPENPHONE
+#include "__board-sc9620openphone.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7730ECTRISIM
 #include "__board-sp7730ectrisim.h"
 #endif
