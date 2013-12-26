@@ -212,7 +212,7 @@ static BLOCKING_NOTIFIER_HEAD(fgu_chain_head);
 extern int in_calibration(void);
 
 uint16_t voltage_capacity_table[][2] = {
-	{4180, 100}
+	{4175, 100}
 	,
 	{4100, 95}
 	,

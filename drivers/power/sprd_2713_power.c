@@ -46,7 +46,7 @@
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
 #define SPRDBAT_ONE_PERCENT_TIME   30
-#define SPRDBAT_VALID_CAP   10
+#define SPRDBAT_VALID_CAP   15
 
 enum sprdbat_event {
 	SPRDBAT_ADP_PLUGIN_E,
@@ -540,8 +540,8 @@ static void sprdbat_change_module_state(uint32_t event)
 		sprdbat_data->bat_param.chg_timeout =
 		    SPRDBAT_CHG_NORMAL_TIMEOUT;
 		_sprdbat_clear_stopflags(~0);
-		queue_work(sprdbat_data->monitor_wqueue,
-			   &sprdbat_data->charge_work);
+		queue_delayed_work(sprdbat_data->monitor_wqueue,
+			   &sprdbat_data->charge_work,2*HZ);
 		break;
 	case SPRDBAT_ADP_PLUGOUT_E:
 		sprdbat_data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
@@ -610,6 +610,10 @@ static void sprdbat_change_module_state(uint32_t event)
 static int plugin_callback(int usb_cable, void *data)
 {
 	SPRDBAT_DEBUG("charger plug in interrupt happen\n");
+
+	wake_lock_timeout(&(sprdbat_data->charger_plug_out_lock),
+			  SPRDBAT_PLUG_WAKELOCK_TIME_SEC * HZ);
+
 	mutex_lock(&sprdbat_data->lock);
 	sprdbat_data->bat_info.adp_type = sprdchg_charger_is_adapter();
 
@@ -683,7 +687,7 @@ static int sprdbat_timer_handler(void *data)
 	SPRDBAT_DEBUG("sprdbat_timer_handler----------bat_current %d\n",
 		      sprdbat_data->bat_info.bat_current);
 
-	queue_work(sprdbat_data->monitor_wqueue, &sprdbat_data->charge_work);
+	queue_delayed_work(sprdbat_data->monitor_wqueue, &sprdbat_data->charge_work, 0);
 	return 0;
 }
 
@@ -1059,6 +1063,9 @@ static void sprdbat_charge_works(struct work_struct *work)
 	}
 
 	if (sprdbat_start_chg) {
+		sprdbat_data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
+		sprdbat_data->bat_info.vbat_ocv = sprdfgu_read_vbat_ocv();
+		sprdbat_data->bat_info.bat_current = sprdfgu_read_batcurrent();
 		local_irq_save(irq_flag);
 		if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
 			sprdbat_cv_irq_dis = 0;
@@ -1283,7 +1290,7 @@ static int sprdbat_probe(struct platform_device *pdev)
 			  sprdbat_battery_sleep_works);
 	INIT_WORK(&data->ovi_irq_work, sprdbat_ovi_irq_works);
 
-	INIT_WORK(&data->charge_work, sprdbat_charge_works);
+	INIT_DELAYED_WORK(&data->charge_work, sprdbat_charge_works);
 	data->monitor_wqueue = create_singlethread_workqueue("sprdbat_monitor");
 	sprdchg_timer_init(sprdbat_timer_handler, data);
 

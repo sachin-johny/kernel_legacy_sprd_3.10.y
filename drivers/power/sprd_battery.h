@@ -106,7 +106,7 @@ struct sprdbat_drivier_data {
 	struct delayed_work battery_work;
 	struct delayed_work battery_sleep_work;
 	struct work_struct ovi_irq_work;
-	struct work_struct charge_work;
+	struct delayed_work charge_work;
 };
 
 struct sprdbat_auxadc_cal {
