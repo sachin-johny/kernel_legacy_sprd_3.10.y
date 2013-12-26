@@ -147,6 +147,14 @@ config MACH_SPX15FPGA
 	help
 	  SPX15 fpga board based on dolphin serial.
 
+config MACH_SP6815GA
+	bool "sp6815ga Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	  SP6815GA board based on dolphin serial.
 config MACH_SP7715EA
 	bool "sp7715ea Phone Board"
 	depends on ARCH_SC
@@ -155,6 +163,7 @@ config MACH_SP7715EA
 	default n
 	help
 	  SP7715EA board based on dolphin serial.
+
 config MACH_SP7715GA
 	bool "sp7715ga Phone Board"
 	depends on ARCH_SC
@@ -163,6 +172,15 @@ config MACH_SP7715GA
 	default n
 	help
 	  SP7715GA board based on dolphin serial.
+
+config MACH_SP8815GA
+	bool "sp8815ga Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	  SP8815GA board based on dolphin serial.
 
 config MACH_STAR2
 	bool "star2 Phone Board"
@@ -271,6 +289,11 @@ config SPRD_SIMCTRL
 	default n
 	help
 	  This option select simctrl module.
+config SPRD_MODEM_TD
+	bool "SPRD TD modem"
+	default n
+	help
+	  This option select modem type.
 
 config SIPC_TD
 	bool "SIPC instance of TD modem"

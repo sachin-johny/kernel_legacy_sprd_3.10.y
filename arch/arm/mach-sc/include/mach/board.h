@@ -70,8 +70,15 @@
 #include "__board-sp7715ea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP6815GA
+#include "__board-sp6815ga.h"
+#endif
 #ifdef	CONFIG_MACH_SP7715GA
 #include "__board-sp7715ga.h"
+#endif
+
+#ifdef	CONFIG_MACH_SP8815GA
+#include "__board-sp8815ga.h"
 #endif
 
 #ifdef  CONFIG_MACH_STAR2
@@ -125,7 +132,7 @@
 
 #define SPRD_IO_MEM_SIZE	(SPRD_ION_SIZE + SPRD_ION_OVERLAY_SIZE)
 
-#if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP8830GA) || defined(CONFIG_MACH_SP7730GA)/* Nand 4+2 */
+#if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP6815GA)/* Nand 4+2 */
 #define SPRD_IO_MEM_BASE	\
 	((CONFIG_PHYS_OFFSET & (~(SZ_256M - 1))) + SZ_256M - SPRD_IO_MEM_SIZE)
 #else
