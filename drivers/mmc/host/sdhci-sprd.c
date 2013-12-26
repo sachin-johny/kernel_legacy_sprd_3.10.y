@@ -37,7 +37,7 @@ extern void mmc_set_timing(struct mmc_host *host, unsigned int timing);
 extern void clk_force_disable(struct clk *);
 
 #define DRIVER_NAME "sprd-sdhci"
-#define SPRD_SDHCI_HOST_DEFAULT_CLOCK 25000000
+#define SPRD_SDHCI_HOST_DEFAULT_CLOCK 26000000
 #define SDHCI_HOST_TO_SPRD_HOST_PLATDATA(host) (((struct sprd_sdhci_host *)sdhci_priv(host))->platdata)
 #define SDHCI_HOST_TO_SPRD_HOST(host) ((struct sprd_sdhci_host *)sdhci_priv(host))
 #define  SDHCI_HW_RESET_CARD	0x08
@@ -253,7 +253,6 @@ static ssize_t sprd_sdhci_host_timing_restore(struct device *dev, struct device_
 	timing =  buf[0] - '0';
 	if(timing > MMC_TIMING_MMC_HS200)
 		return -1;
-	set_task_comm(current, "papapapa");
 	device_lock(dev);
 	mmc_claim_host(host->mmc);
 	mmc_set_timing(host->mmc, timing);
@@ -1148,7 +1147,7 @@ static int sprd_sdhci_host_pm_suspend(struct device *dev) {
 					if(!regulator_is_enabled(host->vqmmc))
 						regulator_enable(host->vqmmc);
 			if(pm_runtime_enabled(dev))
-				pm_request_autosuspend(dev);
+				pm_runtime_put_autosuspend(&pdev->dev);
 		}
 	}
 	return retval;
@@ -1177,7 +1176,7 @@ static int sprd_sdhci_host_pm_resume(struct device *dev) {
 	mmc->ops->set_ios(mmc, &mmc->ios);
 	retval = sdhci_resume_host(host);
 	if(pm_runtime_enabled(dev))
-		pm_request_autosuspend(dev);
+		pm_runtime_put_autosuspend(&pdev->dev);
 	return retval;
 }
 
@@ -1218,7 +1217,7 @@ static int sprd_sdhci_host_runtime_resume(struct device *dev) {
 }
 
 static int sprd_sdhci_host_runtime_idle(struct device *dev) {
-    return 0;
+	return 0;
 }
 #endif
 
