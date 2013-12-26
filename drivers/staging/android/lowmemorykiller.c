@@ -94,10 +94,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	short zram_score_adj = 0;
 #endif
 
-#ifdef  CONFIG_ZRAM
-	other_file  -=  total_swapcache_pages();
-#endif  /*CONFIG_ZRAM*/
-
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
@@ -158,11 +154,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			task_unlock(p);
 			continue;
 		}
-#ifdef CONFIG_ZRAM
-		tasksize = get_mm_rss(p->mm) + get_mm_counter(p->mm, MM_SWAPENTS);
-#else
 		tasksize = get_mm_rss(p->mm);
-#endif
 		task_unlock(p);
 		if (tasksize <= 0)
 			continue;
