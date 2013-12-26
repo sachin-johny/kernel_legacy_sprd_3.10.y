@@ -993,6 +993,9 @@ static inline void sprd_codec_inter_hp_pa_init(void)
 	inter_hp_pa.setting.class_g_osc = 0x01;
 }
 
+#ifndef CONFIG_HP_PA_MUTE_DELAY_TIME
+#define CONFIG_HP_PA_MUTE_DELAY_TIME (0)
+#endif
 int sprd_inter_headphone_pa(int on)
 {
 	static struct regulator *regulator = 0;
@@ -1010,6 +1013,8 @@ int sprd_inter_headphone_pa(int on)
 			regulator_enable(regulator);
 		}
 		sprd_codec_auxadc_en(1);
+		sprd_codec_hp_pa_hpl_mute(1);
+		sprd_codec_hp_pa_hpr_mute(1);
 		sprd_codec_hp_pa_lpw(inter_hp_pa.setting.class_g_low_power);
 		sprd_codec_hp_pa_mode(inter_hp_pa.setting.class_g_mode);
 		sprd_codec_hp_pa_osc(inter_hp_pa.setting.class_g_osc);
@@ -1017,14 +1022,24 @@ int sprd_inter_headphone_pa(int on)
 		sprd_codec_hp_pa_hpr_en(1);
 		sprd_codec_hp_pa_ref_en(1);
 		sprd_codec_hp_pa_en(1);
+		/*open classG mute delay time*/
+		sprd_codec_wait(CONFIG_HP_PA_MUTE_DELAY_TIME);
+		sprd_codec_hp_pa_hpl_mute(0);
+		sprd_codec_hp_pa_hpr_mute(0);
 		inter_hp_pa.set = 1;
 	} else {
 		inter_hp_pa.set = 0;
+		sprd_codec_hp_pa_hpl_mute(1);
+		sprd_codec_hp_pa_hpr_mute(1);
 		sprd_codec_hp_pa_en(0);
 		sprd_codec_hp_pa_ref_en(0);
 		sprd_codec_hp_pa_hpl_en(0);
 		sprd_codec_hp_pa_hpr_en(0);
 		sprd_codec_auxadc_en(0);
+		/*close classG mute delay time*/
+		sprd_codec_wait(0);
+		sprd_codec_hp_pa_hpl_mute(0);
+		sprd_codec_hp_pa_hpr_mute(0);
 		if (regulator) {
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);

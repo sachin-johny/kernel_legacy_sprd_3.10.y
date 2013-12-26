@@ -106,6 +106,16 @@ config SPRD_AUDIO_USE_INTER_HP_PA
 	help
 	  Say Y if you want use sprdtrume internal headphone pa
 
+config HP_PA_MUTE_DELAY_TIME
+	int "hp pa delay time(0-500) unit(MS)"
+	depends on SPRD_AUDIO_USE_INTER_HP_PA
+	range 0 500
+	default 100
+	help
+	  if defined SPRD_AUDIO_USE_INTER_HP_PA , maybe need this delay
+	  for reduce external hp amp noise.
+	  this delay time value, unit is MS.
+
 config SND_SPRD_SOC_BT_I2S
 	tristate "bt-i2s"
 	select SND_SPRD_SOC_I2S
