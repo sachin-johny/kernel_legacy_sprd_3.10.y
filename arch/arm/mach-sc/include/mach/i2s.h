@@ -33,7 +33,7 @@
 
 /* mode */
 #define I2S_MASTER 0
-#define I2S_SLAVER 1
+#define I2S_SLAVE 1
 
 /* lsb */
 #define I2S_MSB 0
@@ -66,6 +66,7 @@
 #define I2S_SHORT_FRAME 1
 
 struct i2s_config {
+	u32 hw_port;
 	u32 fs;
 	u32 slave_timeout;
 	u32 bus_type:1;
