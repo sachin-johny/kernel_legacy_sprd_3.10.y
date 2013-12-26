@@ -2992,14 +2992,6 @@ void unmap_mapping_range(struct address_space *mapping,
 }
 EXPORT_SYMBOL(unmap_mapping_range);
 
-#ifdef CONFIG_ZRAM
-#include <linux/module.h>
-// always try to free swap in zram swap case
-static int keep_to_free_swap = 1;
-module_param_named(keep_to_free_swap,keep_to_free_swap, int, S_IRUGO | S_IWUSR);
-#endif
-
-
 /*
  * We enter with non-exclusive mmap_sem (to exclude vma changes,
  * but allow concurrent faults), and pte mapped but not yet locked.
@@ -3140,12 +3132,7 @@ static int do_swap_page(struct mm_struct *mm, struct vm_area_struct *vma,
 	mem_cgroup_commit_charge_swapin(page, ptr);
 
 	swap_free(entry);
-
-#ifdef CONFIG_ZRAM
-	if (keep_to_free_swap || vm_swap_full() || (vma->vm_flags & VM_LOCKED) || PageMlocked(page))
-#else
 	if (vm_swap_full() || (vma->vm_flags & VM_LOCKED) || PageMlocked(page))
-#endif
 		try_to_free_swap(page);
 	unlock_page(page);
 	if (page != swapcache) {
