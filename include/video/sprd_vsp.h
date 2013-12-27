@@ -30,27 +30,28 @@
 #define VSP_COMPLETE       _IO(SPRD_VSP_IOCTL_MAGIC, 7)
 #define VSP_RESET       _IO(SPRD_VSP_IOCTL_MAGIC, 8)
 #define VSP_HW_INFO     _IO(SPRD_VSP_IOCTL_MAGIC, 9)
+#define VSP_CAPABILITY                  _IO(SPRD_VSP_IOCTL_MAGIC, 10)
 
-enum sprd_vsp_frequency_e{ 
-	VSP_FREQENCY_LEVEL_0 = 0,
-	VSP_FREQENCY_LEVEL_1 = 1,
-	VSP_FREQENCY_LEVEL_2 = 2,
-	VSP_FREQENCY_LEVEL_3 = 3
+enum sprd_vsp_frequency_e {
+    VSP_FREQENCY_LEVEL_0 = 0,
+    VSP_FREQENCY_LEVEL_1 = 1,
+    VSP_FREQENCY_LEVEL_2 = 2,
+    VSP_FREQENCY_LEVEL_3 = 3
 };
 
 /*
 ioctl command description
-the VSP user must mmap the vsp address space to user-space to access 
-the hardware. 
+the VSP user must mmap the vsp address space to user-space to access
+the hardware.
 VSP_ACQUAIRE:aquaire the vsp lock
 VSP_RELEASE:release the vsp lock
 all other commands must be sent only when the VSP user posses the lock
 VSP_ENABLE:enable vsp clock
 VSP_DISABLE:disable vsp clock
-VSP_COMPLETE:all the preparing work is done and start the vsp, the vsp finishes 
+VSP_COMPLETE:all the preparing work is done and start the vsp, the vsp finishes
 its job after this command retruns.
 VSP_RESET:reset vsp hardware
-VSP_CONFIG_FREQ/VSP_GET_FREQ:set/get vsp frequency,the parameter is of 
+VSP_CONFIG_FREQ/VSP_GET_FREQ:set/get vsp frequency,the parameter is of
 type sprd_vsp_frequency_e, the smaller the faster
 */
 
@@ -73,26 +74,26 @@ type sprd_vsp_frequency_e, the smaller the faster
 #define VSP_UNREG_IRQ       _IO(SPRD_VSP_IOCTL_MAGIC,10)
 #define VSP_ACQUAIRE_MEA_DONE _IO(SPRD_VSP_IOCTL_MAGIC, 11)
 #define VSP_ACQUAIRE_MP4ENC_DONE _IO(SPRD_VSP_IOCTL_MAGIC, 12)
-enum sprd_vsp_frequency_e{ 
-	VSP_FREQENCY_LEVEL_0 = 0,
-	VSP_FREQENCY_LEVEL_1 = 1,
-	VSP_FREQENCY_LEVEL_2 = 2,
-	VSP_FREQENCY_LEVEL_3 = 3
+enum sprd_vsp_frequency_e {
+    VSP_FREQENCY_LEVEL_0 = 0,
+    VSP_FREQENCY_LEVEL_1 = 1,
+    VSP_FREQENCY_LEVEL_2 = 2,
+    VSP_FREQENCY_LEVEL_3 = 3
 };
 
 /*
 ioctl command description
-the VSP user must mmap the vsp address space to user-space to access 
-the hardware. 
+the VSP user must mmap the vsp address space to user-space to access
+the hardware.
 VSP_ACQUAIRE:aquaire the vsp lock
 VSP_RELEASE:release the vsp lock
 all other commands must be sent only when the VSP user posses the lock
 VSP_ENABLE:enable vsp clock
 VSP_DISABLE:disable vsp clock
-VSP_START:all the preparing work is done and start the vsp, the vsp finishes 
+VSP_START:all the preparing work is done and start the vsp, the vsp finishes
 its job after this command retruns.
 VSP_RESET:reset vsp hardware
-VSP_CONFIG_FREQ/VSP_GET_FREQ:set/get vsp frequency,the parameter is of 
+VSP_CONFIG_FREQ/VSP_GET_FREQ:set/get vsp frequency,the parameter is of
 type sprd_vsp_frequency_e, the smaller the faster
 */
 
