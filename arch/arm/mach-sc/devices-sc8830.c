@@ -41,7 +41,9 @@
 #endif
 #include <linux/usb/gadget.h>
 #include <video/ion_sprd.h>
-
+#ifdef CONFIG_SPRD_VETH
+#include <linux/sprd_veth.h>
+#endif
 
 #include "devices.h"
 
@@ -1315,6 +1317,124 @@ struct platform_device sprd_audio_null_codec_device = {
 	.name		= "null-codec",
 	.id		= -1,
 };
+
+#ifdef CONFIG_SPRD_VETH
+
+#ifdef CONFIG_MUX_SPI_HAL
+static struct veth_init_data sprd_veth_spi0_pdata = {
+	.index 		= 13,
+	.inst_id 	= SPRDMUX_ID_SPI,
+	.name 		= "veth_spi0",
+};
+struct platform_device sprd_veth_spi0_device = {
+	.name 	= "sprd_veth",
+	.id 	= 0,
+	.dev = {.platform_data = &sprd_veth_spi0_pdata},
+};
+
+static struct veth_init_data sprd_veth_spi1_pdata = {
+	.index 		= 14,
+	.inst_id 	= SPRDMUX_ID_SPI,
+	.name 		= "veth_spi1",
+};
+struct platform_device sprd_veth_spi1_device = {
+	.name 	= "sprd_veth",
+	.id 	= 1,
+	.dev = {.platform_data = &sprd_veth_spi1_pdata},
+};
+
+static struct veth_init_data sprd_veth_spi2_pdata = {
+	.index 		= 15,
+	.inst_id 	= SPRDMUX_ID_SPI,
+	.name 		= "veth_spi2",
+};
+struct platform_device sprd_veth_spi2_device = {
+	.name 	= "sprd_veth",
+	.id 	= 2,
+	.dev = {.platform_data = &sprd_veth_spi2_pdata},
+};
+
+static struct veth_init_data sprd_veth_spi3_pdata = {
+	.index 		= 16,
+	.inst_id 	= SPRDMUX_ID_SPI,
+	.name 		= "veth_spi3",
+};
+struct platform_device sprd_veth_spi3_device = {
+	.name 	= "sprd_veth",
+	.id 	= 3,
+	.dev = {.platform_data = &sprd_veth_spi3_pdata},
+};
+
+static struct veth_init_data sprd_veth_spi4_pdata = {
+	.index 		= 17,
+	.inst_id 	= SPRDMUX_ID_SPI,
+	.name 		= "veth_spi4",
+};
+struct platform_device sprd_veth_spi4_device = {
+	.name 	= "sprd_veth",
+	.id 	= 4,
+	.dev = {.platform_data = &sprd_veth_spi4_pdata},
+};
+#endif
+
+#ifdef CONFIG_MUX_SDIO_HAL
+static struct veth_init_data sprd_veth_sdio0_pdata = {
+	.index 		= 13,
+	.inst_id 	= SPRDMUX_ID_SDIO,
+	.name 		= "veth_sdio0",
+};
+struct platform_device sprd_veth_sdio0_device = {
+	.name 	= "sprd_veth",
+	.id 	= 5,
+	.dev = {.platform_data = &sprd_veth_sdio0_pdata},
+};
+
+static struct veth_init_data sprd_veth_sdio1_pdata = {
+	.index 		= 14,
+	.inst_id 	= SPRDMUX_ID_SDIO,
+	.name 		= "veth_sdio1",
+};
+struct platform_device sprd_veth_sdio1_device = {
+	.name 	= "sprd_veth",
+	.id 	= 6,
+	.dev = {.platform_data = &sprd_veth_sdio1_pdata},
+};
+
+static struct veth_init_data sprd_veth_sdio2_pdata = {
+	.index 		= 15,
+	.inst_id 	= SPRDMUX_ID_SDIO,
+	.name 		= "veth_sdio2",
+};
+struct platform_device sprd_veth_sdio2_device = {
+	.name 	= "sprd_veth",
+	.id 	= 7,
+	.dev = {.platform_data = &sprd_veth_sdio2_pdata},
+};
+
+static struct veth_init_data sprd_veth_sdio3_pdata = {
+	.index 		= 16,
+	.inst_id 	= SPRDMUX_ID_SDIO,
+	.name 		= "veth_sdio3",
+};
+struct platform_device sprd_veth_sdio3_device = {
+	.name 	= "sprd_veth",
+	.id 	= 8,
+	.dev = {.platform_data = &sprd_veth_sdio3_pdata},
+};
+
+static struct veth_init_data sprd_veth_sdio4_pdata = {
+	.index 		= 17,
+	.inst_id 	= SPRDMUX_ID_SDIO,
+	.name 		= "veth_sdio4",
+};
+struct platform_device sprd_veth_sdio4_device = {
+	.name 	= "sprd_veth",
+	.id 	= 9,
+	.dev = {.platform_data = &sprd_veth_sdio4_pdata},
+};
+#endif
+
+#endif
 
 #ifdef CONFIG_SIPC_TD
 

@@ -196,6 +196,24 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_RF_SHARK
 	&trout_fm_device,
 #endif
+
+#ifdef CONFIG_SPRD_VETH
+#ifdef CONFIG_MUX_SPI_HAL
+        &sprd_veth_spi0_device,
+        &sprd_veth_spi1_device,
+        &sprd_veth_spi2_device,
+        &sprd_veth_spi3_device,
+        &sprd_veth_spi4_device,
+#endif
+#ifdef CONFIG_MUX_SDIO_HAL
+        &sprd_veth_sdio0_device,
+        &sprd_veth_sdio1_device,
+        &sprd_veth_sdio2_device,
+        &sprd_veth_sdio3_device,
+        &sprd_veth_sdio4_device,
+#endif
+#endif
+
 };
 
 static struct platform_device *late_devices[] __initdata = {
