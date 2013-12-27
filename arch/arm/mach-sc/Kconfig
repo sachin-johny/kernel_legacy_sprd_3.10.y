@@ -111,6 +111,14 @@ config MACH_SC9620OPENPHONE
 	help
 	  ssc9620openphone board based on SC8830 serial.
 
+config MACH_SC9620FPGA
+        bool "sc9620fpga Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        default n
+        help
+          ssc9620fpga board based on SC8830 serial.
+
 config MACH_SP7730EC
 	bool "sp7730ec Phone Board"
 	depends on ARCH_SC

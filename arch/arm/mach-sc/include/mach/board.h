@@ -54,6 +54,10 @@
 #include "__board-sc9620openphone.h"
 #endif
 
+#ifdef  CONFIG_MACH_SC9620FPGA
+#include "__board-sc9620fpga.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7730ECTRISIM
 #include "__board-sp7730ectrisim.h"
 #endif
