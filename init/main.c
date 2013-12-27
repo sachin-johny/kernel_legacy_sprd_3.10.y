@@ -229,7 +229,7 @@ static int __init loglevel(char *str)
 	return -EINVAL;
 }
 
-//early_param("loglevel", loglevel);
+early_param("loglevel", loglevel);
 
 /* Change NUL term back to "=", to make "param" the whole string. */
 static int __init repair_env_string(char *param, char *val, const char *unused)
