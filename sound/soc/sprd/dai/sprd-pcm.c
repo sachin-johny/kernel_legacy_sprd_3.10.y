@@ -872,6 +872,9 @@ static int sprd_pcm_new(struct snd_soc_pcm_runtime *rtd)
 	if (substream) {
 		int id = cpu_dai->driver->id;
 		struct snd_dma_buffer *buf = &substream->dma_buffer;
+		if (sprd_is_vaudio(cpu_dai)) {
+			id -= VAUDIO_MAGIC_ID;
+		}
 		if (sprd_is_i2s(cpu_dai) || !save_c_buf[id]) {
 			ret = sprd_pcm_preallocate_dma_buffer(pcm,
 							      SNDRV_PCM_STREAM_CAPTURE);

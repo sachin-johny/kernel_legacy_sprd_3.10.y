@@ -259,7 +259,7 @@ static void i2s_set_mode(struct i2s_priv *i2s)
 	int mask = BIT(3);
 	unsigned int reg = I2S_REG(i2s, IIS_CTRL0);
 	sp_asoc_pr_dbg("%s mode %d\n", __func__, config->mode);
-	i2s_reg_update(reg, (I2S_SLAVER == config->mode) ? mask : 0, mask);
+	i2s_reg_update(reg, (I2S_SLAVE == config->mode) ? mask : 0, mask);
 }
 
 static void i2s_set_lsb(struct i2s_priv *i2s)
@@ -424,7 +424,7 @@ static int i2s_get_data_position(struct i2s_priv *i2s)
 	struct i2s_config *config = &i2s->config;
 	if (PCM_BUS == config->bus_type) {
 		if (config->byte_per_chan == I2S_BPCH_16) {
-			if (I2S_SLAVER == config->mode) {
+			if (I2S_SLAVE == config->mode) {
 				return 2;
 			}
 		}
@@ -466,7 +466,7 @@ static int i2s_config_apply(struct i2s_priv *i2s)
 	i2s_set_clk_invert(i2s);
 	i2s_set_rx_watermark(i2s);
 	i2s_set_tx_watermark(i2s);
-	if (I2S_SLAVER == config->mode) {
+	if (I2S_SLAVE == config->mode) {
 		i2s_set_slave_timeout(i2s);
 	}
 	if (I2S_BUS == config->bus_type) {
@@ -689,7 +689,6 @@ static int i2s_drv_probe(struct platform_device *pdev)
 	int ret;
 	struct i2s_priv *i2s;
 	struct resource *res;
-	struct device *dev = &pdev->dev;
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -700,9 +699,9 @@ static int i2s_drv_probe(struct platform_device *pdev)
 	}
 
 	i2s->dev = &pdev->dev;
-	i2s->id = pdev->id;
 	arch_audio_i2s_switch(i2s->id, AUDIO_TO_ARM_CTRL);
-	i2s->config = *((struct i2s_config *)(dev_get_platdata(dev)));
+	i2s->config = *((struct i2s_config *)(dev_get_platdata(&pdev->dev)));
+	i2s->id = i2s->config.hw_port;
 
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	i2s->membase = (void __iomem *)res->start;
