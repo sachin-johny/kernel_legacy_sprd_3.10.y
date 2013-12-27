@@ -1158,6 +1158,7 @@ static int __init rt8973_probe(struct i2c_client *client,
 #endif
 	mutex_init(&chip->io_lock);
 	chip->irq = gpio_to_irq(pdata->irq_gpio);
+	client->irq = chip->irq;
 	RTINFO("Request IRQ %d(GPIO %d)...\n",
 	       chip->irq, pdata->irq_gpio);
 	ret = request_irq(chip->irq, rt8973_irq_handler,
