@@ -12,3 +12,13 @@ config SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 	bool "use spreadtrum internal headphone pa for version 2"
 	help
 	  Say Y if you want use sprdtrume internal headphone pa for version2
+
+config SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME
+	int "hp pa delay time(0-500) unit(MS)"
+	depends on SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA
+	range 0 500
+	default 100
+	help
+	  if defined SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA , maybe need this delay
+	  for reduce external hp amp noise.
+	  this delay time value, unit is MS.

@@ -1203,6 +1203,9 @@ static inline void sprd_codec_inter_hp_pa_init(struct sprd_codec_priv
 	sprd_codec->inter_hp_pa.setting.class_g_osc = 0x01;
 }
 
+#ifndef CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME
+#define CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME (0)
+#endif
 static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
@@ -1229,6 +1232,8 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 			}
 		}
 		sprd_codec_auxadc_en(codec, 1);
+		sprd_codec_hp_pa_hpl_mute(codec, 1);
+		sprd_codec_hp_pa_hpr_mute(codec, 1);
 		sprd_codec_hp_classg_en(codec, 1);
 		sprd_codec_hp_pa_lpw(codec, p_setting->class_g_low_power);
 		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
@@ -1239,9 +1244,15 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 		sprd_codec_hp_pa_ref_en(codec, 1);
 #endif
 		sprd_codec_hp_pa_en(codec, 1);
+		/*open classG mute delay time*/
+		sprd_codec_wait(CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME);
+		sprd_codec_hp_pa_hpl_mute(codec, 0);
+		sprd_codec_hp_pa_hpr_mute(codec, 0);
 		sprd_codec->inter_hp_pa.set = 1;
 	} else {
 		sprd_codec->inter_hp_pa.set = 0;
+		sprd_codec_hp_pa_hpl_mute(codec, 1);
+		sprd_codec_hp_pa_hpr_mute(codec, 1);
 		sprd_codec_hp_pa_en(codec, 0);
 #ifndef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
 		sprd_codec_hp_pa_ref_en(codec, 0);
@@ -1249,6 +1260,10 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 		sprd_codec_hp_pa_hpl_en(codec, 0);
 		sprd_codec_hp_pa_hpr_en(codec, 0);
 		sprd_codec_auxadc_en(codec, 0);
+		/*close classG mute delay time*/
+		sprd_codec_wait(0);
+		sprd_codec_hp_pa_hpl_mute(codec, 0);
+		sprd_codec_hp_pa_hpr_mute(codec, 0);
 		sprd_codec_hp_classg_en(codec, 1);
 		if (regulator) {
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
@@ -2048,8 +2063,8 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int mixer_set(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol)
+static int mixer_need_set(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol, bool need_set)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -2059,7 +2074,6 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
-	int need_set = !mc->shift;
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
@@ -2079,13 +2093,25 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
+static int mixer_set_mem(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	return mixer_need_set(kcontrol, ucontrol, 0);
+}
+
+static int mixer_set(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	return mixer_need_set(kcontrol, ucontrol, 1);
+}
+
 #define SPRD_CODEC_MIXER(xname, xreg)\
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
 
 /*Just for LINE IN path, mixer_set not really set mixer (ADCL/R -> HP/SPK L/R) here but
 setting in ana_loop_event, just remeber state here*/
 #define SPRD_CODEC_MIXER_NOSET(xname, xreg)\
-		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 1, 1, 0, mixer_get, mixer_set)
+		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
 
 /* ADCL Mixer */
 static const struct snd_kcontrol_new adcl_mixer_controls[] = {
