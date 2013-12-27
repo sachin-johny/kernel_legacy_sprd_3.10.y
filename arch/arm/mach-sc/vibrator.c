@@ -44,8 +44,13 @@
 #endif
 #define VIBRATOR_REG_LOCK       ((~VIBRATOR_REG_UNLOCK) & 0xffff)
 #define VIBRATOR_STABLE_LEVEL   (4)
+#ifdef CONFIG_ARCH_SCX15
+#define VIBRATOR_INIT_LEVEL     (0x0f)
+#define VIBRATOR_INIT_STATE_CNT (0x600)
+#else
 #define VIBRATOR_INIT_LEVEL     (11)
 #define VIBRATOR_INIT_STATE_CNT (10)
+#endif
 
 #define VIBR_STABLE_V_SHIFT     (12)
 #define VIBR_STABLE_V_MSK       (0x0f << VIBR_STABLE_V_SHIFT)
