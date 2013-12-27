@@ -200,6 +200,17 @@ int sprd_fence_create(char *name, struct fence_sync *sprd_fence, u32 value, stru
     struct sync_fence *fence;
 
     mutex_lock(&sync_mutex);
+
+    if (fd < 0)
+    {
+        fd = get_unused_fd();
+        if (fd < 0)
+        {
+            printk(KERN_ERR "sprd_sync_pt_create failed to get fd\n");
+            goto err2;
+        }
+    }
+
     pt = sprd_sync_pt_create(sprd_fence->timeline, value);
     if (pt == NULL)
     {
@@ -229,6 +240,7 @@ int sprd_fence_create(char *name, struct fence_sync *sprd_fence, u32 value, stru
 
 err:
    put_unused_fd(fd);
+err2:
    mutex_unlock(&sync_mutex);
    return -ENOMEM;
 }
@@ -241,6 +253,14 @@ int sprd_fence_signal(struct fence_sync *sprd_fence)
     {
         sprd_sync_timeline_inc(sprd_fence->timeline, 1);
         sprd_fence->timeline_value++;
+
+        /*
+         *  For avoiding overflow
+         * */
+        if (sprd_fence->timeline_value < 0)
+        {
+            sprd_fence->timeline_value = 0;
+        }
     }
 
     mutex_unlock(&sync_mutex);
