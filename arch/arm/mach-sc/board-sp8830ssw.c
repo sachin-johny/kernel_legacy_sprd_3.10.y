@@ -1290,6 +1290,7 @@ void sec_charger_cb(u8 cable_type)
 		break;
 	case MUIC_RT8973_CABLE_TYPE_USB:
 	case MUIC_RT8973_CABLE_TYPE_CDP:
+	case MUIC_RT8973_CABLE_TYPE_LG_SPEC_USB:
 		current_cable_type = POWER_SUPPLY_TYPE_USB;
 		break;
 	case MUIC_RT8973_CABLE_TYPE_REGULAR_TA:
