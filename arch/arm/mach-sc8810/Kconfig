@@ -82,6 +82,12 @@ config SPRD_DCDC_DEBUG
 	default y
 		tristate "Enable dcdc debug module"
 	help
-		This option select dcdc debug module.
+	  This option selects dcdc debug module.
 
+config REAL_128M
+	depends on MACH_SP8810
+	bool "built-in 128M DDR RAM"
+	default y
+	help
+	  This option chooses 128M built-in DDR RAM.
 endif
