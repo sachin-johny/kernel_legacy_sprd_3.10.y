@@ -929,9 +929,10 @@ static int enable_mcu_sleep(void)
 }
 #endif
 
+#ifdef CONFIG_TIMER_STATS
 void timer_stats_reset(void);
 void timer_stats_print(void);
-
+#endif
 
 static struct wake_lock messages_wakelock;
 
@@ -1059,10 +1060,12 @@ static int print_thread(void *pdata)
 		printk("##: show clock info:\n");
 		sc8800g_get_clock_info();
 	}
+#ifdef CONFIG_TIMER_STATS
 	if (sprd_timer_info_enable){
 		timer_stats_print();
 		timer_stats_reset();
 	}
+#endif
 
 #if 0
 	verify_dsp_deep_sleep_by_value(gr_stc_state);
