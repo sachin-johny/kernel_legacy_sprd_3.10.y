@@ -43,6 +43,7 @@
 #define REG_ADI_RD_CMD					(CTL_ADI_BASE + 0x24)
 #define REG_ADI_RD_DATA					(CTL_ADI_BASE + 0x28)
 #define REG_ADI_FIFO_STS				(CTL_ADI_BASE + 0x2c)
+#define REG_ADI_CHNL_EN				(CTL_ADI_BASE + 0x3c)
 
 /* bits definitions for register REG_ADI_CTRL0 */
 #define BIT_ARM_SCLK_EN                 ( BIT(1) )
@@ -313,6 +314,10 @@ static void __init __adi_init(void)
 
 		value = VALUE_CH_PRI;
 		__raw_writel(value, REG_ADI_CHNL_PRI);
+
+		value = __raw_readl(REG_ADI_CHNL_EN);
+		value |= (BIT(2) | BIT(3)); /* vbc da0, da1*/
+		__raw_writel(value, REG_ADI_CHNL_EN);
 
 		value = __raw_readl(REG_ADI_GSSI_CFG0);
 		readback_addr_mak = (value & 0x3f) - ((value >> 11) & 0x1f) - 1;
