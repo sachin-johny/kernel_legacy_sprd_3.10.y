@@ -77,4 +77,6 @@
 #define GPIO_GYRO_INT1 191
 #define GPIO_M_RSTN	188
 #define GPIO_M_DRDY 189
+
+#define SPRD_ION_OVERLAY_SIZE    (2 * SZ_1M)
 #endif
