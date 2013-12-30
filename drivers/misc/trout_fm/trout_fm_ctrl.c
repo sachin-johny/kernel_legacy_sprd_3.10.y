@@ -280,14 +280,14 @@ static int trout_fm_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int trout_fm_suspend(struct platform_device *dev, pm_message_t state)
 {
-    //trout_fm_enter_sleep();
+    trout_fm_enter_sleep();
 	
     return 0;
 }
 
 static int trout_fm_resume(struct platform_device *dev)
 {
-    //trout_fm_exit_sleep();
+    trout_fm_exit_sleep();
 	
     return 0;
 }
