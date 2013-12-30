@@ -4,6 +4,7 @@
  * Authors:
  * Keguang Zhang <keguang.zhang@spreadtrum.com>
  * Danny Deng <danny.deng@spreadtrum.com>
+ * Wenjie Zhang <wenjie.zhang@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -28,8 +29,13 @@
 #include <linux/workqueue.h>
 #include <linux/ipv6.h>
 #include <linux/ip.h>
+#include <linux/inetdevice.h>
 #include <asm/byteorder.h>
 #include <linux/platform_device.h>
+#include <linux/suspend.h>
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+#include <linux/earlysuspend.h>
+#endif
 
 #include <linux/sipc.h>
 #include <linux/atomic.h>
@@ -44,6 +50,7 @@
 #define ITM_INTF_NAME		"wlan%d"
 
 #define SETH_RESEND_MAX_NUM	10
+#define SIOGETSSID 0x89F2
 
 void ittiam_nvm_init(void );
 void ittiam_nvm_deinit(void);
@@ -62,8 +69,7 @@ static void itm_wlan_tx_ready_handler(struct itm_priv *priv)
 /*
  * Tx_open handler.
  */
-static void
-itm_wlan_tx_open_handler (struct itm_priv *priv)
+static void itm_wlan_tx_open_handler(struct itm_priv *priv)
 {
 	if (!netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
@@ -74,8 +80,7 @@ itm_wlan_tx_open_handler (struct itm_priv *priv)
 /*
  * Tx_close handler.
  */
-static void
-itm_wlan_tx_close_handler (struct itm_priv *priv)
+static void itm_wlan_tx_close_handler(struct itm_priv *priv)
 {
 	if (netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
@@ -83,121 +88,138 @@ itm_wlan_tx_close_handler (struct itm_priv *priv)
 	}
 }
 
-static void itm_wlan_rx_handler(struct itm_priv *priv)
+static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 {
+	struct itm_priv *priv = container_of(napi, struct itm_priv, napi);
 	struct sblock blk;
 	struct sk_buff *skb;
-	int ret;
+	int ret, work_done;
 	u16 decryp_data_len = 0;
 	struct wlan_sblock_recv_data *data;
 
-	ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
-	if (ret) {
-		dev_err(&priv->ndev->dev, "Failed to receive sblock (%d)\n",
-			ret);
-		priv->ndev->stats.rx_errors++;
-		return;
-	}
-
-	skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);	/*16 bytes align */
-	if (!skb) {
-		dev_err(&priv->ndev->dev, "Failed to allocate skbuff!\n");
-		priv->ndev->stats.rx_dropped++;
-		goto rx_failed;
-	}
-
-	data = (struct wlan_sblock_recv_data *)blk.addr;
-	/* Temporary solution to avoid version error, will be deleted later */
-	if (data->u1.nomal.resv[11] != 0xff ||
-	    data->u1.nomal.resv[12] != 0xff) {
-		skb_reserve(skb, NET_IP_ALIGN);
-		memcpy(skb->data, blk.addr, blk.length);
-		skb_put(skb, blk.length);
-		goto out;
-	}
-	if (data->is_encrypted == 1) {
-		if (priv->connect_status == ITM_CONNECTED &&
-		    priv->cipher_type == WAPI &&
-		    priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&
-		    priv->key_len[PAIRWISE][priv->key_index[PAIRWISE]] != 0) {
-			u8 snap_header[6] = {0xaa, 0xaa, 0x03,
-					     0x00, 0x00, 0x00};
-			skb_reserve(skb, NET_IP_ALIGN);
-			decryp_data_len = wlan_rx_wapi_decryption(priv,
-					(u8 *)&data->u2.encrypt,
-					data->u1.encrypt.header_len,
-					(blk.length -
-					sizeof(data->is_encrypted) -
-					sizeof(data->u1) -
-					data->u1.encrypt.header_len),
-					(skb->data + 12));
-			if (decryp_data_len == 0) {
-				dev_err(&priv->ndev->dev,
-					"wapi data decryption failed!\n");
-				priv->ndev->stats.rx_dropped++;
-				goto rx_failed;
-			}
-			if (memcmp((skb->data + 12), snap_header,
-				   sizeof(snap_header)) == 0) {
-				skb_reserve(skb, 6);
-				/* copy the eth address from eth header,
-				 * but not copy eth type
-				 */
-				memcpy(skb->data,
-				       data->u2.encrypt.mac_header.addr1, 6);
-				memcpy(skb->data + 6,
-				       data->u2.encrypt.mac_header.addr2, 6);
-				skb_put(skb, (decryp_data_len + 6));
-			} else {
-				/* copy eth header*/
-				memcpy(skb->data,
-				       data->u2.encrypt.mac_header.addr3, 6);
-				memcpy(skb->data + 6,
-				       data->u2.encrypt.mac_header.addr2, 6);
-				skb_put(skb, (decryp_data_len + 12));
-			}
-		} else {
-			dev_err(&priv->ndev->dev, "wrong encryption data!\n");
+	for (work_done = 0; work_done < budget; work_done++) {
+		ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
+		if (ret) {
+			dev_dbg(&priv->ndev->dev,
+				"Failed to receive sblock (%d)\n", ret);
+			break;
+		}
+		/*16 bytes align */
+		skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);
+		if (!skb) {
+			dev_err(&priv->ndev->dev,
+				"Failed to allocate skbuff!\n");
 			priv->ndev->stats.rx_dropped++;
 			goto rx_failed;
 		}
-	} else if (data->is_encrypted == 0) {
-		skb_reserve(skb, NET_IP_ALIGN);
-		/* dec the first encrypt byte */
-		memcpy(skb->data, (u8 *)&data->u2, (blk.length -
-		       sizeof(data->is_encrypted) -
-		       sizeof(data->u1)));
-		skb_put(skb, (blk.length -
-		       sizeof(data->is_encrypted) -
-		       sizeof(data->u1)));
-	} else {
-		dev_err(&priv->ndev->dev, "wrong data fromat recieve!\n");
-		priv->ndev->stats.rx_dropped++;
-		goto rx_failed;
-	}
+
+		data = (struct wlan_sblock_recv_data *)blk.addr;
+		/* Temporary solution to avoid version error, will be
+		 * deleted later
+		 */
+		if (data->u1.nomal.resv[11] != 0xff ||
+		    data->u1.nomal.resv[12] != 0xff) {
+			skb_reserve(skb, NET_IP_ALIGN);
+			memcpy(skb->data, blk.addr, blk.length);
+			skb_put(skb, blk.length);
+			goto out;
+		}
+		if (data->is_encrypted == 1) {
+			if (priv->connect_status == ITM_CONNECTED &&
+			    priv->cipher_type == WAPI &&
+			    priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&
+			    priv->key_len[PAIRWISE][priv->
+						    key_index[PAIRWISE]] != 0) {
+				u8 snap_header[6] = {0xaa, 0xaa, 0x03,
+						     0x00, 0x00, 0x00};
+				skb_reserve(skb, NET_IP_ALIGN);
+				decryp_data_len = wlan_rx_wapi_decryption(priv,
+						   (u8 *)&data->u2.encrypt,
+						   data->u1.encrypt.header_len,
+						   (blk.length -
+						   sizeof(data->is_encrypted) -
+						   sizeof(data->u1) -
+						   data->u1.encrypt.header_len),
+						   (skb->data + 12));
+				if (decryp_data_len == 0) {
+					dev_err(&priv->ndev->dev,
+						"wapi data decryption failed!\n");
+					priv->ndev->stats.rx_dropped++;
+					goto rx_failed;
+				}
+				if (memcmp((skb->data + 12), snap_header,
+					   sizeof(snap_header)) == 0) {
+					skb_reserve(skb, 6);
+					/* copy the eth address from eth header,
+					 * but not copy eth type
+					 */
+					memcpy(skb->data,
+					       data->u2.encrypt.mac_header.
+					       addr1, 6);
+					memcpy(skb->data + 6,
+					       data->u2.encrypt.mac_header.
+					       addr2, 6);
+					skb_put(skb, (decryp_data_len + 6));
+				} else {
+					/* copy eth header */
+					memcpy(skb->data,
+					       data->u2.encrypt.mac_header.
+					       addr3, 6);
+					memcpy(skb->data + 6,
+					       data->u2.encrypt.mac_header.
+					       addr2, 6);
+					skb_put(skb, (decryp_data_len + 12));
+				}
+			} else {
+				dev_err(&priv->ndev->dev,
+					"wrong encryption data!\n");
+				priv->ndev->stats.rx_dropped++;
+				goto rx_failed;
+			}
+		} else if (data->is_encrypted == 0) {
+			skb_reserve(skb, NET_IP_ALIGN);
+			/* dec the first encrypt byte */
+			memcpy(skb->data, (u8 *)&data->u2,
+			       (blk.length - sizeof(data->is_encrypted) -
+			       sizeof(data->u1)));
+			skb_put(skb,
+				(blk.length - sizeof(data->is_encrypted) -
+				 sizeof(data->u1)));
+		} else {
+			dev_err(&priv->ndev->dev,
+				"wrong data fromat recieve!\n");
+			priv->ndev->stats.rx_dropped++;
+			goto rx_failed;
+		}
 
 out:
 #ifdef DUMP_RECEIVE_PACKET
-	print_hex_dump(KERN_DEBUG, "receive packet: ", DUMP_PREFIX_OFFSET,
-		       16, 1, skb->data, skb->len, 0);
+		print_hex_dump(KERN_DEBUG, "receive packet: ",
+			       DUMP_PREFIX_OFFSET, 16, 1, skb->data, skb->len,
+			       0);
 #endif
-	skb->dev = priv->ndev;
-	skb->protocol = eth_type_trans(skb, priv->ndev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+		skb->dev = priv->ndev;
+		skb->protocol = eth_type_trans(skb, priv->ndev);
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
 
-	priv->ndev->stats.rx_packets++;
-	priv->ndev->stats.rx_bytes += skb->len;
+		priv->ndev->stats.rx_packets++;
+		priv->ndev->stats.rx_bytes += skb->len;
 
-	netif_rx(skb);
-
-	priv->ndev->last_rx = jiffies;
+		/*netif_rx(skb);*/
+		netif_receive_skb(skb);
 
 rx_failed:
-	ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
-	if (ret)
-		dev_err(&priv->ndev->dev,
-			"Failed to release sblock (%d)\n", ret);
-	return;
+		ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
+		if (ret)
+			dev_err(&priv->ndev->dev,
+				"Failed to release sblock (%d)\n", ret);
+	}
+	if (work_done < budget) {
+		napi_gro_flush(napi, false);
+		__napi_complete(napi);
+	}
+
+	return work_done;
 }
 
 static void itm_wlan_handler(int event, void *data)
@@ -210,7 +232,9 @@ static void itm_wlan_handler(int event, void *data)
 		break;
 	case SBLOCK_NOTIFY_RECV:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_RECV is received\n");
-		itm_wlan_rx_handler(priv);
+		/*itm_wlan_rx_handler(priv);*/
+		if (likely(napi_schedule_prep(&priv->napi)))
+			__napi_schedule(&priv->napi);
 		break;
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
@@ -285,6 +309,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		priv->ndev->stats.tx_fifo_errors++;
 		if (priv->txrcnt > SETH_RESEND_MAX_NUM)
 			netif_stop_queue(dev);
+		priv->txrcnt++;
 		return NETDEV_TX_BUSY;
 	}
 
@@ -308,11 +333,12 @@ static int itm_wlan_open(struct net_device *dev)
 {
 	struct itm_priv *priv = netdev_priv(dev);
 
-	/* Reset stats */
-	memset(&priv->ndev->stats, 0, sizeof(priv->ndev->stats));
+	dev_info(&dev->dev, "%s\n", __func__);
 
-	/*TODO*/
-	netif_start_queue(dev);
+	/* if first open net device do nothing, otherwise act as resume */
+	napi_enable(&priv->napi);
+	if (netif_queue_stopped(dev))
+		netif_device_attach(dev);
 
 	return 0;
 }
@@ -322,9 +348,13 @@ static int itm_wlan_open(struct net_device *dev)
  */
 static int itm_wlan_close(struct net_device *dev)
 {
-	netif_stop_queue(dev);
+	struct itm_priv *priv = netdev_priv(dev);
+	dev_info(&dev->dev, "%s\n", __func__);
 
-	/*TODO*/
+	/* if netdevice carrier off, do nothing */
+	if (netif_queue_stopped(dev))
+		netif_device_attach(dev);
+	napi_disable(&priv->napi);
 
 	return 0;
 }
@@ -342,23 +372,64 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 	dev_info(&dev->dev, "tx_timeout and wake queue\n");
 }
 
-static int itm_wlan_ioctl(struct net_device *dev,
-		struct ifreq *req, int cmd)
+static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
+	struct itm_priv *priv = netdev_priv(dev);
+	struct iwreq *wrq = (struct iwreq *)req;
+
 	switch (cmd) {
 	case SIOCDEVPRIVATE + 1:
 		return itm_cfg80211_android_priv_cmd(dev, req);
 		break;
+	case SIOGETSSID:
+		if (priv->ssid_len > 0) {
+			if (copy_to_user(wrq->u.essid.pointer, priv->ssid,
+					 priv->ssid_len))
+				return -EFAULT;
+			wrq->u.essid.length = priv->ssid_len;
+		} else {
+			dev_err(&dev->dev, "ssid len is zero\n");
+			return -EFAULT;
+		}
+		break;
 	default:
-		dev_err(&dev->dev,
-			"ioctl cmd %d is not supported\n", cmd);
+		dev_err(&dev->dev, "ioctl cmd %d is not supported\n", cmd);
 		return -ENOTSUPP;
 	}
 
 	return 0;
 }
 
-#ifdef	CONFIG_PM
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+static void itm_wlan_early_suspend(struct early_suspend *es)
+{
+	struct itm_priv *priv = container_of(es, struct itm_priv,
+					     early_suspend);
+	int ret = 0;
+
+	dev_info(&priv->ndev->dev, "%s\n", __func__);
+
+	ret = itm_wlan_pm_early_suspend_cmd(priv->wlan_sipc);
+	if (ret)
+		dev_err(&priv->ndev->dev, "Failed to early suspend (%d)\n",
+			ret);
+}
+
+static void itm_wlan_late_resume(struct early_suspend *es)
+{
+	struct itm_priv *priv = container_of(es, struct itm_priv,
+					     early_suspend);
+	int ret = 0;
+
+	dev_info(&priv->ndev->dev, "%s\n", __func__);
+
+	ret = itm_wlan_pm_later_resume_cmd(priv->wlan_sipc);
+	if (ret)
+		dev_err(&priv->ndev->dev, "Failed to late resume(%d)\n", ret);
+}
+#endif
+
+#if defined(CONFIG_PM) && defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 static int itm_wlan_suspend(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
@@ -366,13 +437,11 @@ static int itm_wlan_suspend(struct device *dev)
 	int ret = 0;
 
 	dev_info(dev, "%s\n", __func__);
-	netif_stop_queue(ndev);
 
-#if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
+	netif_device_detach(ndev);
+	napi_disable(&priv->napi);
+
 	ret = itm_wlan_pm_enter_ps_cmd(priv);
-#elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
-	ret = itm_wlan_pm_suspend_cmd(priv->wlan_sipc);
-#endif
 	if (ret)
 		dev_err(dev, "Failed to suspend (%d)\n", ret);
 
@@ -387,15 +456,12 @@ static int itm_wlan_resume(struct device *dev)
 
 	dev_info(dev, "%s\n", __func__);
 
-#if defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
 	ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
-#elif defined(CONFIG_ITM_WLAN_PM_SLEEP)
-	ret = itm_wlan_pm_resume_cmd(priv->wlan_sipc);
-#endif
 	if (ret)
 		dev_err(dev, "Failed to resume (%d)\n", ret);
 
-	netif_wake_queue(ndev);
+	napi_enable(&priv->napi);
+	netif_device_attach(ndev);
 	return ret;
 }
 
@@ -405,7 +471,7 @@ static const struct dev_pm_ops itm_wlan_pm = {
 };
 #else
 static const struct dev_pm_ops itm_wlan_pm;
-#endif /* CONFIG_PM */
+#endif
 
 static struct net_device_ops itm_wlan_ops = {
 	.ndo_open = itm_wlan_open,
@@ -415,6 +481,94 @@ static struct net_device_ops itm_wlan_ops = {
 	.ndo_tx_timeout = itm_wlan_tx_timeout,
 	.ndo_do_ioctl = itm_wlan_ioctl,
 };
+
+static int itm_inetaddr_event(struct notifier_block *this,
+			      unsigned long event, void *ptr)
+{
+	struct itm_priv *priv;
+	struct net_device *dev;
+
+	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
+
+	dev = ifa->ifa_dev ? ifa->ifa_dev->dev : NULL;
+
+	if (dev == NULL)
+		goto done;
+
+	priv = netdev_priv(dev);
+
+	if (!priv)
+		goto done;
+
+	if (strncmp(dev->name, ITM_INTF_NAME, 4) != 0)
+		goto done;
+
+	switch (event) {
+	case NETDEV_UP:
+		itm_wlan_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
+		break;
+	case NETDEV_DOWN:
+		break;
+	default:
+		break;
+	}
+
+done:
+	return NOTIFY_DONE;
+}
+
+static struct notifier_block itm_inetaddr_cb = {
+	.notifier_call = itm_inetaddr_event,
+};
+
+static int itm_pm_notifier(struct notifier_block *notifier,
+			   unsigned long pm_event,
+			   void *unused)
+{
+	int ret = NOTIFY_DONE;
+	struct itm_priv *priv = container_of(notifier,
+					     struct itm_priv,
+					     pm_notifier);
+
+	/* We should not suspend when there is sipc cmd send and recv. */
+	switch (pm_event) {
+	case PM_SUSPEND_PREPARE:
+		if (!mutex_trylock(&priv->wlan_sipc->pm_lock)) {
+			priv->pm_status = false;
+			ret = NOTIFY_BAD;
+		} else {
+			priv->pm_status = true;
+			ret = NOTIFY_OK;
+		}
+		break;
+
+	/* Restore from hibernation failed. We need to clean
+	 * up in exactly the same way, so fall through.
+	 */
+	case PM_POST_SUSPEND:
+		if (priv->pm_status == true) {
+			mutex_unlock(&priv->wlan_sipc->pm_lock);
+			priv->pm_status = false;
+		}
+		ret = NOTIFY_OK;
+		break;
+	default:
+		break;
+	}
+
+	return ret;
+}
+
+static void itm_register_pm_notifier(struct itm_priv *priv)
+{
+	priv->pm_notifier.notifier_call = itm_pm_notifier;
+	register_pm_notifier(&priv->pm_notifier);
+}
+
+static void itm_unregister_pm_notifier(struct itm_priv *priv)
+{
+	unregister_pm_notifier(&priv->pm_notifier);
+}
 
 /*
  * Initialize WLAN device.
@@ -437,7 +591,9 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	priv->ndev = ndev;
 	atomic_set(&priv->stopped, 0);
 	ndev->netdev_ops = &itm_wlan_ops;
-	ndev->watchdog_timeo = 1*HZ;
+	ndev->watchdog_timeo = 1 * HZ;
+
+	priv->pm_status = false;
 
 	/*FIXME*/
 	/* If get mac from cfg file error, got random addr */
@@ -461,6 +617,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 		goto err_notify_sblock;
 	}
+
+	netif_napi_add(ndev, &priv->napi, itm_wlan_rx_handler, 64);
 
 	/*Init MAC and get the capabilities */
 #if 0
@@ -493,7 +651,19 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_npi_netlink;
 	}
 	platform_set_drvdata(pdev, ndev);
+
 	ittiam_nvm_init();
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	priv->early_suspend.suspend = itm_wlan_early_suspend;
+	priv->early_suspend.resume  = itm_wlan_late_resume;
+	priv->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
+	register_early_suspend(&priv->early_suspend);
+#endif
+#ifdef CONFIG_INET
+	register_inetaddr_notifier(&itm_inetaddr_cb);
+#endif
+	/* Register PM notifiers */
+	itm_register_pm_notifier(priv);
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
@@ -502,6 +672,7 @@ err_npi_netlink:
 err_register_netdev:
 	itm_wdev_free(priv);
 err_notify_sblock:
+	netif_napi_del(&priv->napi);
 	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
 /*err_sblock:
 	free_netdev(ndev);*/
@@ -528,7 +699,12 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
 
+	itm_unregister_pm_notifier(priv);
+	unregister_early_suspend(&priv->early_suspend);
 	wake_lock_destroy(&priv->scan_done_lock);
+#ifdef CONFIG_INET
+	unregister_inetaddr_notifier(&itm_inetaddr_cb);
+#endif
 	unregister_netdev(ndev);
 	itm_wdev_free(priv);
 	free_netdev(ndev);

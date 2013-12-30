@@ -5,6 +5,8 @@ ccflags-y += -DDEBUG
 #ccflags-y += -DDUMP_COMMAND_RESPONSE
 #ccflags-y += -DDUMP_EVENT
 
+ccflags-y += -DCONFIG_ITM_WLAN_ENHANCED_PM
+
 obj-$(CONFIG_ITTIAM) += ittiam.o
 
 ittiam-objs:= itm_main.o itm_cfg80211.o itm_sipc.o \
