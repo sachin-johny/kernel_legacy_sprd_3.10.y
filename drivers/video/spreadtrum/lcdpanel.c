@@ -284,7 +284,8 @@ static int mcu_mount_panel(struct sprdfb_device *dev, struct panel_spec *panel)
 		panel->ops->panel_readid = mcu_readid;
 	}
 
-	dev->bpp = 32;
+	dev->bpp = 16;
+
 /* do this in init panel, for deep sleep case
 	bus_width = (uint32_t)((panel->info.mcu)->bus_width);
 

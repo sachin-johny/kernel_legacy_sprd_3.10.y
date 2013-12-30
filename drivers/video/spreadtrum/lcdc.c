@@ -303,6 +303,8 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 
 	uint32_t base = fb->fix.smem_start + fb->fix.line_length * fb->var.yoffset;
 
+        uint32_t reg_val = 0;
+
 	lcdc.dev = dev;
 
 	pr_debug("fb->var.yoffset: 0x%x\n", fb->var.yoffset);
@@ -342,6 +344,27 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 		lcdc_write(fb->var.xres, LCDC_OSD1_PITCH);
 
 		lcdc_write(size, LCDC_DISP_SIZE);
+
+
+		/* data format */
+		if (fb->var.bits_per_pixel == 32) {
+		    /* ABGR */
+		    reg_val |= (3 << 3);
+		    /* rb switch */
+		    reg_val |= (1 << 9);
+		} else if (fb->var.bits_per_pixel == 16) {
+		    /* RGB565 */
+		    reg_val |= (5 << 3);
+		    /* B2B3B0B1 */
+		    reg_val |= (2 << 7);
+		}
+		reg_val |= (1 << 0);
+
+		/* alpha mode select  - block alpha*/
+		reg_val |= (1 << 2);
+
+		lcdc_write(reg_val, LCDC_OSD1_CTRL);
+
 
 		dev->panel->ops->panel_invalidate(dev->panel);
 	}
