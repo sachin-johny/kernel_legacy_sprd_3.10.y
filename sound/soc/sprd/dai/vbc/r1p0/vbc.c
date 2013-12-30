@@ -31,6 +31,7 @@
 #include <linux/workqueue.h>
 #include <linux/clk.h>
 #include <linux/io.h>
+#include <linux/of.h>
 #include <sound/core.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
@@ -461,10 +462,20 @@ static int vbc_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id vbc_of_match[] = {
+	{.compatible = "sprd,vbc-r1p0",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, vbc_of_match);
+#endif
+
 static struct platform_driver vbc_driver = {
 	.driver = {
 		   .name = "vbc-r1p0",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(vbc_of_match),
 		   },
 
 	.probe = vbc_drv_probe,

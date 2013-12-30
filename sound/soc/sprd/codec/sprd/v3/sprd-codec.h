@@ -280,23 +280,23 @@
 
 /* DCR6_DCR5 */
 #define AUD_NG_EN		(7)
-#define AUD_NG_DA_EN	(6)
-#define AUD_NG_PA_EN	(5)
+#define AUD_NG_DA_EN		(6)
+#define AUD_NG_PA_EN		(5)
 /* DCR8_DCR7 */
-#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
-#define AUDIO_CLASSG_EN        (15)
-#define AUDIO_CHP_EN		(14)
-#define AUDIO_CHP_HPL_EN	(13)
-#define AUDIO_CHP_HPR_EN	(12)
-#define AUDIO_CHP_LMUTE		(11)
-#define AUDIO_CHP_RMUTE		(10)
-#define AUDIO_CHP_CLK_SEL   (9)
-#define AUDIO_CHP_OSC		(6)
-#define AUDIO_CHP_OSC_MASK	(0x07)
-#define AUDIO_CHP_LPW		(5)
-#define AUDIO_CHP_MODE		(4)
-#define AUDIO_CHP_REF_EN	(7)
-#else
+/* HP PA V2 */
+#define V2_AUDIO_CLASSG_EN	(15)
+#define V2_AUDIO_CHP_EN		(14)
+#define V2_AUDIO_CHP_HPL_EN	(13)
+#define V2_AUDIO_CHP_HPR_EN	(12)
+#define V2_AUDIO_CHP_LMUTE	(11)
+#define V2_AUDIO_CHP_RMUTE	(10)
+#define V2_AUDIO_CHP_CLK_SEL	(9)
+#define V2_AUDIO_CHP_OSC	(6)
+#define V2_AUDIO_CHP_OSC_MASK	(0x07)
+#define V2_AUDIO_CHP_LPW	(5)
+#define V2_AUDIO_CHP_MODE	(4)
+#define V2_AUDIO_CHP_REF_EN	(7)
+/* HP PA V0 */
 #define AUDIO_CHP_LPW		(15)
 #define AUDIO_CHP_MODE		(14)
 #define AUDIO_CHP_REF_EN	(7)
@@ -307,7 +307,6 @@
 #define AUDIO_CHP_RMUTE		(2)
 #define AUDIO_CHP_OSC		(0)
 #define AUDIO_CHP_OSC_MASK	(0x03)
-#endif
 
 /* PNRCR2_PNRCR1 */
 #define HP_POP_CTL		(6)

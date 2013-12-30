@@ -27,6 +27,7 @@
 #include <linux/device.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#include <linux/of.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -128,10 +129,20 @@ static int sprd_vaudio_drv_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id vaudio_of_match[] = {
+	{.compatible = "sprd,vaudio",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, vaudio_of_match);
+#endif
+
 static struct platform_driver sprd_vaudio_driver = {
 	.driver = {
 		   .name = "vaudio",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(vaudio_of_match),
 		   },
 
 	.probe = sprd_vaudio_drv_probe,
