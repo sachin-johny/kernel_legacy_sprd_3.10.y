@@ -67,7 +67,7 @@
 
 #define	USE_THREADED_IRQ	1
 #define	TOUCH_VIRTUAL_KEYS
-#define	MULTI_PROTOCOL_TYPE_B	1
+#define	MULTI_PROTOCOL_TYPE_B	0
 #define	TS_MAX_FINGER		5
 
 #define	FTS_PACKET_LENGTH	128
@@ -85,12 +85,12 @@ static unsigned char FT5306_FW[]=
 
 static unsigned char *CTPM_FW = FT5306_FW;
 #endif
-//static int fw_size;
+static int fw_size;
 
 static struct ft5x0x_ts_data *g_ft5x0x_ts;
 static struct i2c_client *this_client;
 
-//static unsigned char suspend_flag = 0;
+static unsigned char suspend_flag = 0;
 
 
  struct Upgrade_Info fts_updateinfo[] =
@@ -115,14 +115,14 @@ static ssize_t ft5x0x_store_suspend(struct device* cd, struct device_attribute *
 static ssize_t ft5x0x_show_version(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t ft5x0x_update(struct device* cd, struct device_attribute *attr, const char* buf, size_t len);
 #endif
-//static unsigned char ft5x0x_read_fw_ver(void);
+static unsigned char ft5x0x_read_fw_ver(void);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void ft5x0x_ts_suspend(struct early_suspend *handler);
 static void ft5x0x_ts_resume(struct early_suspend *handler);
 #endif
 //static int fts_ctpm_fw_update(void);
-//static int fts_ctpm_fw_upgrade_with_i_file(void);
+static int fts_ctpm_fw_upgrade_with_i_file(void);
 
 struct ts_event {
 	u16	x1;
@@ -137,12 +137,6 @@ struct ts_event {
 	u16	y5;
 	u16	pressure;
     u8  touch_point;
-//-------------------------------------------------------------------//
-	u16 au16_x[CFG_MAX_TOUCH_POINTS];	/*x coordinate */
-	u16 au16_y[CFG_MAX_TOUCH_POINTS];	/*y coordinate */
-	u8 au8_touch_event[CFG_MAX_TOUCH_POINTS];	/*touch event:
-					0 -- down; 1-- contact; 2 -- contact */
-	u8 au8_finger_id[CFG_MAX_TOUCH_POINTS];	/*touch ID */
 };
 
 struct ft5x0x_ts_data {
@@ -427,6 +421,8 @@ static unsigned char ft5x0x_read_fw_ver(void)
 	return(ver);
 }
 
+
+
 static void ft5x0x_clear_report_data(struct ft5x0x_ts_data *ft5x0x_ts)
 {
 	int i;
@@ -444,157 +440,6 @@ static void ft5x0x_clear_report_data(struct ft5x0x_ts_data *ft5x0x_ts)
 	input_sync(ft5x0x_ts->input_dev);
 }
 
-void focaltech_get_upgrade_array(struct i2c_client *client)
-{
-
-	u8 chip_id;
-	u32 i;
-
-	i2c_smbus_read_i2c_block_data(client,FT_REG_CHIP_ID,1,&chip_id);
-
-	printk("%s chip_id = %x\n", __func__, chip_id);
-
-	for(i=0;i<sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info);i++)
-	{
-		if(chip_id==fts_updateinfo[i].CHIP_ID)
-		{
-			memcpy(&fts_updateinfo_curr, &fts_updateinfo[i], sizeof(struct Upgrade_Info));
-			break;
-		}
-	}
-
-	if(i >= sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info))
-	{
-		memcpy(&fts_updateinfo_curr, &fts_updateinfo[0], sizeof(struct Upgrade_Info));
-	}
-}
-int ft5x0x_i2c_Read(struct i2c_client *client, char *writebuf,
-		    int writelen, char *readbuf, int readlen)
-{
-	int ret;
-
-	if (writelen > 0) {
-		struct i2c_msg msgs[] = {
-			{
-			 .addr = client->addr,
-			 .flags = 0,
-			 .len = writelen,
-			 .buf = writebuf,
-			 },
-			{
-			 .addr = client->addr,
-			 .flags = I2C_M_RD,
-			 .len = readlen,
-			 .buf = readbuf,
-			 },
-		};
-		ret = i2c_transfer(client->adapter, msgs, 2);
-		if (ret < 0)
-			dev_err(&client->dev, "f%s: i2c read error.\n",
-				__func__);
-	} else {
-		struct i2c_msg msgs[] = {
-			{
-			 .addr = client->addr,
-			 .flags = I2C_M_RD,
-			 .len = readlen,
-			 .buf = readbuf,
-			 },
-		};
-		ret = i2c_transfer(client->adapter, msgs, 1);
-		if (ret < 0)
-			dev_err(&client->dev, "%s:i2c read error.\n", __func__);
-	}
-	return ret;
-}
-
-static int ft5x0x_read_Touchdata()
-{
-       struct ft5x0x_ts_data *data = i2c_get_clientdata(this_client);
-	struct ts_event *event = &data->event;
-	u8 buf[POINT_READ_BUF] = { 0 };
-	int ret = -1;
-	int i = 0;
-	u8 pointid = FT_MAX_ID;
-
-	ret = ft5x0x_i2c_Read(data->client, buf, 1, buf, POINT_READ_BUF);
-	if (ret < 0) {
-		dev_err(&data->client->dev, "%s read touchdata failed.\n",
-			__func__);
-		return ret;
-	}
-	memset(event, 0, sizeof(struct ts_event));
-
-	event->touch_point = 0;
-	for (i = 0; i < CFG_MAX_TOUCH_POINTS; i++) {
-		pointid = (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
-		if (pointid >= FT_MAX_ID)
-			break;
-		else
-			event->touch_point++;
-		event->au16_x[i] =
-		    (s16) (buf[FT_TOUCH_X_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
-		    8 | (s16) buf[FT_TOUCH_X_L_POS + FT_TOUCH_STEP * i];
-		event->au16_y[i] =
-		    (s16) (buf[FT_TOUCH_Y_H_POS + FT_TOUCH_STEP * i] & 0x0F) <<
-		    8 | (s16) buf[FT_TOUCH_Y_L_POS + FT_TOUCH_STEP * i];
-		event->au8_touch_event[i] =
-		    buf[FT_TOUCH_EVENT_POS + FT_TOUCH_STEP * i] >> 6;
-		event->au8_finger_id[i] =
-		    (buf[FT_TOUCH_ID_POS + FT_TOUCH_STEP * i]) >> 4;
-		#if 0
-		pr_info("id=%d event=%d x=%d y=%d\n", event->au8_finger_id[i],
-			event->au8_touch_event[i], event->au16_x[i], event->au16_y[i]);
-		#endif
-	}
-
-	event->pressure = FT_PRESS;
-	return 0;
-}
-
-/*
-*report the point information
-*/
-static void ft5x0x_report_value()
-{
-       struct ft5x0x_ts_data *data = i2c_get_clientdata(this_client);
-	struct ts_event *event = &data->event;
-	int i;
-	int uppoint = 0;
-
-	/*protocol B*/	
-	for (i = 0; i < event->touch_point; i++)
-	{
-		input_mt_slot(data->input_dev, event->au8_finger_id[i]);
-		
-		if (event->au8_touch_event[i]== 0 || event->au8_touch_event[i] == 2)
-		{
-			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER,
-				true);
-			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR,
-					event->pressure);
-			input_report_abs(data->input_dev, ABS_MT_POSITION_X,
-					event->au16_x[i]);
-			input_report_abs(data->input_dev, ABS_MT_POSITION_Y,
-					event->au16_y[i]);
-		}
-		else
-		{
-			uppoint++;
-			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER,
-				false);
-		}
-	}
-	if(event->touch_point == uppoint)
-		input_report_key(data->input_dev, BTN_TOUCH, 0);
-	else
-		input_report_key(data->input_dev, BTN_TOUCH, event->touch_point > 0);
-	input_sync(data->input_dev);
-
-
-}
-
-#if 0
 static int ft5x0x_update_data(void)
 {
 	struct ft5x0x_ts_data *data = i2c_get_clientdata(this_client);
@@ -651,23 +496,17 @@ static int ft5x0x_update_data(void)
 
 	return 0;
 }
-#endif
 
 #if !USE_THREADED_IRQ
 static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 {
-       int ret = 0;
-       ret = ft5x0x_read_Touchdata();
-	if (ret == 0)
-		ft5x0x_report_value();
-	//ft5x0x_update_data();
+	ft5x0x_update_data();
 	enable_irq(this_client->irq);
 }
 #endif
 
 static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 {
-      int ret = 0;
 #if !USE_THREADED_IRQ
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
 
@@ -675,14 +514,12 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
 	}
 #else
-	ret = ft5x0x_read_Touchdata();
-	if (ret == 0)
-		ft5x0x_report_value();
-	//ft5x0x_update_data();
+	ft5x0x_update_data();
 #endif
 
 	return IRQ_HANDLED;
 }
+
 static void ft5x0x_ts_reset(void)
 {
 	struct ft5x0x_ts_platform_data *pdata = g_ft5x0x_ts->platform_data;
@@ -754,9 +591,9 @@ static void ft5x0x_ts_resume(struct early_suspend *handler)
 static void ft5x0x_ts_resume_work(struct work_struct *work)
 {
 	pr_info("==%s==\n", __FUNCTION__);
-	enable_irq(this_client->irq);
 	ft5x0x_ts_reset();
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
+	enable_irq(this_client->irq);
 }
 #endif
 
@@ -780,6 +617,31 @@ static void ft5x0x_ts_hw_init(struct ft5x0x_ts_data *ft5x0x_ts)
 	}
 	msleep(100);
 	ft5x0x_ts_reset();
+}
+
+void focaltech_get_upgrade_array(struct i2c_client *client)
+{
+
+	u8 chip_id;
+	u32 i;
+
+	i2c_smbus_read_i2c_block_data(client,FT_REG_CHIP_ID,1,&chip_id);
+
+	printk("%s chip_id = %x\n", __func__, chip_id);
+
+	for(i=0;i<sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info);i++)
+	{
+		if(chip_id==fts_updateinfo[i].CHIP_ID)
+		{
+			memcpy(&fts_updateinfo_curr, &fts_updateinfo[i], sizeof(struct Upgrade_Info));
+			break;
+		}
+	}
+
+	if(i >= sizeof(fts_updateinfo)/sizeof(struct Upgrade_Info))
+	{
+		memcpy(&fts_updateinfo_curr, &fts_updateinfo[0], sizeof(struct Upgrade_Info));
+	}
 }
 
 static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
@@ -821,7 +683,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	{
 		pr_err("[FST] read chip id error %x\n", uc_reg_value);
 		err = -ENODEV;
-		goto exit_alloc_data_failed;
+		goto exit_chip_check_failed;
 	}
        
 	/* set report rate, about 70HZ */
@@ -952,6 +814,8 @@ exit_input_register_device_failed:
 exit_input_dev_alloc_failed:
 exit_create_singlethread:
 exit_chip_check_failed:
+	gpio_free(pdata->irq_gpio_number);
+	gpio_free(pdata->reset_gpio_number);
 	kfree(ft5x0x_ts);
 exit_alloc_data_failed:
 exit_check_functionality_failed:

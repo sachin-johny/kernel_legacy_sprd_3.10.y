@@ -495,7 +495,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 	u8 packet_buf[FTS_PACKET_LENGTH + 6];
 	u8 auc_i2c_write_buf[10];
 	u8 bt_ecc;
-	//int i_ret;
+	int i_ret;
       // struct Upgrade_Info upgradeinfo;
 	   
 	//fts_get_upgrade_info(&upgradeinfo);

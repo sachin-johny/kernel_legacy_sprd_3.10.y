@@ -25,7 +25,7 @@
 
 
 /*****************************************************************************/
-//#define PAGE_SIZE                                        128
+#define PAGE_SIZE                                        128
 #define FTS_PACKET_LENGTH        		       128
 #define FTS_SETTING_BUF_LEN      		128
 #define FTS_DMA_BUF_SIZE 				1024
