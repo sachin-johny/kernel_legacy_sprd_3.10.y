@@ -198,6 +198,7 @@ static int sprd_audio_power_enable(struct regulator_dev *rdev)
 {
 	struct sprd_audio_power_info *info = rdev_get_drvdata(rdev);
 	int ret = 0;
+
 	sp_asoc_pr_dbg("%s Enable\n", rdev->desc->name);
 
 	if (info->en_reg) {
@@ -586,10 +587,40 @@ static struct platform_device sprd_audio_regulator_devices[] = {
 	SPRD_AUDIO_DEVICE(HEADMICBIAS),
 };
 
+#ifdef CONFIG_OF
+static int sprd_audio_power_version(void)
+{
+	struct device_node *node = of_find_node_by_path("/sprd-audio-devices");
+	struct device_node *child;
+	if (node) {
+		u32 val;
+		for_each_child_of_node(node, child) {
+			if (!of_property_read_u32(node, "sprd,audio_power_ver", &val)) {
+				sp_asoc_pr_dbg("Configure Audio Power Version is %d\n", val);
+				return val;
+			}
+		}
+	}
+	pr_err("ERR:No sprd-audio-devices Node!\n");
+	return 0;
+}
+#else
+int sprd_audio_power_version(void)
+    __attribute__ ((weak, alias("__sprd_audio_power_version")));
+
+static int __sprd_audio_power_version(void)
+{
+	return 3;
+}
+#endif
+
 static int sprd_audio_power_add_devices(void)
 {
 	int ret = 0;
 	int i;
+	if (3 != sprd_audio_power_version()) {
+		return 0;
+	}
 	for (i = 0; i < ARRAY_SIZE(sprd_audio_regulator_devices); i++) {
 		ret =
 		    platform_device_register(&sprd_audio_regulator_devices[i]);

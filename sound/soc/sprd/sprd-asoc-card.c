@@ -16,6 +16,7 @@
 #define pr_fmt(fmt) pr_sprd_fmt("BOARD") fmt
 
 #include <linux/module.h>
+#include <linux/of.h>
 #include <sound/soc.h>
 #include <sound/soc-dapm.h>
 #include <sound/tlv.h>
@@ -473,6 +474,57 @@ static void board_mute_init(void)
 	board.m[BOARD_FUNC_SPKR].mute_func = audio_speaker2_enable_inter;
 	board.m[BOARD_FUNC_HP].mute_func = audio_headphone_enable_inter;
 	board.m[BOARD_FUNC_EAR].mute_func = audio_earpiece_enable_inter;
+}
+
+static int sprd_asoc_probe(struct platform_device *pdev,
+			   struct snd_soc_card *card)
+{
+	struct device_node *node = pdev->dev.of_node;
+	card->dev = &pdev->dev;
+	if (node) {
+		int i;
+		struct device_node *pcm_node;
+		struct device_node *codec_node;
+
+		if (snd_soc_of_parse_card_name(card, "sprd,model")) {
+			pr_err("ERR:Card name is not provided\n");
+			return -ENODEV;
+		}
+#if 0
+		ret = snd_soc_of_parse_audio_routing(card,
+						     "sprd,audio-routing");
+		if (ret) {
+			pr_err("ERR:Error while parsing DAPM routing\n");
+			return ret;
+		}
+#endif
+
+		pcm_node = of_parse_phandle(node, "sprd,pcm", 0);
+		if (!pcm_node) {
+			pr_err("ERR:PCM node is not provided\n");
+			return -EINVAL;
+		}
+
+		codec_node = of_parse_phandle(node, "sprd,codec", 0);
+		if (!codec_node) {
+			pr_err("ERR:CODEC node is not provided\n");
+			of_node_put(pcm_node);
+			return -EINVAL;
+		}
+
+		for (i = 0; i < card->num_links; i++) {
+			card->dai_link[i].platform_name = NULL;
+			card->dai_link[i].platform_of_node = pcm_node;
+			card->dai_link[i].codec_name = NULL;
+			card->dai_link[i].codec_of_node = codec_node;
+		}
+		of_node_put(pcm_node);
+		of_node_put(codec_node);
+	}
+
+	board_mute_init();
+	board_inter_pa_init();
+	return snd_soc_register_card(card);
 }
 
 static int sprd_asoc_remove(struct platform_device *pdev)

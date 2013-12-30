@@ -35,6 +35,7 @@
 #include <linux/spinlock.h>
 #include <linux/power_supply.h>
 #include <linux/io.h>
+#include <linux/of.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -2820,6 +2821,7 @@ static int sprd_codec_probe(struct platform_device *pdev)
 {
 	struct sprd_codec_priv *sprd_codec;
 	int ret;
+	struct device_node *node = pdev->dev.of_node;
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -2830,13 +2832,38 @@ static int sprd_codec_probe(struct platform_device *pdev)
 			 GFP_KERNEL);
 	if (sprd_codec == NULL)
 		return -ENOMEM;
+
 	sprd_codec->da_sample_val = 44100;	/*inital value for FM route */
+
+	if (node) {
+		u32 val;
+		if (!of_property_read_u32(node, "sprd,ap_irq", &val)) {
+			sprd_codec->ap_irq = val;
+			sp_asoc_pr_dbg("Set AP IRQ is %d!\n", val);
+		} else {
+			pr_err("ERR:Must give me the AP IRQ!\n");
+			return -EINVAL;
+		}
+		if (!of_property_read_u32(node, "sprd,dp_irq", &val)) {
+			sprd_codec->dp_irq = val;
+			sp_asoc_pr_dbg("Set DP IRQ is %d!\n", val);
+		} else {
+			pr_err("ERR:Must give me the DP IRQ!\n");
+			return -EINVAL;
+		}
+		if (!of_property_read_u32(node, "sprd,def_da_fs", &val)) {
+			sprd_codec->da_sample_val = val;
+			sp_asoc_pr_dbg("Change DA default fs to %d!\n", val);
+		}
+	} else {
+		sprd_codec->ap_irq = CODEC_AP_IRQ;
+		sprd_codec->dp_irq = CODEC_DP_IRQ;
+	}
 
 	platform_set_drvdata(pdev, sprd_codec);
 
 	atomic_set(&sprd_codec->adie_adc_refcount, 0);
 	atomic_set(&sprd_codec->adie_dac_refcount, 0);
-	sprd_codec->ap_irq = CODEC_AP_IRQ;
 
 	ret =
 	    request_irq(sprd_codec->ap_irq, sprd_codec_ap_irq, 0,
@@ -2848,8 +2875,6 @@ static int sprd_codec_probe(struct platform_device *pdev)
 
 	INIT_DELAYED_WORK(&sprd_codec->ovp_delayed_work,
 			  sprd_codec_ovp_delay_worker);
-
-	sprd_codec->dp_irq = CODEC_DP_IRQ;
 
 	ret =
 	    request_irq(sprd_codec->dp_irq, sprd_codec_dp_irq, 0,
@@ -2899,10 +2924,20 @@ static int sprd_codec_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id codec_of_match[] = {
+	{.compatible = "sprd,sprd-codec-v1",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, codec_of_match);
+#endif
+
 static struct platform_driver sprd_codec_codec_driver = {
 	.driver = {
 		   .name = "sprd-codec-v1",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(codec_of_match),
 		   },
 	.probe = sprd_codec_probe,
 	.remove = sprd_codec_remove,

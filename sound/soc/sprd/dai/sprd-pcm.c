@@ -29,6 +29,7 @@
 #include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
+#include <linux/of.h>
 
 #include <sound/core.h>
 #include <sound/initval.h>
@@ -946,10 +947,20 @@ static int sprd_soc_platform_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id sprd_pcm_of_match[] = {
+	{.compatible = "sprd,sprd-pcm",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, sprd_pcm_of_match);
+#endif
+
 static struct platform_driver sprd_pcm_driver = {
 	.driver = {
 		   .name = "sprd-pcm-audio",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(sprd_pcm_of_match),
 		   },
 
 	.probe = sprd_soc_platform_probe,

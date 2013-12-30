@@ -125,18 +125,24 @@ static struct snd_soc_card vbc_r2p0_codec_v3_card = {
 
 static int vbc_r2p0_codec_v3_probe(struct platform_device *pdev)
 {
-	struct snd_soc_card *card = &vbc_r2p0_codec_v3_card;
-	card->dev = &pdev->dev;
-	board_mute_init();
-	board_inter_pa_init();
-	return snd_soc_register_card(card);
+	return sprd_asoc_probe(pdev, &vbc_r2p0_codec_v3_card);
 }
+
+#ifdef CONFIG_OF
+static const struct of_device_id vbc_r2p0_codec_v3_of_match[] = {
+	{.compatible = "sprd,vbc-r2p0-sprd-codec-v3",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, vbc_r2p0_codec_v3_of_match);
+#endif
 
 static struct platform_driver vbc_r2p0_codec_v3_driver = {
 	.driver = {
 		   .name = "vbc-r2p0-sprd-codec-v3",
 		   .owner = THIS_MODULE,
 		   .pm = &snd_soc_pm_ops,
+		   .of_match_table = of_match_ptr(vbc_r2p0_codec_v3_of_match),
 		   },
 	.probe = vbc_r2p0_codec_v3_probe,
 	.remove = sprd_asoc_remove,

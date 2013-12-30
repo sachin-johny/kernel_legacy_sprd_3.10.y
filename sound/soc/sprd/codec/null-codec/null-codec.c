@@ -28,6 +28,7 @@
 #include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
+#include <linux/of.h>
 
 #include <sound/core.h>
 #include <sound/soc.h>
@@ -82,10 +83,20 @@ static int null_codec_codec_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id codec_of_match[] = {
+	{.compatible = "sprd,null-codec",},
+	{},
+};
+
+MODULE_DEVICE_TABLE(of, codec_of_match);
+#endif
+
 static struct platform_driver null_codec_codec_driver = {
 	.driver = {
 		   .name = "null-codec",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(codec_of_match),
 		   },
 	.probe = null_codec_codec_probe,
 	.remove = null_codec_codec_remove,
