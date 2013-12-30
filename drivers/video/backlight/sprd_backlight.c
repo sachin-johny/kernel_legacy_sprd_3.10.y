@@ -287,6 +287,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	struct backlight_device *bldev;
 
 #ifdef SPRD_BACKLIGHT_PWM
+	struct clk* ext_26m = NULL;
 	struct resource *pwm_res;
 	char pwm_clk_name[32];
 
@@ -304,6 +305,15 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 		printk("Can't get pwm's clk");
 		return -ENODEV;
 	}
+
+	ext_26m = clk_get(NULL, "ext_26m");
+	if (IS_ERR(ext_26m)) {
+		printk("Can't get pwm's ext_26m");
+		return -ENODEV;
+	}
+
+	clk_set_parent(sprdbl.clk,ext_26m);
+
 	sprdbl.pwm_mode = normal_pwm;
 	PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprdbl.pwm_index);
 #else
