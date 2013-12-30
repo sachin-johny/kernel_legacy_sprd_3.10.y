@@ -426,8 +426,9 @@ SPRD_AUDIO_POWER_SIMPLE_LDO(MICBIAS, "VMICBIAS", 9, PMUR4_PMUR3,
 			    BIT(MICBIAS_EN), NULL, 0, 0);
 SPRD_AUDIO_POWER_SIMPLE_LDO(AUXMICBIAS, "VMICBIAS", 10, PMUR4_PMUR3,
 			    BIT(AUXMICBIAS_EN), NULL, 0, 0);
-SPRD_AUDIO_POWER_LDO(HEADMICBIAS, "VMICBIAS", 11, PMUR2_PMUR1, BIT(HEADMICBIAS_EN),
-	sprd_audio_power_sleep_ctrl, HIBDR2_HIBDR1, HIB_SBUT_MASK, HIB_SBUT, HIB_VSEL_table, 0,
+SPRD_AUDIO_POWER_LDO(HEADMICBIAS, "VMICBIAS", 11, PMUR2_PMUR1,
+		     BIT(HEADMICBIAS_EN), sprd_audio_power_sleep_ctrl,
+		     HIBDR2_HIBDR1, HIB_SBUT_MASK, HIB_SBUT, HIB_VSEL_table, 0,
 		     0);
 
 #define SPRD_OF_MATCH(comp, label) \
@@ -595,13 +596,18 @@ static int sprd_audio_power_version(void)
 	if (node) {
 		u32 val;
 		for_each_child_of_node(node, child) {
-			if (!of_property_read_u32(node, "sprd,audio_power_ver", &val)) {
-				sp_asoc_pr_dbg("Configure Audio Power Version is %d\n", val);
+			if (!of_property_read_u32
+			    (child, "sprd,audio_power_ver", &val)) {
+				sp_asoc_pr_dbg
+				    ("Configure Audio Power Version is %d\n",
+				     val);
 				return val;
 			}
 		}
+		pr_err("ERR:Not found sprd,audio_power_ver!\n");
+	} else {
+		pr_err("ERR:No sprd-audio-devices Node!\n");
 	}
-	pr_err("ERR:No sprd-audio-devices Node!\n");
 	return 0;
 }
 #else

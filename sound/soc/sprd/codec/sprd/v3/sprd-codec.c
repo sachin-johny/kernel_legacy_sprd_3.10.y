@@ -1150,7 +1150,7 @@ static inline void sprd_codec_hp_pa_osc(struct snd_soc_codec *codec, int osc)
 	int mask;
 	int val;
 	sp_asoc_pr_dbg("%s set %d\n", __func__, osc);
-	switch(sprd_codec->hp_ver) {
+	switch (sprd_codec->hp_ver) {
 	case SPRD_CODEC_HP_PA_VER_2:
 		mask = V2_AUDIO_CHP_OSC_MASK << V2_AUDIO_CHP_OSC;
 		val = (osc << V2_AUDIO_CHP_OSC) & mask;
@@ -1273,8 +1273,9 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 			sprd_codec_hp_pa_ref_en(codec, 1);
 		}
 		sprd_codec_hp_pa_en(codec, 1);
-		/*open classG mute delay time*/
-		sprd_codec_wait(CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME);
+		/*open classG mute delay time */
+		sprd_codec_wait
+		    (CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME);
 		sprd_codec_hp_pa_hpl_mute(codec, 0);
 		sprd_codec_hp_pa_hpr_mute(codec, 0);
 		sprd_codec->inter_hp_pa.set = 1;
@@ -1289,7 +1290,7 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 		sprd_codec_hp_pa_hpl_en(codec, 0);
 		sprd_codec_hp_pa_hpr_en(codec, 0);
 		sprd_codec_auxadc_en(codec, 0);
-		/*close classG mute delay time*/
+		/*close classG mute delay time */
 		sprd_codec_wait(0);
 		sprd_codec_hp_pa_hpl_mute(codec, 0);
 		sprd_codec_hp_pa_hpr_mute(codec, 0);
@@ -2093,7 +2094,7 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 }
 
 static int mixer_need_set(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol, bool need_set)
+			  struct snd_ctl_elem_value *ucontrol, bool need_set)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -2123,7 +2124,7 @@ static int mixer_need_set(struct snd_kcontrol *kcontrol,
 }
 
 static int mixer_set_mem(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol)
+			 struct snd_ctl_elem_value *ucontrol)
 {
 	return mixer_need_set(kcontrol, ucontrol, 0);
 }
@@ -2140,7 +2141,7 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 /*Just for LINE IN path, mixer_set not really set mixer (ADCL/R -> HP/SPK L/R) here but
 setting in ana_loop_event, just remeber state here*/
 #define SPRD_CODEC_MIXER_NOSET(xname, xreg)\
-		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
+		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set_mem)
 
 /* ADCL Mixer */
 static const struct snd_kcontrol_new adcl_mixer_controls[] = {
@@ -3324,7 +3325,9 @@ static int sprd_codec_probe(struct platform_device *pdev)
 				sprd_codec->hp_ver = val;
 				sp_asoc_pr_dbg("Set HP PA Ver is %d!\n", val);
 			} else {
-				pr_err("ERR:This driver just support less %d version!\n", SPRD_CODEC_HP_PA_VER_MAX);
+				pr_err
+				    ("ERR:This driver just support less %d version!\n",
+				     SPRD_CODEC_HP_PA_VER_MAX);
 				return -EINVAL;
 			}
 		}
