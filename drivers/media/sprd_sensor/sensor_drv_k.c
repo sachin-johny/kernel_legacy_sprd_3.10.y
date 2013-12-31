@@ -34,6 +34,7 @@
 #include <mach/board.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
+#include <mach/arch_misc.h>
 
 #if defined (CONFIG_ARCH_SC8825)
 #include <mach/i2c-sprd.h>
@@ -1676,7 +1677,14 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			}
 		}
 		break;
-
+	case SENSOR_IO_GET_SOCID:
+		{
+			SENSOR_SOCID_T  Id  ;
+			Id.d_die=sci_get_chip_id();
+			Id.a_die=sci_get_ana_chip_id()|sci_get_ana_chip_ver();
+			SENSOR_PRINT("cpu id 0x%x,0x%x  \n", Id.d_die,Id.a_die);
+			copy_to_user((SENSOR_SOCID_T *)arg, &Id, sizeof(SENSOR_SOCID_T));
+		}
 	default:
 		SENSOR_PRINT("sensor_k_ioctl: inv cmd %x  \n", cmd);
 		break;

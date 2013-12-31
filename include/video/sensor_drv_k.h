@@ -52,6 +52,10 @@ typedef struct sensor_project_func_tag {
 	int (*SetFlash)(uint32_t flash_mode);
 }SENSOR_PROJECT_FUNC_T;
 
+typedef struct  {
+	uint32_t d_die;
+	uint32_t a_die;
+}SENSOR_SOCID_T;
 
 #ifndef BOOLEAN
 #define BOOLEAN 					char
@@ -77,6 +81,8 @@ typedef struct sensor_project_func_tag {
 #define SENSOR_IO_SET_I2CCLOCK      _IOW(SENSOR_IOC_MAGIC, 16,  uint32_t)
 #define SENSOR_IO_I2C_WRITE_EXT     _IOW(SENSOR_IOC_MAGIC, 17,  SENSOR_I2C_T)
 #define SENSOR_IO_GET_FLASH_LEVEL   _IOWR(SENSOR_IOC_MAGIC, 18,  SENSOR_FLASH_LEVEL_T)
+#define SENSOR_IO_GET_SOCID   _IOWR(SENSOR_IOC_MAGIC, 255,  SENSOR_SOCID_T)
+
 
 
 #endif //_SENSOR_DRV_K_H_
