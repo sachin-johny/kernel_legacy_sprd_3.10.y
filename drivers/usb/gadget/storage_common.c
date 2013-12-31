@@ -655,17 +655,19 @@ static ssize_t fsg_store_file(struct device *dev, struct device_attribute *attr,
 	if (count > 0 && buf[count-1] == '\n')
 		((char *) buf)[count-1] = 0;		/* Ugh! */
 
-	/* Load new medium */
 	down_write(filesem);
+	/* Eject current medium */
+	 if (fsg_lun_is_open(curlun)) {
+		fsg_lun_close(curlun);
+		curlun->unit_attention_data = SS_MEDIUM_NOT_PRESENT;
+	}
+	 /* Load new medium */
 	if (count > 0 && buf[0]) {
 		/* fsg_lun_open() will close existing file if any. */
 		rc = fsg_lun_open(curlun, buf);
 		if (rc == 0)
 			curlun->unit_attention_data =
 					SS_NOT_READY_TO_READY_TRANSITION;
-	} else if (fsg_lun_is_open(curlun)) {
-		fsg_lun_close(curlun);
-		curlun->unit_attention_data = SS_MEDIUM_NOT_PRESENT;
 	}
 	up_write(filesem);
 	return (rc < 0 ? rc : count);
