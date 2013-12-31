@@ -16,7 +16,7 @@
 
 
 
-struct sprd_2351_interface *fm_rf_ops;
+struct sprd_2351_interface *fm_rf_ops = NULL;
 
 
 void shark_fm_seek_up(void)
@@ -96,21 +96,27 @@ int trout_fm_get_status(int *status)
 void trout_fm_enter_sleep(void)
 {
 	u32 reg_data;
-	
-	READ_REG(FM_REG_FM_EN, &reg_data);
-	reg_data &= ~(BIT_2 | BIT_3);
-	WRITE_REG(FM_REG_FM_EN, reg_data);
+
+      if(fm_rf_ops != NULL) 
+      	{
+	    READ_REG(FM_REG_FM_EN, &reg_data);
+	    reg_data &= ~(BIT_2 | BIT_3);
+	    WRITE_REG(FM_REG_FM_EN, reg_data);
     
-    fm_rf_ops->write_reg(0x404, 0x0313);
+           fm_rf_ops->write_reg(0x404, 0x0313);
+      	}   
 }
 
 void trout_fm_exit_sleep(void)
 {
 	u32 reg_data;
 	
-	READ_REG(FM_REG_FM_EN, &reg_data);
-	reg_data |= (BIT_2 | BIT_3);
-	WRITE_REG(FM_REG_FM_EN, reg_data);
+	if(fm_rf_ops != NULL) 
+      	{
+	    READ_REG(FM_REG_FM_EN, &reg_data);
+	    reg_data |= (BIT_2 | BIT_3);
+	    WRITE_REG(FM_REG_FM_EN, reg_data);
+	}
 }
 
 void trout_fm_mute(void)
