@@ -1051,8 +1051,8 @@ LOCAL int _Sensor_K_ReadReg(SENSOR_REG_BITS_T_PTR pReg)
 		msg_r[1].len = r_cmd_num;
 		ret = i2c_transfer(s_p_sensor_mod->cur_i2c_client->adapter, msg_r, 2);
 		if (ret != 2) {
-			SENSOR_PRINT_ERR("SENSOR:read reg fail, ret %d, addr 0x%x \n",
-					ret, s_p_sensor_mod->cur_i2c_client->addr);
+			SENSOR_PRINT_ERR("SENSOR:read reg fail, ret %d, addr 0x%x, reg_addr 0x%x \n",
+					ret, s_p_sensor_mod->cur_i2c_client->addr,reg_addr);
 			SLEEP_MS(20);
 			ret = SENSOR_K_FAIL;
 		} else {
