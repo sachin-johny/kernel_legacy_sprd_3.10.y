@@ -547,7 +547,7 @@ static int fsg_setup(struct usb_function *f,
 				w_length != 1)
 			return -EDOM;
 		VDBG(fsg, "get max LUN\n");
-		*(u8 *)req->buf = fsg->common->nluns - 1;
+		*(u8 *)req->buf = fsg->common->board_support_luns - 1;
 
 		/* Respond with data/status */
 		req->length = min((u16)1, w_length);
