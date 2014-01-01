@@ -214,6 +214,8 @@ void mark_page_accessed(struct page *page)
 			activate_page(page);
 		else if (PagePmemBacked(page))
 			SetPageActive(page);
+		else
+			return;
 		ClearPageReferenced(page);
 	} else if (!PageReferenced(page)) {
 		SetPageReferenced(page);

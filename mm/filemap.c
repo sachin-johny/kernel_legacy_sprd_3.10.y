@@ -1419,6 +1419,7 @@ static int page_cache_read(struct file *file, pgoff_t offset,
 	int ret;
 
 	do {
+		page = NULL;
 		if (allow_pmem_pagecache)
 			page = pmem_pagecache_alloc(
 				mapping_gfp_mask(mapping)|__GFP_COLD);
