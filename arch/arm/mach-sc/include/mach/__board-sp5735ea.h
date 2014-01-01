@@ -22,8 +22,8 @@
 #define GPIO_TOUCH_IRQ           82
 
 #define GPIO_SENSOR_RESET        186//41
-#define GPIO_MAIN_SENSOR_PWN     187//42
-#define GPIO_SUB_SENSOR_PWN      188//43
+#define GPIO_MAIN_SENSOR_PWN     188//42
+#define GPIO_SUB_SENSOR_PWN      187//43
 
 #define SPRD_FLASH_OFST          0x890
 #define SPRD_FLASH_CTRL_BIT      0x8000
