@@ -48,19 +48,25 @@ u32 sci_get_chip_id(void)
 	return chip_id;
 }
 
-#if defined(CONFIG_ARCH_SCX15)
 u32 sci_get_ana_chip_id(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
 	return (u32)sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
 		(u32)(sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW) & ~MASK_ANA_VER);
+#else
+	return 0;
+#endif
 }
 
 int sci_get_ana_chip_ver(void)
 {
+#if defined(CONFIG_ARCH_SCX15)
 	return ((u32)sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW) & MASK_ANA_VER);
+#else
+	return 0;
+#endif
 }
 
-#endif
 
 void __iomap_page(unsigned long virt, unsigned long size, int enable)
 {
