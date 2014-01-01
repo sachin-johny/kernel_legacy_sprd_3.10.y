@@ -628,5 +628,12 @@ config TILE_SROM
 	  device appear much like a simple EEPROM, and knows
 	  how to partition a single ROM for multiple purposes.
 
+config MUX_SPI_HAL
+        bool "MUX SPI HAL"
+        default n
+        help
+          This module supports to connect AP with CP use SPI bus.
+
+
 endmenu
 

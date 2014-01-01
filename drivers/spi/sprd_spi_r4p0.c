@@ -262,7 +262,7 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 	case 32:
 		tx_u32_p = (u32 *)src_buf;
 		rx_u32_p = (u32 *)dst_buf;
-		block_num = trans_node->len >> 2;
+		block_num = (trans_node->len + 3) >> 2;
 
 		for (;block_num >= SPRD_SPI_FIFO_SIZE; block_num -= SPRD_SPI_FIFO_SIZE)
 		{
@@ -277,7 +277,7 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 			if (transfer_mode == tx_mode)
 				continue;
 
-			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, tx_u32_p++)
+			for (i = 0; i < SPRD_SPI_FIFO_SIZE; i++, rx_u32_p++)
 			{
 				*rx_u32_p = __raw_readl(reg_base + SPI_TXD);
 			}
@@ -474,7 +474,7 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 	/*spi master mode*/
 	__raw_writel(0x0, spi_chip->reg_base + SPI_CTL2);
 	__raw_writel(0x0, spi_chip->reg_base + SPI_CTL4);
-	__raw_writel(0x0, spi_chip->reg_base + SPI_CTL5);
+	__raw_writel(0x5, spi_chip->reg_base + SPI_CTL5);
 	__raw_writel(0x0, spi_chip->reg_base + SPI_INT_EN);
 	/*reset fifo*/
 	__raw_writel(0x1, spi_chip->reg_base + SPI_FIFO_RST);

@@ -590,24 +590,26 @@ static struct spi_board_info spi_boardinfo[] = {
 	}
 };
 #endif
+
+static struct spi_board_info spi_boardinfo[] = {
+	{
+	.modalias = "ipc-spi",
+	.bus_num = 1,
+	.chip_select = 0,
+	.max_speed_hz = 1000 * 1000,
+	.mode = SPI_CPOL | SPI_CPHA,
+	}
+};
+
+
 static void sprd_spi_init(void)
 {
-#if 0
 	int busnum, cs, gpio;
 	int i;
 
 	struct spi_board_info *info = spi_boardinfo;
 
-	for (i = 0; i < ARRAY_SIZE(spi_boardinfo); i++) {
-		busnum = info[i].bus_num;
-		cs = info[i].chip_select;
-		gpio   = spi_cs_gpio_map[busnum][cs];
-
-		info[i].controller_data = (void *)gpio;
-	}
-
-        spi_register_board_info(info, ARRAY_SIZE(spi_boardinfo));
-#endif
+    spi_register_board_info(info, ARRAY_SIZE(spi_boardinfo));
 }
 
 static int sc8810_add_misc_devices(void)
