@@ -86,7 +86,7 @@ extern int __init sprd_ramconsole_init(void);
 static const unsigned int board_keymap[] = {
 	KEY(0, 0, KEY_VOLUMEDOWN),
 	KEY(1, 0, KEY_VOLUMEUP),
-	KEY(0, 1, KEY_HOME),
+	KEY(0, 1, KEY_CAMERA),
 };
 
 static const struct matrix_keymap_data customize_keymap = {
