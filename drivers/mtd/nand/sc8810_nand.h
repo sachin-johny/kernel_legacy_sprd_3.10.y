@@ -132,9 +132,9 @@
 #define NFC_RESET_TIMEOUT			(0x1ff)
 #define NFC_STATUS_TIMEOUT			(0x1ff)
 #define NFC_READID_TIMEOUT			(0x1ff)
-#define NFC_ERASE_TIMEOUT			(0xc000)
-#define NFC_READ_TIMEOUT			(0x2000)
-#define NFC_WRITE_TIMEOUT			(0x4000)
+#define NFC_ERASE_TIMEOUT			(0x200000)
+#define NFC_READ_TIMEOUT			(0x40000)
+#define NFC_WRITE_TIMEOUT			(0xc0000)
 
 #define NF_MC_CMD_ID				(0xFD)
 #define NF_MC_ADDR_ID				(0xF1)
