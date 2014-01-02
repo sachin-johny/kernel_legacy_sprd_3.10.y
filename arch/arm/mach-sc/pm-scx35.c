@@ -525,11 +525,11 @@ void force_mcu_core_sleep(void)
 }
 void enable_mcu_deep_sleep(void)
 {
-	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN);
+	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN | BIT_MCU_LIGHT_SLEEP_EN);
 }
 void disable_mcu_deep_sleep(void)
 {
-	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN);
+	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN | BIT_MCU_LIGHT_SLEEP_EN);
 }
 #define BITS_SET_CHECK(__reg, __bits, __string) do{\
 	uint32_t mid =sci_glb_read(__reg, __bits); \
@@ -940,7 +940,7 @@ int deep_sleep(int from_idle)
 		disable_ahb_module();
 	    //disable_pmu_ddr_module();
 	    
-		sci_glb_set(SPRD_PMU_BASE+0x00F4, 0x3FF);
+		//sci_glb_set(SPRD_PMU_BASE+0x00F4, 0x3FF);
 		
 		disable_dma();
 		//disable_mm();
@@ -976,7 +976,7 @@ int deep_sleep(int from_idle)
 		hard_irq_set();
 		sci_glb_clr(REG_AP_APB_APB_EB, 0xf<<19);
 		disable_mcu_deep_sleep();
-		sci_glb_clr(SPRD_PMU_BASE+0x00F4, 0x3FF);
+		//sci_glb_clr(SPRD_PMU_BASE+0x00F4, 0x3FF);
 		RESTORE_GLOBAL_REG;
 #if defined(CONFIG_ARCH_SCX15)
 		bak_restore_mm_scx15(0);
