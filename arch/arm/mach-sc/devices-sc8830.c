@@ -107,6 +107,26 @@ static struct resource sprd_serial_resources0[] = {
 		.end = IRQ_SER0_INT,
 		.flags = IORESOURCE_IRQ,
 	},
+#if 0
+	[2] = {
+			.start = SPRD_UART0_PHYS,
+			.end = SPRD_UART0_PHYS + SPRD_UART0_SIZE-1,
+			.name = "serial_phy_addr",
+			.flags = IORESOURCE_MEM,
+	},
+    [3] = {
+            .start = DMA_UART0_RX,
+            .end = DMA_UART0_RX,
+            .name = "serial_dma_rx_id",
+            .flags = IORESOURCE_DMA,
+    },
+    [4] = {
+            .start = DMA_UART0_TX,
+            .end = DMA_UART0_TX,
+            .name = "serial_dma_tx_id",
+            .flags = IORESOURCE_DMA,
+    },
+#endif
 };
 
 struct platform_device sprd_serial_device0 = {
