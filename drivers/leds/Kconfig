@@ -406,6 +406,13 @@ config LEDS_SPRD_KB
 	help
 	  This option enables support.
 
+config LEDS_SC8810_LCD
+	tristate "LED Support for sprd sc8810 lcd"
+	depends on LEDS_CLASS
+	default n
+	help
+	  This option enables support for sprd sc8810 lcd.
+
 config LEDS_TRIGGERS
 	bool "LED Trigger support"
 	depends on LEDS_CLASS

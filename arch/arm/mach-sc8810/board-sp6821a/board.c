@@ -79,6 +79,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_scale_device,
 	&sprd_rotation_device,
 	&kb_backlight_device,
+	&sprd_lcd_bl_device,
 };
 
 /* keypad backlight */

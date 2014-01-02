@@ -634,3 +634,9 @@ struct platform_device sprd_peer_state_device = {
         .name           = "peer_state",
         .id             = -1,
 };
+
+/* lcd backlight */
+struct platform_device sprd_lcd_bl_device = {
+    .name = "lcd-backlight",
+    .id   =  -1,
+};
