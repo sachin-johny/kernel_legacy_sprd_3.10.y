@@ -95,18 +95,18 @@ struct clock_name_map_t {
 
 #if defined(CONFIG_ARCH_SCX15)
 static struct clock_name_map_t clock_name_map[] = {
-						{192000000,"clk_192m"},
-						{153600000,"clk_153m6"},
-						{128000000,"clk_128m"},
-						{76800000,"clk_76m8"}
-						};
+    {192000000,"clk_192m"},
+    {153600000,"clk_153m6"},
+    {128000000,"clk_128m"},
+    {76800000,"clk_76m8"}
+};
 #else
 static struct clock_name_map_t clock_name_map[] = {
-						{256000000,"clk_256m"},
-    					{192000000,"clk_192m"},
-						{128000000,"clk_128m"},
-						{76800000,"clk_76m8"}
-						};
+    {256000000,"clk_256m"},
+    {192000000,"clk_192m"},
+    {128000000,"clk_128m"},
+    {76800000,"clk_76m8"}
+};
 #endif
 
 static int max_freq_level = ARRAY_SIZE(clock_name_map);
@@ -256,9 +256,9 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
     case VSP_RESET:
         pr_debug("vsp ioctl VSP_RESET\n");
-        sci_glb_set(SPRD_MMAHB_BASE + 0x1004, BIT(11)|BIT(4));
-        sci_glb_set(SPRD_MMAHB_BASE + 0x2004, BIT(4));	//Reset VSP
-
+        __raw_writel((1<<4) |(1<<11), SPRD_MMAHB_BASE + 0x1004);
+        udelay(1);
+        __raw_writel((1<<4) , SPRD_MMAHB_BASE + 0x2004);
         break;
     case VSP_HW_INFO:
     {
@@ -267,6 +267,22 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         pr_debug("vsp ioctl VSP_HW_INFO\n");
         mm_eb_reg = sci_glb_read(SPRD_AONAPB_BASE, 0xFFFFFFFF);
         put_user(mm_eb_reg, (int __user *)arg);
+    }
+    break;
+
+    case VSP_CAPABILITY:
+    {
+        u32 vsp_capability = 3;
+
+        printk(KERN_INFO "vsp capability -enter\n");
+
+#if defined(CONFIG_ARCH_SCX15)
+        vsp_capability = 0;
+#else
+        vsp_capability = 1;
+#endif
+        put_user(vsp_capability, (int __user *)arg);
+        printk(KERN_INFO "vsp capability -%d\n", vsp_capability);
     }
     break;
 
@@ -334,12 +350,14 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 static int vsp_open(struct inode *inode, struct file *filp)
 {
     int ret;
-    int ret_val;
     struct clk *clk_mm_i;
     struct clk *clk_vsp;
     struct clk *clk_parent;
     char *name_parent;
     struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
+
+    printk(KERN_INFO "vsp_open called %p\n", vsp_fp);
+
     if (vsp_fp == NULL) {
         printk(KERN_ERR "vsp open error occured\n");
         return  -EINVAL;
@@ -361,14 +379,14 @@ static int vsp_open(struct inode *inode, struct file *filp)
     }
 #endif
 
-	printk(KERN_INFO "VSP mmi_clk open");
-    	ret = clk_enable(vsp_hw_dev.mm_clk);
-    	if (ret) {
-        	printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-        	return ret;
-    	} else {
-        	pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
-    	}
+    printk(KERN_INFO "VSP mmi_clk open");
+    ret = clk_enable(vsp_hw_dev.mm_clk);
+    if (ret) {
+        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
+        return ret;
+    } else {
+        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+    }
 
     clk_vsp = clk_get(NULL, "clk_vsp");
     if (IS_ERR(clk_vsp) || (!clk_vsp)) {
@@ -392,8 +410,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
         vsp_hw_dev.vsp_parent_clk = clk_parent;
     }
 
-    ret_val = clk_set_parent(vsp_hw_dev.vsp_clk, vsp_hw_dev.vsp_parent_clk);
-    if (ret_val) {
+    ret = clk_set_parent(vsp_hw_dev.vsp_clk, vsp_hw_dev.vsp_parent_clk);
+    if (ret) {
         printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!",
                "clk_vsp");
         ret = -EINVAL;
@@ -409,14 +427,19 @@ by clk_get()!\n", "clk_vsp", name_parent);
     vsp_fp->condition_work = 0;
 
 #if defined(CONFIG_SPRD_IOMMU)
-	{
-		sprd_iommu_module_enable(IOMMU_MM);
-	}
+    {
+        sprd_iommu_module_enable(IOMMU_MM);
+    }
 #endif
 
-    printk(KERN_INFO "vsp_open %p\n", vsp_fp);
     return 0;
 errout:
+#if defined(CONFIG_ARCH_SCX35)
+    if (vsp_hw_dev.mm_clk) {
+        clk_put(vsp_hw_dev.mm_clk);
+    }
+#endif
+
     if (vsp_hw_dev.vsp_clk) {
         clk_put(vsp_hw_dev.vsp_clk);
     }
@@ -433,9 +456,9 @@ static int vsp_release (struct inode *inode, struct file *filp)
     struct vsp_fh *vsp_fp = filp->private_data;
 
 #if defined(CONFIG_SPRD_IOMMU)
-	{
-		sprd_iommu_module_disable(IOMMU_MM);
-	}
+    {
+        sprd_iommu_module_disable(IOMMU_MM);
+    }
 #endif
 
     if (vsp_fp->is_clock_enabled) {
@@ -476,11 +499,10 @@ static struct miscdevice vsp_dev = {
 
 static int vsp_probe(struct platform_device *pdev)
 {
-
-    int ret_val;
     int ret;
-    int cmd0;
-printk(KERN_INFO "vsp_probe123 called !\n");
+
+    printk(KERN_INFO "vsp_probe called !\n");
+
     wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
                    "pm_message_wakelock_vsp");
 
@@ -505,26 +527,15 @@ printk(KERN_INFO "vsp_probe123 called !\n");
     if (ret) {
         printk(KERN_ERR "vsp: failed to request irq!\n");
         ret = -EINVAL;
-        goto errout2;
+        goto errout;
     }
 #endif
-
 
     return 0;
 
-#ifdef USE_INTERRUPT
-errout2:
-    misc_deregister(&vsp_dev);
-#endif
-
 errout:
-    if (vsp_hw_dev.vsp_clk) {
-        clk_put(vsp_hw_dev.vsp_clk);
-    }
+    misc_deregister(&vsp_dev);
 
-    if (vsp_hw_dev.vsp_parent_clk) {
-        clk_put(vsp_hw_dev.vsp_parent_clk);
-    }
     return ret;
 }
 
@@ -561,7 +572,7 @@ static struct platform_driver vsp_driver = {
 
 static int __init vsp_init(void)
 {
-    printk(KERN_INFO "vsp_init123 called !\n");
+    printk(KERN_INFO "vsp_init called !\n");
     if (platform_driver_register(&vsp_driver) != 0) {
         printk(KERN_ERR "platform device vsp drv register Failed \n");
         return -1;
