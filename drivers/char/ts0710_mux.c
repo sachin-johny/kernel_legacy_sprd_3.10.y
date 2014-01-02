@@ -66,6 +66,7 @@
 #include <linux/proc_fs.h>
 #include <linux/sched/rt.h>
 #include <linux/version.h> 
+#include <linux/seq_file.h>
 #include "ts0710.h"
 #include "ts0710_mux.h"
 
@@ -148,6 +149,7 @@
 /* Bit number in flags of mux_send_struct */
 #define BUF_BUSY 0
 #define RECV_RUNNING 0
+#define MUX_PROC_MAX_BUF_SIZE 11
 
 /* Debug */
 #define TS0710DEBUG
@@ -296,8 +298,8 @@ typedef struct mux_info_{
 
 static mux_info sprd_mux_mgr[SPRDMUX_MAX_NUM] =
 {
-	{SPRDMUX_ID_SPI,	"sdiomux",	0},
-	{SPRDMUX_ID_SDIO,	"spimux",	0}
+	{SPRDMUX_ID_SPI,	"spimux",	0},
+	{SPRDMUX_ID_SDIO,	"sdiomux",	0}
 };
 
 static sprd_mux *mux_create(struct sprdmux *iomux);
@@ -3849,75 +3851,32 @@ static int mux_send_thread(void *private_)
 	return 0;
 }
 
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-static int mux_proc_read(char *page, char **start, off_t off, int count,
-			 int *eof, void *data)
+
+ssize_t mux_proc_read(struct file *file, char __user *buf, size_t size, loff_t *ppos)
 {
-	int len;
-	if (off > 0) {
-		*eof = 1;
-		return 0;
-	}
-	len = sprintf(page, "%d\n", mux_mode);
-	return len;
+	return seq_read(file, buf, size, ppos);
 }
-#else
-static ssize_t mux_proc_read(struct file *file, char __user *buf, size_t count, loff_t *ppos)
+
+static int mux_proc_show(struct seq_file *seq, void *v)
 {
-//Todo:
-	int len;
+	char mux_buf[MUX_PROC_MAX_BUF_SIZE + 1];
 
-	printk(KERN_INFO "MUX: %s mux_mode = %d\n", __FUNCTION__, mux_mode);
-	if (!buf)
-	{
-		printk(KERN_ERR "MUX: Error %s buf is NULL\n", __FUNCTION__);
-		return 0;
-	}
-	if (!file)
-	{
-		printk(KERN_ERR "MUX: Error %s file is NULL\n", __FUNCTION__);
-		return 0;
-	}
-	if (!ppos)
-	{
-		printk(KERN_ERR "MUX: Error %s ppos is NULL\n", __FUNCTION__);
-		return 0;
-	}
-	len = sprintf(buf, "%d\n", mux_mode);
-	printk(KERN_INFO "MUX: %s mux_mode = %d len = %d\n", __FUNCTION__, mux_mode, len);
+	memset(mux_buf, 0, sizeof(mux_buf));
+	snprintf(mux_buf, MUX_PROC_MAX_BUF_SIZE, "%d\n", mux_mode);
+	seq_puts(seq, mux_buf);
 
-	return len;
+	return 0;
 }
-#endif
+static int mux_proc_open(struct inode *inode, struct file *file)
+{
+	return single_open(file, mux_proc_show, inode->i_private);
+}
 
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-static int mux_proc_write(struct file *filp, const char __user * buf,
-			  unsigned long len, void *data)
-#else
 static ssize_t mux_proc_write(struct file *file, const char __user *buf, size_t len, loff_t *ppos)
-#endif
 {
-//Todo:
 	char mux_buf[len + 1];
 	int val;
 
-	printk(KERN_INFO "MUX: %s mux_mode = %d\n", __FUNCTION__, mux_mode);
-	if (!buf)
-	{
-		printk(KERN_ERR "MUX: Error %s buf is NULL\n", __FUNCTION__);
-		return 0;
-	}
-	if (!file)
-	{
-		printk(KERN_ERR "MUX: Error %s file is NULL\n", __FUNCTION__);
-		return 0;
-	}
-	if (!ppos)
-	{
-		printk(KERN_ERR "MUX: Error %s ppos is NULL\n", __FUNCTION__);
-		return 0;
-	}
 	memset(mux_buf, 0, len + 1);
 	if (len > 0) {
 		if (copy_from_user(mux_buf, buf, len))
@@ -3925,35 +3884,28 @@ static ssize_t mux_proc_write(struct file *file, const char __user *buf, size_t 
 		val = simple_strtoul(mux_buf, NULL, 10);
 		mux_mode = val;
 	}
-	printk(KERN_INFO "MUX: %s mux_mode = %d\n", __FUNCTION__, mux_mode);
+
 	return len;
 }
 
 static int mux_create_proc(void)
 {
 	struct proc_dir_entry *mux_entry;
-
-#if LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0)
-	mux_entry = create_proc_entry("mux_mode", 0666, NULL);	/* creat /proc/mux_mode */
-	if (!mux_entry) {
-		printk(KERN_ERR "MUX: Error Can not create mux proc entry\n");
-		return -ENOMEM;
-	}
-	mux_entry->read_proc = mux_proc_read;
-	mux_entry->write_proc = mux_proc_write;
-#else
-static const struct file_operations mux_fops = {
-	.owner = THIS_MODULE,
-	.read = mux_proc_read,
-	.write = mux_proc_write,
-};
+	static const struct file_operations mux_fops = {
+		.owner = THIS_MODULE,
+		.open = mux_proc_open,
+		.read = mux_proc_read,
+		.write = mux_proc_write,
+		.llseek = seq_lseek,
+		.release = single_release,
+	};
 
 	mux_entry = proc_create("mux_mode", 0666, NULL, &mux_fops);
 	if (!mux_entry) {
 		printk(KERN_ERR "MUX: Error Can not create mux proc entry\n");
 		return -ENOMEM;
 	}
-#endif 
+
 	return 0;
 }
 
