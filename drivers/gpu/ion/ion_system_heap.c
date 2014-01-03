@@ -27,10 +27,12 @@
 #include "ion_priv.h"
 
 static unsigned int high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO |
-					    __GFP_NOWARN | __GFP_NORETRY) &
+					    __GFP_NOWARN | __GFP_NORETRY |
+					    __GFP_NOMEMALLOC | __GFP_NO_KSWAPD) &
 					   ~__GFP_WAIT;
 static unsigned int low_order_gfp_flags  = (GFP_HIGHUSER | __GFP_ZERO |
 					 __GFP_NOWARN);
+#define HIGH_PAGE_ORDER	 (4)
 static const unsigned int orders[] = {8, 4, 2, 1, 0};
 static const int num_orders = ARRAY_SIZE(orders);
 static int order_to_index(unsigned int order)
@@ -72,7 +74,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 	} else {
 		gfp_t gfp_flags = low_order_gfp_flags;
 
-		if (order > 4)
+		if (order >= HIGH_PAGE_ORDER)
 			gfp_flags = high_order_gfp_flags;
 		page = ion_heap_alloc_pages(buffer, gfp_flags, order);
 		if (!page)
@@ -351,7 +353,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 		struct ion_page_pool *pool;
 		gfp_t gfp_flags = low_order_gfp_flags;
 
-		if (orders[i] > 4)
+		if (orders[i] >= HIGH_PAGE_ORDER)
 			gfp_flags = high_order_gfp_flags;
 		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)
