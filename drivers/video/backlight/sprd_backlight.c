@@ -23,6 +23,7 @@
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
+#include <mach/arch_misc.h>
 
 //#define SPRD_BACKLIGHT_DBG
 #ifdef SPRD_BACKLIGHT_DBG
@@ -38,6 +39,9 @@
 #define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_WARN] " x)
 #define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_BACKLIGHT_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
 #endif
+
+#define DIMMING_PWD_BASE	(SPRD_MISC_BASE + 0x8020)
+#define PD_PWM_BASE 	DIMMING_PWD_BASE
 
 /* register definitions */
 #define        PWM_PRESCALE    (0x0000)
@@ -87,8 +91,6 @@
 	/*the backlight is driven by whiteled default */
 	#define SPRD_BACKLIGHT_WHITELED
 	#define SPRD_DIM_PWM_MODE
-	#define DIMMING_PWD_BASE	(SPRD_MISC_BASE + 0x8020)
-	#define PD_PWM_BASE		DIMMING_PWD_BASE
 #endif
 
 enum bl_pwm_mode {
@@ -108,7 +110,6 @@ struct sprd_bl_devdata {
 
 static struct sprd_bl_devdata sprdbl;
 
-#if defined(SPRD_BACKLIGHT_PWM)
 static inline uint32_t pwm_read(int index, uint32_t reg)
 {
 	//this is the D-die PWM controller, here we use PWM2(index=3) for external backlight control.
@@ -135,7 +136,7 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 		clk_disable(sprdbl.clk);
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
-		bl_brightness = bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1);
+		bl_brightness = (bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
 		PRINT_DBG("user requested brightness = %d, caculated brightness = %d\n", bldev->props.brightness, bl_brightness);
 		clk_enable(sprdbl.clk);
 		pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
@@ -152,17 +153,10 @@ static int sprd_bl_pwm_get_brightness(struct backlight_device *bldev)
 	return (pwm_read(sprdbl.pwm_index, PWM_CNT) >> 8) & PWM_MOD_MAX;
 }
 
-static const struct backlight_ops sprd_backlight_ops = {
-	.update_status = sprd_bl_pwm_update_status,
-	.get_brightness = sprd_bl_pwm_get_brightness,
-};
-
-#else
-
 #ifdef CONFIG_ARCH_SCX15
 static void srpd_backlight_init(void)
 {
-	PRINT_INFO("srpd_backlight_init");
+	PRINT_INFO("srpd_backlight_init\n");
 	sci_adi_set(ANA_REG_GLB_WHTLED_CTRL1, BIT_PWM0_EN );
 
 	//this is the A-die PWM controller, it is used for white_led.
@@ -262,11 +256,15 @@ static int sprd_bl_whiteled_get_brightness(struct backlight_device *bldev)
 	return 0;
 }
 
-static const struct backlight_ops sprd_backlight_ops = {
-	.update_status = sprd_bl_whiteled_update_status,
-	.get_brightness = sprd_bl_whiteled_get_brightness,
+static const struct backlight_ops sprd_backlight_pwm_ops = {
+       .update_status = sprd_bl_pwm_update_status,
+       .get_brightness = sprd_bl_pwm_get_brightness,
 };
-#endif
+
+static const struct backlight_ops sprd_backlight_whiteled_ops = {
+       .update_status = sprd_bl_whiteled_update_status,
+       .get_brightness = sprd_bl_whiteled_get_brightness,
+};
 
 #ifdef CONFIG_EARLYSUSPEND
 static void sprd_backlight_earlysuspend(struct early_suspend *h)
@@ -277,7 +275,7 @@ static void sprd_backlight_earlysuspend(struct early_suspend *h)
 static void sprd_backlight_lateresume(struct early_suspend *h)
 {
 	sprdbl.suspend = 0;
-	sprd_backlight_ops.update_status(sprdbl.bldev);
+	sprdbl.bldev->ops->update_status(sprdbl.bldev);
 }
 #endif
 
@@ -285,6 +283,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
 	struct backlight_device *bldev;
+	int use_pwm = 0;
 
 #ifdef SPRD_BACKLIGHT_PWM
 	struct clk* ext_26m = NULL;
@@ -315,8 +314,49 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	clk_set_parent(sprdbl.clk,ext_26m);
 
 	sprdbl.pwm_mode = normal_pwm;
+	use_pwm = 1;
 	PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprdbl.pwm_index);
 #else
+
+#ifdef CONFIG_MACH_SP7715EA
+	struct clk* ext_26m = NULL;
+	struct resource *pwm_res;
+	char pwm_clk_name[32];
+	int adie_chip_ver = 0;
+
+	adie_chip_ver = sci_get_ana_chip_ver();
+	PRINT_INFO("adie_chip_ver = 0x%08X\n", adie_chip_ver);
+
+	if(0x00000000 != adie_chip_ver) {
+		pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
+		if (IS_ERR(pwm_res)) {
+			printk("Can't get pwm resource");
+			return -ENODEV;
+		}
+
+		sprdbl.pwm_index = pwm_res->start;
+		/*fixme, the pwm's clk name must like this:clk_pwmx*/
+		sprintf(pwm_clk_name, "%s%d", "clk_pwm", sprdbl.pwm_index);
+		sprdbl.clk = clk_get(&pdev->dev, pwm_clk_name);
+		if (IS_ERR(sprdbl.clk)) {
+			printk("Can't get pwm's clk");
+			return -ENODEV;
+		}
+
+		ext_26m = clk_get(NULL, "ext_26m");
+		if (IS_ERR(ext_26m)) {
+			printk("Can't get pwm's ext_26m");
+			return -ENODEV;
+		}
+
+		clk_set_parent(sprdbl.clk,ext_26m);
+
+		sprdbl.pwm_mode = normal_pwm;
+		PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprdbl.pwm_index);
+		use_pwm = 1;
+		goto pwm_7715ea;
+	}
+#endif
 
 #ifdef SPRD_DIM_PWM_MODE
 	sprdbl.pwm_mode = dim_pwm;
@@ -327,8 +367,9 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 #ifdef CONFIG_ARCH_SCX15
 	srpd_backlight_init();
 #endif
-
 #endif
+
+pwm_7715ea:
 
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = PWM_MOD_MAX;
@@ -337,13 +378,25 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	props.brightness = PWM_MOD_MAX >> 1;
 	props.power = FB_BLANK_UNBLANK;
 
-	bldev = backlight_device_register(
-			pdev->name, &pdev->dev,
-			&sprdbl, &sprd_backlight_ops, &props);
-	if (IS_ERR(bldev)) {
-		printk(KERN_ERR "Failed to register backlight device\n");
-		return -ENOMEM;
+	if(1 == use_pwm) {
+		bldev = backlight_device_register(
+				pdev->name, &pdev->dev,
+				&sprdbl, &sprd_backlight_pwm_ops, &props);
+		if (IS_ERR(bldev)) {
+			printk(KERN_ERR "Failed to register backlight device\n");
+			return -ENOMEM;
+		}
 	}
+	else {
+		bldev = backlight_device_register(
+				pdev->name, &pdev->dev,
+				&sprdbl, &sprd_backlight_whiteled_ops, &props);
+		if (IS_ERR(bldev)) {
+			printk(KERN_ERR "Failed to register backlight device\n");
+			return -ENOMEM;
+		}
+	}
+
 	sprdbl.bldev = bldev;
 	platform_set_drvdata(pdev, bldev);
 	bldev->ops->update_status(bldev);
