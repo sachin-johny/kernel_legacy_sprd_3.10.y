@@ -425,7 +425,7 @@ static int devfreq_ondemand_func(struct devfreq *df,
 			if(user_requests.ddr_freq_after_req == 0)
 				user_requests.ddr_freq_after_req = max;
 			*freq = (data->set_freq?data->set_freq:user_requests.ddr_freq_after_req);
-			printk("*** %s, data->enable:%d, data->set_freq:%u, gov_eb:%d ***\n",
+			pr_debug("*** %s, data->enable:%d, data->set_freq:%u, gov_eb:%d ***\n",
 				__func__, data->enable, data->set_freq, gov_eb );
 			return 0;
 		}
