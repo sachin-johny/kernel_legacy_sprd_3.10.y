@@ -51,3 +51,4 @@ obj-$(CONFIG_MACH_SP7730GA) += board-sp7730ga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730EC) += board-sp7730ec.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730ECTRISIM) += board-sp7730ectrisim.o dma_r4p0.o
 obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o
+obj-$(CONFIG_SPRD_AVS_DEBUG) += avs_debug.o
