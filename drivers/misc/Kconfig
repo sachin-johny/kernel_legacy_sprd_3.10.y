@@ -555,4 +555,8 @@ source "drivers/misc/carma/Kconfig"
 source "drivers/misc/altera-stapl/Kconfig"
 source "drivers/misc/mei/Kconfig"
 source "drivers/misc/vmw_vmci/Kconfig"
+config SPRD_SRT_KO
+	tristate "sprd srt kernel module support"
+	depends on SPRD_SRT
+	default m
 endmenu
