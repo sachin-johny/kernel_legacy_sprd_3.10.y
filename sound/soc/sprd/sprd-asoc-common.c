@@ -59,7 +59,6 @@ int sprd_ext_hook_unregister(struct sprd_audio_ext_hook *hook)
 
 EXPORT_SYMBOL(sprd_ext_hook_unregister);
 
-
 #define SAFE_CALL(func) do { \
 	if (func) { \
 		ret = func(id, on); \
