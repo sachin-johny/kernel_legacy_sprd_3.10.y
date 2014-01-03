@@ -300,6 +300,12 @@ config SPRD_DCDC_DEBUG
 	help
 	  This option select dcdc debug module.
 
+config SPRD_AVS_DEBUG
+	tristate "Enable avs debug module"
+	default n
+	help
+	  This option select avs debug module.
+
 config SPRD_SIMCTRL
 	bool "Enable simctrl module"
 	default n
