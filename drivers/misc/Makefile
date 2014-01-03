@@ -62,3 +62,4 @@ obj-$(CONFIG_TROUT_FM)		+= trout_fm/
 obj-y		+= sprd_vsp/
 obj-y		+= sprd_jpg/
 obj-y		+= sprd_cproc/
+obj-$(CONFIG_SPRD_SRT_KO)		+= sprd_srt/
