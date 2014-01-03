@@ -571,9 +571,11 @@ int pmem_pagecache_shrink(unsigned long max_scan)
 			shrunk = max_scan;
 	}
 
+#if 0 /* workaround for the failure of apk installation issue. */
 	for (id = 0; id < id_count && shrunk < max_scan; id++)
 		if (pmem[id].cachedpages > 0)
 			shrunk += __pmem_pagecache_shrink(id, max_scan - shrunk, 0);
+#endif
 	return shrunk;
 }
 
