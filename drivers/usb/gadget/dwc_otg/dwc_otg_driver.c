@@ -805,6 +805,10 @@ static int dwc_otg_driver_probe(
 	}
 #endif
 
+	/*Recover from drvdata having been overwritten by hcd_init()*/
+	platform_set_drvdata(_dev, dwc_otg_device);
+	dwc_otg_device->os_dep.platformdev = _dev;
+
 	/*
 	 * Enable the global interrupt after all the interrupt
 	 * handlers are installed.
