@@ -332,8 +332,13 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	         249,907,72,55,
 	         418,907,72,55
         },
+#ifdef CONFIG_FB_LOW_RES_SIMU
+        .TP_MAX_X = 360,
+        .TP_MAX_Y = 576,
+#else
         .TP_MAX_X = 540,
         .TP_MAX_Y = 960,
+#endif
 };
 
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
