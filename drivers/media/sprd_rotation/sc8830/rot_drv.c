@@ -17,9 +17,10 @@
 #include <video/sprd_rot_k.h>
 #include <mach/hardware.h>
 #include <mach/sci.h>
+
+#include "img_rot.h"
 #include "rot_drv.h"
-#include "sc8830_reg_rot.h"
-#include "../../sprd_dcam/sc8830/dcam_drv.h"
+
 
 #define ALGIN_FOUR 0x03
 #define IO_PTR    volatile void __iomem *
@@ -35,26 +36,8 @@
 		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)a)); \
 	}while(0)
 
-typedef struct _rot_param_tag {
-	ROT_SIZE_T img_size;
-	ROT_DATA_FORMAT_E format;
-	ROT_ANGLE_E angle;
-	ROT_ADDR_T src_addr;
-	ROT_ADDR_T dst_addr;
-	uint32_t s_addr;
-	uint32_t d_addr;
-	ROT_PIXEL_FORMAT_E pixel_format;
-	ROT_UV_MODE_E uv_mode;
-	int is_end;
-	ROT_ENDIAN_E src_endian;
-	ROT_ENDIAN_E dst_endian;
-} ROT_PARAM_CFG_T;
 
-static rot_isr_func user_rot_isr_func;
-static ROT_PARAM_CFG_T s_rotation_cfg;
-static DEFINE_SPINLOCK(rot_lock);
-
-#define DECLARE_ROTATION_PARAM_ENTRY(s) ROT_PARAM_CFG_T *s = &s_rotation_cfg
+static DEFINE_SPINLOCK(rot_drv_lock);
 
 int rot_k_module_en(void)
 {
@@ -65,6 +48,8 @@ int rot_k_module_en(void)
 	if (ret) {
 		printk("dcam_module_en, failed  %d \n", ret);
 	}
+
+	spin_lock_init(&rot_drv_lock);
 
 	return ret;
 }
@@ -156,48 +141,61 @@ static void rot_k_start(void)
 int rot_k_isr(struct dcam_frame* dcam_frm, void* u_data)
 {
 	unsigned long flag;
+	rot_isr_func user_isr_func;
+	struct rot_drv_private *private = (struct rot_drv_private *)u_data;
 
-	(void)dcam_frm; (void)u_data;
+	(void)dcam_frm;
 
-	spin_lock_irqsave(&rot_lock, flag);
 
-	if (user_rot_isr_func) {
-		user_rot_isr_func();
+	if (!private) {
+		goto isr_exit;
 	}
 
-	spin_unlock_irqrestore(&rot_lock, flag);
+	spin_lock_irqsave(&rot_drv_lock, flag);
+	user_isr_func = private->user_isr_func;
+	if (user_isr_func) {
+		(*user_isr_func)(private->rot_fd);
+	}
+	spin_unlock_irqrestore(&rot_drv_lock, flag);
 
+isr_exit:
 	return 0;
 }
 
-int rot_k_isr_reg(rot_isr_func user_func)
+int rot_k_isr_reg(rot_isr_func user_func,struct rot_drv_private *drv_private)
 {
 	int rtn = 0;
 	unsigned long flag;
 
-	spin_lock_irqsave(&rot_lock, flag);
-	user_rot_isr_func = user_func;
-	spin_unlock_irqrestore(&rot_lock, flag);
+
 	if (user_func) {
-		dcam_reg_isr(DCAM_ROT_DONE, rot_k_isr, NULL);
+		if (!drv_private) {
+			rtn = -EFAULT;
+			goto reg_exit;
+		}
+
+		spin_lock_irqsave(&rot_drv_lock, flag);
+		drv_private->user_isr_func = user_func;
+		spin_unlock_irqrestore(&rot_drv_lock, flag);
+
+		dcam_reg_isr(DCAM_ROT_DONE, rot_k_isr, drv_private);
 	} else {
 		dcam_reg_isr(DCAM_ROT_DONE, NULL, NULL);
 	}
 
+reg_exit:
 	return rtn;
 }
 
-int rot_k_is_end(void)
+int rot_k_is_end(ROT_PARAM_CFG_T *s)
 {
-	DECLARE_ROTATION_PARAM_ENTRY(s);
-
 	return s->is_end ;
 }
 
-static uint32_t rot_k_get_end_mode(void)
+static uint32_t rot_k_get_end_mode(ROT_PARAM_CFG_T *s)
 {
 	uint32_t ret = 1;
-	DECLARE_ROTATION_PARAM_ENTRY(s);
+
 
 	switch (s->format) {
 	case ROT_YUV422:
@@ -214,10 +212,10 @@ static uint32_t rot_k_get_end_mode(void)
 	return ret;
 }
 
-static ROT_PIXEL_FORMAT_E rot_k_get_pixel_format(void)
+static ROT_PIXEL_FORMAT_E rot_k_get_pixel_format(ROT_PARAM_CFG_T *s)
 {
 	ROT_PIXEL_FORMAT_E ret = ROT_ONE_BYTE;
-	DECLARE_ROTATION_PARAM_ENTRY(s);
+
 
 	switch (s->format) {
 	case ROT_YUV422:
@@ -235,9 +233,15 @@ static ROT_PIXEL_FORMAT_E rot_k_get_pixel_format(void)
 	return ret;
 }
 
-static int rot_k_set_y_param(ROT_CFG_T * param_ptr)
+static int rot_k_set_y_param(ROT_CFG_T * param_ptr,ROT_PARAM_CFG_T *s)
 {
-	DECLARE_ROTATION_PARAM_ENTRY(s);
+	int ret = 0;
+
+
+	if (!param_ptr || !s) {
+		ret = -EFAULT;
+		goto param_exit;
+	}
 
 	memcpy((void *)&(s->img_size), (void *)&(param_ptr->img_size),
 		sizeof(ROT_SIZE_T));
@@ -250,17 +254,18 @@ static int rot_k_set_y_param(ROT_CFG_T * param_ptr)
 	s->d_addr = param_ptr->dst_addr.y_addr;
 	s->format = param_ptr->format;
 	s->angle = param_ptr->angle;
-	s->pixel_format = rot_k_get_pixel_format();
-	s->is_end = rot_k_get_end_mode();
+	s->pixel_format = rot_k_get_pixel_format(s);
+	s->is_end = rot_k_get_end_mode(s);
 	s->uv_mode = ROT_NORMAL;
 	s->src_endian = 1;/*param_ptr->src_addr;*/
 	s->dst_endian = 1;/*param_ptr->dst_endian;*/
-	return 0;
+
+param_exit:
+	return ret;
 }
 
-int rot_k_set_UV_param(void)
+int rot_k_set_UV_param(ROT_PARAM_CFG_T *s)
 {
-	DECLARE_ROTATION_PARAM_ENTRY(s);
 
 	s->s_addr = s->src_addr.u_addr;
 	s->d_addr = s->dst_addr.u_addr;
@@ -274,9 +279,8 @@ int rot_k_set_UV_param(void)
 	return 0;
 }
 
-void rot_k_register_cfg(void)
+void rot_k_register_cfg(ROT_PARAM_CFG_T *s)
 {
-	DECLARE_ROTATION_PARAM_ENTRY(s);
 
 	rot_k_ahb_reset();
 	dcam_rotation_start();
@@ -335,7 +339,7 @@ static int rot_k_check_param(ROT_CFG_T * param_ptr)
 	return 0;
 }
 
-int rot_k_io_cfg(ROT_CFG_T * param_ptr)
+int rot_k_io_cfg(ROT_CFG_T * param_ptr,ROT_PARAM_CFG_T *s)
 {
 	int ret = 0;
 	ROT_CFG_T *p = param_ptr;
@@ -349,8 +353,7 @@ int rot_k_io_cfg(ROT_CFG_T * param_ptr)
 	ret = rot_k_check_param(param_ptr);
 
 	if(0 == ret)
-		ret = rot_k_set_y_param(param_ptr);
+		ret = rot_k_set_y_param(param_ptr,s);
 
 	return ret;
 }
-

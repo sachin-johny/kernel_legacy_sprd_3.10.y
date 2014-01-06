@@ -10,4 +10,8 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#include "rot_drv.h"
+
+#ifndef _IMG_ROT_H_
+#define _IMG_ROT_H_
+
+#endif
