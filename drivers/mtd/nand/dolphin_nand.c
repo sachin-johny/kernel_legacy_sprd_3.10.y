@@ -1894,10 +1894,7 @@ static int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 
 static int sprd_nand_resume(struct platform_device *dev)
 {
-	sprd_dolphin_reg_write(NFC_TIMING_REG, NFC_DEFAULT_TIMING);
-	sprd_dolphin_reg_write(NFC_TIMEOUT_REG, 0x80400000);
-	//close write protect
-	sprd_dolphin_nand_wp_en(&g_dolphin, 0);
+	sprd_dolphin_nand_hw_init(&g_dolphin);
 	return 0;
 }
 #else
