@@ -306,8 +306,6 @@ void bak_restore_mm_scx15(int bak)
 static void bak_ap_clk_reg(int bak)
 {
 	volatile u32 i;
-#if defined(CONFIG_ARCH_SCX15)
-#else
 	if(bak) {
 		ap_clk_reg_saved.ap_ahb_cfg      = sci_glb_read(REG_AP_CLK_AP_AHB_CFG      , -1UL);
 		ap_clk_reg_saved.ap_apb_cfg      = sci_glb_read(REG_AP_CLK_AP_APB_CFG      , -1UL);
@@ -433,7 +431,6 @@ static void bak_ap_clk_reg(int bak)
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_IIS3_CFG        , ap_clk_reg_saved.iis3_cfg        ,-1UL);
 	}
-#endif
 }
 void disable_aon_module(void)
 {
