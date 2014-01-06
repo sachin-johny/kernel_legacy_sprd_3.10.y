@@ -630,7 +630,8 @@ int32_t dcam_module_en(void)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		int  base = SPRD_ION_BASE ;
 		int   size = SPRD_ION_SIZE;
-		printk("DCAM: SPRD_ION_BASE=0x%x, SPRD_ION_SIZE=0x%x \n",base,size );
+		int   overlay_size = SPRD_ION_OVERLAY_SIZE;
+		printk("DCAM: SPRD_ION_SIZE=0x%x ,SPRD_ION_OVERLAY_SIZE=0x%x\n",size,overlay_size );
 		ret = _dcam_is_clk_mm_i_eb(1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
@@ -1213,19 +1214,30 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 LOCAL void    _dcam_wait_for_qucikstop(void)
 {
 	int    time_out = 5000;
-	dcam_glb_reg_awr(DCAM_INT_MASK,~DCAM_IRQ_LINE_MASK,DCAM_INIT_MASK_REG);
-	dcam_glb_reg_owr(DCAM_INT_CLR,DCAM_IRQ_LINE_MASK,DCAM_INIT_CLR_REG);
+
+#define DCAM_IRQ_MASK_PATH0                            (0x0f|(0x03<<4)|(0x07<<10)|(1<<18))  //let other module continue
+#define DCAM_IRQ_MASK_PATH1                            (0x0f|(0x03<<6)|(0x03<<10)|(1<<16)|(1<<19))
+#define DCAM_IRQ_MASK_PATH2                            (0x0f|(0x03<<8)|(0x03<<10)|(1<<17)|(1<<20))
 
 	dcam_glb_reg_mwr(DCAM_CONTROL, BIT_2, 0, DCAM_CONTROL_REG); /* Cap Disable */
 
 	if (s_p_dcam_mod->dcam_path0.valide) {
-		dcam_glb_reg_mwr(DCAM_CFG, BIT_2, BIT_0, DCAM_CFG_REG); 
+		dcam_glb_reg_awr(DCAM_INT_MASK,~DCAM_IRQ_MASK_PATH0,DCAM_INIT_MASK_REG);
+		dcam_glb_reg_owr(DCAM_INT_CLR,DCAM_IRQ_MASK_PATH0,DCAM_INIT_CLR_REG);
+
+		dcam_glb_reg_mwr(DCAM_CFG, BIT_0, BIT_0, DCAM_CFG_REG);
 		dcam_glb_reg_owr(DCAM_AHBM_STS, BIT_3, DCAM_AHBM_STS_REG);
 	} else if (s_p_dcam_mod->dcam_path1.valide) {
-		dcam_glb_reg_mwr(DCAM_CFG, BIT_2, BIT_1, DCAM_CFG_REG); 
+		dcam_glb_reg_awr(DCAM_INT_MASK,~DCAM_IRQ_MASK_PATH1,DCAM_INIT_MASK_REG);
+		dcam_glb_reg_owr(DCAM_INT_CLR,DCAM_IRQ_MASK_PATH1,DCAM_INIT_CLR_REG);
+
+		dcam_glb_reg_mwr(DCAM_CFG, BIT_1, BIT_1, DCAM_CFG_REG);
 		dcam_glb_reg_owr(DCAM_AHBM_STS, BIT_4, DCAM_AHBM_STS_REG);
 	} else if (s_p_dcam_mod->dcam_path2.valide) {
-		dcam_glb_reg_mwr(DCAM_CFG, BIT_2, BIT_2, DCAM_CFG_REG); 
+		dcam_glb_reg_awr(DCAM_INT_MASK,~DCAM_IRQ_MASK_PATH2,DCAM_INIT_MASK_REG);
+		dcam_glb_reg_owr(DCAM_INT_CLR,DCAM_IRQ_MASK_PATH2,DCAM_INIT_CLR_REG);
+
+		dcam_glb_reg_mwr(DCAM_CFG, BIT_2, BIT_2, DCAM_CFG_REG);
 		dcam_glb_reg_owr(DCAM_AHBM_STS, BIT_5, DCAM_AHBM_STS_REG);
 	} else {
 		printk("DCAM: No path valide");
