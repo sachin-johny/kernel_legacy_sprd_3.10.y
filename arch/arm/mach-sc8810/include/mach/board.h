@@ -108,7 +108,7 @@
         #ifdef CONFIG_CAMERA_ROTATION
         #define SPRD_ION_SIZE   (13*1024*1024)
         #else
-        #define SPRD_ION_SIZE   (8*1024*1024)
+        #define SPRD_ION_SIZE   (0*1024*1024)
         #endif
     #else
     #define SPRD_ION_SIZE   (19*1024*1024)
