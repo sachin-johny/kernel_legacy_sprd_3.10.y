@@ -907,7 +907,7 @@ void int_work_round(void)
 	//sci_glb_set(SPRD_LPDDR2_PHY_BASE + 0x2c, BIT(4));
 	//sci_glb_write(SPRD_LPDDR2_BASE + 0x30, 0, -1UL);
 	//sci_glb_set(SPRD_PMU_BASE + 0xa8, 1<<1);
-	sci_adi_clr(ANA_EIC_BASE + 0x18, 0x20);
+	//sci_adi_clr(ANA_EIC_BASE + 0x18, 0x20);
 }
 void show_deep_reg_status(void)
 {
