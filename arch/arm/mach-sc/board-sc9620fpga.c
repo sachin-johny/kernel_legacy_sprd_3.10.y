@@ -130,7 +130,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_emmc_device,
 	&sprd_sdio0_device,
 	&sprd_sdio1_device,
-	/* &sprd_sdio2_device, */
+	&sprd_sdio2_device,
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
 #endif

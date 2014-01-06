@@ -71,4 +71,7 @@
 #define GPIO_GYRO_INT1 163
 #define GPIO_M_RSTN	161
 #define GPIO_M_DRDY 164
+
+#define GPIO_SDIO_DETECT      75
+
 #endif

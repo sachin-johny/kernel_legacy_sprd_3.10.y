@@ -72,6 +72,8 @@
 #define GPIO_M_RSTN	188
 #define GPIO_M_DRDY 189
 
+#define GPIO_SDIO_DETECT      75
+
 /* ION config info
 LCD:
    960x540
