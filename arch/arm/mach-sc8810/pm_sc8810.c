@@ -27,6 +27,10 @@
 #include <linux/kthread.h>
 #include <mach/pm_debug.h>
 
+#if defined(CONFIG_SPRD_DEBUG)
+#include <mach/sprd_debug.h>
+#endif
+
 extern int sp_pm_collapse(void);
 extern void sp_pm_collapse_exit(void);
 extern void sc8810_standby_iram(void);
@@ -462,6 +466,10 @@ void sc8810_pm_init(void)
 	setup_autopd_mode();
 	init_led();
 	pm_debug_init();
+
+#if defined(CONFIG_SPRD_DEBUG)
+	 sprd_debug_init();
+#endif
 }
 
 

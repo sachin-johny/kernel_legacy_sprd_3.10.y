@@ -262,6 +262,10 @@ static int __die(const char *str, int err, struct thread_info *thread, struct pt
 
 static DEFINE_SPINLOCK(die_lock);
 
+#ifdef CONFIG_SPRD_SYSDUMP
+       extern void sysdump_enter(int enter_id, const char *reason, struct pt_regs *regs);
+#endif
+
 /*
  * This function is protected against re-entrancy.
  */
@@ -276,6 +280,9 @@ void die(const char *str, struct pt_regs *regs, int err)
 	console_verbose();
 	bust_spinlocks(1);
 	ret = __die(str, err, thread, regs);
+#ifdef CONFIG_SPRD_SYSDUMP
+        sysdump_enter(1, str, regs);
+#endif
 
 	if (regs && kexec_should_crash(thread->task))
 		crash_kexec(regs);

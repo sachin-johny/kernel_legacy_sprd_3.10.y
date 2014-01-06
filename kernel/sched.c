@@ -77,6 +77,11 @@
 #include <asm/irq_regs.h>
 #include <asm/mutex.h>
 
+#ifdef CONFIG_SPRD_DEBUG
+#include <mach/sprd_debug.h>
+#endif
+
+
 #include "sched_cpupri.h"
 #include "workqueue_sched.h"
 #include "sched_autogroup.h"
@@ -4292,6 +4297,10 @@ need_resched:
 		rq = cpu_rq(cpu);
 	} else
 		raw_spin_unlock_irq(&rq->lock);
+
+#ifdef CONFIG_SPRD_DEBUG
+        sprd_debug_task_log(cpu, rq->curr);
+#endif
 
 	post_schedule(rq);
 
