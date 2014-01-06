@@ -255,33 +255,39 @@ static struct snd_soc_card sc882x_card = {
 	.num_dapm_routes = ARRAY_SIZE(sc882x_audio_map),
 	.late_probe = sc882x_late_probe,
 };
-
-static struct platform_device *sc882x_snd_device;
-
-static int __init sc882x_modinit(void)
+static int vbc_r1p0_codec_v1_probe(struct platform_device *pdev)
 {
-	int ret;
-
-	sc882x_snd_device = platform_device_alloc("soc-audio", -1);
-	if (!sc882x_snd_device)
-		return -ENOMEM;
-
-	platform_set_drvdata(sc882x_snd_device, &sc882x_card);
-	ret = platform_device_add(sc882x_snd_device);
-
-	if (ret)
-		platform_device_put(sc882x_snd_device);
-
-	return ret;
+	struct snd_soc_card *card = &sc882x_card;
+	card->dev = &pdev->dev;
+	return snd_soc_register_card(card);
 }
 
-static void __exit sc882x_modexit(void)
+static int sc882x_remove(struct platform_device *pdev)
 {
-	platform_device_unregister(sc882x_snd_device);
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	snd_soc_unregister_card(card);
+	return 0;
 }
 
-module_init(sc882x_modinit);
-module_exit(sc882x_modexit);
+static void sc882x_shutdown(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	memset(&sc882x.func, 0, sizeof(sc882x.func));
+	sc882x_ext_control(&card->dapm, 0, SC882X_FUNC_MAX);
+}
+
+static struct platform_driver sc882x_driver = {
+	.driver = {
+		   .name = "vbc-r1p0-sprd-codec-v1",
+		   .owner = THIS_MODULE,
+		   .pm = &snd_soc_pm_ops,
+		   },
+	.probe = vbc_r1p0_codec_v1_probe,
+	.remove = sc882x_remove,
+	.shutdown = sc882x_shutdown,
+};
+
+module_platform_driver(sc882x_driver);
 
 MODULE_DESCRIPTION("ALSA SoC SpreadTrum VBC+sprd-codec sc882x");
 MODULE_AUTHOR("Ken Kuang <ken.kuang@spreadtrum.com>");

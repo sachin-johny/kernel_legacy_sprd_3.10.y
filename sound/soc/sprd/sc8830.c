@@ -286,7 +286,6 @@ static int sc883x_mute_set(struct snd_kcontrol *kcontrol,
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
-	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
 	int id = FUN_REG(mc->reg);
 
 	pr_info("%s switch %s\n", func_name[id],
@@ -349,6 +348,7 @@ static int sc883x_late_probe(struct snd_soc_card *card)
 	snd_soc_dapm_ignore_suspend(&card->dapm, "Dig FM Jack");
 	return 0;
 }
+
 
 static struct snd_soc_dai_link sc883x_dai[] = {
 	{
@@ -416,34 +416,40 @@ static void sc883x_mute_init(void)
 	sc883x.m[SC883X_FUNC_EAR].mute_func = audio_earpiece_enable_inter;
 }
 
-static struct platform_device *sc883x_snd_device;
-
-static int __init sc883x_modinit(void)
+static int vbc_r2p0_codec_v3_probe(struct platform_device *pdev)
 {
-	int ret;
-
-	sc883x_snd_device = platform_device_alloc("soc-audio", -1);
-	if (!sc883x_snd_device)
-		return -ENOMEM;
-
-	platform_set_drvdata(sc883x_snd_device, &sc883x_card);
-	ret = platform_device_add(sc883x_snd_device);
-
-	if (ret)
-		platform_device_put(sc883x_snd_device);
-	else
-		sc883x_mute_init();
-
-	return ret;
+	struct snd_soc_card *card = &sc883x_card;
+	card->dev = &pdev->dev;
+	sc883x_mute_init();
+	return snd_soc_register_card(card);
 }
 
-static void __exit sc883x_modexit(void)
+static int sc8830_remove(struct platform_device *pdev)
 {
-	platform_device_unregister(sc883x_snd_device);
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	snd_soc_unregister_card(card);
+	return 0;
 }
 
-module_init(sc883x_modinit);
-module_exit(sc883x_modexit);
+static void sc8830_shutdown(struct platform_device *pdev)
+{
+	struct snd_soc_card *card = platform_get_drvdata(pdev);
+	memset(&sc883x.func, 0, sizeof(sc883x.func));
+	sc883x_ext_control(&card->dapm, 0, SC883X_FUNC_MAX);
+}
+
+static struct platform_driver sc8830_driver = {
+	.driver = {
+		   .name = "vbc-r2p0-sprd-codec-v3",
+		   .owner = THIS_MODULE,
+		   .pm = &snd_soc_pm_ops,
+		   },
+	.probe = vbc_r2p0_codec_v3_probe,
+	.remove = sc8830_remove,
+	.shutdown = sc8830_shutdown,
+};
+
+module_platform_driver(sc8830_driver);
 
 MODULE_DESCRIPTION("ALSA SoC SpreadTrum VBC+sprd-codec sc8830");
 MODULE_AUTHOR("Zhenfang Wang <zhenfang.wang@spreadtrum.com>");

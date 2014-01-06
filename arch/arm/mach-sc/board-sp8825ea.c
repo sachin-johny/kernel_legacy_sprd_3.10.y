@@ -127,6 +127,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_audio_cpu_dai_i2s_device,
 	&sprd_audio_cpu_dai_i2s_device1,
 	&sprd_audio_codec_null_codec_device,
+	&sprd_audio_vbc_r1p0_sprd_codec_v1_device,
 	&sprd_battery_device,
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
