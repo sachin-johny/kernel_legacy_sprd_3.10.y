@@ -53,7 +53,7 @@
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       16
 #define DCAM_TIMING_LEN                         16
-#define DCAM_TIMEOUT                            1000
+#define DCAM_TIMEOUT                            2000
 #define DEBUG_STR                               "Error L %d, %s: \n"
 #define DEBUG_ARGS                              __LINE__,__FUNCTION__
 #define V4L2_RTN_IF_ERR(n)          \
