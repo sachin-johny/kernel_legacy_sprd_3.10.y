@@ -78,6 +78,10 @@
 #include "__board-sp7715ea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7715EAOPENPHONE
+#include "__board-sp7715eaopenphone.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP6815GA
 #include "__board-sp6815ga.h"
 #endif
