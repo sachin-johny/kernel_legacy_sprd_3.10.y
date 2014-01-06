@@ -286,15 +286,16 @@ struct sprd_codec_priv {
 /* codec local power suppliy */
 static struct sprd_codec_power_suppliy {
 	struct regulator_bulk_data supplies[SPRD_CODEC_NUM_SUPPLIES];
-	struct delayed_work mic_delayed_work;
-	struct delayed_work auxmic_delayed_work;
-	struct delayed_work headmic_delayed_work;
-	atomic_t mic_on;
-	atomic_t auxmic_on;
-	atomic_t headmic_on;
+	atomic_t micbias_refcnt[SPRD_CODEC_MIC_BIAS_MAX];
 	atomic_t ldo_refcount;
 	int audio_ldo_open_ok;
 } sprd_codec_power;
+
+struct sprd_codec_micbias_supply {
+	struct delayed_work dwork;
+	int on;
+	int id;
+};
 
 #define SPRD_CODEC_PA_SW_AOL (BIT(0))
 #define SPRD_CODEC_PA_SW_EAR (BIT(1))
@@ -1055,7 +1056,7 @@ EXPORT_SYMBOL(sprd_inter_headphone_pa);
 
 /* mic bias external */
 
-static inline void sprd_codec_mic_bias_en(int on)
+static inline void __sprd_codec_mic_bias_en(int on)
 {
 	int mask;
 	int val;
@@ -1065,7 +1066,7 @@ static inline void sprd_codec_mic_bias_en(int on)
 	arch_audio_codec_write_mask(PMUR4_PMUR3, val, mask);
 }
 
-static inline void sprd_codec_auxmic_bias_en(int on)
+static inline void __sprd_codec_auxmic_bias_en(int on)
 {
 	int mask;
 	int val;
@@ -1075,7 +1076,7 @@ static inline void sprd_codec_auxmic_bias_en(int on)
 	arch_audio_codec_write_mask(PMUR4_PMUR3, val, mask);
 }
 
-static inline void sprd_codec_headmic_bias_en(int on)
+static inline void __sprd_codec_headmic_bias_en(int on)
 {
 	int mask;
 	int val;
@@ -1083,6 +1084,44 @@ static inline void sprd_codec_headmic_bias_en(int on)
 	mask = BIT(HEADMICBIAS_EN);
 	val = on ? mask : 0;
 	arch_audio_codec_write_mask(PMUR2_PMUR1, val, mask);
+}
+
+typedef void (*sprd_micbias_en) (int on);
+static inline int sprd_codec_mic_bias_en(int enable, int id)
+{
+	int ret = 0;
+	sprd_micbias_en fun;
+	switch (id) {
+	case SPRD_CODEC_MIC_BIAS:
+		fun = __sprd_codec_mic_bias_en;
+		break;
+	case SPRD_CODEC_AUXMIC_BIAS:
+		fun = __sprd_codec_auxmic_bias_en;
+		break;
+	case SPRD_CODEC_HEADMIC_BIAS:
+		fun = __sprd_codec_headmic_bias_en;
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+		return ret;
+	}
+	if (enable) {
+		atomic_inc(&sprd_codec_power.micbias_refcnt[id]);
+		if (atomic_read(&sprd_codec_power.micbias_refcnt[id]) == 1) {
+			fun(1);
+		}
+	} else {
+		if (atomic_dec_and_test(&sprd_codec_power.micbias_refcnt[id])) {
+			fun(0);
+		}
+		if (atomic_read(&sprd_codec_power.micbias_refcnt[id]) < 0) {
+			atomic_set(&sprd_codec_power.micbias_refcnt[id], 0);
+		}
+	}
+	sprd_codec_dbg("%s : refcnt:%d", mic_bias_name[id],
+		       atomic_read(&sprd_codec_power.micbias_refcnt[id]));
+	return ret;
 }
 
 static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
@@ -1317,56 +1356,11 @@ static int sprd_codec_ldo_control(int on)
 
 static void sprd_codec_mic_delay_worker(struct work_struct *work)
 {
-	static int is_on = 0;
-	int on = atomic_read(&sprd_codec_power.mic_on) > 0;
-	if (is_on == on) {
-		return;
-	}
-	is_on = on;
-	sprd_codec_ldo_control(on);
-	sprd_codec_mic_bias_en(on);
-}
-
-static void sprd_codec_auxmic_delay_worker(struct work_struct *work)
-{
-	static int is_on = 0;
-	int on = atomic_read(&sprd_codec_power.auxmic_on) > 0;
-	if (is_on == on) {
-		return;
-	}
-	is_on = on;
-	sprd_codec_ldo_control(on);
-	sprd_codec_auxmic_bias_en(on);
-}
-
-static void sprd_codec_headmic_delay_worker(struct work_struct *work)
-{
-	static int is_on = 0;
-	int on = atomic_read(&sprd_codec_power.headmic_on) > 0;
-	if (is_on == on) {
-		return;
-	}
-	is_on = on;
-	sprd_codec_ldo_control(on);
-	sprd_codec_headmic_bias_en(on);
-}
-
-static int sprd_codec_mic_bias_inter(int on, atomic_t * v,
-				     spinlock_t * bias_lock)
-{
-	int ret = 0;
-	spin_lock(bias_lock);
-	if (on) {
-		atomic_inc(v);
-		ret = 1;
-	} else {
-		if (atomic_read(v) > 0) {
-			atomic_dec(v);
-			ret = 1;
-		}
-	}
-	spin_unlock(bias_lock);
-	return ret;
+	struct sprd_codec_micbias_supply *micbias_power =
+	    container_of(work, struct sprd_codec_micbias_supply, dwork.work);
+	sprd_codec_ldo_control(micbias_power->on);
+	sprd_codec_mic_bias_en(micbias_power->on, micbias_power->id);
+	kfree(micbias_power);
 }
 
 static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
@@ -1377,52 +1371,42 @@ static void sprd_codec_init_delayed_work(struct delayed_work *delayed_work,
 	}
 }
 
+static int sprd_codec_micbias_ctl(int on, int id)
+{
+	struct sprd_codec_micbias_supply *micbias_power =
+	    kzalloc(sizeof(*micbias_power), GFP_KERNEL);
+
+	if (!micbias_power) {
+		pr_err("%s can not alloc memory\n", __func__);
+		return -ENOMEM;
+	}
+
+	pr_info("%s switch %s\n", mic_bias_name[id],  on ? "ON" : "OFF");
+	micbias_power->on = on;
+	micbias_power->id = id;
+	sprd_codec_init_delayed_work(&micbias_power->dwork,
+				     sprd_codec_mic_delay_worker);
+	schedule_delayed_work(&micbias_power->dwork, msecs_to_jiffies(1));
+	return 0;
+}
+
 int sprd_codec_mic_bias_control(int on)
 {
-	static DEFINE_SPINLOCK(mic_bias_lock);
-	if (sprd_codec_mic_bias_inter
-	    (on, &sprd_codec_power.mic_on, &mic_bias_lock)) {
-		pr_info("mic bias switch %s\n", on ? "ON" : "OFF");
-		sprd_codec_init_delayed_work(&sprd_codec_power.mic_delayed_work,
-					     sprd_codec_mic_delay_worker);
-		schedule_delayed_work(&sprd_codec_power.mic_delayed_work,
-				      msecs_to_jiffies(1));
-	}
-	return 0;
+	return sprd_codec_micbias_ctl(on, SPRD_CODEC_MIC_BIAS);
 }
 
 EXPORT_SYMBOL(sprd_codec_mic_bias_control);
 
 int sprd_codec_auxmic_bias_control(int on)
 {
-	static DEFINE_SPINLOCK(auxmic_bias_lock);
-	if (sprd_codec_mic_bias_inter
-	    (on, &sprd_codec_power.auxmic_on, &auxmic_bias_lock)) {
-		pr_info("auxmic bias switch %s\n", on ? "ON" : "OFF");
-		sprd_codec_init_delayed_work
-		    (&sprd_codec_power.auxmic_delayed_work,
-		     sprd_codec_auxmic_delay_worker);
-		schedule_delayed_work(&sprd_codec_power.auxmic_delayed_work,
-				      msecs_to_jiffies(1));
-	}
-	return 0;
+	return sprd_codec_micbias_ctl(on, SPRD_CODEC_AUXMIC_BIAS);
 }
 
 EXPORT_SYMBOL(sprd_codec_auxmic_bias_control);
 
 int sprd_codec_headmic_bias_control(int on)
 {
-	static DEFINE_SPINLOCK(headmic_bias_lock);
-	if (sprd_codec_mic_bias_inter
-	    (on, &sprd_codec_power.headmic_on, &headmic_bias_lock)) {
-		pr_info("headmic bias switch %s\n", on ? "ON" : "OFF");
-		sprd_codec_init_delayed_work
-		    (&sprd_codec_power.headmic_delayed_work,
-		     sprd_codec_headmic_delay_worker);
-		schedule_delayed_work(&sprd_codec_power.headmic_delayed_work,
-				      msecs_to_jiffies(1));
-	}
-	return 0;
+	return sprd_codec_micbias_ctl(on, SPRD_CODEC_HEADMIC_BIAS);
 }
 
 EXPORT_SYMBOL(sprd_codec_headmic_bias_control);
@@ -2089,28 +2073,7 @@ static int mic_bias_event(struct snd_soc_dapm_widget *w,
 
 	sprd_codec_dbg("Entering %s %s event is %s\n", __func__,
 		       mic_bias_name[id], get_event_name(event));
-
-	switch (id) {
-	case SPRD_CODEC_MIC_BIAS:
-		if (!(atomic_read(&sprd_codec_power.mic_on) > 0)) {
-			sprd_codec_mic_bias_en(SND_SOC_DAPM_EVENT_ON(event));
-		}
-		break;
-	case SPRD_CODEC_AUXMIC_BIAS:
-		if (!(atomic_read(&sprd_codec_power.auxmic_on) > 0)) {
-			sprd_codec_auxmic_bias_en(SND_SOC_DAPM_EVENT_ON(event));
-		}
-		break;
-	case SPRD_CODEC_HEADMIC_BIAS:
-		if (!(atomic_read(&sprd_codec_power.headmic_on) > 0)) {
-			sprd_codec_headmic_bias_en(SND_SOC_DAPM_EVENT_ON
-						   (event));
-		}
-		break;
-	default:
-		BUG();
-		ret = -EINVAL;
-	}
+	sprd_codec_mic_bias_en(SND_SOC_DAPM_EVENT_ON(event), id);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 

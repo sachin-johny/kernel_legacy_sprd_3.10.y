@@ -386,22 +386,24 @@ static void headmicbias_power_on(int on)
 {
         unsigned long spin_lock_flags;
         static int current_power_state = 0;
-
+	int ret = 0;
         spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
         if (1 == on) {
                 if (0 == current_power_state) {
-                        sprd_codec_headmic_bias_control(1);
-                        current_power_state = 1;
+			ret = sprd_codec_headmic_bias_control(1);
+			if(!ret)
+				current_power_state = 1;
                 }
         } else {
                 if (1 == current_power_state) {
-                        sprd_codec_headmic_bias_control(0);
-                        current_power_state = 0;
+			ret = sprd_codec_headmic_bias_control(0);
+			if(!ret)
+				current_power_state = 0;
                 }
         }
         spin_unlock_irqrestore(&headmic_bias_lock, spin_lock_flags);
 
-        return;
+        return ret;
 }
 
 static int array_get_min(int* array, int size)
