@@ -113,7 +113,7 @@ static inline u32 __raw_readl(const volatile void __iomem *addr)
 	return val;
 }
 #else
-extern struct sprd_debug_regs_access sprd_debug_last_regs_access[NR_CPUS];
+extern struct sprd_debug_regs_access *sprd_debug_last_regs_access;
 #if __LINUX_ARM_ARCH__ < 6
 /*
  * Half-word accesses are problematic with RiscPC due to limitations of
