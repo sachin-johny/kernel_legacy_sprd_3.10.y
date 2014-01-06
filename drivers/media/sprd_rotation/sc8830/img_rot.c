@@ -26,308 +26,329 @@
 #include <video/sprd_rot_k.h>
 #include <linux/slab.h>
 #include <linux/kthread.h>
-#include "img_rot.h"
 #include <linux/delay.h>
-#include "../../sprd_dcam/sc8830/dcam_drv.h"
 
+#include "../../sprd_dcam/sc8830/dcam_drv.h"
+#include "rot_drv.h"
+#include "img_rot.h"
+
+
+#define ROT_DEVICE_NAME "sprd_rotation"
 #define ROT_TIMEOUT 5000/*ms*/
 #define ROTATION_MINOR MISC_DYNAMIC_MINOR
-#define ROT_USER_MAX 4
-#define INVALID_USER_ID PID_MAX_DEFAULT
 
-struct rot_user {
-	pid_t pid;
-	uint32_t is_exit_force;
-	uint32_t is_rot_enable;
-	struct semaphore sem_done;
+
+struct rot_k_private{
+	struct mutex 	sync_lock;
+	atomic_t users;
 };
 
-static struct semaphore g_sem_dev_open;
-static struct semaphore g_sem_rot;
-static struct semaphore g_sem_rot_done;
-static struct rot_user *g_rot_user = NULL;
-static atomic_t rot_users = ATOMIC_INIT(0);
-static pid_t cur_task_pid;
+struct rot_k_file{
+	struct rot_k_private *rot_private;
 
-static struct rot_user *rot_get_user(pid_t user_pid)
+	struct semaphore rot_done_sem;
+
+	/*for dcam rotation module*/
+	struct rot_drv_private drv_private;
+};
+
+static void rot_k_irq(void *fd)
 {
-	struct rot_user *ret_user = NULL;
-	int i;
+	struct rot_k_file *rot_file = (struct rot_k_file*)fd;
 
-	for (i = 0; i < ROT_USER_MAX; i ++) {
-		if ((g_rot_user + i)->pid == user_pid) {
-			ret_user = g_rot_user + i;
-			break;
-		}
+	if (!rot_file) {
+		return;
 	}
 
-	if (ret_user == NULL) {
-		for (i = 0; i < ROT_USER_MAX; i ++) {
-			if ((g_rot_user + i)->pid == INVALID_USER_ID) {
-				ret_user = g_rot_user + i;
-				ret_user->pid = user_pid;
-				break;
-			}
-		}
-	}
-
-	return ret_user;
-}
-
-static void rot_k_irq(void)
-{
 	ROTATE_TRACE("rot_k_irq start.\n");
 	dcam_rotation_end();
-	up(&g_sem_rot_done);
+	up(&rot_file->rot_done_sem);
 	ROTATE_TRACE("rot_k_irq end.\n");
 }
 
-static int rot_k_wait_stop(void)
+static int rot_k_wait_stop(struct rot_k_file *fd)
 {
 	int ret = 0;
+
 	ROTATE_TRACE("rot_k_wait_stop start.\n");
-	ret = down_timeout(&g_sem_rot_done, msecs_to_jiffies(ROT_TIMEOUT));
+	ret = down_timeout(&fd->rot_done_sem, msecs_to_jiffies(ROT_TIMEOUT));
 	ROTATE_TRACE("rot_k_wait_stop end.\n");
 	udelay(1);
 	return ret;
 }
 
-static int rot_k_start(void)
+static int rot_k_start(struct rot_k_file *fd)
 {
 	int ret = 0;
-	struct rot_user *p_user = NULL;
+	ROT_PARAM_CFG_T *s;
 
-	rot_k_register_cfg();
 
-	if (0 == rot_k_is_end()) {
-		ret = rot_k_wait_stop();
+	if (!fd) {
+		ret = -EFAULT;
+		goto start_exit;
+	}
+	s = &(fd->drv_private.cfg);
+	rot_k_register_cfg(s);
+
+	if (0 == rot_k_is_end(s)) {
+		ret = rot_k_wait_stop(fd);
 		if (ret) {
 			printk("rot_k_thread y wait error \n");
-			goto rot_exit;
+			goto start_out;
 		}
 		ROTATE_TRACE("rot_k_start y done, uv start. \n");
-		rot_k_set_UV_param();
-		rot_k_register_cfg();
+		rot_k_set_UV_param(s);
+		rot_k_register_cfg(s);
 	}
-	ret = rot_k_wait_stop();
+	ret = rot_k_wait_stop(fd);
 	if (ret) {
 		printk("rot_k_thread  wait error \n");
-		goto rot_exit;
+		goto start_out;
 	}
 
-rot_exit:
+start_out:
 	rot_k_close();
-	p_user = rot_get_user(cur_task_pid);
-	up(&p_user->sem_done);
+	ROTATE_TRACE("rot_k_start  done \n");
 
-	ROTATE_TRACE("rot_k_thread  done \n");
+start_exit:
 
 	return ret;
 }
 
+struct platform_device*  rot_get_platform_device(void)
+{
+	struct device *dev;
+
+	dev = bus_find_device_by_name(&platform_bus_type, NULL, ROT_DEVICE_NAME);
+	if (!dev) {
+		printk("%s: failed to find device\n", __func__);
+		return NULL;
+	}
+
+	return to_platform_device(dev);
+}
+
 static int rot_k_open(struct inode *node, struct file *file)
 {
-	struct rot_user *p_user = NULL;
 	int ret = 0;
+	struct rot_k_private *rot_private = platform_get_drvdata(rot_get_platform_device());
+	struct rot_k_file *fd;
 
-	down(&g_sem_dev_open);
 
-	p_user = rot_get_user(current->pid);
-	if (NULL == p_user) {
-		printk("rot_k_open user cnt full  pid:%d. \n",current->pid);
-		ret = -EBUSY;
+	if (!rot_private) {
+		ret = -EFAULT;
+		printk("rot_k_open fail rot_private NULL \n");
 		goto exit;
 	}
-	file->private_data = p_user;
-	if (1 == atomic_inc_return(&rot_users)) {
+
+	fd = kzalloc(sizeof(*fd), GFP_KERNEL);
+	if (!fd) {
+		ret = -ENOMEM;
+		printk("rot_k_open fail alloc \n");
+		goto exit;
+	}
+	fd->rot_private = rot_private;
+	fd->drv_private.rot_fd = (void*)fd;
+
+	sema_init(&fd->rot_done_sem, 0);
+
+	file->private_data  = fd;
+
+	if (1 == atomic_inc_return(&rot_private->users)) {
 		ret = rot_k_module_en();
 		if (unlikely(ret)) {
 			printk("Failed to enable rot module \n");
 			ret = -EIO;
 			goto faile;
 		}
-
-		ret = rot_k_isr_reg(rot_k_irq);
-		if (unlikely(ret)) {
-			printk("Failed to register rot ISR \n");
-			ret = -EACCES;
-			goto reg_faile;
-		} else {
-			goto exit;
-		}
-	} else {
-		goto exit;
 	}
+
+	ret = rot_k_isr_reg(rot_k_irq, &fd->drv_private);
+	if (unlikely(ret)) {
+		printk("Failed to register rot ISR \n");
+		ret = -EACCES;
+		goto reg_faile;
+	}
+
+	goto open_out;
 reg_faile:
 	rot_k_module_dis();
 faile:
-	atomic_dec(&rot_users);
-	p_user->pid = INVALID_USER_ID;
-	file->private_data = NULL;
+	atomic_dec(&rot_private->users);
+	kfree(fd);
+	fd = NULL;
+open_out:
+	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
 exit:
-	up(&g_sem_dev_open);
+
+	ROTATE_TRACE("rot_k_open fd=0x%x\n", fd);
+	ROTATE_TRACE("rot_k_open ret=%d\n", ret);
 
 	return ret;
-
-}
-
-static ssize_t rot_k_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
-{
-	(void)file; (void)u_data; (void)cnt_ret;
-	((struct rot_user *)(file->private_data))->is_exit_force = 1;
-	up(&(((struct rot_user *)(file->private_data))->sem_done));
-
-	return 1;
 }
 
 static int rot_k_release(struct inode *node, struct file *file)
 {
-	if (0 == atomic_dec_return(&rot_users)) {
-		rot_k_isr_reg(NULL);
-		rot_k_module_dis();
-		sema_init(&g_sem_rot, 1);
-		sema_init(&g_sem_rot_done, 0);
-		sema_init(&g_sem_dev_open, 1);
+	struct rot_k_private *rot_private;
+	struct rot_k_file *fd;
+
+
+	fd = file->private_data;
+	if (!fd) {
+		goto release_exit;
 	}
 
-	((struct rot_user *)(file->private_data))->pid = INVALID_USER_ID;
-	((struct rot_user *)(file->private_data))->is_exit_force = 0;
-	((struct rot_user *)(file->private_data))->is_rot_enable = 0;
-	sema_init(&(((struct rot_user *)(file->private_data))->sem_done), 0);
+	rot_private = fd->rot_private;
+	if (!rot_private) {
+		goto fd_free;
+	}
+
+	if (0 == atomic_dec_return(&rot_private->users)) {
+		rot_k_module_dis();
+	}
+
+fd_free:
+	kfree(fd);
+	fd = 0;
+	file->private_data = 0;
+release_exit:
+
+	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
+	ROTATE_TRACE("rot_k_release\n");
 
 	return 0;
 }
 
 static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
+	int ret = 0;
+	struct rot_k_private *rot_private;
+	struct rot_k_file *fd;
+
+
+	fd = file->private_data;
+	if (!fd) {
+		ret = - EFAULT;
+		printk("rot_k_ioctl fail fd NULL \n");
+		goto ioctl_exit;
+	}
+
+	ROTATE_TRACE("rot_k_ioctl fd= 0x%x\n", fd);
+
+	rot_private = fd->rot_private;
+	if (!rot_private) {
+		ret = -EFAULT;
+		printk("rot_k_ioctl fail rot private NULL \n");
+		goto ioctl_exit;
+	}
+
+	mutex_lock(&rot_private->sync_lock);
 	ROTATE_TRACE("rot_k_ioctl, 0x%x \n", cmd);
 
 	switch (cmd) {
-	case ROT_IO_CFG:
-		down(&g_sem_rot);
-		{
-			int ret = 0;
-			ROT_CFG_T params;
-
-			cur_task_pid = ((struct rot_user *)(file->private_data))->pid;
-			((struct rot_user *)(file->private_data))->is_rot_enable = 1;
-
-			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
-			if (0 == ret){
-				ret = rot_k_io_cfg(&params);
-			}
-
-			if(ret) {
-				printk("rot_k_ioctl   fail.\n");
-				up(&g_sem_rot);
-			}
-
-			ROTATE_TRACE("rot_k_ioctl, ROT_IO_CFG, %d \n", ret);
-			return ret;
-		}
-
 	case ROT_IO_START:
 		{
-			int ret = 0;
+			ROT_CFG_T params;
 
-			if (rot_k_start()) {
-				ret = -EFAULT;
-				up(&g_sem_rot);
-			}
-
-			ROTATE_TRACE("rot_k_ioctl, ROT_IO_START, %d \n", ret);
-			return ret;
-		}
-
-	case ROT_IO_IS_DONE:
-		{
-			int ret = 0;
-			uint32_t rot_status = (uint32_t)ROTATE_PROCESS_SUCCESS;
-			ret = down_interruptible(&(((struct rot_user *)(file->private_data))->sem_done));
+			ret = copy_from_user(&params, (ROT_CFG_T *) arg, sizeof(ROT_CFG_T));
 			if (ret) {
-				ret = 0;
-				rot_status = (uint32_t)ROTATE_PROCESS_SYS_BUSY;
-				printk("rot_k_ioctl, interruptible\n");
-			} else {
-				rot_status = (uint32_t)ROTATE_PROCESS_SUCCESS;
-				if (((struct rot_user *)(file->private_data))->is_exit_force) {
-					((struct rot_user *)(file->private_data))->is_exit_force = 0;
-					ret = -1;
-					rot_status = (uint32_t)ROTATE_PROCESS_EXIT;
-				}
-
-				if(((struct rot_user *)(file->private_data))->is_rot_enable) {
-					((struct rot_user *)(file->private_data))->is_rot_enable = 0;
-					up(&g_sem_rot);
-				}
+				printk("rot_k_ioctl, failed get user info \n");
+				goto ioctl_out;
 			}
-			if (copy_to_user((void*)arg, &rot_status, sizeof(uint32_t))) {
-				printk("rot_k_ioctl, failed to copy frame info \n");
-			}
-			return ret;
 
+			ret = rot_k_io_cfg(&params,&fd->drv_private.cfg);
+			if (ret) {
+				printk("rot_k_ioctl, failed cfg \n");
+				goto ioctl_out;
+			}
+
+			ret = rot_k_start(fd);
+			if (ret) {
+				ret = -EFAULT;
+				printk("rot_k_ioctl, failed start \n");
+				goto ioctl_out;
+			}
 		}
-
+		break;
 	default:
-		return 0;
+		break;
 	}
 
+ioctl_out:
+	mutex_unlock(&rot_private->sync_lock);
+ioctl_exit:
+
+	ROTATE_TRACE("rot_k_ioctl ret=%d \n", ret);
+
+	return ret;
 }
 
 static struct file_operations rotation_fops = {
 	.owner = THIS_MODULE,
 	.open = rot_k_open,
-	.write = rot_k_write,
 	.unlocked_ioctl = rot_k_ioctl,
 	.release = rot_k_release,
 };
 
 static struct miscdevice rotation_dev = {
 	.minor = ROTATION_MINOR,
-	.name = "sprd_rotation",
+	.name = ROT_DEVICE_NAME,
 	.fops = &rotation_fops,
 };
 
 int rot_k_probe(struct platform_device *pdev)
 {
-	int ret, i;
-	struct rot_user *p_user;
+	int ret;
+	struct rot_k_private *rot_private;
+
+
 	printk(KERN_ALERT "rot_k_probe called\n");
+
+	rot_private = devm_kzalloc(&pdev->dev, sizeof(*rot_private), GFP_KERNEL);
+	if (!rot_private) {
+		return -ENOMEM;
+	}
+
+	mutex_init(&rot_private->sync_lock);
+
+	platform_set_drvdata(pdev, rot_private);
 
 	ret = misc_register(&rotation_dev);
 	if (ret) {
 		printk(KERN_ERR "cannot register miscdev on minor=%d (%d)\n",
 			ROTATION_MINOR, ret);
-		return ret;
-	}
-
-	g_rot_user = kzalloc(ROT_USER_MAX * sizeof(struct rot_user), GFP_KERNEL);
-	if (NULL == g_rot_user) {
-		printk("rot_user, no mem");
-		return -1;
-	}
-
-	sema_init(&g_sem_rot, 1);
-	sema_init(&g_sem_rot_done, 0);
-	sema_init(&g_sem_dev_open, 1);
-	p_user = g_rot_user;
-	for (i = 0; i < ROT_USER_MAX; i++) {
-		p_user->pid = INVALID_USER_ID;
-		p_user->is_exit_force = 0;
-		p_user->is_rot_enable = 0;
-		sema_init(&p_user->sem_done, 0);
-		p_user ++;
+		ret = -EACCES;
+		goto probe_out;
 	}
 
 	printk(KERN_ALERT " rot_k_probe Success\n");
+	goto exit;
+probe_out:
+	mutex_destroy(&rot_private->sync_lock);
+	devm_kfree(&pdev->dev, rot_private);
+	platform_set_drvdata(pdev, NULL);
+exit:
 	return 0;
 }
 
-static int rot_k_remove(struct platform_device *dev)
+static int rot_k_remove(struct platform_device *pdev)
 {
+	struct rot_k_private *rot_private;
+
+	rot_private = platform_get_drvdata(pdev);
+
+	if (!rot_private)
+		goto remove_exit;
+
 	printk(KERN_INFO "rot_k_remove called !\n");
 	misc_deregister(&rotation_dev);
+
+	mutex_destroy(&rot_private->sync_lock);
+	devm_kfree(&pdev->dev, rot_private);
+	platform_set_drvdata(pdev, NULL);
 	printk(KERN_INFO "rot_k_remove Success !\n");
+
+remove_exit:
 	return 0;
 }
 
@@ -336,7 +357,7 @@ static struct platform_driver rotation_driver = {
 	.remove = rot_k_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "sprd_rotation",
+		.name = ROT_DEVICE_NAME,
 		},
 };
 

@@ -10,8 +10,13 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef _ROT_REG_H_
-#define _ROT_REG_H_
+#ifndef _ROT_DRV_H_
+#define _ROT_DRV_H_
+
+
+#include "sc8830_reg_rot.h"
+#include "../../sprd_dcam/sc8830/dcam_drv.h"
+
 
 /*#define ROTATE_DEBUG*/
 
@@ -22,20 +27,36 @@
 #endif
 
 
-enum rotation_process {
-	ROTATE_PROCESS_SUCCESS = 0,
-	ROTATE_PROCESS_EXIT = -1,
-	ROTATE_PROCESS_SYS_BUSY = -2,
-	ROTATE_PROCESS_MAX = 0xFF
+typedef void (*rot_isr_func)(void *rot_k_private);
+
+typedef struct _rot_param_tag {
+	ROT_SIZE_T img_size;
+	ROT_DATA_FORMAT_E format;
+	ROT_ANGLE_E angle;
+	ROT_ADDR_T src_addr;
+	ROT_ADDR_T dst_addr;
+	uint32_t s_addr;
+	uint32_t d_addr;
+	ROT_PIXEL_FORMAT_E pixel_format;
+	ROT_UV_MODE_E uv_mode;
+	int is_end;
+	ROT_ENDIAN_E src_endian;
+	ROT_ENDIAN_E dst_endian;
+} ROT_PARAM_CFG_T;
+
+struct rot_drv_private{
+	ROT_PARAM_CFG_T cfg;
+	rot_isr_func user_isr_func;
+	void *rot_fd;/*rot file*/
 };
 
-typedef void (*rot_isr_func)(void);
+
 int rot_k_module_en(void);
 int rot_k_module_dis(void);
-int rot_k_isr_reg(rot_isr_func user_func);
-int rot_k_is_end(void);
-int rot_k_set_UV_param(void);
-void rot_k_register_cfg(void);
+int rot_k_isr_reg(rot_isr_func user_func,struct rot_drv_private *drv_private);
+int rot_k_is_end(ROT_PARAM_CFG_T *s);
+int rot_k_set_UV_param(ROT_PARAM_CFG_T *s);
+void rot_k_register_cfg(ROT_PARAM_CFG_T *s);
 void rot_k_close(void);
-int rot_k_io_cfg(ROT_CFG_T * param_ptr);
+int rot_k_io_cfg(ROT_CFG_T * param_ptr, ROT_PARAM_CFG_T *s);
 #endif
