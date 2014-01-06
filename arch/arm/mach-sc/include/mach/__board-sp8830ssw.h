@@ -81,6 +81,8 @@
 #define GPIO_M_RSTN	161
 #define GPIO_M_DRDY 164
 
+#define GPIO_SDIO_DETECT      75
+
 #define GPIO_IF_PMIC_SDA 124
 #define GPIO_IF_PMIC_SCL 125
 #define GPIO_IF_PMIC_IRQ 126

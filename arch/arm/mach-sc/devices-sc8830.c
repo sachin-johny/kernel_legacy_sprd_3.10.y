@@ -912,12 +912,14 @@ static struct resource sprd_sdio2_resources[] = {
 };
 
 static struct sprd_sdhci_host_platdata sprd_sdio2_pdata = {
-	.caps = MMC_CAP_HW_RESET | MMC_CAP_POWER_OFF_CARD | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR,
+	.caps = MMC_CAP_HW_RESET | MMC_CAP_POWER_OFF_CARD | MMC_CAP_4_BIT_DATA | MMC_CAP_1_8V_DDR,
+	.detect_gpio = GPIO_SDIO_DETECT,
 	.clk_name = "clk_sdio2",
 	.clk_parent_name = "clk_96m",
 	.max_clock = 96000000,
 	.enb_bit = BIT_SDIO2_EB,
 	.rst_bit = BIT_SDIO2_SOFT_RST,
+	.keep_power = 1,
 	.runtime = 1,
 };
 
