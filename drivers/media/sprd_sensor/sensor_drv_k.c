@@ -1124,39 +1124,6 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 	return ret;
 }
 
-#if defined (CONFIG_ARCH_SCX35)
-LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
-{
-	if(PNULL != s_sensor_project_func.SetFlash)
-	{
-		printk("_Sensor_K_SetFlash call s_sensor_project_func.SetFlash \n");
-		return s_sensor_project_func.SetFlash(flash_mode);
-	}
-
-	switch (flash_mode) {
-	case 1:        /*flash on */
-	case 2:        /*for torch */
-		/*low light */
-		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_LOW_VAL); // 0x3 = 110ma
-		break;
-	case 0x11:
-		/*high light */
-		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_HIGH_VAL); // 0xf = 470ma
-		break;
-	case 0x10:     /*close flash */
-	case 0x0:
-		/*close the light */
-		sci_adi_clr(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT);
-		break;
-	default:
-		SENSOR_PRINT_HIGH("_Sensor_K_SetFlash unknow mode:flash_mode 0x%x \n", flash_mode);
-		break;
-	}
-
-	SENSOR_PRINT("_Sensor_K_SetFlash: flash_mode 0x%x  \n", flash_mode);
-
-	return SENSOR_K_SUCCESS;
-}
 LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
 {
 	level->low_light  = SPRD_FLASH_LOW_CUR;
@@ -1167,53 +1134,6 @@ LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
 	return SENSOR_K_SUCCESS;
 }
 
-#else
-LOCAL int _Sensor_K_SetFlash(uint32_t flash_mode)
-{
-	switch (flash_mode) {
-	case 1:                 /*flash on */
-	case 2:                 /*for torch */
-		/*low light */
-		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		break;
-	case 0x11:
-		/*high light */
-		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_ON);
-		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_ON);
-		break;
-	case 0x10:              /*close flash */
-	case 0x0:
-		/*close the light */
-		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_OFF);
-		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_OFF);
-		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		break;
-	default:
-		SENSOR_PRINT_ERR("sensor set flash unknown mode:%d \n", flash_mode);
-		return SENSOR_K_FALSE;
-	}
-
-	SENSOR_PRINT("sensor set flash unknown mode %d  \n", flash_mode);
-	
-	return SENSOR_K_SUCCESS;
-}
-
-LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
-{
-	level->low_light  = SPRD_FLASH_LOW_CUR;
-	level->high_light = SPRD_FLASH_HIGH_CUR;
-
-	SENSOR_PRINT("Sensor Get Flash lvl:low %d, high %d\n", level->low_light, level->high_light);
-
-	return SENSOR_K_SUCCESS;
-}
-#endif
 int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
 
 LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
@@ -1342,7 +1262,6 @@ int sensor_k_release(struct inode *node, struct file *file)
 	_Sensor_K_SetVoltage_DVDD(SENSOR_VDD_CLOSED);
 	_Sensor_K_SetVoltage_IOVDD(SENSOR_VDD_CLOSED);
 	_Sensor_K_SetMCLK(0);
-	_Sensor_K_SetFlash(0);
 	ret = _sensor_is_clk_mm_i_eb(0);
 	return ret;
 }
@@ -1628,15 +1547,6 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 		}
 		break;
 
-	case SENSOR_IO_SET_FLASH:
-		{
-			uint32_t flash_mode;
-			ret = copy_from_user(&flash_mode, (uint32_t *) arg, sizeof(uint32_t));
-			if (0 == ret)
-				ret = _Sensor_K_SetFlash(flash_mode);
-		}
-		break;
-
 	case SENSOR_IO_I2C_WRITE_REGS:
 		{
 			SENSOR_REG_TAB_T regTab;
@@ -1740,18 +1650,6 @@ int sensor_k_probe(struct platform_device *pdev)
 		tmp = GPIO_SENSOR_RESET;
 		goto gpio_err_exit;
 	}
-#ifndef CONFIG_ARCH_SCX35
-	ret = gpio_request(GPIO_SPRD_FLASH_LOW, "gpioFlashLow");
-	if (ret) {
-		tmp = GPIO_SPRD_FLASH_LOW;
-		goto gpio_err_exit;
-	}
-	ret = gpio_request(GPIO_SPRD_FLASH_HIGH, "gpioFlashHigh");
-	if (ret) {
-		tmp = GPIO_SPRD_FLASH_HIGH;
-		goto gpio_err_exit;
-	}
-#endif
 
 	s_p_sensor_mod->sensor_i2c_driver.driver.owner = THIS_MODULE;
 	s_p_sensor_mod->sensor_i2c_driver.probe  = sensor_probe;
@@ -1783,10 +1681,6 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "sensor remove called !\n");
 
-#ifndef CONFIG_ARCH_SCX35
-	gpio_free(GPIO_SPRD_FLASH_HIGH);
-	gpio_free(GPIO_SPRD_FLASH_LOW);
-#endif
 	gpio_free(GPIO_SENSOR_RESET);
 	gpio_free(GPIO_SUB_SENSOR_PWN);
 	gpio_free(GPIO_MAIN_SENSOR_PWN);
