@@ -93,6 +93,10 @@
 #include "__board-sp8815ga.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP8815GAOPENPHONE
+#include "__board-sp8815gaopenphone.h"
+#endif
+
 #ifdef  CONFIG_MACH_STAR2
 #include "__board-star2.h"
 #endif

@@ -207,6 +207,15 @@ config MACH_SP8815GA
 	help
 	  SP8815GA board based on dolphin serial.
 
+config MACH_SP8815GAOPENPHONE
+	bool "sp8815gaopenphone Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	  SP8815GAOPENPHONE board based on dolphin serial.
+
 config MACH_STAR2
 	bool "star2 Phone Board"
 	depends on ARCH_SC
