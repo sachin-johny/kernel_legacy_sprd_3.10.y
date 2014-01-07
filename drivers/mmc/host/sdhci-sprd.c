@@ -1193,7 +1193,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	if(!host_pdata->runtime)
 		host->mmc->caps &= ~MMC_CAP_POWER_OFF_CARD;
 #endif
-	sprd_host->clk_enabled = true;
+	sprd_host->clk_enabled = false;
 	sprd_host->keep_power = host_pdata->keep_power;
 	sprd_host->sdhci_host_ops = sprd_sdhci_host_default_ops;
 	spin_lock_init(&sprd_host->lock);
