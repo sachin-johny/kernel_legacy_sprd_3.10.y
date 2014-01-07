@@ -566,6 +566,10 @@ struct platform_device sprd_thm_a_device = {
 	},
 };
 
+struct platform_device sprd_audio_vbc_r2p0_sprd_codec_v3_device = {
+	.name		= "vbc-r2p0-sprd-codec-v3",
+	.id		= -1,
+};
 
 struct platform_device sprd_audio_platform_pcm_device = {
 	.name           = "sprd-pcm-audio",

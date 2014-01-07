@@ -578,6 +578,11 @@ struct platform_device sprd_keypad_device = {
 	.resource = sci_keypad_resources,
 };
 
+struct platform_device sprd_audio_vbc_r1p0_sprd_codec_v1_device = {
+	.name		= "vbc-r1p0-sprd-codec-v1",
+	.id		= -1,
+};
+
 struct platform_device sprd_audio_platform_pcm_device = {
 	.name           = "sprd-pcm-audio",
 	.id             =  -1,
