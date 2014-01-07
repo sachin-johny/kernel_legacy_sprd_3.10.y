@@ -47,6 +47,7 @@ obj-$(CONFIG_MACH_SP8815GA) += board-sp8815ga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8815GAOPENPHONE) += board-sp8815gaopenphone.o dma_r4p0.o
 obj-$(CONFIG_MACH_STAR2) += board-star2.o dma_r4p0.o
 obj-$(CONFIG_MACH_CORSICA_VE) += board-corsica_ve.o dma_r4p0.o
+obj-$(CONFIG_MACH_FAME2) += board-fame2.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735EA) += board-sp5735ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8830GA) += board-sp8830ga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730GA) += board-sp7730ga.o dma_r4p0.o

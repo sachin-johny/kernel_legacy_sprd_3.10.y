@@ -27,7 +27,11 @@
 #endif
 
 #if IST30XX_INTERNAL_BIN
+#if !defined(CONFIG_MACH_FAME2)
 #include "IST30xxB_FW_Corsica_VE_Ver0003.h"
+#else
+#include "ist30xxb_fw_fame2_ver0001.h"
+#endif
 #endif // IST30XX_INTERNAL_BIN
 
 struct ist30xx_tags *ts_tags;

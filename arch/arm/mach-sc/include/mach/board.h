@@ -105,6 +105,10 @@
 #include "__board-corsica_ve.h"
 #endif
 
+#ifdef  CONFIG_MACH_FAME2
+#include "__board-fame2.h"
+#endif
+
 #include <asm/sizes.h>
 
 #ifdef CONFIG_SPRD_IOMMU

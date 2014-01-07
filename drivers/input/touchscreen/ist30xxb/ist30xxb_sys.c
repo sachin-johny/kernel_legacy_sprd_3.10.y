@@ -198,6 +198,7 @@ int ist30xx_write_cmd(struct i2c_client *client, u32 cmd, u32 val)
 #define GPIO_TSP_SCL        35
 #define GPIO_TSP_SDA        40
 static struct regulator *touch_regulator;
+#if !defined(CONFIG_MACH_FAME2)
 static void ts_power_enable(int en)
 {
 	int ret=0;
@@ -246,7 +247,36 @@ static void ts_power_enable(int en)
 		}
 	}
 }
+#else
+static void ts_power_enable(int en)
+{
+	int ret=0;
+	struct regulator *touch_regulator_3v0 =  NULL;
 
+	tsp_info("[TSP] %s, %d\n", __func__, en );
+
+	touch_regulator_3v0 = regulator_get(NULL,"vddsim2");
+	if (IS_ERR(touch_regulator_3v0)) {
+		touch_regulator_3v0 = NULL;
+		tsp_info("get touch_regulator_3v0 regulator error\n");
+		return;
+	}
+	if(en) {
+		regulator_set_voltage(touch_regulator_3v0, 3000000, 3000000);
+		ret = regulator_enable(touch_regulator_3v0);
+		if (ret) {
+			tsp_info(KERN_ERR "%s: touch_regulator_3v0 enable failed (%d)\n",__func__, ret);
+		}
+	}
+	else
+	{
+		ret = regulator_disable(touch_regulator_3v0);
+		if (ret) {
+			tsp_info(KERN_ERR "%s: touch_regulator_3v0 disable failed (%d)\n",__func__, ret);
+		}
+	}
+}
+#endif
 int ist30xx_power_on(void)
 {
 	if (ts_data->status.power != 1) {
