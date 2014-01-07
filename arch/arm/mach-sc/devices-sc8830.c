@@ -44,8 +44,23 @@
 #ifdef CONFIG_SPRD_VETH
 #include <linux/sprd_veth.h>
 #endif
-
 #include "devices.h"
+#include <mach/modem_interface.h>
+
+struct modem_intf_platform_data modem_interface = {
+       .dev_type               = MODEM_DEV_SDIO,
+       .modem_dev_parameter    = NULL,
+       .modem_power_gpio       = 70,
+       .modem_boot_gpio        = 213,
+       .modem_crash_gpio       = 214,
+};
+struct platform_device modem_interface_device = {
+       .name   = "modem_interface",
+       .id     = -1,
+       .dev    = {
+               .platform_data  = &modem_interface,
+          },
+};
 
 static struct resource sprd_memnand_system_resources[] = {
 	[0] = {
