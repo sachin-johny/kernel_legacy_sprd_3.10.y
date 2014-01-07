@@ -236,6 +236,7 @@ static struct device_attribute sprd_caliberate[] = {
 	SPRDBAT_CALIBERATE_ATTR_RO(charger_voltage),
 	SPRDBAT_CALIBERATE_ATTR_RO(real_time_vbat_adc),
 	SPRDBAT_CALIBERATE_ATTR_WO(save_capacity),
+	SPRDBAT_CALIBERATE_ATTR_RO(temp_adc),
 };
 
 enum sprdbat_attribute {
@@ -248,6 +249,7 @@ enum sprdbat_attribute {
 	CHARGER_VOLTAGE,
 	BATTERY_ADC,
 	SAVE_CAPACITY,
+	TEMP_ADC
 };
 
 static ssize_t sprdbat_store_caliberate(struct device *dev,
@@ -327,6 +329,7 @@ static ssize_t sprdbat_show_caliberate(struct device *dev,
 	const ptrdiff_t off = attr - sprd_caliberate;
 	int adc_value;
 	int voltage;
+	int temp_value;
 	uint32_t now_current;
 
 	switch (off) {
@@ -362,6 +365,12 @@ static ssize_t sprdbat_show_caliberate(struct device *dev,
 		break;
 	case BATTERY_ADC:
 		adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+		if (adc_value < 0)
+			adc_value = 0;
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", adc_value);
+		break;
+	case TEMP_ADC:
+		adc_value = sprdbat_read_temp_adc();
 		if (adc_value < 0)
 			adc_value = 0;
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", adc_value);

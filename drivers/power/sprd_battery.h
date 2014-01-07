@@ -124,6 +124,7 @@ struct sprdbat_auxadc_cal {
 #define sprdbat_read_vbat_vol sprdfgu_read_vbat_vol
 #define sprdbat_read_temp sprdchg_read_temp
 #define sprdbat_adp_plug_nodify sprdfgu_adp_status_set
+#define sprdbat_read_temp_adc sprdchg_read_temp_adc
 
 #ifdef SPRDBAT_TWO_CHARGE_CHANNEL
 #define SPRDBAT_CHG_EVENT_EXT_OVI   1

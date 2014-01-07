@@ -35,34 +35,29 @@
 
 #define sprd_battery_data sprdbat_drivier_data
 extern int sci_adc_get_value(unsigned chan, int scale);
+uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue);
 
-#ifdef CONFIG_BATTERY_TEMP_DECT
+#ifdef SPRDBAT_BATTERY_TEMP_DECT
 int32_t temp_adc_table[][2] = {
-	{900, 0x4E},
-	{850, 0x59},
-	{800, 0x67},
-	{750, 0x77},
-	{700, 0x89},
-	{650, 0x9E},
-	{600, 0xB8},
-	{550, 0xD4},
-	{500, 0xF3},
-	{450, 0x119},
-	{400, 0x13F},
-	{350, 0x16B},
-	{300, 0x199},
-	{250, 0x1CA},
-	{200, 0x1FD},
-	{150, 0x22F},
-	{100, 0x260},
-	{50, 0x291},
-	{0, 0x2BD},
-	{-50, 0x2E5},
-	{-100, 0x308},
-	{-150, 0x324},
-	{-200, 0x33F},
-	{-250, 0x354},
-	{-300, 0x364}
+	{65,  3188},
+	{60,  3620},
+	{55,  4103},
+	{50,  4593},
+	{45,  5137},
+	{40,  5714},
+	{35,  6282},
+	{30,  6861},
+	{25,  7429},
+	{20,  7988},
+	{15,  8501},
+	{10,  8973},
+	{5,   9383},
+	{0,   9771},
+	{-5,  10084},
+	{-10, 10339},
+	{-15, 10550},
+	{-20, 10717},
+	{-25, 10845},
 };
 
 int sprdchg_adc_to_temp(uint16_t adcvalue)
@@ -275,9 +270,72 @@ void sprdchg_init(void)
 	printk("ANA_CTL_EIC_BASE0x%x\n", sci_adi_read(ANA_CTL_EIC_BASE + 0x50));
 }
 
+static uint16_t sprdbat_adc_to_vol_channel(uint16_t channel, uint16_t adcvalue)
+{
+	uint32_t result;
+	uint32_t vbat_vol = sprdchg_bat_adc_to_vol(adcvalue);
+	uint32_t m, n;
+	uint32_t bat_numerators, bat_denominators;
+	uint32_t vchg_numerators, vchg_denominators;
+
+	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
+			      &bat_denominators);
+	sci_adc_get_vol_ratio(channel, 0, &vchg_numerators,
+			      &vchg_denominators);
+
+	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
+	n = bat_denominators * vchg_numerators;
+	m = vbat_vol * bat_numerators * (vchg_denominators);
+	result = (m + n / 2) / n;
+	return result;
+
+}
+
+int sprdchg_read_temp_adc(void)
+{
+#ifdef SPRDBAT_BATTERY_TEMP_DECT
+	return sci_adc_get_value(SPRDBAT_ADC_CHANNEL_TEMP, true);
+#else
+	return 3000;
+#endif
+}
+
 int sprdchg_read_temp(void)
 {
+#ifdef SPRDBAT_BATTERY_TEMP_DECT
+#define SAMPLE_NUM  15
+		int ret,i,sum = 0;
+		int adc_val[SAMPLE_NUM];
+		struct adc_sample_data data = {
+		.channel_id = SPRDBAT_ADC_CHANNEL_TEMP,
+		.channel_type = 0,		/*sw */
+		.hw_channel_delay = 0,	/*reserved */
+		.scale = 1, 	/*small scale */
+		.pbuf = &adc_val[0],
+		.sample_num = SAMPLE_NUM,
+		.sample_bits = 1,
+		.sample_speed = 0,		/*quick mode */
+		.signal_mode = 0,		/*resistance path */
+	};
+
+	ret = sci_adc_get_values(&data);
+	WARN_ON(0 != ret);
+
+	for(i = SAMPLE_NUM - 5; i < SAMPLE_NUM; i++){
+		 sum+=adc_val[i];
+	}
+	sum /= 5;
+	printk(KERN_ERR "sprdchg: adc_val[10]:%d\n", adc_val[10]);
+	printk(KERN_ERR "sprdchg: adc_val[14]:%d\n", adc_val[14]);
+	printk(KERN_ERR "sprdchg: channel:%d,sprdchg_read_temp adc:%d\n",data.channel_id, sum);
+
+	sum = sprdbat_adc_to_vol_channel(data.channel_id,sum);
+	sum = sum*10;
+	printk(KERN_ERR "sprdchg: sprdchg_read_temp voltage:%d\n", sum);
+	return sprdchg_adc_to_temp(sum);
+#else
 	return 200;
+#endif
 }
 
 uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue)
