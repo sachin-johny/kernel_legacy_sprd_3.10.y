@@ -118,4 +118,21 @@ extern struct platform_device sprd_audio_i2s3_device;
 extern struct platform_device sprd_audio_sprd_codec_v3_device;
 extern struct platform_device sprd_audio_null_codec_device;
 
+#ifdef CONFIG_SPRD_VETH
+#ifdef CONFIG_MUX_SPI_HAL
+extern struct platform_device sprd_veth_spi0_device;
+extern struct platform_device sprd_veth_spi1_device;
+extern struct platform_device sprd_veth_spi2_device;
+extern struct platform_device sprd_veth_spi3_device;
+extern struct platform_device sprd_veth_spi4_device;
+#endif
+#ifdef CONFIG_MUX_SDIO_HAL
+extern struct platform_device sprd_veth_sdio0_device;
+extern struct platform_device sprd_veth_sdio1_device;
+extern struct platform_device sprd_veth_sdio2_device;
+extern struct platform_device sprd_veth_sdio3_device;
+extern struct platform_device sprd_veth_sdio4_device;
+#endif
+#endif
+
 #endif
