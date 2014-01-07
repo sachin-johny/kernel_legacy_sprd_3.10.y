@@ -341,17 +341,22 @@ static struct serial_data plat_data2 = {
 static int gps_enable_control(int flag)
 {
         static struct regulator *gps_regulator = NULL;
+		static struct regulator *gps_regulator_rf0 = NULL;
         static int f_enabled = 0;
         printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
 		
         if (flag && (!f_enabled)) {
-                      gps_regulator = regulator_get(NULL, "v_gps_1.8v");
-                      if (IS_ERR(gps_regulator)) {
+                      gps_regulator = regulator_get(NULL, "vddcon");
+					  gps_regulator_rf0 = regulator_get(NULL, "vddrf0"); 
+                      if (IS_ERR(gps_regulator)||IS_ERR(gps_regulator_rf0)) {
                                    gps_regulator = NULL;
+								   gps_regulator_rf0 = NULL;
                                    return EIO;
                       } else {
                                    regulator_set_voltage(gps_regulator, 1800000, 1800000);
+								   regulator_set_voltage(gps_regulator_rf0, 1800000, 1800000);   
                                    regulator_enable(gps_regulator);
+								   regulator_enable(gps_regulator_rf0);
                       }
                       f_enabled = 1;
         }
@@ -362,6 +367,11 @@ static int gps_enable_control(int flag)
                                    regulator_put(gps_regulator);
                                    gps_regulator = NULL;
                       }
+					  if (gps_regulator_rf0){
+								   regulator_disable(gps_regulator_rf0);
+								   regulator_put(gps_regulator_rf0);
+								   gps_regulator_rf0 = NULL; 
+					  }
                       f_enabled = 0;
         }
         return 0;
