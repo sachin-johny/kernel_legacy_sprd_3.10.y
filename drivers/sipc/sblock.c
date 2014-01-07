@@ -511,7 +511,7 @@ int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout)
 		}
 	}
 
-	if (rval) {
+	if (rval < 0) {
 		return rval;
 	}
 
