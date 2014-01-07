@@ -972,6 +972,9 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 		pr_debug("Recv data tx sblock busy event\n");
 		itm_cfg80211_report_tx_busy(priv);
 		break;
+	case WIFI_EVENT_SOFTAP:
+		pr_debug("Recv sblock8 softap event\n");
+		itm_cfg80211_report_softap(priv);
 	default:
 		pr_err("Recv sblock8 unknow event id %d\n", event_id);
 		break;

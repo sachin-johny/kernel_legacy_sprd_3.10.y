@@ -1328,6 +1328,29 @@ void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
 	return;
 }
 
+void itm_cfg80211_report_softap(struct itm_priv *priv)
+{
+	struct wlan_softap_event event;
+	struct station_info sinfo;
+
+	/* The first value 0 mean disconnect, otherwise connected  */
+	memcpy(&event, priv->wlan_sipc->event_buf->u.event.variable,
+	       sizeof(struct wlan_softap_event));
+
+	memset(&sinfo, 0, sizeof(sinfo));
+	sinfo.filled = 0;
+
+	if (event.connected) {
+		cfg80211_new_sta(priv->ndev, (u8 const *)&event.mac, &sinfo,
+				 GFP_KERNEL);
+		dev_dbg(&priv->ndev->dev, "hotspot station is connected\n");
+	} else {
+		cfg80211_del_sta(priv->ndev, (u8 const *)&event.mac,
+				 GFP_ATOMIC);
+		dev_dbg(&priv->ndev->dev, "hotspot station is disconnected\n");
+	}
+}
+
 static int itm_wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 				     struct net_device *ndev,
 #if ((LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 38)) || \

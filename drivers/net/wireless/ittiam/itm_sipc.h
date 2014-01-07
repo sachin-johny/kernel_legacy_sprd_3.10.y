@@ -92,6 +92,8 @@ enum wlan_sipc_event_id {
 	WIFI_EVENT_TX_BUSY,
 	WIFI_EVENT_READY,
 
+	WIFI_EVENT_SOFTAP,
+
 	WIFI_EVENT_MAX
 };
 
