@@ -899,6 +899,16 @@ struct platform_device sprd_ion_dev = {
 };
 #endif
 
+
+#ifdef CONFIG_MUX_SDIO_OPT1_HAL
+
+struct platform_device ipc_sdio_device = {
+	.name = "ipc_sdio",
+	.id = 0,
+};
+
+#endif
+
 static struct resource sprd_sdio2_resources[] = {
 	[0] = {
 	       .start = SPRD_SDIO2_BASE,

@@ -70,6 +70,13 @@ config TS0710_MUX_ENABLE
     help
       This driver is used to support spreadtrum ts0710 mux.
 
+config MUX_SDIO_OPT1_HAL
+        bool "MUX SDIO OPT1 HAL"
+        default n
+        help
+          This module supports to connect AP with CP use SDIO bus.And
+	  will support the SDIO transfer option "DMA_OPT_1".
+
 config TTY_PRINTK
 	bool "TTY driver to output user messages via printk"
 	depends on EXPERT && TTY

@@ -72,7 +72,9 @@
 #define GPIO_M_RSTN	161
 #define GPIO_M_DRDY 164
 
-#define GPIO_SDIO_DETECT      75
+#define GPIO_SDIO_DETECT      232
+#define GPIO_AP_TO_CP_RTS     235
+#define GPIO_CP_TO_AP_RDY     236
 
 /* ION config info
 LCD:

@@ -53,6 +53,9 @@ extern struct platform_device sprd_ion_dev;
 #endif
 extern struct platform_device sprd_iommu_gsp_device;
 extern struct platform_device sprd_iommu_mm_device;
+#ifdef CONFIG_MUX_SDIO_OPT1_HAL
+extern struct platform_device ipc_sdio_device;
+#endif
 extern struct platform_device sprd_sdio0_device;
 extern struct platform_device sprd_sdio1_device;
 extern struct platform_device sprd_sdio2_device;
