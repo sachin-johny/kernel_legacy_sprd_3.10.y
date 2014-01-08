@@ -41,7 +41,7 @@
 #include <linux/slab.h>
 #include <linux/sysfs.h>
 
-static uint32_t lowmem_debug_level = 5;
+static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
 	0,
 	1,
@@ -195,7 +195,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
  		mm_rss = get_mm_rss(mm);
 		mm_counter = get_mm_counter(mm, MM_SWAPENTS);		
-		lowmem_print(2, "lowmem_shrink mm_rss %d , mm_counter %d\n", mm_rss, mm_counter);			    
+		lowmem_print(4, "lowmem_shrink mm_rss %d , mm_counter %d\n", mm_rss, mm_counter);
+ 
 #ifdef CONFIG_ZRAM
 		tasksize = mm_rss + mm_counter;
 #else		
@@ -235,7 +236,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 static void lowmem_notify_killzone_approach(void)
 {
-	lowmem_print(3, "lowmem_shrink notify_killzone_approach\n");
+	lowmem_print(5, "lowmem_shrink notify_killzone_approach\n");
 	sysfs_notify(lowmem_kobj, NULL, "notify_trigger_active");
 }
 
@@ -243,7 +244,7 @@ static ssize_t lowmem_notify_trigger_active_show(struct kobject *k,
 		struct kobj_attribute *attr, char *buf)
 {
 	int other_free, other_file;
-	lowmem_print(3, "lowmem_shrink notify_trigger_active_show\n");
+	lowmem_print(5, "lowmem_shrink notify_trigger_active_show\n");
 	get_free_ram(&other_free, &other_file);
 	if (other_free < lowmem_minfree_notif_trigger &&
 			other_file < lowmem_minfree_notif_trigger)
