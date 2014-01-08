@@ -57,7 +57,6 @@
 #define SPRDBAT_TRICKLE_CHG_TIME		(1500)	//reserved
 
 #define SPRDBAT_ADC_CHANNEL_VCHG ADC_CHANNEL_VCHGSEN
-#define SPRDBAT_ADC_CHANNEL_TEMP ADC_CHANNEL_1
 
 #define SPRDBAT_POLL_TIMER_NORMAL   60
 #define SPRDBAT_POLL_TIMER_TEMP   1
@@ -67,12 +66,23 @@
 #define SPRDBAT_CAPACITY_MONITOR_NORMAL	(HZ*10)
 #define SPRDBAT_CAPACITY_MONITOR_FAST	(HZ*5)
 
+
+#if defined (CONFIG_MACH_STAR2)
+#define SPRDBAT_BATTERY_TEMP_DECT
+#define SPRDBAT_ADC_CHANNEL_TEMP ADC_CHANNEL_3
+#else
+#define SPRDBAT_ADC_CHANNEL_TEMP ADC_CHANNEL_1
+#endif
+
+
+#define SPRDBAT_TEMP_CURR_SOURCE_LEVEL  15
 //sprdchg api
 void sprdchg_timer_enable(uint32_t cycles);
 void sprdchg_timer_disable(void);
 int sprdchg_timer_init(int (*fn_cb) (void *data), void *data);
 void sprdchg_init(void);
 int sprdchg_read_temp(void);
+int sprdchg_read_temp_adc(void);
 uint32_t sprdchg_read_vchg_vol(void);
 void sprdchg_start_charge(void);
 void sprdchg_stop_charge(void);
