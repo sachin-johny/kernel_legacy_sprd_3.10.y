@@ -18,6 +18,8 @@
 #include <linux/mfd/rt5033.h>
 #include <linux/mfd/rt5033_irq.h>
 #include <linux/version.h>
+#include <linux/of.h>
+#include <linux/regulator/of_regulator.h>
 
 #define ALIAS_NAME "rt5033-regulator"
 
@@ -335,11 +337,12 @@ inline struct regulator_dev* rt5033_regulator_register(struct regulator_desc *re
 		.dev = dev,
 		.init_data = init_data,
 		.driver_data = driver_data,
+		.of_node = dev->of_node,
 	};
 	return regulator_register(regulator_desc, &config);
 #elif (LINUX_VERSION_CODE>=KERNEL_VERSION(3,0,0))
 	return regulator_register(regulator_desc, dev,
-			init_data, driver_data, NULL);
+			init_data, driver_data, dev->of_node);
 #else
 	return regulator_register(regulator_desc, dev,
 			init_data, driver_data);
@@ -598,16 +601,27 @@ static int __init rt5033_regulator_probe(struct platform_device *pdev)
 	struct regulator_init_data* init_data;
 	int ret;
 	dev_info(&pdev->dev, "Richtek RT5033 regulator driver probing (id = %d)...\n", pdev->id);
-    BUG_ON(mfd_pdata == NULL);
-    if (mfd_pdata->regulator_platform_data == NULL)
-        mfd_pdata->regulator_platform_data = &default_rv_pdata;
-    pdata = mfd_pdata->regulator_platform_data;
+	if (pdev->dev.of_node) {
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,1,0))
+	    init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node);
+#else
+        init_data = of_get_regulator_init_data(&pdev->dev);
+#endif
+        if (init_data == NULL)
+            init_data = default_rv_pdata.regulator[pdev->id];
+	}
+	else {
+        BUG_ON(mfd_pdata == NULL);
+        if (mfd_pdata->regulator_platform_data == NULL)
+            mfd_pdata->regulator_platform_data = &default_rv_pdata;
+        pdata = mfd_pdata->regulator_platform_data;
+        init_data = pdata->regulator[pdev->id];
+	}
 	ri = find_regulator_info(pdev->id);
 	if (ri == NULL) {
 		dev_err(&pdev->dev, "invalid regulator ID specified\n");
 		return -EINVAL;
 	}
-	init_data = pdata->regulator[pdev->id];
 	if (init_data == NULL) {
 		dev_err(&pdev->dev, "no initializing data\n");
 		return -EINVAL;
@@ -691,10 +705,23 @@ static int __exit rt5033_regulator_remove(struct platform_device *pdev)
 	return 0;
 }
 
+
+#ifdef CONFIG_OF
+static struct of_device_id rt5033_regulator_match_table[] = {
+	{ .compatible = "richtek,rt5033-safeldo",},
+	{ .compatible = "richtek,rt5033-ldo1",},
+	{ .compatible = "richtek,rt5033-dcdc1",},
+	{},
+};
+#else
+#define rt5033_regulator_match_table NULL
+#endif
+
 static struct platform_driver rt5033_regulator_driver = {
 	.driver		= {
 		.name	= "rt5033-regulator",
 		.owner	= THIS_MODULE,
+		.of_match_table = rt5033_regulator_match_table,
 	},
 	.probe		= rt5033_regulator_probe,
 	.remove		= rt5033_regulator_remove,

@@ -43,6 +43,13 @@ config MFD_RT5033
 	  If you say yes to this option, support will be included for the
 	  RT5033 I/F PMIC chip.
 
+config MFD_RT5033_USE_DT
+	bool "Use device tree"
+	depends on MFD_RT5033 && OF
+	default n
+	help
+	  Check this to support device tree.
+
 config PMIC_ADP5520
 	bool "Analog Devices ADP5520/01 MFD PMIC Core Support"
 	depends on I2C=y

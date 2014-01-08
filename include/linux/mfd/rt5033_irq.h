@@ -4,14 +4,14 @@
 enum {
     RT5033_ADPBAD_IRQ = 0,
     RT5033_PPBATLV_IRQ,
-    RT5033_IEOC_IRQ,
+    RT5033_CHTERMI_IRQ,
     RT5033_VINOVPI_IRQ,
     RT5033_TSDI_IRQ,
     RT5033_CHMIVRI_IRQ,
     RT5033_CHTREGI_IRQ,
     RT5033_CHTMRFI_IRQ,
     RT5033_CHRCHGI_IRQ,
-    RT5033_CHTERMI_IRQ,
+    RT5033_IEOC_IRQ,
     RT5033_CHBATOVI_IRQ,
     RT5033_CHRVPI_IRQ,
     RT5033_BSTLOWVI_IRQ,
@@ -31,14 +31,14 @@ enum {
 
 #define RT5033_ADPBAD_IRQ_NAME "chg_adp_bad"
 #define RT5033_PPBATLV_IRQ_NAME "chg_ppbat_lv"
-#define RT5033_IEOC_IRQ_NAME "chg_ieoc"
+#define RT5033_CHTERMI_IRQ_NAME "chg_termination"
 #define RT5033_VINOVPI_IRQ_NAME "chg_vin_ovp"
 #define RT5033_TSDI_IRQ_NAME "chg_thermal_shutdown"
 #define RT5033_CHMIVRI_IRQ_NAME "chg_mivr"
 #define RT5033_CHTREGI_IRQ_NAME "chg_thermal_regulation"
 #define RT5033_CHTMRFI_IRQ_NAME "chg_timeout"
 #define RT5033_CHRCHGI_IRQ_NAME "chg_recharge_req"
-#define RT5033_CHTERMI_IRQ_NAME "chg_termination"
+#define RT5033_IEOC_IRQ_NAME "chg_ieoc"
 #define RT5033_CHBATOVI_IRQ_NAME "chg_bat_ovp"
 #define RT5033_CHRVPI_IRQ_NAME "chg_reverse_protection"
 #define RT5033_BSTLOWVI_IRQ_NAME "bst_low_v"

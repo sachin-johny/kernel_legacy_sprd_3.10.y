@@ -39,7 +39,7 @@
 
 #include <linux/battery/sec_charging_common.h>
 
-#define RT5033_DRV_VER "1.0.7_S"
+#define RT5033_DRV_VER "1.0.8_S"
 
 #ifdef CONFIG_RT5033_SADDR
 #define RT5033FG_SLAVE_ADDR_MSB (0x40)
@@ -92,34 +92,28 @@ typedef union rt5033_pmic_shdn_ctrl
 
 } rt5033_pmic_shdn_ctrl_t;
 
-/*
-   struct rt5033_fg_platform_data {
-   sec_battery_platform_data_t *batt_pdata;
-   rt5033_comp_data_t	*comp_pdata;
-   };
 
-#define rt5033_fg_platform_data_t \
-struct rt5033_fg_platform_data
- */
-
-struct rt5033_regulator_platform_data {
+typedef struct rt5033_regulator_platform_data {
 	struct regulator_init_data *regulator[RT5033_MAX_REGULATOR];
-};
+} rt5033_regulator_platform_data_t;
 
-#define rt5033_regulator_platform_data_t \
-	struct rt5033_regulator_platform_data
 
 struct rt5033_fled_platform_data;
 
+typedef struct rt5033_charger_platform_data {
+    sec_charging_current_t *charging_current_table;
+    int chg_float_voltage;
+} rt5033_charger_platform_data_t;
+
 struct rt5033_mfd_platform_data {
 	/*    const rt5033_chg_platform_data_t *chg_platform_data;*/
-	const rt5033_regulator_platform_data_t *regulator_platform_data;
+	rt5033_regulator_platform_data_t *regulator_platform_data;
 	struct rt5033_fled_platform_data *fled_platform_data;
 	int irq_gpio;
 	int irq_base;
 
 #ifdef CONFIG_CHARGER_RT5033
-	sec_battery_platform_data_t *charger_data;
+    rt5033_charger_platform_data_t *charger_platform_data;
 #endif
 
 };
@@ -127,10 +121,6 @@ struct rt5033_mfd_platform_data {
 #define rt5033_mfd_platform_data_t \
 	struct rt5033_mfd_platform_data
 
-/*struct rt5033_charger_info;
-  struct rt5033_fled_info;
-  struct rt5033_regulator_info;
- */
 struct rt5033_mfd_chip
 {
 	struct i2c_client *i2c_client;

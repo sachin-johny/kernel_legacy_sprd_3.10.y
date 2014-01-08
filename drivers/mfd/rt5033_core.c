@@ -25,6 +25,8 @@
 #include <linux/slab.h>
 #include <linux/pm_runtime.h>
 #include <linux/irqdomain.h>
+#include <linux/of.h>
+#include <linux/of_gpio.h>
 
 
 #define RT5033_DECLARE_IRQ(irq) { \
@@ -36,14 +38,14 @@
 const static struct resource rt5033_charger_res[] = {
     RT5033_DECLARE_IRQ(RT5033_ADPBAD_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_PPBATLV_IRQ),
-	RT5033_DECLARE_IRQ(RT5033_IEOC_IRQ),
+	RT5033_DECLARE_IRQ(RT5033_CHTERMI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_VINOVPI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_TSDI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_CHMIVRI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_CHTREGI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_CHTMRFI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_CHRCHGI_IRQ),
-	RT5033_DECLARE_IRQ(RT5033_CHTERMI_IRQ),
+	RT5033_DECLARE_IRQ(RT5033_IEOC_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_CHBATOVI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_CHRVPI_IRQ),
 	RT5033_DECLARE_IRQ(RT5033_BSTLOWVI_IRQ),
@@ -57,6 +59,9 @@ static struct mfd_cell rt5033_charger_devs[] = {
 		.num_resources	= ARRAY_SIZE(rt5033_charger_res),
 		.id		= -1,
 		.resources = rt5033_charger_res,
+#ifdef CONFIG_MFD_RT5033_USE_DT
+        .of_compatible = "richtek,rt5033-charger"
+#endif /* CONFIG_MFD_RT5033_USE_DT */
 	},
 };
 #endif /*CONFIG_CHARGER_RT5033*/
@@ -73,6 +78,9 @@ static struct mfd_cell rt5033_fled_devs[] = {
 		.num_resources	= ARRAY_SIZE(rt5033_fled_res),
 		.id		= -1,
 		.resources = rt5033_fled_res,
+#ifdef CONFIG_MFD_RT5033_USE_DT
+        .of_compatible = "richtek,rt5033-fled"
+#endif /* CONFIG_MFD_RT5033_USE_DT */
 	},
 };
 #endif /*CONFIG_FLED_RT5033*/
@@ -93,12 +101,23 @@ const static struct resource rt5033_regulator_res_DCDC1[] = {
 	RT5033_DECLARE_IRQ(RT5033_VDDA_UV_IRQ),
 };
 
+#define RT5033_OF_COMPATIBLE_LDO_SAFE "richtek,rt5033-safeldo"
+#define RT5033_OF_COMPATIBLE_LDO1 "richtek,rt5033-ldo1"
+#define RT5033_OF_COMPATIBLE_DCDC1 "richtek,rt5033-dcdc1"
+
+#ifdef CONFIG_MFD_RT5033_USE_DT
+#define REG_OF_COMP(_id) .of_compatible = RT5033_OF_COMPATIBLE_##_id,
+#else
+#define REG_OF_COMP(_id)
+#endif /* CONFIG_MFD_RT5033_USE_DT */
+
 #define RT5033_VR_DEVS(_id)             \
 {                                       \
 	.name		= "rt5033-regulator",	\
 	.num_resources = ARRAY_SIZE(rt5033_regulator_res_##_id), \
 	.id		= RT5033_ID_##_id,          \
 	.resources = rt5033_regulator_res_##_id, \
+    REG_OF_COMP(_id)                   \
 }
 
 static struct mfd_cell rt5033_regulator_devs[] = {
@@ -231,6 +250,31 @@ EXPORT_SYMBOL(rt5033_clr_bits);
 
 extern int rt5033_init_irq(rt5033_mfd_chip_t *chip);
 extern int rt5033_exit_irq(rt5033_mfd_chip_t *chip);
+
+static int rt5033mfd_parse_dt(struct device *dev,
+		rt5033_mfd_platform_data_t *pdata)
+{
+	//irq_gpio
+	//irq_base = -1
+	int ret;
+	struct device_node *np = dev->of_node;
+	enum of_gpio_flags irq_gpio_flags;
+
+	ret = pdata->irq_gpio = of_get_named_gpio_flags(np, "rt5033,irq-gpio",
+			0, &irq_gpio_flags);
+	if (ret < 0) {
+		dev_err(dev, "%s : can't get irq-gpio\r\n", __FUNCTION__);
+		return ret;
+	}
+
+	pdata->irq_base = -1;
+	ret = of_property_read_u32(np, " ", (u32*)&pdata->irq_gpio);
+	if (ret < 0 || pdata->irq_base == -1) {
+		dev_info(dev, "%s : no assignment of irq_base, use irq_alloc_descs()\r\n",
+				__FUNCTION__);
+	}
+	return 0;
+}
 
 static int __init rt5033_mfd_probe(struct i2c_client *i2c,
 		const struct i2c_device_id *id)
@@ -379,6 +423,8 @@ err_init_irq:
 irq_base_err:
 err_mfd_nomem:
 err_i2cfunc_not_support:
+err_parse_dt:
+err_dt_nomem:
 	return ret;
 }
 
@@ -450,10 +496,20 @@ const struct dev_pm_ops rt5033_pm = {
 };
 #endif
 
+#ifdef CONFIG_OF
+static struct of_device_id rt5033_match_table[] = {
+	{ .compatible = "richtek,rt5033mfd",},
+	{},
+};
+#else
+#define rt5033_match_table NULL
+#endif
+
 static struct i2c_driver rt5033_mfd_driver = {
 	.driver	= {
 		.name	= "rt5033-mfd",
 		.owner	= THIS_MODULE,
+		.of_match_table = rt5033_match_table,
 #ifdef CONFIG_PM
 		.pm		= &rt5033_pm,
 		.shutdown = rt5033_shutdown,

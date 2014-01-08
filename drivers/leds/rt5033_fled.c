@@ -21,6 +21,8 @@
 #include <linux/leds/rt5033_fled.h>
 #include <linux/delay.h>
 #include <linux/power_supply.h>
+#include <linux/of.h>
+
 #define ALIAS_NAME "rt5033-fled"
 
 #define RT5033_FLED_INFO(format, args...) \
@@ -33,20 +35,23 @@
     printk(KERN_ERR "%s:%s() line-%d: " format, \
             ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 
+
+#define RT5033_FLED_PIN_CTRL (1<<4)
+
 #define EN_FLED_IRQ 0
 
 typedef struct rt5033_fled_info {
     rt_fled_info_t base;
     const rt5033_fled_platform_data_t *pdata;
     rt5033_mfd_chip_t *chip;
-    struct mutex io_lock;
+    struct mutex led_lock;
     struct i2c_client *i2c_client;
     int torch_current;
     int strobe_current;
-    struct power_supply *psy_chg;
-    int charging_current;
-    int ta_good;
-    int led_count;
+    int boost : 1;
+    int strobe_status : 1;
+    int ta_exist : 1;
+    int led_count : 2;
 } rt5033_fled_info_t;
 
 
@@ -55,44 +60,9 @@ static struct platform_device rt_fled_pdev = {
 	.id = -1,
 };
 
-#define RT5033_TA_NOT_EXIST 0
-#define RT5033_TA_EXIST     1
+#define RT5033_OFF_EVENT_NRD 0x6B
+#define FORCE_NR 0x01
 
-#define RT5033_TA_NOT_GOOD  0
-#define RT5033_TA_GOOD      1
-
-
-
-int check_ta_good_enough(rt5033_fled_info_t *info, int cur_uA)
-{
-#ifdef CONFIG_CHARGER_RT5033
-    cur_uA *= info->led_count;
-    pr_info("chg current = %d uA, fled consumption %d uA\n",
-                info->charging_current, cur_uA);
-    return (info->charging_current >= (cur_uA + 100 * 1000))
-                ? RT5033_TA_GOOD : RT5033_TA_NOT_GOOD;
-#else
-    return RT5033_TA_NOT_GOOD;
-#endif // CONFIG_CHARGER_RT5033
-}
-
-static int check_ta_status(struct rt_fled_info *fled_info)
-{
-    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
-    union power_supply_propval val;
-    val.intval = 0;
-#ifdef CONFIG_CHARGER_RT5033
-    if (info->psy_chg == NULL)
-        info->psy_chg = get_power_supply_by_name("sec-charger");
-    if (info->psy_chg)
-    {
-        info->psy_chg->get_property(info->psy_chg,
-                                       POWER_SUPPLY_PROP_CURRENT_NOW, &val);
-    }
-#endif // CONFIG_CHARGER_RT5033
-    info->charging_current = val.intval * 1000; // covert to uA
-    return (info->charging_current) ? RT5033_TA_EXIST : RT5033_TA_NOT_EXIST;
-}
 
 static int rt5033_set_fled_osc_en(struct i2c_client *iic, int en)
 {
@@ -105,8 +75,16 @@ static int rt5033_fled_init(struct rt_fled_info *fled_info)
     rt5033_mfd_platform_data_t *mfd_pdata;
     BUG_ON(info == NULL);
     mfd_pdata = info->chip->pdata;
-    mutex_lock(&info->io_lock);
+    mutex_lock(&info->led_lock);
     rt5033_set_bits(info->i2c_client, RT5033_FLED_RESET, 0x80);
+
+    /* Force to do normal read (read from e-fuse) ==> let FLED current be more accurate */
+    rt5033_set_bits(info->i2c_client, RT5033_OFF_EVENT_NRD, FORCE_NR);
+    /* Delay 20 us to wait for normal read complete */
+    usleep_range(15, 20);
+    /* Finsh normal read and clear FORCE_NR bit */
+    rt5033_clr_bits(info->i2c_client, RT5033_OFF_EVENT_NRD, FORCE_NR);
+
     if (!info->pdata->fled1_en)
         rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION1, 0x01);
     if (!info->pdata->fled2_en)
@@ -136,7 +114,10 @@ static int rt5033_fled_init(struct rt_fled_info *fled_info)
     rt5033_assign_bits(info->i2c_client, RT5033_FLED_CONTROL2,
                        0x3f, info->pdata->fled_mid_level);
     info->led_count = info->pdata->fled1_en + info->pdata->fled2_en;
-    mutex_unlock(&info->io_lock);
+#ifdef CONFIG_FLED_RT5033_I2C
+    rt5033_set_bits(info->i2c_client, RT5033_FLED_FUNCTION1, RT5033_FLED_PIN_CTRL);
+#endif
+    mutex_unlock(&info->led_lock);
     return 0;
 }
 
@@ -152,63 +133,109 @@ static int rt5033_fled_resume(struct rt_fled_info *info)
     return 0;
 }
 
-int rt5033_fled_set_ta_status(struct i2c_client *iic, int ta_good, int ta_exist)
+int rt5033_fled_set_ta_status(struct i2c_client *iic, int ta_good_and_exist)
 {
     return rt5033_assign_bits(iic, RT5033_FLED_CONTROL5, (0x03 << 6),
-                       (ta_good << 6) | (ta_exist << 7));
+                        ta_good_and_exist ? (0x03 << 6) : 0);
+
 }
-EXPORT_SYMBOL(rt5033_fled_set_ta_status);
 
 inline static int rt5033_set_uug_status(struct i2c_client *iic,int uug)
 {
     return rt5033_assign_bits(iic, 0x19, 0x02, uug);
 }
 
+#ifdef CONFIG_FLED_RT5033_EXT_GPIO
+void rt5033_fled_srobe_critial_section_lock(struct rt_fled_info *fled_info)
+{
+    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
+    BUG_ON(info == NULL);
+    rt5033_fled_lock(fled_info);
+    rt5033_fled_set_ta_status(info->i2c_client, 0);
+}
+EXPORT_SYMBOL(rt5033_fled_srobe_critial_section_lock);
+
+void rt5033_fled_srobe_critial_section_unlock(struct rt_fled_info *fled_info)
+{
+    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
+    BUG_ON(info == NULL);
+    rt5033_fled_set_ta_status(info->i2c_client, info->ta_exist);
+    rt5033_fled_unlock(fled_info);
+}
+EXPORT_SYMBOL(rt5033_fled_srobe_critial_section_unlock);
+#endif /* CONFIG_FLED_RT5033_EXT_GPIO */
+
+int32_t rt5033_charger_notification(struct rt_fled_info *fled_info, int32_t attach)
+{
+    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
+    int mode = fled_info->hal->fled_get_mode(fled_info);
+    BUG_ON(info == NULL);
+    rt5033_fled_lock(fled_info);
+    info->ta_exist = attach;
+    rt5033_fled_set_ta_status(info->i2c_client, attach);
+    rt5033_set_uug_status(info->i2c_client, attach ? 0x02 : 0x00);
+    if (mode == FLASHLIGHT_MODE_TORCH || mode == FLASHLIGHT_MODE_MIXED)
+    {
+        /* disable FlashEN and then enable it*/
+        rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x0);
+        rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x1);
+    }
+    rt5033_fled_unlock(fled_info);
+
+    return 0;
+}
+EXPORT_SYMBOL(rt5033_charger_notification);
+
+int32_t rt5033_boost_notification(struct rt_fled_info *fled_info, int32_t on)
+{
+    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
+    BUG_ON(info == NULL);
+    rt5033_fled_lock(fled_info);
+    info->boost = on;
+#ifdef CONFIG_FLED_RT5033_EXT_GPIO
+    info->ta_exist = on;
+    rt5033_fled_set_ta_status(info->i2c_client, on);
+#endif
+    rt5033_set_uug_status(info->i2c_client, on ? 0x02 : 0x00);
+    rt5033_fled_unlock(fled_info);
+    return 0;
+}
+EXPORT_SYMBOL(rt5033_boost_notification);
+
 static int rt5033_fled_set_mode(struct rt_fled_info *fled_info, flashlight_mode_t mode)
 {
     rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
-    int ta_exist;
+
+    if (info->strobe_status) {
+        info->strobe_status = 0;
+        rt5033_fled_set_ta_status(info->i2c_client, info->ta_exist);
+        rt5033_set_uug_status(info->i2c_client, (info->ta_exist|info->boost) ? 0x02 : 0x00);
+        rt5033_fled_unlock(fled_info);
+    }
+    rt5033_fled_lock(fled_info);
     switch (mode)
     {
         case FLASHLIGHT_MODE_OFF:
             rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION2, 0x80);
-            usleep_range(500,1000);
+            usleep_range(500, 1000);
             rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
-            rt5033_fled_set_ta_status(info->i2c_client, 0, 0);
-            rt5033_set_uug_status(info->i2c_client, 0x02);
             rt5033_set_fled_osc_en(info->i2c_client, 0);
+
             break;
         case FLASHLIGHT_MODE_TORCH:
         case FLASHLIGHT_MODE_MIXED:
-            info->torch_current = fled_info->hal->fled_get_torch_current(fled_info);
-            ta_exist = check_ta_status(fled_info);
-            if (ta_exist)
-                info->ta_good = check_ta_good_enough(info, info->torch_current);
-            else
-                info->ta_good = 0;
-            rt5033_fled_set_ta_status(info->i2c_client, info->ta_good, ta_exist);
-            rt5033_set_uug_status(info->i2c_client, (info->ta_good) ? 0x02 : 0x00);
             rt5033_clr_bits(info->i2c_client, RT5033_FLED_FUNCTION1, 0x04);
-            rt5033_set_bits(info->i2c_client, RT5033_FLED_CONTROL2, (1 << 7)); // Enable AUTO TRACK
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
             break;
         case FLASHLIGHT_MODE_FLASH:
-            info->strobe_current = fled_info->hal->fled_get_strobe_current(fled_info);
-            ta_exist = check_ta_status(fled_info);
-            if (ta_exist)
-                info->ta_good = check_ta_good_enough(info, info->strobe_current);
-            else
-                info->ta_good = 0;
-            rt5033_fled_set_ta_status(info->i2c_client, info->ta_good, ta_exist);
-            rt5033_set_uug_status(info->i2c_client, (info->ta_good) ? 0x02 : 0x00);
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x00);
             rt5033_set_bits(info->i2c_client, RT5033_FLED_FUNCTION1, 0x04);
-            rt5033_clr_bits(info->i2c_client, RT5033_FLED_CONTROL2, (1 << 7)); // DISABLE AUTO TRACK
             rt5033_reg_write(info->i2c_client, RT5033_FLED_FUNCTION2, 0x01);
             break;
         default:
             return -EINVAL;
     }
+    rt5033_fled_unlock(fled_info);
     info->base.flashlight_dev->props.mode = mode;
     return 0;
 }
@@ -219,14 +246,33 @@ static int rt5033_fled_get_mode(struct rt_fled_info *info)
     return rt5033_fled_info->base.flashlight_dev->props.mode;
 }
 
-static int rt5033_fled_strobe(struct rt_fled_info *fled_info)
+void rt5033_fled_lock(struct rt_fled_info *fled_info)
 {
     rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
+    mutex_lock(&info->led_lock);
+}
+EXPORT_SYMBOL(rt5033_fled_lock);
+
+void rt5033_fled_unlock(struct rt_fled_info *fled_info)
+{
+    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
+    mutex_unlock(&info->led_lock);
+}
+EXPORT_SYMBOL(rt5033_fled_unlock);
+
+static int rt5033_fled_strobe(struct rt_fled_info *fled_info)
+{
+    int ret = 0;
+    rt5033_fled_info_t *info = (rt5033_fled_info_t *)fled_info;
     rt5033_set_fled_osc_en(info->i2c_client, 1);
-    /* delay 1500 ~ 1660 if ta_good = 1 to
-     * make delay time same with ta_good = 0 */
-    if (info->ta_good)
-        usleep_range(1500, 1660);
+    if (info->strobe_status == 0) {
+        /* Lock LED until setting to OFF MODE*/
+        rt5033_fled_lock(fled_info);
+        info->strobe_status = 1;
+        rt5033_fled_set_ta_status(info->i2c_client, 0);
+        if (!info->boost)
+            rt5033_set_uug_status(info->i2c_client, 0);
+    }
     switch (info->base.flashlight_dev->props.mode)
     {
         case FLASHLIGHT_MODE_FLASH:
@@ -240,9 +286,9 @@ static int rt5033_fled_strobe(struct rt_fled_info *fled_info)
             break;
         default:
             RT5033_FLED_ERR("Error : not flash / mixed mode\n");
-            return -EINVAL;
+            ret = -EINVAL;
     }
-    return 0;
+    return ret;
 }
 
 static int torch_current[] = {
@@ -495,17 +541,17 @@ static struct rt_fled_hal rt5033_fled_hal = {
 };
 
 
-const static rt5033_fled_platform_data_t rt5033_default_fled_pdata = {
+static rt5033_fled_platform_data_t rt5033_default_fled_pdata = {
     .fled1_en = 1,
     .fled2_en = 1,
     .fled_mid_track_alive = 0,
-    .fled_mid_auto_track_en = 1,
+    .fled_mid_auto_track_en = 0,
     .fled_timeout_current_level = RT5033_TIMEOUT_LEVEL(50),
     .fled_strobe_current = RT5033_STROBE_CURRENT(750),
     .fled_strobe_timeout = RT5033_STROBE_TIMEOUT(544),
     .fled_torch_current = RT5033_TORCH_CURRENT(38),
     .fled_lv_protection = RT5033_LV_PROTECTION(3200),
-    .fled_mid_level = RT5033_MID_REGULATION_LEVEL(4800),
+    .fled_mid_level = RT5033_MID_REGULATION_LEVEL(5000),
 };
 
 
@@ -611,25 +657,78 @@ static void unregister_irq(struct platform_device *pdev,
     }
 }
 
+static int rt5033_fled_parse_dt(struct device *dev,
+		struct rt5033_fled_platform_data *pdata)
+{
+	struct device_node *np = dev->of_node;
+	u32 buffer[2];
+
+	/* copy default value */
+	*pdata = rt5033_default_fled_pdata;
+
+	if (of_property_read_u32_array(np, "enable", buffer, 2) == 0) {
+		pdata->fled1_en = buffer[0];
+		pdata->fled2_en = buffer[1];
+	}
+	if (of_property_read_u32_array(np, "mid_track_alive", buffer, 1))
+		pdata->fled_mid_track_alive = buffer[0];
+
+	if (of_property_read_u32_array(np, "mid_auto_track_en", buffer, 1))
+		pdata->fled_mid_auto_track_en = buffer[0];
+
+	if (of_property_read_u32_array(np, "timeout_current_level", buffer, 1))
+		pdata->fled_timeout_current_level = RT5033_TIMEOUT_LEVEL(buffer[0]);
+
+	if (of_property_read_u32_array(np, "strobe_current", buffer, 1))
+		pdata->fled_strobe_current = RT5033_STROBE_CURRENT(buffer[0]);
+
+	if (of_property_read_u32_array(np, "strobe_timeout", buffer, 1))
+		pdata->fled_strobe_timeout = RT5033_STROBE_TIMEOUT(buffer[0]);
+
+	if (of_property_read_u32_array(np, "torch_current", buffer, 1))
+		pdata->fled_torch_current = RT5033_TORCH_CURRENT(buffer[0]);
+
+	if (of_property_read_u32_array(np, "lv_protection", buffer, 1))
+		pdata->fled_lv_protection = RT5033_LV_PROTECTION(buffer[0]);
+
+	if (of_property_read_u32_array(np, "mid_level", buffer, 1))
+		pdata->fled_mid_level = RT5033_MID_REGULATION_LEVEL(buffer[0]);
+
+	return 0;
+}
+
 static __init int rt5033_fled_probe(struct platform_device *pdev)
 {
     int ret;
 	struct rt5033_mfd_chip *chip = dev_get_drvdata(pdev->dev.parent);
 	struct rt5033_mfd_platform_data *mfd_pdata = chip->dev->platform_data;
-	const struct rt5033_fled_platform_data* pdata;
+	struct rt5033_fled_platform_data* pdata;
     rt5033_fled_info_t *fled_info;
     RT5033_FLED_INFO("Richtek RT5033 FlashLED driver probing...\n");
-    BUG_ON(mfd_pdata == NULL);
-    if (mfd_pdata->fled_platform_data)
-        pdata = mfd_pdata->fled_platform_data;
-    else
-        pdata = &rt5033_default_fled_pdata;
+
+	if (pdev->dev.of_node) {
+		pdata = devm_kzalloc(&pdev->dev, sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&pdev->dev, "Failed to allocate memory\n");
+			ret = -ENOMEM;
+			goto err_parse_dt_nomem;
+		}
+		ret = rt5033_fled_parse_dt(&pdev->dev, pdata);
+		if (ret < 0)
+			goto err_parse_dt;
+	} else {
+		BUG_ON(mfd_pdata == NULL);
+		if (mfd_pdata->fled_platform_data)
+			pdata = mfd_pdata->fled_platform_data;
+		else
+			pdata = &rt5033_default_fled_pdata;
+	}
     fled_info = kzalloc(sizeof(*fled_info), GFP_KERNEL);
     if (!fled_info) {
         ret = -ENOMEM;
         goto err_fled_nomem;
     }
-    mutex_init(&fled_info->io_lock);
+    mutex_init(&fled_info->led_lock);
     fled_info->i2c_client = chip->i2c_client;
     fled_info->base.init_props = &rt5033_fled_props;
     fled_info->base.hal = &rt5033_fled_hal;
@@ -653,6 +752,8 @@ err_register_irq:
 err_register_pdev:
     kfree(fled_info);
 err_fled_nomem:
+err_parse_dt:
+err_parse_dt_nomem:
     return ret;
 }
 
@@ -663,16 +764,27 @@ static __exit int rt5033_fled_remove(struct platform_device *pdev)
     fled_info = platform_get_drvdata(pdev);
     unregister_irq(pdev, fled_info);
     platform_device_unregister(&rt_fled_pdev);
-    mutex_destroy(&fled_info->io_lock);
+    mutex_destroy(&fled_info->led_lock);
     kfree(fled_info);
 	return 0;
 }
+
+#ifdef CONFIG_OF
+static struct of_device_id rt5033_fled_match_table[] = {
+	{ .compatible = "richtek,rt5033-fled",},
+	{},
+};
+#else
+#define rt5033_fled_match_table NULL
+#endif
 
 static struct platform_driver rt5033_fled_driver = {
 	.probe	= rt5033_fled_probe,
 	.remove	= rt5033_fled_remove,
 	.driver	= {
 		.name	= "rt5033-fled",
+		.owner	= THIS_MODULE,
+		.of_match_table = rt5033_fled_match_table,
 	},
 };
 

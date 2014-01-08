@@ -331,7 +331,7 @@ static int __init rtfled_probe(struct platform_device *pdev)
         RTFLED_ERR("HAL implemented uncompletedly\n");
         goto err_check_hal;
     }
-    platform_set_drvdata(pdev,info);
+    platform_set_drvdata(pdev, info);
     info->flashlight_dev = flashlight_device_register(
                                     info->name?info->name:RT_FLED_DEVICE,
                                     &pdev->dev, info, &rtfled_impl_ops,
