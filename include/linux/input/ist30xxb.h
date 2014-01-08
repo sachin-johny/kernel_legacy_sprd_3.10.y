@@ -58,8 +58,14 @@
 
 #define IST30XX_MAX_MT_FINGERS  (10)
 
+#if (!defined CONFIG_MACH_FAME2)
 #define IST30XX_MAX_X           (240)
 #define IST30XX_MAX_Y           (320)
+#else
+#define IST30XX_MAX_X           (320)
+#define IST30XX_MAX_Y           (480)
+#endif
+
 #define IST30XX_MAX_W           (15)
 
 #define IST30XX                 (1)
