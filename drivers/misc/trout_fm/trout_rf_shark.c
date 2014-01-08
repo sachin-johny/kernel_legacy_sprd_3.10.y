@@ -282,9 +282,6 @@ int trout_fm_init(void)
 	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
 	/* added end*/
 
-	/*enable the power of CCIR*/
-	WRITE_REG(0x4003881C, 0x0);
-
 	if (enable_shark_fm() != 0)
 		return -1;
 	msleep(20);
