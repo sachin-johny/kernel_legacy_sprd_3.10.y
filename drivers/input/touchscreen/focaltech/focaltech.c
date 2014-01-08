@@ -65,7 +65,7 @@
 #include <linux/i2c/focaltech_ex_fun.h>
 #include <linux/i2c/focaltech_ctl.h>
 
-#define	USE_THREADED_IRQ	1
+#define	USE_THREADED_IRQ	0
 #define	TOUCH_VIRTUAL_KEYS
 #define	MULTI_PROTOCOL_TYPE_B	0
 #define	TS_MAX_FINGER		5
@@ -501,7 +501,7 @@ static int ft5x0x_update_data(void)
 static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 {
 	ft5x0x_update_data();
-	enable_irq(this_client->irq);
+	//enable_irq(this_client->irq);
 }
 #endif
 
@@ -510,9 +510,9 @@ static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 #if !USE_THREADED_IRQ
 	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
 
-	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
+	//if (!work_pending(&ft5x0x_ts->pen_event_work)) {
 		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
-	}
+	//}
 #else
 	ft5x0x_update_data();
 #endif
@@ -691,7 +691,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 #if !USE_THREADED_IRQ
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
 
-	ft5x0x_ts->ts_workqueue = create_singlethread_workqueue(dev_name(&client->dev));
+	ft5x0x_ts->ts_workqueue = create_singlethread_workqueue("irq/focaltech_ts");
 	if (!ft5x0x_ts->ts_workqueue) {
 		err = -ESRCH;
 		goto exit_create_singlethread;
