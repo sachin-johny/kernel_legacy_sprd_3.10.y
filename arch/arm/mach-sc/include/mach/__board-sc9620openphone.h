@@ -92,4 +92,13 @@ Camera:
 #define SPRD_ION_SIZE            (52 * SZ_1M)
 #define SPRD_ION_OVERLAY_SIZE    (7 * SZ_1M)
 
+ #define GPIO_SDIO_DETECT      226
+ #define GPIO_AP_TO_CP_RTS     11
+ #define GPIO_CP_TO_AP_RDY     12
+ #define GPIO_CP_TO_AP_RTS     210
+ #define GPIO_AP_STATUS        211
+
+#define GPIO_MODEM_DETECT     212
+#define GPIO_MODEM_BOOT       213
+#define GPIO_MODEM_CRASH      214
 #endif

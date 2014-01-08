@@ -138,4 +138,5 @@ extern struct platform_device sprd_veth_sdio4_device;
 #endif
 #endif
 
+extern struct platform_device modem_interface_device;
 #endif

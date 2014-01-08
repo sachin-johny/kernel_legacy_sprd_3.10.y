@@ -217,6 +217,7 @@ static struct platform_device *devices[] __initdata = {
 #endif
 #endif
 
+    &modem_interface_device,
 };
 
 static struct platform_device *late_devices[] __initdata = {
