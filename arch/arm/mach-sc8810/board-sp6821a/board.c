@@ -22,6 +22,7 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
+#include <linux/i2c/lis3dh.h>
 #include <linux/i2c/msg21xx_i2c_ts.h>
 #include <linux/i2c/tmd2771_pls.h>
 #include <linux/spi/spi.h>
@@ -149,6 +150,17 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
 
+static struct lis3dh_acc_platform_data lis3dh_plat_data = {
+	.poll_interval = 100,
+	.min_interval = 10,
+	.g_range = LIS3DH_ACC_G_2G,
+	.axis_map_x = 1,
+	.axis_map_y = 0,
+	.axis_map_z = 2,
+	.negate_x = 1,
+	.negate_y = 1,
+	.negate_z = 1
+};
 
 static struct tmd2771_pls_platform_data tmd2771_pls_info = {
 		.irq_gpio_number	= GPIO_PLSENSOR_IRQ,
@@ -157,6 +169,9 @@ static struct tmd2771_pls_platform_data tmd2771_pls_info = {
 static struct i2c_board_info i2c0_boardinfo[] = {
     {I2C_BOARD_INFO("tmd2771_pls",   0x39),
 	  .platform_data = &tmd2771_pls_info,
+	},
+	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
+	  .platform_data = &lis3dh_plat_data,
 	},
 };
 
