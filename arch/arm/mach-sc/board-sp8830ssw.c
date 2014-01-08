@@ -1089,7 +1089,7 @@ static int gps_enable_control(int flag)
         printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
 		
         if (flag && (!f_enabled)) {
-                      gps_regulator = regulator_get(NULL, "v_gps_1.8v");
+                      gps_regulator = regulator_get(NULL, "vddrf2");
                       if (IS_ERR(gps_regulator)) {
                                    gps_regulator = NULL;
                                    return EIO;
