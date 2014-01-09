@@ -33,14 +33,26 @@
 #define LCD_PRINT(...)
 #endif
 
-/* the following can define ONLY ONE! */
-#define SN65DSI83
-//#define CHIPONE
+/***************** Important Macro! *****************/
+/* For TI! ONLY ONE of the flowing marco can be defined! */
+//#define LINES_ALL_RIGHT_TI
+#define LINES_ONLY_CLK_RIGHT_TI
 
-/* MUST define ONLY ONE */
-//#define LINES_ALL_RIGHT
-#define LINES_ONLY_CLK_RIGHT
-//#define LINES_ALL_WRONG // this macro defined only for chipone
+/* For CHIPONE! ONLY ONE of the flowing marco can be defined! */
+#define LINES_ALL_RIGHT_C1
+//#define LINES_ONLY_CLK_RIGHT_C1
+//#define LINES_ALL_WRONG_C1
+/***************** Important Macro! *****************/
+
+struct bridge_ops {
+	int32_t (*init)(struct panel_spec *self);
+	int32_t (*suspend)(struct panel_spec *self);
+};
+
+static struct bridge_ops b_ops = {
+	.init = NULL,
+	.suspend = NULL,
+};
 
 
 #define I2CID_BRIDGE                2
@@ -48,16 +60,8 @@
 #define I2C_NT51017_ADDR_WRITE      0xD0 /* NT51017 110_1000 0 */
 #define I2C_BRIDGE_ADDR_WRITE0      0x2C /* 0 010_1100 ADDR=Low */
 #define I2C_BRIDGE_ADDR_WRITE1      0x2D /* 0 010_1101 ADDR=High */
-
-#ifdef SN65DSI83
-#define BRIDEG_INIT    sn65dsi83_init
-#define BRIDGE_SUSPEND sn65dsi83_suspend
 #define I2C_BRIDGE_ADDR             I2C_BRIDGE_ADDR_WRITE0
-#elif defined CHIPONE
-#define BRIDEG_INIT    chipone_init
-#define BRIDGE_SUSPEND chipone_suspend
-#define I2C_BRIDGE_ADDR             I2C_BRIDGE_ADDR_WRITE1
-#endif
+
 
 #define GPIOID_LCMRSTN       103 /* should modify pinmap */
 #define GPIOID_STBYB         230 /* should modify pinmap */
@@ -72,8 +76,7 @@ extern int gpio_direction_output(unsigned gpio, int value);
 extern int gpio_request(unsigned gpio, const char *label);
 extern void gpio_free(unsigned gpio);
 
-const static __u8 i2c_msg_buf[][2] = {
-#ifdef SN65DSI83
+const static __u8 i2c_msg_buf_ti[][2] = {
         {0x09, 0x00},
 		{0x0A, 0x03},
 		{0x0B, 0x18},
@@ -82,9 +85,9 @@ const static __u8 i2c_msg_buf[][2] = {
 		{0x11, 0x00},
 		{0x12, 0x31},
 		{0x13, 0x00},
-#ifdef LINES_ALL_RIGHT
+#ifdef LINES_ALL_RIGHT_TI
 		{0x18, 0x18},/* all the line is right */
-#elif defined LINES_ONLY_CLK_RIGHT
+#elif defined LINES_ONLY_CLK_RIGHT_TI
         {0x18, 0xF8},/* only clock line is right */
 #endif
 		{0x19, 0x0C},/* 0x00 */
@@ -121,7 +124,8 @@ const static __u8 i2c_msg_buf[][2] = {
 		{0x3C, 0x00},
 		{0x3D, 0x00},
 		{0x3E, 0x00},
-#elif defined CHIPONE
+};
+const static __u8 i2c_msg_buf_c1[][2] = {
         /*{0x10, 0x4E},add*/
         {0x20, 0x00},
 		{0x21, 0x00},
@@ -143,11 +147,11 @@ const static __u8 i2c_msg_buf[][2] = {
 		{0x69, 0x1C},/*0x1F*/
 		{0x6B, 0x22},
 		{0x5C, 0xFF},
-#ifdef LINES_ALL_RIGHT
+#ifdef LINES_ALL_RIGHT_C1
         {0x13, 0x10},
-#elif defined LINES_ONLY_CLK_RIGHT
+#elif defined LINES_ONLY_CLK_RIGHT_C1
         {0x13, 0x1F},
-#elif defined LINES_ALL_WRONG
+#elif defined LINES_ALL_WRONG_C1
 		{0x13, 0x5F},
 #endif
 		/*{0x10, 0x47},add*/
@@ -157,7 +161,6 @@ const static __u8 i2c_msg_buf[][2] = {
 		{0x09, 0x10},
         /*{0x7B, 0xF2},*/
         /*{0x7C, 0xF3},*/
-#endif
 };
 
 static struct i2c_msg msg_w = {
@@ -194,7 +197,7 @@ static int32_t sn65dsi83_reg_read(struct panel_spec *self)
 		msg_r[0].buf = &reg[i];
 		msg_r[1].buf = &val[i];
 		ret_i2c = i2c_transfer(adap, &msg_r, 2);
-		LCD_PRINT("kernel Read All Regs! SendMsgNum=%d, Reg=0x%x, Src=0x%x,Read=0x%x,\n", ret_i2c,reg[i],i2c_msg_buf[2*i+1],val[i]);
+		LCD_PRINT("kernel Read All Regs! SendMsgNum=%d, Reg=0x%x, Src=0x%x,Read=0x%x,\n", ret_i2c,reg[i],i2c_msg_buf_ti[2*i+1],val[i]);
 	}
 
     LCD_PRINT("kernel sn65dsi83_reg_read! adap_addr=0x%x, name=%s, nr=%d\n", adap, adap->name, adap->nr);
@@ -235,8 +238,8 @@ static int32_t sn65dsi83_init(struct panel_spec *self)
     int32_t i = 0;
 	int32_t ret_i2c = 0;
 
-	__u8 i2c_msg_buf_pll_en[]     = {0x0D, i2c_msg_buf[3][1]|0x01};// PLL_EN (CSR 0x0D.0) 
-	__u8 i2c_msg_buf_soft_reset[] = {0x09, i2c_msg_buf[0][1]|0x01};// SOFT_RESET (CSR 0x09.0) 
+	__u8 i2c_msg_buf_pll_en[]     = {0x0D, i2c_msg_buf_ti[3][1]|0x01};// PLL_EN (CSR 0x0D.0)
+	__u8 i2c_msg_buf_soft_reset[] = {0x09, i2c_msg_buf_ti[0][1]|0x01};// SOFT_RESET (CSR 0x09.0)
 
 	struct i2c_adapter *adap = i2c_get_adapter(I2CID_BRIDGE);
 
@@ -257,8 +260,8 @@ static int32_t sn65dsi83_init(struct panel_spec *self)
 	mdelay(2);
 	
 	/* step 4 : init CSR reg*/
-	for (i=0; i<ARRAY_SIZE(i2c_msg_buf); i++) {
-		msg_w.buf = i2c_msg_buf[i];
+	for (i=0; i<ARRAY_SIZE(i2c_msg_buf_ti); i++) {
+		msg_w.buf = i2c_msg_buf_ti[i];
 		ret_i2c = i2c_transfer(adap, &msg_w, 1);
 	}
 
@@ -296,8 +299,8 @@ static int32_t chipone_init(struct panel_spec *self)
 	mdelay(1);
 
     /* init chipone */
-    for (i=0; i<ARRAY_SIZE(i2c_msg_buf); i++) {
-		msg_w.buf = i2c_msg_buf[i];
+    for (i=0; i<ARRAY_SIZE(i2c_msg_buf_c1); i++) {
+		msg_w.buf = i2c_msg_buf_c1[i];
 		ret_i2c = i2c_transfer(adap, &msg_w, 1);
 	}
 
@@ -307,7 +310,7 @@ static int32_t chipone_init(struct panel_spec *self)
 /* reset sn65dsi83 */
 static int32_t sn65dsi83_suspend(struct panel_spec *self)
 {
-	__u8 i2c_msg_buf_pll_en[] = {0x0D, i2c_msg_buf[3][1] & 0xFE};// PLL_EN (CSR 0x0D.0)
+	__u8 i2c_msg_buf_pll_en[] = {0x0D, i2c_msg_buf_ti[3][1] & 0xFE};// PLL_EN (CSR 0x0D.0)
 	int32_t ret_i2c = 0;
 
 	struct i2c_adapter *adap = i2c_get_adapter(I2CID_BRIDGE);
@@ -352,33 +355,63 @@ static int32_t nt51017_power(struct panel_spec *self, uint8_t power)//0:power do
 			return 0;
 		}
 
-#ifdef CHIPONE
-		if (gpio_request(GPIOID_ADDR, "ADDR")){
-			printk("kernel GPIO%d requeste failed!\n", GPIOID_ADDR);
-			return 0;
-		}
-#endif
-
 		is_requested = 1;
 	}
 
 	if (is_requested){
 		gpio_direction_output(GPIOID_VDDPWR, power);
 		gpio_direction_output(GPIOID_LCDPWR, power);
-#ifdef CHIPONE
-		gpio_direction_output(GPIOID_ADDR, power);// drive ADDR to High
-#endif
 
 		if (!power){//power down, should free gpio
 			gpio_free(GPIOID_VDDPWR);
 			gpio_free(GPIOID_LCDPWR);
-#ifdef CHIPONE
-			gpio_free(GPIOID_ADDR);
-#endif
 			is_requested = 0;
 		}
 	}
 	
+	return 0;
+}
+
+static int32_t get_bridge_info(struct panel_spec *self)
+{
+	__u8 reg = 0x00;
+	__u8 flag = 0xFF;
+	int32_t ret_i2c = 0;
+
+	struct i2c_adapter *adap = i2c_get_adapter(I2CID_BRIDGE);
+
+	if (set_en_pin(self, 1, 30)){
+		printk("kernel Set EN failed!\n");
+		return 1;
+	}
+
+	if (gpio_request(GPIOID_ADDR, "ADDR")){
+		printk("kernel GPIO%d requeste failed!\n", GPIOID_ADDR);
+		return 1;
+	}
+	gpio_direction_output(GPIOID_ADDR, 0);// drive ADDR to low
+	mdelay(1);
+
+	msg_r[0].buf = &reg;
+	msg_r[1].buf = &flag;
+	ret_i2c = i2c_transfer(adap, &msg_r, 2);
+	if (0 == ret_i2c){
+		printk("get_bridge_info, I2C Read Failed!\n");
+		return 1;
+	}
+
+	if (0x35 == flag){//TI
+		b_ops.init = sn65dsi83_init;
+		b_ops.suspend = sn65dsi83_suspend;
+	} else if (0xC1 == flag) {//ChipOne
+		b_ops.init = chipone_init;
+		b_ops.suspend = chipone_suspend;
+	} else {
+		printk("get_bridge_info, Unknown bridge! flag=0x%x\n", flag);
+		gpio_free(GPIOID_ADDR);
+		return 1;
+	}
+
 	return 0;
 }
 
@@ -392,7 +425,16 @@ static int32_t nt51017_mipi_lvds_init(struct panel_spec *self)
 	/* GRB */
     
     /* init */
-	BRIDEG_INIT(self);
+	if (b_ops.init) {
+		b_ops.init(self);
+	} else {
+		if (get_bridge_info(self)){//get bridge info fail
+			printk("Get bridge info fail!\n");
+			return 0;
+		} else {
+			b_ops.init(self);
+		}
+	}
 
 	LCD_PRINT("kernel nt51017_mipi_lvds_init over!\n");
 	
@@ -412,10 +454,28 @@ static int32_t nt51017_mipi_lvds_enter_sleep(struct panel_spec *self, uint8_t is
 
 	if (is_sleep){//sleep in	
 	    nt51017_power(self, 0);// power down 
-		BRIDGE_SUSPEND(self);  // suspend
+		if (b_ops.suspend) {
+			b_ops.suspend(self);
+		} else {
+			if (get_bridge_info(self)){
+				printk("Get bridge info fail when suspend!\n");
+				return 0;
+			} else {
+				b_ops.suspend(self);
+			}
+		}
 	} else {//sleep out
 	    nt51017_power(self, 1);// power up
-        BRIDEG_INIT(self);     // init
+        if (b_ops.init) {
+			b_ops.init(self);
+		} else {
+			if (get_bridge_info(self)){//get bridge info fail
+				printk("Get bridge info fail!\n");
+				return 0;
+			} else {
+				b_ops.init(self);
+			}
+		}
 	}
 
     return 0;
@@ -425,7 +485,16 @@ static uint32_t nt51017_mipi_lvds_after_suspend(struct panel_spec *self)
 {
     nt51017_power(self, 0);// power down
    
-    BRIDGE_SUSPEND(self);  // suspend
+    if (b_ops.suspend) {
+		b_ops.suspend(self);
+	}else {
+		if (get_bridge_info(self)){
+			printk("Get bridge info fail when suspend!\n");
+			return 0;
+		} else {
+			b_ops.suspend(self);
+		}
+	}
     
     LCD_PRINT("kernel nt51017_mipi_lvds_after_suspend\n");
 
