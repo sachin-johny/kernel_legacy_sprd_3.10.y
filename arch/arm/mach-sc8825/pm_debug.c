@@ -20,6 +20,7 @@
 #include <linux/wakelock.h>
 #include <linux/kthread.h>
 #include <linux/debugfs.h>
+#include <linux/uaccess.h>
 #include <mach/pm_debug.h>
 #include <mach/globalregs.h>
 #include <mach/regs_glb.h>
@@ -623,6 +624,45 @@ void pm_debug_set_wakeup_timer()
 	__raw_writel(val, SYSCNT_REG(0) );
 	__raw_writel(1, SYSCNT_REG(0X8) );
 }
+
+/* this is for the alignment of syscnt and system time in user land.
+ * FIXME: move this to a proper place.
+ */
+static ssize_t timestamp_read(struct file *file, char __user *addr, size_t len,
+		loff_t *pos)
+{
+	struct sprd_timestamp {
+		struct timeval tv;
+		unsigned int sc;
+	} st;
+	char buf[32];
+	static int t;
+	t = 0;
+
+	if ((!addr) || (len < 0))
+		return -EINVAL;
+
+	if (len < sizeof(st))
+		return 0;
+
+	if (!access_ok(VERIFY_WRITE, addr, len))
+		return -EFAULT;
+
+	do_gettimeofday(&st.tv);
+	st.sc = get_sys_cnt();
+	pr_debug("%s: %lu, %lu, %lu\n", __func__, st.tv.tv_sec, st.tv.tv_usec, st.sc);
+
+	if(copy_to_user(addr, &st, sizeof(st)))
+		return -EFAULT;
+
+	return sizeof(st);
+}
+
+static const struct file_operations timestamp_fops = {
+	.owner =	THIS_MODULE,
+	.read =		timestamp_read,
+};
+
 static void debugfs_init(void)
 {
 	dentry_debug_root = debugfs_create_dir("power", NULL);
@@ -645,6 +685,8 @@ static void debugfs_init(void)
 			   &is_print_irq_runtime);
 	debugfs_create_u32("print_time", 0644, dentry_debug_root,
 			   &is_print_time);
+	debugfs_create_file("sprd_timestamp", S_IRUGO, dentry_debug_root,
+			NULL, &timestamp_fops);
 }
 void pm_debug_init(void)
 {
