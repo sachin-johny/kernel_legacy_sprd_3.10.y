@@ -20,6 +20,7 @@
 #include <linux/rfkill.h>
 #include <linux/gpio.h>
 #include <linux/ioport.h>
+#include <linux/clk.h>
 #include <mach/board.h>
 
 static struct rfkill *bt_rfk;
@@ -27,6 +28,18 @@ static const char bt_name[] = "bluetooth";
 
 static  unsigned long bt_power;
 static  unsigned long bt_reset;
+
+static void bt_clk_init(void)
+{
+	struct clk *bt_clk;
+	bt_clk = clk_get(NULL, "clk_aux0");
+	if (IS_ERR(bt_clk)) {
+		printk("clock: failed to get clk_aux0\n");
+	}
+	clk_set_rate(bt_clk, 32000);
+	clk_enable(bt_clk);
+}
+
 
 static void getIoResource(struct platform_device  *pdev)
 {
@@ -62,6 +75,7 @@ static int bluetooth_set_power(void *data, bool blocked)
 		gpio_direction_output(bt_power, 1);
 		gpio_direction_output(bt_reset, 1);
 		mdelay(150);
+                bt_clk_init();
 	} else {
  		gpio_direction_output(bt_power, 0);
 		gpio_direction_output(bt_reset, 0);
