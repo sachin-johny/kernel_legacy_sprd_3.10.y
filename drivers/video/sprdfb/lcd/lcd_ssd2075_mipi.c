@@ -143,7 +143,7 @@ static LCM_Force_Cmd_Code rd_prep_code_1[]={
 
 static int32_t ssd2075_mipi_init(struct panel_spec *self)
 {
-	int32_t i;
+	int32_t i = 0;
 	LCM_Init_Code *init = init_data;
 	unsigned int tag;
 
@@ -207,7 +207,7 @@ static uint32_t ssd2075_readid(struct panel_spec *self)
 
 static int32_t ssd2075_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 {
-	int32_t i;
+	int32_t i = 0;
 	LCM_Init_Code *sleep_in_out = NULL;
 	unsigned int tag;
 	int32_t size = 0;

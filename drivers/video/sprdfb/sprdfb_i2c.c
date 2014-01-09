@@ -164,7 +164,7 @@ static int32_t sprdfb_i2c_read_8bits(uint8_t reg, uint8_t *val)
 {
 	uint8_t buf_w[1];
 	uint8_t buf_r;
-	uint32_t i;
+	uint32_t i = 0;
 	int32_t ret = -1;
 	struct i2c_msg msg_r[2];
 

@@ -49,7 +49,7 @@ panel_pinmap_t panel_rstpin_map[] = {
 
 static void sprd_panel_set_rstn_prop(unsigned int if_slp)
 {
-	int i;
+	int i = 0;
 
 	if (if_slp){
 		panel_rstpin_map[0].val = __raw_readl(CTL_PIN_BASE+REG_PIN_LCD_RSTN);

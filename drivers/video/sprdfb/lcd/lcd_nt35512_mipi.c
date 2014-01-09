@@ -97,7 +97,7 @@ static LCM_Init_Code sleep_out =  {LCM_SEND(1), {0x11}};
 
 static int32_t nt35512_mipi_init(struct panel_spec *self)
 {
-	int32_t i;
+	int32_t i = 0;
 	LCM_Init_Code *init = init_data;
 	unsigned int tag;
 

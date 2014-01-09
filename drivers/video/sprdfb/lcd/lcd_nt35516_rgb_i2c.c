@@ -430,7 +430,7 @@ LCD_ERR_E Set_NT35516_I2C_Read(uint16 addr, uint32 addr_len, uint16* data, uint3
 
 static int32_t nt35516_rgb_i2c_init(struct panel_spec *self)
 {
-	unsigned int i;
+	unsigned int i = 0;
 	unsigned int tag;
 	uint16_t data=0x00;
 	uint16_t data1=0x00;
