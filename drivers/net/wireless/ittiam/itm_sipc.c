@@ -134,7 +134,12 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 	u16 status;
 	int ret = 0;
 
-	mutex_lock(&wlan_sipc->pm_lock);
+	if (!mutex_trylock(&wlan_sipc->pm_lock)) {
+		pr_err("cmd could not get pm mutex\n");
+		ret = -EBUSY;
+		return ret;
+	}
+
 	/* TODO sipc-sbuf ops */
 	ret = sbuf_read(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
 			     wlan_sipc->recv_buf, 256, 0);
