@@ -491,6 +491,8 @@ int  smsg_suspend_init(void)
 {
 	wake_lock_init(&sipc_wake_lock, WAKE_LOCK_SUSPEND, "sipc-smsg");
 	register_syscore_ops(&sipc_syscore_ops);
+
+	return 0;
 }
 
 
