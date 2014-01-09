@@ -65,10 +65,10 @@
 
 #define GPIO_CMMB_26M_CLK_EN    197
 
-#define GPIO_BT_RESET       233
-#define GPIO_BT_POWER       231
-#define GPIO_BT2AP_WAKE     232
-#define GPIO_AP2BT_WAKE     235
+#define GPIO_BT_RESET       189
+#define GPIO_BT_POWER       110
+#define GPIO_BT2AP_WAKE     192
+#define GPIO_AP2BT_WAKE     188
 
 #define GPIO_WIFI_SHUTDOWN	230
 #define GPIO_WIFI_IRQ		234
