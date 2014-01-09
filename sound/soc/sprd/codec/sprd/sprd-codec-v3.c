@@ -1238,6 +1238,7 @@ static int sprd_codec_update_bits(struct snd_soc_codec *codec,
 	}
 }
 
+static DEFINE_MUTEX(ldo_mutex);
 static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 {
 	int i;
@@ -1245,6 +1246,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 	struct snd_soc_codec *codec = 0;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
+	mutex_lock(&ldo_mutex);
 	atomic_inc(&sprd_codec_power.ldo_refcount);
 	if (atomic_read(&sprd_codec_power.ldo_refcount) == 1) {
 		sprd_codec_dbg("ldo on!\n");
@@ -1294,6 +1296,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 			sprd_codec_wait(SPRD_CODEC_LDO_WAIT_TIME);
 		}
 	}
+	mutex_unlock(&ldo_mutex);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;
@@ -1305,6 +1308,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 	struct snd_soc_codec *codec = 0;
 	sprd_codec_dbg("Entering %s\n", __func__);
 
+	mutex_lock(&ldo_mutex);
 	if (atomic_dec_and_test(&sprd_codec_power.ldo_refcount)) {
 		if (sprd_codec) {
 			codec = sprd_codec->codec;
@@ -1340,6 +1344,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_analog_reg_disable();
 		sprd_codec_dbg("ldo off!\n");
 	}
+	mutex_unlock(&ldo_mutex);
 
 	sprd_codec_dbg("Leaving %s\n", __func__);
 	return 0;
