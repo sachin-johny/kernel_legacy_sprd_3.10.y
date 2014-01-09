@@ -39,6 +39,7 @@
 #include "csi2/csi_api.h"
 #include <mach/hardware.h>
 #include <asm/io.h>
+#include <mach/adi.h>
 
 
 //#define LOCAL   static
@@ -171,6 +172,9 @@ struct dcam_info {
 
 	uint32_t                   capture_mode;
 	uint32_t                   skip_number;
+	uint32_t                   flash_status;
+	uint32_t                   after_af;
+	struct timeval         timestamp;
 };
 
 struct dcam_dev {
@@ -298,6 +302,144 @@ LOCAL struct dcam_format dcam_img_fmt[] = {
 	{"JPEG", V4L2_PIX_FMT_JPEG, 8}
 };
 #endif
+
+enum cmr_flash_status {
+	FLASH_CLOSE = 0x0,
+	FLASH_OPEN = 0x1,
+	FLASH_TORCH = 0x2,	/*user only set flash to close/open/torch state */
+	FLASH_AUTO = 0x3,
+	FLASH_CLOSE_AFTER_OPEN = 0x10,	/* following is set to sensor */
+	FLASH_HIGH_LIGHT = 0x11,
+	FLASH_OPEN_ON_RECORDING = 0x22,
+	FLASH_CLOSE_AFTER_AUTOFOCUS = 0x30,
+	FLASH_STATUS_MAX
+};
+
+#define DISCARD_FRAME_TIME (10000)
+
+#if defined (CONFIG_ARCH_SCX35)
+LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
+{
+
+	switch (flash_mode) {
+	case FLASH_OPEN:        /*flash on */
+	case FLASH_TORCH:        /*for torch */
+		/*low light */
+		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_LOW_VAL); // 0x3 = 110ma
+		break;
+	case FLASH_HIGH_LIGHT:
+		/*high light */
+		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_HIGH_VAL); // 0xf = 470ma
+		break;
+	case FLASH_CLOSE_AFTER_OPEN:     /*close flash */
+	case FLASH_CLOSE_AFTER_AUTOFOCUS:
+	case FLASH_CLOSE:
+		/*close the light */
+		sci_adi_clr(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT);
+		break;
+	default:
+		printk("sprd_v4l2_setflash unknow mode:flash_mode 0x%x \n", flash_mode);
+		break;
+	}
+
+	DCAM_TRACE("sprd_v4l2_setflash: flash_mode 0x%x  \n", flash_mode);
+
+	return 0;
+}
+#else
+LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
+{
+	switch (flash_mode) {
+	case FLASH_OPEN:                 /*flash on */
+	case FLASH_TORCH:                 /*for torch */
+		/*low light */
+		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
+		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
+		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
+		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
+		break;
+	case FLASH_HIGH_LIGHT:
+		/*high light */
+		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
+		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
+		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_ON);
+		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_ON);
+		break;
+	case FLASH_CLOSE_AFTER_OPEN:              /*close flash */
+	case FLASH_CLOSE_AFTER_AUTOFOCUS:
+	case FLASH_CLOSE:
+		/*close the light */
+		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_OFF);
+		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_OFF);
+		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
+		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
+		break;
+	default:
+		printk("sensor set flash unknown mode:%d \n", flash_mode);
+		return SENSOR_K_FALSE;
+	}
+
+	DCAM_TRACE("sensor set flash mode %d  \n", flash_mode);
+	return SENSOR_K_SUCCESS;
+}
+
+#endif
+
+LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	struct dcam_info         *info = NULL;
+
+	if (dev == NULL) {
+		DCAM_TRACE("sprd_v4l2_opt_flash, dev is NULL \n");
+		return 0;
+	}
+
+	info = &dev->dcam_cxt;
+	if (info->flash_status >= FLASH_CLOSE 
+		&& info->flash_status < FLASH_STATUS_MAX) {
+		DCAM_TRACE("sprd_v4l2_opt_flash, status %d \n", info->flash_status);
+		if(info->flash_status == FLASH_CLOSE_AFTER_AUTOFOCUS) {
+			do_gettimeofday(&info->timestamp);
+			info->after_af = 1;
+			DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, time, %d %d \n", 
+				(int)info->timestamp.tv_sec, (int)info->timestamp.tv_usec);
+		}
+		sprd_v4l2_setflash(info->flash_status);
+		info->flash_status = FLASH_STATUS_MAX;
+	}
+
+	return 0;
+}
+
+LOCAL int sprd_v4l2_discard_frame(struct dcam_frame *frame, void* param)
+{
+	int                                  ret = DCAM_RTN_PARA_ERR;
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	struct dcam_info         *info = NULL;
+	struct timeval              timestamp;
+	uint32_t                         flag = 0;
+
+	info = &dev->dcam_cxt;
+	do_gettimeofday(&timestamp);
+	DCAM_TRACE("DCAM: sprd_v4l2_discard_frame, time, %d %d \n", 
+		(int)timestamp.tv_sec, (int)timestamp.tv_usec);
+	if ((timestamp.tv_sec == info->timestamp.tv_sec) 
+		&& (timestamp.tv_usec -info->timestamp.tv_usec >= DISCARD_FRAME_TIME)){
+		flag = 1;
+	} else if (timestamp.tv_sec > info->timestamp.tv_sec) {
+		if ((1000000 -info->timestamp.tv_sec) + timestamp.tv_sec >= DISCARD_FRAME_TIME) {
+			flag = 1;
+		}
+	}
+
+	if (flag) {
+		DCAM_TRACE("DCAM: sprd_v4l2_discard_frame,unlock frame 0x%x \n", frame);
+		dcam_frame_unlock(frame);
+		ret =  DCAM_RTN_SUCCESS;
+	}
+	return ret;
+}
 
 LOCAL struct dcam_format *sprd_v4l2_get_format(struct v4l2_format *f)
 {
@@ -940,6 +1082,14 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 			path->frm_id_base);
 	}
 	path->frm_ptr[fmr_index] = frame;
+	if (dev->dcam_cxt.after_af && DCAM_PATH1 == frame->type) {
+		ret = sprd_v4l2_discard_frame(frame, param);
+		if (DCAM_RTN_SUCCESS == ret) {
+			dev->dcam_cxt.after_af = 0;
+			return ret;
+		}
+	}
+
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
 		return ret;
@@ -1042,6 +1192,7 @@ LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param)
 	dcam_reg_isr(DCAM_SN_LINE_ERR,  sprd_v4l2_tx_error, param);
 	dcam_reg_isr(DCAM_SN_FRAME_ERR, sprd_v4l2_tx_error, param);
 	dcam_reg_isr(DCAM_JPEG_BUF_OV,  sprd_v4l2_no_mem,   param);
+	dcam_reg_isr(DCAM_SN_EOF,  sprd_v4l2_opt_flash,   param);
 
 	return 0;
 }
@@ -1348,6 +1499,7 @@ enum dcam_parm_id {
 	CAPTURE_SENSOR_SIZE,
 	CAPTURE_FRM_ID_BASE,
 	CAPTURE_SET_CROP,
+	CAPTURE_SET_FLASH,
 	PATH_FRM_DECI = 0x2000,
 	PATH_PAUSE    = 0x2001,
 	PATH_RESUME   = 0x2002,
@@ -1485,7 +1637,14 @@ LOCAL int v4l2_s_parm(struct file *file,
 		channel_id = streamparm->parm.capture.reserved[0];
 		sprd_v4l2_streamresume(file, channel_id);
 		break;
-		
+
+	case CAPTURE_SET_FLASH:
+		mutex_lock(&dev->dcam_mutex);
+		dev->dcam_cxt.flash_status = streamparm->parm.capture.reserved[0];
+		mutex_unlock(&dev->dcam_mutex);
+		DCAM_TRACE("V4L2: s_parm, status %d \n", dev->dcam_cxt.flash_status);
+		break;
+
 	default:
 		printk("V4L2: unsupported parm_id, 0x%x \n", streamparm->parm.capture.capability);
 		ret = -EINVAL;
@@ -2426,6 +2585,8 @@ LOCAL int sprd_init_handle(struct file *file)
 		printk("V4L2: init handle fail \n");
 		return -EINVAL;
 	}
+	info->flash_status = FLASH_STATUS_MAX;
+	info->after_af = 0;
 	path = &info->dcam_path[DCAM_PATH1];
 	if (NULL == path) {
 		printk("V4L2: init path 1 fail \n");
@@ -2639,6 +2800,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	}
 	sprd_stop_timer(&dev->dcam_timer);
 	atomic_dec(&dev->users);
+	sprd_v4l2_setflash(0);
 	mutex_unlock(&dev->dcam_mutex);
 
 	DCAM_TRACE("V4L2: close end. \n");
@@ -2843,6 +3005,20 @@ LOCAL int __init create_instance(int inst)
 	struct dcam_dev          *dev;
 	struct video_device      *vfd;
 	int                      ret = DCAM_RTN_SUCCESS;
+	uint32_t                 tmp = 0;
+
+#ifndef CONFIG_ARCH_SCX35
+	ret = gpio_request(GPIO_SPRD_FLASH_LOW, "gpioFlashLow");
+	if (ret) {
+		tmp = GPIO_SPRD_FLASH_LOW;
+		goto gpio_err_exit;
+	}
+	ret = gpio_request(GPIO_SPRD_FLASH_HIGH, "gpioFlashHigh");
+	if (ret) {
+		tmp = GPIO_SPRD_FLASH_HIGH;
+		goto gpio_err_exit;
+	}
+#endif
 
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
@@ -2893,6 +3069,10 @@ unreg_dev:
 	v4l2_device_unregister(&dev->v4l2_dev);
 free_dev:
 	kfree(dev);
+gpio_err_exit:
+	printk(KERN_ERR "v4l2 probe req flash gpio %d err %d\n",
+		tmp, ret);
+
 	return ret;
 }
 
@@ -2914,6 +3094,10 @@ LOCAL int sprd_v4l2_remove(struct platform_device *dev)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 
+#ifndef CONFIG_ARCH_SCX35
+	gpio_free(GPIO_SPRD_FLASH_HIGH);
+	gpio_free(GPIO_SPRD_FLASH_LOW);
+#endif
 	return ret;
 }
 
