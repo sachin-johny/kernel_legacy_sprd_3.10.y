@@ -212,8 +212,6 @@ TCgReturnCode CgxDriverPowerUp(void)
 	TCgReturnCode rc = ECgOk;
 	U32 version = 0;
 
-	flag_power_up = 1;
-
 	// In order to power up the CGsnap, do a dummy access
 	rc = CGCORE_READ_REG(CGCORE_REG_OFFSET_VERSION, &version );
 	return rc;
@@ -222,8 +220,6 @@ TCgReturnCode CgxDriverPowerUp(void)
 TCgReturnCode CgxDriverPowerDown(void)
 {
 	TCgReturnCode rc = ECgOk;
-
-	flag_power_up = 0;
 
 	// Write software power-down command to CGsnap
 	rc = CGCORE_WRITE_REG( CGCORE_REG_OFFSET_SOFT_CMD, CGCORE_SOFT_CMD_POWER_DOWN );
@@ -587,11 +583,13 @@ TCgReturnCode CgxDriverExecuteSpecific(
 
 		case CGX_IOCTL_POWER_DOWN:
             DBGMSG("CGX_IOCTL_POWER_DOWN!");
+			flag_power_up = 0;
 			pResults->rc = CgxDriverPowerDown();
 			if (OK(pResults->rc)) pResults->rc = CgxDriverRFPowerDown();
 			break;
 
 		case CGX_IOCTL_POWER_UP:
+			flag_power_up = 1;
 			pState->transfer.cancel.request = FALSE;
 			pResults->rc = CgxDriverPowerUp();
 			if (OK(pResults->rc)) pResults->rc = CgxDriverRFPowerUp();
