@@ -602,7 +602,7 @@ struct panel_spec lcd_nt35516_rgb_spi_spec = {
 	.height = 960,
 	.type = LCD_MODE_RGB,
 	.direction = LCD_DIRECT_NORMAL,
-#ifdef CONFIG_ARCH_SCX15
+#ifdef CONFIG_FB_SCX15
 	.fps = 56,
 #endif
 	.info = {
