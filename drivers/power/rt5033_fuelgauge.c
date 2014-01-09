@@ -614,9 +614,11 @@ static bool rt5033_fg_init(struct i2c_client *client)
 bool sec_hal_fg_init(struct i2c_client *client)
 {
 	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
-    int i;
+#if ENABLE_SOC_OFFSET_COMP
+	int i;
 	offset_table_prop *rt5033_battery_offset4 = get_battery_data(fuelgauge).offset4;
-    rt5033_fg_init(client);
+#endif
+	rt5033_fg_init(client);
 	rt5033_get_version(client);
 	fuelgauge->info.init_once = true;
 	fuelgauge->info.pre_soc = 50;
@@ -627,12 +629,15 @@ bool sec_hal_fg_init(struct i2c_client *client)
 	fuelgauge->info.offs_speci_case = false;
 	fuelgauge->info.flag_once_full_soc = true;
 	fuelgauge->info.temperature = 250;
+
+#if ENABLE_SOC_OFFSET_COMP
 	for(i=0; i<100; i++) {
 		if(rt5033_battery_offset4[i].y != 0) {
 			fuelgauge->info.offs_speci_case = true;
 			break;
 		}
 	}
+#endif
 
 	return true;
 }
