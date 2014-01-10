@@ -8,6 +8,7 @@
 /* seek direction */
 #define Trout_SEEK_DIR_UP          0
 #define Trout_SEEK_DIR_DOWN        1
+#define Trout_SEEK_TIMEOUT         1
 
 /** The following define the IOCTL command values via the ioctl macros */
 #define	Trout_FM_IOCTL_BASE     'R'

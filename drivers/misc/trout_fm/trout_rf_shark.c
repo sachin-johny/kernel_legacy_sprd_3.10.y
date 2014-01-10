@@ -366,6 +366,7 @@ int trout_fm_deinit(void)
 
 int shark_fm_wait_int(int time_out)
 {
+       int ret = 0;
 	ulong jiffies_comp = 0;
 	u8 is_timeout = 1;
 	u32 seek_succes = 0;
@@ -384,10 +385,10 @@ int shark_fm_wait_int(int time_out)
 					jiffies_comp +
 					msecs_to_jiffies(time_out));
 
-		if (is_timeout) {
+		if (is_timeout && (seek_succes==0)) {
 			TROUT_PRINT("FM search timeout.");
 			trout_fm_dis();
-			return -1;
+		        ret = Trout_SEEK_TIMEOUT;                       
 		}
 
 		if (seek_succes) {
@@ -404,7 +405,7 @@ int shark_fm_wait_int(int time_out)
 	__trout_fm_show_status();
 
 	TROUT_PRINT("\n");
-	return 0;
+	return ret;
 }
 
 int trout_fm_set_tune(u16 freq)
@@ -460,9 +461,28 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 	shark_fm_int_en();
 	trout_fm_en();
 	ret = shark_fm_wait_int(time_out);
-	if (ret < 0)
-		TROUT_PRINT("seek failed!");
-
+	if (ret == Trout_SEEK_TIMEOUT)
+       {
+            if (seek_dir == 0){
+                if ( MIN_FM_FREQ == ((shark_fm_info.freq_seek >> 1) + 1)){
+                            shark_fm_info.freq_seek  =  (MAX_FM_FREQ -1 ) * 2;
+		   }
+		   else{
+			    shark_fm_info.freq_seek -= 2;
+		   }
+            }
+	     else{
+                if ( MAX_FM_FREQ == ((shark_fm_info.freq_seek >> 1) + 1)){
+                            shark_fm_info.freq_seek  =  (MIN_FM_FREQ -1 ) * 2;
+		   }
+		   else{
+			    shark_fm_info.freq_seek += 2;
+		   }
+	     }
+            TROUT_PRINT("seek time out!");
+            TROUT_PRINT("freq=%d",((shark_fm_info.freq_seek >> 1) + 1));         
+        }
+		
 	/*dump_fm_regs();*/
 	*freq_found = (shark_fm_info.freq_seek >> 1) + 1;
 
