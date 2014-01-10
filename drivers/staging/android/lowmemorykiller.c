@@ -76,6 +76,18 @@ static unsigned long lowmem_deathpending_timeout;
 			pr_info(x);			\
 	} while (0)
 
+
+
+#ifdef CONFIG_ANDROID_LOW_MEMORY_KILLER_AUTODETECT_OOM_ADJ_VALUES
+static short lowmem_oom_adj_to_oom_score_adj(short oom_adj);
+static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj);
+#define OOM_SCORE_ADJ_TO_OOM_ADJ(__SCORE_ADJ__)   lowmem_oom_score_adj_to_oom_adj(__SCORE_ADJ__)
+#define OOM_ADJ_TO_OOM_SCORE_ADJ(__ADJ__)   lowmem_oom_adj_to_oom_score_adj(__ADJ__)
+#else
+#define OOM_SCORE_ADJ_TO_OOM_ADJ(__SCORE_ADJ__)  (__SCORE_ADJ__)
+#define OOM_ADJ_TO_OOM_SCORE_ADJ(__ADJ__)    (__ADJ__)
+#endif
+
 #ifdef CONFIG_ZRAM
 extern ssize_t zram_mem_free_percent(void);
 
@@ -367,7 +379,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected_tasksize = tasksize;
 		selected_oom_score_adj = oom_score_adj;
 		lowmem_print(2, "select '%s' (%d), adj %hd, size %d, to kill\n",
-			     p->comm, p->pid, oom_score_adj, tasksize);
+			     p->comm, p->pid, OOM_SCORE_ADJ_TO_OOM_ADJ(oom_score_adj), tasksize);
 	}
 	if (selected) {
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
@@ -375,12 +387,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
 				"   Free memory is %ldkB above reserved\n",
 			     selected->comm, selected->pid,
-			     selected_oom_score_adj,
+			     OOM_SCORE_ADJ_TO_OOM_ADJ(selected_oom_score_adj),
 			     selected_tasksize * (long)(PAGE_SIZE / 1024),
 			     current->comm, current->pid,
 			     other_file * (long)(PAGE_SIZE / 1024),
 			     minfree * (long)(PAGE_SIZE / 1024),
-			     min_score_adj,
+			     OOM_SCORE_ADJ_TO_OOM_ADJ(min_score_adj),
 			     other_free * (long)(PAGE_SIZE / 1024));
 		lowmem_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
@@ -466,8 +478,29 @@ static int lowmem_adj_array_set(const char *val, const struct kernel_param *kp)
 	return ret;
 }
 
+static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj)
+{
+	if (oom_score_adj == OOM_SCORE_ADJ_MAX)
+		return OOM_ADJUST_MAX;
+	else
+		return  (oom_score_adj * (-OOM_DISABLE) + OOM_SCORE_ADJ_MAX - 1) /  OOM_SCORE_ADJ_MAX; 
+}
+
+static uint32_t oom_score_to_oom_enable = 1;
+
 static int lowmem_adj_array_get(char *buffer, const struct kernel_param *kp)
 {
+	if(oom_score_to_oom_enable)
+	{
+		int oom_adj[6] = {0};
+		int t = 0;
+		for(t = 0; t < 6; t++)
+		{
+			oom_adj[t] = lowmem_oom_score_adj_to_oom_adj(lowmem_adj[t]);
+		}
+		return sprintf(buffer, "%d,%d,%d,%d,%d,%d", oom_adj[0], oom_adj[1], oom_adj[2], oom_adj[3], oom_adj[4], oom_adj[5]);
+	}
+
 	return param_array_ops.get(buffer, kp);
 }
 
@@ -489,6 +522,12 @@ static const struct kparam_array __param_arr_adj = {
 	.elemsize = sizeof(lowmem_adj[0]),
 	.elem = lowmem_adj,
 };
+
+
+module_param_array_named(oom_score_adj, lowmem_adj, short, &lowmem_adj_size, S_IRUGO | S_IWUSR);
+
+module_param_named(oom_score_to_oom_enable, oom_score_to_oom_enable, uint, S_IRUGO | S_IWUSR);
+
 #endif
 
 module_param_named(cost, lowmem_shrinker.seeks, int, S_IRUGO | S_IWUSR);
