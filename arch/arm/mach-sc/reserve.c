@@ -18,13 +18,28 @@
 #include <mach/board.h>
 #include <asm/memory.h>
 #include <linux/memblock.h>
+#include <linux/dma-contiguous.h>
+#include <linux/platform_device.h>
+#include "devices.h"
 
 static int __init __iomem_reserve_memblock(void)
 {
+	int ret;
+
+#ifndef CONFIG_CMA
 	if (memblock_is_region_reserved(SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE))
 		return -EBUSY;
 	if (memblock_reserve(SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE))
 		return -ENOMEM;
+#else
+	ret = dma_declare_contiguous(&sprd_ion_dev.dev, SPRD_ION_MEM_SIZE, SPRD_ION_MEM_BASE, 0);
+	if (unlikely(ret))
+	{
+		pr_err("reserve CMA area(base:%x size:%x) for ION failed!!!\n", SPRD_ION_MEM_BASE,SPRD_ION_MEM_SIZE);
+		return -ENOMEM;
+	}
+	pr_info("reserve CMA area(base:%x size:%x) for ION\n", SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE);
+#endif
 	return 0;
 }
 

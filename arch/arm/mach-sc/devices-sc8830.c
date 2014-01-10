@@ -878,9 +878,9 @@ static struct ion_platform_heap ion_pheaps[] = {
 #else
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_heap_carveout_mm",
-#endif
                         .base   = SPRD_ION_MM_BASE,
                         .size   = SPRD_ION_MM_SIZE,
+#endif
                 },
                 {
                         .id     = ION_HEAP_ID_OVERLAY,
@@ -890,9 +890,9 @@ static struct ion_platform_heap ion_pheaps[] = {
 #else
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_heap_carveout_overlay",
-#endif
                         .base   = SPRD_ION_OVERLAY_BASE,
                         .size   = SPRD_ION_OVERLAY_SIZE,
+#endif
                 },
 };
 

@@ -180,7 +180,7 @@ static struct ion_heap_ops ion_cma_ops = {
 	.map_kernel = ion_cma_map_kernel,
 };
 
-struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data)
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *data, struct device *dev)
 {
 	struct ion_cma_heap *cma_heap;
 

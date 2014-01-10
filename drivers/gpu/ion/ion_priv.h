@@ -289,7 +289,7 @@ void ion_carveout_heap_destroy(struct ion_heap *);
 
 struct ion_heap *ion_chunk_heap_create(struct ion_platform_heap *);
 void ion_chunk_heap_destroy(struct ion_heap *);
-struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *);
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *, struct device *);
 void ion_cma_heap_destroy(struct ion_heap *);
 
 /**

@@ -34,7 +34,8 @@
 #endif
 
 #define ION_CMA_ALLOCATE_FAIL -1
-#define ION_SIZE_SEPARATRIX    0x800000
+
+struct device *ion_dev;
 
 struct ion_cma_heap {
 	struct ion_heap heap;
@@ -49,8 +50,7 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 {
 	struct ion_cma_heap *cma_heap =
 		container_of(heap, struct ion_cma_heap, heap);
-	/*if allocate size < ION_SIZE_SEPARATRIX or no reserverd memory , then allocate from real cma*/
-	if((size < ION_SIZE_SEPARATRIX) || (cma_heap->pool == NULL))
+	if(cma_heap->pool == NULL)
 	{
 		struct page *page;
 		ion_phys_addr_t phys;
@@ -59,20 +59,17 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 		int start, end;
 		do_gettimeofday(&val);
 		start = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
-		page = dma_alloc_from_contiguous(NULL , pagecount , 0);
+		page = dma_alloc_from_contiguous(ion_dev, pagecount, 0);
 		do_gettimeofday(&val);
 		end = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
 		if(!page) {
-			pr_debug("ion: malloc dma_alloc_from_contiguous() failed size:0x%lx , pageCount:%d\n" , size , pagecount);
+			pr_err("ion: malloc dma_alloc_from_contiguous() failed size:0x%lx , pageCount:%d\n" , size , pagecount);
 			return -ENOMEM;
 		}
 		phys = page_to_phys(page);
 		printk("ion: malloc from cma mem: size=%08lx,phy addr=%08lx, time=%dms\n", size, phys, end-start);
 		return phys;
-	}
-	/*else allocate from reserved memroy if it exist.*/
-	else
-	{
+	} else {
 		unsigned long offset = gen_pool_alloc(cma_heap->pool, size);
 		pr_debug("ion: malloc from reserved mem: size=%08lx, pool=%p, offset=%08lx \n", size, cma_heap->pool, offset);
 		if (!offset)
@@ -101,7 +98,7 @@ void ion_cma_free(struct ion_heap *heap, ion_phys_addr_t addr,
 		int pagecount = ((PAGE_ALIGN(size)) >> PAGE_SHIFT);
 		page = phys_to_page(addr);
 		pr_debug("ion: free cma mem: size=%08lx, phyAddr=%08lx \n", size, addr);
-		dma_release_from_contiguous(NULL , page, pagecount);
+		dma_release_from_contiguous(ion_dev, page, pagecount);
 	}
 	return;
 }
@@ -219,7 +216,7 @@ static struct ion_heap_ops cma_heap_ops = {
 	.unmap_kernel = ion_cma_heap_unmap_kernel,
 };
 
-struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data)
+struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data, struct device *dev)
 {
 	struct ion_cma_heap *cma_heap;
 	cma_heap = kzalloc(sizeof(struct ion_cma_heap), GFP_KERNEL);
@@ -245,6 +242,7 @@ struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data)
 	}
 	cma_heap->heap.ops = &cma_heap_ops;
 	cma_heap->heap.type = ION_HEAP_TYPE_CUSTOM;
+	ion_dev = dev;
 	return &cma_heap->heap;
 }
 
