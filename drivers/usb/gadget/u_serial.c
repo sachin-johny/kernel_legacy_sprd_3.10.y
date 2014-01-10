@@ -80,7 +80,7 @@
  * next layer of buffering.  For TX that's a circular buffer; for RX
  * consider it a NOP.  A third layer is provided by the TTY code.
  */
-#define QUEUE_SIZE		16
+#define QUEUE_SIZE		32
 #define WRITE_BUF_SIZE		8192		/* TX only */
 
 /* circular buffer */
