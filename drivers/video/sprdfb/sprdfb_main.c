@@ -81,6 +81,11 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 {
 	uint32_t len, addr;
 
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+	if((0!= dev->panel->display_width) && (0 != dev->panel->display_height)){
+		len = dev->panel->display_width * dev->panel->display_height * (dev->bpp / 8) * FRAMEBUFFER_NR;
+	}else
+#endif
 	len = dev->panel->width * dev->panel->height * (dev->bpp / 8) * FRAMEBUFFER_NR;
 #ifndef	CONFIG_FB_LCD_RESERVE_MEM
 	addr = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, get_order(len));
@@ -121,14 +126,31 @@ static void setup_fb_info(struct sprdfb_device *dev)
 	fb->fix.ypanstep = 1;
 	fb->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb->fix.visual = FB_VISUAL_TRUECOLOR;
-	fb->fix.line_length = panel->width * dev->bpp / 8;
 
-	fb->var.xres = panel->width;
-	fb->var.yres = panel->height;
-	fb->var.width = panel->width;
-	fb->var.height = panel->height;
-	fb->var.xres_virtual = panel->width;
-	fb->var.yres_virtual = panel->height * FRAMEBUFFER_NR;
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+	if((0 != panel->display_width) && (0 != panel->display_height)){
+		fb->fix.line_length = panel->display_width * dev->bpp / 8;
+
+		fb->var.xres = panel->display_width;
+		fb->var.yres = panel->display_height;
+		fb->var.width = panel->display_width;
+		fb->var.height = panel->display_height;
+
+		fb->var.xres_virtual = panel->display_width;
+		fb->var.yres_virtual = panel->display_height * FRAMEBUFFER_NR;
+	}else
+#endif
+	{
+		fb->fix.line_length = panel->width * dev->bpp / 8;
+
+		fb->var.xres = panel->width;
+		fb->var.yres = panel->height;
+		fb->var.width = panel->width;
+		fb->var.height = panel->height;
+
+		fb->var.xres_virtual = panel->width;
+		fb->var.yres_virtual = panel->height * FRAMEBUFFER_NR;
+	}
 	fb->var.bits_per_pixel = dev->bpp;
 	if(0 != dev->panel->fps){
 //		fb->var.pixclock = (1000 * 1000 * 1000) / (dev->panel->fps * panel->width * panel->height) * 1000;

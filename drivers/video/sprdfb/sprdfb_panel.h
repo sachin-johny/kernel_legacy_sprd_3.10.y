@@ -285,6 +285,10 @@ struct panel_spec {
 	uint32_t cap;
 	uint16_t width;
 	uint16_t height;
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+	uint16_t display_width;
+	uint16_t display_height;
+#endif
 	struct reset_timing_s reset_timing;
 	uint32_t fps;
 	uint16_t suspend_mode;

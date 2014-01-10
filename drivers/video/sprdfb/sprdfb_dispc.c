@@ -32,7 +32,7 @@
 #include "sprdfb_chip_common.h"
 
 #define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
-#if defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_STAR2)  || defined(CONFIG_MACH_CORSICA_VE) || defined(CONFIG_MACH_FAME2)
+#ifdef CONFIG_FB_SCX15
 #define DISPC_CLOCK_PARENT ("clk_192m")
 #define DISPC_CLOCK (192*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
@@ -54,7 +54,7 @@
 #define DISPC_EMC_EN_PARENT ("clk_aon_apb")
 
 
-#ifdef CONFIG_ARCH_SCX15
+#ifdef CONFIG_FB_SCX15
 #define SPRDFB_BRIGHTNESS		(0x02<<16)// 9-bits
 #define SPRDFB_CONTRAST			(0xEF<<0) //10-bits
 #define SPRDFB_OFFSET_U			(0x80<<16)//8-bits
@@ -560,8 +560,7 @@ static void dispc_run(struct sprdfb_device *dev)
 		dispc_set_bits((1 << 4), DISPC_CTRL);
 	}
 	dispc_irq_trick_out();
-#if defined(CONFIG_ARCH_SCX15)
-#else
+#ifndef CONFIG_FB_SCX15
 	dsi_irq_trick(0,0);
 #endif
 }
@@ -1124,7 +1123,9 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		dispc_write(0, DISPC_OSD_DISP_XY);
 		dispc_write(size, DISPC_OSD_SIZE_XY);
 		dispc_write(fb->var.xres, DISPC_OSD_PITCH);
-
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+		size = (dev->panel->width& 0xffff) | ((dev->panel->height) << 16);
+#endif
 		dispc_write(size, DISPC_SIZE_XY);
 
 #ifdef  BIT_PER_PIXEL_SURPPORT
@@ -1468,7 +1469,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 
 	if(type < SPRD_DATA_TYPE_RGB888) {
 		dispc_write(1, DISPC_Y2R_CTRL);
-#ifdef CONFIG_ARCH_SCX15
+#ifdef CONFIG_FB_SCX15
 		dispc_write(SPRDFB_BRIGHTNESS|SPRDFB_CONTRAST, DISPC_Y2R_Y_PARAM);
 		dispc_write(SPRDFB_OFFSET_U|SPRDFB_SATURATION_U, DISPC_Y2R_U_PARAM);
 		dispc_write(SPRDFB_OFFSET_V|SPRDFB_SATURATION_V, DISPC_Y2R_V_PARAM);
@@ -1486,7 +1487,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 	pr_debug("DISPC_IMG_PITCH: 0x%x\n", dispc_read(DISPC_IMG_PITCH));
 	pr_debug("DISPC_IMG_DISP_XY: 0x%x\n", dispc_read(DISPC_IMG_DISP_XY));
 	pr_debug("DISPC_Y2R_CTRL: 0x%x\n", dispc_read(DISPC_Y2R_CTRL));
-#ifdef CONFIG_ARCH_SCX15
+#ifdef CONFIG_FB_SCX15
 	pr_debug("DISPC_Y2R_Y_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_Y_PARAM));
 	pr_debug("DISPC_Y2R_U_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_U_PARAM));
 	pr_debug("DISPC_Y2R_V_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_V_PARAM));
@@ -1953,14 +1954,24 @@ static void sprdfb_dispc_logo_config(struct sprdfb_device *dev,uint32_t logo_dst
     dispc_write(0xff, DISPC_OSD_ALPHA);
 
     reg_val = (( dev->panel->width & 0xfff) | ((dev->panel->height & 0xfff ) << 16));
-    dispc_write(reg_val, DISPC_OSD_SIZE_XY);
     dispc_write(reg_val, DISPC_SIZE_XY);
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+	if((0 != dev->panel->display_width) && (0 != dev->panel->display_height)){
+		reg_val = (( dev->panel->display_width & 0xfff) | ((dev->panel->display_height & 0xfff ) << 16));
+	}
+#endif
+    dispc_write(reg_val, DISPC_OSD_SIZE_XY);
 
     /* OSD layer start position */
     dispc_write(0, DISPC_OSD_DISP_XY);
 
     /* OSD layer pitch */
-    reg_val = ( dev->panel->width & 0xfff) ;
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+	if((0 != dev->panel->display_width) && (0 != dev->panel->display_height)){
+		reg_val = (dev->panel->display_width & 0xfff) ;
+	}else
+#endif
+	reg_val = (dev->panel->width & 0xfff) ;
     dispc_write(reg_val, DISPC_OSD_PITCH);
 
     /*OSD base address*/
@@ -2012,6 +2023,11 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 	}
 
 //#define USE_OVERLAY_BUFF
+#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+	if((0 != dev->panel->display_width) && (0 != dev->panel->display_height)){
+		logo_size = dev->panel->display_width * dev->panel->display_height * 2;// should be rgb565
+	}else
+#endif
 	logo_size = dev->panel->width * dev->panel->height * 2;// should be rgb565
 #if 0
 #ifndef USE_OVERLAY_BUFF
