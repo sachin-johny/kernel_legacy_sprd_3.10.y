@@ -377,5 +377,7 @@ config BUS_MONITOR_DEBUG
 config EAR_LOW_LEVEL_DETECT
         bool "ear detecting trigger is low level"
         default n
-
+config SS_FUNCTION
+        bool "only for samsung function"
+        default n
 endif
