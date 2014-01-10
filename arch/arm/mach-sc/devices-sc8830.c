@@ -357,7 +357,7 @@ static struct resource sprd_otg_resource[] = {
 	}
 };
 static struct sprd_usb_platform_data sprd_otg_pdata = {
-	.gpio_boost = HEADSET_SWITCH_GPIO,
+	.gpio_boost = 0xffffffff,
 #ifdef  CONFIG_SHARK_PAD_HW_V102
 	.gpio_chgdet = EIC_POWER_PBINT2,
 #else
