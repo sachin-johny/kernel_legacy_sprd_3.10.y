@@ -83,7 +83,7 @@ static int32_t s6d0139_init(struct panel_spec *self)
 
 
 	if(1){
-		int i;
+		int i = 0;
 		for (i=0; i<320*240/3; i++)
 			send_data(0xf800);
 		for (i=0; i< 320*240/3; i++)

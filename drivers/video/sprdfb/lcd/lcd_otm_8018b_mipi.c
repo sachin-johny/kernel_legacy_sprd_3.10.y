@@ -177,7 +177,7 @@ static LCM_Init_Code sleep_out[] =  {
 
 static int32_t otm8018b_mipi_init(struct panel_spec *self)
 {
-	int32_t i;
+	int32_t i = 0;
 	LCM_Init_Code *init = init_data;
 	unsigned int tag;
 
@@ -209,7 +209,7 @@ static uint32_t otm8018b_readid(struct panel_spec *self)
 
 static int32_t otm8018b_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 {
-	int32_t i;
+	int32_t i = 0;
 	LCM_Init_Code *sleep_in_out = NULL;
 	unsigned int tag;
 	int32_t size = 0;

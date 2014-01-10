@@ -204,7 +204,7 @@ static irqreturn_t dsi_isr0(int irq, void *data)
 static irqreturn_t dsi_isr1(int irq, void *data)
 {
 	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST1);
-	uint32_t i;
+	uint32_t i = 0;
 	struct sprdfb_dsi_context *dsi_ctx = (struct sprdfb_dsi_context *)data;
 	struct sprdfb_device *dev = dsi_ctx->dev;
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx->dsi_inst);

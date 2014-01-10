@@ -490,7 +490,7 @@ static int32_t dispc_sync(struct sprdfb_device *dev)
 		dispc_ctx.vsync_done = 1; /*error recovery */
 		printk(KERN_ERR "sprdfb: dispc_sync time out!!!!!\n");
 		{/*for debug*/
-			int32_t i;
+			int32_t i = 0;
 			for(i=0;i<256;i+=16){
 				printk("sprdfb: %x: 0x%x, 0x%x, 0x%x, 0x%x\n", i, dispc_read(i), dispc_read(i+4), dispc_read(i+8), dispc_read(i+12));
 			}
@@ -1890,7 +1890,7 @@ extern uint32_t lcd_base_from_uboot;
 
 static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 {
-	uint32_t i;
+	uint32_t i = 0;
 	unsigned long flags;
 	pr_debug("%s:[%d] panel_if_type:%d\n",__func__,__LINE__,dev->panel_if_type);
 

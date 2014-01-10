@@ -49,7 +49,7 @@ dsih_error_t mipi_dsih_dphy_open(dphy_t * phy)
 }
 uint8_t mipi_dsih_dphy_test_data_read(dphy_t * instance, uint8_t address)
 {
-      uint32_t i;
+      uint32_t i = 0;
       mipi_dsih_dphy_test_clock(instance, 1);
       /* set the desired test code in the input 8-bit bus TESTDIN[7:0] */
       mipi_dsih_dphy_test_data_in(instance, address);
