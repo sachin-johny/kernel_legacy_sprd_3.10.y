@@ -48,8 +48,11 @@
 #define NFC_SP_SIZE_OFFSET			(16)
 #define NFC_CMD_SET_OFFSET			(15)
 #define NFC_ADVANCE				    (1 << 14)
+#define NFC_ADDR_3CYCLES	0
 #define NFC_ADDR_4CYCLES			(1 << 12)
 #define NFC_ADDR_5CYCLES			(2 << 12)
+#define NFC_PAGE_TYPE_512	0
+#define NFC_PAGE_TYPE_1K	(1 << 9)
 #define NFC_PAGE_TYPE_2K			(2 << 9)
 #define NFC_PAGE_TYPE_4K			(3 << 9)
 #define NFC_PAGE_TYPE_8K			(4 << 9)
@@ -62,6 +65,8 @@
 #define NFC_CMD_CLR				    (1 << 1)
 #define NFC_RBN					    (1 << 0)
 
+#define NFC_DMA_RX_EN		(1 << 1)
+#define NFC_DMA_TX_EN		(1 << 0)
 #define NFC_ACS_OFFSET				(0)
 #define NFC_RWH_OFFSET				(5)
 #define NFC_RWL_OFFSET				(10)
@@ -75,11 +80,11 @@
 #define NFC_WP_EN				    (1 << 3)
 #define NFC_TO_EN				    (1 << 4)
 
-#define NFC_DONE_STS				(1 << 16)
-#define NFC_ECC_DONE_STS			(1 << 16)
-#define NFC_ERR_STS				    (1 << 16)
-#define NFC_WP_STS				    (1 << 16)
-#define NFC_TO_STS				    (1 << 16)
+#define NFC_DONE_STS		(1 << 16)
+#define NFC_ECC_DONE_STS	(1 << 17)
+#define NFC_ERR_STS		(1 << 18)
+#define NFC_WP_STS		(1 << 19)
+#define NFC_TO_STS		(1 << 20)
 
 #define NFC_DONE_RAW				(1 << 0)
 #define NFC_ECC_DONE_RAW			(1 << 1)
@@ -161,6 +166,19 @@ struct sc8810_ecc_param {
 	u8 *p_mbuf;
 	u8 *p_sbuf;
 	u8 *sts;
+};
+
+enum NAND_ERR_CORRECT_S{
+    NAND_FATAL_ERROR=0,
+    NAND_ERR_NEED_RETRY,
+    NAND_ERR_FIXED,
+    NAND_NO_ERROR
+};
+
+enum NAND_HANDLE_STATUS_S{
+    NAND_HANDLE_DONE=0,
+    NAND_HANDLE_TIMEOUT,
+    NAND_HANDLE_ERR
 };
 
 unsigned int sc8810_ecc_encode(struct sc8810_ecc_param *param);
