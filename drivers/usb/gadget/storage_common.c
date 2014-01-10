@@ -501,7 +501,7 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 	curlun->filp = filp;
 	curlun->file_length = size;
 	curlun->num_sectors = num_sectors;
-	LDBG(curlun, "open backing file: %s\n", filename);
+	LINFO(curlun, "open backing file: %s\n", filename);
 	return 0;
 
 out:

@@ -53,6 +53,7 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
 #include <mach/kpd.h>
+#include <linux/usb/gadget.h>
 
 #include "devices.h"
 
@@ -296,9 +297,14 @@ EXPORT_SYMBOL(in_calibration);
 
 static void __init sprd_add_otg_device(void)
 {
+	struct platform_device *pdev;
+	struct sprd_usb_platform_data *sprd_otg_data =NULL;
 	/*
 	 * if in calibrtaion mode, we do nothing, modem will handle everything
 	 */
+	pdev =&sprd_otg_device;
+	sprd_otg_data =pdev->dev.platform_data;
+	sprd_otg_data ->gpio_boost=HEADSET_SWITCH_GPIO;
 	platform_device_register(&sprd_otg_device);
 }
 
