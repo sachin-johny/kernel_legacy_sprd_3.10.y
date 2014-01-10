@@ -608,7 +608,7 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 
         PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
         PRINT_INFO("adc_left_average = %d\n", adc_left_average);
-#ifdef CONFIG_MACH_STAR2
+#ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
 	if((adc_mic_average <= ht->platform_data->headset_buttons[3].adc_max))
 #else
         if((adc_left_average < ADC_GND) && (adc_mic_average < ADC_GND))
@@ -618,7 +618,7 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
                 PRINT_DBG("no mic adc_mic_average: %d, ht->platform_data->headset_buttons[3].adc_max: %d\n",adc_mic_average, ht->platform_data->headset_buttons[3].adc_max);
 		return HEADSET_NO_MIC;
 	}
-#ifdef CONFIG_MACH_STAR2
+#ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
         else if((adc_mic_average <= ht->platform_data->headset_buttons[4].adc_max) && ((adc_mic_average >= ht->platform_data->headset_buttons[4].adc_min)))
 	{
 		PRINT_DBG("4_pole having mic adc_mic_average: %d, ht->platform_data->headset_buttons[4].adc_max: %d,ht->platform_data->headset_buttons[4].adc_max:%d\n",adc_mic_average, ht->platform_data->headset_buttons[4].adc_max,ht->platform_data->headset_buttons[4].adc_min);

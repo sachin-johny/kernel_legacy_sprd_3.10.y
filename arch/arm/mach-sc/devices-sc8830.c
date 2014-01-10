@@ -34,7 +34,7 @@
 #include <mach/gpio.h>
 #include <linux/pstore_ram.h>
 #include <linux/sprd_iommu.h>
-#ifdef CONFIG_MACH_STAR2
+#ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
 #include <linux/headset_sprd_cali.h>
 #else
 #include <linux/headset_sprd.h>
@@ -571,30 +571,30 @@ struct platform_device sprd_keypad_device = {
 
 
 static struct headset_buttons sprd_headset_buttons[] = {
-#ifdef CONFIG_MACH_STAR2
+#ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
 	{
-		.adc_min = 0,
-		.adc_max = 83,  //calibration 83 is 76mv
+		.adc_min = HEADSET_BUTTVOL_MEDIA_MIN,
+		.adc_max = HEADSET_BUTTVOL_MEDIA_MAX,
 		.code = KEY_MEDIA,
 	},
 	{
-		.adc_min = 86,
-		.adc_max = 164,
+		.adc_min = HEADSET_BUTTVOL_VOLUP_MIN,
+		.adc_max = HEADSET_BUTTVOL_VOLUP_MAX,
 		.code = KEY_VOLUMEUP,
 	},
 	{
-		.adc_min = 187,
-		.adc_max = 373,
+		.adc_min = HEADSET_BUTTVOL_VOLDOWN_MIN,
+		.adc_max = HEADSET_BUTTVOL_VOLDOWN_MAX,
 		.code = KEY_VOLUMEDOWN,
 	},
-         {
-                .adc_min = 0,
-                .adc_max = 556,
-                .type = HEADSET_NO_MIC,
-        },
 	{
-		.adc_min = 628,
-		.adc_max = 2453,
+		.adc_min = HEADSET_TYPEVOL_NOMIC_MIN,
+		.adc_max = HEADSET_TYPEVOL_NOMIC_MAX,
+		.type = HEADSET_NO_MIC,
+	},
+	{
+		.adc_min = HEADSET_TYPEVOL_MIC_MIN,
+		.adc_max = HEADSET_TYPEVOL_MIC_MAX,
 		.type = HEADSET_NORTH_AMERICA,
 	},
 #else
