@@ -371,7 +371,7 @@ static void headset_detect_init(void)
         headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_MIC_IN, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
         /* set headset detect voltage */
-        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_SDET_2P7_OR_1P7, AUDIO_HEAD_SDET_MASK, AUDIO_HEAD_SDET_SHIFT);
+        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_SDET_2P5_OR_1P6, AUDIO_HEAD_SDET_MASK, AUDIO_HEAD_SDET_SHIFT);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_INS_VREF_2P1_OR_1P4, AUDIO_HEAD_INS_VREF_MASK, AUDIO_HEAD_INS_VREF_SHIFT);
         /*set headmicbias voltage*/
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG0), AUDIO_MICBIAS_V_2P3_OR_3P0, AUDIO_MICBIAS_V_MASK, AUDIO_MICBIAS_V_SHIFT);
@@ -614,6 +614,7 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         struct sprd_headset_platform_data *pdata = ht->platform_data;
         int adc_mic_average = 0;
         int adc_left_average = 0;
+        int no_mic_retry_count = 5;
 
         ENTER
 
@@ -626,12 +627,24 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         headset_detect_init();
         headset_detect_circuit(1);
 
+no_mic_retry:
+
         //get adc value of left
-        set_adc_to_headmic(0);
-        msleep(50);
-        adc_left_average = adc_get_average();
-        if(-1 == adc_left_average)
-                return HEADSET_TYPE_ERR;
+        if(0 != pdata->gpio_switch) {
+                set_adc_to_headmic(0);
+                msleep(50);
+                adc_left_average = adc_get_average();
+                if(-1 == adc_left_average)
+                        return HEADSET_TYPE_ERR;
+        }
+        else {
+                set_adc_to_headmic(0);
+                msleep(50);
+                adc_left_average = adc_get_average();
+                PRINT_INFO("print adc_left_average here for debug!!! adc_left_average = %d\n", adc_left_average);
+                PRINT_INFO("automatic type switch is unsupported, set adc_left_average to 0 by default\n");
+                adc_left_average = 0;
+        }
 
         //get adc value of mic
         set_adc_to_headmic(1);
@@ -643,8 +656,20 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
         PRINT_INFO("adc_left_average = %d\n", adc_left_average);
 
-        if((adc_left_average < ADC_GND) && (adc_mic_average < ADC_GND))
+        if((gpio_get_value(pdata->gpio_detect)) != last_gpio_detect_value) {
+                PRINT_INFO("software debance (gpio check)!!!(headset_type_detect)\n");
+                return HEADSET_TYPE_ERR;
+        }
+
+        if((adc_left_average < ADC_GND) && (adc_mic_average < ADC_GND)) {
+                if(0 != no_mic_retry_count) {
+                        PRINT_INFO("no_mic_retry\n");
+                        msleep(200);
+                        no_mic_retry_count--;
+                        goto no_mic_retry;
+                }
                 return HEADSET_NO_MIC;
+        }
         else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND))
                 return HEADSET_NORMAL;
         else if((adc_left_average > ADC_GND) && (adc_mic_average > ADC_GND)
@@ -1024,6 +1049,8 @@ out:
 #ifdef SPRD_HEADSET_REG_DUMP
 static void reg_dump_func(struct work_struct *work)
 {
+        int adc_mic = 0;
+
         int gpio_detect = 0;
         int gpio_button = 0;
 
@@ -1041,6 +1068,8 @@ static void reg_dump_func(struct work_struct *work)
         int arm_clk_en = 0;
         int i = 0;
         int hbd[20] = {0};
+
+        adc_mic = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
 
         gpio_detect = gpio_get_value(headset.platform_data->gpio_detect);
         gpio_button = gpio_get_value(headset.platform_data->gpio_button);
@@ -1062,9 +1091,10 @@ static void reg_dump_func(struct work_struct *work)
         arm_module_en = sci_adi_read(ANA_REG_GLB_ARM_MODULE_EN);
         arm_clk_en = sci_adi_read(ANA_REG_GLB_ARM_CLK_EN);
 
-        PRINT_INFO("GPIO_%03d(det)=%d    GPIO_%03d(but)=%d\n",
+        PRINT_INFO("GPIO_%03d(det)=%d    GPIO_%03d(but)=%d    adc_mic=%d\n",
                    headset.platform_data->gpio_detect, gpio_detect,
-                   headset.platform_data->gpio_button, gpio_button);
+                   headset.platform_data->gpio_button, gpio_button,
+                   adc_mic);
         PRINT_INFO("arm_module_en|arm_clk_en|ana_cfg0  |ana_cfg1  |ana_cfg20 |ana_sts0  |hid_cfg2  |hid_cfg3  |hid_cfg4  |hid_cfg0\n");
         PRINT_INFO("0x%08X   |0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    arm_module_en, arm_clk_en, ana_cfg0, ana_cfg1, ana_cfg20, ana_sts0, hid_cfg2, hid_cfg3, hid_cfg4, hid_cfg0);
