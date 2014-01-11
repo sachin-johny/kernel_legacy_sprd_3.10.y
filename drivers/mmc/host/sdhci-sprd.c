@@ -13,17 +13,16 @@
 
 #include <linux/module.h>
 #include <linux/version.h>
-#include <linux/platform_device.h>
 #include <linux/delay.h>
 #include <linux/err.h>
-#include <linux/gpio.h>
-#include <linux/pm_runtime.h>
 #include <linux/clk.h>
-#include <linux/wakelock.h>
+#include <linux/gpio.h>
+#include <linux/platform_device.h>
 #include <linux/dma-mapping.h>
+#include <linux/notifier.h>
+#include <linux/wakelock.h>
+#include <linux/pm_runtime.h>
 #include <linux/mmc/sdhci-sprd.h>
-#include <linux/regulator/consumer.h>
-#include <mach/regulator.h>
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
@@ -67,8 +66,11 @@ struct sprd_sdhci_host {
 	struct tasklet_struct card_tasklet;
 	struct wake_lock wake_lock;
 	struct sprd_sdhci_host_platdata *platdata;
+	struct sdhci_host *host;
 	struct clk  *clk, *clk_parent;
 	struct delayed_work detect, saved_detect;
+	struct notifier_block nb;
+	struct regulator_dev *vmmc_rdev;
 	struct device_attribute dev_attr_detect_irq;
 	struct device_attribute dev_attr_keep_power;
 	struct device_attribute dev_attr_timing;
@@ -197,7 +199,6 @@ static void sdhci_set_clock(struct sdhci_host *host, unsigned int clock)
 			div--;
 	}
 
-clock_set:
 	if (real_div)
 		host->mmc->actual_clock = (host->max_clk * clk_mul) / real_div;
 
@@ -422,6 +423,10 @@ static void sprd_sdhci_host_set_clock(struct sdhci_host *host, unsigned int cloc
 	}
 	sprd_sdhci_host_enable_clock(host, !!clock);
 	sdhci_set_clock(host, clock);
+	if (host->mmc->ios.power_mode == MMC_POWER_OFF && host->runtime_suspended) {
+		host->pwr = 0xFF;
+		host->clock = 0xFFFFFFFF;
+	}
 }
 
 static unsigned int sprd_sdhci_host_get_max_clock(struct sdhci_host *host) {
@@ -541,6 +546,27 @@ static void sprd_sdhci_host_detect_work(struct work_struct *work) {
 	wake_unlock(&mmc->detect_wake_lock);
 }
 
+int sprd_sdhci_host_regulator_vmmc_notify(struct notifier_block *nb, unsigned long action, void *data) {
+	int retval = 0;
+	struct sprd_sdhci_host *sprd_host = container_of(nb, struct sprd_sdhci_host, nb);
+	struct sdhci_host *host = sprd_host->host;
+	if((void *)sprd_host->vmmc_rdev == data) {
+		if(host && host->vqmmc) {
+			switch(action) {
+				case REGULATOR_EVENT_ENABLE:
+					if(!regulator_is_enabled(host->vqmmc))
+						retval = regulator_enable(host->vqmmc);
+					break;
+				case REGULATOR_EVENT_DISABLE:
+					if(regulator_is_enabled(host->vqmmc))
+						retval = regulator_disable(host->vqmmc);
+					break;
+			}
+		}
+	}
+	return retval;
+}
+
 static void sprd_sdhci_host_sdhci_request(struct mmc_host *mmc, struct mmc_request *mrq) {
 	struct sdhci_host *host = mmc_priv(mmc);
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
@@ -588,31 +614,19 @@ static void sprd_sdhci_host_tasklet_finish(unsigned long param) {
 static int sprd_sdhci_host_get_cd(struct mmc_host *mmc) {
 	int gpio_cd;
 	struct sdhci_host *host = mmc_priv(mmc);
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	struct platform_device *pdev = to_platform_device(mmc_dev(mmc));
-	sprd_sdhci_host_wake_lock(&sprd_host->wake_lock);
-	pm_runtime_get_sync(&pdev->dev);
 
-	if (host->flags & SDHCI_DEVICE_DEAD) {
-		pm_runtime_put_autosuspend(&pdev->dev);
-		sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
+	if (host->flags & SDHCI_DEVICE_DEAD)
 		return 0;
-	}
+
 	/* If polling/nonremovable, assume that the card is always present. */
-	if (host->mmc->caps & MMC_CAP_NONREMOVABLE) {
-		pm_runtime_put_autosuspend(&pdev->dev);
-		sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
+	if (host->mmc->caps & MMC_CAP_NONREMOVABLE)
 		return 1;
-	}
+
 	gpio_cd = mmc_gpio_get_cd(mmc);
 	/* Try slot gpio detect */
-	if(!IS_ERR_VALUE(gpio_cd)) {
-		pm_runtime_put_autosuspend(&pdev->dev);
-		sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
+	if(!IS_ERR_VALUE(gpio_cd))
 		return !!gpio_cd;
-	}
-	pm_runtime_put_autosuspend(&pdev->dev);
-	sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
+
 	return 0;
 }
 
@@ -696,13 +710,34 @@ static void sprd_sdhci_host_fix_sprd_host_chip_select(struct sdhci_host *host) {
 	sprd_host->sdhci_host_ops.platform_send_init_74_clocks = sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select;
 }
 
-static void sprd_sdhci_host_fix_sprd_host_ocr(struct sdhci_host *host) {
-#ifdef CONFIG_REGULATOR
-	u32 caps;
+static void sprd_sdhci_host_fix_sprd_host_execute_tuning(struct sdhci_host *host) {
+	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
+	sprd_host->mmc_host_ops.execute_tuning = NULL;
+}
+
+static void sprd_sdhci_host_fix_mmc_core_detect_work(struct sdhci_host *host) {
+	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
+	sprd_host->saved_detect = host->mmc->detect;
+	INIT_DELAYED_WORK(&host->mmc->detect, sprd_sdhci_host_detect_work);
+}
+
+static void sprd_sdhci_host_fix_mmc_core_get_regulator(struct sdhci_host *host) {
 	struct regulator *vmmc;
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
+	struct sprd_sdhci_host_platdata *host_pdata = SDHCI_HOST_TO_SPRD_HOST_PLATDATA(host);
+	sprd_host->vmmc_rdev = sprd_sdhci_regulator_init(pdev, host_pdata->vdd_extmmc);
 	vmmc = regulator_get(mmc_dev(host->mmc), "vmmc");
 	if(!IS_ERR_OR_NULL(vmmc)) {
+		int retval;
+		u32 caps;
 		unsigned int ocr_avail;
+		sprd_host->nb.notifier_call = sprd_sdhci_host_regulator_vmmc_notify;
+		retval = regulator_register_notifier(vmmc, &sprd_host->nb);
+		if(retval < 0) {
+			regulator_put(vmmc);
+			return;
+		}
 		ocr_avail = mmc_regulator_get_ocrmask(vmmc);
 		regulator_put(vmmc);
 		caps = sdhci_readl(host, SDHCI_CAPABILITIES);
@@ -725,24 +760,6 @@ static void sprd_sdhci_host_fix_sprd_host_ocr(struct sdhci_host *host) {
 			host->caps = caps;
 		host->ocr_avail_mmc = host->ocr_avail_sd = host->ocr_avail_sdio = ocr_avail;
 	}
-#endif
-}
-
-static void sprd_sdhci_host_fix_sprd_host_execute_tuning(struct sdhci_host *host) {
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	sprd_host->mmc_host_ops.execute_tuning = NULL;
-}
-
-static void sprd_sdhci_host_fix_mmc_core_detect_work(struct sdhci_host *host) {
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	sprd_host->saved_detect = host->mmc->detect;
-	INIT_DELAYED_WORK(&host->mmc->detect, sprd_sdhci_host_detect_work);
-}
-
-static void sprd_sdhci_host_fix_mmc_core_get_regulator(struct sdhci_host *host) {
-    struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
-	struct sprd_sdhci_host_platdata *host_pdata = SDHCI_HOST_TO_SPRD_HOST_PLATDATA(host);
-	sprd_sdhci_regulator_init(pdev, host_pdata->vdd_extmmc);
 }
 
 static void sprd_sdhci_host_fix_mmc_core_mmc_ops(struct sdhci_host *host) {
@@ -858,10 +875,6 @@ static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_chip_select = {
 	.probe = sprd_sdhci_host_fix_sprd_host_chip_select,
 };
 
-static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_ocr = {
-	.probe = sprd_sdhci_host_fix_sprd_host_ocr,
-};
-
 static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_execute_tuning = {
 	.probe = sprd_sdhci_host_fix_sprd_host_execute_tuning,
 };
@@ -903,7 +916,6 @@ static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_card_event = {
 static const struct sprd_sdhci_host_fix *sprd_sdhci_host_sprd_host_fixes_sc8835[] = {
 	[0] = &sprd_sdhci_host_fix_base,
 	[1] = &sprd_sdhci_host_fix_chip_select,
-	[2] = &sprd_sdhci_host_fix_ocr,
 	[SDHCI_FIX_PRE_COUNT + 0] = &sprd_sdhci_host_fix_execute_tuning,
 	[SDHCI_FIX_PRE_COUNT + 1] = NULL,
 };
@@ -1050,7 +1062,6 @@ static int sprd_sdhci_host_pm_suspend(struct device *dev) {
 	unsigned long flags;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
-	struct mmc_host *mmc = host->mmc;
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	if(pm_runtime_enabled(dev))
 		retval = pm_runtime_get_sync(dev);
@@ -1061,15 +1072,6 @@ static int sprd_sdhci_host_pm_suspend(struct device *dev) {
 			host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
 		spin_unlock(&sprd_host->lock);
 		spin_unlock_irqrestore(&host->lock, flags);
-		if(!mmc_card_keep_power(mmc)) {
-			if(host->vqmmc) {
-				if(regulator_is_enabled(host->vqmmc)) {
-					retval = regulator_disable(host->vqmmc);
-					if(retval < 0)
-						return retval;
-				}
-			}
-		}
 		retval = sdhci_suspend_host(host);
 		if(!retval) {
 			unsigned long flags;
@@ -1077,10 +1079,6 @@ static int sprd_sdhci_host_pm_suspend(struct device *dev) {
 			sprd_sdhci_host_enable_clock(host, 0);
 			spin_unlock_irqrestore(&host->lock, flags);
 		} else {
-			if(!mmc_card_keep_power(mmc))
-				if(host->vqmmc)
-					if(!regulator_is_enabled(host->vqmmc))
-						regulator_enable(host->vqmmc);
 			if(pm_runtime_enabled(dev))
 				pm_runtime_put_autosuspend(&pdev->dev);
 		}
@@ -1094,15 +1092,6 @@ static int sprd_sdhci_host_pm_resume(struct device *dev) {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	struct mmc_host *mmc = host->mmc;
-	if(!mmc_card_keep_power(mmc)) {
-		if(host->vqmmc) {
-			if(!regulator_is_enabled(host->vqmmc)) {
-				retval = regulator_enable(host->vqmmc); 
-				if(retval < 0)
-					return retval;
-			}
-		}
-	}
 	spin_lock_irqsave(&host->lock, flags);
 	sprd_sdhci_host_enable_clock(host, 1);
 	spin_unlock_irqrestore(&host->lock, flags);
@@ -1175,6 +1164,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	if (IS_ERR(host))
 		return PTR_ERR(host);
 	sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
+	sprd_host->host = host;
 	host_pdata = dev_get_platdata(&pdev->dev);
 	sprd_host->platdata = host_pdata;
 	dev_set_name(&pdev->dev, "%s.%d", DRIVER_NAME, pdev->id);

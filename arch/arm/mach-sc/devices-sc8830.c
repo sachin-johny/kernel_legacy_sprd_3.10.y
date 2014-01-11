@@ -789,7 +789,7 @@ static struct resource sprd_sdio0_resources[] = {
 
 static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_4_BIT_DATA,
-	.caps2 = MMC_CAP2_NO_PRESCAN_POWERUP | MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
+	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
 #ifdef CONFIG_ARCH_SCX15
 	.detect_gpio = 193,
 #else
@@ -974,7 +974,7 @@ static struct resource sprd_emmc_resources[] = {
 
 static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR,
-	.caps2 = MMC_CAP2_NO_PRESCAN_POWERUP | MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
+	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
 	.vdd_vmmc = "vddemmcio",
 	.vdd_vqmmc = "vddemmcio",
 	.vdd_extmmc = "vddemmccore",

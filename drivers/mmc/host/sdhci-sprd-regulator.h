@@ -14,7 +14,12 @@
 #define __SDHCI_SPRD_REGULATOR_H__
 
 #include <linux/platform_device.h>
+#include <linux/regulator/consumer.h>
+#include <linux/regulator/driver.h>
+#include <linux/regulator/machine.h>
 
-void sprd_sdhci_regulator_init(struct platform_device *pdev, const char *ext_vdd_name);
+#define REGULATOR_EVENT_ENABLE 		0x00
+
+struct regulator_dev *sprd_sdhci_regulator_init(struct platform_device *pdev, const char *ext_vdd_name);
 
 #endif

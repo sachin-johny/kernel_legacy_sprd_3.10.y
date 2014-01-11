@@ -13,31 +13,27 @@
 
 #include <linux/err.h>
 #include <linux/types.h>
-#include <linux/regulator/consumer.h>
-#include <linux/regulator/driver.h>
-#include <linux/regulator/machine.h>
-#include <mach/regulator.h>
 #include "sdhci-sprd-regulator.h"
 
-#define SPRD_SDHCI_REGULATOR_SUPPLY(id) { \
-		REGULATOR_SUPPLY("vmmc", "sprd-sdhci."#id), \
-		REGULATOR_SUPPLY("vqmmc", "sprd-sdhci."#id), \
-	}
 
-#define SPRD_SDHCI_REGULATOR_INIT_DATA(_id, _supply, _min_uV, _max_uV) { \
+#define SPRD_SDHCI_REGULATOR_SUPPLY(id, v) \
+		REGULATOR_SUPPLY(#v, "sprd-sdhci."#id)
+
+#define SPRD_SDHCI_REGULATOR_INIT_DATA(_id, _v, _supply, _min_uV, _max_uV) { \
 		.supply_regulator = #_supply, \
 		.constraints = { \
+			.name = #_v#_id, \
 			.min_uV = (_min_uV), \
 			.max_uV = (_max_uV), \
 			.valid_modes_mask = REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY, \
 			.valid_ops_mask =	REGULATOR_CHANGE_STATUS |REGULATOR_CHANGE_VOLTAGE |REGULATOR_CHANGE_MODE, \
 		}, \
-		.consumer_supplies	= sprd_consumer_supplies[_id], \
-		.num_consumer_supplies = ARRAY_SIZE(sprd_consumer_supplies[_id]), \
+		.consumer_supplies	= &sprd_consumer_supplies_##_v[_id], \
+		.num_consumer_supplies = 1, \
 	}
 
 #define SPRD_SDHCI_REGULATOR_DESC(_id, _name) { \
-		.name = #_name, \
+		.name = #_name#_id, \
 		.id = (_id), \
 		.ops = &sprd_sdhci_regulator_ops, \
 		.type = REGULATOR_VOLTAGE, \
@@ -45,25 +41,31 @@
 		.owner = THIS_MODULE, \
 	}
 
-#define SPRD_SDHCI_REGULATOR_INFO() \
-	struct regulator_consumer_supply sprd_consumer_supplies[4][2] = { \
-		SPRD_SDHCI_REGULATOR_SUPPLY(0), \
-		SPRD_SDHCI_REGULATOR_SUPPLY(1), \
-		SPRD_SDHCI_REGULATOR_SUPPLY(2), \
-		SPRD_SDHCI_REGULATOR_SUPPLY(3), \
+#define SPRD_SDHCI_REGULATOR_DEFINE_INFO(v) \
+	static struct regulator_consumer_supply sprd_consumer_supplies_##v[] = { \
+		SPRD_SDHCI_REGULATOR_SUPPLY(0, v), \
+		SPRD_SDHCI_REGULATOR_SUPPLY(1, v), \
+		SPRD_SDHCI_REGULATOR_SUPPLY(2, v), \
+		SPRD_SDHCI_REGULATOR_SUPPLY(3, v), \
 	}; \
-	struct regulator_init_data sprd_init_data[] =  { \
-		SPRD_SDHCI_REGULATOR_INIT_DATA(0, vddsd, 1800 * 1000, 3000 * 1000), \
-		SPRD_SDHCI_REGULATOR_INIT_DATA(1, NULL, 0, 0), \
-		SPRD_SDHCI_REGULATOR_INIT_DATA(2, NULL, 0, 0), \
-		SPRD_SDHCI_REGULATOR_INIT_DATA(3, vddemmcio, 1200 * 1000, 1800 * 1000), \
+	static struct regulator_init_data sprd_init_data_##v[] =  { \
+		SPRD_SDHCI_REGULATOR_INIT_DATA(0, v, vddsd, 1800 * 1000, 3000 * 1000), \
+		SPRD_SDHCI_REGULATOR_INIT_DATA(1, v, NULL, 0, 0), \
+		SPRD_SDHCI_REGULATOR_INIT_DATA(2, v, NULL, 0, 0), \
+		SPRD_SDHCI_REGULATOR_INIT_DATA(3, v, vddemmcio, 1200 * 1000, 1800 * 1000), \
 	}; \
-	static struct regulator_desc sprd_regulator_desc[] = { \
-		SPRD_SDHCI_REGULATOR_DESC(0, vmmc), \
-		SPRD_SDHCI_REGULATOR_DESC(1, vmmc), \
-		SPRD_SDHCI_REGULATOR_DESC(2, vmmc), \
-		SPRD_SDHCI_REGULATOR_DESC(3, vmmc), \
+	static struct regulator_desc sprd_regulator_desc_##v[] = { \
+		SPRD_SDHCI_REGULATOR_DESC(0, v), \
+		SPRD_SDHCI_REGULATOR_DESC(1, v), \
+		SPRD_SDHCI_REGULATOR_DESC(2, v), \
+		SPRD_SDHCI_REGULATOR_DESC(3, v), \
 	};
+
+#define SPRD_SDHCI_REGULATOR_DECLARE_INFO(id, v) do { \
+		memset(&config_##v, 0, sizeof(struct regulator_config)); \
+		desc_##v = &sprd_regulator_desc_##v[(id)]; \
+		config_##v.init_data = &sprd_init_data_##v[(id)]; \
+	} while(0)
 
 static const int sprd_sdhci_regulator_voltage_level[4][4] = {
 	{1800 * 1000, 2500 * 1000, 2800 * 1000, 3000 * 1000}, // vddsd
@@ -73,13 +75,23 @@ static const int sprd_sdhci_regulator_voltage_level[4][4] = {
 };
 
 static int sprd_sdhci_regulator_enable(struct regulator_dev *rdev) {
+	int retval;
 	struct regulator *regulator = rdev_get_drvdata(rdev);
-	return regulator ? regulator_enable(regulator) : 0;
+	retval = regulator ? regulator_enable(regulator) : 0;
+	if(retval < 0)
+		return retval;
+	regulator_notifier_call_chain(rdev, REGULATOR_EVENT_ENABLE, rdev);
+	return 0;
 }
 
 static int sprd_sdhci_regulator_disable(struct regulator_dev *rdev) {
+	int retval;
 	struct regulator *regulator = rdev_get_drvdata(rdev);
-	return regulator ? regulator_disable(regulator) : 0;
+	retval = regulator ? regulator_disable(regulator) : 0;
+	if(retval < 0)
+		return retval;
+	regulator_notifier_call_chain(rdev, REGULATOR_EVENT_DISABLE, rdev);
+	return 0;
 }
 
 static int sprd_sdhci_regulator_is_enabled(struct regulator_dev *rdev) {
@@ -155,25 +167,35 @@ static struct regulator_ops sprd_sdhci_regulator_ops = {
 	.list_voltage = sprd_sdhci_regulator_list_voltage,
 };
 
-void sprd_sdhci_regulator_init(struct platform_device *pdev, const char *ext_vdd_name) {
-	struct regulator_dev *regulator;
-	struct regulator_desc *desc;
-	struct regulator_config config;
-	struct regulator_init_data *init_data;
-	SPRD_SDHCI_REGULATOR_INFO();
-	memset(&config, 0, sizeof(struct regulator_config));
-	desc = &sprd_regulator_desc[pdev->id];
-	init_data = &sprd_init_data[pdev->id];
-	config.init_data = init_data;
-	config.dev = &pdev->dev;
-	if(ext_vdd_name) {
-		config.driver_data = regulator_get(&pdev->dev, ext_vdd_name);
-		if (IS_ERR(config.driver_data)) {
-			config.driver_data = NULL;
-		}
-	}
-	regulator = regulator_register(desc, &config);
-	if(IS_ERR_OR_NULL(regulator))
-		printk("regulator_register failed\n");
+struct regulator_dev *sprd_sdhci_regulator_init(struct platform_device *pdev, const char *ext_vdd_name) {
+	struct regulator *regulator = NULL;
+	struct regulator_dev *rdev_vmmc, *rdev_vqmmc;
+	struct regulator_desc *desc_vmmc, *desc_vqmmc;
+	struct regulator_config config_vmmc, config_vqmmc;
+	SPRD_SDHCI_REGULATOR_DEFINE_INFO(vmmc);
+	SPRD_SDHCI_REGULATOR_DEFINE_INFO(vqmmc);
+	SPRD_SDHCI_REGULATOR_DECLARE_INFO(pdev->id, vmmc);
+	SPRD_SDHCI_REGULATOR_DECLARE_INFO(pdev->id, vqmmc);
+	config_vmmc.dev = &pdev->dev;
+	config_vqmmc.dev = &pdev->dev;
+	if(ext_vdd_name)
+		regulator = regulator_get(&pdev->dev, ext_vdd_name);
+	config_vmmc.driver_data =  regulator;
+	config_vqmmc.driver_data = regulator;
+	rdev_vmmc = regulator_register(desc_vmmc, &config_vmmc);
+	if(IS_ERR_OR_NULL(rdev_vmmc))
+		goto ERR_EXIT_VMMC;
+	rdev_vqmmc = regulator_register(desc_vqmmc, &config_vqmmc);
+	if(IS_ERR_OR_NULL(rdev_vqmmc))
+		goto ERR_EXIT_VQMMC;
+	return rdev_vmmc;
+ERR_EXIT_VQMMC:
+	printk("regulator_register vqmmc failed\n");
+	regulator_unregister(rdev_vmmc);
+ERR_EXIT_VMMC:
+	printk("regulator_register vmmc failed\n");
+	if(regulator)
+		regulator_put(regulator);
+	return NULL;
 }
 

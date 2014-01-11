@@ -1,7 +1,7 @@
 #ifndef __SDHCI_SPRD_H__
 #define __SDHCI_SPRD_H__
-#include <linux/mmc/sdhci.h>
 
+#include <linux/mmc/sdhci.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/card.h>
