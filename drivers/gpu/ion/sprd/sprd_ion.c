@@ -76,23 +76,32 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
+			pr_err("sprd_heap_ioctl alloc copy_from_user error!\n");
 			return -EFAULT;
 		}
 
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)){
+			pr_err("sprd_heap_ioctl alloc handle error!\n");
 			return PTR_ERR(handle);
+		}
 
 		ret = ion_phys(client, handle, &data.phys, &data.size);
 		ion_free(client, handle);
-		if (ret)
+		
+		if (ret){
+			pr_err("sprd_heap_ioctl alloc ret=0x%x error!\n",ret);
 			return ret;
-
+		}
+		
 		if (copy_to_user((void __user *)arg,
 				&data, sizeof(data))) {
+			pr_err("sprd_heap_ioctl alloc copy_to_user error!\n");
 			return -EFAULT;
 		}
+
+		printk(KERN_ERR "sprd_heap_ioctl alloc paddress=0x%x size=0x%x\n",data.phys,data.size);
 		break;
 	}
 	case ION_SPRD_CUSTOM_MSYNC:
@@ -119,12 +128,16 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
+			pr_err("sprd_heap_ioctl free copy_from_user error!\n");
 			return -EFAULT;
 		}
 
-		if ((int)data.vaddr & (PAGE_SIZE - 1))
+		if ((int)data.vaddr & (PAGE_SIZE - 1)){
+			pr_err("sprd_heap_ioctl free data.vaddr=0x%x error!\n",data.vaddr);
 			return -EFAULT;
+		}
 
+		printk(KERN_ERR "sprd_heap_ioctl free vaddress=0x%x paddress=0x%x size=0x%x\n",data.vaddr,data.paddr,data.size);
 		dmac_flush_range(data.vaddr, data.vaddr + data.size);
 
 		v_addr = data.vaddr;
@@ -220,13 +233,16 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
+			pr_err("sprd_heap_ioctl mm map copy_from_user error!\n");
 			return -EFAULT;
 		}
 
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)){
+			pr_err("sprd_heap_ioctl mm map handle error!\n");
 			return PTR_ERR(handle);
+		}
 
 		mutex_lock(&(ion_handle_buffer(handle))->lock);
 		if(0==(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM])
@@ -237,18 +253,23 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM]++;
 		data.iova_size=(ion_handle_buffer(handle))->size;
 		data.iova_addr=(ion_handle_buffer(handle))->iova[IOMMU_MM];
+		
 		mutex_unlock(&(ion_handle_buffer(handle))->lock);
 		ion_free(client, handle);
 		if (ret)
 		{
+			pr_err("sprd_heap_ioctl mm map ret=0x%x error!\n",ret);
 			sprd_iova_free(IOMMU_MM,data.iova_addr,data.iova_size);
 			return ret;
 		}
 
 		if (copy_to_user((void __user *)arg,
 				&data, sizeof(data))) {
+			pr_err("sprd_heap_ioctl mm map copy_to_user error!\n");
 			return -EFAULT;
 		}
+
+		printk(KERN_ERR "sprd_heap_ioctl mm map vaddress=0x%x size=0x%x\n",data.iova_addr,data.iova_size);
 		break;
 	}
 	case ION_SPRD_CUSTOM_MM_UNMAP:
@@ -258,13 +279,17 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
+			pr_err("sprd_heap_ioctl mm unmap copy_from_user error!\n");
 			return -EFAULT;
 		}
 
+		printk(KERN_ERR "sprd_heap_ioctl mm unmap vaddress=0x%x size=0x%x\n",data.iova_addr,data.iova_size);
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)){
+			pr_err("sprd_heap_ioctl mm unmap handle error!\n");
 			return PTR_ERR(handle);
+		}
 
 		mutex_lock(&(ion_handle_buffer(handle))->lock);
 		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_MM]--;
@@ -278,11 +303,14 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		data.iova_addr=0;
 		data.iova_size=0;
 		ion_free(client, handle);
-		if (ret)
+		if (ret){
+			pr_err("sprd_heap_ioctl mm unmap ret=0x%x error!\n",ret);
 			return ret;
-
+		}
+		
 		if (copy_to_user((void __user *)arg,
 				&data, sizeof(data))) {
+			pr_err("sprd_heap_ioctl mm unmap copy_to_user error!\n");
 			return -EFAULT;
 		}
 		break;
