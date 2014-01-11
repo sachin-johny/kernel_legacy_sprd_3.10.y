@@ -87,9 +87,9 @@ Video Recording:
 Camera:
    8M,  support ZSL, support preview/capture rotation
 */
+#define SPRD_ION_MM_SIZE         (52 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (6 * SZ_1M)
 
-#define SPRD_ION_SIZE            (52 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE    (11 * SZ_1M)
 #define GPIO_EXT_CHG_EN     83
 #define GPIO_EXT_CHG_DONE   216
 #define GPIO_EXT_CHG_OVI    236

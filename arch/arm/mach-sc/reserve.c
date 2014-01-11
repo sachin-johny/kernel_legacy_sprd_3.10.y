@@ -21,9 +21,9 @@
 
 static int __init __iomem_reserve_memblock(void)
 {
-	if (memblock_is_region_reserved(SPRD_IO_MEM_BASE, SPRD_IO_MEM_SIZE))
+	if (memblock_is_region_reserved(SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE))
 		return -EBUSY;
-	if (memblock_reserve(SPRD_IO_MEM_BASE, SPRD_IO_MEM_SIZE))
+	if (memblock_reserve(SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE))
 		return -ENOMEM;
 	return 0;
 }

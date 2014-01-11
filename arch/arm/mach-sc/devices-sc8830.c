@@ -867,39 +867,33 @@ static struct ion_platform_heap ion_pheaps[] = {
                         .type   = ION_HEAP_TYPE_SYSTEM,
                         .name   = "ion_heap_system",
                 },
-#ifdef CONFIG_CMA
                 {
                         .id     = ION_HEAP_ID_MM,
+#ifdef CONFIG_SPRD_IOMMU
+                        .type   = ION_HEAP_TYPE_SYSTEM,
+                        .name   = "ion_heap_system_mm",
+#elif defined(CONFIG_CMA)
                         .type   = ION_HEAP_TYPE_CUSTOM,
                         .name   = "ion_heap_cma_mm",
-                        .base   = SPRD_ION_BASE,
-                        .size   = SPRD_ION_SIZE,
-                },
-                {
-                        .id     = ION_HEAP_ID_OVERLAY,
-                        .type   = ION_HEAP_TYPE_CUSTOM,
-                        .name   = "ion_heap_cma_overlay",
-                        .base   = SPRD_ION_OVERLAY_BASE,
-                        .size   = SPRD_ION_OVERLAY_SIZE,
-                },
 #else
-                {
-                        .id     = ION_HEAP_ID_MM,
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_heap_carveout_mm",
-                        .base   = SPRD_ION_BASE,
-                        .size   = SPRD_ION_SIZE,
+#endif
+                        .base   = SPRD_ION_MM_BASE,
+                        .size   = SPRD_ION_MM_SIZE,
                 },
-#if CONFIG_SPRD_ION_OVERLAY_SIZE
                 {
                         .id     = ION_HEAP_ID_OVERLAY,
+#ifdef CONFIG_CMA
+                        .type   = ION_HEAP_TYPE_CUSTOM,
+                        .name   = "ion_heap_cma_overlay",
+#else
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_heap_carveout_overlay",
+#endif
                         .base   = SPRD_ION_OVERLAY_BASE,
                         .size   = SPRD_ION_OVERLAY_SIZE,
                 },
-#endif
-#endif
 };
 
 static struct ion_platform_data ion_pdata = {

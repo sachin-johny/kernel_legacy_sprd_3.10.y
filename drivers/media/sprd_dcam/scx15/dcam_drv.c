@@ -628,10 +628,10 @@ int32_t dcam_module_en(void)
 	DCAM_TRACE("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
 
 	if (atomic_inc_return(&s_dcam_users) == 1) {
-		int  base = SPRD_ION_BASE ;
-		int   size = SPRD_ION_SIZE;
+		int  base = SPRD_ION_MM_BASE ;
+		int   size = SPRD_ION_MM_SIZE;
 		int   overlay_size = SPRD_ION_OVERLAY_SIZE;
-		printk("DCAM: SPRD_ION_SIZE=0x%x ,SPRD_ION_OVERLAY_SIZE=0x%x\n",size,overlay_size );
+		printk("DCAM: SPRD_ION_MM_SIZE=0x%x ,SPRD_ION_OVERLAY_SIZE=0x%x\n",size,overlay_size );
 		ret = _dcam_is_clk_mm_i_eb(1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;

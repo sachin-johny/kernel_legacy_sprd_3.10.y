@@ -74,8 +74,11 @@
 
 #define GPIO_SDIO_DETECT      75
 
-/* General Info for ION*/
-#define SPRD_ION_SIZE            (50 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE    (8 * SZ_1M)
+/* ION config info
+LCD:
+   960x540
+*/
+#define SPRD_ION_MM_SIZE         (50 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE    (4 * SZ_1M)
 
 #endif

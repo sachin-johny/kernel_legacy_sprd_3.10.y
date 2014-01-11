@@ -112,62 +112,58 @@
 #include <asm/sizes.h>
 
 #ifdef CONFIG_SPRD_IOMMU
-    #define SPRD_H264_DECODE_SIZE	(0*1024*1024)
+    #define SPRD_H264_DECODE_SIZE	(0 * SZ_1M)
 #else
-    #define SPRD_H264_DECODE_SIZE	(25*1024*1024)
+    #define SPRD_H264_DECODE_SIZE	(25 * SZ_1M)
 #endif
 
 #ifdef CONFIG_ION
     #if defined (CONFIG_ARCH_SCX35)
         #if defined(CONFIG_CMA)
-            #define SPRD_ION_SIZE	(20*1024*1024)
+            #define SPRD_ION_MM_SIZE	(20 * SZ_1M)
         #elif defined(CONFIG_SPRD_IOMMU)
-            #define SPRD_ION_SIZE	(0*1024*1024)
-        #else
-            #ifndef SPRD_ION_SIZE	/* should be defined in "__board-sp**.h" already */
-                #define SPRD_ION_SIZE	(76 * SZ_1M)
-            #endif
+            #define SPRD_ION_MM_SIZE	(0 * SZ_1M)
+        #elif !defined(SPRD_ION_MM_SIZE)	/* should be defined in "__board-sp**.h" already */
+            #define SPRD_ION_MM_SIZE	(76 * SZ_1M)
         #endif
     #else
-        #define SPRD_ION_SIZE	(CONFIG_SPRD_ION_SIZE*1024*1024)
+        #define SPRD_ION_MM_SIZE	(CONFIG_SPRD_ION_MM_SIZE * SZ_1M)
     #endif
 
 
     #if defined (CONFIG_ARCH_SCX35)
         #if defined(CONFIG_CMA)
-            #define SPRD_ION_OVERLAY_SIZE   (0 * SZ_1M)
-        #else
-            #ifndef SPRD_ION_OVERLAY_SIZE	/* should be defined in "__board-sp**.h" already */
-                #define SPRD_ION_OVERLAY_SIZE	(12 * SZ_1M)
-            #endif
+            #define SPRD_ION_OVERLAY_SIZE	(0 * SZ_1M)
+        #elif !defined(SPRD_ION_OVERLAY_SIZE)	/* should be defined in "__board-sp**.h" already */
+            #define SPRD_ION_OVERLAY_SIZE	(12 * SZ_1M)
         #endif
     #else
         #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
     #endif
 
 #else /* !ION */
-#define SPRD_ION_SIZE           (0 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE   (0 * SZ_1M)
+#define SPRD_ION_MM_SIZE	(0 * SZ_1M)
+#define SPRD_ION_OVERLAY_SIZE	(0 * SZ_1M)
 #endif
 
-#define SPRD_IO_MEM_SIZE	(SPRD_ION_SIZE + SPRD_ION_OVERLAY_SIZE)
+#define SPRD_ION_MEM_SIZE	(SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE)
 
 #if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP6815GA)/* Nand 4+2 */
-#define SPRD_IO_MEM_BASE	\
-	((CONFIG_PHYS_OFFSET & (~(SZ_256M - 1))) + SZ_256M - SPRD_IO_MEM_SIZE)
+#define SPRD_ION_MEM_BASE	\
+	((CONFIG_PHYS_OFFSET & (~(SZ_256M - 1))) + SZ_256M - SPRD_ION_MEM_SIZE)
 #else
-#define SPRD_IO_MEM_BASE	\
-	((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_IO_MEM_SIZE)
+#define SPRD_ION_MEM_BASE	\
+	((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_ION_MEM_SIZE)
 #endif
 
-#define SPRD_ION_BASE		(SPRD_IO_MEM_BASE)
-#define SPRD_ION_OVERLAY_BASE   (SPRD_ION_BASE + SPRD_ION_SIZE)
+#define SPRD_ION_MM_BASE	(SPRD_ION_MEM_BASE)
+#define SPRD_ION_OVERLAY_BASE	(SPRD_ION_MEM_BASE + SPRD_ION_MM_SIZE)
 
 #ifdef CONFIG_PSTORE_RAM
 #define SPRD_RAM_CONSOLE_SIZE	0x20000
-#define SPRD_RAM_CONSOLE_START	(SPRD_IO_MEM_BASE - SPRD_RAM_CONSOLE_SIZE)
+#define SPRD_RAM_CONSOLE_START	(SPRD_ION_MEM_BASE - SPRD_RAM_CONSOLE_SIZE)
 #else
-#define SPRD_RAM_CONSOLE_START	(SPRD_IO_MEM_BASE)
+#define SPRD_RAM_CONSOLE_START	(SPRD_ION_MEM_BASE)
 #endif
 
 #ifdef CONFIG_FB_LCD_RESERVE_MEM
@@ -175,7 +171,7 @@
 #define SPRD_FB_MEM_BASE	(SPRD_RAM_CONSOLE_START - SPRD_FB_MEM_SIZE)
 #endif
 
-#define SPRD_SYSDUMP_MAGIC	(SPRD_IO_MEM_BASE + SPRD_IO_MEM_SIZE - SZ_1M)
+#define SPRD_SYSDUMP_MAGIC	(SPRD_ION_MEM_BASE + SPRD_ION_MEM_SIZE - SZ_1M)
 
 struct sysdump_mem {
 	unsigned long paddr;
