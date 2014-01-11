@@ -279,9 +279,11 @@ void bak_restore_apb(int bak)
 	if(bak){
 		ap_apb_reg_saved.apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
 		ap_apb_reg_saved.apb_misc_ctrl = sci_glb_read(REG_AP_APB_APB_MISC_CTRL, -1UL);
+		ap_apb_reg_saved.usb_phy_tune = sci_glb_read(REG_AP_APB_USB_PHY_TUNE, -1UL);
 	}else{
 		sci_glb_write(REG_AP_APB_APB_EB, ap_apb_reg_saved.apb_eb, -1UL);
 		sci_glb_write(REG_AP_APB_APB_MISC_CTRL, ap_apb_reg_saved.apb_misc_ctrl, -1UL);
+		sci_glb_write(REG_AP_APB_USB_PHY_TUNE, ap_apb_reg_saved.usb_phy_tune, -1UL);
 	}
 	return;
 }
