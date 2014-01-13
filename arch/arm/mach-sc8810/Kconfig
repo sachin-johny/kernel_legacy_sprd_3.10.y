@@ -185,3 +185,8 @@ config SPRD_DCDC_DEBUG
           This option select dcdc debug module.
 
 endif
+
+config SPRD_PHYSICAL_MEMORY_SIZE
+        int "size for phisical memory"
+        range 128 1024
+        default 256
