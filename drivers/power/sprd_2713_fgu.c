@@ -831,8 +831,9 @@ static void sprdfgu_hw_init(void)
 	if (!in_calibration()) {
 		sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
 	}
+#if !defined(CONFIG_ARCH_SCX15)
 	sci_adi_write(REG_FGU_CONFIG, BITS_VOLT_DUTY(3), BITS_VOLT_DUTY(3) | BIT_VOLT_H_VALID);	//mingwei
-
+#endif
 	sci_adi_write(REG_FGU_RELAX_CURT_THRE, BITS_RELAX_CUR_THRE(sprdfgu_cur2adc_ma(50)), BITS_RELAX_CUR_THRE(~0));	//mingwei
 	udelay(130);
 	sprdfgu_cal_battery_impedance();
