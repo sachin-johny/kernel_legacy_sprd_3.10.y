@@ -33,43 +33,41 @@
 
 #define STTY_DEV_MAX_NR 	1
 #define STTY_MAX_DATA_LEN 		4096
-#define STTY_THREAD_MAX_TIME	500
 
 struct stty_device {
 	struct stty_init_data	*pdata;
 	struct tty_port 		*port;
 	struct tty_struct 		*tty;
 	struct tty_driver 		*driver;
-	struct task_struct		*thread;
 };
 
-static int stty_thread(void *data)
+static void stty_handler (int event, void* data)
 {
 	struct stty_device *stty = data;
 	int i, cnt = 0;
 	unsigned char buf[STTY_MAX_DATA_LEN] = {0};
 
-	if (data == NULL) {
-		return;
-	}
+	pr_debug("stty handler event=%d \n", event);
 
-	while(!kthread_should_stop()) {
-
-		cnt = sbuf_read(stty->pdata->dst, stty->pdata->channel,
-						stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, STTY_THREAD_MAX_TIME);
-		if (cnt > 0) {
-			for(i = 0; i < cnt; i++) {
-				tty_insert_flip_char(stty->port, buf[i], TTY_NORMAL);
+	switch(event) {
+		case SBUF_NOTIFY_WRITE:
+			break;
+		case SBUF_NOTIFY_READ:
+			cnt = sbuf_read(stty->pdata->dst, stty->pdata->channel,
+					stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, 0);
+			pr_debug("stty handler read data len =%d \n", cnt);
+			if (cnt > 0) {
+				for(i = 0; i < cnt; i++) {
+					tty_insert_flip_char(stty->port, buf[i], TTY_NORMAL);
+				}
+				tty_schedule_flip(stty->port);
 			}
-			tty_schedule_flip(stty->port);
-		} else if (cnt == -ENODEV) {
-			msleep(2000);
-		} else {
-			msleep(40);
-		}
+			break;
+		default:
+			printk(KERN_ERR "Received event is invalid(event=%d)\n", event);
 	}
 
-	return 0;
+	return;
 }
 
 static int stty_open(struct tty_struct *tty, struct file * filp)
@@ -89,7 +87,6 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 		printk(KERN_ERR "stty open input stty NULL!\n");
 		return -ENOMEM;
 	}
-	printk( "stty_open  device addr: 0x%0x, tty addr:0x%0x\n", (void *)stty, (void *)tty);
 
 	if (sbuf_status(stty->pdata->dst, stty->pdata->channel) != 0) {
 		printk(KERN_ERR "stty_open sbuf not ready to open!dst=%d,channel=%d\n"
@@ -99,14 +96,13 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 	stty->tty = tty;
 	tty->driver_data = (void *)stty;
 
-	stty->thread = kthread_create(stty_thread, stty,
-			"stty-%d-%d", stty->pdata->dst, stty->pdata->channel);
-	if (IS_ERR(stty->thread)) {
-		printk(KERN_ERR "stty open kthread_create err!\n");
-		rval = PTR_ERR(stty->thread);
+	rval = sbuf_register_notifier(stty->pdata->dst, stty->pdata->channel,
+					stty->pdata->bufid, stty_handler, stty);
+	if (rval) {
+		printk(KERN_ERR "regitster notifier failed (%d)\n", rval);
 		return rval;
 	}
-	wake_up_process(stty->thread);
+	pr_debug("stty_open device success! \n");
 
 	return 0;
 }
@@ -114,6 +110,7 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 static void stty_close(struct tty_struct *tty, struct file * filp)
 {
 	struct stty_device *stty = NULL;
+	int rval= 0;
 	if (tty == NULL) {
 		printk(KERN_ERR "stty close input tty is NULL!\n");
 		return;
@@ -124,14 +121,15 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 
-	printk( "stty_close device addr: 0x%0x, tty addr: 0x%0x\n", (void *)stty, (void *)tty);
-	if (IS_ERR_OR_NULL(stty->thread)) {
-		printk(KERN_ERR "stty close s thread is NULL!\n");
+	rval = sbuf_register_notifier(stty->pdata->dst, stty->pdata->channel,
+					stty->pdata->bufid, NULL, NULL);
+	if (rval) {
+		printk(KERN_ERR "unregitster notifier failed (%d)\n", rval);
 		return;
 	}
-	printk( "stty begin to stop thread");
-	kthread_stop(stty->thread);
-	printk( "stty thread stop done");
+
+	pr_debug("stty_close device success !\n");
+
 	return;
 }
 
@@ -140,6 +138,7 @@ static int stty_write(struct tty_struct * tty,
 {
 	struct stty_device *stty = tty->driver_data;
 	int cnt;
+	pr_debug("stty write count=%d \n", count);
 
 	cnt = sbuf_write(stty->pdata->dst, stty->pdata->channel,
 					stty->pdata->bufid, (void *)buf, count, -1);
@@ -255,7 +254,6 @@ static int  stty_remove(struct platform_device *pdev)
 	struct stty_device *stty = platform_get_drvdata(pdev);
 
 	stty_driver_exit(stty);
-	kthread_stop(stty->thread);
 	kfree(stty->port);
 	kfree(stty);
 	platform_set_drvdata(pdev, NULL);
