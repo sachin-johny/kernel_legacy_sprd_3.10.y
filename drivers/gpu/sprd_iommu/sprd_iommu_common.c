@@ -93,6 +93,7 @@ void sprd_iommu_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, size_t
 	{
 		pr_err("sprd_iommu %s iova_free iova_base:0x%lx iova_size:0x%x iova:0x%lx iova_length:0x%x\n",
 			dev->init_data->name,dev->init_data->iova_base,dev->init_data->iova_size,iova,iova_length);
+		return;
 	}
 	gen_pool_free(dev->pool, iova, iova_length);
 	pr_debug("sprd_iommu %s iova_free iova:0x%lx, iova_length:0x%x\n",dev->init_data->name,iova,iova_length);
