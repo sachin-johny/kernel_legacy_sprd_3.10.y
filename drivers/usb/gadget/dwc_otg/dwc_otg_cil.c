@@ -1871,8 +1871,8 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 			gintmsk_data_t gintsts = {.d32 = 0 };
 			doepint_data_t doepint = {.d32 = 0 };
 			dctl.b.sgoutnak = 1;
-			DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
 			do {
+				DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
 				dwc_udelay(10);
 				gintsts.d32 = DWC_READ_REG32(&core_if->core_global_regs->gintsts);
 			} while (!gintsts.b.goutnakeff);
@@ -1883,11 +1883,10 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 			depctl.d32 = 0;
 			depctl.b.epdis = 1;
 			depctl.b.snak = 1;
-			DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[i]->doepctl, depctl.d32);
 			do {
+				DWC_WRITE_REG32(&core_if->dev_if->out_ep_regs[i]->doepctl, depctl.d32);
 				dwc_udelay(10);
-				doepint.d32 = DWC_READ_REG32(&core_if->dev_if->
-					out_ep_regs[i]->doepint);
+				doepint.d32 = DWC_READ_REG32(&core_if->dev_if->out_ep_regs[i]->doepint);
 			} while (!doepint.b.epdisabled);
 
 			doepint.b.epdisabled = 1;
