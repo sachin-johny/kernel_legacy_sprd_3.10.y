@@ -229,9 +229,9 @@ static void gps_reg_init(void)
 
 #elif defined(CONFIG_DOLPHIN_CHIP_2351)
 	/*GPS clock select to CLK_SINE1*/
-	CgxCpuReadMemory((U32)CG_SPRD_AONAPB_BASE_VA, 0X00d4, (U32 *)&value);
-	value |= 1;
-	CgxCpuWriteMemory((U32)CG_SPRD_AONAPB_BASE_VA, 0X00d4,value);
+	//CgxCpuReadMemory((U32)CG_SPRD_AONAPB_BASE_VA, 0X00d4, (U32 *)&value);
+	//value |= 1;
+	//CgxCpuWriteMemory((U32)CG_SPRD_AONAPB_BASE_VA, 0X00d4,value);
 
 	/*GPS_D pin reg config*/
 	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X012c, (U32 *)&value);
