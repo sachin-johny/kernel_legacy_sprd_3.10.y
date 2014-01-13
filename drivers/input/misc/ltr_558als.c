@@ -537,7 +537,7 @@ static void ltr558_work(struct work_struct *work)
         ltr558_t *pls = container_of(work, ltr558_t, work);
 
         status = ltr558_i2c_read_1_byte(LTR558_ALS_PS_STATUS);
-        //PRINT_DBG("LTR558_ALS_PS_STATUS = 0x%02X\n", status);
+        PRINT_DBG("LTR558_ALS_PS_STATUS = 0x%02X\n", status);
 
         if ((0x03 == (status & 0x03)) && (LTR_PLS_MODE == LTR_PLS_558)) {/*is PS*/
                 value = ltr558_i2c_read_2_bytes(LTR558_PS_DATA_0);
