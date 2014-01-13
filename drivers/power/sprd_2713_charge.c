@@ -588,3 +588,16 @@ uint32_t sprdchg_read_vbat_vol(void)
 	    sprdchg_bat_adc_to_vol(sci_adc_get_value(ADC_CHANNEL_VBAT, false));
 	return voltage;
 }
+
+#ifdef CONFIG_LEDS_TRIGGERS
+void sprdchg_led_brightness_set(struct led_classdev *led_cdev,
+			 enum led_brightness brightness)
+{
+    if(brightness == LED_FULL){
+            sci_adi_clr(ANA_REG_GLB_ANA_DRV_CTRL, BIT_KPLED_PD);
+    }else{
+            sci_adi_set(ANA_REG_GLB_ANA_DRV_CTRL, BIT_KPLED_PD);
+    }
+}
+#endif
+

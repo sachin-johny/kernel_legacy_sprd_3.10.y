@@ -2690,11 +2690,19 @@ static void sprd_codec_power_changed(struct power_supply *psy)
 #endif
 }
 
+static int sprd_codec_power_get_property(struct power_supply *psy,
+				   enum power_supply_property psp,
+				   union power_supply_propval *val)
+{
+	return -EINVAL;
+}
+
 static int sprd_codec_audio_ldo(struct sprd_codec_priv *sprd_codec)
 {
 	int ret = 0;
 	struct snd_soc_codec *codec = sprd_codec->codec;
 	sprd_codec->audio_ldo.name = "audio-ldo";
+	sprd_codec->audio_ldo.get_property = sprd_codec_power_get_property;
 	sprd_codec->audio_ldo.external_power_changed = sprd_codec_power_changed;
 	ret = power_supply_register(codec->dev, &sprd_codec->audio_ldo);
 	if (ret) {
