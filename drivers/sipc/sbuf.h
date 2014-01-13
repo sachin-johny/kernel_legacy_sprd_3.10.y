@@ -58,6 +58,9 @@ struct sbuf_ring {
 	/* send/recv mutex */
 	struct mutex		txlock;
 	struct mutex		rxlock;
+
+	void			(*handler)(int event, void *data);
+	void			*data;
 };
 
 #define SBUF_STATE_IDLE		0

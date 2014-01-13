@@ -240,6 +240,23 @@ int sbuf_poll_wait(uint8_t dst, uint8_t channel, uint32_t bufid,
  */
 int sbuf_status(uint8_t dst, uint8_t channel);
 
+#define	SBUF_NOTIFY_READ	0x01
+#define	SBUF_NOTIFY_WRITE	0x02
+/**
+ * sbuf_register_notifier -- register a callback that's called
+ * 		when a tx sbuf is available or a rx sbuf is received.
+ * 		non-blocked sbuf_read can be called.
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @bufid: buf ID
+ * @handler: a callback handler
+ * @event: NOTIFY_READ, NOTIFY_WRITE, or both
+ * @data: opaque data passed to the receiver
+ * @return: 0 on success, <0 on failue
+ */
+int sbuf_register_notifier(uint8_t dst, uint8_t channel, uint32_t bufid,
+		void (*handler)(int event, void *data), void *data);
 
 /* ****************************************************************** */
 /* SBLOCK interfaces */

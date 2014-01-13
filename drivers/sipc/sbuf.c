@@ -90,9 +90,15 @@ static int sbuf_thread(void *data)
 			switch (mrecv.flag) {
 			case SMSG_EVENT_SBUF_RDPTR:
 				wake_up_interruptible_all(&(sbuf->rings[bufid].txwait));
+				if (sbuf->rings[bufid].handler) {
+					sbuf->rings[bufid].handler(SBUF_NOTIFY_WRITE, sbuf->rings[bufid].data);
+				}
 				break;
 			case SMSG_EVENT_SBUF_WRPTR:
 				wake_up_interruptible_all(&(sbuf->rings[bufid].rxwait));
+				if (sbuf->rings[bufid].handler) {
+					sbuf->rings[bufid].handler(SBUF_NOTIFY_READ, sbuf->rings[bufid].data);
+				}
 				break;
 			default:
 				rval = 1;
@@ -562,6 +568,28 @@ int sbuf_status(uint8_t dst, uint8_t channel)
 	return 0;
 }
 
+int sbuf_register_notifier(uint8_t dst, uint8_t channel, uint32_t bufid,
+		void (*handler)(int event, void *data), void *data)
+{
+	struct sbuf_mgr *sbuf = sbufs[dst][channel];
+	struct sbuf_ring *ring = NULL;
+
+	if (!sbuf) {
+		return -ENODEV;
+	}
+        ring = &(sbuf->rings[bufid]);
+
+	if (!ring) {
+		printk(KERN_ERR "sbuf-%d-%d not ready!\n", dst, channel);
+		return -ENODEV;
+	}
+
+	ring->handler = handler;
+	ring->data = data;
+
+	return 0;
+}
+
 #if defined(CONFIG_DEBUG_FS)
 
 static int sbuf_debug_show(struct seq_file *m, void *private)
@@ -620,6 +648,7 @@ EXPORT_SYMBOL(sbuf_write);
 EXPORT_SYMBOL(sbuf_read);
 EXPORT_SYMBOL(sbuf_poll_wait);
 EXPORT_SYMBOL(sbuf_status);
+EXPORT_SYMBOL(sbuf_register_notifier);
 
 MODULE_AUTHOR("Chen Gaopeng");
 MODULE_DESCRIPTION("SIPC/SBUF driver");
