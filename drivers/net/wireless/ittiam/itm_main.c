@@ -714,7 +714,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver itm_wlan_driver = {
+static struct platform_driver itm_wlan_driver __refdata = {
 	.probe = itm_wlan_probe,
 	.remove = __devexit_p(itm_wlan_remove),
 	.driver = {

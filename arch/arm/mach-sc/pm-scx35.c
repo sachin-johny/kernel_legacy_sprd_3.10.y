@@ -1114,7 +1114,7 @@ static void sc8830_machine_restart(char mode, const char *cmd)
 	while (1);
 }
 
-void sc_pm_init(void)
+void __init sc_pm_init(void)
 {
 	
 	init_reset_vector();

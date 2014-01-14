@@ -3076,7 +3076,7 @@ gpio_err_exit:
 	return ret;
 }
 
-int sprd_v4l2_probe(struct platform_device *pdev)
+static int __init sprd_v4l2_probe(struct platform_device *pdev)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 
@@ -3101,7 +3101,7 @@ LOCAL int sprd_v4l2_remove(struct platform_device *dev)
 	return ret;
 }
 
-LOCAL struct platform_driver sprd_v4l2_driver = {
+LOCAL struct platform_driver sprd_v4l2_driver __refdata = {
 	.probe = sprd_v4l2_probe,
 	.remove = sprd_v4l2_remove,
 	.driver = {
