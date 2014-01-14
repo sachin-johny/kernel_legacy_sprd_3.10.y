@@ -259,7 +259,7 @@ sec_charging_current_t charging_current_table[] = {
 	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_UNKNOWN */
 	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_BATTERY */
 	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_UPS */
-	{1000,  1000,   250,    1800},     /* POWER_SUPPLY_TYPE_MAINS */
+	{700,  1000,   250,    1800},     /* POWER_SUPPLY_TYPE_MAINS */
 	{500,   700,    250,    1800},     /* POWER_SUPPLY_TYPE_USB */
 	{500,   700,    250,    1800},     /* POWER_SUPPLY_TYPE_USB_DCP */
 	{500,   700,    250,    1800},     /* POWER_SUPPLY_TYPE_USB_CDP */
@@ -846,6 +846,9 @@ void sec_charger_cb(u8 cable_type)
 		break;
 	case MUIC_RT8973_CABLE_TYPE_OTG:
 		goto skip;
+	case MUIC_RT8973_CABLE_TYPE_JIG_UART_OFF_WITH_VBUS:
+		current_cable_type = POWER_SUPPLY_TYPE_UARTOFF;
+		break;
 	case MUIC_RT8973_CABLE_TYPE_JIG_UART_OFF:
 	/*
 		if (!gpio_get_value(mfp_to_gpio(GPIO008_GPIO_8))) {
