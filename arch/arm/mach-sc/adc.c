@@ -410,3 +410,77 @@ Exit:
 }
 
 EXPORT_SYMBOL_GPL(sci_adc_get_values);
+
+static int __average(int a[], int N)
+{
+#define __DIV_ROUND(n, d)		(((n) + ((d)/2)) / (d))
+	int i, sum = 0;
+
+	for (i = 0; i < N; i++)
+		sum += a[i];
+	return __DIV_ROUND(sum, N);
+}
+
+static int sci_adc_set_current(u8 enable, int isen)
+{
+	if(enable) {
+		/* BITS_AUXAD_CURRENT_IBS = (isen * 100 / 125 -1) */
+		isen = (isen * 100 / 125 -1);
+		if(isen > BITS_AUXAD_CURRENT_IBS(-1))
+			isen = BITS_AUXAD_CURRENT_IBS(-1);
+		sci_adi_write(ANA_REG_GLB_AUXAD_CTL, (BIT_AUXAD_CURRENTSEN_EN | BITS_AUXAD_CURRENT_IBS(isen)),
+			BIT_AUXAD_CURRENTSEN_EN | BITS_AUXAD_CURRENT_IBS(-1));
+	} else {
+		sci_adi_clr(ANA_REG_GLB_AUXAD_CTL, BIT_AUXAD_CURRENTSEN_EN);
+	}
+
+	return 0;
+}
+
+/*
+ * sci_adc_get_value_by_isen - read adc value by current sense
+ * @channel: adc software channel id;
+ * @scale: adc sample scale, 0:little scale, 1:big scale;
+ * @current: adc current isense(uA),  1.25uA/step, max 40uA;
+ *
+ * returns: adc value
+ */
+int sci_adc_get_value_by_isen(unsigned int channel, int scale, int isen)
+{
+#define ADC_MESURE_NUMBER	15
+
+	struct adc_sample_data adc;
+	int results[ADC_MESURE_NUMBER + 1] = {0};
+	int ret = 0, i = 0;
+
+	/* Fixme: only external adc channel used */
+	BUG_ON(channel > 3);
+
+	WARN_ON(isen > 40);
+
+	adc.channel_id = channel;
+	adc.channel_type = 0;
+	adc.hw_channel_delay = 0;
+	adc.pbuf = &results[0];
+	adc.sample_bits = 1;
+	adc.sample_num = ADC_MESURE_NUMBER;
+	adc.sample_speed = 0;
+	adc.scale = scale;
+	adc.signal_mode = 0;
+
+	sci_adc_set_current(1, isen);
+	if(0 == sci_adc_get_values(&adc)) {
+		ret = __average(&results[ADC_MESURE_NUMBER/5],
+			(ADC_MESURE_NUMBER - ADC_MESURE_NUMBER * 2 /5));
+	}
+	sci_adc_set_current(0, 0);
+
+	for(i = 0; i < ARRAY_SIZE(results); i++) {
+		printk("%d\t", results[i]);
+	}
+	printk("\n%s() adc[%d] value: %d\n", __func__, channel, ret);
+
+	return ret;
+}
+EXPORT_SYMBOL_GPL(sci_adc_get_value_by_isen);
+

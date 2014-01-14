@@ -120,6 +120,11 @@ static inline int sci_adc_get_value(unsigned int channel, int scale)
 	return result[0];
 }
 
+/*
+ * Use this interface to get adc value by current sense
+ */
+int sci_adc_get_value_by_isen(unsigned int channel, int scale, int isen);
+
 #else
 static inline void sci_adc_init(void __iomem * adc_base) {}
 
