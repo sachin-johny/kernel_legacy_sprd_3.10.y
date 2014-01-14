@@ -383,6 +383,9 @@ static bool rt5033_chg_init(struct rt5033_charger_data *charger)
 			RT5033_CHG_CTRL3, RT5033_TIMEREN_MASK);
 	/* Disable TE */
 	rt5033_enable_charging_termination(charger->rt5033->i2c_client, 0);
+	/* Enable High-GM */
+	rt5033_set_bits(charger->rt5033->i2c_client,
+			0x07, 0x80);
 	return true;
 }
 
