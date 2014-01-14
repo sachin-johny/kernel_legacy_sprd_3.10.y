@@ -90,10 +90,27 @@ static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj);
 
 #ifdef CONFIG_ZRAM
 extern ssize_t zram_mem_free_percent(void);
-
+static uint zone_wmark_ok_safe_gap = 256;
+module_param_named(zone_wmark_ok_safe_gap, zone_wmark_ok_safe_gap, uint, S_IRUGO | S_IWUSR);
 short cacl_zram_score_adj(void)
 {
-    return (short)(zram_mem_free_percent()*OOM_SCORE_ADJ_MAX/100);
+	struct sysinfo swap_info;
+	ssize_t  swap_free_percent = 0;
+	ssize_t zram_free_percent = 0;
+	ssize_t  ret = 0;
+
+	si_swapinfo(&swap_info);
+	if(!swap_info.totalswap)
+	{
+		return 0;
+	}
+
+	swap_free_percent =  swap_info.freeswap * 100/swap_info.totalswap;
+	zram_free_percent =  zram_mem_free_percent();
+
+	ret = (swap_free_percent <  zram_free_percent) ?  swap_free_percent :  zram_free_percent;
+
+	return OOM_ADJ_TO_OOM_SCORE_ADJ(ret*OOM_ADJUST_MAX/100);
 }
 #endif
 
@@ -317,13 +334,30 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 #ifdef CONFIG_ZRAM
 	zram_score_adj = cacl_zram_score_adj();
-	printk("ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
 	if(min_score_adj < zram_score_adj)
 	{
-		if (nr_to_scan > 0)
-			mutex_unlock(&scan_mutex);
-		return rem;
+		gfp_t gfp_mask;
+		struct zone *preferred_zone;
+		struct zonelist *zonelist;
+		enum zone_type high_zoneidx;
+		gfp_mask = sc->gfp_mask;
+		zonelist = node_zonelist(0, gfp_mask);
+		high_zoneidx = gfp_zone(gfp_mask);
+		first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
+		if (!is_migrate_cma(allocflags_to_migratetype(gfp_mask)) &&
+			!zone_watermark_ok_safe(preferred_zone, 0, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
+		{
+			zram_score_adj =  (min_score_adj + zram_score_adj)/2;
+		}
+		else
+		{
+			lowmem_print(2, "ZRAM: return min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
+			if (nr_to_scan > 0)
+				mutex_unlock(&scan_mutex);
+			return rem;
+		}
 	}
+	printk("ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
 	min_score_adj = zram_score_adj;
 #endif
 

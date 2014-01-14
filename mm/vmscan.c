@@ -3093,6 +3093,13 @@ static int kswapd(void *p)
 	return 0;
 }
 
+
+
+static uint  debug_kswapd_wakeup = 0;
+
+module_param_named(debug_kswapd_wakeup, debug_kswapd_wakeup, uint, S_IRUGO | S_IWUSR);
+
+
 /*
  * A zone is low on free memory, so wake its kswapd task to service it.
  */
@@ -3114,6 +3121,14 @@ void wakeup_kswapd(struct zone *zone, int order, enum zone_type classzone_idx)
 		return;
 	if (zone_watermark_ok_safe(zone, order, low_wmark_pages(zone), 0, 0))
 		return;
+
+	if(debug_kswapd_wakeup &&
+		 zone_watermark_ok_safe(zone, order, high_wmark_pages(zone) + min_wmark_pages(zone), 0, 0))
+	{
+		printk("%s(pages): free:%d, free_cma:%d, high:%d, low:%d,  min:%d, order:%d\r\n",
+			   __func__, global_page_state(NR_FREE_PAGES), global_page_state(NR_FREE_CMA_PAGES), high_wmark_pages(zone), low_wmark_pages(zone) , min_wmark_pages(zone) ,order);
+		WARN_ON(1);
+	}
 
 	trace_mm_vmscan_wakeup_kswapd(pgdat->node_id, zone_idx(zone), order);
 	wake_up_interruptible(&pgdat->kswapd_wait);
