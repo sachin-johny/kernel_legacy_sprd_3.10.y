@@ -109,6 +109,10 @@ struct sprd_bl_devdata {
 };
 
 static struct sprd_bl_devdata sprdbl;
+#ifdef CONFIG_MACH_SP7715EA
+static int pwm_whiteled_both = 0;
+static int sprd_bl_whiteled_update_status(struct backlight_device *bldev);
+#endif
 
 static inline uint32_t pwm_read(int index, uint32_t reg)
 {
@@ -145,6 +149,11 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 		pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_HIG);
 		pwm_write(sprdbl.pwm_index, PWM_ENABLE, PWM_PRESCALE);
 	}
+
+#ifdef CONFIG_MACH_SP7715EA
+	if(1 == pwm_whiteled_both)
+		sprd_bl_whiteled_update_status(bldev);
+#endif
 	return 0;
 }
 
@@ -327,7 +336,8 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	adie_chip_ver = sci_get_ana_chip_ver();
 	PRINT_INFO("adie_chip_ver = 0x%08X\n", adie_chip_ver);
 
-	if(0x00000000 != adie_chip_ver) {
+	//if(0x00000000 != adie_chip_ver) {
+	if(1) {
 		pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 		if (IS_ERR(pwm_res)) {
 			printk("Can't get pwm resource");
@@ -386,6 +396,19 @@ pwm_7715ea:
 			printk(KERN_ERR "Failed to register backlight device\n");
 			return -ENOMEM;
 		}
+		#ifdef CONFIG_MACH_SP7715EA
+			if(0x00000000 == adie_chip_ver) {
+				pwm_whiteled_both = 1;
+				#ifdef SPRD_DIM_PWM_MODE
+					sprdbl.pwm_mode = dim_pwm;
+				#else
+					sprdbl.pwm_mode = pd_pwd;
+				#endif
+				#ifdef CONFIG_ARCH_SCX15
+					srpd_backlight_init();
+				#endif
+			}
+		#endif
 	}
 	else {
 		bldev = backlight_device_register(
