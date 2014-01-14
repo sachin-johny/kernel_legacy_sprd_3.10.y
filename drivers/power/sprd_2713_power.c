@@ -52,7 +52,7 @@ int sprd_thm_temp_read(u32 sensor)
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
 #define SPRDBAT_ONE_PERCENT_TIME   30
-#define SPRDBAT_VALID_CAP   10
+#define SPRDBAT_VALID_CAP   15
 
 enum sprdbat_event {
 	SPRDBAT_ADP_PLUGIN_E,
@@ -296,7 +296,6 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 		break;
 	case SAVE_CAPACITY:
 		{
-#if 0
 			int temp = set_value - poweron_capacity;
 
 			pr_info("battery temp:%d\n", temp);
@@ -311,7 +310,6 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 				sprdbat_data->bat_info.capacity = set_value;
 			}
 			power_supply_changed(&sprdbat_data->battery);
-#endif
 		}
 		break;
 	default:
@@ -329,7 +327,6 @@ static ssize_t sprdbat_show_caliberate(struct device *dev,
 	const ptrdiff_t off = attr - sprd_caliberate;
 	int adc_value;
 	int voltage;
-	int temp_value;
 	uint32_t now_current;
 
 	switch (off) {
@@ -442,7 +439,7 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 	data->bat_info.chg_start_time = 0;
 	get_monotonic_boottime(&cur_time);
 	sprdbat_update_capacity_time = cur_time.tv_sec;
-	data->bat_info.capacity = sprdfgu_poweron_capacity();	//~0;//modify in later
+	data->bat_info.capacity = sprdfgu_poweron_capacity();	//~0;
 	poweron_capacity = sprdfgu_poweron_capacity();
 	data->bat_info.soc = sprdfgu_read_soc();
 	data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
