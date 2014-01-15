@@ -36,6 +36,7 @@
 #include <linux/jiffies.h>
 #include "sprd_battery.h"
 #include <mach/usb.h>
+#include <linux/leds.h>
 
 #define SPRDBAT__DEBUG
 #ifdef SPRDBAT__DEBUG
@@ -1599,6 +1600,14 @@ static int sprdbat_probe(struct platform_device *pdev)
 
 	sprdchg_init();
 	sprdfgu_init(pdev);
+
+#ifdef CONFIG_LEDS_TRIGGERS
+	data->charging_led.name = "sprdbat_charging_led";
+	data->charging_led.default_trigger = "battery-charging";
+	data->charging_led.brightness_set = sprdchg_led_brightness_set;
+	led_classdev_register(&pdev->dev, &data->charging_led);
+#endif
+
 #ifdef SPRDBAT_TWO_CHARGE_CHANNEL
 	sprdchg_charge_init_ext(pdev);
 	INIT_DELAYED_WORK(&sprdbat_charge_work_ext, sprdbat_charge_works_ext);

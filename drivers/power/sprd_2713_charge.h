@@ -95,5 +95,7 @@ uint32_t sprdchg_read_chg_current(void);
 void sprdchg_put_chgcur(uint32_t chging_current);
 uint32_t sprdchg_get_chgcur_ave(void);
 uint32_t sprdchg_read_vbat_vol(void);
+void sprdchg_led_brightness_set(struct led_classdev *led_cdev,
+			 enum led_brightness brightness);
 
 #endif /* _CHG_DRVAPI_H_ */

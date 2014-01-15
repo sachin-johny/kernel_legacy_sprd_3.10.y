@@ -111,6 +111,10 @@ struct sprdbat_drivier_data {
 	struct delayed_work * charge_work;
 	int (*start_charge)(void);
 	int (*stop_charge)(void);
+#ifdef CONFIG_LEDS_TRIGGERS
+	struct led_classdev charging_led;
+#endif
+
 };
 
 struct sprdbat_auxadc_cal {

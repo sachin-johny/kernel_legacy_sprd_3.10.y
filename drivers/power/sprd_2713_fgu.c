@@ -978,6 +978,12 @@ sprd_attrs_failed:
 sprd_attrs_succeed:
 	return rc;
 }
+static int sprdfgu_power_get_property(struct power_supply *psy,
+				   enum power_supply_property psp,
+				   union power_supply_propval *val)
+{
+	return -EINVAL;
+}
 
 int sprdfgu_init(struct platform_device *pdev)
 {
@@ -987,6 +993,7 @@ int sprdfgu_init(struct platform_device *pdev)
 	sprdfgu_hw_init();
 
 	sprdfgu_data.sprdfgu.name = "sprdfgu";
+	sprdfgu_data.sprdfgu.get_property = sprdfgu_power_get_property;
 	ret = power_supply_register(&pdev->dev, &sprdfgu_data.sprdfgu);
 	if (ret) {
 		pr_err("register power supply error!\n");
