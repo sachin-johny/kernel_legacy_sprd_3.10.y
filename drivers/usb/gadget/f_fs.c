@@ -755,7 +755,7 @@ static ssize_t ffs_epfile_io(struct file *file,
 	struct ffs_epfile *epfile = file->private_data;
 	struct ffs_ep *ep;
 	char *data = NULL;
-	ssize_t ret;
+	ssize_t ret, data_len;
 	int halt;
 
 	goto first_try;
@@ -794,7 +794,8 @@ first_try:
 
 		/* Allocate & copy */
 		if (!halt && !data) {
-			data = kzalloc(len, GFP_KERNEL);
+			data_len = read ? round_up(len, (size_t)ep->ep->desc->wMaxPacketSize):len;
+			data = kzalloc(data_len, GFP_KERNEL);
 			if (unlikely(!data))
 				return -ENOMEM;
 
@@ -837,7 +838,7 @@ first_try:
 		req->context  = &done;
 		req->complete = ffs_epfile_io_complete;
 		req->buf      = data;
-		req->length   = len;
+		req->length   = data_len;
 
 		ret = usb_ep_queue(ep->ep, req, GFP_ATOMIC);
 
@@ -851,7 +852,7 @@ first_try:
 		} else {
 			ret = ep->status;
 			if (read && ret > 0 &&
-			    unlikely(copy_to_user(buf, data, ret)))
+			    unlikely(copy_to_user(buf, data, min_t(size_t, ret, len))))
 				ret = -EFAULT;
 		}
 	}
