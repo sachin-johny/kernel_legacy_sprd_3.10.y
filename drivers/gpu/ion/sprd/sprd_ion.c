@@ -368,17 +368,17 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 }
 
 
-extern struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data);
+extern struct ion_heap *ion_cma_heap_create(struct ion_platform_heap *heap_data, struct device *dev);
 extern void ion_cma_heap_destroy(struct ion_heap *heap);
 
 
-static struct ion_heap *__ion_heap_create(struct ion_platform_heap *heap_data)
+static struct ion_heap *__ion_heap_create(struct ion_platform_heap *heap_data, struct device *dev)
 {
 	struct ion_heap *heap = NULL;
 
 	switch ((int)heap_data->type) {
 	case ION_HEAP_TYPE_CUSTOM:
-		heap = ion_cma_heap_create(heap_data);
+		heap = ion_cma_heap_create(heap_data, dev);
 		break;
 	default:
 		return ion_heap_create(heap_data);
@@ -432,7 +432,7 @@ int sprd_ion_probe(struct platform_device *pdev)
 	for (i = 0; i < num_heaps; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
 
-		heaps[i] = __ion_heap_create(heap_data);
+		heaps[i] = __ion_heap_create(heap_data, &pdev->dev);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);
 			goto err;

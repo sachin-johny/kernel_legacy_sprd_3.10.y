@@ -118,35 +118,41 @@
 #endif
 
 #ifdef CONFIG_ION
-    #if defined (CONFIG_ARCH_SCX35)
-        #if defined(CONFIG_CMA)
-            #define SPRD_ION_MM_SIZE	(20 * SZ_1M)
-        #elif defined(CONFIG_SPRD_IOMMU)
-            #define SPRD_ION_MM_SIZE	(0 * SZ_1M)
-        #elif !defined(SPRD_ION_MM_SIZE)	/* should be defined in "__board-sp**.h" already */
-            #define SPRD_ION_MM_SIZE	(76 * SZ_1M)
-        #endif
-    #else
-        #define SPRD_ION_MM_SIZE	(CONFIG_SPRD_ION_MM_SIZE * SZ_1M)
-    #endif
+	#ifdef CONFIG_ARCH_SCX35
+		#ifdef CONFIG_SPRD_IOMMU
+			#define SPRD_ION_MM_SIZE   (0 * SZ_1M)
+		#else
+			#ifndef SPRD_ION_MM_SIZE       /* should be defined in "__board-sp**.h" already */
+				#define SPRD_ION_MM_SIZE   (76 * SZ_1M)
+			#endif
+		#endif
 
+		#ifndef SPRD_ION_OVERLAY_SIZE	/* should be defined in "__board-sp**.h" already */
+			#define SPRD_ION_OVERLAY_SIZE	(12 * SZ_1M)
+		#endif
+	#else
+		#ifndef SPRD_ION_MM_SIZE
+			#define SPRD_ION_MM_SIZE	(CONFIG_SPRD_ION_MM_SIZE * SZ_1M)
+		#endif
 
-    #if defined (CONFIG_ARCH_SCX35)
-        #if defined(CONFIG_CMA)
-            #define SPRD_ION_OVERLAY_SIZE	(0 * SZ_1M)
-        #elif !defined(SPRD_ION_OVERLAY_SIZE)	/* should be defined in "__board-sp**.h" already */
-            #define SPRD_ION_OVERLAY_SIZE	(12 * SZ_1M)
-        #endif
-    #else
-        #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
-    #endif
-
+		#ifndef SPRD_ION_OVERLAY_SIZE
+			#define SPRD_ION_OVERLAY_SIZE	(CONFIG_SPRD_ION_OVERLAY_SIZE * SZ_1M)
+		#endif
+	#endif
 #else /* !ION */
-#define SPRD_ION_MM_SIZE	(0 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE	(0 * SZ_1M)
+	#define SPRD_ION_MM_SIZE           (0 * SZ_1M)
+	#define SPRD_ION_OVERLAY_SIZE   (0 * SZ_1M)
 #endif
 
-#define SPRD_ION_MEM_SIZE	(SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE)
+#ifdef CONFIG_CMA
+       #define CMA_MARGIN              (3 * SZ_1M)
+       #define CMA_ALIGNMENT           (4 * SZ_1M)
+       #define SPRD_ION_MEM_RAW_SIZE    (SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE + CMA_MARGIN)
+	/* ALIGN UP */
+       #define SPRD_ION_MEM_SIZE        ((SPRD_ION_MEM_RAW_SIZE + (CMA_ALIGNMENT - 1)) & (~(CMA_ALIGNMENT - 1)))
+#else
+       #define SPRD_ION_MEM_SIZE        (SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE)
+#endif
 
 #if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP6815GA)/* Nand 4+2 */
 #define SPRD_ION_MEM_BASE	\

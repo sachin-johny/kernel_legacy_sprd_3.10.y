@@ -208,8 +208,10 @@ static int __init cma_init_reserved_areas(void)
 		struct cma *cma;
 		cma = cma_create_area(PFN_DOWN(r->start),
 				      r->size >> PAGE_SHIFT);
-		if (!IS_ERR(cma))
+		if (!IS_ERR(cma)) {
+			pr_info("%s: cma %p, base %lx\n", __func__, (void *)cma, (unsigned long)r->start);
 			dev_set_cma_area(r->dev, cma);
+		}
 	}
 	return 0;
 }
