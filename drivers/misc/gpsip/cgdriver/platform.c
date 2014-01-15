@@ -211,40 +211,9 @@ TCgReturnCode CgxDriverReadDataTail(unsigned char *aTargetVirtualAddress, unsign
 	return ECgOk;
 }
 
-static void gps_reg_init(void)
-{
-	U32 value;
-
-#if defined(CONFIG_SHARK_CHIP_2351)
-	/*gps real select*/
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0x0, (U32 *)&value);
-	value |= 1<<20;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0x0,value);
-
-	/*GPS_D pin reg config*/
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X01d4, (U32 *)&value);
-	value &= ~(1<<4);
-	value |= 1<<5;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0X01d4,value);
-
-#elif defined(CONFIG_DOLPHIN_CHIP_2351)
-	/*GPS clock select to CLK_SINE1*/
-	//CgxCpuReadMemory((U32)CG_SPRD_AONAPB_BASE_VA, 0X00d4, (U32 *)&value);
-	//value |= 1;
-	//CgxCpuWriteMemory((U32)CG_SPRD_AONAPB_BASE_VA, 0X00d4,value);
-
-	/*GPS_D pin reg config*/
-	CgxCpuReadMemory((U32)CG_RF_ARM_BASE_VA, 0X012c, (U32 *)&value);
-	value &= ~(1<<4);
-	value |= 1<<5;
-	CgxCpuWriteMemory((U32)CG_RF_ARM_BASE_VA, 0X012c,value);
-#endif
-}
-
 static TCgReturnCode CgxDriverRFInit(void)
 {
 	u32 value;
-
 	gps_rf_ops->write_reg(0x0700,0x0001);
 	gps_rf_ops->write_reg(0x004a,0xf417);
 	gps_rf_ops->write_reg(0x076c,0x0721);
@@ -372,7 +341,6 @@ void gps_chip_power_on(void)
 
 	//gps core reset
 	CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, 0xfc,0xf);
-	gps_reg_init();
 	CgxDriverRFPowerUp();
 }
 
