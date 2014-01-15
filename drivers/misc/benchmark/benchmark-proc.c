@@ -24,7 +24,7 @@ static struct bench_t bench_name[] = {
 	},
 	[2] = {
 		.name = "net_time",
-		.size = 64,
+		.size = 512,
 	},
 	[3] = {
 		.name = "cam_time",
@@ -80,7 +80,8 @@ int init_module()
 	}
 	for (i=0; i<ARRAY_SIZE(bench_name); i++) {
 		entry = proc_create_data(bench_name[i].name, S_IRUGO|S_IWUGO, benchmark_entry, &benchmark_fops, bench_name[i].name);
-        bench_name[i].buffer = (char*)kmalloc(bench_name[i].size, GFP_KERNEL);
+       bench_name[i].buffer = (char*)kmalloc(bench_name[i].size, GFP_KERNEL);
+       memset(bench_name[i].buffer, '\0', bench_name[i].size);
 	}
 	printk(KERN_INFO "/proc/%s created\n", PROC_NAME);
 	return 0;
@@ -113,7 +114,7 @@ static ssize_t benchmark_write( struct file *file, const char __user *buffer, si
 	int idx = (int)file->private_data;
 	int ret = 0;
 
-    memset(bench_name[idx].buffer, '\0', bench_name[idx].size);
+       memset(bench_name[idx].buffer, '\0', bench_name[idx].size);
 	ret = simple_write_to_buffer(bench_name[idx].buffer, bench_name[idx].size, offset, buffer, len);
 
 	return ret;
