@@ -4,6 +4,14 @@ menuconfig ION
 	help
 	  Chose this option to enable the ION Memory Manager.
 
+config ION_PAGECACHE
+	bool "Share spare carveout pages as page cache"
+	depends on ION
+	help
+	  Select this to enable spare carveout pages as page cache,
+	  when reading in file for a page fault or reading ahead pages for
+	  the share executable object.
+
 config ION_TEGRA
 	tristate "Ion for Tegra"
 	depends on ARCH_TEGRA && ION

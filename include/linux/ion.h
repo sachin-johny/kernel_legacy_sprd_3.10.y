@@ -49,6 +49,24 @@ struct ion_mapper;
 struct ion_client;
 struct ion_buffer;
 
+#ifdef CONFIG_ION_PAGECACHE
+#define ION_ALLOC_PAGECACHE_MASK	(1<<30)
+extern struct ion_client *ion_client_pagecache;
+
+struct page *ion_pagecache_alloc(gfp_t gfp);
+int ion_pagecache_release(struct page* page);
+int ion_pagecache_complete(struct page* page);
+int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask);
+void ion_activate_page(struct page *page);
+#else
+static inline struct page *ion_pagecache_alloc(gfp_t gfp) { return NULL; }
+static inline int ion_pagecache_release(struct page* page) { return -ENOSYS; }
+static inline int ion_pagecache_complete(struct page* page) { return -ENOSYS; }
+static inline int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask)
+	{ return 0; }
+static inline void ion_activate_page(struct page* page) { }
+#endif
+
 /* This should be removed some day when phys_addr_t's are fully
    plumbed in the kernel, and all instances of ion_phys_addr_t should
    be converted to phys_addr_t.  For the time being many kernel interfaces

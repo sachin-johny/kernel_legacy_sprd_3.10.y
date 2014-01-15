@@ -31,6 +31,7 @@
 #include <linux/backing-dev.h>
 #include <linux/memcontrol.h>
 #include <linux/gfp.h>
+#include <linux/ion.h>
 
 #include "internal.h"
 
@@ -56,6 +57,9 @@ static void __page_cache_release(struct page *page)
 		__ClearPageLRU(page);
 		del_page_from_lru(zone, page);
 		spin_unlock_irqrestore(&zone->lru_lock, flags);
+	} else if (PageIONBacked(page)) {
+		ClearPageActive(page);
+		ClearPageUnevictable(page);
 	}
 }
 
@@ -338,11 +342,18 @@ void activate_page(struct page *page)
 void mark_page_accessed(struct page *page)
 {
 	if (!PageActive(page) && !PageUnevictable(page) &&
-			PageReferenced(page) && PageLRU(page)) {
-		activate_page(page);
+			PageReferenced(page)) {
+		if (PageLRU(page))
+			activate_page(page);
+		else if (PageIONBacked(page))
+			SetPageActive(page);
+		else
+			return;
 		ClearPageReferenced(page);
 	} else if (!PageReferenced(page)) {
 		SetPageReferenced(page);
+		if (PageIONBacked(page) && PageActive(page))
+			ion_activate_page(page);
 	}
 }
 
@@ -595,6 +606,9 @@ void release_pages(struct page **pages, int nr, int cold)
 			VM_BUG_ON(!PageLRU(page));
 			__ClearPageLRU(page);
 			del_page_from_lru(zone, page);
+		} else if (PageIONBacked(page)) {
+			ClearPageActive(page);
+			ClearPageUnevictable(page);
 		}
 
 		if (!pagevec_add(&pages_to_free, page)) {

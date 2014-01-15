@@ -107,6 +107,9 @@ enum pageflags {
 #ifdef CONFIG_TRANSPARENT_HUGEPAGE
 	PG_compound_lock,
 #endif
+#ifdef CONFIG_ION_PAGECACHE
+	PG_ionbacked,		/* Page is backed by ION */
+#endif
 	__NR_PAGEFLAGS,
 
 	/* Filesystems */
@@ -276,6 +279,15 @@ TESTSCFLAG(HWPoison, hwpoison)
 #else
 PAGEFLAG_FALSE(HWPoison)
 #define __PG_HWPOISON 0
+#endif
+
+#ifdef CONFIG_ION_PAGECACHE
+PAGEFLAG(IONBacked, ionbacked)
+TESTSCFLAG(IONBacked, ionbacked)
+#define __PG_IONBACKED (1UL << PG_ionbacked)
+#else
+PAGEFLAG_FALSE(IONBacked)
+#define __PG_IONBACKED 0
 #endif
 
 u64 stable_page_flags(struct page *page);

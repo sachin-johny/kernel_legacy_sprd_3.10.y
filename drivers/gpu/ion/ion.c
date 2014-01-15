@@ -29,6 +29,9 @@
 #include <linux/seq_file.h>
 #include <linux/uaccess.h>
 #include <linux/debugfs.h>
+#include <linux/memcontrol.h>
+#include <linux/pagemap.h>
+#include <linux/rmap.h>
 
 #include "ion_priv.h"
 #define DEBUG
@@ -102,7 +105,321 @@ struct ion_handle {
 	unsigned int kmap_cnt;
 	unsigned int dmap_cnt;
 	unsigned int usermap_cnt;
+#ifdef CONFIG_ION_PAGECACHE
+	struct list_head list;
+	struct rb_node pagecache;
+	struct task_struct *task;
+#endif
 };
+
+#ifdef CONFIG_ION_PAGECACHE
+extern void __clear_page_mlock(struct page *page);
+extern int prep_new_page(struct page *page, int order, gfp_t gfp_flags);
+
+struct ion_client *ion_client_pagecache;
+
+int ion_pagecache_rb_insert(struct rb_root *root, struct ion_handle *handle)
+{
+	struct rb_node **new = &(root->rb_node), *parent = NULL;
+	struct ion_buffer *chunk = handle->buffer;
+
+	/* Figure out where to put new node */
+	while (*new) {
+		struct ion_handle *this = container_of(*new, struct ion_handle, pagecache);
+		struct ion_buffer *buffer = this->buffer;
+
+		parent = *new;
+		if (chunk->priv_phys < buffer->priv_phys)
+			new = &((*new)->rb_left);
+		else if (chunk->priv_phys > buffer->priv_phys)
+			new = &((*new)->rb_right);
+		else
+			return -EEXIST;
+	}
+
+	/* Add new node and rebalance tree. */
+	rb_link_node(&handle->pagecache, parent, new);
+	rb_insert_color(&handle->pagecache, root);
+	return 0;
+}
+
+struct ion_handle *ion_pagecache_rb_search(struct rb_root *root,
+					  ion_phys_addr_t addr)
+{
+	struct rb_node *node = root->rb_node;
+
+	while (node) {
+		struct ion_handle *handle = container_of(node, struct ion_handle, pagecache);
+		struct ion_buffer *chunk = handle->buffer;
+
+		if (addr < chunk->priv_phys)
+			node = node->rb_left;
+		else if (addr > chunk->priv_phys)
+			node = node->rb_right;
+		else
+			return handle;
+	}
+	return NULL;
+}
+
+struct page *ion_pagecache_alloc(gfp_t gfp)
+{
+	struct ion_handle *handle;
+	ion_phys_addr_t addr;
+	size_t size;
+	struct ion_heap *heap;
+	struct ion_buffer *buffer;
+	struct page *page;
+
+	if (!ion_client_pagecache)
+		return NULL;
+	handle = ion_alloc(ion_client_pagecache,
+			   PAGE_SIZE, PAGE_SIZE, (unsigned int)-1);
+	if (IS_ERR_OR_NULL(handle))
+		return NULL;
+	buffer = handle->buffer;
+	heap = buffer->heap;
+	if (!heap->ops->phys ||
+	    heap->ops->phys(heap, buffer, &addr, &size)) {
+		ion_free(ion_client_pagecache, handle);
+		return NULL;
+	}
+
+	page = phys_to_page(addr);
+	ClearPageReserved(page);
+	ClearPageIONBacked(page);
+	/* Clean the pagecount set in stage of bootmem */
+	atomic_set(&page->_count, 0);
+	if (prep_new_page(page, 0, gfp)) {
+		dump_page(page);
+		BUG();
+	}
+	SetPageIONBacked(page);
+
+	spin_lock(&heap->pagecache_lock);
+	ion_pagecache_rb_insert(&heap->pagecaches, handle);
+	spin_unlock(&heap->pagecache_lock);
+	return page;
+}
+
+int ion_pagecache_release(struct page *page)
+{
+	unsigned long addr = page_to_phys(page);
+	struct ion_handle *handle;
+	struct rb_node *n;
+	struct ion_device *ion_dev;
+
+	if (!ion_client_pagecache)
+		return -1;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps); n != NULL; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		if (heap->cachedpages <= 0)
+			continue;
+
+		spin_lock(&heap->pagecache_lock);
+		handle = ion_pagecache_rb_search(&heap->pagecaches, addr);
+		if (!handle) {
+			spin_unlock(&heap->pagecache_lock);
+			continue;
+		}
+		list_del_init(&handle->list);
+		rb_erase(&handle->pagecache, &heap->pagecaches);
+		spin_unlock(&heap->pagecache_lock);
+
+		atomic_inc(&page->_count);
+		SetPageIONBacked(page);
+		SetPageReserved(page);
+		ion_free(ion_client_pagecache, handle);
+		return 0;
+	}
+	return -1;
+}
+
+int ion_pagecache_complete(struct page *page)
+{
+	unsigned long addr = page_to_phys(page);
+	struct ion_handle *handle;
+	struct rb_node *n;
+	struct ion_device *ion_dev;
+
+	/* The page has been released. */
+	if (PageReserved(page) || !page_count(page))
+		return -1;
+	if (!ion_client_pagecache)
+		return -1;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps), handle = NULL;
+	     n != NULL && handle == NULL;
+	     n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		if (heap->cachedpages <= 0)
+			continue;
+
+		spin_lock(&heap->pagecache_lock);
+		handle = ion_pagecache_rb_search(&heap->pagecaches, addr);
+		if (handle)
+			list_add_tail(&handle->list, &heap->pagecache_lru);
+		spin_unlock(&heap->pagecache_lock);
+	}
+	return handle ? 0 : -1;
+}
+
+static int __ion_pagecache_shrink(struct ion_heap *heap, unsigned long max_scan,
+				  int tryhard, gfp_t gfp_mask)
+{
+	int shrunk = 0;
+	struct page *page;
+	struct ion_handle *handle;
+	LIST_HEAD(failed_pages);
+
+	atomic_inc(&heap->shrinking);
+	mem_cgroup_uncharge_start();
+repeat:
+	page = NULL;
+	spin_lock(&heap->pagecache_lock);
+	list_for_each_entry(handle, &heap->pagecache_lru, list) {
+		struct address_space *mapping;
+		int locked;
+		ion_phys_addr_t addr;
+		size_t size;
+
+		if (heap->ops->phys(heap, handle->buffer, &addr, &size)) {
+			page = NULL;
+			continue;
+		}
+		page = phys_to_page(addr);
+
+		locked = trylock_page(page);
+		if (!(tryhard || locked)) {
+			page = NULL;
+			continue;
+		}
+		list_del_init(&handle->list);
+		spin_unlock(&heap->pagecache_lock);
+		if (!locked) {
+			might_sleep();
+			__lock_page(page);
+		}
+
+		if (unlikely(TestClearPageMlocked(page)))
+			__clear_page_mlock(page);
+		mapping = page_mapping(page);
+		if (page_mapped(page) && mapping) {
+			if (try_to_unmap(page, TTU_UNMAP|TTU_IGNORE_ACCESS)
+					!= SWAP_SUCCESS)
+				goto failed;
+		}
+		if (page_has_private(page) &&
+				!try_to_release_page(page, gfp_mask)) {
+			printk(KERN_ERR "ion: pagecache_shrink: "
+					"failed to release page %p\n", page);
+			goto failed;
+		} else {
+			if (mapping) {
+				spin_lock_irq(&mapping->tree_lock);
+				__delete_from_page_cache(page);
+				spin_unlock_irq(&mapping->tree_lock);
+				mem_cgroup_uncharge_cache_page(page);
+			}
+		}
+		unlock_page(page);
+		break;
+	}
+
+	if (page) {
+		if (likely(page_count(page) > 0)) {
+			page_cache_release(page);	/* pagecache ref */
+			shrunk++;
+		}
+		if (shrunk < max_scan && !list_empty(&heap->pagecache_lru))
+			goto repeat;
+		spin_lock(&heap->pagecache_lock);
+	}
+	list_splice_tail(&failed_pages, &heap->pagecache_lru);
+	spin_unlock(&heap->pagecache_lock);
+
+	mem_cgroup_uncharge_end();
+	atomic_dec(&heap->shrinking);
+printk("tryhard: %d max_scan:%d gfp:%x shrunk: %d\n",
+	tryhard, max_scan, gfp_mask, shrunk);
+printk("heap size %d allocated:%d cachedpages: %d\n",
+	heap->size, heap->allocated, heap->cachedpages);
+	return shrunk;
+failed:
+	unlock_page(page);
+	list_add(&handle->list, &failed_pages);
+	goto repeat;
+}
+
+int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask)
+{
+	int shrunk;
+	struct ion_device *ion_dev;
+	struct rb_node *n;
+
+	if (!ion_client_pagecache)
+		return -1;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps), shrunk = 0;
+	     n != NULL && shrunk < max_scan; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		shrunk += heap->size - heap->allocated;
+	}
+	for (n = rb_first(&ion_dev->heaps); n != NULL && shrunk < max_scan;
+			n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		if (heap->cachedpages > 0)
+			shrunk += __ion_pagecache_shrink(heap,
+					max_scan - shrunk, 0, gfp_mask);
+	}
+	return shrunk > max_scan ? max_scan : shrunk;
+}
+
+void ion_activate_page(struct page *page)
+{
+	unsigned long addr = page_to_phys(page);
+	struct ion_device *ion_dev;
+	struct rb_node *n;
+	struct ion_handle *handle;
+
+	if (!ion_client_pagecache)
+		return;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps), handle = NULL;
+	     n != NULL && handle == NULL; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		if (!heap->cachedpages)
+			continue;
+		spin_lock(&heap->pagecache_lock);
+		handle = ion_pagecache_rb_search(&heap->pagecaches, addr);
+		if (handle) {
+			list_del(&handle->list);
+			list_add_tail(&handle->list, &heap->pagecache_lru);
+		}
+		spin_unlock(&heap->pagecache_lock);
+	}
+}
+#endif
 
 /* this function should only be called while dev->lock is held */
 static void ion_buffer_add(struct ion_device *dev,
@@ -139,6 +456,10 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 {
 	struct ion_buffer *buffer;
 	int ret;
+#ifdef CONFIG_ION_PAGECACHE
+	if ((flags & ION_ALLOC_PAGECACHE_MASK) && atomic_read(&heap->shrinking))
+		return ERR_PTR(-EAGAIN);
+#endif
 
 	buffer = kzalloc(sizeof(struct ion_buffer), GFP_KERNEL);
 	if (!buffer)
@@ -194,7 +515,10 @@ static struct ion_handle *ion_handle_create(struct ion_client *client,
 	handle->client = client;
 	ion_buffer_get(buffer);
 	handle->buffer = buffer;
-
+#ifdef CONFIG_ION_PAGECACHE
+	INIT_LIST_HEAD(&handle->list);
+	rb_init_node(&handle->pagecache);
+#endif
 	return handle;
 }
 
@@ -287,6 +611,11 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	struct ion_handle *handle;
 	struct ion_device *dev = client->dev;
 	struct ion_buffer *buffer = NULL;
+#ifdef CONFIG_ION_PAGECACHE
+	int pagecache = flags & ION_ALLOC_PAGECACHE_MASK;
+	int tryhard = 0, num = len >> PAGE_SHIFT;
+repeat:
+#endif
 
 	/*
 	 * traverse the list of heaps available in this system in priority
@@ -309,13 +638,36 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	}
 	mutex_unlock(&dev->lock);
 
-	if (IS_ERR_OR_NULL(buffer))
+	if (IS_ERR_OR_NULL(buffer)) {
+#ifdef CONFIG_ION_PAGECACHE
+		if (pagecache)
+			return ERR_PTR(PTR_ERR(buffer));
+		mutex_lock(&dev->lock);
+		for (n = rb_first(&dev->heaps); n != NULL; n = rb_next(n)) {
+			struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+			/* if the client doesn't support this heap type */
+			if (!((1 << heap->type) & client->heap_mask))
+				continue;
+			/* if the caller didn't specify this heap type */
+			if (!((1 << heap->id) & flags))
+				continue;
+			if ((heap->size - heap->allocated + heap->cachedpages)
+					< num)
+				continue;
+			mutex_unlock(&dev->lock);
+			__ion_pagecache_shrink(heap, num, tryhard, GFP_USER);
+			if (tryhard++ < 3) {
+				cond_resched();
+				goto repeat;
+			}
+			mutex_lock(&dev->lock);
+		}
+		mutex_unlock(&dev->lock);
+#endif
 		return ERR_PTR(PTR_ERR(buffer));
+	}
 
 	handle = ion_handle_create(client, buffer);
-
-	if (IS_ERR_OR_NULL(handle))
-		goto end;
 
 	/*
 	 * ion_buffer_create will create a buffer with a ref_cnt of 1,
@@ -323,13 +675,16 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	 */
 	ion_buffer_put(buffer);
 
+	if (IS_ERR_OR_NULL(handle))
+		return handle;
+
 	mutex_lock(&client->lock);
 	ion_handle_add(client, handle);
 	mutex_unlock(&client->lock);
-	return handle;
 
-end:
-	ion_buffer_put(buffer);
+#ifdef CONFIG_ION_PAGECACHE
+	handle->task = current;
+#endif
 	return handle;
 }
 
@@ -342,7 +697,6 @@ void ion_free(struct ion_client *client, struct ion_handle *handle)
 	mutex_lock(&client->lock);
 	valid_handle = ion_handle_validate(client, handle);
 	mutex_unlock(&client->lock);
-
 	if (!valid_handle) {
 		WARN("%s: invalid handle passed to free.\n", __func__);
 		return;
@@ -582,6 +936,11 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	struct rb_node *n;
 	size_t sizes[ION_NUM_HEAPS] = {0};
 	const char *names[ION_NUM_HEAPS] = {0};
+#ifdef CONFIG_ION_PAGECACHE
+	int allocated[ION_NUM_HEAPS] = {0};
+	int cachedpages[ION_NUM_HEAPS] = {0};
+#endif
+
 	int i;
 
 	mutex_lock(&client->lock);
@@ -589,19 +948,35 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 		struct ion_handle *handle = rb_entry(n, struct ion_handle,
 						     node);
 		enum ion_heap_type type = handle->buffer->heap->type;
-
+#ifdef CONFIG_ION_PAGECACHE
+		if (!names[type]) {
+			names[type] = handle->buffer->heap->name;
+			allocated[type] = handle->buffer->heap->allocated;
+			cachedpages[type] = handle->buffer->heap->cachedpages; 
+		}
+#else
 		if (!names[type])
 			names[type] = handle->buffer->heap->name;
+#endif
 		sizes[type] += handle->buffer->size;
 	}
 	mutex_unlock(&client->lock);
 
+#ifdef CONFIG_ION_PAGECACHE
+	seq_printf(s, "%16.16s: %16.16s, %16s, %16s\n", "heap_name", "size_in_bytes", "allocated", "cachedpages");
+#else
 	seq_printf(s, "%16.16s: %16.16s\n", "heap_name", "size_in_bytes");
+#endif
 	for (i = 0; i < ION_NUM_HEAPS; i++) {
 		if (!names[i])
 			continue;
+#ifdef CONFIG_ION_PAGECACHE
+		seq_printf(s, "%16.16s: %16u  %16d  %16d %d\n", names[i], sizes[i], allocated[i], cachedpages[i],
+				atomic_read(&client->ref.refcount));
+#else
 		seq_printf(s, "%16.16s: %16u %d\n", names[i], sizes[i],
 			   atomic_read(&client->ref.refcount));
+#endif
 	}
 	return 0;
 }
@@ -1068,6 +1443,17 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 		if (handle->buffer->heap->id != id)
 			continue;
 		if (handle->buffer->heap->type == type) {
+#ifdef CONFIG_ION_PAGECACHE
+				seq_printf(s, "--- size= %16u pid:%d kmap_cnt= %2d ref= %2d \
+flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
+					handle->buffer->size,
+					handle->task->pid,
+					handle->buffer->kmap_cnt,
+					atomic_read(&handle->buffer->ref.refcount),
+					(unsigned int)handle->buffer->flags,
+					(unsigned int)handle->buffer->priv_virt,
+					(unsigned int)handle->buffer->vaddr);
+#else
 			seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
 flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
 				handle->buffer->size,
@@ -1076,6 +1462,7 @@ flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
 				(unsigned int)handle->buffer->flags,
 				(unsigned int)handle->buffer->priv_virt,
 				(unsigned int)handle->buffer->vaddr);
+#endif
 			size += handle->buffer->size;
 		}
 	}
@@ -1213,11 +1600,21 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 	idev->heaps = RB_ROOT;
 	idev->user_clients = RB_ROOT;
 	idev->kernel_clients = RB_ROOT;
+#ifdef CONFIG_ION_PAGECACHE
+	if (!ion_client_pagecache)
+		ion_client_pagecache = ion_client_create(idev, ION_HEAP_CARVEOUT_MASK, "pagecache");
+#endif
 	return idev;
 }
 
 void ion_device_destroy(struct ion_device *dev)
 {
+#ifdef CONFIG_ION_PAGECACHE
+	if (ion_client_pagecache) {
+		ion_client_destroy(ion_client_pagecache);
+		ion_client_pagecache = NULL;
+	}
+#endif
 	misc_deregister(&dev->dev);
 	/* XXX need to free the heaps and clients ? */
 	kfree(dev);

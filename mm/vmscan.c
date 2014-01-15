@@ -43,6 +43,7 @@
 #include <linux/sysctl.h>
 #include <linux/oom.h>
 #include <linux/prefetch.h>
+#include <linux/ion.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -1796,6 +1797,7 @@ static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
 	struct zone *zone, struct scan_control *sc, int priority)
 {
 	int file = is_file_lru(lru);
+	int reclaimed;
 
 	if (is_active_lru(lru)) {
 		if (inactive_list_is_low(zone, sc, file))
@@ -1803,7 +1805,11 @@ static unsigned long shrink_list(enum lru_list lru, unsigned long nr_to_scan,
 		return 0;
 	}
 
-	return shrink_inactive_list(nr_to_scan, zone, sc, priority, file);
+	reclaimed = shrink_inactive_list(nr_to_scan, zone, sc, priority, file);
+	if (reclaimed < nr_to_scan)
+		reclaimed += ion_pagecache_shrink(nr_to_scan - reclaimed,
+						  sc->gfp_mask);
+	return reclaimed;
 }
 
 #ifdef CONFIG_ZRAM
