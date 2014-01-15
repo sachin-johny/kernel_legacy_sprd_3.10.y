@@ -48,11 +48,8 @@
 #define NFC_SP_SIZE_OFFSET			(16)
 #define NFC_CMD_SET_OFFSET			(15)
 #define NFC_ADVANCE				    (1 << 14)
-#define NFC_ADDR_3CYCLES	0
 #define NFC_ADDR_4CYCLES			(1 << 12)
 #define NFC_ADDR_5CYCLES			(2 << 12)
-#define NFC_PAGE_TYPE_512	0
-#define NFC_PAGE_TYPE_1K	(1 << 9)
 #define NFC_PAGE_TYPE_2K			(2 << 9)
 #define NFC_PAGE_TYPE_4K			(3 << 9)
 #define NFC_PAGE_TYPE_8K			(4 << 9)
@@ -65,8 +62,6 @@
 #define NFC_CMD_CLR				    (1 << 1)
 #define NFC_RBN					    (1 << 0)
 
-#define NFC_DMA_RX_EN		(1 << 1)
-#define NFC_DMA_TX_EN		(1 << 0)
 #define NFC_ACS_OFFSET				(0)
 #define NFC_RWH_OFFSET				(5)
 #define NFC_RWL_OFFSET				(10)
@@ -80,11 +75,11 @@
 #define NFC_WP_EN				    (1 << 3)
 #define NFC_TO_EN				    (1 << 4)
 
-#define NFC_DONE_STS		(1 << 16)
-#define NFC_ECC_DONE_STS	(1 << 17)
-#define NFC_ERR_STS		(1 << 18)
-#define NFC_WP_STS		(1 << 19)
-#define NFC_TO_STS		(1 << 20)
+#define NFC_DONE_STS				(1 << 16)
+#define NFC_ECC_DONE_STS			(1 << 16)
+#define NFC_ERR_STS				    (1 << 16)
+#define NFC_WP_STS				    (1 << 16)
+#define NFC_TO_STS				    (1 << 16)
 
 #define NFC_DONE_RAW				(1 << 0)
 #define NFC_ECC_DONE_RAW			(1 << 1)
@@ -131,12 +126,12 @@
 #define	NFC_ERR_EVENT				(16)
 #define	NFC_TIMEOUT_EVENT			(32)
 /* #define NFC_TIMEOUT_VAL				(0x1000000) */
-#define NFC_TIMEOUT_VAL 			(0xf0000)
-#define NFC_ECCENCODE_TIMEOUT			(0xfff)
-#define NFC_ECCDECODE_TIMEOUT			(0xfff)
-#define NFC_RESET_TIMEOUT			(0x1ff)
-#define NFC_STATUS_TIMEOUT			(0x1ff)
-#define NFC_READID_TIMEOUT			(0x1ff)
+#define NFC_TIMEOUT_VAL 			(0x800000)
+#define NFC_ECCENCODE_TIMEOUT			(0x8fff)
+#define NFC_ECCDECODE_TIMEOUT			(0x8fff)
+#define NFC_RESET_TIMEOUT			(0x2fff)
+#define NFC_STATUS_TIMEOUT			(0x4fff)
+#define NFC_READID_TIMEOUT			(0x2fff)
 #define NFC_ERASE_TIMEOUT			(0x200000)
 #define NFC_READ_TIMEOUT			(0x40000)
 #define NFC_WRITE_TIMEOUT			(0xc0000)
@@ -174,13 +169,6 @@ enum NAND_ERR_CORRECT_S{
     NAND_ERR_FIXED,
     NAND_NO_ERROR
 };
-
-enum NAND_HANDLE_STATUS_S{
-    NAND_HANDLE_DONE=0,
-    NAND_HANDLE_TIMEOUT,
-    NAND_HANDLE_ERR
-};
-
 unsigned int sc8810_ecc_encode(struct sc8810_ecc_param *param);
 unsigned int ecc_mode_convert(u32 mode);
 
