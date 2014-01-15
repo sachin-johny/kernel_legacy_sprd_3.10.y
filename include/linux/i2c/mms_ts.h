@@ -15,10 +15,12 @@
 #ifndef _LINUX_MMS_TOUCH_H
 #define _LINUX_MMS_TOUCH_H
 
+#ifndef CONFIG_TOUCHSCREEN_MMS134
 extern struct tsp_callbacks *charger_callbacks;
 struct tsp_callbacks {
 	void (*inform_charger)(struct tsp_callbacks *tsp_cb, bool mode);
 };
+#endif
 
 struct mms_ts_platform_data {
 	int	max_x;
@@ -31,7 +33,11 @@ struct mms_ts_platform_data {
 	int	gpio_scl;
 	int    gpio_int;
 	int	gpio_resetb;
+#ifndef CONFIG_TOUCHSCREEN_MMS134
+	int	gpio_vdd_en;
+#else
 	int	gpio_lcd_type;
+#endif
 	int	(*mux_fw_flash)(bool to_gpios);
 	void (*vdd_on)(bool);
 	int (*is_vdd_on)(void);
@@ -44,6 +50,7 @@ struct mms_ts_platform_data {
 	void (*tkey_led_vdd_on)(bool);
 	const char *tsp_ic_name;
 };
+#ifndef CONFIG_TOUCHSCREEN_MMS134
 extern struct class *sec_class;
 extern int touch_is_pressed;
 /* SPRD remove this declaration due to a compile error */
@@ -53,4 +60,5 @@ extern int poweroff_charging;
 /*
 extern unsigned char LCD_Get_Value(void);
 */
+#endif
 #endif /* _LINUX_MMS_TOUCH_H */
