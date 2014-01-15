@@ -57,6 +57,11 @@ config FB_LCD_NT35516_MIPI
 	depends on FB_SC8825 || FB_SCX35
 	default n
 
+config FB_LCD_NT35502_MIPI
+	boolean "support NT35502 mipi panel"
+	depends on FB_SC8825 || FB_SCX35
+	default n
+
 config FB_LCD_NT35516_RGB_I2C
 	boolean "support NT35516 rgb (i2c) panel"
 	depends on FB_SC8825 || FB_SCX35
