@@ -982,6 +982,8 @@ static int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *i
         ret = input_register_device(input_dev);
         if (ret < 0) {
                 PRINT_ERR("input_register_device failed!\n");
+                input_free_device(input_dev);
+                input_dev = NULL;
                 goto exit_input_register_device_failed;
         }
 
@@ -1046,8 +1048,6 @@ exit_ltr558_reg_init_failed:
 exit_misc_register_failed:
         input_unregister_device(input_dev);
 exit_input_register_device_failed:
-        input_free_device(input_dev);
-        input_dev = NULL;
 exit_input_allocate_device_failed:
         kfree(ltr_558als);
         ltr_558als = NULL;
