@@ -378,6 +378,31 @@ static int32_t otg_cable_connect_fun(void *dev)
 
 }
 #endif
+void dwc_otg_clear_host_and_comm_int(dwc_otg_core_if_t *core_if)
+{
+	dwc_otg_core_global_regs_t *global_regs = core_if->core_global_regs;
+	dwc_otg_hc_regs_t *hc_regs;
+	uint32_t hc = 0;
+
+	/*
+	 * Clear channel interrupt enables and any unhandled channel interrupt
+	 * conditions.
+	 */
+	for(hc=0;hc<MAX_EPS_CHANNELS;hc++){
+		hc_regs = core_if->host_if->hc_regs[hc];
+		DWC_WRITE_REG32(&hc_regs->hcintmsk, 0);
+		DWC_WRITE_REG32(&hc_regs->hcint, 0xFFFFFFFF);
+	}
+
+	/* Clear any pending OTG Interrupts */
+	DWC_WRITE_REG32(&global_regs->gotgint, 0xFFFFFFFF);
+
+	/* Clear any pending interrupts */
+	DWC_WRITE_REG32(&global_regs->gintsts, 0xFFFFFFFF);
+
+
+}
+
 void usb_otg_cable_detect_work(void *p)
 {
 	dwc_otg_device_t *otg_dev = p;
@@ -389,6 +414,8 @@ void usb_otg_cable_detect_work(void *p)
 	value = usb_get_id_state();
 	if (value){
 		pr_info("usb otg cable detect work plug out\n");
+		dwc_otg_disable_global_interrupts(otg_dev->core_if);
+		dwc_otg_clear_host_and_comm_int(otg_dev->core_if);
 
 		otg_cable_disconnect(otg_dev->core_if);
 		charge_pump_set(platform_data->gpio_boost,0);
