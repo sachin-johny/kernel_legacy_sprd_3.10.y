@@ -955,4 +955,16 @@ config TOUCHSCREEN_IST30XXB
 
              To compile this driver as a module, choose M here: the
              module will be called ist30xx.
+
+config TOUCHSCREEN_MMS134
+	tristate "MMS134s touchscreen driver"
+	depends on I2C
+	help
+	  Say Y here if you want to support MMS134s based touchscreen
+	  controller.
+
+	  If unsure, say N.
+
+	  To compile this driver as a module, choose M here:the module
+	  be called mms100s_ts
 endif
