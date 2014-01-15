@@ -88,7 +88,6 @@ struct sprd_kpled {
 	enum led_brightness value;
 	struct led_classdev cdev;
 	int enabled;
-	int suspend;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif
@@ -181,11 +180,6 @@ static void sprd_kpled_set(struct led_classdev *led_cdev,
 	led->value = value;
 	spin_unlock_irqrestore(&led->value_lock, flags);
 
-	if(1 == led->suspend) {
-		PRINT_WARN("Do NOT change brightness in suspend mode\n");
-		return;
-	}
-
 	schedule_work(&led->work);	
 }
 
@@ -203,16 +197,12 @@ static void sprd_kpled_early_suspend(struct early_suspend *es)
 {
 	struct sprd_kpled *led = container_of(es, struct sprd_kpled, early_suspend);
 	PRINT_INFO("sprd_kpled_early_suspend\n");
-	sprd_kpled_disable(led);
-	led->suspend = 1;
 }
 
 static void sprd_kpled_late_resume(struct early_suspend *es)
 {
 	struct sprd_kpled *led = container_of(es, struct sprd_kpled, early_suspend);
 	PRINT_INFO("sprd_kpled_late_resume\n");
-	sprd_kpled_enable(led);
-	led->suspend = 0;
 }
 #endif
 
@@ -258,10 +248,7 @@ static int sprd_kpled_probe(struct platform_device *dev)
 	register_early_suspend(&led->early_suspend);
 #endif
 
-	led->value = 5;//set default brightness
-	led->enabled = 1;
-	led->suspend = 0;
-	schedule_work(&led->work);
+	sprd_kpled_disable(led);//disabled by default
 
 	return 0;
 }
