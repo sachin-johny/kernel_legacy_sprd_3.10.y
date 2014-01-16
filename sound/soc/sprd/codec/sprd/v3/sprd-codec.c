@@ -1290,11 +1290,11 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 		sprd_codec_hp_pa_hpl_en(codec, 0);
 		sprd_codec_hp_pa_hpr_en(codec, 0);
 		sprd_codec_auxadc_en(codec, 0);
+		sprd_codec_hp_classg_en(codec, 0);
 		/*close classG mute delay time */
 		sprd_codec_wait(0);
 		sprd_codec_hp_pa_hpl_mute(codec, 0);
 		sprd_codec_hp_pa_hpr_mute(codec, 0);
-		sprd_codec_hp_classg_en(codec, 1);
 		if (regulator) {
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);
