@@ -110,8 +110,10 @@
 #define GET_HSTMODE(reg)  ((reg & 0x70) >> 4)  // in op mode or not 
 #define GET_BOOTLOADERMODE(reg) ((reg & 0x10) >> 4)  // in bl mode 
 
+struct regulator *regu;
+struct regulator *regu1;
 
-#define	TP_FIRMWARE_UPDATE
+//#define	TP_FIRMWARE_UPDATE
 
 #ifdef TP_FIRMWARE_UPDATE
 #define U8 unsigned char
@@ -134,8 +136,6 @@ static int FwDataCnt;
 struct class *firmware_class;
 struct device *firmware_cmd_dev;
 static int update_switch = 0;
-struct regulator *regu;
-struct regulator *regu1;
 
 #define pr_tp(format, args...)  do {} while (0)
 #define pr_ch(format, args...)  do {} while (0)
