@@ -140,7 +140,9 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 		clk_disable(sprdbl.clk);
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
-		bl_brightness = (bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
+		//bl_brightness = (bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
+		if((bl_brightness >= 1) && (bl_brightness <= 10))
+			bl_brightness = 8;
 		PRINT_DBG("user requested brightness = %d, caculated brightness = %d\n", bldev->props.brightness, bl_brightness);
 		clk_enable(sprdbl.clk);
 		pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
@@ -211,9 +213,6 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			/*whiteled config*/
 			led_level = (((MAX_VOLTAGE_LEVEL - MIN_VOLTAGE_LEVEL + 1) * bl_brightness) / (PWM_MOD_MAX + 1)) + MIN_VOLTAGE_LEVEL;
 			PRINT_DBG("user requested brightness = %d, caculated led_level = %d\n", bldev->props.brightness, led_level);
-			if ((int)led_level < 0) {
-				return led_level;
-			}
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL1);
 
 #ifdef CONFIG_ARCH_SCX15
@@ -279,12 +278,14 @@ static const struct backlight_ops sprd_backlight_whiteled_ops = {
 static void sprd_backlight_earlysuspend(struct early_suspend *h)
 {
 	sprdbl.suspend = 1;
+	PRINT_INFO("current brightness = %d\n", sprdbl.bldev->props.brightness);
 }
 
 static void sprd_backlight_lateresume(struct early_suspend *h)
 {
 	sprdbl.suspend = 0;
 	sprdbl.bldev->ops->update_status(sprdbl.bldev);
+	PRINT_INFO("current brightness = %d\n", sprdbl.bldev->props.brightness);
 }
 #endif
 
