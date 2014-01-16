@@ -16,3 +16,4 @@ obj-$(CONFIG_FB_LCD_NT51017_MIPI_LVDS) += lcd_nt51017_mipi_lvds.o
 obj-$(CONFIG_FB_LCD_HX8369B_MIPI) += lcd_hx8369b_mipi.o
 obj-$(CONFIG_FB_LCD_ILI9341) += lcd_ili9341.o
 obj-$(CONFIG_FB_LCD_ST7789V_MCU)  += lcd_st7789v_mcu.o
+#obj-$(CONFIG_FB_LCD_NT35502_MIPI) += lcd_nt35502_mipi.o
