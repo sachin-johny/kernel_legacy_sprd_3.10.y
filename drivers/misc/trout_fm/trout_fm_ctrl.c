@@ -275,6 +275,8 @@ static int trout_fm_remove(struct platform_device *pdev)
 		p_trout_interface->exit();
 		p_trout_interface = NULL;
 	}
+
+        return 0;
 }
 
 #ifdef CONFIG_PM
