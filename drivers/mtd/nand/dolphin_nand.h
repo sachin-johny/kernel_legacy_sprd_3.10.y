@@ -1,5 +1,5 @@
-#ifndef _SC8825_NAND_H_
-#define _SC8825_NAND_H_
+#ifndef _DOLPHIN_NAND_H_
+#define _DOLPHIN_NAND_H_
 #include <mach/hardware.h>
 
 #define NFC_REG_BASE                (SPRD_NFC_BASE)
@@ -164,8 +164,4 @@
  /* TODO : use global interface */
 #define AHB_SOFT_NFC_RST            (1 << 5)
 
-#define NAND_MC_BUFFER_SIZE         (24)
-#define CONFIG_SYS_NAND_ECCSIZE     (512)
-#define CONFIG_SYS_NAND_ECCBYTES    (4)
-#define CONFIG_SYS_NAND_ECC_MODE    (2)
 #endif
