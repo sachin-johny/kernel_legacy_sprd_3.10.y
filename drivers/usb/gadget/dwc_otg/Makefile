@@ -5,9 +5,9 @@
 #PWD		:= $(shell pwd)
 #PORTLIB		:= $(PWD)/../dwc_common_port
 
-#ifeq ($(CONFIG_USB_GADGET_DEBUG),y)
+ifeq ($(CONFIG_USB_GADGET_DEBUG),y)
 EXTRA_CFLAGS            += -DDEBUG
-#endif
+endif
 
 # Use one of the following flags to compile the software in host-only or
 # device-only mode.
