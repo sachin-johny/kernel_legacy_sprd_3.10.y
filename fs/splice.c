@@ -340,7 +340,7 @@ __generic_file_splice_read(struct file *in, loff_t *ppos,
 	 */
 	if (spd.nr_pages < nr_pages)
 		page_cache_sync_readahead(mapping, &in->f_ra, in,
-				index, req_pages - spd.nr_pages);
+				index, req_pages - spd.nr_pages, 0);
 
 	error = 0;
 	while (spd.nr_pages < nr_pages) {

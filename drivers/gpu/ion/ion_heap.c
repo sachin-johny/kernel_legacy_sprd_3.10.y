@@ -47,6 +47,11 @@ struct ion_heap *ion_heap_create(struct ion_platform_heap *heap_data)
 
 	heap->name = heap_data->name;
 	heap->id = heap_data->id;
+#ifdef CONFIG_ION_PAGECACHE
+	spin_lock_init(&heap->pagecache_lock);
+	INIT_LIST_HEAD(&heap->pagecache_lru);
+	heap->pagecaches = RB_ROOT;
+#endif
 	return heap;
 }
 

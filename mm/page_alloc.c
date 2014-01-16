@@ -58,6 +58,7 @@
 #include <linux/ftrace_event.h>
 #include <linux/memcontrol.h>
 #include <linux/prefetch.h>
+#include <linux/ion.h>
 
 #include <asm/tlbflush.h>
 #include <asm/div64.h>
@@ -518,6 +519,10 @@ static inline void __free_one_page(struct page *page,
 	if (unlikely(PageCompound(page)))
 		if (unlikely(destroy_compound_page(page, order)))
 			return;
+	if (unlikely(PageIONBacked(page))) {
+		if (!ion_pagecache_release(page))
+			return;
+	}
 
 	VM_BUG_ON(migratetype == -1);
 
@@ -582,6 +587,10 @@ static inline void free_page_mlock(struct page *page)
 
 static inline int free_pages_check(struct page *page)
 {
+	/* Both Reserved and IONBacked tagged mean
+	   the ion-backed page has been released. */
+	if (unlikely(PageReserved(page) && PageIONBacked(page)))
+		return 1;
 	if (unlikely(page_mapcount(page) |
 		(page->mapping != NULL)  |
 		(atomic_read(&page->_count) != 0) |
@@ -783,7 +792,7 @@ static inline int check_new_page(struct page *page)
 	return 0;
 }
 
-static int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
+int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 {
 	int i;
 
@@ -1184,6 +1193,9 @@ void free_hot_cold_page(struct page *page, int cold)
 	unsigned long flags;
 	int migratetype;
 	int wasMlocked = __TestClearPageMlocked(page);
+#ifdef CONFIG_ION_PAGECACHE
+	int wasIONBacked = PageIONBacked(page);
+#endif
 
 	if (!free_pages_prepare(page, 0))
 		return;
@@ -1194,6 +1206,16 @@ void free_hot_cold_page(struct page *page, int cold)
 	if (unlikely(wasMlocked))
 		free_page_mlock(page);
 	__count_vm_event(PGFREE);
+
+#ifdef CONFIG_ION_PAGECACHE
+	/* Free a ion-backed page */
+	if (unlikely(wasIONBacked)) {
+		local_irq_restore(flags);
+		if (!ion_pagecache_release(page))
+			return;
+		local_irq_save(flags);
+	}
+#endif
 
 	/*
 	 * We only track unmovable, reclaimable and movable on pcp lists.
@@ -5767,6 +5789,9 @@ static struct trace_print_flags pageflag_names[] = {
 #endif
 #ifdef CONFIG_MEMORY_FAILURE
 	{1UL << PG_hwpoison,		"hwpoison"	},
+#endif
+#ifdef CONFIG_ION_PAGECACHE
+	{1UL << PG_ionbacked,		"ionbacked"	},
 #endif
 	{-1UL,				NULL		},
 };

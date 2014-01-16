@@ -35,22 +35,28 @@ struct ion_carveout_heap {
 
 ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
 				      unsigned long size,
-				      unsigned long align)
+				      unsigned long align, unsigned long flags)
 {
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
 	unsigned long offset = gen_pool_alloc(carveout_heap->pool, size);
 
-	printk("ion: malloc: size=%08x, pool=%08x, offset=%08x \n", (unsigned int)size,(unsigned int)( carveout_heap->pool),(unsigned int) offset);
+	//printk("ion: malloc: size=%08x, pool=%08x, offset=%08x \n", (unsigned int)size,(unsigned int)( carveout_heap->pool),(unsigned int) offset);
 
 	if (!offset)
 		return ION_CARVEOUT_ALLOCATE_FAIL;
 
+#ifdef CONFIG_ION_PAGECACHE
+	size >>= PAGE_SHIFT;
+	heap->allocated += size;
+	if (flags & ION_ALLOC_PAGECACHE_MASK)
+		heap->cachedpages += size;
+#endif
 	return offset;
 }
 
 void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
-		       unsigned long size)
+		       unsigned long size, unsigned long flags)
 {
 	struct ion_carveout_heap *carveout_heap =
 		container_of(heap, struct ion_carveout_heap, heap);
@@ -58,9 +64,15 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
 		return;
 
-	printk("ion: free  : size=%08x, pool=%08x, offset=%08x \n", (unsigned int)size,(unsigned int) (carveout_heap->pool),(unsigned int) addr);
+	//printk("ion: free  : size=%08x, pool=%08x, offset=%08x \n", (unsigned int)size,(unsigned int) (carveout_heap->pool),(unsigned int) addr);
 	
 	gen_pool_free(carveout_heap->pool, addr, size);
+#ifdef CONFIG_ION_PAGECACHE
+	size >>= PAGE_SHIFT;
+	heap->allocated -= size;
+	if (flags & ION_ALLOC_PAGECACHE_MASK)
+		heap->cachedpages -= size;
+#endif
 }
 
 static int ion_carveout_heap_phys(struct ion_heap *heap,
@@ -77,12 +89,9 @@ static int ion_carveout_heap_allocate(struct ion_heap *heap,
 				      unsigned long size, unsigned long align,
 				      unsigned long flags)
 {
-	buffer->priv_phys = ion_carveout_allocate(heap, size, align);
-	printk(KERN_INFO "pgprot_noncached flags 0x%x\n",(unsigned int)flags);
-	if(flags&(1<<31))
-		buffer->flags |= (1<<31); 
-	else 
-		buffer->flags &= (~(1<<31)); 
+	buffer->priv_phys = ion_carveout_allocate(heap, size, align, flags);
+	pr_debug("ion buffer flags 0x%lx\n", flags);
+	buffer->flags = flags;
 	return buffer->priv_phys == ION_CARVEOUT_ALLOCATE_FAIL ? -ENOMEM : 0;
 }
 
@@ -90,7 +99,7 @@ static void ion_carveout_heap_free(struct ion_buffer *buffer)
 {
 	struct ion_heap *heap = buffer->heap;
 
-	ion_carveout_free(heap, buffer->priv_phys, buffer->size);
+	ion_carveout_free(heap, buffer->priv_phys, buffer->size, buffer->flags);
 	buffer->priv_phys = ION_CARVEOUT_ALLOCATE_FAIL;
 }
 
@@ -171,6 +180,9 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 		     -1);
 	carveout_heap->heap.ops = &carveout_heap_ops;
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
+#ifdef CONFIG_ION_PAGECACHE
+	carveout_heap->heap.size = heap_data->size >> PAGE_SHIFT;
+#endif
 
 	return &carveout_heap->heap;
 }

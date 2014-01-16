@@ -17,6 +17,7 @@
 #include <linux/task_io_accounting_ops.h>
 #include <linux/pagevec.h>
 #include <linux/pagemap.h>
+#include <linux/ion.h>
 
 /*
  * Initialise a struct file's readahead state.  Assumes that the caller has
@@ -150,7 +151,7 @@ out:
 static int
 __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 			pgoff_t offset, unsigned long nr_to_read,
-			unsigned long lookahead_size)
+			unsigned long lookahead_size, int use_reserved)
 {
 	struct inode *inode = mapping->host;
 	struct page *page;
@@ -180,7 +181,11 @@ __do_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		if (page)
 			continue;
 
-		page = page_cache_alloc_readahead(mapping);
+		if (use_reserved)
+			page = ion_pagecache_alloc(mapping_gfp_mask(mapping) |
+				__GFP_COLD | __GFP_NORETRY | __GFP_NOWARN);
+		if (!page)
+			page = page_cache_alloc_readahead(mapping);
 		if (!page)
 			break;
 		page->index = page_offset;
@@ -207,7 +212,7 @@ out:
  * memory at once.
  */
 int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
-		pgoff_t offset, unsigned long nr_to_read)
+		pgoff_t offset, unsigned long nr_to_read, int use_reserved)
 {
 	int ret = 0;
 
@@ -223,7 +228,8 @@ int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
 		if (this_chunk > nr_to_read)
 			this_chunk = nr_to_read;
 		err = __do_page_cache_readahead(mapping, filp,
-						offset, this_chunk, 0);
+						offset, this_chunk, 0,
+						use_reserved);
 		if (err < 0) {
 			ret = err;
 			break;
@@ -249,12 +255,14 @@ unsigned long max_sane_readahead(unsigned long nr)
  * Submit IO for the read-ahead request in file_ra_state.
  */
 unsigned long ra_submit(struct file_ra_state *ra,
-		       struct address_space *mapping, struct file *filp)
+		       struct address_space *mapping, struct file *filp,
+		       int use_reserved)
 {
 	int actual;
 
 	actual = __do_page_cache_readahead(mapping, filp,
-					ra->start, ra->size, ra->async_size);
+					ra->start, ra->size, ra->async_size,
+					use_reserved);
 
 	return actual;
 }
@@ -396,7 +404,7 @@ static unsigned long
 ondemand_readahead(struct address_space *mapping,
 		   struct file_ra_state *ra, struct file *filp,
 		   bool hit_readahead_marker, pgoff_t offset,
-		   unsigned long req_size)
+		   unsigned long req_size, int use_reserved)
 {
 	unsigned long max = max_sane_readahead(ra->ra_pages);
 
@@ -465,7 +473,8 @@ ondemand_readahead(struct address_space *mapping,
 	 * standalone, small random read
 	 * Read as is, and do not pollute the readahead state.
 	 */
-	return __do_page_cache_readahead(mapping, filp, offset, req_size, 0);
+	return __do_page_cache_readahead(mapping, filp, offset, req_size, 0,
+					 use_reserved);
 
 initial_readahead:
 	ra->start = offset;
@@ -483,7 +492,7 @@ readit:
 		ra->size += ra->async_size;
 	}
 
-	return ra_submit(ra, mapping, filp);
+	return ra_submit(ra, mapping, filp, use_reserved);
 }
 
 /**
@@ -502,7 +511,8 @@ readit:
  */
 void page_cache_sync_readahead(struct address_space *mapping,
 			       struct file_ra_state *ra, struct file *filp,
-			       pgoff_t offset, unsigned long req_size)
+			       pgoff_t offset, unsigned long req_size,
+			       int use_reserved)
 {
 	/* no read-ahead */
 	if (!ra->ra_pages)
@@ -510,12 +520,14 @@ void page_cache_sync_readahead(struct address_space *mapping,
 
 	/* be dumb */
 	if (filp && (filp->f_mode & FMODE_RANDOM)) {
-		force_page_cache_readahead(mapping, filp, offset, req_size);
+		force_page_cache_readahead(mapping, filp, offset, req_size,
+					   use_reserved);
 		return;
 	}
 
 	/* do read-ahead */
-	ondemand_readahead(mapping, ra, filp, false, offset, req_size);
+	ondemand_readahead(mapping, ra, filp, false, offset, req_size,
+			   use_reserved);
 }
 EXPORT_SYMBOL_GPL(page_cache_sync_readahead);
 
@@ -559,6 +571,6 @@ page_cache_async_readahead(struct address_space *mapping,
 		return;
 
 	/* do read-ahead */
-	ondemand_readahead(mapping, ra, filp, true, offset, req_size);
+	ondemand_readahead(mapping, ra, filp, true, offset, req_size, 0);
 }
 EXPORT_SYMBOL_GPL(page_cache_async_readahead);

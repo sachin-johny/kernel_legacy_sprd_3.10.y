@@ -156,7 +156,7 @@ static int ext4_readdir(struct file *filp,
 				page_cache_sync_readahead(
 					sb->s_bdev->bd_inode->i_mapping,
 					&filp->f_ra, filp,
-					index, 1);
+					index, 1, 0);
 			filp->f_ra.prev_pos = (loff_t)index << PAGE_CACHE_SHIFT;
 			bh = ext4_bread(NULL, inode, map.m_lblk, 0, &err);
 		}

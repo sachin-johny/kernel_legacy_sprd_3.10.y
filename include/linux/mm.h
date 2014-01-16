@@ -1474,13 +1474,14 @@ void task_dirty_inc(struct task_struct *tsk);
 #define VM_MIN_READAHEAD	16	/* kbytes (includes current page) */
 
 int force_page_cache_readahead(struct address_space *mapping, struct file *filp,
-			pgoff_t offset, unsigned long nr_to_read);
+			pgoff_t offset, unsigned long nr_to_read, int use_reserved);
 
 void page_cache_sync_readahead(struct address_space *mapping,
 			       struct file_ra_state *ra,
 			       struct file *filp,
 			       pgoff_t offset,
-			       unsigned long size);
+			       unsigned long size,
+			       int use_reserved);
 
 void page_cache_async_readahead(struct address_space *mapping,
 				struct file_ra_state *ra,
@@ -1492,7 +1493,8 @@ void page_cache_async_readahead(struct address_space *mapping,
 unsigned long max_sane_readahead(unsigned long nr);
 unsigned long ra_submit(struct file_ra_state *ra,
 			struct address_space *mapping,
-			struct file *filp);
+			struct file *filp,
+			int use_reserved);
 
 /* Generic expand stack which grows the stack according to GROWS{UP,DOWN} */
 extern int expand_stack(struct vm_area_struct *vma, unsigned long address);

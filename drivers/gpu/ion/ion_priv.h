@@ -124,6 +124,15 @@ struct ion_heap {
 	struct ion_heap_ops *ops;
 	int id;
 	const char *name;
+#ifdef CONFIG_ION_PAGECACHE
+	atomic_t shrinking;
+	int cachedpages;
+	int size;
+	int allocated;
+	spinlock_t pagecache_lock;
+	struct list_head pagecache_lru;
+	struct rb_root pagecaches;
+#endif
 };
 
 /**
@@ -172,9 +181,15 @@ void ion_carveout_heap_destroy(struct ion_heap *);
  * used to back an architecture specific custom heap
  */
 ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap, unsigned long size,
-				      unsigned long align);
+				      unsigned long align, unsigned long flags);
 void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
-		       unsigned long size);
+		       unsigned long size, unsigned long flags);
+
+#ifdef CONFIG_ION_PAGECACHE
+int ion_pagecache_rb_insert(struct rb_root *root, struct ion_handle *handle);
+struct ion_handle *ion_pagecache_rb_search(struct rb_root *root,
+					   ion_phys_addr_t addr);
+#endif
 /**
  * The carveout heap returns physical addresses, since 0 may be a valid
  * physical address, this is used to indicate allocation failed
