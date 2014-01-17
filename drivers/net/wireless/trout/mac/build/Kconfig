@@ -1,0 +1,79 @@
+menu "Ittiam WLAN MAC support"
+#	depends NETDEVICES
+
+config ITTIAM_MAC
+	tristate "Ittiam Wireless MAC driver"
+	---help---
+		Enable Ittiam WLAN MAC driver within the kernel. 
+
+if ITTIAM_MAC = y
+
+comment "Operating Mode (Select any One)" 
+	depends on ITTIAM_MAC
+
+config ITTIAM_AP
+	depends on ITTIAM_MAC  
+	bool "Access Point Mode"
+	default n
+	---help---
+		Enable Access point mode of operation.
+
+config ITTIAM_STA
+	depends on ITTIAM_MAC 
+	bool "Station Mode"
+	default n
+	---help---
+		Enable Station mode of operation.
+
+config ITTIAM_DUT
+	depends on ITTIAM_MAC 
+	bool "MAC Hardware Unit Test Mode"
+	default n
+	---help---
+		Enable MDUT mode of operation.
+
+comment "MAC Protocols" 
+	depends on ITTIAM_MAC
+
+config ITTIAM_11E
+	depends on ITTIAM_MAC
+	bool "Enable 802.11e QoS support"
+	default n
+	---help---
+		Enable 801.11e QoS support.
+
+config ITTIAM_11I
+	depends on ITTIAM_MAC
+	bool "Enable 802.11i Security"
+	default n
+	---help---
+		Enable 802.11i Security.
+
+config ITTIAM_1X
+	depends on ITTIAM_11I
+	bool "Enable 802.1x Authentication"
+	default n
+	---help---
+		Enable 802.1x Authentication support.
+
+config ITTIAM_11N
+	depends on ITTIAM_MAC
+	bool "Enable 802.11n HT support"
+	default n
+	---help---
+		Enable 802.11n MAC features. This option requires 802.11e and 802.11i options to be enabled. 
+		This also requires 802.11n PHY to be enabled.
+
+comment "Host Interface (Select any One)" 
+	depends on ITTIAM_MAC
+
+config ITTIAM_ETH_HOST
+	depends on ITTIAM_MAC
+	bool "Ethernet Host Interface"
+	default n
+	---help---
+		Enable Ethernet Host Interface.
+
+endif 
+
+endmenu

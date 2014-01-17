@@ -1,0 +1,22 @@
+ifneq ($(TARGET_SIMULATOR),true)
+ifeq ($(TARGET_ARCH),arm)
+
+LOCAL_PATH := $(call my-dir)
+include $(CLEAR_VARS)
+
+LOCAL_PRELINK_MODULE := false
+LOCAL_LDLIBS += -Idl
+
+LOCAL_SRC_FILES := \
+	iwlan_test.c 
+
+LOCAL_MODULE := iwlan_test
+
+LOCAL_SHARED_LIBRARIES := libcutils libc 
+
+include $(BUILD_EXECUTABLE)
+
+endif   # TARGET_ARCH == arm
+endif    # !TARGET_SIMULATOR
+
+

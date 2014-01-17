@@ -17,7 +17,6 @@
 #include <linux/mmc/host.h>
 #include <linux/mmc/mmc.h>
 #include <linux/mmc/card.h>
-#include <linux/mmc/sdio_func.h>
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/pm_runtime.h>
@@ -28,21 +27,13 @@
 #include <mach/globalregs.h>
 #include <mach/regulator.h>
 #include <mach/hardware.h>
-#include <linux/interrupt.h>
 #include <mach/board.h>
+#include <linux/interrupt.h>
 
+#include "sdhci.h"
 #include "sc8810g.h"
 
 #define DRIVER_NAME "sprd-sdhci"
-
-#define     SDIO0_SOFT_RESET        BIT(12)
-#define     SDIO1_SOFT_RESET        BIT(16)
-
-#define     SDIO_BASE_CLK_96M       96000000
-#define     SDIO_BASE_CLK_64M       64000000
-#define     SDIO_BASE_CLK_48M       48000000
-#define     SDIO_BASE_CLK_26M       26000000
-#define     SDIO_MAX_CLK            SDIO_BASE_CLK_96M
 
 /* regulator use uv to set voltage */
 #define     SDIO_VDD_VOLT_1V8       1800000
@@ -68,77 +59,22 @@ static unsigned int sdio_wakeup_irq;
 static struct sdhci_host *sdhci_host_g = NULL;
 #endif
 
-#ifdef MMC_RESTORE_REGS
-static unsigned int host_addr = 0;
-static unsigned int host_blk_size = 0;
-static unsigned int host_blk_cnt = 0;
-static unsigned int host_arg = 0;
-static unsigned int host_tran_mode = 0;
-static unsigned int host_ctrl = 0;
-static unsigned int host_power = 0;
-static unsigned int host_clk = 0;
-#endif
-
-extern void mmc_power_off(struct mmc_host* mmc);
-extern void mmc_power_up(struct mmc_host* mmc);
-
 static void *sdhci_get_platdata(struct sdhci_host *host)
 {
 	return ((struct sprd_host_data *)sdhci_priv(host))->platdata;
 }
 
-/* we don't need to restore sdio0, because of CONFIG_MMC_BLOCK_DEFERED_RESUME=y */
-#ifdef MMC_RESTORE_REGS
-static void sdhci_save_regs(struct sdhci_host *host)
-{
-	if (!strcmp("Spread SDIO host1", host->hw_name)){
-		host_addr = sdhci_readl(host, SDHCI_DMA_ADDRESS);
-		host_blk_size = sdhci_readw(host, SDHCI_BLOCK_SIZE);
-		host_blk_cnt = sdhci_readw(host, SDHCI_BLOCK_COUNT);
-		host_arg = sdhci_readl(host, SDHCI_ARGUMENT);
-		host_tran_mode = sdhci_readw(host, SDHCI_TRANSFER_MODE);
-		host_ctrl = sdhci_readb(host, SDHCI_HOST_CONTROL);
-		host_power = sdhci_readb(host, SDHCI_POWER_CONTROL);
-		host_clk = sdhci_readw(host, SDHCI_CLOCK_CONTROL);
-	}
-}
-
-static void sdhci_restore_regs(struct sdhci_host *host)
-{
-	if (!strcmp("Spread SDIO host1", host->hw_name)){
-		sdhci_writel(host, host_addr, SDHCI_DMA_ADDRESS);
-		sdhci_writew(host, host_blk_size, SDHCI_BLOCK_SIZE);
-		sdhci_writew(host, host_blk_cnt, SDHCI_BLOCK_COUNT);
-		sdhci_writel(host, host_arg, SDHCI_ARGUMENT);
-		sdhci_writew(host, host_tran_mode, SDHCI_TRANSFER_MODE);
-		sdhci_writeb(host, host_ctrl, SDHCI_HOST_CONTROL);
-		sdhci_writeb(host, host_power, SDHCI_POWER_CONTROL);
-		sdhci_writew(host, host_clk, SDHCI_CLOCK_CONTROL);
-	}
-}
-#ifdef CONFIG_MMC_DEBUG
-static void sdhci_dump_saved_regs(struct sdhci_host *host)
-{
-	if (!strcmp("Spread SDIO host1", host->hw_name)){
-		printk("%s, host_addr:0x%x\n", host->hw_name, host_addr);
-		printk("%s, host_blk_size:0x%x\n", host->hw_name, host_blk_size);
-		printk("%s, host_blk_cnt:0x%x\n", host->hw_name, host_blk_cnt);
-		printk("%s, host_arg:0x%x\n", host->hw_name, host_arg);
-		printk("%s, host_tran_mode:0x%x\n", host->hw_name, host_tran_mode);
-		printk("%s, host_ctrl:0x%x\n", host->hw_name, host_ctrl);
-		printk("%s, host_power:0x%x\n", host->hw_name, host_power);
-		printk("%s, host_clk:0x%x\n", host->hw_name, host_clk);
-	}
-}
-#endif
-#endif
-
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
 static irqreturn_t sdhci_wakeup_irq_handler(int irq, void *dev)
 {
+	struct sdhci_host *host = (struct sdhci_host *)dev;
+	struct mmc_host *mmc = host->mmc;
+
 	printk("sdhci_wakeup_irq_handler\n");
 	/* Disable interrupt before calling handler */
 	disable_irq_nosync(irq);
+
+	wake_lock_timeout(&mmc->detect_wake_lock, HZ / 2);
 
 	return IRQ_HANDLED;
 }
@@ -213,21 +149,46 @@ static void  sdhci_host_wakeup_clear(struct sdhci_host *host)
  */
 void sdhci_bus_scan(void)
 {
+#ifdef CONFIG_MMC_BUS_SCAN
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
 		printk("%s, entry\n", __func__);
 		if (sdhci_host_g->ops->set_clock) {
 			sdhci_host_g->ops->set_clock(sdhci_host_g, 1);
 		}
 
-		sdhci_reinit(sdhci_host_g);
 		mmc_detect_change(sdhci_host_g->mmc, 0);
 	}
-
+#endif
 	return;
 }
 EXPORT_SYMBOL_GPL(sdhci_bus_scan);
+
+unsigned int sdhci_wifi_detect_isbusy(void) {
+	unsigned int busy = 0;
+	#ifdef CONFIG_MMC_BUS_SCAN
+	if(sdhci_host_g && sdhci_host_g->mmc) {
+		busy = work_busy(&sdhci_host_g->mmc->detect.work);
+	}
+	#endif
+	return busy;
+}
+EXPORT_SYMBOL_GPL(sdhci_wifi_detect_isbusy);
 #endif
 
+#ifdef CONFIG_TROUT
+int wifi_host_id = -1;
+int mmc_dev_trout_get_index(void)
+{
+	return wifi_host_id;
+
+}
+EXPORT_SYMBOL(mmc_dev_trout_get_index);
+
+static void mmc_dev_trout_set_index(int host_id)
+{
+	wifi_host_id = host_id;
+}
+#endif
 /*
  *   set indicator indicates that whether any devices attach on sdio bus.
  *   NOTE: devices must already attached on bus before calling this function.
@@ -242,11 +203,18 @@ int sdhci_device_attach(int on)
 	if(sdhci_host_g && (sdhci_host_g->mmc)){
 		mmc = sdhci_host_g->mmc;
 		if(mmc->card){
+			unsigned long flags;
 			sdhci_host_g->dev_attached = on;
 			if(!on){
-				mmc_power_off(mmc);
+				spin_lock_irqsave(&mmc->lock, flags);
+				mmc->rescan_disable = 1;
+				spin_unlock_irqrestore(&mmc->lock, flags);
+				if (cancel_delayed_work_sync(&mmc->detect))
+				    wake_unlock(&mmc->detect_wake_lock);
 			}else{
-				mmc_power_up(mmc);
+				spin_lock_irqsave(&mmc->lock, flags);
+				mmc->rescan_disable = 0;
+				spin_unlock_irqrestore(&mmc->lock, flags);
 			}
 		}else{
 			/* no devices */
@@ -287,7 +255,9 @@ EXPORT_SYMBOL_GPL(sdhci_device_attached);
 */
 static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
 {
-	return SDIO_MAX_CLK;
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
+
+	return host_pdata->max_clock;
 }
 
 /**
@@ -295,46 +265,15 @@ static unsigned int sdhci_sprd_get_max_clk(struct sdhci_host *host)
  * @host:  sdio host to be set.
  * @clock: The clock rate being requested.
 */
-static void sdhci_sprd_set_base_clock(struct sdhci_host *host, unsigned int clock)
+static void sdhci_sprd_set_base_clock(struct sdhci_host *host)
 {
 	struct clk *clk_parent;
-	/* don't bother if the clock is going off. */
-	if (clock == 0)
-		return;
-
-	if (clock > SDIO_MAX_CLK)
-		clock = SDIO_MAX_CLK;
+	struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
 	/* Select the clk source of SDIO, default is 96MHz */
-	if( !strcmp(host->hw_name, "Spread SDIO host0") ){
-		host->clk = clk_get(NULL, "clk_sdio0");
-		if (clock >= SDIO_BASE_CLK_96M) {
-			clk_parent = clk_get(NULL, "clk_96m");
-		} else if (clock >= SDIO_BASE_CLK_64M) {
-			clk_parent = clk_get(NULL, "clk_64m");
-		} else if (clock >= SDIO_BASE_CLK_48M) {
-			clk_parent = clk_get(NULL, "clk_48m");
-		} else {
-			clk_parent = clk_get(NULL, "clk_26m");
-		}
-	}else if( !strcmp(host->hw_name, "Spread SDIO host1") ){
-		host->clk = clk_get(NULL, "clk_sdio1");
-		if (clock >= SDIO_BASE_CLK_96M) {
-			clk_parent = clk_get(NULL, "clk_96m");
-		} else if (clock >= SDIO_BASE_CLK_64M) {
-			clk_parent = clk_get(NULL, "clk_64m");
-		} else if (clock >= SDIO_BASE_CLK_48M) {
-			clk_parent = clk_get(NULL, "clk_48m");
-		} else {
-			clk_parent = clk_get(NULL, "clk_26m");
-		}
-	}else  if( !strcmp(host->hw_name, "Spread SDIO host2") ){
-		host->clk = clk_get(NULL, "clk_sdio2");
-		clk_parent = clk_get(NULL, "clk_96m");
-	}else if( !strcmp(host->hw_name, "Spread EMMC host0") ){
-		host->clk = clk_get(NULL, "clk_emmc0");
-		clk_parent = clk_get(NULL, "clk_26m");
-	}
+	host->clk = clk_get(NULL, host_pdata->clk_name);
+	clk_parent = clk_get(NULL, host_pdata->clk_parent);
+	BUG_ON(IS_ERR(host->clk) || IS_ERR(clk_parent));
 	clk_set_parent(host->clk, clk_parent);
 
 	pr_debug("after set sd clk, CLK_GEN5:0x%x\n", sprd_greg_read(REG_TYPE_GLOBAL, GR_CLK_GEN5));
@@ -353,12 +292,16 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 	struct sprd_host_data *host_data= sdhci_priv(host);
 	if(clock == 0){
 		if (host_data->clk_enable) {
+			sdhci_sdclk_enable(host, 0);
+			pr_debug("******* %s, call  clk_disable*******\n", mmc_hostname(host->mmc));
 			clk_disable(host->clk);
 			host_data->clk_enable = 0;
 		}
 	}else{
 		if (0 == host_data->clk_enable) {			
+			pr_debug("******* %s, call  clk_enable*******\n", mmc_hostname(host->mmc));
 			clk_enable(host->clk);
+			sdhci_sdclk_enable(host, 1);
 			host_data->clk_enable = 1;
 		}
 	}
@@ -372,127 +315,84 @@ static void sdhci_sprd_enable_clock(struct sdhci_host *host, unsigned int clock)
 */
 static void sdhci_sprd_set_power(struct sdhci_host *host, unsigned int power)
 {
-	unsigned int volt_level = 0;
-	int ret;
+    int ret = 0;
+    unsigned int volt_level = 0;
+    unsigned int volt_ext_level = SDIO_VDD_VOLT_3V0;
+    struct sprd_host_platdata *host_pdata = sdhci_get_platdata(host);
 
-	if(host->vmmc == NULL){
-		/* in chip sc8810, sdio_vdd is not supplied by host,
-		 * but regulator(LDO)
-		*/
-		if (!strcmp("Spread SDIO host0", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_SDHOST0);
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
-		}else if (!strcmp("Spread SDIO host1", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),REGU_NAME_WIFIIO);
-			if (IS_ERR(host->vmmc)) {
-				host->vmmc = NULL;
-			}
-            
-                             host->vmmc_ext= regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_SDHOST1);
-			if (IS_ERR(host->vmmc_ext)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc_ext = NULL;
-			}
-		}
-		else if (!strcmp("Spread SDIO host2", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_WIFIIO);
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
-		}
-		else if (!strcmp("Spread EMMC host3", host->hw_name)){
-			host->vmmc = regulator_get(mmc_dev(host->mmc),
-							REGU_NAME_WIFIIO);
-			if (IS_ERR(host->vmmc)) {
-				printk(KERN_ERR "%s: no vmmc regulator found\n",
-							mmc_hostname(host->mmc));
-				host->vmmc = NULL;
-			}
-		}
-	}
+    if(host->vmmc == NULL)
+        return;
 
-	switch(power){
-	case SDHCI_POWER_180:
-		volt_level = SDIO_VDD_VOLT_1V8;
-		break;
-	case SDHCI_POWER_300:
-		volt_level = SDIO_VDD_VOLT_3V0;
-		break;
-	case SDHCI_POWER_330:
-		volt_level = SDIO_VDD_VOLT_3V3;
-		break;
-	default:
-		;
-	}
+    switch(power){
+        case SDHCI_POWER_180:
+            volt_level = SDIO_VDD_VOLT_1V8;
+            break;
+        case SDHCI_POWER_300:
+            volt_level = SDIO_VDD_VOLT_3V0;
+            break;
+        case SDHCI_POWER_330:
+            volt_level = SDIO_VDD_VOLT_3V3;
+            break;
+        default:
+            ;
+    }
 
-	pr_debug("%s, power:%d, set regulator voltage:%d\n",
-			mmc_hostname(host->mmc), power, volt_level);
-	if(volt_level == 0){
-		if (host->vmmc){
-			ret = regulator_disable(host->vmmc);
-			if(ret){
-				printk(KERN_ERR "%s, disable regulator error:%d\n",
-					mmc_hostname(host->mmc), ret);
-			}
-		}
-        	if (host->vmmc_ext){
-			ret = regulator_disable(host->vmmc_ext);
-			if(ret){
-				printk(KERN_ERR "%s, disable regulator error:%d\n",
-					mmc_hostname(host->mmc), ret);
-			}
-		}
-        
-	}else{
-		if(host->vmmc){
-			if(host->pwr) {
-				ret = regulator_set_voltage(host->vmmc, volt_level,
-										volt_level);
-				if(ret){
-					printk(KERN_ERR "%s, set voltage error:%d\n",
-						mmc_hostname(host->mmc), ret);
-					return;
-				}
-			}else{
-				ret = regulator_enable(host->vmmc);
-				if(ret){
-					printk(KERN_ERR "%s, enabel regulator error:%d\n",
-						mmc_hostname(host->mmc), ret);
-					return;
-				}
-			}
-		}
-        	if(host->vmmc_ext){
-			if(host->pwr) {
-				ret = regulator_set_voltage(host->vmmc_ext, SDIO_VDD_VOLT_3V0,
-										SDIO_VDD_VOLT_3V0);
-				if(ret){
-					printk(KERN_ERR "%s, set voltage error:%d\n",
-						mmc_hostname(host->mmc), ret);
-					return;
-				}
-			}else{
-				ret = regulator_enable(host->vmmc_ext);
-				if(ret){
-					printk(KERN_ERR "%s, enabel regulator error:%d\n",
-						mmc_hostname(host->mmc), ret);
-					return;
-				}
-			}
-		}
-	}
+    printk("%s, power:%d, set regulator voltage:%d\n", mmc_hostname(host->mmc), power, volt_level);
 
-	return;
+    if(volt_level == 0) {
+        if (host->vmmc != NULL) {
+            //if (regulator_is_enabled(host->vmmc)) {
+                ret = regulator_force_disable(host->vmmc);
+                if(ret) {
+                    printk(KERN_ERR "%s, disable regulator error:%d\n", mmc_hostname(host->mmc), ret);
+                    return;
+                }
+            //}
+        }
+        if (host_pdata->vmmc != NULL) {
+            //if (regulator_is_enabled(host_pdata->vmmc)) {
+                ret = regulator_force_disable(host_pdata->vmmc);
+                if(ret) {
+                    printk(KERN_ERR "%s, disable regulator ext error:%d\n", mmc_hostname(host->mmc), ret);
+                    return;
+                }
+           // }
+        }
+    }
+    else {
+        if (host->vmmc != NULL) {
+            ret = regulator_set_voltage(host->vmmc, volt_level, volt_level);
+            if(ret) {
+                printk(KERN_ERR "%s, set vmmc voltage error:%d\n", mmc_hostname(host->mmc), ret);
+                return;
+            }
+        }
+        if (host_pdata->vmmc != NULL) {
+            ret = regulator_set_voltage(host_pdata->vmmc, volt_ext_level, volt_ext_level);
+            if(ret) {
+                printk(KERN_ERR "%s, set vmmc ext voltage error:%d\n", mmc_hostname(host->mmc), ret);
+                return;
+            }
+        }
+        if (host->vmmc != NULL) {
+            if(!regulator_is_enabled(host->vmmc)) {
+                ret = regulator_enable(host->vmmc);
+                if(ret) {
+                    printk(KERN_ERR "%s, enabel regulator error:%d\n", mmc_hostname(host->mmc), ret);
+                    return;
+                }
+            }
+        }
+        if (host_pdata->vmmc != NULL) {
+            if(!regulator_is_enabled(host_pdata->vmmc)) {
+                ret = regulator_enable(host_pdata->vmmc);
+                if(ret) {
+                    printk(KERN_ERR "%s, enabel regulator ext error:%d\n", mmc_hostname(host->mmc), ret);
+                    return;
+                }
+            }
+        }
+    }
 }
 
 static struct sdhci_ops sdhci_sprd_ops = {
@@ -501,84 +401,120 @@ static struct sdhci_ops sdhci_sprd_ops = {
 	.set_power		= sdhci_sprd_set_power,
 };
 
+#define SPL_EMMC_DATA_ADDR			0x5C80
+#define EMMC_PRIV_DATA				0x11
+#define EMMC_MAGIC_SDR50			0xEAC0AD50
+#define EMMC_MAGIC_DDR50			0xEAC1DD50
+
+typedef struct {
+	unsigned int tag;
+	unsigned int len;
+	unsigned int data[];
+} spl_priv_data;
+
+typedef struct {
+	unsigned int flag;
+	unsigned int para1;
+	unsigned int para2;
+	unsigned int para3;
+	unsigned int para4;
+	unsigned int check_sum;
+} emmc_priv_data;
+
+static void emmc_get_spl_data(struct sdhci_host* host)
+{
+	struct sprd_host_data *host_data= sdhci_priv(host);
+	emmc_priv_data *emmc_data;
+	spl_priv_data *spl_data;
+	unsigned char sdr50_flag, ddr50_flag, i;
+
+	sdr50_flag = 0;
+	ddr50_flag = 0;
+
+	spl_data = (spl_priv_data *)(SPRD_IRAM_BASE + SPL_EMMC_DATA_ADDR - SPRD_IRAM_PHYS);
+	if (spl_data->tag == EMMC_PRIV_DATA) {
+		/*only sdr50 and ddr50 parameters*/
+		emmc_data = (emmc_priv_data *)(spl_data->data);
+		for ( i = 0; i < 2; i++) {
+			if (emmc_data->flag == EMMC_MAGIC_SDR50) {
+				unsigned int check_sum = 0;
+				check_sum ^= emmc_data->flag;
+				check_sum ^= emmc_data->para1;
+				check_sum ^= emmc_data->para2;
+				check_sum ^= emmc_data->para3;
+				check_sum ^= emmc_data->para4;
+				if (check_sum == emmc_data->check_sum) {
+					host_data->sdr50_clk_pin = emmc_data->para1;
+					host_data->sdr50_data_pin = emmc_data->para2;
+					host_data->sdr50_write_delay = emmc_data->para3;
+					host_data->sdr50_read_pos_delay = emmc_data->para4;
+					sdr50_flag = 1;
+					pr_debug("emmc get SDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
+							emmc_data->para1, emmc_data->para2,
+							emmc_data->para3,emmc_data->para4);
+				}
+			}
+			else if (emmc_data->flag == EMMC_MAGIC_DDR50) {
+				unsigned int check_sum = 0;
+				check_sum ^= emmc_data->flag;
+				check_sum ^= emmc_data->para1;
+				check_sum ^= emmc_data->para2;
+				check_sum ^= emmc_data->para3;
+				check_sum ^= emmc_data->para4;
+				if (check_sum == emmc_data->check_sum) {
+					host_data->ddr50_clk_pin = emmc_data->para1;
+					host_data->ddr50_write_delay = emmc_data->para2;
+					host_data->ddr50_read_pos_delay = emmc_data->para3;
+					host_data->ddr50_read_neg_delay = emmc_data->para4;
+					ddr50_flag = 1;
+					pr_debug("emmc get DDR50 para: 0x%x, 0x%x, 0x%x, 0x%x\n\r",
+							emmc_data->para1, emmc_data->para2,
+							emmc_data->para3,emmc_data->para4);
+				}
+			}
+			emmc_data ++;
+		}
+	}
+	/* if not get parameters , used default parameters.*/
+	if (sdr50_flag == 0) {
+		host_data->sdr50_clk_pin = 0;
+		host_data->sdr50_data_pin = 1;
+		host_data->sdr50_write_delay = 0x20;
+		host_data->sdr50_read_pos_delay = 0x08;
+	}
+	if (ddr50_flag == 0) {
+		int i;
+               
+                for(i=0x0; i<EMMC_VENDOR_MAX; i++) {
+                    if(emmc_timing_inf[i].vend_index==EMMC_VENDOR_DEFAULT)
+                        break;
+                }
+                if(i<EMMC_VENDOR_MAX){
+                    host_data->ddr50_clk_pin = emmc_timing_inf[i].clk_pin;
+                    host_data->ddr50_write_delay = emmc_timing_inf[i].timing.ddr50_write_delay;
+                    host_data->ddr50_read_pos_delay= emmc_timing_inf[i].timing.ddr50_read_pos_delay;
+                    host_data->ddr50_read_neg_delay = emmc_timing_inf[i].timing.ddr50_read_neg_delay;
+                }
+        }
+}
+
 static void sdhci_module_init(struct sdhci_host* host)
 {
-	if(!strcmp(host->hw_name, "Spread SDIO host0")){
-		/* Enable SDIO0 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_SDIO0_EN, AHB_CTL0);
-		/* reset sdio0 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO0_SOFT_RESET, AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO0_SOFT_RESET, AHB_SOFT_RST);
+	struct sprd_host_platdata *host_pdata;
+	struct platform_device *pdev;
+	host_pdata = sdhci_get_platdata(host);
+	pdev = container_of(mmc_dev(host->mmc), struct platform_device, dev);
+	/* Enable SDIO Module */
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, host_pdata->enb_bit, host_pdata->enb_reg);
+	/* Reset SDIO Module */
+	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, host_pdata->rst_bit, host_pdata->rst_reg);
+	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, host_pdata->rst_bit, host_pdata->rst_reg);
+	sdhci_sprd_set_base_clock(host);
+	host->ops->set_clock(host, true);
+	if (pdev->id == SDC_SLAVE_EMMC) {
+		emmc_get_spl_data(host);
+		/* add alter pin driver strength*/
 	}
-	if(!strcmp(host->hw_name, "Spread SDIO host1")){
-		/* Enable SDIO1 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, AHB_CTL0_SDIO1_EN, AHB_CTL0);
-		/* reset sdio1 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, SDIO1_SOFT_RESET, AHB_SOFT_RST);
-	}
-#ifdef CONFIG_ARCH_SC7710
-	if(!strcmp(host->hw_name, "Spread SDIO host2")){
-		/* Enable SDIO1 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_SDIO2_EB, AHB_CTL6);
-		/* reset sdio1 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_SD2_SOFT_RST, AHB_SOFT2_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, BIT_SD2_SOFT_RST, AHB_SOFT2_RST);
-	}
-	if(!strcmp(host->hw_name, "Spread EMMC host0")){
-		/* Enable SDIO1 Module */
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_EB, AHB_CTL6);
-		/* reset sdio1 module*/
-		sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_SOFT_RST, AHB_SOFT2_RST);
-		sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL, BIT_EMMC_SOFT_RST, AHB_SOFT2_RST);
-	}
-#endif
-	sdhci_sprd_set_base_clock(host, SDIO_MAX_CLK);
-
-}
-
-extern struct class *sec_class;
-static struct device *sd_detection_cmd_dev;
-int gpio_detect;
-
-static ssize_t sd_detection_cmd_show(struct device *dev,
-	struct device_attribute *attr, char *buf)
-{
-	unsigned int	detect;
-	if(gpio_detect != 777)
-	{
-		detect = gpio_get_value(gpio_detect);
-
-		/* File Location : /sys/class/sec/sdcard/status */
-		pr_info("%s : detect = %d.\n", __func__,  detect);
-		detect = !detect;
-		if (detect)
-		{
-			pr_info("sdhci: card inserted.\n");
-			return sprintf(buf, "Insert\n");
-		}
-		else
-		{
-			pr_info("sdhci: card removed.\n");
-			return sprintf(buf, "Remove\n");
-		}
-	}
-	else
-	{
-		pr_info("sdhci: card removed.\n");
-		return sprintf(buf, "Remove\n");
-	}
-}
-
-static DEVICE_ATTR(status, 0444, sd_detection_cmd_show, NULL);
-
-void sdhci_sprd_fix_controller_1p8v(struct sdhci_host *host) {
-    local_irq_disable();
-    host->mmc->ocr_avail |= MMC_VDD_165_195;
-    host->mmc->ocr_avail_sdio |= MMC_VDD_165_195;
-    host->mmc->ocr_avail_sd |= MMC_VDD_165_195;
-    host->mmc->ocr_avail_mmc |= MMC_VDD_165_195;
-    local_irq_enable();
 }
 
 static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
@@ -589,7 +525,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 	int ret, irq;
 #ifdef CONFIG_MMC_CARD_HOTPLUG
 	int sd_detect_gpio;
-	int *sd_detect;
 	int detect_irq;
 #endif
 	struct sprd_host_data *host_data;
@@ -609,24 +544,21 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		dev_err(dev, "sdhci_alloc_host() failed\n");
 		return PTR_ERR(host);
 	}
+
 	host_data = sdhci_priv(host);
-	host_data->clk_enable = 1;
+	host_data->platdata = dev_get_platdata(dev);
+	host_data->clk_enable = 0;
+	BUG_ON(NULL == host_data->platdata);
+	printk("sdio probe %s, vdd %s (%d), clk %s parent %s\n",
+		host_data->platdata->hw_name,
+		host_data->platdata->vdd_name ? host_data->platdata->vdd_name : "NULL",	host_data->platdata->volt_level,
+		host_data->platdata->clk_name, host_data->platdata->clk_parent);
+
 	platform_set_drvdata(pdev, host);
-	host->vmmc = NULL;
 	host->ioaddr = (void __iomem *)res->start;
-	pr_debug("sdio: host->ioaddr:0x%x\n", (unsigned int)host->ioaddr);
-	if (0 == pdev->id){
-		host->hw_name = "Spread SDIO host0";
-	}else if(1 == pdev->id){
-		host->hw_name = "Spread SDIO host1";
-	}
-	else if(2 == pdev->id){
-		host->hw_name = "Spread SDIO host2";
-	}
-	else if(3 == pdev->id){
-		host->hw_name = "Spread EMMC host0";
-		host->mmc->caps |= MMC_CAP_8_BIT_DATA /*| MMC_CAP_1_8V_DDR*/;
-	}
+	pr_debug("sdio: host->ioaddr:0x%x\n", (u32)host->ioaddr);
+	host->hw_name = (host_data->platdata->hw_name)?
+		host_data->platdata->hw_name:pdev->name;
 	host->ops = &sdhci_sprd_ops;
 	/*
 	 *   SC8810G don't have timeout value and cann't find card
@@ -639,10 +571,8 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		SDHCI_QUIRK_INVERTED_WRITE_PROTECT;
 	host->irq = irq;
 #ifdef CONFIG_MMC_CARD_HOTPLUG
-	gpio_detect = 777;
-	sd_detect = dev_get_platdata(dev);
-	if(sd_detect && (*sd_detect > 0)){
-		sd_detect_gpio = *sd_detect;
+	sd_detect_gpio = host_data->platdata->detect_gpio;
+	if(sd_detect_gpio > 0){
 		pr_info("%s, sd_detect_gpio:%d\n", __func__, sd_detect_gpio);
 
 		if (0 == pdev->id){
@@ -650,7 +580,6 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 		}else{
 			ret = gpio_request(sd_detect_gpio, "sdio1_detect");
 		}
-		gpio_export( sd_detect_gpio, 1);
 
 		if (ret) {
 			dev_err(dev, "cannot request gpio\n");
@@ -668,84 +597,93 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
 			dev_err(dev, "cannot alloc detect irq\n");
 			return -1;
 		}
-                gpio_detect = sd_detect_gpio;
 		host_data->detect_irq = detect_irq;
 	}else{
 		printk("%s, sd_detect_gpio == 0 \n", __func__ );
 	}
 #endif
-	if (sd_detection_cmd_dev == NULL)
-	{
-		sd_detection_cmd_dev = device_create(sec_class, NULL, 0, NULL, "sdcard");
-
-		if (IS_ERR(sd_detection_cmd_dev))
-			pr_err("Fail to create sysfs dev\n");
-
-		if (device_create_file(sd_detection_cmd_dev,&dev_attr_status) < 0)
-			pr_err("Fail to create sysfs file\n");
+	if(host_data->platdata->vdd_name) {
+	    host->vmmc = regulator_get(dev, host_data->platdata->vdd_name);
+	    BUG_ON(IS_ERR(host->vmmc));
+	    regulator_enable(host->vmmc);
+	 }
+	if(host_data->platdata->vdd_ext_name) {
+	    host_data->platdata->vmmc = regulator_get(dev, host_data->platdata->vdd_ext_name);
+	    BUG_ON(IS_ERR(host_data->platdata->vmmc));
+	    regulator_enable(host_data->platdata->vmmc);
 	}
 
 	host->clk = NULL;
 	sdhci_module_init(host);
 
 	host->mmc->caps |= MMC_CAP_HW_RESET;
-	host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
-	host->mmc->pm_caps |= (MMC_PM_KEEP_POWER | MMC_PM_WAKE_SDIO_IRQ);
-#ifdef CONFIG_MACH_KYLEW
-	if(pdev->id == 1){
-		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
-		pm_runtime_disable(&(pdev)->dev); /* temprarily disable runtime case because of error arising when turn on*/
-	} else if(pdev->id == 0) {
-		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
-		pm_runtime_disable(&(pdev)->dev);
-	}
-#elif defined (CONFIG_ARCH_SC7710)
-	if(pdev->id == 1){
-		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
-//		pm_runtime_disable(&(pdev)->dev);
-	} else if(pdev->id == 2) {
-		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
-//		pm_runtime_disable(&(pdev)->dev);
-	}
-#elif defined (CONFIG_MACH_SP7702)
-	if(pdev->id == 1){
-		host->mmc->pm_flags |= MMC_PM_KEEP_POWER;
-		pm_runtime_disable(&(pdev)->dev);
-	}
-#else
-	if(pdev->id == 1){
-		host->mmc->pm_caps |= MMC_CAP_NONREMOVABLE;
-	}
-        switch(pdev->id) {
-             case 1://eMMC
-                host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY ;//| MMC_PM_KEEP_POWER;
-                host->mmc->caps |= MMC_CAP_NONREMOVABLE  | MMC_CAP_1_8V_DDR;
-                break;
-             case 0://SD
-                 host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
-                break;
-        default:
-                break;
-        }
-
+    switch(pdev->id) {
+    case SDC_SLAVE_CP:
+        host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
+        host->caps |= SDHCI_CAN_VDD_180;
+        host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+        host->mmc->pm_caps |= MMC_PM_KEEP_POWER;
+        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;// | MMC_PM_WAKE_SDIO_IRQ;
+        host->mmc->caps |= MMC_CAP_4_BIT_DATA;
+        //host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+        break;
+    case SDC_SLAVE_WIFI:
+        host->mmc->pm_caps |= MMC_PM_KEEP_POWER | MMC_PM_DISABLE_TIMEOUT_IRQ;
+        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER | MMC_PM_DISABLE_TIMEOUT_IRQ;
+        #if !defined(CONFIG_BCMDHD) && !defined(CONFIG_BCMDHD89) && !defined(CONFIG_BCM4329)
+        host->mmc->pm_caps |= MMC_PM_WAKE_SDIO_IRQ;
+        host->mmc->pm_flags |=  MMC_PM_WAKE_SDIO_IRQ;
+        #endif
+        host->mmc->caps |= MMC_CAP_4_BIT_DATA;
+        //host->mmc->caps |= MMC_CAP_NONREMOVABLE;
+#ifdef CONFIG_PM_RUNTIME
+	/*Wifi uses runtime policy*/
+        //host->mmc->caps |= MMC_CAP_POWER_OFF_CARD;
 #endif
-	ret = sdhci_add_host(host);
-	if (ret) {
-		dev_err(dev, "sdhci_add_host() failed\n");
-		goto err_add_host;
-	}
-#if defined(CONFIG_MACH_KYLEW) || defined(CONFIG_MACH_SP7702)|| defined(CONFIG_MACH_MINT)
-	sdhci_sprd_fix_controller_1p8v(host);
+#ifdef CONFIG_TROUT
+	mmc_dev_trout_set_index(host->mmc->index);
 #endif
-#ifdef CONFIG_MMC_BUS_SCAN
-	if (pdev->id == 1)
-		sdhci_host_g = host;
-#endif
+        break;
+    case SDC_SLAVE_EMMC:
+        host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & (~(SDHCI_CAN_VDD_330 | SDHCI_CAN_VDD_300));
+        host->caps |= SDHCI_CAN_VDD_180;
+        host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;
+        host->mmc->caps |= MMC_CAP_NONREMOVABLE | MMC_CAP_4_BIT_DATA | MMC_CAP_1_8V_DDR;
+        break;
+    case SDC_SLAVE_SD:
+        host->mmc->pm_flags |= MMC_PM_IGNORE_PM_NOTIFY;
+        host->mmc->caps |= MMC_CAP_4_BIT_DATA;
+        break;
+    default:
+        break;
+    }
 
 #ifdef CONFIG_PM_RUNTIME
             switch(pdev->id) {
-            case 1:
-            case 0:
+            case SDC_SLAVE_CP:
+            case SDC_SLAVE_WIFI:
+#if 0
+				pm_runtime_set_active(&pdev->dev);
+                pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+                pm_runtime_use_autosuspend(&pdev->dev);
+                pm_runtime_enable(&pdev->dev);
+                pm_runtime_no_callbacks(mmc_classdev(host->mmc));
+                pm_suspend_ignore_children(mmc_classdev(host->mmc), true);
+                pm_runtime_set_active(mmc_classdev(host->mmc));
+                pm_runtime_enable(mmc_classdev(host->mmc));
+#else
+				/*Wifi uses runtime policy*/
+				pm_suspend_ignore_children(&pdev->dev, true);
+				pm_runtime_set_active(&pdev->dev);
+				pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
+				pm_runtime_use_autosuspend(&pdev->dev);
+				pm_runtime_enable(&pdev->dev);
+
+#endif
+				break;
+            case SDC_SLAVE_EMMC:
+            case SDC_SLAVE_SD:
                 pm_suspend_ignore_children(&pdev->dev, true);
                 pm_runtime_set_active(&pdev->dev);
                 pm_runtime_set_autosuspend_delay(&pdev->dev, 100);
@@ -754,6 +692,17 @@ static int __devinit sdhci_sprd_probe(struct platform_device *pdev)
             default:
                 break;
             }
+#endif
+
+	ret = sdhci_add_host(host);
+	if (ret) {
+		dev_err(dev, "sdhci_add_host() failed\n");
+		goto err_add_host;
+	}
+
+#ifdef CONFIG_MMC_BUS_SCAN
+	if (pdev->id == SDC_SLAVE_WIFI)
+		sdhci_host_g = host;
 #endif
 
 	return 0;
@@ -808,15 +757,12 @@ static int sprd_mmc_host_runtime_suspend(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
-        if(mmc_try_claim_host(mmc)) {
-            sdhci_runtime_suspend_host(host);
-            spin_lock_irqsave(&host->lock, flags);
-            if(host->ops->set_clock)
-                host->ops->set_clock(host, 0);
-            spin_unlock_irqrestore(&host->lock, flags);
-            mmc_do_release_host(mmc);
-            rc = 0;
-        }
+        sdhci_runtime_suspend_host(host);
+        spin_lock_irqsave(&host->lock, flags);
+        if(host->ops->set_clock)
+            host->ops->set_clock(host, 0);
+        spin_unlock_irqrestore(&host->lock, flags);
+        rc = 0;
     }
     return rc;
 }
@@ -827,14 +773,13 @@ static int sprd_mmc_host_runtime_resume(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
     if(dev->driver != NULL) {
-        mmc_claim_host(mmc);
-        spin_lock_irqsave(&host->lock, flags);
-        if(host->ops->set_clock)
+        if(host->ops->set_clock) {
+            spin_lock_irqsave(&host->lock, flags);
             host->ops->set_clock(host, 1);
-        spin_unlock_irqrestore(&host->lock, flags);
-        mdelay(50);
+            spin_unlock_irqrestore(&host->lock, flags);
+            mdelay(10);
+        }
         sdhci_runtime_resume_host(host);
-        mmc_release_host(mmc);
     }
     return 0;
 }
@@ -850,19 +795,25 @@ static int sdhci_pm_suspend(struct device *dev) {
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
 #ifdef CONFIG_PM_RUNTIME
-    retval = pm_runtime_get_sync(dev);
+    if(pm_runtime_enabled(dev))
+        retval = pm_runtime_get_sync(dev);
 #endif
     if(retval >= 0) {
             retval = sdhci_suspend_host(host, PMSG_SUSPEND);
             if(!retval) {
+                unsigned long flags;
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
-                if( !strcmp(host->hw_name, "Spread SDIO host1") ) {
+                if (pdev->id == SDC_SLAVE_WIFI)
                     sdhci_host_wakeup_set(host);
-                }
 #endif
+                spin_lock_irqsave(&host->lock, flags);
+                if(host->ops->set_clock)
+                    host->ops->set_clock(host, 0);
+                spin_unlock_irqrestore(&host->lock, flags);
             } else {
 #ifdef CONFIG_PM_RUNTIME
-                pm_runtime_put_autosuspend(dev);
+                if(pm_runtime_enabled(dev))
+                    pm_runtime_put_autosuspend(dev);
 #endif
             }
     }
@@ -871,22 +822,23 @@ static int sdhci_pm_suspend(struct device *dev) {
 
 static int sdhci_pm_resume(struct device *dev) {
     int retval = 0;
+    unsigned long flags;
     struct platform_device *pdev = container_of(dev, struct platform_device, dev);
     struct sdhci_host *host = platform_get_drvdata(pdev);
     struct mmc_host *mmc = host->mmc;
-    if(!mmc_card_keep_power(mmc))
-        sdhci_sprd_enable_clock(host, 1);
-    retval = sdhci_resume_host(host);
-    if(!retval) {
+    spin_lock_irqsave(&host->lock, flags);
+    if(host->ops->set_clock)
+        host->ops->set_clock(host, 1);
+    spin_unlock_irqrestore(&host->lock, flags);
 #ifdef CONFIG_MMC_HOST_WAKEUP_SUPPORTED
-        if(!strcmp(host->hw_name, "Spread SDIO host1")) {
-            sdhci_host_wakeup_clear(host);
-        }
+    if (pdev->id == SDC_SLAVE_WIFI)
+        sdhci_host_wakeup_clear(host);
 #endif
+    retval = sdhci_resume_host(host);
 #ifdef CONFIG_PM_RUNTIME
+    if(pm_runtime_enabled(dev))
         pm_runtime_put_autosuspend(dev);
 #endif
-    }
     return retval;
 }
 

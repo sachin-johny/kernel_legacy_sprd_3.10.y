@@ -1,0 +1,109 @@
+Version: v0.26	Modify: shuifa.cai
+============================================
+1. npi rf calibration: add reserved nv space.
+
+Version: v0.24	Modify: shuifa.cai
+============================================
+1. npi rf calibration 
+
+Version: v0.23	Modify: wengang.cheng and yindan.zhou
+============================================
+1. BUG#177142-[AT][6820][Trout] 安装PPTV，使用wifi下载视频，下载时间隔40s进行灭屏唤醒操作，出现Kernel panic - not syncing: Fatal exception in interrupt重启
+
+Version: v0.22	Modify: wengang.cheng
+============================================
+1. change wifi buffer size to 540kb for adjust trout share ram enlarge to 144kb.
+
+Version: v0.21	Modify: shuifa.cai
+============================================
+1. Bug 165651 - set front switch from nv config
+
+Version: v0.20	Modify: shuifa.cai
+============================================
+1. Bug 165651 - set front switch from nv config
+
+Version: v0.19	Modify: dong.xiang
+============================================
+1. Optimize Wi-Fi AGC table. --lihuai.wang
+
+Version: v0.18	Modify: dong.xiang
+============================================
+1. Update mxd sdk(Dcoc). --lihuai.wang
+
+Version: v0.17	Modify: wengang.cheng
+============================================
+1. Update for phone without trout chip which lead to phone not work.
+2. add protection mechanism to fix the reset problem caused by sdio unstable.  
+
+Version: v0.16	Modify: shuifa.cai
+============================================
+1. Bug 165651 - set front switch from nv config
+
+Version: v0.15	Modify: dong.xiang 
+============================================
+1. Update mxd sdk. --lihuai.wang 
+
+Version: v0.14	Modify: shuifa.cai
+============================================
+1. Bug 165651 - set front switch from nv config
+
+Version: v0.13	Modify: lihuai.wang
+============================================
+1. Update mxd sdk to fix below problems:
+1) dac 配置函数优化，通过时序控制保证配置生效
+2) BT 发送档位变更，解决远距离查询和配对问题
+3) WIFI BT 共存代码修改
+
+Version: v0.12	Modify: lihuai.wang & zhao.zhang 
+============================================
+1. BUG#0000 Set initial PHY reg(0x1D, 0x1E) to disable RF RX.
+
+Version: v0.11	Modify: lihuai.wang 
+============================================
+1. Update mxd configuration to increase BT query and conection range. 
+
+Version: v0.10	Modify: wengang.cheng
+============================================
+1. BUG#163405 Correct trout reset time with SD_D3.
+2. Modify trout_sdio_set_clock() retries to 40 times.
+
+Version: v0.9	Modify: lihuai.wang
+============================================
+1. Change wifi tx power to 7db. 
+
+Version: v0.8	Modify: lihuai.wang
+============================================
+1. Update mxd sdk to Rev: 44.
+
+Version: v0.7	Modify: zhao.zhang
+============================================
+1. BUG#159328 Fix bt is opened,wifi can not scan any AP. 
+
+Version: v0.6	Modify: dong.xiang 
+============================================
+1. Move RF Start/Stop function to Power On/Off. 
+
+Version: v0.5	Modify: lihuai.wang
+============================================
+1. Update mxd sdk to Rev: 38.
+
+Version: v0.4	Modify: mengyuan.du 
+============================================
+1. set trout wifi goto power down when close mobile screen
+
+Version: v0.3	Modify: mengyuan.du
+============================================
+1. change trout power down function
+2. zhouxingwei add close 26M and rf 2.8V operation
+
+Version: v0.2	Modify: baike.xiong
+============================================
+1. Modified "mxd_castor_sdk.c" and "mxd_castor_sdk.h", 
+adds: 
+In function MxdRfInit, read Rf Calibration data from existing file and set the data to RF module register;
+If the file is not exist or the CRC check is wrong, do the RF calibration operation and get the calibration data from RF module register, and write the data to the created file;  
+
+Version: v0.1	Modify: yeguang.zhu
+============================================
+1. Add Changes.log
+2. Add mutex in all public interfaces.

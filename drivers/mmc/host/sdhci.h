@@ -381,6 +381,35 @@ static inline u8 sdhci_readb(struct sdhci_host *host, int reg)
 
 #endif /* CONFIG_MMC_SDHCI_IO_ACCESSORS */
 
+static inline void sdhci_sdclk_enable(struct sdhci_host *host, u8 val)
+{
+	u32 regVal, timeout;
+
+	regVal = sdhci_readl(host, SDHCI_CLOCK_CONTROL);
+	/* off sd_clk */
+	if (val == 0) {
+		if ((regVal & SDHCI_CLOCK_INT_EN) != 0) {
+			regVal &= ~SDHCI_CLOCK_INT_EN;
+			sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
+			udelay(200);
+		}
+	}
+	else {
+		regVal |= SDHCI_CLOCK_INT_EN;
+		sdhci_writel(host, regVal, SDHCI_CLOCK_CONTROL);
+
+		timeout = 20;
+		while (!((regVal = sdhci_readl(host, SDHCI_CLOCK_CONTROL))
+			& SDHCI_CLOCK_INT_STABLE)) {
+			if (timeout == 0) {
+				break;
+			}
+			timeout--;
+			udelay(100);
+		}
+	}
+}
+
 extern struct sdhci_host *sdhci_alloc_host(struct device *dev,
 	size_t priv_size);
 extern void sdhci_free_host(struct sdhci_host *host);
@@ -394,6 +423,7 @@ extern void sdhci_card_detect(struct sdhci_host *host);
 extern int sdhci_add_host(struct sdhci_host *host);
 extern void sdhci_remove_host(struct sdhci_host *host, int dead);
 extern void sdhci_reinit(struct sdhci_host *host);
+extern int sdcard_present(struct sdhci_host *host);
 #ifdef CONFIG_PM
 extern int sdhci_suspend_host(struct sdhci_host *host, pm_message_t state);
 extern int sdhci_resume_host(struct sdhci_host *host);

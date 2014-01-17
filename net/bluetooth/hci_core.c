@@ -44,6 +44,7 @@
 #include <linux/timer.h>
 #include <linux/crypto.h>
 #include <net/sock.h>
+#include <linux/wakelock.h>
 
 #include <asm/system.h>
 #include <linux/uaccess.h>
@@ -59,6 +60,7 @@ static void hci_rx_task(unsigned long arg);
 static void hci_tx_task(unsigned long arg);
 
 static DEFINE_RWLOCK(hci_task_lock);
+struct wake_lock bt_wake_lock;
 
 /* HCI device list */
 LIST_HEAD(hci_dev_list);
@@ -180,7 +182,22 @@ static inline int hci_request(struct hci_dev *hdev, void (*req)(struct hci_dev *
 
 	return ret;
 }
-
+#ifdef CONFIG_BT_TROUT
+extern void hci_set_ctl_act(bool active);
+extern bool hci_conn_hash_lookup_acl(struct hci_dev *hdev);
+static void hci_poweroff_req(struct hci_dev *hdev, unsigned long opt)
+{
+    __u8 par;
+	BT_DBG("%s %ld", hdev->name, opt);
+    par = 0x00;
+	/* close the bluetooth*/
+	set_bit(HCI_RESET, &hdev->flags);
+	if(!hci_conn_hash_lookup_acl(hdev)){
+		hci_set_ctl_act(false);
+	}
+	hci_send_cmd(hdev, HCI_OP_RESET, 1, &par);
+}
+#endif
 static void hci_reset_req(struct hci_dev *hdev, unsigned long opt)
 {
 	BT_DBG("%s %ld", hdev->name, opt);
@@ -228,7 +245,7 @@ static void hci_init_req(struct hci_dev *hdev, unsigned long opt)
 	/* Read Buffer Size (ACL mtu, max pkt, etc.) */
 	hci_send_cmd(hdev, HCI_OP_READ_BUFFER_SIZE, 0, NULL);
 
-#if 0
+#ifdef CONFIG_BT_TROUT
 	/* Host buffer size */
 	{
 		struct hci_cp_host_buffer_size cp;
@@ -613,7 +630,11 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	if (!test_bit(HCI_RAW, &hdev->flags)) {
 		set_bit(HCI_INIT, &hdev->flags);
 		__hci_request(hdev, hci_reset_req, 0,
+#ifndef CONFIG_BT_TROUT
 					msecs_to_jiffies(250));
+#else
+					msecs_to_jiffies(1000));/*250->1000, bcsp retransport timeout is 250, the reset timeout should longer than 250*/
+#endif
 		clear_bit(HCI_INIT, &hdev->flags);
 	}
 
@@ -647,6 +668,74 @@ static int hci_dev_do_close(struct hci_dev *hdev)
 	return 0;
 }
 
+#ifdef CONFIG_BT_TROUT
+static int hci_dev_do_poweroff(struct hci_dev *hdev)
+{
+	BT_DBG("%s %p", hdev->name, hdev);
+
+	hci_req_cancel(hdev, ENODEV);
+	hci_req_lock(hdev);
+
+	if (!test_and_clear_bit(HCI_UP, &hdev->flags)) {
+		del_timer_sync(&hdev->cmd_timer);
+		hci_req_unlock(hdev);
+		return 0;
+	}
+
+	/* Kill RX and TX tasks */
+	tasklet_kill(&hdev->rx_task);
+	tasklet_kill(&hdev->tx_task);
+
+	hci_dev_lock_bh(hdev);
+	inquiry_cache_flush(hdev);
+	hci_conn_hash_flush(hdev);
+	hci_dev_unlock_bh(hdev);
+
+	hci_notify(hdev, HCI_DEV_DOWN);
+
+	if (hdev->flush)
+		hdev->flush(hdev);
+
+	/* Reset device */
+	skb_queue_purge(&hdev->cmd_q);
+	atomic_set(&hdev->cmd_cnt, 1);
+	if (!test_bit(HCI_RAW, &hdev->flags)) {
+		set_bit(HCI_INIT, &hdev->flags);
+		__hci_request(hdev, hci_poweroff_req, 0,
+					msecs_to_jiffies(1000));/*250->1000, bcsp retransport timeout is 250, the reset timeout should longer than 250*/
+		clear_bit(HCI_INIT, &hdev->flags);
+	}
+
+	/* Kill cmd task */
+	tasklet_kill(&hdev->cmd_task);
+
+	/* Drop queues */
+	skb_queue_purge(&hdev->rx_q);
+	skb_queue_purge(&hdev->cmd_q);
+	skb_queue_purge(&hdev->raw_q);
+
+	/* Drop last sent command */
+	if (hdev->sent_cmd) {
+		del_timer_sync(&hdev->cmd_timer);
+		kfree_skb(hdev->sent_cmd);
+		hdev->sent_cmd = NULL;
+	}
+
+	/* After this point our queues are empty
+	 * and no tasks are scheduled. */
+	hdev->close(hdev);
+	mgmt_powered(hdev->id, 0);
+
+	/* Clear flags */
+	hdev->flags = 0;
+
+	hci_req_unlock(hdev);
+
+	hci_dev_put(hdev);
+	return 0;
+}
+#endif
+
 int hci_dev_close(__u16 dev)
 {
 	struct hci_dev *hdev;
@@ -659,7 +748,22 @@ int hci_dev_close(__u16 dev)
 	hci_dev_put(hdev);
 	return err;
 }
+#ifdef CONFIG_BT_TROUT
+int hci_dev_poweroff(__u16 dev)
+{
+	struct hci_dev *hdev;
+	int err;
 
+	hdev = hci_dev_get(dev);
+	if (!hdev)
+		return -ENODEV;
+
+	hci_dev_open(dev);
+	err = hci_dev_do_poweroff(hdev);
+	hci_dev_put(hdev);
+	return err;
+}
+#endif
 int hci_dev_reset(__u16 dev)
 {
 	struct hci_dev *hdev;
@@ -1473,13 +1577,22 @@ int hci_register_dev(struct hci_dev *hdev)
 	hdev->link_mode = (HCI_LM_ACCEPT);
 	hdev->io_capability = 0x03; /* No Input No Output */
 
+	//hdev->idle_timeout = 0;
+#ifdef CONFIG_BT_TROUT
+	hdev->idle_timeout = 5000;
+/*The interval time 80 is too short for trout chip */
+	hdev->sniff_max_interval = 8000;
+	hdev->sniff_min_interval = 800;
+#else
 	hdev->idle_timeout = 0;
 	hdev->sniff_max_interval = 800;
 	hdev->sniff_min_interval = 80;
-
+#endif
 	tasklet_init(&hdev->cmd_task, hci_cmd_task, (unsigned long) hdev);
 	tasklet_init(&hdev->rx_task, hci_rx_task, (unsigned long) hdev);
 	tasklet_init(&hdev->tx_task, hci_tx_task, (unsigned long) hdev);
+
+	wake_lock_init(&bt_wake_lock, WAKE_LOCK_SUSPEND, "bt_wake_lock");
 
 	skb_queue_head_init(&hdev->rx_q);
 	skb_queue_head_init(&hdev->cmd_q);
@@ -1562,7 +1675,7 @@ int hci_unregister_dev(struct hci_dev *hdev)
 	int i;
 
 	BT_DBG("%p name %s bus %d", hdev, hdev->name, hdev->bus);
-
+	wake_lock_destroy(&bt_wake_lock);
 	write_lock_bh(&hci_dev_list_lock);
 	list_del(&hdev->list);
 	write_unlock_bh(&hci_dev_list_lock);
@@ -1777,7 +1890,10 @@ int hci_recv_fragment(struct hci_dev *hdev, int type, void *data, int count)
 EXPORT_SYMBOL(hci_recv_fragment);
 
 #define STREAM_REASSEMBLY 0
-
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+extern struct tasklet_struct	write2tty_task;
+extern struct tasklet_struct    sendack2controller_task;
+#endif
 int hci_recv_stream_fragment(struct hci_dev *hdev, void *data, int count)
 {
 	int type;
@@ -1797,6 +1913,20 @@ int hci_recv_stream_fragment(struct hci_dev *hdev, void *data, int count)
 			count--;
 		} else
 			type = bt_cb(skb)->pkt_type;
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+        if(0xaa == type)
+        {
+            BT_UART_DBG("type == aa");
+            tasklet_schedule(&write2tty_task);/*receive data from controller means controller is not in sleep state */
+            continue;
+        }
+        if(0x55 == type)
+        {
+            BT_UART_DBG("type == 55");
+            tasklet_schedule(&sendack2controller_task);
+            continue;
+        }
+#endif
 
 		rem = hci_reassembly(hdev, type, data, count,
 							STREAM_REASSEMBLY);

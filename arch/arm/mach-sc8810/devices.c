@@ -15,11 +15,14 @@
 #include <linux/platform_device.h>
 #include <linux/android_pmem.h>
 #include <linux/ion.h>
+#include <linux/mmc/sdhci.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <mach/board.h>
 #include "devices.h"
+#include <mach/globalregs.h>
+#include <mach/regulator.h>
 
 static struct resource sprd_serial_resources0[] = {
 	[0] = {
@@ -536,11 +539,26 @@ static struct resource sprd_sdio0_resources[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
+static struct sprd_host_platdata sprd_sdio0_pdata = {
+	.hw_name = "sprd-sdcard",
+	.detect_gpio = GPIO_SDIO_DETECT,
+	.vdd_name = REGU_NAME_SDHOST0,
+	.clk_name = "clk_sdio0",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = AHB_CTL0_SDIO0_EN,
+	.rst_bit = BIT_SD0_SOFT_RST,
+	.enb_reg = AHB_CTL0,
+	.rst_reg = AHB_SOFT_RST,
+};
+
 struct platform_device sprd_sdio0_device = {
 	.name           = "sprd-sdhci",
 	.id             =  0,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
+	.dev = { .platform_data = &sprd_sdio0_pdata },
 };
 
 static struct resource sprd_sdio1_resources[] = {
@@ -557,11 +575,25 @@ static struct resource sprd_sdio1_resources[] = {
 	}
 };
 
+static struct sprd_host_platdata sprd_sdio1_pdata = {
+	.hw_name = "sprd-sdio1",
+	.vdd_name = REGU_NAME_WIFIIO,
+	.clk_name = "clk_sdio1",
+	.clk_parent = "clk_96m",
+	.max_clock = 96000000,
+	.enb_bit = AHB_CTL0_SDIO1_EN,
+	.rst_bit =BIT_SD1_SOFT_RST,
+	.enb_reg = AHB_CTL0,
+	.rst_reg = AHB_SOFT_RST,
+	.regs.is_valid = 1,
+};
+
 struct platform_device sprd_sdio1_device = {
 	.name           = "sprd-sdhci",
 	.id             =  1,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
+	.dev = { .platform_data = &sprd_sdio1_pdata },
 };
 
 #ifdef CONFIG_ARCH_SC7710

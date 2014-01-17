@@ -48,6 +48,12 @@
 
 #define VERSION "1.2"
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+struct tasklet_struct	write2tty_task;
+struct tasklet_struct   sendack2controller_task;
+#endif
+
+
 struct h4_struct {
 	unsigned long rx_state;
 	unsigned long rx_count;
@@ -62,6 +68,59 @@ struct h4_struct {
 #define H4_W4_SCO_HDR		3
 #define H4_W4_DATA		4
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+extern struct	timer_list timer_retransmit;
+static void start_to_send_data(unsigned long arg)
+{
+    struct hci_uart *hu = NULL;
+    if(NULL != &timer_retransmit)
+    {
+        del_timer(&timer_retransmit);
+    }
+    if(arg != NULL)
+    {
+        hu = (struct hci_uart *) arg;
+    }
+    else
+    {
+         return;
+    }
+    BT_UART_DBG("start_to_send_data");
+
+    hci_uart_tx_wakeup_sprd(hu, 0, true, false);
+}
+static void start_to_send_ack(unsigned long arg)
+{
+    struct hci_uart *hu = NULL;//
+    struct tty_struct *tty = NULL;// hu->tty;
+
+    unsigned char data = 0x55;
+    if(arg != NULL)
+    {
+        hu = (struct hci_uart *) arg;
+    }
+    else
+    {
+        return;
+    }
+    tty = hu->tty;
+    write2tty:
+    if(NULL != hu->tx_skb)/*if the tx_skb in not null, send tx skb first*/
+    {
+        hci_uart_tx_wakeup_sprd(hu, 0, true, false);
+    }
+    if(NULL != hu->tx_skb)
+    {
+        mdelay(10);
+        goto write2tty;
+    }
+    set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+    tty->ops->write(tty, &data, 1);
+    BT_UART_DBG("sending ack");
+    clear_bit(HCI_UART_SENDING, &hu->tx_state);
+    return 0;
+}
+#endif
 /* Initialize protocol */
 static int h4_open(struct hci_uart *hu)
 {
@@ -74,7 +133,10 @@ static int h4_open(struct hci_uart *hu)
 		return -ENOMEM;
 
 	skb_queue_head_init(&h4->txq);
-
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    tasklet_init(&write2tty_task, start_to_send_data, (unsigned long) hu);
+    tasklet_init(&sendack2controller_task, start_to_send_ack, (unsigned long) hu);
+#endif
 	hu->priv = h4;
 	return 0;
 }

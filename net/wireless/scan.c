@@ -17,7 +17,8 @@
 #include "nl80211.h"
 #include "wext-compat.h"
 
-#define IEEE80211_SCAN_RESULT_EXPIRE	(3 * HZ)
+/*junbin.wang modify for cr 238822. 20131128*/
+#define IEEE80211_SCAN_RESULT_EXPIRE	(10 * HZ)
 
 void ___cfg80211_scan_done(struct cfg80211_registered_device *rdev, bool leak)
 {

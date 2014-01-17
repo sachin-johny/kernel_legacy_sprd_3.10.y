@@ -303,6 +303,10 @@ static int hci_sock_ioctl(struct socket *sock, unsigned int cmd, unsigned long a
 	case HCIINQUIRY:
 		return hci_inquiry(argp);
 
+#ifdef CONFIG_BT_TROUT
+    case HCIDEVPOWEROFF:
+		return hci_dev_poweroff(arg);
+#endif
 	default:
 		lock_sock(sk);
 		err = hci_sock_bound_ioctl(sk, cmd, arg);

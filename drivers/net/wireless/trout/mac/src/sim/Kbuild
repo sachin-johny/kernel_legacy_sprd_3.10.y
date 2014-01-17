@@ -1,0 +1,4 @@
+obj-m := sim.o
+sim-y := virt_irq.o reg_space.o virt_bus.o sim_core.o normal_reg.o trout.o trout_reg.o dv_drv.o trout_tx.o trout_tx_frame.o trout_rx.o share_mem.o hw_dv.o hw_de.o spi_sim.o #dv_drv_io.o data_hook_space.o
+ 
+ccflags-y += -I$(src) -I$(src)/include -I$(src)/../Common -g

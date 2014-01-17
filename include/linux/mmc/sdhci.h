@@ -17,17 +17,51 @@
 #include <linux/io.h>
 #include <linux/mmc/host.h>
 
+enum{
+    EMMC_VENDOR_SUMSUNG=0,
+    EMMC_VENDOR_HYNIX,
+    EMMC_VENDOR_MICRON,
+    EMMC_VENDOR_TOSHBA,
+    EMMC_VENDOR_SANDISK,
+    EMMC_VENDOR_DEFAULT,
+    EMMC_VENDOR_MAX
+};
+
+struct ddr50_timing_inf{
+    unsigned char ddr50_write_delay;
+    unsigned char ddr50_read_pos_delay;
+    unsigned char ddr50_read_neg_delay;
+};
+
+struct emmc_vendor_inf{
+    int vend_index;
+    int vend_id;
+    int clk_pin;
+    struct ddr50_timing_inf timing; 
+};
+
+const static struct emmc_vendor_inf emmc_timing_inf[EMMC_VENDOR_MAX]={
+    {EMMC_VENDOR_SUMSUNG, 0x15, 0x0, 0x18, 0x07, 0x05},
+    {EMMC_VENDOR_HYNIX,   0x90, 0x0, 0x1a, 0x07, 0x05},
+    {EMMC_VENDOR_MICRON,  0xFE, 0x0, 0x18, 0x07, 0x05},
+    {EMMC_VENDOR_TOSHBA,  0x11, 0x0, 0x18, 0x07, 0x05},
+    {EMMC_VENDOR_SANDISK, 0x45, 0x0, 0x18, 0x07, 0x05},
+    {EMMC_VENDOR_DEFAULT, 0xFF, 0x0, 0x18, 0x07, 0x05},
+};
+
 struct sprd_host_platdata {
 	/* Data set by board or device resources */
 	int detect_gpio;
 	const char *hw_name;	/* Hardware bus name */
 	const char *vdd_name;
 	const char *vdd_ext_name;
+	struct regulator *vmmc;	/* extend Power regulator */
 	int volt_level;
 	const char *clk_name;
 	const char *clk_parent;
 	int max_clock;
 	int enb_bit, rst_bit;
+	int enb_reg, rst_reg;
 
 	/*Save/Restore host context */
 	struct {

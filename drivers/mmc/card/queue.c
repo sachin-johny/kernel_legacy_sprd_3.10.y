@@ -200,6 +200,8 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 		if (bouncesz > (host->max_blk_count * 512))
 			bouncesz = host->max_blk_count * 512;
 
+		mqrq_cur->bounce_buf = NULL;
+		mqrq_prev->bounce_buf = NULL;
 		if (bouncesz > 512) {
 			mqrq_cur->bounce_buf = kmalloc(bouncesz, GFP_KERNEL);
 			if (!mqrq_cur->bounce_buf) {
@@ -207,6 +209,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 					"allocate bounce cur buffer\n",
 					mmc_card_name(card));
 			}
+			else{
 			mqrq_prev->bounce_buf = kmalloc(bouncesz, GFP_KERNEL);
 			if (!mqrq_prev->bounce_buf) {
 				printk(KERN_WARNING "%s: unable to "
@@ -214,6 +217,7 @@ int mmc_init_queue(struct mmc_queue *mq, struct mmc_card *card,
 					mmc_card_name(card));
 				kfree(mqrq_cur->bounce_buf);
 				mqrq_cur->bounce_buf = NULL;
+			}
 			}
 		}
 

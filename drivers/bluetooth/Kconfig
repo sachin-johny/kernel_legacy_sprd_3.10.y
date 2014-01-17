@@ -80,6 +80,23 @@ config BT_HCIUART_RTKH5
 
 	  Say Y here to compile support for Realtek HCI H5 protocol.
 
+config BT_TROUT
+	tristate "trout bluetooth driver"
+	help
+	  This enables the Bluetooth driver for trout BT devices. This makes
+	  use of shared transport line discipline core driver to communicate with
+	  the BT core of thechip.
+
+	  Say Y here to compile support for sprd.
+
+config TROUT_UART_TRANSPORT_DEBUG
+        tristate "trout bluetooth driver"
+        help
+          This enables the Bluetooth driver for trout BT devices. This means use
+	  uart transport
+
+          Say Y here to compile support for sprd.
+
 config BT_HCIUART_LL
 	bool "HCILL protocol support"
 	depends on BT_HCIUART
@@ -250,4 +267,10 @@ config BT_BCM4330
 	  Say Y here to compile support for Broadcomm's BCM4330 LPM driver
 	  into the kernel or say M to compile it as module.
 
+config BT_SINGLE_LINK
+        tristate "Bluetooth single link"
+        help
+          This enables the Bluetooth driver for single link.
+
+          Say Y here to compile support for the property.
 endmenu

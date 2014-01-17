@@ -1058,6 +1058,10 @@
 #define BIT_CP_ARM9_JTAG_CHAIN_EN                            ( BIT(0) )
 #endif
 
+//add for 6821 
+#define BIT_SD0_SOFT_RST                ( BIT(12) )
+#define BIT_SD1_SOFT_RST                ( BIT(16) )
+
 /* ****************************************************************** */
 
 /* global register types */

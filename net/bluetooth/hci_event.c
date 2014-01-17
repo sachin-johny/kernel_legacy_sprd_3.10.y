@@ -46,9 +46,38 @@
 #include <net/bluetooth/hci_core.h>
 
 static int enable_le;
-
+#ifdef CONFIG_BT_TROUT/*declare hci_encrypt_change_info to save encrypt infromation*/
+static struct hci_ev_encrypt_change hci_encrypt_ev_info = {0xFF,0xFFFF,0xFF};
+#endif
 /* Handle HCI Event packets */
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+static bool is_ctl_active = false;
+void hci_set_ctl_act(bool active)
+{
+    is_ctl_active = active;
+}
+bool hci_is_ctl_act()
+{
+    return is_ctl_active;
+}
+bool hci_conn_hash_lookup_acl(struct hci_dev *hdev)
+{
+	struct hci_conn_hash *h = &hdev->conn_hash;
+	struct list_head *p;
+	struct hci_conn  *c;
 
+	list_for_each(p, &h->list) {
+		c = list_entry(p, struct hci_conn, list);
+        BT_UART_DBG("state 0x%x type 0x%x mode 0x%x",
+            c->state, c->type,c->mode);
+		if ((c->state == BT_CONNECTED)
+              &&(c->type == ACL_LINK)
+              &&(HCI_CM_ACTIVE == c->mode))
+			return true;
+	}
+	return false;
+}
+#endif
 static void hci_cc_inquiry_cancel(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	__u8 status = *((__u8 *) skb->data);
@@ -190,6 +219,13 @@ static void hci_cc_reset(struct hci_dev *hdev, struct sk_buff *skb)
 	BT_DBG("%s status 0x%x", hdev->name, status);
 
 	clear_bit(HCI_RESET, &hdev->flags);
+
+#ifdef CONFIG_BT_TROUT
+        if(!hci_conn_hash_lookup_acl(hdev)){
+                hci_set_ctl_act(false);
+		printk("hci_conn reset ctl act !! \n");
+        }
+#endif
 
 	hci_req_complete(hdev, HCI_OP_RESET, status);
 }
@@ -552,7 +588,28 @@ static void hci_setup(struct hci_dev *hdev)
 		u8 mode = 0x01;
 		hci_send_cmd(hdev, HCI_OP_WRITE_SSP_MODE, sizeof(mode), &mode);
 	}
+#ifndef CONFIG_BT_TROUT/*if the chip is trout ,do not send these command*/
+	if (hdev->features[3] & LMP_RSSI_INQ)
+		hci_setup_inquiry_mode(hdev);
 
+	if (hdev->features[7] & LMP_INQ_TX_PWR)
+		hci_send_cmd(hdev, HCI_OP_READ_INQ_RSP_TX_POWER, 0, NULL);
+
+	if (hdev->features[7] & LMP_EXTFEATURES) {
+		struct hci_cp_read_local_ext_features cp;
+
+		cp.page = 0x01;
+		hci_send_cmd(hdev, HCI_OP_READ_LOCAL_EXT_FEATURES,
+							sizeof(cp), &cp);
+	}
+
+	if (hdev->features[4] & LMP_LE)
+		hci_set_le_support(hdev);
+#endif
+}
+#ifdef CONFIG_BT_TROUT/*sent hci setup command*/
+static void hci_setup_features(struct hci_dev *hdev)
+{
 	if (hdev->features[3] & LMP_RSSI_INQ)
 		hci_setup_inquiry_mode(hdev);
 
@@ -570,7 +627,7 @@ static void hci_setup(struct hci_dev *hdev)
 	if (hdev->features[4] & LMP_LE)
 		hci_set_le_support(hdev);
 }
-
+#endif
 static void hci_cc_read_local_version(struct hci_dev *hdev, struct sk_buff *skb)
 {
 	struct hci_rp_read_local_version *rp = (void *) skb->data;
@@ -1409,6 +1466,9 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 		conn->handle = __le16_to_cpu(ev->handle);
 
 		if (conn->type == ACL_LINK) {
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+            hci_set_ctl_act(true);
+#endif
 			conn->state = BT_CONFIG;
 			hci_conn_hold(conn);
 			conn->disc_timeout = HCI_DISCONN_TIMEOUT;
@@ -1495,6 +1555,18 @@ static inline void hci_conn_request_evt(struct hci_dev *hdev, struct sk_buff *sk
 
 		conn = hci_conn_hash_lookup_ba(hdev, ev->link_type, &ev->bdaddr);
 		if (!conn) {
+			#ifdef CONFIG_BT_SINGLE_LINK
+                        struct hci_conn_hash *h = &hdev->conn_hash;
+			if ((ev->link_type == ACL_LINK) && (h->acl_num >= 1)) {
+				struct hci_cp_reject_conn_req cp;
+				BT_DBG("single link solution, reject the second incoming connect request.");
+				hci_dev_unlock(hdev);
+				bacpy(&cp.bdaddr, &ev->bdaddr);
+				cp.reason = 0x0f;
+				hci_send_cmd(hdev, HCI_OP_REJECT_CONN_REQ, sizeof(cp), &cp);
+				return;
+			}
+			#endif
 			/* pkt_type not yet used for incoming connections */
 			conn = hci_conn_add(hdev, ev->link_type, 0, &ev->bdaddr);
 			if (!conn) {
@@ -1564,7 +1636,12 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 	conn = hci_conn_hash_lookup_handle(hdev, __le16_to_cpu(ev->handle));
 	if (!conn)
 		goto unlock;
-
+#ifdef CONFIG_BT_TROUT
+	if(conn->handle == hci_encrypt_ev_info.handle)
+	{
+		memset(&hci_encrypt_ev_info, 0xFF, sizeof(hci_encrypt_ev_info));
+	}
+#endif
 	conn->state = BT_CLOSED;
 
 	if (conn->type == ACL_LINK || conn->type == LE_LINK)
@@ -1572,6 +1649,12 @@ static inline void hci_disconn_complete_evt(struct hci_dev *hdev, struct sk_buff
 
 	hci_proto_disconn_cfm(conn, ev->reason);
 	hci_conn_del(conn);
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    if(!hci_conn_hash_lookup_acl(hdev))
+    {
+        hci_set_ctl_act(false);
+    }
+#endif
 
 unlock:
 	hci_dev_unlock(hdev);
@@ -1606,7 +1689,13 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 	clear_bit(HCI_CONN_REAUTH_PEND, &conn->pend);
 
 	if (conn->state == BT_CONFIG) {
+#ifndef CONFIG_BT_TROUT
 		if (!ev->status && hdev->ssp_mode > 0 && conn->ssp_mode > 0) {
+#else
+/*add a condition to judge the acl link*/
+		if (!ev->status && hdev->ssp_mode > 0 && conn->ssp_mode > 0 &&
+			(conn->handle != hci_encrypt_ev_info.handle) ){
+#endif
 			struct hci_cp_set_conn_encrypt cp;
 			cp.handle  = ev->handle;
 			cp.encrypt = 0x01;
@@ -1626,7 +1715,12 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 	}
 
 	if (test_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend)) {
+#ifndef CONFIG_BT_TROUT
 		if (!ev->status) {
+#else/*add a condition to judge the acl link*/
+		if (!ev->status&&
+			(conn->handle != hci_encrypt_ev_info.handle)){
+#endif
 			struct hci_cp_set_conn_encrypt cp;
 			cp.handle  = ev->handle;
 			cp.encrypt = 0x01;
@@ -1637,6 +1731,29 @@ static inline void hci_auth_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 			hci_encrypt_cfm(conn, ev->status, 0x00);
 		}
 	}
+#ifdef CONFIG_BT_TROUT
+/*save the encrypt information, and notify the app*/
+	if(conn->handle == hci_encrypt_ev_info.handle){
+		if(!hci_encrypt_ev_info.status){
+			if(!hci_encrypt_ev_info.encrypt){
+				conn->link_mode |= HCI_LM_AUTH;
+				conn->link_mode |= HCI_LM_ENCRYPT;
+			}
+			else
+				conn->link_mode &= HCI_LM_ENCRYPT;
+			}
+			clear_bit(HCI_CONN_ENCRYPT_PEND, &conn->pend);
+			if(conn->state == BT_CONFIG){
+				if(hci_encrypt_ev_info.status){
+					conn->state = BT_CONNECTED;
+					hci_proto_connect_cfm(conn, hci_encrypt_ev_info.status);
+					hci_conn_put(conn);
+				}else
+					hci_encrypt_cfm(conn, hci_encrypt_ev_info.status, hci_encrypt_ev_info.encrypt);
+					memset(&hci_encrypt_ev_info, 0xFF, sizeof(hci_encrypt_ev_info));
+				}
+		}
+#endif
 
 unlock:
 	hci_dev_unlock(hdev);
@@ -1705,7 +1822,14 @@ static inline void hci_encrypt_change_evt(struct hci_dev *hdev, struct sk_buff *
 		} else
 			hci_encrypt_cfm(conn, ev->status, ev->encrypt);
 	}
-
+#ifdef CONFIG_BT_TROUT
+/*save the encrypt information*/
+	else
+	{
+		memcpy(&hci_encrypt_ev_info, ev, sizeof(hci_encrypt_ev_info));
+		BT_DBG("hci_encrypt change event end!!!!!!!!");
+	}
+#endif
 	hci_dev_unlock(hdev);
 }
 
@@ -1744,8 +1868,46 @@ static inline void hci_remote_features_evt(struct hci_dev *hdev, struct sk_buff 
 	if (!conn)
 		goto unlock;
 
+#ifdef CONFIG_BT_TROUT
+	if (!ev->status){
+		memcpy(conn->features, ev->features, 8);
+		//xiangxin: set right esco_type for goer
+		conn->esco_type = SCO_ESCO_MASK;
+		if (conn->features[3] & conn->features[3] & 0x80)
+		{
+			conn->esco_type |= ESCO_EV3;
+		}
+		if (conn->features[4] & conn->features[4] & 0x01)
+		{
+			conn->esco_type |= ESCO_EV4;
+		}
+		if (conn->features[4] & conn->features[4] & 0x02)
+		{
+			conn->esco_type |= ESCO_EV5;
+		}
+		if (conn->features[5] & conn->features[5] & 0x20)
+		{
+			conn->esco_type |= ESCO_2EV3;
+			if (conn->features[5] & conn->features[5] & 0x80)
+			{
+				conn->esco_type |= ESCO_2EV5;
+			}
+		}
+		if (conn->features[5] & conn->features[5] & 0x40)
+		{
+			conn->esco_type |= ESCO_3EV3;
+			if (conn->features[5] & conn->features[5] & 0x80)
+			{
+				conn->esco_type |= ESCO_3EV5;
+			}
+		}
+		BT_INFO("[bt] remote features[3] 0x%x, features[4] 0x%x sco_packet 0x%x",
+					conn->features[3], conn->features[4], conn->esco_type);
+	}
+#else
 	if (!ev->status)
 		memcpy(conn->features, ev->features, 8);
+#endif
 
 	if (conn->state != BT_CONFIG)
 		goto unlock;
@@ -1878,6 +2040,9 @@ static inline void hci_cmd_complete_evt(struct hci_dev *hdev, struct sk_buff *sk
 		break;
 
 	case HCI_OP_WRITE_SSP_MODE:
+#ifdef CONFIG_BT_TROUT
+        hci_setup_features(hdev);
+#endif
 		hci_cc_write_ssp_mode(hdev, skb);
 		break;
 
@@ -2171,7 +2336,16 @@ static inline void hci_mode_change_evt(struct hci_dev *hdev, struct sk_buff *skb
 		if (test_and_clear_bit(HCI_CONN_SCO_SETUP_PEND, &conn->pend))
 			hci_sco_setup(conn, ev->status);
 	}
-
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    if(hci_conn_hash_lookup_acl(hdev))
+    {
+        hci_set_ctl_act(true);
+    }
+    else
+    {
+        hci_set_ctl_act(false);
+    }
+#endif
 	hci_dev_unlock(hdev);
 }
 
@@ -2496,8 +2670,13 @@ static inline void hci_sync_conn_complete_evt(struct hci_dev *hdev, struct sk_bu
 	case 0x1a:	/* Unsupported Remote Feature */
 	case 0x1f:	/* Unspecified error */
 		if (conn->out && conn->attempt < 2) {
+#ifdef CONFIG_BT_TROUT
+//set right esco_type for goer
+			conn->pkt_type = (conn->esco_type & (__u16)(~SCO_ESCO_MASK)) | (conn->esco_type | EDR_ESCO_MASK);
+#else
 			conn->pkt_type = (hdev->esco_type & SCO_ESCO_MASK) |
 					(hdev->esco_type & EDR_ESCO_MASK);
+#endif
 			hci_setup_sync(conn, conn->link->handle);
 			goto unlock;
 		}
