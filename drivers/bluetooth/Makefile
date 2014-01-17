@@ -31,3 +31,7 @@ hci_uart-$(CONFIG_BT_HCIUART_RTKH5) 	+= hci_rtk_h5.o rtk_rfkill.o
 hci_uart-$(CONFIG_BT_HCIUART_ATH3K)	+= hci_ath.o
 hci_uart-objs				:= $(hci_uart-y)
 obj-$(CONFIG_BT_BCM4330) += bluesleep.o brcm_rfkill.o
+
+ifdef CONFIG_BT_TROUT
+obj-m := trout_bt_debug.o trout_bt.o
+endif

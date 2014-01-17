@@ -48,6 +48,42 @@
 
 #define VERSION "2.2"
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+
+#include "linux/skbuff.h"
+
+struct h4_struct {
+	unsigned long rx_state;
+	unsigned long rx_count;
+	struct sk_buff *rx_skb;
+	struct sk_buff_head txq;
+};
+struct timer_list timer_retransmit;
+//static DEFINE_MUTEX(h4_mutex);
+int send_by_timer = 0;
+extern bool hci_is_ctl_act();
+extern struct tasklet_struct	write2tty_task;
+extern struct tasklet_struct    sendack2controller_task;
+#endif
+
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+/* export to other drivers by zhao */
+/*
+void get_h4_mutex(void)
+{
+	mutex_lock(&h4_mutex);
+}
+*/
+
+/* export to other drivers by zhao */
+/*
+void put_h4_mutex(void)
+{
+	mutex_unlock(&h4_mutex);
+}
+*/
+#endif
+
 static int reset = 0;
 
 static struct hci_uart_proto *hup[HCI_UART_MAX_PROTO];
@@ -118,6 +154,109 @@ static inline struct sk_buff *hci_uart_dequeue(struct hci_uart *hu)
 	return skb;
 }
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+static inline int is_skb_queue_empty(const struct sk_buff_head *list)
+{
+	return ((list->next != (struct sk_buff *)list)&&
+           (list->next->next == (struct sk_buff *)list));
+}
+
+int hci_uart_tx_wakeup_sprd(struct hci_uart *hu, int is_queue_empty, bool is_data, bool send_by_timer)
+{
+    struct tty_struct *tty = hu->tty;
+    struct hci_dev *hdev = hu->hdev;
+    struct sk_buff *skb;
+    int skb_len, len;
+    /*
+    if (test_and_set_bit(HCI_UART_SENDING, &hu->tx_state)) {
+        BT_DBG("return 0");
+        set_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
+        return 0;
+    }
+*/
+    if(!is_data){
+        unsigned char data = 0xaa;
+        set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+        if(NULL != hu->tx_skb)
+        {
+            goto restart;
+        }
+        if((1 == is_queue_empty)
+            ||(send_by_timer == true))
+        {
+            tty->ops->write(tty, &data, 1);
+            BT_UART_DBG("sending 0xaa ");
+            mod_timer(&timer_retransmit, jiffies + HZ / 100);
+        }
+
+        clear_bit(HCI_UART_SENDING, &hu->tx_state);
+        return 0;
+    }
+    restart:
+    clear_bit(HCI_UART_TX_WAKEUP, &hu->tx_state);
+    skb_len = 0;
+    len = 0;
+    while ((skb = hci_uart_dequeue(hu))) {
+        skb_len = skb->len;
+        set_bit(TTY_DO_WRITE_WAKEUP, &tty->flags);
+        len = tty->ops->write(tty, skb->data, skb->len);
+        hdev->stat.byte_tx += len;
+
+        BT_UART_DBG("sk_data:type 0x%x len=%d skb_len %d data:0x%x 0x%x 0x%x",bt_cb(skb)->pkt_type, len, skb->len, skb->data[1], skb->data[2], skb->data[3]);
+        skb_pull(skb, len);
+
+        if (skb->len) {
+            hu->tx_skb = skb;
+            break;
+        }
+
+        hci_uart_tx_complete(hu, bt_cb(skb)->pkt_type);
+        kfree_skb(skb);
+    }
+
+    if (test_bit(HCI_UART_TX_WAKEUP, &hu->tx_state))
+        goto restart;
+    clear_bit(HCI_UART_SENDING, &hu->tx_state);
+    return 0;
+}
+
+static void wakeupcmd_timed_event(unsigned long arg)
+{
+    struct hci_dev *hdev = NULL;//(struct hci_uart *) arg;
+    struct hci_uart *hu  = NULL;//(struct hci_uart *) hdev->driver_data;
+    struct h4_struct *h4 = NULL;//hu->priv;
+
+    if(arg == NULL)
+    {
+		BT_UART_DBG(" wakeupcmd_timed_event arg ");
+        return;
+    }
+
+    hdev = (struct hci_uart *) arg;
+    hu  = (struct hci_uart *) hdev->driver_data;
+
+    if(NULL == hdev->driver_data)
+    {
+		BT_UART_DBG(" wakeupcmd_timed_event driver_data");
+        return;
+    }
+
+    if (!test_bit(HCI_RUNNING, &hdev->flags))
+    {
+		BT_UART_DBG("wakeupcmd_timed_event stop");
+        return;
+    }
+    h4 = hu->priv;
+
+    if(NULL == hu->priv)
+    {
+		BT_UART_DBG("wakeupcmd_timed_event hu->priv");
+        return;
+    }
+    hci_uart_tx_wakeup_sprd(hu,  0, false,true);
+}
+#endif
+
 int hci_uart_tx_wakeup(struct hci_uart *hu)
 {
 	struct tty_struct *tty = hu->tty;
@@ -164,6 +303,11 @@ static int hci_uart_open(struct hci_dev *hdev)
 {
 	BT_DBG("%s %p", hdev->name, hdev);
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    init_timer(&timer_retransmit);
+    timer_retransmit.function = wakeupcmd_timed_event;
+    timer_retransmit.data     = (u_long)hdev;
+#endif
 	/* Nothing to do for UART driver */
 
 	set_bit(HCI_RUNNING, &hdev->flags);
@@ -201,6 +345,13 @@ static int hci_uart_close(struct hci_dev *hdev)
 	if (!test_and_clear_bit(HCI_RUNNING, &hdev->flags))
 		return 0;
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    if(NULL != &timer_retransmit)
+    {
+        del_timer(&timer_retransmit);
+    }
+#endif
+
 	hci_uart_flush(hdev);
 	hdev->flush = NULL;
 	return 0;
@@ -211,6 +362,10 @@ static int hci_uart_send_frame(struct sk_buff *skb)
 {
 	struct hci_dev* hdev = (struct hci_dev *) skb->dev;
 	struct hci_uart *hu;
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+	struct h4_struct *h4;
+        int is_queue_empty = 0;
+#endif
 
 	if (!hdev) {
 		BT_ERR("Frame for unknown device (hdev=NULL)");
@@ -221,13 +376,33 @@ static int hci_uart_send_frame(struct sk_buff *skb)
 		return -EBUSY;
 
 	hu = (struct hci_uart *) hdev->driver_data;
-
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+	h4 = hu->priv;
+#endif
 	BT_DBG("%s: type %d len %d", hdev->name, bt_cb(skb)->pkt_type, skb->len);
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    BT_UART_DBG("sk_data1:type 0x%x len =%d            data:0x%x 0x%x 0x%x",bt_cb(skb)->pkt_type, skb->len,skb->data[0], skb->data[1], skb->data[2]);
+    hu->proto->enqueue(hu, skb);
+    if(!hci_is_ctl_act())
+	{
+	    is_queue_empty = is_skb_queue_empty(&h4->txq);
+        hci_uart_tx_wakeup_sprd(hu, is_queue_empty, false, false);
+    }
+    else
+    {
+        if(NULL != &timer_retransmit)
+        {
+            del_timer(&timer_retransmit);
+        }
+        hci_uart_tx_wakeup_sprd(hu, 0, true, false);
+    }
+#else
 	hu->proto->enqueue(hu, skb);
-
+#endif
+#ifndef CONFIG_TROUT_UART_TRANSPORT_DEBUG
 	hci_uart_tx_wakeup(hu);
-
+#endif
 	return 0;
 }
 
@@ -300,6 +475,15 @@ static void hci_uart_tty_close(struct tty_struct *tty)
 
 	BT_DBG("tty %p", tty);
 
+
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    if(NULL != &timer_retransmit)
+    {
+        del_timer(&timer_retransmit);
+    }
+    tasklet_kill(&write2tty_task);
+    tasklet_kill(&sendack2controller_task);
+#endif
 	/* Detach from the tty */
 	tty->disc_data = NULL;
 
@@ -340,9 +524,14 @@ static void hci_uart_tty_wakeup(struct tty_struct *tty)
 
 	if (tty != hu->tty)
 		return;
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+        if (test_bit(HCI_UART_PROTO_SET, &hu->flags))
+            hci_uart_tx_wakeup_sprd(hu, 0, false, false);
 
+#else
 	if (test_bit(HCI_UART_PROTO_SET, &hu->flags))
 		hci_uart_tx_wakeup(hu);
+#endif
 }
 
 /* hci_uart_tty_receive()

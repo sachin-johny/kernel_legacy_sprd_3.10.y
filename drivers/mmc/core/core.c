@@ -863,6 +863,9 @@ void mmc_set_clock(struct mmc_host *host, unsigned int hz)
 	__mmc_set_clock(host, hz);
 	mmc_host_clk_release(host);
 }
+#ifdef CONFIG_TROUT
+EXPORT_SYMBOL(mmc_set_clock);
+#endif
 
 #ifdef CONFIG_MMC_CLKGATE
 /*
@@ -1390,14 +1393,23 @@ int mmc_resume_bus(struct mmc_host *host)
 	spin_unlock_irqrestore(&host->lock, flags);
 
 	mmc_bus_get(host);
-	if (host->bus_ops && !host->bus_dead) {
-		mmc_power_up(host);
-		BUG_ON(!host->bus_ops->resume);
-		host->bus_ops->resume(host);
+	if (host->bus_ops && !host->bus_dead) {       
+              if(host->card->type == MMC_TYPE_MMC) {
+                        printk("%s, %s\n", __func__, __LINE__);
+              }else{
+                        mmc_power_up(host);
+             }
+	    BUG_ON(!host->bus_ops->resume);
+	    host->bus_ops->resume(host);
 	}
-
+    /*card detect can not be call by dfferent task,
+    it my cause some task  to remove card at the same time*/
+#if 0
 	if (host->bus_ops->detect && !host->bus_dead)
-		host->bus_ops->detect(host);
+	host->bus_ops->detect(host);
+#else
+	mmc_detect_change(host, 0);
+#endif
 
 	mmc_bus_put(host);
 	printk("%s: Deferred resume completed\n", mmc_hostname(host));
@@ -2041,6 +2053,9 @@ int mmc_hw_reset_check(struct mmc_host *host)
 }
 EXPORT_SYMBOL(mmc_hw_reset_check);
 
+#ifdef CONFIG_TROUT
+int mmc_dev_trout_get_index(void);
+#endif
 static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 {
 	host->f_init = freq;
@@ -2055,9 +2070,7 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	 * Some eMMCs (with VCCQ always on) may not be reset after power up, so
 	 * do a hardware reset if possible.
 	 */
-
-	// Fix the timing issue for eMMC I/O and SD card power drop
-	//mmc_hw_reset_for_init(host);
+	mmc_hw_reset_for_init(host);
 
 	/*
 	 * sdio_reset sends CMD52 to reset card.  Since we do not know
@@ -2066,6 +2079,18 @@ static int mmc_rescan_try_freq(struct mmc_host *host, unsigned freq)
 	 */
 	sdio_reset(host);
 	mmc_go_idle(host);
+
+#ifdef CONFIG_TROUT
+	/*Fix trout h/w bug:
+	  if mmc_send_if_cond() is called,trout will not function normally
+	*/
+	if (host->index != mmc_dev_trout_get_index())
+	{
+		mmc_send_if_cond(host, host->ocr_avail);
+	}
+#else
+	mmc_send_if_cond(host, host->ocr_avail);
+#endif
 
 	mmc_send_if_cond(host, host->ocr_avail);
 
@@ -2094,12 +2119,16 @@ int _mmc_detect_card_removed(struct mmc_host *host)
 	int ret;
 
 	if ((host->caps & MMC_CAP_NONREMOVABLE) || !host->bus_ops->alive)
+	    {
+	printk( "_mmc_detect_card_removed 0\n");
 		return 0;
-
-	if (!host->card || mmc_card_removed(host->card))
+}
+	if (!host->card || mmc_card_removed(host->card)){
+     	printk( "_mmc_detect_card_removed 1\n");
 		return 1;
-
+	 }
 	ret = host->bus_ops->alive(host);
+         printk( "_mmc_detect_card_removed ret=%x\n",ret);
 	if (ret) {
 		mmc_card_set_removed(host->card);
 		pr_debug("%s: card remove detected\n", mmc_hostname(host));
@@ -2135,6 +2164,8 @@ void mmc_remove_sd_card(struct work_struct *work)
 	mmc_bus_put(host);
 	mmc_power_off(host);
 	wake_unlock(&host->detect_wake_lock);
+	if(host->card)
+		host->card->removed = 1;
 	printk(KERN_INFO "%s: %s exit\n", mmc_hostname(host),
 		__func__);
 
@@ -2466,7 +2497,10 @@ int mmc_suspend_host(struct mmc_host *host)
 		 */
 		if (!(host->card && mmc_card_sdio(host->card)))
 			if (!mmc_try_claim_host(host))
+			{				
+				printk("**** %s, can not claim host,  err = -EBUSY ****\n", __func__);
 				err = -EBUSY;
+			}
 
 		if (!err) {
 			if (host->bus_ops->suspend) {
@@ -2475,13 +2509,15 @@ int mmc_suspend_host(struct mmc_host *host)
 				 * before sleep, because in sleep state eMMC 4.5
 				 * devices respond to only RESET and AWAKE cmd
 				 */
-				mmc_poweroff_notify(host);
+				mmc_poweroff_notify(host);				
+				printk("**** %s, call suspend ****\n", __func__);
 				err = host->bus_ops->suspend(host);
 			}
 			if (!(host->card && mmc_card_sdio(host->card)))
 				mmc_do_release_host(host);
 
 			if (err == -ENOSYS || !host->bus_ops->resume) {
+				printk("!!!!!%s,  suspend error,  err:%d !!!!!!!\n", __func__, err);
 				/*
 				 * We simply "remove" the card in this case.
 				 * It will be redetected on resume.
@@ -2499,7 +2535,8 @@ int mmc_suspend_host(struct mmc_host *host)
 	}
 	mmc_bus_put(host);
 
-	if (!err && !mmc_card_keep_power(host)){
+	if (!err && !mmc_card_keep_power(host)){		
+		printk("%s, %s, call mmc_power_off \n",  mmc_hostname(host), __func__ );
 		mmc_power_off(host);
 	}
 out:
@@ -2517,7 +2554,8 @@ int mmc_resume_host(struct mmc_host *host)
 	int err = 0;
 
 	mmc_bus_get(host);
-	if (mmc_bus_manual_resume(host)) {
+	if (mmc_bus_manual_resume(host)) {		
+		printk("'**** %s, %s, set MMC_BUSRESUME_NEEDS_RESUME ****\n", mmc_hostname(host), __func__ );
 		host->bus_resume_flags |= MMC_BUSRESUME_NEEDS_RESUME;
 		mmc_bus_put(host);
 		return 0;

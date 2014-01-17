@@ -189,3 +189,4 @@ suspend_state_t get_suspend_state(void)
 {
 	return requested_suspend_state;
 }
+EXPORT_SYMBOL(get_suspend_state);

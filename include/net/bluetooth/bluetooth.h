@@ -83,7 +83,9 @@ int bt_printk(const char *level, const char *fmt, ...);
 #define BT_INFO(fmt, arg...)   bt_printk(KERN_INFO, pr_fmt(fmt), ##arg)
 #define BT_ERR(fmt, arg...)    bt_printk(KERN_ERR, pr_fmt(fmt), ##arg)
 #define BT_DBG(fmt, arg...)    pr_debug(fmt "\n", ##arg)
-
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+#define BT_UART_DBG(fmt, arg...) printk(KERN_INFO "[UART]%s: " fmt "\n" , __func__ , ## arg)
+#endif
 /* Connection and socket states */
 enum {
 	BT_CONNECTED = 1, /* Equal to TCP_ESTABLISHED to make net code happy */

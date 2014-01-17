@@ -459,4 +459,5 @@ config RADIO_BEKEN
 # TI's ST based wl128x FM radio
 source "drivers/media/radio/wl128x/Kconfig"
 
+source "drivers/media/radio/trout_fm/Kconfig"
 endif # RADIO_ADAPTERS

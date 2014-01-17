@@ -24,8 +24,12 @@
 
 #ifndef __HCI_H
 #define __HCI_H
-
+#ifdef CONFIG_BT_TROUT
+// 672 is for TROUT BT controller buffer
+#define HCI_MAX_ACL_SIZE	672
+#else
 #define HCI_MAX_ACL_SIZE	1024
+#endif
 #define HCI_MAX_SCO_SIZE	255
 #define HCI_MAX_EVENT_SIZE	260
 #define HCI_MAX_FRAME_SIZE	(HCI_MAX_ACL_SIZE + 4)
@@ -116,10 +120,16 @@ enum {
 #define HCIUNBLOCKADDR	_IOW('H', 231, int)
 
 #define HCIINQUIRY	_IOR('H', 240, int)
-
+#ifdef CONFIG_BT_TROUT
+#define HCIDEVPOWEROFF	_IOW('H', 241, int)
+#endif
 /* HCI timeouts */
 #define HCI_CONNECT_TIMEOUT	(40000)	/* 40 seconds */
+#ifndef CONFIG_BT_TROUT
 #define HCI_DISCONN_TIMEOUT	(2000)	/* 2 seconds */
+#else
+#define HCI_DISCONN_TIMEOUT	(1000)	/* 1 seconds */
+#endif
 #define HCI_PAIRING_TIMEOUT	(60000)	/* 60 seconds */
 #define HCI_IDLE_TIMEOUT	(6000)	/* 6 seconds */
 #define HCI_INIT_TIMEOUT	(10000)	/* 10 seconds */

@@ -1,0 +1,1364 @@
+#fnum<1>#file<common.c>#line<279>#func<calibrate_delay_loop>#content<%s: enter>#type<1>#
+#fnum<1>#file<common.c>#line<319>#func<calibrate_delay_loop>#content<DelayCalibration:Cnt=%d Delay=%d Calib_Cnt=%d\n>#type<0>#
+#fnum<1>#file<common.c>#line<320>#func<calibrate_delay_loop>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<105>#func<host_read_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<106>#func<host_read_trout_ram>#content<troutreadram: length=%u\n>#type<0>#
+#fnum<3>#file<spi_interface.c>#line<110>#func<host_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<143>#func<host_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<157>#func<host_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<165>#func<host_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<183>#func<host_write_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<184>#func<host_write_trout_ram>#content<troutwriteram length=%u\n>#type<0>#
+#fnum<3>#file<spi_interface.c>#line<188>#func<host_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<219>#func<host_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<233>#func<host_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<241>#func<host_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<261>#func<host_block_read_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<264>#func<host_block_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<272>#func<host_block_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<300>#func<host_block_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<323>#func<host_block_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<341>#func<host_block_write_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<344>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<352>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<359>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<383>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<406>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<631>#func<host_read_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<632>#func<host_read_trout_ram>#content<troutreadram: length=%u\n>#type<0>#
+#fnum<3>#file<spi_interface.c>#line<637>#func<host_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<671>#func<host_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<688>#func<host_write_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<689>#func<host_write_trout_ram>#content<troutwriteram length=%u\n>#type<0>#
+#fnum<3>#file<spi_interface.c>#line<694>#func<host_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<721>#func<host_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<739>#func<host_block_read_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<743>#func<host_block_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<782>#func<host_block_read_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<800>#func<host_block_write_trout_ram>#content<%s: enter>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<804>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<3>#file<spi_interface.c>#line<839>#func<host_block_write_trout_ram>#content<%s: exit>#type<1>#
+#fnum<4>#file<trout_share_mem.h>#line<126>#func<trout_share_ram_show>#content<--------------troutshare mem region -------------\n>#type<0>#
+#fnum<4>#file<trout_share_mem.h>#line<127>#func<trout_share_ram_show>#content<troutsharemem size:       0x%08X, range: 0x%08X ~ 0x%08X\n>#type<0>#
+#fnum<4>#file<trout_share_mem.h>#line<128>#func<trout_share_ram_show>#content<troutwifirx mem size:     0x%08X, range: 0x%08X ~ 0x%08X\n>#type<0>#
+#fnum<4>#file<trout_share_mem.h>#line<129>#func<trout_share_ram_show>#content<troutwifitx mem size:     0x%08X, range: 0x%08X ~ 0x%08X\n>#type<0>#
+#fnum<4>#file<trout_share_mem.h>#line<130>#func<trout_share_ram_show>#content<troutwifibeacon mem size: 0x%08X, range: 0x%08X ~ 0x%08X\n>#type<0>#
+#fnum<4>#file<trout_share_mem.h>#line<132>#func<trout_share_ram_show>#content<troutwifiP2P cfg mem size: 0x%08X, range: 0x%08X ~ 0x%08X\n>#type<0>#
+#fnum<4>#file<trout_share_mem.h>#line<134>#func<trout_share_ram_show>#content<----------------------------------------------------\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<36>#func<print_mac_debug_reg_info>#content<\n====macregister statistics log ===\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<38>#func<print_mac_debug_reg_info>#content<PACtrlreg value(0x04)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<39>#func<print_mac_debug_reg_info>#content<FCSFailures(0x8C)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<40>#func<print_mac_debug_reg_info>#content<RX_frame_into_ram_count(0xC4)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<41>#func<print_mac_debug_reg_info>#content<RX_frame_filter_count(0x50)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<42>#func<print_mac_debug_reg_info>#content<RX_mac_header_filter_count(0x54)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<43>#func<print_mac_debug_reg_info>#content<Rxq_full_filter_count(0x5C)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<44>#func<print_mac_debug_reg_info>#content<RXcompletecount(0x24)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<45>#func<print_mac_debug_reg_info>#content<TXcompletecount(0x24)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<46>#func<print_mac_debug_reg_info>#content<Duplicateframes(0x94)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<47>#func<print_mac_debug_reg_info>#content<RX-EndCount(0x98)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<48>#func<print_mac_debug_reg_info>#content<RX-EndErrorCount(0x9C)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<49>#func<print_mac_debug_reg_info>#content<RXAMPDUCount(0xA0)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<50>#func<print_mac_debug_reg_info>#content<MPDUinrcved AMPDU Count(0xA4)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<51>#func<print_mac_debug_reg_info>#content<RcvedOctetsin AMPDU Count(0xA8)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<52>#func<print_mac_debug_reg_info>#content<AMPDUDelimiterCRC Err Count(0xAC)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<53>#func<print_mac_debug_reg_info>#content<TransmitAMPDUCount(0x2AC)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<54>#func<print_mac_debug_reg_info>#content<TransmitMPDUsin AMPDU Count(0x2B0)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<55>#func<print_mac_debug_reg_info>#content<TransmitOctetsin AMPDU Count(0x2B4)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<74>#func<tx_procedure_log_show>#content<\n=====txprocedure log info show =====\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<76>#func<tx_procedure_log_show>#content<txdataframe length>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<77>#func<tx_procedure_log_show>#content<txdataframe count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<78>#func<tx_procedure_log_show>#content<txmgmtframe length>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<79>#func<tx_procedure_log_show>#content<txmgmtframe count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<80>#func<tx_procedure_log_show>#content<txpktlength exceeds max limit(1596)>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<81>#func<tx_procedure_log_show>#content<txqueuefull count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<82>#func<tx_procedure_log_show>#content<txbusycount>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<88>#func<rx_procedure_log_show>#content<\n=====rxprocedure log info show =====\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<90>#func<rx_procedure_log_show>#content<totalrcvdrx dscr num>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<91>#func<rx_procedure_log_show>#content<totalrxdrop pkt count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<92>#func<rx_procedure_log_show>#content<totalhostrxq full count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<93>#func<rx_procedure_log_show>#content<Rxframesexceed max acceptable length>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<94>#func<rx_procedure_log_show>#content<rcvdProtocolVersion Match Fail>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<95>#func<rx_procedure_log_show>#content<rcvdpktBSSID Match Fail>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<96>#func<rx_procedure_log_show>#content<rcvdpktLess than min accept length>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<97>#func<rx_procedure_log_show>#content<totalrcvdctrl frame count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<98>#func<rx_procedure_log_show>#content<totalrcvdctrl frame length>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<100>#func<rx_procedure_log_show>#content<totalrcvdbeacon frame count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<101>#func<rx_procedure_log_show>#content<totalrcvdprob rsp frame count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<102>#func<rx_procedure_log_show>#content<totalrcvddata frame length>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<103>#func<rx_procedure_log_show>#content<totalrcvddata frame count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<112>#func<interrupt_log_show>#content<\n=====interruptlog info show =====\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<114>#func<interrupt_log_show>#content<totalmacint count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<115>#func<interrupt_log_show>#content<totaltbttint count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<116>#func<interrupt_log_show>#content<totaltxcomplete int count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<117>#func<interrupt_log_show>#content<totalnormalrx complete int count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<118>#func<interrupt_log_show>#content<totaldeauthint count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<119>#func<interrupt_log_show>#content<totalCAPEnd int count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<125>#func<memory_log_show>#content<\n=====memorylog info show =====\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<130>#func<memory_log_show>#content<noeventmem count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<131>#func<memory_log_show>#content<nosharemem count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<132>#func<memory_log_show>#content<nolocalmem count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<133>#func<memory_log_show>#content<totaltxqerror count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<134>#func<memory_log_show>#content<noeventmem count>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<159>#func<trace_info_show_thread>#content<%s:cost time: %lu us\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<161>#func<trace_info_show_thread>#content<txdataframe total size(byte): %u\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<162>#func<trace_info_show_thread>#content<txdataframe send times: %u\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<163>#func<trace_info_show_thread>#content<txmgmtframe total size(byte): %u\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<164>#func<trace_info_show_thread>#content<txmgmtframe send times: %u\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<166>#func<trace_info_show_thread>#content<imac=%d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<167>#func<trace_info_show_thread>#content<itbtt=%d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<168>#func<trace_info_show_thread>#content<itxc= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<169>#func<trace_info_show_thread>#content<irxc= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<170>#func<trace_info_show_thread>#content<ihprxc= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<171>#func<trace_info_show_thread>#content<ierr= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<172>#func<trace_info_show_thread>#content<ideauth= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<173>#func<trace_info_show_thread>#content<icapend= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<174>#func<trace_info_show_thread>#content<enpmsdu= %d\n>#type<0>#
+#fnum<5>#file<trout_trace.c>#line<175>#func<trace_info_show_thread>#content<erxqemp= %d\n>#type<0>#
+#fnum<6>#file<trout_trace.h>#line<109>#func<get_value>#content<%s,line%d: enter! >#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<306>#func<init_mac_rx_queue>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<309>#func<init_mac_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<318>#func<init_mac_rx_queue>#content<%s:allocrx_queue_handle space failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<319>#func<init_mac_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<336>#func<init_mac_rx_queue>#content<allochostrx normal priority queue failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<347>#func<init_mac_rx_queue>#content<allochostrx high priority queue failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<352>#func<init_mac_rx_queue>#content<normal_rx_q:%p,high_rx_q: %p\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<401>#func<init_mac_rx_queue>#content<createworkqueue failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<414>#func<init_mac_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<431>#func<init_mac_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<442>#func<host_rx_queue_free>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<445>#func<host_rx_queue_free>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<478>#func<host_rx_queue_free>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<548>#func<replenish_trout_rx_queue>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<552>#func<replenish_trout_rx_queue>#content<troutrxqueue %d out of range!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<553>#func<replenish_trout_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<583>#func<replenish_trout_rx_queue>#content<resetMACrx buf register(0x%08x, %d)!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<588>#func<replenish_trout_rx_queue>#content<resettroutcurrent rx ptr!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<603>#func<replenish_trout_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<613>#func<get_machw_rx_num_dscr>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<619>#func<get_machw_rx_num_dscr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<634>#func<get_machw_rx_num_dscr>#content<ERR:getnum of dscr failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<635>#func<get_machw_rx_num_dscr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<648>#func<get_machw_rx_num_dscr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<659>#func<active_fifo_rx_frame_pointer>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<674>#func<active_fifo_rx_frame_pointer>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<686>#func<rx_complete_isr>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<690>#func<rx_complete_isr>#content<rxqueue isn't initialized!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<691>#func<rx_complete_isr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<708>#func<rx_complete_isr>#content<%s:pri:%d, base_dscr: 0x%08x, num_dscr: %d\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<754>#func<rx_complete_isr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<762>#func<rx_complete_isr>#content<ERR:troutrx%d queue is out of range(0x%08x -> 0x%08x, 0x%08x)!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<763>#func<rx_complete_isr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<770>#func<rx_complete_isr>#content<%s:kmallocfailed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<771>#func<rx_complete_isr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<792>#func<rx_complete_isr>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<802>#func<find_free_dscr_from_queue>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<805>#func<find_free_dscr_from_queue>#content<%s:invalidparameter!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<806>#func<find_free_dscr_from_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<838>#func<find_free_dscr_from_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<852>#func<transact_host_rx_queue>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<874>#func<transact_host_rx_queue>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<891>#func<do_rx_preprocess>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<908>#func<do_rx_preprocess>#content<need_trans_dscr_num=%d, cur_trans_num = %d\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<914>#func<do_rx_preprocess>#content<Warning:findneeds free node failed, pkt droped(%d:%d)!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<927>#func<do_rx_preprocess>#content<hostreaddata from trout failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<959>#func<do_rx_preprocess>#content<allocwlan_rxevent failed!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<977>#func<do_rx_preprocess>#content<Warning:transactincompatible, %d pkt droped!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<988>#func<do_rx_preprocess>#content<rx_process<%d>:pkt=%d,length=%u\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<997>#func<do_rx_preprocess>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1006>#func<rx_complete_work>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1023>#func<rx_complete_work>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1036>#func<process_wlan_rx>#content<%s: enter>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1041>#func<process_wlan_rx>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1045>#func<process_wlan_rx>#content<%s:base_dscr= 0x%p, num_dscr = %d\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1095>#func<process_wlan_rx>#content<%s:num_buffsis empty!\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1103>#func<process_wlan_rx>#content<%s:num_buffs(%d)bigger than num_dscr(%d)\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1114>#func<process_wlan_rx>#content<%s:num_dscr= %d, num_buffs = %d\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1133>#func<process_wlan_rx>#content<%s: exit>#type<1>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1179>#func<rx_share_ram_show>#content<Warning:rxq(%d)descr numbers are over than %d\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1199>#func<rx_share_ram_show>#content<rx(%d)descbitmap: 0x%llx, total: %u, used: %u, free: %u\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1218>#func<host_rx_buff_show>#content<hostrxq(%d)detail: 1(used), 0(free)\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1224>#func<host_rx_buff_show>#content<1>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1229>#func<host_rx_buff_show>#content<0>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1233>#func<host_rx_buff_show>#content<\n>#type<0>#
+#fnum<7>#file<trout_wifi_rx.c>#line<1237>#func<host_rx_buff_show>#content<\nhostrxq(%d):total = %d, used = %d, free = %d\n>#type<0>#
+#fnum<8>#file<event_parser_ap.c>#line<82>#func<process_host_rx_msdu_ap>#content<%s: enter>#type<1>#
+#fnum<8>#file<event_parser_ap.c>#line<194>#func<process_host_rx_msdu_ap>#content<%s: exit>#type<1>#
+#fnum<9>#file<sme_ap.c>#line<92>#func<send_mlme_rsp_to_host_ap>#content<%s: enter>#type<1>#
+#fnum<9>#file<sme_ap.c>#line<94>#func<send_mlme_rsp_to_host_ap>#content<%s: exit>#type<1>#
+#fnum<9>#file<sme_ap.c>#line<123>#func<handle_start_rsp>#content<%s: enter>#type<1>#
+#fnum<9>#file<sme_ap.c>#line<126>#func<handle_start_rsp>#content<%s: exit>#type<1>#
+#fnum<10>#file<event_parser.c>#line<76>#func<process_host_rx_mlme>#content<%s: enter>#type<1>#
+#fnum<10>#file<event_parser.c>#line<108>#func<process_host_rx_mlme>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1191>#func<parse_config_message>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1223>#func<parse_config_message>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1262>#func<parse_config_message>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1366>#func<parse_config_message>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1398>#func<parse_config_message>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1658>#func<process_write>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<1787>#func<process_write>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2180>#func<send_host_rsp>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2189>#func<send_host_rsp>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2201>#func<send_host_rsp>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2228>#func<send_network_info_to_host>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2269>#func<send_network_info_to_host>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2301>#func<send_join_leave_info_to_host>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2306>#func<send_join_leave_info_to_host>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2352>#func<send_join_leave_info_to_host>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2387>#func<save_wids>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2446>#func<save_wids>#content<Err:WIDSave Response exceeded the max size.\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<2450>#func<save_wids>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2475>#func<restore_wids>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2485>#func<restore_wids>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2517>#func<update_device_mode>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2582>#func<update_device_mode>#content<AP:Switching to Client Mode\n\r>#type<0>#
+#fnum<11>#file<iconfig.c>#line<2601>#func<update_device_mode>#content<P2PGO:Switching to Client Mode\n\r>#type<0>#
+#fnum<11>#file<iconfig.c>#line<2636>#func<update_device_mode>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2654>#func<update_device_mode>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2662>#func<resolve_wid_conflicts>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2785>#func<resolve_wid_conflicts>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2820>#func<config_op_params>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2834>#func<config_op_params>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<2858>#func<config_op_params>#content<Configuringdevicefrom saved settings\n\r>#type<0>#
+#fnum<11>#file<iconfig.c>#line<2888>#func<config_op_params>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3022>#func<copy_scan_ap_list>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3025>#func<copy_scan_ap_list>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3063>#func<copy_scan_ap_list>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3093>#func<send_mac_status>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3099>#func<send_mac_status>#content<<=chenqsend_mac_status:Connected\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3102>#func<send_mac_status>#content<Connected.\n\r>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3103>#func<send_mac_status>#content<=>chenqsend_mac_status:Connected\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3111>#func<send_mac_status>#content<<=chenqsend_mac_status:Disconnected\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3114>#func<send_mac_status>#content<Disconnected.\n\r>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3115>#func<send_mac_status>#content<=>chenqsend_mac_status:Disconnected\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3133>#func<send_mac_status>#content<MAC_SCAN_CMP.\n\r>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3134>#func<send_mac_status>#content<=>chenqsend_mac_status:MAC_SCAN_CMP\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3145>#func<send_mac_status>#content<<=chenqsend_mac_status:UP\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3151>#func<send_mac_status>#content<=>chenqsend_mac_status:UP\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3162>#func<send_mac_status>#content<<=chenqsend_mac_status:DOWN\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3168>#func<send_mac_status>#content<=>chenqsend_mac_status:DOWN\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3231>#func<send_mac_status>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3258>#func<init_dev_spec_info>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3266>#func<init_dev_spec_info>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3299>#func<send_wps_status>#content<%s: enter>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3309>#func<send_wps_status>#content<%s: exit>#type<1>#
+#fnum<11>#file<iconfig.c>#line<3355>#func<send_wps_status>#content<WPSstatus:%02x\n>#type<0>#
+#fnum<11>#file<iconfig.c>#line<3356>#func<send_wps_status>#content<%s: exit>#type<1>#
+#fnum<12>#file<iconfig.h>#line<1465>#func<set_PowerManagementMode>#content<%s: enter>#type<1>#
+#fnum<12>#file<iconfig.h>#line<1467>#func<set_PowerManagementMode>#content<PS:setpower save mode %d>#type<0>#
+#fnum<12>#file<iconfig.h>#line<1485>#func<set_PowerManagementMode>#content<%s: exit>#type<1>#
+#fnum<12>#file<iconfig.h>#line<3414>#func<set_p2p_listen_chan>#content<P2P:ch_idx%d>#type<0>#
+#fnum<12>#file<iconfig.h>#line<3506>#func<set_device_mode>#content<WPS:setdevice mode from %d to %d\n>#type<0>#
+#fnum<13>#file<maccontroller.c>#line<104>#func<init_event_manager>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<124>#func<init_event_manager>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<186>#func<process_all_events>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<236>#func<process_all_events>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<263>#func<process_event_queues>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<273>#func<process_event_queues>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<311>#func<process_wlan_event_q>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<314>#func<process_wlan_event_q>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<355>#func<process_wlan_event_q>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<394>#func<process_host_event_q>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<398>#func<process_host_event_q>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<429>#func<process_host_event_q>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<462>#func<process_host_rx_event>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<467>#func<process_host_rx_event>#content<%s<%d>:id=%u\n>#type<0>#
+#fnum<13>#file<maccontroller.c>#line<499>#func<process_host_rx_event>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<524>#func<process_host_rx_event>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<550>#func<process_wlan_rx_event>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<557>#func<process_wlan_rx_event>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<581>#func<process_misc_event>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<589>#func<process_misc_event>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<594>#func<process_misc_event>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<619>#func<process_host_tx_event>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<626>#func<process_host_tx_event>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<679>#func<handle_system_error>#content<%s: enter>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<683>#func<handle_system_error>#content<%s: exit>#type<1>#
+#fnum<13>#file<maccontroller.c>#line<726>#func<handle_system_error>#content<System-Error=%x\n>#type<0>#
+#fnum<13>#file<maccontroller.c>#line<746>#func<handle_system_error>#content<%s: exit>#type<1>#
+#fnum<14>#file<event_parser_sta.c>#line<84>#func<process_host_rx_msdu_sta>#content<%s: enter>#type<1>#
+#fnum<14>#file<event_parser_sta.c>#line<88>#func<process_host_rx_msdu_sta>#content<%s<%d>:id=%u\n>#type<0>#
+#fnum<14>#file<event_parser_sta.c>#line<234>#func<process_host_rx_msdu_sta>#content<%s:priority= %d\n>#type<0>#
+#fnum<14>#file<event_parser_sta.c>#line<262>#func<process_host_rx_msdu_sta>#content<%s: exit>#type<1>#
+#fnum<15>#file<p2p_sme_sta.c>#line<196>#func<p2p_handle_scan_rsp>#content<%s: enter>#type<1>#
+#fnum<15>#file<p2p_sme_sta.c>#line<204>#func<p2p_handle_scan_rsp>#content<%s: exit>#type<1>#
+#fnum<15>#file<p2p_sme_sta.c>#line<208>#func<p2p_handle_scan_rsp>#content<P2Pmatchfound P2P_JOIN_METHOD = %d\n\r>#type<0>#
+#fnum<15>#file<p2p_sme_sta.c>#line<215>#func<p2p_handle_scan_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<169>#func<handle_scan_rsp>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<178>#func<handle_scan_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<189>#func<handle_scan_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<207>#func<handle_scan_rsp>#content<Status:ScanSuccessful. Initaiting Join: \n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<214>#func<handle_scan_rsp>#content<Status:ScanSuccessful. Initaiting Join: \n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<215>#func<handle_scan_rsp>#content<SSID=%s\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<216>#func<handle_scan_rsp>#content<BSSID=%x:%x:%x:%x:%x:%x\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<217>#func<handle_scan_rsp>#content<Channel=%d\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<234>#func<handle_scan_rsp>#content<Status:ScanFailed. Result-Code = %d. Reinitiating Scan\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<241>#func<handle_scan_rsp>#content<Status:ScanFailed. Result-Code = %d. Starting IBSS N/w \n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<256>#func<handle_scan_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<290>#func<handle_join_rsp>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<297>#func<handle_join_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<306>#func<handle_join_rsp>#content<Status:InitiatingAuthentication.\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<316>#func<handle_join_rsp>#content<Status:JoinFailed. Result-Code = %d. Reinitiating Scan.\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<321>#func<handle_join_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<350>#func<handle_start_rsp>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<357>#func<handle_start_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<387>#func<handle_auth_rsp>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<393>#func<handle_auth_rsp>#content<Status:AuthenticationSuccessful. Initiating Association.\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<401>#func<handle_auth_rsp>#content<Status:AuthenticationFailed. Result-Code = %d. >#type<0>#
+#fnum<16>#file<sme_sta.c>#line<402>#func<handle_auth_rsp>#content<ReinitiatingScan.\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<404>#func<handle_auth_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<436>#func<handle_asoc_rsp>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<442>#func<handle_asoc_rsp>#content<Status:AssociationFailed. Result-Code = %d. >#type<0>#
+#fnum<16>#file<sme_sta.c>#line<443>#func<handle_asoc_rsp>#content<ReinitiatingScan.\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<448>#func<handle_asoc_rsp>#content<Status:AssociationSuccessful.\n\r>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<451>#func<handle_asoc_rsp>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<479>#func<prepare_mlme_scan_req>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<549>#func<prepare_mlme_scan_req>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<574>#func<prepare_mlme_join_req>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<589>#func<prepare_mlme_join_req>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<706>#func<check_scan_match>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<710>#func<check_scan_match>#content<%s:scanedap num: %d, cur_ssid: %s\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<719>#func<check_scan_match>#content<index:%d,ssid: %s\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<747>#func<check_scan_match>#content<MACorPHY capabilities did not match!\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<810>#func<check_scan_match>#content<%s:matched_index= %d\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<813>#func<check_scan_match>#content<%s:nomatched ap found!\n>#type<0>#
+#fnum<16>#file<sme_sta.c>#line<815>#func<check_scan_match>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<841>#func<prepare_scan_response>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<848>#func<prepare_scan_response>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<996>#func<start_obss_scan>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1017>#func<start_obss_scan>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1045>#func<end_obss_scan>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1085>#func<end_obss_scan>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1113>#func<set_start_scan_req_sta>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1151>#func<set_start_scan_req_sta>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1181>#func<initiate_scan_procedure>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1213>#func<initiate_scan_procedure>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1241>#func<initiate_scan>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1249>#func<initiate_scan>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1276>#func<initiate_start>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1280>#func<initiate_start>#content<%s: exit>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1303>#func<handle_start_scan_req_sta>#content<%s: enter>#type<1>#
+#fnum<16>#file<sme_sta.c>#line<1315>#func<handle_start_scan_req_sta>#content<%s: exit>#type<1>#
+#fnum<17>#file<cglobals_ap.c>#line<95>#func<init_globals_ap>#content<%s: exit>#type<1>#
+#fnum<17>#file<cglobals_ap.c>#line<160>#func<init_globals_ap>#content<%s: exit>#type<1>#
+#fnum<18>#file<fsm_ap.c>#line<70>#func<init_mac_fsm_ap>#content<%s: enter>#type<1>#
+#fnum<18>#file<fsm_ap.c>#line<201>#func<init_mac_fsm_ap>#content<%s: exit>#type<1>#
+#fnum<19>#file<fsm_ap.h>#line<70>#func<mlme_start_req>#content<mlme_start_req,FSM[%d][%d]\n>#type<0>#
+#fnum<19>#file<fsm_ap.h>#line<76>#func<mlme_action_req>#content<mlme_action_req,FSM[%d][%d]\n>#type<0>#
+#fnum<20>#file<ap_wlan_rx_mgmt_11n.c>#line<209>#func<ap_enabled_rx_11n_control>#content<%s: enter>#type<1>#
+#fnum<20>#file<ap_wlan_rx_mgmt_11n.c>#line<212>#func<ap_enabled_rx_11n_control>#content<%s: exit>#type<1>#
+#fnum<20>#file<ap_wlan_rx_mgmt_11n.c>#line<233>#func<ap_enabled_rx_11n_control>#content<%s: exit>#type<1>#
+#fnum<20>#file<ap_wlan_rx_mgmt_11n.c>#line<256>#func<ap_enabled_rx_11n_control>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<185>#func<update_asoc_entry>#content<caisfreturnUNSPEC_FAIL>#type<0>#
+#fnum<21>#file<management_ap.c>#line<243>#func<update_asoc_entry>#content<caisfreturnUNSPEC_FAIL, SSID SET WRONG!>#type<0>#
+#fnum<21>#file<management_ap.c>#line<349>#func<update_asoc_entry>#content<caisfreturnUNSPEC_FAIL, MISSED IE>#type<0>#
+#fnum<21>#file<management_ap.c>#line<359>#func<update_asoc_entry>#content<caisfcheck_sec_capabilities_apfailed, ret_val = %d>#type<0>#
+#fnum<21>#file<management_ap.c>#line<371>#func<update_asoc_entry>#content<caisfret_val= %d>#type<0>#
+#fnum<21>#file<management_ap.c>#line<891>#func<filter_wlan_rx_frame_ap>#content<%s: enter>#type<1>#
+#fnum<21>#file<management_ap.c>#line<916>#func<filter_wlan_rx_frame_ap>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<942>#func<filter_wlan_rx_frame_ap>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<953>#func<filter_wlan_rx_frame_ap>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<968>#func<filter_wlan_rx_frame_ap>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<981>#func<filter_wlan_rx_frame_ap>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<1187>#func<unjoin_all_stations>#content<%s: enter>#type<1>#
+#fnum<21>#file<management_ap.c>#line<1215>#func<unjoin_all_stations>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<1244>#func<unjoin_station>#content<%s: enter>#type<1>#
+#fnum<21>#file<management_ap.c>#line<1267>#func<unjoin_station>#content<%s: exit>#type<1>#
+#fnum<21>#file<management_ap.c>#line<1275>#func<unjoin_station>#content<%s: exit>#type<1>#
+#fnum<22>#file<ap_frame_p2p.c>#line<167>#func<send_p2p_go_disc_req>#content<%s: enter>#type<1>#
+#fnum<22>#file<ap_frame_p2p.c>#line<174>#func<send_p2p_go_disc_req>#content<%s: exit>#type<1>#
+#fnum<23>#file<ap_mgmt_p2p.c>#line<753>#func<init_invi_scan_chan_list>#content<%s: enter>#type<1>#
+#fnum<23>#file<ap_mgmt_p2p.c>#line<773>#func<init_invi_scan_chan_list>#content<init_invi_scan_chan_list:ERROROCCUR! channel idx:%d is out of range!\n>#type<0>#
+#fnum<23>#file<ap_mgmt_p2p.c>#line<777>#func<init_invi_scan_chan_list>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<434>#func<requeue_ps_packet>#content<%s: enter>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<443>#func<requeue_ps_packet>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<569>#func<requeue_ps_packet>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<585>#func<requeue_ps_packet>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<669>#func<tx_null_frame>#content<%s: enter>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<674>#func<tx_null_frame>#content<NoMemfor NULL frame\n\r>#type<0>#
+#fnum<24>#file<pm_ap.c>#line<675>#func<tx_null_frame>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<720>#func<tx_null_frame>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<749>#func<tx_null_frame>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<782>#func<handle_ps_poll>#content<%s: enter>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<786>#func<handle_ps_poll>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<798>#func<handle_ps_poll>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<808>#func<handle_ps_poll>#content<%s: exit>#type<1>#
+#fnum<24>#file<pm_ap.c>#line<824>#func<handle_ps_poll>#content<%s: exit>#type<1>#
+#fnum<25>#file<wps_ap.c>#line<130>#func<sys_init_wps_reg>#content<%s: enter>#type<1>#
+#fnum<25>#file<wps_ap.c>#line<168>#func<sys_init_wps_reg>#content<%s: exit>#type<1>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<781>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<789>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<799>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<805>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<811>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<817>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<26>#file<wps_cred_mgmt_ap.c>#line<823>#func<wps_update_device_info_ap>#content<badpointer!!!!!!>#type<0>#
+#fnum<27>#file<cglobals.c>#line<167>#func<init_globals>#content<%s: enter>#type<1>#
+#fnum<27>#file<cglobals.c>#line<270>#func<init_globals>#content<caisfset_device_mode>#type<0>#
+#fnum<27>#file<cglobals.c>#line<273>#func<init_globals>#content<%s: exit>#type<1>#
+#fnum<27>#file<cglobals.c>#line<280>#func<print_struct_size>#content<Struct-Name\tStruct-Size\n\r>#type<0>#
+#fnum<27>#file<cglobals.c>#line<283>#func<print_struct_size>#content<%s\t%d\n\r>#type<0>#
+#fnum<28>#file<ch_info.c>#line<93>#func<init_supp_ch_list>#content<%s: enter>#type<1>#
+#fnum<28>#file<ch_info.c>#line<123>#func<init_supp_ch_list>#content<%s: exit>#type<1>#
+#fnum<28>#file<ch_info.c>#line<173>#func<update_ch_list_reg_domain>#content<%s: enter>#type<1>#
+#fnum<28>#file<ch_info.c>#line<186>#func<update_ch_list_reg_domain>#content<MultiDomainWarning:Reg Domain Info is NULL\n\r>#type<0>#
+#fnum<28>#file<ch_info.c>#line<270>#func<update_ch_list_reg_domain>#content<%s: exit>#type<1>#
+#fnum<29>#file<frame.c>#line<479>#func<prepare_deauth>#content<%s: enter>#type<1>#
+#fnum<29>#file<frame.c>#line<525>#func<prepare_deauth>#content<%s: exit>#type<1>#
+#fnum<30>#file<fsm.c>#line<211>#func<set_mac_state>#content<%s:setstate from %d to %d\n>#type<0>#
+#fnum<31>#file<fsm.h>#line<91>#func<wlan_rx_mgmt>#content<wlan_rx_mgmt,FSM[%d][%d]\n>#type<0>#
+#fnum<31>#file<fsm.h>#line<97>#func<wlan_misc>#content<wlan_misc,FSM[%d][%d]\n>#type<0>#
+#fnum<31>#file<fsm.h>#line<103>#func<wlan_tx_data>#content<wlan_tx_data,FSM[%d][%d]\n>#type<0>#
+#fnum<31>#file<fsm.h>#line<109>#func<wlan_rx_data>#content<wlan_rx_data,FSM[%d][%d]\n>#type<0>#
+#fnum<31>#file<fsm.h>#line<115>#func<wlan_rx>#content<wlan_rx,FSM[%d][%d]\n>#type<0>#
+#fnum<32>#file<index_util.c>#line<190>#func<init_sta_table>#content<%s: enter>#type<1>#
+#fnum<32>#file<index_util.c>#line<217>#func<init_sta_table>#content<%s: exit>#type<1>#
+#fnum<32>#file<index_util.c>#line<365>#func<add_entry>#content<%s: enter>#type<1>#
+#fnum<32>#file<index_util.c>#line<373>#func<add_entry>#content<%s: exit>#type<1>#
+#fnum<32>#file<index_util.c>#line<390>#func<add_entry>#content<%s: exit>#type<1>#
+#fnum<32>#file<index_util.c>#line<425>#func<delete_entry>#content<%s: enter>#type<1>#
+#fnum<32>#file<index_util.c>#line<458>#func<delete_entry>#content<%s: exit>#type<1>#
+#fnum<32>#file<index_util.c>#line<465>#func<delete_entry>#content<%s: exit>#type<1>#
+#fnum<33>#file<mib_11e.c>#line<77>#func<initialize_mac_mib_11e>#content<%s: enter>#type<1>#
+#fnum<33>#file<mib_11e.c>#line<232>#func<initialize_mac_mib_11e>#content<%s: exit>#type<1>#
+#fnum<34>#file<mib_11i.c>#line<91>#func<initialize_mac_mib_11i>#content<%s: enter>#type<1>#
+#fnum<34>#file<mib_11i.c>#line<266>#func<initialize_mac_mib_11i>#content<%s: exit>#type<1>#
+#fnum<35>#file<rsna_auth_km.c>#line<175>#func<stop_auth_rsna>#content<%s: enter>#type<1>#
+#fnum<35>#file<rsna_auth_km.c>#line<199>#func<stop_auth_rsna>#content<%s: exit>#type<1>#
+#fnum<36>#file<rsna_km.c>#line<307>#func<initialize_rsna>#content<%s: enter>#type<1>#
+#fnum<36>#file<rsna_km.c>#line<322>#func<initialize_rsna>#content<%s: exit>#type<1>#
+#fnum<36>#file<rsna_km.c>#line<347>#func<install_psk>#content<%s: enter>#type<1>#
+#fnum<36>#file<rsna_km.c>#line<423>#func<install_psk>#content<%s: exit>#type<1>#
+#fnum<36>#file<rsna_km.c>#line<743>#func<init_sec_auth>#content<%s: enter>#type<1>#
+#fnum<36>#file<rsna_km.c>#line<745>#func<init_sec_auth>#content<%s: exit>#type<1>#
+#fnum<37>#file<tkip_auth.c>#line<114>#func<tkip_cntr_msr_auth>#content<P2P:deauth.MIC_FAIL>#type<0>#
+#fnum<38>#file<amsdu_aggr.c>#line<136>#func<config_amsdu_func>#content<%s: enter>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<137>#func<config_amsdu_func>#content<configblock-ack,amsdu & ampdu function...\n>#type<0>#
+#fnum<38>#file<amsdu_aggr.c>#line<144>#func<config_amsdu_func>#content<configamsdu:get bssid failed!\n>#type<0>#
+#fnum<38>#file<amsdu_aggr.c>#line<145>#func<config_amsdu_func>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<153>#func<config_amsdu_func>#content<RA:%02x-%02x-%02x-%02x-%02x-%02x\n>#type<0>#
+#fnum<38>#file<amsdu_aggr.c>#line<188>#func<config_amsdu_func>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<219>#func<amsdu_tx>#content<%s: enter>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<222>#func<amsdu_tx>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<269>#func<amsdu_tx>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<306>#func<get_amsdu_ctxt>#content<%s: enter>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<310>#func<get_amsdu_ctxt>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<327>#func<get_amsdu_ctxt>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<344>#func<get_amsdu_ctxt>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<365>#func<get_amsdu_ctxt>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<374>#func<get_amsdu_ctxt>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<409>#func<get_amsdu_ctxt>#content<%s: exit>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<456>#func<amsdu_set_submsdu_info>#content<%s: enter>#type<1>#
+#fnum<38>#file<amsdu_aggr.c>#line<519>#func<amsdu_set_submsdu_info>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<119>#func<reset_tx_ba_handle>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<124>#func<reset_tx_ba_handle>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<153>#func<reset_tx_ba_handle>#content<Block-AckSessionEnded\n\r>#type<0>#
+#fnum<39>#file<blockack.c>#line<154>#func<reset_tx_ba_handle>#content<TID=%d \n\r>#type<0>#
+#fnum<39>#file<blockack.c>#line<155>#func<reset_tx_ba_handle>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<182>#func<delba_initiator_process>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<187>#func<delba_initiator_process>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<193>#func<delba_initiator_process>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<218>#func<reset_rx_ba_handle>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<223>#func<reset_rx_ba_handle>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<248>#func<reset_rx_ba_handle>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<275>#func<delba_recp_process>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<280>#func<delba_recp_process>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<286>#func<delba_recp_process>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<582>#func<send_delba>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<591>#func<send_delba>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<607>#func<send_delba>#content<DELBAFrameSent:Initiator = %d TID = %d Reason=%d\n\r>#type<0>#
+#fnum<39>#file<blockack.c>#line<608>#func<send_delba>#content<%s:addr=%02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<39>#file<blockack.c>#line<611>#func<send_delba>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<692>#func<process_ba_rx_buff_frame>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<747>#func<process_ba_rx_buff_frame>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1061>#func<handle_tx_ba_stall>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<1065>#func<handle_tx_ba_stall>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1090>#func<handle_tx_ba_stall>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1120>#func<handle_tx_ba_stall>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1148>#func<handle_rx_ba_stall>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<1153>#func<handle_rx_ba_stall>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1163>#func<handle_rx_ba_stall>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1344>#func<dequeue_tx_ba_frame>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<1348>#func<dequeue_tx_ba_frame>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1411>#func<dequeue_tx_ba_frame>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1496>#func<dequeue_tx_ba_frame>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1672>#func<send_frames_with_gap>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<1691>#func<send_frames_with_gap>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1725>#func<send_frames_in_order>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<1739>#func<send_frames_in_order>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<1769>#func<move_ba_window_ahead>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<1798>#func<move_ba_window_ahead>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<2192>#func<handle_ba_tx_comp>#content<%s: enter>#type<1>#
+#fnum<39>#file<blockack.c>#line<2200>#func<handle_ba_tx_comp>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<2230>#func<handle_ba_tx_comp>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<2272>#func<handle_ba_tx_comp>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<2283>#func<handle_ba_tx_comp>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<2358>#func<handle_ba_tx_comp>#content<%s: exit>#type<1>#
+#fnum<39>#file<blockack.c>#line<2393>#func<handle_ba_tx_comp>#content<%s: exit>#type<1>#
+#fnum<40>#file<blockack.h>#line<727>#func<transmit_frames_ba>#content<%s:transmitba frame!\n>#type<0>#
+#fnum<41>#file<frame_11n.c>#line<221>#func<prepare_addba_req>#content<%s: enter>#type<1>#
+#fnum<41>#file<frame_11n.c>#line<286>#func<prepare_addba_req>#content<%s: exit>#type<1>#
+#fnum<41>#file<frame_11n.c>#line<424>#func<prepare_delba_req>#content<%s: enter>#type<1>#
+#fnum<41>#file<frame_11n.c>#line<477>#func<prepare_delba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<124>#func<misc_11n_event>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<167>#func<misc_11n_event>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<383>#func<handle_mlme_amsdu_start>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<399>#func<handle_mlme_amsdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<407>#func<handle_mlme_amsdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<419>#func<handle_mlme_amsdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<472>#func<handle_mlme_amsdu_start>#content<A-MSDUSessionSetup:>#type<0>#
+#fnum<42>#file<management_11n.c>#line<473>#func<handle_mlme_amsdu_start>#content<RA=%x:%x:%x:%x:%x:%xTID=%dMaxSize=%d MaxNum= %d ToItvl=%d, entry=0x%p\n>#type<0>#
+#fnum<42>#file<management_11n.c>#line<475>#func<handle_mlme_amsdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<616>#func<handle_mlme_ampdu_start>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<626>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<633>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<644>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<657>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<677>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<710>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<747>#func<handle_mlme_ampdu_start>#content<A-MPDUSessionSetup:>#type<0>#
+#fnum<42>#file<management_11n.c>#line<748>#func<handle_mlme_ampdu_start>#content<RA=%x:%x:%x:%x:%x:%xTID=%dMMSS=%d MRAF=%d MaxNum=%d ToItvl=%d AckPol=%d LutIdx=%d\n\r>#type<0>#
+#fnum<42>#file<management_11n.c>#line<750>#func<handle_mlme_ampdu_start>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1251>#func<handle_mlme_addba_req>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1256>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1262>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1268>#func<handle_mlme_addba_req>#content<NumBASessions limit reached\n\r>#type<0>#
+#fnum<42>#file<management_11n.c>#line<1269>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1290>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1303>#func<handle_mlme_addba_req>#content<Error:STANot Associated \n\r>#type<0>#
+#fnum<42>#file<management_11n.c>#line<1307>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1318>#func<handle_mlme_addba_req>#content<Error:STANot HT and WMM Capable\n\r>#type<0>#
+#fnum<42>#file<management_11n.c>#line<1319>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1332>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1341>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1355>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1381>#func<handle_mlme_addba_req>#content<GroupingBufferTimeout set to default 100ms\n\r>#type<0>#
+#fnum<42>#file<management_11n.c>#line<1429>#func<handle_mlme_addba_req>#content<ADDBA-Requestsent:\n\r>#type<0>#
+#fnum<42>#file<management_11n.c>#line<1430>#func<handle_mlme_addba_req>#content<TID=%d BufSize = %d Timeout = %d MaxPend=%d Grouping Buff TO=%d>#type<0>#
+#fnum<42>#file<management_11n.c>#line<1432>#func<handle_mlme_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1547>#func<handle_wlan_addba_req>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1552>#func<handle_wlan_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1560>#func<handle_wlan_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1595>#func<handle_wlan_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1603>#func<handle_wlan_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1623>#func<handle_wlan_addba_req>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1655>#func<handle_wlan_addba_rsp>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1662>#func<handle_wlan_addba_rsp>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1687>#func<handle_wlan_addba_rsp>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1703>#func<handle_wlan_addba_rsp>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1734>#func<handle_wlan_delba>#content<%s: enter>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1740>#func<handle_wlan_delba>#content<%s: exit>#type<1>#
+#fnum<42>#file<management_11n.c>#line<1773>#func<handle_wlan_delba>#content<%s: exit>#type<1>#
+#fnum<43>#file<mib_11n.c>#line<70>#func<initialize_mac_mib_11n>#content<%s: enter>#type<1>#
+#fnum<43>#file<mib_11n.c>#line<162>#func<initialize_mac_mib_11n>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<91>#func<main_function>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<163>#func<main_function>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<190>#func<initialize_macsw>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<237>#func<initialize_macsw>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<267>#func<create_mac_interrupts>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<292>#func<create_mac_interrupts>#content<createisr,int mask: %#08x, int stat: %#08x\n>#type<0>#
+#fnum<44>#file<mac_init.c>#line<293>#func<create_mac_interrupts>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<379>#func<reset_mac>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<446>#func<reset_mac>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<524>#func<restart_mac>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<560>#func<restart_mac>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<585>#func<start_mac_and_phy>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<630>#func<start_mac_and_phy>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<655>#func<stop_mac_and_phy>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<675>#func<stop_mac_and_phy>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<699>#func<pre_reset_tasks_host>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<720>#func<pre_reset_tasks_host>#content<%s: exit>#type<1>#
+#fnum<44>#file<mac_init.c>#line<745>#func<pre_reset_tasks_wlan>#content<%s: enter>#type<1>#
+#fnum<44>#file<mac_init.c>#line<792>#func<pre_reset_tasks_wlan>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<69>#func<is_all_machw_q_null>#content<%s: enter>#type<1>#
+#fnum<45>#file<management.c>#line<80>#func<is_all_machw_q_null>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<85>#func<is_all_machw_q_null>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<149>#func<send_probe_rsp>#content<%s: enter>#type<1>#
+#fnum<45>#file<management.c>#line<153>#func<send_probe_rsp>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<168>#func<send_probe_rsp>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<203>#func<probe_req_ssid_cmp>#content<%s: enter>#type<1>#
+#fnum<45>#file<management.c>#line<240>#func<probe_req_ssid_cmp>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<273>#func<mgmt_timeout_alarm_fn>#content<%s: enter>#type<1>#
+#fnum<45>#file<management.c>#line<281>#func<mgmt_timeout_alarm_fn>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<290>#func<mgmt_timeout_alarm_fn>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<369>#func<buffer_tx_packet>#content<%s: enter>#type<1>#
+#fnum<45>#file<management.c>#line<384>#func<buffer_tx_packet>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<388>#func<buffer_tx_packet>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<421>#func<send_deauth_frame>#content<%s: enter>#type<1>#
+#fnum<45>#file<management.c>#line<422>#func<send_deauth_frame>#content<P2P:deautherror code:%d>#type<0>#
+#fnum<45>#file<management.c>#line<442>#func<send_deauth_frame>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<452>#func<send_deauth_frame>#content<%s: exit>#type<1>#
+#fnum<45>#file<management.c>#line<470>#func<send_deauth_frame>#content<%s: exit>#type<1>#
+#fnum<46>#file<mib.c>#line<136>#func<initialize_mac_mib>#content<%s: enter>#type<1>#
+#fnum<46>#file<mib.c>#line<142>#func<initialize_mac_mib>#content<usersetmac: %02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<175>#func<initialize_mac_mib>#content<MAC-Address=%x:%x:%x:%x:%x:%x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<395>#func<initialize_mac_mib>#content<%s: exit>#type<1>#
+#fnum<46>#file<mib.c>#line<420>#func<initialize_private_mib>#content<%s: enter>#type<1>#
+#fnum<46>#file<mib.c>#line<437>#func<initialize_private_mib>#content<%s: exit>#type<1>#
+#fnum<46>#file<mib.c>#line<444>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<445>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<446>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<448>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<449>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<450>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<452>#func<mib_mac_and_private_print>#content<MIBM.dot11StationID=>#type<0>#
+#fnum<46>#file<mib.c>#line<455>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<457>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<459>#func<mib_mac_and_private_print>#content<MIBM.dot11MediumOccupancyLimit=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<461>#func<mib_mac_and_private_print>#content<MIBM.dot11CFPollable=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<463>#func<mib_mac_and_private_print>#content<MIBM.dot11CFPPeriod=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<465>#func<mib_mac_and_private_print>#content<MIBM.dot11CFPMaxDuration=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<467>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticationResponseTimeOut=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<469>#func<mib_mac_and_private_print>#content<MIBM.dot11PrivacyOptionImplemented=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<471>#func<mib_mac_and_private_print>#content<MIBM.dot11PowerManagementMode=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<473>#func<mib_mac_and_private_print>#content<MIBM.dot11DesiredSSID=\"%s\"\n>#type<0>#
+#fnum<46>#file<mib.c>#line<474>#func<mib_mac_and_private_print>#content<MIBM.dot11DesiredBSSType=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<475>#func<mib_mac_and_private_print>#content<MIBM.dot11OperationalRateSet.num_rates=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<479>#func<mib_mac_and_private_print>#content<MIBM.dot11OperationalRateSet.rates[%2d]=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<482>#func<mib_mac_and_private_print>#content<MIBM.dot11BeaconPeriod=%ums\n>#type<0>#
+#fnum<46>#file<mib.c>#line<484>#func<mib_mac_and_private_print>#content<MIBM.dot11DTIMPeriod=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<486>#func<mib_mac_and_private_print>#content<MIBM.dot11AssociationResponseTimeOut=%ums\n>#type<0>#
+#fnum<46>#file<mib.c>#line<488>#func<mib_mac_and_private_print>#content<MIBM.dot11DisassociateReason=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<490>#func<mib_mac_and_private_print>#content<MIBM.dot11DisassociateStation=>#type<0>#
+#fnum<46>#file<mib.c>#line<493>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<495>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<497>#func<mib_mac_and_private_print>#content<MIBM.dot11DeauthenticateReason=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<499>#func<mib_mac_and_private_print>#content<MIBM.dot11DeauthenticateStation=>#type<0>#
+#fnum<46>#file<mib.c>#line<502>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<504>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<506>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticateFailStatus=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<508>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticateFailStation=>#type<0>#
+#fnum<46>#file<mib.c>#line<511>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<513>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<515>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<516>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<517>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<519>#func<mib_mac_and_private_print>#content<MIBM.dot11SpectrumManagementRequired=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<520>#func<mib_mac_and_private_print>#content<MIBM.dot11SpectrumManagementImplemented=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<522>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<523>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<524>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<528>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticationAlgorithmsTable[%2d].dot11AuthenticationAlgorithm=%u >#type<0>#
+#fnum<46>#file<mib.c>#line<529>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticationAlgorithmsTable[%2d].dot11AuthenticationAlgorithmsEnable=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<530>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<533>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<534>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<535>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<539>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPDefaultKeyValue[%2d]=\n>#type<0>#
+#fnum<46>#file<mib.c>#line<541>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<543>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<547>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<548>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<549>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<560>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPKeyMappingsTable[%2d].dot11WEPKeyMappingAddress=>#type<0>#
+#fnum<46>#file<mib.c>#line<562>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<564>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<566>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPKeyMappingsTable[%2d].dot11WEPKeyMappingWEPOn=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<568>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPKeyMappingsTable[%2d].dot11WEPKeyMappingValue=\n>#type<0>#
+#fnum<46>#file<mib.c>#line<570>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<572>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<575>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<576>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<577>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<582>#func<mib_mac_and_private_print>#content<MIBM.dot11PrivacyInvoked=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<584>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPDefaultKeyID=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<586>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPKeyMappingLength=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<588>#func<mib_mac_and_private_print>#content<MIBM.dot11ExcludeUnencrypted=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<590>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPICVErrorCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<592>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPExcludedCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<594>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<595>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<596>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<600>#func<mib_mac_and_private_print>#content<MIBM.dot11Disassociate.reason=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<601>#func<mib_mac_and_private_print>#content<MIBM.dot11Disassociate.station=%02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<603>#func<mib_mac_and_private_print>#content<MIBM.dot11Disassociate.reason=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<604>#func<mib_mac_and_private_print>#content<MIBM.dot11Disassociate.station=%02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<605>#func<mib_mac_and_private_print>#content<MIBM.dot11Deauthenticate.reason=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<606>#func<mib_mac_and_private_print>#content<MIBM.dot11Deauthenticate.station=%02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<607>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticateFail.reason=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<608>#func<mib_mac_and_private_print>#content<MIBM.dot11AuthenticateFail.station=%02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<610>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<611>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<612>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<617>#func<mib_mac_and_private_print>#content<MIBM.dot11MACAddress=%02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<619>#func<mib_mac_and_private_print>#content<MIBM.dot11RTSThreshold=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<621>#func<mib_mac_and_private_print>#content<MIBM.dot11ShortRetryLimit=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<623>#func<mib_mac_and_private_print>#content<MIBM.dot11LongRetryLimit=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<625>#func<mib_mac_and_private_print>#content<MIBM.dot11FragmentationThreshold=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<627>#func<mib_mac_and_private_print>#content<MIBM.dot11MaxTransmitMSDULifetime=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<629>#func<mib_mac_and_private_print>#content<MIBM.dot11MaxReceiveLifetime=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<631>#func<mib_mac_and_private_print>#content<MIBM.dot11ManufacturerID=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<633>#func<mib_mac_and_private_print>#content<MIBM.dot11ProductID=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<635>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<636>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<637>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<642>#func<mib_mac_and_private_print>#content<MIBM.dot11TransmittedFragmentCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<644>#func<mib_mac_and_private_print>#content<MIBM.dot11MulticastTransmittedFrameCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<646>#func<mib_mac_and_private_print>#content<MIBM.dot11FailedCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<648>#func<mib_mac_and_private_print>#content<MIBM.dot11RetryCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<650>#func<mib_mac_and_private_print>#content<MIBM.dot11MultipleRetryCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<652>#func<mib_mac_and_private_print>#content<MIBM.dot11FrameDuplicateCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<654>#func<mib_mac_and_private_print>#content<MIBM.dot11RTSSuccessCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<656>#func<mib_mac_and_private_print>#content<MIBM.dot11RTSFailureCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<658>#func<mib_mac_and_private_print>#content<MIBM.dot11ACKFailureCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<660>#func<mib_mac_and_private_print>#content<MIBM.dot11ReceivedFragmentCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<662>#func<mib_mac_and_private_print>#content<MIBM.dot11MulticastReceivedFrameCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<664>#func<mib_mac_and_private_print>#content<MIBM.dot11FCSErrorCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<666>#func<mib_mac_and_private_print>#content<MIBM.dot11TransmittedFrameCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<668>#func<mib_mac_and_private_print>#content<MIBM.dot11WEPUndecryptableCount=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<670>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<671>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<672>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<680>#func<mib_mac_and_private_print>#content<MIBM.dot11GroupAddressTablenums= %u \n>#type<0>#
+#fnum<46>#file<mib.c>#line<683>#func<mib_mac_and_private_print>#content<MIBM.dot11GroupAddressTablesub[%2d]= %02x:%02x:%02x:%02x:%02x:%02x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<696>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<697>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<698>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<703>#func<mib_mac_and_private_print>#content<MIBM.dot11manufacturerOUI=%04x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<705>#func<mib_mac_and_private_print>#content<MIBM.dot11manufacturerName=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<707>#func<mib_mac_and_private_print>#content<MIBM.dot11manufacturerProductName=%04x\n>#type<0>#
+#fnum<46>#file<mib.c>#line<709>#func<mib_mac_and_private_print>#content<MIBM.dot11manufacturerProductVersion=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<711>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<712>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<713>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<715>#func<mib_mac_and_private_print>#content<P_MIB.bssid=>#type<0>#
+#fnum<46>#file<mib.c>#line<718>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<720>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<722>#func<mib_mac_and_private_print>#content<P_MIB.bcst_addr=>#type<0>#
+#fnum<46>#file<mib.c>#line<725>#func<mib_mac_and_private_print>#content<%02x>#type<0>#
+#fnum<46>#file<mib.c>#line<727>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<729>#func<mib_mac_and_private_print>#content<P_MIB.auth_type=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<731>#func<mib_mac_and_private_print>#content<P_MIB.scan_type=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<733>#func<mib_mac_and_private_print>#content<P_MIB.listen_interval=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<735>#func<mib_mac_and_private_print>#content<P_MIB.packet_success_count=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<737>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<738>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<739>#func<mib_mac_and_private_print>#content<\n>#type<0>#
+#fnum<46>#file<mib.c>#line<741>#func<mib_mac_and_private_print>#content<P_MIB.chan_mgmt_enable=%s\n>#type<0>#
+#fnum<46>#file<mib.c>#line<743>#func<mib_mac_and_private_print>#content<P_MIB.chan_switch_cnt=%u\n>#type<0>#
+#fnum<46>#file<mib.c>#line<745>#func<mib_mac_and_private_print>#content<P_MIB.chan_switch_mode=%u\n>#type<0>#
+#fnum<47>#file<mib.h>#line<190>#func<mset_PowerManagementMode>#content<PS:mset_PowerManagementModefrom %d to %d>#type<0>#
+#fnum<48>#file<frame_p2p.c>#line<288>#func<add_p2p_mgmt_frame_hdr>#content<%s: enter>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<302>#func<add_p2p_mgmt_frame_hdr>#content<%s: exit>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<444>#func<add_p2p_device_info_attr>#content<%s: enter>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<483>#func<add_p2p_device_info_attr>#content<%s: exit>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<633>#func<p2p_send_inv_rsp>#content<%s: enter>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<634>#func<p2p_send_inv_rsp>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<48>#file<frame_p2p.c>#line<642>#func<p2p_send_inv_rsp>#content<%s: exit>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<687>#func<p2p_send_inv_rsp>#content<%s: exit>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<723>#func<p2p_send_inv_req>#content<%s: enter>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<729>#func<p2p_send_inv_req>#content<%s: exit>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<733>#func<p2p_send_inv_req>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<48>#file<frame_p2p.c>#line<779>#func<p2p_send_inv_req>#content<%s: exit>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<812>#func<send_prov_disc_resp>#content<%s: enter>#type<1>#
+#fnum<48>#file<frame_p2p.c>#line<823>#func<send_prov_disc_resp>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<48>#file<frame_p2p.c>#line<838>#func<send_prov_disc_resp>#content<%s: exit>#type<1>#
+#fnum<49>#file<mgmt_p2p.c>#line<370>#func<init_p2p_globals>#content<%s: enter>#type<1>#
+#fnum<49>#file<mgmt_p2p.c>#line<384>#func<init_p2p_globals>#content<%s: exit>#type<1>#
+#fnum<49>#file<mgmt_p2p.c>#line<416>#func<initiate_mod_switch>#content<P2P:CFG_CONF_MEM_SIZE=%d,SHARED_DSCR_MEM_SIZE=%d\n>#type<0>#
+#fnum<49>#file<mgmt_p2p.c>#line<418>#func<initiate_mod_switch>#content<P2P:p2pen=%d, p2p GO=%d\n>#type<0>#
+#fnum<49>#file<mgmt_p2p.c>#line<421>#func<initiate_mod_switch>#content<%s: enter>#type<1>#
+#fnum<49>#file<mgmt_p2p.c>#line<431>#func<initiate_mod_switch>#content<caisfset_device_mode\n>#type<0>#
+#fnum<49>#file<mgmt_p2p.c>#line<442>#func<initiate_mod_switch>#content<P2P:g_current_len=%d\n>#type<0>#
+#fnum<49>#file<mgmt_p2p.c>#line<459>#func<initiate_mod_switch>#content<%s: exit>#type<1>#
+#fnum<49>#file<mgmt_p2p.c>#line<592>#func<p2p_handle_prov_disc_req>#content<%s: enter>#type<1>#
+#fnum<49>#file<mgmt_p2p.c>#line<618>#func<p2p_handle_prov_disc_req>#content<%s: exit>#type<1>#
+#fnum<50>#file<mib_p2p.c>#line<68>#func<initialize_private_mib_p2p>#content<%s: enter>#type<1>#
+#fnum<50>#file<mib_p2p.c>#line<91>#func<initialize_private_mib_p2p>#content<%s: exit>#type<1>#
+#fnum<51>#file<mib_p2p.h>#line<245>#func<mset_p2p_enable>#content<P2P:caisfp2p enable = %d>#type<0>#
+#fnum<51>#file<mib_p2p.h>#line<380>#func<mset_p2p_invit_dev_id>#content<P2P:invitdev: %x:%x:%x:%x:%x:%x>#type<0>#
+#fnum<52>#file<prot_if.h>#line<1892>#func<get_wid_settings>#content<P2P:CFG_CONF_MEM_SIZE=%d,magic=%d\n>#type<0>#
+#fnum<52>#file<prot_if.h>#line<1898>#func<get_wid_settings>#content<P2P:p2pen=%d, p2p GO=%d>#type<0>#
+#fnum<52>#file<prot_if.h>#line<1908>#func<start_p2p_prot>#content<%s: enter>#type<1>#
+#fnum<52>#file<prot_if.h>#line<1912>#func<start_p2p_prot>#content<StartingWPSreg\n>#type<0>#
+#fnum<52>#file<prot_if.h>#line<1931>#func<start_p2p_prot>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<232>#func<process_rx_frame>#content<%s: enter>#type<1>#
+#fnum<53>#file<receive.c>#line<267>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<280>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<293>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<309>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<321>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<338>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<368>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<420>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<440>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<450>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<461>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<480>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<53>#file<receive.c>#line<531>#func<process_rx_frame>#content<%s: exit>#type<1>#
+#fnum<54>#file<reg_domains.c>#line<84>#func<init_supp_reg_domain>#content<%s: enter>#type<1>#
+#fnum<54>#file<reg_domains.c>#line<87>#func<init_supp_reg_domain>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<141>#func<create_default_tx_dscr>#content<%s: enter>#type<1>#
+#fnum<55>#file<transmit.c>#line<153>#func<create_default_tx_dscr>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<180>#func<create_default_tx_dscr>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<270>#func<tx_mgmt_frame>#content<%s: enter>#type<1>#
+#fnum<55>#file<transmit.c>#line<299>#func<tx_mgmt_frame>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<338>#func<tx_mgmt_frame>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<342>#func<tx_mgmt_frame>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<387>#func<tx_uc_mgmt_frame>#content<%s: enter>#type<1>#
+#fnum<55>#file<transmit.c>#line<417>#func<tx_uc_mgmt_frame>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<450>#func<tx_uc_mgmt_frame>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<783>#func<tx_msdu_frame>#content<%s: enter>#type<1>#
+#fnum<55>#file<transmit.c>#line<803>#func<tx_msdu_frame>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<1133>#func<allocate_tx_dscr>#content<%s: enter>#type<1>#
+#fnum<55>#file<transmit.c>#line<1144>#func<allocate_tx_dscr>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<1162>#func<allocate_tx_dscr>#content<%s: enter>#type<1>#
+#fnum<55>#file<transmit.c>#line<1169>#func<allocate_tx_dscr>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<1187>#func<allocate_tx_dscr>#content<%s: exit>#type<1>#
+#fnum<55>#file<transmit.c>#line<1214>#func<allocate_tx_dscr>#content<%s: exit>#type<1>#
+#fnum<56>#file<wep.c>#line<73>#func<init_wep>#content<%s: enter>#type<1>#
+#fnum<56>#file<wep.c>#line<82>#func<init_wep>#content<%s: exit>#type<1>#
+#fnum<57>#file<cglobals_sta.c>#line<128>#func<init_globals_sta>#content<%s: enter>#type<1>#
+#fnum<57>#file<cglobals_sta.c>#line<205>#func<init_globals_sta>#content<%s: exit>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<370>#func<handle_tbtt_spec_mgmt_sta>#content<%s: enter>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<373>#func<handle_tbtt_spec_mgmt_sta>#content<%s: exit>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<429>#func<handle_tbtt_spec_mgmt_sta>#content<%s: exit>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<463>#func<handle_spec_mgmt_action>#content<%s: enter>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<467>#func<handle_spec_mgmt_action>#content<%s: exit>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<546>#func<handle_spec_mgmt_action>#content<%s: exit>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<580>#func<switch_channel_csw>#content<%s: enter>#type<1>#
+#fnum<58>#file<channel_sw.c>#line<614>#func<switch_channel_csw>#content<%s: exit>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<190>#func<prepare_beacon_sta>#content<%s: enter>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<311>#func<prepare_beacon_sta>#content<%s: exit>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<343>#func<prepare_auth_req>#content<%s: enter>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<468>#func<prepare_auth_req>#content<%s: exit>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<515>#func<prepare_auth_req_seq3>#content<%s: enter>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<627>#func<prepare_auth_req_seq3>#content<%s: exit>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<671>#func<prepare_asoc_req>#content<%s: enter>#type<1>#
+#fnum<59>#file<frame_sta.c>#line<752>#func<prepare_asoc_req>#content<%s: exit>#type<1>#
+#fnum<60>#file<fsm_sta.c>#line<73>#func<init_mac_fsm_sta>#content<%s: enter>#type<1>#
+#fnum<60>#file<fsm_sta.c>#line<326>#func<init_mac_fsm_sta>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<77>#func<sta_wait_scan>#content<%s: enter>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<110>#func<sta_wait_scan>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<140>#func<sta_wait_join>#content<%s: enter>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<150>#func<sta_wait_join>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<176>#func<sta_wait_join>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<188>#func<sta_wait_join>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<258>#func<sta_wait_join>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<289>#func<sta_wait_auth>#content<%s: enter>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<296>#func<sta_wait_auth>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<326>#func<sta_wait_auth>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<357>#func<sta_wait_asoc>#content<%s: enter>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<369>#func<sta_wait_asoc>#content<%s: exit>#type<1>#
+#fnum<61>#file<host_rx_mlme_sta.c>#line<394>#func<sta_wait_asoc>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<84>#func<sta_wait_scan_tx_data>#content<%s: enter>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<95>#func<sta_wait_scan_tx_data>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<153>#func<sta_enabled_tx_data>#content<%s: enter>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<157>#func<sta_enabled_tx_data>#content<%s<%d>:id=%u\n>#type<0>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<173>#func<sta_enabled_tx_data>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<195>#func<sta_enabled_tx_data>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<203>#func<sta_enabled_tx_data>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<276>#func<sta_enabled_tx_data>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<293>#func<sta_enabled_tx_data>#content<%s: exit>#type<1>#
+#fnum<62>#file<host_rx_msdu_sta.c>#line<412>#func<sta_enabled_tx_data>#content<%s: exit>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<231>#func<handle_tbtt_dfs_sta>#content<%s: enter>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<277>#func<handle_tbtt_dfs_sta>#content<%s: exit>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<288>#func<handle_tbtt_dfs_sta>#content<%s: exit>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<652>#func<identify_measure_req>#content<%s: enter>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<670>#func<identify_measure_req>#content<MeasurementRequestRecvd, DialogToken: %d\n>#type<0>#
+#fnum<63>#file<dfs_sta.c>#line<674>#func<identify_measure_req>#content<%s: exit>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<732>#func<identify_measure_req>#content<DFS-Err:Nota Basic Request, DiaToken: %d MesToken: %d\n>#type<0>#
+#fnum<63>#file<dfs_sta.c>#line<751>#func<identify_measure_req>#content<TPCRequestReceived, DialogToken: %d\n>#type<0>#
+#fnum<63>#file<dfs_sta.c>#line<755>#func<identify_measure_req>#content<%s: exit>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<771>#func<identify_measure_req>#content<%s: exit>#type<1>#
+#fnum<63>#file<dfs_sta.c>#line<776>#func<identify_measure_req>#content<%s: exit>#type<1>#
+#fnum<64>#file<ieee_11h_sta.c>#line<89>#func<handle_tx_complete_dfs_sta>#content<%s: enter>#type<1>#
+#fnum<64>#file<ieee_11h_sta.c>#line<115>#func<handle_tx_complete_dfs_sta>#content<%s: exit>#type<1>#
+#fnum<65>#file<rsna_supp_4way.c>#line<157>#func<rsna_supp_4way_fsm>#content<P2P:rsna_ptr->MICVerifiedFALSE>#type<0>#
+#fnum<65>#file<rsna_supp_4way.c>#line<475>#func<STAProcessEAPOLKey>#content<P2P:DecryptGTKFALSE>#type<0>#
+#fnum<65>#file<rsna_supp_4way.c>#line<518>#func<STAProcessEAPOLKey>#content<P2P:DecryptGTK2 FALSE>#type<0>#
+#fnum<65>#file<rsna_supp_4way.c>#line<542>#func<STAProcessEAPOLKey>#content<P2P:is_key_dataFALSE>#type<0>#
+#fnum<66>#file<rsna_supp_km.c>#line<144>#func<stop_supp_rsna>#content<%s: enter>#type<1>#
+#fnum<66>#file<rsna_supp_km.c>#line<162>#func<stop_supp_rsna>#content<%s: exit>#type<1>#
+#fnum<67>#file<tkip_sta.c>#line<115>#func<tkip_cntr_msr_supp>#content<P2P:deauth.MIC_FAIL>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<109>#func<update_11n_params_sta>#content<%s: enter>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<237>#func<update_11n_params_sta>#content<Peer'sHT-Capabilities:\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<238>#func<update_11n_params_sta>#content<ht_capable=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<239>#func<update_11n_params_sta>#content<ldpc_cod_cap=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<240>#func<update_11n_params_sta>#content<smps_mode=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<241>#func<update_11n_params_sta>#content<greenfield=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<242>#func<update_11n_params_sta>#content<short_gi_20=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<243>#func<update_11n_params_sta>#content<short_gi_40=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<244>#func<update_11n_params_sta>#content<rx_stbc=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<245>#func<update_11n_params_sta>#content<max_rx_ampdu_factor=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<246>#func<update_11n_params_sta>#content<min_mpdu_start_spacing=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<247>#func<update_11n_params_sta>#content<htc_support=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<248>#func<update_11n_params_sta>#content<sta_amsdu_maxsize=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<249>#func<update_11n_params_sta>#content<chan_width=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<250>#func<update_11n_params_sta>#content<dsss_cck_40mhz=%x\n\r>#type<0>#
+#fnum<68>#file<sta_management_11n.c>#line<253>#func<update_11n_params_sta>#content<%s: exit>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<549>#func<sta_enabled_rx_11n_control>#content<%s: enter>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<553>#func<sta_enabled_rx_11n_control>#content<%s: exit>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<578>#func<sta_enabled_rx_11n_control>#content<%s: exit>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<603>#func<sta_enabled_rx_11n_control>#content<%s: exit>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<632>#func<sta_enabled_rx_11n_action>#content<%s: enter>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<635>#func<sta_enabled_rx_11n_action>#content<%s: exit>#type<1>#
+#fnum<68>#file<sta_management_11n.c>#line<700>#func<sta_enabled_rx_11n_action>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<97>#func<update_scan_req_params>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<133>#func<update_scan_req_params>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<163>#func<update_join_req_params>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<176>#func<update_join_req_params>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<289>#func<scan_channel>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<292>#func<scan_channel>#content<trout:scan%u(%u)\n>#type<0>#
+#fnum<69>#file<management_sta.c>#line<296>#func<scan_channel>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<359>#func<scan_channel>#content<%s:scan_timeout= %d ms\n>#type<0>#
+#fnum<69>#file<management_sta.c>#line<370>#func<scan_channel>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<441>#func<update_scan_response>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<449>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<472>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<493>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<520>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<528>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<545>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<572>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<599>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<672>#func<update_scan_response>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<812>#func<update_bss_dscr_rates>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<877>#func<update_bss_dscr_rates>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<945>#func<init_sta_entry>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<949>#func<init_sta_entry>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<955>#func<init_sta_entry>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<961>#func<init_sta_entry>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1155>#func<init_sta_entry>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1301>#func<filter_host_rx_frame_sta>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1319>#func<filter_host_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1343>#func<filter_host_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1351>#func<filter_host_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1385>#func<filter_wlan_rx_frame_sta>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1412>#func<filter_wlan_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1424>#func<filter_wlan_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1437>#func<filter_wlan_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1443>#func<filter_wlan_rx_frame_sta>#content<%s: exit>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1716>#func<disconnect_sta>#content<%s: enter>#type<1>#
+#fnum<69>#file<management_sta.c>#line<1750>#func<disconnect_sta>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<267>#func<process_p2p_go_neg_rsp>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<327>#func<process_p2p_go_neg_rsp>#content<ReceivedGONegotiation Response: INFO UNAVAIL\n\r>#type<0>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<328>#func<process_p2p_go_neg_rsp>#content<WaitingforGO Negotiation Request...\n\r>#type<0>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<450>#func<process_p2p_go_neg_rsp>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<485>#func<process_p2p_go_neg_cnf>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<615>#func<process_p2p_go_neg_cnf>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<650>#func<process_p2p_dev_disc_rsp>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<708>#func<process_p2p_dev_disc_rsp>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<832>#func<p2p_wait_scan_handle_action_rx>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<835>#func<p2p_wait_scan_handle_action_rx>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<869>#func<p2p_wait_scan_handle_action_rx>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<902>#func<p2p_wait_join_handle_action_rx>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<905>#func<p2p_wait_join_handle_action_rx>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<958>#func<p2p_wait_join_handle_action_rx>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1037>#func<p2p_wait_scan_process_pers_inv_req>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1117>#func<p2p_wait_scan_process_pers_inv_req>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1161>#func<p2p_wait_scan_process_inv_req>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1234>#func<p2p_wait_scan_process_inv_req>#content<Invitationresponsesent with status code %d\n\r>#type<0>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1240>#func<p2p_wait_scan_process_inv_req>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1274>#func<p2p_wait_join_process_go_neg_req>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1354>#func<p2p_wait_join_process_go_neg_req>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1384>#func<p2p_wait_join_process_go_neg_rsp>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1421>#func<p2p_wait_join_process_go_neg_rsp>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1451>#func<p2p_wait_join_process_go_neg_cnf>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1481>#func<p2p_wait_join_process_go_neg_cnf>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1510>#func<p2p_wait_join_process_dev_disc_rsp>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1543>#func<p2p_wait_join_process_dev_disc_rsp>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1576>#func<p2p_wait_join_process_inv_rsp>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1634>#func<p2p_wait_join_process_inv_rsp>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1664>#func<p2p_wait_join_process_prov_disc_rsp>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1693>#func<p2p_wait_join_process_prov_disc_rsp>#content<%s: exit>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1737>#func<p2p_wait_join_process_inv_req>#content<%s: enter>#type<1>#
+#fnum<70>#file<p2p_wlan_rx_mgmt_sta.c>#line<1878>#func<p2p_wait_join_process_inv_req>#content<%s: exit>#type<1>#
+#fnum<71>#file<sta_frame_p2p.c>#line<93>#func<p2p_send_go_neg_req>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<71>#file<sta_frame_p2p.c>#line<178>#func<p2p_send_dev_disc_req>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<71>#file<sta_frame_p2p.c>#line<236>#func<p2p_send_go_neg_cnf>#content<%s: enter>#type<1>#
+#fnum<71>#file<sta_frame_p2p.c>#line<242>#func<p2p_send_go_neg_cnf>#content<%s: exit>#type<1>#
+#fnum<71>#file<sta_frame_p2p.c>#line<246>#func<p2p_send_go_neg_cnf>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<71>#file<sta_frame_p2p.c>#line<299>#func<p2p_send_go_neg_cnf>#content<%s: exit>#type<1>#
+#fnum<71>#file<sta_frame_p2p.c>#line<379>#func<p2p_send_prov_disc_req>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<71>#file<sta_frame_p2p.c>#line<521>#func<p2p_send_go_neg_rsp>#content<P2P:senda P2P frame...>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<373>#func<p2p_get_dev>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<384>#func<p2p_get_dev>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<400>#func<p2p_get_dev>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<418>#func<p2p_get_dev>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<593>#func<p2p_get_dev>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<619>#func<handle_scan_itr_to_p2p>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<634>#func<handle_scan_itr_to_p2p>#content<Regular802.11scan done, switch to P2P LISTEN_STATE\n\r>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<658>#func<handle_scan_itr_to_p2p>#content<LISTEN_STATEdwell done, switch to SEARCH_STATE\n\r>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<671>#func<handle_scan_itr_to_p2p>#content<ContinuinginLISTEN_STATE\n\r>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<693>#func<handle_scan_itr_to_p2p>#content<SEARCH_STATEdone,switch to LISTEN_STATE\n\r>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<705>#func<handle_scan_itr_to_p2p>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<732>#func<misc_p2p_event_sta>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<753>#func<misc_p2p_event_sta>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<781>#func<p2p_join_complete>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<793>#func<p2p_join_complete>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<821>#func<p2p_end_grp_form>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<861>#func<p2p_end_grp_form>#content<InvalidpasswordID for joining\n>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<865>#func<p2p_end_grp_form>#content<BecomingaGO\n\r>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<897>#func<p2p_end_grp_form>#content<InvalidpasswordID for joining\n>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<911>#func<p2p_end_grp_form>#content<caisfset_device_mode>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<920>#func<p2p_end_grp_form>#content<Becomingaclient\n\r>#type<0>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<922>#func<p2p_end_grp_form>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1080>#func<p2p_sta_wait_scan_handle_prb_req>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1106>#func<p2p_sta_wait_scan_handle_prb_req>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1133>#func<p2p_config_persist_cred>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1141>#func<p2p_config_persist_cred>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1148>#func<p2p_config_persist_cred>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1180>#func<p2p_config_persist_cred>#content<%s: exit>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1209>#func<p2p_handle_invit_rsp_sta>#content<%s: enter>#type<1>#
+#fnum<72>#file<sta_mgmt_p2p.c>#line<1221>#func<p2p_handle_invit_rsp_sta>#content<%s: exit>#type<1>#
+#fnum<73>#file<sta_mgmt_p2p.h>#line<183>#func<set_p2p_join_state>#content<setp2pjoin state from %d to %d>#type<0>#
+#fnum<74>#file<pm_sta.c>#line<163>#func<psm_handle_rx_packet_sta>#content<%s: enter>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<177>#func<psm_handle_rx_packet_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<216>#func<psm_handle_rx_packet_sta>#content<PS:GETmore data!>#type<0>#
+#fnum<74>#file<pm_sta.c>#line<229>#func<psm_handle_rx_packet_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<379>#func<handle_tx_complete_sta>#content<%s: enter>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<391>#func<handle_tx_complete_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<400>#func<handle_tx_complete_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<493>#func<handle_tx_complete_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<523>#func<handle_tx_complete_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<560>#func<handle_tbtt_sta>#content<%s: enter>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<571>#func<handle_tbtt_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<593>#func<handle_tbtt_sta>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<940>#func<send_ps_poll_to_AP>#content<%s: enter>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<947>#func<send_ps_poll_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<956>#func<send_ps_poll_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<983>#func<send_ps_poll_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1013>#func<send_ps_poll_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1019>#func<send_ps_poll_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1058>#func<send_null_frame_to_AP>#content<%s: enter>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1064>#func<send_null_frame_to_AP>#content<SENULL,Cant Send NULL Frame\n\r>#type<0>#
+#fnum<74>#file<pm_sta.c>#line<1066>#func<send_null_frame_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1074>#func<send_null_frame_to_AP>#content<protocolnotallow this transmission, Cant Send NULL Frame\n\r>#type<0>#
+#fnum<74>#file<pm_sta.c>#line<1075>#func<send_null_frame_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1084>#func<send_null_frame_to_AP>#content<NoMemoryfor NULL frame\n>#type<0>#
+#fnum<74>#file<pm_sta.c>#line<1085>#func<send_null_frame_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1132>#func<send_null_frame_to_AP>#content<NoMemfor NULL TX DSCR \n>#type<0>#
+#fnum<74>#file<pm_sta.c>#line<1135>#func<send_null_frame_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1165>#func<send_null_frame_to_AP>#content<%s: exit>#type<1>#
+#fnum<74>#file<pm_sta.c>#line<1196>#func<send_null_frame_to_AP>#content<%s: exit>#type<1>#
+#fnum<75>#file<sta_prot_if.h>#line<1931>#func<handle_scan_resp_prot>#content<%s: enter>#type<1>#
+#fnum<75>#file<sta_prot_if.h>#line<1972>#func<handle_scan_resp_prot>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<87>#func<sta_wait_scan_misc>#content<%s: enter>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<99>#func<sta_wait_scan_misc>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<138>#func<sta_wait_scan_misc>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<168>#func<sta_wait_join_misc>#content<%s: enter>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<264>#func<sta_wait_join_misc>#content<%s:setstate to 6(JOIN_COMP)\n>#type<0>#
+#fnum<76>#file<wlan_misc_sta.c>#line<278>#func<sta_wait_join_misc>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<324>#func<sta_wait_join_misc>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<689>#func<sta_enabled_misc>#content<%s: enter>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<708>#func<sta_enabled_misc>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<859>#func<sta_enabled_misc>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<885>#func<process_scan_itr_comp>#content<%s: enter>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<893>#func<process_scan_itr_comp>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<903>#func<process_scan_itr_comp>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<936>#func<process_tx_comp_sta>#content<%s: enter>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<947>#func<process_tx_comp_sta>#content<%s: exit>#type<1>#
+#fnum<76>#file<wlan_misc_sta.c>#line<1033>#func<process_tx_comp_sta>#content<%s: exit>#type<1>#
+#fnum<77>#file<wlan_rx_data_sta.c>#line<88>#func<sta_enabled_rx_data>#content<%s: enter>#type<1>#
+#fnum<77>#file<wlan_rx_data_sta.c>#line<105>#func<sta_enabled_rx_data>#content<%s: exit>#type<1>#
+#fnum<77>#file<wlan_rx_data_sta.c>#line<130>#func<sta_enabled_rx_data>#content<%s: exit>#type<1>#
+#fnum<77>#file<wlan_rx_data_sta.c>#line<180>#func<sta_enabled_rx_data>#content<%s: exit>#type<1>#
+#fnum<77>#file<wlan_rx_data_sta.c>#line<207>#func<msdu_indicate_sta>#content<%s: enter>#type<1>#
+#fnum<77>#file<wlan_rx_data_sta.c>#line<221>#func<msdu_indicate_sta>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<91>#func<sta_wait_scan_rx>#content<%s: enter>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<112>#func<sta_wait_scan_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<149>#func<sta_wait_scan_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<185>#func<sta_wait_join_rx>#content<%s: enter>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<239>#func<sta_wait_join_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<268>#func<sta_wait_auth_seq2_rx>#content<%s: enter>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<325>#func<sta_wait_auth_seq2_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<355>#func<sta_wait_auth_seq2_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<384>#func<sta_wait_auth_seq4_rx>#content<%s: enter>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<422>#func<sta_wait_auth_seq4_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<453>#func<sta_wait_asoc_rx>#content<%s: enter>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<470>#func<sta_wait_asoc_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<602>#func<sta_wait_asoc_rx>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<634>#func<sta_enabled_rx_mgmt>#content<%s: enter>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<676>#func<sta_enabled_rx_mgmt>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<749>#func<sta_enabled_rx_mgmt>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<893>#func<sta_enabled_rx_mgmt>#content<%s: exit>#type<1>#
+#fnum<78>#file<wlan_rx_mgmt_sta.c>#line<1031>#func<sta_enabled_rx_mgmt>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<535>#func<wps_timeout_fn>#content<WPS:timeout!>#type<0>#
+#fnum<79>#file<wps_sta.c>#line<1173>#func<wps_cred_join_timeout_fn>#content<WPS:credjoin timeout fn!>#type<0>#
+#fnum<79>#file<wps_sta.c>#line<1231>#func<handle_wps_cred_join_timeout>#content<WPS:handlewps cred join timeout!\n>#type<0>#
+#fnum<79>#file<wps_sta.c>#line<1233>#func<handle_wps_cred_join_timeout>#content<%s: enter>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1241>#func<handle_wps_cred_join_timeout>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1339>#func<handle_wps_cred_join_timeout>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1458>#func<handle_wps_event_sta>#content<%s: enter>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1483>#func<handle_wps_event_sta>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1559>#func<handle_wps_scan_rsp_sta>#content<%s: enter>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1621>#func<handle_wps_scan_rsp_sta>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1649>#func<handle_wps_scan_complete_sta>#content<%s: enter>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<1687>#func<handle_wps_scan_complete_sta>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<2008>#func<join_wps_cred_from_eeprom>#content<%s: enter>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<2012>#func<join_wps_cred_from_eeprom>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<2032>#func<join_wps_cred_from_eeprom>#content<%s: exit>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<2658>#func<handle_host_non_wps_cred_req>#content<%s: enter>#type<1>#
+#fnum<79>#file<wps_sta.c>#line<2677>#func<handle_host_non_wps_cred_req>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<171>#func<mac_event_work>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<173>#func<mac_event_work>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<222>#func<mac_init_fn>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<229>#func<mac_init_fn>#content<troutMACH/w not detected(got:%x). Exiting.\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<230>#func<mac_init_fn>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<234>#func<mac_init_fn>#content<trout:vid=0x%08x.\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<241>#func<mac_init_fn>#content<LocalMemoryAllocation Error. Exiting.\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<242>#func<mac_init_fn>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<262>#func<mac_init_fn>#content<Error:WrongMAC address\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<263>#func<mac_init_fn>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<267>#func<mac_init_fn>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<309>#func<mac_open>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<372>#func<mac_open>#content<%sopened!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<381>#func<mac_open>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<413>#func<mac_xmit>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<419>#func<mac_xmit>#content<Packetnotdestined to this device\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<420>#func<mac_xmit>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<448>#func<mac_xmit>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<489>#func<mac_xmit>#content<mac_xmit<%d>:len=%d,offset=%d, id=%u\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<516>#func<mac_xmit>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<542>#func<mac_close>#content<itm_chenqtroutclose \n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<824>#func<send_packet_to_stack_lnx>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<838>#func<send_packet_to_stack_lnx>#content<Lowmemory- packet droped\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<839>#func<send_packet_to_stack_lnx>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<871>#func<send_packet_to_stack_lnx>#content<netif_rx,sendlen=%d\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<880>#func<send_packet_to_stack_lnx>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<988>#func<create_interrupt>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<991>#func<create_interrupt>#content<Err:g_mac_devis NULL!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<992>#func<create_interrupt>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1011>#func<create_interrupt>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1015>#func<create_interrupt>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1044>#func<delete_interrupt>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1052>#func<delete_interrupt>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1770>#func<sdio_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1775>#func<sdio_trout_probe>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1784>#func<sdio_trout_probe>#content<unabletoalloc new ethernet\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1785>#func<sdio_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1793>#func<sdio_trout_probe>#content<unabletoalloc new g_itm_config_buf!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1795>#func<sdio_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1816>#func<sdio_trout_probe>#content<cannotallocgpio for trout irq\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1823>#func<sdio_trout_probe>#content<cannotallocgpio for trout irq\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1837>#func<sdio_trout_probe>#content<mac_init_fn()fail!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1843>#func<sdio_trout_probe>#content<%s:registernetdev success!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1847>#func<sdio_trout_probe>#content<warning:troutsystem debug create failed.\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1850>#func<sdio_trout_probe>#content<%s:returnok.\n\r\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1851>#func<sdio_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1863>#func<sdio_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1872>#func<sdio_trout_remove>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1875>#func<sdio_trout_remove>#content<%s:error!tp(%p) or netdev(%p) is NULL!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1896>#func<sdio_trout_remove>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1909>#func<sdio_trout_suspend>#content<sdio_trout_suspend\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1915>#func<sdio_trout_resume>#content<sdio_trout_resume\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1977>#func<spi_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1982>#func<spi_trout_probe>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1985>#func<spi_trout_probe>#content<unabletoalloc new ethernet!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1986>#func<spi_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<1994>#func<spi_trout_probe>#content<unabletoalloc new g_itm_config_buf!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<1996>#func<spi_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<2034>#func<spi_trout_probe>#content<cannotallocgpio for trout irq\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<2042>#func<spi_trout_probe>#content<cannotallocgpio for trout irq\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<2057>#func<spi_trout_probe>#content<mac_init_fn()fail!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<2068>#func<spi_trout_probe>#content<warning:troutsystem debug create failed.\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<2071>#func<spi_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<2086>#func<spi_trout_probe>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<2096>#func<spi_trout_remove>#content<%s: enter>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<2099>#func<spi_trout_remove>#content<%s:error!tp(%p) or netdev(%p) is NULL!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<2100>#func<spi_trout_remove>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<2114>#func<spi_trout_remove>#content<trout:spitrout_exit!\n>#type<0>#
+#fnum<80>#file<csl_linux.c>#line<2127>#func<spi_trout_remove>#content<%s: exit>#type<1>#
+#fnum<80>#file<csl_linux.c>#line<2278>#func<init_mac_driver>#content<troutinit:ret=%d\n>#type<0>#
+#fnum<81>#file<host_if.c>#line<105>#func<init_host_interface>#content<%s: enter>#type<1>#
+#fnum<81>#file<host_if.c>#line<114>#func<init_host_interface>#content<%s: exit>#type<1>#
+#fnum<81>#file<host_if.c>#line<247>#func<send_data_frame_to_host_if>#content<%s: enter>#type<1>#
+#fnum<81>#file<host_if.c>#line<257>#func<send_data_frame_to_host_if>#content<%s: exit>#type<1>#
+#fnum<81>#file<host_if.c>#line<279>#func<send_data_frame_to_host_if>#content<%s: exit>#type<1>#
+#fnum<81>#file<host_if.c>#line<554>#func<host_frame_completion_fn>#content<%s: enter>#type<1>#
+#fnum<81>#file<host_if.c>#line<574>#func<host_frame_completion_fn>#content<%s: exit>#type<1>#
+#fnum<81>#file<host_if.c>#line<583>#func<host_frame_completion_fn>#content<%s: exit>#type<1>#
+#fnum<81>#file<host_if.c>#line<610>#func<remove_all_in_hifq>#content<%s: enter>#type<1>#
+#fnum<81>#file<host_if.c>#line<618>#func<remove_all_in_hifq>#content<%s: exit>#type<1>#
+#fnum<81>#file<host_if.c>#line<647>#func<wait_for_host_idle>#content<%s: enter>#type<1>#
+#fnum<81>#file<host_if.c>#line<668>#func<wait_for_host_idle>#content<%s: exit>#type<1>#
+#fnum<82>#file<rf_if.c>#line<83>#func<initialize_rf>#content<%s: enter>#type<1>#
+#fnum<82>#file<rf_if.c>#line<99>#func<initialize_rf>#content<%s: exit>#type<1>#
+#fnum<83>#file<ce_lut.c>#line<508>#func<initialize_lut>#content<%s: enter>#type<1>#
+#fnum<83>#file<ce_lut.c>#line<526>#func<initialize_lut>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<283>#func<get_random_byte>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<302>#func<get_random_byte>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<326>#func<reset_phy_machw>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<350>#func<reset_phy_machw>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<375>#func<initialize_machw>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<834>#func<initialize_machw>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<858>#func<update_edca_machw>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<913>#func<update_edca_machw>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1109>#func<mac_isr_work>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<1121>#func<mac_isr_work>#content<mac_isr:0x%08x,0x%08x.\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1146>#func<mac_isr_work>#content<mac_isr:normalrx int enter!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1148>#func<mac_isr_work>#content<mac_isr:normalrx int exit!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1161>#func<mac_isr_work>#content<mac_isr:highrx int enter!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1163>#func<mac_isr_work>#content<mac_isr:highrx int exit!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1262>#func<mac_isr_work>#content<ts1:sec= %lu, nsec = %lu\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1263>#func<mac_isr_work>#content<ts2:sec= %lu, nsec = %lu\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1264>#func<mac_isr_work>#content<%s:costtime: %lu us\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1266>#func<mac_isr_work>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1444>#func<tx_pkt_process>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<1460>#func<tx_pkt_process>#content<err:firsttx desc is invalid!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1477>#func<tx_pkt_process>#content<trout:badhost tx descr:%p\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1478>#func<tx_pkt_process>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1486>#func<tx_pkt_process>#content<%s<%d>:id=%u\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1506>#func<tx_pkt_process>#content<err:txdesc is invalid!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1533>#func<tx_pkt_process>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1541>#func<tx_pkt_process>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1556>#func<tx_pkt_process>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1568>#func<tx_pkt_process>#content<%s:postevent 0x%x\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1573>#func<tx_pkt_process>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1628>#func<tx_complete_isr>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<1649>#func<tx_complete_isr>#content<tx_isr:tx_pkt_processenter!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1651>#func<tx_complete_isr>#content<tx_isr:tx_pkt_processexit!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1655>#func<tx_complete_isr>#content<tx_isr:loadqmu enter!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1657>#func<tx_complete_isr>#content<tx_isr:loadqmu exit!\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1668>#func<tx_complete_isr>#content<%s:costtime: %lu us\n>#type<0>#
+#fnum<84>#file<mh.c>#line<1671>#func<tx_complete_isr>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1784>#func<tbtt_isr>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<1799>#func<tbtt_isr>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<1806>#func<tbtt_isr>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<2166>#func<error_isr>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<2172>#func<error_isr>#content<%s:err_stat= %08x\n>#type<0>#
+#fnum<84>#file<mh.c>#line<2191>#func<error_isr>#content<normalprirxq empty, replenish it...\n>#type<0>#
+#fnum<84>#file<mh.c>#line<2224>#func<error_isr>#content<highprirxq empty, replenish it...\n>#type<0>#
+#fnum<84>#file<mh.c>#line<2396>#func<error_isr>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<2420>#func<deauth_isr>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<2428>#func<deauth_isr>#content<%s:RC=%x\n\r>#type<0>#
+#fnum<84>#file<mh.c>#line<2429>#func<deauth_isr>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<2627>#func<radar_detect_isr>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<2633>#func<radar_detect_isr>#content<%s: exit>#type<1>#
+#fnum<84>#file<mh.c>#line<2658>#func<tx_abort_start_isr>#content<%s: enter>#type<1>#
+#fnum<84>#file<mh.c>#line<2664>#func<tx_abort_start_isr>#content<%s: exit>#type<1>#
+#fnum<85>#file<phy_ittiam.c>#line<1123>#func<initialize_phy_ittiam>#content<%s: enter>#type<1>#
+#fnum<85>#file<phy_ittiam.c>#line<1145>#func<initialize_phy_ittiam>#content<%s: exit>#type<1>#
+#fnum<85>#file<phy_ittiam.c>#line<1356>#func<set_phy_continuous_tx_mode_ittiam>#content<%s: enter>#type<1>#
+#fnum<85>#file<phy_ittiam.c>#line<1374>#func<set_phy_continuous_tx_mode_ittiam>#content<Legacyrate= %d\n>#type<0>#
+#fnum<85>#file<phy_ittiam.c>#line<1383>#func<set_phy_continuous_tx_mode_ittiam>#content<11b=%x\n>#type<0>#
+#fnum<85>#file<phy_ittiam.c>#line<1396>#func<set_phy_continuous_tx_mode_ittiam>#content<11a=%x\n>#type<0>#
+#fnum<85>#file<phy_ittiam.c>#line<1413>#func<set_phy_continuous_tx_mode_ittiam>#content<ContinuousTxMCS = %d sGI = %d\n>#type<0>#
+#fnum<85>#file<phy_ittiam.c>#line<1425>#func<set_phy_continuous_tx_mode_ittiam>#content<11aTestmode reg %02x %02x %02x\n>#type<0>#
+#fnum<85>#file<phy_ittiam.c>#line<1428>#func<set_phy_continuous_tx_mode_ittiam>#content<%s: exit>#type<1>#
+#fnum<85>#file<phy_ittiam.c>#line<1658>#func<reset_phy_ittiam>#content<%s: enter>#type<1>#
+#fnum<85>#file<phy_ittiam.c>#line<1671>#func<reset_phy_ittiam>#content<%s: exit>#type<1>#
+#fnum<86>#file<mib_802_11n.c>#line<92>#func<init_phy_802_11n_mib>#content<%s: enter>#type<1>#
+#fnum<86>#file<mib_802_11n.c>#line<297>#func<init_phy_802_11n_mib>#content<%s: exit>#type<1>#
+#fnum<87>#file<phy_802_11n.c>#line<169>#func<init_phy_802_11n_curr_rates>#content<%s: enter>#type<1>#
+#fnum<87>#file<phy_802_11n.c>#line<325>#func<init_phy_802_11n_curr_rates>#content<%s: exit>#type<1>#
+#fnum<87>#file<phy_802_11n.c>#line<450>#func<init_phy_chars>#content<%s: enter>#type<1>#
+#fnum<87>#file<phy_802_11n.c>#line<480>#func<init_phy_chars>#content<%s: exit>#type<1>#
+#fnum<88>#file<reg_domain_generic.c>#line<135>#func<init_reg_domain_generic>#content<%s: enter>#type<1>#
+#fnum<88>#file<reg_domain_generic.c>#line<243>#func<init_reg_domain_generic>#content<%s: exit>#type<1>#
+#fnum<89>#file<reg_domain_maxim_ittiam.c>#line<139>#func<init_reg_domain_maxim_ittiam>#content<%s: enter>#type<1>#
+#fnum<89>#file<reg_domain_maxim_ittiam.c>#line<452>#func<init_reg_domain_maxim_ittiam>#content<%s: exit>#type<1>#
+#fnum<90>#file<vco_maxim_ittiam.c>#line<305>#func<init_maxim_ittiam_rf>#content<%s: enter>#type<1>#
+#fnum<90>#file<vco_maxim_ittiam.c>#line<325>#func<init_maxim_ittiam_rf>#content<WroteMxFEand RF registers\n>#type<0>#
+#fnum<90>#file<vco_maxim_ittiam.c>#line<332>#func<init_maxim_ittiam_rf>#content<%s: exit>#type<1>#
+#fnum<91>#file<wpse_prot_rx.c>#line<1899>#func<wps_process_p2p_prob_req_enr>#content<%s: enter>#type<1>#
+#fnum<91>#file<wpse_prot_rx.c>#line<1919>#func<wps_process_p2p_prob_req_enr>#content<%s: exit>#type<1>#
+#fnum<91>#file<wpse_prot_rx.c>#line<1947>#func<wps_process_p2p_prob_req_enr>#content<%s: exit>#type<1>#
+#fnum<91>#file<wpse_prot_rx.c>#line<1984>#func<wps_process_p2p_prob_rsp_enr>#content<%s: enter>#type<1>#
+#fnum<91>#file<wpse_prot_rx.c>#line<2005>#func<wps_process_p2p_prob_rsp_enr>#content<%s: exit>#type<1>#
+#fnum<91>#file<wpse_prot_rx.c>#line<2025>#func<wps_process_p2p_prob_rsp_enr>#content<%s: exit>#type<1>#
+#fnum<92>#file<wpse_prot_tx.c>#line<1802>#func<wps_handle_event>#content<%s: enter>#type<1>#
+#fnum<92>#file<wpse_prot_tx.c>#line<1815>#func<wps_handle_event>#content<%s: exit>#type<1>#
+#fnum<93>#file<wps_registrar.c>#line<687>#func<wps_handle_event>#content<%s: enter>#type<1>#
+#fnum<93>#file<wps_registrar.c>#line<708>#func<wps_handle_event>#content<%s: exit>#type<1>#
+#fnum<94>#file<host_if_test.c>#line<78>#func<process_host_rx_loopback>#content<%s: enter>#type<1>#
+#fnum<94>#file<host_if_test.c>#line<91>#func<process_host_rx_loopback>#content<%s: exit>#type<1>#
+#fnum<95>#file<test_config.c>#line<84>#func<initialize_test_config>#content<%s: enter>#type<1>#
+#fnum<95>#file<test_config.c>#line<595>#func<initialize_test_config>#content<%s: exit>#type<1>#
+#fnum<96>#file<imem.c>#line<99>#func<init_mem_manager>#content<%s: enter>#type<1>#
+#fnum<96>#file<imem.c>#line<116>#func<init_mem_manager>#content<%s: exit>#type<1>#
+#fnum<96>#file<imem.c>#line<161>#func<init_mem_pool>#content<%s: enter>#type<1>#
+#fnum<96>#file<imem.c>#line<224>#func<init_mem_pool>#content<%s: exit>#type<1>#
+#fnum<96>#file<imem.c>#line<264>#func<init_sub_pool>#content<%s: enter>#type<1>#
+#fnum<96>#file<imem.c>#line<332>#func<init_sub_pool>#content<%s: exit>#type<1>#
+#fnum<97>#file<imem.h>#line<239>#func<set_native_pool_id>#content<set_native_pool_id:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<251>#func<get_native_pool_id>#content<get_native_pool_id:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<264>#func<set_pattern>#content<set_pattern:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<277>#func<get_pattern>#content<get_pattern:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<290>#func<set_num_users>#content<set_num_users:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<303>#func<get_num_users>#content<get_num_users:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<318>#func<decr_num_users>#content<decr_num_users:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<333>#func<set_user_id>#content<set_user_id:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<346>#func<get_user_id>#content<get_user_id:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<526>#func<set_next_buffer_addr>#content<set_next_buffer_addr:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<97>#file<imem.h>#line<539>#func<get_next_buffer_addr>#content<get_next_buffer_addr:Invalidbuffer passed: %x\n>#type<0>#
+#fnum<98>#file<imem_if.c>#line<110>#func<init_mem_regions>#content<%s: enter>#type<1>#
+#fnum<98>#file<imem_if.c>#line<113>#func<init_mem_regions>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<122>#func<init_mem_regions>#content<allocsharedpkt mem pool failed!\n>#type<0>#
+#fnum<98>#file<imem_if.c>#line<123>#func<init_mem_regions>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<132>#func<init_mem_regions>#content<allocshareddscr mem pool failed!\n>#type<0>#
+#fnum<98>#file<imem_if.c>#line<142>#func<init_mem_regions>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<153>#func<init_mem_regions>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<159>#func<free_mem_regions>#content<%s: enter>#type<1>#
+#fnum<98>#file<imem_if.c>#line<185>#func<free_mem_regions>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<221>#func<init_shared_dscr_mem>#content<%s: enter>#type<1>#
+#fnum<98>#file<imem_if.c>#line<234>#func<init_shared_dscr_mem>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<279>#func<init_shared_pkt_mem>#content<%s: enter>#type<1>#
+#fnum<98>#file<imem_if.c>#line<301>#func<init_shared_pkt_mem>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<408>#func<init_local_mem_subpool_info>#content<%s: enter>#type<1>#
+#fnum<98>#file<imem_if.c>#line<484>#func<init_local_mem_subpool_info>#content<%s: exit>#type<1>#
+#fnum<98>#file<imem_if.c>#line<524>#func<init_local_mem>#content<%s: enter>#type<1>#
+#fnum<98>#file<imem_if.c>#line<571>#func<init_local_mem>#content<%s: exit>#type<1>#
+#fnum<99>#file<imem_if.h>#line<146>#func<pkt_mem_pri_table_show>#content<packetmemorypriority(%d) Table:\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<147>#func<pkt_mem_pri_table_show>#content<num_resvd:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<148>#func<pkt_mem_pri_table_show>#content<num_thresh:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<149>#func<pkt_mem_pri_table_show>#content<num_allocd:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<157>#func<print_mem_info>#content<%s(0x%p)memorypool detail:\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<158>#func<print_mem_info>#content<mem_pool_base:0x%p\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<159>#func<print_mem_info>#content<mem_pool_size:0x%08x\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<160>#func<print_mem_info>#content<num_sub_pools:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<161>#func<print_mem_info>#content<sub_pool:0x%p\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<167>#func<print_mem_info>#content<mem_handle0x%psub pool %d info:\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<168>#func<print_mem_info>#content<free_chunk_cnt:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<169>#func<print_mem_info>#content<total_chunk_cnt:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<170>#func<print_mem_info>#content<chunk_size:%d\n>#type<0>#
+#fnum<99>#file<imem_if.h>#line<171>#func<print_mem_info>#content<buffer_list_head:0x%p\n>#type<0>#
+#fnum<100>#file<qmu.c>#line<88>#func<qmu_init>#content<%s: enter>#type<1>#
+#fnum<100>#file<qmu.c>#line<126>#func<qmu_init>#content<%s: exit>#type<1>#
+#fnum<100>#file<qmu.c>#line<158>#func<qmu_close>#content<%s: enter>#type<1>#
+#fnum<100>#file<qmu.c>#line<166>#func<qmu_close>#content<%s: exit>#type<1>#
+#fnum<100>#file<qmu.c>#line<184>#func<qmu_close>#content<%s: exit>#type<1>#
+#fnum<101>#file<qmu_if.h>#line<107>#func<txq_handle_detail_show>#content<txqueuehandle detail show:\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<108>#func<txq_handle_detail_show>#content<tx_curr_qnum=%d,tx_list_count=%d\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<112>#func<txq_handle_detail_show>#content<txqueuepri(%d) handle info:\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<113>#func<txq_handle_detail_show>#content<element_cnt:%d\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<114>#func<txq_handle_detail_show>#content<element_head:0x%p\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<115>#func<txq_handle_detail_show>#content<element_tail:0x%p\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<116>#func<txq_handle_detail_show>#content<element_to_load:0x%p\n>#type<0>#
+#fnum<101>#file<qmu_if.h>#line<117>#func<txq_handle_detail_show>#content<trout_head:0x%08x\n>#type<0>#
+#fnum<102>#file<qmu_rx.c>#line<519>#func<replenish_rx_queue>#content<%s: enter>#type<1>#
+#fnum<102>#file<qmu_rx.c>#line<586>#func<replenish_rx_queue>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<119>#func<is_trout_tx_data_empty>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<136>#func<is_trout_tx_data_empty>#content<%s:re-processtx pkt enter!\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<138>#func<is_trout_tx_data_empty>#content<%s:re-processtx pkt exit!\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<143>#func<is_trout_tx_data_empty>#content<unbelievable:txbusy at 0x%x, value = %u!\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<151>#func<is_trout_tx_data_empty>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<172>#func<qmu_cpy_to_trout>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<177>#func<qmu_cpy_to_trout>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<185>#func<qmu_cpy_to_trout>#content<txsharemem busy!\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<189>#func<qmu_cpy_to_trout>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<217>#func<qmu_cpy_to_trout>#content<%s<%d>:id=%u\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<274>#func<qmu_cpy_to_trout>#content<Warning:sub-msdutable in tx dscr, but sub-msdu num(%d) is not match!\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<275>#func<qmu_cpy_to_trout>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<382>#func<qmu_cpy_to_trout>#content<%s<%d>:pkt=%d,len=%d\n>#type<0>#
+#fnum<103>#file<qmu_tx.c>#line<394>#func<qmu_cpy_to_trout>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<418>#func<trout_load_qmu>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<428>#func<trout_load_qmu>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<463>#func<qmu_add_tx_packet>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<469>#func<qmu_add_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<485>#func<qmu_add_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<579>#func<qmu_add_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<621>#func<qmu_add_tx_packet_list>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<665>#func<qmu_add_tx_packet_list>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<740>#func<qmu_add_tx_packet_list>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<744>#func<qmu_add_tx_packet_list>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<785>#func<qmu_sync_tx_packet>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<813>#func<qmu_sync_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<870>#func<qmu_sync_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<905>#func<qmu_del_tx_packet>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<912>#func<qmu_del_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<951>#func<qmu_del_tx_packet>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<1133>#func<transfer_tx_dscr_local_to_shared>#content<%s: enter>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<1147>#func<transfer_tx_dscr_local_to_shared>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<1173>#func<transfer_tx_dscr_local_to_shared>#content<%s: exit>#type<1>#
+#fnum<103>#file<qmu_tx.c>#line<1225>#func<transfer_tx_dscr_local_to_shared>#content<%s: exit>#type<1>#

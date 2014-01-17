@@ -37,6 +37,7 @@
 #include <linux/interrupt.h>
 #include <linux/notifier.h>
 #include <net/sock.h>
+#include <linux/wakelock.h>
 
 #include <asm/system.h>
 #include <linux/uaccess.h>
@@ -44,6 +45,8 @@
 
 #include <net/bluetooth/bluetooth.h>
 #include <net/bluetooth/hci_core.h>
+
+extern struct wake_lock bt_wake_lock;
 
 static void hci_le_connect(struct hci_conn *conn)
 {
@@ -337,12 +340,21 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 					__u16 pkt_type, bdaddr_t *dst)
 {
 	struct hci_conn *conn;
-
+#ifdef CONFIG_BT_TROUT
+	struct hci_conn *conn_acl;
+#endif
 	BT_DBG("%s dst %s", hdev->name, batostr(dst));
 
 	conn = kzalloc(sizeof(struct hci_conn), GFP_ATOMIC);
 	if (!conn)
 		return NULL;
+
+#ifdef CONFIG_BT_TROUT
+	conn_acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
+	if(conn_acl){
+		conn->esco_type = conn_acl->esco_type;
+	}
+#endif
 
 	bacpy(&conn->dst, dst);
 	conn->hdev  = hdev;
@@ -370,8 +382,13 @@ struct hci_conn *hci_conn_add(struct hci_dev *hdev, int type,
 		if (lmp_esco_capable(hdev)) {
 			/* HCI Setup Synchronous Connection Command uses
 			   reverse logic on the EDR_ESCO_MASK bits */
+#ifdef CONFIG_BT_TROUT
+			/*set esco packet type by remote feature and local feature*/
+			conn->pkt_type = (pkt_type  & conn->esco_type )^ EDR_ESCO_MASK;
+#else
 			conn->pkt_type = (pkt_type ^ EDR_ESCO_MASK) &
 					hdev->esco_type;
+#endif
 		} else {
 			/* Legacy HCI Add Sco Connection Command uses a
 			   shifted bitmask */
@@ -537,6 +554,13 @@ struct hci_conn *hci_connect(struct hci_dev *hdev, int type,
 
 	acl = hci_conn_hash_lookup_ba(hdev, ACL_LINK, dst);
 	if (!acl) {
+		#ifdef CONFIG_BT_SINGLE_LINK
+                struct hci_conn_hash *h = &hdev->conn_hash;
+		if ((type == ACL_LINK) && (h->acl_num >= 1)) {
+			BT_DBG("single link solution, reject the second outgoing connect request.");
+			return ERR_PTR(-EBUSY);
+		}
+		#endif
 		acl = hci_conn_add(hdev, ACL_LINK, 0, dst);
 		if (!acl)
 			return NULL;
@@ -603,6 +627,12 @@ EXPORT_SYMBOL(hci_conn_check_link_mode);
 static int hci_conn_auth(struct hci_conn *conn, __u8 sec_level, __u8 auth_type)
 {
 	BT_DBG("conn %p", conn);
+#ifdef CONFIG_BT_TROUT
+        BT_DBG("hci_conn_auth 0x%x", conn->link_mode);
+/*if the link is already encrypt, do not to send auth command*/
+	if (conn->link_mode & HCI_LM_ENCRYPT)
+		return 1;
+#endif
 
 	if (conn->pending_sec_level > sec_level)
 		sec_level = conn->pending_sec_level;
@@ -776,9 +806,11 @@ void hci_conn_enter_active_mode(struct hci_conn *conn, __u8 force_active)
 	}
 
 timer:
-	if (hdev->idle_timeout > 0)
+	if (hdev->idle_timeout > 0) {
 		mod_timer(&conn->idle_timer,
 			jiffies + msecs_to_jiffies(hdev->idle_timeout));
+		wake_lock_timeout(&bt_wake_lock, HZ*(hdev->idle_timeout/1000+1));
+	}
 }
 
 /* Enter sniff mode */

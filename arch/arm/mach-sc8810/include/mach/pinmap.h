@@ -321,4 +321,8 @@
 #define BIT_PIN_SLP_NUL                 ( 0 )
 #define BIT_PIN_SLP_Z                   ( 0 )
 
+#define REG_PIN_SD1_D3 REG_PIN_SD2_D3
+#define REG_PIN_TROUT_WIFI_IRQ	REG_PIN_KEYOUT6
+#define REG_PIN_CLK_REQ2 REG_PIN_GPIO140
+#define REG_PIN_IIS0MCK REG_PIN_IISMCK
 #endif

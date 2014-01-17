@@ -1,0 +1,7 @@
+[irq_handler] = [500, 1000, 2000]
+[mac_isr_work] = [500, 1000, 2000]
+[tx_complete_isr] = [500, 1000, 2000]
+[qmu_cpy_npi_descr end] = [500, 1000, 2000]
+
+
+

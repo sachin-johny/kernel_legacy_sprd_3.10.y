@@ -1,0 +1,14 @@
+menu "TROUT WLAN MAC support"
+config TROUT
+	tristate "TROUT Wireless MAC driver"
+	---help---
+		Enable TROUT WLAN MAC driver within the kernel.
+
+config TROUT_WEXT
+    bool "Enable WEXT support"
+	depends on TROUT && CFG80211 = n
+	select WIRELESS_EXT
+	select WEXT_PRIV
+	---help---
+		Enables WEXT support
+endmenu

@@ -546,7 +546,7 @@ static int send_stop(struct mmc_card *card, u32 *status)
 	return err;
 }
 
-int get_card_status(struct mmc_card *card, u32 *status, int retries)
+static int get_card_status(struct mmc_card *card, u32 *status, int retries)
 {
 	struct mmc_command cmd = {0};
 	int err;
@@ -719,13 +719,18 @@ static int mmc_blk_cmd_recovery(struct mmc_card *card, struct request *req,
 static int mmc_blk_reset(struct mmc_blk_data *md, struct mmc_host *host,
 			 int type)
 {
-	int err;
+	int err, retries;
 
 	if (md->reset_done & type)
+	{
+		printk("******* %s, md->reset_done:%d, type:%d, return -EEXIST *****\n", __func__, md->reset_done, type);
 		return -EEXIST;
-
+	}
 	md->reset_done |= type;
+	retries = 5;
+    do{
 	err = mmc_hw_reset(host);
+	}while(err && (err != -EOPNOTSUPP) && retries--);
 	/* Ensure we switch back to the correct partition */
 	if (err != -EOPNOTSUPP) {
 		struct mmc_blk_data *main_md = mmc_get_drvdata(host->card);
@@ -1160,7 +1165,9 @@ static int mmc_blk_cmd_err(struct mmc_blk_data *md, struct mmc_card *card,
 		blocks = mmc_sd_num_wr_blocks(card);
 		if (blocks != (u32)-1) {
 			spin_lock_irq(&md->lock);
-			ret = __blk_end_request(req, 0, blocks << 9);
+			/* do not end requset if cmd error */
+			/*ret = __blk_end_request(req, 0, blocks << 9);*/
+			ret = __blk_end_request(req, 0, 0);
 			spin_unlock_irq(&md->lock);
 		}
 	} else {
@@ -1184,8 +1191,9 @@ static void remove_sd_card(struct mmc_host *host)
 			mmc_hostname(host));
 		return;
 	}
-	host->card->removed = 1;
+
 	mmc_schedule_card_removal_work(&host->remove, 0);
+	//host->card->removed = 1;
 }
 
 
@@ -1218,7 +1226,8 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 		req = mq_rq->req;
 		type = rq_data_dir(req) == READ ? MMC_BLK_READ : MMC_BLK_WRITE;
 		mmc_queue_bounce_post(mq_rq);
-
+		if(status)
+			printk("****** %s, transfer status:%d ****\n", __func__, status);
 		switch (status) {
 		case MMC_BLK_SUCCESS:
 		case MMC_BLK_PARTIAL:
@@ -1310,7 +1319,8 @@ static int mmc_blk_issue_rw_rq(struct mmc_queue *mq, struct request *rqc)
 	/*
 	* reset host failed, give up, remove card
 	*/
-	remove_sd_card(card->host);
+	if(mmc_card_sd(card))
+		remove_sd_card(card->host);
 
  start_new_req:
 	if (rqc) {
@@ -1592,7 +1602,7 @@ static void mmc_blk_remove_req(struct mmc_blk_data *md)
 			device_remove_file(disk_to_dev(md->disk), &md->force_ro);
 
 			/* Stop new requests from getting into the queue */
-			del_gendisk(md->disk);
+			del_gendisk_async(md->disk);
 		}
 
 		/* Then flush out any already in there */
@@ -1683,16 +1693,15 @@ static int mmc_blk_probe(struct mmc_card *card)
 		md->disk->disk_name, mmc_card_id(card), mmc_card_name(card),
 		cap_str, md->read_only ? "(ro)" : "");
 
-	// De-activate the Boot partition 
-#if 0
 	if (mmc_blk_alloc_parts(card, md))
 		goto out;
 
-#endif
-
 	mmc_set_drvdata(card, md);
 	mmc_fixup_device(card, blk_fixups);
-
+	
+	printk("%s: %s %s %s %s\n",
+		md->disk->disk_name, mmc_card_id(card), mmc_card_name(card),
+		cap_str, md->read_only ? "(ro)" : "");
 #ifdef CONFIG_MMC_BLOCK_DEFERRED_RESUME
 	mmc_set_bus_resume_policy(card->host, 1);
 #endif

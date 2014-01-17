@@ -1,0 +1,534 @@
+!_TAG_FILE_FORMAT	2	/extended format; --format=1 will not append ;" to lines/
+!_TAG_FILE_SORTED	1	/0=unsorted, 1=sorted, 2=foldcase/
+!_TAG_PROGRAM_AUTHOR	Darren Hiebert	/dhiebert@users.sourceforge.net/
+!_TAG_PROGRAM_NAME	Exuberant Ctags	//
+!_TAG_PROGRAM_URL	http://ctags.sourceforge.net	/official site/
+!_TAG_PROGRAM_VERSION	5.9~svn20110310	//
+BIT_0	trout_fm_ctrl.h	166;"	d
+BIT_1	trout_fm_ctrl.h	167;"	d
+BIT_10	trout_fm_ctrl.h	176;"	d
+BIT_11	trout_fm_ctrl.h	177;"	d
+BIT_12	trout_fm_ctrl.h	178;"	d
+BIT_13	trout_fm_ctrl.h	179;"	d
+BIT_14	trout_fm_ctrl.h	180;"	d
+BIT_15	trout_fm_ctrl.h	181;"	d
+BIT_16	trout_fm_ctrl.h	182;"	d
+BIT_17	trout_fm_ctrl.h	183;"	d
+BIT_18	trout_fm_ctrl.h	184;"	d
+BIT_19	trout_fm_ctrl.h	185;"	d
+BIT_2	trout_fm_ctrl.h	168;"	d
+BIT_20	trout_fm_ctrl.h	186;"	d
+BIT_21	trout_fm_ctrl.h	187;"	d
+BIT_22	trout_fm_ctrl.h	188;"	d
+BIT_23	trout_fm_ctrl.h	189;"	d
+BIT_24	trout_fm_ctrl.h	190;"	d
+BIT_25	trout_fm_ctrl.h	191;"	d
+BIT_26	trout_fm_ctrl.h	192;"	d
+BIT_27	trout_fm_ctrl.h	193;"	d
+BIT_28	trout_fm_ctrl.h	194;"	d
+BIT_29	trout_fm_ctrl.h	195;"	d
+BIT_3	trout_fm_ctrl.h	169;"	d
+BIT_30	trout_fm_ctrl.h	196;"	d
+BIT_31	trout_fm_ctrl.h	197;"	d
+BIT_4	trout_fm_ctrl.h	170;"	d
+BIT_5	trout_fm_ctrl.h	171;"	d
+BIT_6	trout_fm_ctrl.h	172;"	d
+BIT_7	trout_fm_ctrl.h	173;"	d
+BIT_8	trout_fm_ctrl.h	174;"	d
+BIT_9	trout_fm_ctrl.h	175;"	d
+BT_MODE	trout_rf_55.c	/^	BT_MODE      = 4,$/;"	e	enum:__anon5	file:
+COM_REG_RF_SPI_CTRL	trout_fm_ctrl.h	164;"	d
+CONFIG_INTERFACE	config.mk	/^CONFIG_INTERFACE = INTERFACE_SHARED$/;"	m
+CONFIG_RF	config.mk	/^CONFIG_RF = RF_55$/;"	m
+FM_CTL_STI_MODE_NORMAL	trout_fm_ctrl.h	38;"	d
+FM_CTL_STI_MODE_SEEK	trout_fm_ctrl.h	39;"	d
+FM_CTL_STI_MODE_TUNE	trout_fm_ctrl.h	40;"	d
+FM_MODE	trout_rf_55.c	/^	FM_MODE      = 2,$/;"	e	enum:__anon5	file:
+FM_REG_ADC_BITMAP	trout_fm_ctrl.h	52;"	d
+FM_REG_ADP_BIT_SFT	trout_fm_ctrl.h	82;"	d
+FM_REG_ADP_LPF_CONF	trout_fm_ctrl.h	71;"	d
+FM_REG_ADP_ST_CONF	trout_fm_ctrl.h	70;"	d
+FM_REG_AGC_ADPS0	trout_fm_ctrl.h	66;"	d
+FM_REG_AGC_ADPS1	trout_fm_ctrl.h	67;"	d
+FM_REG_AGC_BITS_TBL0	trout_fm_ctrl.h	92;"	d
+FM_REG_AGC_BITS_TBL1	trout_fm_ctrl.h	93;"	d
+FM_REG_AGC_BITS_TBL10	trout_fm_ctrl.h	102;"	d
+FM_REG_AGC_BITS_TBL11	trout_fm_ctrl.h	103;"	d
+FM_REG_AGC_BITS_TBL12	trout_fm_ctrl.h	104;"	d
+FM_REG_AGC_BITS_TBL13	trout_fm_ctrl.h	105;"	d
+FM_REG_AGC_BITS_TBL14	trout_fm_ctrl.h	106;"	d
+FM_REG_AGC_BITS_TBL15	trout_fm_ctrl.h	107;"	d
+FM_REG_AGC_BITS_TBL16	trout_fm_ctrl.h	108;"	d
+FM_REG_AGC_BITS_TBL17	trout_fm_ctrl.h	109;"	d
+FM_REG_AGC_BITS_TBL2	trout_fm_ctrl.h	94;"	d
+FM_REG_AGC_BITS_TBL3	trout_fm_ctrl.h	95;"	d
+FM_REG_AGC_BITS_TBL4	trout_fm_ctrl.h	96;"	d
+FM_REG_AGC_BITS_TBL5	trout_fm_ctrl.h	97;"	d
+FM_REG_AGC_BITS_TBL6	trout_fm_ctrl.h	98;"	d
+FM_REG_AGC_BITS_TBL7	trout_fm_ctrl.h	99;"	d
+FM_REG_AGC_BITS_TBL8	trout_fm_ctrl.h	100;"	d
+FM_REG_AGC_BITS_TBL9	trout_fm_ctrl.h	101;"	d
+FM_REG_AGC_BOND_TBL0	trout_fm_ctrl.h	128;"	d
+FM_REG_AGC_BOND_TBL1	trout_fm_ctrl.h	129;"	d
+FM_REG_AGC_BOND_TBL2	trout_fm_ctrl.h	130;"	d
+FM_REG_AGC_BOND_TBL3	trout_fm_ctrl.h	131;"	d
+FM_REG_AGC_BOND_TBL4	trout_fm_ctrl.h	132;"	d
+FM_REG_AGC_BOND_TBL5	trout_fm_ctrl.h	133;"	d
+FM_REG_AGC_BOND_TBL6	trout_fm_ctrl.h	134;"	d
+FM_REG_AGC_BOND_TBL7	trout_fm_ctrl.h	135;"	d
+FM_REG_AGC_BOND_TBL8	trout_fm_ctrl.h	136;"	d
+FM_REG_AGC_BOND_TBL9	trout_fm_ctrl.h	137;"	d
+FM_REG_AGC_CTRL	trout_fm_ctrl.h	64;"	d
+FM_REG_AGC_DB_TBL_BEGIN	trout_fm_ctrl.h	138;"	d
+FM_REG_AGC_DB_TBL_CNT	trout_fm_ctrl.h	140;"	d
+FM_REG_AGC_DB_TBL_END	trout_fm_ctrl.h	139;"	d
+FM_REG_AGC_HYS	trout_fm_ctrl.h	78;"	d
+FM_REG_AGC_IDX_TH	trout_fm_ctrl.h	60;"	d
+FM_REG_AGC_ITV_TH	trout_fm_ctrl.h	65;"	d
+FM_REG_AGC_RSSI_TH	trout_fm_ctrl.h	61;"	d
+FM_REG_AGC_TBL_CLK	trout_fm_ctrl.h	46;"	d
+FM_REG_AGC_TBL_RFRSSI0	trout_fm_ctrl.h	57;"	d
+FM_REG_AGC_TBL_RFRSSI1	trout_fm_ctrl.h	58;"	d
+FM_REG_AGC_TBL_STS	trout_fm_ctrl.h	81;"	d
+FM_REG_AGC_TBL_WBRSSI	trout_fm_ctrl.h	59;"	d
+FM_REG_AGC_VAL_TBL0	trout_fm_ctrl.h	110;"	d
+FM_REG_AGC_VAL_TBL1	trout_fm_ctrl.h	111;"	d
+FM_REG_AGC_VAL_TBL10	trout_fm_ctrl.h	120;"	d
+FM_REG_AGC_VAL_TBL11	trout_fm_ctrl.h	121;"	d
+FM_REG_AGC_VAL_TBL12	trout_fm_ctrl.h	122;"	d
+FM_REG_AGC_VAL_TBL13	trout_fm_ctrl.h	123;"	d
+FM_REG_AGC_VAL_TBL14	trout_fm_ctrl.h	124;"	d
+FM_REG_AGC_VAL_TBL15	trout_fm_ctrl.h	125;"	d
+FM_REG_AGC_VAL_TBL16	trout_fm_ctrl.h	126;"	d
+FM_REG_AGC_VAL_TBL17	trout_fm_ctrl.h	127;"	d
+FM_REG_AGC_VAL_TBL2	trout_fm_ctrl.h	112;"	d
+FM_REG_AGC_VAL_TBL3	trout_fm_ctrl.h	113;"	d
+FM_REG_AGC_VAL_TBL4	trout_fm_ctrl.h	114;"	d
+FM_REG_AGC_VAL_TBL5	trout_fm_ctrl.h	115;"	d
+FM_REG_AGC_VAL_TBL6	trout_fm_ctrl.h	116;"	d
+FM_REG_AGC_VAL_TBL7	trout_fm_ctrl.h	117;"	d
+FM_REG_AGC_VAL_TBL8	trout_fm_ctrl.h	118;"	d
+FM_REG_AGC_VAL_TBL9	trout_fm_ctrl.h	119;"	d
+FM_REG_AUD_BLD0	trout_fm_ctrl.h	76;"	d
+FM_REG_AUD_BLD1	trout_fm_ctrl.h	77;"	d
+FM_REG_BAND_LMT	trout_fm_ctrl.h	49;"	d
+FM_REG_BAND_SPACE	trout_fm_ctrl.h	50;"	d
+FM_REG_CHAN	trout_fm_ctrl.h	45;"	d
+FM_REG_CHAN_FREQ_STS	trout_fm_ctrl.h	85;"	d
+FM_REG_DEPHA_SCAL	trout_fm_ctrl.h	72;"	d
+FM_REG_FMCTL_STI	trout_fm_ctrl.h	48;"	d
+FM_REG_FM_CTRL	trout_fm_ctrl.h	42;"	d
+FM_REG_FM_EN	trout_fm_ctrl.h	43;"	d
+FM_REG_FREQ_OFF_STS	trout_fm_ctrl.h	86;"	d
+FM_REG_HW_MUTE	trout_fm_ctrl.h	73;"	d
+FM_REG_INPWR_STS	trout_fm_ctrl.h	87;"	d
+FM_REG_INT_CLR	trout_fm_ctrl.h	54;"	d
+FM_REG_INT_EN	trout_fm_ctrl.h	53;"	d
+FM_REG_INT_STS	trout_fm_ctrl.h	55;"	d
+FM_REG_MONO_PWR	trout_fm_ctrl.h	79;"	d
+FM_REG_NO_LPF_STS	trout_fm_ctrl.h	89;"	d
+FM_REG_PDP_DEV	trout_fm_ctrl.h	69;"	d
+FM_REG_PDP_TH	trout_fm_ctrl.h	68;"	d
+FM_REG_RF_CFG_DLY	trout_fm_ctrl.h	80;"	d
+FM_REG_RF_CTL	trout_fm_ctrl.h	51;"	d
+FM_REG_RF_INIT_GAIN	trout_fm_ctrl.h	44;"	d
+FM_REG_RF_RSSI_STS	trout_fm_ctrl.h	88;"	d
+FM_REG_RSSI_STS	trout_fm_ctrl.h	84;"	d
+FM_REG_SEEK_ADPS	trout_fm_ctrl.h	62;"	d
+FM_REG_SEEK_CH_TH	trout_fm_ctrl.h	56;"	d
+FM_REG_SEEK_CNT	trout_fm_ctrl.h	83;"	d
+FM_REG_SEEK_LOOP	trout_fm_ctrl.h	47;"	d
+FM_REG_SMUTE_STS	trout_fm_ctrl.h	90;"	d
+FM_REG_SPI_CTL	trout_fm_ctrl.h	146;"	d
+FM_REG_SPI_FIFO_STS	trout_fm_ctrl.h	150;"	d
+FM_REG_SPI_RD	trout_fm_ctrl.h	149;"	d
+FM_REG_SPI_WD0	trout_fm_ctrl.h	147;"	d
+FM_REG_SPI_WD1	trout_fm_ctrl.h	148;"	d
+FM_REG_SPUR_FREQ0	trout_fm_ctrl.h	142;"	d
+FM_REG_SPUR_FREQ1	trout_fm_ctrl.h	143;"	d
+FM_REG_STER_PWR	trout_fm_ctrl.h	63;"	d
+FM_REG_SW_MUTE	trout_fm_ctrl.h	74;"	d
+FM_REG_UPD_CTRL	trout_fm_ctrl.h	75;"	d
+FM_REG_WBRSSI_STS	trout_fm_ctrl.h	91;"	d
+FM_ROOT	Makefile	/^FM_ROOT =${ANDROID_3RDPARTY_ANDROID_TOP}\/3rdparty\/fm\/Trout_FM\/special\/driver$/;"	m
+LDO_ANA_PD	trout_rf_2829.h	70;"	d
+LDO_ANA_PD	trout_rf_55.h	40;"	d
+LDO_ANA_PD_AUTO	trout_rf_2829.h	73;"	d
+LDO_ANA_PD_AUTO	trout_rf_55.h	42;"	d
+LDO_RF_PD	trout_rf_2829.h	69;"	d
+LDO_RF_PD_AUTO	trout_rf_2829.h	72;"	d
+MAX_FM_FREQ	trout_rf_55.h	86;"	d
+MIN_FM_FREQ	trout_rf_55.h	87;"	d
+MODE	trout_rf_55.c	/^} MODE;$/;"	t	typeref:enum:__anon5	file:
+NONE_MODE	trout_rf_55.c	/^	NONE_MODE    = 0,$/;"	e	enum:__anon5	file:
+PMU_PD_INT	trout_rf_2829.h	68;"	d
+PMU_PD_INT	trout_rf_55.h	39;"	d
+PMU_PD_INT_AUTO	trout_rf_2829.h	71;"	d
+PMU_PD_INT_AUTO	trout_rf_55.h	41;"	d
+POWER_ON_FM	trout_fm_ctrl.c	17;"	d	file:
+READ_FM_REG	trout_fm_ctrl.h	33;"	d
+READ_FM_RF_REG	trout_fm_ctrl.h	35;"	d
+READ_REG	trout_fm_ctrl.h	279;"	d
+READ_RF_REG	trout_fm_ctrl.h	295;"	d
+RF_SPIREG_COUNT	trout_fm_ctrl.h	161;"	d
+RF_SPI_REG_END_ADDR	trout_fm_ctrl.h	160;"	d
+RF_SPI_REG_START_ADDR	trout_fm_ctrl.h	159;"	d
+RF_SWITCH_K2_1	trout_rf_2829.h	/^	RF_SWITCH_K2_1,$/;"	e	enum:__anon3
+RF_SWITCH_K2_2	trout_rf_2829.h	/^	RF_SWITCH_K2_2,$/;"	e	enum:__anon3
+RF_SWITCH_K2_3	trout_rf_2829.h	/^	RF_SWITCH_K2_3,$/;"	e	enum:__anon3
+RF_SWITCH_K2_4	trout_rf_2829.h	/^	RF_SWITCH_K2_4,$/;"	e	enum:__anon3
+RF_SWITCH_K2_5	trout_rf_2829.h	/^	RF_SWITCH_K2_5,$/;"	e	enum:__anon3
+RF_SWITCH_K2_6	trout_rf_2829.h	/^	RF_SWITCH_K2_6,$/;"	e	enum:__anon3
+RF_SWITCH_K2_7	trout_rf_2829.h	/^	RF_SWITCH_K2_7,$/;"	e	enum:__anon3
+RF_SWITCH_K2_8	trout_rf_2829.h	/^	RF_SWITCH_K2_8,$/;"	e	enum:__anon3
+RF_SWITCH_K4_1	trout_rf_2829.h	/^	RF_SWITCH_K4_1,$/;"	e	enum:__anon3
+RF_SWITCH_MODE_DIS	trout_rf_2829.h	/^	RF_SWITCH_MODE_DIS,$/;"	e	enum:__anon4
+RF_SWITCH_MODE_E	trout_rf_2829.h	/^}RF_SWITCH_MODE_E;$/;"	t	typeref:enum:__anon4
+RF_SWITCH_MODE_EN	trout_rf_2829.h	/^	RF_SWITCH_MODE_EN,$/;"	e	enum:__anon4
+RF_SWITCH_NAME_E	trout_rf_2829.h	/^}RF_SWITCH_NAME_E;$/;"	t	typeref:enum:__anon3
+RF_USE_SPI_MODE	trout_rf_2829.c	18;"	d	file:
+SPI_FM_SLEEP	trout_rf_2829.h	66;"	d
+SPI_FM_SLEEP	trout_rf_55.h	35;"	d
+SPI_FORCE_SLEEP	trout_rf_2829.h	65;"	d
+SPI_FORCE_SLEEP	trout_rf_55.h	34;"	d
+SPI_MAX_SPEED	trout_fm_ctrl.h	8;"	d
+SPI_MPLL_EN	trout_rf_2829.h	57;"	d
+SPI_RD_ERG_CMD	trout_fm_ctrl.h	7;"	d
+SPI_SPLL_EN	trout_rf_2829.h	59;"	d
+SPI_WR_ERG_CMD	trout_fm_ctrl.h	6;"	d
+SPI_XTL_AUTOPD_EN	trout_rf_2829.h	63;"	d
+SPI_XTL_AUTOPD_EN	trout_rf_55.h	32;"	d
+SPI_XTL_FORCE_ON	trout_rf_2829.h	64;"	d
+SPI_XTL_FORCE_ON	trout_rf_55.h	33;"	d
+SYS_REG_ADDA_FORCE	trout_rf_2829.h	83;"	d
+SYS_REG_ADDA_FORCE	trout_rf_55.h	50;"	d
+SYS_REG_ADDA_TEST_CFG	trout_rf_55.h	83;"	d
+SYS_REG_ANA_TEST_CFG	trout_rf_2829.h	79;"	d
+SYS_REG_ANT_MODE	trout_rf_2829.h	90;"	d
+SYS_REG_ANT_MODE	trout_rf_55.h	58;"	d
+SYS_REG_BIAS_MODE	trout_rf_2829.h	91;"	d
+SYS_REG_BIST_CFG	trout_rf_2829.h	85;"	d
+SYS_REG_BIST_CFG	trout_rf_55.h	52;"	d
+SYS_REG_BTAD_CFG	trout_rf_2829.h	102;"	d
+SYS_REG_BTAD_CFG	trout_rf_55.h	68;"	d
+SYS_REG_BWDAC_CFG0	trout_rf_55.h	77;"	d
+SYS_REG_BWDAC_CFG1	trout_rf_55.h	78;"	d
+SYS_REG_BWDAC_CFG2	trout_rf_55.h	79;"	d
+SYS_REG_BWDAC_STS0	trout_rf_55.h	80;"	d
+SYS_REG_BWDAC_STS1	trout_rf_55.h	81;"	d
+SYS_REG_CLK_CTRL0	trout_rf_2829.h	60;"	d
+SYS_REG_CLK_CTRL0	trout_rf_55.h	28;"	d
+SYS_REG_CLK_CTRL1	trout_rf_2829.h	61;"	d
+SYS_REG_CLK_CTRL1	trout_rf_55.h	29;"	d
+SYS_REG_DACCONST_CFG	trout_rf_2829.h	86;"	d
+SYS_REG_DACCONST_CFG	trout_rf_55.h	53;"	d
+SYS_REG_FPGA_DEBUG_CFG	trout_rf_2829.h	105;"	d
+SYS_REG_FPGA_DEBUG_CFG	trout_rf_55.h	84;"	d
+SYS_REG_FUNC_LOWSPEED	trout_rf_55.h	27;"	d
+SYS_REG_GPIO_IN	trout_rf_2829.h	74;"	d
+SYS_REG_GPIO_IN	trout_rf_55.h	44;"	d
+SYS_REG_GPIO_INEN	trout_rf_2829.h	77;"	d
+SYS_REG_GPIO_INEN	trout_rf_55.h	47;"	d
+SYS_REG_GPIO_OE	trout_rf_2829.h	76;"	d
+SYS_REG_GPIO_OE	trout_rf_55.h	46;"	d
+SYS_REG_GPIO_OUT	trout_rf_2829.h	75;"	d
+SYS_REG_GPIO_OUT	trout_rf_55.h	45;"	d
+SYS_REG_HOST2ARSYS_REG_INFO0	trout_rf_2829.h	92;"	d
+SYS_REG_HOST2ARSYS_REG_INFO0	trout_rf_55.h	59;"	d
+SYS_REG_HOST2ARSYS_REG_INFO1	trout_rf_2829.h	93;"	d
+SYS_REG_HOST2ARSYS_REG_INFO1	trout_rf_55.h	60;"	d
+SYS_REG_HOST2ARSYS_REG_INFO2	trout_rf_2829.h	94;"	d
+SYS_REG_HOST2ARSYS_REG_INFO2	trout_rf_55.h	61;"	d
+SYS_REG_HOST2ARSYS_REG_INFO3	trout_rf_2829.h	95;"	d
+SYS_REG_HOST2ARSYS_REG_INFO3	trout_rf_55.h	62;"	d
+SYS_REG_HOST_WAKE_UP	trout_rf_2829.h	106;"	d
+SYS_REG_INFO0_FROM_ARM	trout_rf_2829.h	96;"	d
+SYS_REG_INFO0_FROM_ARM	trout_rf_55.h	63;"	d
+SYS_REG_INFO1_FROM_ARM	trout_rf_2829.h	97;"	d
+SYS_REG_INFO1_FROM_ARM	trout_rf_55.h	64;"	d
+SYS_REG_INFO2_FROM_ARM	trout_rf_2829.h	98;"	d
+SYS_REG_INFO2_FROM_ARM	trout_rf_55.h	65;"	d
+SYS_REG_INFO3_FROM_ARM	trout_rf_2829.h	99;"	d
+SYS_REG_INFO3_FROM_ARM	trout_rf_55.h	66;"	d
+SYS_REG_IQ_SWAP	trout_rf_2829.h	87;"	d
+SYS_REG_IQ_SWAP	trout_rf_55.h	55;"	d
+SYS_REG_LDO_CFG	trout_rf_2829.h	103;"	d
+SYS_REG_MPLL_CTRL	trout_rf_2829.h	56;"	d
+SYS_REG_PAD_ANTSEL0	trout_rf_2829.h	41;"	d
+SYS_REG_PAD_ANTSEL1	trout_rf_2829.h	42;"	d
+SYS_REG_PAD_ANTSEL2	trout_rf_2829.h	43;"	d
+SYS_REG_PAD_CLK_32K	trout_rf_2829.h	40;"	d
+SYS_REG_PAD_CLK_32K	trout_rf_55.h	17;"	d
+SYS_REG_PAD_GINT	trout_rf_55.h	9;"	d
+SYS_REG_PAD_GPIO	trout_rf_55.h	12;"	d
+SYS_REG_PAD_IISCLK	trout_rf_2829.h	31;"	d
+SYS_REG_PAD_IISCLK	trout_rf_55.h	6;"	d
+SYS_REG_PAD_IISDI	trout_rf_2829.h	29;"	d
+SYS_REG_PAD_IISDI	trout_rf_55.h	24;"	d
+SYS_REG_PAD_IISDO	trout_rf_2829.h	30;"	d
+SYS_REG_PAD_IISDO	trout_rf_55.h	5;"	d
+SYS_REG_PAD_IISLRCK	trout_rf_2829.h	32;"	d
+SYS_REG_PAD_IISLRCK	trout_rf_55.h	7;"	d
+SYS_REG_PAD_JTAGTCK	trout_rf_2829.h	47;"	d
+SYS_REG_PAD_JTAGTDI	trout_rf_2829.h	49;"	d
+SYS_REG_PAD_JTAGTDO	trout_rf_2829.h	51;"	d
+SYS_REG_PAD_JTAGTMS	trout_rf_2829.h	48;"	d
+SYS_REG_PAD_JTAGTRSTN	trout_rf_2829.h	50;"	d
+SYS_REG_PAD_MAX	trout_rf_2829.h	53;"	d
+SYS_REG_PAD_MAX	trout_rf_55.h	25;"	d
+SYS_REG_PAD_MIN	trout_rf_2829.h	22;"	d
+SYS_REG_PAD_MIN	trout_rf_55.h	4;"	d
+SYS_REG_PAD_PTEST	trout_rf_2829.h	44;"	d
+SYS_REG_PAD_PTEST	trout_rf_55.h	8;"	d
+SYS_REG_PAD_RESETN	trout_rf_2829.h	46;"	d
+SYS_REG_PAD_RESETN	trout_rf_55.h	11;"	d
+SYS_REG_PAD_SD_CLK	trout_rf_2829.h	23;"	d
+SYS_REG_PAD_SD_CLK	trout_rf_55.h	18;"	d
+SYS_REG_PAD_SD_CMD	trout_rf_2829.h	24;"	d
+SYS_REG_PAD_SD_CMD	trout_rf_55.h	19;"	d
+SYS_REG_PAD_SD_D0	trout_rf_2829.h	25;"	d
+SYS_REG_PAD_SD_D0	trout_rf_55.h	20;"	d
+SYS_REG_PAD_SD_D1	trout_rf_2829.h	26;"	d
+SYS_REG_PAD_SD_D1	trout_rf_55.h	21;"	d
+SYS_REG_PAD_SD_D2	trout_rf_2829.h	27;"	d
+SYS_REG_PAD_SD_D2	trout_rf_55.h	22;"	d
+SYS_REG_PAD_SD_D3	trout_rf_2829.h	28;"	d
+SYS_REG_PAD_SD_D3	trout_rf_55.h	23;"	d
+SYS_REG_PAD_TINT	trout_rf_2829.h	39;"	d
+SYS_REG_PAD_U0CTS	trout_rf_2829.h	35;"	d
+SYS_REG_PAD_U0CTS	trout_rf_55.h	13;"	d
+SYS_REG_PAD_U0RTS	trout_rf_2829.h	36;"	d
+SYS_REG_PAD_U0RTS	trout_rf_55.h	14;"	d
+SYS_REG_PAD_U0RXD	trout_rf_2829.h	34;"	d
+SYS_REG_PAD_U0RXD	trout_rf_55.h	15;"	d
+SYS_REG_PAD_U0TXD	trout_rf_2829.h	33;"	d
+SYS_REG_PAD_U0TXD	trout_rf_55.h	16;"	d
+SYS_REG_PAD_U1RXD	trout_rf_2829.h	38;"	d
+SYS_REG_PAD_U1TXD	trout_rf_2829.h	37;"	d
+SYS_REG_PAD_XTLEN	trout_rf_2829.h	45;"	d
+SYS_REG_PAD_XTLEN	trout_rf_55.h	10;"	d
+SYS_REG_PIN_IN_SEL	trout_rf_2829.h	80;"	d
+SYS_REG_POW_CTRL	trout_rf_2829.h	67;"	d
+SYS_REG_POW_CTRL	trout_rf_55.h	37;"	d
+SYS_REG_RFMODE_CFG	trout_rf_2829.h	104;"	d
+SYS_REG_ROSYS_REG_BIST_RESULT0	trout_rf_2829.h	88;"	d
+SYS_REG_ROSYS_REG_BIST_RESULT0	trout_rf_55.h	56;"	d
+SYS_REG_ROSYS_REG_BIST_RESULT1	trout_rf_2829.h	89;"	d
+SYS_REG_ROSYS_REG_BIST_RESULT1	trout_rf_55.h	57;"	d
+SYS_REG_SPLL_CTRL	trout_rf_2829.h	58;"	d
+SYS_REG_TEST_ANA_MODE	trout_rf_2829.h	55;"	d
+SYS_REG_TEST_SEL	trout_rf_2829.h	81;"	d
+SYS_REG_TEST_SEL	trout_rf_55.h	48;"	d
+SYS_REG_TROUT_FAIL_H1	trout_rf_55.h	75;"	d
+SYS_REG_UPSAMPLE_CFG	trout_rf_55.h	54;"	d
+SYS_REG_WIFIAD_CFG	trout_rf_2829.h	101;"	d
+SYS_REG_WIFIAD_CFG	trout_rf_55.h	67;"	d
+SYS_REG_WIFIDA_CFG	trout_rf_2829.h	100;"	d
+SYS_REG_WIFI_CFG	trout_rf_55.h	49;"	d
+SYS_REG_WIFI_SOFT_RST	trout_rf_2829.h	84;"	d
+SYS_REG_WIFI_SOFT_RST	trout_rf_55.h	51;"	d
+SYS_REG_WPDI	trout_rf_2829.h	78;"	d
+SYS_REG_WRX_CFG	trout_rf_2829.h	82;"	d
+TROUT_DEVICE_ID	trout_sdio.c	125;"	d	file:
+TROUT_FM_CTRL_H__	trout_fm_ctrl.h	2;"	d
+TROUT_FM_DEV_NAME	trout_fm_ctrl.h	11;"	d
+TROUT_FM_SPI_READ	trout_spi.c	17;"	d	file:
+TROUT_FM_SPI_WRITE	trout_spi.c	16;"	d	file:
+TROUT_FM_VERSION	trout_fm_ctrl.c	/^MODULE_VERSION(TROUT_FM_VERSION);$/;"	v
+TROUT_FM_VERSION	trout_fm_ctrl.c	16;"	d	file:
+TROUT_INTERFACE_H__	trout_interface.h	2;"	d
+TROUT_PIN_DS_0	trout_fm_ctrl.h	215;"	d
+TROUT_PIN_DS_1	trout_fm_ctrl.h	216;"	d
+TROUT_PIN_DS_2	trout_fm_ctrl.h	217;"	d
+TROUT_PIN_DS_3	trout_fm_ctrl.h	218;"	d
+TROUT_PIN_DS_MSK	trout_fm_ctrl.h	219;"	d
+TROUT_PIN_FPD_EN	trout_fm_ctrl.h	221;"	d
+TROUT_PIN_FPU_EN	trout_fm_ctrl.h	222;"	d
+TROUT_PIN_FPX_EN	trout_fm_ctrl.h	223;"	d
+TROUT_PIN_FP_MSK	trout_fm_ctrl.h	224;"	d
+TROUT_PIN_FUNC_1	trout_fm_ctrl.h	210;"	d
+TROUT_PIN_FUNC_2	trout_fm_ctrl.h	211;"	d
+TROUT_PIN_FUNC_3	trout_fm_ctrl.h	212;"	d
+TROUT_PIN_FUNC_DEF	trout_fm_ctrl.h	209;"	d
+TROUT_PIN_FUNC_MSK	trout_fm_ctrl.h	213;"	d
+TROUT_PIN_IO_MSK	trout_fm_ctrl.h	202;"	d
+TROUT_PIN_I_EN	trout_fm_ctrl.h	200;"	d
+TROUT_PIN_O_EN	trout_fm_ctrl.h	201;"	d
+TROUT_PIN_SPD_EN	trout_fm_ctrl.h	204;"	d
+TROUT_PIN_SPU_EN	trout_fm_ctrl.h	205;"	d
+TROUT_PIN_SPX_EN	trout_fm_ctrl.h	206;"	d
+TROUT_PIN_SP_MSK	trout_fm_ctrl.h	207;"	d
+TROUT_PIN_Z_EN	trout_fm_ctrl.h	199;"	d
+TROUT_PRINT	trout_fm_ctrl.h	232;"	d
+TROUT_RF_H__	trout_rf.h	2;"	d
+TROUT_RF_H__	trout_rf_common.h	2;"	d
+TROUT_VENDOR_ID	trout_sdio.c	124;"	d	file:
+Trout_FM_IOCTL_BASE	trout_fm_ctrl.h	18;"	d
+Trout_FM_IOCTL_CONFIG	trout_fm_ctrl.h	30;"	d
+Trout_FM_IOCTL_ENABLE	trout_fm_ctrl.h	19;"	d
+Trout_FM_IOCTL_GET_ENABLE	trout_fm_ctrl.h	20;"	d
+Trout_FM_IOCTL_GET_FREQ	trout_fm_ctrl.h	22;"	d
+Trout_FM_IOCTL_GET_VOLUME	trout_fm_ctrl.h	27;"	d
+Trout_FM_IOCTL_MUTE	trout_fm_ctrl.h	25;"	d
+Trout_FM_IOCTL_SEARCH	trout_fm_ctrl.h	23;"	d
+Trout_FM_IOCTL_SET_TUNE	trout_fm_ctrl.h	21;"	d
+Trout_FM_IOCTL_SET_VOLUME	trout_fm_ctrl.h	26;"	d
+Trout_FM_IOCTL_STOP_SEARCH	trout_fm_ctrl.h	24;"	d
+Trout_SEEK_DIR_DOWN	trout_fm_ctrl.h	15;"	d
+Trout_SEEK_DIR_UP	trout_fm_ctrl.h	14;"	d
+WIFI_MODE	trout_rf_55.c	/^	WIFI_MODE    = 1,$/;"	e	enum:__anon5	file:
+WIFI_SLEEP_CLK_SEL	trout_rf_2829.h	62;"	d
+WIFI_SLEEP_CLK_SEL	trout_rf_55.h	31;"	d
+WRITE_FM_REG	trout_fm_ctrl.h	34;"	d
+WRITE_FM_RF_REG	trout_fm_ctrl.h	36;"	d
+WRITE_REG	trout_fm_ctrl.h	273;"	d
+WRITE_RF_REG	trout_fm_ctrl.h	292;"	d
+_TROUT_FM_AUDIO_H_	trout_fm_audio.h	2;"	d
+_TROUT_FM_RF_2829_H_	trout_rf_2829.h	2;"	d
+_TROUT_FM_RF_55_H_	trout_rf_55.h	2;"	d
+__this_module	trout_fm.mod.c	/^struct module __this_module$/;"	v	typeref:struct:module
+__trout_fm_get_status	trout_rf_2829.c	/^void __trout_fm_get_status(void)$/;"	f
+__trout_fm_get_status	trout_rf_55.c	/^void __trout_fm_get_status(void)$/;"	f
+__trout_fm_show_status	trout_rf_2829.c	/^void __trout_fm_show_status(void)$/;"	f
+__trout_fm_show_status	trout_rf_55.c	/^void __trout_fm_show_status(void)$/;"	f
+__used	trout_fm.mod.c	/^__used$/;"	v	file:
+addr	trout_fm_ctrl.h	/^	u32	addr;$/;"	m	struct:__anon1
+buf_lock	trout_spi.c	/^	struct mutex buf_lock;$/;"	m	struct:spidev_data	typeref:struct:spidev_data::mutex	file:
+buffer	trout_spi.c	/^	u8  *buffer;$/;"	m	struct:spidev_data	file:
+data	trout_fm_ctrl.h	/^	u32	data;$/;"	m	struct:__anon1
+exit	trout_interface.h	/^    unsigned int (*exit)(void);$/;"	m	struct:__anon2
+exit_fm_driver	trout_fm_ctrl.c	/^module_exit(exit_fm_driver);$/;"	v
+exit_fm_driver	trout_fm_ctrl.c	/^void __exit exit_fm_driver(void)$/;"	f
+fm_audio_play	trout_fm_audio.c	/^int fm_audio_play(void)$/;"	f
+fm_en	trout_rf.h	/^	atomic_t	fm_en;$/;"	m	struct:__anon7
+fm_en	trout_rf_common.h	/^	atomic_t	fm_en;$/;"	m	struct:__anon6
+fm_reg_init_des	trout_rf_common.c	/^trout_reg_cfg_t fm_reg_init_des[]={$/;"	v
+fm_searching	trout_rf.h	/^	atomic_t	fm_searching;$/;"	m	struct:__anon7
+fm_searching	trout_rf_common.h	/^	atomic_t	fm_searching;$/;"	m	struct:__anon6
+fm_sts	trout_rf.h	/^	u32 fm_sts;$/;"	m	struct:__anon7
+fm_sts	trout_rf_common.h	/^	u32 fm_sts;$/;"	m	struct:__anon6
+freq_offset	trout_rf.h	/^	u32	freq_offset;$/;"	m	struct:__anon7
+freq_offset	trout_rf_common.h	/^	u32	freq_offset;$/;"	m	struct:__anon6
+freq_seek	trout_rf.h	/^	u32	freq_seek;$/;"	m	struct:__anon7
+freq_seek	trout_rf_common.h	/^	u32	freq_seek;$/;"	m	struct:__anon6
+freq_set	trout_rf.h	/^	u32	freq_set;$/;"	m	struct:__anon7
+freq_set	trout_rf_common.h	/^	u32	freq_set;$/;"	m	struct:__anon6
+func	trout_sdio.c	/^	struct sdio_func * func;$/;"	m	struct:sdio_trout_data	typeref:struct:sdio_trout_data::sdio_func	file:
+g_sdio_data	trout_sdio.c	/^struct sdio_trout_data  g_sdio_data;$/;"	v	typeref:struct:sdio_trout_data
+g_spi_data	trout_spi.c	/^struct spidev_data  g_spi_data;$/;"	v	typeref:struct:spidev_data
+i2s_gr_ctrl	trout_fm_audio.c	/^void i2s_gr_ctrl(void)$/;"	f
+i2s_gr_en	trout_fm_audio.c	/^void i2s_gr_en(void)$/;"	f
+i2s_pin_cfg	trout_fm_audio.c	/^void i2s_pin_cfg(void)$/;"	f
+init	trout_interface.h	/^    unsigned int (*init)(void);$/;"	m	struct:__anon2
+init_fm_driver	trout_fm_ctrl.c	/^int __init init_fm_driver(void)$/;"	f
+init_fm_driver	trout_fm_ctrl.c	/^module_init(init_fm_driver);$/;"	v
+inpwr_sts	trout_rf.h	/^	u32 inpwr_sts;$/;"	m	struct:__anon7
+inpwr_sts	trout_rf_common.h	/^	u32 inpwr_sts;$/;"	m	struct:__anon6
+mutex	trout_rf.h	/^    struct mutex mutex;$/;"	m	struct:__anon7	typeref:struct:__anon7::mutex
+mutex	trout_rf_common.h	/^    struct mutex mutex;$/;"	m	struct:__anon6	typeref:struct:__anon6::mutex
+name	trout_interface.h	/^    char *name;$/;"	m	struct:__anon2
+obj-m	Makefile	/^obj-m := trout_fm.o$/;"	m
+p_trout_interface	trout_fm_ctrl.c	/^trout_interface_t   *p_trout_interface = NULL;$/;"	v
+phy_read	trout_fm_audio.c	/^int phy_read(u32 addr, u32 *val)$/;"	f
+phy_write	trout_fm_audio.c	/^int phy_write(u32 addr, u32 val)$/;"	f
+read_fm_reg	trout_fm_ctrl.h	/^static inline unsigned int read_fm_reg(u32 reg_addr, u32 *reg_data)$/;"	f
+read_reg	trout_interface.h	/^    unsigned int (*read_reg)(u32 addr, u32 *val);$/;"	m	struct:__anon2
+rf_rssi	trout_rf.h	/^	u32 rf_rssi;$/;"	m	struct:__anon7
+rf_rssi	trout_rf_common.h	/^	u32 rf_rssi;$/;"	m	struct:__anon6
+rssi	trout_rf.h	/^	u32 rssi;$/;"	m	struct:__anon7
+rssi	trout_rf_common.h	/^	u32 rssi;$/;"	m	struct:__anon6
+sdio_exit	trout_sdio.c	/^unsigned int sdio_exit(void)$/;"	f
+sdio_init	trout_sdio.c	/^unsigned int sdio_init(void)$/;"	f
+sdio_interface	trout_sdio.c	/^static trout_interface_t sdio_interface = $/;"	v	file:
+sdio_mutex	trout_sdio.c	/^	struct mutex sdio_mutex;$/;"	m	struct:sdio_trout_data	typeref:struct:sdio_trout_data::mutex	file:
+sdio_pm	trout_sdio.c	/^static const struct dev_pm_ops sdio_pm = {$/;"	v	typeref:struct:dev_pm_ops	file:
+sdio_read	trout_sdio.c	/^unsigned int sdio_read(u32 reg_addr, u32 *reg_data)$/;"	f
+sdio_trout_data	trout_sdio.c	/^struct sdio_trout_data{$/;"	s	file:
+sdio_trout_driver	trout_sdio.c	/^static struct sdio_driver sdio_trout_driver ={$/;"	v	typeref:struct:sdio_driver	file:
+sdio_trout_ids	trout_sdio.c	/^static const struct sdio_device_id sdio_trout_ids[] = {$/;"	v	typeref:struct:sdio_device_id	file:
+sdio_trout_init	trout_sdio.c	/^int sdio_trout_init(struct sdio_trout_data *sdiodata)$/;"	f
+sdio_trout_probe	trout_sdio.c	/^static int sdio_trout_probe(struct sdio_func *func,$/;"	f	file:
+sdio_trout_remove	trout_sdio.c	/^static void __devexit sdio_trout_remove(struct sdio_func *func)$/;"	f	file:
+sdio_trout_resume	trout_sdio.c	/^static int sdio_trout_resume(struct device *dev)$/;"	f	file:
+sdio_trout_suspend	trout_sdio.c	/^static int sdio_trout_suspend(struct device *dev)$/;"	f	file:
+sdio_write	trout_sdio.c	/^unsigned int sdio_write (unsigned int reg_addr, unsigned int val)$/;"	f
+seek_cnt	trout_rf.h	/^	u32 seek_cnt;$/;"	m	struct:__anon7
+seek_cnt	trout_rf_common.h	/^	u32 seek_cnt;$/;"	m	struct:__anon6
+seek_succes	trout_rf.h	/^	int	seek_succes;$/;"	m	struct:__anon7
+seek_succes	trout_rf_common.h	/^	int	seek_succes;$/;"	m	struct:__anon6
+shared_exit	trout_shared.c	/^unsigned int shared_exit(void)$/;"	f
+shared_init	trout_shared.c	/^unsigned int shared_init(void)$/;"	f
+shared_interface	trout_shared.c	/^static trout_interface_t shared_interface = $/;"	v	file:
+shared_read	trout_shared.c	/^unsigned int shared_read(u32 addr, u32 *val)$/;"	f
+shared_write	trout_shared.c	/^unsigned int shared_write(u32 addr,  u32 val)$/;"	f
+spi	trout_spi.c	/^	struct spi_device *spi;$/;"	m	struct:spidev_data	typeref:struct:spidev_data::spi_device	file:
+spi_exit	trout_spi.c	/^unsigned int spi_exit(void)$/;"	f
+spi_init	trout_spi.c	/^unsigned int spi_init(void)$/;"	f
+spi_interface	trout_spi.c	/^static trout_interface_t spi_interface = $/;"	v	file:
+spi_trout_probe	trout_spi.c	/^int spi_trout_probe(struct spi_device *spi)$/;"	f
+spi_trout_remove	trout_spi.c	/^int __devexit spi_trout_remove(struct spi_device *spi)$/;"	f
+spidev_data	trout_spi.c	/^struct spidev_data$/;"	s	file:
+spitrout_exit	trout_spi.c	/^int spitrout_exit(struct spidev_data *spidata)$/;"	f
+spitrout_init	trout_spi.c	/^int spitrout_init(struct spidev_data *spidata)$/;"	f
+spitrout_message	trout_spi.c	/^int spitrout_message (struct spi_device *spi, struct spi_transfer *k_xfers,$/;"	f
+sprd_trout_driver	trout_spi.c	/^struct spi_driver sprd_trout_driver = {$/;"	v	typeref:struct:spi_driver
+trout_fm-objs	Makefile	/^trout_fm-objs := trout_fm_ctrl.o$/;"	m
+trout_fm_cfg_rf_reg	trout_rf_2829.c	/^int trout_fm_cfg_rf_reg(void)$/;"	f
+trout_fm_cfg_rf_reg	trout_rf_55.c	/^int trout_fm_cfg_rf_reg(void)$/;"	f
+trout_fm_deinit	trout_rf_55.c	/^int trout_fm_deinit(void)$/;"	f
+trout_fm_dis	trout_rf_2829.c	/^int trout_fm_dis(void)$/;"	f
+trout_fm_dis	trout_rf_55.c	/^int trout_fm_dis(void)$/;"	f
+trout_fm_do_seek	trout_rf_2829.c	/^int trout_fm_do_seek(u16 freq, u8 seek_dir)$/;"	f
+trout_fm_en	trout_rf_2829.c	/^int trout_fm_en(void)$/;"	f
+trout_fm_en	trout_rf_55.c	/^int trout_fm_en(void)$/;"	f
+trout_fm_get_frequency	trout_rf_2829.c	/^int trout_fm_get_frequency(u16 *freq)$/;"	f
+trout_fm_get_frequency	trout_rf_55.c	/^int trout_fm_get_frequency(u16 *freq)$/;"	f
+trout_fm_get_status	trout_rf_2829.c	/^int trout_fm_get_status(int *status)$/;"	f
+trout_fm_get_status	trout_rf_55.c	/^int trout_fm_get_status(int *status)$/;"	f
+trout_fm_get_volume	trout_fm_ctrl.c	/^int trout_fm_get_volume(void)$/;"	f
+trout_fm_iis_pin_cfg	trout_rf_common.c	/^int trout_fm_iis_pin_cfg(void)$/;"	f
+trout_fm_info	trout_rf_2829.c	/^static trout_fm_info_t trout_fm_info;$/;"	v	file:
+trout_fm_info	trout_rf_55.c	/^static trout_fm_info_t trout_fm_info;$/;"	v	file:
+trout_fm_info_t	trout_rf.h	/^}trout_fm_info_t;$/;"	t	typeref:struct:__anon7
+trout_fm_info_t	trout_rf_common.h	/^}trout_fm_info_t;$/;"	t	typeref:struct:__anon6
+trout_fm_init	trout_rf_2829.c	/^int trout_fm_init(void)$/;"	f
+trout_fm_init	trout_rf_55.c	/^int trout_fm_init(void)$/;"	f
+trout_fm_ioctl	trout_fm_ctrl.c	/^int trout_fm_ioctl(struct inode *inode, struct file *filep,$/;"	f
+trout_fm_misc_device	trout_fm_ctrl.c	/^struct miscdevice trout_fm_misc_device = {$/;"	v	typeref:struct:miscdevice
+trout_fm_misc_fops	trout_fm_ctrl.c	/^const struct file_operations trout_fm_misc_fops = {$/;"	v	typeref:struct:file_operations
+trout_fm_open	trout_fm_ctrl.c	/^int trout_fm_open(struct inode *inode, struct file *filep)$/;"	f
+trout_fm_open_clock	trout_rf_common.c	/^int trout_fm_open_clock(void)$/;"	f
+trout_fm_pcm_pin_cfg	trout_rf_common.c	/^int trout_fm_pcm_pin_cfg(void)$/;"	f
+trout_fm_reg_cfg	trout_rf_common.c	/^int trout_fm_reg_cfg(void)$/;"	f
+trout_fm_release	trout_fm_ctrl.c	/^int trout_fm_release(struct inode *inode, struct file *filep)$/;"	f
+trout_fm_rf_read	trout_rf_common.c	/^int trout_fm_rf_read(u32 addr, u32 *data)$/;"	f
+trout_fm_rf_spi_read	trout_rf_2829.c	/^int trout_fm_rf_spi_read(u32 addr, u32 *data)$/;"	f
+trout_fm_rf_spi_read	trout_rf_55.c	/^int trout_fm_rf_spi_read(u32 addr, u32 *data)$/;"	f
+trout_fm_rf_spi_wait_data_ready	trout_rf_2829.c	/^int trout_fm_rf_spi_wait_data_ready(void)$/;"	f
+trout_fm_rf_spi_wait_idle	trout_rf_2829.c	/^int trout_fm_rf_spi_wait_idle(void)$/;"	f
+trout_fm_rf_spi_write	trout_rf_2829.c	/^int trout_fm_rf_spi_write(u32 addr, u32 data)$/;"	f
+trout_fm_rf_spi_write	trout_rf_55.c	/^int trout_fm_rf_spi_write(u32 addr, u32 data)$/;"	f
+trout_fm_rf_write	trout_rf_common.c	/^int trout_fm_rf_write(u32 addr, u32 write_data)$/;"	f
+trout_fm_seek	trout_rf_2829.c	/^int  trout_fm_seek(u16  frequency, u8   seek_dir,$/;"	f
+trout_fm_seek	trout_rf_55.c	/^int trout_fm_seek(u16  frequency, u8   seek_dir,$/;"	f
+trout_fm_set_freq	trout_rf_55.c	/^int trout_fm_set_freq(int freq)$/;"	f
+trout_fm_set_tune	trout_rf_2829.c	/^int trout_fm_set_tune(u16 freq)$/;"	f
+trout_fm_set_tune	trout_rf_55.c	/^int trout_fm_set_tune(u16 freq)$/;"	f
+trout_fm_set_volume	trout_fm_ctrl.c	/^int trout_fm_set_volume(u8 iarg)$/;"	f
+trout_fm_stop_seek	trout_rf_2829.c	/^int  trout_fm_stop_seek(void)$/;"	f
+trout_fm_stop_seek	trout_rf_55.c	/^int  trout_fm_stop_seek(void)$/;"	f
+trout_fm_wait_int	trout_rf_2829.c	/^static int trout_fm_wait_int(int time_out)$/;"	f	file:
+trout_fm_wait_int	trout_rf_55.c	/^static int trout_fm_wait_int(int time_out)$/;"	f	file:
+trout_interface_t	trout_interface.h	/^}trout_interface_t;$/;"	t	typeref:struct:__anon2
+trout_reg_cfg_t	trout_fm_ctrl.h	/^}trout_reg_cfg_t;$/;"	t	typeref:struct:__anon1
+trout_rf_adi_mode	trout_rf_common.c	/^int trout_rf_adi_mode(void)$/;"	f
+trout_rf_spi_mode	trout_rf_common.c	/^int trout_rf_spi_mode(void)$/;"	f
+trout_rf_switch	trout_rf_2829.c	/^int trout_rf_switch(RF_SWITCH_NAME_E switch_name, RF_SWITCH_MODE_E mode)$/;"	f
+trout_sdio_init	trout_sdio.c	/^int trout_sdio_init(trout_interface_t **p)$/;"	f
+trout_shared_init	trout_shared.c	/^int trout_shared_init(trout_interface_t **p)$/;"	f
+trout_spi_init	trout_spi.c	/^int trout_spi_init(trout_interface_t **p)$/;"	f
+trout_spi_read	trout_spi.c	/^unsigned int trout_spi_read (u32 reg_addr, u32 *reg_data)$/;"	f
+trout_spi_write	trout_spi.c	/^unsigned int trout_spi_write (u32 reg_addr,  u32 val)$/;"	f
+write_fm_reg	trout_fm_ctrl.h	/^static inline unsigned int write_fm_reg (u32 reg_addr,  u32 val)$/;"	f
+write_fm_regs	trout_fm_ctrl.h	/^static inline unsigned int write_fm_regs (trout_reg_cfg_t *reg_cfg,  u32 cnt)$/;"	f
+write_reg	trout_interface.h	/^    unsigned int (*write_reg)(u32 addr,  u32 val);$/;"	m	struct:__anon2

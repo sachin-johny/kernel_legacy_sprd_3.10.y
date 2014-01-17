@@ -32,6 +32,107 @@
 #include <linux/mmc/sdio_ids.h>
 #endif
 
+#ifdef CONFIG_TROUT
+/*Special ocr value for trout chip due to trout's hw bug*/
+#define TROUT_OCR_VALUE	0xffff00
+/**
+
+ *	trout_enable_func1 - enables trout SDIO function 1 for usage
+ *	@card: SDIO card to enable
+ *
+ *	Powers up and activates a SDIO function so that register
+ *	access is possible.
+ */
+static int trout_enable_func1(struct mmc_card *card)
+{
+		int ret;
+		unsigned char reg, f_id;
+		unsigned long timeout;
+
+		f_id = 1;
+
+		ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_IOEx, 0, &reg);
+		if (ret)
+				goto err;
+
+		reg |= 1 << 1;
+
+		ret = mmc_io_rw_direct(card, 1, 0, SDIO_CCCR_IOEx, reg, NULL);
+		if (ret)
+				goto err;
+
+		timeout = jiffies + msecs_to_jiffies(1);
+
+		while (1) {
+				ret = mmc_io_rw_direct(card, 0, 0, SDIO_CCCR_IORx, 0, &reg);
+				if (ret)
+						goto err;
+
+				if (reg & (1 << f_id))
+						break;
+
+				ret = -ETIME;
+				if (time_after(jiffies, timeout))
+						goto err;
+		}
+
+
+		return 0;
+
+err:
+		return ret;
+}
+
+/**
+ * mmc_set_trout_pin_ds
+ * Setting Trout Pin drive strength to meet high speed requirement
+ */
+int mmc_set_trout_pin_ds(struct mmc_card *card, u8 ds)
+{
+		volatile u32 reg_addr, data;
+
+
+		pr_info("SDIO: Enabled device %s... ", sdio_func_id(card));
+
+		if(trout_enable_func1(card) < 0)
+		{
+				printk("failed.\n");
+				return -EPERM;
+		}
+
+		pr_info("OK.\n");
+
+		ds = (ds << 5) & 0x60;
+		//set sdio pins drive-stength in trout chip.
+		for(reg_addr=1; reg_addr<6; reg_addr++)
+		{
+				if(mmc_io_rw_extended(card, 0, 1, reg_addr, 1, (u8 *)&data, 1, 4) != 0)
+				{
+						//printk("failed.\n");
+						return -ENXIO;
+				}
+
+				data |= ds;
+				if(mmc_io_rw_extended(card, 1, 1, reg_addr, 1, (u8 *)&data, 1, 4) != 0)
+				{
+						return -ENXIO;
+				}
+		}
+
+		mdelay(1);
+
+		reg_addr = 0x8038;
+		reg_addr >>= 2;
+		data = 0;
+
+		mmc_io_rw_extended(card, 0, 1, reg_addr, 1, (u8 *)&data, 1, 4);
+		pr_info("Trout MAC H/W ID: 0x%x\n", data);
+
+		return 0;
+}
+#endif /*CONFIG_TROUT*/
+
+
 static int sdio_read_fbr(struct sdio_func *func)
 {
 	int ret;
@@ -312,7 +413,9 @@ static int sdio_enable_hs(struct mmc_card *card)
 
 	return ret;
 }
-
+#ifdef CONFIG_TROUT
+int mmc_dev_trout_get_index(void);
+#endif
 static unsigned mmc_sdio_get_max_clock(struct mmc_card *card)
 {
 	unsigned max_dtr;
@@ -324,6 +427,13 @@ static unsigned mmc_sdio_get_max_clock(struct mmc_card *card)
 		 * high-speed, but it seems that 50 MHz is
 		 * mandatory.
 		 */
+#ifdef CONFIG_TROUT
+		if (card->host->index == mmc_dev_trout_get_index())
+		{
+			/*Set Trout's pin drive strength to meet high speed requirement*/
+			mmc_set_trout_pin_ds(card, 3);
+		}
+#endif
 		max_dtr = 50000000;
 	} else {
 		max_dtr = card->cis.max_dtr;
@@ -808,7 +918,19 @@ int mmc_attach_sdio(struct mmc_host *host)
 	BUG_ON(!host);
 	WARN_ON(!host->claimed);
 
+#ifdef CONFIG_TROUT
+	/*
+	 * Fix trout h/w bug
+	 * Trout only recongnize 0xffff00
+	 */
+	if (host->index == mmc_dev_trout_get_index()){
+			err = mmc_send_io_op_cond(host, TROUT_OCR_VALUE, &ocr);
+	}else{
+			err = mmc_send_io_op_cond(host, 0, &ocr);
+	}
+#else
 	err = mmc_send_io_op_cond(host, 0, &ocr);
+#endif
 	if (err)
 		return err;
 

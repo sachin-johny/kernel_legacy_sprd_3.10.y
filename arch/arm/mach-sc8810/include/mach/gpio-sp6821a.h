@@ -39,4 +39,9 @@
 #define GPIO_SENSOR_RESET	72
 #define GPIO_MAIN_SENSOR_PWN    73
 #define GPIO_SUB_SENSOR_PWN       74
+#define GPIO_SDIO_DETECT	137
+
+#define GPIO_SD1_D3			24
+#define GPIO_WIFI_RESET 140
+#define GPIO_WIFI_POWERON 137 
 #endif

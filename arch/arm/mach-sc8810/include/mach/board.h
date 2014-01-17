@@ -139,4 +139,11 @@
 
 #define SPRD_SYSDUMP_MAGIC      (128*1024*1024 - SZ_1M)
 
+enum {
+    SDC_SLAVE_SD = 0,
+    SDC_SLAVE_WIFI,
+    SDC_SLAVE_CP,
+    SDC_SLAVE_EMMC,
+};
+
 #endif

@@ -1,0 +1,267 @@
+Version: v0.63 Modify: qin.chen
+============================================
+1. Bug#000000 - Optimize COMBO_SCAN
+
+Version: v0.62 Modify: qin.chen & wengang.cheng
+============================================
+1. Bug#000000 - optimize tx throughput & tx auto rate --qin.chen & wengang.cheng
+
+Version: v0.61 Modify: shuifa.cai
+============================================
+1. Bug#196697 - [TROUT II][NPI][WIFI] TX ON之后等待若干时间才有WIFI信号输出
+
+Version: v0.60 Modify: shuifa.cai
+============================================
+1. Bug#185089 - 中移动测试系统（MT8860C）1M速率无法测试
+
+Version: v0.59 Modify: jun.chen
+============================================
+1. BUG#187141 -  [华为兼容性][ST][6820][2.3.5][Trout]偶先连接失败提示密码错误 - jun.chen
+
+Version: v0.58 Modify: zhao.zhang
+============================================
+1. BUG#178610 wifi can not be closed
+
+Version: v0.57 Modify: wengang.cheng and yindan.zhou
+============================================
+1. BUG#177142-[AT][6820][Trout] 安装PPTV，使用wifi下载视频，下载时间隔40s进行灭屏唤醒操作，出现Kernel panic - not syncing: Fatal exception in interrupt重启
+
+Version: v0.56 Modify: wengang.cheng
+============================================
+1. adjust trout share ram to 144kb.
+
+Version: v0.55 Modify: xuan.yang and jun.chen
+============================================
+1. BUG#187141 -  [华为兼容性][ST][6820][2.3.5][Trout]偶先连接失败提示密码错误 - jun.chen
+2. send disconnect to supplicant when the mac state is not ENABLED in the trout_close function - xuan.yang
+
+Version: v0.54 Modify: xuan.yang
+============================================
+1. BUG#191117 - DUT连接不上WAPI加密的AP 
+
+Version: v0.53 Modify: xuan.yang
+============================================
+1. BUG#179288 - [华为兼容性][ST][6820][2.3.5][Trout]WIFI 特定AP连接有概率 20秒才能连接成功
+
+Version: v0.52 Modify: zhao.zhang
+============================================
+1. BUG#184493 - [ST][6820][2.3.5][Trout]偶现无法正常关闭便携式wlan热点
+
+Version: v0.51 Modify: junbin.wang
+============================================
+1. BUG#183167 - [华为兼容性][ST][6820][2.3.5][Trout]WIFI 特定AP 休眠后重连，获取不到IP  
+2. BUG#183703 - [华为兼容性][ST][6820][2.3.5][Trout]WIFI 偶现特定AP 获取不到IP
+3. BUG#184404 - [华为兼容性][ST][6820][2.3.5][Trout]修改AP mode和加密方式，偶现处于获取IP状态无法连接上AP  
+4. BUG#186456 - [华为兼容性][ST][6820][2.3.5][Trout]通过修改网络修改正确的密钥索引后偶现长时间处于获取IP地址状态最后没有连接上AP 
+
+Version: v0.50 Modify: xuan.yang
+============================================
+1. BUG#185916 - [华为兼容性][ST][6820][2.3.5][Trout]手机开启飞行模式，AP断电重启后手机关闭飞行模式，手机端偶现没有自动连接AP
+
+Version: v0.49 Modify: pengfei.yang
+============================================
+1. BUG#178610 - [ST][6820][2.3.5][DS][Trout] 偶现在设置中关闭WIFI，WIFI界面一直灰显，无法正常关闭，手机重启后正常
+
+Version: v0.48 Modify: xuan.yang
+============================================
+1. BUG#185426 - [华为兼容性][ST][6820][2.3.5][Trout]唤醒手机后偶现没有自动连接AP
+
+Version: v0.47 Modify: zhao.zhang 
+============================================
+1. BUG#179287 - enable error assert.
+
+Version: v0.46 Modify: zhao.zhang 
+============================================
+1. BUG#174181 - 开启WLAN，WLAN网络列表没有可用的AP，对比机可搜索到可用的AP
+
+Version: v0.45 Modify: albert.chen
+============================================
+1. Bug#185042 - [ST][6820][2.3.5][DS][Trout]连接一个隐藏SSID的ap后，在设置中，发现会发生自动断开，重新连接现象
+
+Version: v0.44 Modify: shuifa.cai
+============================================
+1. BUG#165654 - support wifi network-mode test for device MT8860C in CMCC lab.
+
+Version: v0.43 Modify: xuan.yang
+============================================
+1. BUG#182171 - [华为兼容性][ST][6820][2.3.5][Trout]WIFI 特定AP WEP连接成功后切换为WPA 手机连接不会断开
+2.打开WifiService.java中的debug信息
+
+Version: v0.42 Modify: zhao.zhang
+============================================
+1. BUG#163511 - enable error interrupt 
+
+Version: v0.41 Modify: junbin.wang
+============================================
+1. BUG#179292 - [华为兼容性][ST][6820][2.3.5][Trout]WIFI 连接的WEP加密AP切换为不加密 手机连接不成功
+
+Version: v0.40 Modify: albert chen
+============================================
+1. BUG#179291 - [ST][6820][2.3.5][Trout]WIFI 连接AP后休眠 AP关闭后手机唤醒 列表中AP显示有信号
+
+Version: v0.39 Modify: zhao.zhang
+============================================
+1: BUG#163511 - Connection is unstable, when trout as softAP
+2. fix bug for rx block-ack cause reboot of softAP mode.   --wengang.cheng
+
+Version: v0.38 Modify: xuan.yang
+============================================
+1. BUG#172225 - [华为兼容性][ST][6820][2.3.5][Trout]WIFI 特定AP N mode WPA2-PSK AES 
+
+Version: v0.37 Modify: yeguang.zhu
+============================================
+1. BUG#172437 - [Trout] 开机读取的WIFI地址显示不可用
+
+Version: v0.36  Modify: qin.chen
+============================================
+1. BUG#171067 there are two same SSID,when AP changes the encryption mode.
+
+Version: v0.35  Modify: shuifa.cai
+============================================
+1. Bug#161629 - [Trout] WIFI RSSI value haven't change
+
+Version: v0.34  Modify: xuan yang
+============================================
+1. BUG#173476 WIFI 特定操作后WEP加密的AP一直显示是开放
+
+Version: v0.33  Modify: xuan yang
+============================================
+1. BUG#159627 在关联成功后，关闭deauth frame的filter.
+
+Version: v0.32  Modify: wengang.cheng
+============================================
+1. add return value judgment for function Set_Trout_powerOn.
+
+Version: v0.31  Modify: Ke.Li
+============================================
+1. BUG#160628 in softap mode need restart mac when system error happen. 
+
+Version: v0.30  Modify: qin.chen
+============================================
+1. Rename to Trout.
+
+Version: v0.29  Modify: dong.xiang 
+============================================
+1. Change Wifi link loss time to 10s.
+
+Version: v0.28  Modify: xuan.yang
+============================================
+1. BUG#159627 WIFI连接后，灭屏后再点亮屏幕WIFI重新连接时间较长
+
+Version: v0.27  Modify: Ke.Li
+============================================
+1. BUG#170666 avoid null pointer in block transmit timeout reset rx ba handle. --Ke.Li
+
+Version: v0.26  Modify: wengang.cheng
+============================================
+1. add debug info, using itm_config select 4-8 print all COMM/SYS/MAC/PHY/RF to local file
+   "/data/allregs.txt".		--wengang.cheng
+
+Version: v0.25  Modify: keguang.zhang 
+============================================
+1. BUG#149120 Re-enable Power Save Function.
+ 1) Improve pstimer: use TX/RX statistics to determine which mode to switch to.
+ 2) Simplify the power save debug message.
+ 3) Remove deprecated function trout_sdio_can_sleep().
+
+Version: v0.24  Modify: qin.chen
+============================================
+1. BUG#165633 will return 0,when UI send scan CMD in DHCP. --qin.chen
+
+Version: v0.23	Modify: zhao.zhang 
+============================================
+1. BUG#0000 Set initial PHY reg(0x1D, 0x1E) to disable RF RX. --zhao.zhang
+
+Version: v0.22	Modify: xuan.yang
+============================================
+1. Bug#166450 静态IP开启，提示静态IP配置不正确，关闭静态IP. --xuan.yang
+
+Version: v0.21	Modify: yeguang.zhu 
+============================================
+1. Bug#161618 WIFI CW TX没有功率. --yeguang.zhu
+
+Version: v0.20	Modify: yeguang.zhu 
+============================================
+1. Bug#163657 New requirement: RF Carrier Suppression(DSSS only). --yeguang.zhu
+
+Version: v0.19	Modify: lihuai.wang
+============================================
+1. Update wifi PHY configuration(0x2A, 0x2B).
+
+Version: v0.18	Modify: qin.chen 
+============================================
+1. BUG 160620 Fixed TBTT will not generate.
+2. open ps policy 
+
+Version: v0.17	Modify: keguang.zhang 
+============================================
+1. BUG 159340 Fixed compile fail if undefine macro TROUT_WIFI_POWER_SLEEP_ENABLE. 
+
+Version: v0.16	Modify: yeguang.zhu
+============================================
+1. Bug 162609 - wifi adb测试指令需求
+
+Version: v0.15	Modify: danny.deng
+============================================
+1. bug 160423  add some debug msg and modify flush_work() into cancel_work_sync()
+2. marked ps_timer_debug in file ps_timer.c 
+
+Version: v0.14	Modify: yeguang.zhu 
+============================================
+1. bug 161678  add read rx reg count for npi
+
+Version: v0.13	Modify: shuifa.cai
+============================================
+1. Bug 156237 - [ST][6820][2.3.5][Trout]set WIFI domain failed 
+   1) Add interface to support command: ANDROID_WIFI_CMD_COUNTRY;
+   2) Open scan filter function: discard the ap which the channel is not belong to current channel(g_rf_channel).
+
+Version: v0.12	Modify: keguang.zhang 
+============================================
+1. BUG 159340 Prevent system from suspending when the MAC is under resetting.
+
+Version: v0.11	Modify: keguang.zhang 
+============================================
+1. BUG 159340 Keep Wi-Fi connection while downloading. 
+
+Version: v0.10  Modify: zhao.zhang
+============================================
+1. Bug 160665   reset when turn on/off softAP
+
+Version: v0.9	Modify: lei.wu 
+============================================
+1. Bug 160423 - 在不同的AP之间互相切换（连接成功后，不断开该AP，直接连接另外一个AP），一直提示“扫描中...”,系统卡住，不能操作
+
+Version: v0.8	Modify: danny.deng 
+============================================
+1. BUG 158430 安装PPTV后，使用Wifi在B模式下下载视频，长时间下载后wifi无法关闭
+
+Version: v0.7	Modify: zhao.zhang 
+============================================
+1. BUG 159326 Fix softAp reboot when no operation for a long time. 
+
+Version: v0.6	Modify: yeguang.zhu 
+============================================
+1. Add NPI function: get_rssi_value. 
+
+Version: v0.5	Modify: dong.xiang 
+============================================
+1. Delete RF Start/Stop function, included by Power On/Off. 
+
+Version: v0.4	Modify: lihuai.wang 
+============================================
+1. Update rf configuration.
+
+Version: v0.3	Modify: zhao.zhang 
+============================================
+1. BUG 142262 - 该问题是由于PHY的寄存器被写错，导致收发停止。现已解决
+
+
+Version: v0.2	Modify: lei.wu 
+============================================
+1. Bug 155500 - [ST][6820][2.3.5][Trout]WLAN连接开放热点时，手动关闭该热点后，
+   WLAN列表概率性一直显示连接状态，对比MocorDroid2.3.5_W12.20_P20.01_PS7无此现象
+
+Version: v0.1	Modify: dong.xiang 
+============================================
+1. Add Changes.log.

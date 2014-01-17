@@ -1,0 +1,5 @@
+config RADIO_TROUT_FM
+	tristate "Trout FM radio support"
+       default n
+	help
+	  Say Y here if you want support for Trout FM Radio receiver

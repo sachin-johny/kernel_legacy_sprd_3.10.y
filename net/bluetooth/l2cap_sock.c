@@ -775,9 +775,12 @@ static void l2cap_sock_kill(struct sock *sk)
 	BT_DBG("sk %p state %d", sk, sk->sk_state);
 
 	/* Kill poor orphan */
+	if(!sk)
+		return;
 
 	l2cap_chan_destroy(l2cap_pi(sk)->chan);
 	sock_set_flag(sk, SOCK_DEAD);
+	sock_set_flag(sk, SOCK_DESTROY);
 	sock_put(sk);
 }
 
@@ -825,6 +828,7 @@ static int l2cap_sock_release(struct socket *sock)
 	err = l2cap_sock_shutdown(sock, 2);
 
 	sock_orphan(sk);
+	if(!sock_flag(sk, SOCK_DESTROY))
 	l2cap_sock_kill(sk);
 	return err;
 }
@@ -996,6 +1000,7 @@ static struct sock *l2cap_sock_alloc(struct net *net, struct socket *sock, int p
 	sk->sk_sndtimeo = L2CAP_CONN_TIMEOUT;
 
 	sock_reset_flag(sk, SOCK_ZAPPED);
+	sock_reset_flag(sk, SOCK_DESTROY);
 
 	sk->sk_protocol = proto;
 	sk->sk_state = BT_OPEN;

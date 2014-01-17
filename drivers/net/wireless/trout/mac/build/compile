@@ -1,0 +1,39 @@
+#!/bin/sh
+# Usage:compile [clean|release|default]
+# The default build is in debug mode
+
+export PATH=$PATH:/opt/mtwk/usr/local/powerpc-linux/gcc-3.4.3-glibc-2.3.3/bin
+
+KERNEL_INSTAL_PATH=`cat /usr/local/etc/itm_linux_path` > /dev/null
+
+if [ -z "$KERNEL_INSTAL_PATH" ]
+then
+	echo "Settting Default Build path"
+	KERNEL_INSTAL_PATH=/usr/src/linux-2.6.13
+fi 
+
+case  $1  in
+"release")       
+    make MAC_C_ROOT=`pwd` KERNEL_SOURCE=/usr/src/linux-2.6.13.rel
+    ;;
+"default")
+    make MAC_C_ROOT=`pwd` KERNEL_SOURCE=$KERNEL_INSTAL_PATH default
+    ;;            
+"clean")       
+    make MAC_C_ROOT=`pwd` clean
+    rm -rf macd.ko
+    rm -rf macd.debug.ko
+    ;;
+*)  
+    make MAC_C_ROOT=`pwd` clean
+    make MAC_C_ROOT=`pwd` KERNEL_SOURCE=$KERNEL_INSTAL_PATH
+    sleep 5
+    chmod 777 *
+esac 
+
+if [ "$1" != "clean" ]
+then
+    cp macd.ko macd.debug.ko
+    powerpc-linux-strip -d macd.ko
+fi
+

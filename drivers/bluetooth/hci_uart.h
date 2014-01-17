@@ -108,3 +108,7 @@ int h5_init(void);
 int h5_deinit(void);
 #endif
 
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+int hci_uart_tx_wakeup_sprd(struct hci_uart *hu, int tx_len, bool is_data, bool send_by_timer);
+#endif
+

@@ -1,0 +1,52 @@
+Version: v0.12  Modify: xuebo.wei
+============================================
+BUG#184602 - [ST][6820][2.3.5][DS][Trout]FM背景
+播放中，进入蜻蜓FM程序，进入过程中，FM变成无声。回
+到自带FM中点击“下个电台“按钮，一段时间后显示：对不
+起，收音机已经停止运行
+
+Version: v0.11	Modify: dong.xiang
+============================================
+1. Disable fm hardware mute function. --xuede.wang
+
+Version: v0.10	Modify: dong.xiang
+============================================
+1. Fixed invalid frequency(104.0) could be searched. --xuede.wang
+
+Version: v0.9	Modify: dong.xiang
+============================================
+1. Rename KT0812G to Trout.
+
+Version: v0.8	Modify: dong.xiang 
+============================================
+1. Ignore trout_fm_open() when the system is suspending. [dong.xiang]
+
+Version: v0.7	Modify: dong.xiang 
+============================================
+1. Update fm configuration. [xuede.wang]
+
+Version: v0.6	Modify: dong.xiang 
+============================================
+1. Update fm configuration. [xuede.wang]
+1. Remove retry if set tune failed.
+
+Version: v0.5	Modify: dong.xiang 
+============================================
+1. Do not set frequency at fm startup.
+2. Add retry if set tune failed.
+
+Version: v0.4	Modify: yeguang.zhu
+============================================
+1. Delete RF Start/Stop function, included by Power On/Off.
+
+Version: v0.3	Modify: yeguang.zhu
+============================================
+1. Update fm configuration refer to minicode.
+
+Version: v0.2	Modify: mengyuan.du 
+============================================
+1. set trout wifi goto sleep in some place
+
+Version: v0.1	Modify: dong.xiang 
+============================================
+1. Add Changes.log.
