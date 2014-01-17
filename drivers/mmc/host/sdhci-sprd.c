@@ -756,8 +756,10 @@ static void sprd_sdhci_host_fix_mmc_core_get_regulator(struct sdhci_host *host) 
 			caps &= ~ SDHCI_CAN_VDD_180;
 			host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
 		}
-		if(host->quirks & SDHCI_QUIRK_MISSING_CAPS)
+		if(host->quirks & SDHCI_QUIRK_MISSING_CAPS) {
 			host->caps = caps;
+			host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
+		}
 		host->ocr_avail_mmc = host->ocr_avail_sd = host->ocr_avail_sdio = ocr_avail;
 	}
 }
