@@ -81,7 +81,7 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 {
 	uint32_t len, addr;
 
-#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+#ifdef CCONFIG_FB_LOW_RES_SIMU
 	if((0!= dev->panel->display_width) && (0 != dev->panel->display_height)){
 		len = dev->panel->display_width * dev->panel->display_height * (dev->bpp / 8) * FRAMEBUFFER_NR;
 	}else
@@ -126,8 +126,7 @@ static void setup_fb_info(struct sprdfb_device *dev)
 	fb->fix.ypanstep = 1;
 	fb->fix.type = FB_TYPE_PACKED_PIXELS;
 	fb->fix.visual = FB_VISUAL_TRUECOLOR;
-
-#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+#ifdef CONFIG_FB_LOW_RES_SIMU
 	if((0 != panel->display_width) && (0 != panel->display_height)){
 		fb->fix.line_length = panel->display_width * dev->bpp / 8;
 

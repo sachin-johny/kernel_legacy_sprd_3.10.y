@@ -1122,15 +1122,15 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 #endif
 	{
 		uint32_t size = (fb->var.xres & 0xffff) | ((fb->var.yres) << 16);
-
 		dispc_write(base, DISPC_OSD_BASE_ADDR);
 		dispc_write(0, DISPC_OSD_DISP_XY);
 		dispc_write(size, DISPC_OSD_SIZE_XY);
 		dispc_write(fb->var.xres, DISPC_OSD_PITCH);
-#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
-		size = (dev->panel->width& 0xffff) | ((dev->panel->height) << 16);
+#ifdef CONFIG_FB_LOW_RES_SIMU
+		size = (dev->panel->width &0xffff) | ((dev->panel->height)<<16);
 #endif
 		dispc_write(size, DISPC_SIZE_XY);
+
 
 #ifdef  BIT_PER_PIXEL_SURPPORT
 	        /* data format */
@@ -1956,10 +1956,9 @@ static void sprdfb_dispc_logo_config(struct sprdfb_device *dev,uint32_t logo_dst
 
     /* OSD layer alpha value */
     dispc_write(0xff, DISPC_OSD_ALPHA);
-
     reg_val = (( dev->panel->width & 0xfff) | ((dev->panel->height & 0xfff ) << 16));
     dispc_write(reg_val, DISPC_SIZE_XY);
-#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+#ifdef CONFIG_FB_LOW_RES_SIMU
 	if((0 != dev->panel->display_width) && (0 != dev->panel->display_height)){
 		reg_val = (( dev->panel->display_width & 0xfff) | ((dev->panel->display_height & 0xfff ) << 16));
 	}
@@ -1970,7 +1969,7 @@ static void sprdfb_dispc_logo_config(struct sprdfb_device *dev,uint32_t logo_dst
     dispc_write(0, DISPC_OSD_DISP_XY);
 
     /* OSD layer pitch */
-#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+#ifdef CONFIG_FB_LOW_RES_SIMU
 	if((0 != dev->panel->display_width) && (0 != dev->panel->display_height)){
 		reg_val = (dev->panel->display_width & 0xfff) ;
 	}else
@@ -2027,7 +2026,7 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 	}
 
 //#define USE_OVERLAY_BUFF
-#ifdef CONFIG_FB_LOW_RES_SIMU_SUPPORT
+#ifdef CONFIG_FB_LOW_RES_SIMU
 	if((0 != dev->panel->display_width) && (0 != dev->panel->display_height)){
 		logo_size = dev->panel->display_width * dev->panel->display_height * 2;// should be rgb565
 	}else

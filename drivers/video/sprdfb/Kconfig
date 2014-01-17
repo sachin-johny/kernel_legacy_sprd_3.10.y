@@ -157,7 +157,8 @@ config FB_DYNAMIC_FPS_SUPPORT
 	depends on FB_SC8825 || FB_SCX35
 	default n
 
-config FB_LOW_RES_SIMU_SUPPORT
+
+config FB_LOW_RES_SIMU
 	boolean "support low resolution simulator"
 	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15
 	default n
