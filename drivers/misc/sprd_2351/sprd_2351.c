@@ -7,19 +7,10 @@
 #include <mach/hardware.h>
 #include <linux/sprd_2351.h>
 #include <asm/io.h>
-
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 static struct sprd_2351_data rfspi;
-
-static void sprd_reg_write(u32 addr,u32 data)
-{
-	writel(data,(volatile void *)addr);
-}
-
-static void sprd_reg_read(u32 addr,u32 *data)
-{
-	*data = readl((const volatile void *)addr);
-}
 
 static int sprd_rfspi_wait_write_idle(void)
 {
@@ -103,58 +94,14 @@ static void sprd_rfspi_clk_disable(void)
 		RF2351_PRINT("rfspi.clk is NULL\n");
 }
 
-static void sprd_rfspi_pin_init(void)
-{
-	u32 value;
-
-	/*Enable pin reg*/
-	sprd_reg_read(APB_EB0,&value);
-	value |= 1<<20;
-	sprd_reg_write(APB_EB0,value);
-
-#if defined(CONFIG_SHARK_CHIP_2351)
-	/*RFSDA2 source select function 2 of U0TXD*/
-	sprd_reg_read(PIN_CTRL_REG0,&value);
-	value |= 1<<26;
-	sprd_reg_write(PIN_CTRL_REG0,value);
-#endif
-	/*Select U0TXD function 2*/
-	sprd_reg_read(RFSDA2,&value);
-	value |= 1<<4;
-	value &= ~(1<<5);
-	sprd_reg_write(RFSDA2,value);
-
-	/*Select U0RXD function 2*/
-	sprd_reg_read(RFSCK2,&value);
-	value |= 1<<4;
-	value &= ~(1<<5);
-	sprd_reg_write(RFSCK2,value);
-
-	/*Select U0CTS function 2*/
-	sprd_reg_read(RFSEN2,&value);
-	value |= 1<<4;
-	value &= ~(1<<5);
-	sprd_reg_write(RFSEN2,value);
-}
-
 static void sprd_mspi_enable(void)
 {
-	u32 value;
-
-	/*Enable mspi function*/
-	sprd_reg_read(APB_EB0,&value);
-	value |= 1<<23;
-	sprd_reg_write(APB_EB0,value);
+	sci_glb_set(APB_EB0, RFSPI_ENABLE_CTL);
 }
 
 static void sprd_mspi_disable(void)
 {
-	u32 value;
-
-	/*Enable mspi function*/
-	sprd_reg_read(APB_EB0,&value);
-	value &= ~(1<<23);
-	sprd_reg_write(APB_EB0,value);
+	sci_glb_clr(APB_EB0, RFSPI_ENABLE_CTL);
 }
 
 static unsigned int sprd_rfspi_enable(void)
@@ -168,7 +115,6 @@ static unsigned int sprd_rfspi_enable(void)
 			return -1;
 		}
 		sprd_rfspi_clk_enable();
-		sprd_rfspi_pin_init();
 		sprd_mspi_enable();
 	}
 

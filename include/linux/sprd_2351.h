@@ -42,27 +42,16 @@
 		__func__, ## arg); \
 	} while (0)
 
-#define PINMAP_ADDR_VA			SPRD_PIN_BASE
 #define APB_EB0_BASE_VA			SPRD_AONAPB_BASE
 #define RFSPI_BASE_VA			SPRD_RFSPI_BASE
 
-#define PIN_CTRL_REG0			(SPRD_PIN_BASE+0x0000)
-#define RFSDA2					(SPRD_PIN_BASE+0x0038)
-#define RFSCK2					(SPRD_PIN_BASE+0x003c)
-#define RFSEN2					(SPRD_PIN_BASE+0x0040)
-
 #define APB_EB0					(APB_EB0_BASE_VA+0x0000)
-#define APB_EB1					(APB_EB0_BASE_VA+0x0004)
-#define APB_RST0				(APB_EB0_BASE_VA+0x0008)
-#define APB_EB0_SET				(APB_EB0_BASE_VA+0x1000)
-
 #define RFSPI_CFG0				(RFSPI_BASE_VA + 0x0000)
-#define RFSPI_CFG1				(RFSPI_BASE_VA + 0x0004)
-#define RFSPI_CFG2				(RFSPI_BASE_VA + 0x0008)
 #define RFSPI_MCU_WCMD			(RFSPI_BASE_VA + 0x000C)
 #define RFSPI_MCU_RCMD			(RFSPI_BASE_VA + 0x0010)
 #define RFSPI_MCU_RDATA			(RFSPI_BASE_VA + 0x0014)
 
+#define RFSPI_ENABLE_CTL		(BIT_23)
 
 struct sprd_2351_interface{
 	char *name;

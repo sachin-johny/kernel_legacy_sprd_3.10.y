@@ -99,14 +99,6 @@
 #define CG_DRIVER_CGCORE_BASE_VA	SPRD_GPS_BASE
 
 
-/*bxd add for RF config*/
-#define CG_RF_ARM_BASE_VA 			SPRD_PIN_BASE
-#define CG_RF_MSPI_BASE_VA 			SPRD_RFSPI_BASE
-#if defined(CONFIG_DOLPHIN_CHIP_2351)
-#define CG_SPRD_AONAPB_BASE_VA			SPRD_AONAPB_BASE
-#endif
-
-
 /** Virtual base address for CGsnap sclk */
 #define CG_DRIVER_SCLK_VA			SPRD_AHB_BASE
 
