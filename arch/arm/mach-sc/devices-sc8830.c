@@ -39,6 +39,10 @@
 #else
 #include <linux/headset_sprd.h>
 #endif
+#ifdef CONFIG_BACKLIGHT_RT4502
+#include <linux/rt4502_bl.h>
+#endif
+
 #include <linux/usb/gadget.h>
 #include <video/ion_sprd.h>
 #ifdef CONFIG_SPRD_VETH
@@ -383,6 +387,23 @@ struct platform_device sprd_backlight_device = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
 };
+
+#elif defined(CONFIG_BACKLIGHT_RT4502)
+
+static struct platform_rt4502_backlight_data sprd_rt4502_backlight_data = {
+	.max_brightness = 255,
+	.dft_brightness = 160,
+	.ctrl_pin = 190,
+};
+
+struct platform_device sprd_backlight_device = {
+	.name           = "sprd_backlight",
+	.id             =  -1,
+	.dev	= {
+		.platform_data	=  &sprd_rt4502_backlight_data,
+	},
+};
+
 
 #else
 struct resource sprd_bl_resource[] = {
