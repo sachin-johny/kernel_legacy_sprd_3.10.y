@@ -65,6 +65,11 @@ enum nlnpi_commands {
 	/* add new commands above here */
 	/* herry.he add tx sin wave*/
 	NLNPI_CMD_SIN_WAVE,
+	NLNPI_CMD_LNA_ON,
+	NLNPI_CMD_LNA_OFF,
+	NLNPI_CMD_GET_LNA_STATUS,
+	NLNPI_CMD_SPEED_UP,
+	NLNPI_CMD_SPEED_DOWN,
 	/* used to define NLNPI_CMD_MAX below */
 	__NLNPI_CMD_AFTER_LAST,
 	NLNPI_CMD_MAX = __NLNPI_CMD_AFTER_LAST - 1
@@ -118,7 +123,11 @@ enum nlnpi_attrs {
 	/* add attributes here, update the policy in itm_nlnpi.c */
 	/* herry.he add tx sin wave*/
 	NLNPI_ATTR_SIN_WAVE,
-
+	NLNPI_ATTR_LNA_ON,
+	NLNPI_ATTR_LNA_OFF,
+	NLNPI_ATTR_GET_LNA_STATUS,
+	NLNPI_ATTR_SPEED_UP,
+	NLNPI_ATTR_SPEED_DOWN,
 	__NLNPI_ATTR_AFTER_LAST,
 	NLNPI_ATTR_MAX = __NLNPI_ATTR_AFTER_LAST - 1
 };

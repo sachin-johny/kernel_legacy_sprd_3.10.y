@@ -236,6 +236,11 @@ NPI_SET_CMD(get_sblock, NPI_CMD_GET_SBLOCK, NLNPI_CMD_GET_SBLOCK,
 	    NLNPI_ATTR_SBLOCK_ARG)
 NPI_SET_CMD(sin_wave, NPI_CMD_SIN_WAVE, NLNPI_CMD_SIN_WAVE,
 	    NLNPI_ATTR_SIN_WAVE)
+NPI_SET_CMD(lna_on, NPI_CMD_LNA_ON, NLNPI_CMD_LNA_ON, NLNPI_ATTR_LNA_ON)
+NPI_SET_CMD(lna_off, NPI_CMD_LNA_OFF, NLNPI_CMD_LNA_OFF, NLNPI_ATTR_LNA_OFF)	    
+NPI_SET_CMD(speed_up, NPI_CMD_SPEED_UP, NLNPI_CMD_SPEED_UP, NLNPI_ATTR_SPEED_UP)
+NPI_SET_CMD(speed_down, NPI_CMD_SPEED_DOWN, NLNPI_CMD_SPEED_DOWN, NLNPI_ATTR_SPEED_DOWN)
+
 
 #define NPI_GET_CMD(name, npi_cmd, nl_cmd, attr, arg_attr)	\
 static int npi_ ## name ## _cmd(struct sk_buff *skb_2,		\
@@ -302,6 +307,7 @@ NPI_GET_CMD(get_reg, NPI_CMD_REG, NLNPI_CMD_GET_REG, NLNPI_ATTR_GET_REG,
 	    NLNPI_ATTR_GET_REG_ARG)
 NPI_GET_CMD(get_debug, NPI_CMD_DEBUG, NLNPI_CMD_GET_DEBUG, NLNPI_ATTR_GET_DEBUG,
 	    NLNPI_ATTR_GET_DEBUG_ARG)
+NPI_GET_CMD(get_lna_status, NPI_CMD_GET_LNA_STATUS, NLNPI_CMD_GET_LNA_STATUS, NLNPI_ATTR_GET_LNA_STATUS, NLNPI_ATTR_GET_NO_ARG)
 
 static int sblock_tx(unsigned int len, char data)
 {
@@ -454,6 +460,10 @@ static struct nla_policy npi_genl_policy[NLNPI_ATTR_MAX + 1] = {
 	[NLNPI_ATTR_GET_DEBUG_ARG] = {.type = NLA_BINARY, .len = 32},
 	[NLNPI_ATTR_SBLOCK_ARG] = {.len = 8},
 	[NLNPI_ATTR_SIN_WAVE] = {.type = NLA_UNSPEC,},
+	[NLNPI_ATTR_LNA_ON] = {.type = NLA_UNSPEC,},
+	[NLNPI_ATTR_LNA_OFF] = {.type = NLA_UNSPEC,},
+	[NLNPI_ATTR_SPEED_UP] = {.type = NLA_UNSPEC,},
+	[NLNPI_ATTR_SPEED_DOWN] = {.type = NLA_UNSPEC,},
 };
 
 /* Generic Netlink operations array */
@@ -592,6 +602,31 @@ static struct genl_ops npi_ops[] = {
 	 .cmd = NLNPI_CMD_SIN_WAVE,
 	 .policy = npi_genl_policy,
 	 .doit = npi_sin_wave_cmd,
+	},
+	{
+	 .cmd = NLNPI_CMD_LNA_ON,
+	 .policy = npi_genl_policy,
+	 .doit = npi_lna_on_cmd,
+	},
+	{
+	 .cmd = NLNPI_CMD_LNA_OFF,
+	 .policy = npi_genl_policy,
+	 .doit = npi_lna_off_cmd,
+	},
+	{
+	 .cmd = NLNPI_CMD_GET_LNA_STATUS,
+	 .policy = npi_genl_policy,
+	 .doit = npi_get_lna_status_cmd,
+	},
+	{
+	.cmd = NLNPI_CMD_SPEED_UP,
+	.policy = npi_genl_policy,
+	.doit = npi_speed_up_cmd,
+	},
+	{
+	.cmd = NLNPI_CMD_SPEED_DOWN,
+	.policy = npi_genl_policy,
+	.doit = npi_speed_down_cmd,
 	},
 };
 
