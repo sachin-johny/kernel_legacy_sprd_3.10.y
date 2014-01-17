@@ -27,7 +27,6 @@
 #include <linux/slab.h>
 #include <linux/export.h>
 #include <linux/module.h>
-
 #include "u_serial.h"
 
 
@@ -90,7 +89,6 @@ struct gs_buf {
 	char			*buf_get;
 	char			*buf_put;
 };
-
 /*
  * The port structure holds info for each port, one for each minor number
  * (and thus for each /dev/ node).
@@ -374,7 +372,7 @@ __acquires(&port->port_lock)
 			break;
 
 		req = list_entry(pool->next, struct usb_request, list);
-		len = gs_send_packet(port, req->buf, in->maxpacket);
+		len = gs_send_packet(port, req->buf, WRITE_BUF_SIZE);
 		if (len == 0) {
 			wake_up_interruptible(&port->drain_wait);
 			break;
@@ -383,7 +381,8 @@ __acquires(&port->port_lock)
 
 		req->length = len;
 		list_del(&req->list);
-		req->zero = (gs_buf_data_avail(&port->port_write_buf) == 0);
+		if(len > in->maxpacket)
+			req->zero = ((len%in->maxpacket) == 0);
 
 		pr_vdebug(PREFIX "%d: tx len=%d, 0x%02x 0x%02x 0x%02x ...\n",
 				port->port_num, len, *((u8 *)req->buf),
@@ -647,7 +646,7 @@ static int gs_alloc_requests(struct usb_ep *ep, struct list_head *head,
 	 * be as speedy as we might otherwise be.
 	 */
 	for (i = 0; i < n; i++) {
-		req = gs_alloc_req(ep, ep->maxpacket, GFP_ATOMIC);
+		req = gs_alloc_req(ep, WRITE_BUF_SIZE, GFP_ATOMIC);
 		if (!req)
 			return list_empty(head) ? -ENOMEM : 0;
 		req->complete = fn;
@@ -895,7 +894,6 @@ static int gs_write(struct tty_struct *tty, const unsigned char *buf, int count)
 	struct gs_port	*port = tty->driver_data;
 	unsigned long	flags;
 	int		status;
-
 	if(port == NULL)
 		return 0;
 	pr_vdebug("gs_write: ttyGS%d (%p) writing %d bytes\n",
