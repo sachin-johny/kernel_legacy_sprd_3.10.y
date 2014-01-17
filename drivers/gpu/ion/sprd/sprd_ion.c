@@ -414,9 +414,8 @@ static void __ion_heap_destroy(struct ion_heap *heap)
 int sprd_ion_probe(struct platform_device *pdev)
 {
 	struct ion_platform_data *pdata = pdev->dev.platform_data;
-	int err;
+	int err = -1;
 	int i;
-        int ret = -1;
 
 	num_heaps = pdata->nr;
 
@@ -435,21 +434,21 @@ int sprd_ion_probe(struct platform_device *pdev)
 		heaps[i] = __ion_heap_create(heap_data, &pdev->dev);
 		if (IS_ERR_OR_NULL(heaps[i])) {
 			err = PTR_ERR(heaps[i]);
-			goto err;
+			goto error_out;
 		}
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
 
-        ret = sprd_create_timeline(&sprd_fence);
-        if (ret != 0)
+        err = sprd_create_timeline(&sprd_fence);
+        if (err != 0)
         {
             pr_err("sprd_create_timeline failed\n");
-            goto err;
+            goto error_out;
         }
 
 	return 0;
-err:
+error_out:
 	for (i = 0; i < num_heaps; i++) {
 		if (heaps[i])
 			ion_heap_destroy(heaps[i]);

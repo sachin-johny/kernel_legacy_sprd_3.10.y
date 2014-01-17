@@ -211,7 +211,7 @@ int sprd_fence_create(char *name, struct fence_sync *sprd_fence, u32 value, stru
         }
     }
 
-    pt = sprd_sync_pt_create(sprd_fence->timeline, value);
+    pt = sprd_sync_pt_create(sprd_fence->timeline, sprd_fence->timeline_value + value);
     if (pt == NULL)
     {
         printk(KERN_ERR "sprd_sync_pt_create failed\n");
