@@ -32,7 +32,6 @@ static unsigned int high_order_gfp_flags = (GFP_HIGHUSER | __GFP_ZERO |
 					   ~__GFP_WAIT;
 static unsigned int low_order_gfp_flags  = (GFP_HIGHUSER | __GFP_ZERO |
 					 __GFP_NOWARN);
-#define HIGH_PAGE_ORDER	 (4)
 static const unsigned int orders[] = {8, 4, 2, 1, 0};
 static const int num_orders = ARRAY_SIZE(orders);
 static int order_to_index(unsigned int order)
@@ -53,6 +52,7 @@ static unsigned int order_to_size(int order)
 struct ion_system_heap {
 	struct ion_heap heap;
 	struct ion_page_pool **pools;
+	unsigned int high_page_order;
 };
 
 struct page_info {
@@ -60,6 +60,10 @@ struct page_info {
 	unsigned int order;
 	struct list_head list;
 };
+static unsigned int default_high_page_order(void)
+{
+	return (totalram_pages + ((1<<15)-1)) >> 15;
+}
 
 static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 				      struct ion_buffer *buffer,
@@ -74,7 +78,7 @@ static struct page *alloc_buffer_page(struct ion_system_heap *heap,
 	} else {
 		gfp_t gfp_flags = low_order_gfp_flags;
 
-		if (order >= HIGH_PAGE_ORDER)
+		if (order >= heap->high_page_order)
 			gfp_flags = high_order_gfp_flags;
 		page = ion_heap_alloc_pages(buffer, gfp_flags, order);
 		if (!page)
@@ -345,6 +349,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 	heap->heap.ops = &system_heap_ops;
 	heap->heap.type = ION_HEAP_TYPE_SYSTEM;
 	heap->heap.flags = ION_HEAP_FLAG_DEFER_FREE;
+	heap->high_page_order = default_high_page_order();
 	heap->pools = kzalloc(sizeof(struct ion_page_pool *) * num_orders,
 			      GFP_KERNEL);
 	if (!heap->pools)
@@ -353,7 +358,7 @@ struct ion_heap *ion_system_heap_create(struct ion_platform_heap *unused)
 		struct ion_page_pool *pool;
 		gfp_t gfp_flags = low_order_gfp_flags;
 
-		if (orders[i] >= HIGH_PAGE_ORDER)
+		if (orders[i] >= heap->high_page_order)
 			gfp_flags = high_order_gfp_flags;
 		pool = ion_page_pool_create(gfp_flags, orders[i]);
 		if (!pool)
