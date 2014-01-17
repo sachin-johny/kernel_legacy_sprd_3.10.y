@@ -599,24 +599,27 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
 {
 	volatile uint32 i;
 	uint32 reg;
+//	uint32 time_1,time_2;
 	uart_putch('0');
 	uart_putch('\n');
     exit_lowpower_mode();
 	uart_putch('1');
 	uart_putch('\n');
     //hold bus
+    //*(volatile uint32*)(0X40050048) = 0xc0;       //open AON AP TIMER2
+    //time_1 = *(volatile uint32*)(0X40050044);
     ddr_cam_command_dequeue(0);
-	uart_putch('2');
-	uart_putch('\n');
+	//uart_putch('2');
+	//uart_putch('\n');
     //confirm hold bus success
     //hold not trigger sdram initialization
     *(volatile uint32*)UMCTL_DFIMISC &= ~0x1;
     wait_queue_complete();
-    uart_putch('3');
-	uart_putch('\n');
+    //uart_putch('3');
+	//uart_putch('\n');
     //disable auto refresh
     REG32(UMCTL_RFSHCTL3) |= (1<<0);
-    for(i=0;i<2;i++);
+    for(i=0;i<5;i++);
 	switch(new_clk)
 	{
             case 192:
@@ -626,33 +629,33 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
 					//set tdpll clock divider
 	                reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x1);
 
-	                for(i=0;i<0x2;i++);
+	                for(i=0;i<2;i++);
 
                     //switch to tdpll source 384Mhz
                     reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x2);
 
-	                for(i=0;i<0x2;i++);
+	                for(i=0;i<5;i++);
                 }
 				if(sene == EMC_FREQ_DEEP_SLEEP_SENE)
 				{
 					//switch to dpll source
 					reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x0);
 
-	                for(i=0;i<0x2;i++);
+	                for(i=0;i<2;i++);
 					reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
-					for(i=0;i<0x2;i++);
+					for(i=0;i<5;i++);
 				}
 
                 //phy clock close
 		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
-		        for(i=0;i<0x2;i++);
+		        for(i=0;i<5;i++);
                 //close dll
                 disable_ddrphy_dll();
 
                 //phy clock open
                 *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) |= (1<<6);
 //              		*(volatile uint32*)0x022b00c8 |= (1<<2);
-                for(i=0;i<2;i++);
+                for(i=0;i<5;i++);
                 //deassert_reset_dll();
 
 // wait DLL lock in memory side;
@@ -672,30 +675,30 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
                 //config dpll divider
 				reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x8,2,0x0);
 
-				for(i=0;i<0x2;i++);
+				for(i=0;i<2;i++);
 
 				//switch to dpll source
                 reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
 
-                for(i=0;i<0x2;i++);
+                for(i=0;i<5;i++);
                 //phy clock close
 		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
-		        for(i=0;i<0x2;i++);
+		        for(i=0;i<5;i++);
 
                 assert_reset_dll();
-		        for(i=0;i<0x2;i++);
+		        for(i=0;i<5;i++);
                 //open dll
                 enable_ddrphy_dll();
 
-                for(i=0;i<2;i++);
+                for(i=0;i<5;i++);
 
                 //phy clock open
                 *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) |= (1<<6);
 //                        *(volatile uint32*)0x022b00c8 |= (1<<2);
-                for(i=0;i<2;i++);
+                for(i=0;i<5;i++);
                 //release dll
                 deassert_reset_dll();
-                for(i=0;i<10;i++);
+                for(i=0;i<20;i++);
 
 	            REG32(UMCTL_PERFLPR1) |= 0x100;
 		        REG32(UMCTL_PERFWR1) |= 0x20;
@@ -707,13 +710,19 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
 
 	//enable auto refresh
 	REG32(UMCTL_RFSHCTL3) &= ~(1<<0);
-	uart_putch('4');
-	uart_putch('\n');
+	//uart_putch('4');
+	//uart_putch('\n');
     ddr_timing_update_ex(timing);
-	uart_putch('5');
-	uart_putch('\n');
+	//uart_putch('5');
+	//uart_putch('\n');
     *(volatile uint32*)UMCTL_DFIMISC |= (1<<0);
     ddr_cam_command_dequeue(1);
+	//time_2 = *(volatile uint32*)(0X40050044);
+
+	//if(new_clk == 192)
+	//*(volatile uint32*)(0x1dc0) = time_1 - time_2;
+	//else
+	//*(volatile uint32*)(0x1dd0) = time_1 - time_2;
 	uart_putch('6');
 	uart_putch('\n');
     if(new_clk == 192)
