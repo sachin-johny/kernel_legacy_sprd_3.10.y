@@ -508,9 +508,11 @@ void show_pin_reg(void)
 	printk("REG_PIN_CHIP_SLEEP    0x%08x\n", sci_glb_read(REG_PIN_CHIP_SLEEP, -1UL));
 	printk("### uart1 ckd 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X24, -1UL));
 	printk("### uart1 ctl 0x%08x\n", sci_glb_read(SPRD_UART1_BASE + 0X18, -1UL));
+#if defined(CONFIG_ARCH_SCX15)
 	sci_glb_set(REG_PMU_APB_XTL0_REL_CFG, 0x4);
 	sci_glb_set(REG_PMU_APB_XTLBUF0_REL_CFG, 0x4);
 	sci_glb_clr(REG_PMU_APB_PD_CP1_TD_CFG, BIT(24));
+#endif
 	printk("REG_PMU_APB_XTL0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL0_REL_CFG, -1UL));
 	printk("REG_PMU_APB_XTL1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL1_REL_CFG, -1UL));
 	printk("REG_PMU_APB_XTL2_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL2_REL_CFG, -1UL));
@@ -1064,12 +1066,56 @@ void sc_default_idle(void)
 	local_irq_enable();
 	return;
 }
+#ifndef CONFIG_ARCH_SCX15
+/*config dcdc core deep sleep voltage*/
+static void dcdc_core_ds_config(void)
+{
+	u32 dcdc_core_ctl_adi = 0;
+	u32 val = 0;
+	u32 dcdc_core_ctl_ds = -1;
+	dcdc_core_ctl_adi = sci_adi_read(ANA_REG_GLB_DCDC_CORE_ADI);
+	dcdc_core_ctl_adi = dcdc_core_ctl_adi >> 0x5;
+	dcdc_core_ctl_adi = dcdc_core_ctl_adi & 0x7;
+	/*only support dcdc_core_ctl_adi 0.9v,1.0v, 1.1v, 1.2v, 1.3v*/
+	switch(dcdc_core_ctl_adi) {
+	case 0://1.1v
+		dcdc_core_ctl_ds = 0x4; //1.0v
+		break;
+	case 4: //1.0v
+		dcdc_core_ctl_ds = 0x3;//0.9v
+		break;
+	case 6: //1.2v
+		dcdc_core_ctl_ds = 0x0;//1.1v
+		break;
+	case 7: //1.3v
+		dcdc_core_ctl_ds = 0x6;//1.2v
+		break;
+	case 3: //0.9v
+		dcdc_core_ctl_ds = 0x2;//0.8v
+		break;
+	case 1: //0.7v
+	case 2: //0.8v
+	case 5: //0.65v
+		//unvalid value
+		break;
+	}
+	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n", dcdc_core_ctl_adi, dcdc_core_ctl_ds);
+	/*valid value*/
+	if(dcdc_core_ctl_ds != -1) {
+		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
+		val &= ~(0x7);
+		val |= dcdc_core_ctl_ds;
+		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
+	}
+}
+#endif
 void pm_ana_ldo_config(void)
 {
 #if defined(CONFIG_ARCH_SCX15)
 #else
 	/*set vddcore deep sleep voltage to 0.9v*/
-	sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
+	//sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
+	dcdc_core_ds_config();
 	/*open vddcore lp VDDMEM, DCDCGEN mode*/
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL2, BIT_SLP_DCDCCORE_LP_EN | BIT_SLP_DCDCMEM_LP_EN | BIT_SLP_DCDCGEN_LP_EN);
 	/*open vdd28, vdd18 lp mode*/
