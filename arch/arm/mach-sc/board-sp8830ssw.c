@@ -971,7 +971,7 @@ static struct gpio_keys_button gpio_buttons[] = {
         {
                 .gpio           = GPIO_HOME_KEY,
 				.ds_irqflags	= IRQF_TRIGGER_LOW,
-                .code           = KEY_HOMEPAGE,
+                .code           = KEY_HOME,
                 .desc           = "Home Key",
                 .active_low     = 1,
                 .debounce_interval = 2,
