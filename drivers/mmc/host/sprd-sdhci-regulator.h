@@ -10,9 +10,10 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-#ifndef __SDHCI_SPRD_REGULATOR_H__
-#define __SDHCI_SPRD_REGULATOR_H__
+#ifndef __SPRD_SDHCI_REGULATOR_H__
+#define __SPRD_SDHCI_REGULATOR_H__
 
+#include <linux/notifier.h>
 #include <linux/platform_device.h>
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
@@ -20,6 +21,6 @@
 
 #define REGULATOR_EVENT_ENABLE 		0x00
 
-struct regulator_dev *sprd_sdhci_regulator_init(struct platform_device *pdev, const char *ext_vdd_name);
+struct regulator_dev *sprd_sdhci_regulator_init(struct platform_device *pdev, struct notifier_block *nb, const char *ext_vdd_name);
 
 #endif

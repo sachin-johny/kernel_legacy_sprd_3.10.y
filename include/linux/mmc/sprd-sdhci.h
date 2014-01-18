@@ -1,5 +1,5 @@
-#ifndef __SDHCI_SPRD_H__
-#define __SDHCI_SPRD_H__
+#ifndef __SPRD_SDHCI_H__
+#define __SPRD_SDHCI_H__
 
 #include <linux/mmc/sdhci.h>
 #include <linux/mmc/mmc.h>

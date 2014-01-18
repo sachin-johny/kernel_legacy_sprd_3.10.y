@@ -15,7 +15,7 @@
 #include <linux/platform_device.h>
 #include <linux/ion.h>
 #include <linux/input.h>
-#include <linux/mmc/sdhci-sprd.h>
+#include <linux/mmc/sprd-sdhci.h>
 #include <linux/gpio.h>
 
 #include <linux/sprd_cproc.h>
@@ -790,13 +790,12 @@ static struct resource sprd_sdio0_resources[] = {
 static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_4_BIT_DATA,
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
+	.vdd_extmmc = "vddsd",
 #ifdef CONFIG_ARCH_SCX15
 	.detect_gpio = 193,
 #else
 	.detect_gpio = 71,
 #endif
-	.vdd_vmmc = "vddsd",
-	.vdd_vqmmc = "vddsd",
 	.clk_name = "clk_sdio0",
 #ifdef CONFIG_ARCH_SCX15
 	.clk_parent_name = "clk_384m",
@@ -969,9 +968,7 @@ static struct resource sprd_emmc_resources[] = {
 static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR,
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
-	.vdd_vmmc = "vddemmcio",
-	.vdd_vqmmc = "vddemmcio",
-	.vdd_extmmc = "vddemmccore",
+	.vdd_extmmc = "vddemmcio",
 	.clk_name = "clk_emmc",
 #ifdef CONFIG_ARCH_SCX15
 	.clk_parent_name = "clk_384m",

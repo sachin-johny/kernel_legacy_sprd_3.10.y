@@ -20,7 +20,7 @@
 #include <linux/mmc/host.h>
 #include "queue.h"
 
-#define MMC_QUEUE_BOUNCESZ	131072
+#define MMC_QUEUE_BOUNCESZ	65536
 
 /*
  * Prepare a MMC request. This just filters out odd stuff.
