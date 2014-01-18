@@ -194,6 +194,7 @@ static void android_enable(struct android_dev *dev)
 	if (--dev->disable_depth == 0) {
 		usb_add_config(cdev, &android_config_driver,
 					android_bind_config);
+		mdelay(200);
 		usb_gadget_connect(cdev->gadget);
 	}
 }
