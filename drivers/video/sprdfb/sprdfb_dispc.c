@@ -1030,8 +1030,8 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 
 static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 {
-	struct fb_info *fb = dev->fb;
-	uint32_t size = (fb->var.xres & 0xffff) | ((fb->var.yres) << 16);
+	struct fb_info *fb = NULL;
+	uint32_t size = 0;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
@@ -1041,6 +1041,10 @@ static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 		up(&dev->refresh_lock);
 		return;
 	}
+
+	fb = dev->fb;
+	size = (fb->var.xres & 0xffff) | ((fb->var.yres) << 16);
+
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		sprdfb_panel_invalidate(dev->panel);
 	}
