@@ -132,7 +132,7 @@ static int rot_k_open(struct inode *node, struct file *file)
 {
 	int ret = 0;
 	struct rot_k_private *rot_private = platform_get_drvdata(rot_get_platform_device());
-	struct rot_k_file *fd;
+	struct rot_k_file *fd = NULL;
 
 
 	if (!rot_private) {
@@ -181,7 +181,7 @@ open_out:
 	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
 exit:
 
-	ROTATE_TRACE("rot_k_open fd=0x%x\n", fd);
+	ROTATE_TRACE("rot_k_open fd=0x%x\n", (int)fd);
 	ROTATE_TRACE("rot_k_open ret=%d\n", ret);
 
 	return ret;
@@ -207,13 +207,14 @@ static int rot_k_release(struct inode *node, struct file *file)
 		rot_k_module_dis();
 	}
 
+	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
+
 fd_free:
 	kfree(fd);
 	fd = 0;
 	file->private_data = 0;
 release_exit:
 
-	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
 	ROTATE_TRACE("rot_k_release\n");
 
 	return 0;
@@ -233,7 +234,7 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 		goto ioctl_exit;
 	}
 
-	ROTATE_TRACE("rot_k_ioctl fd= 0x%x\n", fd);
+	ROTATE_TRACE("rot_k_ioctl fd= 0x%x\n", (int)fd);
 
 	rot_private = fd->rot_private;
 	if (!rot_private) {
