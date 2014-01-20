@@ -180,6 +180,15 @@ config MACH_SP7715EA
 	help
 	  SP7715EA board based on dolphin serial.
 
+config MACH_SP7715EATRISIM
+	bool "sp7715eatrisim Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	SP7715EATRISIM board based on dolphin serial.
+
 config MACH_SP7715EAOPENPHONE
 	bool "sp7715eaopenphone Phone Board"
 	depends on ARCH_SC

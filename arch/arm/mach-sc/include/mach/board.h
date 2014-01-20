@@ -78,6 +78,10 @@
 #include "__board-sp7715ea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7715EATRISIM
+#include "__board-sp7715eatrisim.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7715EAOPENPHONE
 #include "__board-sp7715eaopenphone.h"
 #endif
