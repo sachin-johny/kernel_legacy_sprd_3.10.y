@@ -378,6 +378,7 @@ int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask)
 			continue;
 		shrunk += heap->size - heap->allocated;
 	}
+#if 0
 	for (n = rb_first(&ion_dev->heaps); n != NULL && shrunk < max_scan;
 			n = rb_next(n)) {
 		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
@@ -388,6 +389,7 @@ int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask)
 			shrunk += __ion_pagecache_shrink(heap,
 					max_scan - shrunk, 0, gfp_mask);
 	}
+#endif
 	return shrunk > max_scan ? max_scan : shrunk;
 }
 
