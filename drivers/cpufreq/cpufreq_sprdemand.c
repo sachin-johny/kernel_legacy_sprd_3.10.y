@@ -213,12 +213,14 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 	struct dbs_data *dbs_data = puwi->dbs_data;
 	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
 
+#ifdef CONFIG_HOTPLUG_CPU
 	if (num_online_cpus() > 1) {
 		if (!sd_tuners->cpu_hotplug_disable) {
 			pr_info("!!  we gonna unplug cpu%d  !!\n", puwi->cpuid);
 			cpu_down(puwi->cpuid);
 		}
 	}
+#endif
 	return;
 }
 
@@ -229,6 +231,7 @@ static void sprd_plugin_one_cpu(struct work_struct *work)
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
 
+#ifdef CONFIG_HOTPLUG_CPU
 	if (num_online_cpus() < sd_tuners->cpu_num_limit) {
 		cpuid = cpumask_next_zero(0, cpu_online_mask);
 		if (!sd_tuners->cpu_hotplug_disable) {
@@ -236,6 +239,7 @@ static void sprd_plugin_one_cpu(struct work_struct *work)
 			cpu_up(cpuid);
 		}
 	}
+#endif
 	return;
 }
 
@@ -854,12 +858,16 @@ static ssize_t store_cpu_hotplug_disable(struct dbs_data *dbs_data, const char *
 	/* plug-in all offline cpu mandatory if we didn't
 	 * enbale CPU_DYNAMIC_HOTPLUG
          */
+#ifdef CONFIG_HOTPLUG_CPU
 	if (sd_tuners->cpu_hotplug_disable) {
 		for_each_cpu(cpu, cpu_possible_mask) {
 			if (!cpu_online(cpu))
+				{
 				cpu_up(cpu);
+			  }
 		}
 	}
+#endif
 	return count;
 }
 
@@ -1128,10 +1136,14 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 				sd_tuners->cpu_hotplug_disable = true;
 		dbs_freq_increase(policy, policy->max-1);
 		/* unplug all online cpu except cpu0 mandatory */
+#ifdef CONFIG_HOTPLUG_CPU
 		for_each_online_cpu(cpu) {
 			if (cpu)
+				{
 				cpu_down(cpu);
+			  }
 		}
+#endif
 	} else {
 		pr_info("%s:cpufreq cooling down\n", __func__);
 		if (sd_tuners->cpu_num_limit > 1)
@@ -1140,10 +1152,14 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 		/* plug-in all offline cpu mandatory if we didn't
 		  * enbale CPU_DYNAMIC_HOTPLUG
 		 */
+#ifdef CONFIG_HOTPLUG_CPU
 		for_each_cpu(cpu, cpu_possible_mask) {
 			if (!cpu_online(cpu))
+				{
 				cpu_up(cpu);
+			  }
 		}
+#endif
 	}
 
 	return ret;
@@ -1188,17 +1204,33 @@ static void sprdemand_gov_early_suspend(struct early_suspend *h)
 	return;
 }
 
+struct sd_dbs_tuners *g_sd_tuners = NULL;
+
 static void sprdemand_gov_late_resume(struct early_suspend *h)
 {
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
 
-	pr_info("%s\n", __func__);
+        if(NULL == dbs_data)
+        {
+	    pr_info("sprdemand_gov_late_resume governor %s return\n", policy->governor->name);
+	    if (g_sd_tuners == NULL)
+	    	return;
+	    if (g_sd_tuners->cpu_num_limit > 1)
+		    if(cpu_hotplug_disable_set == false)
+			    g_sd_tuners->cpu_hotplug_disable = false;
+	    g_sd_tuners->is_suspend = false;
+  		return;
+        }
+        sd_tuners = dbs_data->tuners;
+
 	if (sd_tuners->cpu_num_limit > 1)
 		if(cpu_hotplug_disable_set == false)
 			sd_tuners->cpu_hotplug_disable = false;
 	sd_tuners->is_suspend = false;
+
+        g_sd_tuners = sd_tuners;
 	return;
 }
 

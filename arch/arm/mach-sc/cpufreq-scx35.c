@@ -53,6 +53,9 @@
 #define SHARK_TDPLL_FREQUENCY	(768000)
 #define TRANSITION_LATENCY	(100 * 1000) /* ns */
 
+#define SPRD_CHIPID_7715 0x77150000
+#define SPRD_CHIPID_8815 0X88150000
+
 static DEFINE_MUTEX(freq_lock);
 struct cpufreq_freqs global_freqs;
 unsigned int percpu_target[CONFIG_NR_CPUS] = {0};
@@ -179,6 +182,25 @@ static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
 		1000000,
 	},
 };
+
+/*
+for 7715 test
+*/
+static struct cpufreq_table_data sc7715_cpufreq_table_data = {
+	.freq_tbl = {
+		{0, 1000000},
+		{1, SHARK_TDPLL_FREQUENCY},
+		{2, 600000},
+		{3, CPUFREQ_TABLE_END},
+	},
+	.vddarm_mv = {
+		1200000,
+		1150000,
+		1100000,
+		1000000,
+	},
+};
+
 
 static struct cpufreq_table_data sc8830_cpufreq_table_data_es = {
 	.freq_tbl = {
@@ -397,6 +419,8 @@ static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
 
 static int sprd_freq_table_init(void)
 {
+    unsigned int flag = 0;
+    flag = sci_get_chip_id() & 0xffff0000;
 	/* we init freq table here depends on which chip being used */
 	if (soc_is_scx35_v0()) {
 		pr_info("%s es_chip\n", __func__);
@@ -406,7 +430,12 @@ static int sprd_freq_table_init(void)
 		pr_info("%s cs_chip\n", __func__);
 		sprd_cpufreq_conf->freq_tbl = sc8830_cpufreq_table_data_cs.freq_tbl;
 		sprd_cpufreq_conf->vddarm_mv = sc8830_cpufreq_table_data_cs.vddarm_mv;
-	} else {
+	} else if ((SPRD_CHIPID_7715 == flag)
+                   ||(SPRD_CHIPID_8815 == flag)){
+	        sprd_cpufreq_conf->freq_tbl = sc7715_cpufreq_table_data.freq_tbl;
+	        sprd_cpufreq_conf->vddarm_mv = sc7715_cpufreq_table_data.vddarm_mv;
+        }
+        else {
 		pr_err("%s error chip id\n", __func__);
 		return -EINVAL;
 	}
