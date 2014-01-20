@@ -76,10 +76,10 @@
 #define NFC_TO_EN				    (1 << 4)
 
 #define NFC_DONE_STS				(1 << 16)
-#define NFC_ECC_DONE_STS			(1 << 16)
-#define NFC_ERR_STS				    (1 << 16)
-#define NFC_WP_STS				    (1 << 16)
-#define NFC_TO_STS				    (1 << 16)
+#define NFC_ECC_DONE_STS			(1 << 17)
+#define NFC_ERR_STS				    (1 << 18)
+#define NFC_WP_STS				    (1 << 19)
+#define NFC_TO_STS				    (1 << 20)
 
 #define NFC_DONE_RAW				(1 << 0)
 #define NFC_ECC_DONE_RAW			(1 << 1)
@@ -130,7 +130,7 @@
 #define NFC_ECCENCODE_TIMEOUT			(0x8fff)
 #define NFC_ECCDECODE_TIMEOUT			(0x8fff)
 #define NFC_RESET_TIMEOUT			(0x2fff)
-#define NFC_STATUS_TIMEOUT			(0x4fff)
+#define NFC_STATUS_TIMEOUT			(0x8fff)
 #define NFC_READID_TIMEOUT			(0x2fff)
 #define NFC_ERASE_TIMEOUT			(0x200000)
 #define NFC_READ_TIMEOUT			(0x40000)
@@ -168,6 +168,12 @@ enum NAND_ERR_CORRECT_S{
     NAND_ERR_NEED_RETRY,
     NAND_ERR_FIXED,
     NAND_NO_ERROR
+};
+
+enum NAND_HANDLE_STATUS_S{
+    NAND_HANDLE_DONE=0,
+    NAND_HANDLE_TIMEOUT,
+    NAND_HANDLE_ERR
 };
 unsigned int sc8810_ecc_encode(struct sc8810_ecc_param *param);
 unsigned int ecc_mode_convert(u32 mode);
