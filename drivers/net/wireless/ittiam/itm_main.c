@@ -53,7 +53,6 @@
 #define SIOGETSSID 0x89F2
 
 void ittiam_nvm_init(void );
-void ittiam_nvm_deinit(void);
 
 /*
  * Tx_ready handler.
@@ -739,7 +738,6 @@ static int __init itm_wlan_init(void)
 
 static void __exit itm_wlan_exit(void)
 {
-	ittiam_nvm_deinit();
 	platform_driver_unregister(&itm_wlan_driver);
 	platform_device_unregister(itm_wlan_device);
 	itm_wlan_device = NULL;

@@ -18,10 +18,10 @@ typedef struct
 	int  num;
 } nvm_cali_cmd;
 
-static char *WIFI_NVM_FILE =  "/productinfo/2351_connectivity_configure.ini";
+static char *WIFI_CONFIG_FILE = "/system/etc/connectivity_configure.ini";
+static char *WIFI_CALI_FILE = "/productinfo/connectivity_calibration.ini";
+
 static WIFI_nvm_data   g_wifi_nvm_data;
-static struct delayed_work wifiNvm_work;
-static struct workqueue_struct *wifiNvm_workqueue = NULL;
 
 extern long simple_strtol(const char *cp, char **endp, unsigned int base);
 
@@ -101,7 +101,7 @@ static void get_cmd_par(unsigned char *str, nvm_cali_cmd *cmd)
 
 static int wifi_nvm_set_cmd(nvm_name_table *pTable, nvm_cali_cmd *cmd)
 {
-	int i, parLen, ret;
+	int i;
 	unsigned char  *p;
 	if( (1 != pTable->type)  && (2 != pTable->type) && (4 != pTable->type) )
 		return -1;
@@ -142,7 +142,7 @@ static nvm_name_table *wifi_nvm_table_match(nvm_cali_cmd *cmd)
 	return pTable;
 }
 
-static int wifi_nvm_buf_operate(const unsigned char *pBuf, int file_len)
+static int wifi_nvm_buf_operate(unsigned char *pBuf, int file_len)
 {
 	int i, p;
 	nvm_cali_cmd cmd;
@@ -166,33 +166,23 @@ static int wifi_nvm_buf_operate(const unsigned char *pBuf, int file_len)
 		}
 
 	}
-	g_wifi_nvm_data.data_init_ok = 1;
-#if 0//#ifdef _WIFI_NVM_DEBUG_
-	unsigned char *pChar;
-	for(i = 0; i < sizeof(g_nvm_table) / sizeof(nvm_name_table);  i++)
-	{
-		pTable = &g_nvm_table[i];
-		pChar = (unsigned char *)( (unsigned char *)(&g_wifi_nvm_data) + pTable->mem_offset);
-		printk("### [g_nvm]itm:%s, mem_offset:%d, value:%d\n", pTable->itm, g_nvm_table[i].mem_offset, *pChar);
-	}
-#endif
+	return 0;
 }
 
-static void wifi_nvm_read(struct work_struct *work)
+int wifi_nvm_parse(const char *path)
 {
 	struct file    *filp = NULL;
 	struct inode *inode = NULL;
 	unsigned char *pBuf = NULL;
 	unsigned short len = 0;
-	static unsigned short recall_cnt = 0;
 	mm_segment_t oldfs;
 	printk("%s()...\n", __func__);
 	oldfs = get_fs();
 	set_fs(KERNEL_DS);
-	filp = filp_open(WIFI_NVM_FILE, O_RDONLY, S_IRUSR);
+	filp = filp_open(path, O_RDONLY, S_IRUSR);
 	if (IS_ERR(filp))
 	{
-		printk("%s: file %s filp_open error\n", __FUNCTION__, WIFI_NVM_FILE);
+		printk("%s: file %s filp_open error\n", __FUNCTION__, path);
 		goto nvm_read_err;
 	}
 	if (!filp->f_op)
@@ -226,44 +216,41 @@ static void wifi_nvm_read(struct work_struct *work)
 	filp_close(filp, NULL);
 	set_fs(oldfs);
 
-	printk("%s read %s data_len:0x%x \n", __func__, WIFI_NVM_FILE, len);
+	printk("%s read %s data_len:0x%x \n", __func__, path, len);
 	wifi_nvm_buf_operate(pBuf, len);
 	kfree(pBuf);
 	printk("%s(), ok!\n",  __func__);
-	return;
+	return 0;
 
 free_buf:
 	kfree(pBuf);
 file_close:
 	filp_close(filp, NULL);
-	set_fs(oldfs);
 nvm_read_err:
-	pBuf = NULL;
-	if(recall_cnt > 5)
-	{
-		printk("%s(), exit\n", __func__);
-		return;
-	}
-	printk("%s read file err, will recall\n", __func__);
-	queue_delayed_work(wifiNvm_workqueue, &wifiNvm_work, HZ * 2);
-	recall_cnt++;
-	return;
+	set_fs(oldfs);
+	printk("%s(), err!\n",  __func__);
+	return -1;
 }
+
+
 
 void ittiam_nvm_init(void )
 {
-	wifiNvm_workqueue = create_workqueue("wifiNvm_workqueue");
-	INIT_DELAYED_WORK(&wifiNvm_work, wifi_nvm_read);
-	wifi_nvm_read(NULL);
-	return;
-}
-
-void ittiam_nvm_deinit(void)
-{
-	if(wifiNvm_workqueue) {
-		cancel_delayed_work(&wifiNvm_work);
-		flush_workqueue(wifiNvm_workqueue);
-		destroy_workqueue(wifiNvm_workqueue);
+	int ret = 0;
+	ret = wifi_nvm_parse(WIFI_CONFIG_FILE);
+	if(0 != ret)
+	{
+		printk("%s(),parse:%s, err!\n", __func__, WIFI_CONFIG_FILE);
+		return;
 	}
+	ret = wifi_nvm_parse(WIFI_CALI_FILE);
+	if(0 != ret)
+	{
+		printk("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE);
+		return;
+	}
+	g_wifi_nvm_data.data_init_ok = 1;
+	printk("%s(), ok!\n", __func__);
+	return;
 }
 
