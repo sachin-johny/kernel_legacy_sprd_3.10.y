@@ -199,7 +199,7 @@ out:
 #endif
 		skb->dev = priv->ndev;
 		skb->protocol = eth_type_trans(skb, priv->ndev);
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+		/*skb->ip_summed = CHECKSUM_UNNECESSARY;*/ /*not supported by our hardware*/
 
 		priv->ndev->stats.rx_packets++;
 		priv->ndev->stats.rx_bytes += skb->len;
