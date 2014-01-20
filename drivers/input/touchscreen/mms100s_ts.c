@@ -32,8 +32,7 @@
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
 
-/* Melfas TSP test mode */
-#include <linux/platform_data/mms_ts_test.h>
+
 
 /* Flag to enable touch key */
 #define MMS_HAS_TOUCH_KEY		1
