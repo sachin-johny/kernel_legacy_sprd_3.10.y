@@ -630,21 +630,11 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 no_mic_retry:
 
         //get adc value of left
-        if(0 != pdata->gpio_switch) {
-                set_adc_to_headmic(0);
-                msleep(50);
-                adc_left_average = adc_get_average();
-                if(-1 == adc_left_average)
-                        return HEADSET_TYPE_ERR;
-        }
-        else {
-                set_adc_to_headmic(0);
-                msleep(50);
-                adc_left_average = adc_get_average();
-                PRINT_INFO("print adc_left_average here for debug!!! adc_left_average = %d\n", adc_left_average);
-                PRINT_INFO("automatic type switch is unsupported, set adc_left_average to 0 by default\n");
-                adc_left_average = 0;
-        }
+        set_adc_to_headmic(0);
+        msleep(50);
+        adc_left_average = adc_get_average();
+        if(-1 == adc_left_average)
+                return HEADSET_TYPE_ERR;
 
         //get adc value of mic
         set_adc_to_headmic(1);
@@ -851,12 +841,17 @@ static void headset_detect_work_func(struct work_struct *work)
                 } else {
                         headset_mic_level(1);
 
-                        if (1 == ht->platform_data->irq_trigger_level_button)
-                                headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_HIGH);
-                        else
-                                headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_LOW);
+                        if((HEADSET_NORTH_AMERICA == headset_type) && (0 == pdata->gpio_switch)) {
+                                headset_irq_button_enable(0, ht->irq_button);
+                                PRINT_INFO("HEADSET_NORTH_AMERICA is not supported by your hardware! so disable the button irq!\n");
+                        } else {
+                                if (1 == ht->platform_data->irq_trigger_level_button)
+                                        headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_HIGH);
+                                else
+                                        headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_LOW);
 
-                        headset_irq_button_enable(1, ht->irq_button);
+                                headset_irq_button_enable(1, ht->irq_button);
+                        }
 
                         ht->type = BIT_HEADSET_MIC;
                         switch_set_state(&ht->sdev, ht->type);
@@ -1021,12 +1016,17 @@ static void headset_sts_check_func(struct work_struct *work)
                 } else {
                         headset_mic_level(1);
 
-                        if (1 == ht->platform_data->irq_trigger_level_button)
-                                headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_HIGH);
-                        else
-                                headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_LOW);
+                        if((HEADSET_NORTH_AMERICA == headset_type) && (0 == pdata->gpio_switch)) {
+                                headset_irq_button_enable(0, ht->irq_button);
+                                PRINT_INFO("HEADSET_NORTH_AMERICA is not supported by your hardware! so disable the button irq!\n");
+                        } else {
+                                if (1 == ht->platform_data->irq_trigger_level_button)
+                                        headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_HIGH);
+                                else
+                                        headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_LOW);
 
-                        headset_irq_button_enable(1, ht->irq_button);
+                                headset_irq_button_enable(1, ht->irq_button);
+                        }
 
                         ht->type = BIT_HEADSET_MIC;
                         switch_set_state(&ht->sdev, ht->type);
