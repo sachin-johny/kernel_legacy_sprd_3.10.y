@@ -159,7 +159,7 @@ static void __bctimer_set_mode(enum clock_event_mode mode,
 		break;
 	case CLOCK_EVT_MODE_SHUTDOWN:
 	case CLOCK_EVT_MODE_UNUSED:
-		__raw_writel(TIMER_INT_CLR, TIMER_INT(BC_CPU, EVENT_TIMER));
+		__raw_writel(TIMER_INT_CLR, TIMER_INT(BC_CPU, BC_TIMER));
 		saved = __raw_readl(TIMER_CTL(BC_CPU, BC_TIMER)) & PERIOD_MODE;
 		__gptimer_ctl(BC_CPU, BC_TIMER, TIMER_DISABLE, saved);
 		break;

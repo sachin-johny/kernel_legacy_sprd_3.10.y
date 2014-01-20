@@ -463,7 +463,8 @@ static void print_debug_info(void)
 {
 	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl,
 			ap_apb_eb, apb_pwrstatus0, apb_pwrstatus1, apb_pwrstatus2,
-			apb_pwrstatus3, mpll_cfg, dpll_cfg, apb_slp_status, ap_sys_auto_sleep_cfg;
+			apb_pwrstatus3, mpll_cfg, dpll_cfg, emc_clk_cfg,
+			apb_slp_status, ap_sys_auto_sleep_cfg;
 #if defined(CONFIG_ARCH_SCX15)
 	unsigned int ldo_dcdc_pd_ctrl;
 #endif
@@ -480,6 +481,7 @@ static void print_debug_info(void)
 	apb_slp_status = __raw_readl(REG_PMU_APB_SLEEP_STATUS);
 	mpll_cfg = sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL);
 	dpll_cfg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
+	emc_clk_cfg = sci_glb_read(REG_AON_CLK_EMC_CFG, -1UL);
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
 #if defined(CONFIG_ARCH_SCX15)
        ldo_dcdc_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_DCDC_PD);
@@ -497,6 +499,7 @@ static void print_debug_info(void)
 	printk("###---- REG_PMU_APB_SLEEP_STATUS : 0x%08x\n", apb_slp_status);
 	printk("###---- REG_AON_APB_MPLL_CFG : 0x%08x\n", mpll_cfg);
 	printk("###---- REG_AON_APB_DPLL_CFG : 0x%08x\n", dpll_cfg);
+	printk("###---- REG_AON_CLK_EMC_CFG : 0x%08x\n", emc_clk_cfg);
 	printk("###---- ANA_REG_GLB_LDO_PD_CTRL : 0x%08x\n", ldo_pd_ctrl);
 #if defined(CONFIG_ARCH_SCX15)
        printk("###---- ANA_REG_GLB_LDO_DCDC_PD_CTRL : 0x%08x\n", ldo_dcdc_pd_ctrl);
