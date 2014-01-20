@@ -2793,6 +2793,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	atomic_set(&dev->stream_on, 0);
 	dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 	sprd_v4l2_local_deinit(dev);
+	sema_init(&dev->irq_sem, 0);
 	ret = dcam_module_dis();
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to enable dcam module \n");
