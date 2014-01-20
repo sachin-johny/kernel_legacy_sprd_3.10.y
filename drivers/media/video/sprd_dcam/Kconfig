@@ -301,6 +301,17 @@ config NMI601_ATV
 	help
 	  nmi601 sensor device.
 
+config DCAM_SENSOR_GC2035
+	tristate "Add sensor driver of OV2655"
+
+config DCAM_SENSOR_POS_GC2035
+	int "Sensor position of 2035"
+	depends on DCAM_SENSOR_GC2035
+	range 1 3
+	default 1
+	help
+	  Sensor position: 1 - back, 2 - front, 3 - both.
+
 endif
 
 
