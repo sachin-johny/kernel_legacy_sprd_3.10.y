@@ -70,6 +70,7 @@ struct i2s_rtx {
 
 struct i2s_priv {
 	int id;
+	int hw_port;
 	struct device *dev;
 	struct list_head list;
 	struct i2s_rtx rx;
@@ -187,20 +188,20 @@ static int i2s_reg_update(unsigned int reg, int val, int mask)
 static int i2s_global_disable(struct i2s_priv *i2s)
 {
 	sp_asoc_pr_dbg("%s\n", __func__);
-	return arch_audio_i2s_disable(i2s->id);
+	return arch_audio_i2s_disable(i2s->hw_port);
 }
 
 static int i2s_global_enable(struct i2s_priv *i2s)
 {
 	sp_asoc_pr_dbg("%s\n", __func__);
-	arch_audio_i2s_enable(i2s->id);
-	return arch_audio_i2s_switch(i2s->id, AUDIO_TO_ARM_CTRL);
+	arch_audio_i2s_enable(i2s->hw_port);
+	return arch_audio_i2s_switch(i2s->hw_port, AUDIO_TO_ARM_CTRL);
 }
 
 static int i2s_soft_reset(struct i2s_priv *i2s)
 {
 	sp_asoc_pr_dbg("%s\n", __func__);
-	return arch_audio_i2s_reset(i2s->id);
+	return arch_audio_i2s_reset(i2s->hw_port);
 }
 
 static int i2s_calc_clk(struct i2s_priv *i2s)
@@ -558,7 +559,8 @@ static int i2s_open(struct i2s_priv *i2s)
 
 	atomic_inc(&i2s->open_cnt);
 	if (atomic_read(&i2s->open_cnt) == 1) {
-		i2s->i2s_clk = clk_get(NULL, arch_audio_i2s_clk_name(i2s->id));
+		i2s->i2s_clk =
+		    clk_get(NULL, arch_audio_i2s_clk_name(i2s->hw_port));
 		if (IS_ERR(i2s->i2s_clk)) {
 			ret = PTR_ERR(i2s->i2s_clk);
 			pr_err("ERR:I2S Get clk Error %d!\n", ret);
@@ -579,19 +581,21 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 {
 	int ret;
 	struct i2s_priv *i2s;
-	int port = dai->id;
+	int id = dai->id;
 
-	sp_asoc_pr_dbg("%s Port %d\n", __func__, port);
+	sp_asoc_pr_dbg("%s ID %d\n", __func__, id);
 	mutex_lock(&i2s_list_mutex);
 	list_for_each_entry(i2s, &i2s_list, list) {
-		if (i2s->id == port)
+		if (i2s->id == id)
 			break;
 	}
 	mutex_unlock(&i2s_list_mutex);
-	if (i2s->id != port) {
-		pr_err("ERR:I2S Port(%d) Can't Find the Driver\n", port);
+	if (i2s->id != id) {
+		pr_err("ERR:I2S ID(%d) Can't Find the Driver\n", id);
 		return -ENODEV;
 	}
+
+	sp_asoc_pr_dbg("hw_port %d\n", i2s->hw_port);
 
 	dai->ac97_pdata = &i2s->config;
 
@@ -624,7 +628,7 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	struct i2s_config *config = dai->ac97_pdata;
 	struct i2s_priv *i2s = container_of(config, struct i2s_priv, config);
 
-	sp_asoc_pr_dbg("%s Port %d\n", __func__, i2s->id);
+	sp_asoc_pr_dbg("%s Port %d\n", __func__, i2s->hw_port);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
 		dma_data = &i2s_pcm_stereo_out;
@@ -853,14 +857,18 @@ static int i2s_drv_probe(struct platform_device *pdev)
 	}
 
 	i2s->dev = &pdev->dev;
-	arch_audio_i2s_switch(i2s->id, AUDIO_TO_ARM_CTRL);
 	if (node) {
 		u32 val[2];
+		if (of_property_read_u32(node, "sprd,id", &val[0])) {
+			pr_err("ERR:Must give me the id!\n");
+			return -EINVAL;
+		}
+		i2s->id = val[0];
 		if (of_property_read_u32(node, "sprd,hw_port", &val[0])) {
 			pr_err("ERR:Must give me the hw_port!\n");
 			return -EINVAL;
 		}
-		i2s->id = val[0];
+		i2s->hw_port = val[0];
 		if (of_property_read_u32_array(node, "sprd,base", &val[0], 2)) {
 			pr_err("ERR:Must give me the base address!\n");
 			return -EINVAL;
@@ -881,7 +889,10 @@ static int i2s_drv_probe(struct platform_device *pdev)
 	} else {
 		i2s->config =
 		    *((struct i2s_config *)(dev_get_platdata(&pdev->dev)));
-		i2s->id = i2s->config.hw_port;
+		i2s->id = pdev->id;
+		i2s->hw_port = i2s->config.hw_port;
+		sp_asoc_pr_dbg("i2s.%d(%d) default fs is (%d)\n", i2s->id,
+			       i2s->hw_port, i2s->config.fs);
 
 		res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 		i2s->membase = (void __iomem *)res->start;
@@ -892,6 +903,7 @@ static int i2s_drv_probe(struct platform_device *pdev)
 		i2s->tx.dma_no = res->start;
 		i2s->rx.dma_no = res->end;
 	}
+	arch_audio_i2s_switch(i2s->hw_port, AUDIO_TO_ARM_CTRL);
 	sp_asoc_pr_dbg("membase = 0x%x memphys = 0x%x\n", (int)i2s->membase,
 		       (int)i2s->memphys);
 	sp_asoc_pr_dbg("DMA Number tx = %d rx = %d\n", i2s->tx.dma_no,
