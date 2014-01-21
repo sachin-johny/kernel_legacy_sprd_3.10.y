@@ -119,6 +119,7 @@ struct sprd_rtc_data{
 };
 static struct sprd_rtc_data *rtc_data;
 static struct wake_lock rtc_wake_lock;
+static struct wake_lock rtc_interrupt_wake_lock;
 
 static inline unsigned get_sec(void)
 {
@@ -466,8 +467,9 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 {
 	struct rtc_device *rdev = dev_id;
 
-	pr_debug(" RTC ***** interrupt happen\n");
+	printk(" RTC ***** interrupt happen\n");
 	//rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
+	wake_lock_timeout(&rtc_interrupt_wake_lock,2*HZ);
 	rtc_aie_update_irq(rdev);
 	CLEAR_RTC_INT(RTC_INT_ALL_MSK);
 	return IRQ_HANDLED;
@@ -626,12 +628,14 @@ static int __init sprd_rtc_init(void)
 	else
 		secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
 	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
+	wake_lock_init(&rtc_interrupt_wake_lock, WAKE_LOCK_SUSPEND, "rtc_interrupt");
 	return 0;
 }
 
 static void __exit sprd_rtc_exit(void)
 {
 	platform_driver_unregister(&sprd_rtc_driver);
+	wake_lock_destroy(&rtc_interrupt_wake_lock);
 	wake_lock_destroy(&rtc_wake_lock);
 }
 
