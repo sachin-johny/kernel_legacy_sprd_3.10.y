@@ -973,16 +973,91 @@ out_set:
 	return 0;
 }
 
+static void show_user_stack(void)
+{
+	unsigned long val;
+	unsigned long p;
+	struct vm_area_struct *vma;
+	unsigned long usersp;
+	unsigned long length = 32*10;
+
+	usersp = task_pt_regs(current)->uregs[13];
+
+	printk(KERN_INFO "userstack  pid:%d  sp:0x%p\n", current->pid, usersp);
+	printk(KERN_INFO "============================\n");
+
+	for (p = usersp; p < usersp + length;) {
+		vma = NULL;
+
+		if (access_ok(VERIFY_READ, p, 4))
+			copy_from_user(&val, (unsigned long *)p, 4);
+		else
+			break;
+
+		vma = find_vma(current->mm, val);
+		if (vma) {
+			struct file *file = vma->vm_file;
+			struct mm_struct *mm = vma->vm_mm;
+			if (val < vma->vm_start) {
+				p += 4;
+				continue;
+			}
+
+			if (file) {
+				char buf[50];
+				char *pp = NULL;
+				int res = -1;
+
+				memset(buf, 0, 50);
+				pp = d_path(&file->f_path, buf, 50);
+				if (!IS_ERR(pp))
+					mangle_path(buf, pp, "\n");
+
+				printk(KERN_INFO "%4lx: %08lx %s  0x%p\n", p, val, buf, vma->vm_start);
+			}
+		}
+		p += 4;
+	}
+
+	printk(KERN_INFO "============================\n");
+	return;
+}
+
+int last_pid = 0;
+unsigned long last_jiffies = 0;
 static int send_signal(int sig, struct siginfo *info, struct task_struct *t,
 			int group)
 {
 	int from_ancestor_ns = 0;
+	int l_pid;
+	unsigned long l_jiffies;
 
 #ifdef CONFIG_PID_NS
 	from_ancestor_ns = si_fromuser(info) &&
 			   !task_pid_nr_ns(current, task_active_pid_ns(t));
 #endif
 
+	if ((sig == 3) && (!strncmp(t->group_leader->comm, "system_", 7))) {
+		printk("---- last_pid:%d, cur_pid:%d\n", last_pid, current->pid);
+		printk("---- jiffies_diff: %lu\n", jiffies - last_jiffies);
+		printk("---- pid:%d %s, sigquit_handler:%p\n", t->pid, t->comm, t->sighand->action[3].sa.sa_handler);
+
+		l_pid = last_pid;
+		l_jiffies = last_jiffies;
+
+		last_pid = current->pid;
+		last_jiffies = jiffies;
+
+		/*if (l_pid == current->pid) {*/
+		if (jiffies - l_jiffies > 10*HZ)
+			goto normal;
+
+		printk(KERN_INFO"==========sig:%d  send_pid:%d %s\n",sig, current->pid, current->comm);
+		show_user_stack();
+		dump_stack();
+		return 0;
+	}
+normal:
 	return __send_signal(sig, info, t, group, from_ancestor_ns);
 }
 
