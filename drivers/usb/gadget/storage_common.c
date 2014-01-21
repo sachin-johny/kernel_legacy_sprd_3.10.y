@@ -464,23 +464,18 @@ static int fsg_lun_open(struct fsg_lun *curlun, const char *filename)
 		goto out;
 	}
 
-	if (curlun->cdrom) {
-		blksize = 2048;
-		blkbits = 11;
-	} else if (inode->i_bdev) {
-		blksize = bdev_logical_block_size(inode->i_bdev);
-		blkbits = blksize_bits(blksize);
-	} else {
-		blksize = 512;
-		blkbits = 9;
-	}
+	blksize = 512;
+	blkbits = 9;
+
 
 	num_sectors = size >> blkbits; /* File size in logic-block-size blocks */
 	min_sectors = 1;
 	if (curlun->cdrom) {
-		min_sectors = 300;	/* Smallest track is 300 frames */
-		if (num_sectors >= 256*60*75) {
-			num_sectors = 256*60*75 - 1;
+               num_sectors &= ~3;      /* Reduce to a multiple of 2048 */
+               min_sectors = 300*4;    /* Smallest track is 300 frames */
+               if (num_sectors >= 256*60*75*4) {
+                       num_sectors = (256*60*75 - 1) * 4;
+
 			LINFO(curlun, "file too big: %s\n", filename);
 			LINFO(curlun, "using only first %d blocks\n",
 					(int) num_sectors);
