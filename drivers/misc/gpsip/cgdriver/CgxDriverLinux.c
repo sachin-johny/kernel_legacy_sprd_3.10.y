@@ -817,6 +817,7 @@ static int CGX_AddSysDev(struct sys_device *dev)
 
 static int CGX_PMSuspend(struct device *dev, pm_message_t state)
 {
+ #if 0
 	//DBGMSG( "Got to CGX_PMSuspend\n" );
 	printk("%s\n",__func__);
 	//if (DrvContext.nNumOpens > 0)
@@ -825,12 +826,14 @@ static int CGX_PMSuspend(struct device *dev, pm_message_t state)
 		CgxDriverPowerDown();
 		CgxDriverRFPowerDown();
 	}
+ #endif 
 	return 0;
 }
 
 
 static int CGX_PMResume(struct device *dev)
 {
+ #if 0
 	//DBGMSG( "Got to CGX_PMResume\n" );
 	printk("%s\n",__func__);
 	//if (DrvContext.nNumOpens > 0)
@@ -851,6 +854,7 @@ static int CGX_PMResume(struct device *dev)
 		CgxDriverPowerUp();
 		CgxDriverRFPowerUp();
 	}
+#endif 
 	return 0;
 }
 

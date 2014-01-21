@@ -121,7 +121,7 @@ U32 CgxDriverDataReadyInterruptCode(void)
 U32 CgxDriverGpsInterruptCode(void)
 {
 	// TODO return the interrupt code for 'CGsnap' interrupt
-	return IRQ_GPS_INT;
+	return SPRD_GPS_INT;
 }
 
 
