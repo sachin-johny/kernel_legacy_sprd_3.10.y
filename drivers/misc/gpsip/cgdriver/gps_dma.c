@@ -28,7 +28,7 @@
 static struct sci_dma_cfg *cfg_list;
 static struct reg_cfg_addr cfg_addr;
 static int node_size;
-int cg_GpsDma_channel = INVALIDE_DMA_CHN;
+static  int cg_GpsDma_channel = INVALIDE_DMA_CHN;
 static char *CgGps_Dev_name = "CgGps_Dev";
 
 extern void clear_buf_data(void);
@@ -39,17 +39,19 @@ TCgReturnCode CgCpuDmaCreate(U32 aDmaChannel, U32 aIpDataSourceAddress)
 {
 	DBG_FUNC_NAME("CgCpuDmaCreate");
 	DBGMSG("entry");
-
-	cg_GpsDma_channel = sci_dma_request(CgGps_Dev_name, FULL_DMA_CHN);
-
-	if(cg_GpsDma_channel < 0)
+	if(cg_GpsDma_channel == INVALIDE_DMA_CHN)
 	{
+		cg_GpsDma_channel = sci_dma_request(CgGps_Dev_name, FULL_DMA_CHN);
 
-		printk("CgCpuDmaCreate fail err code = %d\n",cg_GpsDma_channel);
-		return cg_GpsDma_channel;
+		if(cg_GpsDma_channel < 0)
+		{
 
+			printk("CgCpuDmaCreate fail err code = %d\n",cg_GpsDma_channel);
+			return cg_GpsDma_channel;
+
+		}
+		printk("CgCpuDmaCreate succ chn = %d\n",cg_GpsDma_channel);
 	}
-	printk("CgCpuDmaCreate succ chn = %d\n",cg_GpsDma_channel);
 
 	return ECgOk;
 }
@@ -58,22 +60,24 @@ TCgReturnCode CgCpuDmaCreate(U32 aDmaChannel, U32 aIpDataSourceAddress)
 TCgReturnCode CgCpuDmaDestroy(U32 aDmaChannel, U32 aIpDataSourceAddress)
 {
 	int rc;
-	printk("%s\n",__func__);
+	printk("%s cg_GpsDma_channel:%d\n",__func__,cg_GpsDma_channel);
 
-	rc = sci_dma_stop(cg_GpsDma_channel, DMA_GPS);
-	if(rc < 0)
+	if(cg_GpsDma_channel != INVALIDE_DMA_CHN)
 	{
-		printk("CgCpuDmaDestroy stop chn fail, chn num = %d, err code = %d\n",cg_GpsDma_channel,rc);
+		rc = sci_dma_stop(cg_GpsDma_channel, DMA_GPS);
+		if(rc < 0)
+		{
+			printk("CgCpuDmaDestroy stop chn fail, chn num = %d, err code = %d\n",cg_GpsDma_channel,rc);
+		}
+
+		rc = sci_dma_free(cg_GpsDma_channel);
+		if(rc < 0)
+		{
+			printk("CgCpuDmaDestroy free chn fail, chn num = %d, err code = %d\n",cg_GpsDma_channel,rc);
+		}
+
+		cg_GpsDma_channel = INVALIDE_DMA_CHN;
 	}
-
-	rc = sci_dma_free(cg_GpsDma_channel);
-	if(rc < 0)
-	{
-		printk("CgCpuDmaDestroy free chn fail, chn num = %d, err code = %d\n",cg_GpsDma_channel,rc);
-	}
-
-
-	cg_GpsDma_channel = INVALIDE_DMA_CHN;
 	return ECgOk ;
 }
 

@@ -62,13 +62,6 @@
 #define CG_DRIVER_GPIO_TCXO_EN	    (22)
 #define CG_DRIVER_GPIO_GPS_MRSTN    (22)
 
-#if defined(CONFIG_DOLPHIN_CHIP_2351)
-#define SPRD_GPS_LNA_EN    (35)
-#elif defined(CONFIG_SHARK_CHIP_2351)
-#define SPRD_GPS_LNA_EN    (50)
-#endif
-
-
 
 /**
 	CGsnap IP physical address
@@ -101,6 +94,15 @@
 
 /** Virtual base address for CGsnap sclk */
 #define CG_DRIVER_SCLK_VA			SPRD_AHB_BASE
+#define SPRD_GPS_INT				IRQ_GPS_INT
+
+#if defined(CONFIG_DOLPHIN_CHIP_2351)
+#define SPRD_GPS_LNA_EN    (35)
+#elif defined(CONFIG_SHARK_CHIP_2351)
+#define SPRD_GPS_LNA_EN    (50)
+#endif
+
+
 
 /** \} Memory Mapping */
 
