@@ -41,6 +41,7 @@
 #include "sprd-asoc-common.h"
 #include "sprd-pcm.h"
 #include "vbc.h"
+#include "../dfm.h"
 
 typedef int (*vbc_dma_set) (int enable);
 
@@ -57,7 +58,12 @@ struct sprd_vbc_priv {
 	int (*arch_disable) (int chan);
 	int used_chan_count;
 	struct sprd_vbc_buffer_info buf_info;
+	int rate;
 };
+
+struct sprd_dfm_priv dfm = { 0, 0 };
+
+EXPORT_SYMBOL_GPL(dfm);
 
 static struct sprd_pcm_dma_params vbc_pcm_stereo_out = {
 	.name = "VBC PCM Stereo out",
@@ -300,9 +306,25 @@ static int vbc_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
 	int vbc_idx;
+	int ret;
 
 	vbc_idx = vbc_str_2_index(substream->stream, dai->id);
 	sp_asoc_pr_dbg("%s VBC(%s)\n", __func__, vbc_get_name(vbc_idx));
+	sp_asoc_pr_dbg("dfm.hw_rate:%d, dfm.sample_rate:%d", dfm.hw_rate,
+		       dfm.sample_rate);
+
+	if (dfm.sample_rate != 0) {
+		if ((vbc_idx == VBC_PLAYBACK) || (vbc_idx == VBC_CAPTRUE)) {
+			ret = snd_pcm_hw_constraint_minmax(substream->runtime,
+							   SNDRV_PCM_HW_PARAM_RATE,
+							   dfm.sample_rate,
+							   dfm.sample_rate);
+			if (ret < 0) {
+				pr_err("constraint error");
+				return ret;
+			}
+		}
+	}
 
 	vbc_power(1);
 
@@ -370,7 +392,6 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 #endif
 
 #ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
-	vbc_src_set(0, vbc_idx);	/*close adc src */
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		if (params_rate(params) == 44100) {
 			/* SRC Source sample rate maybe different */
@@ -378,9 +399,25 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 				vbc_src_set(CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE,
 					    vbc_idx);
 			}
+		} else {
+			vbc_src_set(0, vbc_idx);	/*close adc src */
 		}
 	}
 #endif
+
+	vbc[vbc_idx].rate = params_rate(params);
+	return 0;
+}
+
+static int vbc_hw_free(struct snd_pcm_substream *substream,
+		       struct snd_soc_dai *dai)
+{
+	int vbc_idx;
+
+	vbc_idx = vbc_str_2_index(substream->stream, dai->id);
+	sp_asoc_pr_dbg("%s VBC(%s)\n", __func__, vbc_get_name(vbc_idx));
+
+	vbc[vbc_idx].rate = 0;
 
 	return 0;
 }
@@ -430,6 +467,102 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 	.shutdown = vbc_shutdown,
 	.hw_params = vbc_hw_params,
 	.trigger = vbc_trigger,
+	.hw_free = vbc_hw_free,
+};
+
+static int dfm_startup(struct snd_pcm_substream *substream,
+		       struct snd_soc_dai *dai)
+{
+	static const unsigned int dfm_all_rates[] = { 32000, 44100, 48000 };
+	static const struct snd_pcm_hw_constraint_list dfm_rates_constraint = {
+		.count = ARRAY_SIZE(dfm_all_rates),
+		.list = dfm_all_rates,
+	};
+	int ret;
+	int vbc_idx;
+	struct snd_soc_card *card = dai->card;
+	int i;
+
+	sp_asoc_pr_dbg("%s\n, vbc[vbc_idx].rate:da:%d, ad:%d, ad23:%d",
+		       __func__, vbc[0].rate, vbc[1].rate, vbc[2].rate);
+
+	ret = snd_pcm_hw_constraint_list(substream->runtime, 0,
+					 SNDRV_PCM_HW_PARAM_RATE,
+					 &dfm_rates_constraint);
+	if (ret < 0)
+		return ret;
+
+	for (vbc_idx = VBC_PLAYBACK; vbc_idx < VBC_CAPTRUE1; vbc_idx++) {
+		if (vbc[vbc_idx].rate != 0) {
+#ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
+			if (vbc[vbc_idx].rate != 44100)
+				return -1;
+#else
+			ret = snd_pcm_hw_constraint_minmax(substream->runtime,
+							   SNDRV_PCM_HW_PARAM_RATE,
+							   vbc[vbc_idx].rate,
+							   vbc[vbc_idx].rate);
+			if (ret < 0) {
+				pr_err("constraint error");
+				return ret;
+			}
+#endif
+		}
+	}
+
+	kfree(snd_soc_dai_get_dma_data(dai, substream));
+	snd_soc_dai_set_dma_data(dai, substream, NULL);
+
+	for (i = 0; i < card->num_rtd; i++) {
+		card->rtd[i].dai_link->ignore_suspend = 1;
+	}
+
+	return 0;
+}
+
+static void dfm_shutdown(struct snd_pcm_substream *substream,
+			 struct snd_soc_dai *dai)
+{
+	struct snd_soc_card *card = dai->card;
+	int i;
+	sp_asoc_pr_dbg("%s\n", __func__);
+
+	for (i = 0; i < card->num_rtd; i++) {
+		card->rtd[i].dai_link->ignore_suspend = 0;
+	}
+}
+
+static int dfm_hw_params(struct snd_pcm_substream *substream,
+			 struct snd_pcm_hw_params *params,
+			 struct snd_soc_dai *dai)
+{
+	sp_asoc_pr_dbg("%s \n", __func__);
+
+	switch (params_format(params)) {
+	case SNDRV_PCM_FORMAT_S16_LE:
+		break;
+	default:
+		pr_err("ERR:VBC Only Supports Format S16_LE\n");
+		break;
+	}
+
+	return 0;
+}
+
+static int dfm_hw_free(struct snd_pcm_substream *substream,
+		       struct snd_soc_dai *dai)
+{
+	sp_asoc_pr_dbg("%s \n", __func__);
+	dfm.sample_rate = 0;
+	dfm.hw_rate = 0;
+	return 0;
+}
+
+static struct snd_soc_dai_ops dfm_dai_ops = {
+	.startup = dfm_startup,
+	.shutdown = dfm_shutdown,
+	.hw_params = dfm_hw_params,
+	.hw_free = dfm_hw_free,
 };
 
 static struct snd_soc_dai_driver vbc_dai[] = {
@@ -464,6 +597,18 @@ static struct snd_soc_dai_driver vbc_dai[] = {
 		     },
 	 .ops = &vbc_dai_ops,
 	 },
+	{
+	 .name = "vbc-dfm",
+	 .id = DFM_MAGIC_ID,
+	 .playback = {
+		      .channels_min = 1,
+		      .channels_max = 2,
+		      .rates = SNDRV_PCM_RATE_CONTINUOUS,
+		      .rate_max = 48000,
+		      .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		      },
+	 .ops = &dfm_dai_ops,
+	 }
 };
 
 static const struct snd_soc_component_driver sprd_vbc_component = {

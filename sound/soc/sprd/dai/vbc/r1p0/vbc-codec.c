@@ -147,7 +147,6 @@ struct vbc_codec_priv {
 	struct vbc_dg dg[VBC_IDX_MAX];
 	int vbc_da_iis_port;
 	int adc_dgmux_val[ADC_DGMUX_MAX];
-	int fm_sample_rate;
 	struct st_hpf_dg st_dg;
 	struct sprd_vbc_mux_op sprd_vbc_mux[SPRD_VBC_MUX_MAX];
 };
@@ -1371,31 +1370,6 @@ static int dac_iismux_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int fm_sample_rate_get(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
-	ucontrol->value.integer.value[0] =
-	    ((vbc_codec->fm_sample_rate == 32000) ? 0 : 1);
-	return 0;
-}
-
-static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
-
-	sp_asoc_pr_info("fm_sample_rate is %s\n",
-			texts->texts[ucontrol->value.integer.value[0]]);
-
-	vbc_codec->fm_sample_rate =
-	    (ucontrol->value.integer.value[0] ? 48000 : 32000);
-	return 1;
-}
-
 static const char *switch_function[] = { "dsp", "arm" };
 static const char *eq_load_function[] = { "idle", "loading" };
 static const char *da_iis_mux_function[] =
@@ -1462,9 +1436,6 @@ static const struct snd_kcontrol_new vbc_codec_snd_controls[] = {
 		       adc_dgmux_get, adc_dgmux_put),
 	SOC_ENUM_EXT("VBC DA IIS Mux", vbc_enum[2], dac_iismux_get,
 		     dac_iismux_put),
-	SOC_ENUM_EXT("FM Sample Rate", vbc_enum[3], fm_sample_rate_get,
-		     fm_sample_rate_set),
-
 	SOC_SINGLE_EXT("VBC DA EQ Profile Select", FUN_REG(VBC_PLAYBACK), 0,
 		       VBC_EQ_PROFILE_CNT_MAX, 0,
 		       vbc_eq_profile_get, vbc_eq_profile_put),
@@ -1571,7 +1542,6 @@ static int sprd_vbc_codec_probe(struct platform_device *pdev)
 	vbc_codec->st_dg.dg_val[1] = 0x18;
 	vbc_codec->st_dg.hpf_val[0] = 0x3;
 	vbc_codec->st_dg.hpf_val[1] = 0x3;
-	vbc_codec->fm_sample_rate = 32000;
 	vbc_codec->dg[0].dg_val[0] = 0x18;
 	vbc_codec->dg[0].dg_val[1] = 0x18;
 	vbc_codec->dg[1].dg_val[0] = 0x18;

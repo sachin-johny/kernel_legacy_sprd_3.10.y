@@ -8,9 +8,4 @@ config SND_SOC_SPRD_VBC_LR_INVERT
 	help
 	 say Y then the VBC will support invert the L/R channel.
 
-config SND_SOC_FM_SAMPLE_RATE_SETTING
-	bool "FM Sample Rate Setting in VBC"
-	help
-	  say Y then the VBC will set codec sample rate for FM  function.
-
 endmenu

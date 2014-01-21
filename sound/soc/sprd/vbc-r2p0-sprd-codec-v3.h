@@ -53,7 +53,6 @@ static const struct snd_soc_dapm_route vbc_r2p0_codec_v3_map[] = {
 	/* VBC -- SPRD-CODEC */
 	{"Aud input", NULL, "AD Clk"},
 	{"Aud1 input", NULL, "AD Clk"},
-	{"DFM", NULL, "DA Clk"},
 
 	{"Aud input", NULL, "Digital ADCL Switch"},
 	{"Aud input", NULL, "Digital ADCR Switch"},
@@ -61,8 +60,48 @@ static const struct snd_soc_dapm_route vbc_r2p0_codec_v3_map[] = {
 	{"Aud1 input", NULL, "Digital ADC1L Switch"},
 	{"Aud1 input", NULL, "Digital ADC1R Switch"},
 
-	{"Digital DACL Switch", NULL, "DFM"},
-	{"Digital DACR Switch", NULL, "DFM"},
+	{"DFM-OUT", NULL, "DFM"},
+	{"DFM-OUT", NULL, "DFM"},
+};
+
+extern struct sprd_dfm_priv dfm;
+static int dfm_rate(struct snd_pcm_hw_params *params)
+{
+	dfm.hw_rate = params_rate(params);
+
+#ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
+	dfm.sample_rate = 44100;
+#else
+	dfm.sample_rate = params_rate(params);
+#endif
+	sp_asoc_pr_dbg("%s: hw_rate:%d,  sample_rate:%d \n",
+		       __func__, dfm.hw_rate, dfm.sample_rate);
+
+	if (dfm.hw_rate != dfm.sample_rate) {
+		struct snd_interval *rate =
+		    hw_param_interval(params, SNDRV_PCM_HW_PARAM_RATE);
+		struct snd_interval dfm_rates;
+		dfm_rates.min = dfm.sample_rate;
+		dfm_rates.max = dfm.sample_rate;
+		dfm_rates.openmin = dfm_rates.openmax = 0;
+		dfm_rates.integer = 0;
+
+		return snd_interval_refine(rate, &dfm_rates);
+	}
+	return 0;
+}
+
+static int dfm_params(struct snd_pcm_substream *substream,
+		      struct snd_pcm_hw_params *params)
+{
+
+	sp_asoc_pr_dbg("%s \n", __func__);
+	dfm_rate(params);
+	return 0;
+}
+
+static const struct snd_soc_ops dfm_ops = {
+	.hw_params = dfm_params,
 };
 
 static struct snd_soc_dai_link vbc_r2p0_codec_v3_dai[] = {
@@ -106,6 +145,16 @@ static struct snd_soc_dai_link vbc_r2p0_codec_v3_dai[] = {
 	 .codec_dai_name = "codec-vaudio-ext",
 	 },
 #endif
+	{
+	 .name = "vbc(r2)-dfm",
+	 .stream_name = "Dfm",
+
+	 .codec_name = "sprd-codec-v3",
+	 .platform_name = "sprd-pcm-audio",
+	 .cpu_dai_name = "vbc-dfm",
+	 .codec_dai_name = "sprd-codec-v3-fm",
+	 .ops = &dfm_ops,
+	 },
 };
 
 static struct snd_soc_card vbc_r2p0_codec_v3_card = {

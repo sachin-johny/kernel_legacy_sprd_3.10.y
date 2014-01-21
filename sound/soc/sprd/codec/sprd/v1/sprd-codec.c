@@ -1346,6 +1346,15 @@ static int adie_adc_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int dfm_out_event(struct snd_soc_dapm_widget *w,
+			 struct snd_kcontrol *kcontrol, int event)
+{
+	int on = ! !SND_SOC_DAPM_EVENT_ON(event);
+
+	sp_asoc_pr_info("DFM-OUT %s\n", STR_ON_OFF(on));
+
+	return 0;
+}
 static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr,
 			    int try_on, int need_set)
 {
@@ -1827,8 +1836,8 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
-static int mixer_set(struct snd_kcontrol *kcontrol,
-		     struct snd_ctl_elem_value *ucontrol)
+static int mixer_need_set(struct snd_kcontrol *kcontrol,
+			  struct snd_ctl_elem_value *ucontrol, bool need_set)
 {
 	struct soc_mixer_control *mc =
 	    (struct soc_mixer_control *)kcontrol->private_value;
@@ -1838,7 +1847,6 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	int id = FUN_REG(mc->reg);
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
-	int need_set = !mc->shift;
 
 	if (mixer->on == ucontrol->value.integer.value[0])
 		return 0;
@@ -1858,13 +1866,25 @@ static int mixer_set(struct snd_kcontrol *kcontrol,
 	return ret;
 }
 
+static int mixer_set_mem(struct snd_kcontrol *kcontrol,
+			 struct snd_ctl_elem_value *ucontrol)
+{
+	return mixer_need_set(kcontrol, ucontrol, 0);
+}
+
+static int mixer_set(struct snd_kcontrol *kcontrol,
+		     struct snd_ctl_elem_value *ucontrol)
+{
+	return mixer_need_set(kcontrol, ucontrol, 1);
+}
+
 #define SPRD_CODEC_MIXER(xname, xreg)\
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set)
 
 /*Just for LINE IN path, mixer_set not really set mixer (ADCL/R -> HP/SPK L/R) here but
 setting in ana_loop_event, just remeber state here*/
 #define SPRD_CODEC_MIXER_NOSET(xname, xreg)\
-		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 1, 1, 0, mixer_get, mixer_set)
+		SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, mixer_get, mixer_set_mem)
 
 /* ADCL Mixer */
 static const struct snd_kcontrol_new adcl_mixer_controls[] = {
@@ -1991,6 +2011,11 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   FUN_REG(SPRD_CODEC_PLAYBACK), 0,
 			   0,
 			   chan_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("DFM-OUT", "DFM-Playback",
+			   SND_SOC_NOPM, 0,
+			   0,
+			   dfm_out_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 #ifdef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
 	SND_SOC_DAPM_PGA_S("HP POP", 9, SND_SOC_NOPM, 0, 0, hp_pop_event,
@@ -2147,6 +2172,7 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"DA Clk", NULL, "Analog Power"},
 	{"DA Clk", NULL, "Digital Power"},
 	{"DAC", NULL, "DA Clk"},
+	{"DFM-OUT", NULL, "DA Clk"},
 
 	{"AD IBUF", NULL, "Analog Power"},
 	{"AD Clk", NULL, "Digital Power"},
@@ -2164,6 +2190,8 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"EAR Switch", NULL, "DRV Clk"},
 
 	/* Playback */
+	{"Digital DACL Switch", NULL, "DFM-OUT"},
+	{"Digital DACR Switch", NULL, "DFM-OUT"},
 	{"Digital DACL Switch", NULL, "DAC"},
 	{"Digital DACR Switch", NULL, "DAC"},
 	{"ADie Digital DACL Switch", NULL, "Digital DACL Switch"},
@@ -2768,6 +2796,17 @@ static struct snd_soc_dai_driver sprd_codec_dai[] = {
 	 .ops = &sprd_codec_dai_ops,
 	 },
 #endif
+	{
+	 .name = "sprd-codec-v1-fm",
+	 .playback = {
+		      .stream_name = "DFM-Playback",
+		      .channels_min = 1,
+		      .channels_max = 2,
+		      .rates = SPRD_CODEC_PCM_RATES,
+		      .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		      },
+	 .ops = &sprd_codec_dai_ops,
+	 },
 };
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)

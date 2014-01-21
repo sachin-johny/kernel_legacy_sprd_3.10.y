@@ -52,8 +52,8 @@ static const struct snd_soc_dapm_route vbc_r1p0_codec_v1_map[] = {
 	{"Aud input", NULL, "Digital ADCL Switch"},
 	{"Aud input", NULL, "Digital ADCR Switch"},
 
-	{"Digital DACL Switch", NULL, "DFM"},
-	{"Digital DACR Switch", NULL, "DFM"},
+	{"DFM-OUT", NULL, "DFM"},
+	{"DFM-OUT", NULL, "DFM"},
 };
 
 static struct snd_soc_dai_link vbc_r1p0_codec_v1_dai[] = {
@@ -77,6 +77,15 @@ static struct snd_soc_dai_link vbc_r1p0_codec_v1_dai[] = {
 	 .codec_dai_name = "sprd-codec-v1-vaudio",
 	 },
 #endif
+	{
+	 .name = "vbc(r1)-dfm",
+	 .stream_name = "Dfm",
+
+	 .codec_name = "sprd-codec-v1",
+	 .platform_name = "sprd-pcm-audio",
+	 .cpu_dai_name = "vbc-dfm",
+	 .codec_dai_name = "sprd-codec-v1-fm",
+	 },
 };
 
 static struct snd_soc_card vbc_r1p0_codec_v1_card = {

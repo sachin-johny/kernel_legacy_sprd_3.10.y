@@ -1367,13 +1367,6 @@ static int sprd_codec_set_sample_rate(struct snd_soc_codec *codec, int rate,
 	return 0;
 }
 
-void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate)
-{
-	sprd_codec_set_sample_rate(codec, rate, 0x0F, 0);
-}
-
-EXPORT_SYMBOL(sprd_codec_set_da_sample_rate);
-
 static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 					 int mask, int shift)
 {
@@ -1389,20 +1382,6 @@ static int sprd_codec_set_ad_sample_rate(struct snd_soc_codec *codec, int rate,
 	snd_soc_update_bits(codec, SOC_REG(AUD_ADC_CTL), mask, set << shift);
 	return 0;
 }
-
-void sprd_codec_set_ad01_sample_rate(struct snd_soc_codec *codec, int rate)
-{
-	sprd_codec_set_ad_sample_rate(codec, rate, 0x0F, 0);
-}
-
-EXPORT_SYMBOL(sprd_codec_set_ad01_sample_rate);
-
-void sprd_codec_set_ad23_sample_rate(struct snd_soc_codec *codec, int rate)
-{
-	sprd_codec_set_ad_sample_rate(codec, rate, 0xF0, 4);
-}
-
-EXPORT_SYMBOL(sprd_codec_set_ad23_sample_rate);
 
 static int sprd_codec_sample_rate_setting(struct sprd_codec_priv *sprd_codec)
 {
@@ -1588,6 +1567,16 @@ static int chan_event(struct snd_soc_dapm_widget *w,
 
 	sp_asoc_pr_info("%s %s\n", sprd_codec_chan_get_name(chan_id),
 			STR_ON_OFF(on));
+
+	return 0;
+}
+
+static int dfm_out_event(struct snd_soc_dapm_widget *w,
+			 struct snd_kcontrol *kcontrol, int event)
+{
+	int on = ! !SND_SOC_DAPM_EVENT_ON(event);
+
+	sp_asoc_pr_info("DFM-OUT %s\n", STR_ON_OFF(on));
 
 	return 0;
 }
@@ -2275,6 +2264,11 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0,
 			   chan_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_DAC_E("DFM-OUT", "DFM-Playback",
+			   SND_SOC_NOPM, 0,
+			   0,
+			   dfm_out_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 #ifdef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
 	SND_SOC_DAPM_PGA_S("HP POP", 9, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			   SND_SOC_DAPM_POST_PMU),
@@ -2479,6 +2473,7 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"DA Clk", NULL, "Analog Power"},
 	{"DA Clk", NULL, "Digital Power"},
 	{"DAC", NULL, "DA Clk"},
+	{"DFM-OUT", NULL, "DA Clk"},
 
 	{"AD IBUF", NULL, "Analog Power"},
 	{"AD Clk", NULL, "Digital Power"},
@@ -2498,6 +2493,8 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"EAR Switch", NULL, "DRV Clk"},
 
 	/* Playback */
+	{"Digital DACL Switch", NULL, "DFM-OUT"},
+	{"Digital DACR Switch", NULL, "DFM-OUT"},
 	{"Digital DACL Switch", NULL, "DAC"},
 	{"Digital DACR Switch", NULL, "DAC"},
 	{"ADie Digital DACL Switch", NULL, "Digital DACL Switch"},
@@ -3248,6 +3245,17 @@ static struct snd_soc_dai_driver sprd_codec_dai[] = {
 	 .ops = &sprd_codec_dai_ops,
 	 },
 #endif
+	{
+	 .name = "sprd-codec-v3-fm",
+	 .playback = {
+		      .stream_name = "DFM-Playback",
+		      .channels_min = 1,
+		      .channels_max = 2,
+		      .rates = SPRD_CODEC_PCM_RATES,
+		      .formats = SNDRV_PCM_FMTBIT_S16_LE,
+		      },
+	 .ops = &sprd_codec_dai_ops,
+	 },
 };
 
 static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
