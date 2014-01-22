@@ -1,5 +1,5 @@
 /*
- * sound/soc/sprd/dai/vbc/r2p0/vbc.h
+ * sound/soc/sprd/dai/vbc/dfm.h
  *
  * SPRD SoC VBC -- SpreadTrum SOC for VBC DAI function.
  *

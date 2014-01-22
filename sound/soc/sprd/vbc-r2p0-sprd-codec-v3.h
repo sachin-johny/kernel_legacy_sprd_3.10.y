@@ -61,7 +61,6 @@ static const struct snd_soc_dapm_route vbc_r2p0_codec_v3_map[] = {
 	{"Aud1 input", NULL, "Digital ADC1R Switch"},
 
 	{"DFM-OUT", NULL, "DFM"},
-	{"DFM-OUT", NULL, "DFM"},
 };
 
 extern struct sprd_dfm_priv dfm;

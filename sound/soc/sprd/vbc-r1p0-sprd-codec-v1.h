@@ -47,12 +47,10 @@ static const struct snd_soc_dapm_route vbc_r1p0_codec_v1_map[] = {
 
 	/* VBC -- SPRD-CODEC */
 	{"Aud input", NULL, "AD Clk"},
-	{"DFM", NULL, "DA Clk"},
 
 	{"Aud input", NULL, "Digital ADCL Switch"},
 	{"Aud input", NULL, "Digital ADCR Switch"},
 
-	{"DFM-OUT", NULL, "DFM"},
 	{"DFM-OUT", NULL, "DFM"},
 };
 

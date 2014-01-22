@@ -41,7 +41,7 @@
 #include "sprd-asoc-common.h"
 #include "sprd-pcm.h"
 #include "vbc.h"
-#include "../dfm.h"
+#include "dfm.h"
 
 typedef int (*vbc_dma_set) (int enable);
 

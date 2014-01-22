@@ -44,9 +44,9 @@
 
 #include "sprd-asoc-common.h"
 #include "sprd-pcm.h"
-#include "vaudio/vaudio.h"
+#include "vaudio.h"
 #include <mach/i2s.h>
-#include "vbc/dfm.h"
+#include "dfm.h"
 
 #ifndef  DMA_LINKLIST_CFG_NODE_SIZE
 #define DMA_LINKLIST_CFG_NODE_SIZE  (sizeof(sprd_dma_desc))
@@ -702,7 +702,6 @@ static int sprd_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct sprd_pcm_dma_params *dma = rtd->params;
 	int ret = 0;
 	int i;
-	struct snd_soc_pcm_runtime *srtd = substream->private_data;
 
 	if (!dma) {
 		sp_asoc_pr_dbg("no trigger");
