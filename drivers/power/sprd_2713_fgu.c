@@ -174,7 +174,7 @@ uint32_t sprdfgu_debug_log_time = 15;
 //#define VOL_1000MV_ADC    678 //40
 //#define VOL_OFFSET  -22
 //#define CURRENT_OFFSET  87
-
+#define SPRDFGU_POCV_VOL_ADJUST 16
 #define SPRDFGU_OCV_VALID_TIME    20
 #define sprdfgu_cal_init sprdfgu_cal_from_nv
 
@@ -842,7 +842,13 @@ static void sprdfgu_hw_init(void)
 	ocv_raw = sprdfgu_reg_get(REG_FGU_OCV_VAL);
 	current_raw = sprdfgu_reg_get(REG_FGU_CURT_VAL);
 	start_time = sci_syst_read();
+
+#if !defined(CONFIG_ARCH_SCX15)
 	pcapacity = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
+#else
+	pcapacity = sprdfgu_vol2capacity(sprdfgu_adc2vol_mv(pocv_raw)+SPRDFGU_POCV_VOL_ADJUST);
+#endif
+
 	pclbcnt = init_clbcnt = sprdfgu_clbcnt_init(pcapacity);
 	sprdfgu_clbcnt_set(init_clbcnt);
 
