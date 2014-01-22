@@ -53,9 +53,6 @@
 #define SHARK_TDPLL_FREQUENCY	(768000)
 #define TRANSITION_LATENCY	(100 * 1000) /* ns */
 
-#define SPRD_CHIPID_7715 0x77150000
-#define SPRD_CHIPID_8815 0X88150000
-
 static DEFINE_MUTEX(freq_lock);
 struct cpufreq_freqs global_freqs;
 unsigned int percpu_target[CONFIG_NR_CPUS] = {0};
@@ -368,6 +365,10 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 	return cpufreq_frequency_table_verify(policy, sprd_cpufreq_conf->freq_tbl);
 }
 
+int cpufreq_min_limit = 600000;
+int cpufreq_max_limit = 1200000;
+static DEFINE_SPINLOCK(cpufreq_state_lock);
+
 static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 		       unsigned int target_freq,
 		       unsigned int relation)
@@ -376,6 +377,10 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int index;
 	unsigned int new_speed;
 	struct cpufreq_frequency_table *table;
+	int max_freq = cpufreq_max_limit;
+	int min_freq = cpufreq_min_limit;
+	int cur_freq = 0;
+	unsigned long irq_flags;
 
 	/* delay 30s to enable dvfs&dynamic-hotplug,
          * except requirment from termal-cooling device
@@ -384,6 +389,12 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 		return 0;
 	}
 
+	if((target_freq < min_freq) || (target_freq > max_freq))
+	{
+		pr_err("invalid target_freq: %d min_freq %d max_freq %d\n", target_freq,min_freq,max_freq);
+		return -EINVAL;
+	}
+  
 	table = cpufreq_frequency_get_table(policy->cpu);
 
 	if (cpufreq_frequency_table_target(policy, table,
@@ -419,8 +430,6 @@ static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
 
 static int sprd_freq_table_init(void)
 {
-    unsigned int flag = 0;
-    flag = sci_get_chip_id() & 0xffff0000;
 	/* we init freq table here depends on which chip being used */
 	if (soc_is_scx35_v0()) {
 		pr_info("%s es_chip\n", __func__);
@@ -430,8 +439,7 @@ static int sprd_freq_table_init(void)
 		pr_info("%s cs_chip\n", __func__);
 		sprd_cpufreq_conf->freq_tbl = sc8830_cpufreq_table_data_cs.freq_tbl;
 		sprd_cpufreq_conf->vddarm_mv = sc8830_cpufreq_table_data_cs.vddarm_mv;
-	} else if ((SPRD_CHIPID_7715 == flag)
-                   ||(SPRD_CHIPID_8815 == flag)){
+	} else if (soc_is_sc7715()){
 	        sprd_cpufreq_conf->freq_tbl = sc7715_cpufreq_table_data.freq_tbl;
 	        sprd_cpufreq_conf->vddarm_mv = sc7715_cpufreq_table_data.vddarm_mv;
         }
@@ -489,6 +497,110 @@ static struct cpufreq_driver sprd_cpufreq_driver = {
 	.exit		= sprd_cpufreq_exit,
 	.name		= "sprd",
 	.attr		= sprd_cpufreq_attr,
+};
+
+static ssize_t cpufreq_min_limit_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	memcpy(buf,&cpufreq_min_limit,sizeof(int));
+	return sizeof(int);
+}
+
+static ssize_t cpufreq_max_limit_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	memcpy(buf,&cpufreq_max_limit,sizeof(int));
+	return sizeof(int);
+}
+
+static ssize_t cpufreq_min_limit_debug_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	snprintf(buf,10,"%d\n",cpufreq_min_limit);
+	return strlen(buf) + 1;
+}
+
+static ssize_t cpufreq_max_limit_debug_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	snprintf(buf,10,"%d\n",cpufreq_max_limit);
+	return strlen(buf) + 1;
+}
+
+static ssize_t cpufreq_min_limit_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	spin_lock_irqsave(&cpufreq_state_lock, irq_flags);
+	/*
+	   for debug use
+	   echo 0xabcde258 > /sys/power/cpufreq_min_limit means set the minimum limit to 600Mhz
+	 */
+	if((value & 0xfffff000) == 0xabcde000)
+	{
+		cpufreq_min_limit = value & 0x00000fff;
+		cpufreq_min_limit *= 1000;
+		printk(KERN_ERR"cpufreq_min_limit value %s %d\n",buf,cpufreq_min_limit);
+	}
+	else
+	{
+		cpufreq_min_limit = *(int *)buf;
+	}
+	spin_unlock_irqrestore(&cpufreq_state_lock, irq_flags);
+	return count;
+}
+
+static ssize_t cpufreq_max_limit_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	spin_lock_irqsave(&cpufreq_state_lock, irq_flags);
+
+	/*
+	   for debug use
+	   echo 0xabcde4b0 > /sys/power/cpufreq_max_limit means set the maximum limit to 1200Mhz
+	 */
+	if((value & 0xfffff000) == 0xabcde000)
+	{
+		cpufreq_max_limit = value & 0x00000fff;
+		cpufreq_max_limit *= 1000;
+		printk(KERN_ERR"cpufreq_max_limit value %s %d\n",buf,cpufreq_max_limit);
+	}
+	else
+	{
+		cpufreq_max_limit = *(int *)buf;
+	}
+	spin_unlock_irqrestore(&cpufreq_state_lock, irq_flags);
+
+	return count;
+}
+
+static ssize_t cpufreq_table_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	memcpy(buf,sprd_cpufreq_conf->freq_tbl,sizeof(sprd_cpufreq_conf->freq_tbl));
+	return sizeof(sprd_cpufreq_conf->freq_tbl);
+}
+static DEVICE_ATTR(cpufreq_min_limit, S_IWUGO | S_IRUGO, cpufreq_min_limit_show, cpufreq_min_limit_store);
+static DEVICE_ATTR(cpufreq_max_limit, S_IWUGO | S_IRUGO, cpufreq_max_limit_show, cpufreq_max_limit_store);
+static DEVICE_ATTR(cpufreq_min_limit_debug, S_IWUGO | S_IRUGO, cpufreq_min_limit_debug_show, NULL);
+static DEVICE_ATTR(cpufreq_max_limit_debug, S_IWUGO | S_IRUGO, cpufreq_max_limit_debug_show, NULL);
+static DEVICE_ATTR(cpufreq_table, S_IWUGO | S_IRUGO, cpufreq_table_show, NULL);
+
+static struct attribute *g[] = {
+	&dev_attr_cpufreq_min_limit.attr,
+	&dev_attr_cpufreq_max_limit.attr,
+	&dev_attr_cpufreq_min_limit_debug.attr,
+	&dev_attr_cpufreq_max_limit_debug.attr,
+	&dev_attr_cpufreq_table.attr,
+	NULL,
+};
+
+static struct attribute_group attr_group = {
+	.attrs = g,
 };
 
 static int sprd_cpufreq_policy_notifier(
@@ -554,6 +666,7 @@ static int __init sprd_cpufreq_modinit(void)
 
 	ret = cpufreq_register_driver(&sprd_cpufreq_driver);
 
+	ret = sysfs_create_group(power_kobj, &attr_group);
 	return ret;
 }
 
