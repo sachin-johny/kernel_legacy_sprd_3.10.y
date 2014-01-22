@@ -207,6 +207,15 @@ config MACH_SP7715GA
 	help
 	  SP7715GA board based on dolphin serial.
 
+config MACH_SP7715GATRISIM
+	bool "sp7715gatrisim Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	SP7715GATRISIM board based on dolphin serial.
+
 config MACH_SP8815GA
 	bool "sp8815ga Phone Board"
 	depends on ARCH_SC
