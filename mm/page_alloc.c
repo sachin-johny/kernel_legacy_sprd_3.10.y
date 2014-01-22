@@ -2530,6 +2530,13 @@ rebalance:
 	if (page)
 		goto got_pg;
 
+#ifdef CONFIG_SPRD_MEM_POOL
+	/*for sprd page alloc*/
+	page  = sprd_page_alloc(gfp_mask, order, high_zoneidx);
+	if (page)
+		goto got_pg;
+#endif
+
 	/*
 	 * If we failed to make any progress reclaiming, then we are
 	 * running out of options and have to consider going OOM

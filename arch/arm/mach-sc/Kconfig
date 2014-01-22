@@ -330,6 +330,13 @@ config SPRD_CPU_DYNAMIC_HOTPLUG
 	depends on HOTPLUG_CPU
 	depends on ARCH_SCX35
 
+config SPRD_MEM_POOL
+	default y
+	bool "Using a memory pool to alloc 8k to 64k"
+	depends on !COMPACTION
+	help
+	  This option enables memmory pool for allocating 8k to 64k.
+
 config SPRD_DCDC_DEBUG
 	tristate "Enable dcdc debug module"
 	default n
