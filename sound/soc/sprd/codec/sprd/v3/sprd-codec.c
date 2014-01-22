@@ -1244,6 +1244,12 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_info("inter HP PA Switch %s\n", STR_ON_OFF(on));
 	mutex_lock(&sprd_codec->inter_hp_pa_mutex);
 	if (on) {
+		/*mute */
+		sprd_codec_hp_pa_hpl_mute(codec, 1);
+		sprd_codec_hp_pa_hpr_mute(codec, 1);
+		/*1.CG_EN */
+		sprd_codec_hp_classg_en(codec, 1);
+		/*2. LDO PD */
 		if (!regulator) {
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
@@ -1260,47 +1266,55 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 				regulator = 0;
 			}
 		}
+		sprd_codec_wait(2);
+		/*3. CHP EN */
+		sprd_codec_hp_pa_en(codec, 1);
+		/*4. L/R EN */
+		sprd_codec_hp_pa_hpl_en(codec, 1);
+		sprd_codec_hp_pa_hpr_en(codec, 1);
+
 		sprd_codec_auxadc_en(codec, 1);
-		sprd_codec_hp_pa_hpl_mute(codec, 1);
-		sprd_codec_hp_pa_hpr_mute(codec, 1);
-		sprd_codec_hp_classg_en(codec, 1);
 		sprd_codec_hp_pa_lpw(codec, p_setting->class_g_low_power);
 		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
 		sprd_codec_hp_pa_osc(codec, p_setting->class_g_osc);
-		sprd_codec_hp_pa_hpl_en(codec, 1);
-		sprd_codec_hp_pa_hpr_en(codec, 1);
 		if (sprd_codec->hp_ver < SPRD_CODEC_HP_PA_VER_2) {
 			sprd_codec_hp_pa_ref_en(codec, 1);
 		}
-		sprd_codec_hp_pa_en(codec, 1);
 		/*open classG mute delay time */
 		sprd_codec_wait
 		    (CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME);
+		/*unmute */
 		sprd_codec_hp_pa_hpl_mute(codec, 0);
 		sprd_codec_hp_pa_hpr_mute(codec, 0);
+
 		sprd_codec->inter_hp_pa.set = 1;
 	} else {
 		sprd_codec->inter_hp_pa.set = 0;
+		/*mute */
 		sprd_codec_hp_pa_hpl_mute(codec, 1);
 		sprd_codec_hp_pa_hpr_mute(codec, 1);
-		sprd_codec_hp_pa_en(codec, 0);
 		if (sprd_codec->hp_ver < SPRD_CODEC_HP_PA_VER_2) {
 			sprd_codec_hp_pa_ref_en(codec, 0);
 		}
+		sprd_codec_auxadc_en(codec, 0);
+		/*1. L/R disable */
 		sprd_codec_hp_pa_hpl_en(codec, 0);
 		sprd_codec_hp_pa_hpr_en(codec, 0);
-		sprd_codec_auxadc_en(codec, 0);
-		sprd_codec_hp_classg_en(codec, 0);
-		/*close classG mute delay time */
-		sprd_codec_wait(0);
-		sprd_codec_hp_pa_hpl_mute(codec, 0);
-		sprd_codec_hp_pa_hpr_mute(codec, 0);
+		/*2. CHP disable */
+		sprd_codec_hp_pa_en(codec, 0);
+		/*3. LDO PD */
 		if (regulator) {
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);
 			regulator_put(regulator);
 			regulator = 0;
 		}
+		/*4. CG disable */
+		sprd_codec_hp_classg_en(codec, 0);
+		/*close classG mute delay time */
+		sprd_codec_wait(0);
+		sprd_codec_hp_pa_hpl_mute(codec, 0);
+		sprd_codec_hp_pa_hpr_mute(codec, 0);
 	}
 	mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
 	return 0;
