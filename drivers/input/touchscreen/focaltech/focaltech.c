@@ -35,6 +35,11 @@
 #include <mach/regulator.h>
 #include <linux/input/mt.h>
 
+#include <linux/sched.h>
+#include <linux/kthread.h>
+#include <linux/completion.h>
+#include <linux/err.h>
+
 #ifdef CONFIG_I2C_SPRD
 #include <mach/i2c-sprd.h>
 #endif
@@ -65,12 +70,21 @@
 #include <linux/i2c/focaltech_ex_fun.h>
 #include <linux/i2c/focaltech_ctl.h>
 
+#define	USE_WAIT_QUEUE	1
 #define	USE_THREADED_IRQ	0
+#define	USE_WORK_QUEUE	0
+
 #define	TOUCH_VIRTUAL_KEYS
 #define	MULTI_PROTOCOL_TYPE_B	0
 #define	TS_MAX_FINGER		5
 
 #define	FTS_PACKET_LENGTH	128
+
+#if USE_WAIT_QUEUE
+static struct task_struct *thread = NULL;
+static DECLARE_WAIT_QUEUE_HEAD(waiter);
+static int tpd_flag = 0;
+#endif
 
 #if 0
 static unsigned char FT5316_FW[]=
@@ -143,7 +157,7 @@ struct ft5x0x_ts_data {
 	struct input_dev	*input_dev;
 	struct i2c_client	*client;
 	struct ts_event	event;
-#if !USE_THREADED_IRQ
+#if USE_WORK_QUEUE
 	struct work_struct	pen_event_work;
 	struct workqueue_struct	*ts_workqueue;
 #endif
@@ -242,6 +256,7 @@ static int ft5x0x_create_sysfs(struct i2c_client *client)
 	return err;
 }
 #endif
+
 static int ft5x0x_i2c_rxdata(char *rxdata, int length)
 {
 	int ret = 0;
@@ -497,27 +512,55 @@ static int ft5x0x_update_data(void)
 	return 0;
 }
 
-#if !USE_THREADED_IRQ
+#if USE_WAIT_QUEUE
+static int touch_event_handler(void *unused)
+{
+	struct sched_param param = { .sched_priority = 5 };
+	sched_setscheduler(current, SCHED_RR, &param);
+
+	do {
+		set_current_state(TASK_INTERRUPTIBLE);
+		wait_event_interruptible(waiter, (0 != tpd_flag));
+		tpd_flag = 0;
+		set_current_state(TASK_RUNNING);
+		ft5x0x_update_data();
+
+	} while (!kthread_should_stop());
+
+	return 0;
+}
+#endif
+
+#if USE_WORK_QUEUE
 static void ft5x0x_ts_pen_irq_work(struct work_struct *work)
 {
 	ft5x0x_update_data();
-	//enable_irq(this_client->irq);
+	enable_irq(this_client->irq);
 }
 #endif
 
 static irqreturn_t ft5x0x_ts_interrupt(int irq, void *dev_id)
 {
-#if !USE_THREADED_IRQ
-	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
-
-	//if (!work_pending(&ft5x0x_ts->pen_event_work)) {
-		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
-	//}
-#else
-	ft5x0x_update_data();
+#if USE_WAIT_QUEUE
+	tpd_flag = 1;
+	wake_up_interruptible(&waiter);
+	return IRQ_HANDLED;
 #endif
 
+#if USE_WORK_QUEUE
+	struct ft5x0x_ts_data *ft5x0x_ts = (struct ft5x0x_ts_data *)dev_id;
+
+	if (!work_pending(&ft5x0x_ts->pen_event_work)) {
+		queue_work(ft5x0x_ts->ts_workqueue, &ft5x0x_ts->pen_event_work);
+	}
 	return IRQ_HANDLED;
+#endif
+
+#if USE_THREADED_IRQ
+	ft5x0x_update_data();
+	return IRQ_HANDLED;
+#endif
+
 }
 
 static void ft5x0x_ts_reset(void)
@@ -688,10 +731,10 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
        
 	/* set report rate, about 70HZ */
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
-#if !USE_THREADED_IRQ
+#if USE_WORK_QUEUE
 	INIT_WORK(&ft5x0x_ts->pen_event_work, ft5x0x_ts_pen_irq_work);
 
-	ft5x0x_ts->ts_workqueue = create_singlethread_workqueue("irq/focaltech_ts");
+	ft5x0x_ts->ts_workqueue = create_singlethread_workqueue("focal-work-queue");
 	if (!ft5x0x_ts->ts_workqueue) {
 		err = -ESRCH;
 		goto exit_create_singlethread;
@@ -805,6 +848,16 @@ if (ft_rw_iic_drv_init(client) < 0)
 #ifdef APK_DEBUG
 	ft5x0x_create_apk_debug_channel(client);
 #endif
+
+#if USE_WAIT_QUEUE
+	thread = kthread_run(touch_event_handler, 0, "focal-wait-queue");
+	if (IS_ERR(thread))
+	{
+		err = PTR_ERR(thread);
+		PRINT_ERR("failed to create kernel thread: %d\n", err);
+	}
+#endif
+
 	return 0;
 
 exit_irq_request_failed:
@@ -846,7 +899,7 @@ static int ft5x0x_ts_remove(struct i2c_client *client)
 	free_irq(client->irq, ft5x0x_ts);
 	input_unregister_device(ft5x0x_ts->input_dev);
 	input_free_device(ft5x0x_ts->input_dev);
-#if !USE_THREADED_IRQ
+#if USE_WORK_QUEUE
 	cancel_work_sync(&ft5x0x_ts->pen_event_work);
 	destroy_workqueue(ft5x0x_ts->ts_workqueue);
 #endif
