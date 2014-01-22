@@ -2047,10 +2047,11 @@ LOCAL int v4l2_dqbuf(struct file *file,
 		return -ERESTARTSYS;
 	}
 
+        memset(p,0,sizeof(*p));
+
 	do_gettimeofday(&p->timestamp);
 	DCAM_TRACE("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
 
-	memset(p,0,sizeof(*p));
 	p->flags = node.irq_flag;
 	if(p->flags ==V4L2_TX_DONE){
 		p->type  = node.f_type;
