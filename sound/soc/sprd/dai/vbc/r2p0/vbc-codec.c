@@ -37,12 +37,6 @@
 #include "sprd-asoc-common.h"
 #include "vbc-codec.h"
 
-#ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
-void sprd_codec_set_da_sample_rate(struct snd_soc_codec *codec, int rate);
-void sprd_codec_set_ad01_sample_rate(struct snd_soc_codec *codec, int rate);
-void sprd_codec_set_ad23_sample_rate(struct snd_soc_codec *codec, int rate);
-#endif
-
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define SOC_REG(r) ((unsigned short)(r))
 
@@ -441,7 +435,6 @@ struct vbc_codec_priv {
 	struct vbc_dg dg[VBC_IDX_MAX];
 	int vbc_da_iis_port;
 	int adc_dgmux_val[ADC_DGMUX_MAX];
-	int fm_sample_rate;
 	struct st_hpf_dg st_dg;
 	struct sprd_vbc_mux_op sprd_vbc_mux[SPRD_VBC_MUX_MAX];
 	int alc_dp_t_mode;
@@ -716,7 +709,7 @@ static int vbc_try_st_hpf_set(struct vbc_codec_priv *vbc_codec, int id)
 static int vbc_try_src_set(struct vbc_codec_priv *vbc_codec, int vbc_idx)
 {
 #ifdef CONFIG_SND_SOC_SPRD_VBC_SRC_OPEN
-	vbc_src_set(vbc_codec->fm_sample_rate, vbc_idx);
+	vbc_src_set(dfm.hw_rate, vbc_idx);
 #else
 	vbc_src_set(0, vbc_idx);
 #endif
@@ -758,26 +751,6 @@ static int vbc_try_ad_dgmux_set(struct vbc_codec_priv *vbc_codec, int id)
 	}
 	return 0;
 }
-
-#ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
-static int vbc_fm_try_set_sample_rate(struct snd_soc_codec *codec, int chan)
-{
-	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
-	int sample_rate = vbc_codec->fm_sample_rate;
-
-#ifdef CONFIG_SND_SOC_SPRD_VBC_SRC_OPEN
-	sample_rate = 44100;
-#endif
-	if (chan == VBC_PLAYBACK)
-		sprd_codec_set_da_sample_rate(codec, sample_rate);
-	if (chan == VBC_CAPTRUE)
-		sprd_codec_set_ad01_sample_rate(codec, sample_rate);
-	if (chan == VBC_CAPTRUE1)
-		sprd_codec_set_ad23_sample_rate(codec, sample_rate);
-
-	return 0;
-}
-#endif
 
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_DEBUG
 static const char *get_event_name(int event)
@@ -935,10 +908,6 @@ static int dfm_event(struct snd_soc_dapm_widget *w,
 			vbc_eq_try_apply(codec, VBC_PLAYBACK);
 		else
 			vbc_eq_profile_close(vbc_codec->codec, VBC_PLAYBACK);
-#ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
-		/*codec sample rate setting */
-		vbc_fm_try_set_sample_rate(codec, VBC_PLAYBACK);
-#endif
 		vbc_enable(1);
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
@@ -974,10 +943,6 @@ static int aud_event(struct snd_soc_dapm_widget *w,
 			vbc_eq_try_apply(codec, vbc_idx);
 		else
 			vbc_eq_profile_close(vbc_codec->codec, vbc_idx);
-#ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
-		/*codec sample rate setting */
-		vbc_fm_try_set_sample_rate(codec, vbc_idx);
-#endif
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		break;
@@ -1180,7 +1145,6 @@ static const struct snd_soc_dapm_widget vbc_codec_dapm_widgets[] = {
 			   VBDAPATH_DA1_ADDFM_SHIFT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("DFM", 6, SND_SOC_NOPM, 0, 0, dfm_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-
 	/*VBC Chan Switch */
 	SND_SOC_DAPM_PGA_S("DA0 Switch", 5, FUN_REG(VBC_PLAYBACK), VBC_LEFT, 0,
 			   vbc_chan_event,
@@ -2317,38 +2281,6 @@ static int dac_iismux_put(struct snd_kcontrol *kcontrol,
 	return 1;
 }
 
-static int fm_sample_rate_get(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
-	ucontrol->value.integer.value[0] =
-	    ((vbc_codec->fm_sample_rate == 32000) ? 0 : 1);
-	return 0;
-}
-
-static int fm_sample_rate_set(struct snd_kcontrol *kcontrol,
-			      struct snd_ctl_elem_value *ucontrol)
-{
-	struct soc_enum *texts = (struct soc_enum *)kcontrol->private_value;
-	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
-	struct vbc_codec_priv *vbc_codec = snd_soc_codec_get_drvdata(codec);
-
-	sp_asoc_pr_info("fm_sample_rate is %s\n",
-			texts->texts[ucontrol->value.integer.value[0]]);
-
-	vbc_codec->fm_sample_rate =
-	    (ucontrol->value.integer.value[0] ? 48000 : 32000);
-#ifdef CONFIG_SND_SOC_FM_SAMPLE_RATE_SETTING
-	vbc_fm_try_set_sample_rate(codec, VBC_PLAYBACK);
-	if (vbc_codec->vbc_loop_switch[0])
-		vbc_fm_try_set_sample_rate(codec, VBC_CAPTRUE);
-	if (vbc_codec->vbc_loop_switch[1])
-		vbc_fm_try_set_sample_rate(codec, VBC_CAPTRUE1);
-#endif
-	return 1;
-}
-
 static int vbc_switch_reg_val[] = {
 	AUDIO_TO_CP0_DSP_CTRL,
 	AUDIO_TO_CP1_DSP_CTRL,
@@ -2445,9 +2377,6 @@ static const struct snd_kcontrol_new vbc_codec_snd_controls[] = {
 		       adc_dgmux_get, adc_dgmux_put),
 	SOC_ENUM_EXT("VBC DA IIS Mux", vbc_enum[2], dac_iismux_get,
 		     dac_iismux_put),
-	SOC_ENUM_EXT("FM Sample Rate", vbc_enum[3], fm_sample_rate_get,
-		     fm_sample_rate_set),
-
 	SOC_SINGLE_EXT("VBC DA EQ Profile Select", FUN_REG(VBC_PLAYBACK), 0,
 		       VBC_EQ_PROFILE_CNT_MAX, 0,
 		       vbc_eq_profile_get, vbc_eq_profile_put),
@@ -2560,7 +2489,6 @@ static int sprd_vbc_codec_probe(struct platform_device *pdev)
 	vbc_codec->st_dg.dg_val[1] = 0x18;
 	vbc_codec->st_dg.hpf_val[0] = 0x3;
 	vbc_codec->st_dg.hpf_val[1] = 0x3;
-	vbc_codec->fm_sample_rate = 32000;
 	vbc_codec->dg[0].dg_val[0] = 0x18;
 	vbc_codec->dg[0].dg_val[1] = 0x18;
 	vbc_codec->dg[1].dg_val[0] = 0x18;

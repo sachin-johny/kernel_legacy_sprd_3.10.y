@@ -24,6 +24,7 @@
 
 #include <mach/sprd-audio.h>
 #include "sprd-asoc-common.h"
+#include "dai/vbc/dfm.h"
 
 #define FUN_REG(f) ((unsigned short)(-(f+1)))
 
@@ -467,6 +468,7 @@ static int board_late_probe(struct snd_soc_card *card)
 				    "Main-Capture-Vaudio");
 	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm,
 				    "Ext-Capture-Vaudio");
+	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm, "DFM-Playback");
 	return 0;
 }
 

@@ -46,6 +46,7 @@
 #include "sprd-pcm.h"
 #include "vaudio/vaudio.h"
 #include <mach/i2s.h>
+#include "vbc/dfm.h"
 
 #ifndef  DMA_LINKLIST_CFG_NODE_SIZE
 #define DMA_LINKLIST_CFG_NODE_SIZE  (sizeof(sprd_dma_desc))
@@ -131,12 +132,19 @@ static inline int sprd_is_i2s(struct snd_soc_dai *cpu_dai)
 	return (cpu_dai->driver->id == I2S_MAGIC_ID);
 }
 
+static inline int sprd_is_dfm(struct snd_soc_dai *cpu_dai)
+{
+	return (cpu_dai->driver->id == DFM_MAGIC_ID);
+}
+
 static inline const char *sprd_dai_pcm_name(struct snd_soc_dai *cpu_dai)
 {
 	if (sprd_is_i2s(cpu_dai)) {
 		return "I2S";
 	} else if (sprd_is_vaudio(cpu_dai)) {
 		return "VAUDIO";
+	} else if (sprd_is_dfm(cpu_dai)) {
+		return "DFM";
 	}
 	return "VBC";
 }
@@ -255,6 +263,11 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	rtd = kzalloc(sizeof(*rtd), GFP_KERNEL);
 	if (!rtd)
 		goto out;
+	if (sprd_is_dfm(srtd->cpu_dai) || sprd_is_vaudio(srtd->cpu_dai)) {
+		runtime->private_data = rtd;
+		ret = 0;
+		goto out;
+	}
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM
 	if (sprd_is_i2s(srtd->cpu_dai)
 	    || !((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
@@ -330,6 +343,10 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 	sp_asoc_pr_info("%s Close %s\n", sprd_dai_pcm_name(srtd->cpu_dai),
 			PCM_DIR_NAME(substream->stream));
 
+	if (sprd_is_dfm(srtd->cpu_dai) || sprd_is_vaudio(srtd->cpu_dai)) {
+		kfree(rtd);
+		return 0;
+	}
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM
 	if (rtd->buffer_in_iram)
 		sprd_buffer_iram_restore();
@@ -526,8 +543,8 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 			}
 			rtd->uid_cid_map[i] = chan_id;
 			sp_asoc_pr_dbg("Chan%d DMA ID=%d\n",
-				       rtd->params->channels[i],
-				       rtd->uid_cid_map[i]);
+				       rtd->uid_cid_map[i],
+				       rtd->params->channels[i]);
 		}
 	}
 
@@ -641,6 +658,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 	goto ok_go_out;
 
 no_dma:
+	rtd->params = NULL;
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	runtime->dma_bytes = totsize;
 hw_param_err:
@@ -684,6 +702,12 @@ static int sprd_pcm_trigger(struct snd_pcm_substream *substream, int cmd)
 	struct sprd_pcm_dma_params *dma = rtd->params;
 	int ret = 0;
 	int i;
+	struct snd_soc_pcm_runtime *srtd = substream->private_data;
+
+	if (!dma) {
+		sp_asoc_pr_dbg("no trigger");
+		return 0;
+	}
 
 	switch (cmd) {
 	case SNDRV_PCM_TRIGGER_START:
@@ -725,6 +749,12 @@ static snd_pcm_uframes_t sprd_pcm_pointer(struct snd_pcm_substream *substream)
 	int bytes_of_pointer = 0;
 	int shift = 1;
 	int sel_max = 0;
+	struct snd_soc_pcm_runtime *srtd = substream->private_data;
+	if (sprd_is_dfm(srtd->cpu_dai) || sprd_is_vaudio(srtd->cpu_dai)) {
+		sp_asoc_pr_dbg("no pointer");
+		return 0;
+	}
+
 	if (rtd->interleaved)
 		shift = 0;
 
@@ -771,7 +801,12 @@ static int sprd_pcm_mmap(struct snd_pcm_substream *substream,
 			 struct vm_area_struct *vma)
 {
 	struct snd_pcm_runtime *runtime = substream->runtime;
+	struct snd_soc_pcm_runtime *srtd = substream->private_data;
 
+	if (sprd_is_dfm(srtd->cpu_dai) || sprd_is_vaudio(srtd->cpu_dai)) {
+		sp_asoc_pr_dbg("no mmap");
+		return 0;
+	}
 #ifndef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM
 	return dma_mmap_writecombine(substream->pcm->card->dev, vma,
 				     runtime->dma_area,
