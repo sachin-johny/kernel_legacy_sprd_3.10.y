@@ -575,7 +575,7 @@
 #if defined(CONFIG_SS_FUNCTION)
 #define CPW_TOTAL_SIZE      (SZ_1M * 32)
 #else
-#define CPW_TOTAL_SIZE		0x19d0000 //(SZ_1M * 32)
+#define CPW_TOTAL_SIZE		0x18A0000 //(SZ_1M * 32)
 #endif
 #define CPW_RING_ADDR		(CPW_START_ADDR + CPW_TOTAL_SIZE - SZ_4K)
 #define CPW_RING_SIZE		(SZ_4K)
