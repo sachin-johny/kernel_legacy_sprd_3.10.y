@@ -41,7 +41,7 @@ ion_phys_addr_t ion_carveout_allocate(struct ion_heap *heap,
 		container_of(heap, struct ion_carveout_heap, heap);
 	unsigned long offset = gen_pool_alloc(carveout_heap->pool, size);
 
-	//printk("ion: malloc: size=%08x, pool=%08x, offset=%08x \n", (unsigned int)size,(unsigned int)( carveout_heap->pool),(unsigned int) offset);
+	printk("ion: malloc: size=%08x, pool=%08x, offset=%08x \n", size, carveout_heap->pool, offset);
 
 	if (!offset)
 		return ION_CARVEOUT_ALLOCATE_FAIL;
@@ -64,7 +64,7 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	if (addr == ION_CARVEOUT_ALLOCATE_FAIL)
 		return;
 
-	//printk("ion: free  : size=%08x, pool=%08x, offset=%08x \n", (unsigned int)size,(unsigned int) (carveout_heap->pool),(unsigned int) addr);
+	printk("ion: free  : size=%08x, pool=%08x, offset=%08x \n", size, carveout_heap->pool, addr);
 	
 	gen_pool_free(carveout_heap->pool, addr, size);
 #ifdef CONFIG_ION_PAGECACHE
@@ -135,7 +135,7 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 {
 	if((buffer->flags & (1<<31)) )
 	{	
-		printk(KERN_INFO "pgprot_cached buffer->flags 0x%x\n",(unsigned int)(buffer->flags) );
+		printk(KERN_INFO "pgprot_cached buffer->flags 0x%x\n",buffer->flags);
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       buffer->size,
@@ -144,7 +144,7 @@ int ion_carveout_heap_map_user(struct ion_heap *heap, struct ion_buffer *buffer,
 	}
 	else
 	{
-		printk(KERN_INFO "pgprot_noncached buffer->flags 0x%x\n",(unsigned int)(buffer->flags) );
+		printk(KERN_INFO "pgprot_noncached buffer->flags 0x%x\n",buffer->flags);
 		return remap_pfn_range(vma, vma->vm_start,
 			       __phys_to_pfn(buffer->priv_phys) + vma->vm_pgoff,
 			       buffer->size,
