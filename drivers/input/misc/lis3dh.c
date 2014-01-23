@@ -1501,9 +1501,9 @@ err_free_irq1:
 		gpio_free(GSENSOR_GINT1_GPI);
 	}
 err_mutexunlockfreedata:
-	kfree(acc);
-	mutex_unlock(&acc->lock);
 	i2c_set_clientdata(client, NULL);
+	mutex_unlock(&acc->lock);
+	kfree(acc);
 	lis3dh_acc_misc_data = NULL;
 exit_alloc_data_failed:
 exit_check_functionality_failed:
