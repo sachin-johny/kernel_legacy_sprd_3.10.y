@@ -2210,8 +2210,6 @@ static void mmc_hw_reset_for_init(struct mmc_host *host)
 
 int mmc_can_reset(struct mmc_card *card)
 {
-	u8 rst_n_function;
-
 	if (!mmc_card_mmc(card))
 		return 0;
 	return 1;
