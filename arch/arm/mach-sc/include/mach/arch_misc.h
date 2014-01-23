@@ -110,3 +110,21 @@ int sci_read_pa(u32 preg, u32 *val);
 */
 int sci_write_pa(u32 paddr, const u32 or_val, const u32 clear_msk);
 
+#define SPRD_CHIPID_7715 (0x77150000)
+#define SPRD_CHIPID_8815 (0X88150000)
+
+static inline int soc_is_sc7715(void)
+{
+	unsigned int flag = 0;
+	flag = sci_get_chip_id() & 0xffff0000;
+	if ((SPRD_CHIPID_7715 == flag)
+			||(SPRD_CHIPID_8815 == flag))
+	{
+		return 1;
+	}
+	else 
+	{
+		pr_err("%s error chip id\n", __func__);
+		return -EINVAL;
+	}
+}
