@@ -438,6 +438,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc,
 						      WPS_ASSOC_IE,
 						      buf, wps_len);
+			kfree(buf);
 			if (ret) {
 				dev_err(&priv->ndev->dev,
 					"itm_wlan_set_wps_ie failed with ret %d\n",
@@ -445,6 +446,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 				return ret;
 			}
 		}
+		kfree(buf);
 	}
 
 	/* Set WPA version */
@@ -1005,7 +1007,7 @@ static int itm_wlan_cfg80211_flush_pmksa(struct wiphy *wiphy,
 void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 {
 	u8 *req_ie_ptr, *resp_ie_ptr, *bssid_ptr, *pos, *value_ptr;
-	u8 status_code, status_len;
+	u8 status_code = 0, status_len;
 	u16 bssid_len;
 	u8 req_ie_len, resp_ie_len;
 	u32 event_len;
@@ -1081,6 +1083,10 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 			netif_carrier_on(priv->ndev);
 			netif_wake_queue(priv->ndev);
 		}
+	} else {
+		dev_err(&priv->ndev->dev, "connect status is not connecting!\n");
+		kfree(pos);
+		goto out;
 	}
 
 	return;
@@ -1432,10 +1438,9 @@ static int itm_wlan_send_beacon(struct itm_priv *priv,
 	/* ssid */
 
 	ret = itm_wlan_set_beacon_cmd(priv->wlan_sipc, (u8 *)mgmt, mgmt_len);
-	if (ret != 0) {
+	kfree(mgmt);
+	if (ret != 0)
 		dev_err(&priv->ndev->dev, "itm_wlan_set_beacon_cmd failed\n");
-		kfree(mgmt);
-	}
 
 	return ret;
 }

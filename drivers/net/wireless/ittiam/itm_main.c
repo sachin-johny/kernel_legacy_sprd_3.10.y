@@ -142,6 +142,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 					dev_err(&priv->ndev->dev,
 						"wapi data decryption failed!\n");
 					priv->ndev->stats.rx_dropped++;
+					dev_kfree_skb(skb);
 					goto rx_failed;
 				}
 				if (memcmp((skb->data + 12), snap_header,
@@ -171,6 +172,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 				dev_err(&priv->ndev->dev,
 					"wrong encryption data!\n");
 				priv->ndev->stats.rx_dropped++;
+				dev_kfree_skb(skb);
 				goto rx_failed;
 			}
 		} else if (data->is_encrypted == 0) {
@@ -186,6 +188,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			dev_err(&priv->ndev->dev,
 				"wrong data fromat recieve!\n");
 			priv->ndev->stats.rx_dropped++;
+			dev_kfree_skb(skb);
 			goto rx_failed;
 		}
 

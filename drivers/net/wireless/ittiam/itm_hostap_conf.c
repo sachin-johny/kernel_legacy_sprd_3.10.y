@@ -217,10 +217,13 @@ int hostap_conf_load(char *filename, u8 *key_val)
 
 		hostap_conf_parse(buf, size, conf);
 		if (conf->len > 64) {
+			kfree(conf);
+			kfree(buf);
 			pr_err("wpa_psk len is error.(%d)\n", conf->len);
 			return -EINVAL;
 		}
 		hexstr2bin(conf->wpa_psk, key_val, conf->len / 2);
+		kfree(conf);
 		kfree(buf);
 	}
 
