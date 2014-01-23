@@ -93,6 +93,10 @@
 #include "__board-sp7715ga.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7715GATRISIM
+#include "__board-sp7715gatrisim.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP8815GA
 #include "__board-sp8815ga.h"
 #endif
