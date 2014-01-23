@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_cfg80211.h
+ * Filename : cfg80211.h
  * Abstract : This file is a definition for cfg80211 subsystem
  *
  * Authors	:
@@ -56,7 +56,7 @@
 #define LINUX_VERSION_CODE KERNEL_VERSION(3, 4, 5)
 
 void itm_cfg80211_report_connect_result(struct itm_priv *itm_priv);
-void itm_cfg80211_disconnect_done(struct itm_priv *itm_priv);
+void itm_cfg80211_report_disconnect_done(struct itm_priv *itm_priv);
 void itm_cfg80211_report_scan_done(struct itm_priv *itm_priv, bool aborted);
 void itm_cfg80211_report_ready(struct itm_priv *itm_priv);
 void itm_cfg80211_report_tx_busy(struct itm_priv *itm_priv);

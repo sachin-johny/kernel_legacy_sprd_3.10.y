@@ -3,7 +3,6 @@
  *
  * Authors:
  * Keguang Zhang <keguang.zhang@spreadtrum.com>
- * Danny Deng <danny.deng@spreadtrum.com>
  * Wenjie Zhang <wenjie.zhang@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
@@ -41,10 +40,10 @@
 #include <linux/atomic.h>
 
 #include "ittiam.h"
-#include "itm_sipc.h"
-#include "itm_cfg80211.h"
-#include "itm_npi.h"
-#include "itm_wapi.h"
+#include "sipc.h"
+#include "cfg80211.h"
+#include "npi.h"
+#include "wapi.h"
 
 #define ITM_DEV_NAME		"itm_wlan"
 #define ITM_INTF_NAME		"wlan%d"
@@ -113,14 +112,6 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 		}
 
 		data = (struct wlan_sblock_recv_data *)blk.addr;
-		/* Temporary solution to avoid version error, will be deleted later */
-		if (data->u1.nomal.resv[11] != 0xff ||
-		    data->u1.nomal.resv[12] != 0xff) {
-			skb_reserve(skb, NET_IP_ALIGN);
-			memcpy(skb->data, blk.addr, blk.length);
-			skb_put(skb, blk.length);
-			goto out;
-		}
 		if (data->is_encrypted == 1) {
 			if (priv->connect_status == ITM_CONNECTED &&
 			    priv->cipher_type == WAPI &&
@@ -152,20 +143,20 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 					 * but not copy eth type
 					 */
 					memcpy(skb->data,
-					       data->u2.encrypt.mac_header.
-					       addr1, 6);
+					       data->u2.encrypt.
+					       mac_header.addr1, 6);
 					memcpy(skb->data + 6,
-					       data->u2.encrypt.mac_header.
-					       addr2, 6);
+					       data->u2.encrypt.
+					       mac_header.addr2, 6);
 					skb_put(skb, (decryp_data_len + 6));
 				} else {
 					/* copy eth header */
 					memcpy(skb->data,
-					       data->u2.encrypt.mac_header.
-					       addr3, 6);
+					       data->u2.encrypt.
+					       mac_header.addr3, 6);
 					memcpy(skb->data + 6,
-					       data->u2.encrypt.mac_header.
-					       addr2, 6);
+					       data->u2.encrypt.
+					       mac_header.addr2, 6);
 					skb_put(skb, (decryp_data_len + 12));
 				}
 			} else {
@@ -180,7 +171,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			/* dec the first encrypt byte */
 			memcpy(skb->data, (u8 *) & data->u2,
 			       (blk.length - sizeof(data->is_encrypted) -
-			       sizeof(data->u1)));
+				sizeof(data->u1)));
 			skb_put(skb,
 				(blk.length - sizeof(data->is_encrypted) -
 				 sizeof(data->u1)));
@@ -192,7 +183,6 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			goto rx_failed;
 		}
 
-out:
 #ifdef DUMP_RECEIVE_PACKET
 		print_hex_dump(KERN_DEBUG, "receive packet: ",
 			       DUMP_PREFIX_OFFSET, 16, 1, skb->data, skb->len,
@@ -200,7 +190,7 @@ out:
 #endif
 		skb->dev = priv->ndev;
 		skb->protocol = eth_type_trans(skb, priv->ndev);
-		/*skb->ip_summed = CHECKSUM_UNNECESSARY;*/ /*not supported by our hardware*/
+		/*skb->ip_summed = CHECKSUM_UNNECESSARY; *//*not supported by our hardware */
 
 		priv->ndev->stats.rx_packets++;
 		priv->ndev->stats.rx_bytes += skb->len;
@@ -350,6 +340,7 @@ static int itm_wlan_open(struct net_device *dev)
 static int itm_wlan_close(struct net_device *dev)
 {
 	struct itm_priv *priv = netdev_priv(dev);
+
 	dev_info(&dev->dev, "%s\n", __func__);
 
 	/* if netdevice carrier off, do nothing */
@@ -370,7 +361,83 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 	dev_info(&dev->dev, "%s\n", __func__);
 	dev->trans_start = jiffies;
 	netif_wake_queue(dev);
-	dev_info(&dev->dev, "tx_timeout and wake queue\n");
+}
+
+#define CMD_BLACKLIST_ENABLE		"BLOCK"
+#define CMD_BLACKLIST_DISABLE		"UNBLOCK"
+
+int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
+{
+	struct itm_priv *priv = netdev_priv(dev);
+	int ret = 0;
+	char *command = NULL;
+	int bytes_written = 0;
+	android_wifi_priv_cmd priv_cmd;
+	u8 addr[6] = {0};
+
+	if (!ifr->ifr_data) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	if (copy_from_user(&priv_cmd, ifr->ifr_data,
+			   sizeof(android_wifi_priv_cmd))) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	if (!command) {
+		dev_err(&priv->wdev->netdev->dev,
+			"%s: failed to allocate memory\n", __func__);
+		ret = -ENOMEM;
+		goto exit;
+	}
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	if (strnicmp(command, CMD_BLACKLIST_ENABLE,
+		     strlen(CMD_BLACKLIST_ENABLE)) == 0) {
+		int skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
+
+		dev_err(&priv->wdev->netdev->dev,
+			"%s, Received regular blacklist enable command\n",
+			__func__);
+		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
+		       (unsigned int *)&(addr[0]),
+		       (unsigned int *)&(addr[1]),
+		       (unsigned int *)&(addr[2]),
+		       (unsigned int *)&(addr[3]),
+		       (unsigned int *)&(addr[4]),
+		       (unsigned int *)&(addr[5]));
+		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
+							   addr, 1);
+	} else if (strnicmp(command, CMD_BLACKLIST_DISABLE,
+			    strlen(CMD_BLACKLIST_DISABLE)) == 0) {
+		int skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
+
+		dev_err(&priv->wdev->netdev->dev,
+			"%s, Received regular blacklist disable command\n",
+			__func__);
+		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
+		       (unsigned int *)&(addr[0]),
+		       (unsigned int *)&(addr[1]),
+		       (unsigned int *)&(addr[2]),
+		       (unsigned int *)&(addr[3]),
+		       (unsigned int *)&(addr[4]),
+		       (unsigned int *)&(addr[5]));
+		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
+							   addr, 0);
+	}
+
+	if (bytes_written < 0)
+		ret = bytes_written;
+
+exit:
+	kfree(command);
+
+	return ret;
 }
 
 static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
@@ -380,7 +447,7 @@ static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 
 	switch (cmd) {
 	case SIOCDEVPRIVATE + 1:
-		return itm_cfg80211_android_priv_cmd(dev, req);
+		return itm_priv_cmd(dev, req);
 		break;
 	case SIOGETSSID:
 		if (priv->ssid_len > 0) {
@@ -506,7 +573,7 @@ static int itm_inetaddr_event(struct notifier_block *this,
 
 	switch (event) {
 	case NETDEV_UP:
-		itm_wlan_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
+		itm_wlan_get_ip_cmd(priv, (u8 *) & ifa->ifa_address);
 		break;
 	case NETDEV_DOWN:
 		break;
@@ -523,8 +590,7 @@ static struct notifier_block itm_inetaddr_cb = {
 };
 
 static int itm_pm_notifier(struct notifier_block *notifier,
-			   unsigned long pm_event,
-			   void *unused)
+			   unsigned long pm_event, void *unused)
 {
 	int ret = NOTIFY_DONE;
 	struct itm_priv *priv = container_of(notifier,
@@ -596,8 +662,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 
 	priv->pm_status = false;
 
-	/*FIXME*/
-	/* If get mac from cfg file error, got random addr */
+	 /*FIXME: If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
 	if (ret)
 		random_ether_addr(ndev->dev_addr);
@@ -643,6 +708,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to regitster net_dev (%d)\n", ret);
 		goto err_register_netdev;
 	}
+	/*FIXME make sure change_virtual_intf happen */
+	priv->wdev->iftype = NL80211_IFTYPE_UNSPECIFIED;
 
 	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
 
@@ -656,8 +723,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	ittiam_nvm_init();
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
 	priv->early_suspend.suspend = itm_wlan_early_suspend;
-	priv->early_suspend.resume  = itm_wlan_late_resume;
-	priv->early_suspend.level   = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
+	priv->early_suspend.resume = itm_wlan_late_resume;
+	priv->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
 	register_early_suspend(&priv->early_suspend);
 #endif
 #ifdef CONFIG_INET

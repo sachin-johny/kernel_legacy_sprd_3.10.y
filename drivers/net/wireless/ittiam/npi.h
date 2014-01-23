@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_npi.h
+ * Filename : npi.h
  * Abstract : This file is a general definition for npi cmd
  *
  * Authors	:

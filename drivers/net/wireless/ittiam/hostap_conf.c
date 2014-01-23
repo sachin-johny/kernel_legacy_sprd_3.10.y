@@ -28,7 +28,7 @@
 #include <linux/uaccess.h>
 #include <linux/slab.h>
 
-#include "itm_cfg80211.h"
+#include "cfg80211.h"
 
 static int hex2num(char c)
 {

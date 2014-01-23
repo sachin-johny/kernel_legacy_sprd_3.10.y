@@ -4,9 +4,10 @@
  * Filename : itm_cfg80211.c
  * Abstract : This file is a implementation for cfg80211 subsystem
  *
- * Authors	:
+ * Authors:
  * Leon Liu <leon.liu@spreadtrum.com>
  * Wenjie.Zhang <Wenjie.Zhang@spreadtrum.com>
+ * Keguang Zhang <keguang.zhang@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -22,9 +23,9 @@
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
 
-#include "itm_sipc.h"
+#include "sipc.h"
 #include "ittiam.h"
-#include "itm_cfg80211.h"
+#include "cfg80211.h"
 
 /*----------CFG80211 macros and variables----------*/
 #define RATETAB_ENT(_rate, _rateid, _flags)				\
@@ -191,6 +192,11 @@ itm_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 				   },
 };
 
+static bool itm_wlan_cfg80211_ready(struct itm_priv *priv)
+{
+	return (priv->cp2_status == ITM_READY);
+}
+
 #define WLAN_EID_VENDOR_SPECIFIC 221
 static bool itm_is_wps_ie(const u8 *pos)
 {
@@ -260,9 +266,9 @@ static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 			priv->cipher_type = WAPI;
 			break;
 		default:
-			dev_err(&priv->ndev->dev,
-				"Invalid cipher select: %d\n",
-				priv->cipher_type);
+			wiphy_err(priv->wdev->wiphy,
+				  "%s invalid cipher: %d\n", __func__,
+				  priv->cipher_type);
 			return -EINVAL;
 		}
 		memcpy(priv->key_txrsc[pairwise], pn_key, sizeof(pn_key));
@@ -272,8 +278,8 @@ static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 					   pairwise, key_index,
 					   key_seq, priv->cipher_type, macaddr);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_add_key_cmd failed %d\n", ret);
+			wiphy_err(priv->wdev->wiphy,
+				  "%s error %d\n", __func__, ret);
 			return ret;
 		}
 	}
@@ -295,16 +301,15 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 	unsigned int i, n;
 	int ret;
 
-	dev_dbg(&priv->ndev->dev, "Begin to scan with iftype is %d\n",
-		wdev->iftype);
+	wiphy_info(wiphy, "%s\n", __func__);
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	if (priv->scan_request) {
-		dev_err(&priv->ndev->dev, "Already scanning\n");
+		wiphy_err(wiphy, "Already scanning\n");
 		return -EAGAIN;
 	}
 
@@ -312,11 +317,11 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 	switch (wdev->iftype) {
 	case NL80211_IFTYPE_AP:
 		break;
+	case NL80211_IFTYPE_STATION:
+		break;
 /*	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
 	 */
-	case NL80211_IFTYPE_STATION:
-		break;
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -324,17 +329,16 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 	/* set wps ie */
 	if (request->ie_len > 0) {
 		if (request->ie_len > 255) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_wps_ie invalid len(%d)\n",
-				request->ie_len);
+			wiphy_err(wiphy,
+				  "%s invalid len: %d\n", __func__,
+				  request->ie_len);
 			return -EOPNOTSUPP;
 		}
 		ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc, WPS_REQ_IE,
 					      request->ie, request->ie_len);
 		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_wps_ie failed with ret %d\n",
-				ret);
+			wiphy_err(wiphy,
+				  "%s failed to set wps ie!\n", __func__);
 			return ret;
 		}
 	}
@@ -343,8 +347,9 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 	if (n) {
 		sipc_data = kzalloc(512, GFP_ATOMIC);
 		if (!sipc_data) {
-			dev_err(&priv->ndev->dev,
-				"itm_scan failed to alloc for combo ssid\n");
+			wiphy_err(wiphy,
+				  "%s failed to alloc memory for combo ssid!\n",
+				  __func__);
 			return -2;
 		}
 		scan_ssids = (struct wlan_sipc_scan_ssid *)sipc_data;
@@ -355,9 +360,9 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 			memcpy(scan_ssids->ssid, ssids[i].ssid,
 			       ssids[i].ssid_len);
 			scan_ssids_len += (ssids[i].ssid_len
-					+ sizeof(scan_ssids->len));
+					   + sizeof(scan_ssids->len));
 			scan_ssids = (struct wlan_sipc_scan_ssid *)
-					(sipc_data + scan_ssids_len);
+			    (sipc_data + scan_ssids_len);
 		}
 	}
 
@@ -365,17 +370,15 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev,
 	for (i = 0; i < n; i++) {
 		int ch = request->channels[i]->hw_value;
 		if (ch == 0) {
-			dev_err(&priv->ndev->dev,
-				"Scan requested for unknown frequency %dMhz\n",
-				request->channels[i]->center_freq);
+			wiphy_err(wiphy,
+				  "%s unknown frequency: %dMHz\n", __func__,
+				  request->channels[i]->center_freq);
 			continue;
 		}
 	}
 	ret = itm_wlan_scan_cmd(priv->wlan_sipc, sipc_data, scan_ssids_len);
 	if (ret) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_scan_cmd failed with ret %d\n",
-			ret);
+		wiphy_err(wiphy, "%s error %d\n", __func__, ret);
 		kfree(sipc_data);
 		return ret;
 	}
@@ -410,12 +413,12 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	u8 *buf = NULL;
 	size_t wps_len = 0;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	wiphy_info(wiphy, "%s %s\n", __func__, sme->ssid);
 
-	dev_dbg(&priv->ndev->dev, "Begin connect: %s\n", sme->ssid);
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
+	}
 
 	/* To avoid confused wapi frame */
 	priv->cipher_type = NONE;
@@ -424,25 +427,24 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	/* Set wps ie */
 	if (sme->ie_len > 0) {
 		if (sme->ie_len > 255) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_wps_ie invalid len(%d)\n",
-				sme->ie_len);
+			wiphy_err(wiphy,
+				  "%s invalid len: %d\n", __func__,
+				  sme->ie_len);
 			return -EOPNOTSUPP;
 		}
 		buf = kmalloc(sme->ie_len, GFP_KERNEL);
 		if (buf == NULL)
 			return -ENOMEM;
 
-		if (itm_find_wpsie(sme->ie, sme->ie_len,
-				   buf, &wps_len) == true) {
+		if (itm_find_wpsie(sme->ie, sme->ie_len, buf, &wps_len) == true) {
 			ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc,
 						      WPS_ASSOC_IE,
 						      buf, wps_len);
 			kfree(buf);
 			if (ret) {
-				dev_err(&priv->ndev->dev,
-					"itm_wlan_set_wps_ie failed with ret %d\n",
-					ret);
+				wiphy_err(wiphy,
+					  "%s failed to set wpas ie!\n",
+					  __func__);
 				return ret;
 			}
 		}
@@ -450,20 +452,18 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	}
 
 	/* Set WPA version */
-	dev_dbg(&priv->ndev->dev, "Set wpa_versions %#x\n",
-		sme->crypto.wpa_versions);
+	wiphy_info(wiphy, "%s wpa_versions %#x\n", __func__,
+		   sme->crypto.wpa_versions);
 	ret =
 	    itm_wlan_set_wpa_version_cmd(priv->wlan_sipc,
 					 sme->crypto.wpa_versions);
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_set_wpa_version_cmd failed with ret %d\n",
-			ret);
+		wiphy_err(wiphy, "%s failed to set wpa version!\n", __func__);
 		return ret;
 	}
 
 	/* Set Auth type */
-	dev_dbg(&priv->ndev->dev, "Set auth_type %#x\n", sme->auth_type);
+	wiphy_info(wiphy, "%s auth_type %#x\n", __func__, sme->auth_type);
 	/* Set the authorisation */
 	if ((sme->auth_type == NL80211_AUTHTYPE_OPEN_SYSTEM) ||
 	    ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && !is_wep))
@@ -473,13 +473,10 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		auth_type = ITM_AUTH_SHARED;
 	ret = itm_wlan_set_auth_type_cmd(priv->wlan_sipc, auth_type);
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_set_auth_type_cmd failed with ret %d\n", ret);
+		wiphy_err(wiphy, "%s failed to set auth type!\n", __func__);
 		return ret;
 	}
 	/* Set cipher - pairewise and group */
-	dev_dbg(&priv->ndev->dev, "Set ciphers_pairwise %#x\n",
-		sme->crypto.n_ciphers_pairwise);
 	if (sme->crypto.n_ciphers_pairwise) {
 		switch (sme->crypto.ciphers_pairwise[0]) {
 		case WLAN_CIPHER_SUITE_WEP40:
@@ -500,26 +497,28 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			is_wapi = true;
 			break;
 		default:
-			dev_err(&priv->ndev->dev,
-				"Unicast cipher suite 0x%x is not supported\n",
-				sme->crypto.ciphers_pairwise[0]);
+			wiphy_err(wiphy,
+				  "%s unsupported pairwise cipher suite: 0x%x\n",
+				  __func__, sme->crypto.ciphers_pairwise[0]);
 			return -ENOTSUPP;
 		}
 
 		if (is_wapi != true) {
+			wiphy_info(wiphy, "%s cipher_pairwise %#x\n", __func__,
+				   sme->crypto.ciphers_pairwise[0]);
 			ret =
 			    itm_wlan_set_cipher_cmd(priv->wlan_sipc, cipher,
 						    WIFI_CMD_PAIRWISE_CIPHER);
 			if (ret < 0) {
-				dev_err(&priv->ndev->dev,
-					"set_cipher_cmd pairwise failed with ret %d\n",
-					ret);
+				wiphy_err(wiphy,
+					  "%s failed to set pairwise cipher!\n",
+					  __func__);
 				return ret;
 			}
 		}
 	} else {
 		/*No pairewise cipher */
-		dev_dbg(&priv->ndev->dev, "No pairewise cipher\n");
+		wiphy_dbg(wiphy, "No pairewise cipher\n");
 	}
 
 	/* Set group cipher */
@@ -540,27 +539,28 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		cipher = CCMP;
 		break;
 	default:
-		dev_err(&priv->ndev->dev,
-			"Group cipher suite 0x%x is not supported\n",
-			sme->crypto.cipher_group);
+		wiphy_err(wiphy,
+			  "%s unsupported group cipher suite: 0x%x\n", __func__,
+			  sme->crypto.cipher_group);
 		return -ENOTSUPP;
 	}
 
 	if (is_wapi != true) {
+		wiphy_info(wiphy, "%s cipher_group %#x\n", __func__,
+			   sme->crypto.cipher_group);
 		ret =
 		    itm_wlan_set_cipher_cmd(priv->wlan_sipc, cipher,
 					    WIFI_CMD_GROUP_CIPHER);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"set_cipher_cmd group failed with ret %d\n",
-				ret);
+			wiphy_err(wiphy,
+				  "%s failed to set group cipher!\n", __func__);
 			return ret;
 		}
 	}
 
 	/* FIXME */
 	/* Set Auth type again because of CP2 process's differece */
-	dev_dbg(&priv->ndev->dev, "Set auth_type %#x\n", sme->auth_type);
+	wiphy_info(wiphy, "%s auth_type %#x again\n", __func__, sme->auth_type);
 	/* Set the authorisation */
 	if ((sme->auth_type == NL80211_AUTHTYPE_OPEN_SYSTEM) ||
 	    ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && !is_wep))
@@ -570,13 +570,11 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		auth_type = ITM_AUTH_SHARED;
 	ret = itm_wlan_set_auth_type_cmd(priv->wlan_sipc, auth_type);
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_set_auth_type_cmd failed with ret %d\n", ret);
+		wiphy_err(wiphy, "%s failed to set auth type!\n", __func__);
 		return ret;
 	}
 
 	/* Set auth key management (akm) */
-	dev_dbg(&priv->ndev->dev, "akm_suites %#x\n", sme->crypto.n_akm_suites);
 	if (sme->crypto.n_akm_suites) {
 		if (sme->crypto.akm_suites[0] == WLAN_AKM_SUITE_PSK)
 			key_mgmt = AKM_SUITE_PSK;
@@ -588,12 +586,14 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		else if (sme->crypto.akm_suites[0] == WLAN_AKM_SUITE_WAPI_PSK)
 			key_mgmt = AKM_SUITE_WAPI;
 
-		ret = itm_wlan_set_key_management_cmd(priv->wlan_sipc,
-						      key_mgmt);
+		wiphy_info(wiphy, "%s akm_suites %#x\n", __func__,
+			   sme->crypto.akm_suites[0]);
+		ret =
+		    itm_wlan_set_key_management_cmd(priv->wlan_sipc, key_mgmt);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_key_management_cmd failed %d\n",
-				ret);
+			wiphy_err(wiphy,
+				  "%s failed to set key management!\n",
+				  __func__);
 			return ret;
 		}
 	}
@@ -603,8 +603,6 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	    sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104 ||
 	    sme->crypto.ciphers_pairwise[0] == WLAN_CIPHER_SUITE_WEP40 ||
 	    sme->crypto.ciphers_pairwise[0] == WLAN_CIPHER_SUITE_WEP104) {
-		dev_dbg(&priv->ndev->dev,
-			"Don't need to set PSK since driver is using WEP\n");
 		priv->key_index[GROUP] = sme->key_idx;
 		priv->key_len[GROUP][sme->key_idx] = sme->key_len;
 		memcpy(priv->key[GROUP][sme->key_idx], sme->key, sme->key_len);
@@ -612,8 +610,8 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 					      sme->crypto.ciphers_pairwise[0],
 					      NULL, NULL);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_add_key failed %d\n", ret);
+			wiphy_err(wiphy,
+				  "%s failed to add cipher key!\n", __func__);
 			return ret;
 		}
 	} else {
@@ -622,25 +620,26 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		if (wdev->iftype == NL80211_IFTYPE_AP) {
 			ret = hostap_conf_load(HOSTAP_CONF_FILE_NAME, psk);
 			if (ret) {
-				dev_err(&priv->ndev->dev,
-					"load hostap failed with ret %d\n",
-					ret);
+				wiphy_err(wiphy,
+					  "%s failed to load hostap conf!\n",
+					  __func__);
 				return ret;
 			}
 			key_len = sizeof(psk);
 		} else {
 			if (sme->key_len > 32) {
-				dev_err(&priv->ndev->dev,
-					"Invalid key len (%d)\n", sme->key_len);
+				wiphy_err(wiphy,
+					  "%s invalid key len: %d\n", __func__,
+					  sme->key_len);
 				return -EINVAL;
 			}
 			memcpy(psk, sme->key, sme->key_len);
 			key_len = sme->key_len;
 		}
+		wiphy_info(wiphy, "%s psk %s\n", __func__, sme->key);
 		ret = itm_wlan_set_psk_cmd(priv->wlan_sipc, psk, key_len);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"set_psk_cmd failed with ret %d\n", ret);
+			wiphy_err(wiphy, "%s failed to set psk!\n", __func__);
 			return ret;
 		}
 	}
@@ -648,48 +647,46 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	/* Auth RX unencrypted EAPOL is not implemented, do nothing */
 	/* Set channel */
 	if (sme->channel != NULL) {
-		dev_dbg(&priv->ndev->dev, "Settting channel to %d\n",
-			ieee80211_frequency_to_channel(sme->channel->
-						       center_freq));
+		wiphy_info(wiphy, "%s channel %d\n", __func__,
+			   ieee80211_frequency_to_channel(sme->
+							  channel->center_freq));
 		ret =
 		    itm_wlan_set_channel_cmd(priv->wlan_sipc,
 					     ieee80211_frequency_to_channel
 					     (sme->channel->center_freq));
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_channel_cmd failed with ret %d\n",
-				ret);
+			wiphy_err(wiphy,
+				  "%s failed to set channel!\n", __func__);
 			return ret;
 		}
 	} else {
-		dev_dbg(&priv->ndev->dev, "Channel is not specified\n");
+		wiphy_dbg(wiphy, "Channel is not specified\n");
 	}
 
 	/* Set BSSID */
 	if (sme->bssid != NULL) {
 		ret = itm_wlan_set_bssid_cmd(priv->wlan_sipc, sme->bssid);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_bssid_cmd failed with ret %d\n",
-				ret);
+			wiphy_err(wiphy, "%s failed to set bssid!\n", __func__);
 			return ret;
 		}
 	} else {
-		dev_dbg(&priv->ndev->dev, "BSSID is not specified\n");
+		wiphy_dbg(wiphy, "BSSID is not specified\n");
 	}
 
 	/* Special process for WEP(WEP key must be set before itm_set_essid) */
 	if (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40 ||
 	    sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104) {
-		dev_dbg(&priv->ndev->dev, "Setting WEP group cipher\n");
+		wiphy_info(wiphy, "%s WEP cipher_group\n", __func__);
 
 		if (sme->key_len <= 0) {
-			dev_dbg(&priv->ndev->dev, "No key is specified\n");
+			wiphy_dbg(wiphy, "No key is specified\n");
 		} else {
 			if (sme->key_len != WLAN_KEY_LEN_WEP104 &&
 			    sme->key_len != WLAN_KEY_LEN_WEP40) {
-				dev_err(&priv->ndev->dev,
-					"Invalid key length for WEP\n");
+				wiphy_err(wiphy,
+					  "%s invalid WEP key length\n",
+					  __func__);
 				return -EINVAL;
 			}
 
@@ -697,11 +694,11 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		}
 	}
 	/* Set ESSID */
+	wiphy_info(wiphy, "%s essid %s\n", __func__, sme->ssid);
 	ret = itm_wlan_set_essid_cmd(priv->wlan_sipc, sme->ssid,
 				     (int)sme->ssid_len);
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_set_essid_cmd failed with ret %d\n", ret);
+		wiphy_err(wiphy, "%s failed to set essid!\n", __func__);
 		return ret;
 	}
 	memcpy(priv->ssid, sme->ssid, sme->ssid_len);
@@ -722,17 +719,16 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 	bool found = false;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	wiphy_info(wiphy, "%s %s\n", __func__, priv->ssid);
 
-	dev_dbg(&priv->ndev->dev, "Begin disconnect: %s\n", priv->ssid);
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
+	}
 
 	ret = itm_wlan_disconnect_cmd(priv->wlan_sipc, reason_code);
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev,
-			"swifi_disconnect_cmd failed with ret %d\n", ret);
+		wiphy_err(wiphy, "%s failed disconnect!\n", __func__);
 	}
 
 	do {
@@ -742,13 +738,13 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 				       WLAN_CAPABILITY_ESS,
 				       WLAN_CAPABILITY_ESS);
 		if (bss) {
-			cfg80211_unlink_bss(priv->wdev->wiphy,
-					    bss);
+			cfg80211_unlink_bss(priv->wdev->wiphy, bss);
 			found = true;
 		} else {
 			found = false;
 		}
 	} while (found);
+	memset(priv->ssid, 0, sizeof(priv->ssid));
 
 	return ret;
 }
@@ -762,26 +758,25 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
-	dev_dbg(&priv->ndev->dev,
-		"add key with cipher is %d\n", params->cipher);
+	wiphy_info(wiphy, "%s with cipher %d\n", __func__, params->cipher);
 
 	if (priv->mode == ITM_AP_MODE) {
 		u8 key[32];
 		memset(key, 0, sizeof(key));
 		ret = hostap_conf_load(HOSTAP_CONF_FILE_NAME, key);
 		if (ret != 0) {
-			dev_err(&priv->ndev->dev, "hostapd conf load error!\n");
+			wiphy_err(wiphy, "%s failed to load hostapd conf!\n",
+				  __func__);
 			return ret;
 		}
 		ret = itm_wlan_set_psk_cmd(priv->wlan_sipc, key, sizeof(key));
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_psk_cmd error!\n");
+			wiphy_err(wiphy, "%s failed to set psk!\n", __func__);
 			return ret;
 		}
 	} else if (priv->mode == ITM_STATION_MODE) {
@@ -792,8 +787,8 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 					      params->cipher,
 					      params->seq, mac_addr);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_add_cipher_key error!\n");
+			wiphy_err(wiphy,
+				  "%s failed to add cipher key!\n", __func__);
 			return ret;
 		}
 	}
@@ -809,21 +804,22 @@ static int itm_wlan_cfg80211_del_key(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	dev_dbg(&priv->ndev->dev, "del key with key index is %d\n", key_index);
+	wiphy_info(wiphy, "%s key_index %d\n", __func__, key_index);
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	if (key_index > WLAN_MAX_KEY_INDEX) {
-		dev_err(&priv->ndev->dev, "key index %d out of bounds\n",
-			key_index);
+		wiphy_err(wiphy, "%s key index %d out of bounds\n", __func__,
+			  key_index);
 		return -ENOENT;
 	}
 
 	if (!priv->key_len[pairwise][key_index]) {
-		dev_err(&priv->ndev->dev, "index %d is empty\n", key_index);
+		wiphy_err(wiphy, "%s key index %d is empty\n", __func__,
+			  key_index);
 		return 0;
 	}
 
@@ -842,19 +838,20 @@ static int itm_wlan_cfg80211_set_default_key(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	if (key_index < 0 || key_index > 3) {
-		dev_err(&priv->ndev->dev, "Invalid key index %d\n", key_index);
+		wiphy_err(wiphy, "%s invalid key index %d\n", __func__,
+			  key_index);
 		return -EINVAL;
 	}
 
 	ret = itm_wlan_set_key_cmd(priv->wlan_sipc, key_index);
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev, "itm_wlan_set_key_cmd failed\n");
+		wiphy_err(wiphy, "%s failed to set key\n", __func__);
 		return ret;
 	}
 
@@ -867,17 +864,16 @@ static int itm_wlan_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	if (changed & WIPHY_PARAM_RTS_THRESHOLD) {
 		ret = itm_wlan_set_rts_cmd(priv->wlan_sipc,
 					   wiphy->rts_threshold);
 		if (ret != 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_rts_cmd failed\n");
+			wiphy_err(wiphy, "%s failed to set rts\n", __func__);
 			return -EIO;
 		}
 	}
@@ -887,8 +883,7 @@ static int itm_wlan_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 		    itm_wlan_set_frag_cmd(priv->wlan_sipc,
 					  wiphy->frag_threshold);
 		if (ret != 0) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_frag_cmd failed\n");
+			wiphy_err(wiphy, "%s failed to set frag\n", __func__);
 			return -EIO;
 		}
 	}
@@ -906,12 +901,12 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 	int ret;
 	size_t i;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	wiphy_info(wiphy, "%s\n", __func__);
 
-	dev_dbg(&priv->ndev->dev, "get station\n");
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
+	}
 
 	/* Get current RSSI */
 	ret = itm_wlan_get_rssi_cmd(priv->wlan_sipc, &signal, &noise);
@@ -919,7 +914,7 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 		sinfo->signal = signal;
 		sinfo->filled |= STATION_INFO_SIGNAL;
 	} else {
-		dev_err(&priv->ndev->dev, "get_rssi_cmd error!\n");
+		wiphy_err(wiphy, "%s failed to get rssi!\n", __func__);
 		return -EIO;
 	}
 
@@ -927,7 +922,7 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 	if (ret == 0) {
 		sinfo->filled |= STATION_INFO_TX_BITRATE;
 	} else {
-		dev_err(&priv->ndev->dev, "get_txrate_cmd error!\n");
+		wiphy_err(wiphy, "%s failed to get txrate!\n", __func__);
 		return -EIO;
 	}
 
@@ -950,12 +945,12 @@ static int itm_wlan_cfg80211_set_pmksa(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	wiphy_info(wiphy, "%s\n", __func__);
 
-	dev_dbg(&priv->ndev->dev, "set pmksa\n");
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
+	}
 
 	ret = itm_wlan_pmksa_cmd(priv->wlan_sipc, pmksa->bssid,
 				 pmksa->pmkid, CMD_TYPE_SET);
@@ -971,12 +966,12 @@ static int itm_wlan_cfg80211_del_pmksa(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	wiphy_info(wiphy, "%s\n", __func__);
 
-	dev_dbg(&priv->ndev->dev, "del pmksa\n");
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
+	}
 
 	ret = itm_wlan_pmksa_cmd(priv->wlan_sipc, pmksa->bssid,
 				 pmksa->pmkid, CMD_TYPE_DEL);
@@ -991,12 +986,12 @@ static int itm_wlan_cfg80211_flush_pmksa(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	wiphy_info(wiphy, "%s\n", __func__);
 
-	dev_dbg(&priv->ndev->dev, "flush pmksa\n");
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
+	}
 
 	ret = itm_wlan_pmksa_cmd(priv->wlan_sipc, priv->bssid,
 				 NULL, CMD_TYPE_FLUSH);
@@ -1016,8 +1011,8 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	event_len = priv->wlan_sipc->wlan_sipc_event_len;
 	/* status_len 2 + status_code 1 = 3 bytes */
 	if (event_len < 3) {
-		dev_err(&priv->ndev->dev,
-			"filled event len(%d) is not a valid len\n", event_len);
+		wiphy_err(priv->wdev->wiphy,
+			  "%s invalid event len %d!\n", __func__, event_len);
 		goto out;
 	}
 	pos = kmalloc(event_len, GFP_ATOMIC);
@@ -1031,8 +1026,8 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	memcpy(&status_code, (pos + 2), status_len);
 	/* FIXME later the status code should be reported by CP2 */
 	if (status_code != 0) {
-		dev_err(&priv->ndev->dev,
-			"Connect is failled (%d)\n", status_code);
+		wiphy_err(priv->wdev->wiphy,
+			  "%s failled to connect(%d)\n", __func__, status_code);
 		kfree(pos);
 		goto out;
 	}
@@ -1041,7 +1036,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	left = event_len - 2 - status_len;
 	/* BSSID is 6 + len is 2 = 8 */
 	if (left < 8) {
-		dev_err(&priv->ndev->dev, "Do not have a vaild bssid\n");
+		wiphy_err(priv->wdev->wiphy, "%s invaild bssid!\n", __func__);
 		kfree(pos);
 		goto out;
 	}
@@ -1051,20 +1046,21 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	left -= bssid_len;
 
 	if (!left) {
-		dev_err(&priv->ndev->dev, "There is no req_ie frame!\n");
+		wiphy_err(priv->wdev->wiphy, "%s no req_ie frame!\n", __func__);
 		kfree(pos);
 		goto out;
 	}
-	req_ie_len = *(u8 *)(bssid_ptr + bssid_len);
+	req_ie_len = *(u8 *) (bssid_ptr + bssid_len);
 	left -= 1;
 	req_ie_ptr = bssid_ptr + bssid_len + 1;
 	left -= req_ie_len;
 	if (!left) {
-		dev_err(&priv->ndev->dev, "There is no resp_ie frame!\n");
+		wiphy_err(priv->wdev->wiphy, "%s no resp_ie frame!\n",
+			  __func__);
 		kfree(pos);
 		goto out;
 	}
-	resp_ie_len = *(u8 *)(req_ie_ptr + req_ie_len);
+	resp_ie_len = *(u8 *) (req_ie_ptr + req_ie_len);
 	resp_ie_ptr = req_ie_ptr + req_ie_len + 1;
 
 	if (priv->connect_status == ITM_CONNECTING) {
@@ -1074,17 +1070,21 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 					bssid_ptr, req_ie_ptr, req_ie_len,
 					resp_ie_ptr, resp_ie_len,
 					WLAN_STATUS_SUCCESS, GFP_KERNEL);
+		wiphy_info(priv->wdev->wiphy, "%s %s success!\n", __func__,
+			   priv->ssid);
 
 		kfree(pos);
 
 		if (!netif_carrier_ok(priv->ndev)) {
-			dev_dbg(&priv->ndev->dev,
-				"netif_carrier_on, ssid:%s\n", priv->ssid);
+			wiphy_dbg(priv->wdev->wiphy,
+				  "%s netif_carrier_on, ssid:%s\n", __func__,
+				  priv->ssid);
 			netif_carrier_on(priv->ndev);
 			netif_wake_queue(priv->ndev);
 		}
 	} else {
-		dev_err(&priv->ndev->dev, "connect status is not connecting!\n");
+		wiphy_err(priv->wdev->wiphy,
+			  "%s wrong previous connect status!\n", __func__);
 		kfree(pos);
 		goto out;
 	}
@@ -1107,6 +1107,8 @@ out:
 					NULL, 0,
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
+		wiphy_info(priv->wdev->wiphy, "%s %s fail!\n", __func__,
+			   priv->ssid);
 	} else if (priv->connect_status == ITM_CONNECTED) {
 		cfg80211_disconnected(priv->ndev, status_code,
 				      NULL, 0, GFP_KERNEL);
@@ -1114,7 +1116,7 @@ out:
 	return;
 }
 
-void itm_cfg80211_disconnect_done(struct itm_priv *priv)
+void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
 {
 	struct cfg80211_bss *bss = NULL;
 	u16 reason_code = 0;
@@ -1139,8 +1141,8 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
 	} else if (priv->connect_status == ITM_CONNECTED) {
-		if (reason_code == AP_LEAVING /*||
-		    reason_code == AP_DEAUTH*/) {
+		if (reason_code == AP_LEAVING	/*||
+						   reason_code == AP_DEAUTH */ ) {
 			do {
 				bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
 						       priv->bssid, priv->ssid,
@@ -1158,11 +1160,13 @@ void itm_cfg80211_disconnect_done(struct itm_priv *priv)
 		}
 		cfg80211_disconnected(priv->ndev, reason_code,
 				      NULL, 0, GFP_KERNEL);
+		wiphy_info(priv->wdev->wiphy, "%s %s\n", __func__, priv->ssid);
 	}
 
 	priv->connect_status = ITM_DISCONNECTED;
 	if (netif_carrier_ok(priv->ndev)) {
-		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
+		wiphy_dbg(priv->wdev->wiphy, "%s netif_carrier_off\n",
+			  __func__);
 		netif_carrier_off(priv->ndev);
 		netif_stop_queue(priv->ndev);
 	}
@@ -1175,7 +1179,7 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 
 	if (priv->scan_request &&
 	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
-		dev_err(&priv->ndev->dev, "scan timer expired!\n");
+		wiphy_err(priv->wdev->wiphy, "%s\n", __func__);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
 		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
@@ -1184,7 +1188,7 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 		atomic_dec(&priv->scan_status);
 		return;
 	}
-	dev_err(&priv->ndev->dev, "wrong scan timer expired!\n");
+	wiphy_err(priv->wdev->wiphy, "wrong %s!\n", __func__);
 	return;
 }
 
@@ -1204,20 +1208,20 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	const u8 *pos = priv->wlan_sipc->event_buf->u.event.variable;
 
 	if (atomic_add_unless(&priv->scan_status, 1, 1) == 0) {
-		dev_err(&priv->ndev->dev, "scan event is aborted\n");
+		wiphy_err(wiphy, "%s scan is aborted\n", __func__);
 		return;
 	}
 
 	if (!priv->scan_request) {
-		dev_err(&priv->ndev->dev, "priv->scan_request is null\n");
+		wiphy_err(wiphy, "%s null scan_request!\n", __func__);
 		atomic_dec(&priv->scan_status);
 		return;
 	}
 
 	if (left < 10 || aborted) {
-		dev_err(&priv->ndev->dev,
-			"filled event len(%d) is not a valid len\n",
-			priv->wlan_sipc->wlan_sipc_event_len);
+		wiphy_err(wiphy,
+			  "%s invalid event len %d!\n", __func__,
+			  priv->wlan_sipc->wlan_sipc_event_len);
 		goto out;
 	}
 
@@ -1247,9 +1251,9 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 		left -= 2;
 
 		if (mgmt_len > left) {
-			dev_err(&priv->ndev->dev,
-				"mgmt_len(0x%08x) > left(0x%08x)!\n",
-				mgmt_len, left);
+			wiphy_err(wiphy,
+				  "%s mgmt_len(0x%08x) > left(0x%08x)!\n",
+				  __func__, mgmt_len, left);
 			kfree(mgmt);
 			goto out;
 		}
@@ -1265,7 +1269,7 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 		freq = ieee80211_channel_to_frequency(channel_num, band->band);
 		channel = ieee80211_get_channel(wiphy, freq);
 		if (!channel) {
-			dev_err(&priv->ndev->dev, "freq is %d\n", freq);
+			wiphy_err(wiphy, "%s invalid freq\n", __func__);
 			continue;
 		}
 		signal = rssi * 100;
@@ -1274,8 +1278,8 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 						    signal, GFP_KERNEL);
 
 		if (unlikely(!itm_bss))
-			dev_err(&priv->ndev->dev,
-				"cfg80211_inform_bss_frame error\n");
+			wiphy_err(wiphy,
+				  "%s failed to inform bss frame!\n", __func__);
 
 		cfg80211_put_bss(itm_bss);
 	}
@@ -1288,6 +1292,9 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	kfree(mgmt);
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
+
+	wiphy_info(wiphy, "%s\n", __func__);
+
 	priv->scan_request = NULL;
 	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
 	    priv->scan_done_lock.link.prev != LIST_POISON2)
@@ -1311,8 +1318,6 @@ out:
 void itm_cfg80211_report_ready(struct itm_priv *priv)
 {
 	priv->cp2_status = ITM_READY;
-
-	return;
 }
 
 void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
@@ -1324,11 +1329,11 @@ void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
 	if (busy_flag) {
 		atomic_set(&priv->stopped, 1);
 		netif_stop_queue(priv->ndev);
-		dev_dbg(&priv->ndev->dev, "tx busy event, stop queue\n");
+		wiphy_dbg(priv->wdev->wiphy, "tx busy event, stop queue\n");
 	} else {
 		atomic_set(&priv->stopped, 0);
 		netif_wake_queue(priv->ndev);
-		dev_dbg(&priv->ndev->dev, "tx ok event, wake up queue\n");
+		wiphy_dbg(priv->wdev->wiphy, "tx ok event, wake up queue\n");
 	};
 
 	return;
@@ -1349,11 +1354,12 @@ void itm_cfg80211_report_softap(struct itm_priv *priv)
 	if (event.connected) {
 		cfg80211_new_sta(priv->ndev, (u8 const *)&event.mac, &sinfo,
 				 GFP_KERNEL);
-		dev_dbg(&priv->ndev->dev, "hotspot station is connected\n");
+		wiphy_dbg(priv->wdev->wiphy, "hotspot station is connected\n");
 	} else {
 		cfg80211_del_sta(priv->ndev, (u8 const *)&event.mac,
 				 GFP_ATOMIC);
-		dev_dbg(&priv->ndev->dev, "hotspot station is disconnected\n");
+		wiphy_dbg(priv->wdev->wiphy,
+			  "hotspot station is disconnected\n");
 	}
 }
 
@@ -1385,9 +1391,9 @@ static int itm_wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	return 0;
@@ -1440,7 +1446,8 @@ static int itm_wlan_send_beacon(struct itm_priv *priv,
 	ret = itm_wlan_set_beacon_cmd(priv->wlan_sipc, (u8 *)mgmt, mgmt_len);
 	kfree(mgmt);
 	if (ret != 0)
-		dev_err(&priv->ndev->dev, "itm_wlan_set_beacon_cmd failed\n");
+		wiphy_err(priv->wdev->wiphy,
+			  "itm_wlan_set_beacon_cmd failed\n");
 
 	return ret;
 }
@@ -1496,7 +1503,8 @@ static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
 		mode = ITM_AP_MODE;
 		break;
 	default:
-		dev_err(&priv->ndev->dev, "invalid interface type %u\n", type);
+		wiphy_err(priv->wdev->wiphy, "invalid interface type %u\n",
+			  type);
 		return -EOPNOTSUPP;
 	}
 
@@ -1506,7 +1514,7 @@ static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
 	ret = itm_wlan_mac_open_cmd(priv->wlan_sipc,
 				    mode, priv->ndev->dev_addr);
 	if (ret != 0) {
-		dev_err(&priv->ndev->dev, "itm_wlan_mac_open_cmd failed\n");
+		wiphy_err(priv->wdev->wiphy, "itm_wlan_mac_open_cmd failed\n");
 		return -EIO;
 	}
 
@@ -1524,9 +1532,11 @@ static int itm_wlan_cfg80211_change_iface(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	wiphy_info(wiphy, "%s type %d\n", __func__, type);
+
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	return itm_wlan_change_mode(priv, type);
@@ -1541,9 +1551,9 @@ static int itm_wlan_cfg80211_set_channel(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret = -ENOTSUPP;
 
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
+	if (!itm_wlan_cfg80211_ready(priv)) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EIO;
 	}
 
 	/*
@@ -1554,29 +1564,14 @@ static int itm_wlan_cfg80211_set_channel(struct wiphy *wiphy,
 				     ieee80211_frequency_to_channel
 				     (channel->center_freq));
 	if (ret < 0) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_set_channel_cmd failed with ret %d\n", ret);
+		wiphy_err(wiphy,
+			  "itm_wlan_set_channel_cmd failed with ret %d\n", ret);
 		return ret;
 	}
 
 	return 0;
 }
 
-static int itm_wlan_cfg80211_change_station(struct wiphy *wiphy,
-					    struct net_device *ndev,
-					    u8 *mac,
-					    struct station_parameters *params)
-{
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
-
-	return itm_wlan_change_mode(priv, NL80211_IFTYPE_STATION);
-}
 /*
 static int itm_wlan_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 					  struct net_device *dev,
@@ -1587,21 +1582,21 @@ static int itm_wlan_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 	int ret;
 
 	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
+		wiphy_err(wiphy, "CP2 not ready!\n");
 		return -EAGAIN;
 	}
 
 	if (pmgmt) {
 		ret = itm_wlan_pm_enter_ps_cmd(priv->wlan_sipc);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
+			wiphy_err(wiphy,
 				"itm_wlan_pm_enter_ps_cmd failed(%d)\n", ret);
 			return ret;
 		}
 	} else {
 		ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
 		if (ret < 0) {
-			dev_err(&priv->ndev->dev,
+			wiphy_err(wiphy,
 				"itm_wlan_pm_exit_ps_cmd failed(%d)\n", ret);
 			return ret;
 		}
@@ -1612,22 +1607,25 @@ static int itm_wlan_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 */
 static struct cfg80211_ops itm_cfg80211_ops = {
 /*#ifdef CONFIG_PM
-      .suspend = itm_wlan_cfg80211_suspend,
-      .resume = itm_wlan_cfg80211_resume,
+	.suspend = itm_wlan_cfg80211_suspend,
+	.resume = itm_wlan_cfg80211_resume,
 #endif*/
+	/*.add_virtual_intf = itm_wlan_cfg80211_add_iface,*/
+	/*.del_virtual_intf = itm_wlan_cfg80211_del_iface,*/
+	.change_virtual_intf = itm_wlan_cfg80211_change_iface,
 	.scan = itm_wlan_cfg80211_scan,
 	.connect = itm_wlan_cfg80211_connect,
 	.disconnect = itm_wlan_cfg80211_disconnect,
 	.add_key = itm_wlan_cfg80211_add_key,
-/*      .get_key = itm_wlan_cfg80211_get_key,*/
+	/*.get_key = itm_wlan_cfg80211_get_key,*/
 	.del_key = itm_wlan_cfg80211_del_key,
 	.set_default_key = itm_wlan_cfg80211_set_default_key,
 	.set_wiphy_params = itm_wlan_cfg80211_set_wiphy_params,
-/*	.set_power_mgmt = itm_wlan_cfg80211_set_power_mgmt,*/
-/*      .set_tx_power = itm_wlan_cfg80211_set_txpower,
-      .get_tx_power = itm_wlan_cfg80211_get_txpower,
-      .join_ibss = itm_wlan_cfg80211_join_ibss,
-      .leave_ibss = itm_wlan_cfg80211_leave_ibss,*/
+	/*.set_tx_power = itm_wlan_cfg80211_set_txpower,*/
+	/*.get_tx_power = itm_wlan_cfg80211_get_txpower,*/
+	/*.set_power_mgmt = itm_wlan_cfg80211_set_power_mgmt,*/
+	/*.join_ibss = itm_wlan_cfg80211_join_ibss,*/
+	/*.leave_ibss = itm_wlan_cfg80211_leave_ibss,*/
 	.get_station = itm_wlan_cfg80211_get_station,
 	.set_pmksa = itm_wlan_cfg80211_set_pmksa,
 	.del_pmksa = itm_wlan_cfg80211_del_pmksa,
@@ -1652,21 +1650,45 @@ static struct cfg80211_ops itm_cfg80211_ops = {
 	LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
 	.action = itm_wlan_cfg80211_mgmt_tx,
 #endif
-	.change_virtual_intf = itm_wlan_cfg80211_change_iface,
-	.change_station = itm_wlan_cfg80211_change_station,
-/*    .add_station = itm_wlan_cfg80211_add_station,
-      .del_station = itm_wlan_cfg80211_del_station,
-      .remain_on_channel = itm_wlan_cfg80211_remain_on_channel,
-      .cancel_remain_on_channel = itm_wlan_cfg80211_cancel_remain_on_channel,
-      .sched_scan_start = itm_wlan_cfg80211_sscan_start,
-      .sched_scan_stop = itm_wlan_cfg80211_sscan_stop,
-      .set_bitrate_mask = itm_wlan_cfg80211_set_bitrate,
-      .set_cqm_txe_config = itm_wlan_cfg80211_set_txe_config,
-      .add_virtual_intf = itm_wlan_cfg80211_add_iface,
-      .del_virtual_intf = itm_wlan_cfg80211_del_iface,
-      .set_monitor_channel = itm_wlan_cfg80211_set_channel,*/
 	.set_channel = itm_wlan_cfg80211_set_channel,
 };
+
+#define ENG_MAC_ADDR_PATH "/data/misc/wifi/wifimac.txt"
+int itm_get_mac_from_cfg(struct itm_priv *priv)
+{
+	struct file *fp = 0;
+	mm_segment_t fs;
+	loff_t *pos;
+	u8 file_data[64] = { 0 };
+	u8 mac_addr[18] = { 0 };
+	u8 *tmp_p = NULL;
+
+	fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
+	if (IS_ERR(fp))
+		return -ENOENT;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = &(fp->f_pos);
+	vfs_read(fp, file_data, sizeof(file_data), pos);
+	tmp_p = file_data;
+	if (tmp_p != NULL) {
+		memcpy(mac_addr, tmp_p, 18);
+		sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
+		       (unsigned int *)&(priv->ndev->dev_addr[0]),
+		       (unsigned int *)&(priv->ndev->dev_addr[1]),
+		       (unsigned int *)&(priv->ndev->dev_addr[2]),
+		       (unsigned int *)&(priv->ndev->dev_addr[3]),
+		       (unsigned int *)&(priv->ndev->dev_addr[4]),
+		       (unsigned int *)&(priv->ndev->dev_addr[5]));
+	}
+
+	filp_close(fp, NULL);
+	set_fs(fs);
+
+	return 0;
+}
 
 /*Init wiphy parameters*/
 static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
@@ -1751,7 +1773,7 @@ int itm_wdev_alloc(struct itm_priv *priv, struct device *dev)
 
 	/* Init scan_timeout timer */
 	init_timer(&priv->scan_timeout);
-	priv->scan_timeout.data = (unsigned long) priv;
+	priv->scan_timeout.data = (unsigned long)priv;
 	priv->scan_timeout.function = itm_cfg80211_scan_timeout;
 
 	wdev->netdev = ndev;
@@ -1816,119 +1838,4 @@ void itm_wdev_free(struct itm_priv *priv)
 	itm_wlan_sipc_free(priv);
 
 	kfree(priv->wdev);
-}
-
-#define CMD_BLACKLIST_ENABLE		"BLOCK"
-#define CMD_BLACKLIST_DISABLE		"UNBLOCK"
-
-int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *ifr)
-{
-	struct itm_priv *priv = netdev_priv(dev);
-	int ret = 0;
-	char *command = NULL;
-	int bytes_written = 0;
-	android_wifi_priv_cmd priv_cmd;
-	u8 addr[6] = {0};
-
-	if (!ifr->ifr_data) {
-		ret = -EINVAL;
-		goto exit;
-	}
-	if (copy_from_user(&priv_cmd, ifr->ifr_data,
-			   sizeof(android_wifi_priv_cmd))) {
-		ret = -EFAULT;
-		goto exit;
-	}
-
-	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
-	if (!command) {
-		dev_err(&priv->wdev->netdev->dev,
-			"%s: failed to allocate memory\n",
-			__func__);
-		ret = -ENOMEM;
-		goto exit;
-	}
-	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
-		ret = -EFAULT;
-		goto exit;
-	}
-
-	if (strnicmp(command, CMD_BLACKLIST_ENABLE,
-		     strlen(CMD_BLACKLIST_ENABLE)) == 0) {
-		int skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
-
-		dev_err(&priv->wdev->netdev->dev,
-			"%s, Received regular blacklist enable command\n",
-			__func__);
-		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(addr[0]),
-		       (unsigned int *)&(addr[1]),
-		       (unsigned int *)&(addr[2]),
-		       (unsigned int *)&(addr[3]),
-		       (unsigned int *)&(addr[4]),
-		       (unsigned int *)&(addr[5]));
-		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
-							   addr, 1);
-	} else if (strnicmp(command, CMD_BLACKLIST_DISABLE,
-			  strlen(CMD_BLACKLIST_DISABLE)) == 0) {
-		int skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
-
-		dev_err(&priv->wdev->netdev->dev,
-			"%s, Received regular blacklist disable command\n",
-			__func__);
-		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(addr[0]),
-		       (unsigned int *)&(addr[1]),
-		       (unsigned int *)&(addr[2]),
-		       (unsigned int *)&(addr[3]),
-		       (unsigned int *)&(addr[4]),
-		       (unsigned int *)&(addr[5]));
-		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
-							   addr, 0);
-	}
-
-	if (bytes_written < 0)
-		ret = bytes_written;
-
-exit:
-	kfree(command);
-
-	return ret;
-}
-
-#define ENG_MAC_ADDR_PATH "/data/misc/wifi/wifimac.txt"
-int itm_get_mac_from_cfg(struct itm_priv *priv)
-{
-	struct file *fp = 0;
-	mm_segment_t fs;
-	loff_t *pos;
-	u8 file_data[64] = { 0 };
-	u8 mac_addr[18] = { 0 };
-	u8 *tmp_p = NULL;
-
-	fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
-	if (IS_ERR(fp))
-		return -ENOENT;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	pos = &(fp->f_pos);
-	vfs_read(fp, file_data, sizeof(file_data), pos);
-	tmp_p = file_data;
-	if (tmp_p != NULL) {
-		memcpy(mac_addr, tmp_p, 18);
-		sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(priv->ndev->dev_addr[0]),
-		       (unsigned int *)&(priv->ndev->dev_addr[1]),
-		       (unsigned int *)&(priv->ndev->dev_addr[2]),
-		       (unsigned int *)&(priv->ndev->dev_addr[3]),
-		       (unsigned int *)&(priv->ndev->dev_addr[4]),
-		       (unsigned int *)&(priv->ndev->dev_addr[5]));
-	}
-
-	filp_close(fp, NULL);
-	set_fs(fs);
-
-	return 0;
 }

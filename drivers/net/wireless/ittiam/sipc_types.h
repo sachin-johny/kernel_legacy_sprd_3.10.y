@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_sipc_types.h
+ * Filename : sipc_types.h
  * Abstract : This file is a general definition for sipc data struct
  *
  * Authors	:

@@ -31,7 +31,7 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#include "itm_sipc_types.h"
+#include "sipc_types.h"
 
 struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
