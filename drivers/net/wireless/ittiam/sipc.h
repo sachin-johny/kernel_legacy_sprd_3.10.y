@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_sipc.h
+ * Filename : sipc.h
  * Abstract : This file is a general definition for sipc command/event type
  *
  * Authors	:
@@ -23,7 +23,7 @@
 #define __ITM_SIPC_CMD_H__
 
 #include <linux/slab.h>
-#include "itm_sipc_types.h"
+#include "sipc_types.h"
 #include "ittiam.h"
 
 /* default command wait response time in msecs */

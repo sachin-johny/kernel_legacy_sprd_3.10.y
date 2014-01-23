@@ -21,11 +21,11 @@
 #include <net/genetlink.h>
 #include <linux/sipc.h>
 
-#include "itm_sipc.h"
+#include "sipc.h"
 #include "ittiam.h"
-#include "itm_cfg80211.h"
-#include "itm_npi.h"
-#include "itm_nlnpi.h"
+#include "cfg80211.h"
+#include "npi.h"
+#include "nlnpi.h"
 
 static int nlnpi_pre_doit(struct genl_ops *ops, struct sk_buff *skb,
 			  struct genl_info *info)
@@ -237,7 +237,7 @@ NPI_SET_CMD(get_sblock, NPI_CMD_GET_SBLOCK, NLNPI_CMD_GET_SBLOCK,
 NPI_SET_CMD(sin_wave, NPI_CMD_SIN_WAVE, NLNPI_CMD_SIN_WAVE,
 	    NLNPI_ATTR_SIN_WAVE)
 NPI_SET_CMD(lna_on, NPI_CMD_LNA_ON, NLNPI_CMD_LNA_ON, NLNPI_ATTR_LNA_ON)
-NPI_SET_CMD(lna_off, NPI_CMD_LNA_OFF, NLNPI_CMD_LNA_OFF, NLNPI_ATTR_LNA_OFF)	    
+NPI_SET_CMD(lna_off, NPI_CMD_LNA_OFF, NLNPI_CMD_LNA_OFF, NLNPI_ATTR_LNA_OFF)
 NPI_SET_CMD(speed_up, NPI_CMD_SPEED_UP, NLNPI_CMD_SPEED_UP, NLNPI_ATTR_SPEED_UP)
 NPI_SET_CMD(speed_down, NPI_CMD_SPEED_DOWN, NLNPI_CMD_SPEED_DOWN, NLNPI_ATTR_SPEED_DOWN)
 

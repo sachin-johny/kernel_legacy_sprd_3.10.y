@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  */
 
-#include "itm_cfg80211.h"
-#include "itm_wapi.h"
+#include "cfg80211.h"
+#include "wapi.h"
 
 #define KEYID_LEN 1
 #define RESERVD_LEN 1
