@@ -79,6 +79,7 @@ enum wlan_sipc_cmd_id {
 	WIFI_CMD_LINK_STATUS,
 	WIFI_CMD_PM_EARLY_SUSPEND,
 	WIFI_CMD_PM_LATER_RESUME,
+	WIFI_CMD_BLACKLIST,
 	WIFI_CMD_MAX
 };
 
@@ -185,6 +186,8 @@ extern int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc,
 				u8 *beacon, u16 len);
 extern int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 				u8 type, const u8 *ie, u8 len);
+extern int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc,
+				u8 *addr, u8 flag);
 extern int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc,
 				u8 mode, u8 *mac_addr);
 extern int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode);

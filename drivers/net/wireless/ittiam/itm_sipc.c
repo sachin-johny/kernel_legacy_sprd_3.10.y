@@ -844,6 +844,37 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	return 0;
 }
 
+int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc, u8 *addr, u8 flag)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	int ret;
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	memcpy(send_buf->u.cmd.variable, addr, 6);
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + 6;
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+
+	if (flag)
+		ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD,
+					     WIFI_CMD_BLACKLIST);
+	else
+		ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL,
+					     WIFI_CMD_BLACKLIST);
+
+	if (ret) {
+		pr_err("blacklist wrong status code is %d\n", ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	pr_debug("blacklist return status code successfully\n");
+
+	return 0;
+}
+
 int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
