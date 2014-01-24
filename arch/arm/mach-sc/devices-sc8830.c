@@ -835,7 +835,10 @@ struct platform_device sprd_sdio0_device = {
 	.id             =  SDC_SLAVE_SD,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
-	.dev = { .platform_data = &sprd_sdio0_pdata },
+	.dev = {
+		.platform_data = &sprd_sdio0_pdata,
+		.init_name = "sprd-sdhci.0",
+	},
 };
 
 static struct resource sprd_sdio1_resources[] = {
@@ -867,7 +870,10 @@ struct platform_device sprd_sdio1_device = {
 	.id             =  SDC_SLAVE_WIFI,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
-	.dev = { .platform_data = &sprd_sdio1_pdata },
+	.dev = {
+		.platform_data = &sprd_sdio1_pdata,
+		.init_name = "sprd-sdhci.1",
+	},
 };
 
 struct platform_device sprd_vsp_device = {
@@ -969,7 +975,10 @@ struct platform_device sprd_sdio2_device = {
 	.id = SDC_SLAVE_CP,
 	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource = sprd_sdio2_resources,
-	.dev = { .platform_data = &sprd_sdio2_pdata },
+	.dev = {
+		.platform_data = &sprd_sdio2_pdata,
+		.init_name = "sprd-sdhci.2",
+	},
 };
 
 static struct resource sprd_emmc_resources[] = {
@@ -1011,7 +1020,10 @@ struct platform_device sprd_emmc_device = {
 	.id = SDC_SLAVE_EMMC,
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
-	.dev = { .platform_data = &sprd_emmc_pdata },
+	.dev = {
+		.platform_data = &sprd_emmc_pdata,
+		.init_name = "sprd-sdhci.3",
+	},
 };
 
 struct sysdump_mem sprd_dump_mem[] = {

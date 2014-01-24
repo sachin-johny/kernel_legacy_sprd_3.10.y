@@ -1066,7 +1066,6 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	sprd_host->host = host;
 	host_pdata = dev_get_platdata(&pdev->dev);
 	sprd_host->platdata = host_pdata;
-	dev_set_name(&pdev->dev, "%s.%d", DRIVER_NAME, pdev->id);
 	platform_set_drvdata(pdev, host);
 	host->ops = (const struct sdhci_ops *)&sprd_host->sdhci_host_ops;
 	pdev->dev.dma_mask = &host->dma_mask;
