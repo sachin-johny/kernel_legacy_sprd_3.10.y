@@ -20,6 +20,8 @@
 #include <mach/globalregs.h>
 #include "modem_buffer.h"
 #include "modem_interface_driver.h"
+#include <mach/hardware.h>
+#include <mach/pinmap.h>
 
 #define GPIO_INVALID 0xFFFFFFFF
 
@@ -46,17 +48,50 @@ int get_assert_status(void)
 		return 1;
 	return 0;
 }
+
+/*
+ * All rfctl pins that are not configured as gpio functionality were
+ * pulled down during kernel initialization, so we have to call this
+ * function to recover the default configuration defined in
+ * rfctl-pinmap-board.h after modem become alive.
+ * @see: pull_down_rfctl_nongpio_pins() defined in
+ *       arch/arm/mach-sc8810/pinmap.c
+ */
+static int recover_rfctl_pinmap()
+{
+	pinmap_t tmp_rfctl_pinmap[] = {
+		#include <rfctl-pinmap-board.h>
+	};
+        int i;
+        for (i = 0; i < ARRAY_SIZE(tmp_rfctl_pinmap); i++) {
+                __raw_writel(tmp_rfctl_pinmap[i].val, CTL_PIN_BASE
+			+ tmp_rfctl_pinmap[i].reg);
+        }
+	return 0;
+}
+
 static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
 {
 	int status ;
 
-	if(modem_is_poweron==0)
+	/* Use this flag to make sure that we call
+	    recover_rfctl_pinmap() only once. */
+	static bool rfctl_is_recovered = false;
+
+	if (modem_is_poweron == 0)
 		return IRQ_HANDLED;
 	status = gpio_get_value(cp_alive_gpio);
-	if(status == 0)
+	if (status == 0) {
 		modem_intf_send_GPIO_message(cp_alive_gpio,status,0);
-	else
+	} else {
+		if (!rfctl_is_recovered) {
+			/* Recover the default configuration after
+			    modem become alive. */
+			recover_rfctl_pinmap();
+			rfctl_is_recovered = true;
+		}
 		modem_intf_send_GPIO_message(cp_alive_gpio,1,0);
+	}
 	return IRQ_HANDLED;
 }
 

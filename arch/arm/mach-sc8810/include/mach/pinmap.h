@@ -14,6 +14,13 @@
 #ifndef __ASM_ARM_ARCH_PINMAP_H
 #define __ASM_ARM_ARCH_PINMAP_H
 
+#include <linux/types.h>
+
+typedef struct {
+	uint32_t reg;
+	uint32_t val;
+} pinmap_t;
+
 #define CTL_PIN_BASE			( SPRD_CPC_BASE )
 
 /* registers definitions for controller CTL_PIN
@@ -689,13 +696,18 @@
 #endif
 /* bits definitions for register REG_PIN_XXX */
 #define BITS_PIN_DS(_x_)                ( (_x_) << 8 & (BIT(8)|BIT(9)) )
+#define BITS_PIN_DS_MASK                (BIT(8) | BIT(9))
 #define BIT_PIN_WPU                     ( BIT(7) )
 #define BIT_PIN_WPD                     ( BIT(6) )
 #ifdef CONFIG_ARCH_SC7710 
 /*7710g support upto 8 functions per pin*/
 #define BITS_PIN_AF(_x_)                ((((_x_) & 3 )<< 4 & (BIT(4)|BIT(5))) | (((_x_) & 4 ) << 14))
+#define BITS_PIN_AF_GPIO                BITS_PIN_AF(3)
+#define BITS_PIN_AF_MASK                (BIT(4) | BIT(5) | BIT(14))
 #else
 #define BITS_PIN_AF(_x_)                ( (_x_) << 4 & (BIT(4)|BIT(5)) )
+#define BITS_PIN_AF_GPIO                BITS_PIN_AF(3)
+#define BITS_PIN_AF_MASK                (BIT(4) | BIT(5))
 #endif
 
 #define BIT_PIN_SLP_WPU                 ( BIT(3) )

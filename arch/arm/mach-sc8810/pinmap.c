@@ -18,20 +18,59 @@
 #include <mach/hardware.h>
 #include <mach/pinmap.h>
 
-typedef struct {
-	uint32_t reg;
-	uint32_t val;
-} pinmap_t;
-
 pinmap_t __initconst pinmap[] = {
 #include <pinmap-board.h>
 };
 
+pinmap_t __initconst rfctl_pinmap[] = {
+#include <rfctl-pinmap-board.h>
+};
+
+static int __init pull_down_rfctl_nongpio_pins(void);
+
+/*
+ * For all non-rfctl pins, initialize them as the default configuration
+ * defined in pinmap-board.h
+ *
+ * For rfctl pins defined in rfctl-pinmap-board.h, we have a special initialization.
+ * @see: pull_down_rfctl_nongpio_pins() defined in this file
+ */
 static int __init pin_init(void)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(pinmap); i++) {
 		__raw_writel(pinmap[i].val, CTL_PIN_BASE + pinmap[i].reg);
+	}
+	return pull_down_rfctl_nongpio_pins();
+}
+
+/*
+ * All rfctl pins that are not configured as gpio functionality must be
+ * pulled down before modem become alive, otherwise the unstable
+ * electrical level may lead to a leackage of electricity.
+ *
+ * Also, we have to recover the default configuration defined in
+ * rfctl-pinmap-board.h after modem become alive.
+ * @see: cp_alive_gpio_handle() defined in
+ *       drivers/char/modem_interface/modem_gpio_drv.c
+ */
+static int __init pull_down_rfctl_nongpio_pins(void)
+{
+	int i;
+	for (i = 0; i < ARRAY_SIZE(rfctl_pinmap); i++) {
+		if ((rfctl_pinmap[i].val & BITS_PIN_AF_MASK) != BITS_PIN_AF_GPIO) {
+			/* If a rfctl pin is configured as a non-gpip, set the
+			   pin as a output gpio temporarily and pull it down. */
+			__raw_writel((rfctl_pinmap[i].val & BITS_PIN_DS_MASK)
+				| BITS_PIN_AF_GPIO | BIT_PIN_WPD
+				| BIT_PIN_SLP_WPD | BIT_PIN_SLP_OE,
+				CTL_PIN_BASE + rfctl_pinmap[i].reg);
+		} else {
+			/* If a rfctl pin is configured as a gpio, use the default
+			   configuration defined in rfctl-pinmap-board.h. */
+			__raw_writel(rfctl_pinmap[i].val, CTL_PIN_BASE
+				+ rfctl_pinmap[i].reg);
+		}
 	}
 	return 0;
 }
