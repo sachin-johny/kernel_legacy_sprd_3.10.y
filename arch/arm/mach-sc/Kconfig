@@ -358,6 +358,12 @@ config SPRD_AVS_DEBUG
 	help
 	  This option select avs debug module.
 
+config SPRD_AUX_DEBUG
+       tristate "Enable aux debug moduel"
+       default y
+       help
+         This option select aux debug module.
+
 config SPRD_SIMCTRL
 	bool "Enable simctrl module"
 	default n

@@ -58,3 +58,4 @@ obj-$(CONFIG_MACH_SP7730ECTRISIM) += board-sp7730ectrisim.o dma_r4p0.o
 obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o
 obj-$(CONFIG_SPRD_MEM_POOL) += sprd_mem_pool.o
 obj-$(CONFIG_SPRD_AVS_DEBUG) += avs_debug.o
+obj-$(CONFIG_SPRD_AUX_DEBUG) += aux_debug.o
