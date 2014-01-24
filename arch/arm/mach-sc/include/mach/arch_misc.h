@@ -125,6 +125,6 @@ static inline int soc_is_sc7715(void)
 	else 
 	{
 		pr_err("%s error chip id\n", __func__);
-		return -EINVAL;
+		return 0;
 	}
 }
