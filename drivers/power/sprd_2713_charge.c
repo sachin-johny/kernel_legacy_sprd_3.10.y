@@ -39,21 +39,21 @@ uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue);
 
 #ifdef SPRDBAT_BATTERY_TEMP_DECT
 int32_t temp_adc_table[][2] = {
-	{65,  3188},
-	{60,  3620},
-	{55,  4103},
-	{50,  4593},
-	{45,  5137},
-	{40,  5714},
-	{35,  6282},
-	{30,  6861},
-	{25,  7429},
-	{20,  7988},
-	{15,  8501},
-	{10,  8973},
-	{5,   9383},
-	{0,   9771},
-	{-5,  10084},
+	{65, 3188},
+	{60, 3620},
+	{55, 4103},
+	{50, 4593},
+	{45, 5137},
+	{40, 5714},
+	{35, 6282},
+	{30, 6861},
+	{25, 7429},
+	{20, 7988},
+	{15, 8501},
+	{10, 8973},
+	{5, 9383},
+	{0, 9771},
+	{-5, 10084},
 	{-10, 10339},
 	{-15, 10550},
 	{-20, 10717},
@@ -280,8 +280,7 @@ static uint16_t sprdbat_adc_to_vol_channel(uint16_t channel, uint16_t adcvalue)
 
 	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
 			      &bat_denominators);
-	sci_adc_get_vol_ratio(channel, 0, &vchg_numerators,
-			      &vchg_denominators);
+	sci_adc_get_vol_ratio(channel, 0, &vchg_numerators, &vchg_denominators);
 
 	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
 	n = bat_denominators * vchg_numerators;
@@ -304,33 +303,34 @@ int sprdchg_read_temp(void)
 {
 #ifdef SPRDBAT_BATTERY_TEMP_DECT
 #define SAMPLE_NUM  15
-		int ret,i,sum = 0;
-		int adc_val[SAMPLE_NUM];
-		struct adc_sample_data data = {
+	int ret, i, sum = 0;
+	int adc_val[SAMPLE_NUM];
+	struct adc_sample_data data = {
 		.channel_id = SPRDBAT_ADC_CHANNEL_TEMP,
-		.channel_type = 0,		/*sw */
+		.channel_type = 0,	/*sw */
 		.hw_channel_delay = 0,	/*reserved */
-		.scale = 1, 	/*small scale */
+		.scale = 1,	/*small scale */
 		.pbuf = &adc_val[0],
 		.sample_num = SAMPLE_NUM,
 		.sample_bits = 1,
-		.sample_speed = 0,		/*quick mode */
-		.signal_mode = 0,		/*resistance path */
+		.sample_speed = 0,	/*quick mode */
+		.signal_mode = 0,	/*resistance path */
 	};
 
 	ret = sci_adc_get_values(&data);
 	WARN_ON(0 != ret);
 
-	for(i = SAMPLE_NUM - 5; i < SAMPLE_NUM; i++){
-		 sum+=adc_val[i];
+	for (i = SAMPLE_NUM - 5; i < SAMPLE_NUM; i++) {
+		sum += adc_val[i];
 	}
 	sum /= 5;
 	printk(KERN_ERR "sprdchg: adc_val[10]:%d\n", adc_val[10]);
 	printk(KERN_ERR "sprdchg: adc_val[14]:%d\n", adc_val[14]);
-	printk(KERN_ERR "sprdchg: channel:%d,sprdchg_read_temp adc:%d\n",data.channel_id, sum);
+	printk(KERN_ERR "sprdchg: channel:%d,sprdchg_read_temp adc:%d\n",
+	       data.channel_id, sum);
 
-	sum = sprdbat_adc_to_vol_channel(data.channel_id,sum);
-	sum = sum*10;
+	sum = sprdbat_adc_to_vol_channel(data.channel_id, sum);
+	sum = sum * 10;
 	printk(KERN_ERR "sprdchg: sprdchg_read_temp voltage:%d\n", sum);
 	return sprdchg_adc_to_temp(sum);
 #else
@@ -470,6 +470,59 @@ uint32_t sprdchg_get_cccvpoint(void)
 	    shft;
 }
 
+uint32_t sprdchg_tune_endvol_cccv(uint32_t chg_end_vol, uint32_t cal_cccv)
+{
+	uint32_t cv;
+
+	BUG_ON(chg_end_vol > 4400);
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+		      BITS_CHGR_END_V(0), BITS_CHGR_END_V(~0));
+	if (chg_end_vol >= 4200) {
+		if (chg_end_vol < 4300) {
+			cv = (((chg_end_vol - 4200) * 10) +
+			      (ONE_CCCV_STEP_VOL >> 1)) / ONE_CCCV_STEP_VOL +
+			    cal_cccv;
+			if (cv > SPRDBAT_CCCV_MAX) {
+				printk("sprdchg: cv > SPRDBAT_CCCV_MAX!\n");
+				sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+					      BITS_CHGR_END_V(1),
+					      BITS_CHGR_END_V(~0));
+				return (cal_cccv - (((4300 - chg_end_vol) * 10) +
+						   (ONE_CCCV_STEP_VOL >> 1)) /
+				    ONE_CCCV_STEP_VOL);
+			} else {
+				return cv;
+			}
+		} else {
+			cv = (((chg_end_vol - 4300) * 10) +
+			      (ONE_CCCV_STEP_VOL >> 1)) / ONE_CCCV_STEP_VOL +
+			    cal_cccv;
+			if (cv > SPRDBAT_CCCV_MAX) {
+				printk("sprdchg: cv > SPRDBAT_CCCV_MAX!\n");
+				sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+					      BITS_CHGR_END_V(2),
+					      BITS_CHGR_END_V(~0));
+				return (cal_cccv - (((4400 - chg_end_vol) * 10) +
+						   (ONE_CCCV_STEP_VOL >> 1)) /
+				    ONE_CCCV_STEP_VOL);
+			} else {
+				sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
+					      BITS_CHGR_END_V(1),
+					      BITS_CHGR_END_V(~0));
+				return cv;
+			}
+		}
+	} else {
+		cv = (((4200 - chg_end_vol) * 10) +
+		      (ONE_CCCV_STEP_VOL >> 1)) / ONE_CCCV_STEP_VOL;
+		if (cv > cal_cccv) {
+			return 0;
+		} else {
+			return (cal_cccv - cv);
+		}
+	}
+}
+
 static void _sprdchg_set_recharge(void)
 {
 	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_RECHG);
@@ -483,9 +536,7 @@ static void _sprdchg_stop_recharge(void)
 void sprdchg_stop_charge(void)
 {
 #if defined(CONFIG_ARCH_SCX15)
-	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      BIT_CHGR_PD,
-		      BIT_CHGR_PD);
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0, BIT_CHGR_PD, BIT_CHGR_PD);
 #else
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BIT_CHGR_PD_RTCSET,
@@ -497,9 +548,7 @@ void sprdchg_stop_charge(void)
 void sprdchg_start_charge(void)
 {
 #if defined(CONFIG_ARCH_SCX15)
-	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
-		      0,
-		      BIT_CHGR_PD);
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0, 0, BIT_CHGR_PD);
 #else
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BIT_CHGR_PD_RTCCLR,
@@ -591,13 +640,12 @@ uint32_t sprdchg_read_vbat_vol(void)
 
 #ifdef CONFIG_LEDS_TRIGGERS
 void sprdchg_led_brightness_set(struct led_classdev *led_cdev,
-			 enum led_brightness brightness)
+				enum led_brightness brightness)
 {
-    if(brightness == LED_FULL){
-            sci_adi_clr(ANA_REG_GLB_ANA_DRV_CTRL, BIT_KPLED_PD);
-    }else{
-            sci_adi_set(ANA_REG_GLB_ANA_DRV_CTRL, BIT_KPLED_PD);
-    }
+	if (brightness == LED_FULL) {
+		sci_adi_clr(ANA_REG_GLB_ANA_DRV_CTRL, BIT_KPLED_PD);
+	} else {
+		sci_adi_set(ANA_REG_GLB_ANA_DRV_CTRL, BIT_KPLED_PD);
+	}
 }
 #endif
-

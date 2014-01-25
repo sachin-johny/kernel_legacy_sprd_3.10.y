@@ -81,6 +81,7 @@ static uint32_t sprdbat_trickle_chg;
 static uint32_t sprdbat_start_chg;
 static uint32_t poweron_capacity;
 static struct notifier_block sprdbat_notifier;
+static uint32_t sprdbat_cccv_cal_from_chip = 0;
 
 extern struct sprdbat_auxadc_cal adc_cal;
 
@@ -287,15 +288,18 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 		adc_cal.cal_type = SPRDBAT_AUXADC_CAL_NV;
 		break;
 	case HW_SWITCH_POINT:
-		local_irq_save(irq_flag);
-		sprdbat_data->bat_info.cccv_point = set_value;
-		sprdchg_set_cccvpoint(sprdbat_data->bat_info.cccv_point);
-		if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
-			sprdbat_cv_irq_dis = 0;
-			sprdbat_trickle_chg = 0;
-			enable_irq(sprdbat_data->irq_chg_cv_state);
+		if (!sprdbat_cccv_cal_from_chip) {
+			local_irq_save(irq_flag);
+			sprdbat_data->bat_info.cccv_point = set_value;
+			sprdchg_set_cccvpoint(sprdbat_data->
+					      bat_info.cccv_point);
+			if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
+				sprdbat_cv_irq_dis = 0;
+				sprdbat_trickle_chg = 0;
+				enable_irq(sprdbat_data->irq_chg_cv_state);
+			}
+			local_irq_restore(irq_flag);
 		}
-		local_irq_restore(irq_flag);
 		break;
 	case SAVE_CAPACITY:
 		{
@@ -453,11 +457,15 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 	data->bat_info.chg_current_type = SPRDBAT_SDP_CUR_LEVEL;
 	{
 		uint32_t cv_point;
-		extern int sci_efuse_cv_get(unsigned int *p_cal_data);
-		if (sci_efuse_cv_get(&cv_point)) {
-			data->bat_info.cccv_point = cv_point;
+		extern int sci_efuse_cccv_cal_get(unsigned int *p_cal_data);
+		if (sci_efuse_cccv_cal_get(&cv_point)) {
+			SPRDBAT_DEBUG("cccv_point efuse:%d\n", cv_point);
+			data->bat_info.cccv_point = sprdchg_tune_endvol_cccv(data->bat_param.chg_end_vol_pure, cv_point);
+			SPRDBAT_DEBUG("cccv_point sprdchg_tune_endvol_cccv:%d\n", data->bat_info.cccv_point);
+			sprdbat_cccv_cal_from_chip = 1;
 		} else {
 			data->bat_info.cccv_point = SPRDBAT_CCCV_DEFAULT;
+			SPRDBAT_DEBUG("cccv_point default\n");
 		}
 	}
 	return;
@@ -784,7 +792,12 @@ static __used irqreturn_t sprdbat_vchg_ovi_irq(int irq, void *dev_id)
 
 static int sprdbat_adjust_cccvpoint(uint32_t vbat_now)
 {
+
 	uint32_t cv;
+
+	if (sprdbat_cccv_cal_from_chip) {
+		return 0;
+	}
 
 	if (vbat_now <= sprdbat_data->bat_param.chg_end_vol_pure) {
 		cv = ((sprdbat_data->bat_param.chg_end_vol_pure -
@@ -811,6 +824,7 @@ static int sprdbat_adjust_cccvpoint(uint32_t vbat_now)
 			      cv);
 		sprdchg_set_cccvpoint(cv);
 	}
+
 	return 0;
 }
 
@@ -1146,14 +1160,17 @@ static void sprdbat_charge_works(struct work_struct *work)
 		sprdbat_data->bat_info.vbat_vol = sprdbat_read_vbat_vol();
 		sprdbat_data->bat_info.vbat_ocv = sprdfgu_read_vbat_ocv();
 		sprdbat_data->bat_info.bat_current = sprdfgu_read_batcurrent();
-		local_irq_save(irq_flag);
-		if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
-			sprdbat_cv_irq_dis = 0;
-			enable_irq(sprdbat_data->irq_chg_cv_state);
+		if (!sprdbat_cccv_cal_from_chip) {
+			local_irq_save(irq_flag);
+			if (sprdbat_cv_irq_dis && sprdfgu_is_new_chip()) {
+				sprdbat_cv_irq_dis = 0;
+				enable_irq(sprdbat_data->irq_chg_cv_state);
+			}
+			local_irq_restore(irq_flag);
 		}
-		local_irq_restore(irq_flag);
 		sprdbat_start_chg = 0;
 	}
+
 	SPRDBAT_DEBUG("sprdbat_charge_works----------vbat_vol %d,ocv:%d\n",
 		      sprdbat_data->bat_info.vbat_vol,
 		      sprdbat_data->bat_info.vbat_ocv);
@@ -1174,15 +1191,24 @@ static void sprdbat_charge_works(struct work_struct *work)
 				    (SPRDBAT_CHG_TIMEOUT_E);
 			}
 		}
-
-		if ((sprdbat_data->bat_info.vbat_vol >
-		     sprdbat_data->bat_param.chg_end_vol_l
-		     || sprdbat_trickle_chg)
-		    && sprdbat_data->bat_info.bat_current <
-		    sprdbat_data->bat_param.chg_end_cur) {
-			sprdbat_trickle_chg = 0;
-			SPRDBAT_DEBUG("SPRDBAT_CHG_FULL_E\n");
-			sprdbat_change_module_state(SPRDBAT_CHG_FULL_E);
+		if (sprdbat_cccv_cal_from_chip) {
+			int value = gpio_get_value(sprdbat_data->gpio_chg_cv_state);
+			if (value && (sprdbat_data->bat_info.bat_current <
+			    sprdbat_data->bat_param.chg_end_cur)) {
+				sprdbat_trickle_chg = 0;
+				SPRDBAT_DEBUG("SPRDBAT_CHG_FULL_E\n");
+				sprdbat_change_module_state(SPRDBAT_CHG_FULL_E);
+			}
+		} else {
+			if ((sprdbat_data->bat_info.vbat_vol >
+			     sprdbat_data->bat_param.chg_end_vol_l
+			     || sprdbat_trickle_chg)
+			    && sprdbat_data->bat_info.bat_current <
+			    sprdbat_data->bat_param.chg_end_cur) {
+				sprdbat_trickle_chg = 0;
+				SPRDBAT_DEBUG("SPRDBAT_CHG_FULL_E\n");
+				sprdbat_change_module_state(SPRDBAT_CHG_FULL_E);
+			}
 		}
 		//cccv point is high
 		if (sprdbat_data->bat_info.vbat_vol >
@@ -1622,8 +1648,8 @@ static int sprdbat_probe(struct platform_device *pdev)
 	data->irq_charger_detect = gpio_to_irq(data->gpio_charger_detect);
 
 	ret = request_irq(data->irq_charger_detect, sprdbat_chg_detect_int,
-		    IRQF_SHARED | IRQF_TRIGGER_HIGH, "sprdbat_charger_detect",
-		    data);
+			  IRQF_SHARED | IRQF_TRIGGER_HIGH,
+			  "sprdbat_charger_detect", data);
 	INIT_WORK(&sprdbat_chg_detect_work, sprdbat_chg_detect_works);
 #endif
 	sprdbat_info_init(data);

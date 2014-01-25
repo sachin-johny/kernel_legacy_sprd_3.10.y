@@ -170,24 +170,14 @@ struct sprdfgu_drivier_data sprdfgu_data;
 
 struct delayed_work sprdfgu_debug_work;
 uint32_t sprdfgu_debug_log_time = 30;
-//#define CUR_1000MA_ADC   2872 //177//0xF9 //176   OK
-//#define VOL_1000MV_ADC    678 //40
-//#define VOL_OFFSET  -22
-//#define CURRENT_OFFSET  87
 #define SPRDFGU_POCV_VOL_ADJUST 16
 #define SPRDFGU_OCV_VALID_TIME    20
-#define sprdfgu_cal_init sprdfgu_cal_from_nv
 
 static int cur_1000ma_adc = 2872;
 static int vol_1000mv_adc = 678;
 static int vol_offset;
 static int cur_offset;
 
-#define VOL_0mv_ADC   4110
-#define VOL_40mv_ADC    6825
-#define CUR_0ma_ADC 8044
-
-#define VOL_0mv_IDEA_ADC    4096
 #define CUR_0ma_IDEA_ADC    8192
 #if defined(CONFIG_ARCH_SCX15)
 #define FGU_IMPEDANCE   215	//21.5moh
@@ -206,6 +196,7 @@ static int fgu_nv_4200mv = 2865;
 static int fgu_nv_3600mv = 2460;
 static int fgu_0_cur_adc = 8019;
 #endif
+static int fgu_cal_type = SPRDBAT_FGUADC_CAL_NO;
 static int battery_internal_impedance = 250;
 
 static int pcapacity;
@@ -247,7 +238,11 @@ uint16_t voltage_capacity_table[][2] = {
 };
 
 #if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_MACH_STAR2)  || defined(CONFIG_MACH_CORSICA_VE)
+#include "sprd_scx15_custom_0_soc_table.h"
+#else
 #include "sprd_scx15_soc_table.h"
+#endif
 #else
 #include "sprd_scx35_soc_table.h"
 #endif
@@ -311,6 +306,7 @@ static int __init fgu_cal_start(char *str)
 		fgu_nv_4200mv = (fgu_data[0] >> 16) & 0xffff;
 		fgu_nv_3600mv = (fgu_data[1] >> 16) & 0xffff;
 		fgu_0_cur_adc = fgu_data[2];
+		fgu_cal_type = SPRDBAT_FGUADC_CAL_NV;
 	}
 	return 1;
 }
@@ -333,9 +329,8 @@ static int __init fgu_cmd(char *str)
 
 __setup("fgu_init", fgu_cmd);
 
-static int sprdfgu_cal_from_nv(void)
+static int sprdfgu_cal_init(void)
 {
-	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
 	vol_1000mv_adc = ((fgu_nv_4200mv - fgu_nv_3600mv) * 10 + 3) / 6;
 	vol_offset = 0 - (fgu_nv_4200mv * 10 - vol_1000mv_adc * 42) / 10;
 	cur_offset = CUR_0ma_IDEA_ADC - fgu_0_cur_adc;
@@ -343,6 +338,11 @@ static int sprdfgu_cal_from_nv(void)
 	    (vol_1000mv_adc * 4 * FGU_IMPEDANCE +
 	     FGU_IMPEDANCE_IDEA / 2) / FGU_IMPEDANCE_IDEA;
 
+	if (SPRDBAT_FGUADC_CAL_CHIP == fgu_cal_type) {
+		vol_offset += SPRDFGU_CHIP_CALVOL_ADJUST;
+		printk("sprdfgu: SPRDFGU_CHIP_CALVOL_ADJUST = %d\n", SPRDFGU_CHIP_CALVOL_ADJUST);
+	}
+
 	if (!sprdfgu_is_new_chip()) {
 		vol_offset = 327;
 		cur_offset = 59;
@@ -350,36 +350,32 @@ static int sprdfgu_cal_from_nv(void)
 		vol_1000mv_adc = 500;
 	}
 	printk
-	    ("sprdfgu: sprdfgu_cal_from_nv fgu_nv_4200mv = %d,fgu_nv_3600mv = %d,fgu_0_cur_adc = %d\n",
+	    ("sprdfgu: sprdfgu_cal_init fgu_nv_4200mv = %d,fgu_nv_3600mv = %d,fgu_0_cur_adc = %d\n",
 	     fgu_nv_4200mv, fgu_nv_3600mv, fgu_0_cur_adc);
 	printk
-	    ("sprdfgu: sprdfgu_cal_from_nv cur_1000ma_adc = %d,vol_1000mv_adc = %d,vol_offset = %d,cur_offset = %d\n",
+	    ("sprdfgu: sprdfgu_cal_init cur_1000ma_adc = %d,vol_1000mv_adc = %d,vol_offset = %d,cur_offset = %d\n",
 	     cur_1000ma_adc, vol_1000mv_adc, vol_offset, cur_offset);
 	return 0;
 }
 
+int sci_efuse_fgu_cal_get(unsigned int *p_cal_data);
 static int sprdfgu_cal_from_chip(void)
 {
-	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
-	printk("sprdfgu: sprdfgu_cal_from_chip\n");
-	vol_offset = VOL_0mv_IDEA_ADC - VOL_0mv_ADC;
-	cur_offset = CUR_0ma_IDEA_ADC - CUR_0ma_ADC;
-	cur_1000ma_adc =
-	    ((VOL_40mv_ADC - VOL_0mv_ADC) * FGU_IMPEDANCE +
-	     FGU_IMPEDANCE_IDEA / 2)
-	    / FGU_IMPEDANCE_IDEA;
-	vol_1000mv_adc = ((VOL_40mv_ADC - VOL_0mv_ADC) + 2) / 4;
+        unsigned int fgu_data[4] = { 0 };
 
-	if (!sprdfgu_is_new_chip()) {
-		vol_offset = 327;
-		cur_offset = 59;
-		cur_1000ma_adc = 1760;
-		vol_1000mv_adc = 500;
-	}
+        if(!sci_efuse_fgu_cal_get(fgu_data)) {
+		printk("sprdfgu: sprdfgu_cal_from_chip efuse no cal data\n");
+		return 1;
+        }
+        printk("sprdfgu fgu_data: 0x%x 0x%x,0x%x,0x%x!\n", fgu_data[0],
+		       fgu_data[1], fgu_data[2],fgu_data[3]);
+        printk("sprdfgu: sprdfgu_cal_from_chip\n");
 
-	printk
-	    ("sprdfgu: cur_1000ma_adc = %d,vol_1000mv_adc = %d,vol_offset = %d,cur_offset = %d\n",
-	     cur_1000ma_adc, vol_1000mv_adc, vol_offset, cur_offset);
+        fgu_nv_4200mv = fgu_data[0];
+        fgu_nv_3600mv = fgu_data[1];
+        fgu_0_cur_adc = fgu_data[2];
+        fgu_cal_type = SPRDBAT_FGUADC_CAL_CHIP;
+
 	return 0;
 }
 
@@ -645,6 +641,10 @@ static void sprdfgu_cal_battery_impedance(void)
 
 	delta_vol_raw = sprdfgu_reg_get(REG_FGU_VOLT_VAL);
 	delta_current_raw = sprdfgu_reg_get(REG_FGU_CURT_VAL);
+#if 0   //use pocv and poci to caculate impedance
+	cmd_vol_raw = sprdfgu_reg_get(REG_FGU_POCV_VAL);
+	cmd_cur_raw = sprdfgu_reg_get(REG_FGU_CLBCNT_QMAXL) << 1;
+#endif
 	printk("sprdfgu: fgu delta_vol_raw: 0x%x delta_current_raw 0x%x!\n",
 	       delta_vol_raw, delta_current_raw);
 	printk("sprdfgu: fgu cmd_vol_raw: 0x%x cmd_cur_raw 0x%x!\n",
@@ -843,11 +843,11 @@ static void sprdfgu_hw_init(void)
 	current_raw = sprdfgu_reg_get(REG_FGU_CURT_VAL);
 	start_time = sci_syst_read();
 
-#if !defined(CONFIG_ARCH_SCX15)
+//#if !defined(CONFIG_ARCH_SCX15)
 	pcapacity = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
-#else
-	pcapacity = sprdfgu_vol2capacity(sprdfgu_adc2vol_mv(pocv_raw)+SPRDFGU_POCV_VOL_ADJUST);
-#endif
+//#else
+//	pcapacity = sprdfgu_vol2capacity(sprdfgu_adc2vol_mv(pocv_raw)+SPRDFGU_POCV_VOL_ADJUST);
+//#endif
 
 	pclbcnt = init_clbcnt = sprdfgu_clbcnt_init(pcapacity);
 	sprdfgu_clbcnt_set(init_clbcnt);
@@ -904,6 +904,7 @@ static struct device_attribute sprdfgu_attribute[] = {
 	SPRDFGU_ATTR_RO(fgu_vol),
 	SPRDFGU_ATTR_RO(fgu_current),
 	SPRDFGU_ATTR_WO(fgu_log_time),
+	SPRDFGU_ATTR_RO(fgu_cal_from_type),
 };
 
 enum SPRDFGU_ATTRIBUTE {
@@ -912,6 +913,7 @@ enum SPRDFGU_ATTRIBUTE {
 	FGU_VOL,
 	FGU_CURRENT,
 	FGU_LOG_TIME,
+	FGU_CAL_FROM_TYPE,
 };
 
 static ssize_t sprdfgu_store_attribute(struct device *dev,
@@ -958,6 +960,11 @@ static ssize_t sprdfgu_show_attribute(struct device *dev,
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
 			       sprdfgu_read_batcurrent());
 		break;
+        case FGU_CAL_FROM_TYPE:
+            i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
+                       fgu_cal_type);
+            break;
+
 	default:
 		i = -EINVAL;
 		break;
@@ -995,6 +1002,9 @@ int sprdfgu_init(struct platform_device *pdev)
 {
 	int ret = 0;
 
+	if(fgu_cal_type == SPRDBAT_FGUADC_CAL_NO) {
+		sprdfgu_cal_from_chip();   //try to find cal data from efuse
+	}
 	sprdfgu_cal_init();
 	sprdfgu_hw_init();
 
