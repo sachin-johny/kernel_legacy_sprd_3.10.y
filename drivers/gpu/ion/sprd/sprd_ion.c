@@ -83,7 +83,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
 		if (IS_ERR(handle)){
-			pr_err("sprd_heap_ioctl alloc handle error!\n");
+			pr_err("sprd_heap_ioctl alloc handle=0x%x error!\n", (unsigned long)handle);
 			return PTR_ERR(handle);
 		}
 
@@ -159,13 +159,16 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
+			pr_err("sprd_heap_ioctl gsp map copy_from_user error!\n");
 			return -EFAULT;
 		}
 
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)) {
+			pr_err("sprd_heap_ioctl gsp map handle=0x%x error!\n", (unsigned long)handle);
 			return PTR_ERR(handle);
+		}
 
 		mutex_lock(&(ion_handle_buffer(handle))->lock);
 		if(0==(ion_handle_buffer(handle))->iomap_cnt[IOMMU_GSP])
@@ -180,12 +183,14 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		ion_free(client, handle);
 		if (ret)
 		{
+			pr_err("sprd_heap_ioctl gsp map sprd_iova_map error %d!\n",ret);
 			sprd_iova_free(IOMMU_GSP,data.iova_addr,data.iova_size);
 			return ret;
 		}
 
 		if (copy_to_user((void __user *)arg,
 				&data, sizeof(data))) {
+			pr_err("sprd_heap_ioctl gsp map copy_to_user error!\n");
 			return -EFAULT;
 		}
 		break;
@@ -197,13 +202,16 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		if (copy_from_user(&data, (void __user *)arg,
 				sizeof(data))) {
+			pr_err("sprd_heap_ioctl gsp unmap copy_from_user error!\n");
 			return -EFAULT;
 		}
 
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
-		if (IS_ERR(handle))
+		if (IS_ERR(handle)) {
+			pr_err("sprd_heap_ioctl gsp unmap handle=0x%x ion_import_dma_buf error!\n", (unsigned long)handle);
 			return PTR_ERR(handle);
+		}
 
 		mutex_lock(&(ion_handle_buffer(handle))->lock);
 		(ion_handle_buffer(handle))->iomap_cnt[IOMMU_GSP]--;
@@ -217,11 +225,14 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		data.iova_addr=0;
 		data.iova_size=0;
 		ion_free(client, handle);
-		if (ret)
+		if (ret) {
+			pr_err("sprd_heap_ioctl gsp unmap sprd_iova_unmap error %d!\n",ret);
 			return ret;
+		}
 
 		if (copy_to_user((void __user *)arg,
 				&data, sizeof(data))) {
+			pr_err("sprd_heap_ioctl gsp unmap copy_to_user error!\n");
 			return -EFAULT;
 		}
 		break;
@@ -240,7 +251,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
 		if (IS_ERR(handle)){
-			pr_err("sprd_heap_ioctl mm map handle error!\n");
+			pr_err("sprd_heap_ioctl mm map handle=0x%x error!\n", (unsigned long)handle);
 			return PTR_ERR(handle);
 		}
 
@@ -287,7 +298,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		handle = ion_import_dma_buf(client, data.fd_buffer);
 
 		if (IS_ERR(handle)){
-			pr_err("sprd_heap_ioctl mm unmap handle error!\n");
+			pr_err("sprd_heap_ioctl mm unmap handle=0x%x error!\n", (unsigned long)handle);
 			return PTR_ERR(handle);
 		}
 
@@ -360,7 +371,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
         }
 	default:
-                pr_err("sprd_ion Do not support cmd: %d\n", cmd);
+		pr_err("sprd_ion Do not support cmd: %d\n", cmd);
 		return -ENOTTY;
 	}
 

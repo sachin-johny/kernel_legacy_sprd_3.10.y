@@ -1125,8 +1125,10 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 	int ret;
 
 	dmabuf = dma_buf_get(fd);
-	if (IS_ERR(dmabuf))
+	if (IS_ERR(dmabuf)) {
+		pr_err("ion_import_dma_buf() dmabuf=0x%x dma_buf_get error!\n", (unsigned long)dmabuf);
 		return ERR_PTR(PTR_ERR(dmabuf));
+	}
 	/* if this memory came from ion */
 
 	if (dmabuf->ops != &dma_buf_ops) {
@@ -1141,14 +1143,18 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 	/* if a handle exists for this buffer just take a reference to it */
 	handle = ion_handle_lookup(client, buffer);
 	if (!IS_ERR(handle)) {
+		pr_err("ion_import_dma_buf() handle=0x%x ion_handle_lookup error!\n", (unsigned long)handle);
 		ion_handle_get(handle);
 		goto end;
 	}
 	handle = ion_handle_create(client, buffer);
-	if (IS_ERR(handle))
+	if (IS_ERR(handle)) {
+		pr_err("ion_import_dma_buf() handle=0x%x ion_handle_create error!\n", (unsigned long)handle);
 		goto end;
+	}
 	ret = ion_handle_add(client, handle);
 	if (ret) {
+		pr_err("ion_import_dma_buf() ion_handle_add error %d!\n", ret);
 		ion_handle_put(handle);
 		handle = ERR_PTR(ret);
 	}
