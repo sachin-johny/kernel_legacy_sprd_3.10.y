@@ -1120,13 +1120,28 @@ static int get_cur_state(struct thermal_cooling_device *cdev,
 	return ret;
 }
 
+struct sd_dbs_tuners *g_sd_tuners = NULL;
+
 static int set_cur_state(struct thermal_cooling_device *cdev,
 			 unsigned long state)
 {
 	int ret = 0, cpu;
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("set_cur_state governor %s return\n", policy->governor->name);
+		if (g_sd_tuners == NULL)
+			return;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
 
 	thermal_cooling_info.cooling_state = state;
 	if (state) {
@@ -1162,6 +1177,7 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 #endif
 	}
 
+	g_sd_tuners = sd_tuners;
 	return ret;
 }
 
@@ -1176,7 +1192,19 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 {
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("sprdemand_gov_pm_notifier_call governor %s return\n", policy->governor->name);
+		if (g_sd_tuners == NULL)
+			return;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
 
 	/* in suspend and hibernation process, we need set frequency to the orignal
 	 * one to make sure all things go right */
@@ -1190,6 +1218,8 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 		pr_info(" %s, recv pm suspend notify done\n", __func__ );
 	}
 
+	g_sd_tuners = sd_tuners;
+  
 	return NOTIFY_OK;
 }
 
@@ -1203,8 +1233,6 @@ static void sprdemand_gov_early_suspend(struct early_suspend *h)
 	pr_info("%s do nothing\n", __func__);
 	return;
 }
-
-struct sd_dbs_tuners *g_sd_tuners = NULL;
 
 static void sprdemand_gov_late_resume(struct early_suspend *h)
 {
