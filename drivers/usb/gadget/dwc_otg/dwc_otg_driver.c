@@ -249,6 +249,20 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 };
 
 /**
+ * This function shows the driver whether support otg.
+ */
+static ssize_t is_support_otg_show(struct device_driver *dev, char *buf)
+{
+#ifdef DWC_DEVICE_ONLY	
+	return sprintf(buf, "%x\n", 0);
+#else
+	return sprintf(buf, "%x\n", 1);
+#endif
+}
+
+static DRIVER_ATTR(is_support_otg, S_IRUGO, is_support_otg_show, NULL);
+
+/**
  * This function shows the Driver Version.
  */
 static ssize_t version_show(struct device_driver *dev, char *buf)
@@ -872,6 +886,7 @@ static int __init dwc_otg_driver_init(void)
 	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_version);
 	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
 	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_udcpower);
+	error = driver_create_file(&dwc_otg_driver.driver, &driver_attr_is_support_otg);
 	return retval;
 }
 
@@ -891,6 +906,7 @@ static void __exit dwc_otg_driver_cleanup(void)
 	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_debuglevel);
 	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_version);
 	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_udcpower);
+	driver_remove_file(&dwc_otg_driver.driver, &driver_attr_is_support_otg);
 	platform_driver_unregister(&dwc_otg_driver);
 
 	printk(KERN_INFO "%s module removed\n", dwc_driver_name);
