@@ -94,6 +94,22 @@ ssize_t board_type_read(struct file *file, char __user *buf,
 	char buf_version[20] = {0};
 	u32 buf_len;
 
+	#ifdef CONFIG_ARCH_SCX15
+	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_0,0,40); //set current to 40 uA
+	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_0);
+	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+
+	if(vol >= 1000)
+		strcpy(buf_version,"V1.0.0");
+	else if(vol >600 && vol <= 1000)
+		strcpy(buf_version,"V1.0.4"); //3in1
+	else if(vol >200 && vol <=600)
+		strcpy(buf_version,"V1.0.2");//2in1
+	else
+		strcpy(buf_version,"No match board");
+
+	#else
+
 	//adc_value = sci_adc_get_value(ADC_CHANNEL_1, 0);
 	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_1,0,40); //set current to 40 uA
 	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_1);
@@ -107,6 +123,7 @@ ssize_t board_type_read(struct file *file, char __user *buf,
 		strcpy(buf_version,"V1.0.4");
 	else
 		strcpy(buf_version,"No match board");
+	#endif
 
 	buf_len = strlen(buf_version);
 	printk("buf_len:%d\n",buf_len);
