@@ -52,6 +52,23 @@ typedef struct sensor_project_func_tag {
 	int (*SetFlash)(uint32_t flash_mode);
 }SENSOR_PROJECT_FUNC_T;
 
+enum INTERFACE_OP_ID {
+	INTERFACE_OPEN = 0,
+	INTERFACE_CLOSE
+};
+
+enum INTERFACE_TYPE_ID {
+	INTERFACE_CCIR = 0,
+	INTERFACE_MIPI
+};
+
+typedef struct sensor_if_cfg_tag {
+	uint32_t is_open;
+	uint32_t if_type;
+	uint32_t lane_num;
+	uint32_t bps_per_lane;
+}SENSOR_IF_CFG_T;
+
 typedef struct  {
 	uint32_t d_die;
 	uint32_t a_die;
@@ -81,6 +98,7 @@ typedef struct  {
 #define SENSOR_IO_SET_I2CCLOCK      _IOW(SENSOR_IOC_MAGIC, 16,  uint32_t)
 #define SENSOR_IO_I2C_WRITE_EXT     _IOW(SENSOR_IOC_MAGIC, 17,  SENSOR_I2C_T)
 #define SENSOR_IO_GET_FLASH_LEVEL   _IOWR(SENSOR_IOC_MAGIC, 18,  SENSOR_FLASH_LEVEL_T)
+#define SENSOR_IO_IF_CFG            _IOW(SENSOR_IOC_MAGIC, 19,  SENSOR_IF_CFG_T)
 #define SENSOR_IO_GET_SOCID   _IOWR(SENSOR_IOC_MAGIC, 255,  SENSOR_SOCID_T)
 
 
