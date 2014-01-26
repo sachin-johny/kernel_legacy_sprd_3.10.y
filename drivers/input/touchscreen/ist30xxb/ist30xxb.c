@@ -300,10 +300,13 @@ int ist30xx_get_info(struct ist30xx_data *data)
 	if (ret == 0) {
 		tsp_info("calib status: 0x%08x\n", calib_msg);
 		ist30xx_tracking(calib_msg);
+		tsp_info("CALIB_MSG_MASK = 0x%08x\n",(calib_msg & CALIB_MSG_MASK));
+		tsp_info("CALIB_MSG_VALID = 0x%08x\n",CALIB_MSG_VALID);
+		tsp_info("CALIB_TOSTATUS = 0x%08x\n",CALIB_TO_STATUS(calib_msg));
 		if ((calib_msg & CALIB_MSG_MASK) != CALIB_MSG_VALID ||
 		    CALIB_TO_STATUS(calib_msg) > 0) {
-			ist30xx_calibrate(IST30XX_FW_UPDATE_RETRY);
-
+//			ist30xx_calibrate(IST30XX_FW_UPDATE_RETRY);
+			ist30xx_calibrate(1);
 			ist30xx_cmd_run_device(data->client);
 		}
 	}
@@ -457,7 +460,13 @@ static int check_report_data(struct ist30xx_data *data, int finger_counts, int k
 			fingers[i].bit_field.id = 0;
 			ist30xx_tracking(TRACK_POS_UNKNOWN);
 			return -EPERM;
+		} else{
+			tsp_warn("***touch data - %d: %d(%d, %d)\n", i,
+				fingers[i].bit_field.id,
+				fingers[i].bit_field.x,
+				fingers[i].bit_field.y);
 		}
+
 	}
 
 	/* previous finger info */
@@ -1086,7 +1095,7 @@ static int ist30xx_probe(struct i2c_client *		client,
 	if (retry == 0)
 		data->tsp_type = TSP_TYPE_UNKNOWN;
 
-	//tsp_info("TSP IC: %x, TSP Vendor: %x\n", data->chip_id, data->tsp_type);
+	tsp_info("TSP IC: %x, TSP Vendor: %x\n", data->chip_id, data->tsp_type);
 
 #if IST30XX_EVENT_MODE
 	data->status.event_mode = false;
@@ -1200,9 +1209,9 @@ static struct i2c_driver ist30xx_i2c_driver = {
 
 static int __init ist30xx_init(void)
 {
-	#if PRINT_TSP_LOG
+//	#if PRINT_TSP_LOG
 	printk("[TSP] ist30xx_init\n");
-	#endif
+//	#endif
 
 
 	return i2c_add_driver(&ist30xx_i2c_driver);
