@@ -187,7 +187,7 @@ static int dma_copy_k_yuv_trim(DMA_COPY_CFG_T * param_ptr)
 		len = src_rec_pixel;
 		ret = dma_copy_k_trim(dst_addr, src_addr, trim_w, offset, len);
 		if (ret) {
-			printk("dma_copy_k_start: eddy trim y fail. \n");
+			printk("dma_copy_k_start: trim y fail. \n");
 			return -1;
 		}
 		/*dma copy trim UV*/
@@ -199,7 +199,7 @@ static int dma_copy_k_yuv_trim(DMA_COPY_CFG_T * param_ptr)
 		len = src_rec_pixel >> 1;
 		ret = dma_copy_k_trim(dst_addr, src_addr, trim_w, offset, len);
 		if (ret) {
-			printk("dma_copy_k_start: eddy trim uv fail. \n");
+			printk("dma_copy_k_start: trim uv fail. \n");
 			return -1;
 		}
 	} else {
@@ -241,7 +241,6 @@ static int dma_copy_k_yuv(DMA_COPY_CFG_T * param_ptr)
 static int dma_copy_k_start(DMA_COPY_CFG_T * param_ptr)
 {
 	int32_t ret = 0;
-	struct timeval          ts;
 
 	DMA_COPY_PRINT("dma_copy_k_start format:%d, src_size:%d %d, src_rect:%d %d %d %d,src_addr:%x %x, dst_addr=%x %x\n",
 		param_ptr->format, param_ptr->src_size.w, param_ptr->src_size.h,

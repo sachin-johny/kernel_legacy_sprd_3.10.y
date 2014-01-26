@@ -229,7 +229,6 @@ struct dcam_module {
 LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_rotation_flag = ATOMIC_INIT(0);
-LOCAL struct clk*              s_mipi_clk = NULL;
 LOCAL struct clk*              s_dcam_clk = NULL;
 LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
 LOCAL struct dcam_module*      s_p_dcam_mod = 0;
@@ -861,73 +860,6 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 	}
 #endif	
 	return rtn;
-}
-
-int32_t dcam_mipi_clk_en(void)
-{
-	int                     ret = 0;
-
-	if (NULL == s_mipi_clk) {
-		s_mipi_clk = clk_get(NULL, "clk_dcam_mipi");
-	}
-
-	if (IS_ERR(s_mipi_clk)) {
-		printk("DCAM: get dcam mipi clk error \n");
-		return -1;
-	} else {
-		ret = clk_enable(s_mipi_clk);
-		if (ret) {
-			printk("DCAM: enable dcam mipi clk error %d \n", ret);
-			return -1;
-		}
-	}
-
-	return ret;
-}
-
-int32_t dcam_mipi_clk_dis(void)
-{
-	if (s_mipi_clk) {
-		clk_disable(s_mipi_clk);
-		clk_put(s_mipi_clk);
-		s_mipi_clk = NULL;
-	}
-	return 0;
-}
-
-int32_t dcam_ccir_clk_en(void)
-{
-/*
-	int                     ret = 0;
-
-	if (s_ccir_clk) {
-		s_ccir_clk = clk_get(NULL, "clk_ccir");
-	}
-
-	if (IS_ERR(s_ccir_clk)) {
-		printk("DCAM: get dcam ccir clk error \n");
-		return -1;
-	} else {
-		ret = clk_enable(s_ccir_clk);
-		if (ret) {
-			printk("DCAM: enable dcam ccir clk error %d \n", ret);
-			return -1;
-		}
-	}
-*/
-	return 0;
-}
-
-int32_t dcam_ccir_clk_dis(void)
-{
-/*
-	if (s_ccir_clk) {
-		clk_disable(s_ccir_clk);
-		clk_put(s_ccir_clk);
-		s_ccir_clk = NULL;
-	}
-*/
-	return 0;
 }
 
 int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,

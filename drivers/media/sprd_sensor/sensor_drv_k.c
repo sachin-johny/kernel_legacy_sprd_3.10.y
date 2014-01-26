@@ -51,6 +51,7 @@
 #include "sensor_drv_sprd.h"
 
 #include <linux/sprd_iommu.h>
+#include "csi2/csi_api.h"
 
 /* FIXME: Move to camera device platform data later */
 /*#if defined(CONFIG_ARCH_SC8825)*/
@@ -218,10 +219,12 @@ struct sensor_module {
 	uint32_t                        avddpower_on_count;
 	uint32_t                        dvddpower_on_count;
 	uint32_t                        motpower_on_count;
+	uint32_t                        mipi_on;
 	struct mutex                    sensor_lock;
 	struct clk                      *sensor_clk_mm_i;
 	struct clk                      *ccir_clk;
 	struct clk                      *ccir_enable_clk;
+	struct clk                      *mipi_clk;
 	struct i2c_client               *cur_i2c_client;
 	struct regulator                *camvio_regulator;
 	struct regulator                *camavdd_regulator;
@@ -286,7 +289,7 @@ int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 	return 0;
 }
 
-LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
+LOCAL void* _sensor_k_kmalloc(size_t size, unsigned flags)
 {
 	if (SENSOR_ADDR_INVALID(s_p_sensor_mod)) {        \
 		printk("SENSOR, zero pointer \n");         \
@@ -318,9 +321,9 @@ LOCAL void* _Sensor_K_kmalloc(size_t size, unsigned flags)
 	}
 }
 
-LOCAL void* _Sensor_K_kzalloc(size_t size, unsigned flags)
+LOCAL void* _sensor_k_kzalloc(size_t size, unsigned flags)
 {
-	void *ptr = _Sensor_K_kmalloc(size, flags);
+	void *ptr = _sensor_k_kmalloc(size, flags);
 	if(PNULL != ptr) {
 		 memset(ptr, 0, size);
 	}
@@ -328,13 +331,13 @@ LOCAL void* _Sensor_K_kzalloc(size_t size, unsigned flags)
 	return ptr;
 }
 
-LOCAL void _Sensor_K_kfree(void *p)
+LOCAL void _sensor_k_kfree(void *p)
 {
 	/* memory will not be free */
 	return;
 }
 
-LOCAL uint32_t Sensor_K_GetCurId(void)
+LOCAL uint32_t _sensor_K_get_curId(void)
 {
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 	return s_p_sensor_mod->sensor_id;
@@ -374,11 +377,11 @@ LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 }
 
 
-LOCAL int _Sensor_K_PowerDown(BOOLEAN power_level)
+LOCAL int _sensor_k_powerdown(BOOLEAN power_level)
 {
 	SENSOR_PRINT_HIGH("SENSOR: pwdn %d\n", power_level);
 
-	switch (Sensor_K_GetCurId()) {
+	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 		{
 			if (0 == power_level) {
@@ -437,7 +440,7 @@ LOCAL int _sensor_regulator_enable(uint32_t *power_on_count, struct regulator * 
 	return err;
 }
 
-LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
+LOCAL int _sensor_k_set_voltage_cammot(uint32_t cammot_val)
 {
 	int                  err = 0;
 	uint32_t             volt_value = 0;
@@ -525,7 +528,7 @@ LOCAL int _Sensor_K_SetVoltage_CAMMOT(uint32_t cammot_val)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
+LOCAL int _sensor_k_set_voltage_avdd(uint32_t avdd_val)
 {
 	int                err = 0;
 	uint32_t           volt_value = 0;
@@ -601,7 +604,7 @@ LOCAL int _Sensor_K_SetVoltage_AVDD(uint32_t avdd_val)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
+LOCAL int _sensor_k_set_voltage_dvdd(uint32_t dvdd_val)
 {
 	int                  err = 0;
 	uint32_t             volt_value = 0;
@@ -610,7 +613,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 	SENSOR_PRINT_HIGH("sensor set DVDD val %d\n",dvdd_val);
 
 	if (NULL == s_p_sensor_mod->camdvdd_regulator) {
-		switch (Sensor_K_GetCurId()) {
+		switch (_sensor_K_get_curId()) {
 			case SENSOR_MAIN:
 			{
 				s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
@@ -618,7 +621,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 			}
 			case SENSOR_SUB:
 			{
-				SENSOR_PRINT("SENSOR:_Sensor_K_SetVoltage_DVDD, dvdd_val=%d  thi is sub camera \n", dvdd_val);
+				SENSOR_PRINT("SENSOR:_sensor_k_setvoltage_dvdd, dvdd_val=%d  thi is sub camera \n", dvdd_val);
 				s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_SUB_CAMDVDD);
 					break;
 			}
@@ -705,7 +708,7 @@ LOCAL int _Sensor_K_SetVoltage_DVDD(uint32_t dvdd_val)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
+LOCAL int _sensor_k_set_voltage_iovdd(uint32_t iodd_val)
 {
 	int                    err = 0;
 	uint32_t               volt_value = 0;
@@ -805,7 +808,7 @@ LOCAL int _Sensor_K_SetVoltage_IOVDD(uint32_t iodd_val)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
+LOCAL int _select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 			uint8_t * clk_div)
 {
 	uint8_t               i = 0;
@@ -848,7 +851,43 @@ LOCAL int select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
+int32_t _sensor_k_mipi_clk_en(void)
+{
+	int                     ret = 0;
+
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+
+	if (NULL == s_p_sensor_mod->mipi_clk) {
+		s_p_sensor_mod->mipi_clk = clk_get(NULL, "clk_dcam_mipi");
+	}
+
+	if (IS_ERR(s_p_sensor_mod->mipi_clk)) {
+		printk("SENSOR: get dcam mipi clk error \n");
+		return -1;
+	} else {
+		ret = clk_enable(s_p_sensor_mod->mipi_clk);
+		if (ret) {
+			printk("SENSOR: enable dcam mipi clk error %d \n", ret);
+			return -1;
+		}
+	}
+
+	return ret;
+}
+
+int32_t _sensor_k_mipi_clk_dis(void)
+{
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+
+	if (s_p_sensor_mod->mipi_clk) {
+		clk_disable(s_p_sensor_mod->mipi_clk);
+		clk_put(s_p_sensor_mod->mipi_clk);
+		s_p_sensor_mod->mipi_clk = NULL;
+	}
+	return 0;
+}
+
+LOCAL int _sensor_k_set_mclk(uint32_t mclk)
 {
 	struct clk            *clk_parent = NULL;
 	int                   ret;
@@ -875,7 +914,7 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 		if (mclk > SENSOR_MAX_MCLK) {
 			mclk = SENSOR_MAX_MCLK;
 		}
-		if (SENSOR_K_SUCCESS != select_sensor_mclk((uint8_t) mclk, &clk_src_name, &clk_div)) {
+		if (SENSOR_K_SUCCESS != _select_sensor_mclk((uint8_t) mclk, &clk_src_name, &clk_div)) {
 			SENSOR_PRINT_ERR("SENSOR:Sensor_SetMCLK select clock source fail.\n");
 			return -EINVAL;
 		}
@@ -954,11 +993,11 @@ LOCAL int _Sensor_K_SetMCLK(uint32_t mclk)
 	return 0;
 }
 
-LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
+LOCAL int _sensor_k_reset(uint32_t level, uint32_t width)
 {
-	SENSOR_PRINT("SENSOR:_Sensor_K_Reset, reset_val=%d  camera:%d (0:main 1:sub)\n",level, Sensor_K_GetCurId());
+	SENSOR_PRINT("SENSOR:_sensor_k_reset, reset_val=%d  camera:%d (0:main 1:sub)\n",level, _sensor_K_get_curId());
 
-	switch (Sensor_K_GetCurId()) {
+	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 	{
 		gpio_direction_output(GPIO_SENSOR_RESET, level);
@@ -984,7 +1023,7 @@ LOCAL int _Sensor_K_Reset(uint32_t level, uint32_t width)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
+LOCAL int _sensor_k_i2c_init(uint32_t sensor_id)
 {
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 	s_p_sensor_mod->sensor_id = sensor_id;
@@ -992,7 +1031,7 @@ LOCAL int _Sensor_K_I2CInit(uint32_t sensor_id)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
+LOCAL int _sensor_k_i2c_deInit(uint32_t sensor_id)
 {
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 	s_p_sensor_mod->sensor_id = SENSOR_ID_MAX;
@@ -1002,7 +1041,7 @@ LOCAL int _Sensor_K_I2CDeInit(uint32_t sensor_id)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_SetResetLevel(uint32_t plus_level)
+LOCAL int _sensor_k_set_rst_level(uint32_t plus_level)
 {
 	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, GPIO_SENSOR_RESET);
 
@@ -1124,7 +1163,7 @@ LOCAL int _Sensor_K_WriteReg(SENSOR_REG_BITS_T_PTR pReg)
 	return ret;
 }
 
-LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
+LOCAL int _sensor_k_get_flash_level(SENSOR_FLASH_LEVEL_T *level)
 {
 	level->low_light  = SPRD_FLASH_LOW_CUR;
 	level->high_light = SPRD_FLASH_HIGH_CUR;
@@ -1136,7 +1175,7 @@ LOCAL int _Sensor_K_GetFlashLevel(SENSOR_FLASH_LEVEL_T *level)
 
 int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size);
 
-LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
+LOCAL int _sensor_k_wr_regtab(SENSOR_REG_TAB_PTR pRegTab)
 {
 	char                   *pBuff = PNULL;
 	uint32_t               cnt = pRegTab->reg_count;
@@ -1151,7 +1190,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 	do_gettimeofday(&time1);
 	
 	size = cnt*sizeof(SENSOR_REG_T);
-	pBuff = _Sensor_K_kmalloc(size, GFP_KERNEL);
+	pBuff = _sensor_k_kmalloc(size, GFP_KERNEL);
 	if (PNULL == pBuff) {
 		ret = SENSOR_K_FAIL;
 		SENSOR_PRINT_ERR("sensor W RegTab err:kmalloc fail, cnt %d, size %d\n", cnt, size);
@@ -1187,7 +1226,7 @@ LOCAL int _Sensor_K_WriteRegTab(SENSOR_REG_TAB_PTR pRegTab)
 
 _Sensor_K_WriteRegTab_return:
 	if (PNULL != pBuff)
-		_Sensor_K_kfree(pBuff);
+		_sensor_k_kfree(pBuff);
 
 	do_gettimeofday(&time2);
 	SENSOR_PRINT("sensor w RegTab: done, ret %d, cnt %d, time %d us \n", ret, cnt,
@@ -1195,7 +1234,7 @@ _Sensor_K_WriteRegTab_return:
 	return ret;
 }
 
-LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
+LOCAL int _sensor_k_set_i2c_clk(uint32_t clock)
 {
 	sprd_i2c_ctl_chg_clk(SENSOR_I2C_ID, clock);
 	SENSOR_PRINT("sensor set i2c clk %d  \n", clock);
@@ -1203,7 +1242,7 @@ LOCAL int _Sensor_K_SetI2CClock(uint32_t clock)
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
+LOCAL int _sensor_k_wr_i2c(SENSOR_I2C_T_PTR pI2cTab)
 {
 	char            *pBuff = PNULL;
 	struct          i2c_msg msg_w;
@@ -1211,7 +1250,7 @@ LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
 	int             ret = SENSOR_K_FAIL;
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
-	pBuff = _Sensor_K_kmalloc(cnt, GFP_KERNEL);
+	pBuff = _sensor_k_kmalloc(cnt, GFP_KERNEL);
 	if (PNULL == pBuff) {
 		SENSOR_PRINT_ERR("sensor W I2C ERR: kmalloc fail, size %d\n", cnt);
 		goto sensor_k_writei2c_return;
@@ -1239,13 +1278,21 @@ LOCAL int _Sensor_K_WriteI2C(SENSOR_I2C_T_PTR pI2cTab)
 
 sensor_k_writei2c_return:
 	if(PNULL != pBuff)
-		_Sensor_K_kfree(pBuff);
+		_sensor_k_kfree(pBuff);
 
 	SENSOR_PRINT("sensor w done, ret %d \n", ret);
 	return ret;
 }
 
+LOCAL int _sensor_csi2_error(uint32_t err_id, uint32_t err_status, void* u_data)
+{
+	int                      ret = 0;
 
+	printk("V4L2: csi2_error, %d 0x%x \n", err_id, err_status);
+
+	return ret;
+
+}
 
 int sensor_k_open(struct inode *node, struct file *file)
 {
@@ -1257,11 +1304,11 @@ int sensor_k_open(struct inode *node, struct file *file)
 int sensor_k_release(struct inode *node, struct file *file)
 {
 	int	ret = 0;
-	_Sensor_K_SetVoltage_CAMMOT(SENSOR_VDD_CLOSED);
-	_Sensor_K_SetVoltage_AVDD(SENSOR_VDD_CLOSED);
-	_Sensor_K_SetVoltage_DVDD(SENSOR_VDD_CLOSED);
-	_Sensor_K_SetVoltage_IOVDD(SENSOR_VDD_CLOSED);
-	_Sensor_K_SetMCLK(0);
+	_sensor_k_set_voltage_cammot(SENSOR_VDD_CLOSED);
+	_sensor_k_set_voltage_avdd(SENSOR_VDD_CLOSED);
+	_sensor_k_set_voltage_dvdd(SENSOR_VDD_CLOSED);
+	_sensor_k_set_voltage_iovdd(SENSOR_VDD_CLOSED);
+	_sensor_k_set_mclk(0);
 	ret = _sensor_is_clk_mm_i_eb(0);
 	return ret;
 }
@@ -1286,7 +1333,7 @@ LOCAL ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t 
 		pBuff = buf;
 		need_alloc = 0;
 	}  else {
-		pBuff = _Sensor_K_kmalloc(cnt, GFP_KERNEL);
+		pBuff = _sensor_k_kmalloc(cnt, GFP_KERNEL);
 		if (PNULL == pBuff) {
 			SENSOR_PRINT_ERR("sensor w ERR: kmalloc fail, size %d \n", cnt);
 			goto sensor_k_write_return;
@@ -1315,13 +1362,11 @@ LOCAL ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t 
 
 sensor_k_write_return:
 	if ((PNULL != pBuff) && need_alloc)
-		_Sensor_K_kfree(pBuff);
+		_sensor_k_kfree(pBuff);
 
 	SENSOR_PRINT("sensor w done, ret %d \n", ret);
 	return ret;
 }
-
-#define I2C_WRITE_BURST_LENGTH    512
 
 int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_size)
 {
@@ -1345,7 +1390,7 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 		SENSOR_PRINT_ERR("SENSOR: burst w Init err, i2c_clnt NULL!.\n");
 		return -1;
 	}
-	p_reg_val_tmp = (uint8_t*)_Sensor_K_kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
+	p_reg_val_tmp = (uint8_t*)_sensor_k_kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
 
 	if(PNULL == p_reg_val_tmp){
 		SENSOR_PRINT_ERR("_sensor_burst_write_init ERROR:kmalloc is fail, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
@@ -1400,7 +1445,7 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 		written_num += wr_num_once - 1;
 	}
 	SENSOR_PRINT("SENSOR: burst w Init OK\n");
-	_Sensor_K_kfree(p_reg_val_tmp);
+	_sensor_k_kfree(p_reg_val_tmp);
 	return rtn;
 }
 
@@ -1419,7 +1464,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&power_level, (BOOLEAN *) arg, sizeof(BOOLEAN));
 
 			if (0 == ret)
-				ret = _Sensor_K_PowerDown(power_level);
+				ret = _sensor_k_powerdown(power_level);
 		}
 		break;
 
@@ -1428,7 +1473,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t vdd_val;
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_SetVoltage_CAMMOT(vdd_val);
+				ret = _sensor_k_set_voltage_cammot(vdd_val);
 		}
 		break;
 
@@ -1437,7 +1482,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t vdd_val;
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_SetVoltage_AVDD(vdd_val);
+				ret = _sensor_k_set_voltage_avdd(vdd_val);
 		}
 		break;
 
@@ -1446,7 +1491,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t vdd_val;
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_SetVoltage_DVDD(vdd_val);
+				ret = _sensor_k_set_voltage_dvdd(vdd_val);
 		}
 		break;
 
@@ -1455,7 +1500,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t vdd_val;
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_SetVoltage_IOVDD(vdd_val);
+				ret = _sensor_k_set_voltage_iovdd(vdd_val);
 		}
 		break;
 
@@ -1464,7 +1509,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t mclk;
 			ret = copy_from_user(&mclk, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_SetMCLK(mclk);
+				ret = _sensor_k_set_mclk(mclk);
 		}
 		break;
 
@@ -1473,7 +1518,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t rst_val[2];
 			ret = copy_from_user(rst_val, (uint32_t *) arg, 2*sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_Reset(rst_val[0], rst_val[1]);
+				ret = _sensor_k_reset(rst_val[0], rst_val[1]);
 		}
 		break;
 
@@ -1482,7 +1527,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t sensor_id;
 			ret = copy_from_user(&sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_I2CInit(sensor_id);
+				ret = _sensor_k_i2c_init(sensor_id);
 		}
 		break;
 
@@ -1491,7 +1536,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t sensor_id;
 			ret = copy_from_user(&sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_I2CDeInit(sensor_id);
+				ret = _sensor_k_i2c_deInit(sensor_id);
 		}
 		break;
 
@@ -1506,7 +1551,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t level;
 			ret = copy_from_user(&level, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _Sensor_K_SetResetLevel(level);
+				ret = _sensor_k_set_rst_level(level);
 		}
 		break;
 
@@ -1552,7 +1597,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_REG_TAB_T regTab;
 			ret = copy_from_user(&regTab, (SENSOR_REG_TAB_T *) arg, sizeof(SENSOR_REG_TAB_T));
 			if (0 == ret)
-				ret = _Sensor_K_WriteRegTab(&regTab);
+				ret = _sensor_k_wr_regtab(&regTab);
 		}
 		break;
 
@@ -1561,7 +1606,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			uint32_t clock;
 			ret = copy_from_user(&clock, (uint32_t *) arg, sizeof(uint32_t));
 			if(0 == ret){
-				_Sensor_K_SetI2CClock(clock);
+				_sensor_k_set_i2c_clk(clock);
 			}
 		}
 		break;
@@ -1571,7 +1616,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_I2C_T i2cTab;
 			ret = copy_from_user(&i2cTab, (SENSOR_I2C_T *) arg, sizeof(SENSOR_I2C_T));
 			if (0 == ret)
-				ret = _Sensor_K_WriteI2C(&i2cTab);	
+				ret = _sensor_k_wr_i2c(&i2cTab);
 		}
 		break;
 
@@ -1580,7 +1625,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_FLASH_LEVEL_T flash_level;
 			ret = copy_from_user(&flash_level, (SENSOR_FLASH_LEVEL_T *) arg, sizeof(SENSOR_FLASH_LEVEL_T));
 			if (0 == ret) {
-				ret = _Sensor_K_GetFlashLevel(&flash_level);
+				ret = _sensor_k_get_flash_level(&flash_level);
 				if(SENSOR_K_FAIL != ret){
 					ret = copy_to_user((SENSOR_FLASH_LEVEL_T *)arg, &flash_level, sizeof(SENSOR_FLASH_LEVEL_T));
 				}
@@ -1593,8 +1638,42 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			Id.d_die=sci_get_chip_id();
 			Id.a_die=sci_get_ana_chip_id()|sci_get_ana_chip_ver();
 			SENSOR_PRINT("cpu id 0x%x,0x%x  \n", Id.d_die,Id.a_die);
-			copy_to_user((SENSOR_SOCID_T *)arg, &Id, sizeof(SENSOR_SOCID_T));
+			ret = copy_to_user((SENSOR_SOCID_T *)arg, &Id, sizeof(SENSOR_SOCID_T));
 		}
+
+	case SENSOR_IO_IF_CFG:
+		{
+			SENSOR_IF_CFG_T if_cfg;
+			ret = copy_from_user((void*)&if_cfg, (SENSOR_IF_CFG_T *)arg, sizeof(SENSOR_IF_CFG_T));
+			if (0 == ret) {
+				if (INTERFACE_OPEN == if_cfg.is_open) {
+					if (INTERFACE_MIPI == if_cfg.if_type) {
+						if (0 == s_p_sensor_mod->mipi_on) {
+							_sensor_k_mipi_clk_en();
+							udelay(1);
+							csi_api_init(if_cfg.bps_per_lane);
+							csi_api_start();
+							csi_reg_isr(_sensor_csi2_error, (void*)s_p_sensor_mod);
+							csi_set_on_lanes(if_cfg.lane_num);
+							s_p_sensor_mod->mipi_on = 1;
+							printk("MIPI on, lane %d, bps %d \n", if_cfg.lane_num, if_cfg.bps_per_lane);
+						}
+					}
+				} else {
+					if (INTERFACE_MIPI == if_cfg.if_type) {
+						if (1 == s_p_sensor_mod->mipi_on) {
+							csi_api_close();
+							_sensor_k_mipi_clk_dis();
+							s_p_sensor_mod->mipi_on = 0;
+							printk("MIPI off \n");
+						}
+
+					}
+
+				}
+			}
+		}
+		break;
 	default:
 		SENSOR_PRINT("sensor_k_ioctl: inv cmd %x  \n", cmd);
 		break;

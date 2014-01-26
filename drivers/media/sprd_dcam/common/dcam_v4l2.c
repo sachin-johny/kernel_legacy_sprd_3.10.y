@@ -36,7 +36,6 @@
 #include <linux/proc_fs.h>
 
 #include "dcam_drv.h"
-#include "csi2/csi_api.h"
 #include <mach/hardware.h>
 #include <asm/io.h>
 #include <mach/adi.h>
@@ -154,7 +153,6 @@ struct dcam_path_spec {
 
 struct dcam_info {
 	uint32_t                   if_mode;
-	uint32_t                   if_inited;
 	uint32_t                   sn_mode;
 	uint32_t                   yuv_ptn;
 	uint32_t                   data_bits;
@@ -209,7 +207,7 @@ LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_reg_path2_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_path2_isr(struct dcam_dev* param);
-LOCAL int sprd_v4l2_proc_read(char *page, char **start,off_t off, int count, int *eof, void *data);
+/*LOCAL int sprd_v4l2_proc_read(char *page, char **start,off_t off, int count, int *eof, void *data);*/
 
 LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
@@ -434,7 +432,7 @@ LOCAL int sprd_v4l2_discard_frame(struct dcam_frame *frame, void* param)
 	}
 
 	if (flag) {
-		DCAM_TRACE("DCAM: sprd_v4l2_discard_frame,unlock frame 0x%x \n", frame);
+		DCAM_TRACE("DCAM: sprd_v4l2_discard_frame,unlock frame 0x%x \n", (uint32_t)frame);
 		dcam_frame_unlock(frame);
 		ret =  DCAM_RTN_SUCCESS;
 	}
@@ -1139,30 +1137,6 @@ LOCAL int sprd_v4l2_no_mem(struct dcam_frame *frame, void* param)
 	up(&dev->irq_sem);
 	printk("V4L2: no mem \n");
 	return ret;
-}
-
-LOCAL int sprd_v4l2_csi2_error(uint32_t err_id, uint32_t err_status, void* u_data)
-{
-	int                      ret = DCAM_RTN_SUCCESS;
-	struct dcam_dev          *dev = (struct dcam_dev*)u_data;
-	struct dcam_node         node;
-
-	(void)err_id; (void)err_status;
-	if (NULL == u_data || 0 == atomic_read(&dev->stream_on))
-		return -EINVAL;
-
-	atomic_set(&dev->run_flag, 1);//to avoid time out processing
-
-	memset((void*)&node, 0, sizeof(struct dcam_node));
-	node.irq_flag = V4L2_CSI2_ERR;
-	ret = sprd_v4l2_queue_write(&dev->queue, &node);
-	if (ret)
-		return ret;
-	up(&dev->irq_sem);
-	printk("V4L2: csi2_error, %d 0x%x \n", err_id, err_status);
-
-	return ret;
-
 }
 
 LOCAL int sprd_v4l2_tx_stop(void* param)
@@ -2087,19 +2061,6 @@ LOCAL int v4l2_streamon(struct file *file,
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n", 
 		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
-#if 0
-	/* config CSI2 host firstly */
-	if (DCAM_CAP_IF_CSI2 == dev->dcam_cxt.if_mode) {
-		ret = csi_api_init();
-		V4L2_RTN_IF_ERR(ret);
-		ret = csi_api_start();
-		V4L2_RTN_IF_ERR(ret);
-		ret = csi_reg_isr(sprd_v4l2_csi2_error, (void*)dev);
-		V4L2_RTN_IF_ERR(ret);
-		ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
-		V4L2_RTN_IF_ERR(ret);
-	}
-#endif
 
 	/* dcam driver module initialization */
 	ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
@@ -2316,10 +2277,7 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 				dev->dcam_cxt.sync_pol.hsync_pol,
 				dev->dcam_cxt.sync_pol.pclk_pol,
 				dev->dcam_cxt.data_bits);
-			ret = dcam_ccir_clk_en();
-			V4L2_RTN_IF_ERR(ret);
 		} else {
-			/* MIPI interface */
 			dev->dcam_cxt.sync_pol.need_href = timing_param[4];
 			dev->dcam_cxt.is_loose           = timing_param[6];
 			dev->dcam_cxt.data_bits          = timing_param[5];
@@ -2330,37 +2288,8 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 				dev->dcam_cxt.is_loose,
 				dev->dcam_cxt.data_bits,
 				dev->dcam_cxt.lane_num,
-				dev->dcam_cxt.pclk);
-			/* config CSI2 host firstly */
-			ret = dcam_mipi_clk_en();
-			V4L2_RTN_IF_ERR(ret);
-			udelay(1);
-			ret = csi_api_init(dev->dcam_cxt.pclk);
-			V4L2_RTN_IF_ERR(ret);
-			ret = csi_api_start();
-			V4L2_RTN_IF_ERR(ret);
-			ret = csi_reg_isr(sprd_v4l2_csi2_error, (void*)dev);
-			V4L2_RTN_IF_ERR(ret);
-			ret = csi_set_on_lanes(dev->dcam_cxt.lane_num);
-			V4L2_RTN_IF_ERR(ret);
-		}
-		dev->dcam_cxt.if_inited = 1;
-	} else {
-		/* MIPI interface */
-		if (dev->dcam_cxt.if_inited) {
-			if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
-				ret = dcam_ccir_clk_dis();
-				V4L2_RTN_IF_ERR(ret);
-			} else {
-				ret = csi_api_close();
-				V4L2_PRINT_IF_ERR(ret);
-				ret = dcam_mipi_clk_dis();
-				V4L2_RTN_IF_ERR(ret);
-			}
-			dev->dcam_cxt.if_inited = 0;
-		}
+				dev->dcam_cxt.pclk);		}
 	}
-	
 exit:
 	mutex_unlock(&dev->dcam_mutex);
 	return ret;
@@ -2495,7 +2424,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 		print_cnt += 4;
 		print_len += 16;
 	}
-
+#if 0
 	ret = csi_read_registers(reg_buf, &reg_buf_len);
 	if (ret) {
 		kfree(reg_buf);
@@ -2515,7 +2444,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 		print_cnt += 4;
 		print_len += 16;
 	}
-
+#endif
 	udelay(1);
 	kfree(reg_buf);
 
@@ -2666,7 +2595,7 @@ exit:
 	if (unlikely(ret)) {
 		atomic_dec(&dev->users);
 	} else {
-/*
+#if 0
 		dev->proc_file = create_proc_read_entry(DCAM_PROC_FILE_NAME,
 						0444,
 						NULL,
@@ -2676,7 +2605,7 @@ exit:
 			printk("V4L2: Can't create an entry for video0 in /proc \n");
 			ret = ENOMEM;
 		}
-*/
+#endif
 	}
 	mutex_unlock(&dev->dcam_mutex);
 
@@ -2782,15 +2711,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 		dev->got_resizer = 0;
 		sprd_v4l2_unreg_path2_isr(dev);
 	}
-	if (dev->dcam_cxt.if_inited) {
-		if (DCAM_CAP_IF_CCIR == dev->dcam_cxt.if_mode) {
-			dcam_ccir_clk_dis();
-		} else {
-			csi_api_close();
-			dcam_mipi_clk_dis();
-		}
-		dev->dcam_cxt.if_inited = 0;
-	}
+
 	atomic_set(&dev->stream_on, 0);
 	dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 	sprd_v4l2_local_deinit(dev);
@@ -2810,6 +2731,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	return ret;
 }
 
+#if 0
 LOCAL int  sprd_v4l2_proc_read(char           *page,
 			char  	       **start,
 			off_t          off,
@@ -2938,6 +2860,7 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 
 	return len;
 }
+#endif
 
 LOCAL const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_g_parm                = v4l2_g_parm,
@@ -3007,9 +2930,10 @@ LOCAL int __init create_instance(int inst)
 	struct dcam_dev          *dev;
 	struct video_device      *vfd;
 	int                      ret = DCAM_RTN_SUCCESS;
-	uint32_t                 tmp = 0;
 
 #ifndef CONFIG_ARCH_SCX35
+	uint32_t                 tmp = 0;
+
 	ret = gpio_request(GPIO_SPRD_FLASH_LOW, "gpioFlashLow");
 	if (ret) {
 		tmp = GPIO_SPRD_FLASH_LOW;
@@ -3071,9 +2995,11 @@ unreg_dev:
 	v4l2_device_unregister(&dev->v4l2_dev);
 free_dev:
 	kfree(dev);
+#ifndef CONFIG_ARCH_SCX35
 gpio_err_exit:
 	printk(KERN_ERR "v4l2 probe req flash gpio %d err %d\n",
 		tmp, ret);
+#endif
 
 	return ret;
 }

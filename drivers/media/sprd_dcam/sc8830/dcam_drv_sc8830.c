@@ -216,7 +216,6 @@ struct dcam_module {
 LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_rotation_flag = ATOMIC_INIT(0);
-LOCAL struct clk*              s_mipi_clk = NULL;
 LOCAL struct clk*              s_dcam_clk = NULL;
 LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
 LOCAL struct dcam_module*      s_p_dcam_mod = 0;
@@ -240,7 +239,7 @@ LOCAL void        _dcam_path2_set(void);
 LOCAL void        _dcam_frm_clear(enum dcam_path_index path_index);
 LOCAL void        _dcam_link_frm(uint32_t base_id);
 LOCAL int32_t     _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t is_1st_frm);
-LOCAL int32_t     _dcam_path_trim(enum dcam_path_index path_index);
+/*LOCAL int32_t     _dcam_path_trim(enum dcam_path_index path_index);*/
 LOCAL int32_t     _dcam_path_scaler(enum dcam_path_index path_index);
 LOCAL int32_t     _dcam_calc_sc_size(enum dcam_path_index path_index);
 LOCAL int32_t     _dcam_set_sc_coeff(enum dcam_path_index path_index);
@@ -249,7 +248,7 @@ LOCAL void        _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t 
 LOCAL void        _dcam_force_copy(enum dcam_path_index path_index);
 LOCAL void        _dcam_auto_copy(enum dcam_path_index path_index);
 LOCAL void        _dcam_reg_trace(void);
-LOCAL void        _dcam_sensor_sof(void);
+/*LOCAL void        _dcam_sensor_sof(void);*/
 LOCAL void        _dcam_sensor_eof(void);
 LOCAL void        _dcam_cap_sof(void);
 LOCAL void        _dcam_cap_eof(void);
@@ -770,73 +769,6 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 		return -1;
 	}
 	return rtn;
-}
-
-int32_t dcam_mipi_clk_en(void)
-{
-	int                     ret = 0;
-
-	if (NULL == s_mipi_clk) {
-		s_mipi_clk = clk_get(NULL, "clk_dcam_mipi");
-	}
-
-	if (IS_ERR(s_mipi_clk)) {
-		printk("DCAM: get dcam mipi clk error \n");
-		return -1;
-	} else {
-		ret = clk_enable(s_mipi_clk);
-		if (ret) {
-			printk("DCAM: enable dcam mipi clk error %d \n", ret);
-			return -1;
-		}
-	}
-
-	return ret;
-}
-
-int32_t dcam_mipi_clk_dis(void)
-{
-	if (s_mipi_clk) {
-		clk_disable(s_mipi_clk);
-		clk_put(s_mipi_clk);
-		s_mipi_clk = NULL;
-	}
-	return 0;
-}
-
-int32_t dcam_ccir_clk_en(void)
-{
-/*
-	int                     ret = 0;
-
-	if (s_ccir_clk) {
-		s_ccir_clk = clk_get(NULL, "clk_ccir");
-	}
-
-	if (IS_ERR(s_ccir_clk)) {
-		printk("DCAM: get dcam ccir clk error \n");
-		return -1;
-	} else {
-		ret = clk_enable(s_ccir_clk);
-		if (ret) {
-			printk("DCAM: enable dcam ccir clk error %d \n", ret);
-			return -1;
-		}
-	}
-*/
-	return 0;
-}
-
-int32_t dcam_ccir_clk_dis(void)
-{
-/*
-	if (s_ccir_clk) {
-		clk_disable(s_ccir_clk);
-		clk_put(s_ccir_clk);
-		s_ccir_clk = NULL;
-	}
-*/
-	return 0;
 }
 
 int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
@@ -2728,6 +2660,7 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 	return -rtn;
 }
 
+#if 0
 LOCAL int32_t _dcam_path_trim(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
@@ -2751,14 +2684,16 @@ LOCAL int32_t _dcam_path_trim(enum dcam_path_index path_index)
 
 	if (path->input_size.w != path->input_rect.w ||
 		path->input_size.h != path->input_rect.h) {
-//		REG_OWR(cfg_reg, 1 << ctrl_bit);
+		/*REG_OWR(cfg_reg, 1 << ctrl_bit);*/
 	} else {
-		//REG_MWR(cfg_reg, 1 << ctrl_bit, 0 << ctrl_bit);
+		/*REG_MWR(cfg_reg, 1 << ctrl_bit, 0 << ctrl_bit);*/
 	}
 
 	return rtn;
 
 }
+#endif
+
 LOCAL int32_t _dcam_path_scaler(enum dcam_path_index path_index)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
@@ -3128,6 +3063,7 @@ LOCAL void _dcam_reg_trace(void)
 #endif	
 }
 
+#if 0
 LOCAL void    _dcam_sensor_sof(void)
 {
 	dcam_isr_func           user_func = s_user_func[DCAM_SN_SOF];
@@ -3143,6 +3079,7 @@ LOCAL void    _dcam_sensor_sof(void)
 
 	return;
 }
+#endif
 
 LOCAL void    _dcam_sensor_eof(void)
 {
