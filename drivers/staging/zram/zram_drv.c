@@ -35,6 +35,21 @@
 
 #include "zram_drv.h"
 
+#define LZO_ALGO_SW  0
+#define LZO_ALGO_HW  1
+
+#ifdef CONFIG_LZO_HW_ALGO
+#define  zram_compress           lzo1x_1_compress_hw
+#define  zram_decompress_safe    lzo1x_decompress_safe_hw
+static uint lzo_algo_type = LZO_ALGO_HW;
+#else
+#define  zram_compress           lzo1x_1_compress
+#define  zram_decompress_safe    lzo1x_decompress_safe
+static uint lzo_algo_type = LZO_ALGO_SW;
+#endif
+
+module_param_named(lzo_algo_type, lzo_algo_type, uint, S_IRUGO);
+
 /* Globals */
 static int zram_major;
 struct zram *zram_devices;
@@ -162,7 +177,7 @@ static int zram_decompress_page(struct zram *zram, char *mem, u32 index)
 	if (meta->table[index].size == PAGE_SIZE)
 		memcpy(mem, cmem, PAGE_SIZE);
 	else
-		ret = lzo1x_decompress_safe(cmem, meta->table[index].size,
+		ret = zram_decompress_safe(cmem, meta->table[index].size,
 						mem, &clen);
 	zs_unmap_object(meta->mem_pool, handle);
 
@@ -278,7 +293,7 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 		goto out;
 	}
 
-	ret = lzo1x_1_compress(uncmem, PAGE_SIZE, src, &clen,
+	ret = zram_compress(uncmem, PAGE_SIZE, src, &clen,
 			       meta->compress_workmem);
 
 	if (!is_partial_io(bvec)) {
@@ -288,8 +303,18 @@ static int zram_bvec_write(struct zram *zram, struct bio_vec *bvec, u32 index,
 	}
 
 	if (unlikely(ret != LZO_E_OK)) {
-		pr_err("Compression failed! err=%d\n", ret);
-		goto out;
+#ifdef CONFIG_LZO_HW_ALGO
+		if(ret == LZO_HW_OUT_LEN_ERROR)
+		{
+			clen = PAGE_SIZE;
+			ret =  LZO_E_OK;
+		}
+		else
+#endif
+		{
+			pr_err("Compression failed! err=%d\n", ret);
+			goto out;
+		}
 	}
 
 	if (unlikely(clen > max_zpage_size)) {
