@@ -27,6 +27,7 @@
 #include <linux/clk.h>
 #include <linux/fs.h>
 #include <linux/mmc/host.h>
+#include <linux/mmc/sdhci.h>
 
 #define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	        1
 
@@ -49,7 +50,7 @@ extern int  dhd_os_get_image_block(char *buf, int len, void *image);
 extern void dhd_os_close_image(void *image);
 extern int sdhci_wifi_detect_isbusy(void);
 
-
+static struct mmc_host * wlan_mmc =NULL;
 static int wlan_device_cd = 0; /* WIFI virtual 'card detect' status */
 static int wlan_device_power_state;
 static int wlan_device_reset_state;
@@ -206,11 +207,16 @@ int wlan_device_power(int on)
 	pr_info("%s:%d \n", __func__, on);
 
 	if(on) {
+       #if 0
 		for (i = 0; i <= 200; i++) {
 			//if(!sdhci_wifi_detect_isbusy())
 				break;
 			msleep(100);
 		}
+	#else
+		if(wlan_mmc)
+		flush_delayed_work(&wlan_mmc->detect);
+	#endif
 		printk("%s after delay %d times (100ms)\n", __func__, i);
 	/* enable SDIO clock */
 	#ifdef CONFIG_WLAN_SDIO
@@ -272,7 +278,12 @@ int wlan_device_set_carddetect(int val)
 #endif
 
 #ifdef CONFIG_WLAN_SDIO
-//	sdhci_bus_scan(); 
+//	sdhci_bus_scan();
+       if(wlan_mmc) {
+		mmc_detect_change(wlan_mmc, 0);
+       } else {
+		pr_info("%s  wlan_mmc is null,carddetect failed \n ",__func__);
+       }
 #endif
 	return 0;
 }
@@ -372,22 +383,29 @@ static struct platform_device sprd_wlan_device = {
 	.num_resources	= ARRAY_SIZE(wlan_resources),
 };
 
+void wlan_host_get(void) {
+	struct sdhci_host *host;
+	extern struct platform_device sprd_sdio1_device;
+	host = platform_get_drvdata(&sprd_sdio1_device);
+	BUG_ON(!host->mmc);
+       wlan_mmc = host->mmc;
+}
+
 static int __init wlan_device_init(void)
 {
 	int ret;
-
+	wlan_host_get();
 	init_wifi_mem();
 	wlan_ldo_enable();
 	wlan_clk_init();
 	gpio_request(GPIO_WIFI_IRQ, "oob_irq");
 	gpio_direction_input(GPIO_WIFI_IRQ);
-
+       
 	wlan_resources[1].start = gpio_to_irq(GPIO_WIFI_IRQ);
 	wlan_resources[1].end = gpio_to_irq(GPIO_WIFI_IRQ);
 
 	gpio_request(GPIO_WIFI_SHUTDOWN,"wifi_pwd");
 	gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
-
 	ret = platform_device_register(&sprd_wlan_device);
 
 	return ret;
