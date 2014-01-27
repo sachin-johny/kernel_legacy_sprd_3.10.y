@@ -1165,6 +1165,30 @@ end:
 }
 EXPORT_SYMBOL(ion_import_dma_buf);
 
+static int ion_invalidate_for_cpu(struct ion_client *client, int fd)
+{
+	struct dma_buf *dmabuf;
+	struct ion_buffer *buffer;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf))
+		return PTR_ERR(dmabuf);
+
+	/* if this memory came from ion */
+	if (dmabuf->ops != &dma_buf_ops) {
+		pr_err("%s: can not sync dmabuf from another exporter\n",
+		       __func__);
+		dma_buf_put(dmabuf);
+		return -EINVAL;
+	}
+	buffer = dmabuf->priv;
+
+	dma_sync_sg_for_cpu(NULL, buffer->sg_table->sgl,
+			       buffer->sg_table->nents, DMA_FROM_DEVICE);
+	dma_buf_put(dmabuf);
+	return 0;
+}
+
 static int ion_sync_for_device(struct ion_client *client, int fd)
 {
 	struct dma_buf *dmabuf;
@@ -1266,6 +1290,15 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 			return -EFAULT;
 		if (ret < 0)
 			return ret;
+		break;
+	}
+	case ION_IOC_INVALIDATE:
+	{
+		struct ion_fd_data data;
+		if (copy_from_user(&data, (void __user *)arg,
+				   sizeof(struct ion_fd_data)))
+			return -EFAULT;
+		ion_invalidate_for_cpu(client, data.fd);
 		break;
 	}
 	case ION_IOC_SYNC:
