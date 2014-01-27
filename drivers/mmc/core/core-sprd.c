@@ -1618,11 +1618,17 @@ int mmc_resume_bus(struct mmc_host *host)
 		BUG_ON(!host->bus_ops->resume);
 		host->bus_ops->resume(host);
 	}
+		/*card detect can not be call by dfferent task,
+		it my cause some task  to remove card at the same time*/
+	#if 0
+		if (host->bus_ops->detect && !host->bus_dead)
+			host->bus_ops->detect(host);
+		mmc_bus_put(host);
+	#else
+		mmc_bus_put(host);
+		mmc_detect_change(host, 0);
+	#endif
 
-	if (host->bus_ops->detect && !host->bus_dead)
-		host->bus_ops->detect(host);
-
-	mmc_bus_put(host);
 	printk("%s: Deferred resume completed\n", mmc_hostname(host));
 	return 0;
 }
