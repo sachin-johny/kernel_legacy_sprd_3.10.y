@@ -63,10 +63,35 @@
 #define VIBR_BP_EN              (1 << 1)
 #define VIBR_RTC_EN             (1 << 0)
 
+#ifdef CONFIG_SS_FUNCTION
+#define VIBR_PULLDOWN_EN        (1 << 1)
+#define LDO_VIBR_PD             (1 << 8)
+#endif
 static struct work_struct vibrator_work;
 static struct hrtimer vibe_timer;
 static int vibe_state = 0;
 
+#ifdef CONFIG_SS_FUNCTION
+static void set_vibrator(int on)
+{
+	if (on)
+	{
+		printk("###############vibrator on##################\n");
+		sci_adi_set(ANA_REG_GLB_BA_CTRL3, VIBR_PULLDOWN_EN);
+		sci_adi_clr(ANA_REG_GLB_BA_CTRL2, LDO_VIBR_PD);
+	}
+	else
+	{
+		printk("###############vibrator off##################\n");
+		sci_adi_set(ANA_REG_GLB_BA_CTRL2, LDO_VIBR_PD);
+		sci_adi_clr(ANA_REG_GLB_BA_CTRL3, VIBR_PULLDOWN_EN);
+	}
+}
+static void vibrator_hw_init(void)
+{
+	return;
+}
+#else
 static void set_vibrator(int on)
 {
 #ifndef CONFIG_SC_VIBRATOR_GPIO
@@ -116,6 +141,8 @@ static void vibrator_hw_init(void)
         gpio_direction_output(GPIO_VIBRATOR_INT, 0);
 #endif
 }
+
+#endif
 
 static void update_vibrator(struct work_struct *work)
 {
