@@ -27,10 +27,12 @@
 #endif
 
 #if IST30XX_INTERNAL_BIN
-#if !defined(CONFIG_MACH_FAME2)
-#include "IST30xxB_FW_Corsica_VE_Ver0003.h"
-#else
+#if defined(CONFIG_MACH_STAR2)
+#include "IST30xxB_FW_Star2_Ver0002.h"
+#elif defined(CONFIG_MACH_FAME2)
 #include "ist30xxb_fw_fame2_ver0001.h"
+#else
+#include "IST30xxB_FW_Corsica_VE_Ver0003.h"
 #endif
 #endif // IST30XX_INTERNAL_BIN
 

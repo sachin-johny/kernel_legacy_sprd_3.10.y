@@ -35,35 +35,35 @@ static int32_t st7789v_init(struct panel_spec *self)
     send_data(0x5A69);
     send_data(0x0201);
 
-    send_cmd(0x35);
+    send_cmd(0x36);
     send_data(0x0000);
 
-    send_cmd(0x36);
+    send_cmd(0x3a);
+    send_data(0x0500);
+
+    send_cmd(0x35);
     send_data(0x0000);
 
     send_cmd(0xd2);
     send_data(0x4c00);
 
-    send_cmd(0x3a);
-    send_data(0x0500);
-
     send_cmd(0xb2);
-    send_data(0x0404);		//<---modified
+    send_data(0x0404);
     send_data(0x0033);
     send_data(0x3300);
+
+    send_cmd(0xC6);
+    send_data(0x0A00);
+
+    send_cmd(0xb8);
+    send_data(0x2A2B);
+    send_data(0x0575);
 
     send_cmd(0xb7);
     send_data(0x7500);
 
-    send_cmd(0xb8);		//<---modified
-    send_data(0x2A2B);		//<---default value
-    send_data(0x0500);		//<---modified,default value is 22h
-
     send_cmd(0xbb);
     send_data(0x1B00);
-
-    send_cmd(0xC0);
-    send_data(0x2500);
 
     send_cmd(0xC2);
     send_data(0x0100);
@@ -74,90 +74,93 @@ static int32_t st7789v_init(struct panel_spec *self)
     send_cmd(0xC4);
     send_data(0x2000);
 
-    send_cmd(0xC6);
-    send_data(0x0A00);		//<----modified
-
     send_cmd(0xd0);
     send_data(0xa4a1);
 
-    send_cmd(0xE9);
-    send_data(0x0909);//0x0a
-    send_data(0x0500);		//<---modified
-
     send_cmd(0xE8);
-    send_data(0x8300);//0xa3
+    send_data(0x8300);
+
+    send_cmd(0xE9);
+    send_data(0x0909);
+    send_data(0x0500);
+
+    send_cmd(0xC0);
+    send_data(0x2500);
+
+    send_cmd(0xb0);
+    send_data(0x00d0);
 
     send_cmd(0xE0);
-    send_data(0xd00E);//V0,V63  step1
-    send_data(0x1810);//V2	  step2
-    send_data(0x0E2A);//V6
-    send_data(0x3E54);//V20     step3
-    send_data(0x4C2B);//V43 4b  step3
-    send_data(0x1716);//V57
-    send_data(0x1D21);//V61     step2
+    send_data(0xd00E);
+    send_data(0x1810);
+    send_data(0x0E2A);
+    send_data(0x3E54);
+    send_data(0x4C2B);
+    send_data(0x1716);
+    send_data(0x1D21);
 
     send_cmd(0XE1);
-    send_data(0xd00E);//V63,V0  step1
-    send_data(0x1710);//V2	  step2
-    send_data(0x0E29);//V6
-    send_data(0x3C44);//20 	  step3
-    send_data(0x4D2C);//V43 	  step3
-    send_data(0x1615);//V57
-    send_data(0x1E22);//V61     step2
+    send_data(0xd00E);
+    send_data(0x1710);
+    send_data(0x0E29);
+    send_data(0x3C44);
+    send_data(0x4D2C);
+    send_data(0x1615);
+    send_data(0x1E22);
 
     send_cmd(0x29);
 #else // 16/18/24bit
-		send_cmd(0xB7); send_data(0x35);
-		send_cmd(0xBB); send_data(0x1A);
-		send_cmd(0xC2); send_data(0x01);
-		send_cmd(0xC3); send_data(0x0B);
-		send_cmd(0xC4); send_data(0x20);
-		send_cmd(0xD0); send_data(0xA4);send_data(0xA1);
-		send_cmd(0xE8); send_data(0x83);
-		send_cmd(0xE9); send_data(0x09);send_data(0x09);send_data(0x08);
+	send_cmd(0xB7); send_data(0x35);
+	send_cmd(0xBB); send_data(0x1A);
+	send_cmd(0xC2); send_data(0x01);
+	send_cmd(0xC3); send_data(0x0B);
+	send_cmd(0xC4); send_data(0x20);
+	send_cmd(0xD0); send_data(0xA4);send_data(0xA1);
+	send_cmd(0xE8); send_data(0x83);
+	send_cmd(0xE9); send_data(0x09);send_data(0x09);send_data(0x08);
 
-		//Init setting
-		send_cmd(0x36); send_data(0x00);
-		send_cmd(0x35); send_data(0x00);
-		send_cmd(0x3A); send_data(0x05);//0x06: 262k 0x05:65k
-		send_cmd(0xD2); send_data(0x4C);
-		send_cmd(0xB2);send_data(0x0C);send_data(0x0C);send_data(0x00);send_data(0x33);send_data(0x33);
-		send_cmd(0xC6); send_data(0x09);
+	//Init setting
+	send_cmd(0x36); send_data(0x00);
+	send_cmd(0x35); send_data(0x00);
+	send_cmd(0x3A); send_data(0x05);//0x06: 262k 0x05:65k
+	send_cmd(0xD2); send_data(0x4C);
+	send_cmd(0xB2);send_data(0x0C);send_data(0x0C);send_data(0x00);send_data(0x33);send_data(0x33);
+	send_cmd(0xC6); send_data(0x09);
 
-		//Gamma setting
-		send_cmd(0xE0);
-		send_data(0xD0);
-		send_data(0x02);
-		send_data(0x11);
-		send_data(0x12);
-		send_data(0x12);
-		send_data(0x2A);
-		send_data(0x3D);
-		send_data(0x44);
-		send_data(0x4C);
-		send_data(0x2B);
-		send_data(0x16);
-		send_data(0x14);
-		send_data(0x1E);
-		send_data(0x21);
+	//Gamma setting
+	send_cmd(0xE0);
+	send_data(0xD0);
+	send_data(0x02);
+	send_data(0x11);
+	send_data(0x12);
+	send_data(0x12);
+	send_data(0x2A);
+	send_data(0x3D);
+	send_data(0x44);
+	send_data(0x4C);
+	send_data(0x2B);
+	send_data(0x16);
+	send_data(0x14);
+	send_data(0x1E);
+	send_data(0x21);
 
-		send_cmd(0xE1);
-		send_data(0xD0);
-		send_data(0x02);
-		send_data(0x11);
-		send_data(0x11);
-		send_data(0x12);
-		send_data(0x2A);
-		send_data(0x3B);
-		send_data(0x44);
-		send_data(0x4C);
-		send_data(0x2B);
-		send_data(0x16);
-		send_data(0x15);
-		send_data(0x1E);
-		send_data(0x21);
+	send_cmd(0xE1);
+	send_data(0xD0);
+	send_data(0x02);
+	send_data(0x11);
+	send_data(0x11);
+	send_data(0x12);
+	send_data(0x2A);
+	send_data(0x3B);
+	send_data(0x44);
+	send_data(0x4C);
+	send_data(0x2B);
+	send_data(0x16);
+	send_data(0x15);
+	send_data(0x1E);
+	send_data(0x21);
 
-		send_cmd(0x29); //Display On
+	send_cmd(0x29); //Display On
 #endif
 		return 0;
 }
