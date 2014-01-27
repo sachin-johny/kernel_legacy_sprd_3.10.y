@@ -10,6 +10,7 @@
 #include "wifi_nvm.h"
 
 #define _WIFI_NVM_DEBUG_
+#define MAX_BOARD_TYPE_LEN 32
 
 typedef struct
 {
@@ -18,12 +19,13 @@ typedef struct
 	int  num;
 } nvm_cali_cmd;
 
-static char *WIFI_CONFIG_FILE = "/system/etc/connectivity_configure.ini";
+//static char *WIFI_CONFIG_FILE = "/system/etc/connectivity_configure.ini";
 static char *WIFI_CALI_FILE = "/productinfo/connectivity_calibration.ini";
 
 static WIFI_nvm_data   g_wifi_nvm_data;
 
 extern long simple_strtol(const char *cp, char **endp, unsigned int base);
+extern int sprd_kernel_get_board_type(char *buf,int read_len);
 
 WIFI_nvm_data *get_gWIFI_nvm_data(void )
 {
@@ -232,15 +234,51 @@ nvm_read_err:
 	return -1;
 }
 
-
-
 void ittiam_nvm_init(void )
 {
 	int ret = 0;
-	ret = wifi_nvm_parse(WIFI_CONFIG_FILE);
+    int len = 0;
+    int board_type = 0;
+    char board_type_str[MAX_BOARD_TYPE_LEN] = {0};
+
+#if (defined CONFIG_MACH_SP7715EA) || (defined CONFIG_MACH_SP7715EAOPENPHONE)  || (defined CONFIG_MACH_SP7715EATRISIM) || (defined CONFIG_MACH_SP7715GA) || (defined CONFIG_MACH_SP7715GATRISIM) \
+    || (defined CONFIG_MACH_SP8815GA) || (defined CONFIG_MACH_SP8815GAOPENPHONE) \
+    || (defined CONFIG_MACH_SPX35EC) || (defined CONFIG_MACH_SP8830GA) || (defined CONFIG_MACH_SP8835EB) || (defined CONFIG_MACH_SP8830SSW)
+    char *WIFI_CONFIG_FILE[] = {
+        "/system/etc/connectivity_configure_hw100.ini",
+        "/system/etc/connectivity_configure_hw102.ini",
+        "/system/etc/connectivity_configure_hw104.ini"
+    };
+#else
+    char *WIFI_CONFIG_FILE[] = {
+        "/system/etc/connectivity_configure.ini"
+    };
+#endif
+
+
+#if (defined CONFIG_MACH_SP7715EA) || (defined CONFIG_MACH_SP7715EAOPENPHONE)  || (defined CONFIG_MACH_SP7715EATRISIM) || (defined CONFIG_MACH_SP7715GA) || (defined CONFIG_MACH_SP7715GATRISIM) \
+    || (defined CONFIG_MACH_SP8815GA) || (defined CONFIG_MACH_SP8815GAOPENPHONE) \
+    || (defined CONFIG_MACH_SPX35EC) || (defined CONFIG_MACH_SP8830GA) || (defined CONFIG_MACH_SP8835EB) || (defined CONFIG_MACH_SP8830SSW)
+
+    sprd_kernel_get_board_type(board_type_str,MAX_BOARD_TYPE_LEN);
+    if (strstr(board_type_str, "1.0.0"))
+    {
+        board_type = 0;
+    }
+    else if (strstr(board_type_str, "1.0.2"))
+    {
+        board_type = 1;
+    }
+    else
+    {
+        board_type = 2; // default is 1.0.4
+    }
+#endif
+	printk("#### %s get2 board type len %d %s type %d ####\n", __FUNCTION__, len, board_type_str, board_type); 
+	ret = wifi_nvm_parse(WIFI_CONFIG_FILE[board_type]);
 	if(0 != ret)
 	{
-		printk("%s(),parse:%s, err!\n", __func__, WIFI_CONFIG_FILE);
+		printk("%s(),parse:%s, err!\n", __func__, WIFI_CONFIG_FILE[board_type]);
 		return;
 	}
 	ret = wifi_nvm_parse(WIFI_CALI_FILE);
