@@ -301,6 +301,11 @@ config SC_VIBRATOR_GPIO
         default n
 	depends on SC_VIBRATOR
 
+config SC_VIBRATOR_POWER
+        bool "vibrator for SC serials by power"
+        default n
+       depends on SC_VIBRATOR
+
 config EIRQ_NUM
         int "number for external irq region desc request"
         range 0 1024
