@@ -118,9 +118,9 @@ ssize_t board_type_read(struct file *file, char __user *buf,
 	if(vol >= 1100)
 		strcpy(buf_version,"V1.0.0");
 	else if(vol >700 && vol <= 900)
-		strcpy(buf_version,"V1.0.2");
+		strcpy(buf_version,"V1.0.2");//2in1
 	else if(vol >300 && vol <=500)
-		strcpy(buf_version,"V1.0.4");
+		strcpy(buf_version,"V1.0.4");//3in1
 	else
 		strcpy(buf_version,"No match board");
 	#endif
@@ -131,6 +131,54 @@ ssize_t board_type_read(struct file *file, char __user *buf,
 		return -EFAULT;
 	return buf_len;
 }
+
+
+int sprd_kernel_get_board_type(char *buf,int read_len)
+{
+	int adc_value;
+	uint16_t vol;//mv
+	char buf_version[20] = {0};
+	u32 buf_len;
+
+	#ifdef CONFIG_ARCH_SCX15
+	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_0,0,40); //set current to 40 uA
+	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_0);
+	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+
+	if(vol >= 1000)
+		strcpy(buf_version,"V1.0.0");
+	else if(vol >600 && vol <= 1000)
+		strcpy(buf_version,"V1.0.4"); //3in1
+	else if(vol >200 && vol <=600)
+		strcpy(buf_version,"V1.0.2");//2in1
+	else
+		strcpy(buf_version,"No match board");
+	#else
+	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_1,0,40); //set current to 40 uA
+	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_1);
+	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+
+	if(vol >= 1100)
+		strcpy(buf_version,"V1.0.0");
+	else if(vol >700 && vol <= 900)
+		strcpy(buf_version,"V1.0.2");//2in1
+	else if(vol >300 && vol <=500)
+		strcpy(buf_version,"V1.0.4");//3in1
+	else
+		strcpy(buf_version,"No match board");
+	#endif
+
+	buf_len = strlen(buf_version);
+	printk("buf_len:%d\n",buf_len);
+
+	if(read_len >= buf_len)
+		strncpy(buf,buf_version,buf_len);
+	return buf_len;
+
+}
+
+EXPORT_SYMBOL_GPL(sprd_kernel_get_board_type);
+
 
 static const struct file_operations sprd_board_type_fops = {
 	.open           =  board_type_open,
