@@ -432,7 +432,7 @@ static inline  void wait_queue_complete(void)
 {
 	volatile u32 i = 0;
 	volatile u32 value_temp;
-	while(i < 5)
+	while(i < 10)
 	{
 		value_temp = REG32(UMCTL_DBG1);
 		if(value_temp == 1) {
@@ -619,7 +619,7 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
 	//uart_putch('\n');
     //disable auto refresh
     REG32(UMCTL_RFSHCTL3) |= (1<<0);
-    for(i=0;i<5;i++);
+    for(i=0;i<10;i++);
 	switch(new_clk)
 	{
             case 192:
@@ -634,7 +634,7 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
                     //switch to tdpll source 384Mhz
                     reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x2);
 
-	                for(i=0;i<5;i++);
+	                for(i=0;i<10;i++);
                 }
 				if(sene == EMC_FREQ_DEEP_SLEEP_SENE)
 				{
@@ -643,19 +643,19 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
 
 	                for(i=0;i<2;i++);
 					reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
-					for(i=0;i<5;i++);
+					for(i=0;i<10;i++);
 				}
 
                 //phy clock close
 		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
-		        for(i=0;i<5;i++);
+		        for(i=0;i<10;i++);
                 //close dll
                 disable_ddrphy_dll();
 
                 //phy clock open
                 *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) |= (1<<6);
 //              		*(volatile uint32*)0x022b00c8 |= (1<<2);
-                for(i=0;i<5;i++);
+                for(i=0;i<10;i++);
                 //deassert_reset_dll();
 
 // wait DLL lock in memory side;
@@ -680,25 +680,25 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 delay, uint32 sene,ddr_dfs
 				//switch to dpll source
                 reg_bits_set((SPRD_AONCKG_PHYS+0x0024),0x0,2,0x3);
 
-                for(i=0;i<5;i++);
+                for(i=0;i<10;i++);
                 //phy clock close
 		        *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) &= ~(1<<6);
-		        for(i=0;i<5;i++);
+		        for(i=0;i<10;i++);
 
                 assert_reset_dll();
-		        for(i=0;i<5;i++);
+		        for(i=0;i<10;i++);
                 //open dll
                 enable_ddrphy_dll();
 
-                for(i=0;i<5;i++);
+                for(i=0;i<10;i++);
 
                 //phy clock open
                 *(volatile uint32*)(SPRD_PMU_PHYS+0x00c8) |= (1<<6);
 //                        *(volatile uint32*)0x022b00c8 |= (1<<2);
-                for(i=0;i<5;i++);
+                for(i=0;i<10;i++);
                 //release dll
                 deassert_reset_dll();
-                for(i=0;i<20;i++);
+                for(i=0;i<30;i++);
 
 	            REG32(UMCTL_PERFLPR1) |= 0x100;
 		        REG32(UMCTL_PERFWR1) |= 0x20;
