@@ -1479,7 +1479,12 @@ CONFIG_I2C_HELPER_AUTO=y
 # CONFIG_I2C_XILINX is not set
 # CONFIG_I2C_RESUME_EARLY is not set
 # CONFIG_I2C_5_CLOCK_TREE_BUG is not set
-CONFIG_I2C_SPRD=y
+# CONFIG_I2C_SPRD is not set
+
+#
+# External I2C/SMBus adapter drivers
+#
+CONFIG_I2C_SPRD_V1=y
 
 #
 # External I2C/SMBus adapter drivers
