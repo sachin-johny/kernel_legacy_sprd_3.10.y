@@ -61,7 +61,7 @@ int sdio_abort(struct mmc_host *host)
 	//else
 	//	abort |= 0x01;
 
-	ret = mmc_io_rw_direct(host, 1, 0, SDIO_CCCR_ABORT, abort, NULL);
+	ret = mmc_io_rw_direct(host->card, 1, 0, SDIO_CCCR_ABORT, abort, NULL);
 
 	if (ret)
 		printk("SDIO: sdio_abort mmc_io_rw_direct_host WRITE FAIL\n");
@@ -74,9 +74,9 @@ int sdio_abort(struct mmc_host *host)
 	
 	//printk("SDIO: sdio_abort READ abort = %d\n", abort);
 
-	ret = mmc_io_rw_extended(host->card, 1, 1, 0, 1, buffer, 0, 1);
-	if (ret)
-		printk("SDIO: sdio_abort EXTENDED_READ FAIL\n");
+	//ret = mmc_io_rw_extended(host->card, 1, 1, 0, 1, buffer, 0, 1);
+	//if (ret)
+		//printk("SDIO: sdio_abort EXTENDED_READ FAIL\n");
 
 	
 	return ret;
