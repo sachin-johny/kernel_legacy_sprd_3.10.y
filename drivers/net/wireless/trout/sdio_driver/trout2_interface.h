@@ -204,6 +204,7 @@ typedef enum {
 
 #if 1
 #define SPRD_GPIO_REG_WRITEL(val, reg)    do{__raw_writel(val, CTL_PIN_BASE + (reg));}while(0)
+#define SPRD_GPIO_REG_READL(reg)    __raw_readl(CTL_PIN_BASE + (reg))
 static unsigned long CEQ_close_cfg = (BITS_PIN_DS(1) | BITS_PIN_AF(3) | BIT_PIN_WPD | BIT_PIN_SLP_WPD | BIT_PIN_SLP_OE);
 static unsigned long CEQ_open_cfg = (BITS_PIN_DS(1) | BITS_PIN_AF(2) | BIT_PIN_WPD | BIT_PIN_SLP_WPD | BIT_PIN_SLP_IE);
 #else

@@ -577,7 +577,7 @@ static struct resource sprd_sdio1_resources[] = {
 
 static struct sprd_host_platdata sprd_sdio1_pdata = {
 	.hw_name = "sprd-sdio1",
-	.vdd_name = REGU_NAME_WIFIIO,
+	.detect_gpio = GPIO_SDI1_DETECT,
 	.clk_name = "clk_sdio1",
 	.clk_parent = "clk_96m",
 	.max_clock = 96000000,

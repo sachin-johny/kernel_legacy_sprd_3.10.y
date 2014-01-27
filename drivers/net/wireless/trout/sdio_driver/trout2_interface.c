@@ -63,6 +63,13 @@ extern void wifimac_sleep(void);
 
 #endif
 
+#include <mach/adi.h>
+
+
+#ifndef ANA_REG_GAOLE_GET
+#define ANA_REG_GAOLE_GET(_r)     sci_adi_read(_r)
+#endif
+
 extern void sprd_mfp_config(unsigned long *mfp_cfgs, int num);
 extern void sdhci_bus_scan(void); //zhouxw,bus rescan
 extern void trout_sdio_set_clock(unsigned long Hz);
@@ -1123,7 +1130,7 @@ static  void trout_rf_power_on(void)
 
 		SPRD_GPIO_REG_WRITEL(CEQ_open_cfg, TROUT_WIFI_XTL_EN_PIN_REG);
 
-		rf_regulator = regulator_get(NULL, REGU_NAME_WIFIIO);
+		rf_regulator = regulator_get(NULL, "VDDRF1");
 
 		if (rf_regulator == NULL)
 		{
@@ -1135,7 +1142,7 @@ static  void trout_rf_power_on(void)
 
 		regulator_set_mode(rf_regulator, REGULATOR_MODE_STANDBY);
 		regulator_enable(rf_regulator);
-
+        printk("[trout_rf_power_on] result %d \n",regulator_is_enabled(rf_regulator));
 		regulator_put(rf_regulator);
 #endif
 
@@ -1158,7 +1165,7 @@ static  void trout_rf_power_off(void)
 
 		SPRD_GPIO_REG_WRITEL(CEQ_close_cfg, TROUT_WIFI_XTL_EN_PIN_REG);
 
-		rf_regulator = regulator_get(NULL, REGU_NAME_WIFIIO);
+		rf_regulator = regulator_get(NULL, "VDDRF1");
 
 		if (rf_regulator == NULL)
 		{
@@ -1167,7 +1174,7 @@ static  void trout_rf_power_off(void)
 		}
 
 		regulator_disable(rf_regulator);
-
+        printk("[trout_rf_power_off]\n");
 		regulator_put(rf_regulator);
 #endif
 
@@ -1268,7 +1275,7 @@ static int wlan_ldo_enable(void)
 		int err;
 		struct regulator *wlan_regulator_18;
 
-		wlan_regulator_18 = regulator_get(NULL, REGU_NAME_WIFI);
+		wlan_regulator_18 = regulator_get(NULL, REGU_NAME_SDHOST1);
 
 		if (IS_ERR(wlan_regulator_18)) {
 				pr_err("can't get wlan 1.8V regulator\n");
@@ -1283,9 +1290,10 @@ static int wlan_ldo_enable(void)
 		
 		regulator_set_mode(wlan_regulator_18, REGULATOR_MODE_STANDBY);
 		regulator_enable(wlan_regulator_18);
+        printk("[wlan_ldo_enable] result %d \n",regulator_is_enabled(wlan_regulator_18));
 		regulator_put(wlan_regulator_18);
 }
-
+/*
 static void trout_reset(void)
 {
 #if 1
@@ -1305,6 +1313,49 @@ static void trout_reset(void)
 		mdelay(100);
 		gpio_set_value(TROUT2_RESET,1);
 		printk("trout_gpio_reset!\n");
+}
+*/
+
+static void trout_reset(void)
+{
+    int ret;
+    unsigned long value_gpio_reset = (BITS_PIN_DS(1) | BITS_PIN_AF(3) | BIT_PIN_SLP_OE);
+    unsigned long value_gpio_wifi_d3 = (BITS_PIN_DS(1) | BITS_PIN_AF(3) | BIT_PIN_WPU | BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE);
+    unsigned long value_gpio_sd3 = (BITS_PIN_DS(1) | BITS_PIN_AF(0) | BIT_PIN_WPU);
+
+    unsigned long value_test = 0;
+    unsigned short adi_tmp_val = 0;
+    wlan_ldo_enable();
+    adi_tmp_val =  ANA_REG_GAOLE_GET(0x82000614);
+
+    //Config WIFI_D3_PIN as gpio
+    SPRD_GPIO_REG_WRITEL(value_gpio_wifi_d3, REG_PIN_SD2_D3);
+    value_test = SPRD_GPIO_REG_READL(REG_PIN_SD2_D3);
+
+    ret = gpio_request(WIFI_D3_PIN, "hello");
+
+    if (ret)
+    {
+        pr_err("Requesting for GPIO function of PIN SD1_D3 failed!!!!");
+    }
+
+    gpio_direction_output(WIFI_D3_PIN, 1);
+    mdelay(1);
+
+    printk("WIFI_D3 val: %d\n", gpio_get_value(WIFI_D3_PIN));
+
+    gpio_request(TROUT2_RESET, "trout_reset");
+          gpio_direction_output(TROUT2_RESET, 1);
+          gpio_set_value(TROUT2_RESET,0);
+          mdelay(100);
+          gpio_set_value(TROUT2_RESET,1);
+          printk("trout_gpio_reset!\n");
+
+    SPRD_GPIO_REG_WRITEL(value_gpio_sd3, REG_PIN_SD2_D3);
+    value_test = SPRD_GPIO_REG_READL(REG_PIN_SD2_D3);
+
+    adi_tmp_val =  ANA_REG_GAOLE_GET(0x82000614);
+    mdelay(1);
 }
 
 //enable 32KHz time clock.
@@ -1932,7 +1983,7 @@ retry:
 		}
 		else
 			goto err;
-
+printk("[Set_Power_Control] before trout_sdio_func \n");
 		if(!trout_sdio_func)
 			goto err;
 									
@@ -2048,7 +2099,8 @@ bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 
 		    
 #ifdef NPI_NV_CALIBRATION_ENABLE  
-		while(1){
+#if 0
+    while(1){
 			if(0 == set_trout_antenna_switch()){		
 				MxdRfInit(&cal_regs);
 				if(g_self_calibration_flag == SELFCAL_WAITING)
@@ -2079,6 +2131,9 @@ bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 				msleep(300);
 			}
 		}
+#else
+MxdRfInit(&cal_regs);
+#endif
 #endif
 
 		/* Down bt code for power sleep function */
