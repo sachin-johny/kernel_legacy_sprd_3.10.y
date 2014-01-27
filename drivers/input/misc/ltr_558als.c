@@ -609,20 +609,20 @@ static void ltr558_work(struct work_struct *work)
 
            PRINT_DBG("status = 0x03,iloop = 0x%04x, val = 0x%04x \n",iloop++,value);
 
-       if (value >= 0x5DC) {     // 3cm //high
+       if (value >= 0x640) {     // 3cm //high
            // static int i1 = 0;
            //  PRINT_DBG("3cm high i1 = 0x%04\n",i1++);
            ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0xff);
            ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x07);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0x78);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x05);
+           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0x22);
+           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x06);
            input_report_abs(pls->input, ABS_DISTANCE, 0);
            input_sync(pls->input);
-       } else if (value <= 0x578) {      // 5cm //low
+       } else if (value <= 0x622) {      // 5cm //low
            //static int i2 = 0;
            //PRINT_DBG("5cm low i2 = 0x%04 \n",i2++);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0xDC);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x05);
+           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0x40);
+           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x06);
            ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0x00);
            ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x00);
            input_report_abs(pls->input, ABS_DISTANCE, 1);
@@ -672,7 +672,7 @@ static int ltr558_reg_init(void)
         //set: LED Pulse Frequency=60KHz,LED Duty Cycle=100%,LED Peak Current=50mA
         ltr558_i2c_write_1_byte(LTR558_PS_LED, 0x7B);
         //set: LED Pulse Count=15
-        ltr558_i2c_write_1_byte(LTR558_PS_N_PULSES , 0x0F);
+        ltr558_i2c_write_1_byte(LTR558_PS_N_PULSES , 0x08);
         //set: PS Measurement Repeat Rate: 0x00=50ms 0x02=100ms
         ltr558_i2c_write_1_byte(LTR558_PS_MEAS_RATE, 0x00);
         //set: ALS Integration Time=100ms, ALS Measurement Repeat Rate=100ms
