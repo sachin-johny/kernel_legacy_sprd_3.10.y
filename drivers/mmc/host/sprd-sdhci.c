@@ -680,7 +680,8 @@ static void sprd_sdhci_host_fix_mmc_core_wakelock(struct sdhci_host *host) {
 static void sprd_sdhci_host_fix_mmc_core_get_cd(struct sdhci_host *host) {
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	struct sprd_sdhci_host_platdata *host_pdata = SDHCI_HOST_TO_SPRD_HOST_PLATDATA(host);
-	if(host_pdata->detect_gpio > 0) {
+	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
+	if(host_pdata->detect_gpio > 0 && pdev->id != SDC_SLAVE_CP) {
 		host->mmc->caps &= ~MMC_CAP_NONREMOVABLE;
 		sprd_host->mmc_host_ops.get_cd = sprd_sdhci_host_get_cd;
 	}
