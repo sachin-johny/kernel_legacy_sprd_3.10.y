@@ -65,8 +65,8 @@
 
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
-#if defined(CONFIG_TOUCHSCREEN_IST30XX)
-#include <linux/input/ist30xx.h>
+#if defined(CONFIG_TOUCHSCREEN_IST30XXB)
+#include <linux/input/ist30xxb.h>
 #endif
 #include <mach/i2s.h>
 
@@ -560,7 +560,7 @@ static void create_sirf_proc_file(void)
 // GPS for marvell
 
 
-#ifdef CONFIG_TOUCHSCREEN_IST30XX
+#ifdef CONFIG_TOUCHSCREEN_IST30XXB
 static struct tsp_dev_info ist30xx_info = {
 	.gpio = GPIO_TOUCH_IRQ,
 };
@@ -646,7 +646,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
 
-#ifdef CONFIG_TOUCHSCREEN_IST30XX
+#ifdef CONFIG_TOUCHSCREEN_IST30XXB
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{
 		I2C_BOARD_INFO(IST30XX_DEV_NAME, 0x50),
