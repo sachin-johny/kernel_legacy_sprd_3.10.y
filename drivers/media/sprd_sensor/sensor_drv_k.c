@@ -59,10 +59,10 @@
 #if defined(CONFIG_ARCH_SCX35)
 
 #define REGU_NAME_CAMVIO     "vddcamio"
-#define REGU_NAME_CAMMOT       "vddcammot"
 
 #if defined(CONFIG_MACH_SP8830SSW)
-#define REGU_NAME_SUB_CAMDVDD  "avdd18"
+#define REGU_NAME_SUB_CAMDVDD  "vddcamd"
+#define REGU_NAME_CAMMOT       "vddcama"
 #define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
 #define REGU_NAME_CAMDVDD	"RT5033_REGULATORDCDC1"
 #else
@@ -70,6 +70,7 @@
 #define GPIO_SUB_SENSOR_RESET        GPIO_SENSOR_RESET
 #define REGU_NAME_CAMAVDD    "vddcama"
 #define REGU_NAME_CAMDVDD    "vddcamd"
+#define REGU_NAME_CAMMOT       "vddcammot"
 #endif
 
 #define SENSOR_CLK           "clk_sensor"

@@ -25,6 +25,8 @@
 #ifdef CONFIG_SC_VIBRATOR_GPIO
 #include <linux/gpio.h>
 #include <mach/board.h>
+#elif defined(CONFIG_SC_VIBRATOR_POWER)
+#include <linux/regulator/consumer.h>
 #endif
 
 #ifdef CONFIG_ARCH_SCX35
@@ -67,6 +69,11 @@
 #define VIBR_PULLDOWN_EN        (1 << 1)
 #define LDO_VIBR_PD             (1 << 8)
 #endif
+
+#ifdef CONFIG_SC_VIBRATOR_POWER
+static struct regulator *vibrator_regulator = NULL;
+#endif
+
 static struct work_struct vibrator_work;
 static struct hrtimer vibe_timer;
 static int vibe_state = 0;
@@ -94,7 +101,16 @@ static void vibrator_hw_init(void)
 #else
 static void set_vibrator(int on)
 {
-#ifndef CONFIG_SC_VIBRATOR_GPIO
+#ifdef CONFIG_SC_VIBRATOR_GPIO
+	gpio_set_value(GPIO_VIBRATOR_INT, on);
+#elif defined(CONFIG_SC_VIBRATOR_POWER)
+	if (on) {
+		regulator_enable(vibrator_regulator);
+	}
+	else {
+		regulator_disable(vibrator_regulator);
+	}
+#else
 	/* unlock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
 #ifdef CONFIG_ARCH_SCX35
@@ -111,14 +127,18 @@ static void set_vibrator(int on)
 #endif
 	/* lock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
-#else
-       gpio_set_value(GPIO_VIBRATOR_INT, on);
 #endif
 }
 
 static void vibrator_hw_init(void)
 {
-#ifndef CONFIG_SC_VIBRATOR_GPIO
+#ifdef CONFIG_SC_VIBRATOR_GPIO
+	gpio_request(GPIO_VIBRATOR_INT, "vibrator");
+	gpio_direction_output(GPIO_VIBRATOR_INT, 0);
+#elif defined(CONFIG_SC_VIBRATOR_POWER)
+	vibrator_regulator = regulator_get(NULL, "vddcammot");
+	regulator_set_voltage(vibrator_regulator, 3300000, 3300000);
+#else
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
 #ifdef CONFIG_ARCH_SCX35
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_VIBR_EN, BIT_RTC_VIBR_EN);
@@ -136,9 +156,6 @@ static void vibrator_hw_init(void)
 	/* set stable current level */
 	sci_adi_write(ANA_VIBRATOR_CTRL1, VIBRATOR_INIT_STATE_CNT, 0xffff);
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
-#else
-        gpio_request(GPIO_VIBRATOR_INT, "vibrator");
-        gpio_direction_output(GPIO_VIBRATOR_INT, 0);
 #endif
 }
 
