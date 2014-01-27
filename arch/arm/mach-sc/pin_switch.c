@@ -134,7 +134,7 @@ static int pin_switch_proc_show(struct seq_file *m, void *v)
 	int val = 0;
 	struct sci_pin_switch *p = (struct sci_pin_switch *)(m->private);
 	val = read_write_pin_switch(1, (int)val, p);
-	seq_printf(m, "%s:%d\n", p->filename, val);
+	seq_printf(m, "%d\n", val);
 	return 0;
 }
 
@@ -179,7 +179,7 @@ static int pin_switch_dir_proc_show(struct seq_file *m, void *v)
 		val = 1;
 	else
 		val = 0;
-	seq_printf(m, "%s:%d\n", p->filename, val);
+	seq_printf(m, "%d\n", val);
 	return 0;
 }
 
