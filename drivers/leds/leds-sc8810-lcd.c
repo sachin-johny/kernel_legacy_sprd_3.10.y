@@ -113,7 +113,6 @@ static void sprd_lcd_led_earlysuspend(struct early_suspend *h)
 	mutex_lock(&led->mutex);
 	led->suspend = 1;
 	mutex_unlock(&led->mutex);
-	led_work(&led->work);
 }
 static void sprd_lcd_led_lateresume(struct early_suspend *h)
 {
@@ -189,13 +188,6 @@ out:
 	mutex_unlock(&led->mutex);
 }
 
-static enum led_brightness sprd_led_get(struct led_classdev *led_cdev)
-{
-	struct sprd_lcd_led *led = to_sprd_led(led_cdev);
-
-    return led->value;
-}
-
 static void sprd_led_set(struct led_classdev *led_cdev,
 			   enum led_brightness value)
 {
@@ -232,14 +224,14 @@ static int sprd_lcd_led_probe(struct platform_device *pdev)
 	led->cdev.brightness_set = sprd_led_set;
 	led->cdev.default_trigger = "heartbeat";
 	led->cdev.name = "lcd-backlight";
-	led->cdev.brightness_get = sprd_led_get;
+	led->cdev.brightness_get = NULL;
 	led->cdev.flags |= LED_CORE_SUSPENDRESUME;
 	led->suspend = 0;
 
 	spin_lock_init(&led->value_lock);
 	mutex_init(&led->mutex);
 	INIT_WORK(&led->work, led_work);
-	led->value = LED_FULL;
+	led->value = LED_OFF;
 	platform_set_drvdata(pdev, led);
 
 	ret = led_classdev_register(&pdev->dev, &led->cdev);
