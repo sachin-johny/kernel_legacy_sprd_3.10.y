@@ -791,15 +791,6 @@ config I2C_SPRD
 
 comment "External I2C/SMBus adapter drivers"
 
-
-config I2C_SPRD_V1
-	tristate "SPRD I2C Driver(INT)"
-	help
-	  Say Y here to include support for I2C controller in the
-	  Spreadtrum SC88xx based System-on-Chip devices.
-
-comment "External I2C/SMBus adapter drivers"
-
 config I2C_DIOLAN_U2C
 	tristate "Diolan U2C-12 USB adapter"
 	depends on USB
