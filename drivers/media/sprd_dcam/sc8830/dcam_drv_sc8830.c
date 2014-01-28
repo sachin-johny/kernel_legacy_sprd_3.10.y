@@ -1041,7 +1041,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 		_dcam_wait_path_done(DCAM_PATH_IDX_2, &s_p_dcam_mod->dcam_path2.need_stop);
 		if (DCAM_CAPTURE_MODE_MULTIPLE == s_p_dcam_mod->dcam_mode) {
 			_dcam_wait_for_stop();
-			_dcam_wait_for_stop();
+			/*_dcam_wait_for_stop();*/
 		}
 		DCAM_TRACE("DCAM: stop path2 Out \n");
 		dcam_reset(DCAM_RST_PATH2);
@@ -3501,6 +3501,8 @@ LOCAL void    _dcam_wait_for_stop(void)
 	}
 
 	DCAM_TRACE("DCAM: Wait for stop \n");
+	mdelay(5);
+
 	s_p_dcam_mod->wait_stop = 1;
 	rtn = down_timeout(&s_p_dcam_mod->stop_sema, DCAM_PATH_TIMEOUT);
 	if (rtn) {
