@@ -18,6 +18,8 @@
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
 #include <linux/regulator/machine.h>
+#include <linux/regulator/of_regulator.h>
+#include <linux/of.h>
 
 #define REGULATOR_EVENT_ENABLE 		0x00
 

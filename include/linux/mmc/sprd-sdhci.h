@@ -20,20 +20,16 @@ struct sprd_sdhci_host_platdata {
 	unsigned int caps;
 	unsigned int caps2;
 	int detect_gpio;
-	const char *vdd_vmmc;
-	const char *vdd_vqmmc;
 	const char *vdd_extmmc;
-	int vmmc_min_uV, vmmc_max_uV;
-	int vqmmc_min_uV, vqmmc_max_uV;
-	int vextmmc_min_uV, vextmmc_max_uV;
+	unsigned int vdd_voltage_level[4];
 	const char *clk_name;
 	const char *clk_parent_name;
-	int max_clock;
-	int enb_bit, rst_bit;
-	int enb_reg, rst_reg;
-	unsigned char write_delay;
-	unsigned char read_pos_delay;
-	unsigned char read_neg_delay;
+	int max_frequency;
+	unsigned int enb_bit, rst_bit;
+	unsigned int enb_reg, rst_reg;
+	unsigned int write_delay;
+	unsigned int read_pos_delay;
+	unsigned int read_neg_delay;
 };
 
 #endif

@@ -820,10 +820,10 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.clk_name = "clk_sdio0",
 #ifdef CONFIG_ARCH_SCX15
 	.clk_parent_name = "clk_384m",
-	.max_clock = 384000000,
+	.max_frequency = 384000000,
 #else
 	.clk_parent_name = "clk_192m",
-	.max_clock = 192000000,
+	.max_frequency = 192000000,
 #endif
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
@@ -831,7 +831,11 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 };
 
 struct platform_device sprd_sdio0_device = {
-	.name           = "sprd-sdhci-shark",
+#ifdef CONFIG_ARCH_SCX15
+	.name = "sprd-sdhci-dolphin",
+#else
+	.name = "sprd-sdhci-shark",
+#endif
 	.id             =  SDC_SLAVE_SD,
 	.num_resources  = ARRAY_SIZE(sprd_sdio0_resources),
 	.resource       = sprd_sdio0_resources,
@@ -859,14 +863,18 @@ static struct sprd_sdhci_host_platdata sprd_sdio1_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_POWER_OFF_CARD | MMC_CAP_4_BIT_DATA,
 	.clk_name = "clk_sdio1",
 	.clk_parent_name = "clk_96m",
-	.max_clock = 96000000,
+	.max_frequency = 96000000,
 	.enb_bit = BIT_SDIO1_EB,
 	.rst_bit = BIT_SDIO1_SOFT_RST,
 	.runtime = 1,
 };
 
 struct platform_device sprd_sdio1_device = {
-	.name           = "sprd-sdhci-shark",
+#ifdef CONFIG_ARCH_SCX15
+	.name = "sprd-sdhci-dolphin",
+#else
+	.name = "sprd-sdhci-shark",
+#endif
 	.id             =  SDC_SLAVE_WIFI,
 	.num_resources  = ARRAY_SIZE(sprd_sdio1_resources),
 	.resource       = sprd_sdio1_resources,
@@ -963,7 +971,7 @@ static struct sprd_sdhci_host_platdata sprd_sdio2_pdata = {
 	.detect_gpio = GPIO_SDIO_DETECT,
 	.clk_name = "clk_sdio2",
 	.clk_parent_name = "clk_96m",
-	.max_clock = 96000000,
+	.max_frequency = 96000000,
 	.enb_bit = BIT_SDIO2_EB,
 	.rst_bit = BIT_SDIO2_SOFT_RST,
 	.keep_power = 1,
@@ -971,7 +979,11 @@ static struct sprd_sdhci_host_platdata sprd_sdio2_pdata = {
 };
 
 struct platform_device sprd_sdio2_device = {
+#ifdef CONFIG_ARCH_SCX15
+	.name = "sprd-sdhci-dolphin",
+#else
 	.name = "sprd-sdhci-shark",
+#endif
 	.id = SDC_SLAVE_CP,
 	.num_resources = ARRAY_SIZE(sprd_sdio2_resources),
 	.resource = sprd_sdio2_resources,
@@ -1002,10 +1014,10 @@ static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
 	.clk_name = "clk_emmc",
 #ifdef CONFIG_ARCH_SCX15
 	.clk_parent_name = "clk_384m",
-	.max_clock = 384000000,
+	.max_frequency = 384000000,
 #else
 	.clk_parent_name = "clk_192m",
-	.max_clock = 192000000,
+	.max_frequency = 192000000,
 #endif
 	.enb_bit = BIT_EMMC_EB,
 	.rst_bit = BIT_EMMC_SOFT_RST,
@@ -1016,7 +1028,11 @@ static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
 };
 
 struct platform_device sprd_emmc_device = {
+#ifdef CONFIG_ARCH_SCX15
+	.name = "sprd-sdhci-dolphin",
+#else
 	.name = "sprd-sdhci-shark",
+#endif
 	.id = SDC_SLAVE_EMMC,
 	.num_resources = ARRAY_SIZE(sprd_emmc_resources),
 	.resource = sprd_emmc_resources,
