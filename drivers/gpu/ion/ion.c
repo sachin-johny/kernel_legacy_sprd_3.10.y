@@ -1591,7 +1591,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->kernel_clients); n; n = rb_next(n)) {
 		struct ion_client *client = rb_entry(n, struct ion_client,
 						     node);
-#ifdef CONFIG_ION_PAGECACH
+#ifdef CONFIG_ION_PAGECACHE
 		size_t size = ion_debug_heap_total(client, heap->type,
 						   heap->id);
 #else
