@@ -310,7 +310,7 @@ static void sprd_sdhci_host_enable_clock(struct sdhci_host *host, int enable) {
 	if(enable) {
 		spin_lock_irqsave(&sprd_host->lock, flags);
 		if(!sprd_host->clk_enabled) {
-			clk_enable(sprd_host->clk);
+			clk_prepare_enable(sprd_host->clk);
 			sprd_host->clk_enabled = true;
 		}
 		spin_unlock_irqrestore(&sprd_host->lock, flags);
@@ -318,7 +318,7 @@ static void sprd_sdhci_host_enable_clock(struct sdhci_host *host, int enable) {
 		spin_lock_irqsave(&sprd_host->lock, flags);
 		if(sprd_host->clk_enabled) {
 			sprd_sdhci_host_close_clock(host);
-			clk_disable(sprd_host->clk);
+			clk_disable_unprepare(sprd_host->clk);
 			sprd_host->clk_enabled = false;
 		}
 		spin_unlock_irqrestore(&sprd_host->lock, flags);
