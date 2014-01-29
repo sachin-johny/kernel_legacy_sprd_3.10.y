@@ -162,6 +162,11 @@ struct ion_handle *ion_pagecache_rb_search(struct rb_root *root,
 	return NULL;
 }
 
+unsigned long long total_allocated_ion_cache = 0;
+unsigned long s_ion_open_idx = 0;
+unsigned long s_ion_release_idx = 0;
+int ion_pagecache_flag = 1;
+int ion_normal_allocated_page_count(void);
 struct page *ion_pagecache_alloc(gfp_t gfp)
 {
 	struct ion_handle *handle;
@@ -173,6 +178,13 @@ struct page *ion_pagecache_alloc(gfp_t gfp)
 
 	if (!ion_client_pagecache)
 		return NULL;
+
+	if (s_ion_open_idx)
+		return NULL;
+/*
+	if (ion_normal_allocated_page_count())
+		return NULL;
+*/
 	handle = ion_alloc(ion_client_pagecache,
 			   PAGE_SIZE, PAGE_SIZE, (unsigned int)-1);
 	if (IS_ERR_OR_NULL(handle))
@@ -199,6 +211,7 @@ struct page *ion_pagecache_alloc(gfp_t gfp)
 	spin_lock(&heap->pagecache_lock);
 	ion_pagecache_rb_insert(&heap->pagecaches, handle);
 	spin_unlock(&heap->pagecache_lock);
+	total_allocated_ion_cache++;
 	return page;
 }
 
@@ -360,6 +373,27 @@ failed:
 	goto repeat;
 }
 
+int ion_normal_allocated_page_count(void)
+{
+	int count = 0;
+	struct ion_device *ion_dev;
+	struct rb_node *n;
+
+	if (!ion_client_pagecache)
+		return -1;
+
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps); n != NULL; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		count += heap->allocated -heap->cachedpages;
+	}
+	return count;
+}
+
 int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask)
 {
 	int shrunk;
@@ -391,6 +425,28 @@ int ion_pagecache_shrink(unsigned long max_scan, gfp_t gfp_mask)
 	}
 #endif
 	return shrunk > max_scan ? max_scan : shrunk;
+}
+
+void ion_pagecache_shrink_all(void)
+{
+	int shrunk;
+	struct ion_device *ion_dev;
+	struct rb_node *n;
+
+	if (!ion_client_pagecache)
+		return -1;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps); n != NULL && n != NULL; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+
+		if (heap->cachedpages > 0)
+			__ion_pagecache_shrink(heap,
+					heap->cachedpages, 0, 0);
+	}
 }
 
 void ion_activate_page(struct page *page)
@@ -685,7 +741,7 @@ repeat:
 	mutex_unlock(&client->lock);
 
 #ifdef CONFIG_ION_PAGECACHE
-	handle->task = current;
+	buffer->pid = current->pid;
 #endif
 	return handle;
 }
@@ -975,6 +1031,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 #ifdef CONFIG_ION_PAGECACHE
 		seq_printf(s, "%16.16s: %16u  %16d  %16d %d\n", names[i], sizes[i], allocated[i], cachedpages[i],
 				atomic_read(&client->ref.refcount));
+		seq_printf(s, "%llu %d\n", total_allocated_ion_cache, ion_normal_allocated_page_count());
 #else
 		seq_printf(s, "%16.16s: %16u %d\n", names[i], sizes[i],
 			   atomic_read(&client->ref.refcount));
@@ -1405,6 +1462,9 @@ static int ion_release(struct inode *inode, struct file *file)
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	ion_client_put(client);
+	
+	s_ion_open_idx--;
+	printk("fyb---- ion_release flag   %lu\n", s_ion_open_idx);
 	return 0;
 }
 
@@ -1420,6 +1480,10 @@ static int ion_open(struct inode *inode, struct file *file)
 		return PTR_ERR(client);
 	file->private_data = client;
 
+	if (!s_ion_open_idx)
+		ion_pagecache_shrink_all();
+	s_ion_open_idx++;
+	printk("fyb---- ion_open  flag %lu\n", s_ion_open_idx);
 	return 0;
 }
 
@@ -1431,8 +1495,7 @@ static const struct file_operations ion_fops = {
 };
 
 static size_t ion_debug_heap_total(struct ion_client *client,
-				   enum ion_heap_type type, int id,
-				   struct seq_file *s)
+				   enum ion_heap_type type, int id)
 {
 	size_t size = 0;
 	struct rb_node *n;
@@ -1444,29 +1507,8 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 						     node);
 		if (handle->buffer->heap->id != id)
 			continue;
-		if (handle->buffer->heap->type == type) {
-#ifdef CONFIG_ION_PAGECACHE
-				seq_printf(s, "--- size= %16u pid:%d kmap_cnt= %2d ref= %2d \
-flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
-					handle->buffer->size,
-					handle->task->pid,
-					handle->buffer->kmap_cnt,
-					atomic_read(&handle->buffer->ref.refcount),
-					(unsigned int)handle->buffer->flags,
-					(unsigned int)handle->buffer->priv_virt,
-					(unsigned int)handle->buffer->vaddr);
-#else
-			seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
-flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
-				handle->buffer->size,
-				handle->buffer->kmap_cnt,
-				atomic_read(&handle->buffer->ref.refcount),
-				(unsigned int)handle->buffer->flags,
-				(unsigned int)handle->buffer->priv_virt,
-				(unsigned int)handle->buffer->vaddr);
-#endif
+		if (handle->buffer->heap->type == type)
 			size += handle->buffer->size;
-		}
 	}
 	mutex_unlock(&client->lock);
 	return size;
@@ -1484,7 +1526,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 						     node);
 		char task_comm[TASK_COMM_LEN];
 		size_t size = ion_debug_heap_total(client, heap->type,
-						   heap->id, s);
+						   heap->id);
 		if (!size)
 			continue;
 
@@ -1497,7 +1539,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 		struct ion_client *client = rb_entry(n, struct ion_client,
 						     node);
 		size_t size = ion_debug_heap_total(client, heap->type,
-						   heap->id, s);
+						   heap->id);
 		if (!size)
 			continue;
 		seq_printf(s, "%16.s %16u %16u\n", client->name, client->pid,
@@ -1513,9 +1555,10 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			continue;
 		if (buffer->heap->type != heap->type)
 			continue;
-		seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
+		seq_printf(s, "--- size= %16u pid=%5d kmap_cnt= %2d ref= %2d \
 flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
 			buffer->size,
+			buffer->pid,
 			buffer->kmap_cnt,
 			atomic_read(&buffer->ref.refcount),
 			(unsigned int)buffer->flags,
