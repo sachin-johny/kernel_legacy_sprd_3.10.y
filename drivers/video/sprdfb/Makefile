@@ -12,3 +12,4 @@ obj-$(CONFIG_FB_SCX35) += lcd/
 obj-$(CONFIG_FB_SCX15) := sprdfb_main.o sprdfb_panel.o sprdfb_dispc.o sprdfb_mcu.o sprdfb_rgb.o sprdfb_i2c.o sprdfb_spi.o sprdfb_chip_common.o sprdfb_chip_7715.o
 obj-$(CONFIG_FB_SCX15) += spi/
 obj-$(CONFIG_FB_SCX15) += lcd/
+obj-$(CONFIG_FB_DYNAMIC_FPS_SUPPORT) += sprdfb_notifier.o
