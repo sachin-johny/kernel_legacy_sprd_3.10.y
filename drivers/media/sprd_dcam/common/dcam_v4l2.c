@@ -1063,19 +1063,22 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	node.index    = frame->fid;
 	node.height   = frame->height;
 
-	DCAM_TRACE("V4L2: sprd_v4l2_tx_done, flag 0x%x type 0x%x index 0x%x \n",
+	DCAM_TRACE("V4L2: flag 0x%x type 0x%x index 0x%x \n",
 		node.irq_flag, node.f_type, node.index);
 
 	path = &dev->dcam_cxt.dcam_path[frame->type];
 
 	if (DCAM_PATH0 == frame->type && DCAM_CAP_MODE_JPEG == dev->dcam_cxt.sn_mode) {
 		dcam_cap_get_info(DCAM_CAP_JPEG_GET_LENGTH, &node.reserved);
-		printk("V4L2: sprd_v4l2_tx_done, JPEG length 0x%x \n", node.reserved);
+		printk("V4L2: JPEG length 0x%x \n", node.reserved);
+		if (node.reserved < DCAM_JPEG_LENGTH_MIN) {
+			return sprd_v4l2_tx_error(frame, param);
+		}
 	}
 
 	fmr_index = frame->fid - path->frm_id_base;
 	if (fmr_index >= path->frm_cnt_act) {
-		DCAM_TRACE("V4L2: sprd_v4l2_tx_done, index error %d, actually count %d \n",
+		DCAM_TRACE("V4L2: index error %d, actually count %d \n",
 			fmr_index,
 			path->frm_id_base);
 	}

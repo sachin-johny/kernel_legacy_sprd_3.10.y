@@ -31,6 +31,7 @@
 #define DCAM_PATH_0_FRM_CNT_MAX                  8
 #define DCAM_FRM_CNT_MAX                         8  /* max between path_1_frm_cnt and path_2_frm_cnt */
 #define DCAM_HEIGHT_MIN                          4
+#define DCAM_JPEG_LENGTH_MIN                     30720 /*640X480  div 10*/
 
 enum dcam_swtich_status {
 	DCAM_SWITCH_IDLE = 0,

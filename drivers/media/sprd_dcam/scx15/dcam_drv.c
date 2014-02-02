@@ -954,6 +954,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		_dcam_path0_set();
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_0, true);
 		DCAM_RTN_IF_ERR;
+		_dcam_force_copy(DCAM_PATH_IDX_0);
 		if (cap_en) {
 			/* if cap is already open, the sequence is: 
 			   cap force copy -> path 0 enable -> cap auto copy */
@@ -3156,7 +3157,9 @@ LOCAL void _dcam_auto_copy_ext(enum dcam_path_index path_index, uint32_t path_co
 
 LOCAL void _dcam_force_copy(enum dcam_path_index path_index)
 {
-	if (DCAM_PATH_IDX_1 == path_index) {
+	if (DCAM_PATH_IDX_0 == path_index) {
+		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_8, 1 << 8, DCAM_CONTROL_REG);
+	} else if (DCAM_PATH_IDX_1 == path_index) {
 		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_10, 1 << 10, DCAM_CONTROL_REG);
 	} else if (DCAM_PATH_IDX_2 == path_index) {
 		dcam_glb_reg_mwr(DCAM_CONTROL, BIT_12, 1 << 12, DCAM_CONTROL_REG);
