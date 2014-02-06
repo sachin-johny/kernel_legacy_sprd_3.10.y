@@ -2418,7 +2418,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 	mm_clk_register_trace();
 	printk("dcam registers \n");
 	while (print_len < reg_buf_len) {
-		printk("offset 0x%3x : 0x%8x, 0x%8x, 0x%8x, 0x%8x \n",
+		printk("offset 0x%03x : 0x%08x, 0x%08x, 0x%08x, 0x%08x \n",
 			print_len,
 			reg_buf[print_cnt],
 			reg_buf[print_cnt+1],

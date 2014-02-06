@@ -1657,7 +1657,9 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							csi_reg_isr(_sensor_csi2_error, (void*)s_p_sensor_mod);
 							csi_set_on_lanes(if_cfg.lane_num);
 							s_p_sensor_mod->mipi_on = 1;
-							printk("MIPI on, lane %d, bps %d \n", if_cfg.lane_num, if_cfg.bps_per_lane);
+							printk("MIPI on, lane %d, bps %d, wait 10us \n", if_cfg.lane_num, if_cfg.bps_per_lane);
+						} else {
+							printk("MIPI already on \n");
 						}
 					}
 				} else {
@@ -1667,6 +1669,8 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							_sensor_k_mipi_clk_dis();
 							s_p_sensor_mod->mipi_on = 0;
 							printk("MIPI off \n");
+						} else {
+							printk("MIPI already off \n");
 						}
 
 					}
