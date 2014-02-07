@@ -886,10 +886,10 @@ static int c_show(struct seq_file *m, void *v)
 		 * online processors, looking for lines beginning with
 		 * "processor".  Give glibc what it expects.
 		 */
-		cpuid = is_smp() ? per_cpu(cpu_data, i).cpuid : read_cpuid_id();
-		seq_printf(m, "Processor\t: %s rev %d (%s)\n",
-			   cpu_name, cpuid & 15, elf_platform);
 		seq_printf(m, "processor\t: %d\n", i);
+		cpuid = is_smp() ? per_cpu(cpu_data, i).cpuid : read_cpuid_id();
+		seq_printf(m, "model name\t: %s rev %d (%s)\n",
+			   cpu_name, cpuid & 15, elf_platform);
 
 #if defined(CONFIG_SMP)
 		seq_printf(m, "BogoMIPS\t: %lu.%02lu\n",
