@@ -118,6 +118,11 @@ static void setup_autopd_mode(void)
 		sci_glb_write(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, 0x3B, -1UL);
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);//AP_WAKEUP_POR_CFG
 
+	sci_glb_set(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG,
+			BIT_AP_EMC_AUTO_GATE_EN |
+			BIT_CA7_EMC_AUTO_GATE_EN |
+			BIT_CA7_CORE_AUTO_GATE_EN);
+
 	// INTC0_EB, INTC1_EB, INTC2_EB, INTC3_EB
 	sci_glb_set(REG_AP_APB_APB_EB, 0xf<<19);
 
