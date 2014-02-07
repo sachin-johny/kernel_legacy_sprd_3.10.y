@@ -30,8 +30,12 @@
 #include "sprdfb_panel.h"
 #include "sprdfb.h"
 #include "sprdfb_chip_common.h"
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+#include "sprdfb_notifier.h"
+#endif
 
 #define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
+
 #ifdef CONFIG_FB_SCX15
 #define DISPC_CLOCK_PARENT ("clk_192m")
 #define DISPC_CLOCK (192*1000000)
@@ -50,9 +54,7 @@
 
 #endif
 
-
 #define DISPC_EMC_EN_PARENT ("clk_aon_apb")
-
 
 #ifdef CONFIG_FB_SCX15
 #define SPRDFB_BRIGHTNESS		(0x02<<16)// 9-bits
@@ -120,6 +122,15 @@ extern void sprdfb_panel_invalidate_rect(struct panel_spec *self,
 #ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
 extern int32_t dsi_dpi_init(struct sprdfb_device *dev);
 static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level);
+static int32_t sprdfb_dispc_notify_change_fps(struct dispc_dbs *h, int fps_level);
+
+int32_t original_fps = -1;
+struct dispc_dbs sprd_fps_notify = {
+	.level = 0,
+	.type = DISPC_DBS_FPS,
+	.data = (void *)&dispc_ctx,
+	.dispc_notifier = sprdfb_dispc_notify_change_fps,
+};
 #endif
 
 #ifdef CONFIG_FB_ESD_SUPPORT
@@ -853,6 +864,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 			dispc_module_enable();
 			dispc_ctx.is_first_frame = true;
 		}
+		dispc_update_clock(dev);
 		ret = sprdfb_dispc_module_init(dev);
 	}else{
 		//resume
@@ -861,7 +873,9 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		dispc_module_enable();
 		dispc_ctx.is_first_frame = true;
 	}
-
+#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+	dispc_notifier_register(&sprd_fps_notify);
+#endif
 	return ret;
 }
 
@@ -1847,6 +1861,17 @@ static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
 	}
     return ret;
 }
+
+static int32_t sprdfb_dispc_notify_change_fps(struct dispc_dbs *h, int fps_level)
+{
+	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
+	struct sprdfb_device *dev = dispc_ctx->dev;
+
+	printk("sprdfb_dispc_notify_change_fps: %d\n", fps_level);
+
+	return sprdfb_dispc_change_fps(dev, fps_level);
+}
+
 #endif
 
 #if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
