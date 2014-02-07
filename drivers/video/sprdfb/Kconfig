@@ -42,6 +42,11 @@ config FB_LCD_HX8363_RGB_SPI
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
 	default n
 
+config FB_LCD_VIVA_RGB_SPI
+	boolean "support VIVA panel rgb spi"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
+	default n
+
 config FB_LCD_HX8369
 	boolean "support HX8369 panel"
 	depends on FB_SC8825 || FB_SCX35

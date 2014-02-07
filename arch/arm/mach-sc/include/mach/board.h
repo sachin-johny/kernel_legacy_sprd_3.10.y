@@ -113,6 +113,10 @@
 #include "__board-corsica_ve.h"
 #endif
 
+#ifdef CONFIG_MACH_VIVALTO
+#include "__board-vivalto.h"
+#endif
+
 #ifdef  CONFIG_MACH_FAME2
 #include "__board-fame2.h"
 #endif

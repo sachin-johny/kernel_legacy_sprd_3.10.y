@@ -945,10 +945,10 @@ config TOUCHSCREEN_IST30XX
              module will be called ist30xx.
 
 config TOUCHSCREEN_IST30XXB
-        tristate "IST30XX I2C Touchscreen"
+        tristate "IST30XXB I2C Touchscreen"
         depends on I2C
            help
-             Say Y here if you have the Imagis IST30XX I2C touchscreen
+             Say Y here if you have the Imagis IST30XXB I2C touchscreen
              connected to your system.
 
              If unsure, say N.
