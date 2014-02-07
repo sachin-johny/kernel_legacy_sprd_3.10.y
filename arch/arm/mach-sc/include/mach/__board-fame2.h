@@ -20,7 +20,7 @@
 
 #define GPIO_TOUCH_RESET         53
 #define GPIO_TOUCH_IRQ           52
-#define GPIO_SDIO_DETECT         75
+
 #define GPIO_SENSOR_RESET        162
 #define GPIO_MAIN_SENSOR_PWN     164
 #define GPIO_SUB_SENSOR_PWN      163
@@ -56,7 +56,7 @@
 #define HEADSET_TYPEVOL_MIC_MAX           2453
 #define EIC_KEY_POWER           (EIC_POWER_PBINT)
 #define HEADSET_BUTTON_GPIO		(EIC_AUD_HEAD_BUTTON)
-#define HEADSET_DETECT_GPIO		180 //(EIC_AUD_HEAD_INST2)
+#define HEADSET_DETECT_GPIO		(EIC_AUD_HEAD_INST2)
 #define HEADSET_SWITCH_GPIO	0
 
 #define SPI0_CMMB_CS_GPIO        156
@@ -74,10 +74,10 @@
 
 #define GPIO_CMMB_26M_CLK_EN    197
 
-#define GPIO_BT_RESET       233
-#define GPIO_BT_POWER       231
-#define GPIO_BT2AP_WAKE     232
-#define GPIO_AP2BT_WAKE     235
+#define GPIO_BT_RESET       189
+#define GPIO_BT_POWER       110
+#define GPIO_BT2AP_WAKE     192
+#define GPIO_AP2BT_WAKE     188
 
 #define GPIO_WIFI_SHUTDOWN	230
 #define GPIO_WIFI_IRQ		234
@@ -86,6 +86,8 @@
 #define GPIO_GYRO_INT1 191
 #define GPIO_M_RSTN	188
 #define GPIO_M_DRDY 189
+
+#define GPIO_SDIO_DETECT      75
 
 /* ION config info
 LCD:
