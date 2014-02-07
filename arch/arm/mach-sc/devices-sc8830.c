@@ -1751,7 +1751,7 @@ static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 	.segs		= {
 		{
 			.name  = "modem",
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_SS_FUNCTION)
 			.base  = CPW_START_ADDR + 0x2c0000,
 #else
 			.base  = CPW_START_ADDR + 0x300000,
