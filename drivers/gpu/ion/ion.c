@@ -340,8 +340,8 @@ repeat:
 		}
 		if (page_has_private(page) &&
 				!try_to_release_page(page, gfp_mask)) {
-			printk(KERN_ERR "ion: pagecache_shrink: "
-					"failed to release page %p\n", page);
+			//printk(KERN_ERR "ion: pagecache_shrink: "
+			//		"failed to release page %p\n", page);
 			goto failed;
 		} else {
 			if (mapping) {
@@ -369,10 +369,10 @@ repeat:
 
 	mem_cgroup_uncharge_end();
 	atomic_dec(&heap->shrinking);
-printk("tryhard: %d max_scan:%d gfp:%x shrunk: %d\n",
-	tryhard, max_scan, gfp_mask, shrunk);
-printk("heap size %d allocated:%d cachedpages: %d\n",
-	heap->size, heap->allocated, heap->cachedpages);
+//printk("tryhard: %d max_scan:%d gfp:%x shrunk: %d\n",
+//	tryhard, max_scan, gfp_mask, shrunk);
+//printk("heap size %d allocated:%d cachedpages: %d\n",
+//	heap->size, heap->allocated, heap->cachedpages);
 	return shrunk;
 failed:
 	unlock_page(page);
@@ -1477,7 +1477,7 @@ static int ion_release(struct inode *inode, struct file *file)
 	
 #ifdef CONFIG_ION_PAGECACHE
 	s_ion_open_idx--;
-	printk("fyb---- ion_release flag   %lu\n", s_ion_open_idx);
+	//printk("fyb---- ion_release flag   %lu\n", s_ion_open_idx);
 #endif
 	return 0;
 }
@@ -1498,7 +1498,7 @@ static int ion_open(struct inode *inode, struct file *file)
 	if (!s_ion_open_idx)
 		ion_pagecache_shrink_all();
 	s_ion_open_idx++;
-	printk("fyb---- ion_open  flag %lu\n", s_ion_open_idx);
+	//printk("fyb---- ion_open  flag %lu\n", s_ion_open_idx);
 #endif
 	return 0;
 }
