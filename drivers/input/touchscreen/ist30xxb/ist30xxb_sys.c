@@ -198,7 +198,7 @@ int ist30xx_write_cmd(struct i2c_client *client, u32 cmd, u32 val)
 #define GPIO_TSP_SCL        35
 #define GPIO_TSP_SDA        40
 static struct regulator *touch_regulator;
-#if defined(CONFIG_MACH_CORSICA_VE)
+#if defined(CONFIG_MACH_CORSICA_VE) || defined(CONFIG_MACH_STAR2)
 static void ts_power_enable(int en)
 {
 	int ret=0;

@@ -58,7 +58,7 @@
 
 #define IST30XX_MAX_MT_FINGERS  (10)
 
-#if defined CONFIG_MACH_CORSICA_VE
+#if defined (CONFIG_MACH_CORSICA_VE) || defined (CONFIG_MACH_STAR2)
 #define IST30XX_MAX_X           (240)
 #define IST30XX_MAX_Y           (320)
 #elif defined CONFIG_MACH_FAME2
