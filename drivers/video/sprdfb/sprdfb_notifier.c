@@ -76,6 +76,8 @@ int dispc_notifier_register(struct dispc_dbs *handler)
 		if (e == handler) {
 			printk("***** %s, %pf already exsited ****\n",
 					__func__, e->dispc_notifier);
+
+			mutex_unlock(&dispc_dev_lock);
 			return -1;
 		}
 	}
