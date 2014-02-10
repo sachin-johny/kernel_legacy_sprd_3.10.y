@@ -1620,6 +1620,7 @@ int mmc_resume_bus(struct mmc_host *host)
 	}
 	
 	mmc_bus_put(host);
+
 	/*card detection can not be called whithin dfferent task, it may cause some tasks  to remove card at the same time*/
 	mmc_detect_change(host, 0);
 
@@ -2395,12 +2396,16 @@ void mmc_rescan(struct work_struct *work)
 	int i;
 	bool extend_wakelock = false;
 
-	if (host->rescan_disable)
+	if (host->rescan_disable) {
+		wake_unlock(&host->detect_wake_lock);
 		return;
+	}
 
 	/* If there is a non-removable card registered, only scan once */
-//	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered)
-//		return;
+	if ((host->caps & MMC_CAP_NONREMOVABLE) && host->rescan_entered) {
+		wake_unlock(&host->detect_wake_lock);
+		return;
+	}
 	host->rescan_entered = 1;
 
 	mmc_bus_get(host);
