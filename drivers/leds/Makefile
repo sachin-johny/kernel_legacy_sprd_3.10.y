@@ -60,7 +60,8 @@ obj-$(CONFIG_RT_FLASH_LED)		+= rtfled.o
 obj-$(CONFIG_FLED_RT5033)       += rt5033_fled.o
 # SPRD keyboard-backlight Drivers
 obj-$(CONFIG_LEDS_SPRD_KB) += leds-sprd-kb.o
-
+# SPRD rgb led Drivers
+obj-$(CONFIG_LEDS_SPRD_RGB)	+= leds-sprd-rgb.o
 # LED SPI Drivers
 obj-$(CONFIG_LEDS_DAC124S085)		+= leds-dac124s085.o
 
