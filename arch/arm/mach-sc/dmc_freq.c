@@ -309,6 +309,8 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 	unsigned long irq_flags;
 
 	local_irq_save(irq_flags);
+#else
+	mutex_lock(&emc_mutex);
 #endif
 
     /*info("emc clk going on %d	#########################################################\n",new_clk);*/
@@ -412,6 +414,8 @@ out:
 
 #if defined (EMC_FREQ_AUTO_TEST) || defined(CONFIG_SCX35_DMC_FREQ_AP)
 	local_irq_restore(irq_flags);
+#else
+	mutex_unlock(&emc_mutex);
 #endif
 	info("__emc_clk_set REG_AON_APB_DPLL_CFG = %x, PUBL_DLLGCR = %x\n",sci_glb_read(REG_AON_APB_DPLL_CFG, -1), __raw_readl(SPRD_LPDDR2_PHY_BASE + 0x04));
 	return 0;
