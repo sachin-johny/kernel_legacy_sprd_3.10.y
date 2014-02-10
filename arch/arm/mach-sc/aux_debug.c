@@ -81,7 +81,7 @@ static struct aux_cfg_info clk_cfg_info =
 	0xa5a55a5a	/*magic_ender*/
 };
 
-static int aux_clk_config(u32 clk_sel)
+static void aux_clk_config(u32 clk_sel)
 {
 	u32 reg_val;
 
