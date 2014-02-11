@@ -137,6 +137,8 @@ static bool oom_unkillable_task(struct task_struct *p,
  * The heuristic for determining which task to kill is made to be as simple and
  * predictable as possible.  The goal is to return the highest value for the
  * task consuming the most memory to avoid subsequent oom failures.
+ *
+ * ps. we don't want to kill the process still in the uninterruptible state
  */
 unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 			  const nodemask_t *nodemask, unsigned long totalpages)
@@ -175,6 +177,13 @@ unsigned long oom_badness(struct task_struct *p, struct mem_cgroup *memcg,
 	/* Normalize to oom_score_adj units */
 	adj *= totalpages / 1000;
 	points += adj;
+
+	/*
+	 * The unterruptible task cannot be killed,
+	 * which couldn't receive any signal including SIGKILL.
+	 */
+	if (p->state == TASK_UNINTERRUPTIBLE)
+		points /= 16;
 
 	/*
 	 * Never return 0 for an eligible task regardless of the root bonus and
