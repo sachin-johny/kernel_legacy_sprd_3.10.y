@@ -50,6 +50,8 @@
 #endif
 #include "devices.h"
 #include <mach/modem_interface.h>
+#include <linux/sprd_thm.h>
+#include <linux/thermal.h>
 
 struct modem_intf_platform_data modem_interface = {
        .dev_type               = MODEM_DEV_SDIO,
@@ -589,6 +591,76 @@ struct platform_device sprd_keypad_device = {
 	.resource = sci_keypad_resources,
 };
 
+// xiangzhao.chen added  sprd_thm_device and sprd_thm_a_device 2014.01.28
+static struct resource sprd_thm_resources[] = {
+    [0] = {
+        .start = SPRD_THM_BASE,
+        .end = SPRD_THM_BASE + SPRD_THM_SIZE - 1,
+        .flags = IORESOURCE_MEM,
+    },
+    [1] = {
+        .start = IRQ_THM_INT,
+        .end = IRQ_THM_INT,
+        .flags = IORESOURCE_IRQ,
+    },
+};
+
+static struct sprd_thm_platform_data sprd_thm_data = {
+	.trip_points[0] = {
+		.temp = 107,
+		.type = THERMAL_TRIP_ACTIVE,
+		.cdev_name = {
+			[0] = "thermal-cpufreq-0",
+		},
+	},
+	.trip_points[1] = {
+		.temp = 114,
+		.type = THERMAL_TRIP_CRITICAL,
+	},
+	.num_trips = 2,
+};
+
+struct platform_device sprd_thm_device = {
+	.name           = "sprd-thermal",
+      .id		= 0,
+	.resource       = sprd_thm_resources,
+	.num_resources  = ARRAY_SIZE(sprd_thm_resources),
+	.dev	= {
+		.platform_data	= &sprd_thm_data,
+	},
+};
+#if 0
+static struct resource sprd_thm_a_resources[] = {
+    [0] = {
+        .start = ANA_THM_BASE,
+        .end = ANA_THM_BASE + SPRD_THM_SIZE - 1,
+        .flags = IORESOURCE_MEM,
+    },
+    [1] = {
+        .start = IRQ_THM_INT,
+        .end = IRQ_ANA_THM_OTP_INT,
+        .flags = IORESOURCE_IRQ,
+    },
+};
+
+static struct sprd_thm_platform_data sprd_thm_a_data = {
+	.trip_points[0] = {
+		.temp = 160,
+		.type = THERMAL_TRIP_CRITICAL,
+	},
+	.num_trips = 1,
+};
+
+struct platform_device sprd_thm_a_device = {
+	.name           = "sprd-thermal",
+      .id		= 1,
+	.resource       = sprd_thm_a_resources,
+	.num_resources  = ARRAY_SIZE(sprd_thm_a_resources),
+	.dev	= {
+		.platform_data	= &sprd_thm_a_data,
+	},
+};
+#endif
 
 
 static struct headset_buttons sprd_headset_buttons[] = {
