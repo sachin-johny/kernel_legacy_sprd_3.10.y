@@ -247,7 +247,7 @@ static void ts_power_enable(int en)
 		}
 	}
 }
-#elif defined(CONFIG_MACH_FAME2) || defined(CONFIG_MACH_VIVALTO)
+#elif defined(CONFIG_MACH_YOUNG2) || defined(CONFIG_MACH_VIVALTO)
 static void ts_power_enable(int en)
 {
 	int ret=0;

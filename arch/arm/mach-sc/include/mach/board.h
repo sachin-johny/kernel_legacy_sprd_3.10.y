@@ -117,8 +117,8 @@
 #include "__board-vivalto.h"
 #endif
 
-#ifdef  CONFIG_MACH_FAME2
-#include "__board-fame2.h"
+#ifdef  CONFIG_MACH_YOUNG2
+#include "__board-young2.h"
 #endif
 
 #include <asm/sizes.h>

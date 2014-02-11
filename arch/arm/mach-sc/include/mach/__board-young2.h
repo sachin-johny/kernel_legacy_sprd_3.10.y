@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __GPIO_FAME2_H__
-#define __GPIO_FAME2_H__
+#ifndef __GPIO_YOUNG2_H__
+#define __GPIO_YOUNG2_H__
 
 #ifndef __ASM_ARCH_BOARD_H
 #error  "Don't include this file directly, include <mach/board.h>"

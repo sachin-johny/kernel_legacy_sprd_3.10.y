@@ -261,14 +261,14 @@ config MACH_VIVALTO
 	help
 	  VIVALTO board based on dolphin serial.
 
-config MACH_FAME2
-	bool "fame2 Phone Board"
+config MACH_YOUNG2
+	bool "young2 Phone Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	depends on ARCH_SCX15
 	default n
 	help
-	  FAME2 board based on dolphin serial.
+	  YOUNG2 board based on dolphin serial.
 
 config MACH_SP8830GA
 	bool "sp8830ga Phone Board"
