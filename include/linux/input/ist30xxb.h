@@ -61,7 +61,7 @@
 #if defined (CONFIG_MACH_CORSICA_VE) || defined (CONFIG_MACH_STAR2)
 #define IST30XX_MAX_X           (240)
 #define IST30XX_MAX_Y           (320)
-#elif defined CONFIG_MACH_FAME2
+#elif defined CONFIG_MACH_YOUNG2
 #define IST30XX_MAX_X           (320)
 #define IST30XX_MAX_Y           (480)
 #elif defined CONFIG_MACH_VIVALTO
