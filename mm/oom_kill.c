@@ -403,6 +403,25 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 		dump_tasks(memcg, nodemask);
 }
 
+static void set_thread_group_flag(struct task_struct *p, int flag)
+{
+	struct task_struct *tp = p;
+	/*
+	 * In some situation, a thread group member holds the mm->mmap_sem
+	 * as a writer and then blocks waiting for memory.
+	 * After that, the oom-killer chooses this particular thread group
+	 * to die to release some memory. since the mm->mmap_sem is held,
+	 * the thread group cannot finish the exit routine,
+	 * therefore no memory can be released, which leads to a deadlock
+	 * situation.
+	 * Here grants TIF_MEMDIE to all thread group members to avoid the
+	 * deadlock.
+	 */
+	do {
+		set_tsk_thread_flag(tp, TIF_MEMDIE);
+	} while_each_thread(p, tp);
+}
+
 #define K(x) ((x) << (PAGE_SHIFT-10))
 /*
  * Must be called while holding a reference to p, which will be released upon
@@ -426,7 +445,7 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 	 * its children or threads, just set TIF_MEMDIE so it can die quickly
 	 */
 	if (p->flags & PF_EXITING) {
-		set_tsk_thread_flag(p, TIF_MEMDIE);
+		set_thread_group_flag(p, TIF_MEMDIE);
 		put_task_struct(p);
 		return;
 	}
@@ -510,7 +529,7 @@ void oom_kill_process(struct task_struct *p, gfp_t gfp_mask, int order,
 		}
 	rcu_read_unlock();
 
-	set_tsk_thread_flag(victim, TIF_MEMDIE);
+	set_thread_group_flag(victim, TIF_MEMDIE);
 	do_send_sig_info(SIGKILL, SEND_SIG_FORCED, victim, true);
 	put_task_struct(victim);
 }
@@ -637,7 +656,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	 * quickly exit and free its memory.
 	 */
 	if (fatal_signal_pending(current) || current->flags & PF_EXITING) {
-		set_thread_flag(TIF_MEMDIE);
+		set_thread_group_flag(current, TIF_MEMDIE);
 		return;
 	}
 
