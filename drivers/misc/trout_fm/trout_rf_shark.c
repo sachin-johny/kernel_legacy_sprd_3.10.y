@@ -387,7 +387,7 @@ int shark_fm_wait_int(int time_out)
 
 		if (is_timeout && (seek_succes==0)) {
 			TROUT_PRINT("FM search timeout.");
-			trout_fm_dis();
+			//trout_fm_dis();
 		        ret = Trout_SEEK_TIMEOUT;                       
 		}
 
