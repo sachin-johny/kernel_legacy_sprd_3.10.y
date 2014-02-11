@@ -293,6 +293,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 
 	local_load = load_freq/policy->cur;
 
+        printk("[DVFS] load %d %x load_freq %d policy->cur %d\n",local_load,local_load,load_freq,policy->cur);
 	/* Check for frequency increase */
 	if (load_freq > sd_tuners->up_threshold * policy->cur) {
 		/* If switching to max speed, apply sampling_down_factor */
@@ -1134,7 +1135,7 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 	{
 		pr_info("set_cur_state governor %s return\n", policy->governor->name);
 		if (g_sd_tuners == NULL)
-			return;
+			return ret;
 		sd_tuners = g_sd_tuners;
 	}
 	else
@@ -1198,7 +1199,7 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 	{
 		pr_info("sprdemand_gov_pm_notifier_call governor %s return\n", policy->governor->name);
 		if (g_sd_tuners == NULL)
-			return;
+			return NOTIFY_OK;
 		sd_tuners = g_sd_tuners;
 	}
 	else
