@@ -90,9 +90,10 @@ static int wlan_ldo_enable(void)
 {
 	int err;
 
-	wlan_regulator_18 = regulator_get(NULL, "vddsd1");
+	wlan_regulator_18 = regulator_get(NULL, REGU_NAME_SDHOST1);
 
 	if (IS_ERR(wlan_regulator_18)) {
+        printk("can't get wlan 1.8V regulator in itm \n");
 		pr_err("can't get wlan 1.8V regulator\n");
 		return -1;
 	}
@@ -105,6 +106,7 @@ static int wlan_ldo_enable(void)
 	}
 	regulator_set_mode(wlan_regulator_18, REGULATOR_MODE_STANDBY);
 	regulator_enable(wlan_regulator_18);
+    printk("[wlan_ldo_enable in itm ] result %d \n",regulator_is_enabled(wlan_regulator_18));
 }
 
 static void wlan_clk_init(void)

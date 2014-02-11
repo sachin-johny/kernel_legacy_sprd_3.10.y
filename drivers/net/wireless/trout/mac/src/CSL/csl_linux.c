@@ -156,6 +156,8 @@ extern sta_wakeup_combo(UWORD8 );
 #define SPRD_TROUT_INT_GPIO 152
 #elif defined(CONFIG_ARCH_SC8825)
 #define SPRD_TROUT_INT_GPIO 52
+#elif defined(CONFIG_MACH_SP6821A)
+#define SPRD_TROUT_INT_GPIO 142
 #else
 #ifdef USE_TROUT_PHONE
 #define SPRD_TROUT_INT_GPIO 141
