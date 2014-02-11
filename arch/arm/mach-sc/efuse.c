@@ -28,6 +28,13 @@
 
 #define CONFIG_EFUSE_TEST
 
+#if defined(CONFIG_ARCH_SCX15)
+static int idx = 0;
+#undef SPRD_EFUSE_BASE
+#define SPRD_EFUSE_BASE		(SPRD_UIDEFUSE_BASE + idx * 0x100)
+#endif
+
+
 /* registers definitions for controller CTL_EFUSE */
 #define REG_EFUSE_DATA_RD               (SPRD_EFUSE_BASE + 0x0000)
 #define REG_EFUSE_DATA_WR               (SPRD_EFUSE_BASE + 0x0004)
@@ -147,6 +154,13 @@ static __inline void __ddie_fuse_global_close(void)
 static __inline int __ddie_fuse_read(u32 blk)
 {
 	int val = 0;
+
+#if defined(CONFIG_ARCH_SCX15)
+	idx = blk / 8;
+	blk %= 8;
+#endif
+
+	D_EFUSE_VERIFY_BLK_ID(blk);
 
 	mutex_lock(&ddie_fuse_lock);
 	__ddie_fuse_global_init();
@@ -375,6 +389,12 @@ static void sci_ddie_fuse_program_vdd(u32 enable, u32 msleep_value)
 void sci_ddie_fuse_program(u32 blk, int data)
 {
 	int val = 0;
+
+#if defined(CONFIG_ARCH_SCX15)
+	idx = blk / 8;
+	blk %= 8;
+#endif
+
 	D_EFUSE_VERIFY_BLK_ID(blk);
 
 	mutex_lock(&ddie_fuse_lock);
@@ -430,6 +450,10 @@ void sci_ddie_fuse_set_cyclecnt(u32 cnt, u32 efuse_clk_div_en)
 void sci_ddie_fuse_bist(u32 start_blk, u32 size)
 {
 	int val = 0;
+#if defined(CONFIG_ARCH_SCX15)
+	idx = start_blk / 8;
+	start_blk %= 8;
+#endif
 	D_EFUSE_VERIFY_BLK_ID(start_blk);
 
 	/*bist for ddie_fuse don't need key */
