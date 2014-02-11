@@ -50,7 +50,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 
 #ifdef CONFIG_TOUCHSCREEN_FIRMWARE_UPGRADE
 static unsigned char CTPM_FW[] = {
-#include "FT5306_Spreadtrum_tiger_TRYLY_COB_0x2c_app_3.3V.h"
+#include "FT5306_Spreadtrum_tiger_TRYLY_COB_0x2e_app.h"
 };
 #else
 static unsigned char CTPM_FW[] = {
