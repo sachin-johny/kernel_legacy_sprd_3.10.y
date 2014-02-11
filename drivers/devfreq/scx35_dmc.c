@@ -430,33 +430,28 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		* DMC must be set 200MHz before deep sleep in ES chips
 		*/
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
-	    spin_lock_irqsave(&data->lock, flags);
+		spin_lock_irqsave(&data->lock, flags);
 		data->disabled = true;
-
-        emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+		emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
 		emc_clk_set(200, EMC_FREQ_DEEP_SLEEP_SENE);        //deep sleep to dpll   192
-
 		spin_unlock_irqrestore(&data->lock, flags);
 #else
-        spin_lock(&data->lock);
+		spin_lock(&data->lock);
 		data->disabled = true;
-
 		emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
-
 		spin_unlock(&data->lock);
 #endif
-		
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		/* Reactivate */
-		emc_clk_set(200, EMC_FREQ_RESUME_SENE);       //resume dpll192 -- tdpll192
 		spin_lock(&data->lock);
+		/* shark does not care EMC_FREQ_XX_SENE, dolphin only*/
+		emc_clk_set(200, EMC_FREQ_RESUME_SENE);       //resume dpll192 -- tdpll192
 		data->disabled = false;
 		spin_unlock(&data->lock);
 		return NOTIFY_OK;
 	}
-	printk("*** %s, event:0x%x done***\n", __func__, event );
 
 	return NOTIFY_DONE;
 }
