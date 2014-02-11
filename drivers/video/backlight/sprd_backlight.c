@@ -455,6 +455,16 @@ static int sprd_backlight_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static void sprd_backlight_shutdown(struct platform_device *pdev)
+{
+	struct backlight_device *bldev;
+
+	bldev = platform_get_drvdata(pdev);
+	bldev->props.brightness = 0;
+	backlight_update_status(bldev);
+}
+
+
 #ifdef CONFIG_PM
 static int sprd_backlight_suspend(struct platform_device *pdev,
 		pm_message_t state)
@@ -476,6 +486,7 @@ static struct platform_driver sprd_backlight_driver = {
 	.remove = sprd_backlight_remove,
 	.suspend = sprd_backlight_suspend,
 	.resume = sprd_backlight_resume,
+	.shutdown = sprd_backlight_shutdown,
 	.driver = {
 		.name = "sprd_backlight",
 		.owner = THIS_MODULE,
