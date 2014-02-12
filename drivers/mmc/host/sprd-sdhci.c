@@ -846,9 +846,15 @@ static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_card_event = {
 	.remove = sprd_sdhci_host_put_detect,
 };
 
-static const struct sprd_sdhci_host_fix *sprd_sdhci_host_sprd_host_fixes_sc8835[] = {
+static const struct sprd_sdhci_host_fix *sprd_sdhci_host_sprd_host_fixes_shark[] = {
 	[0] = &sprd_sdhci_host_fix_base,
 	[1] = &sprd_sdhci_host_fix_chip_select,
+	[SDHCI_FIX_PRE_COUNT + 0] = &sprd_sdhci_host_fix_execute_tuning,
+	[SDHCI_FIX_PRE_COUNT + 1] = NULL,
+};
+
+static const struct sprd_sdhci_host_fix *sprd_sdhci_host_sprd_host_fixes_dolphin[] = {
+	[0] = &sprd_sdhci_host_fix_base,
 	[SDHCI_FIX_PRE_COUNT + 0] = &sprd_sdhci_host_fix_execute_tuning,
 	[SDHCI_FIX_PRE_COUNT + 1] = NULL,
 };
@@ -877,9 +883,9 @@ static void sprd_sdhci_host_fix_sprd_host_pre(struct sdhci_host *host) {
 	int i;
 	const struct sprd_sdhci_host_fix **sprd_sdhci_host_fixes;
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	const struct platform_device_id *id_entry = pdev->id_entry;
 #ifdef CONFIG_OF
+	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	const struct of_device_id *of_id = sprd_host->of_id;
 #endif
 	if(id_entry)
@@ -905,9 +911,9 @@ static void sprd_sdhci_host_fix_sprd_host_post(struct sdhci_host *host) {
 	int i;
 	const struct sprd_sdhci_host_fix **sprd_sdhci_host_fixes;
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	const struct platform_device_id *id_entry = pdev->id_entry;
 #ifdef CONFIG_OF
+	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	const struct of_device_id *of_id = sprd_host->of_id;
 #endif
 	if(id_entry)
@@ -1113,6 +1119,8 @@ static int sprd_sdhci_host_runtime_resume(struct device *dev) {
 		sprd_sdhci_host_enable_clock(host, 1);
 		spin_unlock_irqrestore(&host->lock, flags);
 		udelay(100);
+		if(pdev->id == SDC_SLAVE_EMMC && host->mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_330)
+			host->mmc->ios.signal_voltage = MMC_SIGNAL_VOLTAGE_180;
 		sprd_sdhci_host_wake_lock(&sprd_host->wake_lock);
 		sdhci_runtime_resume_host(host);
 		sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
@@ -1302,16 +1310,16 @@ static const struct dev_pm_ops sprd_sdhci_host_dev_pm_ops = {
 #endif
 
 static const struct platform_device_id sprd_sdhci_host_driver_ids[] = {
-	{"sprd-sdhci-shark", (kernel_ulong_t)sprd_sdhci_host_sprd_host_fixes_sc8835},
-	{"sprd-sdhci-dolphin", (kernel_ulong_t)sprd_sdhci_host_sprd_host_fixes_sc8835},
+	{"sprd-sdhci-shark", (kernel_ulong_t)sprd_sdhci_host_sprd_host_fixes_shark},
+	{"sprd-sdhci-dolphin", (kernel_ulong_t)sprd_sdhci_host_sprd_host_fixes_dolphin},
 	{},
 };
 MODULE_DEVICE_TABLE(platform, sprd_sdhci_host_driver_ids);
 
 #ifdef CONFIG_OF
 static const struct of_device_id sprd_sdhci_host_of_match[] = {
-	{ .compatible = "sprd,sdhci-shark", .data = (const void *)sprd_sdhci_host_sprd_host_fixes_sc8835 },
-	{ .compatible = "sprd,sdhci-dolphin", .data = (const void *)sprd_sdhci_host_sprd_host_fixes_sc8835 },
+	{ .compatible = "sprd,sdhci-shark", .data = (const void *)sprd_sdhci_host_sprd_host_fixes_shark },
+	{ .compatible = "sprd,sdhci-dolphin", .data = (const void *)sprd_sdhci_host_sprd_host_fixes_dolphin },
 	{}
 };
 MODULE_DEVICE_TABLE(of, sprd_sdhci_host_of_match);
