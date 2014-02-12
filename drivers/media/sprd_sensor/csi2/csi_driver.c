@@ -103,7 +103,6 @@ static void csi_get_pclk_cfg(u32 pclk, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
 	if (rtn) {
 		csi_pclk_cfg_ptr->hsfreqrange = csi_pclk_setting[CSI_PCLK_CFG_COUNTER -2].hsfreqrange;
 		csi_pclk_cfg_ptr->hsrxthssettle = csi_pclk_setting[CSI_PCLK_CFG_COUNTER -2].hsrxthssettle;
-		LOG_ERROR("sensor pclk error : set default !");
 	}
 }
 
