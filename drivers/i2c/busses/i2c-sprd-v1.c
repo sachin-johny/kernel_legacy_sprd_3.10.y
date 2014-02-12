@@ -907,7 +907,7 @@ static int i2c_controller_suspend_late(void)
 		.event = 0
 	};
 
-	for (i = 0; i < ARRAY_SIZE(sprd_i2c_ctl_id); i++) {
+	for (i = 0; i < ARRAY_SIZE(sprd_i2c_ctl); i++) {
 		if (pdev_chip_i2c[i] == NULL)
 			continue;
 		i2c_controller_suspend(pdev_chip_i2c[i], state);
@@ -920,7 +920,7 @@ static void i2c_controller_resume_early(void)
 {
 	int i;
 
-	for (i = 0; i < ARRAY_SIZE(sprd_i2c_ctl_id); i++) {
+	for (i = 0; i < ARRAY_SIZE(sprd_i2c_ctl); i++) {
 		if (pdev_chip_i2c[i] == NULL)
 			continue;
 		i2c_controller_resume(pdev_chip_i2c[i]);
