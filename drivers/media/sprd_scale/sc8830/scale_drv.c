@@ -266,14 +266,14 @@ int32_t scale_stop(void)
 	unsigned long flag;
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
 
-	spin_lock_irqsave(&scale_lock, flag);
 	if (atomic_read(&g_path->start_flag)) {
+		spin_lock_irqsave(&scale_lock, flag);
 		s_wait_flag = 1;
+		spin_unlock_irqrestore(&scale_lock, flag);
 		if (down_interruptible(&scale_done_sema)) {
 			printk("scale_stop down error!\n");
 		}
 	}
-	spin_unlock_irqrestore(&scale_lock, flag);
 
 	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_EB_BIT, 0, DCAM_CFG_REG);
 
