@@ -242,6 +242,7 @@ static int adie_type = 0; //1=AC, 2=BA, 3=BB
 static int gpio_detect_value_last = 0;
 static int gpio_button_value_last = 0;
 static int button_state_last = 0;
+static int current_key_code = KEY_RESERVED;
 static int plug_state_last = 0; //if the hardware detected the headset is plug in, set plug_state_last = 1
 static int active_status = 1;
 static struct wake_lock headset_detect_wakelock;
@@ -671,6 +672,23 @@ no_mic_retry:
         return HEADSET_TYPE_ERR;
 }
 
+static void button_release_verify(void)
+{
+        struct sprd_headset *ht = &headset;
+
+        if(1 == button_state_last) {
+                input_event(ht->input_dev, EV_KEY, current_key_code, 0);
+                input_sync(ht->input_dev);
+                button_state_last = 0;
+                PRINT_INFO("headset button released by force!!! current_key_code = %d(0x%04X)\n", current_key_code, current_key_code);
+
+                if (1 == ht->platform_data->irq_trigger_level_button)
+                        headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_HIGH);
+                else
+                        headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_LOW);
+        }
+}
+
 static void headset_button_work_func(struct work_struct *work)
 {
         struct sprd_headset *ht = &headset;
@@ -679,7 +697,6 @@ static void headset_button_work_func(struct work_struct *work)
         int button_state_current = 0;
         int adc_mic_average = 0;
         int i = 0;
-        static int current_key_code = KEY_RESERVED;
 
         down(&headset_sem);
 
@@ -704,20 +721,24 @@ static void headset_button_work_func(struct work_struct *work)
         }
 
         if(1 == button_state_current) {//pressed!
-                adc_mic_average = adc_get_average();
-                if(-1 == adc_mic_average) {
-                        PRINT_INFO("software debance (step 3: adc check)!!!(headset_button_work_func)(pressed)\n");
-                        goto out;
-                }
-                PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
-                for (i = 0; i < ht->platform_data->nbuttons; i++) {
-                        if (adc_mic_average >= ht->platform_data->headset_buttons[i].adc_min &&
-                            adc_mic_average < ht->platform_data->headset_buttons[i].adc_max) {
-                                current_key_code = ht->platform_data->headset_buttons[i].code;
-                                break;
+                if(ht->platform_data->nbuttons > 1) {
+                        adc_mic_average = adc_get_average();
+                        if(-1 == adc_mic_average) {
+                                PRINT_INFO("software debance (step 3: adc check)!!!(headset_button_work_func)(pressed)\n");
+                                goto out;
                         }
-                        current_key_code = KEY_RESERVED;
+                        PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
+                        for (i = 0; i < ht->platform_data->nbuttons; i++) {
+                                if (adc_mic_average >= ht->platform_data->headset_buttons[i].adc_min &&
+                                    adc_mic_average < ht->platform_data->headset_buttons[i].adc_max) {
+                                        current_key_code = ht->platform_data->headset_buttons[i].code;
+                                        break;
+                                }
+                                current_key_code = KEY_RESERVED;
+                        }
                 }
+                else
+                        current_key_code = KEY_MEDIA;
 
                 if(0 == button_state_last) {
                         input_event(ht->input_dev, EV_KEY, current_key_code, 1);
@@ -884,6 +905,7 @@ static void headset_detect_work_func(struct work_struct *work)
         } else if(0 == plug_state_current && 1 == plug_state_last) {
 
                 headset_irq_button_enable(0, ht->irq_button);
+                button_release_verify();
 
                 /***polling ana_sts0 to avoid the hardware defect***/
 #ifdef SPRD_STS_POLLING_EN
@@ -961,6 +983,7 @@ static void headset_sts_check_func(struct work_struct *work)
         if(((0x00000060 & ana_sts0) != 0x00000060) && (1 == plug_state_class_g_on)) {
 
                 headset_irq_button_enable(0, ht->irq_button);
+                button_release_verify();
 
                 if (ht->headphone) {
                         PRINT_INFO("headphone plug out (headset_sts_check_func)\n");

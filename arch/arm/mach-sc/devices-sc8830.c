@@ -624,6 +624,7 @@ static struct headset_buttons sprd_headset_buttons[] = {
 		.adc_max = 0x00C8,
 		.code = KEY_MEDIA,
 	},
+#if 0
 	{
 		.adc_min = 0x00C9,
 		.adc_max = 0x02BC,
@@ -634,6 +635,7 @@ static struct headset_buttons sprd_headset_buttons[] = {
 		.adc_max = 0x0514,
 		.code = KEY_VOLUMEDOWN,
 	},
+#endif
 
 #endif
 };
