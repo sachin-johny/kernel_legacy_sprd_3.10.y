@@ -1434,11 +1434,13 @@ static inline int sprd_codec_vcom_ldo_cfg(struct sprd_codec_priv *sprd_codec, co
 	return _sprd_codec_ldo_cfg_set(&sprd_codec->s_vcom, v_map, v_map_size);
 }
 
+static DEFINE_MUTEX(ldo_mutex);
 static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 {
 	struct regulator **regu = &sprd_codec->head_mic;
 	sp_asoc_pr_dbg("%s\n", __func__);
 
+	mutex_lock(&ldo_mutex);
 	atomic_inc(&sprd_codec->ldo_refcount);
 	if (atomic_read(&sprd_codec->ldo_refcount) == 1) {
 		sp_asoc_pr_dbg("LDO ON!\n");
@@ -1448,6 +1450,7 @@ static int sprd_codec_ldo_on(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_analog_enable();
 		sprd_codec_vcom_ldo_auto(sprd_codec->codec, 1);
 	}
+	mutex_unlock(&ldo_mutex);
 
 	return 0;
 }
@@ -1457,6 +1460,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 	struct regulator **regu = &sprd_codec->head_mic;
 	sp_asoc_pr_dbg("%s\n", __func__);
 
+	mutex_lock(&ldo_mutex);
 	if (atomic_dec_and_test(&sprd_codec->ldo_refcount)) {
 		if (*regu && regulator_is_enabled(*regu)) {
 			regulator_set_mode(*regu, REGULATOR_MODE_STANDBY);
@@ -1464,6 +1468,7 @@ static int sprd_codec_ldo_off(struct sprd_codec_priv *sprd_codec)
 		arch_audio_codec_analog_disable();
 		sp_asoc_pr_dbg("LDO OFF!\n");
 	}
+	mutex_unlock(&ldo_mutex);
 
 	return 0;
 }
