@@ -1,6 +1,5 @@
 config SPRD_IOMMU
 	bool "SPRD IOMMU Module"
-	select ARM_HAS_SG_CHAIN
 	help
 	  Chose this option to enable the SPRD IOMMU.
 
