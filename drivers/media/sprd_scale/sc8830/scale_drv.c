@@ -220,8 +220,8 @@ int32_t scale_start(void)
 	_scale_reg_trace();
 
 	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
-	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
 	atomic_inc(&g_path->start_flag);
+	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
 	return SCALE_RTN_SUCCESS;
 
 exit:
@@ -266,13 +266,15 @@ int32_t scale_stop(void)
 	unsigned long flag;
 	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
 
+	spin_lock_irqsave(&scale_lock, flag);
 	if (atomic_read(&g_path->start_flag)) {
-		spin_lock_irqsave(&scale_lock, flag);
 		s_wait_flag = 1;
 		spin_unlock_irqrestore(&scale_lock, flag);
 		if (down_interruptible(&scale_done_sema)) {
 			printk("scale_stop down error!\n");
 		}
+	} else {
+		spin_unlock_irqrestore(&scale_lock, flag);
 	}
 
 	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_EB_BIT, 0, DCAM_CFG_REG);
