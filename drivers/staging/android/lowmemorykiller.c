@@ -344,8 +344,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		zonelist = node_zonelist(0, gfp_mask);
 		high_zoneidx = gfp_zone(gfp_mask);
 		first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
-		if (!is_migrate_cma(allocflags_to_migratetype(gfp_mask)) &&
-			!zone_watermark_ok_safe(preferred_zone, 0, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
+		if ((current->flags & PF_KTHREAD) &&
+			(current->flags & PF_MEMALLOC) &&
+			!zone_watermark_ok_safe(preferred_zone, 0, SWAP_CLUSTER_MAX << 1, 0, 0))
+		{
+			printk("%s:gfp_mask:0x%X, flags:0x%X\r\n", __func__, gfp_mask, current->flags);
+			zram_score_adj = 0;
+		}
+		else if (!zone_watermark_ok_safe(preferred_zone, 0, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
 		{
 			zram_score_adj =  (min_score_adj + zram_score_adj)/2;
 		}
