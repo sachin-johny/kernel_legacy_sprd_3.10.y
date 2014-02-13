@@ -2029,7 +2029,20 @@ static int yaffs_AllocateChunk(yaffs_Device *dev, int useReserve,
 		/* Not enough space to allocate unless we're allowed to use the reserve. */
 		return -1;
 	}
-
+        //erver for root/system group .
+        if(!useReserve //use_reserver == 0
+            && dev->nFreeChunks < dev->n_reserved_blocks_root// need use reserved blocks
+            && current->flags != PF_KTHREAD)//not thread alloc,only check app
+        {
+        u32 c_gid = current_gid();
+            if( (0 != c_gid && 1000 != c_gid)
+                ||0 == strcmp(current->comm,"slog")
+            )
+            {
+                printk("reserver block gid %d,comm %s",c_gid,current->comm);
+                return -1;
+            }
+        }
 	if (dev->nErasedBlocks < dev->param.nReservedBlocks
 			&& dev->allocationPage == 0) {
 		T(YAFFS_TRACE_ALLOCATE, (TSTR("Allocating reserve" TENDSTR)));
@@ -5171,7 +5184,19 @@ int yaffs_GutsInitialise(yaffs_Device *dev)
 		dev->nDataBytesPerChunk = dev->param.totalBytesPerChunk - sizeof(yaffs_PackedTags2TagsPart);
 	else
 		dev->nDataBytesPerChunk = dev->param.totalBytesPerChunk;
-
+        T(YAFFS_TRACE_ERROR,(TSTR("dev->name %s" TENDSTR),dev->param.name));
+//"userdata"
+    if(dev->param.name != NULL
+            && (0 == strcmp("userdata",dev->param.name))
+            || (0 == strcmp("mtdblock12",dev->param.name))
+      )
+    {
+        dev->n_reserved_blocks_root = YAFFS_RESERVED_FOR_ROOT /dev->nDataBytesPerChunk ;
+    }
+    else
+    {
+        dev->n_reserved_blocks_root = 0;
+    }
 	/* Got the right mix of functions? */
 	if (!yaffs_CheckDevFunctions(dev)) {
 		/* Function missing */

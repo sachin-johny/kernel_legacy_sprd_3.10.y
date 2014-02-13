@@ -1001,6 +1001,15 @@ int yaffs2_ScanBackwards(yaffs_Device *dev)
 			  (TSTR("Block empty " TENDSTR)));
 			dev->nErasedBlocks++;
 			dev->nFreeChunks += dev->param.nChunksPerBlock;
+		}else if (state == YAFFS_BLOCK_STATE_ECC_ERROR){
+                    if(!yaffs_EraseBlockInNAND(dev,blk)){
+                        dev->nErasureFailures++;
+			T(YAFFS_TRACE_ERROR,
+			  (TSTR("*****Block erase fail****" TENDSTR)));
+                        continue;
+                    }
+                    dev->nErasedBlocks++;
+                    dev->nFreeChunks += dev->param.nChunksPerBlock;
 		} else if (state == YAFFS_BLOCK_STATE_NEEDS_SCANNING) {
 
 			/* Determine the highest sequence number */

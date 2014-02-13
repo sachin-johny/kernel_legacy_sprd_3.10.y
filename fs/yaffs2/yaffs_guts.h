@@ -97,7 +97,7 @@
  * Default to something in the order of 5 to 10 blocks worth of chunks.
  */
 #define YAFFS_WR_ATTEMPTS		(5*64)
-
+#define YAFFS_RESERVED_FOR_ROOT  (12 * (1<<20)) //12m res
 /* Sequence numbers are used in YAFFS2 to determine block allocation order.
  * The range is limited slightly to help distinguish bad numbers from good.
  * This also allows us to perhaps in the future use special numbers for
@@ -271,8 +271,10 @@ typedef enum {
 	YAFFS_BLOCK_STATE_COLLECTING,
 	/* This block is being garbage collected */
 
-	YAFFS_BLOCK_STATE_DEAD
+	YAFFS_BLOCK_STATE_DEAD,
 	/* This block has failed and is not in use */
+    YAFFS_BLOCK_STATE_ECC_ERROR
+        /* This block is in ecc error state, need erase */
 } yaffs_BlockState;
 
 #define	YAFFS_NUMBER_OF_BLOCK_STATES (YAFFS_BLOCK_STATE_DEAD + 1)
@@ -686,7 +688,7 @@ struct yaffs_DeviceStruct {
 	int allocationBlock;	/* Current block being allocated off */
 	__u32 allocationPage;
 	int allocationBlockFinder;	/* Used to search for next allocation block */
-
+    __u32 n_reserved_blocks_root;  /*resrve block numer for root/system. */
 	/* Object and Tnode memory management */
 	void *allocator;
 	int nObjects;

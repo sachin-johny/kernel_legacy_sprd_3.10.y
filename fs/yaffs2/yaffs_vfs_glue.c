@@ -2136,7 +2136,17 @@ ssize_t yaffs_listxattr(struct dentry *dentry, char *buff, size_t size)
 }
 
 #endif
-
+static int yaffs_GetNumberOfFreeChunks_CountRev(yaffs_Device *dev)
+{   int free_true = yaffs_GetNumberOfFreeChunks(dev);
+    if(free_true > dev->n_reserved_blocks_root)
+    {
+        return (free_true - dev->n_reserved_blocks_root);
+    }
+    else
+    {
+        return 0;
+    }
+}
 
 #if (LINUX_VERSION_CODE > KERNEL_VERSION(2, 6, 17))
 static int yaffs_statfs(struct dentry *dentry, struct kstatfs *buf)
@@ -2173,7 +2183,7 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 		do_div(bytesInDev, sb->s_blocksize); /* bytesInDev becomes the number of blocks */
 		buf->f_blocks = bytesInDev;
 
-		bytesFree  = ((uint64_t)(yaffs_GetNumberOfFreeChunks(dev))) *
+		bytesFree  = ((uint64_t)(yaffs_GetNumberOfFreeChunks_CountRev(dev))) *
 			((uint64_t)(dev->nDataBytesPerChunk));
 
 		do_div(bytesFree, sb->s_blocksize);
@@ -2187,7 +2197,7 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 			dev->param.nChunksPerBlock /
 			(sb->s_blocksize / dev->nDataBytesPerChunk);
 		buf->f_bfree =
-			yaffs_GetNumberOfFreeChunks(dev) /
+			yaffs_GetNumberOfFreeChunks_CountRev(dev) /
 			(sb->s_blocksize / dev->nDataBytesPerChunk);
 	} else {
 		buf->f_blocks =
@@ -2196,7 +2206,7 @@ static int yaffs_statfs(struct super_block *sb, struct statfs *buf)
 			(dev->nDataBytesPerChunk / sb->s_blocksize);
 
 		buf->f_bfree =
-			yaffs_GetNumberOfFreeChunks(dev) *
+			yaffs_GetNumberOfFreeChunks_CountRev(dev) *
 			(dev->nDataBytesPerChunk / sb->s_blocksize);
 	}
 
@@ -3229,11 +3239,13 @@ static char *yaffs_dump_dev_part1(char *buf, yaffs_Device * dev)
 	buf += sprintf(buf, "chunkGroupBits..... %d\n", dev->chunkGroupBits);
 	buf += sprintf(buf, "chunkGroupSize..... %d\n", dev->chunkGroupSize);
 	buf += sprintf(buf, "nErasedBlocks...... %d\n", dev->nErasedBlocks);
+    buf += sprintf(buf, "nErasureFailures... %d\n", dev->nErasureFailures);
 	buf += sprintf(buf, "blocksInCheckpoint. %d\n", dev->blocksInCheckpoint);
 	buf += sprintf(buf, "\n");
 	buf += sprintf(buf, "nTnodes............ %d\n", dev->nTnodes);
 	buf += sprintf(buf, "nObjects........... %d\n", dev->nObjects);
 	buf += sprintf(buf, "nFreeChunks........ %d\n", dev->nFreeChunks);
+    buf += sprintf(buf, "n_reserved_blocks_root....%d\n", dev->n_reserved_blocks_root);
 	buf += sprintf(buf, "\n");
 	buf += sprintf(buf, "nPageWrites........ %u\n", dev->nPageWrites);
 	buf += sprintf(buf, "nPageReads......... %u\n", dev->nPageReads);
