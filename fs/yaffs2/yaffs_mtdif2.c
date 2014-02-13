@@ -244,6 +244,12 @@ int nandmtd2_QueryNANDBlock(struct yaffs_DeviceStruct *dev, int blockNo,
 			*sequenceNumber = 0;
 			*state = YAFFS_BLOCK_STATE_EMPTY;
 		}
+
+            if(t.eccResult == YAFFS_ECC_RESULT_UNFIXED)
+            {
+                *sequenceNumber = 0;
+                *state = YAFFS_BLOCK_STATE_ECC_ERROR;
+            }
 	}
 	T(YAFFS_TRACE_MTD,
 	  (TSTR("block is bad seq %d state %d" TENDSTR), *sequenceNumber,
