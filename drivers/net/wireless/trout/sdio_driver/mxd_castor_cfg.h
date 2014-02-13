@@ -154,7 +154,7 @@ static void  mxd_reg_write(unsigned int reg_addr, unsigned int reg_data)
     mxd_reg_write(nAddr,nVal);\
 }while (0)
 
-#define mxdDbgInfo                              printk
+#define mxdDbgInfo
 #define mxdDbgInfo1       //
 #define mxdDbgInfo2       //
 //#define loftMxdDbgInfo	//
