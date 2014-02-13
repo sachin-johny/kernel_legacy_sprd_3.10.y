@@ -1057,6 +1057,10 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	if (NULL == frame || NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
+	if (0 == dev->dcam_cxt.capture_mode) {/*single-frame sample mode*/
+		dev->dcam_cxt.flash_status = FLASH_CLOSE_AFTER_OPEN;
+		sprd_v4l2_opt_flash(frame, param);
+	}
 	atomic_set(&dev->run_flag, 1);
 	node.irq_flag = V4L2_TX_DONE;
 	node.f_type   = frame->type;
