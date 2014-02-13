@@ -395,7 +395,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 		default:
 			break;
 	}
-
+	printk("sys timer = 0x%08x, ap sys count = 0x%08x\n", __raw_readl(SPRD_SYSTIMER_CMP_BASE + 4), __raw_readl(SPRD_SYSCNT_BASE + 0xc));
 #endif
 	//mutex_unlock(&emc_mutex);
 	is_current_set --;
