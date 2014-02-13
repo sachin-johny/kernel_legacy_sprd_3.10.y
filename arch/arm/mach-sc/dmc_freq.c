@@ -276,26 +276,31 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 
 static u32 get_emc_clk_select(u32 clk)
 {
-	u32 select;
-	switch(clk) {
-		case 26:
-			select = CLK_EMC_SELECT_26M;
-			break;
-		case 192:
-		case 384:
-		case 256:
-			select = CLK_EMC_SELECT_TDPLL;
-			break;
-		default:
-			select = CLK_EMC_SELECT_DPLL;
-			break;
-	 }
-	return select;
+	u32 sel;
+	u32 reg_val;
+	reg_val = sci_glb_read(REG_AON_CLK_EMC_CFG, -1);
+	sel = reg_val & 0x3;
+	switch(sel) {
+	case 0:
+		sel = CLK_EMC_SELECT_26M;
+		break;
+	case 1:
+	case 2:
+		sel = CLK_EMC_SELECT_TDPLL;
+		break;
+	case 3:
+		sel = CLK_EMC_SELECT_DPLL;
+		break;
+	default:
+		break;
+	}
+	return sel;
 }
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
 	u32 dll_enable = EMC_DLL_SWITCH_ENABLE_MODE;
 	u32 old_clk,old_select,new_select,div = 0x0;
+	u32 ret;
 
 #ifdef EMC_FREQ_AUTO_TEST
     u32 start_t1, end_t1;
@@ -376,25 +381,29 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 		dll_enable = EMC_DLL_SWITCH_DISABLE_MODE;
 	}
 	old_select = get_emc_clk_select(old_clk);
-	new_select = get_emc_clk_select(new_clk);
-
-	switch(new_select)
-	{
-		case CLK_EMC_SELECT_26M:
-			break;
-		case CLK_EMC_SELECT_TDPLL:
-			__emc_clk_set(new_clk, 0, dll_enable, 0);
-			break;
-		case CLK_EMC_SELECT_DPLL:
-			if(old_select == new_select){
-				__emc_clk_set(384, 0, EMC_DLL_SWITCH_ENABLE_MODE,0);
-			}
-			__set_dpll_clk(new_clk * (div + 1));
-			__emc_clk_set(new_clk, 0, dll_enable,0);
-			break;
-		default:
-			break;
+	if((new_clk == 384) || (new_clk == 256)) {
+		new_select = CLK_EMC_SELECT_TDPLL;
 	}
+	else {
+		new_select = CLK_EMC_SELECT_DPLL;
+	}
+
+
+	if(new_select == CLK_EMC_SELECT_TDPLL) {
+		ret = __emc_clk_set(new_clk, 0, dll_enable, 0);
+	}
+	else  {
+		if(old_select == new_select) {
+			ret = __emc_clk_set(384, 0, EMC_DLL_SWITCH_ENABLE_MODE, 0);
+			if(ret != 0) {
+				is_current_set --;
+				goto out;
+			}
+		}
+		__set_dpll_clk(new_clk * (div + 1));
+		__emc_clk_set(new_clk, 0, dll_enable, 0);
+	}
+
 	printk("sys timer = 0x%08x, ap sys count = 0x%08x\n", __raw_readl(SPRD_SYSTIMER_CMP_BASE + 4), __raw_readl(SPRD_SYSCNT_BASE + 0xc));
 #endif
 	//mutex_unlock(&emc_mutex);
