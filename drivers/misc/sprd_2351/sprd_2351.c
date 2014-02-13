@@ -101,7 +101,7 @@ static void sprd_mspi_enable(void)
 
 static void sprd_mspi_disable(void)
 {
-	sci_glb_clr(APB_EB0, RFSPI_ENABLE_CTL);
+	//sci_glb_clr(APB_EB0, RFSPI_ENABLE_CTL);
 }
 
 static unsigned int sprd_rfspi_enable(void)
