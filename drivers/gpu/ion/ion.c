@@ -499,7 +499,6 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	if (IS_ERR(buffer))
 	{
 		pr_err("%s: ion alloc buffer is error! and the buffer is 0x%x\n",__func__,buffer);
-		ion_debug_heap_show_err(heap);
 		return ERR_PTR(PTR_ERR(buffer));
 	}
 
@@ -1233,7 +1232,10 @@ static int ion_sync_for_device(struct ion_client *client, int fd)
 
 	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf))
+	{
+		pr_err("%s: the dmabuf is err dmabuf is 0x%x\n",__func__,dmabuf);
 		return PTR_ERR(dmabuf);
+	}
 
 	/* if this memory came from ion */
 	if (dmabuf->ops != &dma_buf_ops) {
@@ -1268,7 +1270,6 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (IS_ERR(handle))
 		{
 			pr_err("%s: ion alloc error! and handle is 0x%x\n",__func__,handle);
-			//ion_debug_heap_show_err();
 			return PTR_ERR(handle);
 		}
 
@@ -1362,7 +1363,6 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&data, (void __user *)arg,
 				   sizeof(struct ion_fd_data)))
 			return -EFAULT;
-		pr_err("%s: in ION_IOC_SYNC	!\n",__func__);
 		ion_sync_for_device(client, data.fd);
 		break;
 	}
