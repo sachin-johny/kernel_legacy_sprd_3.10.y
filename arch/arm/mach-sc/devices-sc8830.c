@@ -1886,17 +1886,23 @@ struct platform_device sprd_saudio_wcdma_device = {
 
 #ifdef CONFIG_SIPC_WCN
 
-#define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x54)
+#define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x60)
 #define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xA8)
-#define WCN_REG_STATUS_ADDR                    (SPRD_PMU_BASE + 0xC0)
+#define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
 
 static int native_wcnmodem_start(void *arg)
 {
 	u32 state;
 	u32 value;
+	u32 cp_code_addr,code_phy_addr;
 
 	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
-	memcpy(SPRD_IRAM1_BASE + 0x3000, cp2data, sizeof(cp2data));
+	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
+	* Now it is different with CP1.You can take a refernce with bug#253748 .		
+	*/
+	code_phy_addr = SPRD_IRAM1_PHYS + 0x3000;
+	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
+	memcpy(cp_code_addr, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
 	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x02000000));
@@ -1905,7 +1911,7 @@ static int native_wcnmodem_start(void *arg)
 	while(1)
 	{
 		state = __raw_readl(WCN_REG_STATUS_ADDR);
-		if (!(state & (0xf<<28)))
+		if (!(state & (0xf)))
 		break;
 	}
 
@@ -1916,6 +1922,9 @@ static int native_wcnmodem_start(void *arg)
 	/* clear reset cp2*/
 	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~0x00000004));
 	__raw_writel(value, WCN_REG_RESET_ADDR);
+
+	iounmap(cp_code_addr);
+	
 	return 0;
 }
 static int native_wcnmodem_stop(void *arg)
@@ -1926,11 +1935,11 @@ static int native_wcnmodem_stop(void *arg)
 	__raw_writel(value, WCN_REG_RESET_ADDR);
 
 	/* cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | ~0x10000000));
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | 0x10000000));
 	__raw_writel(value, WCN_REG_CLK_ADDR);
 
-	/* clear cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | ~0x02000000));
+	/* cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | 0x02000000));
 	__raw_writel(value, WCN_REG_CLK_ADDR);
 	return 0;
 }
@@ -1947,7 +1956,7 @@ static struct cproc_init_data sprd_cproc_wcn_pdata = {
 		{
 		.name  = "modem",
 		.base  = WCN_START_ADDR + 0x60000,
-		.maxsz = 0x00800000,
+		.maxsz = 0x00400000,
 		},
 	},
 };
