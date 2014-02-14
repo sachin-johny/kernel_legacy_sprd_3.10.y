@@ -1698,7 +1698,7 @@ static int native_wcdmamodem_start(void *arg)
 {
 	u32 state;
 	u32 value;
-#if defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_SS_FUNCTION)
+#if defined(CONFIG_ARCH_SCX15)
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x2c0000};
 #else
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x300000};
@@ -1753,7 +1753,7 @@ static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 	.segs		= {
 		{
 			.name  = "modem",
-#if defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_SS_FUNCTION)
+#if defined(CONFIG_ARCH_SCX15)
 			.base  = CPW_START_ADDR + 0x2c0000,
 #else
 			.base  = CPW_START_ADDR + 0x300000,
