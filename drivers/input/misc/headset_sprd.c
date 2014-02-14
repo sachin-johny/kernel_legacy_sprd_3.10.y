@@ -615,7 +615,7 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         struct sprd_headset_platform_data *pdata = ht->platform_data;
         int adc_mic_average = 0;
         int adc_left_average = 0;
-        int no_mic_retry_count = 5;
+        int no_mic_retry_count = 3;
 
         ENTER
 
@@ -630,12 +630,17 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 
 no_mic_retry:
 
-        //get adc value of left
-        set_adc_to_headmic(0);
-        msleep(50);
-        adc_left_average = adc_get_average();
-        if(-1 == adc_left_average)
-                return HEADSET_TYPE_ERR;
+        if(0 != pdata->gpio_switch) {
+                //get adc value of left
+                set_adc_to_headmic(0);
+                msleep(50);
+                adc_left_average = adc_get_average();
+                if(-1 == adc_left_average)
+                        return HEADSET_TYPE_ERR;
+        } else {
+                PRINT_INFO("automatic type switch is unsupported, set adc_left_average = 0\n");
+                adc_left_average = 0;
+        }
 
         //get adc value of mic
         set_adc_to_headmic(1);
