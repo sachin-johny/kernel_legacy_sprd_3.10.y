@@ -200,6 +200,7 @@ static struct platform_device *devices[] __initdata = {
 #ifdef  CONFIG_RF_SHARK	
 	&trout_fm_device,
 #endif
+    &sprd_saudio_voip_device,
 	&sprd_headset_device,
 };
 
