@@ -22,6 +22,8 @@
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
 #include <mach/board.h>
+#include <asm/pgtable.h>
+#include <linux/mm.h>
 
 enum{
 	SPRD_IN_DATA_TYPE_ABGR888 = 0,
@@ -66,6 +68,7 @@ static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg);
+static int sprdfb_mmap(struct fb_info *info,struct vm_area_struct *vma);
 
 static struct fb_ops sprdfb_ops = {
 	.owner = THIS_MODULE,
@@ -75,7 +78,21 @@ static struct fb_ops sprdfb_ops = {
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
 	.fb_ioctl = sprdfb_ioctl,
+//	.fb_mmap = sprdfb_mmap,
 };
+
+static int sprdfb_mmap(struct fb_info *info,struct vm_area_struct *vma)
+{
+//	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
+//	vma->vm_page_prot = pgprot_cached_wthru(vma->vm_page_prot);
+	printk("sprdfb_mmap aoke enter\n");
+	vma->vm_page_prot = pgprot_cached(vma->vm_page_prot);
+	return vm_iomap_memory(vma, info->fix.smem_start, info->fix.smem_len);
+
+//	vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+//	return vm_iomap_memory(vma, info->fix.smem_start, info->fix.smem_len);
+}
 
 static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 {
