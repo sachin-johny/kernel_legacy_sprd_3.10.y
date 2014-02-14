@@ -2028,9 +2028,9 @@ LOCAL int v4l2_dqbuf(struct file *file,
 		return -ERESTARTSYS;
 	}
 
-        memset(p,0,sizeof(*p));
+	memset(p,0,sizeof(*p));
 
-	do_gettimeofday(&p->timestamp);
+	v4l2_get_timestamp(&p->timestamp);
 	DCAM_TRACE("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
 
 	p->flags = node.irq_flag;
