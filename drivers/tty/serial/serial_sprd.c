@@ -36,15 +36,18 @@
 #include <linux/wakelock.h>
 
 
-
-#define IRQ_WAKEUP 	0
+/*
+ * port type,it ought to be defined in serial_core.h,
+ * we just put here temporary
+*/
+#define PORT_SPX 1234
 
 #define UART_NR_MAX			CONFIG_SERIAL_SPRD_UART_NR
 #define SP_TTY_NAME			"ttyS"
 #define SP_TTY_MINOR_START	64
 #define SP_TTY_MAJOR		TTY_MAJOR
 
-#define UART_CLK		48000000
+#define UART_CLK	26000000
 
 /*offset*/
 #define ARM_UART_TXD	0x0000
@@ -60,10 +63,21 @@
 #define ARM_UART_CLKD1	0x0028
 #define ARM_UART_STS2	0x002C
 /*UART IRQ num*/
+#ifdef CONFIG_ARCH_SC8810
+
+#define IRQ_WAKEUP 	0    // Wakeup IRQ for BT
+#define IRQ_UART0	2
+#define IRQ_UART1	3
+#define IRQ_UART2	4
+
+#endif
 
 /*UART FIFO watermark*/
-#define SP_TX_FIFO		0x40
-#define SP_RX_FIFO		0x40
+#define SP_TX_FIFO	0x40//8
+#define SP_RX_FIFO	0x32//1
+// {SPRD TROUT
+#define SP_RX_TOUT  0x1f  // RX timeout
+/* END */
 /*UART IEN*/
 #define UART_IEN_RX_FIFO_FULL	(0x1<<0)
 #define UART_IEN_TX_FIFO_EMPTY	(0x1<<1)
@@ -100,24 +114,32 @@
 #define UART_STS_BREAK_DETECT	(0x1<<7)
 #define UART_STS_TIMEOUT     	(0x1<<13)
 /*baud rate*/
-#define BAUD_1200_48M	0x9C40
-#define BAUD_2400_48M	0x4E20
-#define BAUD_4800_48M	0x2710
-#define BAUD_9600_48M	0x1388
-#define BAUD_19200_48M	0x09C4
-#define BAUD_38400_48M	0x04E2
-#define BAUD_57600_48M	0x0314
-#define BAUD_115200_48M	0x01A0
-#define BAUD_230400_48M	0x00D0
-#define BAUD_460800_48M	0x0068
-#define BAUD_921600_48M	0x0034
-#define BAUD_1000000_48M 0x0030
-#define BAUD_1152000_48M 0x0029
-#define BAUD_1500000_48M 0x0020
-#define BAUD_2000000_48M 0x0018
-#define BAUD_2500000_48M 0x0013
-#define BAUD_3000000_48M 0x0010
+#define BAUD_1200_26M	0x54A0
+#define BAUD_2400_26M	0x2A50
+#define BAUD_4800_26M	0x1528
+#define BAUD_9600_26M	0x0A94
+#define BAUD_19200_26M	0x054A
+#define BAUD_38400_26M	0x02A5
+#define BAUD_57600_26M	0x0152
+#define BAUD_115200_26M	0x00E2
+#define BAUD_230400_26M	0x0071
+#define BAUD_460800_26M	0x0038
+#define BAUD_921600_26M	0x001C
+#define BAUD_1000000_26M 0x001A
+#define BAUD_1152000_26M 0x0016
+#define BAUD_1500000_26M 0x0011
+#define BAUD_2000000_26M 0x000D
+#define BAUD_2500000_26M 0x000B
+/* {SPRD TROUT
+   Senible divider for better match
+   #define BAUD_3000000_26M 0x0009 -> 2.88.. MBps change to
+   #define BAUD_3000000_26M 0x0008 -> 3.25   MBps
+   Must match ps.psr
+*/
+#define BAUD_3000000_26M 0x0008
+// }SPRD TROUT
 
+#define SPRD_EICINT_BASE	(SPRD_EIC_BASE+0x80)
 
 
 static struct wake_lock uart_rx_lock;  // UART0  RX  IRQ
@@ -404,7 +426,13 @@ static int serial_sprd_startup(struct uart_port *port)
 	}
 
 	ctrl1 = serial_in(port, ARM_UART_CTL1);
+// {SPRD TROUT
+	if (0 == port->line) {
+	  ctrl1 |= (SP_RX_TOUT << 9)|(SP_RX_FIFO);
+	}
+	else{
 	ctrl1 |= 0x3e00 | SP_RX_FIFO;
+    }
 	serial_out(port, ARM_UART_CTL1, ctrl1);
 
 	/* enable interrupt */
@@ -431,6 +459,11 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	unsigned int lcr, fc;
 	/* ask the core to calculate the divisor for us */
 	baud = uart_get_baud_rate(port, termios, old, 1200, 4000000);
+#ifdef CONFIG_BT_TROUT
+    printk("[bt trout] serial_sprd_set_termios baud %d", baud);
+    if(baud == 3000000)
+        baud = 3250000; // add this case, becaulse UART support 325000 baud rate
+#endif
 
 	quot = (unsigned int) ( (port->uartclk + baud / 2) / baud);
 
@@ -505,7 +538,13 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	/* clock divider bit16~bit20 */
 	serial_out(port, ARM_UART_CLKD1, (quot & 0x1f0000) >> 16);
 	serial_out(port, ARM_UART_CTL0, lcr);
+	// {SPRD TROUT
+	if (0 == port->line) {
+	  fc |= (SP_RX_TOUT << 9)|(SP_RX_FIFO);
+	}
+	else{
 	fc |= 0x3e00 | SP_RX_FIFO;
+	}
 	serial_out(port, ARM_UART_CTL1, fc);
 }
 
