@@ -1883,9 +1883,7 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
 	struct sprdfb_device *dev = dispc_ctx->dev;
 	bool dispc_run;
-#ifdef CONFIG_MACH_YOUNG2
 	unsigned long flags;
-#endif
 	if(NULL == dev || 0 == dev->enable){
 		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
 		return 0;
@@ -1897,9 +1895,7 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 		dispc_run = dispc_read(DISPC_CTRL) & BIT(4);
 		//if(!dispc_ctx->is_first_frame){
 		if(dispc_run){
-#ifdef CONFIG_MACH_YOUNG2
 			local_irq_save(flags);
-#endif
 			dispc_stop_for_feature(dev);
 		}
 
@@ -1910,10 +1906,8 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 		}
 
 		if(dispc_run){
-#ifdef CONFIG_MACH_YOUNG2
-			local_irq_restore(flags);
-#endif
 			dispc_run_for_feature(dev);
+			local_irq_restore(flags);
 		}
 		//}
 		up(&dev->refresh_lock);
