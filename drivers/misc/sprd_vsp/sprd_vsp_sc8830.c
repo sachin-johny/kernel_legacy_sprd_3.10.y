@@ -496,6 +496,46 @@ static struct miscdevice vsp_dev = {
     .fops   = &vsp_fops,
 };
 
+static int vsp_suspend(struct platform_device *pdev, pm_message_t state)
+{
+    int ret=-1;
+
+#if defined(CONFIG_SPRD_IOMMU)
+    {
+        sprd_iommu_module_disable(IOMMU_MM);
+    }
+#endif
+
+    clk_disable(vsp_hw_dev.mm_clk);
+
+    printk(KERN_INFO "vsp_suspend");
+
+    return 0;
+}
+
+static int vsp_resume(struct platform_device *pdev)
+{
+    int ret=-1;
+
+    ret = clk_enable(vsp_hw_dev.mm_clk);
+    if (ret) {
+        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
+        return ret;
+    } else {
+        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+    }
+
+#if defined(CONFIG_SPRD_IOMMU)
+    {
+        sprd_iommu_module_enable(IOMMU_MM);
+    }
+#endif
+
+    printk(KERN_INFO "vsp_resume");
+
+    return ret;
+}
+
 static int vsp_probe(struct platform_device *pdev)
 {
     int ret;
@@ -563,6 +603,8 @@ static int vsp_remove(struct platform_device *pdev)
 static struct platform_driver vsp_driver = {
     .probe    = vsp_probe,
     .remove   = vsp_remove,
+    .suspend = vsp_suspend,
+    .resume = vsp_resume,
     .driver   = {
         .owner = THIS_MODULE,
         .name = "sprd_vsp",
