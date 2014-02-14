@@ -359,4 +359,20 @@ struct ion_custom_data {
  */
 #define ION_IOC_CUSTOM		_IOWR(ION_IOC_MAGIC, 6, struct ion_custom_data)
 
+/**
+ * DOC: ION_IOC_ENABLE_CACHE - call architecture specific ion ioctl
+ *
+ * Enable ion page cache
+ */
+
+#define ION_IOC_ENABLE_CACHE    _IOWR(ION_IOC_MAGIC, 7, int)
+
+/**
+ * DOC: ION_IOC_DISABLE_CACHE - call architecture specific ion ioctl
+ *
+ * Disable ion page cache
+ */
+
+#define ION_IOC_DISABLE_CACHE   _IOWR(ION_IOC_MAGIC, 8, int)
+
 #endif /* _LINUX_ION_H */
