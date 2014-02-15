@@ -1561,7 +1561,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 			crop.c.top + crop.c.height > (int)dev->dcam_cxt.cap_in_size.h))
 			return -EINVAL;
 
-		printk("V4L2: v4l2_s_crop, window %d %d %d %d \n",
+		DCAM_TRACE("V4L2: v4l2_s_crop, window %d %d %d %d \n",
 			crop.c.left,
 			crop.c.top,
 			crop.c.width,
@@ -1584,7 +1584,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 			dev->dcam_cxt.cap_in_rect.h  = (uint32_t)crop.c.height;
 			dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
 			dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
-			printk("V4L2: v4l2_s_crop, Path 0, cap crop: cap_rect %d %d %d %d, cap_out:%d %d \n",
+			DCAM_TRACE("V4L2: v4l2_s_crop, Path 0, cap crop: cap_rect %d %d %d %d, cap_out:%d %d \n",
 				dev->dcam_cxt.cap_in_rect.x, dev->dcam_cxt.cap_in_rect.y,
 				dev->dcam_cxt.cap_in_rect.w, dev->dcam_cxt.cap_in_rect.h,
 				dev->dcam_cxt.cap_out_size.w, dev->dcam_cxt.cap_out_size.h);
