@@ -114,6 +114,29 @@ static int pwm_whiteled_both = 0;
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev);
 #endif
 
+static DEFINE_SPINLOCK(clock_en_lock);
+static void bl_pwm_clk_en(int enable)
+{
+        unsigned long spin_lock_flags;
+        static int current_state = 0;
+
+        spin_lock_irqsave(&clock_en_lock, spin_lock_flags);
+        if (1 == enable) {
+                if (0 == current_state) {
+                        clk_enable(sprdbl.clk);
+                        current_state = 1;
+                }
+        } else {
+                if (1 == current_state) {
+                        clk_disable(sprdbl.clk);
+                        current_state = 0;
+                }
+        }
+        spin_unlock_irqrestore(&clock_en_lock, spin_lock_flags);
+
+        return;
+}
+
 static inline uint32_t pwm_read(int index, uint32_t reg)
 {
 	//this is the D-die PWM controller, here we use PWM2(index=3) for external backlight control.
@@ -137,14 +160,14 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 			bldev->props.brightness == 0) {
 		/* disable backlight */
 		pwm_write(sprdbl.pwm_index, 0, PWM_PRESCALE);
-		clk_disable(sprdbl.clk);
+		bl_pwm_clk_en(0);
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
 		//bl_brightness = (bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
 		if((bl_brightness >= 1) && (bl_brightness <= 10))
 			bl_brightness = 8;
 		PRINT_DBG("user requested brightness = %d, caculated brightness = %d\n", bldev->props.brightness, bl_brightness);
-		clk_enable(sprdbl.clk);
+		bl_pwm_clk_en(1);
 		pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
 		pwm_write(sprdbl.pwm_index, (bl_brightness << 8) | PWM_MOD_MAX, PWM_CNT);
 		pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_LOW);
