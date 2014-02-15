@@ -1711,9 +1711,9 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 	/*FIXME*/
 /*#endif
 #ifdef BSS_ACCESS_POINT_MODE
-		wiphy->interface_modes = BIT(NL80211_IFTYPE_AP);
+	wiphy->interface_modes = BIT(NL80211_IFTYPE_AP);
 #endif*/
-	    /*Attach cipher suites */
+	/*Attach cipher suites */
 	wiphy->cipher_suites = itm_cipher_suites;
 	wiphy->n_cipher_suites = ARRAY_SIZE(itm_cipher_suites);
 	/*Attach bands */
@@ -1722,6 +1722,11 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 
 	/*Default not in powersave state */
 	wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
+
+#if defined(CONFIG_PM) && (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+	/*Set WoWLAN flags */
+	wiphy->wowlan.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT;
+#endif
 }
 
 int itm_wdev_alloc(struct itm_priv *priv, struct device *dev)
