@@ -138,16 +138,15 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 	if(emc_clk_get() > 200){
 		return;
 	}else if(light_sleep_en){
-		sci_glb_set(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG,
-				BIT_AP_EMC_AUTO_GATE_EN |
-				BIT_CA7_EMC_AUTO_GATE_EN |
-				BIT_CA7_CORE_AUTO_GATE_EN);
 		/*
 		 * if DAP clock is disabled, arm core can not be attached.
 		 * it is no necessary only disable DAP in core 0, just for debug
 		 */
 		if (cpu == 0) {
 			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+			if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB) &&
+					(num_online_cpus() == 1))
+				sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SYS_SLEEP_EN);
 		}
 		sci_glb_set(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
 	}
@@ -163,7 +162,7 @@ static void sc_cpuidle_light_sleep_dis(void)
 {
 	if(light_sleep_en){
 		sci_glb_set(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
-		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
+		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
 	}
 	return;
 }
