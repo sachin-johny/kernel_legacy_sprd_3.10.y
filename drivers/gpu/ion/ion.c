@@ -1176,7 +1176,6 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 	/* if a handle exists for this buffer just take a reference to it */
 	handle = ion_handle_lookup(client, buffer);
 	if (!IS_ERR(handle)) {
-		pr_err("ion_import_dma_buf() handle=0x%x ion_handle_lookup error!\n", (unsigned long)handle);
 		ion_handle_get(handle);
 		goto end;
 	}
