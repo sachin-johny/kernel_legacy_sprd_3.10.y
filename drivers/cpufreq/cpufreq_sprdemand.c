@@ -127,6 +127,8 @@ static int should_io_be_busy(void)
 	return 0;
 }
 
+struct sd_dbs_tuners *g_sd_tuners = NULL;
+
 /*
  * Find right freq to be set now with powersave_bias on.
  * Returns the freq_hi to be used right now and will set freq_hi_jiffies,
@@ -142,7 +144,21 @@ static unsigned int generic_powersave_bias_target(struct cpufreq_policy *policy,
 	struct od_cpu_dbs_info_s *dbs_info = &per_cpu(sd_cpu_dbs_info,
 						   policy->cpu);
 	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("generic_powersave_bias_target governor %s return\n", policy->governor->name);
+		if (g_sd_tuners == NULL)
+			return freq_next;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
+	g_sd_tuners = sd_tuners;
 
 	if (!dbs_info->freq_table) {
 		dbs_info->freq_lo = 0;
@@ -194,7 +210,21 @@ static void sprdemand_powersave_bias_init(void)
 static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 {
 	struct dbs_data *dbs_data = p->governor_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("dbs_freq_increase governor %s return\n", p->governor->name);
+		if (g_sd_tuners == NULL)
+			return ;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
+	g_sd_tuners = sd_tuners;
 
 	if (sd_tuners->powersave_bias)
 		freq = sd_ops.powersave_bias_target(p, freq,
@@ -211,7 +241,20 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 	struct unplug_work_info *puwi = container_of(work,
 		struct unplug_work_info, unplug_work.work);
 	struct dbs_data *dbs_data = puwi->dbs_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("sprd_unplug_one_cpu return\n");
+		if (g_sd_tuners == NULL)
+			return ;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
 
 #ifdef CONFIG_HOTPLUG_CPU
 	if (num_online_cpus() > 1) {
@@ -229,7 +272,20 @@ static void sprd_plugin_one_cpu(struct work_struct *work)
 	int cpuid;
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 	struct dbs_data *dbs_data = policy->governor_data;
-	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("sprd_plugin_one_cpu return\n");
+		if (g_sd_tuners == NULL)
+			return ;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
 
 #ifdef CONFIG_HOTPLUG_CPU
 	if (num_online_cpus() < sd_tuners->cpu_num_limit) {
@@ -1120,8 +1176,6 @@ static int get_cur_state(struct thermal_cooling_device *cdev,
 
 	return ret;
 }
-
-struct sd_dbs_tuners *g_sd_tuners = NULL;
 
 static int set_cur_state(struct thermal_cooling_device *cdev,
 			 unsigned long state)
