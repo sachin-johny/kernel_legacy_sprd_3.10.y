@@ -798,6 +798,8 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 	
 	/* handle race condiction between some reset_macs by zhao  */
 	tp = netdev_priv(g_mac_dev);
+	/* caisf add for Reduce unnecessary interrupts while reset mac, 2014-02-17*/
+	host_write_trout_reg(convert_to_le(MAC_INT_MASK_INIT_VALUE), (UWORD32)rCOMM_INT_MASK);
 	printk("[reset_mac]: down_write >>>\n");
 	down_write(&tp->rst_semaphore);
 	printk("[reset_mac]: down_write <<<\n");
