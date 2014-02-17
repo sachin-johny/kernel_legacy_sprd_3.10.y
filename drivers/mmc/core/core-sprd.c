@@ -2221,6 +2221,8 @@ static int mmc_do_hw_reset(struct mmc_host *host, int check)
 {
 	struct mmc_card *card = host->card;
 
+	printk("%s: mmc_do_hw_reset \n", mmc_hostname(host));
+
 	if (!host->bus_ops->power_restore)
 		return -EOPNOTSUPP;
 
