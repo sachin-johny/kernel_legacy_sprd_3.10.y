@@ -98,8 +98,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 	for (work_done = 0; work_done < budget; work_done++) {
 		ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 		if (ret) {
-			dev_dbg(&priv->ndev->dev,
-				"Failed to receive sblock (%d)\n", ret);
+			dev_dbg(&priv->ndev->dev, "no more sblock (%d)\n", ret);
 			break;
 		}
 
@@ -223,9 +222,8 @@ static void itm_wlan_handler(int event, void *data)
 	case SBLOCK_NOTIFY_RECV:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_RECV is received\n");
 		/*itm_wlan_rx_handler(priv);*/
-		if (likely(napi_schedule_prep(&priv->napi))) {
+		if (likely(napi_schedule_prep(&priv->napi)))
 			__napi_schedule(&priv->napi);
-		}
 		break;
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
