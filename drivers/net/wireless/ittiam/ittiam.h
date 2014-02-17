@@ -31,7 +31,7 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#include "itm_sipc_types.h"
+#include "sipc_types.h"
 
 #ifndef __exit
 #define __exit

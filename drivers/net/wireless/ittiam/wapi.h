@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_wapi.h
+ * Filename : wapi.h
  * Abstract : This file is a definition of wapi decryption
  *            and encryption
  *

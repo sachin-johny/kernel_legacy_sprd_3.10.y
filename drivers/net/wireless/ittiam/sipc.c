@@ -28,11 +28,11 @@
 #include <linux/etherdevice.h>
 #include <linux/inetdevice.h>
 
-#include "itm_sipc_types.h"
-#include "itm_sipc.h"
-#include "itm_cfg80211.h"
+#include "sipc_types.h"
+#include "sipc.h"
+#include "cfg80211.h"
 
-extern WIFI_nvm_data *get_gWIFI_nvm_data(void );
+extern WIFI_nvm_data *get_gWIFI_nvm_data(void);
 
 /* sbuf should be created and initilized */
 int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
@@ -65,7 +65,7 @@ int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 	} else {
 #ifdef DUMP_COMMAND
 		print_hex_dump(KERN_DEBUG, "cmd: ", DUMP_PREFIX_OFFSET,
-				16, 1, send_buf, send_len, 0);
+			       16, 1, send_buf, send_len, 0);
 #endif
 		return 0;
 	}
@@ -98,7 +98,7 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 	}
 #ifdef DUMP_COMMAND_RESPONSE
 	print_hex_dump(KERN_DEBUG, "cmd rsp: ", DUMP_PREFIX_OFFSET,
-			16, 1, recv_buf, recv_len, 0);
+		       16, 1, recv_buf, recv_len, 0);
 #endif
 
 	msg_hdr = le32_to_cpu(recv_buf->msg_hdr);
@@ -142,7 +142,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 
 	/* TODO sipc-sbuf ops */
 	ret = sbuf_read(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
-			     wlan_sipc->recv_buf, 256, 0);
+			wlan_sipc->recv_buf, 256, 0);
 	if (ret == -ENODATA) {
 		pr_debug("do not have dirty data in sbuf\n");
 	} else if (ret > 0) {
@@ -157,7 +157,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 			       type, id);
 
 	if (ret) {
-		pr_err("cmd send error with ret is %d\n", ret);
+		pr_err("cmd send error %d\n", ret);
 		goto out;
 	}
 
@@ -165,7 +165,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 				    id);
 
 	if (ret) {
-		pr_err("cmd recv error with ret is %d\n", ret);
+		pr_err("cmd recv error %d\n", ret);
 		goto out;
 	}
 
@@ -173,7 +173,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 
 	/* FIXME consider return status */
 	if (status) {
-		pr_err("return wrong status code is %d\n", status);
+		pr_err("cmd status error %d\n", status);
 		mutex_unlock(&wlan_sipc->pm_lock);
 		return -EIO;
 	}
@@ -189,7 +189,7 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 	int send_len = 0;
 	int ret;
 
-	pr_debug("enabling: scan\n");
+	pr_debug("enable scan\n");
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
@@ -200,18 +200,15 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + send_len;
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc,
-				     CMD_TYPE_SET, WIFI_CMD_SCAN);
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_SCAN);
 
 	if (ret) {
-		pr_err("scan return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("scan return status code successfully\n");
 
 	return 0;
 }
@@ -238,14 +235,12 @@ int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
 				     CMD_TYPE_SET, WIFI_CMD_WPA_VERSION);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("wap return status code successfully\n");
 
 	return 0;
 }
@@ -267,14 +262,12 @@ int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type)
 				     CMD_TYPE_SET, WIFI_CMD_AUTH_TYPE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("auth return status code successfully\n");
 
 	return 0;
 }
@@ -302,14 +295,12 @@ int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, cmd_id);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("cipher return status code successfully\n");
 
 	return 0;
 }
@@ -330,14 +321,12 @@ int itm_wlan_set_key_management_cmd(struct wlan_sipc *wlan_sipc, u8 key_mgmt)
 				     CMD_TYPE_SET, WIFI_CMD_AKM_SUITE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("akm return status code successfully\n");
 
 	return 0;
 }
@@ -357,12 +346,10 @@ int itm_wlan_get_device_mode_cmd(struct wlan_sipc *wlan_sipc)
 				     CMD_TYPE_SET, WIFI_CMD_DEV_MODE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
-
-	pr_debug("mode return status code successfully\n");
 
 	memcpy(&device_mode, wlan_sipc->recv_buf->u.cmd_resp.variable,
 	       sizeof(device_mode));
@@ -397,14 +384,12 @@ int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_PSK);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("psk return status code successfully\n");
 
 	return 0;
 }
@@ -425,14 +410,12 @@ int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_CHANNEL);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("channel return status code successfully\n");
 
 	return 0;
 }
@@ -451,14 +434,12 @@ int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BSSID);
 
 	if (ret) {
-		pr_err("wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("bssid return status code successfully\n");
 
 	return 0;
 }
@@ -478,14 +459,12 @@ int itm_wlan_set_essid_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_ESSID);
 
 	if (ret) {
-		pr_err("wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("essid return status code successfully\n");
 
 	return 0;
 }
@@ -514,21 +493,18 @@ int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
 	if (pmkid)
 		memcpy(cmd->pmkid, pmkid, sizeof(cmd->pmkid));
 
-
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-			+ sizeof(struct wlan_sipc_pmkid);
+	    + sizeof(struct wlan_sipc_pmkid);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, type, WIFI_CMD_PMKSA);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("pmksa return status code successfully\n");
 
 	return 0;
 }
@@ -548,14 +524,12 @@ int itm_wlan_disconnect_cmd(struct wlan_sipc *wlan_sipc, u16 reason_code)
 				     CMD_TYPE_SET, WIFI_CMD_DISCONNECT);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("disconnect return status code successfully\n");
 
 	return 0;
 }
@@ -588,14 +562,12 @@ int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD, WIFI_CMD_KEY);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("add key return status code successfully\n");
 
 	return 0;
 }
@@ -620,14 +592,12 @@ int itm_wlan_del_key_cmd(struct wlan_sipc *wlan_sipc, u16 key_index,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL, WIFI_CMD_KEY);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("del return status code successfully\n");
 
 	return 0;
 }
@@ -641,20 +611,18 @@ int itm_wlan_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index)
 
 	memcpy(send_buf->u.cmd.variable, &key_index, sizeof(key_index));
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-			+ sizeof(key_index);
+	    + sizeof(key_index);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
 
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_KEY);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("set key return status code successfully\n");
 
 	return 0;
 }
@@ -675,14 +643,12 @@ int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold)
 				     WIFI_CMD_RTS_THRESHOLD);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("set_rts return status code successfully\n");
 
 	return 0;
 }
@@ -704,14 +670,12 @@ int itm_wlan_set_frag_cmd(struct wlan_sipc *wlan_sipc, u16 frag_threshold)
 				     WIFI_CMD_FRAG_THRESHOLD);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("set_frag return status code successfully\n");
 
 	return 0;
 }
@@ -730,12 +694,10 @@ int itm_wlan_get_rssi_cmd(struct wlan_sipc *wlan_sipc, s8 *signal, s8 *noise)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_RSSI);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
-
-	pr_debug("rssi return status code successfully\n");
 
 	memcpy(&rssi, recv_buf->u.cmd_resp.variable, sizeof(rssi));
 	*signal = (u8) (le32_to_cpu(rssi) | 0xffff0000);
@@ -759,12 +721,10 @@ int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_TXRATE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
-
-	pr_debug("txrate return status code successfully\n");
 
 	memcpy(rate, recv_buf->u.cmd_resp.variable, sizeof(*rate));
 	mutex_unlock(&wlan_sipc->cmd_lock);
@@ -772,14 +732,12 @@ int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
 	return 0;
 }
 
-int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc,
-			    u8 *beacon, u16 len)
+int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_beacon *beacon_ptr =
 	    (struct wlan_sipc_beacon *)send_buf->u.cmd.variable;
 	int ret;
-
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
@@ -787,20 +745,17 @@ int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc,
 	memcpy(beacon_ptr->value, beacon, len);
 
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-			+ sizeof(beacon_ptr->len) + len;
+	    + sizeof(beacon_ptr->len) + len;
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_BEACON);
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BEACON);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("set beacon return status code successfully\n");
 
 	return 0;
 }
@@ -810,7 +765,7 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_wps_ie *wps_ptr =
-		(struct wlan_sipc_wps_ie *)send_buf->u.cmd.variable;
+	    (struct wlan_sipc_wps_ie *)send_buf->u.cmd.variable;
 	int ret;
 
 	if (type != WPS_REQ_IE && type != WPS_ASSOC_IE) {
@@ -826,20 +781,17 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	memcpy(wps_ptr->value, ie, len);
 
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-			+ sizeof(wps_ptr) + len;
+	    + sizeof(wps_ptr) + len;
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_WPS_IE);
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_WPS_IE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-
-	pr_debug("set wps ie return status code successfully\n");
 
 	return 0;
 }
@@ -856,20 +808,20 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	open->mode = mode;
 	if (mac_addr)
 		memcpy(open->mac, mac_addr, 6);
-	memcpy((unsigned char *)(&(open->nvm_data)), (unsigned char *)( get_gWIFI_nvm_data() ), sizeof(WIFI_nvm_data) );
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-		+ sizeof(struct wlan_sipc_mac_open);
+	memcpy((unsigned char *)(&(open->nvm_data)),
+	       (unsigned char *)(get_gWIFI_nvm_data()), sizeof(WIFI_nvm_data));
+	wlan_sipc->wlan_sipc_send_len =
+	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_mac_open);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_DEV_OPEN);
-	printk("%s(), send cmd len:%d\n",__func__, wlan_sipc->wlan_sipc_send_len);
+	pr_debug("%s(), send cmd len:%d\n", __func__,
+		 wlan_sipc->wlan_sipc_send_len);
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
-
-	pr_debug("itm_wlan_mac_open_cmd return status code successfully\n");
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
@@ -891,12 +843,10 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 				     WIFI_CMD_DEV_CLOSE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err("%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
-
-	pr_debug("itm_wlan_mac_close_cmd return status code successfully\n");
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
@@ -923,7 +873,7 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 		return;
 	}
 
-	memcpy((u8 *)recv_buf, (u8 *)blk.addr, blk.length);
+	memcpy((u8 *) recv_buf, (u8 *) blk.addr, blk.length);
 
 	msg_hdr = le32_to_cpu(recv_buf->msg_hdr);
 	event_tag = le16_to_cpu(recv_buf->u.event.event_tag);
@@ -952,7 +902,7 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 #ifdef DUMP_EVENT
 	if (event_id != WIFI_EVENT_SCANDONE) {
 		print_hex_dump(KERN_DEBUG, "event: ", DUMP_PREFIX_OFFSET,
-				16, 1, blk.addr, blk.length, 0);
+			       16, 1, blk.addr, blk.length, 0);
 	}
 #endif
 
@@ -963,7 +913,7 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 		break;
 	case WIFI_EVENT_DISCONNECT:
 		pr_debug("Recv sblock8 disconnect event\n");
-		itm_cfg80211_disconnect_done(priv);
+		itm_cfg80211_report_disconnect_done(priv);
 		break;
 	case WIFI_EVENT_SCANDONE:
 		pr_debug("Recv sblock8 scan result event\n");
@@ -1096,8 +1046,8 @@ void itm_wlan_sipc_free(struct itm_priv *itm_priv)
 /*	sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);*/
 	/* FIXME it is a ugly method */
 	ret =
-		sblock_register_notifier(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
-					 NULL, NULL);
+	    sblock_register_notifier(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
+				     NULL, NULL);
 	if (ret) {
 		pr_err("Failed to regitster event sblock notifier (%d)\n", ret);
 		ret = -ENOMEM;
@@ -1121,19 +1071,17 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	pr_debug("enter get ip send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
-		wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
-				   CMD_TYPE_SET,
-				   WIFI_CMD_LINK_STATUS);
+	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
+			       CMD_TYPE_SET, WIFI_CMD_LINK_STATUS);
 
 	if (ret) {
 		pr_err("get ip cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
-	pr_debug("enter get ip send successfully\n");
+
 	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_LINK_STATUS);
-
 	if (ret) {
 		pr_err("get ip cmd recv error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
@@ -1143,7 +1091,7 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
 
 	if (status) {
-		pr_err("get ip return wrong status code is %d\n", status);
+		pr_err("%s command error %d\n", __func__, status);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -1167,15 +1115,13 @@ int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv)
 	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
 	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
-			       CMD_TYPE_SET,
-			       WIFI_CMD_PM_ENTER_PS);
+			       CMD_TYPE_SET, WIFI_CMD_PM_ENTER_PS);
 
 	if (ret) {
 		pr_err("cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
-	pr_debug("enter ps cmd send successfully\n");
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
 	return 0;
@@ -1196,7 +1142,6 @@ int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
-	pr_debug("exit ps cmd send successfully\n");
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
 	return 0;
@@ -1218,10 +1163,9 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
-	pr_debug("early suspend cmd send successfully\n");
+
 	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_PM_EARLY_SUSPEND);
-
 	if (ret) {
 		pr_err("early suspend cmd recv error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
@@ -1231,14 +1175,12 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
 
 	if (status) {
-		pr_err("early suspend return wrong status code is %d\n",
-		       status);
+		pr_err("%s command error %d\n", __func__, status);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-	pr_debug("early suspend cmd return status code successfully\n");
 	return 0;
 }
 
@@ -1258,10 +1200,9 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
-	pr_debug("later resume cmd send successfully\n");
+
 	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_PM_LATER_RESUME);
-
 	if (ret) {
 		pr_err("later resume cmd recv error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
@@ -1271,12 +1212,11 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
 
 	if (status) {
-		pr_err("resume return wrong status code is %d\n", status);
+		pr_err("%s command error %d\n", __func__, status);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-	pr_debug("later resume cmd return status code successfully\n");
 	return 0;
 }
