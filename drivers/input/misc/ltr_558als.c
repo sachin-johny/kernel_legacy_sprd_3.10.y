@@ -539,10 +539,29 @@ static void ltr558_work(struct work_struct *work)
         status = ltr558_i2c_read_1_byte(LTR558_ALS_PS_STATUS);
         PRINT_DBG("LTR558_ALS_PS_STATUS = 0x%02X\n", status);
 
-        //if ((0x03 == (status & 0x03)) && (LTR_PLS_MODE == LTR_PLS_558)) {/*is PS*/
-        if ((0x03 == (status & 0x03))) {                                    /*is PS*/ //added by Wee Liat 11Feb14
+        if ((0x03 == (status & 0x03)) && (LTR_PLS_MODE == LTR_PLS_558)) {/*is 558 PS*/
                 value = ltr558_i2c_read_2_bytes(LTR558_PS_DATA_0);
+                PRINT_DBG("LTR_PLS_MODE is pls 558, LTR558_PS_DATA_0 = %d\n", value);
+                if (value >= 0x49d) {     // 3cm //high
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0xff);
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x07);
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0x6d);
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x05);
+                        input_report_abs(pls->input, ABS_DISTANCE, 0);
+                        input_sync(pls->input);
+                } else if (value <= 0x56d) {      // 5cm //low
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0x9d);
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x04);
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0x00);
+                        ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x00);
+                        input_report_abs(pls->input, ABS_DISTANCE, 1);
+                        input_sync(pls->input);
+                }
+        }
 
+       if ((0x03 == (status & 0x03)) && (LTR_PLS_MODE == LTR_PLS_553)) {/*is 553 PS*/
+                value = ltr558_i2c_read_2_bytes(LTR558_PS_DATA_0);
+                PRINT_DBG("LTR_PLS_MODE is pls 553 \n");
 #ifdef LTR558_ADAPTIVE
                 /*threshold detect process*/
                 if(0 == ps_max || 0 == ps_min) {
@@ -600,37 +619,6 @@ static void ltr558_work(struct work_struct *work)
                 PRINT_DBG("PS INT: PS_DATA_VAL = 0x%04X ( %d )\n", value, value);
 #endif
         }
-       /*         //removed by Wee Liat 11Feb14
-       if ((0x03 == (status & 0x03)) && (LTR_PLS_MODE == LTR_PLS_553)) {
-           printk("LTR_PLS_MODE is pls 553 \n");
-           static int iloop = 0;
-           //value = ltr558_ps_read();
-           //dbg_mesg("p -> val=0x%04x\n", val);
-           value = ltr558_i2c_read_2_bytes(LTR558_PS_DATA_0);
-
-           PRINT_DBG("status = 0x03,iloop = 0x%04x, val = 0x%04x \n",iloop++,value);
-
-       if (value >= 0x4f6) {     // 3cm //high
-           // static int i1 = 0;
-           //  PRINT_DBG("3cm high i1 = 0x%04\n",i1++);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0xff);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x07);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0xd8);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x04);
-           input_report_abs(pls->input, ABS_DISTANCE, 0);
-           input_sync(pls->input);
-       } else if (value <= 0x4d8) {      // 5cm //low
-           //static int i2 = 0;
-           //PRINT_DBG("5cm low i2 = 0x%04 \n",i2++);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_0, 0xf6);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_UP_1, 0x04);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_0, 0x00);
-           ltr558_i2c_write_1_byte(LTR558_PS_THRES_LOW_1, 0x00);
-           input_report_abs(pls->input, ABS_DISTANCE, 1);
-           input_sync(pls->input);
-      }
-      }
-        */
         if (0x0c == (status & 0x0c)) {/*is ALS*/
                 value = ltr558_als_read(l_gainrange);
                 PRINT_DBG("ALS INT: ALS_DATA_VAL = 0x%04X(%4d)\n", value, value);
@@ -671,25 +659,34 @@ static int ltr558_reg_init(void)
 //        }
 //        mdelay(PON_DELAY);
 
-        //set: LED Pulse Frequency=60KHz,LED Duty Cycle=100%,LED Peak Current=50mA
-        ltr558_i2c_write_1_byte(LTR558_PS_LED, 0x7B);
-        //set: LED Pulse Count=15
-        ltr558_i2c_write_1_byte(LTR558_PS_N_PULSES , 0x08);
-        //set: PS Measurement Repeat Rate: 0x00=50ms 0x02=100ms
-        ltr558_i2c_write_1_byte(LTR558_PS_MEAS_RATE, 0x00);
-        //set: ALS Integration Time=100ms, ALS Measurement Repeat Rate=100ms
-        ltr558_i2c_write_1_byte(LTR558_ALS_MEAS_RATE, 0x03);
-        ltr558_i2c_write_1_byte(LTR558_INTERRUPT_PERSIST,0x12);
-        //set: INT MODE=updated after every measurement,
-        //=active low level,
-        //=both PS & ALS measurement can trigger interrupt
-        if(LTR_PLS_558 == LTR_PLS_MODE)
-        {
-            ltr558_i2c_write_1_byte(LTR558_INTERRUPT, 0x0B);
-        }
-        else
-        {
-            ltr558_i2c_write_1_byte(LTR558_INTERRUPT, 0x03);
+        if(LTR_PLS_558 == LTR_PLS_MODE){
+                //set: LED Pulse Frequency=60KHz,LED Duty Cycle=100%,LED Peak Current=50mA
+                ltr558_i2c_write_1_byte(LTR558_PS_LED, 0x7B);
+                //set: LED Pulse Count=15
+                ltr558_i2c_write_1_byte(LTR558_PS_N_PULSES , 0x0F);
+                //set: PS Measurement Repeat Rate: 0x00=50ms 0x02=100ms
+                ltr558_i2c_write_1_byte(LTR558_PS_MEAS_RATE, 0x00);
+                //set: ALS Integration Time=100ms, ALS Measurement Repeat Rate=100ms
+                ltr558_i2c_write_1_byte(LTR558_ALS_MEAS_RATE, 0x03);
+                ltr558_i2c_write_1_byte(LTR558_INTERRUPT_PERSIST,0x02);
+                //set: INT MODE=updated after every measurement,
+                //=active low level,
+                //=both PS & ALS measurement can trigger interrupt
+                ltr558_i2c_write_1_byte(LTR558_INTERRUPT, 0x0B);
+        }else{
+                //set: LED Pulse Frequency=60KHz,LED Duty Cycle=100%,LED Peak Current=50mA
+                ltr558_i2c_write_1_byte(LTR558_PS_LED, 0x7B);
+                //set: LED Pulse Count=15
+                ltr558_i2c_write_1_byte(LTR558_PS_N_PULSES , 0x08);
+                //set: PS Measurement Repeat Rate: 0x00=50ms 0x02=100ms
+                ltr558_i2c_write_1_byte(LTR558_PS_MEAS_RATE, 0x00);
+                //set: ALS Integration Time=100ms, ALS Measurement Repeat Rate=100ms
+                ltr558_i2c_write_1_byte(LTR558_ALS_MEAS_RATE, 0x03);
+                ltr558_i2c_write_1_byte(LTR558_INTERRUPT_PERSIST,0x12);
+                //set: INT MODE=updated after every measurement,
+                //=active low level,
+                //=both PS & ALS measurement can trigger interrupt
+                ltr558_i2c_write_1_byte(LTR558_INTERRUPT, 0x03);
         }
         //set: PS Persist=2, ALS Persist=2
         //ltr558_i2c_write_1_byte(LTR558_INTERRUPT_PERSIST, 0x22);
