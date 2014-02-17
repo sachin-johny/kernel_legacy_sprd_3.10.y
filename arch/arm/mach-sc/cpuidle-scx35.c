@@ -33,7 +33,10 @@ unsigned int idle_debug_state[NR_CPUS];
 #define WAIT_WFI_TIMEOUT		(20)
 #define LIGHT_SLEEP_ENABLE		(BIT_MCU_LIGHT_SLEEP_EN)
 static unsigned int idle_disabled_by_suspend;
-
+#if defined(CONFIG_ARCH_SCX15)
+static unsigned int zipenc_status;
+static unsigned int zipdec_status;
+#endif
 static int light_sleep_en = 1;
 static int cpuidle_debug = 0;
 module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
@@ -143,6 +146,16 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 		 * it is no necessary only disable DAP in core 0, just for debug
 		 */
 		if (cpu == 0) {
+#if defined(CONFIG_ARCH_SCX15)
+			if (__raw_readl(REG_AP_AHB_AHB_EB) & BIT_ZIPDEC_EB) {
+				sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_ZIPDEC_EB);
+				zipdec_status  = 1;
+			}
+			if (__raw_readl(REG_AP_AHB_AHB_EB) & BIT_ZIPENC_EB) {
+				sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_ZIPENC_EB);
+				zipenc_status  = 1;
+			}
+#endif
 			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
 			if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB) &&
 					(num_online_cpus() == 1))
@@ -163,6 +176,14 @@ static void sc_cpuidle_light_sleep_dis(void)
 	if(light_sleep_en){
 		sci_glb_set(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
 		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
+#if defined(CONFIG_ARCH_SCX15)
+			if (zipdec_status)
+				sci_glb_set(REG_AP_AHB_AHB_EB, BIT_ZIPDEC_EB);
+			if (zipenc_status)
+				sci_glb_set(REG_AP_AHB_AHB_EB, BIT_ZIPENC_EB);
+			zipenc_status  = 0;
+			zipdec_status  = 0;
+#endif
 	}
 	return;
 }
