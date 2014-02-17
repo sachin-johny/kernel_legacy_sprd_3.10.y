@@ -252,4 +252,9 @@ struct wlan_sblock_recv_data {
 	} u2;
 } __packed;
 
+struct wlan_softap_event {
+	u8 connected;
+	u8 mac[6];
+} __packed;
+
 #endif/*__ITM_SIPC_TYPES_H__*/

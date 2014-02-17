@@ -62,7 +62,6 @@ struct itm_priv {
 	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* seth tx resend count*/
 	struct wake_lock scan_done_lock;
-
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;

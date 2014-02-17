@@ -1345,6 +1345,30 @@ void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
 	return;
 }
 
+void itm_cfg80211_report_softap(struct itm_priv *priv)
+{
+	struct wlan_softap_event event;
+	struct station_info sinfo;
+
+	/* The first value 0 mean disconnect, otherwise connected  */
+	memcpy(&event, priv->wlan_sipc->event_buf->u.event.variable,
+	       sizeof(struct wlan_softap_event));
+
+	memset(&sinfo, 0, sizeof(sinfo));
+	sinfo.filled = 0;
+
+	if (event.connected) {
+		cfg80211_new_sta(priv->ndev, (u8 const *)&event.mac, &sinfo,
+				 GFP_KERNEL);
+		wiphy_dbg(priv->wdev->wiphy, "hotspot station is connected\n");
+	} else {
+		cfg80211_del_sta(priv->ndev, (u8 const *)&event.mac,
+				 GFP_ATOMIC);
+		wiphy_dbg(priv->wdev->wiphy,
+			  "hotspot station is disconnected\n");
+	}
+}
+
 static int itm_wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 				     struct wireless_dev *wdev,
@@ -1609,22 +1633,22 @@ static struct cfg80211_ops itm_cfg80211_ops = {
 	.suspend = itm_wlan_cfg80211_suspend,
 	.resume = itm_wlan_cfg80211_resume,
 #endif*/
-	/*.add_virtual_intf = itm_wlan_cfg80211_add_iface,*/
-	/*.del_virtual_intf = itm_wlan_cfg80211_del_iface,*/
+	/*.add_virtual_intf = itm_wlan_cfg80211_add_iface, */
+	/*.del_virtual_intf = itm_wlan_cfg80211_del_iface, */
 	.change_virtual_intf = itm_wlan_cfg80211_change_iface,
 	.scan = itm_wlan_cfg80211_scan,
 	.connect = itm_wlan_cfg80211_connect,
 	.disconnect = itm_wlan_cfg80211_disconnect,
 	.add_key = itm_wlan_cfg80211_add_key,
-	/*.get_key = itm_wlan_cfg80211_get_key,*/
+	/*.get_key = itm_wlan_cfg80211_get_key, */
 	.del_key = itm_wlan_cfg80211_del_key,
 	.set_default_key = itm_wlan_cfg80211_set_default_key,
 	.set_wiphy_params = itm_wlan_cfg80211_set_wiphy_params,
-	/*.set_tx_power = itm_wlan_cfg80211_set_txpower,*/
-	/*.get_tx_power = itm_wlan_cfg80211_get_txpower,*/
-	/*.set_power_mgmt = itm_wlan_cfg80211_set_power_mgmt,*/
-	/*.join_ibss = itm_wlan_cfg80211_join_ibss,*/
-	/*.leave_ibss = itm_wlan_cfg80211_leave_ibss,*/
+	/*.set_tx_power = itm_wlan_cfg80211_set_txpower, */
+	/*.get_tx_power = itm_wlan_cfg80211_get_txpower, */
+	/*.set_power_mgmt = itm_wlan_cfg80211_set_power_mgmt, */
+	/*.join_ibss = itm_wlan_cfg80211_join_ibss, */
+	/*.leave_ibss = itm_wlan_cfg80211_leave_ibss, */
 	.get_station = itm_wlan_cfg80211_get_station,
 	.set_pmksa = itm_wlan_cfg80211_set_pmksa,
 	.del_pmksa = itm_wlan_cfg80211_del_pmksa,
