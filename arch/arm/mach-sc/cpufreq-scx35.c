@@ -188,11 +188,13 @@ static struct cpufreq_table_data sc7715_cpufreq_table_data = {
 		{0, 1000000},
 		{1, SHARK_TDPLL_FREQUENCY},
 		{2, 600000},
-		{3, CPUFREQ_TABLE_END},
+		{3, SHARK_TDPLL_FREQUENCY/2},
+		{4, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
 		1200000,
 		1150000,
+		1100000,
 		1100000,
 		1000000,
 	},
@@ -230,6 +232,39 @@ static unsigned int sprd_raw_get_cpufreq(void)
 #endif
 }
 
+static void cpufreq_set_clock(unsigned int freq)
+{
+	int ret;
+	ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
+	if (ret)
+		pr_err("Failed to set cpu parent to tdpll\n");
+	if (freq == SHARK_TDPLL_FREQUENCY/2) {
+		//ca7 clk div
+		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		sci_glb_clr(REG_PMU_APB_MPLL_REL_CFG, BIT_MPLL_AP_SEL);
+	} else if (freq == SHARK_TDPLL_FREQUENCY) {
+		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(0));
+	} else {
+	/*
+		if (clk_get_parent(sprd_cpufreq_conf->clk) != sprd_cpufreq_conf->tdpllclk) {
+			ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
+			if (ret)
+				pr_err("Failed to set cpu parent to tdpll\n");
+		}
+		*/
+		if (!(sci_glb_read(REG_PMU_APB_MPLL_REL_CFG, -1) & BIT_MPLL_AP_SEL)) {
+			sci_glb_set(REG_PMU_APB_MPLL_REL_CFG, BIT_MPLL_AP_SEL);
+			udelay(500);
+		}
+		ret = clk_set_rate(sprd_cpufreq_conf->mpllclk, (freq * 1000));
+		if (ret)
+			pr_err("Failed to set mpll rate\n");
+		ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
+		if (ret)
+			pr_err("Failed to set cpu parent to mpll\n");
+		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(0));
+	}
+}
 static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 {
 #if defined(CONFIG_ARCH_SCX35)
@@ -268,9 +303,9 @@ static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 
 	if (freq->new >= sprd_raw_get_cpufreq()) {
 		CPUFREQ_SET_VOLTAGE();
-		CPUFREQ_SET_CLOCK();
+		cpufreq_set_clock(freq->new);
 	} else {
-		CPUFREQ_SET_CLOCK();
+		cpufreq_set_clock(freq->new);
 		CPUFREQ_SET_VOLTAGE();
 	}
 
@@ -296,7 +331,7 @@ static void sprd_real_set_cpufreq(struct cpufreq_policy *policy, unsigned int ne
 		mutex_unlock(&freq_lock);
 		return;
 	}
-	pr_debug("perpare set %u khz for cpu%u\n",
+	pr_info("--xing-- set %u khz for cpu%u\n",
 		new_speed, policy->cpu);
 	global_freqs.new = new_speed;
 
@@ -365,8 +400,8 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 	return cpufreq_frequency_table_verify(policy, sprd_cpufreq_conf->freq_tbl);
 }
 
-int cpufreq_min_limit = 600000;
-int cpufreq_max_limit = 1200000;
+unsigned int cpufreq_min_limit = ULONG_MAX;
+unsigned int cpufreq_max_limit = 0;
 static DEFINE_SPINLOCK(cpufreq_state_lock);
 
 static int sprd_cpufreq_target(struct cpufreq_policy *policy,
@@ -428,6 +463,17 @@ static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
 	return sprd_raw_get_cpufreq();
 }
 
+static void sprd_set_cpureq_limit(void)
+{
+	int i;
+	struct cpufreq_frequency_table *tmp = sprd_cpufreq_conf->freq_tbl;
+	for (i = 0; (tmp[i].frequency != CPUFREQ_TABLE_END); i++) {
+		cpufreq_min_limit = min(tmp[i].frequency, cpufreq_min_limit);
+		cpufreq_max_limit = max(tmp[i].frequency, cpufreq_max_limit);
+	}
+	pr_info("--xing-- %s max=%u min=%u\n", __func__, cpufreq_max_limit, cpufreq_min_limit);
+}
+
 static int sprd_freq_table_init(void)
 {
 	/* we init freq table here depends on which chip being used */
@@ -447,6 +493,7 @@ static int sprd_freq_table_init(void)
 		pr_err("%s error chip id\n", __func__);
 		return -EINVAL;
 	}
+	sprd_set_cpureq_limit();
 	return 0;
 }
 
