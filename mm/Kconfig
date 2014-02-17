@@ -2,6 +2,13 @@ config SELECT_MEMORY_MODEL
 	def_bool y
 	depends on ARCH_SELECT_MEMORY_MODEL
 
+config MEMBLOCK_RESERVE_DEBUG
+	bool "echo the reserved memblock name and size "
+	help
+	 SPARSEMEM_VMEMMAP uses a virtually mapped memmap to optimise
+	 pfn_to_page and page_to_pfn operations.  This is the most
+	 efficient option when sufficient kernel resources are available.
+
 choice
 	prompt "Memory model"
 	depends on SELECT_MEMORY_MODEL
@@ -130,6 +137,7 @@ config SPARSEMEM_VMEMMAP
 
 config HAVE_MEMBLOCK
 	boolean
+
 
 config HAVE_MEMBLOCK_NODE_MAP
 	boolean
