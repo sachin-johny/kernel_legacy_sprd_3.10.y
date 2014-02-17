@@ -782,7 +782,7 @@ STATIC_FUNC int sprd_dolphin_nand_wait_finish(struct sprd_dolphin_nand_info *dol
 	sprd_dolphin_reg_write(NFC_INT_REG, 0xf00); //clear all interrupt status
 	if(counter >= NFC_TIMEOUT_VAL)
 	{
-        //while (1);
+        	printk("sprd_dolphin_nand_wait_finish timeout. \n");
 		return -1;
 	}
 	return 0;
@@ -2116,13 +2116,26 @@ STATIC_FUNC int sprd_nand_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 STATIC_FUNC int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 {
-	//nothing to do
+	//disable nand controller
+	sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(19) | BIT(18) | BIT(17)));
 	return 0;
 }
 
 STATIC_FUNC int sprd_nand_resume(struct platform_device *dev)
 {
-	sprd_dolphin_nand_hw_init(&g_dolphin);
+	uint32_t val;
+
+	sprd_dolphin_reg_and(DOLPHIN_NANC_CLK_CFG, ~(BIT(1) | BIT(0)));
+	sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0));
+
+	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(19) | BIT(18) | BIT(17));
+
+	val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
+	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, val);
+	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMEOUT_REG, 0xffffffff);
+
+	//close write protect
+	sprd_dolphin_nand_wp_en(&g_dolphin, 0);
 	return 0;
 }
 #else
