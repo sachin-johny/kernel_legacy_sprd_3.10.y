@@ -2206,6 +2206,7 @@ static void sdhci_cmd_irq(struct sdhci_host *host, u32 intmask)
 
 	if (host->cmd->error) {
 		tasklet_schedule(&host->finish_tasklet);
+		sdhci_dumpregs(host);
 		return;
 	}
 
@@ -2317,8 +2318,12 @@ static void sdhci_data_irq(struct sdhci_host *host, u32 intmask)
 			host->ops->adma_workaround(host, intmask);
 	}
 
-	if (host->data->error)
+	if (host->data->error){
+		printk("%s: !!!!! error in sending data, int:0x%x, err:%d \n",
+			mmc_hostname(host->mmc), intmask, host->data->error);
+		sdhci_dumpregs(host);
 		sdhci_finish_data(host);
+		}
 	else {
 		if (intmask & (SDHCI_INT_DATA_AVAIL | SDHCI_INT_SPACE_AVAIL))
 			sdhci_transfer_pio(host);

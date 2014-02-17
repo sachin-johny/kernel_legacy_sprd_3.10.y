@@ -863,9 +863,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	/* The extra bit indicates that we support high capacity */
 	err = mmc_send_op_cond(host, ocr | (1 << 30), &rocr);
-	if (err)
+	if (err){
+		printk("%s: mmc_send_op_cond err=%x\n", mmc_hostname(host),err);
 		goto err;
-
+	}
 	/*
 	 * For SPI, enable CRC as appropriate.
 	 */
@@ -882,12 +883,15 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_send_cid(host, cid);
 	else
 		err = mmc_all_send_cid(host, cid);
-	if (err)
+	if (err){
+		printk("%s: mmc_all_send_cid err=%x\n", mmc_hostname(host),err);
 		goto err;
+	}
 
 	if (oldcard) {
 		if (memcmp(cid, oldcard->raw_cid, sizeof(cid)) != 0) {
 			err = -ENOENT;
+			printk("%s: mmc_init_card memcmp cid err=%x\n", mmc_hostname(host),err);
 			goto err;
 		}
 
@@ -899,6 +903,7 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		card = mmc_alloc_card(host, &mmc_type);
 		if (IS_ERR(card)) {
 			err = PTR_ERR(card);
+			printk("%s: mmc_alloc_card err=%x\n", mmc_hostname(host),err);
 			goto err;
 		}
 
@@ -912,9 +917,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_set_relative_addr(card);
-		if (err)
+		if (err){
+			printk("%s: mmc_set_relative_addr err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		mmc_set_bus_mode(host, MMC_BUSMODE_PUSHPULL);
 	}
 
@@ -923,15 +929,20 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 * Fetch CSD from card.
 		 */
 		err = mmc_send_csd(card, card->raw_csd);
-		if (err)
+		if (err){
+			printk("%s: mmc_send_csd err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		err = mmc_decode_csd(card);
-		if (err)
+		if (err){
+			printk("%s: mmc_decode_csd err=%x\n", mmc_hostname(host),err);
 			goto free_card;
+		}
 		err = mmc_decode_cid(card);
-		if (err)
+		if (err){
+			printk("%s: mmc_decode_cid err=%x\n", mmc_hostname(host),err);
 			goto free_card;
+		}
 	}
 
 	/*
@@ -939,8 +950,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_select_card(card);
-		if (err)
+		if (err){
+			printk("%s: mmc_select_card err=%x\n", mmc_hostname(host),err);
 			goto free_card;
+		}
 	}
 
 	if (!oldcard) {
@@ -949,12 +962,15 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		 */
 
 		err = mmc_get_ext_csd(card, &ext_csd);
-		if (err)
+		if (err){
+			printk("%s: mmc_get_ext_csd err=%x\n", mmc_hostname(host),err);
 			goto free_card;
+		}
 		err = mmc_read_ext_csd(card, ext_csd);
-		if (err)
+		if (err){
+			printk("%s: mmc_read_ext_csd err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		/* If doing byte addressing, check if required to do sector
 		 * addressing.  Handle the case of <2GB cards needing sector
 		 * addressing.  See section 8.1 JEDEC Standard JED84-A441;
@@ -977,9 +993,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				 EXT_CSD_ERASE_GROUP_DEF, 1,
 				 card->ext_csd.generic_cmd6_time);
 
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG){
+			printk("%s: mmc_switch ERASE_GROUP_DEF err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		if (err) {
 			err = 0;
 			/*
@@ -1008,8 +1025,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL, EXT_CSD_PART_CONFIG,
 				 card->ext_csd.part_config,
 				 card->ext_csd.part_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG){
+			printk("%s: mmc_switch PART_CONFIG err=%x\n", mmc_hostname(host),err);
 			goto free_card;
+		}
 	}
 
 	/*
@@ -1022,9 +1041,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 				 EXT_CSD_POWER_OFF_NOTIFICATION,
 				 EXT_CSD_POWER_ON,
 				 card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG){
+			printk("%s: mmc_switch POWER_OFF_NOTIFICATION err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		/*
 		 * The err can be -EBADMSG or 0,
 		 * so check for success and update the flag
@@ -1046,9 +1066,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					 EXT_CSD_HS_TIMING, 1,
 					 card->ext_csd.generic_cmd6_time);
 
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG){
+			printk("%s: mmc_switch HS_TIMING err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		if (err) {
 			pr_warning("%s: switch to highspeed failed\n",
 			       mmc_hostname(card->host));
@@ -1176,6 +1197,9 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 					 EXT_CSD_BUS_WIDTH,
 					 ext_csd_bits[idx][0],
 					 card->ext_csd.generic_cmd6_time);
+			if(err)
+				printk("%s: mmc_switch BUS_WIDTH err=%x\n", mmc_hostname(host),err);
+			
 			if (!err) {
 				mmc_set_bus_width(card->host, bus_width);
 
@@ -1247,8 +1271,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_HPI_MGMT, 1,
 				card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG){
+			printk("%s: mmc_switch HPI_MGMT err=%x\n", mmc_hostname(host),err);
 			goto free_card;
+		}
 		if (err) {
 			pr_warning("%s: Enabling HPI failed\n",
 				   mmc_hostname(card->host));
@@ -1266,9 +1292,10 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_switch(card, EXT_CSD_CMD_SET_NORMAL,
 				EXT_CSD_CACHE_CTRL, 1,
 				card->ext_csd.generic_cmd6_time);
-		if (err && err != -EBADMSG)
+		if (err && err != -EBADMSG){
+			printk("%s: mmc_switch CACHE_CTRL err=%x\n", mmc_hostname(host),err);
 			goto free_card;
-
+		}
 		/*
 		 * Only if no error, cache is turned on successfully.
 		 */
@@ -1308,7 +1335,8 @@ static int mmc_init_card(struct mmc_host *host, u32 ocr,
 
 	if (!oldcard)
 		host->card = card;
-
+	
+	printk("%s: mmc_init_card success\n", mmc_hostname(host));
 	mmc_free_ext_csd(ext_csd);
 	return 0;
 
@@ -1317,6 +1345,7 @@ free_card:
 		mmc_remove_card(card);
 err:
 	mmc_free_ext_csd(ext_csd);
+	printk("%s: mmc_init_card fail\n", mmc_hostname(host));
 
 	return err;
 }
@@ -1444,6 +1473,7 @@ static int mmc_resume(struct mmc_host *host)
 	mmc_claim_host(host);
 	err = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
+	printk("%s: mmc_resume err=%x\n", mmc_hostname(host),err);
 
 	return err;
 }
@@ -1453,6 +1483,7 @@ static int mmc_power_restore(struct mmc_host *host)
 	int ret;
 
 	host->card->state &= ~(MMC_STATE_HIGHSPEED | MMC_STATE_HIGHSPEED_200);
+	printk("%s: mmc_power_restore\n", mmc_hostname(host));
 	mmc_claim_host(host);
 	ret = mmc_init_card(host, host->ocr, host->card);
 	mmc_release_host(host);
