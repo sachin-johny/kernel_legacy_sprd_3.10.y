@@ -800,6 +800,37 @@ static void sprd_sdhci_host_put_runtime(struct platform_device *pdev, struct sdh
 static const struct of_device_id sprd_sdhci_host_of_match[];
 #endif
 
+static DEVICE_ATTR(detect_irq, S_IWUSR, NULL, sprd_sdhci_host_detect_irq_restore);
+static DEVICE_ATTR(keep_power, S_IRUGO | S_IWUSR, sprd_sdhci_host_keep_power_show, sprd_sdhci_host_keep_power_restore);
+static DEVICE_ATTR(timing, S_IRUGO | S_IWUSR, sprd_sdhci_timing_show, sprd_sdhci_host_timing_restore);
+#ifdef CONFIG_PM_RUNTIME
+static DEVICE_ATTR(runtime, S_IRUGO | S_IWUSR, sprd_sdhci_host_runtime_show, sprd_sdhci_host_runtime_restore);
+#endif
+
+static const struct attribute *sprd_sdhci_host_attrs[] = {
+	&dev_attr_detect_irq.attr,
+	&dev_attr_keep_power.attr,
+	&dev_attr_timing.attr,
+#ifdef CONFIG_PM_RUNTIME
+	&dev_attr_runtime.attr,
+#endif
+	NULL
+};
+
+static const struct attribute_group sprd_sdhci_host_attr_group = {
+	.attrs = sprd_sdhci_host_attrs,
+};
+
+static const struct attribute_group *sprd_sdhci_host_attr_groups[] = {
+	&sprd_sdhci_host_attr_group,
+	NULL
+};
+
+static const struct device_type sprd_sdhci_host_device_type = {
+	.name		= "sprd-sdhci-host",
+	.groups		= sprd_sdhci_host_attr_groups,
+};
+
 static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_base = {
 	.quirks = SDHCI_QUIRK_NO_HISPD_BIT | SDHCI_QUIRK_BROKEN_TIMEOUT_VAL | SDHCI_QUIRK_DATA_TIMEOUT_USES_SDCLK | SDHCI_QUIRK_BROKEN_CARD_DETECTION | SDHCI_QUIRK_CLOCK_BEFORE_RESET,
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
@@ -976,30 +1007,6 @@ static void sprd_sdhci_host_fix_mmc_core_remove(struct sdhci_host *host) {
 	}
 }
 
-static int sprd_sdhci_host_set_device_attribute(struct platform_device *pdev, struct sprd_sdhci_host *sprd_host) {
-	DEVICE_ATTR(detect_irq, S_IWUSR, NULL, sprd_sdhci_host_detect_irq_restore);
-	DEVICE_ATTR(keep_power, S_IRUGO | S_IWUSR, sprd_sdhci_host_keep_power_show, sprd_sdhci_host_keep_power_restore);
-	DEVICE_ATTR(timing, S_IRUGO | S_IWUSR, sprd_sdhci_timing_show, sprd_sdhci_host_timing_restore);
-#ifdef CONFIG_PM_RUNTIME
-	DEVICE_ATTR(runtime, S_IRUGO | S_IWUSR, sprd_sdhci_host_runtime_show, sprd_sdhci_host_runtime_restore);
-#endif
-	sprd_host->dev_attr_detect_irq = dev_attr_detect_irq;
-	sprd_host->dev_attr_keep_power = dev_attr_keep_power;
-	sprd_host->dev_attr_timing = dev_attr_timing;
-	sprd_host->dev_attrs[0] = &sprd_host->dev_attr_detect_irq.attr;
-	sprd_host->dev_attrs[1] = &sprd_host->dev_attr_keep_power.attr;
-	sprd_host->dev_attrs[2] = &sprd_host->dev_attr_timing.attr;
-#ifdef CONFIG_PM_RUNTIME
-	sprd_host->dev_attr_runtime = dev_attr_runtime;
-	sprd_host->dev_attrs[3] = &sprd_host->dev_attr_runtime.attr;
-	sprd_host->dev_attrs[4] = NULL;
-#else
-	sprd_host->dev_attrs[3] = NULL;
-#endif
-	sprd_host->dev_attr_group.attrs = sprd_host->dev_attrs;
-	return sysfs_create_group(&pdev->dev.kobj, &sprd_host->dev_attr_group);
-}
-
 static void sprd_sdhci_host_open(struct sdhci_host *host, struct sprd_sdhci_host *sprd_host) {
 	struct sprd_sdhci_host_platdata *host_pdata = sprd_host->platdata;
 	// ahb enbale sdio controller
@@ -1174,6 +1181,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 #endif
 	platform_set_drvdata(pdev, host);
 	host->ops = (const struct sdhci_ops *)&sprd_host->sdhci_host_ops;
+	pdev->dev.type = &sprd_sdhci_host_device_type;
 	pdev->dev.dma_mask = &host->dma_mask;
 	host->dma_mask = DMA_BIT_MASK(64);
 	host->hw_name = "";
@@ -1195,9 +1203,6 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	sprd_host->sdhci_host_ops = sprd_sdhci_host_default_ops;
 	spin_lock_init(&sprd_host->lock);
 	wake_lock_init(&sprd_host->wake_lock, WAKE_LOCK_SUSPEND, kasprintf(GFP_KERNEL, "%s-wakelock", dev_name(&pdev->dev)));
-	retval = sprd_sdhci_host_set_device_attribute(pdev, sprd_host);
-	if(retval < 0)
-		goto ERROR_SET_ATTR;
 	device_init_wakeup(&pdev->dev, 0);
 	device_set_wakeup_enable(&pdev->dev, 0);
 	retval = sprd_sdhci_host_get_clock(pdev, host);
@@ -1233,7 +1238,6 @@ ERROR_RUNTIME:
 #endif
 ERROR_CLOCK:
 	sprd_sdhci_host_put_clock(pdev, host);
-ERROR_SET_ATTR:
 #ifdef CONFIG_OF
 	kfree(host_pdata);
 ERROR_ALLOC:

@@ -933,7 +933,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	WARN_ON(!host->claimed);
 
 	err = mmc_sd_get_cid(host, ocr, cid, &rocr);
-	if (err){
+	if (err) {
 		printk("%s: mmc_sd_get_cid  err=%x\n", mmc_hostname(host),err);
 		return err;
 	}
@@ -947,7 +947,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		 * Allocate card structure.
 		 */
 		card = mmc_alloc_card(host, &sd_type);
-		if (IS_ERR(card)){
+		if (IS_ERR(card)) {
 			return PTR_ERR(card);
 			printk("%s: mmc_alloc_card err\n", mmc_hostname(host));
 		}
@@ -960,7 +960,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	 */
 	if (!mmc_host_is_spi(host)) {
 		err = mmc_send_relative_addr(host, &card->rca);
-		if (err){
+		if (err) {
 			printk("%s: mmc_send_relative_addr  err=%x\n", mmc_hostname(host),err);
 			return err;
 		}
@@ -968,7 +968,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 
 	if (!oldcard) {
 		err = mmc_sd_get_csd(host, card);
-		if (err){
+		if (err) {
 			printk("%s: mmc_sd_get_csd  err=%x\n", mmc_hostname(host),err);
 			return err;
 		}
@@ -987,14 +987,14 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 	}
 
 	err = mmc_sd_setup_card(host, card, oldcard != NULL);
-	if (err){
+	if (err) {
 		printk("%s: mmc_sd_setup_card  err=%x\n", mmc_hostname(host),err);
 		goto free_card;
 	}
 	/* Initialization sequence for UHS-I cards */
 	if (rocr & SD_ROCR_S18A) {
 		err = mmc_sd_init_uhs_card(card);
-		if (err){
+		if (err) {
 			printk("%s: mmc_sd_init_uhs_card  err=%x\n", mmc_hostname(host),err);
 			goto free_card;
 		}
@@ -1007,7 +1007,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		err = mmc_sd_switch_hs(card);
 		if (err > 0)
 			mmc_sd_go_highspeed(card);
-		else if (err){
+		else if (err) {
 			printk("%s: mmc_sd_switch_hs  err=%x\n", mmc_hostname(host),err);
 			goto free_card;
 		}
@@ -1022,7 +1022,7 @@ static int mmc_sd_init_card(struct mmc_host *host, u32 ocr,
 		if ((host->caps & MMC_CAP_4_BIT_DATA) &&
 			(card->scr.bus_widths & SD_SCR_BUS_WIDTH_4)) {
 			err = mmc_app_set_bus_width(card, MMC_BUS_WIDTH_4);
-			if (err){
+			if (err) {
 				printk("%s: mmc_app_set_bus_width  err=%x\n", mmc_hostname(host),err);
 				goto free_card;
 			}
