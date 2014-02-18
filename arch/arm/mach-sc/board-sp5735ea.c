@@ -302,9 +302,9 @@ static void __init sprd_add_otg_device(void)
 	/*
 	 * if in calibrtaion mode, we do nothing, modem will handle everything
 	 */
-	pdev =&sprd_otg_device;
-	sprd_otg_data =pdev->dev.platform_data;
-	sprd_otg_data ->gpio_boost=HEADSET_SWITCH_GPIO;
+	pdev = &sprd_otg_device;
+	sprd_otg_data = pdev->dev.platform_data;
+	sprd_otg_data ->gpio_boost= USB_OTG_BOOST_GPIO;
 	platform_device_register(&sprd_otg_device);
 }
 
