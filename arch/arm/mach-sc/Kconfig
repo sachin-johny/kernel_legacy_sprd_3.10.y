@@ -426,4 +426,7 @@ config EAR_LOW_LEVEL_DETECT
 config SS_FUNCTION
         bool "only for samsung function"
         default n
+config TSP_0_1_A
+        bool "For corsica_ve 3131 0.1A board"
+        default n
 endif

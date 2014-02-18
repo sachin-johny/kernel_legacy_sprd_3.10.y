@@ -214,7 +214,11 @@ static void ts_power_enable(int en)
 		return;
 	}
 
+#ifdef CONFIG_TSP_0_1_A
+	touch_regulator_3v3 = regulator_get(NULL,"vddcon");
+#else
 	touch_regulator_3v3 = regulator_get(NULL,"vddcammot");
+#endif
 	if (IS_ERR(touch_regulator_3v3)) {
 		touch_regulator_1v8 = NULL;
 		tsp_info("get touch_regulator_3v3 regulator error\n");
