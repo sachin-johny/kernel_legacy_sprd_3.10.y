@@ -479,6 +479,12 @@ static pageout_t pageout(struct page *page, struct address_space *mapping,
 	if (!may_write_to_queue(mapping->backing_dev_info, sc))
 		return PAGE_KEEP;
 
+	if(IS_ENABLED(CONFIG_CMA) &&
+		!zone_watermark_ok_safe(page_zone(page), 0, SWAP_CLUSTER_MAX, 0, 0))
+	{
+		return PAGE_KEEP;
+	}
+
 	if (clear_page_dirty_for_io(page)) {
 		int res;
 		struct writeback_control wbc = {
