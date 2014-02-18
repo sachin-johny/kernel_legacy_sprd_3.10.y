@@ -102,7 +102,8 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			break;
 		}
 
-		skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);	/*16 bytes align */
+		/*16 bytes align */
+		skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);
 		if (!skb) {
 			dev_err(&priv->ndev->dev,
 				"Failed to allocate skbuff!\n");
@@ -121,13 +122,13 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 						     0x00, 0x00, 0x00};
 				skb_reserve(skb, NET_IP_ALIGN);
 				decryp_data_len = wlan_rx_wapi_decryption(priv,
-						   (u8 *) & data-> u2.encrypt,
+						   (u8 *)&data->u2.encrypt,
 						   data->u1.encrypt.header_len,
 						   (blk.length -
 						   sizeof(data->is_encrypted) -
 						   sizeof(data->u1) -
 						   data->u1.encrypt.header_len),
-						   (skb-> data + 12));
+						   (skb->data + 12));
 				if (decryp_data_len == 0) {
 					dev_err(&priv->ndev->dev,
 						"wapi data decryption failed!\n");
@@ -168,7 +169,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 		} else if (data->is_encrypted == 0) {
 			skb_reserve(skb, NET_IP_ALIGN);
 			/* dec the first encrypt byte */
-			memcpy(skb->data, (u8 *) & data->u2,
+			memcpy(skb->data, (u8 *)&data->u2,
 			       (blk.length - sizeof(data->is_encrypted) -
 				sizeof(data->u1)));
 			skb_put(skb,
@@ -595,8 +596,7 @@ static int itm_pm_notifier(struct notifier_block *notifier,
 					     struct itm_priv,
 					     pm_notifier);
 
-	/* We should not suspend when there is sipc cmd send and
-	 * recv. */
+	/* We should not suspend when there is sipc cmd send and recv. */
 	switch (pm_event) {
 	case PM_SUSPEND_PREPARE:
 		if (!mutex_trylock(&priv->wlan_sipc->pm_lock)) {
@@ -609,7 +609,8 @@ static int itm_pm_notifier(struct notifier_block *notifier,
 		break;
 
 	/* Restore from hibernation failed. We need to clean
-	 * up in exactly the same way, so fall through. */
+	 * up in exactly the same way, so fall through.
+	 */
 	case PM_POST_SUSPEND:
 		if (priv->pm_status == true) {
 			mutex_unlock(&priv->wlan_sipc->pm_lock);
@@ -660,7 +661,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 
 	priv->pm_status = false;
 
-	 /*FIXME: If get mac from cfg file error, got random addr */
+	/*FIXME: If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
 	if (ret)
 		random_ether_addr(ndev->dev_addr);
