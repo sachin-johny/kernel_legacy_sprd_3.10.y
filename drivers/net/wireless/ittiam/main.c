@@ -98,8 +98,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 	for (work_done = 0; work_done < budget; work_done++) {
 		ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 		if (ret) {
-			dev_dbg(&priv->ndev->dev,
-				"Failed to receive sblock (%d)\n", ret);
+			dev_dbg(&priv->ndev->dev, "no more sblock (%d)\n", ret);
 			break;
 		}
 		/*16 bytes align */
