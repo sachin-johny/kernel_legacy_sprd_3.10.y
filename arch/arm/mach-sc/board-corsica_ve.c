@@ -347,7 +347,11 @@ static int gps_enable_control(int flag)
         printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
 		
         if (flag && (!f_enabled)) {
+#ifdef CONFIG_TSP_0_1_A
+                      gps_regulator = regulator_get(NULL, "vddcammot");
+#else
                       gps_regulator = regulator_get(NULL, "vddcon");
+#endif
 					  gps_regulator_rf0 = regulator_get(NULL, "vddrf0"); 
                       if (IS_ERR(gps_regulator)||IS_ERR(gps_regulator_rf0)) {
                                    gps_regulator = NULL;
