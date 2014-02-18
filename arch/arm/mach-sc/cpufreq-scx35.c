@@ -628,14 +628,14 @@ static ssize_t cpufreq_max_limit_store(struct device *dev, struct device_attribu
 
 static ssize_t cpufreq_table_show(struct device *dev, struct device_attribute *attr,char *buf)
 {
-	memcpy(buf,sprd_cpufreq_conf->freq_tbl,sizeof(sprd_cpufreq_conf->freq_tbl));
-	return sizeof(sprd_cpufreq_conf->freq_tbl);
+	memcpy(buf,sprd_cpufreq_conf->freq_tbl,sizeof(* sprd_cpufreq_conf->freq_tbl));
+	return sizeof(* sprd_cpufreq_conf->freq_tbl);
 }
-static DEVICE_ATTR(cpufreq_min_limit, 0644, cpufreq_min_limit_show, cpufreq_min_limit_store);
-static DEVICE_ATTR(cpufreq_max_limit, 0644, cpufreq_max_limit_show, cpufreq_max_limit_store);
-static DEVICE_ATTR(cpufreq_min_limit_debug, 0444, cpufreq_min_limit_debug_show, NULL);
-static DEVICE_ATTR(cpufreq_max_limit_debug, 0444, cpufreq_max_limit_debug_show, NULL);
-static DEVICE_ATTR(cpufreq_table, 0444, cpufreq_table_show, NULL);
+static DEVICE_ATTR(cpufreq_min_limit, 0660, cpufreq_min_limit_show, cpufreq_min_limit_store);
+static DEVICE_ATTR(cpufreq_max_limit, 0660, cpufreq_max_limit_show, cpufreq_max_limit_store);
+static DEVICE_ATTR(cpufreq_min_limit_debug, 0440, cpufreq_min_limit_debug_show, NULL);
+static DEVICE_ATTR(cpufreq_max_limit_debug, 0440, cpufreq_max_limit_debug_show, NULL);
+static DEVICE_ATTR(cpufreq_table, 0440, cpufreq_table_show, NULL);
 
 static struct attribute *g[] = {
 	&dev_attr_cpufreq_min_limit.attr,
