@@ -440,11 +440,11 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc,
 						      WPS_ASSOC_IE,
 						      buf, wps_len);
-			kfree(buf);
 			if (ret) {
 				wiphy_err(wiphy,
 					  "%s failed to set wpas ie!\n",
 					  __func__);
+				kfree(buf);
 				return ret;
 			}
 		}
