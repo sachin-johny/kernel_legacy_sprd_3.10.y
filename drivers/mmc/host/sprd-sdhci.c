@@ -73,14 +73,6 @@ struct sprd_sdhci_host {
 	struct delayed_work detect, saved_detect;
 	struct notifier_block vmmc_nb;
 	struct regulator_dev *vmmc_rdev;
-	struct device_attribute dev_attr_detect_irq;
-	struct device_attribute dev_attr_keep_power;
-	struct device_attribute dev_attr_timing;
-#ifdef CONFIG_PM_RUNTIME
-	struct device_attribute dev_attr_runtime;
-#endif
-	struct attribute *dev_attrs[5];
-	struct attribute_group dev_attr_group;
 };
 
 static void sdhci_clear_set_irqs(struct sdhci_host *host, u32 clear, u32 set)
@@ -1228,7 +1220,6 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	mmc_detect_change(host->mmc, 0);
 	return 0;
 ERROR_ADD_HOST:
-	sysfs_remove_group(&pdev->dev.kobj, &sprd_host->dev_attr_group);
 	sprd_sdhci_host_fix_mmc_core_remove(host);
 	sprd_sdhci_host_close(host, sprd_host);
 #ifdef CONFIG_PM_RUNTIME
@@ -1259,7 +1250,6 @@ static int sprd_sdhci_host_remove(struct platform_device *pdev) {
 	mmc_claim_host(mmc);
 	sprd_sdhci_host_put_runtime(pdev, host);
 	sprd_sdhci_host_put_clock(pdev, host);
-	sysfs_remove_group(&pdev->dev.kobj, &sprd_host->dev_attr_group);
 	sprd_sdhci_host_fix_mmc_core_remove(host);
 	mmc_release_host(mmc);
 	sdhci_remove_host(host, 1);
@@ -1289,7 +1279,6 @@ static void sprd_sdhci_host_shutdown(struct platform_device *pdev)
 	mmc_claim_host(mmc);
 	sprd_sdhci_host_put_runtime(pdev, host);
 	sprd_sdhci_host_put_clock(pdev, host);
-	sysfs_remove_group(&pdev->dev.kobj, &sprd_host->dev_attr_group);
 	sprd_sdhci_host_fix_mmc_core_remove(host);
 	mmc_release_host(mmc);
 	sdhci_remove_host(host, 1);
