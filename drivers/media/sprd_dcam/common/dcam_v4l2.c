@@ -394,8 +394,7 @@ LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
 	}
 
 	info = &dev->dcam_cxt;
-	if (info->flash_status >= FLASH_CLOSE 
-		&& info->flash_status < FLASH_STATUS_MAX) {
+	if (info->flash_status < FLASH_STATUS_MAX) {
 		DCAM_TRACE("sprd_v4l2_opt_flash, status %d \n", info->flash_status);
 		if(info->flash_status == FLASH_CLOSE_AFTER_AUTOFOCUS) {
 			do_gettimeofday(&info->timestamp);
