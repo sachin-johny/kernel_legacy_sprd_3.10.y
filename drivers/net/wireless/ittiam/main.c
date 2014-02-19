@@ -51,7 +51,7 @@
 #define SETH_RESEND_MAX_NUM	10
 #define SIOGETSSID 0x89F2
 
-void ittiam_nvm_init(void );
+void ittiam_nvm_init(void);
 
 /*
  * Tx_ready handler.
@@ -101,6 +101,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			dev_dbg(&priv->ndev->dev, "no more sblock (%d)\n", ret);
 			break;
 		}
+
 		/*16 bytes align */
 		skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);
 		if (!skb) {
@@ -204,7 +205,11 @@ rx_failed:
 				"Failed to release sblock (%d)\n", ret);
 	}
 	if (work_done < budget) {
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 		napi_gro_flush(napi, false);
+#else
+		napi_gro_flush(napi);
+#endif
 		__napi_complete(napi);
 	}
 
@@ -361,10 +366,81 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 	netif_wake_queue(dev);
 }
 
+#define CMD_BLACKLIST_ENABLE		"BLOCK"
+#define CMD_BLACKLIST_DISABLE		"UNBLOCK"
+
 int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 {
-	dev_dbg(&dev->dev, "%s\n", __func__);
-	return 0;
+	struct itm_priv *priv = netdev_priv(dev);
+	int ret = 0;
+	char *command = NULL;
+	int bytes_written = 0;
+	android_wifi_priv_cmd priv_cmd;
+	u8 addr[6] = {0};
+
+	if (!ifr->ifr_data) {
+		ret = -EINVAL;
+		goto exit;
+	}
+	if (copy_from_user(&priv_cmd, ifr->ifr_data,
+			   sizeof(android_wifi_priv_cmd))) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
+	if (!command) {
+		dev_err(&priv->wdev->netdev->dev,
+			"%s: failed to allocate memory\n", __func__);
+		ret = -ENOMEM;
+		goto exit;
+	}
+	if (copy_from_user(command, priv_cmd.buf, priv_cmd.total_len)) {
+		ret = -EFAULT;
+		goto exit;
+	}
+
+	if (strnicmp(command, CMD_BLACKLIST_ENABLE,
+		     strlen(CMD_BLACKLIST_ENABLE)) == 0) {
+		int skip = strlen(CMD_BLACKLIST_ENABLE) + 1;
+
+		dev_err(&priv->wdev->netdev->dev,
+			"%s, Received regular blacklist enable command\n",
+			__func__);
+		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
+		       (unsigned int *)&(addr[0]),
+		       (unsigned int *)&(addr[1]),
+		       (unsigned int *)&(addr[2]),
+		       (unsigned int *)&(addr[3]),
+		       (unsigned int *)&(addr[4]),
+		       (unsigned int *)&(addr[5]));
+		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
+							   addr, 1);
+	} else if (strnicmp(command, CMD_BLACKLIST_DISABLE,
+			    strlen(CMD_BLACKLIST_DISABLE)) == 0) {
+		int skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
+
+		dev_err(&priv->wdev->netdev->dev,
+			"%s, Received regular blacklist disable command\n",
+			__func__);
+		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
+		       (unsigned int *)&(addr[0]),
+		       (unsigned int *)&(addr[1]),
+		       (unsigned int *)&(addr[2]),
+		       (unsigned int *)&(addr[3]),
+		       (unsigned int *)&(addr[4]),
+		       (unsigned int *)&(addr[5]));
+		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
+							   addr, 0);
+	}
+
+	if (bytes_written < 0)
+		ret = bytes_written;
+
+exit:
+	kfree(command);
+
+	return ret;
 }
 
 static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
@@ -589,7 +665,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 
 	priv->pm_status = false;
 
-	 /*FIXME: If get mac from cfg file error, got random addr */
+	/*FIXME: If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
 	if (ret)
 		random_ether_addr(ndev->dev_addr);
