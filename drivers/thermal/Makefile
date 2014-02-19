@@ -24,3 +24,5 @@ obj-$(CONFIG_ARMADA_THERMAL)	+= armada_thermal.o
 obj-$(CONFIG_DB8500_CPUFREQ_COOLING)	+= db8500_cpufreq_cooling.o
 obj-$(CONFIG_INTEL_POWERCLAMP)	+= intel_powerclamp.o
 
+# xiangzhao.chen added for sprd_thm
+obj-$(CONFIG_THERMAL)		+= sprd_thm.o sprd_2713_thm.o

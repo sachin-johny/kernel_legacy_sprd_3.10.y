@@ -169,7 +169,7 @@ struct sprdfgu_drivier_data {
 struct sprdfgu_drivier_data sprdfgu_data;
 
 struct delayed_work sprdfgu_debug_work;
-uint32_t sprdfgu_debug_log_time = 15;
+uint32_t sprdfgu_debug_log_time = 30;
 //#define CUR_1000MA_ADC   2872 //177//0xF9 //176   OK
 //#define VOL_1000MV_ADC    678 //40
 //#define VOL_OFFSET  -22
@@ -425,7 +425,7 @@ static inline int sprdfgu_clbcnt_get(void)
 		cc2 |= (((sci_adi_read(REG_FGU_CLBCNT_VALH)) & 0xFFFF) << 16);
 	} while (cc1 != cc2);
 
-	FGU_DEBUG("sprdfgu_clbcnt_get cc: %d\n", cc1);
+	//FGU_DEBUG("sprdfgu_clbcnt_get cc: %d\n", cc1);
 	return cc1;
 }
 
@@ -608,7 +608,7 @@ int sprdfgu_avg_current_query(void)
 
 static void sprdfgu_debug_works(struct work_struct *work)
 {
-	FGU_DEBUG("dump fgu message@@@@@@@@@@@@@@@@@@@@@@@@@@@start\n");
+	FGU_DEBUG("dump fgu message@start\n");
 	FGU_DEBUG("sprdfgu_avg_current_query avg current = %d\n",
 		  sprdfgu_avg_current_query());
 	FGU_DEBUG("cur vol = %d\n", sprdfgu_read_vbat_vol());
@@ -625,14 +625,14 @@ static void sprdfgu_debug_works(struct work_struct *work)
 	//        sci_adi_read(REG_FGU_RELAX_CURT_THRE));
 	//FGU_DEBUG("REG_FGU_RELAX_CNT--- = %d\n",
 	//        sci_adi_read(REG_FGU_RELAX_CNT));
-	FGU_DEBUG("REG_FGU_OCV_LAST_CNT--- = %d\n",
-		  sci_adi_read(REG_FGU_OCV_LAST_CNT));
-	FGU_DEBUG("REG_FGU_LOW_OVER--- = %d\n", sci_adi_read(REG_FGU_LOW_OVER));
+	//FGU_DEBUG("REG_FGU_OCV_LAST_CNT--- = %d\n",
+	//	  sci_adi_read(REG_FGU_OCV_LAST_CNT));
+	//FGU_DEBUG("REG_FGU_LOW_OVER--- = %d\n", sci_adi_read(REG_FGU_LOW_OVER));
 	//FGU_DEBUG("REG_FGU_CONFIG--- = 0x%x\n", sci_adi_read(REG_FGU_CONFIG));
 	//printk("ANA_REG_GLB_MP_MISC_CTRL 0x%x ,0x%x \n", sci_adi_read(ANA_REG_GLB_MP_MISC_CTRL), sci_adi_read(ANA_REG_GLB_DCDC_CTRL2));
 	FGU_DEBUG("sprdfgu_read_soc():%d\n", sprdfgu_read_soc());
 	FGU_DEBUG("sprdfgu_read_capacity():%d\n", sprdfgu_read_capacity());
-	FGU_DEBUG("dump fgu message@@@@@@@@@@@@@--!!!-@@@@@@@@@@@@@@end\n");
+	FGU_DEBUG("dump fgu message@end\n");
 	schedule_delayed_work(&sprdfgu_debug_work, sprdfgu_debug_log_time * HZ);
 }
 

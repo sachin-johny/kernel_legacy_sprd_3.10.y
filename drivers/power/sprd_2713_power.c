@@ -45,10 +45,12 @@
 #define SPRDBAT_DEBUG(format, arg...)
 #endif
 #if defined(CONFIG_ARCH_SCX15)
+#if 0
 int sprd_thm_temp_read(u32 sensor)
 {
 	return 0;
 }
+#endif
 #endif
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
