@@ -3935,6 +3935,7 @@ void send_mac_status(UWORD8 mac_status)
 		    #endif
 			TROUT_DBG5("=>chenq send_mac_status: UP\n");
 			#endif
+			netif_carrier_on(g_mac_dev);
 			#endif
 		}
 		break;

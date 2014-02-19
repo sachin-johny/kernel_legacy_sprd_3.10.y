@@ -1120,7 +1120,7 @@ void ward_mac_reset(mac_struct_t *mac)
 	mutex_lock(&tp->rst_wid_mutex);
 
 	g_reset_mac_in_progress = BTRUE;
-	reset_mac(mac, BFALSE);
+	reset_mac(mac, BTRUE);
 	resolve_wid_conflicts(mac);
 	g_reset_mac_in_progress = BFALSE;
 
