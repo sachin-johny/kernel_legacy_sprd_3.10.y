@@ -122,9 +122,9 @@ void sprd_debug_check_crash_key(unsigned int code, int value)
 			}
 		}
 	} else {
-		if (code == KEY_VOLUMEUP)
+		if (code == KEY_O)
 			volup_p = false;
-		if (code == KEY_VOLUMEDOWN) {
+		if (code == KEY_7) {
 			loopcount = 0;
 			voldown_p = false;
 		}

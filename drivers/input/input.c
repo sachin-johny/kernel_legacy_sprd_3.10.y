@@ -250,8 +250,7 @@ static void input_handle_event(struct input_dev *dev,
 
 			if (value != 2) {
 				__change_bit(code, dev->key);
-//#if defined(CONFIG_SPRD_DEBUG)
-#if 0
+#if defined(CONFIG_SPRD_DEBUG)
 				if(code != BTN_TOUCH)
 					sprd_debug_check_crash_key(code ,value);
 #endif
@@ -263,8 +262,7 @@ static void input_handle_event(struct input_dev *dev,
 
 			disposition = INPUT_PASS_TO_HANDLERS;
 		}
-//#if defined(CONFIG_SPRD_DEBUG)
-#if 0
+#if defined(CONFIG_SPRD_DEBUG)
 		else {
 			if(code != BTN_TOUCH && value == 0) {
 				sprd_debug_check_crash_key(code ,value);
