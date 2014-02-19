@@ -55,10 +55,14 @@ static int32_t hx8363_init(struct panel_spec *self)
 	HX8363_SpiWriteData(0x44);
 	HX8363_SpiWriteData(0x08);
 	HX8363_SpiWriteData(0x01);
-	HX8363_SpiWriteData(0x0E); //
-	HX8363_SpiWriteData(0x0E); //
-	HX8363_SpiWriteData(0x1B); //the lower ,Saturation is better
-	HX8363_SpiWriteData(0x23); //the lower ,Saturation is better
+//	HX8363_SpiWriteData(0x0E); //
+//	HX8363_SpiWriteData(0x0E); //
+//	HX8363_SpiWriteData(0x1B); //the lower ,Saturation is better
+//	HX8363_SpiWriteData(0x23); //the lower ,Saturation is better
+	HX8363_SpiWriteData(0x0F); //
+	HX8363_SpiWriteData(0x0F); //
+	HX8363_SpiWriteData(0x22); //the lower ,Saturation is better
+	HX8363_SpiWriteData(0x2A); //the lower ,Saturation is better
 	HX8363_SpiWriteData(0x3F);
 	HX8363_SpiWriteData(0x3F);
 	HX8363_SpiWriteData(0x40);
