@@ -718,8 +718,6 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 {
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
-	struct cfg80211_bss *bss = NULL;
-	bool found = false;
 	int ret;
 
 	wiphy_info(wiphy, "%s %s\n", __func__, priv->ssid);
@@ -733,20 +731,6 @@ static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
 	if (ret < 0) {
 		wiphy_err(wiphy, "%s failed disconnect!\n", __func__);
 	}
-
-	do {
-		bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
-				       priv->bssid, priv->ssid,
-				       priv->ssid_len,
-				       WLAN_CAPABILITY_ESS,
-				       WLAN_CAPABILITY_ESS);
-		if (bss) {
-			cfg80211_unlink_bss(priv->wdev->wiphy, bss);
-			found = true;
-		} else {
-			found = false;
-		}
-	} while (found);
 	memset(priv->ssid, 0, sizeof(priv->ssid));
 
 	return ret;
@@ -1005,8 +989,8 @@ static int itm_wlan_cfg80211_flush_pmksa(struct wiphy *wiphy,
 void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 {
 	u8 *req_ie_ptr, *resp_ie_ptr, *bssid_ptr, *pos, *value_ptr;
-	u8 status_code = 0, status_len;
-	u16 bssid_len;
+	u8 status_code = 0;
+	u16 bssid_len, status_len;
 	u8 req_ie_len, resp_ie_len;
 	u32 event_len;
 	int left;
@@ -1026,13 +1010,17 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	/* The first byte of event data is status and len */
 	memcpy(pos, priv->wlan_sipc->event_buf->u.event.variable, event_len);
 	memcpy(&status_len, pos, 2);
-	memcpy(&status_code, (pos + 2), status_len);
+	if (status_len != 1) {
+		wiphy_err(priv->wdev->wiphy,
+			"%s erro status len(%d)\n", __func__, status_len);
+		goto freepos;
+	}
+	memcpy(&status_code, pos + 2, status_len);
 	/* FIXME later the status code should be reported by CP2 */
 	if (status_code != 0) {
 		wiphy_err(priv->wdev->wiphy,
 			  "%s failled to connect(%d)\n", __func__, status_code);
-		kfree(pos);
-		goto out;
+		goto freepos;
 	}
 
 	value_ptr = pos + 2 + status_len;
@@ -1040,8 +1028,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	/* BSSID is 6 + len is 2 = 8 */
 	if (left < 8) {
 		wiphy_err(priv->wdev->wiphy, "%s invaild bssid!\n", __func__);
-		kfree(pos);
-		goto out;
+		goto freepos;
 	}
 	memcpy(&bssid_len, value_ptr, 2);
 	left -= 2;
@@ -1050,8 +1037,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 
 	if (!left) {
 		wiphy_err(priv->wdev->wiphy, "%s no req_ie frame!\n", __func__);
-		kfree(pos);
-		goto out;
+		goto freepos;
 	}
 	req_ie_len = *(u8 *) (bssid_ptr + bssid_len);
 	left -= 1;
@@ -1060,8 +1046,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	if (!left) {
 		wiphy_err(priv->wdev->wiphy, "%s no resp_ie frame!\n",
 			  __func__);
-		kfree(pos);
-		goto out;
+		goto freepos;
 	}
 	resp_ie_len = *(u8 *) (req_ie_ptr + req_ie_len);
 	resp_ie_ptr = req_ie_ptr + req_ie_len + 1;
@@ -1076,8 +1061,6 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 		wiphy_info(priv->wdev->wiphy, "%s %s success!\n", __func__,
 			   priv->ssid);
 
-		kfree(pos);
-
 		if (!netif_carrier_ok(priv->ndev)) {
 			wiphy_dbg(priv->wdev->wiphy,
 				  "%s netif_carrier_on, ssid:%s\n", __func__,
@@ -1088,11 +1071,14 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	} else {
 		wiphy_err(priv->wdev->wiphy,
 			  "%s wrong previous connect status!\n", __func__);
-		kfree(pos);
-		goto out;
+		goto freepos;
 	}
 
+	kfree(pos);
 	return;
+
+freepos:
+	kfree(pos);
 out:
 	if (priv->scan_request &&
 	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
@@ -1121,9 +1107,7 @@ out:
 
 void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
 {
-	struct cfg80211_bss *bss = NULL;
 	u16 reason_code = 0;
-	bool found = false;
 
 	/* This should filled if disconnect reason is not only one */
 	memcpy(&reason_code, priv->wlan_sipc->event_buf->u.event.variable, 2);
@@ -1144,23 +1128,6 @@ void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
 	} else if (priv->connect_status == ITM_CONNECTED) {
-		if (reason_code == AP_LEAVING	/*||
-						   reason_code == AP_DEAUTH */ ) {
-			do {
-				bss = cfg80211_get_bss(priv->wdev->wiphy, NULL,
-						       priv->bssid, priv->ssid,
-						       priv->ssid_len,
-						       WLAN_CAPABILITY_ESS,
-						       WLAN_CAPABILITY_ESS);
-				if (bss) {
-					cfg80211_unlink_bss(priv->wdev->wiphy,
-							    bss);
-					found = true;
-				} else {
-					found = false;
-				}
-			} while (found);
-		}
 		cfg80211_disconnected(priv->ndev, reason_code,
 				      NULL, 0, GFP_KERNEL);
 		wiphy_info(priv->wdev->wiphy, "%s %s\n", __func__, priv->ssid);
