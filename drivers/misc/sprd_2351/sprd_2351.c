@@ -17,7 +17,7 @@ static int sprd_rfspi_wait_write_idle(void)
 	u32 time_out;
 	u32 reg_data;
 
-	for (time_out = 0, reg_data = 0; \
+	for (time_out = 0, reg_data = 0x10; \
 		reg_data & BIT_4; time_out++) {/*wait fifo empty*/
 		if (time_out > 1000) {
 			RF2351_PRINT("mspi time out!\r\n");
@@ -101,6 +101,7 @@ static void sprd_mspi_enable(void)
 
 static void sprd_mspi_disable(void)
 {
+	/*Because of BT can't work when connet BT Earphones if disable the mspi*/
 	//sci_glb_clr(APB_EB0, RFSPI_ENABLE_CTL);
 }
 

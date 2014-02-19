@@ -215,7 +215,10 @@ static int	XVU_write(struct tty_struct *tty, const unsigned char *buffer,
 		goto out;
 	}
 
-	tty_buffer_request_room(tty->port, count);
+	rv = tty_buffer_request_room(tty->port, count);
+	if (unlikely(rv == 0)) {
+		XVU_ERR("tty_buffer_request_room rv:%d\n",rv);
+	}
 	rv = tty_insert_flip_string(peer->port, buffer, count);
 	tty_schedule_flip(peer->port);
 
