@@ -30,8 +30,10 @@
 
 #if defined(CONFIG_ARCH_SCX15)
 static int idx = 0;
+#define EFUSE_CONTROLLER_NUM	2
+
 #undef SPRD_EFUSE_BASE
-#define SPRD_EFUSE_BASE		(SPRD_UIDEFUSE_BASE + idx * 0x100)
+#define SPRD_EFUSE_BASE			(SPRD_UIDEFUSE_BASE + idx * 0x100)
 #endif
 
 
@@ -105,9 +107,28 @@ static DEFINE_MUTEX(adie_fuse_lock);
 static int efuse_auto_test_en = 0;
 #endif
 
+static void efuse_dump_register(u32 en)
+{
+#if defined(CONFIG_ARCH_SCX35)
+	efuse_dbg("----------------- efuse dump start --------------------------------\n");
 
+	efuse_dbg("Efuse base viral addr = 0x%08x\n", SPRD_EFUSE_BASE);
+	efuse_dbg("REG_EFUSE_DATA_RD = 0x%08x\n", __raw_readl(REG_EFUSE_DATA_RD));
+	efuse_dbg("REG_EFUSE_DATA_WR = 0x%08x\n", __raw_readl(REG_EFUSE_DATA_WR));
+	efuse_dbg("REG_EFUSE_BLOCK_INDEX = 0x%08x\n", __raw_readl(REG_EFUSE_BLOCK_INDEX));
+	efuse_dbg("REG_EFUSE_MODE_CTRL = 0x%08x\n", __raw_readl(REG_EFUSE_MODE_CTRL));
+	efuse_dbg("REG_EFUSE_PGM_PARA = 0x%08x\n", __raw_readl(REG_EFUSE_PGM_PARA));
+	efuse_dbg("REG_EFUSE_STATUS = 0x%08x\n", __raw_readl(REG_EFUSE_STATUS));
+	efuse_dbg("REG_EFUSE_BLK_FLAGS = 0x%08x\n", __raw_readl(REG_EFUSE_BLK_FLAGS));
+	efuse_dbg("REG_EFUSE_BLK_CLR = 0x%08x\n", __raw_readl(REG_EFUSE_BLK_CLR));
+	efuse_dbg("REG_EFUSE_MAGIC_NUMBER = 0x%08x\n", __raw_readl(REG_EFUSE_MAGIC_NUMBER));
 
-static void efuse_dump_register(u32 en);
+	efuse_dbg("REG_AON_APB_APB_EB0 = 0x%08x\n", sci_glb_raw_read(REG_AON_APB_APB_EB0));
+	efuse_dbg("REG_AON_APB_PWR_CTRL = 0x%08x\n", sci_glb_raw_read(REG_AON_APB_PWR_CTRL));
+
+	efuse_dbg("----------------- efuse dump end --------------------------------\n");
+#endif
+}
 
 static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 {
@@ -130,6 +151,11 @@ static __inline void __ddie_fuse_global_init(void)
 	sci_glb_set(REG_GLB_GEN0, BIT_EFUSE_EB);
 #elif defined(CONFIG_ARCH_SCX35)
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_EFUSE_EB);
+
+	sci_glb_set(REG_AON_APB_APB_RST0, BIT_EFUSE_SOFT_RST);
+	udelay(5);
+	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_EFUSE_SOFT_RST);
+
 	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
 	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
 #endif
@@ -139,6 +165,9 @@ static __inline void __ddie_fuse_global_init(void)
 
 static __inline void __ddie_fuse_global_close(void)
 {
+	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
+		     REG_EFUSE_PGM_PARA);
+
 #if defined(CONFIG_ARCH_SC8825)
 	sci_glb_clr(REG_GLB_GEN0, BIT_EFUSE_EB);
 #elif defined(CONFIG_ARCH_SCX35)
@@ -146,10 +175,7 @@ static __inline void __ddie_fuse_global_close(void)
 	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
 	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
 #endif
-	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
-		     REG_EFUSE_PGM_PARA);
 }
-
 
 static __inline int __ddie_fuse_read(u32 blk)
 {
@@ -158,6 +184,8 @@ static __inline int __ddie_fuse_read(u32 blk)
 #if defined(CONFIG_ARCH_SCX15)
 	idx = blk / 8;
 	blk %= 8;
+
+	BUG_ON(idx >= EFUSE_CONTROLLER_NUM);
 #endif
 
 	D_EFUSE_VERIFY_BLK_ID(blk);
@@ -171,9 +199,15 @@ static __inline int __ddie_fuse_read(u32 blk)
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_READ_BUSY);
 	val = __raw_readl(REG_EFUSE_DATA_RD);
-	efuse_dump_register(0);
+
 	__ddie_fuse_global_close();
 	mutex_unlock(&ddie_fuse_lock);
+
+#if defined(CONFIG_ARCH_SCX15)
+	pr_info("%s()->Line:%d; efuse idx=%d, blk=%d, data=0x%08x\n", __func__, __LINE__, idx, blk, val);
+#else
+	pr_info("%s()->Line:%d; efuse blk=%d, data=0x%08x\n", __func__, __LINE__, blk, val);
+#endif
 
 	return val;
 }
@@ -393,6 +427,8 @@ void sci_ddie_fuse_program(u32 blk, int data)
 #if defined(CONFIG_ARCH_SCX15)
 	idx = blk / 8;
 	blk %= 8;
+
+	BUG_ON(idx >= EFUSE_CONTROLLER_NUM);
 #endif
 
 	D_EFUSE_VERIFY_BLK_ID(blk);
@@ -413,7 +449,6 @@ void sci_ddie_fuse_program(u32 blk, int data)
 	efuse_dump_register(1);
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_PG_START,
 		     REG_EFUSE_MODE_CTRL);
-	efuse_dump_register(0);
 	__ddie_fuse_wait_status_clean(BIT_PGM_BUSY);
 
 	if (efuse_auto_test_en)
@@ -453,6 +488,8 @@ void sci_ddie_fuse_bist(u32 start_blk, u32 size)
 #if defined(CONFIG_ARCH_SCX15)
 	idx = start_blk / 8;
 	start_blk %= 8;
+
+	BUG_ON(idx >= EFUSE_CONTROLLER_NUM);
 #endif
 	D_EFUSE_VERIFY_BLK_ID(start_blk);
 
@@ -526,6 +563,16 @@ static struct sci_fuse sci_fuse_array[] = {
 	{"ddie-fuse5", 5, 0},
 	{"ddie-fuse6", 6, 0},
 	{"ddie-fuse7", 7, 0},
+#if defined(CONFIG_ARCH_SCX15)
+	{"ddie-fuse8", 8, 0},
+	{"ddie-fuse9", 9, 0},
+	{"ddie-fuse10", 10, 0},
+	{"ddie-fuse11", 11, 0},
+	{"ddie-fuse12", 12, 0},
+	{"ddie-fuse13", 13, 0},
+	{"ddie-fuse14", 14, 0},
+	{"ddie-fuse15", 15, 0},
+#endif
 };
 
 #define IIS_TO_AP	(0)
@@ -533,36 +580,6 @@ static struct sci_fuse sci_fuse_array[] = {
 #define IIS_TO_CP1	(2)
 #define IIS_TO_CP2	(3)
 #define PIN_CTL_REG3 (SPRD_PIN_BASE + 0xc)
-
-#ifdef CONFIG_EFUSE_TEST
-static void efuse_dump_register(u32 en)
-{
-	if (en) {
-		efuse_dbg("Before operation.\n");
-	} else {
-		efuse_dbg("After operation.\n");
-	}
-#if defined(CONFIG_ARCH_SCX35)
-	efuse_dbg("REG_EFUSE_DATA_RD = 0x%x\n", __raw_readl(REG_EFUSE_DATA_RD));
-	efuse_dbg("REG_EFUSE_DATA_WR = 0x%x\n", __raw_readl(REG_EFUSE_DATA_WR));
-	efuse_dbg("REG_EFUSE_BLOCK_INDEX = 0x%x\n", __raw_readl(REG_EFUSE_BLOCK_INDEX));
-	efuse_dbg("REG_EFUSE_MODE_CTRL = 0x%x\n", __raw_readl(REG_EFUSE_MODE_CTRL));
-	efuse_dbg("REG_EFUSE_PGM_PARA = 0x%x\n", __raw_readl(REG_EFUSE_PGM_PARA));
-	efuse_dbg("REG_EFUSE_STATUS = 0x%x\n", __raw_readl(REG_EFUSE_STATUS));
-	efuse_dbg("REG_EFUSE_BLK_FLAGS = 0x%x\n", __raw_readl(REG_EFUSE_BLK_FLAGS));
-	efuse_dbg("REG_EFUSE_BLK_CLR = 0x%x\n", __raw_readl(REG_EFUSE_BLK_CLR));
-	efuse_dbg("REG_EFUSE_MAGIC_NUMBER = 0x%x\n", __raw_readl(REG_EFUSE_MAGIC_NUMBER));
-
-	efuse_dbg("REG_AON_APB_APB_EB0 = 0x%x\n", sci_glb_raw_read(REG_AON_APB_APB_EB0));
-	efuse_dbg("REG_AON_APB_PWR_CTRL = 0x%x\n", sci_glb_raw_read(REG_AON_APB_PWR_CTRL));
-#endif
-}
-#else
-static void efuse_dump_register(u32 en)
-{
-	return;
-}
-#endif
 
 static int fuse_debug_set(void *data, u64 val)
 {
