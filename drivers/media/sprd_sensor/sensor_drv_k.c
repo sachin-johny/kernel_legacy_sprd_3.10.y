@@ -613,7 +613,7 @@ LOCAL int _sensor_k_set_voltage_dvdd(uint32_t dvdd_val)
 
 	SENSOR_PRINT_HIGH("sensor set DVDD val %d\n",dvdd_val);
 
-	if (NULL == s_p_sensor_mod->camdvdd_regulator) {
+	if (!s_p_sensor_mod->camdvdd_regulator) {
 		switch (_sensor_K_get_curId()) {
 			case SENSOR_MAIN:
 			{
@@ -1641,7 +1641,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("cpu id 0x%x,0x%x  \n", Id.d_die,Id.a_die);
 			ret = copy_to_user((SENSOR_SOCID_T *)arg, &Id, sizeof(SENSOR_SOCID_T));
 		}
-
+		break;
 	case SENSOR_IO_IF_CFG:
 		{
 			SENSOR_IF_CFG_T if_cfg;

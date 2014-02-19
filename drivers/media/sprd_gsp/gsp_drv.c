@@ -2701,9 +2701,10 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
 #endif
 
     return ret;
-
+/*
 exit2:
     free_irq(IRQ_GSP_INT, gsp_irq_handler);
+*/
 exit1:
     misc_deregister(&gsp_drv_dev);
 exit:
