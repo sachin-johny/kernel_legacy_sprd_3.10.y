@@ -769,20 +769,24 @@ STATIC_FUNC void sprd_dolphin_nand_ins_exec(struct sprd_dolphin_nand_info *dolph
 STATIC_FUNC int sprd_dolphin_nand_wait_finish(struct sprd_dolphin_nand_info *dolphin)
 {
 	unsigned int value;
-	unsigned int counter = 0;
-	while((counter < NFC_TIMEOUT_VAL/*time out*/))
-	{
+	unsigned int time = jiffies_to_usecs(jiffies);
+	unsigned int elapsed = 0;
+
+	do {
 		value = sprd_dolphin_reg_read(NFC_INT_REG);
 		if(value & INT_DONE_RAW)
 		{
 			break;
 		}
-		counter ++;
-	}
+		elapsed = jiffies_to_usecs(jiffies) - time;
+	} while(elapsed < NFC_TIMEOUT_VAL/*time out*/);
+
 	sprd_dolphin_reg_write(NFC_INT_REG, 0xf00); //clear all interrupt status
-	if(counter >= NFC_TIMEOUT_VAL)
+
+	if(elapsed >= NFC_TIMEOUT_VAL)
 	{
-        	printk("sprd_dolphin_nand_wait_finish timeout. \n");
+		printk(KERN_ERR "sprd_dolphin_nand_wait_finish timeout %d usecs. Dump NandC Registers:  \n",elapsed);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 32, 4, SPRD_NFC_BASE, 0x140, 1);
 		return -1;
 	}
 	return 0;
@@ -1348,7 +1352,6 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 	sprd_dolphin_reg_write(NFC_CFG0_REG, cfg0);
 	sprd_dolphin_reg_write(NFC_CFG1_REG, cfg1);
 	sprd_dolphin_reg_write(NFC_CFG2_REG, cfg2);
-
 	
 #ifdef NAND_IRQ_EN
 	sprd_dolphin_nand_ins_exec_irq(dolphin);
@@ -2114,8 +2117,22 @@ STATIC_FUNC int sprd_nand_remove(struct platform_device *pdev)
 }
 
 #ifdef CONFIG_PM
+uint32_t timing_reg_saved;
 STATIC_FUNC int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 {
+	uint32_t status = 0;
+	uint8_t count = 0x10;
+
+	do {
+		status = sprd_dolphin_reg_read(DOLPHIN_NFC_REG_BASE);
+		if (status & NFC_VALID) {
+			mdelay(1);
+			printk("sprd_nand_suspend delay\n");
+		}
+	} while((status & NFC_VALID) && --count);
+
+	timing_reg_saved = sprd_dolphin_reg_read(DOLPHIN_NFC_TIMING_REG);
+
 	//disable nand controller
 	sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(19) | BIT(18) | BIT(17)));
 	return 0;
@@ -2123,15 +2140,12 @@ STATIC_FUNC int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 
 STATIC_FUNC int sprd_nand_resume(struct platform_device *dev)
 {
-	uint32_t val;
-
 	sprd_dolphin_reg_and(DOLPHIN_NANC_CLK_CFG, ~(BIT(1) | BIT(0)));
 	sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0));
 
 	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(19) | BIT(18) | BIT(17));
 
-	val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
-	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, val);
+	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, timing_reg_saved);
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMEOUT_REG, 0xffffffff);
 
 	//close write protect
