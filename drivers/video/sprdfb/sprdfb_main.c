@@ -22,6 +22,10 @@
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
 #include <mach/board.h>
+#ifdef CONFIG_FB_MMAP_CACHED
+#include <asm/pgtable.h>
+#include <linux/mm.h>
+#endif
 
 enum{
 	SPRD_IN_DATA_TYPE_ABGR888 = 0,
@@ -66,6 +70,9 @@ static int sprdfb_check_var(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb);
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg);
+#ifdef CONFIG_FB_MMAP_CACHED
+static int sprdfb_mmap(struct fb_info *info, struct vm_area_struct *vma);
+#endif
 
 static struct fb_ops sprdfb_ops = {
 	.owner = THIS_MODULE,
@@ -75,7 +82,28 @@ static struct fb_ops sprdfb_ops = {
 	.fb_copyarea = cfb_copyarea,
 	.fb_imageblit = cfb_imageblit,
 	.fb_ioctl = sprdfb_ioctl,
+#ifdef CONFIG_FB_MMAP_CACHED
+	.fb_mmap = sprdfb_mmap,
+#endif
 };
+
+#ifdef CONFIG_FB_MMAP_CACHED
+static int sprdfb_mmap(struct fb_info *info,struct vm_area_struct *vma)
+{
+	struct sprdfb_device *dev = NULL;
+	if(NULL == info){
+			printk(KERN_ERR "sprdfb: sprdfb_ioctl error. (Invalid Parameter)");
+			return -1;
+	}
+
+	dev = info->par;
+	printk("sprdfb: sprdfb_mmap,vma=0x%x\n",vma);
+	vma->vm_page_prot = pgprot_cached(vma->vm_page_prot);
+	dev->ctrl->set_vma(vma);
+
+	return vm_iomap_memory(vma, info->fix.smem_start, info->fix.smem_len);
+}
+#endif
 
 static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 {

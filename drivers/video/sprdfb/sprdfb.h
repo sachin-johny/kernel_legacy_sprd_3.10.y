@@ -20,6 +20,9 @@
 #include <linux/workqueue.h>
 #include <linux/semaphore.h>
 #include <linux/wait.h>
+#ifdef CONFIG_FB_MMAP_CACHED
+#include <linux/mm_types.h>
+#endif
 
 //#define FB_CHECK_ESD_BY_TE_SUPPORT
 #define BIT_PER_PIXEL_SURPPORT
@@ -180,6 +183,10 @@ struct display_ctrl {
 
 #ifdef  CONFIG_FB_DYNAMIC_FPS_SUPPORT
 	int32_t 	(*change_fps) 	(struct sprdfb_device *dev, int fps_level);
+#endif
+
+#ifdef CONFIG_FB_MMAP_CACHED
+	void (*set_vma)(struct vm_area_struct *vma);
 #endif
 
 };
