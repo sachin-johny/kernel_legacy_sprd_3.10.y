@@ -1009,8 +1009,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	/*set bg color*/
 	dispc_set_bg_color(0xFFFFFFFF);
 	/*enable dithering*/
-	//dispc_dithering_enable(true);
-	dispc_dithering_enable(false);
+	dispc_dithering_enable(true);
 	/*use MSBs as img exp mode*/
 	dispc_set_exp_mode(0x0);
 	//enable DISPC Power Control
