@@ -93,7 +93,7 @@ static int idx = 0;
 #define D_EFUSE_MAX_BLK_ID  			(7)
 
 #define D_EFUSE_VERIFY_BLK_ID(_X_)		do {    \
-    BUG_ON((_X_) > D_EFUSE_MAX_BLK_ID || (_X_) < D_EFUSE_MIN_BLK_ID);   \
+    BUG_ON((_X_) > D_EFUSE_MAX_BLK_ID);   \
 }while(0)
 
 //adie laser fuse control
@@ -465,7 +465,7 @@ void sci_ddie_fuse_set_cyclecnt(u32 cnt, u32 efuse_clk_div_en)
 {
 	int val = 0;
 
-	if (cnt > 0)
+	if ((int)cnt > 0)
 		cnt--;
 
 	mutex_lock(&ddie_fuse_lock);
