@@ -22,6 +22,7 @@
 #endif
 #include <linux/irqreturn.h>
 #include <linux/interrupt.h>
+
 //#include <mach/hardware.h>
 //#include <mach/globalregs.h>
 //#include <mach/irqs.h>
@@ -105,6 +106,9 @@ struct sprdfb_dispc_context {
 	uint32_t	 	waitfor_vsync_waiter;
 	wait_queue_head_t		waitfor_vsync_queue;
 	uint32_t	        waitfor_vsync_done;
+#endif
+#ifdef CONFIG_FB_MMAP_CACHED
+	struct vm_area_struct *vma;
 #endif
 };
 
@@ -1089,7 +1093,13 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		printk("sprdfb: [%s]: do not refresh in suspend!!!\n", __FUNCTION__);
 		goto ERROR_REFRESH;
 	}
-
+#ifdef CONFIG_FB_MMAP_CACHED
+	if(NULL != dispc_ctx.vma){
+		pr_debug("sprdfb_dispc_refresh dmac_flush_range dispc_ctx.vma=0x%x\n ",dispc_ctx.vma);
+		dmac_flush_range(dispc_ctx.vma->vm_start, dispc_ctx.vma->vm_end);
+	}
+	dispc_dithering_enable(false);
+#endif
 	dispc_osd_enable(true);
 
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
@@ -1697,7 +1707,9 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 #endif
 
 	}
-
+#ifdef CONFIG_FB_MMAP_CACHED
+	dispc_dithering_enable(true);
+#endif
 	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 	dispc_ctx.dev = dev;
@@ -2110,6 +2122,14 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 }
 
 //end bug210112
+#ifdef CONFIG_FB_MMAP_CACHED
+void sprdfb_set_vma(struct vm_area_struct *vma)
+{
+	if(NULL != vma){
+		dispc_ctx.vma = vma;
+	}
+}
+#endif
 
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",
@@ -2134,6 +2154,10 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 #ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
     .change_fps = sprdfb_dispc_change_fps,
 #endif
+#ifdef CONFIG_FB_MMAP_CACHED
+	.set_vma = sprdfb_set_vma,
+#endif
+
 };
 
 
