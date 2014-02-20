@@ -124,6 +124,7 @@
 
 
 /* bits definitions for register REG_APB_IF_ARM_MODULE_EN */
+#define BIT_ANA_THM_EN                                    ( BIT(12) )
 #define BIT_ANA_TPC_EN                                    ( BIT(10) )
 #define BIT_ANA_PINREG_EN                                 ( BIT(9) )
 #define BIT_ANA_FGU_EN                                    ( BIT(8) )
@@ -148,6 +149,9 @@
 
 /* bits definitions for register REG_APB_IF_RTC_CLK_EN */
 #define BIT_RTC_FLASH_EN                              ( BIT(12) )
+#define BIT_RTC_THMA_AUTO_EN                          ( BIT(12) )
+#define BIT_RTC_THMA_EN                               ( BIT(11) )
+#define BIT_RTC_THM_EN                                ( BIT(10) )
 #define BIT_RTC_TPC_EN                                ( BIT(8) )
 #define BIT_RTC_FGU_EN                                ( BIT(7) )
 #define BIT_RTC_FGUA_EN                               ( BIT(6) )
