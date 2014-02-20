@@ -997,6 +997,10 @@ int __init __clock_init_early(void)
 		BIT_AUX1_EB			|
 		BIT_AUX0_EB			|
 		0);
+	sci_glb_set(REG_AON_APB_APB_EB1,
+		BIT_AUX1_EB			|
+		BIT_AUX0_EB			|
+		0);
 	printk("sc clock module early init ok\n");
 	return 0;
 }
