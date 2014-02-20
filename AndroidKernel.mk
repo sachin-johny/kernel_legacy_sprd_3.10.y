@@ -1,4 +1,3 @@
-
 KERNEL_OUT := $(TARGET_OUT_INTERMEDIATES)/KERNEL
 KERNEL_CONFIG := $(KERNEL_OUT)/.config
 KERNEL_MODULES_OUT := $(TARGET_OUT)/lib/modules
@@ -16,7 +15,17 @@ $(KERNEL_CONFIG): kernel/arch/arm/configs/$(KERNEL_DEFCONFIG)
 	mkdir -p $(KERNEL_OUT)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- $(KERNEL_DEFCONFIG)
 
-$(TARGET_PREBUILT_KERNEL) : $(KERNEL_OUT) $(KERNEL_CONFIG)
+ifeq ($(TARGET_BUILD_VARIANT),user)
+USER_CONFIG := $(TARGET_OUT)/dummy
+TARGET_DEVICE_USER_CONFIG := $(PLATDIR)/user_diff_config
+
+$(USER_CONFIG) : $(KERNEL_CONFIG)
+	$(info $(shell ./kernel/scripts/sprd_create_user_config.sh $(KERNEL_CONFIG) $(TARGET_DEVICE_USER_CONFIG)))
+else
+USER_CONFIG :=
+endif
+
+$(TARGET_PREBUILT_KERNEL) : $(KERNEL_OUT) $(USER_CONFIG)|$(KERNEL_CONFIG)
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- headers_install
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- zImage -j4
 	$(MAKE) -C kernel O=../$(KERNEL_OUT) ARCH=arm CROSS_COMPILE=arm-eabi- modules
