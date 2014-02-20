@@ -770,7 +770,6 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 
 	if (type != WPS_REQ_IE && type != WPS_ASSOC_IE) {
 		pr_err("wrong ie type is %d\n", type);
-		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
@@ -900,7 +899,6 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 	ret = sblock_receive(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH, &blk, 0);
 	if (ret) {
 		pr_err("Failed to receive sblock (%d)\n", ret);
-		itm_cfg80211_report_scan_done(priv, true);
 		return;
 	}
 
@@ -923,7 +921,6 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 		pr_err
 		    ("Recv msg_len(%d), blk.length(%d) and type(%d) is wrong\n",
 		     msg_len, blk.length, msg_type);
-		itm_cfg80211_report_scan_done(priv, true);
 		goto out;
 	}
 
