@@ -52,12 +52,15 @@
 
 #define TIMER_MARGIN	60		/* Default is 60 seconds */
 static unsigned int soft_margin = TIMER_MARGIN;	/* in seconds */
+#define PFX "soft_wdt"
+
 module_param(soft_margin, uint, 0);
 MODULE_PARM_DESC(soft_margin,
 	"Watchdog soft_margin in seconds. (0 < soft_margin < 65536, default="
 					__MODULE_STRING(TIMER_MARGIN) ")");
 
 static bool nowayout = WATCHDOG_NOWAYOUT;
+
 module_param(nowayout, bool, 0);
 MODULE_PARM_DESC(nowayout,
 		"Watchdog cannot be stopped once started (default="
@@ -95,6 +98,8 @@ static void watchdog_fire(unsigned long data)
 		panic("Software Watchdog Timer expired");
 	} else {
 		pr_crit("Initiating system reboot\n");
+		/* FIXME: we expect to see more info by doing panic */
+		panic(PFX "Timeout!!!\n");
 		emergency_restart();
 		pr_crit("Reboot didn't ?????\n");
 	}
