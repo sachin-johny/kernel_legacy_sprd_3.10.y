@@ -103,7 +103,7 @@ void __init sci_reserve(void)
 	if (ret != 0)
 		pr_err("Fail to reserve mem for iomem. errno=%d\n", ret);
 
-#ifdef CONFIG_ANDROID_RAM_CONSOLE
+#ifdef CONFIG_PSTORE_RAM
 	ret = __ramconsole_reserve_memblock();
 	if (ret != 0)
 		pr_err("Fail to reserve mem for ram_console. errno=%d\n", ret);
