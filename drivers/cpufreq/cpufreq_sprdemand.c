@@ -158,8 +158,6 @@ static unsigned int generic_powersave_bias_target(struct cpufreq_policy *policy,
 		sd_tuners = dbs_data->tuners;
 	}
 
-	g_sd_tuners = sd_tuners;
-
 	if (!dbs_info->freq_table) {
 		dbs_info->freq_lo = 0;
 		dbs_info->freq_lo_jiffies = 0;
@@ -223,8 +221,6 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 	{
 		sd_tuners = dbs_data->tuners;
 	}
-
-	g_sd_tuners = sd_tuners;
 
 	if (sd_tuners->powersave_bias)
 		freq = sd_ops.powersave_bias_target(p, freq,
@@ -1047,6 +1043,7 @@ static int sd_init(struct dbs_data *dbs_data)
 	struct unplug_work_info *puwi;
 
 	tuners = kzalloc(sizeof(struct sd_dbs_tuners), GFP_KERNEL);
+
 	if (!tuners) {
 		pr_err("%s: kzalloc failed\n", __func__);
 		return -ENOMEM;
@@ -1099,6 +1096,8 @@ static int sd_init(struct dbs_data *dbs_data)
 	tuners->cpu_num_limit = nr_cpu_ids;
 	if (tuners->cpu_num_limit > 1)
 		tuners->cpu_hotplug_disable = false;
+
+	memcpy(g_sd_tuners,tuners,sizeof(struct sd_dbs_tuners));
 
 	dbs_data->tuners = tuners;
 	mutex_init(&dbs_data->mutex);
@@ -1232,7 +1231,6 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 #endif
 	}
 
-	g_sd_tuners = sd_tuners;
 	return ret;
 }
 
@@ -1273,7 +1271,6 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 		pr_info(" %s, recv pm suspend notify done\n", __func__ );
 	}
 
-	g_sd_tuners = sd_tuners;
   
 	return NOTIFY_OK;
 }
@@ -1295,25 +1292,24 @@ static void sprdemand_gov_late_resume(struct early_suspend *h)
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct sd_dbs_tuners *sd_tuners = NULL;
 
-        if(NULL == dbs_data)
-        {
-	    pr_info("sprdemand_gov_late_resume governor %s return\n", policy->governor->name);
-	    if (g_sd_tuners == NULL)
-	    	return;
-	    if (g_sd_tuners->cpu_num_limit > 1)
-		    if(cpu_hotplug_disable_set == false)
-			    g_sd_tuners->cpu_hotplug_disable = false;
-	    g_sd_tuners->is_suspend = false;
-  		return;
-        }
-        sd_tuners = dbs_data->tuners;
+	if(NULL == dbs_data)
+	{
+		pr_info("sprdemand_gov_late_resume governor %s return\n", policy->governor->name);
+		if (g_sd_tuners == NULL)
+			return ;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
 
 	if (sd_tuners->cpu_num_limit > 1)
 		if(cpu_hotplug_disable_set == false)
 			sd_tuners->cpu_hotplug_disable = false;
 	sd_tuners->is_suspend = false;
 
-        g_sd_tuners = sd_tuners;
 	return;
 }
 
@@ -1337,6 +1333,8 @@ static int __init cpufreq_gov_dbs_init(void)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&sprdemand_gov_earlysuspend_handler);
 #endif
+
+	g_sd_tuners = kzalloc(sizeof(struct sd_dbs_tuners), GFP_KERNEL);
 
 	return cpufreq_register_governor(&cpufreq_gov_sprdemand);
 }
