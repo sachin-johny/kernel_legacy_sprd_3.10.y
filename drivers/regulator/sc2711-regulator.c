@@ -355,6 +355,10 @@ static int __init_trimming(struct regulator_dev *rdev)
 		goto exit;
 
 	to_vol = regulator_default_get(desc->desc.name);
+	if (!to_vol) {
+		to_vol = regs->vol_def;
+	}
+
 	if (to_vol) {
 		ctl_vol = rdev->desc->ops->get_voltage(rdev);
 		rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;//uV
@@ -376,6 +380,14 @@ static int __match_dcdc_vol(const struct sci_regulator_regs *regs, u32 vol)
 		}
 	}
 	return j;
+}
+
+static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+
+	/* FIXME: vddmem step 200/32mV */
+	return (0 == strcmp(desc->desc.name, "dcdcmem") ) ? (1000 * 200 / 32) : (1000 * 100 / 32) /*uV */;
 }
 
 static int __dcdc_enable_time(struct regulator_dev *rdev, int old_vol)
@@ -422,7 +434,11 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	 */
 	{
 		int shft = __ffs(regs->vol_ctl_bits);
-		int j = (mv - regs->vol_sel[i]) * 1000 / 3125;
+		int j = (int)(mv - regs->vol_sel[i]) * 1000 / dcdc_get_trimming_step(rdev, 0);
+
+		if (0 == strcmp(desc->desc.name, "dcdcmem") )
+			j += 0x10;
+
 		BUG_ON(j > (regs->vol_trm_bits >> __ffs(regs->vol_trm_bits)));
 
 		if (regs->vol_trm == regs->vol_ctl) {	/* new feature */
@@ -482,13 +498,16 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 			}
 		}
 
-		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits)
-		    * 3125;	/*uV */
+		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits);
+		if (0 == strcmp(desc->desc.name, "dcdcmem") )
+			cal -= 0x10;
+
+		cal *= dcdc_get_trimming_step(rdev, 0);	/*uV */
 	}
 
-	debug2("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv,
-	       cal / 1000);
-	return mv * 1000 + cal;
+	debug2("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal / 1000);
+
+	return (mv * 1000 + cal) /*uV */;
 }
 
 /* standard boost ops*/
@@ -1085,6 +1104,7 @@ static int __init regu_driver_init(void)
 		debugfs_root = NULL;
 	}
 
+	/* compatible with 8810 adc test */
 	debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
 			   debugfs_root, (u32 *) & ana_addr);
 	debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
@@ -1094,13 +1114,15 @@ static int __init regu_driver_init(void)
 	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
 			   debugfs_root, (u64 *) & adc_data);
 
-	{//compatible with 8810 adc test
+	{ /* vddarm/vddcore/vddmem common debugfs interface */
 		char str[NAME_MAX];
 		struct dentry *vol_root = debugfs_create_dir("vol", NULL);
 		sprintf(str, "../%s/vddarm/voltage", sci_regulator_driver.driver.name);
 		debugfs_create_symlink("dcdcarm", vol_root, str);
 		sprintf(str, "../%s/vddcore/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdc", vol_root, str);
+		debugfs_create_symlink("dcdccore", vol_root, str);
+		sprintf(str, "../%s/dcdcmem/voltage", sci_regulator_driver.driver.name);
+		debugfs_create_symlink("dcdcmem", vol_root, str);
 	}
 #endif
 

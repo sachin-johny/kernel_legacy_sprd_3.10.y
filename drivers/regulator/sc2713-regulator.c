@@ -1753,6 +1753,17 @@ static int __init regu_driver_init(void)
 			    debugfs_root, &adc_chan, &fops_adc_chan);
 	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
 			   debugfs_root, (u64 *) & adc_data);
+
+	{/* vddarm/vddcore/vddmem common debugfs interface */
+		char str[NAME_MAX];
+		struct dentry *vol_root = debugfs_create_dir("vol", NULL);
+		sprintf(str, "../%s/vddarm/voltage", sci_regulator_driver.driver.name);
+		debugfs_create_symlink("dcdcarm", vol_root, str);
+		sprintf(str, "../%s/vddcore/voltage", sci_regulator_driver.driver.name);
+		debugfs_create_symlink("dcdccore", vol_root, str);
+		sprintf(str, "../%s/vddmem/voltage", sci_regulator_driver.driver.name);
+		debugfs_create_symlink("dcdcmem", vol_root, str);
+	}
 #endif
 
 #if defined(CONFIG_ARCH_SCX15)
