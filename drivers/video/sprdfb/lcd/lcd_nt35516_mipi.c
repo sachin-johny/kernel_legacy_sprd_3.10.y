@@ -244,6 +244,7 @@ static uint32_t nt35516_readid(struct panel_spec *self)
 	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
 	printk("lcd_nt35516_mipi read id!\n");
+	return 0x16;
 	mipi_set_cmd_mode();
 	mipi_eotp_set(0,1);
 
