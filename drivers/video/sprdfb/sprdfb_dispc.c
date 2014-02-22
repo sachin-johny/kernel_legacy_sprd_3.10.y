@@ -599,16 +599,18 @@ static void dispc_update_clock(struct sprdfb_device *dev)
 	int ret = 0;
 
 	struct panel_spec* panel = dev->panel;
-	struct info_mipi * mipi = panel->info.mipi;
-	struct info_rgb* rgb = panel->info.rgb;
+	struct info_mipi * mipi;
+	struct info_rgb* rgb;
 
 	pr_debug("sprdfb:[%s]\n", __FUNCTION__);
 
-	if(0 == panel->fps){
+	if((NULL == panel) ||(0 == panel->fps)){
 		printk("sprdfb: No panel->fps specified!\n");
 		return;
 	}
 
+	mipi = panel->info.mipi;
+	rgb = panel->info.rgb;
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(LCD_MODE_DSI == dev->panel->type ){
