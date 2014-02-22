@@ -710,6 +710,31 @@ static struct headset_buttons sprd_headset_buttons[] = {
 
 #endif
 };
+
+#ifdef CONFIG_MACH_SP8830SSW
+static int ssw_headmicbias_power_on(int on)
+{
+	static int flag_gpio_request = 0;
+	int ret = 0;
+
+	on = ((0 != on) ? 1 : 0);
+
+	if(0 == flag_gpio_request) {
+		ret = gpio_request(HEADSET_EXT_MICBIAS_GPIO, "headset_ext_micbias");
+		if (ret < 0) {
+			printk(KERN_ERR "[SPRD_HEADSET_ERR] failed to request GPIO_%d(headset_ext_micbias)\n", HEADSET_EXT_MICBIAS_GPIO);
+			return -1;
+		} else {
+			flag_gpio_request = 1;
+			printk(KERN_INFO "[SPRD_HEADSET_INFO] request GPIO_%d(headset_ext_micbias) success\n", HEADSET_EXT_MICBIAS_GPIO);
+		}
+	}
+	gpio_direction_output(HEADSET_EXT_MICBIAS_GPIO, on);
+	printk(KERN_INFO "[SPRD_HEADSET_INFO] HEADSET_EXT_MICBIAS_GPIO(gpio_%d) = %d\n", HEADSET_EXT_MICBIAS_GPIO, gpio_get_value(HEADSET_EXT_MICBIAS_GPIO));
+	return 0;
+}
+#endif
+
 static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.gpio_switch = HEADSET_SWITCH_GPIO,
 	.gpio_detect = HEADSET_DETECT_GPIO,
@@ -722,6 +747,11 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.irq_trigger_level_button = 1,
 	.headset_buttons = sprd_headset_buttons,
 	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
+#ifdef CONFIG_MACH_SP8830SSW
+	.external_headmicbias_power_on = ssw_headmicbias_power_on,
+#else
+	.external_headmicbias_power_on = NULL,
+#endif
 };
 struct platform_device sprd_headset_device = {
 	.name = "headset-detect",

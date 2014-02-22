@@ -38,6 +38,7 @@ struct sprd_headset_platform_data {
         int irq_trigger_level_button;
         struct headset_buttons *headset_buttons;
         int nbuttons;
+        int (*external_headmicbias_power_on)(int);
 };
 
 struct sprd_headset {
