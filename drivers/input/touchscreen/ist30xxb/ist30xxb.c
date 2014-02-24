@@ -461,10 +461,10 @@ static int check_report_data(struct ist30xx_data *data, int finger_counts, int k
 			ist30xx_tracking(TRACK_POS_UNKNOWN);
 			return -EPERM;
 		} else{
-			tsp_warn("***touch data - %d: %d(%d, %d)\n", i,
+			/*tsp_debug("***touch data - %d: %d(%d, %d)\n", i,
 				fingers[i].bit_field.id,
 				fingers[i].bit_field.x,
-				fingers[i].bit_field.y);
+				fingers[i].bit_field.y);*/
 		}
 
 	}
