@@ -563,6 +563,7 @@ struct panel_spec lcd_nt51017_mipi_lvds_spec = {
 	.fps = 60,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
+	.is_clean_lcd = true,//bug 273509
 	.info = {
 		.mipi = &lcd_nt51017_mipi_lvds_info
 	},
