@@ -1064,7 +1064,6 @@ static void __init sc8830_init_machine(void)
 	sc8810_add_misc_devices();
 	sprd_spi_init();
 	
-	adjust_vddrf0_voltage();
 }
 
 static void __init sc8830_init_late(void)
