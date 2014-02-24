@@ -144,7 +144,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 		while (v_addr < data.vaddr + data.size) {
 			uint32_t phy_addr = user_va2pa(current->mm, (uint32_t)v_addr);
 			if (phy_addr) {
-				outer_clean_range(phy_addr, phy_addr + PAGE_SIZE);
+				outer_flush_range(phy_addr, phy_addr + PAGE_SIZE);
 			}
 			v_addr += PAGE_SIZE;
 		}
