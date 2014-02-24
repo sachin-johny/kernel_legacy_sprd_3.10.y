@@ -15,12 +15,15 @@
 #endif
 
 #define CPU_SAVED_STATE_SIZE (4 * 11 + 4 * 11)
+#define REG_AON_APB_EB0_VIR	0xf5250000
+#define REG_AON_APB_EB0_PHY	0x402e0000
 #define REG_UART1_ENABLE_VIR	0xf53b0000
 #define REG_UART1_ENABLE_PHY	0x71300000
 #define REG_UART1_ENABLE_BIT	(0x1 << 14)
 #define REG_GLB_GEN0_PHY_ADDR	 (SPRD_APBREG_PHYS + 0x8)
 #define REG_GLB_GEN0_VIR_ADDR	 (SPRD_APBREG_BASE + 0x8)
 #define UART1_EN		 (0X1 << 14)
+#define JTAG_DAP_EN		 (0X1 << 30)
 #define UART1_CKD_PHY	(SPRD_UART1_PHYS + 0x24)
 #define UART1_CTR0_PHY	(SPRD_UART1_PHYS + 0x18)
 #define UART1_CKD_VIR	(SPRD_UART1_BASE + 0x24)
@@ -62,6 +65,11 @@
 ENTRY(sc8830_standby_iram)
 sprd_pm_mapped_va:
 	stmfd sp!, {lr}
+	/* disable uart1 for idle deep sleep */
+	ldr r0, =REG_UART1_ENABLE_VIR
+	ldr r1, [r0]
+	bic r1, #REG_UART1_ENABLE_BIT
+	str r1, [r0]
 	ldr r0, =sprd_pm_va_to_iram
 	ldr r1, =sc8830_standby_iram
 	ldr r2, =iram_start
@@ -90,6 +98,17 @@ sprd_pm_va_to_iram:
 5:  	sub	r0, r0, #0x1
 	cmp	r0, #0x0
 	bne  	5b
+#if 0
+6:  b 6b
+#endif
+	ldr r0, =REG_AON_APB_EB0_VIR
+	ldr r1, [r0]
+	orr r1, #JTAG_DAP_EN
+	str r1, [r0]
+	ldr r0, =REG_UART1_ENABLE_VIR
+	ldr r1, [r0]
+	orr r1, #REG_UART1_ENABLE_BIT
+	str r1, [r0]
 	ldmfd sp!, {lr}
 #if 0
 	ldr r0, =REG_UART1_ENABLE_VIR
@@ -120,7 +139,14 @@ loopq:
 ENDPROC(sc8830_standby_iram)
 
 ENTRY(sc8830_standby_exit_iram)
-
+	ldr r0, =REG_AON_APB_EB0_PHY
+	ldr r1, [r0]
+	orr r1, #JTAG_DAP_EN
+	str r1, [r0]
+	ldr r0, =REG_UART1_ENABLE_PHY
+	ldr r1, [r0]
+	orr r1, #REG_UART1_ENABLE_BIT
+	str r1, [r0]
 	mrs r0, cpsr
 	and r0, r0, #0xff
 	mov r6, r0
@@ -285,8 +311,8 @@ ENTRY(sp_arch_idle)
 ENDPROC(sp_arch_idle)
 
 ENTRY(sp_pm_collapse)
-
-	ldr     r0, =sp_saved_state	/* address of sp_saved_state ptr */
+	mov r3, r1
+	ldr	r0, =sp_saved_state	/* address of sp_saved_state ptr */
 #if (CONFIG_NR_CPUS >= 2)
 	mrc	p15, 0, r1, c0, c0, 5	/* MPIDR */
 	ands	r1, r1, #15		/* What CPU am I */
@@ -296,6 +322,19 @@ ENTRY(sp_pm_collapse)
 #endif
 
 	stmia   r0!, {r4-r14}
+#if 0
+	mov r5, r0
+	cmp	r3, #1
+	bne	real_deep
+	adr	r0, str_a6
+	bl	printascii_phy
+	b	go_on
+real_deep:
+	adr	r0, str_a7
+	bl	printascii_phy
+go_on:
+	mov	r0, r5
+#endif
 #if 0
 2:	b 2b
 #endif
@@ -352,7 +391,8 @@ ENTRY(sp_pm_collapse)
 	mov     r0, #0                   /* return power collapse failed */
 	bx      lr
 ENDPROC(sp_pm_collapse)
-
+str_a6:	.asciz	"idle deep\n"
+str_a7:	.asciz	"real deep\n"
 ENTRY(sp_pm_collapse_exit)
 	mov r0, #'Z'
 	bl printch
