@@ -27,23 +27,20 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
-
 #include "../../sprd_dcam/sc8830/dcam_drv.h"
 #include "rot_drv.h"
 #include "img_rot.h"
-
 
 #define ROT_DEVICE_NAME "sprd_rotation"
 #define ROT_TIMEOUT 5000/*ms*/
 #define ROTATION_MINOR MISC_DYNAMIC_MINOR
 
-
-struct rot_k_private{
-	struct mutex 	sync_lock;
+struct rot_k_private {
+	struct mutex sync_lock;
 	atomic_t users;
 };
 
-struct rot_k_file{
+struct rot_k_file {
 	struct rot_k_private *rot_private;
 
 	struct semaphore rot_done_sem;
@@ -69,9 +66,14 @@ static void rot_k_irq(void *fd)
 static int rot_k_wait_stop(struct rot_k_file *fd)
 {
 	int ret = 0;
+	struct rot_k_file *rot_file = (struct rot_k_file*)fd;
 
 	ROTATE_TRACE("rot_k_wait_stop start.\n");
 	ret = down_timeout(&fd->rot_done_sem, msecs_to_jiffies(ROT_TIMEOUT));
+	if (ret) {
+		dcam_rotation_end();
+		up(&rot_file->rot_done_sem);
+	}
 	ROTATE_TRACE("rot_k_wait_stop end.\n");
 	udelay(1);
 	return ret;
@@ -81,7 +83,6 @@ static int rot_k_start(struct rot_k_file *fd)
 {
 	int ret = 0;
 	ROT_PARAM_CFG_T *s;
-
 
 	if (!fd) {
 		ret = -EFAULT;
@@ -134,7 +135,6 @@ static int rot_k_open(struct inode *node, struct file *file)
 	struct rot_k_private *rot_private = platform_get_drvdata(rot_get_platform_device());
 	struct rot_k_file *fd = NULL;
 
-
 	if (!rot_private) {
 		ret = -EFAULT;
 		printk("rot_k_open fail rot_private NULL \n");
@@ -152,7 +152,7 @@ static int rot_k_open(struct inode *node, struct file *file)
 
 	sema_init(&fd->rot_done_sem, 0);
 
-	file->private_data  = fd;
+	file->private_data = fd;
 
 	if (1 == atomic_inc_return(&rot_private->users)) {
 		ret = rot_k_module_en();
@@ -181,8 +181,7 @@ open_out:
 	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
 exit:
 
-	ROTATE_TRACE("rot_k_open fd=0x%x\n", (int)fd);
-	ROTATE_TRACE("rot_k_open ret=%d\n", ret);
+	ROTATE_TRACE("rot_k_open fd=0x%x ret=%d\n", (int)fd, ret);
 
 	return ret;
 }
@@ -191,7 +190,6 @@ static int rot_k_release(struct inode *node, struct file *file)
 {
 	struct rot_k_private *rot_private;
 	struct rot_k_file *fd;
-
 
 	fd = file->private_data;
 	if (!fd) {
@@ -225,7 +223,6 @@ static long rot_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 	int ret = 0;
 	struct rot_k_private *rot_private;
 	struct rot_k_file *fd;
-
 
 	fd = file->private_data;
 	if (!fd) {
@@ -302,7 +299,6 @@ int rot_k_probe(struct platform_device *pdev)
 	int ret;
 	struct rot_k_private *rot_private;
 
-
 	printk(KERN_ALERT "rot_k_probe called\n");
 
 	rot_private = devm_kzalloc(&pdev->dev, sizeof(*rot_private), GFP_KERNEL);
@@ -311,6 +307,7 @@ int rot_k_probe(struct platform_device *pdev)
 	}
 
 	mutex_init(&rot_private->sync_lock);
+	atomic_set(&rot_private->users, 0);
 
 	platform_set_drvdata(pdev, rot_private);
 
@@ -380,7 +377,5 @@ void rot_k_exit(void)
 
 module_init(rot_k_init);
 module_exit(rot_k_exit);
-
 MODULE_DESCRIPTION("rotation Driver");
 MODULE_LICENSE("GPL");
-
