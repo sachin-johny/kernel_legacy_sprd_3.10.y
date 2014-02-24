@@ -68,24 +68,25 @@
 #define DCAM_AXI_STOP_TIMEOUT                          100
 #define DCAM_CLK_DOMAIN_AHB                            1
 #define DCAM_CLK_DOMAIN_DCAM                           0
-#if CONFIG_SC_FPGA
+#ifdef CONFIG_SC_FPGA
 #define DCAM_PATH_TIMEOUT                              msecs_to_jiffies(5000)
 #else
 #define DCAM_PATH_TIMEOUT                              msecs_to_jiffies(500*2)
 #endif
 #define DCAM_FRM_QUEUE_LENGTH                          4
 
-#define REG_RD(a) __raw_readl(a)
-#define REG_WR(a,v) __raw_writel(v,a)
-#define REG_AWR(a,v) __raw_writel((__raw_readl(a) & (v)), (a))
-#define REG_OWR(a,v) __raw_writel((__raw_readl(a) | (v)), (a))
-#define REG_XWR(a,v) __raw_writel((__raw_readl(a) ^ (v)), (a))
+#define IO_PTR volatile void __iomem *
+#define REG_RD(a) __raw_readl((IO_PTR)(a))
+#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
+#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
+#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
+#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
 #define REG_MWR(a,m,v) \
 	do { \
-		uint32_t _tmp = __raw_readl(a); \
+		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
 		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), (a)); \
-	} while(0)
+		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
+	}while(0)
 
 #define DCAM_CHECK_PARAM_ZERO_POINTER(n)               \
 	do {                                           \
@@ -609,7 +610,8 @@ int32_t dcam_module_en(void)
 		int  base = SPRD_ION_MM_BASE ;
 		int   size = SPRD_ION_MM_SIZE;
 		int   overlay_size = SPRD_ION_OVERLAY_SIZE;
-		printk("DCAM: SPRD_ION_MM_SIZE=0x%x ,SPRD_ION_OVERLAY_SIZE=0x%x\n",size,overlay_size );
+		printk("DCAM: SPRD_ION base=0x%x, size=0x%x, overlay_size=0x%x\n",
+			base, size, overlay_size);
 		ret = _dcam_is_clk_mm_i_eb(1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
@@ -737,7 +739,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 
 int32_t _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 {
-#if  !CONFIG_SC_FPGA
+#ifndef CONFIG_SC_FPGA
 	int                     ret = 0;
 	if (NULL == s_dcam_clk_mm_i) {
 		s_dcam_clk_mm_i = clk_get(NULL, "clk_mm_i");
@@ -804,7 +806,7 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 		parent = "clk_128m";
 		break;
 	}
-#if !CONFIG_SC_FPGA
+#ifndef CONFIG_SC_FPGA
 	if (NULL == s_dcam_clk) {
 		s_dcam_clk = clk_get(NULL, "clk_dcam");
 		if (IS_ERR(s_dcam_clk)) {
@@ -1336,7 +1338,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-#if  CONFIG_SC_FPGA
+#ifdef  CONFIG_SC_FPGA
 		skip_num  = DCAM_CAP_SKIP_FRM_MAX-1;
 #endif
 
@@ -1357,7 +1359,7 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-#if  CONFIG_SC_FPGA
+#ifdef  CONFIG_SC_FPGA
 		deci_factor  = DCAM_FRM_DECI_FAC_MAX-1;
 #endif
 		if (deci_factor < DCAM_FRM_DECI_FAC_MAX) {
@@ -1670,7 +1672,7 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-#if  CONFIG_SC_FPGA
+#ifdef  CONFIG_SC_FPGA
 		deci_factor  = DCAM_FRM_DECI_FAC_MAX-1;
 #endif
 
@@ -1908,7 +1910,7 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-#if  CONFIG_SC_FPGA
+#ifdef CONFIG_SC_FPGA
 		deci_factor  = DCAM_FRM_DECI_FAC_MAX-1;
 #endif
 
@@ -2129,7 +2131,7 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-#if  CONFIG_SC_FPGA
+#ifdef  CONFIG_SC_FPGA
 		deci_factor  = DCAM_FRM_DECI_FAC_MAX-1;
 #endif
 
@@ -3561,7 +3563,6 @@ LOCAL void    _dcam_path1_sof(void)
 	dcam_isr_func           user_func = s_user_func[DCAM_PATH1_SOF];
 	void                    *data = s_user_data[DCAM_PATH1_SOF];
 	struct dcam_path_desc   *path;
-	uint32_t                coef_copy = 0;
 
 	DCAM_TRACE("DCAM: 1 sof done \n");
 
@@ -3612,8 +3613,6 @@ LOCAL void    _dcam_path2_sof(void)
 	dcam_isr_func           user_func = s_user_func[DCAM_PATH2_SOF];
 	void                    *data = s_user_data[DCAM_PATH2_SOF];
 	struct dcam_path_desc   *path;
-	uint32_t                coef_copy = 0;
-
 
 	DCAM_TRACE("DCAM: 2 sof done \n");
 

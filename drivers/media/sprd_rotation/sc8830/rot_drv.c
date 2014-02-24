@@ -17,25 +17,22 @@
 #include <video/sprd_rot_k.h>
 #include <mach/hardware.h>
 #include <mach/sci.h>
-
 #include "img_rot.h"
 #include "rot_drv.h"
 
-
 #define ALGIN_FOUR 0x03
-#define IO_PTR    volatile void __iomem *
-#define REG_RD(a) __raw_readl((IO_PTR)a)
-#define REG_WR(a,v) __raw_writel(v,(IO_PTR)a)
-#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)a) & (v)), ((IO_PTR)a))
-#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)a) | (v)), ((IO_PTR)a))
-#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)a) ^ (v)), ((IO_PTR)a))
+#define IO_PTR volatile void __iomem *
+#define REG_RD(a) __raw_readl((IO_PTR)(a))
+#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
+#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
+#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
+#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
 #define REG_MWR(a,m,v) \
 	do { \
-		uint32_t _tmp = __raw_readl((IO_PTR)a); \
+		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
 		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)a)); \
+		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
 	}while(0)
-
 
 static DEFINE_SPINLOCK(rot_drv_lock);
 
@@ -146,7 +143,6 @@ int rot_k_isr(struct dcam_frame* dcam_frm, void* u_data)
 
 	(void)dcam_frm;
 
-
 	if (!private) {
 		goto isr_exit;
 	}
@@ -166,7 +162,6 @@ int rot_k_isr_reg(rot_isr_func user_func,struct rot_drv_private *drv_private)
 {
 	int rtn = 0;
 	unsigned long flag;
-
 
 	if (user_func) {
 		if (!drv_private) {
@@ -196,7 +191,6 @@ static uint32_t rot_k_get_end_mode(ROT_PARAM_CFG_T *s)
 {
 	uint32_t ret = 1;
 
-
 	switch (s->format) {
 	case ROT_YUV422:
 	case ROT_YUV420:
@@ -215,7 +209,6 @@ static uint32_t rot_k_get_end_mode(ROT_PARAM_CFG_T *s)
 static ROT_PIXEL_FORMAT_E rot_k_get_pixel_format(ROT_PARAM_CFG_T *s)
 {
 	ROT_PIXEL_FORMAT_E ret = ROT_ONE_BYTE;
-
 
 	switch (s->format) {
 	case ROT_YUV422:
@@ -236,7 +229,6 @@ static ROT_PIXEL_FORMAT_E rot_k_get_pixel_format(ROT_PARAM_CFG_T *s)
 static int rot_k_set_y_param(ROT_CFG_T * param_ptr,ROT_PARAM_CFG_T *s)
 {
 	int ret = 0;
-
 
 	if (!param_ptr || !s) {
 		ret = -EFAULT;
@@ -266,7 +258,6 @@ param_exit:
 
 int rot_k_set_UV_param(ROT_PARAM_CFG_T *s)
 {
-
 	s->s_addr = s->src_addr.u_addr;
 	s->d_addr = s->dst_addr.u_addr;
 	s->img_size.w >>= 0x01;
@@ -281,7 +272,6 @@ int rot_k_set_UV_param(ROT_PARAM_CFG_T *s)
 
 void rot_k_register_cfg(ROT_PARAM_CFG_T *s)
 {
-
 	rot_k_ahb_reset();
 	dcam_rotation_start();
 	rot_k_set_src_addr(s->s_addr);
@@ -309,16 +299,17 @@ static int rot_k_check_param(ROT_CFG_T * param_ptr)
 	}
 
 	if ((param_ptr->src_addr.y_addr & ALGIN_FOUR)
-	|| (param_ptr->src_addr.u_addr & ALGIN_FOUR)
-	|| (param_ptr->src_addr.v_addr & ALGIN_FOUR)
-	|| (param_ptr->dst_addr.y_addr & ALGIN_FOUR)
-	|| (param_ptr->dst_addr.u_addr & ALGIN_FOUR)
-	|| (param_ptr->dst_addr.v_addr & ALGIN_FOUR)) {
+		|| (param_ptr->src_addr.u_addr & ALGIN_FOUR)
+		|| (param_ptr->src_addr.v_addr & ALGIN_FOUR)
+		|| (param_ptr->dst_addr.y_addr & ALGIN_FOUR)
+		|| (param_ptr->dst_addr.u_addr & ALGIN_FOUR)
+		|| (param_ptr->dst_addr.v_addr & ALGIN_FOUR)) {
 		printk("Rotation: the addr not algin.\n");
 		return -1;
 	}
 
-	if (!(ROT_YUV422 == param_ptr->format || ROT_YUV420 == param_ptr->format
+	if (!(ROT_YUV422 == param_ptr->format
+		|| ROT_YUV420 == param_ptr->format
 		||ROT_RGB565 == param_ptr->format)) {
 		printk("Rotation: data for err : %d.\n", param_ptr->format);
 		return -1;
@@ -352,7 +343,7 @@ int rot_k_io_cfg(ROT_CFG_T * param_ptr,ROT_PARAM_CFG_T *s)
 
 	ret = rot_k_check_param(param_ptr);
 
-	if(0 == ret)
+	if (0 == ret)
 		ret = rot_k_set_y_param(param_ptr,s);
 
 	return ret;

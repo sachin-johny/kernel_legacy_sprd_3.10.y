@@ -28,15 +28,15 @@
 #include "gen_scale_coef.h"
 
 
-#define LOCAL    static
+#define LOCAL static
 /*#define LOCAL*/
 
 //#define DCAM_DRV_DEBUG
 #define DCAM_LOWEST_ADDR                               0x800
 #define DCAM_ADDR_INVALID(addr)                       ((uint32_t)(addr) < DCAM_LOWEST_ADDR)
-#define DCAM_YUV_ADDR_INVALID(y,u,v)                  \
-	(DCAM_ADDR_INVALID(y) &&                      \
-	DCAM_ADDR_INVALID(u) &&                       \
+#define DCAM_YUV_ADDR_INVALID(y,u,v) \
+	(DCAM_ADDR_INVALID(y) && \
+	DCAM_ADDR_INVALID(u) && \
 	DCAM_ADDR_INVALID(v))
 
 #define DCAM_SC1_H_TAB_OFFSET                          0x400
@@ -64,41 +64,41 @@
 #define DCAM_CLK_DOMAIN_DCAM                           0
 #define DCAM_PATH_TIMEOUT                              msecs_to_jiffies(500)
 #define DCAM_FRM_QUEUE_LENGTH                          4
-#define IO_PTR                                         volatile void __iomem *
-#define REG_RD(a) __raw_readl((IO_PTR)a)
-#define REG_WR(a,v) __raw_writel(v,(IO_PTR)a)
-#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)a) & (v)), ((IO_PTR)a))
-#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)a) | (v)), ((IO_PTR)a))
-#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)a) ^ (v)), ((IO_PTR)a))
+#define IO_PTR volatile void __iomem *
+#define REG_RD(a) __raw_readl((IO_PTR)(a))
+#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
+#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
+#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
+#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
 #define REG_MWR(a,m,v) \
 	do { \
-		uint32_t _tmp = __raw_readl((IO_PTR)a); \
+		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
 		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)a)); \
+		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
+	}while(0)
+
+#define DCAM_CHECK_PARAM_ZERO_POINTER(n) \
+	do { \
+		if (0 == (int)(n)) \
+			return -DCAM_RTN_PARA_ERR; \
 	} while(0)
 
-#define DCAM_CHECK_PARAM_ZERO_POINTER(n)               \
-	do {                                           \
-		if (0 == (int)(n))              \
-			return -DCAM_RTN_PARA_ERR;     \
-	} while(0)
-
-#define DCAM_CLEAR(a)                                  \
-	do {                                           \
-		memset((void *)(a), 0, sizeof(*(a)));  \
+#define DCAM_CLEAR(a) \
+	do { \
+		memset((void *)(a), 0, sizeof(*(a))); \
 	} while(0)
 
 #define DEBUG_STR                                      "Error L %d, %s \n"
 #define DEBUG_ARGS                                     __LINE__,__FUNCTION__
-#define DCAM_RTN_IF_ERR          \
-	do {                        \
-		if(rtn) {                \
-			printk(DEBUG_STR, DEBUG_ARGS);            \
-			return -(rtn);       \
-		}                        \
+#define DCAM_RTN_IF_ERR \
+	do { \
+		if(rtn) { \
+			printk(DEBUG_STR, DEBUG_ARGS); \
+			return -(rtn); \
+		} \
 	} while(0)
 
-#define DCAM_IRQ_LINE_MASK                             0x0007FFFFUL  /* No ROT_DONE*/
+#define DCAM_IRQ_LINE_MASK                             0x0007FFFFUL/* No ROT_DONE*/
 #define DCAM_CLOCK_PARENT                              "clk_256m"
 
 typedef void (*dcam_isr)(void);
@@ -106,38 +106,37 @@ typedef void (*dcam_isr)(void);
 enum {
 	DCAM_FRM_UNLOCK = 0,
 	DCAM_FRM_LOCK_WRITE = 0x10011001,
-	DCAM_FRM_LOCK_READ  = 0x01100110
+	DCAM_FRM_LOCK_READ = 0x01100110
 };
 
 enum {
-    DCAM_ST_STOP = 0,
-    DCAM_ST_START,
+	DCAM_ST_STOP = 0,
+	DCAM_ST_START,
 };
 
-
-#define DCAM_IRQ_ERR_MASK										\
-	((1 << DCAM_PATH0_OV) | (1 << DCAM_PATH1_OV) |  (1 << DCAM_PATH2_OV) |		\
-	(1 << DCAM_SN_LINE_ERR) | (1 << DCAM_SN_FRAME_ERR) |					\
+#define DCAM_IRQ_ERR_MASK \
+	((1 << DCAM_PATH0_OV) | (1 << DCAM_PATH1_OV) | (1 << DCAM_PATH2_OV) | \
+	(1 << DCAM_SN_LINE_ERR) | (1 << DCAM_SN_FRAME_ERR) | \
 	(1 << DCAM_ISP_OV) | (1 << DCAM_MIPI_OV))
 
 #define DCAM_IRQ_JPEG_OV_MASK                          (1 << DCAM_JPEG_BUF_OV)
 
-#define DCAM_CHECK_ZERO(a)                                      \
-	do {                                                        \
-		if (DCAM_ADDR_INVALID(a)) {                            \
-			printk("DCAM, zero pointer \n");                    \
-			printk(DEBUG_STR, DEBUG_ARGS);                      \
-			return -EFAULT;                                     \
-		}                                                       \
+#define DCAM_CHECK_ZERO(a) \
+	do { \
+		if (DCAM_ADDR_INVALID(a)) { \
+			printk("DCAM, zero pointer \n"); \
+			printk(DEBUG_STR, DEBUG_ARGS); \
+			return -EFAULT; \
+		} \
 	} while(0)
 
-#define DCAM_CHECK_ZERO_VOID(a)                                 \
-	do {                                                        \
-		if (DCAM_ADDR_INVALID(a)) {                            \
-			printk("DCAM, zero pointer \n");                    \
-			printk(DEBUG_STR, DEBUG_ARGS);                      \
-			return;                                             \
-		}                                                       \
+#define DCAM_CHECK_ZERO_VOID(a) \
+	do { \
+		if (DCAM_ADDR_INVALID(a)) { \
+			printk("DCAM, zero pointer \n"); \
+			printk(DEBUG_STR, DEBUG_ARGS); \
+			return; \
+		} \
 	} while(0)
 
 struct dcam_cap_desc {
