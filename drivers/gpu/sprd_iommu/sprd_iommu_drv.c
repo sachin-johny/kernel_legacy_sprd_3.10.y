@@ -117,6 +117,8 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 	if(err<0)
 	{
 		kfree(iommu_dev);
+		pr_err("iommu %s : failed to init device %d.\n",pdata->name, err);
+		return err;
 	}
 
 	iommu_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
