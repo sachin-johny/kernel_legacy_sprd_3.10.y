@@ -363,7 +363,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return rem;
 		}
 	}
-	printk("ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
+	lowmem_print(2, "ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
 	min_score_adj = zram_score_adj;
 #endif
 
