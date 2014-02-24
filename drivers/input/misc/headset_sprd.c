@@ -480,15 +480,20 @@ static void headmicbias_power_on(struct device *dev, int on)
 {
 	unsigned long spin_lock_flags;
 	static int current_power_state = 0;
+	struct sprd_headset *ht = &headset;
 
 	spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
 	if (1 == on) {
 		if (0 == current_power_state) {
+			if(NULL != ht->platform_data->external_headmicbias_power_on)
+				ht->platform_data->external_headmicbias_power_on(1);
 			sprd_headset_headmic_bias_control(dev, 1);
 			current_power_state = 1;
 		}
 	} else {
 		if (1 == current_power_state) {
+			if(NULL != ht->platform_data->external_headmicbias_power_on)
+				ht->platform_data->external_headmicbias_power_on(0);
 			sprd_headset_headmic_bias_control(dev, 0);
 			current_power_state = 0;
 		}
