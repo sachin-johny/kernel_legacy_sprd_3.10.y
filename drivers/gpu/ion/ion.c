@@ -232,8 +232,6 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 				buffer->pages[k++] = page++;
 		}
 
-		if (ret)
-			goto err;
 	}
 
 	buffer->dev = dev;

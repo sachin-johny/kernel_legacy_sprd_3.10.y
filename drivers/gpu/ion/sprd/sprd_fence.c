@@ -277,6 +277,7 @@ int sprd_fence_wait(struct fence_sync *sprd_fence, struct sync_fence *fence_obj)
     if (sprd_fence == NULL || fence_obj == NULL)
     {
         printk(KERN_ERR "sprd_wait_fence input parameters is NULL\n");
+        return -EFAULT;
     }
 
     ret = sync_fence_wait(fence_obj, WAIT_FENCE_TIMEOUT);

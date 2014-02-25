@@ -79,12 +79,20 @@ int sprd_iommu_exit(struct sprd_iommu_dev *dev)
 
 unsigned long sprd_iommu_iova_alloc(struct sprd_iommu_dev *dev, size_t iova_length)
 {
+	unsigned long iova = 0;
+
 	if(0==iova_length)
 	{
 		pr_err("sprd_iommu %s sprd_iommu_iova_alloc iova_length:0x%x\n",dev->init_data->name,iova_length);
 		return 0;
 	}
-	return gen_pool_alloc(dev->pool, iova_length);
+
+	iova =  gen_pool_alloc(dev->pool, iova_length);
+	if (0 == iova) {
+		pr_err("sprd_iommu %s iova_alloc iova_base: iova:0x%lx iova_length:0x%x\n",iova,iova_length);
+	}
+
+	return (iova);
 }
 
 void sprd_iommu_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length)
