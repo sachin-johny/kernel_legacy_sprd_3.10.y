@@ -359,7 +359,7 @@ static int __init_trimming(struct regulator_dev *rdev)
 		to_vol = regs->vol_def;
 	}
 
-	if (to_vol) {
+	if (to_vol && rdev->desc->ops->get_voltage) {
 		ctl_vol = rdev->desc->ops->get_voltage(rdev);
 		rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;//uV
 		debug("regu %p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
