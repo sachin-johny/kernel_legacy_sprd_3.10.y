@@ -149,14 +149,14 @@ static ssize_t pin_switch_proc_write(struct file *file,
 {
 	char lbuf[32];
 	long val = 0;
+	int ret = 0;
 	struct sci_pin_switch *p =
 	    (struct sci_pin_switch *)(PDE_DATA(file_inode(file)));
-	if (count >= sizeof(lbuf))
-		count = sizeof(lbuf) - 1;
-	if (copy_from_user(lbuf, buffer, count))
-		return -EFAULT;
-	lbuf[count] = 0;
-	val = simple_strtol(lbuf, NULL, 0);
+	ret = kstrtol_from_user(buffer, count, 0, &val);
+	if(ret){
+		pr_err("input err\n");
+		return -EINVAL;
+	}
 	read_write_pin_switch(0, val, p);
 	return count;
 }
@@ -194,14 +194,14 @@ static ssize_t pin_switch_dir_proc_write(struct file *file,
 {
 	char lbuf[32];
 	int val = 0;
+	int ret =0;
 	struct sci_pin_switch *p =
 	    (struct sci_pin_switch *)(PDE_DATA(file_inode(file)));
-	if (count >= sizeof(lbuf))
-		count = sizeof(lbuf) - 1;
-	if (copy_from_user(lbuf, buffer, count))
-		return -EFAULT;
-	lbuf[count] = 0;
-	val = simple_strtol(lbuf, NULL, 0);
+	ret = kstrtol_from_user(buffer, count, 0, &val);
+	if(ret){
+		pr_err("input err\n");
+		return -EINVAL;
+	}
 	if (val == 1)
 		val = p->func;
 	else			/*if val = 0 or other value, just ignore it */
