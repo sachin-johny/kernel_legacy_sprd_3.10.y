@@ -5,7 +5,7 @@ obj-$(CONFIG_SC_INTERNAL_ADI) += adi.o adie_irq.o
 obj-$(CONFIG_SC_INTERNAL_ADC) += adc.o
 obj-$(CONFIG_SC_INTERNAL_WATCHDOG) += watchdog.o
 
-obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o pin_switch.o
+obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o  clock-sc8830.o arch_misc.o pin_switch.o syssleep.o
 obj-$(CONFIG_ARCH_SCX35) += timer_sc8830.o
 obj-$(CONFIG_PM_DEVFREQ) += dmc_freq.o
 
