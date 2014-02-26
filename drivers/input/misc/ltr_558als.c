@@ -39,7 +39,7 @@
 #include <linux/i2c/ltr_558als.h>
 #include <linux/slab.h>
 
-#define LTR588_DBG
+//#define LTR588_DBG
 #define LTR558_ADAPTIVE
 #ifdef LTR588_DBG
 #define ENTER printk(KERN_INFO "[LTR588_DBG] func: %s  line: %04d  ", __func__, __LINE__)
@@ -802,8 +802,10 @@ static ssize_t ltr_558als_store(struct kobject *kobj, struct kobj_attribute *att
         char *buff_temp = NULL;
 
         buff_temp = kmalloc(n, GFP_KERNEL);
-        if(NULL == buff_temp)
+        if(NULL == buff_temp){
                 PRINT_ERR("kmalloc err\n");
+                return n;
+		}
 
         memcpy(buff_temp, buff, n);
 
