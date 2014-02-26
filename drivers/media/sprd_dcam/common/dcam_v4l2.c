@@ -1477,6 +1477,7 @@ enum dcam_parm_id {
 	CAPTURE_MODE = 0x1000,
 	CAPTURE_SKIP_NUM,
 	CAPTURE_SENSOR_SIZE,
+	CAPTURE_SENSOR_TRIM,
 	CAPTURE_FRM_ID_BASE,
 	CAPTURE_SET_CROP,
 	CAPTURE_SET_FLASH,
@@ -1519,16 +1520,26 @@ LOCAL int v4l2_s_parm(struct file *file,
 		mutex_lock(&dev->dcam_mutex);
 		dev->dcam_cxt.cap_in_size.w  = streamparm->parm.capture.reserved[2];
 		dev->dcam_cxt.cap_in_size.h  = streamparm->parm.capture.reserved[3];
-		dev->dcam_cxt.cap_in_rect.x  = 0;
-		dev->dcam_cxt.cap_in_rect.y  = 0;
-		dev->dcam_cxt.cap_in_rect.w  = dev->dcam_cxt.cap_in_size.w;
-		dev->dcam_cxt.cap_in_rect.h  = dev->dcam_cxt.cap_in_size.h;
-		dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
-		dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
 		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: sensor size %d %d \n",
 			dev->dcam_cxt.cap_in_size.w,
 			dev->dcam_cxt.cap_in_size.h);
+		break;
+	case CAPTURE_SENSOR_TRIM:
+		mutex_lock(&dev->dcam_mutex);
+		dev->dcam_cxt.cap_in_rect.x  = streamparm->parm.capture.reserved[0];
+		dev->dcam_cxt.cap_in_rect.y  = streamparm->parm.capture.reserved[1];
+		dev->dcam_cxt.cap_in_rect.w  = streamparm->parm.capture.reserved[2];
+		dev->dcam_cxt.cap_in_rect.h  = streamparm->parm.capture.reserved[3];
+
+		dev->dcam_cxt.cap_out_size.w = dev->dcam_cxt.cap_in_rect.w;
+		dev->dcam_cxt.cap_out_size.h = dev->dcam_cxt.cap_in_rect.h;
+		mutex_unlock(&dev->dcam_mutex);
+		DCAM_TRACE("V4L2: sensor trim x y w h %d %d %d %d\n",
+			dev->dcam_cxt.cap_in_rect.x,
+			dev->dcam_cxt.cap_in_rect.y,
+			dev->dcam_cxt.cap_in_rect.w,
+			dev->dcam_cxt.cap_in_rect.h);
 		break;
 	case CAPTURE_FRM_ID_BASE:
 		mutex_lock(&dev->dcam_mutex);
@@ -1576,7 +1587,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 			/* path 0, need to do cap crop */
 			input_size = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_size;
 			input_rect = &dev->dcam_cxt.dcam_path[DCAM_PATH0].in_rect;
-
+#if 0
 			dev->dcam_cxt.cap_in_rect.x  = (uint32_t)crop.c.left;
 			dev->dcam_cxt.cap_in_rect.y  = (uint32_t)crop.c.top;
 			dev->dcam_cxt.cap_in_rect.w  = (uint32_t)crop.c.width;
@@ -1587,6 +1598,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 				dev->dcam_cxt.cap_in_rect.x, dev->dcam_cxt.cap_in_rect.y,
 				dev->dcam_cxt.cap_in_rect.w, dev->dcam_cxt.cap_in_rect.h,
 				dev->dcam_cxt.cap_out_size.w, dev->dcam_cxt.cap_out_size.h);
+#endif
 		}
 		input_size->w = dev->dcam_cxt.cap_out_size.w;
 		input_size->h = dev->dcam_cxt.cap_out_size.h;
