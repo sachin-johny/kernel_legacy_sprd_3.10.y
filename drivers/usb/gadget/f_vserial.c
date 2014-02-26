@@ -30,18 +30,20 @@
 #include <linux/wait.h>
 #include <linux/err.h>
 #include <linux/interrupt.h>
-
+#include <linux/timer.h>
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/miscdevice.h>
 
 #include <linux/sched.h>
 
-#define VSER_BULK_BUFFER_SIZE           (4096*16)
+#define VSER_BULK_BUFFER_SIZE           (4096*4)
 
 /* number of tx requests to allocate */
 #define TX_REQ_MAX 4
-
+#ifdef CONFIG_SPRD_IQ
+	extern int in_iqmode(void);
+#endif
 static const char shortname[] = "vser";
 
 struct vser_dev {
@@ -68,6 +70,9 @@ struct vser_dev {
 	struct usb_request *rx_req;
 	int rx_done;
 };
+
+void (*bulk_in_complete_function)(char *buffer,int length);
+
 
 static struct usb_interface_descriptor vser_interface_desc = {
 	.bLength                = USB_DT_INTERFACE_SIZE,
@@ -203,12 +208,14 @@ static struct usb_request *vser_req_get(struct vser_dev *dev, struct list_head *
 static void vser_complete_in(struct usb_ep *ep, struct usb_request *req)
 {
 	struct vser_dev *dev = _vser_dev;
-
+        printk("%s(%p) status = %d\n",__func__,req->buf,req->status);
 	if (req->status != 0)
 		dev->wr_error = 1;
 
 	vser_req_put(dev, &dev->tx_idle, req);
 	vser_transfer_count++;
+	if(bulk_in_complete_function!=NULL)
+		bulk_in_complete_function(req->buf,req->length);
 	wake_up(&dev->write_wq);
 }
 
@@ -355,7 +362,12 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 	struct usb_request *req = 0;
 	int r = count, xfer;
 	int ret;
-
+#ifdef CONFIG_SPRD_IQ
+	if(in_iqmode()){
+		msleep(100);
+		return count;
+	}
+#endif
 	DBG(cdev, "vser_write(%d)\n", count);
 
 	if (vser_lock(&dev->write_excl))
@@ -430,7 +442,6 @@ static ssize_t vser_write(struct file *fp, const char __user *buf,
 static int vser_open(struct inode *ip, struct file *fp)
 {
 	struct vser_dev *dev = _vser_dev;
-
 	/*
 	if (_lock(&_vser_dev->open_excl))
 		return -EBUSY;
@@ -663,7 +674,42 @@ static int vser_bind_config(struct usb_configuration *c)
 	pr_info("now add vserion to composite\n");
 	return usb_add_function(c, &dev->function);
 }
+#ifdef CONFIG_SPRD_IQ
+ssize_t kernel_vser_write(const char *buf, size_t count);
+wait_queue_head_t usb_transfer_event;
+int	*transfer_buffer=NULL,transfer_size=0;
+static struct timer_list usb_test_timer;
+int	test_buffer[64*1024]={0},test_data=0x5a;
 
+void usb_test_timer_fun(unsigned long para)
+{
+	int data;
+	data = para;
+	memset(test_buffer,data,sizeof(test_buffer));
+	transfer_buffer = test_buffer;
+	transfer_size = sizeof(test_buffer);
+	wake_up_interruptible(&usb_transfer_event);
+	mod_timer(&usb_test_timer, jiffies + HZ);
+}
+static int usb_transfer_worker(void *data)
+{
+	struct vser_dev *dev = (struct vser_dev *)data;
+	printk("%s is running ..............\n",__func__);
+	init_waitqueue_head(&usb_transfer_event);
+	setup_timer(&usb_test_timer,usb_test_timer_fun,(unsigned long)&test_data);
+	mod_timer(&usb_test_timer, jiffies + HZ*20);
+	while(1){
+		wait_event_interruptible(usb_transfer_event,(transfer_buffer && transfer_size));
+
+		if(transfer_buffer && transfer_size){
+			dev->online = 1;
+			kernel_vser_write(transfer_buffer, transfer_size);
+			transfer_buffer = NULL;
+			transfer_size = 0;
+		}
+	}
+}
+#endif
 static int vser_init(void)
 {
 	struct vser_dev *dev;
@@ -688,18 +734,91 @@ static int vser_init(void)
 	INIT_LIST_HEAD(&dev->tx_idle);
 
 	_vser_dev = dev;
-
 	ret = misc_register(&vser_device);
 	if (ret)
 		goto err;
-
+#ifdef CONFIG_SPRD_IQ
+	if(in_iqmode()){
+		struct task_struct * task;
+		bulk_in_complete_function = NULL;
+		task = kthread_create(usb_transfer_worker, _vser_dev, "USBTranferWorker");
+		wake_up_process(task);
+	}
+#endif
 	return 0;
 err:
 	kfree(dev);
 	printk(KERN_ERR "vser gadget driver failed to initialize\n");
 	return ret;
 }
+#ifdef CONFIG_SPRD_IQ
+void kernel_vser_register_callback(void *function)
+{
+	bulk_in_complete_function = function;
+}
+ssize_t kernel_vser_write(const char *buf, size_t count)
+{
+	struct vser_dev *dev = _vser_dev;
+	struct usb_composite_dev *cdev = dev->cdev;
+	struct usb_request *req = 0;
+	int r = count, xfer;
+	int ret;
 
+	printk("%s(%p,%d) epname=%s\n",__func__,buf, count,dev->ep_in->name);
+
+	if (vser_lock(&dev->write_excl))
+		return -EBUSY;
+
+	/* we will block until we're online */
+#if 0
+	while (!(dev->online || dev->wr_error)) {
+		printk("%s: waiting for online state\n",__func__);
+		ret = wait_event_interruptible(dev->write_wq,
+				(dev->online));
+		if (ret < 0) {
+			vser_unlock(&dev->write_excl);
+			return ret;
+		}
+	}
+#endif
+	while (count > 0) {
+		/* get an idle tx request to use */
+		req = 0;
+		ret = wait_event_interruptible(dev->write_wq,
+			(req = vser_req_get(dev, &dev->tx_idle)) );
+
+		if (ret < 0) {
+			r = ret;
+			printk("%s line %d wait event failed \n",__func__,__LINE__);
+			break;
+		}
+
+		xfer = count;
+		if (req != 0) {
+			req->buf = buf;
+
+			req->length = xfer;
+			ret = usb_ep_queue(dev->ep_in, req, GFP_ATOMIC);
+			if (ret < 0) {
+				printk("%s: xfer error %d\n",__func__, ret);
+				dev->wr_error = 1;
+				r = -EIO;
+				break;
+			}
+			count -= xfer;
+			/* zero this so we don't try to free it on error exit */
+			req = 0;
+		}
+	}
+
+	if (req)
+		vser_req_put(dev, &dev->tx_idle, req);
+
+	vser_unlock(&dev->write_excl);
+	printk("kernel_vser_write returning %d\n", r);
+	return r;
+}
+#endif
 static void vser_cleanup(void)
 {
 	pr_info("vendor serial cleanup \n");
