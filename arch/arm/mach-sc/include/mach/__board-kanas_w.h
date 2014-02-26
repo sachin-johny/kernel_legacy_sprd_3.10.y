@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __GPIO_SP8830SSW_H__
-#define __GPIO_SP8830SSW_H__
+#ifndef __GPIO_KANAS_W_H__
+#define __GPIO_KANAS_W_H__
 
 #ifndef __ASM_ARCH_BOARD_H
 #error  "Don't include this file directly, include <mach/board.h>"

@@ -60,7 +60,7 @@
 
 #define REGU_NAME_CAMVIO     "vddcamio"
 
-#if defined(CONFIG_MACH_SP8830SSW)
+#if defined(CONFIG_MACH_KANAS_W)
 #define REGU_NAME_SUB_CAMDVDD  "vddcamd"
 #define REGU_NAME_CAMMOT       "vddcama"
 #define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
