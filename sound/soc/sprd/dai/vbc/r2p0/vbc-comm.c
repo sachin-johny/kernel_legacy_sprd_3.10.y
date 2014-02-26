@@ -50,18 +50,14 @@ struct sprd_vbc_src_reg_info {
 };
 
 struct sprd_vbc_src_info {
-	int need;
-	int opened;
 	struct sprd_vbc_src_reg_info reg_info;
 };
 
 static struct sprd_vbc_src_info vbc_src[VBC_IDX_MAX] = {
-	{0, 0, {0}},
-	{0, 0,
-	 {ADCSRCCTL, VBADCSRC_CLR_01, VBADCSRC_F1F2F3_BP_01, VBADCSRC_F1_SEL_01,
+	{{0}},
+	{{ADCSRCCTL, VBADCSRC_CLR_01, VBADCSRC_F1F2F3_BP_01, VBADCSRC_F1_SEL_01,
 	  VBADCSRC_EN_01}},
-	{0, 0,
-	 {ADCSRCCTL, VBADCSRC_CLR_23, VBADCSRC_F1F2F3_BP_23, VBADCSRC_F1_SEL_23,
+	{{ADCSRCCTL, VBADCSRC_CLR_23, VBADCSRC_F1F2F3_BP_23, VBADCSRC_F1_SEL_23,
 	  VBADCSRC_EN_23}},
 };
 
@@ -294,22 +290,6 @@ static int vbc_enable(int enable)
 	return 0;
 }
 
-static int vbc_src_need_set(int need, int vbc_idx)
-{
-	vbc_src[vbc_idx].need = need;
-	return 0;
-}
-
-static int vbc_src_need_get(int vbc_idx)
-{
-	return vbc_src[vbc_idx].need;
-}
-
-static int vbc_src_is_opened(int vbc_idx)
-{
-	return vbc_src[vbc_idx].opened;
-}
-
 static int vbc_src_set(int rate, int vbc_idx)
 {
 	int f1f2f3_bp;
@@ -321,10 +301,6 @@ static int vbc_src_set(int rate, int vbc_idx)
 
 	if (!vbc_src[vbc_idx].reg_info.reg) {
 		return -EINVAL;
-	}
-
-	if (!vbc_src_need_get(vbc_idx)) {
-		rate = 0;
 	}
 
 	sp_asoc_pr_dbg("Rate:%d, Chan: %s", rate, vbc_get_name(vbc_idx));
@@ -368,8 +344,6 @@ static int vbc_src_set(int rate, int vbc_idx)
 	    | (en_sel << reg_info->en_bit);
 
 	vbc_reg_update(reg_info->reg, val, mask);
-
-	vbc_src[vbc_idx].opened = en_sel;
 
 	return 0;
 }
