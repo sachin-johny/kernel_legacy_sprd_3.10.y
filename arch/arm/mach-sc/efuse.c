@@ -194,12 +194,13 @@ static __inline int __ddie_fuse_read(u32 blk)
 	__ddie_fuse_global_init();
 	val = BITS_READ_INDEX(blk) | BITS_PGM_INDEX(blk);
 	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
+#ifdef CONFIG_DEBUG_FS
 	efuse_dump_register(1);
+#endif
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_RD_START,
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_READ_BUSY);
 	val = __raw_readl(REG_EFUSE_DATA_RD);
-
 	__ddie_fuse_global_close();
 	mutex_unlock(&ddie_fuse_lock);
 
@@ -446,7 +447,9 @@ void sci_ddie_fuse_program(u32 blk, int data)
 	val = BITS_PGM_INDEX(blk);
 	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
 	__raw_writel(data, REG_EFUSE_DATA_WR);
+#ifdef CONFIG_DEBUG_FS
 	efuse_dump_register(1);
+#endif
 	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_PG_START,
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_PGM_BUSY);
