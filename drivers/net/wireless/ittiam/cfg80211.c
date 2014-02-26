@@ -888,12 +888,19 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 	int ret;
 	size_t i;
 
-	wiphy_info(wiphy, "%s\n", __func__);
-
 	if (!itm_wlan_cfg80211_ready(priv)) {
 		wiphy_err(wiphy, "CP2 not ready!\n");
 		return -EIO;
 	}
+
+	sinfo->filled |= STATION_INFO_TX_BYTES |
+			 STATION_INFO_TX_PACKETS |
+			 STATION_INFO_RX_BYTES |
+			 STATION_INFO_RX_PACKETS;
+	sinfo->tx_bytes = priv->ndev->stats.tx_bytes;
+	sinfo->tx_packets = priv->ndev->stats.tx_packets;
+	sinfo->rx_bytes = priv->ndev->stats.rx_bytes;
+	sinfo->rx_packets = priv->ndev->stats.rx_packets;
 
 	/* Get current RSSI */
 	ret = itm_wlan_get_rssi_cmd(priv->wlan_sipc, &signal, &noise);
@@ -920,6 +927,9 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 			break;
 		}
 	}
+
+	wiphy_info(wiphy, "%s signal %d txrate %d\n", __func__, sinfo->signal =
+		   signal, sinfo->txrate.legacy);
 
 	return 0;
 }
@@ -1012,7 +1022,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	memcpy(&status_len, pos, 2);
 	if (status_len != 1) {
 		wiphy_err(priv->wdev->wiphy,
-			"%s erro status len(%d)\n", __func__, status_len);
+			  "%s erro status len(%d)\n", __func__, status_len);
 		goto freepos;
 	}
 	memcpy(&status_code, pos + 2, status_len);
@@ -1164,18 +1174,22 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 
 void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 {
-	struct ieee80211_mgmt *mgmt;
-	struct ieee80211_channel *channel;
-	struct ieee80211_supported_band *band;
 	struct wiphy *wiphy = priv->wdev->wiphy;
-	struct cfg80211_bss *itm_bss = NULL;
-	u32 mgmt_len = 0;
+	struct ieee80211_supported_band *band;
+	struct ieee80211_channel *channel;
+	struct ieee80211_mgmt *mgmt = NULL;
+	struct cfg80211_bss *bss = NULL;
+	u32 i = 0, left = priv->wlan_sipc->wlan_sipc_event_len;
+	u8 *pos = priv->wlan_sipc->event_buf->u.event.variable;
 	u16 channel_num, channel_len;
+	u32 freq;
 	s16 rssi, rssi_len;
+	u32 mgmt_len = 0;
+	u64 tsf;
+	u16 capability, beacon_interval;
+	u8 *ie;
+	size_t ielen;
 	s32 signal;
-	int freq;
-	u32 left = priv->wlan_sipc->wlan_sipc_event_len;
-	const u8 *pos = priv->wlan_sipc->event_buf->u.event.variable;
 
 	if (atomic_add_unless(&priv->scan_status, 1, 1) == 0) {
 		wiphy_err(wiphy, "%s scan is aborted\n", __func__);
@@ -1195,10 +1209,6 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 		goto out;
 	}
 
-	mgmt = kmalloc(left, GFP_ATOMIC);
-	if (mgmt == NULL)
-		goto out;
-
 	while (left >= 10) {
 		/* must use memcpy to protect unaligned */
 		/* The formate of frame is len(two bytes) + data */
@@ -1208,33 +1218,7 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 		memcpy(&channel_num, pos, channel_len);
 		pos += channel_len;
 		left -= channel_len;
-		/* The second two value of frame is rssi */
-		memcpy(&rssi_len, pos, 2);
-		pos += 2;
-		left -= 2;
-		memcpy(&rssi, pos, rssi_len);
-		pos += rssi_len;
-		left -= rssi_len;
-		/* The third two value of frame is following data len */
-		memcpy(&mgmt_len, pos, 2);
-		pos += 2;
-		left -= 2;
-
-		if (mgmt_len > left) {
-			wiphy_err(wiphy,
-				  "%s mgmt_len(0x%08x) > left(0x%08x)!\n",
-				  __func__, mgmt_len, left);
-			kfree(mgmt);
-			goto out;
-		}
-
-		/* The following is real data */
-		memcpy(mgmt, pos, mgmt_len);
-
-		left -= mgmt_len;
-		pos += mgmt_len;
-
-		/* FIXME Now only support 2GHZ */
+		/* FIXME only support 2GHZ */
 		band = wiphy->bands[IEEE80211_BAND_2GHZ];
 		freq = ieee80211_channel_to_frequency(channel_num, band->band);
 		channel = ieee80211_get_channel(wiphy, freq);
@@ -1242,31 +1226,67 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 			wiphy_err(wiphy, "%s invalid freq\n", __func__);
 			continue;
 		}
-		signal = rssi * 100;
-		itm_bss = cfg80211_inform_bss_frame(wiphy, channel, mgmt,
-						    le16_to_cpu(mgmt_len),
-						    signal, GFP_KERNEL);
 
-		if (unlikely(!itm_bss))
+		/* The second two value of frame is rssi */
+		memcpy(&rssi_len, pos, 2);
+		pos += 2;
+		left -= 2;
+		memcpy(&rssi, pos, rssi_len);
+		pos += rssi_len;
+		left -= rssi_len;
+		signal = rssi * 100;
+
+		/* The third two value of frame is following data len */
+		memcpy(&mgmt_len, pos, 2);
+		pos += 2;
+		left -= 2;
+		if (mgmt_len > left) {
+			wiphy_err(wiphy,
+				  "%s mgmt_len(0x%08x) > left(0x%08x)!\n",
+				  __func__, mgmt_len, left);
+			goto out;
+		}
+		/* The following is real data */
+		mgmt = (struct ieee80211_mgmt *)pos;
+		if (mgmt == NULL)
+			goto out;
+		pos += mgmt_len;
+		left -= mgmt_len;
+		ie = mgmt->u.probe_resp.variable;
+		ielen = mgmt_len - offsetof(struct ieee80211_mgmt,
+					    u.probe_resp.variable);
+		tsf = le64_to_cpu(mgmt->u.probe_resp.timestamp);
+		beacon_interval = le16_to_cpu(mgmt->u.probe_resp.beacon_int);
+		capability = le16_to_cpu(mgmt->u.probe_resp.capab_info);
+		wiphy_dbg(wiphy,
+			  "%s %s, %02x:%02x:%02x:%02x:%02x:%02x, tsf %llu\n",
+			  __func__, ieee80211_is_probe_resp(mgmt->frame_control)
+			  ? "proberesp" : "beacon   ",
+			  mgmt->bssid[0], mgmt->bssid[1], mgmt->bssid[2],
+			  mgmt->bssid[3], mgmt->bssid[4], mgmt->bssid[5], tsf);
+
+		bss = cfg80211_inform_bss(wiphy, channel, mgmt->bssid,
+					  tsf, capability, beacon_interval, ie,
+					  ielen, signal, GFP_KERNEL);
+
+		if (unlikely(!bss))
 			wiphy_err(wiphy,
 				  "%s failed to inform bss frame!\n", __func__);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-		cfg80211_put_bss(wiphy, itm_bss);
+		cfg80211_put_bss(wiphy, bss);
 #else
-		cfg80211_put_bss(itm_bss);
+		cfg80211_put_bss(bss);
 #endif
+		i++;
 	}
 
-	if (left) {
-		kfree(mgmt);
+	if (left)
 		goto out;
-	}
 
-	kfree(mgmt);
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
 
-	wiphy_info(wiphy, "%s\n", __func__);
+	wiphy_info(wiphy, "%s got %d bss\n", __func__, i);
 
 	priv->scan_request = NULL;
 	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
