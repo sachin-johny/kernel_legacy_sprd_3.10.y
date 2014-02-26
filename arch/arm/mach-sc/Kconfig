@@ -104,6 +104,14 @@ config MACH_SP8830SSW
 	help
 	  Samsung SP8830SSW board based on SC8830 serial.
 
+config MACH_KANAS_TD
+	bool "Kanas TD Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  Samsung Kanass TD board based on SC8830 serial.
+
 config MACH_SC9620OPENPHONE
 	bool "sc9620openphone Board"
 	depends on ARCH_SC
