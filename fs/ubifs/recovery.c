@@ -180,13 +180,8 @@ static int get_master_node(const struct ubifs_info *c, int lnum, void **pbuf,
 	}
 	/* Check remaining empty space */
 	if (offs < c->leb_size)
-		if (!is_empty(buf, len)) {
-			int corruption = first_non_ff(buf, len);
-			ubifs_err("corrupt empty space LEB %d:%d, corruption starts at %d",
-				  lnum, offs, corruption);
-			ubifs_scanned_corruption(c, lnum, offs + corruption, buf + corruption);
-			//goto out_err;
-		}
+		if (!is_empty(buf, len))
+			goto out_err;
 	*pbuf = sbuf;
 	return 0;
 
@@ -249,11 +244,11 @@ int ubifs_recover_master_node(struct ubifs_info *c)
 
 	err = get_master_node(c, UBIFS_MST_LNUM, &buf1, &mst1, &cor1);
 	if (err)
-		dbg_rcvry("get 1st master node failed %d", err);
+		goto out_free;
 
 	err = get_master_node(c, UBIFS_MST_LNUM + 1, &buf2, &mst2, &cor2);
 	if (err)
-		dbg_rcvry("get 2nd master node failed %d", err);
+		goto out_free;
 
 	if (mst1) {
 		offs1 = (void *)mst1 - buf1;
@@ -507,23 +502,19 @@ static int no_more_nodes(const struct ubifs_info *c, void *buf, int len,
 	/* Now we know the corrupt node's length we can skip over it */
 	skip = ALIGN(offs + dlen, c->max_write_size) - offs;
 	/* After which there should be empty space */
-	if (!is_empty(buf + skip, len - skip)) {
-		int corruption = first_non_ff(buf + skip, len - skip);
-		ubifs_err("unexpected data at LEB %d:%d, corruption starts at %d",
-			  lnum, offs + skip, corruption);
-		ubifs_scanned_corruption(c, lnum, offs + skip + corruption, buf + skip + corruption);
-	}
-
+	if (is_empty(buf + skip, len - skip))
+		return 1;
+	dbg_rcvry("unexpected data at %d:%d", lnum, offs + skip);
 	return 0;
 }
 
 /**
- * ubifs_fix_unclean_leb - fix an unclean LEB.
+ * fix_unclean_leb - fix an unclean LEB.
  * @c: UBIFS file-system description object
  * @sleb: scanned LEB information
  * @start: offset where scan started
  */
-int ubifs_fix_unclean_leb(struct ubifs_info *c, struct ubifs_scan_leb *sleb,
+static int fix_unclean_leb(struct ubifs_info *c, struct ubifs_scan_leb *sleb,
 			   int start)
 {
 	int lnum = sleb->lnum, endpt = start;
@@ -804,7 +795,7 @@ struct ubifs_scan_leb *ubifs_recover_leb(struct ubifs_info *c, int lnum,
 	clean_buf(c, &buf, lnum, &offs, &len);
 	ubifs_end_scan(c, sleb, lnum, offs);
 
-	err = ubifs_fix_unclean_leb(c, sleb, start);
+	err = fix_unclean_leb(c, sleb, start);
 	if (err)
 		goto error;
 
