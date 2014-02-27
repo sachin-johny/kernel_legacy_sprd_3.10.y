@@ -394,8 +394,7 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 #ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		if (params_rate(params) == 44100) {
-			/* SRC Source sample rate maybe different */
-			if (!vbc_src_is_opened(vbc_idx)) {
+			if (dfm.hw_rate == 0)  {/*dfm is closed*/
 				vbc_src_set(CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE,
 					    vbc_idx);
 			}
@@ -494,7 +493,7 @@ static int dfm_startup(struct snd_pcm_substream *substream,
 
 	for (vbc_idx = VBC_PLAYBACK; vbc_idx < VBC_CAPTRUE1; vbc_idx++) {
 		if (vbc[vbc_idx].rate != 0) {
-#ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
+#ifdef CONFIG_SND_SOC_SPRD_VBC_SRC_OPEN
 			if (vbc[vbc_idx].rate != 44100)
 				return -1;
 #else

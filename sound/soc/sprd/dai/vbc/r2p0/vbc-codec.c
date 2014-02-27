@@ -443,16 +443,12 @@ struct vbc_codec_priv {
 static int vbc_st0_chnmux_set(int val)
 {
 	vbc_reg_update(STCTL1, val << VBST0_SEL_CHN, (1 << VBST0_SEL_CHN));
-	/* We need open SRC when the st opened */
-	vbc_src_need_set(1, val + SPRD_VBC_PLAYBACK_COUNT);
 	return 0;
 }
 
 static int vbc_st1_chnmux_set(int val)
 {
 	vbc_reg_update(STCTL1, val << VBST1_SEL_CHN, (1 << VBST1_SEL_CHN));
-	/* We need open SRC when the st opened */
-	vbc_src_need_set(1, val + SPRD_VBC_PLAYBACK_COUNT);
 	return 0;
 }
 
