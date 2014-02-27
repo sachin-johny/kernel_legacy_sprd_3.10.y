@@ -580,6 +580,37 @@ static void print_debug_info(void)
 		printk("###---- BIT_LDO_EMMCCORE_PD power on! ----###\n");
 #endif
 
+#if defined(CONFIG_ARCH_SCX15)
+	if (ap_apb_eb & BIT_UART4_EB)
+		printk("###---- BIT_UART4_EB set! ----###\n");
+	if (ap_apb_eb & BIT_UART3_EB)
+		printk("###---- BIT_UART3_EB set! ----###\n");
+	if (ap_apb_eb & BIT_UART2_EB)
+		printk("###---- BIT_UART2_EB set! ----###\n");
+	if (ap_apb_eb & BIT_UART1_EB)
+		printk("###---- BIT_UART1_EB set! ----###\n");
+	if (ap_apb_eb & BIT_UART0_EB)
+		printk("###---- BIT_UART0_EB set! ----###\n");
+	if (ap_apb_eb & BIT_I2C4_EB)
+		printk("###---- BIT_I2C4_EB set! ----###\n");
+	if (ap_apb_eb & BIT_I2C3_EB)
+		printk("###---- BIT_I2C3_EB set! ----###\n");
+	if (ap_apb_eb & BIT_I2C2_EB)
+		printk("###---- BIT_I2C2_EB set! ----###\n");
+	if (ap_apb_eb & BIT_I2C1_EB)
+		printk("###---- BIT_I2C1_EB set! ----###\n");
+	if (ap_apb_eb & BIT_I2C0_EB)
+		printk("###---- BIT_I2C0_EB set! ----###\n");
+	if (ap_apb_eb & BIT_IIS3_EB)
+		printk("###---- BIT_IIS3_EB set! ----###\n");
+	if (ap_apb_eb & BIT_IIS2_EB)
+		printk("###---- BIT_IIS2_EB set! ----###\n");
+	if (ap_apb_eb & BIT_IIS1_EB)
+		printk("###---- BIT_IIS1_EB set! ----###\n");
+	if (ap_apb_eb & BIT_IIS0_EB)
+		printk("###---- BIT_IIS0_EB set! ----###\n");
+#endif
+
 }
 
 static int print_thread(void * data)

@@ -103,6 +103,14 @@ struct mm_reg_bak {
 	u32 mm_cfg1;
 	u32 mm_cfg2;
 };
+
+struct auto_pd_en {
+	volatile u32 magic_header;
+	volatile u32 bits;
+	volatile u32 magic_end;
+	char pd_config_menu[6][16];
+};
+
 static struct ap_ahb_reg_bak ap_ahb_reg_saved;
 static struct ap_clk_reg_bak ap_clk_reg_saved;
 static struct ap_apb_reg_bak ap_apb_reg_saved;
@@ -110,6 +118,74 @@ static struct pub_reg_bak pub_reg_saved;
 #if defined(CONFIG_ARCH_SCX15)
 static struct mm_reg_bak mm_reg_saved;
 #endif
+
+/* bits definition
+ * bit_0 : ca7 top
+ * bit_1 : ca7 c0
+ * bit_2 : pub
+ * bit_3 : mm
+ * bit_4 : ap sys
+ * bit_5 : dcdc arm
+*/
+static  struct auto_pd_en pd_config = {
+	0x6a6aa6a6, 0x3b,0xa6a66a6a,
+	.pd_config_menu = {
+	"ca7_top",
+	"ca7_c0",
+	"pub",
+	"mm",
+	"ap_sys",
+	"dcdc_arm",
+	},
+};
+
+/*
+ * we just conigure the auto_pd_en property for parts of  power domain, ldo  here
+ * clr = 0 means called when kernel init and after real deep sleep
+ * clr = 1 means just called before real deep sleep
+ */
+static void configure_for_deepsleep(int clr)
+{
+#if defined(CONFIG_ARCH_SCX15)
+	if (clr) {
+		sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
+		sci_glb_clr(REG_PMU_APB_PD_AP_SYS_CFG, BIT_PD_AP_SYS_AUTO_SHUTDOWN_EN);
+		sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+		/* FIXME: we can't powerdown ca7 because of stability problem when idle deep sleep */
+		sci_glb_clr(REG_PMU_APB_PD_CA7_TOP_CFG, BIT_PD_CA7_TOP_AUTO_SHUTDOWN_EN);
+		sci_glb_clr(REG_PMU_APB_PD_CA7_C0_CFG, BIT_PD_CA7_C0_AUTO_SHUTDOWN_EN);
+		sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL0, BIT_SLP_DCDCARM_PD_EN);
+		/*
+		 * because we can power down rf0 and vdd25 in idle deep now
+		 * so we can let it be configured in u-boot
+		 */
+		/* sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL0, BIT_SLP_LDORF0_PD_EN); */
+		/* sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL0, BIT_SLP_LDOVDD25_PD_EN); */
+#if defined(CONFIG_MACH_CORSICA_VE)
+		sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
+		sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOCAMMOT_PD_EN);
+#endif
+	} else {
+		if (pd_config.bits & (0x1 << 0))
+			sci_glb_set(REG_PMU_APB_PD_CA7_TOP_CFG, BIT_PD_CA7_TOP_AUTO_SHUTDOWN_EN);
+		if (pd_config.bits & (0x1 << 1))
+			sci_glb_set(REG_PMU_APB_PD_CA7_C0_CFG, BIT_PD_CA7_C0_AUTO_SHUTDOWN_EN);
+		if (pd_config.bits & (0x1 << 2))
+			sci_glb_set(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+		if (pd_config.bits & (0x1 << 3))
+			sci_glb_set(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
+		if (pd_config.bits & (0x1 << 4))
+			sci_glb_set(REG_PMU_APB_PD_AP_SYS_CFG, BIT_PD_AP_SYS_AUTO_SHUTDOWN_EN);
+		if (pd_config.bits & (0x1 << 5))
+			sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL0, BIT_SLP_DCDCARM_PD_EN);
+#if defined(CONFIG_MACH_CORSICA_VE)
+		sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
+		sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOCAMMOT_PD_EN);
+#endif
+	}
+#endif
+}
+
 static void setup_autopd_mode(void)
 {
 	if (soc_is_scx35_v0())
@@ -167,17 +243,18 @@ static void setup_autopd_mode(void)
 #endif
 #endif
 #if defined(CONFIG_ARCH_SCX15)
-       sci_glb_set(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
-       sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+	sci_glb_set(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
+	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 #else
 	sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 #endif
-	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SLEEP_FOLLOW_CA7_EN);
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);
 	/* KEEP eMMC/SD power */
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN | BIT_SLP_LDOEMMCIO_PD_EN);
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOSD_PD_EN );
 
+	/*****************  for idle to deep  ****************/
+	configure_for_deepsleep(1);
 	return;
 }
 void disable_mm(void)
@@ -944,6 +1021,7 @@ int deep_sleep(int from_idle)
 #endif
 		show_pin_reg();
 		enable_mcu_deep_sleep();
+		configure_for_deepsleep(0);
 		disable_ahb_module();
 	    //disable_pmu_ddr_module();
 	    
@@ -966,10 +1044,16 @@ int deep_sleep(int from_idle)
 		//bak_last_reg();
 
 		__raw_writel(0x0, REG_PMU_APB_CA7_C0_CFG);
+		show_deep_reg_status();
+	} else {
+		/* __raw_writel(0x0, REG_PMU_APB_CA7_C0_CFG); */
 	}
-	show_deep_reg_status();
-
-	ret = sp_pm_collapse(0, 1);
+	/*
+	 * sp_pm_collapse(param0, param1)
+	 * param0, param1 are not used before
+	 * so we use second param to distinguish idle deep or real deep
+	 */
+	ret = sp_pm_collapse(0, from_idle);
 
 	udelay(50);
 	if(!from_idle){
@@ -983,11 +1067,15 @@ int deep_sleep(int from_idle)
 		hard_irq_set();
 		sci_glb_clr(REG_AP_APB_APB_EB, 0xf<<19);
 		disable_mcu_deep_sleep();
+		configure_for_deepsleep(1);
 		//sci_glb_clr(SPRD_PMU_BASE+0x00F4, 0x3FF);
 		RESTORE_GLOBAL_REG;
 #if defined(CONFIG_ARCH_SCX15)
 		bak_restore_mm_scx15(0);
 #endif
+	} else {
+		/* __raw_writel(0x1, REG_PMU_APB_CA7_C0_CFG); */
+		pr_debug("ret %d  from idle\n", ret);
 	}
 
 	udelay(5);

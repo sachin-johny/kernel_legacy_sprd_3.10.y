@@ -32,16 +32,19 @@ unsigned int idle_debug_state[NR_CPUS];
 #define SC_CPUIDLE_STATE_NUM		ARRAY_SIZE(cpuidle_params_table)
 #define WAIT_WFI_TIMEOUT		(20)
 #define LIGHT_SLEEP_ENABLE		(BIT_MCU_LIGHT_SLEEP_EN)
+#define IDLE_DEEP_DELAY_TIME	(70 * HZ)
+static unsigned long delay_done;
 static unsigned int idle_disabled_by_suspend;
 #if defined(CONFIG_ARCH_SCX15)
 static unsigned int zipenc_status;
 static unsigned int zipdec_status;
 #endif
 static int light_sleep_en = 1;
+static int idle_deep_en = 0;
 static int cpuidle_debug = 0;
 module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
 module_param_named(light_sleep_en, light_sleep_en, int, S_IRUGO | S_IWUSR);
-
+module_param_named(idle_deep_en, idle_deep_en, int, S_IRUGO | S_IWUSR);
 /* Machine specific information to be recorded in the C-state driver_data */
 struct sc_idle_statedata {
 	u32 cpu_state;
@@ -187,6 +190,38 @@ static void sc_cpuidle_light_sleep_dis(void)
 	}
 	return;
 }
+extern void deep_sleep(int);
+static void idle_into_deep(void)
+{
+	if (sci_glb_read(REG_AP_AHB_AHB_EB, -1UL)  &
+		(BIT_DMA_EB | BIT_USB_EB | BIT_EMMC_EB | BIT_NFC_EB | BIT_SDIO0_EB |
+			BIT_SDIO1_EB | BIT_SDIO2_EB)) {
+		 /* so we've already known ap can't go into deep now, we just do idle */
+		cpu_do_idle();
+		return;
+	}
+	/* ignore uart1_eb for uart output log now */
+	if (sci_glb_read(REG_AP_APB_APB_EB, -1UL)  &
+		(BIT_UART0_EB |BIT_UART2_EB | BIT_UART3_EB | BIT_UART4_EB |
+		 BIT_I2C0_EB | BIT_I2C1_EB |BIT_I2C2_EB | BIT_I2C3_EB | BIT_I2C4_EB |
+		 BIT_IIS0_EB | BIT_IIS1_EB | BIT_IIS2_EB | BIT_IIS3_EB)) {
+		/* so we've already known ap can't go into deep now, we just do idle
+		 * maybe we can go into light sleep or sys sleep
+		 */
+		cpu_do_idle();
+		return;
+	}
+
+	if (sci_glb_read(REG_AON_APB_APB_EB0, -1UL)  &
+		(BIT_MM_EB |BIT_GPU_EB)) {
+		cpu_do_idle();
+		return;
+	}
+	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN /*| BIT_MCU_SLEEP_FOLLOW_CA7_EN*/);
+	deep_sleep(1);
+	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN /*| BIT_MCU_SLEEP_FOLLOW_CA7_EN*/);
+}
+
 /**
  * sc_enter_idle - Programs arm core to enter the specified state
  * @dev: cpuidle device
@@ -243,8 +278,16 @@ static int sc_enter_idle(struct cpuidle_device *dev,
 			 */
 			clockevents_notify(CLOCK_EVT_NOTIFY_BROADCAST_EXIT, &cpu_id);
 		}else{
+			pr_debug("sc_enter_idle go into core_pd state\n");
 			sc_cpuidle_light_sleep_en(cpu_id);
+#if defined(CONFIG_ARCH_SCX15)
+			if (idle_deep_en && time_after(jiffies, delay_done))
+				idle_into_deep();
+			else
+				cpu_do_idle();
+#else
 			cpu_do_idle();
+#endif
 			sc_cpuidle_light_sleep_dis();
 		}
 		break;
@@ -348,7 +391,7 @@ int __init sc_cpuidle_init(void)
 		if (sc_cpuidle_register_device(drv, cpu_id))
 			pr_err("CPU%u: error initializing idle loop\n", cpu_id);
 	}
-
+	delay_done = jiffies + IDLE_DEEP_DELAY_TIME;
 	register_pm_notifier(&sc_cpuidle_pm_notifier);
 
 	return 0;
