@@ -176,8 +176,10 @@
                 #define AUDIO_HEAD_BUF_EN (BIT(15))
                 #define AUDIO_HEAD2ADC_SEL_SHIFT (13)
                 #define AUDIO_HEAD2ADC_SEL_MASK (0x1 << AUDIO_HEAD2ADC_SEL_SHIFT)
+                #define AUDIO_HEAD2ADC_SEL_DISABLE (0)
                 #define AUDIO_HEAD2ADC_SEL_MIC_IN (1)
                 #define AUDIO_HEAD2ADC_SEL_L_INT (0)
+                #define AUDIO_HEAD2ADC_SEL_DRO_L (0)
         #endif
 #endif
 
@@ -379,9 +381,24 @@ static void headset_detect_init(void)
         headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG0), AUDIO_MICBIAS_HV_EN);
 }
 
+static void headset_adc_en(int en)
+{
+        if (en) {
+                headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_BUF_EN);
+                headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
+                headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_MIC_IN, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
+        } else {
+                headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_BUF_EN);
+                headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
+                headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_DISABLE, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
+        }
+}
+
 /* is_set = 1, headset_mic to AUXADC */
 static void set_adc_to_headmic(unsigned is_set)
 {
+        headset_adc_en(1);
+
         if (is_set) {
                 headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_MIC_IN, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
         } else {
@@ -781,6 +798,7 @@ static void headset_button_work_func(struct work_struct *work)
                 headset_irq_button_enable(1, ht->irq_button);
         }
 out:
+        headset_adc_en(0);
         headset_irq_button_enable(1, ht->irq_button);
         wake_unlock(&headset_button_wakelock);
         up(&headset_sem);
@@ -829,6 +847,7 @@ static void headset_detect_work_func(struct work_struct *work)
 
         if(1 == plug_state_current && 0 == plug_state_last) {
                 headset_type = headset_type_detect(gpio_detect_value_last);
+                headset_adc_en(0);
                 switch (headset_type) {
                 case HEADSET_TYPE_ERR:
                         PRINT_INFO("headset_type = %d (HEADSET_TYPE_ERR)\n", headset_type);
@@ -1006,6 +1025,7 @@ static void headset_sts_check_func(struct work_struct *work)
         }
         if(((0x00000060 & ana_sts0) == 0x00000060) && (0 == plug_state_class_g_on)) {
                 headset_type = headset_type_detect(gpio_get_value(pdata->gpio_detect));
+                headset_adc_en(0);
                 switch (headset_type) {
                 case HEADSET_TYPE_ERR:
                         PRINT_INFO("headset_type = %d (HEADSET_TYPE_ERR)\n", headset_type);
@@ -1166,6 +1186,7 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
                   ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
                   sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0));
         queue_work(ht->button_work_queue, &ht->work_button);
+        set_adc_to_headmic(1);
         return IRQ_HANDLED;
 }
 
