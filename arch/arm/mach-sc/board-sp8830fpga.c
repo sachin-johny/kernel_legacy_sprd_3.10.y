@@ -67,7 +67,7 @@
 #define MPUIRQ_GPIO 212
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
-#ifdef CONFIG_TOUCHSCREEN_FOCALTECH
+#if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 #include <linux/i2c/focaltech.h>
 #endif
 
@@ -366,7 +366,7 @@ static struct serial_data plat_data3 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
 	.clk = 26000000,
 };
-#ifdef CONFIG_TOUCHSCREEN_FOCALTECH
+#if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = { 
 	.irq_gpio_number    = GPIO_TOUCH_IRQ,
 	.reset_gpio_number  = GPIO_TOUCH_RESET,
@@ -454,7 +454,7 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 
 static struct i2c_board_info i2c0_boardinfo[] = {
 	{
-#ifdef CONFIG_TOUCHSCREEN_FOCALTECH
+#if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 		I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
 		.platform_data = &ft5x0x_ts_info,
 #endif
