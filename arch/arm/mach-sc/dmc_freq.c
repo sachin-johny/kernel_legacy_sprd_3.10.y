@@ -296,12 +296,33 @@ static u32 get_emc_clk_select(u32 clk)
 	}
 	return sel;
 }
+/*
+ * open or close dpll
+ * flag = 1, open dpll
+ * flag = 0, close dpll
+ */
+static u32 dpll_rel_cfg_bak = 0;
+static void __dpll_open(u32 flag)
+{
+	u32 reg;
+	u32 mask;
+	mask = BIT_DPLL_AP_SEL | BIT_DPLL_CP0_SEL | BIT_DPLL_CP1_SEL | BIT_DPLL_CP2_SEL;
+	reg = sci_glb_read(REG_PMU_APB_DPLL_REL_CFG, -1) & mask;
+	if(flag) {
+		if(reg == 0) {
+			sci_glb_set(REG_PMU_APB_DPLL_REL_CFG, mask & dpll_rel_cfg_bak);
+			udelay(500);
+		}
+	}
+	else {
+		sci_glb_clr(REG_PMU_APB_DPLL_REL_CFG, mask);
+	}
+}
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
 	u32 dll_enable = EMC_DLL_SWITCH_ENABLE_MODE;
 	u32 old_clk,old_select,new_select,div = 0x0;
 	u32 ret;
-
 #ifdef EMC_FREQ_AUTO_TEST
     u32 start_t1, end_t1;
 	static u32 max_u_time = 0;
@@ -312,7 +333,9 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 
 #if defined (EMC_FREQ_AUTO_TEST) || defined (CONFIG_SCX35_DMC_FREQ_AP)
 	unsigned long irq_flags;
-
+	if((new_clk > 200) || (sene != EMC_FREQ_NORMAL_SWITCH_SENE)) {
+		__dpll_open(1);
+	}
 	local_irq_save(irq_flags);
 #else
 	mutex_lock(&emc_mutex);
@@ -423,6 +446,9 @@ out:
 
 #if defined (EMC_FREQ_AUTO_TEST) || defined(CONFIG_SCX35_DMC_FREQ_AP)
 	local_irq_restore(irq_flags);
+	if(CLK_EMC_SELECT_DPLL != get_emc_clk_select(0)) {
+		__dpll_open(0);
+	}
 #else
 	mutex_unlock(&emc_mutex);
 #endif
@@ -749,6 +775,7 @@ static struct notifier_block dmcfreq_pm_notifier = {
 
 static int __init emc_early_suspend_init(void)
 {
+	dpll_rel_cfg_bak = sci_glb_read(REG_PMU_APB_DPLL_REL_CFG, -1);
 	max_clk = get_spl_emc_clk_set();
 	chip_id = __raw_readl(REG_AON_APB_CHIP_ID);
 	__emc_timing_reg_init();
