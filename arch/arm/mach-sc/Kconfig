@@ -279,6 +279,15 @@ config MACH_YOUNG2
 	help
 	  YOUNG2 board based on dolphin serial.
 
+config MACH_HIGGS
+        bool "higgs Phone Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        depends on ARCH_SCX15
+        default n
+        help
+          HIGGS board based on dolphin serial.
+
 config MACH_SP8830GA
 	bool "sp8830ga Phone Board"
 	depends on ARCH_SC
