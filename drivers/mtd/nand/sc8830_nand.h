@@ -148,7 +148,7 @@
 #define NFC_MC_NOP_ID               (0xF0)
 #define NFC_MC_DONE_ID              (0xFF)
 #define NFC_MAX_CHIP                1
-#define NFC_TIMEOUT_VAL             0x100000
+#define NFC_TIMEOUT_VAL             3000000   //usecs
 
 #define NAND_MC_CMD(x)              (u16)(((x & 0xff) << 8) | NFC_MC_ICMD_ID)
 #define NAND_MC_ADDR(x)             (u16)(((x & 0xff) << 8) | (NFC_MC_ADDR_ID << 4))

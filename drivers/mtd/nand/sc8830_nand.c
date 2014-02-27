@@ -769,20 +769,24 @@ STATIC_FUNC void sprd_dolphin_nand_ins_exec(struct sprd_dolphin_nand_info *dolph
 STATIC_FUNC int sprd_dolphin_nand_wait_finish(struct sprd_dolphin_nand_info *dolphin)
 {
 	unsigned int value;
-	unsigned int counter = 0;
-	while((counter < NFC_TIMEOUT_VAL/*time out*/))
-	{
+	unsigned int time = jiffies_to_usecs(jiffies);
+	unsigned int elapsed = 0;
+
+	do {
 		value = sprd_dolphin_reg_read(NFC_INT_REG);
 		if(value & INT_DONE_RAW)
 		{
 			break;
 		}
-		counter ++;
-	}
+		elapsed = jiffies_to_usecs(jiffies) - time;
+	} while(elapsed < NFC_TIMEOUT_VAL/*time out*/);
+
 	sprd_dolphin_reg_write(NFC_INT_REG, 0xf00); //clear all interrupt status
-	if(counter >= NFC_TIMEOUT_VAL)
+
+	if(elapsed >= NFC_TIMEOUT_VAL)
 	{
-        //while (1);
+		printk(KERN_ERR "sprd_dolphin_nand_wait_finish timeout %d usecs. Dump NandC Registers:  \n",elapsed);
+		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 32, 4, SPRD_NFC_BASE, 0x140, 1);
 		return -1;
 	}
 	return 0;
