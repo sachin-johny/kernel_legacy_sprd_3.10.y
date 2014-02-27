@@ -96,13 +96,13 @@ config MACH_SPX35EC
 	help
 	  SPX35EC board based on SC8830 serial.
 
-config MACH_SP8830SSW
-	bool "sp8830ssw Phone Board"
+config MACH_KANAS_W
+	bool "kanas W Phone Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	default n
 	help
-	  Samsung SP8830SSW board based on SC8830 serial.
+	  Samsung Kanas W board based on SC8830 serial.
 
 config MACH_KANAS_TD
 	bool "Kanas TD Phone Board"

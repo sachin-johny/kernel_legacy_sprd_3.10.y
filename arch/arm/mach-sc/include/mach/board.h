@@ -42,8 +42,8 @@
 #include "__board-sp7730ga.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP8830SSW
-#include "__board-sp8830ssw.h"
+#ifdef	CONFIG_MACH_KANAS_W
+#include "__board-kanas_w.h"
 #endif
 
 #ifdef	CONFIG_MACH_KANAS_TD
