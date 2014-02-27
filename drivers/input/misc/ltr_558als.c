@@ -75,7 +75,7 @@ static int LTR_PLS_MODE = 0;
 
 #ifdef LTR558_ADAPTIVE
 #define DEBOUNCE 10
-#define MIN_SPACING 50
+#define MIN_SPACING 120
 #define DIVEDE 10
 static int ps_max_filter[5] = {0};
 static int ps_min_filter[5] = {0};
