@@ -125,6 +125,10 @@
 #include "__board-young2.h"
 #endif
 
+#ifdef  CONFIG_MACH_HIGGS
+#include "__board-higgs.h"
+#endif
+
 #include <asm/sizes.h>
 
 #ifdef CONFIG_SPRD_IOMMU
