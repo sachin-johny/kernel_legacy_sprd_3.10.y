@@ -711,8 +711,8 @@ static struct headset_buttons sprd_headset_buttons[] = {
 #endif
 };
 
-#ifdef CONFIG_MACH_KANAS_W
-static int kanas_w_headmicbias_power_on(int on)
+#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
+static int kanas_headmicbias_power_on(int on)
 {
 	static int flag_gpio_request = 0;
 	int ret = 0;
@@ -747,8 +747,8 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.irq_trigger_level_button = 1,
 	.headset_buttons = sprd_headset_buttons,
 	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
-#ifdef CONFIG_MACH_KANAS_W
-	.external_headmicbias_power_on = kanas_w_headmicbias_power_on,
+#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
+	.external_headmicbias_power_on = kanas_headmicbias_power_on,
 #else
 	.external_headmicbias_power_on = NULL,
 #endif

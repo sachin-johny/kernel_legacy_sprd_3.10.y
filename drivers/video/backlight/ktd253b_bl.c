@@ -42,7 +42,7 @@
 //#include <linux/broadcom/PowerManager.h>
 
 int current_intensity;
-#ifdef CONFIG_MACH_KANAS_W
+#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
 static int backlight_pin = 214;
 #else
 static int backlight_pin = 136;
