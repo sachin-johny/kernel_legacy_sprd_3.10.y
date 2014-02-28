@@ -112,6 +112,11 @@ config FB_LCD_ILI9486_RGB_SPI
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
 	default n
 
+config FB_LCD_SC7798_RGB_SPI
+        boolean "support SC7798 rgb spi panel"
+        depends on FB_SC8825 || FB_SCX35 || FB_SCX15
+        default n
+
 config FB_LCD_ILI9341
 	boolean "support ILI9341 mcu panel"
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX15
