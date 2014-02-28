@@ -21,6 +21,7 @@ config MFD_CS5535
 config MFD_RT8973
 	tristate "Richtek RT8973 MUIC"
 	depends on I2C
+	select MFD_CORE
 	default n
 	help
 	  Support RT8973 MUIC
