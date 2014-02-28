@@ -49,7 +49,7 @@
 #define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format, adie_type, __func__, __LINE__, ## x)
 #endif
 
-#if (defined(CONFIG_MACH_KANAS_W))
+#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
 #undef SPRD_STS_POLLING_EN
 #else
 #define SPRD_STS_POLLING_EN
