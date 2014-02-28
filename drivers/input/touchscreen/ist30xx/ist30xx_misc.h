@@ -16,40 +16,44 @@
 #ifndef __IST30XX_MISC_H__
 #define __IST30XX_MISC_H__
 
+#include "ist30xx_tsp.h"
 
-#define IST30XX_SENSOR_ADDR         (0x40009000)
-#define IST30XX_RAW_ADDR            (0x40100400)
-#define IST30XX_FILTER_ADDR         (0x40100800)
+
+#define IST30XXB_RAW_ADDR           (0x40100200)
+#define IST30XXB_FILTER_ADDR        (0x40101000)
 
 #define IST30XX_RX_CNT_ADDR         (0x20000038)
 #define IST30XX_CONFIG_ADDR         (0x20000040)
 
-struct TSP_CH_INFO {
-	u8	x;
-	u8	y;
+#define NODE_FLAG_RAW               (1)
+#define NODE_FLAG_BASE              (1 << 1)
+#define NODE_FLAG_FILTER            (1 << 2)
+#define NODE_FLAG_DIFF              (1 << 3)
+#define NODE_FLAG_ALL               (0xF)
+
+struct TSP_CH_NUM {
+	u8	tx;
+	u8	rx;
 };
-struct TSP_FRAME_BUF {
-	u16	raw[20][20];
-	u16	base[20][20];
-	u16	filter[20][20];
+struct TSP_NODE_BUF {
+	u16	raw[NODE_TX_NUM][NODE_RX_NUM];
+	u16	base[NODE_TX_NUM][NODE_RX_NUM];
+	u16	filter[NODE_TX_NUM][NODE_RX_NUM];
 	u16	min_raw;
 	u16	max_raw;
 	u16	min_base;
 	u16	max_base;
-	u16	int_len;
-	u16	mod_len;
+	u16	len;
 };
 struct TSP_DIRECTION {
-	bool	txch_y;
 	bool	swap_xy;
 	bool	flip_x;
 	bool	flip_y;
 };
 typedef struct _TSP_INFO {
-	struct TSP_CH_INFO	mod;
-	struct TSP_CH_INFO	intl;
+	struct TSP_CH_NUM	ch_num;
 	struct TSP_DIRECTION	dir;
-	struct TSP_FRAME_BUF	buf;
+	struct TSP_NODE_BUF	node;
 	int			height;
 	int			width;
 	int			finger_num;
@@ -57,20 +61,19 @@ typedef struct _TSP_INFO {
 typedef struct _TKEY_INFO {
 	int	key_num;
 	bool	enable;
-	bool	tx_line;
+	bool	axis_rx;
 	u8	axis_chnum;
 	u8	ch_num[5];
 } TKEY_INFO;
 
-int ist30xx_enter_debug_mode(void);
-int ist30xx_parse_tsp_node(u16 *raw_buf, u16 *base_buf);
-int ist30xx_read_tsp_node(u16 *raw_buf, u16 *base_buf);
+int ist30xx_parse_touch_node(u8 flag, struct TSP_NODE_BUF *node);
+int ist30xx_read_touch_node(u8 flag, struct TSP_NODE_BUF *node);
 
 int ist30xx_tsp_update_info(void);
 int ist30xx_tkey_update_info(void);
 
-int ist30xx_get_tsp_info(void);
-int ist30xx_get_tkey_info(void);
+int ist30xx_get_tsp_info(struct ist30xx_data *data);
+int ist30xx_get_tkey_info(struct ist30xx_data *data);
 
 int ist30xx_init_misc_sysfs(void);
 

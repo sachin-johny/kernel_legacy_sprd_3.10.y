@@ -1168,6 +1168,20 @@ static void reg_dump_func(struct work_struct *work)
 }
 #endif
 
+/**
+ * some phone boards, when no headset plugin, the button headset_button_valid()
+ * will always return 0, so we need to disable headset_button irq in here
+ * otherwise button irq will always happen.
+ */
+volatile int headset_button_hardware_bug_fix_stage = 1;
+static void headset_button_hardware_bug_fix(struct sprd_headset *ht)
+{
+	if (headset_button_hardware_bug_fix_stage) {
+		headset_irq_button_enable(0, ht->irq_button); // disable button irq before headset detected
+		pr_err("This phone board headset button circuit has bug, please fix the hardware\n");
+	}
+}
+
 static irqreturn_t headset_button_irq_handler(int irq, void *dev)
 {
         struct sprd_headset *ht = dev;
@@ -1176,6 +1190,7 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
                 PRINT_DBG("headset_button_irq_handler: button is unvalid!!! IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                         ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
                         sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0));
+				headset_button_hardware_bug_fix(ht);
                 return IRQ_HANDLED;
         }
 
@@ -1425,6 +1440,7 @@ static int headset_detect_probe(struct platform_device *pdev)
                 goto failed_to_request_irq_headset_button;
         }
         headset_irq_button_enable(0, ht->irq_button);//disable button irq before headset detected
+		headset_button_hardware_bug_fix_stage = 0;
 
         irqflags = pdata->irq_trigger_level_detect ? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
         ret = request_irq(ht->irq_detect, headset_detect_irq_handler, irqflags | IRQF_NO_SUSPEND, "headset_detect", ht);
