@@ -397,7 +397,7 @@ LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
 	if (info->flash_status < FLASH_STATUS_MAX) {
 		DCAM_TRACE("sprd_v4l2_opt_flash, status %d \n", info->flash_status);
 		if(info->flash_status == FLASH_CLOSE_AFTER_AUTOFOCUS) {
-			do_gettimeofday(&info->timestamp);
+			v4l2_get_timestamp(&info->timestamp);
 			info->after_af = 1;
 			DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, time, %d %d \n", 
 				(int)info->timestamp.tv_sec, (int)info->timestamp.tv_usec);
@@ -418,7 +418,7 @@ LOCAL int sprd_v4l2_discard_frame(struct dcam_frame *frame, void* param)
 	uint32_t                         flag = 0;
 
 	info = &dev->dcam_cxt;
-	do_gettimeofday(&timestamp);
+	v4l2_get_timestamp(&timestamp);
 	DCAM_TRACE("DCAM: sprd_v4l2_discard_frame, time, %d %d \n", 
 		(int)timestamp.tv_sec, (int)timestamp.tv_usec);
 	if ((timestamp.tv_sec == info->timestamp.tv_sec) 
@@ -1454,7 +1454,7 @@ LOCAL int v4l2_g_parm(struct file *file,
 	streamparm->parm.capture.reserved[2] = dev->dcam_cxt.cap_in_size.w;
 	streamparm->parm.capture.reserved[3] = dev->dcam_cxt.cap_in_size.h;
 
-	do_gettimeofday(&time);
+	v4l2_get_timestamp(&time);
 	streamparm->parm.capture.timeperframe.numerator    = time.tv_sec;
 	streamparm->parm.capture.timeperframe.denominator  = time.tv_usec;
 	DCAM_TRACE("V4L2: v4l2_g_parm sec %d, usec %d \n", (int)time.tv_sec, (int)time.tv_usec);
