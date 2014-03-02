@@ -15,7 +15,7 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-
+#include <linux/export.h>
 #include <asm/io.h>
 #include <asm/setup.h>
 #include <asm/mach/time.h>
@@ -56,6 +56,9 @@
 #include <linux/st480.h>
 #endif
 #include <linux/irq.h>
+#include <linux/err.h>
+#include <linux/switch.h>
+#include <linux/i2c-gpio.h>
 
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
@@ -118,6 +121,9 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
+#ifdef CONFIG_MFD_RT8973
+static struct platform_device rt8973_mfd_device_i2cadaptor;
+#endif
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -174,10 +180,10 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
 #endif
-
+#ifdef CONFIG_BT_BCM4330
 	&rfkill_device,
 	&brcm_bluesleep_device,
-
+#endif
 #ifdef CONFIG_SIPC_TD
 	&sprd_cproc_td_device,
 	&sprd_spipe_td_device,
@@ -206,12 +212,53 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&kb_backlight_device,
 	&sprd_a7_pmu_device,
-#ifdef  CONFIG_RF_SHARK
-	&trout_fm_device,
+#ifdef CONFIG_MFD_RT8973
+	&rt8973_mfd_device_i2cadaptor,
 #endif
 	&sprd_headset_device,
 	&sprd_saudio_voip_device,
 };
+/*
+int current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+EXPORT_SYMBOL(current_cable_type);
+*/
+#ifdef CONFIG_MFD_RT8973
+static struct i2c_gpio_platform_data rt8973_i2cadaptor_data = {
+	.sda_pin = GPIO_MUIC_SDA,
+	.scl_pin = GPIO_MUIC_SCL,
+	.udelay  = 10,
+	.timeout = 0,
+};
+
+static struct platform_device rt8973_mfd_device_i2cadaptor = {
+	.name   = "i2c-gpio",
+	.id     = 7,
+	.dev	= {
+		.platform_data = &rt8973_i2cadaptor_data,
+	}
+};
+
+#include <linux/mfd/rt8973.h>
+static struct rt8973_platform_data rt8973_pdata = {
+    .irq_gpio = GPIO_MUIC_IRQ,
+    .cable_chg_callback = NULL,
+    .usb_callback = NULL,
+    .ocp_callback = NULL,
+    .otp_callback = NULL,
+    .ovp_callback = NULL,
+    .usb_callback = NULL,
+    .uart_callback = NULL,
+    .otg_callback = NULL,
+    .jig_callback = NULL,
+};
+
+static struct i2c_board_info rtmuic_i2c_boardinfo[] __initdata = {
+    {
+        I2C_BOARD_INFO("rt8973", 0x28 >> 1),
+        .platform_data = &rt8973_pdata,
+    },
+};
+#endif /*CONFIG_MFD_RT8973*/
 
 static struct platform_device *late_devices[] __initdata = {
 	/* 1. CODECS */
@@ -343,7 +390,7 @@ static int gps_enable_control(int flag)
         printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
 
 		if (flag && (!f_enabled)) {
-                      gps_regulator = regulator_get(NULL, "v_gps_1.8v");
+                      gps_regulator = regulator_get(NULL, "vddcammot");
                       if (IS_ERR(gps_regulator)) {
                                    gps_regulator = NULL;
                                    return EIO;
@@ -703,6 +750,9 @@ static int sc8810_add_i2c_devices(void)
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 #if 0
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
+#endif
+#ifdef CONFIG_MFD_RT8973
+	i2c_register_board_info(7, rtmuic_i2c_boardinfo, ARRAY_SIZE(rtmuic_i2c_boardinfo));
 #endif
 	return 0;
 }

@@ -57,7 +57,7 @@
 
 #define EIC_KEY_POWER           (EIC_POWER_PBINT)
 #define HEADSET_BUTTON_GPIO		(EIC_AUD_HEAD_BUTTON)
-#define HEADSET_DETECT_GPIO		(EIC_AUD_HEAD_INST2)
+#define HEADSET_DETECT_GPIO		180 //(EIC_AUD_HEAD_INST2)
 #define HEADSET_SWITCH_GPIO	0
 
 #define SPI0_CMMB_CS_GPIO        156
@@ -89,6 +89,10 @@
 #define GPIO_M_DRDY 189
 
 #define GPIO_SDIO_DETECT      75
+
+#define GPIO_MUIC_SDA   174
+#define GPIO_MUIC_SCL   173
+#define GPIO_MUIC_IRQ   108
 
 /* ION config info
 LCD:
