@@ -442,9 +442,12 @@ static int dfm_startup(struct snd_pcm_substream *substream,
 	kfree(snd_soc_dai_get_dma_data(dai, substream));
 	snd_soc_dai_set_dma_data(dai, substream, NULL);
 
+	snd_soc_dapm_enable_pin(&dai->codec->dapm, "DFM");
+	snd_soc_dapm_sync(&dai->codec->dapm);
 	for (i = 0; i < card->num_rtd; i++) {
 		card->rtd[i].dai_link->ignore_suspend = 1;
 	}
+	snd_soc_dapm_ignore_suspend(&dai->codec->dapm, "DFM");
 
 	return 0;
 }
@@ -456,6 +459,8 @@ static void dfm_shutdown(struct snd_pcm_substream *substream,
 	int i;
 	sp_asoc_pr_dbg("%s\n", __func__);
 
+	snd_soc_dapm_disable_pin(&dai->codec->dapm, "DFM");
+	snd_soc_dapm_sync(&dai->codec->dapm);
 	for (i = 0; i < card->num_rtd; i++) {
 		card->rtd[i].dai_link->ignore_suspend = 0;
 	}

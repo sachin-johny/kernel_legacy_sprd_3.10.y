@@ -443,7 +443,7 @@ static int dfm_event(struct snd_soc_dapm_widget *w,
 
 	sp_asoc_pr_dbg("%s Event is %s\n", __func__, get_event_name(event));
 	switch (event) {
-	case SND_SOC_DAPM_PRE_PMU:
+	case SND_SOC_DAPM_POST_PMU:
 		fm_set_vbc_buffer_size();	/*No use in FM function, just for debug VBC */
 		vbc_try_st_dg_set(vbc_codec, VBC_LEFT);
 		vbc_try_st_dg_set(vbc_codec, VBC_RIGHT);
@@ -661,8 +661,8 @@ static const struct snd_soc_dapm_widget vbc_codec_dapm_widgets[] = {
 			   VBDAPATH_DA0_ADDFM_SHIFT, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("DA1 FM Mixer", 4, SOC_REG(DAPATCHCTL),
 			   VBDAPATH_DA1_ADDFM_SHIFT, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("DFM", 6, SND_SOC_NOPM, 0, 0, dfm_event,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+
+	SND_SOC_DAPM_LINE("DFM", dfm_event),
 
 	/*VBC Chan Switch */
 	SND_SOC_DAPM_PGA_S("DA0 Switch", 5, FUN_REG(VBC_PLAYBACK), VBC_LEFT, 0,
