@@ -50,7 +50,7 @@ u32 sci_get_chip_id(void)
 
 u32 sci_get_ana_chip_id(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX35)
 	return (u32)sci_adi_read(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
 		(u32)(sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW) & ~MASK_ANA_VER);
 #else
@@ -60,7 +60,7 @@ u32 sci_get_ana_chip_id(void)
 
 int sci_get_ana_chip_ver(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX35)
 	return ((u32)sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW) & MASK_ANA_VER);
 #else
 	return 0;

@@ -43,6 +43,7 @@ enum sci_ana_chip_ver {
 	SC2711AB = 0x000,	/* discard */
 	SC2711AC = 0x002,
 	SC2711BA = 0x100,
+	SC2713CA = 0xA00,
 	//TODO: Add more ana chip version here
 };
 
