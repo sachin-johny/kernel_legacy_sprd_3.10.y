@@ -83,7 +83,8 @@ static inline const char *sprd_codec_chan_get_name(int chan_id)
 }
 
 enum {
-	SPRD_CODEC_PGA_SPKL = 0,
+	SPRD_CODEC_PGA_START = 0,
+	SPRD_CODEC_PGA_SPKL = SPRD_CODEC_PGA_START,
 	SPRD_CODEC_PGA_SPKR,
 	SPRD_CODEC_PGA_HPL,
 	SPRD_CODEC_PGA_HPR,
@@ -98,9 +99,11 @@ enum {
 	SPRD_CODEC_PGA_AIL,
 	SPRD_CODEC_PGA_AIR,
 
-	SPRD_CODEC_PGA_MAX
+	SPRD_CODEC_PGA_END
 };
 
+#define GET_PGA_ID(x)   ((x)-SPRD_CODEC_PGA_START)
+#define SPRD_CODEC_PGA_MAX  (SPRD_CODEC_PGA_END - SPRD_CODEC_PGA_START)
 static const char *sprd_codec_pga_debug_str[SPRD_CODEC_PGA_MAX] = {
 	"SPKL",
 	"SPKR",
@@ -136,7 +139,7 @@ enum {
 };
 
 enum {
-	SPRD_CODEC_MIXER_START = 0,
+	SPRD_CODEC_MIXER_START = SPRD_CODEC_PGA_END + 20,
 	SPRD_CODEC_AIL = SPRD_CODEC_MIXER_START,
 	SPRD_CODEC_AIR,
 	SPRD_CODEC_MAIN_MIC,
@@ -158,9 +161,11 @@ enum {
 	SPRD_CODEC_EAR_DACL = SPRD_CODEC_SPK_MIXER_MAX,
 	SPRD_CODEC_EAR_MIXER_MAX,
 
-	SPRD_CODEC_MIXER_MAX = SPRD_CODEC_EAR_MIXER_MAX << SPRD_CODEC_RIGHT
+	SPRD_CODEC_MIXER_END
 };
 
+#define GET_MIXER_ID(x)    ((x)-ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT))
+#define SPRD_CODEC_MIXER_MAX (ID_FUN(SPRD_CODEC_MIXER_END, SPRD_CODEC_LEFT) -ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT))
 static const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
 	"AIL->ADCL",
 	"AIL->ADCR",
@@ -192,7 +197,9 @@ static const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
 	"DACR->EAR(bug)"
 };
 
-#define IS_SPRD_CODEC_MIXER_RANG(reg) (((reg) >= SPRD_CODEC_MIXER_START) && ((reg) <= SPRD_CODEC_MIXER_MAX))
+#define IS_SPRD_CODEC_MIXER_RANG(reg) (((reg) >= ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT)) && ((reg) <= ID_FUN(SPRD_CODEC_MIXER_END, SPRD_CODEC_LEFT)))
+#define IS_SPRD_CODEC_PGA_RANG(reg) (((reg) >= SPRD_CODEC_PGA_START) && ((reg) <= SPRD_CODEC_PGA_END))
+#define IS_SPRD_CODEC_MIC_BIAS_RANG(reg) (((reg) >= SPRD_CODEC_MIC_BIAS_START) && ((reg) <= SPRD_CODEC_MIC_BIAS_END))
 
 typedef int (*sprd_codec_mixer_set) (struct snd_soc_codec * codec, int on);
 struct sprd_codec_mixer {
@@ -278,12 +285,17 @@ struct sprd_codec_hp_pa_setting {
 };
 
 enum {
-	SPRD_CODEC_MIC_BIAS,
+	SPRD_CODEC_MIC_BIAS_START =
+	    ID_FUN(SPRD_CODEC_MIXER_END, SPRD_CODEC_LEFT) + 100,
+	SPRD_CODEC_MIC_BIAS = SPRD_CODEC_MIC_BIAS_START,
 	SPRD_CODEC_AUXMIC_BIAS,
 	SPRD_CODEC_HEADMIC_BIAS,
-	SPRD_CODEC_MIC_BIAS_MAX
+
+	SPRD_CODEC_MIC_BIAS_END
 };
 
+#define GET_MIC_BIAS_ID(x)   ((x)-SPRD_CODEC_MIC_BIAS_START)
+#define SPRD_CODEC_MIC_BIAS_MAX (SPRD_CODEC_MIC_BIAS_END -SPRD_CODEC_MIC_BIAS_START)
 static const char *mic_bias_name[SPRD_CODEC_MIC_BIAS_MAX] = {
 	"Mic Bias",
 	"AuxMic Bias",
@@ -1604,7 +1616,7 @@ static int _mixer_set_mixer(struct snd_soc_codec *codec, int id, int lr,
 			    int try_on, int need_set)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int reg = ID_FUN(id, lr);
+	int reg = GET_MIXER_ID(ID_FUN(id, lr));
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[reg]);
 	if (try_on) {
 		mixer->set = mixer_setting[reg];
@@ -1955,7 +1967,7 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int id = FUN_REG(w->reg);
+	int id = GET_PGA_ID(FUN_REG(w->reg));
 	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[id]);
 	int ret = 0;
 	int min = sprd_codec_pga_cfg[id].min;
@@ -1986,7 +1998,7 @@ static int ana_loop_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int id = FUN_REG(w->reg);
+	int id = GET_MIXER_ID(FUN_REG(w->reg));
 	struct sprd_codec_mixer *mixer;
 	int ret = 0;
 	static int s_need_wait = 1;
@@ -2031,15 +2043,16 @@ static int mic_bias_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int id = FUN_REG(w->reg);
+	int reg = FUN_REG(w->reg);
 	int ret = 0;
 	int on = ! !SND_SOC_DAPM_EVENT_ON(event);
 	struct regulator **regu;
 
 	sp_asoc_pr_dbg("%s %s Event is %s\n", __func__,
-		       mic_bias_name[id], get_event_name(event));
+		       mic_bias_name[GET_MIC_BIAS_ID(reg)],
+		       get_event_name(event));
 
-	switch (id) {
+	switch (reg) {
 	case SPRD_CODEC_MIC_BIAS:
 		regu = &sprd_codec->main_mic;
 		break;
@@ -2064,7 +2077,7 @@ static int mixer_event(struct snd_soc_dapm_widget *w,
 {
 	struct snd_soc_codec *codec = w->codec;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int id = FUN_REG(w->reg);
+	int id = GET_MIXER_ID(FUN_REG(w->reg));
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
@@ -2096,7 +2109,7 @@ static int mixer_get(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int id = FUN_REG(mc->reg);
+	int id = GET_MIXER_ID(FUN_REG(mc->reg));
 	ucontrol->value.integer.value[0] = sprd_codec->mixer[id].on;
 	return 0;
 }
@@ -2109,7 +2122,7 @@ static int mixer_need_set(struct snd_kcontrol *kcontrol,
 	struct snd_soc_dapm_widget_list *wlist = snd_kcontrol_chip(kcontrol);
 	struct snd_soc_codec *codec = wlist->widgets[0]->codec;
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int id = FUN_REG(mc->reg);
+	int id = GET_MIXER_ID(FUN_REG(mc->reg));
 	struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 	int ret = 0;
 
@@ -2123,7 +2136,6 @@ static int mixer_need_set(struct snd_kcontrol *kcontrol,
 	snd_soc_dapm_put_volsw(kcontrol, ucontrol);
 
 	/*update reg: must be set after snd_soc_dapm_put_enum_double->change = snd_soc_test_bits(widget->codec, e->reg, mask, val); */
-	mixer->on = ucontrol->value.integer.value[0];
 
 	if (mixer->set && need_set)
 		ret = mixer->set(codec, mixer->on);
@@ -2653,15 +2665,15 @@ static int sprd_codec_vol_put(struct snd_kcontrol *kcontrol,
 	    (struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	unsigned int reg = FUN_REG(mc->reg);
+	unsigned int id = GET_PGA_ID(FUN_REG(mc->reg));
 	int max = mc->max;
 	unsigned int mask = (1 << fls(max)) - 1;
 	unsigned int invert = mc->invert;
 	unsigned int val;
-	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[reg]);
+	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[id]);
 	int ret = 0;
 
-	sp_asoc_pr_info("Set PGA[%s] to %ld\n", sprd_codec_pga_debug_str[reg],
+	sp_asoc_pr_info("Set PGA[%s] to %ld\n", sprd_codec_pga_debug_str[id],
 			ucontrol->value.integer.value[0]);
 
 	val = (ucontrol->value.integer.value[0] & mask);
@@ -2681,10 +2693,10 @@ static int sprd_codec_vol_get(struct snd_kcontrol *kcontrol,
 	    (struct soc_mixer_control *)kcontrol->private_value;
 	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	unsigned int reg = FUN_REG(mc->reg);
+	unsigned int id = GET_PGA_ID(FUN_REG(mc->reg));
 	int max = mc->max;
 	unsigned int invert = mc->invert;
-	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[reg]);
+	struct sprd_codec_pga_op *pga = &(sprd_codec->pga[id]);
 
 	ucontrol->value.integer.value[0] = pga->pgaval;
 	if (invert) {
@@ -2810,7 +2822,7 @@ static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
 	unsigned int invert = mc->invert;
 	unsigned int val;
 	int ret = 0;
-	int id = reg;
+	int id = GET_MIC_BIAS_ID(reg);
 
 	val = (ucontrol->value.integer.value[0] & mask);
 
@@ -2849,7 +2861,7 @@ static int sprd_codec_mic_bias_get(struct snd_kcontrol *kcontrol,
 	unsigned int reg = FUN_REG(mc->reg);
 	int max = mc->max;
 	unsigned int invert = mc->invert;
-	int id = reg;
+	int id = GET_MIC_BIAS_ID(reg);
 
 	ucontrol->value.integer.value[0] = sprd_codec->mic_bias[id];
 	if (invert) {
@@ -2933,12 +2945,14 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 	} else if (IS_SPRD_CODEC_MIXER_RANG(FUN_REG(reg))) {
 		struct sprd_codec_priv *sprd_codec =
 		    snd_soc_codec_get_drvdata(codec);
-		int id = FUN_REG(reg);
+		int id = GET_MIXER_ID(FUN_REG(reg));
 		struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
 		return mixer->on;
-	}
-
-	sp_asoc_pr_dbg("read the register is not codec's reg = 0x%x\n", reg);
+	} else if (IS_SPRD_CODEC_PGA_RANG(FUN_REG(reg))) {
+	} else if (IS_SPRD_CODEC_MIC_BIAS_RANG(FUN_REG(reg))) {
+	} else
+		sp_asoc_pr_dbg("read the register is not codec's reg = 0x%x\n",
+			       reg);
 	return 0;
 }
 
@@ -2959,8 +2973,17 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 			       reg & 0xFFFF, val,
 			       __raw_readl((void __iomem *)reg));
 		return ret;
-	}
-	sp_asoc_pr_dbg("write the register is not codec's reg = 0x%x\n", reg);
+	} else if (IS_SPRD_CODEC_MIXER_RANG(FUN_REG(reg))) {
+		struct sprd_codec_priv *sprd_codec =
+		    snd_soc_codec_get_drvdata(codec);
+		int id = GET_MIXER_ID(FUN_REG(reg));
+		struct sprd_codec_mixer *mixer = &(sprd_codec->mixer[id]);
+		mixer->on = val ? 1 : 0;
+	} else if (IS_SPRD_CODEC_PGA_RANG(FUN_REG(reg))) {
+	} else if (IS_SPRD_CODEC_MIC_BIAS_RANG(FUN_REG(reg))) {
+	} else
+		sp_asoc_pr_dbg("write the register is not codec's reg = 0x%x\n",
+			       reg);
 	return ret;
 }
 
@@ -3158,8 +3181,8 @@ static void sprd_codec_power_changed(struct power_supply *psy)
 }
 
 static int sprd_codec_power_get_property(struct power_supply *psy,
-				   enum power_supply_property psp,
-				   union power_supply_propval *val)
+					 enum power_supply_property psp,
+					 union power_supply_propval *val)
 {
 	return -EINVAL;
 }
