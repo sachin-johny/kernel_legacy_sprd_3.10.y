@@ -278,6 +278,22 @@ static struct tty_ldisc *tty_ldisc_try(struct tty_struct *tty)
 	return ld;
 }
 
+struct tty_ldisc *tty_ldisc_try_sprd(struct tty_struct *tty)
+{
+	unsigned long flags;
+	struct tty_ldisc *ld;
+
+	/* FIXME: this allows reference acquire after TTY_LDISC is cleared */
+	raw_spin_lock_irqsave(&tty_ldisc_lock, flags);
+	ld = NULL;
+	if (test_bit(TTY_LDISC, &tty->flags) && tty->ldisc) {
+		ld = tty->ldisc;
+	}
+	raw_spin_unlock_irqrestore(&tty_ldisc_lock, flags);
+	return ld;
+}
+EXPORT_SYMBOL_GPL(tty_ldisc_try_sprd);
+
 /**
  *	tty_ldisc_ref_wait	-	wait for the tty ldisc
  *	@tty: tty device
@@ -801,6 +817,8 @@ void tty_ldisc_hangup(struct tty_struct *tty)
 	struct tty_ldisc *ld;
 	int reset = tty->driver->flags & TTY_DRIVER_RESET_TERMIOS;
 	int err = 0;
+
+	printk(KERN_ERR,"[TTY_DEBUG tty_ldisc_hangup]pid %d\n",current->pid);
 
 	tty_ldisc_debug(tty, "closing ldisc: %p\n", tty->ldisc);
 

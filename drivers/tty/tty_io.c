@@ -2109,6 +2109,7 @@ err_file:
 }
 
 
+struct tty_ldisc *tty_ldisc_try_sprd(struct tty_struct *tty);
 
 /**
  *	tty_poll	-	check tty status
@@ -2131,9 +2132,13 @@ static unsigned int tty_poll(struct file *filp, poll_table *wait)
 	if (tty_paranoia_check(tty, file_inode(filp), "tty_poll"))
 		return 0;
 
+	printk(KERN_ERR"[TTY_DEBUG tty_poll]pid %d\n",current->pid);
+
 	ld = tty_ldisc_ref_wait(tty);
 	if (ld->ops->poll)
 		ret = (ld->ops->poll)(tty, filp, wait);
+
+	ld = tty_ldisc_try_sprd(tty);
 	tty_ldisc_deref(ld);
 	return ret;
 }
