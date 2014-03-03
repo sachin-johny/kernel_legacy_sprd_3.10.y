@@ -70,7 +70,7 @@
 #endif
 
 #include <mach/i2s.h>
-#include <linux/i2c/mms_ts.h>
+#include <linux/input/mms134s.h>
 
 // gps for marvell
 #include <linux/proc_fs.h>
@@ -323,7 +323,7 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
-static void mms_ts_vdd_enable(bool on)
+static void mms_vdd_enable(bool on)
 {
 	static struct regulator *ts_vdd = NULL;
 
@@ -384,11 +384,7 @@ static int gps_enable_control(int flag)
         printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
 		
         if (flag && (!f_enabled)) {
-#ifdef CONFIG_TSP_0_1_A
                       gps_regulator = regulator_get(NULL, "vddcammot");
-#else
-                      gps_regulator = regulator_get(NULL, "vddcon");
-#endif
 					  gps_regulator_rf0 = regulator_get(NULL, "vddrf0"); 
                       if (IS_ERR(gps_regulator)||IS_ERR(gps_regulator_rf0)) {
                                    gps_regulator = NULL;
@@ -614,7 +610,7 @@ static void create_sirf_proc_file(void)
 #endif
 // GPS for marvell
 
-const u8	mms_ts_keycode[] = {KEY_MENU, KEY_BACK};
+const u8	mms_keycode[] = {KEY_MENU, KEY_BACK};
 
 #ifdef CONFIG_TOUCHSCREEN_IST30XXB
 static struct tsp_dev_info ist30xx_info = {
@@ -696,15 +692,15 @@ static struct mpu_platform_data mpu9150_platform_data = {
 			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
 };
 #endif
-static struct mms_ts_platform_data mms_ts_info = {
+static struct mms_platform_data mms_info = {
 	.max_x = 480,
 	.max_y = 800,
 	.use_touchkey = 1,
-	.touchkey_keycode = mms_ts_keycode,
+	.touchkey_keycode = mms_keycode,
 	.gpio_sda = 74,
 	.gpio_scl = 73,
 	.gpio_int = 82,
-	.vdd_on = mms_ts_vdd_enable,
+	.vdd_on = mms_vdd_enable,
 	.tkey_led_vdd_on = touchkey_led_vdd_enable
 };
 static struct i2c_board_info i2c0_boardinfo[] = {
@@ -714,8 +710,8 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{
-		I2C_BOARD_INFO("mms_ts", 0x48),
-		.platform_data = &mms_ts_info
+		I2C_BOARD_INFO("mms134s", 0x48),
+		.platform_data = &mms_info
 	},
 };
 
