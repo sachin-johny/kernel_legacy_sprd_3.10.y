@@ -18,3 +18,5 @@ obj-$(CONFIG_FB_LCD_ILI9341) += lcd_ili9341.o
 obj-$(CONFIG_FB_LCD_ST7789V_MCU)  += lcd_st7789v_mcu.o
 obj-$(CONFIG_FB_LCD_NT35502_MIPI) += lcd_nt35502_mipi.o
 obj-$(CONFIG_FB_LCD_VIVA_RGB_SPI) += lcd_hx8363_rgb_spi_viva.o
+obj-$(CONFIG_FB_LCD_SC7798_RGB_SPI) += lcd_sc7798_rgb_spi.o
+
