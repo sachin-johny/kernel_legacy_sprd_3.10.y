@@ -51,7 +51,6 @@ static const struct snd_soc_dapm_route vbc_r1p0_codec_v1_map[] = {
 	{"Aud input", NULL, "Digital ADCL Switch"},
 	{"Aud input", NULL, "Digital ADCR Switch"},
 
-	{"DFM-OUT", NULL, "DFM"},
 };
 
 static struct snd_soc_dai_link vbc_r1p0_codec_v1_dai[] = {

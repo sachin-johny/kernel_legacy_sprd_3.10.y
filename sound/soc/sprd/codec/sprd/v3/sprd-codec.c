@@ -2283,7 +2283,7 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0,
 			   chan_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_DAC_E("DFM-OUT", "DFM-Playback",
+	SND_SOC_DAPM_DAC_E("DFM-OUT", "DFM-Output",
 			   SND_SOC_NOPM, 0,
 			   0,
 			   dfm_out_event,
@@ -3267,7 +3267,7 @@ static struct snd_soc_dai_driver sprd_codec_dai[] = {
 	{
 	 .name = "sprd-codec-v3-fm",
 	 .playback = {
-		      .stream_name = "DFM-Playback",
+		      .stream_name = "DFM-Output",
 		      .channels_min = 1,
 		      .channels_max = 2,
 		      .rates = SPRD_CODEC_PCM_RATES,

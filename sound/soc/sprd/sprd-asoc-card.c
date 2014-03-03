@@ -468,7 +468,7 @@ static int board_late_probe(struct snd_soc_card *card)
 				    "Main-Capture-Vaudio");
 	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm,
 				    "Ext-Capture-Vaudio");
-	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm, "DFM-Playback");
+	snd_soc_dapm_ignore_suspend(&card->rtd->codec->dapm, "DFM-Output");
 	return 0;
 }
 

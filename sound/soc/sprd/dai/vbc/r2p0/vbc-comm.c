@@ -175,8 +175,13 @@ static inline int vbc_da_enable_raw(int enable, int chan)
 
 static inline int vbc_ad_enable_raw(int enable, int chan)
 {
-	vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBADCHEN_SHIFT + chan)),
-		       (1 << (VBADCHEN_SHIFT + chan)));
+	if (enable) {
+		vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBADCHEN_SHIFT + chan)),
+			(1 << (VBADCHEN_SHIFT + chan)));
+	} else {
+		pr_info("Not close ad%d chan!", (chan ? 1:0));
+	}
+
 	return 0;
 }
 
@@ -256,9 +261,11 @@ static int vbc_chan_enable(int enable, int vbc_idx, int chan)
 	return 0;
 }
 
+static DEFINE_MUTEX(vbc_mutex);
 static int vbc_enable(int enable)
 {
 	atomic_t *vbc_on = &vbc_refcnt.vbc_on;
+	mutex_lock(&vbc_mutex);
 	if (enable) {
 		atomic_inc(vbc_on);
 		if (atomic_read(vbc_on) == 1) {
@@ -285,6 +292,7 @@ static int vbc_enable(int enable)
 			atomic_set(vbc_on, 0);
 		}
 	}
+	mutex_unlock(&vbc_mutex);
 
 	sp_asoc_pr_dbg("VBC EN REF: %d", atomic_read(vbc_on));
 	return 0;
