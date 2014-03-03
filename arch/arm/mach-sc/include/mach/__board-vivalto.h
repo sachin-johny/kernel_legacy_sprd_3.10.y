@@ -90,6 +90,10 @@
 
 #define GPIO_SDIO_DETECT      75
 
+#define GPIO_MUIC_SDA   49
+#define GPIO_MUIC_SCL   51
+#define GPIO_MUIC_IRQ   48
+
 /* ION config info
 LCD:
    960x540
