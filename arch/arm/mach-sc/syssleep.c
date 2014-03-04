@@ -32,9 +32,15 @@ static int syssleep_read_proc(char *page, char **start, off_t off,
 static int syssleep_write_proc(struct file *file, const char __user *buffer,
 			   unsigned long count, void *data)
 {
-    sci_glb_write(REG_PMU_APB_CP_SOFT_RST,0x7,-1UL);
-    msleep(1000);
-    sci_glb_write(REG_PMU_APB_CP_SOFT_RST,0x6,-1UL);
+    sci_glb_write(REG_PMU_APB_PD_CP0_ARM9_0_CFG, BIT(24) | BIT(25), -1UL);
+    sci_glb_write(REG_PMU_APB_PD_CP0_HU3GE_CFG, BIT(24) | BIT(25), -1UL);
+    sci_glb_write(REG_PMU_APB_PD_CP0_GSM_CFG, BIT(24) | BIT(25), -1UL);
+    sci_glb_write(REG_PMU_APB_PD_CP0_L1RAM_CFG, BIT(24) | BIT(25), -1UL);
+    sci_glb_write(REG_PMU_APB_PD_CP0_SYS_CFG, BIT(25) | BIT(28), -1UL);
+
+    //sci_glb_write(REG_PMU_APB_CP_SOFT_RST,0x7,-1UL);
+    //msleep(1000);
+    //sci_glb_write(REG_PMU_APB_CP_SOFT_RST,0x6,-1UL);
     return count;
 }
 
