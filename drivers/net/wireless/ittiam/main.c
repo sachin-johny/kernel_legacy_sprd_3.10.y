@@ -711,8 +711,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to regitster net_dev (%d)\n", ret);
 		goto err_register_netdev;
 	}
-	/*FIXME make sure change_virtual_intf happen */
-	priv->wdev->iftype = NL80211_IFTYPE_UNSPECIFIED;
 
 	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
 
