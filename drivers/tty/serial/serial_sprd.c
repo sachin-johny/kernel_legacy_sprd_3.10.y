@@ -147,6 +147,13 @@ static struct wake_lock uart_rx_lock;	// UART0  RX  IRQ
 static bool is_uart_rx_wakeup;
 static struct serial_data plat_data;
 
+#define CONFIG_SERIAL_DEBUG 0
+#if CONFIG_SERIAL_DEBUG
+static void serial_debug_save(int idx, void *data, size_t len);
+#else
+static void inline serial_debug_save(int idx, void *data, size_t len) { };
+#endif
+
 static inline unsigned int serial_in(struct uart_port *port, int offset)
 {
 	return __raw_readl(port->membase + offset);
@@ -279,7 +286,7 @@ static inline void serial_sprd_rx_chars(int irq, void *dev_id)
 		}
 		if (uart_handle_sysrq_char(port, ch))
 			goto ignore_char;
-
+		serial_debug_save(port, &ch, 1);
 		uart_insert_char(port, lsr, UART_LSR_OE, ch, flag);
 ignore_char:
 		status = serial_in(port, ARM_UART_STS1);
@@ -1138,6 +1145,82 @@ static struct platform_driver serial_sprd_driver = {
 		   },
 };
 
+#if CONFIG_SERIAL_DEBUG
+#include <linux/seq_file.h>
+#include <linux/proc_fs.h>
+#define SERIAL_DEBUG_BUF_SIZE (2*1024*1024)
+static void *serial_debug_buf;
+static volatile int serial_debug_buf_idx;
+static int serial_debug_buf_count;
+static void serial_debug_save(int idx, void *data, size_t len)
+{
+	/* if (idx == 1) */ {
+		if (serial_debug_buf_idx + len < serial_debug_buf_count) {
+			memcpy(serial_debug_buf + serial_debug_buf_idx, data, len);
+			serial_debug_buf_idx += len;
+			// seq_write(serial_seq_m, data, len);
+		} else {
+			pr_err("serial debug buffer is full\n");
+		}
+	}
+}
+
+static int show_serial(struct seq_file *p, void *v)
+{
+	pr_info("read serial debug buffer %d\n", serial_debug_buf_idx);
+	p->count = serial_debug_buf_idx;
+	barrier();
+	serial_debug_buf_idx = 0;
+	pr_info("clear serial debug buffer\n");
+	return 0;
+}
+
+static int single_release_serial(struct inode *inode, struct file *file)
+{
+	struct seq_file *m = file->private_data;
+	m->buf = NULL;
+	single_release(inode, file);
+	serial_debug_buf_idx = 0;
+	pr_info("clear serial debug buffer\n");
+}
+
+static int serial_open(struct inode *inode, struct file *file)
+{
+	struct seq_file *m;
+	int res;
+
+	res = single_open(file, show_serial, NULL);
+	if (!res) {
+		m = file->private_data;
+		m->buf = serial_debug_buf;
+		m->size = SERIAL_DEBUG_BUF_SIZE;
+	}
+
+	return res;
+}
+
+static const struct file_operations proc_serial_operations = {
+	.open		= serial_open,
+	.read		= seq_read,
+	.llseek		= seq_lseek,
+	.release	= single_release_serial,
+};
+
+static void serial_debug_init(void)
+{
+	int nr_pages = SERIAL_DEBUG_BUF_SIZE >> PAGE_SHIFT;
+	struct page *pages;
+
+	pages = alloc_pages(GFP_KERNEL, order_base_2(nr_pages));
+	serial_debug_buf = page_address(pages);
+	serial_debug_buf_count = nr_pages << PAGE_SHIFT;
+
+	proc_create("serial_debug", 0, NULL, &proc_serial_operations);
+}
+#else
+static void serial_debug_init(void) { };
+#endif
+
 static int __init serial_sprd_init(void)
 {
 	int ret = 0;
@@ -1149,6 +1232,8 @@ static int __init serial_sprd_init(void)
 	ret = platform_driver_register(&serial_sprd_driver);
 	if (unlikely(ret != 0))
 		uart_unregister_driver(&serial_sprd_reg);
+
+	serial_debug_init();
 
 	return ret;
 }

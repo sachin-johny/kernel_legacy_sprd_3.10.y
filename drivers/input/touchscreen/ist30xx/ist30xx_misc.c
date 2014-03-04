@@ -16,16 +16,20 @@
 #include <linux/i2c.h>
 #include <linux/delay.h>
 #include <linux/slab.h>
+#include <linux/firmware.h>
+
+/* Including the definition of S_IRWXUGO */
+// Can use S_IRUGO for better security. Verify the same.
 #include <linux/stat.h>
 
-#include <linux/input/ist30xx.h>
+#include "ist30xx.h"
 #include "ist30xx_update.h"
 #include "ist30xx_misc.h"
 
-#define TSP_CH_SCREEN   (1)
-#define TSP_CH_KEY      (2)
+#define TSP_CH_SCREEN       (1)
+#define TSP_CH_KEY          (2)
 
-#define CMD_MSG_LEN             (128)
+#define TOUCH_NODE_PARSING_DEBUG    (0)
 
 extern struct ist30xx_data *ts_data;
 
@@ -35,7 +39,6 @@ TKEY_INFO ist30xx_tkey_info;
 static u32 *ist30xx_frame_buf;
 static u32 *ist30xx_frame_rawbuf;
 static u32 *ist30xx_frame_fltbuf;
-static char cmd_msg[CMD_MSG_LEN];
 
 
 int ist30xx_tkey_update_info(void)
@@ -53,18 +56,11 @@ int ist30xx_tkey_update_info(void)
 
 	tkey->enable = ((tkey_info1 & (0xFF << 24)) ? true : false);
 	tkey->key_num = (tkey_info1 >> 16) & 0xFF;
-	tkey->axis_chnum = (tkey_info1 & 0xFF);
 	tkey->ch_num[0] = (tkey_info2 >> 24) & 0xFF;
 	tkey->ch_num[1] = (tkey_info2 >> 16) & 0xFF;
 	tkey->ch_num[2] = (tkey_info2 >> 8) & 0xFF;
 	tkey->ch_num[3] = tkey_info2 & 0xFF;
 	tkey->ch_num[4] = (tkey_info3 >> 24) & 0xFF;
-	if (ist30xx_tsp_info.dir.txch_y)
-		tkey->tx_line = ((tkey_info1 & (0x01 << 8)) ? false : true);
-	else
-		tkey->tx_line = ((tkey_info1 & (0x01 << 8)) ? true : false);
-	if (ist30xx_tsp_info.dir.swap_xy)
-		tkey->tx_line = (tkey->tx_line ? false : true);
 
 	return ret;
 }
@@ -76,452 +72,324 @@ int ist30xx_tkey_update_info(void)
 int ist30xx_tsp_update_info(void)
 {
 	int ret = 0;
-	u32 tsp_ch_num1, tsp_ch_num2, tsp_swap_info, tsp_dir;
+	u32 tsp_ch_num, tsp_swap, tsp_dir;
 	TSP_INFO *tsp = &ist30xx_tsp_info;
 
-	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_TSP_SWAP_INFO, &tsp_swap_info);
+	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_TSP_SWAP_INFO, &tsp_swap);
 	if (ret) return ret;
 
 	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_TSP_DIRECTION, &tsp_dir);
 	if (ret) return ret;
 
-	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_TSP_CHNUM1, &tsp_ch_num1);
-	if (ret || !tsp_ch_num1) return ret;
-
-	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_TSP_CHNUM2, &tsp_ch_num2);
-	if (ret || !tsp_ch_num2) return ret;
+	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_TSP_CHNUM1, &tsp_ch_num);
+	if (ret || !tsp_ch_num) return ret;
 
 	tsp->finger_num = IST30XX_MAX_MT_FINGERS;
 
-	tsp->intl.x = tsp_ch_num1 >> 16;
-	tsp->intl.y = tsp_ch_num1 & 0xFFFF;
-	tsp->mod.x = tsp_ch_num2 >> 16;
-	tsp->mod.y = tsp_ch_num2 & 0xFFFF;
+	tsp->ch_num.rx = tsp_ch_num >> 16;
+	tsp->ch_num.tx = tsp_ch_num & 0xFFFF;
 
-	tsp->dir.txch_y = (tsp_dir & 1 ? true : false);
-	tsp->dir.swap_xy = (tsp_swap_info & TSP_INFO_SWAP_XY ? 1 : 0);
-	tsp->dir.flip_x = (tsp_swap_info & TSP_INFO_FLIP_X ? 1 : 0);
-	tsp->dir.flip_y = (tsp_swap_info & TSP_INFO_FLIP_Y ? 1 : 0);
+	tsp->dir.swap_xy = (tsp_swap & TSP_INFO_SWAP_XY ? true : false);
+	tsp->dir.flip_x = (tsp_swap & TSP_INFO_FLIP_X ? true : false);
+	tsp->dir.flip_y = (tsp_swap & TSP_INFO_FLIP_Y ? true : false);
 
-	tsp->buf.int_len = tsp->intl.x * tsp->intl.y;
-	tsp->buf.mod_len = tsp->mod.x * tsp->mod.y;
-	tsp->height = (tsp->dir.swap_xy ? tsp->mod.x : tsp->mod.y);
-	tsp->width = (tsp->dir.swap_xy ? tsp->mod.y : tsp->mod.x);
+	tsp->node.len = tsp->ch_num.tx * tsp->ch_num.rx;
+	tsp->height = (tsp->dir.swap_xy ? tsp->ch_num.rx : tsp->ch_num.tx);
+	tsp->width = (tsp->dir.swap_xy ? tsp->ch_num.tx : tsp->ch_num.rx);
 
 	return ret;
 }
 
 
-int ist30xx_check_valid_ch(int width, int height)
+int ist30xx_check_valid_ch(int ch_tx, int ch_rx)
 {
-	int w, h;
 	TKEY_INFO *tkey = &ist30xx_tkey_info;
+	TSP_INFO *tsp = &ist30xx_tsp_info;
 
-	if (tkey->tx_line) {
-		w = width; h = height;
-	} else {
-		w = height; h = width;
-	}
+	if ((ch_tx > tsp->ch_num.tx) || (ch_rx > tsp->ch_num.rx))
+		return 0;
 
 	if (tkey->enable) {
-		if (h == tkey->axis_chnum) {
-			if ((w == tkey->ch_num[0]) || (w == tkey->ch_num[1]) ||
-			    (w == tkey->ch_num[2]) || (w == tkey->ch_num[3]) ||
-			    (w == tkey->ch_num[4]))
-				return TSP_CH_KEY;
-			else
-				return 0;
+		if (tkey->axis_rx) {
+			tsp_verb("tx: %d, rx: %d\n", ch_tx, ch_rx);
+			if (ch_rx == tsp->ch_num.rx - 1) {
+				tsp_verb("ch_tx: %d\n", ch_tx);
+				if ((ch_tx == tkey->ch_num[0]) || (ch_tx == tkey->ch_num[1]) ||
+				    (ch_tx == tkey->ch_num[2]) || (ch_tx == tkey->ch_num[3]) ||
+				    (ch_tx == tkey->ch_num[4]))
+					return TSP_CH_KEY;
+				else
+					return 0;
+			}
 		} else {
-			return TSP_CH_SCREEN;
-		}
-	} else {
-		return TSP_CH_SCREEN;
-	}
-
-	return 0;
-}
-
-
-int ist30xx_parse_frame(u32 *raw_buf, u32 *flt_buf)
-{
-	int i, j, idx;
-	u16 raw, base;
-	u16 min_raw, max_raw, min_base, max_base;
-	TSP_INFO *tsp = &ist30xx_tsp_info;
-
-	max_raw = max_base = 0;
-	min_raw = min_base = 0xFFF;
-
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			idx = (j * tsp->height) + i;
-
-			raw = raw_buf[idx] & 0xFFF;
-			if (raw < min_raw) min_raw = raw;
-			if (raw > max_raw) max_raw = raw;
-
-			base = (raw_buf[idx] >> 16) & 0xFFF;
-			if (base < min_base) min_base = base;
-			if (base > max_base) max_base = base;
-
-			if (ist30xx_check_valid_ch(j, i)) {
-				tsp->buf.raw[j][i] = raw;
-				tsp->buf.base[j][i] = base;
-			} else {
-				tsp->buf.raw[j][i] = tsp->buf.base[j][i] = 0;
+			if (ch_tx == tsp->ch_num.tx - 1) {
+				if ((ch_rx == tkey->ch_num[0]) || (ch_rx == tkey->ch_num[1]) ||
+				    (ch_rx == tkey->ch_num[2]) || (ch_rx == tkey->ch_num[3]) ||
+				    (ch_rx == tkey->ch_num[4]))
+					return TSP_CH_KEY;
+				else
+					return 0;
 			}
 		}
 	}
 
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			idx = (j * tsp->height) + i;
-			tsp->buf.filter[j][i] = flt_buf[idx] & 0xFFF;
+	return TSP_CH_SCREEN;
+}
+
+
+int ist30xx_parse_touch_node(u8 flag, struct TSP_NODE_BUF *node)
+{
+#if TOUCH_NODE_PARSING_DEBUG
+	int j;
+	TSP_INFO *tsp = &ist30xx_tsp_info;
+#endif
+	int i;
+	u16 *raw = (u16 *)&node->raw;
+	u16 *base = (u16 *)&node->base;
+	u16 *filter = (u16 *)&node->filter;
+
+	for (i = 0; i < node->len; i++) {
+		if (flag & (NODE_FLAG_RAW | NODE_FLAG_BASE)) {
+			*raw++ = *ist30xx_frame_rawbuf & 0xFFF;
+			*base++ = (*ist30xx_frame_rawbuf >> 16) & 0xFFF;
+
+			ist30xx_frame_rawbuf++;
 		}
+		if (flag & NODE_FLAG_FILTER)
+			*filter++ = *ist30xx_frame_fltbuf++ & 0xFFF;
 	}
+
+#if TOUCH_NODE_PARSING_DEBUG
+	tsp_info("RAW - %d * %d\n", tsp->ch_num.tx, tsp->ch_num.rx);
+	for (i = 0; i < tsp->ch_num.tx; i++) {
+		printk("\n[ TSP ] ");
+		for (j = 0; j < tsp->ch_num.rx; j++)
+			printk("%4d ", node->raw[i][j]);
+	}
+
+	tsp_info("BASE - %d * %d\n", tsp->ch_num.tx, tsp->ch_num.rx);
+	for (i = 0; i < tsp->ch_num.tx; i++) {
+		printk("\n[ TSP ] ");
+		for (j = 0; j < tsp->ch_num.rx; j++)
+			printk("%4d ", node->base[i][j]);
+	}
+
+	tsp_info("FILTER - %d * %d\n", tsp->ch_num.tx, tsp->ch_num.rx);
+	for (i = 0; i < tsp->ch_num.tx; i++) {
+		printk("\n[ TSP ] ");
+		for (j = 0; j < tsp->ch_num.rx; j++)
+			printk("%4d ", node->filter[i][j]);
+	}
+#endif
 
 	return 0;
 }
 
-
-int ist30xx_read_frame(u32 *raw_buf, u32 *flt_buf)
+int print_touch_node(u8 flag, struct TSP_NODE_BUF *node, char *buf, bool ch_tsp)
 {
-	int ret = 0;
-
-	TSP_INFO *tsp = &ist30xx_tsp_info;
-
-	ret = ist30xx_cmd_reg(ts_data->client, CMD_ENTER_REG_ACCESS);
-	if (ret) return ret;
-
-	ret = ist30xx_write_cmd(ts_data->client,
-				IST30XX_RX_CNT_ADDR, tsp->buf.int_len);
-	if (ret) return ret;
-
-	ret = ist30xx_read_buf(ts_data->client, IST30XX_RAW_ADDR,
-			       raw_buf, tsp->buf.int_len);
-	if (ret) return ret;
-
-	ret = ist30xx_write_cmd(ts_data->client,
-				IST30XX_RX_CNT_ADDR, tsp->buf.int_len);
-	if (ret) return ret;
-
-	ret = ist30xx_read_buf(ts_data->client, IST30XX_FILTER_ADDR,
-			       flt_buf, tsp->buf.int_len);
-	if (ret) return ret;
-
-	ret = ist30xx_cmd_reg(ts_data->client, CMD_EXIT_REG_ACCESS);
-	if (ret) return ret;
-
-	ist30xx_cmd_start_scan(ts_data->client);
-	if (ret) return ret;
-
-	return ret;
-}
-
-
-int ist30xx_parse_tsp_node(u16 *raw_buf, u16 *base_buf)
-{
-	int i, j, idx;
-	u16 raw, base;
-	TSP_INFO *tsp = &ist30xx_tsp_info;
-
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			idx = (j * tsp->height) + i;
-
-			raw = ist30xx_frame_rawbuf[idx] & 0xFFF;
-			base = (ist30xx_frame_rawbuf[idx] >> 16) & 0xFFF;
-
-			if (ist30xx_check_valid_ch(j, i) == TSP_CH_SCREEN) {
-				*raw_buf++ = raw;
-				*base_buf++ = base;
-			}
-		}
-	}
-
-	return 0;
-}
-
-int ist30xx_read_tsp_node(u16 *raw_buf, u16 *base_buf)
-{
-	int ret = 0;
-	TSP_INFO *tsp = &ist30xx_tsp_info;
-
-	ret = ist30xx_enter_debug_mode();
-	if (ret) return ret;
-
-	ret = ist30xx_cmd_reg(ts_data->client, CMD_ENTER_REG_ACCESS);
-	if (ret) return ret;
-
-	ret = ist30xx_write_cmd(ts_data->client,
-				IST30XX_RX_CNT_ADDR, tsp->buf.int_len);
-	if (ret) return ret;
-
-	ret = ist30xx_read_buf(ts_data->client, IST30XX_RAW_ADDR,
-			       ist30xx_frame_rawbuf, tsp->buf.int_len);
-	if (ret) return ret;
-
-	ret = ist30xx_cmd_reg(ts_data->client, CMD_EXIT_REG_ACCESS);
-	if (ret) return ret;
-
-	ret = ist30xx_cmd_start_scan(ts_data->client);
-	if (ret) return ret;
-
-	ret = ist30xx_parse_tsp_node(raw_buf, base_buf);
-
-	return ret;
-}
-
-
-int ist30xx_enter_debug_mode(void)
-{
-	int ret;
-
-	ist30xx_disable_irq(ts_data);
-	ret = ist30xx_cmd_run_device(ts_data->client);
-	if (ret) goto end_debug_mode;
-
-	ret = ist30xx_write_cmd(ts_data->client, CMD_USE_IDLE, 0);
-	if (ret) goto end_debug_mode;
-	ret = ist30xx_write_cmd(ts_data->client, CMD_USE_DEBUG, 1);
-	if (ret) goto end_debug_mode;
-
-	ist30xx_enable_irq(ts_data);
-
-	ret = ist30xx_cmd_start_scan(ts_data->client);
-
-	msleep(700);
-
-	return ret;
-
-end_debug_mode:
-	ist30xx_enable_irq(ts_data);
-	return ret;
-}
-
-/* sysfs: /sys/class/touch/internal/mem */
-ssize_t ist30xx_mem_store(struct device *dev, struct device_attribute *attr,
-			  const char *buf, size_t size)
-{
-	sprintf(cmd_msg, "%s", buf);
-	return size;
-}
-
-ssize_t ist30xx_mem_show(struct device *dev, struct device_attribute *attr,
-			 char *buf)
-{
-	int ret;
+	int i, j;
 	int count = 0;
-	char cmd;
-	u32 addr = 0;
-	u32 val = 0;
-	u32 addr_end;
-	const int msg_len = 256;
+	int val = 0;
+	const int msg_len = 128;
 	char msg[msg_len];
+	TSP_INFO *tsp = &ist30xx_tsp_info;
 
-	sscanf(cmd_msg, "%c %x %x", &cmd, &addr, &val);
+	if (tsp->dir.swap_xy) {
+	} else {
+		for (i = 0; i < tsp->ch_num.tx; i++) {
+			for (j = 0; j < tsp->ch_num.rx; j++) {
+				if (ch_tsp && (ist30xx_check_valid_ch(i, j) != TSP_CH_SCREEN))
+					continue;
 
-	/* enter reg access mode */
-	ret = ist30xx_cmd_reg(ts_data->client, CMD_ENTER_REG_ACCESS);
-	if (ret)
-		return 0;
+				if (flag == NODE_FLAG_RAW)
+					val = (int)node->raw[i][j];
+				else if (flag == NODE_FLAG_BASE)
+					val = (int)node->base[i][j];
+				else if (flag == NODE_FLAG_FILTER)
+					val = (int)node->filter[i][j];
+				else if (flag == NODE_FLAG_DIFF)
+					val = (int)(node->raw[i][j] - node->base[i][j]);
+				else
+					return 0;
 
-	switch (cmd) {
-	case 'w':
-	case 'W':
-		ret = ist30xx_write_cmd(ts_data->client, addr, val);
-		if (ret)
-			count = sprintf(buf, "write  0x%08x : 0x%08x => failed...\n", addr, val);
-		else
-			count = sprintf(buf, "write 0x%08x : 0x%08x => Okay\n", addr, val);
-		break;
+				if (val < 0) val = 0;
 
-	case 'r':
-	case 'R':
-		ret = ist30xx_read_cmd(ts_data->client, addr, &val);
-		if (ret)
-			count = sprintf(buf, "read  0x%08x : 0x%08x => failed\n", addr, val);
-		else
-			count = sprintf(buf, "read  0x%08x : 0x%08x => Okay\n", addr, val);
-		break;
+				count += snprintf(msg, msg_len, "%4d ", val);
+				strncat(buf, msg, msg_len);
+			}
 
-	case 'd':
-	case 'D':
-		addr_end = val;
-		count = sprintf(buf, "=> dump from 0x%08x to 0x%08x\n", addr, addr_end);
-
-		while (addr <= addr_end) {
-			ret = ist30xx_read_cmd(ts_data->client, addr, &val);
-			if (ret)
-				count += snprintf(msg, msg_len, "dump 0x%08x : 0x%08x => failed\n",
-						  addr, val);
-			else
-				count += snprintf(msg, msg_len, "dump 0x%08x : 0x%08x => Okay\n",
-						  addr, val);
+			count += snprintf(msg, msg_len, "\n");
 			strncat(buf, msg, msg_len);
-			addr += 4;
 		}
-		break;
-
-	default:
-		count = sprintf(buf, "=> invalid commands");
-		break;
 	}
-
-	/* exit reg access mode */
-	ret = ist30xx_cmd_reg(ts_data->client, CMD_EXIT_REG_ACCESS);
-	if (ret)
-		return 0;
-
-	/* start scan */
-	ret = ist30xx_cmd_start_scan(ts_data->client);
-	if (ret)
-		return 0;
 
 	return count;
 }
 
+int parse_tsp_node(u8 flag, struct TSP_NODE_BUF *node, s16 *buf16)
+{
+	int i, j;
+	s16 val = 0;
+	TSP_INFO *tsp = &ist30xx_tsp_info;
 
-/* sysfs: /sys/class/touch/internal/refresh */
+	if ((flag != NODE_FLAG_RAW) && (flag != NODE_FLAG_BASE) &&
+	    (flag != NODE_FLAG_FILTER) && (flag != NODE_FLAG_DIFF))
+		return -EPERM;
+
+	if (tsp->dir.swap_xy) {
+	} else {
+		for (i = 0; i < tsp->ch_num.tx; i++) {
+			for (j = 0; j < tsp->ch_num.rx; j++) {
+				if (ist30xx_check_valid_ch(i, j) != TSP_CH_SCREEN)
+					continue;
+
+				switch ((int)flag) {
+				case NODE_FLAG_RAW:
+					val = (s16)node->raw[i][j];
+					break;
+				case NODE_FLAG_BASE:
+					val = (s16)node->base[i][j];
+					break;
+				case NODE_FLAG_FILTER:
+					val = (s16)node->filter[i][j];
+					break;
+				case NODE_FLAG_DIFF:
+					val = (s16)(node->raw[i][j] - node->base[i][j]);
+					break;
+				}
+
+				if (val < 0) val = 0;
+
+				*buf16++ = val;
+			}
+		}
+	}
+
+	return 0;
+}
+
+
+int ist30xx_read_touch_node(u8 flag, struct TSP_NODE_BUF *node)
+{
+	int ret = 0;
+
+	ist30xx_disable_irq(ts_data);
+	ret = ist30xx_cmd_reg(ts_data->client, CMD_ENTER_REG_ACCESS);
+	if (ret) goto read_tsp_node_end;
+
+	ret = ist30xx_write_cmd(ts_data->client, IST30XX_RX_CNT_ADDR, node->len);
+	if (ret) goto read_tsp_node_end;
+
+	if (flag & (NODE_FLAG_RAW | NODE_FLAG_BASE)) {
+		tsp_debug("Reg addr: %x, size: %d\n", IST30XXB_RAW_ADDR, node->len);
+		ret = ist30xx_read_buf(ts_data->client, IST30XXB_RAW_ADDR,
+				       ist30xx_frame_rawbuf, node->len);
+		if (ret) goto read_tsp_node_end;
+	}
+	if (flag & NODE_FLAG_FILTER) {
+		tsp_debug("Reg addr: %x, size: %d\n", IST30XXB_FILTER_ADDR, node->len);
+		ret = ist30xx_read_buf(ts_data->client, IST30XXB_FILTER_ADDR,
+				       ist30xx_frame_fltbuf, node->len);
+		if (ret) goto read_tsp_node_end;
+	}
+
+	ret = ist30xx_cmd_reg(ts_data->client, CMD_EXIT_REG_ACCESS);
+	if (ret) goto read_tsp_node_end;
+
+	ret = ist30xx_cmd_start_scan(ts_data->client);
+	if (ret) goto read_tsp_node_end;
+
+read_tsp_node_end:
+	ist30xx_enable_irq(ts_data);
+
+	return ret;
+}
+
+
+/* sysfs: /sys/class/touch/node/refresh */
 ssize_t ist30xx_frame_refresh(struct device *dev, struct device_attribute *attr,
 			      char *buf)
 {
 	int ret = 0;
+	TSP_INFO *tsp = &ist30xx_tsp_info;
+	u8 flag = NODE_FLAG_RAW | NODE_FLAG_BASE | NODE_FLAG_FILTER;
 
-	ret = ist30xx_read_frame(ist30xx_frame_rawbuf, ist30xx_frame_fltbuf);
+	ret = ist30xx_read_touch_node(flag, &tsp->node);
 	if (ret)
 		ret = sprintf(buf, "cmd 1frame raw update fail\n");
 
-	ret = ist30xx_parse_frame(ist30xx_frame_rawbuf, ist30xx_frame_fltbuf);
+	ret = ist30xx_parse_touch_node(flag, &tsp->node);
 
 	return ret;
 }
 
 
-/* sysfs: /sys/class/touch/internal/base */
+/* sysfs: /sys/class/touch/node/base */
 ssize_t ist30xx_base_show(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
-	int i, j;
 	int count = 0;
-	const int msg_len = 128;
-	char msg[msg_len];
 	TSP_INFO *tsp = &ist30xx_tsp_info;
 
 	buf[0] = '\0';
-	count = sprintf(buf, "dump ist30xx base : %d\n", tsp->buf.mod_len);
+	count = sprintf(buf, "dump ist30xxb baseline(%d)\n", tsp->node.len);
 
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			count += snprintf(msg, msg_len, "%04d ", tsp->buf.base[j][i]);
-			strncat(buf, msg, msg_len);
-		}
-
-		count += snprintf(msg, msg_len, "\n");
-		strncat(buf, msg, msg_len);
-	}
-
-	count += snprintf(msg, msg_len, "max : %d, min : %d, max - min : %d\n",
-			  tsp->buf.max_base, tsp->buf.min_base,
-			  tsp->buf.max_base - tsp->buf.min_raw);
-	strncat(buf, msg, msg_len);
+	count += print_touch_node(NODE_FLAG_BASE, &tsp->node, buf, false);
 
 	return count;
 }
 
 
-/* sysfs: /sys/class/touch/internal/raw */
+/* sysfs: /sys/class/touch/node/raw */
 ssize_t ist30xx_raw_show(struct device *dev, struct device_attribute *attr,
 			 char *buf)
 {
-	int i, j;
 	int count = 0;
 	TSP_INFO *tsp = &ist30xx_tsp_info;
-	const int msg_len = 128;
-	char msg[msg_len];
 
 	buf[0] = '\0';
-	count = sprintf(buf, "dump ist30xx raw : %d\n", tsp->buf.mod_len);
+	count = sprintf(buf, "dump ist30xxb raw(%d)\n", tsp->node.len);
 
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			count += snprintf(msg, msg_len, "%04d ", tsp->buf.raw[j][i]);
-			strncat(buf, msg, msg_len);
-		}
-
-		count += snprintf(msg, msg_len, "\n");
-		strncat(buf, msg, msg_len);
-	}
-
-	count += snprintf(msg, msg_len, "max : %d, min : %d, max - min : %d\n",
-			  tsp->buf.max_base, tsp->buf.min_base,
-			  tsp->buf.max_base - tsp->buf.min_raw);
-	strncat(buf, msg, msg_len);
+	count += print_touch_node(NODE_FLAG_RAW, &tsp->node, buf, false);
 
 	return count;
 }
 
 
-/* sysfs: /sys/class/touch/internal/diff */
+/* sysfs: /sys/class/touch/node/diff */
 ssize_t ist30xx_diff_show(struct device *dev, struct device_attribute *attr,
 			  char *buf)
 {
-	int i, j, diff;
 	int count = 0;
 	TSP_INFO *tsp = &ist30xx_tsp_info;
-	const int msg_len = 128;
-	char msg[msg_len];
 
 	buf[0] = '\0';
-	count = sprintf(buf, "dump ist30xx raw-base diff : %d\n", tsp->buf.mod_len);
+	count = sprintf(buf, "dump ist30xxb difference (%d)\n", tsp->node.len);
 
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			if (tsp->buf.raw[j][i] - tsp->buf.base[j][i] < 0)
-				diff = 0;
-			else
-				diff = tsp->buf.raw[j][i] - tsp->buf.base[j][i];
-			count += snprintf(msg, msg_len, "%4d ", diff);
-			strncat(buf, msg, msg_len);
-		}
-
-		count += snprintf(msg, msg_len, "\n");
-		strncat(buf, msg, msg_len);
-	}
+	count += print_touch_node(NODE_FLAG_DIFF, &tsp->node, buf, false);
 
 	return count;
 }
 
 
-/* sysfs: /sys/class/touch/internal/filter */
+/* sysfs: /sys/class/touch/node/filter */
 ssize_t ist30xx_filter_show(struct device *dev, struct device_attribute *attr,
 			    char *buf)
 {
-	int i, j;
 	int count = 0;
 	TSP_INFO *tsp = &ist30xx_tsp_info;
-	const int msg_len = 128;
-	char msg[msg_len];
 
 	buf[0] = '\0';
-	count = sprintf(buf, "dump ist30xx filter : %d\n", tsp->buf.mod_len);
+	count = sprintf(buf, "dump ist30xxb filter (%d)\n", tsp->node.len);
 
-	for (i = 0; i < tsp->height; i++) {
-		for (j = 0; j < tsp->width; j++) {
-			count += snprintf(msg, msg_len, "%4d ", tsp->buf.filter[j][i]);
-			strncat(buf, msg, msg_len);
-		}
-
-		count += snprintf(msg, msg_len, "\n");
-		strncat(buf, msg, msg_len);
-	}
+	count += print_touch_node(NODE_FLAG_FILTER, &tsp->node, buf, false);
 
 	return count;
 }
 
 
 extern int calib_ms_delay;
-/* sysfs: /sys/class/touch/internal/clb */
+/* sysfs: /sys/class/touch/sys/clb */
 ssize_t ist30xx_calib_store(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t size)
 {
@@ -536,15 +404,14 @@ ssize_t ist30xx_calib_store(struct device *dev, struct device_attribute *attr,
 	tsp_info("Calibration wait time %dsec\n", calib_ms_delay / 10);
 
 	ist30xx_disable_irq(ts_data);
-	ret = ist30xx_cmd_run_device(ts_data->client);
-	if (ret)
-		goto calib_store_end;
-
+	ret = ist30xx_cmd_run_device(ts_data->client, true);
+	if (ret) {
+		ist30xx_enable_irq(ts_data);
+		return size;
+	}
 	ist30xx_calibrate(1);
 
-calib_store_end:
-	ist30xx_enable_irq(ts_data);
-	ret = ist30xx_calib_wait();
+	ist30xx_start(ts_data);
 
 	return size;
 }
@@ -558,7 +425,7 @@ ssize_t ist30xx_calib_show(struct device *dev, struct device_attribute *attr,
 
 	mutex_lock(&ist30xx_mutex);
 	ist30xx_disable_irq(ts_data);
-	ret = ist30xx_cmd_run_device(ts_data->client);
+	ret = ist30xx_cmd_run_device(ts_data->client, true);
 	if (ret)
 		goto calib_show_end;
 
@@ -581,45 +448,7 @@ calib_show_end:
 }
 
 
-/* sysfs: /sys/class/touch/internal/debug */
-ssize_t ist30xx_debug_store(struct device *dev, struct device_attribute *attr,
-			    const char *buf, size_t size)
-{
-	int ret = -1;
-	u32 idle_en, debug_en;
-
-	sscanf(buf, "%d %d", &idle_en, &debug_en);
-
-	tsp_info("Use idle: %d, Use debug: %d\n", idle_en, debug_en);
-	if (idle_en > 1 || debug_en > 1) {
-		tsp_err("Unknown argument value, %d, %d\n",
-			idle_en, debug_en);
-		goto debug_store_end;
-	}
-
-	ist30xx_disable_irq(ts_data);
-	ret = ist30xx_cmd_run_device(ts_data->client);
-	if (ret)
-		goto debug_store_end;
-
-	ret = ist30xx_write_cmd(ts_data->client, CMD_USE_IDLE, idle_en);
-	if (ret) {
-		tsp_err("idle i2c fail, %d\n", ret);
-		goto debug_store_end;
-	}
-
-	ret = ist30xx_write_cmd(ts_data->client, CMD_USE_DEBUG, debug_en);
-	if (ret)
-		tsp_err("debug i2c fail, %d\n", ret);
-
-debug_store_end:
-	ist30xx_enable_irq(ts_data);
-
-	return size;
-}
-
-
-/* sysfs: /sys/class/touch/internal/power */
+/* sysfs: /sys/class/touch/sys/power */
 ssize_t ist30xx_power_store(struct device *dev, struct device_attribute *attr,
 			    const char *buf, size_t size)
 {
@@ -651,7 +480,7 @@ ssize_t ist30xx_power_store(struct device *dev, struct device_attribute *attr,
 }
 
 extern int ist30xx_max_error_cnt;
-/* sysfs: /sys/class/touch/internal/errcnt */
+/* sysfs: /sys/class/touch/sys/errcnt */
 ssize_t ist30xx_errcnt_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t size)
 {
@@ -668,8 +497,46 @@ ssize_t ist30xx_errcnt_store(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
+#if IST30XX_EVENT_MODE
+extern int ist30xx_max_scan_retry;
+/* sysfs: /sys/class/touch/sys/scancnt */
+ssize_t ist30xx_scancnt_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	int retry;
+
+	sscanf(buf, "%d", &retry);
+
+	if (retry < 0) return size;
+
+	tsp_info("Timer scan count retry: %d\n", retry);
+
+	ist30xx_max_scan_retry = retry;
+
+	return size;
+}
+
+extern int timer_period_ms;
+/* sysfs: /sys/class/touch/sys/timerms */
+ssize_t ist30xx_timerms_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	int ms;
+
+	sscanf(buf, "%d", &ms);
+
+	if ((ms < 0) || (ms > 10000)) return size;
+
+	tsp_info("Timer period ms: %dms\n", ms);
+
+	timer_period_ms = ms;
+
+	return size;
+}
+#endif
+
 extern int ist30xx_dbg_level;
-/* sysfs: /sys/class/touch/internal/printk */
+/* sysfs: /sys/class/touch/sys/printk */
 ssize_t ist30xx_printk_store(struct device *dev, struct device_attribute *attr,
 			     const char *buf, size_t size)
 {
@@ -692,7 +559,27 @@ ssize_t ist30xx_printk_show(struct device *dev, struct device_attribute *attr,
 	return sprintf(buf, "prink log level: %d\n", ist30xx_dbg_level);
 }
 
-struct device *ist30xx_tunes_dev;
+/* sysfs: /sys/class/touch/sys/dummy */
+ssize_t ist30xx_dummy_show(struct device *dev, struct device_attribute *attr,
+			   char *buf)
+{
+	int ret;
+	int count = 0;
+	u32 value;
+
+	ist30xx_disable_irq(ts_data);
+	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_COORD, &value);
+	if (ret)
+		count = sprintf(buf, "Error Read Calibration Result\n");
+	ist30xx_enable_irq(ts_data);
+
+	count = sprintf(buf,
+			"Calibration Status : %d, Max raw gap : %d - (raw: %08x)\n",
+			CALIB_TO_STATUS(value), CALIB_TO_GAP(value), value);
+
+	return count;
+}
+
 
 #define TUNES_CMD_WRITE         (1)
 #define TUNES_CMD_READ          (2)
@@ -701,6 +588,10 @@ struct device *ist30xx_tunes_dev;
 #define TUNES_CMD_UPDATE_PARAM  (5)
 #define TUNES_CMD_UPDATE_FW     (6)
 
+#define DIRECT_ADDR(n)          (IST30XXB_DA_ADDR(n))
+#define DIRECT_CMD_WRITE        ('w')
+#define DIRECT_CMD_READ         ('r')
+
 #pragma pack(1)
 typedef struct {
 	u8	cmd;
@@ -708,10 +599,97 @@ typedef struct {
 	u16	len;
 } TUNES_INFO;
 #pragma pack()
+#pragma pack(1)
+typedef struct {
+	char	cmd;
+	u32	addr;
+	u32	val;
+} DIRECT_INFO;
+#pragma pack()
 
 static TUNES_INFO ist30xx_tunes;
+static DIRECT_INFO ist30xx_direct;
 static bool tunes_cmd_done = false;
 static bool ist30xx_reg_mode = false;
+
+/* sysfs: /sys/class/touch/sys/direct */
+ssize_t ist30xxb_direct_store(struct device *dev, struct device_attribute *attr,
+			      const char *buf, size_t size)
+{
+	int ret = -EPERM;
+	DIRECT_INFO *direct = (DIRECT_INFO *)&ist30xx_direct;
+
+	sscanf(buf, "%c %x %x", &direct->cmd, &direct->addr, &direct->val);
+
+	tsp_debug("Direct cmd: %c, addr: %x, val: %x\n",
+		  direct->cmd, direct->addr, direct->val);
+
+	if ((direct->cmd != DIRECT_CMD_WRITE) && (direct->cmd != DIRECT_CMD_READ)) {
+		tsp_warn("Direct cmd is not correct!\n");
+		return size;
+	}
+
+	if (direct->cmd == DIRECT_CMD_WRITE) {
+		ret = ist30xx_write_cmd(ts_data->client, DIRECT_ADDR(direct->addr),
+					direct->val);
+		ret = ist30xx_read_cmd(ts_data->client, DIRECT_ADDR(direct->addr),
+				       &direct->val);
+		tsp_debug("Direct write addr: %x, val: %x\n",
+			  direct->addr, direct->val);
+	}
+
+	return size;
+}
+
+#define DIRECT_BUF_COUNT        (4)
+ssize_t ist30xxb_direct_show(struct device *dev, struct device_attribute *attr,
+			     char *buf)
+{
+	int i, ret, count = 0;
+	int len;
+	u32 addr;
+	u32 buf32[DIRECT_BUF_COUNT];
+	int max_len = DIRECT_BUF_COUNT;
+	const int msg_len = 256;
+	char msg[msg_len];
+
+	DIRECT_INFO *direct = (DIRECT_INFO *)&ist30xx_direct;
+
+	if (direct->cmd != DIRECT_CMD_READ)
+		return sprintf(buf, "ex) echo r addr len > direct\n");
+
+	len = direct->val;
+	addr = DIRECT_ADDR(direct->addr);
+
+	ts_data->status.event_mode = false;
+	ist30xx_disable_irq(ts_data);
+	while (len > 0) {
+		if (len < max_len) max_len = len;
+
+		memset(buf32, 0, sizeof(buf32));
+		ret = ist30xxb_burst_read(ts_data->client, addr, buf32, max_len);
+		if (ret) {
+			count = sprintf(buf, "I2C Burst read fail, addr: %x\n", addr);
+			break;
+		}
+
+		for (i = 0; i < max_len; i++) {
+			count += snprintf(msg, msg_len, "0x%08x ", buf32[i]);
+			strncat(buf, msg, msg_len);
+		}
+		count += snprintf(msg, msg_len, "\n");
+		strncat(buf, msg, msg_len);
+
+		addr += max_len * IST30XX_DATA_LEN;
+		len -= max_len;
+	}
+	ist30xx_enable_irq(ts_data);
+	ts_data->status.event_mode = true;
+
+	tsp_debug("%s", buf);
+
+	return count;
+}
 
 /* sysfs: /sys/class/touch/tunes/regcmd */
 ssize_t tunes_regcmd_store(struct device *dev, struct device_attribute *attr,
@@ -733,7 +711,7 @@ ssize_t tunes_regcmd_store(struct device *dev, struct device_attribute *attr,
 		break;
 	case TUNES_CMD_REG_ENTER:
 		ist30xx_disable_irq(ts_data);
-		ret = ist30xx_cmd_run_device(ts_data->client);
+		ret = ist30xx_cmd_run_device(ts_data->client, true);
 		if (ret)
 			goto regcmd_fail;
 
@@ -900,23 +878,7 @@ ssize_t tunes_fw_store(struct device *dev, struct device_attribute *attr,
 }
 
 
-/* sysfs: /sys/class/touch/tunes/param */
-ssize_t tunes_param_store(struct device *dev, struct device_attribute *attr,
-			  const char *buf, size_t size)
-{
-	ist30xx_get_update_info(ts_data, buf, size);
-
-	mutex_lock(&ist30xx_mutex);
-	ist30xx_param_update(ts_data->client, buf, size);
-	mutex_unlock(&ist30xx_mutex);
-
-	ist30xx_calibrate(1);
-
-	ist30xx_init_touch_driver(ts_data);
-
-	return size;
-}
-
+/* sysfs: /sys/class/touch/tunes/adb */
 ssize_t tunes_adb_store(struct device *dev, struct device_attribute *attr,
 			const char *buf, size_t size)
 {
@@ -957,7 +919,7 @@ ssize_t tunes_adb_store(struct device *dev, struct device_attribute *attr,
 
 	case TUNES_CMD_REG_ENTER:   /* enter */
 		ist30xx_disable_irq(ts_data);
-		ret = ist30xx_cmd_run_device(ts_data->client);
+		ret = ist30xx_cmd_run_device(ts_data->client, true);
 		if (ret < 0)
 			goto cmd_fail;
 
@@ -1036,38 +998,91 @@ ssize_t tunes_adb_show(struct device *dev, struct device_attribute *attr,
 	return size;
 }
 
+#if IST30XX_ALGORITHM_MODE
+/* sysfs: /sys/class/touch/tunes/algorithm */
+extern u32 ist30xx_algr_addr, ist30xx_algr_size;
+ssize_t ist30xx_algr_store(struct device *dev, struct device_attribute *attr,
+			   const char *buf, size_t size)
+{
+	sscanf(buf, "%x %d", &ist30xx_algr_addr, &ist30xx_algr_size);
+	tsp_info("Algorithm addr: 0x%x, count: %d\n",
+		 ist30xx_algr_addr, ist30xx_algr_size);
 
-/* sysfs  */
-static DEVICE_ATTR(mem, S_IRWXUGO, ist30xx_mem_show, ist30xx_mem_store);
+	ist30xx_algr_addr |= IST30XXB_ACCESS_ADDR;
+
+	return size;
+}
+
+ssize_t ist30xx_algr_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	int ret;
+	u32 algr_addr;
+	int count = 0;
+
+	ret = ist30xx_read_cmd(ts_data->client, IST30XXB_MEM_ALGORITHM, &algr_addr);
+	if (ret) {
+		tsp_warn("Algorithm mem addr read fail!\n");
+		return 0;
+	}
+
+	tsp_info("algr_addr(0x%x): 0x%x\n", IST30XXB_MEM_ALGORITHM, algr_addr);
+
+	count = sprintf(buf, "Algorithm addr : 0x%x\n", algr_addr);
+
+	return count;
+}
+#endif // IST30XX_ALGORITHM_MODE
+
+
+/* sysfs : node */
 static DEVICE_ATTR(refresh, S_IRWXUGO, ist30xx_frame_refresh, NULL);
 static DEVICE_ATTR(filter, S_IRWXUGO, ist30xx_filter_show, NULL);
 static DEVICE_ATTR(raw, S_IRWXUGO, ist30xx_raw_show, NULL);
 static DEVICE_ATTR(base, S_IRWXUGO, ist30xx_base_show, NULL);
 static DEVICE_ATTR(diff, S_IRWXUGO, ist30xx_diff_show, NULL);
+
+/* sysfs : sys */
+static DEVICE_ATTR(printk, S_IRWXUGO, ist30xx_printk_show, ist30xx_printk_store);
+static DEVICE_ATTR(direct, S_IRWXUGO, ist30xxb_direct_show, ist30xxb_direct_store);
 static DEVICE_ATTR(clb, S_IRWXUGO, ist30xx_calib_show, ist30xx_calib_store);
-static DEVICE_ATTR(debug, S_IRWXUGO, NULL, ist30xx_debug_store);
 static DEVICE_ATTR(tsp_power, S_IRWXUGO, NULL, ist30xx_power_store);
 static DEVICE_ATTR(errcnt, S_IRWXUGO, NULL, ist30xx_errcnt_store);
-static DEVICE_ATTR(printk, S_IRWXUGO, ist30xx_printk_show, ist30xx_printk_store);
+static DEVICE_ATTR(dummy, S_IRWXUGO, ist30xx_dummy_show, NULL);
+#if IST30XX_EVENT_MODE
+static DEVICE_ATTR(scancnt, S_IRWXUGO, NULL, ist30xx_scancnt_store);
+static DEVICE_ATTR(timerms, S_IRWXUGO, NULL, ist30xx_timerms_store);
+#endif
 
+/* sysfs : tunes */
 static DEVICE_ATTR(regcmd, S_IRWXUGO, tunes_regcmd_show, tunes_regcmd_store);
 static DEVICE_ATTR(reg, S_IRWXUGO, tunes_reg_show, tunes_reg_store);
 static DEVICE_ATTR(tunes_fw, S_IRWXUGO, NULL, tunes_fw_store);
-static DEVICE_ATTR(tunes_param, S_IRWXUGO, NULL, tunes_param_store);
 static DEVICE_ATTR(adb, S_IRWXUGO, tunes_adb_show, tunes_adb_store);
+#if IST30XX_ALGORITHM_MODE
+static DEVICE_ATTR(algorithm, S_IRWXUGO, ist30xx_algr_show, ist30xx_algr_store);
+#endif
 
-static struct attribute *internal_attributes[] = {
-	&dev_attr_mem.attr,
+static struct attribute *node_attributes[] = {
 	&dev_attr_refresh.attr,
 	&dev_attr_filter.attr,
 	&dev_attr_raw.attr,
 	&dev_attr_base.attr,
 	&dev_attr_diff.attr,
+	NULL,
+};
+
+static struct attribute *sys_attributes[] = {
+	&dev_attr_printk.attr,
+	&dev_attr_direct.attr,
 	&dev_attr_clb.attr,
-	&dev_attr_debug.attr,
 	&dev_attr_tsp_power.attr,
 	&dev_attr_errcnt.attr,
-	&dev_attr_printk.attr,
+	&dev_attr_dummy.attr,
+#if IST30XX_EVENT_MODE
+	&dev_attr_scancnt.attr,
+	&dev_attr_timerms.attr,
+#endif
 	NULL,
 };
 
@@ -1075,13 +1090,19 @@ static struct attribute *tunes_attributes[] = {
 	&dev_attr_regcmd.attr,
 	&dev_attr_reg.attr,
 	&dev_attr_tunes_fw.attr,
-	&dev_attr_tunes_param.attr,
 	&dev_attr_adb.attr,
+#if IST30XX_ALGORITHM_MODE
+	&dev_attr_algorithm.attr,
+#endif
 	NULL,
 };
 
-static struct attribute_group internal_attr_group = {
-	.attrs	= internal_attributes,
+static struct attribute_group node_attr_group = {
+	.attrs	= node_attributes,
+};
+
+static struct attribute_group sys_attr_group = {
+	.attrs	= sys_attributes,
 };
 
 static struct attribute_group tunes_attr_group = {
@@ -1089,17 +1110,19 @@ static struct attribute_group tunes_attr_group = {
 };
 
 extern struct class *ist30xx_class;
-struct device *ist30xx_internal_dev;
+struct device *ist30xx_sys_dev;
+struct device *ist30xx_tunes_dev;
+struct device *ist30xx_node_dev;
 
 
 int ist30xx_init_misc_sysfs(void)
 {
-	/* /sys/class/touch/internal */
-	ist30xx_internal_dev = device_create(ist30xx_class, NULL, 0, NULL, "internal");
+	/* /sys/class/touch/sys */
+	ist30xx_sys_dev = device_create(ist30xx_class, NULL, 0, NULL, "sys");
 
-	/* /sys/class/touch/internal/... */
-	if (sysfs_create_group(&ist30xx_internal_dev->kobj, &internal_attr_group))
-		tsp_err("Failed to create sysfs group(%s)!\n", "internal");
+	/* /sys/class/touch/sys/... */
+	if (sysfs_create_group(&ist30xx_sys_dev->kobj, &sys_attr_group))
+		tsp_err("Failed to create sysfs group(%s)!\n", "sys");
 
 	/* /sys/class/touch/tunes */
 	ist30xx_tunes_dev = device_create(ist30xx_class, NULL, 0, NULL, "tunes");
@@ -1107,6 +1130,13 @@ int ist30xx_init_misc_sysfs(void)
 	/* /sys/class/touch/tunes/... */
 	if (sysfs_create_group(&ist30xx_tunes_dev->kobj, &tunes_attr_group))
 		tsp_err("Failed to create sysfs group(%s)!\n", "tunes");
+
+	/* /sys/class/touch/node */
+	ist30xx_node_dev = device_create(ist30xx_class, NULL, 0, NULL, "node");
+
+	/* /sys/class/touch/node/... */
+	if (sysfs_create_group(&ist30xx_node_dev->kobj, &node_attr_group))
+		tsp_err("Failed to create sysfs group(%s)!\n", "node");
 
 	ist30xx_frame_buf = kmalloc(4096, GFP_KERNEL);
 	ist30xx_frame_rawbuf = kmalloc(4096, GFP_KERNEL);
