@@ -135,6 +135,10 @@
 #define SPRD_FB_MEM_BASE	(SPRD_RAM_CONSOLE_START - SPRD_FB_MEM_SIZE)
 #endif
 
+#ifdef CONFIG_SPRD_IQ
+#define SPRD_IQ_SIZE SZ_128M
+#endif
+
 #define SPRD_SYSDUMP_MAGIC	(SPRD_IO_MEM_BASE + SPRD_IO_MEM_SIZE - SZ_1M)
 
 struct sysdump_mem {
