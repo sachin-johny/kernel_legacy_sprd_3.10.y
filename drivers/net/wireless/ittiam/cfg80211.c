@@ -1718,8 +1718,8 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 
 /*#ifdef IBSS_BSS_STATION_MODE*/
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION)
-	    | BIT(NL80211_IFTYPE_AP);
-	/*FIXME*/
+	    | BIT(NL80211_IFTYPE_AP)
+	    | BIT(NL80211_IFTYPE_ADHOC); /*fix the problem with ifconfig */
 /*#endif
 #ifdef BSS_ACCESS_POINT_MODE
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_AP);
@@ -1797,8 +1797,8 @@ int itm_wdev_alloc(struct itm_priv *priv, struct device *dev)
 
 	wdev->netdev = ndev;
 
-	/* This informs a default interface */
-	wdev->iftype = NL80211_IFTYPE_STATION;
+	/*FIXME make sure change_virtual_intf happen */
+	wdev->iftype = NL80211_IFTYPE_ADHOC;
 
 	/*Init wiphy parameters */
 	init_wiphy_parameters(priv, wdev->wiphy);
