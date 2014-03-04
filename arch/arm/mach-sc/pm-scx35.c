@@ -182,6 +182,9 @@ static void configure_for_deepsleep(int clr)
 		sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
 		sci_adi_set(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOCAMMOT_PD_EN);
 #endif
+		#if defined(CONFIG_SS_FUNCTION)
+		sci_glb_set(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+		#endif
 	}
 #endif
 }
