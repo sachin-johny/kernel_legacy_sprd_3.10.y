@@ -11,6 +11,12 @@
 
 #define _WIFI_NVM_DEBUG_
 #define MAX_BOARD_TYPE_LEN 32
+#ifndef FALSE
+#define FALSE       0
+#endif
+#ifndef TRUE
+#define TRUE        1
+#endif
 
 typedef struct
 {
@@ -234,6 +240,84 @@ nvm_read_err:
 	return -1;
 }
 
+
+bool wifi_cali_file_check(const char *path)
+{
+    struct file* filp;
+    struct file* filp_2;
+    const char* path_2="/system/etc/connectivity_calibration.ini";
+	unsigned char *pBuf = NULL;
+	unsigned short len = 0;
+    loff_t pos;
+	mm_segment_t fs = get_fs();
+
+	set_fs(KERNEL_DS);
+
+    filp = filp_open(path, O_RDONLY, S_IRUSR);
+    if (IS_ERR(filp))
+    {
+        printk( "%s,Unable to load '%s'.\n", __func__, path);
+        filp = filp_open(path, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+        if (IS_ERR(filp))
+        {
+            printk( "%s,Unable to Creat '%s' err====%ld.\n", __func__, path ,PTR_ERR(filp));
+            goto file_create_error;
+        }
+    }
+    else
+    {
+        printk( "%s,connectivity_calibration.ini check oK.\n", __func__);
+        goto file_check_done;
+    }
+
+    filp_2 = filp_open(path_2, O_RDONLY, S_IRUSR);
+    if (IS_ERR(filp))
+    {
+        printk( "%s,Unable to load '%s'.\n", __func__, path_2);
+        goto file2_open_error;
+
+    }
+
+    len = i_size_read(file_inode(filp_2));
+    if (!( len > 0 && len < 62 * 1024 ))
+    {
+        printk("%s file size error %d\n", __func__ , len);
+        goto file_close;
+
+    }
+    pBuf = kmalloc(len, GFP_KERNEL);
+    if (pBuf == NULL)
+    {
+        printk("%s Out of memory loading '%s'.\n", __func__, path);
+        goto file_close;
+    }
+    pos = 0;
+    if (vfs_read(filp_2, pBuf, len, &pos) != len)
+    {
+        printk("%s Failed to read '%s'.\n",  __func__, path);
+        kfree(pBuf);
+        goto file_close;
+    }
+
+    vfs_write(filp, pBuf, len, &filp->f_pos);
+    kfree(pBuf);
+    filp_close(filp_2,NULL);
+file_check_done:
+    filp_close(filp,NULL);
+	set_fs(fs);
+    printk("%s Done  '%s'.\n",  __func__, path);
+    return TRUE;
+
+
+file_close:
+    filp_close(filp_2,NULL);
+file2_open_error:
+    filp_close(filp,NULL);
+file_create_error:
+    set_fs(fs);
+    return FALSE;
+}
+
 void ittiam_nvm_init(void )
 {
 	int ret = 0;
@@ -283,6 +367,13 @@ void ittiam_nvm_init(void )
 		printk("%s(),parse:%s, err!\n", __func__, WIFI_CONFIG_FILE[board_type]);
 		return;
 	}
+
+	if(wifi_cali_file_check(WIFI_CALI_FILE)==FALSE)
+	{
+		printk("%s(),fail to load :%s, err!\n", __func__, WIFI_CALI_FILE);
+		return;
+	}
+
 	ret = wifi_nvm_parse(WIFI_CALI_FILE);
 	if(0 != ret)
 	{
