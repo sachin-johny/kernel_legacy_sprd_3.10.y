@@ -59,7 +59,9 @@ typedef struct sprd_dma_desc {
 	volatile u32 sbm;	/* src burst mode */
 	volatile u32 dbm;	/* dst burst mode */
 } sprd_dma_desc;
-
+#ifndef  DMA_LINKLIST_CFG_NODE_SIZE
+#define DMA_LINKLIST_CFG_NODE_SIZE  (sizeof(sprd_dma_desc))
+#endif
 struct sprd_runtime_data {
 	int dma_addr_offset;
 	struct sprd_pcm_dma_params *params;
@@ -69,6 +71,7 @@ struct sprd_runtime_data {
 	dma_addr_t dma_desc_array_phys;
 	int burst_len;
 	int hw_chan;
+	int dma_pos_pre[2];
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	int interleaved;
 #endif
@@ -87,7 +90,7 @@ static const struct snd_pcm_hardware sprd_pcm_hardware = {
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	    SNDRV_PCM_INFO_INTERLEAVED |
 #endif
-	    SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME,
+	    SNDRV_PCM_INFO_PAUSE | SNDRV_PCM_INFO_RESUME | SNDRV_PCM_INFO_NO_PERIOD_WAKEUP,
 	.formats = SNDRV_PCM_FMTBIT_S16_LE,
 	/* 16bits, stereo-2-channels */
 	.period_bytes_min = VBC_FIFO_FRAME_NUM * 4,
@@ -95,7 +98,7 @@ static const struct snd_pcm_hardware sprd_pcm_hardware = {
 	.period_bytes_max = VBC_FIFO_FRAME_NUM * 4 * 100,
 	.periods_min = 1,
 	/* non limit */
-	.periods_max = PAGE_SIZE / sizeof(sprd_dma_desc),
+	.periods_max = PAGE_SIZE / DMA_LINKLIST_CFG_NODE_SIZE,
 	.buffer_bytes_max = VBC_BUFFER_BYTES_MAX,
 };
 
@@ -111,7 +114,7 @@ static const struct snd_pcm_hardware sprd_i2s_pcm_hardware = {
 	.period_bytes_max = 32 * 2 * 100,
 	.periods_min = 1,
 	/* non limit */
-	.periods_max = PAGE_SIZE / sizeof(sprd_dma_desc),
+	.periods_max = PAGE_SIZE / DMA_LINKLIST_CFG_NODE_SIZE,
 	.buffer_bytes_max = I2S_BUFFER_BYTES_MAX,
 };
 
@@ -213,6 +216,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		} else {
 			burst_len = config->rx_watermark;
 		}
+		burst_len <<= config->byte_per_chan;
 		hw_chan = 1;
 	} else {
 		snd_soc_set_runtime_hwparams(substream, &sprd_pcm_hardware);
@@ -247,8 +251,9 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	if (!rtd)
 		goto out;
 #ifdef CONFIG_SPRD_AUDIO_BUFFER_USE_IRAM
-	if (!((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
-	      && 0 == sprd_buffer_iram_backup())) {
+	if (sprd_is_i2s(srtd->cpu_dai)
+	    || !((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
+		 && 0 == sprd_buffer_iram_backup())) {
 #endif
 		rtd->dma_desc_array =
 		    dma_alloc_writecombine(substream->pcm->card->dev,
@@ -266,6 +271,8 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		rtd->dma_desc_array_phys =
 		    SPRD_IRAM_ALL_PHYS + runtime->hw.buffer_bytes_max;
 		rtd->buffer_in_iram = 1;
+		/*must clear the dma_desc_array first here*/
+		memset(rtd->dma_desc_array, 0, (2 * SPRD_AUDIO_DMA_NODE_SIZE));
 	}
 #endif
 	if (!rtd->dma_desc_array)
@@ -280,6 +287,7 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	goto out;
 
 err1:
+	pr_err("dma_desc_array alloc fail!\n");
 	kfree(rtd);
 out:
 	sprd_pcm_dbg("return %i\n", ret);
@@ -348,6 +356,7 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	struct snd_pcm_runtime *runtime = substream->runtime;
 	struct sprd_pcm_dma_params *dma;
 	struct sprd_dma_channel_desc dma_cfg = { 0 };
+	sprd_dma_desc *dma_desc[2];
 	dma_addr_t next_desc_phys[2];
 	int i;
 
@@ -359,12 +368,16 @@ static int sprd_pcm_dma_config(struct snd_pcm_substream *substream)
 	dma = rtd->params;
 	dma_cfg = dma->desc;
 
+	dma_desc[0] = rtd->dma_desc_array;
+	dma_desc[1] = rtd->dma_desc_array + runtime->hw.periods_max;
 	next_desc_phys[0] = rtd->dma_desc_array_phys;
 	next_desc_phys[1] = rtd->dma_desc_array_phys +
 	    runtime->hw.periods_max * sizeof(sprd_dma_desc);
 	for (i = 0; i < rtd->hw_chan; i++) {
 		if (rtd->uid_cid_map[i] >= 0) {
 			dma_cfg.llist_ptr = next_desc_phys[i];
+			dma_cfg.src_addr = dma_desc[i]->dsrc;
+			dma_cfg.dst_addr = dma_desc[i]->ddst;
 			sprd_dma_channel_config(rtd->uid_cid_map[i],
 						dma->workmode, &dma_cfg);
 		}
@@ -407,7 +420,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		i2s_private = srtd->cpu_dai->ac97_pdata;
 		config = i2s_private->config;
 		used_chan_count = rtd->hw_chan;
-	}
+	} else {
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	rtd->interleaved = (used_chan_count == 2)
 	    && sprd_pcm_is_interleaved(runtime);
@@ -420,6 +433,7 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 		}
 	}
 #endif
+	}
 
 	/* this may get called several times by oss emulation
 	 * with different params */
@@ -616,6 +630,7 @@ static snd_pcm_uframes_t sprd_pcm_pointer(struct snd_pcm_substream *substream)
 	int now_pointer;
 	int bytes_of_pointer = 0;
 	int shift = 1;
+	int sel_max = 0;
 #ifdef CONFIG_SPRD_VBC_INTERLEAVED
 	if (rtd->interleaved)
 		shift = 0;
@@ -631,11 +646,21 @@ static snd_pcm_uframes_t sprd_pcm_pointer(struct snd_pcm_substream *substream)
 		now_pointer = sprd_pcm_dma_get_addr(rtd->uid_cid_map[1],
 						    substream) -
 		    runtime->dma_addr - rtd->dma_addr_offset;
-		if (!bytes_of_pointer)
+		if (!bytes_of_pointer) {
 			bytes_of_pointer = now_pointer;
-		else
-			bytes_of_pointer =
-			    min(bytes_of_pointer, now_pointer) << shift;
+		} else {
+			sel_max = (bytes_of_pointer < rtd->dma_pos_pre[0]);
+			sel_max ^= (now_pointer < rtd->dma_pos_pre[1]);
+			rtd->dma_pos_pre[0] = bytes_of_pointer;
+			rtd->dma_pos_pre[1] = now_pointer;
+			if (sel_max) {
+				bytes_of_pointer =
+				    max(bytes_of_pointer, now_pointer) << shift;
+			} else {
+				bytes_of_pointer =
+				    min(bytes_of_pointer, now_pointer) << shift;
+			}
+		}
 	}
 
 	x = bytes_to_frames(runtime, bytes_of_pointer);
@@ -662,7 +687,7 @@ static int sprd_pcm_mmap(struct snd_pcm_substream *substream,
 #else
 	vma->vm_page_prot = pgprot_writecombine(vma->vm_page_prot);
 	return remap_pfn_range(vma, vma->vm_start,
-			       runtime->dma_addr,
+			       runtime->dma_addr >> PAGE_SHIFT,
 			       vma->vm_end - vma->vm_start, vma->vm_page_prot);
 #endif
 }

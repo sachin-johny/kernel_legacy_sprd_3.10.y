@@ -3,8 +3,8 @@ snd-soc-sc881x-objs         		:= sc881x.o
 obj-$(CONFIG_SND_SPRD_SOC_SC881X)    	+= snd-soc-sc881x.o
 snd-soc-sc882x-objs         		:= sc882x.o
 obj-$(CONFIG_SND_SPRD_SOC_SC882X)    	+= snd-soc-sc882x.o
-snd-soc-bt-i2s-objs         		:= bt-i2s.o
-obj-$(CONFIG_SND_SPRD_SOC_BT_I2S)    	+= snd-soc-bt-i2s.o
+snd-soc-general-i2s-objs         		:= general-i2s.o
+obj-$(CONFIG_SND_SPRD_SOC_GENERAL_I2S)    	+= snd-soc-general-i2s.o
 obj-$(CONFIG_SND_SPEAKER_PA)         	+= speaker-pa.o
 
 obj-$(CONFIG_SND_SPRD_SOC_AUDIO_DMA)	+= dai/

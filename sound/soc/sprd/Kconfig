@@ -85,8 +85,8 @@ config SPRD_AUDIO_BUFFER_USE_IRAM
 	   sometimes, use IRAM maybe reduce power consumption.
            but, it will cause system more busy, becuase the buffer smaller.
 
-config SND_SPRD_SOC_BT_I2S
-	tristate "bt-i2s"
+config SND_SPRD_SOC_GENERAL_I2S
+	tristate "general-i2s"
 	select SND_SPRD_SOC_I2S
 	select SND_SPRD_SOC_AUDIO_DMA
 	select SND_SOC_NULL_CODEC
