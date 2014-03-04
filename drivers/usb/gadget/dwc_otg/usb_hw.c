@@ -111,11 +111,9 @@ void usb_phy_init(void)
 {
 #ifdef CONFIG_USB_CORE_IP_293A
 #if defined(CONFIG_ARCH_SCX35)
-#if defined(CONFIG_ARCH_SCX15)
+	/*shark and dolphin are the same value with SPRD ref phone*/
 	__raw_writel(0x44073e33,REG_AP_APB_USB_PHY_TUNE);
-#else
 
-#endif
 	//sci_glb_set(REG_AP_APB_USB_PHY_TUNE,BIT(9)|BIT(10)|BIT(11)|BIT(20));
 #else
 		/*
