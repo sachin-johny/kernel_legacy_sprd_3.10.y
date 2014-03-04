@@ -1163,7 +1163,7 @@ void sc_default_idle(void)
 	local_irq_enable();
 	return;
 }
-#ifndef CONFIG_ARCH_SCX15
+
 /*config dcdc core deep sleep voltage*/
 static void dcdc_core_ds_config(void)
 {
@@ -1199,16 +1199,24 @@ static void dcdc_core_ds_config(void)
 	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n", dcdc_core_ctl_adi, dcdc_core_ctl_ds);
 	/*valid value*/
 	if(dcdc_core_ctl_ds != -1) {
+#ifndef CONFIG_ARCH_SCX15
 		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
 		val &= ~(0x7);
 		val |= dcdc_core_ctl_ds;
 		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
+#else
+		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL0);
+		val &= ~(0x7 << 4);
+		val |= (dcdc_core_ctl_ds << 4);
+		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL0, val, 0xffff);
+#endif
 	}
 }
-#endif
+
 void pm_ana_ldo_config(void)
 {
 #if defined(CONFIG_ARCH_SCX15)
+	dcdc_core_ds_config();
 #else
 	/*set vddcore deep sleep voltage to 0.9v*/
 	//sci_adi_set(ANA_REG_GLB_DCDC_SLP_CTRL, BITS_DCDC_CORE_CTL_DS(3));
