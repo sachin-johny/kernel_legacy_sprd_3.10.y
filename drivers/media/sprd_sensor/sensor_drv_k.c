@@ -627,6 +627,7 @@ LOCAL int _sensor_k_set_voltage_dvdd(uint32_t dvdd_val)
 					break;
 			}
 			default:
+				s_p_sensor_mod->camdvdd_regulator = regulator_get(NULL, REGU_NAME_CAMDVDD);
 				break;
 		}
 		if (IS_ERR(s_p_sensor_mod->camdvdd_regulator)) {
