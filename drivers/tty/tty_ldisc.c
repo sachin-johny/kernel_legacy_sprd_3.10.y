@@ -818,7 +818,7 @@ void tty_ldisc_hangup(struct tty_struct *tty)
 	int reset = tty->driver->flags & TTY_DRIVER_RESET_TERMIOS;
 	int err = 0;
 
-	printk(KERN_ERR,"[TTY_DEBUG tty_ldisc_hangup]pid %d\n",current->pid);
+	pr_debug("[TTY_DEBUG tty_ldisc_hangup]pid %d\n",current->pid);
 
 	tty_ldisc_debug(tty, "closing ldisc: %p\n", tty->ldisc);
 
