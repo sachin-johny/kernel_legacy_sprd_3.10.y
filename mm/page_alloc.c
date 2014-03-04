@@ -2317,6 +2317,9 @@ __alloc_pages_direct_compact(gfp_t gfp_mask, unsigned int order,
 	bool *contended_compaction, bool *deferred_compaction,
 	unsigned long *did_some_progress)
 {
+	/* Mark deferred_compaction as true to avoid direct reclaim
+	 * for high-order allocation */
+	*deferred_compaction = true;
 	return NULL;
 }
 #endif /* CONFIG_COMPACTION */
