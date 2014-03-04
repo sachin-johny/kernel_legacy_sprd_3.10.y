@@ -219,8 +219,6 @@ int usb_get_vbus_irq(void)
 int usb_get_vbus_state(void)
 {
 	int value;
-	if(in_calibration())
-		return 1;
 	value = gpio_get_value(gpio_vbus);
 	return !!value;
 }
