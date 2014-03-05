@@ -11,3 +11,4 @@ ifeq ($(CONFIG_ARCH_SCX15),y)
 ccflags-y  += -Idrivers/media/sprd_dcam/scx15
 sprd_dcam-objs := scx15/dcam_drv.o $(common-file)
 endif
+obj-y += flash/

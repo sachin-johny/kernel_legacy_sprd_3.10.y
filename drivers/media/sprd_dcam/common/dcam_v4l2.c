@@ -39,6 +39,7 @@
 #include <mach/hardware.h>
 #include <asm/io.h>
 #include <mach/adi.h>
+#include <../flash/flash.h>
 
 
 //#define LOCAL   static
@@ -191,6 +192,9 @@ struct dcam_dev {
 	atomic_t                 run_flag;
 	uint32_t                 got_resizer;
 	struct proc_dir_entry*   proc_file;
+	struct semaphore         flash_thread_sem;
+	struct task_struct*      flash_thread;
+	uint32_t                 is_flash_thread_stop;
 };
 
 #ifndef __SIMULATOR__
@@ -315,7 +319,6 @@ enum cmr_flash_status {
 
 #define DISCARD_FRAME_TIME (10000)
 
-#if defined (CONFIG_ARCH_SCX35)
 LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
 {
 
@@ -323,17 +326,17 @@ LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
 	case FLASH_OPEN:        /*flash on */
 	case FLASH_TORCH:        /*for torch */
 		/*low light */
-		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_LOW_VAL); // 0x3 = 110ma
+		sprd_flash_on();
 		break;
 	case FLASH_HIGH_LIGHT:
 		/*high light */
-		sci_adi_set(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT | SPRD_FLASH_HIGH_VAL); // 0xf = 470ma
+		sprd_flash_high_light();
 		break;
 	case FLASH_CLOSE_AFTER_OPEN:     /*close flash */
 	case FLASH_CLOSE_AFTER_AUTOFOCUS:
 	case FLASH_CLOSE:
 		/*close the light */
-		sci_adi_clr(SPRD_ADISLAVE_BASE + SPRD_FLASH_OFST, SPRD_FLASH_CTRL_BIT);
+		sprd_flash_close();
 		break;
 	default:
 		printk("sprd_v4l2_setflash unknow mode:flash_mode 0x%x \n", flash_mode);
@@ -344,44 +347,6 @@ LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
 
 	return 0;
 }
-#else
-LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
-{
-	switch (flash_mode) {
-	case FLASH_OPEN:                 /*flash on */
-	case FLASH_TORCH:                 /*for torch */
-		/*low light */
-		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		break;
-	case FLASH_HIGH_LIGHT:
-		/*high light */
-		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_ON);
-		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_ON);
-		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_ON);
-		break;
-	case FLASH_CLOSE_AFTER_OPEN:              /*close flash */
-	case FLASH_CLOSE_AFTER_AUTOFOCUS:
-	case FLASH_CLOSE:
-		/*close the light */
-		gpio_direction_output(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_OFF);
-		gpio_set_value(GPIO_SPRD_FLASH_LOW, SPRD_FLASH_OFF);
-		gpio_direction_output(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		gpio_set_value(GPIO_SPRD_FLASH_HIGH, SPRD_FLASH_OFF);
-		break;
-	default:
-		printk("sensor set flash unknown mode:%d \n", flash_mode);
-		return SENSOR_K_FALSE;
-	}
-
-	DCAM_TRACE("sensor set flash mode %d  \n", flash_mode);
-	return SENSOR_K_SUCCESS;
-}
-
-#endif
 
 LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
 {
@@ -404,6 +369,90 @@ LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
 		}
 		sprd_v4l2_setflash(info->flash_status);
 		info->flash_status = FLASH_STATUS_MAX;
+	}
+
+	return 0;
+}
+
+LOCAL int sprd_v4l2_start_flash(struct dcam_frame *frame, void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	struct dcam_info         *info = NULL;
+
+	if (dev == NULL) {
+		DCAM_TRACE("sprd_v4l2_start_flash, dev is NULL \n");
+		return -1;
+	}
+
+	info = &dev->dcam_cxt;
+	if (info->flash_status < FLASH_STATUS_MAX) {
+		up(&dev->flash_thread_sem);
+	}
+
+	return 0;
+}
+
+int flash_thread_loop(void *arg)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)arg;
+
+	if (dev == NULL) {
+		DCAM_TRACE("flash_thread_loop, dev is NULL \n");
+		return -1;
+	}
+	while (1) {
+		down_interruptible(&dev->flash_thread_sem);
+		if (dev->is_flash_thread_stop) {
+			sprd_v4l2_setflash(0);
+			printk("flash_thread_loop stop \n");
+			break;
+		}
+		sprd_v4l2_opt_flash(NULL, arg);
+	}
+	dev->is_flash_thread_stop = 0;
+
+	return 0;
+}
+
+int dcam_create_flash_thread(void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+
+	if (dev == NULL) {
+		DCAM_TRACE("dcam_create_flash_thread, dev is NULL \n");
+		return -1;
+	}
+	dev->is_flash_thread_stop = 0;
+	sema_init(&dev->flash_thread_sem, 0);
+	dev->flash_thread = kthread_run(flash_thread_loop, param, "dcam_flash_thread");
+	if (IS_ERR(dev->flash_thread)) {
+		printk("v4l2:dcam_create_flash_thread error!\n");
+		return -1;
+	}
+	return 0;
+}
+
+int dcam_stop_flash_thread(void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	int cnt = 0;
+
+	if (dev == NULL) {
+		DCAM_TRACE("sprd_v4l2_opt_flash, dev is NULL \n");
+		return -1;
+	}
+	if (dev->flash_thread) {
+		dev->is_flash_thread_stop = 1;
+		up(&dev->flash_thread_sem);
+		if (0 != dev->is_flash_thread_stop) {
+			while (cnt < 500) {
+				cnt++;
+				if (0 == dev->is_flash_thread_stop)
+					break;
+				msleep(1);
+			}
+		}
+		dev->flash_thread = NULL;
 	}
 
 	return 0;
@@ -1058,7 +1107,7 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 
 	if (0 == dev->dcam_cxt.capture_mode) {/*single-frame sample mode*/
 		dev->dcam_cxt.flash_status = FLASH_CLOSE_AFTER_OPEN;
-		sprd_v4l2_opt_flash(frame, param);
+		sprd_v4l2_start_flash(frame, param);
 	}
 	atomic_set(&dev->run_flag, 1);
 	node.irq_flag = V4L2_TX_DONE;
@@ -1172,7 +1221,7 @@ LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param)
 	dcam_reg_isr(DCAM_SN_LINE_ERR,  sprd_v4l2_tx_error, param);
 	dcam_reg_isr(DCAM_SN_FRAME_ERR, sprd_v4l2_tx_error, param);
 	dcam_reg_isr(DCAM_JPEG_BUF_OV,  sprd_v4l2_no_mem,   param);
-	dcam_reg_isr(DCAM_SN_EOF,  sprd_v4l2_opt_flash,   param);
+	dcam_reg_isr(DCAM_SN_EOF,  sprd_v4l2_start_flash,   param);
 
 	return 0;
 }
@@ -2606,6 +2655,13 @@ LOCAL int sprd_v4l2_open(struct file *file)
 		goto exit;
 	}
 
+	ret = dcam_create_flash_thread(dev);
+	if (unlikely(0 != ret)) {
+		printk("V4L2: Failed to create flash thread \n");
+		ret = -EIO;
+		goto exit;
+	}
+
 	DCAM_TRACE("V4L2: open /dev/video%d type=%s \n", dev->vfd->num,
 		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE]);
 
@@ -2741,7 +2797,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	}
 	sprd_stop_timer(&dev->dcam_timer);
 	atomic_dec(&dev->users);
-	sprd_v4l2_setflash(0);
+	dcam_stop_flash_thread(dev);
 	mutex_unlock(&dev->dcam_mutex);
 
 	DCAM_TRACE("V4L2: close end. \n");
@@ -2949,21 +3005,6 @@ LOCAL int __init create_instance(int inst)
 	struct video_device      *vfd;
 	int                      ret = DCAM_RTN_SUCCESS;
 
-#ifndef CONFIG_ARCH_SCX35
-	uint32_t                 tmp = 0;
-
-	ret = gpio_request(GPIO_SPRD_FLASH_LOW, "gpioFlashLow");
-	if (ret) {
-		tmp = GPIO_SPRD_FLASH_LOW;
-		goto gpio_err_exit;
-	}
-	ret = gpio_request(GPIO_SPRD_FLASH_HIGH, "gpioFlashHigh");
-	if (ret) {
-		tmp = GPIO_SPRD_FLASH_HIGH;
-		goto gpio_err_exit;
-	}
-#endif
-
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -3013,11 +3054,6 @@ unreg_dev:
 	v4l2_device_unregister(&dev->v4l2_dev);
 free_dev:
 	kfree(dev);
-#ifndef CONFIG_ARCH_SCX35
-gpio_err_exit:
-	printk(KERN_ERR "v4l2 probe req flash gpio %d err %d\n",
-		tmp, ret);
-#endif
 
 	return ret;
 }
@@ -3039,11 +3075,6 @@ static int __init sprd_v4l2_probe(struct platform_device *pdev)
 LOCAL int sprd_v4l2_remove(struct platform_device *dev)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
-
-#ifndef CONFIG_ARCH_SCX35
-	gpio_free(GPIO_SPRD_FLASH_HIGH);
-	gpio_free(GPIO_SPRD_FLASH_LOW);
-#endif
 	return ret;
 }
 
