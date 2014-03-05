@@ -1323,12 +1323,12 @@ static struct early_suspend sprdemand_gov_earlysuspend_handler = {
 static int __init cpufreq_gov_dbs_init(void)
 {
 	boot_done = jiffies + GOVERNOR_BOOT_TIME;
-
+#if defined(CONFIG_THERMAL)
 	thermal_cooling_info.cdev = thermal_cooling_device_register("thermal-cpufreq-0", 0,
 						&sprd_cpufreq_cooling_ops);
 	if (IS_ERR(thermal_cooling_info.cdev))
 		return PTR_ERR(thermal_cooling_info.cdev);
-
+#endif
 	register_pm_notifier(&sprdemand_gov_pm_notifier);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&sprdemand_gov_earlysuspend_handler);
@@ -1346,7 +1346,9 @@ static void __exit cpufreq_gov_dbs_exit(void)
 	unregister_early_suspend(&sprdemand_gov_earlysuspend_handler);
 #endif
 	unregister_pm_notifier(&sprdemand_gov_pm_notifier);
+#if defined(CONFIG_THERMAL)
 	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
+#endif
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");
