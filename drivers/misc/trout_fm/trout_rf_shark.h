@@ -1,6 +1,7 @@
 #ifndef _TROUT_FM_RF_SHARK_H_
 #define _TROUT_FM_RF_SHARK_H_
 
+
 #define SYS_REG_PAD_MIN			0
 #define SYS_REG_PAD_IISDO		0
 #define SYS_REG_PAD_IISCLK		1
@@ -78,9 +79,13 @@
 #define	SYS_REG_ADDA_TEST_CFG			0xC7
 #define	SYS_REG_FPGA_DEBUG_CFG			0xC8
 
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+#define MAX_FM_FREQ	10800
+#define MIN_FM_FREQ	8750
+#else
 #define MAX_FM_FREQ	1080
 #define MIN_FM_FREQ	875
-
+#endif
 #define FM_CTL_STI_MODE_NORMAL		0x0
 #define	FM_CTL_STI_MODE_SEEK		    0x1
 #define	FM_CTL_STI_MODE_TUNE		    0x2
@@ -381,7 +386,11 @@ struct shark_reg_cfg_t fm_reg_init_des[] = {
 	{FM_REG_FMCTL_STI	,		0x0},
 	{FM_REG_BAND_LMT	,		\
 	(((1080 - 1) * 2)<<16) | ((875-1)*2)},
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+    {FM_REG_BAND_SPACE	,		0x00000001},
+#else	
 	{FM_REG_BAND_SPACE	,		0x00000002},
+#endif	
 	/*{FM_REG_RFREG_ADDR	,	0x0},*/
 	{FM_REG_ADC_INFCTRL, 0}, /*0x00067f7f}, new*/
 	{FM_REG_SEEK_CH_TH	,		2000},
