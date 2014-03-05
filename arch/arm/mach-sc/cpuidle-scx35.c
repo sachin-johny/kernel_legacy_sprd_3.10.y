@@ -40,7 +40,7 @@ static unsigned int zipenc_status;
 static unsigned int zipdec_status;
 #endif
 static int light_sleep_en = 1;
-static int idle_deep_en = 0;
+static int idle_deep_en = 1;
 static int cpuidle_debug = 0;
 module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
 module_param_named(light_sleep_en, light_sleep_en, int, S_IRUGO | S_IWUSR);
