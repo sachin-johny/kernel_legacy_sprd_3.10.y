@@ -59,7 +59,7 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 		int start, end;
 		do_gettimeofday(&val);
 		start = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
-		page = dma_alloc_from_contiguous(ion_dev, pagecount, 0);
+		page = dma_alloc_from_contiguous(ion_dev, pagecount, get_order(size));
 		do_gettimeofday(&val);
 		end = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
 		if(!page) {
