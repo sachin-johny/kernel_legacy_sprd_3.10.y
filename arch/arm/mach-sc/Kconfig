@@ -407,6 +407,12 @@ config SPRD_MODEM_TD
 	help
 	  This option select modem type.
 
+config MODEM_W_MEMCUT
+	bool "SPRD w modem memory cut"
+	default n
+	help
+	  This option select for w modem memory cut.
+
 config SIPC_TD
 	bool "SIPC instance of TD modem"
 	select SIPC
