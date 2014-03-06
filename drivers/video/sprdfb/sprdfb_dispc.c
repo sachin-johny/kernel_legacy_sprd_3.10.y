@@ -1055,6 +1055,11 @@ static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
+	if((NULL == dev) || (NULL == dev->fb)){
+		printk("sprdfb:[%s] Invalid parameter!\n",__FUNCTION__);
+		return;
+	}
+
 	down(&dev->refresh_lock);
 	if(!dispc_ctx.is_first_frame || NULL== dev){
 		printk("sprdfb:[%s] not first_frame\n",__FUNCTION__);
