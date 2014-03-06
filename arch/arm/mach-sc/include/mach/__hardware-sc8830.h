@@ -592,7 +592,11 @@
 #define CPT_SMEM_SIZE			(SZ_1M + SZ_256K)
 
 #define CPW_START_ADDR		(CONFIG_PHYS_OFFSET + 256 * SZ_1M)
+#if defined(CONFIG_MODEM_W_MEMCUT)
+#define CPW_TOTAL_SIZE		(SZ_1M * 28)
+#else
 #define CPW_TOTAL_SIZE		(SZ_1M * 33)
+#endif
 #define CPW_RING_ADDR		(CPW_START_ADDR + CPW_TOTAL_SIZE - SZ_4K)
 #define CPW_RING_SIZE			(SZ_4K)
 #define CPW_SMEM_SIZE		(SZ_1M + SZ_256K)
