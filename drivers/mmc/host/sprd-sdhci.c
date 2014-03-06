@@ -349,46 +349,6 @@ static unsigned int sprd_sdhci_host_get_ro(struct sdhci_host *host) {
 	return sprd_host->ro;
 }
 
-static void sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select(struct sdhci_host *host, u8 power_mode) {
-	unsigned long flags;
-	unsigned int tmp_flag = 0, reg_val = 0;
-	struct mmc_host *mmc = host->mmc;
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	spin_lock_irqsave(&sprd_host->lock, flags);
-	if(mmc->ios.chip_select == MMC_CS_HIGH) {
-		sprd_host->chip_select_last = MMC_CS_HIGH;
-		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
-		if((sci_glb_raw_read(REG_AON_APB_APB_EB0) & BIT_GPIO_EB) == 0) {
-			sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB);
-			tmp_flag |= 1 << 0;
-		}
-		if((sci_glb_raw_read(REG_AON_APB_APB_EB0) & BIT_PIN_EB) == 0) {
-			sci_glb_set(REG_AON_APB_APB_EB0,  BIT_PIN_EB);
-			tmp_flag |= 1 << 1;
-		}
-		/* set sdio0 data[3] to gpio mode*/
-		reg_val = __raw_readl((const volatile void __iomem *)(SPRD_PIN_BASE  + 0x1E0));
-		__raw_writel(0x30, (volatile void __iomem *)(SPRD_PIN_BASE + 0x1E0));
-		/* set gpio output mode ,and out put 1 */
-		sci_glb_set((CTL_GPIO_BASE + 0x308), (1 << 4));
-		sci_glb_set((CTL_GPIO_BASE + 0x304), (1 << 4));
-		sci_glb_set((CTL_GPIO_BASE + 0x300), (1 << 4));
-	} else  if(sprd_host->chip_select_last ==  MMC_CS_HIGH && mmc->ios.chip_select == MMC_CS_DONTCARE) {
-		sprd_host->chip_select_last = MMC_CS_DONTCARE;
-		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
-		if((tmp_flag & 1) != 0) {
-			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_GPIO_EB);
-		}
-		if((tmp_flag & (1 << 1)) != 0) {
-			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_PIN_EB);
-		}
-		/* set sdio0 data[3] to sdio data pin*/
-		__raw_writel(reg_val, (volatile void __iomem *)(SPRD_PIN_BASE + 0x1E0));
-	}
-	spin_unlock_irqrestore(&sprd_host->lock, flags);
-	return;
-}
-
 static int sprd_sdhci_host_set_uhs_signaling(struct sdhci_host *host, unsigned int uhs) {
 	u16 clk, div, ctrl_2;
 	unsigned int pre_addr = 0;
@@ -611,11 +571,6 @@ static void sprd_sdhci_host_platform_reset_exit(struct sdhci_host *host, u8 mask
 	sdhci_writeb(host, SDHCI_HW_RESET_CARD, SDHCI_SOFTWARE_RESET);
 }
 
-static void sprd_sdhci_host_fix_sprd_host_chip_select(struct sdhci_host *host) {
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	sprd_host->sdhci_host_ops.platform_send_init_74_clocks = sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select;
-}
-
 static void sprd_sdhci_host_fix_sprd_host_execute_tuning(struct sdhci_host *host) {
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	sprd_host->mmc_host_ops.execute_tuning = NULL;
@@ -696,7 +651,7 @@ static void sprd_sdhci_host_fix_mmc_core_need_poll(struct sdhci_host *host) {
 	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	struct sprd_sdhci_host_platdata *host_pdata = sprd_host->platdata;
-	if (host_pdata->detect_gpio > 0 || pdev->id == SDC_SLAVE_WIFI)
+	if (host_pdata->detect_gpio > 0 || pdev->id == SDC_SLAVE_WIFI || pdev->id == SDC_SLAVE_SD)
 		host->mmc->caps &= ~MMC_CAP_NEEDS_POLL;
 }
 
@@ -828,10 +783,6 @@ static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_base = {
 	.quirks2 = SDHCI_QUIRK2_PRESET_VALUE_BROKEN,
 };
 
-static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_chip_select = {
-	.probe = sprd_sdhci_host_fix_sprd_host_chip_select,
-};
-
 static const struct sprd_sdhci_host_fix sprd_sdhci_host_fix_execute_tuning = {
 	.probe = sprd_sdhci_host_fix_sprd_host_execute_tuning,
 };
@@ -872,7 +823,6 @@ static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_card_event = {
 
 static const struct sprd_sdhci_host_fix *sprd_sdhci_host_sprd_host_fixes_shark[] = {
 	[0] = &sprd_sdhci_host_fix_base,
-	[1] = &sprd_sdhci_host_fix_chip_select,
 	[SDHCI_FIX_PRE_COUNT + 0] = &sprd_sdhci_host_fix_execute_tuning,
 	[SDHCI_FIX_PRE_COUNT + 1] = NULL,
 };
