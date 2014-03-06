@@ -27,7 +27,7 @@
 #endif
 
 #if IST30XX_INTERNAL_BIN
-#if defined(CONFIG_MACH_STAR2)
+#if defined(CONFIG_MACH_POCKET2)
 #include "IST30xxB_FW_Star2_Ver0002.h"
 #elif defined(CONFIG_MACH_YOUNG2)
 #include "ist30xxb_fw_young2_ver0001.h"

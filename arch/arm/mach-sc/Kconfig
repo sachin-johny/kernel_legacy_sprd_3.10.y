@@ -243,14 +243,14 @@ config MACH_SP8815GAOPENPHONE
 	help
 	  SP8815GAOPENPHONE board based on dolphin serial.
 
-config MACH_STAR2
-	bool "star2 Phone Board"
+config MACH_POCKET2
+	bool "pocket2 Phone Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	depends on ARCH_SCX15
 	default n
 	help
-	  STAR2 board based on dolphin serial.
+	  POCKET2 board based on dolphin serial.
 
 config MACH_CORSICA_VE
 	bool "corsica_ve Phone Board"
