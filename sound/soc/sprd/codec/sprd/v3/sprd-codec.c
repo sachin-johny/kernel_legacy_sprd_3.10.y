@@ -164,7 +164,7 @@ enum {
 	SPRD_CODEC_MIXER_END
 };
 
-#define GET_MIXER_ID(x)    ((x)-ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT))
+#define GET_MIXER_ID(x)    ((unsigned short)(x)-ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT))
 #define SPRD_CODEC_MIXER_MAX (ID_FUN(SPRD_CODEC_MIXER_END, SPRD_CODEC_LEFT) -ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT))
 static const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
 	"AIL->ADCL",
@@ -1645,7 +1645,7 @@ static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id,
 				     int try_on, int need_set)
 {
 	int lr = id & 0x1;
-	id >>= 1;
+	id = (id >>1) + SPRD_CODEC_MIXER_START;
 	return _mixer_setting(codec, id, id + 1, lr, try_on, need_set);
 }
 
