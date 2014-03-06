@@ -22,7 +22,11 @@ struct sprd_2351_interface *fm_rf_ops = NULL;
 void shark_fm_seek_up(void)
 {
 	u32 reg_data;
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+        WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek+1);
+#else
 	WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek+2);
+#endif
 	READ_REG(FM_REG_FM_CTRL, &reg_data);
 	reg_data |= BIT_19;
 	WRITE_REG(FM_REG_FM_CTRL, reg_data);
@@ -31,7 +35,11 @@ void shark_fm_seek_up(void)
 void shark_fm_seek_down(void)
 {
 	u32 reg_data;
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+        WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek-1);
+#else
 	WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek-2);
+#endif
 	READ_REG(FM_REG_FM_CTRL, &reg_data);
 	reg_data &= ~BIT_19;
 	WRITE_REG(FM_REG_FM_CTRL, reg_data);
@@ -322,8 +330,13 @@ void __trout_fm_show_status(void)
 {
 	TROUT_PRINT("FM_REG_SEEK_CNT     : %08x (%d)\r\n", \
 		shark_fm_info.seek_cnt, shark_fm_info.seek_cnt);
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+        TROUT_PRINT("FM_REG_CHAN_FREQ_STS: %08x (%d)\r\n", \
+		shark_fm_info.freq_seek, shark_fm_info.freq_seek*5 + 10);
+#else		
 	TROUT_PRINT("FM_REG_CHAN_FREQ_STS: %08x (%d)\r\n", \
 		shark_fm_info.freq_seek, ((shark_fm_info.freq_seek >> 1) + 1));
+#endif		
 	TROUT_PRINT("FM_REG_FREQ_OFF_STS : %08x (%d)\r\n", \
 		shark_fm_info.freq_offset, shark_fm_info.freq_offset);
 	TROUT_PRINT("FM_REG_RF_RSSI_STS  : %08x\r\n", \
@@ -416,9 +429,11 @@ int trout_fm_set_tune(u16 freq)
 	shark_fm_int_clr();
 	/*FM_ADC_Tuning_Value_overwrite(chan);*/
 	WRITE_REG(FM_REG_FMCTL_STI, FM_CTL_STI_MODE_TUNE);	/* tune mode*/
-
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+	WRITE_REG(FM_REG_CHAN, ((freq-10)/5) & 0xffff);
+#else
 	WRITE_REG(FM_REG_CHAN, ((freq-1)*2) & 0xffff);
-
+#endif
 	shark_fm_int_en();
 	trout_fm_en();
 
@@ -444,9 +459,11 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 		TROUT_PRINT("out of freq range: %i", frequency);
 		frequency = MIN_FM_FREQ;
 	}
-
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+    shark_fm_info.freq_seek = ((frequency-10)/5);
+#else
 	shark_fm_info.freq_seek = ((frequency-1)*2);
-
+#endif
 	seek_dir ^= 0x1;
 	trout_fm_dis();
 	shark_fm_int_clr();
@@ -463,6 +480,26 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 	ret = shark_fm_wait_int(time_out);
 	if (ret == Trout_SEEK_TIMEOUT)
        {
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+            if (seek_dir == 0){
+                if ( MIN_FM_FREQ == (shark_fm_info.freq_seek*5 + 10)){
+                            shark_fm_info.freq_seek  =  (MAX_FM_FREQ -10 ) /5;
+		   }
+		   else{
+			    shark_fm_info.freq_seek -= 1;
+		   }
+            }
+	     else{
+                if ( MAX_FM_FREQ == shark_fm_info.freq_seek*5 + 10){
+                            shark_fm_info.freq_seek  =  (MIN_FM_FREQ -10 ) /5;
+		   }
+		   else{
+			    shark_fm_info.freq_seek += 1;
+		   }
+	     }
+            TROUT_PRINT("seek failed!");
+            TROUT_PRINT("freq=%d",shark_fm_info.freq_seek*5 + 10);
+#else	 
             if (seek_dir == 0){
                 if ( MIN_FM_FREQ == ((shark_fm_info.freq_seek >> 1) + 1)){
                             shark_fm_info.freq_seek  =  (MAX_FM_FREQ -1 ) * 2;
@@ -480,12 +517,16 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 		   }
 	     }
             TROUT_PRINT("seek time out!");
-            TROUT_PRINT("freq=%d",((shark_fm_info.freq_seek >> 1) + 1));         
+            TROUT_PRINT("freq=%d",((shark_fm_info.freq_seek >> 1) + 1)); 
+#endif			
         }
 		
 	/*dump_fm_regs();*/
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+	*freq_found = shark_fm_info.freq_seek*5 + 10;
+#else	
 	*freq_found = (shark_fm_info.freq_seek >> 1) + 1;
-
+#endif
 	shark_fm_int_clr();
 
 	return ret;
@@ -493,8 +534,11 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 
 int trout_fm_get_frequency(u16 *freq)
 {
+#ifdef CONFIG_FM_SEEK_STEP_50KHZ
+        *freq = shark_fm_info.freq_seek*5 + 10;
+#else
        *freq = ((shark_fm_info.freq_seek >> 1) + 1);
-
+#endif
 	return 0;
 }
 
