@@ -345,7 +345,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 
 	local_load = load_freq/policy->cur;
 
-        printk("[DVFS] load %d %x load_freq %d policy->cur %d\n",local_load,local_load,load_freq,policy->cur);
+        pr_debug("[DVFS] load %d %x load_freq %d policy->cur %d\n",local_load,local_load,load_freq,policy->cur);
 	/* Check for frequency increase */
 	if (load_freq > sd_tuners->up_threshold * policy->cur) {
 		/* If switching to max speed, apply sampling_down_factor */
