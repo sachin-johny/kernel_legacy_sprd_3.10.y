@@ -423,6 +423,7 @@ struct panel_spec lcd_panel_hx8363_rgb_spi_spec = {
 #endif
 	.width = 480,
 	.height = 854,
+	.reset_timing = {20, 10, 10},
 	.fps = 61,
 	.type = LCD_MODE_RGB,
 	.direction = LCD_DIRECT_NORMAL,

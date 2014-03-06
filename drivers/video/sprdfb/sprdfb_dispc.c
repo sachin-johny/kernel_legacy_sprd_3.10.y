@@ -1298,8 +1298,8 @@ static int32_t sprdfb_dispc_resume(struct sprdfb_device *dev)
 		if (1){//(dispc_read(DISPC_SIZE_XY) == 0 ) { /* resume from deep sleep */
 			printk(KERN_INFO "sprdfb:[%s] from deep sleep\n",__FUNCTION__);
 			sprdfb_dispc_early_init(dev);
-			sprdfb_dispc_init(dev);
 			sprdfb_panel_resume(dev, true);
+			sprdfb_dispc_init(dev);
 		}else {
 			printk(KERN_INFO "sprdfb:[%s]  not from deep sleep\n",__FUNCTION__);
 
