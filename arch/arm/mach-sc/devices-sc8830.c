@@ -2057,7 +2057,7 @@ static struct cproc_init_data sprd_cproc_wcn_pdata = {
 		{
 		.name  = "modem",
 		.base  = WCN_START_ADDR + 0x60000,
-		.maxsz = 0x00400000,
+		.maxsz = 0x00100000,
 		},
 	},
 };
