@@ -58,7 +58,6 @@
 #include <mach/i2s.h>
 #include <linux/regulator/machine.h>
 #include <linux/ktd253b_bl.h>
-#include <linux/i2c/mms_ts.h>
 #include <linux/gp2ap002a00f.h>
 #include <linux/bst_sensor_common.h>
 #include <sound/sprd-audio-hook.h>
@@ -68,6 +67,11 @@
 #include <linux/io.h>
 #include <asm/uaccess.h>
 #include <linux/module.h>
+#ifdef CONFIG_TOUCHSCREEN_IST30XX
+#include "../../../drivers/input/touchscreen/ist30xx/ist30xx.h"
+#else
+#include <linux/i2c/mms_ts.h>
+#endif
 // gps for marvell
 
 #define GPIO_HOME_KEY 113 /* PIN LCD_D[5] */
@@ -799,15 +803,24 @@ static struct platform_device rt8973_mfd_device_i2cadaptor = {
 	}
 };
 
+extern void dwc_udc_startup(void);
+extern void dwc_udc_shutdown(void);
+static void usb_cable_detect_callback(uint8_t attached)
+{
+	if (attached)
+		dwc_udc_startup();
+	else
+		dwc_udc_shutdown();
+}
+
 #include <linux/mfd/rt8973.h>
 static struct rt8973_platform_data rt8973_pdata = {
     .irq_gpio = GPIO_MUIC_IRQ,
     .cable_chg_callback = NULL,
-    .usb_callback = NULL,
     .ocp_callback = NULL,
     .otp_callback = NULL,
     .ovp_callback = NULL,
-    .usb_callback = NULL,
+    .usb_callback = usb_cable_detect_callback,
     .uart_callback = NULL,
     .otg_callback = NULL,
     .jig_callback = NULL,
@@ -1092,7 +1105,7 @@ static int gps_enable_control(int flag)
         printk("[GPS] LDO control : %s\n", flag ? "ON" : "OFF");
 		
         if (flag && (!f_enabled)) {
-                      gps_regulator = regulator_get(NULL, "vddrf2");
+                      gps_regulator = regulator_get(NULL, "vddrf1");
                       if (IS_ERR(gps_regulator)) {
                                    gps_regulator = NULL;
                                    return EIO;
@@ -1309,7 +1322,23 @@ static void create_sirf_proc_file(void)
 #endif
 // GPS for marvell
 
-const u8	mms_ts_keycode[] = {KEY_MENU, KEY_BACK};
+#ifdef CONFIG_TOUCHSCREEN_IST30XX
+static struct tsp_platform_data ist30xx_info = {
+	.gpio = GPIO_TOUCH_IRQ,
+};
+static struct i2c_board_info i2c1_boardinfo[] = {
+	{
+		I2C_BOARD_INFO("IST30XX", 0x50),
+		.platform_data =&ist30xx_info,
+	},
+};
+
+static struct i2c_board_info i2c0_boardinfo[] = {
+		{I2C_BOARD_INFO("sensor_main",0x3C),},
+		{I2C_BOARD_INFO("sensor_sub",0x21),},
+};
+#else
+const u8    mms_ts_keycode[] = {KEY_MENU, KEY_BACK};
 
 static struct mms_ts_platform_data mms_ts_info = {
 	.max_x = 480,
@@ -1334,6 +1363,8 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 		.platform_data = &mms_ts_info
 	},
 };
+
+#endif
 
 #if defined(CONFIG_SENSORS)
 
@@ -1468,6 +1499,7 @@ static int sc8810_add_i2c_devices(void)
 	return 0;
 }
 
+#if 0
 static int customer_ext_headphone_ctrl(int id, int on)
 {
 	static bool is_init = false;
@@ -1499,13 +1531,16 @@ static int customer_ext_headphone_ctrl(int id, int on)
 
 	return HOOK_OK;
 }
+#endif
 
 static int sc8810_add_misc_devices(void)
 {
+#if 0
 	static struct sprd_audio_ext_hook audio_hook = {0};
 	audio_hook.ext_headphone_ctrl = customer_ext_headphone_ctrl;
 
 	sprd_ext_hook_register(&audio_hook);
+#endif
 
 	return 0;
 }

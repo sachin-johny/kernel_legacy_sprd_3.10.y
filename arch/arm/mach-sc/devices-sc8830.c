@@ -1663,7 +1663,11 @@ static struct cproc_init_data sprd_cproc_td_pdata = {
 	.segs		= {
 		{
 			.name  = "modem",
+#ifdef CONFIG_CP_SWITCH
+			.base  = CPT_START_ADDR + 0x400000,
+#else
 			.base  = CPT_START_ADDR + 0x300000,
+#endif
 			.maxsz = 0x00800000,
 		},
 		{
