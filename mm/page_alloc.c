@@ -896,6 +896,58 @@ static int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 	return 0;
 }
 
+#define CONFIG_BUDDY_HIGH_ORDER_RESERVE
+
+#ifdef CONFIG_BUDDY_HIGH_ORDER_RESERVE
+static unsigned int  high_order_reserve_pages = 256; //40 * 4;
+module_param_named(high_reserve_pages, high_order_reserve_pages, uint, S_IRUGO | S_IWUSR);
+
+static inline  bool  zone_high_order_wmark_ok(struct zone *zone,  unsigned int  mark, int migratetype, bool  is_fallback)
+{
+	int  type = 0;
+	unsigned int current_order = 0;
+	struct free_area * area = NULL;
+	unsigned int high_order_pages = 0;
+	struct list_head *curr = NULL;
+
+#ifdef CONFIG_CMA
+	if (MIGRATE_CMA == migratetype)
+	{
+		return true;
+	}
+#endif
+
+	/* Find a page of the appropriate size in the preferred list */
+	for (current_order = MAX_ORDER - 1; current_order  > 1;  current_order--)
+	{
+		area = &(zone->free_area[current_order]);
+#ifdef CONFIG_CMA
+		if(is_fallback && (MIGRATE_MOVABLE == migratetype) &&
+			!list_empty(&area->free_list[MIGRATE_CMA]))
+		{
+			return true;
+		}
+#endif
+		for(type  = 0; type <= MIGRATE_RESERVE;  type++ )
+		{
+			if (list_empty(&area->free_list[type]))
+				continue;
+
+			list_for_each(curr, &area->free_list[type]) {
+				high_order_pages +=  1UL  <<  current_order;
+				if(high_order_pages >=  mark)
+				{
+					return   true;
+				}
+			}
+		}
+	}
+
+	return false;
+}
+#endif // CONFIG_BUDDY_HIGH_ORDER_RESERVE
+
+
 /*
  * Go through the free lists for the given migratetype and remove
  * the smallest available page from the freelists
@@ -907,9 +959,16 @@ struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
 	unsigned int current_order;
 	struct free_area * area;
 	struct page *page;
+	unsigned int end_order = MAX_ORDER;
+
+#ifdef CONFIG_BUDDY_HIGH_ORDER_RESERVE
+	if (order == 0 && !zone_high_order_wmark_ok(zone, high_order_reserve_pages, migratetype, false)) {
+		end_order = 2;
+	}
+#endif // CONFIG_BUDDY_HIGH_ORDER_RESERVE
 
 	/* Find a page of the appropriate size in the preferred list */
-	for (current_order = order; current_order < MAX_ORDER; ++current_order) {
+	for (current_order = order; current_order < end_order; ++current_order) {
 		area = &(zone->free_area[current_order]);
 		if (list_empty(&area->free_list[migratetype]))
 			continue;
@@ -1040,9 +1099,16 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 	int current_order;
 	struct page *page;
 	int migratetype, i;
+	int start_order = MAX_ORDER-1;
+
+#ifdef CONFIG_BUDDY_HIGH_ORDER_RESERVE
+	if (order == 0 && !zone_high_order_wmark_ok(zone,high_order_reserve_pages, start_migratetype, true)) {
+		start_order = 1;
+	}
+#endif // CONFIG_BUDDY_HIGH_ORDER_RESERVE
 
 	/* Find the largest possible block of pages in the other list */
-	for (current_order = MAX_ORDER-1; current_order >= order;
+	for (current_order = start_order; current_order >= order;
 						--current_order) {
 		for (i = 0;; i++) {
 			migratetype = fallbacks[start_migratetype][i];
