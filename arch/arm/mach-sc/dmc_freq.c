@@ -500,8 +500,8 @@ u32 emc_clk_get(void)
 	case 3:
 		pll_clk = get_dpll_clk();
 		break;
-	default:
-		break;
+	//default:
+	//	break;
 	}
 	clk = pll_clk / (div + 1);
 	return clk;
