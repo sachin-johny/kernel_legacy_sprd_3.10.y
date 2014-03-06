@@ -31,6 +31,9 @@
 #include <linux/tty_flip.h>
 #include <linux/kthread.h>
 
+#include <linux/sprd_2351.h>
+
+
 #define STTY_DEV_MAX_NR 	1
 #define STTY_MAX_DATA_LEN 		4096
 
@@ -102,6 +105,10 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 		printk(KERN_ERR "regitster notifier failed (%d)\n", rval);
 		return rval;
 	}
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+    || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
+    rf2351_gpio_ctrl_power_enable(1);
+#endif
 	pr_debug("stty_open device success! \n");
 
 	return 0;
@@ -130,6 +137,11 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 
 	pr_debug("stty_close device success !\n");
 
+    #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
+    rf2351_gpio_ctrl_power_enable(0);
+    #endif
+    
 	return;
 }
 
