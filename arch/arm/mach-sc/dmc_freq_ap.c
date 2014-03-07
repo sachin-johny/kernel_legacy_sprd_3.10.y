@@ -328,7 +328,7 @@
 typedef unsigned long int	uint32;
 
 
-static inline uint32 reg_bits_set(uint32 addr,uint32 start_bitpos,uint32 bit_num,uint32 value)
+static inline void reg_bits_set(uint32 addr,uint32 start_bitpos,uint32 bit_num,uint32 value)
 {
     /*create bit mask according to input param*/
     uint32 bit_mask = (1<<bit_num)-1;
