@@ -88,6 +88,7 @@ void sprdchg_start_charge(void);
 void sprdchg_stop_charge(void);
 void sprdchg_set_cccvpoint(unsigned int cvpoint);
 uint32_t sprdchg_get_cccvpoint(void);
+uint32_t sprdchg_tune_endvol_cccv(uint32_t chg_end_vol, uint32_t cal_cccv);
 void sprdchg_set_chg_cur(uint32_t chg_current);
 int sprdchg_charger_is_adapter(void);
 void sprdchg_set_chg_ovp(uint32_t ovp_vol);

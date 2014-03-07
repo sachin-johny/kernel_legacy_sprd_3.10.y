@@ -288,7 +288,7 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 
 	data &= ~(1 << 31);
 
-	pr_info("sci_efuse_calibration data:0x%x\n", data);
+	printk("sci_efuse_calibration data:0x%x\n", data);
 	if ((!data) || (p_cal_data == NULL)) {
 		return 0;
 	}
@@ -304,10 +304,50 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 }
 EXPORT_SYMBOL(sci_efuse_calibration_get);
 
-int sci_efuse_cv_get(unsigned int *p_cal_data)
+#define CCCV_CAL_DATA_BLK		9
+int sci_efuse_cccv_cal_get(unsigned int *p_cal_data)
 {
-	return 0;
+	int data;
+	unsigned short adc_temp;
+
+	data = sci_efuse_get(CCCV_CAL_DATA_BLK);
+
+	data &= ~(1 << 31);
+
+	printk("sci_efuse_cccv_cal_get data:0x%x\n", data);
+	if ((!data) || (p_cal_data == NULL)) {
+		return 0;
+	}
+
+      *p_cal_data = (data >> 24) & 0x003F;
+
+	return 1;
 }
+
+#define FGU_CAL_DATA_BLK0		8
+#define FGU_CAL_DATA_BLK1		9
+int sci_efuse_fgu_cal_get(unsigned int *p_cal_data)
+{
+	int data;
+	unsigned short adc_temp;
+
+	data = sci_efuse_get(FGU_CAL_DATA_BLK0);
+
+	data &= ~(1 << 31);
+
+	printk("sci_efuse_fgu_cal_get 1 data:0x%x\n", data);
+	if ((!data) || (p_cal_data == NULL)) {
+		return 0;
+	}
+      p_cal_data[0] = (((data >> 16) & 0x1FF) + 6808) - 4096 -256;       //4.0V or 4.2V
+      p_cal_data[1] = p_cal_data[0] -390 - ((data >> 25) & 0x1FF) +16 ;   //3.6V
+      p_cal_data[2] = (((data) & 0x1FF) + 8192) -256 ;
+      data = sci_efuse_get(FGU_CAL_DATA_BLK1);
+      printk("sci_efuse_fgu_cal_get 2 data:0x%x\n", data);
+      p_cal_data[3] = (((data) & 0x1FF) + 8192) - 256;
+      return 1;
+}
+
 
 /*
  * sci_efuse_get_cal - read adc data saved in efuse
