@@ -307,6 +307,14 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		break;
 #endif
+
+	case SPRD_FB_IS_REFRESH_DONE:
+		pr_debug(KERN_INFO "sprdfb: [%s]: SPRD_FB_IS_REFRESH_DONE\n", __FUNCTION__);
+		if(NULL != dev->ctrl->is_refresh_done){
+			result = dev->ctrl->is_refresh_done(dev);
+		}
+		break;
+
 	default:
 		printk(KERN_INFO "sprdfb: [%s]: unknown cmd(%d)\n", __FUNCTION__, cmd);
 		break;

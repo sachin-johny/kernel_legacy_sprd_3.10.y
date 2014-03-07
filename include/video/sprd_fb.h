@@ -73,4 +73,5 @@ int sprdfb_IOdeinit(void);
 #define SPRD_FB_SET_OVERLAY _IOW(SPRD_FB_IOCTL_MAGIC, 1, unsigned int)
 #define SPRD_FB_DISPLAY_OVERLAY _IOW(SPRD_FB_IOCTL_MAGIC, 2, unsigned int)
 #define SPRD_FB_CHANGE_FPS _IOW(SPRD_FB_IOCTL_MAGIC, 3, unsigned int)
+#define SPRD_FB_IS_REFRESH_DONE _IOW(SPRD_FB_IOCTL_MAGIC, 4, unsigned int)
 #endif

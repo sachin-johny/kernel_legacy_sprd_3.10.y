@@ -149,6 +149,7 @@ struct panel_operations {
 	uint32_t (*panel_readid)(struct panel_spec *self);
 	int32_t (*panel_esd_check)(struct panel_spec *self);
 	int32_t (*panel_change_fps)(struct panel_spec *self, int fps_level);
+	int32_t (*panel_change_epf)(struct panel_spec *self, bool is_default);
 };
 
 /* MCU LCD specific properties */
