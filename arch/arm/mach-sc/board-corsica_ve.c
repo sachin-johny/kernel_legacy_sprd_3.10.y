@@ -95,6 +95,10 @@ extern int __init sprd_ramconsole_init(void);
 #define ROWS	(2)
 #define COLS	(2)
 
+#define        ANA_REG_SET(_r, _v, _m) sci_adi_write((_r), ((_v) & (_m)), (_m))
+#define        ANA_REG_GET(_r)         sci_adi_read(_r)
+
+
 static const unsigned int board_keymap[] = {
 	KEY(1, 0, KEY_VOLUMEDOWN),
 	KEY(0, 0, KEY_VOLUMEUP),
@@ -1035,6 +1039,7 @@ static struct i2s_config i2s3_config = {0};
 
 static void __init sc8830_init_machine(void)
 {
+	u32 reg_val;
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
 	sci_adc_init((void __iomem *)ADC_BASE);
@@ -1060,7 +1065,12 @@ static void __init sc8830_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
-
+	reg_val = ANA_REG_GET(ANA_REG_GLB_DCDC_GEN_ADI);
+	reg_val &= ~0xff;
+	reg_val |= 0x80;
+	ANA_REG_SET(ANA_REG_GLB_DCDC_GEN_ADI,reg_val,-1);
+	reg_val = ANA_REG_GET(ANA_REG_GLB_DCDC_GEN_ADI);
+	printk("!!!!!!!!!!!!reg_val = %x\n!!!!!!!!!!!!!",reg_val);
 }
 
 static void __init sc8830_init_late(void)
