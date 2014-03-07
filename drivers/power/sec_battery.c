@@ -22,6 +22,18 @@
 #include <linux/secgpio_dvs.h>
 #endif
 
+#if defined(CONFIG_SPRD_2713_POWER)
+#include <mach/adc.h>
+/**
+ * Create CFT ADC Calitration node for vendor/sprd/open-source/apps/engmode/adc_calibration.c
+ * 1. BATTERY_VOL_PATH	"/sys/class/power_supply/battery/real_time_voltage"
+ * 2. BATTERY_ADC_PATH	"/sys/class/power_supply/battery/real_time_vbat_adc"
+ */
+extern uint32_t sprdchg_read_vbat_vol(void);
+#else
+#error "please include sprd sc2713 interface"
+#endif
+
 static struct device_attribute sec_usb_attr[] = {
 	SEC_USB_ATTR(charging_mode_booting),
 };
@@ -78,6 +90,10 @@ static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(event),
 #if defined(CONFIG_SAMSUNG_BATTERY_ENG_TEST)
 	SEC_BATTERY_ATTR(test_charge_current),
+#endif
+#if defined(CONFIG_SPRD_2713_POWER)
+	SEC_BATTERY_ATTR(real_time_voltage),
+	SEC_BATTERY_ATTR(real_time_vbat_adc),
 #endif
 };
 
@@ -2254,6 +2270,24 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 					value.intval);
 		}
 		break;
+#endif
+#if defined(CONFIG_SPRD_2713_POWER)
+	/**
+	 * following process method comes from kernel/drivers/power/sprd_2713_charge.c
+	 * if you meet any issue, please go to that file, maybe code in here is old now.
+	 */
+	case BATT_2713_BATTERY_VOLTAGE: {
+		int voltage;
+		voltage = sprdchg_read_vbat_vol();
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", voltage);
+	} break;
+	case BATT_2713_BATTERY_ADC: {
+		int adc_value;
+		adc_value = sci_adc_get_value(ADC_CHANNEL_VBAT, false);
+		if (adc_value < 0)
+			adc_value = 0;
+		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n", adc_value);
+	} break;
 #endif
 	default:
 		i = -EINVAL;
