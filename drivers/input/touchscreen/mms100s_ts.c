@@ -195,10 +195,10 @@ static int mms_ts_config(struct mms_ts_info *info);
 /* mms_ts_enable - wake-up func (VDD on)  */
 static void mms_ts_enable(struct mms_ts_info *info)
 {
-printk("%s  enable tsp  %d\n",__func__,__LINE__);
+pr_debug("%s  enable tsp  %d\n",__func__,__LINE__);
 	if (info->enabled)
 		return;
-	printk("%s    %d\n",__func__,__LINE__);
+	pr_debug("%s    %d\n",__func__,__LINE__);
 	mutex_lock(&info->lock);
 
 	/*
@@ -210,11 +210,11 @@ printk("%s  enable tsp  %d\n",__func__,__LINE__);
 	/* use vdd control instead */
 	info->pdata->vdd_on(1);
 	msleep(50);
-	printk("%s    %d \n",__func__,__LINE__);
+	pr_debug("%s    %d \n",__func__,__LINE__);
 	info->enabled = true;
-	printk("%s    %d \n",__func__,__LINE__);
+	pr_debug("%s    %d \n",__func__,__LINE__);
 	enable_irq(info->irq);
-printk("%s    %d \n",__func__,__LINE__);
+pr_debug("%s    %d \n",__func__,__LINE__);
 	mutex_unlock(&info->lock);
 
 }
@@ -222,7 +222,7 @@ printk("%s    %d \n",__func__,__LINE__);
 /* mms_ts_disable - sleep func (VDD off) */
 static void mms_ts_disable(struct mms_ts_info *info)
 {
-printk("%s  disable tsp  %d \n",__func__,__LINE__);
+pr_debug("%s  disable tsp  %d \n",__func__,__LINE__);
 	if (!info->enabled)
 		return;
 
@@ -251,7 +251,7 @@ printk("%s  disable tsp  %d \n",__func__,__LINE__);
 static void mms_reboot(struct mms_ts_info *info)
 {
 	struct i2c_adapter *adapter = to_i2c_adapter(info->client->dev.parent);
-printk("%s  reboot 1  %d",__func__,__LINE__);
+pr_debug("%s  reboot 1  %d",__func__,__LINE__);
 	i2c_smbus_write_byte_data(info->client, MMS_POWER_CONTROL, 1);
 	i2c_lock_adapter(adapter);
 	msleep(50);
@@ -486,7 +486,7 @@ static void mms_report_input_data(struct mms_ts_info *info, u8 sz, u8 *buf)
 			input_report_abs(info->input_dev, ABS_MT_POSITION_Y, y);
 			input_report_abs(info->input_dev, ABS_MT_TOUCH_MAJOR, touch_major);
 			input_report_abs(info->input_dev, ABS_MT_PRESSURE, pressure);
-			dev_notice(&client->dev,"P [%2d],([%3d],[%4d]) , major=%d,  pressure=%d",id, x, y, tmp[4], tmp[5]);
+//			dev_notice(&client->dev,"P [%2d],([%3d],[%4d]) , major=%d,  pressure=%d",id, x, y, tmp[4], tmp[5]);
 		}
 	}
 
@@ -856,7 +856,7 @@ static void mms_fw_update_controller(const struct firmware *fw, void * context)
 /* mms_ts_interrupt - interrupt thread */
 static irqreturn_t mms_ts_interrupt(int irq, void *dev_id)
 {
-printk("%s interrupt call   %d \n",__func__,__LINE__);
+pr_debug("%s interrupt call   %d \n",__func__,__LINE__);
 	struct mms_ts_info *info = dev_id;
 	struct i2c_client *client = info->client;
 	u8 buf[MAX_FINGER_NUM * FINGER_EVENT_SZ] = { 0, };
@@ -886,7 +886,7 @@ printk("%s interrupt call   %d \n",__func__,__LINE__);
 			"failed to read %d bytes of touch data (%d)\n",
 			sz, ret);
 	} else {
-	printk("%s report event   %d \n",__func__,__LINE__);
+	pr_debug("%s report event   %d \n",__func__,__LINE__);
 		mms_report_input_data(info, sz, buf);
 	}
 
@@ -899,16 +899,16 @@ printk("%s interrupt call   %d \n",__func__,__LINE__);
  */ 
 static int mms_ts_input_open(struct input_dev *dev)
 {
-printk("%s  enter1  %d",__func__,__LINE__);
+pr_debug("%s  enter1  %d",__func__,__LINE__);
 	struct mms_ts_info *info = input_get_drvdata(dev);
 	int ret;
-printk("%s enterw %d",__func__,__LINE__);
+pr_debug("%s enterw %d",__func__,__LINE__);
 	ret = wait_for_completion_interruptible_timeout(&info->init_done,
 			msecs_to_jiffies(90 * MSEC_PER_SEC));
 
 	if (ret > 0) {
 		if (info->irq != -1) {
-		printk("%s    %d",__func__,__LINE__);
+		pr_debug("%s    %d",__func__,__LINE__);
 			mms_ts_enable(info);
 			ret = 0;
 		} else {
@@ -937,14 +937,14 @@ static void mms_ts_input_close(struct input_dev *dev)
  */
 static int mms_ts_config(struct mms_ts_info *info)
 {
-printk("%s  config 1 %d \n",__func__,__LINE__);
+pr_debug("%s  config 1 %d \n",__func__,__LINE__);
 	struct i2c_client *client = info->client;
 	int ret;
-	printk("%s  config 2  %d \n",__func__,__LINE__);
+	pr_debug("%s  config 2  %d \n",__func__,__LINE__);
 	ret = request_threaded_irq(client->irq, NULL, mms_ts_interrupt,
 				IRQF_TRIGGER_LOW | IRQF_ONESHOT,
 				"mms_ts", info);
-printk("%s  irq registered  %d\n",__func__,__LINE__);
+pr_debug("%s  irq registered  %d\n",__func__,__LINE__);
 	if (ret) {
 		dev_err(&client->dev, "failed to register irq\n");
 		goto out;
@@ -958,10 +958,10 @@ printk("%s  irq registered  %d\n",__func__,__LINE__);
 	info->key_num = i2c_smbus_read_byte_data(client, MMS_KEY_NUM);
 
 	dev_info(&client->dev, "Melfas touch controller initialized\n");
-	printk("%s  reboot called  %d\n",__func__,__LINE__);
+	pr_debug("%s  reboot called  %d\n",__func__,__LINE__);
 	mms_reboot(info);
 	complete_all(&info->init_done);
-	printk("%s  init done  %d\n",__func__,__LINE__);
+	pr_debug("%s  init done  %d\n",__func__,__LINE__);
 
 out:
 	return ret;
@@ -1204,7 +1204,7 @@ static int __init mms_ts_probe(struct i2c_client *client,
 	struct input_dev *input_dev;
 	int ret = 0;
 	const char *fw_name = FW_NAME;
-	printk("probe enter \n");
+	pr_debug("probe enter \n");
 
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
@@ -1225,7 +1225,7 @@ static int __init mms_ts_probe(struct i2c_client *client,
 	info->pdata = client->dev.platform_data;
 	init_completion(&info->init_done);
 	info->irq = -1;
-printk("probe mutex init \n");
+pr_debug("probe mutex init \n");
 	mutex_init(&info->lock);
 
 	client->irq = gpio_to_irq(info->pdata->gpio_int);
@@ -1239,7 +1239,7 @@ printk("probe mutex init \n");
 	input_dev->id.bustype = BUS_I2C;
 	input_dev->dev.parent = &client->dev;
 
-printk("probe dev init \n");
+pr_debug("probe dev init \n");
 	__set_bit(EV_ABS, input_dev->evbit);
 	__set_bit(INPUT_PROP_DIRECT, input_dev->propbit);
 
@@ -1274,9 +1274,9 @@ printk("probe dev init \n");
 	}
 	info->irq = client->irq;	
 
-printk("%s  enable FW %d\n",__func__,__LINE__);
+pr_debug("%s  enable FW %d\n",__func__,__LINE__);
 	info->fw_name = kstrdup(fw_name, GFP_KERNEL);
-printk("%s  enable tsp  %d\n",__func__,__LINE__);
+pr_debug("%s  enable tsp  %d\n",__func__,__LINE__);
 	ret = request_firmware_nowait(THIS_MODULE, true, fw_name, &client->dev,
 					GFP_KERNEL, info, mms_fw_update_controller);
 	if (ret) {
@@ -1291,12 +1291,12 @@ printk("%s  enable tsp  %d\n",__func__,__LINE__);
 	info->early_suspend.resume = mms_ts_late_resume;
 	register_early_suspend(&info->early_suspend);
 #endif
-printk("%s  ALLOCH  %d\n",__func__,__LINE__);
+pr_debug("%s  ALLOCH  %d\n",__func__,__LINE__);
 	if (alloc_chrdev_region(&info->mms_dev, 0, 1, "mms_ts")) {
 		dev_err(&client->dev, "failed to allocate device region\n");
 		return -ENOMEM;
 	}
-printk("%s  FOPS  %d\n",__func__,__LINE__);
+pr_debug("%s  FOPS  %d\n",__func__,__LINE__);
 	cdev_init(&info->cdev, &mms_fops);
 	info->cdev.owner = THIS_MODULE;
 
@@ -1304,7 +1304,7 @@ printk("%s  FOPS  %d\n",__func__,__LINE__);
 		dev_err(&client->dev, "failed to add ch dev\n");
 		return -EIO;
 	}
-printk("%s  CLASS CREATE  %d\n",__func__,__LINE__);
+pr_debug("%s  CLASS CREATE  %d\n",__func__,__LINE__);
 	info->class = class_create(THIS_MODULE, "mms_ts");
 	device_create(info->class, NULL, info->mms_dev, NULL, "mms_ts");
 
