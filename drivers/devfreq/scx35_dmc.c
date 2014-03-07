@@ -43,6 +43,7 @@
 #define CPT_SHARE_MEM		(CPT_RING_ADDR + 0x880)
 #define CPW_SHARE_MEM		(CPW_RING_ADDR + 0x880)
 
+
 extern u32 emc_clk_set(u32 new_clk, u32 sene);
 extern u32 emc_clk_get(void);
 #ifdef CONFIG_SMP
@@ -51,7 +52,6 @@ extern int scxx30_all_nonboot_cpus_died(void);
 
 #define MIN_FREQ_CNT	(1)
 static DEFINE_SPINLOCK(min_freq_cnt_lock);
-static unsigned int min_freq_cnt = 0;
 
 enum scxx30_dmc_type {
 	TYPE_DMC_SCXX30 ,
@@ -80,9 +80,8 @@ static struct dmc_opp_table scxx30_dmcclk_table[] = {
 #else
 #ifdef CONFIG_ARCH_SCX35
 	{LV_0, 532000, 1200000, 4256},
-	{LV_1, 400000, 1200000, 3200},
-	{LV_2, 332000, 1200000, 2656},
-	{LV_3, 200000, 1200000, 1600},
+	{LV_1, 384000, 1200000, 2656},
+	{LV_2, 200000, 1200000, 1600},
 #endif
 #endif
 	{0, 0, 0},
@@ -102,6 +101,7 @@ struct dmcfreq_data {
 #endif
 	struct notifier_block pm_notifier;
 	unsigned long last_jiffies;
+	unsigned long quirk_jiffies;
 	spinlock_t lock;
 };
 
@@ -111,7 +111,7 @@ struct dmcfreq_data {
 #define SCXX30_MIN_FREQ (192000)
 #else
 #ifdef CONFIG_ARCH_SCX35
-#define SCXX30_LV_NUM (LV_4)
+#define SCXX30_LV_NUM (LV_3)
 #define SCXX30_MAX_FREQ (532000)
 #define SCXX30_MIN_FREQ (200000)
 #endif
@@ -121,11 +121,32 @@ struct dmcfreq_data {
 #define SCXX30_POLLING_MS (100)
 #define BOOT_TIME	(40*HZ)
 static u32 boot_done;
+static unsigned int min_freq_cnt = 0;
+static u32 request_quirk = 0;
 #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCX35_DMC_FREQ_AP)
 static struct dmcfreq_data *g_dmcfreq_data;
 #endif
 static void inline scxx30_set_max(struct dmcfreq_data *data);
 
+int devfreq_request_ignore(void)
+{
+	if((emc_clk_get()*1000) > SCXX30_MIN_FREQ )
+		return 1;
+	else
+		return 0;
+}
+
+void devfreq_min_freq_cnt_reset(unsigned int cnt, unsigned int quirk)
+{
+
+	if(cnt >= MIN_FREQ_CNT){
+		cnt = MIN_FREQ_CNT;
+	}
+	spin_lock(&min_freq_cnt_lock);
+	min_freq_cnt = cnt;
+	request_quirk = quirk;
+	spin_unlock(&min_freq_cnt_lock);
+}
 #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCX35_DMC_FREQ_AP)
 static int devfreq_cpu_callback(struct notifier_block *nfb,
 		unsigned long action, void *hcpu)
@@ -269,14 +290,14 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 {
 	int err = 0;
 	int cnt = 0;
-	struct platform_device *pdev = container_of(dev, struct platform_device,
-							dev);
+	struct platform_device *pdev = container_of(dev, struct platform_device, dev);
 	struct dmcfreq_data *data = platform_get_drvdata(pdev);
 	struct opp *opp = devfreq_recommended_opp(dev, _freq, flags);
 	unsigned long freq = opp_get_freq(opp);
 	unsigned long old_freq = emc_clk_get()*1000 ;
 	unsigned char cp_req;
 	unsigned long spinlock_flags;
+	unsigned long range = msecs_to_jiffies(SCXX30_POLLING_MS)/5;
 
 	if(time_before(jiffies, boot_done)){
 		return 0;
@@ -297,6 +318,14 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	if (old_freq == freq)
 		return 0;
 
+	/*
+	*    if sampling timer is just later than last quirk request in 20ms,
+	* keep current frequency
+	*/
+	if(freq==scxx30_min_freq(data) &&
+		time_in_range(jiffies, data->quirk_jiffies, data->quirk_jiffies+range) ){
+		return 0;
+	}
 	spin_lock(&min_freq_cnt_lock);
 	cnt = min_freq_cnt;
 	spin_unlock(&min_freq_cnt_lock);
@@ -392,6 +421,9 @@ static int scxx30_dmc_get_dev_status(struct device *dev,
 	interval = jiffies - data->last_jiffies;
 	data->last_jiffies = jiffies;
 
+	if(request_quirk)
+		data->quirk_jiffies = jiffies;
+
 	stat->current_frequency = emc_clk_get() * 1000; /* KHz */
 	/* stat->current_frequency = opp_get_freq(data->curr_opp); */
 	total_bw = (stat->current_frequency)*8; /* freq*2*32/8 */
@@ -403,10 +435,10 @@ static int scxx30_dmc_get_dev_status(struct device *dev,
 	*/
 	if(interval){
 		stat->busy_time = (u32)div_u64(trans_bw*HZ, interval); /* BW: B/s */
-		stat->total_time = total_bw*250 ;   /* BW: KB*1000/4(efficiency ratio 25%) B/s */
+		stat->total_time = total_bw*350 ;   /* BW: KB*1000*(efficiency ratio 35%) B/s */
 	}else{
-		stat->busy_time = 0 ;
-		stat->total_time = 0;
+		stat->busy_time = (u32)div_u64(trans_bw*HZ, 1); /* BW: B/s */
+		stat->total_time = total_bw*350 ;   /* BW: KB*1000*(efficiency ratio 35%) B/s */
 	}
 	pr_debug("*** %s, interval:%u, busy_time:%lu, totoal_time:%lu ***\n",
 				__func__, interval, stat->busy_time, stat->total_time );
