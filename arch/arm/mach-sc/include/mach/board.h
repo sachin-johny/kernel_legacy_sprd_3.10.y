@@ -165,7 +165,7 @@
 #endif
 
 #ifdef CONFIG_CMA
-       #define CMA_MARGIN              (3 * SZ_1M)
+       #define CMA_MARGIN              (0 * SZ_1M)
        #define CMA_ALIGNMENT           (4 * SZ_1M)
        #define SPRD_ION_MEM_RAW_SIZE    (SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE + CMA_MARGIN)
 	/* ALIGN UP */
