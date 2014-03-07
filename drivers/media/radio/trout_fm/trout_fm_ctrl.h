@@ -8,7 +8,7 @@
 #define SPI_MAX_SPEED 24*1000*1000   //12M
 
 //#define	TROUT_FM_DEV_NAME	"trout_fm"
-#define	TROUT_FM_DEV_NAME	"Trout_FM"
+#define	TROUT_FM_DEV_NAME	"radio0"
 
 /* seek direction */
 #define Trout_SEEK_DIR_UP          0
