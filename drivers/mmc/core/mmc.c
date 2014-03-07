@@ -230,9 +230,13 @@ static int mmc_get_ext_csd(struct mmc_card *card, u8 **new_ext_csd)
 				mmc_hostname(card->host));
 			err = 0;
 		}
-	} else
+	} else{
+		/*diasble emmc5.0*/
+		if(ext_csd[EXT_CSD_REV] > 6)
+			ext_csd[EXT_CSD_REV] = 6;
+		ext_csd[EXT_CSD_CARD_TYPE] &= 0x3F;
 		*new_ext_csd = ext_csd;
-
+	}
 	return err;
 }
 
