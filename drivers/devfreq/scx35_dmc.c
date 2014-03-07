@@ -49,6 +49,10 @@ extern u32 emc_clk_get(void);
 extern int scxx30_all_nonboot_cpus_died(void);
 #endif
 
+#define MIN_FREQ_CNT	(1)
+static DEFINE_SPINLOCK(min_freq_cnt_lock);
+static unsigned int min_freq_cnt = 0;
+
 enum scxx30_dmc_type {
 	TYPE_DMC_SCXX30 ,
 };
@@ -70,10 +74,17 @@ struct dmc_opp_table {
 };
 
 static struct dmc_opp_table scxx30_dmcclk_table[] = {
+#ifdef CONFIG_ARCH_SCX15
+	{LV_0, 332000, 1200000, 2656},
+	{LV_1, 192000, 1200000, 1600},
+#else
+#ifdef CONFIG_ARCH_SCX35
 	{LV_0, 532000, 1200000, 4256},
 	{LV_1, 400000, 1200000, 3200},
 	{LV_2, 332000, 1200000, 2656},
 	{LV_3, 200000, 1200000, 1600},
+#endif
+#endif
 	{0, 0, 0},
 };
 
@@ -94,11 +105,20 @@ struct dmcfreq_data {
 	spinlock_t lock;
 };
 
+#ifdef CONFIG_ARCH_SCX15
+#define SCXX30_LV_NUM (LV_2)
+#define SCXX30_MAX_FREQ (332000)
+#define SCXX30_MIN_FREQ (192000)
+#else
+#ifdef CONFIG_ARCH_SCX35
 #define SCXX30_LV_NUM (LV_4)
 #define SCXX30_MAX_FREQ (532000)
 #define SCXX30_MIN_FREQ (200000)
+#endif
+#endif
+
 #define SCXX30_INITIAL_FREQ SCXX30_MAX_FREQ
-#define SCXX30_POLLING_MS (500)
+#define SCXX30_POLLING_MS (100)
 #define BOOT_TIME	(40*HZ)
 static u32 boot_done;
 #if defined(CONFIG_HOTPLUG_CPU) && defined(CONFIG_SCX35_DMC_FREQ_AP)
@@ -248,6 +268,7 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 				u32 flags)
 {
 	int err = 0;
+	int cnt = 0;
 	struct platform_device *pdev = container_of(dev, struct platform_device,
 							dev);
 	struct dmcfreq_data *data = platform_get_drvdata(pdev);
@@ -275,6 +296,29 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 
 	if (old_freq == freq)
 		return 0;
+
+	spin_lock(&min_freq_cnt_lock);
+	cnt = min_freq_cnt;
+	spin_unlock(&min_freq_cnt_lock);
+
+	if (scxx30_min_freq(data)==freq && cnt<MIN_FREQ_CNT){
+		/*
+		 *DDR frequency drops down more conservatively
+		 */
+		spin_lock(&min_freq_cnt_lock);
+		min_freq_cnt++;
+		spin_unlock(&min_freq_cnt_lock);
+		freq += 1;
+		opp = devfreq_recommended_opp(dev, &freq, flags);
+		freq = opp_get_freq(opp);
+	} else {
+		spin_lock(&min_freq_cnt_lock);
+		min_freq_cnt = 0;
+		spin_unlock(&min_freq_cnt_lock);
+	}
+
+	pr_debug("*** %s, min_freq_cnt:%d***\n", __func__,  min_freq_cnt);
+
 #ifdef CONFIG_SIPC_TD
 	if(data->cpt_share_mem_base){
 		cp_req = readb(data->cpt_share_mem_base);
