@@ -416,7 +416,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	u8 *buf = NULL;
 	size_t wps_len = 0;
 
-	wiphy_info(wiphy, "%s %s\n", __func__, sme->ssid);
+	wiphy_info(wiphy, "%s\n", __func__);
 
 	if (!itm_wlan_cfg80211_ready(priv)) {
 		wiphy_err(wiphy, "CP2 not ready!\n");
@@ -673,6 +673,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			wiphy_err(wiphy, "%s failed to set bssid!\n", __func__);
 			return ret;
 		}
+		memcpy(priv->bssid, sme->bssid, 6);
 	} else {
 		wiphy_dbg(wiphy, "BSSID is not specified\n");
 	}
@@ -696,18 +697,20 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			itm_wlan_set_key_cmd(priv->wlan_sipc, sme->key_idx);
 		}
 	}
-	/* Set ESSID */
-	wiphy_info(wiphy, "%s essid %s\n", __func__, sme->ssid);
-	ret = itm_wlan_set_essid_cmd(priv->wlan_sipc, sme->ssid,
-				     (int)sme->ssid_len);
-	if (ret < 0) {
-		wiphy_err(wiphy, "%s failed to set essid!\n", __func__);
-		return ret;
-	}
-	memcpy(priv->ssid, sme->ssid, sme->ssid_len);
-	priv->ssid_len = sme->ssid_len;
 
-	memcpy(priv->bssid, sme->bssid, 6);
+	/* Set ESSID */
+	if (sme->ssid != NULL) {
+		wiphy_info(wiphy, "%s essid %s\n", __func__, sme->ssid);
+		ret = itm_wlan_set_essid_cmd(priv->wlan_sipc, sme->ssid,
+					     (int)sme->ssid_len);
+		if (ret < 0) {
+			wiphy_err(wiphy, "%s failed to set essid!\n", __func__);
+			return ret;
+		}
+		memcpy(priv->ssid, sme->ssid, sme->ssid_len);
+		priv->ssid_len = sme->ssid_len;
+	}
+
 	priv->connect_status = ITM_CONNECTING;
 	return ret;
 }
@@ -830,7 +833,7 @@ static int itm_wlan_cfg80211_set_default_key(struct wiphy *wiphy,
 		return -EIO;
 	}
 
-	if (key_index < 0 || key_index > 3) {
+	if (key_index > 3) {
 		wiphy_err(wiphy, "%s invalid key index %d\n", __func__,
 			  key_index);
 		return -EINVAL;
@@ -1248,8 +1251,6 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 		}
 		/* The following is real data */
 		mgmt = (struct ieee80211_mgmt *)pos;
-		if (mgmt == NULL)
-			goto out;
 		pos += mgmt_len;
 		left -= mgmt_len;
 		ie = mgmt->u.probe_resp.variable;
