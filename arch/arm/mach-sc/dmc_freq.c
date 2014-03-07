@@ -240,7 +240,7 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
         __set_dpll_clk(192);
 	}
 
-	flush_cache_all();
+	/*flush_cache_all();*/
 	cpu_suspend(flag, emc_dfs_call);
 
 	if(sene == EMC_FREQ_RESUME_SENE)
