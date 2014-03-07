@@ -2480,6 +2480,11 @@ bool gfp_pfmemalloc_allowed(gfp_t gfp_mask)
 	return !!(gfp_to_alloc_flags(gfp_mask) & ALLOC_NO_WATERMARKS);
 }
 
+static uint  debug_high_order_alloc = 0;
+
+module_param_named(debug_high_order_alloc, debug_high_order_alloc, uint, S_IRUGO | S_IWUSR);
+
+
 static inline struct page *
 __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	struct zonelist *zonelist, enum zone_type high_zoneidx,
@@ -2600,6 +2605,13 @@ rebalance:
 	if ((deferred_compaction || contended_compaction) &&
 						(gfp_mask & __GFP_NO_KSWAPD))
 		goto nopage;
+
+
+	if(debug_high_order_alloc && (order > 1))
+	{
+		printk("%s: pid:%d, name:%s, mask:0x%X, order:%d \r\n", __func__, current->pid, current->comm, gfp_mask, order);
+		WARN_ON(1);
+	}
 
 	/* Try direct reclaim and then allocating */
 	page = __alloc_pages_direct_reclaim(gfp_mask, order,

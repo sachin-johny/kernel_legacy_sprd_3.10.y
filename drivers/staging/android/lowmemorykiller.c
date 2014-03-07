@@ -90,6 +90,9 @@ static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj);
 
 #ifdef CONFIG_ZRAM
 extern ssize_t zram_mem_free_percent(void);
+static uint lmk_lowmem_threshold_adj = 2;
+module_param_named(lmk_lowmem_threshold_adj, lmk_lowmem_threshold_adj, uint, S_IRUGO | S_IWUSR);
+
 static uint zone_wmark_ok_safe_gap = 256;
 module_param_named(zone_wmark_ok_safe_gap, zone_wmark_ok_safe_gap, uint, S_IRUGO | S_IWUSR);
 short cacl_zram_score_adj(void)
@@ -344,12 +347,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		zonelist = node_zonelist(0, gfp_mask);
 		high_zoneidx = gfp_zone(gfp_mask);
 		first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
-		if ((current->flags & PF_KTHREAD) &&
-			(current->flags & PF_MEMALLOC) &&
-			!zone_watermark_ok_safe(preferred_zone, 0, SWAP_CLUSTER_MAX << 1, 0, 0))
+		if (zram_score_adj <= OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj))
 		{
-			printk("%s:gfp_mask:0x%X, flags:0x%X\r\n", __func__, gfp_mask, current->flags);
-			zram_score_adj = 0;
+			printk("%s:min:%d, zram:%d, threshold:%d\r\n", __func__, min_score_adj,zram_score_adj, OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj));
+			zram_score_adj = min_score_adj;
 		}
 		else if (!zone_watermark_ok_safe(preferred_zone, 0, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
 		{
