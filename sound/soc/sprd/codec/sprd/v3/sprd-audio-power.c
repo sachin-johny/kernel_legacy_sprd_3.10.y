@@ -392,16 +392,22 @@ static int sprd_audio_power_sleep_ctrl(void *data, int en)
 static inline int vreg_enable(void)
 {
 	int ret = 0;
+	static int i = 0;
 	arch_audio_codec_switch(AUDIO_TO_ARM_CTRL);
 	arch_audio_codec_analog_reg_enable();
-	arch_audio_codec_analog_reset();
+	if (i  == 0) {
+		arch_audio_codec_analog_reset();
+		i = 1;
+	}
 	return ret;
 }
 
 static inline int vreg_disable(void)
 {
+	/*
 	arch_audio_codec_reset();
 	arch_audio_codec_analog_reg_disable();
+	*/
 	return 0;
 }
 

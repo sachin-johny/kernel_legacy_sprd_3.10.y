@@ -23,28 +23,13 @@
 #include <mach/adi.h>
 #include <asm/io.h>
 
-#ifndef CONFIG_SPRD_CODEC_USE_INT
-/* #define CONFIG_SPRD_CODEC_USE_INT */
-#endif
-#ifndef CONFIG_CODEC_DAC_MUTE_WAIT
-/* #define CONFIG_CODEC_DAC_MUTE_WAIT */
-#endif
 
 /* unit: ms */
 #define SPRD_CODEC_LDO_WAIT_TIME	(5)
 #define SPRD_CODEC_LDO_VCM_TIME		(2)
-#ifdef CONFIG_SPRD_CODEC_USE_INT
 #define SPRD_CODEC_DAC_MUTE_TIMEOUT	(600)
-#else
-#define SPRD_CODEC_DAC_MUTE_WAIT_TIME	(40)
-#endif
 
-#ifdef CONFIG_SPRD_CODEC_USE_INT
 #define SPRD_CODEC_HP_POP_TIMEOUT	(1000)
-#else
-#define SPRD_CODEC_HP_POP_TIME_STEP	(10)
-#define SPRD_CODEC_HP_POP_TIME_COUNT	(80)	/* max 800ms will timeout */
-#endif
 
 #define SPRD_CODEC_RATE_8000   (10)
 #define SPRD_CODEC_RATE_9600   ( 9)
@@ -293,13 +278,31 @@
 #define V2_AUDIO_CHP_CLK_SEL	(9)
 #define V2_AUDIO_CHP_OSC	(6)
 #define V2_AUDIO_CHP_OSC_MASK	(0x07)
+//befor BA version
+#define V2_AUDIO_CHP_LPW_MASK	(0x1)
 #define V2_AUDIO_CHP_LPW	(5)
 #define V2_AUDIO_CHP_MODE	(4)
-#define V2_AUDIO_CHP_REF_EN	(7)
+//after BA version
+#define V2_AUDIO_CHP_LPW_MASK_BA	(0x3)
+#define V2_AUDIO_CHP_LPW_BA	(4)
+#define V2_AUDIO_CHP_MODE_BA	(3)
+
+#define V2_AUDIO_CGCAL_EN	(2)
+#define V2_AUDIO_CGCAL_STOP_EN	(1)
+#define V2_AUDIO_CHP_OCP_PD	(0)
+
+
 /* HP PA V0 */
+//after CA version
+#define AUDIO_CHP_LPW_MASK_CA		(0x3)
+#define AUDIO_CHP_LPW_CA		(14)
+#define AUDIO_CHP_MODE_CA		(13)
+//befor CA version
+#define AUDIO_CHP_LPW_MASK		(0x1)
 #define AUDIO_CHP_LPW		(15)
 #define AUDIO_CHP_MODE		(14)
-#define AUDIO_CHP_REF_EN	(7)
+
+#define AUDIO_CLASSG_EN	(7)
 #define AUDIO_CHP_EN		(6)
 #define AUDIO_CHP_HPL_EN	(5)
 #define AUDIO_CHP_HPR_EN	(4)
@@ -307,6 +310,9 @@
 #define AUDIO_CHP_RMUTE		(2)
 #define AUDIO_CHP_OSC		(0)
 #define AUDIO_CHP_OSC_MASK	(0x03)
+#define AUDIO_CGCAL_EN	(12)
+#define AUDIO_CGCAL_STOP_EN	(11)
+#define AUDIO_CHP_OCP_PD	(10)
 
 /* PNRCR2_PNRCR1 */
 #define HP_POP_CTL		(6)

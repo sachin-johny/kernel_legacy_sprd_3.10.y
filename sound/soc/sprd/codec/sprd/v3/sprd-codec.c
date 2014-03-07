@@ -47,6 +47,7 @@
 #include <mach/globalregs.h>
 #include "sprd-codec.h"
 #include "sprd-asoc-common.h"
+#include <mach/arch_misc.h>
 
 #ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
 #if  (CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE != 32000) && (CONFIG_SND_SOC_CODEC_SRC_SAMPLE_RATE != 48000)
@@ -63,6 +64,14 @@
 
 #define SPRD_CODEC_AP_BASE_HI (SPRD_CODEC_AP_BASE & 0xFFFF0000)
 #define SPRD_CODEC_DP_BASE_HI (SPRD_CODEC_DP_BASE & 0xFFFF0000)
+
+enum {
+	SPRD_CODEC_PA_ORDER = 100,
+	SPRD_CODEC_HP_PA_ORDER = SPRD_CODEC_PA_ORDER,
+	SPRD_CODEC_HP_SWITCH_ORDER = 101,
+	SPRD_CODEC_HP_PA_POST_ORDER = 102,
+	SPRD_CODEC_HP_POP_ORDER = 103,
+};
 
 enum {
 	SPRD_CODEC_PLAYBACK,
@@ -251,13 +260,13 @@ struct sprd_codec_ldo_cfg {
 
 struct sprd_codec_inter_pa {
 	/* FIXME little endian */
-	int LDO_V_sel:4;
-	int DTRI_F_sel:4;
-	int is_DEMI_mode:1;
-	int is_classD_mode:1;
-	int is_LDO_mode:1;
-	int is_auto_LDO_mode:1;
-	int RESV:20;
+	u32 LDO_V_sel:4;
+	u32 DTRI_F_sel:4;
+	u32 is_DEMI_mode:1;
+	u32 is_classD_mode:1;
+	u32 is_LDO_mode:1;
+	u32 is_auto_LDO_mode:1;
+	u32 RESV:20;
 };
 
 struct sprd_codec_pa_setting {
@@ -270,10 +279,18 @@ struct sprd_codec_pa_setting {
 
 struct sprd_codec_inter_hp_pa {
 	/* FIXME little endian */
-	int class_g_osc:2;
-	int class_g_mode:2;
-	int class_g_low_power:2;
-	int RESV:26;
+	u32 class_g_osc:2;
+	u32 class_g_mode:2;
+	u32 class_g_low_power:2;
+	u32 class_g_cgcal:2;
+	u32 class_g_unmute_delay_100ms:3;
+	u32 class_g_cgcal_delay_10ms:3;
+	u32 class_g_close_delay_10ms:2;
+	u32 class_g_open_delay_10ms:4;
+	u32  class_g_vdd_delay_10ms:6;
+	u32  class_g_chp_delay_30ms:4;
+	u32  class_g_all_close_delay_100ms:2;
+	//u32 RESV:0;
 };
 
 struct sprd_codec_hp_pa_setting {
@@ -1125,34 +1142,65 @@ do { \
 
 static inline void sprd_codec_hp_classg_en(struct snd_soc_codec *codec, int on)
 {
-	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	int mask;
-	int val;
-	if (sprd_codec->hp_ver >= SPRD_CODEC_HP_PA_VER_2) {
-		sp_asoc_pr_dbg("Entering %s set %d\n", __func__, on);
-		mask = BIT(V2_AUDIO_CLASSG_EN);
-		val = on ? mask : 0;
-		snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
-	}
-}
-
-static inline void sprd_codec_hp_pa_lpw(struct snd_soc_codec *codec, int on)
-{
 	int mask;
 	int val;
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
-	SPRD_CODEC_HP_VER(AUDIO_CHP_LPW);
+	SPRD_CODEC_HP_VER(AUDIO_CLASSG_EN);
 	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
+}
+static inline void sprd_codec_hp_pa_lpw(struct snd_soc_codec *codec, int lpw)
+{
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, lpw);
+	switch (sprd_codec->hp_ver) {
+	case SPRD_CODEC_HP_PA_VER_2:
+		if (sci_get_ana_chip_ver() >= SC2711BA) {
+			mask = V2_AUDIO_CHP_LPW_MASK_BA  << V2_AUDIO_CHP_LPW_BA;
+			val = (lpw << V2_AUDIO_CHP_LPW_BA) & mask;
+		} else {
+			mask = V2_AUDIO_CHP_LPW_MASK  << V2_AUDIO_CHP_LPW;
+			val = (lpw << V2_AUDIO_CHP_LPW) & mask;
+		}
+		break;
+	case SPRD_CODEC_HP_PA_VER_1:
+	default:
+		if (sci_get_ana_chip_ver() >= SC2713CA) {
+			mask = AUDIO_CHP_LPW_MASK_CA << AUDIO_CHP_LPW_CA;
+			val = (lpw << AUDIO_CHP_LPW_CA) & mask;
+		} else {
+			mask = AUDIO_CHP_LPW_MASK << AUDIO_CHP_LPW;
+			val = (lpw << AUDIO_CHP_LPW) & mask;
+		}
+		break;
+	}
 	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
 }
 
 static inline void sprd_codec_hp_pa_mode(struct snd_soc_codec *codec, int on)
 {
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int mask;
 	int val;
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
-	SPRD_CODEC_HP_VER(AUDIO_CHP_MODE);
-	val = on ? mask : 0;
+	switch (sprd_codec->hp_ver) {
+	case SPRD_CODEC_HP_PA_VER_2:
+		if (sci_get_ana_chip_ver() >= SC2711BA)
+			mask = BIT(V2_AUDIO_CHP_MODE_BA );
+		else
+			mask = BIT(V2_AUDIO_CHP_MODE);
+		break;
+	case SPRD_CODEC_HP_PA_VER_1:
+	default:
+		if (sci_get_ana_chip_ver() >= SC2713CA)
+			mask = BIT(AUDIO_CHP_MODE_CA );
+		else
+			mask = BIT(AUDIO_CHP_MODE );
+		break;
+	}
+	val = on? mask :0;
 	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
 }
 
@@ -1173,16 +1221,6 @@ static inline void sprd_codec_hp_pa_osc(struct snd_soc_codec *codec, int osc)
 		val = (osc << AUDIO_CHP_OSC) & mask;
 		break;
 	}
-	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
-}
-
-static inline void sprd_codec_hp_pa_ref_en(struct snd_soc_codec *codec, int on)
-{
-	int mask;
-	int val;
-	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
-	SPRD_CODEC_HP_VER(AUDIO_CHP_REF_EN);
-	val = on ? mask : 0;
 	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
 }
 
@@ -1238,35 +1276,49 @@ static inline void sprd_codec_hp_pa_hpr_mute(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
 }
 
+static inline void sprd_codec_hp_pa_cgcal_en(struct snd_soc_codec *codec,
+					     int on)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+	SPRD_CODEC_HP_VER(AUDIO_CGCAL_EN);
+	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
+}
+
 static inline void sprd_codec_inter_hp_pa_init(struct sprd_codec_priv
 					       *sprd_codec)
 {
 	sprd_codec->inter_hp_pa.setting.class_g_osc = 0x01;
+	sprd_codec->inter_hp_pa.setting.class_g_cgcal = 1;
+	sprd_codec->inter_hp_pa.setting.class_g_cgcal_delay_10ms = 3;
+	sprd_codec->inter_hp_pa.setting.class_g_unmute_delay_100ms = 5;
+	sprd_codec->inter_hp_pa.setting.class_g_close_delay_10ms = 0;
+	sprd_codec->inter_hp_pa.setting.class_g_open_delay_10ms = 0;
+	sprd_codec->inter_hp_pa.setting.class_g_vdd_delay_10ms = 0;
+	sprd_codec->inter_hp_pa.setting.class_g_chp_delay_30ms = 0;
+	sprd_codec->inter_hp_pa.setting.class_g_all_close_delay_100ms = 0;
 }
 
-#ifndef CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME
-#define CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME (0)
-#endif
-static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
+
+static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int on)
 {
-	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	struct snd_soc_codec *codec = sprd_codec->codec;
+	static struct regulator *regulator = 0;
 	struct sprd_codec_inter_hp_pa *p_setting =
 	    &sprd_codec->inter_hp_pa.setting;
-	static struct regulator *regulator = 0;
-	sp_asoc_pr_info("inter HP PA Switch %s\n", STR_ON_OFF(on));
-	mutex_lock(&sprd_codec->inter_hp_pa_mutex);
+
 	if (on) {
-		/*mute */
-		sprd_codec_hp_pa_hpl_mute(codec, 1);
-		sprd_codec_hp_pa_hpr_mute(codec, 1);
 		/*1.CG_EN */
 		sprd_codec_hp_classg_en(codec, 1);
+		sprd_codec_wait(p_setting->class_g_open_delay_10ms * 10);
 		/*2. LDO PD */
 		if (!regulator) {
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
 				pr_err("ERR:Failed to request %ld: %s\n",
-				       PTR_ERR(regulator), CLASS_G_LDO_ID);
+					   PTR_ERR(regulator), CLASS_G_LDO_ID);
 				BUG_ON(1);
 			}
 			regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
@@ -1278,23 +1330,71 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 				regulator = 0;
 			}
 		}
-		sprd_codec_wait(2);
-		/*3. CHP EN */
-		sprd_codec_hp_pa_en(codec, 1);
-		/*4. L/R EN */
-		sprd_codec_hp_pa_hpl_en(codec, 1);
-		sprd_codec_hp_pa_hpr_en(codec, 1);
+	} else{
+		/*LDO PD*/
+		if (regulator) {
+			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
+			regulator_disable(regulator);
+			regulator_put(regulator);
+			regulator = 0;
+		}
+		/*CG_EN*/
+		sprd_codec_hp_classg_en(codec, 0);
+	}
+}
 
+static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
+{
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	struct sprd_codec_inter_hp_pa *p_setting =
+	    &sprd_codec->inter_hp_pa.setting;
+	/*static struct regulator *regulator = 0;*/
+	sp_asoc_pr_info("inter HP PA Switch %s\n", STR_ON_OFF(on));
+	mutex_lock(&sprd_codec->inter_hp_pa_mutex);
+	if (on) {
+		/*mute */
+		sprd_codec_hp_pa_hpl_mute(codec, 1);
+		sprd_codec_hp_pa_hpr_mute(codec, 1);
 		sprd_codec_auxadc_en(codec, 1);
 		sprd_codec_hp_pa_lpw(codec, p_setting->class_g_low_power);
 		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
 		sprd_codec_hp_pa_osc(codec, p_setting->class_g_osc);
-		if (sprd_codec->hp_ver < SPRD_CODEC_HP_PA_VER_2) {
-			sprd_codec_hp_pa_ref_en(codec, 1);
+		sprd_codec_hp_pa_cgcal_en(codec, p_setting->class_g_cgcal);
+		/*3. CHP EN */
+		sprd_codec_hp_pa_en(codec, 1);
+		sprd_codec_wait(p_setting->class_g_chp_delay_30ms * 30);
+		/*4. L/R EN */
+		sprd_codec_hp_pa_hpl_en(codec, 1);
+		sprd_codec_hp_pa_hpr_en(codec, 1);
+		if (p_setting->class_g_cgcal) {
+			sprd_codec_wait(p_setting->class_g_cgcal_delay_10ms *10);
 		}
+	} else {
+		sprd_codec_wait(p_setting->class_g_close_delay_10ms * 10);
+		sprd_codec_auxadc_en(codec, 0);
+		/*1. L/R disable */
+		sprd_codec_hp_pa_hpl_en(codec, 0);
+		sprd_codec_hp_pa_hpr_en(codec, 0);
+		/*2. CHP disable */
+		sprd_codec_hp_pa_en(codec, 0);
+		/*3. unmute */
+		sprd_codec_hp_pa_hpl_mute(codec, 0);
+		sprd_codec_hp_pa_hpr_mute(codec, 0);
+		sprd_codec_wait(p_setting->class_g_all_close_delay_100ms* 100);
+	}
+	mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
+	return 0;
+}
+
+static int sprd_inter_headphone_pa_post(struct snd_soc_codec *codec, int on)
+{
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	struct sprd_codec_inter_hp_pa *p_setting =
+	    &sprd_codec->inter_hp_pa.setting;
+	mutex_lock(&sprd_codec->inter_hp_pa_mutex);
+	if (on) {
 		/*open classG mute delay time */
-		sprd_codec_wait
-		    (CONFIG_SND_SOC_SPRD_AUDIO_HP_PA_MUTE_DELAY_TIME);
+		sprd_codec_wait(p_setting->class_g_unmute_delay_100ms * 100);
 		/*unmute */
 		sprd_codec_hp_pa_hpl_mute(codec, 0);
 		sprd_codec_hp_pa_hpr_mute(codec, 0);
@@ -1305,28 +1405,7 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 		/*mute */
 		sprd_codec_hp_pa_hpl_mute(codec, 1);
 		sprd_codec_hp_pa_hpr_mute(codec, 1);
-		if (sprd_codec->hp_ver < SPRD_CODEC_HP_PA_VER_2) {
-			sprd_codec_hp_pa_ref_en(codec, 0);
-		}
-		sprd_codec_auxadc_en(codec, 0);
-		/*1. L/R disable */
-		sprd_codec_hp_pa_hpl_en(codec, 0);
-		sprd_codec_hp_pa_hpr_en(codec, 0);
-		/*2. CHP disable */
-		sprd_codec_hp_pa_en(codec, 0);
-		/*3. LDO PD */
-		if (regulator) {
-			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
-			regulator_disable(regulator);
-			regulator_put(regulator);
-			regulator = 0;
-		}
-		/*4. CG disable */
-		sprd_codec_hp_classg_en(codec, 0);
-		/*close classG mute delay time */
-		sprd_codec_wait(0);
-		sprd_codec_hp_pa_hpl_mute(codec, 0);
-		sprd_codec_hp_pa_hpr_mute(codec, 0);
+		sprd_codec_wait(10);
 	}
 	mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
 	return 0;
@@ -1340,9 +1419,23 @@ static int hp_pa_event(struct snd_soc_dapm_widget *w,
 	sp_asoc_pr_dbg("%s Event is %s\n", __func__, get_event_name(event));
 	return sprd_inter_headphone_pa(w->codec, on);
 }
+
+static int hp_pa_post_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol, int event)
+{
+	int on = ! !SND_SOC_DAPM_EVENT_ON(event);
+	sp_asoc_pr_dbg("%s Event is %s\n", __func__, get_event_name(event));
+	return sprd_inter_headphone_pa_post(w->codec, on);
+}
 #else
 static int hp_pa_event(struct snd_soc_dapm_widget *w,
 		       struct snd_kcontrol *kcontrol, int event)
+{
+	return 0;
+}
+
+static int hp_pa_post_event(struct snd_soc_dapm_widget *w,
+			    struct snd_kcontrol *kcontrol, int event)
 {
 	return 0;
 }
@@ -1815,6 +1908,10 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 #if 1				/* enable the diff function in shark from weifeng.ni */
 		snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), BIT(DIFF_EN),
 				    BIT(DIFF_EN));
+		/*enable from */
+		snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), BIT(HP_VCMI_EN),
+			BIT(HP_VCMI_EN));
+
 #endif
 
 #ifndef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
@@ -1827,6 +1924,7 @@ static int hp_switch_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), BIT(DIFF_EN), 0);
+		snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), BIT(HP_VCMI_EN), 0);
 
 #ifndef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
 		mask = HP_POP_CTL_MASK << HP_POP_CTL;
@@ -2254,7 +2352,7 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_REGULATOR_SUPPLY("VBO", 0, 0),
 	SND_SOC_DAPM_REGULATOR_SUPPLY("VCOM_BUF", 0, 0),
-	SND_SOC_DAPM_SUPPLY_S("Digital Power", 1, SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_SUPPLY_S("Digital Power", 8, SND_SOC_NOPM, 0, 0,
 			      digital_power_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 	SND_SOC_DAPM_SUPPLY_S("Analog Power", 2, SND_SOC_NOPM, 0, 0,
@@ -2267,27 +2365,27 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 	SND_SOC_DAPM_SUPPLY_S("AD IBUF", 3, SOC_REG(AACR2_AACR1), ADC_IBUF_PD,
 			      1,
 			      NULL, 0),
-	SND_SOC_DAPM_SUPPLY_S("AD Clk", 4, SOC_REG(CCR), ADC_CLK_EN, 0, NULL,
+	SND_SOC_DAPM_SUPPLY_S("AD Clk", 3, SOC_REG(CCR), ADC_CLK_EN, 0, NULL,
 			      0),
 
-	SND_SOC_DAPM_PGA_S("Digital DACL Switch", 4, SOC_REG(AUD_TOP_CTL),
+	SND_SOC_DAPM_PGA_S("Digital DACL Switch", 7, SOC_REG(AUD_TOP_CTL),
 			   DAC_EN_L, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("Digital DACR Switch", 4, SOC_REG(AUD_TOP_CTL),
+	SND_SOC_DAPM_PGA_S("Digital DACR Switch", 7, SOC_REG(AUD_TOP_CTL),
 			   DAC_EN_R, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("ADie Digital DACL Switch", 5, SOC_REG(AUDIF_ENB),
+	SND_SOC_DAPM_PGA_S("ADie Digital DACL Switch", 2, SOC_REG(AUDIF_ENB),
 			   AUDIFA_DACL_EN, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("ADie Digital DACR Switch", 5, SOC_REG(AUDIF_ENB),
+	SND_SOC_DAPM_PGA_S("ADie Digital DACR Switch", 2, SOC_REG(AUDIF_ENB),
 			   AUDIFA_DACR_EN, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("DACL Switch", 6, SOC_REG(DACGR_DACR), DACL_EN, 0,
+	SND_SOC_DAPM_PGA_S("DACL Switch", 5, SOC_REG(DACGR_DACR), DACL_EN, 0,
 			   NULL,
 			   0),
-	SND_SOC_DAPM_PGA_S("DACR Switch", 6, SOC_REG(DACGR_DACR), DACR_EN, 0,
+	SND_SOC_DAPM_PGA_S("DACR Switch", 5, SOC_REG(DACGR_DACR), DACR_EN, 0,
 			   NULL,
 			   0),
-	SND_SOC_DAPM_PGA_S("DACL Mute", 6, FUN_REG(SPRD_CODEC_PGA_DACL), 0, 0,
+	SND_SOC_DAPM_PGA_S("DACL Mute",5, FUN_REG(SPRD_CODEC_PGA_DACL), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("DACR Mute", 6, FUN_REG(SPRD_CODEC_PGA_DACR), 0, 0,
+	SND_SOC_DAPM_PGA_S("DACR Mute", 5, FUN_REG(SPRD_CODEC_PGA_DACR), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_DAC_E("DAC", "Playback-Vaudio",
@@ -2301,18 +2399,21 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   dfm_out_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 #ifdef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
-	SND_SOC_DAPM_PGA_S("HP POP", 9, SND_SOC_NOPM, 0, 0, hp_pop_event,
+	SND_SOC_DAPM_PGA_S("HP POP", SPRD_CODEC_HP_POP_ORDER, SND_SOC_NOPM, 0,
+			   0, hp_pop_event,
 			   SND_SOC_DAPM_POST_PMU),
 #else
 	SND_SOC_DAPM_SUPPLY_S("HP POP", 5, SND_SOC_NOPM, 0, 0, hp_pop_event,
 			      SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD |
 			      SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD),
 #endif
-	SND_SOC_DAPM_PGA_S("HPL Switch", 5, SOC_REG(DCR2_DCR1), HPL_EN, 0,
+	SND_SOC_DAPM_PGA_S("HPL Switch", SPRD_CODEC_HP_SWITCH_ORDER,
+			   SOC_REG(DCR2_DCR1), HPL_EN, 0,
 			   hp_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
 			   SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPR Switch", 5, SOC_REG(DCR2_DCR1), HPR_EN, 0,
+	SND_SOC_DAPM_PGA_S("HPR Switch", SPRD_CODEC_HP_SWITCH_ORDER,
+			   SOC_REG(DCR2_DCR1), HPR_EN, 0,
 			   hp_switch_event,
 			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_POST_PMD |
 			   SND_SOC_DAPM_PRE_PMD),
@@ -2471,9 +2572,14 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   ADC1_DMIC1_EN, 0,
 			   NULL, 0),
 
-	SND_SOC_DAPM_PGA_S("HP PA Switch", 15, SND_SOC_NOPM, 0, 0, hp_pa_event,
+	SND_SOC_DAPM_PGA_S("HP PA Switch", SPRD_CODEC_HP_PA_ORDER, SND_SOC_NOPM,
+			   0, 0, hp_pa_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("Spk PA Switch", 15, SND_SOC_NOPM, 0, 0,
+	SND_SOC_DAPM_PGA_S("HP PA POST Switch", SPRD_CODEC_HP_PA_POST_ORDER,
+			   SND_SOC_NOPM, 0, 0, hp_pa_post_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("Spk PA Switch", SPRD_CODEC_PA_ORDER, SND_SOC_NOPM,
+			   0, 0,
 			   spk_pa_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
 
@@ -2567,7 +2673,8 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 	{"HEAD_P_L", NULL, "HPL Mute"},
 	{"HEAD_P_R", NULL, "HPR Mute"},
 
-	{"HP PA", NULL, "HP PA Switch"},
+	{"HP PA", NULL, "HP PA POST Switch"},
+	{"HP PA POST Switch", NULL, "HP PA Switch"},
 	{"HP PA Switch", NULL, "HPL Mute"},
 	{"HP PA Switch", NULL, "HPR Mute"},
 
@@ -3102,11 +3209,15 @@ static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 #ifdef CONFIG_PM
 static int sprd_codec_soc_suspend(struct snd_soc_codec *codec)
 {
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	sprd_inter_headphone_pa_pre(sprd_codec, 0);
 	return 0;
 }
 
 static int sprd_codec_soc_resume(struct snd_soc_codec *codec)
 {
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	sprd_inter_headphone_pa_pre(sprd_codec,1);
 	return 0;
 }
 #else
@@ -3304,6 +3415,7 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
+	struct regulator *regulator = 0;
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -3314,6 +3426,23 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 	sprd_codec_proc_init(sprd_codec);
 
 	sprd_codec_audio_ldo(sprd_codec);
+
+	regulator = regulator_get(0, "VREG");
+	if (IS_ERR(regulator)) {
+		pr_err("ERR:Failed to request %ld: %s\n",
+			   PTR_ERR(regulator), "VREG");
+		BUG_ON(1);
+	}
+	regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
+	if (regulator_enable(regulator) < 0) {
+		regulator_set_mode(regulator,
+				   REGULATOR_MODE_NORMAL);
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		regulator = 0;
+	} else {
+		sprd_inter_headphone_pa_pre(sprd_codec,1);
+	}
 
 	return ret;
 }
@@ -3363,6 +3492,7 @@ static int sprd_codec_probe(struct platform_device *pdev)
 	struct sprd_codec_priv *sprd_codec;
 	int ret;
 	struct device_node *node = pdev->dev.of_node;
+	u32 ana_chip_id;
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -3408,13 +3538,17 @@ static int sprd_codec_probe(struct platform_device *pdev)
 			sp_asoc_pr_dbg("Change DA default fs to %d!\n", val);
 		}
 	} else {
-#ifdef CONFIG_SND_SOC_SPRD_AUDIO_USE_INTER_HP_PA_V2
-		sprd_codec->hp_ver = SPRD_CODEC_HP_PA_VER_2;
-#endif
 		sprd_codec->ap_irq = CODEC_AP_IRQ;
 		sprd_codec->dp_irq = CODEC_DP_IRQ;
 	}
-
+	ana_chip_id  = sci_get_ana_chip_id() >> 16;
+	if (ana_chip_id == 0x2713)
+		sprd_codec->hp_ver = SPRD_CODEC_HP_PA_VER_1;
+	else if (ana_chip_id == 0x2711)
+		sprd_codec->hp_ver = SPRD_CODEC_HP_PA_VER_2;
+	else {
+		pr_info("ana_chip_id is 0x%x\n", (unsigned int)sci_get_ana_chip_id);
+	}
 	platform_set_drvdata(pdev, sprd_codec);
 
 	ret =
