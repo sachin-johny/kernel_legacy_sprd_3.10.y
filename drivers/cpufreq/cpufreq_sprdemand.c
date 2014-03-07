@@ -61,7 +61,7 @@
 #define LOAD_LIGHT_SCORE -10
 #define LOAD_LO_SCORE -20
 
-#define GOVERNOR_BOOT_TIME	(30*HZ)
+#define GOVERNOR_BOOT_TIME	(50*HZ)
 static unsigned long boot_done;
 
 unsigned int cpu_hotplug_disable_set = false;
