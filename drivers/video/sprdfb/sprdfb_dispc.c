@@ -1105,7 +1105,17 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		pr_debug("sprdfb_dispc_refresh dmac_flush_range dispc_ctx.vma=0x%x\n ",dispc_ctx.vma);
 		dmac_flush_range(dispc_ctx.vma->vm_start, dispc_ctx.vma->vm_end);
 	}
-	dispc_dithering_enable(false);
+	if(fb->var.reserved[3] == 1){
+		dispc_dithering_enable(false);
+		if(NULL != dev->panel->ops->panel_change_epf){
+			dev->panel->ops->panel_change_epf(dev->panel,false);
+		}
+	}else{
+		dispc_dithering_enable(true);
+		if(NULL != dev->panel->ops->panel_change_epf){
+			dev->panel->ops->panel_change_epf(dev->panel,true);
+		}
+	}
 #endif
 	dispc_osd_enable(true);
 
@@ -1716,6 +1726,10 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 	}
 #ifdef CONFIG_FB_MMAP_CACHED
 	dispc_dithering_enable(true);
+	if(NULL != dev->panel->ops->panel_change_epf){
+			dev->panel->ops->panel_change_epf(dev->panel,true);
+	}
+
 #endif
 	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
@@ -2138,6 +2152,13 @@ void sprdfb_set_vma(struct vm_area_struct *vma)
 }
 #endif
 
+int32_t sprdfb_is_refresh_done(struct sprdfb_device *dev)
+{
+	printk("sprdfb_is_refresh_done vsync_done=%d",dispc_ctx.vsync_done);
+	return (int32_t)dispc_ctx.vsync_done;
+}
+
+
 struct display_ctrl sprdfb_dispc_ctrl = {
 	.name		= "dispc",
 	.early_init		= sprdfb_dispc_early_init,
@@ -2164,6 +2185,7 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 #ifdef CONFIG_FB_MMAP_CACHED
 	.set_vma = sprdfb_set_vma,
 #endif
+	.is_refresh_done = sprdfb_is_refresh_done,
 
 };
 

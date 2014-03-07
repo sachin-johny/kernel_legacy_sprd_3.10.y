@@ -188,6 +188,7 @@ struct display_ctrl {
 #ifdef CONFIG_FB_MMAP_CACHED
 	void (*set_vma)(struct vm_area_struct *vma);
 #endif
+	int32_t	(*is_refresh_done)	(struct sprdfb_device *dev);
 
 };
 

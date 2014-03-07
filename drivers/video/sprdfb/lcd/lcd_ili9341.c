@@ -83,7 +83,7 @@ static int32_t ili9341_init(struct panel_spec *self)
 
 	send_cmd(0xF6);
 	send_data(0x01);
-	send_data(0x30);
+	send_data(0x10);
 	send_data(0x00);
 
 	send_cmd(0xB1);
@@ -337,6 +337,28 @@ static uint32_t ili9341_read_id(struct panel_spec *self)
 	return read_value;
 }
 
+static int32_t ili9341_change_epf(struct panel_spec *self, bool is_default)
+{
+	send_data_t send_cmd = self->info.mcu->ops->send_cmd;
+	send_data_t send_data = self->info.mcu->ops->send_data;
+
+	return 0;
+
+	if(is_default){
+		send_cmd(0xF6);
+		send_data(0x01);
+		send_data(0x30);
+		send_data(0x00);
+	}else{
+		send_cmd(0xF6);
+		send_data(0x01);
+		send_data(0x10);
+		send_data(0x00);
+	 }
+
+	return 0;
+}
+
 static struct panel_operations lcd_ili9341_operations = {
 	.panel_init            = ili9341_init,
 	.panel_set_window      = ili9341_set_window,
@@ -345,6 +367,7 @@ static struct panel_operations lcd_ili9341_operations = {
 	.panel_set_direction   = ili9341_set_direction,
 	.panel_enter_sleep     = ili9341_enter_sleep,
 	.panel_readid         = ili9341_read_id,
+	.panel_change_epf	   = ili9341_change_epf,
 };
 
 static struct timing_mcu lcd_ili9341_timing[] = {
