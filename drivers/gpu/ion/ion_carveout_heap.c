@@ -75,7 +75,7 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 #endif
 }
 
-static int ion_carveout_heap_phys(struct ion_heap *heap,
+int ion_carveout_heap_phys(struct ion_heap *heap,
 				  struct ion_buffer *buffer,
 				  ion_phys_addr_t *addr, size_t *len)
 {

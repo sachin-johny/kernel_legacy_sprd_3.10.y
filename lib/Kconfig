@@ -130,6 +130,12 @@ config GENERIC_ALLOCATOR
 	boolean
 
 #
+# Buddy allocator support is selected if needed
+#
+config BUDDY_ALLOCATOR
+	boolean
+
+#
 # reed solomon support is select'ed if needed
 #
 config REED_SOLOMON

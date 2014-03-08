@@ -166,8 +166,8 @@ struct ion_handle *ion_pagecache_rb_search(struct rb_root *root,
 static int ion_pagecache_flag = 1;
 unsigned long long total_allocated_ion_cache = 0;
 int ion_normal_allocated_page_count(void);
+static int ion_normal_allocing = 0;
 #endif
-
 struct page *ion_pagecache_alloc(gfp_t gfp)
 {
 	struct ion_handle *handle;
@@ -178,6 +178,12 @@ struct page *ion_pagecache_alloc(gfp_t gfp)
 	struct page *page;
 
 #ifdef CONFIG_ION_PAGECACHE
+	if (ion_normal_allocated_page_count() > 0)
+		return NULL;
+
+	if (ion_normal_allocing)
+		return NULL;
+
 	if (!ion_pagecache_flag)
 		return NULL;
 #endif
@@ -718,11 +724,15 @@ repeat:
 					< num)
 				continue;
 			mutex_unlock(&dev->lock);
-			__ion_pagecache_shrink(heap, num, tryhard, GFP_USER);
-			if (tryhard++ < 3) {
+			__ion_pagecache_shrink(heap, (tryhard + 1) * num, tryhard, GFP_USER);
+
+			if (tryhard++ < 5) {
+				if ((tryhard == 5) || ((tryhard + 1) * num) > heap->size)
+					ion_pagecache_shrink_all();
 				cond_resched();
 				goto repeat;
 			}
+
 			mutex_lock(&dev->lock);
 		}
 		mutex_unlock(&dev->lock);
@@ -1389,8 +1399,15 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
 			return -EFAULT;
+
+#ifdef CONFIG_ION_PAGECACHE
+		ion_normal_allocing = 1;
+#endif
 		data.handle = ion_alloc(client, data.len, data.align,
 					     data.flags);
+#ifdef CONFIG_ION_PAGECACHE
+		ion_normal_allocing = 0;
+#endif
 		if (IS_ERR_OR_NULL(data.handle))
 			return -EINVAL;
 		if (copy_to_user((void __user *)arg, &data, sizeof(data)))
