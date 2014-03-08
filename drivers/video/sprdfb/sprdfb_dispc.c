@@ -1918,11 +1918,11 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 	bool dispc_run;
 	unsigned long flags;
 	if(NULL == dev || 0 == dev->enable){
-		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
+		//printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
 		return 0;
 	}
 
-	printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold state=%u\n", state);
+	printk(KERN_ERR "sprdfb: DMC change freq(%u)\n", state);
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		down(&dev->refresh_lock);
 		dispc_run = dispc_read(DISPC_CTRL) & BIT(4);
