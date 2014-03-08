@@ -11,7 +11,7 @@
 /* Flag */
 #define TSP_SEC_FACTORY			0
 #define MMS_HAS_TOUCH_KEY		1
-#define FLASH_VERBOSE_DEBUG		1
+#define FLASH_VERBOSE_DEBUG		0
 
 #define MAX_SECTION_NUM			3
 #define MAX_FINGER_NUM			5
