@@ -62,6 +62,7 @@ static __inline __init int __hwspinlock_init(void)
 #define HWLOCK_AGPIO	(2)
 #define HWLOCK_AEIC	(3)
 #define HWLOCK_ADC	(4)
+#define HWLOCK_EFUSE	(8)
 
 static inline void arch_hwlocks_implemented(void)
 {
@@ -71,6 +72,7 @@ static inline void arch_hwlocks_implemented(void)
 	FILL_HWLOCKS(HWLOCK_AEIC);
 	FILL_HWLOCKS(HWLOCK_AGPIO);
 	FILL_HWLOCKS(HWLOCK_ADC);
+	FILL_HWLOCKS(HWLOCK_EFUSE);
 }
 
 #ifndef SPRD_HWLOCK1_BASE

@@ -24,6 +24,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/arch_lock.h>
 #include <mach/efuse.h>
 
 #define CONFIG_EFUSE_TEST
@@ -180,6 +181,7 @@ static __inline void __ddie_fuse_global_close(void)
 static __inline int __ddie_fuse_read(u32 blk)
 {
 	int val = 0;
+	unsigned long flags;
 
 #if defined(CONFIG_ARCH_SCX15)
 	idx = blk / 8;
@@ -189,6 +191,8 @@ static __inline int __ddie_fuse_read(u32 blk)
 #endif
 
 	D_EFUSE_VERIFY_BLK_ID(blk);
+
+	__arch_default_lock(HWLOCK_EFUSE, &flags);
 
 	mutex_lock(&ddie_fuse_lock);
 	__ddie_fuse_global_init();
@@ -203,6 +207,8 @@ static __inline int __ddie_fuse_read(u32 blk)
 	val = __raw_readl(REG_EFUSE_DATA_RD);
 	__ddie_fuse_global_close();
 	mutex_unlock(&ddie_fuse_lock);
+
+	__arch_default_unlock(HWLOCK_EFUSE, &flags);
 
 #if defined(CONFIG_ARCH_SCX15)
 	pr_info("%s()->Line:%d; efuse idx=%d, blk=%d, data=0x%08x\n", __func__, __LINE__, idx, blk, val);
@@ -221,6 +227,9 @@ static __inline int __adie_fuse_getdata(void)
 #else
 	int val = 0;
 	unsigned long timeout;
+	unsigned long flags;
+
+	__arch_default_lock(HWLOCK_EFUSE, &flags);
 
 	mutex_lock(&adie_fuse_lock);
 #if defined(CONFIG_ARCH_SC8825)
@@ -255,6 +264,8 @@ static __inline int __adie_fuse_getdata(void)
 #endif
 
 	mutex_unlock(&adie_fuse_lock);
+
+	__arch_default_unlock(HWLOCK_EFUSE, &flags);
 
 	return val;
 #endif /* CONFIG_ARCH_SCX15 */
@@ -396,6 +407,51 @@ int sci_efuse_get_cal(unsigned int * pdata, int num)
 EXPORT_SYMBOL_GPL(sci_efuse_get_cal);
 
 /*
+ * sci_efuse_get_apt_cal - read ap data saved in efuse
+ * @pdata: apt data pointer for dcdcwpa (unit: uV)
+ * pdata[0] -> 3v
+ * pdata[1] -> 0.8v
+ * @num: the length of apt data
+ *
+ * retruns 0 if success, else
+ * returns negative number.
+ */
+#define APT_CAL_DATA_BLK		( 10 )
+#define OFFSET2VOL(p, uv)		( ((p) + 128) * (uv) / 256)
+
+int sci_efuse_get_apt_cal(unsigned int * pdata, int num)
+{
+	int i = 0;
+	u32 efuse_data = 0;
+	u8* offset = (u8*) &efuse_data;
+	const unsigned int vol_ref[2] = {
+		3000000, //3v
+		800000, //0.8v
+	};
+
+	/* Fixme: dcdcwpa only support two points(3.6v / 0.8v) voltage calibration */
+	BUG_ON(num > 2);
+
+	efuse_data = (u32) sci_efuse_get(APT_CAL_DATA_BLK);
+
+	//pr_info("%s efuse data: 0x%08x\n", __func__, efuse_data);
+
+	if (!(efuse_data & BIT(31)) || (!pdata)) {
+		return -1;
+	}
+
+	printk("%s: ", __func__);
+	for(i = 0; i < num; i++) {
+		pdata[i] = (unsigned int) OFFSET2VOL(offset[i], vol_ref[i]);
+		printk("(%lduV : %ld), ", vol_ref[i], pdata[i]);
+	}
+	printk("\n");
+
+	return 0;
+}
+EXPORT_SYMBOL_GPL(sci_efuse_get_apt_cal);
+
+/*
  * below code is for test ,maybe used in the future.
  */
 static __inline void __ddie_fuse_test_clear_blkerrflag(u32 blk)
@@ -464,6 +520,7 @@ static void sci_ddie_fuse_program_vdd(u32 enable, u32 msleep_value)
 void sci_ddie_fuse_program(u32 blk, int data)
 {
 	int val = 0;
+	unsigned long flags;
 
 #if defined(CONFIG_ARCH_SCX15)
 	idx = blk / 8;
@@ -473,6 +530,8 @@ void sci_ddie_fuse_program(u32 blk, int data)
 #endif
 
 	D_EFUSE_VERIFY_BLK_ID(blk);
+
+	__arch_default_lock(HWLOCK_EFUSE, &flags);
 
 	mutex_lock(&ddie_fuse_lock);
 	__ddie_fuse_global_init();
@@ -502,6 +561,9 @@ void sci_ddie_fuse_program(u32 blk, int data)
 	__ddie_fuse_global_close();
 
 	mutex_unlock(&ddie_fuse_lock);
+
+	__arch_default_unlock(HWLOCK_EFUSE, &flags);
+
 }
 
 void sci_ddie_fuse_set_cyclecnt(u32 cnt, u32 efuse_clk_div_en)
