@@ -110,27 +110,15 @@ static int ltr558_i2c_read_bytes(u8 index, u8 *rx_buff, u8 length)
         return ret;
 }
 
-static int ltr558_i2c_write_bytes(u8 index, u8 *tx_buff, u8 length)
+static int ltr558_i2c_write_bytes(u8 *tx_buff, u8 length)
 {
         int ret = -1;
-        int i = 0;
-        u8 *buffer = NULL;
         struct i2c_msg msgs[1];
-
-        buffer = kmalloc(length + 1, GFP_KERNEL);
-        if(NULL == buffer) {
-                PRINT_ERR("kmalloc err\n");
-                return ret;
-        }
-
-        buffer[0] = index;
-        for(i=0; i<length; i++)
-                buffer[i+1] = tx_buff[i];
 
         msgs[0].addr = this_client->addr;
         msgs[0].flags = 0;
-        msgs[0].len = 1 + length;
-        msgs[0].buf = buffer;
+        msgs[0].len = length;
+        msgs[0].buf = tx_buff;
 
         ret = i2c_transfer(this_client->adapter, msgs, 1);
         if(ret != 1) {
@@ -174,12 +162,13 @@ static int ltr558_i2c_read_1_byte(u8 reg)
 static int ltr558_i2c_write_2_bytes(u8 reg, u16 value)
 {
         int ret = 0;
-        u8 data[2] = {0};
+        u8 data[3] = {0};
 
-        data[0] = value & 0x00FF;
-        data[1] = value >> 8;
+        data[0] = reg;
+        data[1] = value & 0x00FF;
+        data[2] = value >> 8;
 
-        ret = ltr558_i2c_write_bytes(reg, data, 2);
+        ret = ltr558_i2c_write_bytes(data, 3);
         if(ret != 1) {
                 PRINT_ERR("WRITE ERROR!ret=%d\n", ret);
                 return -1;
@@ -190,11 +179,12 @@ static int ltr558_i2c_write_2_bytes(u8 reg, u16 value)
 static int ltr558_i2c_write_1_byte(u8 reg, u8 value)
 {
         int ret = 0;
-        u8 data[1] = {0};
+        u8 data[2] = {0};
 
-        data[0] = value;
+        data[0] = reg;
+        data[1] = value;
 
-        ret = ltr558_i2c_write_bytes(reg, data, 1);
+        ret = ltr558_i2c_write_bytes(data, 2);
         if(ret != 1) {
                 PRINT_ERR("WRITE ERROR!ret=%d\n", ret);
                 return -1;
