@@ -67,6 +67,9 @@
 struct vsp_fh {
     int is_vsp_aquired;
     int is_clock_enabled;
+#if defined(CONFIG_SPRD_IOMMU)
+    int is_iommu_enabled;
+#endif
 
     wait_queue_head_t wait_queue_work;
     int condition_work;
@@ -146,6 +149,11 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     char *name_parent;
     unsigned long frequency;
     struct vsp_fh *vsp_fp = filp->private_data;
+
+    if (vsp_fp == NULL) {
+        printk(KERN_ERR "vsp_ioctl error occured, vsp_fp == NULL\n");
+        return  -EINVAL;
+    }
 
     switch (cmd) {
     case VSP_CONFIG_FREQ:
@@ -296,6 +304,12 @@ static irqreturn_t vsp_isr(int irq, void *data)
 {
     int int_status;
     int ret = 0xff; // 0xff : invalid
+    struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
+
+    if (vsp_fp == NULL) {
+        printk(KERN_ERR "vsp_isr error occured, vsp_fp == NULL\n");
+        return  IRQ_NONE;
+    }
 
     //check which module occur interrupt and clear coresponding bit
     int_status =  __raw_readl(VSP_GLB_REG_BASE+VSP_INT_STS_OFF);
@@ -324,9 +338,9 @@ static irqreturn_t vsp_isr(int irq, void *data)
         __raw_writel((1<<2), SPRD_VSP_BASE+ARM_INT_CLR_OFF);
     }
 
-    vsp_hw_dev.vsp_fp->vsp_int_status = ret;
-    vsp_hw_dev.vsp_fp->condition_work = 1;
-    wake_up_interruptible(&vsp_hw_dev.vsp_fp->wait_queue_work);
+    vsp_fp->vsp_int_status = ret;
+    vsp_fp->condition_work = 1;
+    wake_up_interruptible(&vsp_fp->wait_queue_work);
 
     return IRQ_HANDLED;
 }
@@ -426,9 +440,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
     vsp_fp->condition_work = 0;
 
 #if defined(CONFIG_SPRD_IOMMU)
-    {
-        sprd_iommu_module_enable(IOMMU_MM);
-    }
+    sprd_iommu_module_enable(IOMMU_MM);
+    vsp_fp->is_iommu_enabled = 1;
 #endif
 
     return 0;
@@ -454,15 +467,20 @@ static int vsp_release (struct inode *inode, struct file *filp)
     int ret;
     struct vsp_fh *vsp_fp = filp->private_data;
 
-#if defined(CONFIG_SPRD_IOMMU)
-    {
-        sprd_iommu_module_disable(IOMMU_MM);
+    if (vsp_fp == NULL) {
+        printk(KERN_ERR "vsp_release error occured, vsp_fp == NULL\n");
+        return  -EINVAL;
     }
+
+#if defined(CONFIG_SPRD_IOMMU)
+    sprd_iommu_module_disable(IOMMU_MM);
+    vsp_fp->is_iommu_enabled = 0;
 #endif
 
     if (vsp_fp->is_clock_enabled) {
         printk(KERN_ERR "error occured and close clock \n");
         clk_disable(vsp_hw_dev.vsp_clk);
+        vsp_fp->is_clock_enabled = 0;
     }
 
     if (vsp_fp->is_vsp_aquired) {
@@ -500,15 +518,20 @@ static int vsp_suspend(struct platform_device *pdev, pm_message_t state)
 {
     int ret=-1;
 
+    if (vsp_hw_dev.vsp_fp != NULL) {
 #if defined(CONFIG_SPRD_IOMMU)
-    {
-        sprd_iommu_module_disable(IOMMU_MM);
-    }
+        struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
+
+        if (vsp_fp->is_iommu_enabled) {
+            sprd_iommu_module_disable(IOMMU_MM);
+            vsp_fp->is_iommu_enabled = 0;
+        }
 #endif
 
-    clk_disable(vsp_hw_dev.mm_clk);
+        clk_disable(vsp_hw_dev.mm_clk);
 
-    printk(KERN_INFO "vsp_suspend");
+        printk(KERN_INFO "vsp_suspend");
+    }
 
     return 0;
 }
@@ -517,23 +540,26 @@ static int vsp_resume(struct platform_device *pdev)
 {
     int ret=-1;
 
-    ret = clk_enable(vsp_hw_dev.mm_clk);
-    if (ret) {
-        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-        return ret;
-    } else {
-        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
-    }
+    if (vsp_hw_dev.vsp_fp != NULL) {
+        struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
+
+        ret = clk_enable(vsp_hw_dev.mm_clk);
+        if (ret) {
+            printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
+            return ret;
+        } else {
+            pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+        }
 
 #if defined(CONFIG_SPRD_IOMMU)
-    {
         sprd_iommu_module_enable(IOMMU_MM);
-    }
+        vsp_fp->is_iommu_enabled = 1;
 #endif
 
-    printk(KERN_INFO "vsp_resume");
+        printk(KERN_INFO "vsp_resume");
+    }
 
-    return ret;
+    return 0;
 }
 
 static int vsp_probe(struct platform_device *pdev)
