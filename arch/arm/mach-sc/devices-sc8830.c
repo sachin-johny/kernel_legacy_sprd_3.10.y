@@ -691,27 +691,26 @@ static struct headset_buttons sprd_headset_buttons[] = {
 	},
 #else
 	{
-		.adc_min = 0x0000,
-		.adc_max = 0x00C8,
+		.adc_min = HEADSET_ADC_MIN_KEY_MEDIA,
+		.adc_max = HEADSET_ADC_MAX_KEY_MEDIA,
 		.code = KEY_MEDIA,
 	},
-#if 0
-	{
-		.adc_min = 0x00C9,
-		.adc_max = 0x02BC,
-		.code = KEY_VOLUMEUP,
-	},
-	{
-		.adc_min = 0x02BD,
-		.adc_max = 0x0514,
-		.code = KEY_VOLUMEDOWN,
-	},
-#endif
-
+	#ifdef CONFIG_HEADSET_KEY_VOLUME_SUPPORTED
+		{
+			.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEUP,
+			.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEUP,
+			.code = KEY_VOLUMEUP,
+		},
+		{
+			.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEDOWN,
+			.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEDOWN,
+			.code = KEY_VOLUMEDOWN,
+		},
+	#endif
 #endif
 };
 
-#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
+#ifdef CONFIG_HEADSET_EXTERNAL_HEADMICBIAS_POWER_SUPPORTED
 static int kanas_headmicbias_power_on(int on)
 {
 	static int flag_gpio_request = 0;
@@ -739,15 +738,11 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.gpio_switch = HEADSET_SWITCH_GPIO,
 	.gpio_detect = HEADSET_DETECT_GPIO,
 	.gpio_button = HEADSET_BUTTON_GPIO,
-#ifdef CONFIG_EAR_LOW_LEVEL_DETECT
-	.irq_trigger_level_detect = 0,
-#else
-	.irq_trigger_level_detect = 1,
-#endif
-	.irq_trigger_level_button = 1,
+	.irq_trigger_level_detect = HEADSET_IRQ_TRIGGER_LEVEL_DETECT,
+	.irq_trigger_level_button = HEADSET_IRQ_TRIGGER_LEVEL_BUTTON,
 	.headset_buttons = sprd_headset_buttons,
 	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
-#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
+#ifdef CONFIG_HEADSET_EXTERNAL_HEADMICBIAS_POWER_SUPPORTED
 	.external_headmicbias_power_on = kanas_headmicbias_power_on,
 #else
 	.external_headmicbias_power_on = NULL,

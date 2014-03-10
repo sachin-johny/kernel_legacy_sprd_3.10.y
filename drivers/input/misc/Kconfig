@@ -653,7 +653,6 @@ config INPUT_XEN_KBDDEV_FRONTEND
 	  To compile this driver as a module, choose M here: the
 	  module will be called xen-kbdfront.
 
-
 config INPUT_SPRD_HEADSET_SHARK
      tristate "SPRD platform builtin headset & button detect driver"
      help
@@ -661,6 +660,24 @@ config INPUT_SPRD_HEADSET_SHARK
 
        To compile this driver as a module, choose M here: the
        module will be called headset.
+
+config  HEADSET_KEY_VOLUME_SUPPORTED
+	bool "HEADSET_KEY_VOLUME_SUPPORTED"
+	depends on INPUT_SPRD_HEADSET_SHARK
+	help
+	  Say Y to enable HEADSET_KEY_VOLUME_SUPPORT.
+
+config  HEADSET_EXTERNAL_HEADMICBIAS_POWER_SUPPORTED
+	bool "HEADSET_EXTERNAL_HEADMICBIAS_POWER_SUPPORTED"
+	depends on INPUT_SPRD_HEADSET_SHARK
+	help
+	  Say Y to enable HEADSET_EXTERNAL_HEADMICBIAS_POWER_SUPPORT.
+
+config  HEADSET_STS_POLLING_DISABLED
+	bool "HEADSET_STS_POLLING_DISABLED"
+	depends on INPUT_SPRD_HEADSET_SHARK
+	help
+	  Say Y to disable HEADSET_STS_POLLING.
 
 config INPUT_LIS3DH_I2C
 	tristate "ST lid3dh 3-Axid accelerometer device with I2C bus"
