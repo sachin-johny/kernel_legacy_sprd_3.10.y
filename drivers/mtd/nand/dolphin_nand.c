@@ -1621,7 +1621,7 @@ STATIC_FUNC int sprd_dolphin_read_oob(struct mtd_info *mtd, struct nand_chip *ch
 	}
 	return 0;
 }
-STATIC_FUNC void sprd_dolphin_write_page(struct mtd_info *mtd, struct nand_chip *chip,
+STATIC_FUNC int sprd_dolphin_write_page(struct mtd_info *mtd, struct nand_chip *chip,
 				const uint8_t *buf,int oob_required)
 {
 	if(512 == mtd->writesize)
@@ -1632,9 +1632,9 @@ STATIC_FUNC void sprd_dolphin_write_page(struct mtd_info *mtd, struct nand_chip 
 	{
 		sprd_dolphin_nand_write_lp(mtd, buf, chip->oob_poi, 0);	
 	}
-
+	return 0;
 }
-STATIC_FUNC void sprd_dolphin_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
+STATIC_FUNC int sprd_dolphin_write_page_raw(struct mtd_info *mtd, struct nand_chip *chip,
 					const uint8_t *buf,int oob_required)
 {
 	if(512 == mtd->writesize)
@@ -1645,6 +1645,7 @@ STATIC_FUNC void sprd_dolphin_write_page_raw(struct mtd_info *mtd, struct nand_c
 	{
 		sprd_dolphin_nand_write_lp(mtd, buf, chip->oob_poi, 1);	
 	}
+	return 0;
 }
 STATIC_FUNC int sprd_dolphin_write_oob(struct mtd_info *mtd, struct nand_chip *chip,
 				int page)
