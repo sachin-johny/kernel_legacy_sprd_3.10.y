@@ -15,7 +15,6 @@
 #include <linux/init.h>
 #include <linux/platform_device.h>
 #include <linux/delay.h>
-#include <linux/export.h>
 #include <asm/io.h>
 #include <asm/setup.h>
 #include <asm/mach/time.h>
@@ -59,7 +58,9 @@
 #include <linux/err.h>
 #include <linux/switch.h>
 #include <linux/i2c-gpio.h>
-
+#ifdef CONFIG_MFD_RT8973
+#include <linux/mfd/rt8973.h>
+#endif
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
@@ -121,9 +122,6 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
-#ifdef CONFIG_MFD_RT8973
-static struct platform_device rt8973_mfd_device_i2cadaptor;
-#endif
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -212,9 +210,6 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&kb_backlight_device,
 	&sprd_a7_pmu_device,
-#ifdef CONFIG_MFD_RT8973
-	&rt8973_mfd_device_i2cadaptor,
-#endif
 	&sprd_headset_device,
 	&sprd_saudio_voip_device,
 };
@@ -223,22 +218,6 @@ int current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 EXPORT_SYMBOL(current_cable_type);
 */
 #ifdef CONFIG_MFD_RT8973
-static struct i2c_gpio_platform_data rt8973_i2cadaptor_data = {
-	.sda_pin = GPIO_MUIC_SDA,
-	.scl_pin = GPIO_MUIC_SCL,
-	.udelay  = 10,
-	.timeout = 0,
-};
-
-static struct platform_device rt8973_mfd_device_i2cadaptor = {
-	.name   = "i2c-gpio",
-	.id     = 7,
-	.dev	= {
-		.platform_data = &rt8973_i2cadaptor_data,
-	}
-};
-
-#include <linux/mfd/rt8973.h>
 static struct rt8973_platform_data rt8973_pdata = {
     .irq_gpio = GPIO_MUIC_IRQ,
     .cable_chg_callback = NULL,
@@ -254,7 +233,7 @@ static struct rt8973_platform_data rt8973_pdata = {
 
 static struct i2c_board_info rtmuic_i2c_boardinfo[] __initdata = {
     {
-        I2C_BOARD_INFO("rt8973", 0x28 >> 1),
+        I2C_BOARD_INFO("rt8973", 0x14),
         .platform_data = &rt8973_pdata,
     },
 };
@@ -752,7 +731,7 @@ static int sc8810_add_i2c_devices(void)
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 #endif
 #ifdef CONFIG_MFD_RT8973
-	i2c_register_board_info(7, rtmuic_i2c_boardinfo, ARRAY_SIZE(rtmuic_i2c_boardinfo));
+	i2c_register_board_info(2, rtmuic_i2c_boardinfo, ARRAY_SIZE(rtmuic_i2c_boardinfo));
 #endif
 	return 0;
 }

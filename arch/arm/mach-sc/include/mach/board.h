@@ -109,8 +109,8 @@
 #include "__board-sp8815gaopenphone.h"
 #endif
 
-#ifdef  CONFIG_MACH_STAR2
-#include "__board-star2.h"
+#ifdef  CONFIG_MACH_POCKET2
+#include "__board-pocket2.h"
 #endif
 
 #ifdef  CONFIG_MACH_CORSICA_VE

@@ -11,8 +11,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __GPIO_STAR2_H__
-#define __GPIO_STAR2_H__
+#ifndef __GPIO_POCKET2_H__
+#define __GPIO_POCKET2_H__
 
 #ifndef __ASM_ARCH_BOARD_H
 #error  "Don't include this file directly, include <mach/board.h>"
@@ -100,9 +100,7 @@
 
 #define GPIO_SDIO_DETECT      75
 
-#define GPIO_MUIC_SDA   174
-#define GPIO_MUIC_SCL   173
-#define GPIO_MUIC_IRQ   108
+//#define GPIO_MUIC_IRQ   48
 
 /* ION config info
 LCD:
