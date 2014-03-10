@@ -9,7 +9,14 @@
 #include <asm/io.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#include <linux/gpio.h>
+#include <linux/mutex.h>
 
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA)
+#define GPIO_RF2351_POWER_CTRL 217
+#else 
+#define GPIO_RF2351_POWER_CTRL 169 //defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
+#endif
 static struct sprd_2351_data rfspi;
 
 static int sprd_rfspi_wait_write_idle(void)
@@ -136,6 +143,51 @@ static unsigned int sprd_rfspi_disable(void)
 
 	return 0;
 }
+
+static DEFINE_MUTEX(rf2351_lock);
+static int rf2351_power_count=0;
+
+void rf2351_gpio_ctrl_power_enable(int flag)
+{
+
+    if(!flag && (0 == rf2351_power_count))//avoid calling the func  first time with flag =0
+    return;
+    
+    RF2351_PRINT("rf2351_power_count =%d\n", rf2351_power_count);
+    mutex_lock(&rf2351_lock);
+    if(0 == rf2351_power_count)
+    {
+        if (gpio_request(GPIO_RF2351_POWER_CTRL, "rf2351_power_pin"))
+        {
+            RF2351_PRINT("request gpio %d failed\n",GPIO_RF2351_POWER_CTRL);
+        }
+        gpio_direction_output(GPIO_RF2351_POWER_CTRL, 1);	 
+    }
+
+    if(flag)
+    {
+        if(0 == rf2351_power_count)
+        {
+            gpio_set_value(GPIO_RF2351_POWER_CTRL, 1);
+           RF2351_PRINT("rf2351_gpio_ctrl_power_enable  on\n"); 
+        }
+        rf2351_power_count++;
+    }
+    else
+    {
+         rf2351_power_count--;
+        if(0 == rf2351_power_count)
+        {
+            gpio_set_value(GPIO_RF2351_POWER_CTRL, 0);
+            gpio_free(GPIO_RF2351_POWER_CTRL);
+            RF2351_PRINT("rf2351_gpio_ctrl_power_enable  off \n"); 
+        }
+    }
+     mutex_unlock(&rf2351_lock);
+     
+}
+
+EXPORT_SYMBOL(rf2351_gpio_ctrl_power_enable);
 
 static struct sprd_2351_interface sprd_rf2351_ops = {
 	.name = "rf2351",
