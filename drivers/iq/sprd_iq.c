@@ -23,6 +23,7 @@
 #include <mach/board.h>
 #include <asm/memory.h>
 #include <linux/memblock.h>
+#include <linux/devfreq.h>
 
 
 
@@ -132,12 +133,30 @@ static void sprd_iq_complete(char *buf,  int length)
 		g_iq.head_2->WR_RD_FLAG = IQ_BUF_READ_FINISHED;
 }
 
+#ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
+static unsigned int sprd_iq_dmc_notify(struct devfreq_dbs *h, unsigned int state)
+{
+	if(state == DEVFREQ_PRE_CHANGE)
+		return 1;
+}
+
+
+struct devfreq_dbs dmc_iq_notify = {
+	.level = 0,
+	.devfreq_notifier = sprd_iq_dmc_notify,
+};
+#endif
+
+
 static int __init  sprd_iq_init(void)
 {
 	if(!in_iqmode())
 		return -EINVAL;
 	if (sprd_iq_addr() == 0xffffffff)
 		return -ENOMEM;
+#ifdef CONFIG_SPRD_SCXX30_DMC_FREQ
+	devfreq_notifier_register(&dmc_iq_notify);
+#endif
 	init_waitqueue_head(&g_iq.wait);
 	g_iq.head_1 = (struct iq_header*)__va(sprd_iq_addr());
 
