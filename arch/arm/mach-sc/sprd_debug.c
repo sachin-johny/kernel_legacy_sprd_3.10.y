@@ -65,7 +65,7 @@ static atomic_t task_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t irq_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t work_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
 static atomic_t hrtimer_log_idx[NR_CPUS] = { ATOMIC_INIT(-1), ATOMIC_INIT(-1) };
-static struct sched_log (*psprd_debug_log) = (&sprd_debug_log);
+struct sched_log (*psprd_debug_log) = (&sprd_debug_log);
 #endif
 
 
@@ -226,7 +226,15 @@ void __sprd_debug_hrtimer_log(struct hrtimer *timer,
 	psprd_debug_log->hrtimers[cpu][i].en = en;
 }
 
+int get_task_log_idx(int cpu)
+{
+	return atomic_inc_return(&task_log_idx[cpu]) & (ARRAY_SIZE(psprd_debug_log->task[0]) - 1);
+}
+
+int get_irq_log_idx(int cpu)
+{
+	return atomic_inc_return(&irq_log_idx[cpu]) & (ARRAY_SIZE(psprd_debug_log->irq[0]) - 1);
+}
+
 #endif /* CONFIG_SPRD_DEBUG_SCHED_LOG */
-
-
 
