@@ -70,6 +70,10 @@
 #include "__board-sp5735ea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP5735C1EA
+#include "__board-sp5735c1ea.h"
+#endif
+
 #if defined (CONFIG_MACH_SPX35FPGA) || defined (CONFIG_MACH_SPX15FPGA)
 #include "__board-sp8830fpga.h"
 #endif
