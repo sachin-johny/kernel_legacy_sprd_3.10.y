@@ -38,9 +38,10 @@ static int backlight_pin = 190;
 #endif
 static DEFINE_SPINLOCK(bl_ctrl_lock);
 
-int real_level = 1;
-EXPORT_SYMBOL(real_level);
+#define START_BRIGHTNESS 10 /*This value should be same as bootloader*/
 
+int real_level = START_BRIGHTNESS;
+EXPORT_SYMBOL(real_level);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 
 #endif
@@ -96,6 +97,35 @@ struct brt_value brt_table_ktd[] = {
    { 242,  7 },
    { 249,  5 },
    { MAX_BRIGHTNESS_VALUE,  5 }, // Max pulse 1
+};
+#elif defined (CONFIG_MACH_CORSICA_VE) || defined (CONFIG_MACH_VIVALTO)
+struct brt_value brt_table_ktd[] = {
+	{MIN_BRIGHTNESS_VALUE, 31},	/*Min pulse 32 */
+	{30, 31},
+	{41, 30},
+	{52, 29},
+	{63, 28},
+	{74, 27},
+	{85, 26},
+	{96, 25},
+	{107, 24},
+	{118, 23},
+	{127, 22},
+	{135, 21},
+	{143, 20},		/*default value */
+	{155, 18},
+	{168, 17},
+	{177, 16},
+	{186, 15},
+	{194, 14},
+	{202, 13},
+	{210, 12},
+	{218, 11},
+	{226, 10},
+	{234, 9},
+	{241, 7},
+	{248, 6},
+	{MAX_BRIGHTNESS_VALUE, 5},	/*Max pulse 1 */
 };
 #else
 struct brt_value brt_table_ktd[] = {
@@ -252,15 +282,15 @@ static void rt4502_backlight_earlyresume(struct early_suspend *desc)
 	struct rt4502_bl_data *rt4502 = container_of(desc, struct rt4502_bl_data,
 				early_suspend_desc);
 	struct backlight_device *bl = platform_get_drvdata(rt4502->pdev);
-      struct timespec ts;
-      struct rtc_time tm;
-    
-#if 1//defined(CONFIG_MACH_HAWAII_SS_ROYVEDTV_REV00)    
-       gpio_set_value(backlight_pin,1);
-       BLDBG("[BACKLIGHT] rt4502_backlight_earlyresume -> Control Pin Enable\n");
-       udelay(100); 	
-#endif    
-   
+	struct timespec ts;
+	struct rtc_time tm;
+
+#if 1//defined(CONFIG_MACH_HAWAII_SS_ROYVEDTV_REV00) 
+	gpio_set_value(backlight_pin, 1);
+	BLDBG("[BACKLIGHT] rt4502_backlight_earlyresume->Control Pin Enable\n");
+	udelay(100);
+#endif
+
 	getnstimeofday(&ts);
 	rtc_time_to_tm(ts.tv_sec, &tm);
        backlight_mode=BACKLIGHT_RESUME;
