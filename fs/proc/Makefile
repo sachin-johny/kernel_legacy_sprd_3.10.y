@@ -3,6 +3,7 @@
 #
 
 obj-y   += proc.o
+obj-y   += sprd_debug/
 
 proc-y			:= nommu.o task_nommu.o
 proc-$(CONFIG_MMU)	:= task_mmu.o
