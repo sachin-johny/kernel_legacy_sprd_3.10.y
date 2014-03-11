@@ -16,6 +16,13 @@
 
 #define SMSG_CACHE_NR		256
 
+/* smsg debug info */
+struct smsg_debug_info {
+	uint32_t send_cnt;
+	uint32_t ch_open_steps[SMSG_CH_NR];
+	struct smsg smsg_send_early_pool[256];
+};
+
 struct smsg_channel {
 	/* wait queue for recv-buffer */
 	wait_queue_head_t	rxwait;
