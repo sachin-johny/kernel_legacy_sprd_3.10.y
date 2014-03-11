@@ -163,7 +163,7 @@ seth_rx_handler (void* data)
 
 	skb->dev = seth->netdev;
 	skb->protocol  = eth_type_trans (skb, seth->netdev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+	skb->ip_summed = CHECKSUM_NONE;
 
 	seth->stats.rx_packets++;
 	seth->stats.rx_bytes += skb->len;
