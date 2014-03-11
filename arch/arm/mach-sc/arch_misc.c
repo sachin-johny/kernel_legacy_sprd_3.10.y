@@ -105,8 +105,9 @@ int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 		sci_reg_clr(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 		/* FIXME: wait a moment for mm domain stable
 		*/
-		udelay(100);
 		sci_reg_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
+		udelay(200);
+		WARN_ON(0 != sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, BITS_PD_MM_TOP_STATE(-1)));
 
 		sci_reg_set(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
 		sci_reg_set(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
