@@ -144,8 +144,8 @@ static int show_user_stack(struct seq_file *m, void *v)
 
 	do_each_thread(g, p) {
 		task_lock(p);
-	 	//if (p->state == TASK_UNINTERRUPTIBLE)
-		show_userstack_of_task(p, m, v);
+		if (p->state == TASK_UNINTERRUPTIBLE)
+			show_userstack_of_task(p, m, v);
 		task_unlock(p);
 	}while_each_thread(g, p);
 
