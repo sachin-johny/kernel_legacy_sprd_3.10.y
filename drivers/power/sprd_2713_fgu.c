@@ -238,7 +238,7 @@ uint16_t voltage_capacity_table[][2] = {
 };
 
 #if defined(CONFIG_ARCH_SCX15)
-#if defined(CONFIG_MACH_STAR2)  || defined(CONFIG_MACH_CORSICA_VE)
+#if defined(CONFIG_MACH_POCKET2)  || defined(CONFIG_MACH_CORSICA_VE)
 #include "sprd_scx15_custom_0_soc_table.h"
 #else
 #include "sprd_scx15_soc_table.h"
