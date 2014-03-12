@@ -457,8 +457,9 @@ static int serial_sprd_rx_dma_config(struct uart_port *port)
 	struct sci_dma_cfg rx_dma_cfg;	// , tx_dma_cfg;
 
 	chip_info = (struct sprd_uart_chip *)port->private_data;
+
 	/*config the rx dma chn */
-	if (chip_info->dma_enable && chip_info->dma_rx_dev_id) {
+	if (chip_info && chip_info->dma_enable && chip_info->dma_rx_dev_id) {
 		if (chip_info->dma_rx_chn == 0) {
 			chip_info->dma_rx_chn =
 			    sci_dma_request("uart", FULL_DMA_CHN);
