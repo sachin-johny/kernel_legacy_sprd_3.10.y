@@ -328,6 +328,7 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 	.vdd_name 			= "vdd28",
+
 	.virtualkeys = {
 	         89,907,72,55,
 	         249,907,72,55,
@@ -335,7 +336,7 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
         },
 #ifdef CONFIG_FB_LOW_RES_SIMU
         .TP_MAX_X = 360,
-        .TP_MAX_Y = 576,
+        .TP_MAX_Y = 540,
 #else
         .TP_MAX_X = 540,
         .TP_MAX_Y = 960,

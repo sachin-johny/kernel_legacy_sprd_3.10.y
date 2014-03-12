@@ -419,7 +419,7 @@ static struct info_rgb lcd_hx8363_rgb_info = {
 struct panel_spec lcd_panel_hx8363_rgb_spi_spec = {
 #ifdef CONFIG_FB_LOW_RES_SIMU
 	.display_width = 320,
-	.display_height = 512,
+	.display_height = 480,
 #endif
 	.width = 480,
 	.height = 854,
