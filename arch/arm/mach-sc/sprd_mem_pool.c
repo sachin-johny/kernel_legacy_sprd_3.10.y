@@ -342,9 +342,11 @@ static unsigned long sprd_alloc_one(unsigned long order)
 	mutex_unlock(&(page_pool[order].lock));
 
 #if STATUS_PRINT
+	#if DEBUG_PRINT
 	printk("__SPRD__ALLOC__ONE__: buffer for order = %lu empty; free = %lu, used = %lu, sys = %lu; peak = %lu, total = %lu;  Call Stack:\n",
 			order, page_pool[order].stat.free, page_pool[order].stat.used, get_page_count(order), page_pool[order].stat.peak, page_pool[order].stat.total);
 	dumpstack();
+    #endif
 #endif
 
 queuework:
@@ -370,8 +372,10 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 	struct page *page = NULL;
 
 #if STATUS_PRINT
+	#if DEBUG_PRINT
 	printk("__SPRD__ALLOC__: gfp_mask = 0x%lx, alloc_flag = %lu, zoneidx = %lu, order = %u, free = %lu, used = %lu, peak = %lu, total = %lu\n",
 			(unsigned long)gfp_mask, alloc_flag, zoneidx, order, page_pool[order].stat.free, page_pool[order].stat.used, page_pool[order].stat.peak, page_pool[order].stat.total);
+    #endif
 #endif
 
 	/*check some flags*/
@@ -386,9 +390,11 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 	page = address_to_pages(address);
 
 #if STATUS_PRINT
+	#if DEBUG_PRINT
 	printk("__SPRD__ALLOC__: Process Name: %s, Process Pid: %d, Parent Name: %s, Parent Pid: %d, address: %p, page: %p, free: %lu, used: %lu, peak: %lu, total: %lu\n",
 			current->comm, current->pid, current->parent->comm, current->parent->pid, (void *)address, page,
 			page_pool[order].stat.free, page_pool[order].stat.used, page_pool[order].stat.peak, page_pool[order].stat.total);
+    #endif
 #endif
 
 	return page;

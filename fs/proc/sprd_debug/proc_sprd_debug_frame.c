@@ -14,6 +14,7 @@ enum sprd_debug_type{
 	TIMER,
 	IRQ,
 	IO,
+	CPU,
 	MISC,
 	TYPE_COUNT
 };
@@ -30,6 +31,7 @@ struct sprd_debug_dir sprd_debug_dir_table[TYPE_COUNT] = {
 	{.name = "timer", .debugfs_entry = NULL},
 	{.name = "irq", .debugfs_entry = NULL},
 	{.name = "io", .debugfs_entry = NULL},
+	{.name = "cpu", .debugfs_entry = NULL},
 	{.name = "misc", .debugfs_entry = NULL},
 };
 
@@ -65,6 +67,10 @@ extern struct file_operations last_regs_info_proc_fops;
 extern struct file_operations userstack_info_proc_fops;
 #endif
 
+#ifdef CONFIG_SPRD_CPU_RATE
+extern struct file_operations proc_cpu_usage_fops;
+#endif
+
 static struct sprd_debug_entry sprd_debug_array[] = {
 #ifdef CONFIG_PHYMEM_INFO
 	NOD(MEM,   "phymemdist", 0, &phymem_dist_proc_fops),
@@ -83,6 +89,10 @@ static struct sprd_debug_entry sprd_debug_array[] = {
 	NOD(IRQ,   "irqlog", 0, &irqinfo_proc_fops),
 	NOD(IRQ,   "irqlog_num", 0, &irqinfo_num_proc_fops),
 	NOD(IO,    "last_regs", 0, &last_regs_info_proc_fops),
+#endif
+
+#ifdef CONFIG_SPRD_CPU_RATE
+	NOD(CPU,    "cpu_usage", 0, &proc_cpu_usage_fops),
 #endif
 };
 
