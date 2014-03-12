@@ -1158,6 +1158,9 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 {
 	int retval;
 	struct task_struct *p;
+#ifdef CONFIG_SPRD_CPU_RATE
+	void *temper;
+#endif
 
 	if ((clone_flags & (CLONE_NEWNS|CLONE_FS)) == (CLONE_NEWNS|CLONE_FS))
 		return ERR_PTR(-EINVAL);
@@ -1506,6 +1509,12 @@ static struct task_struct *copy_process(unsigned long clone_flags,
 	perf_event_fork(p);
 
 	trace_task_newtask(p, clone_flags);
+
+#ifdef CONFIG_SPRD_CPU_RATE
+	/*for cpu rate compute*/
+	temper = p->stack + sizeof(struct thread_info);
+	memset(temper, 0, 100);
+#endif
 
 	return p;
 

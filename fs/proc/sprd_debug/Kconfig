@@ -18,3 +18,7 @@ config USRPROCSTACK_INFO
 	depends on SPRD_DEBUG_FRAME
 	default y
 
+config SPRD_CPU_RATE
+	bool "open sprd cpu rate compute"
+	depends on SPRD_DEBUG_FRAME
+	default y
