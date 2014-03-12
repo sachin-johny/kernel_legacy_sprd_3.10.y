@@ -1173,7 +1173,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 #endif
 	platform_set_drvdata(pdev, host);
 	host->ops = (const struct sdhci_ops *)&sprd_host->sdhci_host_ops;
-	pdev->dev.type = &sprd_sdhci_host_device_type;
+	host->mmc->class_dev.type = &sprd_sdhci_host_device_type;
 	pdev->dev.dma_mask = &host->dma_mask;
 	host->dma_mask = DMA_BIT_MASK(64);
 	host->hw_name = "";
