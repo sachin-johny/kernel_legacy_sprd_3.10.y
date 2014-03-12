@@ -67,11 +67,15 @@ static int dfm_rate(struct snd_pcm_hw_params *params)
 {
 	dfm.hw_rate = params_rate(params);
 
+	if (dfm.hw_rate = 8000)
+		dfm.sample_rate = 8000;
+	else {
 #ifdef CONFIG_SND_SOC_SPRD_VBC_SRC_OPEN
-	dfm.sample_rate = 44100;
+		dfm.sample_rate = 44100;
 #else
-	dfm.sample_rate = params_rate(params);
+		dfm.sample_rate = params_rate(params);
 #endif
+	}
 	sp_asoc_pr_dbg("%s: hw_rate:%d,  sample_rate:%d \n",
 		       __func__, dfm.hw_rate, dfm.sample_rate);
 

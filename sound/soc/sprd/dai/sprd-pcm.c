@@ -658,9 +658,11 @@ static int sprd_pcm_hw_params(struct snd_pcm_substream *substream,
 	goto ok_go_out;
 
 no_dma:
+	sp_asoc_pr_dbg("no dma\n");
 	rtd->params = NULL;
 	snd_pcm_set_runtime_buffer(substream, &substream->dma_buffer);
 	runtime->dma_bytes = totsize;
+	return ret;
 hw_param_err:
 	sp_asoc_pr_dbg("hw_param_err\n");
 ok_go_out:

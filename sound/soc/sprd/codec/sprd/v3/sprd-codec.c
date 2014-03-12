@@ -1699,8 +1699,12 @@ static int dfm_out_event(struct snd_soc_dapm_widget *w,
 			 struct snd_kcontrol *kcontrol, int event)
 {
 	int on = ! !SND_SOC_DAPM_EVENT_ON(event);
+	struct snd_soc_codec *codec = w->codec;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 
 	sp_asoc_pr_info("DFM-OUT %s\n", STR_ON_OFF(on));
+	sprd_codec->ad_sample_val = sprd_codec->da_sample_val;
+	sprd_codec_sample_rate_setting(sprd_codec);
 
 	return 0;
 }
