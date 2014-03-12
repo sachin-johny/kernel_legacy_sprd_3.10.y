@@ -472,7 +472,7 @@ static struct snd_soc_dai_ops vbc_dai_ops = {
 static int dfm_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
-	static const unsigned int dfm_all_rates[] = { 32000, 44100, 48000 };
+	static const unsigned int dfm_all_rates[] = { 32000, 44100, 48000, 8000};
 	static const struct snd_pcm_hw_constraint_list dfm_rates_constraint = {
 		.count = ARRAY_SIZE(dfm_all_rates),
 		.list = dfm_all_rates,
