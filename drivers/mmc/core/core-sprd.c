@@ -2211,8 +2211,6 @@ static void mmc_hw_reset_for_init(struct mmc_host *host)
 
 int mmc_can_reset(struct mmc_card *card)
 {
-	if (!mmc_card_mmc(card))
-		return 0;
 	return 1;
 }
 EXPORT_SYMBOL(mmc_can_reset);

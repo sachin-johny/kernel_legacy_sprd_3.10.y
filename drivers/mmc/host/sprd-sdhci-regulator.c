@@ -68,7 +68,7 @@
 	} while(0)
 
 static const unsigned int sprd_sdhci_regulator_voltage_level[4][4] = {
-	{1800 * 1000, 2500 * 1000, 2800 * 1000, 3000 * 1000}, // vddsd
+	{0 * 1000, 0 * 1000, 1800 * 1000, 3000 * 1000}, // vddsd
 	{},
 	{},
 	{1200 * 1000, 1300 * 1000, 1500 * 1000, 1800 * 1000}, // vddemmcio
