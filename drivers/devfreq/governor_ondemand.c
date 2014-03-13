@@ -251,7 +251,7 @@ EXPORT_SYMBOL(dfs_freq_raise_quirk);
 
 static void devfreq_early_suspend(struct early_suspend *h)
 {
-	dfs_set_freq(200000);
+	dfs_set_freq(192000);
 	gov_eb = 0;
 }
 
