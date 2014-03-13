@@ -37,11 +37,18 @@
 #define STTY_DEV_MAX_NR 	1
 #define STTY_MAX_DATA_LEN 		4096
 
+#define STTY_STATE_OPEN 	1
+#define STTY_STATE_CLOSE 	0
+
 struct stty_device {
 	struct stty_init_data	*pdata;
 	struct tty_port 		*port;
 	struct tty_struct 		*tty;
 	struct tty_driver 		*driver;
+
+	/* stty state */
+	uint32_t 		state;
+	struct mutex 		stat_lock;
 };
 
 static void stty_handler (int event, void* data)
@@ -59,12 +66,14 @@ static void stty_handler (int event, void* data)
 			cnt = sbuf_read(stty->pdata->dst, stty->pdata->channel,
 					stty->pdata->bufid,(void *)buf, STTY_MAX_DATA_LEN, 0);
 			pr_debug("stty handler read data len =%d \n", cnt);
-			if (cnt > 0) {
+			mutex_lock(&(stty->stat_lock));
+			if ((stty->state == STTY_STATE_OPEN) && (cnt > 0)) {
 				for(i = 0; i < cnt; i++) {
 					tty_insert_flip_char(stty->port, buf[i], TTY_NORMAL);
 				}
 				tty_schedule_flip(stty->port);
 			}
+			mutex_unlock(&(stty->stat_lock));
 			break;
 		default:
 			printk(KERN_ERR "Received event is invalid(event=%d)\n", event);
@@ -77,7 +86,6 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 {
 	struct stty_device *stty = NULL;
 	struct tty_driver *driver = NULL;
-	int rval= 0;
 
 	if (tty == NULL) {
 		printk(KERN_ERR "stty open input tty is NULL!\n");
@@ -99,12 +107,11 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 	stty->tty = tty;
 	tty->driver_data = (void *)stty;
 
-	rval = sbuf_register_notifier(stty->pdata->dst, stty->pdata->channel,
-					stty->pdata->bufid, stty_handler, stty);
-	if (rval) {
-		printk(KERN_ERR "regitster notifier failed (%d)\n", rval);
-		return rval;
-	}
+	mutex_lock(&(stty->stat_lock));
+	stty->state = STTY_STATE_OPEN;
+	mutex_unlock(&(stty->stat_lock));
+
+
 #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
     || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
     rf2351_gpio_ctrl_power_enable(1);
@@ -117,7 +124,7 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 static void stty_close(struct tty_struct *tty, struct file * filp)
 {
 	struct stty_device *stty = NULL;
-	int rval= 0;
+
 	if (tty == NULL) {
 		printk(KERN_ERR "stty close input tty is NULL!\n");
 		return;
@@ -128,12 +135,9 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 		return;
 	}
 
-	rval = sbuf_register_notifier(stty->pdata->dst, stty->pdata->channel,
-					stty->pdata->bufid, NULL, NULL);
-	if (rval) {
-		printk(KERN_ERR "unregitster notifier failed (%d)\n", rval);
-		return;
-	}
+	mutex_lock(&(stty->stat_lock));
+	stty->state = STTY_STATE_CLOSE;
+	mutex_unlock(&(stty->stat_lock));
 
 	pr_debug("stty_close device success !\n");
 
@@ -141,7 +145,7 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
         || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
     rf2351_gpio_ctrl_power_enable(0);
     #endif
-    
+
 	return;
 }
 
@@ -193,6 +197,8 @@ static int stty_driver_init(struct stty_device *device)
 {
 	struct tty_driver *driver;
 	int ret = 0;
+
+	mutex_init(&(device->stat_lock));
 
 	device->port = stty_port_init();
 	if (!device->port) {
@@ -255,6 +261,16 @@ static int  stty_probe(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
+	rval = sbuf_register_notifier(pdata->dst, pdata->channel,
+					pdata->bufid, stty_handler, stty);
+	if (rval) {
+		stty_driver_exit(stty);
+		kfree(stty->port);
+		kfree(stty);
+		printk(KERN_ERR "regitster notifier failed (%d)\n", rval);
+		return rval;
+	}
+
 	printk( "stty_probe init device addr: 0x%0x\n", (void *)stty);
 	platform_set_drvdata(pdev, stty);
 
@@ -264,6 +280,14 @@ static int  stty_probe(struct platform_device *pdev)
 static int  stty_remove(struct platform_device *pdev)
 {
 	struct stty_device *stty = platform_get_drvdata(pdev);
+	int rval;
+
+	rval = sbuf_register_notifier(stty->pdata->dst, stty->pdata->channel,
+					stty->pdata->bufid, NULL, NULL);
+	if (rval) {
+		printk(KERN_ERR " unregitster notifier failed (%d)\n", rval);
+		return rval;
+	}
 
 	stty_driver_exit(stty);
 	kfree(stty->port);
@@ -291,7 +315,7 @@ static void __exit stty_exit(void)
 	platform_driver_unregister(&stty_driver);
 }
 
-module_init(stty_init);
+late_initcall(stty_init);
 module_exit(stty_exit);
 
 MODULE_AUTHOR("Dewu Jiang");
