@@ -605,18 +605,14 @@ static int init_sensor_parameters(void *priv)
 
 	for (i = SENSOR_MODE_PREVIEW_ONE; i < SENSOR_MODE_MAX; i++) {
 		width = sensor_info_ptr->sensor_mode_info[i].width;
-		if (init_param.input_size.w <= width) {
-			g_dcam_info.snapshot_m =
-			    sensor_info_ptr->sensor_mode_info[i].mode;
-			if (g_dcam_info.snapshot_m < SENSOR_MODE_PREVIEW_TWO)
-				g_dcam_info.preview_m = SENSOR_MODE_PREVIEW_ONE;
-			else
-				g_dcam_info.preview_m = SENSOR_MODE_PREVIEW_TWO;
+		if(init_param.input_size.w <= width)
+		{
+			g_dcam_info.snapshot_m = sensor_info_ptr->sensor_mode_info[i].mode;
+			g_dcam_info.preview_m = g_dcam_info.snapshot_m;
 
 			g_dcam_info.input_size.w = width;
-			g_dcam_info.input_size.h =
-			    sensor_info_ptr->sensor_mode_info[i].height;
-			break;
+			g_dcam_info.input_size.h = sensor_info_ptr->sensor_mode_info[i].height;
+			break;				
 		}
 	}
 	if(1 == dev->streamparm.parm.capture.capturemode) {
@@ -1570,32 +1566,43 @@ void vidioc_get_exif(JINF_EXIF_INFO_T * exif_ptr, uint32_t size)
 	DC_GetExifParameter_Post();
 }
 
+
+#define CAMERA_EXIF_SIZE	64*1024
+static uint8_t *p_exif_data = NULL;
 /* Use querymenu to get jpeg exif info */
 static int vidioc_querymenu(struct file *file, void *priv,
 			    struct v4l2_querymenu *qm)
 {
-	uint32_t p_memptr;
 	uint32_t size;
+	int32_t ret = 0;
+
+
 
 	printk("V4l2:vidioc_querymenu start \n");
+
 	size = qm->index;
 
-	if(size >10*1024)
-		size = 10*1024;
 
-	printk("DCAM V4L2:vidioc_querymenu,addr=0x%x,size=0x%x, real_size=0x%x \n", qm->id,
-		 qm->index, size);
-	p_memptr = (unsigned int)ioremap(qm->id, size);
-	if (0 == p_memptr) {
-		printk("V4L2: vidioc_querymenu error ####: Can't ioremap for PMEM_BASE_PHY_ADDR!\n");
+	printk("V4l2:vidioc_querymenu size=%d,id=0x%x \n",size,qm->id);
+
+	if (size > CAMERA_EXIF_SIZE) {
+		size = CAMERA_EXIF_SIZE;
+	}
+
+	if (p_exif_data) {
+		g_dc_exif_info_ptr = (JINF_EXIF_INFO_T*)p_exif_data;
+		vidioc_get_exif(g_dc_exif_info_ptr, size);
+
+		ret = copy_to_user(qm->id,p_exif_data,size);
+		if (ret) {
+			printk("V4l2:vidioc_querymenu copy_to_user fail ret=%d \n",ret);
+			return -EIO;
+		}
+	} else {
+		printk("V4l2:vidioc_querymenu malloc fail size=%d \n",size);
 		return -ENOMEM;
 	}
-	g_dc_exif_info_ptr = (JINF_EXIF_INFO_T *) p_memptr;
-	printk("V4l2:vidioc_querymenu set: id=%x, index = %x, g_dc_exif_info_ptr=%x \n",
-	     qm->id, qm->index, (uint32_t) g_dc_exif_info_ptr);
 
-	vidioc_get_exif(g_dc_exif_info_ptr, size);
-	iounmap((void __iomem *)p_memptr);
 	return 0;
 }
 
@@ -2729,12 +2736,25 @@ int dcam_probe(struct platform_device *pdev)
 		printk(KERN_INFO "Error %d while loading dcam driver\n", ret);
 		return ret;
 	}
+	if (!p_exif_data) {
+		p_exif_data = kmalloc(CAMERA_EXIF_SIZE, GFP_KERNEL);
+		if (!p_exif_data) {
+			printk("###DCAM:dcam_probe malloc fail size=%d\n",CAMERA_EXIF_SIZE);
+		}
+	} else {
+		printk("###DCAM:dcam_probe fail exif exist\n");
+	}
 	printk(KERN_ALERT "dcam_probe Success.\n");
 	return 0;
 }
 
 static int dcam_remove(struct platform_device *dev)
 {
+	if (p_exif_data) {
+		kfree(p_exif_data);
+		p_exif_data = NULL;
+		printk("###DCAM:dcam_remove free p_exif_data.\n");
+	}
 	return 0;
 }
 
