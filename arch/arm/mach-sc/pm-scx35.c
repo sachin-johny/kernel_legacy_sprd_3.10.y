@@ -128,7 +128,7 @@ static struct mm_reg_bak mm_reg_saved;
  * bit_5 : dcdc arm
 */
 static  struct auto_pd_en pd_config = {
-	0x6a6aa6a6, 0x3b,0xa6a66a6a,
+	0x6a6aa6a6, 0x3f,0xa6a66a6a,
 	.pd_config_menu = {
 	"ca7_top",
 	"ca7_c0",
