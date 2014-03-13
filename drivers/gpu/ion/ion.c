@@ -253,9 +253,7 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	mutex_unlock(&dev->buffer_lock);
 	return buffer;
 
-err:
-	heap->ops->unmap_dma(heap, buffer);
-	heap->ops->free(buffer);
+
 err1:
 	if (buffer->pages)
 		vfree(buffer->pages);
