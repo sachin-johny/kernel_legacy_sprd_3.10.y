@@ -14,9 +14,7 @@
 #define _ROT_DRV_H_
 
 
-#include "sc8830_reg_rot.h"
-#include "../../sprd_dcam/sc8830/dcam_drv.h"
-
+#include "rot_reg.h"
 
 /*#define ROTATE_DEBUG*/
 

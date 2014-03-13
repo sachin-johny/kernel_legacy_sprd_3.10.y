@@ -27,7 +27,7 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
-#include "../../sprd_dcam/sc8830/dcam_drv.h"
+#include "dcam_drv.h"
 #include "rot_drv.h"
 #include "img_rot.h"
 

@@ -15,7 +15,7 @@
 #define _DCAM_DRV_8830_H_
 
 #include <linux/types.h>
-#include "sc8830_reg_dcam.h"
+#include "dcam_reg.h"
 
 //#define DCAM_DEBUG
 

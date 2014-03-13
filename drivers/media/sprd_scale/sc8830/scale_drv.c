@@ -20,7 +20,7 @@
 #include <mach/hardware.h>
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
-#include "../../sprd_dcam/sc8830/dcam_drv.h"
+#include "dcam_drv.h"
 
 /*#define SCALE_DRV_DEBUG*/
 #define SCALE_LOWEST_ADDR 0x800

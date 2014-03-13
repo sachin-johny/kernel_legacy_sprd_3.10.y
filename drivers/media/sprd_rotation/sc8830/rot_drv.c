@@ -19,6 +19,7 @@
 #include <mach/sci.h>
 #include "img_rot.h"
 #include "rot_drv.h"
+#include "dcam_drv.h"
 
 #define ALGIN_FOUR 0x03
 #define IO_PTR volatile void __iomem *
