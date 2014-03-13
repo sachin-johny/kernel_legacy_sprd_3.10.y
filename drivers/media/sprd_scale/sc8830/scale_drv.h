@@ -14,7 +14,7 @@
 #define _SCALE_DRV_H_
 
 #include <linux/types.h>
-#include "sc8830_reg_scale.h"
+#include "scale_reg.h"
 
 /*#define SCALE_DEBUG*/
 
