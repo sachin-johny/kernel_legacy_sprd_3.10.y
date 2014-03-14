@@ -12,7 +12,7 @@
 #include <linux/gpio.h>
 #include <linux/mutex.h>
 
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA)
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA)||defined(CONFIG_MACH_SP5735C1EA)
 #define GPIO_RF2351_POWER_CTRL 217
 #else 
 #define GPIO_RF2351_POWER_CTRL 169 //defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
@@ -118,7 +118,8 @@ static unsigned int sprd_rfspi_enable(void)
 	if(rfspi.count == 1)
 	{
 		rfspi.clk = clk_get(NULL, "clk_cpll");
-		if(rfspi.clk == NULL){
+		if(rfspi.clk == NULL)
+{
 			RF2351_PRINT("rfspi get clk_cpll failed\n");
 			return -1;
 		}

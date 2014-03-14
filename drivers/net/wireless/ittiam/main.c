@@ -651,7 +651,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	struct itm_priv *priv;
 	int ret;
     #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
+        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA)
     rf2351_gpio_ctrl_power_enable(1);
     #endif
 	ndev =
@@ -763,7 +763,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret;
    #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-       || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
+       || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA)
     rf2351_gpio_ctrl_power_enable(0);
     #endif
 /*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
