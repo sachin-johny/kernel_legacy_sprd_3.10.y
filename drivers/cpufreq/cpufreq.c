@@ -305,8 +305,19 @@ void __cpufreq_notify_transition(struct cpufreq_policy *policy,
 void cpufreq_notify_transition(struct cpufreq_policy *policy,
 		struct cpufreq_freqs *freqs, unsigned int state)
 {
-	for_each_cpu(freqs->cpu, policy->cpus)
-		__cpufreq_notify_transition(policy, freqs, state);
+	if (cpufreq_driver->flags & CPUFREQ_SHARED) {
+		unsigned int cpu;
+		struct cpufreq_policy *cpu_policy;
+		for_each_online_cpu(cpu) {
+			freqs->cpu = cpu;
+			cpu_policy = per_cpu(cpufreq_cpu_data, freqs->cpu);
+			for_each_cpu(freqs->cpu, cpu_policy->cpus)
+				__cpufreq_notify_transition(cpu_policy, freqs, state);
+		}
+	} else {
+		for_each_cpu(freqs->cpu, policy->cpus)
+			__cpufreq_notify_transition(policy, freqs, state);
+	}
 }
 EXPORT_SYMBOL_GPL(cpufreq_notify_transition);
 

@@ -333,6 +333,7 @@ static void sprd_real_set_cpufreq(struct cpufreq_policy *policy, unsigned int ne
 	}
 	pr_info("--xing-- set %u khz for cpu%u\n",
 		new_speed, policy->cpu);
+	global_freqs.cpu = policy->cpu;
 	global_freqs.new = new_speed;
 
 	cpufreq_notify_transition(policy, &global_freqs, CPUFREQ_PRECHANGE);
@@ -544,6 +545,9 @@ static struct cpufreq_driver sprd_cpufreq_driver = {
 	.exit		= sprd_cpufreq_exit,
 	.name		= "sprd",
 	.attr		= sprd_cpufreq_attr,
+#if defined(CONFIG_ARCH_SCX35)
+	.flags		= CPUFREQ_SHARED
+#endif
 };
 
 static ssize_t cpufreq_min_limit_show(struct device *dev, struct device_attribute *attr,char *buf)
