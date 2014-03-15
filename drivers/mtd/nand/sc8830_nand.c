@@ -123,6 +123,33 @@ static int mtdoobsize = 0;
 
 #include "sprd_nand_param.h"
 
+#ifdef DOLPHIN_UBOOT
+#define DOLPHIN_AHB_BASE SPRD_AHB_PHYS
+#define DOLPHIN_PIN_BASE SPRD_PIN_PHYS
+#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
+#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x0060)
+
+#define DOLPHIN_ADISLAVE_BASE	 	SPRD_ADISLAVE_PHYS
+#define DOLPHIN_ANA_CTL_GLB_BASE		(DOLPHIN_ADISLAVE_BASE + 0x8800)
+
+#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_PHYS
+#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
+#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
+#endif
+
+#ifdef DOLPHIN_KERNEL
+#define DOLPHIN_AHB_BASE SPRD_AHB_BASE
+#define DOLPHIN_PIN_BASE SPRD_PIN_BASE
+#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
+#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x0060)
+
+#define DOLPHIN_ADISLAVE_BASE	 	SPRD_ADISLAVE_BASE
+#define DOLPHIN_ANA_CTL_GLB_BASE		(DOLPHIN_ADISLAVE_BASE + 0x8800)
+
+#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_BASE
+#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
+#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
+#endif
 
 /* 2 bit correct, sc8810 support 1, 2, 4, 8, 12,14, 24 */
 #define CONFIG_SYS_NAND_ECC_MODE    (2)
@@ -807,9 +834,11 @@ STATIC_FUNC void sprd_dolphin_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
 	if(chip < 0) { //for release caller
+		sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(6)));
 		return;
 	}
 	//DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
+	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(6));
 	dolphin->chip = chip;
 #ifdef CONFIG_NAND_SPL
 	nand_hardware_config(mtd,dolphin->nand);
@@ -1752,37 +1781,6 @@ STATIC_FUNC void sprd_dolphin_nand_hwecc_ctl(struct mtd_info *mtd, int mode)
 {
 	return; //do nothing
 }
-
-
-
-#ifdef DOLPHIN_UBOOT
-#define DOLPHIN_AHB_BASE SPRD_AHB_PHYS
-#define DOLPHIN_PIN_BASE SPRD_PIN_PHYS
-#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
-#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x0060)
-
-#define DOLPHIN_ADISLAVE_BASE	 	SPRD_ADISLAVE_PHYS
-#define DOLPHIN_ANA_CTL_GLB_BASE		(DOLPHIN_ADISLAVE_BASE + 0x8800)
-
-#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_PHYS
-#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
-#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
-#endif
-
-#ifdef DOLPHIN_KERNEL
-#define DOLPHIN_AHB_BASE SPRD_AHB_BASE
-#define DOLPHIN_PIN_BASE SPRD_PIN_BASE
-#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
-#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x0060)
-
-#define DOLPHIN_ADISLAVE_BASE	 	SPRD_ADISLAVE_BASE
-#define DOLPHIN_ANA_CTL_GLB_BASE		(DOLPHIN_ADISLAVE_BASE + 0x8800)
-
-#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_BASE
-#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
-#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
-#endif
-
 
 STATIC_FUNC void sprd_dolphin_nand_hw_init(struct sprd_dolphin_nand_info *dolphin)
 {
