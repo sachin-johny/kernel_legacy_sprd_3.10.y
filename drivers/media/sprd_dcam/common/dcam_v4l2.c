@@ -401,13 +401,17 @@ int flash_thread_loop(void *arg)
 		return -1;
 	}
 	while (1) {
-		down_interruptible(&dev->flash_thread_sem);
-		if (dev->is_flash_thread_stop) {
-			sprd_v4l2_setflash(0);
-			printk("flash_thread_loop stop \n");
+		if (0 == down_interruptible(&dev->flash_thread_sem)) {
+			if (dev->is_flash_thread_stop) {
+				sprd_v4l2_setflash(0);
+				printk("flash_thread_loop stop \n");
+				break;
+			}
+			sprd_v4l2_opt_flash(NULL, arg);
+		} else {
+			printk("flash int!");
 			break;
 		}
-		sprd_v4l2_opt_flash(NULL, arg);
 	}
 	dev->is_flash_thread_stop = 0;
 
