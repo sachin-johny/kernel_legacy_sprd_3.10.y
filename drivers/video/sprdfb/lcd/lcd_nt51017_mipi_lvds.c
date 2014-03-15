@@ -132,7 +132,7 @@ const static __u8 i2c_msg_buf_c1[][2] = {
         {0x20, 0x00},
 		{0x21, 0x00},
 		{0x22, 0x43},
-		{0x23, 0x6E},
+		{0x23, 0x28},
 		{0x24, 0x04},
 		{0x25, 0x4C},
 		{0x26, 0x00},
@@ -536,7 +536,7 @@ static struct panel_operations lcd_nt51017_mipi_lvds_operations = {
 
 static struct timing_rgb lcd_nt51017_mipi_lvds_timing = {
 	.hfp = 110,  /* unit: pixel */
-	.hbp = 76,
+	.hbp = 80,
 	.hsync = 4,//4
 	.vfp = 18, /*unit: line*/
 	.vbp = 19,
