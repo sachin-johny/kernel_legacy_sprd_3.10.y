@@ -204,6 +204,22 @@ static DEFINE_MUTEX(snd_sound);
 
 static int saudio_snd_card_free(const struct snd_saudio *saudio);
 
+
+static int saudio_clear_cmd(uint32_t dst, uint32_t channel)
+{
+	int result = 0;
+	int i = 0;
+	struct sblock blk = { 0 };
+	do {
+		result = sblock_receive(dst, channel,  (struct sblock *)&blk, 0);
+		if (!result) {
+			sblock_release(dst, channel, &blk);
+		}
+	} while (!result);
+	return result;
+}
+
+
 static int saudio_send_common_cmd(uint32_t dst, uint32_t channel,
 				  uint32_t cmd, uint32_t subcmd,
 				  int32_t timeout)
@@ -213,6 +229,7 @@ static int saudio_send_common_cmd(uint32_t dst, uint32_t channel,
 	ADEBUG();
 	pr_debug(" dst is %d, channel %d, cmd %x, subcmd %x\n", dst, channel,
 		 cmd, subcmd);
+	saudio_clear_cmd( dst,  channel);
 	result = sblock_get(dst, channel, (struct sblock *)&blk, timeout);
 	if (result >= 0) {
 		struct cmd_common *common = (struct cmd_common *)blk.addr;
@@ -283,6 +300,7 @@ static int saudio_clear_ctrl_cmd(struct snd_saudio *saudio)
 
 	return result;
 }
+
 
 static int saudio_pcm_lib_malloc_pages(struct snd_pcm_substream *substream,
 				       size_t size)
@@ -384,7 +402,8 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 		ETRACE
 		    ("saudio.c: snd_card_saudio_pcm_open: saudio_send_common_cmd result is %d",
 		     result);
-		saudio_snd_card_free(saudio);
+		if(result != (-ERESTARTSYS))
+			saudio_snd_card_free(saudio);
 		mutex_unlock(&dev_ctrl->mutex);
 		return result;
 	}
@@ -392,7 +411,7 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 	result = saudio_wait_common_cmd(dev_ctrl->dst,
 					dev_ctrl->channel,
 					SAUDIO_CMD_OPEN_RET, 0, CMD_TIMEOUT);
-	if (result)
+	if (result && (result != (-ERESTARTSYS)))
 		saudio_snd_card_free(saudio);
 	mutex_unlock(&dev_ctrl->mutex);
 	pr_info("%s OUT, result=%d\n", __func__, result);
@@ -420,7 +439,8 @@ static int snd_card_saudio_pcm_close(struct snd_pcm_substream *substream)
 		ETRACE
 		    ("saudio.c: snd_card_saudio_pcm_close: saudio_send_common_cmd result is %d",
 		     result);
-		saudio_snd_card_free(saudio);
+		if(result != (-ERESTARTSYS))
+			saudio_snd_card_free(saudio);
 		mutex_unlock(&dev_ctrl->mutex);
 		return result;
 	}
@@ -429,7 +449,7 @@ static int snd_card_saudio_pcm_close(struct snd_pcm_substream *substream)
 	    saudio_wait_common_cmd(dev_ctrl->dst,
 				   dev_ctrl->channel,
 				   SAUDIO_CMD_CLOSE_RET, 0, CMD_TIMEOUT);
-	if (result)
+	if (result && (result != (-ERESTARTSYS)))
 		saudio_snd_card_free(saudio);
 	mutex_unlock(&dev_ctrl->mutex);
 	pr_info("%s OUT, result=%d,dst %d, channel %d\n", __func__, result,
@@ -473,7 +493,8 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 			ETRACE
 			    ("saudio.c: snd_card_saudio_pcm_trigger: RESUME, send_common_cmd result is %d",
 			     result);
-			saudio_snd_card_free(saudio);
+			if(result != (-ERESTARTSYS))
+				saudio_snd_card_free(saudio);
 			return result;
 		}
 		pr_info("%s OUT, TRIGGER_START, result=%d\n", __func__, result);
@@ -492,7 +513,8 @@ static int snd_card_saudio_pcm_trigger(struct snd_pcm_substream *substream,
 			ETRACE
 			    ("saudio.c: snd_card_saudio_pcm_trigger: SUSPEND, send_common_cmd result is %d",
 			     result);
-			saudio_snd_card_free(saudio);
+			if(result != (-ERESTARTSYS))
+				saudio_snd_card_free(saudio);
 			return result;
 		}
 		pr_info("%s OUT, TRIGGER_STOP, result=%d\n", __func__, result);
@@ -897,7 +919,7 @@ static int saudio_cmd_prepare_process(struct saudio_dev_ctrl *dev_ctrl,
 		    saudio_wait_common_cmd(dev_ctrl->dst, dev_ctrl->channel,
 					   SAUDIO_CMD_PREPARE_RET,
 					   0, CMD_TIMEOUT);
-		if (result)
+		if (result && (result != (-ERESTARTSYS)))
 			saudio_snd_card_free(saudio);
 
 		mutex_unlock(&dev_ctrl->mutex);
