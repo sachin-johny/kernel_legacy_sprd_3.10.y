@@ -67,7 +67,7 @@ static int dfm_rate(struct snd_pcm_hw_params *params)
 {
 	dfm.hw_rate = params_rate(params);
 
-	if (dfm.hw_rate = 8000)
+	if (dfm.hw_rate == 8000)
 		dfm.sample_rate = 8000;
 	else {
 #ifdef CONFIG_SND_SOC_SPRD_VBC_SRC_OPEN
