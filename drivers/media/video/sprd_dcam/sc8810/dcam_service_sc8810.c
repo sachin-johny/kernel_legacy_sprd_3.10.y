@@ -1067,6 +1067,7 @@ static int ISP_ServiceSetParameters(void)
 		return -1;
 	}
 
+	s->capture_skip_frame_num = sensor_info_ptr->capture_skip_num;
 	s->cap_input_image_format = sensor_info_ptr->image_format;
 	s->cap_input_image_pattern = sensor_info_ptr->image_pattern;
 	s->hsync_polarity = sensor_info_ptr->hsync_polarity;

@@ -1,17 +1,46 @@
 /******************************************************************************
  ** Copyright (c)
- ** File Name:		sensor_GC2035.c
- ** Author:
- ** DATE:
+ ** File Name:		sensor_GC2035.c 										  *
+ ** Author: 													  *
+ ** DATE:															  *
  ** Description:   This file contains driver for sensor GC2035.
+ **
+ ******************************************************************************
+
+ ******************************************************************************
+ ** 					   Edit History 									  *
+ ** ------------------------------------------------------------------------- *
+ ** DATE		   NAME 			DESCRIPTION 							  *
+ **
+ ******************************************************************************/
 
 /**---------------------------------------------------------------------------*
- ** 						Dependencies
+ ** 						Dependencies									  *
  **---------------------------------------------------------------------------*/
-
+#include <linux/delay.h>
 #include "common/sensor.h"
 #include "common/jpeg_exif_header_k.h"
 #include "common/sensor_drv.h"
+
+/**---------------------------------------------------------------------------*
+ ** 						Compiler Flag									  *
+ **---------------------------------------------------------------------------*/
+#ifdef	 __cplusplus
+	extern	 "C"
+	{
+#endif
+/**---------------------------------------------------------------------------*
+ ** 					Extern Function Declaration 						  *
+ **---------------------------------------------------------------------------*/
+//extern uint32_t OS_TickDelay(uint32_t ticks);
+/*
+extern void Sensor_SetMCLK(uint32_t mclk);
+*/
+//extern ERR_I2C_E I2C_WriteCmdArrNoStop(uint8_t addr, uint8_t *pCmd, uint32_t len, BOOLEAN ack_en);
+
+/**---------------------------------------------------------------------------*
+ ** 						Const variables 								  *
+ **---------------------------------------------------------------------------*/
 
 /**---------------------------------------------------------------------------*
  ** 						   Macro Define
@@ -20,15 +49,14 @@
 #define GC2035_I2C_ADDR_R		0x3c
 
 #define SENSOR_GAIN_SCALE		16
-#define Cap_dummy    //
 
-#define GC2035_PID_ADDR1 	0xf0
-#define GC2035_PID_ADDR2 	0xf1
-#define GC2035_SENSOR_ID     0x2035
+static uint32_t  shutter_flag = 0;
+
+#define Cap_dummy    //
 
 
 /**---------------------------------------------------------------------------*
- ** 					Local Function Prototypes
+ ** 					Local Function Prototypes							  *
  **---------------------------------------------------------------------------*/
 LOCAL uint32_t set_GC2035_ae_enable(uint32_t enable);
 LOCAL uint32_t set_preview_mode(uint32_t preview_mode);
@@ -56,7 +84,7 @@ LOCAL void GC2035_set_shutter();
 LOCAL uint32_t set_sensor_flip(uint32_t param);
 
 /**---------------------------------------------------------------------------*
- ** 						Local Variables
+ ** 						Local Variables 								 *
  **---------------------------------------------------------------------------*/
  typedef enum
 {
@@ -65,7 +93,6 @@ LOCAL uint32_t set_sensor_flip(uint32_t param);
 	FLICKER_MAX
 }FLICKER_E;
 
-static uint32_t  shutter_flag = 0;
 
 SENSOR_REG_T GC2035_YUV_COMMON[]=
 {
@@ -131,18 +158,18 @@ SENSOR_REG_T GC2035_YUV_COMMON[]=
 	{0xfe , 0x00},
 
 	{0x05 , 0x01},
-	{0x06 , 0x0d},
+	{0x06 , 0x11},
 	{0x07 , 0x00},
-	{0x08 , 0x14},
+	{0x08 , 0x50},
 	{0xfe , 0x01},
 	{0x27 , 0x00},
 	{0x28 , 0xa0},
-	{0x29 , 0x04},
-	{0x2a , 0x60},
-	{0x2b , 0x04},
-	{0x2c , 0x60},
-	{0x2d , 0x04},
-	{0x2e , 0x60},
+	{0x29 , 0x05},
+	{0x2a , 0x00},
+	{0x2b , 0x05},
+	{0x2c , 0x00},
+	{0x2d , 0x05},
+	{0x2e , 0x00},
 	{0x2f , 0x0a},
 	{0x30 , 0x00},
 	{0xfe , 0x00},
@@ -718,16 +745,20 @@ SENSOR_REG_T GC2035_YUV_COMMON[]=
 	{0xf2 , 0x70},
 	{0xf3 , 0xff},
 	{0xf4 , 0x00},
-	{0xf5 , 0x30}
+	{0xf5 , 0x30},
 };
 
 SENSOR_REG_T GC2035_YUV_800x600[]=
 {
 	{0xfe , 0x00},
 	{0xfa , 0x00},
-
+	{0x05 , 0x01},
+	{0x06 , 0x11},
+	{0x07 , 0x00},
+	{0x08 , 0x50},
+	{0xf7 , 0x15},
+	{0xf8 , 0x85},
 	{0xc8 , 0x40},
-
 	{0x99 , 0x22},
 	{0x9a , 0x06},
 	{0x9b , 0x00},
@@ -738,29 +769,24 @@ SENSOR_REG_T GC2035_YUV_800x600[]=
 	{0xa0 , 0x00},
 	{0xa1 , 0x00},
 	{0xa2  ,0x00},
-
 	{0xfe , 0x03},
 	{0x42 , 0x40},
 	{0x43 , 0x06},
-
 	{0xfe , 0x00},
 	{0x90 , 0x01},
 	{0x95 , 0x02},
 	{0x96 , 0x58},
 	{0x97 , 0x03},
 	{0x98 , 0x20},
-	{0xb6 , 0x03}
-
 };
 
 SENSOR_REG_T GC2035_YUV_1280x960[]=
 {
 
 	{0xfe , 0x00},
-
-	{0xc8 , 0x00}, 
-	{0xfa , 0x11},// 00
-
+	{0xf8 , 0x85},
+	{0xc8 , 0x00},
+	{0xfa , 0x00},
 	{0x99 , 0x55},
 	{0x9a , 0x06},
 	{0x9b , 0x02},
@@ -771,29 +797,24 @@ SENSOR_REG_T GC2035_YUV_1280x960[]=
 	{0xa0 , 0x03},
 	{0xa1 , 0x04},
 	{0xa2 , 0x00},
-
-	{0xfe , 0x03},
-	{0x42 , 0x00},
-	{0x43 , 0x0a},
-
-	{0xfe , 0x00},
 	{0x90 , 0x01},
 	{0x95 , 0x03},
 	{0x96 , 0xc0},
 	{0x97 , 0x05},
-	{0x98 , 0x00}
-
-
-
-
+	{0x98 , 0x00},
 };
 
-SENSOR_REG_T GC2035_YUV_1600x1200[]=
+	SENSOR_REG_T GC2035_YUV_1600x1200[]=
 {
 	{0xfe , 0x00},
-	{0xfa , 0x11},  // 00
+	{0xfa , 0x00},
+	{0x05 , 0x01},
+	{0x06 , 0x11},
+	{0x07 , 0x00},
+	{0x08 , 0x50},
+	{0xf7 , 0x15},
+	{0xf8 , 0x85},
 	{0xc8 , 0x00},
-
 	{0x99 , 0x11},
 	{0x9a , 0x06},
 	{0x9b , 0x00},
@@ -803,20 +824,281 @@ SENSOR_REG_T GC2035_YUV_1600x1200[]=
 	{0x9f , 0x00},
 	{0xa0 , 0x00},
 	{0xa1 , 0x00},
-	{0xa2 , 0x00},
-
+	{0xa2 ,0x00},
 	{0xfe , 0x03},
 	{0x42 , 0x80},
 	{0x43 , 0x0c},
-
 	{0xfe , 0x00},
 	{0x90 , 0x01},
 	{0x95 , 0x04},
 	{0x96 , 0xb0},
 	{0x97 , 0x06},
 	{0x98 , 0x40},
-	{0xff , 0xff}
+	{0xff , 0xff},
 };
+
+LOCAL SENSOR_REG_TAB_INFO_T s_GC2035_resolution_Tab_YUV[]=
+{
+	// COMMON INIT
+	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_COMMON), 800, 600, 24, SENSOR_IMAGE_FORMAT_YUV422},
+
+	// YUV422 PREVIEW 1
+	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_800x600), 800, 600, 24, SENSOR_IMAGE_FORMAT_YUV422},
+	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_1280x960), 1280, 960, 24, SENSOR_IMAGE_FORMAT_YUV422},
+	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_1600x1200), 1600, 1200, 24, SENSOR_IMAGE_FORMAT_YUV422},
+	{PNULL, 0, 0, 0, 0, 0},
+
+	// YUV422 PREVIEW 2
+	{PNULL, 0, 0, 0, 0, 0},
+	{PNULL, 0, 0, 0, 0, 0},
+	{PNULL, 0, 0, 0, 0, 0},
+	{PNULL, 0, 0, 0, 0, 0}
+
+};
+
+LOCAL SENSOR_IOCTL_FUNC_TAB_T s_GC2035_ioctl_func_tab =
+{
+    // Internal
+    PNULL,
+    PNULL, //
+    PNULL,
+    GC2035_Identify,
+
+    PNULL,			// write register
+    PNULL,			// read  register
+    PNULL, //set_sensor_flip,//PNULL,
+    PNULL,
+
+    // External
+    PNULL,//set_GC2035_ae_enable,
+    PNULL,
+    PNULL,
+
+    set_brightness,
+    set_contrast,
+    set_sharpness,
+    set_saturation,
+
+    set_preview_mode,
+    set_image_effect,
+
+    GC2035_BeforeSnapshot,
+    GC2035_After_Snapshot,
+
+    PNULL,
+
+    read_ev_value,
+    write_ev_value,
+    read_gain_value,
+    write_gain_value,
+    read_gain_scale,
+    set_frame_rate,
+    PNULL,
+    PNULL,
+    set_GC2035_awb,
+    PNULL,
+    PNULL,
+    set_GC2035_ev,
+    PNULL,
+    PNULL,
+    PNULL,
+    PNULL,
+    PNULL,
+    set_GC2035_anti_flicker,
+    set_GC2035_video_mode,
+    PNULL,
+    PNULL
+};
+
+/**---------------------------------------------------------------------------*
+ ** 						Global Variables								  *
+ **---------------------------------------------------------------------------*/
+SENSOR_INFO_T g_GC2035_yuv_info =
+{
+	GC2035_I2C_ADDR_W,				// salve i2c write address
+	GC2035_I2C_ADDR_R, 				// salve i2c read address
+
+	SENSOR_I2C_FREQ_400,								// bit0: 0: i2c register value is 8 bit, 1: i2c register value is 16 bit
+									// bit2: 0: i2c register addr  is 8 bit, 1: i2c register addr  is 16 bit
+									// other bit: reseved
+	SENSOR_HW_SIGNAL_PCLK_N|\
+	SENSOR_HW_SIGNAL_VSYNC_N|\
+	SENSOR_HW_SIGNAL_HSYNC_P,		// bit0: 0:negative; 1:positive -> polarily of pixel clock
+									// bit2: 0:negative; 1:positive -> polarily of horizontal synchronization signal
+									// bit4: 0:negative; 1:positive -> polarily of vertical synchronization signal
+									// other bit: reseved
+
+	// preview mode
+	SENSOR_ENVIROMENT_NORMAL|\
+	SENSOR_ENVIROMENT_NIGHT|\
+	SENSOR_ENVIROMENT_SUNNY,
+
+	// image effect
+	SENSOR_IMAGE_EFFECT_NORMAL|\
+	SENSOR_IMAGE_EFFECT_BLACKWHITE|\
+	SENSOR_IMAGE_EFFECT_RED|\
+	SENSOR_IMAGE_EFFECT_GREEN|\
+	SENSOR_IMAGE_EFFECT_BLUE|\
+	SENSOR_IMAGE_EFFECT_YELLOW|\
+	SENSOR_IMAGE_EFFECT_NEGATIVE|\
+	SENSOR_IMAGE_EFFECT_CANVAS,
+
+	// while balance mode
+	0,
+
+	7,								// bit[0:7]: count of step in brightness, contrast, sharpness, saturation
+									// bit[8:31] reseved
+
+	SENSOR_LOW_PULSE_RESET,			// reset pulse level
+	100,								// reset pulse width(ms)
+
+	SENSOR_HIGH_LEVEL_PWDN,			// 1: high level valid; 0: low level valid
+
+	2,								// count of identify code
+	0xf0, 0x20,						// supply two code to identify sensor.
+	0xf1, 0x35,						// for Example: index = 0-> Device id, index = 1 -> version id
+
+	SENSOR_AVDD_2800MV,				// voltage of avdd
+
+	1600,							// max width of source image
+	1200,							// max height of source image
+	"GC2035",						// name of sensor
+
+	SENSOR_IMAGE_FORMAT_YUV422,		// define in SENSOR_IMAGE_FORMAT_E enum,
+									// if set to SENSOR_IMAGE_FORMAT_MAX here, image format depent on SENSOR_REG_TAB_INFO_T
+	SENSOR_IMAGE_PATTERN_YUV422_YUYV,	// pattern of input image form sensor;
+
+	s_GC2035_resolution_Tab_YUV,	// point to resolution table information structure
+	&s_GC2035_ioctl_func_tab,		// point to ioctl function table
+
+	PNULL,							// information and table about Rawrgb sensor
+	PNULL,							// extend information about sensor
+	SENSOR_AVDD_2800MV,                     // iovdd
+	SENSOR_AVDD_1800MV,                      // dvdd
+	1,
+	1,
+	0,
+	0
+
+};
+/**---------------------------------------------------------------------------*
+ ** 							Function  Definitions
+ **---------------------------------------------------------------------------*/
+LOCAL void GC2035_WriteReg( uint8_t  subaddr, uint8_t data )
+{
+
+	#ifndef	_USE_DSP_I2C_
+		//uint8_t cmd[2];
+		//cmd[0]	=	subaddr;
+		//cmd[1]	=	data;
+		//I2C_WriteCmdArr(GC2035_I2C_ADDR_W, cmd, 2, SENSOR_TRUE);
+		Sensor_WriteReg_8bits(subaddr, data);
+	#else
+		DSENSOR_IICWrite((uint16_t)subaddr, (uint16_t)data);
+	#endif
+
+	SENSOR_PRINT("SENSOR: GC2035_WriteReg reg/value(%x,%x) !!\n", subaddr, data);
+
+}
+
+LOCAL uint8_t GC2035_ReadReg( uint8_t  subaddr)
+{
+	uint8_t value = 0;
+
+	#ifndef	_USE_DSP_I2C_
+	//I2C_WriteCmdArrNoStop(GC2035_I2C_ADDR_W, &subaddr, 1,SENSOR_TRUE);
+	//I2C_ReadCmd(GC2035_I2C_ADDR_R, &value, SENSOR_TRUE);
+	//value =Sensor_ReadReg_8bits( subaddr);
+	value = Sensor_ReadReg( subaddr);
+	#else
+		value = (uint16_t)DSENSOR_IICRead((uint16_t)subaddr);
+	#endif
+
+    SENSOR_PRINT("SENSOR: GC2035_ReadReg reg/value(%x,%x) !!\n", subaddr, value);
+
+	return value;
+}
+
+
+LOCAL uint32_t GC2035_Identify(uint32_t param)
+{
+#define GC2035_PID_ADDR1 	0xf0
+#define GC2035_PID_ADDR2 	0xf1
+#define GC2035_SENSOR_ID     0x2035
+
+	uint16_t sensor_id = 0;
+	uint8_t pid_value = 0;
+	uint8_t ver_value = 0;
+	int i;
+	BOOLEAN ret_value = 0XFF;
+
+	for(i=0;i<3;i++)
+	{
+		sensor_id = Sensor_ReadReg(GC2035_PID_ADDR1) << 8;
+		sensor_id |= Sensor_ReadReg(GC2035_PID_ADDR2);
+		if(sensor_id == GC2035_SENSOR_ID){
+			printk("the main sensor is GC2035\n");
+			return 0;
+		} else {
+			printk("%s fail sensor_id is %x\n", __func__, sensor_id);
+		}
+	}
+
+	return 1;
+}
+
+LOCAL uint32_t set_GC2035_ae_enable(uint32_t enable)
+{
+     uint32_t  temp_AE_reg =0;
+
+    if (enable == 1)
+    {
+        // turn on AEC/AGC
+        temp_AE_reg = Sensor_ReadReg(0xb6);  //
+        Sensor_WriteReg(0xb6, temp_AE_reg| 0x01);
+    }
+    else
+    {
+        // turn off AEC/AGC
+        temp_AE_reg = Sensor_ReadReg(0xb6);
+        Sensor_WriteReg(0xb6, temp_AE_reg&~0x01);
+    }
+
+	//SENSOR_TRACE("set_GC2035_ae_enable: enable = %d\n", enable);
+	return 0;
+}
+
+
+LOCAL void GC2035_set_shutter()
+{
+	uint32_t   shutter = 0 ;
+
+	Sensor_WriteReg(0xfe,0x00);
+	Sensor_WriteReg(0xb6,0x00);  //AEC CLOSE
+	shutter = (Sensor_ReadReg(0x03)<<8 )|( Sensor_ReadReg(0x04));
+
+	shutter = shutter /2 ;
+
+	if(shutter < 1)
+	{
+	   shutter = 1;
+	}
+	Sensor_WriteReg(0x03, (shutter >> 8)&0xff); /* Shutter */
+	Sensor_WriteReg(0x04, shutter&0xff);
+	msleep(300);
+
+}
+
+
+
+
+/******************************************************************************/
+// Description: set brightness
+// Global resource dependence:
+// Author:
+// Note:
+//		level  must smaller than 8
+/******************************************************************************/
 
 SENSOR_REG_T GC2035_brightness_tab[][4]=
 {
@@ -829,45 +1111,158 @@ SENSOR_REG_T GC2035_brightness_tab[][4]=
 	{{0xfe , 0x02},{0xd5 , 0x30},{0xfe , 0x00},{0xff , 0xff}}
 };
 
-SENSOR_REG_T GC2035_image_effect_tab[][2]=
+
+LOCAL uint32_t set_brightness(uint32_t level)
 {
-	//Normal
-	{{0x83 , 0xe0},{0xff , 0xff}},
-	//BLACK&WHITE
-	{{0x83 , 0x12},{0xff , 0xff}},
-	//RED
-	{{0x83 , 0x12},{0xff , 0xff}},
-	//GREEN
-	{{0x83 , 0x52},{0xff , 0xff}},
-	//BLUE
-	{{0x83 , 0x62},{0xff , 0xff}},
-	//YELLOW
-	{{0x83 , 0x12},{0xff , 0xff}},
-	//NEGATIVE
-	{{0x83 , 0x01},{0xff , 0xff}},
-	//SEPIA
-	{{0x83 , 0x82},{0xff , 0xff}}
+	uint16_t i;
+	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC2035_brightness_tab[level];
+
+	if(level>6)
+		return 0;
+
+	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) && (0xFF != sensor_reg_ptr[i].reg_value); i++)
+	{
+		GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+	}
+//	msleep(100);
+	//SENSOR_TRACE("set_brightness: level = %d\n", level);
+
+	return 0;
+}
+
+
+SENSOR_REG_T GC2035_ev_tab[][4]=
+{
+	{{0xfe , 0x01},{0x13 , 0x50},{0xfe , 0x00},{0xff , 0xff}},
+	{{0xfe , 0x01},{0x13 , 0x60},{0xfe , 0x00},{0xff , 0xff}},
+	{{0xfe , 0x01},{0x13 , 0x70},{0xfe , 0x00},{0xff , 0xff}},
+	{{0xfe , 0x01},{0x13 , 0x75},{0xfe , 0x00},{0xff , 0xff}},
+	{{0xfe , 0x01},{0x13 , 0x80},{0xfe , 0x00},{0xff , 0xff}},
+	{{0xfe , 0x01},{0x13 , 0x90},{0xfe , 0x00},{0xff , 0xff}},
+	{{0xfe , 0x01},{0x13 , 0xa0},{0xfe , 0x00},{0xff , 0xff}}
+
 };
 
-LOCAL SENSOR_REG_TAB_INFO_T s_GC2035_resolution_Tab_YUV[]=
+
+LOCAL uint32_t set_GC2035_ev(uint32_t level)
 {
-	// COMMON INIT
-	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_COMMON), 0, 0, 24, SENSOR_IMAGE_FORMAT_YUV422},
+	uint16_t i;
+	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC2035_ev_tab[level];
 
-	// YUV422 PREVIEW 1
-	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_800x600), 800, 600, 24, SENSOR_IMAGE_FORMAT_YUV422},
-	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_1280x960), 1280, 960, 24, SENSOR_IMAGE_FORMAT_YUV422},
-	{ADDR_AND_LEN_OF_ARRAY(GC2035_YUV_1600x1200), 1600, 1200, 24, SENSOR_IMAGE_FORMAT_YUV422},
-	{PNULL, 0, 0, 0, 0, 0},
+	if(level>6)
+	return 0;
+
+	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) ||(0xFF != sensor_reg_ptr[i].reg_value) ; i++)
+	{
+		GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+	}
+
+	//SENSOR_TRACE("SENSOR: set_ev: level = %d\n", level);
+
+	return 0;
+}
+
+/******************************************************************************/
+// Description: anti 50/60 hz banding flicker
+// Global resource dependence:
+// Author:
+// Note:
+//		level  must smaller than 8
+/******************************************************************************/
+LOCAL uint32_t set_GC2035_anti_flicker(uint32_t param )
+{
+			shutter_flag = 0;
+    switch (param)
+    {
+        case FLICKER_50HZ:
+
+		GC2035_WriteReg(0x05 , 0x01);//hb
+		GC2035_WriteReg(0x06 , 0x11);
+		GC2035_WriteReg(0x07 , 0x00);
+		GC2035_WriteReg(0x08 , 0x50);
+		GC2035_WriteReg(0xfe , 0x01);
+		GC2035_WriteReg(0x27 , 0x00);
+		GC2035_WriteReg(0x28 , 0xa0);
+		GC2035_WriteReg(0x29 , 0x05);
+		GC2035_WriteReg(0x2a , 0x00);
+		GC2035_WriteReg(0x2b , 0x05);
+		GC2035_WriteReg(0x2c , 0x00);
+		GC2035_WriteReg(0x2d , 0x05);
+		GC2035_WriteReg(0x2e , 0x00);
+		GC2035_WriteReg(0x2f , 0x0a);
+		GC2035_WriteReg(0x30 , 0x00);
+		GC2035_WriteReg(0xfe , 0x00);
+
+            break;
+
+        case FLICKER_60HZ:
+
+		GC2035_WriteReg(0x05,0x01);//hb
+		GC2035_WriteReg(0x06,0x25);
+		GC2035_WriteReg(0x07,0x00);
+		GC2035_WriteReg(0x08,0x6e);
+		GC2035_WriteReg(0xfe,0x01);
+		GC2035_WriteReg(0x27,0x00);
+		GC2035_WriteReg(0x28,0x83);
+		GC2035_WriteReg(0x29,0x05);
+		GC2035_WriteReg(0x2a,0x1e);
+		GC2035_WriteReg(0x2b,0x05);
+		GC2035_WriteReg(0x2c,0x1e);
+		GC2035_WriteReg(0x2d,0x05);
+		GC2035_WriteReg(0x2e,0x1e);
+		GC2035_WriteReg(0x2f,0x0a);
+		GC2035_WriteReg(0x30,0x3c);
+		GC2035_WriteReg(0xfe,0x00);
+		break;
+
+        default:
+            break;
+
+    }
 
 
-	// YUV422 PREVIEW 2
-	{PNULL, 0, 0, 0, 0, 0},
-	{PNULL, 0, 0, 0, 0, 0},
-	{PNULL, 0, 0, 0, 0, 0},
-	{PNULL, 0, 0, 0, 0, 0}
+    return 0;
+}
 
-};
+/******************************************************************************/
+// Description: set video mode
+// Global resource dependence:
+// Author:
+// Note:
+//
+/******************************************************************************/
+LOCAL uint32_t set_GC2035_video_mode(uint32_t mode)
+{
+    uint16_t i;
+    SENSOR_REG_T* sensor_reg_ptr = PNULL;
+    uint8_t tempregval = 0;
+
+    SENSOR_PRINT("SENSOR: set_video_mode: mode = %d\n", mode);
+    return 0;
+}
+
+
+/******************************************************************************/
+// Description: set wb mode
+// Global resource dependence:
+// Author:
+// Note:
+//
+/******************************************************************************/
+/*
+// enum: preview while balance mode
+typedef enum
+{
+	DCAMERA_WB_MODE_AUTO = 0x00,			//×Ô¶¯
+	DCAMERA_WB_MODE_INCANDESCENCE,		//°×³ãµÆ
+	DCAMERA_WB_MODE_U30,				//ÉÌÓÃ¹âÔ´
+	DCAMERA_WB_MODE_CWF,				//ÀäÓ«¹â
+	DCAMERA_WB_MODE_FLUORESCENT,		//ÈÕ¹âµÆ
+	DCAMERA_WB_MODE_SUN,				//ÇçÌì
+	DCAMERA_WB_MODE_CLOUD,				//ÒõÌì
+	DCAMERA_WB_MODE_MAX
+}DCAMERA_PARAM_WB_MODE_E;
+*/
 
 SENSOR_REG_T GC2035_awb_tab[][6]=
 	{
@@ -940,346 +1335,29 @@ SENSOR_REG_T GC2035_awb_tab[][6]=
 		{0xb5 , 0x50},
 		{0xff , 0xff}
 	}
-};
+	};
 
-SENSOR_REG_T GC2035_ev_tab[][4]=
-{
-	{{0xfe , 0x01},{0x13 , 0x50},{0xfe , 0x00},{0xff , 0xff}},
-	{{0xfe , 0x01},{0x13 , 0x60},{0xfe , 0x00},{0xff , 0xff}},
-	{{0xfe , 0x01},{0x13 , 0x70},{0xfe , 0x00},{0xff , 0xff}},
-	{{0xfe , 0x01},{0x13 , 0x75},{0xfe , 0x00},{0xff , 0xff}},
-	{{0xfe , 0x01},{0x13 , 0x80},{0xfe , 0x00},{0xff , 0xff}},
-	{{0xfe , 0x01},{0x13 , 0x90},{0xfe , 0x00},{0xff , 0xff}},
-	{{0xfe , 0x01},{0x13 , 0xa0},{0xfe , 0x00},{0xff , 0xff}}
-
-};
-
-LOCAL SENSOR_IOCTL_FUNC_TAB_T s_GC2035_ioctl_func_tab =
-{
-    PNULL,
-    PNULL,
-    PNULL,
-    GC2035_Identify,
-    PNULL,
-    PNULL,
-    PNULL, //set_sensor_flip,//PNULL,
-    PNULL,
-    // External
-    PNULL,
-    PNULL,
-    PNULL,
-    set_brightness,
-    set_contrast,
-    set_sharpness,
-    set_saturation,
-
-    set_preview_mode,
-    set_image_effect,
-
-    GC2035_BeforeSnapshot,
-    GC2035_After_Snapshot,
-
-    PNULL,
-
-    read_ev_value,
-    write_ev_value,
-    read_gain_value,
-    write_gain_value,
-    read_gain_scale,
-    set_frame_rate,
-    PNULL,
-    PNULL,
-    set_GC2035_awb,
-    PNULL,
-    PNULL,
-    set_GC2035_ev,
-    PNULL,
-    PNULL,
-    PNULL,
-    PNULL,
-    PNULL,
-    set_GC2035_anti_flicker,
-    set_GC2035_video_mode,
-    PNULL,
-    PNULL
-};
-
-/**---------------------------------------------------------------------------*
- ** 						Global Variables								  *
- **---------------------------------------------------------------------------*/
-SENSOR_INFO_T g_GC2035_yuv_info =
-{
-	GC2035_I2C_ADDR_W,				// salve i2c write address
-	GC2035_I2C_ADDR_R, 				// salve i2c read address
-	SENSOR_I2C_FREQ_400,								
-	SENSOR_HW_SIGNAL_PCLK_N | SENSOR_HW_SIGNAL_VSYNC_N | SENSOR_HW_SIGNAL_HSYNC_P,
-			// bit0: 0:negative; 1:positive -> polarily of pixel clock
-		        // bit2: 0:negative; 1:positive -> polarily of horizontal synchronization signal
-			// bit4: 0:negative; 1:positive -> polarily of vertical synchronization signal
-			// other bit: reseved
-	// preview mode
-	SENSOR_ENVIROMENT_NORMAL | SENSOR_ENVIROMENT_NIGHT | SENSOR_ENVIROMENT_SUNNY,
-	// image effect
-	SENSOR_IMAGE_EFFECT_NORMAL |\
-	SENSOR_IMAGE_EFFECT_BLACKWHITE |\
-	SENSOR_IMAGE_EFFECT_RED |\
-	SENSOR_IMAGE_EFFECT_GREEN |\
-	SENSOR_IMAGE_EFFECT_BLUE |\
-	SENSOR_IMAGE_EFFECT_YELLOW |\
-	SENSOR_IMAGE_EFFECT_NEGATIVE |\
-	SENSOR_IMAGE_EFFECT_CANVAS,
-
-	// while balance mode
-	0,
-	7,
-	SENSOR_LOW_PULSE_RESET,		// reset pulse level
-	100,				// reset pulse width(ms)
-
-	SENSOR_HIGH_LEVEL_PWDN,			// 1: high level valid; 0: low level valid
-
-	2,						// count of identify code
-	0xf0, 0x20,					// supply two code to identify sensor.
-	0xf1, 0x35,					// for Example: index = 0-> Device id, index = 1 -> version id
-
-	SENSOR_AVDD_2800MV,				// voltage of avdd
-
-	1600,							// max width of source image
-	1200,							// max height of source image
-	"GC2035",						// name of sensor
-
-	SENSOR_IMAGE_FORMAT_YUV422,	// define in SENSOR_IMAGE_FORMAT_E enum,
-					// if set to SENSOR_IMAGE_FORMAT_MAX here, image format depent on SENSOR_REG_TAB_INFO_T
-	SENSOR_IMAGE_PATTERN_YUV422_YUYV, // pattern of input image form sensor;
-
-	s_GC2035_resolution_Tab_YUV,	// point to resolution table information structure
-	&s_GC2035_ioctl_func_tab,	// point to ioctl function table
-
-	PNULL,				// information and table about Rawrgb sensor
-	PNULL,				// extend information about sensor
-	SENSOR_AVDD_1800MV,                     // iovdd
-	SENSOR_AVDD_1800MV,                      // dvdd
-	3,
-	1,
-	0,
-	0
-};
-/**---------------------------------------------------------------------------*
- ** 							Function  Definitions
- **---------------------------------------------------------------------------*/
-LOCAL void GC2035_WriteReg( uint8_t  subaddr, uint8_t data )
-{
-#if 1
-    Sensor_WriteReg_8bits(subaddr, data);
-#else
-    DSENSOR_IICWrite((uint16_t)subaddr, (uint16_t)data);
-#endif
-    SENSOR_PRINT("SENSOR: GC2035_WriteReg reg/value(%x,%x) !!\n", subaddr, data);
-}
-
-LOCAL uint8_t GC2035_ReadReg( uint8_t  subaddr)
-{
-    uint8_t value = 0;
-#if 1
-    //I2C_WriteCmdArrNoStop(GC2035_I2C_ADDR_W, &subaddr, 1,SENSOR_TRUE);
-    //I2C_ReadCmd(GC2035_I2C_ADDR_R, &value, SENSOR_TRUE);
-    //value =Sensor_ReadReg_8bits( subaddr);
-    value = Sensor_ReadReg( subaddr);
-#else
-    value = (uint16_t)DSENSOR_IICRead((uint16_t)subaddr);
-#endif
-    SENSOR_PRINT("SENSOR: GC2035_ReadReg reg/value(%x,%x) !!\n", subaddr, value);
-    return value;
-}
-
-
-LOCAL uint32_t GC2035_Identify(uint32_t param)
-{
-	uint16_t sensor_id = 0;
-	uint8_t pid_value = 0;
-	uint8_t ver_value = 0;
-	int i;
-	BOOLEAN ret_value = 0XFF;
-
-	for(i=0;i<3;i++)
+	LOCAL uint32_t set_GC2035_awb(uint32_t mode)
 	{
-		sensor_id = Sensor_ReadReg(GC2035_PID_ADDR1) << 8;
-		sensor_id |= Sensor_ReadReg(GC2035_PID_ADDR2);
-		if(sensor_id == GC2035_SENSOR_ID){
-			printk("the main sensor is GC2035\n");
+		uint8_t awb_en_value;
+		uint16_t i;
+
+		SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC2035_awb_tab[mode];
+
+
+		if(mode>6)
 			return 0;
-		} else {
-			printk("%s fail sensor_id is %x\n", __func__, sensor_id);
+
+		for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value); i++)
+		{
+
+			GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
+
 		}
-	}
+	//	msleep(100);
+		//SENSOR_TRACE("SENSOR: set_awb_mode: mode = %d\n", mode);
 
-	return 1;
-}
-
-LOCAL void GC2035_set_shutter()
-{
-	uint32_t   shutter = 0 ;
-
-	Sensor_WriteReg(0xfe,0x00);
-	Sensor_WriteReg(0xb6,0x00);  //AEC CLOSE
-	shutter = (Sensor_ReadReg(0x03)<<8 )|( Sensor_ReadReg(0x04));
-
-	shutter = shutter /2 ;
-
-	if(shutter < 1)
-	{
-	   shutter = 1;
-	}
-	Sensor_WriteReg(0x03, (shutter >> 8)&0xff); /* Shutter */
-	Sensor_WriteReg(0x04, shutter&0xff);
-	//msleep(100);
-
-}
-
-
-/******************************************************************************/
-// Description: set brightness
-// Global resource dependence:
-// Author:
-// Note:
-//		level  must smaller than 8
-/******************************************************************************/
-LOCAL uint32_t set_GC2035_ae_enable(uint32_t enable)
-{
-    uint32_t  temp_AE_reg =0;
-    if (enable == 1)
-    {
-        temp_AE_reg = Sensor_ReadReg(0xb6);  //
-        Sensor_WriteReg(0xb6, temp_AE_reg| 0x01);
-    }
-    else
-    {
-        temp_AE_reg = Sensor_ReadReg(0xb6);
-        Sensor_WriteReg(0xb6, temp_AE_reg&~0x01);
-    }
-    return 0;
-}
-
-LOCAL uint32_t set_brightness(uint32_t level)
-{
-	uint16_t i;
-	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC2035_brightness_tab[level];
-
-	if(level>6)
 		return 0;
-
-	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) && (0xFF != sensor_reg_ptr[i].reg_value); i++)
-	{
-		GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-	}
-//	msleep(100);
-	//SENSOR_TRACE("set_brightness: level = %d\n", level);
-
-	return 0;
-}
-
-LOCAL uint32_t set_GC2035_ev(uint32_t level)
-{
-	uint16_t i;
-	SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC2035_ev_tab[level];
-
-	if(level>6)
-	    return 0;
-
-	for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) ||(0xFF != sensor_reg_ptr[i].reg_value) ; i++)
-	{
-	    GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-	}
-
-	printk("set GC2035 ev OK");
-	return 0;
-}
-
-/******************************************************************************/
-// Description: anti 50/60 hz banding flicker
-// Global resource dependence:
-// Author:
-// Note:
-//		level  must smaller than 8
-/******************************************************************************/
-LOCAL uint32_t set_GC2035_anti_flicker(uint32_t param )
-{
-    shutter_flag = 0;
-    switch (param)
-    {
-        case FLICKER_50HZ:
-	    GC2035_WriteReg(0x05 , 0x01);//hb
-	    GC2035_WriteReg(0x06 , 0x0d);
-	    GC2035_WriteReg(0x07 , 0x00);
-	    GC2035_WriteReg(0x08 , 0x14);
-	    GC2035_WriteReg(0xfe , 0x01);
-	    GC2035_WriteReg(0x27 , 0x00);
-	    GC2035_WriteReg(0x28 , 0xa0);
-	    GC2035_WriteReg(0x29 , 0x04);
-	    GC2035_WriteReg(0x2a , 0x60);
-	    GC2035_WriteReg(0x2b , 0x04);
-	    GC2035_WriteReg(0x2c , 0x60);
-	    GC2035_WriteReg(0x2d , 0x04);
-	    GC2035_WriteReg(0x2e , 0x60);
-	    GC2035_WriteReg(0x2f , 0x0a);
-	    GC2035_WriteReg(0x30 , 0x00);
-	    GC2035_WriteReg(0xfe , 0x00);
-            printk("In set_GC2035_anti_flicker 50Hz");
-            break;
-        case FLICKER_60HZ:
-	    GC2035_WriteReg(0x05,0x01);//hb
-	    GC2035_WriteReg(0x06,0x09);
-	    GC2035_WriteReg(0x07,0x00);
-	    GC2035_WriteReg(0x08,0x6e);
-	    GC2035_WriteReg(0xfe,0x01);
-	    GC2035_WriteReg(0x27,0x00);
-	    GC2035_WriteReg(0x28,0x83);
-	    GC2035_WriteReg(0x29,0x05);
-	    GC2035_WriteReg(0x2a,0x00);
-	    GC2035_WriteReg(0x2b,0x05);
-	    GC2035_WriteReg(0x2c,0x00);
-	    GC2035_WriteReg(0x2d,0x05);
-	    GC2035_WriteReg(0x2e,0x00);
-	    GC2035_WriteReg(0x2f,0x0a);
-	    GC2035_WriteReg(0x30,0x3c);
-	    GC2035_WriteReg(0xfe,0x00);
-            printk("In set_GC2035_anti_flicker 60Hz");
-	    break;
-        default:
-            break;
-
-    }
-
-
-    return 0;
-}
-
-/******************************************************************************/
-// Description: set video mode
-// Global resource dependence:
-// Author:
-// Note:
-//
-/******************************************************************************/
-LOCAL uint32_t set_GC2035_video_mode(uint32_t mode)
-{
-    SENSOR_PRINT("SENSOR: set_video_mode: mode = %d\n", mode);
-    return 0;
-}
-
-LOCAL uint32_t set_GC2035_awb(uint32_t mode)
-{
-    uint8_t awb_en_value;
-    uint16_t i;
-    SENSOR_REG_T* sensor_reg_ptr = (SENSOR_REG_T*)GC2035_awb_tab[mode];
-
-    if(mode>6)
-        return 0;
-
-    for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) || (0xFF != sensor_reg_ptr[i].reg_value); i++)
-    {
-        GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
-    }
-    return 0;
 }
 
 
@@ -1297,32 +1375,36 @@ SENSOR_REG_T GC2035_contrast_tab[][4]=
 
 LOCAL uint32_t set_contrast(uint32_t level)
 {
-    SENSOR_REG_T* sensor_reg_ptr;
-    sensor_reg_ptr = (SENSOR_REG_T*)GC2035_contrast_tab[level];
     uint16_t i;
+    SENSOR_REG_T* sensor_reg_ptr;
 
-    if(level>6)
-        return 0;
+    sensor_reg_ptr = (SENSOR_REG_T*)GC2035_contrast_tab[level];
+
+   if(level>6)
+		return 0;
 
     for(i = 0; (0xFF != sensor_reg_ptr[i].reg_addr) && (0xFF != sensor_reg_ptr[i].reg_value); i++)
     {
         GC2035_WriteReg(sensor_reg_ptr[i].reg_addr, sensor_reg_ptr[i].reg_value);
     }
+//    msleep(20);
+    //SENSOR_TRACE("set_contrast: level = %d\n", level);
     return 0;
 }
 
 
 LOCAL uint32_t set_sharpness(uint32_t level)
 {
-    printk("sensor gc2035 set_sharpness not implement");
-    return 0;
+
+	return 0;
 }
 
 
 LOCAL uint32_t set_saturation(uint32_t level)
 {
-    printk("sensor gc2035 set_saturation not implement");
-    return 0;
+
+
+	return 0;
 }
 
 /******************************************************************************/
@@ -1335,78 +1417,124 @@ LOCAL uint32_t set_saturation(uint32_t level)
 
 LOCAL uint32_t set_preview_mode(uint32_t preview_mode)
 {
-    SENSOR_PRINT("set_preview_mode: preview_mode = %d\n", preview_mode);
-    set_GC2035_anti_flicker(0);
-    switch (preview_mode)
-    {
-	case 0:
-	{
-	    //YCP_saturation
-            GC2035_WriteReg(0xfe , 0x02);
-            GC2035_WriteReg(0xd1 , 0x38);
-            GC2035_WriteReg(0xd2 , 0x38);
-            GC2035_WriteReg(0xfe , 0x01);
-	    GC2035_WriteReg(0x3e , 0x40);
-            GC2035_WriteReg(0xfe , 0x00);
-	    SENSOR_PRINT("set_preview_mode: DCAMERA_ENVIRONMENT_NORMAL\n");
-	    break;
-	}
-	case 1://DCAMERA_ENVIRONMENT_NIGHT://1
-	{		//YCP_saturation
-	    GC2035_WriteReg(0xfe , 0x02);
-	    GC2035_WriteReg(0xd1 , 0x38);
-	    GC2035_WriteReg(0xd2 , 0x38);
-	    GC2035_WriteReg(0xfe , 0x01);
-	    GC2035_WriteReg(0x3e , 0x60);
-	    GC2035_WriteReg(0xfe , 0x00);
-	    SENSOR_PRINT("set_preview_mode: DCAMERA_ENVIRONMENT_NIGHT\n");
-	    break;
-        }
-	case 3://SENSOR_ENVIROMENT_PORTRAIT://3
-	{
-	    //YCP_saturation
-	    GC2035_WriteReg(0xfe , 0x02);
-	    GC2035_WriteReg(0xd1 , 0x34);
-	    GC2035_WriteReg(0xd2 , 0x34);
-	    GC2035_WriteReg(0xfe , 0x01);
-	    GC2035_WriteReg(0x3e , 0x40);
-	    GC2035_WriteReg(0xfe , 0x00);
-	    SENSOR_PRINT("set_preview_mode: SENSOR_ENVIROMENT_PORTRAIT\n");
-	    break;
-	}
-	case 4://SENSOR_ENVIROMENT_LANDSCAPE://4
-	{
-	    GC2035_WriteReg(0xfe , 0x02);
-	    GC2035_WriteReg(0xd1 , 0x4c);
-	    GC2035_WriteReg(0xd2 , 0x4c);
-            GC2035_WriteReg(0xfe , 0x01);
-	    GC2035_WriteReg(0x3e , 0x40);
-	    GC2035_WriteReg(0xfe , 0x00);
-	    SENSOR_PRINT("set_preview_mode: SENSOR_ENVIROMENT_LANDSCAPE\n");
-	    break;
-	}
-	case 2://SENSOR_ENVIROMENT_SPORTS://2
-	{
-	    //nightmode disable
-	    //YCP_saturation
-	    GC2035_WriteReg(0xfe , 0x02);
-	    GC2035_WriteReg(0xd1 , 0x40);
-	    GC2035_WriteReg(0xd2 , 0x40);
+	SENSOR_PRINT("set_preview_mode: preview_mode = %d\n", preview_mode);
 
-	    GC2035_WriteReg(0xfe , 0x01);
-	    GC2035_WriteReg(0x3e , 0x40);
-	    GC2035_WriteReg(0xfe , 0x00);
-	    SENSOR_PRINT("set_preview_mode: SENSOR_ENVIROMENT_SPORTS\n");
-	    break;
-        }
-	default:
-	    break;
+	set_GC2035_anti_flicker(0);
+	switch (preview_mode)
+	{
+		case DCAMERA_ENVIRONMENT_NORMAL:
+		{
+			//YCP_saturation
+			GC2035_WriteReg(0xfe , 0x02);
+			GC2035_WriteReg(0xd1 , 0x38);
+			GC2035_WriteReg(0xd2 , 0x38);
 
-    }
-    SENSOR_Sleep(10);
-    return 0;
+			GC2035_WriteReg(0xfe , 0x01);
+			GC2035_WriteReg(0x3e , 0x40);
+			GC2035_WriteReg(0xfe , 0x00);
+			SENSOR_PRINT("set_preview_mode: DCAMERA_ENVIRONMENT_NORMAL\n");
+			break;
+		}
+		case 1://DCAMERA_ENVIRONMENT_NIGHT://1
+		{
+			//YCP_saturation
+			GC2035_WriteReg(0xfe , 0x02);
+			GC2035_WriteReg(0xd1 , 0x38);
+			GC2035_WriteReg(0xd2 , 0x38);
+
+			GC2035_WriteReg(0xfe , 0x01);
+			GC2035_WriteReg(0x3e , 0x60);
+			GC2035_WriteReg(0xfe , 0x00);
+			SENSOR_PRINT("set_preview_mode: DCAMERA_ENVIRONMENT_NIGHT\n");
+				break;
+		}
+		case 3://SENSOR_ENVIROMENT_PORTRAIT://3
+		{
+			//YCP_saturation
+			GC2035_WriteReg(0xfe , 0x02);
+			GC2035_WriteReg(0xd1 , 0x34);
+			GC2035_WriteReg(0xd2 , 0x34);
+
+			GC2035_WriteReg(0xfe , 0x01);
+			GC2035_WriteReg(0x3e , 0x40);
+			GC2035_WriteReg(0xfe , 0x00);
+			SENSOR_PRINT("set_preview_mode: SENSOR_ENVIROMENT_PORTRAIT\n");
+				break;
+		}
+				case 4://SENSOR_ENVIROMENT_LANDSCAPE://4
+		{
+				//nightmode disable
+			GC2035_WriteReg(0xfe , 0x02);
+			GC2035_WriteReg(0xd1 , 0x4c);
+			GC2035_WriteReg(0xd2 , 0x4c);
+
+			GC2035_WriteReg(0xfe , 0x01);
+			GC2035_WriteReg(0x3e , 0x40);
+			GC2035_WriteReg(0xfe , 0x00);
+			SENSOR_PRINT("set_preview_mode: SENSOR_ENVIROMENT_LANDSCAPE\n");
+				break;
+		}
+				case 2://SENSOR_ENVIROMENT_SPORTS://2
+		{
+			//nightmode disable
+			//YCP_saturation
+			GC2035_WriteReg(0xfe , 0x02);
+			GC2035_WriteReg(0xd1 , 0x40);
+			GC2035_WriteReg(0xd2 , 0x40);
+
+			GC2035_WriteReg(0xfe , 0x01);
+			GC2035_WriteReg(0x3e , 0x40);
+			GC2035_WriteReg(0xfe , 0x00);
+			SENSOR_PRINT("set_preview_mode: SENSOR_ENVIROMENT_SPORTS\n");
+				break;
+		}
+		default:
+		{
+			break;
+		}
+
+	}
+
+	SENSOR_Sleep(10);
+
+	return 0;
 }
+/*
+typedef enum
+{
+	DCAMERA_EFFECT_NORMAL = 0x00,
+	DCAMERA_EFFECT_BLACKWHITE,			// ºÚ°×
+	DCAMERA_EFFECT_RED,					// Æ«ºì
+	DCAMERA_EFFECT_GREEN,				// Æ«ÂÌ
+	DCAMERA_EFFECT_BLUE,				// Æ«À¶
+	DCAMERA_EFFECT_YELLOW,				// Æ«»Æ
+	DCAMERA_EFFECT_NEGATIVE,			// µ×Æ¬
+	DCAMERA_EFFECT_CANVAS,				// ·«²¼
+	DCAMERA_EFFECT_RELIEVOS,			// ¸¡µñ
+	DCAMERA_EFFECT_MAX
+}DCAMERA_PARAM_EFFECT_E;
+*/
 
+//__align(4) const SENSOR_REG_T GC2035_image_effect_tab[][11]=
+SENSOR_REG_T GC2035_image_effect_tab[][2]=
+{
+	//Normal
+	{{0x83 , 0xe0},{0xff , 0xff}},
+	//BLACK&WHITE
+	{{0x83 , 0x12},{0xff , 0xff}},
+	//RED
+	{{0x83 , 0x12},{0xff , 0xff}},
+	//GREEN
+	{{0x83 , 0x52},{0xff , 0xff}},
+	//BLUE
+	{{0x83 , 0x62},{0xff , 0xff}},
+	//YELLOW
+	{{0x83 , 0x12},{0xff , 0xff}},
+	//NEGATIVE
+	{{0x83 , 0x01},{0xff , 0xff}},
+	//SEPIA
+	{{0x83 , 0x82},{0xff , 0xff}}
+};
 LOCAL uint32_t set_image_effect(uint32_t effect_type)
 {
 	uint16_t i;
@@ -1438,56 +1566,73 @@ LOCAL uint32_t GC2035_BeforeSnapshot(uint32_t sensor_snapshot_mode)
 	Sensor_SetMode(sensor_snapshot_mode);
         switch(sensor_snapshot_mode)
         {
-            case SENSOR_MODE_PREVIEW_ONE:    //VGA
-                SENSOR_PRINT("Capture VGA Size");
+
+                case SENSOR_MODE_PREVIEW_ONE:    //VGA
+                        SENSOR_PRINT("Capture VGA Size");
                 break;
-            case SENSOR_MODE_SNAPSHOT_ONE_FIRST:
-            case SENSOR_MODE_SNAPSHOT_ONE_SECOND:    // 2 M
-	    case SENSOR_MODE_SNAPSHOT_ONE_THIRD: 
-	    default:
-                GC2035_set_shutter();
-                SENSOR_PRINT("Capture 1.3M&2M Size");
-                break;
+
+                case SENSOR_MODE_SNAPSHOT_ONE_FIRST:
+                case SENSOR_MODE_SNAPSHOT_ONE_SECOND:    // 2 M
+				{
+
+					//GC2035_set_shutter();
+					//msleep(300);
+
+                    SENSOR_PRINT("Capture 1.3M&2M Size");
+				}
+                default:
+                        break;
         }
+
+
         SENSOR_PRINT("SENSOR_GC2035: Before Snapshot");
+
         return 0;
+
 }
+
 
 
 LOCAL uint32_t read_ev_value(uint32_t value)
 {
-    return 0;
+	return 0;
 }
 
 LOCAL uint32_t write_ev_value(uint32_t exposure_value)
 {
-    return 0;
+
+	return 0;
 }
 
 LOCAL uint32_t read_gain_value(uint32_t value)
 {
-    return 0;
+
+
+	return 0;
 }
 
 LOCAL uint32_t write_gain_value(uint32_t gain_value)
 {
-    return 0;
+
+
+	return 0;
 }
 
 LOCAL uint32_t read_gain_scale(uint32_t value)
 {
-    return SENSOR_GAIN_SCALE;
+	return SENSOR_GAIN_SCALE;
 
 }
 
 
 LOCAL uint32_t set_frame_rate(uint32_t param)
+
 {
-    return 0;
+	return 0;
 }
 LOCAL uint32_t set_sensor_flip(uint32_t param)
 {
-    return 0;
+	return 0;
 }
 
 LOCAL uint32_t GC2035_PowerOn(uint32_t power_on)
