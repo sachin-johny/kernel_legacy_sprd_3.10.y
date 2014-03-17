@@ -75,9 +75,9 @@
         #endif
 #endif
 
-#define ADC_READ_COUNT_DETECT (5)
+#define ADC_READ_COUNT_DETECT (1)
 #define ADC_GND (100)
-#define DEBANCE_LOOP_COUNT_TYPE_DETECT (10)
+#define DEBANCE_LOOP_COUNT_TYPE_DETECT (1)
 
 #define HEADMIC_DETECT_BASE (ANA_AUDCFGA_INT_BASE)
 #define HEADMIC_DETECT_REG(X) (HEADMIC_DETECT_BASE + (X))
@@ -215,6 +215,8 @@
         sci_adi_raw_write(addr, temp);  \
     } while(0)
 
+#define to_device(x) container_of((x), struct device, platform_data)
+
 typedef enum sprd_headset_type {
         HEADSET_NORMAL,
         HEADSET_NO_MIC,
@@ -237,6 +239,7 @@ static int sts_check_work_need_to_cancel = 1;
 #endif
 /***polling ana_sts0 to avoid the hardware defect***/
 
+static DEFINE_SPINLOCK(headmic_sleep_disable_lock);
 static DEFINE_SPINLOCK(headmic_bias_lock);
 static DEFINE_SPINLOCK(irq_button_lock);
 static DEFINE_SPINLOCK(irq_detect_lock);
@@ -321,6 +324,31 @@ static int sprd_headset_audio_block_is_running(struct device *dev)
 {
 	return regulator_is_enabled(sprd_hts_power.vcom_buf)
 	    || regulator_is_enabled(sprd_hts_power.vbo);
+}
+
+static int sprd_headset_audio_headmic_sleep_disable(struct device *dev, int on)
+{
+	int ret = 0;
+	if (!sprd_hts_power.head_mic) {
+		return -1;
+	}
+
+	if (on) {
+			ret =
+			    regulator_set_mode(sprd_hts_power.head_mic,
+					       REGULATOR_MODE_NORMAL);
+	} else {
+		if (sprd_headset_audio_block_is_running(dev)) {
+			ret =
+			    regulator_set_mode(sprd_hts_power.head_mic,
+					       REGULATOR_MODE_NORMAL);
+		} else {
+			ret =
+			    regulator_set_mode(sprd_hts_power.head_mic,
+					       REGULATOR_MODE_STANDBY);
+		}
+	}
+	return ret;
 }
 
 static int sprd_headset_headmic_bias_control(struct device *dev, int on)
@@ -493,6 +521,33 @@ static void headset_irq_detect_enable(int enable, unsigned int irq)
         return;
 }
 
+static void headmic_sleep_disable(struct device *dev, int on)
+{
+	unsigned long spin_lock_flags;
+	static int current_power_state = 0;
+	struct sprd_headset *ht = &headset;
+
+	spin_lock_irqsave(&headmic_sleep_disable_lock, spin_lock_flags);
+	if (1 == on) {
+		if (0 == current_power_state) {
+			if(NULL != ht->platform_data->external_headmicbias_power_on)
+				ht->platform_data->external_headmicbias_power_on(1);
+			sprd_headset_audio_headmic_sleep_disable(dev, 1);
+			current_power_state = 1;
+		}
+	} else {
+		if (1 == current_power_state) {
+			if(NULL != ht->platform_data->external_headmicbias_power_on)
+				ht->platform_data->external_headmicbias_power_on(0);
+			sprd_headset_audio_headmic_sleep_disable(dev, 0);
+			current_power_state = 0;
+		}
+	}
+	spin_unlock_irqrestore(&headmic_sleep_disable_lock, spin_lock_flags);
+
+	return;
+}
+
 static void headmicbias_power_on(struct device *dev, int on)
 {
 	unsigned long spin_lock_flags;
@@ -534,7 +589,7 @@ static int adc_compare(int x1, int x2)
         delta = ABS(x1-x2);
         max = MAX(x1, x2);
 
-        if(delta < ((max*5)/100))
+        if(delta < ((max*10)/100))
                 return 1;
         else
                 return 0;
@@ -548,6 +603,10 @@ static int adc_get_average(void)
 	int adc_average = 0;
 	int success = 1;
 	int adc[ADC_READ_COUNT_DETECT] = {0};
+	struct sprd_headset *ht = &headset;
+	struct sprd_headset_platform_data *pdata = ht->platform_data;
+
+	headmic_sleep_disable(to_device(pdata), 1);
 
 	for(i=0; i< DEBANCE_LOOP_COUNT_TYPE_DETECT; i++) {
 		adc[0] = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
@@ -568,11 +627,16 @@ static int adc_get_average(void)
 			}
 			adc_average = adc_average / ADC_READ_COUNT_DETECT;
 			PRINT_DBG("adc_get_average success, adc_average = %d\n", adc_average);
+			headmic_sleep_disable(to_device(pdata), 0);
 			return adc_average;
 		}
-		else if(i+1< DEBANCE_LOOP_COUNT_TYPE_DETECT)
+		else if(i+1< DEBANCE_LOOP_COUNT_TYPE_DETECT) {
 			PRINT_INFO("adc_get_average failed, retrying count = %d\n", i+1);
+			msleep(1);
+		}
 	}
+
+	headmic_sleep_disable(to_device(pdata), 0);
 	return -1;
 }
 
@@ -805,7 +869,6 @@ out:
         return;
 }
 
-#define to_device(x) container_of((x), struct device, platform_data)
 static void headset_detect_work_func(struct work_struct *work)
 {
         struct sprd_headset *ht = &headset;
