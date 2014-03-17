@@ -143,7 +143,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 	get_free_ram(&other_free, &other_file);
 
-	if (other_free < lowmem_minfree_notif_trigger &&
+	if (sc->nr_to_scan > 0 &&
+			other_free < lowmem_minfree_notif_trigger &&
 			other_file < lowmem_minfree_notif_trigger) {
 		lowmem_notify_killzone_approach();
 	}
