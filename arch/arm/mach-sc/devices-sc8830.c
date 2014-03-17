@@ -1162,6 +1162,13 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.type		= SYSDUMP_RAM,
 #endif
 	},
+	{
+		.paddr		= CPT_START_ADDR + CPT_TOTAL_SIZE,
+		.vaddr		= PAGE_OFFSET + CPT_START_ADDR + CPT_TOTAL_SIZE - CONFIG_PHYS_OFFSET,
+		.soff		= 0xffffffff,
+		.size		= WCN_START_ADDR - CPT_START_ADDR - CPT_TOTAL_SIZE,
+		.type	 	= SYSDUMP_RAM,
+	},
 #else
 	{
 		.paddr		= CONFIG_PHYS_OFFSET,
@@ -1181,6 +1188,13 @@ struct sysdump_mem sprd_dump_mem[] = {
 #else
 		.type		= SYSDUMP_RAM,
 #endif
+	},
+	{
+		.paddr		= CPW_START_ADDR + CPW_TOTAL_SIZE,
+		.vaddr		= PAGE_OFFSET + CPW_START_ADDR + CPW_TOTAL_SIZE - CONFIG_PHYS_OFFSET,
+		.soff		= 0xffffffff,
+		.size		= WCN_START_ADDR - CPW_START_ADDR - CPW_TOTAL_SIZE,
+		.type	 	= SYSDUMP_RAM,
 	},
 #endif
 #else
