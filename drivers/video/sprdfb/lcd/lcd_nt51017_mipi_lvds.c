@@ -421,11 +421,6 @@ static int32_t nt51017_mipi_lvds_init(struct panel_spec *self)
 {
 	LCD_PRINT("kernel nt51017_mipi_lvds_init\n");
 
-    /* power up */
-    nt51017_power(self, 1);
-
-	/* GRB */
-    
     /* init */
 	if (b_ops.init) {
 		b_ops.init(self);
@@ -437,6 +432,9 @@ static int32_t nt51017_mipi_lvds_init(struct panel_spec *self)
 			b_ops.init(self);
 		}
 	}
+
+	/* power up */
+	nt51017_power(self, 1);
 
 	LCD_PRINT("kernel nt51017_mipi_lvds_init over!\n");
 	
