@@ -2881,6 +2881,8 @@ static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
 	unsigned int invert = mc->invert;
 	unsigned int val;
 	int ret = 0;
+	struct sprd_codec_inter_hp_pa *p_setting =
+	    &sprd_codec->inter_hp_pa.setting;
 
 	sp_asoc_pr_info("Config inter HP PA 0x%08x\n",
 			(int)ucontrol->value.integer.value[0]);
@@ -2892,7 +2894,10 @@ static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
 	sprd_codec->inter_hp_pa.value = (u32) val;
 	if (sprd_codec->inter_hp_pa.set) {
 		mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
-		sprd_inter_headphone_pa(codec, 1);
+		sprd_codec_hp_pa_lpw(codec, p_setting->class_g_low_power);
+		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
+		sprd_codec_hp_pa_osc(codec, p_setting->class_g_osc);
+		sprd_codec_hp_pa_cgcal_en(codec, p_setting->class_g_cgcal);
 	} else {
 		mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
 	}
