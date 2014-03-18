@@ -551,6 +551,14 @@ config SPRD_BOARD_TYPE
 	default n
 	help
 	  If you say yes here you get support for get board type
+
+config SPRD_BOARD_TYPE_GPIO
+	tristate "sprd board type support GPIO"
+	depends on SPRD_BOARD_TYPE
+	default n
+	help
+	  If you say yes here you get support for get board type by gpio
+
 source "drivers/misc/sprd_vsp/Kconfig"
 source "drivers/misc/sprd_jpg/Kconfig"
 source "drivers/misc/sprd_cproc/Kconfig"

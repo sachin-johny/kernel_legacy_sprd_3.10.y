@@ -5,6 +5,18 @@
 #include <mach/adc.h>
 #include <mach/hardware.h>
 #include <asm/io.h>
+#include <linux/gpio.h>
+
+
+#define SPRD_RF_INSIDE	("V1.0.0")
+#define SPRD_RF_2IN1	("V1.0.2")
+#define SPRD_RF_3IN1	("V1.0.4")
+#define SPRD_RF_NO_MACH	("No match board")
+
+#ifdef CONFIG_SPRD_BOARD_TYPE_GPIO
+#define SPRD_BOARD_TYPE_GPIO_1	(92)
+#define SPRD_BOARD_TYPE_GPIO_2	(93)
+#endif
 
 struct sprdboard_auxadc_cal {
 	uint16_t p0_vol;	//4.2V
@@ -85,48 +97,83 @@ static uint16_t sprd_vol_to_channel_vol(uint16_t adcvalue,uint16_t channel)
 
 }
 
+#ifdef CONFIG_SPRD_BOARD_TYPE_GPIO
+static void get_board_type_by_gpio(char *buf_version)
+{
+	int ret;
+	ret = gpio_request (SPRD_BOARD_TYPE_GPIO_1, "board_type_gpio_1");
+	if (ret){
+		printk ("board_type_gpio_1 err: %d\n", SPRD_BOARD_TYPE_GPIO_1);
+	}
+
+	ret = gpio_request (SPRD_BOARD_TYPE_GPIO_2, "board_type_gpio_1");
+	if (ret){
+		printk ("board_type_gpio_2 err: %d\n", SPRD_BOARD_TYPE_GPIO_2);
+	}
+	gpio_direction_input(SPRD_BOARD_TYPE_GPIO_1);
+	gpio_direction_input(SPRD_BOARD_TYPE_GPIO_2);
+
+	if((gpio_get_value(SPRD_BOARD_TYPE_GPIO_1) == 1) && (gpio_get_value(SPRD_BOARD_TYPE_GPIO_2) == 1))
+		strcpy(buf_version,SPRD_RF_INSIDE);
+	else if((gpio_get_value(SPRD_BOARD_TYPE_GPIO_1) == 0) && (gpio_get_value(SPRD_BOARD_TYPE_GPIO_2) == 1))
+		strcpy(buf_version,SPRD_RF_2IN1);//2in1
+	else if((gpio_get_value(SPRD_BOARD_TYPE_GPIO_1) == 1) && (gpio_get_value(SPRD_BOARD_TYPE_GPIO_2) == 0))
+		strcpy(buf_version,SPRD_RF_3IN1);//3in1
+	else
+		strcpy(buf_version,SPRD_RF_NO_MACH);
+
+	gpio_free(SPRD_BOARD_TYPE_GPIO_1);
+	gpio_free(SPRD_BOARD_TYPE_GPIO_2);
+}
+
+#endif
 
 ssize_t board_type_read(struct file *file, char __user *buf,
 		size_t count, loff_t *offset)
 {
-	int adc_value;
-	uint16_t vol;//mv
 	char buf_version[20] = {0};
 	u32 buf_len;
+
+	#ifdef CONFIG_SPRD_BOARD_TYPE_GPIO
+	get_board_type_by_gpio(buf_version);
+	#else
+	int adc_value;
+	uint16_t vol;//mv
 
 	#ifdef CONFIG_ARCH_SCX15
 	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_0,0,40); //set current to 40 uA
 	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_0);
-	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+	//printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
 
 	if(vol >= 1000)
-		strcpy(buf_version,"V1.0.0");
+		strcpy(buf_version,SPRD_RF_INSIDE);
 	else if(vol >600 && vol <= 1000)
-		strcpy(buf_version,"V1.0.4"); //3in1
+		strcpy(buf_version,SPRD_RF_3IN1); //3in1
 	else if(vol >200 && vol <=600)
-		strcpy(buf_version,"V1.0.2");//2in1
+		strcpy(buf_version,SPRD_RF_2IN1);//2in1
 	else
-		strcpy(buf_version,"No match board");
+		strcpy(buf_version,SPRD_RF_NO_MACH);
 
 	#else
 
 	//adc_value = sci_adc_get_value(ADC_CHANNEL_1, 0);
 	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_1,0,40); //set current to 40 uA
 	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_1);
-	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+	//printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
 
 	if(vol >= 1100)
-		strcpy(buf_version,"V1.0.0");
+		strcpy(buf_version,SPRD_RF_INSIDE);
 	else if(vol >700 && vol <= 900)
-		strcpy(buf_version,"V1.0.2");//2in1
+		strcpy(buf_version,SPRD_RF_2IN1);//2in1
 	else if(vol >300 && vol <=500)
-		strcpy(buf_version,"V1.0.4");//3in1
+		strcpy(buf_version,SPRD_RF_3IN1);//3in1
 	else
-		strcpy(buf_version,"No match board");
+		strcpy(buf_version,SPRD_RF_NO_MACH);
+	#endif
 	#endif
 
 	buf_len = strlen(buf_version);
-	printk("buf_len:%d\n",buf_len);
+	printk("version:%s\n",buf_version);
 	if(copy_to_user(buf, buf_version, buf_len))
 		return -EFAULT;
 	return buf_len;
@@ -135,41 +182,46 @@ ssize_t board_type_read(struct file *file, char __user *buf,
 
 int sprd_kernel_get_board_type(char *buf,int read_len)
 {
-	int adc_value;
-	uint16_t vol;//mv
 	char buf_version[20] = {0};
 	u32 buf_len;
+
+	#ifdef CONFIG_SPRD_BOARD_TYPE_GPIO
+	get_board_type_by_gpio(buf_version);
+	#else
+	int adc_value;
+	uint16_t vol;//mv
 
 	#ifdef CONFIG_ARCH_SCX15
 	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_0,0,40); //set current to 40 uA
 	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_0);
-	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+	//printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
 
 	if(vol >= 1000)
-		strcpy(buf_version,"V1.0.0");
+		strcpy(buf_version,SPRD_RF_INSIDE);
 	else if(vol >600 && vol <= 1000)
-		strcpy(buf_version,"V1.0.4"); //3in1
+		strcpy(buf_version,SPRD_RF_3IN1); //3in1
 	else if(vol >200 && vol <=600)
-		strcpy(buf_version,"V1.0.2");//2in1
+		strcpy(buf_version,SPRD_RF_2IN1);//2in1
 	else
-		strcpy(buf_version,"No match board");
+		strcpy(buf_version,SPRD_RF_NO_MACH);
 	#else
 	adc_value = sci_adc_get_value_by_isen(ADC_CHANNEL_1,0,40); //set current to 40 uA
 	vol = sprd_vol_to_channel_vol(adc_value,ADC_CHANNEL_1);
-	printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
+	//printk("10 adc_value:%d,vol:%d\n", adc_value,vol);
 
 	if(vol >= 1100)
-		strcpy(buf_version,"V1.0.0");
+		strcpy(buf_version,SPRD_RF_INSIDE);
 	else if(vol >700 && vol <= 900)
-		strcpy(buf_version,"V1.0.2");//2in1
+		strcpy(buf_version,SPRD_RF_2IN1);//2in1
 	else if(vol >300 && vol <=500)
-		strcpy(buf_version,"V1.0.4");//3in1
+		strcpy(buf_version,SPRD_RF_3IN1);//3in1
 	else
-		strcpy(buf_version,"No match board");
+		strcpy(buf_version,SPRD_RF_NO_MACH);
+	#endif
 	#endif
 
 	buf_len = strlen(buf_version);
-	printk("buf_len:%d\n",buf_len);
+	printk("version:%s\n",buf_version);
 
 	if(read_len >= buf_len)
 		strncpy(buf,buf_version,buf_len);
