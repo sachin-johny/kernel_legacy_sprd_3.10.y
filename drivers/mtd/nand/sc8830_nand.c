@@ -527,7 +527,7 @@ STATIC_FUNC void sprd_dolphin_nand_ecc_layout_gen(struct sprd_nand_oob *oob, uin
 	{
 		//offset = (oob_size * sct) + ecc_pos;
 		//for(i = 0; i < ecc_len; i++)
-		offset = (oob->nOOBSize * sct) + oob->nInfoPos;
+		offset = (oob->nOOBSize * sct) + oob->nEccPos;
 		for(i = 0; i < used_len; i++)
 		{
 			layout->eccpos[eccbytes++] = offset + i;

@@ -124,33 +124,33 @@ struct sprd_nand_param sprd_nand_param_table[] = {
 	//
 	//micron
 	{ 	{ 0x2C, 0xBC, 0x90, 0x66, 0x54 }, 0x2C, 0xBC, 
-		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(128), BW_16, CYCLES_5, 
+		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(224), BW_16, CYCLES_5, 
 		{ 10, 15 ,10 }, //ace, rwl, rwh
-		{ SZ_B_OOB(16), ECC_BITS(2), POS_ECC(12), SZ_ECC(4), POS_INFO(11), SZ_INFO(1) } 
+		{ SZ_B_OOB(28), ECC_BITS(8), POS_ECC(14), SZ_ECC(14), POS_INFO(14), SZ_INFO(0) } 
 	}, 
     //toshiba
 	{ 	{ 0x98, 0xBC, 0x90, 0x66, 0x76 }, 0x98, 0xBC, 
-		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(128), BW_16, CYCLES_5, 
+		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(224), BW_16, CYCLES_5, 
 		{ 10, 25 ,15 }, //ace, rwl, rwh
-		{ SZ_B_OOB(16), ECC_BITS(2), POS_ECC(12), SZ_ECC(4), POS_INFO(11), SZ_INFO(1) } 
+		{ SZ_B_OOB(28), ECC_BITS(8), POS_ECC(14), SZ_ECC(14), POS_INFO(14), SZ_INFO(0) } 
 	}, 
-    //hynix
+    //hynix compatible with spare-oob 128-32 and 64-16
 	{ 	{ 0xAD, 0xBC, 0x90, 0x55, 0x56 }, 0xAD, 0xBC, 
 		SZ_K_BLOCK(128), NUM_BLOCK(4096), SZ_K_PAGE(2), SZ_B_SECTOR(512), SZ_B_SPARE(64),  BW_16, CYCLES_5, 
 		{ 10, 25 ,15 }, //ace, rwl, rwh
-		{ SZ_B_OOB(16), ECC_BITS(2), POS_ECC(12), SZ_ECC(4), POS_INFO(11), SZ_INFO(1) } 
+		{ SZ_B_OOB(16), ECC_BITS(4), POS_ECC(9), SZ_ECC(7), POS_INFO(9), SZ_INFO(0) } 
 	}, 
     //adata
 	{ 	{ 0xC8, 0xBC, 0x90, 0x55, 0x54 }, 0xC8, 0xBC, 
 		SZ_K_BLOCK(128), NUM_BLOCK(4096), SZ_K_PAGE(2), SZ_B_SECTOR(512), SZ_B_SPARE(64),  BW_16, CYCLES_5, 
 		{ 10, 25 ,15 }, //ace, rwl, rwh
-		{ SZ_B_OOB(16), ECC_BITS(2), POS_ECC(12), SZ_ECC(4), POS_INFO(11), SZ_INFO(1) } 
+		{ SZ_B_OOB(16), ECC_BITS(4), POS_ECC(9), SZ_ECC(7), POS_INFO(9), SZ_INFO(0) } 
 	}, 
     //Samsung
 	{ 	{ 0xEC, 0xBC, 0x90, 0x55, 0x54 }, 0xEC, 0xBC, 
 		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(128), BW_16, CYCLES_5, 
 		{ 10, 21 ,10 }, //ace, rwl, rwh
-		{ SZ_B_OOB(16), ECC_BITS(2), POS_ECC(12), SZ_ECC(4), POS_INFO(11), SZ_INFO(1) } 
+		{ SZ_B_OOB(16), ECC_BITS(4), POS_ECC(9), SZ_ECC(7), POS_INFO(9), SZ_INFO(0) } 
 	}, 
 #if 0
 	//toshiba ok
