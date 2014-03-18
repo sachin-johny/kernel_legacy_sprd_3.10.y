@@ -405,6 +405,7 @@ void kernel_restart(char *cmd)
 	else
 		printk(KERN_EMERG "Restarting system with command '%s'.\n", cmd);
 	kmsg_dump(KMSG_DUMP_RESTART);
+	preempt_disable();
 	machine_restart(cmd);
 }
 EXPORT_SYMBOL_GPL(kernel_restart);
