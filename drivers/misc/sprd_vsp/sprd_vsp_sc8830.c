@@ -488,13 +488,12 @@ static int vsp_release (struct inode *inode, struct file *filp)
         up(&vsp_hw_dev.vsp_mutex);
     }
 
+    printk(KERN_INFO "vsp_release %p\n", vsp_fp);
     kfree(filp->private_data);
     filp->private_data=NULL;
 
     printk(KERN_INFO "VSP mmi_clk close");
     clk_disable(vsp_hw_dev.mm_clk);
-
-    printk(KERN_INFO "vsp_release %p\n", vsp_fp);
 
     return 0;
 }
