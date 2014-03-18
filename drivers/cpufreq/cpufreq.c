@@ -311,8 +311,10 @@ void cpufreq_notify_transition(struct cpufreq_policy *policy,
 		for_each_online_cpu(cpu) {
 			freqs->cpu = cpu;
 			cpu_policy = per_cpu(cpufreq_cpu_data, freqs->cpu);
-			for_each_cpu(freqs->cpu, cpu_policy->cpus)
-				__cpufreq_notify_transition(cpu_policy, freqs, state);
+			if (cpu_policy) {
+				for_each_cpu(freqs->cpu, cpu_policy->cpus)
+					__cpufreq_notify_transition(cpu_policy, freqs, state);
+			}
 		}
 	} else {
 		for_each_cpu(freqs->cpu, policy->cpus)
