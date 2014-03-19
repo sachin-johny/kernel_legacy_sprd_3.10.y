@@ -52,7 +52,7 @@
 #include <mach/modem_interface.h>
 #include <linux/sprd_thm.h>
 #include <linux/thermal.h>
-
+#ifndef CONFIG_OF
 struct modem_intf_platform_data modem_interface = {
        .dev_type               = MODEM_DEV_SDIO,
        .modem_dev_parameter    = NULL,
@@ -1139,7 +1139,7 @@ struct platform_device sprd_emmc_device = {
 		.init_name = "sprd-sdhci.3",
 	},
 };
-
+#endif
 struct sysdump_mem sprd_dump_mem[] = {
 #if defined(CONFIG_ARCH_SCX15)
 #if defined(CONFIG_SPRD_MODEM_TD)
@@ -1310,7 +1310,7 @@ struct sysdump_mem sprd_dump_mem[] = {
 	},
 };
 int sprd_dump_mem_num = ARRAY_SIZE(sprd_dump_mem);
-
+#ifndef CONFIG_OF
 static struct resource sprd_pmu_resource[] = {
 	[0] = {
 		.start		= IRQ_NPMUIRQ0_INT,
@@ -1612,7 +1612,7 @@ struct platform_device sprd_veth_sdio4_device = {
 #endif
 
 #endif
-
+#endif
 #ifdef CONFIG_SIPC_TD
 
 #define TD_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x50)
@@ -1661,6 +1661,7 @@ static int native_tdmodem_stop(void *arg)
 	__raw_writel(value, TD_REG_CLK_ADDR);
 	return 0;
 }
+#ifndef CONFIG_OF
 static struct cproc_init_data sprd_cproc_td_pdata = {
 	.devname	= "cpt",
 	.base		= CPT_START_ADDR,
@@ -1801,7 +1802,7 @@ struct platform_device sprd_saudio_td_device = {
 };
 
 #endif
-
+#endif
 #ifdef CONFIG_SIPC_WCDMA
 
 #define WCDMA_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x3C)
@@ -1855,7 +1856,7 @@ static int native_wcdmamodem_stop(void *arg)
 	__raw_writel(value, WCDMA_REG_CLK_ADDR);
 	return 0;
 }
-
+#ifndef CONFIG_OF
 static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 	.devname	= "cpw",
 	.base		= CPW_START_ADDR,
@@ -1997,7 +1998,7 @@ struct platform_device sprd_saudio_wcdma_device = {
 };
 
 #endif
-
+#endif
 #ifdef CONFIG_SIPC_WCN
 
 #define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x60)
@@ -2057,7 +2058,7 @@ static int native_wcnmodem_stop(void *arg)
 	__raw_writel(value, WCN_REG_CLK_ADDR);
 	return 0;
 }
-
+#ifndef CONFIG_OF
 static struct cproc_init_data sprd_cproc_wcn_pdata = {
 	.devname        = "cpwcn",
 	.base           = WCN_START_ADDR,
@@ -2141,7 +2142,7 @@ struct platform_device sprd_saudio_voip_device = {
 	.id         = 2,
 	.dev        = {.platform_data=&sprd_saudio_voip},
 };
-
+#endif
 #define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
 

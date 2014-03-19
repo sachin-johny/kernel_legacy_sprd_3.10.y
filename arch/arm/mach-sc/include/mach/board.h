@@ -82,7 +82,7 @@
 #include "__board-sp7735ec.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP7715EA
+#if defined (CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SPX15)
 #include "__board-sp7715ea.h"
 #endif
 

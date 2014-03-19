@@ -22,6 +22,9 @@
 
 #include <mach/sci.h>
 #include <mach/arch_lock.h>
+#include <linux/of_irq.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include "devices.h"
 
@@ -59,7 +62,46 @@ postcore_initcall_sync(early_init_hwlocks);
 
 static int __init hwspinlocks_init(void)
 {
-	int ret = 0;
+	int ret;
+
+#ifdef CONFIG_OF
+	struct device_node *np;
+	struct platform_device *pdev;
+
+	np = of_find_node_by_name(NULL, "hwspinlock0");
+	if (!np) {
+		pr_warn("Can't get the hwspinlock0 node!\n");
+		return -ENODEV;
+	}
+
+	pr_info("get the hwspinlock0 node ok!\n");
+
+	pdev = of_platform_device_create(np, 0, NULL);
+	if (!pdev) {
+		pr_warn("register hwspinlock0 failed!\n");
+	}
+	pr_info("*****hwspinlock0's name is %s\n", pdev->name);
+	pr_info("SPRD register hwspinlock0 ok!\n");
+//	of_detach_node(np);
+
+#if defined (CONFIG_ARCH_SCX35)
+	np = of_find_node_by_name(NULL, "hwspinlock1");
+	if (!np) {
+		pr_warn("Can't get the hwspinlock1 node!\n");
+		return -ENODEV;
+	}
+
+	pdev = of_platform_device_create(np, 0, NULL);
+	if (!pdev) {
+		pr_warn("register hwspinlock1 failed!\n");
+	}
+	pr_info("*****hwspinlock1's name is %s\n", pdev->name);
+	pr_info("SPRD register hwspinlock1 ok!\n");
+//	of_detach_node(np);
+#endif
+	return ret;
+
+#else
 	ret = platform_device_register(&sprd_hwspinlock_device0);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
 		platform_device_unregister(&sprd_hwspinlock_device0);
@@ -67,6 +109,7 @@ static int __init hwspinlocks_init(void)
 	ret = platform_device_register(&sprd_hwspinlock_device1);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
 		platform_device_unregister(&sprd_hwspinlock_device1);
+#endif
 #endif
 	return 0;
 }

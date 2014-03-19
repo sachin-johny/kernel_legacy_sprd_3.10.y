@@ -21,7 +21,11 @@
  */
 ENTRY(sci_secondary_startup)
 	mrc	p15, 0, r0, c0, c0, 5
+#ifndef CONFIG_OF
 	and	r0, r0, #15
+#else
+	and	r0, r0, #0xFFFFFF /* mpidr is 0xf00 0xf01, 0xf02, 0xf03 */
+#endif
 	adr	r4, 1f
 	ldmia	r4, {r5, r6}
 	sub	r4, r4, r5

@@ -91,8 +91,11 @@ void __iomap_page(unsigned long virt, unsigned long size, int enable)
 
 #define sci_reg_set(reg, bit)	sci_write_va(reg, bit, 0)
 #define sci_reg_clr(reg, bit)	sci_write_va(reg, 0, bit)
-
+#ifdef CONFIG_OF
+int local_mm_enable(struct sci_clk *c, int enable)
+#else
 int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
+#endif
 {
 	if (enable) {
 		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);

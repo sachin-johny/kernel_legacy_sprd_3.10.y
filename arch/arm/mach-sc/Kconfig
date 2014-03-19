@@ -2,21 +2,6 @@ if ARCH_SC
 
 menu "Spreadtrum SoC Type"
 
-config  ARCH_SC8825
-	bool "sc8825 series(tiger)"
-	select CPU_V7
-	select HAVE_SMP
-	select ARM_GIC
-	select HAVE_SCHED_CLOCK
-	select LOCAL_TIMERS if SMP
-	select VFP
-	select VFPv3
-	select NEON
-	select GENERIC_TIME
-	select CLKSRC_MMIO
-	select ARCH_HAS_CPUFREQ
-	select NEED_MACH_IO_H
-
 config  ARCH_SCX35
 	bool "sc8830 series(shark)"
 	select CPU_V7
@@ -48,13 +33,7 @@ config SC_FPGA
 
 menu "Spreadtrum Board Type"
 
-config MACH_SP8825EA
-	bool "sp8825ea Phone Board"
-	depends on ARCH_SC
-	depends on ARCH_SC8825
-	default y
-	help
-	  sp8825 EB board based on SC8825 serial.
+
 
 config MACH_SP5735EA
 	bool "sp5735ea PAD Board"
@@ -87,6 +66,17 @@ config MACH_SP8835EB
 	default n
 	help
 	  SP8835EB board based on SC8830 serial.
+
+config MACH_SPX15
+	bool "spx15 serial Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	select CLKSRC_OF if OF
+	select COMMON_CLK
+	default n
+	help
+	  SPX15 serial board based on dolphin serial.
 
 config MACH_SPX35EA
 	bool "sp8830ea Phone Board"
