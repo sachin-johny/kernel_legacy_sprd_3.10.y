@@ -17,6 +17,9 @@
 #include <linux/poll.h>
 #include <linux/platform_device.h>
 #include <linux/slab.h>
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#endif
 
 #include <linux/sipc.h>
 #include <linux/spipe.h>
@@ -125,23 +128,107 @@ static const struct file_operations spipe_fops = {
 	.llseek		= default_llseek,
 };
 
-static int  spipe_probe(struct platform_device *pdev)
+static int spipe_parse_dt(struct spipe_init_data **init, struct device *dev)
+{
+#ifdef CONFIG_OF
+	struct device_node *np = dev->of_node;
+	struct spipe_init_data *pdata = NULL;
+	int ret;
+	uint32_t data;
+
+	pdata = kzalloc(sizeof(struct spipe_init_data), GFP_KERNEL);
+	if (!pdata) {
+		printk(KERN_ERR "Failed to allocate pdata memory\n");
+		return -ENOMEM;
+	}
+
+	ret = of_property_read_string(np, "sprd,name", (const char**)&pdata->name);
+	if (ret) {
+		goto error;
+	}
+
+	ret = of_property_read_u32(np, "sprd,dst", (uint32_t *)&data);
+	if (ret) {
+		goto error;
+	}
+	pdata->dst = (uint8_t)data;
+
+	ret = of_property_read_u32(np, "sprd,channel", (uint32_t *)&data);
+	if (ret) {
+		goto error;
+	}
+	pdata->channel = (uint8_t)data;
+
+	ret = of_property_read_u32(np, "sprd,ringnr", (uint32_t *)&pdata->ringnr);
+	if (ret) {
+		goto error;
+	}
+
+	ret = of_property_read_u32(np, "sprd,size-rxbuf", (uint32_t *)&pdata->rxbuf_size);
+	if (ret) {
+		goto error;
+	}
+
+	ret = of_property_read_u32(np, "sprd,size-txbuf", (uint32_t *)&pdata->txbuf_size);
+	if (ret) {
+		goto error;
+	}
+	*init = pdata;
+	return ret;
+error:
+	kfree(pdata);
+	*init = NULL;
+	return ret;
+#else
+	return -ENODEV;
+#endif
+}
+
+static inline void spipe_destroy_pdata(struct spipe_init_data **init)
+{
+#ifdef CONFIG_OF
+	struct spipe_init_data *pdata = *init;
+
+	if (pdata) {
+		kfree(pdata);
+	}
+
+	*init = NULL;
+#else
+	return;
+#endif
+}
+
+static int spipe_probe(struct platform_device *pdev)
 {
 	struct spipe_init_data *init = pdev->dev.platform_data;
 	struct spipe_device *spipe;
 	dev_t devid;
 	int i, rval;
 
+	if (pdev->dev.of_node && !init) {
+		rval = spipe_parse_dt(&init, &pdev->dev);
+		if (rval) {
+			printk(KERN_ERR "Failed to parse spipe device tree, ret=%d\n", rval);
+			return rval;
+		}
+	}
+	pr_info("spipe: after parse device tree, name=%s, dst=%u, channel=%u, ringnr=%u, rxbuf_size=%u, txbuf_size=%u\n",
+		init->name, init->dst, init->channel, init->ringnr, init->rxbuf_size, init->txbuf_size);
+
+
 	rval = sbuf_create(init->dst, init->channel, init->ringnr,
 		init->txbuf_size, init->rxbuf_size);
 	if (rval != 0) {
 		printk(KERN_ERR "Failed to create sbuf: %d\n", rval);
+		spipe_destroy_pdata(&init);
 		return rval;
 	}
 
 	spipe = kzalloc(sizeof(struct spipe_device), GFP_KERNEL);
 	if (spipe == NULL) {
 		sbuf_destroy(init->dst, init->channel);
+		spipe_destroy_pdata(&init);
 		printk(KERN_ERR "Failed to allocate spipe_device\n");
 		return -ENOMEM;
 	}
@@ -150,6 +237,7 @@ static int  spipe_probe(struct platform_device *pdev)
 	if (rval != 0) {
 		sbuf_destroy(init->dst, init->channel);
 		kfree(spipe);
+		spipe_destroy_pdata(&init);
 		printk(KERN_ERR "Failed to alloc spipe chrdev\n");
 		return rval;
 	}
@@ -160,6 +248,7 @@ static int  spipe_probe(struct platform_device *pdev)
 		sbuf_destroy(init->dst, init->channel);
 		kfree(spipe);
 		unregister_chrdev_region(devid, init->ringnr);
+		spipe_destroy_pdata(&init);
 		printk(KERN_ERR "Failed to add spipe cdev\n");
 		return rval;
 	}
@@ -199,6 +288,9 @@ static int  spipe_remove(struct platform_device *pdev)
 		MKDEV(spipe->major, spipe->minor), spipe->init->ringnr);
 
 	sbuf_destroy(spipe->init->dst, spipe->init->channel);
+
+	spipe_destroy_pdata(&spipe->init);
+
 	kfree(spipe);
 
 	platform_set_drvdata(pdev, NULL);
@@ -206,10 +298,16 @@ static int  spipe_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id spipe_match_table[] = {
+	{.compatible = "sprd,spipe", },
+	{ },
+};
+
 static struct platform_driver spipe_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "spipe",
+		.of_match_table = spipe_match_table,
 	},
 	.probe = spipe_probe,
 	.remove = spipe_remove,

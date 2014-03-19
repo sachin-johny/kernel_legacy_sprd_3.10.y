@@ -28,6 +28,9 @@
 #include <asm/byteorder.h>
 #include <linux/tty.h>
 #include <linux/platform_device.h>
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#endif
 
 #include <linux/sipc.h>
 #include <linux/seth.h>
@@ -353,24 +356,6 @@ static void seth_tx_timeout(struct net_device *dev)
 	}
 }
 
-/*
- * Cleanup Ethernet device driver.
- */
-static int  seth_remove (struct platform_device *pdev)
-{
-	struct SEth* seth = platform_get_drvdata(pdev);
-	struct seth_init_data *pdata = seth->pdata;
-
-	sblock_destroy(pdata->dst, pdata->channel);
-
-	unregister_netdev(seth->netdev);
-	free_netdev(seth->netdev);
-
-	platform_set_drvdata(pdev, NULL);
-
-	return 0;
-}
-
 static struct net_device_ops seth_ops = {
 	.ndo_open = seth_open,
 	.ndo_stop = seth_close,
@@ -378,6 +363,66 @@ static struct net_device_ops seth_ops = {
 	.ndo_get_stats = seth_get_stats,
 	.ndo_tx_timeout = seth_tx_timeout,
 };
+
+static int seth_parse_dt(struct seth_init_data **init, struct device *dev)
+{
+#ifdef CONFIG_OF
+	struct seth_init_data *pdata = NULL;
+	struct device_node *np = dev->of_node;
+	int ret;
+	uint32_t data;
+
+	pdata = kzalloc(sizeof(struct seth_init_data), GFP_KERNEL);
+	if (!pdata) {
+		return -ENOMEM;
+	}
+
+	ret = of_property_read_string(np, "sprd,name", (const char**)&pdata->name);
+	if (ret) {
+		goto error;
+	}
+
+	ret = of_property_read_u32(np, "sprd,dst", (uint32_t *)&data);
+	if (ret) {
+		goto error;
+	}
+	pdata->dst = (uint8_t)data;
+
+	ret = of_property_read_u32(np, "sprd,channel", (uint32_t *)&data);
+	if (ret) {
+		goto error;
+	}
+	pdata->channel = (uint8_t)data;
+
+	ret = of_property_read_u32(np, "sprd,blknum", (uint32_t *)&pdata->blocknum);
+	if (ret) {
+		goto error;
+	}
+
+	*init = pdata;
+	return 0;
+error:
+	kfree(pdata);
+	*init = NULL;
+	return ret;
+#else
+	return -ENODEV;
+#endif
+}
+
+static inline void seth_destroy_pdata(struct seth_init_data **init)
+{
+#ifdef CONFIG_OF
+	struct seth_init_data *pdata = *init;
+
+	if (pdata) {
+		kfree(pdata);
+	}
+	*init = NULL;
+#else
+	return;
+#endif
+}
 
 static int  seth_probe(struct platform_device *pdev)
 {
@@ -387,6 +432,16 @@ static int  seth_probe(struct platform_device *pdev)
 	char ifname[IFNAMSIZ];
 	int ret;
 
+	if (pdev->dev.of_node && !pdata) {
+		ret = seth_parse_dt(&pdata, &pdev->dev);
+		if (ret) {
+			printk(KERN_ERR "failed to parse seth device tree, ret=%d\n", ret);
+			return ret;
+		}
+	}
+	SETH_INFO("after parse device tree, name=%s, dst=%u, channel=%u, blocknum=%u\n",
+		pdata->name, pdata->dst, pdata->channel, pdata->blocknum);
+
 	if(pdata->name[0])
 		strlcpy(ifname, pdata->name, IFNAMSIZ);
 	else
@@ -394,6 +449,7 @@ static int  seth_probe(struct platform_device *pdev)
 
 	netdev = alloc_netdev (sizeof (SEth), ifname, ether_setup);
 	if (!netdev) {
+		seth_destroy_pdata(&pdata);
 		SETH_ERR ("alloc_netdev() failed.\n");
 		return -ENOMEM;
 	}
@@ -416,6 +472,7 @@ static int  seth_probe(struct platform_device *pdev)
 	if (ret) {
 		SETH_ERR ("create sblock failed (%d)\n", ret);
 		free_netdev(netdev);
+		seth_destroy_pdata(&pdata);
 		return ret;
 	}
 
@@ -432,6 +489,7 @@ static int  seth_probe(struct platform_device *pdev)
 		SETH_ERR ("register_netdev() failed (%d)\n", ret);
 		free_netdev(netdev);
 		sblock_destroy(pdata->dst, pdata->channel);
+		seth_destroy_pdata(&pdata);
 		return ret;
 	}
 
@@ -439,9 +497,31 @@ static int  seth_probe(struct platform_device *pdev)
 	netif_carrier_off (netdev);
 
 	platform_set_drvdata(pdev, seth);
+	return 0;
+}
+
+/*
+ * Cleanup Ethernet device driver.
+ */
+static int  seth_remove (struct platform_device *pdev)
+{
+	struct SEth* seth = platform_get_drvdata(pdev);
+	struct seth_init_data *pdata = seth->pdata;
+
+	sblock_destroy(pdata->dst, pdata->channel);
+	seth_destroy_pdata(&pdata);
+	unregister_netdev(seth->netdev);
+	free_netdev(seth->netdev);
+
+	platform_set_drvdata(pdev, NULL);
 
 	return 0;
 }
+
+static const struct of_device_id seth_match_table[] = {
+	{ .compatible = "sprd,seth", },
+	{ },
+};
 
 static struct platform_driver seth_driver = {
 	.probe = seth_probe,
@@ -449,6 +529,7 @@ static struct platform_driver seth_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "seth",
+		.of_match_table = seth_match_table,
 	},
 };
 

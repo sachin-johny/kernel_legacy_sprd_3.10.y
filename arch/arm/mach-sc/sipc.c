@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#ifndef CONFIG_OF
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -197,3 +199,5 @@ arch_initcall(sipc_init);
 MODULE_AUTHOR("Chen Gaopeng");
 MODULE_DESCRIPTION("SIPC module driver");
 MODULE_LICENSE("GPL");
+
+#endif /* end of CONFIG_OF */

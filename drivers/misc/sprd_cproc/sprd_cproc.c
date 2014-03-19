@@ -25,7 +25,11 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
-
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#endif
 
 #include <linux/sprd_cproc.h>
 
@@ -86,7 +90,7 @@ static int sprd_cproc_open(struct inode *inode, struct file *filp)
 
 	filp->private_data = cproc;
 
-	pr_debug("cproc %s opened!\n", cproc->initdata->devname);
+	pr_info("cproc %s opened!\n", cproc->initdata->devname);
 
 	return 0;
 }
@@ -95,7 +99,7 @@ static int sprd_cproc_release (struct inode *inode, struct file *filp)
 {
 	struct cproc_device *cproc = filp->private_data;
 
-	pr_debug("cproc %s closed!\n", cproc->initdata->devname);
+	pr_info("cproc %s closed!\n", cproc->initdata->devname);
 
 	return 0;
 }
@@ -171,7 +175,7 @@ static ssize_t cproc_proc_read(struct file *filp,
 	int rval;
 	size_t r, i;/*count ioremap, shi yunlong*/
 
-/*	pr_debug("cproc proc read type: %s ppos %ll\n", type, *ppos);*/
+/*	pr_info("cproc proc read type: %s ppos %ll\n", type, *ppos);*/
 
 	if (strcmp(type, "mem") == 0) {
 		if (*ppos >= cproc->initdata->maxsz) {
@@ -260,11 +264,11 @@ static ssize_t cproc_proc_write(struct file *filp,
 	void *vmem;
 	size_t r, i;/*count ioremap, shi yunlong*/
 
-	pr_debug("cproc proc write type: %s\n!", type);
+	pr_info("cproc proc write type: %s\n!", type);
 
 	if (strcmp(type, "start") == 0) {
 		printk(KERN_INFO "cproc_proc_write to map cproc base start\n");
-		cproc->initdata->start(NULL);
+		cproc->initdata->start(cproc);
 		cproc->wdtcnt = CPROC_WDT_FLASE;
 		cproc->status = CP_NORMAL_STATUS;
 		return count;
@@ -294,7 +298,7 @@ static ssize_t cproc_proc_write(struct file *filp,
 		return count;
 	}
 
-	pr_debug("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
+	pr_info("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
 	count = min((size-offset), count);
 	/*remap and unmap in each write operation, shi yunlong, begin*/
 	/*
@@ -371,7 +375,7 @@ static unsigned int cproc_proc_poll(struct file *filp, poll_table *wait)
 	char *type = entry->name;
 	unsigned int mask = 0;
 
-	pr_debug("cproc proc poll type: %s \n", type);
+	pr_info("cproc proc poll type: %s \n", type);
 
 	if (strcmp(type, "wdtirq") == 0) {
 		poll_wait(filp, &cproc->wdtwait, wait);
@@ -457,18 +461,245 @@ static irqreturn_t sprd_cproc_irq_handler(int irq, void *dev_id)
 	return IRQ_HANDLED;
 }
 
+#ifdef CONFIG_OF
+static int sprd_cproc_native_cp_start(void* arg)
+{
+	struct cproc_device *cproc = (struct cproc_device *)arg;
+	struct cproc_init_data *pdata = cproc->initdata;
+	struct cproc_ctrl *ctrl;
+	uint32_t value, state;
+
+	if (pdata) {
+		return -ENODEV;
+	}
+	ctrl = pdata->ctrl;
+	memcpy(ctrl->iram_addr, (void *)ctrl->iram_data, sizeof(ctrl->iram_data));
+
+	/* clear cp1 force shutdown */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) &
+			~ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
+
+	while(1)
+	{
+		state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS]);
+		if (!(state & ctrl->ctrl_mask[CPROC_CTRL_GET_STATUS]))  //(0xf <<16)
+			break;
+	}
+
+	/* clear cp1 force deep sleep */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) &
+			~ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+
+	/* clear reset cp1 */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
+		~ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+
+	return 0;
+}
+
+static int sprd_cproc_native_cp_stop(void *arg)
+{
+	struct cproc_device *cproc = (struct cproc_device *)arg;
+	struct cproc_init_data *pdata = cproc->initdata;
+	struct cproc_ctrl *ctrl;
+	uint32_t value;
+
+	if (pdata) {
+		return -ENODEV;
+	}
+	ctrl = pdata->ctrl;
+
+        /* reset cp1 */
+        value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) |
+			ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+        __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+
+        /* cp1 force deep sleep */
+        value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) |
+			ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
+        __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+
+        /* cp1 force shutdown */
+        value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) |
+			ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
+        __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
+        return 0;
+}
+#endif
+
+static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev)
+{
+#ifdef CONFIG_OF
+	struct cproc_init_data *pdata;
+	struct cproc_ctrl *ctrl;
+	struct resource res;
+	struct device_node *np = dev->of_node, *chd;
+	int ret, i, segnr;
+	uint32_t base, offset;
+
+	segnr = of_get_child_count(np);
+	pr_info("sprd_cproc mem size: %u\n", sizeof(struct cproc_init_data) + segnr * sizeof(struct cproc_segments));
+
+	pdata = kzalloc(sizeof(struct cproc_init_data) + segnr * sizeof(struct cproc_segments), GFP_KERNEL);
+	if (!pdata) {
+		return -ENOMEM;
+	}
+
+	ctrl = kzalloc(sizeof(struct cproc_ctrl), GFP_KERNEL);
+	if (!ctrl) {
+		kfree(pdata);
+		return -ENOMEM;
+	}
+
+	ret = of_property_read_string(np, "sprd,name", (const char **)&pdata->devname);
+	if (ret)
+	{
+		goto error;
+	}
+
+	/* get pmu base addr */
+	ret = of_address_to_resource(np, 2, &res);
+	if (ret) {
+		ret = -ENODEV;
+		goto error;
+	}
+	base = res.start;
+	pr_info("sprd_cproc: base 0x%x\n", base);
+	/* get ctrl_reg addr on pmu base */
+	ret = of_property_read_u32_array(np, "sprd,ctrl-reg", (uint32_t *)ctrl->ctrl_reg, CPROC_CTRL_NR);
+	if (ret) {
+		goto error;
+	}
+	for (i = 0; i < CPROC_CTRL_NR; i++) {
+		ctrl->ctrl_reg[i] += base;
+		pr_info("sprd_cproc: ctrl_reg[%d] = 0x%08x\n", i, ctrl->ctrl_reg[i]);
+	}
+
+	/* get ctrl_mask */
+	ret = of_property_read_u32_array(np, "sprd,ctrl-mask", (uint32_t *)ctrl->ctrl_mask, CPROC_CTRL_NR);
+	if (ret) {
+		goto error;
+	}
+	for (i = 0; i < CPROC_CTRL_NR; i++) {
+		pr_info("sprd_cproc: ctrl_mask[%d] = 0x%08x\n", i, ctrl->ctrl_mask[i]);
+	}
+
+	/* get iram data */
+	ret = of_property_read_u32_array(np, "sprd,iram-data", (uint32_t *)ctrl->iram_data, CPROC_IRAM_DATA_NR);
+	if (ret) {
+		goto error;
+	}
+	for (i = 0; i < CPROC_IRAM_DATA_NR; i++) {
+		pr_info("sprd_cproc: iram-data[%d] = 0x%08x\n", i, ctrl->iram_data[i]);
+	}
+
+	/* get irq */
+	ret = of_address_to_resource(np, 0, &res);
+	if (ret) {
+		goto error;
+	}
+	pdata->base = res.start;
+	pdata->maxsz = res.end - res.start + 1;
+	pr_info("sprd_cproc: cp base = 0x%x, size = 0x%x\n", pdata->base, pdata->maxsz);
+
+	/* get iram_base+offset */
+	ret = of_address_to_resource(np, 1, &res);
+	if (ret) {
+		goto error;
+	}
+	ctrl->iram_addr = res.start;
+	pr_info("sprd_cproc: iram_addr=0x%x, start=0x%x, offset=0x%x", ctrl->iram_addr);
+
+	/* get irq */
+	pdata->wdtirq = irq_of_parse_and_map(np, 0);
+	if (!pdata->wdtirq) {
+		ret = -EINVAL;
+		goto error;
+	}
+	pr_info("sprd_cproc: wdt irq %u\n", pdata->wdtirq);
+
+	i = 0;
+	for_each_child_of_node(np, chd) {
+		struct cproc_segments *seg;
+		seg = &pdata->segs[i];
+		ret = of_property_read_string(chd, "cproc,name", (const char **)&seg->name);
+		if (ret) {
+			goto error;
+		}
+		pr_info("sprd_cproc: child node [%d] name=%s\n", i, seg->name);
+		/* get child base addr */
+		ret = of_address_to_resource(chd, 0, &res);
+		if (ret) {
+			goto error;
+		}
+		seg->base = res.start;
+		seg->maxsz = res.end - res.start + 1;
+		pr_info("sprd_cproc: child node [%d] base=0x%x, size=0x%0x\n", i, seg->base, seg->maxsz);
+
+		i++;
+	}
+
+	pr_info("sprd_cproc: stop callback 0x%x, start callback 0x%x\n",
+		sprd_cproc_native_cp_stop, sprd_cproc_native_cp_start);
+	pdata->segnr = segnr;
+	pdata->stop = sprd_cproc_native_cp_stop;
+	pdata->start = sprd_cproc_native_cp_start;
+	pdata->ctrl = ctrl;
+	*init = pdata;
+	return 0;
+error:
+	kfree(ctrl);
+	kfree(pdata);
+	return ret;
+#else
+	return -ENODEV;
+#endif
+}
+
+static void sprd_cproc_destroy_pdata(struct cproc_init_data **init)
+{
+#ifdef CONFIG_OF
+	struct cproc_init_data *pdata = *init;
+
+	if (pdata) {
+		if (pdata->ctrl) {
+			kfree(pdata->ctrl);
+		}
+		kfree(pdata);
+	}
+	*init = NULL;
+#else
+	return;
+#endif
+}
+
 static int sprd_cproc_probe(struct platform_device *pdev)
 {
 	struct cproc_device *cproc;
+	struct cproc_init_data *pdata = pdev->dev.platform_data;
 	int rval;
+
+	if (!pdata && pdev->dev.of_node) {
+		rval = sprd_cproc_parse_dt(&pdata, &pdev->dev);
+		if (rval) {
+			printk(KERN_ERR "failed to parse device tree!\n");
+			return rval;
+		}
+	}
+	pr_info("sprd_cproc: pdata=0x%x, of_node=0x%x\n",
+		(uint32_t)pdata, (uint32_t)pdev->dev.of_node);
 
 	cproc = kzalloc(sizeof(struct cproc_device), GFP_KERNEL);
 	if (!cproc) {
+		sprd_cproc_destroy_pdata(&pdata);
 		printk(KERN_ERR "failed to allocate cproc device!\n");
 		return -ENOMEM;
 	}
 
-	cproc->initdata = pdev->dev.platform_data;
+	cproc->initdata = pdata;
 
 	cproc->miscdev.minor = MISC_DYNAMIC_MINOR;
 	cproc->miscdev.name = cproc->initdata->devname;
@@ -477,6 +708,7 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 	cproc->name = cproc->initdata->devname;
 	rval = misc_register(&cproc->miscdev);
 	if (rval) {
+		sprd_cproc_destroy_pdata(&cproc->initdata);
 		kfree(cproc);
 		printk(KERN_ERR "failed to register sprd_cproc miscdev!\n");
 		return rval;
@@ -490,6 +722,9 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 	rval = request_irq(cproc->initdata->wdtirq, sprd_cproc_irq_handler,
 			0, cproc->initdata->devname, cproc);
 	if (rval != 0) {
+		misc_deregister(&cproc->miscdev);
+		sprd_cproc_destroy_pdata(&cproc->initdata);
+		kfree(cproc);
 		printk(KERN_ERR "Cproc failed to request irq %s: %d\n",
 				cproc->initdata->devname, cproc->initdata->wdtirq);
 		return rval;
@@ -510,6 +745,7 @@ static int sprd_cproc_remove(struct platform_device *pdev)
 
 	sprd_cproc_fs_exit(cproc);
 	misc_deregister(&cproc->miscdev);
+	sprd_cproc_destroy_pdata(&cproc->initdata);
 
 	printk(KERN_INFO "cproc %s removed!\n", cproc->initdata->devname);
 	kfree(cproc);
@@ -517,17 +753,24 @@ static int sprd_cproc_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id sprd_cproc_match_table[] = {
+	{ .compatible = "sprd,scproc", },
+	{},
+};
+
 static struct platform_driver sprd_cproc_driver = {
 	.probe    = sprd_cproc_probe,
 	.remove   = sprd_cproc_remove,
 	.driver   = {
 		.owner = THIS_MODULE,
 		.name = "sprd_cproc",
+		.of_match_table = sprd_cproc_match_table,
 	},
 };
 
 static int __init sprd_cproc_init(void)
 {
+
 	if (platform_driver_register(&sprd_cproc_driver) != 0) {
 		printk(KERN_ERR "sprd_cproc platform drv register Failed \n");
 		return -1;
