@@ -295,6 +295,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int array_size = ARRAY_SIZE(lowmem_adj);
 	int other_free;
 	int other_file;
+	bool is_need_lmk_kill = true;
 	unsigned long nr_to_scan = sc->nr_to_scan;
 
 #ifdef CONFIG_ZRAM
@@ -365,6 +366,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (zram_score_adj <= OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj))
 		{
 			printk("%s:min:%d, zram:%d, threshold:%d\r\n", __func__, min_score_adj,zram_score_adj, OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj));
+			if(!min_score_adj)
+				is_need_lmk_kill = false;
+
 			zram_score_adj = min_score_adj;
 		}
 		else if (!zone_watermark_ok_safe(preferred_zone, 0, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
@@ -441,7 +445,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #ifdef CONFIG_ZRAM
 		lmk_info.zram_mem_usage = zram_mem_usage();
 #endif
-		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
+		if(selected_oom_score_adj || is_need_lmk_kill) {
+			lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
 				"   Free memory is %ldkB above reserved\n"	\
@@ -459,13 +464,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				lmk_info.zram_free_percent,
 				lmk_info.zram_mem_usage*PAGE_SIZE /1024/100);
 
-		lowmem_deathpending_timeout = jiffies + HZ;
-		send_sig(SIGKILL, selected, 0);
-		set_tsk_thread_flag(selected, TIF_MEMDIE);
-		rem -= selected_tasksize;
-		rcu_read_unlock();
-		/* give the system time to free up the memory */
-		msleep_interruptible(20);
+			lowmem_deathpending_timeout = jiffies + HZ;
+			send_sig(SIGKILL, selected, 0);
+			set_tsk_thread_flag(selected, TIF_MEMDIE);
+			rem -= selected_tasksize;
+			rcu_read_unlock();
+			/* give the system time to free up the memory */
+			msleep_interruptible(20);
+		}
 	} else
 		rcu_read_unlock();
 
