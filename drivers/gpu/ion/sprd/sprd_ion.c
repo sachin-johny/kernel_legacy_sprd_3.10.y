@@ -17,6 +17,10 @@
 #include <linux/platform_device.h>
 #include <linux/slab.h>
 #include <linux/uaccess.h>
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_platform.h>
+#endif
 #include <video/ion_sprd.h>
 #include "../ion_priv.h"
 
@@ -25,7 +29,7 @@
 #include "sprd_fence.h"
 
 struct ion_device *idev;
-int num_heaps;
+int num_heaps = 0;
 struct ion_heap **heaps;
 
 struct fence_sync sprd_fence;
@@ -416,50 +420,168 @@ static void __ion_heap_destroy(struct ion_heap *heap)
 	}
 }
 
+#ifdef CONFIG_OF
+static struct ion_platform_data *sprd_ion_parse_dt(struct platform_device *pdev)
+{
+	int i = 0, ret = 0;
+	const struct device_node *parent = pdev->dev.of_node;
+	struct device_node *child = NULL;
+	struct ion_platform_data *pdata = NULL;
+	struct ion_platform_heap *ion_heaps = NULL;
+	struct platform_device *new_dev = NULL;
+	uint32_t val = 0, type = 0;
+	const char *name;
+	uint32_t out_values[2];
+
+	for_each_child_of_node(parent, child)
+		num_heaps++;
+	if (!num_heaps)
+		return ERR_PTR(-EINVAL);
+
+	pr_info("%s: num_heaps=%d\n", __func__, num_heaps);
+
+	pdata = kzalloc(sizeof(struct ion_platform_data), GFP_KERNEL);
+	if (!pdata)
+		return ERR_PTR(-ENOMEM);
+
+	ion_heaps = kzalloc(sizeof(struct ion_platform_heap)*num_heaps, GFP_KERNEL);
+	if (!ion_heaps) {
+		kfree(pdata);
+		return ERR_PTR(-ENOMEM);
+	}
+
+	pdata->heaps = ion_heaps;
+	pdata->nr = num_heaps;
+
+	for_each_child_of_node(parent, child) {
+		new_dev = of_platform_device_create(child, NULL, &pdev->dev);
+		if (!new_dev) {
+			pr_err("Failed to create device %s\n", child->name);
+			goto out;
+		}
+
+		pdata->heaps[i].priv = &new_dev->dev;
+
+		ret = of_property_read_u32(child, "reg", &val);
+		if (ret) {
+			pr_err("%s: Unable to find reg key, ret=%d", __func__, ret);
+			goto out;
+		}
+		pdata->heaps[i].id = val;
+
+		ret = of_property_read_string(child, "reg-names", &name);
+		if (ret) {
+			pr_err("%s: Unable to find reg-names key, ret=%d", __func__, ret);
+			goto out;
+		}
+		pdata->heaps[i].name = name;
+
+		ret = of_property_read_u32(child, "sprd,ion-heap-type", &type);
+		if (ret) {
+			pr_err("%s: Unable to find ion-heap-type key, ret=%d", __func__, ret);
+			goto out;
+		}
+		pdata->heaps[i].type = type;
+
+		ret = of_property_read_u32_array(child, "sprd,ion-heap-mem",
+				out_values, 2);
+		if (!ret) {
+			pdata->heaps[i].base = out_values[0];
+			pdata->heaps[i].size = out_values[1];
+		}
+
+		pr_info("%s: heaps[%d]: %s type: %d base: %lu size %u\n",
+				__func__, i, pdata->heaps[i].name, pdata->heaps[i].type,
+				pdata->heaps[i].base, pdata->heaps[i].size);
+		++i;
+	}
+	return pdata;
+out:
+	kfree(pdata->heaps);
+	kfree(pdata);
+	return ERR_PTR(ret);
+}
+#else
+static struct ion_platform_data *sprd_ion_parse_dt(struct platform_device *pdev)
+{
+	return NULL;
+}
+#endif
+
 int sprd_ion_probe(struct platform_device *pdev)
 {
-	struct ion_platform_data *pdata = pdev->dev.platform_data;
-	int err = -1;
-	int i;
+	int i = 0, ret = -1;
+	struct ion_platform_data *pdata = NULL;
+	uint32_t need_free_pdata;
 
-	num_heaps = pdata->nr;
+	if(pdev->dev.of_node) {
+		pdata = sprd_ion_parse_dt(pdev);
+		if (IS_ERR(pdata)) {
+			return PTR_ERR(pdata);
+		}
+		need_free_pdata = 1;
+	} else {
+		pdata = pdev->dev.platform_data;
+		num_heaps = pdata->nr;
+		if (!num_heaps)
+			return -EINVAL;
+		need_free_pdata = 0;
+	}
 
 	heaps = kzalloc(sizeof(struct ion_heap *) * pdata->nr, GFP_KERNEL);
+	if(!heaps) {
+		ret = -ENOMEM;
+		goto out1;
+	}
 
 	idev = ion_device_create(&sprd_heap_ioctl);
 	if (IS_ERR_OR_NULL(idev)) {
+		pr_err("%s,idev is null\n", __FUNCTION__);
 		kfree(heaps);
-		return PTR_ERR(idev);
+		ret = PTR_ERR(idev);
+		goto out1;
 	}
 
 	/* create the heaps as specified in the board file */
 	for (i = 0; i < num_heaps; i++) {
 		struct ion_platform_heap *heap_data = &pdata->heaps[i];
 
+		if(!pdev->dev.of_node) {
+			heap_data->priv = &pdev->dev;
+		}
 		heaps[i] = __ion_heap_create(heap_data, &pdev->dev);
 		if (IS_ERR_OR_NULL(heaps[i])) {
-			err = PTR_ERR(heaps[i]);
-			goto error_out;
+			pr_err("%s,heaps is null, i:%d\n", __FUNCTION__,i);
+			ret = PTR_ERR(heaps[i]);
+			goto out;
 		}
 		ion_device_add_heap(idev, heaps[i]);
 	}
 	platform_set_drvdata(pdev, idev);
-	
-	err = sprd_create_timeline(&sprd_fence);
-	if (err != 0)
-	{
-		pr_err("sprd_create_timeline failed\n");
-		goto error_out;
-	}
 
+	ret = sprd_create_timeline(&sprd_fence);
+	if (ret != 0) {
+		pr_err("%s: sprd_create_timeline failed\n", __func__);
+		goto out;
+        }
+
+        if(need_free_pdata) {
+		kfree(pdata->heaps);
+		kfree(pdata);
+	}
 	return 0;
-error_out:
+out:
 	for (i = 0; i < num_heaps; i++) {
 		if (heaps[i])
 			ion_heap_destroy(heaps[i]);
 	}
 	kfree(heaps);
-	return err;
+out1:
+	if(need_free_pdata) {
+		kfree(pdata->heaps);
+		kfree(pdata);
+	}
+	return ret;
 }
 
 int sprd_ion_remove(struct platform_device *pdev)
@@ -477,15 +599,30 @@ int sprd_ion_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id sprd_ion_ids[] __initconst = {
+	{ .compatible = "sprd,ion-sprd"},
+	{},
+};
+#endif
+
 static struct platform_driver ion_driver = {
 	.probe = sprd_ion_probe,
 	.remove = sprd_ion_remove,
-	.driver = { .name = "ion-sprd" }
+	.driver = {
+		.name = "ion-sprd" ,
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(sprd_ion_ids),
+#endif
+	}
 };
 
 static int __init ion_init(void)
 {
-	return platform_driver_register(&ion_driver);
+	int result;
+	result= platform_driver_register(&ion_driver);
+	pr_info("%s,result:%d\n",__FUNCTION__,result);
+	return result;
 }
 
 static void __exit ion_exit(void)

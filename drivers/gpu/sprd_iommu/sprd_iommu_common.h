@@ -20,6 +20,9 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include "../ion/ion_priv.h"
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#endif
 
 #define SPRD_IOMMU_PAGE_SIZE	0x1000
 /**
@@ -27,6 +30,7 @@
  * Calculates the page table index from the given address
 */
 #define SPRD_IOMMU_PTE_ENTRY(address) (((address)>>12) & 0x3FFF)
+extern const struct of_device_id iommu_ids[];
 
 int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data);
 

@@ -21,10 +21,30 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev);
 int sprd_iommu_mm_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
 	int err=-1;
+#ifdef CONFIG_OF && CONFIG_COMMON_CLK
+	struct device_node *np;
+
+	np = dev->misc_dev.this_device->of_node;
+	if(!np) {
+		return -1;
+	}
+
+	dev->mmu_clock=of_clk_get(np, 0) ;
+	dev->mmu_mclock=NULL;
+//	dev->mmu_mclock=of_clk_get(np,1);
+#else
 	dev->mmu_mclock= clk_get(NULL,"clk_mm_i");
 	dev->mmu_clock=clk_get(NULL,"clk_mmu");
-	if((NULL==dev->mmu_mclock)||(NULL==dev->mmu_clock))
+	if (!dev->mmu_mclock) {
+		printk ("%s, cant get dev->mmu_mclock\n", __FUNCTION__);
 		return -1;
+	}
+#endif
+	if (!dev->mmu_clock) {
+		printk ("%s, cant get dev->mmu_clock\n", __FUNCTION__);
+		return -1;
+	}
+
 	sprd_iommu_mm_enable(dev);
 	err=sprd_iommu_init(dev,data);
 	sprd_iommu_mm_disable(dev);
@@ -90,15 +110,27 @@ int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 {
 	sprd_iommu_disable(dev);
+#ifdef CONFIG_OF
+	clk_disable_unprepare(dev->mmu_clock);
+        if (dev->mmu_mclock)
+	    clk_disable_unprepare(dev->mmu_mclock);
+#else
 	clk_disable(dev->mmu_clock);
 	clk_disable(dev->mmu_mclock);
+#endif
 	return 0;
 }
 
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 {
+#ifdef CONFIG_OF
+	if (dev->mmu_mclock)
+            clk_prepare_enable(dev->mmu_mclock);
+	clk_prepare_enable(dev->mmu_clock);
+#else
 	clk_enable(dev->mmu_mclock);
 	clk_enable(dev->mmu_clock);
+#endif
 	udelay(300);
 	sprd_iommu_enable(dev);
 	return 0;
