@@ -1054,7 +1054,7 @@ int itm_wlan_sipc_alloc(struct itm_priv *itm_priv)
 	return 0;
 
 fail_notifier:
-	sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);
+	//sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);
 /*fail_sblock:
 	kfree(wlan_sipc->event_buf);*/
 fail_eventbuf:
@@ -1086,6 +1086,42 @@ void itm_wlan_sipc_free(struct itm_priv *itm_priv)
 	}
 
 	return;
+}
+
+/**
+* Init the sblock used for ittiam
+*/
+int itm_sblock_init(void)
+{
+	int ret;
+
+	ret = sblock_create(WLAN_CP_ID, WLAN_SBLOCK_CH,
+		WLAN_SBLOCK_NUM, 1600,
+		WLAN_SBLOCK_NUM, 1600);
+	if (ret) {
+		printk(KERN_ERR "ITM: (itm_wlan driver)Failed to create data sblock (%d)\n", ret);
+		return -ENOMEM;
+	}
+
+	ret = sblock_create(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
+		WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE,
+		WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE);
+	if (ret) {
+		printk(KERN_ERR "ITM: (itm_wlan driver)Failed to create event sblock (%d)\n", ret);
+		sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
+		return -ENOMEM;
+	}
+
+	printk(KERN_ERR "itm create sblock successfully\n");
+	return 0;
+}
+
+int itm_sblock_deinit(void)
+{
+	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
+	sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);
+	printk(KERN_ERR "itm destroy sblock successfully\n");
+	return 0;
 }
 
 int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)

@@ -36,6 +36,11 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_device.h>
+#endif
+
 #include <linux/sipc.h>
 #include <linux/atomic.h>
 
@@ -791,34 +796,54 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	return 0;
 }
 
+//if Macro CONFIG_OF is defined, then Device Tree is used
+#ifdef CONFIG_OF
+static const struct of_device_id  of_match_table_itm_wlan[] = {
+	{ .compatible = "sprd,itm_wlan", },
+	{ },
+};
+#endif
+
 static struct platform_driver itm_wlan_driver __refdata = {
 	.probe = itm_wlan_probe,
 	.remove = __devexit_p(itm_wlan_remove),
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = ITM_DEV_NAME,
+#ifdef CONFIG_OF
+		   .of_match_table = of_match_ptr(of_match_table_itm_wlan) ,
+#endif
 		   .pm = &itm_wlan_pm,
 		   },
 };
 
+#ifndef CONFIG_OF
 static struct platform_device *itm_wlan_device;
+#endif
 static int __init itm_wlan_init(void)
 {
 	pr_info("ITTIAM Wireless Network Adapter (%s %s)\n", __DATE__,
 		__TIME__);
+#ifndef CONFIG_OF
 	itm_wlan_device =
 	    platform_device_register_simple(ITM_DEV_NAME, 0, NULL, 0);
 	if (IS_ERR(itm_wlan_device))
 		return PTR_ERR(itm_wlan_device);
-
+#else
+	itm_sblock_init();
+#endif
 	return platform_driver_register(&itm_wlan_driver);
 }
 
 static void __exit itm_wlan_exit(void)
 {
 	platform_driver_unregister(&itm_wlan_driver);
+#ifndef CONFIG_OF
 	platform_device_unregister(itm_wlan_device);
 	itm_wlan_device = NULL;
+#else
+	itm_sblock_deinit();
+#endif
 }
 
 module_init(itm_wlan_init);

@@ -194,6 +194,8 @@ extern int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode);
 
 extern int itm_wlan_sipc_alloc(struct itm_priv *itm_priv);
 extern void itm_wlan_sipc_free(struct itm_priv *itm_priv);
+extern int itm_sblock_init(void);
+extern int itm_sblock_deinit(void);
 
 extern int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip);
 extern int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv);
