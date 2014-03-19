@@ -385,10 +385,15 @@ static struct platform_device sprd_wlan_device = {
 
 void wlan_host_get(void) {
 	struct sdhci_host *host;
+#ifndef CONFIG_OF
 	extern struct platform_device sprd_sdio1_device;
 	host = platform_get_drvdata(&sprd_sdio1_device);
+#else
+	struct platform_device * sdio1_device = to_platform_device(bus_find_device_by_name(&platform_bus_type, NULL, "sprd-sdhci.1"));
+	host = platform_get_drvdata(sdio1_device);
+#endif
 	BUG_ON(!host->mmc);
-       wlan_mmc = host->mmc;
+	wlan_mmc = host->mmc;
 }
 
 static int __init wlan_device_init(void)

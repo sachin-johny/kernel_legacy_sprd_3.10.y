@@ -233,6 +233,10 @@ struct sensor_module {
 	struct regulator                *cammot_regulator;
 	struct i2c_driver               sensor_i2c_driver;
 	struct sensor_mem_tag           sensor_mem;
+	unsigned                        pin_reset;
+	unsigned                        pin_reset_sub;
+	unsigned                        pin_main;
+	unsigned                        pin_sub;
 };
 
 LOCAL const SN_MCLK                     c_sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
@@ -1719,6 +1723,20 @@ int sensor_k_probe(struct platform_device *pdev)
 			SENSOR_MINOR, ret);
 		return ret;
 	}
+#if CONFIG_OF
+	s_p_sensor_mod ->pin_reset = of_get_gpio(pdev->dev.of_node, 0);
+	s_p_sensor_mod ->pin_reset_sub = of_get_gpio(pdev->dev.of_node, 1);//s_p_sensor_mod ->pin_reset;
+	s_p_sensor_mod ->pin_main = of_get_gpio(pdev->dev.of_node, 2);
+	s_p_sensor_mod ->pin_sub = of_get_gpio(pdev->dev.of_node, 3);
+#else
+	s_p_sensor_mod ->pin_reset = GPIO_SENSOR_RESET;
+	s_p_sensor_mod ->pin_reset_sub = GPIO_SUB_SENSOR_RESET;
+	s_p_sensor_mod ->pin_main= GPIO_MAIN_SENSOR_PWN;
+	s_p_sensor_mod ->pin_sub= GPIO_SUB_SENSOR_PWN;
+#endif
+	printk("sensor pin_reset =%d\n",s_p_sensor_mod ->pin_reset);
+	printk("sensor pin_main =%d\n",s_p_sensor_mod ->pin_main);
+	printk("sensor pin_sub =%d\n",s_p_sensor_mod ->pin_sub);
 
 	ret = gpio_request(GPIO_MAIN_SENSOR_PWN, "main camera");
 	if (ret) {

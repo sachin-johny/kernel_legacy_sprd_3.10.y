@@ -22,6 +22,8 @@
 #include <linux/ioport.h>
 #include <linux/clk.h>
 #include <mach/board.h>
+#include <linux/of_gpio.h>
+
 
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bluetooth";
@@ -60,6 +62,22 @@ static void getIoResource(struct platform_device  *pdev)
 	}
         else
 	bt_reset = res->start;
+
+	printk("bt_reset = %ld, bt_power = %ld\n", bt_reset, bt_power);
+}
+
+static void getIoResourceDT(struct platform_device  *pdev)
+{
+	struct device_node *np = pdev->dev.of_node;
+
+	bt_power = of_get_gpio(np, 0);
+	if (bt_power < 0) {
+		printk("couldn't bt_power gpio\n");
+	}
+        bt_reset = of_get_gpio(np, 1);
+        if (bt_reset < 0) {
+                printk("couldn't bt_reset gpio\n");
+        }
 
 	printk("bt_reset = %ld, bt_power = %ld\n", bt_reset, bt_power);
 }
@@ -111,8 +129,12 @@ static int rfkill_bluetooth_probe(struct platform_device *pdev)
 	bool default_state = true;
 
 	printk(KERN_INFO "-->%s\n", __func__);
+#ifndef CONFIG_OF
 	getIoResource(pdev);
-
+#else
+	if (pdev->dev.of_node)
+		getIoResourceDT(pdev);
+#endif
 	bt_rfk = rfkill_alloc(bt_name, &pdev->dev, RFKILL_TYPE_BLUETOOTH,
 	   &rfkill_bluetooth_ops, NULL);
 	if (!bt_rfk) {
@@ -147,6 +169,14 @@ static int rfkill_bluetooth_remove(struct platform_device *dev)
 	printk(KERN_INFO "<--%s\n", __func__);
 	return 0;
 }
+#ifdef CONFIG_OF
+static const struct of_device_id rfkill_of_match[] = {
+       { .compatible = "broadcom,rfkill", },
+       { }
+};
+
+MODULE_DEVICE_TABLE(of, rfkill_of_match);
+#endif
 
 static struct platform_driver rfkill_bluetooth_driver = {
 	.probe  = rfkill_bluetooth_probe,
@@ -154,6 +184,9 @@ static struct platform_driver rfkill_bluetooth_driver = {
 	.driver = {
 		.name = "rfkill",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = rfkill_of_match,
+#endif
 	},
 };
 

@@ -31,8 +31,10 @@
 #include <linux/init.h>
 #include <asm/uaccess.h>
 #include <asm/unaligned.h>
-
-
+#include <linux/regulator/consumer.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
 
 /* Flag to enable touch key */
 #define MMS_HAS_TOUCH_KEY		1
@@ -1196,6 +1198,112 @@ static const struct attribute_group mms_attr_group = {
 	.attrs = mms_attrs,
 };
 #endif
+
+#ifdef CONFIG_OF
+static const u8 mms_ts_keycode[] = {KEY_MENU, KEY_BACK};
+static unsigned int gpio_touchkey_len_en;
+static const char * vdd_name;
+
+static void mms_ts_vdd_enable(bool on)
+{
+	static struct regulator *ts_vdd = NULL;
+
+	if (ts_vdd == NULL) {
+		ts_vdd = regulator_get(NULL, vdd_name);
+
+		if (IS_ERR(ts_vdd)) {
+			pr_err("Get regulator of TSP error!\n");
+			return;
+		}
+	}
+	if (on) {
+		regulator_set_voltage(ts_vdd, 3000000, 3000000);
+		regulator_enable(ts_vdd);
+	}
+	else if (regulator_is_enabled(ts_vdd)) {
+		regulator_disable(ts_vdd);
+	}
+}
+
+static void touchkey_led_vdd_enable(bool on)
+{
+	static int ret = 0;
+
+	if (ret == 0) {
+		ret = gpio_request(gpio_touchkey_len_en, "touchkey_led_en");
+		if (ret) {
+			printk("%s: request gpio error\n", __func__);
+			return -EIO;
+		}
+		gpio_direction_output(gpio_touchkey_len_en, 0);
+		ret = 1;
+	}
+	gpio_set_value(gpio_touchkey_len_en,on);
+}
+
+static struct mms_ts_platform_data * mms_ts_parse_dt(struct device *dev)
+{
+	struct mms_ts_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Could not allocate struct mms_ts_platform_data");
+		return NULL;
+	}
+	pdata->gpio_sda = of_get_gpio(np, 0);
+	if(pdata->gpio_sda < 0){
+		dev_err(dev, "fail to get gpio_sda\n");
+		goto fail;
+	}
+	pdata->gpio_scl = of_get_gpio(np, 1);
+	if(pdata->gpio_scl < 0){
+		dev_err(dev, "fail to get gpio_scl\n");
+		goto fail;
+	}
+	pdata->gpio_int = of_get_gpio(np, 2);
+	if(pdata->gpio_int < 0){
+		dev_err(dev, "fail to get gpio_int\n");
+		goto fail;
+	}
+	gpio_touchkey_len_en = of_get_gpio(np, 3);
+	if(gpio_touchkey_len_en < 0){
+		dev_err(dev, "fail to gpio_touchkey_len_en\n");
+		goto fail;
+	}
+	ret = of_property_read_string(np, "vdd_name", &vdd_name);
+	if(ret){
+		dev_err(dev, "fail to get vdd_name\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "max_x", &pdata->max_x);
+	if(ret){
+		dev_err(dev, "fail to get max_x\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "max_y", &pdata->max_y);
+	if(ret){
+		dev_err(dev, "fail to get max_y\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "use_touchkey", &pdata->use_touchkey);
+	if(ret){
+		dev_err(dev, "fail to get use_touchkey\n");
+		goto fail;
+	}
+
+	pdata->vdd_on = mms_ts_vdd_enable;
+	pdata->tkey_led_vdd_on = touchkey_led_vdd_enable;
+	pdata->touchkey_keycode = mms_ts_keycode;
+	return pdata;
+fail:
+	kfree(pdata);
+	return NULL;
+}
+#endif
+
+
 static int __init mms_ts_probe(struct i2c_client *client,
 		const struct i2c_device_id *id)
 {
@@ -1204,8 +1312,21 @@ static int __init mms_ts_probe(struct i2c_client *client,
 	struct input_dev *input_dev;
 	int ret = 0;
 	const char *fw_name = FW_NAME;
-	pr_debug("probe enter \n");
+	struct mms_ts_platform_data * pdata;
 
+	printk("probe enter \n");
+
+#ifdef CONFIG_OF
+	struct device_node *np = client->dev.of_node;
+	if (np && !client->dev.platform_data) {
+		pdata = mms_ts_parse_dt(&client->dev);
+		if(pdata) {
+			client->dev.platform_data = pdata;
+		} else {
+			return -ENODEV;
+		}
+	}
+#endif
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_I2C))
 		return -EIO;
@@ -1359,7 +1480,9 @@ static int __exit mms_ts_remove(struct i2c_client *client)
 
 	device_destroy(info->class, info->mms_dev);
 	class_destroy(info->class);
-	
+#ifdef CONFIG_OF
+	kfree(info->pdata);
+#endif	
 	kfree(info->fw_name);
 	kfree(info);
 
@@ -1429,6 +1552,12 @@ static const struct i2c_device_id mms_ts_id[] = {
 };
 MODULE_DEVICE_TABLE(i2c, mms_ts_id);
 
+#ifdef CONFIG_OF
+static const struct of_device_id mms_ts_of_match[] = {
+	{ .compatible = "Melfas,mms_ts", },
+	{ }
+};
+#endif
 
 static struct i2c_driver mms_ts_driver = {
 	.probe		= mms_ts_probe,
@@ -1437,6 +1566,9 @@ static struct i2c_driver mms_ts_driver = {
 		.name	= "mms_ts",
 #if defined(CONFIG_PM) && !defined(CONFIG_HAS_EARLYSUSPEND)
 		.pm	= &mms_ts_pm_ops,
+#endif
+#ifdef CONFIG_OF
+		.of_match_table = mms_ts_of_match,
 #endif
 	},
 	.id_table	= mms_ts_id,

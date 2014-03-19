@@ -380,7 +380,6 @@ static irqreturn_t gpio_keys_gpio_isr(int irq, void *dev_id)
 	if (bdata->is_deepsleep) {
 		bdata->is_deepsleep = false;
 	}
-
 	if (bdata->button->wakeup)
 		pm_stay_awake(bdata->input->dev.parent);
 	if (bdata->timer_debounce)
@@ -458,7 +457,6 @@ static int gpio_keys_setup_key(struct platform_device *pdev,
 	spin_lock_init(&bdata->lock);
 
 	if (gpio_is_valid(button->gpio)) {
-
 		error = gpio_request_one(button->gpio, GPIOF_IN, desc);
 		if (error < 0) {
 			dev_err(dev, "Failed to request GPIO %d, error %d\n",
@@ -737,8 +735,11 @@ static int gpio_keys_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, ddata);
 	input_set_drvdata(input, ddata);
-
+#ifndef CONFIG_OF
 	input->name = pdata->name ? : pdev->name;
+#else
+	input->name = "gpio-keys";
+#endif
 	input->phys = "gpio-keys/input0";
 	input->dev.parent = &pdev->dev;
 	input->open = gpio_keys_open;

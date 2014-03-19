@@ -1297,13 +1297,19 @@ static struct i2c_device_id ist30xx_idtable[] = {
 
 MODULE_DEVICE_TABLE(i2c, ist30xx_idtable);
 
+#ifdef CONFIG_OF
+static const struct of_device_id ist30xx_ts_of_match[] = {
+        { .compatible = "Imagis,IST30XX", },
+        { }
+};
+#endif
+
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static const struct dev_pm_ops ist30xx_pm_ops = {
 	.suspend	= ist30xx_suspend,
 	.resume		= ist30xx_resume,
 };
 #endif
-
 
 static struct i2c_driver ist30xx_i2c_driver = {
 	.id_table	= ist30xx_idtable,
@@ -1314,6 +1320,9 @@ static struct i2c_driver ist30xx_i2c_driver = {
 		.name	= IST30XX_DEV_NAME,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		.pm	= &ist30xx_pm_ops,
+#endif
+#ifdef CONFIG_OF
+                .of_match_table = ist30xx_ts_of_match,
 #endif
 	},
 };

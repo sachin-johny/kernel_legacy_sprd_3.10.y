@@ -222,7 +222,10 @@ static int __init sprd_init_vibrator(void)
 
 	return 0;
 }
-
+#ifdef CONFIG_OF
+late_initcall(sprd_init_vibrator);
+#else
 module_init(sprd_init_vibrator);
+#endif
 MODULE_DESCRIPTION("vibrator driver for spreadtrum Processors");
 MODULE_LICENSE("GPL");

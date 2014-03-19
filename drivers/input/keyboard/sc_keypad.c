@@ -31,6 +31,9 @@
 #include <linux/input/matrix_keypad.h>
 #include <linux/sysrq.h>
 #include <linux/sched.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
 
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
@@ -43,7 +46,11 @@
 
 #define DEBUG_KEYPAD	0
 
+#ifndef CONFIG_OF
 #define KPD_REG_BASE                (SPRD_KPD_BASE)
+#else
+static unsigned int KPD_REG_BASE;
+#endif
 
 #define KPD_CTRL                	(KPD_REG_BASE + 0x00)
 #define KPD_EN						(0x01 << 0)
@@ -109,7 +116,11 @@
 #define KPD_DEBUG_STATUS1        	(KPD_REG_BASE + 0x0034)
 #define KPD_DEBUG_STATUS2        	(KPD_REG_BASE + 0x0038)
 
+#ifndef CONFIG_OF
 #define PB_INT                  EIC_KEY_POWER
+#else
+static int PB_INT;
+#endif
 
 #if defined(CONFIG_ARCH_SC8825)
 static __devinit void __keypad_enable(void)
@@ -211,10 +222,10 @@ static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 	unsigned int row_shift = get_count_order(sci_kpd->cols);
 	int col, row;
 
+
 	value = __raw_readl(KPD_INT_CLR);
 	value |= KPD_INT_ALL;
 	__raw_writel(value, KPD_INT_CLR);
-
 	if ((int_status & KPD_PRESS_INT0)) {
 		col = KPD_INT0_COL(key_status);
 		row = KPD_INT0_ROW(key_status);
@@ -326,6 +337,130 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+#ifdef CONFIG_OF
+static struct sci_keypad_platdata *sci_keypad_parse_dt(
+                struct device *dev)
+{
+	struct sci_keypad_platform_data *pdata;
+	struct device_node *np = dev->of_node, *key_np;
+	uint32_t num_rows, num_cols;
+	uint32_t rows_choose_hw, cols_choose_hw;
+	uint32_t debounce_time;
+	struct matrix_keymap_data *keymap_data;
+	uint32_t *keymap, key_count;
+	struct resource res;
+	int ret;
+
+	ret = of_address_to_resource(np, 0, &res);
+	if(ret < 0){
+		dev_err(dev, "no reg of property specified\n");
+		return NULL;
+	}
+	KPD_REG_BASE = res.start;
+	PB_INT = of_get_gpio(np, 0);
+	if(PB_INT < 0){
+		dev_err(dev, "no gpios of property specified\n");
+		return NULL;
+	}
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+	ret = of_property_read_u32(np, "sprd,keypad-num-rows", &num_rows);
+	if(ret){
+		dev_err(dev, "no sprd,keypad-num-rows of property specified\n");
+		goto fail;
+	}
+	pdata->rows_number = num_rows;
+
+	ret = of_property_read_u32(np, "sprd,keypad-num-columns", &num_cols);
+	if(ret){
+		dev_err(dev, "no sprd,keypad-num-columns of property specified\n");
+		goto fail;
+	}
+	pdata->cols_number = num_cols;
+
+	ret = of_property_read_u32(np, "sprd,debounce_time", &debounce_time);
+	if(ret){
+		debounce_time = 0;
+	}
+	pdata->debounce_time = debounce_time;
+
+	if (of_get_property(np, "linux,input-no-autorepeat", NULL))
+		pdata->repeat = false;
+	if(of_get_property(np, "sprd,support_long_key", NULL))
+		pdata->support_long_key = true;
+	if (of_get_property(np, "linux,input-wakeup", NULL))
+		pdata->wakeup = true;
+
+
+	ret = of_property_read_u32(np, "sprd,keypad-rows-choose-hw", &rows_choose_hw);
+	if(ret){
+		dev_err(dev, "no sprd,keypad-rows-choose-hw of property specified\n");
+		goto fail;
+	}
+	pdata->rows_choose_hw = rows_choose_hw;
+
+	ret = of_property_read_u32(np, "sprd,keypad-cols-choose-hw", &cols_choose_hw);
+	if(ret){
+		dev_err(dev, "no sprd,keypad-cols-choose-hw of property specified\n");
+		goto fail;
+	}
+	pdata->cols_choose_hw = cols_choose_hw;
+
+	keymap_data = kzalloc(sizeof(*keymap_data), GFP_KERNEL);
+	if (!keymap_data) {
+		dev_err(dev, "could not allocate memory for keymap_data\n");
+		goto fail;
+	}
+	pdata->keymap_data = keymap_data;
+
+	key_count = of_get_child_count(np);
+	keymap_data->keymap_size = key_count;
+	keymap = kzalloc(sizeof(uint32_t) * key_count, GFP_KERNEL);
+	if (!keymap) {
+		dev_err(dev, "could not allocate memory for keymap\n");
+		goto fail_keymap;
+	}
+	keymap_data->keymap = keymap;
+
+	for_each_child_of_node(np, key_np) {
+		u32 row, col, key_code;
+		ret = of_property_read_u32(key_np, "keypad,row", &row);
+		if(ret)
+			goto fail_parse_keymap;
+		ret = of_property_read_u32(key_np, "keypad,column", &col);
+		if(ret)
+			goto fail_parse_keymap;
+		ret = of_property_read_u32(key_np, "linux,code", &key_code);
+		if(ret)
+			goto fail_parse_keymap;
+		*keymap++ = KEY(row, col, key_code);
+		pr_info("sci_keypad_parse_dt: %d, %d, %d\n",row, col, key_code);
+	}
+
+
+	return pdata;
+
+fail_parse_keymap:
+	dev_err(dev, "failed parsing keymap\n");
+	kfree(keymap);
+	keymap_data->keymap = NULL;
+fail_keymap:
+	kfree(keymap_data);
+	pdata->keymap_data = NULL;
+fail:
+	kfree(pdata);
+	return NULL;
+}
+#else
+static struct sci_keypad_platdata *sci_keypad_parse_dt(
+                struct device *dev)
+{
+	return NULL;
+}
+#endif
 
 static int sci_keypad_probe(struct platform_device *pdev)
 {
@@ -335,6 +470,13 @@ static int sci_keypad_probe(struct platform_device *pdev)
 	int error;
 	unsigned long value;
 	unsigned int row_shift, keycodemax;
+	struct device_node *np = pdev->dev.of_node;
+
+	if (pdev->dev.of_node && !pdata){
+		pdata = sci_keypad_parse_dt(&pdev->dev);
+		if(pdata)
+			pdev->dev.platform_data = pdata;
+	}
 
 	if (!pdata) {
 		printk(KERN_WARNING "sci_keypad_probe get platform_data NULL\n");
@@ -379,7 +521,7 @@ static int sci_keypad_probe(struct platform_device *pdev)
 		goto out2;
 	}
 
-	input_dev->name = pdev->name;
+	input_dev->name = "sci-keypad";
 	input_dev->phys = "sci-key/input0";
 	input_dev->dev.parent = &pdev->dev;
 	input_set_drvdata(input_dev, sci_kpd);
@@ -475,6 +617,7 @@ static int sci_keypad_remove(struct
 {
 	unsigned long value;
 	struct sci_keypad_t *sci_kpd = platform_get_drvdata(pdev);
+	struct sci_keypad_platform_data *pdata = pdev->dev.platform_data;
 	/* disable sci keypad controller */
 	__raw_writel(KPD_INT_ALL, KPD_INT_CLR);
 	value = __raw_readl(KPD_CTRL);
@@ -487,6 +630,11 @@ static int sci_keypad_remove(struct
 	input_unregister_device(sci_kpd->input_dev);
 	kfree(sci_kpd);
 	platform_set_drvdata(pdev, NULL);
+	if(pdev->dev.of_node){
+		kfree(pdata->keymap_data->keymap);
+		kfree(pdata->keymap_data);
+		kfree(pdata);
+	}
 	return 0;
 }
 
@@ -529,6 +677,10 @@ static int sci_keypad_resume(struct platform_device *dev)
 #define sci_keypad_resume	NULL
 #endif
 
+static struct of_device_id keypad_match_table[] = {
+	{ .compatible = "sprd,sci-keypad", },
+	{ },
+};
 struct platform_driver sci_keypad_driver = {
 	.probe = sci_keypad_probe,
 	.remove = sci_keypad_remove,
@@ -536,6 +688,7 @@ struct platform_driver sci_keypad_driver = {
 	.resume = sci_keypad_resume,
 	.driver = {
 		   .name = "sci-keypad",.owner = THIS_MODULE,
+		   .of_match_table = keypad_match_table,
 		   },
 };
 

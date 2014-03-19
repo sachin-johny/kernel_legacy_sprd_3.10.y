@@ -345,6 +345,15 @@ ssize_t sec_fg_store_attrs(struct device *dev,
 	return ret;
 }
 
+#ifdef CONFIG_OF
+static struct of_device_id sec_fuelgauge_match_table[] = {
+	{ .compatible = "Samsung,fuelgauge",},
+	{},
+};
+#else
+#define sec_fuelgauge_match_table NULL
+#endif
+
 #if defined(CONFIG_FUELGAUGE_MFD)
 static int __init sec_fuelgauge_probe(struct platform_device *pdev)
 {
@@ -371,6 +380,13 @@ static int __init sec_fuelgauge_probe(struct platform_device *pdev)
 
 	fuelgauge->client = mfd_dev->pmic_i2c_client;
 	fuelgauge->pdata = pdata->pbat_platform;
+
+#ifdef CONFIG_OF
+	if (client->dev.of_node && !fuelgauge->pdata) {
+		extern sec_battery_platform_data_t sec_battery_pdata;
+		fuelgauge->pdata = &sec_battery_pdata;
+	}
+#endif
 #if defined(CONFIG_FUELGAUGE_D2199)
 	fuelgauge->info.pd2199 = mfd_dev;
 #endif
@@ -518,6 +534,7 @@ static struct platform_driver sec_fuelgauge_driver = {
 		   .name = "sec-fuelgauge",
 		   .pm = &sec_fuelgauge_pm_ops,
 		   .shutdown = sec_fuelgauge_shutdown,
+		   .of_match_table = sec_fuelgauge_match_table,
 		   },
 	.probe	= sec_fuelgauge_probe,
 	.remove	= sec_fuelgauge_remove,
@@ -558,6 +575,12 @@ static int __init sec_fuelgauge_probe(struct i2c_client *client,
 
 	fuelgauge->client = client;
 	fuelgauge->pdata = client->dev.platform_data;
+#ifdef CONFIG_OF
+	if (client->dev.of_node && !fuelgauge->pdata) {
+		extern sec_battery_platform_data_t sec_battery_pdata;
+		fuelgauge->pdata = &sec_battery_pdata;
+	}
+#endif
 
 	i2c_set_clientdata(client, fuelgauge);
 
@@ -701,12 +724,14 @@ static const struct i2c_device_id sec_fuelgauge_id[] = {
 	{"sec-fuelgauge", 0},
 	{}
 };
-
 MODULE_DEVICE_TABLE(i2c, sec_fuelgauge_id);
+
+
 
 static struct i2c_driver sec_fuelgauge_driver = {
 	.driver = {
 		   .name = "sec-fuelgauge",
+		   .of_match_table = sec_fuelgauge_match_table,
 		   },
 	.probe	= sec_fuelgauge_probe,
 	.remove	= sec_fuelgauge_remove,

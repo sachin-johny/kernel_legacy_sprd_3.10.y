@@ -27,7 +27,11 @@
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
+#include <mach/irqs.h>
 
+#ifdef CONFIG_FLED_RT5033
+#include <linux/leds/rt5033_fled.h>
+#endif
 
 #define RT5033_DECLARE_IRQ(irq) { \
 	irq, irq, \
@@ -251,11 +255,12 @@ EXPORT_SYMBOL(rt5033_clr_bits);
 extern int rt5033_init_irq(rt5033_mfd_chip_t *chip);
 extern int rt5033_exit_irq(rt5033_mfd_chip_t *chip);
 
+#ifdef CONFIG_OF
+static rt5033_mfd_platform_data_t defdata;
+
 static int rt5033mfd_parse_dt(struct device *dev,
 		rt5033_mfd_platform_data_t *pdata)
 {
-	//irq_gpio
-	//irq_base = -1
 	int ret;
 	struct device_node *np = dev->of_node;
 	enum of_gpio_flags irq_gpio_flags;
@@ -267,14 +272,31 @@ static int rt5033mfd_parse_dt(struct device *dev,
 		return ret;
 	}
 
-	pdata->irq_base = -1;
-	ret = of_property_read_u32(np, " ", (u32*)&pdata->irq_gpio);
+	pdata->irq_base = __NR_IRQS;
 	if (ret < 0 || pdata->irq_base == -1) {
 		dev_info(dev, "%s : no assignment of irq_base, use irq_alloc_descs()\r\n",
 				__FUNCTION__);
 	}
+#ifndef CONFIG_MFD_RT5033_USE_DT
+#ifdef CONFIG_CHARGER_RT5033
+	extern rt5033_charger_platform_data_t charger_pdata;
+	pdata->charger_platform_data = &charger_pdata;
+#endif
+
+#ifdef CONFIG_FLED_RT5033
+	extern rt5033_fled_platform_data_t fled_pdata;
+	pdata->fled_platform_data = &fled_pdata;
+#endif
+
+#ifdef CONFIG_REGULATOR_RT5033
+	extern struct rt5033_regulator_platform_data rv_pdata;
+	pdata->regulator_platform_data = &rv_pdata;
+#endif
+#endif
+
 	return 0;
 }
+#endif
 
 static int __init rt5033_mfd_probe(struct i2c_client *i2c,
 		const struct i2c_device_id *id)
@@ -288,6 +310,18 @@ static int __init rt5033_mfd_probe(struct i2c_client *i2c,
 	rt5033_mfd_platform_data_t *pdata = i2c->dev.platform_data;
 
 	pr_info("%s : RT5033 MFD Driver start probe\n", __func__);
+
+#ifdef CONFIG_OF
+	if (of_node && !pdata) {
+		ret = rt5033mfd_parse_dt(&i2c->dev, &defdata);
+		if (ret < 0) {
+			return -ENODEV;
+		} else {
+			i2c->dev.platform_data = &defdata;
+			pdata = &defdata;
+		}
+	}
+#endif
 
 	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
 	if (chip ==  NULL) {

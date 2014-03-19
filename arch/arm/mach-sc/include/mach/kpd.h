@@ -30,6 +30,7 @@ struct sci_keypad_platform_data {
 	int support_long_key;
 	unsigned short repeat;
 	unsigned int debounce_time;	/* in ns */
+	int wakeup;
 };
 
 /* chip define begin */

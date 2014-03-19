@@ -2979,6 +2979,13 @@ static int __init sec_battery_probe(struct platform_device *pdev)
 	dev_info(&pdev->dev,
 		"%s: SEC Battery Driver Loading\n", __func__);
 
+#ifdef CONFIG_OF
+	extern sec_battery_platform_data_t sec_battery_pdata;
+	if (pdev->dev.of_node && !pdata) {
+		pdata = &sec_battery_pdata;
+	}
+#endif
+
 	battery = kzalloc(sizeof(*battery), GFP_KERNEL);
 	if (!battery)
 		return -ENOMEM;
@@ -3341,12 +3348,22 @@ static const struct dev_pm_ops sec_battery_pm_ops = {
 	.complete = sec_battery_complete,
 };
 
+#ifdef CONFIG_OF
+static const struct of_device_id  of_match_table_sec_battery[] = {
+		{ .compatible = "Samsung,battery", },
+		{ },
+};
+#endif
+
 static struct platform_driver sec_battery_driver = {
 	.driver = {
 		   .name = "sec-battery",
 		   .owner = THIS_MODULE,
 		   .pm = &sec_battery_pm_ops,
 		   .shutdown = sec_battery_shutdown,
+#ifdef CONFIG_OF
+			.of_match_table = of_match_ptr(of_match_table_sec_battery),
+#endif
 		   },
 	.probe = sec_battery_probe,
 	.remove = sec_battery_remove,

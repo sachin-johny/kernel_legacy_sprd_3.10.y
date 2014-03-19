@@ -209,7 +209,15 @@ dtb-$(CONFIG_ARCH_VT8500) += vt8500-bv07.dtb \
 	wm8650-mid.dtb \
 	wm8850-w70v2.dtb
 dtb-$(CONFIG_ARCH_ZYNQ) += zynq-zc702.dtb
-dtb-$(CONFIG_ARCH_SCX15) += sprd-scx15_sp7715ea.dtb
+ifeq ($(CONFIG_CMA),y)
+dtb-$(CONFIG_MACH_SPX15) += sprd-scx15_sp7715ea_cma.dtb
+dtb-$(CONFIG_MACH_KANAS_W) += sprd-scx35_kanas_w_cma.dtb
+else
+dtb-$(CONFIG_MACH_SPX15) += sprd-scx15_sp7715ea.dtb
+dtb-$(CONFIG_MACH_KANAS_W) += sprd-scx35_kanas_w.dtb
+endif
+dtb-$(CONFIG_MACH_CORSICA_VE_DT) += sprd-scx15_corsica_ve.dtb
+dtb-$(CONFIG_MACH_SPX35) += sprd-scx35_sp8830ec.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)

@@ -41,6 +41,8 @@
 #include <linux/spinlock.h>
 //#include <linux/broadcom/PowerManager.h>
 
+#include <linux/of.h>
+
 int current_intensity;
 #if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
 static int backlight_pin = 214;
@@ -400,9 +402,52 @@ static int ktd253b_backlight_resume(struct platform_device *pdev)
 #endif
 #endif
 
+
+#ifdef CONFIG_OF
+static int ktd253b_backlight_parse_dt(struct device *dev,
+                  struct platform_ktd253b_backlight_data *data)
+{
+	struct device_node *node = dev->of_node;
+	struct property *prop;
+	int length;
+	u32 value;
+	int ret;
+
+	if (!node)
+		return -ENODEV;
+
+	memset(data, 0, sizeof(*data));
+
+	ret = of_property_read_u32(node, "max_brightness", &value);
+	if (ret < 0)
+		return ret;
+	data->max_brightness = value;
+
+	ret = of_property_read_u32(node, "dft_brightness", &value);
+	if (ret < 0)
+		return ret;
+	data->dft_brightness = value;
+
+	ret = of_property_read_u32(node, "ctrl_pin", &value);
+	if (ret < 0)
+		return ret;
+	data->ctrl_pin = value;
+
+	return 0;
+}
+
+#else
+static int ktd253b_backlight_parse_dt(struct device *dev,
+                  struct platform_ktd253b_backlight_data *data)
+{
+	return -ENODEV;
+}
+#endif
+
 static int ktd253b_backlight_probe(struct platform_device *pdev)
 {
 	struct platform_ktd253b_backlight_data *data = pdev->dev.platform_data;
+	struct platform_ktd253b_backlight_data defdata;
 	struct backlight_device *bl;
 	struct ktd253b_bl_data *ktd253b;
 	struct backlight_properties props;
@@ -413,8 +458,12 @@ static int ktd253b_backlight_probe(struct platform_device *pdev)
     
 	if (!data) 
 	{
-		dev_err(&pdev->dev, "failed to find platform data\n");
-		return -EINVAL;
+		ret = ktd253b_backlight_parse_dt(&pdev->dev, &defdata);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to find platform data\n");
+			return ret;
+		}
+		data = &defdata;
 	}
 
 	ktd253b = kzalloc(sizeof(*ktd253b), GFP_KERNEL);
@@ -482,11 +531,16 @@ static int ktd253b_backlight_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id backlight_of_match[] = {
+	{ .compatible = "sprd,sprd_backlight", },
+	{ }
+};
 
 static struct platform_driver ktd253b_backlight_driver = {
 	.driver		= {
 		.name	= "sprd_backlight",
 		.owner	= THIS_MODULE,
+		.of_match_table = backlight_of_match,
 	},
 	.probe		= ktd253b_backlight_probe,
 	.remove		= ktd253b_backlight_remove,

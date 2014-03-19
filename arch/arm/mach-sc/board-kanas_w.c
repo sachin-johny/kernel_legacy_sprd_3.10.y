@@ -24,6 +24,9 @@
 #include <linux/irqchip/arm-gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/localtimer.h>
+#include <linux/of_platform.h>
+#include <linux/clocksource.h>
+#include <linux/clk-provider.h>
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
@@ -123,6 +126,7 @@ static struct platform_device rt8973_mfd_device_i2cadaptor;
 #endif
 #endif
 
+#ifndef CONFIG_OF
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
 	&sprd_serial_device1,
@@ -221,6 +225,7 @@ static struct platform_device *devices[] __initdata = {
 	&gpio_button_device,
 	&sprd_headset_device,
 };
+#endif
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
 #include <linux/battery/sec_battery.h>
@@ -233,6 +238,9 @@ static struct platform_device *devices[] __initdata = {
 #endif
 #ifdef CONFIG_FLED_RT5033
 #include <linux/leds/rt5033_fled.h>
+#endif
+#ifdef CONFIG_MFD_RT8973
+#include <linux/mfd/rt8973.h>
 #endif
 
 /* ---- battery ---- */
@@ -627,6 +635,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.chg_irq_attr = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
 	.chg_float_voltage = 4350,
 };
+EXPORT_SYMBOL(sec_device_battery);
 
 static struct platform_device sec_device_battery = {
 	.name = "sec-battery",
@@ -703,13 +712,14 @@ static struct regulator_init_data rt5033_buck_data = {
 	.consumer_supplies = rt5033_buck_consumers,
 };
 
-const static struct rt5033_regulator_platform_data rv_pdata = {
+const struct rt5033_regulator_platform_data rv_pdata = {
 	.regulator = {
 		[RT5033_ID_LDO_SAFE] = &rt5033_safe_ldo_data,
 		[RT5033_ID_LDO1] = &rt5033_ldo_data,
 		[RT5033_ID_DCDC1] = &rt5033_buck_data,
 	},
 };
+EXPORT_SYMBOL(rv_pdata);
 #endif
 
 #ifdef CONFIG_RT5033_SADDR
@@ -724,7 +734,7 @@ const static struct rt5033_regulator_platform_data rv_pdata = {
 
 /* add fled platform data */
 #ifdef CONFIG_FLED_RT5033
-static rt5033_fled_platform_data_t fled_pdata = {
+rt5033_fled_platform_data_t fled_pdata = {
     .fled1_en = 1,
     .fled2_en = 1,
     .fled_mid_track_alive = 0,
@@ -736,13 +746,16 @@ static rt5033_fled_platform_data_t fled_pdata = {
     .fled_lv_protection = RT5033_LV_PROTECTION(3200),
     .fled_mid_level = RT5033_MID_REGULATION_LEVEL(5000),
 };
+EXPORT_SYMBOL(fled_pdata);
 #endif
 
 rt5033_charger_platform_data_t charger_pdata = {
 	.charging_current_table = charging_current_table,
 	.chg_float_voltage = 4200,
 };
+EXPORT_SYMBOL(charger_pdata);
 
+#ifndef CONFIG_OF
 /* Define mfd driver platform data*/
 // error: variable 'sc88xx_rt5033_info' has initializer but incomplete type
 struct rt5033_mfd_platform_data sc88xx_rt5033_info = {
@@ -829,6 +842,7 @@ static struct i2c_board_info rtmuic_i2c_boardinfo[] __initdata = {
     },
 };
 #endif /*CONFIG_MFD_RT8973*/
+#endif
 
 int epmic_event_handler(int level);
 u8 attached_cable;
@@ -904,6 +918,7 @@ skip:
 EXPORT_SYMBOL(sec_charger_cb);
 #endif
 
+#ifndef CONFIG_OF
 static struct platform_device *late_devices[] __initdata = {
 	/* 1. CODECS */
 	&sprd_audio_sprd_codec_v3_device,
@@ -924,6 +939,7 @@ static struct platform_device *late_devices[] __initdata = {
 	&sprd_audio_vbc_r2p0_sprd_codec_v3_device,
 	&sprd_audio_i2s_null_codec_device,
 };
+#endif
 
 /* BT suspend/resume */
 static struct resource bluesleep_resources[] = {
@@ -1034,7 +1050,7 @@ static void __init sprd_add_otg_device(void)
 	platform_device_register(&sprd_otg_device);
 }
 
-
+#ifndef CONFIG_OF
 static void mms_ts_vdd_enable(bool on)
 {
 	static struct regulator *ts_vdd = NULL;
@@ -1071,6 +1087,7 @@ static void touchkey_led_vdd_enable(bool on)
         }
         gpio_set_value(GPIO_TOUCHKEY_LED_EN,on);
 }
+#endif
 
 static struct serial_data plat_data0 = {
 	.wakeup_type = BT_RTS_HIGH_WHEN_SLEEP,
@@ -1318,15 +1335,18 @@ static void create_sirf_proc_file(void)
 #endif
 // GPS for marvell
 
+#ifndef CONFIG_OF
 static struct tsp_platform_data ist30xx_info = {
 	.gpio = GPIO_TOUCH_IRQ,
 };
+
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{
 		I2C_BOARD_INFO("IST30XX", 0x50),
 		.platform_data =&ist30xx_info,
 	},
 };
+#endif
 
 static struct i2c_board_info i2c0_boardinfo[] = {
 		{I2C_BOARD_INFO("sensor_main",0x3C),},
@@ -1447,6 +1467,7 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 
 #endif
 
+#ifndef CONFIG_OF
 static int sc8810_add_i2c_devices(void)
 {
 #if defined(CONFIG_SENSORS)
@@ -1465,6 +1486,7 @@ static int sc8810_add_i2c_devices(void)
 #endif
 	return 0;
 }
+#endif
 
 #if 0
 static int customer_ext_headphone_ctrl(int id, int on)
@@ -1613,10 +1635,27 @@ static struct i2s_config i2s1_config = {0};
 static struct i2s_config i2s2_config = {0};
 static struct i2s_config i2s3_config = {0};
 
+const struct of_device_id of_sprd_default_bus_match_table[] = {
+	{ .compatible = "simple-bus", },
+	{ .compatible = "sprd,adi-bus", },
+	{}
+};
+
+#ifdef CONFIG_OF
+static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
+	{ .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.0", .phys_addr = SPRD_SDIO0_BASE  },
+	{ .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.1", .phys_addr = SPRD_SDIO1_BASE  },
+	{ .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.2", .phys_addr = SPRD_SDIO2_BASE  },
+	{ .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.3", .phys_addr = SPRD_EMMC_BASE  },
+	{}
+};
+#endif
+
 static void __init sc8830_init_machine(void)
 {
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
+#ifndef CONFIG_OF
 	sci_adc_init((void __iomem *)ADC_BASE);
 	sci_regulator_init();
 	sprd_add_otg_device();
@@ -1631,21 +1670,35 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 	platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
 
+
+	platform_add_devices(devices, ARRAY_SIZE(devices));
+	sc8810_add_i2c_devices();
+#else
+	of_platform_populate(NULL, of_sprd_default_bus_match_table, of_sprd_default_bus_lookup, NULL);
+#endif
+
 // GPS for marvell
 #ifdef CONFIG_PROC_FS
 	/* create proc for gps GPS control */
 	create_sirf_proc_file();
 #endif
 // GPS for marvell
-
-	platform_add_devices(devices, ARRAY_SIZE(devices));
-	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 }
 
+const struct of_device_id of_sprd_late_bus_match_table[] = {
+	{ .compatible = "sprd,sound", },
+	{}
+};
+
 static void __init sc8830_init_late(void)
 {
+#ifdef CONFIG_OF
+	of_platform_populate(of_find_node_by_path("/sprd-audio-devices"),
+				of_sprd_late_bus_match_table, NULL, NULL);
+#else
 	platform_add_devices(late_devices, ARRAY_SIZE(late_devices));
+#endif
 }
 
 extern void __init  sci_enable_timer_early(void);
@@ -1653,12 +1706,58 @@ static void __init sc8830_init_early(void)
 {
 	/* earlier init request than irq and timer */
 	__clock_init_early();
+#ifndef CONFIG_OF
 	sci_enable_timer_early();
+#endif
 	sci_adi_init();
 
 	/*ipi reg init for sipc*/
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
+
+#ifdef CONFIG_OF
+static void __init sc8830_pmu_init(void)
+{
+	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
+		     & ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN),
+		     REG_PMU_APB_PD_MM_TOP_CFG);
+
+	__raw_writel(__raw_readl(REG_PMU_APB_PD_GPU_TOP_CFG)
+		     & ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN),
+		     REG_PMU_APB_PD_GPU_TOP_CFG);
+
+	__raw_writel(__raw_readl(REG_AON_APB_APB_EB0) | BIT_MM_EB |
+		     BIT_GPU_EB, REG_AON_APB_APB_EB0);
+
+	__raw_writel(__raw_readl(REG_MM_AHB_AHB_EB) | BIT_MM_CKG_EB,
+		     REG_MM_AHB_AHB_EB);
+
+	__raw_writel(__raw_readl(REG_MM_AHB_GEN_CKG_CFG)
+		     | BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN,
+		     REG_MM_AHB_GEN_CKG_CFG);
+
+	__raw_writel(__raw_readl(REG_MM_CLK_MM_AHB_CFG) | 0x3,
+		     REG_MM_CLK_MM_AHB_CFG);
+}
+
+static void sprd_init_time(void)
+{
+	if(of_have_populated_dt()){
+		sc8830_pmu_init();
+		of_clk_init(NULL);
+		clocksource_of_init();
+	}else{
+		sci_clock_init();
+		sci_enable_timer_early();
+		sci_timer_init();
+	}
+}
+static const char *sprd_boards_compat[] __initdata = {
+	"sprd,kanas_w",
+	NULL,
+};
+#endif
+
 extern struct smp_operations sprd_smp_ops;
 
 MACHINE_START(SCPHONE, "sc8830")
@@ -1666,10 +1765,16 @@ MACHINE_START(SCPHONE, "sc8830")
 	.reserve	= sci_reserve,
 	.map_io		= sci_map_io,
 	.init_early	= sc8830_init_early,
-//	.handle_irq	= gic_handle_irq,
 	.init_irq	= sci_init_irq,
-	.init_time		= sci_timer_init,
+#ifdef CONFIG_OF
+	.init_time		= sprd_init_time,
+#else
+	.init_time              = sci_timer_init,
+#endif
 	.init_machine	= sc8830_init_machine,
 	.init_late	= sc8830_init_late,
+#ifdef CONFIG_OF
+	.dt_compat = sprd_boards_compat,
+#endif
 MACHINE_END
 

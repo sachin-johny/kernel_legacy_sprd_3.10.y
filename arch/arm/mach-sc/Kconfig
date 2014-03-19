@@ -98,6 +98,8 @@ config MACH_KANAS_W
 	bool "kanas W Phone Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
 	default n
 	help
 	  Samsung Kanas W board based on SC8830 serial.
