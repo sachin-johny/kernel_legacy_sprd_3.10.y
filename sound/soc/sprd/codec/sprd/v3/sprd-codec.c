@@ -58,6 +58,10 @@
 #define SRC_SUPPORT_RATE (0)
 #endif
 
+int hp_register_notifier(struct notifier_block *nb);
+int hp_unregister_notifier(struct notifier_block *nb);
+int get_hp_plug_state(void);
+
 #define SOC_REG(r) ((unsigned short)(r))
 #define FUN_REG(f) ((unsigned short)(-((f) + 1)))
 #define ID_FUN(id, lr) ((unsigned short)(((id) << 1) | (lr)))
@@ -364,6 +368,8 @@ struct sprd_codec_priv {
 	int sprd_codec_fun;
 	spinlock_t sprd_codec_fun_lock;
 	spinlock_t sprd_codec_pa_sw_lock;
+
+	struct notifier_block nb;
 };
 
 static int sprd_codec_power_get(struct device *dev, struct regulator **regu,
@@ -1149,6 +1155,7 @@ static inline void sprd_codec_hp_classg_en(struct snd_soc_codec *codec, int on)
 	val = on ? mask : 0;
 	snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
 }
+
 static inline void sprd_codec_hp_pa_lpw(struct snd_soc_codec *codec, int lpw)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
@@ -1307,14 +1314,34 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 	struct snd_soc_codec *codec = sprd_codec->codec;
 	static struct regulator *regulator = 0;
 	struct sprd_codec_inter_hp_pa *p_setting =
-	    &sprd_codec->inter_hp_pa.setting;
+		&sprd_codec->inter_hp_pa.setting;
 
+	static struct regulator *regulator_reg= 0;
 	if (on) {
-		/*1.CG_EN */
-		sprd_codec_hp_classg_en(codec, 1);
-		sprd_codec_wait(p_setting->class_g_open_delay_10ms * 10);
-		/*2. LDO PD */
 		if (!regulator) {
+			sp_asoc_pr_dbg("%s set vddclsg on\n", __func__);
+			/*1.CG_EN */
+			//open clk
+			regulator_reg = regulator_get(0, "VREG");
+			if (IS_ERR(regulator)) {
+				pr_err("ERR:Failed to request %ld: %s\n",
+					   PTR_ERR(regulator_reg), "VREG");
+				BUG_ON(1);
+			}
+			regulator_set_mode(regulator_reg, REGULATOR_MODE_STANDBY);
+			if (regulator_enable(regulator_reg) < 0) {
+			} else {
+				sprd_codec_hp_classg_en(codec, 1);
+			}
+			//close clk
+			regulator_set_mode(regulator_reg,
+					   REGULATOR_MODE_NORMAL);
+			regulator_disable(regulator_reg);
+			regulator_put(regulator_reg);
+			regulator_reg = 0;
+
+			sprd_codec_wait(p_setting->class_g_open_delay_10ms * 10);
+			/*2. LDO PD */
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
 				pr_err("ERR:Failed to request %ld: %s\n",
@@ -1331,16 +1358,41 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 			}
 		}
 	} else{
-		/*LDO PD*/
 		if (regulator) {
+			sp_asoc_pr_dbg("%s set vddclsg off\n", __func__);
+			/*LDO PD*/
 			regulator_set_mode(regulator, REGULATOR_MODE_NORMAL);
 			regulator_disable(regulator);
 			regulator_put(regulator);
 			regulator = 0;
+			/*CG_EN*/
+			//open clk
+			regulator_reg = regulator_get(0, "VREG");
+			if (IS_ERR(regulator)) {
+				pr_err("ERR:Failed to request %ld: %s\n",
+					   PTR_ERR(regulator_reg), "VREG");
+				BUG_ON(1);
+			}
+			regulator_set_mode(regulator_reg, REGULATOR_MODE_STANDBY);
+			if (regulator_enable(regulator_reg) < 0) {
+			} else {
+				sprd_codec_hp_classg_en(codec, 0);
+			}
+			//close clk
+			regulator_set_mode(regulator_reg,
+					   REGULATOR_MODE_NORMAL);
+			regulator_disable(regulator_reg);
+			regulator_put(regulator_reg);
+			regulator_reg = 0;
 		}
-		/*CG_EN*/
-		sprd_codec_hp_classg_en(codec, 0);
 	}
+}
+static int  hp_notifier_handler (struct notifier_block *nb,
+			unsigned long action, void *data)
+{
+	struct sprd_codec_priv *sprd_codec = container_of (nb, struct sprd_codec_priv, nb);
+	sprd_inter_headphone_pa_pre (sprd_codec, !!action);
+	return 0;
 }
 
 static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
@@ -3218,15 +3270,11 @@ static struct snd_soc_dai_ops sprd_codec_dai_ops = {
 #ifdef CONFIG_PM
 static int sprd_codec_soc_suspend(struct snd_soc_codec *codec)
 {
-	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	sprd_inter_headphone_pa_pre(sprd_codec, 0);
 	return 0;
 }
 
 static int sprd_codec_soc_resume(struct snd_soc_codec *codec)
 {
-	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
-	sprd_inter_headphone_pa_pre(sprd_codec,1);
 	return 0;
 }
 #else
@@ -3424,7 +3472,7 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
-	struct regulator *regulator = 0;
+	int hp_plug_state = get_hp_plug_state();
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -3436,23 +3484,7 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 
 	sprd_codec_audio_ldo(sprd_codec);
 
-	regulator = regulator_get(0, "VREG");
-	if (IS_ERR(regulator)) {
-		pr_err("ERR:Failed to request %ld: %s\n",
-			   PTR_ERR(regulator), "VREG");
-		BUG_ON(1);
-	}
-	regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
-	if (regulator_enable(regulator) < 0) {
-		regulator_set_mode(regulator,
-				   REGULATOR_MODE_NORMAL);
-		regulator_disable(regulator);
-		regulator_put(regulator);
-		regulator = 0;
-	} else {
-		sprd_inter_headphone_pa_pre(sprd_codec,1);
-	}
-
+	sprd_inter_headphone_pa_pre(sprd_codec, hp_plug_state);
 	return ret;
 }
 
@@ -3601,6 +3633,9 @@ static int sprd_codec_probe(struct platform_device *pdev)
 	sprd_codec_vcom_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
 	sprd_codec_pa_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
 
+	sprd_codec->nb.notifier_call = hp_notifier_handler;
+	hp_register_notifier(&sprd_codec->nb);
+
 	return 0;
 
 dp_err_irq:
@@ -3615,6 +3650,7 @@ static int sprd_codec_remove(struct platform_device *pdev)
 	sprd_codec_power_regulator_exit(sprd_codec);
 	free_irq(sprd_codec->ap_irq, sprd_codec);
 	free_irq(sprd_codec->dp_irq, sprd_codec);
+	hp_unregister_notifier(&sprd_codec->nb);
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
