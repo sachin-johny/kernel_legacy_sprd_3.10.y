@@ -23,6 +23,10 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/hwspinlock.h>
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_address.h>
+#endif
 #include <asm/delay.h>
 
 #include <mach/hardware.h>
@@ -33,9 +37,12 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/arch_lock.h>
 
+#ifdef CONFIG_OF
+static unsigned int CTL_ADI_BASE;
+#else
 /* soc defined begin*/
 #define CTL_ADI_BASE			( SPRD_ADI_BASE )
-
+#endif
 /* registers definitions for controller CTL_ADI */
 #define REG_ADI_CTRL0					(CTL_ADI_BASE + 0x04)
 #define REG_ADI_CHNL_PRI				(CTL_ADI_BASE + 0x08)
@@ -327,6 +334,10 @@ static void __init __adi_init(void)
 
 int __init sci_adi_init(void)
 {
+#ifdef CONFIG_OF
+	struct device_node *np;
+#endif
+
 #if defined(CONFIG_ARCH_SC8825)
 	/* enable adi in global regs */
 	sci_glb_set(REG_GLB_GEN0, BIT_ADI_EB);
@@ -342,6 +353,10 @@ int __init sci_adi_init(void)
 	sci_glb_set(REG_AON_APB_APB_RST0, BIT_ADI_SOFT_RST);
 	udelay(2);
 	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_ADI_SOFT_RST);
+#endif
+#ifdef CONFIG_OF
+	np = of_find_compatible_node(NULL, NULL, "sprd,adic");
+	CTL_ADI_BASE = be32_to_cpu(*of_get_address(np, 0, NULL, NULL));
 #endif
 	__adi_init();
 

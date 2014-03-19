@@ -22,6 +22,8 @@
 #include <linux/io.h>
 #include <linux/sched.h>
 #include <linux/clocksource.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 
 #include <asm/sched_clock.h>
 #include <asm/localtimer.h>
@@ -35,16 +37,25 @@
 #include <mach/pm_debug.h>
 
 static __iomem void *base_gptimer[4] = {
+#ifndef CONFIG_OF
 	(__iomem void *)SPRD_GPTIMER_BASE,
 	(__iomem void *)SPRD_APTIMER0_BASE,
 	(__iomem void *)SPRD_APTIMER1_BASE,
 	(__iomem void *)SPRD_APTIMER2_BASE,
+#else
+	0,
+#endif
 };
+
 static int irq_nr[4] = {
+#ifndef CONFIG_OF
 	IRQ_AONTMR0_INT,
 	IRQ_APTMR0_INT,
 	IRQ_APTMR2_INT,
 	IRQ_APTMR4_INT,
+#else
+	0,
+#endif
 };
 static struct clock_event_device *local_evt[4]={0};
 static int e_cpu = 0;
@@ -73,9 +84,17 @@ static int e_cpu = 0;
 #define	SOURCE_TIMER	2
 
 #define BC_CPU 1
-#define BC_IRQ  IRQ_APTMR1_INT
+#ifndef CONFIG_OF
+static int BC_IRQ = IRQ_APTMR1_INT;
+#else
+static int BC_IRQ = 0;
+#endif
 
+#ifndef CONFIG_OF
 static __iomem void *base_syscnt = (__iomem void *)SPRD_SYSCNT_BASE;
+#else
+static __iomem void *base_syscnt = (__iomem void *)NULL;
+#endif
 #define	SYSCNT_COUNT	(base_syscnt + 0x0004)
 #define	SYSCNT_CTL	(base_syscnt + 0x0008)
 #define	SYSCNT_SHADOW_CNT	(base_syscnt + 0x000C)
@@ -407,3 +426,45 @@ void __init sci_timer_init(void)
 
 	printk(KERN_INFO "sci_timer_init\n");
 }
+
+#ifdef CONFIG_OF
+#define LOCAL_TIMER_CNT 4
+static void __init sprd_init_timer(struct device_node *np)
+{
+    	struct clk *clk;
+	struct resource res;
+	int i, ret;
+
+	printk("%s \n", __func__);
+	ret = of_address_to_resource(np, 0, &res);
+	base_syscnt = res.start;
+    	if (ret < 0) {
+		pr_err("Can't get syscnt registers");
+		BUG();
+	}
+	for(i = 0; i < LOCAL_TIMER_CNT; i++){
+		ret = of_address_to_resource(np, i+1, &res);
+		if (ret < 0) {
+			pr_err("Can't get timer %d registers for local timer", i+1);
+			BUG();
+		}
+		*(base_gptimer + i)= res.start;
+	}
+	BC_IRQ = irq_of_parse_and_map(np, 0);
+	if(BC_IRQ < 0){
+		pr_err("Can't map bc irq");
+		BUG();
+	}
+	for(i = 0; i < LOCAL_TIMER_CNT; i++){
+		*(irq_nr + i) = irq_of_parse_and_map(np, i+1);
+		if(*(irq_nr + i) < 0){
+			pr_err("Can't map bc irq");
+			BUG();
+		}
+	}
+    	of_node_put(np);
+	sci_enable_timer_early();
+	sci_timer_init();
+}
+CLOCKSOURCE_OF_DECLARE(scx35_timer, "sprd,scx35-timer", sprd_init_timer);
+#endif

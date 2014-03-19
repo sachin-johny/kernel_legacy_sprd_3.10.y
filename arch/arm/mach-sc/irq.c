@@ -28,7 +28,10 @@
 #include <mach/arch_misc.h>
 #include <asm/fiq.h>
 #include <mach/adi.h>
-
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/irqchip.h>
+#endif
 /* general interrupt registers */
 #define	INTC_IRQ_MSKSTS		(0x0000)
 #define	INTC_IRQ_RAW		(0x0004)
@@ -238,13 +241,21 @@ static int __set_wake(struct irq_data *d, unsigned int on)
 
 void __init sci_init_irq(void)
 {
-	gic_init(0, 29, (void __iomem *)CORE_GIC_DIS_VA,
-		 (void __iomem *)CORE_GIC_CPU_VA);
+#ifdef CONFIG_OF
+	if (!of_have_populated_dt()){
+#endif
+		gic_init(0, 29, (void __iomem *)CORE_GIC_DIS_VA,
+				(void __iomem *)CORE_GIC_CPU_VA);
+		ana_init_irq();
+#ifdef CONFIG_OF
+	}else{
+		irqchip_init();
+	}
+#endif
 	gic_arch_extn.irq_mask = __irq_mask;
 	gic_arch_extn.irq_unmask = __irq_unmask;
 	gic_arch_extn.irq_set_wake = __set_wake;
 
-	ana_init_irq();
 
 	/*disable legacy interrupt*/
 #if (LEGACY_FIQ_BIT < 32)

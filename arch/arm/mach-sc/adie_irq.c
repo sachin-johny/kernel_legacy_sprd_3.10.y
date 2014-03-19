@@ -18,6 +18,11 @@
 #include <linux/irq.h>
 #include <linux/io.h>
 #include <linux/interrupt.h>
+#ifdef CONFIG_OF
+#include <linux/irqdomain.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#endif
 
 #include <asm/delay.h>
 
@@ -47,6 +52,7 @@
 #endif
 
 
+static struct irq_domain *irq_domain;
 void sprd_ack_ana_irq(struct irq_data *data)
 {
 	/* nothing to do... */
@@ -83,7 +89,11 @@ static irqreturn_t sprd_muxed_ana_handler(int irq, void *dev_id)
 	while (status) {
 		i = __ffs(status);
 		status &= ~(1 << i);
+#ifndef CONFIG_OF
 		irq_ana = IRQ_ANA_INT_START + i;
+#else
+		irq_ana = irq_find_mapping(irq_domain, i);
+#endif
 		pr_debug("%s generic_handle_irq %d\n", __FUNCTION__, irq_ana);
 		generic_handle_irq(irq_ana);
 	}
@@ -109,3 +119,49 @@ void __init ana_init_irq(void)
 
 }
 
+#ifdef CONFIG_OF
+#define IRQCHIP_DECLARE(name,compstr,fn)				\
+	static const struct of_device_id irqchip_of_match_##name	\
+	__used __section(__irqchip_of_table)				\
+	= { .compatible = compstr, .data = fn }
+int __init adi_of_init(struct device_node *node, struct device_node *parent)
+{
+	void __iomem *v_base;
+	uint32_t reg_size, irqnums, i;
+	struct resource res;
+	int irq;
+
+	if (WARN_ON(!node))
+		return -ENODEV;
+
+	if(of_address_to_resource(node, 0, &res)){
+		pr_err("no reg of property specified for adi\n");
+		return -ENODEV;
+	}
+	v_base = res.start;
+	reg_size = resource_size(&res);
+
+	if (of_property_read_u32(node, "sprd,irqnums", &irqnums)){
+		pr_err("no sprd,irqnums of property specified");
+		BUG();
+	}
+
+	irq_domain = irq_domain_add_linear(node, irqnums,
+			&irq_domain_simple_ops, NULL);
+	BUG_ON(!irq_domain);
+
+	if (parent) {
+		irq = irq_of_parse_and_map(node, 0);
+		setup_irq(irq, &__adie_mux_irq);
+	}
+	for(i = 0; i < irqnums; i++){
+		irq = irq_create_mapping(irq_domain, i);
+		irq_set_chip_and_handler(irq, &sprd_muxed_ana_chip,
+					 handle_level_irq);
+		set_irq_flags(irq, IRQF_VALID);
+	}
+	return 0;
+}
+IRQCHIP_DECLARE(sprd_adi, "sprd,adi-bus", adi_of_init);
+
+#endif
