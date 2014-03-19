@@ -261,6 +261,17 @@ config MACH_CORSICA_VE
 	help
 	  CORSICA_VE board based on dolphin serial.
 
+config MACH_CORSICA_VE_DT
+	bool "corsica_ve_dt Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	select CLKSRC_OF if OF
+	select COMMON_CLK
+	default n
+	help
+	  CORSICA_VE board based on dolphin serial.
+
 config MACH_VIVALTO
 	bool "vivalto Phone Board"
 	depends on ARCH_SC

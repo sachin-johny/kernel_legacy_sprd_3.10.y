@@ -520,8 +520,11 @@ static int sci_keypad_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "unable to claim irq %d\n", sci_kpd->irq);
 		goto out2;
 	}
-
+#ifndef CONFIG_OF
+	input_dev->name = pdev->name;
+#else
 	input_dev->name = "sci-keypad";
+#endif
 	input_dev->phys = "sci-key/input0";
 	input_dev->dev.parent = &pdev->dev;
 	input_set_drvdata(input_dev, sci_kpd);

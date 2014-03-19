@@ -30,6 +30,8 @@
 #include <linux/spinlock.h>
 #include <linux/rtc.h>
 
+#include <linux/of.h>
+
 int current_intensity;
 #ifdef CONFIG_MACH_NEVISTD
 static int backlight_pin = 138;
@@ -323,17 +325,65 @@ static int rt4502_backlight_resume(struct platform_device *pdev)
 #define rt4502_backlight_resume   NULL
 #endif
 #endif
+
+
+#ifdef CONFIG_OF
+static int rt4502_backlight_parse_dt(struct device *dev,
+                  struct platform_rt4502_backlight_data *data)
+{
+	struct device_node *node = dev->of_node;
+	struct property *prop;
+	int length;
+	u32 value;
+	int ret;
+
+	if (!node)
+		return -ENODEV;
+
+	memset(data, 0, sizeof(*data));
+
+	ret = of_property_read_u32(node, "max_brightness", &value);
+	if (ret < 0)
+		return ret;
+	data->max_brightness = value;
+
+	ret = of_property_read_u32(node, "dft_brightness", &value);
+	if (ret < 0)
+		return ret;
+	data->dft_brightness = value;
+
+	ret = of_property_read_u32(node, "ctrl_pin", &value);
+	if (ret < 0)
+		return ret;
+	data->ctrl_pin = value;
+
+	return 0;
+}
+
+#else
+static int rt4502_backlight_parse_dt(struct device *dev,
+                  struct platform_rt4502_backlight_data *data)
+{
+	return -ENODEV;
+}
+#endif
 static int rt4502_backlight_probe(struct platform_device *pdev)
 {
-struct platform_rt4502_backlight_data *data = pdev->dev.platform_data;
+	struct platform_rt4502_backlight_data *data = pdev->dev.platform_data;
+	struct platform_rt4502_backlight_data defdata;
 	struct backlight_device *bl;
 	struct rt4502_bl_data *rt4502;
     	struct backlight_properties props;
 	int ret;
         BLDBG("[BACKLIGHT] rt4502_backlight_probe\n");
-	if (!data) {
-		dev_err(&pdev->dev, "failed to find platform data\n");
-		return -EINVAL;
+    if (!data)
+	{
+		ret = rt4502_backlight_parse_dt(&pdev->dev, &defdata);
+		if (ret < 0) {
+			dev_err(&pdev->dev, "failed to find platform data\n");
+			return ret;
+		}
+		data = &defdata;
 	}
 	rt4502 = kzalloc(sizeof(*rt4502), GFP_KERNEL);
 	if (!rt4502) {
@@ -393,10 +443,16 @@ static int rt4502_backlight_shutdown(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id backlight_of_match[] = {
+	{ .compatible = "sprd,sprd_backlight", },
+	{ }
+};
+
 static struct platform_driver rt4502_backlight_driver = {
 	.driver		= {
 		.name	= "sprd_backlight",
 		.owner	= THIS_MODULE,
+		.of_match_table = backlight_of_match,
 	},
 	.probe		= rt4502_backlight_probe,
 	.remove		= rt4502_backlight_remove,

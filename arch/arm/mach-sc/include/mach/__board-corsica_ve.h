@@ -90,6 +90,12 @@
 #define GPIO_BT2AP_WAKE     192
 #define GPIO_AP2BT_WAKE     188
 
+#define BOARD_DEFAULT_REV 1
+#define GPIO_HW_REV0 39
+#define GPIO_HW_REV1 40
+#define GPIO_HW_REV2 41
+#define GPIO_HW_REV3 42
+
 #define GPIO_WIFI_SHUTDOWN	230
 #define GPIO_WIFI_IRQ		234
 

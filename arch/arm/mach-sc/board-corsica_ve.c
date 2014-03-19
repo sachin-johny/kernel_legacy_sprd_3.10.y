@@ -24,7 +24,11 @@
 #include <linux/irqchip/arm-gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/localtimer.h>
+#include <linux/of_platform.h>
+#include <linux/clocksource.h>
+#include <linux/clk-provider.h>
 
+#include <mach/hardware.h>
 #include <linux/i2c.h>
 //#include <linux/i2c/ft53x6_ts.h>
 #include <linux/i2c/focaltech.h>
@@ -85,6 +89,9 @@ extern void __init sci_init_irq(void);
 extern void __init sci_timer_init(void);
 extern int __init sci_clock_init(void);
 extern int __init sci_regulator_init(void);
+
+#ifndef CONFIG_OF
+
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
@@ -292,6 +299,7 @@ static struct platform_device kb_backlight_device = {
 	.name           = "keyboard-backlight",
 	.id             =  -1,
 };
+#endif /* CONFIG_OF */
 
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
@@ -317,6 +325,8 @@ int in_calibration(void)
 }
 
 EXPORT_SYMBOL(in_calibration);
+
+#ifndef CONFIG_OF
 
 static void __init sprd_add_otg_device(void)
 {
@@ -939,6 +949,7 @@ static int sc8810_add_misc_devices(void)
 	}
 	return 0;
 }
+#endif /*CONFIG_OF*/
 
 int __init __clock_init_early(void)
 {
@@ -1013,7 +1024,7 @@ static inline int	__sci_get_chip_id(void)
 {
 	return __raw_readl(CHIP_ID_LOW_REG);
 }
-
+#ifndef CONFIG_OF
 /*i2s0 config for BT, use pcm mode*/
 static struct i2s_config i2s0_config = {
 	.fs = 8000,
@@ -1037,12 +1048,49 @@ static struct i2s_config i2s1_config = {0};
 static struct i2s_config i2s2_config = {0};
 static struct i2s_config i2s3_config = {0};
 
+#endif
+
+const struct of_device_id of_sprd_default_bus_match_table[] = {
+	{ .compatible = "simple-bus", },
+	{ .compatible = "sprd,adi-bus", },
+	{}
+};
+
+int get_hw_rev(void)
+{
+	int hw_rev;
+	gpio_request(GPIO_HW_REV0, "hw_rev0");
+	gpio_request(GPIO_HW_REV1, "hw_rev1");
+	gpio_request(GPIO_HW_REV2, "hw_rev2");
+	gpio_request(GPIO_HW_REV3, "hw_rev3");
+
+	gpio_direction_input(GPIO_HW_REV0);
+	gpio_direction_input(GPIO_HW_REV1);
+	gpio_direction_input(GPIO_HW_REV2);
+	gpio_direction_input(GPIO_HW_REV3);
+
+	hw_rev = (gpio_get_value(GPIO_HW_REV0)<<3)|(gpio_get_value(GPIO_HW_REV1)<<2)|(gpio_get_value(GPIO_HW_REV2)<<1)|(gpio_get_value(GPIO_HW_REV3));
+	printk("HW_REV: 0x%x\n", hw_rev);
+	return hw_rev;
+}
+
+#ifdef CONFIG_OF
+static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
+	 { .compatible = "sprd,sdhci-dolphin",  .name = "sprd-sdhci.0", .phys_addr = SPRD_SDIO0_BASE  },
+	 { .compatible = "sprd,sdhci-dolphin",  .name = "sprd-sdhci.1", .phys_addr = SPRD_SDIO1_BASE  },
+	 { .compatible = "sprd,sdhci-dolphin",  .name = "sprd-sdhci.2", .phys_addr = SPRD_SDIO2_BASE  },
+	 { .compatible = "sprd,sdhci-dolphin",  .name = "sprd-sdhci.3", .phys_addr = SPRD_EMMC_BASE  },
+	{}
+};
+#endif
+
 static void __init sc8830_init_machine(void)
 {
 	u32 reg_val;
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
 	sci_adc_init((void __iomem *)ADC_BASE);
+#ifndef CONFIG_OF
 	sci_regulator_init();
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
@@ -1071,11 +1119,50 @@ static void __init sc8830_init_machine(void)
 	ANA_REG_SET(ANA_REG_GLB_DCDC_GEN_ADI,reg_val,-1);
 	reg_val = ANA_REG_GET(ANA_REG_GLB_DCDC_GEN_ADI);
 	printk("!!!!!!!!!!!!reg_val = %x\n!!!!!!!!!!!!!",reg_val);
+#else
+	of_platform_populate(NULL, of_sprd_default_bus_match_table, of_sprd_default_bus_lookup, NULL);
+#endif
+}
+
+#ifdef CONFIG_OF
+const struct of_device_id of_sprd_late_bus_match_table[] = {
+	{ .compatible = "sprd,sound", },
+	{}
+};
+#endif
+
+static sprd_open_classg(void)
+{
+	static struct regulator *regulator = 0;
+	regulator = regulator_get(0, "vddclsg");
+	if (IS_ERR(regulator)) {
+		pr_err("ERR:Failed to request %ld: %s\n",
+		       PTR_ERR(regulator), CLASS_G_LDO_ID);
+		BUG_ON(1);
+	}
+	regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
+	if (regulator_enable(regulator) < 0) {
+		regulator_set_mode(regulator,
+				   REGULATOR_MODE_NORMAL);
+		regulator_disable(regulator);
+		regulator_put(regulator);
+		regulator = 0;
+	}
 }
 
 static void __init sc8830_init_late(void)
 {
+#ifdef CONFIG_OF
+	of_platform_populate(of_find_node_by_path("/sprd-audio-devices"),
+				of_sprd_late_bus_match_table, NULL, NULL);
+#else
 	platform_add_devices(late_devices, ARRAY_SIZE(late_devices));
+#endif
+#if 0
+	/* set distinguished classG amp by the board revision */
+	if(get_hw_rev() <= BOARD_DEFAULT_REV)
+		sprd_open_classg();
+#endif
 }
 
 extern void __init  sci_enable_timer_early(void);
@@ -1083,11 +1170,56 @@ static void __init sc8830_init_early(void)
 {
 	/* earlier init request than irq and timer */
 	__clock_init_early();
+#ifndef CONFIG_OF
 	sci_enable_timer_early();
+#endif
 	sci_adi_init();
 	/*ipi reg init for sipc*/
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
+#ifdef CONFIG_OF
+static void __init sc8830_pmu_init(void)
+{
+	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
+		     & ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN),
+		     REG_PMU_APB_PD_MM_TOP_CFG);
+
+	__raw_writel(__raw_readl(REG_PMU_APB_PD_GPU_TOP_CFG)
+		     & ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN),
+		     REG_PMU_APB_PD_GPU_TOP_CFG);
+
+	__raw_writel(__raw_readl(REG_AON_APB_APB_EB0) | BIT_MM_EB |
+		     BIT_GPU_EB, REG_AON_APB_APB_EB0);
+
+	__raw_writel(__raw_readl(REG_MM_AHB_AHB_EB) | BIT_MM_CKG_EB,
+		     REG_MM_AHB_AHB_EB);
+
+	__raw_writel(__raw_readl(REG_MM_AHB_GEN_CKG_CFG)
+		     | BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN,
+		     REG_MM_AHB_GEN_CKG_CFG);
+
+	__raw_writel(__raw_readl(REG_MM_CLK_MM_AHB_CFG) | 0x3,
+		     REG_MM_CLK_MM_AHB_CFG);
+}
+
+static void sprd_init_time(void)
+{
+	if(of_have_populated_dt()){
+		sc8830_pmu_init();
+		of_clk_init(NULL);
+		clocksource_of_init();
+	}else{
+		sci_clock_init();
+		sci_enable_timer_early();
+		sci_timer_init();
+	}
+}
+static const char *sprd_boards_compat[] __initdata = {
+	"sprd,spx15",
+	NULL,
+};
+#endif
+extern struct smp_operations sprd_smp_ops;
 
 /*
  * Setup the memory banks.
@@ -1099,13 +1231,21 @@ static void __init sc8830_fixup(struct machine_desc *desc,
 }
 
 MACHINE_START(SCPHONE, "scx15")
+	.smp		= smp_ops(sprd_smp_ops),
 	.reserve	= sci_reserve,
 	.map_io		= sci_map_io,
 	.fixup		= sc8830_fixup,
 	.init_early	= sc8830_init_early,
 	.init_irq	= sci_init_irq,
+#ifdef CONFIG_OF
+	.init_time		= sprd_init_time,
+#else
 	.init_time		= sci_timer_init,
+#endif
 	.init_machine	= sc8830_init_machine,
 	.init_late	= sc8830_init_late,
+#ifdef CONFIG_OF
+	.dt_compat = sprd_boards_compat,
+#endif
 MACHINE_END
 

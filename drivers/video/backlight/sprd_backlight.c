@@ -504,6 +504,10 @@ static int sprd_backlight_resume(struct platform_device *pdev)
 #define sprd_backlight_resume NULL
 #endif
 
+static const struct of_device_id backlight_of_match[] = {
+	{ .compatible = "sprd,sprd_backlight", },
+	{ }
+};
 static struct platform_driver sprd_backlight_driver = {
 	.probe = sprd_backlight_probe,
 	.remove = sprd_backlight_remove,
@@ -513,6 +517,7 @@ static struct platform_driver sprd_backlight_driver = {
 	.driver = {
 		.name = "sprd_backlight",
 		.owner = THIS_MODULE,
+		.of_match_table = backlight_of_match,
 	},
 };
 

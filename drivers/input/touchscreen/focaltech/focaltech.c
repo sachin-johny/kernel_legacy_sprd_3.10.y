@@ -34,6 +34,9 @@
 //#include <linux/i2c/ft53x6_ts.h>
 #include <mach/regulator.h>
 #include <linux/input/mt.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
 
 #include <linux/sched.h>
 #include <linux/kthread.h>
@@ -687,6 +690,57 @@ void focaltech_get_upgrade_array(struct i2c_client *client)
 	}
 }
 
+#ifdef CONFIG_OF
+static struct ft5x0x_ts_platform_data *ft5x0x_ts_parse_dt(struct device *dev)
+{
+	struct ft5x0x_ts_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Could not allocate struct ft5x0x_ts_platform_data");
+		return NULL;
+	}
+	pdata->reset_gpio_number = of_get_gpio(np, 0);
+	if(pdata->reset_gpio_number < 0){
+		dev_err(dev, "fail to get reset_gpio_number\n");
+		goto fail;
+	}
+	pdata->irq_gpio_number = of_get_gpio(np, 1);
+	if(pdata->reset_gpio_number < 0){
+		dev_err(dev, "fail to get reset_gpio_number\n");
+		goto fail;
+	}
+	ret = of_property_read_string(np, "vdd_name", &pdata->vdd_name);
+	if(ret){
+		dev_err(dev, "fail to get vdd_name\n");
+		goto fail;
+	}
+	ret = of_property_read_u32_array(np, "virtualkeys", &pdata->virtualkeys,12);
+	if(ret){
+		dev_err(dev, "fail to get virtualkeys\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "TP_MAX_X", &pdata->TP_MAX_X);
+	if(ret){
+		dev_err(dev, "fail to get TP_MAX_X\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "TP_MAX_Y", &pdata->TP_MAX_Y);
+	if(ret){
+		dev_err(dev, "fail to get TP_MAX_Y\n");
+		goto fail;
+	}
+
+	return pdata;
+fail:
+	kfree(pdata);
+	return NULL;
+}
+#endif
+
+
 static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
 	struct ft5x0x_ts_data *ft5x0x_ts;
@@ -697,7 +751,19 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	u8 chip_id,i;
 
 	pr_info("[FST] %s: probe\n",__func__);
-
+#ifdef CONFIG_OF
+	struct device_node *np = client->dev.of_node;
+	if (np && !pdata){
+		pdata = ft5x0x_ts_parse_dt(&client->dev);
+		if(pdata){
+			client->dev.platform_data = pdata;
+		}
+		else{
+			err = -ENOMEM;
+			goto exit_alloc_platform_data_failed;
+		}
+	}
+#endif
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		err = -ENODEV;
 		goto exit_check_functionality_failed;
