@@ -205,6 +205,7 @@ static struct platform_device *devices[] __initdata = {
     &sprd_saudio_voip_device,
 };
 
+#ifndef CONFIG_OF
 static struct platform_device *late_devices[] __initdata = {
 	/* 1. CODECS */
 	&sprd_audio_sprd_codec_v3_device,
@@ -226,6 +227,7 @@ static struct platform_device *late_devices[] __initdata = {
 	&sprd_audio_i2s_null_codec_device,
 
 };
+#endif
 
 #if 0
 /* BT suspend/resume */
@@ -787,9 +789,21 @@ static void __init sc8830_init_machine(void)
 
 }
 
+#ifdef CONFIG_OF
+const struct of_device_id of_sprd_late_bus_match_table[] = {
+	{ .compatible = "sprd,sound", },
+	{}
+};
+#endif
+
 static void __init sc8830_init_late(void)
 {
+#ifdef CONFIG_OF
+	of_platform_populate(of_find_node_by_path("/sprd-audio-devices"),
+				of_sprd_late_bus_match_table, NULL, NULL);
+#else
 	platform_add_devices(late_devices, ARRAY_SIZE(late_devices));
+#endif
 }
 
 extern void __init  sci_enable_timer_early(void);

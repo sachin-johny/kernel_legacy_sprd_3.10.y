@@ -606,6 +606,19 @@ u32 sci_dma_get_dst_addr(u32 dma_chn)
 	return __raw_readl(DMA_CHN_DES_ADR(dma_chn));
 }
 
+int sci_dma_dump_reg(u32 dma_chn, u32 *reg_base)
+{
+	if (dma_chn >= DMA_CHN_MAX) {
+		return -EINVAL;
+	}
+
+	if(reg_base) {
+		*reg_base = DMA_CHx_BASE(dma_chn);
+	}
+
+	return  DMA_CHx_OFFSET;
+}
+
 #define DMA_MEMCPY_MIN_SIZE 64
 #define DMA_MEMCPY_MAX_SIZE TRSC_LEN_MASK
 static void sci_dma_memcpy_irqhandle(int chn, void *data)
@@ -737,4 +750,5 @@ EXPORT_SYMBOL_GPL(sci_dma_stop);
 EXPORT_SYMBOL_GPL(sci_dma_ioctl);
 EXPORT_SYMBOL_GPL(sci_dma_get_src_addr);
 EXPORT_SYMBOL_GPL(sci_dma_get_dst_addr);
+EXPORT_SYMBOL_GPL(sci_dma_dump_reg);
 EXPORT_SYMBOL_GPL(sci_dma_memcpy);
