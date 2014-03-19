@@ -92,7 +92,7 @@ static struct sprd_debug_entry sprd_debug_array[] = {
 #endif
 
 #ifdef CONFIG_SPRD_CPU_RATE
-	NOD(CPU,    "cpu_usage", 0, &proc_cpu_usage_fops),
+	NOD(CPU,    "cpu_usage", 0444, &proc_cpu_usage_fops),
 #endif
 };
 
