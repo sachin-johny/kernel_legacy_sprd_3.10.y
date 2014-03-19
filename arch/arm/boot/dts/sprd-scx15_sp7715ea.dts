@@ -17,8 +17,11 @@
 /* memory reserved for CPWCN modem */
 /memreserve/ 0x8a800000 0x281000;
 
-/* memory reserved for ION */
-/memreserve/ 0x9da00000 0x2600000;
+/* memory reserved for ION overlay*/
+/memreserve/ 0x9fc00000 0x400000;
+
+/*memory reserved for ION mm*/
+/memreserve/ 0x9c800000 0x3200000;
 
 /include/ "skeleton.dtsi"
 /include/ "scx15-clocks.dtsi"
@@ -34,14 +37,14 @@
 	interrupt-parent = <&gic>;
 
 	chosen {
-		bootargs = "loglevel=1 console=ttyS1,115200n8 init=/init root=/dev/ram0 rw";
+		bootargs = "loglevel=8 console=ttyS1,115200n8 init=/init root=/dev/ram0 rw";
 		linux,initrd-start = <0x85500000>;
 		linux,initrd-end   = <0x855a3212>;
 	};
 
 	memory {
 		device_type = "memory";
-		reg = <0x80000000 0x10000000>;
+		reg = <0x80000000 0x20000000>;
 	};
 
 	aliases {
@@ -241,6 +244,17 @@
 			 linux,code = <102>;
 		 };
 	 };
+	 gpio_keys {
+		 compatible = "gpio-keys";
+		 home {
+			 label = "Home Key";
+			 linux,code = <102>;
+			 gpios = <&d_gpio_gpio 113 1>;
+			 debounce-interval = <2>;
+			 gpio-key,wakeup;
+		 };
+	 };
+
 	 sprd_vsp@f5300000{
 		 compatible = "sprd,sprd_vsp";
 		 reg = <0Xf5300000 0xc000>;
@@ -310,6 +324,14 @@
 		 reg = <0xf536a000 0x1000>;
 		 #address-cells = <1>;
 		 #size-cells = <0>;
+		 sensor_main@0x3c{
+		        compatible = "sprd,sensor_main";
+		        reg = <0x3c>;
+		 };
+		 sensor_sub@0x21{
+		        compatible = "sprd,sensor_sub";
+		        reg = <0x21>;
+		 };
 	 };
 	 i2c1: i2c@f536c000{
 		 compatible  = "sprd,i2c";
@@ -374,10 +396,10 @@
 	 };
 	 sprd_dcam{
 		 compatible  = "sprd,sprd_dcam";
-		 interrupts = <0 44 0>;
-		 reg = <0xf12f0000 0x100000>;
-		 #address-cells = <1>;
-		 #size-cells = <0>;
+		 interrupts = <0 45 0>;
+		 reg = <0xf52f0000 0x100000>;
+		 clock-names = "clk_mm_i","clk_dcam";
+		 clocks = <&clk_mm>, <&clk_dcam>;
 	 };
 	 sprd_scale {
 		 compatible  = "sprd,sprd_scale";
@@ -387,9 +409,17 @@
 	 };
 	 sprd_sensor {
 		 compatible  = "sprd,sprd_sensor";
-	 };
+		 gpios = <&d_gpio_gpio 162 0   /*reset*/
+		        &d_gpio_gpio 163 0    /*main*/
+		        &d_gpio_gpio 164 0>;  /*sub */
+		 clock-names ="clk_mm_i","clk_sensor","clk_ccir","clk_dcam";
+		 clocks = <&clk_mm>, <&clk_sensor>,<&clk_ccir>, <&clk_dcam>;
+		 };
 	 sprd_isp {
 		 compatible  = "sprd,sprd_isp";
+	 };
+	 sprd_dma_copy {
+		 compatible  = "sprd,sprd_dma_copy";
 	 };
 	fb0: fb@20800000 {
 		compatible = "sprd,sprdfb";
@@ -637,7 +667,7 @@
 		caps2 = <0x202>;
 		vdd-extmmc = "vddsd";
 		sd-supply = <&vddsd>;
-		vdd-level = <1800000 2500000 2800000 3000000>;
+		vdd-level = <0 0 1800000 3000000>;
 		clock-names = "clk_sdio0";
 		clocks = <&clk_sdio0>, <&clk_384m>;
 		enb-bit = <0x100>;
@@ -746,7 +776,7 @@
 		 clocks = <&clk_256m>, <&clk_gpu_axi>,<&clk_gpu>, <&clk_312m>;
          };
          sprd_iommu {
-                 sprd_iommu@0 {
+                 sprd_iommu0:sprd_iommu@F5410000 {
                        compatible  = "sprd,sprd_iommu";//gsp
                        func-name = "sprd_iommu_gsp";
                        reg = <0x10000000 0x1000000>, //iova
@@ -756,23 +786,44 @@
                        clock-names = "clk_disp_emc","clk_153m6","clk_gsp";
                        clocks = <&clk_disp_emc>, <&clk_153m6>,<&clk_gsp>;
                  };
-                 sprd_iommu@1 {
+                 sprd_iommu1:sprd_iommu@F5430000 {
                        compatible  = "sprd,sprd_iommu";//mm
                        func-name = "sprd_iommu_mm";
                        reg = <0x20000000 0x4000000>,   //iova
                              <0xF5430000 0x10000>,     //pgt
                              <0xF5440000 0x1000>;      //ctrl_reg
                        reg_name = "iova","pgt","ctrl_reg";
-                       clock-names = "clk_mmu";
-                       clocks = <&clk_mmu>;
+                       clock-names = "clk_mmu","clk_mm";
+                       clocks = <&clk_mmu>,<&clk_mm>;
                  };
          };
+
          ion {
-		 compatible = "sprd,ion-sprd";
-	         reg = <0x9da00000 0x1c00000>,
-		       <0x9f600000 0xa00000>;
-	         reg-names = "SPRD_ION_MEM","SPRD_ION_OVERLAY_MEM";
-         };
+		compatible = "sprd,ion-sprd";
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sprd,ion-heap@1 {
+			reg = <1>;                      /* SYSTEM */
+			reg-names = "ion_heap_system";
+			sprd,ion-heap-type = <0>;       /* SYSTEM */
+			sprd,ion-heap-mem = <0x0 0x0>;
+		};
+
+		sprd,ion-heap@2 {
+			reg = <2>;                      /* MM */
+			reg-names = "ion_heap_carveout_mm";
+			sprd,ion-heap-type = <2>;       /* carveout mm */
+			sprd,ion-heap-mem = <0x9c800000 0x3200000>;
+		};
+
+		sprd,ion-heap@3 {
+			reg = <3>;                      /* OVERLAY */
+			reg-names = "ion_heap_carveout_overlay";
+			sprd,ion-heap-type = <2>;       /* CARVEOUT */
+			sprd,ion-heap-mem = <0x9fc00000 0x400000>;	/* 4M */
+		};
+	};
 	 sprd_rf2351: sprd_rf2351@40070000{
 		compatible  = "sprd,sprd_rf2351";
 		reg = <0xf51f8000 0x1000>,		/*RFSPI*/
