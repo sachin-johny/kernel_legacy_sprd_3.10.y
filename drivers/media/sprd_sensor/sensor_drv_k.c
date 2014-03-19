@@ -34,6 +34,9 @@
 #include <mach/board.h>
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 #include <mach/arch_misc.h>
 
 #if defined (CONFIG_ARCH_SC8825)
