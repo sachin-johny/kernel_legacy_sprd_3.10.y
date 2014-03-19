@@ -25,7 +25,9 @@
 #include <linux/init.h>
 #include <linux/console.h>
 #include <linux/delay.h>
-
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#endif
 
 #include <linux/compat.h>
 #include <linux/tty_flip.h>
@@ -241,14 +243,87 @@ static void stty_driver_exit(struct stty_device *device)
 	tty_port_destroy(device->port);
 }
 
+static int stty_parse_dt(struct stty_init_data **init, struct device *dev)
+{
+#ifdef CONFIG_OF
+	struct of_device_node *np = dev->of_node;
+	struct stty_init_data *pdata = NULL;
+	int ret;
+	uint32_t data;
+
+	pdata = kzalloc(sizeof(struct stty_init_data), GFP_KERNEL);
+	if (!pdata) {
+		return -ENOMEM;
+	}
+
+	ret = of_property_read_string(np, "sprd,name", (const char **)&pdata->name);
+	if (ret) {
+		goto error;
+	}
+
+	ret = of_property_read_u32(np, "sprd,dst", (uint32_t *)&data);
+	if (ret) {
+		goto error;
+	}
+	pdata->dst = (uint8_t)data;
+
+	ret = of_property_read_u32(np, "sprd,channel", (uint32_t *)&data);
+	if (ret) {
+		goto error;
+	}
+	pdata->channel = (uint8_t)data;
+
+	ret = of_property_read_u32(np, "sprd,bufid", (uint32_t *)&pdata->bufid);
+	if (ret) {
+		goto error;
+	}
+
+	*init = pdata;
+	return 0;
+error:
+	kfree(pdata);
+	*init = NULL;
+	return ret;
+#else
+	return -ENODEV;
+#endif
+}
+
+static inline void stty_destroy_pdata(struct stty_init_data **init)
+{
+#ifdef CONFIG_OF
+	struct stty_init_data *pdata = *init;
+
+	if (pdata) {
+		kfree(pdata);
+	}
+
+	*init = NULL;
+#else
+	return;
+#endif
+}
+
+
 static int  stty_probe(struct platform_device *pdev)
 {
 	struct stty_init_data *pdata = (struct stty_init_data*)pdev->dev.platform_data;
 	struct stty_device *stty;
 	int rval= 0;
 
+	if (pdev->dev.of_node && !pdata) {
+		rval = stty_parse_dt(&pdata, &pdev->dev);
+		if (rval) {
+			printk(KERN_ERR "failed to parse styy device tree, ret=%d\n", rval);
+			return rval;
+		}
+	}
+	pr_info("stty: after parse device tree, name=%s, dst=%u, channel=%u, bufid=%u\n",
+		pdata->name, pdata->dst, pdata->channel, pdata->bufid);
+
 	stty = kzalloc(sizeof(struct stty_device),GFP_KERNEL);
 	if (stty == NULL) {
+		stty_destroy_pdata(&pdata);
 		printk(KERN_ERR "stty Failed to allocate device!\n");
 		return -ENOMEM;
 	}
@@ -257,6 +332,7 @@ static int  stty_probe(struct platform_device *pdev)
 	rval = stty_driver_init(stty);
 	if (rval) {
 		kfree(stty);
+		stty_destroy_pdata(&pdata);
 		printk(KERN_ERR "stty driver init error!\n");
 		return -EINVAL;
 	}
@@ -291,15 +367,22 @@ static int  stty_remove(struct platform_device *pdev)
 
 	stty_driver_exit(stty);
 	kfree(stty->port);
+	stty_destroy_pdata(&stty->pdata);
 	kfree(stty);
 	platform_set_drvdata(pdev, NULL);
 	return 0;
 }
 
+static const struct of_device_id stty_match_table[] = {
+	{ .compatible = "sprd,stty4bt", },
+	{ },
+};
+
 static struct platform_driver stty_driver = {
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "sttybt",
+		.of_match_table = stty_match_table,
 	},
 	.probe = stty_probe,
 	.remove = stty_remove,
