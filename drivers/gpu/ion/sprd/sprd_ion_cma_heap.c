@@ -64,7 +64,7 @@ ion_phys_addr_t ion_cma_allocate(struct ion_heap *heap,
 		end = (val.tv_sec * 1000000 + val.tv_usec) / 1000;
 		if(!page) {
 			pr_err("ion: malloc dma_alloc_from_contiguous() failed size:0x%lx , pageCount:%d\n" , size , pagecount);
-			return -ENOMEM;
+			return ION_CMA_ALLOCATE_FAIL;
 		}
 		phys = page_to_phys(page);
 		printk("ion: malloc from cma mem: size=%08lx,phy addr=%08lx, time=%dms\n", size, phys, end-start);
