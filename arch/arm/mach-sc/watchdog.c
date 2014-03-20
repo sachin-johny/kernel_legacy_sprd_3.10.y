@@ -12,6 +12,8 @@
  */
 
 #include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/platform_device.h>
 #include <mach/hardware.h>
 #include <mach/watchdog.h>
 #include <mach/adi.h>
@@ -129,8 +131,38 @@ static int flag_get(void *data, u64 *val)
 DEFINE_SIMPLE_ATTRIBUTE(fatal_dump_fops, flag_get, flag_set, "%llu\n");
 struct dentry *fatal_dump_dir;
 #endif
+
+#ifdef CONFIG_OF
+static int sprd_wdt_probe(struct platform_device *pdev)
+{
+	int ret;
+	struct resource *res;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if (!res) {
+		ret = -ENODEV;
+	}
+	return 0;
+}
+
+static struct of_device_id sprd_wdt_match_table[] = {
+	{ .compatible = "sprd,watchdog", },
+	{ },
+};
+
+
+static struct platform_driver sprd_wdt_driver = {
+	.probe		= sprd_wdt_probe,
+	.driver		= {
+		.name	= "sprd-wdt",
+		.owner	= THIS_MODULE,
+		.of_match_table = sprd_wdt_match_table,
+	},
+};
+#endif
 static int __init fatal_flag_init(void)
 {
+	int ret = 0;
 #ifdef CONFIG_ARCH_SC8825
 	dump_flag = (void __iomem *)(SPRD_IRAM_BASE + SZ_16K - 4);
 #else
@@ -146,12 +178,18 @@ static int __init fatal_flag_init(void)
 	}
 	debugfs_create_file("enable", S_IRUGO | S_IWUSR, fatal_dump_dir, NULL, &fatal_dump_fops);
 #endif
-	return 0;
+#ifdef CONFIG_OF
+	ret = platform_driver_register(&sprd_wdt_driver);
+#endif
+	return ret;
 }
 static __exit void fatal_flag_exit(void)
 {
 #ifdef CONFIG_DEBUG_FS
 	debugfs_remove_recursive(fatal_dump_dir);
+#endif
+#ifdef CONFIG_OF
+	platform_driver_unregister(&sprd_wdt_driver);
 #endif
 	return;
 }
