@@ -2962,6 +2962,10 @@ retry:
 		 * found doesn't happen to be a thread group leader.
 		 * As we don't care in the case of readdir.
 		 */
+		/*FIXME: add log for bug 287894 */
+		if((long)iter.task <= PAGE_OFFSET || (long)iter.task >= CONFIG_VECTORS_BASE){
+			panic("%s: iter.task 0x%p error, tgid %u, pid 0x%p\n", __func__, iter.task, iter.tgid, pid);
+		} /* bug 287894 log add end */
 		if (!iter.task || !has_group_leader_pid(iter.task)) {
 			iter.tgid += 1;
 			goto retry;
