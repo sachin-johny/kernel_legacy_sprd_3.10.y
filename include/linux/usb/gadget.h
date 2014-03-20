@@ -185,6 +185,7 @@ struct usb_ep {
         int gpio_boost;
 	int gpio_chgdet;
 	int gpio_otgdet;
+	int gpio_num;
 };
 /*-------------------------------------------------------------------------*/
 

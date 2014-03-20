@@ -64,7 +64,11 @@
 
 #include <asm/io.h>
 #include <mach/usb.h>
-
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
+#endif
 
 #include "dwc_os.h"
 #include "dwc_otg_dbg.h"
@@ -634,7 +638,9 @@ static int dwc_otg_driver_remove(
 		iounmap(otg_dev->os_dep.base);
 	}
 	dwc_free(otg_dev);
-
+#ifdef CONFIG_OF
+	dwc_free(_dev->dev.platform_data );
+#endif
 	/*
 	 * Clear the drvdata pointer.
 	 */
@@ -673,8 +679,23 @@ static int dwc_otg_driver_probe(
 {
 	int retval = 0;
 	dwc_otg_device_t *dwc_otg_device;
-	struct sprd_usb_platform_data *pdata= _dev->dev.platform_data;
 	int irq;
+#ifndef CONFIG_OF
+	struct sprd_usb_platform_data *pdata= _dev->dev.platform_data;
+#else
+	int ret;
+	struct device_node *np = _dev->dev.of_node;
+	struct resource res;
+
+	if (np)
+		_dev->id = of_alias_get_id(np, "usb");
+
+	ret = of_address_to_resource(np, 0, &res);
+	if(ret < 0){
+		dev_err(&_dev->dev, "no reg of property specified\n");
+		return NULL;
+	}
+#endif
 
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
 
@@ -692,9 +713,12 @@ static int dwc_otg_driver_probe(
 	/*
 	 * Map the DWC_otg Core memory into virtual address space.
 	 */
+#ifdef CONFIG_OF
+	dwc_otg_device->os_dep.base = res.start;
+#else
 	dwc_otg_device->os_dep.base = (void *)platform_get_resource(_dev,
 						IORESOURCE_MEM, 0)->start;
-
+#endif
 	if (!dwc_otg_device->os_dep.base) {
 		dev_err(&_dev->dev, "ioremap() failed\n");
 		retval = -ENOMEM;
@@ -709,8 +733,70 @@ static int dwc_otg_driver_probe(
 	 * Initialize driver data to point to the global DWC_otg
 	 * Device structure.
 	 */
+#ifdef CONFIG_OF
+	if(np){
+		struct sprd_usb_platform_data *pdata;
+		pdata = __DWC_ALLOC(NULL,sizeof(struct sprd_usb_platform_data));
+		if(!pdata){
+			dev_err(&_dev->dev, "fail to malloc memory for platform_data\n");
+			return -ENOMEM;
+		}
+		if (of_property_read_u32(np, "ngpios", &pdata->gpio_num))
+		{
+			pr_info("read gpio number error\n");
+			return -ENODEV;
+		}
+		if (1 == pdata->gpio_num)
+		{
+			pdata->gpio_chgdet = of_get_gpio(np,  0);
+			if(pdata->gpio_chgdet<0){
+				printk(" get charge detect  error ,gpio is %d\n",pdata->gpio_chgdet);
+				pdata->gpio_otgdet = 0xffffffff;
+			}
 
+			pdata->gpio_otgdet = 0xffffffff;
+			pdata->gpio_boost = 0xffffffff;
+		 }else if(2 == pdata->gpio_num){
+			pdata->gpio_chgdet = of_get_gpio(np,  0);
+			if(pdata->gpio_chgdet<0){
+				printk(" get charge detect  error ,gpio is %d\n",pdata->gpio_chgdet);
+				pdata->gpio_otgdet = 0xffffffff;
+			}
+
+			pdata->gpio_otgdet = of_get_gpio(np,  1);
+			if(pdata->gpio_otgdet<0){
+				printk(" get otg cable detect  error ,gpio is %d\n",pdata->gpio_otgdet);
+				pdata->gpio_otgdet = 0xffffffff;
+			}
+
+			pdata->gpio_boost = 0xffffffff;
+		}else if(3 == pdata->gpio_num){
+			pdata->gpio_chgdet = of_get_gpio(np,  0);
+			if(pdata->gpio_chgdet<0){
+			printk(" get charge detect  error ,gpio is %d\n",pdata->gpio_chgdet);
+			pdata->gpio_otgdet = 0xffffffff;
+			}
+			pdata->gpio_otgdet = of_get_gpio(np,  1);
+			if(pdata->gpio_otgdet<0){
+			printk(" get otg cable detect  error ,gpio is %d\n",pdata->gpio_otgdet);
+			pdata->gpio_otgdet = 0xffffffff;
+			}
+
+			pdata->gpio_boost = of_get_gpio(np,  2);
+			if(pdata->gpio_boost<0){
+				printk("get boost  error ,gpio is  %d\n",pdata->gpio_boost);
+				pdata->gpio_otgdet = 0xffffffff;
+			}
+		}else{
+			printk("gpio number more than three,gpio number  %d\n",pdata->gpio_num);
+		}
+
+		_dev->dev.platform_data = (void *)pdata;
+		memcpy(&dwc_otg_device->platform_data,pdata,sizeof(pdata));
+	}
+#else
 	memcpy(&dwc_otg_device->platform_data,pdata,sizeof(pdata));
+#endif
 	platform_set_drvdata(_dev, dwc_otg_device);
 
 	dev_dbg(&_dev->dev, "dwc_otg_device=0x%p\n", dwc_otg_device);
@@ -847,10 +933,19 @@ fail:
  * to this driver. The remove function is called when a device is
  * unregistered with the bus driver.
  */
+#ifdef CONFIG_OF
+static const struct of_device_id usb_ids [] = {
+		{ .compatible = "sprd,usb" },
+		{}
+};
+#endif
 static struct platform_driver dwc_otg_driver = {
 	.driver		= {
 		.name =         "dwc_otg",
 		.owner = 	THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(usb_ids),
+#endif
 	},
 
 	.probe =        dwc_otg_driver_probe,
