@@ -30,6 +30,26 @@
 #include <mach/regulator.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/arch_misc.h>
+#include <linux/notifier.h>
+
+static BLOCKING_NOTIFIER_HEAD(hp_chain_list);
+int hp_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&hp_chain_list, nb);
+}
+EXPORT_SYMBOL(hp_register_notifier);
+
+int hp_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&hp_chain_list, nb);
+}
+EXPORT_SYMBOL(hp_unregister_notifier);
+
+static int hp_notifier_call_chain(unsigned long val)
+{
+    return (blocking_notifier_call_chain(&hp_chain_list, val, NULL)
+            == NOTIFY_BAD) ? -EINVAL : 0;
+}
 
 //#define SPRD_HEADSET_DBG
 //#define SPRD_HEADSET_REG_DUMP
@@ -237,6 +257,11 @@ static int gpio_detect_value_last = 0;
 static int gpio_button_value_last = 0;
 static int button_state_last = 0;
 static int plug_state_last = 0; //if the hardware detected the headset is plug in, set plug_state_last = 1
+int get_hp_plug_state(void)
+{
+	return !!plug_state_last;
+}
+EXPORT_SYMBOL(get_hp_plug_state);
 static int active_status = 1;
 static struct wake_lock headset_detect_wakelock;
 static struct wake_lock headset_button_wakelock;
@@ -881,6 +906,7 @@ static void headset_detect_work_func(struct work_struct *work)
                         headset_irq_button_enable(0, ht->irq_button);
 
                         ht->type = BIT_HEADSET_NO_MIC;
+			hp_notifier_call_chain(ht->type);
                         switch_set_state(&ht->sdev, ht->type);
                         PRINT_INFO("headphone plug in (headset_detect_work_func)\n");
                 } else {
@@ -893,6 +919,7 @@ static void headset_detect_work_func(struct work_struct *work)
                         headset_irq_button_enable(1, ht->irq_button);
 
                         ht->type = BIT_HEADSET_MIC;
+			hp_notifier_call_chain(ht->type);
                         switch_set_state(&ht->sdev, ht->type);
                         PRINT_INFO("headset plug in (headset_detect_work_func)\n");
                 }
@@ -906,6 +933,7 @@ static void headset_detect_work_func(struct work_struct *work)
                 /***polling ana_sts0 to avoid the hardware defect***/
 
                 plug_state_last = 1;
+
                 if(1 == pdata->irq_trigger_level_detect)
                         irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_LOW);
                 else
@@ -933,9 +961,11 @@ static void headset_detect_work_func(struct work_struct *work)
                         PRINT_INFO("headset plug out (headset_detect_work_func)\n");
                 }
                 ht->type = BIT_HEADSET_OUT;
+		hp_notifier_call_chain(ht->type);
                 switch_set_state(&ht->sdev, ht->type);
 plug_out_already:
                 plug_state_last = 0;
+
                 if(1 == pdata->irq_trigger_level_detect)
                         irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_HIGH);
                 else
@@ -995,6 +1025,7 @@ static void headset_sts_check_func(struct work_struct *work)
                         PRINT_INFO("headset plug out (headset_sts_check_func)\n");
                 }
                 ht->type = BIT_HEADSET_OUT;
+		hp_notifier_call_chain(ht->type);
                 switch_set_state(&ht->sdev, ht->type);
                 plug_state_class_g_on = 0;
         }
@@ -1039,6 +1070,7 @@ static void headset_sts_check_func(struct work_struct *work)
                         headset_irq_button_enable(0, ht->irq_button);
 
                         ht->type = BIT_HEADSET_NO_MIC;
+			hp_notifier_call_chain(ht->type);
                         switch_set_state(&ht->sdev, ht->type);
                         PRINT_INFO("headphone plug in (headset_sts_check_func)\n");
                 } else {
@@ -1051,6 +1083,7 @@ static void headset_sts_check_func(struct work_struct *work)
                         headset_irq_button_enable(1, ht->irq_button);
 
                         ht->type = BIT_HEADSET_MIC;
+			hp_notifier_call_chain(ht->type);
                         switch_set_state(&ht->sdev, ht->type);
                         PRINT_INFO("headset plug in (headset_sts_check_func)\n");
                 }
