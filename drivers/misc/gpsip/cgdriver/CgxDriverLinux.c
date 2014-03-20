@@ -51,6 +51,13 @@
 #include <linux/completion.h>
 #include <linux/dma-mapping.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#include <linux/of_gpio.h>
+#endif
+
 #include "CgTypes.h"
 #include "CgReturnCodes.h"
 #include "CgCpu.h"
@@ -878,6 +885,74 @@ struct file_operations cgx_fops = {
 		.mmap =	  CGX_Mmap,
 };
 
+#ifdef CONFIG_OF
+struct gps_2351_addr gps_2351;
+u32 gps_get_core_base(void)
+{
+	return gps_2351.gps_base;
+}
+
+u32 gps_get_ahb_base(void)
+{
+	return gps_2351.ahb_base;
+}
+
+u32 gps_get_irq(void)
+{
+	return gps_2351.irq_num;
+}
+
+u32 gps_get_lna_gpio(void)
+{
+	return gps_2351.lna_gpio;
+}
+
+
+static int cgxdrv_gps_source_init(void)
+{
+	int ret;
+
+	struct device_node *np;
+	struct resource res;
+
+	np = of_find_node_by_name(NULL, "gps_2351");
+	if (!np) {
+		printk("Can't get the gps_2351 node!\n");
+		return -ENODEV;
+	}
+	printk(" find the gps_2351 node!\n");
+
+	ret = of_address_to_resource(np, 0, &res);
+	if (ret < 0) {
+		printk("Can't get the gps reg base!\n");
+		return -EIO;
+	}
+	gps_2351.gps_base = res.start;
+	printk("gps reg base is 0x%x\n", gps_2351.gps_base);
+
+	ret = of_address_to_resource(np, 1, &res);
+	if (ret < 0) {
+		printk("Can't get the ahbreg base!\n");
+		return -EIO;
+	}
+	gps_2351.ahb_base = res.start;
+	printk("ahb reg base is 0x%x\n", gps_2351.ahb_base);
+
+	gps_2351.irq_num = irq_of_parse_and_map(np, 0);
+	if (gps_2351.irq_num == 0) {
+		printk("Can't get the gps irq_num!\n");
+		return -EIO;
+	}
+	printk(" gps_2351.gps_irq_num is %d\n", gps_2351.irq_num);
+
+	gps_2351.lna_gpio = of_get_gpio(np, 0);
+	if(gps_2351.lna_gpio < 0){
+		printk("fail to get gps lna gpio\n");
+	}
+	return ret;
+}
+
+#endif
 static int __init  CGX_Init(void)
 {
 	DBG_FUNC_NAME("CGX_Init")
@@ -887,6 +962,11 @@ static int __init  CGX_Init(void)
 /* 	DBGMSG( "Entering..." ); */
 
 	DBGMSG("Initializing");
+
+	#ifdef CONFIG_OF
+	cgxdrv_gps_source_init();
+	#endif
+
 	//bxd add for first alloc mem failed from engine
 	init_buff_ptr = (void *)__get_free_pages(GFP_KERNEL, 8);
 	if(init_buff_ptr == NULL)

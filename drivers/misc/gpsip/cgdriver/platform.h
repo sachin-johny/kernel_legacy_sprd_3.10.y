@@ -88,6 +88,28 @@
 	\{
  */
 
+#ifdef CONFIG_OF
+struct gps_2351_addr
+{
+	u32 gps_base;
+	u32 ahb_base;
+	u32 irq_num;
+	u32 lna_gpio;
+};
+
+extern struct gps_2351_addr gps_2351;
+extern u32 gps_get_core_base(void);
+extern u32 gps_get_ahb_base(void);
+extern u32 gps_get_irq(void);
+extern u32 gps_get_lna_gpio(void);
+
+
+#define CG_DRIVER_CGCORE_BASE_VA		gps_get_core_base()
+#define CG_DRIVER_SCLK_VA				gps_get_ahb_base()
+#define SPRD_GPS_INT					gps_get_irq()
+#define SPRD_GPS_LNA_EN    			gps_get_lna_gpio()
+#else
+
 /** Virtual base address for CGsnap registers */
 #define CG_DRIVER_CGCORE_BASE_VA	SPRD_GPS_BASE
 
@@ -101,7 +123,7 @@
 #elif defined(CONFIG_SHARK_CHIP_2351)
 #define SPRD_GPS_LNA_EN    (50)
 #endif
-
+#endif
 
 
 /** \} Memory Mapping */

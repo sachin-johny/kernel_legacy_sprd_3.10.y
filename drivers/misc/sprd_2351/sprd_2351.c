@@ -9,6 +9,14 @@
 #include <asm/io.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#ifdef CONFIG_OF
+#include <linux/device.h>
+#include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#endif
+
 #include <linux/gpio.h>
 #include <linux/mutex.h>
 
@@ -88,7 +96,11 @@ static unsigned int sprd_rfspi_read(u16 Addr, u32 *Read_data)
 static void sprd_rfspi_clk_enable(void)
 {
 	if(rfspi.clk)
+		#ifdef CONFIG_OF
+		clk_prepare_enable(rfspi.clk);
+		#else
 		clk_enable(rfspi.clk);
+		#endif
 	else 
 		RF2351_PRINT("rfspi.clk is NULL\n");
 }
@@ -96,7 +108,11 @@ static void sprd_rfspi_clk_enable(void)
 static void sprd_rfspi_clk_disable(void)
 {
 	if(rfspi.clk)
+		#ifdef CONFIG_OF
+		clk_disable_unprepare(rfspi.clk);
+		#else
 		clk_disable(rfspi.clk);
+		#endif
 	else
 		RF2351_PRINT("rfspi.clk is NULL\n");
 }
@@ -117,12 +133,14 @@ static unsigned int sprd_rfspi_enable(void)
 	rfspi.count++;
 	if(rfspi.count == 1)
 	{
+		#ifndef CONFIG_OF
 		rfspi.clk = clk_get(NULL, "clk_cpll");
 		if(rfspi.clk == NULL)
 {
 			RF2351_PRINT("rfspi get clk_cpll failed\n");
 			return -1;
 		}
+		#endif
 		sprd_rfspi_clk_enable();
 		sprd_mspi_enable();
 	}
@@ -136,7 +154,9 @@ static unsigned int sprd_rfspi_disable(void)
 	{
 		sprd_mspi_disable();
 		sprd_rfspi_clk_disable();
+		#ifndef CONFIG_OF
 		clk_put(rfspi.clk);
+		#endif
 	}
 	rfspi.count--;
 	if(rfspi.count < 0)
@@ -213,5 +233,69 @@ int sprd_put_rf2351_ops(struct sprd_2351_interface **rf2351_ops)
 	return 0;
 }
 EXPORT_SYMBOL(sprd_put_rf2351_ops);
+
+#ifdef CONFIG_OF
+static struct rf2351_addr
+{
+	u32 rfspi_base;
+	u32 apb_base;
+}rf2351_base;
+
+u32 rf2351_get_rfspi_base(void)
+{
+	return rf2351_base.rfspi_base;
+}
+
+u32 rf2351_get_apb_base(void)
+{
+	return rf2351_base.apb_base;
+}
+
+static int __init sprd_rfspi_init(void)
+{
+	int ret;
+
+	struct device_node *np;
+	struct resource res;
+
+	np = of_find_node_by_name(NULL, "sprd_rf2351");
+	if (!np) {
+		RF2351_PRINT("Can't get the sprd_rfspi node!\n");
+		return -ENODEV;
+	}
+	RF2351_PRINT(" find the sprd_rfspi node!\n");
+
+	ret = of_address_to_resource(np, 0, &res);
+	if (ret < 0) {
+		RF2351_PRINT("Can't get the rfspi reg base!\n");
+		return -EIO;
+	}
+	rf2351_base.rfspi_base = res.start;
+	RF2351_PRINT("rfspi reg base is 0x%x\n", rf2351_base.rfspi_base);
+
+	ret = of_address_to_resource(np, 1, &res);
+	if (ret < 0) {
+		RF2351_PRINT("Can't get the rfspi reg base!\n");
+		return -EIO;
+	}
+	rf2351_base.apb_base = res.start;
+	RF2351_PRINT("rfspi reg base is 0x%x\n", rf2351_base.apb_base);
+
+	rfspi.clk = of_clk_get_by_name(np,"clk_cpll");
+	if (IS_ERR(rfspi.clk)) {
+		RF2351_PRINT("get clk_cpll fail!\n");
+		return -1;
+	} else {
+		RF2351_PRINT("get clk_cpll ok!\n");
+	}
+
+	return ret;
+}
+
+module_init(sprd_rfspi_init);
+
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("sprd 2351 rfspi driver");
+#endif
 
 

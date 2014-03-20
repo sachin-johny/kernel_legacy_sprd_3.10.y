@@ -42,8 +42,16 @@
 		__func__, ## arg); \
 	} while (0)
 
+#ifndef CONFIG_OF
 #define APB_EB0_BASE_VA			SPRD_AONAPB_BASE
 #define RFSPI_BASE_VA			SPRD_RFSPI_BASE
+#else
+extern u32 rf2351_get_rfspi_base(void);
+extern u32 rf2351_get_apb_base(void);
+
+#define APB_EB0_BASE_VA			rf2351_get_apb_base()
+#define RFSPI_BASE_VA			rf2351_get_rfspi_base()
+#endif
 
 #define APB_EB0					(APB_EB0_BASE_VA+0x0000)
 #define RFSPI_CFG0				(RFSPI_BASE_VA + 0x0000)
