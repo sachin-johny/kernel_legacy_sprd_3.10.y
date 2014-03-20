@@ -30,6 +30,9 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/regulator/of_regulator.h>
 
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
@@ -990,6 +993,17 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 }
 #endif
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#define reg_info(format, arg...) pr_info("reg: " "@@@%s: " format, __func__, ## arg)
+#endif
+
+static inline int __strcmp(const char *cs, const char *ct)
+{
+	if (!cs || !ct) return -1;
+	return strcmp(cs, ct);
+}
+
 void *sci_regulator_register(struct platform_device *pdev,
 				       struct sci_regulator_desc *desc)
 {
@@ -1004,6 +1018,7 @@ void *sci_regulator_register(struct platform_device *pdev,
 		       .supply = desc->desc.name,
 		       }
 	};
+#ifndef CONFIG_OF
 	struct regulator_init_data init_data = {
 		.supply_regulator = 0,
 		.constraints = {
@@ -1035,6 +1050,32 @@ void *sci_regulator_register(struct platform_device *pdev,
 		}
 	}
 
+#else
+	struct regulator_config config = { };
+	struct regulator_init_data *init_data;
+	struct device_node *dev_np;
+	struct device_node *node_np;
+	dev_np = pdev->dev.of_node;
+	node_np = of_get_child_by_name(dev_np, desc->desc.name);
+	init_data = of_get_regulator_init_data(&pdev->dev, node_np);
+	if(!init_data || 0 != __strcmp(init_data->constraints.name, desc->desc.name)){
+		dev_err(&pdev->dev, "out of memory or %s not found\n", desc->desc.name);
+		return NULL;
+	}
+	reg_info("[%d]%s range %d - %d\n", idx.counter, init_data->constraints.name,
+		init_data->constraints.min_uV, init_data->constraints.max_uV);
+
+	init_data->supply_regulator = 0;
+	init_data->constraints.min_uV = 0,
+	init_data->constraints.max_uV = 4200 * 1000;
+	init_data->constraints.valid_modes_mask = 
+		REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
+	init_data->constraints.valid_ops_mask = REGULATOR_CHANGE_MODE |
+		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE;
+	init_data->num_consumer_supplies = 1;
+	init_data->consumer_supplies = consumer_supplies_default;
+#endif
+
 	desc->desc.id = atomic_inc_return(&idx) - 1;
 
 	BUG_ON(desc->regs->pd_set
@@ -1045,6 +1086,7 @@ void *sci_regulator_register(struct platform_device *pdev,
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
 
+#ifndef CONFIG_OF
 	init_data.consumer_supplies =
 	    set_supply_map(&pdev->dev, desc->desc.name,
 			   &init_data.num_consumer_supplies);
@@ -1060,6 +1102,23 @@ void *sci_regulator_register(struct platform_device *pdev,
         rdev = regulator_register(&desc->desc, &config);
 	if (init_data.consumer_supplies != consumer_supplies_default)
 		kfree(init_data.consumer_supplies);
+#else
+	init_data->consumer_supplies =
+	    set_supply_map(&pdev->dev, desc->desc.name,
+			   &init_data->num_consumer_supplies);
+
+	if (!init_data->consumer_supplies)
+		init_data->consumer_supplies = consumer_supplies_default;
+
+	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
+        config.dev = &pdev->dev;
+        config.init_data = init_data;
+        config.driver_data = NULL;
+        config.of_node = node_np;
+        rdev = regulator_register(&desc->desc, &config);
+	if (init_data->consumer_supplies != consumer_supplies_default)
+		kfree(init_data->consumer_supplies);
+#endif
 
 	if (!IS_ERR(rdev)) {
 		rdev->reg_data = rdev;
@@ -1084,10 +1143,15 @@ static int sci_regulator_probe(struct platform_device *pdev)
 	return 0;
 }
 
+static struct of_device_id sprd_regulator_of_match[] = {
+	{ .compatible = "sprd,sc2711-regulator", },
+	{ }
+};
 static struct platform_driver sci_regulator_driver = {
 	.driver = {
 		   .name = "sc2711-regulator",
 		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(sprd_regulator_of_match),
 		   },
 	.probe = sci_regulator_probe,
 };
@@ -1131,6 +1195,7 @@ static int __init regu_driver_init(void)
 
 int __init sci_regulator_init(void)
 {
+#ifndef CONFIG_OF
 	static struct platform_device regulator_device = {
 		.name = "sc2711-regulator",
 		.id = -1,
@@ -1147,9 +1212,16 @@ int __init sci_regulator_init(void)
 
 	__adc_cal_fuse_setup();
 	return platform_device_register(&regulator_device);
+#else
+	return 0;
+#endif
 }
 
+#ifndef CONFIG_OF
 subsys_initcall(regu_driver_init);
+#else
+module_init(regu_driver_init);
+#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum voltage regulator driver");
