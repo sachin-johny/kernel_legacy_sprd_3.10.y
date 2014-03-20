@@ -412,9 +412,9 @@ irq_ret:
 #ifdef CONFIG_SND_VERBOSE_PROCFS
 static void sprd_pcm_proc_dump_reg(int id, struct snd_info_buffer *buffer)
 {
-	int reg, base_reg;
-	base_reg = DMA_CHx_BASE(id);
-	for (reg = base_reg; reg < base_reg + DMA_CHx_OFFSET; reg += 0x10) {
+	u32 reg, base_reg;
+	u32 offset = sci_dma_dump_reg(id, &base_reg);
+	for (reg = base_reg; reg < base_reg + offset; reg += 0x10) {
 		snd_iprintf(buffer, "0x%04x | 0x%08x 0x%08x 0x%08x 0x%08x\n",
 			    (unsigned int)(reg - base_reg),
 			    __raw_readl((void __iomem *)(reg + 0x00)),
