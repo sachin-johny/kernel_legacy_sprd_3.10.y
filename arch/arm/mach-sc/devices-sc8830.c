@@ -499,12 +499,35 @@ static struct resource sprd_i2c_resources3[] = {
 		.flags = IORESOURCE_IRQ,
 	}
 };
+
 struct platform_device sprd_i2c_device3 = {
 	.name           = "sprd-i2c",
 	.id             =  3,
 	.num_resources  = ARRAY_SIZE(sprd_i2c_resources3),
 	.resource       = sprd_i2c_resources3,
 };
+
+#if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
+#include <mach/pin_switch.h>
+static struct sprd_pin_switch_platform_data sprd_pin_switch_data[PD_CNT] = {
+	{"vdd28", 0x10, 0, 1},
+	{"vdd28", 0x10, 1, 1},
+	{"vddsim0", 0x10, 2, 1},
+	{"vddsim1", 0x10, 3, 1},
+	{"vddsim2", 0x10, 4, 1},
+	{"vddsd", 0x10, 5, 1},
+	{"vdd18", 0x10, 6, 1},
+};
+
+struct platform_device sprd_pin_switch_device = {
+	.name = "pin_switch",
+	.id = 0,
+	.dev = {
+		.platform_data	= sprd_pin_switch_data,
+	},
+};
+#endif /*data and device of pin_switch for global pin powerdomain config(28nm only)*/
+
 
 /* 8810 SPI devices.  */
 static struct resource spi0_resources[] = {

@@ -391,6 +391,10 @@ config EIRQ_NUM
         range 0 1024
 	default 0
 
+config PIN_POWER_DOMAIN_SWITCH
+        bool "pin power domain switch for 28nm chip"
+		default n
+
 comment "SC8830 ADIE type"
 
 config SC_INTERNAL_ADI

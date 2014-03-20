@@ -122,6 +122,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
 	&sprd_i2c_device3,
+	&sprd_pin_switch_device,
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_spi2_device,
