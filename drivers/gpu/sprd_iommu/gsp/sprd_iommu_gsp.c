@@ -27,9 +27,28 @@ extern unsigned int get_phys_addr(struct scatterlist *sg);
 
 int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
+#ifdef CONFIG_OF
+	struct device_node *np;
+
+	np = dev->misc_dev.this_device->of_node;
+	if(!np) {
+		return -1;
+	}
+	dev->mmu_mclock= of_clk_get(np, 0) ;
+	dev->mmu_pclock= of_clk_get(np, 1) ;
+	dev->mmu_clock=of_clk_get(np, 2) ;
+#else
 	dev->mmu_mclock= clk_get(NULL,"clk_disp_emc");
 	dev->mmu_pclock= clk_get(NULL,"clk_153m6");
 	dev->mmu_clock=clk_get(NULL,"clk_gsp");
+#endif
+	if (!dev->mmu_mclock)
+		printk ("%s, cant get clk_disp_emc\n", __FUNCTION__);
+	if (!dev->mmu_pclock)
+		printk ("%s, cant get clk_153m6\n", __FUNCTION__);
+	if (!dev->mmu_clock)
+		printk ("%s, cant get dev->mmu_clock\n", __FUNCTION__);
+
 	if((NULL==dev->mmu_mclock)||(NULL==dev->mmu_pclock)||(NULL==dev->mmu_clock))
 		return -1;
 	sprd_iommu_gsp_enable(dev);
@@ -183,16 +202,27 @@ int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 {
 	sprd_iommu_disable(dev);
+#ifdef CONFIG_OF
+	clk_disable_unprepare(dev->mmu_clock);
+	clk_disable_unprepare(dev->mmu_mclock);
+#else
 	clk_disable(dev->mmu_clock);
 	clk_disable(dev->mmu_mclock);
+#endif
 	return 0;
 }
 
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {
+#ifdef CONFIG_OF
+	clk_prepare_enable(dev->mmu_mclock);
+        clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
+	clk_prepare_enable(dev->mmu_clock);
+#else
 	clk_enable(dev->mmu_mclock);
 	clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
 	clk_enable(dev->mmu_clock);
+#endif
 	udelay(300);
 	sprd_iommu_enable(dev);
 	return 0;

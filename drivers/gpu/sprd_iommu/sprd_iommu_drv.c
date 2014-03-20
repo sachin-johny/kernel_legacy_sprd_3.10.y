@@ -33,6 +33,10 @@
 #include "../ion/ion_priv.h"
 #include "sprd_iommu_sysfs.h"
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#endif
+
 #define SPRD_IOMMU_PAGE_SIZE	0x1000
 /**
  * Page table index from address
@@ -43,6 +47,61 @@
 struct sprd_iommu_dev *iommu_devs[IOMMU_MAX]={NULL,NULL};
 extern struct sprd_iommu_ops iommu_gsp_ops;
 extern struct sprd_iommu_ops iommu_mm_ops;
+
+static int sprd_iommu_probe(struct platform_device *pdev);
+static int sprd_iommu_remove(struct platform_device *pdev);
+static int sprd_iommu_suspend(struct platform_device *pdev, pm_message_t state);
+static int sprd_iommu_resume(struct platform_device *pdev);
+
+#ifdef CONFIG_OF
+static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
+	.id=0,
+	.name="sprd_iommu_gsp",
+	.iova_base=0x10000000,
+	.iova_size=0x1000000,
+	.pgt_base=SPRD_GSPMMU_BASE,
+	.pgt_size=0x4000,
+	.ctrl_reg=SPRD_GSPMMU_BASE+0x4000,
+};
+
+static struct sprd_iommu_init_data sprd_iommu_mm_data = {
+	.id=1,
+	.name="sprd_iommu_mm",
+	.iova_base=0x20000000,
+	.iova_size=0x4000000,
+	.pgt_base=SPRD_MMMMU_BASE,
+	.pgt_size=0x10000,
+	.ctrl_reg=SPRD_MMMMU_BASE+0x10000,
+};
+
+const struct of_device_id iommu_ids[] __initconst = {
+	{ .compatible = "sprd,sprd_iommu", },
+	{},
+};
+
+static struct platform_driver iommu_driver = {
+	.probe = sprd_iommu_probe,
+	.remove = sprd_iommu_remove,
+	.suspend = sprd_iommu_suspend,
+	.resume = sprd_iommu_resume,
+	.driver = {
+		.owner=THIS_MODULE,
+		.name="sprd_iommu",
+		.of_match_table = iommu_ids,
+	},
+};
+#else
+static struct platform_driver iommu_driver = {
+	.probe = sprd_iommu_probe,
+	.remove = sprd_iommu_remove,
+	.suspend = sprd_iommu_suspend,
+	.resume = sprd_iommu_resume,
+	.driver = {
+		.owner=THIS_MODULE,
+		.name="sprd_iommu",
+	},
+};
+#endif
 
 unsigned long sprd_iova_alloc(int iommu_id, unsigned long iova_length)
 {
@@ -93,16 +152,63 @@ static int sprd_iommu_resume(struct platform_device *pdev)
 	return err;
 }
 
+#ifdef CONFIG_OF
+static inline int sprd_iommu_get_description(struct device_node *np,char* desc_name, char**desc)
+{
+	return  of_property_read_string(np, (const char*)desc_name,(const char**) desc);
+}
+#endif
+
 static int sprd_iommu_probe(struct platform_device *pdev)
 {
+#ifdef CONFIG_OF
+	char func_name[] = "func-name";
+	char func_desc[128];
+	char* pdesc=&(func_desc[0]);
+#endif
 	int err=-1;
 	struct sprd_iommu_init_data *pdata = pdev->dev.platform_data;
 	struct sprd_iommu_dev *iommu_dev;
+
+#ifndef CONFIG_OF
+	pdata = pdev->dev.platform_data;
+#endif
+
+	printk("%s,begin\n",__FUNCTION__);
 	iommu_dev = kzalloc(sizeof(struct sprd_iommu_dev), GFP_KERNEL);
-	if (NULL==iommu_dev)
+	if (NULL==iommu_dev) {
+		printk("%s,fail to kzalloc\n",__FUNCTION__);
 		return -1;
+	}
+
+#ifdef CONFIG_OF
+	if (-1==sprd_iommu_get_description(pdev->dev.of_node, func_name,&pdesc)) {
+		kfree(iommu_dev);
+		printk("%s,fail to get description\n",__FUNCTION__);
+		return -1;
+	}
+	printk("%s, function name is %s\n",__FUNCTION__,pdesc);
+	if(0==strncmp("sprd_iommu_gsp",pdesc,14))
+	{
+		pdata = &sprd_iommu_gsp_data;
+		iommu_dev->ops=&iommu_gsp_ops;
+	}
+	else if(0==strncmp("sprd_iommu_mm",pdesc,13))
+	{
+		pdata = &sprd_iommu_mm_data;
+		iommu_dev->ops=&iommu_mm_ops;
+	}
+	else {
+		kfree(iommu_dev);
+		printk("%s, function name mismatch\n",__FUNCTION__);
+		return -1;
+	}
+	iommu_devs[pdata->id]=iommu_dev;
+#endif
 	iommu_dev->init_data = pdata;
 	mutex_init(&iommu_dev->mutex_pgt);
+
+#ifndef CONFIG_OF
 	if(0==strncmp("sprd_iommu_gsp",pdata->name,14))
 	{
 		iommu_dev->ops=&iommu_gsp_ops;
@@ -113,13 +219,7 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 		iommu_dev->ops=&iommu_mm_ops;
 		iommu_devs[pdata->id]=iommu_dev;
 	}
-	err=iommu_dev->ops->init(iommu_dev,pdata);
-	if(err<0)
-	{
-		kfree(iommu_dev);
-		pr_err("iommu %s : failed to init device %d.\n",pdata->name, err);
-		return err;
-	}
+#endif
 
 	iommu_dev->misc_dev.minor = MISC_DYNAMIC_MINOR;
 	iommu_dev->misc_dev.name = pdata->name;
@@ -130,10 +230,20 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 		pr_err("iommu %s : failed to register misc device.\n",pdata->name);
 		return err;
 	}
+	iommu_dev->misc_dev.this_device->of_node = pdev->dev.of_node;
+	err=iommu_dev->ops->init(iommu_dev,pdata);
+	if(err<0)
+	{
+		kfree(iommu_dev);
+		pr_err("iommu %s : failed to init device %d.\n",pdata->name, err);
+		return err;
+	}
+
 	sprd_iommu_sysfs_register(iommu_dev,iommu_dev->init_data->name);
 	platform_set_drvdata(pdev, iommu_dev);
 	printk("sprd_iommu id:%d, name:%s, dev->pgt:0x%lx, dev->pool:0x%p mmu_clock:0x%p\n",
 		pdata->id,pdata->name,iommu_dev->pgt,iommu_dev->pool,iommu_dev->mmu_clock);
+	printk("%s,end\n",__FUNCTION__);
 	return err;
 }
 
@@ -148,25 +258,16 @@ static int sprd_iommu_remove(struct platform_device *pdev)
 	return 0;
 }
 
-static struct platform_driver iommu_driver = {
-	.probe = sprd_iommu_probe,
-	.remove = sprd_iommu_remove,
-	.suspend = sprd_iommu_suspend,
-	.resume = sprd_iommu_resume,
-	.driver = {
-		.owner=THIS_MODULE,
-		.name="sprd_iommu",
-	},
-};
-
 static int __init iommu_init(void)
 {
 	int err=-1;
+	printk("%s,begin\n",__FUNCTION__);
 	err=platform_driver_register(&iommu_driver);
 	if(err<0)
 	{
 		pr_err("sprd_iommu register err: %d\n",err);
 	}
+	printk("%s,end\n",__FUNCTION__);
 	return err;
 }
 
