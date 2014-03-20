@@ -38,8 +38,10 @@
 #include <linux/wakelock.h>
 #include <linux/i2c/ltr_558als.h>
 #include <linux/slab.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 
-//#define LTR588_DBG
+#define LTR588_DBG
 #define LTR558_ADAPTIVE
 #ifdef LTR588_DBG
 #define ENTER printk(KERN_INFO "[LTR588_DBG] func: %s  line: %04d  ", __func__, __LINE__)
@@ -910,7 +912,23 @@ static int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *i
         ltr558_t *ltr_558als = NULL;
         struct input_dev *input_dev = NULL;
         struct ltr558_pls_platform_data *pdata = client->dev.platform_data;
-
+#ifdef CONFIG_OF
+        struct device_node *np = client->dev.of_node;
+        if (np && !pdata){
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Could not allocate struct ltr558_pls_platform_data");
+			goto exit_allocate_pdata_failed;
+		}
+		pdata->irq_gpio_number = of_get_gpio(np, 0);
+		if(pdata->irq_gpio_number < 0){
+			dev_err(&client->dev, "fail to get irq_gpio_number\n");
+			kfree(pdata);
+			goto exit_irq_gpio_read_fail;
+		}
+		client->dev.platform_data = pdata;
+	}
+#endif
         ret = gpio_request(pdata->irq_gpio_number, LTR558_PLS_IRQ_PIN);
         if(ret) {
                 PRINT_ERR("gpio_request failed!\n");
@@ -1046,6 +1064,8 @@ exit_kzalloc_failed:
 exit_i2c_check_functionality_failed:
         gpio_free(pdata->irq_gpio_number);
 exit_gpio_request_failed:
+exit_irq_gpio_read_fail:
+exit_allocate_pdata_failed:
         PRINT_ERR("probe failed!\n");
         return ret;
 }
@@ -1081,10 +1101,16 @@ static const struct i2c_device_id ltr558_id[] = {
         {}
 };
 
+static const struct of_device_id ltr558_of_match[] = {
+       { .compatible = "LITEON,ltr_558als", },
+        {}
+};
+MODULE_DEVICE_TABLE(of, ltr558_of_match);
 static struct i2c_driver ltr558_driver = {
         .driver = {
                 .owner = THIS_MODULE,
                 .name = LTR558_I2C_NAME,
+                .of_match_table = ltr558_of_match,
         },
         .probe = ltr558_probe,
         .remove = ltr558_remove,

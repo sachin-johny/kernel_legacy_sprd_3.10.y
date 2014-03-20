@@ -940,6 +940,7 @@ exit_alloc_data_failed:
 exit_check_functionality_failed:
 	ft5x0x_ts = NULL;
 	i2c_set_clientdata(client, ft5x0x_ts);
+exit_alloc_platform_data_failed:
 	return err;
 }
 
@@ -1008,6 +1009,11 @@ static int ft5x0x_resume(struct i2c_client *client)
 
 MODULE_DEVICE_TABLE(i2c, ft5x0x_ts_id);
 
+static const struct of_device_id focaltech_of_match[] = {
+       { .compatible = "focaltech,focaltech_ts", },
+       { }
+};
+MODULE_DEVICE_TABLE(of, focaltech_of_match);
 static struct i2c_driver ft5x0x_ts_driver = {
 	.probe		= ft5x0x_ts_probe,
 	.remove		= ft5x0x_ts_remove,
@@ -1015,6 +1021,7 @@ static struct i2c_driver ft5x0x_ts_driver = {
 	.driver	= {
 		.name	= FOCALTECH_TS_NAME,
 		.owner	= THIS_MODULE,
+		.of_match_table = focaltech_of_match,
 	},
 	.suspend = ft5x0x_suspend,
 	.resume = ft5x0x_resume,

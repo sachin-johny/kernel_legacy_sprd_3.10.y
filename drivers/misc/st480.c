@@ -15,6 +15,7 @@
  */
 #include <linux/st480.h>
 #include <linux/module.h>
+#include <linux/of_device.h>
 
 struct st480_data {
         struct i2c_client *client;
@@ -453,9 +454,57 @@ static int auto_test_read(void *unused)
 }
 #endif
 
+#ifdef CONFIG_OF
+static struct st480_platform_data *st480_parse_dt(struct device *dev)
+{
+	struct st480_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	int ret;
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Could not allocate struct st480_platform_data");
+		return NULL;
+	}
+	ret = of_property_read_u32(np, "axis_map_x", &pdata->axis_map_x);
+	if(ret){
+		dev_err(dev, "fail to get axis_map_x\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "axis_map_y", &pdata->axis_map_y);
+	if(ret){
+		dev_err(dev, "fail to get axis_map_y\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "axis_map_z", &pdata->axis_map_z);
+	if(ret){
+		dev_err(dev, "fail to get axis_map_z\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "negate_x", &pdata->negate_x);
+	if(ret){
+		dev_err(dev, "fail to get negate_x\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "negate_y", &pdata->negate_y);
+	if(ret){
+		dev_err(dev, "fail to get negate_y\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "negate_z", &pdata->negate_z);
+	if(ret){
+		dev_err(dev, "fail to get negate_z\n");
+		goto fail;
+	}
+       return pdata;
+fail:
+       kfree(pdata);
+       return NULL;
+}
+#endif
 int st480_probe(struct i2c_client *client, const struct i2c_device_id *id)
 {
         int err = 0;
+	struct st480_platform_data *pdata = client->dev.platform_data;
 
 #if ST480_AUTO_TEST
         struct task_struct *thread;
@@ -463,6 +512,19 @@ int st480_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
         SENODIAFUNC("st480_probe");
 
+#ifdef CONFIG_OF
+	struct device_node *np = client->dev.of_node;
+	if (np && !pdata){
+		pdata = st480_parse_dt(&client->dev);
+		if(pdata){
+			client->dev.platform_data = pdata;
+		}
+		if(!pdata){
+			err = -ENOMEM;
+			goto exit_alloc_platform_data_failed;
+		}
+	}
+#endif
         if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
                 printk(KERN_ERR "SENODIA st480_probe: check_functionality failed.\n");
                 err = -ENODEV;
@@ -555,6 +617,7 @@ exit2:
         kfree(st480);
 exit1:
 exit0:
+exit_alloc_platform_data_failed:
         return err;
 
 }
@@ -574,12 +637,18 @@ static const struct i2c_device_id st480_id[] = {
         { }
 };
 
+static const struct of_device_id st480_of_match[] = {
+       { .compatible = "ST,st480", },
+       { }
+};
+MODULE_DEVICE_TABLE(of, st480_of_match);
 static struct i2c_driver st480_driver = {
         .probe		= st480_probe,
         .remove 	= st480_remove,
         .id_table	= st480_id,
         .driver = {
                 .name = ST480_I2C_NAME,
+		 .of_match_table = st480_of_match,
         },
 };
 
