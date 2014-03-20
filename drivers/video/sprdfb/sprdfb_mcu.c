@@ -15,6 +15,9 @@
 #include <linux/clk.h>
 #include <linux/delay.h>
 #include <linux/err.h>
+#ifdef CONFIG_OF
+#include <linux/fb.h>
+#endif
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
@@ -175,8 +178,11 @@ static struct ops_mcu lcdc_mcu_ops = {
 	.read_data = lcdc_mcu_read_data,
 };
 
-
+#ifdef CONFIG_OF
+static uint32_t mcu_calc_timing(struct timing_mcu *timing, struct sprdfb_device *dev)
+#else
 static uint32_t mcu_calc_timing(struct timing_mcu *timing, uint16_t dev_id)
+#endif
 {
 	uint32_t  clk_rate;
 	uint32_t  rcss, rlpw, rhpw, wcss, wlpw, whpw;
@@ -187,26 +193,36 @@ static uint32_t mcu_calc_timing(struct timing_mcu *timing, uint16_t dev_id)
 		return 0;
 	}
 
+#ifdef CONFIG_OF
+	if(SPRDFB_MAINLCD_ID == dev->dev_id){
+		clk = of_clk_get_by_name(dev->of_dev->of_node,"dispc_dbi_clk");
+#else
 	if(SPRDFB_MAINLCD_ID == dev_id){
 		clk = clk_get(NULL,"clk_dispc_dbi");
+#endif
 		if (IS_ERR(clk)) {
 			printk(KERN_WARNING "sprdfb: get clk_dispc_dbi fail!\n");
 		} else {
 			pr_debug(KERN_INFO "sprdfb: get clk_dispc_dbi ok!\n");
 		}
 	}else{
+	#ifdef CONFIG_FB_SC8825
 		clk = clk_get(NULL, "clk_ahb");
 		if (IS_ERR(clk)) {
 			printk(KERN_WARNING "sprdfb: get clk_ahb fail!\n");
 		} else {
 			pr_debug(KERN_INFO "sprdfb: get clk_ahb ok!\n");
 		}
+	#endif
 	}
 //	clk_rate = clk_get_rate(clk) / 1000000;
 	clk_rate = 250;	// dummy 250M Hz
 
+#ifdef CONFIG_OF
+	pr_debug(KERN_INFO "sprdfb: [%s] clk_rate: 0x%x, dev_id = %d\n", __FUNCTION__, clk_rate, dev->dev_id);
+#else
 	pr_debug(KERN_INFO "sprdfb: [%s] clk_rate: 0x%x, dev_id = %d\n", __FUNCTION__, clk_rate, dev_id);
-
+#endif
 	/********************************************************
 	* we assume : t = ? ns, dispc_dbi = ? MHz   so
 	*      1ns need cycle  :  dispc_dbi /1000
@@ -760,7 +776,9 @@ static void sprdfb_mcu_panel_mount(struct sprdfb_device *dev)
 	if(SPRDFB_MAINLCD_ID == dev->dev_id){
 		dev->panel->info.mcu->ops =  &dispc_mcu_ops;
 	}else{
+	#ifdef CONFIG_FB_SC8825
 		dev->panel->info.mcu->ops = &lcdc_mcu_ops;
+	#endif
 	}
 
 	if(NULL == dev->panel->ops->panel_readid){
@@ -768,9 +786,17 @@ static void sprdfb_mcu_panel_mount(struct sprdfb_device *dev)
 	}
 
 	timing = dev->panel->info.mcu->timing;
+#ifdef CONFIG_OF
+	dev->panel_timing.mcu_timing[MCU_LCD_REGISTER_TIMING] = mcu_calc_timing(timing, dev);
+#else
 	dev->panel_timing.mcu_timing[MCU_LCD_REGISTER_TIMING] = mcu_calc_timing(timing, dev->dev_id);
+#endif
 	timing++;
+#ifdef CONFIG_OF
+	dev->panel_timing.mcu_timing[MCU_LCD_GRAM_TIMING] = mcu_calc_timing(timing, dev);
+#else
 	dev->panel_timing.mcu_timing[MCU_LCD_GRAM_TIMING] = mcu_calc_timing(timing, dev->dev_id);
+#endif
 }
 
 static bool sprdfb_mcu_panel_init(struct sprdfb_device *dev)

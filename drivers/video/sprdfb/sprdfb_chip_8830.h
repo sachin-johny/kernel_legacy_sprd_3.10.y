@@ -23,14 +23,20 @@
 //#define BIT(x) (1<<x)
 #define	SPRD_MIPI_DPHY_GEN2
 
-
+#ifndef CONFIG_OF
 #define DISPC_PLL_CLK				("clk_disc0")
 #define DISPC_DBI_CLK				("clk_disc0_dbi")
 #define DISPC_DPI_CLK				("clk_disc0_dpi")
 #define DISPC_EMC_CLK				("clk_disp_emc")
 #define DISPC_DPI_CLOCK 			(384*1000000/7)
 
+#define SPRD_DISPC_BASE			SPRD_LCDC_BASE
+#define	IRQ_DISPC_INT			IRQ_DISPC0_INT
+
 #define SPRD_MIPI_DSIC_BASE 		SPRD_DSI_BASE
+#else
+#define SPRD_MIPI_DSIC_BASE 		g_dsi_base_addr
+#endif
 
 #define DSI_AHB_SOFT_RST           		REG_AP_AHB_AHB_RST
 //#define BIT_DSI_SOFT_RST	 		BIT_DSI_SOFT_RST
@@ -39,20 +45,20 @@
 #define DSI_REG_EB				REG_AP_AHB_AHB_EB
 #define DSI_BIT_EB					BIT_DSI_EB
 
-#define SPRD_DISPC_BASE			SPRD_LCDC_BASE
-
+#ifndef CONFIG_OF
 #define	IRQ_DSI_INTN0			IRQ_DSI0_INT
 #define	IRQ_DSI_INTN1			IRQ_DSI1_INT
-#define	IRQ_DISPC_INT			IRQ_DISPC0_INT
+#endif
 
 #define REG_AHB_SOFT_RST 			(0x4 + SPRD_AHB_BASE)
 #define BIT_DISPC_SOFT_RST			BIT_DISPC0_SOFT_RST
 
-#define DISPC_AHB_EN				(REG_AP_AHB_AHB_EB)
-#define BIT_DISPC_AHB_EN			(BIT_DISPC0_EB)
-
 #define DISPC_CORE_EN			(REG_AP_APB_APB_EB)
 #define BIT_DISPC_CORE_EN			(BIT_AP_CKG_EB)
+
+#ifndef CONFIG_OF
+#define DISPC_AHB_EN				(REG_AP_AHB_AHB_EB)
+#define BIT_DISPC_AHB_EN			(BIT_DISPC0_EB)
 
 #define DISPC_EMC_EN				(REG_AON_APB_APB_EB1)
 #define BIT_DISPC_EMC_EN			(BIT_DISP_EMC_EB)
@@ -123,6 +129,6 @@ enum{
 	DISPC_DPI_SEL_192M,
 	DISPC_DPI_SEL_384M
 };
-
+#endif
 
 #endif

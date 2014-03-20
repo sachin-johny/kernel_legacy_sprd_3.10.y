@@ -21,18 +21,20 @@
 
 #define	SPRD_MIPI_DPHY_GEN1
 
-
+#ifndef CONFIG_OF
 #define DISPC_PLL_CLK					("clk_dispc")
 #define DISPC_DBI_CLK					("clk_dispc_dbi")
 #define DISPC_DPI_CLK					("clk_dispc_dpi")
 #define DISPC_DPI_CLOCK 				(384*1000000/11)
 
+#define SPRD_DISPC_BASE			SPRD_DISPLAY_BASE
+#define	IRQ_DISPC_INTN				IRQ_DISPC_INT
+#endif
 
+#ifndef CONFIG_OF
 #define	IRQ_DSI_INTN0				IRQ_DSI_INT0
 #define	IRQ_DSI_INTN1				IRQ_DSI_INT1
-#define	IRQ_DISPC_INTN				IRQ_DISPC_INT
-
-#define SPRD_DISPC_BASE			SPRD_DISPLAY_BASE
+#endif
 
 #define REG_AHB_SOFT_RST			(SPRD_AHB_BASE + AHB_SOFT_RST + 0x200)
 #define BIT_DISPC_SOFT_RST		 	BIT(20)

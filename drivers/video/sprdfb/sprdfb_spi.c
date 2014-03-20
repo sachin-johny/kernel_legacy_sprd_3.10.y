@@ -12,6 +12,9 @@
  */
 
 #include <linux/kernel.h>
+#ifdef CONFIG_OF
+#include <linux/fb.h>
+#endif
 #include <mach/sci.h>
 #include "spi/spi_simple_drv.h"
 #include "sprdfb.h"
@@ -129,8 +132,11 @@ void SPI_PinCfg( void )
 
 bool sprdfb_spi_init(struct sprdfb_device *dev)
 {
+#ifdef CONFIG_OF
+	SPI_Init(dev->of_dev, SPI_USED_ID, spi_int_parm );
+#else
 	SPI_Init( SPI_USED_ID, spi_int_parm );
-
+#endif
 	return true;
 }
 

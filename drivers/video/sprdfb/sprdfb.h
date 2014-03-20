@@ -127,6 +127,10 @@ struct sprdfb_device {
 	struct panel_spec	*panel;
 	struct display_ctrl	*ctrl;
 
+#ifdef CONFIG_OF
+	struct device *of_dev;
+#endif
+
 	uint32_t dpi_clock;
 	struct semaphore   refresh_lock;
 
