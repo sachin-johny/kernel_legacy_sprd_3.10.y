@@ -19,6 +19,12 @@
 #include <linux/platform_device.h>
 #include <linux/fb.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_address.h>
+#endif
+
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
 #include <mach/board.h>
@@ -61,6 +67,10 @@ extern void sprdfb_panel_remove(struct sprdfb_device *dev);
 extern struct display_ctrl sprdfb_dispc_ctrl ;
 #ifdef CONFIG_FB_SC8825
 extern struct display_ctrl sprdfb_lcdc_ctrl;
+#endif
+
+#ifdef CONFIG_OF
+extern uint32_t g_dispc_base_addr;
 #endif
 
 static unsigned PP[16];
@@ -425,8 +435,13 @@ static int sprdfb_probe(struct platform_device *pdev)
 	struct fb_info *fb = NULL;
 	struct sprdfb_device *dev = NULL;
 	int ret = 0;
+#ifdef CONFIG_OF
+	struct resource r;
 
+	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
+#else
 	pr_debug(KERN_INFO "sprdfb:[%s], id = %d\n", __FUNCTION__, pdev->id);
+#endif
 
 	fb = framebuffer_alloc(sizeof(struct sprdfb_device), &pdev->dev);
 	if (!fb) {
@@ -437,8 +452,14 @@ static int sprdfb_probe(struct platform_device *pdev)
 
 	dev = fb->par;
 	dev->fb = fb;
+#ifdef CONFIG_OF
+	dev->of_dev = &(pdev->dev);
 
+	dev->dev_id = of_alias_get_id(pdev->dev.of_node, "lcd");
+	printk("sprdfb: [%s] id = %d\n", __FUNCTION__, dev->dev_id);
+#else
 	dev->dev_id = pdev->id;
+#endif
 	if((SPRDFB_MAINLCD_ID != dev->dev_id) &&(SPRDFB_SUBLCD_ID != dev->dev_id)){
 		printk(KERN_ERR "sprdfb: sprdfb_probe fail. (unsupported device id)\n");
 		goto err0;
@@ -458,6 +479,14 @@ static int sprdfb_probe(struct platform_device *pdev)
 
 	if(SPRDFB_MAINLCD_ID == dev->dev_id){
 		dev->ctrl = &sprdfb_dispc_ctrl;
+#ifdef CONFIG_OF
+		if(0 != of_address_to_resource(pdev->dev.of_node, 0, &r)){
+			printk(KERN_ERR "sprdfb: sprdfb_probe fail. (can't get register base address)\n");
+			goto err0;
+		}
+		g_dispc_base_addr = r.start;
+		printk("sprdfb: set g_dispc_base_addr = 0x%x\n", g_dispc_base_addr);
+#endif
 #ifdef CONFIG_FB_SC8825
 	}else{
 		dev->ctrl = &sprdfb_lcdc_ctrl;
@@ -545,6 +574,13 @@ static int sprdfb_remove(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id sprdfb_dt_ids[] = {
+	{ .compatible = "sprd,sprdfb", },
+	{}
+};
+#endif
+
 static struct platform_driver sprdfb_driver = {
 	.probe = sprdfb_probe,
 
@@ -556,6 +592,9 @@ static struct platform_driver sprdfb_driver = {
 	.driver = {
 		.name = "sprd_fb",
 		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(sprdfb_dt_ids),
+#endif
 	},
 };
 

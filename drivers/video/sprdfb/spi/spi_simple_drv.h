@@ -167,7 +167,11 @@ typedef struct
 void SPI_SetCsLow( uint32_t spi_sel_csx , bool is_low);
 void SPI_SetCd( uint32_t cd);
 void SPI_SetDatawidth(uint32_t datawidth);
+#ifdef CONFIG_OF
+void SPI_Init(struct device *device, u32 spi_id, SPI_INIT_PARM *spi_parm);
+#else
 void SPI_Init(u32 spi_id, SPI_INIT_PARM *spi_parm);
+#endif
 void SPI_WriteData(uint32_t data, uint32_t data_len, uint32_t dummy_bitlen);
 uint32_t SPI_ReadData( uint32_t data_len, uint32_t dummy_bitlen );
 

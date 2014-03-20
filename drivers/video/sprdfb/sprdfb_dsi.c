@@ -18,6 +18,12 @@
 #include <linux/clk.h>
 #include <linux/irqreturn.h>
 #include <linux/interrupt.h>
+#ifdef CONFIG_OF
+#include <linux/fb.h>
+
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
 
 #include "sprdfb.h"
 #include "sprdfb_panel.h"
@@ -43,6 +49,9 @@ struct sprdfb_dsi_context {
 };
 
 static struct sprdfb_dsi_context dsi_ctx;
+#ifdef CONFIG_OF
+uint32_t g_dsi_base_addr = 0;
+#endif
 
 
 static int32_t sprdfb_dsi_set_lp_mode(void);
@@ -352,6 +361,7 @@ static int32_t dsi_module_init(struct sprdfb_device *dev)
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
 	dphy_t *phy = &(dsi_instance->phy_instance);
 	struct info_mipi * mipi = dev->panel->info.mipi;
+	int irq_num_1, irq_num_2;
 
 	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
 
@@ -382,8 +392,15 @@ static int32_t dsi_module_init(struct sprdfb_device *dev)
 	dsi_instance->max_hs_to_lp_cycles = 4;//110;
 	dsi_instance->max_lp_to_hs_cycles = 15;//10;
 	dsi_instance->max_lanes = mipi->lan_number;
+#ifdef CONFIG_OF
+	irq_num_1 = irq_of_parse_and_map(dev->of_dev->of_node, 1);
+#else
+	irq_num_1 = IRQ_DSI_INTN0;
+#endif
+	printk("sprdfb: dsi irq_num_1 = %d\n", irq_num_1);
 
-	ret = request_irq(IRQ_DSI_INTN0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+//	ret = request_irq(IRQ_DSI_INTN0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
+	ret = request_irq(irq_num_1, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &dsi_ctx);
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int0!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
@@ -391,7 +408,15 @@ static int32_t dsi_module_init(struct sprdfb_device *dev)
 		printk(KERN_ERR "sprdfb: dsi request irq int0 OK!\n");
 	}
 
-	ret = request_irq(IRQ_DSI_INTN1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
+#ifdef CONFIG_OF
+	irq_num_2 = irq_of_parse_and_map(dev->of_dev->of_node, 2);
+#else
+	irq_num_2 = IRQ_DSI_INTN1;
+#endif
+	printk("sprdfb: dsi irq_num_2 = %d\n", irq_num_2);
+
+//	ret = request_irq(IRQ_DSI_INTN1, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
+	ret = request_irq(irq_num_2, dsi_isr1, IRQF_DISABLED, "DSI_INT1", &dsi_ctx);
 	if (ret) {
 		printk(KERN_ERR "sprdfb: dsi failed to request irq int1!\n");
 //		clk_disable(dsi_ctx.clk_dsi);
@@ -497,7 +522,16 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 	dsih_error_t result = OK;
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
 	dsi_ctx.dev = dev;
+#ifdef CONFIG_OF
+	struct resource r;
 
+	if(0 != of_address_to_resource(dev->of_dev->of_node, 1, &r)){
+		printk(KERN_ERR "sprdfb: sprdfb_dsi_init fail. (can't get register base address)\n");
+		return -1;
+	}
+	g_dsi_base_addr = r.start;
+	printk("sprdfb: set g_dsi_base_addr = 0x%x\n", g_dsi_base_addr);
+#endif
 
 	if(!dsi_ctx.is_inited){
 		//init

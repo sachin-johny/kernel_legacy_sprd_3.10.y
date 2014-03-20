@@ -62,6 +62,9 @@
 #define R_DSI_HOST_ERROR_MSK0       0x4CUL                                                                                              
 #define R_DSI_HOST_ERROR_MSK1       0x50UL                                                                                              
 
+#ifdef CONFIG_OF
+extern uint32_t g_dsi_base_addr;
+#endif
 
 typedef enum _Dsi_Int0_Type_ {
     ack_with_err_0,

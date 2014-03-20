@@ -119,15 +119,26 @@ typedef enum _DispC_Int_Type_
 	dispc_write(reg_val, DISPC_INT_EN);\
 }
 
+#ifdef CONFIG_OF
+extern uint32_t g_dispc_base_addr;
+#endif
+
 static inline uint32_t dispc_read(uint32_t reg)
 {
+#ifdef CONFIG_OF
+	return dispc_glb_read(g_dispc_base_addr+ reg);
+#else
 	return dispc_glb_read(SPRD_DISPC_BASE + reg);
+#endif
 }
 
 static inline void dispc_write(uint32_t value, uint32_t reg)
 {
-//	__raw_writel(value, (SPRD_DISPC_BASE + reg));
+#ifdef CONFIG_OF
+	sci_glb_write((g_dispc_base_addr + reg), value, 0xffffffff);
+#else
 	sci_glb_write((SPRD_DISPC_BASE + reg), value, 0xffffffff);
+#endif
 }
 
 static inline void dispc_set_bits(uint32_t bits, uint32_t reg)

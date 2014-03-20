@@ -20,20 +20,23 @@
 
 #define BIT(x) (1<<x)
 
+#ifndef CONFIG_OF
 #define DISPC_PLL_CLK					("clk_dispc")
 #define DISPC_DBI_CLK					("clk_dispc_dbi")
 #define DISPC_DPI_CLK					("clk_dispc_dpi")
 #define DISPC_DPI_CLOCK (384*1000000/11)
+#endif
 
 
 #define DISPC_AHB_SOFT_RST            	AHB_SOFT2_RST
 #define BIT_DISPC_SOFT_RST		 	BIT(2)
 
-#define DISPC_AHB_EN			        (AHB_CTL6)
-#define BIT_DISPC_AHB_EN		        (BIT(0))
-
 #define DISPC_CORE_EN			(AHB_CTL6)
 #define BIT_DISPC_CORE_EN		        (BIT(0))
+
+#ifndef CONFIG_OF
+#define DISPC_AHB_EN			        (AHB_CTL6)
+#define BIT_DISPC_AHB_EN		        (BIT(0))
 
 #define DISPC_EMC_EN			        (AHB_CTL6)
 #define BIT_DISPC_EMC_EN		        (BIT(0))
@@ -104,7 +107,7 @@ enum{
 	DISPC_DPI_SEL_153_6M,
 	DISPC_DPI_SEL_128M
 };
-
+#endif
 
 
 void dispc_print_clk(void);
