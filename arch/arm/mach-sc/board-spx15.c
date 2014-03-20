@@ -30,7 +30,7 @@
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
-#ifdef CONFIG_TOUCHSCREEN_FOCALTECH
+#if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 #include <linux/i2c/focaltech.h>
 #endif
 #if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
@@ -81,6 +81,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_i2c_device2,
 	&sprd_i2c_device3,
         &sprd_lcd_device0,
+	&sprd_backlight_device,
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
@@ -158,7 +159,7 @@ int in_calibration(void)
 EXPORT_SYMBOL(in_calibration);
 
 #ifndef CONFIG_OF
-#ifdef CONFIG_TOUCHSCREEN_FOCALTECH
+#if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
@@ -205,7 +206,7 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
 static struct i2c_board_info i2c1_boardinfo[] = {
-#ifdef CONFIG_TOUCHSCREEN_FOCALTECH
+#if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 	{
 		I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
 		.platform_data = &ft5x0x_ts_info,

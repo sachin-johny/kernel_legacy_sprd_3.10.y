@@ -123,12 +123,12 @@ static void bl_pwm_clk_en(int enable)
         spin_lock_irqsave(&clock_en_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_state) {
-                        clk_enable(sprdbl.clk);
+                        clk_prepare_enable(sprdbl.clk);
                         current_state = 1;
                 }
         } else {
                 if (1 == current_state) {
-                        clk_disable(sprdbl.clk);
+                        clk_disable_unprepare(sprdbl.clk);
                         current_state = 0;
                 }
         }

@@ -58,6 +58,9 @@
 #endif
 
 #include        <linux/i2c/lis3dh.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
 
 #define	INTERRUPT_MANAGEMENT 1
 
@@ -1237,17 +1240,93 @@ static void lis3dh_early_suspend(struct early_suspend *es);
 static void lis3dh_early_resume(struct early_suspend *es);
 #endif
 
+#ifdef CONFIG_OF
+static struct lis3dh_acc_platform_data *lis3dh_acc_parse_dt(struct device *dev)
+{
+	struct lis3dh_acc_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	int ret;
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Could not allocate struct lis3dh_acc_platform_data");
+		return NULL;
+	}
+	ret = of_property_read_u32(np, "poll_interval", &pdata->poll_interval);
+	if(ret){
+		dev_err(dev, "fail to get poll_interval\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "min_interval", &pdata->min_interval);
+	if(ret){
+		dev_err(dev, "fail to get min_interval\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "g_range", &pdata->g_range);
+	if(ret){
+		dev_err(dev, "fail to get g_range\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "axis_map_x", &pdata->axis_map_x);
+	if(ret){
+		dev_err(dev, "fail to get axis_map_x\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "axis_map_y", &pdata->axis_map_y);
+	if(ret){
+		dev_err(dev, "fail to get axis_map_y\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "axis_map_z", &pdata->axis_map_z);
+	if(ret){
+		dev_err(dev, "fail to get axis_map_z\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "negate_x", &pdata->negate_x);
+	if(ret){
+		dev_err(dev, "fail to get negate_x\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "negate_y", &pdata->negate_y);
+	if(ret){
+		dev_err(dev, "fail to get negate_y\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "negate_z", &pdata->negate_z);
+	if(ret){
+		dev_err(dev, "fail to get negate_z\n");
+		goto fail;
+	}
+	return pdata;
+fail:
+	kfree(pdata);
+	return NULL;
+}
+#endif
 static int lis3dh_acc_probe(struct i2c_client *client,
 			    const struct i2c_device_id *id)
 {
 
 	struct lis3dh_acc_data *acc;
+	struct lis3dh_acc_platform_data *pdata = client->dev.platform_data;
 
 	int err = -1;
 	int tempvalue;
 	printk("sprd-gsensor: -- %s -- start !\n",__func__);
 	pr_debug("%s: probe start.\n", LIS3DH_ACC_DEV_NAME);
 
+#ifdef CONFIG_OF
+	struct device_node *np = client->dev.of_node;
+	if (np && !pdata){
+		pdata = lis3dh_acc_parse_dt(&client->dev);
+		if(pdata){
+			client->dev.platform_data = pdata;
+		}
+		if(!pdata){
+			err = -ENOMEM;
+			goto exit_alloc_platform_data_failed;
+		}
+	}
+#endif
 	/*
 	if (client->dev.platform_data == NULL) {
 		dev_err(&client->dev, "platform data is NULL. exiting.\n");
@@ -1508,6 +1587,7 @@ err_mutexunlockfreedata:
 exit_alloc_data_failed:
 exit_check_functionality_failed:
 	pr_err("%s: Driver Init failed\n", LIS3DH_ACC_DEV_NAME);
+exit_alloc_platform_data_failed:
 	return err;
 }
 
@@ -1586,9 +1666,15 @@ static const struct i2c_device_id lis3dh_acc_id[]
 
 MODULE_DEVICE_TABLE(i2c, lis3dh_acc_id);
 
+static const struct of_device_id lis3dh_acc_of_match[] = {
+       { .compatible = "ST,lis3dh_acc", },
+       { }
+};
+MODULE_DEVICE_TABLE(of, lis3dh_acc_of_match);
 static struct i2c_driver lis3dh_acc_driver = {
 	.driver = {
 		   .name = LIS3DH_ACC_I2C_NAME,
+		   .of_match_table = lis3dh_acc_of_match,
 		   },
 	.probe = lis3dh_acc_probe,
 	.remove = lis3dh_acc_remove,
