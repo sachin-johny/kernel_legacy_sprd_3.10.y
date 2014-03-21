@@ -22,6 +22,8 @@
 #include <linux/spi/spi.h>
 #include <linux/sched.h>
 #include <linux/kthread.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include <mach/hardware.h>
 #include <mach/dma.h>
@@ -547,17 +549,22 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	struct spi_master *master;
 	struct sprd_spi_devdata *spi_chip;
 
+#ifdef CONFIG_OF
+	pdev->id = of_alias_get_id(pdev->dev.of_node, "spi");
+#endif
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs) {
 		dev_err(&pdev->dev, "spi_%d get io resource failed!\n", pdev->id);
 		return -ENODEV;
 	}
+	dev_info(&pdev->dev, "probe spi %d get regbase %p\n", pdev->id, regs->start);
 
 	irq_num = platform_get_irq(pdev, 0);
 	if (irq_num < 0) {
 		dev_err(&pdev->dev, "spi_%d get irq resource failed!\n", pdev->id);
 		return irq_num;
 	}
+	dev_info(&pdev->dev, "probe spi %d get irq num %d\n", pdev->id, irq_num);
 
 	master = spi_alloc_master(&pdev->dev, sizeof (*spi_chip));
 	if (!master) {
@@ -570,13 +577,13 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	/*get clk source*/
 	switch (pdev->id) {
 		case sprd_spi_0:
-			spi_chip->clk = clk_get(&pdev->dev, "clk_spi0");
+			spi_chip->clk = clk_get(NULL, "clk_spi0");
 			break;
 		case sprd_spi_1:
-			spi_chip->clk = clk_get(&pdev->dev, "clk_spi1");
+			spi_chip->clk = clk_get(NULL, "clk_spi1");
 			break;
 		case sprd_spi_2:
-			spi_chip->clk = clk_get(&pdev->dev, "clk_spi2");
+			spi_chip->clk = clk_get(NULL, "clk_spi2");
 			break;
 		default:
 			ret = -EINVAL;
@@ -683,10 +690,16 @@ static int sprd_spi_resume(struct platform_device *pdev)
 #define	sprd_spi_resume NULL
 #endif
 
+static const struct of_device_id sprd_spi_of_match[] = {
+	{ .compatible = "sprd,sprd-spi", },
+	{ /* sentinel */ }
+};
+
 static struct platform_driver sprd_spi_driver = {
 	.driver = {
-		.name = "sprd_spi",
+		.name = "sprd spi",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(sprd_spi_of_match),
 	},
 	.suspend = sprd_spi_suspend,
 	.resume  = sprd_spi_resume,
