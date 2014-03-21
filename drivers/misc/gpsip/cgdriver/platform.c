@@ -313,8 +313,10 @@ TCgReturnCode CgxDriverRFPowerDown(void)
 
 	printk("%s\n",__func__);
 
+	gps_rf_ops->mspi_enable();
 	gps_rf_ops->write_reg(0x0700,0x0000);
 	gps_lna_disable();
+	gps_rf_ops->mspi_disable();
 	return rc;
 }
 
@@ -324,17 +326,16 @@ TCgReturnCode CgxDriverRFPowerUp(void)
 	TCgReturnCode rc = ECgOk;
 
 	printk("%s\n",__func__);
-
+	gps_rf_ops->mspi_enable();
 	gps_lna_enable();
 	CgxDriverRFInit();
+	gps_rf_ops->mspi_disable();
 	return rc;
 }
 
 void gps_chip_power_on(void)
 {
 	printk("%s\n",__func__);
-
-	gps_rf_ops->mspi_enable();
 
 	//enable gps sysclk
 	CGCoreSclkEnable();
@@ -359,7 +360,6 @@ void gps_chip_power_off(void)
 	CgxCpuReadMemory((U32)CG_DRIVER_SCLK_VA, 0x0, (U32 *)&value);
 	value &= ~(1<<12);
 	CgxCpuWriteMemory((U32)CG_DRIVER_SCLK_VA, 0x0,value);
-	gps_rf_ops->mspi_disable();
 }
 
 
