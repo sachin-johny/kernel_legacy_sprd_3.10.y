@@ -27,6 +27,9 @@
 #include <linux/slab.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+
 #include "dcam_drv.h"
 #include "rot_drv.h"
 #include "img_rot.h"
@@ -47,7 +50,10 @@ struct rot_k_file {
 
 	/*for dcam rotation module*/
 	struct rot_drv_private drv_private;
+	struct device_node *dn;
 };
+
+static struct rot_k_private *s_rot_private;
 
 static void rot_k_irq(void *fd)
 {
@@ -132,8 +138,9 @@ struct platform_device*  rot_get_platform_device(void)
 static int rot_k_open(struct inode *node, struct file *file)
 {
 	int ret = 0;
-	struct rot_k_private *rot_private = platform_get_drvdata(rot_get_platform_device());
+	struct rot_k_private *rot_private = s_rot_private;//platform_get_drvdata(rot_get_platform_device());
 	struct rot_k_file *fd = NULL;
+	struct miscdevice *md = file->private_data ;
 
 	if (!rot_private) {
 		ret = -EFAULT;
@@ -149,13 +156,14 @@ static int rot_k_open(struct inode *node, struct file *file)
 	}
 	fd->rot_private = rot_private;
 	fd->drv_private.rot_fd = (void*)fd;
+	fd ->dn = md->this_device->of_node;
 
 	sema_init(&fd->rot_done_sem, 0);
 
 	file->private_data = fd;
 
 	if (1 == atomic_inc_return(&rot_private->users)) {
-		ret = rot_k_module_en();
+		ret = rot_k_module_en(fd->dn);
 		if (unlikely(ret)) {
 			printk("Failed to enable rot module \n");
 			ret = -EIO;
@@ -172,7 +180,7 @@ static int rot_k_open(struct inode *node, struct file *file)
 
 	goto open_out;
 reg_faile:
-	rot_k_module_dis();
+	rot_k_module_dis(fd ->dn);
 faile:
 	atomic_dec(&rot_private->users);
 	kfree(fd);
@@ -202,7 +210,7 @@ static int rot_k_release(struct inode *node, struct file *file)
 	}
 
 	if (0 == atomic_dec_return(&rot_private->users)) {
-		rot_k_module_dis();
+		rot_k_module_dis(fd->dn);
 	}
 
 	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
@@ -318,7 +326,7 @@ int rot_k_probe(struct platform_device *pdev)
 		ret = -EACCES;
 		goto probe_out;
 	}
-
+	s_rot_private = rot_private;
 	printk(KERN_ALERT " rot_k_probe Success\n");
 	goto exit;
 probe_out:
@@ -350,12 +358,18 @@ remove_exit:
 	return 0;
 }
 
+static const struct of_device_id of_match_table_rot[] = {
+	{ .compatible = "sprd,sprd_rotation", },
+	{ },
+};
+
 static struct platform_driver rotation_driver = {
 	.probe = rot_k_probe,
 	.remove = rot_k_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = ROT_DEVICE_NAME,
+		.of_match_table = of_match_ptr(of_match_table_rot),
 		},
 };
 

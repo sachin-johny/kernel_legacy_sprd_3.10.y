@@ -1,9 +1,9 @@
 # SC88XX Platform Support
 
 ifeq ($(CONFIG_ARCH_SCX15),y)
-ccflags-y += -Idrivers/media/sprd_dcam/scx15
+ccflags-y += -Idrivers/media/sprd_dcam/scx15 -Idrivers/media/sprd_dcam/common
 else
-ccflags-y += -Idrivers/media/sprd_dcam/sc8830
+ccflags-y += -Idrivers/media/sprd_dcam/sc8830 -Idrivers/media/sprd_dcam/common
 endif
 
 ifeq ($(CONFIG_ARCH_SCX35),y)

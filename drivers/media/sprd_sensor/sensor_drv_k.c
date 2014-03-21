@@ -119,6 +119,11 @@
 		__raw_writel(_tmp | ((m) & (v)), (a));   \
 	}while(0)
 
+#ifdef CONFIG_OF
+	#define         clk_enable	clk_prepare_enable
+	#define         clk_disable	clk_disable_unprepare
+#endif
+
 #define BIT_0                             0x01
 #define BIT_1                             0x02
 #define BIT_2                             0x04
@@ -241,6 +246,7 @@ struct sensor_module {
 	unsigned                        pin_reset_sub;
 	unsigned                        pin_main;
 	unsigned                        pin_sub;
+	atomic_t                        open_count;
 };
 
 LOCAL const SN_MCLK                     c_sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
@@ -260,11 +266,11 @@ LOCAL const struct i2c_device_id        c_sensor_device_id[] = {
 LOCAL struct sensor_module * s_p_sensor_mod = PNULL;
 SENSOR_PROJECT_FUNC_T s_sensor_project_func = {PNULL};
 
-int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
+int32_t _sensor_is_clk_mm_i_eb(struct device_node *dn,uint32_t is_clk_mm_i_eb)
 {
 	int                     ret = 0;
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
-
+#ifndef CONFIG_OF
 	if (NULL == s_p_sensor_mod->sensor_clk_mm_i) {
 		s_p_sensor_mod->sensor_clk_mm_i = clk_get(NULL, "clk_mm_i");
 		if (IS_ERR(s_p_sensor_mod->sensor_clk_mm_i)) {
@@ -294,6 +300,21 @@ int32_t _sensor_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 		clk_put(s_p_sensor_mod->sensor_clk_mm_i);
 		s_p_sensor_mod->sensor_clk_mm_i = NULL;
 	}
+#else
+
+#include <mach/sci_glb_regs.h>
+
+	if (is_clk_mm_i_eb) {
+		REG_OWR(REG_AON_APB_APB_EB0,BIT_25);
+		REG_AWR(REG_PMU_APB_PD_MM_TOP_CFG,~BIT_25);
+		REG_OWR(REG_MM_AHB_GEN_CKG_CFG,BIT_2|BIT_3);
+//		REG_OWR(REG_MM_CLK_MM_AHB_CFG,0);
+		printk("_sensor_is_clk_mm_i_eb ok.\n");
+	}else {
+//		REG_AWR(REG_AON_APB_APB_EB0,~BIT_25);
+//		REG_OWR(REG_PMU_APB_PD_MM_TOP_CFG,BIT_25);
+	}
+#endif
 
 	return 0;
 }
@@ -388,25 +409,26 @@ LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 
 LOCAL int _sensor_k_powerdown(BOOLEAN power_level)
 {
-	SENSOR_PRINT_HIGH("SENSOR: pwdn %d\n", power_level);
 
 	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 		{
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_main %d\n", power_level,s_p_sensor_mod->pin_main);
 			if (0 == power_level) {
-				gpio_direction_output(GPIO_MAIN_SENSOR_PWN, 0);
+				gpio_direction_output(s_p_sensor_mod->pin_main, 0);
 
 			} else {
-				gpio_direction_output(GPIO_MAIN_SENSOR_PWN, 1);
+				gpio_direction_output(s_p_sensor_mod->pin_main, 1);
 			}
 			break;
 		}
 	case SENSOR_SUB:
 		{
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_sub %d\n", power_level,s_p_sensor_mod->pin_sub);
 			if (0 == power_level) {
-				gpio_direction_output(GPIO_SUB_SENSOR_PWN, 0);
+				gpio_direction_output(s_p_sensor_mod->pin_sub, 0);
 			} else {
-				gpio_direction_output(GPIO_SUB_SENSOR_PWN, 1);
+				gpio_direction_output(s_p_sensor_mod->pin_sub, 1);
 			}
 			break;
 		}
@@ -861,14 +883,18 @@ LOCAL int _select_sensor_mclk(uint8_t clk_set, char **clk_src_name,
 	return SENSOR_K_SUCCESS;
 }
 
-int32_t _sensor_k_mipi_clk_en(void)
+int32_t _sensor_k_mipi_clk_en(struct device_node *dn)
 {
 	int                     ret = 0;
 
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	if (NULL == s_p_sensor_mod->mipi_clk) {
+#ifdef CONFIG_OF
+		s_p_sensor_mod->mipi_clk = of_clk_get_by_name(dn,"clk_dcam_mipi");
+#else
 		s_p_sensor_mod->mipi_clk = clk_get(NULL, "clk_dcam_mipi");
+#endif
 	}
 
 	if (IS_ERR(s_p_sensor_mod->mipi_clk)) {
@@ -897,7 +923,7 @@ int32_t _sensor_k_mipi_clk_dis(void)
 	return 0;
 }
 
-LOCAL int _sensor_k_set_mclk(uint32_t mclk)
+LOCAL int _sensor_k_set_mclk(struct device_node *dn,uint32_t mclk)
 {
 	struct clk            *clk_parent = NULL;
 	int                   ret;
@@ -913,7 +939,11 @@ LOCAL int _sensor_k_set_mclk(uint32_t mclk)
 			clk_disable(s_p_sensor_mod->ccir_clk);
 			SENSOR_PRINT("###sensor ccir clk off ok.\n");
 		} else {
+#ifdef CONFIG_OF
+			s_p_sensor_mod->ccir_clk = of_clk_get_by_name(dn,"clk_sensor");
+#else
 			s_p_sensor_mod->ccir_clk = clk_get(NULL, SENSOR_CLK);
+#endif
 			if (IS_ERR(s_p_sensor_mod->ccir_clk)) {
 				SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
 				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n",s_p_sensor_mod->ccir_clk);
@@ -959,7 +989,11 @@ LOCAL int _sensor_k_set_mclk(uint32_t mclk)
 		}
 
 		if (NULL == s_p_sensor_mod->ccir_enable_clk) {
+#ifdef CONFIG_OF
+			s_p_sensor_mod->ccir_enable_clk	= of_clk_get_by_name(dn,"clk_ccir");
+#else
 			s_p_sensor_mod->ccir_enable_clk = clk_get(NULL, "clk_ccir");
+#endif
 			if (IS_ERR(s_p_sensor_mod->ccir_enable_clk)) {
 				SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
 				SENSOR_PRINT_ERR("###: ccir_enable_clk = %p.\n", s_p_sensor_mod->ccir_enable_clk);
@@ -1010,19 +1044,19 @@ LOCAL int _sensor_k_reset(uint32_t level, uint32_t width)
 	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 	{
-		gpio_direction_output(GPIO_SENSOR_RESET, level);
-		gpio_set_value(GPIO_SENSOR_RESET, level);
+		gpio_direction_output(s_p_sensor_mod->pin_reset, level);
+		gpio_set_value(s_p_sensor_mod->pin_reset, level);
 		SLEEP_MS(width);
-		gpio_set_value(GPIO_SENSOR_RESET, !level);
+		gpio_set_value(s_p_sensor_mod->pin_reset, !level);
 		mdelay(1);
 		break;
 	}
 	case SENSOR_SUB:
 	{
-		gpio_direction_output(GPIO_SUB_SENSOR_RESET, level);
-		gpio_set_value(GPIO_SUB_SENSOR_RESET, level);
+		gpio_direction_output(s_p_sensor_mod->pin_reset_sub, level);
+		gpio_set_value(s_p_sensor_mod->pin_reset_sub, level);
 		SLEEP_MS(width);
-		gpio_set_value(GPIO_SUB_SENSOR_RESET, !level);
+		gpio_set_value(s_p_sensor_mod->pin_reset_sub, !level);
 		mdelay(1);
 		break;
 	}
@@ -1053,10 +1087,10 @@ LOCAL int _sensor_k_i2c_deInit(uint32_t sensor_id)
 
 LOCAL int _sensor_k_set_rst_level(uint32_t plus_level)
 {
-	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, GPIO_SENSOR_RESET);
+	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, s_p_sensor_mod->pin_reset);
 
-	gpio_direction_output(GPIO_SENSOR_RESET, plus_level);
-	gpio_set_value(GPIO_SENSOR_RESET, plus_level);
+	gpio_direction_output(s_p_sensor_mod->pin_reset, plus_level);
+	gpio_set_value(s_p_sensor_mod->pin_reset, plus_level);
 
 
 	return SENSOR_K_SUCCESS;
@@ -1307,19 +1341,30 @@ LOCAL int _sensor_csi2_error(uint32_t err_id, uint32_t err_status, void* u_data)
 int sensor_k_open(struct inode *node, struct file *file)
 {
 	int	ret = 0;
-	ret = _sensor_is_clk_mm_i_eb(1);
+
+	if(atomic_inc_return(&s_p_sensor_mod->open_count) == 1){
+		struct miscdevice *md = file->private_data;
+		struct device_node *dn = md->this_device->of_node;
+		ret = _sensor_is_clk_mm_i_eb(dn,1);
+	}
 	return ret;
 }
 
 int sensor_k_release(struct inode *node, struct file *file)
 {
 	int	ret = 0;
-	_sensor_k_set_voltage_cammot(SENSOR_VDD_CLOSED);
-	_sensor_k_set_voltage_avdd(SENSOR_VDD_CLOSED);
-	_sensor_k_set_voltage_dvdd(SENSOR_VDD_CLOSED);
-	_sensor_k_set_voltage_iovdd(SENSOR_VDD_CLOSED);
-	_sensor_k_set_mclk(0);
-	ret = _sensor_is_clk_mm_i_eb(0);
+
+	if(atomic_dec_return(&s_p_sensor_mod->open_count) == 0){
+		struct miscdevice *md = file->private_data;
+		struct device_node *dn = md->this_device->of_node;
+
+		_sensor_k_set_voltage_cammot(SENSOR_VDD_CLOSED);
+		_sensor_k_set_voltage_avdd(SENSOR_VDD_CLOSED);
+		_sensor_k_set_voltage_dvdd(SENSOR_VDD_CLOSED);
+		_sensor_k_set_voltage_iovdd(SENSOR_VDD_CLOSED);
+		_sensor_k_set_mclk(dn,0);
+		ret = _sensor_is_clk_mm_i_eb(dn,0);
+	}
 	return ret;
 }
 
@@ -1517,9 +1562,10 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 	case SENSOR_IO_SET_MCLK:
 		{
 			uint32_t mclk;
+			struct miscdevice *md = file->private_data ;
 			ret = copy_from_user(&mclk, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_set_mclk(mclk);
+				ret = _sensor_k_set_mclk(md->this_device->of_node,mclk);
 		}
 		break;
 
@@ -1659,7 +1705,8 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 				if (INTERFACE_OPEN == if_cfg.is_open) {
 					if (INTERFACE_MIPI == if_cfg.if_type) {
 						if (0 == s_p_sensor_mod->mipi_on) {
-							_sensor_k_mipi_clk_en();
+							struct miscdevice *md = file->private_data ;
+							_sensor_k_mipi_clk_en(md->this_device->of_node);
 							udelay(1);
 							csi_api_init(if_cfg.bps_per_lane);
 							csi_api_start();
@@ -1727,34 +1774,35 @@ int sensor_k_probe(struct platform_device *pdev)
 			SENSOR_MINOR, ret);
 		return ret;
 	}
-#if CONFIG_OF
-	s_p_sensor_mod ->pin_reset = of_get_gpio(pdev->dev.of_node, 0);
-	s_p_sensor_mod ->pin_reset_sub = of_get_gpio(pdev->dev.of_node, 1);//s_p_sensor_mod ->pin_reset;
-	s_p_sensor_mod ->pin_main = of_get_gpio(pdev->dev.of_node, 2);
-	s_p_sensor_mod ->pin_sub = of_get_gpio(pdev->dev.of_node, 3);
+#ifdef CONFIG_OF
+	sensor_dev.this_device->of_node = pdev->dev.of_node;
+	s_p_sensor_mod->pin_reset = of_get_gpio(sensor_dev.this_device->of_node,0);
+	s_p_sensor_mod->pin_reset_sub = s_p_sensor_mod->pin_reset;
+	s_p_sensor_mod->pin_main = of_get_gpio(sensor_dev.this_device->of_node,1);
+	s_p_sensor_mod->pin_sub = of_get_gpio(sensor_dev.this_device->of_node,2);
 #else
-	s_p_sensor_mod ->pin_reset = GPIO_SENSOR_RESET;
-	s_p_sensor_mod ->pin_reset_sub = GPIO_SUB_SENSOR_RESET;
-	s_p_sensor_mod ->pin_main= GPIO_MAIN_SENSOR_PWN;
-	s_p_sensor_mod ->pin_sub= GPIO_SUB_SENSOR_PWN;
+	s_p_sensor_mod->pin_reset = GPIO_SENSOR_RESET;
+	s_p_sensor_mod->pin_reset_sub = GPIO_SUB_SENSOR_RESET;
+	s_p_sensor_mod->pin_main= GPIO_MAIN_SENSOR_PWN;
+	s_p_sensor_mod->pin_sub= GPIO_SUB_SENSOR_PWN;
 #endif
-	printk("sensor pin_reset =%d\n",s_p_sensor_mod ->pin_reset);
-	printk("sensor pin_main =%d\n",s_p_sensor_mod ->pin_main);
-	printk("sensor pin_sub =%d\n",s_p_sensor_mod ->pin_sub);
+	printk("sensor pin_reset =%d\n",s_p_sensor_mod->pin_reset);
+	printk("sensor pin_main =%d\n",s_p_sensor_mod->pin_main);
+	printk("sensor pin_sub =%d\n",s_p_sensor_mod->pin_sub);
 
-	ret = gpio_request(GPIO_MAIN_SENSOR_PWN, "main camera");
+	ret = gpio_request(s_p_sensor_mod->pin_main, "main camera");
 	if (ret) {
-		tmp = GPIO_MAIN_SENSOR_PWN;
+		tmp = s_p_sensor_mod->pin_main;
 		goto gpio_err_exit;
 	}
-	ret = gpio_request(GPIO_SUB_SENSOR_PWN, "sub camera");
+	ret = gpio_request(s_p_sensor_mod->pin_sub, "sub camera");
 	if (ret) {
-		tmp = GPIO_SUB_SENSOR_PWN;
+		tmp = s_p_sensor_mod->pin_sub;
 		goto gpio_err_exit;
 	}
-	ret = gpio_request(GPIO_SENSOR_RESET, "ccirrst");
+	ret = gpio_request(s_p_sensor_mod->pin_reset, "ccirrst");
 	if (ret) {
-		tmp = GPIO_SENSOR_RESET;
+		tmp = s_p_sensor_mod->pin_reset;
 		goto gpio_err_exit;
 	}
 
@@ -1788,21 +1836,27 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "sensor remove called !\n");
 
-	gpio_free(GPIO_SENSOR_RESET);
-	gpio_free(GPIO_SUB_SENSOR_PWN);
-	gpio_free(GPIO_MAIN_SENSOR_PWN);
+	gpio_free(s_p_sensor_mod->pin_reset);
+	gpio_free(s_p_sensor_mod->pin_sub);
+	gpio_free(s_p_sensor_mod->pin_main);
 
 	misc_deregister(&sensor_dev);
 	printk(KERN_INFO "sensor remove Success !\n");
 	return 0;
 }
 
-LOCAL struct platform_driver sensor_dev_driver = {
+LOCAL const struct of_device_id of_match_table_sensor[] = {
+	{ .compatible = "sprd,sprd_sensor", },
+	{ },
+};
+
+static struct platform_driver sensor_dev_driver = {
 	.probe = sensor_k_probe,
 	.remove =sensor_k_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "sprd_sensor",
+		.of_match_table = of_match_ptr(of_match_table_sensor),
 		},
 };
 

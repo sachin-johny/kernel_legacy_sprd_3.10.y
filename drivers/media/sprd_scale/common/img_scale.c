@@ -21,6 +21,9 @@
 #include <video/sprd_scale_k.h>
 #include "img_scale.h"
 #include <linux/kthread.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+
 #include "dcam_drv.h"
 
 #define PARAM_SIZE 128
@@ -30,6 +33,7 @@
 
 struct scale_user {
 	pid_t pid;
+	struct device_node *dn;
 	struct semaphore sem_done;
 };
 
@@ -78,11 +82,11 @@ static void scale_done(struct scale_frame* frame, void* u_data)
 	up(&p_user->sem_done);
 }
 
-static int img_scale_hw_init(void)
+static int img_scale_hw_init(struct device_node *dn)
 {
 	int ret = 0;
 
-	ret = scale_module_en();
+	ret = scale_module_en(dn);
 	if (unlikely(ret)) {
 		printk("Failed to enable scale module \n");
 		ret = -EIO;
@@ -100,7 +104,7 @@ static int img_scale_hw_init(void)
 	}
 
 reg_faile:
-	scale_module_dis();
+	scale_module_dis(dn);
 exit:
 	if (0 == ret) {
 		is_scale_hw_inited = 1;
@@ -109,12 +113,12 @@ exit:
 
 }
 
-static int img_scale_hw_deinit(void)
+static int img_scale_hw_deinit(struct device_node *dn)
 {
 	int ret = 0;
 
 	scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
-	scale_module_dis();
+	scale_module_dis(dn);
 
 	is_scale_hw_inited = 0;
 
@@ -138,6 +142,8 @@ static int img_scale_open(struct inode *node, struct file *pf)
 		ret = -1;
 		goto open_fail;
 	} else {
+		struct miscdevice *md = pf->private_data;
+		p_user->dn = md->this_device->of_node;
 		pf->private_data = p_user;
 		goto exit;
 	}
@@ -182,7 +188,7 @@ static int img_scale_release(struct inode *node, struct file *file)
 {
 	if (0 == atomic_dec_return(&scale_users)) {
 		if (is_scale_hw_inited) {
-			img_scale_hw_deinit();
+			img_scale_hw_deinit(((struct scale_user *)(file->private_data))->dn);
 		}
 		mutex_init(&scale_param_cfg_mutex);
 		mutex_init(&scale_dev_open_mutex);
@@ -244,9 +250,9 @@ static long img_scale_ioctl(struct file *file,
 		}
 
 		if (SCALE_IO_INIT == cmd) {
-			ret = img_scale_hw_init();
+			ret = img_scale_hw_init(((struct scale_user *)(file->private_data))->dn);
 		} else if (SCALE_IO_DEINIT == cmd) {
-			ret = img_scale_hw_deinit();
+			ret = img_scale_hw_deinit(((struct scale_user *)(file->private_data))->dn);
 			cur_task_pid = INVALID_USER_ID;
 			mutex_unlock(&scale_param_cfg_mutex);
 		} else {
@@ -329,7 +335,7 @@ int img_scale_probe(struct platform_device *pdev)
 	int i = 0;
 	struct scale_user *p_user = NULL;
 
-	SCALE_TRACE("scale_probe called \n");
+	printk(KERN_ALERT"scale_probe called\n");
 
 	ret = misc_register(&img_scale_dev);
 	if (ret) {
@@ -365,6 +371,7 @@ int img_scale_probe(struct platform_device *pdev)
 	}
 	cur_task_pid = INVALID_USER_ID;
 	is_scale_hw_inited = 0;
+	printk(KERN_ALERT"scale_probe Success\n");
 exit:
 	return ret;
 }
@@ -385,13 +392,19 @@ static int img_scale_remove(struct platform_device *dev)
 	return 0;
 }
 
+static const struct of_device_id of_match_table_scale[] = {
+	{ .compatible = "sprd,sprd_scale", },
+	{ },
+};
+
 static struct platform_driver img_scale_driver =
 {
 	.probe = img_scale_probe,
 	.remove = img_scale_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "sprd_scale"
+		.name = "sprd_scale",
+		.of_match_table = of_match_ptr(of_match_table_scale),
 	}
 };
 

@@ -26,6 +26,9 @@
 #include <linux/sched.h>
 #include <video/sprd_dma_copy_k.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+
 #include "dma_copy_drv.h"
 
 #define DMA_COPY_MINOR MISC_DYNAMIC_MINOR
@@ -345,12 +348,18 @@ static int dma_copy_k_remove(struct platform_device *dev)
 	return 0;
 }
 
+const struct of_device_id of_match_dma_copy[] = {
+	{ .compatible = "sprd,sprd_dma_copy", },
+	{ },
+};
+
 static struct platform_driver dma_copy_driver = {
 	.probe = dma_copy_k_probe,
 	.remove = dma_copy_k_remove,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "sprd_dma_copy",
+		.of_match_table = of_match_ptr(of_match_dma_copy),
 		},
 };
 

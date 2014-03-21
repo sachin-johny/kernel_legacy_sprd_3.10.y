@@ -16,6 +16,7 @@
 
 #include <linux/types.h>
 #include "dcam_reg.h"
+#include "parse_hwinfo.h"
 
 //#define DCAM_DEBUG
 
@@ -23,6 +24,11 @@
 	#define DCAM_TRACE             printk
 #else
 	#define DCAM_TRACE             pr_debug
+#endif
+
+#ifdef CONFIG_OF
+	#define         clk_enable	clk_prepare_enable
+	#define         clk_disable	clk_disable_unprepare
 #endif
 
 #define DCAM_WAIT_FOREVER                        0xFFFFFFFF
@@ -359,14 +365,14 @@ int32_t    dcam_module_init(enum dcam_cap_if_mode if_mode,
 			enum dcam_cap_sensor_mode sn_mode);
 int32_t    dcam_module_deinit(enum dcam_cap_if_mode if_mode,
 			enum dcam_cap_sensor_mode sn_mode);
-int32_t    dcam_module_en(void);
-int32_t    dcam_module_dis(void);
-int32_t    dcam_mipi_clk_en(void);
-int32_t    dcam_mipi_clk_dis(void);
+int32_t    dcam_module_en(struct device_node *dn);
+int32_t    dcam_module_dis(struct device_node *dn);
+int32_t    dcam_mipi_clk_en(struct device_node *dn);
+int32_t    dcam_mipi_clk_dis(struct device_node *dn);
 int32_t    dcam_ccir_clk_en(void);
 int32_t    dcam_ccir_clk_dis(void);
 int32_t    dcam_reset(enum dcam_rst_mode reset_mode);
-int32_t    dcam_set_clk(enum dcam_clk_sel clk_sel);
+int32_t    dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel);
 int32_t    dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
 			struct dcam_rect *in_rect, struct dcam_size *out_size);
 int32_t    dcam_start_path(enum dcam_path_index path_index);

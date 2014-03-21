@@ -63,7 +63,7 @@
 #define DCAM_MATRIX_EB                                 (DCAM_AHB_CTL0 + 0x0008UL)
 #define DCAM_CCIR_PCLK_EB                              (SPRD_MMCKG_BASE + 0x0028UL)
 
-#define DCAM_BASE                                      SPRD_DCAM_BASE 
+
 #define DCAM_CFG                                       (DCAM_BASE + 0x0000UL)
 #define DCAM_CONTROL                                   (DCAM_BASE + 0x0004UL)
 #define DCAM_PATH0_CFG                                 (DCAM_BASE + 0x0008UL)
