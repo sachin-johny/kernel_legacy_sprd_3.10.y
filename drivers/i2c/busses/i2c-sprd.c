@@ -20,6 +20,9 @@
 #include <linux/i2c.h>
 #include <linux/err.h>
 #include <linux/clk.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_i2c.h>
 
 #include <asm/io.h>
 
@@ -434,7 +437,7 @@ static void sprd_i2c_reset(struct sprd_i2c *pi2c)
 
 	pi2c->clk = clk_get(&pi2c->adap.dev, buf);
 	if (!WARN(IS_ERR(pi2c->clk), "clock: failed to get %s.\n", buf))
-		clk_enable(pi2c->clk);
+		clk_prepare_enable(pi2c->clk);
 #elif defined(CONFIG_ARCH_SC8825)
 	/*enable i2c clock */
 	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 29) | BIT(4), GR_GEN0);
@@ -476,6 +479,10 @@ static int sprd_i2c_probe(struct platform_device *pdev)
 	struct sprd_i2c *pi2c;
 	struct resource *res;
 	int ret;
+	struct device_node *np = pdev->dev.of_node;
+
+	if (np)
+		pdev->id = of_alias_get_id(np, "i2c");
 
 	pi2c = kzalloc(sizeof(struct sprd_i2c), GFP_KERNEL);
 	if (!pi2c) {
@@ -496,6 +503,7 @@ static int sprd_i2c_probe(struct platform_device *pdev)
 	}
 #endif
 
+	i2c_set_adapdata(&pi2c->adap, pi2c);
 	snprintf(pi2c->adap.name, sizeof(pi2c->adap.name), "%s", "sprd-i2c");
 	pi2c->adap.owner = THIS_MODULE;
 	pi2c->adap.retries = 3;
@@ -504,6 +512,7 @@ static int sprd_i2c_probe(struct platform_device *pdev)
 	pi2c->adap.dev.parent = &pdev->dev;
 	pi2c->adap.nr = pdev->id;
 	pi2c->membase = (void *)(res->start);
+	pi2c->adap.dev.of_node = pdev->dev.of_node;
 
 	dev_info(&pdev->dev, "%s() id=%d, base=%p \n", __func__, pi2c->adap.nr,
 		 pi2c->membase);
@@ -523,6 +532,8 @@ static int sprd_i2c_probe(struct platform_device *pdev)
 #ifdef CONFIG_I2C_RESUME_EARLY
 	pdev_chip_i2c[pdev->id] = pdev;
 #endif
+	of_i2c_register_devices(&pi2c->adap);
+
 	return 0;
 
 release_region:
@@ -584,7 +595,7 @@ static int i2c_controller_suspend(struct platform_device *pdev,
 		l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl = __raw_readl(pi2c->membase + I2C_CMD_BUF_CTL);
 	}
 	if (pi2c && !IS_ERR(pi2c->clk))
-		clk_disable(pi2c->clk);
+		clk_disable_unprepare(pi2c->clk);
 	return 0;
 }
 
@@ -593,7 +604,7 @@ static int i2c_controller_resume(struct platform_device *pdev)
 	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
 
 	if (pi2c && !IS_ERR(pi2c->clk))
-		clk_enable(pi2c->clk);
+		clk_prepare_enable(pi2c->clk);
 	if (pi2c) {
 		printk(KERN_ERR ":===dump i2c-%d reg when resume\n", pi2c->adap.nr);
 		printk(KERN_ERR ":l2c_saved_regs[%d].ctl =0x%x\n", pi2c->adap.nr,l2c_saved_regs[pi2c->adap.nr].ctl);
@@ -663,12 +674,18 @@ subsys_initcall(sprd_i2c_syscore_init);
 #define i2c_controller_resume	NULL
 #endif
 
+static struct of_device_id sprd_i2c_of_match[] = {
+	{ .compatible = "sprd,i2c", },
+	{ }
+};
+
 static struct platform_driver sprd_i2c_driver = {
 	.probe = sprd_i2c_probe,
 	.remove = sprd_i2c_remove,
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = "sprd-i2c",
+		   .of_match_table = of_match_ptr(sprd_i2c_of_match),
 		   },
 #ifndef CONFIG_I2C_RESUME_EARLY
 	.suspend = i2c_controller_suspend,

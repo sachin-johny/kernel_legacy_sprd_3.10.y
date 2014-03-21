@@ -25,11 +25,16 @@
 #include <linux/regulator/consumer.h>
 #include <linux/clk.h>
 #include <linux/wakelock.h>
+#include <linux/of.h>
 
 #ifdef CONFIG_ARCH_SC8825
 #define RTC_BASE (SPRD_MISC_BASE + 0x80)
 #else
+#ifdef CONFIG_OF
+static unsigned int RTC_BASE;
+#else
 #define RTC_BASE (SPRD_MISC_BASE + 0x8080)
+#endif
 #endif
 
 #define ANA_RTC_SEC_CNT                 (RTC_BASE + 0x00)
@@ -535,9 +540,17 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
 	int err = -ENODEV;
-	struct resource *irq;
+	struct resource *res;
 	int ret = 0;
+#ifdef CONFIG_OF
+	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
+	if(!res){
+		dev_err(&plat_dev->dev, "No reg of property specified\n");
+		return -ENODEV;
+	}
 
+	RTC_BASE = res->start;
+#endif
 	/*disable and clean irq*/
 	sci_adi_clr(ANA_RTC_INT_EN, 0xffff);
 	sci_adi_set(ANA_RTC_INT_CLR, 0xffff);
@@ -555,7 +568,7 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		goto kfree_data;
 	}
 
-	err = clk_enable(rtc_data->clk);
+	err = clk_prepare_enable(rtc_data->clk);
 	if (err < 0)
 		goto put_clk;
 
@@ -568,12 +581,13 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		goto disable_clk;
 	}
 
-	irq = platform_get_resource(plat_dev, IORESOURCE_IRQ, 0);
-	if(unlikely(!irq)) {
+	res = platform_get_resource(plat_dev, IORESOURCE_IRQ, 0);
+	if(unlikely(!res)) {
 		dev_err(&plat_dev->dev, "no irq resource specified\n");
 		goto unregister_rtc;
 	}
-	rtc_data->irq_no = irq->start;
+	rtc_data->irq_no = res->start;
+
 	platform_set_drvdata(plat_dev, rtc_data);
 
 	ret = request_irq(rtc_data->irq_no, rtc_interrupt_handler, 0, "sprd_rtc", rtc_data->rtc);
@@ -587,7 +601,7 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 unregister_rtc:
 	rtc_device_unregister(rtc_data->rtc);
 disable_clk:
-	clk_disable(rtc_data->clk);
+	clk_disable_unprepare(rtc_data->clk);
 put_clk:
 	clk_put(rtc_data->clk);
 kfree_data:
@@ -600,19 +614,24 @@ static int sprd_rtc_remove(struct platform_device *plat_dev)
 	struct sprd_rtc_data *rtc_data = platform_get_drvdata(plat_dev);
 	sprd_remove_caliberate_attr(rtc_data->rtc->dev);
 	rtc_device_unregister(rtc_data->rtc);
-	clk_disable(rtc_data->clk);
+	clk_disable_unprepare(rtc_data->clk);
 	clk_put(rtc_data->clk);
 	kfree(rtc_data);
 
 	return 0;
 }
 
+static struct of_device_id sprd_rtc_match_table[] = {
+	{ .compatible = "sprd,rtc", },
+	{ },
+};
 static struct platform_driver sprd_rtc_driver = {
 	.probe	= sprd_rtc_probe,
 	.remove = sprd_rtc_remove,
 	.driver = {
 		.name = "sprd_rtc",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(sprd_rtc_match_table),
 	},
 };
 

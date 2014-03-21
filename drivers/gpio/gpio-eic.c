@@ -20,6 +20,8 @@
 #include <linux/platform_device.h>
 #include <linux/module.h>
 #include <linux/bug.h>
+#include <linux/of_device.h>
+#include <linux/irqdomain.h>
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
@@ -82,6 +84,8 @@ struct sci_gpio_chip {
 
 	uint32_t base_addr;
 	uint32_t group_offset;
+	struct irq_domain *irq_domain;
+	int is_adi_gpio;
 
 	 uint32_t(*read_reg) (uint32_t addr);
 	void (*write_reg) (uint32_t value, uint32_t addr);
@@ -226,6 +230,27 @@ static int sci_eic_set_debounce(struct gpio_chip *chip, unsigned offset,
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static int sci_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
+{
+	struct irq_domain *irq_domain ;
+	struct sci_gpio_chip *sci_gpio = to_sci_gpio(chip);
+
+	irq_domain = sci_gpio->irq_domain;
+	return irq_find_mapping(irq_domain, offset);
+}
+
+static int sci_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
+{
+	int base_irq;
+	struct irq_domain *irq_domain ;
+	struct sci_gpio_chip *sci_gpio = to_sci_gpio(chip);
+
+	irq_domain = sci_gpio->irq_domain;
+	base_irq = irq_find_mapping(irq_domain, 0);
+	return irq - base_irq;
+}
+#else
 static int sci_gpio_to_irq(struct gpio_chip *chip, unsigned offset)
 {
 	return chip->base + offset + GPIO_IRQ_START;
@@ -235,6 +260,8 @@ static int sci_irq_to_gpio(struct gpio_chip *chip, unsigned irq)
 {
 	return irq - GPIO_IRQ_START - chip->base;
 }
+
+#endif
 
 static struct sci_gpio_chip d_sci_gpio = {
 	.chip.label = "sprd-d-gpio",
@@ -252,6 +279,7 @@ static struct sci_gpio_chip d_sci_gpio = {
 	.write_reg = d_write_reg,
 	.set_bits = d_set_bits,
 	.clr_bits = d_clr_bits,
+	.is_adi_gpio = 0,
 };
 
 static struct sci_gpio_chip a_sci_gpio = {
@@ -270,6 +298,7 @@ static struct sci_gpio_chip a_sci_gpio = {
 	.write_reg = a_write_reg,
 	.set_bits = a_set_bits,
 	.clr_bits = a_clr_bits,
+	.is_adi_gpio = 1,
 };
 
 /*
@@ -292,6 +321,7 @@ static struct sci_gpio_chip d_sci_eic = {
 	.write_reg = d_write_reg,
 	.set_bits = d_set_bits,
 	.clr_bits = d_clr_bits,
+	.is_adi_gpio = 0,
 };
 
 static struct sci_gpio_chip a_sci_eic = {
@@ -310,6 +340,7 @@ static struct sci_gpio_chip a_sci_eic = {
 	.write_reg = a_write_reg,
 	.set_bits = a_set_bits,
 	.clr_bits = a_clr_bits,
+	.is_adi_gpio = 1,
 };
 
 /* GPIO/EIC irq interfaces */
@@ -514,6 +545,28 @@ static struct irqaction __d_eic_irq = {
 #error "NR_GPIO_IRQS is not match with the sum of builtin/SoC GPIOs and EICs"
 #endif
 
+#ifdef CONFIG_OF
+static void gpio_irq_init(int irq, struct gpio_chip *gpiochip,
+			  struct irq_chip *irqchip)
+{
+	int n, i;
+	struct sci_gpio_chip *sci_gpio = to_sci_gpio(gpiochip);
+	struct irq_domain *irq_domain = sci_gpio->irq_domain;
+
+	/* setup the cascade irq handlers */
+	if (sci_gpio->is_adi_gpio) { /*TODO*/
+		irq_set_chained_handler(irq, gpio_muxed_flow_handler);
+		irq_set_handler_data(irq, gpiochip);
+	}
+
+	for (i = 0; i < gpiochip->ngpio; i++) {
+		n = irq_create_mapping(irq_domain, i);
+		irq_set_chip_and_handler(n, irqchip, handle_level_irq);
+		irq_set_chip_data(n, gpiochip);
+		set_irq_flags(n, IRQF_VALID);
+	}
+}
+#else
 static void gpio_irq_init(int irq, struct gpio_chip *gpiochip,
 			  struct irq_chip *irqchip)
 {
@@ -533,9 +586,165 @@ static void gpio_irq_init(int irq, struct gpio_chip *gpiochip,
 	}
 }
 
+#endif
+
+#ifdef CONFIG_OF
+struct sprd_gpio_match_data{
+	struct sci_gpio_chip *sci_gpio_chip;
+	struct irq_chip *irq_chip;
+	struct irqaction *irqaction;
+};
+static struct sprd_gpio_match_data d_eic_match = {
+	.sci_gpio_chip = &d_sci_eic,
+	.irq_chip = &d_eic_irq_chip,
+	.irqaction = &__d_eic_irq,
+};
+
+static struct sprd_gpio_match_data d_gpio_match = {
+	.sci_gpio_chip = &d_sci_gpio,
+	.irq_chip = &d_gpio_irq_chip,
+	.irqaction = &__d_gpio_irq,
+};
+static struct sprd_gpio_match_data a_eic_match = {
+	.sci_gpio_chip = &a_sci_eic,
+	.irq_chip = &a_eic_irq_chip,
+	.irqaction = NULL,
+};
+static struct sprd_gpio_match_data a_gpio_match = {
+	.sci_gpio_chip = &a_sci_gpio,
+	.irq_chip = &a_gpio_irq_chip,
+	.irqaction = NULL,
+};
+static struct of_device_id eic_gpio_match_table[] = {
+	{ .compatible = "sprd,d-eic-gpio", .data = &d_eic_match},
+	{ .compatible = "sprd,d-gpio-gpio", .data = &d_gpio_match},
+	{ .compatible = "sprd,a-eic-gpio", .data = &a_eic_match},
+	{ .compatible = "sprd,a-gpio-gpio", .data = &a_gpio_match},
+	{ },
+};
+
 static int eic_gpio_probe(struct platform_device *pdev)
 {
 	struct eic_gpio_resource *r = pdev->dev.platform_data;
+	struct of_device_id *match;
+	struct sprd_gpio_match_data *match_data;
+	struct device_node *np = pdev->dev.of_node;
+	struct sci_gpio_chip *sgc;
+	struct irq_chip *ic;
+	struct irqaction *ia;
+	static bool init_done = false;
+	struct resource *res;
+	struct irq_domain *irq_domain;
+	int irq;
+
+	if (!np && !r)
+		BUG();
+
+	if(!init_done){
+	/* enable EIC */
+#if defined(CONFIG_ARCH_SC8825)
+	sci_glb_set(REG_GLB_GEN0, BIT_EIC_EB);
+	sci_glb_set(REG_GLB_GEN0, BIT_GPIO_EB);
+	sci_glb_set(REG_GLB_GEN0, BIT_RTC_EIC_EB);
+	sci_adi_set(ANA_REG_GLB_ANA_APB_CLK_EN,
+		    BIT_ANA_EIC_EB | BIT_ANA_GPIO_EB | BIT_ANA_RTC_EIC_EB);
+#elif defined(CONFIG_ARCH_SCX15)
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB | BIT_EIC_EB);
+	sci_glb_set(REG_AON_APB_APB_RTC_EB, BIT_EIC_RTC_EB);
+	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_EIC_EN);
+	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EIC_EN);
+#elif defined(CONFIG_ARCH_SCX35)
+	sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB | BIT_EIC_EB);
+	sci_glb_set(REG_AON_APB_APB_RTC_EB, BIT_EIC_RTC_EB);
+	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN,
+		    BIT_ANA_EIC_EN | BIT_ANA_GPIO_EN);
+	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EIC_EN);
+#endif
+	init_done = true;
+	}
+
+	match = of_match_device(eic_gpio_match_table, &pdev->dev);
+	match_data = match->data;
+	sgc = match_data->sci_gpio_chip;
+	ic = match_data->irq_chip;
+	ia = match_data->irqaction;
+
+	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+	if(!res){
+		dev_err(&pdev->dev, "No reg of property specified\n");
+		return -ENODEV;
+	}
+
+	res = request_mem_region(res->start, resource_size(res), pdev->name);
+	if (!res) {
+		dev_err(&pdev->dev, "memory resource busy\n");
+		return -EBUSY;
+	}
+
+	sgc->base_addr = res->start;
+
+	res = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if(!res)
+		irq = -1;
+	else
+		irq = res->start;
+
+	if (of_property_read_u32(np, "ngpios", &sgc->chip.ngpio)) {
+		dev_err(&pdev->dev, "No ngpios of property specified\n");
+		release_mem_region(res->start, resource_size(res));
+		return -ENODEV;
+	}
+	if (of_property_read_u32(np, "gpiobase", &sgc->chip.base)) {
+		dev_err(&pdev->dev, "No gpiobase of property specified\n");
+		sgc->chip.base = -1;
+	}
+
+	dev_info(&pdev->dev, "base_addr %p, gpio base %d, ngpio %d, irq %d", \
+		sgc->base_addr, sgc->chip.base, sgc->chip.ngpio, irq);
+
+#ifdef CONFIG_OF
+	sgc->chip.of_node = np; 
+#endif
+	gpiochip_add(&sgc->chip);
+
+	irq_domain = irq_domain_add_linear(np, sgc->chip.ngpio,
+			&irq_domain_simple_ops, NULL);
+	if(!irq_domain){
+		dev_err(&pdev->dev, "failed to add irq domain\n");
+		gpiochip_remove(&sgc->chip);
+		release_mem_region(res->start, resource_size(res));
+		return -ENODEV;
+	}
+	sgc->irq_domain = irq_domain;
+
+	if (-1 != irq) {
+		gpio_irq_init(irq, &sgc->chip, ic);
+		if(ia != NULL)
+			setup_irq(irq, ia);
+	}
+
+	return 0;
+}
+
+static int eic_gpio_remove(struct platform_device *pdev)
+{
+	int ret = 0;
+	struct of_device_id *match;
+	struct sprd_gpio_match_data *match_data;
+	struct sci_gpio_chip *sgc;
+
+	match = of_match_device(eic_gpio_match_table, &pdev->dev);
+	match_data = match->data;
+	sgc = match_data->sci_gpio_chip;
+	ret = gpiochip_remove(&sgc->chip);
+
+	return ret;
+}
+#else
+static int eic_gpio_probe(struct platform_device *pdev)
+{
+	struct eic_gpio_resource *r = pdev->dev.platform_data;
+	struct irq_domain *irq_domain;
 	if (!r)
 		BUG();
 
@@ -625,10 +834,12 @@ static int eic_gpio_remove(struct platform_device *pdev)
 
 	return ret;
 }
+#endif
 
 static struct platform_driver eic_gpio_driver = {
 	.driver.name = "eic-gpio",
 	.driver.owner = THIS_MODULE,
+	.driver.of_match_table = of_match_ptr(eic_gpio_match_table),
 	.probe = eic_gpio_probe,
 	.remove = eic_gpio_remove,
 };
