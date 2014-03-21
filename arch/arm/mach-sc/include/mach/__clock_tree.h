@@ -17,8 +17,9 @@
  */
 #ifndef __ASM_ARCH_SCI_CLOCK_TREE_H
 #define __ASM_ARCH_SCI_CLOCK_TREE_H
-
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX30G)
+#include "chip_x30g/__clock_tree.h"
+#elif defined(CONFIG_ARCH_SCX15)
 #include "chip_x15/__clock_tree.h"
 #elif defined(CONFIG_ARCH_SCX35)
 #include "chip_x35/__clock_tree.h"
