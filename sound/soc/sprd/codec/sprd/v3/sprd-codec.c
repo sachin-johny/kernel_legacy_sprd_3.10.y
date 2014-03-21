@@ -70,11 +70,12 @@ int get_hp_plug_state(void);
 #define SPRD_CODEC_DP_BASE_HI (SPRD_CODEC_DP_BASE & 0xFFFF0000)
 
 enum {
-	SPRD_CODEC_PA_ORDER = 100,
-	SPRD_CODEC_HP_PA_ORDER = SPRD_CODEC_PA_ORDER,
+	SPRD_CODEC_HP_PA_ORDER = 100,
 	SPRD_CODEC_HP_SWITCH_ORDER = 101,
-	SPRD_CODEC_HP_PA_POST_ORDER = 102,
-	SPRD_CODEC_HP_POP_ORDER = 103,
+	SPRD_CODEC_ANA_MIXER_ORDER = 102,  /*must be later with switch order*/
+	SPRD_CODEC_HP_PA_POST_ORDER = 103,
+	SPRD_CODEC_HP_POP_ORDER = 104,
+	SPRD_CODEC_PA_ORDER = 104, /*last power up, later with ANA_MIXER order*/
 };
 
 enum {
@@ -2395,7 +2396,7 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 
 /*ANA LOOP SWITCH*/
 #define SPRD_CODEC_LOOP_SWITCH(xname, xreg)\
-	SND_SOC_DAPM_PGA_S(xname, 7, FUN_REG(xreg), 0, 0, ana_loop_event,\
+	SND_SOC_DAPM_PGA_S(xname, SPRD_CODEC_ANA_MIXER_ORDER, FUN_REG(xreg), 0, 0, ana_loop_event,\
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD)
 
 #ifndef SND_SOC_DAPM_MICBIAS_E
