@@ -14,6 +14,9 @@
 #define _SCALE_DRV_H_
 
 #include <linux/types.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+
 #include "scale_reg.h"
 
 /*#define SCALE_DEBUG*/
@@ -159,8 +162,8 @@ struct scale_frame {
 };
 
 typedef void (*scale_isr_func)(struct scale_frame* frame, void* u_data);
-int32_t scale_module_en(void);
-int32_t scale_module_dis(void);
+int32_t scale_module_en(struct device_node *dn);
+int32_t scale_module_dis(struct device_node *dn);
 int  scale_coeff_alloc(void);
 void  scale_coeff_free(void);
 int32_t scale_start(void);

@@ -295,7 +295,7 @@ LOCAL void        _dcam_wait_path_done(enum dcam_path_index path_index, uint32_t
 LOCAL void        _dcam_path_done_notice(enum dcam_path_index path_index);
 LOCAL void        _dcam_rot_done(void);
 LOCAL void        _dcam_err_pre_proc(void);
-LOCAL int32_t     _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb);
+LOCAL int32_t     _dcam_is_clk_mm_i_eb(struct device_node *dn, uint32_t is_clk_mm_i_eb);
 LOCAL void        _dcam_frm_queue_clear(struct dcam_frm_queue *queue);
 LOCAL int32_t     _dcam_frame_enqueue(struct dcam_frm_queue *queue, struct dcam_frame *frame);
 LOCAL int32_t     _dcam_frame_dequeue(struct dcam_frm_queue *queue, struct dcam_frame **frame);
@@ -602,30 +602,33 @@ LOCAL uint32_t *dcam_get_scale_coeff_addr(void)
 	return s_dcam_scaling_coeff_addr;
 }
 
-int32_t dcam_module_en(void)
+int32_t dcam_module_en(struct device_node *dn)
 {
 	int	ret = 0;
 
 	DCAM_TRACE("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
 
 	if (atomic_inc_return(&s_dcam_users) == 1) {
-#if 0    /*debug ion info*/
+		unsigned int irq_no;
 		int  base = SPRD_ION_MM_BASE ;
 		int   size = SPRD_ION_MM_SIZE;
 		int   overlay_size = SPRD_ION_OVERLAY_SIZE;
 		printk("DCAM: SPRD_ION base=0x%x, size=0x%x, overlay_size=0x%x\n",
 			base, size, overlay_size);
-#endif
-		ret = _dcam_is_clk_mm_i_eb(1);
+		ret = _dcam_is_clk_mm_i_eb(dn,1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
-		ret = dcam_set_clk(DCAM_CLK_192M);
+
+		ret = dcam_set_clk(dn,DCAM_CLK_192M);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
+
+		parse_baseaddress(dn);
+
 		dcam_reset(DCAM_RST_ALL);
 		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 		atomic_set(&s_resize_flag, 0);
@@ -633,7 +636,10 @@ int32_t dcam_module_en(void)
 		memset((void*)s_user_func, 0, sizeof(s_user_func));
 		memset((void*)s_user_data, 0, sizeof(s_user_data));
 		printk("DCAM: register isr, 0x%x \n", REG_RD(DCAM_INT_MASK));
-		ret = request_irq(DCAM_IRQ,
+
+		irq_no = parse_irq(dn);
+		printk("DCAM: irq_no = 0x%x \n", irq_no);
+		ret = request_irq(irq_no,
 				_dcam_isr_root,
 				IRQF_SHARED,
 				"DCAM",
@@ -653,7 +659,7 @@ fail_exit:
 	return ret;
 }
 
-int32_t dcam_module_dis(void)
+int32_t dcam_module_dis(struct device_node *dn)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	int	                    ret = 0;
@@ -661,10 +667,10 @@ int32_t dcam_module_dis(void)
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		dcam_set_clk(DCAM_CLK_NONE);
+		dcam_set_clk(dn,DCAM_CLK_NONE);
 		printk("DCAM: un register isr \n");
 		free_irq(DCAM_IRQ, (void*)&s_dcam_irq);
-		ret = _dcam_is_clk_mm_i_eb(0);
+		ret = _dcam_is_clk_mm_i_eb(dn,0);
 		if (ret) {
 			rtn =  -DCAM_RTN_MAX;
 		}
@@ -741,8 +747,9 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	return -rtn;
 }
 
-int32_t _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
+int32_t _dcam_is_clk_mm_i_eb(struct device_node *dn, uint32_t is_clk_mm_i_eb)
 {
+#ifndef CONFIG_OF
 #ifndef CONFIG_SC_FPGA
 	int                     ret = 0;
 	if (NULL == s_dcam_clk_mm_i) {
@@ -774,10 +781,11 @@ int32_t _dcam_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
 		s_dcam_clk_mm_i = NULL;
 	}
 #endif
+#endif
 	return 0;
 }
 
-int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
+int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct clk              *clk_parent;
@@ -812,7 +820,7 @@ int32_t dcam_set_clk(enum dcam_clk_sel clk_sel)
 	}
 #ifndef CONFIG_SC_FPGA
 	if (NULL == s_dcam_clk) {
-		s_dcam_clk = clk_get(NULL, "clk_dcam");
+		s_dcam_clk = parse_clk(dn,"clk_dcam");
 		if (IS_ERR(s_dcam_clk)) {
 			printk("DCAM: clk_get fail, %d \n", (int)s_dcam_clk);
 			return -1;

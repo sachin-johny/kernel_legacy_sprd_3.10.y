@@ -37,11 +37,11 @@
 
 static DEFINE_SPINLOCK(rot_drv_lock);
 
-int rot_k_module_en(void)
+int rot_k_module_en(struct device_node *dn)
 {
 	int ret = 0;
 
-	ret = dcam_module_en();
+	ret = dcam_module_en(dn);
 
 	if (ret) {
 		printk("dcam_module_en, failed  %d \n", ret);
@@ -52,11 +52,11 @@ int rot_k_module_en(void)
 	return ret;
 }
 
-int rot_k_module_dis(void)
+int rot_k_module_dis(struct device_node *dn)
 {
 	int ret = 0;
 
-	ret = dcam_module_dis();
+	ret = dcam_module_dis(dn);
 
 	if (ret) {
 		printk("rot_k_module_dis, failed  %d \n", ret);

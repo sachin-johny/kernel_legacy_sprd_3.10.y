@@ -100,7 +100,7 @@ static int32_t _scale_set_sc_coeff(void);
 static void _scale_reg_trace(void);
 static int _scale_isr_root(struct dcam_frame* dcam_frm, void* u_data);
 
-int32_t scale_module_en(void)
+int32_t scale_module_en(struct device_node *dn)
 {
 	int ret = 0;
 
@@ -110,7 +110,7 @@ int32_t scale_module_en(void)
 		goto fail_get_resizer;
 	}
 
-	ret = dcam_module_en();
+	ret = dcam_module_en(dn);
 	if (ret) {
 		printk("scale_module_en, failed to enable scale module %d \n", ret);
 		goto fail_dcam_eb;
@@ -125,11 +125,11 @@ fail_get_resizer:
 	return ret;
 }
 
-int32_t scale_module_dis(void)
+int32_t scale_module_dis(struct device_node *dn)
 {
 	int ret = 0;
 
-	ret = dcam_module_dis();
+	ret = dcam_module_dis(dn);
 	if (ret) {
 		printk("scale_module_dis, failed to disable scale module %d \n", ret);
 	}

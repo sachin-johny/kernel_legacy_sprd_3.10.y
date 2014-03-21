@@ -37,6 +37,8 @@
 #include <linux/clk.h>
 #include <asm/cacheflush.h>
 #include <mach/hardware.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #if defined(CONFIG_ARCH_SCX35)
 #include "Shark_reg_isp.h"
@@ -80,12 +82,18 @@ static struct miscdevice isp_dev = {
 	.fops	= &isp_fops,
 };
 
+static const struct of_device_id of_match_table_isp[] = {
+	{ .compatible = "sprd,sprd_isp", },
+	{ },
+};
+
 static struct platform_driver isp_driver = {
 	.probe	= _isp_probe,
 	.remove	= _isp_remove,
 	.driver	= {
 		.owner = THIS_MODULE,
 		.name = "sprd_isp",
+		.of_match_table = of_match_ptr(of_match_table_isp),
 	},
 };
 

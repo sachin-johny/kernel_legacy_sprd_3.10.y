@@ -13,6 +13,8 @@
 #ifndef _ROT_DRV_H_
 #define _ROT_DRV_H_
 
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include "rot_reg.h"
 
@@ -49,8 +51,8 @@ struct rot_drv_private{
 };
 
 
-int rot_k_module_en(void);
-int rot_k_module_dis(void);
+int rot_k_module_en(struct device_node *dn);
+int rot_k_module_dis(struct device_node *dn);
 int rot_k_isr_reg(rot_isr_func user_func,struct rot_drv_private *drv_private);
 int rot_k_is_end(ROT_PARAM_CFG_T *s);
 int rot_k_set_UV_param(ROT_PARAM_CFG_T *s);

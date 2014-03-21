@@ -34,6 +34,8 @@
 #include <linux/module.h>
 #include <linux/slab.h>
 #include <linux/proc_fs.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include "dcam_drv.h"
 #include <mach/hardware.h>
@@ -2631,7 +2633,9 @@ LOCAL int sprd_v4l2_open(struct file *file)
 	}
 
 	DCAM_TRACE("sprd_v4l2_open \n");
-	ret = dcam_module_en();
+	struct device_node *dn= dev->vfd->dev.of_node;
+
+	ret = dcam_module_en(dev->vfd->dev.of_node);
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to enable dcam module \n");
 		ret = -EIO;
@@ -2798,7 +2802,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	dcam_module_deinit(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
 	sprd_v4l2_local_deinit(dev);
 	sema_init(&dev->irq_sem, 0);
-	ret = dcam_module_dis();
+	ret = dcam_module_dis(dev->vfd->dev.of_node);
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to enable dcam module \n");
 		ret = -EIO;
@@ -3007,7 +3011,7 @@ LOCAL int release(void)
 	return 0;
 }
 
-LOCAL int __init create_instance(int inst)
+LOCAL int __init create_instance(struct platform_device *pdev)
 {
 	struct dcam_dev          *dev;
 	struct video_device      *vfd;
@@ -3020,7 +3024,7 @@ LOCAL int __init create_instance(int inst)
 	DCAM_TRACE("create_instance, 0x%x", (uint32_t)dev);
 
 	snprintf(dev->v4l2_dev.name, sizeof(dev->v4l2_dev.name),
-		 "%s-%03d", DCAM_MODULE_NAME, inst);
+		 "%s-%03d", DCAM_MODULE_NAME, pdev->id);
 	ret = v4l2_device_register(NULL, &dev->v4l2_dev);
 	if (ret)
 		goto free_dev;
@@ -3051,6 +3055,7 @@ LOCAL int __init create_instance(int inst)
 	if (video_nr >= 0)
 		video_nr++;
 
+	vfd->dev.of_node = pdev->dev.of_node;
 	dev->vfd = vfd;
 	v4l2_info(&dev->v4l2_dev, "V4L2 device registered as /dev/video%d\n",
 		  vfd->num);
@@ -3071,7 +3076,7 @@ static int __init sprd_v4l2_probe(struct platform_device *pdev)
 	int                      ret = DCAM_RTN_SUCCESS;
 
 	printk(KERN_ALERT "dcam_probe called\n");
-	ret = create_instance(pdev->id);
+	ret = create_instance(pdev);
 	if (ret < 0) {
 		printk(KERN_INFO "Error %d while loading dcam driver\n", ret);
 		return ret;
@@ -3086,12 +3091,17 @@ LOCAL int sprd_v4l2_remove(struct platform_device *dev)
 	return ret;
 }
 
+LOCAL const struct of_device_id  of_match_table_dcam[] = {
+	{ .compatible = "sprd,sprd_dcam", },
+	{ },
+};
 LOCAL struct platform_driver sprd_v4l2_driver __refdata = {
 	.probe = sprd_v4l2_probe,
 	.remove = sprd_v4l2_remove,
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = "sprd_dcam",
+		   .of_match_table = of_match_ptr(of_match_table_dcam),
 		   },
 };
 
@@ -3105,6 +3115,7 @@ int __init sprd_v4l2_init(void)
 	}
 
 	if (dcam_scale_coeff_alloc()) {
+		printk("dcam_scale_coeff_alloc Failed \n");
 		return -1;
 	}
 
