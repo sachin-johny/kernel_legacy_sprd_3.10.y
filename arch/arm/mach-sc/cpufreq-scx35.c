@@ -403,6 +403,14 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 
 unsigned int cpufreq_min_limit = ULONG_MAX;
 unsigned int cpufreq_max_limit = 0;
+unsigned int dvfs_score_select = 8;
+unsigned int dvfs_unplug_select = 3;
+unsigned int dvfs_score_hi[4] = {0};
+unsigned int dvfs_score_mid[4] = {0};
+unsigned int dvfs_score_critical[4] = {0};
+extern unsigned int percpu_load[4];
+extern unsigned int cur_window_size[4];
+
 static DEFINE_SPINLOCK(cpufreq_state_lock);
 
 static int sprd_cpufreq_target(struct cpufreq_policy *policy,
@@ -630,6 +638,79 @@ static ssize_t cpufreq_max_limit_store(struct device *dev, struct device_attribu
 	return count;
 }
 
+
+static ssize_t dvfs_score_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	printk(KERN_ERR"dvfs_score_input %x\n",value);
+
+	dvfs_score_select = (value >> 24) & 0x0f;
+	if(dvfs_score_select < 4)
+	{
+		dvfs_score_critical[dvfs_score_select] = (value >> 16) & 0xff;
+		dvfs_score_hi[dvfs_score_select] = (value >> 8) & 0xff;
+		dvfs_score_mid[dvfs_score_select] = value & 0xff;
+	}
+
+
+	return count;
+}
+
+static ssize_t dvfs_score_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	int ret = 0;
+
+	ret = snprintf(buf + ret,50,"dvfs_score_select %d\n",dvfs_score_select);
+	ret += snprintf(buf + ret,200,"dvfs_score_critical[1] = %d dvfs_score_hi[1] = %d dvfs_score_mid[1] = %d\n",dvfs_score_critical[1],dvfs_score_hi[1],dvfs_score_mid[1]);
+	ret += snprintf(buf + ret,200,"dvfs_score_critical[2] = %d dvfs_score_hi[2] = %d dvfs_score_mid[2] = %d\n",dvfs_score_critical[2],dvfs_score_hi[2],dvfs_score_mid[2]);
+	ret += snprintf(buf + ret,200,"dvfs_score_critical[3] = %d dvfs_score_hi[3] = %d dvfs_score_mid[3] = %d\n",dvfs_score_critical[3],dvfs_score_hi[3],dvfs_score_mid[3]);
+
+	ret += snprintf(buf + ret,200,"percpu_total_load[0] = %d\n",percpu_load[0]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[1] = %d\n",percpu_load[1]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[2] = %d\n",percpu_load[2]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[3] = %d\n",percpu_load[3]);
+
+	return strlen(buf) + 1;
+}
+
+static ssize_t dvfs_unplug_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	printk(KERN_ERR"dvfs_score_input %x\n",value);
+
+	dvfs_unplug_select = (value >> 24) & 0x0f;
+	if(dvfs_unplug_select > 3)
+	{
+		cur_window_size[0]= (value >> 8) & 0xff;
+		cur_window_size[1]= (value >> 8) & 0xff;
+		cur_window_size[2]= (value >> 8) & 0xff;
+		cur_window_size[3]= (value >> 8) & 0xff;
+	}
+	return count;
+}
+
+static ssize_t dvfs_unplug_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	int ret = 0;
+
+	ret = snprintf(buf + ret,50,"dvfs_unplug_select %d\n",dvfs_unplug_select);
+	ret += snprintf(buf + ret,100,"cur_window_size[0] = %d\n",cur_window_size[0]);
+	ret += snprintf(buf + ret,100,"cur_window_size[1] = %d\n",cur_window_size[1]);
+	ret += snprintf(buf + ret,100,"cur_window_size[2] = %d\n",cur_window_size[2]);
+	ret += snprintf(buf + ret,100,"cur_window_size[3] = %d\n",cur_window_size[3]);
+
+	return strlen(buf) + 1;
+}
 static ssize_t cpufreq_table_show(struct device *dev, struct device_attribute *attr,char *buf)
 {
 	memcpy(buf,sprd_cpufreq_conf->freq_tbl,sizeof(* sprd_cpufreq_conf->freq_tbl));
@@ -640,6 +721,8 @@ static DEVICE_ATTR(cpufreq_max_limit, 0660, cpufreq_max_limit_show, cpufreq_max_
 static DEVICE_ATTR(cpufreq_min_limit_debug, 0440, cpufreq_min_limit_debug_show, NULL);
 static DEVICE_ATTR(cpufreq_max_limit_debug, 0440, cpufreq_max_limit_debug_show, NULL);
 static DEVICE_ATTR(cpufreq_table, 0440, cpufreq_table_show, NULL);
+static DEVICE_ATTR(dvfs_score, 0660, dvfs_score_show, dvfs_score_store);
+static DEVICE_ATTR(dvfs_unplug, 0660, dvfs_unplug_show, dvfs_unplug_store);
 
 static struct attribute *g[] = {
 	&dev_attr_cpufreq_min_limit.attr,
@@ -647,6 +730,8 @@ static struct attribute *g[] = {
 	&dev_attr_cpufreq_min_limit_debug.attr,
 	&dev_attr_cpufreq_max_limit_debug.attr,
 	&dev_attr_cpufreq_table.attr,
+	&dev_attr_dvfs_score.attr,
+	&dev_attr_dvfs_unplug.attr,
 	NULL,
 };
 
