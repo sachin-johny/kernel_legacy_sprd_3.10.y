@@ -2121,9 +2121,9 @@ struct platform_device sprd_sttybt_td_device = {
 	.id             = 0,
 	.dev		= {.platform_data = &sprd_sttybt_td_pdata},
 };
-
 #endif
-
+#endif
+#ifndef CONFIG_OF
 static struct saudio_init_data sprd_saudio_voip={
 	"saudiovoip",
 #ifdef CONFIG_VOIP_CPT
