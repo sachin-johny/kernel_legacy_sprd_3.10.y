@@ -1287,7 +1287,7 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
 
-	wiphy_info(wiphy, "%s got %d bss\n", __func__, i);
+	wiphy_info(wiphy, "%s got %d BSSes\n", __func__, i);
 
 	priv->scan_request = NULL;
 	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
@@ -1519,7 +1519,7 @@ static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
 	ret = itm_wlan_mac_open_cmd(priv->wlan_sipc,
 				    mode, priv->ndev->dev_addr);
 	if (ret != 0) {
-		wiphy_err(priv->wdev->wiphy, "itm_wlan_mac_open_cmd failed\n");
+		wiphy_err(priv->wdev->wiphy, "%s failed to open mac!\n", __func__);
 		return -EIO;
 	}
 

@@ -189,7 +189,7 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 	int send_len = 0;
 	int ret;
 
-	pr_debug("enable scan\n");
+	pr_debug("trigger scan\n");
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
