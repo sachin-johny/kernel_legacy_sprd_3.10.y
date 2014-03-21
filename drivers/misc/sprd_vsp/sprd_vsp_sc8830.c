@@ -29,6 +29,10 @@
 #include <linux/semaphore.h>
 #include <linux/slab.h>
 #include <linux/wakelock.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 
 #include <video/sprd_vsp.h>
 
@@ -58,7 +62,22 @@
 #define WB_ADDR_SET0_OFF                0x20
 #define WB_ADDR_SET1_OFF                0x24
 
+#ifndef CONFIG_OF
 #define VSP_GLB_REG_BASE        (SPRD_VSP_BASE+0x1000)
+#define SPRD_VSP_BASE_DT SPRD_VSP_BASE
+#define SPRD_MMAHB_BASE_DT SPRD_MMAHB_BASE
+#define SPRD_AONAPB_BASE_DT SPRD_AONAPB_BASE
+#else
+#define         clk_enable      clk_prepare_enable
+#define         clk_disable     clk_disable_unprepare
+static unsigned int SPRD_VSP_BASE_DT;
+static unsigned int VSP_GLB_REG_BASE;
+
+//will be removed later
+#define SPRD_MMAHB_BASE_DT		SPRD_MMAHB_BASE
+#define SPRD_AONAPB_BASE_DT		SPRD_AONAPB_BASE
+#endif
+
 #define VSP_INT_STS_OFF            0x0             //from VSP
 #define VSP_INT_MASK_OFF        0x04
 #define VSP_INT_CLR_OFF           0x08
@@ -85,7 +104,10 @@ struct vsp_dev {
     struct clk *vsp_parent_clk;
     struct clk *mm_clk;
 
+    unsigned int irq;
+
     struct vsp_fh *vsp_fp;
+    struct device_node *dev_np;
 };
 
 static struct vsp_dev vsp_hw_dev;
@@ -190,11 +212,17 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         } else {
             pr_debug("###vsp_hw_dev.vsp_clk: clk_enable() ok.\n");
         }
+#ifdef CONFIG_OF
+	sci_glb_set(SPRD_MMAHB_BASE_DT+0x08, BIT(5));	
+#endif
         vsp_fp->is_clock_enabled= 1;
         break;
     case VSP_DISABLE:
         pr_debug("vsp ioctl VSP_DISABLE\n");
         clk_disable(vsp_hw_dev.vsp_clk);
+#ifdef CONFIG_OF
+	sci_glb_clr(SPRD_MMAHB_BASE_DT+0x08, BIT(5));	
+#endif
         vsp_fp->is_clock_enabled = 0;
         wake_unlock(&vsp_wakelock);
         break;
@@ -250,7 +278,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
                 ret = -ETIMEDOUT;
                 /*clear vsp int*/
                 __raw_writel((1<<1) |(1<<2)|(1<<4)|(1<<5), VSP_GLB_REG_BASE+VSP_INT_CLR_OFF);
-                __raw_writel((1<<0)|(1<<1)|(1<<2), SPRD_VSP_BASE+ARM_INT_CLR_OFF);
+                __raw_writel((1<<0)|(1<<1)|(1<<2), SPRD_VSP_BASE_DT+ARM_INT_CLR_OFF);
             } else {
                 ret = 0;
             }
@@ -264,15 +292,15 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
     case VSP_RESET:
         pr_debug("vsp ioctl VSP_RESET\n");
-        sci_glb_set(SPRD_MMAHB_BASE+0x04, BIT(4));
-        sci_glb_clr(SPRD_MMAHB_BASE+0x04, BIT(4));
+        sci_glb_set(SPRD_MMAHB_BASE_DT+0x04, BIT(4));
+        sci_glb_clr(SPRD_MMAHB_BASE_DT+0x04, BIT(4));
         break;
     case VSP_HW_INFO:
     {
         u32 mm_eb_reg;
 
         pr_debug("vsp ioctl VSP_HW_INFO\n");
-        mm_eb_reg = sci_glb_read(SPRD_AONAPB_BASE, 0xFFFFFFFF);
+        mm_eb_reg = sci_glb_read(SPRD_AONAPB_BASE_DT, 0xFFFFFFFF);
         put_user(mm_eb_reg, (int __user *)arg);
     }
     break;
@@ -332,10 +360,10 @@ static irqreturn_t vsp_isr(int irq, void *data)
     }
 
     //clear VSP accelerator interrupt bit
-    int_status =  __raw_readl(SPRD_VSP_BASE+ARM_INT_STS_OFF);
+    int_status =  __raw_readl(SPRD_VSP_BASE_DT+ARM_INT_STS_OFF);
     if ((int_status >> 2) & 0x1) //VSP ACC INT
     {
-        __raw_writel((1<<2), SPRD_VSP_BASE+ARM_INT_CLR_OFF);
+        __raw_writel((1<<2), SPRD_VSP_BASE_DT+ARM_INT_CLR_OFF);
     }
 
     vsp_fp->vsp_int_status = ret;
@@ -343,6 +371,43 @@ static irqreturn_t vsp_isr(int irq, void *data)
     wake_up_interruptible(&vsp_fp->wait_queue_work);
 
     return IRQ_HANDLED;
+}
+#endif
+
+#ifdef CONFIG_OF
+static const struct of_device_id  of_match_table_vsp[] = {
+    { .compatible = "sprd,sprd_vsp", },
+    { },
+};
+
+static int vsp_parse_dt(struct device *dev)
+{
+    struct device_node *np = dev->of_node;
+    struct resource res;
+    int ret;
+
+    printk(KERN_INFO "vsp_parse_dt called !\n");
+
+    ret = of_address_to_resource(np, 0, &res);
+    if(ret < 0) {
+        dev_err(dev, "no reg of property specified\n");
+	printk(KERN_ERR "vsp: failed to parse_dt!\n");
+        return -EINVAL;
+    }
+    SPRD_VSP_BASE_DT = SPRD_VSP_BASE;//res.start;
+    VSP_GLB_REG_BASE = SPRD_VSP_BASE_DT + 0x1000;
+
+    vsp_hw_dev.irq = irq_of_parse_and_map(np, 0);
+    vsp_hw_dev.dev_np = np;
+
+    return 0;
+}
+#else
+static int  vsp_parse_dt(
+    struct device *dev)
+{
+	vsp_hw_dev.irq = IRQ_VSP_INT;
+    return 0;
 }
 #endif
 
@@ -380,7 +445,12 @@ static int vsp_open(struct inode *inode, struct file *filp)
     vsp_fp->is_vsp_aquired = 0;
 
 #if defined(CONFIG_ARCH_SCX35)
+
+#ifdef CONFIG_OF
+    clk_mm_i = of_clk_get_by_name(vsp_hw_dev.dev_np, "clk_mm_i");
+#else
     clk_mm_i = clk_get(NULL, "clk_mm_i");
+#endif
     if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
         printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
                "clk_mm_i");
@@ -401,7 +471,13 @@ static int vsp_open(struct inode *inode, struct file *filp)
         pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
     }
 
+
+
+#ifdef CONFIG_OF
+    clk_vsp = of_clk_get_by_name(vsp_hw_dev.dev_np, "clk_vsp");
+#else
     clk_vsp = clk_get(NULL, "clk_vsp");
+#endif
     if (IS_ERR(clk_vsp) || (!clk_vsp)) {
         printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
                "clk_vsp");
@@ -566,6 +642,14 @@ static int vsp_probe(struct platform_device *pdev)
     int ret;
 
     printk(KERN_INFO "vsp_probe called !\n");
+    
+#ifdef CONFIG_OF
+    if (pdev->dev.of_node) {
+        ret = vsp_parse_dt(&pdev->dev);
+    }
+#else
+	ret = vsp_parse_dt(&pdev->dev);
+#endif
 
     wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
                    "pm_message_wakelock_vsp");
@@ -587,7 +671,7 @@ static int vsp_probe(struct platform_device *pdev)
 
 #ifdef USE_INTERRUPT
     /* register isr */
-    ret = request_irq(IRQ_VSP_INT, vsp_isr, IRQF_DISABLED/*0*/, "VSP", &vsp_hw_dev);
+    ret = request_irq(vsp_hw_dev.irq, vsp_isr, IRQF_DISABLED/*0*/, "VSP", &vsp_hw_dev);
     if (ret) {
         printk(KERN_ERR "vsp: failed to request irq!\n");
         ret = -EINVAL;
@@ -610,7 +694,7 @@ static int vsp_remove(struct platform_device *pdev)
     misc_deregister(&vsp_dev);
 
 #ifdef USE_INTERRUPT
-    free_irq(IRQ_VSP_INT, &vsp_hw_dev);
+    free_irq(vsp_hw_dev.irq, &vsp_hw_dev);
 #endif
 
     if (vsp_hw_dev.vsp_clk) {
@@ -633,6 +717,9 @@ static struct platform_driver vsp_driver = {
     .driver   = {
         .owner = THIS_MODULE,
         .name = "sprd_vsp",
+#ifdef CONFIG_OF
+        .of_match_table = of_match_ptr(of_match_table_vsp) ,
+#endif
     },
 };
 

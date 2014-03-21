@@ -27,6 +27,10 @@
 #include <linux/clk.h>
 #include <linux/semaphore.h>
 #include <linux/slab.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 
 #include <video/sprd_jpg.h>
 
@@ -48,6 +52,18 @@
 #define JPG_RESET_REG       0x60d00004      //bit[6]
 #define JPG_CLK_EN_REG  0x60d00000  //bit[5]
 #define AXI_CLK_EN_REG  0x60d00008      //bit[6]
+
+#ifndef CONFIG_OF
+#define SPRD_MMAHB_BASE_DT SPRD_MMAHB_BASE
+#define SPRD_JPG_BASE_DT SPRD_JPG_BASE
+#else
+#define         clk_enable      clk_prepare_enable
+#define         clk_disable     clk_disable_unprepare
+static unsigned int SPRD_JPG_BASE_DT;
+
+//will be removed later
+#define SPRD_MMAHB_BASE_DT		SCI_IOMAP(0x340000)
+#endif
 
 #define GLB_CTRL_OFFSET		0x00
 #define MB_CFG_OFFSET		0x04
@@ -82,7 +98,10 @@ struct jpg_dev{
 	struct clk *jpg_parent_clk;
 	struct clk *mm_clk;
 
+    unsigned int irq;
+
 	struct jpg_fh *jpg_fp;
+	struct device_node *dev_np;
 };
 
 static struct jpg_dev jpg_hw_dev;
@@ -191,11 +210,17 @@ by clk_get()!\n", "clk_vsp", name_parent);
 	case JPG_ENABLE:
 		pr_debug("jpg ioctl JPG_ENABLE\n");
 
-		clk_enable(jpg_hw_dev.jpg_clk);		
+		clk_enable(jpg_hw_dev.jpg_clk);	
+#ifdef CONFIG_OF
+		sci_glb_set(SPRD_MMAHB_BASE_DT+0x08, BIT(6));	
+#endif
 		jpg_fp->is_clock_enabled= 1;
 		break;
 	case JPG_DISABLE:
 		disable_jpg(jpg_fp);
+#ifdef CONFIG_OF
+		sci_glb_clr(SPRD_MMAHB_BASE_DT+0x08, BIT(6));	
+#endif
 		break;
 	case JPG_ACQUAIRE:
 		pr_debug("jpg ioctl JPG_ACQUAIRE begin\n");
@@ -247,7 +272,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 		if (ret) {
 			/*clear jpg int*/
 			__raw_writel((1<<3)|(1<<2)|(1<<1)|(1<<0),
-				SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+				SPRD_JPG_BASE_DT+GLB_INT_CLR_OFFSET);
 		}
 		put_user(jpg_hw_dev.jpg_int_status, (int __user *)arg);
 		jpg_hw_dev.condition_work_MBIO= 0;
@@ -260,8 +285,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
 #endif
 	case JPG_RESET:
 		pr_debug("jpg ioctl JPG_RESET\n");
-		sci_glb_set(SPRD_MMAHB_BASE+0x04, BIT(6));
-		sci_glb_clr(SPRD_MMAHB_BASE+0x04, BIT(6));
+		sci_glb_set(SPRD_MMAHB_BASE_DT+0x04, BIT(6));
+		sci_glb_clr(SPRD_MMAHB_BASE_DT+0x04, BIT(6));
 
 		break;
 
@@ -281,7 +306,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 				ret = -EINVAL;
 			} else if (ret == 0) {
 				printk(KERN_ERR "jpg error start  timeout\n");
-				ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+				ret = __raw_readl(SPRD_JPG_BASE_DT+GLB_INT_STS_OFFSET);
 				printk("jpg_int_status %x",ret);
 				ret = -ETIMEDOUT;
 			} else {
@@ -291,7 +316,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			if (ret) { //timeout , clean all init bits.
 				/*clear jpg int*/
 				__raw_writel((1<<3)|(1<<2)|(1<<1)|(1<<0),
-					SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+					SPRD_JPG_BASE_DT+GLB_INT_CLR_OFFSET);
 				ret  = 1;
 			} 
 			else //catched an init
@@ -317,7 +342,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 				ret = -EINVAL;
 			} else if (ret == 0) {
 				printk(KERN_ERR "jpg error start  timeout\n");
-				ret = __raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+				ret = __raw_readl(SPRD_JPG_BASE_DT+GLB_INT_STS_OFFSET);
 				printk("jpg_int_status %x",ret);
 				ret = -ETIMEDOUT;
 			} else {
@@ -327,7 +352,7 @@ by clk_get()!\n", "clk_vsp", name_parent);
 			if (ret) { //timeout , clean all init bits.
 				/*clear jpg int*/
 				__raw_writel((1<<3)|(1<<2)|(1<<1)|(1<<0),
-					SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+					SPRD_JPG_BASE_DT+GLB_INT_CLR_OFFSET);
 				ret  = 1;
 			} 
 			else //catched an init
@@ -359,14 +384,14 @@ static irqreturn_t jpg_isr(int irq, void *data)
 {
 	int int_status;
 	
-	int_status   =__raw_readl(SPRD_JPG_BASE+GLB_INT_STS_OFFSET);
+	int_status   =__raw_readl(SPRD_JPG_BASE_DT+GLB_INT_STS_OFFSET);
 	//printk(KERN_INFO "jpg_isr JPG_INT_STS %x\n",int_status);
         if((int_status) & 0xb) // JPEG ENC 
 	{
 		int ret = 7; // 7 : invalid
 		 if((int_status >> 3) & 0x1) //JPEG ENC  MBIO DONE
 		{
-			__raw_writel((1<<3), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+			__raw_writel((1<<3), SPRD_JPG_BASE_DT+GLB_INT_CLR_OFFSET);
 			ret = 0;
 			jpg_hw_dev.jpg_int_status |=0x8;
 			
@@ -376,7 +401,7 @@ static irqreturn_t jpg_isr(int irq, void *data)
 		}
 		if((int_status >> 0) & 0x1)  // JPEG ENC BSM INIT
 		{
-			__raw_writel((1<<0), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+			__raw_writel((1<<0), SPRD_JPG_BASE_DT+GLB_INT_CLR_OFFSET);
 			jpg_hw_dev.jpg_int_status |=0x1;
 			
 			jpg_hw_dev.condition_work_BSM= 1;
@@ -385,7 +410,7 @@ static irqreturn_t jpg_isr(int irq, void *data)
 		}
 		 if((int_status >> 1) & 0x1)  // JPEG ENC VLC DONE INIT
 		{
-			__raw_writel((1<<1), SPRD_JPG_BASE+GLB_INT_CLR_OFFSET);
+			__raw_writel((1<<1), SPRD_JPG_BASE_DT+GLB_INT_CLR_OFFSET);
 			jpg_hw_dev.jpg_int_status |=0x2;	
 			
 			jpg_hw_dev.condition_work_VLC= 1;
@@ -399,6 +424,39 @@ static irqreturn_t jpg_isr(int irq, void *data)
 //	wake_up_interruptible(&jpg_hw_dev.wait_queue_work);
 
 	return IRQ_HANDLED;
+}
+#endif
+
+#ifdef CONFIG_OF
+static const struct of_device_id  of_match_table_jpg[] = {
+	{ .compatible = "sprd,sprd_jpg", },
+	{ },
+};
+
+static void jpg_parse_dt(struct device *dev)
+{
+    struct device_node *np = dev->of_node;
+    struct resource res;
+    int ret;
+
+    ret = of_address_to_resource(np, 0, &res);
+    if(ret < 0) {
+        dev_err(dev, "no reg of property specified\n");
+        return;
+    }
+    SPRD_JPG_BASE_DT = SPRD_JPG_BASE;//res.start;
+
+    jpg_hw_dev.irq = irq_of_parse_and_map(np, 0);
+    jpg_hw_dev.dev_np = np;
+
+    return;
+}
+#else
+static void jpg_parse_dt(
+    struct device *dev)
+{
+	jpg_hw_dev.irq = IRQ_JPG_INT;
+    return;
 }
 #endif
 
@@ -441,7 +499,11 @@ static int jpg_open(struct inode *inode, struct file *filp)
 	jpg_hw_dev.jpg_int_status = 0;
 
 #if defined(CONFIG_ARCH_SCX35)
-	clk_mm_i = clk_get(NULL, "clk_mm_i");
+#ifdef CONFIG_OF
+    clk_mm_i = of_clk_get_by_name(jpg_hw_dev.dev_np, "clk_mm_i");
+#else
+    clk_mm_i = clk_get(NULL, "clk_mm_i");
+#endif
 	if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
 		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
 			"clk_mm_i");
@@ -455,7 +517,11 @@ static int jpg_open(struct inode *inode, struct file *filp)
         printk("JPEG mmi_clk open");
         clk_enable(jpg_hw_dev.mm_clk);
 
-	clk_jpg = clk_get(NULL, "clk_jpg");
+#ifdef CONFIG_OF
+    clk_jpg= of_clk_get_by_name(jpg_hw_dev.dev_np, "clk_jpg");
+#else
+    clk_jpg = clk_get(NULL, "clk_jpg");
+#endif
 	if (IS_ERR(clk_jpg) || (!clk_jpg)) {
 		printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
 			"clk_vsp");
@@ -499,6 +565,11 @@ by clk_get()!\n", "clk_jpg", name_parent);
 	return 0;
 
 errout:
+#if defined(CONFIG_ARCH_SCX35)
+        if (jpg_hw_dev.mm_clk) {
+		clk_put(jpg_hw_dev.mm_clk);
+	}
+#endif
 	if (jpg_hw_dev.jpg_clk) {
 		clk_put(jpg_hw_dev.jpg_clk);
 	}
@@ -561,6 +632,14 @@ static int jpg_probe(struct platform_device *pdev)
 	int ret;
 	int cmd0;
 
+#ifdef CONFIG_OF    
+    if (pdev->dev.of_node) {
+        jpg_parse_dt(&pdev->dev);
+    }
+#else
+	jpg_parse_dt(&pdev->dev);
+#endif
+
 	sema_init(&jpg_hw_dev.jpg_mutex, 1);
 
 	init_waitqueue_head(&jpg_hw_dev.wait_queue_work_MBIO);
@@ -588,7 +667,7 @@ static int jpg_probe(struct platform_device *pdev)
 
 #ifdef USE_INTERRUPT
 	/* register isr */
-	ret = request_irq(IRQ_JPG_INT, jpg_isr, 0, "JPG", &jpg_hw_dev);
+	ret = request_irq(jpg_hw_dev.irq, jpg_isr, 0, "JPG", &jpg_hw_dev);
 	if (ret) {
 		printk(KERN_ERR "jpg: failed to request irq!\n");
 		ret = -EINVAL;
@@ -605,13 +684,7 @@ errout2:
 #endif
 
 errout:
-	if (jpg_hw_dev.jpg_clk) {
-		clk_put(jpg_hw_dev.jpg_clk);
-	}
 
-	if (jpg_hw_dev.jpg_parent_clk) {
-		clk_put(jpg_hw_dev.jpg_parent_clk);
-	}
 	return ret;
 }
 
@@ -622,7 +695,7 @@ static int jpg_remove(struct platform_device *pdev)
 	misc_deregister(&jpg_dev);
 
 #ifdef USE_INTERRUPT
-	free_irq(IRQ_JPG_INT, &jpg_hw_dev);
+	free_irq(jpg_hw_dev.irq, &jpg_hw_dev);
 #endif
 
 
@@ -644,6 +717,9 @@ static struct platform_driver jpg_driver = {
 	.driver   = {
 		.owner = THIS_MODULE,
 		.name = "sprd_jpg",
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(of_match_table_jpg) ,
+#endif		
 	},
 };
 
