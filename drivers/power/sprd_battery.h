@@ -54,7 +54,7 @@ struct sprdbat_param {
 	uint32_t chg_end_vol_h;
 	uint32_t chg_end_vol_l;
 	uint32_t chg_end_vol_pure;
-	uint32_t chg_end_cur;
+	int chg_end_cur;
 	uint32_t rechg_vol;
 	uint32_t adp_cdp_cur;
 	uint32_t adp_dcp_cur;
