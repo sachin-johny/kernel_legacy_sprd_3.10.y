@@ -404,10 +404,8 @@ static inline int vreg_enable(void)
 
 static inline int vreg_disable(void)
 {
-	/*
-	arch_audio_codec_reset();
+	/*arch_audio_codec_reset();*/
 	arch_audio_codec_analog_reg_disable();
-	*/
 	return 0;
 }
 
