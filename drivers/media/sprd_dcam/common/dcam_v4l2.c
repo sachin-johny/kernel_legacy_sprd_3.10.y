@@ -2735,6 +2735,10 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 	break;
 
 	case DCAM_V4L2_WRITE_FREE_FRAME:
+		if (0 == atomic_read(&dev->stream_on)) {
+			printk("V4L2 dev close, no need free!");
+			break;
+		}
 		if (DCAM_PATH1 == buf.type) {
 			path = &info->dcam_path[DCAM_PATH1];
 		} else if (DCAM_PATH2 == buf.type) {

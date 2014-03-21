@@ -2145,6 +2145,8 @@ int32_t dcam_frame_lock(struct dcam_frame *frame)
 	uint32_t                rtn = 0;
 	unsigned long           flags;
 
+	DCAM_CHECK_ZERO(s_p_dcam_mod);
+
 	DCAM_TRACE("DCAM: lock %d \n", (uint32_t)(0xF&frame->fid));
 
 	/*To disable irq*/
@@ -2163,6 +2165,8 @@ int32_t dcam_frame_unlock(struct dcam_frame *frame)
 {
 	uint32_t                rtn = 0;
 	unsigned long           flags;
+
+	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
 	DCAM_TRACE("DCAM: unlock %d \n", (uint32_t)(0xF&frame->fid));
 
@@ -3207,7 +3211,6 @@ LOCAL void    _dcam_path1_done(void)
 		dcam_glb_reg_awr(DCAM_CFG, ~BIT_1, DCAM_CFG_REG);
 		path->need_stop = 0;
 	}
-	_dcam_path_done_notice(DCAM_PATH_IDX_1);
 
 	rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_1, false);
 	if (path->is_update) {
@@ -3218,6 +3221,8 @@ LOCAL void    _dcam_path1_done(void)
 	} else {
 		_dcam_auto_copy(DCAM_PATH_IDX_1);
 	}
+
+	_dcam_path_done_notice(DCAM_PATH_IDX_1);
 
 	if (rtn) {
 		printk("DCAM: 1 wait \n");
@@ -3328,7 +3333,6 @@ LOCAL void    _dcam_path2_done(void)
 			dcam_glb_reg_awr(DCAM_CFG, ~BIT_2, DCAM_CFG_REG);
 			path->need_stop = 0;
 		}
-		_dcam_path_done_notice(DCAM_PATH_IDX_2);
 
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_2, false);
 		if (path->is_update) {
@@ -3339,6 +3343,8 @@ LOCAL void    _dcam_path2_done(void)
 		} else {
 			_dcam_auto_copy(DCAM_PATH_IDX_2);
 		}
+
+		_dcam_path_done_notice(DCAM_PATH_IDX_2);
 
 		if (rtn) {
 			printk("DCAM: 2 wait \n");
