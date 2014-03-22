@@ -1423,7 +1423,7 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		dispc_stop(dev);
 
-		mdelay(50); /*fps>20*/
+		msleep(50); /*fps>20*/
 
 #ifdef CONFIG_OF
         clk_disable_unprepare(dispc_ctx.clk_dispc_emc);
