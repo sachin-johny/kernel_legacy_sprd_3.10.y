@@ -610,11 +610,13 @@ int32_t dcam_module_en(struct device_node *dn)
 
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		unsigned int irq_no;
+#if 0    /*no ion debug info*/
 		int  base = SPRD_ION_MM_BASE ;
 		int   size = SPRD_ION_MM_SIZE;
 		int   overlay_size = SPRD_ION_OVERLAY_SIZE;
 		printk("DCAM: SPRD_ION base=0x%x, size=0x%x, overlay_size=0x%x\n",
 			base, size, overlay_size);
+#endif
 		ret = _dcam_is_clk_mm_i_eb(dn,1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
