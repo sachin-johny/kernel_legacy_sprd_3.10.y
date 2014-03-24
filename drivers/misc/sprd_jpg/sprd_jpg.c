@@ -514,8 +514,11 @@ static int jpg_open(struct inode *inode, struct file *filp)
 		jpg_hw_dev.mm_clk= clk_mm_i;
 	}
 #endif
+
+#ifndef CONFIG_OF
         printk("JPEG mmi_clk open");
         clk_enable(jpg_hw_dev.mm_clk);
+#endif
 
 #ifdef CONFIG_OF
     clk_jpg= of_clk_get_by_name(jpg_hw_dev.dev_np, "clk_jpg");
