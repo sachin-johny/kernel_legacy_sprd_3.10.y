@@ -1439,7 +1439,7 @@ static int ion_debug_heap_show_err(struct ion_heap *heap)
 	size_t total_size = 0;
 	size_t total_orphaned_size = 0;
 
-	pr_err("%16.s %16.s %16.s\n", "client", "pid", "size");
+	pr_err("%8.s %8.s %8.s\n", "client", "pid", "size");
 	pr_err("----------------------------------------------------\n");
 
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
@@ -1452,10 +1452,10 @@ static int ion_debug_heap_show_err(struct ion_heap *heap)
 			char task_comm[TASK_COMM_LEN];
 
 			get_task_comm(task_comm, client->task);
-			pr_err("%16.s %16u %16u\n", task_comm,
+			pr_err("client:%s pid:%u size:%u\n", task_comm,
 				   client->pid, size);
 		} else {
-			pr_err("%16.s %16u %16u\n", client->name,
+			pr_err("client:%s pid:%u size:%u\n", client->name,
 				   client->pid, size);
 		}
 	}
@@ -1470,7 +1470,7 @@ static int ion_debug_heap_show_err(struct ion_heap *heap)
 			continue;
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
-			pr_err("%16.s %16u %16u %d %d\n", buffer->task_comm,
+			pr_err("client:%s pid:%u  size:%u  kmap_cnt:%d  refcount:%d\n", buffer->task_comm,
 				   buffer->pid, buffer->size, buffer->kmap_cnt,
 				   atomic_read(&buffer->ref.refcount));
 			total_orphaned_size += buffer->size;
@@ -1478,11 +1478,11 @@ static int ion_debug_heap_show_err(struct ion_heap *heap)
 	}
 	mutex_unlock(&dev->buffer_lock);
 	pr_err("----------------------------------------------------\n");
-	pr_err("%16.s %16u\n", "total orphaned",
+	pr_err("%s    %u\n", "total orphaned",
 		   total_orphaned_size);
-	pr_err("%16.s %16u\n", "total ", total_size);
+	pr_err("%s    %u\n", "total ", total_size);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
-		pr_err("%16.s %16u\n", "deferred free",
+		pr_err("%s    %u\n", "deferred free",
 				heap->free_list_size);
 	pr_err( "----------------------------------------------------\n");
 
@@ -1499,7 +1499,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	size_t total_size = 0;
 	size_t total_orphaned_size = 0;
 
-	seq_printf(s, "%16.s %16.s %16.s\n", "client", "pid", "size");
+	seq_printf(s, "%8.s %8.s %8.s\n", "client", "pid", "size");
 	seq_printf(s, "----------------------------------------------------\n");
 
 	for (n = rb_first(&dev->clients); n; n = rb_next(n)) {
@@ -1512,10 +1512,10 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			char task_comm[TASK_COMM_LEN];
 
 			get_task_comm(task_comm, client->task);
-			seq_printf(s, "%16.s %16u %16u\n", task_comm,
+			seq_printf(s, "client:%s pid:%u size:%u\n", task_comm,
 				   client->pid, size);
 		} else {
-			seq_printf(s, "%16.s %16u %16u\n", client->name,
+			seq_printf(s, "client:%s pid:%u size:%u\n", client->name,
 				   client->pid, size);
 		}
 	}
@@ -1530,7 +1530,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			continue;
 		total_size += buffer->size;
 		if (!buffer->handle_count) {
-			seq_printf(s, "%16.s %16u %16u %d %d\n", buffer->task_comm,
+			seq_printf(s, "client:%s pid:%u  size:%u  kmap_cnt:%d  refcount:%d\n", buffer->task_comm,
 				   buffer->pid, buffer->size, buffer->kmap_cnt,
 				   atomic_read(&buffer->ref.refcount));
 			total_orphaned_size += buffer->size;
@@ -1538,11 +1538,11 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	}
 	mutex_unlock(&dev->buffer_lock);
 	seq_printf(s, "----------------------------------------------------\n");
-	seq_printf(s, "%16.s %16u\n", "total orphaned",
+	seq_printf(s, "%s    %u\n", "total orphaned",
 		   total_orphaned_size);
-	seq_printf(s, "%16.s %16u\n", "total ", total_size);
+	seq_printf(s, "%s    %u\n", "total ", total_size);
 	if (heap->flags & ION_HEAP_FLAG_DEFER_FREE)
-		seq_printf(s, "%16.s %16u\n", "deferred free",
+		seq_printf(s, "%s    %u\n", "deferred free",
 				heap->free_list_size);
 	seq_printf(s, "----------------------------------------------------\n");
 
