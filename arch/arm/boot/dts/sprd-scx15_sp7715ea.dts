@@ -776,8 +776,8 @@
                        <0x60008000 0x1100>,//  MALI_PP0,
                        <0x60004000 0x100>,//  MALI_PP0_MMU,
                        <0x60002000 0x100>;//  MALI_PMU,
-		 clock-names = "clk_256m","clk_gpu_axi","clk_gpu","clk_312m";
-		 clocks = <&clk_256m>, <&clk_gpu_axi>,<&clk_gpu>, <&clk_312m>;
+		 clock-names = "clk_gpu_axi","clk_gpu","clk_208m","clk_256m","clk_312m";
+		 clocks = <&clk_gpu_axi>,<&clk_gpu>,<&clk_208m>,<&clk_256m>,<&clk_312m>;
          };
          sprd_iommu {
                  sprd_iommu0:sprd_iommu@F5410000 {
