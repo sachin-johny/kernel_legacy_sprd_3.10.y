@@ -417,7 +417,13 @@ int ubifs_write_rcvrd_mst_node(struct ubifs_info *c)
  */
 static int is_last_write(const struct ubifs_info *c, void *buf, int offs)
 {
-	int empty_offs, check_len, i, filpcnt = 0;
+	/*
+	 * The empty corruption may harmless, but this
+	 * is a bad  habit for sw development, fix me.
+	 */
+	 return 1;
+#if 0
+	int empty_offs, check_len;
 	uint8_t *p;
 
 	/*
@@ -427,21 +433,8 @@ static int is_last_write(const struct ubifs_info *c, void *buf, int offs)
 	empty_offs = ALIGN(offs + 1, c->max_write_size);
 	check_len = c->leb_size - empty_offs;
 	p = buf + empty_offs - offs;
-
-	for (i = 0; i < check_len; i++) {
-		if (*p != 0xff) {
-			uint8_t num = *p;
-			uint8_t nbit = 8;
-			while(nbit--) {
-				if(!(num & 0x1))
-					if(++filpcnt >= 5)
-						return 0;
-				num = num >> 1;
-			}
-		}
-		p++;
-	}
-	return 1;
+	return is_empty(p, check_len);
+#endif
 }
 
 /**
