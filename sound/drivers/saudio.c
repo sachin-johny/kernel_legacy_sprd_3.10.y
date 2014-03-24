@@ -198,6 +198,8 @@ struct snd_saudio {
 	uint32_t channel;
 	uint32_t in_init;
 	struct task_struct * thread_id;
+	int32_t state;
+	struct mutex mutex;
 };
 
 static DEFINE_MUTEX(snd_sound);
@@ -375,6 +377,14 @@ static int snd_card_saudio_pcm_open(struct snd_pcm_substream *substream)
 	struct saudio_dev_ctrl *dev_ctrl = NULL;
 	ADEBUG();
 
+	mutex_lock(&saudio->mutex);
+	if(!saudio->state) {
+		mutex_unlock(&saudio->mutex);
+		printk("saudio.c: snd_pcm_open error saudio state %d\n",saudio->state);
+		return -EIO;
+	}
+	mutex_unlock(&saudio->mutex);
+
 	pr_info("%s IN, stream_id=%d\n", __func__, stream_id);
 	dev_ctrl = (struct saudio_dev_ctrl *)&(saudio->dev_ctrl[dev]);
 	stream = (struct saudio_stream *)&(dev_ctrl->stream[stream_id]);
@@ -427,7 +437,13 @@ static int snd_card_saudio_pcm_close(struct snd_pcm_substream *substream)
 	struct saudio_dev_ctrl *dev_ctrl = NULL;
 	int result = 0;
 	ADEBUG();
-
+	mutex_lock(&saudio->mutex);
+	if(!saudio->state) {
+		mutex_unlock(&saudio->mutex);
+		printk("saudio.c: snd_pcm_close error saudio state %d\n",saudio->state);
+		return -EIO;
+	}
+	mutex_unlock(&saudio->mutex);
 	dev_ctrl = (struct saudio_dev_ctrl *)&(saudio->dev_ctrl[dev]);
 	pr_info("%s IN, stream_id=%d,dst %d, channel %d\n", __func__, stream_id,
 		dev_ctrl->dst, dev_ctrl->channel);
@@ -540,6 +556,13 @@ static int snd_card_saudio_pcm_prepare(struct snd_pcm_substream *substream)
 	int result = 0;
 
 	ADEBUG();
+	mutex_lock(&saudio->mutex);
+	if(!saudio->state) {
+		mutex_unlock(&saudio->mutex);
+		printk("saudio.c: snd_pcm_prepare error saudio state %d\n",saudio->state);
+		return -EIO;
+	}
+	mutex_unlock(&saudio->mutex);
 	pr_info("%s IN, stream_id=%d\n", __func__, stream_id);
 	dev_ctrl = (struct saudio_dev_ctrl *)&(saudio->dev_ctrl[dev]);
 	msg.command = SAUDIO_CMD_PREPARE;
@@ -728,6 +751,7 @@ static struct snd_saudio *saudio_card_probe(struct saudio_init_data *init_data)
 	saudio->dev_ctrl[0].dst = init_data->dst;
 	saudio->dst = init_data->dst;
 	saudio->channel = init_data->ctrl_channel;
+	mutex_init(&saudio->mutex);
 	memcpy(saudio->dev_ctrl[0].name, init_data->name,
 	       SAUDIO_CARD_NAME_LEN_MAX);
 	saudio->dev_ctrl[0].stream[SNDRV_PCM_STREAM_PLAYBACK].channel =
@@ -1199,10 +1223,15 @@ static int saudio_ctrl_thread(void *data)
 
 		saudio_clear_ctrl_cmd(saudio);
 
-		result = saudio_snd_init_card(saudio);
-		printk(KERN_INFO
-		       "saudio: snd card init reulst %d, dst %d, channel %d\n",
-		       result, saudio->dst, saudio->channel);
+		if(!saudio->card) {
+			result = saudio_snd_init_card(saudio);
+			printk(KERN_INFO
+			       "saudio: snd card init reulst %d, dst %d, channel %d\n",
+			       result, saudio->dst, saudio->channel);
+		}
+		mutex_lock(&saudio->mutex);
+		saudio->state = 1;
+		mutex_unlock(&saudio->mutex);
 	}
 	ETRACE("saudio_ctrl_thread  create  ok\n");
 
@@ -1220,10 +1249,9 @@ static void saudio_work_card_free_handler(struct work_struct *data)
 		printk(KERN_INFO
 		       "saudio: work_handler:snd card free in,dst %d, channel %d\n",
 		       saudio->dst, saudio->channel);
-		mutex_lock(&snd_sound);
-		result = snd_card_free(saudio->card);
-		mutex_unlock(&snd_sound);
-		saudio->card = NULL;
+		mutex_lock(&saudio->mutex);
+		saudio->state = 0;
+		mutex_unlock(&saudio->mutex);
 		if (!saudio->in_init)
 			saudio_send_common_cmd(saudio->dst, saudio->channel, 0,
 					       SAUDIO_CMD_HANDSHAKE, -1);
