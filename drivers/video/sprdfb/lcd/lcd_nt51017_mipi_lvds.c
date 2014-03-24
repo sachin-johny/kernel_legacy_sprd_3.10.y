@@ -223,7 +223,7 @@ static int32_t set_en_pin(struct panel_spec *self, uint8_t value, uint8_t delays
 
 	if (value) {//set high
 		gpio_direction_output(GPIOID_BRIDGE_EN, 0);
-		mdelay(delays);
+		msleep(delays);
 		gpio_direction_output(GPIOID_BRIDGE_EN, 1);
 	} else {//set low
         gpio_direction_output(GPIOID_BRIDGE_EN, 0);
@@ -259,7 +259,7 @@ static int32_t sn65dsi83_init(struct panel_spec *self)
 	}
 
 	/* step 3 : Delay*/
-	mdelay(2);
+	udelay(2000);
 	
 	/* step 4 : init CSR reg*/
 	for (i=0; i<ARRAY_SIZE(i2c_msg_buf_ti); i++) {
@@ -270,14 +270,14 @@ static int32_t sn65dsi83_init(struct panel_spec *self)
 	/* step 5 : Start the DSI video stream */
 	mipi_set_hs_mode();
 	mipi_set_video_mode();
-	mdelay(1);
+	udelay(1000);
 
 	/* step 6 : Set the PLL_EN bit(CSR 0x0D.0) */
 	msg_w.buf = i2c_msg_buf_pll_en;
 	ret_i2c = i2c_transfer(adap, &msg_w, 1);
 
 	/* step 7 : Wait for the PLL_LOCK bit to be set(CSR 0x0A.7) */
-	mdelay(1);
+	udelay(1000);
     
 	/* step 8 : Set the SOFT_RESET bit (CSR 0x09.0) */
 	msg_w.buf = i2c_msg_buf_soft_reset;
@@ -298,7 +298,7 @@ static int32_t chipone_init(struct panel_spec *self)
 		printk("kernel Set EN failed!\n");
 		return 0;
 	}
-	mdelay(1);
+	udelay(1000);
 
     /* init chipone */
     for (i=0; i<ARRAY_SIZE(i2c_msg_buf_c1); i++) {
@@ -392,7 +392,7 @@ static int32_t get_bridge_info(struct panel_spec *self)
 		return 1;
 	}
 	gpio_direction_output(GPIOID_ADDR, 0);// drive ADDR to low
-	mdelay(1);
+	udelay(1000);
 
 	msg_r[0].buf = &reg;
 	msg_r[1].buf = &flag;

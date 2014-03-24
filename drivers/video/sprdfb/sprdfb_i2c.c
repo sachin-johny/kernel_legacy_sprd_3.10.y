@@ -59,7 +59,7 @@ static int sprdfb_i2c_probe(struct i2c_client *client,
 	}
 	printk(KERN_INFO "sordfb:[%s]:this_client->addr =0x%x\n", __FUNCTION__,
 	       this_client->addr);
-	mdelay(20);
+	msleep(20);
 	return 0;
 out:
 	return res;

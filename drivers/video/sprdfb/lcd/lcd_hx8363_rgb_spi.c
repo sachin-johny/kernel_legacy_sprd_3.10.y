@@ -92,7 +92,7 @@ static int32_t hx8363_init(struct panel_spec *self)
 
 	HX8363_SpiWriteCmd(0xCC); // SET Panel
 	HX8363_SpiWriteData(0x01); //
-	mdelay(5);
+	msleep(5);
 
 	HX8363_SpiWriteCmd(0xE0);  // SET Gamma
 	HX8363_SpiWriteData(0x00);
@@ -266,13 +266,13 @@ static int32_t hx8363_init(struct panel_spec *self)
 	HX8363_SpiWriteData(0x77); // 
 
 	HX8363_SpiWriteCmd(0x11);//Sleep Out 
-	mdelay(120);
+	msleep(120);
 	HX8363_SpiWriteCmd(0x35); //Tearing Effect 
 	HX8363_SpiWriteData(0x00); // 
 	HX8363_SpiWriteCmd(0x36);
 	HX8363_SpiWriteData(0x02); 
 	HX8363_SpiWriteCmd(0x29); 
-	mdelay(10);
+	msleep(10);
 	HX8363_SpiWriteCmd(0x2C); 
 
 }
@@ -285,15 +285,15 @@ static int32_t hx8363_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	if(is_sleep==1){
 		//Sleep In
 		HX8363_SpiWriteCmd(0x28);
-		mdelay(120); 
+		msleep(120);
 		HX8363_SpiWriteCmd(0x10);
-		mdelay(10); 
+		msleep(10);
 	}else{
 		//Sleep Out
 		HX8363_SpiWriteCmd(0x11);
-		mdelay(120); 
+		msleep(120);
 		HX8363_SpiWriteCmd(0x29);
-		mdelay(10); 
+		msleep(10);
 	}
 
 	return 0;
