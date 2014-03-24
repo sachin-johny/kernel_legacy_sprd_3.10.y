@@ -24,6 +24,32 @@ config ARCH_SCX15
 	help
 	  Support for Spreadtrum scx15(dolphin) based systems.
 
+config ARCH_SCX30G
+	bool "scx30g series(t-shark,depend on ARCH_SCX35)"
+	select ARCH_SCX35
+	help
+	  Support for Spreadtrum scx30g(t-shark) based systems.
+endmenu
+
+menu "Spreadtrum Adie Type"
+
+config ADIE_SC2713
+	bool "Spredtrum A-die SC2713 Chip Support"
+        default n
+	help
+	  Say Y here to support for Spreadtrum a-die sc2713 chip.
+
+config ADIE_SC2713S
+	bool "Spredtrum A-die SC2713S Chip Support"
+        default n
+	help
+	  Say Y here to support for Spreadtrum a-die sc2713s chip.
+
+config ADIE_SC2711
+	bool "Spredtrum A-die SC2711 Chip Support"
+        default n
+	help
+	  Say Y here to support for Spreadtrum a-die sc2711 chip.
 endmenu
 
 
@@ -127,6 +153,22 @@ config MACH_SC9620FPGA
         default n
         help
           ssc9620fpga board based on SC8830 serial.
+
+config MACH_SP8830GEA
+	bool "sp8830gea Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  SP8830GEA board based on SC8830g serial.
+
+config MACH_SP7730GGA
+	bool "sp7730gga Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	  SP7730GGA board based on SC8830g serial.
 
 config MACH_SP7730EC
 	bool "sp7730ec Phone Board"

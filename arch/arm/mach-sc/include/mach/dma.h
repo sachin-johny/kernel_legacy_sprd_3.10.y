@@ -96,6 +96,17 @@
 #define DMA_VB_AD3		34
 #define DMA_GPS			35
 
+#ifdef CONFIG_ARCH_SCX30G
+#define DMA_SDIO0_RD		36
+#define DMA_SDIO0_WR		37
+#define DMA_SDIO1_RD		38
+#define DMA_SDIO1_WR		39
+#define DMA_SDIO2_RD		40
+#define DMA_SDIO2_WR		41
+#define DMA_EMMC_RD		42
+#define DMA_EMMC_WR		43
+#endif
+
 #define DMA_IIS_RX	DMA_IIS0_RX
 #define DMA_IIS_TX	DMA_IIS0_TX
 

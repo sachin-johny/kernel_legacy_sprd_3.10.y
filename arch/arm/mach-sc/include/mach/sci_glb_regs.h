@@ -19,6 +19,13 @@
 #ifndef __SCI_GLB_REGS_H__
 #define __SCI_GLB_REGS_H__
 
+#ifndef REG_GLB_CLR
+#define REG_GLB_CLR(A)                  ( A + 0x2000 )
+#endif
+#ifndef REG_GLB_SET
+#define REG_GLB_SET(A)                  ( A + 0x1000 )
+#endif
+
 #if defined(CONFIG_ARCH_SC8825)
 
 #include "__regs_ahb.h"
@@ -26,6 +33,25 @@
 #include "__regs_ana_glb.h"
 #include "__regs_emc.h"
 #include "__regs_glb.h"
+
+#elif defined(CONFIG_ARCH_SCX30G)
+
+#include "./chip_x30g/__regs_ada_apb_rf.h"
+//#include "./chip_x30g/__regs_ana_apb_if.h"
+#include "./chip_x30g/__regs_ana_sc2713s_glb.h"
+#include "./chip_x30g/__regs_aon_apb.h"
+#include "./chip_x30g/__regs_ap_ahb.h"
+#include "./chip_x30g/__regs_ap_apb.h"
+#include "./chip_x30g/__regs_avs_apb.h"
+#include "./chip_x30g/__regs_gpu_apb_rf.h"
+#include "./chip_x30g/__regs_mm_ahb_rf.h"
+#include "./chip_x30g/__regs_pmu_apb.h"
+#include "./chip_x30g/__regs_pub_apb.h"
+#include "./chip_x30g/__regs_mm_clk.h"
+#include "./chip_x30g/__regs_aon_clk.h"
+#include "./chip_x30g/__regs_ap_clk.h"
+#define REG_AON_APB_CHIP_ID	REG_AON_APB_AON_CHIP_ID
+
 
 #elif defined(CONFIG_ARCH_SCX15)
 #define REGS_ANA_APB_IF_BASE	ANA_REGS_GLB_BASE
@@ -52,15 +78,14 @@
 #define ANA_REG_GLB_LDO_SLP_CTRL2	ANA_REG_GLB_PWR_SLP_CTRL2
 #define ANA_REG_GLB_LDO_SLP_CTRL3	ANA_REG_GLB_PWR_SLP_CTRL3
 #define REG_AON_APB_CHIP_ID	REG_AON_APB_AON_CHIP_ID
-#ifndef REG_GLB_CLR
-#define REG_GLB_CLR(A)                  ( A + 0x2000 )
-#endif
-#ifndef REG_GLB_SET
-#define REG_GLB_SET(A)                  ( A + 0x1000 )
-#endif
+
 #elif defined(CONFIG_ARCH_SCX35)
 
+#if defined(CONFIG_ADIE_SC2713S)
+#include "./chip_x35/__regs_ana_sc2713s_glb.h"
+#else
 #include "./chip_x35/__regs_ana_glb.h"
+#endif
 #include "./chip_x35/__regs_aon_apb.h"
 #include "./chip_x35/__regs_aon_clk.h"
 #include "./chip_x35/__regs_ap_ahb.h"

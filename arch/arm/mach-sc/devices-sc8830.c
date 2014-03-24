@@ -813,6 +813,7 @@ struct platform_device sprd_battery_device = {
 
 
 #if defined(CONFIG_SPRD_IOMMU)
+#if defined(CONFIG_ARCH_SCX15)
 static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
 	.id=0,
 	.name="sprd_iommu_gsp",
@@ -844,6 +845,39 @@ struct platform_device sprd_iommu_mm_device = {
 	.id = 1,
 	.dev = {.platform_data = &sprd_iommu_mm_data },
 };
+#elif defined(CONFIG_ARCH_SCX30G)
+static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
+	.id=0,
+	.name="sprd_iommu_gsp",
+	.iova_base=0x10000000,
+	.iova_size=0x2000000,
+	.pgt_base=SPRD_GSPMMU_BASE,
+	.pgt_size=0x8000,
+	.ctrl_reg=SPRD_GSPMMU_BASE+0x8000,
+};
+
+struct platform_device sprd_iommu_gsp_device = {
+	.name = "sprd_iommu",
+	.id = 0,
+	.dev = {.platform_data = &sprd_iommu_gsp_data },
+};
+
+static struct sprd_iommu_init_data sprd_iommu_mm_data = {
+	.id=1,
+	.name="sprd_iommu_mm",
+	.iova_base=0x20000000,
+	.iova_size=0x8000000,
+	.pgt_base=SPRD_MMMMU_BASE,
+	.pgt_size=0x20000,
+	.ctrl_reg=SPRD_MMMMU_BASE+0x20000,
+};
+
+struct platform_device sprd_iommu_mm_device = {
+	.name = "sprd_iommu",
+	.id = 1,
+	.dev = {.platform_data = &sprd_iommu_mm_data },
+};
+#endif
 #endif
 
 static struct resource sprd_dcam_resources[] = {
@@ -1106,7 +1140,7 @@ static struct resource sprd_emmc_resources[] = {
 };
 
 static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
-	.caps = MMC_CAP_HW_RESET | MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA | MMC_CAP_1_8V_DDR,
+	.caps = MMC_CAP_HW_RESET | MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA,// | MMC_CAP_1_8V_DDR,
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
 	.vdd_extmmc = "vddemmcio",
 	.clk_name = "clk_emmc",
@@ -2163,10 +2197,13 @@ void cpw_txirq_trigger(void)
 {
 	__raw_writel(AP2CPW_IRQ0_TRIG, AP2CP_INT_CTRL);
 }
-
-
+#ifdef CONFIG_ARCH_SCX30G
+#define AP2CPT_IRQ0_TRIG        0x01
+#define CPT2AP_IRQ0_CLR         0x01
+#else
 #define AP2CPT_IRQ0_TRIG	0x10
 #define CPT2AP_IRQ0_CLR		0x10
+#endif
 uint32_t cpt_rxirq_status(void)
 {
 	return 1;

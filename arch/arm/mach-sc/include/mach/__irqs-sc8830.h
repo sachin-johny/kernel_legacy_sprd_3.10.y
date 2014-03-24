@@ -19,7 +19,7 @@
 #endif
 
 #define IRQ_GIC_START			(32)
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 #define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 127)
 #else
 #define NR_SCI_PHY_IRQS			(IRQ_GIC_START + 125)
@@ -153,13 +153,17 @@
 #define IRQ_AVS_INT				SCI_IRQ(122)
 #define IRQ_APWDG_INT			SCI_IRQ(123)
 #define IRQ_CA7WDG_INT			SCI_IRQ(124)
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 #define IRQ_ZIPDEC_INT			SCI_IRQ(125)
 #define IRQ_ZIPENC_INT			SCI_IRQ(126)
 #endif
 
 #define IRQ_SIPC_CPW			IRQ_CP0_MCU0_INT
+#ifdef CONFIG_ARCH_SCX30G
+#define IRQ_SIPC_CPT 			IRQ_CP0_MCU0_INT
+#else
 #define IRQ_SIPC_CPT			IRQ_CP1_MCU0_INT
+#endif
 #define IRQ_SIPC_WCN			IRQ_CP2_INT0_INT
 
 
