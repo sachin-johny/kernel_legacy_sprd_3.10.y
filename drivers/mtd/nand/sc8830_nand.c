@@ -575,6 +575,9 @@ void nand_hardware_config(struct mtd_info *mtd, struct nand_chip *chip, uint8_t 
 		dolphin->nand=chip;
 		dolphin->mtd = mtd;
 
+#ifdef DOLPHIN_KERNEL
+		chip->ecc.strength = oob->nEccBits;
+#endif
 		chip->ecc.bytes  = (oob->nEccBits * 14 + 7) / 8;
 #ifdef DOLPHIN_UBOOT
 		chip->eccbitmode = oob->nEccBits;
@@ -1860,6 +1863,7 @@ int board_nand_init(struct nand_chip *chip)
 	g_dolphin.nand = chip;
 
 #ifdef DOLPHIN_KERNEL
+	//set default strength
 	chip->ecc.strength = CONFIG_SYS_NAND_ECC_MODE;
 #endif
 
