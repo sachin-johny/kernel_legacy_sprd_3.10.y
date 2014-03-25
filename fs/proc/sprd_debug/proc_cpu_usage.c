@@ -686,7 +686,7 @@ static enum hrtimer_restart hrtimer_handler(struct hrtimer *timer)
 	record_cpu_usage();
 
 	/*update hrtimer*/
-	if((hrtimer_se > 0) && (hrtimer_ns >0) && (0 != hrtimer_ns || hrtimer_se)) {
+	if((hrtimer_se > 0) || (hrtimer_ns >0)) {
 		kt = ktime_set(hrtimer_se, hrtimer_ns);
 	}
 
