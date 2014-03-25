@@ -310,8 +310,9 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         u32 vsp_capability = 3;
 
         printk(KERN_INFO "vsp capability -enter\n");
-
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX30G)
+	  vsp_capability =   2;
+#elif defined(CONFIG_ARCH_SCX15)
         vsp_capability = 0;
 #else
         vsp_capability = 1;
