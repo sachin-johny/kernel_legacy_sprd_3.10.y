@@ -74,7 +74,7 @@ struct sprd_2351_data{
 	int count;
 };
 
-extern void rf2351_gpio_ctrl_power_enable(int flag);
+extern void rf2351_power_control(int flag);
 extern int sprd_get_rf2351_ops(struct sprd_2351_interface **rf2351_ops);
 extern int sprd_put_rf2351_ops(struct sprd_2351_interface **rf2351_ops);
 
