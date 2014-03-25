@@ -72,7 +72,7 @@
 #define NFC_MC_NOP_ID	(0xF0)
 #define NFC_MC_DONE_ID	(0xFF)
 #define NFC_MAX_CHIP	1
-#define NFC_TIMEOUT_VAL		0x1000000
+#define NFC_TIMEOUT_VAL		0x10000000
 
 #define NAND_MC_CMD(x)  (uint16_t)(((x & 0xff) << 8) | NFC_MC_ICMD_ID)
 #define NAND_MC_ADDR(x) (uint16_t)(((x & 0xff) << 8) | (NFC_MC_ADDR_ID << 4))
@@ -161,7 +161,7 @@ static int mtdoobsize = 0;
 #define NAND_MC_BUFFER_SIZE         (24)
 #define CONFIG_SYS_NAND_ECCSIZE     (512)
 #define CONFIG_SYS_NAND_5_ADDR_CYCLE	5
-#define SPRD_NAND_CLOCK (153)
+#define SPRD_NAND_CLOCK (192)
 
 #define IRQ_TIMEOUT  100//unit:ms,IRQ timeout value
 #define DRIVER_NAME "sc8830_nand"
@@ -1786,50 +1786,34 @@ STATIC_FUNC void sprd_dolphin_nand_hwecc_ctl(struct mtd_info *mtd, int mode)
 	return; //do nothing
 }
 
+
+
+#define DOLPHIN_AHB_BASE SPRD_AHB_BASE
+#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
+#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x3038)
+
+#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_BASE
+#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
+#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
+
+
 STATIC_FUNC void sprd_dolphin_nand_hw_init(struct sprd_dolphin_nand_info *dolphin)
 {
 	int i = 0;
 	uint32_t val;
 
-	//sprd_dolphin_reg_and(DOLPHIN_NANC_CLK_CFG, ~(BIT(1) | BIT(0)));
-	//sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0));
+	sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0)|BIT(1));
 
-	sprd_dolphin_reg_or((REGS_AP_CLK_BASE + 0x44), BIT(1));
+	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(17)|BIT(18)|BIT(19));
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(6));
-
-	sprd_dolphin_reg_or(DOLPHIN_AHB_RST,BIT(9));
+	sprd_dolphin_reg_or(DOLPHIN_AHB_RST,BIT(20));
 	mdelay(1);
-	sprd_dolphin_reg_and(DOLPHIN_AHB_RST, ~(BIT(9)));
+	sprd_dolphin_reg_and(DOLPHIN_AHB_RST, ~(BIT(20)));
 
 	val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, val);
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMEOUT_REG, 0xffffffff);
-	//sprd_dolphin_reg_write(DOLPHIN_NFC_REG_BASE + 0x118, 3);
 
-#if 0
-	sprd_dolphin_reg_or(DOLPHIN_PIN_BASE + REG_PIN_NFWPN, BIT(7) | BIT(8) | BIT(9));
-	sprd_dolphin_reg_and(DOLPHIN_PIN_BASE + REG_PIN_NFWPN, ~(BIT(4) | BIT(5)));
-	sprd_dolphin_reg_or(DOLPHIN_PIN_BASE + REG_PIN_NFRB, BIT(7) | BIT(8) | BIT(9));
-	sprd_dolphin_reg_and(DOLPHIN_PIN_BASE + REG_PIN_NFRB, ~(BIT(4) | BIT(5)));
-	for(i = 0; i < 22; ++i)
-	{
-		sprd_dolphin_reg_or(DOLPHIN_PIN_BASE + REG_PIN_NFCLE + (i << 2), BIT(7) | BIT(8) | BIT(9));
-		sprd_dolphin_reg_and(DOLPHIN_PIN_BASE + REG_PIN_NFCLE + (i << 2), ~(BIT(4) | BIT(5)));
-	}
-#endif
-
-#if 0
-	i = sprd_dolphin_reg_read(DOLPHIN_ANA_CTL_GLB_BASE+0x3c);
-	i &= ~0x7F00;
-	i |= 0x38 << 8;
-	sprd_dolphin_reg_write(DOLPHIN_ANA_CTL_GLB_BASE + 0x3c, i);
-
-	i = sprd_dolphin_reg_read(DOLPHIN_ANA_CTL_GLB_BASE+0x20);
-	i &= ~0xFF;
-	i |= 0x38 << 0;
-	sprd_dolphin_reg_write(DOLPHIN_ANA_CTL_GLB_BASE + 0x20, i);
-#endif
 	
 	//close write protect
 	sprd_dolphin_nand_wp_en(dolphin, 0);
