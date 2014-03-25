@@ -35,7 +35,6 @@
 #include "lzodefs_hw.h"
 
 #include <linux/sched.h>
-#include "zip_dummy.h"
 #include <linux/atomic.h>
 #include <mach/sci.h>
 
@@ -67,6 +66,37 @@ struct ZIPDEC_CFG_T zipdec_param =
 
 DEFINE_SPINLOCK(zipdec_lock);
 
+static int (*Zip_Dec_Wait)(ZIPDEC_INT_TYPE);
+static int (*_lzo1x_decompress_safe)(uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len);
+static int (* ZipDec_decompress)(const unsigned char *src, size_t src_len, unsigned char *dst, size_t *dst_len);
+
+static void ZipDec_Restart(void)
+{
+	CHIP_REG_AND(ZIPDEC_CTRL , ~ZIPDEC_EN);
+	ZipDec_Disable();
+	udelay(100);
+	ZipDec_Enable();
+	ZipDec_Reset();
+	CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
+	if(zipdec_param.work_mode==ZIPDEC_QUEUE)
+	{
+		ZipDec_QueueEn();
+	}
+	if(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)
+	{
+		if(zipdec_param.work_mode==ZIPDEC_QUEUE)
+                {
+                        ZipDec_IntEn(ZIPDEC_QUEUE_DONE_INT);
+                }
+                else
+                {
+                        ZipDec_IntEn(ZIPDEC_DONE_INT);
+                }
+
+                ZipDec_IntEn(ZIPDEC_TIMEOUT_INT);
+	}
+}
+
 static void ZipDec_Callback_Done(uint32_t num)
 {
 	ZipDec_IntClr(ZIPDEC_DONE_INT);
@@ -81,74 +111,6 @@ static void ZipDec_Callback_Timeout(uint32_t num)
 {
 	ZipDec_IntClr(ZIPDEC_TIMEOUT_INT);
 }
-
-void test_enable()
-{
-	ZipDec_Enable();
-	CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
-}
-
-void ZipDec_Init(void)
-{
-	ZipDec_Enable();
-	//ZipDec_Reset();
-
-	CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
-
-	if(zipdec_param.work_mode==ZIPDEC_QUEUE)
-	{
-		ZipDec_QueueEn();
-	}
-
-	if(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)
-	{
-		if(zipdec_param.work_mode==ZIPDEC_QUEUE)
-		{
-			ZipDec_IntEn(ZIPDEC_QUEUE_DONE_INT);
-			ZipDec_RegCallback(ZIPDEC_QUEUE_DONE_INT,ZipDec_Callback_QueueDone);
-		}
-		else
-		{
-			ZipDec_IntEn(ZIPDEC_DONE_INT);
-			ZipDec_RegCallback(ZIPDEC_DONE_INT,ZipDec_Callback_Done);
-		}
-		ZipDec_IntEn(ZIPDEC_TIMEOUT_INT);
-		ZipDec_RegCallback(ZIPDEC_TIMEOUT_INT,ZipDec_Callback_Timeout);
-
-		if(request_irq( zipdec_param.int_num,ZipDec_IsrHandler,0,"zip dec",0))
-		{
-			printk("zip dec request irq error\n");
-			return;
-		}
-	}
-	//ZipDec_Set_Timeout(zipdec_param.timeout);
-}
-
-void ZipDec_DeInit (void)
-{
-	ZipDec_Disable();
-
-	if(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)
-	{
-		if(zipdec_param.work_mode==ZIPDEC_QUEUE)
-		{
-			ZipDec_IntDisable(ZIPDEC_QUEUE_DONE_INT);
-			ZipDec_UNRegCallback(ZIPDEC_QUEUE_DONE_INT);
-		}
-		else
-		{
-			ZipDec_IntDisable(ZIPDEC_DONE_INT);
-			ZipDec_UNRegCallback(ZIPDEC_DONE_INT);
-		}
-
-		ZipDec_IntDisable(ZIPDEC_TIMEOUT_INT);
-		ZipDec_UNRegCallback(ZIPDEC_TIMEOUT_INT);
-
-		free_irq(zipdec_param.int_num,NULL);
-	}
-
-}
-
 
 static int Zip_Dec_Wait_Pool(ZIPDEC_INT_TYPE num)
 {
@@ -195,70 +157,18 @@ static int Zip_Dec_Wait_Int(ZIPDEC_INT_TYPE num)
 	return -1;
 }
 
-static inline void Emc_zipwfifoempty(void)
-{
-	volatile uint32_t ddr_busy;
-	while(1)
-	{
-		ddr_busy = CHIP_REG_GET(SPRD_LPDDR2_BASE+0x3fc);
-		if(!(ddr_busy&BIT_24))
-			break;
-	}
-}
-
 extern uint32_t lzo1x_virt_to_phys(uint32_t virt_addr);
-static int _zipdec_dummy_test(uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len)
-{
-	uint32_t phy_src_addr,phy_dst_addr;
-
-	int (*Zip_Dec_Wait)(ZIPDEC_INT_TYPE);
-	Zip_Dec_Wait=(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)? Zip_Dec_Wait_Int : Zip_Dec_Wait_Pool;
-
-	phy_src_addr = lzo1x_virt_to_phys((uint32_t)dummy_src);
-	phy_dst_addr = lzo1x_virt_to_phys((uint32_t)dummy_dst);
-
-	//printk("phy_src_addr:0x%x phy_dst_addr:0x%x,dummy_src:0x%x ,dummy_dst:0x%x\n",phy_src_addr,phy_dst_addr,dummy_src,dummy_dst);
-
-	spin_lock(&zipdec_lock);
-	ZipDec_SetSrcCfg(0 , phy_src_addr, DUMMY_LENGTH);
-	ZipDec_SetDestCfg(0, phy_dst_addr, ZIP_WORK_LENGTH);
-
-//	dmac_flush_range((void *)(dummy_src),(void *)(dummy_src + DUMMY_LENGTH));
-//	dmac_flush_range((void *)(dummy_dst),(void *)(dummy_dst + ZIP_WORK_LENGTH));
-
-	ZipDec_Run();
-	spin_unlock(&zipdec_lock);
-
-	if(Zip_Dec_Wait(ZIPDEC_DONE_INT))
-	{
-		Emc_zipwfifoempty();
-		printk("zip dec dummy err\n");
-		return -1;
-	}
-	Emc_zipwfifoempty();
-	return 0;
-}
-
-static int _lzo1x_decompress_single( uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len , uint32_t flag)
+static int _lzo1x_decompress_single( uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len )
 {
 
 	uint32_t phy_src_addr,phy_dst_addr;
-	void * dummy = dummy_dst;
-
-	int (*Zip_Dec_Wait)(ZIPDEC_INT_TYPE);
-	Zip_Dec_Wait=(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)? Zip_Dec_Wait_Int : Zip_Dec_Wait_Pool;
 
 	*dst_len=0;
 
-	if(flag)
-	{
-		memcpy((void *)(dummy+1),(void *)src_addr,src_num);
-		src_addr =(uint32_t)(dummy+1);
-		//printk("lzo dec dummy:0x%x, dummy+1:%x,src:0x%x\n",dummy,dummy+1,src_addr);
-	}
-
 	phy_src_addr = lzo1x_virt_to_phys(src_addr);
 	phy_dst_addr = lzo1x_virt_to_phys(dst_addr);
+
+	//printk("phy_src_addr:0x%x phy_dst_addr:0x%x src_num:0x%x src_addr:0x%x dst_addr:%x\n",phy_src_addr,phy_dst_addr,src_num,src_addr,dst_addr);
 
 	if((phy_src_addr==(-1UL))||(phy_dst_addr==(-1UL))){
 		printk("lzo1x phy addr errors \n");
@@ -277,121 +187,121 @@ static int _lzo1x_decompress_single( uint32_t src_addr , uint32_t src_num , uint
 
 	if(Zip_Dec_Wait(ZIPDEC_DONE_INT))
 	{
-		Emc_zipwfifoempty();
 		return -1;
 	}
 
-	Emc_zipwfifoempty();
 	*dst_len=ZIP_WORK_LENGTH;
 	return 0;
 }
 
 
-static int _lzo1x_decompress_queue( uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len, uint32_t flag)
+static int _lzo1x_decompress_queue(uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len)
 {
 	return -1;
 }
 
-static int lzo1x_decompress_safe_hw_dummy(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len)
-{
-	volatile uint32_t dec_len,ddr_busy;
-
-	uint32_t src_addr =(uint32_t)src;
-	uint32_t dst_addr =(uint32_t)dst;
-
-	int (*_lzo1x_decompress_safe)(uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len , uint32_t flag);
-	_lzo1x_decompress_safe = (zipdec_param.work_mode==ZIPDEC_QUEUE) ? (_lzo1x_decompress_queue) : (_lzo1x_decompress_single);
-
-	if (!dst || !dst_len || !src  || !src_len ||(src_len > PAGE_SIZE))  return LZO_HW_IN_PARA_ERROR;
-
-	ZipDec_Init();
-
-	if(_lzo1x_decompress_safe((uint32_t)src_addr ,src_len , dst_addr ,&dec_len,0))
-	{
-		//printk("lzo first decompress error\n");
-		ZipMatrix_Reset();
-		Emc_zipwfifoempty();
-
-		CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
-
-		if(_lzo1x_decompress_safe((uint32_t)src_addr ,src_len , dst_addr ,&dec_len ,1))
-		{
-			//printk("lzo second decompress error\n");
-			*dst_len = dec_len;
-			ZipDec_DeInit();
-			return LZO_HW_ERROR;
-		}
-		//printk("lzo second decompress ok\n");
-	}
-	else
-	{
-		if(_zipdec_dummy_test((uint32_t)src_addr ,src_len , dst_addr ,&dec_len))
-		{
-			//printk("lzo dec again after\n");
-			ZipMatrix_Reset();
-			Emc_zipwfifoempty();
-
-			CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
-
-			if(_lzo1x_decompress_safe((uint32_t)src_addr ,src_len , dst_addr ,&dec_len ,1))
-			{
-				//printk("lzo second decompress error\n");
-				*dst_len = dec_len;
-				ZipDec_DeInit();
-				return LZO_HW_ERROR;
-			}
-		}
-	}
-
-	//printk("lzo decompress finish  error:0x%x\n",flag_zip);
-	*dst_len = ZIP_WORK_LENGTH ;//dec_len;
-	ZipDec_DeInit();
-	return LZO_HW_OK;
-}
-
 static int lzo1x_decompress_safe_hw_nodummy(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len)
 {
-	volatile uint32_t dec_len,ddr_busy;
+	volatile uint32_t dec_len;
 
 	uint32_t src_addr =(uint32_t)src;
 	uint32_t dst_addr =(uint32_t)dst;
 
-	int (*_lzo1x_decompress_safe)(uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len , uint32_t flag);
-	_lzo1x_decompress_safe = (zipdec_param.work_mode==ZIPDEC_QUEUE) ? (_lzo1x_decompress_queue) : (_lzo1x_decompress_single);
-
 	if (!dst || !dst_len || !src  || !src_len ||(src_len > PAGE_SIZE))  return LZO_HW_IN_PARA_ERROR;
+	//printk("lzo hw decompress\r\n");
+	CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
 
-	ZipDec_Init();
-
-	if(_lzo1x_decompress_safe((uint32_t)src_addr ,src_len , dst_addr ,&dec_len,0))
+	if(_lzo1x_decompress_safe((uint32_t)src_addr ,src_len , dst_addr ,&dec_len))
 	{
 		*dst_len = dec_len;
-		ZipDec_DeInit();
+		ZipDec_Restart();
 		return LZO_HW_ERROR;
 	}
 	*dst_len = ZIP_WORK_LENGTH;
-	ZipDec_DeInit();
 	return LZO_HW_OK;
 }
 
-extern bool lzo_sw_flag;
+extern unsigned int  get_zip_type(void);
+
+static ____cacheline_aligned unsigned char dummy_data[0x1000];
 int lzo1x_decompress_safe_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len)
 {
-	int ret = 0;
-
-	if(lzo_sw_flag)
-	{
-		//printk("decompress sw\n");
-		ret =lzo1x_decompress_safe(src,src_len,dst,dst_len);
-	}
-	else
-	{
-		//printk("decompress hw\n");
-		ret =lzo1x_decompress_safe_hw_nodummy(src,src_len,dst,dst_len);
-	}
-	return ret;
+	memcpy((void *)dummy_data,(void *)src,src_len);
+	return lzo1x_decompress_safe_hw_nodummy((unsigned char *)dummy_data,src_len,dst,dst_len);
 }
 
 EXPORT_SYMBOL_GPL(lzo1x_decompress_safe_hw);
+
+static int __init ZipDec_Init(void)
+{
+
+	printk("%s\r\n", __func__);
+
+	ZipDec_Enable();
+	//ZipDec_Reset();
+
+	CHIP_REG_OR(ZIPDEC_CTRL , ZIPDEC_EN);
+
+	if(zipdec_param.work_mode==ZIPDEC_QUEUE)
+	{
+		ZipDec_QueueEn();
+	}
+
+	if(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)
+	{
+		if(zipdec_param.work_mode==ZIPDEC_QUEUE)
+		{
+			ZipDec_IntEn(ZIPDEC_QUEUE_DONE_INT);
+			ZipDec_RegCallback(ZIPDEC_QUEUE_DONE_INT,ZipDec_Callback_QueueDone);
+		}
+		else
+		{
+			ZipDec_IntEn(ZIPDEC_DONE_INT);
+			ZipDec_RegCallback(ZIPDEC_DONE_INT,ZipDec_Callback_Done);
+		}
+		ZipDec_IntEn(ZIPDEC_TIMEOUT_INT);
+		ZipDec_RegCallback(ZIPDEC_TIMEOUT_INT,ZipDec_Callback_Timeout);
+
+		if(request_irq( zipdec_param.int_num,ZipDec_IsrHandler,0,"zip dec",0))
+		{
+			printk("zip dec request irq error\n");
+			return-1;
+		}
+	}
+	_lzo1x_decompress_safe = (zipdec_param.work_mode==ZIPDEC_QUEUE) ? (_lzo1x_decompress_queue) : (_lzo1x_decompress_single);
+	Zip_Dec_Wait=(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)? Zip_Dec_Wait_Int : Zip_Dec_Wait_Pool;
+	ZipDec_decompress = get_zip_type() ?  lzo1x_decompress_safe_hw_nodummy : lzo1x_decompress_safe;
+	//ZipDec_Set_Timeout(zipdec_param.timeout);
+	return 0;
+}
+
+static void ZipDec_DeInit (void)
+{
+	ZipDec_Disable();
+
+	if(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)
+	{
+		if(zipdec_param.work_mode==ZIPDEC_QUEUE)
+		{
+			ZipDec_IntDisable(ZIPDEC_QUEUE_DONE_INT);
+			ZipDec_UNRegCallback(ZIPDEC_QUEUE_DONE_INT);
+		}
+		else
+		{
+			ZipDec_IntDisable(ZIPDEC_DONE_INT);
+			ZipDec_UNRegCallback(ZIPDEC_DONE_INT);
+		}
+
+		ZipDec_IntDisable(ZIPDEC_TIMEOUT_INT);
+		ZipDec_UNRegCallback(ZIPDEC_TIMEOUT_INT);
+
+		free_irq(zipdec_param.int_num,NULL);
+	}
+
+}
+
+module_init(ZipDec_Init);
+module_exit(ZipDec_DeInit);
+
 MODULE_LICENSE("GPL");
 MODULE_DESCRIPTION("LZO1X-1 HW Decompressor");
