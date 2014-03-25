@@ -47,14 +47,18 @@ int sprd_iommu_mm_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *
 
 	sprd_iommu_mm_enable(dev);
 	err=sprd_iommu_init(dev,data);
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_disable(dev);
+#endif
 	return err;
 }
 
 int sprd_iommu_mm_exit(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_enable(dev);
+#endif
 	err=sprd_iommu_exit(dev);
 	sprd_iommu_mm_disable(dev);
 	return err;
@@ -74,25 +78,35 @@ void sprd_iommu_mm_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, siz
 int sprd_iommu_mm_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_enable(dev);
+#endif
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_disable(dev);
+#endif
 	return err;
 }
 
 int sprd_iommu_mm_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_enable(dev);
+#endif
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_disable(dev);
+#endif
 	return err;
 }
 
 int sprd_iommu_mm_backup(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_enable(dev);
+#endif
 	err=sprd_iommu_backup(dev);
 	sprd_iommu_mm_disable(dev);
 	return err;
@@ -103,17 +117,20 @@ int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 	int err=-1;
 	sprd_iommu_mm_enable(dev);
 	err=sprd_iommu_restore(dev);
+#if defined (CONFIG_ARCH_SCX15)
 	sprd_iommu_mm_disable(dev);
+#endif
 	return err;
 }
 
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 {
+	printk("%s line:%d\n",__FUNCTION__,__LINE__);
 	sprd_iommu_disable(dev);
 #ifdef CONFIG_OF
 	clk_disable_unprepare(dev->mmu_clock);
-        if (dev->mmu_mclock)
-	    clk_disable_unprepare(dev->mmu_mclock);
+	if (dev->mmu_mclock)
+		clk_disable_unprepare(dev->mmu_mclock);
 #else
 	clk_disable(dev->mmu_clock);
 	clk_disable(dev->mmu_mclock);
@@ -123,15 +140,16 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 {
+	printk("%s line:%d\n",__FUNCTION__,__LINE__);
 #ifdef CONFIG_OF
 	if (dev->mmu_mclock)
-            clk_prepare_enable(dev->mmu_mclock);
+		clk_prepare_enable(dev->mmu_mclock);
 	clk_prepare_enable(dev->mmu_clock);
 #else
 	clk_enable(dev->mmu_mclock);
 	clk_enable(dev->mmu_clock);
 #endif
-	udelay(300);
+	udelay(100);
 	sprd_iommu_enable(dev);
 	return 0;
 }

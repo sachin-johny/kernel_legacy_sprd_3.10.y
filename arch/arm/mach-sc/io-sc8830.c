@@ -146,6 +146,10 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(GSPMMU),
 	SPRD_DEVICE(MMMMU),
 #endif
+#if defined(CONFIG_ARCH_SCX30G)
+	SPRD_DEVICE(GSPMMU),
+	SPRD_DEVICE(MMMMU),
+#endif
 };
 
 void __init sci_map_io(void)
