@@ -415,12 +415,9 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 			"%s, Received regular blacklist enable command\n",
 			__func__);
 		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(addr[0]),
-		       (unsigned int *)&(addr[1]),
-		       (unsigned int *)&(addr[2]),
-		       (unsigned int *)&(addr[3]),
-		       (unsigned int *)&(addr[4]),
-		       (unsigned int *)&(addr[5]));
+		       (unsigned int *)&(addr[0]), (unsigned int *)&(addr[1]),
+		       (unsigned int *)&(addr[2]), (unsigned int *)&(addr[3]),
+		       (unsigned int *)&(addr[4]), (unsigned int *)&(addr[5]));
 		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
 							   addr, 1);
 	} else if (strnicmp(command, CMD_BLACKLIST_DISABLE,
@@ -431,12 +428,9 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 			"%s, Received regular blacklist disable command\n",
 			__func__);
 		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(addr[0]),
-		       (unsigned int *)&(addr[1]),
-		       (unsigned int *)&(addr[2]),
-		       (unsigned int *)&(addr[3]),
-		       (unsigned int *)&(addr[4]),
-		       (unsigned int *)&(addr[5]));
+		       (unsigned int *)&(addr[0]), (unsigned int *)&(addr[1]),
+		       (unsigned int *)&(addr[2]), (unsigned int *)&(addr[3]),
+		       (unsigned int *)&(addr[4]), (unsigned int *)&(addr[5]));
 		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
 							   addr, 0);
 	}
@@ -507,7 +501,7 @@ static void itm_wlan_late_resume(struct early_suspend *es)
 }
 #endif
 
-#if defined(CONFIG_PM) && defined(CONFIG_ITM_WLAN_PM_POWERSAVE)
+#ifdef CONFIG_PM
 static int itm_wlan_suspend(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
@@ -516,10 +510,19 @@ static int itm_wlan_suspend(struct device *dev)
 
 	dev_info(dev, "%s\n", __func__);
 
+	if (!mutex_trylock(&priv->wlan_sipc->pm_lock)) {
+		priv->pm_status = false;
+		ret = -EBUSY;
+	} else {
+		priv->pm_status = true;
+	}
+
+#ifdef CONFIG_ITM_WLAN_PM_POWERSAVE
 	netif_device_detach(ndev);
 	napi_disable(&priv->napi);
 
 	ret = itm_wlan_pm_enter_ps_cmd(priv);
+#endif
 	if (ret)
 		dev_err(dev, "Failed to suspend (%d)\n", ret);
 
@@ -534,12 +537,19 @@ static int itm_wlan_resume(struct device *dev)
 
 	dev_info(dev, "%s\n", __func__);
 
+	if (priv->pm_status == true) {
+		mutex_unlock(&priv->wlan_sipc->pm_lock);
+		priv->pm_status = false;
+	}
+
+#ifdef CONFIG_ITM_WLAN_PM_POWERSAVE
 	ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
 	if (ret)
 		dev_err(dev, "Failed to resume (%d)\n", ret);
 
 	napi_enable(&priv->napi);
 	netif_device_attach(ndev);
+#endif
 	return ret;
 }
 
@@ -599,54 +609,6 @@ static struct notifier_block itm_inetaddr_cb = {
 	.notifier_call = itm_inetaddr_event,
 };
 
-static int itm_pm_notifier(struct notifier_block *notifier,
-			   unsigned long pm_event, void *unused)
-{
-	int ret = NOTIFY_DONE;
-	struct itm_priv *priv = container_of(notifier,
-					     struct itm_priv,
-					     pm_notifier);
-
-	/* We should not suspend when there is sipc cmd send and recv. */
-	switch (pm_event) {
-	case PM_SUSPEND_PREPARE:
-		if (!mutex_trylock(&priv->wlan_sipc->pm_lock)) {
-			priv->pm_status = false;
-			ret = NOTIFY_BAD;
-		} else {
-			priv->pm_status = true;
-			ret = NOTIFY_OK;
-		}
-		break;
-
-	/* Restore from hibernation failed. We need to clean
-	 * up in exactly the same way, so fall through.
-	 */
-	case PM_POST_SUSPEND:
-		if (priv->pm_status == true) {
-			mutex_unlock(&priv->wlan_sipc->pm_lock);
-			priv->pm_status = false;
-		}
-		ret = NOTIFY_OK;
-		break;
-	default:
-		break;
-	}
-
-	return ret;
-}
-
-static void itm_register_pm_notifier(struct itm_priv *priv)
-{
-	priv->pm_notifier.notifier_call = itm_pm_notifier;
-	register_pm_notifier(&priv->pm_notifier);
-}
-
-static void itm_unregister_pm_notifier(struct itm_priv *priv)
-{
-	unregister_pm_notifier(&priv->pm_notifier);
-}
-
 /*
  * Initialize WLAN device.
  */
@@ -655,10 +617,13 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct itm_priv *priv;
 	int ret;
-    #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA)
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
+|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
+|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
+||defined(CONFIG_MACH_SP5735C1EA)
     rf2351_gpio_ctrl_power_enable(1);
-    #endif
+#endif
 	ndev =
 	    alloc_netdev(sizeof(struct itm_priv), ITM_INTF_NAME, ether_setup);
 	if (!ndev) {
@@ -741,8 +706,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 #ifdef CONFIG_INET
 	register_inetaddr_notifier(&itm_inetaddr_cb);
 #endif
-	/* Register PM notifiers */
-	itm_register_pm_notifier(priv);
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
@@ -767,10 +730,13 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret;
-   #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-       || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA)
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
+|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
+|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
+||defined(CONFIG_MACH_SP5735C1EA)
     rf2351_gpio_ctrl_power_enable(0);
-    #endif
+#endif
 /*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
 	/* FIXME it is a ugly method */
 	ret =
@@ -781,7 +747,6 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
 
-	itm_unregister_pm_notifier(priv);
 	unregister_early_suspend(&priv->early_suspend);
 	wake_lock_destroy(&priv->scan_done_lock);
 #ifdef CONFIG_INET
