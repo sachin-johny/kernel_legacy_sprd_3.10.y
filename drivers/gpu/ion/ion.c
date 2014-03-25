@@ -99,6 +99,7 @@ struct ion_client {
  */
 struct ion_handle {
 	struct kref ref;
+	int magicnum;
 	struct ion_client *client;
 	struct ion_buffer *buffer;
 	struct rb_node node;
@@ -590,6 +591,7 @@ static struct ion_handle *ion_handle_create(struct ion_client *client,
 	INIT_LIST_HEAD(&handle->list);
 	rb_init_node(&handle->pagecache);
 #endif
+	handle->magicnum = 0x12121212;
 	return handle;
 }
 
@@ -602,6 +604,7 @@ static void ion_handle_destroy(struct kref *kref)
 	ion_buffer_put(handle->buffer);
 	if (!RB_EMPTY_NODE(&handle->node))
 		rb_erase(&handle->node, &handle->client->handles);
+	handle->magicnum = 0x34343434;
 	kfree(handle);
 }
 
@@ -1004,6 +1007,7 @@ end:
 	return handle;
 }
 
+static int ion_check_all_handle_magicnum(void);
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
 	struct ion_client *client = s->private;
@@ -1264,12 +1268,14 @@ static void ion_vma_close(struct vm_area_struct *vma)
 	/* this indicates the client is gone, nothing to do here */
 	if (!handle)
 		return;
+
 	client = handle->client;
 	pr_debug("%s: %d client_cnt %d handle_cnt %d alloc_cnt %d\n",
 		 __func__, __LINE__,
 		 atomic_read(&client->ref.refcount),
 		 atomic_read(&handle->ref.refcount),
 		 atomic_read(&buffer->ref.refcount));
+	printk("%s ---- magicnum: %p, client:%p, buffer:%p\n", __func__, handle->magicnum, client, handle->buffer);
 	mutex_lock(&client->lock);
 	ion_handle_put(handle);
 	mutex_unlock(&client->lock);
@@ -1388,9 +1394,23 @@ err:
 	return -ENFILE;
 }
 
+static int ion_check_all_handle_magicnum(void);
 static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	struct ion_client *client = filp->private_data;
+
+/*
+ION_IOC_ALLOC          0xc0104900
+ION_IOC_FREE           0xc0044901
+ION_IOC_MAP            0xc0084902
+ION_IOC_SHARE          0xc0084904
+ION_IOC_IMPORT         0xc0044905
+ION_IOC_CUSTOM         0xc0084906
+ION_IOC_ENABLE_CACHE   0xc0044907
+ION_IOC_DISABLE_CACHE  0xc0044908
+*/
+	printk("\nion_ioctl start  cmd 0x%p\n", cmd);
+	ion_check_all_handle_magicnum();
 
 	switch (cmd) {
 	case ION_IOC_ALLOC:
@@ -1495,6 +1515,9 @@ static long ion_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 	default:
 		return -ENOTTY;
 	}
+
+	printk("ion_ioctl end cmd 0x%p\n", cmd);
+	ion_check_all_handle_magicnum();
 	return 0;
 }
 
@@ -1547,7 +1570,6 @@ static size_t ion_debug_heap_total(struct ion_client *client,
 	mutex_unlock(&client->lock);
 	return size;
 }
-
 static int ion_debug_heap_show(struct seq_file *s, void *unused)
 {
 	struct ion_heap *heap = s->private;
@@ -1580,6 +1602,7 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 			   size);
 	}
 
+
 	seq_printf(s, "-----------------buffer list------------------------\n");
 	mutex_lock(&dev->lock);
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
@@ -1600,7 +1623,59 @@ flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
 	}
 	mutex_unlock(&dev->lock);
 	seq_printf(s, "----------------------------------------------------\n");
+
 	return 0;
+}
+
+
+static void ion_check_handle_magicnum(struct ion_client *client,
+				   enum ion_heap_type type, int id)
+{
+	struct rb_node *n;
+
+	//printk("%-16s %-16s %16u\n", client->name, client->task->comm, client->pid);
+	mutex_lock(&client->lock);
+	for (n = rb_first(&client->handles); n; n = rb_next(n)) {
+		struct ion_handle *handle = rb_entry(n,
+						     struct ion_handle,
+						     node);
+		if (handle->buffer->heap->id != id)
+			continue;
+
+		if (handle->magicnum != 0x12121212)
+			panic("magicnumerror  ---task(%d)%s, client:%s, ion_handle:0x%p, magicnum:0x%p, client:0x%p, buffer:0x%p\n",
+			       client->pid, client->task->comm, client->name, handle, handle->magicnum, handle->client, handle->buffer);
+	}
+	mutex_unlock(&client->lock);
+
+}
+
+extern int num_heaps;
+extern struct ion_heap **heaps;
+static int ion_check_all_handle_magicnum(void)
+{
+	struct ion_heap *heap;
+	struct ion_device *dev;
+	int i;
+	struct rb_node *n;
+
+	for (i = 0; i < num_heaps; i++) {
+		//printk("======  *heaps = 0x%p\n", heaps[0]);
+		heap = heaps[i];
+		dev = heap->dev;
+		//printk("====== user handle's magicnum ====\n");
+		for (n = rb_first(&dev->user_clients); n; n = rb_next(n)) {
+			struct ion_client *client = rb_entry(n, struct ion_client, node);
+			ion_check_handle_magicnum(client, heap->type, heap->id);
+		}
+
+		//printk("====== kernel handle's magicnum====\n");
+		for (n = rb_first(&dev->kernel_clients); n; n = rb_next(n)) {
+			struct ion_client *client = rb_entry(n, struct ion_client, node);
+			ion_check_handle_magicnum(client, heap->type, heap->id);
+		}
+	}
+
 }
 
 static int ion_debug_heap_open(struct inode *inode, struct file *file)
