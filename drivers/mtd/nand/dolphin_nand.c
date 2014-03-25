@@ -817,6 +817,7 @@ STATIC_FUNC int sprd_dolphin_nand_wait_finish(struct sprd_dolphin_nand_info *dol
 	{
 		printk(KERN_ERR "sprd_dolphin_nand_wait_finish timeout %d usecs. Dump NandC Registers:  \n",elapsed);
 		print_hex_dump(KERN_ERR, "", DUMP_PREFIX_OFFSET, 32, 4, SPRD_NFC_BASE, 0x140, 1);
+		dump_stack();
 		return -1;
 	}
 	return 0;
@@ -2021,10 +2022,11 @@ STATIC_FUNC int sprd_nand_probe(struct platform_device *pdev)
 	init_completion(&nfc_op_completion);
 	err = request_irq(IRQ_NFC_INT, nfc_irq_handler, 0, DRIVER_NAME, NULL);
 	if (err) {
-        DPRINT(KERN_ERR "request_irq error\n");
+		DPRINT(KERN_ERR "request_irq error\n");
 		goto prob_err;	
-    }
-    DPRINT(KERN_ALERT "request_irq ok\n");
+	}
+	else
+		DPRINT(KERN_ALERT "request_irq ok\n");
 	#endif
 	
 
@@ -2052,20 +2054,24 @@ STATIC_FUNC int sprd_nand_probe(struct platform_device *pdev)
 	board_nand_init(this);
 
 
-    if (sprd_dolphin_nand_reset(&g_dolphin) != 0)
-    {
-        ret = -ENXIO;
-        DPRINT(KERN_ERR "nand reset failed!!!!!!!!!!!!!\n");
-        goto prob_err;
-    }
-    msleep(1);
+	if (sprd_dolphin_nand_reset(&g_dolphin) != 0) {
+		ret = -ENXIO;
+		DPRINT(KERN_ERR "nand reset failed!!!!!!!!!!!!!\n");
+		goto prob_err;
+	}
+	msleep(1);
 
-    if (sprd_dolphin_nand_read_id(&g_dolphin, (uint32_t *)s_oob_data) != 0)
-    {
-        ret = -ENXIO;
-        DPRINT(KERN_ERR "nand read id failed, no nand device!!!!!!!!!!!!!\n");
-    }
-    DPRINT(KERN_ALERT "nand read id ok, nand exists!!!!!!!!!!!!!\n");
+	if (sprd_dolphin_nand_read_id(&g_dolphin, (uint32_t *)s_oob_data) != 0) {
+		ret = -ENXIO;
+		DPRINT(KERN_ERR "nand read id failed, no nand device!!!!!!!!!!!!!\n");
+	}
+	else
+		DPRINT(KERN_ALERT "nand read id ok, nand exists!!!!!!!!!!!!!\n");
+
+	nand_hardware_config(sprd_mtd, this, s_oob_data);
+	if(sprd_nand_dma_init(&g_dolphin) != 0) {
+		return -ENOMEM;
+	}
 
 	//nand_scan(sprd_mtd, 1);
 	/* first scan to find the device and get the page size */
@@ -2073,12 +2079,11 @@ STATIC_FUNC int sprd_nand_probe(struct platform_device *pdev)
 		ret = -ENXIO;
 		goto prob_err;
 	}
-	sprd_dolphin_nand_read_id(&g_dolphin, (uint32_t *)s_oob_data);
-	nand_hardware_config(sprd_mtd, this, s_oob_data);
-	if(sprd_nand_dma_init(&g_dolphin) != 0) {
-		return -ENOMEM;
-	}
-	
+	/* oob size may changed by last scan.
+	 *  FIX ME.
+	 */
+	sprd_mtd->oobsize =g_dolphin.oob_size;
+
 	//this->IO_ADDR_R = g_dolphin.v_mbuf;
 	//this->IO_ADDR_W = g_dolphin.v_mbuf;
 
