@@ -123,11 +123,16 @@ struct sprd_nand_param sprd_nand_param_table[] = {
 	//blksize                    blknum                  pgsize               sec                        spr 
 	//
 	//micron
-	{ 	{ 0x2C, 0xBC, 0x90, 0x66, 0x54 }, 0x2C, 0xBC, 
-		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(224), BW_16, CYCLES_5, 
+	{	{ 0x2C, 0xBC, 0x90, 0x66, 0x54 }, 0x2C, 0xBC,
+		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(224), BW_16, CYCLES_5,
 		{ 10, 15 ,10 }, //ace, rwl, rwh
-		{ SZ_B_OOB(28), ECC_BITS(8), POS_ECC(14), SZ_ECC(14), POS_INFO(14), SZ_INFO(0) } 
-	}, 
+		{ SZ_B_OOB(28), ECC_BITS(8), POS_ECC(14), SZ_ECC(14), POS_INFO(14), SZ_INFO(0) }
+	},
+	{	{ 0x2C, 0xB5, 0xd1, 0x66, 0x68 }, 0x2C, 0xB5,
+		SZ_K_BLOCK(256), NUM_BLOCK(8192), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(224), BW_16, CYCLES_5,
+		{ 10, 15 ,10 }, //ace, rwl, rwh
+		{ SZ_B_OOB(28), ECC_BITS(8), POS_ECC(14), SZ_ECC(14), POS_INFO(14), SZ_INFO(0) }
+	},
     //toshiba
 	{ 	{ 0x98, 0xBC, 0x90, 0x66, 0x76 }, 0x98, 0xBC, 
 		SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(224), BW_16, CYCLES_5, 
