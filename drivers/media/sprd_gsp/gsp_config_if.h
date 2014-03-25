@@ -147,15 +147,20 @@ GSP_CORE_GREQ;
 #define GSP_AHB_CLOCK_192M_BIT  (3)// [1:0] is used by GSP, 0:26M 1:76M 2:128M 3:192M
 
 //interrupt relative
+#ifndef CONFIG_OF
 #define TB_GSP_INT 			(IRQ_GSP_INT)  //gsp hardware irq number
 #define GSP_IRQ_BIT			SCI_INTC_IRQ_BIT(TB_GSP_INT) //gsp hardware irq bit, == (TB_GSP_INT % 32)
+#endif
 #define GSP_SOFT_RST_BIT    (BIT_GSP_SOFT_RST) //gsp chip module soft reset bit
 #define GSP_MOD_EN_BIT      (BIT_GSP_EB) //gsp chip module enable bit
 
 #endif
 
-
+#ifdef CONFIG_OF
+#define GSP_REG_BASE        (gsp_base_addr)
+#else
 #define GSP_REG_BASE        (SPRD_GSP_BASE)
+#endif
 #define GSP_HOR_COEF_BASE   (GSP_REG_BASE + 0x90)
 #define GSP_VER_COEF_BASE   (GSP_REG_BASE + 0x110)
 #define GSP_L1_BASE			(GSP_REG_BASE + 0x60)
@@ -164,6 +169,9 @@ GSP_CORE_GREQ;
 #define GSP_ASSERT()        do{}while(1)
 #endif
 
+#ifdef CONFIG_OF
+#define GSP_CLOCK_PARENT3		("clk_gsp_parent")
+#else
 #ifdef CONFIG_ARCH_SCX15// dolphin
 #define GSP_CLOCK_PARENT3		("clk_153m6")
 #define GSP_CLOCK_PARENT2		("clk_128m")
@@ -175,11 +183,12 @@ GSP_CORE_GREQ;
 #define GSP_CLOCK_PARENT1		("clk_153m6")
 #define GSP_CLOCK_PARENT0		("clk_96m")
 #endif
+#endif
+
 #define GSP_CLOCK_NAME			("clk_gsp")
 
 #define GSP_EMC_CLOCK_PARENT_NAME		("clk_aon_apb")
 #define GSP_EMC_CLOCK_NAME				("clk_disp_emc")
-
 
 #if 0
 #define GSP_EMC_MATRIX_ENABLE() (*(volatile uint32_t*)(GSP_EMC_MATRIX_BASE) |= GSP_EMC_MATRIX_BIT)
@@ -251,7 +260,11 @@ GSP_CORE_GREQ;
 
 #ifdef CONFIG_ARCH_SCX15
 //in dolphin,soft reset should not be called for iommu workaround
+#ifdef CONFIG_OF
+#define GSP_MMU_CTRL_BASE        (gsp_mmu_ctrl_addr)
+#else
 #define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x4000)
+#endif
 #define GSP_HWMODULE_SOFTRESET()\
 {\
 	sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\

@@ -440,6 +440,7 @@
 		interrupts = <0 51 0x0>;
 		clock-names = "clk_gsp", "clk_disp_emc", "clk_gsp_parent", "clk_aon_apb";
 		clocks = <&clk_gsp>, <&clk_disp_emc>, <&clk_153m6>, <&clk_aon_apb>;
+		gsp_mmu_ctrl_base = <0xf5414000>;
 	};
         sprd_fm: sprd_fm@40270000{
 		compatible  = "sprd,sprd_fm";

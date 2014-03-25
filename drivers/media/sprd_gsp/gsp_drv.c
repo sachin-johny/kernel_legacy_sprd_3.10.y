@@ -28,6 +28,13 @@
 #include <linux/io.h>//for ioremap
 #include <linux/pid.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_fdt.h>
+#include <linux/of_irq.h>
+#include <linux/of_address.h>
+#endif
+
 #include <mach/hardware.h>
 
 #include "gsp_drv.h"
@@ -81,7 +88,15 @@ GSP_CONFIG_INFO_T               s_gsp_cfg;//protect by gsp_hw_resource_sem
 static struct proc_dir_entry    *gsp_drv_proc_file;
 struct clk						*g_gsp_emc_clk = NULL;
 struct clk						*g_gsp_clk = NULL;
+static int                                  gsp_irq_num = 0;
 
+#ifdef CONFIG_OF
+struct device 				*gsp_of_dev = NULL;
+uint32_t                                    gsp_base_addr = 0;
+#ifdef CONFIG_ARCH_SCX15
+uint32_t                                    gsp_mmu_ctrl_addr = 0;
+#endif
+#endif
 
 #define GSP_ERR_RECORD_CNT  8
 static GSP_REG_T g_gsp_reg_err_record[GSP_ERR_RECORD_CNT];
@@ -2577,7 +2592,11 @@ static int32_t gsp_clock_init(void)
     struct clk *gsp_clk_parent = NULL;
     int ret = 0;
 
+#ifdef CONFIG_OF
+    emc_clk_parent = of_clk_get_by_name(gsp_of_dev->of_node, GSP_EMC_CLOCK_PARENT_NAME);
+#else
     emc_clk_parent = clk_get(NULL, GSP_EMC_CLOCK_PARENT_NAME);
+#endif
     if (IS_ERR(emc_clk_parent)) {
         printk(KERN_ERR "gsp: get emc clk_parent failed!\n");
         return -1;
@@ -2585,7 +2604,11 @@ static int32_t gsp_clock_init(void)
         printk(KERN_INFO "gsp: get emc clk_parent ok!\n");//pr_debug
     }
 
+#ifdef CONFIG_OF
+    g_gsp_emc_clk = of_clk_get_by_name(gsp_of_dev->of_node, GSP_EMC_CLOCK_NAME);
+#else
     g_gsp_emc_clk = clk_get(NULL, GSP_EMC_CLOCK_NAME);
+#endif
     if (IS_ERR(g_gsp_emc_clk)) {
         printk(KERN_ERR "gsp: get emc clk failed!\n");
         return -1;
@@ -2601,7 +2624,11 @@ static int32_t gsp_clock_init(void)
         printk(KERN_INFO "gsp: gsp set emc clk parent ok!\n");//pr_debug
     }
 
+#ifdef CONFIG_OF
+    gsp_clk_parent = of_clk_get_by_name(gsp_of_dev->of_node, GSP_CLOCK_PARENT3);
+#else
     gsp_clk_parent = clk_get(NULL, GSP_CLOCK_PARENT3);
+#endif
     if (IS_ERR(gsp_clk_parent)) {
         printk(KERN_ERR "gsp: get clk_parent failed!\n");
         return -1;
@@ -2609,7 +2636,11 @@ static int32_t gsp_clock_init(void)
         printk(KERN_INFO "gsp: get clk_parent ok!\n");
     }
 
+#ifdef CONFIG_OF
+    g_gsp_clk = of_clk_get_by_name(gsp_of_dev->of_node, GSP_CLOCK_NAME);
+#else
     g_gsp_clk = clk_get(NULL, GSP_CLOCK_NAME);
+#endif
     if (IS_ERR(g_gsp_clk)) {
         printk(KERN_ERR "gsp: get clk failed!\n");
         return -1;
@@ -2632,9 +2663,29 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
 {
     int32_t ret = 0;
     int32_t i = 0;
+#ifdef CONFIG_OF
+    struct resource r;
+#endif
 
     GSP_TRACE("gsp_probe enter .\n");
     printk("%s,AHB clock :%d\n", __func__,GSP_AHB_CLOCK_GET());
+
+#ifdef CONFIG_OF
+    gsp_of_dev = &(pdev->dev);
+
+    gsp_irq_num = irq_of_parse_and_map(gsp_of_dev->of_node, 0);
+
+    if(0 != of_address_to_resource(gsp_of_dev->of_node, 0, &r)){
+        printk(KERN_ERR "gsp probe fail. (can't get register base address)\n");
+        goto exit;
+    }
+    gsp_base_addr = r.start;
+
+    printk("gsp: irq = %d, gsp_base_addr = 0x%x\n", gsp_irq_num, gsp_base_addr);
+#else
+    gsp_irq_num = TB_GSP_INT;
+#endif
+
     //GSP_EMC_MATRIX_ENABLE();
     //GSP_EMC_GAP_SET(0);
     //GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
@@ -2656,7 +2707,7 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
         goto exit;
     }
 
-    ret = request_irq(TB_GSP_INT,//
+    ret = request_irq(gsp_irq_num,//
                       gsp_irq_handler,
                       0,//IRQF_SHARED
                       "GSP",
@@ -2664,7 +2715,7 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
 
     if (ret)
     {
-        printk("could not request irq %d\n", IRQ_GSP_INT);
+        printk("could not request irq %d\n", gsp_irq_num);
         goto exit1;
     }
 /*
@@ -2703,7 +2754,7 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
     return ret;
 /*
 exit2:
-    free_irq(IRQ_GSP_INT, gsp_irq_handler);
+    free_irq(gsp_irq_num, gsp_irq_handler);
 */
 exit1:
     misc_deregister(&gsp_drv_dev);
@@ -2719,10 +2770,17 @@ static int32_t gsp_drv_remove(struct platform_device *dev)
     {
         remove_proc_entry("driver/sprd_gsp", NULL);
     }
-    free_irq(IRQ_GSP_INT, gsp_irq_handler);
+    free_irq(gsp_irq_num, gsp_irq_handler);
     misc_deregister(&gsp_drv_dev);
     return 0;
 }
+
+#ifdef CONFIG_OF
+static const struct of_device_id sprdgsp_dt_ids[] = {
+	{ .compatible = "sprd,gsp", },
+	{}
+};
+#endif
 
 static struct platform_driver gsp_drv_driver =
 {
@@ -2735,7 +2793,10 @@ static struct platform_driver gsp_drv_driver =
     .driver =
     {
         .owner = THIS_MODULE,
-        .name = "sprd_gsp"
+        .name = "sprd_gsp",
+#ifdef CONFIG_OF
+        .of_match_table = of_match_ptr(sprdgsp_dt_ids),
+#endif
     }
 };
 

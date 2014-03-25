@@ -22,6 +22,10 @@
 uint32_t testregsegment[0x190]= {0};
 extern struct clk	*g_gsp_emc_clk;
 extern struct clk	*g_gsp_clk;
+#ifdef CONFIG_OF
+extern struct device 				*gsp_of_dev = NULL;
+extern uint32_t gsp_base_addr;
+#endif
 
 /**---------------------------------------------------------------------------*
  **                         Dependencies                                      *
@@ -135,7 +139,11 @@ PUBLIC void GSP_module_enable(void)
 	int ret = 0;
 	//GSP_HWMODULE_ENABLE();
 	if(g_gsp_clk != NULL){
+#ifdef CONFIG_OF
+            ret = clk_prepare_enable(g_gsp_clk);
+#else
 	    ret = clk_enable(g_gsp_clk);
+#endif
 	    if(ret) {
 	        printk(KERN_ERR "%s: enable clock failed!\n",__FUNCTION__);
 	        return;
@@ -150,7 +158,11 @@ PUBLIC void GSP_module_disable(void)
 {
 	if(g_gsp_clk != NULL){
 	    //GSP_HWMODULE_DISABLE();//disable may not use the enable regiter
+#ifdef CONFIG_OF
+            clk_disable_unprepare(g_gsp_clk);
+#else
 	    clk_disable(g_gsp_clk);
+#endif
 	} else {
 		printk(KERN_ERR "%s: g_gsp_clk not init yet!\n",__FUNCTION__);
 	}
@@ -160,21 +172,40 @@ PUBLIC void GSP_module_disable(void)
 PUBLIC void GSP_Init(void)
 {
     int ret = 0;
+#ifdef CONFIG_OF
+    ret = clk_prepare_enable(g_gsp_emc_clk);
+#else
     ret = clk_enable(g_gsp_emc_clk);
+#endif
     if(ret) {
         printk(KERN_ERR "%s: enable emc clock failed!\n",__FUNCTION__);
         return;
     } else {
         pr_debug(KERN_INFO "%s: enable emc clock ok!\n",__FUNCTION__);
     }
+
 #ifndef GSP_IOMMU_WORKAROUND1
+#ifdef CONFIG_OF
+#ifdef CONFIG_ARCH_SCX15s
+	ret = of_property_read_u32(gsp_of_dev->of_node, "gsp_mmu_ctrl_base", &gsp_mmu_ctrl_addr);
+	if(0 != ret){
+		printk("%s: read gsp_mmu_ctrl_addr fail (%d)\n", ret);
+		return;
+	}
+#endif
+#endif
+
     GSP_HWMODULE_SOFTRESET();//workaround gsp-iommu bug
 #endif
     GSP_IRQMODE_SET(GSP_IRQ_MODE_LEVEL);
 }
 PUBLIC void GSP_Deinit(void)
 {
+#ifdef CONFIG_OF
+    clk_disable_unprepare(g_gsp_emc_clk);
+#else
     clk_disable(g_gsp_emc_clk);
+#endif
     GSP_IRQSTATUS_CLEAR();
     GSP_IRQENABLE_SET(GSP_IRQ_TYPE_DISABLE);
 }
