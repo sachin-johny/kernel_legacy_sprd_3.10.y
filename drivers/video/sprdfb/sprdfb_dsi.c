@@ -543,7 +543,7 @@ int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 		return -1;
 	}
 
-	mdelay(10);
+	msleep(10);
 	dsi_disable();
 	return 0;
 }
@@ -604,7 +604,7 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
 		udelay(100);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
-		mdelay(3);
+		msleep(3);
 		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
 		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST1);
 	}

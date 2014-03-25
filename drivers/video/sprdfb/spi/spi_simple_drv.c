@@ -60,7 +60,7 @@ static void SPI_Reset( uint32_t spi_id)
 	}
 
 	sci_glb_set(rst_reg, rst_bit);
-	mdelay(50);
+	msleep(50);
 	sci_glb_clr(rst_reg, rst_bit);
 }
 

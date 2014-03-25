@@ -97,9 +97,9 @@ static int32_t panel_reset_dispc(struct panel_spec *self)
         }
 
 	dispc_write(1, DISPC_RSTN);
-	mdelay(timing1);
+	msleep(timing1);
 	dispc_write(0, DISPC_RSTN);
-	mdelay(timing2);
+	msleep(timing2);
 	dispc_write(1, DISPC_RSTN);
 
 	/* wait 10ms util the lcd is stable */
@@ -111,7 +111,7 @@ static int32_t panel_reset_dispc(struct panel_spec *self)
 static int32_t panel_reset_lcdc(struct panel_spec *self)
 {
 	lcdc_write(0, LCM_RSTN);
-	mdelay(20);
+	msleep(20);
 	lcdc_write(1, LCM_RSTN);
 
 	/* wait 10ms util the lcd is stable */

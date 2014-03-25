@@ -1282,7 +1282,7 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		dispc_stop(dev);
 
-		mdelay(50); /*fps>20*/
+		msleep(50); /*fps>20*/
 
                 clk_disable(dispc_ctx.clk_dispc_emc);
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
