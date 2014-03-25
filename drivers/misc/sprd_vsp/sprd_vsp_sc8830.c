@@ -491,6 +491,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
     printk(KERN_INFO "vsp_release %p\n", vsp_fp);
     kfree(filp->private_data);
     filp->private_data=NULL;
+    vsp_hw_dev.vsp_fp = NULL;
 
     printk(KERN_INFO "VSP mmi_clk close");
     clk_disable(vsp_hw_dev.mm_clk);
@@ -577,6 +578,7 @@ static int vsp_probe(struct platform_device *pdev)
     vsp_hw_dev.vsp_clk = NULL;
     vsp_hw_dev.vsp_parent_clk = NULL;
     vsp_hw_dev.mm_clk= NULL;
+    vsp_hw_dev.vsp_fp = NULL;
 
     ret = misc_register(&vsp_dev);
     if (ret) {
