@@ -1,10 +1,14 @@
 #include <linux/io.h>
 #include <linux/module.h>
+#include <linux/platform_device.h>
 #include <linux/proc_fs.h>
 #include <linux/seq_file.h>
 #include <asm/uaccess.h>
 #include <linux/printk.h>
 #include <mach/hardware.h>
+#include <mach/arch_lock.h>
+#include <mach/pin_switch.h>
+#include <linux/regulator/consumer.h>
 
 #ifdef CONFIG_PROC_FS
 struct sci_pin_switch {
@@ -85,6 +89,14 @@ static struct sci_pin_switch iis_3_array[] = {
 };
 #endif
 
+#if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
+struct pin_reg_desc {
+	struct sprd_pin_switch_platform_data *platform_data;
+	struct notifier_block nb;
+	struct regulator_bulk_data supplies;
+} pin_reg_desc_array[PD_CNT];
+#endif
+
 static struct sci_pin_switch_dir {
 	struct sci_pin_switch *sci_pin_switch;
 	u32 array_size;
@@ -114,7 +126,7 @@ static int read_write_pin_switch(int is_read, int v, struct sci_pin_switch *p)
 	if ((shift > 31))
 		BUG_ON(1);
 	if (v > mask)
-		printk("v:0x%x overflow bitwidth:%d, mask:0x%x it\n",
+		printk("v:0x%x overflow bitwidth:%ud, mask:0x%x it\n",
 		       v, p->bit_width, mask);
 	val = __raw_readl(pin_ctl_reg);
 	if (is_read) {
@@ -147,7 +159,6 @@ static ssize_t pin_switch_proc_write(struct file *file,
 				     const char __user * buffer,
 				     size_t count, loff_t * pos)
 {
-	char lbuf[32];
 	long val = 0;
 	int ret = 0;
 	struct sci_pin_switch *p =
@@ -192,7 +203,6 @@ static ssize_t pin_switch_dir_proc_write(struct file *file,
 					 const char __user * buffer,
 					 size_t count, loff_t * pos)
 {
-	char lbuf[32];
 	int val = 0;
 	int ret =0;
 	struct sci_pin_switch *p =
@@ -260,9 +270,100 @@ static int __init pin_switch_proc_add_dir(struct sci_pin_switch_dir
 	return 0;
 }
 
+#if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
+static int sc271x_regulator_event(struct notifier_block *regu_nb, unsigned long event, void *data)
+{
+	unsigned long flags;
+	struct pin_reg_desc *p_pin_reg_desc = container_of(regu_nb, struct pin_reg_desc, nb);
+	unsigned long best_data = (unsigned long *)data;
+	const char *regu_name = p_pin_reg_desc->supplies.supply;
+	u32 bit = p_pin_reg_desc->platform_data->bit_offset;
+	u32 reg = p_pin_reg_desc->platform_data->reg + SPRD_PIN_BASE;
+	pr_info("event:0x%x, best_data:0x%x\n", event, best_data);
+
+	if (event & REGULATOR_EVENT_VOLTAGE_CHANGE) {
+		if(p_pin_reg_desc) {
+			if(best_data > VOL_THRESHOLD){
+				__arch_default_lock(HWLOCK_GLB, &flags);
+				__raw_writel((__raw_readl(reg) & ~bit), reg);
+				__arch_default_unlock(HWLOCK_GLB, &flags);
+
+				pr_info("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",__func__,__LINE__, regu_name, event, best_data);
+			} else {
+				__arch_default_lock(HWLOCK_GLB, &flags);
+				__raw_writel((__raw_readl(reg) | bit), reg);
+				__arch_default_unlock(HWLOCK_GLB, &flags);
+
+				pr_info("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",__func__,__LINE__, regu_name, event, best_data);
+			}
+		}
+	} else if(event & REGULATOR_EVENT_DISABLE) {
+		pr_info("%s()->Line:%d, --REGULATOR_EVENT_DISABLE--> %s event %ld\n",__func__,__LINE__, regu_name, event);
+	}
+
+	return NOTIFY_OK;
+}
+
+
+static int pin_regulator_notifier_register(struct pin_reg_desc *table)
+{
+	int i, ret;
+	struct regulator * regu;
+
+	for(i=0; i<PD_CNT; i++){
+		if(IS_ERR_OR_NULL(table[i].platform_data->power_domain)){
+			pr_err("invalid platform data: 0x%p\n", table[i].platform_data->power_domain);
+			return -EINVAL;
+		}
+		regu = regulator_get(NULL, table[i].platform_data->power_domain);
+		pr_info("%s, %d, regu_name:%s\n", __FUNCTION__, __LINE__, table[i].platform_data->power_domain);
+		if(IS_ERR_OR_NULL(regu)) {
+			pr_err("no regu %s !\n", table[i].platform_data->power_domain);
+			return -ENXIO;;
+		}
+		table[i].supplies.consumer = regu;
+		table[i].supplies.supply = table[i].platform_data->power_domain;
+		table[i].nb.notifier_call = sc271x_regulator_event;
+		ret = regulator_register_notifier(regu, &(table[i].nb));
+		if(ret){
+			pr_err("alert: regu %s reg notifier failed\n", table[i].platform_data->power_domain);
+		}
+	}
+	return 0;
+}
+
+static int sprd_pin_switch_probe(struct platform_device *pdev)
+{
+	int i, ret;
+	struct sprd_pin_switch_platform_data *p_pin_switch_data;
+	p_pin_switch_data = dev_get_platdata(&pdev->dev);
+	if(IS_ERR_OR_NULL(p_pin_switch_data)){
+		pr_err("invalid platform data: 0x%p\n", p_pin_switch_data);
+		return -EINVAL;
+	}
+	for(i=0; i<PD_CNT; i++){
+		pin_reg_desc_array[i].platform_data = &p_pin_switch_data[i];// + i*sizeof(struct sprd_pin_switch_platform_data);
+	}
+	ret = pin_regulator_notifier_register(pin_reg_desc_array);
+	if(ret){
+		pr_err("register notifier err\n");
+	}
+	return ret;
+}
+
+static struct platform_driver pin_switch_driver = {
+	.probe = sprd_pin_switch_probe,
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "pin_switch",
+	},
+};
+#endif
+
 int __init pin_switch_proc_init(void)
 {
 	int i;
+	int ret = 0;
 	pin_switch_proc_base = proc_mkdir("pin_switch", NULL);
 	if (!pin_switch_proc_base)
 		return -ENOMEM;
@@ -272,10 +373,13 @@ int __init pin_switch_proc_init(void)
 	for (i = 0; i < ARRAY_SIZE(sci_pin_switch_dir_array); ++i) {
 		pin_switch_proc_add_dir(&sci_pin_switch_dir_array[i]);
 	}
-	return 0;
+#if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
+	ret = platform_driver_register(&pin_switch_driver);
+#endif
+	return ret;
 }
 
-late_initcall(pin_switch_proc_init);
+subsys_initcall_sync(pin_switch_proc_init);
 #else
 #error "CONFIG_PROC_FS needed by mach-sc/pin_switch"
 #endif /* CONFIG_PROC_FS */

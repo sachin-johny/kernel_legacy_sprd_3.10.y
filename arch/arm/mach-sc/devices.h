@@ -34,6 +34,9 @@ extern struct platform_device sprd_i2c_device0;
 extern struct platform_device sprd_i2c_device1;
 extern struct platform_device sprd_i2c_device2;
 extern struct platform_device sprd_i2c_device3;
+#if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
+extern struct platform_device sprd_pin_switch_device;
+#endif
 extern struct platform_device sprd_spi0_device;
 extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_spi2_device;
