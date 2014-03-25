@@ -14,7 +14,7 @@
 #ifndef __DISPC_CHIP_COM_H_
 #define __DISPC_CHIP_COM_H_
 
-#if defined(CONFIG_FB_SCX35)
+#if defined(CONFIG_FB_SCX35) || defined(CONFIG_FB_SCX30G)
 #include "sprdfb_chip_8830.h"
 #elif defined(CONFIG_FB_SCX15)
 #include "sprdfb_chip_7715.h"

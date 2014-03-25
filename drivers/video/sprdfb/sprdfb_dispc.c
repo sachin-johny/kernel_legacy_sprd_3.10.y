@@ -76,7 +76,7 @@
 #define DISPC_CLOCK_NUM 3
 #endif
 
-#ifdef CONFIG_FB_SCX15
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
 #define SPRDFB_BRIGHTNESS		(0x02<<16)// 9-bits
 #define SPRDFB_CONTRAST			(0xEF<<0) //10-bits
 #define SPRDFB_OFFSET_U			(0x80<<16)//8-bits
@@ -1659,7 +1659,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 
 	if(type < SPRD_DATA_TYPE_RGB888) {
 		dispc_write(1, DISPC_Y2R_CTRL);
-#ifdef CONFIG_FB_SCX15
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
 		dispc_write(SPRDFB_BRIGHTNESS|SPRDFB_CONTRAST, DISPC_Y2R_Y_PARAM);
 		dispc_write(SPRDFB_OFFSET_U|SPRDFB_SATURATION_U, DISPC_Y2R_U_PARAM);
 		dispc_write(SPRDFB_OFFSET_V|SPRDFB_SATURATION_V, DISPC_Y2R_V_PARAM);
@@ -1677,7 +1677,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 	pr_debug("DISPC_IMG_PITCH: 0x%x\n", dispc_read(DISPC_IMG_PITCH));
 	pr_debug("DISPC_IMG_DISP_XY: 0x%x\n", dispc_read(DISPC_IMG_DISP_XY));
 	pr_debug("DISPC_Y2R_CTRL: 0x%x\n", dispc_read(DISPC_Y2R_CTRL));
-#ifdef CONFIG_FB_SCX15
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
 	pr_debug("DISPC_Y2R_Y_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_Y_PARAM));
 	pr_debug("DISPC_Y2R_U_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_U_PARAM));
 	pr_debug("DISPC_Y2R_V_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_V_PARAM));

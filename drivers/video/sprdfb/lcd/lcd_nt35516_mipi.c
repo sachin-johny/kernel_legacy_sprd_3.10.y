@@ -55,7 +55,7 @@ static LCM_Init_Code init_data[] = {
 // Manufacture Command Set for Page 0
 {LCM_SEND(8), {6, 0, 0xF0,0x55,0xAA,0x52,0x08,0x00}},
 {LCM_SEND(6), {4, 0, 0xB1,0x7C,0x00,0x00}}, // command/video mode
-#ifdef CONFIG_FB_SCX35
+#if (defined CONFIG_FB_SCX35) || (defined CONFIG_FB_SCX30G)
 {LCM_SEND(6), {4, 0, 0xB1,0x7C,0x06,0x00}}, // command/video mode,rotate 180^M
 #else
  {LCM_SEND(6), {4, 0, 0xB1,0x7C,0x00,0x00}}, // command/video mode

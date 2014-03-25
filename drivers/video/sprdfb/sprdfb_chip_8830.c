@@ -19,15 +19,26 @@
 
 void dsi_enable(void)
 {
+#ifdef CONFIG_FB_SCX30G
+	sci_glb_set(SCI_ADDR(REGS_AP_AHB_BASE, 0x3008), BIT_DPHY_REF_CKG_EN);
+	sci_glb_set(SCI_ADDR(REGS_AP_AHB_BASE, 0x3008), BIT_DPHY_CFG_CKG_EN);
+#else
 	sci_glb_set(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_REF_CKG_EN);
 	sci_glb_set(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_CFG_CKG_EN);
+#endif
+	printk("sprdfb:dsi_enable %08x",REG_AP_AHB_MISC_CKG_EN);
 	sci_glb_set(DSI_REG_EB, DSI_BIT_EB);
 }
 
 void dsi_disable(void)
 {
+#ifdef CONFIG_FB_SCX30G
+	sci_glb_clr(SCI_ADDR(REGS_AP_AHB_BASE, 0x3008), BIT_DPHY_REF_CKG_EN);
+	sci_glb_clr(SCI_ADDR(REGS_AP_AHB_BASE, 0x3008), BIT_DPHY_CFG_CKG_EN);
+#else
 	sci_glb_clr(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_REF_CKG_EN);
 	sci_glb_clr(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_CFG_CKG_EN);
+#endif
 	sci_glb_clr(DSI_REG_EB, DSI_BIT_EB);
 }
 

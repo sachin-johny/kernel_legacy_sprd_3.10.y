@@ -44,7 +44,7 @@
 #define DISPC_OSD_CK			(0x0058)
 
 #define DISPC_Y2R_CTRL			(0x0060)
-#ifdef CONFIG_FB_SCX15
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
 #define DISPC_Y2R_Y_PARAM		(0x0064)
 #define DISPC_Y2R_U_PARAM		(0x0068)
 #define DISPC_Y2R_V_PARAM		(0x006c)
