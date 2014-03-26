@@ -36,6 +36,14 @@ extern   "C"
 
     typedef enum
     {
+        GSP_ADDR_TYPE_INVALUE,
+        GSP_ADDR_TYPE_PHYSICAL,
+        GSP_ADDR_TYPE_IOVIRTUAL,
+        GSP_ADDR_TYPE_MAX,
+    }
+    GSP_ADDR_TYPE_E;// the address type of gsp can process
+    typedef enum
+    {
         GSP_MODULE_LAYER0,
         GSP_MODULE_LAYER1,
         GSP_MODULE_DST,
@@ -181,6 +189,7 @@ extern   "C"
 		GSP_HAL_PARAM_CHECK_ERR = 0xA1,// GSP config parameter check err
 		GSP_HAL_VITUAL_ADDR_NOT_SUPPORT = 0xA2,// GSP can't process virtual address
 		GSP_HAL_ALLOC_ERR = 0xA3,
+		GSP_HAL_KERNEL_DRIVER_NOT_EXIST = 0xA4,// gsp driver nod not exist
         /*GSP HAL defined err code, end*/
 
         GSP_ERR_MAX_NUM,
@@ -324,6 +333,7 @@ extern   "C"
 		uint8_t                        gsp_gap;//gsp ddr gap(0~255)
 		uint8_t                        gsp_clock;//gsp clock(0:96M 1:153.6M 2:192M 3:256M)
 		uint8_t                        ahb_clock;//ahb clock(0:26M 1:76M 2:128M 3:192M)
+		uint8_t                        split_pages;//0:not split  1: split
     }
     GSP_MISC_CONFIG_INFO_T;
 
@@ -342,12 +352,14 @@ extern   "C"
         GSP_SET_PARAM = 0,
         GSP_TRIGGER_RUN,
         GSP_WAIT_FINISH,
+        GSP_GET_ADDR_TYPE,
     };
 
 #define GSP_IO_MAGIC                'G'
 #define GSP_IO_SET_PARAM            _IOW(GSP_IO_MAGIC, GSP_SET_PARAM,GSP_CONFIG_INFO_T)
 #define GSP_IO_TRIGGER_RUN          _IO(GSP_IO_MAGIC, GSP_TRIGGER_RUN)
 #define GSP_IO_WAIT_FINISH          _IO(GSP_IO_MAGIC, GSP_WAIT_FINISH)
+#define GSP_IO_GET_ADDR_TYPE        _IO(GSP_IO_MAGIC, GSP_GET_ADDR_TYPE)
 
 #ifndef CEIL
 #define CEIL(x,y)   ({uint32_t __x = (x),__y = (y);(__x + __y -1)/__y;})
@@ -368,7 +380,8 @@ extern   "C"
                 volatile uint32_t pmargb_mod1           :1;
                 volatile uint32_t pmargb_en         :1;
                 volatile uint32_t scale_en          :1;
-                volatile uint32_t reserved2         :2;
+                volatile uint32_t reserved2         :1;
+				volatile uint32_t no_split          :1; // 0: split, split into 2 burst request, 1 : not split, one burst stride pages boarder
                 volatile uint32_t scale_status_clr    :1;
                 volatile uint32_t l0_en             :1;
                 volatile uint32_t l1_en             :1;

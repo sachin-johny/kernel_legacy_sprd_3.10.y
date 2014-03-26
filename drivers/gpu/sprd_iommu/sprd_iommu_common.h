@@ -52,4 +52,9 @@ int sprd_iommu_disable(struct sprd_iommu_dev *dev);
 int sprd_iommu_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_dump(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length);
 
+
+#ifdef CONFIG_ARCH_SCX15
+//#define GSP_IOMMU_WORKAROUND1
+#endif
+
 #endif

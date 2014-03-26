@@ -36,6 +36,7 @@
 #endif
 
 #include <mach/hardware.h>
+#include <mach/arch_misc.h>// get chip id
 
 #include "gsp_drv.h"
 #include "scaler_coef_cal.h"
@@ -73,13 +74,14 @@ static unsigned long gsp_perf = 0;
 module_param(gsp_perf, ulong, 0644);
 MODULE_PARM_DESC(gsp_perf, "write 0xdead to gsp_perf will trigger gsp static time cost,then write back to gsp_perf.");
 
+#ifdef GSP_WORK_AROUND1
 static unsigned long gsp_workaround_perf_cnt = 0;
 static unsigned long long gsp_workaround_perf_s = 0;
 static unsigned long long gsp_workaround_perf_ns = 0;
 static unsigned long gsp_workaround_perf = 0;
 module_param(gsp_workaround_perf, ulong, 0644);
 MODULE_PARM_DESC(gsp_workaround_perf, "write 0xdead to gsp_workaround_perf will trigger gsp static workaround time cost,then write back to gsp_workaround_perf.");
-
+#endif
 
 static volatile pid_t           gsp_cur_client_pid = INVALID_USER_ID;
 static struct semaphore         gsp_hw_resource_sem;//cnt == 1,only one thread can access critical section at the same time
@@ -114,9 +116,19 @@ static uint32_t g_gsp_reg_err_record_wp=0;
 #define ERR_RECORD_FULL()   ((g_gsp_reg_err_record_wp+1)&(GSP_ERR_RECORD_CNT-1) == g_gsp_reg_err_record_rp)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND_GSP
-static struct early_suspend s_earlysuspend = {0};
+static struct early_suspend s_earlysuspend;
 #endif
 static volatile uint32_t s_suspend_resume_flag = 0;// 0 : resume, in ON state; 1: suspend, in OFF state
+
+//#ifdef CONFIG_ARCH_SCX15
+static volatile GSP_ADDR_TYPE_E s_gsp_addr_type = GSP_ADDR_TYPE_INVALUE;// 0 : resume, in ON state; 1: suspend, in OFF state
+static uint32_t s_iommuCtlBugChipList[]={0x7715a000,0x7715a001,0x8815a000};//bug chip list
+//0x8730b000 tshark
+//0x8300a001 shark
+#ifndef ARRAY_SIZE
+#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
+#endif
+//#endif
 
 static gsp_user gsp_user_array[GSP_MAX_USER];
 static gsp_user* gsp_get_user(pid_t user_pid)
@@ -1781,7 +1793,7 @@ static void GSP_Coef_Tap_Convert(uint8_t h_tap,uint8_t v_tap)
 }
 
 
-static int32_t GSP_Scaling_Coef_Gen_And_Config(uint32_t* force_calc)
+static int32_t GSP_Scaling_Coef_Gen_And_Config(volatile uint32_t* force_calc)
 {
     uint8_t     h_tap = 8;
     uint8_t     v_tap = 8;
@@ -1988,11 +2000,15 @@ static long gsp_drv_ioctl(struct file *file,
     struct timespec end_time;
     //long long cost=0;
 
-    GSP_TRACE("%s:pid:0x%08x, io number 0x%x, param_size %d \n",
-              __func__,
-              pUserdata->pid,
-              _IOC_NR(cmd),
-              param_size);
+    GSP_TRACE("%s:pid:0x%08x,cmd:0x%08x, io number 0x%x, param_size %d \n",
+                __func__,
+                pUserdata->pid,
+                cmd,
+                _IOC_NR(cmd),
+                param_size);
+    GSP_TRACE("%s:GSP_IO_GET_ADDR_TYPE:0x%08x\n",
+                __func__,
+                GSP_IO_GET_ADDR_TYPE);
     if(s_suspend_resume_flag==1)
     {
         GSP_TRACE("%s[%d]: in suspend, ioctl just return!\n",__func__,__LINE__);
@@ -2000,6 +2016,57 @@ static long gsp_drv_ioctl(struct file *file,
     }
     switch (cmd)
     {
+//#ifdef CONFIG_ARCH_SCX15
+        case GSP_IO_GET_ADDR_TYPE:
+        {
+#ifndef CONFIG_SPRD_IOMMU // shark or (dolphin/tshark not define IOMMU)
+			s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
+#else // (dolphin/tshark defined IOMMU)
+            if(s_gsp_addr_type == GSP_ADDR_TYPE_INVALUE)
+            {
+                uint32_t adie_chip_id = 0;
+                int i = 0;
+                /*set s_gsp_addr_type according to the chip id*/
+                //adie_chip_id = sci_get_ana_chip_id();
+                //printk("GSPa : get chip id :0x%08x \n", adie_chip_id);
+                adie_chip_id = sci_get_chip_id();
+                printk("GSPd : get chip id :0x%08x \n", adie_chip_id);
+
+                if((adie_chip_id & 0xffff0000) > 0x50000000)
+                {
+                    printk("GSP : get chip id :%08x is validate, scan bugchip list.\n", adie_chip_id);
+                    for (i=0; i<ARRAY_SIZE(s_iommuCtlBugChipList); i++)
+                    {
+                        if(s_iommuCtlBugChipList[i] == adie_chip_id)
+                        {
+                            printk("GSP : match bug chip id :%08x == [%d]\n", adie_chip_id,i);
+#ifdef GSP_IOMMU_WORKAROUND1
+                            s_gsp_addr_type = GSP_ADDR_TYPE_IOVIRTUAL;
+#else
+                            s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
+#endif
+                            break;
+                        }
+                    }
+                    if(s_gsp_addr_type == GSP_ADDR_TYPE_INVALUE)
+                    {
+                        printk("GSP : mismatch bug chip id.\n");
+                        s_gsp_addr_type = GSP_ADDR_TYPE_IOVIRTUAL;
+                        printk("dolphin tshark GSP : gsp address type :%d \n", s_gsp_addr_type);
+                    }
+                }
+                else
+                {
+                    printk("GSP : get chip id :%08x is invalidate,set address type as physical.\n", adie_chip_id);
+                    s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
+                }
+            }
+#endif
+            printk("GSP [%d]: gsp address type :%d ,\n", __LINE__, s_gsp_addr_type);
+            return s_gsp_addr_type;
+        }
+        break;
+//#endif
         case GSP_IO_SET_PARAM:
         {
             if (param_size)
@@ -2534,15 +2601,14 @@ static irqreturn_t gsp_irq_handler(int32_t irq, void *dev_id)
 
 #ifdef CONFIG_HAS_EARLYSUSPEND_GSP
 
-static int gsp_early_suspend(struct platform_device *pdev,pm_message_t state)
+static void gsp_early_suspend(struct early_suspend* es)
 {
 	printk("%s%d\n",__func__,__LINE__);
 	GSP_module_disable();
 	s_suspend_resume_flag = 1;
-	return 0;
 }
 
-static int gsp_late_resume(struct platform_device *pdev)
+static void gsp_late_resume(struct early_suspend* es)
 {
 	printk("%s%d\n",__func__,__LINE__);
 	gsp_coef_force_calc = 1;
@@ -2555,7 +2621,6 @@ static int gsp_late_resume(struct platform_device *pdev)
 	//GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
 	//GSP_ENABLE_MM();
 	s_suspend_resume_flag = 0;
-	return 0;
 }
 
 #else
@@ -2745,6 +2810,7 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
     sema_init(&gsp_wait_interrupt_sem, 0);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND_GSP
+    memset(&s_earlysuspend,0,sizeof(s_earlysuspend));
     s_earlysuspend.suspend = gsp_early_suspend;
     s_earlysuspend.resume  = gsp_late_resume;
     s_earlysuspend.level   = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
