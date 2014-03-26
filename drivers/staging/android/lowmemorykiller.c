@@ -89,6 +89,7 @@ static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj);
 #endif
 
 #ifdef CONFIG_ZRAM
+extern ssize_t  zram_mem_usage(void);
 extern ssize_t zram_mem_free_percent(void);
 static uint lmk_lowmem_threshold_adj = 2;
 module_param_named(lmk_lowmem_threshold_adj, lmk_lowmem_threshold_adj, uint, S_IRUGO | S_IWUSR);
@@ -270,8 +271,18 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	}
 }
 
+
+typedef struct lmk_debug_info
+{
+	short min_score_adj;
+	short zram_score_adj;
+	ssize_t zram_free_percent;
+	ssize_t zram_mem_usage;
+}lmk_debug_info;
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
+	lmk_debug_info  lmk_info = {0};
 	struct task_struct *tsk;
 	struct task_struct *selected = NULL;
 	int rem = 0;
@@ -337,6 +348,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 #ifdef CONFIG_ZRAM
 	zram_score_adj = cacl_zram_score_adj();
+	lmk_info.zram_free_percent = zram_mem_free_percent();
+	lmk_info.min_score_adj = min_score_adj;
+	lmk_info.zram_score_adj = zram_score_adj;
+
 	if(min_score_adj < zram_score_adj)
 	{
 		gfp_t gfp_mask;
@@ -423,10 +438,14 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     p->comm, p->pid, OOM_SCORE_ADJ_TO_OOM_ADJ(oom_score_adj), tasksize);
 	}
 	if (selected) {
+#ifdef CONFIG_ZRAM
+		lmk_info.zram_mem_usage = zram_mem_usage();
+#endif
 		lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
-				"   Free memory is %ldkB above reserved\n",
+				"   Free memory is %ldkB above reserved\n"	\
+				"   min adj %hd zram: adj %hd free %d%% usage %dkB\n",
 			     selected->comm, selected->pid,
 			     OOM_SCORE_ADJ_TO_OOM_ADJ(selected_oom_score_adj),
 			     selected_tasksize * (long)(PAGE_SIZE / 1024),
@@ -434,7 +453,12 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     other_file * (long)(PAGE_SIZE / 1024),
 			     minfree * (long)(PAGE_SIZE / 1024),
 			     OOM_SCORE_ADJ_TO_OOM_ADJ(min_score_adj),
-			     other_free * (long)(PAGE_SIZE / 1024));
+			     other_free * (long)(PAGE_SIZE / 1024),
+				OOM_SCORE_ADJ_TO_OOM_ADJ(lmk_info.min_score_adj),
+				OOM_SCORE_ADJ_TO_OOM_ADJ(lmk_info.zram_score_adj),
+				lmk_info.zram_free_percent,
+				lmk_info.zram_mem_usage*PAGE_SIZE /1024/100);
+
 		lowmem_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
