@@ -113,6 +113,11 @@ extern u32 gps_get_lna_gpio(void);
 /** Virtual base address for CGsnap registers */
 #define CG_DRIVER_CGCORE_BASE_VA	SPRD_GPS_BASE
 
+#ifdef CONFIG_ARCH_SCX30G
+#define SPRD_GPS_CLK_SINEX			SPRD_PMU_BASE
+#define SPRD_GPS_CLK_AUTO_GATING	(SPRD_PMU_BASE+0x114)
+#define SPRD_GPS_CLK_SEL			(SPRD_PMU_BASE+0x134)
+#endif
 
 /** Virtual base address for CGsnap sclk */
 #define CG_DRIVER_SCLK_VA			SPRD_AHB_BASE
