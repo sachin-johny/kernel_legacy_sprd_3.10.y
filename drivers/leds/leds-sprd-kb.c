@@ -55,6 +55,11 @@
 #else
 #ifdef CONFIG_ARCH_SCX35
 #define ANA_LED_CTRL           (ANA_REG_BASE + 0XA0)
+#ifdef CONFIG_ARCH_SCX30G
+#define CA_CTRL2          (ANA_REG_BASE + 0X158)
+#define LDO_KPLED_PD       (1 << 8)
+#define SLP_LDOKPLED_PD_EN       (1 << 9)
+#endif
 #else
 #define ANA_LED_CTRL           (ANA_REG_BASE + 0X68)
 #endif
@@ -129,6 +134,9 @@ static void sprd_kpled_enable(struct sprd_kpled *led)
 {
 #ifdef CONFIG_ARCH_SCX35
 	sci_adi_clr(KPLED_CTL, KPLED_PD_SET);
+	#ifdef CONFIG_ARCH_SCX30G
+	sci_adi_set(CA_CTRL2, LDO_KPLED_PD);
+	#endif
 #else
 	sci_adi_clr(KPLED_CTL, KPLED_PD_SET|KPLED_PD_RST);
 	sci_adi_set(KPLED_CTL, KPLED_PD_RST);
@@ -143,6 +151,9 @@ static void sprd_kpled_disable(struct sprd_kpled *led)
 {
 #ifdef CONFIG_ARCH_SCX35
 	sci_adi_set(KPLED_CTL, KPLED_PD_SET);
+	#ifdef CONFIG_ARCH_SCX30G
+	sci_adi_clr(CA_CTRL2, LDO_KPLED_PD);
+	#endif
 #else
 	sci_adi_clr(KPLED_CTL, KPLED_PD_SET|KPLED_PD_RST);
 	sci_adi_set(KPLED_CTL, KPLED_PD_SET);
@@ -249,6 +260,10 @@ static int sprd_kpled_probe(struct platform_device *dev)
 #endif
 
 	sprd_kpled_disable(led);//disabled by default
+
+#ifdef CONFIG_ARCH_SCX30G
+	sci_adi_clr(CA_CTRL2, SLP_LDOKPLED_PD_EN);
+#endif
 
 	return 0;
 }
