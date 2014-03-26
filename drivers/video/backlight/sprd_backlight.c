@@ -160,6 +160,7 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 			bldev->props.brightness == 0) {
 		/* disable backlight */
 		pwm_write(sprdbl.pwm_index, 0, PWM_PRESCALE);
+		//clk_disable(sprdbl.clk);
 		bl_pwm_clk_en(0);
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
@@ -167,6 +168,7 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 		if((bl_brightness >= 1) && (bl_brightness <= 10))
 			bl_brightness = 8;
 		PRINT_DBG("user requested brightness = %d, caculated brightness = %d\n", bldev->props.brightness, bl_brightness);
+		//clk_enable(sprdbl.clk);
 		bl_pwm_clk_en(1);
 		pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
 		pwm_write(sprdbl.pwm_index, (bl_brightness << 8) | PWM_MOD_MAX, PWM_CNT);
