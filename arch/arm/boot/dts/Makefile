@@ -219,7 +219,7 @@ dtb-$(CONFIG_MACH_KANAS_W) += sprd-scx35_kanas_w.dtb
 endif
 dtb-$(CONFIG_MACH_CORSICA_VE_DT) += sprd-scx15_corsica_ve.dtb
 dtb-$(CONFIG_MACH_SPX35) += sprd-scx35_sp8830ec.dtb
-
+dtb-$(CONFIG_MACH_SP8830GEA) += sprd-scx35_sp8830gea.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)

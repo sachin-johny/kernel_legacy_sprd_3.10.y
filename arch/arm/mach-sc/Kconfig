@@ -158,6 +158,8 @@ config MACH_SP8830GEA
 	bool "sp8830gea Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
 	default n
 	help
 	  SP8830GEA board based on SC8830g serial.
