@@ -48,7 +48,7 @@
 #define BIT_30                                         0x40000000
 #define BIT_31                                         0x80000000
 
-#define GLOBAL_BASE                                    SPRD_GREG_BASE 
+#define GLOBAL_BASE                                    SPRD_GREG_BASE
 #define ARM_GLB_GEN0                                   (GLOBAL_BASE + 0x008UL)
 #define ARM_GLB_GEN3                                   (GLOBAL_BASE + 0x01CUL)
 #define ARM_GLB_PLL_SCR                                (GLOBAL_BASE + 0x070UL)

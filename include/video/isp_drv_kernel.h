@@ -14,7 +14,8 @@
  #define _ISP_DRV_KERNEL_H_
 
  enum isp_clk_sel {
-	ISP_CLK_256M = 0,
+	ISP_CLK_312M = 0,
+	ISP_CLK_256M,
 	ISP_CLK_128M,
 	ISP_CLK_76M8,
 	ISP_CLK_48M,

@@ -221,7 +221,11 @@ int32_t scale_start(void)
 
 	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
 	atomic_inc(&g_path->start_flag);
+#if defined(CONFIG_ARCH_SCX30G)
+	REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_START_BIT);
+#else
 	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
+#endif
 	return SCALE_RTN_SUCCESS;
 
 exit:

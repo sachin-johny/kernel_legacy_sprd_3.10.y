@@ -75,7 +75,7 @@
 		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
 		_tmp &= ~(m); \
 		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
-	}while(0)
+	} while(0)
 
 #define DCAM_CHECK_PARAM_ZERO_POINTER(n) \
 	do { \
@@ -98,8 +98,7 @@
 		} \
 	} while(0)
 
-#define DCAM_IRQ_LINE_MASK                             0x0007FFFFUL/* No ROT_DONE*/
-#define DCAM_CLOCK_PARENT                              "clk_256m"
+#define DCAM_IRQ_LINE_MASK                             0x0007FFFFUL
 
 typedef void (*dcam_isr)(void);
 
@@ -312,36 +311,36 @@ void dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id)
 	switch(reg_id) {
 	case DCAM_CFG_REG:
 		spin_lock_irqsave(&dcam_glb_reg_cfg_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_cfg_lock, flag);
 		break;
 	case DCAM_CONTROL_REG:
 		spin_lock_irqsave(&dcam_glb_reg_control_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_control_lock, flag);
 		break;
 	case DCAM_INIT_MASK_REG:
 		spin_lock_irqsave(&dcam_glb_reg_mask_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_mask_lock, flag);
 		break;
 	case DCAM_INIT_CLR_REG:
 		spin_lock_irqsave(&dcam_glb_reg_clr_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_clr_lock, flag);
 		break;
 	case DCAM_AHBM_STS_REG:
 		spin_lock_irqsave(&dcam_glb_reg_ahbm_sts_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_ahbm_sts_lock, flag);
 		break;
 	case DCAM_ENDIAN_REG:
 		spin_lock_irqsave(&dcam_glb_reg_endian_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_endian_lock, flag);
 		break;
 	default:
-		__raw_writel(__raw_readl((IO_PTR)addr) & (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) & (val));
 		break;
 	}
 }
@@ -353,36 +352,36 @@ void dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id)
 	switch(reg_id) {
 	case DCAM_CFG_REG:
 		spin_lock_irqsave(&dcam_glb_reg_cfg_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_cfg_lock, flag);
 		break;
 	case DCAM_CONTROL_REG:
 		spin_lock_irqsave(&dcam_glb_reg_control_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_control_lock, flag);
 		break;
 	case DCAM_INIT_MASK_REG:
 		spin_lock_irqsave(&dcam_glb_reg_mask_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_mask_lock, flag);
 		break;
 	case DCAM_INIT_CLR_REG:
 		spin_lock_irqsave(&dcam_glb_reg_clr_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_clr_lock, flag);
 		break;
 	case DCAM_AHBM_STS_REG:
 		spin_lock_irqsave(&dcam_glb_reg_ahbm_sts_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_ahbm_sts_lock, flag);
 		break;
 	case DCAM_ENDIAN_REG:
 		spin_lock_irqsave(&dcam_glb_reg_endian_lock, flag);
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		spin_unlock_irqrestore(&dcam_glb_reg_endian_lock, flag);
 		break;
 	default:
-		__raw_writel(__raw_readl((IO_PTR)addr) | (val), (IO_PTR)addr);
+		REG_WR(addr, REG_RD(addr) | (val));
 		break;
 	}
 }
@@ -396,62 +395,62 @@ void dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_i
 	case DCAM_CFG_REG:
 		spin_lock_irqsave(&dcam_glb_reg_cfg_lock, flag);
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		spin_unlock_irqrestore(&dcam_glb_reg_cfg_lock, flag);
 		break;
 	case DCAM_CONTROL_REG:
 		spin_lock_irqsave(&dcam_glb_reg_control_lock, flag);
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		spin_unlock_irqrestore(&dcam_glb_reg_control_lock, flag);
 		break;
 	case DCAM_INIT_MASK_REG:
 		spin_lock_irqsave(&dcam_glb_reg_mask_lock, flag);
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		spin_unlock_irqrestore(&dcam_glb_reg_mask_lock, flag);
 		break;
 	case DCAM_INIT_CLR_REG:
 		spin_lock_irqsave(&dcam_glb_reg_clr_lock, flag);
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		spin_unlock_irqrestore(&dcam_glb_reg_clr_lock, flag);
 		break;
 	case DCAM_AHBM_STS_REG:
 		spin_lock_irqsave(&dcam_glb_reg_ahbm_sts_lock, flag);
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		spin_unlock_irqrestore(&dcam_glb_reg_ahbm_sts_lock, flag);
 		break;
 	case DCAM_ENDIAN_REG:
 		spin_lock_irqsave(&dcam_glb_reg_endian_lock, flag);
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		spin_unlock_irqrestore(&dcam_glb_reg_endian_lock, flag);
 		break;
 	default:
 		{
-			tmp = __raw_readl((IO_PTR)addr);
+			tmp = REG_RD(addr);
 			tmp &= ~(mask);
-			__raw_writel(tmp | ((mask) & (val)), (IO_PTR)addr);
+			REG_WR(addr, tmp | ((mask) & (val)));
 		}
 		break;
 	}
@@ -462,7 +461,6 @@ int32_t dcam_module_init(enum dcam_cap_if_mode if_mode,
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct dcam_cap_desc    *cap_desc = NULL;
-	//int                     ret = 0;
 
 	if (if_mode >= DCAM_CAP_IF_MODE_MAX) {
 		rtn = -DCAM_RTN_CAP_IF_MODE_ERR;
@@ -678,7 +676,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 		}
 	}
 
-	DCAM_TRACE("DCAM: reset: path=%x  end \n", reset_mode);
+	DCAM_TRACE("DCAM: reset_mode=%x  end \n", reset_mode);
 
 	return -rtn;
 }
@@ -713,12 +711,12 @@ int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	struct clk              *clk_parent;
-	char                    *parent = DCAM_CLOCK_PARENT;
+	char                    *parent = "clk_256m";
 	int                     ret = 0;
 
 	switch (clk_sel) {
 	case DCAM_CLK_256M:
-		parent = DCAM_CLOCK_PARENT;
+		parent = "clk_256m";
 		break;
 	case DCAM_CLK_128M:
 		parent = "clk_128m";
@@ -729,7 +727,6 @@ int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
 	case DCAM_CLK_76M8:
 		parent = "clk_76p8m";
 		break;
-
 	case DCAM_CLK_NONE:
 		printk("DCAM close CLK %d \n", (int)clk_get_rate(s_dcam_clk));
 		if (s_dcam_clk) {
@@ -853,7 +850,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
-	printk("DCAM: start_path: path %d, mode %x path 0,1,2 {%d %d %d} \n",
+	DCAM_TRACE("DCAM: start_path: path %d, mode %x path 0,1,2 {%d %d %d} \n",
 		path_index,
 		s_p_dcam_mod->dcam_mode,
 		s_p_dcam_mod->dcam_path0.valide,
@@ -861,7 +858,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		s_p_dcam_mod->dcam_path2.valide);
 
 	dcam_glb_reg_owr(DCAM_AHBM_STS, BIT_8, DCAM_AHBM_STS_REG); // aiden add: write arbit mode
-	
+
 	cap_en = REG_RD(DCAM_CONTROL) & BIT_2;
 	DCAM_TRACE("DCAM: cap_eb %d \n", cap_en);
 	if ((DCAM_PATH_IDX_0 & path_index) && s_p_dcam_mod->dcam_path0.valide) {
@@ -869,7 +866,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		rtn = _dcam_path_set_next_frm(DCAM_PATH_IDX_0, true);
 		DCAM_RTN_IF_ERR;
 		if (cap_en) {
-			/* if cap is already open, the sequence is: 
+			/* if cap is already open, the sequence is:
 			   cap force copy -> path 0 enable -> cap auto copy */
 			dcam_glb_reg_mwr(DCAM_CONTROL, BIT_0, 1 << 0, DCAM_CONTROL_REG); /* Cap force copy */
 			dcam_glb_reg_owr(DCAM_CFG, BIT_0, DCAM_CFG_REG);             /* Enable Path 0 */
@@ -880,8 +877,8 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 	}
 
 	if ((DCAM_PATH_IDX_1 & path_index) && s_p_dcam_mod->dcam_path1.valide) {
-		
-		//rtn = _dcam_path_trim(DCAM_PATH_IDX_1); 
+
+		//rtn = _dcam_path_trim(DCAM_PATH_IDX_1);
 		//DCAM_RTN_IF_ERR;
 		rtn = _dcam_path_scaler(DCAM_PATH_IDX_1);
 		DCAM_RTN_IF_ERR;
@@ -960,7 +957,7 @@ int32_t dcam_start_path(enum dcam_path_index path_index)
 		}
 	}
 
-	printk("DCAM: start_path E\n");
+	DCAM_TRACE("DCAM: start_path E\n");
 	return -rtn;
 }
 
@@ -975,7 +972,7 @@ int32_t dcam_start(void)
 
 	ret = dcam_start_path(DCAM_PATH_IDX_ALL);
 	//ret = dcam_start_path(DCAM_PATH_IDX_1);
-	
+
 	return -rtn;
 }
 
@@ -1509,7 +1506,7 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-		if((DCAM_OUTPUT_WORD != format) && 
+		if((DCAM_OUTPUT_WORD != format) &&
 		(DCAM_OUTPUT_HALF_WORD != format)){
 			rtn = DCAM_RTN_PATH_OUT_FMT_ERR;
 			path->output_format = DCAM_FTM_MAX;
@@ -1618,7 +1615,7 @@ int32_t dcam_path0_cfg(enum dcam_cfg_id id, void *param)
 		rtn = DCAM_RTN_IO_ID_ERR;
 		break;
 	}
-	
+
 	return -rtn;
 }
 
@@ -1703,9 +1700,9 @@ int32_t dcam_path1_cfg(enum dcam_cfg_id id, void *param)
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
 		path->output_format = format;
-		
-		if((DCAM_YUV422 != format) && 
-		(DCAM_YUV420 != format) && 
+
+		if((DCAM_YUV422 != format) &&
+		(DCAM_YUV420 != format) &&
 		(DCAM_YUV420_3FRAME != format)){
 			rtn = DCAM_RTN_PATH_OUT_FMT_ERR;
 			path->output_format = DCAM_FTM_MAX;
@@ -1914,8 +1911,8 @@ int32_t dcam_path2_cfg(enum dcam_cfg_id id, void *param)
 
 		DCAM_CHECK_PARAM_ZERO_POINTER(param);
 
-		if((DCAM_YUV422 != format) && 
-		(DCAM_YUV420 != format) && 
+		if((DCAM_YUV422 != format) &&
+		(DCAM_YUV420 != format) &&
 		(DCAM_YUV420_3FRAME != format)){
 			rtn = DCAM_RTN_PATH_OUT_FMT_ERR;
 			path->output_format = DCAM_FTM_MAX;
@@ -2254,7 +2251,7 @@ LOCAL void _dcam_path0_set(void)
 		reg_val = path->input_size.w | (path->input_size.h << 16);
 		REG_WR(DCAM_PATH0_SRC_SIZE, reg_val);
 	}
-	
+
 	if (path->valid_param.output_format) {
 		enum dcam_output_mode format = path->output_format;
 		REG_MWR(DCAM_PATH0_CFG, BIT_2, format << 2);
@@ -2380,7 +2377,6 @@ LOCAL void _dcam_path2_set(void)
 			path->input_rect.y,
 			path->input_rect.w,
 			path->input_rect.h);
-
 	}
 
 	if(path->valid_param.output_size){
@@ -2391,9 +2387,9 @@ LOCAL void _dcam_path2_set(void)
 
 	if (path->valid_param.output_format) {
 		enum dcam_fmt format = path->output_format;
-		
+
 		// REG_MWR(DCAM_PATH2_CFG, BIT_8, 0 << 8); // aiden todo
-		
+
 		if (DCAM_YUV422 == format) {
 			REG_MWR(DCAM_PATH2_CFG, BIT_7 | BIT_6, 0 << 6);
 		} else if (DCAM_YUV420 == format) {
@@ -3069,7 +3065,7 @@ LOCAL void _dcam_reg_trace(void)
 	}
 
 	printk("\n");
-#endif	
+#endif
 }
 
 #if 0
@@ -3181,7 +3177,7 @@ LOCAL void    _dcam_path0_overflow(void)
 	dcam_isr_func           user_func = s_user_func[DCAM_PATH0_OV];
 	void                    *data = s_user_data[DCAM_PATH0_OV];
 	struct dcam_path_desc   *path;
-	struct dcam_frame       *frame;
+	struct dcam_frame       *frame = NULL;
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
@@ -3252,7 +3248,7 @@ LOCAL void    _dcam_path1_overflow(void)
 	dcam_isr_func           user_func = s_user_func[DCAM_PATH1_OV];
 	void                    *data = s_user_data[DCAM_PATH1_OV];
 	struct dcam_path_desc   *path;
-	struct dcam_frame       *frame;
+	struct dcam_frame       *frame = NULL;
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
@@ -3304,7 +3300,7 @@ LOCAL void    _dcam_jpeg_buf_ov(void)
 	dcam_isr_func           user_func = s_user_func[DCAM_JPEG_BUF_OV];
 	void                    *data = s_user_data[DCAM_JPEG_BUF_OV];
 	struct dcam_path_desc   *path;
-	struct dcam_frame       *frame;
+	struct dcam_frame       *frame = NULL;
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
@@ -3366,6 +3362,7 @@ LOCAL void    _dcam_path2_done(void)
 
 		}
 	}
+
 	if (user_func) {
 		(*user_func)(frame, data);
 	}
@@ -3378,7 +3375,7 @@ LOCAL void    _dcam_path2_ov(void)
 	dcam_isr_func           user_func = s_user_func[DCAM_PATH2_OV];
 	void                    *data = s_user_data[DCAM_PATH2_OV];
 	struct dcam_path_desc   *path;
-	struct dcam_frame       *frame;
+	struct dcam_frame       *frame = NULL;
 
 	DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 
@@ -3647,13 +3644,13 @@ void mm_clk_register_trace(void)
    for (i = 0 ; i <= 8; i += 4 ) {
 		printk("MMAHB: %x val:%x \b\n",
 			(SPRD_MMAHB_BASE + i),
-			__raw_readl((IO_PTR)(SPRD_MMAHB_BASE + i)));
+			REG_RD(SPRD_MMAHB_BASE + i));
    }
 
    printk("mm_clk_reg, part 2 \n");
    for (i = 0x20 ; i <= 0x38; i += 4 ) {
 		printk("MMCKG: %x val:%x \b\n",
 			(SPRD_MMCKG_BASE + i),
-			__raw_readl((IO_PTR)(SPRD_MMCKG_BASE + i)));
+			REG_RD(SPRD_MMCKG_BASE + i));
    }
 }

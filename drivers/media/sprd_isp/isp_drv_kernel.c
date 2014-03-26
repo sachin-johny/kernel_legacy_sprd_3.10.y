@@ -62,7 +62,6 @@
 #define SA_SHIRQ	IRQF_SHARED
 static uint32_t                    g_isp_irq = 0x12345678;/*for share irq handler function*/
 //static uint32_t                    g_dcam_irq = 0x12345678;/*for share irq handler function*/
-#define ISP_CLOCK_PARENT                              "clk_256m"
 
 #define ISP_MINOR		MISC_DYNAMIC_MINOR/*isp minor number*/
 #define init_MUTEX(sem)		sema_init(sem, 1)
@@ -244,7 +243,11 @@ static int32_t _isp_module_eb(void)
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 
 		ret = _isp_is_clk_mm_i_eb(1);
+#if defined(CONFIG_ARCH_SCX30G)
+		ret = _isp_set_clk(ISP_CLK_312M);
+#else
 		ret = _isp_set_clk(ISP_CLK_256M);
+#endif
 		if (unlikely(0 != ret)) {
 			ISP_PRINT("isp_k: set clock error\n");
 			ret = -EIO;
@@ -422,15 +425,18 @@ static int32_t _isp_alloc(uint32_t* addr, uint32_t len)
 static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 {
 	struct clk              *clk_parent;
-	char                    *parent = ISP_CLOCK_PARENT;
+	char                    *parent = "clk_256m";
 	int32_t       rtn = 0;
 
 	ISP_CHECK_ZERO(g_isp_dev_ptr);
 
 #if defined(CONFIG_ARCH_SCX35)
 	switch (clk_sel) {
+	case ISP_CLK_312M:
+		parent = "clk_312m";
+		break;
 	case ISP_CLK_256M:
-		parent = ISP_CLOCK_PARENT;
+		parent = "clk_256m";
 		break;
 	case ISP_CLK_128M:
 		parent = "clk_128m";
