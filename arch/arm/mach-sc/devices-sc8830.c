@@ -52,6 +52,7 @@
 #include <mach/modem_interface.h>
 #include <linux/sprd_thm.h>
 #include <linux/thermal.h>
+#include <linux/delay.h>
 #ifndef CONFIG_OF
 struct modem_intf_platform_data modem_interface = {
        .dev_type               = MODEM_DEV_SDIO,
@@ -1676,7 +1677,82 @@ struct platform_device sprd_veth_sdio4_device = {
 #endif
 #endif
 #ifdef CONFIG_SIPC_TD
+#ifndef CONFIG_OF
+#ifdef CONFIG_ARCH_SCX30G
+#define TD_REG_CLK_ADDR         (SPRD_PMU_BASE + 0x44)
+#define TD_REG_RESET_ADDR       (SPRD_PMU_BASE + 0xB0)
 
+static int native_tdmodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x500000};
+	memcpy((void *)SPRD_IRAM1_BASE, cp1data, sizeof(cp1data));
+
+	/* clear cp1 force shutdown */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~(0x1<<25)));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+	msleep(50);
+
+	/* clear cp1 force deep sleep */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~(0x1<<28)));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+	msleep(50);
+
+	/* clear reset cp1 */
+	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x1));
+	__raw_writel(value, TD_REG_RESET_ADDR);
+	value = ((__raw_readl(TD_REG_RESET_ADDR) & ~0x1));
+	__raw_writel(value, TD_REG_RESET_ADDR);
+
+	while(1)
+	{
+        state =  __raw_readl(TD_REG_RESET_ADDR);
+        if(!(state & 0x1))
+             break;
+	}
+
+	return 0;
+}
+static int native_tdmodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp1 */
+	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x1));
+	__raw_writel(value, TD_REG_RESET_ADDR);
+
+	/* cp1 force deep sleep */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) | (0x1<<28)));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+
+	/* cp1 force shutdown */
+	value = ((__raw_readl(TD_REG_CLK_ADDR) | (0x1<<25)));
+	__raw_writel(value, TD_REG_CLK_ADDR);
+
+	return 0;
+}
+static struct cproc_init_data sprd_cproc_td_pdata = {
+	.devname	= "cpt",
+	.base		= CPT_START_ADDR,
+	.maxsz		= CPT_TOTAL_SIZE,
+	.start		= native_tdmodem_start,
+	.stop 		= native_tdmodem_stop,
+	.wdtirq		= IRQ_CP1_WDG_INT,
+	.segnr		= 2,
+	.segs		= {
+		{
+			.name  = "modem",
+			.base  = CPT_START_ADDR + 0x500000,
+			.maxsz = 0x00800000,
+		},
+		{
+			.name  = "dsp",
+			.base  = CPT_START_ADDR + 0x20000,
+			.maxsz = 0x002E0000,
+		},
+	},
+};
+#else
 #define TD_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x50)
 #define TD_REG_RESET_ADDR			(SPRD_PMU_BASE + 0xA8)
 #define TD_REG_STATUS_ADDR			(SPRD_PMU_BASE + 0xBC)
@@ -1723,7 +1799,8 @@ static int native_tdmodem_stop(void *arg)
 	__raw_writel(value, TD_REG_CLK_ADDR);
 	return 0;
 }
-#ifndef CONFIG_OF
+
+
 static struct cproc_init_data sprd_cproc_td_pdata = {
 	.devname	= "cpt",
 	.base		= CPT_START_ADDR,
@@ -1749,6 +1826,8 @@ static struct cproc_init_data sprd_cproc_td_pdata = {
 		},
 	},
 };
+#endif
+
 struct platform_device sprd_cproc_td_device = {
 	.name           = "sprd_cproc",
 	.id             = 0,
@@ -1866,7 +1945,83 @@ struct platform_device sprd_saudio_td_device = {
 #endif
 #endif
 #ifdef CONFIG_SIPC_WCDMA
+#ifndef CONFIG_OF
+#if CONFIG_ARCH_SCX30G
+#define WCDMA_REG_CLK_ADDR         (SPRD_PMU_BASE + 0x44)
+#define WCDMA_REG_RESET_ADDR       (SPRD_PMU_BASE + 0xB0)
 
+static int native_wcdmamodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
+	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
+
+	/* clear cp1 force shutdown */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~(0x1<<25)));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	msleep(50);
+
+	/* clear cp1 force deep sleep */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~(0x1<<28)));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	msleep(50);
+
+	/* clear reset cp1 */
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x1));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) & ~0x1));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+
+	while(1)
+	{
+        state =  __raw_readl(WCDMA_REG_RESET_ADDR);
+        if(!(state & 0x1))
+             break;
+	}
+
+	return 0;
+}
+static int native_wcdmamodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp1 */
+	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x1));
+	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+
+	/* cp1 force deep sleep */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | (0x1<<28)));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	/* cp1 force shutdown */
+	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | (0x1<<25)));
+	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+
+	return 0;
+}
+
+static struct cproc_init_data sprd_cproc_wcdma_pdata = {
+	.devname	= "cpw",
+	.base		= CPW_START_ADDR,
+	.maxsz		= CPW_TOTAL_SIZE,
+	.start		= native_wcdmamodem_start,
+	.stop 		= native_wcdmamodem_stop,
+	.wdtirq		= IRQ_CP0_WDG_INT,
+	.segnr		= 2,
+	.segs		= {
+		{
+			.name  = "modem",
+			.base  = CPW_START_ADDR + 0x500000,
+			.maxsz = 0x00800000,
+		},
+		{
+			.name  = "dsp",
+			.base  = CPW_START_ADDR + 0x20000,
+			.maxsz = 0x00200000,
+		},
+	},
+};
+#else
 #define WCDMA_REG_CLK_ADDR				(SPRD_PMU_BASE + 0x3C)
 #define WCDMA_REG_RESET_ADDR			(SPRD_PMU_BASE + 0xA8)
 #define WCDMA_REG_STATUS_ADDR			(SPRD_PMU_BASE + 0xB8)
@@ -1918,7 +2073,7 @@ static int native_wcdmamodem_stop(void *arg)
 	__raw_writel(value, WCDMA_REG_CLK_ADDR);
 	return 0;
 }
-#ifndef CONFIG_OF
+
 static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 	.devname	= "cpw",
 	.base		= CPW_START_ADDR,
@@ -1944,13 +2099,13 @@ static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 		},
 	},
 };
+
+#endif
 struct platform_device sprd_cproc_wcdma_device = {
 	.name           = "sprd_cproc",
 	.id             = 1,
 	.dev		= {.platform_data = &sprd_cproc_wcdma_pdata},
 };
-
-
 static struct spipe_init_data sprd_spipe_wcdma_pdata = {
 	.name		= "spipe_w",
 	.dst		= SIPC_ID_CPW,
@@ -2062,7 +2217,69 @@ struct platform_device sprd_saudio_wcdma_device = {
 #endif
 #endif
 #ifdef CONFIG_SIPC_WCN
+#ifdef CONFIG_ARCH_SCX30G
+#define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x68)
+#define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xB0)
+//#define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
 
+static int native_wcnmodem_start(void *arg)
+{
+	u32 state;
+	u32 value;
+	u32 cp_code_addr,code_phy_addr;
+
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
+	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
+	* Now it is different with CP1.You can take a refernce with bug#253748	
+	*/
+	code_phy_addr = SPRD_IRAM1_PHYS + 0x3000;
+	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
+	memcpy(cp_code_addr, cp2data, sizeof(cp2data));
+
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~(0x1<<25)));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+	msleep(50);
+
+	/* clear cp2 force deep sleep */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~(0x1<<28)));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+	msleep(50);
+
+	/* clear reset cp2*/
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) | (0x1<<2)));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~(0x1<<2)));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+
+	while(1)
+	{
+        state =  __raw_readl(WCN_REG_RESET_ADDR);
+        if(!(state & (0x1<<2)))
+             break;
+	}
+
+	iounmap(cp_code_addr);
+	return 0;
+}
+static int native_wcnmodem_stop(void *arg)
+{
+	u32 value;
+	/* reset cp2 */
+	value = ((__raw_readl(WCN_REG_RESET_ADDR) | (0x1<<2)));
+	__raw_writel(value, WCN_REG_RESET_ADDR);
+
+	/* cp2 force deep sleep */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | (0x1<<28)));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+
+	/* cp2 force shutdown */
+	value = ((__raw_readl(WCN_REG_CLK_ADDR) | (0x1<<25)));
+	__raw_writel(value, WCN_REG_CLK_ADDR);
+	return 0;
+}
+
+#else
 #define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x60)
 #define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xA8)
 #define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
@@ -2120,6 +2337,7 @@ static int native_wcnmodem_stop(void *arg)
 	__raw_writel(value, WCN_REG_CLK_ADDR);
 	return 0;
 }
+#endif
 #ifndef CONFIG_OF
 static struct cproc_init_data sprd_cproc_wcn_pdata = {
 	.devname        = "cpwcn",
