@@ -306,6 +306,23 @@ static void gps_lna_disable(void)
 	gpio_direction_output(SPRD_GPS_LNA_EN,0);
 }
 
+static void gps_reg_init(void)
+{
+#ifdef CONFIG_ARCH_SCX30G
+	U32 value;
+
+	/*GPS Clock Select to CLK_SINE0*/
+	CgxCpuReadMemory((U32)SPRD_GPS_CLK_SEL, 0x0,(U32 *)&value);
+	value &= ~(1<<3);
+	CgxCpuWriteMemory((U32)SPRD_GPS_CLK_SEL, 0X0,value);
+
+	/*Disable 26M Clock Gating*/
+	CgxCpuReadMemory((U32)SPRD_GPS_CLK_AUTO_GATING, 0x0,(U32 *)&value);
+	value &= ~(1<<0);
+	CgxCpuWriteMemory((U32)SPRD_GPS_CLK_AUTO_GATING, 0X0,value);
+#endif
+}
+
 TCgReturnCode CgxDriverRFPowerDown(void)
 {
 	//DBG_FUNC_NAME("CgxDriverRFPowerDown")
@@ -328,6 +345,7 @@ TCgReturnCode CgxDriverRFPowerUp(void)
 	printk("%s\n",__func__);
 	gps_rf_ops->mspi_enable();
 	gps_lna_enable();
+	gps_reg_init();
 	CgxDriverRFInit();
 	gps_rf_ops->mspi_disable();
 	return rc;
