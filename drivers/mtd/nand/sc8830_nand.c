@@ -108,7 +108,7 @@ static int mtdoobsize = 0;
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
-#include <mach/globalregs.h>
+#include <mach/sci_glb_regs.h>
 #include <mach/pinmap.h>
 
 #include "sc8830_nand.h"
@@ -123,34 +123,6 @@ static int mtdoobsize = 0;
 
 #include "sprd_nand_param.h"
 
-#ifdef DOLPHIN_UBOOT
-#define DOLPHIN_AHB_BASE SPRD_AHB_PHYS
-#define DOLPHIN_PIN_BASE SPRD_PIN_PHYS
-#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
-#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x0060)
-
-#define DOLPHIN_ADISLAVE_BASE	 	SPRD_ADISLAVE_PHYS
-#define DOLPHIN_ANA_CTL_GLB_BASE		(DOLPHIN_ADISLAVE_BASE + 0x8800)
-
-#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_PHYS
-#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
-#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
-#endif
-
-#ifdef DOLPHIN_KERNEL
-#define DOLPHIN_AHB_BASE SPRD_AHB_BASE
-#define DOLPHIN_PIN_BASE SPRD_PIN_BASE
-#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
-#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x0060)
-
-#define DOLPHIN_ADISLAVE_BASE	 	SPRD_ADISLAVE_BASE
-#define DOLPHIN_ANA_CTL_GLB_BASE		(DOLPHIN_ADISLAVE_BASE + 0x8800)
-
-#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_BASE
-#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
-#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
-#endif
-
 /* 2 bit correct, sc8810 support 1, 2, 4, 8, 12,14, 24 */
 #define CONFIG_SYS_NAND_ECC_MODE    (2)
 //#define CONFIG_SYS_NAND_ECC_MODE	8
@@ -161,8 +133,18 @@ static int mtdoobsize = 0;
 #define NAND_MC_BUFFER_SIZE         (24)
 #define CONFIG_SYS_NAND_ECCSIZE     (512)
 #define CONFIG_SYS_NAND_5_ADDR_CYCLE	5
+#if  CONFIG_ARCH_SCX30G
+#define BIT_NAND_ENABLE		(BIT_NANDC_EB|BIT_NANDC_2X_EB|BIT_NANDC_ECC_EB)
+#define BIT_NAND_RESET		(BIT_NANDC_SOFT_RST)
+#define NAND_CLK_CONFG		sprd_dolphin_reg_or(REG_AP_AHB_NANC_CLK_CFG,\
+											BITS_CLK_NANDC2X_SEL(3))
 #define SPRD_NAND_CLOCK (192)
-
+#else
+#define BIT_NAND_ENABLE		(BIT_NFC_EB)
+#define BIT_NAND_RESET		(BIT_NFC_SOFT_RST)
+#define NAND_CLK_CONFG		sprd_dolphin_reg_or(REG_AP_CLK_NFC_CFG, BIT(1))
+#define SPRD_NAND_CLOCK 	(153)
+#endif
 #define IRQ_TIMEOUT  100//unit:ms,IRQ timeout value
 #define DRIVER_NAME "sc8830_nand"
 
@@ -838,11 +820,11 @@ STATIC_FUNC void sprd_dolphin_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
 	if(chip < 0) { //for release caller
-		sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(6)));
+		sprd_dolphin_reg_and(REG_AP_AHB_AHB_EB, ~(BIT_NAND_ENABLE));
 		return;
 	}
 	//DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(6));
+	sprd_dolphin_reg_or(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
 	dolphin->chip = chip;
 #ifdef CONFIG_NAND_SPL
 	nand_hardware_config(mtd,dolphin->nand);
@@ -1786,37 +1768,21 @@ STATIC_FUNC void sprd_dolphin_nand_hwecc_ctl(struct mtd_info *mtd, int mode)
 	return; //do nothing
 }
 
-
-
-#define DOLPHIN_AHB_BASE SPRD_AHB_BASE
-#define DOLPHIN_AHB_RST  (DOLPHIN_AHB_BASE + 0x0004)
-#define DOLPHIN_NANC_CLK_CFG  (DOLPHIN_AHB_BASE + 0x3038)
-
-#define DOLPHIN_NFC_REG_BASE  SPRD_NFC_BASE
-#define DOLPHIN_NFC_TIMING_REG  (DOLPHIN_NFC_REG_BASE + 0x14)
-#define DOLPHIN_NFC_TIMEOUT_REG  (DOLPHIN_NFC_REG_BASE + 0x34)
-
-
 STATIC_FUNC void sprd_dolphin_nand_hw_init(struct sprd_dolphin_nand_info *dolphin)
 {
-	int i = 0;
-	uint32_t val;
+			uint32_t val;
+			NAND_CLK_CONFG;
+			sprd_dolphin_reg_or(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
 
-	sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0)|BIT(1));
+			sprd_dolphin_reg_or(REG_AP_AHB_AHB_RST,BIT_NAND_RESET);
+			mdelay(1);
+			sprd_dolphin_reg_and(REG_AP_AHB_AHB_RST, ~(BIT_NAND_RESET));
+			val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
+			sprd_dolphin_reg_write(NFC_TIMING_REG, val);
+			sprd_dolphin_reg_write(NFC_TIMEOUT_REG, 0xffffffff);
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(17)|BIT(18)|BIT(19));
-
-	sprd_dolphin_reg_or(DOLPHIN_AHB_RST,BIT(20));
-	mdelay(1);
-	sprd_dolphin_reg_and(DOLPHIN_AHB_RST, ~(BIT(20)));
-
-	val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
-	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, val);
-	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMEOUT_REG, 0xffffffff);
-
-	
-	//close write protect
-	sprd_dolphin_nand_wp_en(dolphin, 0);
+			//close write protect
+			sprd_dolphin_nand_wp_en(dolphin, 0);
 }
 
 
@@ -2100,7 +2066,7 @@ release:
 	nand_release(sprd_mtd);
 	sprd_nand_dma_deinit(&g_dolphin);
 prob_err:
-	sprd_dolphin_reg_and(DOLPHIN_AHB_BASE,~(BIT(6)));
+	sprd_dolphin_reg_and(REG_AP_AHB_AHB_EB,~(BIT_NAND_ENABLE));
 	kfree(sprd_mtd);
 	return ret;
 }
