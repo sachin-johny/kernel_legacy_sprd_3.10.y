@@ -213,7 +213,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
             pr_debug("###vsp_hw_dev.vsp_clk: clk_enable() ok.\n");
         }
 #ifdef CONFIG_OF
-	sci_glb_set(SPRD_MMAHB_BASE_DT+0x08, BIT(5));	
+        sci_glb_set(SPRD_MMAHB_BASE_DT+0x08, BIT(5));
 #endif
         vsp_fp->is_clock_enabled= 1;
         break;
@@ -221,7 +221,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         pr_debug("vsp ioctl VSP_DISABLE\n");
         clk_disable(vsp_hw_dev.vsp_clk);
 #ifdef CONFIG_OF
-	sci_glb_clr(SPRD_MMAHB_BASE_DT+0x08, BIT(5));	
+        sci_glb_clr(SPRD_MMAHB_BASE_DT+0x08, BIT(5));
 #endif
         vsp_fp->is_clock_enabled = 0;
         wake_unlock(&vsp_wakelock);
@@ -311,7 +311,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
         printk(KERN_INFO "vsp capability -enter\n");
 #if defined(CONFIG_ARCH_SCX30G)
-	  vsp_capability =   2;
+        vsp_capability =   2;
 #elif defined(CONFIG_ARCH_SCX15)
         vsp_capability = 0;
 #else
@@ -392,7 +392,7 @@ static int vsp_parse_dt(struct device *dev)
     ret = of_address_to_resource(np, 0, &res);
     if(ret < 0) {
         dev_err(dev, "no reg of property specified\n");
-	printk(KERN_ERR "vsp: failed to parse_dt!\n");
+        printk(KERN_ERR "vsp: failed to parse_dt!\n");
         return -EINVAL;
     }
     SPRD_VSP_BASE_DT = SPRD_VSP_BASE;//res.start;
@@ -407,7 +407,7 @@ static int vsp_parse_dt(struct device *dev)
 static int  vsp_parse_dt(
     struct device *dev)
 {
-	vsp_hw_dev.irq = IRQ_VSP_INT;
+    vsp_hw_dev.irq = IRQ_VSP_INT;
     return 0;
 }
 #endif
@@ -569,6 +569,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
     printk(KERN_INFO "vsp_release %p\n", vsp_fp);
     kfree(filp->private_data);
     filp->private_data=NULL;
+    vsp_hw_dev.vsp_fp = NULL;
 
     printk(KERN_INFO "VSP mmi_clk close");
     clk_disable(vsp_hw_dev.mm_clk);
@@ -644,13 +645,13 @@ static int vsp_probe(struct platform_device *pdev)
     int ret;
 
     printk(KERN_INFO "vsp_probe called !\n");
-    
+
 #ifdef CONFIG_OF
     if (pdev->dev.of_node) {
         ret = vsp_parse_dt(&pdev->dev);
     }
 #else
-	ret = vsp_parse_dt(&pdev->dev);
+    ret = vsp_parse_dt(&pdev->dev);
 #endif
 
     wake_lock_init(&vsp_wakelock, WAKE_LOCK_SUSPEND,
@@ -663,6 +664,7 @@ static int vsp_probe(struct platform_device *pdev)
     vsp_hw_dev.vsp_clk = NULL;
     vsp_hw_dev.vsp_parent_clk = NULL;
     vsp_hw_dev.mm_clk= NULL;
+    vsp_hw_dev.vsp_fp = NULL;
 
     ret = misc_register(&vsp_dev);
     if (ret) {
