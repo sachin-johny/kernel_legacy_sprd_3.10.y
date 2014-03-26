@@ -228,6 +228,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         pr_debug("vsp ioctl VSP_RELEASE\n");
         vsp_fp->is_vsp_aquired = 0;
         up(&vsp_hw_dev.vsp_mutex);
+        vsp_hw_dev.vsp_fp = NULL;
         break;
 #ifdef USE_INTERRUPT
     case VSP_COMPLETE:
@@ -491,7 +492,6 @@ static int vsp_release (struct inode *inode, struct file *filp)
     printk(KERN_INFO "vsp_release %p\n", vsp_fp);
     kfree(filp->private_data);
     filp->private_data=NULL;
-    vsp_hw_dev.vsp_fp = NULL;
 
     printk(KERN_INFO "VSP mmi_clk close");
     clk_disable(vsp_hw_dev.mm_clk);
@@ -658,4 +658,4 @@ module_init(vsp_init);
 module_exit(vsp_exit);
 
 MODULE_DESCRIPTION("SPRD VSP Driver");
-MODULE_LICENSE("GPL");
+MODULE_LICENSE("GPL"
