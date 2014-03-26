@@ -191,10 +191,12 @@ static int _trout_fm_seek(struct file *file,
    	  TROUT_PRINT("trout_fm_seek error due to get_frequency error.");
       return -EINVAL;
    }
+   trout_fm_pcm_pin_cfg();
    err = trout_fm_seek(freq, /* start frequency */
 					direction, /* seek direction*/
 					3000, /* time out */
 					&reserved);
+   trout_fm_iis_pin_cfg();
    if(err){
    	  return -EINVAL;
    }
