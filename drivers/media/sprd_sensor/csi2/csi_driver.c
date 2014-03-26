@@ -2,7 +2,8 @@
 #include "csi_driver.h"
 #include "csi_access.h"
 #include "csi_log.h"
-//#include "os_api.h"
+#include <mach/hardware.h>
+#include <mach/sci.h>
 
 
 static int csi_core_initialized = 0;
@@ -179,7 +180,14 @@ u8 csi_get_on_lanes()
 
 u8 csi_set_on_lanes(u8 lanes)
 {
-    return csi_core_write_part(N_LANES, (lanes - 1), 0, 2);
+#if defined(CONFIG_ARCH_SCX30G)
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x00C, 0X02);
+	if (lanes > 2) {
+		sci_glb_clr(SPRD_MMAHB_BASE + 0x00C, 0X04);
+		sci_glb_set(SPRD_MMAHB_BASE + 0x00C, 0X02);
+	}
+#endif
+	return csi_core_write_part(N_LANES, (lanes - 1), 0, 2);
 }
 
 u8 csi_shut_down_phy(u8 shutdown)

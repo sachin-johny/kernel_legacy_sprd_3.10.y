@@ -222,10 +222,11 @@ enum iram_owner {
 };
 
 enum dcam_clk_sel {
-	DCAM_CLK_192M = 0,
-	DCAM_CLK_153M6,
+	DCAM_CLK_312M = 0,
+	DCAM_CLK_256M,
 	DCAM_CLK_128M,
 	DCAM_CLK_76M8,
+	DCAM_CLK_48M,
 	DCAM_CLK_NONE
 };
 

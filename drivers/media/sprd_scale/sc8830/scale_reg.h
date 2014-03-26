@@ -60,7 +60,11 @@ extern "C"
 #define SCALE_PATH_EB_BIT (1 << 2)
 #define SCALE_FRC_COPY_BIT (1 << 12)
 #define SCALE_COEFF_FRC_COPY_BIT (1 << 16)
+#if defined(CONFIG_ARCH_SCX30G)
+#define SCALE_START_BIT (1 << 18)
+#else
 #define SCALE_START_BIT (1 << 4)
+#endif
 #define SCALE_IS_LAST_SLICE_BIT (1 << 14)
 #define SCALE_INPUT_SLICE_HEIGHT_MASK (0x1FFF)
 #define SCALE_OUTPUT_SLICE_HEIGHT_MASK (0x1FFF)
