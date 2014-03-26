@@ -1,5 +1,8 @@
 #include "sprd_iommu_common.h"
-
+#ifdef GSP_IOMMU_WORKAROUND1
+//extern struct sprd_iommu_ops iommu_gsp_ops;
+extern struct sprd_iommu_ops iommu_mm_ops;
+#endif
 static int mmu_reg_write(u32 reg, u32 val, u32 msk)
 {
 	__raw_writel(((*(volatile unsigned int __force   *)(reg)) & ~msk) | val, reg);
@@ -123,14 +126,26 @@ int sprd_iommu_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t i
 	mutex_lock(&dev->mutex_pgt);
 	//disable TLB enable in MMU ctrl register
 	//enable TLB
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+#endif
 	for_each_sg(table->sgl, sg, table->nents, i) {
 		sprd_iommu_update_pgt(dev->init_data->pgt_base,iova_cur,get_phys_addr(sg),PAGE_ALIGN(sg_dma_len(sg)));
 		iova_cur += PAGE_ALIGN(sg_dma_len(sg));
 		if (iova_cur >=(iova+iova_length))
 			break;
 	}
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+#endif
 	mutex_unlock(&dev->mutex_pgt);
 
 	pr_debug("sprd_iommu %s iova_map iova:0x%lx, iova_length:0x%x count:0x%x\n",dev->init_data->name,iova,iova_length,handle->iomap_cnt[dev->init_data->id]);
@@ -148,9 +163,21 @@ int sprd_iommu_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t
 	mutex_lock(&dev->mutex_pgt);
 	//disable TLB enable in MMU ctrl register
 	//enable TLB
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+#endif
 	sprd_iommu_clear_pgt(dev->init_data->pgt_base,iova,iova_length);
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+#endif
 	mutex_unlock(&dev->mutex_pgt);
 
 	pr_debug("sprd_iommu %s iova_unmap iova:0x%lx, iova_length:0x%x count:0x%x\n",dev->init_data->name,iova,iova_length,handle->iomap_cnt[dev->init_data->id]);
@@ -161,8 +188,15 @@ int sprd_iommu_backup(struct sprd_iommu_dev *dev)
 {
 	mutex_lock(&dev->mutex_pgt);
 	memcpy((unsigned long*)dev->pgt,(unsigned long*)dev->init_data->pgt_base,PAGE_ALIGN(dev->init_data->pgt_size));
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+#endif
 	mutex_unlock(&dev->mutex_pgt);
 	return 0;
 }
@@ -170,11 +204,25 @@ int sprd_iommu_backup(struct sprd_iommu_dev *dev)
 int sprd_iommu_restore(struct sprd_iommu_dev *dev)
 {
 	mutex_lock(&dev->mutex_pgt);
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+#endif
 	memcpy((unsigned long*)dev->init_data->pgt_base,(unsigned long*)dev->pgt,PAGE_ALIGN(dev->init_data->pgt_size));
+#ifdef GSP_IOMMU_WORKAROUND1
+	if(dev->ops == &iommu_mm_ops){
+		mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
+	}
+#else
 	mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
+#endif
 	mutex_unlock(&dev->mutex_pgt);
 	return 0;
 }

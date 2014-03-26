@@ -32,8 +32,12 @@ extern   "C"
 //#include "shark_reg_int.h" //for INT1_IRQ_EN
 
 
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+
 #ifdef CONFIG_ARCH_SCX15
-#define GSP_IOMMU_WORKAROUND1
+//#define GSP_IOMMU_WORKAROUND1
+#endif
+
 #define CONFIG_HAS_EARLYSUSPEND_GSP// dolphin use early suspend, shark use suspend
 #else
 #define GSP_WORK_AROUND1
@@ -233,6 +237,7 @@ GSP_CORE_GREQ;
 #define GSP_EMC_MATRIX_ENABLE()     sci_glb_set(GSP_EMC_MATRIX_BASE, GSP_EMC_MATRIX_BIT)
 #define GSP_CLOCK_SET(sel)          sci_glb_write(GSP_CLOCK_BASE, (sel), 0x3)
 #define GSP_AUTO_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_AUTO_GATE_ENABLE_BIT)
+#define GSP_AUTO_GATE_DISABLE()     sci_glb_clr(GSP_AUTO_GATE_ENABLE_BASE, GSP_AUTO_GATE_ENABLE_BIT)
 #define GSP_FORCE_GATE_ENABLE()      sci_glb_set(GSP_AUTO_GATE_ENABLE_BASE, GSP_CKG_FORCE_ENABLE_BIT)
 #define GSP_AHB_CLOCK_SET(sel)      sci_glb_write(GSP_AHB_CLOCK_BASE, (sel), 0x3)
 #define GSP_AHB_CLOCK_GET()      	sci_glb_read(GSP_AHB_CLOCK_BASE,0x3)
@@ -258,13 +263,19 @@ GSP_CORE_GREQ;
 
 #endif
 
-#ifdef CONFIG_ARCH_SCX15
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 //in dolphin,soft reset should not be called for iommu workaround
 #ifdef CONFIG_OF
 #define GSP_MMU_CTRL_BASE        (gsp_mmu_ctrl_addr)
 #else
+
+#ifdef CONFIG_ARCH_SCX30G
+#define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x8000)
+#else
 #define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x4000)
 #endif
+#endif
+
 #define GSP_HWMODULE_SOFTRESET()\
 {\
 	sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
@@ -417,6 +428,13 @@ GSP_CORE_GREQ;
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.scale_en = (scal_en)
 #define GSP_SCALE_ENABLE_GET()  (((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.scale_en)
 
+//v==0:allowed a burst stride 4K boarder; v==1:split a burst into 2 request , when sride 4K boarder.
+//gsp_cfg_u.mBits.split 0:split  1:don't split
+#define GSP_PAGES_BOARDER_SPLIT_SET(v)\
+    ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.no_split = (!(v))
+
+#define GSP_PAGES_BOARDER_SPLIT_GET()\
+		(!((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.no_split)
 
 #define GSP_SCALESTATUS_RESET()\
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.scale_status_clr = 1;\

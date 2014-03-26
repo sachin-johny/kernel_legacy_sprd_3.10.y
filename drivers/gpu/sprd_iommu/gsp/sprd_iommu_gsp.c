@@ -15,7 +15,9 @@
 
 #include"../sprd_iommu_common.h"
 
-
+#ifdef GSP_IOMMU_WORKAROUND1
+int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev);
+#endif
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev);
 
@@ -114,7 +116,11 @@ int sprd_iommu_gsp_backup(struct sprd_iommu_dev *dev)
 int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
+#ifdef GSP_IOMMU_WORKAROUND1
+	sprd_iommu_gsp_enable_withworkaround(dev);
+#else
 	sprd_iommu_gsp_enable(dev);
+#endif
 	err=sprd_iommu_restore(dev);
 	return err;
 }
@@ -140,6 +146,77 @@ int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 #endif
 	return 0;
 }
+
+
+#ifdef GSP_IOMMU_WORKAROUND1
+static void cycle_delay(uint32_t delay)
+{
+	while(delay--);
+}
+
+/*
+func:gsp_iommu_workaround
+desc:dolphin IOMMU workaround, configure GSP-IOMMU CTL REG before dispc_emc enable,
+     including config IO base addr and enable gsp-iommu
+warn:when dispc_emc disabled, reading ctl or entry register will hung up AHB bus .
+     only 4-writting operations are allowed to exeute, over 4 ops will also hung uo AHB bus
+     GSP module soft reset is not allowed , beacause it will clear gsp-iommu-ctrl register
+*/
+static void gsp_iommu_workaround(struct sprd_iommu_dev *dev)
+{
+	if(dev == NULL){
+		printk("%s line:%d, dev==NULL, just return , without config gsp_iommu ctl reg!!!\n",__func__,__LINE__);
+		return;
+	}
+	printk("%s line:%d REG_AON_APB_APB_EB1:0x%x\n",__func__,__LINE__,sci_glb_read(REG_AON_APB_APB_EB1,-1));
+	if (!(sci_glb_read(REG_AON_APB_APB_EB1,-1) & 0x800)) {
+		printk("%s line:%d dispc_emc not enable\n",__func__,__LINE__);
+		__raw_writel(0x10000001, dev->init_data->ctrl_reg);
+	} else {
+		printk("%s line:%d dispc_emc enabled:0x%x\n",__func__,__LINE__);
+		sci_glb_clr(REG_AON_APB_APB_EB1,0x800);
+		//udelay(2);
+		cycle_delay(5);
+		__raw_writel(0x10000001, dev->init_data->ctrl_reg);
+		//udelay(2);
+		cycle_delay(5);
+		sci_glb_set(REG_AON_APB_APB_EB1,0x800);
+	}
+	printk("%s line:%d REG_AON_APB_APB_EB1:0x%x\n",__func__,__LINE__,sci_glb_read(REG_AON_APB_APB_EB1,-1));
+}
+
+int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
+
+{
+		printk("%s line:%d\n",__FUNCTION__,__LINE__);
+#if defined(CONFIG_ARCH_SCX30G)
+		sci_glb_set(REG_AON_APB_APB_EB1,BIT(13));
+	#ifdef CONFIG_OF
+		clk_prepare_enable(dev->mmu_clock);
+	#else
+		clk_enable(dev->mmu_clock);
+	#endif
+#elif defined(CONFIG_ARCH_SCX15)
+	#ifdef CONFIG_OF
+		
+		clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
+		clk_prepare_enable(dev->mmu_clock);
+		gsp_iommu_workaround(dev);
+		clk_prepare_enable(dev->mmu_mclock);
+	#else
+		
+		clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
+		clk_enable(dev->mmu_clock);
+		gsp_iommu_workaround(dev);
+		clk_enable(dev->mmu_mclock);
+	#endif
+#endif
+		udelay(100);
+		sprd_iommu_enable(dev);
+		return 0;
+}
+
+#endif
 
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {

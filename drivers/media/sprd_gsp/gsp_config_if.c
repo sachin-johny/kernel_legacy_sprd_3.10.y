@@ -126,7 +126,7 @@ LOCAL void GSP_SetMiscParameter(void)
     GSP_PMARGB_ENABLE_SET(s_gsp_cfg.layer0_info.pmargb_en||s_gsp_cfg.layer1_info.pmargb_en);
     GSP_L0_PMARGBMODE_SET(s_gsp_cfg.layer0_info.pmargb_mod);
     GSP_L1_PMARGBMODE_SET(s_gsp_cfg.layer1_info.pmargb_mod);
-
+	GSP_PAGES_BOARDER_SPLIT_SET(s_gsp_cfg.misc_info.split_pages);
 
     GSP_DITHER_ENABLE_SET(s_gsp_cfg.misc_info.dithering_en);
     //GSP_AHB_CLOCK_SET(s_gsp_cfg.misc_info.ahb_clock);
@@ -186,7 +186,7 @@ PUBLIC void GSP_Init(void)
 
 #ifndef GSP_IOMMU_WORKAROUND1
 #ifdef CONFIG_OF
-#ifdef CONFIG_ARCH_SCX15s
+#ifdef CONFIG_ARCH_SCX15
 	ret = of_property_read_u32(gsp_of_dev->of_node, "gsp_mmu_ctrl_base", &gsp_mmu_ctrl_addr);
 	if(0 != ret){
 		printk("%s: read gsp_mmu_ctrl_addr fail (%d)\n", ret);
