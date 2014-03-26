@@ -633,19 +633,41 @@ static struct resource sprd_thm_resources[] = {
     },
 };
 
-static struct sprd_thm_platform_data sprd_thm_data = {
-	.trip_points[0] = {
-		.temp = 107,
-		.type = THERMAL_TRIP_ACTIVE,
-		.cdev_name = {
-			[0] = "thermal-cpufreq-0",
+static struct sprd_thm_platform_data sprd_thm_data =
+{
+		.trip_points[0] = {
+			.temp = 105 - 3*THM_TEMP_DEGREE_SETP,
+			.type = THERMAL_TRIP_ACTIVE,
+			.cdev_name = {
+					[0] = "thermal-cpufreq-0",
+			},
 		},
-	},
-	.trip_points[1] = {
-		.temp = 114,
-		.type = THERMAL_TRIP_CRITICAL,
-	},
-	.num_trips = 2,
+		.trip_points[1] = {
+			.temp = 105 - 2*THM_TEMP_DEGREE_SETP,
+			.type = THERMAL_TRIP_ACTIVE,
+			.cdev_name = {
+				[0] = "thermal-cpufreq-0",
+		},
+		},
+		.trip_points[2] = {
+			.temp = 105 - 1*THM_TEMP_DEGREE_SETP,
+			.type = THERMAL_TRIP_ACTIVE,
+			.cdev_name = {
+				[0] = "thermal-cpufreq-0",
+			},
+		},
+		.trip_points[3] = {
+			.temp = 105,
+			.type = THERMAL_TRIP_ACTIVE,
+			.cdev_name = {
+				[0] = "thermal-cpufreq-0",
+			},
+		},
+		.trip_points[4] = {
+			.temp = 114,
+			.type = THERMAL_TRIP_CRITICAL,
+		},
+		.num_trips = 5,
 };
 
 struct platform_device sprd_thm_device = {
