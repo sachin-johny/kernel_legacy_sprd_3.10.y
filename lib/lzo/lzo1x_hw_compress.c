@@ -36,7 +36,6 @@
 #include <linux/delay.h>
 #include <linux/sched.h>
 #include <linux/atomic.h>
-
 //macro
 #define	ZIPENC_NORMAL_LEN				0
 #define	ZIPENC_LIMIT_LEN				1
@@ -70,16 +69,30 @@ static struct ZIPENC_CFG zipenc_param =
 
 DEFINE_SPINLOCK(zipenc_lock);
 
-static inline void Emc_zipwfifoempty(void)
+static int (*Zip_Enc_Wait)(ZIPENC_INT_TYPE);
+static int (*ZipEnc_compress)(const unsigned char *src, size_t src_len,unsigned char *dst, size_t *dst_len, void *wrkmem);
+
+static void ZipEnc_Restart(void)
 {
-        volatile uint32_t ddr_busy;
-        while(1)
-        {
-                ddr_busy = CHIP_REG_GET(SPRD_LPDDR2_BASE+0x3fc);
-                if(!(ddr_busy&BIT_24))
-                        break;
-        }
+	CHIP_REG_AND(ZIPENC_CTRL , ~ZIPENC_EN);
+	ZipEnc_Disable();
+
+	udelay(100);
+
+	ZipEnc_Enable();
+	ZipEnc_Reset();
+
+	CHIP_REG_OR(ZIPENC_CTRL , ZIPENC_EN);
+
+	ZipEnc_In_Swt(zipenc_param.in_switch_mode);
+	ZipEnc_Out_Swt(zipenc_param.out_switch_mode);
+
+	ZipEnc_LengthLimitMode();
+
+	ZipEnc_InQueue_Clr();
+	ZipEnc_OutQueue_Clr();
 }
+
 
 static void ZipEnc_Callback_Done(uint32_t num)
 {
@@ -118,59 +131,6 @@ static int Zip_Enc_Wait_Pool(ZIPENC_INT_TYPE num)
 	return 0;
 }
 
-static void ZipEnc_Init (void)
-{
-	unsigned int ret;
-
-	ZipEnc_Enable();
-	//ZipEnc_Reset();
-
-	CHIP_REG_OR(ZIPENC_CTRL , ZIPENC_EN);
-
-	ZipEnc_In_Swt(zipenc_param.in_switch_mode);
-	ZipEnc_Out_Swt(zipenc_param.out_switch_mode);
-
-	ZipEnc_LengthLimitMode();
-
-	ZipEnc_InQueue_Clr();
-	ZipEnc_OutQueue_Clr();
-
-	if(zipenc_param.wait_mode == ZIPENC_WAIT_INT)
-	{
-		ZipEnc_RegCallback(ZIPENC_DONE_INT,ZipEnc_Callback_Done);
-		ZipEnc_RegCallback(ZIPENC_TIMEOUT_INT,ZipEnc_Callback_Timeout);
-		ZipEnc_IntEn(ZIPENC_DONE_INT);
-		ZipEnc_IntEn(ZIPENC_TIMEOUT_INT);
-		ret = request_irq( zipenc_param.int_num, ZipEnc_IsrHandler,0,"zip enc",NULL);
-		if(ret)
-		{
-			printk("zip enc request irq error\n");
-			return;
-		}
-	}
-
-	 //ZipEnc_Set_Timeout(zipenc_param.timeout);
-}
-
-static void ZipEnc_DeInit(void)
-{
-	ZipEnc_Disable();
-	if(zipenc_param.work_mode==ZIPENC_QUEUE)
-	{
-		ZipEnc_InQueue_Clr();
-		ZipEnc_OutQueue_Clr();
-	}
-
-	if(zipenc_param.wait_mode==ZIPENC_WAIT_INT)
-	{
-		ZipEnc_IntDisable(ZIPENC_DONE_INT);
-		ZipEnc_UNRegCallback(ZIPENC_DONE_INT);
-
-		ZipEnc_UNRegCallback(ZIPENC_TIMEOUT_INT);
-		free_irq(zipenc_param.int_num,NULL);
-	}
-}
-
 uint32_t lzo1x_virt_to_phys(uint32_t virt_addr)
 {
 	uint32_t phy_addr;
@@ -193,14 +153,11 @@ uint32_t lzo1x_virt_to_phys(uint32_t virt_addr)
 	return phy_addr;
 }
 
-static int _lzo1x_1_hw_compress( uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len)
+static int _lzo1x_1_hw_compress(uint32_t src_addr , uint32_t src_num , uint32_t dst_addr , uint32_t *dst_len)
 {
 
 	uint32_t len,ol_sts;
 	uint32_t phy_src_addr,phy_dst_addr;
-
-	int (*Zip_Enc_Wait)(ZIPENC_INT_TYPE);
-	Zip_Enc_Wait = ((zipenc_param.wait_mode==ZIPENC_WAIT_INT)? (Zip_Enc_Wait_Int) : (Zip_Enc_Wait_Pool));
 
 	*dst_len=0;
 
@@ -232,7 +189,6 @@ static int _lzo1x_1_hw_compress( uint32_t src_addr , uint32_t src_num , uint32_t
 	ol_sts=ZipEnc_Get_Ol_Sts();
 	if(ol_sts)
 	{
-//		printk("zip compress error ,length is more than 4k 0x%x \n",ol_sts);
 		return LZO_HW_OUT_LEN_ERROR;
 	}
 	else
@@ -240,20 +196,16 @@ static int _lzo1x_1_hw_compress( uint32_t src_addr , uint32_t src_num , uint32_t
 		len=ZipEnc_Get_Comp_Len();
 		if(len >= ZIP_WORK_LENGTH )
 		{
-//			printk("zip compress lenth error\n");
 			return LZO_HW_OUT_LEN_ERROR;
 		}
-		//printk("zip compress data lenth:0x%x \n",len);
 	}
 	*dst_len = len;
-
 	return 0;
 }
 
-int _lzo1x_1_compress_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len , void *wrkmen)
+static int _lzo1x_1_compress_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len , void *wrkmen)
 {
-
-	volatile uint32_t enc_len,ddr_busy;
+	volatile uint32_t enc_len;
 	volatile int ret;
 
 	uint32_t src_addr =(uint32_t)src;
@@ -264,53 +216,125 @@ int _lzo1x_1_compress_hw(const unsigned char *src , size_t src_len , unsigned ch
 		printk("zip compress input parameter error \n");
 		return LZO_HW_IN_PARA_ERROR;
 	}
+	
+	CHIP_REG_OR(ZIPENC_CTRL , ZIPENC_EN);
 
-	ZipEnc_Init();
+	ZipEnc_In_Swt(zipenc_param.in_switch_mode);
+	ZipEnc_Out_Swt(zipenc_param.out_switch_mode);
 
+	ZipEnc_LengthLimitMode();
+
+	ZipEnc_InQueue_Clr();
+	ZipEnc_OutQueue_Clr();
+
+	//printk("lzo hw compress \r\n");
 	if(ret=_lzo1x_1_hw_compress((uint32_t)src_addr ,src_len , dst_addr ,&enc_len))
 	{
-		//printk("lzo compress error\n");
-		Emc_zipwfifoempty();
-		ZipEnc_DeInit();
+		//printk("lzo compress error ret:%d\n",ret);
+		if(ret== LZO_HW_OUT_LEN_ERROR)
+		return ret;
+
+		ZipEnc_Restart();
 
 		*dst_len=enc_len;
 		if(ret==LZO_HW_ERROR)
 		return LZO_HW_ERROR;
-		else if(ret== LZO_HW_OUT_LEN_ERROR)
-		return LZO_HW_OUT_LEN_ERROR;
 		else
 		return LZO_OTHER_ERROR;
 	}
 
-	Emc_zipwfifoempty();
 	*dst_len=enc_len;
-	//printk("lzo compress finish 0x%x\n",enc_len);
-	ZipEnc_DeInit();
 	return LZO_HW_OK;
+}
 
+
+int lzo1x_1_compress_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len , void *wrkmen)
+{
+	return ZipEnc_compress(src,src_len,dst,dst_len,wrkmen);
 }
 
 unsigned int get_chip_aon_id()
 {
-	return __raw_readl(REG_AON_APB_AON_CHIP_ID);
+        return __raw_readl(REG_AON_APB_AON_CHIP_ID);
 }
-extern bool lzo_sw_flag;
-int lzo1x_1_compress_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len , void *wrkmen)
-{
-	int ret = 0;
 
-	if(lzo_sw_flag)
+unsigned int get_zip_type(void)
+{
+	static unsigned int lzo_algo_type = 0;
+	static int  read_chip_cnt = 0;
+	int chip_id;
+	if(!read_chip_cnt)
 	{
-		ret =lzo1x_1_compress(src,src_len,dst,dst_len,wrkmen);
-		//printk("compress sw\n");
+		read_chip_cnt = 1;
+		chip_id = get_chip_aon_id();
+		if((chip_id==0x7715a000)||(chip_id==0x7715a001)||(chip_id==0x8815a000))
+		{
+			lzo_algo_type = 1;
+		}
+		printk("lzo zip type %d is %s zip\r\n",lzo_algo_type, lzo_algo_type ? "sw" : "hw");
 	}
-	else
-	{
-		//printk("compress hw\n");
-		ret =_lzo1x_1_compress_hw(src,src_len,dst,dst_len,wrkmen);
-	}
-	return ret;
+	return lzo_algo_type;
 }
+
+static int __init ZipEnc_Init(void)
+{
+	int ret;
+
+	printk("%s\r\n", __func__);
+
+	ZipEnc_Enable();
+	//ZipEnc_Reset();
+
+	CHIP_REG_OR(ZIPENC_CTRL , ZIPENC_EN);
+
+	ZipEnc_In_Swt(zipenc_param.in_switch_mode);
+	ZipEnc_Out_Swt(zipenc_param.out_switch_mode);
+
+	ZipEnc_LengthLimitMode();
+
+	ZipEnc_InQueue_Clr();
+	ZipEnc_OutQueue_Clr();
+
+	if(zipenc_param.wait_mode == ZIPENC_WAIT_INT)
+	{
+		ZipEnc_RegCallback(ZIPENC_DONE_INT,ZipEnc_Callback_Done);
+		ZipEnc_RegCallback(ZIPENC_TIMEOUT_INT,ZipEnc_Callback_Timeout);
+		ZipEnc_IntEn(ZIPENC_DONE_INT);
+		ZipEnc_IntEn(ZIPENC_TIMEOUT_INT);
+		ret = request_irq( zipenc_param.int_num, ZipEnc_IsrHandler,0,"zip enc",NULL);
+		if(ret)
+		{
+			printk("zip enc request irq error\n");
+			return -1;
+		}
+	}
+	
+	Zip_Enc_Wait = ((zipenc_param.wait_mode==ZIPENC_WAIT_INT)? (Zip_Enc_Wait_Int) : (Zip_Enc_Wait_Pool));
+	ZipEnc_compress = get_zip_type() ?  lzo1x_1_compress : _lzo1x_1_compress_hw;
+	return 0;
+}
+
+static void ZipEnc_DeInit(void)
+{
+	ZipEnc_Disable();
+	if(zipenc_param.work_mode==ZIPENC_QUEUE)
+	{
+		ZipEnc_InQueue_Clr();
+		ZipEnc_OutQueue_Clr();
+	}
+
+	if(zipenc_param.wait_mode==ZIPENC_WAIT_INT)
+	{
+		ZipEnc_IntDisable(ZIPENC_DONE_INT);
+		ZipEnc_UNRegCallback(ZIPENC_DONE_INT);
+
+		ZipEnc_UNRegCallback(ZIPENC_TIMEOUT_INT);
+		free_irq(zipenc_param.int_num,NULL);
+	}
+}
+
+module_init(ZipEnc_Init);
+module_exit(ZipEnc_DeInit);
 
 EXPORT_SYMBOL_GPL(lzo1x_1_compress_hw);
 MODULE_LICENSE("GPL");

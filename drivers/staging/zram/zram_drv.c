@@ -43,8 +43,6 @@
 #define  zram_decompress_safe    lzo1x_decompress_safe_hw
 static uint lzo_algo_type = LZO_ALGO_HW;
 bool lzo_sw_flag;
-extern bool lzo_sw_flag;
-extern unsigned int get_chip_aon_id();
 #else
 #define  zram_compress           lzo1x_1_compress
 #define  zram_decompress_safe    lzo1x_decompress_safe
@@ -713,7 +711,6 @@ unsigned int zram_get_num_devices(void)
 static int __init zram_init(void)
 {
 	int ret, dev_id;
-	unsigned int chip_id;
 
 	if (num_devices > max_num_devices) {
 		pr_warn("Invalid value for num_devices: %u\n",
@@ -741,14 +738,6 @@ static int __init zram_init(void)
 		if (ret)
 			goto free_devices;
 	}
-#ifdef CONFIG_LZO_HW_ALGO
-	chip_id = get_chip_aon_id();
-	if((chip_id==0x7715a000)||(chip_id==0x7715a001)||(chip_id==0x8815a000))
-	{
-		lzo_sw_flag = 1;
-		pr_info("LZO ALGO SW %d\n",lzo_sw_flag);
-	}
-#endif
 	pr_info("Created %u device(s) ...\n", num_devices);
 
 	return 0;
