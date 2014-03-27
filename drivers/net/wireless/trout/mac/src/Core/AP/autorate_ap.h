@@ -59,6 +59,10 @@ extern void update_max_rate_idx_ap(asoc_entry_t *ae);
 extern void update_min_rate_idx_ap(asoc_entry_t *ae);
 extern void reinit_tx_rate_idx_ap(asoc_entry_t *ae);
 extern void increment_rate_ap(asoc_entry_t *ae);
+/*ping.jiang add for AR algorithm 2013-10-31*/
+extern void decrement_rate_cca_ap(asoc_entry_t *ae);
+extern void increment_rate_cca_ap(asoc_entry_t *ae);
+/*ping.jiang add for AR algorithm end*/
 extern void decrement_rate_ap(asoc_entry_t *ae);
 #endif /* AUTORATE_FEATURE */
 

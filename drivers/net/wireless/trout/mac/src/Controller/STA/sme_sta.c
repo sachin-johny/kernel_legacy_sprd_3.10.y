@@ -79,7 +79,7 @@
 int itm_scan_flag = 0;
 
 BOOL_T g_wps_scan_req_from_user         = BFALSE; // caisf add for fix wps scan bug. 1121
-
+extern void  MxdRfGetRfMode(unsigned int * pFlagFmBit2BtBit1WfBit0 );
 
 /*****************************************************************************/
 /* Static Function Declarations                                              */
@@ -190,6 +190,7 @@ void handle_scan_rsp(mac_struct_t *mac, UWORD8 *msg)
 	TROUT_FUNC_ENTER;
 	//chenq add 0730
 	itm_scan_flag = 0;
+
 #ifdef CONFIG_CFG80211
 	complete(&scan_completion);
 #endif
@@ -322,7 +323,7 @@ void handle_scan_rsp(mac_struct_t *mac, UWORD8 *msg)
                 initiate_start(mac);
 
                 /* ITM_DEBUG */
-                TROUT_DBG3("Status: Scan Failed. Result-Code = %d. Starting IBSS N/w \n",
+                TROUT_DBG3("Status: Scan Failed. Result-Code = %d. Starting IBSS N/w \n\r",
                 scan_rsp->result_code);
             }
         }
@@ -450,7 +451,7 @@ void handle_join_rsp(mac_struct_t *mac, UWORD8 *msg)
             initiate_auth(mac);
 
             /* ITM_DEBUG */
-            TROUT_DBG4("Status: Initiating Authentication.\n");
+            TROUT_DBG4("Status: Initiating Authentication.\n\r");
         }
     }
     else
@@ -460,7 +461,7 @@ void handle_join_rsp(mac_struct_t *mac, UWORD8 *msg)
             initiate_scan(mac);
 
             /* ITM_DEBUG */
-            TROUT_DBG4("Status: Join Failed. Result-Code = %d. Reinitiating Scan.\n",
+            TROUT_DBG4("Status: Join Failed. Result-Code = %d. Reinitiating Scan.\n\r",
             join_rsp->result_code);
         }
         else /* INDEPENDENT */
@@ -538,21 +539,25 @@ void handle_auth_rsp(mac_struct_t *mac, UWORD8 *msg)
         initiate_asoc(mac);
 
         /* ITM_DEBUG */
-        TROUT_DBG4("Status: Authentication Successful. Initiating Association.\n");
+        TROUT_DBG4("Status: Authentication Successful. Initiating Association.\n\r");
 
     }
+	else if(g_auth_retry_cnt < AUTH_MAX_RETRY_CNT){
+		g_auth_retry_cnt++;
+		initiate_auth(mac);
+		TROUT_DBG4("Status: Authentication Failed. Result-Code = %d. retry time = %d\n", auth_rsp->result_code, g_auth_retry_cnt);
+	}
     else
     {
         initiate_scan(mac);
 
         /* ITM_DEBUG */
-        TROUT_DBG4("Status: Authentication Failed. Result-Code = %d.\n",
-        auth_rsp->result_code);
-        /*leon liu modified, not report disconnected to UI, let initiate_scan do the job*/
+        TROUT_DBG4("Status: Authentication Failed. Result-Code = %d. ", auth_rsp->result_code);
+/* leon liu added, keep MAC_CONNECT_FAILED for cfg80211 (trout2.3.5 on 09-19 removed this) */
         // add by Ke.Li at 2013-04-04 for fix refresh UI ap list
         //send_mac_status(MAC_CONNECT_FAILED);
         // end add by Ke.Li at 2013-04-04 for fix refresh UI ap list
-        TROUT_DBG4("Reinitiating Scan.\n");
+        TROUT_DBG4("Reinitiating Scan.\n\r");
     }
 
 	/*leon liu added refreshing powersave timer 2013-4-1*/
@@ -596,20 +601,26 @@ void handle_asoc_rsp(mac_struct_t *mac, UWORD8 *msg)
 	TROUT_FUNC_ENTER;
     if(asoc_rsp->result_code != SUCCESS_MLMESTATUS)
     {
+    	 	if(g_assoc_retry_cnt < ASSOC_MAX_RETRY_CNT){
+			g_assoc_retry_cnt++;
+			initiate_asoc(mac);
+			TROUT_DBG4("Status: Association Failed. Result-Code = %d. retry time = %d\n", asoc_rsp->result_code, g_assoc_retry_cnt);
+		}
+		else{
         initiate_scan(mac);
 
-        /*leon liu modified, not report disconnected to UI, let initiate_scan do the job*/
         /* ITM_DEBUG */
-        TROUT_DBG4("Status: Association Failed. Result-Code = %d.\n",asoc_rsp->result_code);
+        TROUT_DBG4("Status: Association Failed. Result-Code = %d. ",asoc_rsp->result_code);
         // add by Ke.Li at 2013-04-04 for fix refresh UI ap list
-        //send_mac_status(MAC_CONNECT_FAILED);
+        		//send_mac_status(MAC_CONNECT_FAILED);
         // end add by Ke.Li at 2013-04-04 for fix refresh UI ap list
-        TROUT_DBG4("Reinitiating Scan.\n");
+        TROUT_DBG4("Reinitiating Scan.\n\r");
+    }
     }
     else
     {
-		/* ITM_DEBUG */
-		TROUT_DBG4("Status: Association Successful.\n");
+        /* ITM_DEBUG */
+        TROUT_DBG4("Status: Association Successful.\n\r");
 		//config_amsdu_func(NULL, BTRUE);	//add by chengwg for sta mode.
 		config_802_11n_feature(NULL, BTRUE);	//sta mode.
 
@@ -617,6 +628,7 @@ void handle_asoc_rsp(mac_struct_t *mac, UWORD8 *msg)
 		TROUT_DBG4("after associated, init trout self-cts & ps null data!\n");
 		coex_null_data_init();	//add by chengwg for wifi&bt coex init.
 		host_notify_arm7_con_ap_mode();
+
 		#endif	/* IBSS_BSS_STATION_MODE */
 		
 		#ifdef TROUT_WIFI_NPI
@@ -658,9 +670,11 @@ void prepare_mlme_scan_req(scan_req_t *scan_req)
     //UWORD8 i = 0;
     //UWORD8 k = 0;
     BOOL_T scan_all_channels = BFALSE;
+	UWORD32 coex_reg = 0;
 
 	//chenq add a addr
 	UWORD8 addr0[6] = {0};
+	MxdRfGetRfMode(&coex_reg);
 
 	TROUT_FUNC_ENTER;
     mem_set(scan_req, 0, sizeof(scan_req_t));
@@ -676,18 +690,18 @@ void prepare_mlme_scan_req(scan_req_t *scan_req)
     else
     {
         scan_req->bss_type = mget_DesiredBSSType();
-	if(scan_need_goon())
-	{ //zhangzhao add if 2013-01-13
+		if(scan_need_goon())
+		{ //zhangzhao add if 2013-01-13
         	//chenq mod 2013-10-10
         	//strcpy((WORD8 *)scan_req->bssid, (const WORD8 *)mget_bssid());
         	memcpy((WORD8 *)scan_req->bssid, (const WORD8 *)g_prefered_bssid,6);
         	strcpy((WORD8 *)scan_req->ssid, (const WORD8 *)mget_DesiredSSID());
-	}
-	else
-	{ //zhangzhao add else 2013-01-13
+		}
+		else
+		{ //zhangzhao add else 2013-01-13
         	mem_set(scan_req->bssid,0,6);
         	mem_set(scan_req->ssid,0,MAX_SSID_LEN);
-	}
+		}
     }
 
     /* If user requested to scan all channels do it */
@@ -769,6 +783,7 @@ void prepare_mlme_scan_req(scan_req_t *scan_req)
 				list_idx++;
 				#else
 				int tmp_i = 0;
+				if(0 == (coex_reg & BIT1)){
 				for(tmp_i = 0;tmp_i < SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1);tmp_i++)
 				{
 					scan_req->channel_list[list_idx * SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1)  + tmp_i]
@@ -777,6 +792,14 @@ void prepare_mlme_scan_req(scan_req_t *scan_req)
 					//TROUT_DBG4("will scan channel times %d num %d\n",
 						//list_idx*SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1) + tmp_i,
 						//scan_req->channel_list[list_idx*SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1) + tmp_i]);	
+				}
+				}
+				else{
+					for(tmp_i = 0;tmp_i < COEX_SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1);tmp_i++)
+					{
+						scan_req->channel_list[list_idx * COEX_SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1)  + tmp_i]
+							= ch_idx;
+					}
 				}
 				list_idx++;
 				#endif
@@ -1018,14 +1041,10 @@ UWORD8 check_scan_match(scan_rsp_t *scan_rsp)
         }
 
         /* Ignore the network if MAC or PHY capabilities did not match */
-        if(check_bss_capability_mac(&bss_dscr_set[i]) == BFALSE)
+        if((check_bss_capability_mac(&bss_dscr_set[i]) == BFALSE) ||
+           (check_bss_capability_phy(bss_dscr_set[i].cap_info) == BFALSE))
         {
-            TROUT_DBG4("MAC capabilities did not match!\n");
-            continue;
-        }
-        else if(check_bss_capability_phy(bss_dscr_set[i].cap_info) == BFALSE)
-        {
-            TROUT_DBG4("PHY capabilities did not match!\n");
+			TROUT_DBG4("MAC or PHY capabilities did not match!\n");
             continue;
         }
 
@@ -1394,11 +1413,11 @@ wait:
               }  
               if((UWORD32)null_frame_dscr == 0x1){  
                    cnt++;  
-                   printk("@@@: %s SUSPEND SEND NULL try %d times\n", __func__, cnt);  
+                   printk("@@@: %s SUSPEND SEND NULL try %d times\n", cnt, __func__);  
                    if(cnt < 5)  
                        goto retry;  
               }  
-              pr_info("%s null frame done null_frame_dscr = %p\n", __func__, null_frame_dscr);  
+              pr_info("%s null frame done null_frame_dscr = %08X\n", __func__, null_frame_dscr);  
          }else{  
               printk("@@@: %s SUSPEND no memory for NULL\n", __func__);  
               goto fail;  
@@ -1439,7 +1458,7 @@ wait:
                 if(cnt < 3)  
                    goto retry;  
             }  
-            printk("@@@: %s send null frame done null_frame_dscr = %p!\n", __func__, null_frame_dscr);  
+            printk("@@@: %s send null frame done null_frame_dscr = %08x!\n", __func__, null_frame_dscr);  
        }else{  
             printk("@@@: %s RESUME no memory for NULL or other reason\n", __func__);  
        }  
@@ -1449,20 +1468,15 @@ wait:
 
 void start_obss_scan(void)
 {
-    /* Bug247468 yiming.li  merge 6820 patch 2013-12-10  */
-    reset_mac__lock();
-    
+
     TROUT_DBG4("start_obss_scan 1 \n");
 
-    if(start_obss_scan_prepare())
-    {
-        reset_mac_unlock();  
+    if(start_obss_scan_prepare()) 
         return;
-    }
+    
 	
 
     TROUT_DBG4("start_obss_scan 5 \n");
-     reset_mac_unlock();
 
     /* Go for scanning */
     initiate_scan(&g_mac);
@@ -1593,10 +1607,9 @@ void set_start_scan_req_sta(UWORD8 scan_source)
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-	    if(!wake_lock_active(&scan_ap_lock)){
-	    	wake_lock(&scan_ap_lock);
-	        printk("@@@: acquire scan_ap_lock in %s\n", __func__);
-        }
+	    if(wake_lock_active(&scan_ap_lock))  
+                wake_unlock(&scan_ap_lock);  
+            printk("@@@: release scan_ap_lock\n");  
 #endif
 #endif
 	    /* Connected State: Start the OBSS Scan */
@@ -1757,21 +1770,22 @@ void initiate_scan(mac_struct_t *mac)
 	//chenq add 2013-01-12
 	if(scan_need_goon() == 0)
 	{
-        	// add by Ke.Li at 2013-04-04 for fix refresh UI ap list
-        	send_mac_status(MAC_CONNECT_FAILED);
-        	// end add by Ke.Li at 2013-04-04 for fix refresh UI ap list
+        // add by Ke.Li at 2013-04-04 for fix refresh UI ap list
+        send_mac_status(MAC_CONNECT_FAILED);
+        // end add by Ke.Li at 2013-04-04 for fix refresh UI ap list
 		mset_DesiredSSID("");
 
 		//chenq add 2013-10-10
 		memset(g_prefered_bssid,0,6);
 
-        	//chenq add 2013-05-23
-        	set_mac_state(WAIT_SCAN);
+        //chenq add 2013-05-23
+        set_mac_state(WAIT_SCAN);
 		//add end
 		kfree(scan_req);
 		return;
 	}
-
+		
+		
 	prepare_mlme_scan_req(scan_req);
 	mlme_scan_req(mac, (UWORD8*)scan_req);
 

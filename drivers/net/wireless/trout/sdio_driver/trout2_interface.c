@@ -36,6 +36,8 @@
 #include <linux/string.h>
 
 #include "trout2_interface.h"
+#include "sp_mode.h"
+
 extern void MxdRfSetClkReqLow();
 extern struct sdio_func *cur_sdio_func;
 extern struct sdio_func *trout_sdio_func;
@@ -139,7 +141,7 @@ static void Set_Function_Start(unsigned int mode)
 	{
 		host_write_trout_reg(host_read_trout_reg((unsigned int)rMAC_PA_CON ) | (PA_DS_0 | PA_DS_25),(unsigned int)rMAC_PA_CON );
 	  	printk(" Set TROUT2_SYS_REG_CLK_CTRL1: %d \n",TROUT2_SYS_REG_CLK_CTRL1);
-		host_write_trout_reg(WIFI_OPEN_FLAG,TROUT2_SYS_REG_HOST2ARM_INFO3); //dumy 0416 //?? msleep lihuai & mxd - need commet
+//		host_write_trout_reg(WIFI_OPEN_FLAG,TROUT2_SYS_REG_HOST2ARM_INFO3); //dumy 0416 //?? msleep lihuai & mxd - need commet
 	  	printk(" Set TROUT2_SYS_REG_HOST2ARM_INFO3: 1");
 		/* Fixed ,AD/DA settings */
 		host_write_trout_reg(0x34, TROUT2_SYS_REG_WIFIAD_CFG);  // WIFI ADC
@@ -285,7 +287,7 @@ static void Set_Function_Stop(unsigned int mode)
 	  //msleep(50);
 	  //host_write_trout_reg(host_read_trout_reg( (unsigned int)rMAC_PA_CON ) & (~(PA_DS_0 | PA_DS_25)),(unsigned int)rMAC_PA_CON );
 	  //mdelay(20);
-	  host_write_trout_reg(WIFI_CLOSE_FLAG,TROUT2_SYS_REG_HOST2ARM_INFO3); //dumy 0416 //?? 0?
+//	  host_write_trout_reg(WIFI_CLOSE_FLAG,TROUT2_SYS_REG_HOST2ARM_INFO3); //dumy 0416 //?? 0?
 	  printk(" TROUT2_SYS_REG_HOST2ARM_INFO3 set 0 \n");
 	}
 	
@@ -1497,7 +1499,7 @@ ADJUST_REG_T *p_cal_regs = NULL;
 // 0 no, 1 need self-cal, 2 cal done
 typedef enum
 {
-    NOT_READY = 0x29,
+	NOT_READY = 0x29,
 	SELFCAL_DEFAULT = 0x30,
 	SELFCAL_WAITING = 0x31,
 	SELFCAL_DONE    = 0x32,
@@ -2034,6 +2036,8 @@ void Set_Trout2_Open(void)
 bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 {
 	int i = 0;
+        int cnt = 0;
+
 	if((MODE_ID != WIFI_MODE) && (MODE_ID != FM_MODE) && (MODE_ID != BT_MODE))
 	{
 		printk("ATTENTION!!! Bad Mode ID.\n");
@@ -2041,6 +2045,9 @@ bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 	}
 	
 	mutex_lock(&trout_power_mutex_lock);//Lock Mode_mutex
+
+RESTART_SPECIAL_MODE:
+
 	#ifdef TROUT_PDN_ENABLE
 	printk("\n===========Power On==========\n");
 	printk("zhuyg g_trout_power_mode is: %u\n", g_trout_power_mode);
@@ -2095,6 +2102,29 @@ bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 		}
 #endif
 
+
+        {
+            cnt++;
+            if(cnt<5)
+            {
+               if(-1 == trout_special_mode(cnt))
+               {
+                   printk("lihua::trtr: restart trout_sp_mode cnt[%d]\n",cnt);
+                   Set_Power_Control(false);
+                   goto RESTART_SPECIAL_MODE;
+               }
+               else
+               {
+                  printk("lihua::trtr: trout_sp_mode scan OK! cnt[%d]\n",cnt);
+               }
+            }
+            else
+            {
+                printk("lihua::trtr: trout_sp_mode scan failed! cnt[%d]\n",cnt);
+            }
+
+        }
+		
 		/* Down bt code for power sleep function */
 		/*leon liu masked power sleep enable macro for downloading BT code*/
        		/* #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE*/

@@ -107,6 +107,7 @@ static void radar_detect_isr(void);
 extern BOOL_T is_all_machw_q_null(void);
 extern void dump_allregs(unsigned long ix, unsigned long iy);
 
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : set_machw_tsf_disable                                    */
@@ -960,7 +961,7 @@ void update_edca_machw(void)
                                mget_EDCATableAIFSN(AC_BE),
                                mget_EDCATableAIFSN(AC_VI),
                                mget_EDCATableAIFSN(AC_VO));
-
+/*
         set_machw_cw_bk(mget_EDCATableCWmax(AC_BK),
                                         mget_EDCATableCWmin(AC_BK));
         set_machw_cw_be(mget_EDCATableCWmax(AC_BE),
@@ -969,6 +970,12 @@ void update_edca_machw(void)
                                         mget_EDCATableCWmin(AC_VI));
         set_machw_cw_vo(mget_EDCATableCWmax(AC_VO),
                                         mget_EDCATableCWmin(AC_VO));
+                                        */
+                                        
+        set_machw_cw_bk(10,4);
+        set_machw_cw_be(10,4);
+        set_machw_cw_vi(4,3);
+        set_machw_cw_vo(3,2);
 
         set_machw_txop_limit_bkbe(mget_EDCATableTXOPLimit(AC_BK),
                                   mget_EDCATableTXOPLimit(AC_BE));
@@ -1104,6 +1111,29 @@ irqreturn_t mac_isr_work(int irq, void *dev)
 	cints = (cints >> 2) & 0x7FFFF;
 	
 	cmsk = convert_to_le(host_read_trout_reg((UWORD32)rCOMM_INT_MASK));
+#if 0
+#ifdef IBSS_BSS_STATION_MODE
+	printk("\n======= mac_isr_work ========\n[%s] netif_queue_stopped = %d\n", __FUNCTION__, netif_queue_stopped(g_mac_dev));
+	printk("[%s] rCOMM_INT_STAT=%#x, rCOMM_ARM2HOST_INFO3=%#x,  rCOMM_INT_MASK = %#x, g_wifi_bt_coex=%d\n", 
+						__FUNCTION__,ciso, host_read_trout_reg((UWORD32)rCOMM_ARM2HOST_INFO3), cmsk, g_wifi_bt_coex);
+	
+	{
+		UWORD32 tmp = 0;
+		host_read_trout_ram(&tmp, (UWORD32*)TROUT_MEM_CFG_BEGIN, 4);
+		printk("[%s] TROUT_MEM_CFG_BEGIN = %#x\n", __FUNCTION__, tmp);
+	}
+	{
+		UWORD32 tmp32 = 0;		
+		host_read_trout_ram((void *)&tmp32, (void *)(COEX_SELF_CTS_NULL_DATA_BEGIN-4), sizeof(UWORD32));
+		printk("[%s] index from BT: %#x\n", __FUNCTION__, tmp32);
+		//host_read_trout_ram((void *)&tmp32, (void *)(COEX_PS_NULL_DATA_BEGIN), sizeof(UWORD32));
+		//printk("[%s] PS NULL data: %#x\n", __FUNCTION__, tmp32);
+	}
+	//print_qif_table_info();
+	//tx_shareram_slot_stat();
+
+#endif
+#endif
 	cmsk = (cmsk >> 2) & 0x7FFFF;
 	
 	mints = convert_to_le(host_read_trout_reg((UWORD32)rMAC_INT_STAT));
@@ -1135,7 +1165,7 @@ irqreturn_t mac_isr_work(int irq, void *dev)
 	{
 	arm2host_irq_cnt++;
 #ifdef POWERSAVE_DEBUG
-        printk("PS mac_isr: bit29 arm7 interrupt host !\n");
+        //printk("PS mac_isr: bit29 arm7 interrupt host !\n");
 #endif
 #ifdef IBSS_BSS_STATION_MODE	
 		if(g_wifi_bt_coex)
@@ -1144,7 +1174,6 @@ irqreturn_t mac_isr_work(int irq, void *dev)
 			if(arm2host & BIT0)	//tx int.
 			{
 				TROUT_DBG5("%s: arm7 notify host tx int occur(0x%x)!\n", __func__, arm2host);
-
 				tx_flag = 1;
 				tx_complete_isr();
 				arm2host &= (~BIT0);	//clean tx int at this func end				
@@ -1177,7 +1206,7 @@ irqreturn_t mac_isr_work(int irq, void *dev)
 #endif
 		/*tbtt_isr(); [>TBTT emulation<] */
 	} else {
-		pr_info("Get msg from arm7: %#x\n",host_read_trout_reg((UWORD32)rSYSREG_INFO2_FROM_ARM));
+		//pr_info("Get msg from arm7: %#x\n",host_read_trout_reg((UWORD32)rSYSREG_INFO2_FROM_ARM));
 		host_write_trout_reg(0x5A, (UWORD32)rSYSREG_INFO2_FROM_ARM);
 		host_write_trout_reg(arm2host_irq_cnt, (UWORD32)rSYSREG_HOST2ARM_INFO2);
 	}
@@ -1354,7 +1383,7 @@ irqreturn_t mac_isr_work(int irq, void *dev)
 #ifdef WIFI_SLEEP_POLICY
     if((ciso>>2) & BIT29)
     {
-	     pr_info("******** %s: done\n", __func__);
+	     //pr_info("******** %s: done\n", __func__);
     }
 	mutex_unlock(&stp->sm_mutex);
 #endif
@@ -1859,7 +1888,7 @@ void get_txrx_count(UWORD32 *tx_ok,
         *rx_fail = rx_count[RX_NEW]+ rx_count[DUP_DETECTED] + rx_count[FCS_ERROR];
 }
 
-//EXPORT_SYMBOL(get_txrx_count);
+EXPORT_SYMBOL(get_txrx_count);
 
 #ifdef TROUT_WIFI_NPI
 void qmu_cpy_npi_descr(int q_num);
@@ -2105,6 +2134,7 @@ void tbtt_isr(void)
 #endif
 
 
+
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
 	if(get_mac_state() == ENABLED){
@@ -2132,6 +2162,12 @@ void tbtt_isr(void)
 #ifdef IBSS_BSS_STATION_MODE
 	// as a timer for power control 
 	g_tbtt_cnt++;
+// for coex state switch. wzl
+    if(NULL != get_local_ipadd()){
+        coex_state_switch(COEX_WIFI_CONNECTED);
+    }
+
+// wzl
 #endif
 
     /* Create a MISC_TBTT event with no message and post it to the event     */
@@ -2498,7 +2534,7 @@ void error_isr(void)
 #endif /* HANDLE_ERROR_INTR */
 
 #ifdef DEBUG_MODE
-    PRINTD2("HwEr:EC = %d\n",error_code);
+    PRINTD2("HwEr:EC = %d\n\r",error_code);
 #endif /* DEBUG_MODE */
 }
 
@@ -2904,7 +2940,7 @@ void write_dot11_phy_reg(UWORD8 ra, UWORD32 rd)
 	    UWORD32 val   = 0;
 	    UWORD32 delay = 0;
 		UWORD32	v, swich = 0;
-		unsigned long caller = (unsigned long)__builtin_return_address(0);
+		unsigned long caller = __builtin_return_address(0);
 
 	get_phy_mutex();
 		/* handle the race condiction between initialize_phy and common
@@ -3004,7 +3040,7 @@ void root_write_dot11_phy_reg(UWORD8 ra, UWORD32 rd)
                           (UWORD32)rMAC_PHY_REG_ACCESS_CON );
 }
 
-//EXPORT_SYMBOL(root_write_dot11_phy_reg);
+EXPORT_SYMBOL(root_write_dot11_phy_reg);
 
 /*****************************************************************************/
 /*                                                                           */

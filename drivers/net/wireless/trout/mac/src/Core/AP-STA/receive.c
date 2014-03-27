@@ -85,7 +85,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
     if(base_dscr == NULL)
     {
 #ifdef DEBUG_MODE
-        TROUT_DBG5("HwEr:NullRxDscr\n");
+        PRINTD2("HwEr:NullRxDscr\n\r");
         g_mac_stats.pwrx_null_dscr++;
 #endif /* DEBUG_MODE */
 
@@ -110,7 +110,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
         free_rx_dscr_list(base_dscr, num_dscr);
         num_dscr = 0;
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:UnexpNewRxDscr\n");
+            PRINTD2("HwEr:UnexpNewRxDscr\n\r");
             g_mac_stats.pwrx_unexp_newdscr++;
 #endif /* DEBUG_MODE */
     }
@@ -123,7 +123,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
         if(base_dscr == NULL)
         {
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:RxUnexpEnd\n");
+            PRINTD2("HwEr:RxUnexpEnd\n\r");
             g_mac_stats.pwrx_unexp_end++;
 #endif /* DEBUG_MODE */
 
@@ -137,7 +137,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
            (is_rx_frame_start_buf(base_dscr) != BTRUE))
         {
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:RxNotStart\n");
+            PRINTD2("HwEr:RxNotStart\n\r");
             g_mac_stats.pwrx_notstart++;
 #endif /* DEBUG_MODE */
 
@@ -154,7 +154,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
         if(num_buffs > num_dscr)
         {
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:RxNumExc\n");
+            PRINTD2("HwEr:RxNumExc\n\r");
             g_mac_stats.pwrx_numexceed++;
 #endif /* DEBUG_MODE */
 
@@ -362,7 +362,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
     if(wlan_rx.rx_len > MAX_MSDU_LEN)
     {
 #ifdef DEBUG_MODE
-        TROUT_DBG5("HwEr:RxMaxLenExc:%d > %d\n",wlan_rx.rx_len, MAX_MSDU_LEN);
+        PRINTD2("HwEr:RxMaxLenExc:%d > %d\n\r",wlan_rx.rx_len, MAX_MSDU_LEN);
         g_mac_stats.pwrx_maxlenexc++;
 #endif /* DEBUG_MODE */
         /* Do nothing and return */
@@ -374,7 +374,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
     if(get_protocol_version(msa) != PROTOCOL_VERSION)
     {
 #ifdef DEBUG_MODE
-        TROUT_DBG5("HwEr:RxFrmHdrProtVerFail\n");
+        PRINTD2("HwEr:RxFrmHdrProtVerFail\n\r");
         g_mac_stats.rxfrmhdrprotverfail++;
 #endif /* DEBUG_MODE */
 
@@ -387,7 +387,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
     if(check_from_to_ds(&wlan_rx) == BTRUE)
     {
 #ifdef DEBUG_MODE
-        TROUT_DBG5("HwEr:RxFrmHdrAddr4Prsnt\n");
+        PRINTD2("HwEr:RxFrmHdrAddr4Prsnt\n\r");
         g_mac_stats.rxfrmhdraddr4prsnt++;
 #endif /* DEBUG_MODE */
 
@@ -403,7 +403,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
 #ifdef BSS_ACCESS_POINT_MODE
         if(wlan_rx.is_grp_addr == BFALSE)
 #endif /* BSS_ACCESS_POINT_MODE */
-        TROUT_DBG5("HwEr:RxFrmHdrBssidChkFail\n");
+        PRINTD2("HwEr:RxFrmHdrBssidChkFail\n\r");
         g_mac_stats.rxfrmhdrbssidchkfail++;
 #endif /* DEBUG_MODE */
 
@@ -443,7 +443,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
         if(is_valid_cipher_type(ct) == BFALSE)
         {
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:InvalidCT=%d\n",ct);
+            PRINTD2("HwEr:InvalidCT=%d\n",ct);
             g_mac_stats.invalidct++;
 #endif /* DEBUG_MODE */
             /* Do nothing and return */
@@ -473,7 +473,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
     if(wlan_rx.rx_len < min_pkt_len)
     {
 #ifdef DEBUG_MODE
-        TROUT_DBG5("HwEr:RxMinLenExc: %d < %d\n", wlan_rx.rx_len, min_pkt_len);
+        PRINTD2("HwEr:RxMinLenExc: %d < %d\n\r", wlan_rx.rx_len, min_pkt_len);
         g_mac_stats.pwrx_minlenexc++;
 #endif /* DEBUG_MODE */
         /* Do nothing and return */
@@ -529,12 +529,12 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
 #ifdef DEBUG_MODE
         if(BTRUE == wlan_rx.is_grp_addr)
         {
-            TROUT_DBG5("HwEr:BRx%d\n",status);
+            PRINTD2("HwEr:BRx%d ",status);
             g_mac_stats.brx_frame_droped++;
         }
         else
         {
-            TROUT_DBG5("HwEr:URx%d\n",status);
+            PRINTD2("HwEr:URx%d ",status);
             g_mac_stats.urx_frame_droped++;
         }
 #endif /* DEBUG_MODE */
@@ -553,7 +553,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
 #ifdef DEBUG_MODE
 		{
 	        UWORD8 *addr1 = wlan_rx.addr1;
-	        TROUT_DBG5("HwEr:RxUnexpFrm:%x:%x:%x:%x:%x:%x\n",addr1[0],addr1[1],addr1[2],
+	        PRINTD2("HwEr:RxUnexpFrm:%x:%x:%x:%x:%x:%x\n\r",addr1[0],addr1[1],addr1[2],
 	        									addr1[3],addr1[4],addr1[5]);
 	        g_mac_stats.rxunexpfrm++;
 		}

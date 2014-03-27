@@ -209,7 +209,7 @@ void initialize_mac_mib(void)
     MIBM.dot11CFPollable                    = TV_FALSE;
     MIBM.dot11CFPPeriod                     = 0;
     MIBM.dot11CFPMaxDuration                = 0;
-    MIBM.dot11AuthenticationResponseTimeOut = 512; // chenq fix 512; //dumy fix 1000 //512;        /* 512ms           */
+    MIBM.dot11AuthenticationResponseTimeOut = 163; //wzl fix 163ms for coex retransmit// chenq fix 512; //dumy fix 1000 //512;        /* 512ms           */
     MIBM.dot11PrivacyOptionImplemented      = TV_FALSE;   /* Shared Key Auth */
 #ifdef IBSS_BSS_STATION_MODE
     MIBM.dot11PowerManagementMode           = MIB_ACTIVE; /* Active Mode     */
@@ -235,7 +235,7 @@ void initialize_mac_mib(void)
     /* is set in the immediate next beacon.                                  */
     MIBM.dot11DTIMPeriod = 1;
 #endif /* MAC_P2P */
-    MIBM.dot11AssociationResponseTimeOut    = 512; // chenq fix 512; //dumy fix 1000  //512;        /* 512ms           */
+    MIBM.dot11AssociationResponseTimeOut    = 163; //wzl fix 163ms for coex retransmit// chenq fix 512; //dumy fix 1000  //512;        /* 512ms           */
     MIBM.dot11DisassociateReason            = 0;
     mem_set(MIBM.dot11DisassociateStation, 0, 6);
     MIBM.dot11DeauthenticateReason          = 0;

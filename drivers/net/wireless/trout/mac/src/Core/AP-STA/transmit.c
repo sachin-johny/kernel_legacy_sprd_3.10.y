@@ -119,8 +119,22 @@ void set_tx_params(UWORD8 *tx_dscr, UWORD8 tr, UWORD8 pr, UWORD8 ap,
     set_tx_dscr_data_rate_0((UWORD32 *)tx_dscr, dr);
     set_tx_dscr_ack_policy((UWORD32 *)tx_dscr, ap);
     set_tx_dscr_phy_tx_mode((UWORD32 *)tx_dscr, ptm);
+
+#ifdef IBSS_BSS_STATION_MODE    
+    if(g_wifi_bt_coex)
+    {
+        set_tx_dscr_retry_rate_set1((UWORD32 *)tx_dscr, (dr << 24) | (dr << 16) | (dr << 8) | dr);
+    	set_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr, (dr << 16) | (dr << 8) | dr);
+    }
+	else
+	{
     set_tx_dscr_retry_rate_set1((UWORD32 *)tx_dscr, retry_rate_set[0]);
     set_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr, retry_rate_set[1]);
+	}
+#else
+    set_tx_dscr_retry_rate_set1((UWORD32 *)tx_dscr, retry_rate_set[0]);
+    set_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr, retry_rate_set[1]);
+#endif
     set_tx_dscr_tx_pow_level((UWORD32 *)tx_dscr, pow);
 }
 /*****************************************************************************/

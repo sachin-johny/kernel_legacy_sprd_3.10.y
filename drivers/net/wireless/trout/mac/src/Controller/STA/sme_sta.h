@@ -50,6 +50,9 @@
 
 extern BOOL_T       g_wps_scan_req_from_user; // caisf add for fix wps scan bug. 1121
 
+extern UWORD32 g_auth_retry_cnt;
+extern UWORD32 g_assoc_retry_cnt;
+
 
 #define MAX_SCAN_TIME       1200
 #define MIN_SCAN_TIME       10
@@ -115,6 +118,10 @@ extern void handle_start_scan_req_sta(void);
 extern unsigned int scan_need_goon(void);
 extern void init_scan_limit(void);
 extern void inc_scan_limit(void);
+
+
+
+
 
 /*****************************************************************************/
 /* Inline Functions                                                          */

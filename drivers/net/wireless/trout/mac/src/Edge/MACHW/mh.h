@@ -793,7 +793,7 @@ INLINE void bypass_cca(void)
     
 
 #ifdef DEBUG_MODE
-    PRINTD2("PHY CCA is bypassed!!\n");
+    PRINTD2("PHY CCA is bypassed!!\n\r");
 #endif /* DEBUG_MODE */
 }
 
@@ -1030,8 +1030,7 @@ INLINE void disable_msdu_lifetime_check(void)
 extern UWORD32 hw_txq_busy;
 INLINE void set_machw_tx_suspend(void)
 {
-	UWORD32 cnt = 0, f;
-       //UWORD32 s = 0;
+	UWORD32 cnt = 0, f, s = 0;
 	struct trout_private *tp;
 	int reset_lock_flag=0;
 
@@ -2152,7 +2151,7 @@ INLINE void set_machw_aifsn_burst_mode(void)
 
 INLINE void set_machw_cw_vo(UWORD8 cmax, UWORD8 cmin)
 {
-    //UWORD32 temp = (cmax << 4) | (cmin);
+    UWORD32 temp = (cmax << 4) | (cmin);
 #if 0
 #ifdef IBSS_BSS_STATION_MODE	
 	if(g_cmcc_test_mode == 1)
@@ -2161,15 +2160,15 @@ INLINE void set_machw_cw_vo(UWORD8 cmax, UWORD8 cmin)
 #endif
     //chenq mod
     //rMAC_CW_MIN_MAX_AC_VO = convert_to_le(temp);
-     //host_write_trout_reg( convert_to_le(temp),
-     //                     (UWORD32)rMAC_CW_MIN_MAX_AC_VO );
-     host_write_trout_reg( 0x00000022,
+    host_write_trout_reg( convert_to_le(temp),
                           (UWORD32)rMAC_CW_MIN_MAX_AC_VO );
+    // host_write_trout_reg( 0x00000022,
+     //                     (UWORD32)rMAC_CW_MIN_MAX_AC_VO );
 }
 
 INLINE void set_machw_cw_vi(UWORD8 cmax, UWORD8 cmin)
 {
-    //UWORD32 temp = (cmax << 4) | (cmin);
+    UWORD32 temp = (cmax << 4) | (cmin);
 #if 0
 #ifdef IBSS_BSS_STATION_MODE	
 	if(g_cmcc_test_mode == 1)
@@ -2179,15 +2178,15 @@ INLINE void set_machw_cw_vi(UWORD8 cmax, UWORD8 cmin)
 
     //chenq mod
     //rMAC_CW_MIN_MAX_AC_VI = convert_to_le(temp);
-    //host_write_trout_reg( convert_to_le(temp),
-    //                      (UWORD32)rMAC_CW_MIN_MAX_AC_VI );
-    host_write_trout_reg( 0x00000022,
+    host_write_trout_reg( convert_to_le(temp),
                           (UWORD32)rMAC_CW_MIN_MAX_AC_VI );
+    //host_write_trout_reg( 0x00000022,
+     //                     (UWORD32)rMAC_CW_MIN_MAX_AC_VI );
 }
 
 INLINE void set_machw_cw_be(UWORD8 cmax, UWORD8 cmin)
 {
-    //UWORD32 temp = (cmax << 4) | (cmin);
+    UWORD32 temp = (cmax << 4) | (cmin);
 #if 0
 #ifdef IBSS_BSS_STATION_MODE	
 	if(g_cmcc_test_mode == 1)
@@ -2197,10 +2196,10 @@ INLINE void set_machw_cw_be(UWORD8 cmax, UWORD8 cmin)
 
     //chenq mod
     //rMAC_CW_MIN_MAX_AC_BE = convert_to_le(temp);
-    //host_write_trout_reg( convert_to_le(temp),
-    //                      (UWORD32)rMAC_CW_MIN_MAX_AC_BE );
-    host_write_trout_reg( 0x00000022,
+    host_write_trout_reg( convert_to_le(temp),
                           (UWORD32)rMAC_CW_MIN_MAX_AC_BE );
+    //host_write_trout_reg( 0x00000022,
+      //                    (UWORD32)rMAC_CW_MIN_MAX_AC_BE );
 }
 
 INLINE void set_machw_cw_bk(UWORD8 cmax, UWORD8 cmin)

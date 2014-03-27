@@ -1478,7 +1478,7 @@ CHECK_SCAN:
 		printk("Skip scanning <already in scan>\n");
 		//chenq add 2013-06-09
 		//is_scanlist_report2ui = 2;
-		//send_mac_status(MAC_SCAN_CMP);
+//		send_mac_status(MAC_SCAN_CMP);
 		trout_cfg80211_report_scan_done(dev, 1);
 		return 0;
 	}
@@ -1487,20 +1487,10 @@ CHECK_SCAN:
 		printk("Skip scanning <BusyTraffic>\n");
 		//chenq add 2013-06-09
 		//is_scanlist_report2ui = 2;
-		//send_mac_status(MAC_SCAN_CMP);
+//		send_mac_status(MAC_SCAN_CMP);
 		trout_cfg80211_report_scan_done(dev, 1);
 		return 0;
 	}
-
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-       //Bug#229353
-        if(!wake_lock_active(&scan_ap_lock)){
-    	        wake_lock(&scan_ap_lock);
-    	 printk("@@@: acquire scan_ap_lock in %s\n", __func__);
-        }
-#endif
-#endif
 
 	/*leon liu added for combo scan support*/
 #ifdef COMBO_SCAN
@@ -1605,6 +1595,13 @@ CHECK_SCAN:
 	host_req[len+3] = 0;//( (g_mac.state == ENABLED) || (g_keep_connection == BTRUE) ) ? 0 : 2; //DONT_RESET
 	len += WID_CHAR_CFG_LEN;
 
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+	wake_lock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
+	pr_info("%s-%d: acquire wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
+#endif
+#endif
+
 	config_if_for_iw(&g_mac,host_req,len,'W',&trout_rsp_len);
 
 	if( trout_rsp_len != 1 )
@@ -1630,16 +1627,6 @@ out1:
 			is_scanlist_report2ui = 2;
 			send_mac_status(MAC_SCAN_CMP);
 			ret = 0; //-EBUSY;
-			
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-                     //Bug#229353
-                	if(wake_lock_active(&scan_ap_lock)){
-                		wake_unlock(&scan_ap_lock);
-                	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out1\n", __func__);
-                	}
-#endif
-#endif
 		}
 	}
 	else
@@ -1648,19 +1635,14 @@ out1:
 		is_scanlist_report2ui = 2;
 		send_mac_status(MAC_SCAN_CMP);
 		ret = 0;//-EINVAL;
-
+	}
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-              //Bug#229353
-        	if(wake_lock_active(&scan_ap_lock)){
-        		wake_unlock(&scan_ap_lock);
-        	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out2\n", __func__);
-        	}
+	wake_unlock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
+	pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
 #endif
 #endif
-	}
 
-       printk("%s end code:%d\n", __func__, ret);
 	return ret;
 #else
 	TRACE_FUNC();
@@ -1680,25 +1662,9 @@ static int trout_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	TRACE_FUNC();
 	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
 
-#ifdef IBSS_BSS_STATION_MODE
-       /*
-	 * leon liu added, don't do connect when:
-	 * 1.already connected(During switching AP, UI will disconnect old at first)
-	 * 2.during scanning
-	 */
-	 /*leon liu masked filter conditions, let reset_mac do the job*/
-	/*if (itm_scan_flag == 1){
-		return -EBUSY;
-	}*/
-
-        //yangke, 2013-10-16, set to default value when request connect
-        g_default_scan_limit = 0;
-#endif
-	
 	//TODO: get mac state and decide whether we should go on
-
-	/*junbin.wang modify 20131126.*/
-	/*if ((encry_type = itm_get_Encryption_Type()) < 0)
+	/*add zenghaiqi fix bug 816 junbin.wang modify 20131126.*/
+/*	if ((encry_type = itm_get_Encryption_Type()) < 0)
 	{
 		return -EINVAL;
 	}
@@ -1706,8 +1672,8 @@ static int trout_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	if ((auth_type = itm_get_Auth_Type()) < 0)
 	{
 		return -EINVAL;
-	}*/
-
+	}
+*/
 	//FIXME:Set appending ie,currently not supported
 	//Set WPA version
 	ret = itm_set_wpa_version(&encry_type, sme->crypto.wpa_versions);
@@ -2098,14 +2064,18 @@ static int trout_cfg80211_get_station(struct wiphy *wiphy, struct net_device *de
 	sinfo->signal = signal;
 
 	/*Get TX RATE*/
-	/*junbin.wang modify 20131128, if rate < 0, will report default value.*/
+//modify zenghaiqi to fix bug 816 begin
+//	if ((rate = itm_get_rate()) < 0)
 	rate = itm_get_rate();
 	printk("trout_cfg80211_get_station rate = 0x%x\n", rate);
 	if (rate  < 0)
 	{
 		TROUT_DBG5("itm_get_rate() failed\n");
+		/*junbin.wang modify 20131128, if rate < 0, will report default value.*/
 		sinfo->txrate.mcs = 0x02;
 		sinfo->txrate.legacy = 5 * 10;
+
+//modify zenghaiqi to fix bug 816 end
 		return 0;
 	}
 	sinfo->filled |= STATION_INFO_TX_BITRATE;
@@ -2759,8 +2729,12 @@ int trout_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 			CHECK_MAC_RESET_IN_IW_HANDLER;
 
 			/* we need stop netif and wait for all packets transmitted by zhao */
-			if(dev && !netif_queue_stopped(dev))
+			if(dev && !netif_queue_stopped(dev)){
+				printk("[%s][%d] netif_stop_queue\n" ,__FUNCTION__, __LINE__);
+
 				netif_stop_queue(dev);
+
+			}
 			//Comment by zhao.zhang
 			//wait_for_tx_finsh();
 			restart_mac_plus(&g_mac, 0);
@@ -3005,10 +2979,7 @@ static int new_report_scan_results_fn(struct wiphy *wiphy)
 	struct cfg80211_bss *i802_bss = NULL;
 	struct ieee80211_channel *chan = NULL;
 	bss_link_dscr_t* bss = NULL;
-
-	/*junbin wang add for CR238822. 20131204*/
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
-
+		
 	if(NULL == wiphy){
 		TROUT_DBG4("new_report_scan_results_fn: wiphy is null\n");
 		return -1;
@@ -3023,12 +2994,13 @@ static int new_report_scan_results_fn(struct wiphy *wiphy)
 		TROUT_DBG4("linklist is null\n");
 		return -E2BIG;
 	}
-
+//add zenghaiqi to fix bug 816 begin
 	if(g_merge_aplist_flag == 1)
 	{
 		TROUT_DBG4("new_report_scan_results_fn is mergeing.\n");
 		return 0;
 	}
+//add zenghaiqi to fix bug 816 end
 
 	while(bss != NULL)
 	{
@@ -3077,7 +3049,7 @@ static int new_report_scan_results_fn(struct wiphy *wiphy)
 	    bss=bss->bss_next;
 	}
 
-	TROUT_DBG4("itm_giwscan fuc report to UI %d ap info\n",i);
+	PRINTK_ITMIW("itm_giwscan fuc report to UI %d ap info\n",i);
 	return ret;
 	#else
 	printk("ap mode\n");

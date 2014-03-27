@@ -70,7 +70,9 @@
 #include "mac_init.h"
 #include "mib.h"
 #include "itm_wifi_iw.h"
+#include "qmu_tx.h"
 extern unsigned int check_tpc_switch_from_nv(void);
+extern void  MxdRfGetRfMode(unsigned int * pFlagFmBit2BtBit1WfBit0 );
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : update_scan_req_params                                   */
@@ -295,9 +297,11 @@ void scan_channel(UWORD8 channel)
     BOOL_T  send_prb_req   = BFALSE;
     UWORD8  freq           = get_current_start_freq();
     UWORD8  tbl_idx        = 0;
+    UWORD32 coex_reg = 0; 
     
 	TROUT_FUNC_ENTER;
-	
+	// get coex state to select scan policy.
+	MxdRfGetRfMode(&coex_reg);
 	CHECK_MAC_RESET_IN_IW_HANDLER;
 	if(reset_mac_trylock() == 0 ) return ;
 	
@@ -355,6 +359,9 @@ void scan_channel(UWORD8 channel)
                 /* In Site Survey Scan mode  */
                 TROUT_DBG5("%s: survey scan mode!\n", __func__);
                 scan_timeout = g_site_survey_scan_time;
+			if(0 != (coex_reg & BIT1)){
+		   		scan_timeout = 30; //ms
+		   	}
             }
             else
             {
@@ -368,6 +375,9 @@ void scan_channel(UWORD8 channel)
 				if(!g_ap_combo_scan_index)
 				{
 					scan_timeout = g_active_scan_time;
+					if(0 != (coex_reg & BIT1)){
+		   				scan_timeout = 80; //ms
+		   			}
 				}
 				else
 				{
@@ -1021,6 +1031,36 @@ void generate_bssid(UWORD8 *addr)
 /*  Issues        : None                                                     */
 /*                                                                           */
 /*****************************************************************************/
+
+void set_rate_low2high(UWORD8* rate_ie)
+{
+    UWORD8 flag = 1;
+    UWORD32 i   = 0;
+    UWORD8 tmp  = 0;
+    UWORD8 rate_data_len = rate_ie[1];
+
+    rate_ie +=IE_HDR_LEN;
+    while(flag)
+    {
+        flag = 0;
+        for( i = 0; i < rate_data_len-1; i++)
+        {
+            if((rate_ie[i] & 0x7F) > (rate_ie[i + 1] & 0x7F))
+            {
+                tmp = rate_ie[i+1];
+                rate_ie[i+1] = rate_ie[i];
+                rate_ie[i]   = tmp;
+                flag = 1;
+            }
+        }
+    }
+
+    for(i=0;i<rate_data_len;i++)
+        TROUT_DBG4("%02x(%02x) ",rate_ie[i]&0x7F,rate_ie[i]);
+
+    TROUT_DBG4("\n");
+}
+
 void init_sta_entry(sta_entry_t *se, UWORD8 *msa, UWORD16 len, UWORD16 offset)
 {
     UWORD8  k       = 0;
@@ -1091,6 +1131,8 @@ void init_sta_entry(sta_entry_t *se, UWORD8 *msa, UWORD16 len, UWORD16 offset)
         {
             if(msa[idx] == ISUPRATES)
             {
+                set_rate_low2high(&msa[idx]);
+
                 num_br = msa[idx + 1];
                 supp_rates = &msa[idx + 1];
 
@@ -1116,6 +1158,8 @@ void init_sta_entry(sta_entry_t *se, UWORD8 *msa, UWORD16 len, UWORD16 offset)
         {
             if(msa[idx] == IEXSUPRATES)
             {
+                set_rate_low2high(&msa[idx]);
+
                 num_nbr = msa[idx + 1];
                 extn_rates = &msa[idx + 1];
 

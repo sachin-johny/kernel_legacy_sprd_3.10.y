@@ -292,6 +292,7 @@ struct hci_conn {
 	struct hci_conn	*link;
 #ifdef CONFIG_BT_TROUT
 	__u16		esco_type;
+	__u8        rem_name[HCI_MAX_NAME_LENGTH];
 #endif
 	void (*connect_cfm_cb)	(struct hci_conn *conn, u8 status);
 	void (*security_cfm_cb)	(struct hci_conn *conn, u8 status);

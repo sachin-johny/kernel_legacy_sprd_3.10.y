@@ -1491,6 +1491,9 @@ static inline void hci_conn_complete_evt(struct hci_dev *hdev, struct sk_buff *s
 			cp.handle = ev->handle;
 			hci_send_cmd(hdev, HCI_OP_READ_REMOTE_FEATURES,
 							sizeof(cp), &cp);
+#ifdef CONFIG_BT_TROUT
+			conn->link_policy = hdev->link_policy;
+#endif
 		}
 
 		/* Set packet type for incoming connection */
@@ -1764,7 +1767,7 @@ static inline void hci_remote_name_evt(struct hci_dev *hdev, struct sk_buff *skb
 	struct hci_ev_remote_name *ev = (void *) skb->data;
 	struct hci_conn *conn;
 
-	BT_DBG("%s", hdev->name);
+	BT_DBG("hci_remote_name_evt %s event %d", hdev->name, ev->status);
 
 	hci_conn_check_pending(hdev);
 
@@ -1776,7 +1779,13 @@ static inline void hci_remote_name_evt(struct hci_dev *hdev, struct sk_buff *skb
 	conn = hci_conn_hash_lookup_ba(hdev, ACL_LINK, &ev->bdaddr);
 	if (!conn)
 		goto unlock;
-
+#ifdef CONFIG_BT_TROUT
+	if(ev->status == 0)//save device name
+	{
+		memcpy(&conn->rem_name, ev->name, HCI_MAX_NAME_LENGTH);
+		BT_DBG(KERN_ERR "remote name %s %s",ev->name, conn->rem_name);
+	}
+#endif
 	if (!hci_outgoing_auth_needed(hdev, conn))
 		goto unlock;
 

@@ -2455,7 +2455,7 @@ void sleep_disconnected(void)
 		sta_sleep_disconnected();
 	}
 }
-//EXPORT_SYMBOL(sleep_disconnected);
+EXPORT_SYMBOL(sleep_disconnected);
 #endif
 static int 
 itm_get_rssi(int * rssi)
@@ -3167,16 +3167,16 @@ CHECK_SCAN:
 	{
 		PRINTK_ITMIW("skip scan op <already in scan> \n");
 		//chenq add 2013-06-09
-		//is_scanlist_report2ui = 2;
-		//send_mac_status(MAC_SCAN_CMP);
+		is_scanlist_report2ui = 2;
+		send_mac_status(MAC_SCAN_CMP);
 		return 0;
 	}
 	else if(g_BusyTraffic == BTRUE)
 	{
 		PRINTK_ITMIW("skip scan op <BusyTraffic> \n");
 		//chenq add 2013-06-09
-		//is_scanlist_report2ui = 2;
-		//send_mac_status(MAC_SCAN_CMP);
+		is_scanlist_report2ui = 2;
+		send_mac_status(MAC_SCAN_CMP);
 		return 0;
 	}
 	/*leon liu added refreshing powersave timer 2013-4-1*/
@@ -3185,16 +3185,6 @@ CHECK_SCAN:
 	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
 	pstimer_start(&pstimer);
 	#endif
-
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-    if(!wake_lock_active(&scan_ap_lock)){
-        wake_lock(&scan_ap_lock);
-        printk("@@@: acquire scan_ap_lock in %s\n", __func__);
-    }
-#endif
-#endif
-
 //chenq add for combo scan 2013-04-11
 #ifdef COMBO_SCAN
 	{
@@ -3336,15 +3326,6 @@ CHECK_SCAN:
 			is_scanlist_report2ui = 2;
 			send_mac_status(MAC_SCAN_CMP);
 			ret = 0;//-EBUSY;
-
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-        	if(wake_lock_active(&scan_ap_lock)){
-        		wake_unlock(&scan_ap_lock);
-        	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out1\n", __func__);
-        	}
-#endif
-#endif
 		}	
 	}
 	else
@@ -3353,16 +3334,13 @@ CHECK_SCAN:
 		is_scanlist_report2ui = 2;
 		send_mac_status(MAC_SCAN_CMP);
 		ret = 0;//-EINVAL;
-
+	}
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-    	if(wake_lock_active(&scan_ap_lock)){
-    		wake_unlock(&scan_ap_lock);
-    	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out2\n", __func__);
-    	}
+	//wake_unlock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
+	//pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
 #endif
 #endif
-	}
 
 	PRINTK_ITMIW("itm_set_scan fuc end code:%d\n",ret);
 	return ret;
@@ -3958,8 +3936,10 @@ static int itm_siwpriv(struct net_device *dev,
 			CHECK_MAC_RESET_IN_IW_HANDLER;
 
 			/* we need stop netif and wait for all packets transmitted by zhao */
-			if(dev && !netif_queue_stopped(dev))
+			if(dev && !netif_queue_stopped(dev)){
+				//printk("[%s][%d] netif_stop_queue\n" ,__FUNCTION__, __LINE__);
 				netif_stop_queue(dev);
+			}
 			//Comment by zhao.zhang
 			//wait_for_tx_finsh();
 			restart_mac_plus(&g_mac, 0);
@@ -4699,9 +4679,7 @@ static int itm_giwscan(struct net_device *	dev,
 	if(NULL == g_user_getscan_aplist )
 	{
 		TROUT_DBG4("linklist is null\n");
-		dwrq->length = 0;
-		dwrq->flags = 0;
-		return 0;
+		return -E2BIG;
 	}
 
 	while( bss != NULL )
@@ -6091,10 +6069,11 @@ static int itm_siwpower(struct net_device *	dev,
 	}
 	#endif
 
-	out0:
 	#endif/*IBSS_BSS_STATION_MODE*/
 	
+	out0:
 	return ret;
+	
 }
 
 /*------------------------------------------------------------------*/
@@ -6724,8 +6703,9 @@ static int itm_siwencodeext(struct net_device *	dev,
             PRINTK_ITMIW("Delete key request was rejected with result %d\n", r);
             return r;
         }
-		/*junbin.wang modify for cr 240268. 20131126*/
-		itm_set_Encryption_Type((UWORD8)0);
+		//add zenghaiqi fix bug 816 11m->0m
+	/*junbin.wang modify for cr 240268. 20131126*/
+	itm_set_Encryption_Type((UWORD8)0);
         return 0;
     }
 
@@ -8053,7 +8033,7 @@ itm_gfordebug(struct net_device *dev, struct iw_request_info *info,
     }
     else if(read_write == PHY_READ_FLAG)
     {
-    	//UWORD32 regret = 0;
+    	UWORD32 regret = 0;
         for(i = 0; i < count; i++)
         {
             read_dot11_phy_reg(((UWORD8)addr + i),
@@ -8201,6 +8181,7 @@ itm_sfordebug(struct net_device *dev, struct iw_request_info *info,
 	return 0;
 #else
 	UWORD32           temp = 0;
+    WORD32            i     = 0;
     //mem_access_info_t mem_access_info;
 	mem_access_info_t * tmp_extra = (mem_access_info_t *)extra;
 
@@ -8271,7 +8252,7 @@ itm_sfordebug(struct net_device *dev, struct iw_request_info *info,
 	}
 	else if(tmp_extra->read_write == MAC_RF_WRITE_FLAG)
 	{
-		//UWORD32 regret = 0;
+		UWORD32 regret = 0;
 		#ifdef TROUT_WIFI_EVB
 		trout_ic_rf_reg_write( tmp_extra->addr,tmp_extra->data[0] );
 		//trout_ic_rf_reg_read((tmp_extra->addr),
@@ -11381,8 +11362,7 @@ int itm_set_encryption(struct ieee_param *param, u32 param_len)
 {
 	int ret = 0;
 	//u32 wep_key_idx, wep_key_len,wep_total_len;
-	/*struct sta_info*/void *psta = NULL;
-	//void *pbcmc_sta = NULL;	
+	/*struct sta_info*/void *psta = NULL,*pbcmc_sta = NULL;	
 
 	ITMIW_FUNC_ENTER;
 

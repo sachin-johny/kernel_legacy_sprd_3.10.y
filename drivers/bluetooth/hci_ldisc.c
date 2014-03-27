@@ -62,8 +62,6 @@ struct timer_list timer_retransmit;
 //static DEFINE_MUTEX(h4_mutex);
 int send_by_timer = 0;
 extern bool hci_is_ctl_act();
-extern struct tasklet_struct	write2tty_task;
-extern struct tasklet_struct    sendack2controller_task;
 #endif
 
 #ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
@@ -472,20 +470,17 @@ static int hci_uart_tty_open(struct tty_struct *tty)
 static void hci_uart_tty_close(struct tty_struct *tty)
 {
 	struct hci_uart *hu = (void *)tty->disc_data;
-
 	BT_DBG("tty %p", tty);
 
+	/* Detach from the tty */
+	tty->disc_data = NULL;
 
 #ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
     if(NULL != &timer_retransmit)
     {
         del_timer(&timer_retransmit);
     }
-    tasklet_kill(&write2tty_task);
-    tasklet_kill(&sendack2controller_task);
 #endif
-	/* Detach from the tty */
-	tty->disc_data = NULL;
 
 	if (hu) {
 		struct hci_dev *hdev = hu->hdev;

@@ -1059,7 +1059,7 @@ inline void notify_cp_with_handshake(uint msg, uint retry)
 		else if(msg == PS_MSG_WIFI_RESUME_MAGIC) 
 			g_done_wifi_suspend = 0;
 }
-//EXPORT_SYMBOL(notify_cp_with_handshake);
+EXPORT_SYMBOL(notify_cp_with_handshake);
 
 /*for internal use only*/
 inline void root_notify_cp_with_handshake(uint msg, uint retry)

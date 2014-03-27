@@ -72,38 +72,21 @@ struct h4_struct {
 extern struct	timer_list timer_retransmit;
 static void start_to_send_data(unsigned long arg)
 {
-    struct hci_uart *hu = NULL;
+    struct hci_uart *hu = (struct hci_uart *) arg;
+    BT_UART_DBG("start_to_send_data");
     if(NULL != &timer_retransmit)
     {
         del_timer(&timer_retransmit);
     }
-    if(arg != NULL)
-    {
-        hu = (struct hci_uart *) arg;
-    }
-    else
-    {
-         return;
-    }
-    BT_UART_DBG("start_to_send_data");
-
     hci_uart_tx_wakeup_sprd(hu, 0, true, false);
 }
 static void start_to_send_ack(unsigned long arg)
 {
-    struct hci_uart *hu = NULL;//
-    struct tty_struct *tty = NULL;// hu->tty;
+    struct hci_uart *hu = (struct hci_uart *) arg;
+    struct tty_struct *tty = hu->tty;
 
     unsigned char data = 0x55;
-    if(arg != NULL)
-    {
-        hu = (struct hci_uart *) arg;
-    }
-    else
-    {
-        return;
-    }
-    tty = hu->tty;
+
     write2tty:
     if(NULL != hu->tx_skb)/*if the tx_skb in not null, send tx skb first*/
     {
@@ -165,7 +148,10 @@ static int h4_close(struct hci_uart *hu)
 	skb_queue_purge(&h4->txq);
 
 	kfree_skb(h4->rx_skb);
-
+#ifdef CONFIG_TROUT_UART_TRANSPORT_DEBUG
+    tasklet_kill(&write2tty_task);
+    tasklet_kill(&sendack2controller_task);
+#endif
 	hu->priv = NULL;
 	kfree(h4);
 

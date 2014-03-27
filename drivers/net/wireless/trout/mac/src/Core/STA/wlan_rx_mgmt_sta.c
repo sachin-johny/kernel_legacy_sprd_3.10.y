@@ -50,13 +50,52 @@
 #include "metrics.h"
 #include "core_mode_if.h"
 #include "iconfig.h"
+#include "autorate.h"
 
 /*****************************************************************************/
 /* Static Function Declarations                                              */
 /*****************************************************************************/
 
 static void coalesce_if_required(UWORD8 *msa, UWORD16 rx_len, UWORD8 *bssid);
+//ping.jiang add for calculating statistics 2013-12-12
+WORD32  g_asoc_rssi_value = 0;
+WORD32  g_asoc_rssi_num   = 0;
 
+void asoc_rssi_value_add(void)
+{
+	WORD32 temp_rssi = 0;
+	WORD32 mask_rssi = 0;
+	
+    	temp_rssi = get_rssi() - 0xFF;
+		
+    	if(temp_rssi <= -128)
+    	{	
+		mask_rssi = temp_rssi + 0xFF;
+		printk("change rssi value %d => %d\n",temp_rssi,mask_rssi);
+    	}
+    	else
+    	{
+       		mask_rssi = temp_rssi;
+    	}
+	g_asoc_rssi_value += mask_rssi;
+	g_asoc_rssi_num ++;
+	return;
+}
+
+
+WORD32 get_asoc_avg_rssi(void)
+{
+	WORD32 cur_avg_rssi = 0;
+	if(0 != g_asoc_rssi_num)
+	{
+		cur_avg_rssi = g_asoc_rssi_value / g_asoc_rssi_num;		
+		g_asoc_rssi_value = 0;
+		g_asoc_rssi_num   = 0;
+	}
+	
+	return cur_avg_rssi;
+}
+//ping.jiang add for calculating statistics end
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : sta_wait_scan_rx                                         */
@@ -216,7 +255,8 @@ void sta_wait_join_rx(mac_struct_t *mac, UWORD8 *msg)
                      
                     //chenq add 2013-08-22
                     update_rssi(wlan_rx->base_dscr);
-
+		     //ping.jiang add for calculating statistics 2013-12-12
+                  asoc_rssi_value_add();
 					// 20120830 caisf mod, merged ittiam mac v1.3 code
 					#if 0
                     /* Update 11h related elements */
@@ -276,7 +316,9 @@ void sta_wait_auth_seq2_rx(mac_struct_t *mac, UWORD8 *msg)
     UWORD8    *msa      = wlan_rx->msa;
 
 	TROUT_FUNC_ENTER;
-	
+    //ping.jiang add for calculating statistics 2013-12-12
+    update_rssi(wlan_rx->base_dscr);
+    asoc_rssi_value_add();
     switch(get_sub_type(msa))
     {
     case AUTH:
@@ -357,7 +399,6 @@ void sta_wait_auth_seq2_rx(mac_struct_t *mac, UWORD8 *msg)
 		}
 		else	
         {
-            TROUT_DBG4("%s: rsp status code(%d) failed!\n", __func__, get_auth_status(msa));
             /* Do nothing. Wait for a response till timeout occurs. */
         }
     }
@@ -399,7 +440,9 @@ void sta_wait_auth_seq4_rx(mac_struct_t *mac, UWORD8 *msg)
     UWORD8    *msa      = wlan_rx->msa;
 
 	TROUT_FUNC_ENTER;
-	
+    //ping.jiang add for calculating statistics 2013-12-12
+    update_rssi(wlan_rx->base_dscr);
+    asoc_rssi_value_add();	
     switch(get_sub_type(msa))
     {
     case AUTH:
@@ -432,7 +475,6 @@ void sta_wait_auth_seq4_rx(mac_struct_t *mac, UWORD8 *msg)
 
     default:
     {
-        TROUT_DBG4("%s: rsp status code(%d) failed!\n", __func__, get_auth_status(msa));
         /* Do Nothing */
     }
     break;
@@ -469,6 +511,9 @@ void sta_wait_asoc_rx(mac_struct_t *mac, UWORD8 *msg)
     UWORD8    *msa      = wlan_rx->msa;
 
 	TROUT_FUNC_ENTER;
+    //ping.jiang add for calculating statistics 2013-12-12
+    update_rssi(wlan_rx->base_dscr);
+    asoc_rssi_value_add();
     switch(sub_type = get_sub_type(msa))
     {
     case ASSOC_RSP:
@@ -612,7 +657,6 @@ void sta_wait_asoc_rx(mac_struct_t *mac, UWORD8 *msg)
         }
         else
         {
-            TROUT_DBG4("%s: rsp status code(%d) failed!\n", __func__, get_asoc_status(msa));
             /* Do nothing. Wait for a response till timeout occurs. */
         }
     }
@@ -938,6 +982,8 @@ void sta_enabled_rx_mgmt(mac_struct_t *mac, UWORD8 *msg)
 
 				//chenq the snr information
 		update_snr(rx_dscr);
+		//ping.jiang add for calculating statistics 2013-10-31
+		ar_rssi_value_add();
 		#ifdef TROUT2_WIFI_IC
 			uptate_rssi4_auto_set_tx_rx_power();
 		#endif			

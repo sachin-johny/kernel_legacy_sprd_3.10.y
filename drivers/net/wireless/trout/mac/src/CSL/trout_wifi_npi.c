@@ -261,7 +261,7 @@ static int npi_set_tx_rate(PNPI_CMD  cmd)
 	return 0;
 }
 
-static void set_hardware(void)
+static void set_hardware()
 {
 	set_machw_lrl(10);
 	set_machw_srl(10);

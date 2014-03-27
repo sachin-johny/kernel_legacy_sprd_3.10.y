@@ -171,6 +171,8 @@ UWORD8 g_wpa_wpa2_ptk_key[32] = {0};
 //chenq add do ap list merge logic 2013-08-28
 bss_link_dscr_t * g_user_getscan_aplist = NULL;
 UWORD8 g_link_list_bss_count            = 0;
+
+//add zenghaiqi to fix bug 816
 /*junbinwang add for cr 238822. 20131128*/
 UWORD32 g_merge_aplist_flag = 0;
 
@@ -200,6 +202,10 @@ UWORD32 g_0x57_delta = 0;
 UWORD32 g_pwr_tpc_switch = 1;//0:disable tpc 1:enable tpc
 UWORD32 g_pwr_tpc_switch_last = 1;//0:disable tpc 1:enable tpc
 // add end [zhongli wang 20130911]
+
+// update authentication and association policy in order to adapt to coex situation
+UWORD32 g_auth_retry_cnt = 0;
+UWORD32 g_assoc_retry_cnt = 0;
 
 #endif
 
@@ -365,16 +371,6 @@ void init_globals_sta(void)
 		wake_up_process(itm_scan_task);
 	}	
 	itm_scan_task = NULL;
-	
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-        //Bug#229353
-	if(wake_lock_active(&scan_ap_lock)){
-		wake_unlock(&scan_ap_lock);
-	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s\n", __func__);
-	}
-#endif
-#endif
 	
 	 TROUT_FUNC_EXIT;
 }

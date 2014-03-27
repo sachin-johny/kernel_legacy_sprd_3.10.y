@@ -1287,6 +1287,122 @@ void update_retry_dr_trick(UWORD8 *set)
 
 }
 
+int send_ps_poll_to_AP_trick(void)
+{
+    UWORD8      tx_rate      = 0;
+    UWORD8      pream        = 0;
+    UWORD8      q_num        = 0;
+    UWORD32     phy_tx_mode  = 0;
+    UWORD8      mac_hdr_len  = MAC_HDR_LEN;
+    UWORD8      *msa         = 0;
+    UWORD8      *tx_dscr     = 0;
+    sta_entry_t *se          = 0;
+    UWORD32     retry_set[2] = {0};
+
+        TROUT_FUNC_ENTER;
+
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+        null_frame_dscr = NULL; /*record NULL frame pointer of power save*/
+#endif
+#endif
+
+    /* Get the station entry for the AP */
+    se = (sta_entry_t *)find_entry(mget_bssid());
+
+    if(NULL == se)
+    {
+        /* This is an exception case and should never occur */
+        return -1;
+    }
+
+    /* Allocate buffer for the NULL Data frame. This frame contains only the */
+    /* MAC Header. The data payload of the same is '0'.                      */
+    msa  = (UWORD8*)mem_alloc(g_shared_pkt_mem_handle, MANAGEMENT_FRAME_LEN);
+    if(msa == NULL)
+    {
+        return -1;
+    }
+
+    /* Set the Frame Control field of the PS-POLL frame.                     */
+    set_frame_control(msa, (UWORD16)PS_POLL);
+    q_num = HIGH_PRI_Q;
+
+    set_pwr_mgt(msa, (UWORD8)STA_ACTIVE);
+        //chenq mask 2012-12-06
+    //set_to_ds(msa, 1);
+    /* Set Association ID in the Duration ID field */
+    set_durationID(msa, g_asoc_id);
+
+    /* Set the address fields. For a station operating in the infrastructure */
+    /* mode, Address1 = BSSID, Address2 = Source Address (SA) and            */
+    /* Address3 = Destination Address (DA) which is nothing but the BSSID.   */
+    set_address1(msa, mget_bssid());
+    set_address2(msa, mget_StationID());
+
+        //set_address3(msa, mget_bssid());
+
+    /* Create the transmit descriptor and set the contents                   */
+    tx_dscr = create_default_tx_dscr(0, 0, 0);
+    if(tx_dscr == NULL)
+    {
+        /* Free the memory allocated for the buffer                          */
+        pkt_mem_free(msa);
+        return -1;
+    }
+
+    /* Set the transmit rate from the station entry */
+    tx_rate = get_tx_rate_to_sta(se);
+    pream   = get_preamble(tx_rate);
+
+    /* Update the retry set information for this frame */
+    update_retry_rate_set(1, tx_rate, se, retry_set);
+
+    /* Get the PHY transmit mode based on the transmit rate and preamble */
+    phy_tx_mode = get_dscr_phy_tx_mode(tx_rate, pream, (void *)se);
+
+    /* Set various transmit descriptor parameters */
+    set_tx_params(tx_dscr, tx_rate, pream, NORMAL_ACK, phy_tx_mode, retry_set);
+
+    /* we modified the retry data rate */
+        update_retry_dr_trick((UWORD8 *)&retry_set[0]);
+        retry_set[1] = get_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr);
+        retry_set[1] &= 0xFF00FFFF;
+        retry_set[1] |= (0x04 << 16);   //retry_rate7 set to 1Mbps
+        set_tx_dscr_retry_rate_set2(tx_dscr, retry_set[1]);
+
+    set_tx_buffer_details(tx_dscr, msa, 0, mac_hdr_len - 8, 0);//chenq add 2012-12-06
+    set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
+    set_tx_security(tx_dscr, NO_ENCRYP, 0, se->sta_index);
+    set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
+    set_tx_security(tx_dscr, NO_ENCRYP, 0, se->sta_index);
+    set_ht_ps_params(tx_dscr, (void *)se, tx_rate);
+    set_ht_ra_lut_index(tx_dscr, NULL, 0, tx_rate);
+    update_tx_dscr_tsf_ts((UWORD32 *)tx_dscr);
+
+    if(qmu_add_tx_packet(&g_q_handle.tx_handle, q_num, tx_dscr) != QMU_OK)
+    {
+        /* Exception */
+#ifdef DEBUG_MODE
+        g_mac_stats.qaexc++;
+#endif /* DEBUG_MODE */
+        free_tx_dscr((UWORD32 *)tx_dscr);
+        return -1;
+    }
+    else
+    {
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+            null_frame_dscr = tx_dscr; /*record NULL frame pointer of power save*/
+#endif
+#endif
+            return 0;
+    }
+
+    /* Do the protocol specific processing */
+    send_ps_poll_to_AP_prot();
+    TROUT_FUNC_EXIT;
+}
 
 
 /* use speacial trick to make sure NULL frame send successfully by zhao*/
@@ -1337,7 +1453,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	TROUT_FUNC_EXIT;
         return -1;
     }
-	pr_info("NULL F@: %08p\n", msa);
+	pr_info("NULL F@: %08X\n", msa);
 
     /* Set the Frame Control field of the NULL frame. */
 #ifdef MAC_WMM
@@ -1417,7 +1533,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	retry_set[1] = get_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr);
 	retry_set[1] &= 0xFF00FFFF;
 	retry_set[1] |= (0x04 << 16);	//retry_rate7 set to 1Mbps
-	set_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr, retry_set[1]);
+	set_tx_dscr_retry_rate_set2(tx_dscr, retry_set[1]);
 	
     set_tx_buffer_details(tx_dscr, msa, 0, frame_len, 0);
     set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
@@ -1431,10 +1547,16 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
     if((is_qos == BTRUE) &&
        (is_serv_cls_buff_pkt_sta(se, q_num, priority, tx_dscr) == BTRUE))
     {
+		pr_info("%s: is_serv_cls_buff_pkt_sta() is true\n", __func__);
 		TROUT_FUNC_EXIT;
         return -1;
     }
 
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+	null_frame_dscr = tx_dscr; /*record NULL frame pointer of power save*/
+#endif
+#endif
     /* Add the packet to the MAC H/w transmit queue */
     if(qmu_add_tx_packet(&g_q_handle.tx_handle, q_num, tx_dscr) != QMU_OK)
     {
@@ -1442,6 +1564,11 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 #ifdef DEBUG_MODE
         g_mac_stats.qaexc++;
 #endif /* DEBUG_MODE */
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+		null_frame_dscr = NULL;
+#endif
+#endif
         free_tx_dscr((UWORD32 *)tx_dscr);
 		return -1;
     }
@@ -1461,11 +1588,6 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
                 g_active_null_wait = BFALSE;
             }
         }
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-	null_frame_dscr = tx_dscr; /*record NULL frame pointer of power save*/
-#endif
-#endif
 	return 0;
     }
 }
@@ -1629,8 +1751,10 @@ UWORD32 ps_last_int_mask = 0;
 void sta_doze(void)
 {
     UWORD32 tmp_mask = 0;
+    UWORD32 int_mask = 0;
+    UWORD32 int_stat = 0;
 
-    /*TROUT_PRINT_STACK;*/
+	/*TROUT_PRINT_STACK;*/
 
     if((g_beacon_frame_wait == BFALSE) && (g_doze_null_wait == BFALSE) &&
        (g_more_data_expected == BFALSE) && (g_active_null_wait == BFALSE) &&
@@ -1722,9 +1846,7 @@ void sta_doze_trick(void)
     
 	/* record previous INT mask */
     ps_last_int_mask = root_host_read_trout_reg((UWORD32)rCOMM_INT_MASK);
-    /* use isr to clear RX fifo to make sure can clear all RX interrupts,and update
-    * some RX info.
-    */
+	
     rx_complete_isr(HIGH_PRI_RXQ);
     rx_complete_isr(NORMAL_PRI_RXQ);
     /* it's safe to clear all INTs */
@@ -1880,7 +2002,7 @@ void sta_awake_trick(void)
 #endif
 #endif
 
-//EXPORT_SYMBOL(sta_awake);
+EXPORT_SYMBOL(sta_awake);
 void sta_sleep(void)
 {
 	//leon liu added for stopping powersave timer on 2013-04-03
@@ -1929,10 +2051,12 @@ void sta_sleep_disconnected(void)
 {
 #ifdef POWERSAVE_DEBUG
 	pr_info("%s\n", __func__);
-	pr_info("rMAC_PA_CON = %#x\n", root_host_read_trout_reg((UWORD32)rMAC_PA_CON));
+	//pr_info("rMAC_PA_CON = %#x\n", root_host_read_trout_reg((UWORD32)rMAC_PA_CON));
 #endif
 
 	UWORD32 tmp_mask = 0;
+	UWORD32 int_mask = 0;
+	UWORD32 int_stat = 0;
 
 	/*zhou huiquan add protect rw reg*/
 	mutex_lock(&rw_reg_mutex);
@@ -1989,8 +2113,8 @@ void sta_wakeup_disconnected(void)
 
 #ifdef POWERSAVE_DEBUG
 	pr_info("%s: entered\n", __func__);
-	TROUT_DBG4("sta_awake read the sleep status = 0x%x\n",
-			root_host_read_trout_reg((UWORD32)(0x22<<2)));
+	//TROUT_DBG4("sta_awake read the sleep status = 0x%x\n",
+	//		root_host_read_trout_reg((UWORD32)(0x22<<2)));
 #endif
 
 	sysval = root_host_read_trout_reg((UWORD32)(0x22<<2));
@@ -2250,8 +2374,6 @@ void psm_alarm_work(struct work_struct *work)
         }
         else
         {
-
-            //send_null_frame_to_AP(STA_ACTIVE, BFALSE, 0);
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
 		if(mutex_trylock(&tp->cur_run_mutex)){

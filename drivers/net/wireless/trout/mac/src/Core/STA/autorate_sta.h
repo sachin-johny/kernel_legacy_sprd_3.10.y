@@ -68,6 +68,10 @@ extern void update_max_rate_idx_sta(sta_entry_t *se);
 extern void update_min_rate_idx_sta(sta_entry_t *se);
 extern void reinit_tx_rate_idx_sta(sta_entry_t *se);
 extern void increment_rate_sta(sta_entry_t *se);
+/*ping.jiang add for AR algorithm 2013-10-31*/
+extern void increment_rate_cca_sta(sta_entry_t *se);
+extern void decrement_rate_cca_sta(sta_entry_t *se);
+/*ping.jiang add forAR algorithm end*/
 extern void decrement_rate_sta(sta_entry_t *se);
 #endif /* AUTORATE_FEATURE */
 
@@ -153,6 +157,55 @@ INLINE LINK_MODE_T cur_rate_mode_sta(void)
     return (LINK_MODE_T)ret;
 }
 
+//leon liu add a check 11b only if for WIFI & BT coexist 2013-09-19
+INLINE LINK_MODE_T cur_rate_mode_sta_with_entry(sta_entry_t *se)
+{
+	int ret          = 0;
+
+#ifdef AUTORATE_FEATURE
+	//UWORD8 rate_idx  = 0;
+	UWORD8 rate      = 0;
+	int i = 0;
+
+	/* Get the station entry for the AP */
+	for(i = se->min_rate_index; i<= se->max_rate_index; i++)
+	{
+		if(i < get_ar_table_size())
+		{
+			/* Get the rate corresponding to this index */
+			rate = get_ar_table_rate(i);
+
+			if((is_rate_supp(rate, se) == 1) &&
+					(is_rate_allowed(rate, se) == 1))
+			{
+				if( (rate == 0x04) ||/*  1M */
+						(rate == 0x01) ||/*  2M */
+						(rate == 0x02) ||/*5.5M */
+						(rate == 0x03) ) /* 11M */
+				{
+					//find b mode
+					ret |= BIT0;
+				}
+				else if(rate & BIT7)
+				{
+					//find n mode
+					ret |= BIT2;
+				}
+				else
+				{
+					//find g mode
+					ret |= BIT1;
+				}
+			}
+		}
+	}
+
+	if(ret == 0)
+		ret = OTHER_RATE_STA;
+#endif
+
+	return (LINK_MODE_T)ret;
+}
 
 #ifdef AUTORATE_FEATURE
 /* This function returns TRUE, if the current transmission rate is minimum   */
@@ -174,15 +227,27 @@ INLINE BOOL_T is_max_rate_sta(sta_entry_t *se)
     else
         return BFALSE;
 }
-
+extern WORD32 get_asoc_avg_rssi(void);
 /* This function initializes the transmit rate index to the Maximum Index in */
 /* the autorate table.                                                       */
 INLINE void init_tx_rate_idx_sta(sta_entry_t *se)
 {
+    /*ping.jiang modify for AR algorithm 2013-12-12*/
+    #if 0
     /* Set an initial rate index to approximately middle rate */
     se->tx_rate_index = ((se->max_rate_index + se->min_rate_index) >> 1);
+
     /* Decrement the rate so that, a valid rate index will be used */
     decrement_rate_sta(se);
+    #endif
+    UWORD8 target_rate = 0;
+    UWORD8 target_rate_index = 0;
+
+    g_asoc_rssi = get_asoc_avg_rssi();
+    target_rate = get_rate_from_rssi(se, g_asoc_rssi);
+    target_rate_index =  get_ar_table_index(target_rate);
+    se->tx_rate_index = target_rate_index;
+    /* ping.jiang modify for AR algorithm end */
 
     /* Update the TX MCS index */
     update_tx_mcs_index_ar_sta(se);

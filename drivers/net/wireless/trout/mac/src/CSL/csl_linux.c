@@ -75,6 +75,7 @@
 #include "core_mode_if.h"
 #include "rw_register.h"
 #include "meter.h"
+#include "qmu_tx.h"
 
 #include <linux/platform_device.h>
 
@@ -82,7 +83,7 @@
 /*leon liu added header for cfg80211*/
 #ifdef CONFIG_CFG80211
 #include "trout_cfg80211.h"
-extern struct sdio_func *trout_get_sdio_func(void);
+extern struct sdio_func *trout_get_sdio_func();
 #endif
 
 /*leon liu added GPIO register configuration macro*/
@@ -303,7 +304,7 @@ void alloc_sb_buf(void)
 #else
 void alloc_sb_buf(void)
 {
-	char *pc;
+	char *pc, *pb;
 	unsigned int sz;
 
 	pc = (char *)gsb->ps;
@@ -334,10 +335,10 @@ void alloc_sb_buf(void)
 		gsb->rx_size = gsb->size;
 	}
 
-	TROUT_DBG4("%s: total buf size: 0x%lu\n", __func__, gsb->size);
-	TROUT_DBG4("%s: tx_start: 0x%p, tx_size: 0x%lu\n", __func__, gsb->tx_start, gsb->tx_size);
-	TROUT_DBG4("%s: td_start: 0x%p, td_size: 0x%lu\n", __func__, gsb->td_start, gsb->td_size);
-	TROUT_DBG4("%s: rx_start: 0x%p, rx_size: 0x%lu\n", __func__, gsb->rx_start, gsb->rx_size);
+	TROUT_DBG4("%s: total buf size: 0x%x\n", __func__, gsb->size);
+	TROUT_DBG4("%s: tx_start: 0x%p, tx_size: 0x%x\n", __func__, gsb->tx_start, gsb->tx_size);
+	TROUT_DBG4("%s: td_start: 0x%p, td_size: 0x%x\n", __func__, gsb->td_start, gsb->td_size);
+	TROUT_DBG4("%s: rx_start: 0x%p, rx_size: 0x%x\n", __func__, gsb->rx_start, gsb->rx_size);
 }
 #endif
 
@@ -428,7 +429,7 @@ unsigned char *get_local_ipadd(void)
 		printk("BUG! no interface named 'wlan0'\n");
 		return NULL;
 	}
-#if 1
+#if 0
 	cp = (unsigned char *)&iif->ifa_local;
 	printk("IP-address:\n");
 	for(ix = 0; ix < 4; ix++)
@@ -946,20 +947,21 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
 #ifdef ETHERNET_HOST
     UWORD8  *buffer = 0;
     UWORD16 offset  = 0;
-    //UWORD8 eth_hdr_offset = 0;
+    UWORD8 eth_hdr_offset = 0;
     UWORD8 *eth_hdr;
     UWORD16 eth_type = 0;
     UWORD8 q_num = 0;
     wlan_tx_req_t wlan_tx_req;
     
 	TROUT_FUNC_ENTER;
-	
+	//printk("[%s] mac have received tx data from stack, start\n", __FUNCTION__);
    /* Stop the network interface queue */
     netif_stop_queue(dev);
    
     if(skb->dev != g_mac_dev)
     {
         TROUT_DBG2("Packet not destined to this device\n");
+	printk("[%s]Packet not destined to this device\n", __FUNCTION__);
         TROUT_FUNC_EXIT;
         return 0;
     }
@@ -988,6 +990,7 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
 	{
 		//printk("txq %d full!\n", q_num);
 		//goto out;
+		//printk("[%s]is_this_txq_full_test\n", __FUNCTION__);
 		return NETDEV_TX_BUSY;
 	}
 #endif
@@ -1059,6 +1062,7 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
     }
 
 	TX_PATH_DBG("%s: send pkt, len=%d\n", __func__, skb->len);
+	//printk("[%s]: send pkt, len=%d\n", __func__, skb->len);
 	if(receive_from_host(buffer, skb->len, offset, ETHERNET_HOST_TYPE) == -1)
 	{
 		return NETDEV_TX_BUSY;
@@ -1086,7 +1090,7 @@ out:
 #endif /* ETHERNET_HOST */
 
 	TROUT_FUNC_EXIT;
-	
+	//printk("[%s] mac have received tx data from stack, ready to transmit\n", __FUNCTION__);
     return NETDEV_TX_OK;
 }
 
@@ -1130,7 +1134,7 @@ void ward_mac_reset(mac_struct_t *mac)
 int mac_close(struct net_device *dev)
 {
 #ifdef IBSS_BSS_STATION_MODE
-	//int mac_state;
+	int mac_state;
 #endif
     //struct trout_private *tp = netdev_priv(dev);
 
@@ -1438,7 +1442,8 @@ int mac_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	
 	case SIOCIWFIRSTPRIV + 30:
 	{
-		//struct iwreq *wrq = (struct iwreq *)req;
+		struct iwreq *wrq = (struct iwreq *)req;
+
 		return -1;
 	}
 	break;
@@ -1914,7 +1919,7 @@ static void _delete_alarm(ALARM_HANDLE_T** handle,int self)
 	    if(wait_cnt > 200)
 	    {
 	      /*print out the log for every 10ms in waiting time.*/
-	      printk("%d:Waiting 0x%p for 10ms.\n", timeout, trout_timer);
+	      printk("%d:Waiting 0x%x for 10ms.\n", timeout, trout_timer);
               wait_cnt = 0;
 
 	      /*This should not happen because the waiting time should not be too long(longer than 1s). If it happens, there muse be something abnormal.
@@ -1937,7 +1942,7 @@ static void _delete_alarm(ALARM_HANDLE_T** handle,int self)
 	   ALARM_STATE_IN(trout_timer, ALARM_DEL);
        if((trout_timer->work.func != NULL)&&(trout_timer->work_proceed_flag == BFALSE))
        {
-          TROUT_DBG5("DBG: state = 0x%x, wid = 0x%x, current = 0x%p, work.state = 0x%x\n", 
+          TROUT_DBG5("DBG: state = 0x%x, wid = 0x%x, current = 0x%x, work.state = 0x%x\n", 
 						  trout_timer->state, trout_timer->wid, current, work_busy(&trout_timer->work));
           if((trout_timer->wid == (unsigned int)current) && (work_busy(&trout_timer->work) | WORK_BUSY_RUNNING))
           {
@@ -1954,7 +1959,7 @@ static void _delete_alarm(ALARM_HANDLE_T** handle,int self)
           	trout_timer->work_proceed_flag = BTRUE;
           	TROUT_DBG5("DBG:del:before cancel_work_sync \%pS\n", trout_timer->work.func);
           	cancel_work_sync(&trout_timer->work);
-		TROUT_DBG5("DBG:del:after cancel_work_sync \%pS, wid = 0x%x, current = 0x%p, work.state = 0x%x\n", 
+		TROUT_DBG5("DBG:del:after cancel_work_sync \%pS, wid = 0x%x, current = 0x%x, work.state = 0x%x\n", 
 			     trout_timer->work.func, trout_timer->wid, current, work_busy(&trout_timer->work));
           }
        }
@@ -2084,7 +2089,7 @@ static void _stop_alarm(ALARM_HANDLE_T *handle,int self)
 		ALARM_STATE_IN(trout_timer, ALARM_STOP);
 	    if((trout_timer->work.func != NULL) && (trout_timer->work_proceed_flag == BFALSE))
 	    {
-            TROUT_DBG5("DBG: state = 0x%x, wid = 0x%x, current = 0x%p, work.state = 0x%x\n", 
+            TROUT_DBG5("DBG: state = 0x%x, wid = 0x%x, current = 0x%x, work.state = 0x%x\n", 
 						trout_timer->state, trout_timer->wid, current, work_busy(&trout_timer->work));
             if((trout_timer->wid == (unsigned int)current) && (work_busy(&trout_timer->work) | WORK_BUSY_RUNNING))
             {
@@ -2100,7 +2105,7 @@ static void _stop_alarm(ALARM_HANDLE_T *handle,int self)
 	            trout_timer->work_proceed_flag = BTRUE;
 	            TROUT_DBG5("DBG:stop:before cancel_work_sync \%pS\n", trout_timer->work.func);
                 cancel_work_sync(&trout_timer->work);
-		   TROUT_DBG5("DBG:stop:after cancel_work_sync \%pS, wid = 0x%x, current = 0x%p, work.state = 0x%x\n", 
+		   TROUT_DBG5("DBG:stop:after cancel_work_sync \%pS, wid = 0x%x, current = 0x%x, work.state = 0x%x\n", 
 			     trout_timer->work.func, trout_timer->wid, current, work_busy(&trout_timer->work));
 		    }
          }
@@ -3366,6 +3371,7 @@ UWORD8 get_resume_assoc_flg(void)
 extern void sta_doze_trick(void);
 extern void sta_awake_trick(void);
 extern int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority);
+extern int send_ps_poll_to_AP_trick(void);
 extern unsigned int txhw_idle(void);
 extern void show_tx_slots(void);
 void dump_allregs(unsigned long ix, unsigned long iy);
@@ -3380,7 +3386,7 @@ static int trout_wifi_suspend(struct device *dev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct trout_private *tp = netdev_priv(ndev);
 	UWORD32 *tmp, t;
-	int cnt = 0, tnr = 0, v;
+	int cnt = 0, idx = 0, tnr = 0, v;
 	UWORD32	ss = 0;
 	unsigned char *pp = NULL;
 
@@ -3422,10 +3428,21 @@ static int trout_wifi_suspend(struct device *dev)
 		return 1;
 	}
 	else {
+		/*leon liu, when in coexing mode, no sleeping(Bug#285951)*/
+		if(g_wifi_bt_coex)	//add by chwg.
+		{
+			printk("%s: In WiFi&BT coexist mode, not suspend!\n", __func__);
+			mutex_unlock(&suspend_mutex);
+			reset_mac_unlock();
+			return 1;
+		}
+
 		if((get_mac_state() == ENABLED) || (g_keep_connection == BTRUE)) { /* keep Wi-Fi on if connection was established */
 		/*if(g_wifi_suspend_status == wifi_suspend_nosuspend) { [>recover from power save<]*/
 			/*g_wifi_suspend_status = wifi_suspend_early_suspend; [>keep out all ioctl ASAP<]*/
 			/*send_null_frame_to_AP(STA_DOZE, BTRUE, 0);*/
+			//printk("[%s] netif_stop_queue\n" ,__FUNCTION__);
+			
 			netif_stop_queue(g_mac_dev);
 			//pr_info("======== cancel works\n");
 			//cancel_work_sync(&tp->event_work); /*cancel the works before suspend*/
@@ -3498,8 +3515,6 @@ wait:
 			}else{
 				UWORD32 zero_ip = 0;
 			    disable_all_txq();
-				
-                 /* tell ARM7 the IP address */
                  pp = get_local_ipadd(); 
                  if(pp == NULL){
                      pp = (unsigned char *)&zero_ip;
@@ -3513,17 +3528,18 @@ wait:
 			}
 		} else {
 			if(g_wifi_suspend_status == wifi_suspend_nosuspend) { /*turn off Wi-Fi if there was no connection */
-				pr_info("========%s: no connection, turn off Wi-Fi\n", __func__);
+				pr_info("======== no connection, turn off Wi-Fi\n", __func__);
+				//printk("[%s] netif_stop_queue\n" ,__FUNCTION__);
 				netif_stop_queue(ndev);	//modify by chengwg, 2013.7.9
 				/*g_wifi_suspend_status = wifi_suspend_suspend; [>keep out all ioctl ASAP<] */
 				reset_mac_unlock();
 				restart_mac_plus(&g_mac, 0);
 				sta_sleep();
-				pr_info("======== %s: done ========\n", __func__);
+				pr_info("======== %s done ========\n", __func__);
 				mutex_unlock(&suspend_mutex);
 				return 0;
 			} else if(g_wifi_suspend_status == wifi_suspend_suspend) { /*done by STOP*/
-				pr_info("========%s: done by STOP\n", __func__);
+				pr_info("======== done by STOP\n", __func__);
 			}
 		}
 	}
@@ -3532,6 +3548,8 @@ wait:
 	reset_mac_unlock();
 	return 0;
 #else
+	//printk("[%s][%d] netif_stop_queue\n" ,__FUNCTION__, __LINE__);
+
 	netif_stop_queue(ndev);	//modify by chengwg, 2013.7.9
 	g_wifi_suspend_status = wifi_suspend_suspend;
 	
@@ -3633,7 +3651,9 @@ static int trout_wifi_resume(struct device *dev)
 
 retry:
 		/*send_null_frame_to_AP(STA_ACTIVE, BTRUE, 0);*/
-		v = send_null_frame_to_AP_trick(STA_ACTIVE, BTRUE, 0);
+	    //v = send_null_frame_to_AP_trick(STA_ACTIVE, BTRUE, 0);
+        v = send_ps_poll_to_AP_trick();
+
 		if(!v && null_frame_dscr != NULL) {
 			tmp = null_frame_dscr;
 			tnr = 0;
@@ -3765,10 +3785,22 @@ static int trout_wifi_remove(struct platform_device *pdev)
 	//leon liu added for powersave timer deintialization 2013-4-1
 	pstimer_destroy(&pstimer);
 #endif
-	//chenq add for Trout ARM7 mean wifi off 2013-03-13
-    host_write_trout_reg(
-    host_read_trout_reg( (UWORD32)rSYSREG_HOST2ARM_INFO3 ) & (~(BIT0)) ,
-        (UWORD32)rSYSREG_HOST2ARM_INFO3 );
+	host_notify_arm7_coex_ready(BFALSE);
+	host_notify_arm7_wifi_on(BFALSE);
+
+// clear tx int before driver remove in coexistence situation. wzl
+#ifdef 	IBSS_BSS_STATION_MODE
+	if(BTRUE == g_wifi_bt_coex){
+		UWORD32 arm2host = 0;
+		arm2host = host_read_trout_reg((UWORD32)rCOMM_ARM2HOST_INFO3);
+		if(arm2host & BIT0)	//tx int.
+		{
+			TROUT_DBG1("[%s]: clear tx int before wifi driver remove\n", __FUNCTION__);
+			arm2host &= (~BIT0);		
+			host_write_trout_reg(arm2host, (UWORD32)rCOMM_ARM2HOST_INFO3);
+		}
+	}
+#endif
 
 	if(netdev == NULL)
 	{
@@ -3776,11 +3808,13 @@ static int trout_wifi_remove(struct platform_device *pdev)
 		return -EINVAL;
 	}
 
-    /****************************/
+#ifdef BSS_ACCESS_POINT_MODE
+	host_notify_arm7_connect_status(BFALSE);
+#endif	/* BSS_ACCESS_POINT_MODE */
 
 	/* Reset the MAC hardware and software, PHY etc */
 	reset_mac(&g_mac, BFALSE);	//modify by chengwg 2013.03.13!
-	
+	//host_notify_arm7_wifi_reset(BFALSE); // after reset_mac, reset signal before wifi off.
 	flush_work(&tp->event_work);
 	if(tp->event_wq != NULL)
     {
@@ -3944,6 +3978,7 @@ static int trout_wifi_probe(struct platform_device *pdev)
 	struct net_device *netdev;
 	struct trout_private *stp;
 	mutex_lock(&open_mutex);
+
 #if 0
 	#ifdef USE_TROUT_PHONE
 	//unsigned long gpio_cfg = MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_IE);
@@ -4172,7 +4207,7 @@ static int trout_wifi_probe(struct platform_device *pdev)
 
 	memset(gsb, 0, sizeof(*gsb));
 	get_wifi_buf(&gsb->ps, &gsb->size);
-	printk("RS_BUF start:%lu, size:%lu\n", gsb->ps, gsb->size);
+	printk("RS_BUF start:%X, size:%X\n", gsb->ps, gsb->size);
 	if(gsb->ps)
 		alloc_sb_buf();
 	
@@ -4281,11 +4316,15 @@ static int trout_wifi_probe(struct platform_device *pdev)
     		//gpio_test_init();
 		#endif
 		/******************************/
+#ifdef IBSS_BSS_STATION_MODE
+		/* in station mode, before not connected to ap, initial the status to disconnectd */
+		host_notify_arm7_connect_status(BFALSE);	
+#else
+		/* in ap mode, set the status to connected directly */
+		host_notify_arm7_connect_status(BTRUE);
+#endif
+		host_notify_arm7_wifi_on(BTRUE);
 
-		//chenq add for Trout ARM7 mean wifi on 2013-03-13
-    	host_write_trout_reg(
-        host_read_trout_reg( (UWORD32)rSYSREG_HOST2ARM_INFO3 ) | (BIT0) ,
-            (UWORD32)rSYSREG_HOST2ARM_INFO3 );
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 	/*zhou huiquan add for protect r/w reg*/
 	#ifdef IBSS_BSS_STATION_MODE
@@ -4319,7 +4358,6 @@ static int trout_wifi_probe(struct platform_device *pdev)
 #endif
 		mutex_unlock(&open_mutex);
 		TROUT_DBG4("=======init_mac_driver: use=%d=======\n", ++g_use_count);
-		
 		TROUT_FUNC_EXIT;
 		return 0;
 	}
@@ -4358,6 +4396,7 @@ err_out0:
     set_trout_module_state(TROUT_MODULE_FAIL);
 #endif
 	mutex_unlock(&open_mutex);
+
 	TROUT_FUNC_EXIT;
 	
 	TROUT_FUNC_EXIT;

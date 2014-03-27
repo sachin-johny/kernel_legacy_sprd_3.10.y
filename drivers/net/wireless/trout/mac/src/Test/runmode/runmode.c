@@ -13,7 +13,7 @@
 #include <linux/cpu.h>
 
 
-//static struct proc_dir_entry *proc_trout_dir;
+static struct proc_dir_entry *proc_trout_dir;
 static struct proc_dir_entry * runmode_node;
 static int run_mode = SMP_MODE;
 static int lock=0;
@@ -131,7 +131,7 @@ int  __init trout_runmode_init(void)
 
 err_conf:
 	//remove_proc_entry(TROUT_RUNMODE_DIR,NULL);
-//err_dir:
+err_dir:
 	return ret;
 }
 

@@ -1598,7 +1598,8 @@ int MxdRfInit(void *  pParaIn)
 
     _GET_TROUT2_ANT_SEL_;
     _SET_TROUT2_ANT_SEL_NORMAL;
-    mxdDbgInfo("lihua::pClbrPara->updatedNvFlag = %d\r\n", pClbrPara->updatedNvFlag);
+
+    if(NULL != pClbrPara)	mxdDbgInfo("lihua::pClbrPara->updatedNvFlag = %d\r\n", pClbrPara->updatedNvFlag);
     if ((NULL==pClbrPara) || ((NULL!=pClbrPara) && ((ALREADY_UPDATED != pClbrPara->updatedNvFlag) && (0xFF != pClbrPara->updatedNvFlag))))
     {
         castorClbrDcocWifi(16);
@@ -1982,6 +1983,15 @@ int MxdRfSetFmMode(unsigned short flagWorkMode)    // flag =1 work  0:idle
     return 0;
 }
 
+
+// zl@2014-01-09 
+void  MxdRfGetRfMode(unsigned int * pFlagFmBit2BtBit1WfBit0 )
+{	
+    	MXD_U32 flagStatusFmWifiBt;
+    	rf_reg_read(_RFREG_SW_RF_STATUS_,&flagStatusFmWifiBt);
+	*pFlagFmBit2BtBit1WfBit0= (unsigned int)flagStatusFmWifiBt;	
+	mxdDbgInfo("[mxd]MxdRfGetRfMode! flagStatusFmWifiBt =0x%x!\n ");
+}
 
 int MxdRfSetWifiMode(unsigned short flagWorkMode)  // flag =1 wifi-rf enable   0:wifi-rf disable
 {
@@ -4418,6 +4428,15 @@ void castorSetRfEntry(int flag) // 1: bt only 2:wifi only 3:colisten 0:all idle
     }
     else if (0==flag)
     { // wifi bt/ildle
+        
+        rf_reg_write(0x40c,0x1c5);               // tbl4 ->btrx tbl h
+        rf_reg_write(0x040d,0x0066);             // btrx tbl m
+        rf_reg_write(0x040e,0xb400);             // btrx tbl l
+
+        rf_reg_write(0x0409,0x1c3);      //table3-> wifiRx          //  , 0x00c3->1c3 // wfrx tbl h
+        rf_reg_write(0x040a,0x0389);                                // wfrx tbl m
+        rf_reg_write(0x040b,0xca00);                                // wfrx tbl l
+
         castorSetGainCo(0);
         rf_reg_write(rfmux_sprd_mode_sel_reg, (_RF_MODE_INIT<<9)|(_RF_MODE_INIT<<6)|(_RF_MODE_INIT<<3)|_RF_MODE_INIT);
     }
@@ -4650,4 +4669,37 @@ void tstSST()
     rf_reg_write(0xc8,0x0200);
 }
 
+void MxdRfSpecialModeIn(void)
 
+{
+    printk("[mxd]MxdRfSpecialModeIn\n");
+    MxdRfSetWifiMode(1);
+    rf_reg_write(0x409,0x3f3);
+    rf_reg_write(0x40a,0xe399);
+    rf_reg_write(0x40b,0xca03);
+    rf_reg_write(0xbd,0x0b);//wifi RxTx
+    rf_reg_write(0xbf,0x04);   //wfrx mxd ; wifitxHost
+    rf_reg_write(0xc2,0x09);   //wrrx mxd gain
+    rf_reg_write(0x210,0x0000);
+    rf_reg_write(0x211,0x0032);
+    castorSetFreqWifiCh(1);//(mxd_wf_dcoc_ch);
+    host_write_trout_reg(0x1, 0x55<<2);
+    printk("0x55 = 0x%x\r\n",host_read_trout_reg(0x55<<2));
+       _SET_TROUT2_ANT_SEL_DCOC;
+}
+void MxdRfSpecialModeOut(void)
+{
+    printk("[mxd]MxdRfSpecialModeOut\n");
+    MxdRfSetWifiMode(0);
+    castorWorkInit();
+}
+void Trout2WifiRfInit(void)
+{
+	MxdRfSetWifiMode(1);
+	MxdRfSetFreqWifiCh(9);
+}
+void MxdRfSModeGainCfg(MXD_U32 valGain)
+{
+	MXD_U32 val = 0xff&valGain;
+	rf_reg_write(0xc2,val);
+}

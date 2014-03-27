@@ -1329,7 +1329,7 @@ void parse_config_message(mac_struct_t *mac, UWORD8* host_req,
     {
         UWORD8  *write_rsp = 0;
         UWORD8  *rsp_buff  = 0;
-        //struct trout_private *tp;
+		struct trout_private *tp;
 
         /* Check if any protocol disallows processing of this write request   */
         if(BFALSE == process_wid_write_prot((host_req + MSG_DATA_OFFSET),
@@ -1389,9 +1389,9 @@ void parse_config_message(mac_struct_t *mac, UWORD8* host_req,
             disable_wps_mode();
 #endif /* INT_WPS_SUPP */
 #endif /* IBSS_BSS_STATION_MODE */
-            //xuan yang, 2013-8-23, add wid mutex
-            //tp = netdev_priv(g_mac_dev);
-            //mutex_lock(&tp->rst_wid_mutex);
+			//xuan yang, 2013-8-23, add wid mutex
+			//tp = netdev_priv(g_mac_dev);
+			//mutex_lock(&tp->rst_wid_mutex);
 
             g_reset_mac_in_progress    = BTRUE;
 
@@ -3049,7 +3049,7 @@ WORD32 merge_ap_list (void)
 {
 	int ret = 0;
     int get_ap_cnt = 0;
-    int i=0, j=0;
+    int i=0,j=0;
 	UWORD8 * trout_rsp = NULL;
     UWORD8   scan_results[SITE_SURVEY_RESULTS_ELEMENT_LENGTH*5+3] = {0};
 	UWORD16  trout_rsp_len = 0;
@@ -3166,9 +3166,11 @@ WORD32 merge_ap_list (void)
 	//sprd_nstime_get(&time);
 	getnstimeofday(&time);
 	now = (UWORD32)time.tv_sec;
-	
+//add zenghaiqi to fix bug 816 begin
 	/*junbinwang add for cr 238822. 20131128*/
 	g_merge_aplist_flag = 1;
+//add zenghaiqi to fix bug 816 end
+
 	//add or update ap info
 	if( g_user_getscan_aplist == NULL )
 	{
@@ -3359,9 +3361,7 @@ WORD32 merge_ap_list (void)
 						sbss = sbss_pre->bss_next;
 					}
 					printk("g_combo_aplist detele with j %d ssid:%s\n",j,g_combo_aplist[j].ssid);
-					/*yiming.li modify for CR 247628. 20131130*/
-                                        g_link_list_bss_count--;
-                                        continue;
+					continue;
 				}
 				sbss_pre = sbss;		
 				sbss	 = sbss->bss_next;
@@ -3413,8 +3413,11 @@ WORD32 merge_ap_list (void)
 		sbss			= sbss->bss_next;
 
 	}
+	//add zenghaiqi to fix bug 816 begin
 	/*junbinwang add for cr 238822. 20131128*/
 	g_merge_aplist_flag = 0;
+	//add zenghaiqi to fix bug 816 end
+
 	TROUT_DBG5("merge is complete\n");
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -3715,11 +3718,7 @@ void send_mac_status(UWORD8 mac_status)
             #endif
 			netif_carrier_on(g_mac_dev);
 
-			#ifdef IBSS_BSS_STATION_MODE
-			//add by chengwg for bt&wifi coex.
-			TROUT_DBG5("======%s: notify arm7 connected=====\n", __func__);
-			host_notify_arm7_connect_status();
-			#endif /* IBSS_BSS_STATION_MODE */
+			host_notify_arm7_connect_status(BTRUE);
 			/*leon liu added CFG80211 reporting connected event and bssid,assoc request and response*/
 			#ifdef CONFIG_CFG80211
 			//cfg80211_connect_result() will handle NULL pointers
@@ -3727,7 +3726,7 @@ void send_mac_status(UWORD8 mac_status)
 							, resp_ie, resp_ie_len, WLAN_STATUS_SUCCESS);
 			#endif
 			
-			TROUT_DBG5("Connected.\n");
+			TROUT_DBG5("Connected.\n\r");
 			TROUT_DBG5("=>chenq send_mac_status: Connected\n");	
 			#endif
 		}
@@ -3758,7 +3757,7 @@ void send_mac_status(UWORD8 mac_status)
 				cfg80211_disconnected(g_mac_dev, 0, NULL, 0, GFP_KERNEL);
 				#endif
 
-				TROUT_DBG5("Disconnected.\n");
+				TROUT_DBG5("Disconnected.\n\r");
 				TROUT_DBG5("=>chenq send_mac_status: Disconnected\n");
 				netif_carrier_off(g_mac_dev);
 				report_dis_flag = 0;
@@ -3775,7 +3774,7 @@ void send_mac_status(UWORD8 mac_status)
                 #ifdef CONFIG_TROUT_WEXT
 	    		wireless_send_event(g_mac_dev, SIOCGIWAP, &wrqu, NULL);
                 #endif
-				TROUT_DBG5("Connect failed.\n");
+				TROUT_DBG5("Connect failed.\n\r");
 				TROUT_DBG5("=>chenq send_mac_status: connect failed\n");
 				netif_carrier_off(g_mac_dev);
 				report_dis_flag = 0;
@@ -3783,17 +3782,12 @@ void send_mac_status(UWORD8 mac_status)
 			else
 			{
 				TROUT_DBG4("<=chenq send_mac_status: Disconnected\n");
-				TROUT_DBG4("will not report Disconnected.\n");
+				TROUT_DBG4("will not report Disconnected.\n\r");
 				TROUT_DBG4("=>chenq send_mac_status: Disconnected\n");
 			}
 
-#ifdef IBSS_BSS_STATION_MODE
-			//add by chengwg for bt&wifi coex.
-			TROUT_DBG5("========%s: notify arm7 discon=======\n", __func__);
-			host_notify_arm7_discon_status();
-#endif	/* IBSS_BSS_STATION_MODE */
+			host_notify_arm7_connect_status(BFALSE);
 
-			//#endif   chenq mod 
 			#else
 				wrqu.ap_addr.sa_family = ARPHRD_ETHER;
 				memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
@@ -3851,11 +3845,7 @@ void send_mac_status(UWORD8 mac_status)
 			TROUT_DBG5("=>chenq send_mac_status: mac close\n");
 			netif_carrier_off(g_mac_dev);
 
-#ifdef IBSS_BSS_STATION_MODE
-			//add by chengwg for bt&wifi coex.
-			TROUT_DBG4("=======%s: notify arm7 mac close======\n", __func__);
-			host_notify_arm7_discon_status();
-#endif /* IBSS_BSS_STATION_MODE */
+			host_notify_arm7_connect_status(BFALSE);
 
 			#else
 			wrqu.ap_addr.sa_family = ARPHRD_ETHER;
@@ -4171,7 +4161,7 @@ UWORD8 * parse_config_message_for_iw(mac_struct_t *mac, UWORD8* host_req,
     UWORD16 msg_len   = 0;
     BOOL_T  free_flag = BTRUE;
     UWORD8  offset    = get_config_pkt_hdr_len(host_if_type);
-    //struct trout_private *tp;
+	struct trout_private *tp;
 
 	//CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL;	//add by chengwg, 2013.7.9
     /* Extract the Type, Length and ID of the incoming host message. The     */

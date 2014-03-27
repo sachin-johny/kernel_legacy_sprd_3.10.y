@@ -157,6 +157,7 @@ void do_sta_entry_ar(sta_entry_t *se)
         return;
     }
 
+    /*ping.jiang modify for AR algorithm 2013-2013-11-10*/
     /* Change the rate if required based on the algorithm output */
     if(status == INCREMENT_RATE)
     {
@@ -166,8 +167,286 @@ void do_sta_entry_ar(sta_entry_t *se)
     {
         decrement_rate_sta(se);
 	}
+    else if(status == DECREMENT_RATE_CCA)
+    {
+        decrement_rate_cca_sta(se);
+    }
+    else if(status == INCREMENT_RATE_CCA)
+    {
+        increment_rate_cca_sta(se);
+    }
+    /*ping.jiang modify for AR algorithm end*/
 }
 
+/*ping.jiang add for AR algorithm 2013-2013-11-10*/
+void increment_rate_sta(sta_entry_t *se)
+{
+	UWORD8 rate_idx = se->tx_rate_index;
+	UWORD8 rate = 0;
+	UWORD16 irr_th_0 = 20;
+	UWORD16 irr_th_1 = 30;
+	UWORD16 irr_th_2 = 40;
+	UWORD16 irr_th_3 = 100;
+    printk("\n---Enter the function increment_rate_sta---\n");
+	UWORD16 delta_irr = RETRY_RATIO_THRESHOLD_2 - g_rx_data.retry_ratio;
+	UWORD8 target_rate = get_rate_from_rssi(se, g_rx_data.rssi);
+	UWORD8 target_rate_index =  get_ar_table_index(target_rate);
+	
+	set_tx_sgi_sta(BFALSE, se);
+	
+	while(1)
+	{
+		//printk("in rate_idx:%u\n",rate_idx);
+		if(rate_idx >= target_rate_index)
+		{
+			rate_idx = target_rate_index;
+	        se->tx_rate_index = rate_idx;
+		    update_tx_mcs_index_ar_sta(se);
+			update_entry_retry_rate_set((void *)se, rate);
+			break;
+		}
+		else
+		{
+			if(delta_irr <= irr_th_0)
+			{
+				rate_idx = rate_idx;
+			}
+			else if(delta_irr <= irr_th_1)
+			{
+				rate_idx = rate_idx + 1;
+			}
+			else if(delta_irr <= irr_th_2)
+			{
+				rate_idx = rate_idx + 2;
+			}
+			else 	if(delta_irr <= irr_th_3)
+			{
+				rate_idx = rate_idx + 4;
+			}
+
+			if(rate_idx >= target_rate_index)
+			{
+				rate_idx = target_rate_index;
+			}
+		}
+		//printk("out rate_idx:%u\n",rate_idx);
+		/* Get the rate corresponding to this index */
+		rate = get_ar_table_rate(rate_idx);
+		printk("[%s] rate:%u\n", __FUNCTION__, rate);
+		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
+		{
+	            /* If the rate is supported by the STA update the transmit rate  */
+	            /* index and break.                                              */
+	            se->tx_rate_index = rate_idx;
+
+	            /* Update the TX MCS index */
+	            update_tx_mcs_index_ar_sta(se);
+
+	            /* Update the retry rate set for the new transmit rate */
+	            update_entry_retry_rate_set((void *)se, rate);
+
+	            break;
+		}
+	}
+}
+
+void decrement_rate_cca_sta(sta_entry_t *se)
+{
+    	UWORD8 rate_idx = se->tx_rate_index;
+    	UWORD8 rate = 0;
+    printk("\n---Enter the function decrement_rate_cca_sta---\n");
+	/* If the current TX rate is at SGI MCS make the TX at LongGI MCS */
+   	 if((IS_RATE_MCS(get_ar_table_rate(se->tx_rate_index)) == BTRUE) &&
+	 (get_tx_sgi_sta(se) == BTRUE))
+    	{
+        	set_tx_sgi_sta(BFALSE, se);
+        	return;
+    	}
+
+    	set_tx_sgi_sta(BFALSE, se);
+   	while(1)
+    	{
+    	
+        	if(0 == rate_idx)
+        	{
+              		break;
+        	}
+		else
+		{
+              		rate_idx--;
+		}
+	
+ 		/* Get the rate corresponding to this index */
+        	rate = get_ar_table_rate(rate_idx);
+		printk("[%s] rate:%u\n", __FUNCTION__, rate);
+
+       		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
+        	{
+	            	/* If the rate is supported by the STA update the transmit rate  */
+	            	/* index and break.                                              */
+	            	se->tx_rate_index = rate_idx;
+
+	            	/* Update the TX MCS index */
+	            	update_tx_mcs_index_ar_sta(se);
+
+	            	/* Update the retry rate set for the new transmit rate */
+	            	update_entry_retry_rate_set((void *)se, rate);
+
+	            	break;
+       		}
+	}
+
+}
+
+void increment_rate_cca_sta(sta_entry_t *se)
+{
+	UWORD8 rate_idx = se->tx_rate_index;
+	UWORD8 rate = 0;
+	unsigned int irc_th_0 = 10;
+	unsigned int irc_th_1 = 30;
+	unsigned int irc_th_2 = 50;
+	unsigned int irc_th_3 = 100;
+    printk("\n---Enter the function increment_rate_cca_sta---\n");
+	unsigned int delta_irc = RETRY_RATIO_THRESHOLD_1 - g_rx_data.retry_ratio;
+	UWORD8 target_rate = get_rate_from_rssi(se, g_rx_data.rssi);
+	UWORD8 target_rate_index =  get_ar_table_index(target_rate);
+
+	set_tx_sgi_sta(BFALSE, se);
+
+	while(1)
+	{
+		if(rate_idx >= target_rate_index)
+		{
+			rate_idx = target_rate_index;
+		    se->tx_rate_index = rate_idx;
+		    update_tx_mcs_index_ar_sta(se);
+			update_entry_retry_rate_set((void *)se, rate);
+			break;
+		}
+		else
+		{
+			if(delta_irc <= irc_th_0)
+			{
+				rate_idx = rate_idx;
+			}
+			else 	if(delta_irc <= irc_th_1)
+			{
+				rate_idx = rate_idx + 1;
+			}
+			else 	if(delta_irc <= irc_th_2)
+			{
+				rate_idx = rate_idx + 2;
+			}
+			else 	if(delta_irc <= irc_th_3)
+			{
+				rate_idx = rate_idx + 4;
+			}
+			if(rate_idx >= target_rate_index)
+			{
+				rate_idx = target_rate_index;
+			}
+		}
+	       /* Get the rate corresponding to this index */
+		rate = get_ar_table_rate(rate_idx);
+		printk("[%s] rate:%u\n", __FUNCTION__, rate);   
+		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
+		{
+	            /* If the rate is supported by the STA update the transmit rate  */
+	            /* index and break.                                              */
+	            se->tx_rate_index = rate_idx;
+
+	            /* Update the TX MCS index */
+	            update_tx_mcs_index_ar_sta(se);
+
+	            /* Update the retry rate set for the new transmit rate */
+	            update_entry_retry_rate_set((void *)se, rate);
+
+	            break;
+		}
+	}
+}
+
+void decrement_rate_sta(sta_entry_t *se)
+{
+   	UWORD8 rate_idx = se->tx_rate_index;
+   	UWORD8 rate = 0;
+	UWORD16 drr_th_0 = 0;
+	UWORD16 drr_th_1 = 10;
+	UWORD16 drr_th_2 = 30;
+	UWORD16 drr_th_3 = 100;
+	printk("\n---Enter the function decrement_rate_sta---\n");	
+	UWORD16 delta_drr = g_rx_data.retry_ratio - RETRY_RATIO_THRESHOLD_2;
+	UWORD8 target_rate = get_rate_from_rssi(se, g_rx_data.rssi);
+	UWORD8 target_rate_index =  get_ar_table_index(target_rate);
+	if(rate_idx >= target_rate_index)
+	{
+		rate_idx = target_rate_index;
+}
+
+    	/* If the current TX rate is at SGI MCS make the TX at LongGI MCS */
+   	 if((IS_RATE_MCS(get_ar_table_rate(se->tx_rate_index)) == BTRUE) &&
+	 (get_tx_sgi_sta(se) == BTRUE))
+    	{
+        	set_tx_sgi_sta(BFALSE, se);
+        	return;
+    	}
+
+    	set_tx_sgi_sta(BFALSE, se);
+
+	while(1)
+	{	
+		if(0 == rate_idx)
+		{
+			break;
+		}
+		else
+		{
+			if(delta_drr <= drr_th_0)
+			{
+				rate_idx = rate_idx;
+			}
+			else if(delta_drr <= drr_th_1)
+			{
+				rate_idx = rate_idx - get_relevant_index(rate_idx, 1);
+			}
+			else if(delta_drr <= drr_th_2)
+			{
+				rate_idx = rate_idx - get_relevant_index(rate_idx, 2);
+			}
+			else if(delta_drr <= drr_th_3)
+			{
+				rate_idx = rate_idx - get_relevant_index(rate_idx, 4);
+			}
+			else
+			{
+			    	rate_idx --;
+			}
+			
+		}	
+ 		/* Get the rate corresponding to this index */
+        	rate = get_ar_table_rate(rate_idx);
+		printk("[%s] rate:%u\n", __FUNCTION__, rate);
+       		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
+        	{
+	            	/* If the rate is supported by the STA update the transmit rate  */
+	            	/* index and break.                                              */
+	            	se->tx_rate_index = rate_idx;
+
+	            	/* Update the TX MCS index */
+	            	update_tx_mcs_index_ar_sta(se);
+
+	            	/* Update the retry rate set for the new transmit rate */
+	            	update_entry_retry_rate_set((void *)se, rate);
+
+	            	break;
+       		}
+	}
+
+}
+/*ping.jiang add for AR algorithm end*/
+
+/*ping.jiang modify for AR algorithm 2013-2013-11-10*/
+#if 0
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : increment_rate_sta                                       */
@@ -309,6 +588,8 @@ void decrement_rate_sta(sta_entry_t *se)
         }
     }
 }
+#endif
+/*ping.jiang modify for AR algorithm end*/
 
 /*****************************************************************************/
 /*                                                                           */
@@ -429,6 +710,13 @@ void update_max_rate_idx_sta(sta_entry_t *se)
 
 void reinit_tx_rate_idx_sta(sta_entry_t *se)
 {
+    /*ping.jiang modify for AR algorithm 2013-12-12*/
+    UWORD8 target_rate = get_rate_from_rssi(se, g_asoc_rssi);
+    UWORD8 target_rate_index =  get_ar_table_index(target_rate);
+    se->tx_rate_index = target_rate_index;
+    /* ping.jiang modify for AR algorithm end */
+
+#if 0	
     UWORD8 curr_rate_index = se->tx_rate_index;
 
     /* If the current rate is allowed, then do nothing. */
@@ -453,6 +741,7 @@ void reinit_tx_rate_idx_sta(sta_entry_t *se)
         g_mac_stats.txrate_reinit_err++;
     }
 #endif /* DEBUG_MODE */
+#endif
 }
 #endif /* AUTORATE_FEATURE */
 

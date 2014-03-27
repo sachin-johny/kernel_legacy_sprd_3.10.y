@@ -487,8 +487,7 @@ void delete_entry(UWORD8* key)
 	tbl_ptr  = g_sta_table[val];
 	prev_ptr = g_sta_table[val];
 
-	printk("%s", __func__);
-	print_symbol(" -> %s\n", (unsigned long)__builtin_return_address(0));
+	TROUT_DBG4(" %s: called by: %s  ", __func__,  (unsigned long)__builtin_return_address(0));
 
 	/* Given the hash bucket, find out the entry that has the key */
 	while(tbl_ptr){

@@ -25,6 +25,7 @@
 #include "spi_interface.h"
 
 #include "trout_trace.h"
+#include "qmu_tx.h"
 
 #ifdef OS_LINUX_CSL_TYPE
 #include "csl_linux.h"
@@ -48,6 +49,12 @@ UWORD16 g_normal_rxq_num = 34;	//test.  add buff by zhao
 #endif
 extern UWORD32 g_rx_pkt_count;
 extern UWORD32 g_rx_times;
+
+#ifdef IBSS_BSS_STATION_MODE
+extern BOOL_T g_wifi_bt_coex;
+extern COEX_TRFFC_CHK_T g_coex_trffc_chk;
+#endif
+
 
 static void rx_complete_work(struct work_struct *work);
 #define MIN_RX_HOST_MEM		(72 * 1024)
@@ -129,10 +136,10 @@ void trout_rx_mem_show(void)
         host_read_trout_ram((void *)&status, (void *)rx_desc_offset, 4);
         rst = get_rx_dscr_pkt_status(&status);
 
-        host_read_trout_ram((void *)&next, (void *)&rx_desc_offset[32], sizeof(UWORD32));
-	host_read_trout_ram((void *)&prev, (void *)&rx_desc_offset[36], sizeof(UWORD32));
+        host_read_trout_ram(&next, &rx_desc_offset[32], sizeof(UWORD32));
+		host_read_trout_ram(&prev, &rx_desc_offset[36], sizeof(UWORD32));
 
-	printk("[%2d]dscr: 0x%p, prev: 0x%x, next: 0x%x, status: %u\n", i, rx_desc_offset, prev, next, rst);
+		printk("[%2d]dscr: 0x%p, prev: 0x%x, next: 0x%x, status: %u\n", i, rx_desc_offset, prev, next, rst);
 
         rx_desc_offset += sizeof(trout_rx_mem_struct);
     }
@@ -143,8 +150,8 @@ void trout_rx_mem_show(void)
         host_read_trout_ram((void *)&status, (void *)rx_desc_offset, 4);
         rst = get_rx_dscr_pkt_status(&status);
 
-        host_read_trout_ram((void *)&next, (void *)&rx_desc_offset[32], sizeof(UWORD32));
-	host_read_trout_ram((void *)&prev, (void *)&rx_desc_offset[36], sizeof(UWORD32));
+        host_read_trout_ram(&next, &rx_desc_offset[32], sizeof(UWORD32));
+		host_read_trout_ram(&prev, &rx_desc_offset[36], sizeof(UWORD32));
 
 		printk("[%2d]dscr: 0x%p, prev: 0x%x, next: 0x%x, status: %u\n", i, rx_desc_offset, prev, next, rst);
 
@@ -352,6 +359,41 @@ out:
 
 #endif
 
+void create_trout_default_share_mem_cfg(void)
+{
+	void *trout_cfg_start = (void *)TROUT_MEM_CFG_BEGIN;
+	UWORD8 cfg_buf[TROUT_MEM_CFG_SIZE];
+	UWORD16 *data = (UWORD16 *)cfg_buf;
+	int len = 0;
+	
+	memset(cfg_buf, '\0', sizeof(cfg_buf));
+	
+	*((UWORD32 *)cfg_buf) = TROUT_MEM_MAGIC;
+	len += 4;
+
+	data = (UWORD16 *)(&cfg_buf[4]);
+	
+	*data++ = RX_DSCR_LEN & 0xFFFF;
+	len += 2;
+
+	*data++ = TX_DSCR_LEN & 0xFFFF;
+	len += 2;
+
+	*data++ = RX_PACKET_SIZE & 0xFFFF;
+	len += 2;
+
+	*data++ = BEACON_MEM_SIZE & 0xFFFF;
+	len += 2;
+
+	*data++ = NUM_HIPR_RX_BUFFS & 0xFFFF;
+	len += 2;
+
+	*data++ = g_normal_rxq_num & 0xFFFF;
+	len += 2;
+
+	printk("save trout mem cfg...\n");
+	host_write_trout_ram(trout_cfg_start, cfg_buf, len);
+}
 
 static trout_rx_mem_struct *move_to_next(rx_queue_struct *rx_ctrl, trout_rx_mem_struct *p)
 {
@@ -703,7 +745,7 @@ int init_mac_rx_queue(rx_queue_handle *rx_q_handle)
 				goto err1;
 #endif				
 			}
-			TROUT_DBG4("rx_start: 0x%p, size: 0x%x\n", gsb->rx_start, size);
+			TROUT_DBG4("rx_start: 0x%x, size: 0x%x\n", gsb->rx_start, size);
 		}
 		else
 		{
@@ -1085,7 +1127,7 @@ UWORD32 *free_host_rx_dscr_list(UWORD32 *base_dscr, UWORD8 num_dscr)
 UWORD32 *free_host_rxds_when_err(UWORD32 *base_dscr, UWORD8 num_dscr)
 {
 	trout_rx_mem_struct *rx_dscr = (trout_rx_mem_struct *)base_dscr;
-	//UWORD32 *next_dscr = NULL;
+	UWORD32 *next_dscr = NULL;
 	int flag;
 	
 	if(rx_dscr == NULL) 
@@ -1227,7 +1269,7 @@ int to_idx(rx_queue_struct *rc, trout_rx_mem_struct *p)
 
 static void replenish_trout_rx_queue(rx_queue_struct *rx_ctrl)
 {
-	trout_rx_mem_struct *m = NULL;
+	trout_rx_mem_struct *tmp_dscr, *m = NULL;
 	UWORD8 num_dscr, count;
 	UWORD32 addr[3] = {0}, cs = 0, ps = 0,i;
 	trout_rx_mem_struct *t = NULL;
@@ -1322,7 +1364,7 @@ static void replenish_trout_rx_queue(rx_queue_struct *rx_ctrl)
 
 UWORD8 get_machw_rx_num_dscr(rx_queue_struct *rx_ctrl, UWORD32 *cur_dscr)
 {
-	UWORD32 buff_addr, stop_dscr=0;
+	UWORD32 buff_addr, tmp_dscr = 0,stop_dscr=0;
 	UWORD8 num_dscr = 0, max_dscr = 0;
 	
 	TROUT_FUNC_ENTER;
@@ -1362,7 +1404,7 @@ UWORD8 get_machw_rx_num_dscr(rx_queue_struct *rx_ctrl, UWORD32 *cur_dscr)
 		return 0;
 	}
 
-	//printk("[libing] : buff_addr =%u,trout_cur_ptr = %u,stop_dscr=%u,num_dscr= %d,trout_q_tail=%u\n",
+	//printk("[libing] : buff_addr =%u,trout_cur_ptr = %u,stop_dscr=%u,num_dscr= %d,trout_q_tail=%u\n",\
 		//buff_addr,rx_ctrl->trout_cur_ptr,stop_dscr,num_dscr,rx_ctrl->trout_q_tail);
 
 	rx_ctrl->trout_cur_ptr = buff_addr; 	//update trout_cur_ptr, make it point to next time rx dscr start position.
@@ -1377,9 +1419,9 @@ void active_fifo_rx_frame_pointer(UWORD8 q_num)
 {
 	UWORD32 regAddr, temp[2];
 	WORD8 fifo_depth = 3;
-	//UWORD32 ptr;
-	//rx_queue_handle *rx_handle = g_rx_handle;
-	//rx_queue_struct *rx_ctrl = &rx_handle->rx_q_info[q_num];	
+	UWORD32 ptr;
+	rx_queue_handle *rx_handle = g_rx_handle;
+	rx_queue_struct *rx_ctrl = &rx_handle->rx_q_info[q_num];	
 
 	TROUT_FUNC_ENTER;
 	
@@ -1497,7 +1539,7 @@ void rx_complete_isr(UWORD8 q_num)
 	rx_queue_struct *rx_ctrl = &rx_handle->rx_q_info[q_num];	
 	UWORD32 base_dscr = 0;
 	UWORD8 num_dscr = 0;
-	rx_int_info *rx_info = NULL, *rx_info_record;
+	rx_int_info *rx_info, *tmp, *rx_info_record;
 	UWORD32 trout_end;
 	UWORD32 last_num = 0;
 
@@ -1556,6 +1598,12 @@ void rx_complete_isr(UWORD8 q_num)
 	g_mac_stats.rcv_rx_dscr_num += num_dscr;
 #endif
     
+#ifdef IBSS_BSS_STATION_MODE
+        if(BTRUE == g_wifi_bt_coex){
+            coex_wifi_tx_rx_pkg_sum(COEX_WIFI_RX_PKG, num_dscr);
+        }
+#endif
+
    	if(base_dscr == 0 || num_dscr == 0)
 	{        
 		TROUT_FUNC_EXIT;
@@ -1692,7 +1740,7 @@ static UWORD32 transact_host_rx_queue(UWORD32 *base_dscr, UWORD8 num_dscr)
 {
 	trout_rx_mem_struct *tmp_dscr;
 	UWORD32 dscr_buf, prev_dscr, next_dscr;
-	UWORD32 *dscr_addr;
+	UWORD32 *dscr_addr, *pt, pc, pn;
 	UWORD8 i;
 
 	tmp_dscr = (trout_rx_mem_struct *)base_dscr;
@@ -1713,9 +1761,9 @@ static UWORD32 transact_host_rx_queue(UWORD32 *base_dscr, UWORD8 num_dscr)
 		else
 			prev_dscr = (UWORD32)tmp_dscr[i-1].trout_rx_dscr;
 
-		set_host_rxds_buffer_ptr(dscr_addr, (UWORD32 *)dscr_buf);
-		set_host_rxds_next_dscr(dscr_addr, (UWORD32 *)next_dscr);
-		set_host_rxds_prev_dscr(dscr_addr, (UWORD32 *)prev_dscr);
+		set_host_rxds_buffer_ptr(dscr_addr, dscr_buf);
+		set_host_rxds_next_dscr(dscr_addr, next_dscr);
+		set_host_rxds_prev_dscr(dscr_addr, prev_dscr);
 	}
 
 	return (UWORD32)dscr_addr;
@@ -1854,8 +1902,8 @@ void do_rx_preprocess(rx_queue_struct *rx_ctrl)
         /* should skip first cycle time 										   */
         if(count != 0)
         {
-			set_host_rxds_next_dscr((UWORD32 *)last_dscr_addr, (UWORD32 *)host_rx_mem_addr);
-			set_host_rxds_prev_dscr((UWORD32 *)host_rx_mem_addr, (UWORD32 *)last_dscr_addr);	
+			set_host_rxds_next_dscr((UWORD32 *)last_dscr_addr, (UWORD32)host_rx_mem_addr);
+			set_host_rxds_prev_dscr((UWORD32 *)host_rx_mem_addr, last_dscr_addr);	
         }
 
 		if(wlan_rx == NULL)
@@ -2003,7 +2051,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
 		TROUT_RX_DBG3("%s: num_buffs(%d) bigger than num_dscr(%d)\n",
 		__FUNCTION__, num_buffs, num_dscr);
 #ifdef DEBUG_MODE
-		TROUT_DBG5("HwEr:RxNumExc\n");
+		PRINTD2("HwEr:RxNumExc\n\r");
 		g_mac_stats.pwrx_numexceed++;
 #endif /* DEBUG_MODE */
 		/* Free all the remaining descriptors and break */
@@ -2018,7 +2066,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
 		base_dscr = free_host_rx_dscr_list(base_dscr, num_buffs);
 		num_dscr -= num_buffs;
 #ifdef DEBUG_MODE
-		TROUT_DBG4("HwEr:UnexpNewRxDscr\n");
+		PRINTD("HwEr:UnexpNewRxDscr\n");
 		g_mac_stats.pwrx_unexp_newdscr++;
 #endif /* DEBUG_MODE */
 	      continue;
@@ -2028,7 +2076,7 @@ void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg)
            		(is_rx_frame_start_buf(base_dscr) != BTRUE))
         	{
 #ifdef DEBUG_MODE
-            		TROUT_DBG4("HwEr:RxNotStart\n");
+            		PRINTD("HwEr:RxNotStart\n");
             		g_mac_stats.pwrx_notstart++;
 #endif /* DEBUG_MODE */
 
@@ -2153,7 +2201,7 @@ int trout_b2b_rx_low(mac_struct_t *mac, UWORD8 *msg)
         if(base_dscr == NULL)
         {
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:RxUnexpEnd\n");
+            PRINTD2("HwEr:RxUnexpEnd\n\r");
             g_mac_stats.pwrx_unexp_end++;
 #endif /* DEBUG_MODE */
 
@@ -2178,7 +2226,7 @@ int trout_b2b_rx_low(mac_struct_t *mac, UWORD8 *msg)
         if(num_buffs > num_dscr)
         {
 #ifdef DEBUG_MODE
-            TROUT_DBG5("HwEr:RxNumExc\n");
+            PRINTD2("HwEr:RxNumExc\n\r");
             g_mac_stats.pwrx_numexceed++;
 #endif /* DEBUG_MODE */
 

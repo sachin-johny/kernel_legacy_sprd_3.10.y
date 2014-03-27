@@ -45,6 +45,7 @@
 #include "pm_sta.h"
 #include "iconfig.h"
 #include "trout_wifi_rx.h"
+#include "autorate.h"
 
 /*****************************************************************************/
 /* Static Function Declarations                                              */
@@ -419,6 +420,8 @@ void sta_enabled_rx_data(mac_struct_t *mac, UWORD8 *msg)
 		}
 		
 		uptate_rssi4_auto_set_tx_rx_power();
+		//ping.jiang add for calculating statistics 2013-10-31
+		ar_rssi_value_add();
 #endif
 		//chenq add end
 		rssi_value_add();  // for set_aci

@@ -88,6 +88,8 @@
 #define MAX_AP_COMBO_SCAN 9
 #define MAX_AP_COMBO_SCAN_LIST 12
 #define SCAN_IN_ONE_CHANNEL_CNT 4
+#define COEX_SCAN_IN_ONE_CHANNEL_CNT 3
+
 #endif
 
 /* Maximum number of stations supported in AP/IBSS Modes*/

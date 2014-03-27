@@ -459,7 +459,7 @@ void *mem_alloc(mem_handle_t *mem_handle, UWORD16 size)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s NoSizeAlloc : %d\n\r", pt, size);
+            PRINTD2("SwEr:%s NoSizeAlloc : %d\n\r", pt, size);
         }
 #endif /* DEBUG_MODE */
 #ifdef MEM_DEBUG_MODE
@@ -534,7 +534,7 @@ void *mem_alloc(mem_handle_t *mem_handle, UWORD16 size)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s AllcErrPtrn : %d\n",pt,pattern);
+            PRINTD2("SwEr:%s AllcErrPtrn : %d\n\r",pt,pattern);
         }
 #endif /* DEBUG_MODE */
 
@@ -612,7 +612,7 @@ SWORD8 mem_free(mem_handle_t *mem_handle, void *buffer_addr)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s NullFreeExc\n",pt);
+            PRINTD2("SwEr:%s NullFreeExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -629,7 +629,7 @@ SWORD8 mem_free(mem_handle_t *mem_handle, void *buffer_addr)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s OOBFreeExc\n",pt);
+            PRINTD2("SwEr:%s OOBFreeExc\n",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -650,7 +650,7 @@ SWORD8 mem_free(mem_handle_t *mem_handle, void *buffer_addr)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s InvldFreeExc: Addr:%x -1:%x 0:%x\n", pt,
+            PRINTD2("SwEr:%s InvldFreeExc: Addr:%x -1:%x 0:%x\n", pt,
                 (UWORD32)buffer_addr, *(((UWORD32*)buffer_addr) - 1),
                 *((UWORD32*)buffer_addr));
         }
@@ -680,7 +680,7 @@ SWORD8 mem_free(mem_handle_t *mem_handle, void *buffer_addr)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s FreeErrPtrn : %d\n",pt,pattern);
+            PRINTD2("SwEr:%s FreeErrPtrn : %d\n",pt,pattern);
         }
 #endif /* DEBUG_MODE */
 
@@ -722,7 +722,7 @@ SWORD8 mem_free(mem_handle_t *mem_handle, void *buffer_addr)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s LockedFreeExc\n",pt);
+            PRINTD2("SwEr:%s LockedFreeExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -744,7 +744,7 @@ SWORD8 mem_free(mem_handle_t *mem_handle, void *buffer_addr)
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s ExcessFreeExc\n",pt);
+            PRINTD2("SwEr:%s ExcessFreeExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -844,7 +844,7 @@ UWORD8 mem_add_users(mem_handle_t *mem_handle, void *buffer_addr,
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s NullAddExc\n",pt);
+            PRINTD2("SwEr:%s NullAddExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -861,7 +861,7 @@ UWORD8 mem_add_users(mem_handle_t *mem_handle, void *buffer_addr,
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s OOBAddExc\n",pt);
+            PRINTD2("SwEr:%s OOBAddExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -879,7 +879,7 @@ UWORD8 mem_add_users(mem_handle_t *mem_handle, void *buffer_addr,
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s InvalidAddExc\n",pt);
+            PRINTD2("SwEr:%s InvalidAddExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 #ifdef MEM_DEBUG_MODE
@@ -904,7 +904,7 @@ UWORD8 mem_add_users(mem_handle_t *mem_handle, void *buffer_addr,
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s FreeAddExc\n",pt);
+            PRINTD2("SwEr:%s FreeAddExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 
@@ -928,7 +928,7 @@ UWORD8 mem_add_users(mem_handle_t *mem_handle, void *buffer_addr,
 #ifdef DEBUG_MODE
         {
             UWORD8 *pt = get_mem_pool_hdl_type(mem_handle);
-            TROUT_DBG5("SwEr:%s ExcessAddExc\n",pt);
+            PRINTD2("SwEr:%s ExcessAddExc\n\r",pt);
         }
 #endif /* DEBUG_MODE */
 #ifdef MEM_DEBUG_MODE
@@ -1003,7 +1003,7 @@ void *scratch_mem_alloc_fn(UWORD16 size)
     if(NULL == buffer)
     {
 #ifdef DEBUG_MODE
-        TROUT_DBG5("SwEr:scratch_mem_alloc fail\n");
+        PRINTD2("SwEr:scratch_mem_alloc fail\n");
 #endif /* DEBUG_MODE */
 #ifdef MEM_DEBUG_MODE
         g_mem_stats.scrallocfail++;

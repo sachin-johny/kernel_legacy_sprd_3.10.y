@@ -258,8 +258,8 @@ void sta_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
         	{
 				if((rate_mode == N_ONLY_RATE_STA) && (tx_rate < 0x84))
 					tx_rate = 0x84;	//n only mode, mini rate set to 26Mbps.
-				else if(tx_rate < 36)
-					tx_rate = 36;
+				else if(tx_rate < 12)//pingjiang modify 2014-01-09
+					tx_rate = 12;
         	}
 	}
 

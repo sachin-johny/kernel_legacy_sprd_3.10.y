@@ -45,6 +45,7 @@
 #include "fsm_sta.h"
 #include "mh.h"
 #include "sta_prot_if.h"
+#include "qmu_tx.h"
 
 /*****************************************************************************/
 /*                                                                           */
@@ -77,6 +78,7 @@ void sta_wait_scan(mac_struct_t *mac, UWORD8 *msg)
     UWORD8      temp_addr[6] = {0};
 
 	TROUT_FUNC_ENTER;
+	coex_state_switch(COEX_WIFI_ON_SCANNING);
     /* The incoming message is a Scan Request message and is cast to the     */
     /* scan request structure.                                               */
     scan_req = (scan_req_t *)msg;
@@ -93,6 +95,7 @@ void sta_wait_scan(mac_struct_t *mac, UWORD8 *msg)
 	{
 		TROUT_DBG4("%s: set user scan mode!\n", __func__);
 		itm_scan_flag = 1;
+	
 	    /* Start scanning from first channel in the scan request channel list */
 	    scan_channel(g_channel_list[g_channel_index]);
 	    g_channel_index++;
@@ -101,6 +104,7 @@ void sta_wait_scan(mac_struct_t *mac, UWORD8 *msg)
 	{
 		TROUT_DBG4("%s: set default scan mode!\n", __func__);
 		itm_scan_flag = 1;
+
 	    /* Start scanning from first channel in the scan request channel list */
 	    scan_channel(g_channel_list[g_channel_index]);
 	    g_channel_index++;
@@ -184,6 +188,7 @@ void sta_wait_join(mac_struct_t *mac, UWORD8 *msg)
     UWORD32     *trout_beacon_buf = 0, beacon_len = 0;
 
 	TROUT_FUNC_ENTER;
+    coex_state_switch(COEX_WIFI_ON_CONNECTING);
     /* Call a function to handle the MLME Join Request based on the protocol */
     /* in use. If handled, return. No further processing is required.        */
     if(BTRUE == sta_handle_join_req_prot(mac, msg))
@@ -335,6 +340,7 @@ void sta_wait_auth(mac_struct_t *mac, UWORD8 *msg)
     UWORD16    auth_frame_len = 0;
 
 	TROUT_FUNC_ENTER;
+    coex_state_switch(COEX_WIFI_ON_CONNECTING);
     auth_frame = (UWORD8 *)mem_alloc(g_shared_pkt_mem_handle,
                                      MANAGEMENT_FRAME_LEN);
     if(auth_frame == NULL)

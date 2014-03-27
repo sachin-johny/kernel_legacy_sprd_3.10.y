@@ -5,15 +5,162 @@
 #include "management_11n.h"
 #include "core_mode_if.h"
 #include "qmu.h"
-
 #include "qmu_tx.h"
 
 #ifdef IBSS_BSS_STATION_MODE
-
 UWORD32 *g_trout_self_cts_null_data_buf = NULL;
 UWORD32 *g_trout_ps_null_data_buf = NULL;
 BOOL_T g_wifi_bt_coex = BFALSE;
+COEX_TRFFC_CHK_T g_coex_trffc_chk = {0,};
 
+extern BOOL_T g_keep_connection;
+int pkg_num_to_traffic_level(UWORD32 rx_pkg_num, UWORD32 tx_pkg_num){
+	static UWORD32 last_pkg_num = 0;
+    	if((rx_pkg_num+tx_pkg_num) < COEX_TRAFFIC_THRESHOLD){
+		return TRAFFIC_LEVEL_2;
+	}
+	else{
+		return TRAFFIC_LEVEL_4;
+	}
+	 last_pkg_num = rx_pkg_num+tx_pkg_num;
+}
+
+void coex_wifi_tx_rx_pkg_sum(UWORD8 tx_or_rx, UWORD32 pkg_num){
+    if(COEX_WIFI_TX_PKG == tx_or_rx){
+        g_coex_trffc_chk.coex_tx_pkg_cnt += pkg_num;
+    }
+    else if(COEX_WIFI_RX_PKG == tx_or_rx){
+        g_coex_trffc_chk.coex_rx_pkg_cnt += pkg_num;
+    }
+}
+
+void refresh_coex_wifi_traffic_level(COEX_TRFFC_CHK_T* coex_traffic_para){
+    UWORD32 traffic_level_per_period = 0;
+    static UWORD32 continue_inc_level_cnt = 0;
+    static UWORD32 continue_inc_level_sum = 0;
+    static UWORD32 continue_dec_level_cnt = 0;
+    static UWORD32 continue_dec_level_sum = 0;
+    UWORD8 traffic_level_change_flag = 0;
+
+   
+    traffic_level_per_period = pkg_num_to_traffic_level(coex_traffic_para->coex_rx_pkg_cnt, coex_traffic_para->coex_tx_pkg_cnt);
+    if(traffic_level_per_period > coex_traffic_para->coex_traffic_level){
+        continue_inc_level_cnt++;
+        continue_inc_level_sum = (traffic_level_per_period-coex_traffic_para->coex_traffic_level);
+        continue_dec_level_cnt = 0;
+        continue_dec_level_sum = 0;
+    }
+    else if(traffic_level_per_period < coex_traffic_para->coex_traffic_level){
+        continue_inc_level_cnt = 0;
+        continue_inc_level_sum = 0;
+        continue_dec_level_cnt++;
+        continue_dec_level_sum += (coex_traffic_para->coex_traffic_level-traffic_level_per_period);
+    }
+    else{
+        continue_inc_level_cnt = 0;
+        continue_inc_level_sum = 0;
+        continue_dec_level_cnt = 0;
+        continue_dec_level_sum = 0;
+    }
+
+    if(continue_inc_level_cnt >= COEX_CNTNUE_INC_LVL_CNT_THRD){
+        //coex_traffic_para->coex_traffic_level += (continue_inc_level_sum/continue_inc_level_cnt);
+        coex_traffic_para->coex_traffic_level = TRAFFIC_LEVEL_4;
+        continue_inc_level_cnt = 0;
+        continue_inc_level_sum = 0;
+        traffic_level_change_flag = 1;
+    }
+    else if(continue_dec_level_cnt >= COEX_CNTNUE_DEC_LVL_CNT_THRD){
+        coex_traffic_para->coex_traffic_level = TRAFFIC_LEVEL_2;   
+        continue_dec_level_cnt = 0;
+        continue_dec_level_sum = 0;
+        traffic_level_change_flag = 1;
+    }    
+
+    printk("[%s] tx: %d, rx:%d level:%d\n", __FUNCTION__, coex_traffic_para->coex_tx_pkg_cnt, coex_traffic_para->coex_rx_pkg_cnt, coex_traffic_para->coex_traffic_level);
+    coex_traffic_para->coex_tx_pkg_cnt = 0;
+    coex_traffic_para->coex_rx_pkg_cnt = 0;
+
+    if(1 == traffic_level_change_flag){
+        host_notify_arm7_traffic_level(coex_traffic_para->coex_traffic_level);
+        printk("[%s] traffic level switch to %d\n", __FUNCTION__, coex_traffic_para->coex_traffic_level);
+    }
+}
+
+void coex_traffic_check_alarm_fn(ADDRWORD_T data){
+    schedule_work(&((trout_timer_struct *)data)->work);
+}
+
+void coex_traffic_check_alarm_work(void){
+    refresh_coex_wifi_traffic_level(&g_coex_trffc_chk);
+    start_alarm(g_coex_trffc_chk.coex_traffic_check_alarm_handle, COEX_TRAFFIC_CHECK_PERIOD);
+}
+
+void create_coex_traffic_check_alarms(void)
+{
+    /* If the coex alarm exists, stop and delete the same */
+    if(g_coex_trffc_chk.coex_traffic_check_alarm_handle != NULL)
+    {
+        stop_alarm(g_coex_trffc_chk.coex_traffic_check_alarm_handle);
+        delete_alarm(&g_coex_trffc_chk.coex_traffic_check_alarm_handle);
+    }
+    g_coex_trffc_chk.coex_traffic_check_alarm_handle = create_alarm(coex_traffic_check_alarm_fn, 0, coex_traffic_check_alarm_work);
+}
+
+UWORD32 get_coex_state(void){
+	return g_coex_trffc_chk.coex_wifi_state;
+}
+
+UWORD8 get_coex_traffic_level(void){
+	return g_coex_trffc_chk.coex_traffic_level;
+}
+void coex_state_switch(UWORD8 state){
+    static UWORD8 prev_state = COEX_WIFI_IDLE;
+    switch(state){
+        case COEX_WIFI_IDLE:
+            g_coex_trffc_chk.coex_wifi_state = COEX_WIFI_IDLE;
+            g_coex_trffc_chk.coex_rx_pkg_cnt = 0;
+            g_coex_trffc_chk.coex_tx_pkg_cnt = 0;
+		g_coex_trffc_chk.coex_traffic_level = TRAFFIC_LEVEL_1;
+		host_notify_arm7_traffic_level(g_coex_trffc_chk.coex_traffic_level);
+		printk("[%s] wifi idle, traffic level is %d\n", __FUNCTION__, g_coex_trffc_chk.coex_traffic_level);  
+            break;
+	 case COEX_WIFI_ON_SCANNING:
+	 	if(BFALSE == g_keep_connection){
+	 		g_coex_trffc_chk.coex_traffic_level = TRAFFIC_LEVEL_1;
+			g_coex_trffc_chk.coex_wifi_state = COEX_WIFI_ON_SCANNING;
+            		host_notify_arm7_traffic_level(g_coex_trffc_chk.coex_traffic_level);
+			printk("[%s] scan start, traffic level is %d\n", __FUNCTION__, g_coex_trffc_chk.coex_traffic_level);  
+		}
+	 	break;
+        case COEX_WIFI_ON_CONNECTING:           
+           g_coex_trffc_chk.coex_traffic_level = TRAFFIC_LEVEL_ON_CONNECTING;
+            host_notify_arm7_traffic_level(g_coex_trffc_chk.coex_traffic_level);
+            printk("[%s] connecting, traffic level is %d\n", __FUNCTION__, g_coex_trffc_chk.coex_traffic_level);           
+            g_coex_trffc_chk.coex_wifi_state = COEX_WIFI_ON_CONNECTING;
+            break;
+        case COEX_WIFI_CONNECTED:
+            if(COEX_WIFI_8021X_DHCP == prev_state){
+                g_coex_trffc_chk.coex_traffic_level = TRAFFIC_LEVEL_4;
+                host_notify_arm7_traffic_level(g_coex_trffc_chk.coex_traffic_level);
+                printk("[%s] connected, traffic level is %d\n", __FUNCTION__, g_coex_trffc_chk.coex_traffic_level);
+                stop_alarm(g_coex_trffc_chk.coex_traffic_check_alarm_handle);
+                start_alarm(g_coex_trffc_chk.coex_traffic_check_alarm_handle, COEX_TRAFFIC_CHECK_PERIOD);
+            }
+            g_coex_trffc_chk.coex_wifi_state = COEX_WIFI_CONNECTED;
+            break;
+	case COEX_WIFI_8021X_DHCP:
+		g_coex_trffc_chk.coex_traffic_level = TRAFFIC_LEVEL_4;
+             host_notify_arm7_traffic_level(g_coex_trffc_chk.coex_traffic_level);
+             printk("[%s] 8021X and DHCP, traffic level is %d\n", __FUNCTION__, g_coex_trffc_chk.coex_traffic_level);
+		g_coex_trffc_chk.coex_wifi_state = COEX_WIFI_8021X_DHCP;  
+		break;
+        default:
+            break;            
+    }
+    //printk("[%s] switch from %d to %d\n", __FUNCTION__, prev_state, g_coex_trffc_chk.coex_wifi_state);
+    prev_state = state;
+}
 
 void wifi_bt_coexist_init(void)
 {
@@ -22,6 +169,7 @@ void wifi_bt_coexist_init(void)
 	g_wifi_bt_coex = BFALSE;
 	g_trout_self_cts_null_data_buf = NULL;
 	g_trout_ps_null_data_buf = NULL;
+    create_coex_traffic_check_alarms();
 }
 
 
@@ -55,7 +203,7 @@ void init_coex_self_cts_null_data(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	se = (sta_entry_t *)find_entry(mget_bssid());
     if(NULL == se)
     {
-        TROUT_DBG3("%s: Err, send null data in not associated stage!\n", __func__);
+        TROUT_DBG3("%s: Err, send null data in not associated stage!\n");
         /* This is an exception case and should never occur */
         return;
     }
@@ -150,7 +298,8 @@ void init_coex_self_cts_null_data(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	//hex_dump("tx_pkt", msa, frame_len);
 
 	tx_handle = &g_q_handle.tx_handle;
-	g_trout_self_cts_null_data_buf = (UWORD32 *)(tx_handle->tx_mem_end + COEX_SLOT_INFO_SIZE);
+	//g_trout_self_cts_null_data_buf = (UWORD32 *)(tx_handle->tx_mem_end + COEX_SLOT_INFO_SIZE);
+	g_trout_self_cts_null_data_buf = (UWORD32 *)COEX_SELF_CTS_NULL_DATA_BEGIN;
 
 	trout_dscr = (UWORD32)g_trout_self_cts_null_data_buf;
 	trout_buf = trout_dscr + TX_DSCR_BUFF_SZ;
@@ -214,7 +363,6 @@ void init_coex_ps_null_data(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	buffer_desc_t buff_list;
 	UWORD32 trout_dscr, trout_buf;
 	UWORD8 pr;
-
 	//dbg.
 	//UWORD8 tmp_dscr[TX_DSCR_BUFF_SZ];
 	//UWORD8 tmp_pkt[128];
@@ -225,7 +373,7 @@ void init_coex_ps_null_data(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	se = (sta_entry_t *)find_entry(mget_bssid());
     if(NULL == se)
     {
-        TROUT_DBG3("%s: Err, send null data in not associated stage!\n", __func__);
+        TROUT_DBG3("%s: Err, send null data in not associated stage!\n");
         /* This is an exception case and should never occur */
         return;
     }
@@ -320,8 +468,9 @@ void init_coex_ps_null_data(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	//hex_dump("tx_pkt", msa, frame_len);
 
 	tx_handle = &g_q_handle.tx_handle;
-	g_trout_ps_null_data_buf = 
-		(UWORD32 *)(tx_handle->tx_mem_end + COEX_SLOT_INFO_SIZE + COEX_SELF_CTS_NULL_DATA_SIZE);
+	/*g_trout_ps_null_data_buf = 
+		(UWORD32 *)(tx_handle->tx_mem_end + COEX_SLOT_INFO_SIZE + COEX_SELF_CTS_NULL_DATA_SIZE);*/
+	g_trout_ps_null_data_buf = (UWORD32 *)COEX_PS_NULL_DATA_BEGIN;
 
 	trout_dscr = (UWORD32)g_trout_ps_null_data_buf;
 	trout_buf = trout_dscr + TX_DSCR_BUFF_SZ;
@@ -379,18 +528,18 @@ void  exit_from_coexist_mode(void)
 	host_read_trout_ram((void *)tmp32, (void *)(tx_shareram[0].slot_info), sizeof(UWORD32));
 	tx_dscr = (UWORD32 *)(tmp32[0]);
 
-	TROUT_DBG4("%s: tx_dscr_start=0x%p\n", __func__, tx_dscr);
+	TROUT_DBG4("%s: tx_dscr_start=0x%x\n", __func__, tx_dscr);
 	
 	while(tx_dscr != NULL)
 	{
 		host_read_trout_ram((void *)tmp32, (void *)tx_dscr, sizeof(UWORD32) * 36);
-		TROUT_DBG4("tx_dscr: 0x%p, status: %d\n", tx_dscr, ((tmp32[0] >> 29) & 0x3));
+		TROUT_DBG4("tx_dscr: 0x%x, status: %d\n", tx_dscr, ((tmp32[0] >> 29) & 0x3));
 		if((tx_start == NULL) && (((tmp32[0] >> 29) & 0x3) == (UWORD32)(PENDING)))
 		{
 			tx_start = tx_dscr;
 			q_num = tmp32[32] & 0xFF;
 			
-			TROUT_DBG4("exit from coex: q_num=%d, tx_start=0x%p\n", q_num, tx_start);
+			TROUT_DBG4("exit from coex: q_num=%d, tx_start=0x%x\n", q_num, tx_start);
 			break;
 		}
 		tx_dscr = (UWORD32 *)(tmp32[4]);

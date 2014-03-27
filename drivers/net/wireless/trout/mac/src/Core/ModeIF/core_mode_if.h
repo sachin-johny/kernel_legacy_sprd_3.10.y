@@ -519,7 +519,31 @@ INLINE void do_per_entry_ar(void *te)
     if(is_autorate_enabled() == BTRUE)
     {
 #ifdef IBSS_BSS_STATION_MODE
-        do_sta_entry_ar((sta_entry_t*)te);
+   sta_entry_t entry;
+   sta_entry_t *update_entry;
+   
+   if (te == NULL){
+       return ;
+   }
+
+   memcpy(&entry, te, sizeof(sta_entry_t));
+   do_sta_entry_ar(&entry);
+
+   /*
+    * leon liu added, fix reboot bug, during do_sta_entry_ar,
+    * AP send deauth frame and entry is deleted, this will
+    * result in NULL pointer access.
+   */
+   update_entry = find_entry(mget_bssid());
+   if (update_entry){
+       pr_info("%s: updateing sta_entry\n", __func__);
+       update_entry->tx_rate_index = entry.tx_rate_index;
+       update_entry->ar_stats = entry.ar_stats;
+       update_entry->ht_hdl.tx_sgi = entry.ht_hdl.tx_sgi;
+       update_entry->ht_hdl.tx_mcs_index = entry.ht_hdl.tx_mcs_index;
+       update_entry->retry_rate_set[0] = entry.retry_rate_set[0];
+       update_entry->retry_rate_set[1] = entry.retry_rate_set[1];
+   }
 #endif /* IBSS_BSS_STATION_MODE */
 
 #ifdef BSS_ACCESS_POINT_MODE

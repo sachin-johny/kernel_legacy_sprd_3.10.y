@@ -117,6 +117,7 @@ void dma_rx_complete_isr(UWORD8 q_num);
 void process_wlan_rx(mac_struct_t *mac, UWORD8 *msg);
 void host_rx_queue_free(void);
 void flush_all_rxq(void);
+void create_trout_default_share_mem_cfg(void);
 
 INLINE void set_host_rxds_buffer_ptr(UWORD32 *dsc, UWORD32 *vir)
 {

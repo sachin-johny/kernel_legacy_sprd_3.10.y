@@ -600,7 +600,7 @@ INLINE BOOL_T sta_check_11i_tx_sta_state(sta_entry_t *se,
 				return BTRUE;
 			}
         }
-		PRINTD("Dropping the non-1x pkt \n");
+		PRINTD("Dropping the non-1x pkt \n\r");
 				return BFALSE;
 	}
 	/* If 11i Handshake is complete, Allow all packets */

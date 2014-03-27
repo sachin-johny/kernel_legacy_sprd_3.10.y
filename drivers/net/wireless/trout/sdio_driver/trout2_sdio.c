@@ -120,6 +120,7 @@ inline void PRINT_TROUT_STACK_FN(const char *func_name, UWORD32 line)
 extern unsigned int g_trout_power_mode; // add for sdio suspend and resume!
 extern int  MxdRfSwtchLnaCfg(UWORD32);
 extern void mmc_set_clock(struct mmc_host*, unsigned int);
+extern void  MxdRfGetRfMode(unsigned int * pFlagFmBit2BtBit1WfBit0 );
 bool is_wifi_in_sleep(void);
 
 //Export for Trout2 Interface (12Mhz->48Mhz)
@@ -185,6 +186,8 @@ EXPORT_SYMBOL(get_phy_mutex);
 EXPORT_SYMBOL(put_phy_mutex);
 EXPORT_SYMBOL(GetTxPowerLevel);
 EXPORT_SYMBOL(get_tx_pwr_from_nv);
+EXPORT_SYMBOL (MxdRfGetRfMode);
+
 
 /* alloc buffer for wifi by zhao */
 unsigned char *wifi_buf = NULL;

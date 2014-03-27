@@ -159,8 +159,16 @@ void hci_add_sco(struct hci_conn *conn, __u16 handle)
 	conn->attempt++;
 
 	cp.handle   = cpu_to_le16(handle);
+#ifndef CONFIG_BT_TROUT
 	cp.pkt_type = cpu_to_le16(conn->pkt_type);
-
+#else
+	cp.pkt_type = 0;
+	cp.pkt_type |= (conn->pkt_type & ESCO_HV1) << 5;
+	cp.pkt_type |= (conn->pkt_type & ESCO_HV2) << 5;
+	cp.pkt_type |= (conn->pkt_type & ESCO_HV3) << 5;
+	cp.pkt_type = cpu_to_le16(cp.pkt_type);
+	BT_DBG("cp pkt type 0x%x conn->pkt 0x%x", cp.pkt_type, conn->pkt_type);
+#endif
 	hci_send_cmd(hdev, HCI_OP_ADD_SCO, sizeof(cp), &cp);
 }
 
@@ -262,12 +270,21 @@ void hci_sco_setup(struct hci_conn *conn, __u8 status)
 {
 	struct hci_conn *sco = conn->link;
 
-	BT_DBG("%p", conn);
+	BT_DBG("hci_sco_setup %p", conn);
 
 	if (!sco)
 		return;
 
 	if (!status) {
+#ifdef CONFIG_BT_TROUT
+		BT_DBG(KERN_ERR "sco setup name %s", conn->rem_name);
+		if(0 == strncmp(&conn->rem_name,"Nokia BH-503", 12))//device Nokia BH-503 need to add sco conn
+		{
+			BT_DBG("the device is Nokia BH-503");
+			hci_add_sco(sco, conn->handle);
+			return;
+		}
+#endif
 		if (lmp_esco_capable(conn->hdev))
 			hci_setup_sync(sco, conn->handle);
 		else

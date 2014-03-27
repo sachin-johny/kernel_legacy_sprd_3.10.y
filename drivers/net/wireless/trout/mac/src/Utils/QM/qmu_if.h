@@ -116,6 +116,7 @@ INLINE int init_mac_qmu(void)
 		return -1;
 	}
 #endif	/* TX_PKT_USE_DMA */
+	create_trout_default_share_mem_cfg();
 	return 0;
 }
 

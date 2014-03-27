@@ -17,7 +17,7 @@ pstimer_t pstimer;
 static int tx_pkts_last = 0;
 static int rx_pkts_last = 0;
 //---------Static routines------------
-static inline unsigned long get_tx_pkts(void)
+static inline unsigned long get_tx_pkts()
 {
 	if (g_mac_net_stats)
 	{
@@ -29,7 +29,7 @@ static inline unsigned long get_tx_pkts(void)
 	}
 }
 
-static inline unsigned long get_rx_pkts(void)
+static inline unsigned long get_rx_pkts()
 {
 	if (g_mac_net_stats)
 	{
@@ -49,7 +49,7 @@ static inline unsigned long get_rx_pkts(void)
  * Author: Keguang
  * Date: 20130524
  */
-static inline void should_switch(void)
+static inline void should_switch()
 {
 	int mode = 0;
 	int switch_flag = 0;
@@ -62,7 +62,7 @@ static inline void should_switch(void)
 	interval = pstimer.timeout_ms / 500;
 
 	/*pr_info("rx_pkts %d tx_pkts %d rx_pkts_last %d tx_pkts_last %d\n", rx_pkts, tx_pkts, rx_pkts_last, tx_pkts_last);*/
-	pr_info("---- There are %lu TX & RX packets during %d ms\n", CACULATE_THRESHOLD(rx_pkts, tx_pkts, rx_pkts_last, tx_pkts_last), pstimer.timeout_ms);
+	pr_info("---- There are %d TX & RX packets during %d ms\n", CACULATE_THRESHOLD(rx_pkts, tx_pkts, rx_pkts_last, tx_pkts_last), pstimer.timeout_ms);
 
 	if (CACULATE_THRESHOLD(rx_pkts, tx_pkts, rx_pkts_last, tx_pkts_last) < (POWERSAVE_THRESHOLD * interval))
 	{

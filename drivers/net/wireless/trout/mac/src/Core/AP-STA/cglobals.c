@@ -167,12 +167,12 @@ int buffer_frame_count = 0;
 static void buffer_frame_timerfunc(unsigned long data)
 {
 	if (txhw_idle() || !buffer_frame_count) {
-		buffer_frame_count ? : pr_info("%s: no more chance\n", __func__);
-		pr_info("%s: Let it go\n", __func__);
+		buffer_frame_count ? : pr_info("no more chance\n", __func__);
+		pr_info("Let it go\n", __func__);
 		wake_unlock(&buffer_frame_lock);
 	}
 	else {
-		pr_info("%s: Hold on\n", __func__);
+		pr_info("Hold on\n", __func__);
 		buffer_frame_count--;
 		mod_timer(&buffer_frame_timer, jiffies + msecs_to_jiffies(30));
 	}

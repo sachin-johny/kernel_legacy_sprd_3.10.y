@@ -65,6 +65,7 @@
 /*****************************************************************************/
 
 #include "iconfig.h"
+#include "qmu_tx.h"
 
 #ifdef IBSS_BSS_STATION_MODE //chenq add 0723
 //chenq add a flag
@@ -283,6 +284,26 @@ void set_mac_state(UWORD8 state)
 #endif
     /* Set the MAC state to the new state */
     g_mac.state = state;
+
+// for wifi/bt coex 
+#ifdef IBSS_BSS_STATION_MODE
+	if(DISABLED == state){
+		// clear tx int before wifi disconnect in coexistence situation. wzl
+		coex_state_switch(COEX_WIFI_IDLE);
+		/*
+		if(BTRUE == g_wifi_bt_coex){
+			UWORD32 arm2host = 0;
+			arm2host = host_read_trout_reg((UWORD32)rCOMM_ARM2HOST_INFO3);
+			if(arm2host & BIT0)	//tx int.
+			{
+				printk("[%s]: clear tx int before wifi disconnect\n", __FUNCTION__);
+				arm2host &= (~BIT0);		
+				host_write_trout_reg(arm2host, (UWORD32)rCOMM_ARM2HOST_INFO3);
+			}
+		}*/
+	}
+	host_notify_arm7_wifi_state(state);
+#endif
 }
 
 /*****************************************************************************/

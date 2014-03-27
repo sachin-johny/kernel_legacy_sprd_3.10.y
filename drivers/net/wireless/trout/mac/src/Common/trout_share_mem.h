@@ -14,13 +14,23 @@
 #ifndef __TROUT_SHARE_MEM_H
 #define __TROUT_SHARE_MEM_H
 
-/* trout wifi share memory struct details     */
+/*        trout wifi share memory layout      */
 /* +----------------------------------------+ */
-/* | rx normal dscr+buf struct(37)          | */
+/* |        Beacon memory(512byte)          | */
 /* +----------------------------------------+ */
-/* | rx high priority dscr+buf struct(5)    | */
+/* |      rx high priority memory(5)        | */
 /* +----------------------------------------+ */
-/* | tx mem space 8KB                       | */
+/* |   rx normal priority memory(dynamic)   | */
+/* +----------------------------------------+ */
+/* |tx memory(dynamic, depend on normal rxq)| */
+/* +----------------------------------------+ */
+/* | coex slot info memory(8byte,dynamic)   | */
+/* +----------------------------------------+ */
+/* |   coex cts null data memory(200byte)   | */
+/* +----------------------------------------+ */
+/* |   coex ps null data memory(200byte)    | */
+/* +----------------------------------------+ */
+/* |    trout share memory cfg(128byte)     | */
 /* +----------------------------------------+ */
 
 /* Requirement is to support both old and new receive descriptor formats.    */
@@ -94,42 +104,6 @@
 #define RX_PACKET_SIZE		1600U
 #define RX_Q_SIZE			(RX_DSCR_LEN + RX_PACKET_SIZE)
 
-#if 0
-#define RX_MEM_BEGIN		SHARE_MEM_BEGIN
-#define RX_MEM_SIZE			(RX_Q_SIZE * (NUM_HIPR_RX_BUFFS + NUM_RX_BUFFS))
-#define RX_MEM_END			(RX_MEM_BEGIN + RX_MEM_SIZE)
-
-#define TX_MEM_BEGIN		(RX_MEM_END + 8)		/* leave 8 byte gap space */
-
-//#define TX_MEM_SIZE			(8U * 1024U)
-//#define TX_MEM_SIZE			(16U * 1024U)
-#define TX_MEM_SIZE			(32U * 1024U)
-#define TX_MEM_END			(TX_MEM_BEGIN + TX_MEM_SIZE)
-
-//Hugh for trout
-#define TX_DSCR_LEN         144 /* 35 * 4 Bytes + host descr addr */
-#define TX_BUFF_SIZE		(TX_MEM_SIZE - TX_DSCR_LEN)
-
-//trout space for beacon buffer.
-#define BEACON_MEM_BEGIN	(TX_MEM_END + 8)	/* leave 8 byte gap space */
-#define BEACON_MEM_SIZE		512
-#define BEACON_MEM_END		(BEACON_MEM_BEGIN + BEACON_MEM_SIZE)
-
-//#ifndef MAC_P2P //caisf add for p2p
-#define WIFI_MEM_END		BEACON_MEM_END
-//#else
-//#define CFG_CONF_MEM_BEGIN  (BEACON_MEM_END+8)
-//#define CFG_CONF_MEM_SIZE   1660 // eq to MAX_QRSP_LEN + 64 // (2U * 1024U)
-//#define CFG_CONF_MEM_END    (CFG_CONF_MEM_BEGIN + CFG_CONF_MEM_SIZE)
-
-//#define WIFI_MEM_END		CFG_CONF_MEM_END
-//#endif
-
-#if (WIFI_MEM_END > SHARE_MEM_END)
-#error "share memory exceed the range of trout memory!"
-#endif
-
-#endif
 /////////////////////////////////////////////////////////////////////
 #define TX_DSCR_LEN         144 /* 35 * 4 Bytes + host descr addr */
 
@@ -152,10 +126,19 @@
 #define MIN_TX_MEM_SIZE		(8U * 1024)
 #define MAX_RX_MEM_SIZE		(SHARE_MEM_END - NORMAL_RX_MEM_BEGIN - MIN_TX_MEM_SIZE)
 
-#define COEX_SELF_CTS_NULL_DATA_SIZE	200
-#define COEX_PS_NULL_DATA_SIZE	200	//include tx dscr & pkt content.
+#define COEX_SLOT_INFO_SIZE		(4 * TX_SHARERAM_SLOTS)
 
-#define COEX_SLOT_INFO_SIZE	(4 * TX_SHARERAM_SLOTS)
+/* Reserved 128byte used for save trout share memory config info, this will be */
+/* used by Arm7                                                                */
+#define TROUT_MEM_CFG_SIZE		128
+#define TROUT_MEM_CFG_BEGIN		(SHARE_MEM_END - TROUT_MEM_CFG_SIZE)
+#define TROUT_MEM_MAGIC			0x756F7274
+
+#define COEX_PS_NULL_DATA_SIZE	200	//include tx dscr & pkt content.
+#define COEX_PS_NULL_DATA_BEGIN		(TROUT_MEM_CFG_BEGIN - COEX_PS_NULL_DATA_SIZE)
+
+#define COEX_SELF_CTS_NULL_DATA_SIZE	200	//include tx dscr & pkt content.
+#define COEX_SELF_CTS_NULL_DATA_BEGIN	(COEX_PS_NULL_DATA_BEGIN - COEX_SELF_CTS_NULL_DATA_SIZE)
 
 /* this is setting according to alloc_sb_buf(), the min host normal rx buufer is
  * 64kb, so the min trout normal rx pkt buffer size is: (64kb/HOST_RX_Q_NUM)x2. 

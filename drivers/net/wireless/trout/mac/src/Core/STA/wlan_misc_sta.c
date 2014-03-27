@@ -452,7 +452,11 @@ void sta_wait_asoc_misc(mac_struct_t *mac, UWORD8 *msg)
         /* Prepare an authentication response message with TIMEOUT status    */
         /* and send it to the host.                                          */
         asoc_rsp.result_code = TIMEOUT;
-
+	// re-call sta_wait_auth again until g_assoc_retry_cnt >= 5
+	if(g_assoc_retry_cnt < ASSOC_MAX_RETRY_CNT){
+		set_mac_state(AUTH_COMP);		
+	}
+	else{
         /* Send de-auth frame with error code, Previous Authentication no    */
         /* longer valid                                                      */
         send_deauth_frame(mget_bssid(), (UWORD16)AUTH_NOT_VALID);
@@ -463,7 +467,7 @@ void sta_wait_asoc_misc(mac_struct_t *mac, UWORD8 *msg)
 
         /* Reset the STA Entry */
         delete_entry(mget_bssid());
-
+	}
         /* Send the response to host now. */
         handle_mlme_rsp_sta(mac, MLME_ASOC_RSP, (UWORD8 *)(&asoc_rsp));
     }

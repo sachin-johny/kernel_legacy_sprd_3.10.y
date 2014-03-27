@@ -1295,6 +1295,7 @@ INLINE UWORD8 get_tx_rate(void)
 /* This function sets the transmission rate as requested by the user.*/
 INLINE void set_tx_rate(UWORD8 rate)
 {
+	printk("[%s] rate:%u\n", __FUNCTION__, rate);
 #ifdef MAC_HW_UNIT_TEST_MODE
     if(rate != 0)
         set_curr_tx_rate(rate);

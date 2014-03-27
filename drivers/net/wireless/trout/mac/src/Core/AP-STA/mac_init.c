@@ -92,7 +92,7 @@ extern atomic_t g_event_cnt;
 void get_vbp_mutex(unsigned long owner)
 {
 	if(vbp_locked && current == vbp_tsk){
-		printk("@@@BUG!vbp mutex has locked by \%pS\n", vbp_owner);
+		printk("@@@BUG!vbp mutex has locked by %pS\n", vbp_owner);
 		dump_stack();
 	}
 	mutex_lock(&vbp_mutex);
@@ -311,7 +311,6 @@ int initialize_macsw(mac_struct_t *mac)
 
     /* Do protocol related system initialization */
     sys_init_prot();
-    
     TROUT_FUNC_EXIT;
     return 0;
 }
@@ -342,6 +341,7 @@ void create_mac_interrupts(void)
     UWORD32 int_mask = 0;
     UWORD32 int_stat = 0;
     ISR_T id = {0};
+
 
     TROUT_FUNC_ENTER;
     id.isr = (ISR_FN_T *)mac_isr_work;
@@ -394,6 +394,21 @@ void create_mac_interrupts(void)
         convert_to_le(host_read_trout_reg((UWORD32)rMAC_INT_STAT)));
 #endif
 */
+	{
+		UWORD32 tmp32 = 0;		
+		host_read_trout_ram((void *)&tmp32, (void *)(COEX_SELF_CTS_NULL_DATA_BEGIN-4), sizeof(UWORD32));
+		printk("[%s] index from BT: %#x\n", __FUNCTION__, tmp32);
+		//host_read_trout_ram((void *)&tmp32, (void *)(COEX_PS_NULL_DATA_BEGIN), sizeof(UWORD32));
+		//printk("[%s] PS NULL data: %#x\n", __FUNCTION__, tmp32);
+	}
+	host_notify_arm7_coex_ready(BTRUE);
+	host_notify_arm7_wifi_reset(BFALSE);
+	{	
+		UWORD32 tmp = 0;
+		host_read_trout_ram(&tmp, (UWORD32*)TROUT_MEM_CFG_BEGIN, 4);
+		printk("[%s] TROUT_MEM_CFG_BEGIN = %#x\n", __FUNCTION__, tmp);
+	}
+
 	TRACE_FUNC_EXIT;
 }
 
@@ -475,6 +490,8 @@ static int handle_beacon(void)
 	UWORD16 i           = 0;
 	unsigned int v;
 	int smart_type = MODE_START;
+	struct timespec time;
+	static unsigned int cnr = 0;    
 
 	v = convert_to_le(host_read_trout_reg((UWORD32)rMAC_PA_STAT));
 	while((v & 0x10) == 0 && !kthread_should_stop()){
@@ -514,7 +531,7 @@ static int handle_beacon(void)
 	}
 
     /* virtual bit map should be protected by zhao 6-21 2013 */
-	get_vbp_mutex((unsigned long)__builtin_return_address(0));
+	get_vbp_mutex(__builtin_return_address(0));
 	g_vbmap[DTIM_CNT_OFFSET] = dtim_count;
 	for(i = 0; i < g_vbmap[LENGTH_OFFSET] + 2; i++){
 		g_beacon_frame[g_beacon_index][g_tim_element_index + i + SPI_SDIO_WRITE_RAM_CMD_WIDTH] =
@@ -744,7 +761,7 @@ void wait_for_tx_finsh(void)
 	if(is_all_machw_q_null())
 		tx_barrier &=  ~(1 << RST_BARRIER_TX);
 loop:
-	printk("RST_BARRIER: %lu\n", tx_barrier);
+	printk("RST_BARRIER: %x\n", tx_barrier);
 	set_current_state(TASK_INTERRUPTIBLE);
 	schedule_timeout(msecs_to_jiffies(10));
 	if(tx_barrier != 0x8)
@@ -762,7 +779,7 @@ void clear_tx_barrier(void)
 void reset_mac__lock(void)
 {
 	struct trout_private *tp = netdev_priv(g_mac_dev);
-	if(tp == NULL) return;
+	if(tp == NULL) return 0;
 	down_read(&tp->rst_semaphore);
 	//printk("[libing]: reset_mac_trylock ret = %d,g_mac_reset_done = %d\n",ret,atomic_read(&g_mac_reset_done));
 	//print_symbol("[libing] reset_mac_trylock:%s\n", (unsigned long)__builtin_return_address(0));
@@ -779,7 +796,7 @@ int reset_mac_trylock(void)
 	if(tp == NULL) return 0;
 	ret = down_read_trylock(&tp->rst_semaphore);
 	//printk("[libing]: reset_mac_trylock ret = %d,g_mac_reset_done = %d\n",ret,atomic_read(&g_mac_reset_done));
-	//printk("[libing] reset_mac_trylock:\%pS rw_sem->activity = %d\n", (unsigned long)__builtin_return_address(0), tp->rst_semaphore.activity);
+	//print_symbol("[libing] reset_mac_trylock:%s\n", (unsigned long)__builtin_return_address(0));
 	return ret;
 }
 
@@ -788,14 +805,19 @@ void reset_mac_unlock(void)
 	struct trout_private *tp = netdev_priv(g_mac_dev);
 	if(tp == NULL) return;
 	up_read(&tp->rst_semaphore);
-	//printk("[libing] reset_mac_unlock:\%pS rw_sem->activity = %d\n", (unsigned long)__builtin_return_address(0), tp->rst_semaphore.activity);
+	//print_symbol("[libing] reset_mac_unlock:%s\n", (unsigned long)__builtin_return_address(0));
 }
 
 void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 {
 	TROUT_FUNC_ENTER;
 	struct trout_private *tp;
+	UWORD32 reg32 = 0;
 	
+	//Begin:add by wulei 2791 for bug 160423 on 2013-05-04
+	atomic_set(&g_mac_reset_done, (int)BFALSE);
+	//End:add by wulei 2791 for bug 160423 on 2013-05-04
+
 	/* handle race condiction between some reset_macs by zhao  */
 	tp = netdev_priv(g_mac_dev);
 	/* caisf add for Reduce unnecessary interrupts while reset mac, 2014-02-17*/
@@ -804,24 +826,21 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 	down_write(&tp->rst_semaphore);
 	printk("[reset_mac]: down_write <<<\n");
 
-	//Begin:add by wulei 2791 for bug 160423 on 2013-05-04
-	/*jiangtao.yi moved from the postion before down_write while debugging bug244758.*/
-	atomic_set(&g_mac_reset_done, (int)BFALSE);
-	//End:add by wulei 2791 for bug 160423 on 2013-05-04
 
 	wake_lock(&reset_mac_lock); /*Keep awake when resetting MAC, by keguang 20130609*/
 	pr_info("[%s]: acquire wake_lock %s\n", __func__, reset_mac_lock.name);
-	
+	host_notify_arm7_connect_status(BFALSE);
+#ifdef IBSS_BSS_STATION_MODE
+	coex_state_switch(COEX_WIFI_IDLE);
+	host_notify_arm7_wifi_reset(BTRUE);
+	g_wifi_bt_coex = BFALSE;
+#endif
 	/*leon liu added cfg80211 report scan abort*/	
 	
 #ifdef  CONFIG_CFG80211
 	trout_cfg80211_report_scan_done(g_mac_dev, 1);
 #endif
 
-#ifdef IBSS_BSS_STATION_MODE
-	TROUT_DBG4("======%s: notify arm7 reset=====\n", __func__);
-	host_notify_arm7_discon_status();	//add by chengwg for bt&wifi coex.
-#endif	/* IBSS_BSS_STATION_MODE */
 
 #ifdef DEBUG_MODE
 	printk("[%s]: reset=%d, caller:", __func__, init_mac_sw);
@@ -922,6 +941,12 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
     /* Enable interrupts */
     critical_section_end();
 
+#ifdef IBSS_BSS_STATION_MODE
+// reset authentication and association retry time.
+	g_auth_retry_cnt = 0;
+	g_assoc_retry_cnt = 0;
+	//host_write_trout_reg( host_read_trout_reg( (UWORD32)rSYSREG_HOST2ARM_INFO3 ) | BIT0 ,(UWORD32)rSYSREG_HOST2ARM_INFO3 );
+#endif
 	wake_unlock(&reset_mac_lock); /*Keep awake when resetting MAC, by keguang 20130609*/
 	//chenq move to end of this func 2012-11-02
 	atomic_set(&g_mac_reset_done, (int)BTRUE);
@@ -1131,9 +1156,8 @@ void start_mac_and_phy(mac_struct_t *mac)
 	TROUT_FUNC_ENTER;
 	
 	/* avoid race condiction between rest_mac and start_ma_and_phy  by zhao */
-     //mutex_lock(&tp->rst_mutex);
-     /*jiangtao.yi changed reset_mac_trylock() to reset_mac__lock() for bug244758.*/
-     reset_mac__lock();  
+       reset_mac_trylock();
+        //mutex_lock(&tp->rst_mutex);
 
 #ifdef DEBUG_MODE	
 	printk("chenq_itm %s-%d: ", __FUNCTION__, __LINE__);    

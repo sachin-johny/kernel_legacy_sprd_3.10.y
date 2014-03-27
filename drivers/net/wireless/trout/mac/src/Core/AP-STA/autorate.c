@@ -52,6 +52,11 @@
 #include "itypes.h"
 #include "core_mode_if.h"
 #include "phy_prot_if.h"
+#include "mh.h"
+#include "autorate.h"
+#include "autorate_sta.h"
+#include "receive.h"
+#include "iconfig.h"
 
 /*****************************************************************************/
 /* Global Variables                                                          */
@@ -64,6 +69,61 @@ BOOL_T         g_ar_enable     = BTRUE; // caisf, default use auto rate // BFALS
 #else
 BOOL_T         g_ar_enable     = BFALSE;
 #endif
+
+/* ping.jiang add for calculating statistics 2013-10-31 */
+struct rx_stats g_rx_data = {0,0,0};
+struct rx_stats g_cur_rx_data = {0,0,0};
+struct rx_var_value g_rx_var_value = {0,0,0,0};
+WORD32 g_asoc_rssi = 0;
+unsigned int g_send_rts_flag = 0;
+unsigned int g_ar_rr_flag = 0;
+unsigned int g_ar_rr_index = 0;
+unsigned int g_ar_stats_flag = 0;
+unsigned int g_ar_stats_index = 0;
+WORD32	g_ar_rssi_flag = 0;
+WORD32	g_ar_rssi_index = 0;
+WORD32  g_ar_total_rssi_value = 0;
+WORD32  g_ar_total_rssi_num   = 0;
+UWORD8  g_send_rts_cnt = 0;
+WORD32 g_total_rssi_num_table[STATISTICS_FILTER_TABLE] = {0};
+WORD32 g_total_rssi_value_table[STATISTICS_FILTER_TABLE] = {0};
+UWORD16 g_retry_cnt_table[STATISTICS_FILTER_TABLE] = {0};
+UWORD16 g_txpkt_cnt_table[STATISTICS_FILTER_TABLE] = {0};
+UWORD16 g_rx_complete_cnt_table[STATISTICS_FILTER_TABLE] = {0};
+unsigned int g_rx_nack_all_cnt_table[STATISTICS_FILTER_TABLE] = {0};
+/* ping.jiang add for calculating statistics end */
+
+/* ping.jiang add for AR algorithm 2013-11-10 */
+UWORD8 g_802_11b_rate_table[4] =
+{
+     	0x04,   /*   1 Mbps    */
+     	0x01,   /*   2 Mbps    */
+     	0x02,   /*   5.5 Mbps */
+      	0x03,   /*  11 Mbps   */
+};
+UWORD8 g_802_11g_rate_table[8] =
+{
+       0x0B, 	/*   6 Mbps      */
+       0x0F, 	/*   9 Mbps      */
+      0x0A,  	/*  12 Mbps      */
+      0x0E,  	/*  18 Mbps      */
+      0x09,  	/*  24 Mbps      */
+      0x0D,  	/*  36 Mbps      */
+      0x08,  	/*  48 Mbps      */
+      0x0C,  	/*  54 Mbps      */
+};
+UWORD8 g_802_11n_rate_table[8] =
+{
+	0x80,	     /* MCS-0  :   6.5 Mbps */
+      0x81,	     /* MCS-1  :  13.0 Mbps */
+      0x82,	     /* MCS-2  :  19.5 Mbps */
+      0x83,	     /* MCS-3  :  26.0 Mbps */
+      0x84,	     /* MCS-4  :  39.0 Mbps */
+      0x85,	     /* MCS-5  :  52.0 Mbps */
+      0x86,	     /* MCS-6  :  58.5 Mbps */
+      0x87,	     /* MCS-7  :  65.0 Mbps */
+};
+/* ping.jiang add for AR algorithm end */
 
 #ifdef AUTORATE_FEATURE
 UWORD8 g_ar_table[MAX_NUM_RATES] = {0};
@@ -212,6 +272,605 @@ void check_for_ar(void* entry, ar_stats_t *ar_stats, UWORD8 tx_rate_index)
 #endif /* AUTORATE_FEATURE */
 }
 
+/*ping.jiang add for calculating statistics 2013-10-31*/
+unsigned int get_rx_complete_cnt_sum(UWORD8 stats_index)
+{
+	unsigned int total_value = 0;
+	UWORD8 index = 0;
+	for(index = 0; index <= stats_index; index++)
+	{
+		total_value += g_rx_complete_cnt_table[index];
+	}
+	return total_value;
+}
+
+unsigned int get_rx_nack_all_cnt_sum(UWORD8 stats_index)
+{
+	unsigned int total_value = 0;
+	UWORD8 index = 0;
+	
+	for(index = 0; index <= stats_index; index++)
+	{
+		total_value += g_rx_nack_all_cnt_table[index];
+	}
+
+	return total_value;
+}
+
+unsigned int get_avg_cca_freq(void)
+{
+	unsigned int avg_value = 0;
+	
+	if(0 == g_ar_stats_flag)	
+	{
+		if(g_ar_stats_index >= 0 && g_ar_stats_index <= (STATISTICS_FILTER_TABLE - 1))
+		{
+			avg_value = 100 - 100 * (get_rx_complete_cnt_sum(g_ar_stats_index)) / get_rx_nack_all_cnt_sum(g_ar_stats_index);
+		}
+	}
+	else 
+	{
+		avg_value = 100 - 100 * (get_rx_complete_cnt_sum(STATISTICS_FILTER_TABLE - 1)) / get_rx_nack_all_cnt_sum(STATISTICS_FILTER_TABLE - 1);
+	}
+	return avg_value;
+}
+
+UWORD16 get_retry_cnt_sum(UWORD8 stats_index)
+{
+	unsigned int total_value = 0;
+	UWORD8 index = 0;
+	for(index = 0; index <= stats_index; index++)
+	{
+		total_value += g_retry_cnt_table[index];
+	}
+	return total_value;
+}
+
+UWORD16 get_txpkt_cnt_sum(UWORD8 stats_index)
+{
+	unsigned int total_value = 0;
+	UWORD8 index = 0;
+	for(index = 0; index <= stats_index; index++)
+	{
+		total_value += g_txpkt_cnt_table[index];
+	}
+	return total_value;
+}
+
+UWORD16 get_avg_retry_ratio(void)
+{
+	UWORD16 avg_value = 0;
+	if(0 == g_ar_rr_flag)	
+	{
+		if(g_ar_rr_index >= 0 &&  g_ar_rr_index <= (STATISTICS_FILTER_TABLE - 1))
+		{
+			avg_value = 100 * (get_retry_cnt_sum(g_ar_rr_index)) / get_txpkt_cnt_sum(g_ar_rr_index);
+		}			
+	}
+	else 
+	{
+		avg_value = 100 * (get_retry_cnt_sum(STATISTICS_FILTER_TABLE - 1)) / get_txpkt_cnt_sum(STATISTICS_FILTER_TABLE - 1);
+	}
+	return avg_value;
+}
+
+void ar_rssi_value_add(void)
+{
+	WORD32 temp_rssi = 0;
+	WORD32 mask_rssi = 0;
+	
+    	temp_rssi = get_rssi() - 0xFF;
+		
+    	if(temp_rssi <= -128)
+    	{	
+		mask_rssi = temp_rssi + 0xFF;
+		printk("change rssi value %d => %d\n",temp_rssi,mask_rssi);
+    	}
+    	else
+    	{
+       		mask_rssi = temp_rssi;
+    	}
+	g_ar_total_rssi_value += mask_rssi;
+	g_ar_total_rssi_num ++;
+	
+	return;
+}
+
+WORD32 get_ar_avg_rssi(void)
+{
+	WORD32 cur_avg_rssi = 0;
+	if(0 != g_ar_total_rssi_num)
+	{
+		cur_avg_rssi = g_ar_total_rssi_value / g_ar_total_rssi_num;	
+		g_total_rssi_num_table[g_ar_rssi_index] = g_ar_total_rssi_num;
+		g_total_rssi_value_table[g_ar_rssi_index] = g_ar_total_rssi_value;
+	
+		g_ar_total_rssi_value = 0;
+		g_ar_total_rssi_num   = 0;
+	}
+	
+	return cur_avg_rssi;
+}
+
+WORD32 get_ar_total_rssi_value_sum(UWORD8 stats_index)
+{
+	WORD32 total_value = 0;
+	UWORD8 index = 0;
+	for(index = 0; index <= stats_index; index++)
+	{
+		total_value += g_total_rssi_value_table[index];
+	}
+	return total_value;
+}
+
+WORD32 get_ar_total_rssi_num_sum(UWORD8 stats_index)
+{
+	WORD32 total_value = 0;
+	UWORD8 index = 0;
+	for(index = 0; index <= stats_index; index++)
+	{
+		total_value += g_total_rssi_num_table[index];
+	}
+	return total_value;
+}
+
+WORD32 get_filter_avg_rssi(void)
+{
+	WORD32 avg_value = 0;
+	if(0 == g_ar_rssi_flag)	
+	{
+		if(g_ar_rssi_index >= 0 && g_ar_rssi_index <= (STATISTICS_FILTER_TABLE - 1))
+		{
+			avg_value = get_ar_total_rssi_value_sum(g_ar_rssi_index) / get_ar_total_rssi_num_sum(g_ar_rssi_index);
+		}
+	}
+	else 
+	{
+		avg_value = get_ar_total_rssi_value_sum(STATISTICS_FILTER_TABLE - 1) / get_ar_total_rssi_num_sum(STATISTICS_FILTER_TABLE - 1);
+	}
+	return avg_value;
+}
+
+void get_rx_statistics(ar_stats_t *ar_stats)
+{ 	
+	WORD32 rssi_cur = 0;
+	UWORD16  txpkt_cnt = 0, retry_cnt = 0;
+	UWORD16 tx_complete_cnt_cur = 0, rx_complete_cnt_cur = 0;
+	UWORD16 cal_rx_complete_cnt = 0, cal_tx_complete_cnt = 0;
+	unsigned int rx_end_cnt_cur = 0, rx_end_error_cnt_cur = 0;
+	unsigned int cal_rx_end_cnt = 0, cal_rx_end_error_cnt = 0; 
+	unsigned int rx_nack_all_cnt = 0;
+	
+	/*calculating per and cca_freq*/
+	/* Get the value from relevant register */
+	rx_complete_cnt_cur = (convert_to_le(host_read_trout_reg((unsigned int)rMAC_TX_RX_COMPLETE_CNT) >> 16) & 0xFFFF);
+	tx_complete_cnt_cur = (convert_to_le(host_read_trout_reg((unsigned int)rMAC_TX_RX_COMPLETE_CNT) & 0xFFFF));
+	rx_end_cnt_cur = convert_to_le(host_read_trout_reg((unsigned int)rMAC_RX_END_COUNT));
+	rx_end_error_cnt_cur = convert_to_le(host_read_trout_reg((unsigned int)rMAC_RX_ERROR_END_COUNT));
+
+	/* Get the current value */
+	if(rx_complete_cnt_cur < g_rx_var_value.rx_complete_cnt)
+	{
+		cal_rx_complete_cnt = rx_complete_cnt_cur + 0xFFFF - g_rx_var_value.rx_complete_cnt;
+	}
+	else
+	{
+		cal_rx_complete_cnt = rx_complete_cnt_cur - g_rx_var_value.rx_complete_cnt;
+	}
+
+	if(tx_complete_cnt_cur < g_rx_var_value.tx_complete_cnt)
+	{
+		cal_tx_complete_cnt = tx_complete_cnt_cur +0xFFFF - g_rx_var_value.tx_complete_cnt;
+	}
+	else
+	{
+		cal_tx_complete_cnt = tx_complete_cnt_cur - g_rx_var_value.tx_complete_cnt;
+	}
+
+	if(rx_end_cnt_cur < g_rx_var_value.rx_end_cnt)
+	{
+		cal_rx_end_cnt = rx_end_cnt_cur + 0xFFFFFFFF - g_rx_var_value.rx_end_cnt;
+	}
+	else
+	{
+		cal_rx_end_cnt = rx_end_cnt_cur - g_rx_var_value.rx_end_cnt;
+	}
+
+	if(rx_end_error_cnt_cur < g_rx_var_value.rx_end_error_cnt)
+	{
+		cal_rx_end_error_cnt = rx_end_error_cnt_cur + 0xFFFFFFFF - g_rx_var_value.rx_end_error_cnt;
+	}
+	else
+	{
+		cal_rx_end_error_cnt = rx_end_error_cnt_cur - g_rx_var_value.rx_end_error_cnt;
+	}
+    //printk("ori:cal_rx_complete_cnt = %u\n", cal_rx_complete_cnt);
+
+    retry_cnt = ar_stats->ar_retcnt;
+	txpkt_cnt = ar_stats->ar_pktcnt;
+
+	if(g_send_rts_flag == 1)
+	{
+		if(txpkt_cnt > retry_cnt)
+		{
+			cal_rx_complete_cnt = cal_rx_complete_cnt + (cal_tx_complete_cnt * txpkt_cnt /(txpkt_cnt - retry_cnt));
+		}
+		else
+		{
+			cal_rx_complete_cnt = cal_rx_complete_cnt + cal_tx_complete_cnt;
+		}
+	}
+	
+	rx_nack_all_cnt = cal_rx_end_cnt + cal_rx_end_error_cnt - cal_tx_complete_cnt;
+/*
+	printk("cal_rx_complete_cnt = %u\n", cal_rx_complete_cnt);	
+	printk("cal_tx_complete_cnt = %u\n", cal_tx_complete_cnt);
+	printk("cal_rx_end_cnt = %u\n", cal_rx_end_cnt);
+	printk("cal_rx_end_error_cnt = %u\n", cal_rx_end_error_cnt); 
+*/
+    printk("rx_nack_all_cnt = %u\n", rx_nack_all_cnt);
+
+	if((0 != rx_nack_all_cnt) && (rx_nack_all_cnt >=  RXPKT_COUNT_THRESHOLD))
+	{			 
+	     if(cal_rx_complete_cnt > rx_nack_all_cnt)
+	     {
+		  g_cur_rx_data.cca_freq = 0;
+		  g_rx_complete_cnt_table[g_ar_stats_index] = cal_rx_complete_cnt;
+		  g_rx_nack_all_cnt_table[g_ar_stats_index] = rx_nack_all_cnt;
+		  g_rx_data.cca_freq = 0;
+	     }
+	     else
+	     {
+		  g_cur_rx_data.cca_freq = 100 - (cal_rx_complete_cnt * 100 / rx_nack_all_cnt);
+		  g_rx_complete_cnt_table[g_ar_stats_index] = cal_rx_complete_cnt;
+		  g_rx_nack_all_cnt_table[g_ar_stats_index] = rx_nack_all_cnt;
+		  g_rx_data.cca_freq = get_avg_cca_freq();
+	     }
+	}
+	else
+	{
+		g_cur_rx_data.cca_freq = 0;
+		g_rx_complete_cnt_table[g_ar_stats_index] = RXPKT_COUNT_THRESHOLD;
+		g_rx_nack_all_cnt_table[g_ar_stats_index] = RXPKT_COUNT_THRESHOLD;
+		g_rx_data.cca_freq = get_avg_cca_freq();
+	}	
+	//printk("g_cur_rx_data.cca_freq = %u\n",g_cur_rx_data.cca_freq);
+	g_ar_stats_index ++;
+    if(g_ar_stats_index >= STATISTICS_FILTER_TABLE)
+    {
+        g_ar_stats_index = 0;
+        g_ar_stats_flag = 1;
+    }
+
+	/* Reset the value of struct g_rx_var_value */
+	g_rx_var_value.rx_complete_cnt = rx_complete_cnt_cur;
+	g_rx_var_value.tx_complete_cnt = tx_complete_cnt_cur;
+	g_rx_var_value.rx_end_cnt = rx_end_cnt_cur;
+	g_rx_var_value.rx_end_error_cnt = rx_end_error_cnt_cur;
+
+	/*calculating RR*/
+	if((0 != txpkt_cnt) && (txpkt_cnt >= TXPKT_COUNT_THRESHOLD))
+	{
+        g_retry_cnt_table[g_ar_rr_index] = retry_cnt;
+        g_txpkt_cnt_table[g_ar_rr_index] = txpkt_cnt;
+        g_rx_data.retry_ratio = get_avg_retry_ratio();
+    }       
+	else
+	{
+        g_retry_cnt_table[g_ar_rr_index] = retry_cnt;
+        g_txpkt_cnt_table[g_ar_rr_index] = TXPKT_COUNT_THRESHOLD;
+        g_rx_data.retry_ratio = get_avg_retry_ratio();
+    }
+
+	g_ar_rr_index ++;
+    if(g_ar_rr_index >= STATISTICS_FILTER_TABLE)
+    {
+	    g_ar_rr_index = 0;
+        g_ar_rr_flag = 1;
+    }
+	
+	/*calculating rx rssi*/
+	rssi_cur = get_ar_avg_rssi();
+	g_rx_data.rssi = get_filter_avg_rssi();
+	g_ar_rssi_index ++;
+	if(g_ar_rssi_index >= STATISTICS_FILTER_TABLE)
+	{
+		g_ar_rssi_index = 0;
+		g_ar_rssi_flag = 1;
+	}
+	printk("g_rx_data.cca_freq=%u\n", g_rx_data.cca_freq);
+	printk("g_rx_data.retry_ratio=%u\n", g_rx_data.retry_ratio);
+	printk("g_rx_data.rssi=%d\n", g_rx_data.rssi);
+}
+
+UWORD8 get_relevant_index(UWORD8 cur_index, UWORD8 sub_index)
+{
+	return ((cur_index >= sub_index) ? sub_index : cur_index);	 	
+}
+
+
+#ifdef IBSS_BSS_STATION_MODE
+extern BOOL_T g_wifi_bt_coex;
+UWORD8 get_rate_from_rssi(void *entry, WORD32 rx_rssi)
+{
+    UWORD8 rate = 0;
+    LINK_MODE_T mode;
+	sta_entry_t *se = entry;
+
+    printk("g_wifi_bt_coex = %d\n",g_wifi_bt_coex);
+    if(g_wifi_bt_coex)
+    {
+	    if(rx_rssi >= (SENSITIVITY_802_11G_54 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[7];
+	    } 
+	    else if(rx_rssi	>= (SENSITIVITY_802_11G_48 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[6];
+	    }
+	    else if(rx_rssi	>= (SENSITIVITY_802_11G_36+ SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[5];
+	    }
+	    else if(rx_rssi	>= (SENSITIVITY_802_11G_24 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[4];
+	    }
+	    else if(rx_rssi	>= (SENSITIVITY_802_11G_18 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[3];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_12 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[2];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_11 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[3];
+	    }
+	    //else if(rx_rssi  >= (SENSITIVITY_802_11G_9 + SENSITIVITY_DELTA))
+	    //{
+	    //	rate = g_802_11g_rate_table[1];
+		//}
+		else if(rx_rssi  >= (SENSITIVITY_802_11G_6 + SENSITIVITY_DELTA))
+		{
+			rate = g_802_11g_rate_table[0];
+		} 
+		else if(rx_rssi >= (SENSITIVITY_802_11B_5 + SENSITIVITY_DELTA))
+		{
+			rate = g_802_11b_rate_table[2];
+		}
+		else if(rx_rssi >= (SENSITIVITY_802_11B_2 + SENSITIVITY_DELTA))
+		{
+			rate = g_802_11b_rate_table[1];
+		}
+		else
+		{
+			rate = g_802_11b_rate_table[0];
+		}
+
+	}
+	else
+	{
+		mode = cur_rate_mode_sta_with_entry(se);
+    if(mode == B_ONLY_RATE_STA)
+    {
+	    if(rx_rssi >= (SENSITIVITY_802_11B_11 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[3];
+	    }  
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_5 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[2];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_2 + SENSITIVITY_DELTA))
+	    {
+		   rate = g_802_11b_rate_table[1];
+	    }
+	    else
+	    {
+		    rate = g_802_11b_rate_table[0];
+	    }
+    } 
+    else if(mode == G_ONLY_RATE_STA || mode == BG_MIX_RATE_STA)
+    {
+	    if(rx_rssi  >= (SENSITIVITY_802_11G_54 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[7];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_48 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[6];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_36+ SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[5];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_24 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[4];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_18 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[3];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_12 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[2];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_11 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[3];
+	    }
+	    //else if(rx_rssi  >= (SENSITIVITY_802_11G_9 + SENSITIVITY_DELTA))
+	    //{
+	    //	rate = g_802_11g_rate_table[1];
+	    //}
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_6 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[0];
+	    } 
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_5 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[2];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_2 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[1];
+	    }
+	    else
+	    {
+		    rate = g_802_11b_rate_table[0];
+	    }
+    }
+    else if(mode == N_ONLY_RATE_STA || mode == BGN_MIX_RATE_STA)
+    {
+	    if(rx_rssi  >= (SENSITIVITY_802_11N_65 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11n_rate_table[7];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11N_59 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11n_rate_table[6];
+	    }
+	    //else if(rx_rssi  >= (SENSITIVITY_802_11N_52 + SENSITIVITY_DELTA))
+	    //{
+	    //	rate = g_802_11n_rate_table[5];
+	    //}
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_54 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[7];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_48 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[6];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11N_39 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11n_rate_table[4];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_36 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[5];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11N_26 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11n_rate_table[3];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_24 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[4];
+	    }
+	    //else if(rx_rssi  >= (SENSITIVITY_802_11N_19 + SENSITIVITY_DELTA))
+	    //{
+	    //	rate = g_802_11n_rate_table[2];
+	    //}
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_18 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[3];
+	    }
+	    //else if(rx_rssi  >= (SENSITIVITY_802_11N_13 + SENSITIVITY_DELTA))
+	    //{
+	    //	rate = g_802_11n_rate_table[1];
+	    //}
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_12 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[2];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_11 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[3];
+	    }
+	    //else if(rx_rssi  >= (SENSITIVITY_802_11G_9 + SENSITIVITY_DELTA))
+	    //{
+	    //	rate = g_802_11g_rate_table[1];
+	    //}
+	    else if(rx_rssi  >= (SENSITIVITY_802_11N_6 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11n_rate_table[0];
+	    }
+	    else if(rx_rssi  >= (SENSITIVITY_802_11G_6 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11g_rate_table[0];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_5 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[2];
+	    }
+	    else if(rx_rssi >= (SENSITIVITY_802_11B_2 + SENSITIVITY_DELTA))
+	    {
+		    rate = g_802_11b_rate_table[1];
+	    }
+	    else
+	    {
+		    rate = g_802_11b_rate_table[0];
+	    } 
+    }
+    }
+    printk("select rate = %u\n",rate);
+    return rate;
+}
+
+void ar_reset_prot(void)
+{
+    UWORD8 rate = 0;
+	rate = get_cur_tx_rate();
+	//printk("rate = %d\n",rate);
+	if(!g_wifi_bt_coex)
+	{
+		if(rate >= 12)
+		{
+			if((g_cur_rx_data.cca_freq >= CCA_FREQ_THRESHOLD_6) || (0 != g_send_rts_cnt))
+			{
+				printk("Enter the branch of sending RTS\n");
+			    g_send_rts_flag = 1;
+			    host_write_trout_reg(0x10141, (UWORD32)rMAC_PROT_TX_MODE);
+				host_write_trout_reg(0x3403, (UWORD32)rMAC_PROT_RATE);
+				host_write_trout_reg(0x12, (UWORD32)rMAC_PROT_CON);
+				if(0 == g_send_rts_cnt)
+				{
+					g_send_rts_cnt = MAX_SEND_RTS_CNT;
+				}
+			} 
+			if((g_rx_data.cca_freq < CCA_FREQ_THRESHOLD_4) && (g_cur_rx_data.cca_freq < CCA_FREQ_THRESHOLD_4) && (0 == g_send_rts_cnt))
+			{
+				printk("Enter the branch no prot\n");
+				g_send_rts_flag = 0;
+				host_write_trout_reg(0x02, (UWORD32)rMAC_PROT_CON);
+			}
+			if(0 != g_send_rts_cnt)
+			{
+				g_send_rts_cnt--; 
+			}
+        	//printk("g_send_rts_flag = %d\n",g_send_rts_flag);
+		    //printk("g_send_rts_cnt = %d\n",g_send_rts_cnt);
+		}
+	}
+}
+
+#endif /* IBSS_BSS_STATION_MODE */
+
+void ar_reset_cw_cca_threshold(void)
+{
+    if(g_cur_rx_data.cca_freq >= CCA_FREQ_THRESHOLD_4)
+    {
+        set_machw_cw_be(10,4);
+    }
+    else if(g_cur_rx_data.cca_freq >= CCA_FREQ_THRESHOLD_2)
+{
+        set_machw_cw_be(9,2);
+    }
+    else if(g_cur_rx_data.cca_freq >= CCA_FREQ_THRESHOLD_1)
+	{
+		set_machw_cw_be(6,2);
+	}
+	else
+	{
+        set_machw_cw_be(2,2);
+	}
+}
+
+/*ping.jiang add for calculating statistics end*/
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : ar_rate_ctl                                              */
@@ -239,13 +898,46 @@ void check_for_ar(void* entry, ar_stats_t *ar_stats, UWORD8 tx_rate_index)
 UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min)
 {
     UWORD8 status = NO_RATE_CHANGE;
+    /* ping.jiang add for AR algorithm 2013-11-10 */
 
+    get_rx_statistics(ar_stats);
+
+    ar_reset_cw_cca_threshold();
+   
+#ifdef IBSS_BSS_STATION_MODE
+   	ar_reset_prot();
+#endif
+
+	if(g_rx_data.cca_freq >= CCA_FREQ_THRESHOLD_1)
+    {
+        if(g_rx_data.retry_ratio >= RETRY_RATIO_THRESHOLD_1)					
+	 {
+	      status = DECREMENT_RATE_CCA;
+	 }
+	 else
+	 {
+	      status = INCREMENT_RATE_CCA;						
+	 }
+     }
+    else
+    {
+	if(g_rx_data.retry_ratio >= RETRY_RATIO_THRESHOLD_2)	
+	{             
+		status = DECREMENT_RATE;			
+	}
+	else
+	{
+		status = INCREMENT_RATE;
+	}
+    }
+
+    /* ping.jiang add for AR algorithm end */
 	if(ENOUGH_TX(ar_stats))
 	{
 	    if(SUCCESS_TX(ar_stats)) //&& ENOUGH_TX(ar_stats))
 	    {
 	    	#if 1 //chenq mode auto rate policy 2013-07-24
-			status = INCREMENT_RATE;
+			//status = INCREMENT_RATE;
 			#else	
 	        /* Increment the success count */
 	        ar_stats->ar_success++;
@@ -275,8 +967,10 @@ UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min)
 		/* rate only if the current transmit rate is not the minimum */
 		/* Otherwise do not change the threshold or rate.            */
 		/*junbin.wang modify 20131121.start slow down data rate if packet count is 10*/
+		//if(is_min == BFALSE && ENOUGH_TX(ar_stats))
+		//	if(is_min == BFALSE && (ar_stats->ar_pktcnt > 4))//ENOUGH_TX(ar_stats))
+		//modify zenghaiqi to fix bug 816
 		if(is_min == BFALSE && ENOUGH_TX(ar_stats))
-		//if(is_min == BFALSE && (ar_stats->ar_pktcnt > 4))
 		{
 			#if 0 //chenq mode auto rate policy 2013-07-24
 		    if(ar_stats->ar_recovery)
@@ -298,7 +992,7 @@ UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min)
 			#endif
 			
 		    /* Decrease the rate */
-		    status = DECREMENT_RATE;
+		    //status = DECREMENT_RATE;
 		}
 
 		/* Reset the success and recovery count */
@@ -589,11 +1283,8 @@ void update_retry_rate_set(UWORD8 ret_ar_en, UWORD8 rate, void *entry,
 void update_retry_rate_set2(UWORD8 rate, void *entry, UWORD32 *retry_set)
 {
 	UWORD8 retry_rate[3] = {0,0,0};
-    
-	#ifdef AUTORATE_FEATURE
 	UWORD8 min_rate = 0;
-	#endif
-    
+	
 	retry_rate[0] = rate;
 
 	#ifdef AUTORATE_FEATURE

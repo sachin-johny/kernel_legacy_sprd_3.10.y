@@ -45,6 +45,12 @@
 /*****************************************************************************/
 /* External Global Variables                                                 */
 /*****************************************************************************/
+// update authentication and association policy
+#define AUTH_MAX_RETRY_CNT 5
+#define ASSOC_MAX_RETRY_CNT 5
+extern UWORD32 g_auth_retry_cnt ;
+extern UWORD32 g_assoc_retry_cnt ;
+
 extern volatile UWORD8   g_link_loss_count;
 
 extern UWORD8     g_bss_dscr_set_index;
@@ -123,10 +129,11 @@ extern UWORD8 g_wpa_wpa2_ptk_key[32];
 //chenq add do ap list merge logic 2013-08-28
 extern bss_link_dscr_t * g_user_getscan_aplist;
 extern UWORD8 g_link_list_bss_count;
-
+//chenq add for auto set tx power 2013-07-29
+//add zenghaiqi to fix 816
 /*junbinwang add for cr 238822. 20131128*/
 extern UWORD32 g_merge_aplist_flag;
-//chenq add for auto set tx power 2013-07-29
+
 #ifdef TROUT2_WIFI_IC
 extern UWORD8  g_update_rssi_count;
 extern UWORD32  g_tbtt_cnt;

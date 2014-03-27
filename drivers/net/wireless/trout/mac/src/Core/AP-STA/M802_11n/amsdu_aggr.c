@@ -56,6 +56,8 @@
 /* ´ò¿ª¡£                                                                    */
 /*****************************************************************************/
 #define ENABLE_AMSDU
+#undef ENABLE_AMSDU
+
 #undef ENABLE_AMPDU
 #undef TX_BLOCK_ACK
 

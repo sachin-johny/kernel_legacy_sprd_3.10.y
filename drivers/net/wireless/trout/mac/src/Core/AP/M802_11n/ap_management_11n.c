@@ -408,22 +408,22 @@ UWORD8 check_11n_params_ap(UWORD8 *msa, UWORD16 offset, UWORD16 rx_len,
 
 
     /* Print the STA's HT-Capabilities */
-    PRINTD("STA HT-Capabilities:\n");
-    PRINTD("ht_capable             = %x\n", ht_hdl->ht_capable);
-    PRINTD("Channel width          = %x\n", ht_hdl->chan_width);
-    PRINTD("ldpc_cod_cap           = %x\n", ht_hdl->ldpc_cod_cap);
-    PRINTD("smps_mode              = %x\n", ht_hdl->smps_mode);
-    PRINTD("greenfield             = %x\n", ht_hdl->greenfield);
-    PRINTD("short_gi_20            = %x\n", ht_hdl->short_gi_20);
-    PRINTD("short_gi_40            = %x\n", ht_hdl->short_gi_40);
-    PRINTD("rx_stbc                = %x\n", ht_hdl->rx_stbc);
-    PRINTD("max_rx_ampdu_factor    = %x\n", ht_hdl->max_rx_ampdu_factor);
-    PRINTD("min_mpdu_start_spacing = %x\n", ht_hdl->min_mpdu_start_spacing);
-    PRINTD("htc_support            = %x\n", ht_hdl->htc_support);
-    PRINTD("sta_amsdu_maxsize      = %x\n", ht_hdl->sta_amsdu_maxsize);
-    PRINTD("chan_width             = %x\n", ht_hdl->chan_width);
-    PRINTD("dsss_cck_40mhz         = %x\n", ht_hdl->dsss_cck_40mhz);
-    PRINTD("cipher_type            = %x\n", entry->cipher_type);
+    PRINTD("STA HT-Capabilities:\n\r");
+    PRINTD("ht_capable             = %x\n\r", ht_hdl->ht_capable);
+    PRINTD("Channel width          = %x\n\r", ht_hdl->chan_width);
+    PRINTD("ldpc_cod_cap           = %x\n\r", ht_hdl->ldpc_cod_cap);
+    PRINTD("smps_mode              = %x\n\r", ht_hdl->smps_mode);
+    PRINTD("greenfield             = %x\n\r", ht_hdl->greenfield);
+    PRINTD("short_gi_20            = %x\n\r", ht_hdl->short_gi_20);
+    PRINTD("short_gi_40            = %x\n\r", ht_hdl->short_gi_40);
+    PRINTD("rx_stbc                = %x\n\r", ht_hdl->rx_stbc);
+    PRINTD("max_rx_ampdu_factor    = %x\n\r", ht_hdl->max_rx_ampdu_factor);
+    PRINTD("min_mpdu_start_spacing = %x\n\r", ht_hdl->min_mpdu_start_spacing);
+    PRINTD("htc_support            = %x\n\r", ht_hdl->htc_support);
+    PRINTD("sta_amsdu_maxsize      = %x\n\r", ht_hdl->sta_amsdu_maxsize);
+    PRINTD("chan_width             = %x\n\r", ht_hdl->chan_width);
+    PRINTD("dsss_cck_40mhz         = %x\n\r", ht_hdl->dsss_cck_40mhz);
+    PRINTD("cipher_type            = %x\n\r", entry->cipher_type);
 
     return SUCCESSFUL_STATUSCODE;
 }

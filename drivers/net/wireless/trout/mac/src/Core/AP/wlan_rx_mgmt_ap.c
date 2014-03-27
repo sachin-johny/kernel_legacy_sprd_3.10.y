@@ -356,7 +356,7 @@ void ap_enabled_rx_mgmt(mac_struct_t *mac, UWORD8 *msg)
                 /* Association table full. Delete the entry. Give unused     */
                 /* association Id.                                           */
                 delete_entry(sa);
-	       PRINTD("Status2(%x): Association of STA %x:%x:%x:%x:%x:%x Failed. \n",
+	       PRINTD("Status2(%x): Association of STA %x:%x:%x:%x:%x:%x Failed. \n\r",
                 status, sa[0], sa[1], sa[2], sa[3], sa[4], sa[5]);
             }
 
@@ -404,7 +404,7 @@ void ap_enabled_rx_mgmt(mac_struct_t *mac, UWORD8 *msg)
                 delete_entry(sa);
 
                 /* ITM_DEBUG */
-                PRINTD("Status(%x): Association of STA %x:%x:%x:%x:%x:%x Failed\n\r",
+                PRINTD("Status3(%x): Association of STA %x:%x:%x:%x:%x:%x Failed\n\r",
                 status, sa[0], sa[1], sa[2], sa[3], sa[4], sa[5]);
             }
             else
