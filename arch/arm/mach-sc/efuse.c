@@ -100,6 +100,13 @@ static int idx = 0;
 //adie laser fuse control
 #define AFUSE_DLY_PROT_KEY		(0xa2)
 
+#define CAL_DATA_BLK            7
+#define BASE_ADC_P0		711  //3.6V
+#define BASE_ADC_P1		830  //4.2V
+#define VOL_P0			3600
+#define VOL_P1			4200
+#define ADC_DATA_OFFSET		128
+
 static DEFINE_MUTEX(ddie_fuse_lock);
 static DEFINE_MUTEX(adie_fuse_lock);
 
@@ -278,18 +285,15 @@ int sci_efuse_get(u32 blk)
 #if defined(CONFIG_ARCH_SCX15)
 	return __ddie_fuse_read(blk);
 #else
+    if(CAL_DATA_BLK != blk)
+		return 0;
+
 	return __adie_fuse_getdata();
 #endif
 }
-
 EXPORT_SYMBOL(sci_efuse_get);
 
-#define CAL_DATA_BLK		7
-#define BASE_ADC_P0		711	//3.6V
-#define BASE_ADC_P1		830	//4.2V
-#define VOL_P0		3600
-#define VOL_P1		4200
-#define ADC_DATA_OFFSET		128
+
 int sci_efuse_calibration_get(unsigned int *p_cal_data)
 {
 	int data;
