@@ -131,7 +131,7 @@ struct sci_dma_reg {
 #ifdef DMA_VER_R4P0
 
 #include <mach/sci_glb_regs.h>
-
+#if 0
 #define DMA_REG_BASE	SPRD_DMA0_BASE
 
 #define DMA_PAUSE	(DMA_REG_BASE + 0x0000)
@@ -166,7 +166,7 @@ struct sci_dma_reg {
 #define DMA_CHN_SRC_BLK_STEP(x)	(DMA_CHx_BASE(x) + 0x0038)
 #define DMA_CHN_DES_BLK_STEP(x)	(DMA_CHx_BASE(x) + 0x003C)
 #define DMA_REQ_CID(uid)	(DMA_REG_BASE + 0x2000 + 0x4 * ((uid) -1))
-
+#endif
 /*FRAG_LEN*/
 #define CHN_PRIORITY_OFFSET	12
 #define CHN_PRIORITY_MASK	0x3

@@ -19,10 +19,62 @@
 #include <linux/interrupt.h>
 #include <linux/errno.h>
 #include <linux/io.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/dma_reg.h>
+
+#ifndef CONFIG_OF
+
+#define DMA_REG_BASE	SPRD_DMA0_BASE
+
+#else
+
+static void __iomem *dma_reg_base;
+static inline void __iomem * get_dma_base()
+{
+	return dma_reg_base;
+}
+
+#define DMA_REG_BASE get_dma_base()
+
+#endif
+
+#define DMA_PAUSE	(DMA_REG_BASE + 0x0000)
+#define DMA_FRAG_WAIT	(DMA_REG_BASE + 0x0004)
+#define DMA_PEND0_EN	(DMA_REG_BASE + 0x0008)
+#define DMA_PEND1_EN	(DMA_REG_BASE + 0x000C)
+#define DMA_INT_RAW_STS	(DMA_REG_BASE + 0x0010)
+#define DMA_INT_MSK_STS	(DMA_REG_BASE + 0x0014)
+#define DMA_REQ_STS	(DMA_REG_BASE + 0x0018)
+#define DMA_EN_STS	(DMA_REG_BASE + 0x001C)
+#define DMA_DEGUG_STS	(DMA_REG_BASE + 0x0020)
+#define DMA_ARB_SEL_STS	(DMA_REG_BASE + 0x0024)
+
+#define DMA_CHx_OFFSET	(0x40)
+#define DMA_CHx_BASE(x)	(DMA_REG_BASE + 0x1000 + DMA_CHx_OFFSET * (x - 1))
+
+#define DMA_CHN_PAUSE(x)	(DMA_CHx_BASE(x) + 0x0000)
+#define DMA_CHN_REQ(x)		(DMA_CHx_BASE(x) + 0x0004)
+#define DMA_CHN_CFG(x)		(DMA_CHx_BASE(x) + 0x0008)
+#define DMA_CHN_INT(x)		(DMA_CHx_BASE(x) + 0x000C)
+#define DMA_CHN_SRC_ADR(x)	(DMA_CHx_BASE(x) + 0x0010)
+#define DMA_CHN_DES_ADR(x)	(DMA_CHx_BASE(x) + 0x0014)
+#define DMA_CHN_FRAG_LEN(x)	(DMA_CHx_BASE(x) + 0x0018)
+#define DMA_CHN_BLK_LEN(x)	(DMA_CHx_BASE(x) + 0x001C)
+
+#define DMA_CHN_TRSC_LEN(x)	(DMA_CHx_BASE(x) + 0x0020)
+#define DMA_CHN_TRSF_STEP(x)	(DMA_CHx_BASE(x) + 0x0024)
+#define DMA_CHN_WRAP_PTR(x)	(DMA_CHx_BASE(x) + 0x0028)
+#define DMA_CHN_WRAP_TO(x)	(DMA_CHx_BASE(x) + 0x002C)
+#define DMA_CHN_LLIST_PRT(x)	(DMA_CHx_BASE(x) + 0x0030)
+#define DMA_CHN_FRAP_STEP(x)	(DMA_CHx_BASE(x) + 0x0034)
+#define DMA_CHN_SRC_BLK_STEP(x)	(DMA_CHx_BASE(x) + 0x0038)
+#define DMA_CHN_DES_BLK_STEP(x)	(DMA_CHx_BASE(x) + 0x003C)
+#define DMA_REQ_CID(uid)	(DMA_REG_BASE + 0x2000 + 0x4 * ((uid) -1))
 
 struct sci_dma_desc {
 	const char *dev_name;
@@ -48,56 +100,6 @@ static void __inline __dma_clk_disable(void)
 	sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_DMA_EB);
 }
 
-#if 0
-static void __dma_set_prio(u32 dma_chn, dma_pri_level chn_prio)
-{
-	u32 reg_val;
-
-	reg_val = __raw_readl(DMA_CHN_CFG(dma_chn));
-	reg_val &= ~(0x3 << 12);
-	reg_val |= chn_prio << 12;
-
-	__raw_writel(reg_val, DMA_CHN_CFG(dma_chn));
-}
-
-static int __dma_set_request_mode(u32 dma_chn, dma_request_mode mode)
-{
-	u32 reg_val = __raw_readl(DMA_CHN_FRAG_LEN(dma_chn));
-	u32 req_mod = 0;
-
-	switch (mode) {
-	case FRAG_REQ_MODE:
-		req_mod = 0x0;
-		break;
-
-	case BLOCK_REQ_MODE:
-		req_mod = 0x1;
-		break;
-
-	case TRANS_REQ_MODE:
-		if (dma_chn < FULL_CHN_START || dma_chn > FULL_CHN_END)
-			return -EINVAL;
-		req_mod = 0x2;
-		break;
-
-	case LIST_REQ_MODE:
-		if (dma_chn < FULL_CHN_START || dma_chn > FULL_CHN_END)
-			return -EINVAL;
-		req_mod = 0x3;
-		break;
-
-	default:
-		return -EINVAL;
-	}
-
-	reg_val &= ~(REQ_MODE_MASK << REQ_MODE_OFFSET);
-	reg_val |= mode << REQ_MODE_OFFSET;
-
-	__raw_writel(reg_val, DMA_CHN_FRAG_LEN(dma_chn));
-
-	return 0;
-}
-#endif
 static int __dma_set_int_type(u32 dma_chn, dma_int_type int_type)
 {
 	u32 reg_val;
@@ -310,18 +312,6 @@ static void __inline __dma_int_clr(u32 dma_chn)
 static void __inline __dma_int_dis(u32 dma_chn)
 {
 	__raw_writel(0x1f << 24, DMA_CHN_INT(dma_chn));
-}
-
-static void __init __dma_reg_init(void)
-{
-	int i = 0x100;
-
-	/*reset the DMA */
-	sci_glb_set(REG_AP_AHB_AHB_RST, 0x1 << 8);
-	while (i--) ;
-	sci_glb_clr(REG_AP_AHB_AHB_RST, 0x1 << 8);
-
-	__raw_writel(0x0, DMA_FRAG_WAIT);
 }
 
 static irqreturn_t __dma_irq_handle(int irq, void *dev_id)
@@ -713,7 +703,37 @@ int sci_dma_memcpy(u32 dest, u32 src, size_t size)
 static int __init sci_init_dma(void)
 {
 	int ret;
+	u32 dma_irq;
 
+#ifdef CONFIG_OF
+	struct device_node *dma_node;
+	struct resource res;
+
+	dma_node = of_find_node_by_name(NULL, "dmac");
+	if (!dma_node) {
+		pr_warn("Can't get the dmac node!\n");
+		return -ENODEV;
+	}
+	pr_info(" find the SPRD DMA node!\n");
+
+	ret = of_address_to_resource(dma_node, 0, &res);
+	if (ret < 0) {
+		pr_warn("Can't get the DMAC reg base!\n");
+		return -EIO;
+	}
+	dma_reg_base = res.start;
+	pr_info(" DMA reg base is %p!\n", dma_reg_base);
+
+	dma_irq = irq_of_parse_and_map(dma_node, 0);
+	if (dma_irq == 0) {
+		pr_warn("Can't get the dma irq number!\n");
+		return -EIO;
+	}
+	pr_info(" dma irq number is %d!\n", dma_irq);
+
+#else
+	dma_irq = IRQ_DMA_INT;
+#endif
 	/*the first dma chn index is 1, notice!! */
 	dma_chns = kzalloc(sizeof(*dma_chns) * (DMA_CHN_NUM + 1), GFP_KERNEL);
 	if (dma_chns == NULL)
@@ -721,11 +741,11 @@ static int __init sci_init_dma(void)
 
 	__dma_clk_enable();
 
-	__dma_reg_init();
+	__raw_writel(0x0, DMA_FRAG_WAIT);
 
 	__dma_clk_disable();
 
-	ret = request_irq(IRQ_DMA_INT, __dma_irq_handle, 0, "sci-dma", NULL);
+	ret = request_irq(dma_irq, __dma_irq_handle, 0, "sci-dma", NULL);
 	if (ret) {
 		printk(KERN_ERR "request dma irq failed %d\n", ret);
 		goto request_irq_err;
@@ -738,6 +758,7 @@ static int __init sci_init_dma(void)
 
 	return ret;
 }
+
 
 arch_initcall(sci_init_dma);
 

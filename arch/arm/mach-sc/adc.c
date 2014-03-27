@@ -18,6 +18,9 @@
 #include <linux/irqflags.h>
 #include <linux/delay.h>
 #include <linux/hwspinlock.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
 
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
@@ -25,7 +28,7 @@
 #include <mach/adc.h>
 #include <mach/arch_lock.h>
 
-static u32 io_base;		/* Mapped base address */
+static void __iomem *io_base;		/* Mapped base address */
 
 #define adc_write(val,reg) \
 	do { \
@@ -118,7 +121,29 @@ EXPORT_SYMBOL(sci_adc_dump_register);
 
 void sci_adc_init(void __iomem * adc_base)
 {
-	io_base = (u32) adc_base;
+#ifdef CONFIG_OF
+	int ret;
+	struct device_node *adc_node;
+	struct resource res;
+
+	adc_node = of_find_node_by_name(NULL, "adc");
+	if (!adc_node) {
+		pr_warn("Can't get the ADC node!\n");
+		return;
+	}
+	pr_info(" find the SPRD ADC node!\n");
+
+	ret = of_address_to_resource(adc_node, 0, &res);
+	if (ret < 0) {
+		pr_warn("Can't get the adc reg base!\n");
+		return;
+	}
+	io_base = res.start;
+	pr_info(" ADC reg base is %p!\n", io_base);
+
+#else
+	io_base = adc_base;
+#endif
 	adc_enable_irq(0);
 	adc_clear_irq();
 	sci_adc_enable();
