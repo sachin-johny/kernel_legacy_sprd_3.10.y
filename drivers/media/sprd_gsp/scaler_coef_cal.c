@@ -35,9 +35,9 @@
 #define SCI_MEMSET              memset
 #define MAX( _x, _y )           (((_x) > (_y)) ? (_x) : (_y) )
 
-//#ifdef CONFIG_OF
-//extern uint32_t gsp_base_addr;
-//#endif
+#ifdef CONFIG_OF
+extern uint32_t gsp_base_addr;
+#endif
 
 
 typedef struct

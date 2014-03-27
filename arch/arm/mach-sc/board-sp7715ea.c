@@ -138,7 +138,7 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_gsp_device,
 #endif
 #if defined(CONFIG_SPRD_IOMMU)
-	//&sprd_iommu_gsp_device,
+	&sprd_iommu_gsp_device,
 	&sprd_iommu_mm_device,
 #endif
 	&sprd_emmc_device,
