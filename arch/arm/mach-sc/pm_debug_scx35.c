@@ -468,6 +468,9 @@ static void print_debug_info(void)
 #if defined(CONFIG_ARCH_SCX15)
 	unsigned int ldo_dcdc_pd_ctrl;
 #endif
+#if defined(CONFIG_ARCH_SCX30G)
+	unsigned int mpll_cfg1, dpll_cfg1;
+#endif
 	ahb_eb = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
 	ap_sys_auto_sleep_cfg = sci_glb_read(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, -1UL);
 	ap_apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
@@ -483,6 +486,10 @@ static void print_debug_info(void)
 	dpll_cfg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
 	emc_clk_cfg = sci_glb_read(REG_AON_CLK_EMC_CFG, -1UL);
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
+#if defined(CONFIG_ARCH_SCX30G)
+	mpll_cfg1 = sci_glb_read(REG_AON_APB_MPLL_CFG1, -1UL);
+	dpll_cfg1 = sci_glb_read(REG_AON_APB_DPLL_CFG1, -1UL);
+#endif
 #if defined(CONFIG_ARCH_SCX15)
        ldo_dcdc_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_DCDC_PD);
 #endif
@@ -501,6 +508,10 @@ static void print_debug_info(void)
 	printk("###---- REG_AON_APB_DPLL_CFG : 0x%08x\n", dpll_cfg);
 	printk("###---- REG_AON_CLK_EMC_CFG : 0x%08x\n", emc_clk_cfg);
 	printk("###---- ANA_REG_GLB_LDO_PD_CTRL : 0x%08x\n", ldo_pd_ctrl);
+#if defined(CONFIG_ARCH_SCX30G)
+	printk("###---- REG_AON_APB_MPLL_CFG1 : 0x%08x\n", mpll_cfg1);
+	printk("###---- REG_AON_APB_DPLL_CFG1 : 0x%08x\n", dpll_cfg1);
+#endif
 #if defined(CONFIG_ARCH_SCX15)
        printk("###---- ANA_REG_GLB_LDO_DCDC_PD_CTRL : 0x%08x\n", ldo_dcdc_pd_ctrl);
 #endif

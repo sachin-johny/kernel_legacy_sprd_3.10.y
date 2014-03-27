@@ -878,24 +878,32 @@ void set_reset_vector(void)
 		sc8830_standby_iram + SLEEP_RESUME_CODE_PHYS); /* place v7_standby_iram here */
 }
 
+#ifdef CONFIG_DDR_VALIDITY_TEST
 #include <linux/slab.h>
 static unsigned long *vtest = NULL;
 static unsigned long *ptest = NULL;
 static void test_memory(void)
 {
 	int i;
+#ifndef CONFIG_ARCH_SCX30G
 	vtest = kmalloc(64*1024, GFP_KERNEL);
 	if (vtest) {
-		printk("%s %p %p\n", __func__, vtest, virt_to_phys(vtest));
 		for (i = 0; i < (64*1024/4); i++) {
 			vtest[i] = 0x12345678;
 		}
+#else
+	vtest = kmalloc(2 * sizeof(int), GFP_KERNEL);
+	if (vtest) {
+		vtest[0] = 0x12345678;
+#endif
+		printk("%s %p %p\n", __func__, vtest, virt_to_phys(vtest));
 		ptest = virt_to_phys(vtest);
 	} else {
 		printk("error kmalloc\n");
 	}
 	sp_pm_reset_vector[64] = ptest;
 }
+#endif
 
 void restore_reset_vector(void)
 {
@@ -1001,10 +1009,14 @@ void int_work_round(void)
 }
 void show_deep_reg_status(void)
 {
-	printk("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00B4, -1UL));
-	printk("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00B8, -1UL));
-	printk("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00BC, -1UL));
-	printk("PWR_STATUS3_DBG	0x%08x\n", sci_glb_read(SPRD_PMU_BASE+0x00C0, -1UL));
+	printk("PD_PUB_SYS_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_PUB_SYS_CFG, -1UL));
+	printk("PD_DDR_PHY_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_DDR_PHY_CFG, -1UL));
+	printk("PD_DDR_PUBL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_DDR_PUBL_CFG, -1UL));
+
+	printk("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
+	printk("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
+	printk("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
+	printk("PWR_STATUS3_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL));
 
 }
 
@@ -1059,10 +1071,15 @@ int deep_sleep(int from_idle)
 	ret = sp_pm_collapse(0, from_idle);
 
 	udelay(50);
+
+
 	if(!from_idle){
 		__raw_writel(0x1, REG_PMU_APB_CA7_C0_CFG);
 		printk("ret %d not from idle\n", ret);
 		if(ret){
+#if defined(CONFIG_DDR_VALIDITY_TEST) && defined(CONFIG_ARCH_SCX30G)
+			printk("DDR test: read times: %ld\n", *(vtest + 1));
+#endif
 			printk("deep sleep %u times\n", cnt);
 			cnt++;
 		}
@@ -1298,5 +1315,16 @@ void __init sc_pm_init(void)
 */
 #if defined(CONFIG_SPRD_DEBUG)
 	sprd_debug_init();
+#endif
+
+#ifndef CONFIG_ARCH_SCX30G
+	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_FORCE_SHUTDOWN);
+	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
+
+	sci_glb_clr(REG_PMU_APB_PD_DDR_PHY_CFG,BIT_PD_DDR_PHY_FORCE_SHUTDOWN);
+	sci_glb_clr(REG_PMU_APB_PD_DDR_PHY_CFG,BIT_PD_DDR_PHY_AUTO_SHUTDOWN_EN);
+
+	sci_glb_clr(REG_PMU_APB_PD_DDR_PUBL_CFG,BIT_PD_DDR_PUBL_FORCE_SHUTDOWN);
+	sci_glb_clr(REG_PMU_APB_PD_DDR_PUBL_CFG,BIT_PD_DDR_PUBL_AUTO_SHUTDOWN_EN);
 #endif
 }
