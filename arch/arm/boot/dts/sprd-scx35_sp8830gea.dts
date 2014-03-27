@@ -355,9 +355,9 @@
 			gpios = <&d_gpio_gpio 81 0
 				&d_gpio_gpio 82 0>;
 			vdd_name = "vdd28";
-			virtualkeys = <100 1020 80 65
+			virtualkeys = <45 990 80 65
 				280 1020 80 65
-				470 1020 80 65>;
+				405 990 80 65>;
 			TP_MAX_X = <720>;
 			TP_MAX_Y = <1280>;
 		};
@@ -384,7 +384,7 @@
 		ltr_558als@23{
 			compatible = "LITEON,ltr_558als";
 			reg = <0x23>;
-			gpios = <&d_gpio_gpio 162 0>;
+			gpios = <&d_gpio_gpio 216 0>;
 		};
 	 };
 	 i2c3: i2c@f5372000{
