@@ -19,7 +19,7 @@
 
 #include <linux/gpio.h>
 #include <linux/mutex.h>
-#include <linux/regulator/consumer.h>
+
 
 #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA)||defined(CONFIG_MACH_SP5735C1EA)
 #define GPIO_RF2351_POWER_CTRL 217
@@ -169,33 +169,9 @@ static unsigned int sprd_rfspi_disable(void)
 static DEFINE_MUTEX(rf2351_lock);
 static int rf2351_power_count=0;
 
-void rf2351_vddwpa_enable_control(int flag)
-{
-        
-	static struct regulator *vdd_wpa = NULL;
-	printk("[vdd_wpa] LDO control : %s\n", flag ? "ON" : "OFF");
 
-	if (vdd_wpa == NULL) {
-	vdd_wpa = regulator_get(NULL, "vddwpa");
-	if (IS_ERR(vdd_wpa)) {
-	   printk("could not find the vddwpa regulator\n");
-	   vdd_wpa = NULL;  
-	} 
-	}
 
-	if(flag)
-	{
-	  regulator_set_voltage(vdd_wpa, 3400000, 3400000);
-	  regulator_enable(vdd_wpa);
-	}
-	else
-	{
-	 regulator_disable(vdd_wpa);
-	}
-
-}
-
-void rf2351_gpio_enable_control(int flag)
+void rf2351_gpio_ctrl_power_enable(int flag)
 {
 
     if(!flag && (0 == rf2351_power_count))//avoid calling the func  first time with flag =0
@@ -233,36 +209,9 @@ void rf2351_gpio_enable_control(int flag)
     }
      mutex_unlock(&rf2351_lock);
 }
-void rf2351_power_control(int flag)
-{
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA)\
-   || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-   || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM)\
-   || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)\
-   ||defined(CONFIG_MACH_SP5735C1EA)
-  if(flag)
-  {
-   rf2351_gpio_enable_control(1);
-  }
-  else
-  {
-   rf2351_gpio_enable_control(0);
-  }
-#elif defined(CONFIG_MACH_SP8830GEA)
-  if(flag)
-  {
-   rf2351_vddwpa_enable_control(1);
-  }
-  else
-  {
-   rf2351_vddwpa_enable_control(0);
-  }
-#else
- return;
-#endif
-}
 
-EXPORT_SYMBOL(rf2351_power_control);
+
+EXPORT_SYMBOL(rf2351_gpio_ctrl_power_enable);
 
 static struct sprd_2351_interface sprd_rf2351_ops = {
 	.name = "rf2351",

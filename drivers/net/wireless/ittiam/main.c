@@ -36,6 +36,10 @@
 #include <linux/earlysuspend.h>
 #endif
 
+#if defined(CONFIG_MACH_SP8830GEA) 
+#include <linux/regulator/consumer.h>
+#endif
+
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_device.h>
@@ -609,6 +613,42 @@ static struct notifier_block itm_inetaddr_cb = {
 	.notifier_call = itm_inetaddr_event,
 };
 
+#if defined(CONFIG_MACH_SP8830GEA) 
+static int vddwpa_wifi_enable_control(int flag)
+{
+        
+        static struct regulator *wpa_wifi = NULL;
+        static int f_enabled = 0;
+        printk("[wpa_wfi] LDO control : %s\n", flag ? "ON" : "OFF");
+		
+        if (flag && (!f_enabled)) {
+			#if defined(CONFIG_ADIE_SC2713S)
+			wpa_wifi = regulator_get(NULL, "dcdcwpa");  
+			#else
+		    wpa_wifi = regulator_get(NULL, "vddwpa");		                     
+		    #endif
+                      if (IS_ERR(wpa_wifi)) {
+                          printk("wifi could not find the vddwpa regulator\n");
+                                   wpa_wifi = NULL;
+                                   return EIO;
+                      } else {
+                                   regulator_set_voltage(wpa_wifi, 3400000, 3400000);
+                                   regulator_enable(wpa_wifi);
+                      }
+                      f_enabled = 1;
+        }
+        if (f_enabled && (!flag))
+        {
+                      if (wpa_wifi) {
+                                   regulator_disable(wpa_wifi);
+                                   regulator_put(wpa_wifi);
+                                   wpa_wifi = NULL;
+                      }
+                      f_enabled = 0;
+        }
+        return 0;
+}
+#endif 
 /*
  * Initialize WLAN device.
  */
@@ -617,8 +657,17 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct itm_priv *priv;
 	int ret;
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
+|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
+|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
+||defined(CONFIG_MACH_SP5735C1EA)
+    rf2351_gpio_ctrl_power_enable(1);
+#endif
 
-        rf2351_power_control(1);
+#if defined(CONFIG_MACH_SP8830GEA) 
+	vddwpa_wifi_enable_control(1);
+#endif
 
 	ndev =
 	    alloc_netdev(sizeof(struct itm_priv), ITM_INTF_NAME, ether_setup);
@@ -726,9 +775,17 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret;
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
+|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
+|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
+||defined(CONFIG_MACH_SP5735C1EA)
+    rf2351_gpio_ctrl_power_enable(0);
+#endif
 
-        rf2351_power_control(0);
-
+	#if defined(CONFIG_MACH_SP8830GEA)
+	vddwpa_wifi_enable_control(0);
+	#endif
 /*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
 	/* FIXME it is a ugly method */
 	ret =
