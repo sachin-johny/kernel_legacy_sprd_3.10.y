@@ -79,7 +79,7 @@ static struct dmc_opp_table scxx30_dmcclk_table[] = {
 	{LV_1, 192000, 1200000, 1600},
 #else
 #ifdef CONFIG_ARCH_SCX35
-	{LV_0, 532000, 1200000, 4256},
+	{LV_0, 464000, 1200000, 4256},
 	{LV_1, 384000, 1200000, 2656},
 	{LV_2, 200000, 1200000, 1600},
 #endif
@@ -112,7 +112,7 @@ struct dmcfreq_data {
 #else
 #ifdef CONFIG_ARCH_SCX35
 #define SCXX30_LV_NUM (LV_3)
-#define SCXX30_MAX_FREQ (532000)
+#define SCXX30_MAX_FREQ (464000)
 #define SCXX30_MIN_FREQ (200000)
 #endif
 #endif
