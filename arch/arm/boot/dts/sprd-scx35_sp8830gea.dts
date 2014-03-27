@@ -801,7 +801,8 @@
 		interrupts = <0 52 0x0>;
 		gpios = <&d_gpio_gpio 50 0>;
 		reg = <0xf5150000 0x1000>,		/*GPS CORE BASE*/
-			<0xf5130000 0x10000>;		/*AHB_ADDR*/
+			<0xf5130000 0x10000>,		/*AHB_ADDR*/
+			<0xf5230000 0x10000>;		/*PMU BASE*/
 	 };
 };
 
