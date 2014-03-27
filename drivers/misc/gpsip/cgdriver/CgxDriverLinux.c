@@ -907,6 +907,12 @@ u32 gps_get_lna_gpio(void)
 	return gps_2351.lna_gpio;
 }
 
+#ifdef CONFIG_ARCH_SCX30G
+u32 gps_get_pmu_base(void)
+{
+	return gps_2351.pmu_base;
+}
+#endif
 
 static int cgxdrv_gps_source_init(void)
 {
@@ -937,6 +943,16 @@ static int cgxdrv_gps_source_init(void)
 	}
 	gps_2351.ahb_base = res.start;
 	printk("ahb reg base is 0x%x\n", gps_2351.ahb_base);
+
+	#ifdef CONFIG_ARCH_SCX30G
+	ret = of_address_to_resource(np, 2, &res);
+	if (ret < 0) {
+		printk("Can't get the pmu base!\n");
+		return -EIO;
+	}
+	gps_2351.pmu_base = res.start;
+	printk("pmu_base base is 0x%x\n", gps_2351.pmu_base);
+	#endif
 
 	gps_2351.irq_num = irq_of_parse_and_map(np, 0);
 	if (gps_2351.irq_num == 0) {

@@ -95,6 +95,9 @@ struct gps_2351_addr
 	u32 ahb_base;
 	u32 irq_num;
 	u32 lna_gpio;
+	#ifdef CONFIG_ARCH_SCX30G
+	u32 pmu_base;
+	#endif
 };
 
 extern struct gps_2351_addr gps_2351;
@@ -108,6 +111,15 @@ extern u32 gps_get_lna_gpio(void);
 #define CG_DRIVER_SCLK_VA				gps_get_ahb_base()
 #define SPRD_GPS_INT					gps_get_irq()
 #define SPRD_GPS_LNA_EN    			gps_get_lna_gpio()
+
+#ifdef CONFIG_ARCH_SCX30G
+extern u32 gps_get_pmu_base(void);
+
+#define SPRD_GPS_CLK_SINEX			gps_get_pmu_base()
+#define SPRD_GPS_CLK_AUTO_GATING	(SPRD_GPS_CLK_SINEX+0x114)
+#define SPRD_GPS_CLK_SEL			(SPRD_GPS_CLK_SINEX+0x134)
+#endif
+
 #else
 
 /** Virtual base address for CGsnap registers */
@@ -115,8 +127,8 @@ extern u32 gps_get_lna_gpio(void);
 
 #ifdef CONFIG_ARCH_SCX30G
 #define SPRD_GPS_CLK_SINEX			SPRD_PMU_BASE
-#define SPRD_GPS_CLK_AUTO_GATING	(SPRD_PMU_BASE+0x114)
-#define SPRD_GPS_CLK_SEL			(SPRD_PMU_BASE+0x134)
+#define SPRD_GPS_CLK_AUTO_GATING	(SPRD_GPS_CLK_SINEX+0x114)
+#define SPRD_GPS_CLK_SEL			(SPRD_GPS_CLK_SINEX+0x134)
 #endif
 
 /** Virtual base address for CGsnap sclk */
