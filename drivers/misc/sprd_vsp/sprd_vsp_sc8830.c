@@ -654,8 +654,9 @@ static void __exit vsp_exit(void)
     platform_driver_unregister(&vsp_driver);
 }
 
+
 module_init(vsp_init);
 module_exit(vsp_exit);
 
 MODULE_DESCRIPTION("SPRD VSP Driver");
-MODULE_LICENSE("GPL"
+MODULE_LICENSE("GPL");
