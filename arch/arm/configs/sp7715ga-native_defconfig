@@ -1812,7 +1812,7 @@ CONFIG_MEDIA_SUPPORT=y
 #
 # Multimedia core support
 #
-# CONFIG_VIDEO_GSP_SPRD is not set
+CONFIG_VIDEO_GSP_SPRD=y
 CONFIG_VIDEO_DCAM_SPRD=y
 # CONFIG_CAMERA_2M is not set
 # CONFIG_CAMERA_3M is not set
