@@ -143,10 +143,7 @@ ENTRY(sc8830_standby_exit_iram)
 	ldr r1, [r0]
 	orr r1, #JTAG_DAP_EN
 	str r1, [r0]
-	ldr r0, =REG_UART1_ENABLE_PHY
-	ldr r1, [r0]
-	orr r1, #REG_UART1_ENABLE_BIT
-	str r1, [r0]
+	bl uart1_en
 	mrs r0, cpsr
 	and r0, r0, #0xff
 	mov r6, r0
@@ -154,19 +151,86 @@ ENTRY(sc8830_standby_exit_iram)
 	cmp r0, r1
 	msr cpsr_c, r1
 
-#ifdef CONFIG_DDR_VALIDITY_TEST
-	ldr r0, =REG_UART1_ENABLE_PHY
-	ldr r1, [r0]
-	orr r1, r1, #REG_UART1_ENABLE_BIT
-	str r1, [r0]
-	ldr r0, =UART1_CKD_PHY
-	ldr r1, =0xe2
-	str r1, [r0]
-	ldr r0, =UART1_CTR0_PHY
-	ldr r1, =0x1c
-	str r1, [r0]
+	ldr r0, =0x20
+	bl my_delay
 
+/* DLL calibration */
+#if 0
+      mov  r0,#0x30000004
+      ldr    r1,[r0]
+      and  r1,r1,#0x7
+      cmp r1,#0x3
+      bne  recover_context
+
+      ldr    r0,=0x300001b0
+      ldr    r1,[r0]
+      bic   r1,r1,#0x1
+      str   r1,[r0]
+
+      ldr   r0,=0x30010004
+      mov r1,#0x21
+      str   r1,[r0]
+
+      ldr   r0,=0x30010018
+1:   ldr   r1,[r0]
+      tst  r1,#0x1
+      beq 1b
+
+      ldr    r0,=0x300001b0
+      ldr    r1,[r0]
+      orr   r1,r1,#0x1
+      str   r1,[r0]
+
+      mov  r0,#0x100
+2:   sub   r0,r0,#0x1
+      cmp  r0,#0x0
+      bne   2b
+recover_context:
+#endif
+/* DLL calibration end */
+
+#ifdef CONFIG_DDR_VALIDITY_TEST
+	bl ddr_test
+#endif
+#if 0
+5:	b 5b
+#endif
+	#blne dead
+/*
+	adr r0, sleep_asm_counter
+	ldr r1, [r0]
+	add r1, r1, #1
+	str r1, [r0]
+	cmp r1, #32
+	bleq dead
+*/
+
+loopp:
+	adr	r0, str_deep
+	bl	printascii_phy
+	/*
+	b loopp
+	*/
+
+	/*
+	*  convert to physical address,
+	*  need to find a more elegent way.
+	*/
+context_restore:
+	ldr	r0, =sp_pm_collapse_exit
+	ldr	r1, =0xc0000000
+	sub	r0, r0, r1
+	ldr	r1, =(CONFIG_PHYS_OFFSET)
+	add	r0, r0, r1
+	mov pc, r0
+ENDPROC(sc8830_standby_exit_iram)
+
+#ifdef CONFIG_DDR_VALIDITY_TEST
+#ifndef CONFIG_ARCH_SCX30G
+ENTRY(ddr_test)
+ddr_start:
 	/* we will test 64kB ddr */
+	mov r8, lr
 	ldr r4, =0x10000
 	ldr r3, =0x12345678
 	ldr r5, =0x87654321
@@ -187,27 +251,57 @@ loop:
 	add r1, #0x4
 	cmp r1, r4
 	blt loop
-	adr r0, str_a4
+	adr r0, str_y
 	bl printascii_phy
 	b finish
 bad:
-	adr r0, str_a3
+	str r1, [r0]
+	str r2, [r0, #0x4]
+	adr r0, str_n
+	bl printascii_phy
+#b ddr_start
+	b dead
+finish:
+	mov pc, r8
+ENDPROC(ddr_test)
+#else
+ENTRY(ddr_test)
+start:
+	/*ddr test, always read till it's right*/
+	ldr r7, =0x12345678
+	mov r8, lr
+	mov r5, #0x100
+	ldr r0, [r5]
+	cmp r0, #0x0
+	beq finish
+	add r6, r0
+	mov r2, #0x0
+loop:
+	ldr r1, [r0]
+	teq r7, r1
+	bne bad
+	mov r6, r2
+	mov r7, r0
+	adr r0, str_y
+	bl printascii_phy
+	b finish
+bad:
+	add r2, #0x1
+	ldr r1, [r0]
+	teq r7, r1
+	bne bad
+	mov r6, r2
+	mov r7, r0
+	adr r0, str_n
 	bl printascii_phy
 finish:
+	str r6, [r7, #0x4]
+	mov pc, r8
+ENDPROC(ddr_test)
 #endif
-#if 0
-5:	b 5b
-#endif
-	#blne dead
-/*
-	adr r0, sleep_asm_counter
-	ldr r1, [r0]
-	add r1, r1, #1
-	str r1, [r0]
-	cmp r1, #32
-	bleq dead
-*/
-#ifndef CONFIG_DDR_VALIDITY_TEST
+#endif //CONFIG_DDR_VALIDITY_TEST
+
+ENTRY(uart1_en)
 	ldr r0, =REG_UART1_ENABLE_PHY
 	ldr r1, [r0]
 	orr r1, r1, #REG_UART1_ENABLE_BIT
@@ -218,31 +312,7 @@ finish:
 	ldr r0, =UART1_CTR0_PHY
 	ldr r1, =0x1c
 	str r1, [r0]
-#endif
-loopp:
-	adr	r0, str_a2
-	bl	printascii_phy
-	/*
-	b loopp
-	*/
-
-
-	ldr r0, =0x0020
-	bl my_delay
-
-	/*
-	*  convert to physical address,
-	*  need to find a more elegent way.
-	*/
-context_restore:
-	ldr	r0, =sp_pm_collapse_exit
-	ldr	r1, =0xc0000000
-	sub	r0, r0, r1
-	ldr	r1, =(CONFIG_PHYS_OFFSET)
-	add	r0, r0, r1
-	mov pc, r0
-ENDPROC(sc8830_standby_exit_iram)
-
+ENDPROC(uart1_en)
 
 ENTRY(printascii_phy)
 		addruart r3
@@ -274,17 +344,8 @@ ENTRY(my_delay)
 ENDPROC(my_delay)
 
 ENTRY(dead)
-	ldr		r1, =REG_GLB_GEN0_PHY_ADDR
-	ldr		r2, [r1, #0]
-	orr		r2, r2, #UART1_EN
-	str		r2, [r1, #0]
-
-	ldr r0, =0x20
-	bl my_delay
-
-1:	adr	r0, str_a1
+1:	adr	r0, str_err
 	bl	printascii_phy
-
 	ldr r0, =0x000fffff
 	bl my_delay
 
@@ -295,10 +356,10 @@ ENDPROC(dead)
 sleep_asm_counter:
 	.long	0x0
 
-str_a4:	.asciz	"Y!\n"
-str_a3:	.asciz	"N!\n"
-str_a2:	.asciz	"from deep!"
-str_a1:	.asciz	"dead!"
+str_y:	.asciz	"Y!\n"
+str_n:	.asciz	"N!\n"
+str_deep: .asciz	"from deep!"
+str_err: .asciz	"DDR ERR!"
 
 ENTRY(sc8830_standby_iram_end)
 
