@@ -1009,10 +1009,6 @@ void int_work_round(void)
 }
 void show_deep_reg_status(void)
 {
-	printk("PD_PUB_SYS_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_PUB_SYS_CFG, -1UL));
-	printk("PD_DDR_PHY_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_DDR_PHY_CFG, -1UL));
-	printk("PD_DDR_PUBL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_DDR_PUBL_CFG, -1UL));
-
 	printk("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
 	printk("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
 	printk("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
@@ -1317,7 +1313,7 @@ void __init sc_pm_init(void)
 	sprd_debug_init();
 #endif
 
-#ifndef CONFIG_ARCH_SCX30G
+#ifdef CONFIG_ARCH_SCX30G
 	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_FORCE_SHUTDOWN);
 	sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG,BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 
