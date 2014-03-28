@@ -27,12 +27,14 @@
 #include <linux/spinlock.h>
 #include <linux/hwspinlock.h>
 #include <linux/platform_device.h>
-
-#include "hwspinlock_internal.h"
+#include <linux/of.h>
+#include <linux/of_device.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/arch_lock.h>
+
+#include "hwspinlock_internal.h"
 
 
 #define HWSPINLOCK_ENABLE_CLEAR		(0x454e434c)
@@ -208,6 +210,7 @@ static int sci_hwspinlock_probe(struct platform_device *pdev)
 
 	printk("sci_hwspinlock_probe ok: hwspinlock_vid = 0x%x, add num_locks = %d\n",
 	       hwspinlock_vid,num_locks);
+
 	return 0;
 
 reg_fail:
@@ -234,13 +237,19 @@ static int sci_hwspinlock_remove(struct platform_device *pdev)
 	return 0;
 }
 
+static const struct of_device_id sprd_hwspinlock_of_match[] = {
+	{ .compatible = "sprd,sprd-hwspinlock", },
+	{ /* sentinel */ }
+};
+
 static struct platform_driver sci_hwspinlock_driver = {
 	.probe = sci_hwspinlock_probe,
 	.remove = sci_hwspinlock_remove,
 	.driver = {
-		   .name = "sci_hwspinlock",
-		   .owner = THIS_MODULE,
-		   },
+		.name = "sci_hwspinlock",
+		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(sprd_hwspinlock_of_match),
+	},
 };
 
 static int __init sci_hwspinlock_init(void)
