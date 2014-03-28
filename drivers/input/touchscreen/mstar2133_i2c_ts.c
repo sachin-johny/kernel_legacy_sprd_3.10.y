@@ -63,7 +63,7 @@
 #include <asm/atomic.h>
 #include <linux/i2c/msg21xx_i2c_ts.h>
 /*********************************Bee-0928-TOP****************************************/
-#define PIXCIR_DEBUG		0
+//#define PIXCIR_DEBUG
 //#define PIXCIR_CQ_CALL		0
 #ifdef PIXCIR_DEBUG
 #define PIXCIR_DBG(format, ...)	\
