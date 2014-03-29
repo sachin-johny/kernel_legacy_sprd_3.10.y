@@ -144,7 +144,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 	ret = sbuf_read(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
 			wlan_sipc->recv_buf, 256, 0);
 	if (ret == -ENODATA) {
-		pr_debug("do not have dirty data in sbuf\n");
+		pr_debug("no dirty data in sbuf\n");
 	} else if (ret > 0) {
 		pr_err("clean up dirty data in sbuf\n");
 	} else {

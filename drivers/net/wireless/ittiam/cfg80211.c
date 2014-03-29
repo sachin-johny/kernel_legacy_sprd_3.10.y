@@ -924,15 +924,25 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 	}
 
 	/* Convert got rate from hw_value to NL80211 value */
-	for (i = 0; i < ARRAY_SIZE(itm_rates); i++) {
-		if (rate == itm_rates[i].hw_value) {
-			sinfo->txrate.legacy = itm_rates[i].bitrate;
-			break;
+	if (!(rate & 0x7f)) {
+		wiphy_info(wiphy, "%s rate %d\n", __func__, (rate & 0x7f));
+		sinfo->txrate.legacy = 10;
+	} else {
+		for (i = 0; i < ARRAY_SIZE(itm_rates); i++) {
+			if (rate == itm_rates[i].hw_value) {
+				sinfo->txrate.legacy = itm_rates[i].bitrate;
+				if (rate & 0x80)
+					sinfo->txrate.mcs = itm_rates[i].hw_value;
+				break;
+			}
 		}
+
+		if (i >= ARRAY_SIZE(itm_rates))
+			sinfo->txrate.legacy = 10;
 	}
 
-	wiphy_info(wiphy, "%s signal %d txrate %d\n", __func__, sinfo->signal =
-		   signal, sinfo->txrate.legacy);
+	wiphy_info(wiphy, "%s signal %d txrate %d\n", __func__, sinfo->signal,
+		   sinfo->txrate.legacy);
 
 	return 0;
 }
@@ -1741,7 +1751,7 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 #endif
 }
 
-int itm_wdev_alloc(struct itm_priv *priv, struct device *dev)
+int itm_register_wdev(struct itm_priv *priv, struct device *dev)
 {
 	int ret = 0;
 	struct wireless_dev *wdev;
@@ -1826,7 +1836,7 @@ out_free_wdev:
 	return ret;
 }
 
-void itm_wdev_free(struct itm_priv *priv)
+void itm_unregister_wdev(struct itm_priv *priv)
 {
 	if (priv->wdev == NULL)
 		return;
