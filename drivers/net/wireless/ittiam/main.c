@@ -467,6 +467,15 @@ static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	return 0;
 }
 
+static struct net_device_ops itm_wlan_ops = {
+	.ndo_open = itm_wlan_open,
+	.ndo_stop = itm_wlan_close,
+	.ndo_start_xmit = itm_wlan_start_xmit,
+	.ndo_get_stats = itm_wlan_get_stats,
+	.ndo_tx_timeout = itm_wlan_tx_timeout,
+	.ndo_do_ioctl = itm_wlan_ioctl,
+};
+
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
 static void itm_wlan_early_suspend(struct early_suspend *es)
 {
@@ -556,15 +565,6 @@ static const struct dev_pm_ops itm_wlan_pm = {
 static const struct dev_pm_ops itm_wlan_pm;
 #endif
 
-static struct net_device_ops itm_wlan_ops = {
-	.ndo_open = itm_wlan_open,
-	.ndo_stop = itm_wlan_close,
-	.ndo_start_xmit = itm_wlan_start_xmit,
-	.ndo_get_stats = itm_wlan_get_stats,
-	.ndo_tx_timeout = itm_wlan_tx_timeout,
-	.ndo_do_ioctl = itm_wlan_ioctl,
-};
-
 static int itm_inetaddr_event(struct notifier_block *this,
 			      unsigned long event, void *ptr)
 {
@@ -617,7 +617,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
 || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
 ||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SP5735C2EA)
-    rf2351_gpio_ctrl_power_enable(1);
+	rf2351_gpio_ctrl_power_enable(1);
 #endif
 	ndev =
 	    alloc_netdev(sizeof(struct itm_priv), ITM_INTF_NAME, ether_setup);
@@ -648,38 +648,43 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_sblock;
 	}
 */
-	ret =
-	    sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
-				     itm_wlan_handler, priv);
+	ret = sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
+				       itm_wlan_handler, priv);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to regitster sblock notifier (%d)\n", ret);
 		goto err_notify_sblock;
 	}
 
-	netif_napi_add(ndev, &priv->napi, itm_wlan_rx_handler, 64);
-
-	/*Init MAC and get the capabilities */
-#if 0
-	ret = itm_hw_init();
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to detect MAC controller (%d)\n",
-			ret);
-		goto err_notify_sblock;
-	}
-#endif
-
-	ret = itm_wdev_alloc(priv, &pdev->dev);
+	ret = itm_register_wdev(priv, &pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register wiphy (%d)\n", ret);
-		goto err_notify_sblock;
+		goto err_register_wdev;
 	}
+
+	netif_napi_add(ndev, &priv->napi, itm_wlan_rx_handler, 64);
 
 	/* register new Ethernet interface */
 	ret = register_netdev(ndev);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to regitster net_dev (%d)\n", ret);
 		goto err_register_netdev;
+	}
+
+	platform_set_drvdata(pdev, ndev);
+
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	priv->early_suspend.suspend = itm_wlan_early_suspend;
+	priv->early_suspend.resume = itm_wlan_late_resume;
+	priv->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 1;
+	register_early_suspend(&priv->early_suspend);
+#endif
+
+	ret = register_inetaddr_notifier(&itm_inetaddr_cb);
+	if (ret) {
+		dev_err(&pdev->dev,
+			"Failed to register inetaddr notifier (%d)\n", ret);
+		goto err_register_inetaddr_notifier;
 	}
 
 	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
@@ -689,30 +694,30 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
 		goto err_npi_netlink;
 	}
-	platform_set_drvdata(pdev, ndev);
 
 	ittiam_nvm_init();
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
-	priv->early_suspend.suspend = itm_wlan_early_suspend;
-	priv->early_suspend.resume = itm_wlan_late_resume;
-	priv->early_suspend.level = EARLY_SUSPEND_LEVEL_DISABLE_FB + 1;
-	register_early_suspend(&priv->early_suspend);
-#endif
-#ifdef CONFIG_INET
-	register_inetaddr_notifier(&itm_inetaddr_cb);
-#endif
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
+
 err_npi_netlink:
+	wake_lock_destroy(&priv->scan_done_lock);
+	unregister_inetaddr_notifier(&itm_inetaddr_cb);
+err_register_inetaddr_notifier:
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	unregister_early_suspend(&priv->early_suspend);
+#endif
 	unregister_netdev(ndev);
 err_register_netdev:
-	itm_wdev_free(priv);
-err_notify_sblock:
 	netif_napi_del(&priv->napi);
-	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
-/*err_sblock:
-	free_netdev(ndev);*/
+	itm_unregister_wdev(priv);
+err_register_wdev:
+	sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH, NULL, NULL);
+err_notify_sblock:
+	/*sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/
+/*err_sblock:*/
+	free_netdev(ndev);
+	platform_set_drvdata(pdev, NULL);
 out:
 	return ret;
 }
@@ -730,27 +735,25 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
 || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
 ||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SP5735C2EA)
-    rf2351_gpio_ctrl_power_enable(0);
+	rf2351_gpio_ctrl_power_enable(0);
 #endif
-/*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
-	/* FIXME it is a ugly method */
-	ret =
-		sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
-					 NULL, NULL);
+	npi_exit_netlink();
+	wake_lock_destroy(&priv->scan_done_lock);
+	unregister_inetaddr_notifier(&itm_inetaddr_cb);
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	unregister_early_suspend(&priv->early_suspend);
+#endif
+	unregister_netdev(ndev);
+	netif_napi_del(&priv->napi);
+	itm_unregister_wdev(priv);
+	ret = sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH, NULL, NULL);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
+/*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
 
-	unregister_early_suspend(&priv->early_suspend);
-	wake_lock_destroy(&priv->scan_done_lock);
-#ifdef CONFIG_INET
-	unregister_inetaddr_notifier(&itm_inetaddr_cb);
-#endif
-	unregister_netdev(ndev);
-	itm_wdev_free(priv);
 	free_netdev(ndev);
-	npi_exit_netlink();
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
