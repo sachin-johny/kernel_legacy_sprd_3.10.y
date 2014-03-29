@@ -1183,6 +1183,17 @@ static void dcdc_core_ds_config(void)
 	u32 dcdc_core_ctl_adi = 0;
 	u32 val = 0;
 	u32 dcdc_core_ctl_ds = -1;
+#ifdef CONFIG_ARCH_SCX30G
+	static u8 dcdc_core_ds_volt[]={4,1,2,2,3,5,0,6};
+	dcdc_core_ctl_adi = (sci_adi_read(ANA_REG_GLB_MP_MISC_CTRL) >> 3) & 0x7;
+	dcdc_core_ctl_ds  = dcdc_core_ds_volt[dcdc_core_ctl_adi];
+	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n",dcdc_core_ctl_adi,dcdc_core_ctl_ds);
+
+	val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
+	val &= ~0x7;
+	val |= dcdc_core_ctl_ds;
+	sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
+#else
 	dcdc_core_ctl_adi = sci_adi_read(ANA_REG_GLB_DCDC_CORE_ADI);
 	dcdc_core_ctl_adi = dcdc_core_ctl_adi >> 0x5;
 	dcdc_core_ctl_adi = dcdc_core_ctl_adi & 0x7;
@@ -1224,6 +1235,7 @@ static void dcdc_core_ds_config(void)
 		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL0, val, 0xffff);
 #endif
 	}
+#endif
 }
 
 void pm_ana_ldo_config(void)
