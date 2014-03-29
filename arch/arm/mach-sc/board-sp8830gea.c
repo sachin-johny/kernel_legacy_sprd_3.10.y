@@ -737,8 +737,8 @@ static void __init sc8830_init_machine(void)
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
 	sci_adc_init((void __iomem *)ADC_BASE);
-#ifndef CONFIG_OF
 	sci_regulator_init();
+#ifndef CONFIG_OF
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));

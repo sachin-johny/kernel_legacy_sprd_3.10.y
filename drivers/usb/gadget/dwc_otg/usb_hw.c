@@ -49,7 +49,7 @@ static void usb_ldo_switch(int is_on)
 	if(usb_regulator == NULL){
 		usb_regulator = regulator_get(NULL,USB_LDO_NAME);
 	}
-	if(usb_regulator){
+	if(!IS_ERR_OR_NULL(usb_regulator)){
 		if(is_on){
 			regulator_enable(usb_regulator);
 		}else{

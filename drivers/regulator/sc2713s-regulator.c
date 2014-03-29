@@ -41,6 +41,9 @@
 #include <linux/err.h>
 #include <linux/io.h>
 #include <linux/platform_device.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/regulator/of_regulator.h>
 
 #include <linux/regulator/consumer.h>
 #include <linux/regulator/driver.h>
@@ -993,6 +996,24 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 }
 #endif
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#define reg_info(format, arg...) pr_info("reg: " "@@@%s: " format, __func__, ## arg)
+static inline int __strcmp(const char *cs, const char *ct)
+{
+	if (!cs || !ct)
+		return -1;
+	return strcmp(cs, ct);
+}
+
+static struct of_device_id sprd_regulator_of_match[] = {
+	{ .compatible = "sprd,sc2713s-regulator", },
+	{ }
+};
+//MODULE_DEVICE_TABLE(of, sprd_regulator_of_match);
+#endif
+
+
 void *sci_regulator_register(struct platform_device *pdev,
 				       struct sci_regulator_desc *desc)
 {
@@ -1007,6 +1028,9 @@ void *sci_regulator_register(struct platform_device *pdev,
 		       .supply = desc->desc.name,
 		       }
 	};
+	struct regulator_config config = { };
+
+#ifndef CONFIG_OF
 	struct regulator_init_data init_data = {
 		.supply_regulator = 0,
 		.constraints = {
@@ -1025,7 +1049,31 @@ void *sci_regulator_register(struct platform_device *pdev,
 		.driver_data = 0,
 	};
 
-	struct regulator_config config = { };
+#else
+	struct regulator_init_data *init_data;
+	struct device_node *dev_np;
+	struct device_node *node_np;
+
+	dev_np = pdev->dev.of_node;
+	node_np = of_get_child_by_name(dev_np, desc->desc.name);
+	init_data = of_get_regulator_init_data(&pdev->dev, node_np);
+	if(!init_data || 0 != __strcmp(init_data->constraints.name, desc->desc.name)){
+		dev_err(&pdev->dev, "out of memory or %s not found\n", desc->desc.name);
+		return NULL;
+	}
+	reg_info("[%d] %s range %d - %d\n", idx.counter, init_data->constraints.name,
+		init_data->constraints.min_uV, init_data->constraints.max_uV);
+
+	init_data->supply_regulator = 0;
+	init_data->constraints.min_uV = 0,
+	init_data->constraints.max_uV = 4200 * 1000;
+	init_data->constraints.valid_modes_mask =
+		REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
+	init_data->constraints.valid_ops_mask = REGULATOR_CHANGE_MODE |
+		REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE;
+	init_data->num_consumer_supplies = 1;
+	init_data->consumer_supplies = consumer_supplies_default;
+#endif
 	desc->desc.id = atomic_inc_return(&idx) - 1;
 
 	BUG_ON(desc->regs->pd_set
@@ -1036,6 +1084,7 @@ void *sci_regulator_register(struct platform_device *pdev,
 	if (!desc->desc.ops)
 		desc->desc.ops = __regs_ops[desc->regs->typ];
 
+#ifndef CONFIG_OF
 	init_data.consumer_supplies =
 	    set_supply_map(&pdev->dev, desc->desc.name,
 			   &init_data.num_consumer_supplies);
@@ -1048,15 +1097,34 @@ void *sci_regulator_register(struct platform_device *pdev,
 	config.dev = &pdev->dev;
 	config.init_data = &init_data;
 	config.driver_data = NULL;
-        config.of_node = NULL;
+	config.of_node = NULL;
 	rdev = regulator_register(&desc->desc, &config);
 #elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
 	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0, 0);
 #else
 	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
 #endif
+
 	if (init_data.consumer_supplies != consumer_supplies_default)
 		kfree(init_data.consumer_supplies);
+#else
+	init_data->consumer_supplies =
+	    set_supply_map(&pdev->dev, desc->desc.name,
+			   &init_data->num_consumer_supplies);
+
+	if (!init_data->consumer_supplies)
+		init_data->consumer_supplies = consumer_supplies_default;
+
+	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
+        config.dev = &pdev->dev;
+        config.init_data = init_data;
+        config.driver_data = NULL;
+        config.of_node = node_np;
+        rdev = regulator_register(&desc->desc, &config);
+	if (init_data->consumer_supplies != consumer_supplies_default)
+		kfree(init_data->consumer_supplies);
+#endif
+
 
 	if (!IS_ERR_OR_NULL(rdev)) {
 		rdev->reg_data = rdev;
@@ -1077,7 +1145,7 @@ void *sci_regulator_register(struct platform_device *pdev,
  */
 static int sci_regulator_probe(struct platform_device *pdev)
 {
-	debug0("platform device %p\n", pdev);
+	debug0("%s %p\n", __func__, pdev);
 #include CONFIG_REGULATOR_SPRD_MAP
 //include <mach/chip_x30g/__sc2713s_regulator_map.h>
 	return 0;
@@ -1087,6 +1155,7 @@ static struct platform_driver sci_regulator_driver = {
 	.driver = {
 		.name = "sc2713s-regulator",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(sprd_regulator_of_match),
 	},
 	.probe = sci_regulator_probe,
 };
@@ -1145,18 +1214,25 @@ static int __init regu_driver_init(void)
 	ANA_REG_SET(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, -1, -1);
 	ANA_REG_SET(ANA_REG_GLB_LDO_PD_CTRL, 0, -1);
 #endif
+
+	__adc_cal_fuse_setup();
+
 	return platform_driver_register(&sci_regulator_driver);
 }
 
 int __init sci_regulator_init(void)
 {
+#ifndef CONFIG_OF
 	static struct platform_device regulator_device = {
 		.name = "sc2713s-regulator",
 		.id = -1,
 	};
 
-	__adc_cal_fuse_setup();
 	return platform_device_register(&regulator_device);
+#else
+	return of_platform_populate(of_find_node_by_path("/sprd-regulators"),
+				sprd_regulator_of_match, NULL, NULL);
+#endif
 }
 
 subsys_initcall(regu_driver_init);

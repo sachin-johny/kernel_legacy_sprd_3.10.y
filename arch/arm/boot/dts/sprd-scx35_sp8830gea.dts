@@ -22,7 +22,7 @@
 
 /include/ "skeleton.dtsi"
 /include/ "scx35-clocks.dtsi"
-/include/ "scx35-regulators.dtsi"
+/include/ "scx30g-regulators.dtsi"
 /include/ "sprd-sound.dtsi"
 
 / {
@@ -698,6 +698,7 @@
 		ngpios = <2>;
 		gpios = <&a_eic_gpio 0 0>,<&d_gpio_gpio 72 0>;
 		 reg = <0xf5116000 0x1000>;
+                 usb-supply = <&vddusb>;
 		 #address-cells = <1>;
 		 #size-cells = <0>;
 	 };
