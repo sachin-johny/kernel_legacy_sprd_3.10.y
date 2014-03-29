@@ -2089,7 +2089,16 @@ STATIC_FUNC int sprd_nand_probe(struct platform_device *pdev)
 	 *  FIX ME.
 	 */
 	sprd_mtd->oobsize =g_dolphin.oob_size;
-
+{	// This ugly code is used to avoid adie read error, after this bug is fixed ,this code will be deleted.jason.wu
+	unsigned int tmp_value;
+	unsigned int tmp_time = jiffies_to_usecs(jiffies);
+	do{
+		tmp_value = jiffies_to_usecs(jiffies);
+		if(tmp_value > (tmp_time+3000000)){
+			break;
+		}
+	}while(1);
+}
 	//this->IO_ADDR_R = g_dolphin.v_mbuf;
 	//this->IO_ADDR_W = g_dolphin.v_mbuf;
 
