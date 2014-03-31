@@ -192,9 +192,12 @@
 				  <0X80 0Xf53f8080 0x80>,
 		 		  <0X100 0Xf53f8100 0x80>,
 		 		  <0X480 0Xf53f8480 0x80>;
-		sprd_backlight {
-			compatible = "sprd,sprd_backlight";
-		};
+		 sprd_backlight {
+                        compatible = "sprd,sprd_backlight";
+                        start = <3>;
+                        end = <3>;
+                        flags = <0x100>;
+		 };
 		 watchdog@40{
 		 	compatible = "sprd,watchdog";
 		 	reg = <0X40 0x40>;
