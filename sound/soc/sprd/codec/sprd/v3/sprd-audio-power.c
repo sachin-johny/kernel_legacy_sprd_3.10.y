@@ -397,6 +397,9 @@ static inline int vreg_enable(void)
 	arch_audio_codec_analog_reg_enable();
 	if (i  == 0) {
 		arch_audio_codec_analog_reset();
+		/*set initial value from xun.zhang*/
+		arch_audio_codec_write_mask(PMUR4_PMUR3, BIT(ICM_PLUS_EN),
+					BIT(ICM_PLUS_EN));
 		i = 1;
 	}
 	return ret;
