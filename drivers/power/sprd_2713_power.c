@@ -54,8 +54,8 @@ int sprd_thm_temp_read(u32 sensor)
 #endif
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
-#define SPRDBAT_ONE_PERCENT_TIME   30
-#define SPRDBAT_VALID_CAP   15
+#define SPRDBAT_ONE_PERCENT_TIME   (2*60)
+#define SPRDBAT_VALID_CAP   30
 
 enum sprdbat_event {
 	SPRDBAT_ADP_PLUGIN_E,
