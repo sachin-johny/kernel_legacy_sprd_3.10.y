@@ -643,7 +643,7 @@
 		max-frequency = <384000000>;
 		keep-power-in-suspend = <1>;
 		non-removable = <1>;
-		caps = <0x80000800>;
+		caps = <0x80000000>;
 		caps2 = <0x202>;
 		vdd-extmmc = "vddemmcio";
 		emmc-signal-supply = <&vddemmccore>;
