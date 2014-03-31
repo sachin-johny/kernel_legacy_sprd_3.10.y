@@ -329,11 +329,20 @@ static unsigned long sci_pll_get_rate(struct clk *c)
 		if (mn)
 			rate = rate / mn;
 	} else {
+#ifdef CONFIG_ARCH_SCX30G
+		u32 k;
+		rate = sci_pll_get_refin_rate(c);
+		mn = sci_glb_read(c->regs->div.reg, 0xfffff03f);
+		k = (mn >> 12);
+		mn = mn & 0x3f;
+		rate = 26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100, 1048576) * 10000;
+#else
 		rate = sci_pll_get_refin_rate(c);
 		mn = sci_glb_read(c->regs->div.reg,
 				  c->regs->div.mask) >> mn_shift;
 		if (mn)
 			rate = rate * mn;
+#endif
 	}
 	debug0("pll %p (%s) get real rate %lu\n", c, c->regs->name, rate);
 	return rate;
@@ -363,9 +372,16 @@ static int sci_pll_set_rate(struct clk *c, unsigned long rate)
  */
 	} else {
 		u32 old_rate = c->ops->get_rate(c) / 1000000;
+#ifdef CONFIG_ARCH_SCX30G
+		u32 k;
+		mn = (rate / 1000000) / 26;
+		k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576, 26 * 100);
+		sci_glb_write(c->regs->div.reg, (k << 12)|(mn), 0xfffff03f);
+#else
 		mn = rate / sci_pll_get_refin_rate(c);
 		sci_glb_write(c->regs->div.reg, mn << mn_shift,
 			      c->regs->div.mask);
+#endif
 		__pll_enable_time(c, old_rate);
 	}
 
@@ -615,26 +631,26 @@ static struct notifier_block __clk_cpufreq_notifier_block = {
 
 int __init sci_clock_init(void)
 {
-	__raw_writel(__raw_readl(REG_PMU_APB_PD_MM_TOP_CFG)
+	__raw_writel(__raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG)
 		     & ~(BIT_PD_MM_TOP_FORCE_SHUTDOWN),
-		     REG_PMU_APB_PD_MM_TOP_CFG);
+		     (void *)REG_PMU_APB_PD_MM_TOP_CFG);
 
-	__raw_writel(__raw_readl(REG_PMU_APB_PD_GPU_TOP_CFG)
+	__raw_writel(__raw_readl((void *)REG_PMU_APB_PD_GPU_TOP_CFG)
 		     & ~(BIT_PD_GPU_TOP_FORCE_SHUTDOWN),
-		     REG_PMU_APB_PD_GPU_TOP_CFG);
+		     (void *)REG_PMU_APB_PD_GPU_TOP_CFG);
 
-	__raw_writel(__raw_readl(REG_AON_APB_APB_EB0) | BIT_MM_EB |
-		     BIT_GPU_EB, REG_AON_APB_APB_EB0);
+	__raw_writel(__raw_readl((void *)REG_AON_APB_APB_EB0) | BIT_MM_EB |
+		     BIT_GPU_EB, (void *)REG_AON_APB_APB_EB0);
 
-	__raw_writel(__raw_readl(REG_MM_AHB_AHB_EB) | BIT_MM_CKG_EB,
-		     REG_MM_AHB_AHB_EB);
+	__raw_writel(__raw_readl((void *)REG_MM_AHB_AHB_EB) | BIT_MM_CKG_EB,
+		     (void *)REG_MM_AHB_AHB_EB);
 
-	__raw_writel(__raw_readl(REG_MM_AHB_GEN_CKG_CFG)
+	__raw_writel(__raw_readl((void *)REG_MM_AHB_GEN_CKG_CFG)
 		     | BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN,
-		     REG_MM_AHB_GEN_CKG_CFG);
+		     (void *)REG_MM_AHB_GEN_CKG_CFG);
 
-	__raw_writel(__raw_readl(REG_MM_CLK_MM_AHB_CFG) | 0x3,
-		     REG_MM_CLK_MM_AHB_CFG);
+	__raw_writel(__raw_readl((void *)REG_MM_CLK_MM_AHB_CFG) | 0x3,
+		     (void *)REG_MM_CLK_MM_AHB_CFG);
 #ifndef CONFIG_MACH_SPX15FPGA
 #if defined(CONFIG_DEBUG_FS)
 	clk_debugfs_root = debugfs_create_dir("sprd-clock", NULL);
