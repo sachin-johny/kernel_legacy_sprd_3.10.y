@@ -24,6 +24,7 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/arch_misc.h>
+#include <linux/of.h>
 
 //#define SPRD_BACKLIGHT_DBG
 #ifdef SPRD_BACKLIGHT_DBG
@@ -314,6 +315,39 @@ static void sprd_backlight_lateresume(struct early_suspend *h)
 }
 #endif
 
+#ifdef CONFIG_OF
+static struct resource *sprd_backlight_parse_dt(struct platform_device *pdev)
+{
+	int ret;
+	struct device_node *np = pdev->dev.of_node;
+	struct resource *pwm_res;
+	pwm_res = kzalloc(sizeof(*pwm_res), GFP_KERNEL);
+	if (!pwm_res) {
+		dev_err(pdev, "sprd_backlight Could not allocate struct resource");
+		return NULL;
+	}
+	ret = of_property_read_u32(np, "start", &pwm_res->start);
+	if(ret){
+		dev_err(pdev, "fail to get resource.start\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "end", &pwm_res->end);
+	if(ret){
+		dev_err(pdev, "fail to get resource.end\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "flags", &pwm_res->flags);
+	if(ret){
+		dev_err(pdev, "fail to get resource.flags\n");
+		goto fail;
+	}
+	return pwm_res;
+fail:
+	kfree(pwm_res);
+	return NULL;
+}
+#endif
+
 static int sprd_backlight_probe(struct platform_device *pdev)
 {
 	struct backlight_properties props;
@@ -325,11 +359,25 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	struct resource *pwm_res;
 	char pwm_clk_name[32];
 
+#ifdef CONFIG_OF
+	struct device_node *np = pdev->dev.of_node;
+	if(np){
+		pwm_res = sprd_backlight_parse_dt(pdev);
+		if (pwm_res){
+                   pdev->resource = pwm_res;
+		}
+		else{
+			printk("Can't get pwm resource");
+			return -ENODEV;
+		}
+	}
+#else
 	pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	if (IS_ERR(pwm_res)) {
 		printk("Can't get pwm resource");
 		return -ENODEV;
 	}
+#endif
 
 	sprdbl.pwm_index = pwm_res->start;
 	/*fixme, the pwm's clk name must like this:clk_pwmx*/
@@ -364,11 +412,25 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 
 	//if(0x00000000 != adie_chip_ver) {
 	if(1) {
+#ifdef CONFIG_OF
+		struct device_node *np = pdev->dev.of_node;
+		if(np){
+			pwm_res = sprd_backlight_parse_dt(pdev);
+			if (pwm_res){
+				pdev->resource = pwm_res;
+			}
+			else{
+				printk("Can't get pwm resource");
+				return -ENODEV;
+			}
+		}
+#else
 		pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 		if (IS_ERR(pwm_res)) {
 			printk("Can't get pwm resource");
 			return -ENODEV;
 		}
+#endif
 
 		sprdbl.pwm_index = pwm_res->start;
 		/*fixme, the pwm's clk name must like this:clk_pwmx*/
