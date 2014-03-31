@@ -23,7 +23,7 @@ uint32_t testregsegment[0x190]= {0};
 extern struct clk	*g_gsp_emc_clk;
 extern struct clk	*g_gsp_clk;
 #ifdef CONFIG_OF
-extern struct device 				*gsp_of_dev = NULL;
+extern struct device 				*gsp_of_dev;
 extern uint32_t gsp_base_addr;
 #endif
 
