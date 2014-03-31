@@ -197,7 +197,7 @@ static int fgu_nv_3600mv = 2460;
 static int fgu_0_cur_adc = 8019;
 #endif
 static int fgu_cal_type = SPRDBAT_FGUADC_CAL_NO;
-static int battery_internal_impedance = 250;
+static int battery_internal_impedance = 220;
 
 static int pcapacity;
 static int pclbcnt;
