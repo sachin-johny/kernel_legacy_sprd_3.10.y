@@ -1198,8 +1198,8 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 		unlock_fb_info(info);
 		break;
 	default:
-		if (!lock_fb_info(info))
-			return -ENODEV;
+		/*if (!lock_fb_info(info))
+			return -ENODEV;*/
 		fb = info->fbops;
 		if (fb->fb_ioctl)
 			ret = fb->fb_ioctl(info, cmd, arg);
