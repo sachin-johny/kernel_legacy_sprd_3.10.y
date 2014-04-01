@@ -793,6 +793,7 @@
                        reg_name = "iova","pgt","ctrl_reg";
                        clock-names = "clk_disp_emc","clk_153m6","clk_gsp";
                        clocks = <&clk_disp_emc>, <&clk_153m6>,<&clk_gsp>;
+		       status = "ok";
                  };
                  sprd_iommu1:sprd_iommu@F5430000 {
                        compatible  = "sprd,sprd_iommu";//mm
@@ -803,6 +804,7 @@
                        reg_name = "iova","pgt","ctrl_reg";
                        clock-names = "clk_mmu","clk_mm";
                        clocks = <&clk_mmu>,<&clk_mm>;
+		       status = "ok";
                  };
          };
 
