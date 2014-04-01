@@ -55,17 +55,6 @@
 /* emulate a modern version */
 #define LINUX_VERSION_CODE KERNEL_VERSION(3, 10, 0)
 
-void itm_cfg80211_report_connect_result(struct itm_priv *itm_priv);
-void itm_cfg80211_report_disconnect_done(struct itm_priv *itm_priv);
-void itm_cfg80211_report_scan_done(struct itm_priv *itm_priv, bool aborted);
-void itm_cfg80211_report_ready(struct itm_priv *itm_priv);
-void itm_cfg80211_report_tx_busy(struct itm_priv *itm_priv);
-void itm_cfg80211_report_softap(struct itm_priv *itm_priv);
-int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req);
-int itm_get_mac_from_cfg(struct itm_priv *priv);
-int itm_wdev_alloc(struct itm_priv *priv, struct device *dev);
-void itm_wdev_free(struct itm_priv *priv);
-
 enum ANDROID_WIFI_CMD {
 	ANDROID_WIFI_CMD_START,
 	ANDROID_WIFI_CMD_STOP,
@@ -145,5 +134,16 @@ typedef struct android_wifi_priv_cmd {
 	int used_len;
 	int total_len;
 } android_wifi_priv_cmd;
+
+void itm_cfg80211_report_connect_result(struct itm_priv *itm_priv);
+void itm_cfg80211_report_disconnect_done(struct itm_priv *itm_priv);
+void itm_cfg80211_report_scan_done(struct itm_priv *itm_priv, bool aborted);
+void itm_cfg80211_report_ready(struct itm_priv *itm_priv);
+void itm_cfg80211_report_tx_busy(struct itm_priv *itm_priv);
+void itm_cfg80211_report_softap(struct itm_priv *itm_priv);
+int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req);
+int itm_get_mac_from_cfg(struct itm_priv *priv);
+int itm_register_wdev(struct itm_priv *priv, struct device *dev);
+void itm_unregister_wdev(struct itm_priv *priv);
 
 #endif/* __ITM_CFG80211_H__ */
