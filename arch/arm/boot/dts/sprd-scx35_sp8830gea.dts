@@ -784,14 +784,34 @@
                        <0x6000A000 0x1100>,//  MALI_PP1,
                        <0x60005000 0x100>,//  MALI_PP1_MMU,
                        <0x60002000 0x100>;//  MALI_PMU,
-                 clock-names = "clk_256m","clk_gpu_axi","clk_gpu","clk_312m";
-                 clocks = <&clk_256m>, <&clk_gpu_axi>,<&clk_gpu>, <&clk_312m>;         
+                 clock-names = "clk_gpu_axi","clk_gpu","clk_208m","clk_256m","clk_312m";
+                 clocks = <&clk_gpu_axi>,<&clk_gpu>,<&clk_208m>,<&clk_256m>,<&clk_312m>;
 	 };
          ion {
 		 compatible = "sprd,ion-sprd";
-		 reg = <0x97600000 0x7100000>,
-		       <0x9e700000 0x1900000>;
-		 reg-names = "SPRD_ION_MEM","SPRD_ION_OVERLAY_MEM";
+                 #address-cells = <1>;
+                 #size-cells = <0>;
+
+                 sprd,ion-heap@1 {
+                       reg = <1>;                      /* SYSTEM */
+                       reg-names = "ion_heap_system";
+                       sprd,ion-heap-type = <0>;       /* SYSTEM */
+                       sprd,ion-heap-mem = <0x0 0x0>;
+                 };
+
+                 sprd,ion-heap@2 {
+                       reg = <2>;                      /* MM */
+                       reg-names = "ion_heap_carveout_mm";
+                       sprd,ion-heap-type = <2>;       /* carveout mm */
+                       sprd,ion-heap-mem = <0x97600000 0x7100000>;
+                 };
+
+                 sprd,ion-heap@3 {
+                       reg = <3>;                      /* OVERLAY */
+                       reg-names = "ion_heap_carveout_overlay";
+                       sprd,ion-heap-type = <2>;       /* CARVEOUT */
+                       sprd,ion-heap-mem = <0x9e700000 0x1900000>;      /* 4M */
+                 };
          };
 	 sprd_rf2351: sprd_rf2351@40070000{
 		compatible  = "sprd,sprd_rf2351";
