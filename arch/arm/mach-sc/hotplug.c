@@ -21,6 +21,8 @@
 #include <asm/cacheflush.h>
 #include <asm/cp15.h>
 #include <asm/smp_plat.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 extern volatile int pen_release;
 #ifdef CONFIG_ARCH_SCX35
@@ -105,7 +107,8 @@ int sprd_cpu_kill(unsigned int cpu)
 	printk("!! %d  platform_cpu_kill %d !!\n", smp_processor_id(), cpu);
 	while (i < 20) {
 		//check wfi?
-		if (__raw_readl(SPRD_AHB_BASE + 0x48) & (1 << cpu_logical_map(cpu))) {
+		if (sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL) & (1 << cpu_logical_map(cpu)))
+		{
 			powerdown_cpus(cpu);
 			break;
 		}

@@ -301,119 +301,186 @@ extern unsigned int dvfs_score_select;
 extern unsigned int dvfs_score_hi[4];
 extern unsigned int dvfs_score_mid[4];
 extern unsigned int dvfs_score_critical[4];
-
+int a_score_sub[7][5][5]=
+{
+	{
+		{0,0,0,0,0},
+		{0,0,0,0,0},
+		{0,0,0,0,0},
+		{0,0,0,0,0},
+		{0,0,0,0,0}
+	},
+	{
+		{0,0,0,0,0},
+		{100,0,0,0,0},
+		{50,100,0,0,0},
+		{50,50,0,0,0,0},
+		{0,0,0,0,0}
+	},
+	{
+		{0,0,0,0,0},
+		{30,20,10,0,0},
+		{20,10,5,0,0},
+		{10,5,5,0,0},
+		{0,0,0,0,0},
+	},
+	{
+		{0,0,0,0,0},
+		{50,35,20,10,20},
+		{50,35,20,0,0},
+		{30,25,15,0,0},
+		{0,0,0,0,0}
+	},
+	{
+		{0,0,0,0,0},
+		{100,50,35,10,20},
+		{50,35,20,0,0},
+		{35,20,5,0,0},
+		{0,0,0,0,0}
+	},
+	{
+		{0,0,0,0,0},
+		{100,100,50,0,0},
+		{100,100,50,0,0},
+		{50,35,20,0,0},
+		{0,0,0,0,0}
+	},
+	{
+		{0,0,0,0,0},
+		{100,100,100,100,100},
+		{100,100,100,100,100},
+		{100,100,100,100,100},
+		{0,0,0,0,0}
+	}
+};
 static int cpu_evaluate_score(struct sd_dbs_tuners *sd_tunners , unsigned int load)
 {
 	int score = 0;
-	int a_score_sub[5][5][5]=
-	{
-		{
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0}
-		},
-		{
-			{0, 0, 0, 0, 0},
-			{10, 5, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0}
-		},
-		{
-			{0, 0, 0, 0, 0},
-			{20, 10, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0}
-		},
-		{
-			{0, 0, 0, 0, 0},
-			{20, 10, 5, 0, 0},
-			{10, 5, 0, 0, 0},
-			{0, 0, 0, 0, 0},
-			{0, 0, 0, 0, 0}
-		},
-		{
-			{0, 0, 0, 0, 0},
-			{100, 50, 30, 0, 0},
-			{50, 30, 15, 0, 0},
-			{30, 15, 5, 0, 0},
-			{0, 0, 0, 0, 0}
-		}
 
-	};
-
+	int a_samp_rate[5] = {30000,30000,50000,50000,50000};
 	if(dvfs_score_select < 4)
 	{
 		if (load >= sd_tunners->load_critical)
+		{
 			score = dvfs_score_critical[num_online_cpus()];
+			sd_tunners->sampling_rate = a_samp_rate[0];
+		}
 		else if (load >= sd_tunners->load_hi)
+		{
 			score = dvfs_score_hi[num_online_cpus()];
+			sd_tunners->sampling_rate = a_samp_rate[1];
+		}
 		else if (load >= sd_tunners->load_mid)
+		{
 			score = dvfs_score_mid[num_online_cpus()];
+			sd_tunners->sampling_rate = a_samp_rate[2];
+		}
 		else if (load >= sd_tunners->load_light)
+		{
 			score = sd_tunners->load_light_score;
+			sd_tunners->sampling_rate = a_samp_rate[3];
+		}
 		else if (load >= sd_tunners->load_lo)
+		{
 			score = sd_tunners->load_lo_score;
+			sd_tunners->sampling_rate = a_samp_rate[4];
+		}
 		else
+		{
 			score = 0;
+			sd_tunners->sampling_rate = a_samp_rate[4];
+		}
 
 	}
 	else
 	{
 		if (load >= sd_tunners->load_critical)
+		{
 			score = sd_tunners->load_critical_score + a_score_sub[dvfs_score_select - 4][num_online_cpus()][0];
+			sd_tunners->sampling_rate = a_samp_rate[0];
+		}
 		else if (load >= sd_tunners->load_hi)
+		{
 			score = sd_tunners->load_hi_score + a_score_sub[dvfs_score_select - 4][num_online_cpus()][1];
+			sd_tunners->sampling_rate = a_samp_rate[1];
+		}
 		else if (load >= sd_tunners->load_mid)
+		{
 			score = sd_tunners->load_mid_score + a_score_sub[dvfs_score_select - 4][num_online_cpus()][2];
+			sd_tunners->sampling_rate = a_samp_rate[2];
+		}
 		else if (load >= sd_tunners->load_light)
+		{
 			score = sd_tunners->load_light_score + a_score_sub[dvfs_score_select - 4][num_online_cpus()][3];
+			sd_tunners->sampling_rate = a_samp_rate[3];
+		}
 		else if (load >= sd_tunners->load_lo)
+		{
 			score = sd_tunners->load_lo_score + a_score_sub[dvfs_score_select - 4][num_online_cpus()][4];
+			sd_tunners->sampling_rate = a_samp_rate[4];
+		}
 		else
+		{
 			score = 0;
+			sd_tunners->sampling_rate = a_samp_rate[4];
+		}
 	}
 	return score;
 }
 
 unsigned int percpu_load[4] = {0};
 #define MAX_CPU_NUM  (4)
-#define MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE  (6)
+#define MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE  (10)
+#define MAX_PLUG_AVG_LOAD_SIZE (2)
+
 unsigned int ga_percpu_total_load[MAX_CPU_NUM][MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE];
 extern unsigned int dvfs_unplug_select;
+extern unsigned int dvfs_plug_select;
 
 unsigned int cur_window_size[MAX_CPU_NUM] ={0};
-unsigned int cur_window_index[MAX_CPU_NUM] = {0};
+int cur_window_index[MAX_CPU_NUM] = {0};
 unsigned int cur_window_cnt[MAX_CPU_NUM] = {0};
 
+unsigned int plug_avg_load[MAX_CPU_NUM][MAX_PLUG_AVG_LOAD_SIZE] = {100};
+unsigned int plug_avg_load_index[MAX_CPU_NUM] = {0};
+
 #define mod(n, div) ((n) % (div))
+
+unsigned int a_sub_windowsize[8][6] =
+{
+	{0,0,0,0,0,0},
+	{0,0,0,0,0,0},
+	{4,5,5,6,7,7},
+	{4,5,5,6,7,7},
+	{3,4,4,5,6,6},
+	{2,3,3,4,5,5},
+	{1,2,2,3,4,4},
+	{0,1,1,2,3,3}
+};
 
 static int sd_adjust_window(struct sd_dbs_tuners *sd_tunners , unsigned int load)
 {
 	unsigned int cur_window_size = 0;
 
 	if (load >= sd_tunners->load_critical)
-		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE;
+		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - a_sub_windowsize[dvfs_unplug_select][0];
 	else if (load >= sd_tunners->load_hi)
-		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 1;
+		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - a_sub_windowsize[dvfs_unplug_select][1];
 	else if (load >= sd_tunners->load_mid)
-		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 2;
+		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - a_sub_windowsize[dvfs_unplug_select][2];
 	else if (load >= sd_tunners->load_light)
-		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 3;
+		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - a_sub_windowsize[dvfs_unplug_select][3];
 	else if (load >= sd_tunners->load_lo)
-		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 3;
+		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - a_sub_windowsize[dvfs_unplug_select][4];
 	else
-		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 3;
+		cur_window_size = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - a_sub_windowsize[dvfs_unplug_select][5];
 
 	return cur_window_size;
 }
 
 static unsigned int sd_unplug_avg_load(int cpu, struct sd_dbs_tuners *sd_tunners , unsigned int load)
 {
-	unsigned int sum_idx_lo = 0;
+	int sum_idx_lo = 0;
 	unsigned int sum_idx_hi = 0;
 	unsigned int * p_valid_pos = NULL;
 	unsigned int sum_load = 0;
@@ -424,7 +491,7 @@ static unsigned int sd_unplug_avg_load(int cpu, struct sd_dbs_tuners *sd_tunners
 	if(!cur_window_size[cpu])
 	{
 		cur_window_size[cpu] = sd_adjust_window(sd_tunners,load);
-		printk(KERN_ERR"[DVFS_UNPLUG]cur_window_size[%d] = %d\n",cpu,cur_window_size[cpu]);
+		pr_debug("[DVFS_UNPLUG]cur_window_size[%d] = %d\n",cpu,cur_window_size[cpu]);
 		return 100;
 	}
 	else
@@ -449,6 +516,17 @@ static unsigned int sd_unplug_avg_load(int cpu, struct sd_dbs_tuners *sd_tunners
 		}
 		else
 		{
+			/*
+			adjust the window index for it be added one more extra time
+			*/
+			if(!cur_window_index[cpu])
+			{
+				cur_window_index[cpu] = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 1;
+			}
+			else
+			{
+				cur_window_index[cpu]--;
+			}
 			/*
 			find the valid position according to current window size and indexs
 			*/
@@ -470,7 +548,7 @@ static unsigned int sd_unplug_avg_load(int cpu, struct sd_dbs_tuners *sd_tunners
 					/*
 					calculate the higher part
 					*/
-					sum_idx_hi = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - (cur_window_size[cpu] - sum_idx_lo) + 1;
+					sum_idx_hi = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - (cur_window_size[cpu] - sum_idx_lo);
 					for(; sum_idx_hi < MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE; sum_idx_hi++)
 					{
 						sum_load += ga_percpu_total_load[cpu][sum_idx_hi];
@@ -481,13 +559,12 @@ static unsigned int sd_unplug_avg_load(int cpu, struct sd_dbs_tuners *sd_tunners
 
 			}
 			sum_load = sum_load / cur_window_size[cpu];
-
 			/*
 			adjust the window according to previews load
 			*/
 			cur_window_size[cpu] = sd_adjust_window(sd_tunners, sum_load);
 			cur_window_cnt[cpu] = 0;
-			pr_info("[DVFS_UNPLUG]cur_window_size %d sum_load %d\n",cur_window_size[cpu],sum_load);
+			pr_debug("[DVFS_UNPLUG]cur_window_size %d sum_load %d\n",cur_window_size[cpu],sum_load);
 		}
 		return sum_load;
 	}
@@ -497,7 +574,7 @@ static unsigned int sd_unplug_avg_load(int cpu, struct sd_dbs_tuners *sd_tunners
 
 static unsigned int sd_unplug_avg_load1(int cpu, struct sd_dbs_tuners *sd_tunners , unsigned int load)
 {
-	unsigned int sum_idx_lo = 0;
+	int sum_idx_lo = 0;
 	unsigned int sum_idx_hi = 0;
 	unsigned int * p_valid_pos = NULL;
 	unsigned int sum_load = 0;
@@ -507,8 +584,8 @@ static unsigned int sd_unplug_avg_load1(int cpu, struct sd_dbs_tuners *sd_tunner
 	*/
 	if(!cur_window_size[cpu])
 	{
-		cur_window_size[cpu] = sd_adjust_window(sd_tunners,load);
-		printk(KERN_ERR"[DVFS_UNPLUG]cur_window_size[%d] = %d\n",cpu,cur_window_size[cpu]);
+		cur_window_size[cpu] = sd_adjust_window(sd_tunners,LOAD_LIGHT);
+		pr_debug("[DVFS_UNPLUG]cur_window_size[%d] = %d\n",cpu,cur_window_size[cpu]);
 		return 100;
 	}
 	else
@@ -534,6 +611,17 @@ static unsigned int sd_unplug_avg_load1(int cpu, struct sd_dbs_tuners *sd_tunner
 		else
 		{
 			/*
+			adjust the window index for it be added one more extra time
+			*/
+			if(!cur_window_index[cpu])
+			{
+				cur_window_index[cpu] = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - 1;
+			}
+			else
+			{
+				cur_window_index[cpu]--;
+			}
+			/*
 			find the valid position according to current window size and indexs
 			*/
 			p_valid_pos = (unsigned int *)&ga_percpu_total_load[cpu][cur_window_index[cpu]];
@@ -554,7 +642,7 @@ static unsigned int sd_unplug_avg_load1(int cpu, struct sd_dbs_tuners *sd_tunner
 					/*
 					calculate the higher part
 					*/
-					sum_idx_hi = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - (cur_window_size[cpu] - sum_idx_lo) + 1;
+					sum_idx_hi = MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE - (cur_window_size[cpu] - sum_idx_lo);
 					for(; sum_idx_hi < MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE; sum_idx_hi++)
 					{
 						sum_load += ga_percpu_total_load[cpu][sum_idx_hi];
@@ -567,13 +655,65 @@ static unsigned int sd_unplug_avg_load1(int cpu, struct sd_dbs_tuners *sd_tunner
 			sum_load = sum_load / cur_window_size[cpu];
 
 			cur_window_cnt[cpu] = 0;
-			pr_info("[DVFS_UNPLUG]cur_window_size %d sum_load %d\n",cur_window_size[cpu],sum_load);
+			pr_debug("[DVFS_UNPLUG]cur_window_size %d sum_load %d\n",cur_window_size[cpu],sum_load);
 		}
 		return sum_load;
 	}
 
 }
 
+static unsigned int sd_plug_avg_load(int cpu, unsigned int load)
+{
+	unsigned int prev_index = 0;
+	unsigned int load_gap = 0;
+	unsigned int real_load = 0;
+
+	if(!plug_avg_load_index[cpu])
+	{
+		prev_index = MAX_PLUG_AVG_LOAD_SIZE - 1;
+	}
+	else
+	{
+		prev_index = plug_avg_load_index[cpu] - 1;
+	}
+
+	/*
+	load is increasing
+	*/
+	if(plug_avg_load[cpu][prev_index] < load)
+	{
+		load_gap = load - plug_avg_load[cpu][prev_index];
+		if(load_gap > 60)
+		{
+			real_load = 100;
+		}
+		else
+		{
+			real_load = load;
+		}
+	}
+	/*
+	load is decreasing
+	*/
+	else
+	{
+		if((plug_avg_load[cpu][prev_index] > 80)
+			&& (load > 50))
+		{
+			real_load = plug_avg_load[cpu][prev_index];
+		}
+		else
+		{
+			real_load = load;
+		}
+
+	}
+	plug_avg_load[cpu][plug_avg_load_index[cpu]] = load;
+	plug_avg_load_index[cpu]++;
+	plug_avg_load_index[cpu] = mod(plug_avg_load_index[cpu],MAX_PLUG_AVG_LOAD_SIZE);
+
+	return real_load;
+}
 /*
  * Every sampling_rate, we check, if current idle time is less than 20%
  * (default), then we try to increase frequency. Every sampling_rate, we look
@@ -603,6 +743,10 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 	dbs_info->freq_lo = 0;
 
 	local_load = load_freq/policy->cur;
+	if(dvfs_plug_select)
+	{
+		local_load = sd_plug_avg_load(cpu, local_load);
+	}
 
         pr_debug("[DVFS] load %d %x load_freq %d policy->cur %d\n",local_load,local_load,load_freq,policy->cur);
 	/* Check for frequency increase */
@@ -626,7 +770,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 	/*
 	 * The optimal frequency is the frequency that is the lowest that can
 	 * support the current CPU usage without triggering the up policy. To be
-	 * safe, we focus 10 points under the threshold.
+	 * safe, we focus 3 points under the threshold.
 	 */
 	if (load_freq < sd_tuners->adj_up_threshold
 			* policy->cur) {
@@ -695,7 +839,7 @@ plug_check:
 	else if(num_online_cpus() > 1 && (dvfs_unplug_select == 2))
 	{
 		/* calculate itself's average load */
-		itself_avg_load = sd_unplug_avg_load(policy->cpu, sd_tuners, local_load);
+		itself_avg_load = sd_unplug_avg_load1(policy->cpu, sd_tuners, local_load);
 		percpu_load[policy->cpu] = itself_avg_load;
 		pr_debug("check unplug: for cpu%u avg_load=%d\n", policy->cpu, itself_avg_load);
 		if(itself_avg_load < sd_tuners->cpu_down_threshold)
@@ -713,10 +857,10 @@ plug_check:
 			cur_window_cnt[policy->cpu] = 0;
 		}
 	}
-	else if(num_online_cpus() > 1 && (dvfs_unplug_select == 3))
+	else if(num_online_cpus() > 1 && (dvfs_unplug_select > 2))
 	{
 		/* calculate itself's average load */
-		itself_avg_load = sd_unplug_avg_load1(policy->cpu, sd_tuners, local_load);
+		itself_avg_load = sd_unplug_avg_load(policy->cpu, sd_tuners, local_load);
 		percpu_load[policy->cpu] = itself_avg_load;
 		pr_debug("check unplug: for cpu%u avg_load=%d\n", policy->cpu, itself_avg_load);
 		if(itself_avg_load < sd_tuners->cpu_down_threshold)
@@ -1574,7 +1718,6 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 		pr_info(" %s, recv pm suspend notify done\n", __func__ );
 	}
 
-  
 	return NOTIFY_OK;
 }
 
