@@ -9,7 +9,7 @@
  * contains the memory barrier to tell GCC not to cache `current'.
  */
 extern struct task_struct *__switch_to(struct task_struct *, struct thread_info *, struct thread_info *);
-#ifdef CONFIG_SPRD_CPU_RATE
+#if defined(CONFIG_SPRD_CPU_RATE) && defined(CONFIG_SPRD_DEBUG)
 extern void update_cpu_usage(struct task_struct *prev, struct task_struct *next);
 #define sprd_update_cpu_usage(prev, next)	update_cpu_usage(prev, next)
 #else
