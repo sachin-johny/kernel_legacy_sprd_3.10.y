@@ -266,7 +266,7 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
 static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 			unsigned long arg)
 {
-	int result = 0;
+	int result = -1;
 	struct sprdfb_device *dev = NULL;
 
 	if(NULL == info){

@@ -1012,6 +1012,13 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 {
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
+	if(NULL == dev){
+            printk("sprdfb: [%s] Invalid parameter!\n", __FUNCTION__);
+            return -1;
+	}
+
+	dispc_ctx.dev = dev;
+
 	/*set bg color*/
 	dispc_set_bg_color(0xFFFFFFFF);
 	/*enable dithering*/
@@ -1133,7 +1140,7 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
-	dispc_ctx.dev = dev;
+//	dispc_ctx.dev = dev;
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	if(SPRD_OVERLAY_STATUS_STARTED == dispc_ctx.overlay_state){
 		overlay_close(dev);
