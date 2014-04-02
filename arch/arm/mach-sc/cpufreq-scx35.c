@@ -214,6 +214,18 @@ static struct cpufreq_table_data sc8830_cpufreq_table_data_es = {
 	},
 };
 
+static struct cpufreq_table_data sc8830t_cpufreq_table_data_es = {
+	.freq_tbl = {
+		{0, 1000000},
+		{1, 600000},
+		{2, CPUFREQ_TABLE_END},
+	},
+	.vddarm_mv = {
+		900000,
+		800000,
+	},
+};
+
 struct cpufreq_conf sc8830_cpufreq_conf = {
 	.clk = NULL,
 	.mpllclk = NULL,
@@ -403,8 +415,9 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 
 unsigned int cpufreq_min_limit = ULONG_MAX;
 unsigned int cpufreq_max_limit = 0;
-unsigned int dvfs_score_select = 8;
+unsigned int dvfs_score_select = 7;
 unsigned int dvfs_unplug_select = 3;
+unsigned int dvfs_plug_select = 0;
 unsigned int dvfs_score_hi[4] = {0};
 unsigned int dvfs_score_mid[4] = {0};
 unsigned int dvfs_score_critical[4] = {0};
@@ -438,7 +451,6 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 		pr_err("invalid target_freq: %d min_freq %d max_freq %d\n", target_freq,min_freq,max_freq);
 		return -EINVAL;
 	}
-  
 	table = cpufreq_frequency_get_table(policy->cpu);
 
 	if (cpufreq_frequency_table_target(policy, table,
@@ -498,6 +510,10 @@ static int sprd_freq_table_init(void)
 	        sprd_cpufreq_conf->freq_tbl = sc7715_cpufreq_table_data.freq_tbl;
 	        sprd_cpufreq_conf->vddarm_mv = sc7715_cpufreq_table_data.vddarm_mv;
         }
+	else if(soc_is_scx35g_v0()){
+	        sprd_cpufreq_conf->freq_tbl = sc8830t_cpufreq_table_data_es.freq_tbl;
+	        sprd_cpufreq_conf->vddarm_mv = sc8830t_cpufreq_table_data_es.vddarm_mv;
+	}
         else {
 		pr_err("%s error chip id\n", __func__);
 		return -EINVAL;
@@ -689,7 +705,7 @@ static ssize_t dvfs_unplug_store(struct device *dev, struct device_attribute *at
 	printk(KERN_ERR"dvfs_score_input %x\n",value);
 
 	dvfs_unplug_select = (value >> 24) & 0x0f;
-	if(dvfs_unplug_select > 3)
+	if(dvfs_unplug_select > 7)
 	{
 		cur_window_size[0]= (value >> 8) & 0xff;
 		cur_window_size[1]= (value >> 8) & 0xff;
@@ -711,6 +727,30 @@ static ssize_t dvfs_unplug_show(struct device *dev, struct device_attribute *att
 
 	return strlen(buf) + 1;
 }
+
+
+static ssize_t dvfs_plug_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	printk(KERN_ERR"dvfs_plug_select %x\n",value);
+
+	dvfs_plug_select = (value ) & 0x0f;
+	return count;
+}
+
+static ssize_t dvfs_plug_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	int ret = 0;
+
+	ret = snprintf(buf + ret,50,"dvfs_plug_select %d\n",dvfs_plug_select);
+
+	return strlen(buf) + 1;
+}
 static ssize_t cpufreq_table_show(struct device *dev, struct device_attribute *attr,char *buf)
 {
 	memcpy(buf,sprd_cpufreq_conf->freq_tbl,sizeof(* sprd_cpufreq_conf->freq_tbl));
@@ -723,6 +763,7 @@ static DEVICE_ATTR(cpufreq_max_limit_debug, 0440, cpufreq_max_limit_debug_show, 
 static DEVICE_ATTR(cpufreq_table, 0440, cpufreq_table_show, NULL);
 static DEVICE_ATTR(dvfs_score, 0660, dvfs_score_show, dvfs_score_store);
 static DEVICE_ATTR(dvfs_unplug, 0660, dvfs_unplug_show, dvfs_unplug_store);
+static DEVICE_ATTR(dvfs_plug, 0660, dvfs_plug_show, dvfs_plug_store);
 
 static struct attribute *g[] = {
 	&dev_attr_cpufreq_min_limit.attr,
@@ -732,6 +773,7 @@ static struct attribute *g[] = {
 	&dev_attr_cpufreq_table.attr,
 	&dev_attr_dvfs_score.attr,
 	&dev_attr_dvfs_unplug.attr,
+	&dev_attr_dvfs_plug.attr,
 	NULL,
 };
 
