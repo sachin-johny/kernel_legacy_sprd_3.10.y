@@ -26,6 +26,11 @@
 #include <sound/pcm.h>
 #include <sound/initval.h>
 
+#ifdef CONFIG_OF
+#include <linux/of.h>
+#include <linux/of_device.h>
+#endif
+
 #include <linux/sipc.h>
 #include <linux/module.h>
 #include <linux/io.h>
@@ -1265,8 +1270,67 @@ static void saudio_work_card_free_handler(struct work_struct *data)
 static int snd_saudio_probe(struct platform_device *devptr)
 {
 	struct snd_saudio *saudio = NULL;
+	static pid_t thread_id = (pid_t) - 1;
+#ifdef CONFIG_OF
+	int ret, id;
+	const char *name = NULL;
+	struct saudio_init_data snd_init_data = {0};
+	const char *saudio_names = "sprd,saudio-names";
+	const char *saudio_dst_id = "sprd,saudio-dst-id";
+	struct saudio_init_data *init_data = &snd_init_data;
+#else
 	struct saudio_init_data *init_data = devptr->dev.platform_data;
+#endif
+
 	ADEBUG();
+
+#ifdef CONFIG_OF
+	ret = of_property_read_u32(devptr->dev.of_node, saudio_dst_id, &id);
+	if (ret) {
+		printk("saudio: %s: missing %s in dt node\n", __func__, saudio_dst_id);
+		return ret;
+	} else {
+		if ((id == SIPC_ID_CPT) || (id == SIPC_ID_CPW)) {
+			printk("saudio: %s: %s is %d\n", __func__, __func__, saudio_dst_id, id);
+		} else {
+			printk("saudio: %s: %s is %d and only support 1,2\n", __func__, saudio_dst_id, id);
+			return ret;
+		}
+	}
+	ret = of_property_read_string(devptr->dev.of_node, saudio_names, &name);
+	if (ret) {
+		printk("saudio: %s: missing %s in dt node\n", __func__, saudio_names);
+		return ret;
+	} else {
+		printk("saudio: %s: %s is %s\n", __func__, __func__, saudio_names, name);
+	}
+
+	if (!strcmp(name, "saudio_voip")) {
+		init_data->name = "saudiovoip";
+		init_data->dst = id;
+		init_data->ctrl_channel = SMSG_CH_CTRL_VOIP;
+		init_data->playback_channel = SMSG_CH_PLAYBACK_VOIP;
+		init_data->capture_channel = SMSG_CH_CAPTURE_VOIP;
+		init_data->monitor_channel = SMSG_CH_MONITOR_VOIP;
+	} else if(id == SIPC_ID_CPT) {
+		init_data->name = "VIRTUAL AUDIO";
+		init_data->dst = id;
+		init_data->ctrl_channel = SMSG_CH_VBC;
+		init_data->playback_channel = SMSG_CH_PLAYBACK;
+		init_data->capture_channel = SMSG_CH_CAPTURE;
+		init_data->monitor_channel = SMSG_CH_MONITOR_AUDIO;
+	} else if(id == SIPC_ID_CPW) {
+		init_data->name = "VIRTUAL AUDIO W";
+		init_data->dst = id;
+		init_data->ctrl_channel = SMSG_CH_VBC;
+		init_data->playback_channel = SMSG_CH_PLAYBACK;
+		init_data->capture_channel = SMSG_CH_CAPTURE;
+		init_data->monitor_channel = SMSG_CH_MONITOR_AUDIO;
+	} else {
+		printk("saudio: %s: get data in dt node failed\n", __func__);
+	}
+#endif
+
 	if (!(saudio = saudio_card_probe(init_data))) {
 		return -1;
 	}
@@ -1325,13 +1389,23 @@ static int snd_saudio_remove(struct platform_device *devptr)
 	return 0;
 }
 
-#define SND_SAUDIO_DRIVER	"saudio"
+#ifdef CONFIG_OF
+static const struct of_device_id saudio_dt_match[] = {
+	{.compatible = "sprd,saudio"},
+	{},
+};
+#endif
 
 static struct platform_driver snd_saudio_driver = {
 	.probe = snd_saudio_probe,
 	.remove = snd_saudio_remove,
 	.driver = {
-		   .name = SND_SAUDIO_DRIVER},
+		.name = "saudio",
+		.owner = THIS_MODULE,
+#ifdef CONFIG_OF
+		.of_match_table = saudio_dt_match,
+#endif
+	},
 };
 
 static int __init alsa_card_saudio_init(void)
