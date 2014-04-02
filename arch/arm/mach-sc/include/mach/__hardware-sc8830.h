@@ -600,11 +600,7 @@
 #define SIPC_SMEM_ADDR 		(CONFIG_PHYS_OFFSET + 120 * SZ_1M)
 
 #define CPT_START_ADDR		(CONFIG_PHYS_OFFSET + 128 * SZ_1M)
-#ifdef CONFIG_ARCH_SCX30G
-#define CPT_TOTAL_SIZE			(SZ_1M * 24)
-#else
 #define CPT_TOTAL_SIZE                  (SZ_1M * 18)
-#endif
 #define CPT_RING_ADDR			(CPT_START_ADDR + CPT_TOTAL_SIZE - SZ_4K)
 #define CPT_RING_SIZE			(SZ_4K)
 #define CPT_SMEM_SIZE			(SZ_1M + SZ_256K)
@@ -612,8 +608,6 @@
 #define CPW_START_ADDR		(CONFIG_PHYS_OFFSET + 256 * SZ_1M)
 #if defined(CONFIG_MODEM_W_MEMCUT)
 #define CPW_TOTAL_SIZE		(SZ_1M * 28)
-#elif defined CONFIG_ARCH_SCX30G
-#define CPW_TOTAL_SIZE		(SZ_1M * 64)
 #else
 #define CPW_TOTAL_SIZE		(SZ_1M * 33)
 #endif
