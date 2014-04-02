@@ -638,6 +638,29 @@ static ssize_t cpufreq_max_limit_store(struct device *dev, struct device_attribu
 	return count;
 }
 
+static ssize_t cpufreq_voltage_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int err;
+	unsigned long value;
+	err = strict_strtoul(buf, 10, &value);
+	if (err)
+		return err;
+	printk("%s value=%u\n", __func__, value);
+	regulator_set_voltage(sprd_cpufreq_conf->regulator, (value * 1000), (value * 1000));
+	return count;
+}
+
+static ssize_t cpufreq_frequency_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int err;
+	unsigned long value;
+	err = strict_strtoul(buf, 10, &value);
+	if (err)
+		return err;
+	printk("%s value=%u\n", __func__, value);
+	cpufreq_set_clock(value);
+	return count;
+}
 
 static ssize_t dvfs_score_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
 {
@@ -723,6 +746,8 @@ static DEVICE_ATTR(cpufreq_max_limit_debug, 0440, cpufreq_max_limit_debug_show, 
 static DEVICE_ATTR(cpufreq_table, 0440, cpufreq_table_show, NULL);
 static DEVICE_ATTR(dvfs_score, 0660, dvfs_score_show, dvfs_score_store);
 static DEVICE_ATTR(dvfs_unplug, 0660, dvfs_unplug_show, dvfs_unplug_store);
+static DEVICE_ATTR(cpufreq_frequency, 0220, NULL, cpufreq_frequency_store);
+static DEVICE_ATTR(cpufreq_voltage, 0220, NULL, cpufreq_voltage_store);
 
 static struct attribute *g[] = {
 	&dev_attr_cpufreq_min_limit.attr,
@@ -732,6 +757,8 @@ static struct attribute *g[] = {
 	&dev_attr_cpufreq_table.attr,
 	&dev_attr_dvfs_score.attr,
 	&dev_attr_dvfs_unplug.attr,
+	&dev_attr_cpufreq_frequency.attr,
+	&dev_attr_cpufreq_voltage.attr,
 	NULL,
 };
 
