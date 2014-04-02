@@ -1205,7 +1205,7 @@ static long do_fb_ioctl(struct fb_info *info, unsigned int cmd,
 			ret = fb->fb_ioctl(info, cmd, arg);
 		else
 			ret = -ENOTTY;
-		unlock_fb_info(info);
+		/*unlock_fb_info(info);*/
 	}
 	return ret;
 }
