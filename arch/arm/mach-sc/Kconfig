@@ -168,6 +168,8 @@ config MACH_SP7730GGA
 	bool "sp7730gga Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
 	default n
 	help
 	  SP7730GGA board based on SC8830g serial.
