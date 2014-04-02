@@ -37,6 +37,9 @@
 #include "sprd_battery.h"
 #include <mach/usb.h>
 #include <linux/leds.h>
+#include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 
 #define SPRDBAT__DEBUG
 #ifdef SPRDBAT__DEBUG
@@ -1506,10 +1509,20 @@ static int sprdbat_probe(struct platform_device *pdev)
 {
 	int ret = -ENODEV;
 	struct sprdbat_drivier_data *data;
+#ifndef CONFIG_OF
 	struct resource *res = NULL;
+#else
+	struct device_node *np = pdev->dev.of_node;
+#endif
 
 	SPRDBAT_DEBUG("sprdbat_probe\n");
 
+#ifdef CONFIG_OF
+	if (!np) {
+		dev_err(&pdev->dev, "device node not found\n");
+		return ERR_PTR(-EINVAL);
+	}
+#endif
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (data == NULL) {
 		ret = -ENOMEM;
@@ -1560,27 +1573,34 @@ static int sprdbat_probe(struct platform_device *pdev)
 		goto err_battery_failed;
 
 	sprdbat_creat_caliberate_attr(data->battery.dev);
-
+#ifndef CONFIG_OF
 	res = platform_get_resource(pdev, IORESOURCE_IO, 1);
 	if (unlikely(!res)) {
 		dev_err(&pdev->dev, "not io resource\n");
 		goto err_io_resource;
 	}
-
+#endif
 	if (sprdfgu_is_new_chip()) {
 		SPRDBAT_DEBUG("new chip\n");
+#ifndef CONFIG_OF
 		data->gpio_chg_cv_state = res->start;
+#else
+		data->gpio_chg_cv_state = of_get_named_gpio(np, "gpios", 1);
+#endif
 	} else {
 		SPRDBAT_DEBUG("old chip\n");
 		data->gpio_chg_cv_state = A_GPIO_START + 3;
 	}
-
+#ifndef CONFIG_OF
 	res = platform_get_resource(pdev, IORESOURCE_IO, 2);
 	if (unlikely(!res)) {
 		dev_err(&pdev->dev, "not io resource\n");
 		goto err_io_resource;
 	}
 	data->gpio_vchg_ovi = res->start;
+#else
+	data->gpio_vchg_ovi = of_get_named_gpio(np, "gpios", 2);
+#endif
 
 	ret = gpio_request(data->gpio_chg_cv_state, "chg_cv_state");
 	if (ret) {
@@ -1642,9 +1662,12 @@ static int sprdbat_probe(struct platform_device *pdev)
 	sprdchg_charge_init_ext(pdev);
 	INIT_DELAYED_WORK(&sprdbat_charge_work_ext, sprdbat_charge_works_ext);
 
+#ifndef CONFIG_OF
 	res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	data->gpio_charger_detect = res->start;
-
+#else
+	data->gpio_charger_detect = of_get_named_gpio(np, "gpios", 0);
+#endif
 	gpio_request(data->gpio_charger_detect, "sprd_charger_detect");
 	gpio_direction_input(data->gpio_charger_detect);
 	data->irq_charger_detect = gpio_to_irq(data->gpio_charger_detect);
@@ -1716,13 +1739,24 @@ static int sprdbat_suspend(struct platform_device *pdev, pm_message_t state)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id battery_of_match[] = {
+       { .compatible = "sprd,sprd-battery", },
+       { }
+};
+#endif
+
 static struct platform_driver sprdbat_driver = {
 	.probe = sprdbat_probe,
 	.remove = sprdbat_remove,
 	.suspend = sprdbat_suspend,
 	.resume = sprdbat_resume,
 	.driver = {
-		   .name = "sprd-battery"}
+		.name = "sprd-battery",
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(battery_of_match),
+#endif
+	}
 };
 
 static int __init sprd_battery_init(void)
