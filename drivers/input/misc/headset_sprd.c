@@ -31,7 +31,10 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/arch_misc.h>
 #include <linux/notifier.h>
-
+#ifdef CONFIG_OF
+#include <linux/slab.h>
+#include <linux/of_device.h>
+#endif
 static BLOCKING_NOTIFIER_HEAD(hp_chain_list);
 int hp_register_notifier(struct notifier_block *nb)
 {
@@ -1374,6 +1377,91 @@ static int headset_suspend_sysfs_init(void)
 /***create sys fs for debug***/
 #endif
 
+#ifdef CONFIG_OF
+static struct sprd_headset_platform_data *headset_detect_parse_dt(
+                         struct device *dev)
+{
+	struct sprd_headset_platform_data *pdata;
+	struct device_node *np = dev->of_node,*buttons_np;
+	int ret;
+	struct headset_buttons *buttons_data;
+
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+	ret = of_property_read_u32(np, "gpio_switch", &pdata->gpio_switch);
+	if(ret){
+		dev_err(dev, "fail to get gpio_switch\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "gpio_detect", &pdata->gpio_detect);
+	if(ret){
+		dev_err(dev, "fail to get gpio_detect\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "gpio_button", &pdata->gpio_button);
+	if(ret){
+		dev_err(dev, "fail to get gpio_button\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "irq_trigger_level_detect", &pdata->irq_trigger_level_detect);
+	if(ret){
+		dev_err(dev, "fail to get irq_trigger_level_detect\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "irq_trigger_level_button", &pdata->irq_trigger_level_button);
+	if(ret){
+		dev_err(dev, "fail to get irq_trigger_level_button\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "nbuttons", &pdata->nbuttons);
+	if(ret){
+		dev_err(dev, "fail to get nbuttons\n");
+		goto fail;
+	}
+
+	buttons_data = kzalloc(sizeof(*buttons_data),GFP_KERNEL);
+	if (!buttons_data) {
+		dev_err(dev, "could not allocate memory for headset_buttons\n");
+		goto fail;
+	}
+        pdata->headset_buttons = buttons_data;
+
+	buttons_np = of_get_next_child(np,buttons_np);
+	ret = of_property_read_u32(buttons_np, "adc_min", &buttons_data->adc_min);
+	if (ret) {
+		dev_err(dev, "fail to get adc_min\n");
+		goto fail_buttons_data;
+	}
+	ret = of_property_read_u32(buttons_np, "adc_max", &buttons_data->adc_max);
+	if (ret) {
+		dev_err(dev, "fail to get adc_max\n");
+		goto fail_buttons_data;
+	}
+	ret = of_property_read_u32(buttons_np, "code", &buttons_data->code);
+	if (ret) {
+		dev_err(dev, "fail to get code\n");
+		goto fail_buttons_data;
+	}
+	ret = of_property_read_u32(buttons_np, "type", &buttons_data->type);
+	if (ret) {
+		dev_err(dev, "fail to get type\n");
+		goto fail_buttons_data;
+	}
+
+	return pdata;
+
+fail_buttons_data:
+	kfree(buttons_data);
+	pdata->headset_buttons = NULL;
+fail:
+	kfree(pdata);
+	return NULL;
+}
+#endif
+
 static int headset_detect_probe(struct platform_device *pdev)
 {
         struct sprd_headset_platform_data *pdata = pdev->dev.platform_data;
@@ -1385,7 +1473,19 @@ static int headset_detect_probe(struct platform_device *pdev)
         int ana_sts0 = 0;
         int adie_chip_id_low = 0;
         int adie_chip_id_high = 0;
-
+#ifdef CONFIG_OF
+        struct device_node *np = pdev->dev.of_node;
+        if (pdev->dev.of_node && !pdata){
+                pdata = headset_detect_parse_dt(&pdev->dev);
+                if(pdata)
+                        pdev->dev.platform_data = pdata;
+        }
+        if (!pdata) {
+                printk(KERN_WARNING "headset_detect_probe get platform_data NULL\n");
+                ret = -EINVAL;
+                goto fail_to_get_platform_data;
+        }
+#endif
         adie_chip_id_low = sci_adi_read(ANA_CTL_GLB_BASE+ADIE_CHID_LOW);//A-die chip id LOW
         adie_chip_id_high = sci_adi_read(ANA_CTL_GLB_BASE+ADIE_CHID_HIGH);//A-die chip id HIGH
 
@@ -1587,6 +1687,7 @@ failed_to_request_gpio_switch:
 
 	headmicbias_power_on(&pdev->dev, 0);
         PRINT_ERR("headset_detect_probe failed\n");
+fail_to_get_platform_data:
         return ret;
 }
 
@@ -1611,10 +1712,15 @@ static int headset_resume(struct platform_device *dev)
 #define headset_resume NULL
 #endif
 
+static const struct of_device_id headset_detect_of_match[] = {
+	{.compatible = "sprd,headset-detect",},
+	{ }
+};
 static struct platform_driver headset_detect_driver = {
         .driver = {
                 .name = "headset-detect",
                 .owner = THIS_MODULE,
+                .of_match_table = headset_detect_of_match,
         },
         .probe = headset_detect_probe,
         .suspend = headset_suspend,
