@@ -20,7 +20,8 @@
 #define SCX35_BETA_TAPOUT	(0x8300a001)
 #define SCX35_BETA_TAPOUT_MASK	(0xFFFFFFFF)
 
-
+#define SCX35G_ALPHA_TAPOUT            (0x8730b000)
+#define SCX35G_ALPHA_TAPOUT_MASK       (0xFFFFFFFF)
 
 /**
  * sci_get_chip_id - read chip id
@@ -81,11 +82,12 @@ static inline int soc_id_is_##name(void)	\
 
 IS_CPU(sc8735v0, SCX35_ALPHA_TAPOUT, SCX35_ALPHA_TAPOUT_MASK)
 IS_CPU(sc8735v1, SCX35_BETA_TAPOUT, SCX35_BETA_TAPOUT_MASK)
+IS_CPU(sc8735gv0, SCX35G_ALPHA_TAPOUT, SCX35G_ALPHA_TAPOUT_MASK)
 
 /*Driver can use this MACRO to distinguish different chip code */
 #define soc_is_scx35_v0()	soc_id_is_sc8735v0()
 #define soc_is_scx35_v1()	soc_id_is_sc8735v1()
-
+#define soc_is_scx35g_v0()     soc_id_is_sc8735gv0()
 
 /**
 * read value from virtual address. Pls make sure val is not NULL.
@@ -123,7 +125,7 @@ static inline int soc_is_sc7715(void)
 	{
 		return 1;
 	}
-	else 
+	else
 	{
 		pr_err("%s error chip id\n", __func__);
 		return 0;
