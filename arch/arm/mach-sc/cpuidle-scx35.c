@@ -140,14 +140,17 @@ static void sc_cpuidle_debug(void)
 
 static void sc_cpuidle_light_sleep_en(int cpu)
 {
+#if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_MACH_SP8830GEA)
+        if(emc_clk_get() > 200){
+                return;
+        }
+#endif
+	/*
+         * if DAP clock is disabled, arm core can not be attached.
+         * it is no necessary only disable DAP in core 0, just for debug
+        */
 
-	if(emc_clk_get() > 200){
-		return;
-	}else if(light_sleep_en){
-		/*
-		 * if DAP clock is disabled, arm core can not be attached.
-		 * it is no necessary only disable DAP in core 0, just for debug
-		 */
+        if(light_sleep_en){
 		if (cpu == 0) {
 #if defined(CONFIG_ARCH_SCX15)
 			if (__raw_readl(REG_AP_AHB_AHB_EB) & BIT_ZIPDEC_EB) {
