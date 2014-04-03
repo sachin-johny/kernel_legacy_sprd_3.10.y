@@ -116,6 +116,32 @@ enum {
 
 #define REGU_VERIFY_DLY	(1000)	/*ms */
 
+/*************************************************************************
+Reg: 0x40038800 + 0x00E4
+--------------------------------------------
+BIT    |    FieldName    |    Description
+--------------------------------------------
+BIT7~BIT15  Reserved
+BIT6	BONDOPT6		28nm/40nm dcdccore/dcdcarm default voltage select:
+						0: dcdccore/dcdcarm = 1.1v, vdd25 = 2.5v
+						1: dcdccore/dcdcarm = 0.9v, vdd25 = 1.8v
+BIT5	BONDOPT5		crystal 32k buffer select:
+						0: new low power 32k buffer output, 1: backup 32k buffer output
+BIT4	BONDOPT4		dcdcwrf out voltage select:  dcdc_wrf_ctl[2]
+BIT3	BONDOPT3		charge mode option:
+						0: continues charging, 1: dcdc mode charging
+BIT2	BONDOPT2		dcdcmem option 2:  dcdc_mem_ctl[2]
+BIT1	BONDOPT1		dcdcmem option 1:  dcdc_mem_ctl[1]
+						00: DDR2 (1.2v)
+						01: DDR3L (1.35v)
+						10: DDR3 (1.5v)
+						11: DDR1 (1.8v)
+BIT0	BONDOPT0		New power on reset option:
+						0: manual power on without hardware debounce
+						1: auto power on with 1s hardware debounce
+**************************************************************************/
+static u16 ana_status;
+
 static DEFINE_MUTEX(adc_chan_mutex);
 extern int sci_efuse_get_cal(unsigned int * pdata, int num);
 
@@ -471,16 +497,6 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	return 0;
 }
 
-/*	Reg: 0x40038800 + 0x00EC
-
-	bonding option 6 :  dcdc_arm_ctl/dcdc_core_ctl
-	bonding option 5 :
-	bonding option 4 :  dcdc_wrf_ctl[2]
-	bonding option 3 :
-	bonding option 2 :  dcdc_mem_ctl[2]
-	bonding option 1 :  dcdc_mem_ctl[1]
-	bonding option 0 :
-*/
 static int dcdc_get_voltage(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
@@ -1076,6 +1092,76 @@ void *sci_regulator_register(struct platform_device *pdev,
 #endif
 	desc->desc.id = atomic_inc_return(&idx) - 1;
 
+	/* Fixme: Config dynamically dcdc/ldo
+	 *   accoring to bit BONDOPT4 & BONDOPT6 for Reg(0x40038800 + 0x00E4)
+	 */
+
+	/* BONDOPT6 */
+	if ((ana_status >> 6) & 0x1) {
+		if (0 == strcmp(desc->desc.name, "dcdccore")) {
+			desc->regs->vol_def = 900;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			desc->regs->vol_ctl_bits = BIT(3)|BIT(4)|BIT(5);
+		} else if (0 == strcmp(desc->desc.name, "dcdcarm")) {
+			desc->regs->vol_def = 900;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			desc->regs->vol_ctl_bits = BIT(6)|BIT(7)|BIT(8);
+		} else if (0 == strcmp(desc->desc.name, "vdd25")) {
+			desc->regs->vol_def = 1800;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			desc->regs->vol_ctl_bits = BIT(9)|BIT(10);
+			desc->regs->vol_sel[0] = 2500;
+			desc->regs->vol_sel[1] = 2750;
+			desc->regs->vol_sel[2] = 1800;
+			desc->regs->vol_sel[3] = 1900;
+		}
+	} else {
+		if (0 == strcmp(desc->desc.name, "dcdccore")) {
+			desc->regs->vol_def = 1100;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_DCDC_CORE_ADI;
+			desc->regs->vol_ctl_bits = BIT(5)|BIT(6)|BIT(7);
+		} else if (0 == strcmp(desc->desc.name, "dcdcarm")) {
+			desc->regs->vol_def = 1100;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_DCDC_ARM_ADI;
+			desc->regs->vol_ctl_bits = BIT(5)|BIT(6)|BIT(7);
+		} else if (0 == strcmp(desc->desc.name, "vdd25")) {
+			desc->regs->vol_def = 2500;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_LDO_V_CTRL0;
+			desc->regs->vol_ctl_bits = BIT(4)|BIT(5);
+			desc->regs->vol_sel[0] = 2500;
+			desc->regs->vol_sel[1] = 2750;
+			desc->regs->vol_sel[2] = 3000;
+			desc->regs->vol_sel[3] = 2900;
+		}
+	}
+
+	/* BONDOPT4 */
+	if ((ana_status >> 4) & 0x1) {
+		if (0 == strcmp(desc->desc.name, "dcdcwrf")) {
+			desc->regs->vol_def = 2800;
+			desc->regs->vol_sel[0] = 2600;
+			desc->regs->vol_sel[1] = 2700;
+			desc->regs->vol_sel[2] = 2800;
+			desc->regs->vol_sel[3] = 2900;
+		} else if (0 == strcmp(desc->desc.name, "vddrf1")) {
+			desc->regs->vol_def = 2850;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_LDO_V_CTRL0;
+			desc->regs->vol_ctl_bits = BIT(8)|BIT(9);
+		}
+	} else {
+		if (0 == strcmp(desc->desc.name, "dcdcwrf")) {
+			desc->regs->vol_def = 1500;
+			desc->regs->vol_sel[0] = 1300;
+			desc->regs->vol_sel[1] = 1400;
+			desc->regs->vol_sel[2] = 1500;
+			desc->regs->vol_sel[3] = 1600;
+		} else if (0 == strcmp(desc->desc.name, "vddrf1")) {
+			desc->regs->vol_def = 1200;
+			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			desc->regs->vol_ctl_bits = BIT(11)|BIT(12);
+		}
+	}
+
 	BUG_ON(desc->regs->pd_set
 	       && desc->regs->pd_set == desc->regs->pd_rst
 	       && desc->regs->pd_set_bit == desc->regs->pd_rst_bit);
@@ -1163,7 +1249,6 @@ static struct platform_driver sci_regulator_driver = {
 static int __init regu_driver_init(void)
 {
 	u32 ana_chip_id;
-	u16 ana_status;
 
 #ifdef CONFIG_DEBUG_FS
 	debugfs_root =
