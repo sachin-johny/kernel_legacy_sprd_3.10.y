@@ -26,6 +26,9 @@ struct buddy_pool {
 struct buddy_bit {
 	unsigned allocated:1;
 	unsigned order:7;
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	size_t   size;
+#endif
 };
 
 //#define BUDDY_MAX_ORDER		(1<<128)	
