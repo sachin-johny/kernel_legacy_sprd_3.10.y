@@ -255,8 +255,8 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
     case VSP_RELEASE:
         pr_debug("vsp ioctl VSP_RELEASE\n");
         vsp_fp->is_vsp_aquired = 0;
-        up(&vsp_hw_dev.vsp_mutex);
         vsp_hw_dev.vsp_fp = NULL;
+        up(&vsp_hw_dev.vsp_mutex);
         break;
 #ifdef USE_INTERRUPT
     case VSP_COMPLETE:
