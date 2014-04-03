@@ -932,7 +932,7 @@ static struct snd_soc_dai_ops dolphin_dai_ops = {
 	.shutdown = dolphin_pcm_shutdown,
 	.hw_params = dolphin_pcm_hw_params,
 	.hw_free = dolphin_pcm_hw_free,
-	.digital_mute = dolphin_digital_mute,
+	/*.digital_mute = dolphin_digital_mute,*/
 };
 
 #ifdef CONFIG_PM

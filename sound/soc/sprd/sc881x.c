@@ -140,6 +140,8 @@ static int sc881x_hp_event(struct snd_soc_dapm_widget *w,
 	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
 		audio_pa_amplifier->
 		    headset.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+	if (! !SND_SOC_DAPM_EVENT_ON(event))
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -152,6 +154,8 @@ static int sc881x_ear_event(struct snd_soc_dapm_widget *w,
 	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
 		audio_pa_amplifier->
 		    earpiece.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
+	if (! !SND_SOC_DAPM_EVENT_ON(event))
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -162,6 +166,8 @@ static int sc881x_amp_event(struct snd_soc_dapm_widget *w,
 	sc881x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	audio_speaker_enable(! !SND_SOC_DAPM_EVENT_ON(event));
+	if (! !SND_SOC_DAPM_EVENT_ON(event))
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
