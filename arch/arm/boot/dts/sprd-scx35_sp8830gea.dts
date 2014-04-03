@@ -21,7 +21,7 @@
 /memreserve/ 0x97600000 0x8a00000;
 
 /include/ "skeleton.dtsi"
-/include/ "scx35-clocks.dtsi"
+/include/ "scx30g-clocks.dtsi"
 /include/ "scx30g-regulators.dtsi"
 /include/ "sprd-sound.dtsi"
 
