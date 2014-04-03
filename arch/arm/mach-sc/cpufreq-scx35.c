@@ -172,10 +172,10 @@ static struct cpufreq_table_data sc8830_cpufreq_table_data_cs = {
 		{4, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
-		1250000,
+		1300000,
+		1200000,
 		1150000,
 		1100000,
-		1050000,
 		1000000,
 	},
 };
