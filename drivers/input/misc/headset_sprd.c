@@ -267,7 +267,7 @@ static DEFINE_SPINLOCK(headmic_sleep_disable_lock);
 static DEFINE_SPINLOCK(headmic_bias_lock);
 static DEFINE_SPINLOCK(irq_button_lock);
 static DEFINE_SPINLOCK(irq_detect_lock);
-static int adie_type = 0; //1=AC, 2=BA, 3=BB
+static int adie_type = 100;
 static int gpio_detect_value_last = 0;
 static int gpio_button_value_last = 0;
 static int button_state_last = 0;
@@ -1492,21 +1492,49 @@ static int headset_detect_probe(struct platform_device *pdev)
         sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN, BIT_ANA_AUD_EN);//arm base address:0x40038800 for register accessable
         ana_sts0 = sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0);//arm base address:0x40038600
 
-        if (0x2713 == adie_chip_id_high) {
-                if (0xA000 == adie_chip_id_low)
-                        adie_type = 1;//AC
-                else if (0xA001 == adie_chip_id_low) {
-                        if ((0x00000040 & ana_sts0) == 0x00000040)
-                                adie_type = 2;//BA
-                        else if ((0x00000040 & ana_sts0) == 0x00000000)
-                                adie_type = 3;//BB
-                }
-        } else {
-                if (0x2711 == adie_chip_id_high)
-                        adie_type = 4;//Dolphin
-                else
-                        adie_type = 5;//unknow
-        }
+	switch (adie_chip_id_high) {
+		case 0x2713: {//chip is 2713
+			switch (adie_chip_id_low) {
+				case 0xA000: {
+					adie_type = 1; //AC
+					break;
+				}
+				case 0xA001: {
+					if ((0x00000040 & ana_sts0) == 0x00000040) {
+						adie_type = 2; //BA
+						break;
+					} else {
+						adie_type = 3; //BB
+						break;
+					}
+					break;
+				}
+				case 0xCA00: {
+					adie_type = 5; //CA
+					break;
+				}
+				default: {
+					adie_type = 100; //unknow
+					PRINT_ERR("unknow 2713 chip ID!!!\n");
+					break;
+				}
+			}
+			PRINT_INFO("adie chip is 2713, type = %d\n", adie_type);
+			break;//break from 2713
+		}
+
+		case 0x2711: {//chip is 2711
+			adie_type = 4; //Dolphin
+			PRINT_INFO("adie chip is 2711, type = %d\n", adie_type);
+			break; //break from 2711
+		}
+
+		default: {
+			adie_type = 100; //unknow
+			PRINT_ERR("unknow adie chip !!!\n");
+			break;
+		}
+	}
 
         ENTER
 
