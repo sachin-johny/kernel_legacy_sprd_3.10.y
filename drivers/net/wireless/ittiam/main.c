@@ -879,7 +879,7 @@ static int __init itm_wlan_init(void)
 	if (IS_ERR(itm_wlan_device))
 		return PTR_ERR(itm_wlan_device);
 #else
-	itm_sblock_init();
+	//itm_sblock_init();
 #endif
 	return platform_driver_register(&itm_wlan_driver);
 }
@@ -891,7 +891,7 @@ static void __exit itm_wlan_exit(void)
 	platform_device_unregister(itm_wlan_device);
 	itm_wlan_device = NULL;
 #else
-	itm_sblock_deinit();
+	//itm_sblock_deinit();
 #endif
 }
 
