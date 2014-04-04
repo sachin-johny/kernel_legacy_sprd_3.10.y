@@ -108,6 +108,7 @@ static int mtdoobsize = 0;
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <mach/sci.h>
 #include <mach/globalregs.h>
 #include <mach/pinmap.h>
 
@@ -838,11 +839,11 @@ STATIC_FUNC void sprd_dolphin_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
 	if(chip < 0) { //for release caller
-		sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(19) | BIT(18) | BIT(17)));
+		sci_glb_clr(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
 		return;
 	}
 	//DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(19) | BIT(18) | BIT(17));
+	sci_glb_set(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
 	dolphin->chip = chip;
 #ifdef CONFIG_NAND_SPL
 	nand_hardware_config(mtd,dolphin->nand);
@@ -1790,14 +1791,14 @@ STATIC_FUNC void sprd_dolphin_nand_hw_init(struct sprd_dolphin_nand_info *dolphi
 	int i = 0;
 	uint32_t val;
 
-	sprd_dolphin_reg_and(DOLPHIN_NANC_CLK_CFG, ~(BIT(1) | BIT(0)));
-	sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0));
+	sci_glb_clr(DOLPHIN_NANC_CLK_CFG, (BIT(1) | BIT(0)));
+	sci_glb_set(DOLPHIN_NANC_CLK_CFG, BIT(0));
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(19) | BIT(18) | BIT(17));
+	sci_glb_set(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_RST,BIT(20));
+	sci_glb_set(DOLPHIN_AHB_RST, BIT(20));
 	mdelay(1);
-	sprd_dolphin_reg_and(DOLPHIN_AHB_RST, ~(BIT(20)));
+	sci_glb_clr(DOLPHIN_AHB_RST, BIT(20));
 
 	val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, val);
@@ -2110,7 +2111,7 @@ release:
 	nand_release(sprd_mtd);
 	sprd_nand_dma_deinit(&g_dolphin);
 prob_err:
-	sprd_dolphin_reg_and(DOLPHIN_AHB_BASE,~(BIT(19) | BIT(18) | BIT(17)));
+	sci_glb_clr(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
 	kfree(sprd_mtd);
 	return ret;
 }
@@ -2131,6 +2132,8 @@ STATIC_FUNC int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 	uint32_t status = 0;
 	uint8_t count = 0x10;
 
+	sci_glb_set(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));//for timing reg read
+
 	do {
 		status = sprd_dolphin_reg_read(DOLPHIN_NFC_REG_BASE);
 		if (status & NFC_VALID) {
@@ -2139,21 +2142,19 @@ STATIC_FUNC int sprd_nand_suspend(struct platform_device *dev, pm_message_t pm)
 		}
 	} while((status & NFC_VALID) && --count);
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(19) | BIT(18) | BIT(17));//for timing reg read
-
 	timing_reg_saved = sprd_dolphin_reg_read(DOLPHIN_NFC_TIMING_REG);
 
 	//disable nand controller
-	sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(19) | BIT(18) | BIT(17)));
+	sci_glb_clr(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
 	return 0;
 }
 
 STATIC_FUNC int sprd_nand_resume(struct platform_device *dev)
 {
-	sprd_dolphin_reg_and(DOLPHIN_NANC_CLK_CFG, ~(BIT(1) | BIT(0)));
-	sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0));
+	sci_glb_clr(DOLPHIN_NANC_CLK_CFG, (BIT(1) | BIT(0)));
+	sci_glb_set(DOLPHIN_NANC_CLK_CFG, BIT(0));
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(19) | BIT(18) | BIT(17));
+	sci_glb_set(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
 
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, timing_reg_saved);
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMEOUT_REG, 0xffffffff);
