@@ -108,6 +108,7 @@ static int mtdoobsize = 0;
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/pinmap.h>
 
@@ -136,13 +137,13 @@ static int mtdoobsize = 0;
 #if  CONFIG_ARCH_SCX30G
 #define BIT_NAND_ENABLE		(BIT_NANDC_EB|BIT_NANDC_2X_EB|BIT_NANDC_ECC_EB)
 #define BIT_NAND_RESET		(BIT_NANDC_SOFT_RST)
-#define NAND_CLK_CONFG		sprd_dolphin_reg_or(REG_AP_AHB_NANC_CLK_CFG,\
+#define NAND_CLK_CONFG		sci_glb_set(REG_AP_AHB_NANC_CLK_CFG,\
 											BITS_CLK_NANDC2X_SEL(3))
 #define SPRD_NAND_CLOCK (192)
 #else
 #define BIT_NAND_ENABLE		(BIT_NFC_EB)
 #define BIT_NAND_RESET		(BIT_NFC_SOFT_RST)
-#define NAND_CLK_CONFG		sprd_dolphin_reg_or(REG_AP_CLK_NFC_CFG, BIT(1))
+#define NAND_CLK_CONFG		sci_glb_set(REG_AP_CLK_NFC_CFG, BIT(1))
 #define SPRD_NAND_CLOCK 	(153)
 #endif
 #define IRQ_TIMEOUT  100//unit:ms,IRQ timeout value
@@ -820,11 +821,11 @@ STATIC_FUNC void sprd_dolphin_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
 	if(chip < 0) { //for release caller
-		sprd_dolphin_reg_and(REG_AP_AHB_AHB_EB, ~(BIT_NAND_ENABLE));
+		sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
 		return;
 	}
 	//DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
-	sprd_dolphin_reg_or(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
+	sci_glb_set(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
 	dolphin->chip = chip;
 #ifdef CONFIG_NAND_SPL
 	nand_hardware_config(mtd,dolphin->nand);
@@ -1772,11 +1773,11 @@ STATIC_FUNC void sprd_dolphin_nand_hw_init(struct sprd_dolphin_nand_info *dolphi
 {
 			uint32_t val;
 			NAND_CLK_CONFG;
-			sprd_dolphin_reg_or(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
+			sci_glb_set(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
 
-			sprd_dolphin_reg_or(REG_AP_AHB_AHB_RST,BIT_NAND_RESET);
+			sci_glb_set(REG_AP_AHB_AHB_RST,BIT_NAND_RESET);
 			mdelay(1);
-			sprd_dolphin_reg_and(REG_AP_AHB_AHB_RST, ~(BIT_NAND_RESET));
+			sci_glb_clr(REG_AP_AHB_AHB_RST,BIT_NAND_RESET);
 			val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
 			sprd_dolphin_reg_write(NFC_TIMING_REG, val);
 			sprd_dolphin_reg_write(NFC_TIMEOUT_REG, 0xffffffff);
@@ -2066,7 +2067,7 @@ release:
 	nand_release(sprd_mtd);
 	sprd_nand_dma_deinit(&g_dolphin);
 prob_err:
-	sprd_dolphin_reg_and(REG_AP_AHB_AHB_EB,~(BIT_NAND_ENABLE));
+	sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_NAND_ENABLE);
 	kfree(sprd_mtd);
 	return ret;
 }
