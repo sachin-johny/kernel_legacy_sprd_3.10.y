@@ -33,6 +33,18 @@ struct ion_carveout_buddy_heap {
 	ion_phys_addr_t base;
 };
 
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+struct buddy_pool *g_carveout_pool = NULL;
+
+void proc_show_pool_info(struct seq_file *s, struct buddy_pool *pool);
+void show_pool_info(int rst, struct buddy_pool *pool);
+
+void show_carveout_buddy_info(int rst)
+{
+	show_pool_info(rst, g_carveout_pool);
+}
+#endif
+
 ion_phys_addr_t ion_carveout_buddy_allocate(struct ion_heap *heap,
 					    unsigned long size,
 					    unsigned long align,
@@ -75,6 +87,10 @@ void ion_carveout_buddy_free(struct ion_heap *heap, ion_phys_addr_t addr,
 	heap->allocated -= size;
 	if (flags & ION_ALLOC_PAGECACHE_MASK)
 		heap->cachedpages -= size;
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	else
+		heap->allocated -= 1;
+#endif
 #endif
 }
 
@@ -83,8 +99,25 @@ static int ion_carveout_buddy_heap_allocate(struct ion_heap *heap,
 				      unsigned long size, unsigned long align,
 				      unsigned long flags)
 {
-	buffer->priv_phys = ion_carveout_buddy_allocate(heap, size, align,
-							flags);
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	void *kvaddr = NULL;
+	if (flags & ION_ALLOC_PAGECACHE_MASK)
+		buffer->priv_phys = ion_carveout_buddy_allocate(heap, size, align, flags);
+	else {
+		buffer->priv_phys = ion_carveout_buddy_allocate(heap, size + 4096, align, flags);
+		if (buffer->priv_phys != ION_CARVEOUT_ALLOCATE_FAIL) {
+			kvaddr = __arch_ioremap(buffer->priv_phys, size + 4096, MT_MEMORY_NONCACHED);
+			if (!kvaddr)
+				printk("ion_ioremap error\n");
+			else {
+				memset((char *)kvaddr + size, 0xff, 4096);
+				__arch_iounmap(kvaddr);
+			}
+		}
+	}
+#else
+	buffer->priv_phys = ion_carveout_buddy_allocate(heap, size, align, flags);
+#endif
 	pr_debug("ion buffer flags 0x%lx\n", flags);
 	buffer->flags = flags;
 	return buffer->priv_phys == ION_CARVEOUT_ALLOCATE_FAIL ? -ENOMEM : 0;
@@ -128,6 +161,9 @@ struct ion_heap *ion_carveout_buddy_heap_create(struct ion_platform_heap *heap_d
 		return ERR_PTR(-ENOMEM);
 
 	carveout_buddy_heap->pool = buddy_pool_create(12, -1);
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	g_carveout_pool = carveout_buddy_heap->pool;
+#endif
 	if (!carveout_buddy_heap->pool) {
 		kfree(carveout_buddy_heap);
 		return ERR_PTR(-ENOMEM);

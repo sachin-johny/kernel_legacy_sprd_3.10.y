@@ -13,6 +13,14 @@ config ION_PAGECACHE
 	  when reading in file for a page fault or reading ahead pages for
 	  the share executable object.
 
+config ION_BUDDY_CHECKPAGE
+	bool "Add one more page to check the modified memory"
+	depends on BUDDY_ALLOCATOR
+	depends on ION_PAGECACHE
+	help
+	  Choose this option if you wish to slove the memory modified problem.
+
+
 config ION_TEGRA
 	tristate "Ion for Tegra"
 	depends on ARCH_TEGRA && ION

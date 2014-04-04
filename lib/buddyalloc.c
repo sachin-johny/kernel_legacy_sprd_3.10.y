@@ -15,6 +15,9 @@
 #include <linux/module.h>
 #include <linux/bitmap.h>
 #include <linux/buddyalloc.h>
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+#include <asm/mach/map.h>
+#endif
 
 #define BUDDY_IS_FREE(chunk, idx)	!(chunk->bits[idx].allocated)
 #define BUDDY_ORDER(chunk, idx)		chunk->bits[idx].order
@@ -133,11 +136,17 @@ static unsigned long buddy_pool_order(unsigned long len)
  * Allocate the requested number of bytes from the specified chunk.
  * Uses the simple buddy algorithm
  */
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+void show_carveout_buddy_info(int rst);
+#endif
 static int buddy_chunk_alloc(struct buddy_pool_chunk *chunk, size_t nbits)
 {
 	int best_fit = -1;
 	int start_bit = 0;
 	int end_bit = chunk->nbits;
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	int size = nbits;
+#endif
 	unsigned long flags;
 	
 	nbits = buddy_pool_order(nbits);
@@ -167,6 +176,12 @@ static int buddy_chunk_alloc(struct buddy_pool_chunk *chunk, size_t nbits)
 	 * return an error
 	 */
 	if (best_fit < 0) {
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+		if (nbits > 0) {
+			printk("%s ---- cant't get buddy memory: %d  rawsize: %d\n", __func__, 1UL << nbits, size);
+			show_carveout_buddy_info(0);
+		}
+#endif
 		spin_unlock_irqrestore(&chunk->lock, flags);
 		return -1;
 	}
@@ -182,7 +197,9 @@ static int buddy_chunk_alloc(struct buddy_pool_chunk *chunk, size_t nbits)
 		BUDDY_ORDER(chunk, buddy) = BUDDY_ORDER(chunk, best_fit);
 	}
 	chunk->bits[best_fit].allocated = 1;
-
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	chunk->bits[best_fit].size = size;
+#endif
 	spin_unlock_irqrestore(&chunk->lock, flags);
 	return best_fit;
 }
@@ -274,3 +291,57 @@ void buddy_pool_free(struct buddy_pool *pool, unsigned long addr)
 	read_unlock(&pool->lock);
 }
 EXPORT_SYMBOL(buddy_pool_free);
+
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+void show_buddy_info(int rst, struct buddy_pool_chunk *chunk)
+{
+	int i;
+	int start_bit = 0;
+	int end_bit = chunk->nbits;
+	unsigned long flags;
+	void *kvaddr;
+	unsigned long phyaddr;
+
+	printk("chunk->nbits  %d\n", end_bit);
+
+	spin_lock_irqsave(&chunk->lock, flags);
+	while (start_bit < end_bit) {
+		if (BUDDY_ORDER(chunk, start_bit)) {
+			if (BUDDY_IS_FREE(chunk, start_bit))
+				printk("free  start_bit  %d,  size: %d\n", start_bit, 1UL << BUDDY_ORDER(chunk, start_bit));
+			else {
+				printk("alloc start_bit  %d,  size: %d,  raw_size: %d\n", start_bit, 1UL << BUDDY_ORDER(chunk, start_bit),
+											 chunk->bits[start_bit].size);
+				phyaddr = chunk->start_addr + ((unsigned long )start_bit << 12) + chunk->bits[start_bit].size;
+				kvaddr = NULL;
+				kvaddr = __arch_ioremap(phyaddr - 4096, 4096, MT_MEMORY_NONCACHED);
+				if (kvaddr) {
+					for (i = 0; i < 1024; i++) {
+						if (0xffffffff != *((unsigned long *)kvaddr + i)) {
+							printk("  ---- error phyaddr: 0x%p   value:0x%p\n",
+								  phyaddr - 4096 + i, *((unsigned long *)kvaddr + i));
+							if (rst)
+								panic("buddy protect page is modified\n");
+							break;
+						}
+					}
+					__arch_iounmap(kvaddr);
+				}
+			}
+		}
+		start_bit = BUDDY_NEXT_INDEX(chunk, start_bit);
+	}
+	spin_unlock_irqrestore(&chunk->lock, flags);
+}
+
+
+void show_pool_info(int rst, struct buddy_pool *pool)
+{
+        struct list_head *_chunk, *_next_chunk;
+        struct buddy_pool_chunk *chunk;
+        list_for_each_safe(_chunk, _next_chunk, &pool->chunks) {
+                chunk = list_entry(_chunk, struct buddy_pool_chunk, next_chunk);
+                show_buddy_info(rst, chunk);
+        }
+}
+#endif

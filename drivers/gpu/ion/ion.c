@@ -1007,7 +1007,9 @@ end:
 	return handle;
 }
 
-static int ion_check_all_handle_magicnum(void);
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+void show_carveout_buddy_info(int rst);
+#endif
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
 	struct ion_client *client = s->private;
@@ -1057,6 +1059,9 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 			   atomic_read(&client->ref.refcount));
 #endif
 	}
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	show_carveout_buddy_info(0);
+#endif
 	return 0;
 }
 
@@ -1411,6 +1416,9 @@ ION_IOC_DISABLE_CACHE  0xc0044908
 */
 	printk("\nion_ioctl start  cmd 0x%p\n", cmd);
 	ion_check_all_handle_magicnum();
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	show_carveout_buddy_info(1);
+#endif
 
 	switch (cmd) {
 	case ION_IOC_ALLOC:
@@ -1518,6 +1526,9 @@ ION_IOC_DISABLE_CACHE  0xc0044908
 
 	printk("ion_ioctl end cmd 0x%p\n", cmd);
 	ion_check_all_handle_magicnum();
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
+	show_carveout_buddy_info(1);
+#endif
 	return 0;
 }
 
