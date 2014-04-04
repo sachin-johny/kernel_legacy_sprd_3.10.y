@@ -33,6 +33,7 @@
 #include <linux/of_fdt.h>
 #include <linux/of_irq.h>
 #include <linux/of_address.h>
+#include <linux/device.h>
 #endif
 
 #include <mach/hardware.h>
@@ -95,7 +96,7 @@ static int                                  gsp_irq_num = 0;
 #ifdef CONFIG_OF
 struct device 				*gsp_of_dev = NULL;
 uint32_t                                    gsp_base_addr = 0;
-#ifdef CONFIG_ARCH_SCX15
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 uint32_t                                    gsp_mmu_ctrl_addr = 0;
 #endif
 #endif
@@ -2745,6 +2746,16 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
         goto exit;
     }
     gsp_base_addr = r.start;
+#ifndef GSP_IOMMU_WORKAROUND1
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+	ret = of_property_read_u32(gsp_of_dev->of_node, "gsp_mmu_ctrl_base", &gsp_mmu_ctrl_addr);
+	printk("gsp_dt gsp_mmu_ctrl_addr = 0x%x\n",gsp_mmu_ctrl_addr);
+	if(0 != ret){
+		printk("%s: read gsp_mmu_ctrl_addr fail (%d)\n", ret);
+		return;
+	}
+#endif
+#endif
 
     printk("gsp: irq = %d, gsp_base_addr = 0x%x\n", gsp_irq_num, gsp_base_addr);
 #else

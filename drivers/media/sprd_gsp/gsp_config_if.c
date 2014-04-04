@@ -23,8 +23,10 @@ uint32_t testregsegment[0x190]= {0};
 extern struct clk	*g_gsp_emc_clk;
 extern struct clk	*g_gsp_clk;
 #ifdef CONFIG_OF
-extern struct device 				*gsp_of_dev;
 extern uint32_t gsp_base_addr;
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+extern uint32_t gsp_mmu_ctrl_addr;
+#endif
 #endif
 
 /**---------------------------------------------------------------------------*
@@ -185,16 +187,6 @@ PUBLIC void GSP_Init(void)
     }
 
 #ifndef GSP_IOMMU_WORKAROUND1
-#ifdef CONFIG_OF
-#ifdef CONFIG_ARCH_SCX15
-	ret = of_property_read_u32(gsp_of_dev->of_node, "gsp_mmu_ctrl_base", &gsp_mmu_ctrl_addr);
-	if(0 != ret){
-		printk("%s: read gsp_mmu_ctrl_addr fail (%d)\n", ret);
-		return;
-	}
-#endif
-#endif
-
     GSP_HWMODULE_SOFTRESET();//workaround gsp-iommu bug
 #endif
     GSP_IRQMODE_SET(GSP_IRQ_MODE_LEVEL);
