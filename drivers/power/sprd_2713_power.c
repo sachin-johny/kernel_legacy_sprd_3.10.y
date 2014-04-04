@@ -55,7 +55,7 @@ int sprd_thm_temp_read(u32 sensor)
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
 #define SPRDBAT_ONE_PERCENT_TIME   (2*60)
-#define SPRDBAT_VALID_CAP   30
+#define SPRDBAT_VALID_CAP   40
 
 enum sprdbat_event {
 	SPRDBAT_ADP_PLUGIN_E,
@@ -994,6 +994,7 @@ static void sprdbat_update_capacty(void)
 	get_monotonic_boottime(&cur_time);
 	flush_time = cur_time.tv_sec - sprdbat_update_capacity_time;
 
+	SPRDBAT_DEBUG("fgu_capacity = %d,flush_time = %d\n",fgu_capacity,flush_time);
 	switch (sprdbat_data->bat_info.module_state) {
 	case POWER_SUPPLY_STATUS_CHARGING:
 	case POWER_SUPPLY_STATUS_NOT_CHARGING:
@@ -1007,8 +1008,14 @@ static void sprdbat_update_capacty(void)
 				    flush_time / SPRDBAT_ONE_PERCENT_TIME;
 			}
 		}
-		if (fgu_capacity >= 100) {
-			fgu_capacity = 99;
+		/*when soc=100 and adp plugin occur, keep on 100, */
+		if (100 == sprdbat_data->bat_info.capacity) {
+			sprdbat_update_capacity_time = cur_time.tv_sec;
+			fgu_capacity = 100;
+		} else {
+			if (fgu_capacity >= 100) {
+				fgu_capacity = 99;
+			}
 		}
 
 		break;
@@ -1025,6 +1032,7 @@ static void sprdbat_update_capacty(void)
 		}
 		break;
 	case POWER_SUPPLY_STATUS_FULL:
+		sprdbat_update_capacity_time = cur_time.tv_sec;
 		if (fgu_capacity != 100) {
 			fgu_capacity = 100;
 		}
