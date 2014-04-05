@@ -138,7 +138,7 @@ TCgReturnCode CgxCpuReadMemory(U32 aBaseAddr, U32 aOffset, U32 *apValue)
          DBGMSG1("read addd ress %x",aBaseAddr);
 
 
-    *apValue = readl( (const volatile void *)(aBaseAddr + aOffset) );
+    *apValue = sci_glb_read((aBaseAddr + aOffset),-1UL);
     return ECgOk;
 }
 
@@ -148,7 +148,7 @@ TCgReturnCode CgxCpuWriteMemory(U32 aBaseAddr, U32 aOffset, U32 aValue)
 
     DBGMSG1("addd ress %x",aBaseAddr);
 
-    writel( aValue, (volatile void *)(aBaseAddr + aOffset) );
+	sci_glb_write((aBaseAddr + aOffset), aValue, -1UL);
 
     return ECgOk;
 }

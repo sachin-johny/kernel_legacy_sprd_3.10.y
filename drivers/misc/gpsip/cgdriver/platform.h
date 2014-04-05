@@ -42,6 +42,8 @@
 
 #include <mach/hardware.h>
 #include <linux/sprd_2351.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 
 #define CGX_PLATFORM_NAME "SPRD_FPGA_FPGA"

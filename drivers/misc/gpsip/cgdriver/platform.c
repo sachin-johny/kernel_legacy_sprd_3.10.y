@@ -33,7 +33,7 @@
 #include "CgxDriverOs.h"
 #include "CgxDriverCore.h"
 
-extern TCgReturnCode CGCoreSclkEnable(void);
+extern TCgReturnCode CGCoreSclkEnable(int enable);
 
 /** Native byte order for this CPU */
 const TCgByteOrder CGX_DRIVER_NATIVE_BYTE_ORDER = ECG_BYTE_ORDER_4321;	// SPRD_FPGA is little endian
@@ -309,17 +309,11 @@ static void gps_lna_disable(void)
 static void gps_reg_init(void)
 {
 #ifdef CONFIG_ARCH_SCX30G
-	U32 value;
-
 	/*GPS Clock Select to CLK_SINE0*/
-	CgxCpuReadMemory((U32)SPRD_GPS_CLK_SEL, 0x0,(U32 *)&value);
-	value &= ~(1<<3);
-	CgxCpuWriteMemory((U32)SPRD_GPS_CLK_SEL, 0X0,value);
+	sci_glb_clr(SPRD_GPS_CLK_SEL,BIT_3);
 
 	/*Disable 26M Clock Gating*/
-	CgxCpuReadMemory((U32)SPRD_GPS_CLK_AUTO_GATING, 0x0,(U32 *)&value);
-	value &= ~(1<<0);
-	CgxCpuWriteMemory((U32)SPRD_GPS_CLK_AUTO_GATING, 0X0,value);
+	sci_glb_clr(SPRD_GPS_CLK_AUTO_GATING,BIT_0);
 #endif
 }
 
@@ -356,7 +350,7 @@ void gps_chip_power_on(void)
 	printk("%s\n",__func__);
 
 	//enable gps sysclk
-	CGCoreSclkEnable();
+	CGCoreSclkEnable(1);
 
 	//gps core reset
 	CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, 0xfc,0xf);
@@ -373,11 +367,7 @@ void gps_chip_power_off(void)
 
 	//gps core reset
 	CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, 0xfc,0x0);
-
-	//disable gps sysclk
-	CgxCpuReadMemory((U32)CG_DRIVER_SCLK_VA, 0x0, (U32 *)&value);
-	value &= ~(1<<12);
-	CgxCpuWriteMemory((U32)CG_DRIVER_SCLK_VA, 0x0,value);
+	CGCoreSclkEnable(0);
 }
 
 
