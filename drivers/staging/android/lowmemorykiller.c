@@ -57,6 +57,19 @@ static size_t lowmem_minfree[6] = {
 };
 static int lowmem_minfree_size = 4;
 
+static uint32_t lowmem_minfreeswap_check = 1;
+static int lowmem_minfreeswap_size = 6;
+
+/* the value of free swap , total swap >> x*/
+static size_t lowmem_minfreeswap[6] = {
+     7,
+     6,
+     5,
+     4,
+     3,
+     2,
+};
+
 static size_t lowmem_minfree_notif_trigger;
 
 static struct task_struct *lowmem_deathpending;
@@ -129,6 +142,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	int other_file = 0;
  	int mm_rss = 0;
 	int mm_counter = 0;
+	struct sysinfo si = {0};
 
 	/*
 	 * If we already have a death outstanding, then
@@ -160,6 +174,29 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			break;
 		}
 	}
+
+	si_swapinfo(&si);
+//	we don't want to reduce min_adj under 1 due to no free swap space.
+
+	if (lowmem_minfreeswap_check && si.totalswap && (min_adj == OOM_ADJUST_MAX + 1)) {
+		unsigned int minfreeswap = 0 ;
+
+		/* Reduce min_adj according to the predefined freeswap levels
+		 */
+		if (lowmem_minfreeswap_size < array_size)
+			array_size = lowmem_minfreeswap_size;
+
+		for (i = 0; i < array_size; i++) {
+			minfreeswap = si.totalswap >> lowmem_minfreeswap[i];
+			if (si.freeswap < minfreeswap) {
+				min_adj = lowmem_adj[i];
+				break;
+			}
+		}
+		lowmem_print(4, "lowmem_shrink swapfree %u, min_swapfree %u",
+				si.freeswap, minfreeswap);
+	}
+
 	if (sc->nr_to_scan > 0)
 		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
 			     sc->nr_to_scan, sc->gfp_mask, other_free, other_file,
@@ -173,6 +210,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     sc->nr_to_scan, sc->gfp_mask, rem);
 		return rem;
 	}
+
 	selected_oom_adj = min_adj;
 
 	read_lock(&tasklist_lock);
@@ -217,11 +255,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		selected = p;
 		selected_tasksize = tasksize;
 		selected_oom_adj = oom_adj;
-		lowmem_print(2, "select %d (%s), adj %d, size %d, to kill\n",
+		lowmem_print(2, "lowmem_shrink select %d (%s), adj %d, size %d, to kill\n",
 			     p->pid, p->comm, oom_adj, tasksize);
 	}
 	if (selected) {
-		lowmem_print(1, "send sigkill to %d (%s), adj %d, size %d\n",
+		lowmem_print(1, "lowmem_shrink send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_adj, selected_tasksize);
 		lowmem_deathpending = selected;
@@ -334,6 +372,9 @@ module_param_array_named(adj, lowmem_adj, int, &lowmem_adj_size,
 module_param_array_named(minfree, lowmem_minfree, uint, &lowmem_minfree_size,
 			 S_IRUGO | S_IWUSR);
 module_param_named(debug_level, lowmem_debug_level, uint, S_IRUGO | S_IWUSR);
+module_param_named(lowmem_minfreeswap_check, lowmem_minfreeswap_check, uint, S_IRUGO | S_IWUSR);
+module_param_array_named(lowmem_minfreeswap, lowmem_minfreeswap, uint,
+			 &lowmem_minfreeswap_size, S_IRUGO | S_IWUSR);
 module_param_named(notify_trigger, lowmem_minfree_notif_trigger, uint,
 			 S_IRUGO | S_IWUSR);
 module_init(lowmem_init);
