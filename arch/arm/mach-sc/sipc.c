@@ -144,8 +144,8 @@ static int __init itm_sblock_init(void)
 	int ret;
 
 	ret = sblock_create(3, 7,
-			    64, 1600,
-			    64, 1600);
+			    64, 1664,
+			    128, 1664);
 	if (ret) {
 		printk(KERN_ERR "Failed to create data sblock (%d)\n", ret);
 		return -ENOMEM;

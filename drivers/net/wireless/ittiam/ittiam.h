@@ -49,6 +49,10 @@
 #define __devexit_p(x)	x
 #endif
 
+#define TX_FLOW_LOW	5
+#define TX_FLOW_HIGH	10
+#define TX_SBLOCK_NUM   64
+
 struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
@@ -59,7 +63,8 @@ struct itm_priv {
 #endif
 
 	atomic_t stopped;		/* sblock indicator */
-	int txrcnt;			/* seth tx resend count*/
+	int txrcnt;			/* tx resend count */
+	int tx_free;			/* tx flow control */
 	struct wake_lock scan_done_lock;
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
