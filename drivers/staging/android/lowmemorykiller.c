@@ -157,12 +157,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 	get_free_ram(&other_free, &other_file);
 
-	if (sc->nr_to_scan > 0 &&
-			other_free < lowmem_minfree_notif_trigger &&
-			other_file < lowmem_minfree_notif_trigger) {
-		lowmem_notify_killzone_approach();
-	}
-
 	if (lowmem_adj_size < array_size)
 		array_size = lowmem_adj_size;
 	if (lowmem_minfree_size < array_size)
@@ -176,8 +170,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	}
 
 	si_swapinfo(&si);
-//	we don't want to reduce min_adj under 1 due to no free swap space.
-
 	if (lowmem_minfreeswap_check && si.totalswap && (min_adj == OOM_ADJUST_MAX + 1)) {
 		unsigned int minfreeswap = 0 ;
 
@@ -201,6 +193,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %d\n",
 			     sc->nr_to_scan, sc->gfp_mask, other_free, other_file,
 			     min_adj);
+
 	rem = global_page_state(NR_ACTIVE_ANON) +
 		global_page_state(NR_ACTIVE_FILE) +
 		global_page_state(NR_INACTIVE_ANON) +
@@ -210,6 +203,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     sc->nr_to_scan, sc->gfp_mask, rem);
 		return rem;
 	}
+
+        if (sc->nr_to_scan > 0 &&
+                        ((other_free < lowmem_minfree_notif_trigger &&
+                        other_file < lowmem_minfree_notif_trigger) ||
+			(si.freeswap << (PAGE_SHIFT - 10)) < lowmem_minfree_notif_trigger)) {
+                lowmem_notify_killzone_approach();
+        }
 
 	selected_oom_adj = min_adj;
 
