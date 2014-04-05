@@ -108,6 +108,7 @@ static int mtdoobsize = 0;
 #include <linux/irq.h>
 #include <linux/slab.h>
 #include <linux/spinlock.h>
+#include <mach/sci.h>
 #include <mach/globalregs.h>
 #include <mach/pinmap.h>
 
@@ -838,11 +839,11 @@ STATIC_FUNC void sprd_dolphin_select_chip(struct mtd_info *mtd, int chip)
 {
 	struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
 	if(chip < 0) { //for release caller
-		sprd_dolphin_reg_and(DOLPHIN_AHB_BASE, ~(BIT(6)));
+		sci_glb_clr(DOLPHIN_AHB_BASE, BIT(6));
 		return;
 	}
 	//DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(6));
+	sci_glb_set(DOLPHIN_AHB_BASE, BIT(6));
 	dolphin->chip = chip;
 #ifdef CONFIG_NAND_SPL
 	nand_hardware_config(mtd,dolphin->nand);
@@ -1794,13 +1795,13 @@ STATIC_FUNC void sprd_dolphin_nand_hw_init(struct sprd_dolphin_nand_info *dolphi
 	//sprd_dolphin_reg_and(DOLPHIN_NANC_CLK_CFG, ~(BIT(1) | BIT(0)));
 	//sprd_dolphin_reg_or(DOLPHIN_NANC_CLK_CFG, BIT(0));
 
-	sprd_dolphin_reg_or((REGS_AP_CLK_BASE + 0x44), BIT(1));
+	sci_glb_set((REGS_AP_CLK_BASE + 0x44), BIT(1));
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_BASE, BIT(6));
+	sci_glb_set(DOLPHIN_AHB_BASE, BIT(6));
 
-	sprd_dolphin_reg_or(DOLPHIN_AHB_RST,BIT(9));
+	sci_glb_set(DOLPHIN_AHB_RST,BIT(9));
 	mdelay(1);
-	sprd_dolphin_reg_and(DOLPHIN_AHB_RST, ~(BIT(9)));
+	sci_glb_clr(DOLPHIN_AHB_RST, BIT(9));
 
 	val = (3)  | (4 << NFC_RWH_OFFSET) | (3 << NFC_RWE_OFFSET) | (3 << NFC_RWS_OFFSET) | (3 << NFC_ACE_OFFSET) | (3 << NFC_ACS_OFFSET);
 	sprd_dolphin_reg_write(DOLPHIN_NFC_TIMING_REG, val);
@@ -2116,7 +2117,7 @@ release:
 	nand_release(sprd_mtd);
 	sprd_nand_dma_deinit(&g_dolphin);
 prob_err:
-	sprd_dolphin_reg_and(DOLPHIN_AHB_BASE,~(BIT(6)));
+	sci_glb_clr(DOLPHIN_AHB_BASE, BIT(6));
 	kfree(sprd_mtd);
 	return ret;
 }
