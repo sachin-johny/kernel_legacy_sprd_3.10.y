@@ -117,13 +117,18 @@ TCgReturnCode CGCoreReset(U32 aUnitToReset);
 
 
 //bxd add for slck enable
-TCgReturnCode CGCoreSclkEnable(void)
+TCgReturnCode CGCoreSclkEnable(int enable)
 {
 	TCgReturnCode rc = ECgOk;
-	U32 SclkReg = 0;
 
-	rc = CgxCpuReadMemory((U32)CG_DRIVER_SCLK_VA, 0, &SclkReg);
-	if (OK(rc)) rc = CgxCpuWriteMemory((U32)CG_DRIVER_SCLK_VA, 0, SclkReg | CGCORE_ENABLE_SCLK);
+	if(1 == enable)
+	{
+		sci_glb_set(CG_DRIVER_SCLK_VA,BIT_12);
+	}
+	else if(0 == enable)
+	{
+		sci_glb_clr(CG_DRIVER_SCLK_VA,BIT_12);
+	}
  	return rc;
 }
 
@@ -179,7 +184,7 @@ TCgReturnCode CgxDriverConstruct(void *pDriver, TCgxDriverState *pState)
 	if (OK(rc)) rc = CgCpuIPMasterResetClear();
 
     // set up Sclk register
-    if (OK(rc)) rc = CGCoreSclkEnable();
+    if (OK(rc)) rc = CGCoreSclkEnable(1);
 
    DBGMSG1("CGCORE_CORE_SCLK_ENABLE = 0x%08X", CGCORE_ENABLE_SCLK);
 
