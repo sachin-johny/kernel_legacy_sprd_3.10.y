@@ -52,6 +52,7 @@
 
 #define SETH_RESEND_MAX_NUM	10
 #define SIOGETSSID 0x89F2
+#define SIPC_TRANS_OFFSET 50
 
 void ittiam_nvm_init(void);
 
@@ -97,6 +98,8 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 	u16 decryp_data_len = 0;
 	struct wlan_sblock_recv_data *data;
 
+	u8 offset = 0;
+	uint32_t length = 0;
 	for (work_done = 0; work_done < budget; work_done++) {
 		ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 		if (ret) {
@@ -104,8 +107,10 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			break;
 		}
 
+		offset = *(u8 *)blk.addr;
+		length = blk.length - 2 - offset;
 		/*16 bytes align */
-		skb = dev_alloc_skb(blk.length + NET_IP_ALIGN);
+		skb = dev_alloc_skb(length + NET_IP_ALIGN);
 		if (!skb) {
 			dev_err(&priv->ndev->dev,
 				"Failed to allocate skbuff!\n");
@@ -113,7 +118,9 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			goto rx_failed;
 		}
 
-		data = (struct wlan_sblock_recv_data *)blk.addr;
+		/*data = (struct wlan_sblock_recv_data *)blk.addr;*/
+		data = (struct wlan_sblock_recv_data *)(blk.addr+2+offset);
+
 		if (data->is_encrypted == 1) {
 			if (priv->connect_status == ITM_CONNECTED &&
 			    priv->cipher_type == WAPI &&
@@ -126,7 +133,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 				decryp_data_len = wlan_rx_wapi_decryption(priv,
 						   (u8 *)&data->u2.encrypt,
 						   data->u1.encrypt.header_len,
-						   (blk.length -
+						   (length -
 						   sizeof(data->is_encrypted) -
 						   sizeof(data->u1) -
 						   data->u1.encrypt.header_len),
@@ -172,10 +179,10 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			skb_reserve(skb, NET_IP_ALIGN);
 			/* dec the first encrypt byte */
 			memcpy(skb->data, (u8 *)&data->u2,
-			       (blk.length - sizeof(data->is_encrypted) -
+			       (length - sizeof(data->is_encrypted) -
 				sizeof(data->u1)));
 			skb_put(skb,
-				(blk.length - sizeof(data->is_encrypted) -
+				(length - sizeof(data->is_encrypted) -
 				 sizeof(data->u1)));
 		} else {
 			dev_err(&priv->ndev->dev,
@@ -198,7 +205,8 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 		priv->ndev->stats.rx_bytes += skb->len;
 
 		/*netif_rx(skb);*/
-		netif_receive_skb(skb);
+		/*netif_receive_skb(skb);*/
+		napi_gro_receive(napi , skb);
 
 rx_failed:
 		ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
@@ -213,12 +221,26 @@ rx_failed:
 	return work_done;
 }
 
+/*
+ * Tx_flow_control handler.
+ */
+static void itm_tx_flow_control_handler(struct itm_priv *priv)
+{
+	if (priv->tx_free > TX_FLOW_HIGH) {
+		dev_dbg(&priv->ndev->dev, "tx flow control send data\n");
+		priv->ndev->trans_start = jiffies;
+		netif_wake_queue(priv->ndev);
+	}
+}
+
 static void itm_wlan_handler(int event, void *data)
 {
 	struct itm_priv *priv = (struct itm_priv *)data;
 
 	switch (event) {
 	case SBLOCK_NOTIFY_GET:
+		priv->tx_free++;
+		itm_tx_flow_control_handler(priv);
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_GET is received\n");
 		break;
 	case SBLOCK_NOTIFY_RECV:
@@ -251,6 +273,14 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct itm_priv *priv = netdev_priv(dev);
 	struct sblock blk;
 	int ret;
+	u8 *addr = NULL;
+
+	if (priv->tx_free < TX_FLOW_LOW) {
+		dev_err(&dev->dev, "tx flow control full\n");
+		netif_stop_queue(dev);
+		priv->ndev->stats.tx_fifo_errors++;
+		return NETDEV_TX_BUSY;
+	}
 	/*
 	 * Get a free sblock.
 	 */
@@ -271,20 +301,22 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_OK;
 	}
 
+	addr = blk.addr + SIPC_TRANS_OFFSET;
+	priv->tx_free--;
 	if (priv->connect_status == ITM_CONNECTED &&
 	    priv->cipher_type == WAPI &&
 /*            priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&*/
 	    priv->key_len[PAIRWISE][priv->key_index[PAIRWISE]] != 0 &&
 	    (*(u16 *)((u8 *)skb->data + ETH_PKT_TYPE_OFFSET) != 0xb488)) {
-		memcpy(((u8 *)blk.addr), skb->data, ETHERNET_HDR_LEN);
+		memcpy(((u8 *)addr), skb->data, ETHERNET_HDR_LEN);
 		blk.length = wlan_tx_wapi_encryption(priv,
 					skb->data,
 					(skb->len - ETHERNET_HDR_LEN),
-					((u8 *)blk.addr + ETHERNET_HDR_LEN))
+					((u8 *)addr + ETHERNET_HDR_LEN))
 					+ ETHERNET_HDR_LEN;
 	} else {
 		blk.length = skb->len;
-		memcpy(((u8 *)blk.addr), skb->data, skb->len);
+		memcpy(((u8 *)addr), skb->data, skb->len);
 	}
 
 #ifdef DUMP_TRANSMIT_PACKET
@@ -295,6 +327,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (ret) {
 		dev_err(&dev->dev, "Failed to send sblock (%d)\n", ret);
 		sblock_put(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
+		priv->tx_free++;
 		priv->ndev->stats.tx_fifo_errors++;
 		if (priv->txrcnt > SETH_RESEND_MAX_NUM)
 			netif_stop_queue(dev);
@@ -681,6 +714,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	}
 
 	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
+	priv->tx_free = TX_SBLOCK_NUM;
 
 	ret = npi_init_netlink();
 	if (ret) {
