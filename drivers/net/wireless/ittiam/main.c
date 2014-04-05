@@ -36,7 +36,7 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#if defined(CONFIG_MACH_SP8830GEA)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 #include <linux/regulator/consumer.h>
 #endif
 
@@ -646,7 +646,7 @@ static struct notifier_block itm_inetaddr_cb = {
 	.notifier_call = itm_inetaddr_event,
 };
 
-#if defined(CONFIG_MACH_SP8830GEA)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 static int vddwpa_wifi_enable_control(int flag)
 {
 	static struct regulator *wpa_wifi = NULL;
@@ -696,7 +696,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	rf2351_gpio_ctrl_power_enable(1);
 #endif
 
-#if defined(CONFIG_MACH_SP8830GEA)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 	vddwpa_wifi_enable_control(1);
 #endif
 
@@ -820,7 +820,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	rf2351_gpio_ctrl_power_enable(0);
 #endif
 
-#if defined(CONFIG_MACH_SP8830GEA)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 	vddwpa_wifi_enable_control(0);
 #endif
 	npi_exit_netlink();
