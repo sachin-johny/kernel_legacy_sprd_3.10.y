@@ -30,7 +30,7 @@ static int sprd_rfspi_wait_write_idle(void)
 			RF2351_PRINT("mspi time out!\r\n");
 			return -1;
 		}
-		reg_data = readl((const volatile void *)RFSPI_CFG0);
+		reg_data = sci_glb_read(RFSPI_CFG0,-1UL);
 		//RF2351_PRINT("reg_data is: %x\n", reg_data);
 	}
 
@@ -45,7 +45,7 @@ static unsigned int sprd_rfspi_write(u16 Addr, u16 Data)
 		return -1;
 	}
 	reg_data = (Addr << 16) | Data;
-	writel(reg_data,(volatile void *)RFSPI_MCU_WCMD);
+	sci_glb_write(RFSPI_MCU_WCMD, reg_data, -1UL);
 
 	sprd_rfspi_wait_write_idle();
 	return 0;
@@ -62,7 +62,7 @@ static int sprd_rfspi_wait_read_idle(void)
 			RF2351_PRINT("mspi time out!\r\n");
 			return -1;
 		}
-		reg_data = readl((const volatile void *)RFSPI_CFG0);
+		reg_data = sci_glb_read(RFSPI_CFG0,-1UL);
 		//RF2351_PRINT("reg_data is: %x\n", reg_data);
 	}
 	
@@ -78,10 +78,10 @@ static unsigned int sprd_rfspi_read(u16 Addr, u32 *Read_data)
 	}
 	
 	reg_data = (Addr << 16) | BIT_31;
-	writel(reg_data,(volatile void *)RFSPI_MCU_RCMD);
+	sci_glb_write(RFSPI_MCU_RCMD, reg_data, -1UL);
 
 	sprd_rfspi_wait_read_idle();
-	*Read_data = readl((const volatile void *)RFSPI_MCU_RDATA);
+	*Read_data = sci_glb_read(RFSPI_MCU_RDATA,-1UL);
 	return 0;
 }
 
