@@ -121,8 +121,12 @@ static struct clk *vbc_clk_get(void)
 
 static inline void vbc_reg_enable(void)
 {
+	int ret = 0;
 	if (s_vbc_clk) {
-		clk_enable(s_vbc_clk);
+		ret = clk_prepare(s_vbc_clk);
+		WARN(ret != 0, "clk_vbc prepare failed, return %d", ret );
+		ret = clk_enable(s_vbc_clk);
+		WARN(ret != 0, "clk_vbc enable failed, return %d", ret );
 	} else {
 		arch_audio_vbc_reg_enable();
 	}
@@ -132,6 +136,7 @@ static inline void vbc_reg_disable(void)
 {
 	if (s_vbc_clk) {
 		clk_disable(s_vbc_clk);
+		clk_unprepare(s_vbc_clk);
 	} else {
 		arch_audio_vbc_reg_disable();
 	}
