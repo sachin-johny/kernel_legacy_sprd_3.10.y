@@ -415,7 +415,7 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 
 unsigned int cpufreq_min_limit = ULONG_MAX;
 unsigned int cpufreq_max_limit = 0;
-unsigned int dvfs_score_select = 7;
+unsigned int dvfs_score_select = 4;
 unsigned int dvfs_unplug_select = 3;
 unsigned int dvfs_plug_select = 0;
 unsigned int dvfs_score_hi[4] = {0};
@@ -423,6 +423,8 @@ unsigned int dvfs_score_mid[4] = {0};
 unsigned int dvfs_score_critical[4] = {0};
 extern unsigned int percpu_load[4];
 extern unsigned int cur_window_size[4];
+extern unsigned int cur_window_index[4];
+extern unsigned int ga_percpu_total_load[4][8];
 
 static DEFINE_SPINLOCK(cpufreq_state_lock);
 
@@ -686,10 +688,14 @@ static ssize_t dvfs_score_show(struct device *dev, struct device_attribute *attr
 	ret += snprintf(buf + ret,200,"dvfs_score_critical[2] = %d dvfs_score_hi[2] = %d dvfs_score_mid[2] = %d\n",dvfs_score_critical[2],dvfs_score_hi[2],dvfs_score_mid[2]);
 	ret += snprintf(buf + ret,200,"dvfs_score_critical[3] = %d dvfs_score_hi[3] = %d dvfs_score_mid[3] = %d\n",dvfs_score_critical[3],dvfs_score_hi[3],dvfs_score_mid[3]);
 
-	ret += snprintf(buf + ret,200,"percpu_total_load[0] = %d\n",percpu_load[0]);
-	ret += snprintf(buf + ret,200,"percpu_total_load[1] = %d\n",percpu_load[1]);
-	ret += snprintf(buf + ret,200,"percpu_total_load[2] = %d\n",percpu_load[2]);
-	ret += snprintf(buf + ret,200,"percpu_total_load[3] = %d\n",percpu_load[3]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[0] = %d,%d->%d\n",
+		percpu_load[0],ga_percpu_total_load[0][(cur_window_index[0] - 1 + 10) % 10],ga_percpu_total_load[0][cur_window_index[0]]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[1] = %d,%d->%d\n",
+		percpu_load[1],ga_percpu_total_load[1][(cur_window_index[1] - 1 + 10) % 10],ga_percpu_total_load[1][cur_window_index[1]]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[2] = %d,%d->%d\n",
+		percpu_load[2],ga_percpu_total_load[2][(cur_window_index[2] - 1 + 10) % 10],ga_percpu_total_load[2][cur_window_index[2]]);
+	ret += snprintf(buf + ret,200,"percpu_total_load[3] = %d,%d->%d\n",
+		percpu_load[3],ga_percpu_total_load[3][(cur_window_index[3] - 1 + 10) % 10],ga_percpu_total_load[3][cur_window_index[3]]);
 
 	return strlen(buf) + 1;
 }
