@@ -72,6 +72,14 @@ config MACH_SP5735C1EA
 	help
 	  SP5735c1ea board based on SC8830 serial.
 
+config MACH_SP5735C2EA
+	bool "sp5735c2ea PAD Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	default n
+	help
+	SP5735c1ea board based on SC8830 serial.
+
 config MACH_SPX35EB
 	bool "sp8830eb Phone Board"
 	depends on ARCH_SC
