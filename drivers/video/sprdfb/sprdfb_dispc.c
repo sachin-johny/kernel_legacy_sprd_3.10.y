@@ -561,7 +561,9 @@ static void dispc_run(struct sprdfb_device *dev)
 
 			dispc_ctx.is_first_frame = false;
 		} else {
+#ifndef CONFIG_FB_TRIPLE_FRAMEBUFFER
 			dispc_sync(dev);
+#endif
 		}
 #ifdef SHARK_LAYER_COLOR_SWITCH_FEATURE
 		if(switch_flags == 1){
@@ -1107,6 +1109,30 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		printk("sprdfb: [%s]: do not refresh in suspend!!!\n", __FUNCTION__);
 		goto ERROR_REFRESH;
 	}
+
+	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+		dispc_ctx.vsync_waiter ++;
+		dispc_sync(dev);
+//		dispc_ctx.vsync_done = 0;
+#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
+		if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_REFRESH)){
+			printk(KERN_WARNING "sprdfb: enable dispc_clk fail in refresh!\n");
+			goto ERROR_REFRESH;
+		}
+#endif
+	}
+#ifdef CONFIG_FB_TRIPLE_FRAMEBUFFER
+	else{
+            if((dispc_read(DISPC_OSD_BASE_ADDR) != dispc_read(SHDW_OSD_BASE_ADDR))
+                &&dispc_read(SHDW_OSD_BASE_ADDR) != 0){
+                dispc_ctx.vsync_waiter ++;
+                dispc_sync(dev);
+            }
+        }
+#endif
+
+	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
+
 #ifdef CONFIG_FB_MMAP_CACHED
 	if(NULL != dispc_ctx.vma){
 		pr_debug("sprdfb_dispc_refresh dmac_flush_range dispc_ctx.vma=0x%x\n ",dispc_ctx.vma);
@@ -1125,20 +1151,6 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 	}
 #endif
 	dispc_osd_enable(true);
-
-	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
-		dispc_ctx.vsync_waiter ++;
-		dispc_sync(dev);
-//		dispc_ctx.vsync_done = 0;
-#ifdef CONFIG_FB_DYNAMIC_CLK_SUPPORT
-		if(sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_REFRESH)){
-			printk(KERN_WARNING "sprdfb: enable dispc_clk fail in refresh!\n");
-			goto ERROR_REFRESH;
-		}
-#endif
-	}
-
-	pr_debug(KERN_INFO "srpdfb: [%s] got sync\n", __FUNCTION__);
 
 //	dispc_ctx.dev = dev;
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
