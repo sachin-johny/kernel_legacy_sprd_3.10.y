@@ -32,7 +32,7 @@
 #include <linux/compat.h>
 #include <linux/tty_flip.h>
 #include <linux/kthread.h>
-#if defined(CONFIG_MACH_SP8830GEA)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 #include <linux/regulator/consumer.h>
 #endif
 
@@ -56,7 +56,7 @@ struct stty_device {
 	struct mutex 		stat_lock;
 };
 
-#if defined(CONFIG_MACH_SP8830GEA) 
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) 
 static int vddwpa_bt_enable_control(int flag)
 {
         
@@ -158,7 +158,7 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
     rf2351_gpio_ctrl_power_enable(1);
 #endif
 
- #if defined(CONFIG_MACH_SP8830GEA)
+ #if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
  vddwpa_bt_enable_control(1);
  #endif
 
@@ -192,7 +192,7 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
     rf2351_gpio_ctrl_power_enable(0);
     #endif
 
-	#if defined(CONFIG_MACH_SP8830GEA) 
+	#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) 
 	vddwpa_bt_enable_control(0);
 	#endif
 	return;
