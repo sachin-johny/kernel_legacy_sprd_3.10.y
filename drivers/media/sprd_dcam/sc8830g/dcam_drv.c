@@ -3495,11 +3495,7 @@ LOCAL void    _dcam_path1_sof(void)
 			_dcam_path1_set();
 			path->is_update = 0;
 			DCAM_TRACE("DCAM: path1 updated \n");
-			if (rtn) {
-				_dcam_auto_copy_ext(DCAM_PATH_IDX_1, false, true);
-			} else {
-				_dcam_auto_copy_ext(DCAM_PATH_IDX_1, true, true);
-			}
+			_dcam_auto_copy_ext(DCAM_PATH_IDX_1, true, true);
 		} else {
 			if (rtn) {
 				DCAM_TRACE("DCAM: path1 updated \n");
@@ -3552,11 +3548,7 @@ LOCAL void    _dcam_path2_sof(void)
 				_dcam_path2_set();
 				path->is_update = 0;
 				DCAM_TRACE("DCAM: path2 updated \n");
-				if (rtn) {
-					_dcam_auto_copy_ext(DCAM_PATH_IDX_2, false, true);
-				} else {
-					_dcam_auto_copy_ext(DCAM_PATH_IDX_2, true, true);
-				}
+				_dcam_auto_copy_ext(DCAM_PATH_IDX_2, true, true);
 			} else {
 				if (rtn) {
 					DCAM_TRACE("DCAM: path2 updated \n");
