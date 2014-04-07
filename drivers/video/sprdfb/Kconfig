@@ -38,7 +38,7 @@ config SPRD_FB_SIZE
 	int "MB size for frame buffer, should larger or equal lcd_w*lcd_h*4*2"
 	range 1 16
 	default 8
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
 
 config FB_LCD_HX8363_MCU
 	boolean "support HX8363 panel mcu"
@@ -147,7 +147,7 @@ config FB_LCD_HX8369B_MIPI
 
 config FB_LCD_RESERVE_MEM
         boolean "support FB reserve mem"
-        depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+        depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
         default n
 
 config FB_LCD_OVERLAY_SUPPORT
@@ -157,7 +157,7 @@ config FB_LCD_OVERLAY_SUPPORT
 
 config FB_VSYNC_SUPPORT
 	boolean "support wait for vsync io"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
 	default n
 
 config FB_ESD_SUPPORT
@@ -182,6 +182,11 @@ config FB_MMAP_CACHED
 
 config FB_LOW_RES_SIMU
 	boolean "support low resolution simulator"
+	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15 || FB_SCX30G
+	default n
+
+config FB_TRIPLE_FRAMEBUFFER
+	boolean "support triple buffer"
 	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15 || FB_SCX30G
 	default n
 endif
