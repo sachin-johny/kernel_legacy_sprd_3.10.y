@@ -179,8 +179,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			array_size = lowmem_minfreeswap_size;
 
 		for (i = 0; i < array_size; i++) {
-			minfreeswap = si.totalswap >> lowmem_minfreeswap[i];
-			if (si.freeswap < minfreeswap) {
+			minfreeswap = si.freeswap << lowmem_minfreeswap[i];
+			if (minfreeswap < si.totalswap) {
 				min_adj = lowmem_adj[i];
 				break;
 			}
