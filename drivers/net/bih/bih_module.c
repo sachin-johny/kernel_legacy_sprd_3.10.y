@@ -477,19 +477,28 @@ int hook_exit(void)
         return 0;
 }
 
-static int proc_read_bis(char *page,char **start,off_t off,int count,int *eof,void *data)
+static int proc_show_bis(struct seq_file *m, void *v)
 {
-        int len;
         if(BIHMODE==1)
-                len = sprintf(page, "ENABLE\n");
+                seq_printf(m, "ENABLE\n");
         else
-                len = sprintf(page, "DISABLE\n");
-        return(len);
+                seq_printf(m, "DISABLE\n");
+        return(0);
+}
+
+static int proc_open_bis(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_show_bis, PDE_DATA(inode));
 }
 
 static const struct file_operations proc_file_bis_fops = {
-        .read                = proc_read_bis,
-        .write                = NULL,
+	.owner	    = THIS_MODULE,
+	.open		= proc_open_bis,
+	.read		= seq_read,
+	.write		= seq_write,
+	.llseek	    = seq_lseek,
+	.release	= single_release,
+
 };
 
 static int proc_init_bis(char *name,mode_t mode)
@@ -499,43 +508,35 @@ static int proc_init_bis(char *name,mode_t mode)
                 printk("proc_dir error\n");
                 return(-1);
         }
-/*
-        proc_file_bis=create_proc_entry(name, mode,proc_dir);
-        if(proc_file_bis==NULL)
-        {
-                printk("create_proc_entry error\n");
-                return(-1);
-        }
-        proc_file_bis->data = NULL;
-        proc_file_bis->read_proc = proc_read_bis;
-        proc_file_bis->write_proc = NULL;
-//        proc_file_bis->owner = THIS_MODULE;
-*/
-        return (proc_file_bis = proc_create(name, mode, proc_dir, &proc_file_bis_fops)) != NULL;
+
+        proc_file_bis = proc_create(name, mode, proc_dir, &proc_file_bis_fops);
+		if(!proc_file_bis)
+		{
+			return(-1);
+		}
+		return (0);
 }
 
-static int proc_read_mode(char *page,char **start,off_t off,int count,int *eof,void *data)
+static int proc_show_mode(struct seq_file *m, void *v)
 {
-        int len;
         switch(BIHMODE)
         {
                 case 0:
-                        len = sprintf(page, "NULL\n");
+                        seq_printf(m, "NULL\n");
                         break;
                 case 1:
-                        len = sprintf(page, "BIS\n");
+                        seq_printf(m, "BIS\n");
                         break;
                 case 2:
-                        len = sprintf(page, "BIA\n");
+                        seq_printf(m, "BIA\n");
                         break;
                 default:
-                        len = sprintf(page, "ERROR\n");
+                        seq_printf(m, "ERROR\n");
                         break;
         }
-        return(len);
+        return (0);
 }
-
-static int proc_write_mode(struct file *file,const char *buffer,unsigned long count,void *data)
+static int proc_write_mode(struct file *file, const char __user *buffer,size_t count, loff_t *ofs)
 {
         int len;
         char buff[32];
@@ -569,9 +570,18 @@ static int proc_write_mode(struct file *file,const char *buffer,unsigned long co
         return len;
 }
 
+static int proc_open_mode(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_show_mode, PDE_DATA(inode));
+}
+
 static const struct file_operations proc_file_mode_fops = {
-        .read                = proc_read_mode,
-        .write                = proc_write_mode,
+	.owner	    = THIS_MODULE,
+	.open		= proc_open_mode,
+	.read		= seq_read,
+	.write		= proc_write_mode,
+	.llseek	    = seq_lseek,
+	.release	= single_release,
 };
 
 static int proc_init_mode(char *name,mode_t mode)
@@ -581,29 +591,21 @@ static int proc_init_mode(char *name,mode_t mode)
                 printk("proc_dir error\n");
                 return(-1);
         }
-#if 0
-        proc_file_mode=create_proc_entry(name, mode,proc_dir);
-        if(proc_file_mode==NULL)
-        {
-                printk("create_proc_entry error\n");
-                return(-1);
-        }
-        proc_file_mode->data = NULL;
-        proc_file_mode->read_proc = proc_read_mode;
-        proc_file_mode->write_proc = proc_write_mode;
-//        proc_file_mode->owner = THIS_MODULE;
-#endif
-        return (proc_file_mode = proc_create(name, mode,proc_dir, &proc_file_mode_fops)) != NULL;
+
+        proc_file_mode = proc_create(name, mode,proc_dir, &proc_file_mode_fops);
+		if(!proc_file_mode)
+		{
+			return(-1);
+		}
+		return (0);
 }
 
-static int proc_read_pool(char *page,char **start,off_t off,int count,int *eof,void *data)
+static int proc_show_pool(struct seq_file *m, void *v)
 {
-        int len;
-        len = sprintf(page, "%s\n",pool_addr_show());
-        return(len);
+        seq_printf(m, "%s\n",pool_addr_show());
+        return 0;
 }
-
-static int proc_write_pool(struct file *file,const char *buffer,unsigned long count,void *data)
+static int proc_write_pool(struct file *file, const char __user *buffer,size_t count, loff_t *ofs)
 {
         int len,cmdlen=0,slen;
         char buff[512],*cmd=NULL,*argu=NULL;
@@ -662,9 +664,18 @@ static int proc_write_pool(struct file *file,const char *buffer,unsigned long co
         return len;
 }
 
+static int proc_open_pool(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_show_pool, PDE_DATA(inode));
+}
+
 static const struct file_operations proc_file_pool_fops = {
-        .read                = proc_read_pool,
-        .write                = proc_write_pool,
+	.owner	    = THIS_MODULE,
+	.open		= proc_open_pool,
+    .read       = seq_read,
+    .write      = proc_write_pool,
+	.llseek	    = seq_lseek,
+	.release	= single_release,
 };
 
 static int proc_init_pool(char *name,mode_t mode)
@@ -674,30 +685,22 @@ static int proc_init_pool(char *name,mode_t mode)
                 printk("proc_dir error\n");
                 return(-1);
         }
-#if 0
-        proc_file_pool=create_proc_entry(name, mode,proc_dir);
-        if(proc_file_pool==NULL)
-        {
-                printk("create_proc_entry error\n");
-                return(-1);
-        }
-        proc_file_pool->data = NULL;
-        proc_file_pool->read_proc = proc_read_pool;
-        proc_file_pool->write_proc = proc_write_pool;
-//        proc_file_pool->owner = THIS_MODULE;
-        return(0);
-#endif
-        return (proc_file_pool = proc_create(name, mode,proc_dir, &proc_file_pool_fops)) != NULL;
+
+        proc_file_pool = proc_create(name, mode,proc_dir, &proc_file_pool_fops);
+		if(!proc_file_pool)
+		{
+			return(-1);
+		}
+		return (0);
 }
 
-static int proc_read_map(char *page,char **start,off_t off,int count,int *eof,void *data)
+static int proc_show_map(struct seq_file *m, void *v)
 {
-        int len;
-        len = sprintf(page,"%s",map_showrun());
-        return(len);
+		seq_printf(m,"%s",map_showrun());
+        return (0);
 }
 
-static int proc_write_map(struct file *file,const char *buffer,unsigned long count,void *data)
+static int proc_write_map(struct file *file, const char __user *buffer,size_t count, loff_t *ofs)
 {
         int len,slen,in4len,in6len,cmdlen;
         char buff[512],*str,*cmdstr,*in4str,*in6str;
@@ -778,9 +781,18 @@ static int proc_write_map(struct file *file,const char *buffer,unsigned long cou
         return len;
 }
 
+static int proc_open_map(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_show_map, PDE_DATA(inode));
+}
+
 static const struct file_operations proc_file_map_fops = {
-        .read                = proc_read_map,
-        .write                = proc_write_map,
+	.owner	    = THIS_MODULE,
+	.open		= proc_open_map,
+	.read       = seq_read,
+    .write      = proc_write_map,
+	.llseek	    = seq_lseek,
+	.release	= single_release, 
 };
 
 static int proc_init_map(char *name,mode_t mode)
@@ -790,43 +802,35 @@ static int proc_init_map(char *name,mode_t mode)
                 printk("proc_dir error\n");
                 return(-1);
         }
-#if 0
-        proc_file_map=create_proc_entry(name, mode,proc_dir);
-        if(proc_file_map==NULL)
-        {
-                printk("create_proc_entry error\n");
-                return(-1);
-        }
-        proc_file_map->data = NULL;
-        proc_file_map->read_proc = proc_read_map;
-        proc_file_map->write_proc = proc_write_map;
-//        proc_file_map->owner = THIS_MODULE;
-#endif
-        return (proc_file_map = proc_create(name, mode,proc_dir, &proc_file_map_fops)) != NULL;
+
+        proc_file_map = proc_create(name, mode,proc_dir, &proc_file_map_fops);
+		if(!proc_file_map)
+		{
+			return(-1);
+		}
+		return (0);
 }
 
-static int proc_read_network(char *page,char **start,off_t off,int count,int *eof,void *data)
+static int proc_show_network(struct seq_file *m, void *v)
 {
-        int len;
         switch(NETWORKTYPE)
         {
                 case 1:
-                        len = sprintf(page, "V4\n");
+                        seq_printf(m, "V4\n");
                         break;
                 case 2:
-                        len = sprintf(page, "V6\n");
+                        seq_printf(m, "V6\n");
                         break;
                 case 3:
-                        len = sprintf(page, "DS\n");
+                        seq_printf(m, "DS\n");
                         break;
                 default:
-                        len = sprintf(page, "ERR\n");
+                        seq_printf(m, "ERR\n");
                         break;
         }
-        return(len);
+        return 0;
 }
-
-static int proc_write_network(struct file *file,const char *buffer,unsigned long count,void *data)
+static int proc_write_network(struct file *file, const char __user *buffer,size_t count, loff_t *ofs)
 {
         int len;
         char buff[32];
@@ -857,9 +861,18 @@ static int proc_write_network(struct file *file,const char *buffer,unsigned long
         return len;
 }
 
+static int proc_open_network(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_show_network, PDE_DATA(inode));
+}
+
 static const struct file_operations proc_file_network_fops = {
-        .read                = proc_read_network,
-        .write                = proc_write_network,
+	.owner	    = THIS_MODULE,
+	.open		= proc_open_network,
+	.read       = seq_read,
+    .write      = proc_write_network,
+	.llseek	    = seq_lseek,
+	.release	= single_release, 
 };
 
 static int proc_init_network(char *name,mode_t mode)
@@ -869,29 +882,21 @@ static int proc_init_network(char *name,mode_t mode)
                 printk("proc_dir error\n");
                 return(-1);
         }
-#if 0
-        proc_file_network=create_proc_entry(name, mode,proc_dir);
-        if(proc_file_network==NULL)
-        {
-                printk("create_proc_entry error\n");
-                return(-1);
-        }
-        proc_file_network->data = NULL;
-        proc_file_network->read_proc = proc_read_network;
-        proc_file_network->write_proc = proc_write_network;
-//        proc_file_network->owner = THIS_MODULE;
-#endif
-        return (proc_file_network = proc_create(name, mode,proc_dir, &proc_file_network_fops)) != NULL;
+
+        proc_file_network = proc_create(name, mode,proc_dir, &proc_file_network_fops);
+		if(!proc_file_network)
+		{
+			return(-1);
+		}
+		return (0);
 }
 
-static int proc_read_private(char *page,char **start,off_t off,int count,int *eof,void *data)
+static int proc_show_private(struct seq_file *m, void *v)
 {
-        int len;
-        len = sprintf(page, "%u.%u.%u.%u\n",NIPQUAD(PRIVATEADDR));
-        return(len);
+        seq_printf(m, "%u.%u.%u.%u\n",NIPQUAD(PRIVATEADDR));
+        return 0;
 }
-
-static int proc_write_private(struct file *file,const char *buffer,unsigned long count,void *data)
+static int proc_write_private(struct file *file, const char __user *buffer,size_t count, loff_t *ofs)
 {
         int len;
         char buff[32];
@@ -910,9 +915,18 @@ static int proc_write_private(struct file *file,const char *buffer,unsigned long
         return len;
 }
 
+static int proc_open_private(struct inode *inode, struct file *file)
+{
+	return single_open(file, proc_show_private, PDE_DATA(inode));
+}
+
 static const struct file_operations proc_file_private_fops = {
-        .read                = proc_read_private,
-        .write                = proc_write_private,
+	.owner	    = THIS_MODULE,
+	.open		= proc_open_private,
+	.read       = seq_read,
+    .write      = proc_write_private,
+	.llseek	    = seq_lseek,
+	.release	= single_release, 
 };
 
 static int proc_init_private(char *name,mode_t mode)
@@ -922,19 +936,13 @@ static int proc_init_private(char *name,mode_t mode)
                 printk("proc_dir error\n");
                 return(-1);
         }
-#if 0
-        proc_file_private=create_proc_entry(name, mode,proc_dir);
-        if(proc_file_private==NULL)
-        {
-                printk("create_proc_entry error\n");
-                return(-1);
-        }
-        proc_file_private->data = NULL;
-        proc_file_private->read_proc = proc_read_private;
-        proc_file_private->write_proc = proc_write_private;
-//        proc_file_private->owner = THIS_MODULE;
-#endif
-        return (proc_file_private = proc_create(name, mode,proc_dir, &proc_file_private_fops)) != NULL;
+		
+        proc_file_private = proc_create(name, mode,proc_dir, &proc_file_private_fops);
+		if(!proc_file_private)
+		{
+			return(-1);
+		}
+		return (0);
 }
 
 extern int ipv6_get_addr(struct net_device *dev, struct in6_addr *addr);
