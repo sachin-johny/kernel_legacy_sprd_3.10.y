@@ -79,6 +79,7 @@ USER_PS_MODE_T g_user_ps_mode_wait_apply            = NO_POWERSAVE;
 BOOL_T         g_receive_dtim_wait_apply            = (BOOL_T)BFALSE;
 UWORD8         dot11PowerManagementMode_wait_apply  = 0;
 BOOL_T         g_powermanagement_wait_apply_flag    = (BOOL_T)BFALSE;
+void show_tx_slots(void);
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 unsigned int host2arm_irq_cnt = 0;
@@ -966,6 +967,120 @@ void init_ps_state_change(UWORD8 psm)
     }
 }
 
+void prepare_ps_poll_for_cp(void)
+{
+    UWORD8      tx_rate      = 0;
+    UWORD8      pream        = 0;
+    UWORD8      q_num        = 0;
+    UWORD32     phy_tx_mode  = 0;
+    UWORD8      mac_hdr_len  = MAC_HDR_LEN;
+    UWORD8      *msa         = 0;
+    UWORD8      *tx_dscr     = 0;
+    sta_entry_t *se          = 0;
+    UWORD32     retry_set[2] = {0};
+	unsigned char *pc;
+	unsigned int ix = 0;
+	unsigned char tmp[200];
+
+	
+
+	memset(tmp, 0, 200);
+
+	TROUT_FUNC_ENTER;
+    /* Get the station entry for the AP */
+    se = (sta_entry_t *)find_entry(mget_bssid());
+
+    if(NULL == se)
+    {
+        /* This is an exception case and should never occur */
+        TROUT_FUNC_EXIT;
+        return;
+    }
+
+    /* Allocate buffer for the NULL Data frame. This frame contains only the */
+    /* MAC Header. The data payload of the same is '0'.                      */
+    msa  = (UWORD8*)mem_alloc(g_shared_pkt_mem_handle, MANAGEMENT_FRAME_LEN);
+    if(msa == NULL)
+    {
+	TROUT_FUNC_EXIT;
+        return;
+    }
+
+    /* Set the Frame Control field of the PS-POLL frame.                     */
+    set_frame_control(msa, (UWORD16)PS_POLL);
+    q_num = HIGH_PRI_Q;
+
+    set_pwr_mgt(msa, (UWORD8)STA_ACTIVE);
+	//chenq mask 2012-12-06
+    //set_to_ds(msa, 1);
+
+    /* Set Association ID in the Duration ID field */
+    set_durationID(msa, g_asoc_id);
+
+    /* Set the address fields. For a station operating in the infrastructure */
+    /* mode, Address1 = BSSID, Address2 = Source Address (SA) and            */
+    /* Address3 = Destination Address (DA) which is nothing but the BSSID.   */
+    set_address1(msa, mget_bssid());
+    set_address2(msa, mget_StationID());
+
+	//set_address3(msa, mget_bssid());
+
+    /* Create the transmit descriptor and set the contents                   */
+    tx_dscr = create_default_tx_dscr(0, 0, 0);
+    if(tx_dscr == NULL)
+    {
+        /* Free the memory allocated for the buffer                          */
+        pkt_mem_free(msa);
+        TROUT_FUNC_EXIT;
+        return;
+    }
+
+    /* Set the transmit rate from the station entry */
+    tx_rate = get_tx_rate_to_sta(se);
+    pream   = get_preamble(tx_rate);
+
+    /* Update the retry set information for this frame */
+    update_retry_rate_set(1, tx_rate, se, retry_set);
+
+    /* Get the PHY transmit mode based on the transmit rate and preamble */
+    phy_tx_mode = get_dscr_phy_tx_mode(tx_rate, pream, (void *)se);
+
+    /* Set various transmit descriptor parameters */
+    set_tx_params(tx_dscr, tx_rate, pream, NORMAL_ACK, phy_tx_mode, retry_set);
+    set_tx_buffer_details(tx_dscr, msa, 0, mac_hdr_len - 8, 0);//chenq add 2012-12-06
+    set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
+    set_tx_security(tx_dscr, NO_ENCRYP, 0, se->sta_index);
+    set_ht_ps_params(tx_dscr, (void *)se, tx_rate);
+    set_ht_ra_lut_index(tx_dscr, NULL, 0, tx_rate);
+    update_tx_dscr_tsf_ts((UWORD32 *)tx_dscr);
+
+
+	memcpy((void *)tmp, (void *)tx_dscr, 152);
+	memcpy((void *)&tmp[152], (void *)msa, 16);
+	host_write_trout_ram((void *)(BEACON_MEM_BEGIN + 200), (void *)tmp, 172);
+#if 0
+	printk("XXXYYYYZZZ:%d\n");
+	pc = msa;
+	for(ix = 0; ix < 20; ix++){
+		if (ix % 16 == 0 )
+			printk("\n");
+		printk("%02X, ", *pc++);
+	}
+	printk("\n");
+	pc = tx_dscr;
+	for(ix = 0; ix < 152; ix++){
+		if (ix % 16 == 0 )
+			printk("\n");
+		printk("%02X, ", *pc++);
+	}
+	printk("\n");
+#endif
+
+    
+
+    free_tx_dscr((UWORD32 *)tx_dscr);
+  
+}
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : send_ps_poll_to_AP                                       */
@@ -1121,6 +1236,8 @@ void send_null_frame_to_AP(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
     UWORD8      serv_class = NORMAL_ACK;
 
 	TROUT_FUNC_ENTER;
+	
+    printk("%s... clled from %pS\n", __func__, __builtin_return_address(0));
     /* Get the station entry for the AP */
     se = (sta_entry_t *)find_entry(mget_bssid());
     if(NULL == se)
@@ -1284,6 +1401,142 @@ void update_retry_dr_trick(UWORD8 *set)
 	for(i = 0; i < 7; i++ ){
 		*p++ = calc_data_rate(*t++);
 	}
+
+}
+
+int prepare_null_frame_for_cp(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
+{
+	UWORD8      tx_rate      = 0;
+	UWORD8      pream        = 0;
+	UWORD8      q_num        = 0;
+	UWORD32     phy_tx_mode  = 0;
+	UWORD8      *msa         = 0;
+	UWORD8      *tx_dscr     = 0;
+	sta_entry_t *se          = 0;
+	UWORD32     retry_set[2] = {0};
+	UWORD8      frame_len = MAC_HDR_LEN;
+	UWORD8      serv_class = NORMAL_ACK;
+	unsigned char tmp[200];
+	unsigned char *pc, ix = 0;	
+
+
+	memset(tmp, 0, 200);
+	/* Get the station entry for the AP */
+	se = (sta_entry_t *)find_entry(mget_bssid());
+	if(NULL == se)
+	{
+		TROUT_DBG3("SE NULL, Cant Send NULL Frame\n\r");
+		return -1;
+	}
+
+	/* For Qos NULL frame check if all protocol allow this transmission */
+	if((is_qos == BTRUE) && (psm_allow_null_send_prot(se, priority) == BFALSE))
+	{
+		TROUT_DBG4("protocol not allow this transmission, Cant Send NULL Frame\n\r");
+		return -1;
+	}
+
+	/* Allocate buffer for the NULL Data frame. This frame contains only the */
+	/* MAC Header. The data payload of the same is '0'.                      */
+	msa  = (UWORD8*)mem_alloc(g_shared_pkt_mem_handle, MANAGEMENT_FRAME_LEN);
+	if(msa == NULL)
+	{
+		TROUT_DBG4("No Memory for NULL frame\n");
+		return -1;
+	}
+
+	/* Set the Frame Control field of the NULL frame. */
+#ifdef MAC_WMM
+	if(is_qos == BTRUE)
+	{
+		set_frame_control(msa, (UWORD16)QOS_NULL_FRAME);
+	}
+	else
+#endif /* MAC_WMM */
+	{
+		set_frame_control(msa, (UWORD16)NULL_FRAME);
+	}    
+
+	q_num = HIGH_PRI_Q;
+
+
+	set_pwr_mgt(msa, (UWORD8)psm);
+	set_to_ds(msa, 1);
+
+	if(psm == 0)
+		reset_machw_ps_pm_tx_bit();
+	else
+		set_machw_ps_pm_tx_bit();
+
+	/* Set the address fields. For a station operating in the infrastructure */
+	/* mode, Address1 = BSSID, Address2 = Source Address (SA) and            */
+	/* Address3 = Destination Address (DA) which is nothing but the BSSID.   */
+	set_address1(msa, mget_bssid());
+	set_address2(msa, mget_StationID());
+	set_address3(msa, mget_bssid());
+
+	if(is_qos == BTRUE)
+	{
+		//set_qos_control(msa, priority, NORMAL_ACK);
+		set_qos_control(msa, priority, serv_class);
+		frame_len += 2;
+	}
+
+	/* Create the transmit descriptor and set the contents */
+	tx_dscr = create_default_tx_dscr(is_qos, priority, 0);
+	if(tx_dscr == NULL)
+	{
+		TROUT_DBG3("No Mem for NULL TX DSCR \n");
+		/* Free the memory allocated for the buffer */
+		pkt_mem_free(msa);
+		return -1;
+	}
+
+	/* Set the transmit rate from the station entry */
+	//tx_rate = 54;
+	tx_rate = get_tx_rate_to_sta(se);
+	pream   = get_preamble(tx_rate);
+
+	/* Update the retry set information for this frame */
+	update_retry_rate_set(1, tx_rate, se, retry_set);
+
+	/* Get the PHY transmit mode based on the transmit rate and preamble */
+	phy_tx_mode = get_dscr_phy_tx_mode(tx_rate, pream, (void *)se);
+
+	/* Set various transmit descriptor parameters */
+	set_tx_params(tx_dscr, tx_rate, pream, serv_class, phy_tx_mode, retry_set);
+#if 0
+	/* we modified the retry data rate */
+	update_retry_dr_trick((UWORD8 *)&retry_set[0]);
+	retry_set[1] = get_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr);
+	retry_set[1] &= 0xFF00FFFF;
+	retry_set[1] |= (0x04 << 16);	//retry_rate7 set to 1Mbps
+	set_tx_dscr_retry_rate_set2(tx_dscr, retry_set[1]);
+#endif
+	set_tx_buffer_details(tx_dscr, msa, 0, frame_len, 0);
+	set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
+	set_tx_security(tx_dscr, NO_ENCRYP, 0, se->sta_index);
+	set_ht_ps_params(tx_dscr, (void *)se, tx_rate);
+	set_ht_ra_lut_index(tx_dscr, NULL, 0, tx_rate);
+	update_tx_dscr_tsf_ts((UWORD32 *)tx_dscr);
+
+	memcpy((void *)&tmp[0], (void *)tx_dscr, TX_DSCR_LEN + 8);
+	memcpy((void *)&tmp[TX_DSCR_LEN + 8], (void *)msa, frame_len);
+
+#if 0	
+	printk("frame_len:%d\n", frame_len);
+	pc = tmp;
+	for(ix = 0; ix < 200; ix++){
+		if (ix % 16 == 0 )
+			printk("\n");
+		printk("%02X, ", *pc++);
+	
+	}
+	printk("\n");
+#endif
+	host_write_trout_ram((void *)BEACON_MEM_BEGIN, (void *)tmp, TX_DSCR_LEN + 8 + frame_len);
+	
+        free_tx_dscr((UWORD32 *)tx_dscr);
 
 }
 
@@ -1453,7 +1706,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	TROUT_FUNC_EXIT;
         return -1;
     }
-	pr_info("NULL F@: %08X\n", msa);
+	pr_info("NULL F@: %08p\n", msa);
 
     /* Set the Frame Control field of the NULL frame. */
 #ifdef MAC_WMM
@@ -1533,7 +1786,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	retry_set[1] = get_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr);
 	retry_set[1] &= 0xFF00FFFF;
 	retry_set[1] |= (0x04 << 16);	//retry_rate7 set to 1Mbps
-	set_tx_dscr_retry_rate_set2(tx_dscr, retry_set[1]);
+	set_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr, retry_set[1]);
 	
     set_tx_buffer_details(tx_dscr, msa, 0, frame_len, 0);
     set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
@@ -1557,6 +1810,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	null_frame_dscr = tx_dscr; /*record NULL frame pointer of power save*/
 #endif
 #endif
+
     /* Add the packet to the MAC H/w transmit queue */
     if(qmu_add_tx_packet(&g_q_handle.tx_handle, q_num, tx_dscr) != QMU_OK)
     {
@@ -1564,12 +1818,8 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 #ifdef DEBUG_MODE
         g_mac_stats.qaexc++;
 #endif /* DEBUG_MODE */
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-		null_frame_dscr = NULL;
-#endif
-#endif
         free_tx_dscr((UWORD32 *)tx_dscr);
+	  null_frame_dscr = NULL;
 		return -1;
     }
     else
@@ -1751,8 +2001,6 @@ UWORD32 ps_last_int_mask = 0;
 void sta_doze(void)
 {
     UWORD32 tmp_mask = 0;
-    UWORD32 int_mask = 0;
-    UWORD32 int_stat = 0;
 
 	/*TROUT_PRINT_STACK;*/
 
@@ -1832,9 +2080,10 @@ void sta_doze(void)
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-void sta_doze_trick(void)
+void sta_doze_trick(DOZE_T type,BOOL_T reset_lock)
 {
 	UWORD32 tmp_mask = 0;
+    UWORD32 pa_val = 0;
 	struct trout_private *tp = netdev_priv(g_mac_dev);
 	rx_queue_struct *hrc = &g_rx_handle->rx_q_info[HIGH_PRI_RXQ];
 	rx_queue_struct *nrc = &g_rx_handle->rx_q_info[NORMAL_PRI_RXQ];
@@ -1846,7 +2095,9 @@ void sta_doze_trick(void)
     
 	/* record previous INT mask */
     ps_last_int_mask = root_host_read_trout_reg((UWORD32)rCOMM_INT_MASK);
-	
+    /* use isr to clear RX fifo to make sure can clear all RX interrupts,and update
+    * some RX info.
+    */
     rx_complete_isr(HIGH_PRI_RXQ);
     rx_complete_isr(NORMAL_PRI_RXQ);
     /* it's safe to clear all INTs */
@@ -1874,16 +2125,31 @@ void sta_doze_trick(void)
 	}
 	//cancel_work_sync(&(&g_rx_handle->rx_q_info[NORMAL_PRI_RXQ])->work); /*cancel rx works before suspending*/
 	//cancel_work_sync(&(&g_rx_handle->rx_q_info[HIGH_PRI_RXQ])->work); /*cancel rx works before suspending*/
+
+	printk("[sta_doze_trick]\t cancel_work_sync(event_work)====>>\n");
 	cancel_work_sync(&tp->event_work);
+	printk("[sta_doze_trick]\t cancel_work_sync(event_work)====<<\n");
+	
+#ifdef WAKE_LOW_POWER_POLICY
+	if(type == LOW_POWER_DOZE)
+	{
+		g_wifi_power_mode = WIFI_LOW_POWER_MODE;
+		printk("low power doze, set g_wifi_power_mode=%d\n", g_wifi_power_mode);
+	}
+#endif
+
 	/* remember CP need to know AID */
 	root_notify_cp_with_handshake((g_asoc_id << 16) | PS_MSG_ARM7_SBEA_KC_MAGIC, 3);
 
 	//g_wifi_suspend_status = wifi_suspend_early_suspend;
+	if(type == SUSPEND_DOZE){
 	g_wifi_suspend_status = wifi_suspend_early_suspending;     /*when suspending, maybe enterring mac_isr_work */
+	}
 	pr_info("%s: switch to ARM7!, asoc_id = %x\n", __func__, g_asoc_id);
     mutex_unlock(&tp->sm_mutex);
-    msleep(10);                         							/*delay 10ms , if have trout interrupt, deal mac_isr_work*/
-    g_wifi_suspend_status = wifi_suspend_early_suspend;
+    msleep(10);   
+	if(type == SUSPEND_DOZE)
+    	g_wifi_suspend_status = wifi_suspend_early_suspend;                      							/*delay 10ms , if have trout interrupt, deal mac_isr_work*/
 }
 #endif
 #endif
@@ -2002,7 +2268,7 @@ void sta_awake_trick(void)
 #endif
 #endif
 
-EXPORT_SYMBOL(sta_awake);
+//EXPORT_SYMBOL(sta_awake);
 void sta_sleep(void)
 {
 	//leon liu added for stopping powersave timer on 2013-04-03
@@ -2037,9 +2303,6 @@ void sta_wakeup(void)
 	restart_mac_plus(&g_mac, 0);
 	power_up_phy(); /*by zhao*/
 	//restart_mac(&g_mac, 0);
-	//leon liu added for starting powersave timer on 2013-04-03
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
 }
 
 //leon liu added sta_sleep_disconnected 2013-4-3
@@ -2051,12 +2314,9 @@ void sta_sleep_disconnected(void)
 {
 #ifdef POWERSAVE_DEBUG
 	pr_info("%s\n", __func__);
-	//pr_info("rMAC_PA_CON = %#x\n", root_host_read_trout_reg((UWORD32)rMAC_PA_CON));
 #endif
 
 	UWORD32 tmp_mask = 0;
-	UWORD32 int_mask = 0;
-	UWORD32 int_stat = 0;
 
 	/*zhou huiquan add protect rw reg*/
 	mutex_lock(&rw_reg_mutex);
@@ -2113,8 +2373,8 @@ void sta_wakeup_disconnected(void)
 
 #ifdef POWERSAVE_DEBUG
 	pr_info("%s: entered\n", __func__);
-	//TROUT_DBG4("sta_awake read the sleep status = 0x%x\n",
-	//		root_host_read_trout_reg((UWORD32)(0x22<<2)));
+	TROUT_DBG4("sta_awake read the sleep status = 0x%x\n",
+			root_host_read_trout_reg((UWORD32)(0x22<<2)));
 #endif
 
 	sysval = root_host_read_trout_reg((UWORD32)(0x22<<2));
@@ -2305,6 +2565,14 @@ void psm_alarm_work(struct work_struct *work)
 	ALARM_WORK_ENTRY(work);
 	//End:add by wulei 2791 for bug 160423 on 2013-05-04
 
+#ifdef WAKE_LOW_POWER_POLICY
+	if(g_wifi_power_mode){
+		ALARM_WORK_EXIT(work);
+  		reset_mac_unlock();     
+		return;
+	}
+#endif
+
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
 	if (mutex_is_locked(&suspend_mutex) || (g_wifi_suspend_status != wifi_suspend_nosuspend)) {
@@ -2414,7 +2682,10 @@ void psm_alarm_fn(ADDRWORD_T data)
 		return;
 	}
 	//End:add by wulei 2791 for bug 160423 on 2013-05-04
-
+#ifdef WAKE_LOW_POWER_POLICY
+	if(g_wifi_power_mode)
+		return;
+#endif
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
 	if (mutex_is_locked(&suspend_mutex) || (g_wifi_suspend_status != wifi_suspend_nosuspend)) {

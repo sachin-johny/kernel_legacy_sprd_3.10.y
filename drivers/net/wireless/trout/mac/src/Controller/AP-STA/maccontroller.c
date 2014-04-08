@@ -52,6 +52,10 @@
 #include "mh.h"
 #include "event_manager.h"
 #include "iconfig.h"
+/*leon liu added for CFG80211*/
+#ifdef CONFIG_CFG80211
+#include "trout_cfg80211.h"
+#endif
 
 #ifndef MAC_HW_UNIT_TEST_MODE
 #ifdef DEBUG_MODE
@@ -232,6 +236,13 @@ void process_all_events(void)
 	if (counter_tmpr++ > 100)//by lihua
 	{
 		counter_tmpr = 0;
+#ifdef WAKE_LOW_POWER_POLICY
+			if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE)
+			{
+				pr_info("We can't do %s during low power mode, g_wifi_suspend_status = %d\n", __func__, g_wifi_suspend_status);
+				break;
+			}
+#endif
 		tempr_compensated();		
 	}
 
@@ -380,10 +391,10 @@ void process_wlan_event_q(UWORD8 qid)
         return;
 	}
     /* Get the event from the head of the event queue */
-    event = (UWORD32)get_event(qid);
+    //event = (UWORD32)get_event(qid);
 
     /* Process the event if it is a valid event */
-    if(event != 0)
+    while((event = (UWORD32)get_event(qid)) != 0)
     {
 		process_wlan_event_count++;
 		//chenq mod 2012-11-02
@@ -425,6 +436,9 @@ void process_wlan_event_q(UWORD8 qid)
 		//chenq add 2012-10-30
         atomic_dec(&g_event_cnt);
     }
+#ifndef TROUT_WIFI_NPI
+    _trout_load_qmu();
+#endif
     TROUT_FUNC_EXIT;
 }
 
@@ -627,6 +641,14 @@ void process_wlan_rx_event(UWORD32 event)
     TROUT_FUNC_ENTER;
     
     process_wlan_rx_event_count++;
+#ifdef WAKE_LOW_POWER_POLICY
+	if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE)
+	{
+		pr_info("We can't do %s during low power mode\n", __func__);
+		return;
+	}
+#endif
+    
 #ifdef TROUT_B2B_TEST_MODE
     trout_b2b_rx_low(&g_mac, (UWORD8*)event);
 #else
@@ -660,6 +682,13 @@ void process_misc_event(UWORD32 event)
 #ifdef DEBUG_MODE
         g_mac_stats.pewmc++;
 #endif /* DEBUG_MODE */
+#ifdef WAKE_LOW_POWER_POLICY
+	if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE) 
+	{
+		pr_info("We can't do %s during low power mode\n", __func__);
+		return;
+	}
+#endif
     /* Check and process the event if it is a WPS event */
     if(process_wps_event(event) == BTRUE)
     {
@@ -736,6 +765,17 @@ BOOL_T is_serious_error(ERROR_CODE_T error_code)
     return BFALSE;
 }
 
+static void reset_mac_task(struct work_struct *work)
+{
+#ifdef BSS_ACCESS_POINT_MODE
+            restart_mac(&g_mac,0);
+#else
+	printk("reset_mac_task\n");
+	     restart_mac_plus(&g_mac, BTRUE);
+#endif
+}
+static DECLARE_WORK(reset_mac_work, reset_mac_task);
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : handle_system_error                                      */
@@ -758,6 +798,9 @@ void handle_system_error(void)
 {
     BOOL_T is_restart_required = BFALSE;
     int smart_type = MODE_START;
+    struct trout_private *tp = netdev_priv(g_mac_dev);
+    struct rw_semaphore *sem = &(tp->rst_semaphore);
+
 
     TROUT_FUNC_ENTER;
     /* Check whether a MAC reset is allowed. */
@@ -841,19 +884,19 @@ void handle_system_error(void)
         /* Restart the mac */
         if(BTRUE == is_restart_required)
         {
+			if(mutex_is_locked(&tp->sm_mutex))
+				return;
         	//chenq add 2012-10-31
 		set_mac_state(DISABLED);
-		//chenq mod 2012-11-17
-		TROUT_DBG3("%s: chenq mod, use reset_mac_plus, not use restart_mac\n", __FUNCTION__);
-            // Modify by Ke.Li at 2013-06-05 for fix bug 160628
-            reset_mac_unlock();
-#ifdef BSS_ACCESS_POINT_MODE
-            restart_mac(&g_mac,0);
-#else
-		restart_mac_plus(&g_mac, BTRUE);
+
+#ifndef  BSS_ACCESS_POINT_MODE
+            // Modify by Yiming.Li at 2014-01-07 for fix bug: reconnect
+            #ifdef CONFIG_CFG80211
+            if(g_system_error == LINK_LOSS) 
+		    trout_cfg80211_del_prev_bss(g_mac_dev);
+            #endif
 #endif
-		reset_mac__lock();
-            // End modify by Ke.Li at 2013-06-05 for fix bug 160628
+	      schedule_work(&reset_mac_work);
         }
 
         /* Start a Rejoin timer if required after restarting MAC */

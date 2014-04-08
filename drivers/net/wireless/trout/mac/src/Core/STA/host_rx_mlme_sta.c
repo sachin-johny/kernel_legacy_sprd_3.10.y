@@ -94,8 +94,6 @@ void sta_wait_scan(mac_struct_t *mac, UWORD8 *msg)
 	if( g_scan_source == USER_SCAN )
 	{
 		TROUT_DBG4("%s: set user scan mode!\n", __func__);
-		itm_scan_flag = 1;
-	
 	    /* Start scanning from first channel in the scan request channel list */
 	    scan_channel(g_channel_list[g_channel_index]);
 	    g_channel_index++;
@@ -103,8 +101,6 @@ void sta_wait_scan(mac_struct_t *mac, UWORD8 *msg)
 	else if((g_scan_source == DEFAULT_SCAN) &&  ( strlen(mget_DesiredSSID()) != 0 ))
 	{
 		TROUT_DBG4("%s: set default scan mode!\n", __func__);
-		itm_scan_flag = 1;
-
 	    /* Start scanning from first channel in the scan request channel list */
 	    scan_channel(g_channel_list[g_channel_index]);
 	    g_channel_index++;

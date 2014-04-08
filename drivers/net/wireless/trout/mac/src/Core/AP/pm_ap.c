@@ -206,7 +206,7 @@ void update_ps_flags_ap(asoc_entry_t *ae, BOOL_T bc_mc_pkt,
         return;
 
     /* the TIM bit should be protected! by zhao 6-21 2013 */
-	get_vbp_mutex(__builtin_return_address(0));	
+	get_vbp_mutex((unsigned long)__builtin_return_address(0));	
     if(bc_mc_pkt == BTRUE)
     {
         /* The global count for queued BC/MC packets is incremented here.    */
@@ -231,7 +231,7 @@ void update_ps_flags_ap(asoc_entry_t *ae, BOOL_T bc_mc_pkt,
         if(BTRUE == update_ps_counts(ae, num_buff_added, ps_add_del_ac)){
          	put_vbp_mutex();
 	   set_tim_bit(ae->asoc_id);
-		get_vbp_mutex(__builtin_return_address(0));	
+		get_vbp_mutex((unsigned long)__builtin_return_address(0));	
 	}
     }
 	put_vbp_mutex();	
@@ -877,7 +877,7 @@ void set_tim_bit(UWORD16 asoc_id)
     bit_offset  = (asoc_id & (~0xC000)) & 0x07;
 
     /* protect the virtual bit map in beacon frame by zhao 6-21 2013 */
-	get_vbp_mutex(__builtin_return_address(0));
+	get_vbp_mutex((unsigned long)__builtin_return_address(0));
     /* Calculate the current byte offset in vbmap */
     pvb_offset  = (g_vbmap[BMAP_CTRL_OFFSET] & 0xFE) >> 1;
     length      = g_vbmap[LENGTH_OFFSET];
@@ -949,7 +949,7 @@ void check_and_reset_tim_bit(UWORD16 asoc_id)
     bit_offset  = (asoc_id & (~0xC000)) & 0x07;
 
     /* protect the virtual bit map in beacon frame by zhao 6-21 2013 */
-	get_vbp_mutex(__builtin_return_address(0));	
+	get_vbp_mutex((unsigned long)__builtin_return_address(0));	
     /* Calculate the current byte offset in vbmap */
     pvb_offset  = (g_vbmap[BMAP_CTRL_OFFSET] & 0xFE) >> 1;
     length      = g_vbmap[LENGTH_OFFSET];
@@ -1039,7 +1039,7 @@ void handle_ps_tx_comp_ap(UWORD8 *tx_dscr, asoc_entry_t *ae, UWORD8 *msa)
     da = get_DA_ptr(msa);
 
     /* protect the virtual bit map in beacon frame by zhao 6-21 2013 */
-	get_vbp_mutex(__builtin_return_address(0));
+	get_vbp_mutex((unsigned long)__builtin_return_address(0));
     if(is_group(da) ==  BTRUE){
         if(g_num_mc_bc_qd_pkt > 0){
             g_num_mc_bc_qd_pkt--;
@@ -1076,7 +1076,7 @@ void handle_ps_tx_comp_ap(UWORD8 *tx_dscr, asoc_entry_t *ae, UWORD8 *msa)
             {
 		put_vbp_mutex();
                 check_and_reset_tim_bit(ae->asoc_id);
-		get_vbp_mutex(__builtin_return_address(0));
+		get_vbp_mutex((unsigned long)__builtin_return_address(0));
             }
         }
 

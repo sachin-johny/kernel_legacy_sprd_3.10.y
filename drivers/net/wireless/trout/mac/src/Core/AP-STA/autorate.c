@@ -206,6 +206,11 @@ void ar_timer_fn(UWORD32 data)
             if(te == 0)
                 break;
 
+#ifdef WAKE_LOW_POWER_POLICY
+		if(g_wifi_power_mode)
+			return;
+#endif
+
             /* Allocate buffer for the miscellaneous event */
             misc = (misc_event_msg_t*)event_mem_alloc(MISC_EVENT_QID);
 

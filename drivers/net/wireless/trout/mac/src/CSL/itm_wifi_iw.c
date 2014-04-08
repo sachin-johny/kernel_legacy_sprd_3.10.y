@@ -107,6 +107,7 @@ enum ANDROID_WIFI_CMD {
 	ANDROID_WIFI_CMD_SCAN_ACTIVE,	//Set scan type to active	//OK if successful
 	ANDROID_WIFI_CMD_SCAN_PASSIVE,	//Set scan type to passive	//OK if successfu
 	ANDROID_WIFI_CMD_COUNTRY,
+	ANDROID_WIFI_CMD_DHCP_STATUS,
 	ANDROID_WIFI_CMD_MAX
 };
 
@@ -118,7 +119,8 @@ const char *android_wifi_cmd_str[ANDROID_WIFI_CMD_MAX] = {
 	"MACADDR",
 	"SCAN-ACTIVE",
 	"SCAN-PASSIVE",
-	"COUNTRY"
+	"COUNTRY",
+	"DHCP_STATUS", 
 };
 
 
@@ -858,7 +860,7 @@ itm_set_Auth_Type(UWORD8 type)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -906,7 +908,7 @@ itm_get_Auth_Type(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    auth_type = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -952,7 +954,7 @@ itm_set_Encryption_Type(UWORD8 type)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1000,7 +1002,7 @@ itm_get_Encryption_Type(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    encryp_type = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1045,7 +1047,7 @@ itm_set_wep_key_index(int index)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_wep_key_index fuc\n");
 
@@ -1094,7 +1096,7 @@ itm_get_wep_key_index(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    key_index = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1142,7 +1144,7 @@ itm_set_wep_key_value(UWORD8 * pkey,UWORD8 keylen)
 	int i = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1200,7 +1202,7 @@ itm_get_wep_key_value(UWORD8 * pkey,UWORD8 keylen)
 	int len = 0;
 	UWORD8   key_value[LARGE_KEY_SIZE * 2] = {0};
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1250,7 +1252,7 @@ itm_set_power_type(UWORD8 type)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1290,7 +1292,7 @@ itm_get_power_type(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    power_type = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1335,7 +1337,7 @@ itm_set_power_period(UWORD8 period)
 	UWORD8 * host_req  = NULL;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1376,7 +1378,7 @@ itm_get_power_period(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    power_period = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1420,7 +1422,7 @@ itm_set_BSS_type(UWORD8 type)
     /* in itm,we don't set */
     return 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 #if 0    
 	int ret = -1;
 	UWORD8 * host_req  = NULL;
@@ -1465,7 +1467,7 @@ itm_get_BSS_type(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    bss_type = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1510,7 +1512,7 @@ itm_set_device_mode(UWORD8 mode)
 	UWORD8 * host_req  = NULL;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1550,7 +1552,7 @@ itm_get_device_mode(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    mode = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1597,7 +1599,7 @@ static int itm_set_psk(UWORD8 *psk, UWORD8 psklen)
 		int i=0;
 		int len = 0;
 
-		CHECK_MAC_RESET_IN_IW_HANDLER;
+		CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 		PRINTK_ITMIW("itm_set_psk for caculated PSK fuc \n");
 
@@ -1662,7 +1664,7 @@ itm_set_psk_value(UWORD8 * psk,UWORD8 psklen)
     int i=0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_psk_value fuc \n");
 
@@ -1721,7 +1723,7 @@ int itm_add_wpa_wpa2_value(UWORD8 * s_addr,
 	static BOOL_T start_pm_timer = BFALSE;
 	UWORD8 tmp_32byte_all0[32] = {0};
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_add_wpa_wpa2_value fuc %s\n",(!key_type) ? "GTK" : "PTK");
 
@@ -1875,7 +1877,7 @@ itm_set_channel(int channel_id)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_channel fuc\n");
 
@@ -1922,7 +1924,7 @@ itm_set_preamble(int preamble_type)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_preamble fuc\n");
 
@@ -1969,7 +1971,7 @@ itm_set_beaconInterval(int beaconInterval)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_beaconInterval fuc\n");
 
@@ -2018,7 +2020,7 @@ itm_set_dtim_period(int dtim_period)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_dtim_period fuc\n");
 
@@ -2066,7 +2068,7 @@ itm_set_wmmEnable(int wmm_enable)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_wmmEnable fuc\n");
 	
@@ -2112,7 +2114,7 @@ itm_set_11g_op_mode(int op_mode)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_set_11g_op_mode fuc\n");
 
@@ -2158,7 +2160,7 @@ set_11n_enable(int n_enable)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("set_11n_enable fuc\n");
 
@@ -2205,7 +2207,7 @@ itm_set_bssid(UWORD8 * addr)
 	UWORD8 * host_req  = NULL;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2255,7 +2257,7 @@ itm_set_essid(UWORD8 * essid,int essid_len)
 	int len = 0;
 	static UWORD8 ap_name[MAX_SSID_LEN] = {0};
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2399,7 +2401,7 @@ itm_get_essid(UWORD8 * essid,int essid_len)
 	UWORD8 * trout_rsp = NULL;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2455,7 +2457,7 @@ void sleep_disconnected(void)
 		sta_sleep_disconnected();
 	}
 }
-EXPORT_SYMBOL(sleep_disconnected);
+//EXPORT_SYMBOL(sleep_disconnected);
 #endif
 static int 
 itm_get_rssi(int * rssi)
@@ -2467,7 +2469,7 @@ itm_get_rssi(int * rssi)
 	WORD8  rssi_db = 0;
 	int signal = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_get_rssi fuc\n");
 
@@ -2528,7 +2530,7 @@ static int itm_get_rate(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8 rate=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2576,7 +2578,7 @@ static int itm_get_bssid(UWORD8 * bssid)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8   ap_addr[6] = {0};
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2633,7 +2635,7 @@ int itm_get_devmac(UWORD8 * dev_mac)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8   sta_addr[6] = {0};
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2694,7 +2696,7 @@ static int itm_set_domain(int flag, int scan_ch_no)
 	UWORD16  trout_rsp_len = 0;
     int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2792,7 +2794,7 @@ itm_remove_wep_key(void)
 	UWORD16  trout_rsp_len = 0;
 	int len=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2838,7 +2840,7 @@ itm_add_wep_key(UWORD8 * key,int key_len,int key_index)
 	UWORD16  trout_rsp_len = 0;
 	int len=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -2914,7 +2916,7 @@ itm_set_wapimode(int mode)
 	int len = 0;
 	int ret = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);	
 		
     PRINTK_ITMIW("itm_iwprivsconfwapi \n");
 	
@@ -2990,7 +2992,7 @@ iwprivswapikey(wapi_key_t * inKey)
 	int ret = 0;
 	int i   = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	PRINTK_ITMIW("itm_iwprivswapikey \n");
 
@@ -3082,7 +3084,7 @@ itm_set_channel(int channel)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -3131,7 +3133,7 @@ static int itm_set_scan(struct net_device *dev,
 	UWORD8 cur_essid[IW_ESSID_MAX_SIZE+1] = {0};
 	int cur_essid_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);	
 	
 	PRINTK_ITMIW("itm_set_scan fuc\n");
 
@@ -3167,24 +3169,28 @@ CHECK_SCAN:
 	{
 		PRINTK_ITMIW("skip scan op <already in scan> \n");
 		//chenq add 2013-06-09
-		is_scanlist_report2ui = 2;
-		send_mac_status(MAC_SCAN_CMP);
+		//is_scanlist_report2ui = 2;
+		//send_mac_status(MAC_SCAN_CMP);
 		return 0;
 	}
 	else if(g_BusyTraffic == BTRUE)
 	{
 		PRINTK_ITMIW("skip scan op <BusyTraffic> \n");
 		//chenq add 2013-06-09
-		is_scanlist_report2ui = 2;
-		send_mac_status(MAC_SCAN_CMP);
+		//is_scanlist_report2ui = 2;
+		//send_mac_status(MAC_SCAN_CMP);
 		return 0;
 	}
-	/*leon liu added refreshing powersave timer 2013-4-1*/
+
 	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
+#ifdef WIFI_SLEEP_POLICY
+    if(!wake_lock_active(&scan_ap_lock)){
+        wake_lock(&scan_ap_lock);
+        printk("@@@: acquire scan_ap_lock in %s\n", __func__);
+    }
+#endif
 	#endif
+
 //chenq add for combo scan 2013-04-11
 #ifdef COMBO_SCAN
 	{
@@ -3326,6 +3332,15 @@ CHECK_SCAN:
 			is_scanlist_report2ui = 2;
 			send_mac_status(MAC_SCAN_CMP);
 			ret = 0;//-EBUSY;
+
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+        	if(wake_lock_active(&scan_ap_lock)){
+        		wake_unlock(&scan_ap_lock);
+        	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out1\n", __func__);
+        	}
+#endif
+#endif
 		}	
 	}
 	else
@@ -3334,13 +3349,16 @@ CHECK_SCAN:
 		is_scanlist_report2ui = 2;
 		send_mac_status(MAC_SCAN_CMP);
 		ret = 0;//-EINVAL;
-	}
+
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-	//wake_unlock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
-	//pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
+    	if(wake_lock_active(&scan_ap_lock)){
+    		wake_unlock(&scan_ap_lock);
+    	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out2\n", __func__);
+    	}
 #endif
 #endif
+	}
 
 	PRINTK_ITMIW("itm_set_scan fuc end code:%d\n",ret);
 	return ret;
@@ -3392,7 +3410,7 @@ static int itm_giwname( struct net_device * dev,
 	UWORD16  user_channel = 0;
 	char *name = wrqu->name;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwname fuc\n");
 	
@@ -3456,7 +3474,7 @@ static int itm_siwfreq(struct net_device *	dev,
 	int channel=0;
 	struct iw_freq * freq = (struct iw_freq *)wrqu;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwfreq fuc\n");
 
@@ -3488,7 +3506,7 @@ static int itm_giwfreq(struct net_device *	dev,
 	UWORD8  channel=0;
 	struct iw_freq * freq = (struct iw_freq *)wrqu;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwfreq fuc\n");
 
@@ -3560,7 +3578,7 @@ static int itm_giwmode(struct net_device *	dev,
 	UWORD8 device_mode=0;
     UWORD8 bss_type=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwmode fuc\n");
 
@@ -3634,7 +3652,7 @@ static int itm_giwsens(struct net_device *dev,
 	/*
 	*  For rockchip platform's wpa_driver_wext_get_rssi
 	*/
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);	
 	
 	PRINTK_ITMIW("itm_giwsens fuc\n");
 
@@ -3689,7 +3707,7 @@ static int itm_giwrange(struct net_device *	dev,
 	    struct iw_range *range = (struct iw_range *) extra;
 	    int i;
 
-		CHECK_MAC_RESET_IN_IW_HANDLER;
+		CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	    PRINTK_ITMIW("itm_giwrange fuc\n");
 
@@ -3801,6 +3819,19 @@ static int itm_giwrange(struct net_device *	dev,
 	return 0;
 }
 
+/*junbinwang add for set dhcp or dhcp renew to driver. 20131223*/
+int dhcp_status = 0;
+
+int itm_get_dhcp_status()
+{
+	return dhcp_status;
+}
+
+void itm_set_dhcp_status(int status)
+{
+	dhcp_status = status;
+	return;
+}
 static int itm_siwpriv(struct net_device *dev,
 				struct iw_request_info *info,
 				union iwreq_data *awrq,
@@ -3892,6 +3923,27 @@ static int itm_siwpriv(struct net_device *dev,
 #ifdef ANDROID_BUILD
 	PRINTK_ITMIW("itm_siwpriv: %s req=%s\n", dev->name, ext);
 
+	/*junbinwang add for set dhcp or dhcp renew to driver. 20131223*/
+	if(0 == strncmp(ext , android_wifi_cmd_str[ANDROID_WIFI_CMD_DHCP_STATUS], 
+			strlen(android_wifi_cmd_str[ANDROID_WIFI_CMD_DHCP_STATUS])) )
+	{
+		if(0 == strncmp(ext , "DHCP_STATUS 1",  strlen("DHCP_STATUS 1")))
+		{
+			printk("[wjb] set dhcp status 1\n");
+			itm_set_dhcp_status(1);
+		}
+		else
+		{
+			printk("[wjb] set dhcp status 0\n");
+			itm_set_dhcp_status(0);
+		}
+
+		printk("[wjb]get dhcp status %d\n", itm_get_dhcp_status());
+		sprintf(ext, "OK");
+		if (copy_to_user(dwrq->pointer, ext, min(dwrq->length, (u16)(strlen(ext)+1)) ) )
+			return -EFAULT;
+		return 0;
+	}
 	for(i=0; i<len; i++) {
 		if(*(ext+i)>='a' && *(ext+i)<='z' ) {
 			*(ext+i)+= 'A'-'a';
@@ -3914,7 +3966,7 @@ static int itm_siwpriv(struct net_device *dev,
 
 #if 0
 			//xuanyang 2013.4.24 supplicant timeout handle
-			CHECK_MAC_RESET_IN_IW_HANDLER;
+			CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 			/* wake netif if needed by zhao */
 			if(netif_queue_stopped(dev))
 				netif_wake_queue(dev);
@@ -3933,13 +3985,11 @@ static int itm_siwpriv(struct net_device *dev,
 #ifdef WIFI_SLEEP_POLICY
 			pr_info("======== STOP ========\n");
 			//xuanyang 2013.4.24 supplicant timeout handle
-			CHECK_MAC_RESET_IN_IW_HANDLER;
+			CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 			/* we need stop netif and wait for all packets transmitted by zhao */
-			if(dev && !netif_queue_stopped(dev)){
-				//printk("[%s][%d] netif_stop_queue\n" ,__FUNCTION__, __LINE__);
+			if(dev && !netif_queue_stopped(dev))
 				netif_stop_queue(dev);
-			}
 			//Comment by zhao.zhang
 			//wait_for_tx_finsh();
 			restart_mac_plus(&g_mac, 0);
@@ -4172,7 +4222,7 @@ static int itm_siwap(struct net_device *	dev,
 	UWORD8   ap_addr[6] = {0x00,0x00,0x00,0x00,0x00,0x00};
 	int flag = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwap fuc\n");
 	PRINTK_ITMIW("itm_siwap fuc ap_addr.sa_family:%d\n",wrqu->ap_addr.sa_family);
@@ -4225,7 +4275,7 @@ static int itm_giwap(struct net_device *	dev,
 {
 	int ret = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);	
 	
 	PRINTK_ITMIW("itm_giwap fuc\n");
 
@@ -4259,7 +4309,7 @@ static int itm_siwmlme(struct net_device *	dev,
 #endif
 #endif
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	PRINTK_ITMIW("itm_siwmlme fuc\n");
 
@@ -4288,12 +4338,6 @@ static int itm_siwmlme(struct net_device *	dev,
 	printk("%s get cur run mutex ------------ yx \n", __FUNCTION__);
 #endif
 #endif
-	/*leon liu added refreshing powersave timer 2013-4-1*/
-	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
-	#endif
 
 	switch (mlme->cmd) 
 	{
@@ -4424,7 +4468,7 @@ static int itm_siwscan(struct net_device *	dev,
 #endif
 #endif
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwscan fuc\n");
 
@@ -4469,12 +4513,6 @@ CHECK_SCAN:
 		return 0;
 	}
 
-	/*leon liu added refreshing powersave timer 2013-4-1*/
-	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
-	#endif
 
     if (req && (data->flags & IW_SCAN_THIS_ESSID))
     {
@@ -4657,7 +4695,7 @@ static int itm_giwscan(struct net_device *	dev,
 	struct iw_point * dwrq = &wrqu->data;
 	bss_link_dscr_t* bss = NULL;
 		
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);	
 	
 	PRINTK_ITMIW("itm_giwscan fuc (sta mode)\n");
 
@@ -4679,7 +4717,9 @@ static int itm_giwscan(struct net_device *	dev,
 	if(NULL == g_user_getscan_aplist )
 	{
 		TROUT_DBG4("linklist is null\n");
-		return -E2BIG;
+		dwrq->length = 0;
+		dwrq->flags = 0;
+		return 0;
 	}
 
 	while( bss != NULL )
@@ -4737,7 +4777,7 @@ static int itm_siwessid(struct net_device *	dev,
 	struct iw_point * data = (struct iw_point *)wrqu;
 	int len=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifndef WIFI_SLEEP_POLICY
@@ -4788,12 +4828,6 @@ static int itm_siwessid(struct net_device *	dev,
     }
 	#endif
 	
-	/*leon liu added refreshing powersave timer 2013-4-1*/
-	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
-	#endif
 
     if( itm_set_essid( (UWORD8*)extra,(int)data->length ) < 0 )
     {
@@ -4824,7 +4858,7 @@ static int itm_giwessid(struct net_device *	dev,
 	int ret = 0;
 	struct iw_point * data = (struct iw_point *)wrqu;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwessid fuc \n");
 
@@ -4849,7 +4883,7 @@ static int itm_giwnick(struct net_device *	dev,
 			  struct iw_request_info *info,
 			   union iwreq_data * wrqu,  char * extra)
 {
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	PRINTK_ITMIW("itm_giwnick fuc\n");
 
@@ -5334,7 +5368,7 @@ static int itm_giwrate(struct net_device *	dev,
 	struct iw_param *args = &wrqu->bitrate;
 	int rate=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwrate fuc\n");
 
@@ -5395,7 +5429,7 @@ static int itm_siwrts(struct net_device *	dev,
 	UWORD16  trout_rsp_len = 0;
 	int val = wrqu->rts.value;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	PRINTK_ITMIW("itm_siwrts fuc \n");
 
@@ -5457,7 +5491,7 @@ static int itm_giwrts(struct net_device *	dev,
 	UWORD16  trout_rsp_len = 0;
 	UWORD16  rts=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwrts fuc\n");
 
@@ -5513,7 +5547,7 @@ static int itm_siwfrag(struct net_device *	dev,
 	UWORD16  trout_rsp_len = 0;
 	UWORD16  val = wrqu->frag.value;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	PRINTK_ITMIW("itm_siwfrag fuc\n");
 
@@ -5573,7 +5607,7 @@ static int itm_giwfrag(struct net_device *	dev,
 	UWORD16  trout_rsp_len = 0;
 	UWORD16  val = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwfrag fuc\n");
 
@@ -5620,7 +5654,7 @@ static int itm_giwretry(struct net_device *	dev,
 			   union iwreq_data * wrqu,  char * extra)
 {
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwretry fuc\n");
 	
@@ -5647,7 +5681,7 @@ static int itm_siwencode(struct net_device *	dev,
 	int len = 0;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwencode fuc\n");
 	
@@ -5888,7 +5922,7 @@ static int itm_giwencode(struct net_device *	dev,
 
 	struct iw_point * erq = &wrqu->encoding;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwencode fuc\n");
 
@@ -5979,7 +6013,7 @@ static int itm_siwpower(struct net_device *	dev,
 	//int tmp_val = 0;
 	struct iw_param *args = &wrqu->power;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_NO_ACCESS);
 
 	PRINTK_ITMIW("itm_siwpower fuc\n");
 	PRINTK_ITMIW("valu: %x\n",args->value);
@@ -6069,11 +6103,10 @@ static int itm_siwpower(struct net_device *	dev,
 	}
 	#endif
 
+	out0:
 	#endif/*IBSS_BSS_STATION_MODE*/
 	
-	out0:
 	return ret;
-	
 }
 
 /*------------------------------------------------------------------*/
@@ -6090,7 +6123,7 @@ static int itm_giwpower(struct net_device *	dev,
 	int power_period = 0;
 	struct iw_param *args = &wrqu->power;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	if( (power_type = itm_get_power_type()) < 0)
 	{
@@ -6122,7 +6155,7 @@ static int itm_siwgenie(struct net_device *	dev,
 			   union iwreq_data * wrqu,  char * extra)
 {
 #if 1
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwgenie fuc \n");
 
@@ -6181,7 +6214,7 @@ static int itm_giwgenie(struct net_device *	dev,
 	UWORD8 * trout_rsp = NULL;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwgenie fuc\n");
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
@@ -6235,7 +6268,7 @@ static int itm_siwauth(struct net_device *	dev,
     int auth_Type = 0;
 	struct iw_param *param = (struct iw_param*)&(wrqu->param);
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwauth fuc\n");
 
@@ -6650,7 +6683,7 @@ static int itm_siwencodeext(struct net_device *	dev,
     int keyid;
     int device_mode=0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_siwencodeext func \n");
 	
@@ -6703,7 +6736,6 @@ static int itm_siwencodeext(struct net_device *	dev,
             PRINTK_ITMIW("Delete key request was rejected with result %d\n", r);
             return r;
         }
-		//add zenghaiqi fix bug 816 11m->0m
 	/*junbin.wang modify for cr 240268. 20131126*/
 	itm_set_Encryption_Type((UWORD8)0);
         return 0;
@@ -6854,7 +6886,7 @@ static int itm_giwencodeext(struct net_device *	dev,
 	UWORD16  trout_rsp_len = 0;
 	*/
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_giwencodeext fuc\n");
 	
@@ -6875,7 +6907,7 @@ static int itm_siwpmksa(struct net_device *	dev,
 	struct iw_pmksa *pmksa = (struct iw_pmksa *)extra;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
     PRINTK_ITMIW("itm_siwpmksa fuc \n");
     PRINTK_ITMIW("SIWPMKSA: cmd %s, %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -7375,7 +7407,7 @@ iwprivsapstart(struct net_device *dev, struct iw_request_info *info,
 	union iwreq_data tmp_wrqu;
 	char data[]  = "START";
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_iwprivsapstart \n");
 	
@@ -7397,7 +7429,7 @@ iwprivsapstop(struct net_device *dev, struct iw_request_info *info,
 	union iwreq_data tmp_wrqu;
 	char data[] = "STOP";
 
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	PRINTK_ITMIW("itm_iwprivsapstop \n");
 	
@@ -7417,7 +7449,7 @@ static int
 iwprivsapfwreload(struct net_device *dev, struct iw_request_info *info,
                   union iwreq_data *wrqu, char *extra)
 {
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
     PRINTK_ITMIW("itm_iwprivsapfwreload \n");
     //return -ESRCH;
@@ -7431,7 +7463,7 @@ static int
 iwprivsstackstart(struct net_device *dev, struct iw_request_info *info,
         union iwreq_data *wrqu, char *extra)
 {
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
     PRINTK_ITMIW("itm_iwprivsstackstart \n");
     //return -ESRCH;
@@ -7445,7 +7477,7 @@ static int
 iwprivsstackstop(struct net_device *dev, struct iw_request_info *info,
         union iwreq_data *wrqu, char *extra)
 {
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
     PRINTK_ITMIW("itm_iwprivsstackstop \n");
     //return -ESRCH;
@@ -8033,7 +8065,7 @@ itm_gfordebug(struct net_device *dev, struct iw_request_info *info,
     }
     else if(read_write == PHY_READ_FLAG)
     {
-    	UWORD32 regret = 0;
+    	//UWORD32 regret = 0;
         for(i = 0; i < count; i++)
         {
             read_dot11_phy_reg(((UWORD8)addr + i),
@@ -8181,7 +8213,6 @@ itm_sfordebug(struct net_device *dev, struct iw_request_info *info,
 	return 0;
 #else
 	UWORD32           temp = 0;
-    WORD32            i     = 0;
     //mem_access_info_t mem_access_info;
 	mem_access_info_t * tmp_extra = (mem_access_info_t *)extra;
 
@@ -8252,7 +8283,7 @@ itm_sfordebug(struct net_device *dev, struct iw_request_info *info,
 	}
 	else if(tmp_extra->read_write == MAC_RF_WRITE_FLAG)
 	{
-		UWORD32 regret = 0;
+		//UWORD32 regret = 0;
 		#ifdef TROUT_WIFI_EVB
 		trout_ic_rf_reg_write( tmp_extra->addr,tmp_extra->data[0] );
 		//trout_ic_rf_reg_read((tmp_extra->addr),
@@ -9548,6 +9579,9 @@ int g_npi_scan_flag = 0;
 int g_npi_tx_pkt_count = 0;
 extern int copy_q_num;
 extern int transfer_q_num;
+extern UWORD32 high_q_count;
+extern UWORD32 normal_q_count;
+extern int npi_send_unit_count;
 
 int trout_npi_send_pkt_from_host(int pkt_len,int num, int q_num);
 void qmu_cpy_npi_descr(int q_num);
@@ -9557,6 +9591,13 @@ void tx_packet_test(void)
 	//int send_flag = 0;
 	copy_q_num = -1;
        transfer_q_num = -1;
+       npi_send_unit_count = 0;
+       high_q_count = 0;
+       normal_q_count = 0;
+
+#ifdef WAKE_LOW_POWER_POLICY
+                    g_low_power_flow_ctrl.tx_pkt_num = 0;
+#endif
 
        //yangke, 2013-10-16, for NPI tx_start use, only call once at the beginning of NPI tx_start function!!
 	if (g_tx_flag == 1 /*&& send_flag==0*/)
@@ -11362,7 +11403,8 @@ int itm_set_encryption(struct ieee_param *param, u32 param_len)
 {
 	int ret = 0;
 	//u32 wep_key_idx, wep_key_len,wep_total_len;
-	/*struct sta_info*/void *psta = NULL,*pbcmc_sta = NULL;	
+	/*struct sta_info*/void *psta = NULL;
+	//void *pbcmc_sta = NULL;	
 
 	ITMIW_FUNC_ENTER;
 

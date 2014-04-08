@@ -11,3 +11,5 @@ trout_sdio-objs += trout2_sdio.o
 trout_sdio-objs += bt_ram_code.o
 trout_sdio-objs += mxd_castor_sdk.o
 trout_sdio-objs += phy_rw.o
+trout_sdio-objs += ccache.o
+

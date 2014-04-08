@@ -190,7 +190,6 @@ void handle_scan_rsp(mac_struct_t *mac, UWORD8 *msg)
 	TROUT_FUNC_ENTER;
 	//chenq add 0730
 	itm_scan_flag = 0;
-
 #ifdef CONFIG_CFG80211
 	complete(&scan_completion);
 #endif
@@ -273,13 +272,6 @@ void handle_scan_rsp(mac_struct_t *mac, UWORD8 *msg)
 	    set_mac_state(WAIT_SCAN);
   	    #endif
 
-	    /*leon liu added refreshing powersave timer 2013-4-1*/
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	    TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
- 	    /*leon liu modified, sleep after 500ms*/
-	    pstimer_set_timeout(&pstimer, 500);
-	    pstimer_start(&pstimer);
-#endif
 	    //chenq add 2012-11-19 & mod 2013-10-10
 	    //send_mac_status(MAC_SCAN_CMP);
 	    is_send_scan_cmp = BTRUE;
@@ -323,7 +315,7 @@ void handle_scan_rsp(mac_struct_t *mac, UWORD8 *msg)
                 initiate_start(mac);
 
                 /* ITM_DEBUG */
-                TROUT_DBG3("Status: Scan Failed. Result-Code = %d. Starting IBSS N/w \n\r",
+                TROUT_DBG3("Status: Scan Failed. Result-Code = %d. Starting IBSS N/w \n",
                 scan_rsp->result_code);
             }
         }
@@ -377,6 +369,10 @@ OUT:
     //chenq add 2013-10-10
     if(is_send_scan_cmp == BTRUE)
     {
+    	/*leon liu added, start pstimer when not connected*/
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+	pstimer_start(&pstimer);
+#endif
         send_mac_status(MAC_SCAN_CMP);
     }
 	
@@ -560,12 +556,6 @@ void handle_auth_rsp(mac_struct_t *mac, UWORD8 *msg)
         TROUT_DBG4("Reinitiating Scan.\n\r");
     }
 
-	/*leon liu added refreshing powersave timer 2013-4-1*/
-	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
-	#endif
     TROUT_FUNC_EXIT;
 }
 
@@ -620,7 +610,7 @@ void handle_asoc_rsp(mac_struct_t *mac, UWORD8 *msg)
     else
     {
         /* ITM_DEBUG */
-        TROUT_DBG4("Status: Association Successful.\n\r");
+		TROUT_DBG4("Status: Association Successful.\n");
 		//config_amsdu_func(NULL, BTRUE);	//add by chengwg for sta mode.
 		config_802_11n_feature(NULL, BTRUE);	//sta mode.
 
@@ -628,21 +618,23 @@ void handle_asoc_rsp(mac_struct_t *mac, UWORD8 *msg)
 		TROUT_DBG4("after associated, init trout self-cts & ps null data!\n");
 		coex_null_data_init();	//add by chengwg for wifi&bt coex init.
 		host_notify_arm7_con_ap_mode();
-
 		#endif	/* IBSS_BSS_STATION_MODE */
 		
 		#ifdef TROUT_WIFI_NPI
 		printk("npi: coonnect ok\n");
 		g_connect_ok_flag = 1;
 		#endif
+#ifdef WAKE_LOW_POWER_POLICY
+		printk("%s: start flow detect timer!\n", __func__);
+		clear_history_flow_record();
+		restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
+#endif	/* WAKE_LOW_POWER_POLICY */
     }
 
-	/*leon liu added refreshing powersave timer 2013-4-1*/
 	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-    	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
-	pstimer_start(&pstimer);
+	/*leon liu added, stop pstimer*/
+	pstimer_stop(&pstimer);
 	#endif
-	TROUT_DBG4("Refreshing powersave timer in %s\n", __func__);
     TROUT_FUNC_EXIT;
 }
 
@@ -1413,11 +1405,11 @@ wait:
               }  
               if((UWORD32)null_frame_dscr == 0x1){  
                    cnt++;  
-                   printk("@@@: %s SUSPEND SEND NULL try %d times\n", cnt, __func__);  
+                   printk("@@@: %s SUSPEND SEND NULL try %d times\n", __func__, cnt);  
                    if(cnt < 5)  
                        goto retry;  
               }  
-              pr_info("%s null frame done null_frame_dscr = %08X\n", __func__, null_frame_dscr);  
+              pr_info("%s null frame done null_frame_dscr = %p\n", __func__, null_frame_dscr);  
          }else{  
               printk("@@@: %s SUSPEND no memory for NULL\n", __func__);  
               goto fail;  
@@ -1458,7 +1450,7 @@ wait:
                 if(cnt < 3)  
                    goto retry;  
             }  
-            printk("@@@: %s send null frame done null_frame_dscr = %08x!\n", __func__, null_frame_dscr);  
+            printk("@@@: %s send null frame done null_frame_dscr = %p!\n", __func__, null_frame_dscr);  
        }else{  
             printk("@@@: %s RESUME no memory for NULL or other reason\n", __func__);  
        }  
@@ -1468,18 +1460,45 @@ wait:
 
 void start_obss_scan(void)
 {
+    struct trout_private *tp = netdev_priv(g_mac_dev);
 
     TROUT_DBG4("start_obss_scan 1 \n");
 
-    if(start_obss_scan_prepare()) 
+	if(reset_mac_trylock() == 0)
+    {
+		TROUT_DBG4("%s: WiFi is under reseting, please try again!\n", __func__);
         return;
+    }
     
+#ifdef WAKE_LOW_POWER_POLICY
+	//avoid doing enter_low_power_mode() when start obss scan!
+	if(!mutex_trylock(&tp->ps_mutex))
+	{
+		reset_mac_unlock();
+		printk("get ps_mutex fail when obss scan start, skip!\n");
+		return 0;
+	}
+	stop_alarm(g_flow_detect_timer);
+	exit_low_power_mode(BFALSE);
 	
+#endif
+	if(start_obss_scan_prepare())
+	{
 
+#ifdef WAKE_LOW_POWER_POLICY		
+		mutex_unlock(&tp->ps_mutex);
+#endif	
+     reset_mac_unlock();
+		return;
+	}
     TROUT_DBG4("start_obss_scan 5 \n");
 
     /* Go for scanning */
     initiate_scan(&g_mac);
+#ifdef WAKE_LOW_POWER_POLICY
+    mutex_unlock(&tp->ps_mutex);
+#endif    
+	reset_mac_unlock();
     TROUT_FUNC_EXIT;
 }
 
@@ -1557,6 +1576,12 @@ void end_obss_scan(mac_struct_t *mac)
 	//chenq add 2012-12-29 when scan end,load qmu
 	trout_load_qmu();
 	
+#ifdef WAKE_LOW_POWER_POLICY
+	printk("after obss scan, restart low power timer again!\n");
+	clear_history_flow_record();
+	restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
+#endif
+	
     TROUT_FUNC_EXIT;
 }
 
@@ -1607,9 +1632,10 @@ void set_start_scan_req_sta(UWORD8 scan_source)
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-	    if(wake_lock_active(&scan_ap_lock))  
-                wake_unlock(&scan_ap_lock);  
-            printk("@@@: release scan_ap_lock\n");  
+	    if(!wake_lock_active(&scan_ap_lock)){
+	    	wake_lock(&scan_ap_lock);
+	        printk("@@@: acquire scan_ap_lock in %s\n", __func__);
+        }
 #endif
 #endif
 	    /* Connected State: Start the OBSS Scan */
@@ -1784,7 +1810,6 @@ void initiate_scan(mac_struct_t *mac)
 		kfree(scan_req);
 		return;
 	}
-		
 		
 	prepare_mlme_scan_req(scan_req);
 	mlme_scan_req(mac, (UWORD8*)scan_req);

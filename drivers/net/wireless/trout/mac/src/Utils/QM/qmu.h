@@ -40,6 +40,10 @@
 /*****************************************************************************/
 /* Constants                                                                 */
 /*****************************************************************************/
+#ifdef WAKE_LOW_POWER_POLICY
+#define LOW_POWER_TX_THRESHOLD			1
+#define LOW_POWER_TOTAL_PKT_THRESHOLD	4
+#endif
 
 #define RX_NEXT_ELEMENT_OFFSET          1
 #define TX_NEXT_ELEMENT_OFFSET          2
@@ -86,7 +90,6 @@ typedef struct
     UWORD16    tx_curr_qnum;  /* Number of buffers in all Tx Qs */
     UWORD16    tx_list_count; /* Number of buffers in all Tx Qs */
     struct mutex txq_lock;      //add by hugh
-    UWORD16  tx_pkt_count;		//test, add by chenwg.
 	UWORD32 tx_mem_start;	//add by chengwg for record trout tx share memory begin info.
 	UWORD32 tx_mem_size;	//add by chengwg.
 	UWORD32 tx_mem_end;		//add by chengwg.

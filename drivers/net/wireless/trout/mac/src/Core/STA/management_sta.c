@@ -302,7 +302,7 @@ void scan_channel(UWORD8 channel)
 	TROUT_FUNC_ENTER;
 	// get coex state to select scan policy.
 	MxdRfGetRfMode(&coex_reg);
-	CHECK_MAC_RESET_IN_IW_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 	if(reset_mac_trylock() == 0 ) return ;
 	
     tbl_idx = get_tbl_idx_from_ch_idx(freq, channel);
@@ -315,6 +315,8 @@ void scan_channel(UWORD8 channel)
 		reset_mac_unlock();
         	return;
     }
+
+	itm_scan_flag = 1;
     /*  Clear RX Power level for current channel   */
     g_channel_rssi[tbl_idx] = (WORD8)-100;
 

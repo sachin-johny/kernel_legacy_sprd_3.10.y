@@ -121,6 +121,51 @@ UWORD8 get_rx_rate(UWORD8 phy_rate)
 
 UWORD8 g_ap_last_rate = 0;
 #endif
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+
+#define HS_WAKE_INTERVAL      (2000)
+
+void hs_wake_timer_fn(UWORD32 data)
+{
+    if(wake_lock_active(&handshake_frame_lock))
+    {
+        pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, 
+            handshake_frame_lock.name);
+        wake_unlock(&handshake_frame_lock);
+    }
+    else
+        pr_info("%s-%d: Warning: try unlock wake_lock %s failed!\n", __func__, __LINE__, 
+            handshake_frame_lock.name);
+}
+
+static void start_hs_wake_timer(void)
+{
+    if(g_hs_wake_timer == 0)
+    {
+        g_hs_wake_timer = create_alarm(hs_wake_timer_fn, 0, NULL);
+    }
+
+    start_alarm(g_hs_wake_timer, HS_WAKE_INTERVAL);
+}
+
+static void stop_hs_wake_timer(void)
+{
+    stop_alarm(g_hs_wake_timer);
+}
+
+void del_hs_wake_timer(void)
+{
+    if(g_hs_wake_timer != 0)
+    {
+        stop_hs_wake_timer();
+        delete_alarm(&g_hs_wake_timer);
+        g_hs_wake_timer = 0;
+    }
+}
+
+#endif
+#endif
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : sta_enabled_rx_data                                      */
@@ -301,6 +346,13 @@ void sta_enabled_rx_data(mac_struct_t *mac, UWORD8 *msg)
     printk("npi: rx rate is: %u Mb/s\n", g_ap_last_rate);
 #endif
 
+#ifdef WAKE_LOW_POWER_POLICY
+#if 1
+	if(!wlan_rx->is_grp_addr)
+		g_low_power_flow_ctrl.rx_pkt_num += wlan_rx->num_dscr;
+#endif
+#endif
+
 // 20120709 caisf mod, merged ittiam mac v1.2 code
 #if 0
     if(NULL_FRAME == wlan_rx->sub_type)
@@ -368,6 +420,7 @@ void sta_enabled_rx_data(mac_struct_t *mac, UWORD8 *msg)
                 if(check_11i_frame(frame_desc->buffer_addr + frame_desc->data_offset) ||  
                    check_wapi_frame(frame_desc->buffer_addr + frame_desc->data_offset))  
                 {  
+#if 0
                     if(wake_lock_active(&handshake_frame_lock))  
                     {  
                          pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, handshake_frame_lock.name);  
@@ -376,6 +429,24 @@ void sta_enabled_rx_data(mac_struct_t *mac, UWORD8 *msg)
                  
                     wake_lock_timeout(&handshake_frame_lock,msecs_to_jiffies(2000)); /*Keep 2s awake when HK, by caisf 20131004*/  
                     pr_info("%s-%d: acquire wake_lock %s\n", __func__, __LINE__, handshake_frame_lock.name);  
+#else
+                    if(wake_lock_active(&handshake_frame_lock))
+                    {
+					    stop_hs_wake_timer();
+		                /*Keep 2s awake when HK, by caisf 20131004*/
+						start_hs_wake_timer();
+						pr_info("%s-%d: refresh timer wake_lock %s\n", __func__,
+					                            __LINE__, handshake_frame_lock.name);
+                    }
+                    else
+                    {
+						wake_lock(&handshake_frame_lock);
+                        /*Keep 2s awake when HK, by caisf 20131004*/
+                        start_hs_wake_timer();
+						pr_info("%s-%d: acquire wake_lock %s\n", __func__,
+                            __LINE__, handshake_frame_lock.name);
+                    }
+#endif
                 } 
 #endif  
             }

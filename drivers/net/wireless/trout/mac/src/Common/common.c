@@ -37,6 +37,7 @@
 #include "common.h"
 #include "mh.h"
 #include "csl_linux.h"
+#include "src/Common/trout_share_mem.h"
 
 #ifdef MAC_HW_UNIT_TEST_MODE
 #include "mh_test.h"
@@ -1059,8 +1060,53 @@ inline void notify_cp_with_handshake(uint msg, uint retry)
 		else if(msg == PS_MSG_WIFI_RESUME_MAGIC) 
 			g_done_wifi_suspend = 0;
 }
-EXPORT_SYMBOL(notify_cp_with_handshake);
 
+extern int prepare_null_frame_for_cp(UWORD8 psm, BOOL_T is_qos, UWORD8 priority);
+
+void check_and_retransmit(void)
+{
+	uint which_frame = 0;
+	uint sta = 0;
+	uint vs;
+	uint retry = 0;
+	unsigned char tmp[200];
+	uint *pw = (uint *)&tmp[0];
+
+
+        which_frame = root_host_read_trout_reg((UWORD32)rSYSREG_HOST2ARM_INFO1);
+	if(which_frame)
+		sta = BEACON_MEM_BEGIN;
+	else
+		sta = BEACON_MEM_BEGIN + 200;
+
+	root_host_read_trout_ram((void *)tmp,  (void *)sta, TX_DSCR_LEN); 
+	if(((tmp[3] >> 5) & 0x3)  == 0x3){
+		goto retx;
+	}
+	if((tmp[20] & 0x3) != 0x3){
+		printk("SF0-CASUED\n");
+		goto retx;
+	}
+
+	/* arrive here, means the last frame ARM7 sent was success(AP acked) do nothing*/
+	return;
+
+retx:
+	tmp[3] &= 0x9F;
+	tmp[3] |= 0x20;
+
+	tmp[20] &= 0xFC;
+	vs = root_host_read_trout_reg((UWORD32)rMAC_TSF_TIMER_LO);
+	vs = (vs >> 10) & 0xFFFF;
+	pw[3] &= 0xFFFF0000;
+	pw[3] |= vs;
+
+	printk("RE-TX\n");
+	root_host_write_trout_ram((void *)sta, (void *)tmp, TX_DSCR_LEN);
+	root_host_write_trout_reg((UWORD32)sta, (UWORD32)rMAC_EDCA_PRI_HP_Q_PTR);
+	msleep(20);
+	return;
+}
 /*for internal use only*/
 inline void root_notify_cp_with_handshake(uint msg, uint retry)
 {
@@ -1075,6 +1121,11 @@ inline void root_notify_cp_with_handshake(uint msg, uint retry)
         root_host_write_trout_reg((UWORD32)msg, (UWORD32)rSYSREG_HOST2ARM_INFO1);	/*load message*/
         root_host_write_trout_reg((UWORD32)0x1, (UWORD32)rSYSREG_GEN_ISR_2_ARM7);	/*interrupt CP*/
         /*pr_info("command done!\n");*/
+	if((msg & 0xFFFF) == PS_MSG_ARM7_EBEA_KC_MAGIC){
+		printk("EBEA.......\n");
+		msleep(75);
+		check_and_retransmit();	
+	}
 
         /*wait for CP*/
         while((root_host_read_trout_reg((UWORD32)rSYSREG_INFO1_FROM_ARM) != count) && i--) {

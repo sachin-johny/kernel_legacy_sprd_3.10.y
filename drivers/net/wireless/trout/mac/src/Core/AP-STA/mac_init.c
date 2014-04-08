@@ -56,6 +56,10 @@
 #ifdef CONFIG_CFG80211
 #include "trout_cfg80211.h"
 #endif
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#include "ps_timer.h"
+#endif
+
 
 #include <linux/kthread.h>
 
@@ -242,7 +246,9 @@ int initialize_macsw(mac_struct_t *mac)
 {
 	TROUT_FUNC_ENTER;
 	trout_share_ram_show();	//add by chengwg.
-
+#ifdef WAKE_LOW_POWER_POLICY
+	low_power_init();
+#endif
 #ifdef IBSS_BSS_STATION_MODE	
 	wifi_bt_coexist_init();	//add by chengwg for wifi&bt coexist.
 #endif	/* IBSS_BSS_STATION_MODE */
@@ -490,8 +496,6 @@ static int handle_beacon(void)
 	UWORD16 i           = 0;
 	unsigned int v;
 	int smart_type = MODE_START;
-	struct timespec time;
-	static unsigned int cnr = 0;    
 
 	v = convert_to_le(host_read_trout_reg((UWORD32)rMAC_PA_STAT));
 	while((v & 0x10) == 0 && !kthread_should_stop()){
@@ -531,7 +535,7 @@ static int handle_beacon(void)
 	}
 
     /* virtual bit map should be protected by zhao 6-21 2013 */
-	get_vbp_mutex(__builtin_return_address(0));
+	get_vbp_mutex((unsigned long)__builtin_return_address(0));
 	g_vbmap[DTIM_CNT_OFFSET] = dtim_count;
 	for(i = 0; i < g_vbmap[LENGTH_OFFSET] + 2; i++){
 		g_beacon_frame[g_beacon_index][g_tim_element_index + i + SPI_SDIO_WRITE_RAM_CMD_WIDTH] =
@@ -779,7 +783,7 @@ void clear_tx_barrier(void)
 void reset_mac__lock(void)
 {
 	struct trout_private *tp = netdev_priv(g_mac_dev);
-	if(tp == NULL) return 0;
+	if(tp == NULL) return;
 	down_read(&tp->rst_semaphore);
 	//printk("[libing]: reset_mac_trylock ret = %d,g_mac_reset_done = %d\n",ret,atomic_read(&g_mac_reset_done));
 	//print_symbol("[libing] reset_mac_trylock:%s\n", (unsigned long)__builtin_return_address(0));
@@ -805,19 +809,35 @@ void reset_mac_unlock(void)
 	struct trout_private *tp = netdev_priv(g_mac_dev);
 	if(tp == NULL) return;
 	up_read(&tp->rst_semaphore);
-	//print_symbol("[libing] reset_mac_unlock:%s\n", (unsigned long)__builtin_return_address(0));
+	//printk("[libing] reset_mac_unlock:\%pS rw_sem->activity = %d\n", (unsigned long)__builtin_return_address(0), tp->rst_semaphore.activity);
+}
+/* judge write semaphore is locked */
+int wsem_is_locked(void)	//chwg add.
+{
+	int ret = 1;
+	unsigned long flags;
+	struct trout_private *tp = netdev_priv(g_mac_dev);
+	struct rw_semaphore *sem = &(tp->rst_semaphore);
+
+	if(raw_spin_trylock_irqsave(&sem->wait_lock, flags)) 
+	{
+		ret = (sem->activity == -1);
+		raw_spin_unlock_irqrestore(&sem->wait_lock, flags);
+	}
+	return ret;
 }
 
+/*junbinwang addor wps 20130812*/
+extern void trout_set_wps_sec_type_flag(WORD32 flag);
 void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 {
 	TROUT_FUNC_ENTER;
 	struct trout_private *tp;
-	UWORD32 reg32 = 0;
-	
-	//Begin:add by wulei 2791 for bug 160423 on 2013-05-04
-	atomic_set(&g_mac_reset_done, (int)BFALSE);
-	//End:add by wulei 2791 for bug 160423 on 2013-05-04
 
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+	/*leon liu added, stop pstimer*/
+	pstimer_stop(&pstimer);
+#endif
 	/* handle race condiction between some reset_macs by zhao  */
 	tp = netdev_priv(g_mac_dev);
 	/* caisf add for Reduce unnecessary interrupts while reset mac, 2014-02-17*/
@@ -826,6 +846,10 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 	down_write(&tp->rst_semaphore);
 	printk("[reset_mac]: down_write <<<\n");
 
+	//Begin:add by wulei 2791 for bug 160423 on 2013-05-04
+	/*jiangtao.yi moved from the postion before down_write while debugging bug244758.*/
+	atomic_set(&g_mac_reset_done, (int)BFALSE);
+	//End:add by wulei 2791 for bug 160423 on 2013-05-04
 
 	wake_lock(&reset_mac_lock); /*Keep awake when resetting MAC, by keguang 20130609*/
 	pr_info("[%s]: acquire wake_lock %s\n", __func__, reset_mac_lock.name);
@@ -837,6 +861,9 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 #endif
 	/*leon liu added cfg80211 report scan abort*/	
 	
+       /*junbinwang modify for wps 20130812*/
+	trout_set_wps_sec_type_flag(0);
+	/*leon liu added cfg80211 report scan abort*/	
 #ifdef  CONFIG_CFG80211
 	trout_cfg80211_report_scan_done(g_mac_dev, 1);
 #endif
@@ -871,20 +898,22 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 	/*leon liu masked tx_compelte*/
 	printk("[reset_mac]\t3. skip tx_complete_isr_simulate!\n");
 	/*tx_complete_isr_simulate();*/
-	printk("[reset_mac]\t4. stop mac and phy!\n");
+
+    printk("[reset_mac]\t4. delete mac interrupt!\n");
+    /* Delete the MAC interrupts and alarms */
+    delete_mac_interrupts();
+
+    printk("[reset_mac]\t5. stop mac and phy!\n");
 	/* Stop MAC HW and PHY HW first before going for reset */
     	stop_mac_and_phy();
 
-	printk("[reset_mac]\t5. destroy mac txq & rxq!\n");
+	printk("[reset_mac]\t6. destroy mac txq & rxq!\n");
     	destroy_mac_qmu(&g_q_handle);
 
 #ifdef BSS_ACCESS_POINT_MODE
 	delete_beacon_thread();	//modify by chengwg.
 #endif
 
-    printk("[reset_mac]\t6. delete mac interrupt!\n");
-    /* Delete the MAC interrupts and alarms */
-    delete_mac_interrupts();
     printk("[reset_mac]\t7. delete mac alarm!\n");
     delete_mac_alarms();
     printk("[reset_mac]\t8. delete phy alarm!\n");
@@ -952,6 +981,10 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 	atomic_set(&g_mac_reset_done, (int)BTRUE);
 	/* handle race condiction between some reset_macs by zhao  */
 	up_write(&tp->rst_semaphore);
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+	/*leon liu added, start pstimer*/
+	pstimer_start(&pstimer);
+#endif
 	pr_info("[%s]\t: release wake_lock %s\n", __func__, reset_mac_lock.name);
 	TROUT_DBG4("[%s]\t: reset OK!\n", __func__);
     TROUT_FUNC_EXIT;
@@ -1087,7 +1120,9 @@ void restart_mac_plus(mac_struct_t *mac, UWORD32 delay)
 
 	//xuan yang, 2013-8-23, add wid mutex
 	tp = netdev_priv(g_mac_dev);
+	printk("[%s]\t mutex_lock (rst_wid_mutex) ==>>\n", __FUNCTION__);
 	mutex_lock(&tp->rst_wid_mutex);
+	printk("[%s]\t mutex_lock (rst_wid_mutex) ==<<\n", __FUNCTION__);
 	
 #ifdef DEBUG_MODE
 	printk("%s", __FUNCTION__);
@@ -1128,6 +1163,7 @@ void restart_mac_plus(mac_struct_t *mac, UWORD32 delay)
 	g_reset_mac_in_progress       = BFALSE;
 
 	mutex_unlock(&tp->rst_wid_mutex);
+	printk("[%s]\texit\n", __FUNCTION__);
 	TROUT_FUNC_EXIT;
 }
 
@@ -1156,8 +1192,9 @@ void start_mac_and_phy(mac_struct_t *mac)
 	TROUT_FUNC_ENTER;
 	
 	/* avoid race condiction between rest_mac and start_ma_and_phy  by zhao */
-       reset_mac_trylock();
         //mutex_lock(&tp->rst_mutex);
+     /*jiangtao.yi changed reset_mac_trylock() to reset_mac__lock() for bug244758.*/
+     reset_mac__lock();  
 
 #ifdef DEBUG_MODE	
 	printk("chenq_itm %s-%d: ", __FUNCTION__, __LINE__);    

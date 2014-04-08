@@ -1329,7 +1329,7 @@ void parse_config_message(mac_struct_t *mac, UWORD8* host_req,
     {
         UWORD8  *write_rsp = 0;
         UWORD8  *rsp_buff  = 0;
-		struct trout_private *tp;
+        //struct trout_private *tp;
 
         /* Check if any protocol disallows processing of this write request   */
         if(BFALSE == process_wid_write_prot((host_req + MSG_DATA_OFFSET),
@@ -3166,11 +3166,38 @@ WORD32 merge_ap_list (void)
 	//sprd_nstime_get(&time);
 	getnstimeofday(&time);
 	now = (UWORD32)time.tv_sec;
-//add zenghaiqi to fix bug 816 begin
-	/*junbinwang add for cr 238822. 20131128*/
-	g_merge_aplist_flag = 1;
-//add zenghaiqi to fix bug 816 end
 
+	//begin modified by junwei.jiang 20121231 
+        sbss_pre = NULL;
+	sbss=g_user_getscan_aplist;
+	while( sbss != NULL )
+	{	
+		if(sbss_pre == NULL)
+		{
+			tmp_32 = (UWORD32 *)sbss->bss_next;
+
+			kfree(sbss->bss_curr);
+			kfree(sbss);
+
+			sbss = (bss_link_dscr_t *)tmp_32;
+			g_user_getscan_aplist = (bss_link_dscr_t *)tmp_32;
+		}
+		else
+		{
+			sbss_pre->bss_next = sbss->bss_next;
+
+			kfree(sbss->bss_curr);
+			kfree(sbss);
+
+			sbss = sbss_pre->bss_next;
+		}
+			g_link_list_bss_count--;
+			TROUT_DBG5("first delete complete,g_link_list_bss_count = %d\n",g_link_list_bss_count);
+			continue;
+	}
+	//end modified by junwei.jiang 20121231 
+	
+	g_merge_aplist_flag = 1;
 	//add or update ap info
 	if( g_user_getscan_aplist == NULL )
 	{
@@ -3207,7 +3234,8 @@ WORD32 merge_ap_list (void)
 	{
 
 		TROUT_DBG5("scan ap index is  %d \n",i);
-
+        //begin modified by junwei.jiang 20121231
+        #if 0   
 		if (0x00 == memcmp(itm_iw_bss_dscr[i]->bssid,sbss->bss_curr->bssid, 6 ))
 		{
 			/*TROUT_DBG4("find bss %s => %s      %02x:%02x:%02x:%02x:%02x:%02x => %02x:%02x:%02x:%02x:%02x:%02x\n",
@@ -3240,6 +3268,9 @@ WORD32 merge_ap_list (void)
 			sbss_min_rssi = g_user_getscan_aplist;
 		}	
 		else if( sbss->bss_next  != NULL )
+		#else
+		//end modified by junwei.jiang 20121231
+		if( sbss->bss_next  != NULL )
 		{
 			if(sbss_min_rssi->bss_curr->rssi > sbss->bss_curr->rssi)
 			{
@@ -3333,6 +3364,7 @@ WORD32 merge_ap_list (void)
 			}
 		}
 	}
+	#endif
 	sbss=g_user_getscan_aplist;
 	sbss_pre = NULL;
 #ifdef COMBO_SCAN
@@ -3361,6 +3393,8 @@ WORD32 merge_ap_list (void)
 						sbss = sbss_pre->bss_next;
 					}
 					printk("g_combo_aplist detele with j %d ssid:%s\n",j,g_combo_aplist[j].ssid);
+					/*yiming.li modify for CR 247628. 20131130*/
+                                        g_link_list_bss_count--;
 					continue;
 				}
 				sbss_pre = sbss;		
@@ -3371,6 +3405,8 @@ WORD32 merge_ap_list (void)
 		printk("g_combo_aplist no find in merge ap list\n");
 	}
 #endif
+    //begin modified by junwei.jiang 20121231
+    #if 0
 	//delete ap info
 	sbss=g_user_getscan_aplist;
 	sbss_pre = NULL;
@@ -3413,11 +3449,10 @@ WORD32 merge_ap_list (void)
 		sbss			= sbss->bss_next;
 
 	}
-	//add zenghaiqi to fix bug 816 begin
-	/*junbinwang add for cr 238822. 20131128*/
-	g_merge_aplist_flag = 0;
-	//add zenghaiqi to fix bug 816 end
+	#endif
+	//end modified by junwei.jiang 20121231
 
+	g_merge_aplist_flag = 0;
 	TROUT_DBG5("merge is complete\n");
 
 ////////////////////////////////////////////////////////////////////////////////////////////
@@ -4161,9 +4196,9 @@ UWORD8 * parse_config_message_for_iw(mac_struct_t *mac, UWORD8* host_req,
     UWORD16 msg_len   = 0;
     BOOL_T  free_flag = BTRUE;
     UWORD8  offset    = get_config_pkt_hdr_len(host_if_type);
-	struct trout_private *tp;
+	//struct trout_private *tp;
 
-	//CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL;	//add by chengwg, 2013.7.9
+     //CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL(LPM_NO_ACCESS);	//add by chengwg, 2013.7.9
     /* Extract the Type, Length and ID of the incoming host message. The     */
     /* format of the message is:                                             */
     /* +-------------------------------------------------------------------+ */

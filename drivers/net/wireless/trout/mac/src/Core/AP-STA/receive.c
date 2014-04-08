@@ -553,8 +553,10 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
 #ifdef DEBUG_MODE
 		{
 	        UWORD8 *addr1 = wlan_rx.addr1;
-	        PRINTD2("HwEr:RxUnexpFrm:%x:%x:%x:%x:%x:%x\n\r",addr1[0],addr1[1],addr1[2],
+#ifndef TROUT_WIFI_NPI
+	        TROUT_DBG4("HwEr:RxUnexpFrm:%x:%x:%x:%x:%x:%x\n",addr1[0],addr1[1],addr1[2],
 	        									addr1[3],addr1[4],addr1[5]);
+#endif
 	        g_mac_stats.rxunexpfrm++;
 		}
 #endif /* DEBUG_MODE */
@@ -568,6 +570,7 @@ void process_rx_frame(mac_struct_t *mac, UWORD32 *base_dscr, UWORD8 num_dscr)
     {
 #ifdef DEBUG_MODE
         g_mac_stats.pewrxft++;
+        TROUT_DBG4("HwEr:Packet is filtered\n");
 #endif /* DEBUG_MODE */
 		TROUT_FUNC_EXIT;
         return;

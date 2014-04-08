@@ -13,20 +13,21 @@
 #include <linux/cpu.h>
 
 
-static struct proc_dir_entry *proc_trout_dir;
+//static struct proc_dir_entry *proc_trout_dir;
 static struct proc_dir_entry * runmode_node;
 static int run_mode = SMP_MODE;
 static int lock=0;
 
+static DECLARE_RWSEM(runmode_lock);
 
 #define TAG "[runmode]"
 
 static void mode_deal(int mode)
 {
 	 if(mode == SMP_MODE){
-        	while(!cpu_up(1));
+        	//while(!cpu_up(1));
 	 }else if(mode==SINGLE_CPU_MODE){
-	 	while(!cpu_down(1));
+	 	//while(!cpu_down(1));
 	 }
 }
 /*
@@ -64,9 +65,12 @@ static int runmode_node_write(struct file *file, const char *buf,
 
 	mode = atoi(temp_buf);
 
+
 	if(mode > MODE_START && mode < MODE_END && run_mode!=mode){
 		//mode_deal(mode);
+		down_write(&runmode_lock);
 		run_mode = mode;
+		up_write(&runmode_lock);
 	}else{
 		printk(TAG "%s:wrong param mode =%d\n",__FUNCTION__,mode);
 		return -EFAULT;
@@ -93,19 +97,19 @@ int  trout_get_runmode(void)
 
 void trout_runmode_lock(void)
 {
-	while(lock != 0) ;
-	lock++;
+	down_read(&runmode_lock);
 }
 
 void trout_runmode_unlock(void)
 {
-	lock--;
+	up_read(&runmode_lock);
 }
 
 int  __init trout_runmode_init(void)
 {
 	int ret=0;
 	printk(TAG " trout_runmode_init\n");
+	init_rwsem(&runmode_lock);
 	/*proc_trout_dir = proc_mkdir(TROUT_RUNMODE_DIR, NULL);
 	if (proc_trout_dir == NULL){
 		 ret = -EACCES;
@@ -131,7 +135,7 @@ int  __init trout_runmode_init(void)
 
 err_conf:
 	//remove_proc_entry(TROUT_RUNMODE_DIR,NULL);
-err_dir:
+//err_dir:
 	return ret;
 }
 

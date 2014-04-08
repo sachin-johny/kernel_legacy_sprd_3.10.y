@@ -1549,11 +1549,11 @@ INLINE void free_amsdu_handle(void *amsdu_ctxt)
 #endif /* MAC_802_11N */
 }
 /* This function adds the AMSDU frame to the transmission queue */
-INLINE BOOL_T qmu_add_tx_amsdu(void *amsdu_ctxt)
+INLINE BOOL_T qmu_add_tx_amsdu(void *amsdu_ctxt,int send)
 {
     BOOL_T retval = BFALSE;
 #ifdef MAC_802_11N
-    retval = amsdu_tx(amsdu_ctxt);
+    retval = amsdu_tx(amsdu_ctxt,send);
 #endif /* MAC_802_11N */
 
     return retval;
@@ -1636,17 +1636,17 @@ INLINE void set_submsdu_info(UWORD8 *tx_dscr, buffer_desc_t *buff_list,
 /* This function calls the correct Tx interface depending upon whether */
 /* AMSDU is enabled or not.                                            */
 INLINE BOOL_T tx_data_packet(UWORD8 *entry, UWORD8 *da, UWORD8 priority,
-                             UWORD8 q_num, UWORD8 *tx_dscr, void *amsdu_ctxt)
+                             UWORD8 q_num, UWORD8 *tx_dscr, void *amsdu_ctxt,int send)
 {
 #ifdef MAC_802_11N
     if(NULL != amsdu_ctxt)
     {
     	TX_PATH_DBG("%s: qmu add tx pkt\n", __func__);
-        return qmu_add_tx_amsdu(amsdu_ctxt);
+        return qmu_add_tx_amsdu(amsdu_ctxt,send);
     }
 #endif /* MAC_802_11N */
 	TX_PATH_DBG("%s: tx msdu frame\n", __func__);
-    return tx_msdu_frame(entry, da, priority, q_num, tx_dscr);
+    return tx_msdu_frame(entry, da, priority, q_num, tx_dscr,send);
 }
 
 
@@ -1757,6 +1757,15 @@ INLINE void reset_tx_ba_state_prot(void *entry, UWORD8 tid)
 /* reset.                                                               */
 INLINE void delete_mac_prot(void)
 {
+#ifdef WAKE_LOW_POWER_POLICY
+	delete_alarm_self(&g_flow_detect_timer);
+	if(g_wifi_power_mode == WIFI_LOW_POWER_MODE)	//chwg debug, 2013.12.4
+	{
+		printk("%s: before reset, exit low power mode!\n", __func__);
+		exit_low_power_mode(BFALSE);
+	}
+#endif
+	
 #ifdef MAC_802_11N
     if(get_ht_enable() == 1)
     {

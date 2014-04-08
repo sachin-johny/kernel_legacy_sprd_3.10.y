@@ -75,6 +75,135 @@ extern rate_table_t rate_table[28];
 
 static int cur_cipher;
 
+/*junbinwang add wps 20130812*/
+#define WPS_IE_BUFF_LEN (255 + 2) //body length + length of len field + length of elemID field
+/* WPS fields */
+#define WPS_IE_ID 221
+#define WPS_IE_OUI_BYTE0 0x00
+#define WPS_IE_OUI_BYTE1 0x50
+#define WPS_IE_OUI_BYTE2 0xF2
+#define WPS_IE_OUI_TYPE 0x04
+typedef struct
+{
+        WORD32 needwps;
+        WORD32 needWPSlen;
+        UWORD8 wpsIe[WPS_IE_BUFF_LEN];
+}TROUT_WPS_INFO;
+
+static WORD32 wps_sec_type_flag;
+static TROUT_WPS_INFO probe_req_wps_ie;
+static TROUT_WPS_INFO asoc_req_wps_ie;
+
+WORD32 trout_is_probe_req_wps_ie(void)
+{
+        return probe_req_wps_ie.needwps;
+}
+
+void trout_set_probe_req_wps_ie(WORD32 flag)
+{
+       probe_req_wps_ie.needwps = flag;
+       return;
+}
+
+void trout_save_probe_req_wps_ie(UWORD8* wpsie, WORD32 len)
+{
+       if(NULL == wpsie || len == 0)
+                return;
+       probe_req_wps_ie.needWPSlen = len;
+       memset(probe_req_wps_ie.wpsIe, 0x00, WPS_IE_BUFF_LEN);
+       memcpy(probe_req_wps_ie.wpsIe, wpsie, len);
+       return;
+}
+
+void trout_clear_probe_req_wps_ie(void)
+{
+      memset(&probe_req_wps_ie, 0x00, sizeof(TROUT_WPS_INFO));
+}
+
+UWORD8 * trout_get_probe_req_wps_ie_addr(void)
+{
+      return probe_req_wps_ie.wpsIe;
+}
+
+WORD32 trout_get_probe_req_wps_ie_len(void)
+{
+       return probe_req_wps_ie.needWPSlen;
+}
+
+int trout_is_asoc_req_wps_ie(void)
+{
+      return asoc_req_wps_ie.needwps;
+}
+void trout_set_asoc_req_wps_ie(WORD32 flag)
+{
+      asoc_req_wps_ie.needwps = flag;
+      return;
+}
+
+void trout_save_asoc_req_wps_ie(UWORD8* wpsie, WORD32 len)
+{
+       if(NULL == wpsie || len == 0)
+              return;
+
+      asoc_req_wps_ie.needWPSlen = len;
+      memset(asoc_req_wps_ie.wpsIe, 0x00, WPS_IE_BUFF_LEN);
+      memcpy(asoc_req_wps_ie.wpsIe, wpsie, len);
+      return;
+}
+
+UWORD8 * trout_get_asoc_req_wps_ie_addr(void)
+{
+      return asoc_req_wps_ie.wpsIe;
+}
+
+WORD32 trout_get_asoc_req_wps_ie_len(void)
+{
+      return asoc_req_wps_ie.needWPSlen;
+}
+
+void trout_clear_asoc_req_wps_ie(void)
+{
+      memset(&asoc_req_wps_ie, 0x00, sizeof(TROUT_WPS_INFO));
+}
+
+WORD32 trout_is_wps_sec_type_flag(void)
+{
+       return wps_sec_type_flag;
+}
+
+void trout_set_wps_sec_type_flag(WORD32 flag)
+{
+      wps_sec_type_flag = flag;
+      return;
+}
+
+BOOL_T trout_find_wps_ie(UWORD8 * ie, size_t ie_len, UWORD8 * wps_ie, UWORD16 * wps_ie_len)
+{
+       UWORD16 index = 0;
+       if (NULL == ie || ie_len <=0 || NULL == wps_ie || NULL == wps_ie_len)
+       {
+               return BFALSE;
+       }
+
+       while (index < ie_len)
+       {
+             if (WPS_IE_ID == ie[index])
+             {
+                   *wps_ie_len = ie[index + 1];
+                    //ie_len >= wps_ie_len: at least one IE.
+                    if (ie_len >= *wps_ie_len && WPS_IE_OUI_BYTE0 == ie[index + 2]
+                          && WPS_IE_OUI_BYTE1 == ie[index + 3] && WPS_IE_OUI_BYTE2 == ie[index + 4]
+                          && WPS_IE_OUI_TYPE == ie[index + 5])
+                    {
+                              memcpy(wps_ie, ie + index, *wps_ie_len + 2);
+                              return BTRUE;
+                    }
+             }
+             index++;
+       }
+       return BFALSE;
+}
+
 static int itm_get_rssi(int * rssi)
 {
 	int ret = 0;
@@ -84,7 +213,7 @@ static int itm_get_rssi(int * rssi)
 	WORD8  rssi_db = 0;
 	int signal = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 #ifdef IBSS_BSS_STATION_MODE
 	if( ( get_mac_state() != ENABLED ) && (g_keep_connection == BFALSE) )
@@ -141,7 +270,7 @@ static int itm_get_rate(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8 rate=0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -187,7 +316,7 @@ static int itm_set_channel(int channel)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -225,7 +354,7 @@ static int itm_remove_wep_key(void)
 	UWORD16  trout_rsp_len = 0;
 	int len=0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -350,7 +479,7 @@ static int itm_get_device_mode(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    mode = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -395,7 +524,7 @@ static int itm_get_Encryption_Type(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    encryp_type = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -439,7 +568,7 @@ static int itm_get_Auth_Type(void)
 	UWORD16  trout_rsp_len = 0;
 	UWORD8    auth_type = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -482,7 +611,7 @@ static int itm_set_Encryption_Type(UWORD8 type)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -525,7 +654,7 @@ static int itm_set_Auth_Type(UWORD8 type)
 	UWORD16  trout_rsp_len = 0;
 	int len = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -766,7 +895,7 @@ static int itm_set_psk(struct cfg80211_connect_params *sme)
 {
 	int device_mode;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	if ((device_mode = itm_get_device_mode()) < 0)
 	{
@@ -819,7 +948,7 @@ static int itm_set_essid(UWORD8 * essid,int essid_len)
 	int len = 0;
 	static UWORD8 ap_name[MAX_SSID_LEN] = {0};
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -941,7 +1070,7 @@ static int itm_set_bssid(UWORD8 * addr)
 	UWORD8 * host_req  = NULL;
 	UWORD16  trout_rsp_len = 0;
 
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;//(UWORD8*)kmalloc(ITM_CONFIG_BUF_SIZE, GFP_KERNEL);
 
@@ -1426,9 +1555,11 @@ static int trout_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev, stru
 	int scan_type = 1; //Active scanning
 	UWORD8 cur_essid[IW_ESSID_MAX_SIZE+1] = {0};
 	int cur_essid_len = 0;
+       UWORD8 wps_ie[WPS_IE_BUFF_LEN] = {0};
+       UWORD16 wps_ie_len = 0;
 
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	wdev_priv = wiphy_priv(wiphy);
 	stp = wdev_priv->trout_priv;
@@ -1437,6 +1568,23 @@ static int trout_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev, stru
 	wdev_priv->scan_request = request;
 	spin_unlock_bh(&wdev_priv->scan_req_lock);
 
+#if 0
+        /*junbinwang modify for wps 20130812*/
+        if(request->ie_len > 0){
+                trout_set_probe_req_wps_ie(1);
+                trout_save_probe_req_wps_ie(request->ie, request->ie_len);
+                printk("[wjb]trout_cfg80211_scan setting ok\n");
+        }
+#else
+        trout_clear_probe_req_wps_ie(); //clean extra ie
+        trout_set_wps_sec_type_flag(0);
+        //for p2p in the future, so use trout_find_wps_ie
+        if (BTRUE == trout_find_wps_ie(request->ie, request->ie_len, wps_ie, &wps_ie_len))
+        {
+                trout_save_probe_req_wps_ie(request->ie, request->ie_len);
+                trout_set_probe_req_wps_ie(1);
+        }
+#endif
 
 	/*leon liu modified get_mac_state() >= WAIT_JOIN*/
 	if (get_mac_state() == ENABLED || g_keep_connection == BTRUE)
@@ -1492,6 +1640,16 @@ CHECK_SCAN:
 		return 0;
 	}
 
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+       //Bug#229353
+        if(!wake_lock_active(&scan_ap_lock)){
+    	        wake_lock(&scan_ap_lock);
+    	 	printk("@@@: acquire scan_ap_lock in %s\n", __func__);
+        }
+#endif
+#endif
+
 	/*leon liu added for combo scan support*/
 #ifdef COMBO_SCAN
 	{
@@ -1525,7 +1683,8 @@ CHECK_SCAN:
 					if(strcmp(request->ssids[i].ssid,g_combo_aplist[j].ssid) == 0)
 					{
 						g_combo_aplist[j].cur_flag = 1;
-						g_combo_aplist[j].cnt = 2;
+						g_combo_aplist[j].cnt = 10;
+						g_combo_aplist[j].ssid_len = request->ssids[i].ssid_len;						
 						flag = 1;
 						printk("g_combo_aplist with j %d last ssid:%s\n",j,g_combo_aplist[j].ssid);
 						break;
@@ -1541,7 +1700,8 @@ CHECK_SCAN:
 					if((0 == g_combo_aplist[j].cur_flag) && (0 == g_combo_aplist[j].cnt))
 					{
 						g_combo_aplist[j].cur_flag = 1;
-						g_combo_aplist[j].cnt = 2;
+						g_combo_aplist[j].cnt = 10;
+						g_combo_aplist[j].ssid_len = request->ssids[i].ssid_len;
 						memcpy(g_combo_aplist[j].ssid, request->ssids[i].ssid, request->ssids[i].ssid_len);
 						g_combo_aplist[j].ssid[request->ssids[i].ssid_len] = 0;
 						printk("g_combo_aplist with j %d ssid:%s\n",j,g_combo_aplist[j].ssid);
@@ -1595,13 +1755,6 @@ CHECK_SCAN:
 	host_req[len+3] = 0;//( (g_mac.state == ENABLED) || (g_keep_connection == BTRUE) ) ? 0 : 2; //DONT_RESET
 	len += WID_CHAR_CFG_LEN;
 
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-	wake_lock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
-	pr_info("%s-%d: acquire wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
-#endif
-#endif
-
 	config_if_for_iw(&g_mac,host_req,len,'W',&trout_rsp_len);
 
 	if( trout_rsp_len != 1 )
@@ -1627,6 +1780,16 @@ out1:
 			is_scanlist_report2ui = 2;
 			send_mac_status(MAC_SCAN_CMP);
 			ret = 0; //-EBUSY;
+			
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+                     //Bug#229353
+                	if(wake_lock_active(&scan_ap_lock)){
+                		wake_unlock(&scan_ap_lock);
+                	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out1\n", __func__);
+                	}
+#endif
+#endif
 		}
 	}
 	else
@@ -1635,14 +1798,18 @@ out1:
 		is_scanlist_report2ui = 2;
 		send_mac_status(MAC_SCAN_CMP);
 		ret = 0;//-EINVAL;
-	}
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-	wake_unlock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
-	pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
+              //Bug#229353
+        	if(wake_lock_active(&scan_ap_lock)){
+        		wake_unlock(&scan_ap_lock);
+        	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out2\n", __func__);
+        	}
 #endif
 #endif
+	}
 
+       printk("%s end code:%d\n", __func__, ret);
 	return ret;
 #else
 	TRACE_FUNC();
@@ -1659,11 +1826,39 @@ static int trout_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	int encry_type = 0;
 	int auth_type = 0;
 
+	//begin by modified junwei.jiang bug232001 2013-12-16
+	struct trout_wdev_priv *wdev_priv;
+	struct trout_private *t_private;
+	
+	if(0 == strlen(sme->ssid) || (NULL == sme->bssid) ||(NULL == sme->ssid)){
+		printk("trout_cfg80211_connect ssid is null\n");
+		ret = -EINVAL;
+	}
+	else
+	{
+		wdev_priv = wiphy_priv(wiphy);
+		t_private = wdev_priv->trout_priv;
+		memset(t_private->ssid,0x00,sizeof(t_private->ssid));
+		memcpy(t_private->ssid, sme->ssid, sme->ssid_len);
+		printk("trout_cfg80211_connect with ssid:%s\n",t_private->ssid);
+
+		memcpy(t_private->bssid, sme->bssid, ETH_ALEN);
+		printk("trout_cfg80211_connect with bssid:%02x:%02x:%02x:%02x:%02x:%02x\n",
+			t_private->bssid[0],t_private->bssid[1],t_private->bssid[2],t_private->bssid[3],t_private->bssid[4],t_private->bssid[5]);
+		t_private->ssid_len = sme->ssid_len;
+	}
+	//end by modified junwei.jiang bug232001 2013-12-16
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
+
+#ifdef IBSS_BSS_STATION_MODE
+        //yangke, 2013-10-16, set to default value when request connect
+        g_default_scan_limit = 0;
+#endif
 
 	//TODO: get mac state and decide whether we should go on
-	/*add zenghaiqi fix bug 816 junbin.wang modify 20131126.*/
+
+	/*junbin.wang modify 20131126.*/
 /*	if ((encry_type = itm_get_Encryption_Type()) < 0)
 	{
 		return -EINVAL;
@@ -1672,8 +1867,17 @@ static int trout_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	if ((auth_type = itm_get_Auth_Type()) < 0)
 	{
 		return -EINVAL;
+	}*/
+
+        /*junbinwang modify for wps 20130812*/
+        trout_clear_asoc_req_wps_ie(); //clean extra ie
+        trout_set_wps_sec_type_flag(0);
+        if(sme->ie_len > 0){
+                trout_set_asoc_req_wps_ie(1);
+                trout_save_asoc_req_wps_ie(sme->ie, sme->ie_len);
+                printk("[wjb]trout_cfg80211_connect wps ok\n");
 	}
-*/
+
 	//FIXME:Set appending ie,currently not supported
 	//Set WPA version
 	ret = itm_set_wpa_version(&encry_type, sme->crypto.wpa_versions);
@@ -1850,7 +2054,44 @@ int trout_cfg80211_disconnect(struct wiphy *wiphy, struct net_device *dev,
 {
 	int timeout_left = 0;
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
+	//begin by modified junwei.jiang bug232001 2013-12-16
+	struct cfg80211_bss *bss = NULL;
+	bool flag = false;
+	struct trout_wdev_priv *wdev_priv;
+	struct trout_private *t_private;
+	UWORD8 j;
+
+	wdev_priv = wiphy_priv(wiphy);
+	t_private = wdev_priv->trout_priv;
+
+#ifdef COMBO_SCAN
+	for(j=0;j<MAX_AP_COMBO_SCAN_LIST;j++)
+	{
+		if(1 == g_combo_aplist[j].cur_flag)
+		{
+			if((strcmp(g_combo_aplist[j].ssid,t_private->ssid) == 0) && (g_combo_aplist[j].ssid_len == t_private->ssid_len))
+			{
+				g_combo_aplist[j].cur_flag = 0;
+				printk("trout_cfg80211_disconnect set g_combo_aplist[%d].cur_flag = 0\n",j);
+				do {
+						bss = cfg80211_get_bss(t_private->wdev->wiphy, NULL,  t_private->bssid, t_private->ssid,
+						t_private->ssid_len,  WLAN_CAPABILITY_ESS,  WLAN_CAPABILITY_ESS);
+						if (bss) {
+									cfg80211_unlink_bss(t_private->wdev->wiphy, bss);
+									flag = true;
+									printk("trout_cfg80211_disconnect detele with ssid:%s\n",t_private->ssid);
+									printk("trout_cfg80211_disconnect detele with bssid:%02x:%02x:%02x:%02x:%02x:%02x\n",
+									t_private->bssid[0],t_private->bssid[1],t_private->bssid[2],t_private->bssid[3],t_private->bssid[4],t_private->bssid[5]);
+						} else {
+									flag = false;
+								}
+				} while (flag);
+			}
+		}
+	}
+#endif
+	//end by modified junwei.jiang bug232001 2013-12-16
 
 #ifdef IBSS_BSS_STATION_MODE
 	//During scanning
@@ -1889,7 +2130,7 @@ static int trout_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 	int val = 0;
 
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	wdev_priv = wiphy_priv(wiphy);
 	stp = wdev_priv->trout_priv;
@@ -2064,18 +2305,14 @@ static int trout_cfg80211_get_station(struct wiphy *wiphy, struct net_device *de
 	sinfo->signal = signal;
 
 	/*Get TX RATE*/
-//modify zenghaiqi to fix bug 816 begin
-//	if ((rate = itm_get_rate()) < 0)
+	/*junbin.wang modify 20131128, if rate < 0, will report default value.*/
 	rate = itm_get_rate();
 	printk("trout_cfg80211_get_station rate = 0x%x\n", rate);
 	if (rate  < 0)
 	{
 		TROUT_DBG5("itm_get_rate() failed\n");
-		/*junbin.wang modify 20131128, if rate < 0, will report default value.*/
 		sinfo->txrate.mcs = 0x02;
 		sinfo->txrate.legacy = 5 * 10;
-
-//modify zenghaiqi to fix bug 816 end
 		return 0;
 	}
 	sinfo->filled |= STATION_INFO_TX_BITRATE;
@@ -2120,7 +2357,7 @@ static int trout_cfg80211_set_pmksa(struct wiphy *wiphy, struct net_device *dev,
 	int len = 0;
 
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	host_req = g_itm_config_buf;
 
@@ -2193,7 +2430,7 @@ static int trout_cfg80211_add_key(struct wiphy *wiphy, struct net_device *dev, u
 	int device_mode = 0;
 
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	if ((device_mode = itm_get_device_mode()) < 0)
 	{
@@ -2231,7 +2468,7 @@ static int trout_cfg80211_del_key(struct wiphy *wiphy, struct net_device *dev, u
 	int device_mode = 0;
 
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	if ((device_mode = itm_get_device_mode()) < 0)
 	{
@@ -2293,7 +2530,7 @@ static int trout_cfg80211_set_default_key(struct wiphy *wiphy, struct net_device
 	//UWORD16 trout_rsp_len = 0;
 
 	TRACE_FUNC();
-	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 	if (cur_cipher != WLAN_CIPHER_SUITE_WEP40 && cur_cipher != WLAN_CIPHER_SUITE_WEP104)
 	{
@@ -2519,7 +2756,7 @@ static void dump_ie(u8 *ie, int ie_len)
 	printk("\n");
 }
 #endif
-#define IEEE80211_SCAN_RESULT_EXPIRE (3 * HZ)
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : trout_cfg80211_report_connect_result                     */
@@ -2611,6 +2848,7 @@ static const char *android_wifi_cmd_str[ANDROID_WIFI_CMD_MAX] = {
 	//yangke, 2013-10-07, add for TPC power control
 	"SET_MAX_POWER",
 	"UNSET_MAX_POWER",	
+	"DHCP_STATUS", 
 };
 
 static int trout_android_cmdstr_to_num(char *cmdstr)
@@ -2689,6 +2927,28 @@ int trout_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 		goto exit;
 	}
 
+	/*junbinwang add for set dhcp or dhcp renew to driver. 20131223*/
+	if(0 == strncmp(command , android_wifi_cmd_str[ANDROID_WIFI_CMD_DHCP_STATUS], 
+			strlen(android_wifi_cmd_str[ANDROID_WIFI_CMD_DHCP_STATUS])) )
+	{
+		if(0 == strncmp(command , "DHCP_STATUS 1",  strlen("DHCP_STATUS 1")))
+		{
+			printk("[wjb] set dhcp status 1\n");
+			itm_set_dhcp_status(1);
+		}
+		else
+		{
+			printk("[wjb] set dhcp status 0\n");
+			itm_set_dhcp_status(0);
+		}
+
+		printk("[wjb]get dhcp status %d\n", itm_get_dhcp_status());
+		sprintf(command, "OK");
+		if (copy_to_user(priv_cmd.buf, command, min(priv_cmd.total_len, (u16)(strlen(command)+1)) ) )
+			return -EFAULT;
+		return 0;
+	}
+	
 	cmd_num = trout_android_cmdstr_to_num(command);
 
 	printk("%s, Android private command: %s(%d)\n", __func__, command, cmd_num);
@@ -2726,15 +2986,11 @@ int trout_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req)
 #ifdef WIFI_SLEEP_POLICY
 			pr_info("======== STOP ========\n");
 			//xuanyang 2013.4.24 supplicant timeout handle
-			CHECK_MAC_RESET_IN_IW_HANDLER;
+			CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
 
 			/* we need stop netif and wait for all packets transmitted by zhao */
-			if(dev && !netif_queue_stopped(dev)){
-				printk("[%s][%d] netif_stop_queue\n" ,__FUNCTION__, __LINE__);
-
+			if(dev && !netif_queue_stopped(dev))
 				netif_stop_queue(dev);
-
-			}
 			//Comment by zhao.zhang
 			//wait_for_tx_finsh();
 			restart_mac_plus(&g_mac, 0);
@@ -2980,6 +3236,9 @@ static int new_report_scan_results_fn(struct wiphy *wiphy)
 	struct ieee80211_channel *chan = NULL;
 	bss_link_dscr_t* bss = NULL;
 		
+	/*junbin wang add for CR238822. 20131204*/
+	CHECK_MAC_RESET_IN_IW_HANDLER(LPM_ACCESS);
+
 	if(NULL == wiphy){
 		TROUT_DBG4("new_report_scan_results_fn: wiphy is null\n");
 		return -1;
@@ -3049,7 +3308,7 @@ static int new_report_scan_results_fn(struct wiphy *wiphy)
 	    bss=bss->bss_next;
 	}
 
-	PRINTK_ITMIW("itm_giwscan fuc report to UI %d ap info\n",i);
+	TROUT_DBG4("itm_giwscan fuc report to UI %d ap info\n",i);
 	return ret;
 	#else
 	printk("ap mode\n");
@@ -3147,6 +3406,46 @@ report_to_upper_layer:
 #endif
 }
 
+/*****************************************************************************/
+/*                                                                           */
+/*  Function Name : trout_cfg80211_del_prev_bss                          */
+/*                                                                           */
+/*  Description   : This function deletes previous connected bss from wpa_supplicant */
+/*                                                                           */
+/*  Inputs        : dev - pointer to struct net_device                       */
+
+/*  Globals       : None                                                     */
+/*  Returns       : 0 on success, error code if failed                       */
+/*  Issues        : Debugging                                                */
+/*                                                                           */
+/*****************************************************************************/
+// Add by Yiming.Li at 2014-01-07 for fix bug: reconnect
+int trout_cfg80211_del_prev_bss(struct net_device *dev)
+{
+   struct cfg80211_bss *bss = NULL;
+   struct trout_private *t_private;
+	
+    if (dev == NULL)
+    {
+	  return -EINVAL;
+    }
+
+    t_private = netdev_priv(dev);
+    bss = cfg80211_get_bss(t_private->wdev->wiphy, NULL,  t_private->bssid, t_private->ssid,  
+				t_private->ssid_len,  WLAN_CAPABILITY_ESS,  WLAN_CAPABILITY_ESS);
+
+    if (bss) {
+   	    printk("%s delete BSSID-- %02x:%02x:%02x:%02x:%02x:%02x\n", __func__,
+			bss->bssid[0], bss->bssid[1], bss->bssid[2], 
+			bss->bssid[3], bss->bssid[4], bss->bssid[5]);
+  	    cfg80211_unlink_bss(t_private->wdev->wiphy, bss);
+	    return 0;
+    }
+    else{
+          printk("%s failed to delete previous BSS !\n", __func__);
+	   return -1;
+    }
+}
 
 /*****************************************************************************/
 /*                                                                           */

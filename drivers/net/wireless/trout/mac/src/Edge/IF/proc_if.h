@@ -188,7 +188,7 @@ INLINE int critical_section_smart_start(char s,char m)
 {
 	int mode = MODE_START;
 	//spin_lock(&runmode_lock);
-	//trout_runmode_lock();
+	trout_runmode_lock();
     	mode = trout_get_runmode();
 	//BUG_ON(mode >MODE_START && mode <MODE_END);
 	if(mode == SINGLE_CPU_MODE && s){
@@ -197,6 +197,7 @@ INLINE int critical_section_smart_start(char s,char m)
 		critical_section_start11();
 	}else{
 		mode = MODE_START;
+		trout_runmode_unlock();
 	}
 	return mode;
 }
@@ -206,10 +207,11 @@ INLINE void critical_section_smart_end(int mode)
 	//BUG_ON(mode >MODE_START && mode <MODE_END);
 	if(mode == SINGLE_CPU_MODE){
 		critical_section_end1();
+		trout_runmode_unlock();
 	}else if(mode == SMP_MODE){
 			critical_section_end11();
+			trout_runmode_unlock();
 	}
-	//trout_runmode_unlock();
 	//spin_unlock(&runmode_lock);
 }
 

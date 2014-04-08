@@ -159,6 +159,7 @@ struct wake_lock reset_mac_lock; /*Keep awake when resetting MAC, by keguang 201
 struct wake_lock scan_ap_lock; /*Keep awake when scan ap, caisf add, 20130929*/
 struct wake_lock deauth_err_lock; /*Keep awake when system error deauth, caisf add, 20130929*/
 struct wake_lock handshake_frame_lock; /*Keep awake when rx handshake frames, caisf add, 20131004*/ 
+ALARM_HANDLE_T *g_hs_wake_timer = 0; //add by caisf
 struct wake_lock buffer_frame_lock; /*Keep awake when receiving buffered frames, by keguang 20130904*/
 extern unsigned int txhw_idle(void);
 static void buffer_frame_timerfunc(unsigned long data);
@@ -167,12 +168,12 @@ int buffer_frame_count = 0;
 static void buffer_frame_timerfunc(unsigned long data)
 {
 	if (txhw_idle() || !buffer_frame_count) {
-		buffer_frame_count ? : pr_info("no more chance\n", __func__);
-		pr_info("Let it go\n", __func__);
+		buffer_frame_count ? : pr_info("%s: no more chance\n", __func__);
+		pr_info("%s: Let it go\n", __func__);
 		wake_unlock(&buffer_frame_lock);
 	}
 	else {
-		pr_info("Hold on\n", __func__);
+		pr_info("%s: Hold on\n", __func__);
 		buffer_frame_count--;
 		mod_timer(&buffer_frame_timer, jiffies + msecs_to_jiffies(30));
 	}

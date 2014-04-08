@@ -335,7 +335,7 @@ extern void set_tx_buffer_details(UWORD8  *tx_dscr, UWORD8 *buffer_addr,
                            UWORD16 data_len);
 extern void free_tx_dscr(UWORD32 *tx_dscr);
 extern BOOL_T tx_msdu_frame(UWORD8 *entry, UWORD8 *da, UWORD8 priority,
-                            UWORD8 q_num, UWORD8 *tx_dscr);
+                            UWORD8 q_num, UWORD8 *tx_dscr,int send);
 
 #ifdef BURST_TX_MODE
 extern void tx_burst_mode_frame(UWORD8 *buffer_addr, UWORD16 len, UWORD8 q_num,

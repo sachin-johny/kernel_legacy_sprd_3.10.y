@@ -8,6 +8,7 @@
  * published by the Free Software Foundation.
  */
 
+#include <linux/module.h>
 #include <linux/gpio.h>
 #include <linux/delay.h>
 
@@ -125,11 +126,13 @@ static void  Clear_Power_Mode(unsigned int Power_Mode )
 	g_trout_power_mode &= ~Power_Mode;
 }
 
-static unsigned int  Get_Power_Mode(void)
+//static unsigned int  Get_Power_Mode(void)
+unsigned int Get_Power_Mode(void)	//modify by chwg, 2014.01.02.
 {
 	printk("Get Power Mode: %d \n",g_trout_power_mode);
 	return g_trout_power_mode;
 }
+EXPORT_SYMBOL(Get_Power_Mode);
 
 /***********************************************************************/
 #if 1

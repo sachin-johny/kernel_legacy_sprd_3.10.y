@@ -187,34 +187,54 @@ typedef struct
 #define PRINTK_ITMIW(args...)
 #endif 
 
+#define LPM_ACCESS		1	//if in LPM mode, want to access Trout register, but we can not stop it
+#define LPM_NO_ACCESS		0	//if in LPM mode, can not access
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-#define CHECK_MAC_RESET_IN_IW_HANDLER do{\
+#define CHECK_MAC_RESET_IN_IW_HANDLER(expt) do{							\
 	if( (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE )\
 	{\
 		PRINTK_ITMIW("%s not do,in reset process\n",__func__);\
 		return -EBUSY;\
 	}\
+	if(g_wifi_power_mode){									\
+		if(!expt){									\
+			pr_info("LPM: exit %s\n", __func__);					\
+			return -EBUSY;								\
+		}										\
+	}else{											\
 	if (mutex_is_locked(&suspend_mutex) || (g_wifi_suspend_status != wifi_suspend_nosuspend)) {\
-		pr_info("We can't do %s during suspending, g_wifi_suspend_status = %d\n", __func__, g_wifi_suspend_status);\
+			pr_info("We can't do %s in SPD, gss = %d\n", __func__, g_wifi_suspend_status); \
 		return -EBUSY;\
 	}\
+	}											\
 }while(0)
 
-#define CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL do{\
+
+
+#define CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL(expt) do{					\
 	if( (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE )\
 	{\
 		PRINTK_ITMIW("%s not do,in reset process\n",__func__);\
 		return NULL;\
 	}\
+	if(g_wifi_power_mode){									\
+		if(!expt){									\
+			pr_info("LPM: exit %s\n", __func__);					\
+			return NULL;								\
+		}										\
+	}else{											\
 	if (mutex_is_locked(&suspend_mutex) || (g_wifi_suspend_status != wifi_suspend_nosuspend)) {\
-		pr_info("We can't do %s during suspending, g_wifi_suspend_status = %d\n", __func__, g_wifi_suspend_status);\
+			pr_info("We can't do %s in SPD, gss = %d\n", __func__, g_wifi_suspend_status);	\
 		return NULL;\
 	}\
+	}											\
 }while(0)
+
 #else
+
 /* prevent everything when Wi-Fi is suspending/resuming, keguang 2013-5-4 */
-#define CHECK_MAC_RESET_IN_IW_HANDLER do{\
+#define CHECK_MAC_RESET_IN_IW_HANDLER(expt) do{\
 	if( (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE )\
 	{\
 		PRINTK_ITMIW("%s not do,in reset process\n",__func__);\
@@ -226,7 +246,7 @@ typedef struct
 	}\
 }while(0)
 
-#define CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL do{\
+#define CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL(expt) do{\
 	if( (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE )\
 	{\
 		PRINTK_ITMIW("%s not do,in reset process\n",__func__);\
@@ -241,7 +261,7 @@ typedef struct
 
 #else
 
-#define CHECK_MAC_RESET_IN_IW_HANDLER do{\
+#define CHECK_MAC_RESET_IN_IW_HANDLER(expt) do{\
 	if( (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE )\
 	{\
 		PRINTK_ITMIW("%s not do,in reset process\n",__func__);\
@@ -249,7 +269,7 @@ typedef struct
 	}\
 }while(0)
 
-#define CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL do{\
+#define CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL(expt) do{\
 	if( (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE )\
 	{\
 		PRINTK_ITMIW("%s not do,in reset process\n",__func__);\
@@ -436,4 +456,6 @@ INLINE int get_trour_rsp_data(UWORD8 * dest,UWORD16 dest_len,UWORD8 * src,UWORD1
 	return dest_idx & 0x0000FFFF;
 }
 
+int itm_get_dhcp_status();
+void itm_set_dhcp_status(int status);
 #endif/*__ITM_WIFI_IW_H__*/

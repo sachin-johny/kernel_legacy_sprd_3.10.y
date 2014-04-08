@@ -128,7 +128,7 @@ void misc_11n_event(mac_struct_t *mac, UWORD8 *msg)
     {
     case MISC_AMSDU_TX:
     {
-        amsdu_tx((amsdu_ctxt_t *)(misc_event_msg->data));
+        amsdu_tx((amsdu_ctxt_t *)(misc_event_msg->data),1);
     }
     break;
 
@@ -569,7 +569,7 @@ void reset_tx_amsdu_session(void *entry, UWORD8 tid)
     amsdu_ctxt = peek_amsdu_ctxt(entry, tid);
     //printk("%s: sub_amsdu_num = %d\n", __FUNCTION__, ((amsdu_ctxt_t *)amsdu_ctxt)->num_entries);
     if(NULL != amsdu_ctxt)
-        amsdu_tx(amsdu_ctxt);
+        amsdu_tx(amsdu_ctxt,1);
 
     /* Free the HT Tx Control entry if A-MPDU is also not set up (indicated  */
     /* by a value of 'amsdu_maxnum' equal to 0)                              */

@@ -56,6 +56,10 @@
 UWORD8 g_overwrite_frame_type = 0;
 #endif /* ENABLE_OVERWRITE_SUBTYPE */
 
+#ifdef WAKE_LOW_POWER_POLICY
+UWORD32 g_low_power_tx_data_pkt_cnt = 0;	
+#endif
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : sta_wait_scan_tx_data                                    */
@@ -164,11 +168,21 @@ void sta_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
 
 	TROUT_FUNC_ENTER;
 	
-#ifdef TROUT_TRACE_DBG
-	tx_data_count += 1;
-#endif	/* TROUT_TRACE_DBG */
+#ifdef WAKE_LOW_POWER_POLICY
+	g_low_power_flow_ctrl.tx_pkt_num++;	//tx flow detect.
 
-    print_log_debug_level_1("\n[DL1][INFO][Tx] {MAC API for WLAN Tx DATA}");
+	if(g_wifi_power_mode == WIFI_LOW_POWER_MODE)
+	{
+		g_low_power_tx_data_pkt_cnt += 1;
+		if(g_low_power_tx_data_pkt_cnt >= LOW_POWER_TX_THRESHOLD)
+		{
+			printk("%s: has %d pkt need send in low power mode!\n", __func__, g_low_power_tx_data_pkt_cnt);
+			exit_low_power_mode(BTRUE);
+			g_low_power_tx_data_pkt_cnt = 0;
+		}	
+	}
+#endif
+
     TX_PATH_DBG("%s: enable tx data\n", __func__);
 
     wlan_tx_req = (wlan_tx_req_t *)msg;
@@ -560,7 +574,7 @@ void sta_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
     {	
     	TX_PATH_DBG("%s: tx data pkt\n", __func__);
         if(tx_data_packet((UWORD8 *)se, ra, wlan_tx_req->priority, q_num,
-                       tx_dscr, amsdu_ctxt) == BTRUE)
+                       tx_dscr, amsdu_ctxt,0) == BTRUE)
                        wlan_tx_req->added_to_q = BTRUE;
     }
     

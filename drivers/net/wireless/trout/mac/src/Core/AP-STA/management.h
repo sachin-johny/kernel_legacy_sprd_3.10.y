@@ -87,7 +87,8 @@
 //chenq add for combo scan 2013-03-12
 #define MAX_AP_COMBO_SCAN 9
 #define MAX_AP_COMBO_SCAN_LIST 12
-#define SCAN_IN_ONE_CHANNEL_CNT 4
+//Yiming.li, reduce scan times
+#define SCAN_IN_ONE_CHANNEL_CNT 2
 #define COEX_SCAN_IN_ONE_CHANNEL_CNT 3
 
 #endif

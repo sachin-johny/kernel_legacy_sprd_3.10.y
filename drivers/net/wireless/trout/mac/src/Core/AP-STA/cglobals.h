@@ -138,6 +138,8 @@ extern struct wake_lock reset_mac_lock; /*Keep awake when resetting MAC, by kegu
 extern struct wake_lock scan_ap_lock; /*Keep awake when scan ap, caisf add, 20130929*/
 extern struct wake_lock deauth_err_lock; /*Keep awake when system error deauth, caisf add, 20130929*/
 extern struct wake_lock handshake_frame_lock; /*Keep awake when rx handshake frames, caisf add, 20131004*/ 
+extern ALARM_HANDLE_T *g_hs_wake_timer;
+extern void del_hs_wake_timer(void);
 extern struct wake_lock buffer_frame_lock; /*Keep awake when receiving buffered frames, by keguang 20130904*/
 extern struct timer_list buffer_frame_timer;
 #endif

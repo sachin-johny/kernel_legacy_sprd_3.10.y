@@ -66,6 +66,7 @@ extern void stop_mac_and_phy(void);
 extern int reset_mac_trylock(void);
 extern void reset_mac_unlock(void);
 extern void reset_mac__lock(void);
+extern int wsem_is_locked(void);
 
 //chenq add 2012-10-29
 extern void initialize_plus(void);

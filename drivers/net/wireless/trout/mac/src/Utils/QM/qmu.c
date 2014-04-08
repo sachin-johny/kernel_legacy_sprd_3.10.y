@@ -55,6 +55,7 @@ tx_dma_handle_t g_tx_dma_handle;	//add by chengwg.
 /*****************************************************************************/
 /* Static Global Variables                                                   */
 /*****************************************************************************/
+extern void flush_tx_dscr_head(void);		//add by chengwg.
 
 static q_struct_t g_tx_header[NUM_TX_QUEUE];
 
@@ -99,7 +100,6 @@ UWORD8 qmu_init(qmu_handle_t *q_handle, UWORD16 num_tx_q)
 
     /* Initialize the total number of Tx buffers to zero */
     tx_handle->tx_list_count = 0;
-    tx_handle->tx_pkt_count = 0;	//chengwg test.
 	
 	trout_addr = g_normal_rxq_num * sizeof(trout_rx_mem_struct) + NORMAL_RX_MEM_BEGIN;
 	if(trout_addr >= SHARE_MEM_END)
@@ -110,7 +110,8 @@ UWORD8 qmu_init(qmu_handle_t *q_handle, UWORD16 num_tx_q)
 	
 	tx_handle->tx_mem_start = trout_addr;
 	tx_handle->tx_mem_size = 
-		(UWORD32)COEX_SELF_CTS_NULL_DATA_BEGIN - (UWORD32)COEX_SLOT_INFO_SIZE - trout_addr ;
+		(UWORD32)(SHARE_MEM_END - trout_addr - COEX_PS_NULL_DATA_SIZE
+						- COEX_SELF_CTS_NULL_DATA_SIZE - COEX_SLOT_INFO_SIZE);
 	
 	if(tx_handle->tx_mem_size < MIN_TX_MEM_SIZE)
 		TROUT_DBG2("Warning: trout tx mem size is too small(%u)!\n", tx_handle->tx_mem_size);

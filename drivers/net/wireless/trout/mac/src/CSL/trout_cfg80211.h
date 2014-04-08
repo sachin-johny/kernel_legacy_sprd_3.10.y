@@ -124,9 +124,10 @@ int trout_wdev_alloc(struct trout_private *trout_priv, struct device *dev);
 void trout_wdev_free(struct wireless_dev *wdev);
 int trout_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req);
 
+int trout_cfg80211_del_prev_bss(struct net_device *dev);
 
-//#define TRACE_FUNC()		do{printk("Entered %s\n", __func__);}while(0)
-#define TRACE_FUNC()		
+#define TRACE_FUNC()		do{printk("Entered ===>>%s\n", __func__);}while(0)
+//#define TRACE_FUNC()		
 #define ITM_MAC_FMT			"%02x:%02x:%02x:%02x:%02x:%02x"
 #define ITM_MAC_ARG(x) ((u8*)(x))[0],((u8*)(x))[1],((u8*)(x))[2],((u8*)(x))[3],((u8*)(x))[4],((u8*)(x))[5]
 
@@ -174,6 +175,7 @@ enum ANDROID_WIFI_CMD {
 
 		ANDROID_WIFI_CMD_SET_MAX_POWER,
 		ANDROID_WIFI_CMD_UNSET_MAX_POWER,
+		ANDROID_WIFI_CMD_DHCP_STATUS,
 
 		ANDROID_WIFI_CMD_MAX
 };

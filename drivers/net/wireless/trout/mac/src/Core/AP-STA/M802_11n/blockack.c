@@ -439,6 +439,7 @@ void send_addba_rsp(ba_rx_struct_t **ba, UWORD8 *data, UWORD8 *da)
 
     if(status != SUCCESSFUL_STATUSCODE)
     {
+        TROUT_DBG4("Block-Ack RX Session rsp failed, status=%d\n", status);
         (*ba)->conn_status  = BA_FAILED;
         mutex_lock(&ba_rx_mutex);	//add by chengwg 2013-06-21.
         reset_rx_ba_handle(ba, tid);

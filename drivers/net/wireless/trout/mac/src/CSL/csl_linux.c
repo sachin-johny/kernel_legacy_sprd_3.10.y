@@ -83,7 +83,7 @@
 /*leon liu added header for cfg80211*/
 #ifdef CONFIG_CFG80211
 #include "trout_cfg80211.h"
-extern struct sdio_func *trout_get_sdio_func();
+extern struct sdio_func *trout_get_sdio_func(void);
 #endif
 
 /*leon liu added GPIO register configuration macro*/
@@ -97,6 +97,7 @@ extern struct sdio_func *trout_get_sdio_func();
 #include "cglobals.h"
 /*leon liu added for powersave timer 2013-4-1*/
 #include "ps_timer.h"
+#include "pm_sta.h"
 #endif
 //zhuyg add
 #ifdef TROUT_WIFI_NPI
@@ -200,6 +201,7 @@ struct wake_lock  scan_lock;
     extern unsigned int check_trout_module_state(unsigned int st);
 #endif
 //libing add for bugger: driver can't unload.
+extern int itm_get_dhcp_status();
 
 DEFINE_MUTEX(open_mutex);
 static int driver_exit =0;
@@ -304,7 +306,7 @@ void alloc_sb_buf(void)
 #else
 void alloc_sb_buf(void)
 {
-	char *pc, *pb;
+	char *pc;
 	unsigned int sz;
 
 	pc = (char *)gsb->ps;
@@ -947,21 +949,19 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
 #ifdef ETHERNET_HOST
     UWORD8  *buffer = 0;
     UWORD16 offset  = 0;
-    UWORD8 eth_hdr_offset = 0;
+    //UWORD8 eth_hdr_offset = 0;
     UWORD8 *eth_hdr;
     UWORD16 eth_type = 0;
     UWORD8 q_num = 0;
     wlan_tx_req_t wlan_tx_req;
     
 	TROUT_FUNC_ENTER;
-	//printk("[%s] mac have received tx data from stack, start\n", __FUNCTION__);
+	
    /* Stop the network interface queue */
     netif_stop_queue(dev);
-   
     if(skb->dev != g_mac_dev)
     {
         TROUT_DBG2("Packet not destined to this device\n");
-	printk("[%s]Packet not destined to this device\n", __FUNCTION__);
         TROUT_FUNC_EXIT;
         return 0;
     }
@@ -1134,7 +1134,7 @@ void ward_mac_reset(mac_struct_t *mac)
 int mac_close(struct net_device *dev)
 {
 #ifdef IBSS_BSS_STATION_MODE
-	int mac_state;
+	//int mac_state;
 #endif
     //struct trout_private *tp = netdev_priv(dev);
 
@@ -1442,8 +1442,7 @@ int mac_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	
 	case SIOCIWFIRSTPRIV + 30:
 	{
-		struct iwreq *wrq = (struct iwreq *)req;
-
+		//struct iwreq *wrq = (struct iwreq *)req;
 		return -1;
 	}
 	break;
@@ -1958,7 +1957,9 @@ static void _delete_alarm(ALARM_HANDLE_T** handle,int self)
           	/*toggle the flag before processing the work.*/
           	trout_timer->work_proceed_flag = BTRUE;
           	TROUT_DBG5("DBG:del:before cancel_work_sync \%pS\n", trout_timer->work.func);
+		if(!self){
           	cancel_work_sync(&trout_timer->work);
+		}
 		TROUT_DBG5("DBG:del:after cancel_work_sync \%pS, wid = 0x%x, current = 0x%x, work.state = 0x%x\n", 
 			     trout_timer->work.func, trout_timer->wid, current, work_busy(&trout_timer->work));
           }
@@ -3368,8 +3369,7 @@ UWORD8 get_resume_assoc_flg(void)
 	return resume_assoc_flg;
 }
 
-extern void sta_doze_trick(void);
-extern void sta_awake_trick(void);
+
 extern int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority);
 extern int send_ps_poll_to_AP_trick(void);
 extern unsigned int txhw_idle(void);
@@ -3380,13 +3380,17 @@ UWORD32 txvs = 0;
 #if (defined(CONFIG_PM) && defined(TROUT_WIFI_POWER_SLEEP_ENABLE))
 extern BOOL_T is_all_machw_q_null(void);
 
+extern BOOL_T  host_awake_by_arm7;
+extern UWORD32 ps_last_int_mask;
+
+extern BOOL_T is_all_machw_q_null(void);
 static int trout_wifi_suspend(struct device *dev)
 {
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct trout_private *tp = netdev_priv(ndev);
 	UWORD32 *tmp, t;
-	int cnt = 0, idx = 0, tnr = 0, v;
+	int cnt = 0, tnr = 0, v;
 	UWORD32	ss = 0;
 	unsigned char *pp = NULL;
 
@@ -3427,22 +3431,30 @@ static int trout_wifi_suspend(struct device *dev)
 		reset_mac_unlock();
 		return 1;
 	}
-	else {
-		/*leon liu, when in coexing mode, no sleeping(Bug#285951)*/
-		if(g_wifi_bt_coex)	//add by chwg.
-		{
-			printk("%s: In WiFi&BT coexist mode, not suspend!\n", __func__);
-			mutex_unlock(&suspend_mutex);
-			reset_mac_unlock();
-			return 1;
-		}
+	/*leon liu, when in coexing mode, no sleeping(Bug#285951)*/
+	if(g_wifi_bt_coex)	//add by chwg.
+	{
+	     printk("%s: In WiFi&BT coexist mode, not suspend!\n", __func__);
+	     mutex_unlock(&suspend_mutex);
+	     reset_mac_unlock();
+	     return 1;
+	}
 
+#ifdef WAKE_LOW_POWER_POLICY
+	       if(!mutex_trylock(&tp->ps_mutex))	//add by chwg, 2013.12.7
+	       {		
+		 mutex_unlock(&suspend_mutex);
+		 reset_mac_unlock();
+		 //mutex_unlock(&tp->cur_run_mutex);
+		 return 1;
+	       }
+	       stop_alarm(g_flow_detect_timer);
+	       exit_low_power_mode(BFALSE);
+#endif /* WAKE_LOW_POWER_POLICY */
 		if((get_mac_state() == ENABLED) || (g_keep_connection == BTRUE)) { /* keep Wi-Fi on if connection was established */
 		/*if(g_wifi_suspend_status == wifi_suspend_nosuspend) { [>recover from power save<]*/
 			/*g_wifi_suspend_status = wifi_suspend_early_suspend; [>keep out all ioctl ASAP<]*/
 			/*send_null_frame_to_AP(STA_DOZE, BTRUE, 0);*/
-			//printk("[%s] netif_stop_queue\n" ,__FUNCTION__);
-			
 			netif_stop_queue(g_mac_dev);
 			//pr_info("======== cancel works\n");
 			//cancel_work_sync(&tp->event_work); /*cancel the works before suspend*/
@@ -3465,6 +3477,21 @@ static int trout_wifi_suspend(struct device *dev)
 					printk("wait for other frame send out timeout!\n");
 					show_tx_slots();
 					netif_wake_queue(g_mac_dev);
+			#ifdef MAC_WMM
+				if(get_wmm_enabled() == BTRUE)
+				{
+					force_resume_soft_txq_above(get_txq_num(0));
+				}
+				else
+				{
+					force_resume_soft_txq_above(NORMAL_PRI_Q);
+				}
+			#else
+				force_resume_soft_txq_above(NORMAL_PRI_Q);
+			#endif
+#ifdef WAKE_LOW_POWER_POLICY
+					mutex_unlock(&tp->ps_mutex);
+#endif
 					mutex_unlock(&suspend_mutex);
 					reset_mac_unlock();
 					return 1;
@@ -3508,13 +3535,36 @@ wait:
 				printk("@@@:SUSPEND no memory for NULL\n");
 			}
 			if(ss || tnr >= 50 || cnt >= 5 ){
+			/* to prevent suspend retry too much times and still fail thus cause */
+			/* rcv pkt which doing in process_all_events couldn't do lead to     */
+			/* link loss --chwg 2014.01.3 */
+			g_link_loss_count = 0;
+	#ifdef MAC_WMM
+			if(get_wmm_enabled() == BTRUE)
+			{
+				force_resume_soft_txq_above(AC_BK_Q);
+				force_resume_soft_txq_above(get_txq_num(0));
+			}
+			else
+			{
+				force_resume_soft_txq_above(NORMAL_PRI_Q);
+			}
+	#else
+			force_resume_soft_txq_above(NORMAL_PRI_Q);
+	#endif
+	
 				netif_wake_queue(g_mac_dev);
+#ifdef WAKE_LOW_POWER_POLICY
+			mutex_unlock(&tp->ps_mutex);
+#endif
 				mutex_unlock(&suspend_mutex);
 				reset_mac_unlock();
 				return 1;
 			}else{
 				UWORD32 zero_ip = 0;
 			    disable_all_txq();
+				
+                 /* tell ARM7 the IP address */
                  pp = get_local_ipadd(); 
                  if(pp == NULL){
                      pp = (unsigned char *)&zero_ip;
@@ -3523,33 +3573,40 @@ wait:
 				 
 				/* tell ARM7 the IP address */
 				host_write_trout_ram((void *)(BEACON_MEM_END - 4), (void *)pp, 4);
-				sta_doze_trick();
+			prepare_null_frame_for_cp(0, BTRUE, 0);
+			prepare_ps_poll_for_cp();
+			sta_doze_trick(SUSPEND_DOZE,1);
 				printk("=====%s: suspend done!======\n", __func__);
 			}
 		} else {
 			if(g_wifi_suspend_status == wifi_suspend_nosuspend) { /*turn off Wi-Fi if there was no connection */
-				pr_info("======== no connection, turn off Wi-Fi\n", __func__);
-				//printk("[%s] netif_stop_queue\n" ,__FUNCTION__);
+				pr_info("========%s: no connection, turn off Wi-Fi\n", __func__);
 				netif_stop_queue(ndev);	//modify by chengwg, 2013.7.9
 				/*g_wifi_suspend_status = wifi_suspend_suspend; [>keep out all ioctl ASAP<] */
 				reset_mac_unlock();
 				restart_mac_plus(&g_mac, 0);
 				sta_sleep();
 				pr_info("======== %s done ========\n", __func__);
+
+#ifdef WAKE_LOW_POWER_POLICY
+			mutex_unlock(&tp->ps_mutex);
+#endif		
 				mutex_unlock(&suspend_mutex);
 				return 0;
 			} else if(g_wifi_suspend_status == wifi_suspend_suspend) { /*done by STOP*/
-				pr_info("======== done by STOP\n", __func__);
+				pr_info("========%s: done by STOP\n", __func__);
 			}
 		}
-	}
-	pr_info("======== %s done ========\n", __func__);
+	
+	//printk("SPD done!\n");
+	printk("==========%s: exit=========\n", __func__);
+#ifdef WAKE_LOW_POWER_POLICY
+	mutex_unlock(&tp->ps_mutex);
+#endif
 	mutex_unlock(&suspend_mutex);
 	reset_mac_unlock();
 	return 0;
 #else
-	//printk("[%s][%d] netif_stop_queue\n" ,__FUNCTION__, __LINE__);
-
 	netif_stop_queue(ndev);	//modify by chengwg, 2013.7.9
 	g_wifi_suspend_status = wifi_suspend_suspend;
 	
@@ -3605,11 +3662,6 @@ wait:
 	return 0;
 #endif
 }
-
-
-extern BOOL_T  host_awake_by_arm7;
-extern UWORD32 ps_last_int_mask;
-
 static int trout_wifi_resume(struct device *dev)
 {
 	pr_info("========%s========\n", __func__);
@@ -3618,6 +3670,8 @@ static int trout_wifi_resume(struct device *dev)
 	pr_info("======== %s ========\n", __func__);
 	UWORD32 *tmp;
 	int cnt = 0, tnr = 0, v;
+	struct trout_private *stp;
+	
 
 	#ifdef TROUT_WIFI_NPI
     pr_info("(%s)WIFI is testing in NPI mode, avoid resume\n", __func__);
@@ -3626,6 +3680,10 @@ static int trout_wifi_resume(struct device *dev)
 	
 #ifdef WIFI_SLEEP_POLICY
 	unsigned char *pp = NULL; 
+        stp = netdev_priv(ndev);
+#ifdef WAKE_LOW_POWER_POLICY
+    mutex_lock(&stp->ps_mutex);
+#endif
     pp = get_local_ipadd();
 	if(pp!=NULL){
         g_wakeup_flag_for_60s = 1;
@@ -3649,11 +3707,11 @@ static int trout_wifi_resume(struct device *dev)
 		mac_event_schedule();
 		/*rx_complete_isr(HIGH_PRI_RXQ);*/
 
+#if 0
 retry:
 		/*send_null_frame_to_AP(STA_ACTIVE, BTRUE, 0);*/
 	    //v = send_null_frame_to_AP_trick(STA_ACTIVE, BTRUE, 0);
         v = send_ps_poll_to_AP_trick();
-
 		if(!v && null_frame_dscr != NULL) {
 			tmp = null_frame_dscr;
 			tnr = 0;
@@ -3675,6 +3733,7 @@ wait:
 		}else{
 			printk("@@@:RESUME no memory for NULL or other reason\n");
 		}
+#endif
 		netif_wake_queue(g_mac_dev);
 	} else {
 	/*} else if(g_wifi_suspend_status == wifi_suspend_suspend) { [>recover from sleep<]*/
@@ -3686,8 +3745,16 @@ wait:
 	netif_wake_queue(g_mac_dev);
 	if (host_read_trout_reg((UWORD32)rSYSREG_POWER_CTRL) & 0x800000)
 		pr_info("======== %s Trout down!!!\n", __func__);
-	pr_info("======== %s done ========\n", __func__);
+	pr_info("RESUME done!\n");
+#ifdef WAKE_LOW_POWER_POLICY
+	printk("after resume, restart flow detect timer again!\n");
+	clear_history_flow_record();
+	restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
+	mutex_unlock(&stp->ps_mutex);
+#endif
 	/*mutex_unlock(&suspend_mutex);*/
+	printk("==========%s: exit=========\n", __func__);
+	
 	return 0;
 #else
 	struct trout_private *stp;
@@ -3753,6 +3820,370 @@ static const struct dev_pm_ops trout_wifi_pm = {
 	.resume = trout_wifi_resume,
 };
 
+
+
+#ifdef WAKE_LOW_POWER_POLICY
+ALARM_HANDLE_T *g_flow_detect_timer = NULL;
+LOW_POWER_FLOW_CTRL_T g_low_power_flow_ctrl;
+int enter_low_power_mode(void)	//chwg debug.
+{
+	struct trout_private *tp = netdev_priv(g_mac_dev);
+	UWORD32 *tmp, t;
+	int cnt = 0, idx = 0, tnr = 0, v;
+	UWORD32	ss = 0;
+
+	if(wake_lock_active(&deauth_err_lock))  
+	{
+		printk("start low power mode before unlock 'deauth_err_lock'!\n");
+		return 1;
+	}
+	
+	if(1 == itm_get_dhcp_status())
+	{
+		printk("start low power mode before dhcp do not run!\n");
+		return 1;
+	}
+
+	if(get_local_ipadd() == NULL)	//start after sta get the ip addr, debug using!
+	{
+		printk("start low power mode before get ip, exit!\n");
+		return 1;
+	}
+	
+	pr_info("======== %s start ========\n", __func__);
+	mutex_lock(&low_power_mutex);
+
+    //xuan.yang, 2013-10-16, if the trout module is unloading, the wifi can not suspend
+    if(check_trout_module_state(TROUT_MODULE_UNLOADING)) 
+    {
+       printk("%s the trout module is unloading, return fail\n", __func__);
+	   mutex_unlock(&low_power_mutex);
+       return 1;
+    }
+
+	// avoid suspend when NPI testing
+	if(reset_mac_trylock() == 0) 
+	{
+		pr_info("Wi-Fi is under reseting, please try %s again!\n", __func__);
+		mutex_unlock(&low_power_mutex);
+		return 1;
+	}
+
+#if 1
+	if(wake_lock_active(&handshake_frame_lock)
+					|| wake_lock_active(&scan_ap_lock)) // caisf/zhao add, 1014   
+	{  
+		pr_info("%s-%d: wake_lock locked, skip suspend.\n", __func__, __LINE__);  
+		reset_mac_unlock();
+		mutex_unlock(&low_power_mutex);
+		return 1;  
+	}  
+#else
+	if(wake_lock_active(&scan_ap_lock)) // caisf/zhao add, 1014   
+	{  
+		pr_info("%s-%d: wake_lock scan_ap_lock locked, skip suspend.\n", __func__, __LINE__);  
+		reset_mac_unlock();
+		mutex_unlock(&low_power_mutex);
+		return 1;  
+	}
+#endif
+
+	if(!mutex_trylock(&tp->ps_mutex))
+	{
+		printk("%s: get ps_mutex lock fail!\n", __func__);
+		reset_mac_unlock();
+		mutex_unlock(&low_power_mutex);
+		return 1;
+	}
+
+	if(g_wifi_power_mode == WIFI_LOW_POWER_MODE)
+	{
+		printk("%s: current is already in low power mode!\n", __func__);
+		mutex_unlock(&tp->ps_mutex);
+		reset_mac_unlock();
+		mutex_unlock(&low_power_mutex);
+		return 0;
+	}
+
+	//printk("going to low power mode, stop low power detect timer first!\n");
+	//stop_alarm(g_mac_low_power_timer);
+	//stop_alarm(g_flow_detect_timer);
+	
+	if((get_mac_state() == ENABLED) || (g_keep_connection == BTRUE)) 
+	{ /* keep Wi-Fi on if connection was established */
+		netif_stop_queue(g_mac_dev);
+		cnt = 0;
+
+		/* This make sure in active mode before enter low power mode */
+		//send_null_frame_to_AP_trick(STA_ACTIVE, BTRUE, 0);
+		
+	#ifdef MAC_WMM
+		if(get_wmm_enabled() == BTRUE)
+		{
+			force_suspend_softtxq_above(get_txq_num(0));
+		}
+		else
+		{
+			force_suspend_softtxq_above(NORMAL_PRI_Q);
+		}
+	#else
+		force_suspend_softtxq_above(NORMAL_PRI_Q);
+	#endif
+		while(!is_all_machw_q_null())
+		{
+			printk("Using is_all_machw_q_null()\n");
+			msleep(100);
+			cnt++;
+			if(cnt >= 40)
+			{
+				printk("wait for other frame send out timeout!\n");
+				show_tx_slots();
+			#ifdef MAC_WMM
+				if(get_wmm_enabled() == BTRUE)
+				{
+					force_resume_soft_txq_above(get_txq_num(0));
+				}
+				else
+				{
+					force_resume_soft_txq_above(NORMAL_PRI_Q);
+				}
+			#else
+					force_resume_soft_txq_above(NORMAL_PRI_Q);
+			#endif
+				netif_wake_queue(g_mac_dev);
+				mutex_unlock(&tp->ps_mutex);
+				reset_mac_unlock();
+				mutex_unlock(&low_power_mutex);
+				return 1;
+			}
+		}
+		cnt = 0;
+		// here we make sure all txq above BK_Q is disable, and other Q must be enabled
+	#ifdef MAC_WMM
+		if(get_wmm_enabled() == BTRUE)
+		{
+			force_suspend_softtxq_above(AC_BK_Q);
+		}
+		else
+		{
+			force_suspend_softtxq_above(NORMAL_PRI_Q);
+		}
+	#else
+		force_suspend_softtxq_above(NORMAL_PRI_Q);
+	#endif
+retry:
+		v = send_null_frame_to_AP_trick(STA_DOZE, BTRUE, 0);
+		if(!v && null_frame_dscr != NULL) 
+		{
+			tmp = null_frame_dscr;
+			tnr = 0;
+			pr_info("======== waiting for null frame\n");
+wait:
+			t = wait_for_completion_timeout(&null_frame_completion, msecs_to_jiffies(20));
+			if(null_frame_dscr == tmp)
+			{
+				if(t == 0)
+					tnr++;
+				if(tnr < 50)
+					goto wait;
+				printk("@@@: no tx_complete is for at least 1s\n");
+			}
+			if((UWORD32)null_frame_dscr == 0x1)
+			{
+				cnt++;
+				printk("@@@:SUSPEND SEND NULL try %d times\n", cnt);
+				if(cnt < 5)
+					goto retry;
+			}
+			pr_info("======== waiting for null frame done\n");
+		}
+		else
+		{			
+			ss = 1;
+			printk("%s:SUSPEND no memory for NULL\n", __func__);
+		}
+		
+		if(ss || tnr >= 50 || cnt >= 5)
+		{
+	#ifdef MAC_WMM
+			if(get_wmm_enabled() == BTRUE)
+			{
+				force_resume_soft_txq_above(AC_BK_Q);
+				force_resume_soft_txq_above(get_txq_num(0));
+			}
+			else
+			{
+				force_resume_soft_txq_above(NORMAL_PRI_Q);
+			}
+	#else
+			force_resume_soft_txq_above(NORMAL_PRI_Q);
+	#endif
+			netif_wake_queue(g_mac_dev);
+			mutex_unlock(&tp->ps_mutex);
+			reset_mac_unlock();
+			mutex_unlock(&low_power_mutex);
+			return 1;
+		}
+		else
+		{
+			disable_all_txq();
+			prepare_null_frame_for_cp(0, BTRUE, 0);
+			prepare_ps_poll_for_cp();
+			sta_doze_trick(LOW_POWER_DOZE,1);
+			netif_wake_queue(g_mac_dev);
+//			restart_exit_low_power_timer(&g_exit_low_power_timer, SLEEP_TIMEOUT, 0);
+			mutex_unlock(&tp->ps_mutex);
+			reset_mac_unlock();
+			mutex_unlock(&low_power_mutex);
+			printk("=====%s: succeed!======\n", __func__);
+			return 0;
+		}
+	}
+	
+	printk("======== %s fail ========\n", __func__);
+	mutex_unlock(&tp->ps_mutex);
+	reset_mac_unlock();
+	mutex_unlock(&low_power_mutex);
+	
+	return 1;
+}
+
+extern unsigned int  Get_Power_Mode(void);	//define in trout_sdio module.
+//////////// create tx/rx traffic timer ////////////
+static void flow_detect_work(struct work_struct *work)
+{
+	int ret = 0;
+	UWORD32 pkt_num = 0;
+	UWORD32 last_pkt_num[3];
+	static UWORD32 detect_cnt = 0;
+	UWORD32 tc = 0;
+	 if(reset_mac_trylock() == 0){
+		return;
+	}
+
+	ALARM_WORK_ENTRY(work);
+	/* In WiFi & BT hardware coexist mode, we will not going to low power mode! */
+	if(Get_Power_Mode() == 5)
+	{
+		printk("current is in WiFi+BT hardware coexist mode, skip!\n");
+		clear_history_flow_record();
+		restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
+		ALARM_WORK_EXIT(work);
+		reset_mac_unlock();
+		return;
+	}
+
+	last_pkt_num[0] = g_low_power_flow_ctrl.total_pkt_num_record[0];
+	last_pkt_num[1] = g_low_power_flow_ctrl.total_pkt_num_record[1];
+	last_pkt_num[2] = g_low_power_flow_ctrl.total_pkt_num_record[2];
+	pkt_num = g_low_power_flow_ctrl.tx_pkt_num + g_low_power_flow_ctrl.rx_pkt_num;
+
+	printk("flow_detect: detect_cnt=%d, tx_pkt_num=%u, rx_pkt_num=%u\n", detect_cnt+1, 
+					g_low_power_flow_ctrl.tx_pkt_num, g_low_power_flow_ctrl.rx_pkt_num);
+
+	printk("pkt_num=%u, last[0]=%u, last[1]=%u, last[2]=%u\n", 
+					pkt_num, last_pkt_num[0], last_pkt_num[1], last_pkt_num[2]);
+
+	tc = pkt_num + last_pkt_num[0] + last_pkt_num[1] + last_pkt_num[2];
+	if((++detect_cnt >= 3) && (tc < LOW_POWER_TOTAL_PKT_THRESHOLD)) 
+	{
+		printk("flow detect: pkt level %u less than threshold %d, start low power mode!\n",
+						tc, LOW_POWER_TOTAL_PKT_THRESHOLD);
+		ret = enter_low_power_mode();
+		if(ret == 0)
+		{
+			detect_cnt = 0;
+			printk("enter low power mode succeed!\n");
+			ALARM_WORK_EXIT(work);
+			reset_mac_unlock();		
+			return;
+		}
+	}
+
+	g_low_power_flow_ctrl.total_pkt_num_record[2] = g_low_power_flow_ctrl.total_pkt_num_record[1];
+	g_low_power_flow_ctrl.total_pkt_num_record[1] = g_low_power_flow_ctrl.total_pkt_num_record[0];
+	g_low_power_flow_ctrl.total_pkt_num_record[0] = pkt_num;
+	restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
+	ALARM_WORK_EXIT(work);
+	reset_mac_unlock();
+}
+
+
+void flow_detect_fn(ADDRWORD_T data)
+{
+    alarm_fn_work_sched(data);
+}
+
+void restart_flow_detect_timer(ALARM_HANDLE_T **hdl, UWORD32 time, UWORD32 data)
+{
+    if(*hdl == NULL)
+    {
+        *hdl = create_alarm(flow_detect_fn, data, flow_detect_work);
+        if(*hdl == NULL)
+        {
+			printk("create start low power timer fail!\n");
+			return;
+        }
+    }
+
+    stop_alarm(*hdl);
+    g_low_power_flow_ctrl.tx_pkt_num = 0;
+	g_low_power_flow_ctrl.rx_pkt_num = 0;
+    start_alarm(*hdl, time);
+}
+
+
+int exit_low_power_mode(BOOL_T restart)		//chwg debug.
+{
+	UWORD32 *tmp;
+	int cnt = 0, tnr = 0, v;
+
+	print_symbol("[exit_low_power_mode] -> %s\n", (unsigned long)__builtin_return_address(0));
+	mutex_lock(&low_power_mutex);
+
+	if(g_wifi_power_mode != WIFI_LOW_POWER_MODE)
+	{
+		printk("%s: not in lower power mode!\n", __func__);
+		mutex_unlock(&low_power_mutex);
+		return 0;
+	}
+	
+//    if((get_mac_state() == ENABLED) || (g_keep_connection == BTRUE)) 
+//    { /* keep Wi-Fi on if connection was established */
+		sta_awake_trick();
+		//host_awake_by_arm7 = BTRUE;
+		g_wifi_power_mode = WIFI_NORMAL_POWER_MODE;
+		enable_all_txq();
+
+		if(wsem_is_locked())	//just used for test current is under reseting!
+		{
+			printk("Wi-Fi is under reseting, return!\n", __func__);
+			mutex_unlock(&low_power_mutex);
+			return 0;
+		}
+	
+		mac_event_schedule();
+//	}
+
+//	netif_wake_queue(g_mac_dev);
+	if (host_read_trout_reg((UWORD32)rSYSREG_POWER_CTRL) & 0x800000)
+		pr_info("======== %s Trout down!!!\n", __func__);
+
+	pr_info("======== %s done ========\n", __func__);
+
+	if(restart)
+	{
+		clear_history_flow_record();
+		//restart_low_power_timer(&g_mac_low_power_timer, WAKE_TIMEOUT, 0);
+		restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
+	}
+	mutex_unlock(&low_power_mutex);
+
+	return 0;
+}
+
+
+#endif
 /*leon liu added debug wake lock for AP mode*/
 #ifdef BSS_ACCESS_POINT_MODE
 struct wake_lock ap_lock;
@@ -3778,12 +4209,9 @@ static int trout_wifi_remove(struct platform_device *pdev)
 
 	//leon liu added, stop powersave timer
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	pstimer_set_timeout(&pstimer, DEFAULT_PS_TIMEOUT_MS);
 	pstimer_stop(&pstimer);
 	//Ensure timer is stopped
 	mdelay(100);
-	//leon liu added for powersave timer deintialization 2013-4-1
-	pstimer_destroy(&pstimer);
 #endif
 	host_notify_arm7_coex_ready(BFALSE);
 	host_notify_arm7_wifi_on(BFALSE);
@@ -3814,7 +4242,7 @@ static int trout_wifi_remove(struct platform_device *pdev)
 
 	/* Reset the MAC hardware and software, PHY etc */
 	reset_mac(&g_mac, BFALSE);	//modify by chengwg 2013.03.13!
-	//host_notify_arm7_wifi_reset(BFALSE); // after reset_mac, reset signal before wifi off.
+	
 	flush_work(&tp->event_work);
 	if(tp->event_wq != NULL)
     {
@@ -3947,6 +4375,7 @@ static int trout_wifi_remove(struct platform_device *pdev)
 	wake_lock_destroy(&scan_lock);
 	wake_lock_destroy(&scan_ap_lock); //by caisf 2013.09.29
 	wake_lock_destroy(&deauth_err_lock); //by caisf 2013.09.29
+	del_hs_wake_timer();                 //by caisf
         wake_lock_destroy(&handshake_frame_lock); //by caisf 2013.09.29 
 #endif
 #endif
@@ -3978,7 +4407,6 @@ static int trout_wifi_probe(struct platform_device *pdev)
 	struct net_device *netdev;
 	struct trout_private *stp;
 	mutex_lock(&open_mutex);
-
 #if 0
 	#ifdef USE_TROUT_PHONE
 	//unsigned long gpio_cfg = MFP_CFG_X(GPIO142, AF0, DS1, F_PULL_NONE, S_PULL_NONE, IO_IE);
@@ -4090,6 +4518,9 @@ static int trout_wifi_probe(struct platform_device *pdev)
 	mutex_init(&stp->iphy_mutex);
 	mutex_init(&stp->txsr_mutex);
 	mutex_init(&stp->sm_mutex);
+#ifdef WAKE_LOW_POWER_POLICY
+	mutex_init(&stp->ps_mutex);
+#endif
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifndef WIFI_SLEEP_POLICY
@@ -4207,7 +4638,7 @@ static int trout_wifi_probe(struct platform_device *pdev)
 
 	memset(gsb, 0, sizeof(*gsb));
 	get_wifi_buf(&gsb->ps, &gsb->size);
-	printk("RS_BUF start:%X, size:%X\n", gsb->ps, gsb->size);
+	printk("RS_BUF start:%lu, size:%lu\n", gsb->ps, gsb->size);
 	if(gsb->ps)
 		alloc_sb_buf();
 	
@@ -4343,6 +4774,9 @@ static int trout_wifi_probe(struct platform_device *pdev)
 		wake_lock_init(&scan_lock, WAKE_LOCK_SUSPEND, "scan_in_process");	//moved by zhao
 #endif
 #endif
+#ifdef WAKE_LOW_POWER_POLICY
+		wake_low_power_fn = exit_low_power_mode;	//chwg add, 2013.12.6.
+#endif
 /*leon liu added debug ap wake lock*/
 #ifdef BSS_ACCESS_POINT_MODE
 		wake_lock_init(&ap_lock, WAKE_LOCK_SUSPEND, "itm_ap_lock");
@@ -4358,6 +4792,7 @@ static int trout_wifi_probe(struct platform_device *pdev)
 #endif
 		mutex_unlock(&open_mutex);
 		TROUT_DBG4("=======init_mac_driver: use=%d=======\n", ++g_use_count);
+		
 		TROUT_FUNC_EXIT;
 		return 0;
 	}
@@ -4396,7 +4831,6 @@ err_out0:
     set_trout_module_state(TROUT_MODULE_FAIL);
 #endif
 	mutex_unlock(&open_mutex);
-
 	TROUT_FUNC_EXIT;
 	
 	TROUT_FUNC_EXIT;

@@ -19,31 +19,10 @@
 //xiong add for trout_sdio.ko debug
 #include <linux/mmc/sdio.h>
 #include "trout2_interface.h"
-
-#define TROUT_SDIO_VERSION	"0.27"
-#define TROUT_SDIO_BLOCK_SIZE	512	/* rx fifo max size in bytes */
-
-//#define POW_CTRL_VALUE		0x700 /*for Trout1*/ 
-#define POW_CTRL_VALUE		0x500 /*for Trout2*/ 
-
-#define TROUT_SHARE_MEM_BASE_ADDR 0x10000	/* word address */
-#define TROUT_BT_RAM_BASE_ADDR    0x5000	/* word address */
+#include "ccache.h"
+#include "trout2_sdio.h"
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE 
-/*zhou huiquan add for protect read/write register*/
-#define TROUT_AWAKE                      1
-#define TROUT_DOZE                 	 0
-/*leon liu added TROUT_SLEEP state*/
-#define TROUT_SLEEP			 2	
-#define LOCK_TURE                        1
-#define LOCK_FALSE                       0
-#define SYS_ADDR_MAX                     (0x1FF<<2)
-#define SYS_ADDR_MIN                     0
-#define FM_ADDR_MIN                      (0x3000<<2)
-#define FM_ADDR_MAX                      (0x3FFF<<2)
-#define UWORD32                          unsigned int
-
-typedef void (*sdio_trout_awake)(bool flag);
 sdio_trout_awake trout_awake_fn = NULL;
 
 extern void tempr_compensated(void);//by lihua
@@ -54,6 +33,13 @@ DEFINE_MUTEX(rw_reg_mutex);
 
 unsigned char g_trout_state = TROUT_AWAKE;
 unsigned int g_done_wifi_suspend = 0;
+
+typedef void (*wakeup_from_low_power_mode)(bool flag);
+wakeup_from_low_power_mode wake_low_power_fn = NULL;
+
+WIFI_POWER_MODE g_wifi_power_mode = WIFI_NORMAL_POWER_MODE;
+EXPORT_SYMBOL(wake_low_power_fn);
+EXPORT_SYMBOL(g_wifi_power_mode);
 
 //xuanyang, 2013-11-1, prevent fm that is in the selecting channel state 
 //and wifi-sleep from colliding
@@ -71,13 +57,6 @@ EXPORT_SYMBOL(check_tpc_switch_from_nv);
 struct sdio_func *trout_sdio_func = NULL;
 struct sdio_func *cur_sdio_func = NULL;/* Current need  */
 static unsigned int sdio_can_sleep = 1;
-
-#define TROUT_MODULE_FAIL                0
-#define TROUT_MODULE_LOADING             1
-#define TROUT_MODULE_LOADED              2
-#define TROUT_MODULE_UNLOADING           3
-#define TROUT_MODULE_UNLOADED            4
-#define TROUT_MODULE_IDLE                5
 
 //xuan.yang, 2013-10-16, save trout module state
 static unsigned int g_trout_module_state = TROUT_MODULE_IDLE;
@@ -342,7 +321,7 @@ void wifimac_sleep(void)
 }
 EXPORT_SYMBOL(wifimac_sleep);
 
-static void root_wifimac_wakeup(void)
+void root_wifimac_wakeup(void)
 {
     UWORD32 i = 5;
     UWORD32 count = root_host_read_trout_reg((UWORD32)rSYSREG_INFO1_FROM_ARM) + 1; 
@@ -394,18 +373,37 @@ unsigned int host_read_trout_reg(unsigned int reg_addr)
 		//leon liu modified on 2013-4-3, since TROUT_SLEEP is added, we should
 		//check if g_trout_state is TROUT_AWAKE
 		//if(g_trout_state != TROUT_DOZE){ //STA_AWAKE or SOFT_AP  state
-		if(g_trout_state == TROUT_AWAKE){ //STA_AWAKE or SOFT_AP  state
+		if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE)
+		{
+			if(wake_low_power_fn != NULL)
+			{
+				printk("Warning: RDREG(0x%x) in low power mode, wakeup frist!\n", reg_addr);
+				dump_stack();	//debug.
+				mutex_unlock(&rw_reg_mutex);
+				wake_low_power_fn(1);
+				mutex_lock(&rw_reg_mutex);
+			}
+			else
+			{
+				printk("Err: RDREG(0x%x) in low power mode, couldn't wakeup!\n", reg_addr);
+				BUG();
+			}
+		}
+		else if(g_trout_state == TROUT_AWAKE)
+		{ //STA_AWAKE or SOFT_AP  state
 			// call root function
 			if(is_wifi_in_sleep())  //add by chengwg, 2013.7.9
 			{	
 				printk("Warning: RDREG(0x%x) in wifi suspend time, so wake up wifi first!\n", reg_addr);
 				dump_stack();
+				
                 root_wifimac_wakeup();
 			}
-			ret = root_host_read_trout_reg(reg_addr);
 		}
-		else{
-			if(trout_awake_fn != NULL){
+		else
+		{
+			if(trout_awake_fn != NULL)
+			{
 				trout_awake_fn(LOCK_FALSE);
 			}
 			else  //Hugh: add for power save when not loading wifi driver. 2014-04-25
@@ -414,9 +412,8 @@ unsigned int host_read_trout_reg(unsigned int reg_addr)
 			}
 			
 			g_trout_state = TROUT_AWAKE;
-			//call root function
-			ret = root_host_read_trout_reg(reg_addr);
 		}
+		ret = root_host_read_trout_reg(reg_addr);
 		mutex_unlock(&rw_reg_mutex);
 	}
 	#endif
@@ -449,7 +446,24 @@ unsigned int host_write_trout_reg(unsigned int val, unsigned int reg_addr)
 		//leon liu modified on 2013-4-3, since TROUT_SLEEP is added, we should
 		//check if g_trout_state is TROUT_AWAKE
 		//if(g_trout_state != TROUT_DOZE){ //STA_AWAKE or SOFT_AP  state
-		if(g_trout_state == TROUT_AWAKE){ //STA_AWAKE or SOFT_AP  state
+		if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE)
+		{
+			if(wake_low_power_fn != NULL)
+			{
+				printk("Warning: WTREG(0x%x) in low power mode, wakeup frist!\n", reg_addr);
+				dump_stack();	//debug.
+				mutex_unlock(&rw_reg_mutex);
+				wake_low_power_fn(1);
+				mutex_lock(&rw_reg_mutex);
+			}
+			else
+			{
+				printk("Err: WTREG(0x%x) in low power mode, couldn't wakeup!\n", reg_addr);
+				BUG();
+			}
+		}
+		else if(g_trout_state == TROUT_AWAKE)
+		{ //STA_AWAKE or SOFT_AP  state
 			// call root function
 			if(is_wifi_in_sleep())  //add by chengwg, 2013.7.9
 			{
@@ -457,10 +471,11 @@ unsigned int host_write_trout_reg(unsigned int val, unsigned int reg_addr)
 				dump_stack();
                 root_wifimac_wakeup();
 			}
-			err = root_host_write_trout_reg(val,reg_addr);
 		}
-		else{
-			if(trout_awake_fn != NULL){
+		else
+		{
+			if(trout_awake_fn != NULL)
+			{
 				trout_awake_fn(LOCK_FALSE);
 			}
 			else  //Hugh: add for power save. 2014-04-25
@@ -469,9 +484,8 @@ unsigned int host_write_trout_reg(unsigned int val, unsigned int reg_addr)
 			}
 			
 			g_trout_state = TROUT_AWAKE;
-			//call root function
-		 	err = root_host_write_trout_reg(val,reg_addr);
 		}
+		err = root_host_write_trout_reg(val,reg_addr);
 		mutex_unlock(&rw_reg_mutex);
 	}
 	#endif	
@@ -564,7 +578,24 @@ unsigned int host_read_trout_ram(void *host_addr, void *trout_addr,
 		//leon liu modified on 2013-4-3, since TROUT_SLEEP is added, we should
 		//check if g_trout_state is TROUT_AWAKE
 		//if(g_trout_state != TROUT_DOZE){ //STA_AWAKE or SOFT_AP  state
-		if(g_trout_state == TROUT_AWAKE){ //STA_AWAKE or SOFT_AP  state
+ 	if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE)
+	{
+		if(wake_low_power_fn != NULL)
+		{
+			printk("Warning: RDRAM(0x%x) in low power mode, wakeup frist!\n", trout_addr);
+			dump_stack();	//debug.
+			mutex_unlock(&rw_reg_mutex);
+			wake_low_power_fn(1);
+			mutex_lock(&rw_reg_mutex);
+		}
+		else
+		{
+			printk("Err: RDRAM(0x%x) in low power mode, couldn't wakeup!\n", trout_addr);
+			BUG();
+		}
+	}
+	else if(g_trout_state == TROUT_AWAKE)
+ 	{ //STA_AWAKE or SOFT_AP  state
 		// call root function
 		if(is_wifi_in_sleep())  //add by chengwg, 2013.7.9  
 		{
@@ -572,11 +603,11 @@ unsigned int host_read_trout_ram(void *host_addr, void *trout_addr,
 			dump_stack();
             root_wifimac_wakeup();
 		}
-		ret = root_host_read_trout_ram(host_addr,trout_addr,length);
 	}
-	else{
-		/*printk("++%s,host_addr = %p,trout_addr = %p\n",__FUNCTION__,host_addr,trout_addr);*/
-		if(trout_awake_fn != NULL){
+	else
+	{
+ 		if(trout_awake_fn != NULL)
+		{
 			trout_awake_fn(LOCK_FALSE);
 		}
 		else  //Hugh: add for power save. 2014-04-25
@@ -585,9 +616,8 @@ unsigned int host_read_trout_ram(void *host_addr, void *trout_addr,
 		}
 		
 		g_trout_state = TROUT_AWAKE;
-		//call root function
-		ret = root_host_read_trout_ram(host_addr,trout_addr,length);
 	}
+		ret = root_host_read_trout_ram(host_addr,trout_addr,length);
 	mutex_unlock(&rw_reg_mutex);
 	#endif	
 	return ret;
@@ -679,7 +709,24 @@ unsigned int host_write_trout_ram(void *trout_addr, void *host_addr,
 		//leon liu modified on 2013-4-3, since TROUT_SLEEP is added, we should
 		//check if g_trout_state is TROUT_AWAKE
 		//if(g_trout_state != TROUT_DOZE){ //STA_AWAKE or SOFT_AP  state
-		if(g_trout_state == TROUT_AWAKE){ //STA_AWAKE or SOFT_AP  state
+	if(g_wifi_power_mode != WIFI_NORMAL_POWER_MODE)
+	{
+		if(wake_low_power_fn != NULL)
+		{
+			printk("Warning: WTRAM(0x%x) in low power mode, wakeup frist!\n", trout_addr);
+			dump_stack();	//debug.
+			mutex_unlock(&rw_reg_mutex);
+			wake_low_power_fn(1);
+			mutex_lock(&rw_reg_mutex);
+		}
+		else
+		{
+			printk("Err: WTRAM(0x%x) in low power mode, couldn't wakeup!\n", trout_addr);
+			BUG();
+		}
+	}
+	else if(g_trout_state == TROUT_AWAKE)
+	{ //STA_AWAKE or SOFT_AP  state
 		// call root function
 		if(is_wifi_in_sleep())  //add by chengwg, 2013.7.9
 		{
@@ -687,11 +734,11 @@ unsigned int host_write_trout_ram(void *trout_addr, void *host_addr,
 			dump_stack();
             root_wifimac_wakeup();
 		}
-		ret = root_host_write_trout_ram(trout_addr, host_addr, length);
 	}
-	else{
-		/*printk("++%s,trout_addr = %p,host_addr = %p\n",__FUNCTION__,trout_addr,host_addr);*/
-		if(trout_awake_fn != NULL){
+	else
+	{
+ 		if(trout_awake_fn != NULL)
+ 		{
 			trout_awake_fn(LOCK_FALSE);
 		}
 		else  //Hugh: add for power save. 2014-04-25
@@ -700,9 +747,8 @@ unsigned int host_write_trout_ram(void *trout_addr, void *host_addr,
 		}
 
 		g_trout_state = TROUT_AWAKE;
-		//call root function
-		ret = root_host_write_trout_ram(trout_addr, host_addr, length);
 	}
+	ret = root_host_write_trout_ram(trout_addr, host_addr, length);
 	mutex_unlock(&rw_reg_mutex);
 	#endif
 	return ret;
@@ -1430,6 +1476,7 @@ retry:
 	else
 		printk("ALTER: alloc %x buf for wifi failed\n", size);
 	printk("SB BUF:%X, SIZE:%X\n", wifi_buf, wifi_buf_size);
+	ccache_init();
 	return ret;
 }
 
@@ -1440,7 +1487,7 @@ static void __exit trout_sdio_exit(void)
 		kfree(wifi_buf);
 	wifi_buf_size = 0;
 	sdio_unregister_driver(&trout_sdio_driver);
-    
+	ccache_exit();
 
 #ifdef  NPI_NV_CALIBRATION_ENABLE
     npi_nv_cal_cleanup();

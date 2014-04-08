@@ -115,6 +115,11 @@ struct completion wifi_resume_completion = COMPLETION_INITIALIZER(wifi_resume_co
 struct completion null_frame_completion = COMPLETION_INITIALIZER(null_frame_completion);
 volatile UWORD32 *null_frame_dscr = NULL;
 struct mutex suspend_mutex = __MUTEX_INITIALIZER(suspend_mutex);
+
+#ifdef WAKE_LOW_POWER_POLICY
+struct mutex low_power_mutex = __MUTEX_INITIALIZER(low_power_mutex);	//chwg add.
+#endif
+
 #endif
 #endif
 
@@ -371,6 +376,16 @@ void init_globals_sta(void)
 		wake_up_process(itm_scan_task);
 	}	
 	itm_scan_task = NULL;
+	
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+        //Bug#229353
+	if(wake_lock_active(&scan_ap_lock)){
+		wake_unlock(&scan_ap_lock);
+	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s\n", __func__);
+	}
+#endif
+#endif
 	
 	 TROUT_FUNC_EXIT;
 }

@@ -51,6 +51,9 @@
 #include "pm_sta.h"
 #include "iconfig.h"
 #include "../../CSL/csl_linux.h"
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#include "ps_timer.h"
+#endif
 
 //chenq mode auto rate policy 2013-07-24
 #include "autorate.h"
@@ -101,6 +104,13 @@ void sta_wait_scan_misc(mac_struct_t *mac, UWORD8 *msg)
         /* the miscellaneous timeout event                                   */
         if(get_mac_state() != misc_event_msg->info)
         {
+		pr_info("%s: mac_state(%d) and msg->info(%d) not equal\n"
+				, __func__, get_mac_state(), misc_event_msg->info);
+		itm_scan_flag = 0;
+		#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+		pstimer_start(&pstimer);
+		#endif
+
 			TROUT_FUNC_EXIT;
             return;
 		}
@@ -813,36 +823,21 @@ void sta_enabled_misc(mac_struct_t *mac, UWORD8 *msg)
 			//chenq add for BusyTraffic 2013-02-12
 			if( (get_uptime_cnt() % 20) == 0 )//20 * TBTT(100ms) == 2000ms == 2s
 			{
-				unsigned long tx_packets_check = 0;
-				unsigned long rx_packets_check = 0;
+                                int tx_packets_check = 0;
+                                int rx_packets_check = 0;
 
-				//check tx packets
-				if(tx_packets > g_mac_net_stats->tx_packets)
-				{
-					unsigned long tmp_data = 0;
-					memset(&tmp_data,0xFF,sizeof(tmp_data));
-					tx_packets_check = g_mac_net_stats->tx_packets + tmp_data - tx_packets;
-					tx_packets = g_mac_net_stats->tx_packets;
-				}
-				else
-				{
+                          /*Begin of modified by yiming.li, cd bug 475*/
+                                //check tx packets, overflow is no need to change
 					tx_packets_check = g_mac_net_stats->tx_packets - tx_packets;
 					tx_packets = g_mac_net_stats->tx_packets;
-				}
+                                if(tx_packets_check < 0) tx_packets_check = (-1)*tx_packets_check;
 
-				//check rx packets
-				if(rx_packets > g_mac_net_stats->rx_packets)
-				{
-					unsigned long tmp_data = 0;
-					memset(&tmp_data,0xFF,sizeof(tmp_data));
-					rx_packets_check = g_mac_net_stats->rx_packets + tmp_data - rx_packets;
-					rx_packets = g_mac_net_stats->rx_packets;
-				}
-				else
-				{
+
+                                //check rx packets, overflow is no need to change
 					rx_packets_check = g_mac_net_stats->rx_packets - rx_packets;
 					rx_packets = g_mac_net_stats->rx_packets;
-				}
+                                if(rx_packets_check < 0) rx_packets_check = (-1)*rx_packets_check;
+                                /*End of modified by yiming.li, cd bug 475*/
 				
 				if( (rx_packets_check > 100) || (tx_packets_check > 100) )
 				{

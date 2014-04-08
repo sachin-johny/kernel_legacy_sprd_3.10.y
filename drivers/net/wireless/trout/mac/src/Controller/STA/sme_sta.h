@@ -119,10 +119,6 @@ extern unsigned int scan_need_goon(void);
 extern void init_scan_limit(void);
 extern void inc_scan_limit(void);
 
-
-
-
-
 /*****************************************************************************/
 /* Inline Functions                                                          */
 /*****************************************************************************/

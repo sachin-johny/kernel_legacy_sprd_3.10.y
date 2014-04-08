@@ -219,6 +219,11 @@ static unsigned long CEQ_open_cfg[] =
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE 
 extern unsigned int current_rf_mode;
+typedef enum
+{
+	WIFI_NORMAL_POWER_MODE = 0,
+	WIFI_LOW_POWER_MODE    = 1,
+}WIFI_POWER_MODE;
 #endif
 
 

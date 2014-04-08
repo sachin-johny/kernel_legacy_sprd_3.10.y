@@ -121,6 +121,18 @@ extern BOOL_T         g_powermanagement_wait_apply_flag;
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 extern UWORD32 ps_last_int_mask;
+
+typedef enum
+{
+	SUSPEND_DOZE   = 0,
+	LOW_POWER_DOZE = 1,
+}DOZE_T;
+
+extern void sta_doze_trick(DOZE_T type,BOOL_T reset_lock);
+extern void sta_awake_trick(void);
+extern int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority);
+extern int prepare_null_frame_for_cp(UWORD8 psm, BOOL_T is_qos, UWORD8 priority);
+extern void prepare_ps_poll_for_cp(void);
 #endif
 
 

@@ -300,7 +300,7 @@ void ap_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
     if(BTRUE == is_tx_ready(amsdu_ctxt))
     {
         if(tx_data_packet((UWORD8 *)ae, wlan_tx_req->da, wlan_tx_req->priority,
-                          q_num, tx_dscr, amsdu_ctxt) == BTRUE)
+                          q_num, tx_dscr, amsdu_ctxt,0) == BTRUE)
         {
                           wlan_tx_req->added_to_q = BTRUE;
 

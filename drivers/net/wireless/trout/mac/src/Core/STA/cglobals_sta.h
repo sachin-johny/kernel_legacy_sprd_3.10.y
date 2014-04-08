@@ -150,6 +150,12 @@ extern volatile UWORD8 g_cmcc_test_mode;
 //chenq mod scan_limit => g_default_scan_limit 2013-09-11
 extern int g_default_scan_limit;
 
+typedef enum
+{
+	WIFI_NORMAL_POWER_MODE = 0,
+	WIFI_LOW_POWER_MODE    = 1,
+}WIFI_POWER_MODE;	//define by chwg.
+extern WIFI_POWER_MODE g_wifi_power_mode;	//define in trout_sdio modules, add by chwg 2013.12.2
 //caisf add 0226
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 typedef enum
@@ -172,6 +178,10 @@ extern struct completion null_frame_completion;
 extern volatile UWORD32 *null_frame_dscr;
 extern struct mutex suspend_mutex;
 extern volatile int g_wakeup_flag_for_60s;
+#ifdef WAKE_LOW_POWER_POLICY
+#define FLOW_DETECT_TIME	2000
+extern struct mutex low_power_mutex;	//add by chwg 2013.12.2
+#endif	
 #endif
 #endif
 

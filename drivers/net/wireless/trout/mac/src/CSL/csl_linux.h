@@ -292,12 +292,21 @@ struct trout_private{
     struct b2b_test_qm b2b_qm;
 #endif
 
+#ifdef WAKE_LOW_POWER_POLICY
+	struct mutex ps_mutex;	//add by chwg, 2013.12.7, used for suspend/resume & enter/exit low power mode protect.
+#endif
+
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 //#ifndef WIFI_SLEEP_POLICY
     struct mutex cur_run_mutex; //xuan.yang, 2013-09-17, protect atomic varibles
 	u32    resume_complete_state;
 //#endif
 #endif
+//begin by modified junwei.jiang bug232001 2013-12-16
+u8 bssid[ETH_ALEN];
+u8 ssid[IEEE80211_MAX_SSID_LEN];
+size_t ssid_len;
+//end by modified junwei.jiang bug232001 2013-12-16
 };
 
 typedef enum{
@@ -383,7 +392,37 @@ extern struct sb_buff	*gsb;
 #endif//IBSS_BSS_STATION_MODE
 
 
+#ifdef WAKE_LOW_POWER_POLICY
+typedef struct
+{
+	UWORD32 tx_pkt_num;
+	UWORD32 rx_pkt_num;
+	UWORD32 total_pkt_num_record[3];
+}LOW_POWER_FLOW_CTRL_T;
 
+typedef void (*wakeup_from_low_power_mode)(bool flag);
+extern wakeup_from_low_power_mode wake_low_power_fn;
+extern ALARM_HANDLE_T *g_flow_detect_timer;
+extern LOW_POWER_FLOW_CTRL_T g_low_power_flow_ctrl;
+int enter_low_power_mode(void);
+int exit_low_power_mode(BOOL_T restart);
+void restart_flow_detect_timer(ALARM_HANDLE_T **hdl, UWORD32 time, UWORD32 data);
+INLINE void low_power_init(void)
+{
+	printk("low power struct init!\n");
+
+	memset(&g_low_power_flow_ctrl, '\0', sizeof(LOW_POWER_FLOW_CTRL_T));
+	g_flow_detect_timer = NULL;
+}
+
+INLINE void clear_history_flow_record(void)
+{
+	g_low_power_flow_ctrl.total_pkt_num_record[0] = 0;
+	g_low_power_flow_ctrl.total_pkt_num_record[1] = 0;
+	g_low_power_flow_ctrl.total_pkt_num_record[2] = 0;
+}
+
+#endif
 /*****************************************************************************/
 /* Extern Function Declarations                                              */
 /*****************************************************************************/
