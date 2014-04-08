@@ -54,6 +54,7 @@ obj-$(CONFIG_MACH_YOUNG2) += board-young2.o dma_r4p0.o
 obj-$(CONFIG_MACH_HIGGS) += board-higgs.o dma_r4p0.o
 obj-$(CONFIG_MACH_VIVALTO) += board-vivalto.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735EA) += board-sp5735ea.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP5735C2EA) += board-sp5735c2ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP5735C1EA) += board-sp5735c1ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8830GA) += board-sp8830ga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730GA) += board-sp7730ga.o dma_r4p0.o
