@@ -692,8 +692,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
 || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
 || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
-||defined(CONFIG_MACH_SP5735C1EA)
-	rf2351_gpio_ctrl_power_enable(1);
+||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE)
+    rf2351_gpio_ctrl_power_enable(1);
 #endif
 
 #if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
@@ -816,8 +816,8 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
 || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
 || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
-||defined(CONFIG_MACH_SP5735C1EA)
-	rf2351_gpio_ctrl_power_enable(0);
+||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE)
+    rf2351_gpio_ctrl_power_enable(0);
 #endif
 
 #if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)

@@ -130,14 +130,21 @@ extern struct platform_device sprd_veth_spi2_device;
 extern struct platform_device sprd_veth_spi3_device;
 extern struct platform_device sprd_veth_spi4_device;
 #endif
-#ifdef CONFIG_MUX_SDIO_HAL
+#ifdef CONFIG_MUX_SDIO_OPT1_HAL
 extern struct platform_device sprd_veth_sdio0_device;
 extern struct platform_device sprd_veth_sdio1_device;
 extern struct platform_device sprd_veth_sdio2_device;
 extern struct platform_device sprd_veth_sdio3_device;
 extern struct platform_device sprd_veth_sdio4_device;
 #endif
+#ifdef CONFIG_MODEM_INTF
+extern struct platform_device modem_interface_device;
+#endif
 #endif
 
 extern struct platform_device modem_interface_device;
+#endif
+#ifdef CONFIG_TS0710_MUX_ENABLE
+extern struct platform_device sprd_mux_spi_device;
+extern struct platform_device sprd_mux_sdio_device;
 #endif

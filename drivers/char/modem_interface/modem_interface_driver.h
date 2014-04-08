@@ -2,6 +2,14 @@
 #define __MODEM_INTF_DRIVER_H__
 #include <mach/modem_interface.h>
 
+
+#define MODEM_INTF_EVENT_ASSERT     0
+#define MODEM_INTF_EVENT_ALIVE      1
+#define MODEM_INTF_EVENT_RESET      2
+#define MODEM_INTF_EVENT_SHUTDOWN   4
+
+
+
 enum   TRAN_DIR_t{
 	TRAN_DIR_IN,
 	TRAN_DIR_OUT,
@@ -12,16 +20,20 @@ enum MSG_SRC_type {
 	SRC_GPIO,
 	SRC_SPI,
 	SRC_MUX,
-	SRC_DLOADER
+	SRC_DLOADER,
+	SRC_USER
 };
 
 enum MODEM_MSG_type {
-        MODEM_TRANSFER_REQ, // high layer(mux /download driver) request to send.
-	MODEM_TRANSFER_END,// transfer complete
-        MODEM_SLAVE_RTS,   // MODEM request to send data
-        MODEM_SLAVE_RDY,   // indicate MODEM is ready to receive.
-	MODEM_SET_MODE,
-	MODEM_OPEN_DEVICE
+    MODEM_TRANSFER_REQ, // high layer(mux /download driver) request to send.
+    MODEM_TRANSFER_END,// transfer complete
+    MODEM_SLAVE_RTS,   // MODEM request to send data
+    MODEM_SLAVE_RDY,   // indicate MODEM is ready to receive.
+    MODEM_SET_MODE,
+    MODEM_CTRL_GPIO_CHG,
+    MODEM_USER_REQ,
+    MODEM_BOOT_CMP,
+    MODEM_OPEN_DEVICE
 };
 
 struct modem_message_node{

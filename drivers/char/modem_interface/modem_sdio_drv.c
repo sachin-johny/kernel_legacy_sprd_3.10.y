@@ -22,8 +22,8 @@ extern struct spi_device *sprd_spi_modem_device_register(int master_bus_num,stru
 
 extern int sprd_sdio_channel_open(void);
 extern void sprd_sdio_channel_close(void);
-extern int sprd_sdio_channel_rx(char *buf, int len);
-extern int sprd_sdio_channel_tx(const char *buf, unsigned int len);
+extern int sprd_sdio_channel_rx(char *buf, int len, unsigned int addr);
+extern int sprd_sdio_channel_tx(const char *buf, unsigned int len, unsigned int addr);
 
 static int modem_sdio_open(void *para)
 {
@@ -31,11 +31,11 @@ static int modem_sdio_open(void *para)
 }
 int modem_sdio_read(char *buffer,int size)
 {
-    return sprd_sdio_channel_rx(buffer,size);
+    return sprd_sdio_channel_rx(buffer,size, 0);
 }
 int modem_sdio_write(char *buffer,int size)
 {
-    return sprd_sdio_channel_tx((const char *)buffer,size);
+    return sprd_sdio_channel_tx((const char *)buffer,size, 0);
 }
 
 static struct modem_device_operation	sdio_device_op = {

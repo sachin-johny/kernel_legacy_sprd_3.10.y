@@ -24,6 +24,8 @@
 #include <linux/irqflags.h>
 #include "modem_buffer.h"
 #define dloader_record_timestamp(time)
+
+spinlock_t buffer_lock;
 static int buffer_data_size(struct single_buffer_t *buffer)
 {
 	int data_size = 0;
@@ -75,9 +77,7 @@ int pingpang_buffer_read(struct modem_buffer *buffer,char *data,int size)
 				break;
 			down(&buffer->buf_read_sem);
 		}while(1);
-
 		data_size = buffer_data_size(&buffer->buffer[0]);
-
 		if(data_size==0)
 			return 0;
 
@@ -112,11 +112,13 @@ int pingpang_buffer_send(struct modem_buffer *buffer)
 		else
 			index = buffer->save_index;
 		local_irq_save(flags);
+		spin_lock_irqsave(&buffer_lock, flags);
 		for(i=0;i<2;i++){
 			status = buffer->buffer[index].status;
 			if ((status != BUF_STATUS_IDLE) && (status != BUF_STATUS_WRITTEN)) {
 				buffer->buffer[index].status = BUF_STATUS_SENT;
 				local_irq_restore(flags);
+				spin_unlock_irqrestore(&buffer_lock, flags);
 				buffer->trans_index = index;
 				dloader_record_timestamp(0x50000000|(index<<24)|buffer->buffer[index].write_point);
 				if(buffer->save_index == index)
@@ -126,6 +128,7 @@ int pingpang_buffer_send(struct modem_buffer *buffer)
 			index = 1 - index;
 		}
 		local_irq_restore(flags);
+		spin_unlock_irqrestore(&buffer_lock, flags);
 	}
 	return 0xFF;
 }
@@ -229,6 +232,7 @@ int pingpang_buffer_init(struct modem_buffer *buffer)
 	buffer->trans_index = 0xff;
 	sema_init(&buffer->buf_read_sem,0);
 	sema_init(&buffer->buf_write_sem,0);
+	spin_lock_init(&buffer_lock);
 	return 0;
 }
 void pingpang_buffer_free(struct modem_buffer *buffer)

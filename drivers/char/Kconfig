@@ -70,6 +70,12 @@ config TS0710_MUX_ENABLE
     help
       This driver is used to support spreadtrum ts0710 mux.
 
+config MODEM_INTF
+        bool "MODEM interface"
+        default n
+        help
+          This module supports to connect AP with CP by SPI or SDIO bus.
+
 config MUX_SDIO_OPT1_HAL
         bool "MUX SDIO OPT1 HAL"
         default n

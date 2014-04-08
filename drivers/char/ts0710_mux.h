@@ -22,6 +22,9 @@
  *
  */
 
+#ifndef TS0710_MUX_H
+#define TS0710_MUX_H
+
 /*
 * This header file should be included by both MUX and other applications
 * which access MUX device files. It gives the additional macro definitions
@@ -101,3 +104,5 @@
 
 /* Special Error code might be return from open() to a MUX device file  */
 #define EREJECTED 901		/* Logical data link connection request is rejected */
+
+#endif

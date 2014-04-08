@@ -32,12 +32,12 @@ int  sdhci_hal_gpio_init(void);
 int  sdhci_hal_gpio_irq_init(void);
 void sdhci_hal_gpio_exit(void);
 
-int  cp2ap_rdy(void);
+int  cp2ap_req(void);
 void set_ap_status(void);
 void clear_ap_status(void);
 int  cp2ap_rts(void);
-void ap2cp_rts_enable(void);
-void ap2cp_rts_disable(void);
+void ap2cp_req_enable(void);
+void ap2cp_req_disable(void);
 void ap2cp_rdy_enable(void);
 void ap2cp_rdy_disable(void);
 u32  sdhci_connect(u32 direction);

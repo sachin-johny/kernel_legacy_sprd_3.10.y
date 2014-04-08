@@ -184,6 +184,8 @@ static int spi_read_write(struct spi_device *spi, void *rbuf,
 
 static u16 ipc_calculate_len(u16 length)
 {
+	if(length > MAX_RECEIVER_SIZE)
+		BUG_ON(1);
 	if(length % 32)
 		return (length/32 + 1) * 32;
 	else
@@ -204,6 +206,7 @@ static size_t ipc_read_write_data(struct ipc_spi_dev* dev, u8* rbuf, u32 rlen, u
 	//wait_event(dev->wait, dev->transfer_status == TRANSFER_IDLE);
 	rlen = ipc_calculate_len(rlen);
 	wlen = ipc_calculate_len(wlen);
+	ap2cp_wakeup();
 	ap2cp_enable();
 	dev->tx_irqennum++;
 	dev->task_status = 5;
@@ -218,6 +221,7 @@ static size_t ipc_read_write_data(struct ipc_spi_dev* dev, u8* rbuf, u32 rlen, u
 	else
 		ret = spi_read_write(dev->spi,rbuf, wbuf, (rlen > wlen)? rlen : wlen);
 	ap2cp_disable();
+	ap2cp_sleep();
 	dev->tx_irqdisnum++;
 	dev->task_status = 7;
 	wait_event(dev->wait, dev->rx_ctl || !dev->ipc_enable);
@@ -332,7 +336,7 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 }
 
 
-/*static*/ void ipc_setup(struct ipc_spi_dev* dev, u8* buf, u16* len, packet_type *type)
+/*static*/ void ipc_setup(struct ipc_spi_dev* dev, u8* buf, u16* len, u32 *flag)
 {
 	struct setup_packet_header *header = (struct setup_packet_header*)buf;
 	struct ipc_transfer_frame*  frame_ptr = NULL;
@@ -342,8 +346,16 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 		else {
 			if(ipc_IsTransferFifoEmpty(&(dev->tx_transfer))) {
 				if(ipc_FlushTxTransfer(&(dev->tx_transfer))) {
-					*len = 0; /* no data to send */
-					return;
+					if(*flag & (1 << TYPE_ACK)) {
+						ipc_ack(buf, len);
+						return;
+					} else if(*flag & (1 << TYPE_NAK)) {
+						ipc_nak(buf, len);
+						return;
+					} else {
+						*len = 0; /* no data to send */
+						return;
+					}
 				}
 			}
 
@@ -358,9 +370,18 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 				header->seqnum = dev->tx_seqnum -1;
 			else
 				header->seqnum = dev->tx_seqnum++;
+			if(*flag & (1 << TYPE_ACK)) {
+				header->magic = SETUP_ACK_MAGIC;
+				header->ack.magic = ACK_MAGIC;
+				header->ack.type = TYPE_ACK;
+			} else if(*flag & (1 << TYPE_NAK)) {
+				header->magic = SETUP_ACK_MAGIC;
+				header->ack.magic = ACK_MAGIC;
+				header->ack.type = TYPE_NAK;
+			}
 			header->checksum = ipc_checksum((const unsigned char *)&header->type, 8);
 			*len = sizeof(struct setup_packet_header);
-			*type = TYPE_SETUP_WITHOUT_DATA;
+			*flag |= (1 << TYPE_SETUP_WITHOUT_DATA);
 			dev->tx_needdata = true;
 		} else {
 			header->magic = SETUP_MAGIC;
@@ -370,25 +391,55 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 				header->seqnum = dev->tx_seqnum -1;
 			else
 				header->seqnum = dev->tx_seqnum++;
+			if(*flag & (1 << TYPE_ACK)) {
+				header->magic = SETUP_ACK_MAGIC;
+				header->ack.magic = ACK_MAGIC;
+				header->ack.type = TYPE_ACK;
+			} else if(*flag & (1 << TYPE_NAK)) {
+				header->magic = SETUP_ACK_MAGIC;
+				header->ack.magic = ACK_MAGIC;
+				header->ack.type = TYPE_NAK;
+			}
 			memcpy(buf + sizeof(struct setup_packet_header), frame_ptr->buf_ptr + sizeof(struct data_packet_header), header->length);
 			header->checksum = ipc_checksum((const unsigned char *)&header->type, 8 + header->length);
 			*len = sizeof(struct setup_packet_header) + header->length;
-			*type = TYPE_SETUP_WITH_DATA;
+			*flag |= (1 << TYPE_SETUP_WITH_DATA);
 			dev->tx_needdata = false;
 		}
 
 	} else {
-		*len = 0;
+		if(*flag & (1 << TYPE_ACK)) {
+			ipc_ack(buf, len);
+			return;
+		} else if(*flag & (1 << TYPE_NAK)) {
+			ipc_nak(buf, len);
+			return;
+		} else {
+			*len = 0; /* no data to send */
+			return;
+		}
 	}
 }
 
-static void ipc_data(u16 length, u8* buf, u16* len)
+static void ipc_data(u16 length, u8* buf, u16* len, u32* flag)
 {
 	u32 offset = sizeof(struct data_packet_header);
 	struct data_packet_header header;
-	header.magic = DATA_MAGIC;
+	if(*flag & (1 << TYPE_ACK)) {
+		header.magic = DATA_ACK_MAGIC;
+		header.ack.magic = ACK_MAGIC;
+		header.ack.type = TYPE_ACK;
+	} else if(*flag & (1 << TYPE_NAK)) {
+		header.magic = DATA_ACK_MAGIC;
+		header.ack.magic = ACK_MAGIC;
+		header.ack.type = TYPE_NAK;
+	} else {
+		header.magic = DATA_MAGIC;
+	}
+
 	header.checksum = ipc_checksum(&buf[offset], length - offset);
 	memcpy(buf, &header, sizeof(header));
+	*flag |= (1 << TYPE_DATA);
 	*len = length;
 }
 
@@ -403,26 +454,29 @@ static void ipc_sendcheck(struct ipc_spi_dev* dev)
 
 
 /*static*/ void ipc_prepare_send(struct ipc_spi_dev* dev, u8* buf,
-		u16* len, packet_type *type)
+		u16* len, u32 *flag)
 {
 	if(ipc_needsendack(dev) && ipc_cansendack(dev)) {
-		*type = TYPE_ACK;
-		return ipc_ack(buf, len);
+		*flag = 1 << TYPE_ACK;
+		//return ipc_ack(buf, len);
 	}
 	if(ipc_needsendnak(dev)) {
-		*type = TYPE_NAK;
-		return ipc_nak(buf, len);
+		*flag = 1 << TYPE_NAK;
+		//return ipc_nak(buf, len);
 	}
 	/*if(ipc_needsendacksuc(dev))
 		return ipc_acksuc(buf, len);*/
 	if(dev->tx_status == IDLE_STATUS || dev->tx_status == NAK_STATUS
 		|| (dev->tx_status == ACK_STATUS && !dev->tx_needdata)) {
-		return ipc_setup(dev, buf, len, type);
+		return ipc_setup(dev, buf, len, flag);
 	}
 	if(dev->tx_status == ACK_STATUS && dev->tx_needdata) {
-		*type = TYPE_DATA;
-		return ipc_data(dev->curframe->pos, dev->curframe->buf_ptr, len);
+		return ipc_data(dev->curframe->pos, dev->curframe->buf_ptr, len, flag);
 	}
+	if(*flag & (1 << TYPE_ACK))
+		return ipc_ack(buf, len);
+	if(*flag & (1 << TYPE_NAK))
+		return ipc_nak(buf, len);
 	if(dev->tx_status == SETUP_STATUS || dev->tx_status == DATA_STATUS) {
 		*len = 0;
 		return ;
@@ -556,111 +610,143 @@ static u32 ipc_FreeAllTxTransferFrame(struct ipc_spi_dev *dev)
 
 static void ipc_print_errdata(u8 *buf, u16 len)
 {
-	int i;
-	for(i = 0; i < len;) {
+	//int i;
+	printk("++++++++++++++++++++++++\n");
+	/*for(i = 0; i < len;) {
 
 		printk("data: 0x%x, 0x%x, 0x%x, 0x%x \n", buf[i], buf[i+1], buf[i+2], buf[i+3]);
 		i+=4;
+	}*/
+	printk("error data \n");
+	printk("++++++++++++++++++++++++\n");
+}
+
+static void ipc_rcv_setup(struct ipc_spi_dev* dev, u8 *buf, u16 len)
+{
+	struct setup_packet_header *setup_header = (struct setup_packet_header*)buf;
+	if(setup_header->type == TYPE_SETUP_WITH_DATA) {
+		if(setup_header->checksum == ipc_checksum((const unsigned char *)&setup_header->type, setup_header->length + 8)) {
+			if(kfifo_avail(&dev->rx_fifo) < setup_header->length) {
+				printk(KERN_ERR "ipc RX_FIFO is full \n");
+				BUG_ON(1);
+			}
+			if(dev->rx_seqnum == setup_header->seqnum) {
+				printk(KERN_WARNING "ipc receive the same packet, need to discard \n");
+			} else {
+				kfifo_in(&dev->rx_fifo, buf + sizeof(struct setup_packet_header), setup_header->length);
+				wake_up_interruptible(&dev->rx_read_wait);
+				dev->rx_seqnum = setup_header->seqnum;
+			}
+			dev->rx_needdata = false;
+			dev->rx_status = SETUP_STATUS;
+			ipc_cansendack(dev);
+		} else {
+			printk("ipc_spi error data TYPE_SETUP_WITH_DATA \n");
+			ipc_print_errdata(buf, len);
+			dev->rx_status = ERROR_STATUS;
+			dev->rx_ack_hold = IPC_RX_ACK_SEND;
+		}
+	} else if(setup_header->type == TYPE_SETUP_WITHOUT_DATA) {
+		if(setup_header->checksum == ipc_checksum((const unsigned char *)&setup_header->type, 8)) {
+			dev->rx_size = setup_header->length;
+			if(dev->rx_seqnum == setup_header->seqnum) {
+				printk(KERN_WARNING "ipc receive the same packet, need to discard11 \n");
+				dev->rx_data_discard = true;
+			}else {
+				dev->rx_tmpnum = setup_header->seqnum;
+				dev->rx_data_discard = false;
+			}
+			dev->rx_needdata = true;
+			dev->rx_status = SETUP_STATUS;
+			ipc_cansendack(dev);
+		} else {
+			printk("ipc_spi error data TYPE_SETUP_WITHOUT_DATA \n");
+			ipc_print_errdata(buf, len);
+			dev->rx_status = ERROR_STATUS;
+			dev->rx_ack_hold = IPC_RX_ACK_SEND;
+		}
+	} else {
+		printk("ipc_spi error data type error \n");
+		ipc_print_errdata(buf, len);
+		dev->rx_status = ERROR_STATUS;
+		dev->rx_ack_hold = IPC_RX_ACK_SEND;
 	}
 }
 
-static void ipc_process_rcvdata(struct ipc_spi_dev* dev, u8 *buf, u16 len)
+static void ipc_rcv_data(struct ipc_spi_dev* dev, u8 *buf, u16 len)
 {
-	struct setup_packet_header *setup_header;
-	u16 *magic = (u16*)buf;
-	IPC_DBG("ipc_process_rcvdata 0x%x \n", *magic);
-	if(SETUP_MAGIC == *magic) {
-		setup_header = (struct setup_packet_header*)buf;
-		if(setup_header->type == TYPE_SETUP_WITH_DATA) {
-			if(setup_header->checksum == ipc_checksum((const unsigned char *)&setup_header->type, setup_header->length + 8)) {
-				if(kfifo_avail(&dev->rx_fifo) < setup_header->length) {
-					printk(KERN_ERR "ipc RX_FIFO is full \n");
-					BUG_ON(1);
-				}
-				if(dev->rx_seqnum == setup_header->seqnum) {
-					printk(KERN_WARNING "ipc receive the same packet, need to discard \n");
-				} else {
-					kfifo_in(&dev->rx_fifo, buf + sizeof(struct setup_packet_header), setup_header->length);
-					wake_up_interruptible(&dev->rx_read_wait);
-					dev->rx_seqnum = setup_header->seqnum;
-				}
-				dev->rx_needdata = false;
-				dev->rx_status = SETUP_STATUS;
-				ipc_cansendack(dev);
-			} else {
-				ipc_print_errdata(buf, len);
-				dev->rx_status = ERROR_STATUS;
-				dev->rx_ack_hold = IPC_RX_ACK_SEND;
+	struct data_packet_header *header = (struct data_packet_header*)buf;
+	if(header->checksum == ipc_checksum(buf + sizeof(struct data_packet_header), dev->rx_size)) {
+		if(!dev->rx_data_discard) {
+			if(kfifo_avail(&dev->rx_fifo) < dev->rx_size) {
+				printk(KERN_ERR "ipc RX_FIFO is full11 \n");
+				BUG_ON(1);
 			}
-		} else if(setup_header->type == TYPE_SETUP_WITHOUT_DATA) {
-			if(setup_header->checksum == ipc_checksum((const unsigned char *)&setup_header->type, 8)) {
-				dev->rx_size = setup_header->length;
-				if(dev->rx_seqnum == setup_header->seqnum) {
-					printk(KERN_WARNING "ipc receive the same packet, need to discard11 \n");
-					dev->rx_data_discard = true;
-				}else {
-					dev->rx_tmpnum = setup_header->seqnum;
-					dev->rx_data_discard = false;
-				}
-				dev->rx_needdata = true;
-				dev->rx_status = SETUP_STATUS;
-				ipc_cansendack(dev);
-			} else {
-				ipc_print_errdata(buf, len);
-				dev->rx_status = ERROR_STATUS;
-				dev->rx_ack_hold = IPC_RX_ACK_SEND;
-			}
-		} else {
-			ipc_print_errdata(buf, len);
-			dev->rx_status = ERROR_STATUS;
-			dev->rx_ack_hold = IPC_RX_ACK_SEND;
+			kfifo_in(&dev->rx_fifo, buf + sizeof(struct data_packet_header), dev->rx_size);
+			wake_up_interruptible(&dev->rx_read_wait);
+			dev->rx_seqnum = dev->rx_tmpnum;
 		}
-	}else if(DATA_MAGIC == *magic) {
-		struct data_packet_header *header = (struct data_packet_header*)buf;
-		if(header->checksum == ipc_checksum(buf + sizeof(struct data_packet_header), dev->rx_size)) {
-			if(!dev->rx_data_discard) {
-				if(kfifo_avail(&dev->rx_fifo) < dev->rx_size) {
-					printk(KERN_ERR "ipc RX_FIFO is full11 \n");
-					BUG_ON(1);
-				}
-				kfifo_in(&dev->rx_fifo, buf + sizeof(struct data_packet_header), dev->rx_size);
-				wake_up_interruptible(&dev->rx_read_wait);
-				dev->rx_seqnum = dev->rx_tmpnum;
-			}
-			dev->rx_status = DATA_STATUS;
-			ipc_cansendack(dev);
-		} else {
-			ipc_print_errdata(buf, len);
-			dev->rx_status = ERROR_STATUS;
-			dev->rx_ack_hold = IPC_RX_ACK_SEND;
-		}
-	} else if(ACK_MAGIC == *magic) {
-		struct ack_packet *header = (struct ack_packet*)buf;
-		if(header->type == TYPE_ACK) {
-			if((dev->tx_status == DATA_STATUS) || ((dev->tx_status == SETUP_STATUS) && !dev->tx_needdata)) {
-				ipc_DelDataFromTxTransfer(dev, dev->curframe);
-				dev->curframe = NULL;
-				ipc_sendcheck(dev);
-				dev->tx_status = IDLE_STATUS;
-				return ;
-			} else if (dev->tx_status == SETUP_STATUS){
-				printk(KERN_ERR "setup without data receive ack \n");
-				ipc_sendcheck(dev);
-				dev->tx_status = ACK_STATUS;
-			} else
-				printk(KERN_ERR "ipc in wrong status when receive ack %d\n", dev->tx_status);
-		} else if(header->type == TYPE_NAK) {
-			printk(KERN_WARNING "ipc receive nak status %d \n", dev->tx_status);
-			dev->bneedsnd = true;
-			dev->tx_status = NAK_STATUS;
-		} else if(header->type == TYPE_SUCCESS) {
+		dev->rx_status = DATA_STATUS;
+		ipc_cansendack(dev);
+	} else {
+		printk("ipc_spi error data data checksum error \n");
+		ipc_print_errdata(buf, len);
+		dev->rx_status = ERROR_STATUS;
+		dev->rx_ack_hold = IPC_RX_ACK_SEND;
+	}
+}
+
+static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf)
+{
+	struct ack_packet *header = (struct ack_packet*)buf;
+	if(header->type == TYPE_ACK) {
+		if((dev->tx_status == DATA_STATUS) || ((dev->tx_status == SETUP_STATUS) && !dev->tx_needdata)) {
+			ipc_DelDataFromTxTransfer(dev, dev->curframe);
+			dev->curframe = NULL;
+			ipc_sendcheck(dev);
+			dev->tx_status = IDLE_STATUS;
+			return ;
+		} else if (dev->tx_status == SETUP_STATUS){
+			IPC_DBG("setup without data receive ack \n");
 			ipc_sendcheck(dev);
 			dev->tx_status = ACK_STATUS;
-			dev->tx_needdata = false;
-		} else {
-			dev->bneedsnd = true;
-			dev->tx_status = NAK_STATUS;
-		}
+		} else
+			printk(KERN_ERR "ipc in wrong status when receive ack %d\n", dev->tx_status);
+	} else if(header->type == TYPE_NAK) {
+		printk(KERN_WARNING "ipc receive nak status %d \n", dev->tx_status);
+		dev->bneedsnd = true;
+		dev->tx_status = NAK_STATUS;
+	} else if(header->type == TYPE_SUCCESS) {
+		ipc_sendcheck(dev);
+		dev->tx_status = ACK_STATUS;
+		dev->tx_needdata = false;
+	} else {
+		dev->bneedsnd = true;
+		dev->tx_status = NAK_STATUS;
+	}
+}
+
+
+static void ipc_process_rcvdata(struct ipc_spi_dev* dev, u8 *buf, u16 len)
+{
+	u16 *magic = (u16*)buf;
+	IPC_DBG("ipc_process_rcvdata 0x%x \n", *magic);
+	if(SETUP_MAGIC == *magic)
+		ipc_rcv_setup(dev, buf, len);
+	else if(DATA_MAGIC == *magic)
+		ipc_rcv_data(dev, buf, len);
+	else if(ACK_MAGIC == *magic)
+		ipc_rcv_ack(dev, buf);
+	else if (SETUP_ACK_MAGIC == *magic){
+		struct setup_packet_header *setup_header;
+		setup_header = (struct setup_packet_header*)buf;
+		ipc_rcv_ack(dev, (u8*)&(setup_header->ack));
+		ipc_rcv_setup(dev, buf, len);
+	} else if (DATA_ACK_MAGIC == *magic) {
+		struct data_packet_header *data_header;
+		data_header = (struct data_packet_header*)buf;
+		ipc_rcv_ack(dev, (u8*)&(data_header->ack));
+		ipc_rcv_data(dev, buf, len);
 	} else if(DUMMY_MAGIC == *magic) {
 		IPC_DBG("ipc dump data just discard \n");
 	} else {
@@ -679,21 +765,21 @@ static void ipc_process_rcvdata(struct ipc_spi_dev* dev, u8 *buf, u16 len)
 	}
 }
 
-static void ipc_process_send(struct ipc_spi_dev* dev, packet_type tx_type)
+static void ipc_process_send(struct ipc_spi_dev* dev, u32 flag)
 {
-	if(tx_type == TYPE_SETUP_WITHOUT_DATA || tx_type == TYPE_SETUP_WITH_DATA) {
+	if(flag & (1 << TYPE_SETUP_WITHOUT_DATA) || flag & (1 << TYPE_SETUP_WITH_DATA)) {
 		dev->bneedsnd = false;
 		dev->tx_status = SETUP_STATUS;
 	}
-	else if(tx_type == TYPE_ACK) {
+	if(flag & (1 << TYPE_ACK)) {
 		dev->rx_status = ACK_STATUS;
 		dev->rx_ack_hold = IPC_RX_ACK_NONE;
 	}
-	else if(tx_type == TYPE_NAK || tx_type == TYPE_SUCCESS) {
+	if(flag & (1 <<TYPE_NAK)) {
 		dev->rx_status = IDLE_STATUS;
 		dev->rx_ack_hold = IPC_RX_ACK_NONE;
 	}
-	else if(tx_type == TYPE_DATA) {
+	if(flag & (1 << TYPE_DATA)) {
 		dev->bneedsnd = false;
 		dev->tx_status = DATA_STATUS;
 	}
@@ -743,7 +829,7 @@ static int mux_ipc_spi_write(const char *buf, size_t  count)
 	}
 
 	/* if tx transfer is empty so need to wake up thread */
-	if(dev->tx_transfer.counter == ret) {
+	/*if(dev->tx_transfer.counter == ret)*/ {
 		IPC_DBG("ipc write wake up \n");
 		dev->bneedsnd = true;
 		wake_up(&dev->wait);
@@ -799,6 +885,8 @@ static void ipc_reset(struct ipc_spi_dev *dev)
 	dev->rx_ctl = false;
 	dev->bneedrcv = false;
 	dev->bneedsnd = false;
+	dev->rx_needdata = false;
+	dev->tx_needdata = false;
 	dev->rx_status = IDLE_STATUS;
 	dev->tx_status = IDLE_STATUS;
 	dev->rx_size = SETUP_PACKET_SIZE;
@@ -813,7 +901,6 @@ static void ipc_reset(struct ipc_spi_dev *dev)
 	for(i = 0; i < MAX_RECEIVER_SIZE; i++)
 		receive_buf[i] = 0x11;
 }
-
 
 static int mux_ipc_thread(void *data)
 {
@@ -843,15 +930,20 @@ static int mux_ipc_thread(void *data)
 
 		IPC_DBG("Enter mux_ipc_thread %d %d %d \n",
 				dev->tx_transfer.counter, dev->bneedrcv, dev->rx_ack_hold);
+		wake_lock(&dev->wake_lock);
 		while(dev->bneedsnd || dev->bneedrcv || dev->rx_ack_hold == IPC_RX_ACK_SEND) {
 			u16 tx_len = 0;
 			u16 rx_len = 0;
-			packet_type tx_type = TYPE_MAX;
-			ipc_prepare_send(dev, send_buf, &tx_len, &tx_type);
+			u32 tx_flag = 0;
+			ipc_prepare_send(dev, send_buf, &tx_len, &tx_flag);
 			ipc_prepare_read(dev, &rx_len);
-			IPC_DBG("ipc done prepare %d, %d, %d \n", tx_len, tx_type, rx_len);
+			IPC_DBG("ipc done prepare %d, %d, %d \n", tx_len, tx_flag, rx_len);
+			/*if(tx_flag != ((1 << TYPE_ACK) | (1 << TYPE_SETUP_WITH_DATA))) */{
+				IPC_DBG("tx_flag %d, tx_status %d, rx_status %d, rx_ack_hold %d, count %d \n",
+					tx_flag, dev->tx_status, dev->rx_status, dev->rx_ack_hold, dev->tx_transfer.counter);
+			}
 			dev->task_status = 4;
-			if(tx_type == TYPE_DATA) {
+			if(tx_flag & (1 << TYPE_DATA)) {
 				rval = ipc_read_write_data(dev, receive_buf, rx_len, dev->curframe->buf_ptr, tx_len);
 			} else
 				rval = ipc_read_write_data(dev, receive_buf, rx_len, send_buf, tx_len);
@@ -861,18 +953,20 @@ static int mux_ipc_thread(void *data)
 			dev->task_status = 9;
 			ipc_process_rcvdata(dev, receive_buf, rx_len);
 			dev->task_status = 10;
-			ipc_process_send(dev, tx_type);
+			ipc_process_send(dev, tx_flag);
 			dev->task_status = 11;
 		}
 		if(!dev->ipc_enable) {
 			printk(KERN_ERR "ipc was disabled , there must something wrong! \n");
 			ipc_reset(dev);
 			kfifo_reset(&dev->rx_fifo);
+			ipc_FlushTxTransfer(&dev->tx_transfer);
 			ipc_FreeAllTxTransferFrame(dev);
 			if(dev->curframe)
 				ipc_DelDataFromTxTransfer(dev, dev->curframe);
 			ap2cp_disable();
 		}
+		wake_unlock(&dev->wake_lock);
 	}
 	spi_hal_gpio_exit();
 	dev->task_status = 12;
@@ -1069,8 +1163,6 @@ static int ipc_init_debugfs(void)
 
 #endif /* CONFIG_DEBUG_FS */
 
-
-
 static int __init ipc_spi_probe(struct spi_device *spi)
 {
 	struct ipc_spi_dev *dev;
@@ -1096,8 +1188,9 @@ static int __init ipc_spi_probe(struct spi_device *spi)
 	spin_lock_init(&dev->rx_fifo_lock);
 	ipc_reset(dev);
 
-	dev->ipc_enable = true; /* need tobe change later false;*/
+	dev->ipc_enable = false;
 
+	wake_lock_init(&dev->wake_lock, WAKE_LOCK_SUSPEND, "ipc_spi");
 	/* register misc devices */
 	dev->miscdev.minor = MISC_DYNAMIC_MINOR;
 	dev->miscdev.name = "ipc_spi";
@@ -1117,7 +1210,7 @@ static int __init ipc_spi_probe(struct spi_device *spi)
 	}
 	#endif
 
-	spi->max_speed_hz = 8000000;
+	spi->max_speed_hz = 19200000;
 	spi->mode = SPI_MODE_3;
 	spi->bits_per_word = 32;
 	spi_setup(spi);

@@ -41,6 +41,9 @@ typedef enum   MBUS_DL_status{
 	MBUS_DL_ACK
 }DL_STATUS_E;
 
+
+extern void modem_intf_ctrl_gpio_handle_boot(int status);
+
 char *boot_status_string(DL_STATUS_E status)
 {
 	switch(status){
@@ -74,7 +77,7 @@ static void boot_idle(struct modem_message_node *msg,struct modem_intf_device *d
 			}
 		break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+            modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -95,7 +98,7 @@ static void boot_wait_request(struct modem_message_node *msg,struct modem_intf_d
 			}
 		break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -122,7 +125,7 @@ static void boot_wait_RTS(struct modem_message_node *msg,struct modem_intf_devic
 			device->out_transfer_pending = 1;
 		break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -154,7 +157,7 @@ static void boot_setup(struct modem_message_node *msg,struct modem_intf_device *
                         }
                 break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -185,7 +188,7 @@ static void boot_setup_comp(struct modem_message_node *msg,struct modem_intf_dev
 			device->out_transfer_pending = 1;
 		break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -215,7 +218,7 @@ static void boot_data(struct modem_message_node *msg,struct modem_intf_device *d
                         device->status = (int)MBUS_DL_ACK;
                 break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -236,7 +239,7 @@ static void boot_data_comp(struct modem_message_node *msg,struct modem_intf_devi
 			device->out_transfer_pending = 1;
 		break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -281,7 +284,7 @@ static void boot_ack(struct modem_message_node *msg,struct modem_intf_device *de
 			}
 		break;
 		case MODEM_SET_MODE:
-			device->mode = msg->parameter2 ;
+			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
 		break;
@@ -291,19 +294,15 @@ static void boot_ack(struct modem_message_node *msg,struct modem_intf_device *de
 }
 extern unsigned long sprd_get_system_tick(void);
 extern void dloader_record_timestamp(unsigned long time);
-void boot_protocol(struct modem_message_node *msg)
+
+void boot_protocol_process_dl_messages(struct modem_intf_device *device,
+    struct modem_message_node *msg)
 {
-	struct modem_intf_device *device;
-	DL_STATUS_E	status;
+    DL_STATUS_E	status;
 
-	if((msg == NULL)||(msg->parameter1==0))
-		return;
+    status =(DL_STATUS_E) device->status;
 
-	device = (struct modem_intf_device *)msg->parameter1;
-	status =(DL_STATUS_E) device->status;
-
-	pr_debug(">>boot(%d,%d) status: %s message: %s \n",device->out_transfer_pending,device->out_transfering,boot_status_string((DL_STATUS_E )status),modem_intf_msg_string(msg->type));
-	switch(status){
+    switch(status){
 		case MBUS_DL_IDLE:
 			boot_idle(msg,device);
 		break;
@@ -329,4 +328,37 @@ void boot_protocol(struct modem_message_node *msg)
 			boot_ack(msg,device);
 		break;
 	}
+}
+
+void boot_protocol(struct modem_message_node *msg)
+{
+	struct modem_intf_device *device;
+
+	if((msg == NULL)||(msg->parameter1==0))
+		return;
+
+	device = (struct modem_intf_device *)msg->parameter1;
+
+	printk(">>boot entry(%d,%d) status: %s message: %s \n",
+        device->out_transfer_pending,device->out_transfering,
+        boot_status_string((DL_STATUS_E )device->status),
+        modem_intf_msg_string(msg->type));
+
+    //filter messages
+    switch(msg->type){
+        case MODEM_CTRL_GPIO_CHG:
+            modem_intf_ctrl_gpio_handle_boot(msg->parameter2);
+            break;
+        case MODEM_USER_REQ:
+            //now, just ignore user req in boot mode
+            break;
+        case MODEM_BOOT_CMP:
+            modem_intf_set_mode(MODEM_MODE_BOOTCOMP, 0);
+            break;
+        default:
+            //all other messages
+            boot_protocol_process_dl_messages(device, msg);
+            break;
+    }
+
 }

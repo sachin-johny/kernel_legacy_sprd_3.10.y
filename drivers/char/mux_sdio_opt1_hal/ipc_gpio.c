@@ -32,48 +32,59 @@
 
 #define SDHCI_RESEND_SUPPORT
 
+#define PIN_STATUS_ACTIVE 1
+#define PIN_STATUS_INACTIVE 0
+
+
 #define DRIVER_NAME "sdhci_hal"
 
 #define DBG(f, x...) 	pr_debug(DRIVER_NAME " [%s()]: " f, __func__,## x)
 
 #define MAX_MIPC_WAIT_TIMEOUT     2000
 
-static unsigned int cp_to_ap_rdy_irq;
-static unsigned int cp_to_ap_rts_irq;
+static unsigned int cp_to_ap_req_irq;
 
 
 static wait_queue_head_t   s_gpio_cp_ready_wq;
 
 extern void process_modem_packet(unsigned long data);
 
-int cp2ap_rdy(void)
+int cp2ap_req(void)
 {
-        DBG("SDIO :cp2ap_rdy=%d\r\n",gpio_get_value(GPIO_CP_TO_AP_RDY));
-        return gpio_get_value(GPIO_CP_TO_AP_RDY);
+        DBG("[SDIO_IPC] cp_to_ap_req=%d\r\n",gpio_get_value(GPIO_CP_TO_AP_RDY));
+        return (PIN_STATUS_ACTIVE == gpio_get_value(GPIO_CP_TO_AP_RDY));
 }
 
-void ap2cp_rts_enable(void)
+void ap2cp_req_enable(void)
 {
-        printk("SDIO ap2cp_rts_enable AP_TO_CP_RTS is 1\r\n");
-        gpio_set_value(GPIO_AP_TO_CP_RTS, 1);
+        DBG("SDIO ap2cp_req_enable AP_TO_CP_RTS is 1\r\n");
+        gpio_set_value(GPIO_AP_TO_CP_RTS, PIN_STATUS_ACTIVE);
 }
 
-void ap2cp_rts_disable(void)
+void ap2cp_req_disable(void)
 {
-        printk("SDIO ap2cp_rts_disable AP_TO_CP_RTS is 0\r\n");
-        gpio_set_value(GPIO_AP_TO_CP_RTS, 0);
+        DBG("SDIO ap2cp_req_disable AP_TO_CP_RTS is 0\r\n");
+        gpio_set_value(GPIO_AP_TO_CP_RTS, PIN_STATUS_INACTIVE);
 }
 
 extern  u32  wake_up_mipc_rx_thread(u32  need_to_rx_data);
 extern void set_cp_awake(bool awake);
 
 
-static irqreturn_t cp_to_ap_rdy_handle(int irq, void *handle)
+static irqreturn_t cp_to_ap_req_handle(int irq, void *handle)
 {
-        printk/*DBG*/("[SDIO_IPC]cp_to_ap_rdy_handle:%d\r\n ", cp2ap_rdy());
+        int cur = cp2ap_req();
 
-        set_cp_awake(true);
-        if(!cp2ap_rdy()) {
+        if(cur) {
+                irq_set_irq_type(cp_to_ap_req_irq,  IRQ_TYPE_LEVEL_LOW);
+        } else  {
+                irq_set_irq_type(cp_to_ap_req_irq,  IRQ_TYPE_LEVEL_HIGH);
+        }
+
+        DBG("[SDIO_IPC]cp_to_ap_req_handle:%d\r\n ", cur);
+
+        if(cur) {
+                set_cp_awake(true);
                 wake_up_mipc_rx_thread(1);
         }
         return IRQ_HANDLED;
@@ -123,16 +134,21 @@ int sdhci_hal_gpio_irq_init(void)
 
         DBG("sdhci_hal_gpio init \n");
 
-        cp_to_ap_rdy_irq = gpio_to_irq(GPIO_CP_TO_AP_RDY);
-        if (cp_to_ap_rdy_irq < 0)
+        cp_to_ap_req_irq = gpio_to_irq(GPIO_CP_TO_AP_RDY);
+        if (cp_to_ap_req_irq < 0)
                 return -1;
-        ret = request_threaded_irq(cp_to_ap_rdy_irq, cp_to_ap_rdy_handle,
-                                   NULL, IRQF_DISABLED|IRQF_TRIGGER_FALLING, "cp_to_ap_rdy_irq", NULL);
+        ret = request_threaded_irq(cp_to_ap_req_irq, cp_to_ap_req_handle,
+                                   NULL, IRQF_NO_SUSPEND|IRQF_DISABLED|IRQF_TRIGGER_HIGH,
+                                   "cp_to_ap_req_irq", NULL);
         if (ret) {
-                DBG("lee :cannot alloc cp_to_ap_rdy_irq, err %d\r\r\n", ret);
+                DBG("lee :cannot alloc cp_to_ap_req_irq, err %d\r\r\n", ret);
                 return ret;
         }
-
+        enable_irq_wake(cp_to_ap_req_irq);
+        if(cp2ap_req()) {
+            printk("[SDIO_IPC]initial check call cp_to_ap_req_handle()\r\n ");
+            cp_to_ap_req_handle(0, NULL);
+        }
         return 0;
 
 }
@@ -144,8 +160,7 @@ void sdhci_hal_gpio_exit(void)
         gpio_free(GPIO_AP_TO_CP_RTS);
         gpio_free(GPIO_CP_TO_AP_RDY);
 
-        free_irq(cp_to_ap_rdy_irq, NULL);
-        free_irq(cp_to_ap_rts_irq, NULL);
+        free_irq(cp_to_ap_req_irq, NULL);
 }
 
 //MODULE_AUTHOR("Bin.Xu<bin.xu@spreadtrum.com>");

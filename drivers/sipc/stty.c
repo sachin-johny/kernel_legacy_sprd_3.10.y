@@ -154,7 +154,8 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 
 
 #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-    || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA)
+    || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA) \
+    || defined(CONFIG_MACH_SC9620OPENPHONE)
     rf2351_gpio_ctrl_power_enable(1);
 #endif
 
@@ -188,8 +189,9 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 	pr_debug("stty_close device success !\n");
 
     #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA)
-    rf2351_gpio_ctrl_power_enable(0);
+        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA) \
+	|| defined(CONFIG_MACH_SC9620OPENPHONE)
+    	rf2351_gpio_ctrl_power_enable(0);
     #endif
 
 	#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) 

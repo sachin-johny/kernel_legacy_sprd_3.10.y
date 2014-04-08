@@ -521,9 +521,16 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct veth_init_data *pdata = veth->pdata;
 	int ret;
 
-	VETH_DEBUG("%s is ready to send %d byte, proto %x\n",
-		dev->name, skb->len,
-		(skb->data[VETH_ETH_HLEN] & 0xf0) >> 4);
+	if (!skb->data || skb->len <= VETH_ETH_HLEN) {
+		VETH_DEBUG("Uplayer ERROR: Invalid skb and drop it, data 0x%x, len %d\n",
+				skb->data, skb->len);
+		dev_kfree_skb_irq(skb);
+		netif_wake_queue(dev);
+		return NETDEV_TX_OK;
+	}
+
+	VETH_DEBUG("%s is ready to send %d bytes, proto %d\n",
+			dev->name, skb->len, (skb->data[VETH_ETH_HLEN] & 0xf0) >> 4);
 
 	/* notify the uplayer to stop sending */
 	netif_stop_queue(dev);
@@ -533,8 +540,6 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	if (ret <= 0){
 		VETH_ERR("%s failed to sprdmux write (%d)!!!\n", dev->name, ret);
 		veth->stats.tx_fifo_errors++;
-		/* TODO, maybe it needs a tx thread to perform the lost skb*/
-		dev_kfree_skb_any(skb);
 		return NETDEV_TX_BUSY;
 	}
 
@@ -543,7 +548,7 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	dev->trans_start = jiffies;
 
 	ret = NETDEV_TX_OK;
-	dev_kfree_skb_any(skb);
+	dev_kfree_skb_irq(skb);
 
 	VETH_INFO("%s start xmit done\n", dev->name);
 	return ret;

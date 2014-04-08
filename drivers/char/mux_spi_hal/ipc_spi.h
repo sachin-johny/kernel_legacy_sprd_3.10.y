@@ -13,15 +13,17 @@
 
 #include <linux/kfifo.h>
 #include <linux/miscdevice.h>
+#include <linux/wakelock.h>
 
 
-
-#define SETUP_PACKET_SIZE 128
+#define SETUP_PACKET_SIZE (128)
 #define MAX_RECEIVER_SIZE (16*1024)
 
 #define SETUP_MAGIC 0x1a2b
 #define DATA_MAGIC 0x3c4d
 #define ACK_MAGIC 0x5e6f
+#define SETUP_ACK_MAGIC 0x789a
+#define DATA_ACK_MAGIC 0x9abc
 #define DUMMY_MAGIC 0x5a5a
 
 #define CP2AP_NOIRQ 0x0
@@ -38,17 +40,20 @@ typedef enum {
 	TYPE_MAX
 }packet_type;
 
-struct setup_packet_header {
-	u16 magic;
-	u16 checksum;
-	u16 type;
-	u16 length; // raw data length
-	u32 seqnum;
-};
-
 struct ack_packet {
 	u16 magic;
 	u16 type;
+};
+
+struct setup_packet_header {
+	u16 magic;
+	u16 checksum;
+	union {
+			struct ack_packet ack;
+		};
+	u16 type;
+	u16 length; // raw data length
+	u32 seqnum;
 };
 
 // data packet type like below
@@ -56,6 +61,11 @@ struct ack_packet {
 struct data_packet_header {
 	u16 magic;
 	u16 checksum;
+	union {
+			struct ack_packet ack;
+		};
+	u32 dummy1;
+	u32 dummy2;
 };
 
 
@@ -130,6 +140,7 @@ struct ipc_spi_dev {
 	struct task_struct *task;
 	struct spi_device *spi;
 	struct miscdevice		miscdev;
+	struct wake_lock wake_lock;
 	u32 irq_num; /* use for debug cp side irq num */
 	u32 task_count; /* use for debug task run count*/
 	u32 task_status; /* use for debug record the status of task */

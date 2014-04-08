@@ -151,6 +151,31 @@ static int akm8963_i2c_check_device(
 	return err;
 }
 
+/***** wlg add inv bypass functions *************************************/
+static int inv_bypass_2nd_i2c(struct i2c_client *i2c, uint8_t *txData, int length)
+{
+	int ret;
+	struct i2c_msg msg[] = {
+		{
+			.addr = 0x68,
+			.flags = 0,
+			.len = length,
+			.buf = txData,
+		},
+	};
+	pr_info("AKM compass driver: inv_bypass_2nd_i2c.");
+	ret = i2c_transfer(i2c->adapter, msg, ARRAY_SIZE(msg));
+	if (ret < 0) {
+		dev_err(&i2c->dev, "%s: transfer failed.", __func__);
+		return ret;
+	} else if (ret != ARRAY_SIZE(msg)) {
+		dev_err(&i2c->dev, "%s: transfer failed(size error).", __func__);
+		return -ENXIO;
+	}
+	dev_vdbg(&i2c->dev, "TxData: len=%02x, addr=%02x data=%02x",length, txData[0], txData[1]);
+	return 0;
+}
+
 /***** akm miscdevice functions *************************************/
 static int AKECS_Open(struct inode *inode, struct file *file);
 static int AKECS_Release(struct inode *inode, struct file *file);
@@ -1279,6 +1304,7 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct akm8963_platform_data *pdata;
 	int err = 0;
 	int i;
+	uint8_t buffer[2];
 
 	dev_dbg(&client->dev, "start probing.");
 
@@ -1329,6 +1355,15 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 
 	/***** I2C initialization *****/
 	s_akm->i2c = client;
+	/* set inv bypass */
+	buffer[0] = 0x37;
+	buffer[1] = 2;
+	err = inv_bypass_2nd_i2c(client, buffer, 2);
+	if (err < 0)
+	{
+		pr_info("AKM compass driver: inv_bypass_2nd_i2c error.");
+	}
+	udelay(500);
 	/* check connection */
 	err = akm8963_i2c_check_device(client);
 	if (err < 0)
@@ -1472,5 +1507,5 @@ static void __exit akm8963_exit(void)
 	i2c_del_driver(&akm8963_driver);
 }
 
-module_init(akm8963_init);
+late_initcall(akm8963_init);
 module_exit(akm8963_exit);

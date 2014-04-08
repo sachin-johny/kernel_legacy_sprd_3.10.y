@@ -27,6 +27,10 @@ extern void ap2cp_enable(void);
 
 extern void ap2cp_disable(void);
 
+extern void ap2cp_wakeup(void);
+
+extern void ap2cp_sleep(void);
+
 extern int spi_hal_gpio_init(void);
 
 extern int spi_hal_gpio_irq_init(struct ipc_spi_dev *dev);

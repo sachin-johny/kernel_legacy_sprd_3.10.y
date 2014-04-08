@@ -15,7 +15,9 @@
 #define _MODEM_INTF_H
 
 enum MODEM_Mode_type {
+    MODEM_MODE_SHUTDOWN,
 	MODEM_MODE_BOOT,
+	MODEM_MODE_BOOTCOMP,
 	MODEM_MODE_NORMAL,
 	MODEM_MODE_DUMP,
 	MODEM_MODE_RESET,
@@ -34,7 +36,10 @@ struct modem_intf_platform_data{
     void             *modem_dev_parameter;
     int	        	modem_power_gpio;
     int              	modem_boot_gpio;
+    int             modem_watchdog_gpio;
+    int              	modem_alive_gpio;
     int              	modem_crash_gpio;
+    int              modem_reset_gpio;
 };
 extern int modem_intf_open(enum MODEM_Mode_type mode,int index);
 extern int modem_intf_read(char *buffer, int size,int index);

@@ -48,7 +48,7 @@
 #define EIC_KEY_POWER           (EIC_POWER_PBINT)
 #define HEADSET_BUTTON_GPIO		(EIC_AUD_HEAD_BUTTON)
 #define HEADSET_DETECT_GPIO		(EIC_AUD_HEAD_INST2)
-#define HEADSET_SWITCH_GPIO	237
+#define HEADSET_SWITCH_GPIO	0
 
 #define HEADSET_IRQ_TRIGGER_LEVEL_DETECT 1
 #define HEADSET_IRQ_TRIGGER_LEVEL_BUTTON 1
@@ -77,13 +77,13 @@
 #define GPIO_WIFI_SHUTDOWN	230
 #define GPIO_WIFI_IRQ		234
 
-#define GPIO_PROX_INT 162
-#define GPIO_GYRO_INT1 163
-#define GPIO_M_RSTN	161
-#define GPIO_M_DRDY 164
+#define GPIO_PROX_INT 92
+#define GPIO_GYRO_INT1 153
+#define GPIO_M_RSTN 148
+#define GPIO_M_DRDY 149
 
 #define GPIO_SDIO_DETECT      232
-#define GPIO_AP_TO_CP_RTS     235
+#define GPIO_AP_TO_CP_RTS     147
 #define GPIO_CP_TO_AP_RDY     236
 
 /* ION config info
@@ -100,15 +100,5 @@ Camera:
    8M,  support ZSL, support preview/capture rotation
 */
 #define SPRD_ION_MM_SIZE         (52 * SZ_1M)
-#define SPRD_ION_OVERLAY_SIZE    (4 * SZ_1M)
-
- #define GPIO_SDIO_DETECT      226
- #define GPIO_AP_TO_CP_RTS     11
- #define GPIO_CP_TO_AP_RDY     12
- #define GPIO_CP_TO_AP_RTS     210
- #define GPIO_AP_STATUS        211
-
-#define GPIO_MODEM_DETECT     212
-#define GPIO_MODEM_BOOT       213
-#define GPIO_MODEM_CRASH      214
+#define SPRD_ION_OVERLAY_SIZE    (8 * SZ_1M)
 #endif

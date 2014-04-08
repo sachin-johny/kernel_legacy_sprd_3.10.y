@@ -46,6 +46,9 @@
 #if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
 #include <linux/akm8975.h>
 #endif
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
+#include <linux/akm8963.h>
+#endif
 #include <linux/irq.h>
 #include <linux/input/matrix_keypad.h>
 
@@ -208,16 +211,21 @@ static struct platform_device *devices[] __initdata = {
         &sprd_veth_spi3_device,
         &sprd_veth_spi4_device,
 #endif
-#ifdef CONFIG_MUX_SDIO_HAL
+#ifdef CONFIG_MUX_SDIO_OPT1_HAL
         &sprd_veth_sdio0_device,
         &sprd_veth_sdio1_device,
         &sprd_veth_sdio2_device,
         &sprd_veth_sdio3_device,
         &sprd_veth_sdio4_device,
 #endif
+#ifdef 	CONFIG_MODEM_INTF
+&modem_interface_device,
 #endif
-
-    &modem_interface_device,
+#endif
+#ifdef CONFIG_TS0710_MUX_ENABLE
+	&sprd_mux_spi_device,
+	&sprd_mux_sdio_device,
+#endif
 };
 
 static struct platform_device *late_devices[] __initdata = {
@@ -343,9 +351,9 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.reset_gpio_number  = GPIO_TOUCH_RESET,
 	.vdd_name           = "vdd28",
 	.virtualkeys = {
-	         100,1020,80,65,
-	         280,1020,80,65,
-	         470,1020,80,65
+	         130,1360,80,65,
+	         280,1360,80,65,
+	         630,1360,80,65
 	         },
 	 .TP_MAX_X = 720,
 	 .TP_MAX_Y = 1280,
@@ -366,9 +374,9 @@ static struct lis3dh_acc_platform_data lis3dh_plat_data = {
 	.axis_map_x = 1,
 	.axis_map_y = 0,
 	.axis_map_z = 2,
-	.negate_x = 0,
+	.negate_x = 1,
 	.negate_y = 1,
-	.negate_z = 0
+	.negate_z = 1,
 };
 #endif
 
@@ -382,26 +390,33 @@ struct akm8975_platform_data akm8975_platform_d = {
 	.mag_high_z = 20479,
 };
 #endif
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
+struct akm8963_platform_data akm_platform_data_8963 = {
+       .layout = 7,
+       .outbit = 1,
+       .gpio_DRDY = GPIO_M_DRDY,
+       .gpio_RST = GPIO_M_RSTN,
+};
+#endif
 
 #if(defined(CONFIG_INV_MPU_IIO)||defined(CONFIG_INV_MPU_IIO_MODULE))
 static struct mpu_platform_data mpu9150_platform_data = {
 	.int_config = 0x00,
 	.level_shifter = 0,
-	.orientation = { -1, 0, 0,
-					  0, +1, 0,
-					  0, 0, -1 },
-	.sec_slave_type = SECONDARY_SLAVE_TYPE_COMPASS,
-	.sec_slave_id = COMPASS_ID_AK8963,
-	.secondary_i2c_addr = 0x0C,
-	.secondary_orientation = { 0, -1, 0,
-					-1, 0, 0,
-					0, 0, -1 },
-	.key = {0xec, 0x06, 0x17, 0xdf, 0x77, 0xfc, 0xe6, 0xac,
-			0x7b, 0x6f, 0x12, 0x8a, 0x1d, 0x63, 0x67, 0x37},
+	.vdd_name = "vddsim2",
+	.orientation = { 1, 0, 0,
+					  0, 1, 0,
+					  0, 0, 1 },
+	.sec_slave_type = SECONDARY_SLAVE_TYPE_NONE,
 };
 #endif
 
 static struct i2c_board_info i2c2_boardinfo[] = {
+#if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
+       {  I2C_BOARD_INFO(AKM8963_I2C_NAME, AKM8963_I2C_ADDR),
+          .platform_data = &akm_platform_data_8963,
+       },
+#endif
 #if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
 	{ I2C_BOARD_INFO(LIS3DH_ACC_I2C_NAME, LIS3DH_ACC_I2C_ADDR),
 	  .platform_data = &lis3dh_plat_data,
@@ -425,12 +440,12 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 #endif
 };
 
-static struct i2c_board_info i2c1_boardinfo[] = {
+static struct i2c_board_info i2c0_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
 
-static struct i2c_board_info i2c0_boardinfo[] = {
+static struct i2c_board_info i2c1_boardinfo[] = {
 	{
 #if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 		I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
@@ -442,8 +457,8 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 static int sc8810_add_i2c_devices(void)
 {
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
-	i2c_register_board_info(0, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
-	i2c_register_board_info(1, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
+	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
+	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 	return 0;
 }
 
@@ -616,7 +631,7 @@ static struct spi_board_info spi_boardinfo[] = {
 static struct spi_board_info spi_boardinfo[] = {
 	{
 	.modalias = "ipc-spi",
-	.bus_num = 1,
+	.bus_num = 0,
 	.chip_select = 0,
 	.max_speed_hz = 1000 * 1000,
 	.mode = SPI_CPOL | SPI_CPHA,

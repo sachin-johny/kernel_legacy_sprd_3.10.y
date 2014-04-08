@@ -34,6 +34,9 @@
 #include <mach/gpio.h>
 #include <linux/pstore_ram.h>
 #include <linux/sprd_iommu.h>
+#ifdef CONFIG_TS0710_MUX_ENABLE
+#include <linux/sprdmux.h>
+#endif
 #ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
 #include <linux/headset_sprd_cali.h>
 #else
@@ -57,9 +60,12 @@
 struct modem_intf_platform_data modem_interface = {
        .dev_type               = MODEM_DEV_SDIO,
        .modem_dev_parameter    = NULL,
-       .modem_power_gpio       = 70,
-       .modem_boot_gpio        = 213,
-       .modem_crash_gpio       = 214,
+       .modem_power_gpio       = 234,
+       .modem_boot_gpio        = 236,
+       .modem_watchdog_gpio    = 231,
+       .modem_alive_gpio       = 235,
+       .modem_crash_gpio       = 237,
+       .modem_reset_gpio       = 233,
 };
 struct platform_device modem_interface_device = {
        .name   = "modem_interface",
@@ -577,21 +583,21 @@ static struct resource spi2_resources[] = {
 };
 
 struct platform_device sprd_spi0_device = {
-    .name = "sprd_spi",
+    .name = "sprd spi",
     .id = 0,
     .resource = spi0_resources,
     .num_resources = ARRAY_SIZE(spi0_resources),
 };
 
 struct platform_device sprd_spi1_device = {
-	.name = "sprd_spi",
+	.name = "sprd spi",
 	.id = 1,
 	.resource = spi1_resources,
 	.num_resources = ARRAY_SIZE(spi1_resources),
 };
 
 struct platform_device sprd_spi2_device = {
-	.name = "sprd_spi",
+	.name = "sprd spi",
 	.id = 2,
 	.resource = spi2_resources,
 	.num_resources = ARRAY_SIZE(spi2_resources),
@@ -1639,7 +1645,7 @@ struct platform_device sprd_veth_spi4_device = {
 };
 #endif
 
-#ifdef CONFIG_MUX_SDIO_HAL
+#ifdef CONFIG_MUX_SDIO_OPT1_HAL
 static struct veth_init_data sprd_veth_sdio0_pdata = {
 	.index 		= 13,
 	.inst_id 	= SPRDMUX_ID_SDIO,
@@ -2445,6 +2451,33 @@ struct platform_device sprd_saudio_voip_device = {
 	.dev        = {.platform_data=&sprd_saudio_voip},
 };
 #endif
+
+#ifdef CONFIG_TS0710_MUX_ENABLE
+static struct mux_init_data sprd_mux_spi_pdata = {
+	.id	  = SPRDMUX_ID_SPI,
+	.name     = "spimux",
+	.num      = 32,
+};
+
+struct platform_device sprd_mux_spi_device = {
+	.name      = "mux",
+	.id        = 0,
+	.dev       = {.platform_data = &sprd_mux_spi_pdata},
+};
+
+static struct mux_init_data sprd_mux_sdio_pdata = {
+	.id       = SPRDMUX_ID_SDIO,
+	.name     = "sdiomux",
+	.num      = 32,
+};
+
+struct platform_device sprd_mux_sdio_device = {
+	.name     = "mux",
+	.id       = 1,
+	.dev      = {.platform_data = &sprd_mux_sdio_pdata},
+};
+#endif
+
 #define AP2CP_INT_CTRL		(SPRD_IPI_BASE + 0x00)
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
 

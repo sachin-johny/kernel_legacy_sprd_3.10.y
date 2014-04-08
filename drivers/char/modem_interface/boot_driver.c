@@ -32,12 +32,16 @@
 #include <linux/timer.h>
 #include <linux/mmc/sdio_channel.h>
 #include <linux/wakelock.h>
+#include <linux/slab.h>
+#include <linux/delay.h>
+
 
 #define 	DLOADER_NAME	        "dloader"
 #define		READ_BUFFER_SIZE	(4096)
 #define		WRITE_BUFFER_SIZE	(33*1024)
-//extern void  spi_ipc_enable(u8  is_enable);
+extern void  spi_ipc_enable(u8  is_enable);
 extern void  sdio_ipc_enable(u8  is_enable);
+extern int modem_intf_send_bootcomp_message();
 struct dloader_dev{
 	enum MODEM_Mode_type	mode;
 	int 			open_count;
@@ -86,8 +90,7 @@ static int dloader_open(struct inode *inode,struct file *filp)
 		printk(KERN_INFO "DLoade_open fail(NO MEM) \n");
 		return -ENOMEM;
 	}
-	dl_dev->open_count++;
-	wake_lock(&dloader_wake_lock);
+
 	if(modem_intf_open(MODEM_MODE_BOOT,0)< 0){
 		kfree(dl_dev->write_buffer);
 		dl_dev->write_buffer = NULL;
@@ -96,6 +99,10 @@ static int dloader_open(struct inode *inode,struct file *filp)
 		printk(KERN_INFO "modem_intf_open failed \n");
 		return -EBUSY;
 	}
+
+        dl_dev->open_count++;
+        wake_lock(&dloader_wake_lock);
+
 	dl_dev->mode = MODEM_MODE_BOOT;
 
 	printk(KERN_INFO "DLoader_open %d times: %d\n", dl_dev->open_count, rval);
@@ -164,10 +171,9 @@ static int dloader_release(struct inode *inode,struct file *filp)
 	dl_dev->write_buffer = NULL;
 	wake_unlock(&dloader_wake_lock);
 	dl_dev->open_count--;
-	modem_intf_set_mode(MODEM_MODE_NORMAL,0);
 	dl_dev->mode = MODEM_MODE_NORMAL;
-	sdio_ipc_enable(1);
-	//spi_ipc_enable(1);
+	modem_intf_send_bootcomp_message();
+
 	return 0;
 }
 

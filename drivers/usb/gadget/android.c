@@ -50,7 +50,7 @@ MODULE_DESCRIPTION("Android Composite USB Driver");
 MODULE_LICENSE("GPL");
 MODULE_VERSION("1.0");
 
-#define GSER_PORT_MAX_COUNT    6
+#define GSER_PORT_MAX_COUNT    MAX_U_SERIAL_PORTS
 
 static const char longname[] = "Gadget Android";
 extern int in_calibration(void);

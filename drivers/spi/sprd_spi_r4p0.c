@@ -35,6 +35,30 @@
 
 #define MHz(inte, dec) ((inte) * 1000 * 1000 + (dec) * 1000 * 100)
 
+struct clk_src {
+	u32 freq;
+	const char *name;
+};
+
+static struct clk_src spi_src_tab[] = {
+	{
+		.freq = MHz(26, 0),
+		.name = "ext_26m",
+	},
+	{
+		.freq = MHz(96, 0),
+		.name = "clk_96m",
+	},
+	{
+		.freq = MHz(153, 6),
+		.name = "clk_153m6",
+	},
+	{
+		.freq = MHz(192, 0),
+		.name = "clk_192m",
+	},
+};
+
 struct sprd_spi_devdata {
 	void __iomem *reg_base;
 	int irq_num;
@@ -62,6 +86,21 @@ struct sprd_spi_devdata {
 
 extern void clk_force_disable(struct clk *);
 
+static void sprd_spi_dump_regs(u32 reg_base)
+{
+	printk("SPI_CLKD:0x%x \n", __raw_readl(reg_base + SPI_CLKD));
+	printk("SPI_CTL0:0x%x \n", __raw_readl(reg_base + SPI_CTL0));
+	printk("SPI_CTL1:0x%x \n", __raw_readl(reg_base + SPI_CTL1));
+	printk("SPI_CTL2:0x%x \n", __raw_readl(reg_base + SPI_CTL2));
+	printk("SPI_CTL3:0x%x \n", __raw_readl(reg_base + SPI_CTL3));
+	printk("SPI_CTL4:0x%x \n", __raw_readl(reg_base + SPI_CTL4));
+	printk("SPI_CTL5:0x%x \n", __raw_readl(reg_base + SPI_CTL5));
+	printk("SPI_INT_EN:0x%x \n", __raw_readl(reg_base + SPI_INT_EN));
+	printk("SPI_DSP_WAIT:0x%x \n", __raw_readl(reg_base + SPI_DSP_WAIT));
+	printk("SPI_CTL6:0x%x \n", __raw_readl(reg_base + SPI_CTL6));
+	printk("SPI_CTL7:0x%x \n", __raw_readl(reg_base + SPI_CTL7));
+}
+
 static void sprd_spi_wait_for_send_complete(u32 reg_base)
 {
 	u32 timeout = 0;
@@ -70,6 +109,7 @@ static void sprd_spi_wait_for_send_complete(u32 reg_base)
 		if (++timeout > SPI_TIME_OUT) {
 			/*fixme, set timeout*/
 			printk("spi send timeout!\n");
+			sprd_spi_dump_regs(reg_base);
 			BUG_ON(1);
 		}
 	}
@@ -79,6 +119,7 @@ static void sprd_spi_wait_for_send_complete(u32 reg_base)
 		if (++timeout > SPI_TIME_OUT) {
 			/*fixme, set timeout*/
 			printk("spi send timeout!\n");
+			sprd_spi_dump_regs(reg_base);
 			BUG_ON(1);
 		}
 	}
@@ -435,6 +476,27 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 
 	/*fixme, need to check the parmeter*/
 
+	/*if the spi_src_clk is 48MHz,the spi max working clk is 24MHz*/
+	spi_work_clk = spi_dev->max_speed_hz << 1;
+	if (spi_work_clk > MHz(192, 0))
+		return -EINVAL;
+	for(i = 0; i < ARRAY_SIZE(spi_src_tab); i++)  {
+		if(!(spi_src_tab[i].freq % spi_work_clk))
+			break;
+	}
+	if(i == ARRAY_SIZE(spi_src_tab))
+		i--;
+	src_clk_name = spi_src_tab[i].name;
+	spi_src_clk = spi_src_tab[i].freq;
+
+	clk_parent = clk_get(&(spi_dev->master->dev), src_clk_name);
+	if (IS_ERR(clk_parent)) {
+		printk("Can't get the clock source: %s\n", src_clk_name);
+		return -EINVAL;
+	}
+
+	clk_set_parent(spi_chip->clk, clk_parent);
+
 	/*global enable*/
 	clk_enable(spi_chip->clk);
 
@@ -476,44 +538,13 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 	/*spi master mode*/
 	__raw_writel(0x0, spi_chip->reg_base + SPI_CTL2);
 	__raw_writel(0x0, spi_chip->reg_base + SPI_CTL4);
-	__raw_writel(0x5, spi_chip->reg_base + SPI_CTL5);
+	__raw_writel(0x9, spi_chip->reg_base + SPI_CTL5);
 	__raw_writel(0x0, spi_chip->reg_base + SPI_INT_EN);
 	/*reset fifo*/
 	__raw_writel(0x1, spi_chip->reg_base + SPI_FIFO_RST);
 	for (i = 0; i < 0x20; i++);
 	__raw_writel(0x0, spi_chip->reg_base + SPI_FIFO_RST);
 
-	/*if the spi_src_clk is 48MHz,the spi max working clk is 24MHz*/
-	spi_work_clk = spi_dev->max_speed_hz << 1;
-
-	if (spi_work_clk > MHz(192, 0))
-		return -EINVAL;
-
-	if (spi_work_clk <= MHz(26, 0)) {
-		src_clk_name = "ext_26m";
-		spi_src_clk = MHz(26, 0);
-	} else {
-		if (spi_work_clk <= MHz(96, 0)) {
-			src_clk_name = "clk_96m";
-			spi_src_clk = MHz(96, 0);
-		} else {
-			if (spi_work_clk <= MHz(153, 6)) {
-				src_clk_name = "clk_153m6";
-				spi_src_clk = MHz(153, 6);
-			} else {
-				src_clk_name = "clk_192m";
-				spi_src_clk = MHz(192, 0);
-			}
-		}
-	}
-
-	clk_parent = clk_get(&(spi_dev->master->dev), src_clk_name);
-	if (IS_ERR(clk_parent)) {
-		printk("Can't get the clock source: %s\n", src_clk_name);
-		return -EINVAL;
-	}
-
-	clk_set_parent(spi_chip->clk, clk_parent);
 	clk_set_rate(spi_chip->clk, spi_src_clk);
 
 	spi_clk_div = spi_src_clk / (spi_dev->max_speed_hz << 1) - 1;
@@ -610,12 +641,6 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	master->cleanup = sprd_spi_cleanup;
 #endif
 
-	ret = spi_register_master(master);
-	if (ret) {
-		printk("register spi master %d failed!\n", master->bus_num);
-		goto err_exit;
-	}
-
 	INIT_LIST_HEAD(&spi_chip->msg_queue);
 	spin_lock_init(&spi_chip->lock);
 	/*on multi core system, use the create_workqueue() is better??*/
@@ -624,6 +649,12 @@ static int __init sprd_spi_probe(struct platform_device *pdev)
 	INIT_WORK(&spi_chip->work, sprd_spi_transfer_work);
 
 	platform_set_drvdata(pdev, master);
+
+	ret = spi_register_master(master);
+	if (ret) {
+		printk("register spi master %d failed!\n", master->bus_num);
+		goto err_exit;
+	}
 
 	return 0;
 

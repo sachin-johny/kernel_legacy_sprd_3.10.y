@@ -205,7 +205,7 @@ static struct platform_device *devices[] __initdata = {
         &sprd_veth_spi3_device,
         &sprd_veth_spi4_device,
 #endif
-#ifdef CONFIG_MUX_SDIO_HAL
+#ifdef CONFIG_MUX_SDIO_OPT1_HAL
         &sprd_veth_sdio0_device,
         &sprd_veth_sdio1_device,
         &sprd_veth_sdio2_device,
@@ -214,6 +214,10 @@ static struct platform_device *devices[] __initdata = {
 #endif
 #endif
 
+#ifdef CONFIG_TS0710_MUX_ENABLE
+	&sprd_mux_spi_device,
+	&sprd_mux_sdio_device,
+#endif
 };
 
 static struct platform_device *late_devices[] __initdata = {
