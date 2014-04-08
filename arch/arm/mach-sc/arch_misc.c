@@ -102,7 +102,7 @@ int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_VSP_BASE, SZ_4K, enable);
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 		sci_reg_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
 #else
 		sci_reg_clr(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
@@ -117,7 +117,7 @@ int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
 		sci_reg_set(REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
 #endif
 	} else {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 		sci_reg_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
 #else
 		sci_reg_clr(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
