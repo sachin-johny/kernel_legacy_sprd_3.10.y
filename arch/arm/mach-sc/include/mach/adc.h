@@ -114,6 +114,7 @@ static inline int sci_adc_get_value(unsigned int channel, int scale)
 
 	if (0 != sci_adc_get_values(&adc)) {
 		printk("sci_adc_get_value, return error\n");
+		sci_adc_dump_register();
 		BUG();
 	}
 
