@@ -75,13 +75,15 @@ static int e_cpu = 0;
 #define	TIMER_INT_BUSY	(1 << 4)
 
 /**
- * timer0 is used as clockevent,
+ * timer0 of AONtimer is used as clockevent,
+ * timer1 of AONtimer  is used as 32.768 clocksource
+ * timer2 of AONtimer  is used as 128M clocksource
  * timer1 of aptimer0 is used as broadcast timer,
- * timer2 is used as clocksource
  */
 #define	EVENT_TIMER	0
 #define	BC_TIMER	1
-#define	SOURCE_TIMER	2
+#define	AON_PCLK_SOURCE_TIMER	2
+#define	AON_RTC_SOURCE_TIMER	1
 
 #define BC_CPU 1
 #ifndef CONFIG_OF
@@ -112,7 +114,7 @@ static int __gptimer_set_next_event(unsigned long cycles,
 {
 	int cpu = smp_processor_id();
 
-	while(TIMER_INT_BUSY & __raw_readl(TIMER_INT(cpu, EVENT_TIMER)));
+	while (TIMER_INT_BUSY & __raw_readl(TIMER_INT(cpu, EVENT_TIMER))) ;
 	__gptimer_ctl(cpu, EVENT_TIMER, TIMER_DISABLE, ONETIME_MODE);
 	__raw_writel(cycles, TIMER_LOAD(cpu, EVENT_TIMER));
 	__gptimer_ctl(cpu, EVENT_TIMER, TIMER_ENABLE, ONETIME_MODE);
@@ -149,10 +151,11 @@ static void __gptimer_set_mode(enum clock_event_mode mode,
 		break;
 	}
 }
+
 static int __bctimer_set_next_event(unsigned long cycles,
 				    struct clock_event_device *c)
 {
-	while(TIMER_INT_BUSY & __raw_readl(TIMER_INT(BC_CPU, BC_TIMER)));
+	while (TIMER_INT_BUSY & __raw_readl(TIMER_INT(BC_CPU, BC_TIMER))) ;
 	__gptimer_ctl(BC_CPU, BC_TIMER, TIMER_DISABLE, ONETIME_MODE);
 	__raw_writel(cycles, TIMER_LOAD(BC_CPU, BC_TIMER));
 	__gptimer_ctl(BC_CPU, BC_TIMER, TIMER_ENABLE, ONETIME_MODE);
@@ -196,6 +199,7 @@ static struct clock_event_device bctimer_event = {
 	.set_next_event = __bctimer_set_next_event,
 	.set_mode = __bctimer_set_mode,
 };
+
 static irqreturn_t __gptimer_interrupt(int irq, void *dev_id);
 #ifdef CONFIG_LOCAL_TIMERS
 #if !defined (CONFIG_HAVE_ARM_ARCH_TIMER)
@@ -228,9 +232,9 @@ static void sprd_local_timer_stop(struct clock_event_device *evt)
 }
 
 static struct local_timer_ops sprd_local_timer_ops __cpuinitdata = {
-	.setup	= sprd_local_timer_setup,
-	.stop	= sprd_local_timer_stop,
-}; 
+	.setup = sprd_local_timer_setup,
+	.stop = sprd_local_timer_stop,
+};
 #endif
 #endif /* CONFIG_LOCAL_TIMERS */
 
@@ -249,6 +253,7 @@ static irqreturn_t __gptimer_interrupt(int irq, void *dev_id)
 
 	return IRQ_HANDLED;
 }
+
 static irqreturn_t __bctimer_interrupt(int irq, void *dev_id)
 {
 	unsigned int value;
@@ -297,41 +302,89 @@ static void sprd_gptimer_clockevent_init(unsigned int irq, const char *name,
 void __gptimer_clocksource_resume(struct clocksource *cs)
 {
 	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
-		__raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+		 __raw_readl(TIMER_VALUE(e_cpu, AON_PCLK_SOURCE_TIMER)));
+	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
 }
+
 void __gptimer_clocksource_suspend(struct clocksource *cs)
 {
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
 	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
-		__raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
+		 __raw_readl(TIMER_VALUE(e_cpu, AON_PCLK_SOURCE_TIMER)));
 }
+
 cycle_t __gptimer_clocksource_read(struct clocksource *cs)
 {
-	return ~readl_relaxed(TIMER_VALUE(e_cpu, SOURCE_TIMER));
+	return ~readl_relaxed(TIMER_VALUE(e_cpu, AON_PCLK_SOURCE_TIMER));
 }
 
 struct clocksource clocksource_sprd = {
-	.name		= "gptimer2",
-	.rating		= 300,
-	.read		= __gptimer_clocksource_read,
-	.mask		= CLOCKSOURCE_MASK(32),
-	.flags		= CLOCK_SOURCE_IS_CONTINUOUS,
-	.resume		= __gptimer_clocksource_resume,
-	.suspend		= __gptimer_clocksource_suspend,
+	.name = "gptimer2",
+	.rating = 300,
+	.read = __gptimer_clocksource_read,
+	.mask = CLOCKSOURCE_MASK(32),
+	.flags = CLOCK_SOURCE_IS_CONTINUOUS,
+	.resume = __gptimer_clocksource_resume,
+	.suspend = __gptimer_clocksource_suspend,
 };
 
 static void __gptimer_clocksource_init(void)
 {
 	/* disalbe irq since it's just a read source */
-	__raw_writel(0, TIMER_INT(e_cpu, SOURCE_TIMER));
+	__raw_writel(0, TIMER_INT(e_cpu, AON_PCLK_SOURCE_TIMER));
 
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
-	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, SOURCE_TIMER));
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, AON_PCLK_SOURCE_TIMER));
+	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
 
-	if (clocksource_register_hz(&clocksource_sprd,gptimer_clock_source_freq))
-		printk("%s: can't register clocksource\n", clocksource_sprd.name);
+	/* do not register this timer as clocksource, because  the clock of this timer can be
+	   closed in one power save mode, without notifying the timekeeping
+	   subsystem */
+	/*if (clocksource_register_hz(&clocksource_sprd,gptimer_clock_source_freq))
+	   printk("%s: can't register clocksource\n", clocksource_sprd.name); */
+}
+
+void __gptimer_aon_rtc_clocksource_resume(struct clocksource *cs)
+{
+	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
+		 __raw_readl(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER)));
+	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+}
+
+void __gptimer_aon_rtc_clocksource_suspend(struct clocksource *cs)
+{
+	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
+		 __raw_readl(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER)));
+}
+
+cycle_t __gptimer_aon_rtc_clocksource_read(struct clocksource *cs)
+{
+	return ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
+}
+
+struct clocksource aon_rtc_clocksource_sprd = {
+	.name = "aon_rtctimer1",
+	.rating = 300,
+	.read = __gptimer_aon_rtc_clocksource_read,
+	.mask = CLOCKSOURCE_MASK(32),
+	.flags = CLOCK_SOURCE_IS_CONTINUOUS,
+	.resume = __gptimer_aon_rtc_clocksource_resume,
+	.suspend = __gptimer_aon_rtc_clocksource_suspend,
+};
+
+static void __gptimer_aon_rtc_clocksource_init(void)
+{
+	/* disalbe irq since it's just a read source */
+	__raw_writel(0, TIMER_INT(e_cpu, AON_RTC_SOURCE_TIMER));
+
+	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, AON_RTC_SOURCE_TIMER));
+	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+
+	if (clocksource_register_hz(&aon_rtc_clocksource_sprd, 32768))
+		printk("%s: can't register clocksource\n",
+		       aon_rtc_clocksource_sprd.name);
 }
 
 static void __syscnt_clocksource_init(const char *name, unsigned long hz)
@@ -346,7 +399,7 @@ static void __syscnt_clocksource_init(const char *name, unsigned long hz)
 /* ****************************************************************** */
 static u32 notrace __update_sched_clock(void)
 {
-	return ~(readl_relaxed(TIMER_VALUE(0, SOURCE_TIMER)));
+	return ~(readl_relaxed(TIMER_VALUE(0, AON_PCLK_SOURCE_TIMER)));
 }
 
 static void __init __sched_clock_init(unsigned long rate)
@@ -359,15 +412,16 @@ void __init sci_enable_timer_early(void)
 	/* enable timer & syscnt in global regs */
 	int i = 0, j = 0;
 	u32 val = -1;
-	sci_glb_set(REG_AON_APB_APB_EB0, BIT_AON_TMR_EB | BIT_AP_SYST_EB | BIT_AP_TMR0_EB);
+	sci_glb_set(REG_AON_APB_APB_EB0,
+		    BIT_AON_TMR_EB | BIT_AP_SYST_EB | BIT_AP_TMR0_EB);
 #if defined CONFIG_LOCAL_TIMERS && !defined CONFIG_HAVE_ARM_ARCH_TIMER
 	sci_glb_set(REG_AON_APB_APB_EB1, BIT_AP_TMR2_EB | BIT_AP_TMR1_EB);
-	for(i=0; i<4; i++){
+	for (i = 0; i < 4; i++) {
 #else
 	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_AP_TMR2_EB | BIT_AP_TMR1_EB);
-	for(i=0; i<2; i++){
+	for (i = 0; i < 2; i++) {
 #endif
-		for(j=0; j<3; j++){
+		for (j = 0; j < 3; j++) {
 			__gptimer_ctl(i, j, TIMER_DISABLE, 0);
 			__raw_writel(TIMER_INT_CLR, TIMER_INT(i, j));
 		}
@@ -392,6 +446,7 @@ void __init sci_enable_timer_early(void)
 	__sched_clock_init(sched_clock_source_freq);
 #endif
 }
+
 static struct timespec persistent_ts;
 static u64 persistent_ms, last_persistent_ms;
 static void sprd_read_persistent_clock(struct timespec *ts)
@@ -406,24 +461,34 @@ static void sprd_read_persistent_clock(struct timespec *ts)
 	timespec_add_ns(tsp, delta * NSEC_PER_MSEC);
 	*ts = *tsp;
 }
+
 void __init sci_timer_init(void)
 {
 #ifdef CONFIG_LOCAL_TIMERS
 #if !defined (CONFIG_HAVE_ARM_ARCH_TIMER)
 	int i = 0, ret = 0;
 	local_timer_register(&sprd_local_timer_ops);
-	for(i = 0; i<CONFIG_NR_CPUS; i++){
+	for (i = 0; i < CONFIG_NR_CPUS; i++) {
 		ret = request_irq(irq_nr[i], __gptimer_interrupt,
-				IRQF_TIMER | IRQF_NOBALANCING |IRQF_DISABLED | IRQF_PERCPU, "local_timer", local_evt);
-		if(ret){
-			printk(KERN_ERR "request local timer irq %d failed\n", irq_nr[i]);
+				  IRQF_TIMER | IRQF_NOBALANCING | IRQF_DISABLED
+				  | IRQF_PERCPU, "local_timer", local_evt);
+		if (ret) {
+			printk(KERN_ERR "request local timer irq %d failed\n",
+			       irq_nr[i]);
 		}
 	}
 #endif
 #endif
-	/* setup timer2 and syscnt as clocksource */
+
+	/* setup aon timer1 as clocksource */
+	__gptimer_aon_rtc_clocksource_init();
+
+	/* enable AON timer2 */
 	__gptimer_clocksource_init();
+
+	/* setup syscnt  */
 	__syscnt_clocksource_init("syscnt", 1000);
+
 	/* setup timer1 of aon timer as clockevent. */
 	sprd_gptimer_clockevent_init(BC_IRQ, "bctimer", 32768);
 	register_persistent_clock(NULL, sprd_read_persistent_clock);
