@@ -277,16 +277,22 @@
 			 linux,code = <102>;
 		 };
 	 };
+
 	 sprd_vsp@f5300000{
-		 compatible = "sprd,sprd_vsp";
-		 reg = <0Xf5300000 0xc000>;
-		 interrupts = <0 43 0x0>;
-	 };
-	sprd_jpg {
-		 compatible  = "sprd,sprd_jpg";
-		 reg = <0Xf5320000 0x8000>;
-		 interrupts = <0 42 0x0>;
-	 };
+                 compatible = "sprd,sprd_vsp";
+                 reg = <0Xf5300000 0xc000>;
+                 interrupts = <0 43 0x0>;
+                 clock-names = "clk_mm_i","clk_vsp";
+                 clocks = <&clk_mm>, <&clk_vsp>;
+         };
+        sprd_jpg {
+                 compatible  = "sprd,sprd_jpg";
+                 reg = <0Xf5320000 0x8000>;
+                 interrupts = <0 42 0x0>;
+                 clock-names = "clk_mm_i","clk_jpg";
+                 clocks = <&clk_mm>, <&clk_jpg>;
+         };
+
 
 	 regulators {
 		 compatible = "sprd,sc2713-regulator";
