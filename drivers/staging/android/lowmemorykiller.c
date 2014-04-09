@@ -170,8 +170,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	}
 
 	si_swapinfo(&si);
-	if (lowmem_minfreeswap_check && si.totalswap && (min_adj == OOM_ADJUST_MAX + 1)) {
+	if (lowmem_minfreeswap_check && si.totalswap) {
 		unsigned int minfreeswap = 0 ;
+		int temp_min_adj = OOM_ADJUST_MAX + 1;
 
 		/* Reduce min_adj according to the predefined freeswap levels
 		 */
@@ -181,12 +182,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		for (i = 0; i < array_size; i++) {
 			minfreeswap = si.freeswap << lowmem_minfreeswap[i];
 			if (minfreeswap < si.totalswap) {
-				min_adj = lowmem_adj[i];
+				temp_min_adj = lowmem_adj[i];
 				break;
 			}
 		}
-		lowmem_print(4, "lowmem_shrink swapfree %u, min_swapfree %u",
-				si.freeswap, minfreeswap);
+		lowmem_print(4, "lowmem_shrink swapfree %u, min_swapfree %u, min_adj %d \n",
+				si.freeswap, minfreeswap, temp_min_adj);
+
+		if(temp_min_adj < min_adj)
+			min_adj = temp_min_adj;
 	}
 
 	if (sc->nr_to_scan > 0)
