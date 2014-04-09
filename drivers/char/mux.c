@@ -65,7 +65,7 @@ static int mux_open(struct inode *inode, struct file *filp)
 	if (rval != 0) {
 		printk(KERN_ERR "MUX: Error %s id[%d] line[%d] mux_open is Not OK\n", __FUNCTION__, mux->init->id, line);
 		filp->private_data = NULL;
-		return -ENODEV;
+		return rval;
 	}
 
 	channel = kmalloc(sizeof(struct mux_channel), GFP_KERNEL);

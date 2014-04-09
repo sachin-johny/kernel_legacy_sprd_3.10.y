@@ -3014,8 +3014,8 @@ static void receive_worker(struct sprd_mux *self, int start)
 
 					/*For BP UART problem Begin */
 
-//					MUX_TS0710_LOGSTR_FRAME(self->mux_id, 0, self->start_flag, self->framelen);
-//					MUX_TS0710_DEBUGHEX(self->mux_id, self->start_flag, self->framelen);
+					MUX_TS0710_LOGSTR_FRAME(self->mux_id, 0, self->start_flag, self->framelen);
+					MUX_TS0710_DEBUGHEX(self->mux_id, self->start_flag, self->framelen);
 					short_pkt = (short_frame *) (self->start_flag + ADDRESS_FIELD_OFFSET);
 					if ((short_pkt->h.length.ea) == 0) {
 						long_pkt = (long_frame *) (self->start_flag + ADDRESS_FIELD_OFFSET);
