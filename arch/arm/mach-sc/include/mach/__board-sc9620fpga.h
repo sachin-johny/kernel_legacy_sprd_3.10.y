@@ -86,6 +86,13 @@
 #define GPIO_AP_TO_CP_RTS     11
 #define GPIO_CP_TO_AP_RDY     12
 
+#define SPRD_PIN_SDIO0_OFFSET     0x01E0
+#define SPRD_PIN_SDIO0_SIZE       7
+#define SPRD_PIN_SDIO0_D3_INDEX 0
+#define SPRD_PIN_SDIO0_D3_GPIO 100
+#define SPRD_PIN_SDIO0_SD_FUNC 0
+#define SPRD_PIN_SDIO0_GPIO_FUNC 3
+
 /* ION config info
 LCD:
    960x540
