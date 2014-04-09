@@ -949,15 +949,17 @@ static inline void sprd_codec_pa_d_en(struct snd_soc_codec *codec, int on)
 static inline void sprd_codec_pa_demi_en(struct snd_soc_codec *codec, int on)
 {
 	int mask;
-	int val;
-	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
-	mask = BIT(PA_DEMI_EN);
-	val = on ? mask : 0;
-	snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), mask, val);
 
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+	if (on)
+		pr_err("cann't open demi when open OCP mode!");
+
+	mask = BIT(PA_DEMI_EN);
+	snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), mask, 0);
+
+	/*open ocp from xun && weifeng*/
 	mask = BIT(DRV_OCP_AOL_PD) | BIT(DRV_OCP_AOR_PD);
-	val = mask;
-	snd_soc_update_bits(codec, SOC_REG(DCR4_DCR3), mask, val);
+	snd_soc_update_bits(codec, SOC_REG(DCR4_DCR3), mask, 0);
 }
 
 static inline void sprd_codec_pa_ldo_en(struct snd_soc_codec *codec, int on)
