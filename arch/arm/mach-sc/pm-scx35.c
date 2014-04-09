@@ -1064,7 +1064,18 @@ int deep_sleep(int from_idle)
 	 * param0, param1 are not used before
 	 * so we use second param to distinguish idle deep or real deep
 	 */
+#if defined(CONFIG_ARCH_SCX30G)
+	/* set auto-self refresh mode */
+	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(1));
+	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(0));
+#endif
 	ret = sp_pm_collapse(0, from_idle);
+
+#if defined(CONFIG_ARCH_SCX30G)
+	/* set auto powerdown mode */
+	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(1));
+	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(0));
+#endif
 
 	udelay(50);
 
