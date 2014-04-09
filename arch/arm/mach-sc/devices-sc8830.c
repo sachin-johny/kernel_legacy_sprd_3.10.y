@@ -994,7 +994,12 @@ static struct resource sprd_sdio0_resources[] = {
 		.start = IRQ_SDIO0_INT,
 		.end = IRQ_SDIO0_INT,
 		.flags = IORESOURCE_IRQ,
-	}
+	},
+	[2] = {
+		.start = SPRD_PIN_BASE + SPRD_PIN_SDIO0_OFFSET,
+		.end = SPRD_PIN_BASE + SPRD_PIN_SDIO0_OFFSET + SPRD_PIN_SDIO0_SIZE - 1,
+		.flags = IORESOURCE_IO,
+	},
 };
 
 static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
@@ -1014,6 +1019,10 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.clk_parent_name = "clk_192m",
 	.max_frequency = 192000000,
 #endif
+	.d3_gpio = SPRD_PIN_SDIO0_D3_GPIO,
+	.d3_index = SPRD_PIN_SDIO0_D3_INDEX,
+	.sd_func = SPRD_PIN_SDIO0_SD_FUNC,
+	.gpio_func = SPRD_PIN_SDIO0_GPIO_FUNC,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 	.runtime = 1,

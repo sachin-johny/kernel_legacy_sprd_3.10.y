@@ -60,6 +60,7 @@ struct sprd_sdhci_host {
 	unsigned char chip_select_last;
 	unsigned char	timing;
 	atomic_t wake_lock_count;
+	void __iomem *pinmap_addr;
 	spinlock_t lock;
 	const struct of_device_id *of_id;
 	struct mmc_host_ops mmc_host_ops, standard_mmc_host_ops;
@@ -350,43 +351,39 @@ static unsigned int sprd_sdhci_host_get_ro(struct sdhci_host *host) {
 }
 
 static void sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select(struct sdhci_host *host, u8 power_mode) {
-	unsigned long flags;
-	unsigned int tmp_flag = 0, reg_val = 0;
 	struct mmc_host *mmc = host->mmc;
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	spin_lock_irqsave(&sprd_host->lock, flags);
-	if(mmc->ios.chip_select == MMC_CS_HIGH) {
+	struct sprd_sdhci_host_platdata *host_pdata = sprd_host->platdata;
+	spin_lock(&sprd_host->lock);
+	if(sprd_host->chip_select_last ==  MMC_CS_DONTCARE && mmc->ios.chip_select == MMC_CS_HIGH) {
 		sprd_host->chip_select_last = MMC_CS_HIGH;
-		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
-		if((sci_glb_raw_read(REG_AON_APB_APB_EB0) & BIT_GPIO_EB) == 0) {
-			sci_glb_set(REG_AON_APB_APB_EB0, BIT_GPIO_EB);
-			tmp_flag |= 1 << 0;
+		if(sprd_host->pinmap_addr && host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
+			unsigned int reg_val;
+			reg_val = __raw_readl(sprd_host->pinmap_addr + host_pdata->d3_index);
+			reg_val &= ~(3UL << 4);
+			reg_val |= host_pdata->gpio_func;
+			__raw_writel(reg_val, sprd_host->pinmap_addr + host_pdata->d3_index);
+			if(!gpio_request(host_pdata->d3_gpio, "d3-gpio")) {
+				gpio_direction_output(host_pdata->d3_gpio, 1);
+				gpio_set_value(host_pdata->d3_gpio, 1);
+				gpio_free(host_pdata->d3_gpio);
+			} else {
+				reg_val &= ~(3UL << 4);
+				reg_val |= host_pdata->sd_func;
+				__raw_writel(reg_val, sprd_host->pinmap_addr + host_pdata->d3_index);
+			}
 		}
-		if((sci_glb_raw_read(REG_AON_APB_APB_EB0) & BIT_PIN_EB) == 0) {
-			sci_glb_set(REG_AON_APB_APB_EB0,  BIT_PIN_EB);
-			tmp_flag |= 1 << 1;
-		}
-		/* set sdio0 data[3] to gpio mode*/
-		reg_val = __raw_readl((const volatile void __iomem *)(SPRD_PIN_BASE  + 0x1E0));
-		__raw_writel(0x30, (volatile void __iomem *)(SPRD_PIN_BASE + 0x1E0));
-		/* set gpio output mode ,and out put 1 */
-		sci_glb_set((CTL_GPIO_BASE + 0x308), (1 << 4));
-		sci_glb_set((CTL_GPIO_BASE + 0x304), (1 << 4));
-		sci_glb_set((CTL_GPIO_BASE + 0x300), (1 << 4));
 	} else  if(sprd_host->chip_select_last ==  MMC_CS_HIGH && mmc->ios.chip_select == MMC_CS_DONTCARE) {
 		sprd_host->chip_select_last = MMC_CS_DONTCARE;
-		/* if sdio0 set data[3] to gpio out mode, and data is 1 , for shark*/
-		if((tmp_flag & 1) != 0) {
-			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_GPIO_EB);
+		if(sprd_host->pinmap_addr && host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
+			unsigned int reg_val;
+			reg_val = __raw_readl(sprd_host->pinmap_addr + host_pdata->d3_index);
+			reg_val &=  ~(3UL << 4);
+			reg_val |=  host_pdata->sd_func;
+			__raw_writel(reg_val, sprd_host->pinmap_addr + host_pdata->d3_index);
 		}
-		if((tmp_flag & (1 << 1)) != 0) {
-			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_PIN_EB);
-		}
-		/* set sdio0 data[3] to sdio data pin*/
-		__raw_writel(reg_val, (volatile void __iomem *)(SPRD_PIN_BASE + 0x1E0));
 	}
-	spin_unlock_irqrestore(&sprd_host->lock, flags);
-	return;
+	spin_unlock(&sprd_host->lock);
 }
 
 static int sprd_sdhci_host_set_uhs_signaling(struct sdhci_host *host, unsigned int uhs) {
@@ -1137,7 +1134,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 {
 	int retval;
 	int irq;
-	struct resource *res;
+	struct resource *res, *pinmap_res;
 	struct sdhci_host *host;
 	struct sprd_sdhci_host *sprd_host;
 	struct sprd_sdhci_host_platdata *host_pdata;
@@ -1148,6 +1145,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if(!res)
 		return -ENOENT;
+	pinmap_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	host = sdhci_alloc_host(&pdev->dev, sizeof(struct sprd_sdhci_host));
 	if (IS_ERR(host))
 		return PTR_ERR(host);
@@ -1167,6 +1165,8 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	sprd_host->platdata = host_pdata;
 	sprd_host->host = host;
+	if(pinmap_res)
+		sprd_host->pinmap_addr = pinmap_res->start;
 #ifdef CONFIG_OF
 	sprd_host->of_id = of_match_device(sprd_sdhci_host_of_match, &pdev->dev);
 	sprd_sdhci_host_of_parse(pdev, host);
