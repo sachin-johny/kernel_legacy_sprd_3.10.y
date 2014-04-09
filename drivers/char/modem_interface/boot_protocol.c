@@ -145,17 +145,28 @@ static void boot_setup(struct modem_message_node *msg,struct modem_intf_device *
 		case MODEM_TRANSFER_REQ:
 			device->out_transfer_pending = 1;
 		break;
-                case MODEM_SLAVE_RTS:
-                        if(device->out_transfering < 2){
-                                send_bffer_index = device->out_transfering;
-                                buffer = &device->send_buffer.buffer[send_bffer_index].addr[SETUP_PACKET_SIZE];
-                                size = device->send_buffer.buffer[send_bffer_index].write_point;
-                                if (size <= SETUP_PACKET_SIZE)
-                                        size =  12;
-                                device->op->write(buffer,size - SETUP_PACKET_SIZE);
-                                device->status = (int)MBUS_DL_DATA;
-                        }
-                break;
+		case MODEM_SLAVE_RTS:
+			if(device->out_transfering < 2){
+				send_bffer_index = device->out_transfering;
+				buffer = &device->send_buffer.buffer[send_bffer_index].addr[SETUP_PACKET_SIZE];
+				size = device->send_buffer.buffer[send_bffer_index].write_point;
+				if (size <= SETUP_PACKET_SIZE)
+					size =  12;
+					device->op->write(buffer,size - SETUP_PACKET_SIZE);
+					pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
+					device->out_transfering = 0xFF;
+					device->status = (int)MBUS_DL_DATA;
+				}
+				if(device->out_transfer_pending){
+					send_bffer_index = pingpang_buffer_send(&device->send_buffer);
+					if(send_bffer_index!= 0xFF){
+						device->out_transfering = send_bffer_index;
+						size = device->send_buffer.buffer[send_bffer_index].write_point;
+						device->op->write(device->send_buffer.buffer[send_bffer_index].addr,size);
+					}
+					device->out_transfer_pending = 0;
+				}
+		break;
 		case MODEM_SET_MODE:
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
@@ -182,6 +193,17 @@ static void boot_setup_comp(struct modem_message_node *msg,struct modem_intf_dev
 					size =  12;
 				device->op->write(buffer,size - SETUP_PACKET_SIZE);
 				device->status = (int)MBUS_DL_DATA;
+				if(device->out_transfer_pending){
+					pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
+					device->out_transfering = 0xFF;
+					send_bffer_index = pingpang_buffer_send(&device->send_buffer);
+					if(send_bffer_index!= 0xFF){
+						device->out_transfering = send_bffer_index;
+						size = device->send_buffer.buffer[send_bffer_index].write_point;
+						device->op->write(device->send_buffer.buffer[send_bffer_index].addr,size);
+					}
+					device->out_transfer_pending = 0;
+				}
 			}
 		break;
 		case MODEM_TRANSFER_REQ:
@@ -200,6 +222,9 @@ static void boot_setup_comp(struct modem_message_node *msg,struct modem_intf_dev
 static void boot_data(struct modem_message_node *msg,struct modem_intf_device *device)
 {
 	unsigned short *data;
+	int send_bffer_index=0xFF;
+	char *buffer;
+	int size;
 	switch(msg->type){
 		case MODEM_TRANSFER_END:
 			if(device->out_transfering < 2){
@@ -209,14 +234,33 @@ static void boot_data(struct modem_message_node *msg,struct modem_intf_device *d
 			}
 		break;
 		case MODEM_TRANSFER_REQ:
-			device->out_transfer_pending = 1;
+			if(device->out_transfering < 2){
+				pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
+				device->out_transfering = 0xFF;
+			}
+			send_bffer_index = pingpang_buffer_send(&device->send_buffer);
+			if(send_bffer_index!= 0xFF){
+				device->out_transfering = send_bffer_index;
+				size = device->send_buffer.buffer[send_bffer_index].write_point;
+				device->op->write(device->send_buffer.buffer[send_bffer_index].addr,size);
+			}
 		break;
 	        case MODEM_SLAVE_RTS:
 			pingpang_buffer_send_complete(&device->send_buffer,device->out_transfering);
                         device->op->read(device->recv_buffer.buffer[1].addr,8);
+			device->out_transfering = 0xFF;
 			data = (unsigned short *)device->recv_buffer.buffer[1].addr;
                         device->status = (int)MBUS_DL_ACK;
-                break;
+			if(device->out_transfer_pending){
+				send_bffer_index = pingpang_buffer_send(&device->send_buffer);
+				if(send_bffer_index!= 0xFF){
+					device->out_transfering = send_bffer_index;
+					size = device->send_buffer.buffer[send_bffer_index].write_point;
+					device->op->write(device->send_buffer.buffer[send_bffer_index].addr,size);
+				}
+				device->out_transfer_pending = 0;
+			}
+		break;
 		case MODEM_SET_MODE:
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;

@@ -191,6 +191,9 @@ int pingpang_buffer_write(struct modem_buffer *buffer,char *data,int size)
 						dloader_record_timestamp(0x20000000|(index<<24)|write_point);
 						buffer->buffer[index].write_point = write_point;
 						buffer->buffer[index].status = BUF_STATUS_NOEMPTY;
+						buffer->buffer[index].status = BUF_STATUS_FULL;
+						if(buffer->trans_index == 0xFF)
+							buffer->trans_index = index;
 						save_flag = 1;
 					}
 				} else {
