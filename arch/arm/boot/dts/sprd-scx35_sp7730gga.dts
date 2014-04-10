@@ -9,13 +9,13 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x400000;
+/memreserve/ 0x87800000 0x240000; /* 2M+256K */
 
 /* memory reserved for CPT modem */
-/memreserve/ 0x88000000 0x1200000;
+/memreserve/ 0x90000000 0x2100000; /* 33M */
 
 /* memory reserved for CPWCN modem */
-/memreserve/ 0x94000000 0x500000;
+/memreserve/ 0x94000000 0x281000;
 
 /* memory reserved for ION */
 /memreserve/ 0x97600000 0x8a00000;
@@ -456,27 +456,27 @@
 
 	sipc: sipc@0x87800000 {
 		compatible = "sprd,sipc";
-		reg = <0x87800000 0x400000>; /* <SMEM SIZE>*/
+		reg = <0x87800000 0x240000>; /* <SMEM SIZE>*/
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x08000000 0x88000000 0x1200000>,
-				<0x07800000 0x87800000 0x200000>,
-				<0x091ff000 0x891ff000 0x1000>,
-			<0x14000000 0x94000000 0x500000>,
-				<0x07a00000 0x87a00000 0x200000>,
-				<0x144ff000 0x944ff000 0x1000>;
-		sipc_cpt@0x14000000 {
-			sprd,name = "sipc-td";
-			sprd,dst = <1>;
+		ranges = <0x10000000 0x90000000 0x2100000>,
+				<0x07800000 0x87800000 0x180000>,
+				<0x120ff000 0x920ff000 0x1000>,
+			<0x14000000 0x94000000 0x281000>,
+				<0x07980000 0x87980000 0xc0000>,
+				<0x14280000 0x94280000 0x1000>;
+		sipc_cpw@0x10000000 {
+			sprd,name = "sipc-w";
+			sprd,dst = <2>;
 			sprd,ap2cp = <0xf5240000>; /* base on ipi reggister */
 			sprd,cp2ap = <0xf5240004>;
-			sprd,trig = <0x10>; /* trigger bit */
-			sprd,clr = <0x10>; /* clear bit */
-			interrupts = <0 71 0x0>;
-			reg = <0x08000000 0x1200000> , /* <CP_start_addr size> */
-				<0x07800000 0x200000>, /* <SMEM_phy_addr total_size> */
-				<0x091ff000 0x1000>; /* smsg ring buffer <base size> */
+			sprd,trig = <0x01>; /* trigger bit */
+			sprd,clr = <0x01>; /* clear bit */
+			interrupts = <0 68 0x0>;
+			reg = <0x10000000 0x2100000> , /* <CP_start_addr size> */
+				<0x07800000 0x180000>, /* <SMEM_phy_addr total_size> */
+				<0x120ff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 		sipc_wcn@0x14000000 {
 			sprd,name = "sipc-wcn";
@@ -486,77 +486,103 @@
 			sprd,trig = <0x100>; /* trigger bit */
 			sprd,clr = <0x100>; /* clear bit */
 			interrupts = <0 73 0x0>;
-			reg = <0x14000000 0x500000> , /* <CP_start_addr size> */
-				<0x07a00000 0x200000>, /* <SMEM_phy_addr total_size> */
-				<0x144ff000 0x1000>; /* smsg ring buffer <base size> */
+			reg = <0x14000000 0x281000> , /* <CP_start_addr size> */
+				<0x07980000 0xc0000>, /* <SMEM_phy_addr total_size> */
+				<0x14280000 0x1000>; /* smsg ring buffer <base size> */
 		};
 
 	};
 
-	/* cpt virtual devices */
 
-	spipe_cpt {
+	/* cpw virtual devices */
+
+	spipe-cpw {
 		compatible = "sprd,spipe";
-		sprd,name = "spipe_td";
-		sprd,dst = <1>;
+		sprd,name = "spipe_w";
+		sprd,dst = <2>;
 		sprd,channel = <4>;
 		sprd,ringnr = <9>;
 		sprd,size-rxbuf = <0x1000>; /* 4*1024 */
 		sprd,size-txbuf = <0x1000>; /* 4*1024 */
 	};
 
-	slog_cpt {
+	slog-cpw {
 		compatible = "sprd,spipe";
-		sprd,name = "slog_td";
-		sprd,dst = <1>;
+		sprd,name = "slog_w";
+		sprd,dst = <2>;
 		sprd,channel = <5>;
 		sprd,ringnr = <1>;
 		sprd,size-rxbuf = <0x40000>; /* 256*1024*/
 		sprd,size-txbuf = <0x8000>; /* 32*1024 */
 	};
 
-	stty_cpt {
+	stty-cpw {
 		compatible = "sprd,spipe";
-		sprd,name = "stty_td";
-		sprd,dst = <1>;
+		sprd,name = "stty_w";
+		sprd,dst = <2>;
 		sprd,channel = <6>;
 		sprd,ringnr = <32>;
 		sprd,size-rxbuf = <0x0800>; /* 2*1024*/
 		sprd,size-txbuf = <0x0800>; /* 2*1024 */
 	};
 
-	seth_cpt {
+	seth0-cpw {
 		compatible = "sprd,seth";
-		sprd,name = "seth_td0";
-		sprd,dst = <1>;
+		sprd,name = "seth_w0";
+		sprd,dst = <2>;
 		sprd,channel = <7>;
 		sprd,blknum = <128>;
 	};
 
-	seth1_cpt {
+	seth1-cpw {
 		compatible = "sprd,seth";
-		sprd,name = "seth_td1";
-		sprd,dst = <1>;
+		sprd,name = "seth_w1";
+		sprd,dst = <2>;
 		sprd,channel = <8>;
 		sprd,blknum = <64>;
 	};
 
-	seth2_cpt {
+	seth2-cpw {
 		compatible = "sprd,seth";
-		sprd,name = "seth_td2";
-		sprd,dst = <1>;
+		sprd,name = "seth_w2";
+		sprd,dst = <2>;
 		sprd,channel = <9>;
 		sprd,blknum = <64>;
 	};
 
-	saudio_td{
+	scproc_cpw: scproc@0x88000000 {
+                compatible = "sprd,scproc";
+                sprd,name = "cpw";
+                sprd,ctrl-reg = <0x3c 0x3c 0xa8 0xb8>; /* <shut_down deep_sleep reset get_status> */
+                sprd,ctrl-mask = <0x02000000 0x10000000 0x01 0xf0000000>; /* masks <> */
+                sprd,iram-data = <0xe59f0000 0xe12fff10 0x88300000>; /* 3rd param equals modem_addr*/
+                reg = <0x88000000 0x18A0000>, /* <CP_start_addr total_size> */
+                        <0xf53d4000 0x0c>, /* <iram1_base size> */
+                        <0xf5230000 0x10000>; /* <pmu_base size> */
+                interrupts = <0 83 0x0>; /* cp0_wdg_int */
+                #address-cells = <1>;
+                #size-cells = <1>;
+                /* segnr=2 */
+                ranges = <0x300000 0x88300000 0x00800000>,
+                                <0x20000 0x88020000 0x00200000>;
+                modem@0x300000 {
+                        cproc,name = "modem";
+                        reg = <0x300000 0x00800000>; /* <modem_addr size> */
+                };
+                dsp@0x20000 {
+                        cproc,name = "dsp";
+                        reg = <0x20000 0x00200000>; /* <dsp_addr size>*/
+                };
+        };
+
+	saudio_w{
 		compatible = "sprd,saudio";
-		sprd,saudio-dst-id = <1>;
-		sprd,saudio-names = "saudio_td";
+		sprd,saudio-dst-id = <2>;
+		sprd,saudio-names = "saudio_w";
 	};
 	saudio_voip{
 		compatible = "sprd,saudio";
-		sprd,saudio-dst-id = <1>;
+		sprd,saudio-dst-id = <2>;
 		sprd,saudio-names = "saudio_voip";
 	};
 
@@ -621,7 +647,7 @@
 		sprd,ctrl-reg = <0x54 0x54 0xa8 0xc0>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x02000000 0x10000000 0x04 0xf0000000>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x94060000>; /* 3rd param equals modem_addr*/
-		reg = <0x94000000 0x500000>, /* <CP_start_addr total_size> = <+320M 5M> */
+		reg = <0x94000000 0x281000>, /* <CP_start_addr total_size> = <+320M 5M> */
 			<0xf53d7000 0x0c>, /* <iram1_base size> */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 85 0x0>; /* cp2_wdg_int */
