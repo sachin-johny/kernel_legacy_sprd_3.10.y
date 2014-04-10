@@ -175,7 +175,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 	if (status) {
 		pr_err("cmd status error %d\n", status);
 		mutex_unlock(&wlan_sipc->pm_lock);
-		return -EIO;
+		return status;
 	}
 
 out:
@@ -843,12 +843,24 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	wlan_sipc->wlan_sipc_send_len =
 	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_mac_open);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	pr_debug("%s mode %#x cmd_len %d\n", __func__, open->mode,
+		 wlan_sipc->wlan_sipc_send_len);
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_DEV_OPEN);
-	pr_debug("%s(), send cmd len:%d\n", __func__,
-		 wlan_sipc->wlan_sipc_send_len);
 	if (ret) {
 		pr_err("%s command error %d\n", __func__, ret);
+		switch (ret) {
+		case ERR_AP_ZEROCOPY_CP_NOT:
+			pr_err("%s AP: zero copy; CP: non zero copy \n",
+			       __func__);
+			break;
+		case ERR_CP_ZEROCOPY_AP_NOT:
+			pr_err("%s AP: non zero copy; CP: zero copy \n",
+			       __func__);
+			break;
+		default:
+			break;
+		}
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
