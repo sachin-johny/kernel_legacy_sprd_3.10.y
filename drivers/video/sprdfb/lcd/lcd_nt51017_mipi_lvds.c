@@ -558,6 +558,16 @@ static struct info_mipi lcd_nt51017_mipi_lvds_info = {
 
 struct panel_spec lcd_nt51017_mipi_lvds_spec = {
 	//.cap = PANEL_CAP_NOT_TEAR_SYNC,
+#ifdef CONFIG_FB_LOW_RES_SIMU
+	#ifdef CONFIG_FB_LOW_RES_SIMU_WSVGA
+	.display_width = 600,
+	.display_height = 1024,
+	#endif
+	#ifdef CONFIG_FB_LOW_RES_SIMU_WVGA
+	.display_width = 480,
+	.display_height = 800,
+	#endif
+#endif
 	.width = 768,
 	.height = 1024,
 	.fps = 60,

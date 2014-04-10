@@ -177,6 +177,14 @@ config FB_LOW_RES_SIMU
 	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15
 	default n
 
+config FB_LOW_RES_SIMU_WSVGA
+        boolean "support low resolution simulator_wsvga"
+        default n
+
+config FB_LOW_RES_SIMU_WVGA
+        boolean "support low resolution simulator_wvga"
+        default n
+
 config FB_TRIPLE_FRAMEBUFFER
 	boolean "support triple buffer"
 	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15
