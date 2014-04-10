@@ -36,6 +36,7 @@
 #define		MAX_MSG_NODE_NUM	32
 #define		BUSY_BIT		0x8000
 
+
 extern int      get_alive_status(void);
 extern int      get_assert_status(void);
 extern int      modem_gpio_uninit(void *para);
@@ -74,6 +75,7 @@ static struct semaphore			msg_list_sem;
 static struct semaphore			modem_event_sem;
 static int    modem_gpio_status=0;
 static int  modem_event = MODEM_INTF_EVENT_SHUTDOWN;
+static struct wake_lock   s_modem_intf_proc_wake_lock;
 static struct wake_lock   s_modem_intf_msg_wake_lock;
 static struct wake_lock   s_modem_intf_event_wake_lock;
 
@@ -202,7 +204,7 @@ static void modem_send_message( struct modem_message_node *msg )
 {
         unsigned long flags;
 
-        wake_lock(&s_modem_intf_msg_wake_lock);
+        wake_lock_timeout(&s_modem_intf_msg_wake_lock, HZ / 2);
         //local_irq_save(flags);
         spin_lock_irqsave(&int_lock, flags);
         list_add_tail(&msg->link,&msg_list);
@@ -225,6 +227,7 @@ static int modem_protocol_thread(void *data)
                 msg = modem_intf_get_message();
                 if(msg == NULL)
                         continue;
+                wake_lock(&s_modem_intf_proc_wake_lock);
                 switch(modem_intf_device->mode) {
                 case MODEM_MODE_SHUTDOWN:
                         shutdown_protocol(msg);
@@ -248,7 +251,7 @@ static int modem_protocol_thread(void *data)
                         break;
                 }
                 free_msg_node(msg);
-                wake_unlock(&s_modem_intf_msg_wake_lock);
+                wake_unlock(&s_modem_intf_proc_wake_lock);
         }
         return 0;
 }
@@ -848,6 +851,7 @@ static int __init init(void)
         if(retval < 0)
                 return retval;
 
+        wake_lock_init(&s_modem_intf_proc_wake_lock, WAKE_LOCK_SUSPEND, "modem_if_proc_lock");
         wake_lock_init(&s_modem_intf_msg_wake_lock, WAKE_LOCK_SUSPEND, "modem_if_msg_lock");
         wake_lock_init(&s_modem_intf_event_wake_lock, WAKE_LOCK_SUSPEND, "modem_if_evt_lock");
         task = kthread_create(modem_protocol_thread, NULL, "ModemIntf");
