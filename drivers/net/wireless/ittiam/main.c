@@ -52,7 +52,9 @@
 
 #define SETH_RESEND_MAX_NUM	10
 #define SIOGETSSID 0x89F2
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
 #define SIPC_TRANS_OFFSET 50
+#endif
 
 void ittiam_nvm_init(void);
 
@@ -97,18 +99,22 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 	int ret, work_done;
 	u16 decryp_data_len = 0;
 	struct wlan_sblock_recv_data *data;
-
-	u8 offset = 0;
 	uint32_t length = 0;
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+	u8 offset = 0;
+#endif
 	for (work_done = 0; work_done < budget; work_done++) {
 		ret = sblock_receive(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 		if (ret) {
 			dev_dbg(&priv->ndev->dev, "no more sblock to read\n");
 			break;
 		}
-
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
 		offset = *(u8 *)blk.addr;
 		length = blk.length - 2 - offset;
+#else
+		length = blk.length;
+#endif
 		/*16 bytes align */
 		skb = dev_alloc_skb(length + NET_IP_ALIGN);
 		if (!skb) {
@@ -118,8 +124,11 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			goto rx_failed;
 		}
 
-		/*data = (struct wlan_sblock_recv_data *)blk.addr;*/
-		data = (struct wlan_sblock_recv_data *)(blk.addr+2+offset);
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+		data = (struct wlan_sblock_recv_data *)(blk.addr + 2 + offset);
+#else
+		data = (struct wlan_sblock_recv_data *)blk.addr;
+#endif
 
 		if (data->is_encrypted == 1) {
 			if (priv->connect_status == ITM_CONNECTED &&
@@ -204,8 +213,6 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 		priv->ndev->stats.rx_packets++;
 		priv->ndev->stats.rx_bytes += skb->len;
 
-		/*netif_rx(skb);*/
-		/*netif_receive_skb(skb);*/
 		napi_gro_receive(napi , skb);
 
 rx_failed:
@@ -221,6 +228,7 @@ rx_failed:
 	return work_done;
 }
 
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
 /*
  * Tx_flow_control handler.
  */
@@ -232,6 +240,7 @@ static void itm_tx_flow_control_handler(struct itm_priv *priv)
 		netif_wake_queue(priv->ndev);
 	}
 }
+#endif
 
 static void itm_wlan_handler(int event, void *data)
 {
@@ -239,8 +248,10 @@ static void itm_wlan_handler(int event, void *data)
 
 	switch (event) {
 	case SBLOCK_NOTIFY_GET:
-		priv->tx_free++;
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
 		itm_tx_flow_control_handler(priv);
+#endif
+		priv->tx_free++;
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_GET is received\n");
 		break;
 	case SBLOCK_NOTIFY_RECV:
@@ -275,12 +286,14 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	int ret;
 	u8 *addr = NULL;
 
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
 	if (priv->tx_free < TX_FLOW_LOW) {
 		dev_err(&dev->dev, "tx flow control full\n");
 		netif_stop_queue(dev);
 		priv->ndev->stats.tx_fifo_errors++;
 		return NETDEV_TX_BUSY;
 	}
+#endif
 	/*
 	 * Get a free sblock.
 	 */
@@ -301,7 +314,11 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_OK;
 	}
 
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
 	addr = blk.addr + SIPC_TRANS_OFFSET;
+#else
+	addr = blk.addr;
+#endif
 	priv->tx_free--;
 	if (priv->connect_status == ITM_CONNECTED &&
 	    priv->cipher_type == WAPI &&
