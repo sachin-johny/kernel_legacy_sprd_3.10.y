@@ -34,6 +34,13 @@ static struct sci_pin_switch sci_pin_switch_array[] = {
 	{"", "iis2lrck_pin_in_sel", 0x4, 14, 1, 0},
 	{"", "iis2di_pin_in_sel", 0x4, 13, 1, 0},
 	{"", "iis2clk_pin_in_sel", 0x4, 12, 1, 0},
+#if defined(CONFIG_ARCH_SCX30G)	/*tshark add*/
+	{"", "bt_iis_con_eb", 0xc, 30, 1, 0},
+	{"", "pad_oe_iis3_mck", 0xc, 27, 1, 0},
+	{"", "pad_oe_iis2_mck", 0xc, 26, 1, 0},
+	{"", "pad_oe_iis1_mck", 0xc, 25, 1, 0},
+	{"", "pad_oe_iis0_mck", 0xc, 24, 1, 0},
+#endif
 #endif
 	{"", "iis23_loop_sel", 0xc, 5, 1, 0},
 	{"", "iis13_loop_sel", 0xc, 4, 1, 0},
@@ -109,6 +116,26 @@ static struct sci_pin_switch_dir {
 	{iis_3_array, ARRAY_SIZE(iis_1_array)},
 #endif
 	};
+
+u32 pinmap_get(u32 offset)
+{
+	u32 value;
+	unsigned long flags;
+	__arch_default_lock(HWLOCK_GLB, &flags);
+	value = readl(SPRD_PIN_BASE + offset);
+	__arch_default_unlock(HWLOCK_GLB, &flags);
+	return value;
+}
+EXPORT_SYMBOL(pinmap_get);
+int pinmap_set(u32 offset, u32 value)
+{
+	unsigned long flags;
+	__arch_default_lock(HWLOCK_GLB, &flags);
+	writel(value, SPRD_PIN_BASE + offset);
+	__arch_default_unlock(HWLOCK_GLB, &flags);
+	return 0;
+}
+EXPORT_SYMBOL(pinmap_set);
 
 /*
 *	#define IIS_TO_AP		(0)
@@ -285,13 +312,13 @@ static int sc271x_regulator_event(struct notifier_block *regu_nb, unsigned long 
 		if(p_pin_reg_desc) {
 			if(best_data > VOL_THRESHOLD){
 				__arch_default_lock(HWLOCK_GLB, &flags);
-				__raw_writel((__raw_readl(reg) & ~bit), reg);
+				writel((__raw_readl(reg) & ~bit), reg);
 				__arch_default_unlock(HWLOCK_GLB, &flags);
 
 				pr_info("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",__func__,__LINE__, regu_name, event, best_data);
 			} else {
 				__arch_default_lock(HWLOCK_GLB, &flags);
-				__raw_writel((__raw_readl(reg) | bit), reg);
+				writel((__raw_readl(reg) | bit), reg);
 				__arch_default_unlock(HWLOCK_GLB, &flags);
 
 				pr_info("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",__func__,__LINE__, regu_name, event, best_data);
