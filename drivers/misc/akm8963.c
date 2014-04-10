@@ -152,6 +152,7 @@ static int akm8963_i2c_check_device(
 }
 
 /***** wlg add inv bypass functions *************************************/
+#ifdef CONFIG_AK8963_BYPASS_MODE
 static int inv_bypass_2nd_i2c(struct i2c_client *i2c, uint8_t *txData, int length)
 {
 	int ret;
@@ -175,6 +176,20 @@ static int inv_bypass_2nd_i2c(struct i2c_client *i2c, uint8_t *txData, int lengt
 	dev_vdbg(&i2c->dev, "TxData: len=%02x, addr=%02x data=%02x",length, txData[0], txData[1]);
 	return 0;
 }
+static void set_inv_bypass_init(struct i2c_client *client)
+{
+	uint8_t buffer[2];
+	int err = 0;
+	buffer[0] = 0x37;
+	buffer[1] = 2;
+	err = inv_bypass_2nd_i2c(client, buffer, 2);
+	if (err < 0)
+	{
+		pr_info("AKM compass driver: inv_bypass_2nd_i2c error.");
+	}
+	udelay(500);
+}
+#endif
 
 /***** akm miscdevice functions *************************************/
 static int AKECS_Open(struct inode *inode, struct file *file);
@@ -1304,7 +1319,6 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	struct akm8963_platform_data *pdata;
 	int err = 0;
 	int i;
-	uint8_t buffer[2];
 
 	dev_dbg(&client->dev, "start probing.");
 
@@ -1356,14 +1370,9 @@ int akm8963_probe(struct i2c_client *client, const struct i2c_device_id *id)
 	/***** I2C initialization *****/
 	s_akm->i2c = client;
 	/* set inv bypass */
-	buffer[0] = 0x37;
-	buffer[1] = 2;
-	err = inv_bypass_2nd_i2c(client, buffer, 2);
-	if (err < 0)
-	{
-		pr_info("AKM compass driver: inv_bypass_2nd_i2c error.");
-	}
-	udelay(500);
+#ifdef CONFIG_AK8963_BYPASS_MODE
+	set_inv_bypass_init(client);
+#endif
 	/* check connection */
 	err = akm8963_i2c_check_device(client);
 	if (err < 0)
@@ -1506,6 +1515,9 @@ static void __exit akm8963_exit(void)
 	printk(KERN_INFO "AKM8963 compass driver: release.");
 	i2c_del_driver(&akm8963_driver);
 }
-
+#ifdef CONFIG_AK8963_BYPASS_MODE
 late_initcall(akm8963_init);
+#else
+module_init(akm8963_init);
+#endif
 module_exit(akm8963_exit);
