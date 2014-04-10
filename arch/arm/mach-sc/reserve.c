@@ -34,10 +34,10 @@ static int __init __iomem_reserve_memblock(void)
 		return -ENOMEM;
 #else
 #ifndef CONFIG_OF
-	ret = dma_declare_contiguous(&sprd_ion_dev.dev, SPRD_ION_MEM_SIZE, SPRD_ION_MEM_BASE, 0);
+	ret = dma_declare_contiguous_reserved(&sprd_ion_dev.dev, SPRD_ION_MEM_SIZE, SPRD_ION_MEM_BASE, 0, CMA_RESERVE, CMA_THRESHOLD);
 	if (unlikely(ret))
 	{
-		pr_err("reserve CMA area(base:%x size:%x) for ION failed!!!\n", SPRD_ION_MEM_BASE,SPRD_ION_MEM_SIZE);
+		pr_err("reserve CMA area(base:%x size:%x) for ION failed!!!\n", SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE);
 		return -ENOMEM;
 	}
 	pr_info("reserve CMA area(base:%x size:%x) for ION\n", SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE);
