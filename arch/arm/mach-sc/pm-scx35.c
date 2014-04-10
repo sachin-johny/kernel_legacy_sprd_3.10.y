@@ -205,9 +205,6 @@ static void setup_autopd_mode(void)
 	// INTC0_EB, INTC1_EB, INTC2_EB, INTC3_EB
 	sci_glb_set(REG_AP_APB_APB_EB, 0xf<<19);
 
-	//XTL_EN function mode 0
-	sci_glb_clr(SPRD_PIN_BASE + 0x138, BIT(4) | BIT(5));
-
 	//set PD_CA7_C0_AUTO_SHUTDOWN_EN
 	sci_glb_set(REG_PMU_APB_PD_CA7_TOP_CFG, BIT_PD_CA7_TOP_AUTO_SHUTDOWN_EN);
 
@@ -586,7 +583,6 @@ static void bak_restore_pub(int bak)
 void show_pin_reg(void)
 {
 	sci_glb_set(SPRD_INT_BASE + 0x8, BIT(14) | BIT(4)); //ana & eic
-	sci_glb_clr(SPRD_PIN_BASE + 0x138, BIT(4) | BIT(5));
 	printk("REG_PIN_XTLEN   0x%08x\n", sci_glb_read(REG_PIN_XTLEN, -1UL));
 	printk("REG_PIN_XTL_BUF_EN0   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN0, -1UL));
 	printk("REG_PIN_XTL_BUF_EN1   0x%08x\n", sci_glb_read(REG_PIN_XTL_BUF_EN1, -1UL));
