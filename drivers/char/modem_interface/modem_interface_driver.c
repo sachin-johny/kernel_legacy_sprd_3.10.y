@@ -24,6 +24,7 @@
 #include <linux/slab.h>
 #include <linux/list.h>
 #include <linux/wait.h>
+#include <linux/wakelock.h>
 #include <linux/sched.h>
 #include<linux/spinlock.h>
 #include "modem_buffer.h"
@@ -73,6 +74,10 @@ static struct semaphore			msg_list_sem;
 static struct semaphore			modem_event_sem;
 static int    modem_gpio_status=0;
 static int  modem_event = MODEM_INTF_EVENT_SHUTDOWN;
+static struct wake_lock   s_modem_intf_msg_wake_lock;
+static struct wake_lock   s_modem_intf_event_wake_lock;
+
+
 
 //wait_queue_head_t mdoem_mode_normal;
 spinlock_t int_lock;
@@ -196,6 +201,8 @@ static struct modem_message_node * modem_intf_get_message( void ) {
 static void modem_send_message( struct modem_message_node *msg )
 {
         unsigned long flags;
+
+        wake_lock(&s_modem_intf_msg_wake_lock);
         //local_irq_save(flags);
         spin_lock_irqsave(&int_lock, flags);
         list_add_tail(&msg->link,&msg_list);
@@ -241,6 +248,7 @@ static int modem_protocol_thread(void *data)
                         break;
                 }
                 free_msg_node(msg);
+                wake_unlock(&s_modem_intf_msg_wake_lock);
         }
         return 0;
 }
@@ -550,6 +558,7 @@ extern void  mux_ipc_enable(u8  is_enable);
 void modem_intf_send_event(int event)
 {
         //user space process should wait for modem_event_sem
+        wake_lock_timeout(&s_modem_intf_event_wake_lock, HZ / 2);
         modem_event = event;
         up(&modem_event_sem);
 }
@@ -572,7 +581,6 @@ void modem_intf_alive_routine()
         modem_intf_set_mode(MODEM_MODE_NORMAL, 0);
         modem_share_gpio_uninit(&(modem_intf_device->modem_config));
         sdio_ipc_enable(1);
-        msleep(7000);
         spi_ipc_enable(1);
         mux_ipc_enable(1);
         modem_intf_send_event(MODEM_INTF_EVENT_ALIVE);
@@ -839,6 +847,9 @@ static int __init init(void)
         }
         if(retval < 0)
                 return retval;
+
+        wake_lock_init(&s_modem_intf_msg_wake_lock, WAKE_LOCK_SUSPEND, "modem_if_msg_lock");
+        wake_lock_init(&s_modem_intf_event_wake_lock, WAKE_LOCK_SUSPEND, "modem_if_evt_lock");
         task = kthread_create(modem_protocol_thread, NULL, "ModemIntf");
         if(0 != task)
                 wake_up_process(task);
