@@ -173,13 +173,21 @@
 #endif
 
 #ifdef CONFIG_CMA
-       #define CMA_MARGIN              (0 * SZ_1M)
-       #define CMA_ALIGNMENT           (4 * SZ_1M)
-       #define SPRD_ION_MEM_RAW_SIZE    (SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE + CMA_MARGIN)
-	/* ALIGN UP */
-       #define SPRD_ION_MEM_SIZE        ((SPRD_ION_MEM_RAW_SIZE + (CMA_ALIGNMENT - 1)) & (~(CMA_ALIGNMENT - 1)))
+#ifdef CONFIG_SPRD_IOMMU
+	#define CMA_MARGIN		(0 * SZ_1M)
+	#define CMA_RESERVE		(0 * SZ_1M)
+	#define CMA_THRESHOLD		(0 * SZ_1M)
 #else
-       #define SPRD_ION_MEM_SIZE        (SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE)
+	#define CMA_MARGIN		(0 * SZ_1M)
+	#define CMA_RESERVE		(25 * SZ_1M)
+	#define CMA_THRESHOLD		(4 * SZ_1M)
+#endif
+	#define CMA_ALIGNMENT		(4 * SZ_1M)
+	#define SPRD_ION_MEM_RAW_SIZE	(SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE + CMA_MARGIN - CMA_RESERVE)
+	/* ALIGN UP */
+	#define SPRD_ION_MEM_SIZE	(((SPRD_ION_MEM_RAW_SIZE + (CMA_ALIGNMENT - 1)) & (~(CMA_ALIGNMENT - 1))) + CMA_RESERVE)
+#else
+	#define SPRD_ION_MEM_SIZE	(SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE)
 #endif
 
 #if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP8815GAOPENPHONE) || defined(CONFIG_MACH_SP6815GA)/* Nand 4+2 */
