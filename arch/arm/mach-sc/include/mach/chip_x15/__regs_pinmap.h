@@ -24,7 +24,7 @@ typedef struct {
 	uint32_t val;
 } pinmap_t;
 
-#define CTL_PIN_BASE			(SPRD_PIN_PHYS)
+#define CTL_PIN_BASE			(SPRD_PIN_BASE)
 
 /* registers definitions for controller CTL_PIN */
 #define REG_PIN_CTRL0                   ( 0x0000 )
