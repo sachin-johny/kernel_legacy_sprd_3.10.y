@@ -29,8 +29,10 @@
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/pinmap.h>
 #include "sdhci.h"
 #include "sprd-sdhci-regulator.h"
+
 
 extern void mmc_power_off(struct mmc_host *host);
 extern void mmc_power_cycle(struct mmc_host *host);
@@ -60,7 +62,6 @@ struct sprd_sdhci_host {
 	unsigned char chip_select_last;
 	unsigned char	timing;
 	atomic_t wake_lock_count;
-	void __iomem *pinmap_addr;
 	spinlock_t lock;
 	const struct of_device_id *of_id;
 	struct mmc_host_ops mmc_host_ops, standard_mmc_host_ops;
@@ -357,30 +358,30 @@ static void sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select
 	spin_lock(&sprd_host->lock);
 	if(sprd_host->chip_select_last ==  MMC_CS_DONTCARE && mmc->ios.chip_select == MMC_CS_HIGH) {
 		sprd_host->chip_select_last = MMC_CS_HIGH;
-		if(sprd_host->pinmap_addr && host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
+		if(host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
 			unsigned int reg_val;
-			reg_val = __raw_readl(sprd_host->pinmap_addr + host_pdata->d3_index);
+			reg_val = pinmap_get(host_pdata->pinmap_offset + host_pdata->d3_index);
 			reg_val &= ~(3UL << 4);
-			reg_val |= host_pdata->gpio_func;
-			__raw_writel(reg_val, sprd_host->pinmap_addr + host_pdata->d3_index);
+			reg_val |= (host_pdata->gpio_func << 4);
+			pinmap_set( host_pdata->pinmap_offset + host_pdata->d3_index, reg_val);
 			if(!gpio_request(host_pdata->d3_gpio, "d3-gpio")) {
 				gpio_direction_output(host_pdata->d3_gpio, 1);
 				gpio_set_value(host_pdata->d3_gpio, 1);
 				gpio_free(host_pdata->d3_gpio);
 			} else {
 				reg_val &= ~(3UL << 4);
-				reg_val |= host_pdata->sd_func;
-				__raw_writel(reg_val, sprd_host->pinmap_addr + host_pdata->d3_index);
+				reg_val |= (host_pdata->sd_func << 4);
+				pinmap_set(host_pdata->pinmap_offset + host_pdata->d3_index, reg_val);
 			}
 		}
 	} else  if(sprd_host->chip_select_last ==  MMC_CS_HIGH && mmc->ios.chip_select == MMC_CS_DONTCARE) {
 		sprd_host->chip_select_last = MMC_CS_DONTCARE;
-		if(sprd_host->pinmap_addr && host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
+		if(host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
 			unsigned int reg_val;
-			reg_val = __raw_readl(sprd_host->pinmap_addr + host_pdata->d3_index);
+			reg_val = pinmap_get(host_pdata->pinmap_offset + host_pdata->d3_index);
 			reg_val &=  ~(3UL << 4);
-			reg_val |=  host_pdata->sd_func;
-			__raw_writel(reg_val, sprd_host->pinmap_addr + host_pdata->d3_index);
+			reg_val |= (host_pdata->sd_func << 4);
+			pinmap_set(host_pdata->pinmap_offset + host_pdata->d3_index, reg_val);
 		}
 	}
 	spin_unlock(&sprd_host->lock);
@@ -1134,7 +1135,7 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 {
 	int retval;
 	int irq;
-	struct resource *res, *pinmap_res;
+	struct resource *res;
 	struct sdhci_host *host;
 	struct sprd_sdhci_host *sprd_host;
 	struct sprd_sdhci_host_platdata *host_pdata;
@@ -1145,7 +1146,6 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	res = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if(!res)
 		return -ENOENT;
-	pinmap_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
 	host = sdhci_alloc_host(&pdev->dev, sizeof(struct sprd_sdhci_host));
 	if (IS_ERR(host))
 		return PTR_ERR(host);
@@ -1165,8 +1165,6 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	sprd_host->platdata = host_pdata;
 	sprd_host->host = host;
-	if(pinmap_res)
-		sprd_host->pinmap_addr = pinmap_res->start;
 #ifdef CONFIG_OF
 	sprd_host->of_id = of_match_device(sprd_sdhci_host_of_match, &pdev->dev);
 	sprd_sdhci_host_of_parse(pdev, host);
