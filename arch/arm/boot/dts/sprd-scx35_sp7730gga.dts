@@ -864,6 +864,28 @@
                        sprd,ion-heap-mem = <0x9e700000 0x1900000>;      /* 4M */
                  };
          };
+         sprd_iommu0:sprd_iommu@F5410000 {
+                 compatible  = "sprd,sprd_iommu";//gsp
+                 func-name = "sprd_iommu_gsp";
+                 reg = <0x10000000 0x2000000>, //iova
+                       <0xF5410000 0x8000>,  //pgt
+                       <0xF5418000 0x8000>;  //ctrl_reg
+                 reg_name = "iova","pgt","ctrl_reg";
+                 clock-names = "clk_disp_emc","clk_153m6","clk_gsp";
+                 clocks = <&clk_disp_emc>, <&clk_153m6>,<&clk_gsp>;
+                 status = "ok";
+         };
+         sprd_iommu1:sprd_iommu@F5430000 {
+                 compatible  = "sprd,sprd_iommu";//mm
+                 func-name = "sprd_iommu_mm";
+                 reg = <0x20000000 0x8000000>,   //iova
+                       <0xF5430000 0x20000>,     //pgt
+                       <0xF5450000 0x2000>;      //ctrl_reg
+                 reg_name = "iova","pgt","ctrl_reg";
+                 clock-names = "clk_mmu","clk_mm_i";
+                 clocks = <&clk_mmu>,<&clk_mm>;
+                 status = "ok";
+         };
 	 sprd_rf2351: sprd_rf2351@40070000{
 		compatible  = "sprd,sprd_rf2351";
 		reg = <0xf51f8000 0x1000>,		/*RFSPI*/
