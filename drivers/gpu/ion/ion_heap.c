@@ -221,6 +221,15 @@ int ion_heap_deferred_free(void *data)
 
 		rt_mutex_lock(&heap->lock);
 		if (list_empty(&heap->free_list)) {
+			/*
+			 *  Sprd Change
+			 *  Add a protect to avoid the thread waked up allways
+			 *  when free_list_size is overwrited by abnormal operation.
+			 * */
+			if (heap->free_list_size > 0)
+			{
+			    heap->free_list_size = 0;
+			}
 			rt_mutex_unlock(&heap->lock);
 			continue;
 		}
