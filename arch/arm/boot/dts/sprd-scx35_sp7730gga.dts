@@ -725,6 +725,12 @@
 		keep-power = <0>;
 		runtime = <1>;
 	};
+
+	nand0:nand@f5128000 {
+		compatible  = "sprd,sprd-nand";
+		reg = <0xf5128000 0x1000>;
+	};
+
 	 usb: usb@f5116000{
 		 compatible  = "sprd,usb";
 		 interrupts = <0 55 0x0>;
