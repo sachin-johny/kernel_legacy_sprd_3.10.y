@@ -54,8 +54,9 @@ int sprd_thm_temp_read(u32 sensor)
 #endif
 
 #define SPRDBAT_CV_TRIGGER_CURRENT		1/2
-#define SPRDBAT_ONE_PERCENT_TIME   (2*60)
-#define SPRDBAT_VALID_CAP   30
+#define SPRDBAT_ONE_PERCENT_TIME   (60)
+#define SPRDBAT_AVOID_JUMPING_TEMI  (SPRDBAT_ONE_PERCENT_TIME)
+#define SPRDBAT_VALID_CAP   50
 
 enum sprdbat_event {
 	SPRDBAT_ADP_PLUGIN_E,
@@ -77,6 +78,8 @@ struct delayed_work sprdbat_charge_work;
 static uint32_t sprdbat_cv_irq_dis = 1;
 static uint32_t sprdbat_average_cnt;
 static unsigned long sprdbat_update_capacity_time;
+static unsigned long sprdbat_last_query_time;
+
 static uint32_t sprdbat_trickle_chg;
 static uint32_t sprdbat_start_chg;
 static uint32_t poweron_capacity;
@@ -446,6 +449,7 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 	data->bat_info.chg_start_time = 0;
 	get_monotonic_boottime(&cur_time);
 	sprdbat_update_capacity_time = cur_time.tv_sec;
+	sprdbat_last_query_time = cur_time.tv_sec;
 	data->bat_info.capacity = sprdfgu_poweron_capacity();	//~0;
 	poweron_capacity = sprdfgu_poweron_capacity();
 	data->bat_info.soc = sprdfgu_read_soc();
@@ -987,19 +991,28 @@ static void sprdbat_update_capacty(void)
 {
 	uint32_t fgu_capacity = sprdfgu_read_capacity();
 	uint32_t flush_time = 0;
+	uint32_t period_time = 0;
 	struct timespec cur_time;
 	if (sprdbat_data->bat_info.capacity == ~0) {
 		return;
 	}
 	get_monotonic_boottime(&cur_time);
 	flush_time = cur_time.tv_sec - sprdbat_update_capacity_time;
+	period_time = cur_time.tv_sec - sprdbat_last_query_time;
+	sprdbat_last_query_time = cur_time.tv_sec;
+
+	SPRDBAT_DEBUG("fgu_capacity: = %d,flush_time: = %d,period_time:=%d\n",fgu_capacity,flush_time,period_time);
 
 	switch (sprdbat_data->bat_info.module_state) {
 	case POWER_SUPPLY_STATUS_CHARGING:
 	case POWER_SUPPLY_STATUS_NOT_CHARGING:
-		if (fgu_capacity < sprdbat_data->bat_info.capacity) {
+		if (fgu_capacity <= sprdbat_data->bat_info.capacity) {
 			fgu_capacity = sprdbat_data->bat_info.capacity;
 		} else {
+			if(period_time < SPRDBAT_AVOID_JUMPING_TEMI) {
+				fgu_capacity = sprdbat_data->bat_info.capacity + 1;
+				SPRDBAT_DEBUG("avoid  jumping! fgu_capacity: = %d\n",fgu_capacity);
+			}
 			if ((fgu_capacity - sprdbat_data->bat_info.capacity) >=
 			    (flush_time / SPRDBAT_ONE_PERCENT_TIME)) {
 				fgu_capacity =
@@ -1007,15 +1020,24 @@ static void sprdbat_update_capacty(void)
 				    flush_time / SPRDBAT_ONE_PERCENT_TIME;
 			}
 		}
-		if (fgu_capacity >= 100) {
-			fgu_capacity = 99;
+		/*when soc=100 and adp plugin occur, keep on 100, */
+		if (100 == sprdbat_data->bat_info.capacity) {
+			sprdbat_update_capacity_time = cur_time.tv_sec;
+			fgu_capacity = 100;
+		} else {
+			if (fgu_capacity >= 100) {
+				fgu_capacity = 99;
+			}
 		}
-
 		break;
 	case POWER_SUPPLY_STATUS_DISCHARGING:
-		if (fgu_capacity > sprdbat_data->bat_info.capacity) {
+		if (fgu_capacity >= sprdbat_data->bat_info.capacity) {
 			fgu_capacity = sprdbat_data->bat_info.capacity;
 		} else {
+			if(period_time < SPRDBAT_AVOID_JUMPING_TEMI) {
+				fgu_capacity = sprdbat_data->bat_info.capacity - 1;
+				SPRDBAT_DEBUG("avoid jumping! fgu_capacity: = %d\n",fgu_capacity);
+			}
 			if ((sprdbat_data->bat_info.capacity - fgu_capacity) >=
 			    (flush_time / SPRDBAT_ONE_PERCENT_TIME)) {
 				fgu_capacity =
@@ -1025,6 +1047,7 @@ static void sprdbat_update_capacty(void)
 		}
 		break;
 	case POWER_SUPPLY_STATUS_FULL:
+		sprdbat_update_capacity_time = cur_time.tv_sec;
 		if (fgu_capacity != 100) {
 			fgu_capacity = 100;
 		}
