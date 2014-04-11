@@ -23,10 +23,10 @@
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 #include "dcam_drv.h"
 #include "gen_scale_coef.h"
-#include <linux/sprd_iommu.h>
 
 #define LOCAL static
 /*#define LOCAL*/
@@ -64,18 +64,6 @@
 #define DCAM_CLK_DOMAIN_DCAM                           0
 #define DCAM_PATH_TIMEOUT                              msecs_to_jiffies(500)
 #define DCAM_FRM_QUEUE_LENGTH                          4
-#define IO_PTR volatile void __iomem *
-#define REG_RD(a) __raw_readl((IO_PTR)(a))
-#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
-#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
-#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
-#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
-#define REG_MWR(a,m,v) \
-	do { \
-		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
-		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
-	} while(0)
 
 #define DCAM_CHECK_PARAM_ZERO_POINTER(n) \
 	do { \
@@ -216,7 +204,6 @@ LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_rotation_flag = ATOMIC_INIT(0);
 LOCAL struct clk*              s_dcam_clk = NULL;
-LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
 LOCAL struct dcam_module*      s_p_dcam_mod = 0;
 LOCAL uint32_t                 s_dcam_irq = 0x5A0000A5;
 LOCAL dcam_isr_func            s_user_func[DCAM_IRQ_NUMBER];
@@ -280,7 +267,6 @@ LOCAL void        _dcam_wait_path_done(enum dcam_path_index path_index, uint32_t
 LOCAL void        _dcam_path_done_notice(enum dcam_path_index path_index);
 LOCAL void        _dcam_rot_done(void);
 LOCAL void        _dcam_err_pre_proc(void);
-LOCAL int32_t     _dcam_is_clk_mm_i_eb(struct device_node *dn, uint32_t is_clk_mm_i_eb);
 LOCAL void        _dcam_frm_queue_clear(struct dcam_frm_queue *queue);
 LOCAL int32_t     _dcam_frame_enqueue(struct dcam_frm_queue *queue, struct dcam_frame *frame);
 LOCAL int32_t     _dcam_frame_dequeue(struct dcam_frm_queue *queue, struct dcam_frame **frame);
@@ -559,7 +545,7 @@ int32_t dcam_module_en(struct device_node *dn)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		unsigned int irq_no;
 
-		ret = _dcam_is_clk_mm_i_eb(dn,1);
+		ret =  clk_mm_i_eb(dn,1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
@@ -569,7 +555,9 @@ int32_t dcam_module_en(struct device_node *dn)
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
-		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
+
+		parse_baseaddress(dn);
+
 		dcam_reset(DCAM_RST_ALL);
 		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 		atomic_set(&s_resize_flag, 0);
@@ -603,19 +591,18 @@ fail_exit:
 int32_t dcam_module_dis(struct device_node *dn)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-	int	                    ret = 0;
 
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
+		unsigned int irq_no;
+
 		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(dn,DCAM_CLK_NONE);
 		printk("DCAM: un register isr \n");
-		free_irq(DCAM_IRQ, (void*)&s_dcam_irq);
-		ret = _dcam_is_clk_mm_i_eb(dn,0);
-		if (ret) {
-			rtn =  -DCAM_RTN_MAX;
-		}
+		irq_no = parse_irq(dn);
+		free_irq(irq_no, (void*)&s_dcam_irq);
+		 clk_mm_i_eb(dn,0);
 	}
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
@@ -689,42 +676,6 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	return -rtn;
 }
 
-int32_t _dcam_is_clk_mm_i_eb(struct device_node *dn, uint32_t is_clk_mm_i_eb)
-{
-#ifndef CONFIG_OF
-	int                     ret = 0;
-	if (NULL == s_dcam_clk_mm_i) {
-		s_dcam_clk_mm_i = clk_get(NULL, "clk_mm_i");
-		if (IS_ERR(s_dcam_clk_mm_i)) {
-			printk("dcam_is_clk_mm_i_eb: get fail.\n");
-			return -1;
-		}
-	}
-	if (is_clk_mm_i_eb) {
-		ret = clk_enable(s_dcam_clk_mm_i);
-		if (ret) {
-			printk("dcam_is_clk_mm_i_eb: enable fail.\n");
-			return -1;
-		}
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_enable(IOMMU_MM);
-		}
-#endif
-	} else {
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_disable(IOMMU_MM);
-		}
-#endif
-		clk_disable(s_dcam_clk_mm_i);
-		clk_put(s_dcam_clk_mm_i);
-		s_dcam_clk_mm_i = NULL;
-	}
-#endif
-	return 0;
-}
-
 int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
@@ -741,9 +692,6 @@ int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
 		break;
 	case DCAM_CLK_128M:
 		parent = "clk_128m";
-		break;
-	case DCAM_CLK_48M:
-		parent = "clk_48m";
 		break;
 	case DCAM_CLK_76M8:
 		parent = "clk_76p8m";
@@ -3804,9 +3752,14 @@ LOCAL void _dcam_stopped_notice(void)
 void mm_clk_register_trace(void)
 {
    uint32_t i = 0;
+   printk("REG_AON_APB_APB_EB0 = 0x%x \n",REG_RD(REG_AON_APB_APB_EB0));
+   printk("REG_PMU_APB_PD_MM_TOP_CFG = 0x%x \n",REG_RD(REG_PMU_APB_PD_MM_TOP_CFG));
+   printk("REG_PMU_APB_CP_SOFT_RST = 0x%x \n",REG_RD(REG_PMU_APB_CP_SOFT_RST));
+	if(!(REG_RD(REG_AON_APB_APB_EB0)&BIT_MM_EB) ) return ;
+	if(REG_RD(REG_PMU_APB_PD_MM_TOP_CFG)&BIT_PD_MM_TOP_FORCE_SHUTDOWN) return ;
 
    printk("mm_clk_reg, part 1 \n");
-   for (i = 0 ; i <= 8; i += 4 ) {
+   for (i = 0 ; i <= 0x10; i += 4 ) {
 		printk("MMAHB: %x val:%x \b\n",
 			(SPRD_MMAHB_BASE + i),
 			REG_RD(SPRD_MMAHB_BASE + i));

@@ -22,18 +22,6 @@
 #include "dcam_drv.h"
 
 #define ALGIN_FOUR 0x03
-#define IO_PTR volatile void __iomem *
-#define REG_RD(a) __raw_readl((IO_PTR)(a))
-#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
-#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
-#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
-#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
-#define REG_MWR(a,m,v) \
-	do { \
-		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
-		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
-	}while(0)
 
 static DEFINE_SPINLOCK(rot_drv_lock);
 

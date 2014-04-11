@@ -26,11 +26,6 @@
 	#define DCAM_TRACE             pr_debug
 #endif
 
-#ifdef CONFIG_OF
-	#define         clk_enable	clk_prepare_enable
-	#define         clk_disable	clk_disable_unprepare
-#endif
-
 #define DCAM_WAIT_FOREVER                        0xFFFFFFFF
 #define DCAM_PATH_1_FRM_CNT_MAX                  8
 #define DCAM_PATH_2_FRM_CNT_MAX                  4
@@ -226,7 +221,6 @@ enum dcam_clk_sel {
 	DCAM_CLK_256M,
 	DCAM_CLK_128M,
 	DCAM_CLK_76M8,
-	DCAM_CLK_48M,
 	DCAM_CLK_NONE
 };
 
@@ -402,7 +396,6 @@ int32_t    dcam_stop_cap(void);
 void       dcam_glb_reg_awr(uint32_t addr, uint32_t val, uint32_t reg_id);
 void       dcam_glb_reg_owr(uint32_t addr, uint32_t val, uint32_t reg_id);
 void       dcam_glb_reg_mwr(uint32_t addr, uint32_t mask, uint32_t val, uint32_t reg_id);
-void       mm_clk_register_trace(void);
 int        dcam_scale_coeff_alloc(void);
 void       dcam_scale_coeff_free(void);
 int32_t    dcam_rotation_start(void);

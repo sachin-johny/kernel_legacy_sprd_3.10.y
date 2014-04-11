@@ -54,8 +54,8 @@
 #include <video/sensor_drv_k.h>
 #include "sensor_drv_sprd.h"
 
-#include <linux/sprd_iommu.h>
 #include "csi2/csi_api.h"
+#include "parse_hwinfo.h"
 
 /* FIXME: Move to camera device platform data later */
 /*#if defined(CONFIG_ARCH_SC8825)*/
@@ -104,58 +104,6 @@
 #define SENSOR_K_FAIL                     (-1)
 #define SENSOR_K_FALSE                    0
 #define SENSOR_K_TRUE                     1
-
-#define _pard(a)                          __raw_readl(a)
-
-#define REG_RD(a)                         __raw_readl(a)
-#define REG_WR(a,v)                       __raw_writel(v,a)
-#define REG_AWR(a,v)                      __raw_writel((__raw_readl(a) & v), a)
-#define REG_OWR(a,v)                      __raw_writel((__raw_readl(a) | v), a)
-#define REG_XWR(a,v)                      __raw_writel((__raw_readl(a) ^ v), a)
-#define REG_MWR(a,m,v)                                 \
-	do {                                            \
-		uint32_t _tmp = __raw_readl(a);          \
-		_tmp &= ~(m);                            \
-		__raw_writel(_tmp | ((m) & (v)), (a));   \
-	}while(0)
-
-#ifdef CONFIG_OF
-	#define         clk_enable	clk_prepare_enable
-	#define         clk_disable	clk_disable_unprepare
-#endif
-
-#define BIT_0                             0x01
-#define BIT_1                             0x02
-#define BIT_2                             0x04
-#define BIT_3                             0x08
-#define BIT_4                             0x10
-#define BIT_5                             0x20
-#define BIT_6                             0x40
-#define BIT_7                             0x80
-#define BIT_8                             0x0100
-#define BIT_9                             0x0200
-#define BIT_10                            0x0400
-#define BIT_11                            0x0800
-#define BIT_12                            0x1000
-#define BIT_13                            0x2000
-#define BIT_14                            0x4000
-#define BIT_15                            0x8000
-#define BIT_16                            0x010000
-#define BIT_17                            0x020000
-#define BIT_18                            0x040000
-#define BIT_19                            0x080000
-#define BIT_20                            0x100000
-#define BIT_21                            0x200000
-#define BIT_22                            0x400000
-#define BIT_23                            0x800000
-#define BIT_24                            0x01000000
-#define BIT_25                            0x02000000
-#define BIT_26                            0x04000000
-#define BIT_27                            0x08000000
-#define BIT_28                            0x10000000
-#define BIT_29                            0x20000000
-#define BIT_30                            0x40000000
-#define BIT_31                            0x80000000
 
 
 #define LOCAL                             static
@@ -231,7 +179,6 @@ struct sensor_module {
 	uint32_t                        motpower_on_count;
 	uint32_t                        mipi_on;
 	struct mutex                    sensor_lock;
-	struct clk                      *sensor_clk_mm_i;
 	struct clk                      *ccir_clk;
 	struct clk                      *ccir_enable_clk;
 	struct clk                      *mipi_clk;
@@ -266,58 +213,6 @@ LOCAL const struct i2c_device_id        c_sensor_device_id[] = {
 LOCAL struct sensor_module * s_p_sensor_mod = PNULL;
 SENSOR_PROJECT_FUNC_T s_sensor_project_func = {PNULL};
 
-int32_t _sensor_is_clk_mm_i_eb(struct device_node *dn,uint32_t is_clk_mm_i_eb)
-{
-	int                     ret = 0;
-	SENSOR_CHECK_ZERO(s_p_sensor_mod);
-#ifndef CONFIG_OF
-	if (NULL == s_p_sensor_mod->sensor_clk_mm_i) {
-		s_p_sensor_mod->sensor_clk_mm_i = clk_get(NULL, "clk_mm_i");
-		if (IS_ERR(s_p_sensor_mod->sensor_clk_mm_i)) {
-			printk("sensor_is_clk_mm_i_eb: get fail.\n");
-			return -1;
-		}
-	}
-
-	if (is_clk_mm_i_eb) {
-		ret = clk_enable(s_p_sensor_mod->sensor_clk_mm_i);
-		if (ret) {
-			printk("sensor_is_clk_mm_i_eb: enable fail.\n");
-			return -1;
-		}
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_enable(IOMMU_MM);
-		}
-#endif
-	} else {
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_disable(IOMMU_MM);
-		}
-#endif
-		clk_disable(s_p_sensor_mod->sensor_clk_mm_i);
-		clk_put(s_p_sensor_mod->sensor_clk_mm_i);
-		s_p_sensor_mod->sensor_clk_mm_i = NULL;
-	}
-#else
-
-#include <mach/sci_glb_regs.h>
-
-	if (is_clk_mm_i_eb) {
-		REG_OWR(REG_AON_APB_APB_EB0,BIT_25);
-		REG_AWR(REG_PMU_APB_PD_MM_TOP_CFG,~BIT_25);
-		REG_OWR(REG_MM_AHB_GEN_CKG_CFG,BIT_2|BIT_3);
-//		REG_OWR(REG_MM_CLK_MM_AHB_CFG,0);
-		printk("_sensor_is_clk_mm_i_eb ok.\n");
-	}else {
-//		REG_AWR(REG_AON_APB_APB_EB0,~BIT_25);
-//		REG_OWR(REG_PMU_APB_PD_MM_TOP_CFG,BIT_25);
-	}
-#endif
-
-	return 0;
-}
 
 LOCAL void* _sensor_k_kmalloc(size_t size, unsigned flags)
 {
@@ -890,11 +785,7 @@ int32_t _sensor_k_mipi_clk_en(struct device_node *dn)
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	if (NULL == s_p_sensor_mod->mipi_clk) {
-#ifdef CONFIG_OF
-		s_p_sensor_mod->mipi_clk = of_clk_get_by_name(dn,"clk_dcam_mipi");
-#else
-		s_p_sensor_mod->mipi_clk = clk_get(NULL, "clk_dcam_mipi");
-#endif
+		s_p_sensor_mod->mipi_clk = parse_clk(dn,"clk_dcam_mipi");
 	}
 
 	if (IS_ERR(s_p_sensor_mod->mipi_clk)) {
@@ -939,11 +830,7 @@ LOCAL int _sensor_k_set_mclk(struct device_node *dn,uint32_t mclk)
 			clk_disable(s_p_sensor_mod->ccir_clk);
 			SENSOR_PRINT("###sensor ccir clk off ok.\n");
 		} else {
-#ifdef CONFIG_OF
-			s_p_sensor_mod->ccir_clk = of_clk_get_by_name(dn,"clk_sensor");
-#else
-			s_p_sensor_mod->ccir_clk = clk_get(NULL, SENSOR_CLK);
-#endif
+			s_p_sensor_mod->ccir_clk = parse_clk(dn, SENSOR_CLK);
 			if (IS_ERR(s_p_sensor_mod->ccir_clk)) {
 				SENSOR_PRINT_ERR("###: Failed: Can't get clock [ccir_mclk]!\n");
 				SENSOR_PRINT_ERR("###: s_sensor_clk = %p.\n",s_p_sensor_mod->ccir_clk);
@@ -989,11 +876,7 @@ LOCAL int _sensor_k_set_mclk(struct device_node *dn,uint32_t mclk)
 		}
 
 		if (NULL == s_p_sensor_mod->ccir_enable_clk) {
-#ifdef CONFIG_OF
-			s_p_sensor_mod->ccir_enable_clk	= of_clk_get_by_name(dn,"clk_ccir");
-#else
-			s_p_sensor_mod->ccir_enable_clk = clk_get(NULL, "clk_ccir");
-#endif
+			s_p_sensor_mod->ccir_enable_clk	= parse_clk(dn,"clk_ccir");
 			if (IS_ERR(s_p_sensor_mod->ccir_enable_clk)) {
 				SENSOR_PRINT_ERR("###: Failed: Can't get clock [clk_ccir]!\n");
 				SENSOR_PRINT_ERR("###: ccir_enable_clk = %p.\n", s_p_sensor_mod->ccir_enable_clk);
@@ -1345,7 +1228,7 @@ int sensor_k_open(struct inode *node, struct file *file)
 	if(atomic_inc_return(&s_p_sensor_mod->open_count) == 1){
 		struct miscdevice *md = file->private_data;
 		struct device_node *dn = md->this_device->of_node;
-		ret = _sensor_is_clk_mm_i_eb(dn,1);
+		ret = clk_mm_i_eb(dn,1);
 	}
 	return ret;
 }
@@ -1363,7 +1246,7 @@ int sensor_k_release(struct inode *node, struct file *file)
 		_sensor_k_set_voltage_dvdd(SENSOR_VDD_CLOSED);
 		_sensor_k_set_voltage_iovdd(SENSOR_VDD_CLOSED);
 		_sensor_k_set_mclk(dn,0);
-		ret = _sensor_is_clk_mm_i_eb(dn,0);
+		ret = clk_mm_i_eb(dn,0);
 	}
 	return ret;
 }

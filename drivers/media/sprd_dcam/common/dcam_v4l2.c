@@ -2633,8 +2633,6 @@ LOCAL int sprd_v4l2_open(struct file *file)
 	}
 
 	DCAM_TRACE("sprd_v4l2_open \n");
-	struct device_node *dn= dev->vfd->dev.of_node;
-
 	ret = dcam_module_en(dev->vfd->dev.of_node);
 	if (unlikely(0 != ret)) {
 		printk("V4L2: Failed to enable dcam module \n");

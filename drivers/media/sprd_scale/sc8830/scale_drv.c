@@ -44,18 +44,6 @@
 #define SC_COEFF_V_CHROMA_NUM (SC_V_CHROM_COEF_SIZE / 4)
 #define SCALE_PIXEL_ALIGNED 4
 #define SCALE_SLICE_HEIGHT_ALIGNED 4
-#define IO_PTR volatile void __iomem *
-#define REG_RD(a) __raw_readl((IO_PTR)(a))
-#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
-#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
-#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
-#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
-#define REG_MWR(a,m,v) \
-	do { \
-		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
-		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
-	}while(0)
 
 #define SCALE_CHECK_PARAM_ZERO_POINTER(n) \
 	do { \
