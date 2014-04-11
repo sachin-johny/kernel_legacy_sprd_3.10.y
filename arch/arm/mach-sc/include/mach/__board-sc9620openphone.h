@@ -80,7 +80,7 @@
 #define GPIO_PROX_INT 92
 #define GPIO_GYRO_INT1 153
 #define GPIO_M_RSTN 148
-#define GPIO_M_DRDY 149
+#define GPIO_M_DRDY 152
 
 #define GPIO_SDIO_DETECT      232
 #define GPIO_AP_TO_CP_RTS     147
