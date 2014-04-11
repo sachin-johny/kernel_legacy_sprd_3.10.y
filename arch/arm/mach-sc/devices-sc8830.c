@@ -1014,11 +1014,13 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.clk_parent_name = "clk_192m",
 	.max_frequency = 192000000,
 #endif
+#ifndef CONFIG_ARCH_SCX15
 	.pinmap_offset = SPRD_PIN_SDIO0_OFFSET,
 	.d3_gpio = SPRD_PIN_SDIO0_D3_GPIO,
 	.d3_index = SPRD_PIN_SDIO0_D3_INDEX,
 	.sd_func = SPRD_PIN_SDIO0_SD_FUNC,
 	.gpio_func = SPRD_PIN_SDIO0_GPIO_FUNC,
+#endif
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 	.runtime = 1,
