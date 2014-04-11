@@ -33,7 +33,6 @@
 #include "sdhci.h"
 #include "sprd-sdhci-regulator.h"
 
-
 extern void mmc_power_off(struct mmc_host *host);
 extern void mmc_power_cycle(struct mmc_host *host);
 extern void mmc_set_timing(struct mmc_host *host, unsigned int timing);
