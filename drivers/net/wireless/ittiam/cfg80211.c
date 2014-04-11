@@ -379,9 +379,11 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 			continue;
 		}
 	}
+	priv->scan_request = request;
 	ret = itm_wlan_scan_cmd(priv->wlan_sipc, sipc_data, scan_ssids_len);
 	if (ret) {
 		wiphy_err(wiphy, "%s error %d\n", __func__, ret);
+		priv->scan_request = NULL;
 		kfree(sipc_data);
 		return ret;
 	}
@@ -392,7 +394,6 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 	/* Arm scan timeout timer */
 	mod_timer(&priv->scan_timeout,
 		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
-	priv->scan_request = request;
 
 	kfree(sipc_data);
 
