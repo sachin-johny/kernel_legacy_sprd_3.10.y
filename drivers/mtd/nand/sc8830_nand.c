@@ -111,7 +111,8 @@ static int mtdoobsize = 0;
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/pinmap.h>
-
+#include <linux/of.h>
+#include <linux/of_device.h>
 #include "sc8830_nand.h"
 #define DPRINT printk
 
@@ -2098,6 +2099,15 @@ STATIC_FUNC int sprd_nand_resume(struct platform_device *dev)
 #define sprd_nand_resume NULL
 #endif
 
+#ifdef CONFIG_OF
+
+static const struct of_device_id sprd_nand_of_match[] = {
+	{ .compatible = "sprd,sprd-nand"},
+	{}
+};
+MODULE_DEVICE_TABLE(of, sprd_nand_of_match);
+#endif
+
 static struct platform_driver sprd_nand_driver = {
 	.probe		= sprd_nand_probe,
 	.remove		= sprd_nand_remove,
@@ -2106,6 +2116,7 @@ static struct platform_driver sprd_nand_driver = {
 	.driver		= {
 		.name	= "sprd-nand",
 		.owner	= THIS_MODULE,
+		.of_match_table = of_match_ptr(sprd_nand_of_match),
 	},
 };
 
