@@ -68,6 +68,7 @@ seth_tx_ready_handler (void* data)
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
 		seth->txstate = DEV_ON;
+
 		if (!netif_carrier_ok (seth->netdev)) {
 			netif_carrier_on (seth->netdev);
 		}
@@ -92,7 +93,7 @@ seth_tx_open_handler (void* data)
 {
 	SEth* seth = (SEth*) data;
 
-	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
+	printk(KERN_INFO "seth_tx_open_handler state %0x\n", seth->state);
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
 		seth->txstate = DEV_ON;
@@ -110,7 +111,7 @@ seth_tx_close_handler (void* data)
 {
 	SEth* seth = (SEth*) data;
 
-	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
+	printk(KERN_INFO "seth_tx_close_handler state %0x\n", seth->state);
 	if (seth->state != DEV_OFF) {
 		seth->state = DEV_OFF;
 		seth->txstate = DEV_OFF;
@@ -305,10 +306,11 @@ static int seth_open (struct net_device *dev)
 
 	/* Reset stats */
 	memset(&seth->stats, 0, sizeof(seth->stats));
-	
-	/*
-	seth->state = DEV_ON;
-	*/
+
+	if (seth->state == DEV_ON && !netif_carrier_ok(seth->netdev)) {
+		SETH_INFO("seth_open netif_carrier_on\n");
+		netif_carrier_on(seth->netdev);
+	}
 
 	seth->txstate = DEV_ON;
 
