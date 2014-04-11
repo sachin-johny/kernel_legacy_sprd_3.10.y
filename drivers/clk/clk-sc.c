@@ -20,9 +20,9 @@
 #include <linux/of_address.h>
 #include <linux/kernel.h>
 #include <linux/io.h>
+#include <linux/delay.h>
 #include <mach/hardware.h>
-
-//#define CONFIG_CLK_DEBUG
+#include <mach/sci_glb_regs.h>
 
 #ifdef CONFIG_OF
 
@@ -178,14 +178,24 @@ static unsigned long sprd_clk_adjustable_pll_recalc_rate(struct clk_hw *hw,
 							 parent_rate)
 {
 	struct clk_sprd *pll = to_clk_sprd(hw);
-	unsigned int refin, mn, rate;
+	unsigned int rate;
 
+#ifdef CONFIG_ARCH_SCX30G
+	unsigned int k, mn;
+	mn = __raw_readl(pll->m.mul.reg) & 0xfffff03f;
+	k = (mn >> 12);
+	mn = mn & 0x3f;
+	rate = 26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100, 1048576) * 10000;
+	clk_debug("rate %u, k %u, mn %u\n", rate, k, mn);
+#else
+	unsigned int refin, mn;
 	refin = __pll_get_refin_rate(pll->m.mul.reg);
 	mn = (__raw_readl(pll->m.mul.reg) & pll->m.mul.msk) >> __ffs(pll->m.mul.
 								     msk);
 
 	rate = refin * mn;
 	clk_debug("rate %u, refin %u, mn %u\n", rate, refin, mn);
+#endif
 	return (unsigned long)rate;
 }
 
@@ -198,21 +208,44 @@ static long sprd_clk_adjustable_pll_round_rate(struct clk_hw *hw,
 	return rate;
 }
 
-int sci_glb_write(u32 reg, u32 val, u32 msk);
+static void __pllreg_write(void * reg, u32 val, u32 msk)
+{
+	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
+}
+
+static int __pll_enable_time(struct clk_hw *hw, unsigned long old_rate)
+{
+	/* FIXME: for mpll, each step (100MHz) takes 50us */
+	u32 rate = sprd_clk_adjustable_pll_recalc_rate(hw, 0) / 1000000;
+	int dly = abs(rate - old_rate) * 50 / 100;
+	WARN_ON(dly > 1000);
+	udelay(dly);
+	return 0;
+}
 
 static int sprd_clk_adjustable_pll_set_rate(struct clk_hw *hw,
 					    unsigned long rate,
 					    unsigned long parent_rate)
 {
 	struct clk_sprd *pll = to_clk_sprd(hw);
+	u32 old_rate = sprd_clk_adjustable_pll_recalc_rate(hw, 0) / 1000000;
+#ifdef CONFIG_ARCH_SCX30G
+	u32 k, mn;
+	mn = (rate / 1000000) / 26;
+	k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576, 26 * 100);
+	clk_debug("rate %u, k %u, mn %u\n", (u32) rate, k, mn);
+	__pllreg_write(pll->m.mul.reg, (k << 12)|(mn), 0xfffff03f);
+#else
 	u32 refin, mn;
 	refin = __pll_get_refin_rate(pll->m.mul.reg);
 	mn = rate / refin;
 	clk_debug("rate %u, refin %u, mn %u\n", (u32) rate, refin, mn);
 	if (mn <= pll->m.mul.msk >> __ffs(pll->m.mul.msk)) {
-		sci_glb_write((u32) pll->m.mul.reg, mn << __ffs(pll->m.mul.msk),
+		__pllreg_write(pll->m.mul.reg, mn << __ffs(pll->m.mul.msk),
 			      pll->m.mul.msk);
 	}
+#endif
+	__pll_enable_time(hw, old_rate);
 	return 0;
 }
 
@@ -320,6 +353,90 @@ const struct clk_ops sprd_clk_composite_ops = {
 	.set_rate = sprd_clk_divider_set_rate,
 };
 
+static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
+				   int is_set)
+{
+	if (!reg)
+		return;
+
+	clk_debug("%s %s %p[%x]\n", __clk_get_name(hw->clk),
+		  (is_set) ? "SET" : "CLR", reg, (u32) msk);
+
+	if (is_set)
+		__raw_writel(__raw_readl((void *)reg) | msk, (void *)reg);
+	else
+		__raw_writel(__raw_readl((void *)reg) & ~msk, (void *)reg);
+}
+
+static int sprd_mm_clk_prepare(struct clk_hw *hw)
+{
+#ifdef CONFIG_ARCH_SCX35
+	if (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1)) {
+		int to = 10;
+		__glbreg_setclr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN, 0);
+		/* FIXME: wait a moment for mm domain stable
+		*/
+		while (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1) && to--) {
+			udelay(50);
+		}
+	}
+	WARN_ON(__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1));
+
+	if (!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB)) {
+		__glbreg_setclr(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB, 1);
+		__glbreg_setclr(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB, 1);
+		__mmreg_setclr(hw, (void *)REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN, 1);
+		__mmreg_setclr(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3, 1);/* set mm ahb 153.6MHz */
+	}
+#endif
+	return sprd_clk_prepare(hw);
+}
+
+static void sprd_mm_clk_unprepare(struct clk_hw *hw)
+{
+	sprd_clk_unprepare(hw);
+}
+
+static int sprd_mm_clk_enable(struct clk_hw *hw)
+{
+	struct clk_sprd *c = to_clk_sprd(hw);
+	__mmreg_setclr(hw, c->enb.reg, (u32) c->enb.msk, 1);
+	return 0;
+}
+
+static void sprd_mm_clk_disable(struct clk_hw *hw)
+{
+	struct clk_sprd *c = to_clk_sprd(hw);
+	__mmreg_setclr(hw, c->enb.reg, (u32) c->enb.msk, 0);
+}
+
+const struct clk_ops sprd_mm_clk_gate_ops = {
+	.prepare = sprd_mm_clk_prepare,
+	.unprepare = sprd_mm_clk_unprepare,
+	.enable = sprd_mm_clk_enable,
+	.disable = sprd_mm_clk_disable,
+	.is_enabled = sprd_clk_is_enable,
+};
+
+const struct clk_ops sprd_mm_clk_mux_ops = {
+	.prepare = sprd_mm_clk_prepare,
+	.unprepare = sprd_mm_clk_unprepare,
+	.enable = sprd_mm_clk_enable,
+	.disable = sprd_mm_clk_disable,
+	.get_parent = sprd_clk_mux_get_parent,
+	.set_parent = sprd_clk_mux_set_parent,
+};
+
+const struct clk_ops sprd_mm_clk_composite_ops = {
+	.enable = sprd_mm_clk_enable,
+	.disable = sprd_mm_clk_disable,
+	.get_parent = sprd_clk_mux_get_parent,
+	.set_parent = sprd_clk_mux_set_parent,
+	.recalc_rate = sprd_clk_divider_recalc_rate,
+	.round_rate = sprd_clk_divider_round_rate,
+	.set_rate = sprd_clk_divider_set_rate,
+};
+
 static void __init file_clk_data(struct clk *clk, const char *clk_name);
 static void __init sprd_clk_register(struct device *dev,
 				     struct device_node *node,
@@ -340,14 +457,12 @@ void of_sprd_fixed_clk_setup(struct device_node *node)
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 
-#ifndef CONFIG_CLK_DEBUG
 	clk = clk_register_fixed_rate(NULL, clk_name, NULL, CLK_IS_ROOT, rate);
 	if (!IS_ERR(clk)) {
 		of_clk_add_provider(node, of_clk_src_simple_get, clk);
 		clk_register_clkdev(clk, clk_name, 0);
 		file_clk_data(clk, clk_name);
 	}
-#endif
 	clk_debug("[%p]%s fixed-rate %d\n", clk, clk_name, rate);
 }
 
@@ -378,7 +493,6 @@ void __init of_sprd_fixed_factor_clk_setup(struct device_node *node)
 	of_property_read_string(node, "clock-output-names", &clk_name);
 	parent_name = of_clk_get_parent_name(node, 0);
 
-#ifndef CONFIG_CLK_DEBUG
 	clk = clk_register_fixed_factor(NULL, clk_name, parent_name, 0,
 					mult, div);
 	if (!IS_ERR(clk)) {
@@ -386,7 +500,6 @@ void __init of_sprd_fixed_factor_clk_setup(struct device_node *node)
 		clk_register_clkdev(clk, clk_name, 0);
 		file_clk_data(clk, clk_name);
 	}
-#endif
 	clk_debug("[%p]%s parent %s mult %d div %d\n", clk, clk_name,
 		  parent_name, mult, div);
 }
@@ -525,6 +638,10 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 		//prepare reg is optional
 	}
 
+	if (of_get_property(node, "mm-domain", NULL)) {
+		init.ops = &sprd_mm_clk_gate_ops;
+	}
+
 	of_property_read_string(node, "clock-output-names", &clk_name);
 	parent_name = of_clk_get_parent_name(node, 0);
 
@@ -574,7 +691,7 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 	struct clk_init_data init = {
 		.name = clk_name,
 	};
-	const __be32 *selreg = NULL, *divreg = NULL, *enbreg;
+	const __be32 *selreg = NULL, *divreg = NULL, *enbreg, *prereg = NULL;
 	int idx = 0;
 
 	if (has_mux)
@@ -584,6 +701,9 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 		divreg = of_get_address(node, idx++, NULL, NULL);
 
 	enbreg = of_get_address(node, idx++, NULL, NULL);
+	if (enbreg) {
+		prereg = of_get_address(node, idx++, NULL, NULL);
+	}
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
 
@@ -602,10 +722,15 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 		struct clk_mux *mux;
 
 		of_read_reg(&c->m.sel, selreg);
+		of_read_reg(&c->d.pre, prereg);
 
-		init.ops = &sprd_clk_mux_ops,
-		    /* FIXME: Retrieve the phandle list property */
-		    of_get_property(node, "clocks", &num_parents);
+		init.ops = &sprd_clk_mux_ops;
+		if (of_get_property(node, "mm-domain", NULL)) {
+			init.ops = &sprd_mm_clk_mux_ops;
+		}
+
+	    /* FIXME: Retrieve the phandle list property */
+	    of_get_property(node, "clocks", &num_parents);
 		init.num_parents = (u8) num_parents / 4;
 		mux =
 		    kzalloc(sizeof(struct clk_mux) +
@@ -658,6 +783,9 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 
 	if (divreg && selreg) {
 		init.ops = &sprd_clk_composite_ops;
+		if (of_get_property(node, "mm-domain", NULL)) {
+			init.ops = &sprd_mm_clk_composite_ops;
+		}
 	}
 
 	sprd_clk_register(NULL, node, c, &init);
@@ -671,9 +799,9 @@ static void __init of_sprd_muxed_clk_setup(struct device_node *node)
 	c = __of_sprd_composite_clk_setup(node, 1, 0);
 	if (!c)
 		return;
-	clk_debug("[%p]%s select %p[%x] enable %p[%x]\n", c->hw.clk,
+	clk_debug("[%p]%s select %p[%x] enable %p[%x] prepare %p[%x]\n", c->hw.clk,
 		  __clk_get_name(c->hw.clk), c->m.sel.reg, c->m.sel.msk,
-		  c->enb.reg, c->enb.msk);
+		  c->enb.reg, c->enb.msk, c->d.pre.reg, c->d.pre.msk);
 }
 
 static void __init of_sprd_divider_clk_setup(struct device_node *node)
@@ -731,7 +859,6 @@ static void __init sprd_clk_register(struct device *dev,
 				     struct clk_sprd *c,
 				     struct clk_init_data *init)
 {
-#ifndef CONFIG_CLK_DEBUG
 	struct clk *clk;
 	const char *clk_name = init->name;
 
@@ -742,7 +869,6 @@ static void __init sprd_clk_register(struct device *dev,
 		clk_register_clkdev(clk, clk_name, 0);
 		file_clk_data(clk, clk_name);
 	}
-#endif
 }
 
 static void __init sprd_clocks_init(struct device_node *node)

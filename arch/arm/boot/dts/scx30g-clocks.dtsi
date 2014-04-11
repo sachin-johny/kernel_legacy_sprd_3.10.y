@@ -22,46 +22,42 @@
 		clk_mpll: clk_mpll {
 			compatible = "sprd,adjustable-pll-clock";
 			#clock-cells = <0>;
-			reg = <0x402e0014 0x7ff 0x402b008c 0x1>;	/* mult reg and prepare reg */
+			reg = <0x402e3070 0x7ff 0x402b0094 0x1>;	/* mult reg and prepare reg */
 			clock-output-names = "clk_mpll";
 		};
 
 		clk_dpll: clk_dpll {
 			compatible = "sprd,adjustable-pll-clock";
 			#clock-cells = <0>;
-			reg = <0x402e0018 0x7ff 0x402b0090 0x1>;	/* mult reg and prepare reg */
+			reg = <0x402e3074 0x7ff 0x402b0098 0x1>;	/* mult reg and prepare reg */
 			clock-output-names = "clk_dpll";
 		};
 
 		clk_tdpll: clk_tdpll {
-			compatible = "sprd,fixed-pll-clock";
+			compatible = "sprd,adjustable-pll-clock";
 			#clock-cells = <0>;
-			clock-frequency = <768000000>;
-			reg = <0x402b0094 0x1>;	/* prepare reg */
+			reg = <0x402e3078 0x7ff 0x402b009c 0x1>;	/* mult reg and prepare reg */
 			clock-output-names = "clk_tdpll";
 		};
 
 		clk_wpll: clk_wpll {
-			compatible = "sprd,fixed-pll-clock";
+			compatible = "sprd,adjustable-pll-clock";
 			#clock-cells = <0>;
-			clock-frequency = <921600000>;
-			reg = <0x402b0098 0x1>;	/* prepare reg */
+			reg = <0x402e301c 0x7ff 0x402b00a0 0x1>;	/* mult reg and prepare reg */
 			clock-output-names = "clk_wpll";
 		};
 
 		clk_cpll: clk_cpll {
-			compatible = "sprd,fixed-pll-clock";
+			compatible = "sprd,adjustable-pll-clock";
 			#clock-cells = <0>;
-			clock-frequency = <624000000>;
-			reg = <0x402b009c 0x1>;	/* prepare reg */
+			reg = <0x402e307c 0x7ff 0x402b00a4 0x1>;	/* mult reg and prepare reg */
 			clock-output-names = "clk_cpll";
 		};
 
 		clk_wifipll: clk_wifipll {
-			compatible = "sprd,fixed-pll-clock";
+			compatible = "sprd,adjustable-pll-clock";
 			#clock-cells = <0>;
-			clock-frequency = <880000000>;
-			reg = <0x402b00a0 0x1>;	/* prepare reg */
+			reg = <0x402e3080 0x7ff 0x402b00a8 0x1>;	/* mult reg and prepare reg */
 			clock-output-names = "clk_wifipll";
 		};
 
@@ -342,6 +338,14 @@
 			reg = <0x402e0004 0x800>;	/* enable reg */
 			clocks = <&clk_aon_apb>;
 			clock-output-names = "clk_disp_emc";
+		};
+
+		clk_gsp_emc: clk_gsp_emc {
+			compatible = "sprd,gate-clock";
+			#clock-cells = <0>;
+			reg = <0x402e0004 0x2000>;	/* enable reg */
+			clocks = <&clk_aon_apb>;
+			clock-output-names = "clk_gsp_emc";
 		};
 
 		clk_gsp: clk_gsp {
@@ -625,7 +629,7 @@
 		clk_mm: clk_mm {
 			compatible = "sprd,gate-clock";
 			#clock-cells = <0>;
-			reg = <0x402e0000 0x2000000 0x402b001d 0x2000000>;	/* enable reg and prepare reg */
+			reg = <0x402e0000 0x2000000>;	/* 0x402b001d 0x2000000>; */	/* enable reg and prepare reg */
 			clocks = <&clk_aon_apb>;
 			clock-output-names = "clk_mm";
 		};
@@ -657,33 +661,46 @@
 		clk_jpg: clk_jpg {
 			compatible = "sprd,muxed-clock";
 			#clock-cells = <0>;
-			reg = <0x60e00038 0x3 0x60d00000 0x20>;	/* select reg and enable reg */
+			reg = <0x60e00038 0x3 0x60d00008 0x40 0x60d00000 0x20>;	/* select reg and ckg enable reg and prepare reg */
 			clocks = <&clk_76m8>, <&clk_128m>, <&clk_192m>, <&clk_256m>;
 			clock-output-names = "clk_jpg";
+			mm-domain;
 		};
 
 		clk_csi: clk_csi {
 			compatible = "sprd,gate-clock";
 			#clock-cells = <0>;
-			reg = <0x60d00000 0x10>;	/* enable reg */
+			reg = <0x60d00008 0x2 0x60d00000 0x10>;	/* ckg enable reg and prepare reg */
 			clocks = <&clk_mm_ahb>;
 			clock-output-names = "clk_csi";
+			mm-domain;
+		};
+
+		clk_dcam_mipi: clk_dcam_mipi {
+			compatible = "sprd,gate-clock";
+			#clock-cells = <0>;
+			reg = <0x60d00008 0x1>;	/* enable reg */
+			clocks = <&clk_csi>;
+			clock-output-names = "clk_dcam_mipi";	/* dummy clock for driver */
+			mm-domain;
 		};
 
 		clk_vsp: clk_vsp {
 			compatible = "sprd,muxed-clock";
 			#clock-cells = <0>;
-			reg = <0x60e00030 0x3 0x60d00000 0x8>;	/* select reg and enable reg */
+			reg = <0x60e00030 0x3 0x60d00008 0x20 0x60d00000 0x8>;	/* select reg and ckg enable reg and prepare reg */
 			clocks = <&clk_76m8>, <&clk_128m>, <&clk_192m>, <&clk_256m>;
 			clock-output-names = "clk_vsp";
+			mm-domain;
 		};
 
 		clk_isp: clk_isp {
 			compatible = "sprd,muxed-clock";
 			#clock-cells = <0>;
-			reg = <0x60e00034 0x3 0x60d00000 0x4>;	/* select reg and enable reg */
+			reg = <0x60e00034 0x3 0x60d00008 0x10 0x60d00000 0x4>;	/* select reg and ckg enable reg and prepare reg */
 			clocks = <&clk_76m8>, <&clk_128m>, <&clk_256m>, <&clk_312m>;
 			clock-output-names = "clk_isp";
+			mm-domain;
 		};
 
 		clk_ccir: clk_ccir {
@@ -697,17 +714,19 @@
 		clk_dcam: clk_dcam {
 			compatible = "sprd,muxed-clock";
 			#clock-cells = <0>;
-			reg = <0x60e0002c 0x3 0x60d00000 0x1>;	/* select reg and enable reg */
+			reg = <0x60e0002c 0x3 0x60d00008 0x8 0x60d00000 0x1>;	/* select reg and ckg enable reg and prepare reg */
 			clocks = <&clk_76m8>, <&clk_128m>, <&clk_256m>, <&clk_312m>;
 			clock-output-names = "clk_dcam";
+			mm-domain;
 		};
 
 		clk_sensor: clk_sensor {
 			compatible = "sprd,composite-dev-clock";
 			#clock-cells = <0>;
-			reg = <0x60e00024 0x3 0x60e00024 0x700 0x60d00000 0x2>;	/* select reg and divider reg and enable reg */
+			reg = <0x60e00024 0x3 0x60e00024 0x700 0x60d00008 0x4>;	/* select reg and divider reg and ckg enable reg */
 			clocks = <&ext_26m>, <&clk_48m>, <&clk_76m8>, <&clk_96m>;
 			clock-output-names = "clk_sensor";
+			mm-domain;
 		};
 
 		clk_mm_axi: clk_mm_axi {
@@ -716,6 +735,7 @@
 			reg = <0x60d00008 0x80>;	/* enable reg */
 			clocks = <&clk_mm>;
 			clock-output-names = "clk_mm_axi";
+			mm-domain;
 		};
 
 		clk_mm_mtx_axi: clk_mm_mtx_axi {
@@ -724,62 +744,7 @@
 			reg = <0x60d00008 0x100>;	/* enable reg */
 			clocks = <&clk_mm_axi>;
 			clock-output-names = "clk_mm_mtx_axi";
-		};
-
-		clk_jpg_axi_ckg: clk_jpg_axi_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x40>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_jpg_axi_ckg";
-		};
-
-		clk_vsp_axi_ckg: clk_vsp_axi_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x20>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_vsp_axi_ckg";
-		};
-
-		clk_isp_axi_ckg: clk_isp_axi_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x10>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_isp_axi_ckg";
-		};
-
-		clk_dcam_axi_ckg: clk_dcam_axi_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x8>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_dcam_axi_ckg";
-		};
-
-		clk_sensor_ckg: clk_sensor_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x4>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_sensor_ckg";
-		};
-
-		clk_mipi_csi_ckg: clk_mipi_csi_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x2>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_mipi_csi_ckg";
-		};
-
-		clk_cphy_cfg_ckg: clk_cphy_cfg_ckg {
-			compatible = "sprd,gate-clock";
-			#clock-cells = <0>;
-			reg = <0x60d00008 0x1>;	/* enable reg */
-			clocks = <&clk_mm_mtx_axi>;
-			clock-output-names = "clk_cphy_cfg_ckg";
+			mm-domain;
 		};
 
 		clk_aud: clk_aud {
