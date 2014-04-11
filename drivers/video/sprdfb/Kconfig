@@ -150,7 +150,7 @@ config FB_LCD_OVERLAY_SUPPORT
 config FB_VSYNC_SUPPORT
 	boolean "support wait for vsync io"
 	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15
-	default n
+	default y
 
 config FB_ESD_SUPPORT
 	boolean "support esd check"
