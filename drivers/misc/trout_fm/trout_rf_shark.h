@@ -1,5 +1,8 @@
 #ifndef _TROUT_FM_RF_SHARK_H_
 #define _TROUT_FM_RF_SHARK_H_
+#include <mach/hardware.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 
 
 #define SYS_REG_PAD_MIN			0
@@ -251,6 +254,16 @@
 #define SHARK_MSPI_MCU_WCMD         (SHARK_FM_MSPI_BASE + 0x000C)
 #define SHARK_MSPI_MCU_RCMD         (SHARK_FM_MSPI_BASE + 0x0010)
 #define SHARK_MSPI_MCU_RDATA        (SHARK_FM_MSPI_BASE + 0x0014)
+
+
+
+#define SHARK_FM_REG_BASE_ADDR       SPRD_FM_BASE
+#define SHARK_AONCKG_BASE_ADDR       SPRD_AONCKG_BASE
+
+#define	SHARK_FM_REG_FM_EN          (SHARK_FM_REG_BASE_ADDR + 0x0004)
+#define	SHARK_MSPI_CLK_SWITCH       (SHARK_AONCKG_BASE_ADDR + 0x0050)
+
+
 
 #define SHARK_FM_SPI_WRITE(addr, data)	\
 	((0UL<<31)|((addr&0x7f)<<24)|((data&0xffff)<<8))

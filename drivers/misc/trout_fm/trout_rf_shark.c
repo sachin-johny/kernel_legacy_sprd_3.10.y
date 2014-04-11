@@ -103,27 +103,51 @@ int trout_fm_get_status(int *status)
 
 void trout_fm_enter_sleep(void)
 {
-	u32 reg_data;
+	//u32 reg_data;
 
-      if(fm_rf_ops != NULL) 
-      	{
-	    READ_REG(FM_REG_FM_EN, &reg_data);
-	    reg_data &= ~(BIT_2 | BIT_3);
-	    WRITE_REG(FM_REG_FM_EN, reg_data);
-    
-           fm_rf_ops->write_reg(0x404, 0x0313);
-      	}   
+	if(fm_rf_ops != NULL)
+	{
+		/*Disable the RSSI AGC*/
+		sci_glb_clr(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
+		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
+		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+		udelay(5);
+
+		/*Switch the mspi clock*/
+		sci_glb_set(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
+		//reg_data = sci_glb_read(SHARK_MSPI_CLK_SWITCH, -1UL);
+		//TROUT_PRINT("SHARK_AON_MSPI_CLK_SWITCH:0x%x\n",reg_data);
+
+		/*Enable the RSSI AGC*/
+		sci_glb_set(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
+		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
+		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+
+		fm_rf_ops->write_reg(0x404, 0x0313);
+	}
 }
 
 void trout_fm_exit_sleep(void)
 {
-	u32 reg_data;
+	//u32 reg_data;
 	
 	if(fm_rf_ops != NULL) 
-      	{
-	    READ_REG(FM_REG_FM_EN, &reg_data);
-	    reg_data |= (BIT_2 | BIT_3);
-	    WRITE_REG(FM_REG_FM_EN, reg_data);
+	{
+		/*Disable the RSSI AGC*/
+		sci_glb_clr(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
+		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
+		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+		udelay(5);
+
+		/*Switch the mspi clock*/
+		sci_glb_clr(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
+		//reg_data = sci_glb_read(SHARK_MSPI_CLK_SWITCH, -1UL);
+		//TROUT_PRINT("SHARK_MSPI_CLK_SWITCH:0x%x\n",reg_data);
+
+		/*Enable the RSSI AGC*/
+		sci_glb_set(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
+		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
+		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
 	}
 }
 
