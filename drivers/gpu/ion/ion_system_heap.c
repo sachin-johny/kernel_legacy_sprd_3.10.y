@@ -62,7 +62,13 @@ struct page_info {
 };
 static unsigned int default_high_page_order(void)
 {
-	return (totalram_pages + ((1<<15)-1)) >> 15;
+	/*
+	 * When system goes memory fragmentation, it's not easy to
+	 * get 16K continuous page, so downgrade the default high
+	 * order to 1 from (totalram_pages + ((1<<15)-1)) >> 15
+	 * to reduce reclaiming.
+	 */
+	return 1;
 }
 
 static struct page *alloc_buffer_page(struct ion_system_heap *heap,
