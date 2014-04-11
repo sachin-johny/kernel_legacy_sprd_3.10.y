@@ -396,6 +396,13 @@ config SENSORS_AK8963
 	help
 	  If you say yes here you get support for Msensor AKM8963C.
 
+config AK8963_BYPASS_MODE
+	tristate "AKM8963C support bypass mode"
+	default n
+	depends on SENSORS_AK8963
+	help
+	  If you say yes here you will get support for bypass mode.
+
 config EP93XX_PWM
 	tristate "EP93xx PWM support"
 	depends on ARCH_EP93XX
