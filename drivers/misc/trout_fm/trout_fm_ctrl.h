@@ -1,6 +1,8 @@
 #ifndef TROUT_FM_CTRL_H__
 #define TROUT_FM_CTRL_H__
 
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
 #include "trout_interface.h"
 
 #define	TROUT_FM_DEV_NAME	"Trout_FM"
@@ -71,15 +73,14 @@ extern struct trout_interface *p_trout_interface;
 
 static inline void read_fm_reg(u32 reg_addr, u32 *reg_data)
 {
-	 p_trout_interface->read_reg(reg_addr, reg_data);
+	 *reg_data = sci_glb_read(reg_addr,-1UL);
 }
 
 static inline unsigned int write_fm_reg(u32 reg_addr, u32 val)
 {
-	if (p_trout_interface)
-		return p_trout_interface->write_reg(reg_addr, val);
+	sci_glb_write(reg_addr, val, -1UL);
 
-	return -1;
+	return 0;
 }
 
 static inline unsigned int write_fm_regs(struct trout_reg_cfg *reg_cfg, u32 cnt)

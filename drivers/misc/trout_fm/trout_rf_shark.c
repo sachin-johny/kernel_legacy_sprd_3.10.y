@@ -18,78 +18,47 @@
 
 struct sprd_2351_interface *fm_rf_ops = NULL;
 
-
 void shark_fm_seek_up(void)
 {
-	u32 reg_data;
 #ifdef CONFIG_FM_SEEK_STEP_50KHZ
         WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek+1);
 #else
 	WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek+2);
 #endif
-	READ_REG(FM_REG_FM_CTRL, &reg_data);
-	reg_data |= BIT_19;
-	WRITE_REG(FM_REG_FM_CTRL, reg_data);
+	sci_glb_set(FM_REG_FM_CTRL, BIT_19);
 }
 
 void shark_fm_seek_down(void)
 {
-	u32 reg_data;
 #ifdef CONFIG_FM_SEEK_STEP_50KHZ
         WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek-1);
 #else
 	WRITE_REG(FM_REG_CHAN, shark_fm_info.freq_seek-2);
 #endif
-	READ_REG(FM_REG_FM_CTRL, &reg_data);
-	reg_data &= ~BIT_19;
-	WRITE_REG(FM_REG_FM_CTRL, reg_data);
+	sci_glb_clr(FM_REG_FM_CTRL, BIT_19);
 }
-
-
 
 irqreturn_t fm_interrupt(int irq, void *dev_id)
 {
 	TROUT_PRINT("interrupt bingo~~~~~~~~~~~~~\n");
-
 	return IRQ_HANDLED;
 }
 
-
 void trout_fm_config_xtl(void)
 {
-	u32 reg_data;
-	
-    //READ_REG(SHARK_AON_CLK_FM_CFG, &reg_data);
-	//reg_data |= 1;
-	//WRITE_REG(SHARK_AON_CLK_FM_CFG, reg_data);
-		
-	READ_REG(SHARK_APB_EB0_SET, &reg_data);
-	reg_data |= 1<<20;
-	WRITE_REG(SHARK_APB_EB0_SET, reg_data);
-	READ_REG(SHARK_PMU_SLEEP_CTRL, &reg_data);
-	reg_data |= 1<<8;
-	WRITE_REG(SHARK_PMU_SLEEP_CTRL, reg_data);
+	sci_glb_set(SHARK_APB_EB0_SET, BIT_20);
+	sci_glb_set(SHARK_PMU_SLEEP_CTRL, BIT_8);
 }
-
 
 int trout_fm_en(void)
 {
-	u32 reg_data;
-	READ_REG(FM_REG_FM_EN, &reg_data);
-	reg_data |= BIT_31;
-	WRITE_REG(FM_REG_FM_EN, reg_data);
-
+	sci_glb_set(FM_REG_FM_EN, BIT_31);
 	return 0;
 }
 
-
 int trout_fm_dis(void)
 {
-	u32 reg_data;
-	READ_REG(FM_REG_FM_EN, &reg_data);
-	reg_data &= ~BIT_31;
-	WRITE_REG(FM_REG_FM_EN, reg_data);
-
+	sci_glb_clr(FM_REG_FM_EN, BIT_31);
 	return 0;
 }
 
@@ -103,25 +72,18 @@ int trout_fm_get_status(int *status)
 
 void trout_fm_enter_sleep(void)
 {
-	//u32 reg_data;
 
 	if(fm_rf_ops != NULL)
 	{
 		/*Disable the RSSI AGC*/
-		sci_glb_clr(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
-		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
-		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+		sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
 		udelay(5);
 
 		/*Switch the mspi clock*/
 		sci_glb_set(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
-		//reg_data = sci_glb_read(SHARK_MSPI_CLK_SWITCH, -1UL);
-		//TROUT_PRINT("SHARK_AON_MSPI_CLK_SWITCH:0x%x\n",reg_data);
 
 		/*Enable the RSSI AGC*/
-		sci_glb_set(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
-		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
-		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
 
 		fm_rf_ops->write_reg(0x404, 0x0313);
 	}
@@ -129,47 +91,29 @@ void trout_fm_enter_sleep(void)
 
 void trout_fm_exit_sleep(void)
 {
-	//u32 reg_data;
-	
 	if(fm_rf_ops != NULL) 
 	{
 		/*Disable the RSSI AGC*/
-		sci_glb_clr(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
-		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
-		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+		sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
 		udelay(5);
 
 		/*Switch the mspi clock*/
 		sci_glb_clr(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
-		//reg_data = sci_glb_read(SHARK_MSPI_CLK_SWITCH, -1UL);
-		//TROUT_PRINT("SHARK_MSPI_CLK_SWITCH:0x%x\n",reg_data);
 
 		/*Enable the RSSI AGC*/
-		sci_glb_set(SHARK_FM_REG_FM_EN, BIT_2 | BIT_3);
-		//reg_data = sci_glb_read(SHARK_FM_REG_FM_EN, -1UL);
-		//TROUT_PRINT("trout_fm_enter_sleep SHARK_FM_REG_FM_EN:0x%x\n",reg_data);
+		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
 	}
 }
 
 void trout_fm_mute(void)
 {
-	u32 reg_data;
-
-	READ_REG(FM_REG_HW_MUTE, &reg_data);
-	reg_data |= BIT_0;
-	WRITE_REG(FM_REG_HW_MUTE, reg_data);
+	sci_glb_set(FM_REG_HW_MUTE, BIT_0);
 }
 
 void trout_fm_unmute(void)
 {
-	u32 reg_data;
-
-	READ_REG(FM_REG_HW_MUTE, &reg_data);
-	reg_data &= ~BIT_0;
-	WRITE_REG(FM_REG_HW_MUTE, reg_data);
+	sci_glb_clr(FM_REG_HW_MUTE, BIT_0);
 }
-
-
 
 void shark_fm_int_en()
 {
@@ -196,15 +140,12 @@ int enable_shark_fm(void)
 	u32 reg_data = 0;
 	READ_REG(SHARK_APB_EB0, &reg_data);
 	if (!(reg_data & BIT_1)) {
-		reg_data |= BIT_1;
-		WRITE_REG(SHARK_APB_EB0, reg_data);  /*enable fm*/
-		READ_REG(SHARK_APB_RST0, &reg_data);/*return FALSE;*/
+		sci_glb_set(SHARK_APB_EB0, BIT_1);
 
-		reg_data |= BIT_1;
-		WRITE_REG(SHARK_APB_RST0, reg_data); /*reset fm*/
+		 /*reset fm*/
+		sci_glb_set(SHARK_APB_RST0, BIT_1);
 		msleep(20);
-		reg_data &= (~BIT_1);
-		WRITE_REG(SHARK_APB_RST0, reg_data); /*reset fm*/
+		sci_glb_clr(SHARK_APB_RST0, BIT_1);
 	}
 
 	return 0;
@@ -269,13 +210,12 @@ int shark_fm_reg_cfg(void)
 int shark_fm_cfg_rf_reg(void)
 {
 	fm_rf_ops->write_reg(0x471, 0x0FFF);
-        fm_rf_ops->write_reg(0x477, 0xFFFF);
-        fm_rf_ops->write_reg(0x478, 0x001F);
-        fm_rf_ops->write_reg(0x478, 0x009F);
-        fm_rf_ops->write_reg(0x06F, 0x0201);
-        fm_rf_ops->write_reg(0x431, 0x8022);
-
-        fm_rf_ops->write_reg(0x06F, 0x0601);
+	fm_rf_ops->write_reg(0x477, 0xFFFF);
+	fm_rf_ops->write_reg(0x478, 0x001F);
+	fm_rf_ops->write_reg(0x478, 0x009F);
+	fm_rf_ops->write_reg(0x06F, 0x0201);
+	fm_rf_ops->write_reg(0x431, 0x8022);
+	fm_rf_ops->write_reg(0x06F, 0x0601);
 	fm_rf_ops->write_reg(0x404, 0x0335);
 	fm_rf_ops->write_reg(0x400, 0x0011);
 	fm_rf_ops->write_reg(0x402, 0x07A6);
@@ -288,30 +228,16 @@ int shark_fm_cfg_rf_reg(void)
 
 int trout_fm_init(void)
 {
-	u32 reg_data;
-
 	sprd_get_rf2351_ops(&fm_rf_ops);
 	fm_rf_ops->mspi_enable();
 
 	trout_fm_config_xtl();
 	/*added by xuede to route FMIQD0 to IIS0DI and FMIQD1 to IISD0DO*/
-	READ_REG(PINMAP_FOR_FMIQ, &reg_data);
-	reg_data |= 3<<16;
-	WRITE_REG(PINMAP_FOR_FMIQ, reg_data);
-	READ_REG(PINMAP_FOR_IIS0DO, &reg_data);
-	reg_data |= 2<<4;
-	WRITE_REG(PINMAP_FOR_IIS0DO, reg_data);
-	READ_REG(PINMAP_FOR_IIS0DI, &reg_data);
-	reg_data |= 2<<4;
-	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
-
-	READ_REG(PINMAP_FOR_IIS0DO, &reg_data);
-	reg_data |= 2;
-	WRITE_REG(PINMAP_FOR_IIS0DO, reg_data);
-
-	READ_REG(PINMAP_FOR_IIS0DI, &reg_data);
-	reg_data |= 2;
-	WRITE_REG(PINMAP_FOR_IIS0DI, reg_data);
+	sci_glb_set(PINMAP_FOR_FMIQ, BIT_16|BIT_17);
+	sci_glb_set(PINMAP_FOR_IIS0DO, BIT_5);
+	sci_glb_set(PINMAP_FOR_IIS0DI, BIT_5);
+	sci_glb_set(PINMAP_FOR_IIS0DO, BIT_1);
+	sci_glb_set(PINMAP_FOR_IIS0DI, BIT_1);
 	/* added end*/
 
 	if (enable_shark_fm() != 0)
@@ -327,13 +253,7 @@ int trout_fm_init(void)
 	WRITE_REG(FM_REG_RF_CTL, ((0x404<<16)|(0x0402)));
 	WRITE_REG(FM_REG_RF_CTL1, ((0x0466<<16)|(0x0043)));
 
-        
-
-
-
 	shark_fm_info.freq_seek = 860*2;
-	/*result = request_irq(INT_NUM_FM_test,\
-	  fm_interrupt, IRQF_DISABLED, "Trout_FM", NULL);*/
 	return 0;
 }
 
@@ -353,47 +273,42 @@ void __trout_fm_get_status(void)
 void __trout_fm_show_status(void)
 {
 	TROUT_PRINT("FM_REG_SEEK_CNT     : %08x (%d)\r\n", \
-		shark_fm_info.seek_cnt, shark_fm_info.seek_cnt);
+	shark_fm_info.seek_cnt, shark_fm_info.seek_cnt);
 #ifdef CONFIG_FM_SEEK_STEP_50KHZ
-        TROUT_PRINT("FM_REG_CHAN_FREQ_STS: %08x (%d)\r\n", \
-		shark_fm_info.freq_seek, shark_fm_info.freq_seek*5 + 10);
+	TROUT_PRINT("FM_REG_CHAN_FREQ_STS: %08x (%d)\r\n", \
+	shark_fm_info.freq_seek, shark_fm_info.freq_seek*5 + 10);
 #else		
 	TROUT_PRINT("FM_REG_CHAN_FREQ_STS: %08x (%d)\r\n", \
-		shark_fm_info.freq_seek, ((shark_fm_info.freq_seek >> 1) + 1));
+	shark_fm_info.freq_seek, ((shark_fm_info.freq_seek >> 1) + 1));
 #endif		
 	TROUT_PRINT("FM_REG_FREQ_OFF_STS : %08x (%d)\r\n", \
-		shark_fm_info.freq_offset, shark_fm_info.freq_offset);
+	shark_fm_info.freq_offset, shark_fm_info.freq_offset);
 	TROUT_PRINT("FM_REG_RF_RSSI_STS  : %08x\r\n", \
-		shark_fm_info.rf_rssi);
+	shark_fm_info.rf_rssi);
 	TROUT_PRINT("FM_REG_INPWR_STS    : %08x\r\n", \
-		shark_fm_info.inpwr_sts);
+	shark_fm_info.inpwr_sts);
 	TROUT_PRINT("FM_REG_WBRSSI_STS   : %08x\r\n", \
-		shark_fm_info.fm_sts);
+	shark_fm_info.fm_sts);
 	TROUT_PRINT("FM_REG_RSSI_STS     : %08x\r\n", \
-		shark_fm_info.rssi);
+	shark_fm_info.rssi);
 	TROUT_PRINT("FM_REG_AGC_TBL_STS  : %08x\r\n", \
-		shark_fm_info.agc_sts);
+	shark_fm_info.agc_sts);
 
 	TROUT_PRINT("fm work:%d, fm iq:%04x\r\n", \
-		(shark_fm_info.fm_sts >> 20) & 1, \
-		(shark_fm_info.fm_sts >> 16) & 0xf);
+	(shark_fm_info.fm_sts >> 20) & 1, \
+	(shark_fm_info.fm_sts >> 16) & 0xf);
 	TROUT_PRINT("pilot detect:%d, stero:%d, seek fail:%d, rssi:%08x\r\n", \
-		(shark_fm_info.rssi >> 18) & 0x3, \
-		(shark_fm_info.rssi >> 17) & 0x1, \
-		(shark_fm_info.rssi >> 16) & 0x1, shark_fm_info.rssi & 0xff);
+	(shark_fm_info.rssi >> 18) & 0x3, \
+	(shark_fm_info.rssi >> 17) & 0x1, \
+	(shark_fm_info.rssi >> 16) & 0x1, shark_fm_info.rssi & 0xff);
 }
 
 int trout_fm_deinit(void)
 {
-	/*free_irq(INT_NUM_FM_test, fm_interrupt);*/
-    u32 reg_data;
-	 
     fm_rf_ops->write_reg(0x400, 0x0000);
     fm_rf_ops->write_reg(0x6F, 0x201);
 	
-    READ_REG(SHARK_PMU_SLEEP_CTRL, &reg_data);
-    reg_data &= (~BIT_8);
-    WRITE_REG(SHARK_PMU_SLEEP_CTRL, reg_data);
+	sci_glb_clr(SHARK_PMU_SLEEP_CTRL, BIT_8);
 
     fm_rf_ops->mspi_disable();
     sprd_put_rf2351_ops(&fm_rf_ops);
@@ -559,9 +474,9 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 int trout_fm_get_frequency(u16 *freq)
 {
 #ifdef CONFIG_FM_SEEK_STEP_50KHZ
-        *freq = shark_fm_info.freq_seek*5 + 10;
+	*freq = shark_fm_info.freq_seek*5 + 10;
 #else
-       *freq = ((shark_fm_info.freq_seek >> 1) + 1);
+	*freq = ((shark_fm_info.freq_seek >> 1) + 1);
 #endif
 	return 0;
 }

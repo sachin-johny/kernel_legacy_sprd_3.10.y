@@ -1,8 +1,6 @@
 #ifndef _TROUT_FM_RF_SHARK_H_
 #define _TROUT_FM_RF_SHARK_H_
 #include <mach/hardware.h>
-#include <mach/sci.h>
-#include <mach/sci_glb_regs.h>
 
 
 #define SYS_REG_PAD_MIN			0
@@ -95,7 +93,7 @@
 
 /*reg base start by renfeng*/
 
-#define SHARK_FM_REG_BASE               0x40270000
+#define SHARK_FM_REG_BASE               SPRD_FM_BASE
 
 #define	FM_REG_FM_CTRL                  (SHARK_FM_REG_BASE + 0x0000)
 #define	FM_REG_FM_EN                    (SHARK_FM_REG_BASE + 0x0004)
@@ -213,21 +211,18 @@
 #define FM_REG_SPI_RD			 (SHARK_FM_REG_BASE + 0x081C)
 #define FM_REG_SPI_FIFO_STS		 (SHARK_FM_REG_BASE + 0x0820)
 
-#define SHARK_AON_CLK_BASE_ADDR      0x402D0000
+#define SHARK_AON_CLK_BASE_ADDR      SPRD_AONCKG_BASE
 #define SHARK_AON_CLK_FM_CFG         (SHARK_AON_CLK_BASE_ADDR+0x0030)
+#define	SHARK_MSPI_CLK_SWITCH       (SHARK_AON_CLK_BASE_ADDR + 0x0050)
 
-#define SHARK_APB_BASE_ADDR         0x402E0000
+#define SHARK_APB_BASE_ADDR         SPRD_AONAPB_BASE
 #define SHARK_APB_EB0               (SHARK_APB_BASE_ADDR+0x0000)
 #define SHARK_APB_EB1               (SHARK_APB_BASE_ADDR+0x0004)
 #define SHARK_APB_RST0              (SHARK_APB_BASE_ADDR+0x0008)
 #define SHARK_APB_EB0_SET           (SHARK_APB_BASE_ADDR+0x1000)
 
 
-#define SHARK_AHB_BASE_ADDR         0x71300000
-#define SHARK_AHB_EB                (SHARK_APB_BASE_ADDR+0x0000)
-#define SHARK_AHB_RST               (SHARK_APB_BASE_ADDR+0x0004)
-
-#define  PINMAP_ADDR                    0x402A0000
+#define  PINMAP_ADDR               SPRD_PIN_BASE
 #define  PINMAP_FOR_FMIQ           PINMAP_ADDR
 #if defined(CONFIG_DOLPHIN_CHIP_2351)
 #define  PINMAP_FOR_IIS0DO        (PINMAP_ADDR + 0x02F4)
@@ -238,30 +233,8 @@
 #endif
 
 
-
-#define  PINMAP_FOR_IQDEBUG    (PINMAP_ADDR + 0x000C)
-#define  PINMAP_FOR_TPDP           (PINMAP_ADDR + 0x0390)
-#define  PINMAP_FOR_TPDN           (PINMAP_ADDR + 0x039C)
-#define  PINMAP_FOR_TPCK           (PINMAP_ADDR + 0x03A0)
-
-#define  SHARK_PMU_BASE_ADDR        0x402B0000
-#define  SHARK_PMU_SLEEP_CTRL       (SHARK_PMU_BASE_ADDR+0x00C4)
-
-#define SHARK_FM_MSPI_BASE          0x40070000
-#define SHARK_MSPI_CFG0             (SHARK_FM_MSPI_BASE + 0x0000)
-#define SHARK_MSPI_CFG1             (SHARK_FM_MSPI_BASE + 0x0004)
-#define SHARK_MSPI_CFG2             (SHARK_FM_MSPI_BASE + 0x0008)
-#define SHARK_MSPI_MCU_WCMD         (SHARK_FM_MSPI_BASE + 0x000C)
-#define SHARK_MSPI_MCU_RCMD         (SHARK_FM_MSPI_BASE + 0x0010)
-#define SHARK_MSPI_MCU_RDATA        (SHARK_FM_MSPI_BASE + 0x0014)
-
-
-
-#define SHARK_FM_REG_BASE_ADDR       SPRD_FM_BASE
-#define SHARK_AONCKG_BASE_ADDR       SPRD_AONCKG_BASE
-
-#define	SHARK_FM_REG_FM_EN          (SHARK_FM_REG_BASE_ADDR + 0x0004)
-#define	SHARK_MSPI_CLK_SWITCH       (SHARK_AONCKG_BASE_ADDR + 0x0050)
+#define  SHARK_PMU_BASE_ADDR		SPRD_PMU_BASE
+#define  SHARK_PMU_SLEEP_CTRL		(SHARK_PMU_BASE_ADDR+0x00C4)
 
 
 
