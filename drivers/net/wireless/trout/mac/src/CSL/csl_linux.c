@@ -4326,6 +4326,7 @@ static int trout_wifi_remove(struct platform_device *pdev)
 		while(g_user_getscan_aplist != NULL)
 		{
 			tmp_addr = (UWORD32 *)g_user_getscan_aplist->bss_next;
+			kfree(g_user_getscan_aplist->bss_curr);
 			kfree(g_user_getscan_aplist);
 			g_user_getscan_aplist = tmp_addr;
 		}
