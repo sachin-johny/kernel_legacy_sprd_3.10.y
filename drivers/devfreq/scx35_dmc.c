@@ -79,7 +79,7 @@ static struct dmc_opp_table scxx30_dmcclk_table[] = {
 	{LV_1, 192000, 1200000, 1600},
 #else
 #ifdef CONFIG_ARCH_SCX35
-	{LV_0, 532000, 1200000, 4256},
+	{LV_0, 400000, 1200000, 3200},
 	{LV_1, 384000, 1200000, 2656},
 	{LV_2, 200000, 1200000, 1600},
 #endif
@@ -112,7 +112,7 @@ struct dmcfreq_data {
 #else
 #ifdef CONFIG_ARCH_SCX35
 #define SCXX30_LV_NUM (LV_3)
-#define SCXX30_MAX_FREQ (532000)
+#define SCXX30_MAX_FREQ (400000)
 #define SCXX30_MIN_FREQ (200000)
 #endif
 #endif
@@ -127,6 +127,9 @@ static u32 request_quirk = 0;
 static struct dmcfreq_data *g_dmcfreq_data;
 #endif
 static void inline scxx30_set_max(struct dmcfreq_data *data);
+static void inline scxx30_set_min_deep_sleep(struct dmcfreq_data *data);
+
+extern bool dfs_get_enable(void);
 
 int devfreq_request_ignore(void)
 {
@@ -154,15 +157,28 @@ static int devfreq_cpu_callback(struct notifier_block *nfb,
 	long cpu = (long)hcpu;
 	int err = 0;
 
+	if(!dfs_get_enable())
+		return notifier_from_errno(err);
+
 	switch (action) {
 	case CPU_UP_PREPARE:
 		if(num_online_cpus() == 1 && scxx30_all_nonboot_cpus_died() ){
 			if(g_dmcfreq_data){
-				pr_debug("*** %s, set ddr freq max ***\n", __func__ );
+				printk("*** %s, CPU_UP_PREPARE set ddr freq max ***\n", __func__ );
 				scxx30_set_max(g_dmcfreq_data);
 			}
 		}
 		break;
+	/* set 200M ddr clk when C0 is only active in MP Core case like TShark */
+	case CPU_DEAD:
+	case CPU_DEAD_FROZEN:
+                if(num_online_cpus() == 1 && scxx30_all_nonboot_cpus_died() ){
+                        if(g_dmcfreq_data){
+                                scxx30_set_min_deep_sleep(g_dmcfreq_data);
+				printk("*** %s, CPU_DEAD&FROZEN set ddr freq min for deep sleep ***\n", __func__ );
+                        }
+                }
+                break;
 	}
 
 	return notifier_from_errno(err);
@@ -507,25 +523,58 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		*/
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
 		spin_lock_irqsave(&data->lock, flags);
+#ifdef CONFIG_SMP
+                if (!scxx30_all_nonboot_cpus_died())
+                {
+			spin_unlock_irqrestore(&data->lock, flags);
+                        return NOTIFY_DONE;
+                }
+#endif
 		data->disabled = true;
-		emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
-		emc_clk_set(200, EMC_FREQ_DEEP_SLEEP_SENE);        //deep sleep to dpll   192
+		if(dfs_get_enable())
+		{
+			emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+			emc_clk_set(200, EMC_FREQ_DEEP_SLEEP_SENE);           //deep sleep to dpll   192
+		}
 		spin_unlock_irqrestore(&data->lock, flags);
 #else
 		spin_lock(&data->lock);
 		data->disabled = true;
-		emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+		if(dfs_get_enable())
+		{
+			emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+		}
 		spin_unlock(&data->lock);
 #endif
 		return NOTIFY_OK;
 	case PM_POST_RESTORE:
 	case PM_POST_SUSPEND:
 		/* Reactivate */
+#ifdef CONFIG_SCX35_DMC_FREQ_AP
+                spin_lock_irqsave(&data->lock, flags);
+#ifdef CONFIG_SMP
+                if (!scxx30_all_nonboot_cpus_died())
+                {
+			spin_unlock_irqrestore(&data->lock, flags);
+                        return NOTIFY_DONE;
+                }
+#endif
+		if(dfs_get_enable())
+		{
+			emc_clk_set(200, EMC_FREQ_RESUME_SENE);               //resume dpll192 -- tdpll192
+		}
+                data->disabled = false;
+		spin_unlock_irqrestore(&data->lock, flags);
+#else
 		spin_lock(&data->lock);
 		/* shark does not care EMC_FREQ_XX_SENE, dolphin only*/
-		emc_clk_set(200, EMC_FREQ_RESUME_SENE);       //resume dpll192 -- tdpll192
+		if(dfs_get_enable())
+		{
+			emc_clk_set(200, EMC_FREQ_RESUME_SENE);               //resume dpll192 -- tdpll192
+		}
 		data->disabled = false;
 		spin_unlock(&data->lock);
+#endif
 		return NOTIFY_OK;
 	}
 
@@ -541,6 +590,19 @@ static void inline scxx30_set_max(struct dmcfreq_data *data)
 	max = scxx30_max_freq(data);
 	emc_clk_set(max, EMC_FREQ_NORMAL_SWITCH_SENE);
 	spin_unlock_irqrestore(&data->lock, flags);
+
+}
+
+static void inline scxx30_set_min_deep_sleep(struct dmcfreq_data *data)
+{
+        unsigned long min;
+        unsigned long flags;
+
+        spin_lock_irqsave(&data->lock, flags);
+        min = scxx30_min_freq(data);
+	emc_clk_set(200, EMC_FREQ_NORMAL_SWITCH_SENE);        //nomarl switch to tdpll   192
+        emc_clk_set(200, EMC_FREQ_DEEP_SLEEP_SENE);        //deep sleep to dpll   192
+        spin_unlock_irqrestore(&data->lock, flags);
 
 }
 

@@ -58,6 +58,26 @@ struct userspace_data {
 
 /************ kernel interface *****************/
 /*
+* get dfs enable flag
+* flag == 0 --> dfs disable
+* flag == 1 --> dfs enable
+*/
+bool dfs_get_enable(void)
+{
+	struct userspace_data *user_data;
+	bool flag;
+
+	if(g_devfreq && g_devfreq->data){
+                user_data = (struct userspace_data *)(g_devfreq->data);
+		//mutex_lock(&g_devfreq->lock);
+		flag = user_data->enable;
+		//mutex_unlock(&g_devfreq->lock);
+	}
+
+	return flag;
+}
+EXPORT_SYMBOL(dfs_get_enable);
+/*
 * set ddr frequnecy
 * @freq: KHz
 * if ddr frequency is set through this function, DVS is disabled
@@ -72,6 +92,7 @@ int dfs_set_freq(int freq)
 		pr_debug("*** %s,freq < 0\n",__func__);
 		goto done;
 	}
+
 	user_data = (struct userspace_data *)(g_devfreq->data);
 	mutex_lock(&g_devfreq->lock);
 	if(user_data){
@@ -251,7 +272,13 @@ EXPORT_SYMBOL(dfs_freq_raise_quirk);
 
 static void devfreq_early_suspend(struct early_suspend *h)
 {
+#ifdef CONFIG_ARCH_SCX15
 	dfs_set_freq(192000);
+#else
+#ifdef CONFIG_ARCH_SCX35
+        dfs_set_freq(200000);
+#endif
+#endif
 	gov_eb = 0;
 }
 
@@ -488,7 +515,7 @@ static int devfreq_ondemand_start(struct devfreq *devfreq)
 	data->set_freq = 0;
 	data->upthreshold = DFO_UPTHRESHOLD;
 	data->downdifferential = DFO_DOWNDIFFERENCTIAL;
-	data->enable = true;
+	data->enable = false;
 	data->devfreq_enable = true;
 	if(devfreq->data){
 		data->convert_bw_to_freq = devfreq->data;
