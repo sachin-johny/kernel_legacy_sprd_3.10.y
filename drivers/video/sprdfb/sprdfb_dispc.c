@@ -1563,7 +1563,11 @@ static int32_t sprdfb_dispc_check_esd(struct sprdfb_device *dev)
 		goto ERROR_CHECK_ESD;
 	}
 
-	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+        if(0 == (dev->check_esd_time % 30)){
+	    printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+	}else{
+	    pr_debug("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+	}
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		ret=sprdfb_dispc_check_esd_dpi(dev);
 	}
