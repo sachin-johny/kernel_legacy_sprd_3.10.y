@@ -1,6 +1,7 @@
 # SC88XX Platform Support
 
 obj-y += sprd_sensor.o
+ccflags-y += -Idrivers/media/sprd_dcam/common
 
 common-file := csi2/csi_access.o csi2/csi_driver.o csi2/csi_log.o csi2/csi_system.o
 ifeq ($(CONFIG_ARCH_SCX35),y)

@@ -64,18 +64,6 @@
 #define DCAM_CLK_DOMAIN_DCAM                           0
 #define DCAM_PATH_TIMEOUT                              msecs_to_jiffies(500)
 #define DCAM_FRM_QUEUE_LENGTH                          4
-#define IO_PTR volatile void __iomem *
-#define REG_RD(a) __raw_readl((IO_PTR)(a))
-#define REG_WR(a,v) __raw_writel((v),(IO_PTR)(a))
-#define REG_AWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) & (v)), ((IO_PTR)(a)))
-#define REG_OWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) | (v)), ((IO_PTR)(a)))
-#define REG_XWR(a,v) __raw_writel((__raw_readl((IO_PTR)(a)) ^ (v)), ((IO_PTR)(a)))
-#define REG_MWR(a,m,v) \
-	do { \
-		uint32_t _tmp = __raw_readl((IO_PTR)(a)); \
-		_tmp &= ~(m); \
-		__raw_writel((_tmp | ((m) & (v))), ((IO_PTR)(a))); \
-	} while(0)
 
 #define DCAM_CHECK_PARAM_ZERO_POINTER(n) \
 	do { \
@@ -600,10 +588,13 @@ int32_t dcam_module_dis(struct device_node *dn)
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
+		unsigned int irq_no;
+
 		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(dn,DCAM_CLK_NONE);
 		printk("DCAM: un register isr \n");
-		free_irq(DCAM_IRQ, (void*)&s_dcam_irq);
+		irq_no = parse_irq(dn);
+		free_irq(irq_no, (void*)&s_dcam_irq);
 		ret = _dcam_is_clk_mm_i_eb(dn,0);
 		if (ret) {
 			rtn =  -DCAM_RTN_MAX;

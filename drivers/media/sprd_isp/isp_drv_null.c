@@ -260,6 +260,7 @@ static int _isp_probe(struct platform_device *pdev)
 		return ret;
 	}
 */
+	isp_dev.this_device->of_node = pdev->dev.of_node;
 	ISP_PRINT (" isp_k:probe end\n");
 	return 0;
 }

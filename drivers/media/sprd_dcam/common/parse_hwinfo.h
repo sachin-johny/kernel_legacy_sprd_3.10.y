@@ -15,6 +15,7 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/sprd_mm.h>
 
 
 #if CONFIG_OF
@@ -27,3 +28,4 @@ extern uint32_t                   dcam_regbase;
 void   parse_baseaddress(struct device_node	*dn);
 uint32_t   parse_irq(struct device_node *dn);
 struct clk  * parse_clk(struct device_node *dn, char *clkname);
+

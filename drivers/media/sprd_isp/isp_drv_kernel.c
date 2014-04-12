@@ -48,7 +48,7 @@
 #error "Unknown architecture specification"
 #endif
 
-#include <linux/sprd_iommu.h>
+#include "parse_hwinfo.h"
 
 
 #define DEBUG_ISP_DRV
@@ -129,7 +129,6 @@ struct isp_device_t
 	struct semaphore sem_isr;/*for interrupts*/
 	struct semaphore sem_isp;/*for the isp device, protect the isp hardware; protect  only  one caller use the oi*/ 
 				/*controll/read/write functions*/
-	struct clk* s_isp_clk_mm_i;
 	struct clk              *s_isp_clk;
 };
 
@@ -198,51 +197,13 @@ static struct platform_driver isp_driver = {
 	},
 };
 
-int32_t _isp_is_clk_mm_i_eb(uint32_t is_clk_mm_i_eb)
-{
-	int                     ret = 0;
-	ISP_CHECK_ZERO(g_isp_dev_ptr);
-
-	if (NULL == g_isp_dev_ptr->s_isp_clk_mm_i) {
-		g_isp_dev_ptr->s_isp_clk_mm_i = clk_get(NULL, "clk_mm_i");
-		if (IS_ERR(g_isp_dev_ptr->s_isp_clk_mm_i)) {
-			printk("isp_is_clk_mm_i_eb: get fail. \n");
-			return -1;
-		}
-	}
-
-	if (is_clk_mm_i_eb) {
-		ret = clk_enable(g_isp_dev_ptr->s_isp_clk_mm_i);
-		if (ret) {
-			printk("isp_is_clk_mm_i_eb: enable fail.\n");
-			return -1;
-		}
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_enable(IOMMU_MM);
-		}
-#endif
-	} else {
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_disable(IOMMU_MM);
-		}
-#endif
-		clk_disable(g_isp_dev_ptr->s_isp_clk_mm_i);
-		clk_put(g_isp_dev_ptr->s_isp_clk_mm_i);
-		g_isp_dev_ptr->s_isp_clk_mm_i = NULL;
-	}
-
-	return 0;
-}
-
 static int32_t _isp_module_eb(void)
 {
 	int32_t ret = 0;
 
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 
-		ret = _isp_is_clk_mm_i_eb(1);
+		ret = clk_mm_i_eb(isp_dev.this_device->of_node,1);
 #if defined(CONFIG_ARCH_SCX30G)
 		ret = _isp_set_clk(ISP_CLK_312M);
 #else
@@ -270,7 +231,7 @@ static int32_t _isp_module_dis(void)
 			ISP_PRINT("isp_k: close clock error\n");
 			ret = -EFAULT;
 		}
-		ret = _isp_is_clk_mm_i_eb(0);
+		ret =  clk_mm_i_eb(isp_dev.this_device->of_node,0);
 	}
 	return ret;
 }
@@ -1188,6 +1149,7 @@ static int _isp_probe(struct platform_device *pdev)
 		return ret;
 	}
 */
+	isp_dev.this_device->of_node = pdev->dev.of_node;
 	ISP_PRINT (" isp_k:probe end\n");
 	return 0;
 }
@@ -1223,7 +1185,6 @@ static int32_t __init isp_kernel_init(void)
 	init_MUTEX(&g_isp_dev_ptr->sem_isp);
 	init_MUTEX_LOCKED(&g_isp_dev_ptr->sem_isr); /*for interrupt */
 	g_isp_dev_ptr->s_isp_clk = NULL;
-	g_isp_dev_ptr->s_isp_clk_mm_i = NULL;
 	g_isp_dev_ptr->buf_addr = 0;
 	g_isp_dev_ptr->buf_len = 0;
 
