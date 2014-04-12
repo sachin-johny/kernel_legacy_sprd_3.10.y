@@ -15,7 +15,7 @@
 /memreserve/ 0x90000000 0x2100000; /* 33M */
 
 /* memory reserved for CPWCN modem */
-/memreserve/ 0x94000000 0x281000;
+/memreserve/ 0x94000000 0x201000;
 
 /* memory reserved for ION */
 /memreserve/ 0x97600000 0x8a00000;
@@ -463,9 +463,9 @@
 		ranges = <0x10000000 0x90000000 0x2100000>,
 				<0x07800000 0x87800000 0x180000>,
 				<0x120ff000 0x920ff000 0x1000>,
-			<0x14000000 0x94000000 0x281000>,
+			<0x14000000 0x94000000 0x201000>,
 				<0x07980000 0x87980000 0xc0000>,
-				<0x14280000 0x94280000 0x1000>;
+				<0x14200000 0x94200000 0x1000>;
 		sipc_cpw@0x10000000 {
 			sprd,name = "sipc-w";
 			sprd,dst = <2>;
@@ -486,9 +486,9 @@
 			sprd,trig = <0x100>; /* trigger bit */
 			sprd,clr = <0x100>; /* clear bit */
 			interrupts = <0 73 0x0>;
-			reg = <0x14000000 0x281000> , /* <CP_start_addr size> */
+			reg = <0x14000000 0x201000> , /* <CP_start_addr size> */
 				<0x07980000 0xc0000>, /* <SMEM_phy_addr total_size> */
-				<0x14280000 0x1000>; /* smsg ring buffer <base size> */
+				<0x14200000 0x1000>; /* smsg ring buffer <base size> */
 		};
 
 	};
@@ -647,7 +647,7 @@
 		sprd,ctrl-reg = <0x54 0x54 0xa8 0xc0>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x02000000 0x10000000 0x04 0xf0000000>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x94060000>; /* 3rd param equals modem_addr*/
-		reg = <0x94000000 0x281000>, /* <CP_start_addr total_size> = <+320M 5M> */
+		reg = <0x94000000 0x201000>, /* <CP_start_addr total_size> = <+320M 5M> */
 			<0xf53d7000 0x0c>, /* <iram1_base size> */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 85 0x0>; /* cp2_wdg_int */
