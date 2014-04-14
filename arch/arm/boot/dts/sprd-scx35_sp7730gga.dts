@@ -198,6 +198,21 @@
                         end = <3>;
                         flags = <0x100>;
 		 };
+                 headset_detect {
+                        compatible = "sprd,headset-detect";
+                        gpio_switch = <237>;
+                        gpio_detect = <309>;
+                        gpio_button = <307>;
+                        irq_trigger_level_detect = <1>;
+                        irq_trigger_level_button = <1>;
+                        nbuttons = <1>;
+                        headset_buttons {
+                                adc_min = <0>;
+                                adc_max = <170>;
+                                code = <226>;
+                                type = <0>;
+                        };
+                 };
 		 watchdog@40{
 		 	compatible = "sprd,watchdog";
 		 	reg = <0X40 0x40>;
