@@ -453,7 +453,7 @@ config SPRD_AVS_DEBUG
 
 config SPRD_AUX_DEBUG
        tristate "Enable aux debug moduel"
-       default y
+       default n
        help
          This option select aux debug module.
 

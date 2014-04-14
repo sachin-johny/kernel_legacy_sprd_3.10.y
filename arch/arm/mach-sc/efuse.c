@@ -688,7 +688,6 @@ static struct sci_fuse sci_fuse_array[] = {
 #define IIS_TO_CP0	(1)
 #define IIS_TO_CP1	(2)
 #define IIS_TO_CP2	(3)
-#define PIN_CTL_REG3 (SPRD_PIN_BASE + 0xc)
 
 static int fuse_debug_set(void *data, u64 val)
 {
