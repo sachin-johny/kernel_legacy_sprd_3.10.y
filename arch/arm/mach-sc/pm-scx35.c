@@ -1191,14 +1191,6 @@ void sc_default_idle(void)
 	return;
 }
 
-static struct dcdc_core_ds_step_info step_info[5]={
-	{ANA_REG_GLB_MP_PWR_CTRL1, 0,ANA_REG_GLB_MP_PWR_CTRL2, 0},
-	{ANA_REG_GLB_MP_PWR_CTRL1, 3,ANA_REG_GLB_MP_PWR_CTRL2, 5},
-	{ANA_REG_GLB_MP_PWR_CTRL1, 6,ANA_REG_GLB_MP_PWR_CTRL2,10},
-	{ANA_REG_GLB_MP_PWR_CTRL1, 9,ANA_REG_GLB_MP_PWR_CTRL3, 0},
-	{ANA_REG_GLB_MP_PWR_CTRL1,12,ANA_REG_GLB_MP_PWR_CTRL3, 5}
-};
-
 /*config dcdc core deep sleep voltage*/
 static void dcdc_core_ds_config(void)
 {
@@ -1206,6 +1198,13 @@ static void dcdc_core_ds_config(void)
 	u32 val = 0;
 	u32 dcdc_core_ctl_ds = -1;
 #ifdef CONFIG_ARCH_SCX30G
+	static struct dcdc_core_ds_step_info step_info[5]={
+		{ANA_REG_GLB_MP_PWR_CTRL1, 0,ANA_REG_GLB_MP_PWR_CTRL2, 0},
+		{ANA_REG_GLB_MP_PWR_CTRL1, 3,ANA_REG_GLB_MP_PWR_CTRL2, 5},
+		{ANA_REG_GLB_MP_PWR_CTRL1, 6,ANA_REG_GLB_MP_PWR_CTRL2,10},
+		{ANA_REG_GLB_MP_PWR_CTRL1, 9,ANA_REG_GLB_MP_PWR_CTRL3, 0},
+		{ANA_REG_GLB_MP_PWR_CTRL1,12,ANA_REG_GLB_MP_PWR_CTRL3, 5}
+	};
 	static u8 dcdc_core_down_volt[]={4,1,1,2,3,5,0,6};
 	static u8 dcdc_core_up_volt[]={6,2,3,4,0,1,7,7};
 	u32 dcdc_core_cal_adi,i;
