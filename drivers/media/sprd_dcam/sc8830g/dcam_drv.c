@@ -3279,37 +3279,38 @@ LOCAL void    _dcam_path2_done(void)
 
 	if (atomic_read(&s_resize_flag)) {
 		frame = NULL;
+		if (user_func) {
+			(*user_func)(frame, data);
+		}
 	} else {
 		DCAM_CHECK_ZERO_VOID(s_p_dcam_mod);
 		path = &s_p_dcam_mod->dcam_path2;
 
 		DCAM_TRACE("DCAM: 2 \n");
+		if (path->status == DCAM_ST_START) {
 
-		if (path->need_stop) {
-			dcam_glb_reg_awr(DCAM_CFG, ~BIT_2, DCAM_CFG_REG);
-			path->need_stop = 0;
-		}
-		_dcam_path_done_notice(DCAM_PATH_IDX_2);
+			if (path->need_stop) {
+				dcam_glb_reg_awr(DCAM_CFG, ~BIT_2, DCAM_CFG_REG);
+				path->need_stop = 0;
+			}
+			_dcam_path_done_notice(DCAM_PATH_IDX_2);
 
-		if (path->need_wait) {
-			path->need_wait = 0;
-			return;
-		} else {
-			rtn = _dcam_frame_dequeue(&path->frame_queue, &frame);
-			if (0 == rtn) {
-				DCAM_TRACE("DCAM: path2 frame 0x%x, y uv, 0x%x 0x%x \n",
-					(int)frame, frame->yaddr, frame->uaddr);
-				frame->width = path->output_size.w;
-				frame->height = path->output_size.h;
+			if (path->need_wait) {
+				path->need_wait = 0;
+			} else {
+				rtn = _dcam_frame_dequeue(&path->frame_queue, &frame);
+				if (0 == rtn) {
+					DCAM_TRACE("DCAM: path2 frame 0x%x, y uv, 0x%x 0x%x \n",
+						(int)frame, frame->yaddr, frame->uaddr);
+					frame->width = path->output_size.w;
+					frame->height = path->output_size.h;
+					if (user_func) {
+						(*user_func)(frame, data);
+					}
+				}
 			}
 		}
 	}
-
-	if (user_func) {
-		(*user_func)(frame, data);
-	}
-
-	return;
 }
 
 LOCAL void    _dcam_path2_ov(void)
