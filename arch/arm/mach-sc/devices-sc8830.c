@@ -1008,11 +1008,14 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 #endif
 	.clk_name = "clk_sdio0",
 #ifdef CONFIG_ARCH_SCX15
-	.clk_parent_name = "clk_384m",
-	.max_frequency = 384000000,
+		.clk_parent_name = "clk_384m",
+		.max_frequency = 384000000,
+#elif defined(CONFIG_ARCH_SCX30G)
+		.clk_parent_name = "clk_384m",
+		.max_frequency = 384000000,
 #else
-	.clk_parent_name = "clk_192m",
-	.max_frequency = 192000000,
+		.clk_parent_name = "clk_192m",
+		.max_frequency = 192000000,
 #endif
 #ifndef CONFIG_ARCH_SCX15
 	.pinmap_offset = SPRD_PIN_SDIO0_OFFSET,
