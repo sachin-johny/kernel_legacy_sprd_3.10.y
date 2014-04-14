@@ -729,7 +729,8 @@ static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
 	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.1", .phys_addr = SPRD_SDIO1_BASE  },
 	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.2", .phys_addr = SPRD_SDIO2_BASE  },
 	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.3", .phys_addr = SPRD_EMMC_BASE  },
-	{}
+	 { .compatible = "sprd,sprd_backlight",  .name = "sprd_backlight" },
+	 {}
 };
 #endif
 
