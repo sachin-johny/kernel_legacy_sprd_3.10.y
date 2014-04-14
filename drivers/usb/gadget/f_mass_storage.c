@@ -811,13 +811,12 @@ static int do_write(struct fsg_common *common)
 			curlun->sense_data = SS_INVALID_FIELD_IN_CDB;
 			return -EINVAL;
 		}
-#if 0
+
 		if (!curlun->nofua && (common->cmnd[1] & 0x08)) { /* FUA */
 			spin_lock(&curlun->filp->f_lock);
 			curlun->filp->f_flags |= O_SYNC;
 			spin_unlock(&curlun->filp->f_lock);
 		}
-#endif
 	}
 	if (lba >= curlun->num_sectors) {
 		curlun->sense_data = SS_LOGICAL_BLOCK_ADDRESS_OUT_OF_RANGE;
@@ -829,19 +828,19 @@ static int do_write(struct fsg_common *common)
 	file_offset = usb_offset = ((loff_t) lba) << curlun->blkbits;
 	amount_left_to_req = common->data_size_from_cmnd;
 	amount_left_to_write = common->data_size_from_cmnd;
-
+#if 0
 	if(common->cmnd[0] != WRITE_6) {
-		if (common->cmnd[1] & 0x08) {
+		if (!curlun->nofua && (common->cmnd[1] & 0x08)) {
 			spin_lock(&curlun->filp->f_lock);
 			xp_send_sum += amount_left_to_write;
-			if(xp_send_sum > 50*1024*1024) {
+			if(xp_send_sum > 15*1024*1024) {
 				xp_send_sum = 0;
 				curlun->filp->f_flags |= O_SYNC;
 			}
 			spin_unlock(&curlun->filp->f_lock);
 		}
 	}
-
+#endif
 	while (amount_left_to_write > 0) {
 
 		/* Queue a request for more data from the host */
