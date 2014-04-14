@@ -531,7 +531,8 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 		}
 
 		if(0 == if_status){
-			printk("sprdfb: [%s] fail! Need reset panel\n",__FUNCTION__);
+			printk("sprdfb: [%s] fail! Need reset panel.(%d,%d,%d)\n",	__FUNCTION__,
+                            dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
 			panel_reset(dev);
 
 			if(0 == dev->enable){
@@ -542,7 +543,8 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 			dev->panel->ops->panel_init(dev->panel);
 			panel_ready(dev);
 		}else{
-			printk("sprdfb: [%s] fail! Need reset panel and panel if!!!!\n",__FUNCTION__);
+			printk("sprdfb: [%s] fail! Need reset panel and panel if!!!!(%d,%d,%d)\n",__FUNCTION__,
+                            dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
 			dev->reset_dsi_time++;
 			if(NULL != dev->panel->if_ctrl->panel_if_suspend){
 				dev->panel->if_ctrl->panel_if_suspend(dev);
