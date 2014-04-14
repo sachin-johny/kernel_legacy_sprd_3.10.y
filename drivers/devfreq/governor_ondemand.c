@@ -59,22 +59,21 @@ struct userspace_data {
 /************ kernel interface *****************/
 /*
 * get dfs enable flag
-* flag == 0 --> dfs disable
-* flag == 1 --> dfs enable
+* enabled == 0 --> dfs disable
+* enabled == 1 --> dfs enable
 */
 bool dfs_get_enable(void)
 {
 	struct userspace_data *user_data;
-	bool flag;
+	bool enabled;
 
 	if(g_devfreq && g_devfreq->data){
                 user_data = (struct userspace_data *)(g_devfreq->data);
-		//mutex_lock(&g_devfreq->lock);
-		flag = user_data->enable;
-		//mutex_unlock(&g_devfreq->lock);
+		enabled = user_data->enable;
+		pr_debug("%s, enabled = %d, user_data->enable = %d\n", __func__, enabled, user_data->enable);
 	}
 
-	return flag;
+	return enabled;
 }
 EXPORT_SYMBOL(dfs_get_enable);
 /*
@@ -515,7 +514,11 @@ static int devfreq_ondemand_start(struct devfreq *devfreq)
 	data->set_freq = 0;
 	data->upthreshold = DFO_UPTHRESHOLD;
 	data->downdifferential = DFO_DOWNDIFFERENCTIAL;
+#if defined(CONFIG_ARCH_SCX30G)
 	data->enable = false;
+#else
+	data->enable = true;
+#endif
 	data->devfreq_enable = true;
 	if(devfreq->data){
 		data->convert_bw_to_freq = devfreq->data;
