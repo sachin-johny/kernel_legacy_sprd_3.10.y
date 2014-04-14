@@ -11,7 +11,15 @@ obj-$(CONFIG_ARCH_SCX35) += clock-sc8830.o
 endif
 obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o arch_misc.o pin_switch.o
 obj-$(CONFIG_ARCH_SCX35) += timer_sc8830.o dma_r4p0.o
+
+ifeq ($(CONFIG_ARCH_SCX30G),y)
+obj-$(CONFIG_PM_DEVFREQ) += dmc_freq_28nm.o
+obj-$(CONFIG_SCX35_DMC_FREQ_AP) += dmc_freq_ap_28nm.o
+	CFLAGS_dmc_freq_ap_28nm.o += -fPIC
+else
 obj-$(CONFIG_PM_DEVFREQ) += dmc_freq.o
+obj-$(CONFIG_SCX35_DMC_FREQ_AP) += dmc_freq_ap.o
+endif
 
 obj-$(CONFIG_PM) += pm.o
 obj-$(CONFIG_FIX_V7TAGRAM_BUG) += fix_v7_tag_ram_bug.o
@@ -27,7 +35,6 @@ endif
 ifeq ($(CONFIG_PM),y)
 	obj-$(CONFIG_ARCH_SCX35) += pm-scx35.o standby-scx35.o pm_debug_scx35.o
 endif
-obj-$(CONFIG_SCX35_DMC_FREQ_AP) += dmc_freq_ap.o
 obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
