@@ -34,6 +34,10 @@ struct sprd_lcd_controller {
 	/* only one device can work one time */
 	struct sprdfb_device  *dev;
 
+	bool			clk_is_open;
+	bool			is_suspend;
+	spinlock_t 		clk_spinlock;
+
 	struct clk		*clk_lcdc;
 
 	wait_queue_head_t       vsync_queue;
@@ -65,6 +69,36 @@ lcd_pinmap_t lcd_rstpin_map[] = {
 	{REG_PIN_LCD_RSTN, BITS_PIN_DS(1)|BITS_PIN_AF(0)|BIT_PIN_NUL|BIT_PIN_SLP_WPU|BIT_PIN_SLP_Z},
 	{REG_PIN_LCD_RSTN, BITS_PIN_DS(3)|BITS_PIN_AF(3)|BIT_PIN_NUL|BIT_PIN_NUL|BIT_PIN_SLP_OE},
 };
+
+static int lcdc_clk_disable(void)
+{
+	unsigned long irqflags;
+
+	pr_debug("sprdfb:[%s],clk_is_open=%d \n", __FUNCTION__,lcdc.clk_is_open);
+	if(lcdc.clk_is_open){
+		spin_lock_irqsave(&lcdc.clk_spinlock, irqflags);
+		clk_disable(lcdc.clk_lcdc);
+		lcdc.clk_is_open=false;
+		spin_unlock_irqrestore(&lcdc.clk_spinlock,irqflags);
+	}
+
+	return 0;
+}
+
+static int lcdc_clk_enable(void)
+{
+	unsigned long irqflags;
+
+	pr_debug("sprdfb:[%s],clk_is_open=%d \n", __FUNCTION__,lcdc.clk_is_open);
+	if(!lcdc.clk_is_open){
+		spin_lock_irqsave(&lcdc.clk_spinlock, irqflags);
+		clk_enable(lcdc.clk_lcdc);
+		lcdc.clk_is_open = true;
+		spin_unlock_irqrestore(&lcdc.clk_spinlock,irqflags);
+	}
+
+	return 0;
+}
 
 static void sprd_lcdc_set_rstn_prop(unsigned int if_slp)
 {
@@ -111,6 +145,7 @@ static irqreturn_t lcdc_isr(int irq, void *data)
 		}
 
 		lcdc->vsync_done = 1;
+		lcdc_clk_disable();
 		if (dev->vsync_waiter) {
 			wake_up_interruptible_all(&(lcdc->vsync_queue));
 			dev->vsync_waiter = 0;
@@ -235,7 +270,7 @@ static int32_t sprd_lcdc_early_init(void)
 {
 	int ret = 0;
 	lcdc.clk_lcdc = clk_get(NULL, "clk_lcdc");
-	clk_enable(lcdc.clk_lcdc);
+	lcdc_clk_enable();
 
 	sprd_lcdc_reset();
 	lcdc_hw_init();
@@ -268,7 +303,7 @@ static int32_t sprd_lcdc_uninit(struct sprdfb_device *dev)
 {
 	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 	dev->enable = 0;
-	clk_disable(lcdc.clk_lcdc);
+	lcdc_clk_disable();
 	return 0;
 }
 
@@ -303,7 +338,12 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 
 	uint32_t base = fb->fix.smem_start + fb->fix.line_length * fb->var.yoffset;
 
-        uint32_t reg_val = 0;
+	uint32_t reg_val = 0;
+
+	if(lcdc.is_suspend){
+		printk(KERN_ERR "sprdfb can not do pan_display !!!!\n");
+		return 0;
+	}
 
 	lcdc.dev = dev;
 
@@ -314,6 +354,7 @@ static int32_t sprd_lcdc_refresh (struct sprdfb_device *dev)
 #endif
 
 	lcdc.vsync_done = 0;
+	lcdc_clk_enable();
 
 #ifdef LCD_UPDATE_PARTLY
 	if (fb->var.reserved[0] == 0x6f766572) {
@@ -439,13 +480,15 @@ static int32_t sprd_lcdc_suspend(struct sprdfb_device *dev)
 
 		/* let lcdc sleep in */
 		if (dev->panel->ops->panel_enter_sleep != NULL) {
+			lcdc_clk_enable();
 			dev->panel->ops->panel_enter_sleep(dev->panel,1);
 		}
 
 		sprd_lcdc_set_rstn_prop(1);		/*modify reset pin status  for lcdc reset pin  sleep power issue */
 
 		dev->enable = 0;
-		clk_disable(lcdc.clk_lcdc);
+		lcdc_clk_disable();
+		lcdc.is_suspend = true;
 	}
 	return 0;
 }
@@ -455,7 +498,8 @@ static int32_t sprd_lcdc_resume(struct sprdfb_device *dev)
 	printk(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	if (dev->enable == 0) {
-		clk_enable(lcdc.clk_lcdc);
+		lcdc_clk_enable();
+		lcdc.is_suspend = false;
 		lcdc.vsync_done = 1;
 
 		sprd_lcdc_set_rstn_prop(0);		/*resume for lcdc reset pin  sleep power issue */
@@ -703,6 +747,7 @@ static int32_t sprd_lcdc_enable_overlay(struct sprdfb_device *dev, struct overla
 			return -1;
 		}
 
+		lcdc_clk_enable();
 		if(SPRD_LAYER_IMG == info->layer_index){
 			result = overlay_img_configure(dev, info->data_type, &(info->rect), info->buffer, info->y_endian, info->uv_endian, info->rb_switch);
 		}else if(SPRD_LAYER_OSD == info->layer_index){
@@ -711,6 +756,7 @@ static int32_t sprd_lcdc_enable_overlay(struct sprdfb_device *dev, struct overla
 			printk(KERN_ERR "sprd_fb: sprd_lcdc_enable_overlay fail. (invalid layer index)\n");
 		}
 		if(0 != result){
+			lcdc_clk_disable();
 			up(&lcdc.overlay_lock);
 			return -1;
 		}
@@ -740,14 +786,16 @@ static int32_t sprd_lcdc_display_overlay(struct sprdfb_device *dev, struct overl
 	down(&lcdc.overlay_lock);
 
 	dev->vsync_waiter ++;
-	if (dev->ctrl->sync(dev) != 0) {/* time out??? disable ?? */
+	if (lcdc.is_suspend || dev->ctrl->sync(dev) != 0) {/* time out??? disable ?? */
 		dev->vsync_waiter = 0;
 		/* dev->pending_addr = 0; */
 		printk("sprdfb can not do sprd_lcdc_display_overlay !!!!\n");
+		up(&lcdc.overlay_lock);
 		return 0;
 	}
 
 	lcdc.vsync_done = 0;
+	lcdc_clk_enable();
 
 
 #ifdef LCD_UPDATE_PARTLY
