@@ -168,7 +168,7 @@ config FB_LCD_OVERLAY_SUPPORT
 config FB_VSYNC_SUPPORT
 	boolean "support wait for vsync io"
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
-	default n
+	default y
 
 config FB_ESD_SUPPORT
 	boolean "support esd check"
@@ -198,5 +198,5 @@ config FB_LOW_RES_SIMU
 config FB_TRIPLE_FRAMEBUFFER
 	boolean "support triple buffer"
 	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15 || FB_SCX30G
-	default n
+	default y
 endif
