@@ -44,6 +44,7 @@
 #include <linux/delay.h>
 #include <linux/swap.h>
 #include <linux/fs.h>
+#include <linux/sched/rt.h>
 
 #ifdef CONFIG_HIGHMEM
 #define _ZONE ZONE_HIGHMEM
@@ -271,6 +272,21 @@ void tune_lmk_param(int *other_free, int *other_file, struct shrink_control *sc)
 	}
 }
 
+/*
+  * It's reasonable to grant the dying task an even higher priority to
+  * be sure it will be scheduled sooner and free the desired pmem.
+  * It was suggested using SCHED_FIFO:1 (the lowest RT priority),
+  * so that this task won't interfere with any running RT task.
+  */
+static void boost_dying_task_prio(struct task_struct *p)
+{
+         if (!rt_task(p)) {
+                 struct sched_param param;
+                 param.sched_priority = 1;
+                 sched_setscheduler_nocheck(p, SCHED_FIFO, &param);
+         }
+}
+
 
 typedef struct lmk_debug_info
 {
@@ -463,6 +479,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				lmk_info.zram_mem_usage*PAGE_SIZE /1024);
 
 			lowmem_deathpending_timeout = jiffies + HZ;
+
+			//Improve the priority of killed process can accelerate the process to die,
+			//and the process memory would be released quickly
+			boost_dying_task_prio(selected);
+
 			send_sig(SIGKILL, selected, 0);
 			set_tsk_thread_flag(selected, TIF_MEMDIE);
 			rem -= selected_tasksize;
