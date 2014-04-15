@@ -7,6 +7,8 @@ ccflags-y += -DDEBUG
 
 ccflags-y += -DCONFIG_ITM_WLAN_ENHANCED_PM
 
+ccflags-y += -DCONFIG_ITM_WLAN_FW_ZEROCOPY
+
 obj-$(CONFIG_ITTIAM) += ittiam.o
 
 ittiam-objs:= main.o cfg80211.o sipc.o \
