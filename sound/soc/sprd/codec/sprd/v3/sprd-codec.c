@@ -236,26 +236,26 @@ struct sprd_codec_ldo_v_map {
 
 const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
 	/*{      , 3400}, */
-	{LDO_V_29, 3600},
+	{LDO_V_28, 3400},
+	{LDO_V_29, 3500},
+	{LDO_V_30, 3600},
 	{LDO_V_31, 3700},
 	{LDO_V_32, 3800},
 	{LDO_V_33, 3900},
 	{LDO_V_34, 4000},
-	{LDO_V_35, 4100},
 	{LDO_V_36, 4200},
-	{LDO_V_38, 4300},
 };
 
 const static struct sprd_codec_ldo_v_map ldo_vcom_v_map[] = {
 	/*{      , 3400}, */
-	{LDO_V_29, 3800},
-	{LDO_V_31, 3900},
-	{LDO_V_32, 4000},
-	{LDO_V_33, 4100},
-	{LDO_V_34, 4200},
-	{LDO_V_35, 4300},
-	{LDO_V_36, 4400},
-	{LDO_V_38, 4500},
+	{LDO_V_28, 3400},
+	{LDO_V_29, 3500},
+	{LDO_V_30, 3600},
+	{LDO_V_31, 3700},
+	{LDO_V_32, 3800},
+	{LDO_V_33, 3900},
+	{LDO_V_34, 4000},
+	{LDO_V_36, 4200},
 };
 
 struct sprd_codec_ldo_cfg {
