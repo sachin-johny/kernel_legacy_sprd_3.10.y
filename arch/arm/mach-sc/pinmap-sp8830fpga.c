@@ -267,7 +267,7 @@ static int __init pin_init(void)
 {
 	int i;
 	for (i = 0; i < ARRAY_SIZE(pinmap); i++) {
-		__raw_writel(pinmap[i].val, CTL_PIN_BASE + pinmap[i].reg);
+		pinmap_set(pinmap[i].reg, pinmap[i].val);
 	}
 	return 0;
 }

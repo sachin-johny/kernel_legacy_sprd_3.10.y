@@ -119,12 +119,7 @@ static struct sci_pin_switch_dir {
 
 u32 pinmap_get(u32 offset)
 {
-	u32 value;
-	unsigned long flags;
-	__arch_default_lock(HWLOCK_GLB, &flags);
-	value = readl(SPRD_PIN_BASE + offset);
-	__arch_default_unlock(HWLOCK_GLB, &flags);
-	return value;
+	return readl(SPRD_PIN_BASE + offset);
 }
 EXPORT_SYMBOL(pinmap_get);
 int pinmap_set(u32 offset, u32 value)
@@ -148,14 +143,13 @@ static int read_write_pin_switch(int is_read, int v, struct sci_pin_switch *p)
 {
 	int val = 0;
 	u32 shift = p->bit_offset;
-	u32 pin_ctl_reg = SPRD_PIN_BASE + p->reg;
 	u32 mask = (1 << (p->bit_width)) - 1;
 	if ((shift > 31))
 		BUG_ON(1);
 	if (v > mask)
 		printk("v:0x%x overflow bitwidth:%ud, mask:0x%x it\n",
 		       v, p->bit_width, mask);
-	val = __raw_readl(pin_ctl_reg);
+	val = pinmap_get(p->reg);
 	if (is_read) {
 		val >>= shift;
 		val &= mask;
@@ -163,7 +157,7 @@ static int read_write_pin_switch(int is_read, int v, struct sci_pin_switch *p)
 	} else {
 		val &= ~(mask << shift);
 		val |= (v & mask) << shift;
-		__raw_writel(val, pin_ctl_reg);
+		pinmap_set(p->reg, val);
 	}
 	return val;
 }
@@ -305,22 +299,16 @@ static int sc271x_regulator_event(struct notifier_block *regu_nb, unsigned long 
 	unsigned long best_data = (unsigned long *)data;
 	const char *regu_name = p_pin_reg_desc->supplies.supply;
 	u32 bit = p_pin_reg_desc->platform_data->bit_offset;
-	u32 reg = p_pin_reg_desc->platform_data->reg + SPRD_PIN_BASE;
+	u32 reg = p_pin_reg_desc->platform_data->reg;
 	pr_info("event:0x%x, best_data:0x%x\n", event, best_data);
 
 	if (event & REGULATOR_EVENT_VOLTAGE_CHANGE) {
 		if(p_pin_reg_desc) {
 			if(best_data > VOL_THRESHOLD){
-				__arch_default_lock(HWLOCK_GLB, &flags);
-				writel((__raw_readl(reg) & ~bit), reg);
-				__arch_default_unlock(HWLOCK_GLB, &flags);
-
+				pinmap_set(reg, (pinmap_get(reg) & ~bit));
 				pr_info("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",__func__,__LINE__, regu_name, event, best_data);
 			} else {
-				__arch_default_lock(HWLOCK_GLB, &flags);
-				writel((__raw_readl(reg) | bit), reg);
-				__arch_default_unlock(HWLOCK_GLB, &flags);
-
+				pinmap_set(reg, (pinmap_get(reg) | bit));
 				pr_info("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",__func__,__LINE__, regu_name, event, best_data);
 			}
 		}
