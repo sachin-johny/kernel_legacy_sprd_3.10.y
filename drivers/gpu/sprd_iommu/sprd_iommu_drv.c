@@ -35,6 +35,9 @@
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
 #endif
 
 #define SPRD_IOMMU_PAGE_SIZE	0x1000
@@ -157,6 +160,32 @@ static inline int sprd_iommu_get_description(struct device_node *np,char* desc_n
 {
 	return  of_property_read_string(np, (const char*)desc_name,(const char**) desc);
 }
+
+static int sprd_iommu_get_resource(struct device_node *np, struct sprd_iommu_init_data *pdata)
+{
+	int err=0;
+	struct resource res;
+	err = of_address_to_resource(np, 0, &res);
+	if(err < 0) return err;
+
+	printk("%s,name:%s\n",__FUNCTION__,pdata->name);
+	pdata->iova_base = res.start;
+	pdata->iova_size = resource_size(&res);
+	printk("%s,iova_base:%x,	iova_size:%x\n",__FUNCTION__,pdata->iova_base,	pdata->iova_size);
+	err = of_address_to_resource(np, 1, &res);
+	if(err < 0) return err;
+
+	pdata->pgt_base= res.start;
+	pdata->pgt_size= resource_size(&res);
+	printk("%s,pgt_base:%x,pgt_size:%x\n",__FUNCTION__,pdata->pgt_base,pdata->pgt_size);
+	err = of_address_to_resource(np, 2, &res);
+	if(err < 0) return err;
+
+	pdata->ctrl_reg= res.start;
+	printk("%s,ctrl_reg:%x\n",__FUNCTION__,pdata->ctrl_reg);
+	return err;
+}
+
 #endif
 
 static int sprd_iommu_probe(struct platform_device *pdev)
@@ -165,6 +194,7 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 	char func_name[] = "func-name";
 	char func_desc[128];
 	char* pdesc=&(func_desc[0]);
+	struct device_node *np=pdev->dev.of_node;
 #endif
 	int err=-1;
 	struct sprd_iommu_init_data *pdata = pdev->dev.platform_data;
@@ -182,7 +212,7 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 	}
 
 #ifdef CONFIG_OF
-	if (-1==sprd_iommu_get_description(pdev->dev.of_node, func_name,&pdesc)) {
+	if (-1==sprd_iommu_get_description(np, func_name,&pdesc)) {
 		kfree(iommu_dev);
 		printk("%s,fail to get description\n",__FUNCTION__);
 		return -1;
@@ -192,11 +222,25 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 	{
 		pdata = &sprd_iommu_gsp_data;
 		iommu_dev->ops=&iommu_gsp_ops;
+		err = sprd_iommu_get_resource(np, pdata);
+		if(err < 0) {
+		    dev_err(&pdev->dev, "no reg of property specified\n");
+		    printk(KERN_ERR "iommu: failed to get reg!\n");
+		    kfree(iommu_dev);
+		    return -EINVAL;
+		}
 	}
 	else if(0==strncmp("sprd_iommu_mm",pdesc,13))
 	{
 		pdata = &sprd_iommu_mm_data;
 		iommu_dev->ops=&iommu_mm_ops;
+		err = sprd_iommu_get_resource(np, pdata);
+		if(err < 0) {
+		    dev_err(&pdev->dev, "no reg of property specified\n");
+		    printk(KERN_ERR "iommu: failed to get reg!\n");
+		    kfree(iommu_dev);
+		    return -EINVAL;
+		}
 	}
 	else {
 		kfree(iommu_dev);
