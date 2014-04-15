@@ -67,7 +67,7 @@ static int __init hwspinlocks_init(void)
 #ifdef CONFIG_OF
 	struct device_node *np;
 	struct platform_device *pdev;
-
+#if 0
 	np = of_find_node_by_name(NULL, "hwspinlock0");
 	if (!np) {
 		pr_warn("Can't get the hwspinlock0 node!\n");
@@ -83,7 +83,7 @@ static int __init hwspinlocks_init(void)
 	pr_info("*****hwspinlock0's name is %s\n", pdev->name);
 	pr_info("SPRD register hwspinlock0 ok!\n");
 //	of_detach_node(np);
-
+#endif
 #if defined (CONFIG_ARCH_SCX35)
 	np = of_find_node_by_name(NULL, "hwspinlock1");
 	if (!np) {
@@ -99,12 +99,14 @@ static int __init hwspinlocks_init(void)
 	pr_info("SPRD register hwspinlock1 ok!\n");
 //	of_detach_node(np);
 #endif
-	return ret;
+	return 0;
 
 #else
+#if 0
 	ret = platform_device_register(&sprd_hwspinlock_device0);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
 		platform_device_unregister(&sprd_hwspinlock_device0);
+#endif
 #if	defined (CONFIG_ARCH_SCX35)
 	ret = platform_device_register(&sprd_hwspinlock_device1);
 	if (WARN(ret != 0, "register hwspinlock device error!!"))
