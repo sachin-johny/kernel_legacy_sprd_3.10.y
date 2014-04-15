@@ -469,7 +469,7 @@ static void print_debug_info(void)
 	unsigned int ldo_dcdc_pd_ctrl;
 #endif
 #if defined(CONFIG_ARCH_SCX30G)
-	unsigned int mpll_cfg1, dpll_cfg1;
+	unsigned int mpll_cfg1, dpll_cfg1, aon_apb_eb1;
 #endif
 	ahb_eb = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
 	ap_sys_auto_sleep_cfg = sci_glb_read(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, -1UL);
@@ -489,6 +489,7 @@ static void print_debug_info(void)
 #if defined(CONFIG_ARCH_SCX30G)
 	mpll_cfg1 = sci_glb_read(REG_AON_APB_MPLL_CFG1, -1UL);
 	dpll_cfg1 = sci_glb_read(REG_AON_APB_DPLL_CFG1, -1UL);
+	aon_apb_eb1 = sci_glb_read(REG_AON_APB_APB_EB1, -1UL);
 #endif
 #if defined(CONFIG_ARCH_SCX15)
        ldo_dcdc_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_DCDC_PD);
@@ -511,6 +512,8 @@ static void print_debug_info(void)
 #if defined(CONFIG_ARCH_SCX30G)
 	printk("###---- REG_AON_APB_MPLL_CFG1 : 0x%08x\n", mpll_cfg1);
 	printk("###---- REG_AON_APB_DPLL_CFG1 : 0x%08x\n", dpll_cfg1);
+	printk("###---- REG_PMU_APB_DDR_SLEEP_CTRL : 0x%08x\n",
+				sci_glb_read(REG_PMU_APB_DDR_SLEEP_CTRL, -1UL) );
 #endif
 #if defined(CONFIG_ARCH_SCX15)
        printk("###---- ANA_REG_GLB_LDO_DCDC_PD_CTRL : 0x%08x\n", ldo_dcdc_pd_ctrl);
@@ -542,7 +545,7 @@ static void print_debug_info(void)
 		printk("###---- BIT_NFC_EB still set ----###\n");
 	if (ahb_eb & BIT_EMMC_EB)
 		printk("###---- BIT_EMMC_EB still set ----###\n");
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 	if (ahb_eb & BIT_ZIPDEC_EB)
 		printk("###---- BIT_ZIPDEC_EB still set ----###\n");
 	if (ahb_eb & BIT_ZIPENC_EB)
@@ -554,6 +557,15 @@ static void print_debug_info(void)
 	if (ahb_eb & BIT_NANDC_EB)
 		printk("###---- BIT_NANDC_EB still set ----###\n");
 #endif
+#if defined(CONFIG_ARCH_SCX30G)
+	if (aon_apb_eb1 & BIT_GSP_EMC_EB )
+		printk("###---- BIT_GSP_EMC_EB set ----###\n");
+	if (aon_apb_eb1 & BIT_ZIP_EMC_EB )
+		printk("###---- BIT_ZIP_EMC_EB set ----###\n");
+	if (aon_apb_eb1 & BIT_DISP_EMC_EB )
+		printk("###---- BIT_DISP_EMC_EB set ----###\n");
+#endif
+
 	/*A-die*/
 	if (!(ldo_pd_ctrl & BIT_DCDC_WPA_PD))
 		printk("###---- BIT_DCDC_WPA_PD power on! ----###\n");
