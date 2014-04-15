@@ -192,7 +192,12 @@ GSP_CORE_GREQ;
 #define GSP_CLOCK_NAME			("clk_gsp")
 
 #define GSP_EMC_CLOCK_PARENT_NAME		("clk_aon_apb")
+
+#if defined(CONFIG_ARCH_SCX30G)
+#define GSP_EMC_CLOCK_NAME				("clk_gsp_emc")
+#else
 #define GSP_EMC_CLOCK_NAME				("clk_disp_emc")
+#endif
 
 #if 0
 #define GSP_EMC_MATRIX_ENABLE() (*(volatile uint32_t*)(GSP_EMC_MATRIX_BASE) |= GSP_EMC_MATRIX_BIT)
