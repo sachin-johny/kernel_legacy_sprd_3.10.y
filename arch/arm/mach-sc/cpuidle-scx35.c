@@ -220,6 +220,16 @@ static void idle_into_deep(void)
 		cpu_do_idle();
 		return;
 	}
+
+	/* It is a chip design defect(MSPI CLOCK SELECTION)
+	*  AP can not enter deep sleep mode when FM is working, because mspi clock is from CPLL,
+	* and it can not switch to 26MHz frequently in idle.
+	*/
+	if (sci_glb_read(REG_AON_APB_APB_EB0, -1UL) & BIT_FM_EB) {
+		cpu_do_idle();
+		return;
+	}
+
 	sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN /*| BIT_MCU_SLEEP_FOLLOW_CA7_EN*/);
 	deep_sleep(1);
 	sci_glb_clr(REG_AP_AHB_MCU_PAUSE, BIT_MCU_DEEP_SLEEP_EN /*| BIT_MCU_SLEEP_FOLLOW_CA7_EN*/);
