@@ -24,6 +24,9 @@
 #include <linux/mm_types.h>
 #endif
 
+#ifdef CONFIG_FB_SCX30G
+#define FB_CHECK_ESD_IN_VFP
+#endif
 //#define FB_CHECK_ESD_BY_TE_SUPPORT
 #define BIT_PER_PIXEL_SURPPORT
 
