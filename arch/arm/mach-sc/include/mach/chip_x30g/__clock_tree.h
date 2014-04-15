@@ -196,6 +196,10 @@ SCI_CLK_ADD(clk_disp_emc, 0, REG_AON_APB_APB_EB1, BIT(11),
 	0, 0, 0, 0,
 	1, &clk_aon_apb);
 
+SCI_CLK_ADD(clk_gsp_emc, 0, REG_AON_APB_APB_EB1, BIT(13),
+	0, 0, 0, 0,
+	1, &clk_aon_apb);
+
 SCI_CLK_ADD(clk_gsp, 0, REG_AP_AHB_AHB_EB, BIT(3),
 	0, 0, REG_AP_CLK_GSP_CFG, BIT(0)|BIT(1),
 	4, &clk_96m, &clk_153m6, &clk_192m, &clk_256m);

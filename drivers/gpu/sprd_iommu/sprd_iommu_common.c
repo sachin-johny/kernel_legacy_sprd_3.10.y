@@ -5,7 +5,7 @@ extern struct sprd_iommu_ops iommu_mm_ops;
 #endif
 static int mmu_reg_write(u32 reg, u32 val, u32 msk)
 {
-	__raw_writel(((*(volatile unsigned int __force   *)(reg)) & ~msk) | val, reg);
+	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
 	return 0;
 }
 
@@ -93,7 +93,7 @@ unsigned long sprd_iommu_iova_alloc(struct sprd_iommu_dev *dev, size_t iova_leng
 	iova =  gen_pool_alloc(dev->pool, iova_length);
 	pr_debug("sprd_iommu %s iova_alloc iova:0x%lx, iova_length:0x%x\n",dev->init_data->name,iova,iova_length);
 	if (0 == iova) {
-		pr_err("sprd_iommu %s iova_alloc iova_base: iova:0x%lx iova_length:0x%x\n",iova,iova_length);
+		pr_err("sprd_iommu %s iova_alloc iova_base: iova:0x%lx iova_length:0x%x\n",dev->init_data->name,iova,iova_length);
 	}
 
 	return (iova);

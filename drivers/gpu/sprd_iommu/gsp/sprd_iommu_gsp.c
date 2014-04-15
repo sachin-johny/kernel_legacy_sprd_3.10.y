@@ -21,6 +21,11 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev);
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev);
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void sprd_iommu_gsp_early_suspend(struct early_suspend* es);
+static void sprd_iommu_gsp_late_resume(struct early_suspend* es);
+#endif
+
 int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
 		int err=-1;
@@ -33,14 +38,24 @@ int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data 
 			return -1;
 		}
 		dev->mmu_clock=of_clk_get(np, 2) ;
-	#else
-		dev->mmu_clock=clk_get(NULL,"clk_gsp");
-	#endif
+
 		if (!dev->mmu_clock)
 			printk ("%s, cant get dev->mmu_clock\n", __FUNCTION__);
 
 		if(NULL==dev->mmu_clock)
 			return -1;
+	#else
+		dev->mmu_mclock= clk_get(NULL,"clk_gsp_emc");
+		dev->mmu_clock=clk_get(NULL,"clk_gsp");
+		if (!dev->mmu_mclock)
+			printk ("%s, cant get clk_gsp_emc\n", __FUNCTION__);
+
+		if (!dev->mmu_clock)
+			printk ("%s, cant get dev->mmu_clock\n", __FUNCTION__);
+
+		if((NULL==dev->mmu_mclock)||(NULL==dev->mmu_clock))
+			return -1;
+	#endif
 #elif defined(CONFIG_ARCH_SCX15)
 	#ifdef CONFIG_OF
 		struct device_node *np;
@@ -67,6 +82,14 @@ int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data 
 		if((NULL==dev->mmu_mclock)||(NULL==dev->mmu_pclock)||(NULL==dev->mmu_clock))
 			return -1;
 #endif
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	dev->early_suspend.suspend = sprd_iommu_gsp_early_suspend;
+	dev->early_suspend.resume  = sprd_iommu_gsp_late_resume;
+	dev->early_suspend.level   = EARLY_SUSPEND_LEVEL_STOP_DRAWING;
+	register_early_suspend(&dev->early_suspend);
+#endif
+
 	sprd_iommu_gsp_enable(dev);
 	err=sprd_iommu_init(dev,data);
 	return err;
@@ -107,14 +130,21 @@ int sprd_iommu_gsp_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, si
 
 int sprd_iommu_gsp_backup(struct sprd_iommu_dev *dev)
 {
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	return 0;
+#else
 	int err=-1;
 	err=sprd_iommu_backup(dev);
 	sprd_iommu_gsp_disable(dev);
 	return err;
+#endif
 }
 
 int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 {
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	return 0;
+#else
 	int err=-1;
 #ifdef GSP_IOMMU_WORKAROUND1
 	sprd_iommu_gsp_enable_withworkaround(dev);
@@ -122,8 +152,36 @@ int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 	sprd_iommu_gsp_enable(dev);
 #endif
 	err=sprd_iommu_restore(dev);
-	return err;
+#endif
 }
+
+#ifdef CONFIG_HAS_EARLYSUSPEND
+static void sprd_iommu_gsp_early_suspend(struct early_suspend* es)
+{
+	int err=-1;
+	struct sprd_iommu_dev *dev = container_of(es, struct sprd_iommu_dev, early_suspend);
+
+	printk("%s%d\n",__func__,__LINE__);
+
+	err=sprd_iommu_backup(dev);
+	sprd_iommu_gsp_disable(dev);
+}
+
+static void sprd_iommu_gsp_late_resume(struct early_suspend* es)
+{
+	int err=-1;
+	struct sprd_iommu_dev *dev = container_of(es, struct sprd_iommu_dev, early_suspend);
+
+	printk("%s%d\n",__func__,__LINE__);
+
+#ifdef GSP_IOMMU_WORKAROUND1
+	sprd_iommu_gsp_enable_withworkaround(dev);
+#else
+	sprd_iommu_gsp_enable(dev);
+#endif
+	err=sprd_iommu_restore(dev);
+}
+#endif
 
 int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 {
@@ -134,6 +192,7 @@ int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 		clk_disable_unprepare(dev->mmu_clock);
 	#else
 		clk_disable(dev->mmu_clock);
+		clk_disable(dev->mmu_mclock);
 	#endif
 #elif defined(CONFIG_ARCH_SCX15)
 	#ifdef CONFIG_OF
@@ -190,10 +249,10 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 {
 		printk("%s line:%d\n",__FUNCTION__,__LINE__);
 #if defined(CONFIG_ARCH_SCX30G)
-		sci_glb_set(REG_AON_APB_APB_EB1,BIT(13));
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_clock);
 	#else
+		clk_enable(dev->mmu_mclock);
 		clk_enable(dev->mmu_clock);
 	#endif
 #elif defined(CONFIG_ARCH_SCX15)
@@ -222,10 +281,10 @@ int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {
 		printk("%s line:%d\n",__FUNCTION__,__LINE__);
 #if defined(CONFIG_ARCH_SCX30G)
-		sci_glb_set(REG_AON_APB_APB_EB1,BIT(13));
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_clock);
 	#else
+		clk_enable(dev->mmu_mclock);
 		clk_enable(dev->mmu_clock);
 	#endif
 #elif defined(CONFIG_ARCH_SCX15)
