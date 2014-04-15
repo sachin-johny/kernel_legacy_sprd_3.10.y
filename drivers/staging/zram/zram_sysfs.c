@@ -243,7 +243,8 @@ static ssize_t mem_free_total(void)
 
 	pr_debug("%s: zram_free_pages:%d, total_anon_pages:%d\r\n", __func__, zram_free_pages, total_anon_pages);
 
-	return (zram_free_pages < total_anon_pages) ? zram_free_pages : total_anon_pages;
+	//Since zram compress ratio is 40%, exclude zram self cost memory, the lastly saved memory is 60% of the total swap memory.
+	return ((zram_free_pages < total_anon_pages) ? zram_free_pages : total_anon_pages) * 60/100;
 }
 
 
