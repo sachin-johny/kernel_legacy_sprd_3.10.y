@@ -53,6 +53,10 @@
 #define TX_FLOW_HIGH	10
 #define TX_SBLOCK_NUM   64
 
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#define FW_ZEROCOPY	0x80
+#endif
+
 struct itm_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */

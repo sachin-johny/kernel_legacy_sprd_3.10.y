@@ -1527,6 +1527,9 @@ static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
 	if (mode == priv->mode)
 		return 0;
 
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+	mode |= FW_ZEROCOPY;
+#endif
 	ret = itm_wlan_mac_open_cmd(priv->wlan_sipc,
 				    mode, priv->ndev->dev_addr);
 	if (ret != 0) {

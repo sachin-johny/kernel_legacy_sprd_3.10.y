@@ -42,6 +42,9 @@
 #define WLAN_EVENT_SBLOCK_NUM	1
 #define WLAN_EVENT_SBLOCK_SIZE	(10 * 1024)	/* FIXME */
 
+#define ERR_AP_ZEROCOPY_CP_NOT	0xfd
+#define ERR_CP_ZEROCOPY_AP_NOT	0xfe
+
 /*COMMAND IDs*/
 enum wlan_sipc_cmd_id {
 	WIFI_CMD_DEV_MODE,
