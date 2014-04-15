@@ -126,7 +126,9 @@ static inline void get_free_ram(int *p_other_free, int *p_other_file)
 	*p_other_file = other_file;
 }
 
-
+#ifdef CONFIG_ANDROID_LMK_DEBUG
+extern int user_process_meminfo_show(void);
+#endif
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *p;
@@ -268,6 +270,11 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     selected_oom_adj, selected_tasksize);
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
+#ifdef CONFIG_ANDROID_LMK_DEBUG
+		lowmem_print(1, "================= user process meminfo =================\n");
+		user_process_meminfo_show();
+#endif
+
 		force_sig(SIGKILL, selected);
 		rem -= selected_tasksize;
 	}

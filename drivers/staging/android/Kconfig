@@ -98,6 +98,12 @@ config ANDROID_LMK_THREAD
 config ANDROID_LMK_ENHANCE
         bool "Android Low Memory Killer Enhance"
         default n
+
+config ANDROID_LMK_DEBUG
+	bool "Android low Memory Kill Debugger"
+	default n
+	---help---
+	  enable the macro to show the user process meminfo when LMK working.
 endif
 
 endif # if ANDROID
