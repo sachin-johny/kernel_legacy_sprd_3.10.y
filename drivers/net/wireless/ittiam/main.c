@@ -224,12 +224,7 @@ rx_failed:
 				"Failed to release sblock (%d)\n", ret);
 	}
 	if (work_done < budget) {
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-		napi_gro_flush(napi, false);
-#else
-		napi_gro_flush(napi);
-#endif
-		__napi_complete(napi);
+		napi_complete(napi);
 	}
 
 	return work_done;
@@ -259,9 +254,7 @@ static void itm_wlan_handler(int event, void *data)
 		break;
 	case SBLOCK_NOTIFY_RECV:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_RECV is received\n");
-		/*itm_wlan_rx_handler(priv);*/
-		if (likely(napi_schedule_prep(&priv->napi)))
-			__napi_schedule(&priv->napi);
+		napi_schedule(&priv->napi);
 		break;
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
