@@ -14,15 +14,16 @@
 #include <linux/kfifo.h>
 #include <linux/miscdevice.h>
 #include <linux/wakelock.h>
+#include <mach/modem_interface.h>
 
 
-#define SETUP_PACKET_SIZE (128)
-#define MAX_RECEIVER_SIZE (16*1024)
+//#define SETUP_PACKET_SIZE (128)
+#define MAX_RECEIVER_SIZE (8*1024)
 
-#define SETUP_MAGIC 0x1a2b
+//#define SETUP_MAGIC 0x1a2b
 #define DATA_MAGIC 0x3c4d
 #define ACK_MAGIC 0x5e6f
-#define SETUP_ACK_MAGIC 0x789a
+//#define SETUP_ACK_MAGIC 0x789a
 #define DATA_ACK_MAGIC 0x9abc
 #define DUMMY_MAGIC 0x5a5a
 
@@ -30,12 +31,13 @@
 #define CP2AP_FALLING 0x1
 #define CP2AP_RASING 0x2
 
+//#define REMOTE_ALIVE_STATUS 0x1
+//#define REMOTE_ASSERT_STATUS 0x2
+
 typedef enum {
-	TYPE_SETUP_WITH_DATA = 0x1,
-	TYPE_SETUP_WITHOUT_DATA,
-	TYPE_ACK,
+	TYPE_ACK = 0x1,
 	TYPE_NAK,
-	TYPE_SUCCESS, //if receive this ack , cancel the data you want to resend
+	TYPE_NAKALL, //if receive this ack , cancel the data you want to resend
 	TYPE_DATA,
 	TYPE_MAX
 }packet_type;
@@ -43,17 +45,8 @@ typedef enum {
 struct ack_packet {
 	u16 magic;
 	u16 type;
-};
-
-struct setup_packet_header {
-	u16 magic;
-	u16 checksum;
-	union {
-			struct ack_packet ack;
-		};
-	u16 type;
-	u16 length; // raw data length
-	u32 seqnum;
+	u32 seq_begin;
+	u32 seq_end;
 };
 
 // data packet type like below
@@ -64,18 +57,16 @@ struct data_packet_header {
 	union {
 			struct ack_packet ack;
 		};
-	u32 dummy1;
-	u32 dummy2;
+	u32 seqnum;
+	u32 len;
 };
 
 
 enum ipc_status {
 	IDLE_STATUS,
-	SETUP_STATUS,
-	ERROR_STATUS, /* only RECEIVE has this status */
 	ACK_STATUS,
 	NAK_STATUS,
-	DATA_STATUS,
+	NAKALL_STATUS,
 	MAX_STATUS
 };
 
@@ -90,6 +81,8 @@ struct ipc_transfer_frame {
 	u32  buf_size;
 	u16  pos;
 	u16  flag;
+	u32  status;
+	u32  seq;
 	struct list_head  link;
 };
 
@@ -101,10 +94,6 @@ struct ipc_transfer
    struct ipc_transfer_frame* cur_frame_ptr;
    u32 counter;
 };
-enum transfer_status {
-	TRANSFER_IDLE,
-	TRANSFERRING,
-};
 
 struct timer_info {
 	unsigned long long time;
@@ -113,34 +102,32 @@ struct timer_info {
 
 struct ipc_spi_dev {
 	bool bneedrcv;
-	bool bneedsnd;
 	bool ipc_enable;
-	bool rx_needdata;
-	bool rx_data_discard;
+	bool bneedread;
+	bool bneedsend;
 	u16 rx_ctl; // gpio control no irq: 0 , falling: 1, rasing: 2
-	u16 rx_ack_hold; /* 0 idle, 1 hold ack, 2 need to send ack */
 	u16 rwctrl; /* read write controlled by mux */
 	u16 rx_status; // rx status
-	u16 rx_size; // need to receive's data size
-	u32 rx_tmpnum; /* templete number of packet */
 	u32 rx_seqnum; /* received num */
-	struct kfifo rx_fifo;
+	u32 tx_seqnum;
+	u32 remote_status;
 	struct frame_list tx_free_lst;
 	struct ipc_transfer tx_transfer;
-	struct ipc_transfer_frame *curframe;
-	u16 tx_status;
-	u16 tx_size;
-	bool tx_needdata;
-	u32 tx_seqnum;
-	u32 transfer_status;
+	struct frame_list rx_free_lst;
+	struct frame_list rx_recv_lst;
+	struct ipc_transfer_frame* rx_curframe;
+	struct ipc_transfer_frame *tx_curframe;
 	wait_queue_head_t wait;
 	wait_queue_head_t rx_read_wait;
 	wait_queue_head_t tx_frame_wait; // tx frame wait
-	spinlock_t		rx_fifo_lock;
 	struct task_struct *task;
 	struct spi_device *spi;
 	struct miscdevice		miscdev;
 	struct wake_lock wake_lock;
+	struct modemsts_chg modemsts;
+#ifdef CONFIG_PM
+	bool bsuspend;
+#endif
 	u32 irq_num; /* use for debug cp side irq num */
 	u32 task_count; /* use for debug task run count*/
 	u32 task_status; /* use for debug record the status of task */

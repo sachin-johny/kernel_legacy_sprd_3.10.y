@@ -43,7 +43,6 @@ extern int      modem_gpio_uninit(void *para);
 extern int      modem_gpio_init(void *para);
 extern int      modem_share_gpio_uninit(void *para);
 extern int      modem_share_gpio_init(void *para);
-extern void    spi_ipc_enable(u8  is_enable);
 extern void  mux_ipc_enable(u8  is_enable);
 extern struct modem_device_operation	*modem_sdio_drv_init(void);
 extern int    modem_gpio_init(void *para);
@@ -84,6 +83,77 @@ static struct wake_lock   s_modem_intf_event_wake_lock;
 //wait_queue_head_t mdoem_mode_normal;
 spinlock_t int_lock;
 struct modem_device_operation	*devices_op[8] = {NULL};
+
+/************ modemsts notifier *****************/
+static LIST_HEAD(modemsts_chg_handlers);
+static DEFINE_MUTEX(modemsts_chg_lock);
+
+/* register a callback function when modem status changed
+*  @handler: callback function
+*/
+int modemsts_notifier_register(struct modemsts_chg *handler)
+{
+
+	struct list_head *pos;
+	struct modemsts_chg *e;
+
+	mutex_lock(&modemsts_chg_lock);
+	list_for_each(pos, &modemsts_chg_handlers) {
+		e = list_entry(pos, struct modemsts_chg, link);
+		if(e == handler){
+			printk("***** %s, %pf already exsited ****\n",
+					__func__, e->modemsts_notifier);
+			return -1;
+		}
+	}
+	list_for_each(pos, &modemsts_chg_handlers) {
+		struct modemsts_chg *e;
+		e = list_entry(pos, struct modemsts_chg, link);
+		if (e->level > handler->level)
+			break;
+	}
+	list_add_tail(&handler->link, pos);
+	mutex_unlock(&modemsts_chg_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(modemsts_notifier_register);
+
+/* unregister a callback function for detecting modem status change
+*  @handler: callback function
+*/
+int modemsts_notifier_unregister(struct modemsts_chg *handler)
+{
+	mutex_lock(&modemsts_chg_lock);
+	list_del(&handler->link);
+	mutex_unlock(&modemsts_chg_lock);
+
+	return 0;
+}
+EXPORT_SYMBOL(modemsts_notifier_unregister);
+
+void modemsts_change_notification(unsigned int state)
+{
+	struct modemsts_chg *pos;
+
+	mutex_lock(&modemsts_chg_lock);
+	if(state == MODEM_STATUS_REBOOT) {
+		list_for_each_entry(pos, &modemsts_chg_handlers, link) {
+			if (pos->modemsts_notifier != NULL) {
+				pos->modemsts_notifier(pos, state);
+			}
+		}
+	} else {
+		list_for_each_entry_reverse(pos, &modemsts_chg_handlers, link) {
+			if (pos->modemsts_notifier != NULL) {
+				pos->modemsts_notifier(pos, state);
+			}
+		}
+	}
+	mutex_unlock(&modemsts_chg_lock);
+}
+/************ modem notifier *****************/
+
 
 char *modem_intf_msg_string(enum MODEM_MSG_type msg)
 {
@@ -571,7 +641,7 @@ void modem_intf_reboot_routine()
         //disable mux sdio spi
         mux_ipc_enable(0);
         sdio_ipc_enable(0);
-        spi_ipc_enable(0);
+        modemsts_change_notification(MODEM_STATUS_REBOOT);
         modem_share_gpio_init(&(modem_intf_device->modem_config));
 
         modem_intf_set_mode(MODEM_MODE_RESET, 0);
@@ -581,19 +651,18 @@ void modem_intf_reboot_routine()
 
 void modem_intf_alive_routine()
 {
+		msleep(10*1000);
         modem_intf_set_mode(MODEM_MODE_NORMAL, 0);
         modem_share_gpio_uninit(&(modem_intf_device->modem_config));
         sdio_ipc_enable(1);
-        spi_ipc_enable(1);
+        modemsts_change_notification(MODEM_STATUS_ALVIE);
         mux_ipc_enable(1);
         modem_intf_send_event(MODEM_INTF_EVENT_ALIVE);
 }
 
 void modem_intf_assert_routine()
 {
-        spi_ipc_enable(0);
-        msleep(100);
-        spi_ipc_enable(1);
+        modemsts_change_notification(MODEM_STATUS_ASSERT);
         modem_intf_send_event(MODEM_INTF_EVENT_ASSERT);
 }
 

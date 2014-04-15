@@ -39,7 +39,7 @@
 #define 	DLOADER_NAME	        "dloader"
 #define		READ_BUFFER_SIZE	(4096)
 #define		WRITE_BUFFER_SIZE	(33*1024)
-extern void  spi_ipc_enable(u8  is_enable);
+
 extern void  sdio_ipc_enable(u8  is_enable);
 extern int modem_intf_send_bootcomp_message();
 struct dloader_dev{
