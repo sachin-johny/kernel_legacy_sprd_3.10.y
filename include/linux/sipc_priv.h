@@ -16,19 +16,10 @@
 
 #define SMSG_CACHE_NR		256
 
-/* smsg debug info */
-struct smsg_debug_info {
-	uint32_t send_cnt;
-	uint32_t ch_open_steps[SMSG_CH_NR];
-	struct smsg smsg_send_early_pool[256];
-};
-
 struct smsg_channel {
 	/* wait queue for recv-buffer */
 	wait_queue_head_t	rxwait;
 	struct mutex		rxlock;
-	/* record the runtime status of smsg channel */
-	atomic_t 		busy;
 
 	/* cached msgs for recv */
 	uint32_t		wrptr[1];
@@ -71,6 +62,9 @@ struct smsg_ipc {
 
 	/* all fixed channels receivers */
 	struct smsg_channel	*channels[SMSG_CH_NR];
+
+	/* record the runtime status of smsg channel */
+	atomic_t 		busy[SMSG_CH_NR];
 
 	/* all channel states: 0 unused, 1 opened */
 	uint8_t			states[SMSG_CH_NR];

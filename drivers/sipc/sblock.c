@@ -159,7 +159,7 @@ static int sblock_thread(void *data)
 		/* monitor sblock recv smsg */
 		smsg_set(&mrecv, sblock->channel, 0, 0, 0);
 		rval = smsg_recv(sblock->dst, &mrecv, -1);
-		if (rval == -EIO) {
+		if (rval == -EIO || rval == -ENODEV) {
 		/* channel state is FREE */
 			msleep(5);
 			continue;
