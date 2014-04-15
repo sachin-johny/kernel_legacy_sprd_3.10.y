@@ -2,7 +2,7 @@
 
 static int mmu_reg_write(u32 reg, u32 val, u32 msk)
 {
-	__raw_writel(((*(volatile unsigned int __force   *)(reg)) & ~msk) | val, reg);
+	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
 	return 0;
 }
 
