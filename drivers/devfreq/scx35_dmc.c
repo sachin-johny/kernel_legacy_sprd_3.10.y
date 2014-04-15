@@ -36,13 +36,20 @@
 #define EMC_FREQ_DEEP_SLEEP_SENE        0x03
 #define EMC_FREQ_RESUME_SENE            0x04
 
-
 #define CP2AP_INT_CTRL		(SPRD_IPI_BASE + 0x04)
 #define CP0_AP_MCU_IRQ1_CLR	BIT(2)
 #define CP1_AP_MCU_IRQ1_CLR	BIT(6)
 #define CPT_SHARE_MEM		(CPT_RING_ADDR + 0x880)
 #define CPW_SHARE_MEM		(CPW_RING_ADDR + 0x880)
 
+/*#define DFS_AUTO_TEST*/
+
+#ifdef DFS_AUTO_TEST
+static u32 get_sys_cnt(void)
+{
+	return __raw_readl(SPRD_GPTIMER_BASE + 0x44);
+}
+#endif
 
 extern u32 emc_clk_set(u32 new_clk, u32 sene);
 extern u32 emc_clk_get(void);
@@ -79,9 +86,15 @@ static struct dmc_opp_table scxx30_dmcclk_table[] = {
 	{LV_1, 192000, 1200000, 1600},
 #else
 #ifdef CONFIG_ARCH_SCX35
-	{LV_0, 400000, 1200000, 3200},
+	{LV_0, 464000, 1200000, 3712},
 	{LV_1, 384000, 1200000, 2656},
 	{LV_2, 200000, 1200000, 1600},
+#else
+#ifdef CONFIG_ARCH_SCX30G
+	{LV_0, 400000, 1200000, 3200},
+        {LV_1, 384000, 1200000, 2656},
+        {LV_2, 200000, 1200000, 1600},
+#endif
 #endif
 #endif
 	{0, 0, 0},
@@ -114,6 +127,12 @@ struct dmcfreq_data {
 #define SCXX30_LV_NUM (LV_3)
 #define SCXX30_MAX_FREQ (400000)
 #define SCXX30_MIN_FREQ (200000)
+#else
+#ifdef CONFIG_ARCH_SCX30G
+#define SCXX30_LV_NUM (LV_3)
+#define SCXX30_MAX_FREQ (464000)
+#define SCXX30_MIN_FREQ (200000)
+#endif
 #endif
 #endif
 
@@ -314,6 +333,11 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 	unsigned char cp_req;
 	unsigned long spinlock_flags;
 	unsigned long range = msecs_to_jiffies(SCXX30_POLLING_MS)/5;
+#ifdef DFS_AUTO_TEST
+	u32 start_t1, end_t1;
+	static u32 max_u_time = 0;
+	u32 current_u_time;
+#endif
 
 	if(time_before(jiffies, boot_done)){
 		return 0;
@@ -395,6 +419,9 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
 	spin_lock_irqsave(&data->lock, spinlock_flags);
+#ifdef DFS_AUTO_TEST
+	start_t1 = get_sys_cnt();
+#endif
 #ifdef CONFIG_SMP
 	if (!scxx30_all_nonboot_cpus_died() || data->disabled){
 #else
@@ -415,6 +442,15 @@ static int scxx30_dmc_target(struct device *dev, unsigned long *_freq,
 
 out:
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
+#ifdef DFS_AUTO_TEST
+	end_t1 = get_sys_cnt();
+
+	current_u_time = (start_t1 - end_t1)/128;
+	if(max_u_time < current_u_time) {
+		max_u_time = current_u_time;
+	}
+	printk("**************dfs %s use current = %08u max %08u\n", __func__, current_u_time, max_u_time);
+#endif
 	spin_unlock_irqrestore(&data->lock, spinlock_flags);
 #else
 	spin_unlock(&data->lock);
@@ -516,7 +552,7 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 						 pm_notifier);
 
 	unsigned long flags;
-	printk("*** %s, event:0x%x ***\n", __func__, event );
+	printk("*** %s, event:0x%x, set freq:%d ***\n", __func__, event, SCXX30_MIN_FREQ/1000);
 
 	switch (event) {
 	case PM_SUSPEND_PREPARE:
@@ -536,17 +572,14 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 		data->disabled = true;
 		if(dfs_get_enable())
 		{
-			emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_NORMAL_SWITCH_SENE);        /*nomarl switch to tdpll   SCXX30_MIN_FREQ*/
-			emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_DEEP_SLEEP_SENE);           /*deep sleep to dpll   SCXX30_MIN_FREQ*/
+			emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_NORMAL_SWITCH_SENE);        /*nomarl switch to tdpll   SCXX30_MIN_FREQ/1000*/
+			emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_DEEP_SLEEP_SENE);           /*deep sleep to dpll   SCXX30_MIN_FREQ/1000*/
 		}
 		spin_unlock_irqrestore(&data->lock, flags);
 #else
 		spin_lock(&data->lock);
 		data->disabled = true;
-		if(dfs_get_enable())
-		{
-			emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_NORMAL_SWITCH_SENE);        /*nomarl switch to tdpll   SCXX30_MIN_FREQ*/
-		}
+		emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_NORMAL_SWITCH_SENE);        /*nomarl switch to tdpll   SCXX30_MIN_FREQ/1000*/
 		spin_unlock(&data->lock);
 #endif
 		return NOTIFY_OK;
@@ -564,17 +597,14 @@ static int scxx30_dmcfreq_pm_notifier(struct notifier_block *this,
 #endif
 		if(dfs_get_enable())
 		{
-			emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_RESUME_SENE);               /*resume dpll -- tdpll SCXX30_MIN_FREQ*/
+			emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_RESUME_SENE);               /*resume dpll -- tdpll SCXX30_MIN_FREQ*/
 		}
                 data->disabled = false;
 		spin_unlock_irqrestore(&data->lock, flags);
 #else
 		spin_lock(&data->lock);
 		/* shark does not care EMC_FREQ_XX_SENE, dolphin only*/
-		if(dfs_get_enable())
-		{
-			emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_RESUME_SENE);               /*resume dpll -- tdpll SCXX30_MIN_FREQ*/
-		}
+		emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_RESUME_SENE);               /*resume dpll -- tdpll SCXX30_MIN_FREQ*/
 		data->disabled = false;
 		spin_unlock(&data->lock);
 #endif
@@ -591,7 +621,7 @@ static void inline scxx30_set_max(struct dmcfreq_data *data)
 
 	spin_lock_irqsave(&data->lock, flags);
 	max = scxx30_max_freq(data);
-	emc_clk_set(max, EMC_FREQ_NORMAL_SWITCH_SENE);
+	emc_clk_set(SCXX30_MAX_FREQ/1000, EMC_FREQ_NORMAL_SWITCH_SENE);
 	spin_unlock_irqrestore(&data->lock, flags);
 
 }
@@ -603,8 +633,8 @@ static void inline scxx30_set_min_deep_sleep(struct dmcfreq_data *data)
 
         spin_lock_irqsave(&data->lock, flags);
         min = scxx30_min_freq(data);
-	emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_NORMAL_SWITCH_SENE);        /*nomarl switch to tdpll   SCXX30_MIN_FREQ*/
-        emc_clk_set(SCXX30_MIN_FREQ, EMC_FREQ_DEEP_SLEEP_SENE);           /*deep sleep to dpll   SCXX30_MIN_FREQ*/
+	emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_NORMAL_SWITCH_SENE);        /*nomarl switch to tdpll   SCXX30_MIN_FREQ/1000*/
+        emc_clk_set(SCXX30_MIN_FREQ/1000, EMC_FREQ_DEEP_SLEEP_SENE);           /*deep sleep to dpll   SCXX30_MIN_FREQ/1000*/
         spin_unlock_irqrestore(&data->lock, flags);
 
 }
