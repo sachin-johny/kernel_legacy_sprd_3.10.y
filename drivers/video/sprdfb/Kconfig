@@ -149,6 +149,12 @@ config FB_LCD_OTM1283A_MIPI
 	boolean "support otm 1283a mipi panel"
 	depends on FB_SC8825 || FB_SCX35
 	default n
+
+config FB_LCD_ILI9806E_MIPI
+	boolean "support ili9806e mipi panel"
+	depends on FB_SC8825 || FB_SCX35
+	default n
+
 config FB_LCD_RESERVE_MEM
         boolean "support FB reserve mem"
         depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G

@@ -20,4 +20,4 @@ obj-$(CONFIG_FB_LCD_OTM1283A_MIPI)  += lcd_otm1283a_mipi.o
 obj-$(CONFIG_FB_LCD_NT35502_MIPI) += lcd_nt35502_mipi.o
 obj-$(CONFIG_FB_LCD_VIVA_RGB_SPI) += lcd_hx8363_rgb_spi_viva.o
 obj-$(CONFIG_FB_LCD_SC7798_RGB_SPI) += lcd_sc7798_rgb_spi.o
-
+obj-$(CONFIG_FB_LCD_ILI9806E_MIPI) += lcd_ili9806e_mipi.o
