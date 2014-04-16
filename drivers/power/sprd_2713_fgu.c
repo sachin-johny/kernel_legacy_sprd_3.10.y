@@ -197,7 +197,12 @@ static int fgu_nv_3600mv = 2460;
 static int fgu_0_cur_adc = 8019;
 #endif
 static int fgu_cal_type = SPRDBAT_FGUADC_CAL_NO;
+
+#if defined(CONFIG_ARCH_SCX15)
 static int battery_internal_impedance = 220;
+#else
+static int battery_internal_impedance = 250;
+#endif
 
 static int pcapacity;
 static int pclbcnt;
@@ -605,8 +610,10 @@ int sprdfgu_avg_current_query(void)
 static void sprdfgu_debug_works(struct work_struct *work)
 {
 	FGU_DEBUG("dump fgu message@start\n");
+#ifndef SPRDFGU_CAPACITY_FROM_VOL
 	FGU_DEBUG("sprdfgu_avg_current_query avg current = %d\n",
 		  sprdfgu_avg_current_query());
+#endif
 	FGU_DEBUG("cur vol = %d\n", sprdfgu_read_vbat_vol());
 
 	FGU_DEBUG("softocv vol = %d\n", sprdfgu_read_vbat_ocv());
@@ -626,8 +633,11 @@ static void sprdfgu_debug_works(struct work_struct *work)
 	//FGU_DEBUG("REG_FGU_LOW_OVER--- = %d\n", sci_adi_read(REG_FGU_LOW_OVER));
 	//FGU_DEBUG("REG_FGU_CONFIG--- = 0x%x\n", sci_adi_read(REG_FGU_CONFIG));
 	//printk("ANA_REG_GLB_MP_MISC_CTRL 0x%x ,0x%x \n", sci_adi_read(ANA_REG_GLB_MP_MISC_CTRL), sci_adi_read(ANA_REG_GLB_DCDC_CTRL2));
+	FGU_DEBUG("fgu_cal_type = %d\n", fgu_cal_type);
+#ifndef SPRDFGU_CAPACITY_FROM_VOL
 	FGU_DEBUG("sprdfgu_read_soc():%d\n", sprdfgu_read_soc());
 	FGU_DEBUG("sprdfgu_read_capacity():%d\n", sprdfgu_read_capacity());
+#endif
 	FGU_DEBUG("dump fgu message@end\n");
 	schedule_delayed_work(&sprdfgu_debug_work, sprdfgu_debug_log_time * HZ);
 }
@@ -828,9 +838,6 @@ static void sprdfgu_hw_init(void)
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_FGU_EN);
 	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_FGU_EN | BIT_RTC_FGUA_EN);
 
-	if (!in_calibration()) {
-		sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
-	}
 #if !defined(CONFIG_ARCH_SCX15)
 	sci_adi_write(REG_FGU_CONFIG, BITS_VOLT_DUTY(3), BITS_VOLT_DUTY(3) | BIT_VOLT_H_VALID);	//mingwei
 #endif
@@ -844,13 +851,23 @@ static void sprdfgu_hw_init(void)
 	start_time = sci_syst_read();
 
 //#if !defined(CONFIG_ARCH_SCX15)
-	pcapacity = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
+	{
+		uint32_t soft_ocv = sprdfgu_read_vbat_vol() -
+                            (sprdfgu_adc2cur_ma(current_raw - CUR_0ma_IDEA_ADC + cur_offset) * battery_internal_impedance) /
+                           1000;
+		pcapacity = sprdfgu_vol2capacity(soft_ocv);
+	}
+	//pcapacity = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
 //#else
 //	pcapacity = sprdfgu_vol2capacity(sprdfgu_adc2vol_mv(pocv_raw)+SPRDFGU_POCV_VOL_ADJUST);
 //#endif
 
 	pclbcnt = init_clbcnt = sprdfgu_clbcnt_init(pcapacity);
 	sprdfgu_clbcnt_set(init_clbcnt);
+
+	if (!in_calibration()) {
+		sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
+	}
 
 	FGU_DEBUG("pocv_raw = 0x%x,pocv_voltage = %d\n", pocv_raw,
 		  sprdfgu_adc2vol_mv(pocv_raw));
