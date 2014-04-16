@@ -1419,9 +1419,9 @@ void active_fifo_rx_frame_pointer(UWORD8 q_num)
 {
 	UWORD32 regAddr, temp[2];
 	WORD8 fifo_depth = 3;
-	//UWORD32 ptr;
-	//rx_queue_handle *rx_handle = g_rx_handle;
-	//rx_queue_struct *rx_ctrl = &rx_handle->rx_q_info[q_num];	
+	UWORD32 ptr;
+	rx_queue_handle *rx_handle = g_rx_handle;
+	rx_queue_struct *rx_ctrl = &rx_handle->rx_q_info[q_num];	
 
 	TROUT_FUNC_ENTER;
 	
@@ -1740,7 +1740,7 @@ static UWORD32 transact_host_rx_queue(UWORD32 *base_dscr, UWORD8 num_dscr)
 {
 	trout_rx_mem_struct *tmp_dscr;
 	UWORD32 dscr_buf, prev_dscr, next_dscr;
-	UWORD32 *dscr_addr;
+	UWORD32 *dscr_addr, *pt, pc, pn;
 	UWORD8 i;
 
 	tmp_dscr = (trout_rx_mem_struct *)base_dscr;
@@ -1761,9 +1761,9 @@ static UWORD32 transact_host_rx_queue(UWORD32 *base_dscr, UWORD8 num_dscr)
 		else
 			prev_dscr = (UWORD32)tmp_dscr[i-1].trout_rx_dscr;
 
-		set_host_rxds_buffer_ptr(dscr_addr, (UWORD32 *)dscr_buf);
-		set_host_rxds_next_dscr(dscr_addr, (UWORD32 *)next_dscr);
-		set_host_rxds_prev_dscr(dscr_addr, (UWORD32 *)prev_dscr);
+		set_host_rxds_buffer_ptr(dscr_addr, dscr_buf);
+		set_host_rxds_next_dscr(dscr_addr, next_dscr);
+		set_host_rxds_prev_dscr(dscr_addr, prev_dscr);
 	}
 
 	return (UWORD32)dscr_addr;
@@ -1810,10 +1810,8 @@ void do_rx_preprocess(rx_queue_struct *rx_ctrl)
 	    host_rx_mem_addr = find_free_dscr_from_queue(rx_ctrl, cur_num);
 	    if(host_rx_mem_addr == NULL)
 	    {
-#ifndef TROUT_WIFI_NPI
 			TROUT_RX_DBG3("Warning: no free node, pkt droped(%d:%d) --pri:%d!\n", 
                                         	cur_num, rx_ctrl->left_dscr_num, rx_ctrl->queue_pri);
-#endif
 #ifdef DEBUG_MODE
 			if(rx_ctrl->queue_pri == NORMAL_PRI_RXQ)
 			{
@@ -1904,8 +1902,8 @@ void do_rx_preprocess(rx_queue_struct *rx_ctrl)
         /* should skip first cycle time 										   */
         if(count != 0)
         {
-			set_host_rxds_next_dscr((UWORD32 *)last_dscr_addr, (UWORD32 *)host_rx_mem_addr);
-			set_host_rxds_prev_dscr((UWORD32 *)host_rx_mem_addr, (UWORD32 *)last_dscr_addr);	
+			set_host_rxds_next_dscr((UWORD32 *)last_dscr_addr, (UWORD32)host_rx_mem_addr);
+			set_host_rxds_prev_dscr((UWORD32 *)host_rx_mem_addr, last_dscr_addr);	
         }
 
 		if(wlan_rx == NULL)
@@ -1913,9 +1911,7 @@ void do_rx_preprocess(rx_queue_struct *rx_ctrl)
 			wlan_rx = (wlan_rx_event_msg_t *)event_mem_alloc(WLAN_RX_EVENT_QID);
 			if(wlan_rx == NULL)
 			{
-#ifndef TROUT_WIFI_NPI
 				TROUT_RX_DBG4("alloc wlan_rx event failed!\n");
-#endif
 				//event_buf_detail_show(WLAN_RX_EVENT_QID);	//debug.
 				free_host_rx_dscr_list((UWORD32 *)host_rx_mem_addr, cur_num);
 #ifdef DEBUG_MODE
@@ -1979,6 +1975,9 @@ static void rx_complete_work(struct work_struct *work)
 	rx_queue_struct *rx_ctrl = container_of(work, rx_queue_struct, work);
 	rx_int_info *rx_info, *tmp;
 
+	if( reset_mac_trylock() == 0 ){
+		return;
+	}
 	mutex_lock(&rx_ctrl->rx_mutex_lock);
 	list_for_each_entry_safe(rx_info, tmp, &rx_ctrl->rx_list, list)
 	{		
@@ -2001,6 +2000,7 @@ static void rx_complete_work(struct work_struct *work)
 		}
 	}
 	mutex_unlock(&rx_ctrl->rx_mutex_lock);
+	reset_mac_unlock();
 }
 
 

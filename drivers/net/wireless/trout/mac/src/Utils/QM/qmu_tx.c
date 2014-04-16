@@ -46,7 +46,6 @@
 
 #include "qmu_tx.h"
 #include "runmode.h"
-#include "ccache.h"
 
 extern void tx_complete_isr(void);
 
@@ -1089,9 +1088,10 @@ void print_slot_info(struct trout_tx_shareram *txp)	//debug.
 /* add a mutex to make sure no race condiction to start TX, by zhao */
 int tx_shareram_wq_mount(void)
 {
-    int num = 0;
+    int i, num = 0;
     struct trout_tx_shareram *ptr = NULL;
 
+#if 1
     mutex_lock(&g_q_handle.tx_handle.hwtx_mutex);
 
 	ptr = select_next_slot();
@@ -1100,31 +1100,78 @@ int tx_shareram_wq_mount(void)
 		UWORD32 tmp32[3];
 		tmp32[2] = ptr->begin;
 		
+		#ifdef IBSS_BSS_STATION_MODE
+		//chenq add for auto set tx rx power 2013-07-29
+		#ifdef TROUT2_WIFI_IC
+			//set_tx_pwr_from_self_adaptive();
+			//auto_set_tx_rx_power();
+		#endif
+		#endif
+		//chenq add end
 		hw_txq_busy |= 1UL << (ptr->q_num & 0x7);
 		ptr->state = TX_SHARERAM_BUSY;
 #ifdef IBSS_BSS_STATION_MODE	
 		if(!g_wifi_bt_coex)
 #endif	/* IBSS_BSS_STATION_MODE */
 		{
-			//TROUT_DBG4("[%s] wifi only tx\n", __FUNCTION__);
 			modify_tsf(ptr, ptr->pkt_num);
 			host_write_trout_reg(convert_to_le(virt_to_phy_addr((UWORD32)ptr->begin)), 
 									(UWORD32)(g_qif_table[ptr->q_num].addr));
+			//printk("mtpkt%d:%d\n", ptr->id, ptr->pkt_num);
+
 		}
 #ifdef IBSS_BSS_STATION_MODE	
 		/* This info is used for WiFi & BT coexist */	
 		host_write_trout_ram(tx_shareram[0].slot_info, (void *)&tmp32[2], sizeof(UWORD32));
-
-
 #endif	/* IBSS_BSS_STATION_MODE */
 
 		slot_mount_nr[ptr->id]++;
 		g_q_handle.tx_handle.tx_curr_qnum = ptr->q_num;
 		g_q_handle.tx_handle.cur_slot = ((unsigned char *)ptr - (unsigned char *)&tx_shareram[0]) / sizeof(struct trout_tx_shareram);
-	}
 
+		//printk("mount slot%d, st=%d, pkt=%d, hwbusy=%d\n", ptr->id, ptr->state, ptr->pkt_num, hw_txq_busy);
+	}
+    mutex_unlock(&g_q_handle.tx_handle.hwtx_mutex);
+
+#else
+    for(i=0; i<TX_SHARERAM_SLOTS; i++)
+    {
+        ptr = &tx_shareram[i];
+        mutex_lock(&g_q_handle.tx_handle.hwtx_mutex);
+	//critical_section_start1();
+        if(ptr->state == TX_SHARERAM_IDLE)
+        {
+            num++;
         	mutex_unlock(&g_q_handle.tx_handle.hwtx_mutex);
+            //critical_section_end1();
+            continue;
+        }
         
+		/* by zhao */
+        if((ptr->state == TX_SHARERAM_READY) 
+		&& !hw_txq_busy){
+/*            printk("mout: slot=%d, begin = 0x%x, pkt_num=%d, q_num = %d\n",
+                   i,
+                   ptr->begin,
+                   ptr->pkt_num,
+                   ptr->q_num
+                  );
+*/            
+            hw_txq_busy |= 1UL << (ptr->q_num & 0x1F);
+            ptr->state = TX_SHARERAM_BUSY;
+	    modify_tsf(ptr, ptr->pkt_num);
+            //critical_section_end1();
+            host_write_trout_reg(convert_to_le(virt_to_phy_addr((UWORD32)ptr->begin)), 
+                                                (UWORD32)(g_qif_table[ptr->q_num].addr));
+            slot_mount_nr[ptr->id]++;
+        }
+        else
+        {
+            //critical_section_end1();
+        }
+        mutex_unlock(&g_q_handle.tx_handle.hwtx_mutex);
+    }
+#endif
     return num;
 }
 
@@ -1229,14 +1276,12 @@ struct npi_send_unit{
 	UWORD32 npi_trout_descr ;
 };
 
-static struct npi_send_unit npi_send[2*NPI_TX_PKT_NUM];
-int npi_send_unit_count = 0;
+static struct npi_send_unit npi_send[20];
+static int npi_send_unit_count = 0;
 struct trout_tx_shareram copy_ttr[2];  //two slot for NPI transfer
 UWORD32 npi_addr[2];    //Queue start address inside trout
 int copy_q_num = -1;
 int transfer_q_num = -1;
-UWORD32 normal_q_count = 0;
-UWORD32 high_q_count = 0;
 
 UWORD8 *  npi_update_pkt(UWORD8 * tx_descr);
 void qmu_cpy_npi_descr(int q_num)
@@ -1257,7 +1302,7 @@ void qmu_cpy_npi_descr(int q_num)
         }
        else if(q_num == HIGH_PRI_Q)
        {
-        	for(i=NPI_TX_PKT_NUM; i<(NPI_TX_PKT_NUM*2) /*npi_send_unit_count*/; i++){
+        	for(i=NPI_TX_PKT_NUM; i<npi_send_unit_count; i++){
 		memcpy(tx_buf, npi_send[i].copy_tx_descr, TX_DSCR_BUFF_SZ);
 		npi_update_pkt(tx_buf);
 	      ret = host_write_trout_ram((void *)npi_send[i].npi_trout_descr, tx_buf, TX_DSCR_BUFF_SZ);
@@ -1298,16 +1343,15 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
     UWORD32 host_prev_descr = 0;
 	UWORD8 *sbuf = NULL, *pcur = NULL, *pbak = NULL;
 #endif	/* TX_PKT_USE_DMA */
-	UWORD32 count = 0;
+	UWORD32 count = 0, tsf_lo = 0;
+	struct timespec time;
+	static UWORD32 stime = 0;
+	UWORD32 etime;
     struct trout_tx_shareram *tx_shareram_ptr, *tts = NULL;
 
 	//chwg debug
 	misc_event_msg_t *misc = NULL;
 	UWORD32 host_base_dscr = 0;
-	struct timespec time;
-    	UWORD32 tsf_lo = 0;
-       static UWORD32 stime = 0;
-       UWORD32 etime;
 
 	/* if tx_barrier is set, no packet can be copy to trout ram by zhao */
 	//Comment by zhao.zhang
@@ -1491,10 +1535,10 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
            		
 				/* by zhao */
 			if(gsb->tx_start != NULL){
-				//dma_map_single(NULL, (void *)descr, descr_len, DMA_TO_DEVICE);
+				dma_map_single(NULL, (void *)descr, descr_len, DMA_TO_DEVICE);
 				//tx_dscr_check(descr);
 				host_write_trout_ram((void *)trout_descr, descr, descr_len);    //descr+sub-msdu table.
-				//dma_map_single(NULL, (void *)buff_ptr, data_len, DMA_TO_DEVICE);
+				dma_map_single(NULL, (void *)buff_ptr, data_len, DMA_TO_DEVICE);
 				host_write_trout_ram((void *)trout_buf, buff_ptr, data_len);
 			}else{
 	#ifdef SYS_RAM_256M
@@ -1582,7 +1626,7 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 #else
 
 			if(gsb->tx_start != NULL){
-				//dma_map_single(NULL, (void *)sub_msdu_info,  nr * SUB_MSDU_ENTRY_LEN, DMA_TO_DEVICE);
+				dma_map_single(NULL, (void *)sub_msdu_info,  nr * SUB_MSDU_ENTRY_LEN, DMA_TO_DEVICE);
 				host_write_trout_ram((void *)trout_sub_msdu_table, 
 					(void *)sub_msdu_info, nr * SUB_MSDU_ENTRY_LEN);
 			}else{
@@ -1621,12 +1665,12 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 		}
 
 #ifdef TROUT_WIFI_NPI
-        if(npi_send_unit_count<(2*NPI_TX_PKT_NUM))
+        if(npi_send_unit_count<20)
         {
             memcpy(npi_send[npi_send_unit_count].copy_tx_descr,descr,TX_DSCR_BUFF_SZ);
     		//memcpy(copy_tx_descr, descr, TX_DSCR_BUFF_SZ);
     		npi_send[npi_send_unit_count].npi_trout_descr =  trout_descr;
-              printk("%s: npi_send_unit_count=%d, copy_tx_desc=%p, npi_trout_desc=%d.\n", __func__, 
+              printk("%s: npi_send_unit_count=%d, copy_tx_desc=%lu, npi_trout_desc=%lu.\n", __func__, 
                     npi_send_unit_count, npi_send[npi_send_unit_count].copy_tx_descr, npi_send[npi_send_unit_count].npi_trout_descr);
     		npi_send_unit_count++;
         }
@@ -1676,6 +1720,15 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 #endif
 		UWORD32 tmp32[3];
 		tmp32[2] = tts->begin;
+		
+		#ifdef IBSS_BSS_STATION_MODE
+		//chenq add for auto set tx rx power 2013-07-29
+		#ifdef TROUT2_WIFI_IC 
+			//set_tx_pwr_from_self_adaptive();
+		//auto_set_tx_rx_power();
+		#endif
+		#endif
+		//chenq add end
         tts->state = TX_SHARERAM_BUSY;
         hw_txq_busy |= 1UL << (tts->q_num & 0x7);
 #ifdef IBSS_BSS_STATION_MODE
@@ -1687,7 +1740,7 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 #ifdef TROUT_WIFI_NPI
                 npi_addr[q_num] = (UWORD32)(g_qif_table[tts->q_num].addr);
                 memcpy(&copy_ttr[q_num],tts,sizeof(copy_ttr[q_num]));
-                printk("%s: q_num=%d, tts->q_num=%d, npi_addr[q_num]=%d,  copy_ttr[q_num].begin=%d.\n", __func__, 
+                printk("%s: q_num=%d, tts->q_num=%d, npi_addr[q_num]=%lu,  copy_ttr[q_num].begin=%lu.\n", __func__, 
                         q_num, tts->q_num, npi_addr[q_num], copy_ttr[q_num].begin);
                 
                 //yangke, 2013-10-16, only the first time copy description to trout the same time is transmtting 
@@ -1772,25 +1825,20 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
     buffer_desc_t buff_list;
     UWORD8 sub_msdu_table[MAX_SUB_MSDU_TABLE_ENTRIES * SUB_MSDU_ENTRY_LEN];
     UWORD8 *sub_buff_ptr;
-    pccache_t cache = NULL;
 #ifdef TX_PKT_USE_DMA
     UWORD32 host_prev_descr = 0;
 	UWORD8 *sbuf = NULL, *pcur = NULL, *pbak = NULL;
 #endif	/* TX_PKT_USE_DMA */
-	UWORD32 count = 0;
+	UWORD32 count = 0, tsf_lo = 0;
+	struct timespec time;
+	static UWORD32 stime = 0;
+	UWORD32 etime;
     struct trout_tx_shareram *tx_shareram_ptr, *tts = NULL;
 
 	//chwg debug
-	//misc_event_msg_t *misc = NULL;
+	misc_event_msg_t *misc = NULL;
 	UWORD32 host_base_dscr = 0;
 
-    #ifdef TX_PKT_USE_DMA
-    UWORD32 tsf_lo = 0;
-    struct timespec time;
-	static UWORD32 stime = 0;
-	UWORD32 etime;
-    #endif
-    
 	/* if tx_barrier is set, no packet can be copy to trout ram by zhao */
 	//Comment by zhao.zhang
 	//if(tx_barrier)
@@ -1828,19 +1876,12 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 
 	g_trout_last_tx_dscr = 0;
 
-    cache = ccache_create(tx_shareram_ptr->begin, tx_shareram_ptr->end-tx_shareram_ptr->begin);
-    if(cache == NULL){
-	TROUT_TX_DBG3("%s: ccache_create failed.\n", __FUNCTION__);
-	tx_shareram_slot_free(q_num);
-	return ret;
-    }
     trout_descr = tx_shareram_ptr->begin;
     trout_prev_descr = trout_descr;
 
 #ifdef TX_PKT_USE_DMA
 	mutex_lock(&g_tx_dma_handle.tx_dma_lock);
 #endif	/* TX_PKT_USE_DMA */
-
 	while(descr != NULL)
     {
         sub_msdu_info = get_tx_dscr_submsdu_info(descr);
@@ -1878,7 +1919,7 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
             	
 #else                
                 temp32[2] = 0;
-                ccache_write(cache,(UWORD32 *)trout_prev_descr + TX_DSCR_NEXT_ADDR_WORD_OFFSET,
+                host_write_trout_ram((UWORD32 *)trout_prev_descr + TX_DSCR_NEXT_ADDR_WORD_OFFSET,
                                       &temp32[2], 4);
 #endif	/* TX_PKT_USE_DMA */                
             }
@@ -1910,7 +1951,6 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
                 tx_shareram_slot_free(q_num);
                 printk("%s: exit4\n", __FUNCTION__);
 				TROUT_FUNC_EXIT;
-				ccache_destry(cache);
 				return ret;
 			}
 
@@ -1943,19 +1983,18 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 #else
 				/* by zhao */
 			if(gsb->tx_start != NULL){
-				//dma_map_single(NULL, (void *)descr, descr_len, DMA_TO_DEVICE);
+				dma_map_single(NULL, (void *)descr, descr_len, DMA_TO_DEVICE);
 				//tx_dscr_check(descr);
-				ccache_write(cache,(void *)trout_descr, descr, descr_len);    //descr+sub-msdu table.
-				//dma_map_single(NULL, (void *)buff_ptr, data_len, DMA_TO_DEVICE);
-				ccache_write(cache,(void *)trout_buf, buff_ptr, data_len);
+				host_write_trout_ram((void *)trout_descr, descr, descr_len);    //descr+sub-msdu table.
+				dma_map_single(NULL, (void *)buff_ptr, data_len, DMA_TO_DEVICE);
+				host_write_trout_ram((void *)trout_buf, buff_ptr, data_len);
 			}else{
 	#ifdef SYS_RAM_256M
 				dma_vmalloc_data((void *)trout_descr, descr, descr_len);
 				dma_vmalloc_data((void *)trout_buf, buff_ptr, data_len);
 	#else
-				ccache_write(cache,(void *)trout_descr, descr, descr_len);    //descr+sub-msdu table.
-				ccache_write(cache,(void *)trout_buf, buff_ptr, data_len);
-				
+				host_write_trout_ram((void *)trout_descr, descr, descr_len);    //descr+sub-msdu table.
+				host_write_trout_ram((void *)trout_buf, buff_ptr, data_len);
 	#endif
 			}
 #endif	/* TX_PKT_USE_DMA */
@@ -1988,13 +2027,13 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 #else
 				
 			if(gsb->tx_start != NULL){
-				//dma_map_single(NULL, (void *)sub_buff_ptr, sub_buff_len, DMA_TO_DEVICE);
-				ccache_write(cache,(void *)buff_list.buff_hdl, (void *)sub_buff_ptr, sub_buff_len);
+				dma_map_single(NULL, (void *)sub_buff_ptr, sub_buff_len, DMA_TO_DEVICE);
+				host_write_trout_ram((void *)buff_list.buff_hdl, (void *)sub_buff_ptr, sub_buff_len);
 			}else{
 		#ifdef SYS_RAM_256M
 				dma_vmalloc_data((void *)buff_list.buff_hdl, sub_buff_ptr,  sub_buff_len);
 		#else
-				ccache_write(cache,(void *)buff_list.buff_hdl, (void *)sub_buff_ptr, sub_buff_len);
+				host_write_trout_ram((void *)buff_list.buff_hdl, (void *)sub_buff_ptr, sub_buff_len);
 		#endif
 			}
 #endif	/* TX_PKT_USE_DMA */
@@ -2035,14 +2074,14 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 #else
 
 			if(gsb->tx_start != NULL){
-				//dma_map_single(NULL, (void *)sub_msdu_info,  nr * SUB_MSDU_ENTRY_LEN, DMA_TO_DEVICE);
-				ccache_write(cache,(void *)trout_sub_msdu_table, 
+				dma_map_single(NULL, (void *)sub_msdu_info,  nr * SUB_MSDU_ENTRY_LEN, DMA_TO_DEVICE);
+				host_write_trout_ram((void *)trout_sub_msdu_table, 
 					(void *)sub_msdu_info, nr * SUB_MSDU_ENTRY_LEN);
 			}else{
 	#ifdef SYS_RAM_256M
 				dma_vmalloc_data((void *)trout_sub_msdu_table, (void *)sub_msdu_info, nr * SUB_MSDU_ENTRY_LEN);
 	#else
-				ccache_write(cache,(void *)trout_sub_msdu_table, 
+				host_write_trout_ram((void *)trout_sub_msdu_table, 
 					(void *)sub_msdu_info, nr * SUB_MSDU_ENTRY_LEN);
 	#endif
 			}
@@ -2058,27 +2097,24 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 			pcur = pbak;	//get the last length!!!
 #else
 			if(gsb->tx_start != NULL){
-				//dma_map_single(NULL, (void *)descr,  TX_DSCR_LEN, DMA_TO_DEVICE);
-				ret = ccache_write(cache,(void *)trout_descr, descr, TX_DSCR_LEN);
+				dma_map_single(NULL, (void *)descr,  TX_DSCR_LEN, DMA_TO_DEVICE);
+				ret = host_write_trout_ram((void *)trout_descr, descr, TX_DSCR_LEN);
 			}else{
 	#ifdef SYS_RAM_256M
 				ret = dma_vmalloc_data((void *)trout_descr, descr, TX_DSCR_LEN);
 	#else
-				ret = ccache_write(cache,(void *)trout_descr, descr, TX_DSCR_LEN);
-				//cache_write_flash();
+				ret = host_write_trout_ram((void *)trout_descr, descr, TX_DSCR_LEN);
 	#endif
 			}
 #endif			
 		}
 
 #ifdef TROUT_WIFI_NPI
-        if(npi_send_unit_count<(2*NPI_TX_PKT_NUM))
+        if(npi_send_unit_count<20)
         {
             memcpy(npi_send[npi_send_unit_count].copy_tx_descr,descr,TX_DSCR_BUFF_SZ);
     		//memcpy(copy_tx_descr, descr, TX_DSCR_BUFF_SZ);
     		npi_send[npi_send_unit_count].npi_trout_descr =  trout_descr;
-              printk("%s: npi_send_unit_count=%d, copy_tx_desc=%p, npi_trout_desc=%d.\n", __func__, 
-                    npi_send_unit_count, npi_send[npi_send_unit_count].copy_tx_descr, npi_send[npi_send_unit_count].npi_trout_descr);
     		npi_send_unit_count++;
         }
 #endif
@@ -2094,7 +2130,6 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 		
 		//printk("chwg: host_dscr=0x%p, nr=%d\n", descr, nr);
 		//printk("c_desc:0x%x, n_desc:0x%x\n", trout_descr, trout_next_descr);
-
 		count++;
 		tx_shareram_ptr->desc_addr[tx_shareram_ptr->pkt_num] = trout_descr;
 		tx_shareram_ptr->pkt_num++;
@@ -2103,10 +2138,6 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
         descr = (UWORD32 *)next_descr;
 	}
 
-	//cache_write_flash();
-	ccache_destry(cache);
-	cache = NULL;
-	
 	if(tx_shareram_ptr->pkt_num < TX_MAX_PKT_PER_SLOT)
         {
 	        tx_shareram_ptr->desc_addr[tx_shareram_ptr->pkt_num] = trout_next_descr;
@@ -2135,12 +2166,9 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
     {
         tx_shareram_ptr->state = TX_SHARERAM_READY;
 		mutex_lock(&g_q_handle.tx_handle.hwtx_mutex);
-#ifndef TROUT_WIFI_NPI
 	if(!hw_txq_busy && (tts = select_next_slot())){
-		#endif
 		UWORD32 tmp32[3];
 		tmp32[2] = tts->begin;
-		
 		#ifdef IBSS_BSS_STATION_MODE
 		//chenq add for auto set tx rx power 2013-07-29
 		#ifdef TROUT2_WIFI_IC 
@@ -2156,26 +2184,14 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 			if(!g_wifi_bt_coex)
 #endif	/* IBSS_BSS_STATION_MODE */
 			{
-#ifdef TROUT_WIFI_NPI
-                npi_addr[q_num] = (UWORD32)(g_qif_table[tts->q_num].addr);
-                memcpy(&copy_ttr[q_num],tts,sizeof(copy_ttr[q_num]));
-                printk("%s: q_num=%d, tts->q_num=%d, npi_addr[q_num]=%d,  copy_ttr[q_num].begin=%d.\n", __func__, 
-                        q_num, tts->q_num, npi_addr[q_num], copy_ttr[q_num].begin);
-                
-                //yangke, 2013-10-16, only the first time copy description to trout the same time is transmtting 
-                if(q_num == HIGH_PRI_Q){
-                    printk("%s: prepare to cpy NORMAL priority queue to trout\n", __func__);
-                    qmu_cpy_npi_descr(NORMAL_PRI_Q);
-                    //copy_q_num = NORMAL_PRI_Q;
-                }
-#endif
 				host_write_trout_reg(convert_to_le(virt_to_phy_addr((UWORD32)tts->begin)), 
 						      					(UWORD32)(g_qif_table[tts->q_num].addr));
 
 				//printk("tpkt:%d, %d\n", tts->id, tts->pkt_num);
 
 #ifdef TROUT_WIFI_NPI
-                transfer_q_num = HIGH_PRI_Q;
+				npi_addr = (UWORD32)(g_qif_table[tts->q_num].addr);
+			    memcpy(&copy_ttr,tts,sizeof(copy_ttr));
 #endif
 			}
 
@@ -2187,9 +2203,7 @@ int qmu_cpy_to_trout_new(UWORD32 q_num, int call_flag)
 	        slot_mount_nr[tts->id]++;
 		    g_q_handle.tx_handle.tx_curr_qnum = tts->q_num;
 		    g_q_handle.tx_handle.cur_slot = ((unsigned char *)tts - (unsigned char *)&tx_shareram[0]) / sizeof(struct trout_tx_shareram);
-#ifndef TROUT_WIFI_NPI
 		}
-#endif
 		//else
 		//	printk(" but hw busy:%d!\n", hw_txq_busy);
 		
@@ -2264,16 +2278,15 @@ UWORD8  tx_pkt_process(UWORD8 slot, int call_flag,UWORD32 **dscr_base)
 	struct trout_tx_shareram *tx_sram_ptr = &tx_shareram[slot];
 	UWORD32 h_dscr[TX_DSCR_LEN/4];
 	UWORD32 mac_head_len;
-	UWORD8 *trout_mac_head_addr, *host_mac_head_addr;
-       //UWORD8 *pcontent;
-	//UWORD16 frame_len;
-    
+	UWORD8 *trout_mac_head_addr, *host_mac_head_addr, *pcontent;
+	UWORD16 frame_len;
+	
     TROUT_FUNC_ENTER;
     
 	num_tx_dscr = 0;
 	trout_descr = tx_sram_ptr->curr;
 
-	while(trout_descr >= tx_sram_ptr->begin && trout_descr < tx_sram_ptr->end){
+	while(trout_descr >= tx_sram_ptr->begin && trout_descr < tx_sram_ptr->end){		
         memset(h_dscr, 0, TX_DSCR_LEN);
 		host_read_trout_ram((UWORD8 *)h_dscr, (UWORD8 *)trout_descr, sizeof(h_dscr));	//DMA!
 		status = get_tx_dscr_status(h_dscr);
@@ -2298,12 +2311,6 @@ UWORD8  tx_pkt_process(UWORD8 slot, int call_flag,UWORD32 **dscr_base)
 #ifdef WIFI_SLEEP_POLICY
 		if((null_frame_dscr != NULL) && ((UWORD32)null_frame_dscr != 0x1) && (tx_dscr == null_frame_dscr))
 		{
-			if(!waitqueue_active(&null_frame_completion.wait))
-			{
-				printk("==== %s: send again 10ms ==== \n", __func__);
-				msleep(10);
-			}
-
 			if(waitqueue_active(&null_frame_completion.wait))
 			{
 				if(status != TX_TIMEOUT
@@ -2437,7 +2444,7 @@ void tx_pkt_process_new_smp(UWORD8 slot, int call_flag)	//cur use.
 
 void tx_pkt_process_new(UWORD8 slot, int call_flag)
 {
-	//int mode = trout_get_runmode();
+	int mode = trout_get_runmode();
 	tx_pkt_process_new_smp(slot,call_flag);
 }
 
@@ -2481,31 +2488,6 @@ void trout_load_qmu(void)
     TROUT_FUNC_EXIT;
 }
 
-void _trout_load_qmu(void)
-{
-    WORD32 i;
-    qmu_tx_handle_t *tx_handle = &g_q_handle.tx_handle;
-    WORD32 q_nr = get_no_tx_queues();
-
-	TROUT_FUNC_ENTER;
-    for(i=0; i<q_nr; i++)
-    {
-        mutex_lock(&g_q_handle.tx_handle.txq_lock);
-        if(tx_handle->tx_header[i].element_to_load != NULL
-            && (tx_handle->tx_header[i].q_status != Q_SUSPENDED) && (HW_TXQ_ALL_IDLE()))
-        {
-        	TX_PATH_DBG("%s: reload pkt, qnum=%d\n", __func__, i);
-            if(qmu_cpy_to_trout_new(i, TX_ISR_CALL) == 0)
-            {
-                mutex_unlock(&g_q_handle.tx_handle.txq_lock);
-                break;
-            }
-        }
-        mutex_unlock(&g_q_handle.tx_handle.txq_lock); 
-    }
-    
-    TROUT_FUNC_EXIT;
-}
 
 /*****************************************************************************/
 /*                                                                           */
@@ -2587,12 +2569,6 @@ UWORD8 qmu_add_tx_packet(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD8 *tx_ds
     (UWORD32) get_tx_dscr_num_submsdu((UWORD32 *)tx_dscr);
 #endif /* MEASURE_PROCESSING_DELAY */
 
-	if(get_tx_dscr_status((UWORD32*)dscr) != PENDING)
-	{
-		TROUT_DBG3("%s:BUG! Tx status is not pending!\n", __func__);
-		return QMU_Q_INACTIVE;
-	}
-
 #ifdef IBSS_BSS_STATION_MODE
     if(BTRUE == g_wifi_bt_coex){
         coex_wifi_tx_rx_pkg_sum(COEX_WIFI_TX_PKG, 1);
@@ -2601,6 +2577,11 @@ UWORD8 qmu_add_tx_packet(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD8 *tx_ds
     /* Reset the next address in the transmit descriptor */
     set_tx_dscr_next_addr((UWORD32 *)dscr, 0);
 
+	if(get_tx_dscr_status((UWORD32*)dscr) != PENDING)
+	{
+		TROUT_DBG3("%s:BUG! Tx status is not pending!\n", __func__);
+		return QMU_Q_INACTIVE;
+	}
 	
     /* Critical section beginning */
     //critical_section_start();
@@ -2656,6 +2637,7 @@ UWORD8 qmu_add_tx_packet(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD8 *tx_ds
     return QMU_OK;
 }
 
+#ifdef TROUT_WIFI_NPI
 UWORD8 qmu_add_tx_packet_no_send(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD8 *tx_dscr)
 {
     UWORD8     *dscr        = 0;
@@ -2729,7 +2711,7 @@ UWORD8 qmu_add_tx_packet_no_send(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD
     tx_handle->tx_list_count++;
 
 	qnum = g_q_handle.tx_handle.tx_curr_qnum;
-
+	
     /* If there are no packets in the current queue, update the head pointer */
     /* of the queue with the new packet descriptor.                          */
     if(q_tx_struct->element_head == NULL)
@@ -2759,7 +2741,7 @@ UWORD8 qmu_add_tx_packet_no_send(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD
 	TROUT_FUNC_EXIT;
     return QMU_OK;
 }
-
+#endif
 
 
 /*****************************************************************************/

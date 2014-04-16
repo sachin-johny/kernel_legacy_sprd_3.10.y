@@ -1329,7 +1329,7 @@ void parse_config_message(mac_struct_t *mac, UWORD8* host_req,
     {
         UWORD8  *write_rsp = 0;
         UWORD8  *rsp_buff  = 0;
-        //struct trout_private *tp;
+		struct trout_private *tp;
 
         /* Check if any protocol disallows processing of this write request   */
         if(BFALSE == process_wid_write_prot((host_req + MSG_DATA_OFFSET),
@@ -3166,9 +3166,9 @@ WORD32 merge_ap_list (void)
 	//sprd_nstime_get(&time);
 	getnstimeofday(&time);
 	now = (UWORD32)time.tv_sec;
-
+	
 	//begin modified by junwei.jiang 20121231 
-        sbss_pre = NULL;
+    sbss_pre = NULL;
 	sbss=g_user_getscan_aplist;
 	while( sbss != NULL )
 	{	
@@ -3393,8 +3393,7 @@ WORD32 merge_ap_list (void)
 						sbss = sbss_pre->bss_next;
 					}
 					printk("g_combo_aplist detele with j %d ssid:%s\n",j,g_combo_aplist[j].ssid);
-					/*yiming.li modify for CR 247628. 20131130*/
-                                        g_link_list_bss_count--;
+					g_link_list_bss_count--;
 					continue;
 				}
 				sbss_pre = sbss;		
@@ -3451,7 +3450,7 @@ WORD32 merge_ap_list (void)
 	}
 	#endif
 	//end modified by junwei.jiang 20121231
-
+	
 	g_merge_aplist_flag = 0;
 	TROUT_DBG5("merge is complete\n");
 
@@ -3753,7 +3752,11 @@ void send_mac_status(UWORD8 mac_status)
             #endif
 			netif_carrier_on(g_mac_dev);
 
+                        #ifdef IBSS_BSS_STATION_MODE
+			//add by chengwg for bt&wifi coex.
+			TROUT_DBG5("======%s: notify arm7 connected=====\n", __func__);
 			host_notify_arm7_connect_status(BTRUE);
+			#endif /* IBSS_BSS_STATION_MODE */
 			/*leon liu added CFG80211 reporting connected event and bssid,assoc request and response*/
 			#ifdef CONFIG_CFG80211
 			//cfg80211_connect_result() will handle NULL pointers
@@ -3821,8 +3824,13 @@ void send_mac_status(UWORD8 mac_status)
 				TROUT_DBG4("=>chenq send_mac_status: Disconnected\n");
 			}
 
+#ifdef IBSS_BSS_STATION_MODE
+			//add by chengwg for bt&wifi coex.
+			TROUT_DBG5("========%s: notify arm7 discon=======\n", __func__);
 			host_notify_arm7_connect_status(BFALSE);
+#endif	/* IBSS_BSS_STATION_MODE */
 
+			//#endif   chenq mod 
 			#else
 				wrqu.ap_addr.sa_family = ARPHRD_ETHER;
 				memset(wrqu.ap_addr.sa_data, 0, ETH_ALEN);
@@ -3880,7 +3888,11 @@ void send_mac_status(UWORD8 mac_status)
 			TROUT_DBG5("=>chenq send_mac_status: mac close\n");
 			netif_carrier_off(g_mac_dev);
 
+#ifdef IBSS_BSS_STATION_MODE
+			//add by chengwg for bt&wifi coex.
+			TROUT_DBG4("=======%s: notify arm7 mac close======\n", __func__);
 			host_notify_arm7_connect_status(BFALSE);
+#endif /* IBSS_BSS_STATION_MODE */
 
 			#else
 			wrqu.ap_addr.sa_family = ARPHRD_ETHER;
@@ -3929,19 +3941,6 @@ void send_mac_status(UWORD8 mac_status)
 			#endif
     		TROUT_DBG5("MAC_SCAN_CMP.\n\r");
 			TROUT_DBG5("=>chenq send_mac_status: MAC_SCAN_CMP\n");
-               /*
-                       Enter sleep status when wifi is not connected
-                       We must check conditions carefully:
-                       1.MAC state machine is not ENABLED
-                       2.g_keep_connection is false
-                       3.essid is not set(make sure no connect command is set)
-                       4.not in reset_mac
-                       5.g_wifi_suspend_status is nosuspend
-                       6.wireless device's SME status for CFG80211 is IDLE
-              */
-		   	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-		   	 sleep_disconnected();
-			#endif
 		}
 		break;
 
@@ -4196,7 +4195,7 @@ UWORD8 * parse_config_message_for_iw(mac_struct_t *mac, UWORD8* host_req,
     UWORD16 msg_len   = 0;
     BOOL_T  free_flag = BTRUE;
     UWORD8  offset    = get_config_pkt_hdr_len(host_if_type);
-	//struct trout_private *tp;
+	struct trout_private *tp;
 
      //CHECK_MAC_RESET_IN_IW_HANDLER_RETURN_NULL(LPM_NO_ACCESS);	//add by chengwg, 2013.7.9
     /* Extract the Type, Length and ID of the incoming host message. The     */

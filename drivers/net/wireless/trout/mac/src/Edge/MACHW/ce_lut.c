@@ -179,28 +179,7 @@ BOOL_T machw_ce_add_key(UWORD8 key_id, KEY_NUMBER_T key_num, UWORD8 sta_index,
     UWORD32 temp    = 0;
     BOOL_T  ustatus = BTRUE;
 
-	printk("[wjb]machw_ce_add_key: key id %d, key_num %d, key_index %d, cipher_type %d\n",
-		key_id, key_num, sta_index, cipher_type);
-	#if 1
-	/*junbin.wang add 20131206*/
-	{
-		UWORD8 i;
 
-		if(cip_key){
-			printk("[wjb]machw_ce_add_key cip_key: "); 
-			for(i = 0; i < 16; i++)
-				printk("%d:0x%x, ", i, cip_key[i]);
-			printk("\n");
-		}
-		if(mic_key){
-			printk("[wjb]machw_ce_add_key mic_key: "); 
-			for(i = 0; i < 16; i++)
-				printk("%d:0x%x, ", i, mic_key[i]);
-			printk("\n");
-		}
-		
-	}
-	#endif
 	/*junbinwang add for ce config clock gating 20131009.bug 218429*/
 	disable_machw_ce_clkgating();
     /* Enable replay detection before adding key to ensure LUT clearing */
@@ -402,6 +381,8 @@ BOOL_T machw_ce_init_rx_bcmc_pn_val(UWORD8 tid, UWORD8 lut_index, UWORD8 *pn)
     UWORD8  cnt     = 0;
     UWORD32 temp    = 0;
     BOOL_T  ustatus = BTRUE;
+
+
 
 	/*junbinwang add for ce config clock gating 20131009.bug 218429*/
 	disable_machw_ce_clkgating();

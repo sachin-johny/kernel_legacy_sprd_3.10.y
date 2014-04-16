@@ -261,7 +261,7 @@ static int npi_set_tx_rate(PNPI_CMD  cmd)
 	return 0;
 }
 
-static void set_hardware(void)
+static void set_hardware()
 {
 	set_machw_lrl(10);
 	set_machw_srl(10);
@@ -269,19 +269,6 @@ static void set_hardware(void)
 	set_machw_cw_be(2,2);
 	set_machw_cw_vi(2,2);
 	set_machw_cw_vo(2,2);
-}
-
-static int npi_stop_tx_data(PNPI_CMD  cmd)
-{
-	g_tx_flag = 0;
-	//npi_tx_data_cwk();
-	host_write_trout_reg(g_sys_reg, (UWORD32)rSYSREG_WIFI_CFG);
-	host_write_trout_reg(g_save_reg1, (0x4072 <<2));
-	host_write_trout_reg(g_save_reg2, (0x4071 <<2));
-	set_result_code(cmd,0);
-       g_npi_tx_pkt_count = 0;
-	//meter_end("npi_tx");
-	return 0;
 }
 
 static int npi_start_tx_data(PNPI_CMD  cmd)
@@ -308,15 +295,6 @@ static int npi_start_tx_data(PNPI_CMD  cmd)
 	g_npi_scan_flag = 0;
 
 	restart_mac(&g_mac, 0);
-
-	//call stop_tx_data first
-	g_tx_flag = 0;
-	host_write_trout_reg(g_sys_reg, (UWORD32)rSYSREG_WIFI_CFG);
-	host_write_trout_reg(g_save_reg1, (0x4072 <<2));
-	host_write_trout_reg(g_save_reg2, (0x4071 <<2));
-	set_result_code(cmd,0);
-       g_npi_tx_pkt_count = 0;
-    
 	if (flag == 1){
 		g_save_reg1 = host_read_trout_reg((0x4072 <<2));//dft wave len 
 		g_save_reg2 = host_read_trout_reg((0x4071 <<2));
@@ -348,6 +326,18 @@ static int npi_start_tx_data(PNPI_CMD  cmd)
 	return 0;
 }
 
+static int npi_stop_tx_data(PNPI_CMD  cmd)
+{
+	g_tx_flag = 0;
+	//npi_tx_data_cwk();
+	host_write_trout_reg(g_sys_reg, (UWORD32)rSYSREG_WIFI_CFG);
+	host_write_trout_reg(g_save_reg1, (0x4072 <<2));
+	host_write_trout_reg(g_save_reg2, (0x4071 <<2));
+	set_result_code(cmd,0);
+       g_npi_tx_pkt_count = 0;
+	//meter_end("npi_tx");
+	return 0;
+}
 static int npi_set_mac(PNPI_CMD  cmd)
 {
 	UWORD8 mac_addr[6]={0,};

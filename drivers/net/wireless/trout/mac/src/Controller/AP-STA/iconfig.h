@@ -701,6 +701,12 @@ INLINE void set_scan_filter(UWORD8 input)
 INLINE UWORD8 get_link_loss_threshold(void)
 {
 #ifdef IBSS_BSS_STATION_MODE
+    // Modify by Yiming.Li at 2014-03-10 for fix bug281486: 
+    if(g_wifi_bt_coex)
+		g_link_loss_threshold = COEXIST_LINK_LOSS_THRESHOLD;    //Yiming.LI In coexist mode, wifi disconnect easily with BT is calling.
+    else
+		g_link_loss_threshold = DEFAULT_LINK_LOSS_THRESHOLD;    //Yiming.LI In wifi only mode, vitual AP is in results of scanning.
+
     return g_link_loss_threshold;
 #endif  /*  IBSS_BSS_STATION_MODE   */
 
@@ -1295,7 +1301,6 @@ INLINE UWORD8 get_tx_rate(void)
 /* This function sets the transmission rate as requested by the user.*/
 INLINE void set_tx_rate(UWORD8 rate)
 {
-	printk("[%s] rate:%u\n", __FUNCTION__, rate);
 #ifdef MAC_HW_UNIT_TEST_MODE
     if(rate != 0)
         set_curr_tx_rate(rate);

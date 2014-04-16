@@ -22,8 +22,6 @@ void trout_runmode_unlock(void);
 #define trout_runmode_init()
 #define trout_runmode_exit()
 #define trout_get_runmode() (SMP_MODE)
-#define trout_runmode_lock()
-#define trout_runmode_unlock()
 #endif
 
 

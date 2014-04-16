@@ -1845,7 +1845,8 @@ int itm_add_wpa_wpa2_value(UWORD8 * s_addr,
 	else
 	{
 		start_pm_timer = BFALSE;
-		//chenq add for ext wpa_wpa2_rehs 2013-12-05, Bug#240544
+
+		//chenq add for ext wpa_wpa2_rehs 2013-12-05
 		if(g_wpa_wpa2_rehs == BFALSE)
 		{
 			if(memcmp(tmp_32byte_all0,g_wpa_wpa2_ptk_key,32) == 0)
@@ -2457,7 +2458,7 @@ void sleep_disconnected(void)
 		sta_sleep_disconnected();
 	}
 }
-//EXPORT_SYMBOL(sleep_disconnected);
+EXPORT_SYMBOL(sleep_disconnected);
 #endif
 static int 
 itm_get_rssi(int * rssi)
@@ -3169,27 +3170,18 @@ CHECK_SCAN:
 	{
 		PRINTK_ITMIW("skip scan op <already in scan> \n");
 		//chenq add 2013-06-09
-		//is_scanlist_report2ui = 2;
-		//send_mac_status(MAC_SCAN_CMP);
+		is_scanlist_report2ui = 2;
+		send_mac_status(MAC_SCAN_CMP);
 		return 0;
 	}
 	else if(g_BusyTraffic == BTRUE)
 	{
 		PRINTK_ITMIW("skip scan op <BusyTraffic> \n");
 		//chenq add 2013-06-09
-		//is_scanlist_report2ui = 2;
-		//send_mac_status(MAC_SCAN_CMP);
+		is_scanlist_report2ui = 2;
+		send_mac_status(MAC_SCAN_CMP);
 		return 0;
 	}
-
-	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-    if(!wake_lock_active(&scan_ap_lock)){
-        wake_lock(&scan_ap_lock);
-        printk("@@@: acquire scan_ap_lock in %s\n", __func__);
-    }
-#endif
-	#endif
 
 //chenq add for combo scan 2013-04-11
 #ifdef COMBO_SCAN
@@ -3305,6 +3297,13 @@ CHECK_SCAN:
 	len += WID_CHAR_CFG_LEN;
 	#endif
 
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+	//wake_lock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
+	//pr_info("%s-%d: acquire wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
+#endif
+#endif
+
 	config_if_for_iw(&g_mac,host_req,len,'W',&trout_rsp_len);
 
 	if( trout_rsp_len != 1 )
@@ -3332,15 +3331,6 @@ CHECK_SCAN:
 			is_scanlist_report2ui = 2;
 			send_mac_status(MAC_SCAN_CMP);
 			ret = 0;//-EBUSY;
-
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-        	if(wake_lock_active(&scan_ap_lock)){
-        		wake_unlock(&scan_ap_lock);
-        	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out1\n", __func__);
-        	}
-#endif
-#endif
 		}	
 	}
 	else
@@ -3349,16 +3339,13 @@ CHECK_SCAN:
 		is_scanlist_report2ui = 2;
 		send_mac_status(MAC_SCAN_CMP);
 		ret = 0;//-EINVAL;
-
+	}
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
-    	if(wake_lock_active(&scan_ap_lock)){
-    		wake_unlock(&scan_ap_lock);
-    	    printk("@@@ Warning: Unexpected release scan_ap_lock in %s out2\n", __func__);
-    	}
+	//wake_unlock(&scan_ap_lock); /*Keep awake when scan ap, by caisf 20130929*/
+	//pr_info("%s-%d: release wake_lock %s\n", __func__, __LINE__, scan_ap_lock.name);
 #endif
 #endif
-	}
 
 	PRINTK_ITMIW("itm_set_scan fuc end code:%d\n",ret);
 	return ret;
@@ -4717,9 +4704,7 @@ static int itm_giwscan(struct net_device *	dev,
 	if(NULL == g_user_getscan_aplist )
 	{
 		TROUT_DBG4("linklist is null\n");
-		dwrq->length = 0;
-		dwrq->flags = 0;
-		return 0;
+		return -E2BIG;
 	}
 
 	while( bss != NULL )
@@ -6103,10 +6088,11 @@ static int itm_siwpower(struct net_device *	dev,
 	}
 	#endif
 
-	out0:
 	#endif/*IBSS_BSS_STATION_MODE*/
 	
+	out0:
 	return ret;
+	
 }
 
 /*------------------------------------------------------------------*/
@@ -8065,7 +8051,7 @@ itm_gfordebug(struct net_device *dev, struct iw_request_info *info,
     }
     else if(read_write == PHY_READ_FLAG)
     {
-    	//UWORD32 regret = 0;
+    	UWORD32 regret = 0;
         for(i = 0; i < count; i++)
         {
             read_dot11_phy_reg(((UWORD8)addr + i),
@@ -8213,6 +8199,7 @@ itm_sfordebug(struct net_device *dev, struct iw_request_info *info,
 	return 0;
 #else
 	UWORD32           temp = 0;
+    WORD32            i     = 0;
     //mem_access_info_t mem_access_info;
 	mem_access_info_t * tmp_extra = (mem_access_info_t *)extra;
 
@@ -8283,7 +8270,7 @@ itm_sfordebug(struct net_device *dev, struct iw_request_info *info,
 	}
 	else if(tmp_extra->read_write == MAC_RF_WRITE_FLAG)
 	{
-		//UWORD32 regret = 0;
+		UWORD32 regret = 0;
 		#ifdef TROUT_WIFI_EVB
 		trout_ic_rf_reg_write( tmp_extra->addr,tmp_extra->data[0] );
 		//trout_ic_rf_reg_read((tmp_extra->addr),
@@ -9579,9 +9566,6 @@ int g_npi_scan_flag = 0;
 int g_npi_tx_pkt_count = 0;
 extern int copy_q_num;
 extern int transfer_q_num;
-extern UWORD32 high_q_count;
-extern UWORD32 normal_q_count;
-extern int npi_send_unit_count;
 
 int trout_npi_send_pkt_from_host(int pkt_len,int num, int q_num);
 void qmu_cpy_npi_descr(int q_num);
@@ -9591,13 +9575,6 @@ void tx_packet_test(void)
 	//int send_flag = 0;
 	copy_q_num = -1;
        transfer_q_num = -1;
-       npi_send_unit_count = 0;
-       high_q_count = 0;
-       normal_q_count = 0;
-
-#ifdef WAKE_LOW_POWER_POLICY
-                    g_low_power_flow_ctrl.tx_pkt_num = 0;
-#endif
 
        //yangke, 2013-10-16, for NPI tx_start use, only call once at the beginning of NPI tx_start function!!
 	if (g_tx_flag == 1 /*&& send_flag==0*/)
@@ -11403,8 +11380,7 @@ int itm_set_encryption(struct ieee_param *param, u32 param_len)
 {
 	int ret = 0;
 	//u32 wep_key_idx, wep_key_len,wep_total_len;
-	/*struct sta_info*/void *psta = NULL;
-	//void *pbcmc_sta = NULL;	
+	/*struct sta_info*/void *psta = NULL,*pbcmc_sta = NULL;	
 
 	ITMIW_FUNC_ENTER;
 

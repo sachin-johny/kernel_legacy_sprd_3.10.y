@@ -92,7 +92,7 @@ extern amsdu_ctxt_t g_amsdu_ctxt[MAX_NUM_SIMUL_AMSDU];
 /*****************************************************************************/
 //extern void config_amsdu_func(UWORD8 *ra, BOOL_T B_ACK);	//add by chengwg.
 extern void config_802_11n_feature(UWORD8 *ra, BOOL_T B_ACK);
-extern BOOL_T amsdu_tx(amsdu_ctxt_t *amsdu_ctxt,int send);
+extern BOOL_T amsdu_tx(amsdu_ctxt_t *amsdu_ctxt);
 extern void amsdu_set_submsdu_info(UWORD8 *tx_dscr, buffer_desc_t *buff_list,
                                    UWORD16 num_buff, UWORD16 buff_len,
                                    UWORD16 mac_hdr_len, UWORD8 *sa, UWORD8 *da,

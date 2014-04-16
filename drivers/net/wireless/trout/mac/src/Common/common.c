@@ -1060,6 +1060,7 @@ inline void notify_cp_with_handshake(uint msg, uint retry)
 		else if(msg == PS_MSG_WIFI_RESUME_MAGIC) 
 			g_done_wifi_suspend = 0;
 }
+EXPORT_SYMBOL(notify_cp_with_handshake);
 
 extern int prepare_null_frame_for_cp(UWORD8 psm, BOOL_T is_qos, UWORD8 priority);
 

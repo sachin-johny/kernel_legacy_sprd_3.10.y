@@ -2291,6 +2291,7 @@ void uptate_rssi4_auto_set_tx_rx_power(void)
 		//printk("lihua:: shutdown tpc from NV!\r\n");
 		return;
     }
+
     if(!g_pwr_tpc_switch)
     {
         //printk("shutdown tpc\n");

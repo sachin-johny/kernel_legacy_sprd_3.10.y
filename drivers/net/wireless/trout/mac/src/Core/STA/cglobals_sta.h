@@ -123,17 +123,16 @@ extern ktime_t g_ap_combo_scan_kt;
 //chenq add for ext wpa_wpa2_hs 2013-04-16
 extern BOOL_T g_wpa_wpa2_hs_complete;
 
-//chenq add for ext wpa_wpa2_rehs 2013-12-05, Bug#240544
+//chenq add for ext wpa_wpa2_rehs 2013-12-05
 extern BOOL_T g_wpa_wpa2_rehs;
 extern UWORD8 g_wpa_wpa2_ptk_key[32];
 //chenq add do ap list merge logic 2013-08-28
 extern bss_link_dscr_t * g_user_getscan_aplist;
 extern UWORD8 g_link_list_bss_count;
-//chenq add for auto set tx power 2013-07-29
-//add zenghaiqi to fix 816
+
 /*junbinwang add for cr 238822. 20131128*/
 extern UWORD32 g_merge_aplist_flag;
-
+//chenq add for auto set tx power 2013-07-29
 #ifdef TROUT2_WIFI_IC
 extern UWORD8  g_update_rssi_count;
 extern UWORD32  g_tbtt_cnt;

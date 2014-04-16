@@ -266,7 +266,7 @@ void ap_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
 
         /* Get the PHY transmit mode based on the transmit rate and preamble */
         phy_tx_mode = get_dscr_phy_tx_mode(tx_rate, pream, (void *)ae);
-
+        printk("[%s] tx_rate:%u\n", __FUNCTION__, tx_rate);
         /* set the parameters related to the frame in the Tx DSCR */
         set_tx_params(tx_dscr, tx_rate, pream, wlan_tx_req->service_class,
                       phy_tx_mode, retry_set);
@@ -300,7 +300,7 @@ void ap_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
     if(BTRUE == is_tx_ready(amsdu_ctxt))
     {
         if(tx_data_packet((UWORD8 *)ae, wlan_tx_req->da, wlan_tx_req->priority,
-                          q_num, tx_dscr, amsdu_ctxt,0) == BTRUE)
+                          q_num, tx_dscr, amsdu_ctxt) == BTRUE)
         {
                           wlan_tx_req->added_to_q = BTRUE;
 

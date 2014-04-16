@@ -37,8 +37,6 @@
 #include <linux/string.h>
 
 #include "trout2_interface.h"
-#include "sp_mode.h"
-
 extern void MxdRfSetClkReqLow();
 extern struct sdio_func *cur_sdio_func;
 extern struct sdio_func *trout_sdio_func;
@@ -1297,8 +1295,8 @@ static void trout_reset(void)
     unsigned long value_gpio_wifi_d3 = (BITS_PIN_DS(1) | BITS_PIN_AF(3) | BIT_PIN_WPU | BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE);
     unsigned long value_gpio_sd3 = (BITS_PIN_DS(1) | BITS_PIN_AF(0) | BIT_PIN_WPU);
 
-    wlan_ldo_enable();
-
+		wlan_ldo_enable();
+		
     //Config WIFI_D3_PIN as gpio
     SPRD_GPIO_REG_WRITEL(value_gpio_wifi_d3, REG_PIN_SD2_D3);
 
@@ -1314,12 +1312,12 @@ static void trout_reset(void)
 
     printk("WIFI_D3 val: %d\n", gpio_get_value(WIFI_D3_PIN));
 
-    gpio_request(TROUT2_RESET, "trout_reset");
-          gpio_direction_output(TROUT2_RESET, 1);
-          gpio_set_value(TROUT2_RESET,0);
-          mdelay(100);
-          gpio_set_value(TROUT2_RESET,1);
-          printk("trout_gpio_reset!\n");
+		gpio_request(TROUT2_RESET, "trout_reset");
+		gpio_direction_output(TROUT2_RESET, 1);
+		gpio_set_value(TROUT2_RESET,0);
+		mdelay(100);
+		gpio_set_value(TROUT2_RESET,1);
+		printk("trout_gpio_reset!\n");
 
     SPRD_GPIO_REG_WRITEL(value_gpio_sd3, REG_PIN_SD2_D3);
 
@@ -2039,8 +2037,6 @@ void Set_Trout2_Open(void)
 bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 {
 	int i = 0;
-        int cnt = 0;
-
 	if((MODE_ID != WIFI_MODE) && (MODE_ID != FM_MODE) && (MODE_ID != BT_MODE))
 	{
 		printk("ATTENTION!!! Bad Mode ID.\n");
@@ -2048,9 +2044,6 @@ bool Set_Trout_PowerOn( unsigned int  MODE_ID )
 	}
 	
 	mutex_lock(&trout_power_mutex_lock);//Lock Mode_mutex
-
-RESTART_SPECIAL_MODE:
-
 	#ifdef TROUT_PDN_ENABLE
 	printk("\n===========Power On==========\n");
 	printk("zhuyg g_trout_power_mode is: %u\n", g_trout_power_mode);
@@ -2105,29 +2098,6 @@ RESTART_SPECIAL_MODE:
 		}
 #endif
 
-
-        {
-            cnt++;
-            if(cnt<5)
-            {
-               if(-1 == trout_special_mode(cnt))
-               {
-                   printk("lihua::trtr: restart trout_sp_mode cnt[%d]\n",cnt);
-                   Set_Power_Control(false);
-                   goto RESTART_SPECIAL_MODE;
-               }
-               else
-               {
-                  printk("lihua::trtr: trout_sp_mode scan OK! cnt[%d]\n",cnt);
-               }
-            }
-            else
-            {
-                printk("lihua::trtr: trout_sp_mode scan failed! cnt[%d]\n",cnt);
-            }
-
-        }
-		
 		/* Down bt code for power sleep function */
 		/*leon liu masked power sleep enable macro for downloading BT code*/
        		/* #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE*/

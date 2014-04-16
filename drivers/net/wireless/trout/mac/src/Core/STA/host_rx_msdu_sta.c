@@ -460,7 +460,7 @@ void sta_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
         /* Get the PHY transmit mode based on the transmit rate and preamble */
         phy_tx_mode = get_dscr_phy_tx_mode(tx_rate, pream, (void *)se);
 
-
+        printk("[%s] tx_rate:%u\n", __FUNCTION__, tx_rate);
         set_tx_params(tx_dscr, tx_rate, pream, wlan_tx_req->service_class,
                       phy_tx_mode, retry_set);
 
@@ -574,7 +574,7 @@ void sta_enabled_tx_data(mac_struct_t *mac, UWORD8 *msg)
     {	
     	TX_PATH_DBG("%s: tx data pkt\n", __func__);
         if(tx_data_packet((UWORD8 *)se, ra, wlan_tx_req->priority, q_num,
-                       tx_dscr, amsdu_ctxt,0) == BTRUE)
+                       tx_dscr, amsdu_ctxt) == BTRUE)
                        wlan_tx_req->added_to_q = BTRUE;
     }
     

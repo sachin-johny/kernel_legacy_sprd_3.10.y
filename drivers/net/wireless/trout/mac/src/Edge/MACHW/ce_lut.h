@@ -171,6 +171,7 @@ INLINE BOOL_T machw_ce_read_key(UWORD8 key_num, UWORD8 key_id,
 
 	/*junbinwang add for ce config clock gating 20131009.bug 218429*/
 	disable_machw_ce_clkgating();
+
     //chenq mod
     //temp = convert_to_le(rMAC_CE_LUT_OPERN);
     temp = convert_to_le(host_read_trout_reg( (UWORD32)rMAC_CE_LUT_OPERN));
@@ -241,6 +242,7 @@ INLINE BOOL_T machw_ce_read_key(UWORD8 key_num, UWORD8 key_id,
     key[2] = (temp & 0x0000FF00) >> 8;
     key[3] = (temp & 0x000000FF);
     key += 4;
+
 	/*junbinwang add for ce config clock gating 20131009.bug 218429*/
 	enable_machw_ce_clkgating();
     return BTRUE;
@@ -477,6 +479,8 @@ INLINE void flush_ce_lut(void)
           (UWORD8)0, (UWORD8)1, data_1,
           data_0, SUPP_KEY,
           data_2);
+
+
 	#endif
 }
 

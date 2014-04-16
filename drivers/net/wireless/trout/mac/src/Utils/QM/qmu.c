@@ -110,8 +110,7 @@ UWORD8 qmu_init(qmu_handle_t *q_handle, UWORD16 num_tx_q)
 	
 	tx_handle->tx_mem_start = trout_addr;
 	tx_handle->tx_mem_size = 
-		(UWORD32)(SHARE_MEM_END - trout_addr - COEX_PS_NULL_DATA_SIZE
-						- COEX_SELF_CTS_NULL_DATA_SIZE - COEX_SLOT_INFO_SIZE);
+		(UWORD32)COEX_SELF_CTS_NULL_DATA_BEGIN - (UWORD32)COEX_SLOT_INFO_SIZE - trout_addr ;
 	
 	if(tx_handle->tx_mem_size < MIN_TX_MEM_SIZE)
 		TROUT_DBG2("Warning: trout tx mem size is too small(%u)!\n", tx_handle->tx_mem_size);
@@ -145,6 +144,7 @@ UWORD8 qmu_init(qmu_handle_t *q_handle, UWORD16 num_tx_q)
 	/*hugh: init first tx dscr's status, make the status is invalid */
     //temp32[2] = 0;
     //host_write_trout_ram((UWORD32 *)TX_MEM_BEGIN, &temp32[2], 4);
+    //flush_tx_dscr_head();
 
     mutex_unlock(&tx_handle->txq_lock);
     

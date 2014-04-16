@@ -187,11 +187,11 @@ void increment_rate_sta(sta_entry_t *se)
 	UWORD16 irr_th_1 = 30;
 	UWORD16 irr_th_2 = 40;
 	UWORD16 irr_th_3 = 100;
-    printk("\n---Enter the function increment_rate_sta---\n");
+
 	UWORD16 delta_irr = RETRY_RATIO_THRESHOLD_2 - g_rx_data.retry_ratio;
 	UWORD8 target_rate = get_rate_from_rssi(se, g_rx_data.rssi);
 	UWORD8 target_rate_index =  get_ar_table_index(target_rate);
-	
+	printk("[%s]Enter the function increment_rate_sta\n", __FUNCTION__);
 	set_tx_sgi_sta(BFALSE, se);
 	
 	while(1)
@@ -229,10 +229,10 @@ void increment_rate_sta(sta_entry_t *se)
 				rate_idx = target_rate_index;
 			}
 		}
-		//printk("out rate_idx:%u\n",rate_idx);
+
 		/* Get the rate corresponding to this index */
 		rate = get_ar_table_rate(rate_idx);
-		printk("[%s] rate:%u\n", __FUNCTION__, rate);
+		//printk("[%s] rate:%u\n", __FUNCTION__, rate);
 		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
 		{
 	            /* If the rate is supported by the STA update the transmit rate  */
@@ -254,7 +254,7 @@ void decrement_rate_cca_sta(sta_entry_t *se)
 {
     	UWORD8 rate_idx = se->tx_rate_index;
     	UWORD8 rate = 0;
-    printk("\n---Enter the function decrement_rate_cca_sta---\n");
+       printk("[%s]Enter the function decrement_rate_cca_sta\n", __FUNCTION__);
 	/* If the current TX rate is at SGI MCS make the TX at LongGI MCS */
    	 if((IS_RATE_MCS(get_ar_table_rate(se->tx_rate_index)) == BTRUE) &&
 	 (get_tx_sgi_sta(se) == BTRUE))
@@ -278,7 +278,7 @@ void decrement_rate_cca_sta(sta_entry_t *se)
 	
  		/* Get the rate corresponding to this index */
         	rate = get_ar_table_rate(rate_idx);
-		printk("[%s] rate:%u\n", __FUNCTION__, rate);
+		//printk("[%s] rate:%u\n", __FUNCTION__, rate);
 
        		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
         	{
@@ -306,11 +306,11 @@ void increment_rate_cca_sta(sta_entry_t *se)
 	unsigned int irc_th_1 = 30;
 	unsigned int irc_th_2 = 50;
 	unsigned int irc_th_3 = 100;
-    printk("\n---Enter the function increment_rate_cca_sta---\n");
+
 	unsigned int delta_irc = RETRY_RATIO_THRESHOLD_1 - g_rx_data.retry_ratio;
 	UWORD8 target_rate = get_rate_from_rssi(se, g_rx_data.rssi);
 	UWORD8 target_rate_index =  get_ar_table_index(target_rate);
-
+       printk("[%s]Enter the function increment_rate_cca_sta\n", __FUNCTION__);
 	set_tx_sgi_sta(BFALSE, se);
 
 	while(1)
@@ -348,7 +348,7 @@ void increment_rate_cca_sta(sta_entry_t *se)
 		}
 	       /* Get the rate corresponding to this index */
 		rate = get_ar_table_rate(rate_idx);
-		printk("[%s] rate:%u\n", __FUNCTION__, rate);   
+		//printk("[%s] rate:%u\n", __FUNCTION__, rate);   
 		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
 		{
 	            /* If the rate is supported by the STA update the transmit rate  */
@@ -374,15 +374,15 @@ void decrement_rate_sta(sta_entry_t *se)
 	UWORD16 drr_th_1 = 10;
 	UWORD16 drr_th_2 = 30;
 	UWORD16 drr_th_3 = 100;
-	printk("\n---Enter the function decrement_rate_sta---\n");	
+	
 	UWORD16 delta_drr = g_rx_data.retry_ratio - RETRY_RATIO_THRESHOLD_2;
 	UWORD8 target_rate = get_rate_from_rssi(se, g_rx_data.rssi);
 	UWORD8 target_rate_index =  get_ar_table_index(target_rate);
 	if(rate_idx >= target_rate_index)
 	{
 		rate_idx = target_rate_index;
-}
-
+        }
+        printk("[%s]Enter the function decrement_rate_sta\n", __FUNCTION__);
     	/* If the current TX rate is at SGI MCS make the TX at LongGI MCS */
    	 if((IS_RATE_MCS(get_ar_table_rate(se->tx_rate_index)) == BTRUE) &&
 	 (get_tx_sgi_sta(se) == BTRUE))
@@ -425,7 +425,7 @@ void decrement_rate_sta(sta_entry_t *se)
 		}	
  		/* Get the rate corresponding to this index */
         	rate = get_ar_table_rate(rate_idx);
-		printk("[%s] rate:%u\n", __FUNCTION__, rate);
+		//printk("[%s] rate:%u\n", __FUNCTION__, rate);
        		if((is_rate_supp(rate, se) == 1) && (is_rate_allowed(rate, se) == 1))
         	{
 	            	/* If the rate is supported by the STA update the transmit rate  */

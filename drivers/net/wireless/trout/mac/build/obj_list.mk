@@ -190,7 +190,6 @@ $(SRC_DIR)/Core/STA/M802_11n/sta_management_11n.o \
 $(SRC_DIR)/Core/STA/MDOM/sta_management_mdom.o \
 $(SRC_DIR)/Utils/mac_string.o\
 $(SRC_DIR)/Test/trw/rw_register.o \
-$(SRC_DIR)/Test/runmode/runmode.o \
 $(SRC_DIR)/Test/meter/meter_time.o \
 $(SRC_DIR)/Test/meter/meter.o 
 

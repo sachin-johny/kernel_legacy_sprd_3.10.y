@@ -427,7 +427,8 @@ void update_11i_fail_stats_sta(CIPHER_T ct, UWORD8 status, UWORD8 *sa,
            g_reset_stats.hackerexc++;
 #endif /* DEBUG_MODE */
            /* Raise a system error which inturn restarts the MAC */
-		   /*junbin wang add for debug. CR240268. 20131204*/
+//-		   printk("update_11i_fail_stats_sta, status %d, ct %d\n", status, ct);
+//-           raise_system_error(CUSTOM_CNTRMSR);
 		   printk("[wjb]update_11i_fail_stats_sta, status %d, ct %d\n", status, ct);
            //raise_system_error(CUSTOM_CNTRMSR);
         }

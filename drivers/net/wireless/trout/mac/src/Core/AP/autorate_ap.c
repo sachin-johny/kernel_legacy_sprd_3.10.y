@@ -189,12 +189,12 @@ void increment_rate_ap(asoc_entry_t *ae)
 	unsigned int irc_th_3 = 100;
 	
 	unsigned int delta_irc = RETRY_RATIO_THRESHOLD_2 - g_rx_data.retry_ratio;
-	
+	printk("[%s]Enter the function increment_rate_ap\n", __FUNCTION__);
 	set_tx_sgi_ap(BFALSE, ae);
 
 	while(1)
 	{
-		if(rate_idx == ae->max_rate_index)
+		if(rate_idx >= ae->max_rate_index)
 		{
 			break;
 		}
@@ -247,6 +247,7 @@ void decrement_rate_cca_ap(asoc_entry_t *ae)
     	UWORD8 rate_idx = ae->tx_rate_index;
     	UWORD8 rate = 0;
 
+        printk("[%s]Enter the function decrement_rate_cca_ap\n", __FUNCTION__);
 	/* If the current TX rate is at SGI MCS make the TX at LongGI MCS */
    	 if((IS_RATE_MCS(get_ar_table_rate(ae->tx_rate_index)) == BTRUE) &&
 	 (get_tx_sgi_ap(ae) == BTRUE))
@@ -299,12 +300,12 @@ void increment_rate_cca_ap(asoc_entry_t *ae)
 	unsigned int irc_th_3 = 100;
 	
 	unsigned int delta_irc = RETRY_RATIO_THRESHOLD_1 - g_rx_data.retry_ratio;
-
+       printk("[%s]Enter the function increment_rate_cca_ap\n", __FUNCTION__);
 	set_tx_sgi_ap(BFALSE, ae);
 
 	while(1)
 	{
-		if(rate_idx == ae->max_rate_index)
+		if(rate_idx >= ae->max_rate_index)
 		{
 			break;
 		}
@@ -362,7 +363,7 @@ void decrement_rate_ap(asoc_entry_t *ae)
 	UWORD16 drr_th_3 = 100;
 	
 	UWORD16 delta_drr = g_rx_data.retry_ratio - RETRY_RATIO_THRESHOLD_2;
-
+    printk("[%s]Enter the function decrement_rate_ap\n", __FUNCTION__);
     	/* If the current TX rate is at SGI MCS make the TX at LongGI MCS */
    	 if((IS_RATE_MCS(get_ar_table_rate(ae->tx_rate_index)) == BTRUE) &&
 	 (get_tx_sgi_ap(ae) == BTRUE))

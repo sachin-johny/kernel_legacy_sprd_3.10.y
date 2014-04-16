@@ -548,7 +548,8 @@ void handle_auth_rsp(mac_struct_t *mac, UWORD8 *msg)
         initiate_scan(mac);
 
         /* ITM_DEBUG */
-        TROUT_DBG4("Status: Authentication Failed. Result-Code = %d. ", auth_rsp->result_code);
+        TROUT_DBG4("Status: Authentication Failed. Result-Code = %d. ",
+        auth_rsp->result_code);
 /* leon liu added, keep MAC_CONNECT_FAILED for cfg80211 (trout2.3.5 on 09-19 removed this) */
         // add by Ke.Li at 2013-04-04 for fix refresh UI ap list
         //send_mac_status(MAC_CONNECT_FAILED);
@@ -582,6 +583,7 @@ void handle_auth_rsp(mac_struct_t *mac, UWORD8 *msg)
 /*****************************************************************************/
 #include "prot_if.h"
 #include "amsdu_aggr.h"
+#include "csl_linux.h"	//chwg debug, 2013.12.3
 
 
 void handle_asoc_rsp(mac_struct_t *mac, UWORD8 *msg)
@@ -610,7 +612,7 @@ void handle_asoc_rsp(mac_struct_t *mac, UWORD8 *msg)
     else
     {
         /* ITM_DEBUG */
-		TROUT_DBG4("Status: Association Successful.\n");
+        TROUT_DBG4("Status: Association Successful.\n\r");
 		//config_amsdu_func(NULL, BTRUE);	//add by chengwg for sta mode.
 		config_802_11n_feature(NULL, BTRUE);	//sta mode.
 
@@ -800,8 +802,13 @@ void prepare_mlme_scan_req(scan_req_t *scan_req)
 #endif
 		#ifndef COMBO_SCAN
             scan_req->num_channels = list_idx * 5;
-		#else	
-             scan_req->num_channels = list_idx * SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1);
+		#else
+		if(0 == (coex_reg & BIT1)){	
+                    scan_req->num_channels = list_idx * SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1);
+		}
+		else{
+		    scan_req->num_channels = list_idx * COEX_SCAN_IN_ONE_CHANNEL_CNT * (g_ap_combo_scan_cnt+1);
+		}
 		#endif  
 		TROUT_DBG4("will scan all channel nums %d\n",scan_req->num_channels);
     }
@@ -915,6 +922,7 @@ void prepare_mlme_auth_req(auth_req_t *auth_req)
 {
     /* Set the timeout value */
     auth_req->auth_timeout = mget_AuthenticationResponseTimeOut();
+    //TROUT_DBG4("[lym] prepare_mlme_auth_req auth_timeout=%d\n", auth_req->auth_timeout);
 }
 
 /*****************************************************************************/
@@ -943,6 +951,7 @@ void prepare_mlme_asoc_req(asoc_req_t *asoc_req)
 {
     /* Set the timeout value */
     asoc_req->assoc_timeout = mget_AssociationResponseTimeOut();
+    //TROUT_DBG4("[lym] prepare_mlme_asoc_req assoc_timeout=%d\n", asoc_req->assoc_timeout);
 }
 
 /*****************************************************************************/
@@ -1405,11 +1414,11 @@ wait:
               }  
               if((UWORD32)null_frame_dscr == 0x1){  
                    cnt++;  
-                   printk("@@@: %s SUSPEND SEND NULL try %d times\n", __func__, cnt);  
+                   printk("@@@: %s SUSPEND SEND NULL try %d times\n", cnt, __func__);  
                    if(cnt < 5)  
                        goto retry;  
               }  
-              pr_info("%s null frame done null_frame_dscr = %p\n", __func__, null_frame_dscr);  
+              pr_info("%s null frame done null_frame_dscr = %08X\n", __func__, null_frame_dscr);  
          }else{  
               printk("@@@: %s SUSPEND no memory for NULL\n", __func__);  
               goto fail;  
@@ -1450,7 +1459,7 @@ wait:
                 if(cnt < 3)  
                    goto retry;  
             }  
-            printk("@@@: %s send null frame done null_frame_dscr = %p!\n", __func__, null_frame_dscr);  
+            printk("@@@: %s send null frame done null_frame_dscr = %08x!\n", __func__, null_frame_dscr);  
        }else{  
             printk("@@@: %s RESUME no memory for NULL or other reason\n", __func__);  
        }  
@@ -1460,15 +1469,15 @@ wait:
 
 void start_obss_scan(void)
 {
-    struct trout_private *tp = netdev_priv(g_mac_dev);
+	struct trout_private *tp = netdev_priv(g_mac_dev);
 
     TROUT_DBG4("start_obss_scan 1 \n");
 
 	if(reset_mac_trylock() == 0)
-    {
+	{
 		TROUT_DBG4("%s: WiFi is under reseting, please try again!\n", __func__);
-        return;
-    }
+                return;
+	}
     
 #ifdef WAKE_LOW_POWER_POLICY
 	//avoid doing enter_low_power_mode() when start obss scan!
@@ -1488,7 +1497,7 @@ void start_obss_scan(void)
 #ifdef WAKE_LOW_POWER_POLICY		
 		mutex_unlock(&tp->ps_mutex);
 #endif	
-     reset_mac_unlock();
+		reset_mac_unlock();	
 		return;
 	}
     TROUT_DBG4("start_obss_scan 5 \n");
@@ -1810,6 +1819,7 @@ void initiate_scan(mac_struct_t *mac)
 		kfree(scan_req);
 		return;
 	}
+		
 		
 	prepare_mlme_scan_req(scan_req);
 	mlme_scan_req(mac, (UWORD8*)scan_req);

@@ -76,7 +76,8 @@
 //#define  SITE_SURVEY_RESULTS_ELEMENT_LENGTH     44
 #define  SITE_SURVEY_RESULTS_ELEMENT_LENGTH (44 + MAX_RATES_SUPPORTED + 5)
 
-#define DEFAULT_LINK_LOSS_THRESHOLD            50 //100	//20	 modify by chengwg.
+#define COEXIST_LINK_LOSS_THRESHOLD            100
+#define DEFAULT_LINK_LOSS_THRESHOLD            50	//20	 modify by chengwg.
 #define MIN_LINK_LOSS_THRESHOLD                20
 #define IBSS_STA_LINK_LOSS_THRESHOLD           50
 #ifdef DV_SIM
@@ -482,14 +483,9 @@ INLINE void process_erp_info_sta(UWORD8 *msa, UWORD16 rx_len)
     }
 }
 
-extern int trout_is_asoc_req_wps_ie(void);
 /* Check sec protocol dependent capability information fields */
 INLINE BOOL_T check_bss_mac_privacy_sta(UWORD16 cap_info)
 {
-    /*junbinwang modify for wps 20130810*/
-    if(trout_is_asoc_req_wps_ie() == 1)
-         return BTRUE;
-
     if(mget_PrivacyInvoked() == TV_FALSE)
     {
         /* This STA doesn't have Privacy invoked but the other STA does */

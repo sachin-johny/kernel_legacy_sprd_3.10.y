@@ -245,7 +245,6 @@ void process_host_rx_msdu_sta(mac_struct_t *mac, UWORD8* event)
 		else if((eth_hdr[ETH_PKT_TYPE_OFFSET + 2 + 1] == 0x03) 
 		 && ((((UWORD8)(eth_hdr[ETH_PKT_TYPE_OFFSET + 2 + 1 + 4 + 1]  & BIT3)) >> 3) == 1 ) )// eap 4times for pairvise
 		{
-			//Bug#240544, 2013-12-13
 			if(g_wpa_wpa2_rehs == BTRUE)
 			{
 				wlan_tx_req.ignore_port = BFALSE;

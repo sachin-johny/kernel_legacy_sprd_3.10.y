@@ -810,21 +810,16 @@ void set_tx_buffer_details(UWORD8  *tx_dscr, UWORD8 *buffer_addr,
 /*****************************************************************************/
 
 BOOL_T tx_msdu_frame(UWORD8 *entry, UWORD8 *da, UWORD8 priority, UWORD8 q_num,
-                     UWORD8 *tx_dscr,int send)
+                     UWORD8 *tx_dscr)
 {
     BOOL_T ret_val = BFALSE;
-    int ret = 0;
+
 	TROUT_FUNC_ENTER;
     /* Check if the packet can be transmitted or has to be queued */
     if(buffer_tx_packet(entry, da, priority, q_num, tx_dscr) == BFALSE)
     {
     	TX_PATH_DBG("%s: add tx pkt\n", __func__);
-	  if(send){
-	  	ret = qmu_add_tx_packet(&g_q_handle.tx_handle, q_num, tx_dscr);
-	  }else{
-	  	ret = qmu_add_tx_packet_no_send(&g_q_handle.tx_handle, q_num, tx_dscr);
-	  }
-        if(ret != QMU_OK)
+        if(qmu_add_tx_packet(&g_q_handle.tx_handle, q_num, tx_dscr) != QMU_OK)
         {
             /* Exception. Do nothing. */
 #ifdef DEBUG_MODE

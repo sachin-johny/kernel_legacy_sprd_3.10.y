@@ -787,8 +787,8 @@ void sta_enabled_misc(mac_struct_t *mac, UWORD8 *msg)
                 /* Other protocol functions to be done at TBTT */
                 handle_tbtt_prot_sta();
 
-                if((g_link_loss_threshold != 255) &&
-                   (g_link_loss_count > g_link_loss_threshold))
+                if((get_link_loss_threshold() != 255) &&
+                   (g_link_loss_count > get_link_loss_threshold()))
                 {
                     if(is_machw_enabled() == BFALSE)
                     {
@@ -808,7 +808,7 @@ void sta_enabled_misc(mac_struct_t *mac, UWORD8 *msg)
                     }
                     else
                     {
-                    	TROUT_DBG3("%s: send link loss error!\n", __func__);
+                    	TROUT_DBG3("%s: send link loss error! linkloss_threshold=%d\n", __func__, get_link_loss_threshold());
                         raise_system_error(LINK_LOSS);
 #ifdef DEBUG_MODE
                         g_reset_stats.linklosscnt++;
@@ -899,8 +899,8 @@ void sta_enabled_misc(mac_struct_t *mac, UWORD8 *msg)
             {
                 g_link_loss_count++;
 
-                if((g_link_loss_threshold != 255) &&
-                   (g_link_loss_count > g_link_loss_threshold))
+                if((get_link_loss_threshold() != 255) &&
+                   (g_link_loss_count > get_link_loss_threshold()))
                 {
                      g_rssi = -100;
                      g_link_loss_count = 0;

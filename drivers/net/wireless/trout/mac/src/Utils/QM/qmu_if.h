@@ -66,7 +66,6 @@ extern void   qmu_sync_rx_packet(qmu_rx_handle_t *q_rx_handle, UWORD8 q_num,
                                 UWORD32 *rx_dscr);
 extern UWORD8 qmu_add_tx_packet(qmu_tx_handle_t *tx_handle, UWORD8 q_num,
                          UWORD8 *tx_dscr);
-extern UWORD8 qmu_add_tx_packet_no_send(qmu_tx_handle_t *tx_handle, UWORD8 q_num, UWORD8 *tx_dscr);
 extern UWORD8 qmu_add_tx_packet_list(qmu_tx_handle_t *tx_handle, UWORD8 q_num,
                               UWORD8 **dscr_head, UWORD8 **dscr_tail,
                               UWORD8 *num_dscr);
@@ -80,7 +79,6 @@ extern void qmu_update_txq_chan_bw(qmu_tx_handle_t* tx_handle, UWORD8 q_num,
                             UWORD8 ch_mask, UWORD8 ch_band);
 
 extern void trout_load_qmu(void);
-extern void _trout_load_qmu(void);
 extern void tx_shareram_manage_init(void);
 extern void tx_shareram_slot_free(UWORD32 q_num);
 extern int tx_shareram_busy(int q_num);

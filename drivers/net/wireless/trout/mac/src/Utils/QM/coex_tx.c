@@ -569,6 +569,10 @@ void  exit_from_coexist_mode(void)
 		host_write_trout_reg(convert_to_le(virt_to_phy_addr((UWORD32)tx_dscr)), 
 									(UWORD32)(g_qif_table[q_num].addr));
 	}
+
+	/* lym 2014.03.10 --In coex mode, the link_loss_threshold is larger than wifi-only mode. */
+	/* When exit from coex mode, we clear link_loss_count to freeze the connective state. */
+	g_link_loss_count = 0;
 }
 
 

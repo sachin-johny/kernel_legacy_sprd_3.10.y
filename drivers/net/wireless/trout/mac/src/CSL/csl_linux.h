@@ -432,6 +432,7 @@ extern UWORD8 mem_dma(void *dstv, void *srcv, UWORD32 len, DMA_DIRECTION_T dir);
 extern void print_banner_lnx(void);
 extern void get_phy_mutex(void);
 extern void put_phy_mutex(void);
+extern unsigned char *get_local_ipadd(void);
 extern void delete_alarm(ALARM_HANDLE_T **);
 extern void delete_alarm_self(ALARM_HANDLE_T **);
 extern void stop_alarm(ALARM_HANDLE_T *);

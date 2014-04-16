@@ -122,7 +122,7 @@ BOOL_T cmp_pn_val(UWORD8 *pn_val_old, UWORD8 *pn_val_rx)
     if(((old_val_high == rx_val_high) && (old_val_low < rx_val_low)) ||
        (old_val_high < rx_val_high))
     {
-//comment out in 2014-03-15,  CR289408
+//yiming.li changed for trout wifi to connect WCN-G300 AP.
 #if 0
         if((rx_val_high - old_val_high) >= 0xF)
         {
@@ -131,9 +131,9 @@ BOOL_T cmp_pn_val(UWORD8 *pn_val_old, UWORD8 *pn_val_rx)
         else
 #endif
         {
-        memcpy(pn_val_old, pn_val_rx, 6);
-        ret_val = BTRUE;
-    }
+            memcpy(pn_val_old, pn_val_rx, 6);
+            ret_val = BTRUE;
+    	}
     }
 
     return ret_val;

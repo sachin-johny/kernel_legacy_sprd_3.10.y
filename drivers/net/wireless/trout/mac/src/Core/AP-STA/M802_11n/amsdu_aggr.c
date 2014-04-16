@@ -55,9 +55,7 @@
 /* 另外，TX-AMPDU功能还不完善，只是在验证硬件逻辑功能时，可以打开，平时不建议*/
 /* 打开。                                                                    */
 /*****************************************************************************/
-#define ENABLE_AMSDU
-#undef ENABLE_AMSDU
-
+//#define ENABLE_AMSDU
 #undef ENABLE_AMPDU
 #undef TX_BLOCK_ACK
 
@@ -251,12 +249,12 @@ void config_802_11n_feature(UWORD8 *ra, BOOL_T B_ACK)
 /*  Issues        : None                                                     */
 /*                                                                           */
 /*****************************************************************************/
-BOOL_T amsdu_tx(amsdu_ctxt_t *amsdu_ctxt,int send)
+BOOL_T amsdu_tx(amsdu_ctxt_t *amsdu_ctxt)
 {
     BOOL_T  ret_val   = BFALSE;
     UWORD16 frame_len = 0;
-    UWORD8 ret = 0;
     UWORD32 *tx_dscr  = (UWORD32 *)amsdu_ctxt->tx_dscr;
+
 	TROUT_FUNC_ENTER;
     if(0 == amsdu_ctxt->in_use_flag)
     {
@@ -285,14 +283,8 @@ BOOL_T amsdu_tx(amsdu_ctxt_t *amsdu_ctxt,int send)
     {
         /* Enqueue the MSDU for transmission */
         TX_PATH_DBG("%s: add tx pkt\n", __func__);
-	  if(send){
-	  	ret = qmu_add_tx_packet(&g_q_handle.tx_handle, amsdu_ctxt->q_num,
-                            (UWORD8 *)tx_dscr);
-	  }else{
-	  	ret = qmu_add_tx_packet_no_send(&g_q_handle.tx_handle, amsdu_ctxt->q_num,
-                            (UWORD8 *)tx_dscr);
-	  }
-        if(ret != QMU_OK)
+        if(qmu_add_tx_packet(&g_q_handle.tx_handle, amsdu_ctxt->q_num,
+                            (UWORD8 *)tx_dscr) != QMU_OK)
         {
             /* Exception. Do nothing. */
 #ifdef DEBUG_MODE
@@ -410,7 +402,7 @@ amsdu_ctxt_t *get_amsdu_ctxt(UWORD8 *rx_addr, UWORD8 tid, UWORD8 q_num,
                 /* Transmit the existing A-MSDU if the new MSDU cannot be */
                 /* in it.                                                 */
 				TX_PATH_DBG("%s: amsdu tx\n", __func__);
-                amsdu_tx(&g_amsdu_ctxt[indx],1);
+                amsdu_tx(&g_amsdu_ctxt[indx]);
 
                 nxt_indx = indx;
                 break;

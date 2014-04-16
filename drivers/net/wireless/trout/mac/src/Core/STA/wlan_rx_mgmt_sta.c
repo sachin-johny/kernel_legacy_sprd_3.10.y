@@ -389,6 +389,7 @@ void sta_wait_auth_seq2_rx(mac_struct_t *mac, UWORD8 *msg)
                 /* Change state to WAIT_AUTH_SEQ4 and start auth timeout timer */
                 set_mac_state(WAIT_AUTH_SEQ4);
                 start_mgmt_timeout_timer(mget_AuthenticationResponseTimeOut());
+		   //TROUT_DBG4("[lym] sta_wait_auth_seq2_rx auth_timeout=%d\n", mget_AuthenticationResponseTimeOut());
             }
         }
 		//chenq add for share key

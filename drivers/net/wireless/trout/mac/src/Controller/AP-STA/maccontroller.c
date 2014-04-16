@@ -225,9 +225,10 @@ void process_all_events(void)
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifdef WIFI_SLEEP_POLICY
 	if (mutex_is_locked(&suspend_mutex) || (g_wifi_suspend_status != wifi_suspend_nosuspend)) {
+		//libing, 20140114, fix fake connection
 		pr_info("We can't do %s during suspending, g_wifi_suspend_status = %d\n", __func__, g_wifi_suspend_status);
-		reset_mac_unlock();
-		return;
+	        reset_mac_unlock();  
+                return; 	
 	}
 #endif
 #endif
@@ -391,10 +392,10 @@ void process_wlan_event_q(UWORD8 qid)
         return;
 	}
     /* Get the event from the head of the event queue */
-    //event = (UWORD32)get_event(qid);
+    event = (UWORD32)get_event(qid);
 
     /* Process the event if it is a valid event */
-    while((event = (UWORD32)get_event(qid)) != 0)
+    if(event != 0)
     {
 		process_wlan_event_count++;
 		//chenq mod 2012-11-02
@@ -436,9 +437,6 @@ void process_wlan_event_q(UWORD8 qid)
 		//chenq add 2012-10-30
         atomic_dec(&g_event_cnt);
     }
-#ifndef TROUT_WIFI_NPI
-    _trout_load_qmu();
-#endif
     TROUT_FUNC_EXIT;
 }
 
@@ -765,16 +763,16 @@ BOOL_T is_serious_error(ERROR_CODE_T error_code)
     return BFALSE;
 }
 
-static void reset_mac_task(struct work_struct *work)
-{
-#ifdef BSS_ACCESS_POINT_MODE
-            restart_mac(&g_mac,0);
-#else
-	printk("reset_mac_task\n");
-	     restart_mac_plus(&g_mac, BTRUE);
-#endif
-}
-static DECLARE_WORK(reset_mac_work, reset_mac_task);
+static void reset_mac_task(struct work_struct *work)  
+{  
+   #ifdef BSS_ACCESS_POINT_MODE  
+           restart_mac(&g_mac,0);  
+   #else  
+           printk("reset_mac_task\n");  
+           restart_mac_plus(&g_mac, BTRUE);  
+   #endif  
+}  
+static DECLARE_WORK(reset_mac_work, reset_mac_task);  
 
 /*****************************************************************************/
 /*                                                                           */
@@ -798,8 +796,8 @@ void handle_system_error(void)
 {
     BOOL_T is_restart_required = BFALSE;
     int smart_type = MODE_START;
-    struct trout_private *tp = netdev_priv(g_mac_dev);
-    struct rw_semaphore *sem = &(tp->rst_semaphore);
+	struct trout_private *tp = netdev_priv(g_mac_dev);
+	struct rw_semaphore *sem = &(tp->rst_semaphore);
 
 
     TROUT_FUNC_ENTER;
@@ -872,7 +870,8 @@ void handle_system_error(void)
                 g_wakeup_flag_for_60s = 0;
                 
                 //wake_lock(&deauth_err_lock); /*Keep awake when deauth, by caisf 20130929*/
-                pr_info("%s-%d: acquire wake_lock %s\n", __func__, __LINE__, deauth_err_lock.name);
+                pr_info("%s-%d: acquire wake_lock %s\n", __func__, __LINE__, 
+                deauth_err_lock.name);
             }
         }
 #endif
@@ -889,14 +888,14 @@ void handle_system_error(void)
         	//chenq add 2012-10-31
 		set_mac_state(DISABLED);
 
-#ifndef  BSS_ACCESS_POINT_MODE
+#ifndef BSS_ACCESS_POINT_MODE
             // Modify by Yiming.Li at 2014-01-07 for fix bug: reconnect
             #ifdef CONFIG_CFG80211
             if(g_system_error == LINK_LOSS) 
 		    trout_cfg80211_del_prev_bss(g_mac_dev);
-            #endif
+	    #endif
 #endif
-	      schedule_work(&reset_mac_work);
+		schedule_work(&reset_mac_work);
         }
 
         /* Start a Rejoin timer if required after restarting MAC */

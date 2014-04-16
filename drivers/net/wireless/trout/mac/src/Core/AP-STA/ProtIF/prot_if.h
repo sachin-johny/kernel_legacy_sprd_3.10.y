@@ -312,10 +312,11 @@ INLINE UWORD8 get_ht_enable(void)
 {
     UWORD8 retval = 0;
 
+	/*leon liu modified, softap using 11bg*/
 	#ifdef BSS_ACCESS_POINT_MODE //ap not supprot 11n ,by chenq add 2013-01-13
-	#ifndef TROUT2_WIFI_IC  // Trout2 IC support 11n, zhangym 2013-04-11
+	//#ifndef TROUT2_WIFI_IC  // Trout2 IC support 11n, zhangym 2013-04-11
 		return 0;
-	#endif
+	//#endif
 	#endif
 
 	//chenq add a marco 2013-01-07
@@ -1549,11 +1550,11 @@ INLINE void free_amsdu_handle(void *amsdu_ctxt)
 #endif /* MAC_802_11N */
 }
 /* This function adds the AMSDU frame to the transmission queue */
-INLINE BOOL_T qmu_add_tx_amsdu(void *amsdu_ctxt,int send)
+INLINE BOOL_T qmu_add_tx_amsdu(void *amsdu_ctxt)
 {
     BOOL_T retval = BFALSE;
 #ifdef MAC_802_11N
-    retval = amsdu_tx(amsdu_ctxt,send);
+    retval = amsdu_tx(amsdu_ctxt);
 #endif /* MAC_802_11N */
 
     return retval;
@@ -1636,17 +1637,17 @@ INLINE void set_submsdu_info(UWORD8 *tx_dscr, buffer_desc_t *buff_list,
 /* This function calls the correct Tx interface depending upon whether */
 /* AMSDU is enabled or not.                                            */
 INLINE BOOL_T tx_data_packet(UWORD8 *entry, UWORD8 *da, UWORD8 priority,
-                             UWORD8 q_num, UWORD8 *tx_dscr, void *amsdu_ctxt,int send)
+                             UWORD8 q_num, UWORD8 *tx_dscr, void *amsdu_ctxt)
 {
 #ifdef MAC_802_11N
     if(NULL != amsdu_ctxt)
     {
     	TX_PATH_DBG("%s: qmu add tx pkt\n", __func__);
-        return qmu_add_tx_amsdu(amsdu_ctxt,send);
+        return qmu_add_tx_amsdu(amsdu_ctxt);
     }
 #endif /* MAC_802_11N */
 	TX_PATH_DBG("%s: tx msdu frame\n", __func__);
-    return tx_msdu_frame(entry, da, priority, q_num, tx_dscr,send);
+    return tx_msdu_frame(entry, da, priority, q_num, tx_dscr);
 }
 
 

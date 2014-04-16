@@ -53,6 +53,7 @@
 #include <linux/gpio.h>
 #include <linux/irq.h>
 #include <linux/err.h>
+
 #include <linux/inetdevice.h>
 
 #include "trout_wifi_rx.h"
@@ -83,7 +84,7 @@
 /*leon liu added header for cfg80211*/
 #ifdef CONFIG_CFG80211
 #include "trout_cfg80211.h"
-extern struct sdio_func *trout_get_sdio_func(void);
+extern struct sdio_func *trout_get_sdio_func();
 #endif
 
 /*leon liu added GPIO register configuration macro*/
@@ -306,7 +307,7 @@ void alloc_sb_buf(void)
 #else
 void alloc_sb_buf(void)
 {
-	char *pc;
+	char *pc, *pb;
 	unsigned int sz;
 
 	pc = (char *)gsb->ps;
@@ -448,6 +449,7 @@ UWORD32 g_tx_pkt_count = 0;
 UWORD32 g_tx_times = 0;
 UWORD32 g_rx_pkt_count = 0;
 UWORD32 g_rx_times = 0;
+
 
 // Ke.Li add read rand_mac.txt or create rand mac at 2013-03-21
 //chenq add for trout wifi cfg 2013-01-10
@@ -949,7 +951,7 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
 #ifdef ETHERNET_HOST
     UWORD8  *buffer = 0;
     UWORD16 offset  = 0;
-    //UWORD8 eth_hdr_offset = 0;
+    UWORD8 eth_hdr_offset = 0;
     UWORD8 *eth_hdr;
     UWORD16 eth_type = 0;
     UWORD8 q_num = 0;
@@ -959,6 +961,7 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
 	
    /* Stop the network interface queue */
     netif_stop_queue(dev);
+   
     if(skb->dev != g_mac_dev)
     {
         TROUT_DBG2("Packet not destined to this device\n");
@@ -990,7 +993,6 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
 	{
 		//printk("txq %d full!\n", q_num);
 		//goto out;
-		//printk("[%s]is_this_txq_full_test\n", __FUNCTION__);
 		return NETDEV_TX_BUSY;
 	}
 #endif
@@ -1061,8 +1063,6 @@ int mac_xmit(struct sk_buff *skb, struct net_device *dev)
         g_mac_net_stats->tx_packets++;
     }
 
-	TX_PATH_DBG("%s: send pkt, len=%d\n", __func__, skb->len);
-	//printk("[%s]: send pkt, len=%d\n", __func__, skb->len);
 	if(receive_from_host(buffer, skb->len, offset, ETHERNET_HOST_TYPE) == -1)
 	{
 		return NETDEV_TX_BUSY;
@@ -1134,7 +1134,7 @@ void ward_mac_reset(mac_struct_t *mac)
 int mac_close(struct net_device *dev)
 {
 #ifdef IBSS_BSS_STATION_MODE
-	//int mac_state;
+	int mac_state;
 #endif
     //struct trout_private *tp = netdev_priv(dev);
 
@@ -1442,7 +1442,8 @@ int mac_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	
 	case SIOCIWFIRSTPRIV + 30:
 	{
-		//struct iwreq *wrq = (struct iwreq *)req;
+		struct iwreq *wrq = (struct iwreq *)req;
+
 		return -1;
 	}
 	break;
@@ -3390,11 +3391,13 @@ static int trout_wifi_suspend(struct device *dev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct trout_private *tp = netdev_priv(ndev);
 	UWORD32 *tmp, t;
-	int cnt = 0, tnr = 0, v;
+	int cnt = 0, idx = 0, tnr = 0, v;
 	UWORD32	ss = 0;
 	unsigned char *pp = NULL;
 
-	pr_info("======== %s ========\n", __func__);
+//	pr_info("======== %s ========\n", __func__);
+	pr_info("SPD\n" );
+
 	// avoid suspend when NPI testing
 #ifdef TROUT_WIFI_NPI
 	pr_info("(%s)WIFI is testing in NPI mode, avoid suspend\n", __func__);
@@ -3431,30 +3434,33 @@ static int trout_wifi_suspend(struct device *dev)
 		reset_mac_unlock();
 		return 1;
 	}
-	/*leon liu, when in coexing mode, no sleeping(Bug#285951)*/
-	if(g_wifi_bt_coex)	//add by chwg.
-	{
-	     printk("%s: In WiFi&BT coexist mode, not suspend!\n", __func__);
-	     mutex_unlock(&suspend_mutex);
-	     reset_mac_unlock();
-	     return 1;
-	}
-
+	else {
 #ifdef WAKE_LOW_POWER_POLICY
-	       if(!mutex_trylock(&tp->ps_mutex))	//add by chwg, 2013.12.7
-	       {		
-		 mutex_unlock(&suspend_mutex);
-		 reset_mac_unlock();
-		 //mutex_unlock(&tp->cur_run_mutex);
-		 return 1;
-	       }
-	       stop_alarm(g_flow_detect_timer);
-	       exit_low_power_mode(BFALSE);
+	if(!mutex_trylock(&tp->ps_mutex))	//add by chwg, 2013.12.7
+	{		
+		mutex_unlock(&suspend_mutex);
+		reset_mac_unlock();
+		//mutex_unlock(&tp->cur_run_mutex);
+		return 1;
+	}
+	stop_alarm(g_flow_detect_timer);
+	exit_low_power_mode(BFALSE);
 #endif /* WAKE_LOW_POWER_POLICY */
 		if((get_mac_state() == ENABLED) || (g_keep_connection == BTRUE)) { /* keep Wi-Fi on if connection was established */
 		/*if(g_wifi_suspend_status == wifi_suspend_nosuspend) { [>recover from power save<]*/
 			/*g_wifi_suspend_status = wifi_suspend_early_suspend; [>keep out all ioctl ASAP<]*/
 			/*send_null_frame_to_AP(STA_DOZE, BTRUE, 0);*/
+			//printk("[%s] netif_stop_queue\n" ,__FUNCTION__);
+			if(g_wifi_bt_coex)	//add by chwg.
+			{
+				printk("%s: In WiFi&BT coexist mode, not suspend!\n", __func__);
+				/*leon liu added, release ps_mutex*/
+				mutex_unlock(&tp->ps_mutex);
+				mutex_unlock(&suspend_mutex);
+				reset_mac_unlock();
+				return 1;
+			}
+			
 			netif_stop_queue(g_mac_dev);
 			//pr_info("======== cancel works\n");
 			//cancel_work_sync(&tp->event_work); /*cancel the works before suspend*/
@@ -3477,20 +3483,8 @@ static int trout_wifi_suspend(struct device *dev)
 					printk("wait for other frame send out timeout!\n");
 					show_tx_slots();
 					netif_wake_queue(g_mac_dev);
-			#ifdef MAC_WMM
-				if(get_wmm_enabled() == BTRUE)
-				{
-					force_resume_soft_txq_above(get_txq_num(0));
-				}
-				else
-				{
-					force_resume_soft_txq_above(NORMAL_PRI_Q);
-				}
-			#else
-				force_resume_soft_txq_above(NORMAL_PRI_Q);
-			#endif
 #ifdef WAKE_LOW_POWER_POLICY
-					mutex_unlock(&tp->ps_mutex);
+				mutex_unlock(&tp->ps_mutex);
 #endif
 					mutex_unlock(&suspend_mutex);
 					reset_mac_unlock();
@@ -3521,38 +3515,27 @@ wait:
 						tnr++;
 					if(tnr < 50)
 						goto wait;
-					printk("@@@: no tx_complete is for at least 1s\n");
+	//				printk("@@@: no tx_complete is for at least 1s\n");
+                    printk("no tx ISR\n");
 				}
 				if((UWORD32)null_frame_dscr == 0x1){
 					cnt++;
-					printk("@@@:SUSPEND SEND NULL try %d times\n", cnt);
+					//printk("@@@:SUSPEND SEND NULL try %d times\n", cnt);
+                     printk("S-S-N %d\n", cnt);
 					if(cnt < 5)
 						goto retry;
 				}
-				pr_info("======== waiting for null frame done\n");
+			//	pr_info("======== waiting for null frame done\n");
 			}else{
 				ss = 1;
-				printk("@@@:SUSPEND no memory for NULL\n");
+				//printk("@@@:SUSPEND no memory for NULL\n");
+                printk("SPD no mem for NULL\n");
 			}
 			if(ss || tnr >= 50 || cnt >= 5 ){
 			/* to prevent suspend retry too much times and still fail thus cause */
 			/* rcv pkt which doing in process_all_events couldn't do lead to     */
 			/* link loss --chwg 2014.01.3 */
 			g_link_loss_count = 0;
-	#ifdef MAC_WMM
-			if(get_wmm_enabled() == BTRUE)
-			{
-				force_resume_soft_txq_above(AC_BK_Q);
-				force_resume_soft_txq_above(get_txq_num(0));
-			}
-			else
-			{
-				force_resume_soft_txq_above(NORMAL_PRI_Q);
-			}
-	#else
-			force_resume_soft_txq_above(NORMAL_PRI_Q);
-	#endif
-	
 				netif_wake_queue(g_mac_dev);
 #ifdef WAKE_LOW_POWER_POLICY
 			mutex_unlock(&tp->ps_mutex);
@@ -3563,8 +3546,6 @@ wait:
 			}else{
 				UWORD32 zero_ip = 0;
 			    disable_all_txq();
-				
-                 /* tell ARM7 the IP address */
                  pp = get_local_ipadd(); 
                  if(pp == NULL){
                      pp = (unsigned char *)&zero_ip;
@@ -3580,7 +3561,8 @@ wait:
 			}
 		} else {
 			if(g_wifi_suspend_status == wifi_suspend_nosuspend) { /*turn off Wi-Fi if there was no connection */
-				pr_info("========%s: no connection, turn off Wi-Fi\n", __func__);
+				pr_info("======== no connection, turn off Wi-Fi\n", __func__);
+				//printk("[%s] netif_stop_queue\n" ,__FUNCTION__);
 				netif_stop_queue(ndev);	//modify by chengwg, 2013.7.9
 				/*g_wifi_suspend_status = wifi_suspend_suspend; [>keep out all ioctl ASAP<] */
 				reset_mac_unlock();
@@ -3594,10 +3576,10 @@ wait:
 				mutex_unlock(&suspend_mutex);
 				return 0;
 			} else if(g_wifi_suspend_status == wifi_suspend_suspend) { /*done by STOP*/
-				pr_info("========%s: done by STOP\n", __func__);
+				pr_info("======== done by STOP\n", __func__);
 			}
 		}
-	
+        }	
 	//printk("SPD done!\n");
 	printk("==========%s: exit=========\n", __func__);
 #ifdef WAKE_LOW_POWER_POLICY
@@ -3667,8 +3649,10 @@ static int trout_wifi_resume(struct device *dev)
 	pr_info("========%s========\n", __func__);
 	struct platform_device *pdev = to_platform_device(dev);
 	struct net_device *ndev = platform_get_drvdata(pdev);
-	pr_info("======== %s ========\n", __func__);
+	//pr_info("======== %s ========\n", __func__);
 	UWORD32 *tmp;
+    
+
 	int cnt = 0, tnr = 0, v;
 	struct trout_private *stp;
 	
@@ -3696,14 +3680,16 @@ static int trout_wifi_resume(struct device *dev)
 		/* other wakeup source, we need sync RX read/write pointer */
 		//host_write_trout_reg(ps_last_int_mask , (UWORD32)rCOMM_INT_MASK);
 		//update_trout_int_mask(ps_last_int_mask);
-		//host_awake_by_arm7 = BTRUE;
+		host_awake_by_arm7 = BTRUE;
 
 		enable_all_txq();
 
 		if(waitqueue_active(&wifi_resume_completion.wait)) {
-			pr_info("======== kick ass\n", __func__);
+			//pr_info("======== kick ass\n", __func__);
+              pr_info("KA\n");
 			complete(&wifi_resume_completion);
 		}
+
 		mac_event_schedule();
 		/*rx_complete_isr(HIGH_PRI_RXQ);*/
 
@@ -3712,6 +3698,7 @@ retry:
 		/*send_null_frame_to_AP(STA_ACTIVE, BTRUE, 0);*/
 	    //v = send_null_frame_to_AP_trick(STA_ACTIVE, BTRUE, 0);
         v = send_ps_poll_to_AP_trick();
+
 		if(!v && null_frame_dscr != NULL) {
 			tmp = null_frame_dscr;
 			tnr = 0;
@@ -3721,17 +3708,20 @@ wait:
 				tnr++;
 				if(tnr < 20)
 					goto wait;
-				printk("@@@: RESUME -at least 400ms no TX ISR for NULL frame\n");
+			//	printk("@@@: RESUME -at least 400ms no TX ISR for NULL frame\n");
+                  printk("R-N-I\n");
 			}
 			if((UWORD32)null_frame_dscr == 0x1){
 				cnt++;
-				printk("@@@:RESUME-SEND NULL try %d times\n", cnt);
+				//printk("@@@:RESUME-SEND NULL try %d times\n", cnt);
+                printk("R-S-N %d\n", cnt);
 				if(cnt < 3)
 					goto retry;
 			}
-			printk("OTHER satus!\n");
+		//	printk("OTHER satus!\n");
 		}else{
-			printk("@@@:RESUME no memory for NULL or other reason\n");
+			//printk("@@@:RESUME no memory for NULL or other reason\n");
+              printk("R no mem for NULL\n");
 		}
 #endif
 		netif_wake_queue(g_mac_dev);
@@ -3938,18 +3928,6 @@ int enter_low_power_mode(void)	//chwg debug.
 			{
 				printk("wait for other frame send out timeout!\n");
 				show_tx_slots();
-			#ifdef MAC_WMM
-				if(get_wmm_enabled() == BTRUE)
-				{
-					force_resume_soft_txq_above(get_txq_num(0));
-				}
-				else
-				{
-					force_resume_soft_txq_above(NORMAL_PRI_Q);
-				}
-			#else
-					force_resume_soft_txq_above(NORMAL_PRI_Q);
-			#endif
 				netif_wake_queue(g_mac_dev);
 				mutex_unlock(&tp->ps_mutex);
 				reset_mac_unlock();
@@ -4005,19 +3983,6 @@ wait:
 		
 		if(ss || tnr >= 50 || cnt >= 5)
 		{
-	#ifdef MAC_WMM
-			if(get_wmm_enabled() == BTRUE)
-			{
-				force_resume_soft_txq_above(AC_BK_Q);
-				force_resume_soft_txq_above(get_txq_num(0));
-			}
-			else
-			{
-				force_resume_soft_txq_above(NORMAL_PRI_Q);
-			}
-	#else
-			force_resume_soft_txq_above(NORMAL_PRI_Q);
-	#endif
 			netif_wake_queue(g_mac_dev);
 			mutex_unlock(&tp->ps_mutex);
 			reset_mac_unlock();
@@ -4063,9 +4028,10 @@ static void flow_detect_work(struct work_struct *work)
 
 	ALARM_WORK_ENTRY(work);
 	/* In WiFi & BT hardware coexist mode, we will not going to low power mode! */
-	if(Get_Power_Mode() == 5)
+	//if(Get_Power_Mode() == 5)
+	if(g_wifi_bt_coex)
 	{
-		printk("current is in WiFi+BT hardware coexist mode, skip!\n");
+		printk("current is in WiFi+BT software coexist mode, skip!\n");
 		clear_history_flow_record();
 		restart_flow_detect_timer(&g_flow_detect_timer, FLOW_DETECT_TIME, 0);
 		ALARM_WORK_EXIT(work);
@@ -4212,6 +4178,8 @@ static int trout_wifi_remove(struct platform_device *pdev)
 	pstimer_stop(&pstimer);
 	//Ensure timer is stopped
 	mdelay(100);
+	//leon liu added for powersave timer deintialization 2013-4-1
+	pstimer_destroy(&pstimer);
 #endif
 	host_notify_arm7_coex_ready(BFALSE);
 	host_notify_arm7_wifi_on(BFALSE);
@@ -4242,7 +4210,7 @@ static int trout_wifi_remove(struct platform_device *pdev)
 
 	/* Reset the MAC hardware and software, PHY etc */
 	reset_mac(&g_mac, BFALSE);	//modify by chengwg 2013.03.13!
-	
+	//host_notify_arm7_wifi_reset(BFALSE); // after reset_mac, reset signal before wifi off.
 	flush_work(&tp->event_work);
 	if(tp->event_wq != NULL)
     {
@@ -4639,7 +4607,7 @@ static int trout_wifi_probe(struct platform_device *pdev)
 
 	memset(gsb, 0, sizeof(*gsb));
 	get_wifi_buf(&gsb->ps, &gsb->size);
-	printk("RS_BUF start:%lu, size:%lu\n", gsb->ps, gsb->size);
+	printk("RS_BUF start:%X, size:%X\n", gsb->ps, gsb->size);
 	if(gsb->ps)
 		alloc_sb_buf();
 	

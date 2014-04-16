@@ -19,10 +19,31 @@
 //xiong add for trout_sdio.ko debug
 #include <linux/mmc/sdio.h>
 #include "trout2_interface.h"
-#include "ccache.h"
-#include "trout2_sdio.h"
+
+#define TROUT_SDIO_VERSION	"0.27"
+#define TROUT_SDIO_BLOCK_SIZE	512	/* rx fifo max size in bytes */
+
+//#define POW_CTRL_VALUE		0x700 /*for Trout1*/ 
+#define POW_CTRL_VALUE		0x500 /*for Trout2*/ 
+
+#define TROUT_SHARE_MEM_BASE_ADDR 0x10000	/* word address */
+#define TROUT_BT_RAM_BASE_ADDR    0x5000	/* word address */
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE 
+/*zhou huiquan add for protect read/write register*/
+#define TROUT_AWAKE                      1
+#define TROUT_DOZE                 	 0
+/*leon liu added TROUT_SLEEP state*/
+#define TROUT_SLEEP			 2	
+#define LOCK_TURE                        1
+#define LOCK_FALSE                       0
+#define SYS_ADDR_MAX                     (0x1FF<<2)
+#define SYS_ADDR_MIN                     0
+#define FM_ADDR_MIN                      (0x3000<<2)
+#define FM_ADDR_MAX                      (0x3FFF<<2)
+#define UWORD32                          unsigned int
+
+typedef void (*sdio_trout_awake)(bool flag);
 sdio_trout_awake trout_awake_fn = NULL;
 
 extern void tempr_compensated(void);//by lihua
@@ -57,6 +78,13 @@ EXPORT_SYMBOL(check_tpc_switch_from_nv);
 struct sdio_func *trout_sdio_func = NULL;
 struct sdio_func *cur_sdio_func = NULL;/* Current need  */
 static unsigned int sdio_can_sleep = 1;
+
+#define TROUT_MODULE_FAIL                0
+#define TROUT_MODULE_LOADING             1
+#define TROUT_MODULE_LOADED              2
+#define TROUT_MODULE_UNLOADING           3
+#define TROUT_MODULE_UNLOADED            4
+#define TROUT_MODULE_IDLE                5
 
 //xuan.yang, 2013-10-16, save trout module state
 static unsigned int g_trout_module_state = TROUT_MODULE_IDLE;
@@ -321,7 +349,7 @@ void wifimac_sleep(void)
 }
 EXPORT_SYMBOL(wifimac_sleep);
 
-void root_wifimac_wakeup(void)
+static void root_wifimac_wakeup(void)
 {
     UWORD32 i = 5;
     UWORD32 count = root_host_read_trout_reg((UWORD32)rSYSREG_INFO1_FROM_ARM) + 1; 
@@ -413,7 +441,7 @@ unsigned int host_read_trout_reg(unsigned int reg_addr)
 			
 			g_trout_state = TROUT_AWAKE;
 		}
-		ret = root_host_read_trout_reg(reg_addr);
+			ret = root_host_read_trout_reg(reg_addr);
 		mutex_unlock(&rw_reg_mutex);
 	}
 	#endif
@@ -485,7 +513,7 @@ unsigned int host_write_trout_reg(unsigned int val, unsigned int reg_addr)
 			
 			g_trout_state = TROUT_AWAKE;
 		}
-		err = root_host_write_trout_reg(val,reg_addr);
+		 	err = root_host_write_trout_reg(val,reg_addr);
 		mutex_unlock(&rw_reg_mutex);
 	}
 	#endif	
@@ -748,7 +776,7 @@ unsigned int host_write_trout_ram(void *trout_addr, void *host_addr,
 
 		g_trout_state = TROUT_AWAKE;
 	}
-	ret = root_host_write_trout_ram(trout_addr, host_addr, length);
+		ret = root_host_write_trout_ram(trout_addr, host_addr, length);
 	mutex_unlock(&rw_reg_mutex);
 	#endif
 	return ret;
@@ -1476,7 +1504,6 @@ retry:
 	else
 		printk("ALTER: alloc %x buf for wifi failed\n", size);
 	printk("SB BUF:%X, SIZE:%X\n", wifi_buf, wifi_buf_size);
-	ccache_init();
 	return ret;
 }
 
@@ -1487,7 +1514,7 @@ static void __exit trout_sdio_exit(void)
 		kfree(wifi_buf);
 	wifi_buf_size = 0;
 	sdio_unregister_driver(&trout_sdio_driver);
-	ccache_exit();
+    
 
 #ifdef  NPI_NV_CALIBRATION_ENABLE
     npi_nv_cal_cleanup();

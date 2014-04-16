@@ -169,16 +169,12 @@ ktime_t g_ap_combo_scan_kt;
 
 //chenq add for ext wpa_wpa2_hs 2013-04-16
 BOOL_T g_wpa_wpa2_hs_complete = BFALSE;
-
-//chenq add for ext wpa_wpa2_rehs 2013-12-05, Bug#240544
 BOOL_T g_wpa_wpa2_rehs = BFALSE;
 UWORD8 g_wpa_wpa2_ptk_key[32] = {0};
+
 //chenq add do ap list merge logic 2013-08-28
 bss_link_dscr_t * g_user_getscan_aplist = NULL;
 UWORD8 g_link_list_bss_count            = 0;
-
-//add zenghaiqi to fix bug 816
-/*junbinwang add for cr 238822. 20131128*/
 UWORD32 g_merge_aplist_flag = 0;
 
 //chenq mod scan_limit => g_default_scan_limit 2013-09-11
@@ -284,7 +280,7 @@ void init_globals_sta(void)
 
 	//chenq add for ext wpa_wpa2_hs 2013-04-16
 	g_wpa_wpa2_hs_complete = BFALSE;
-	//chenq add for ext wpa_wpa2_rehs 2013-12-05, Bug#240544
+	//chenq add for ext wpa_wpa2_rehs 2013-12-05
 	g_wpa_wpa2_rehs = BFALSE;
 	memset(g_wpa_wpa2_ptk_key,0x00,32);
 

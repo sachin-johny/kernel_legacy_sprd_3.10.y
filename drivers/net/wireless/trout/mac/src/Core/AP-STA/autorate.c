@@ -308,7 +308,7 @@ unsigned int get_avg_cca_freq(void)
 	
 	if(0 == g_ar_stats_flag)	
 	{
-		if(g_ar_stats_index >= 0 && g_ar_stats_index <= (STATISTICS_FILTER_TABLE - 1))
+		if(g_ar_stats_index <= (STATISTICS_FILTER_TABLE - 1))
 		{
 			avg_value = 100 - 100 * (get_rx_complete_cnt_sum(g_ar_stats_index)) / get_rx_nack_all_cnt_sum(g_ar_stats_index);
 		}
@@ -347,7 +347,7 @@ UWORD16 get_avg_retry_ratio(void)
 	UWORD16 avg_value = 0;
 	if(0 == g_ar_rr_flag)	
 	{
-		if(g_ar_rr_index >= 0 &&  g_ar_rr_index <= (STATISTICS_FILTER_TABLE - 1))
+		if(g_ar_rr_index <= (STATISTICS_FILTER_TABLE - 1))
 		{
 			avg_value = 100 * (get_retry_cnt_sum(g_ar_rr_index)) / get_txpkt_cnt_sum(g_ar_rr_index);
 		}			
@@ -359,6 +359,7 @@ UWORD16 get_avg_retry_ratio(void)
 	return avg_value;
 }
 
+#ifdef IBSS_BSS_STATION_MODE
 void ar_rssi_value_add(void)
 {
 	WORD32 temp_rssi = 0;
@@ -435,6 +436,7 @@ WORD32 get_filter_avg_rssi(void)
 	}
 	return avg_value;
 }
+#endif /* IBSS_BSS_STATION_MODE */
 
 void get_rx_statistics(ar_stats_t *ar_stats)
 { 	
@@ -573,7 +575,10 @@ void get_rx_statistics(ar_stats_t *ar_stats)
 	    g_ar_rr_index = 0;
         g_ar_rr_flag = 1;
     }
-	
+	printk("g_rx_data.cca_freq=%u\n", g_rx_data.cca_freq);
+	printk("g_rx_data.retry_ratio=%u\n", g_rx_data.retry_ratio);
+       
+#ifdef IBSS_BSS_STATION_MODE
 	/*calculating rx rssi*/
 	rssi_cur = get_ar_avg_rssi();
 	g_rx_data.rssi = get_filter_avg_rssi();
@@ -583,9 +588,10 @@ void get_rx_statistics(ar_stats_t *ar_stats)
 		g_ar_rssi_index = 0;
 		g_ar_rssi_flag = 1;
 	}
-	printk("g_rx_data.cca_freq=%u\n", g_rx_data.cca_freq);
-	printk("g_rx_data.retry_ratio=%u\n", g_rx_data.retry_ratio);
-	printk("g_rx_data.rssi=%d\n", g_rx_data.rssi);
+    	printk("g_rx_data.rssi=%d\n", g_rx_data.rssi);
+#endif /* IBSS_BSS_STATION_MODE */
+
+
 }
 
 UWORD8 get_relevant_index(UWORD8 cur_index, UWORD8 sub_index)

@@ -317,6 +317,7 @@ int initialize_macsw(mac_struct_t *mac)
 
     /* Do protocol related system initialization */
     sys_init_prot();
+    
     TROUT_FUNC_EXIT;
     return 0;
 }
@@ -347,7 +348,6 @@ void create_mac_interrupts(void)
     UWORD32 int_mask = 0;
     UWORD32 int_stat = 0;
     ISR_T id = {0};
-
 
     TROUT_FUNC_ENTER;
     id.isr = (ISR_FN_T *)mac_isr_work;
@@ -496,6 +496,8 @@ static int handle_beacon(void)
 	UWORD16 i           = 0;
 	unsigned int v;
 	int smart_type = MODE_START;
+	struct timespec time;
+	static unsigned int cnr = 0;    
 
 	v = convert_to_le(host_read_trout_reg((UWORD32)rMAC_PA_STAT));
 	while((v & 0x10) == 0 && !kthread_should_stop()){
@@ -535,7 +537,7 @@ static int handle_beacon(void)
 	}
 
     /* virtual bit map should be protected by zhao 6-21 2013 */
-	get_vbp_mutex((unsigned long)__builtin_return_address(0));
+	get_vbp_mutex(__builtin_return_address(0));
 	g_vbmap[DTIM_CNT_OFFSET] = dtim_count;
 	for(i = 0; i < g_vbmap[LENGTH_OFFSET] + 2; i++){
 		g_beacon_frame[g_beacon_index][g_tim_element_index + i + SPI_SDIO_WRITE_RAM_CMD_WIDTH] =
@@ -783,7 +785,7 @@ void clear_tx_barrier(void)
 void reset_mac__lock(void)
 {
 	struct trout_private *tp = netdev_priv(g_mac_dev);
-	if(tp == NULL) return;
+	if(tp == NULL) return 0;
 	down_read(&tp->rst_semaphore);
 	//printk("[libing]: reset_mac_trylock ret = %d,g_mac_reset_done = %d\n",ret,atomic_read(&g_mac_reset_done));
 	//print_symbol("[libing] reset_mac_trylock:%s\n", (unsigned long)__builtin_return_address(0));
@@ -797,7 +799,9 @@ int reset_mac_trylock(void)
 {
 	int ret = 0;
 	struct trout_private *tp = netdev_priv(g_mac_dev);
-	if(tp == NULL) return 0;
+	if( tp == NULL || (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE ){
+		return 0;
+	}
 	ret = down_read_trylock(&tp->rst_semaphore);
 	//printk("[libing]: reset_mac_trylock ret = %d,g_mac_reset_done = %d\n",ret,atomic_read(&g_mac_reset_done));
 	//print_symbol("[libing] reset_mac_trylock:%s\n", (unsigned long)__builtin_return_address(0));
@@ -809,7 +813,7 @@ void reset_mac_unlock(void)
 	struct trout_private *tp = netdev_priv(g_mac_dev);
 	if(tp == NULL) return;
 	up_read(&tp->rst_semaphore);
-	//printk("[libing] reset_mac_unlock:\%pS rw_sem->activity = %d\n", (unsigned long)__builtin_return_address(0), tp->rst_semaphore.activity);
+	//print_symbol("[libing] reset_mac_unlock:%s\n", (unsigned long)__builtin_return_address(0));
 }
 /* judge write semaphore is locked */
 int wsem_is_locked(void)	//chwg add.
@@ -826,30 +830,24 @@ int wsem_is_locked(void)	//chwg add.
 	}
 	return ret;
 }
-
-/*junbinwang addor wps 20130812*/
-extern void trout_set_wps_sec_type_flag(WORD32 flag);
 void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 {
 	TROUT_FUNC_ENTER;
 	struct trout_private *tp;
+	
 
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 	/*leon liu added, stop pstimer*/
 	pstimer_stop(&pstimer);
 #endif
 	/* handle race condiction between some reset_macs by zhao  */
+       
 	tp = netdev_priv(g_mac_dev);
-	/* caisf add for Reduce unnecessary interrupts while reset mac, 2014-02-17*/
-	host_write_trout_reg(convert_to_le(MAC_INT_MASK_INIT_VALUE), (UWORD32)rCOMM_INT_MASK);
+	host_write_trout_reg(convert_to_le(0xFFFFFFFF), (UWORD32)rCOMM_INT_MASK);
 	printk("[reset_mac]: down_write >>>\n");
 	down_write(&tp->rst_semaphore);
 	printk("[reset_mac]: down_write <<<\n");
-
-	//Begin:add by wulei 2791 for bug 160423 on 2013-05-04
-	/*jiangtao.yi moved from the postion before down_write while debugging bug244758.*/
 	atomic_set(&g_mac_reset_done, (int)BFALSE);
-	//End:add by wulei 2791 for bug 160423 on 2013-05-04
 
 	wake_lock(&reset_mac_lock); /*Keep awake when resetting MAC, by keguang 20130609*/
 	pr_info("[%s]: acquire wake_lock %s\n", __func__, reset_mac_lock.name);
@@ -861,9 +859,6 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 #endif
 	/*leon liu added cfg80211 report scan abort*/	
 	
-       /*junbinwang modify for wps 20130812*/
-	trout_set_wps_sec_type_flag(0);
-	/*leon liu added cfg80211 report scan abort*/	
 #ifdef  CONFIG_CFG80211
 	trout_cfg80211_report_scan_done(g_mac_dev, 1);
 #endif
@@ -898,22 +893,20 @@ void reset_mac(mac_struct_t *mac, BOOL_T init_mac_sw)
 	/*leon liu masked tx_compelte*/
 	printk("[reset_mac]\t3. skip tx_complete_isr_simulate!\n");
 	/*tx_complete_isr_simulate();*/
-
-    printk("[reset_mac]\t4. delete mac interrupt!\n");
-    /* Delete the MAC interrupts and alarms */
-    delete_mac_interrupts();
-
-    printk("[reset_mac]\t5. stop mac and phy!\n");
+	printk("[reset_mac]\t4. stop mac and phy!\n");
 	/* Stop MAC HW and PHY HW first before going for reset */
     	stop_mac_and_phy();
 
-	printk("[reset_mac]\t6. destroy mac txq & rxq!\n");
+	printk("[reset_mac]\t5. destroy mac txq & rxq!\n");
     	destroy_mac_qmu(&g_q_handle);
 
 #ifdef BSS_ACCESS_POINT_MODE
 	delete_beacon_thread();	//modify by chengwg.
 #endif
 
+    printk("[reset_mac]\t6. delete mac interrupt!\n");
+    /* Delete the MAC interrupts and alarms */
+    delete_mac_interrupts();
     printk("[reset_mac]\t7. delete mac alarm!\n");
     delete_mac_alarms();
     printk("[reset_mac]\t8. delete phy alarm!\n");
@@ -1120,9 +1113,9 @@ void restart_mac_plus(mac_struct_t *mac, UWORD32 delay)
 
 	//xuan yang, 2013-8-23, add wid mutex
 	tp = netdev_priv(g_mac_dev);
-	printk("[%s]\t mutex_lock (rst_wid_mutex) ==>>\n", __FUNCTION__);
+	printk("[%s]\t mutex_lock (rst_wid_mutex) ==>>", __FUNCTION__);
 	mutex_lock(&tp->rst_wid_mutex);
-	printk("[%s]\t mutex_lock (rst_wid_mutex) ==<<\n", __FUNCTION__);
+	printk("[%s]\t mutex_lock (rst_wid_mutex) ==<<", __FUNCTION__);
 	
 #ifdef DEBUG_MODE
 	printk("%s", __FUNCTION__);
@@ -1163,7 +1156,7 @@ void restart_mac_plus(mac_struct_t *mac, UWORD32 delay)
 	g_reset_mac_in_progress       = BFALSE;
 
 	mutex_unlock(&tp->rst_wid_mutex);
-	printk("[%s]\texit\n", __FUNCTION__);
+	printk("[%s]\texit", __FUNCTION__);
 	TROUT_FUNC_EXIT;
 }
 

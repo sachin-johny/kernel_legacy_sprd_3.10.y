@@ -93,7 +93,7 @@ void sta_wait_scan(mac_struct_t *mac, UWORD8 *msg)
 	//printk("chenq debug g_scan_source = %02x\n",g_scan_source);
 	if( g_scan_source == USER_SCAN )
 	{
-		TROUT_DBG4("%s: set user scan mode!\n", __func__);
+		TROUT_DBG4("%s: set user scan mode!\n", __func__);	
 	    /* Start scanning from first channel in the scan request channel list */
 	    scan_channel(g_channel_list[g_channel_index]);
 	    g_channel_index++;

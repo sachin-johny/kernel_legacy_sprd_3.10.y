@@ -574,7 +574,7 @@ void wlan_to_wlan(msdu_indicate_t *msdu, CIPHER_T ct, UWORD8 key_type,
     {
 		// 20120709 caisf mod, merged ittiam mac v1.2 code
         if(BTRUE == tx_data_packet((UWORD8 *)ae, msdu->da, msdu->priority, q_num,
-                                   tx_dscr, amsdu_ctxt,1))
+                                   tx_dscr, amsdu_ctxt))
         {
 		    /* Increment count indicating packet added to Hw queue */
 		    /* Check if packet Bcast/Mcast or Unicast */

@@ -12,13 +12,6 @@
 
 #ifdef TROUT_WIFI_NPI
 #undef PS_TIMER_DEBUG
-extern volatile int g_tx_flag;
-#endif
-
-#ifdef PS_TIMER_DEBUG
-#define TROUT_PS_TIMER_DBG(fmt, arg...)               TROUT_DBG(TROUT_DEBUG_MASK4, fmt, ##arg)
-#else
-#define TROUT_PS_TIMER_DBG(fmt, arg...)               TROUT_DBG(TROUT_DEBUG_MASK6, fmt, ##arg)
 #endif
 
 #define TROUT_MODULE_FAIL               0
@@ -37,29 +30,29 @@ static int tx_pkts_last = 0;
 static int rx_pkts_last = 0;
 //---------Static routines------------
 static void pstimer_work_func(struct work_struct *work)
-	{
+{
 #ifdef CONFIG_CFG80211
 	struct wireless_dev *wdev = g_mac_dev->ieee80211_ptr;
 #endif
-	TROUT_PS_TIMER_DBG("%s: entered\n", __func__);
+	pr_info("%s: entered\n", __func__);
 
 	if (reset_mac_trylock() == 0){
 		pr_info("during reset_mac, nothing to do\n");
 		return ;
-	}
+}
 
 	if( mutex_is_locked(&pstimer.run_lock) || check_trout_module_state(TROUT_MODULE_UNLOADING)){
 		pr_info("Nothing to be done\n");
 		reset_mac_unlock();
 		return;
-}
+	}
 
-	TROUT_PS_TIMER_DBG("%s: mutex_trylock\n", __func__);
+	pr_info("%s: mutex_trylock\n", __func__);
 	if (mutex_trylock(&pstimer.run_lock) == 0){
 		/*If we cann't get run_lock, this means pstimer_stop is called*/
 		pr_info("%s: mutex_trylock failed\n", __func__);
 		reset_mac_unlock();
-		return;
+		return ;
 	}
 
 	if (get_mac_state() == ENABLED || g_keep_connection == BTRUE || (BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE 
@@ -67,32 +60,29 @@ static void pstimer_work_func(struct work_struct *work)
 #ifdef CONFIG_CFG80211
 			|| wdev->sme_state != CFG80211_SME_IDLE
 #endif
-#ifdef TROUT_WIFI_NPI
-                    || g_tx_flag
-#endif
 	   ){
 		pr_info("%s: condition is not satisfied, not going to sleep\n", __func__);
-			goto out;
-		}
+		goto out;
+}
 
 	/*
 	 * sta_sleep_disconnected will judge the current state,
 	 * if already in TROUT_SLEEP, nothing happens
 	 */
-	pr_info("%s: enter sleep_disconnected\n", __func__);
-	sta_sleep_disconnected();
-	TROUT_PS_TIMER_DBG("%s: mod_timer to next 1s\n", __func__);
+	pr_info("%s: goint to sleep_disconnected\n", __func__);
+				sta_sleep_disconnected();
+	pr_info("%s: mod_timer to next 1s\n", __func__);
 	mod_timer(&pstimer.timer, jiffies + 1 * HZ);
-	TROUT_PS_TIMER_DBG("%s: mod_timer ok\n", __func__);
+	pr_info("%s: mod_timer ok\n", __func__);
 out:
-	TROUT_PS_TIMER_DBG("%s: exited\n", __func__);
+	pr_info("%s: exited\n", __func__);
 	mutex_unlock(&pstimer.run_lock);
 	reset_mac_unlock();
 }
 
 //Timer expiring function
 static void pstimer_expire_func(unsigned long data)
-	{
+{
 	//Check if we should dive into work
 	//We're in interrupt context,so never use reset_mac_trylock
 	if ((BOOL_T)atomic_read(&g_mac_reset_done) == BFALSE || check_trout_module_state(TROUT_MODULE_UNLOADING)
@@ -154,8 +144,8 @@ int pstimer_start_late_resume(pstimer_t *pstimer)
 
 int pstimer_set_timeout(pstimer_t *pstimer, int timeout_ms)
 {
-		return 0;
-	}
+	return 0;
+}
 
 int pstimer_set_pkts_threshold(pstimer_t *pstimer, int ps_pkts_threshold)
 {
@@ -163,7 +153,7 @@ int pstimer_set_pkts_threshold(pstimer_t *pstimer, int ps_pkts_threshold)
 	}
 
 int pstimer_stop(pstimer_t *pstimer)
-{
+	{
 	if (pstimer == NULL){
 		return -1;
 	}
@@ -178,12 +168,12 @@ int pstimer_stop(pstimer_t *pstimer)
 	 */
 	if (work_busy(&pstimer->work)){
 		cancel_work_sync(&pstimer->work);
-	}
+}
 	del_timer_sync(&pstimer->timer);		
 	mutex_unlock(&pstimer->run_lock);
 
-	return 0;
-}
+		return 0;
+	}
 
 int pstimer_destroy(pstimer_t *pstimer)
 {

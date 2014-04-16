@@ -42,6 +42,9 @@
 #include "mib1.h"
 
 extern int g_mac_svn_ver;
+#ifdef IBSS_BSS_STATION_MODE
+extern BOOL_T g_wifi_bt_coex;
+#endif
 /*****************************************************************************/
 /* Constants                                                                 */
 /*****************************************************************************/
@@ -151,6 +154,14 @@ INLINE void mset_CFPMaxDuration(UWORD16 inp)
 /* wait for the next frame in the authentication sequence.                   */
 INLINE UWORD32 mget_AuthenticationResponseTimeOut(void)
 {
+#ifdef IBSS_BSS_STATION_MODE
+    // Modify by Yiming.Li at 2014-03-10 for fix bug283595: connect difficultly
+    if(g_wifi_bt_coex)
+		MIBM.dot11AuthenticationResponseTimeOut = 163;  //wzl fix 163ms for coex retransmit        
+    else
+#endif /*IBSS_BSS_STATION_MODE*/
+		MIBM.dot11AuthenticationResponseTimeOut = 512;  /* 512ms  in default*/
+
     return(MIBM.dot11AuthenticationResponseTimeOut);
 }
 
@@ -291,6 +302,14 @@ INLINE void mset_DTIMPeriod(UWORD8 inp)
 /* wait for a response to a transmitted association-request MMPDU.           */
 INLINE UWORD32 mget_AssociationResponseTimeOut(void)
 {
+#ifdef IBSS_BSS_STATION_MODE
+    // Modify by Yiming.Li at 2014-03-10 for fix bug283595: connect difficultly
+    if(g_wifi_bt_coex)
+		MIBM.dot11AssociationResponseTimeOut = 163;  //wzl fix 163ms for coex retransmit        
+    else
+#endif  /*IBSS_BSS_STATION_MODE*/
+		MIBM.dot11AssociationResponseTimeOut = 512;  /* 512ms  in default*/
+	
     return(MIBM.dot11AssociationResponseTimeOut);
 }
 

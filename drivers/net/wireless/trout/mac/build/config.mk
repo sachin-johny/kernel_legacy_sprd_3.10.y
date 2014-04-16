@@ -98,14 +98,16 @@ ifneq (ap, $(MAC_MODE))
 EXTRA_OPTION_FLAGS += -DTROUT_WIFI_POWER_SLEEP_ENABLE
 EXTRA_OPTION_FLAGS += -DWIFI_SLEEP_POLICY
 #EXTRA_OPTION_FLAGS += -DPOWERSAVE_DEBUG
-ifeq (sta, $(MAC_MODE))   #yangke, NPI mode not open low power policy
 ifneq (, $(findstring DWIFI_SLEEP_POLICY, $(EXTRA_OPTION_FLAGS)))	#chwg
 	EXTRA_OPTION_FLAGS += -DWAKE_LOW_POWER_POLICY
 endif
 endif
 endif
-endif
 #POWER SAVE FUNCTION
+# xy, add new auto rate
+ifeq (sta, $(MAC_MODE))
+EXTRA_OPTION_FLAGS += -DTROUT_WIFI_AUTO_RATE_NEW_EN
+endif
 
 #chenq add for wapi 20120919
 ifneq (ap, $(MAC_MODE))

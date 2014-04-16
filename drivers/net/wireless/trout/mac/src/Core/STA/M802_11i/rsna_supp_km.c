@@ -1240,7 +1240,7 @@ void update_scan_response_11i(UWORD8 *msa, UWORD16 rx_len, UWORD16 offset,
         /* copied                                                            */
         if(((g_mode_802_11i & RSNA_802_11I) && (msa[index] == IRSNELEMENT)) ||
            ((g_mode_802_11i & WPA_802_11I)  && (is_wpa_ie(msa + index) == BTRUE)) || 
-           ((g_scan_source & USER_SCAN)&& (get_mac_state() == WAIT_SCAN))) //BUG#182171, 2013-12-13
+           ((g_scan_source & USER_SCAN) && (get_mac_state() == WAIT_SCAN)))
         {
             UWORD8 *oui         = 0;
             UWORD8 temp         = 0;

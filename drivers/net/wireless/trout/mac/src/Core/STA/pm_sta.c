@@ -1706,7 +1706,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	TROUT_FUNC_EXIT;
         return -1;
     }
-	pr_info("NULL F@: %08p\n", msa);
+	pr_info("NULL F@: %08X\n", msa);
 
     /* Set the Frame Control field of the NULL frame. */
 #ifdef MAC_WMM
@@ -1786,7 +1786,7 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
 	retry_set[1] = get_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr);
 	retry_set[1] &= 0xFF00FFFF;
 	retry_set[1] |= (0x04 << 16);	//retry_rate7 set to 1Mbps
-	set_tx_dscr_retry_rate_set2((UWORD32 *)tx_dscr, retry_set[1]);
+	set_tx_dscr_retry_rate_set2(tx_dscr, retry_set[1]);
 	
     set_tx_buffer_details(tx_dscr, msa, 0, frame_len, 0);
     set_tx_dscr_q_num((UWORD32 *)tx_dscr, q_num);
@@ -1800,16 +1800,9 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
     if((is_qos == BTRUE) &&
        (is_serv_cls_buff_pkt_sta(se, q_num, priority, tx_dscr) == BTRUE))
     {
-		pr_info("%s: is_serv_cls_buff_pkt_sta() is true\n", __func__);
 		TROUT_FUNC_EXIT;
         return -1;
     }
-
-#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-#ifdef WIFI_SLEEP_POLICY
-	null_frame_dscr = tx_dscr; /*record NULL frame pointer of power save*/
-#endif
-#endif
 
     /* Add the packet to the MAC H/w transmit queue */
     if(qmu_add_tx_packet(&g_q_handle.tx_handle, q_num, tx_dscr) != QMU_OK)
@@ -1819,7 +1812,6 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
         g_mac_stats.qaexc++;
 #endif /* DEBUG_MODE */
         free_tx_dscr((UWORD32 *)tx_dscr);
-	  null_frame_dscr = NULL;
 		return -1;
     }
     else
@@ -1838,6 +1830,11 @@ int send_null_frame_to_AP_trick(UWORD8 psm, BOOL_T is_qos, UWORD8 priority)
                 g_active_null_wait = BFALSE;
             }
         }
+#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
+#ifdef WIFI_SLEEP_POLICY
+	null_frame_dscr = tx_dscr; /*record NULL frame pointer of power save*/
+#endif
+#endif
 	return 0;
     }
 }
@@ -2001,6 +1998,8 @@ UWORD32 ps_last_int_mask = 0;
 void sta_doze(void)
 {
     UWORD32 tmp_mask = 0;
+    UWORD32 int_mask = 0;
+    UWORD32 int_stat = 0;
 
 	/*TROUT_PRINT_STACK;*/
 
@@ -2095,9 +2094,7 @@ void sta_doze_trick(DOZE_T type,BOOL_T reset_lock)
     
 	/* record previous INT mask */
     ps_last_int_mask = root_host_read_trout_reg((UWORD32)rCOMM_INT_MASK);
-    /* use isr to clear RX fifo to make sure can clear all RX interrupts,and update
-    * some RX info.
-    */
+	
     rx_complete_isr(HIGH_PRI_RXQ);
     rx_complete_isr(NORMAL_PRI_RXQ);
     /* it's safe to clear all INTs */
@@ -2125,7 +2122,6 @@ void sta_doze_trick(DOZE_T type,BOOL_T reset_lock)
 	}
 	//cancel_work_sync(&(&g_rx_handle->rx_q_info[NORMAL_PRI_RXQ])->work); /*cancel rx works before suspending*/
 	//cancel_work_sync(&(&g_rx_handle->rx_q_info[HIGH_PRI_RXQ])->work); /*cancel rx works before suspending*/
-
 	printk("[sta_doze_trick]\t cancel_work_sync(event_work)====>>\n");
 	cancel_work_sync(&tp->event_work);
 	printk("[sta_doze_trick]\t cancel_work_sync(event_work)====<<\n");
@@ -2268,7 +2264,7 @@ void sta_awake_trick(void)
 #endif
 #endif
 
-//EXPORT_SYMBOL(sta_awake);
+EXPORT_SYMBOL(sta_awake);
 void sta_sleep(void)
 {
 	//leon liu added for stopping powersave timer on 2013-04-03
@@ -2317,6 +2313,8 @@ void sta_sleep_disconnected(void)
 #endif
 
 	UWORD32 tmp_mask = 0;
+	UWORD32 int_mask = 0;
+	UWORD32 int_stat = 0;
 
 	/*zhou huiquan add protect rw reg*/
 	mutex_lock(&rw_reg_mutex);

@@ -91,7 +91,7 @@ VOID MXD_API OAL_DebugPrint(IN CONST MXD_CHAR* dbgOutput, ...);
 #include "..\f320api.h"
 #include "..\usb2spilib.h"
 void OAL_DebugPrint(IN CONST MXD_CHAR* dbgOutput, ...);
-#define mxdDbgInfo(a) OAL_DebugPrint(a)
+#define mxdDbgInfo(a) //OAL_DebugPrint(a)
 #define mxdDbgInfo1       //
 #define mxdDbgInfo2       //
 #define rf_reg_read(regAddr,regVal)     Mxd_SpiReadCastorReg(regAddr,(MXD_U32 *)regVal)

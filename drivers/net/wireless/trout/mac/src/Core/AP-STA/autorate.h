@@ -238,14 +238,14 @@ extern unsigned int get_avg_cca_freq(void);
 extern UWORD16 get_retry_cnt_sum(UWORD8 stats_index);
 extern UWORD16 get_txpkt_cnt_sum(UWORD8 stats_index);
 extern UWORD16 get_avg_retry_ratio(void);
+extern UWORD8 get_relevant_index(UWORD8 cur_index, UWORD8 sub_index);
+extern void ar_reset_cw_cca_threshold(void);
+#ifdef IBSS_BSS_STATION_MODE
 extern WORD32 get_filter_avg_rssi(void);
 extern WORD32 get_ar_avg_rssi(void);
 extern void ar_rssi_value_add(void);
 extern WORD32 get_ar_total_rssi_value_sum(UWORD8 stats_index);
 extern WORD32 get_ar_total_rssi_num_sum(UWORD8 stats_index);
-extern UWORD8 get_relevant_index(UWORD8 cur_index, UWORD8 sub_index);
-extern void ar_reset_cw_cca_threshold(void);
-#ifdef IBSS_BSS_STATION_MODE
 extern UWORD8 get_rate_from_rssi(void *se, WORD32 rx_rssi);
 extern void ar_reset_prot(void);
 #endif /* IBSS_BSS_STATION_MODE */
