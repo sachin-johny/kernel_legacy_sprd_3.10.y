@@ -151,7 +151,9 @@ static struct serial_data plat_data;
 #if CONFIG_SERIAL_DEBUG
 static void serial_debug_save(int idx, void *data, size_t len);
 #else
-static void inline serial_debug_save(int idx, void *data, size_t len) { };
+static void inline serial_debug_save(int idx, void *data, size_t len)
+{
+};
 #endif
 
 static inline unsigned int serial_in(struct uart_port *port, int offset)
@@ -338,34 +340,29 @@ static irqreturn_t serial_sprd_interrupt_chars(int irq, void *dev_id)
 	struct uart_port *port = (struct uart_port *)dev_id;
 	struct sprd_uart_chip *chip_info =
 	    (struct sprd_uart_chip *)port->private_data;
-	int pass_counter = 0;
+	u32 int_status = 0;
 
-	do {
-		if (!
-		    (serial_in(port, ARM_UART_STS2) &
-		     serial_in(port, ARM_UART_IEN))) {
-			break;
+	int_status = serial_in(port, ARM_UART_STS2);
+
+	serial_out(port, ARM_UART_ICLR, 0xffffffff);
+
+	if (!(chip_info->dma_enable)) {
+		if (int_status &
+		    (UART_STS_RX_FIFO_FULL |
+		     UART_STS_BREAK_DETECT | UART_STS_TIMEOUT)) {
+
+			serial_sprd_rx_chars(irq, port);
 		}
-		if (!(chip_info->dma_enable)) {
-			if (serial_in(port, ARM_UART_STS2) &
-			    (UART_STS_RX_FIFO_FULL |
-			     UART_STS_BREAK_DETECT | UART_STS_TIMEOUT)) {
+	} else {
+		if (int_status & (UART_STS_BREAK_DETECT | UART_STS_TIMEOUT)) {
 
-				serial_sprd_rx_chars(irq, port);
-			}
-		} else {
-			if (serial_in(port, ARM_UART_STS2) &
-			    (UART_STS_BREAK_DETECT | UART_STS_TIMEOUT)) {
-
-				serial_sprd_rx_chars(irq, port);
-			}
+			serial_sprd_rx_chars(irq, port);
 		}
+	}
 
-		if (serial_in(port, ARM_UART_STS2) & UART_STS_TX_FIFO_EMPTY) {
-			serial_sprd_tx_chars(irq, port);
-		}
-		serial_out(port, ARM_UART_ICLR, 0xffffffff);
-	} while (pass_counter++ < 50);
+	if (int_status & UART_STS_TX_FIFO_EMPTY) {
+		serial_sprd_tx_chars(irq, port);
+	}
 
 	return IRQ_HANDLED;
 }
@@ -464,7 +461,8 @@ static int serial_sprd_rx_dma_config(struct uart_port *port)
 			chip_info->dma_rx_chn =
 			    sci_dma_request("uart", FULL_DMA_CHN);
 			printk("alloc dma chn %d\n", chip_info->dma_rx_chn);
-			printk("the dma buf addr is %x\n", chip_info->dma_buf_p);
+			printk("the dma buf addr is %x\n",
+			       chip_info->dma_buf_p);
 		} else {
 			/*rset the dma chn */
 			sci_dma_stop(chip_info->dma_rx_chn,
@@ -778,7 +776,7 @@ static struct {
 	uint32_t dspwait;
 } uart_bak[UART_NR_MAX];
 
-static struct clk * clk_startup(struct platform_device *pdev)
+static struct clk *clk_startup(struct platform_device *pdev)
 {
 	struct clk *clk;
 	struct clk *clk_parent;
@@ -1082,9 +1080,9 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 		fc = serial_in(port, ARM_UART_CTL1);
 		fc &= ~(RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
 		serial_out(port, ARM_UART_CTL1, fc);
-		__raw_writel((BITS_PIN_DS(3) | BITS_PIN_AF(3) | BIT_PIN_WPU |
-			      BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE),
-			     (CTL_PIN_BASE + REG_PIN_U0RTS));
+		pinmap_set(REG_PIN_U0RTS,
+			   (BITS_PIN_DS(3) | BITS_PIN_AF(3) | BIT_PIN_WPU |
+			    BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE));
 	} else {
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
@@ -1115,9 +1113,9 @@ static int serial_sprd_resume(struct platform_device *dev)
 		   hardware */
 		unsigned long fc = 0;
 		struct uart_port *port = serial_sprd_ports[0];
-		__raw_writel((BITS_PIN_DS(1) | BITS_PIN_AF(0) | BIT_PIN_NUL |
-			      BIT_PIN_SLP_NUL | BIT_PIN_SLP_Z),
-			     (CTL_PIN_BASE + REG_PIN_U0RTS));
+		pinmap_set(REG_PIN_U0RTS,
+			   (BITS_PIN_DS(1) | BITS_PIN_AF(0) | BIT_PIN_NUL |
+			    BIT_PIN_SLP_NUL | BIT_PIN_SLP_Z));
 		fc = serial_in(port, ARM_UART_CTL1);
 		fc |= (RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
 		serial_out(port, ARM_UART_CTL1, fc);
@@ -1155,9 +1153,10 @@ static volatile int serial_debug_buf_idx;
 static int serial_debug_buf_count;
 static void serial_debug_save(int idx, void *data, size_t len)
 {
-	/* if (idx == 1) */ {
+	/* if (idx == 1) */  {
 		if (serial_debug_buf_idx + len < serial_debug_buf_count) {
-			memcpy(serial_debug_buf + serial_debug_buf_idx, data, len);
+			memcpy(serial_debug_buf + serial_debug_buf_idx, data,
+			       len);
 			serial_debug_buf_idx += len;
 			// seq_write(serial_seq_m, data, len);
 		} else {
@@ -1201,10 +1200,10 @@ static int serial_open(struct inode *inode, struct file *file)
 }
 
 static const struct file_operations proc_serial_operations = {
-	.open		= serial_open,
-	.read		= seq_read,
-	.llseek		= seq_lseek,
-	.release	= single_release_serial,
+	.open = serial_open,
+	.read = seq_read,
+	.llseek = seq_lseek,
+	.release = single_release_serial,
 };
 
 static void serial_debug_init(void)
@@ -1219,7 +1218,9 @@ static void serial_debug_init(void)
 	proc_create("serial_debug", 0, NULL, &proc_serial_operations);
 }
 #else
-static void serial_debug_init(void) { };
+static void serial_debug_init(void)
+{
+};
 #endif
 
 static int __init serial_sprd_init(void)
