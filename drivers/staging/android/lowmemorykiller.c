@@ -40,6 +40,7 @@
 #include <linux/kobject.h>
 #include <linux/slab.h>
 #include <linux/sysfs.h>
+#include <linux/cpuset.h>
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
@@ -89,6 +90,9 @@ task_notify_func(struct notifier_block *self, unsigned long val, void *data);
 static struct notifier_block task_nb = {
 	.notifier_call	= task_notify_func,
 };
+
+static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
+			struct mem_cgroup *mem, const nodemask_t *nodemask);
 
 static int
 task_notify_func(struct notifier_block *self, unsigned long val, void *data)
@@ -271,8 +275,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_deathpending = selected;
 		lowmem_deathpending_timeout = jiffies + HZ;
 #ifdef CONFIG_ANDROID_LMK_DEBUG
-		lowmem_print(1, "================= user process meminfo =================\n");
-		user_process_meminfo_show();
+		if (selected_oom_adj <= 16) {
+			dump_header(current, sc->gfp_mask, -1, 0, 0);
+			user_process_meminfo_show();
+		}
 #endif
 
 		force_sig(SIGKILL, selected);
@@ -282,6 +288,20 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		     sc->nr_to_scan, sc->gfp_mask, rem);
 	read_unlock(&tasklist_lock);
 	return rem;
+}
+
+static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
+			struct mem_cgroup *mem, const nodemask_t *nodemask)
+{
+	task_lock(p);
+	pr_warning("%s invoked lowmemorykiller: gfp_mask=0x%x, oom_adj=%d, oom_score_adj=%d\n",
+		p->comm, gfp_mask, p->signal->oom_adj, p->signal->oom_score_adj);
+	cpuset_print_task_mems_allowed(p);
+	task_unlock(p);
+	dump_stack();
+	//mem_cgroup_print_oom_info(mem, p);
+	show_mem(SHOW_MEM_FILTER_NODES);
+	//dump_tasks(mem, nodemask);
 }
 
 static void lowmem_notify_killzone_approach(void)
