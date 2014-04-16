@@ -1734,8 +1734,14 @@ static void addrconf_leave_anycast(struct inet6_ifaddr *ifp)
 
 static int addrconf_ifid_eui48(u8 *eui, struct net_device *dev)
 {
+	struct in6_addr lladdr;
 	if (dev->addr_len != ETH_ALEN)
 		return -1;
+        if (!ipv6_get_lladdr(dev, &lladdr, 0)) {
+		memcpy(eui, lladdr.s6_addr+8, 8);
+                return 0;
+        }
+
 	memcpy(eui, dev->dev_addr, 3);
 	memcpy(eui + 5, dev->dev_addr + 3, 3);
 
