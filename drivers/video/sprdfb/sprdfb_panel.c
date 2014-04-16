@@ -52,13 +52,13 @@ static void sprd_panel_set_rstn_prop(unsigned int if_slp)
 	int i = 0;
 
 	if (if_slp){
-		panel_rstpin_map[0].val = __raw_readl(CTL_PIN_BASE+REG_PIN_LCD_RSTN);
+		panel_rstpin_map[0].val = sci_glb_read(CTL_PIN_BASE+REG_PIN_LCD_RSTN, 0xffffffff);
 		i = 1;
 	}else{
 		i = 0;
 	}
 
-	__raw_writel(panel_rstpin_map[i].val, CTL_PIN_BASE + panel_rstpin_map[i].reg);
+	sci_glb_write(CTL_PIN_BASE + panel_rstpin_map[i].reg,  panel_rstpin_map[i].val, 0xffffffff);
 }
 #endif
 
