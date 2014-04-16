@@ -300,6 +300,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
 //    data[0] = 1;
 //    mipi_dsih_dphy_write(phy, 0xB0, data, 1);
 
+    data[0] =	0x04; //short the delay time before BTA
+    mipi_dsih_dphy_write(phy, 0x07, data, 1);
+
     data[0] = 0x8B;
     mipi_dsih_dphy_write(phy, 0x22, data, 1);
 //    data[1] = mipi_dsih_dphy_test_data_out(phy);
@@ -504,6 +507,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     /* PLL input divider ratio [7:0] */
    data[0] = input_divider - 1;
    mipi_dsih_dphy_write(phy, 0x17, data, 1);           //Jessica
+
+    data[0] =	0x04; //short the delay time before BTA
+    mipi_dsih_dphy_write(phy, 0x07, data, 1);
 
 //    data[0] = 1;
 //    mipi_dsih_dphy_write(phy, 0xB0, data, 1);

@@ -1506,11 +1506,15 @@ static int32_t sprdfb_dispc_check_esd_dpi(struct sprdfb_device *dev)
 	}
 #else
 	local_irq_save(flags);
+#ifdef FB_CHECK_ESD_IN_VFP
+	ret = sprdfb_panel_ESD_check(dev);
+#else
 	dispc_stop_for_feature(dev);
 
 	ret = sprdfb_panel_ESD_check(dev);	//make sure there is no log in this function
 
 	dispc_run_for_feature(dev);
+#endif
 	local_irq_restore(flags);
 #endif
 

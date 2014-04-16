@@ -355,18 +355,22 @@ static int32_t nt35516_check_esd(struct panel_spec *self)
 	uint16_t work_mode = self->info.mipi->work_mode;
 
 	pr_debug("nt35516_check_esd!\n");
+#ifndef FB_CHECK_ESD_IN_VFP
 	if(SPRDFB_MIPI_MODE_CMD==work_mode){
 		mipi_set_lp_mode();
 	}else{
 		mipi_set_data_lp_mode();
 	}
+#endif
 	power_mode = nt35516_readpowermode(self);
 	//power_mode = 0x0;
+#ifndef FB_CHECK_ESD_IN_VFP
 	if(SPRDFB_MIPI_MODE_CMD==work_mode){
 		mipi_set_hs_mode();
 	}else{
 		mipi_set_data_hs_mode();
 	}
+#endif
 	if(power_mode == 0x9c){
 		pr_debug("nt35516_check_esd OK!\n");
 		return 1;

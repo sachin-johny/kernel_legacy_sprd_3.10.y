@@ -9,6 +9,9 @@
 #include "mipi_dsih_api.h"
 #include "mipi_dsih_hal.h"
 #include "mipi_dsih_dphy.h"
+#include "../sprdfb.h"
+#include <linux/delay.h>
+
 /* whether to get debug messages (1) or not (0) */
 #define DEBUG 					0
 
@@ -1116,8 +1119,10 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
 	{
 		return 0;
 	}
+#ifndef FB_CHECK_ESD_IN_VFP
 	/* make sure command mode is on */
 	mipi_dsih_cmd_mode(instance, 1);
+#endif
 	/* make sure receiving is enabled */
 	mipi_dsih_hal_bta_en(instance, 1);
 	/* listen to the same virtual channel as the one sent to */
@@ -1185,7 +1190,11 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
 				}
 				return last_count + 1;
 			}
-			else
+#ifdef FB_CHECK_ESD_IN_VFP
+                       else if(timeout == (DSIH_FIFO_ACTIVE_WAIT - 1))//else
+#else
+                       else
+#endif
 			{
 				if (instance->log_error != 0)
 				{
@@ -1194,6 +1203,9 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
 				return 0;
 			}
 		}
+#ifdef FB_CHECK_ESD_IN_VFP
+                udelay(5);
+#endif
 	}
 	if (instance->log_error != 0)
 	{
@@ -1213,7 +1225,7 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
  */
 uint32_t mipi_dsih_dump_register_configuration(dsih_ctrl_t * instance, int all, register_config_t *config, uint16_t config_length)
 {
-	uint32_t current = 0;
+	uint32_t current0 = 0;
 	uint16_t count = 0;
 	if (instance == 0)
 	{
@@ -1225,19 +1237,19 @@ uint32_t mipi_dsih_dump_register_configuration(dsih_ctrl_t * instance, int all, 
 	}
 	if (all)
 	{ 	/* dump all registers */
-		for (current = R_DSI_HOST_VERSION; current <= R_DSI_HOST_PHY_TMR_LPCLK_CFG; count++, current += (R_DSI_HOST_PWR_UP - R_DSI_HOST_VERSION))
+		for (current0 = R_DSI_HOST_VERSION; current0 <= R_DSI_HOST_PHY_TMR_LPCLK_CFG; count++, current0 += (R_DSI_HOST_PWR_UP - R_DSI_HOST_VERSION))
 		{
 			if ((config_length == 0) || (config == 0) || count >= config_length)
 			{ 	/* no place to write - write to STD IO */
 				if (instance->log_info != 0)
 				{
-					instance->log_info("DSI 0x%lX:0x%lX", current, mipi_dsih_read_word(instance, current));
+					instance->log_info("DSI 0x%lX:0x%lX", current0, mipi_dsih_read_word(instance, current0));
 				}
 			}
 			else
 			{
-				config[count].addr = current;
-				config[count].data = mipi_dsih_read_word(instance, current);
+				config[count].addr = current0;
+				config[count].data = mipi_dsih_read_word(instance, current0);
 			}
 		}
 	}
