@@ -296,7 +296,7 @@ struct platform_device sprd_nand_device = {
 	.resource	= sprd_nand_resources,
 };
 
-static struct resource sprd_hwspinlock_resources0[] = {
+static struct resource sprd_hwspinlock_resources1[] = {
 	[0] = {
 		.start	= SPRD_HWLOCK1_BASE,
 		.end = SPRD_HWLOCK1_BASE + SPRD_HWLOCK1_SIZE- 1,
@@ -304,7 +304,7 @@ static struct resource sprd_hwspinlock_resources0[] = {
 	},
 };
 
-static struct resource sprd_hwspinlock_resources1[] = {
+static struct resource sprd_hwspinlock_resources0[] = {
 	[0] = {
 		.start	= SPRD_HWLOCK0_BASE,
 		.end = SPRD_HWLOCK0_BASE + SPRD_HWLOCK0_SIZE- 1,
