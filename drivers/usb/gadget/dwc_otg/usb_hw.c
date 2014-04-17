@@ -157,6 +157,15 @@ void usb_phy_init(void)
 #endif
 }
 
+void usb_phy_ahb_rst(void)
+{
+#if defined(CONFIG_ARCH_SCX35)
+	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(7));
+	mdelay(3);
+	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(7));
+	mdelay(3);
+#endif
+}
 
 static void usb_startup(void)
 {
@@ -168,7 +177,6 @@ static void usb_startup(void)
 	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
 	mdelay(5);
 	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(5)|BIT(6)|BIT(7));
-	sci_glb_set(REG_AP_AHB_AHB_EB,BIT_USB_EB);
 #else	
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(1)|BIT(2),AHB_CTL3);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,BIT(6),AHB_CTL3);
@@ -178,6 +186,7 @@ static void usb_startup(void)
 	sprd_greg_clear_bits(REG_TYPE_AHB_GLOBAL,BIT(6)|BIT(7),AHB_SOFT_RST);
 	sprd_greg_set_bits(REG_TYPE_AHB_GLOBAL,AHB_CTL0_USBD_EN,AHB_CTL0);
 #endif
+	mdelay(3);
 }
 
 void udc_enable(void)

@@ -61,6 +61,7 @@
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
 extern int in_calibration(void);
+extern void usb_phy_ahb_rst(void);
 static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if);
 
 /**
@@ -5025,6 +5026,7 @@ void dwc_otg_core_reset(dwc_otg_core_if_t * core_if)
 		if (++count > 10000) {
 			DWC_WARN("%s() HANG! Soft Reset GRSTCTL=%0x\n",
 				 __func__, greset.d32);
+			usb_phy_ahb_rst();
 			break;
 		}
 		dwc_udelay(1);
