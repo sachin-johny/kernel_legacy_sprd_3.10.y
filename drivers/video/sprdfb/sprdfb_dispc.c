@@ -77,12 +77,12 @@
 #endif
 
 #if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
-#define SPRDFB_BRIGHTNESS		(0x02<<16)// 9-bits
-#define SPRDFB_CONTRAST			(0xEF<<0) //10-bits
-#define SPRDFB_OFFSET_U			(0x80<<16)//8-bits
-#define SPRDFB_SATURATION_U		(0xEF<<0)//10-bits
-#define SPRDFB_OFFSET_V			(0x80<<16)//8-bits
-#define SPRDFB_SATURATION_V		(0xEF<<0)//10-bits
+#define SPRDFB_BRIGHTNESS           (0x02<<16)//(0x03<<16)// 9-bits
+#define SPRDFB_CONTRAST             (0x12A<<0) //10-bits
+#define SPRDFB_OFFSET_U             (0x80<<16)//8-bits
+#define SPRDFB_SATURATION_U         (0x123<<0)//(0x12A<<0)//10-bits
+#define SPRDFB_OFFSET_V             (0x80<<16)//8-bits
+#define SPRDFB_SATURATION_V         (0x123<<0)//(0x12A<<0)//10-bits
 #else
 #define SPRDFB_CONTRAST (74)
 #define SPRDFB_SATURATION (73)
