@@ -133,6 +133,10 @@ static inline void get_free_ram(int *p_other_free, int *p_other_file)
 #ifdef CONFIG_ANDROID_LMK_DEBUG
 extern int user_process_meminfo_show(void);
 #endif
+#ifdef CONFIG_ZRAM
+extern void zram_printlog(void);
+#endif
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	struct task_struct *p;
@@ -278,6 +282,9 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (selected_oom_adj <= 16) {
 			dump_header(current, sc->gfp_mask, -1, 0, 0);
 			user_process_meminfo_show();
+#ifdef CONFIG_ZRAM
+			zram_printlog();
+#endif
 		}
 #endif
 
@@ -303,6 +310,7 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 	show_mem(SHOW_MEM_FILTER_NODES);
 	//dump_tasks(mem, nodemask);
 }
+
 
 static void lowmem_notify_killzone_approach(void)
 {
