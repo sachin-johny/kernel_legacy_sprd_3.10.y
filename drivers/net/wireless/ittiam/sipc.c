@@ -31,6 +31,7 @@
 #include "sipc_types.h"
 #include "sipc.h"
 #include "cfg80211.h"
+#include "ittiam.h"
 
 extern WIFI_nvm_data *get_gWIFI_nvm_data(void);
 
@@ -836,6 +837,9 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	open->mode = mode;
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+	open->mode |= FW_ZEROCOPY;
+#endif
 	if (mac_addr)
 		memcpy(open->mac, mac_addr, 6);
 	memcpy((unsigned char *)(&(open->nvm_data)),
@@ -877,7 +881,9 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 	int ret;
 
 	mutex_lock(&wlan_sipc->cmd_lock);
-
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+	flag |= FW_ZEROCOPY;
+#endif
 	memcpy(send_buf->u.cmd.variable, &flag, sizeof(flag));
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + sizeof(flag);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
