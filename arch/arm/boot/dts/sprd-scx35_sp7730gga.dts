@@ -875,8 +875,8 @@
                        <0xF5410000 0x8000>,  //pgt
                        <0xF5418000 0x8000>;  //ctrl_reg
                  reg_name = "iova","pgt","ctrl_reg";
-                 clock-names = "clk_disp_emc","clk_153m6","clk_gsp";
-                 clocks = <&clk_disp_emc>, <&clk_153m6>,<&clk_gsp>;
+                 clock-names = "clk_gsp_emc","clk_153m6","clk_gsp";
+                 clocks = <&clk_gsp_emc>, <&clk_153m6>,<&clk_gsp>;
                  status = "ok";
          };
          sprd_iommu1:sprd_iommu@F5430000 {

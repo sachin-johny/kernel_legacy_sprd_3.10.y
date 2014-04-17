@@ -37,16 +37,12 @@ int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data 
 		if(!np) {
 			return -1;
 		}
+		dev->mmu_mclock=of_clk_get(np, 0) ;
 		dev->mmu_clock=of_clk_get(np, 2) ;
-
-		if (!dev->mmu_clock)
-			printk ("%s, cant get dev->mmu_clock\n", __FUNCTION__);
-
-		if(NULL==dev->mmu_clock)
-			return -1;
 	#else
 		dev->mmu_mclock= clk_get(NULL,"clk_gsp_emc");
 		dev->mmu_clock=clk_get(NULL,"clk_gsp");
+	#endif
 		if (!dev->mmu_mclock)
 			printk ("%s, cant get clk_gsp_emc\n", __FUNCTION__);
 
@@ -55,7 +51,6 @@ int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data 
 
 		if((NULL==dev->mmu_mclock)||(NULL==dev->mmu_clock))
 			return -1;
-	#endif
 #elif defined(CONFIG_ARCH_SCX15)
 	#ifdef CONFIG_OF
 		struct device_node *np;
@@ -190,6 +185,7 @@ int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 #if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		clk_disable_unprepare(dev->mmu_clock);
+		clk_disable_unprepare(dev->mmu_mclock);
 	#else
 		clk_disable(dev->mmu_clock);
 		clk_disable(dev->mmu_mclock);
@@ -251,9 +247,10 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 #if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_clock);
+		clk_prepare_enable(dev->mmu_mclock);
 	#else
-		clk_enable(dev->mmu_mclock);
 		clk_enable(dev->mmu_clock);
+		clk_enable(dev->mmu_mclock);
 	#endif
 #elif defined(CONFIG_ARCH_SCX15)
 	#ifdef CONFIG_OF
@@ -282,6 +279,7 @@ int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 		printk("%s line:%d\n",__FUNCTION__,__LINE__);
 #if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
+		clk_prepare_enable(dev->mmu_mclock);
 		clk_prepare_enable(dev->mmu_clock);
 	#else
 		clk_enable(dev->mmu_mclock);
