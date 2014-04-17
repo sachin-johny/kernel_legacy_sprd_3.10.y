@@ -224,6 +224,34 @@ static ssize_t mem_used_total_show(struct device *dev,
 	return sprintf(buf, "%llu\n", val);
 }
 
+void zram_printlog(void)
+{
+	int i;
+	struct zram *zram = NULL;
+
+	for (i = 0; i < num_devices; i++) {
+		zram = &devices[i];
+		if(zram == NULL) continue;
+		if(!zram->init_done) continue;
+		pr_warning("zram%d status unit(page):\n \
+	mem_used_total:  %llu \n \
+	compr_data_size: %llu \n \
+	orig_data_size:  %llu \n \
+	num_reads:       %llu \n \
+	num_writes:      %llu \n",
+		i,
+		(xv_get_total_size_bytes(zram->mem_pool) >> PAGE_SHIFT) + ((u64)(zram->stats.pages_expand)),
+		(u64)(zram_stat64_read(zram, &zram->stats.compr_size) >> PAGE_SHIFT),
+		(u64)(zram->stats.pages_stored),
+		(u64)zram_stat64_read(zram, &zram->stats.num_reads),
+		(u64)zram_stat64_read(zram, &zram->stats.num_writes)
+		);
+	}
+}
+
+EXPORT_SYMBOL_GPL(zram_printlog);
+
+
 static DEVICE_ATTR(disksize, S_IRUGO | S_IWUSR,
 		disksize_show, disksize_store);
 static DEVICE_ATTR(initstate, S_IRUGO | S_IWUSR, initstate_show, initstate_store);
