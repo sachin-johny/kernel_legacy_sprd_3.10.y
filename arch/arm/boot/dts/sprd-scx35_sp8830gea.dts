@@ -811,8 +811,8 @@
                        <0x6000A000 0x1100>,//  MALI_PP1,
                        <0x60005000 0x100>,//  MALI_PP1_MMU,
                        <0x60002000 0x100>;//  MALI_PMU,
-                 clock-names = "clk_gpu_axi","clk_gpu","clk_208m","clk_256m","clk_312m";
-                 clocks = <&clk_gpu_axi>,<&clk_gpu>,<&clk_208m>,<&clk_256m>,<&clk_312m>;
+                 clock-names = "clk_gpu_axi","clk_gpu","clk_153m6","clk_208m","clk_256m","clk_312m","clk_384m","clk_460m8";
+                 clocks = <&clk_gpu_axi>,<&clk_gpu>,<&clk_153m6>,<&clk_208m>,<&clk_256m>,<&clk_312m>,<&clk_384m>,<&clk_460m8>;
 	 };
          ion {
 		 compatible = "sprd,ion-sprd";
