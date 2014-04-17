@@ -213,6 +213,9 @@
 				type = <0>;
 	                };
                  };
+                 keyboard_backlight {
+                        compatible = "sprd,keyboard-backlight";
+                 };
 		 watchdog@40{
 		 	compatible = "sprd,watchdog";
 		 	reg = <0X40 0x40>;

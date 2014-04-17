@@ -282,10 +282,16 @@ static int sprd_kpled_remove(struct platform_device *dev)
 	return 0;
 }
 
+static const struct of_device_id keyboard_backlight_of_match[] = {
+	{ .compatible = "sprd,keyboard-backlight", },
+	{ }
+};
+
 static struct platform_driver sprd_kpled_driver = {
 	.driver = {
 		.name  = "keyboard-backlight",
 		.owner = THIS_MODULE,
+		.of_match_table = keyboard_backlight_of_match,
 	},
 	.probe    = sprd_kpled_probe,
 	.remove   = sprd_kpled_remove,
