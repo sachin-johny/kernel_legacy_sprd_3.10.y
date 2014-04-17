@@ -463,8 +463,8 @@
 		compatible = "sprd,gsp";
 		reg = <0xf5126000 0x1000>;
 		interrupts = <0 51 0x0>;
-		clock-names = "clk_gsp", "clk_disp_emc", "clk_gsp_parent", "clk_aon_apb";
-		clocks = <&clk_gsp>, <&clk_disp_emc>, <&clk_256m>, <&clk_aon_apb>;
+		clock-names = "clk_gsp", "clk_gsp_emc", "clk_gsp_parent", "clk_aon_apb";
+		clocks = <&clk_gsp>, <&clk_gsp_emc>, <&clk_256m>, <&clk_aon_apb>;
 		gsp_mmu_ctrl_base = <0xf5418000>;
 	};
 
