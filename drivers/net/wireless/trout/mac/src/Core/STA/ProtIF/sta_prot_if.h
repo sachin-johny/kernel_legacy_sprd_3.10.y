@@ -99,6 +99,17 @@
 #include "wapi.h"
 #endif
 
+/*junbinwang add for wps 20130811*/
+extern WORD32 trout_is_probe_req_wps_ie(void);
+extern WORD32 trout_get_probe_req_wps_ie_len(void);
+extern UWORD8* trout_get_probe_req_wps_ie_addr(void);
+extern void trout_clear_probe_req_wps_ie(void);
+extern WORD32 trout_is_asoc_req_wps_ie(void);
+extern WORD32 trout_get_asoc_req_wps_ie_len(void);
+extern UWORD8* trout_get_asoc_req_wps_ie_addr(void);
+extern void trout_clear_asoc_req_wps_ie(void);
+extern void trout_set_wps_sec_type_flag(WORD32 flag);
+extern WORD32 trout_is_wps_sec_type_flag(void);
 extern void wps_gen_uuid(UWORD8 * mac_addr, UWORD8 * uuid, UWORD8 * temp);
 
 /*****************************************************************************/
@@ -162,6 +173,10 @@ INLINE BOOL_T is_sec_handshake_pkt_sta(sta_entry_t *se,
                                        UWORD8 *buffer, UWORD8 offset,
                                        UWORD16 rx_len, CIPHER_T ct)
 {
+    if(trout_is_wps_sec_type_flag() == 1)
+    {
+        return BFALSE;
+    }
 #ifdef INT_WPS_SUPP
     if(WPS_ENABLED == get_wps_mode())
     {
@@ -304,6 +319,8 @@ INLINE void adopt_new_reg_class(UWORD8 reg_class, UWORD8 ch_idx, UWORD8 sec_ch_o
 }
 #endif
 
+/*junbinwang add wps 20130812*/
+extern WORD32 trout_is_wps_sec_type_flag(void);
 //xuan yang, 2013-6-28, check sec type 
 INLINE BOOL_T check_sec_type_sta(UWORD8 *msa, UWORD16 rx_len, UWORD16 cap_info)
 {
@@ -317,6 +334,11 @@ INLINE BOOL_T check_sec_type_sta(UWORD8 *msa, UWORD16 rx_len, UWORD16 cap_info)
 #ifdef MAC_WAPI_SUPP
 	UWORD8    i = 0;
 #endif
+
+        /*junbinwang modify for wps 20130812*/
+       if(trout_is_wps_sec_type_flag() == 1){
+             return BTRUE;
+       }
 
 	//get current sec type
 	sec_mode =  get_802_11I_mode_prot();
@@ -2830,6 +2852,9 @@ INLINE void set_ht_ps_params_sta(UWORD8 *dscr, sta_entry_t *se, UWORD8 rate)
 INLINE UWORD16 set_wps_element(UWORD8 *data, UWORD16 index, UWORD8 frm_type)
 {
     UWORD8 ret_val= 0;
+    UWORD32 len = 0;
+    UWORD8* ptr = NULL;
+
 #ifdef INT_WPS_SUPP
 #ifdef MAC_P2P
     if(BTRUE == is_p2p_grp_form_in_prog())
@@ -2842,6 +2867,29 @@ INLINE UWORD16 set_wps_element(UWORD8 *data, UWORD16 index, UWORD8 frm_type)
     {
         ret_val = set_wsc_info_element(data, index, frm_type);
 	}
+
+#else
+        /*junbinwang add for wps 2013-0809*/
+        if(trout_is_probe_req_wps_ie() == 1 && frm_type == PROBE_REQ)
+        {
+                len = trout_get_probe_req_wps_ie_len();
+                ptr = trout_get_probe_req_wps_ie_addr();
+
+                printk("[wjb] need prepare_probe_req len %d\n", len);
+                memcpy(data+index, ptr, len);
+                ret_val = len;
+                //trout_clear_probe_req_wps_ie();
+	   }
+          else if(trout_is_asoc_req_wps_ie() == 1 && frm_type == ASSOC_REQ)
+          {
+                 len = trout_get_asoc_req_wps_ie_len();
+                 ptr = trout_get_asoc_req_wps_ie_addr();
+                 trout_set_wps_sec_type_flag(1);
+                 printk("[wjb] need prepare_asoc_req len %d\n", len);
+                 memcpy(data+index, ptr, len);
+                 ret_val = len;
+                 //trout_clear_asoc_req_wps_ie();
+          }
 #endif /* INT_WPS_SUPP */
 
     return ret_val;

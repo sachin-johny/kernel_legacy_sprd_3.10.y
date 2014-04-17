@@ -483,9 +483,13 @@ INLINE void process_erp_info_sta(UWORD8 *msa, UWORD16 rx_len)
     }
 }
 
+extern int trout_is_asoc_req_wps_ie(void);
 /* Check sec protocol dependent capability information fields */
 INLINE BOOL_T check_bss_mac_privacy_sta(UWORD16 cap_info)
 {
+    /*junbinwang modify for wps 20130810*/
+    if(trout_is_asoc_req_wps_ie() == 1)
+         return BTRUE;
     if(mget_PrivacyInvoked() == TV_FALSE)
     {
         /* This STA doesn't have Privacy invoked but the other STA does */

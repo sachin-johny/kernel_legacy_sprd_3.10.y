@@ -81,6 +81,135 @@ extern rate_table_t rate_table[28];
 
 static int cur_cipher;
 
+/*junbinwang add wps 20130812*/
+#define WPS_IE_BUFF_LEN (255 + 2) //body length + length of len field + length of elemID field
+/* WPS fields */
+#define WPS_IE_ID 221
+#define WPS_IE_OUI_BYTE0 0x00
+#define WPS_IE_OUI_BYTE1 0x50
+#define WPS_IE_OUI_BYTE2 0xF2
+#define WPS_IE_OUI_TYPE 0x04
+typedef struct
+{
+        WORD32 needwps;
+        WORD32 needWPSlen;
+        UWORD8 wpsIe[WPS_IE_BUFF_LEN];
+}TROUT_WPS_INFO;
+
+static WORD32 wps_sec_type_flag;
+static TROUT_WPS_INFO probe_req_wps_ie;
+static TROUT_WPS_INFO asoc_req_wps_ie;
+
+WORD32 trout_is_probe_req_wps_ie(void)
+{
+        return probe_req_wps_ie.needwps;
+}
+
+void trout_set_probe_req_wps_ie(WORD32 flag)
+{
+       probe_req_wps_ie.needwps = flag;
+       return;
+}
+
+void trout_save_probe_req_wps_ie(UWORD8* wpsie, WORD32 len)
+{
+       if(NULL == wpsie || len == 0)
+                return;
+       probe_req_wps_ie.needWPSlen = len;
+       memset(probe_req_wps_ie.wpsIe, 0x00, WPS_IE_BUFF_LEN);
+       memcpy(probe_req_wps_ie.wpsIe, wpsie, len);
+       return;
+}
+
+void trout_clear_probe_req_wps_ie(void)
+{
+      memset(&probe_req_wps_ie, 0x00, sizeof(TROUT_WPS_INFO));
+}
+
+UWORD8 * trout_get_probe_req_wps_ie_addr(void)
+{
+      return probe_req_wps_ie.wpsIe;
+}
+
+WORD32 trout_get_probe_req_wps_ie_len(void)
+{
+       return probe_req_wps_ie.needWPSlen;
+}
+
+int trout_is_asoc_req_wps_ie(void)
+{
+      return asoc_req_wps_ie.needwps;
+}
+void trout_set_asoc_req_wps_ie(WORD32 flag)
+{
+      asoc_req_wps_ie.needwps = flag;
+      return;
+}
+
+void trout_save_asoc_req_wps_ie(UWORD8* wpsie, WORD32 len)
+{
+       if(NULL == wpsie || len == 0)
+              return;
+
+      asoc_req_wps_ie.needWPSlen = len;
+      memset(asoc_req_wps_ie.wpsIe, 0x00, WPS_IE_BUFF_LEN);
+      memcpy(asoc_req_wps_ie.wpsIe, wpsie, len);
+      return;
+}
+
+UWORD8 * trout_get_asoc_req_wps_ie_addr(void)
+{
+      return asoc_req_wps_ie.wpsIe;
+}
+
+WORD32 trout_get_asoc_req_wps_ie_len(void)
+{
+      return asoc_req_wps_ie.needWPSlen;
+}
+
+void trout_clear_asoc_req_wps_ie(void)
+{
+      memset(&asoc_req_wps_ie, 0x00, sizeof(TROUT_WPS_INFO));
+}
+
+WORD32 trout_is_wps_sec_type_flag(void)
+{
+       return wps_sec_type_flag;
+}
+
+void trout_set_wps_sec_type_flag(WORD32 flag)
+{
+      wps_sec_type_flag = flag;
+      return;
+}
+
+BOOL_T trout_find_wps_ie(UWORD8 * ie, size_t ie_len, UWORD8 * wps_ie, UWORD16 * wps_ie_len)
+{
+       UWORD16 index = 0;
+       if (NULL == ie || ie_len <=0 || NULL == wps_ie || NULL == wps_ie_len)
+       {
+               return BFALSE;
+       }
+
+       while (index < ie_len)
+       {
+             if (WPS_IE_ID == ie[index])
+             {
+                   *wps_ie_len = ie[index + 1];
+                    //ie_len >= wps_ie_len: at least one IE.
+                    if (ie_len >= *wps_ie_len && WPS_IE_OUI_BYTE0 == ie[index + 2]
+                          && WPS_IE_OUI_BYTE1 == ie[index + 3] && WPS_IE_OUI_BYTE2 == ie[index + 4]
+                          && WPS_IE_OUI_TYPE == ie[index + 5])
+                    {
+                              memcpy(wps_ie, ie + index, *wps_ie_len + 2);
+                              return BTRUE;
+                    }
+             }
+             index++;
+       }
+       return BFALSE;
+}
+
 static int itm_get_rssi(int * rssi)
 {
 	int ret = 0;
@@ -1433,6 +1562,8 @@ static int trout_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev, stru
 	int scan_type = 1; //Active scanning
 	UWORD8 cur_essid[IW_ESSID_MAX_SIZE+1] = {0};
 	int cur_essid_len = 0;
+       UWORD8 wps_ie[WPS_IE_BUFF_LEN] = {0};
+       UWORD16 wps_ie_len = 0;
 
 	TRACE_FUNC();
 	CHECK_MAC_RESET_IN_CFG80211_HANDLER;
@@ -1444,6 +1575,23 @@ static int trout_cfg80211_scan(struct wiphy *wiphy, struct net_device *dev, stru
 	wdev_priv->scan_request = request;
 	spin_unlock_bh(&wdev_priv->scan_req_lock);
 
+#if 0
+        /*junbinwang modify for wps 20130812*/
+        if(request->ie_len > 0){
+                trout_set_probe_req_wps_ie(1);
+                trout_save_probe_req_wps_ie(request->ie, request->ie_len);
+                printk("[wjb]trout_cfg80211_scan setting ok\n");
+        }
+#else
+        trout_clear_probe_req_wps_ie(); //clean extra ie
+        trout_set_wps_sec_type_flag(0);
+        //for p2p in the future, so use trout_find_wps_ie
+        if (BTRUE == trout_find_wps_ie(request->ie, request->ie_len, wps_ie, &wps_ie_len))
+        {
+                trout_save_probe_req_wps_ie(request->ie, request->ie_len);
+                trout_set_probe_req_wps_ie(1);
+        }
+#endif
 
 	/*leon liu modified get_mac_state() >= WAIT_JOIN*/
 	if (get_mac_state() == ENABLED || g_keep_connection == BTRUE)
@@ -1720,6 +1868,15 @@ static int trout_cfg80211_connect(struct wiphy *wiphy, struct net_device *dev,
 	{
 		return -EINVAL;
 	}*/
+
+        /*junbinwang modify for wps 20130812*/
+        trout_clear_asoc_req_wps_ie(); //clean extra ie
+        trout_set_wps_sec_type_flag(0);
+        if(sme->ie_len > 0){
+                trout_set_asoc_req_wps_ie(1);
+                trout_save_asoc_req_wps_ie(sme->ie, sme->ie_len);
+                printk("[wjb]trout_cfg80211_connect wps ok\n");
+	}
 
 	//FIXME:Set appending ie,currently not supported
 	//Set WPA version
