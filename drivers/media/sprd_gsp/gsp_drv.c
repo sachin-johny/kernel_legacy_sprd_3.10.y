@@ -1814,11 +1814,6 @@ static int32_t GSP_Scaling_Coef_Gen_And_Config(volatile uint32_t* force_calc)
     static volatile uint32_t coef_out_w_last = 0;
     static volatile uint32_t coef_out_h_last = 0;
 
-    if((s_gsp_cfg.layer0_info.clip_rect.rect_w != s_gsp_cfg.layer0_info.des_rect.rect_w) ||
-       (s_gsp_cfg.layer0_info.clip_rect.rect_h != s_gsp_cfg.layer0_info.des_rect.rect_h))
-    {
-        s_gsp_cfg.layer0_info.scaling_en = 1;
-    }
 
     if(s_gsp_cfg.layer0_info.scaling_en == 1)
     {
@@ -2135,12 +2130,26 @@ static long gsp_drv_ioctl(struct file *file,
                     GSP_Init();
 
                     // if the y u v address is virtual, should be converted to phy address here!!!
-                    if((s_gsp_cfg.layer0_info.layer_en == 1)
-                       &&((s_gsp_cfg.layer0_info.clip_rect.rect_w != s_gsp_cfg.layer0_info.des_rect.rect_w) ||
-                          (s_gsp_cfg.layer0_info.clip_rect.rect_h != s_gsp_cfg.layer0_info.des_rect.rect_h)))
+                    if(s_gsp_cfg.layer0_info.layer_en == 1)
                     {
-                        s_gsp_cfg.layer0_info.scaling_en = 1;
+                        if(s_gsp_cfg.layer0_info.rot_angle & 0x1)//90 270
+                        {
+                            if((s_gsp_cfg.layer0_info.clip_rect.rect_w != s_gsp_cfg.layer0_info.des_rect.rect_h) ||
+                                (s_gsp_cfg.layer0_info.clip_rect.rect_h != s_gsp_cfg.layer0_info.des_rect.rect_w))
+                            {
+                                s_gsp_cfg.layer0_info.scaling_en = 1;
+                            }
+                        }
+                        else // 0
+                        {
+                            if((s_gsp_cfg.layer0_info.clip_rect.rect_w != s_gsp_cfg.layer0_info.des_rect.rect_w) ||
+                                (s_gsp_cfg.layer0_info.clip_rect.rect_h != s_gsp_cfg.layer0_info.des_rect.rect_h))
+                            {
+                                s_gsp_cfg.layer0_info.scaling_en = 1;
+                            }
+                        }
                     }
+
                     //s_gsp_cfg.misc_info.dithering_en = 1;//dither enabled default
                     s_gsp_cfg.misc_info.ahb_clock = ahb_clock;
                     s_gsp_cfg.misc_info.gsp_clock = gsp_clock;                    
