@@ -32,8 +32,8 @@
 #include <linux/sprdmux.h>
 
 /* Log Macros */
-#define VETH_INFO(fmt...)	pr_err("VETH: " fmt)
-#define VETH_DEBUG(fmt...)	pr_err("VETH: " fmt)
+#define VETH_INFO(fmt...)	pr_info("VETH: " fmt)
+#define VETH_DEBUG(fmt...)	pr_debug("VETH: " fmt)
 #define VETH_ERR(fmt...)	pr_err("VETH: Error: " fmt)
 
 #define VETH_IPV4_HLEN 20
