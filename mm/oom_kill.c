@@ -399,6 +399,13 @@ static void dump_tasks(const struct mem_cgroup *mem, const nodemask_t *nodemask)
 	}
 }
 
+#ifdef CONFIG_ANDROID_LMK_DEBUG
+extern int user_process_meminfo_show(void);
+#endif
+#ifdef CONFIG_ZRAM
+extern void zram_printlog(void);
+#endif
+
 static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 			struct mem_cgroup *mem, const nodemask_t *nodemask)
 {
@@ -412,8 +419,17 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 	dump_stack();
 	mem_cgroup_print_oom_info(mem, p);
 	show_mem(SHOW_MEM_FILTER_NODES);
-	if (sysctl_oom_dump_tasks)
+
+	if (sysctl_oom_dump_tasks){
+#ifdef CONFIG_ANDROID_LMK_DEBUG
+#ifdef CONFIG_ZRAM
+		zram_printlog();
+#endif
+		user_process_meminfo_show();
+#else
 		dump_tasks(mem, nodemask);
+#endif
+	}
 }
 
 #define K(x) ((x) << (PAGE_SHIFT-10))
