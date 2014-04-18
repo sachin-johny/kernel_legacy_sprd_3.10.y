@@ -3198,12 +3198,12 @@ static int mux_send_thread(void *private_)
 				MUX_TS0710_DEBUG(self->mux_id, "Send queued UIH for /dev/mux%d len = %d", j, send_info->length);
 				basic_write(ts0710, (__u8 *) send_info->frame, send_info->length);
 
+				send_info->length = 0;
+				send_info->filled = 0;
+
 				if (self->callback[j].func) {
 					(*self->callback[j].func)(j, SPRDMUX_EVENT_COMPLETE_WRITE, (__u8 *)send_info->frame, send_info->length, self->callback[j].user_data);
 				}
-
-				send_info->length = 0;
-				send_info->filled = 0;
 
 				wake_up_interruptible(&send_info->tx_wait);
 			} else {
