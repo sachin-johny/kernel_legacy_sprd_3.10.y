@@ -690,6 +690,7 @@ static int vddwpa_wifi_enable_control(int flag)
 	return 0;
 }
 #endif
+
 /*
  * Initialize WLAN device.
  */
@@ -703,9 +704,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
 || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
 ||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE)
-    rf2351_gpio_ctrl_power_enable(1);
+	rf2351_gpio_ctrl_power_enable(1);
 #endif
-
 #if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 	vddwpa_wifi_enable_control(1);
 #endif
@@ -725,6 +725,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	ndev->watchdog_timeo = 1 * HZ;
 
 	priv->pm_status = false;
+	priv->tx_free = TX_SBLOCK_NUM;
 
 	/*FIXME: If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
@@ -746,6 +747,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 		goto err_notify_sblock;
 	}
+
+	ittiam_nvm_init();
 
 	ret = itm_register_wdev(priv, &pdev->dev);
 	if (ret) {
@@ -779,7 +782,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	}
 
 	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
-	priv->tx_free = TX_SBLOCK_NUM;
 
 	ret = npi_init_netlink();
 	if (ret) {
@@ -787,7 +789,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_npi_netlink;
 	}
 
-	ittiam_nvm_init();
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
@@ -822,17 +823,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret;
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
-|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
-|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
-||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE)
-    rf2351_gpio_ctrl_power_enable(0);
-#endif
 
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
-	vddwpa_wifi_enable_control(0);
-#endif
 	npi_exit_netlink();
 	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
@@ -851,6 +842,16 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 
 	free_netdev(ndev);
 	platform_set_drvdata(pdev, NULL);
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
+|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
+|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
+||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE)
+	rf2351_gpio_ctrl_power_enable(0);
+#endif
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
+	vddwpa_wifi_enable_control(0);
+#endif
 
 	return 0;
 }
