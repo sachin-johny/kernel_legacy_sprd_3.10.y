@@ -19,6 +19,7 @@
 #include <linux/thermal.h>
 #include <linux/sprd_thm.h>
 #include "thm.h"
+#include "linux/delay.h"
 
 ///#define COOLING_TEST
 #ifdef COOLING_TEST		//test cooling
@@ -226,6 +227,17 @@ static void sprd_thermal_work(struct work_struct *work)
 	dev_dbg(&pzone->therm_dev->device, "thermal work finished.\n");
 }
 
+static void sprd_thermal_resume_delay_work(struct work_struct *work)
+{
+	enum thermal_device_mode cur_mode;
+	struct sprd_thermal_zone *pzone;
+
+	pzone = container_of(work, struct sprd_thermal_zone, resume_delay_work);
+	dev_dbg(&pzone->therm_dev->device, "thermal resume delay work Started.\n");
+	sprd_thm_hw_resume(pzone);
+	dev_dbg(&pzone->therm_dev->device, "thermal resume delay work finished.\n");
+}
+
 static int sprd_thermal_probe(struct platform_device *pdev)
 {
 	struct sprd_thermal_zone *pzone = NULL;
@@ -246,6 +258,7 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 	pzone->trip_tab = ptrips;
 	pzone->sensor_id = pdev->id;
 	INIT_WORK(&pzone->therm_work, sprd_thermal_work);
+	INIT_DELAYED_WORK(&pzone->resume_delay_work,sprd_thermal_resume_delay_work);
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (!regs) {
 		return -ENXIO;
@@ -306,6 +319,7 @@ static int sprd_thermal_suspend(struct platform_device *pdev,
 {
 	struct sprd_thermal_zone *pzone = platform_get_drvdata(pdev);
 	flush_work(&pzone->therm_work);
+	flush_delayed_work(&pzone->resume_delay_work);
 	sprd_thm_hw_suspend(pzone);
 	return 0;
 }
@@ -313,7 +327,8 @@ static int sprd_thermal_suspend(struct platform_device *pdev,
 static int sprd_thermal_resume(struct platform_device *pdev)
 {
 	struct sprd_thermal_zone *pzone = platform_get_drvdata(pdev);
-	sprd_thm_hw_resume(pzone);
+	schedule_delayed_work(&pzone->resume_delay_work, (HZ * 1));
+	//sprd_thm_hw_resume(pzone);
 
 	return 0;
 }
