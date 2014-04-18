@@ -66,6 +66,7 @@ static struct page *check_pfn(pte_t pte)
 int get_userprocess_meminfo(struct task_struct* p, struct user_process_mem_info *upmeminfo)
 {
 	struct vm_area_struct *vma = NULL;
+
 	if (p->mm == NULL)
 		return -1;
 
@@ -128,28 +129,57 @@ void process_meminfo_show(struct task_struct *p)
 
 }
 
+static const char * const task_state_array[] = {
+	"R (running)",		/*   0 */
+	"S (sleeping)",		/*   1 */
+	"D (disk sleep)",	/*   2 */
+	"T (stopped)",		/*   4 */
+	"t (tracing stop)",	/*   8 */
+	"Z (zombie)",		/*  16 */
+	"X (dead)",		/*  32 */
+	"x (dead)",		/*  64 */
+	"K (wakekill)",		/* 128 */
+	"W (waking)",		/* 256 */
+};
+
+static inline const char *get_task_state(struct task_struct *tsk)
+{
+	unsigned int state = (tsk->state & TASK_REPORT) | tsk->exit_state;
+	const char * const *p = &task_state_array[0];
+
+	BUILD_BUG_ON(1 + ilog2(TASK_STATE_MAX) != ARRAY_SIZE(task_state_array));
+
+	while (state) {
+		p++;
+		state >>= 1;
+	}
+	return *p;
+}
 
 int user_process_meminfo_show(void)
 {
 	struct task_struct *p = NULL;
 	struct user_process_mem_info upmeminfo;
+	unsigned long mm_counter;
 
-	printk(KERN_INFO "%5s %11s %9s %11s %9s %9s %s\n",
-			"pid", "vss", "rss", "rss_mapped", "pss", "uss", "name");
+	printk(KERN_INFO "%-18s %5s %11s %9s %11s %9s %9s %9s\n",
+			"stat", "pid", "vss", "rss", "rss_mapped", "pss", "uss", "swap");
 
 	printk(KERN_INFO "-----------------------------------------------------------------\n");
 	for_each_process(p) {
 		memset(&upmeminfo, 0, sizeof(upmeminfo));
 		if (get_userprocess_meminfo(p, &upmeminfo))
 			continue;
-
-		printk(KERN_INFO "%5d %10luK %8luK %10luK %8luK %8luK %s\n",
+		mm_counter = get_mm_counter(p->mm, MM_SWAPENTS);
+		printk(KERN_INFO "%-18s %5d %10luK %8luK %10luK %8luK %8luK %8luK %s\n",
+				get_task_state(p),
 				upmeminfo.task_pid,
 				upmeminfo.vss >> 10,
 				upmeminfo.rss >> 10,
 				upmeminfo.rss_mapped >> 10,
 				upmeminfo.pss >> 10,
 				upmeminfo.uss >> 10,
+				mm_counter << (PAGE_SHIFT - 10),
 				p->comm);
 	}
 
