@@ -851,9 +851,11 @@ first_try:
 			usb_ep_dequeue(ep->ep, req);
 		} else {
 			ret = ep->status;
-			if (read && ret > 0 &&
-			    unlikely(copy_to_user(buf, data, min_t(size_t, ret, len))))
-				ret = -EFAULT;
+			if (read && ret > 0){
+				ret = min_t(size_t, ret, len);
+				if(unlikely(copy_to_user(buf, data, ret)))
+					ret = -EFAULT;
+			}
 		}
 	}
 
