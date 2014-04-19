@@ -1649,7 +1649,7 @@ static const struct mmc_fixup blk_fixups[] =
 	MMC_FIXUP("SEM08G", 0x2, 0x100, add_quirk, MMC_QUIRK_INAND_CMD38),
 	MMC_FIXUP("SEM16G", 0x2, 0x100, add_quirk, MMC_QUIRK_INAND_CMD38),
 	MMC_FIXUP("SEM32G", 0x2, 0x100, add_quirk, MMC_QUIRK_INAND_CMD38),
-
+	MMC_FIXUP("SD8GB", 0x41, 0x3432, add_quirk,MMC_QUIRK_BLK_NO_CMD23),
 	/*
 	 * Some MMC cards experience performance degradation with CMD23
 	 * instead of CMD12-bounded multiblock transfers. For now we'll
