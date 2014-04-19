@@ -24,6 +24,7 @@ struct sprd_thermal_zone {
 	struct thermal_zone_device *therm_dev;
 	struct mutex th_lock;
 	struct work_struct therm_work;
+	struct delayed_work resume_delay_work;
 	struct sprd_thm_platform_data *trip_tab;
 	enum thermal_device_mode mode;
 	int sensor_id;

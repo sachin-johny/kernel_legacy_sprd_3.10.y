@@ -177,6 +177,8 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 				SEN_HOT_INT_BIT,
 				SEN_HOT_INT_BIT | SEN_LOWOFF_INT_BIT);
 	}
+
+	return 0;
 }
 
 u32 sprd_thm_temp2rawdata(u32 sensor, int temp)
@@ -389,6 +391,22 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 
 }
 
+int sprd_thm_hw_disable_sensor(u32 sensor_reg_base)
+{
+	// Sensor minitor disable
+	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x0, 0x8);
+	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x00, 0x01);
+}
+
+int sprd_thm_hw_enable_sensor(u32 sensor_reg_base)
+{
+	// Sensor minitor enable
+	THM_DEBUG("sprd_2713_thm enable sensor sensor_reg_base:0x%x \n",sensor_reg_base);
+	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x01, 0x01);
+	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x8, 0x8);
+}
+
+
 u16 int_ctrl_reg[SPRD_MAX_SENSOR];
 int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone)
 {
@@ -400,6 +418,7 @@ int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone)
 	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 	int_ctrl_reg[pzone->sensor_id] = __thm_reg_read((local_sensor_addr + SENSOR_INT_CTRL));
 
+	sprd_thm_hw_disable_sensor(local_sensor_addr);
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), 0, ~0);	//disable all int
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
 	return ret;
@@ -413,6 +432,7 @@ int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone)
 	local_sensor_addr =
 	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 
+	sprd_thm_hw_enable_sensor(local_sensor_addr);
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), int_ctrl_reg[pzone->sensor_id], ~0);	//enable int of saved
 	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x9, 0);
