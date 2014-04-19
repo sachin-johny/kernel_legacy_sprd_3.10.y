@@ -156,7 +156,7 @@
 
 
 /* Debug */
-#define TS0710DEBUG
+//#define TS0710DEBUG
 //#define TS0710LOG
 
 static __u8 line2dlci[NR_MUXS] =

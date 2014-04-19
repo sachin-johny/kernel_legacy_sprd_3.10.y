@@ -42,14 +42,14 @@
 //#define SDIO_DEBUG_ENABLE
 
 //#define SDIO_LOOP_TEST
-//#define SDIO_VARIABLE_DL_LEN
+#define SDIO_VARIABLE_DL_LEN
 //#define SC9620_JTAG_DL_MOD
 #define HEADER_TAG 0x7e7f
 #define HEADER_TYPE 0xaa00
 
 #define IPC_DRIVER_NAME "IPC_SDIO"
 
-#define MAX_SDIO_TX_WAIT_TIMEOUT    1
+#define MAX_SDIO_TX_WAIT_TIMEOUT    100
 
 #define MAX_SDIO_CP_AWAKE_TIMEOUT    800
 #define MAX_SDIO_SLEEP_TIMEOUT    50
@@ -143,6 +143,8 @@ u32 s_mipc_next_rx_len = MAX_MIPC_RX_FRAME_SIZE;
 MIPC_TRANSF_FRAME_T   s_tx_transfer_frame[MAX_MIPC_TX_FRAME_NUM];
 
 static struct wake_lock   s_ipc_sdio_wake_lock;
+static struct wake_lock   s_cp_req_wake_lock;
+
 
 static struct mutex ipc_mutex;
 wait_queue_head_t s_mux_read_rts;
@@ -158,7 +160,7 @@ static struct task_struct *s_mux_ipc_tx_thread;
 static struct task_struct *s_mux_ipc_sdio_thread;
 
 
-static  int   sdio_tx_wait_time = 10;
+static  int   sdio_tx_wait_time = 1;
 MIPC_FRAME_LIST_T  s_mipc_tx_free_frame_list;
 MIPC_TRANSFER_T     s_mipc_tx_tansfer;
 
@@ -452,6 +454,7 @@ void  sdio_ipc_enable(u8  is_enable)
                 s_mipc_next_rx_len = MAX_MIPC_RX_FRAME_SIZE;
                 //sdhci_resetconnect(MUX_IPC_DISABLE);
                 s_mux_ipc_event_flags = 0;
+                s_mipc_next_rx_len = MAX_MIPC_RX_FRAME_SIZE;
                 s_mipc_enable_change_flag = 0;
                 s_mux_ipc_enable = MUX_IPC_ENABLE;
                 wake_up_interruptible(&s_modem_ready);
@@ -985,13 +988,14 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
 static int sdio_read_modem_data(u8 *buf, int len, int addr)
 {
         int ret = 0;
-        IPC_DBG(" sdio_read_modem_data entery:buf:0x%X, len:%x\r\n", (u32)buf, len);
+        IPC_DBG("[mipc] sdio_read_modem_data entery:buf:0x%X, len:%x\r\n", (u32)buf, len);
         ret = sprd_sdio_channel_rx(buf, len, addr);
         return ret;
 }
 
 extern  __u8   mux_calc_crc(__u8 * data, __u32 length);
 
+unsigned long s_dbg_dl_frame_num = 0;
 static bool VerifyPacketHeader(struct packet_header *header, u32 *tx_flow_info,
                                u32 *acked_tx_frame)
 {
@@ -1014,6 +1018,11 @@ static bool VerifyPacketHeader(struct packet_header *header, u32 *tx_flow_info,
                 } else {
                         *tx_flow_info = header->flag & 0xFF;
                         *acked_tx_frame = header->u.ul_frame_num;
+                        if((s_dbg_dl_frame_num + 1) != header->frame_num) {
+                                printk("[mipc]:(s_dbg_dl_frame_num + 1) != header->frame_num!!\r\n");
+                        }
+                        s_dbg_dl_frame_num = header->frame_num;
+                        printk("[mipc]:s_dbg_dl_frame_num:%d!\r\n", s_dbg_dl_frame_num);
                         s_mipc_next_rx_len = header->next_length;
                 }
         }
@@ -1088,13 +1097,16 @@ static int mux_ipc_tx_thread(void *data)
 
                 while(s_mipc_tx_tansfer.counter) {
                         //u32 prv_time = get_sys_cnt();
+                        unsigned long now = jiffies;
+                        while(_IsTransferFifoEmpty(&s_mipc_tx_tansfer)
+                              && MIPC_TX_REQ_FLAG
+                              && (msecs_to_jiffies(jiffies - now) < MAX_SDIO_TX_WAIT_TIMEOUT)) {
+
+                                printk("[mipc] msleep sdio_tx_wait_time\n");
+                                msleep(sdio_tx_wait_time);
+
+                        }
                         if(_IsTransferFifoEmpty(&s_mipc_tx_tansfer)) {
-                                if(sdio_tx_wait_time > 0) {
-                                        if(sdio_tx_wait_time > MAX_SDIO_TX_WAIT_TIMEOUT) {
-                                                sdio_tx_wait_time = MAX_SDIO_TX_WAIT_TIMEOUT;
-                                        }
-                                        msleep(sdio_tx_wait_time);
-                                }
 
                                 if(_FlushTxTransfer()) {
                                         printk("[mipc] s_mipc_tx_tansfer.counter: %d\n", s_mipc_tx_tansfer.counter);
@@ -1149,7 +1161,8 @@ static ssize_t mux_ipc_xmit_buf(const char *buf, ssize_t len)
                 ret = _AddDataToTxTransfer((u8*)buf, len);
                 if(!ret) {
                         ipc_info_sdio_write_overflow(1);
-                        msleep(8);
+                        msleep(4);
+                        printk("[mipc] mux_ipc_xmit_buf msleep 8.\n");
                 }
         } while(!ret);
 
@@ -1184,6 +1197,8 @@ u32  wake_up_mipc_rx_thread(u32   even_flag)
 {
         u32 status = 0;
         u32 ipc_status = _is_mux_ipc_enable();
+
+        wake_lock_timeout(&s_cp_req_wake_lock, HZ / 2);
         if(ipc_status && even_flag) {
                 s_mipc_rx_event_flags = even_flag;
                 wake_up(&s_mux_ipc_rx_wq);
@@ -1349,6 +1364,11 @@ static int do_sdio_tx(MIPC_TRANSF_FRAME_T* frame_ptr)
 
         s_last_tx_frame = header_ptr->frame_num;
         printk("[mipc] write data ptr: 0x%x, len:%d\r\n", frame_ptr->buf_ptr, frame_ptr->pos);
+
+        printk("[mipc] write data: 0x%x, 0x%x, 0x%x, 0x%x,\r\n", frame_ptr->buf_ptr[8],
+               frame_ptr->buf_ptr[9],
+               frame_ptr->buf_ptr[10],
+               frame_ptr->buf_ptr[11]);
         write_len = sdio_write_modem_data(frame_ptr->buf_ptr, write_len);
 
         if(write_len) {
@@ -1477,11 +1497,18 @@ static int mux_ipc_sdio_thread(void *data)
                         continue_tx_cnt = 0;
 
                         if(SDHCI_TRANSFER_OK == result) {
+                                printk("[mipc] s_acked_tx_frame:%d, s_acked_tx_frame:%d, s_last_tx_frame:%d\n",
+                                       s_mipc_tx_ctrl.last_ack_frame,
+                                       s_acked_tx_frame,
+                                       s_last_tx_frame);
+
                                 if(s_mipc_tx_ctrl.last_ack_frame != s_acked_tx_frame) {
+
                                         ack_tx_frame_num(s_acked_tx_frame);
                                 }
 
                                 if(s_acked_tx_frame != s_last_tx_frame) {
+
                                         nack_tx_frame_num();
                                 }
 
@@ -1522,7 +1549,7 @@ static int mux_ipc_sdio_thread(void *data)
 
                 if(continue_tx_cnt >= 2) {
                         continue_tx_cnt--;
-                        implicit_ack_tx_frame();
+                        //implicit_ack_tx_frame();
                 }
 
 
@@ -1631,6 +1658,7 @@ static int modem_sdio_probe(struct platform_device *pdev)
         //}debug
 
         wake_lock_init(&s_ipc_sdio_wake_lock, WAKE_LOCK_SUSPEND, "ipc_sdio_lock");
+        wake_lock_init(&s_cp_req_wake_lock, WAKE_LOCK_SUSPEND, "sdio_cp_req_lock");
         mutex_init(&ipc_mutex);
         //atomic_set(&s_mipc_read_pending, 0);
         init_cp_awake_status();
