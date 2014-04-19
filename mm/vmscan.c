@@ -275,6 +275,9 @@ unsigned long shrink_slab(struct shrink_control *shrink,
 		total_scan = shrinker->nr;
 		shrinker->nr = 0;
 
+		printk(KERN_ERR "vmscan shrink_slab: %p nr=%ld total_scan=%ld \n",
+			       shrinker->shrink, shrinker->nr, total_scan);
+
 		while (total_scan >= SHRINK_BATCH) {
 			long this_scan = SHRINK_BATCH;
 			int shrink_ret;
