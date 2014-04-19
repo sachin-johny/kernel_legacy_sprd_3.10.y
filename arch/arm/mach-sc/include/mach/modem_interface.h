@@ -27,8 +27,27 @@ enum MODEM_Mode_type {
 enum MODEM_device_type {
 	MODEM_DEV_UART,
 	MODEM_DEV_SPI,
-        MODEM_DEV_SDIO,
-        MODEM_DEV_VPIP
+	MODEM_DEV_SDIO,
+	MODEM_DEV_VPIP
+};
+
+enum {
+	MODEM_STATUS_REBOOT,
+	MODEM_STATUS_ALVIE,
+	MODEM_STATUS_ASSERT
+};
+
+enum {
+	MODEMSTS_LEVEL_MUX = 50,
+	MODEMSTS_LEVEL_SDIO = 100,
+	MODEMSTS_LEVEL_SPI = 150,
+};
+
+struct modemsts_chg {
+	struct list_head link;
+	int level;
+	void *data;
+	void (*modemsts_notifier)(struct modemsts_chg *h, unsigned int state);
 };
 
 struct modem_intf_platform_data{
@@ -45,4 +64,10 @@ extern int modem_intf_open(enum MODEM_Mode_type mode,int index);
 extern int modem_intf_read(char *buffer, int size,int index);
 extern int modem_intf_write(char *buffer, int size,int index);
 extern void modem_intf_set_mode(enum MODEM_Mode_type mode,int index);
+
+extern int modemsts_notifier_register(struct modemsts_chg *handler);
+
+extern int modemsts_notifier_unregister(struct modemsts_chg *handler);
+
+extern void modemsts_change_notification(unsigned int state);
 #endif
