@@ -3,10 +3,12 @@
 #include <mach/modem_interface.h>
 
 
-#define MODEM_INTF_EVENT_ASSERT     0
-#define MODEM_INTF_EVENT_ALIVE      1
-#define MODEM_INTF_EVENT_RESET      2
-#define MODEM_INTF_EVENT_SHUTDOWN   4
+#define MODEM_INTF_EVENT_ASSERT                 0
+#define MODEM_INTF_EVENT_ALIVE                  1
+#define MODEM_INTF_EVENT_CP_REQ_RESET           2
+#define MODEM_INTF_EVENT_SHUTDOWN               4
+#define MODEM_INTF_EVENT_FORCE_RESET            8
+
 
 
 
