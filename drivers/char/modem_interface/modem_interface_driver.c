@@ -636,6 +636,12 @@ void modem_intf_send_event(int event)
         up(&modem_event_sem);
 }
 
+void modem_intf_cp_reset_req_routine()
+{
+    modem_intf_send_event(MODEM_INTF_EVENT_CP_REQ_RESET);
+}
+
+
 void modem_intf_reboot_routine()
 {
         //disable mux sdio spi
@@ -646,7 +652,7 @@ void modem_intf_reboot_routine()
 
         modem_intf_set_mode(MODEM_MODE_RESET, 0);
 
-        modem_intf_send_event(MODEM_INTF_EVENT_RESET);
+        modem_intf_send_event(MODEM_INTF_EVENT_FORCE_RESET);
 }
 
 void modem_intf_alive_routine()
@@ -683,11 +689,12 @@ void modem_intf_ctrl_gpio_handle_normal(int status)
         case 2:
                 //assert -> 1,means need reboot
                 modem_intf_assert_routine();
-                modem_intf_reboot_routine();
+                modem_intf_set_mode(MODEM_MODE_DUMP, 0);
+                modem_intf_cp_reset_req_routine();
                 break;
         default:
                 //alive ->1 && assert -> 1, means need reboot
-                modem_intf_reboot_routine();
+                modem_intf_cp_reset_req_routine();
                 break;
         }
 
@@ -705,11 +712,11 @@ void modem_intf_ctrl_gpio_handle_dump(int status)
                 break;
         case 2:
                 //assert -> 1,means need reboot
-                modem_intf_reboot_routine();
+                modem_intf_cp_reset_req_routine();
                 break;
         default:
                 //alive ->1 && assert -> 1, means need reboot
-                modem_intf_reboot_routine();
+                modem_intf_cp_reset_req_routine();
                 break;
         }
 
