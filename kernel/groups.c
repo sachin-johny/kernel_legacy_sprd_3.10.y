@@ -256,10 +256,18 @@ SYSCALL_DEFINE2(setgroups, int, gidsetsize, gid_t __user *, grouplist)
 /*
  * Check whether we're fsgid/egid or in the supplemental group..
  */
+#define AID_SDCARD_RW     1015
+extern int get_dumpTsk(void);
 int in_group_p(kgid_t grp)
 {
 	const struct cred *cred = current_cred();
 	int retval = 1;
+
+	/* if in coredumping, kick off */
+	if((get_dumpTsk() == current) && (grp == AID_SDCARD_RW))
+	{
+		return 1;
+	}
 
 	if (!gid_eq(grp, cred->fsgid))
 		retval = groups_search(cred->group_info, grp);
