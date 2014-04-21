@@ -87,12 +87,14 @@ int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data 
 
 	sprd_iommu_gsp_enable(dev);
 	err=sprd_iommu_init(dev,data);
+	sprd_iommu_gsp_disable(dev);
 	return err;
 }
 
 int sprd_iommu_gsp_exit(struct sprd_iommu_dev *dev)
 {
 	int err=-1;
+	sprd_iommu_gsp_enable(dev);
 	err=sprd_iommu_exit(dev);
 	sprd_iommu_gsp_disable(dev);
 	return err;
@@ -112,14 +114,18 @@ void sprd_iommu_gsp_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, si
 int sprd_iommu_gsp_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
+	sprd_iommu_gsp_enable(dev);
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
+	sprd_iommu_gsp_disable(dev);
 	return err;
 }
 
 int sprd_iommu_gsp_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
+	sprd_iommu_gsp_enable(dev);
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
+	sprd_iommu_gsp_disable(dev);
 	return err;
 }
 
@@ -129,6 +135,7 @@ int sprd_iommu_gsp_backup(struct sprd_iommu_dev *dev)
 	return 0;
 #else
 	int err=-1;
+	sprd_iommu_gsp_enable(dev);
 	err=sprd_iommu_backup(dev);
 	sprd_iommu_gsp_disable(dev);
 	return err;
@@ -148,6 +155,7 @@ int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 #endif
 	err=sprd_iommu_restore(dev);
 #endif
+	sprd_iommu_gsp_disable(dev);
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -158,6 +166,7 @@ static void sprd_iommu_gsp_early_suspend(struct early_suspend* es)
 
 	printk("%s%d\n",__func__,__LINE__);
 
+	sprd_iommu_gsp_enable(dev);
 	err=sprd_iommu_backup(dev);
 	sprd_iommu_gsp_disable(dev);
 }
@@ -175,6 +184,7 @@ static void sprd_iommu_gsp_late_resume(struct early_suspend* es)
 	sprd_iommu_gsp_enable(dev);
 #endif
 	err=sprd_iommu_restore(dev);
+	sprd_iommu_gsp_disable(dev);
 }
 #endif
 
