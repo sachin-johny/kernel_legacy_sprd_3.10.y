@@ -933,7 +933,8 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 			if (rate == itm_rates[i].hw_value) {
 				sinfo->txrate.legacy = itm_rates[i].bitrate;
 				if (rate & 0x80)
-					sinfo->txrate.mcs = itm_rates[i].hw_value;
+					sinfo->txrate.mcs =
+					    itm_rates[i].hw_value;
 				break;
 			}
 		}
@@ -1530,7 +1531,8 @@ static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
 	ret = itm_wlan_mac_open_cmd(priv->wlan_sipc,
 				    mode, priv->ndev->dev_addr);
 	if (ret != 0) {
-		wiphy_err(priv->wdev->wiphy, "%s failed to open mac!\n", __func__);
+		wiphy_err(priv->wdev->wiphy, "%s failed to open mac!\n",
+			  __func__);
 		return -EIO;
 	}
 
@@ -1842,26 +1844,28 @@ void itm_unregister_wdev(struct itm_priv *priv)
 	if (priv->wdev == NULL)
 		return;
 
-	del_timer_sync(&priv->scan_timeout);
+	if (priv->mode == ITM_STATION_MODE || priv->mode == ITM_AP_MODE) {
+		del_timer_sync(&priv->scan_timeout);
 
-	if (priv->scan_request &&
-	    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
-		if (priv->scan_request->wiphy != priv->wdev->wiphy) {
-			dev_err(&priv->wdev->netdev->dev,
-				"Scan request is from a wrong wiphy device\n");
-		} else {
-			/*If there's a pending scan request,abort it */
-			cfg80211_scan_done(priv->scan_request, 1);
+		if (priv->scan_request &&
+		    (atomic_add_unless(&priv->scan_status, 1, 1) == 1)) {
+			if (priv->scan_request->wiphy != priv->wdev->wiphy) {
+				dev_err(&priv->wdev->netdev->dev,
+					"Scan request is from a wrong wiphy device\n");
+			} else {
+				/*If there's a pending scan request,abort it */
+				cfg80211_scan_done(priv->scan_request, 1);
+			}
+
+			priv->scan_request = NULL;
+			if (priv->scan_done_lock.link.next != LIST_POISON1 &&
+			    priv->scan_done_lock.link.prev != LIST_POISON2)
+				wake_unlock(&priv->scan_done_lock);
+			atomic_dec(&priv->scan_status);
 		}
 
-		priv->scan_request = NULL;
-		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-		    priv->scan_done_lock.link.prev != LIST_POISON2)
-			wake_unlock(&priv->scan_done_lock);
-		atomic_dec(&priv->scan_status);
+		itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
 	}
-
-	itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
 
 	wiphy_unregister(priv->wdev->wiphy);
 	wiphy_free(priv->wdev->wiphy);
