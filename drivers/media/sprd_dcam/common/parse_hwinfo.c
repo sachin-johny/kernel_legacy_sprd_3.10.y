@@ -43,9 +43,8 @@ static atomic_t	mm_enabe_cnt = ATOMIC_INIT(0);
 
 void   parse_baseaddress(struct device_node	*dn)
 {
-	struct resource  r;
-
 #ifdef CONFIG_OF
+	struct resource  r;
 	of_address_to_resource(dn, 0,&r);
 	PARSE_TRACE("DCAM BASE=0x%x \n",r.start);
 	dcam_regbase = r.start;
@@ -63,7 +62,7 @@ uint32_t   parse_irq(struct device_node *dn)
 
 struct clk  * parse_clk(struct device_node *dn, char *clkname)
 {
-#if CONFIG_OF
+#ifdef CONFIG_OF
 	PARSE_TRACE("parse_clk %s \n",clkname);
 	return of_clk_get_by_name(dn, clkname);
 #else

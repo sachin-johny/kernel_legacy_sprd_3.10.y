@@ -69,7 +69,7 @@
 	} while(0)
 
 
-#if CONFIG_OF
+#ifdef CONFIG_OF
 #define clk_enable      clk_prepare_enable
 #define clk_disable     clk_disable_unprepare
 #endif
