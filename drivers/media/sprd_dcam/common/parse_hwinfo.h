@@ -18,7 +18,7 @@
 #include <linux/sprd_mm.h>
 
 
-#if CONFIG_OF
+#ifdef CONFIG_OF
 extern uint32_t                   dcam_regbase;
 #define DCAM_BASE		dcam_regbase
 #else

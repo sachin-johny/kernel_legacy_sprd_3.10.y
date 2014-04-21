@@ -214,6 +214,7 @@ LOCAL int sprd_v4l2_reg_path2_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_path2_isr(struct dcam_dev* param);
 /*LOCAL int sprd_v4l2_proc_read(char *page, char **start,off_t off, int count, int *eof, void *data);*/
+LOCAL void sprd_v4l2_print_reg(void);
 
 LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
@@ -2100,13 +2101,16 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	DCAM_TRACE("V4L2: time, %d %d \n", (int)p->timestamp.tv_sec, (int)p->timestamp.tv_usec);
 
 	p->flags = node.irq_flag;
-	if(p->flags ==V4L2_TX_DONE){
+	if (p->flags == V4L2_TX_DONE) {
 		p->type  = node.f_type;
 		p->index = node.index;
 		p->reserved = node.height;
 		p->sequence = node.reserved;
 		path = &dev->dcam_cxt.dcam_path[p->type];
 		memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
+	} else {
+		if (p->flags == V4L2_TIMEOUT)
+			sprd_v4l2_print_reg();
 	}
 
 	DCAM_TRACE("V4L2: v4l2_dqbuf, flag 0x%x type 0x%x index 0x%x \n", p->flags, p->type, p->index);
@@ -2540,7 +2544,6 @@ LOCAL void sprd_timer_callback(unsigned long data)
 
 	if (0 == atomic_read(&dev->run_flag)) {
 		printk("DCAM timeout.\n");
-		sprd_v4l2_print_reg();
 		node.irq_flag = V4L2_TIMEOUT;
 		node.f_type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 		ret = sprd_v4l2_queue_write(&dev->queue, &node);
