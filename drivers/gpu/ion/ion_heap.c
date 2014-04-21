@@ -200,9 +200,13 @@ size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
 		if (total_drained >= size)
 			break;
 		list_del(&buffer->list);
-		ion_buffer_destroy(buffer);
 		heap->free_list_size -= buffer->size;
 		total_drained += buffer->size;
+		/*
+		 *  Sprd change here.
+		 *  Destroy the variable when no one touch it.
+		 * */
+		ion_buffer_destroy(buffer);
 	}
 	rt_mutex_unlock(&heap->lock);
 
@@ -228,6 +232,8 @@ int ion_heap_deferred_free(void *data)
 			 * */
 			if (heap->free_list_size > 0)
 			{
+			    printk(KERN_INFO "ion buffer free_list_size:%u is in abnormal state, so do reset\n",
+					    (unsigned int)heap->free_list_size);
 			    heap->free_list_size = 0;
 			}
 			rt_mutex_unlock(&heap->lock);
