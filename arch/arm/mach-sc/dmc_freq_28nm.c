@@ -179,9 +179,9 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 	}
 
 	flush_cache_all();
-	printk(" %s, cpu_suspend!\n", __func__);
+	//printk(" %s, cpu_suspend!\n", __func__);
 	cpu_suspend(flag, emc_dfs_call);
-#if 1
+#if 0
 	printk("ypxie : DDR PUBL REG[0x30010000]\n\r");
 	printk("ZQnDR: [0x%x], [0x%x], [0x%x], [0x%x] \n\r", 
 		sci_glb_read((SPRD_LPDDR2_PHY_BASE + 0x248), -1),
@@ -225,7 +225,7 @@ static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 		info("clk set error, set clk = %d, get clk = %d, sence = %d\n", clk, emc_clk_get(), sene);
 	}
 	else{
-		info("clk set success, set clk = %d, get clk = %d, sence = %d\n", clk, emc_clk_get(), sene);
+		//info("clk set success, set clk = %d, get clk = %d, sence = %d\n", clk, emc_clk_get(), sene);
 	}
 	return 0;
 }

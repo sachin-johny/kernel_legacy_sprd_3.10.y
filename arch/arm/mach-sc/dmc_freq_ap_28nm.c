@@ -220,24 +220,24 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_val_t *timing
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
 	DMC_PUBL_REG_INFO_PTR_T p_publ_reg = (DMC_PUBL_REG_INFO_PTR_T) PUBL_REG_BASE;
 
-	uart_putch('1');
+	uart_putch('d');
 	exit_lowpower_mode(&(reg_store[0]));
 
-	uart_putch('2');
+//	uart_putch('2');
 	/* step 1: assert PWRCTL.selfref_sw. */
 	/* step 2: wait until STAT.operating_mode[1:0] = 11, STAT.selfref_type[1:0] = 10 */
 	move_upctl_state_to_self_refresh();
 
-	uart_putch('3');
+//	uart_putch('3');
 	/* step 3: hold bus : set DBG1.dis_dq = 1 */
 	ddr_cam_command_dequeue(0);
 	wait_queue_complete();
 
-	uart_putch('4');
+//	uart_putch('4');
 	/* step4 : DFIMISC.dfi_init_complete_en =0.hold not trigger sdram initialization */
 	p_umctl_reg->umctl_dfimisc &= ~BIT_DFIMISC_DFI_COMP_EN;
 
-	uart_putch('5');
+//	uart_putch('5');
 	/* step 5: change the clock frequency to the DWC_ddr_umctl2 and ensure no glitchs. */
 	/* phy clock close : DDR_PHY_AUTO_GATE_EN */
 	reg_store[2] = REG32(SPRD_PMU_PHYS+0x00D0);
@@ -362,24 +362,24 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_val_t *timing
 	p_publ_reg->publ_pir |= ( BIT_PIR_DCAL | BIT_PIR_INIT);
 	while ((p_publ_reg->publ_pgsr[0] & 0x01) != 1);
 
-	uart_putch('6');
+//	uart_putch('6');
 	/* step 6: update phy timing register. static and dynamic register */
 	ddr_timing_update_ex(timing);
 
-	uart_putch('7');
+//	uart_putch('7');
 	/* step 7: trigger the initization PHY */
 	p_umctl_reg->umctl_dfimisc |= BIT_DFIMISC_DFI_COMP_EN;
 
-	uart_putch('8');
+	uart_putch('f');
 	/* step 8: require to exit sel_refresh by PWRCTL.selfref_sw. */
 	move_upctl_state_exit_self_refresh();
-	uart_putch('9');
+//	uart_putch('9');
 	/* step 9: Update MR register setting of DRAM */
 	//p_umctl_reg->umctl_hwlpctl |= 0x03;
 
 	/* step 10: FBG1.dis_dq = 0 */
 	ddr_cam_command_dequeue(1);
-	uart_putch('a');
+	uart_putch('s');
 
 	/* enable lowpower */
 	enable_lowpower_mode(&(reg_store[0]));
@@ -389,55 +389,19 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_val_t *timing
 
 static inline  ddr_dfs_val_t *get_clk_timing( uint32 clk )
 {
+	volatile uint32 i;
 	ddr_dfs_val_t *timing;
 
 	timing = (ddr_dfs_val_t *)(DFS_PARAM_ADDR);
 
-	if (clk <= 250) {
-		timing->ddr_clk = 200;
-		timing->umctl2_rfshtmg = 0x00180034;
-//		timing->umctl2_dramtmg0 = 0x7F3F7F3F;
-//		timing->umctl2_dramtmg1 = 0x001F1F3F;
-//		timing->umctl2_dramtmg2 = 0x03061F3F;
-//		timing->umctl2_dramtmg3 = 0x3FF3F3FF;
-//		timing->umctl2_dramtmg4 = 0x1F070F1F;
-//		timing->umctl2_dramtmg5 = 0x02020303;
-//		timing->umctl2_dramtmg6 = 0x0F0F000F;
-		timing->umctl2_dramtmg0 = 0x0C181C12;
-		timing->umctl2_dramtmg1 = 0x0004041A;
-		timing->umctl2_dramtmg2 = 0x03060C09;
-		timing->umctl2_dramtmg3 = 0x00505000;
-		timing->umctl2_dramtmg4 = 0x08060808;
-		timing->umctl2_dramtmg5 = 0x02020603;
-		timing->umctl2_dramtmg6 = 0x02020006;
-		//timing->umctl2_dramtmg7 = 0x0202;
-		//timing->umctl2_dramtmg8 = 0x02;
-
-		timing->publ_dx0dqstr = 0x00005001;
-		timing->publ_dx1dqstr = 0x00005001;
-		timing->publ_dx2dqstr = 0x00005001;
-		timing->publ_dx3dqstr = 0x00005001;
-
-		timing->publ_dtpr0 = 0xC1AA0078;
-	}
-	else {
-		if (clk < 400) {
-			timing->ddr_clk = 384;
+	for (i = 0; i < 5; i++) {
+		if (clk == timing->ddr_clk) {
+			return timing;
 		}
-		else {
-			timing->ddr_clk = 400;
-		}
-		timing->umctl2_rfshtmg = 0x00300034;
-		timing->umctl2_dramtmg0 = 0x0C181C12;
-		timing->umctl2_dramtmg1 = 0x0004041A;
-		timing->umctl2_dramtmg2 = 0x03060C09;
-		timing->umctl2_dramtmg3 = 0x00505000;
-		timing->umctl2_dramtmg4 = 0x08060808;
-		timing->umctl2_dramtmg5 = 0x02020603;
-		timing->umctl2_dramtmg6 = 0x02020006;
-		//timing->umctl2_dramtmg8 = 0x03;
+		timing++;
 	}
-	return timing;
+
+	return (ddr_dfs_val_t *)0;
 }__attribute__((always_inline))
 
 inline void dev_freq_set(unsigned long req)
@@ -456,7 +420,6 @@ inline void dev_freq_set(unsigned long req)
 	sene = (req & EMC_FREQ_SENE_MASK) >> EMC_FREQ_SENE_OFFSET;
 
 	timing = get_clk_timing(clk);
-
 	if(timing->ddr_clk != clk) {
 		uart_putch('d');
 		uart_putch('f');
