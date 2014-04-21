@@ -3,6 +3,7 @@
 
 #include <mach/hardware.h>
 #include <linux/sprd_2351.h>
+#include <mach/sci_glb_regs.h>
 
 #define	SR2351_FM_DEV_NAME	"Trout_FM"
 
@@ -189,12 +190,12 @@ extern u32 rf2351_fm_get_pmu_base(void);
 #define FM_REG_SPI_FIFO_STS		(SHARK_FM_REG_BASE + 0x0820)
 
 
-#define SHARK_APB_EB0                  (SHARK_APB_BASE_ADDR+0x0000)
-#define SHARK_APB_EB1                  (SHARK_APB_BASE_ADDR+0x0004)
-#define SHARK_APB_RST0                 (SHARK_APB_BASE_ADDR+0x0008)
-#define SHARK_APB_EB0_SET              (SHARK_APB_BASE_ADDR+0x1000)
+#define SHARK_APB_EB0                  REG_AON_APB_APB_EB0 
+#define SHARK_APB_EB1                  REG_AON_APB_APB_EB1
+#define SHARK_APB_RST0                 REG_AON_APB_APB_RST0
+#define SHARK_APB_EB0_SET              (REG_AON_APB_APB_EB0+0x1000)
 
-#define  SHARK_PMU_SLEEP_CTRL      (SHARK_PMU_BASE_ADDR+0x00C4)
+#define  SHARK_PMU_SLEEP_CTRL           REG_PMU_APB_SLEEP_CTRL
 
 
 
