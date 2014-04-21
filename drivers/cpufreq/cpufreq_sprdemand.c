@@ -779,10 +779,12 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 		if (policy->cur < policy->max)
 			dbs_info->rate_mult =
 				sd_tuners->sampling_down_factor;
+#ifndef CONFIG_ARCH_SCX30G
 		if(num_online_cpus() == sd_tuners->cpu_num_limit)
 			dbs_freq_increase(policy, policy->max);
 		else
 			dbs_freq_increase(policy, policy->max-1);
+#endif
 		goto plug_check;
 	}
 
