@@ -57,7 +57,7 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
  * The micro ADPGAR_BYP_SELECT is used for avoiding the Bug#298417,
  * please refer to Bug#298417 to confirm your configuration.
  **********************************************/
-//#define ADPGAR_BYP_SELECT
+#define ADPGAR_BYP_SELECT
 
 #ifdef CONFIG_HEADSET_STS_POLLING_DISABLED
 #undef SPRD_STS_POLLING_EN
@@ -71,6 +71,10 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
 #define ADC_READ_LOOP (2)
 #define ADC_GND (100)
 #define SCI_ADC_GET_VALUE_COUNT (50)
+
+#define ARM_MF_REG (0x0110)
+#define HEAD_INSERT2_EIC_EN (BIT(15))
+#define HEAD_INSERT_EIC_EN (BIT(14))
 
 #define EIC3_DBNC_CTRL (0x4C)
 #define DBNC_CNT3_VALUE (30)
@@ -1181,7 +1185,7 @@ static void headset_detect_work_func(struct work_struct *work)
 
                 /***polling ana_sts0 to avoid the hardware defect***/
 #ifdef SPRD_STS_POLLING_EN
-                if (1 != adie_type) {
+                if ((1 != adie_type) && (adie_type < 5)) {
                         plug_state_class_g_on = 1;
                         sts_check_work_need_to_cancel = 0;
                         queue_delayed_work(sts_check_work_queue, &sts_check_work, msecs_to_jiffies(1000));
@@ -1201,6 +1205,12 @@ static void headset_detect_work_func(struct work_struct *work)
                 else
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_HIGH);
 
+                if (adie_type >= 5) {
+                        headset_reg_set_bit(ANA_CTL_GLB_BASE + ARM_MF_REG, HEAD_INSERT_EIC_EN);
+                        headset_reg_clr_bit(ANA_CTL_GLB_BASE + ARM_MF_REG, HEAD_INSERT2_EIC_EN);
+                        PRINT_INFO("disable HEAD_INSERT2_EIC_EN, enable HEAD_INSERT_EIC_EN\n");
+                }
+
                 headset_irq_detect_enable(1, ht->irq_detect);
         } else if(0 == plug_state_current && 1 == plug_state_last) {
 
@@ -1209,7 +1219,7 @@ static void headset_detect_work_func(struct work_struct *work)
 
                 /***polling ana_sts0 to avoid the hardware defect***/
 #ifdef SPRD_STS_POLLING_EN
-                if (1 != adie_type) {
+                if ((1 != adie_type) && (adie_type < 5)) {
                         sts_check_work_need_to_cancel = 1;
                         if(0 == plug_state_class_g_on) {
                                 PRINT_INFO("plug out already!!!\n");
@@ -1235,6 +1245,12 @@ plug_out_already:
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_HIGH);
                 else
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_LOW);
+
+                if (adie_type >= 5) {
+                        headset_reg_set_bit(ANA_CTL_GLB_BASE + ARM_MF_REG, HEAD_INSERT2_EIC_EN);
+                        headset_reg_clr_bit(ANA_CTL_GLB_BASE + ARM_MF_REG, HEAD_INSERT_EIC_EN);
+                        PRINT_INFO("disable HEAD_INSERT_EIC_EN, enable HEAD_INSERT2_EIC_EN\n");
+                }
 
                 headset_irq_detect_enable(1, ht->irq_detect);
         } else {
@@ -1850,6 +1866,7 @@ static int headset_detect_probe(struct platform_device *pdev)
                 PRINT_ERR("create_singlethread_workqueue for adpgar_byp_select failed!\n");
                 goto failed_to_create_singlethread_workqueue_for_adpgar_byp_select;
         }
+        PRINT_INFO("ADPGAR_BYP_SELECT is enabled!\n");
 #endif
 
         wake_lock_init(&headset_detect_wakelock, WAKE_LOCK_SUSPEND, "headset_detect_wakelock");
