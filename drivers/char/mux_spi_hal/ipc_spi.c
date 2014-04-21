@@ -400,7 +400,7 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 				header->magic = DATA_MAGIC;
 			header->len = frame_ptr->pos - offset;
 			header->seqnum = frame_ptr->seq;
-			header->checksum = ipc_checksum(&frame_ptr->buf_ptr[4], MAX_MIPC_TX_FRAME_SIZE - 4);
+			header->checksum = ipc_checksum(&frame_ptr->buf_ptr[4], header->len);
 			*len = MAX_MIPC_TX_FRAME_SIZE;
 			frame_ptr->status = ACK_STATUS;
 			printk("--seq %d \n", header->seqnum);
@@ -609,8 +609,8 @@ static void ipc_rcv_data(struct ipc_spi_dev* dev, u8 *buf, u16 len)
 {
 	u32 offset = sizeof(struct data_packet_header);
 	struct data_packet_header *header = (struct data_packet_header*)buf;
-	u16 cs = ipc_checksum(buf + 4, MAX_MIPC_TX_FRAME_SIZE - 4);
-	if(header->checksum == ipc_checksum(buf + 4, MAX_MIPC_TX_FRAME_SIZE - 4)) {
+	u16 cs = ipc_checksum(buf + 4, header->len);
+	if(header->checksum == ipc_checksum(buf + 4, header->len)) {
 		if(dev->rx_seqnum >= header->seqnum) {
 				dev->rx_curframe->status = ACK_STATUS;
 		}
