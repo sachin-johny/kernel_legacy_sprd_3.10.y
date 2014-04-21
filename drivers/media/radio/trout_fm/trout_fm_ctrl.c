@@ -108,6 +108,8 @@ static int _trout_fm_release(struct file *file)
 {
 	TROUT_PRINT("trout_fm_release");
 
+  trout_fm_pcm_pin_cfg();
+
 	trout_fm_deinit();
 
 	Set_Trout_PowerOff(2 /*FM_MODE*/);
