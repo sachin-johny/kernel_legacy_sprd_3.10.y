@@ -114,7 +114,7 @@ static struct _headset headset = {
 
 static struct _headset_keycap headset_key_capability[20] = {
 	{ EV_KEY, KEY_MEDIA },
-	{ EV_KEY, KEY_END },
+	{ EV_KEY, KEY_MEDIA },
 	{ EV_KEY, KEY_RESERVED },
 };
 
@@ -171,7 +171,7 @@ static unsigned int headset_map_code2push_code(unsigned int code, int push_type)
 		code = KEY_MEDIA;
 		break;
 	case HEADSET_BUTTON_DOWN_LONG:
-		code = KEY_END;
+		code = KEY_MEDIA;
 		break;
 	}
 
