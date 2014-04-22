@@ -89,6 +89,8 @@
 //#define MEM_STRUCT_SIZES_INIT
 #endif /* MEM_DEBUG_MODE */
 
+//#define AUTORATE_PING
+
 #ifdef IBSS_BSS_STATION_MODE
 //#define AUTO_RX_SENSITIVITY
 #endif /* IBSS_BSS_STATION_MODE */

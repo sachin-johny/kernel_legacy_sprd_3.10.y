@@ -70,6 +70,7 @@ BOOL_T         g_ar_enable     = BTRUE; // caisf, default use auto rate // BFALS
 BOOL_T         g_ar_enable     = BFALSE;
 #endif
 
+#ifdef AUTORATE_PING
 /* ping.jiang add for calculating statistics 2013-10-31 */
 struct rx_stats g_rx_data = {0,0,0};
 struct rx_stats g_cur_rx_data = {0,0,0};
@@ -92,7 +93,9 @@ UWORD16 g_txpkt_cnt_table[STATISTICS_FILTER_TABLE] = {0};
 UWORD16 g_rx_complete_cnt_table[STATISTICS_FILTER_TABLE] = {0};
 unsigned int g_rx_nack_all_cnt_table[STATISTICS_FILTER_TABLE] = {0};
 /* ping.jiang add for calculating statistics end */
+#endif /* AUTORATE_PING */
 
+#ifdef AUTORATE_PING
 /* ping.jiang add for AR algorithm 2013-11-10 */
 UWORD8 g_802_11b_rate_table[4] =
 {
@@ -124,6 +127,7 @@ UWORD8 g_802_11n_rate_table[8] =
       0x87,	     /* MCS-7  :  65.0 Mbps */
 };
 /* ping.jiang add for AR algorithm end */
+#endif /* AUTORATE_PING */
 
 #ifdef AUTORATE_FEATURE
 UWORD8 g_ar_table[MAX_NUM_RATES] = {0};
@@ -277,6 +281,7 @@ void check_for_ar(void* entry, ar_stats_t *ar_stats, UWORD8 tx_rate_index)
 #endif /* AUTORATE_FEATURE */
 }
 
+#ifdef AUTORATE_PING
 /*ping.jiang add for calculating statistics 2013-10-31*/
 unsigned int get_rx_complete_cnt_sum(UWORD8 stats_index)
 {
@@ -882,6 +887,8 @@ void ar_reset_cw_cca_threshold(void)
 }
 
 /*ping.jiang add for calculating statistics end*/
+#endif /* AUTORATE_PING */
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : ar_rate_ctl                                              */
@@ -909,6 +916,8 @@ void ar_reset_cw_cca_threshold(void)
 UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min)
 {
     UWORD8 status = NO_RATE_CHANGE;
+
+#ifdef AUTORATE_PING
     /* ping.jiang add for AR algorithm 2013-11-10 */
 
     get_rx_statistics(ar_stats);
@@ -943,12 +952,17 @@ UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min)
     }
 
     /* ping.jiang add for AR algorithm end */
+#endif /* AUTORATE_PING */
+
 	if(ENOUGH_TX(ar_stats))
 	{
 	    if(SUCCESS_TX(ar_stats)) //&& ENOUGH_TX(ar_stats))
 	    {
 	    	#if 1 //chenq mode auto rate policy 2013-07-24
-			//status = INCREMENT_RATE;
+/* ping.jiang modify for AR algorithm 2013-11-10 */
+#ifndef AUTORATE_PING
+			status = INCREMENT_RATE;
+#endif /* AUTORATE_PING */
 			#else	
 	        /* Increment the success count */
 	        ar_stats->ar_success++;
@@ -1001,9 +1015,12 @@ UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min)
 		        ar_stats->ar_success_thresh = MIN_AR_THRESHOLD;
 		    }
 			#endif
-			
+
+/* ping.jiang modify for AR algorithm 2013-11-10 */
+#ifndef AUTORATE_PING
 		    /* Decrease the rate */
-		    //status = DECREMENT_RATE;
+		    status = DECREMENT_RATE;
+#endif /* AUTORATE_PING */
 		}
 
 		/* Reset the success and recovery count */

@@ -57,6 +57,7 @@
 /*****************************************************************************/
 
 static void coalesce_if_required(UWORD8 *msa, UWORD16 rx_len, UWORD8 *bssid);
+#ifdef AUTORATE_PING
 //ping.jiang add for calculating statistics 2013-12-12
 WORD32  g_asoc_rssi_value = 0;
 WORD32  g_asoc_rssi_num   = 0;
@@ -96,6 +97,8 @@ WORD32 get_asoc_avg_rssi(void)
 	return cur_avg_rssi;
 }
 //ping.jiang add for calculating statistics end
+#endif /* AUTORATE_PING */
+
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : sta_wait_scan_rx                                         */
@@ -255,8 +258,10 @@ void sta_wait_join_rx(mac_struct_t *mac, UWORD8 *msg)
                      
                     //chenq add 2013-08-22
                     update_rssi(wlan_rx->base_dscr);
+#ifdef AUTORATE_PING
 		     //ping.jiang add for calculating statistics 2013-12-12
                   asoc_rssi_value_add();
+#endif /* AUTORATE_PING */
 					// 20120830 caisf mod, merged ittiam mac v1.3 code
 					#if 0
                     /* Update 11h related elements */
@@ -316,9 +321,11 @@ void sta_wait_auth_seq2_rx(mac_struct_t *mac, UWORD8 *msg)
     UWORD8    *msa      = wlan_rx->msa;
 
 	TROUT_FUNC_ENTER;
+#ifdef AUTORATE_PING
     //ping.jiang add for calculating statistics 2013-12-12
     update_rssi(wlan_rx->base_dscr);
     asoc_rssi_value_add();
+#endif /* AUTORATE_PING */
     switch(get_sub_type(msa))
     {
     case AUTH:
@@ -441,9 +448,11 @@ void sta_wait_auth_seq4_rx(mac_struct_t *mac, UWORD8 *msg)
     UWORD8    *msa      = wlan_rx->msa;
 
 	TROUT_FUNC_ENTER;
+#ifdef AUTORATE_PING
     //ping.jiang add for calculating statistics 2013-12-12
     update_rssi(wlan_rx->base_dscr);
     asoc_rssi_value_add();	
+#endif /* AUTORATE_PING */
     switch(get_sub_type(msa))
     {
     case AUTH:
@@ -512,9 +521,11 @@ void sta_wait_asoc_rx(mac_struct_t *mac, UWORD8 *msg)
     UWORD8    *msa      = wlan_rx->msa;
 
 	TROUT_FUNC_ENTER;
+#ifdef AUTORATE_PING
     //ping.jiang add for calculating statistics 2013-12-12
     update_rssi(wlan_rx->base_dscr);
     asoc_rssi_value_add();
+#endif /* AUTORATE_PING */
     switch(sub_type = get_sub_type(msa))
     {
     case ASSOC_RSP:
@@ -983,8 +994,10 @@ void sta_enabled_rx_mgmt(mac_struct_t *mac, UWORD8 *msg)
 
 				//chenq the snr information
 		update_snr(rx_dscr);
+#ifdef AUTORATE_PING
 		//ping.jiang add for calculating statistics 2013-10-31
 		ar_rssi_value_add();
+#endif /* AUTORATE_PING */
 		#ifdef TROUT2_WIFI_IC
 			uptate_rssi4_auto_set_tx_rx_power();
 		#endif			
