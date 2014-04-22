@@ -1619,6 +1619,29 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(
 		dev_err(dev, "fail to get irq_trigger_level_button\n");
 		goto fail;
 	}
+	ret = of_property_read_u32(np, "adc_threshold_3pole_detect", &pdata->adc_threshold_3pole_detect);
+	if(ret){
+		dev_err(dev, "fail to get adc_threshold_3pole_detect\n");
+		goto fail;
+	}
+
+	ret = of_property_read_u32(np, "adc_threshold_4pole_detect", &pdata->adc_threshold_4pole_detect);
+	if(ret){
+		dev_err(dev, "fail to get adc_threshold_4pole_detect\n");
+		goto fail;
+	}
+
+	ret = of_property_read_u32(np, "irq_threshold_buttont", &pdata->irq_threshold_buttont);
+	if(ret){
+		dev_err(dev, "fail to get irq_threshold_buttont\n");
+		goto fail;
+	}
+
+	ret = of_property_read_u32(np, "voltage_headmicbias", &pdata->voltage_headmicbias);
+	if(ret){
+		dev_err(dev, "fail to get voltage_headmicbias\n");
+		goto fail;
+	}
 	ret = of_property_read_u32(np, "nbuttons", &pdata->nbuttons);
 	if(ret){
 		dev_err(dev, "fail to get nbuttons\n");

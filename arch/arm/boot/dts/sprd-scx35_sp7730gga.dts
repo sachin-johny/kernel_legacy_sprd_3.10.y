@@ -200,11 +200,15 @@
 		 };
                  headset_detect {
                         compatible = "sprd,headset-detect";
-                        gpio_switch = <237>;
+                        gpio_switch = <0>;
                         gpio_detect = <309>;
                         gpio_button = <307>;
                         irq_trigger_level_detect = <1>;
                         irq_trigger_level_button = <1>;
+                        adc_threshold_3pole_detect = <100>;
+                        adc_threshold_4pole_detect = <3100>;
+                        irq_threshold_buttont = <1>;
+                        voltage_headmicbias = <3000000>;
                         nbuttons = <1>;
                         headset_buttons {
                                 adc_min = <0>;
