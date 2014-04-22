@@ -40,7 +40,7 @@ static unsigned int zipenc_status;
 static unsigned int zipdec_status;
 #endif
 static int light_sleep_en = 1;
-static int idle_deep_en = 1;
+static int idle_deep_en = 0;
 static int cpuidle_debug = 0;
 module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
 module_param_named(light_sleep_en, light_sleep_en, int, S_IRUGO | S_IWUSR);
@@ -160,9 +160,15 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 			}
 #endif
 			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+#if 0
+			/*
+			* MCU_SLEEP cause irq handled slow because of wakeup latency
+			* from shuangying.ye
+			*/
 			if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB) &&
 					(num_online_cpus() == 1))
 				sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SYS_SLEEP_EN);
+#endif
 		}
 		sci_glb_set(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
 	}
@@ -178,7 +184,7 @@ static void sc_cpuidle_light_sleep_dis(void)
 {
 	if(light_sleep_en){
 		sci_glb_set(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
-		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
+		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
 #if defined(CONFIG_ARCH_SCX15)
 			if (zipdec_status)
 				sci_glb_set(REG_AP_AHB_AHB_EB, BIT_ZIPDEC_EB);
