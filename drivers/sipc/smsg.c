@@ -29,8 +29,6 @@
 #include <linux/wakelock.h>
 #include <linux/syscore_ops.h>
 
-struct smsg_debug_info smsg_debug_infos[SIPC_ID_NR];
-
 static struct smsg_ipc *smsg_ipcs[SIPC_ID_NR];
 
 static ushort debug_enable = 0;
@@ -99,7 +97,7 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 			continue;
 		}
 
-		atomic_inc(&(ch->busy));
+		atomic_inc(&(ipc->busy[msg->channel]));
 
 		if ((int)(readl(ch->wrptr) - readl(ch->rdptr)) >= SMSG_CACHE_NR) {
 			/* msg cache is full, drop this msg */
@@ -118,7 +116,7 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 
 		wake_up_interruptible_all(&(ch->rxwait));
 
-		atomic_dec(&(ch->busy));
+		atomic_dec(&(ipc->busy[msg->channel]));
 	}
 
 	wake_lock_timeout(&sipc_wake_lock, HZ / 2);
@@ -172,33 +170,20 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 	struct smsg_channel *ch;
 	struct smsg mopen, mrecv;
 	uint32_t rval = 0;
-	struct smsg_debug_info *debug_info = &smsg_debug_infos[dst];
-
-	/* smsg channel open step1 */
-	debug_info->ch_open_steps[channel] = 1;
 
 	if(!ipc) {
 	    return -ENODEV;
 	}
-
-	/* smsg channel open step2 */
-	debug_info->ch_open_steps[channel] = 2;
 
 	ch = kzalloc(sizeof(struct smsg_channel), GFP_KERNEL);
 	if (!ch) {
 		return -ENOMEM;
 	}
 
-	/* smsg channel open step3 */
-	debug_info->ch_open_steps[channel] = 3;
-
-	atomic_set(&(ch->busy), 1);
+	atomic_set(&(ipc->busy[channel]), 1);
 	init_waitqueue_head(&(ch->rxwait));
 	mutex_init(&(ch->rxlock));
 	ipc->channels[channel] = ch;
-
-	/* smsg channel open step4 */
-	debug_info->ch_open_steps[channel] = 4;
 
 	smsg_set(&mopen, channel, SMSG_TYPE_OPEN, SMSG_OPEN_MAGIC, 0);
 	rval = smsg_send(dst, &mopen, timeout);
@@ -206,18 +191,15 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 		printk(KERN_ERR "smsg_ch_open smsg send error, errno %d!\n", rval);
 		ipc->states[channel] = CHAN_STATE_UNUSED;
 		ipc->channels[channel] = NULL;
-		atomic_dec(&(ch->busy));
+		atomic_dec(&(ipc->busy[channel]));
 		/* guarantee that channel resource isn't used in irq handler  */
-		while(atomic_read(&(ch->busy))) {
+		while(atomic_read(&(ipc->busy[channel]))) {
 			;
 		}
 		kfree(ch);
 
 		return rval;
 	}
-
-	/* smsg channel open step5 */
-	debug_info->ch_open_steps[channel] = 5;
 
 	/* open msg might be got before */
 	if (ipc->states[channel] == CHAN_STATE_WAITING) {
@@ -230,9 +212,9 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 		printk(KERN_ERR "smsg_ch_open smsg receive error, errno %d!\n", rval);
 		ipc->states[channel] = CHAN_STATE_UNUSED;
 		ipc->channels[channel] = NULL;
-		atomic_dec(&(ch->busy));
+		atomic_dec(&(ipc->busy[channel]));
 		/* guarantee that channel resource isn't used in irq handler  */
-		while(atomic_read(&(ch->busy))) {
+		while(atomic_read(&(ipc->busy[channel]))) {
 			;
 		}
 		kfree(ch);
@@ -240,16 +222,13 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 		return rval;
 	}
 
-	/* smsg channel open step6 */
-	debug_info->ch_open_steps[channel] = 6;
-
 	if (mrecv.type != SMSG_TYPE_OPEN || mrecv.flag != SMSG_OPEN_MAGIC) {
 		printk(KERN_ERR "Got bad open msg on channel %d-%d\n", dst, channel);
 		ipc->states[channel] = CHAN_STATE_UNUSED;
 		ipc->channels[channel] = NULL;
-		atomic_dec(&(ch->busy));
+		atomic_dec(&(ipc->busy[channel]));
 		/* guarantee that channel resource isn't used in irq handler  */
-		while(atomic_read(&(ch->busy))) {
+		while(atomic_read(&(ipc->busy[channel]))) {
 			;
 		}
 		kfree(ch);
@@ -257,15 +236,9 @@ int smsg_ch_open(uint8_t dst, uint8_t channel, int timeout)
 		return -EIO;
 	}
 
-	/* smsg channel open step7 */
-	debug_info->ch_open_steps[channel] = 7;
-
 open_done:
 	ipc->states[channel] = CHAN_STATE_OPENED;
-	atomic_dec(&(ch->busy));
-
-	/* smsg channel open step8 */
-	debug_info->ch_open_steps[channel] = 8;
+	atomic_dec(&(ipc->busy[channel]));
 
 	return 0;
 }
@@ -287,21 +260,23 @@ int smsg_ch_close(uint8_t dst, uint8_t channel,  int timeout)
 	wake_up_interruptible_all(&(ch->rxwait));
 
 	/* wait for the channel beeing unused */
-	while(atomic_read(&(ch->busy))) {
+	while(atomic_read(&(ipc->busy[channel]))) {
 		;
 	}
-
-	ipc->states[channel] = CHAN_STATE_UNUSED;
 
 	/* maybe channel has been free for smsg_ch_open failed */
 	if (ipc->channels[channel]){
 		ipc->channels[channel] = NULL;
 		/* guarantee that channel resource isn't used in irq handler */
-		while(atomic_read(&(ch->busy))) {
+		while(atomic_read(&(ipc->busy[channel]))) {
 			;
 		}
 		kfree(ch);
 	}
+
+	/* finally, update the channel state*/
+	ipc->states[channel] = CHAN_STATE_UNUSED;
+
 	return 0;
 }
 
@@ -311,8 +286,6 @@ int smsg_send(uint8_t dst, struct smsg *msg, int timeout)
 	uint32_t txpos;
 	int rval = 0;
 	unsigned long flags;
-	struct smsg_debug_info *debug_info = &smsg_debug_infos[dst];
-	uint32_t send_cnt = debug_info->send_cnt;
 
 	if(!ipc) {
 	    return -ENODEV;
@@ -348,14 +321,6 @@ int smsg_send(uint8_t dst, struct smsg *msg, int timeout)
 		sizeof(struct smsg) + ipc->txbuf_addr;
 	memcpy((void *)txpos, msg, sizeof(struct smsg));
 
-	if (send_cnt < 256) {
-		debug_info->smsg_send_early_pool[send_cnt].flag = msg->flag;
-		debug_info->smsg_send_early_pool[send_cnt].channel = msg->channel;
-		debug_info->smsg_send_early_pool[send_cnt].type = msg->type;
-		debug_info->smsg_send_early_pool[send_cnt].value = msg->value;
-		debug_info->send_cnt += 1;
-	}
-
 	pr_debug("write smsg: wrptr=%d, rdptr=%d, txpos=0x%08x\n",
 			readl(ipc->txbuf_wrptr),
 			readl(ipc->txbuf_rdptr), txpos);
@@ -380,22 +345,25 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 	if(!ipc) {
 	    return -ENODEV;
 	}
+
+	atomic_inc(&(ipc->busy[msg->channel]));
+
 	ch = ipc->channels[msg->channel];
 
 	if (!ch) {
 		printk(KERN_ERR "channel %d not opened!\n", msg->channel);
+		atomic_dec(&(ipc->busy[msg->channel]));
 		return -ENODEV;
 	}
 
 	pr_debug("smsg_recv: dst=%d, channel=%d, timeout=%d\n",
 			dst, msg->channel, timeout);
 
-	atomic_inc(&(ch->busy));
 
 	if (timeout == 0) {
 		if (!mutex_trylock(&(ch->rxlock))) {
 			printk(KERN_INFO "recv smsg busy!\n");
-			atomic_dec(&(ch->busy));
+			atomic_dec(&(ipc->busy[msg->channel]));
 
 			return -EBUSY;
 		}
@@ -462,7 +430,7 @@ int smsg_recv(uint8_t dst, struct smsg *msg, int timeout)
 
 recv_failed:
 	mutex_unlock(&(ch->rxlock));
-	atomic_dec(&(ch->busy));
+	atomic_dec(&(ipc->busy[msg->channel]));
 	return rval;
 }
 
@@ -472,33 +440,6 @@ static int smsg_debug_show(struct seq_file *m, void *private)
 {
 	struct smsg_ipc *smsg_sipc = NULL;
 	int i, j;
-	uint32_t cnt;
-	struct smsg *msg;
-	/* smsg debug info */
-	seq_printf(m, "/******************************* SMSG DEBUG INFO **************************************/\n");
-	for (i = 0; i < SIPC_ID_NR; i++) {
-		cnt = smsg_debug_infos[i].send_cnt;
-		if (!cnt) {
-			continue;
-		}
-		seq_printf(m, "sipc: dst %d\n", i);
-		seq_printf(m, "smsg open steps show\n");
-		for (j = 0; j < SMSG_CH_NR; j++) {
-			seq_printf(m, "channel %d, step %u\n", j, smsg_debug_infos[i].ch_open_steps[j]);
-		}
-		seq_printf(m, "%u smsgs generated by AP, in the beginning\n", cnt);
-		for (j = 0; j < cnt; j++) {
-			msg = &smsg_debug_infos[i].smsg_send_early_pool[j];
-			if (!(j & 3)) {
-				seq_printf(m, "NO %d-%d : " , j, j + 3);
-			}
-			seq_printf(m, "%02x%02x%04x%08x ", msg->channel, msg->type, msg->flag, msg->value);
-			if ((j & 3) == 3 || j == cnt - 1) {
-				seq_printf(m, "\n");
-			}
-		}
-	}
-	seq_printf(m, "\n/************************************************************************************* /\n");
 
 	for (i = 0; i < SIPC_ID_NR; i++) {
 		smsg_sipc = smsg_ipcs[i];
