@@ -21,6 +21,7 @@
 #define SR2351_FM_VERSION	"v0.9"
 static int g_volume = 0;
 
+
 int sr2351_fm_set_volume(u8 iarg)
 {
 	SR2351_PRINT("FM set volume : %i.", iarg);
@@ -327,15 +328,23 @@ static int sr2351_fm_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int sr2351_fm_suspend(struct platform_device *dev, pm_message_t state)
 {
+#ifdef CONFIG_ARCH_SCX30G	
+	sci_glb_clr(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_4|BIT_3|BIT_2|BIT_1|BIT_0);
+	sr2351_fm_enter_sleep();
+#else	
     sr2351_fm_enter_sleep();
-
+#endif    
     return 0;
 }
 
 static int sr2351_fm_resume(struct platform_device *dev)
 {
+#ifdef CONFIG_ARCH_SCX30G	
     sr2351_fm_exit_sleep();
-
+	sci_glb_set(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_3|BIT_1);
+#else
+	sr2351_fm_exit_sleep();
+#endif	
     return 0;
 }
 #else
