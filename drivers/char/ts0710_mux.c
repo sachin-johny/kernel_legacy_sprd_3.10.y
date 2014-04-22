@@ -2944,6 +2944,10 @@ static void receive_worker(struct sprd_mux *self, int start)
 
 	count = self->io_hal->io_read(self->tbuf_ptr, TS0710MUX_MAX_BUF_SIZE - (self->tbuf_ptr - self->tbuf));
 	if (count <= 0 || self->cmux_mode == 0) {
+		memset(self->tbuf, 0, TS0710MUX_MAX_BUF_SIZE);
+		self->tbuf_ptr = self->tbuf;
+		self->start_flag = 0;
+		self->framelen = -1;
 		return;
 	}
 
