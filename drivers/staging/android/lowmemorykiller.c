@@ -367,7 +367,7 @@ static struct kobj_type lowmem_kobj_type = {
 
 static struct shrinker lowmem_shrinker = {
 	.shrink = lowmem_shrink,
-	.seeks = DEFAULT_SEEKS * 16
+	.seeks = DEFAULT_SEEKS
 };
 
 static int __init lowmem_init(void)
