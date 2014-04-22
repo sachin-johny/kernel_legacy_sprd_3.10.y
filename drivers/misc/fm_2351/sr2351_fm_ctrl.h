@@ -4,6 +4,7 @@
 #include <mach/hardware.h>
 #include <linux/sprd_2351.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/sci.h>
 
 #define	SR2351_FM_DEV_NAME	"Trout_FM"
 
@@ -196,6 +197,8 @@ extern u32 rf2351_fm_get_pmu_base(void);
 #define SHARK_APB_EB0_SET              (REG_AON_APB_APB_EB0+0x1000)
 
 #define  SHARK_PMU_SLEEP_CTRL           REG_PMU_APB_SLEEP_CTRL
+
+#define SHARK_PMU_APB_MEM_PD_CFG0		REG_PMU_APB_MEM_PD_CFG0
 
 
 
