@@ -283,7 +283,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 #ifdef CONFIG_ANDROID_LMK_DEBUG
 		if (selected_oom_adj <= 16) {
 			dump_header(current, sc->gfp_mask, -1, 0, 0);
-			user_process_meminfo_show();
+			//user_process_meminfo_show();
 #ifdef CONFIG_ZRAM
 			zram_printlog();
 #endif
