@@ -160,6 +160,8 @@ static void ipc_AddFrameToTxTransferFifo(struct ipc_transfer_frame* frame_ptr, s
 		if((transfer_ptr->counter == 0) || !transfer_ptr->cur_frame_ptr ||
 		(transfer_ptr->cur_frame_ptr->pos == sizeof( struct data_packet_header))) {
 			ret = 1;
+			printk("ipc_FlushTxTransfer %d, %p \n", transfer_ptr->counter,
+				transfer_ptr->cur_frame_ptr);
 			break;
 		}
 		ipc_AddFrameToTxTransferFifo(transfer_ptr->cur_frame_ptr, transfer_ptr);
@@ -524,12 +526,13 @@ static u32 ipc_DelDataFromTxTransfer(struct ipc_spi_dev *dev,
 	return 0;
 }
 
-static void ipc_FreeAllTxTransferFrame(struct ipc_spi_dev *dev)
+/*static */void ipc_FreeAllTxTransferFrame(struct ipc_spi_dev *dev)
 {
 	struct ipc_transfer_frame *frame_ptr = NULL;
 	struct ipc_transfer *p_transfer = &dev->tx_transfer;
 	mutex_lock(&p_transfer->transfer_mutex);
 	list_for_each_entry(frame_ptr, &p_transfer->frame_fifo, link) {
+		printk("+-+- %d, %d \n", frame_ptr->pos, frame_ptr->seq);
 		mutex_unlock(&p_transfer->transfer_mutex);
 		ipc_DelDataFromTxTransfer(dev, frame_ptr);
 		mutex_lock(&p_transfer->transfer_mutex);
@@ -837,6 +840,10 @@ static int mux_ipc_spi_write(const char *buf, size_t  count)
 		printk(KERN_ERR "write was disabled \n");
 		return -1;
 	}
+	if(count == 0) {
+		printk("send count equal zero ? \n");
+		return ret;
+	}
 	IPC_DBG("Enter mux_ipc_spi_write %d \n", count);
 	do {
 			ret = ipc_AddDataToTxTransfer(dev, (u8*)buf, count);
@@ -883,11 +890,12 @@ static struct sprdmux sprd_iomux = {
 static void  spi_ipc_enable(struct modemsts_chg *s, unsigned int is_enable)
 {
 	struct ipc_spi_dev *dev = ipc_dev;
+	printk("spi_ipc_enable %d, %d \n", is_enable, dev->task_status);
 	if(is_enable == MODEM_STATUS_ALVIE) {
-		dev->rwctrl = 0;
+		//dev->rwctrl = 0;
 		//dev->ipc_enable = true;
 		//dev->remote_status = REMOTE_ALIVE_STATUS;
-	} else {
+	} else if(is_enable == MODEM_STATUS_REBOOT){
 		ap2cp_disable();
 		dev->ipc_enable = false;
 	}
@@ -979,11 +987,14 @@ static int mux_ipc_thread(void *data)
 				dev->tx_transfer.counter, dev->bneedrcv);
 		if(!dev->ipc_enable) {
 			printk(KERN_ERR "ipc was disabled , there must something wrong! \n");
+			printk("++-- %d, %d, %p \n", ipc_IsTransferFifoEmpty(&dev->tx_transfer), dev->tx_transfer.counter, dev->tx_transfer.cur_frame_ptr);
 			ipc_reset(dev);
 			ipc_FlushTxTransfer(&dev->tx_transfer);
 			ipc_FreeAllTxTransferFrame(dev);
+			printk("+- %d, %d, %p \n", ipc_IsTransferFifoEmpty(&dev->tx_transfer), dev->tx_transfer.counter, dev->tx_transfer.cur_frame_ptr);
 			ipc_freeallrxframe(dev);
 			ap2cp_disable();
+			dev->rwctrl = 0;
 			dev->ipc_enable = true;
 			continue;
 		}
