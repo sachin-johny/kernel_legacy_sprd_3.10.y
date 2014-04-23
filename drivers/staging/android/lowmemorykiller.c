@@ -349,6 +349,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 #ifdef CONFIG_ZRAM
 	zram_score_adj = cacl_zram_score_adj();
+	lmk_info.zram_mem_usage = zram_mem_usage();
 	lmk_info.zram_free_percent = zram_mem_free_percent();
 	lmk_info.min_score_adj = min_score_adj;
 	lmk_info.zram_score_adj = zram_score_adj;
@@ -442,9 +443,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     p->comm, p->pid, OOM_SCORE_ADJ_TO_OOM_ADJ(oom_score_adj), tasksize);
 	}
 	if (selected) {
-#ifdef CONFIG_ZRAM
-		lmk_info.zram_mem_usage = zram_mem_usage();
-#endif
 		if(selected_oom_score_adj || is_need_lmk_kill) {
 			lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
@@ -462,7 +460,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				OOM_SCORE_ADJ_TO_OOM_ADJ(lmk_info.min_score_adj),
 				OOM_SCORE_ADJ_TO_OOM_ADJ(lmk_info.zram_score_adj),
 				lmk_info.zram_free_percent,
-				lmk_info.zram_mem_usage*PAGE_SIZE /1024/100);
+				lmk_info.zram_mem_usage*PAGE_SIZE /1024);
 
 			lowmem_deathpending_timeout = jiffies + HZ;
 			send_sig(SIGKILL, selected, 0);
