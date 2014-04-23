@@ -689,6 +689,75 @@ static void clear_system_oom(void)
 	spin_unlock(&zone_scan_lock);
 }
 
+int kill_bad_process_lmk(void)
+{
+	struct task_struct *p;
+	struct task_struct *selected = NULL;
+	int tasksize;
+	int selected_oom_adj = 0;
+	int selected_tasksize = 0;
+	int mm_rss = 0;
+	int mm_counter = 0;
+	struct mm_struct *mm;
+	struct signal_struct *sig;
+	int oom_adj;
+
+	for_each_process(p) {
+		task_lock(p);
+		mm = p->mm;
+		sig = p->signal;
+		if (!mm || !sig) {
+			task_unlock(p);
+			continue;
+		}
+		oom_adj = sig->oom_adj;
+		//do not kill p with oom_adj < 0
+		if (oom_adj < 0) {
+			task_unlock(p);
+			continue;
+		}
+
+		mm_rss = get_mm_rss(mm);
+		mm_counter = get_mm_counter(mm, MM_SWAPENTS);
+
+#ifdef CONFIG_ZRAM
+		tasksize = mm_rss + mm_counter;
+#else
+		tasksize = get_mm_rss(mm);
+#endif
+
+		task_unlock(p);
+		if (tasksize <= 0)
+			continue;
+		if (selected) {
+			if (oom_adj < selected_oom_adj)
+				continue;
+			if (oom_adj == selected_oom_adj &&
+			    tasksize <= selected_tasksize)
+				continue;
+		}
+		selected = p;
+		selected_tasksize = tasksize;
+		selected_oom_adj = oom_adj;
+	}
+	if (selected) {
+		pr_err("oom-killer use lmk strategy, send sigkill to %d (%s), adj %d, size %d\n",
+			     selected->pid, selected->comm,
+			     selected_oom_adj, selected_tasksize);
+#ifdef CONFIG_ANDROID_LMK_DEBUG
+		if (selected_oom_adj <= 16) {
+			dump_header(current, 0, -1, 0, 0);
+			//user_process_meminfo_show();
+#ifdef CONFIG_ZRAM
+			zram_printlog();
+#endif
+		}
+#endif
+		force_sig(SIGKILL, selected);
+	}
+	return selected_tasksize;
+}
+
 /**
  * out_of_memory - kill the "best" process when we run out of memory
  * @zonelist: zonelist pointer
@@ -752,6 +821,11 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	}
 
 retry:
+	if (kill_bad_process_lmk()){
+		killed = 1;
+		goto out;
+	}
+
 	p = select_bad_process(&points, totalpages, NULL, mpol_mask);
 	if (PTR_ERR(p) == -1UL)
 		goto out;
