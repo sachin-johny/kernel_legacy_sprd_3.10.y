@@ -111,7 +111,6 @@ static inline  void enable_cam_command_deque(void)
 	p_umctl_reg->umctl_dbg[1] &= ~BIT_DBG1_DIS_DQ;
 }__attribute__((always_inline))
 #endif
-static inline  void ddr_timing_update(ddr_dfs_val_t *timing);
 
 static inline  void wait_queue_complete(void)
 {
@@ -197,26 +196,26 @@ static inline void ddr_timing_update_ex(ddr_dfs_val_t *timing_param)
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
 	/* minimum time from refresh to refresh or active */
 	//toggle this signel indicate refresh register has been update
-	p_umctl_reg->umctl_rfshtmg = timing_param->umctl2_rfshtmg;
+	p_umctl_reg->umctl_rfshtmg = timing_param->umctl_rfshtmg;
 	p_umctl_reg->umctl_rfshctl3 ^= (1<<1);
 
 	//update umctl & publ timing
-	p_umctl_reg->umctl_dramtmg[0] = timing_param->umctl2_dramtmg0;
-	p_umctl_reg->umctl_dramtmg[1] = timing_param->umctl2_dramtmg1;
-	p_umctl_reg->umctl_dramtmg[2] = timing_param->umctl2_dramtmg2;
-	p_umctl_reg->umctl_dramtmg[3] = timing_param->umctl2_dramtmg3;
-	p_umctl_reg->umctl_dramtmg[4] = timing_param->umctl2_dramtmg4;
-	p_umctl_reg->umctl_dramtmg[5] = timing_param->umctl2_dramtmg5;
-	p_umctl_reg->umctl_dramtmg[6] = timing_param->umctl2_dramtmg6;
-	//p_umctl_reg->umctl_dramtmg[7] = timing_param->umctl2_dramtmg7;
-	//p_umctl_reg->umctl_dramtmg[8] = timing_param->umctl2_dramtmg8;
+	p_umctl_reg->umctl_dramtmg[0] = timing_param->umctl_dramtmg0;
+	p_umctl_reg->umctl_dramtmg[1] = timing_param->umctl_dramtmg1;
+	p_umctl_reg->umctl_dramtmg[2] = timing_param->umctl_dramtmg2;
+	p_umctl_reg->umctl_dramtmg[3] = timing_param->umctl_dramtmg3;
+	p_umctl_reg->umctl_dramtmg[4] = timing_param->umctl_dramtmg4;
+	p_umctl_reg->umctl_dramtmg[5] = timing_param->umctl_dramtmg5;
+	p_umctl_reg->umctl_dramtmg[6] = timing_param->umctl_dramtmg6;
+	//p_umctl_reg->umctl_dramtmg[7] = timing_param->umctl_dramtmg7;
+	//p_umctl_reg->umctl_dramtmg[8] = timing_param->umctl_dramtmg8;
 
 }__attribute__((always_inline))
 
 static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_val_t *timing)
 {
 	volatile uint32 i;
-	volatile uint32 reg_store[3];
+	uint32 reg_store[3];
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
 	DMC_PUBL_REG_INFO_PTR_T p_publ_reg = (DMC_PUBL_REG_INFO_PTR_T) PUBL_REG_BASE;
 
