@@ -294,7 +294,7 @@ static void ipc_ack(struct ipc_spi_dev* dev, u8* buf, u16* len)
 						//dev->rx_seqnum = p_frame->seq;
 					}
 					ipc_freerxrcvframe(dev, p_frame);
-					p_frame = list_entry((&plist->frame_list_head)->next, struct ipc_transfer_frame, link);
+					p_frame = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 					continue;
 				}
 			}
@@ -313,7 +313,7 @@ static void ipc_ack(struct ipc_spi_dev* dev, u8* buf, u16* len)
 				ack->type = TYPE_NAK;
 			*len = sizeof(struct ack_packet);
 			ipc_freerxrcvframe(dev, p_frame);
-			p_frame = list_entry((&plist->frame_list_head)->next, struct ipc_transfer_frame, link);
+			p_frame = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 		}
 	}
 	mutex_unlock(&plist->list_mutex);
@@ -536,7 +536,7 @@ static u32 ipc_DelDataFromTxTransfer(struct ipc_spi_dev *dev,
 		mutex_unlock(&p_transfer->transfer_mutex);
 		ipc_DelDataFromTxTransfer(dev, frame_ptr);
 		mutex_lock(&p_transfer->transfer_mutex);
-		frame_ptr = list_entry((&p_transfer->frame_fifo)->next, struct ipc_transfer_frame, link);
+		frame_ptr = list_entry(&p_transfer->frame_fifo, struct ipc_transfer_frame, link);
 	}
 	mutex_unlock(&p_transfer->transfer_mutex);
 }
@@ -549,7 +549,7 @@ static void ipc_freeallrxframe(struct ipc_spi_dev *dev)
 	list_for_each_entry(frame_ptr, &plist->frame_list_head, link) {
 		list_del(&frame_ptr->link);
 		ipc_FreeFrame(frame_ptr, &dev->rx_free_lst);
-		frame_ptr = list_entry((&plist->frame_list_head)->next, struct ipc_transfer_frame, link);
+		frame_ptr = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 	}
 	mutex_unlock(&plist->list_mutex);
 }
@@ -651,7 +651,7 @@ static void ipc_process_errdata(struct ipc_spi_dev* dev)
 			frame->status = NAKALL_STATUS;
 		} else if(frame->status == NAK_STATUS) {
 			ipc_freerxrcvframe(dev, frame);
-			frame = list_entry((&plist->frame_list_head)->next, struct ipc_transfer_frame, link);
+			frame = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 		}
 	}
 	mutex_unlock(&plist->list_mutex);
@@ -673,7 +673,7 @@ static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf)
 					mutex_unlock(&p_transfer->transfer_mutex);
 					ipc_DelDataFromTxTransfer(dev, frame);
 					mutex_lock(&p_transfer->transfer_mutex);
-					frame = list_entry((&p_transfer->frame_fifo)->next, struct ipc_transfer_frame, link);
+					frame = list_entry(&p_transfer->frame_fifo, struct ipc_transfer_frame, link);
 				}
 			}
 		}
@@ -703,7 +703,7 @@ static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf)
 				frame->status = NAKALL_STATUS;
 			} else if(frame->status == NAK_STATUS) {
 				ipc_freerxrcvframe(dev, frame);
-				frame = list_entry((&plist->frame_list_head)->next, struct ipc_transfer_frame, link);
+				frame = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 			}
 		}
 		mutex_unlock(&plist->list_mutex);
@@ -958,6 +958,16 @@ static inline bool ipc_cansend(struct ipc_spi_dev *dev)
 	return bsend;
 }
 
+void ipc_debug(struct ipc_spi_dev *dev)
+{
+	struct ipc_transfer *p_transfer = &dev->tx_transfer;
+	struct ipc_transfer_frame *frame_ptr = NULL;
+	printk("++ tranfer count %d \n", p_transfer->counter);
+	list_for_each_entry(frame_ptr, &p_transfer->frame_fifo, link) {
+		printk("+-+-%p, %d, %d \n", frame_ptr, frame_ptr->pos, frame_ptr->seq);
+	}
+}
+
 static int mux_ipc_thread(void *data)
 {
 	int rval = 0;
@@ -989,8 +999,11 @@ static int mux_ipc_thread(void *data)
 			printk(KERN_ERR "ipc was disabled , there must something wrong! \n");
 			printk("++-- %d, %d, %p \n", ipc_IsTransferFifoEmpty(&dev->tx_transfer), dev->tx_transfer.counter, dev->tx_transfer.cur_frame_ptr);
 			ipc_reset(dev);
+			ipc_debug(dev);
 			ipc_FlushTxTransfer(&dev->tx_transfer);
+			ipc_debug(dev);
 			ipc_FreeAllTxTransferFrame(dev);
+			ipc_debug(dev);
 			printk("+- %d, %d, %p \n", ipc_IsTransferFifoEmpty(&dev->tx_transfer), dev->tx_transfer.counter, dev->tx_transfer.cur_frame_ptr);
 			ipc_freeallrxframe(dev);
 			ap2cp_disable();
