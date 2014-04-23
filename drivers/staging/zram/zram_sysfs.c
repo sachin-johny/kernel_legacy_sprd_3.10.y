@@ -306,3 +306,8 @@ ssize_t zram_mem_free_percent(void)
 {
 	return mem_free_percent();
 }
+
+ssize_t zram_mem_usage(void)
+{
+	return  (100 - mem_free_percent()) *totalram_pages*total_mem_usage_percent/100;
+}
