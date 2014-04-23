@@ -370,3 +370,12 @@ config CLEANCACHE
 	  in a negligible performance hit.
 
 	  If unsure, say Y to enable cleancache
+
+config PAGE_ALLOC_HIGHORDER_RESERVE
+	bool "Reserve high order pages in allocations of single page"
+	default n
+	help
+	  To reduce fragments, this prevents breaking a large block of pages
+	  for allocations of 4k page, if the size of high order pages in zone
+	  were less than the predefined threshold
+	  (/sys/module/page_alloc/parameters/high_reserve).

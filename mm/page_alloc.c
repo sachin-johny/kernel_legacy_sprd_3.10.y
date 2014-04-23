@@ -829,6 +829,24 @@ int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 	return 0;
 }
 
+#ifdef CONFIG_PAGE_ALLOC_HIGHORDER_RESERVE
+static unsigned int page_alloc_highorder_reserve = 10 * 4;
+module_param_named(high_reserve, page_alloc_highorder_reserve, uint,
+				S_IRUGO | S_IWUSR);
+
+static inline unsigned int zone_highorder_size(struct zone *zone)
+{
+		unsigned int current_order = 2;
+		unsigned int highorder_size = 0;
+
+		/* Find a page of the appropriate sizae in the preferred list */
+		while (current_order++ < MAX_ORDER)
+				highorder_size += zone->free_area[current_order].nr_free
+					<< current_order;
+		return highorder_size;
+}
+#endif
+
 /*
  * Go through the free lists for the given migratetype and remove
  * the smallest available page from the freelists
@@ -840,9 +858,14 @@ struct page *__rmqueue_smallest(struct zone *zone, unsigned int order,
 	unsigned int current_order;
 	struct free_area * area;
 	struct page *page;
+	unsigned int end_order = MAX_ORDER;
 
+#ifdef CONFIG_PAGE_ALLOC_HIGHORDER_RESERVE
+	if (!order && zone_highorder_size(zone) < page_alloc_highorder_reserve)
+		end_order = 2;
+#endif
 	/* Find a page of the appropriate size in the preferred list */
-	for (current_order = order; current_order < MAX_ORDER; ++current_order) {
+	for (current_order = order; current_order < end_order; ++current_order) {
 		area = &(zone->free_area[current_order]);
 		if (list_empty(&area->free_list[migratetype]))
 			continue;
@@ -959,9 +982,14 @@ __rmqueue_fallback(struct zone *zone, int order, int start_migratetype)
 	int current_order;
 	struct page *page;
 	int migratetype, i;
+	int start_order = MAX_ORDER-1;
 
+#ifdef CONFIG_PAGE_ALLOC_HIGHORDER_RESERVE
+	if (!order && zone_highorder_size(zone) < page_alloc_highorder_reserve)
+			start_order = 1;
+#endif
 	/* Find the largest possible block of pages in the other list */
-	for (current_order = MAX_ORDER-1; current_order >= order;
+	for (current_order = start_order; current_order >= order;
 						--current_order) {
 		for (i = 0; i < MIGRATE_TYPES - 1; i++) {
 			migratetype = fallbacks[start_migratetype][i];
