@@ -605,9 +605,11 @@ static int jpg_release (struct inode *inode, struct file *filp)
 
 	kfree(filp->private_data);
 
-    printk("JPEG mmi_clk close");	
-    clk_disable(jpg_hw_dev.mm_clk);
     
+#ifndef CONFIG_OF	
+    clk_disable(jpg_hw_dev.mm_clk);
+#endif  
+	printk("JPEG mmi_clk close !!");
 	printk(KERN_INFO "jpg_release %p\n", jpg_fp);
 
 	return 0;

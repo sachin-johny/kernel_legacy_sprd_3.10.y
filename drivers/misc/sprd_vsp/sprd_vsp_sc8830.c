@@ -571,8 +571,11 @@ static int vsp_release (struct inode *inode, struct file *filp)
     kfree(filp->private_data);
     filp->private_data=NULL;
 
-    printk(KERN_INFO "VSP mmi_clk close");
+    
+#ifndef CONFIG_OF 
     clk_disable(vsp_hw_dev.mm_clk);
+#endif 
+    printk(KERN_INFO "VSP mmi_clk close!!");
 
     return 0;
 }
