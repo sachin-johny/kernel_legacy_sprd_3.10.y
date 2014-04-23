@@ -14,6 +14,7 @@
 
 #include "sin_cos.h"
 #include <linux/math64.h>
+#include <linux/vmalloc.h>
 #include <linux/mm.h>
 #include <mach/hardware.h>
 #include "scaler_coef_cal.h"
@@ -579,7 +580,7 @@ static int32_t cache_coef_init(void)
 
     if(s_cache_coef_init_flag == 0)
     {
-        Coef_Entry_Array = (Coef_Entry *)kmalloc(sizeof(Coef_Entry)*CACHED_COEF_CNT_MAX, GFP_KERNEL);
+        Coef_Entry_Array = (Coef_Entry *)vmalloc(sizeof(Coef_Entry)*CACHED_COEF_CNT_MAX);
 
         if(Coef_Entry_Array)
         {
