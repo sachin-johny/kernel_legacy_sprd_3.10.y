@@ -765,6 +765,7 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.irq_trigger_level_detect = HEADSET_IRQ_TRIGGER_LEVEL_DETECT,
 	.irq_trigger_level_button = HEADSET_IRQ_TRIGGER_LEVEL_BUTTON,
 	.adc_threshold_3pole_detect = HEADSET_ADC_THRESHOLD_3POLE_DETECT,
+	.adc_threshold_4pole_detect = HEADSET_ADC_THRESHOLD_4POLE_DETECT,
 	.irq_threshold_buttont = HEADSET_IRQ_THRESHOLD_BUTTON,
 	.voltage_headmicbias = HEADSET_HEADMICBIAS_VOLTAGE,
 	.headset_buttons = sprd_headset_buttons,

@@ -35,48 +35,47 @@
 #include <linux/slab.h>
 #include <linux/of_device.h>
 #endif
-static BLOCKING_NOTIFIER_HEAD(hp_chain_list);
-int hp_register_notifier(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_register(&hp_chain_list, nb);
-}
-EXPORT_SYMBOL(hp_register_notifier);
 
-int hp_unregister_notifier(struct notifier_block *nb)
-{
-	return blocking_notifier_chain_unregister(&hp_chain_list, nb);
-}
-EXPORT_SYMBOL(hp_unregister_notifier);
+//====================  debug  ====================
+#define ENTER \
+do{ if(debug_level >= 1) printk(KERN_INFO "[SPRD_HEADSET_DBG][%d] func: %s  line: %04d\n", adie_type, __func__, __LINE__); }while(0)
 
-static int hp_notifier_call_chain(unsigned long val)
-{
-    return (blocking_notifier_call_chain(&hp_chain_list, val, NULL)
-            == NOTIFY_BAD) ? -EINVAL : 0;
-}
+#define PRINT_DBG(format,x...)  \
+do{ if(debug_level >= 1) printk(KERN_INFO "[SPRD_HEADSET_DBG][%d] " format, adie_type, ## x); }while(0)
 
-//#define SPRD_HEADSET_DBG
-//#define SPRD_HEADSET_REG_DUMP
-#define SPRD_HEADSET_SYS_SUPPORT
+#define PRINT_INFO(format,x...)  \
+do{ printk(KERN_INFO "[SPRD_HEADSET_INFO][%d] " format, adie_type, ## x); }while(0)
 
-#ifdef SPRD_HEADSET_DBG
-#define ENTER printk(KERN_INFO "[SPRD_HEADSET_DBG][%d] func: %s  line: %04d\n", adie_type, __func__, __LINE__);
-#define PRINT_DBG(format,x...)  printk(KERN_INFO "[SPRD_HEADSET_DBG][%d] " format, adie_type, ## x)
-#define PRINT_INFO(format,x...)  printk(KERN_INFO "[SPRD_HEADSET_INFO][%d] " format, adie_type, ## x)
-#define PRINT_WARN(format,x...)  printk(KERN_INFO "[SPRD_HEADSET_WARN][%d] " format, adie_type, ## x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format, adie_type, __func__, __LINE__, ## x)
-#else
-#define ENTER
-#define PRINT_DBG(format,x...)
-#define PRINT_INFO(format,x...)  printk(KERN_INFO "[SPRD_HEADSET_INFO][%d] " format, adie_type, ## x)
-#define PRINT_WARN(format,x...)  printk(KERN_INFO "[SPRD_HEADSET_WARN][%d] " format, adie_type, ## x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format, adie_type, __func__, __LINE__, ## x)
-#endif
+#define PRINT_WARN(format,x...)  \
+do{ printk(KERN_INFO "[SPRD_HEADSET_WARN][%d] " format, adie_type, ## x); }while(0)
+
+#define PRINT_ERR(format,x...)  \
+do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format, adie_type, __func__, __LINE__, ## x); }while(0)
+//====================  debug  ====================
+
+/**********************************************
+ * The micro ADPGAR_BYP_SELECT is used for avoiding the Bug#298417,
+ * please refer to Bug#298417 to confirm your configuration.
+ **********************************************/
+//#define ADPGAR_BYP_SELECT
 
 #ifdef CONFIG_HEADSET_STS_POLLING_DISABLED
 #undef SPRD_STS_POLLING_EN
 #else
 #define SPRD_STS_POLLING_EN
 #endif
+
+#define PLUG_CONFIRM_COUNT (8)
+#define NO_MIC_RETRY_COUNT (1)
+#define ADC_READ_COUNT (5)
+#define ADC_READ_LOOP (2)
+#define ADC_GND (100)
+#define SCI_ADC_GET_VALUE_COUNT (50)
+
+#define EIC3_DBNC_CTRL (0x4C)
+#define DBNC_CNT3_VALUE (30)
+#define DBNC_CNT3_SHIFT (0)
+#define DBNC_CNT3_MASK (0xFFF << DBNC_CNT3_SHIFT)
 
 #if (defined(CONFIG_ARCH_SCX15))
         #define ADIE_CHID_LOW 0x0134
@@ -98,10 +97,6 @@ static int hp_notifier_call_chain(unsigned long val)
         #endif
 #endif
 
-#define ADC_READ_COUNT_DETECT (3)
-#define ADC_GND (100)
-#define DEBANCE_LOOP_COUNT_TYPE_DETECT (1)
-
 #define HEADMIC_DETECT_BASE (ANA_AUDCFGA_INT_BASE)
 #define HEADMIC_DETECT_REG(X) (HEADMIC_DETECT_BASE + (X))
 
@@ -118,6 +113,7 @@ static int hp_notifier_call_chain(unsigned long val)
 #define ANA_CFG0 (0x0040)
 #define ANA_CFG1 (0x0044)
 #define ANA_CFG2 (0x0048)
+#define ANA_CFG5 (0x0064)
 #define ANA_CFG20 (0x00A0)
 #define ANA_STS0 (0x00C0)
 
@@ -148,6 +144,13 @@ static int hp_notifier_call_chain(unsigned long val)
 #define AUDIO_MICBIAS_V_1P9_OR_2P4 (1)
 #define AUDIO_MICBIAS_V_2P1_OR_2P7 (2)
 #define AUDIO_MICBIAS_V_2P3_OR_3P0 (3)
+
+#define AUDIO_ADPGAR_BYP_SHIFT (10)
+#define AUDIO_ADPGAR_BYP_MASK (0x3 << AUDIO_ADPGAR_BYP_SHIFT)
+#define AUDIO_ADPGAR_BYP_NORMAL (0)
+#define AUDIO_ADPGAR_BYP_ADC_PGAR1_2_ADCR (1)
+#define AUDIO_ADPGAR_BYP_HEADMIC_2_ADCR (2)
+#define AUDIO_ADPGAR_BYP_ALL_DISCONNECTED (3)
 
 #if (defined(CONFIG_ARCH_SCX15))
         #define AUDIO_HEAD_SDET_SHIFT (4)
@@ -249,8 +252,6 @@ static inline uint32_t headset_reg_get_bit(uint32_t addr, uint32_t bit)
         return temp;
 }
 
-#define to_device(x) container_of((x), struct device, platform_data)
-
 typedef enum sprd_headset_type {
         HEADSET_NORMAL,
         HEADSET_NO_MIC,
@@ -259,10 +260,8 @@ typedef enum sprd_headset_type {
         HEADSET_TYPE_ERR = -1,
 } SPRD_HEADSET_TYPE;
 
-#ifdef SPRD_HEADSET_REG_DUMP
 static struct delayed_work reg_dump_work;
 static struct workqueue_struct *reg_dump_work_queue;
-#endif
 
 /***polling ana_sts0 to avoid the hardware defect***/
 #ifdef SPRD_STS_POLLING_EN
@@ -273,23 +272,22 @@ static int sts_check_work_need_to_cancel = 1;
 #endif
 /***polling ana_sts0 to avoid the hardware defect***/
 
+#ifdef ADPGAR_BYP_SELECT
+static struct delayed_work adpgar_byp_select_work;
+static struct workqueue_struct *adpgar_byp_select_work_queue;
+#endif
+
 static DEFINE_SPINLOCK(headmic_sleep_disable_lock);
 static DEFINE_SPINLOCK(headmic_bias_lock);
 static DEFINE_SPINLOCK(irq_button_lock);
 static DEFINE_SPINLOCK(irq_detect_lock);
+static int debug_level = 0;
 static int adie_type = 100;
 static int gpio_detect_value_last = 0;
 static int gpio_button_value_last = 0;
-static int button_state_last = 0;
+static volatile int button_state_last = 0; //0==released, 1==pressed
 static int current_key_code = KEY_RESERVED;
 static int plug_state_last = 0; //if the hardware detected the headset is plug in, set plug_state_last = 1
-int get_hp_plug_state(void)
-{
-	return !!plug_state_last;
-}
-EXPORT_SYMBOL(get_hp_plug_state);
-
-static int active_status = 1;
 static struct wake_lock headset_detect_wakelock;
 static struct wake_lock headset_button_wakelock;
 static struct semaphore headset_sem;
@@ -298,6 +296,9 @@ static struct sprd_headset headset = {
                 .name = "h2w",
         },
 };
+
+//========================  audio codec  ========================
+#define to_device(x) container_of((x), struct device, platform_data)
 
 static struct sprd_headset_power {
 	struct regulator *head_mic;
@@ -419,6 +420,58 @@ static int sprd_headset_headmic_bias_control(struct device *dev, int on)
 	return ret;
 }
 
+static BLOCKING_NOTIFIER_HEAD(hp_chain_list);
+int hp_register_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_register(&hp_chain_list, nb);
+}
+EXPORT_SYMBOL(hp_register_notifier);
+
+int hp_unregister_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&hp_chain_list, nb);
+}
+EXPORT_SYMBOL(hp_unregister_notifier);
+
+static int hp_notifier_call_chain(unsigned long val)
+{
+    return (blocking_notifier_call_chain(&hp_chain_list, val, NULL)
+            == NOTIFY_BAD) ? -EINVAL : 0;
+}
+
+int get_hp_plug_state(void)
+{
+	return !!plug_state_last;
+}
+EXPORT_SYMBOL(get_hp_plug_state);
+//========================  audio codec  ========================
+
+static int wrap_sci_adc_get_value(unsigned int channel, int scale)
+{
+	int count = 0;
+	int average = 0;
+
+#if (defined(CONFIG_ARCH_SCX15))
+	average = sci_adc_get_value(channel, scale);
+#else
+	#if (defined(CONFIG_ARCH_SCX35))
+		if(ADC_CHANNEL_HEADMIC == channel) {
+			while(count < SCI_ADC_GET_VALUE_COUNT) {
+				average += sci_adc_get_value(channel, scale);
+				count++;
+			}
+			average /= SCI_ADC_GET_VALUE_COUNT;
+		}
+		else
+			average = sci_adc_get_value(channel, scale);
+	#else
+		average = sci_adc_get_value(channel, scale);
+	#endif
+#endif
+
+	return average;
+}
+
 /*  on = 0: open headmic detect circuit */
 static void headset_detect_circuit(unsigned on)
 {
@@ -465,11 +518,11 @@ static void headset_adc_en(int en)
                 headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG1), AUDIO_ICM_PLUS_EN);
                 headmic_sleep_disable(to_device(pdata), 1);
         } else {
-#ifndef SPRD_HEADSET_DBG
-                headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_BUF_EN);
-                headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
-                headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_DISABLE, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
-#endif
+                if(debug_level <= 2) {
+                        headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_BUF_EN);
+                        headset_reg_clr_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
+                        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_DISABLE, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
+                }
                 headmic_sleep_disable(to_device(pdata), 0);
         }
 }
@@ -583,7 +636,6 @@ static void headmic_sleep_disable(struct device *dev, int on)
 {
 	unsigned long spin_lock_flags;
 	static int current_power_state = 0;
-	struct sprd_headset *ht = &headset;
 
 	spin_lock_irqsave(&headmic_sleep_disable_lock, spin_lock_flags);
 	if (1 == on) {
@@ -649,52 +701,61 @@ static int adc_compare(int x1, int x2)
                 return 0;
 }
 
-static int adc_get_average(void)
+static int adc_get_average(int gpio_num, int gpio_value)
 {
 	int i = 0;
 	int j = 0;
 	int k = 0;
 	int adc_average = 0;
 	int success = 1;
-	int adc[ADC_READ_COUNT_DETECT] = {0};
+	int adc[ADC_READ_COUNT] = {0};
 	struct sprd_headset *ht = &headset;
 	struct sprd_headset_platform_data *pdata = ht->platform_data;
 
-//==============================================
-#ifdef SPRD_HEADSET_DBG
-	int count = 0;
-	int adc_val = 0;
-	int gpio_button = 0;
-	int ana_cfg0 = 0;
-	int ana_cfg1 = 0;
-	int ana_cfg20 = 0;
-	int ana_sts0 = 0;
+	//================= debug =====================
+	if(debug_level >= 3) {
+		int count = 0;
+		int adc_val = 0;
+		int gpio_button = 0;
+		int ana_cfg0 = 0;
+		int ana_cfg1 = 0;
+		int ana_cfg20 = 0;
+		int ana_sts0 = 0;
 
-	while(count < 20)
-	{
-		count++;
-		adc_val = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
-		gpio_button = gpio_get_value(headset.platform_data->gpio_button);
-		ana_cfg0 = sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG0));
-		ana_cfg1 = sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG1));
-		ana_cfg20 = sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG20));
-		ana_sts0 = sci_adi_read(HEADMIC_DETECT_REG(ANA_STS0));
+		while(count < 20)
+		{
+			count++;
+			adc_val = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+			gpio_button = gpio_get_value(pdata->gpio_button);
+			ana_cfg0 = sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG0));
+			ana_cfg1 = sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG1));
+			ana_cfg20 = sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG20));
+			ana_sts0 = sci_adi_read(HEADMIC_DETECT_REG(ANA_STS0));
 
-		PRINT_INFO("%2d:  gpio_button=%d  adc=%4d  ana_cfg0=0x%08X  ana_cfg1=0x%08X  ana_cfg20=0x%08X  ana_sts0=0x%08X\n",
-			count, gpio_button, adc_val, ana_cfg0, ana_cfg1, ana_cfg20, ana_sts0);
-		msleep(1);
+			PRINT_INFO("%2d:  gpio_button=%d  adc=%4d  ana_cfg0=0x%08X  ana_cfg1=0x%08X  ana_cfg20=0x%08X  ana_sts0=0x%08X\n",
+				count, gpio_button, adc_val, ana_cfg0, ana_cfg1, ana_cfg20, ana_sts0);
+			msleep(1);
+		}
 	}
-#endif
-//==============================================
+	//================= debug =====================
 
-	msleep(10);
+	msleep(1);
 	if(0 == headset_reg_get_bit(HEADMIC_DETECT_REG(ANA_CFG0), AUDIO_HEADMIC_SLEEP_EN))
 		PRINT_INFO("AUDIO_HEADMIC_SLEEP_EN is disabled\n");
 
-	for(i=0; i< DEBANCE_LOOP_COUNT_TYPE_DETECT; i++) {
-		adc[0] = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
-		for(j=0; j<ADC_READ_COUNT_DETECT-1; j++) {
-			adc[j+1] = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+	for(i=0; i< ADC_READ_LOOP; i++) {
+		if(gpio_get_value(gpio_num) != gpio_value) {
+			PRINT_INFO("gpio value changed!!! the adc read operation aborted (step1)\n");
+			return -1;
+		}
+		adc[0] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+		for(j=0; j<ADC_READ_COUNT-1; j++) {
+			udelay(100);
+			if(gpio_get_value(gpio_num) != gpio_value) {
+				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step2)\n");
+				return -1;
+			}
+			adc[j+1] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
 			if(0 == adc_compare(adc[j], adc[j+1])) {
 				success = 0;
 				for(k=0; k<=j+1; k++) {
@@ -704,15 +765,20 @@ static int adc_get_average(void)
 			}
 		}
 		if(1 == success) {
-			for(i=0; i<ADC_READ_COUNT_DETECT; i++) {
+			msleep(30);
+			if(gpio_get_value(gpio_num) != gpio_value) {
+				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step3)\n");
+				return -1;
+			}
+			for(i=0; i<ADC_READ_COUNT; i++) {
 				adc_average += adc[i];
 				PRINT_DBG("adc[%d] = %d\n", i, adc[i]);
 			}
-			adc_average = adc_average / ADC_READ_COUNT_DETECT;
+			adc_average = adc_average / ADC_READ_COUNT;
 			PRINT_DBG("adc_get_average success, adc_average = %d\n", adc_average);
 			return adc_average;
 		}
-		else if(i+1< DEBANCE_LOOP_COUNT_TYPE_DETECT) {
+		else if(i+1< ADC_READ_LOOP) {
 			PRINT_INFO("adc_get_average failed, retrying count = %d\n", i+1);
 			msleep(1);
 		}
@@ -721,7 +787,7 @@ static int adc_get_average(void)
 	return -1;
 }
 
-int headset_irq_set_irq_type(unsigned int irq, unsigned int type)
+static int headset_irq_set_irq_type(unsigned int irq, unsigned int type)
 {
         struct sprd_headset *ht = &headset;
         struct irq_desc *irq_desc = NULL;
@@ -755,7 +821,7 @@ int headset_irq_set_irq_type(unsigned int irq, unsigned int type)
         return 0;
 }
 
-int headset_button_valid(int gpio_detect_value_current)
+static int headset_button_valid(int gpio_detect_value_current)
 {
         struct sprd_headset *ht = &headset;
         struct sprd_headset_platform_data *pdata = ht->platform_data;
@@ -776,15 +842,69 @@ int headset_button_valid(int gpio_detect_value_current)
         return button_is_valid;
 }
 
+static int headset_gpio_2_button_state(int gpio_button_value_current)
+{
+        struct sprd_headset *ht = &headset;
+        struct sprd_headset_platform_data *pdata = ht->platform_data;
+        int button_state_current = 0;
+
+        if(1 == pdata->irq_trigger_level_button) {
+                if(1 == gpio_button_value_current)
+                        button_state_current = 1;
+                else
+                        button_state_current = 0;
+        } else {
+                if(0 == gpio_button_value_current)
+                        button_state_current = 1;
+                else
+                        button_state_current = 0;
+        }
+
+        return button_state_current; //0==released, 1==pressed
+}
+
+static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
+{
+	struct sprd_headset *ht = &headset;
+	struct sprd_headset_platform_data *pdata = ht->platform_data;
+	int adc_last = 0;
+	int adc_current = 0;
+	int count = 0;
+
+	msleep(50);
+	adc_last = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
+	if(-1 == adc_last) {
+		PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
+		return -1;
+	}
+
+	while(count < PLUG_CONFIRM_COUNT) {
+		adc_current = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
+		if(-1 == adc_current) {
+			PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
+			return -1;
+		}
+		if(0 == adc_compare(adc_last, adc_current)) {
+			PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
+			return -1;
+		}
+		adc_last = adc_current;
+		count++;
+		msleep(50);
+	}
+	PRINT_INFO("headset_plug_confirm_by_adc success!!!\n");
+	return adc_current;
+}
+
 static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 {
         struct sprd_headset *ht = &headset;
         struct sprd_headset_platform_data *pdata = ht->platform_data;
         int adc_mic_average = 0;
         int adc_left_average = 0;
-        int no_mic_retry_count = 3;
+        int no_mic_retry_count = NO_MIC_RETRY_COUNT;
 
-        ENTER
+        ENTER;
 
         if(0 != pdata->gpio_switch)
                 gpio_direction_output(pdata->gpio_switch, 0);
@@ -801,7 +921,7 @@ no_mic_retry:
                 //get adc value of left
                 set_adc_to_headmic(0);
                 msleep(50);
-                adc_left_average = adc_get_average();
+                adc_left_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
                 if(-1 == adc_left_average)
                         return HEADSET_TYPE_ERR;
         } else {
@@ -812,7 +932,7 @@ no_mic_retry:
         //get adc value of mic
         set_adc_to_headmic(1);
         msleep(50);
-        adc_mic_average = adc_get_average();
+        adc_mic_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
         if(-1 == adc_mic_average)
                 return HEADSET_TYPE_ERR;
 
@@ -827,13 +947,12 @@ no_mic_retry:
         if((adc_left_average < ADC_GND) && (adc_mic_average < pdata->adc_threshold_3pole_detect)) {
                 if(0 != no_mic_retry_count) {
                         PRINT_INFO("no_mic_retry\n");
-                        msleep(200);
                         no_mic_retry_count--;
                         goto no_mic_retry;
                 }
                 return HEADSET_NO_MIC;
         }
-        else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND))
+        else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND) && (adc_mic_average < pdata->adc_threshold_4pole_detect))
                 return HEADSET_NORMAL;
         else if((adc_left_average > ADC_GND) && (adc_mic_average > ADC_GND)
                 && (ABS(adc_mic_average - adc_left_average) < ADC_GND))
@@ -871,32 +990,29 @@ static void headset_button_work_func(struct work_struct *work)
         int i = 0;
 
         down(&headset_sem);
+        set_adc_to_headmic(1);
 
-        ENTER
+        ENTER;
 
         gpio_button_value_current = gpio_get_value(pdata->gpio_button);
         if(gpio_button_value_current != gpio_button_value_last) {
                 PRINT_INFO("software debance (step 1: gpio check)!!!(headset_button_work_func)\n");
+                #ifdef ADPGAR_BYP_SELECT
+                queue_delayed_work(adpgar_byp_select_work_queue, &adpgar_byp_select_work, msecs_to_jiffies(0));
+                #endif
                 goto out;
         }
 
-        if(1 == pdata->irq_trigger_level_button) {
-                if(1 == gpio_button_value_current)
-                        button_state_current = 1;
-                else
-                        button_state_current = 0;
-        } else {
-                if(0 == gpio_button_value_current)
-                        button_state_current = 1;
-                else
-                        button_state_current = 0;
-        }
+        button_state_current = headset_gpio_2_button_state(gpio_button_value_current);
 
         if(1 == button_state_current) {//pressed!
-                if(ht->platform_data->nbuttons > 1) {
-                        adc_mic_average = adc_get_average();
+                if(ht->platform_data->nbuttons > 0) {
+                        adc_mic_average = adc_get_average(pdata->gpio_button, gpio_button_value_last);
                         if(-1 == adc_mic_average) {
                                 PRINT_INFO("software debance (step 3: adc check)!!!(headset_button_work_func)(pressed)\n");
+                                #ifdef ADPGAR_BYP_SELECT
+                                queue_delayed_work(adpgar_byp_select_work_queue, &adpgar_byp_select_work, msecs_to_jiffies(0));
+                                #endif
                                 goto out;
                         }
                         PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
@@ -909,16 +1025,18 @@ static void headset_button_work_func(struct work_struct *work)
                                 current_key_code = KEY_RESERVED;
                         }
                 }
-                else
-                        current_key_code = KEY_MEDIA;
 
                 if(0 == button_state_last) {
                         input_event(ht->input_dev, EV_KEY, current_key_code, 1);
                         input_sync(ht->input_dev);
                         button_state_last = 1;
                         PRINT_INFO("headset button pressed! current_key_code = %d(0x%04X)\n", current_key_code, current_key_code);
-                } else
+                } else {
                         PRINT_ERR("headset button pressed already! current_key_code = %d(0x%04X)\n", current_key_code, current_key_code);
+                        #ifdef ADPGAR_BYP_SELECT
+                        queue_delayed_work(adpgar_byp_select_work_queue, &adpgar_byp_select_work, msecs_to_jiffies(0));
+                        #endif
+                }
 
                 if (1 == ht->platform_data->irq_trigger_level_button)
                         headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_LOW);
@@ -960,34 +1078,38 @@ static void headset_detect_work_func(struct work_struct *work)
 
         down(&headset_sem);
 
-        ENTER
+        ENTER;
 
         if(0 == plug_state_last) {
                 if(adie_type >= 3) {
 			headmicbias_power_on(to_device(pdata), 1);
                 }
         }
-        msleep(100);
-        gpio_detect_value_current = gpio_get_value(pdata->gpio_detect);
-        PRINT_INFO("gpio_detect_value_current = %d, gpio_detect_value_last = %d, plug_state_last = %d\n",
-                   gpio_detect_value_current, gpio_detect_value_last, plug_state_last);
 
-        if(gpio_detect_value_current != gpio_detect_value_last) {
-                PRINT_INFO("software debance (step 1)!!!(headset_detect_work_func)\n");
-                goto out;
-        }
+        if(0 == plug_state_last) {
+                gpio_detect_value_current = gpio_get_value(pdata->gpio_detect);
+                PRINT_INFO("gpio_detect_value_current = %d, gpio_detect_value_last = %d, plug_state_last = %d\n",
+                           gpio_detect_value_current, gpio_detect_value_last, plug_state_last);
 
-        if(1 == pdata->irq_trigger_level_detect) {
-                if(1 == gpio_detect_value_current)
-                        plug_state_current = 1;
-                else
-                        plug_state_current = 0;
-        } else {
-                if(0 == gpio_detect_value_current)
-                        plug_state_current = 1;
-                else
-                        plug_state_current = 0;
+                if(gpio_detect_value_current != gpio_detect_value_last) {
+                        PRINT_INFO("software debance (step 1)!!!(headset_detect_work_func)\n");
+                        goto out;
+                }
+
+                if(1 == pdata->irq_trigger_level_detect) {
+                        if(1 == gpio_detect_value_current)
+                                plug_state_current = 1;
+                        else
+                                plug_state_current = 0;
+                } else {
+                        if(0 == gpio_detect_value_current)
+                                plug_state_current = 1;
+                        else
+                                plug_state_current = 0;
+                }
         }
+        else
+                plug_state_current = 0;//no debounce for plug out!!!
 
         if(1 == plug_state_current && 0 == plug_state_last) {
                 headset_type = headset_type_detect(gpio_detect_value_last);
@@ -1052,6 +1174,9 @@ static void headset_detect_work_func(struct work_struct *work)
 			hp_notifier_call_chain(ht->type);
                         switch_set_state(&ht->sdev, ht->type);
                         PRINT_INFO("headset plug in (headset_detect_work_func)\n");
+                        #ifdef ADPGAR_BYP_SELECT
+                        queue_delayed_work(adpgar_byp_select_work_queue, &adpgar_byp_select_work, msecs_to_jiffies(500));
+                        #endif
                 }
 
                 /***polling ana_sts0 to avoid the hardware defect***/
@@ -1121,7 +1246,6 @@ out:
         if(0 == plug_state_last) {
                 if(adie_type >= 3) {
 			headmicbias_power_on(to_device(pdata), 0);
-                        msleep(100);
                 }
         }
 
@@ -1143,7 +1267,7 @@ static void headset_sts_check_func(struct work_struct *work)
 
         down(&headset_sem);
 
-        ENTER
+        ENTER;
 
         if(1 == sts_check_work_need_to_cancel)
                 goto out;
@@ -1249,7 +1373,15 @@ out:
 #endif
 /***polling ana_sts0 to avoid the hardware defect***/
 
-#ifdef SPRD_HEADSET_REG_DUMP
+#ifdef ADPGAR_BYP_SELECT
+static void adpgar_byp_select_func(struct work_struct *work)
+{
+        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG5), AUDIO_ADPGAR_BYP_HEADMIC_2_ADCR, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
+        msleep(50);
+        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG5), AUDIO_ADPGAR_BYP_NORMAL, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
+}
+#endif
+
 static void reg_dump_func(struct work_struct *work)
 {
         int adc_mic = 0;
@@ -1269,10 +1401,8 @@ static void reg_dump_func(struct work_struct *work)
 
         int arm_module_en = 0;
         int arm_clk_en = 0;
-        int i = 0;
-        int hbd[20] = {0};
 
-        adc_mic = sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+        adc_mic = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
 
         gpio_detect = gpio_get_value(headset.platform_data->gpio_detect);
         gpio_button = gpio_get_value(headset.platform_data->gpio_button);
@@ -1302,6 +1432,9 @@ static void reg_dump_func(struct work_struct *work)
         PRINT_INFO("0x%08X   |0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    arm_module_en, arm_clk_en, ana_cfg0, ana_cfg1, ana_cfg20, ana_sts0, hid_cfg2, hid_cfg3, hid_cfg4, hid_cfg0);
 #if 0
+        int i = 0;
+        int hbd[20] = {0};
+
         for(i=0; i<20; i++)
                 hbd[i] = sci_adi_read(ANA_HDT_INT_BASE + (i*4));
 
@@ -1313,10 +1446,11 @@ static void reg_dump_func(struct work_struct *work)
         PRINT_INFO("0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    hbd[10], hbd[11], hbd[12], hbd[13], hbd[14], hbd[15], hbd[16], hbd[17], hbd[18], hbd[19]);
 #endif
-        queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
+
+        if (debug_level >= 2)
+                queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
         return;
 }
-#endif
 
 /**
  * some phone boards, when no headset plugin, the button headset_button_valid()
@@ -1335,23 +1469,38 @@ static void headset_button_hardware_bug_fix(struct sprd_headset *ht)
 static irqreturn_t headset_button_irq_handler(int irq, void *dev)
 {
         struct sprd_headset *ht = dev;
+        int button_state_current = 0;
+        int gpio_button_value_current = 0;
 
         if(0 == headset_button_valid(gpio_get_value(ht->platform_data->gpio_detect))) {
-                PRINT_DBG("headset_button_irq_handler: button is unvalid!!! IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
+                PRINT_INFO("headset_button_irq_handler: button is unvalid!!! IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                         ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
                         sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0));
 				headset_button_hardware_bug_fix(ht);
+                headset_irq_button_enable(0, ht->irq_button);
+                return IRQ_HANDLED;
+        }
+
+        gpio_button_value_current = gpio_get_value(ht->platform_data->gpio_button);
+        button_state_current = headset_gpio_2_button_state(gpio_button_value_current);
+        #ifdef ADPGAR_BYP_SELECT
+        if(0 == button_state_current) {
+                queue_delayed_work(adpgar_byp_select_work_queue, &adpgar_byp_select_work, msecs_to_jiffies(0));
+        }
+        #endif
+        if(button_state_current == button_state_last) {
+                PRINT_INFO("button state check failed!!! maybe the release is too quick. button_state_current=%d, button_state_last=%d\n",
+					button_state_current, button_state_last);
                 return IRQ_HANDLED;
         }
 
         headset_irq_button_enable(0, ht->irq_button);
         wake_lock(&headset_button_wakelock);
-        gpio_button_value_last = gpio_get_value(ht->platform_data->gpio_button);
+        gpio_button_value_last = gpio_button_value_current;
         PRINT_DBG("headset_button_irq_handler: IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                   ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
                   sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0));
         queue_work(ht->button_work_queue, &ht->work_button);
-        set_adc_to_headmic(1);
         return IRQ_HANDLED;
 }
 
@@ -1370,63 +1519,50 @@ static irqreturn_t headset_detect_irq_handler(int irq, void *dev)
         return IRQ_HANDLED;
 }
 
-#ifdef SPRD_HEADSET_SYS_SUPPORT
-/***create sys fs for debug***/
-static int headset_suspend(struct platform_device *dev, pm_message_t state);
-static int headset_resume(struct platform_device *dev);
+//================= create sys fs for debug ===================
+//============= /sys/kernel/headset/debug_level ===============
 
-static ssize_t headset_suspend_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff)
+static ssize_t headset_debug_level_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff)
 {
-        PRINT_INFO("headset_suspend_show. current active_status = %d\n", active_status);
-        return sprintf(buff, "%d\n", active_status);
+        PRINT_INFO("debug_level = %d\n", debug_level);
+        return sprintf(buff, "%d\n", debug_level);
 }
 
-static ssize_t headset_suspend_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, size_t len)
+static ssize_t headset_debug_level_store(struct kobject *kobj, struct kobj_attribute *attr, const char *buff, size_t len)
 {
-        pm_message_t pm_message_t_temp = {
-                .event = 0,
-        };
-        unsigned long active = simple_strtoul(buff, NULL, 10);
-        PRINT_INFO("headset_suspend_store. buff = %s\n", buff);
-        PRINT_INFO("headset_suspend_store. set_val = %ld\n", active);
-        if(0 == active && 1 == active_status) {
-                headset_suspend(NULL, pm_message_t_temp);
-                return len;
-        }
-        if(1 == active && 0 == active_status) {
-                headset_resume(NULL);
-                return len;
-        }
-        PRINT_ERR("suspend set ERROR!Maybe the current active state is alreay what you want!\n");
+        unsigned long level = simple_strtoul(buff, NULL, 10);
+        debug_level = level;
+        PRINT_INFO("debug_level = %d\n", debug_level);
+        if(debug_level >= 2)
+                queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
         return len;
 }
 
-static struct kobject *headset_suspend_kobj = NULL;
-static struct kobj_attribute headset_suspend_attr =
-        __ATTR(active, 0644, headset_suspend_show, headset_suspend_store);
+static struct kobject *headset_debug_kobj = NULL;
+static struct kobj_attribute headset_debug_attr =
+        __ATTR(debug_level, 0644, headset_debug_level_show, headset_debug_level_store);
 
-static int headset_suspend_sysfs_init(void)
+static int headset_debug_sysfs_init(void)
 {
         int ret = -1;
 
-        headset_suspend_kobj = kobject_create_and_add("headset", kernel_kobj);
-        if (headset_suspend_kobj == NULL) {
+        headset_debug_kobj = kobject_create_and_add("headset", kernel_kobj);
+        if (headset_debug_kobj == NULL) {
                 ret = -ENOMEM;
                 PRINT_ERR("register sysfs failed. ret = %d\n", ret);
                 return ret;
         }
 
-        ret = sysfs_create_file(headset_suspend_kobj, &headset_suspend_attr.attr);
+        ret = sysfs_create_file(headset_debug_kobj, &headset_debug_attr.attr);
         if (ret) {
                 PRINT_ERR("create sysfs failed. ret = %d\n", ret);
                 return ret;
         }
 
-        PRINT_INFO("headset_suspend_sysfs_init success\n");
+        PRINT_INFO("headset_debug_sysfs_init success\n");
         return ret;
 }
-/***create sys fs for debug***/
-#endif
+//================= create sys fs for debug ===================
 
 #ifdef CONFIG_OF
 static struct sprd_headset_platform_data *headset_detect_parse_dt(
@@ -1587,7 +1723,9 @@ static int headset_detect_probe(struct platform_device *pdev)
 		}
 	}
 
-        ENTER
+        PRINT_INFO("====================================================================\n");
+        PRINT_INFO(" write 0~3 to \"/sys/kernel/headset/debug_level\" for headset debug\n");
+        PRINT_INFO("====================================================================\n");
 
         ht->platform_data = pdata;
 
@@ -1605,9 +1743,9 @@ static int headset_detect_probe(struct platform_device *pdev)
 
         if (1 == adie_type) {
                 pdata->gpio_detect -= 1;
-                PRINT_INFO("use EIC_AUD_HEAD_INST (EIC4, GPIO_%d) for insert detecting\n", pdata->gpio_detect);
+                PRINT_WARN("use EIC_AUD_HEAD_INST (EIC4, GPIO_%d) for insert detecting\n", pdata->gpio_detect);
         } else {
-                PRINT_INFO("use EIC_AUD_HEAD_INST2 (EIC5, GPIO_%d) for insert detecting\n", pdata->gpio_detect);
+                PRINT_INFO("use GPIO_%d for insert detecting\n", pdata->gpio_detect);
         }
 
         if(0 != pdata->gpio_switch) {
@@ -1695,19 +1833,30 @@ static int headset_detect_probe(struct platform_device *pdev)
 #endif
         /***polling ana_sts0 to avoid the hardware defect***/
 
-#ifdef SPRD_HEADSET_REG_DUMP
         INIT_DELAYED_WORK(&reg_dump_work, reg_dump_func);
         reg_dump_work_queue = create_singlethread_workqueue("headset_reg_dump");
         if(reg_dump_work_queue == NULL) {
                 PRINT_ERR("create_singlethread_workqueue for headset_reg_dump failed!\n");
                 goto failed_to_create_singlethread_workqueue_for_headset_reg_dump;
         }
-        queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
+        if (debug_level >= 2)
+                queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
+
+#ifdef ADPGAR_BYP_SELECT
+        //work queue for Bug#298417
+        INIT_DELAYED_WORK(&adpgar_byp_select_work, adpgar_byp_select_func);
+        adpgar_byp_select_work_queue = create_singlethread_workqueue("adpgar_byp_select");
+        if(adpgar_byp_select_work_queue == NULL) {
+                PRINT_ERR("create_singlethread_workqueue for adpgar_byp_select failed!\n");
+                goto failed_to_create_singlethread_workqueue_for_adpgar_byp_select;
+        }
 #endif
 
         wake_lock_init(&headset_detect_wakelock, WAKE_LOCK_SUSPEND, "headset_detect_wakelock");
         wake_lock_init(&headset_button_wakelock, WAKE_LOCK_SUSPEND, "headset_button_wakelock");
 
+        //set EIC3 de-bounce time for button irq
+        headset_reg_set_val((ANA_EIC_BASE+EIC3_DBNC_CTRL), DBNC_CNT3_VALUE, DBNC_CNT3_MASK, DBNC_CNT3_SHIFT);
         irqflags = pdata->irq_trigger_level_button ? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
         ret = request_irq(ht->irq_button, headset_button_irq_handler, irqflags | IRQF_NO_SUSPEND, "headset_button", ht);
         if (ret) {
@@ -1724,9 +1873,7 @@ static int headset_detect_probe(struct platform_device *pdev)
                 goto failed_to_request_irq_headset_detect;
         }
 
-#ifdef SPRD_HEADSET_SYS_SUPPORT
-        ret = headset_suspend_sysfs_init();
-#endif
+        ret = headset_debug_sysfs_init();
 
         PRINT_INFO("headset_detect_probe success\n");
         return ret;
@@ -1735,11 +1882,15 @@ failed_to_request_irq_headset_detect:
         free_irq(ht->irq_button, ht);
 failed_to_request_irq_headset_button:
 
-#ifdef SPRD_HEADSET_REG_DUMP
+#ifdef ADPGAR_BYP_SELECT
+        cancel_delayed_work_sync(&adpgar_byp_select_work);
+        destroy_workqueue(adpgar_byp_select_work_queue);
+failed_to_create_singlethread_workqueue_for_adpgar_byp_select:
+#endif
+
         cancel_delayed_work_sync(&reg_dump_work);
         destroy_workqueue(reg_dump_work_queue);
 failed_to_create_singlethread_workqueue_for_headset_reg_dump:
-#endif
 
 #ifdef SPRD_STS_POLLING_EN
         destroy_workqueue(sts_check_work_queue);
@@ -1775,7 +1926,6 @@ static int headset_suspend(struct platform_device *dev, pm_message_t state)
 {
         PRINT_INFO("suspend (det_irq = %d, but_irq = %d, plug_state_last = %d)\n",
 			headset.irq_detect, headset.irq_button, plug_state_last);
-        active_status = 0;
         return 0;
 }
 
@@ -1783,7 +1933,6 @@ static int headset_resume(struct platform_device *dev)
 {
         PRINT_INFO("resume (det_irq = %d, but_irq = %d, plug_state_last = %d)\n",
 			headset.irq_detect, headset.irq_button, plug_state_last);
-        active_status = 1;
         return 0;
 }
 #else
