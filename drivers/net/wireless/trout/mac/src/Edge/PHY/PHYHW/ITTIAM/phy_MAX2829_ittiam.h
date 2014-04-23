@@ -222,7 +222,11 @@
 
 /* Power up and power down time for Rf Tx and Rx control signals */
 
-#define PHYTXPWUPTIME1                              0x26 //ping.jiang modefy for throughput 0x00->0x26 2014-01-10 
+#ifdef AUTORATE_PING
+#define PHYTXPWUPTIME1                              0x26 //ping.jiang modify for throughput 0x00->0x26 2014-01-10 
+#else
+#define PHYTXPWUPTIME1                              0x00
+#endif /* AUTORATE_PING */
 
 //chenq add a macro 2012-12-20
 #ifdef TROUT_WIFI_FPGA

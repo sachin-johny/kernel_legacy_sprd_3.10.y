@@ -68,10 +68,14 @@ extern void update_max_rate_idx_sta(sta_entry_t *se);
 extern void update_min_rate_idx_sta(sta_entry_t *se);
 extern void reinit_tx_rate_idx_sta(sta_entry_t *se);
 extern void increment_rate_sta(sta_entry_t *se);
+
+#ifdef AUTORATE_PING
 /*ping.jiang add for AR algorithm 2013-10-31*/
 extern void increment_rate_cca_sta(sta_entry_t *se);
 extern void decrement_rate_cca_sta(sta_entry_t *se);
 /*ping.jiang add forAR algorithm end*/
+#endif /* AUTORATE_PING */
+
 extern void decrement_rate_sta(sta_entry_t *se);
 #endif /* AUTORATE_FEATURE */
 
@@ -232,14 +236,8 @@ extern WORD32 get_asoc_avg_rssi(void);
 /* the autorate table.                                                       */
 INLINE void init_tx_rate_idx_sta(sta_entry_t *se)
 {
+#ifdef AUTORATE_PING
     /*ping.jiang modify for AR algorithm 2013-12-12*/
-    #if 0
-    /* Set an initial rate index to approximately middle rate */
-    se->tx_rate_index = ((se->max_rate_index + se->min_rate_index) >> 1);
-
-    /* Decrement the rate so that, a valid rate index will be used */
-    decrement_rate_sta(se);
-    #endif
     UWORD8 target_rate = 0;
     UWORD8 target_rate_index = 0;
 
@@ -248,6 +246,13 @@ INLINE void init_tx_rate_idx_sta(sta_entry_t *se)
     target_rate_index =  get_ar_table_index(target_rate);
     se->tx_rate_index = target_rate_index;
     /* ping.jiang modify for AR algorithm end */
+#else
+    /* Set an initial rate index to approximately middle rate */
+    se->tx_rate_index = ((se->max_rate_index + se->min_rate_index) >> 1);
+
+    /* Decrement the rate so that, a valid rate index will be used */
+    decrement_rate_sta(se);
+#endif /* AUTORATE_PING */
 
     /* Update the TX MCS index */
     update_tx_mcs_index_ar_sta(se);

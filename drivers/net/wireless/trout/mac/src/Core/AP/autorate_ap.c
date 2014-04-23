@@ -157,7 +157,6 @@ void do_asoc_entry_ar(asoc_entry_t *ae)
         return;
     }
 
-    /*ping.jiang modify for AR algorithm 2013-2013-11-10*/
     /* Change the rate if required based on the algorithm output */
     if(status == INCREMENT_RATE)
     {
@@ -166,7 +165,9 @@ void do_asoc_entry_ar(asoc_entry_t *ae)
     else if(status == DECREMENT_RATE)
     {
         decrement_rate_ap(ae);
-}
+    }
+#ifdef AUTORATE_PING
+    /*ping.jiang modify for AR algorithm 2013-2013-11-10*/
     else if(status == DECREMENT_RATE_CCA)
     {
         decrement_rate_cca_ap(ae);
@@ -175,10 +176,12 @@ void do_asoc_entry_ar(asoc_entry_t *ae)
     {
         increment_rate_cca_ap(ae);
     }
-    /*ping.jiang modify for AR algorithm end*/
+    /*ping.jiang modify for AR algorithm end*/    
+#endif /* AUTORATE_PING */
 }
 
-/*ping.jiang add for AR algorithm 2013-2013-11-10*/
+#ifdef AUTORATE_PING
+/*ping.jiang modify for AR algorithm 2013-2013-11-10*/
 void increment_rate_ap(asoc_entry_t *ae)
 {
 	UWORD8 rate_idx = ae->tx_rate_index;
@@ -424,10 +427,9 @@ void decrement_rate_ap(asoc_entry_t *ae)
 }
 
 }
-/*ping.jiang add for AR algorithm end*/
+/*ping.jiang modify for AR algorithm end*/
+#else
 
-/*ping.jiang modify for AR algorithm 2013-2013-11-10*/
-#if 0
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : increment_rate_ap                                        */
@@ -568,8 +570,8 @@ void decrement_rate_ap(asoc_entry_t *ae)
         }
     }
 }
-#endif 
-/*ping.jiang modify for AR algorithm end*/
+
+#endif /* AUTORATE_PING */
 
 /*****************************************************************************/
 /*                                                                           */

@@ -59,6 +59,7 @@
 #define MAX_AR_THRESHOLD 5
 #define MIN_AR_THRESHOLD 1
 #define AR_INTERVAL      1000 /* approx 1 second */
+#ifdef AUTORATE_PING
 /* ping.jiang add for AR algorithm 2013-11-10 */
 #define STATISTICS_FILTER_TABLE 	8
 #define RXPKT_COUNT_THRESHOLD       10
@@ -98,6 +99,7 @@
 #define SENSITIVITY_802_11N_13 		-88
 #define SENSITIVITY_802_11N_6   		-91
 /* ping.jiang add for AR algorithm end */
+#endif /* AUTORATE_PING */
 
 #ifdef AUTORATE_FEATURE
 #ifdef DEBUG_MODE
@@ -142,6 +144,7 @@ typedef struct
     UWORD16 ar_success_thresh; /* Current success threshold                  */
 } ar_stats_t;
 
+#ifdef AUTORATE_PING
 /* ping.jiang add for calculating statistics 2013-10-31 */
 struct rx_stats 
 {
@@ -158,10 +161,12 @@ struct rx_var_value
 	UWORD16 tx_complete_cnt;
 };
 /* ping.jiang add for calculating statistics end */
+#endif /* AUTORATE_PING */
 
 /*****************************************************************************/
 /* Enums                                                                     */
 /*****************************************************************************/
+#ifdef AUTORATE_PING
 /* ping.jiang modify for AR algorithm 2013-10-31 */
 typedef enum {NO_RATE_CHANGE = 0,
               INCREMENT_RATE = 1,
@@ -170,6 +175,12 @@ typedef enum {NO_RATE_CHANGE = 0,
               DECREMENT_RATE_CCA = 4
 } AR_ACTION_T;
 /* ping.jiang modify for AR algorithm end */
+#else
+typedef enum {NO_RATE_CHANGE = 0,
+              INCREMENT_RATE = 1,
+              DECREMENT_RATE = 2
+} AR_ACTION_T;
+#endif /* AUTORATE_PING */
 
 typedef enum {AUTORATE_TYPE_SPEED    = 0x00,
               AUTORATE_TYPE_DISTANCE = 0x01
@@ -187,6 +198,7 @@ typedef enum {MISC_SW_AR_CNTL = 0x59,
 extern UWORD8         g_autorate_type;
 extern ALARM_HANDLE_T *g_ar_timer;
 extern BOOL_T         g_ar_enable;
+#ifdef AUTORATE_PING
 /* ping.jiang add for calculating statistics 2013-10-31 */
 extern struct rx_stats g_rx_data;
 extern struct rx_stats g_cur_rx_data;
@@ -209,6 +221,7 @@ extern UWORD16 g_txpkt_cnt_table[STATISTICS_FILTER_TABLE];
 extern UWORD16 g_rx_complete_cnt_table[STATISTICS_FILTER_TABLE];
 extern unsigned int g_rx_nack_all_cnt_table[STATISTICS_FILTER_TABLE];
 /* ping.jiang add for calculating statistics end */
+#endif /* AUTORATE_PING */
 
 #ifdef IBSS_BSS_STATION_MODE
 extern UWORD32 g_cmcc_cfg_tx_rate;
@@ -230,6 +243,7 @@ extern void ar_timer_fn(UWORD32 data);
 
 extern void   ar_stats_init(ar_stats_t *ar_stats);
 extern UWORD8 ar_rate_ctl(ar_stats_t *ar_stats, UWORD8 is_max, UWORD8 is_min);
+#ifdef AUTORATE_PING
 /* ping.jiang add for AR algorithm 2013-11-10 */
 extern void get_rx_statistics(ar_stats_t *ar_stats);
 extern unsigned int get_rx_complete_cnt_sum(UWORD8 stats_index);
@@ -251,6 +265,8 @@ extern void ar_reset_prot(void);
 #endif /* IBSS_BSS_STATION_MODE */
 
 /* ping.jiang add for AR algorithm end */
+#endif /* AUTORATE_PING */
+
 extern void   update_per_entry_retry_set_info(void);
 extern void   update_entry_retry_rate_set(void *entry, UWORD8 rate);
 extern void   update_retry_rate_set(UWORD8 ret_ar_en, UWORD8 rate, void *entry,

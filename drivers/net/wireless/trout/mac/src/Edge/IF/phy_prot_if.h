@@ -1036,8 +1036,6 @@ INLINE UWORD8 get_phy_prot_con(void)
         {
             temp = 0x03; /* ERP Only, No protection */
         }
-       /*ke.li&xin.xie delete ERP_PROT for test performance*/
-/*    
         else if(get_protection() == ERP_PROT)
         {
             if(get_erp_prot_type() == G_SELF_CTS_PROT)
@@ -1046,7 +1044,6 @@ INLINE UWORD8 get_phy_prot_con(void)
             if(get_erp_prot_type() == G_RTS_CTS_PROT)
                 temp = 0x12; //* Mixed, RTS-CTS protection 
         }
-*/
         else
         {
             temp = 0x02; /* Mixed, No protection */

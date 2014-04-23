@@ -157,7 +157,6 @@ void do_sta_entry_ar(sta_entry_t *se)
         return;
     }
 
-    /*ping.jiang modify for AR algorithm 2013-2013-11-10*/
     /* Change the rate if required based on the algorithm output */
     if(status == INCREMENT_RATE)
     {
@@ -167,6 +166,8 @@ void do_sta_entry_ar(sta_entry_t *se)
     {
         decrement_rate_sta(se);
 	}
+#ifdef AUTORATE_PING
+    /*ping.jiang modify for AR algorithm 2013-2013-11-10*/
     else if(status == DECREMENT_RATE_CCA)
     {
         decrement_rate_cca_sta(se);
@@ -176,9 +177,11 @@ void do_sta_entry_ar(sta_entry_t *se)
         increment_rate_cca_sta(se);
     }
     /*ping.jiang modify for AR algorithm end*/
+#endif /* AUTORATE_PING */
 }
 
-/*ping.jiang add for AR algorithm 2013-2013-11-10*/
+#ifdef AUTORATE_PING
+/*ping.jiang modify for AR algorithm 2013-2013-11-10*/
 void increment_rate_sta(sta_entry_t *se)
 {
 	UWORD8 rate_idx = se->tx_rate_index;
@@ -443,10 +446,9 @@ void decrement_rate_sta(sta_entry_t *se)
 	}
 
 }
-/*ping.jiang add for AR algorithm end*/
+/*ping.jiang modify for AR algorithm end*/
+#else
 
-/*ping.jiang modify for AR algorithm 2013-2013-11-10*/
-#if 0
 /*****************************************************************************/
 /*                                                                           */
 /*  Function Name : increment_rate_sta                                       */
@@ -588,8 +590,7 @@ void decrement_rate_sta(sta_entry_t *se)
         }
     }
 }
-#endif
-/*ping.jiang modify for AR algorithm end*/
+#endif /* AUTORATE_PING */
 
 /*****************************************************************************/
 /*                                                                           */
@@ -710,13 +711,13 @@ void update_max_rate_idx_sta(sta_entry_t *se)
 
 void reinit_tx_rate_idx_sta(sta_entry_t *se)
 {
+#ifdef AUTORATE_PING
     /*ping.jiang modify for AR algorithm 2013-12-12*/
     UWORD8 target_rate = get_rate_from_rssi(se, g_asoc_rssi);
     UWORD8 target_rate_index =  get_ar_table_index(target_rate);
     se->tx_rate_index = target_rate_index;
     /* ping.jiang modify for AR algorithm end */
-
-#if 0	
+#else
     UWORD8 curr_rate_index = se->tx_rate_index;
 
     /* If the current rate is allowed, then do nothing. */
@@ -741,7 +742,7 @@ void reinit_tx_rate_idx_sta(sta_entry_t *se)
         g_mac_stats.txrate_reinit_err++;
     }
 #endif /* DEBUG_MODE */
-#endif
+#endif /* AUTORATE_PING */
 }
 #endif /* AUTORATE_FEATURE */
 
