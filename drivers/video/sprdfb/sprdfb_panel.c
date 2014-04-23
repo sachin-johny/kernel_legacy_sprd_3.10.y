@@ -97,13 +97,13 @@ static int32_t panel_reset_dispc(struct panel_spec *self)
         }
 
 	dispc_write(1, DISPC_RSTN);
-	msleep(timing1);
+	usleep_range(timing1*1000, timing1*1000+500);
 	dispc_write(0, DISPC_RSTN);
-	msleep(timing2);
+	usleep_range(timing2*1000, timing2*1000+500);
 	dispc_write(1, DISPC_RSTN);
 
 	/* wait 10ms util the lcd is stable */
-	msleep(timing3); 
+	usleep_range(timing3*1000, timing3*1000+500);
 
 	return 0;
 }
@@ -154,7 +154,7 @@ static int panel_reset(struct sprdfb_device *dev)
 	if(NULL != dev->panel->if_ctrl->panel_if_before_panel_reset){
 		dev->panel->if_ctrl->panel_if_before_panel_reset(dev);
 	}
-	msleep(5);
+	usleep_range(5000, 5500);
 
 	//reset panel
 	dev->panel->ops->panel_reset(dev->panel);
