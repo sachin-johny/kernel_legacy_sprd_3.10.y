@@ -166,7 +166,7 @@ static void sdhci_reset(struct sdhci_host *host, u8 mask)
 	if (host->ops->platform_reset_enter)
 		host->ops->platform_reset_enter(host, mask);
 
-	sdhci_writeb(host, mask, SDHCI_SOFTWARE_RESET);
+	sdhci_writeb(host, mask | 0x08, SDHCI_SOFTWARE_RESET);
 
 	if (mask & SDHCI_RESET_ALL)
 		host->clock = 0;

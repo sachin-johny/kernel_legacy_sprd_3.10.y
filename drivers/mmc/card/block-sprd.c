@@ -2257,6 +2257,7 @@ force_ro_fail:
 #define CID_MANFID_SAMSUNG	0x15
 #define CID_MANFID_KINGSTON 0x41
 #define CID_MANFID_HYNIX 0x90
+#define CID_MANFID_MICRON_2	0xfe
 
 static const struct mmc_fixup blk_fixups[] =
 {
@@ -2327,6 +2328,8 @@ static const struct mmc_fixup blk_fixups[] =
 	MMC_FIXUP("KJS00M", CID_MANFID_SAMSUNG, 0x100, add_quirk_mmc,
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 	MMC_FIXUP("H4G1d", CID_MANFID_HYNIX, 0x14a, add_quirk_mmc,
+		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+	MMC_FIXUP("P0XXXX", CID_MANFID_MICRON_2, 0x14e, add_quirk_mmc,
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 
 	END_FIXUP
