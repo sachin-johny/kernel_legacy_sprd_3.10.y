@@ -221,12 +221,24 @@ struct sprd_codec_mixer {
 	sprd_codec_mixer_set set;
 };
 
-uint32_t sprd_get_vbat_voltage(void)
-    __attribute__ ((weak, alias("__sprd_get_vbat_voltage")));
-static uint32_t __sprd_get_vbat_voltage(void)
+static uint32_t sprd_get_vbat_voltage(void)
 {
-	pr_err("ERR: Can't get vbat!\n");
-	return 3800;
+	struct power_supply *psy;
+	union power_supply_propval value;
+	int ret;
+
+	psy = power_supply_get_by_name("battery");
+	if (!psy) {
+		pr_err("ERR:%s: Fail to psy (%s)\n",__func__, "battery");
+		value.intval = 3800*1000;
+	} else {
+		ret = psy->get_property(psy,POWER_SUPPLY_PROP_VOLTAGE_NOW, &value);
+		if (ret < 0) {
+			pr_err("ERR:%s: Fail to get  voltage(%d)\n",__func__, ret);
+			value.intval = 3800*1000;
+		}
+	}
+	return value.intval/1000;
 }
 
 struct sprd_codec_ldo_v_map {
@@ -236,26 +248,26 @@ struct sprd_codec_ldo_v_map {
 
 const static struct sprd_codec_ldo_v_map ldo_v_map[] = {
 	/*{      , 3400}, */
-	{LDO_V_28, 3400},
-	{LDO_V_29, 3500},
-	{LDO_V_30, 3600},
-	{LDO_V_31, 3700},
-	{LDO_V_32, 3800},
-	{LDO_V_33, 3900},
-	{LDO_V_34, 4000},
-	{LDO_V_36, 4200},
+	{LDO_V_28, 3500},
+	{LDO_V_29, 3600},
+	{LDO_V_30, 3700},
+	{LDO_V_31, 3800},
+	{LDO_V_32, 3900},
+	{LDO_V_33, 4000},
+	{LDO_V_34, 4200},
+	{LDO_V_36, 9000},
 };
 
 const static struct sprd_codec_ldo_v_map ldo_vcom_v_map[] = {
 	/*{      , 3400}, */
-	{LDO_V_28, 3400},
-	{LDO_V_29, 3500},
-	{LDO_V_30, 3600},
-	{LDO_V_31, 3700},
-	{LDO_V_32, 3800},
-	{LDO_V_33, 3900},
-	{LDO_V_34, 4000},
-	{LDO_V_36, 4200},
+	{LDO_V_28, 3500},
+	{LDO_V_29, 3600},
+	{LDO_V_30, 3700},
+	{LDO_V_31, 3800},
+	{LDO_V_32, 3900},
+	{LDO_V_33, 4000},
+	{LDO_V_34, 4200},
+	{LDO_V_36, 9000},
 };
 
 struct sprd_codec_ldo_cfg {
