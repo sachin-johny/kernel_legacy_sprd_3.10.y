@@ -1833,6 +1833,8 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 			ret  = wait_event_interruptible_timeout(dispc_ctx.waitfor_vsync_queue,
 					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
 			dispc_ctx.waitfor_vsync_waiter = 0;
+		}else{
+                    msleep(16);
 		}
 	}else{
 		dispc_ctx.waitfor_vsync_done = 0;
