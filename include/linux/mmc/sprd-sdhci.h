@@ -21,6 +21,7 @@ struct sprd_sdhci_host_platdata {
 	unsigned int caps2;
 	int detect_gpio;
 	const char *vdd_extmmc;
+	unsigned int init_voltage_level;
 	unsigned int vdd_voltage_level[4];
 	const char *clk_name;
 	const char *clk_parent_name;

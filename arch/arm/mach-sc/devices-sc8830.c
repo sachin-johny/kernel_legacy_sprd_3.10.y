@@ -995,6 +995,7 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.sd_func = SPRD_PIN_SDIO0_SD_FUNC,
 	.gpio_func = SPRD_PIN_SDIO0_GPIO_FUNC,
 #endif
+	.init_voltage_level = 4,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 	.runtime = 1,
