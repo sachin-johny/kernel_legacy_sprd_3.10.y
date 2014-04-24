@@ -147,7 +147,6 @@ static u32 is_current_set = 0;
 static u32 __emc_clk_set(u32 clk, u32 sene, u32 dll_enable, u32 bps_200)
 {
 	u32 flag = 0;
-	volatile u32 i;
 
 	/* check timing params */
 #ifdef CONFIG_SCX35_DMC_FREQ_DDR3
@@ -252,7 +251,7 @@ static u32 get_emc_clk_select(u32 clk)
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
 	u32 dll_enable = EMC_DLL_SWITCH_ENABLE_MODE;
-	u32 old_clk,old_select,new_select,div = 0x0;
+	u32 old_clk;
 
 #ifdef EMC_FREQ_AUTO_TEST
 	u32 start_t1, end_t1;
@@ -536,24 +535,20 @@ static void __emc_freq_test(void)
 static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr)
 {
 	debug("umctl2_rfshtmg %x\n", dfs_val_ptr->ddr_clk);
-	debug("umctl2_rfshtmg %x\n", dfs_val_ptr->umctl2_rfshtmg);
-	debug("umctl2_dramtmg0 %x\n", dfs_val_ptr->umctl2_dramtmg0);
-	debug("umctl2_dramtmg1 %x\n", dfs_val_ptr->umctl2_dramtmg1);
-	debug("umctl2_dramtmg2 %x\n", dfs_val_ptr->umctl2_dramtmg2);
-	debug("umctl2_dramtmg3 %x\n", dfs_val_ptr->umctl2_dramtmg3);
-	debug("umctl2_dramtmg4 %x\n", dfs_val_ptr->umctl2_dramtmg4);
-	debug("umctl2_dramtmg5 %x\n", dfs_val_ptr->umctl2_dramtmg5);
-	debug("umctl2_dramtmg6 %x\n", dfs_val_ptr->umctl2_dramtmg6);
-	debug("umctl2_dramtmg7 %x\n", dfs_val_ptr->umctl2_dramtmg7);
-	debug("umctl2_dramtmg8 %x\n", dfs_val_ptr->umctl2_dramtmg8);
-	debug("publ_dx0gcr %x\n", dfs_val_ptr->publ_dx0gcr);
-	debug("publ_dx1gcr %x\n", dfs_val_ptr->publ_dx1gcr);
-	debug("publ_dx2gcr %x\n", dfs_val_ptr->publ_dx2gcr);
-	debug("publ_dx3gcr %x\n", dfs_val_ptr->publ_dx3gcr);
-	debug("publ_dx0dqstr %x\n", dfs_val_ptr->publ_dx0dqstr);
-	debug("publ_dx1dqstr %x\n", dfs_val_ptr->publ_dx1dqstr);
-	debug("publ_dx2dqstr %x\n", dfs_val_ptr->publ_dx2dqstr);
-	debug("publ_dx3dqstr %x\n", dfs_val_ptr->publ_dx3dqstr);
+	debug("umctl2_rfshtmg %x\n", dfs_val_ptr->umctl_rfshtmg);
+	debug("umctl2_dramtmg0 %x\n", dfs_val_ptr->umctl_dramtmg0);
+	debug("umctl2_dramtmg1 %x\n", dfs_val_ptr->umctl_dramtmg1);
+	debug("umctl2_dramtmg2 %x\n", dfs_val_ptr->umctl_dramtmg2);
+	debug("umctl2_dramtmg3 %x\n", dfs_val_ptr->umctl_dramtmg3);
+	debug("umctl2_dramtmg4 %x\n", dfs_val_ptr->umctl_dramtmg4);
+	debug("umctl2_dramtmg5 %x\n", dfs_val_ptr->umctl_dramtmg5);
+	debug("umctl2_dramtmg6 %x\n", dfs_val_ptr->umctl_dramtmg6);
+	debug("umctl2_dramtmg7 %x\n", dfs_val_ptr->umctl_dramtmg7);
+	debug("umctl2_dramtmg8 %x\n", dfs_val_ptr->umctl_dramtmg8);
+	debug("publ_dx0gtr %x\n", dfs_val_ptr->publ_dx0gtr);
+	debug("publ_dx1gtr %x\n", dfs_val_ptr->publ_dx1gtr);
+	debug("publ_dx2gtr %x\n", dfs_val_ptr->publ_dx2gtr);
+	debug("publ_dx3gtr %x\n", dfs_val_ptr->publ_dx3gtr);
 }
 static void __emc_timing_reg_init(void)
 {
