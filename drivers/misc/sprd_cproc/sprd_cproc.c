@@ -275,7 +275,7 @@ static ssize_t cproc_proc_write(struct file *filp,
 	}
 	if (strcmp(type, "stop") == 0) {
 		printk(KERN_INFO "cproc_proc_write to map cproc base stop\n");
-		cproc->initdata->stop(NULL);
+		cproc->initdata->stop(cproc);
 		cproc->status = CP_STOP_STATUS;
 		return count;
 	}
@@ -300,14 +300,6 @@ static ssize_t cproc_proc_write(struct file *filp,
 
 	pr_info("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
 	count = min((size-offset), count);
-	/*remap and unmap in each write operation, shi yunlong, begin*/
-	/*
-	vmem = cproc->vbase + (base - cproc->initdata->base) + offset;
-
-	if (copy_from_user(vmem, buf, count)) {
-		return -EFAULT;
-	}
-	*/
 	r = count, i = 0;
 	do{
 		uint32_t copy_size = CPROC_VMALLOC_SIZE_LIMIT;
