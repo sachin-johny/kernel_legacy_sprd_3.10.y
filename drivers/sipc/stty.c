@@ -65,11 +65,7 @@ static int vddwpa_bt_enable_control(int flag)
         printk("[wpa_bt] LDO control : %s\n", flag ? "ON" : "OFF");
 		
         if (flag && (!f_enabled)) {
-		    #if defined(CONFIG_ADIE_SC2713S)
-			wpa_bt = regulator_get(NULL, "dcdcwpa");
-			#else
 		    wpa_bt = regulator_get(NULL, "vddwpa");		                     
-		    #endif
                       if (IS_ERR(wpa_bt)) {
                           printk("bt could not find the vddwpa regulator\n");
                                    wpa_bt = NULL;

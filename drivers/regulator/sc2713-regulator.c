@@ -54,6 +54,9 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
+#include <mach/arch_misc.h>
+
+#define REGULATOR_ROOT_DIR	"sprd-regulator"
 
 #undef debug
 #define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
@@ -989,7 +992,6 @@ static int __init __adc_cal_setup(char *str)
 	}
 	return 0;
 }
-
 early_param("adc_cal", __adc_cal_setup);
 
 static int __init __adc_cal_fuse_setup(void)
@@ -1790,15 +1792,51 @@ void * sci_regulator_register(struct platform_device *pdev,
  */
 static int sci_regulator_probe(struct platform_device *pdev)
 {
-	debug0("platform device %p\n", pdev);
+#ifdef CONFIG_DEBUG_FS
+		debugfs_root =
+			debugfs_create_dir(REGULATOR_ROOT_DIR, NULL);
+		if (IS_ERR(debugfs_root) || !debugfs_root) {
+			WARN(!debugfs_root,
+			 "%s: Failed to create debugfs directory\n", REGULATOR_ROOT_DIR);
+			debugfs_root = NULL;
+		}
+
+		debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
+				   debugfs_root, (u32 *) & ana_addr);
+		debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
+					debugfs_root, &ana_addr, &fops_ana_addr);
+		debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
+					debugfs_root, &adc_chan, &fops_adc_chan);
+		debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
+				   debugfs_root, (u64 *) & adc_data);
+
+		{/* vddarm/vddcore/vddmem common debugfs interface */
+			char str[NAME_MAX];
+			struct dentry *vol_root = debugfs_create_dir("vol", NULL);
+			sprintf(str, "../%s/vddarm/voltage", REGULATOR_ROOT_DIR);
+			debugfs_create_symlink("dcdcarm", vol_root, str);
+			sprintf(str, "../%s/vddcore/voltage", REGULATOR_ROOT_DIR);
+			debugfs_create_symlink("dcdccore", vol_root, str);
+			sprintf(str, "../%s/vddmem/voltage", REGULATOR_ROOT_DIR);
+			debugfs_create_symlink("dcdcmem", vol_root, str);
+		}
+#endif
+
+	pr_info("sc271x ana chip id: (0x%08x), bond opt (0x%08x)\n",
+		(sci_get_ana_chip_id() | sci_get_ana_chip_ver()),
+		ANA_REG_GET(ANA_REG_GLB_ANA_STATUS));
+
 #include CONFIG_REGULATOR_SPRD_MAP
 	return 0;
 }
 
+#ifdef CONFIG_OF
 static struct of_device_id sprd_regulator_of_match[] = {
 	{ .compatible = "sprd,sc2713-regulator", },
 	{ }
 };
+#endif
+
 static struct platform_driver sci_regulator_driver = {
 	.driver = {
 		   .name = "sc2713-regulator",
@@ -1810,51 +1848,8 @@ static struct platform_driver sci_regulator_driver = {
 
 static int __init regu_driver_init(void)
 {
-#ifdef CONFIG_DEBUG_FS
-	debugfs_root =
-	    debugfs_create_dir(sci_regulator_driver.driver.name, NULL);
-	if (IS_ERR(debugfs_root) || !debugfs_root) {
-		WARN(!debugfs_root,
-		     "%s: Failed to create debugfs directory\n",
-		     sci_regulator_driver.driver.name);
-		debugfs_root = NULL;
-	}
+	__adc_cal_fuse_setup();
 
-	debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
-			   debugfs_root, (u32 *) & ana_addr);
-	debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
-			    debugfs_root, &ana_addr, &fops_ana_addr);
-	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
-			    debugfs_root, &adc_chan, &fops_adc_chan);
-	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
-			   debugfs_root, (u64 *) & adc_data);
-
-	{/* vddarm/vddcore/vddmem common debugfs interface */
-		char str[NAME_MAX];
-		struct dentry *vol_root = debugfs_create_dir("vol", NULL);
-		sprintf(str, "../%s/vddarm/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdcarm", vol_root, str);
-		sprintf(str, "../%s/vddcore/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdccore", vol_root, str);
-		sprintf(str, "../%s/vddmem/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdcmem", vol_root, str);
-	}
-#endif
-
-#if defined(CONFIG_ARCH_SCX15)
-#else
-	pr_info("%s chip id: (%08x), bond opt (%08x)\n",
-		sci_regulator_driver.driver.name,
-		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16 |
-		ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW),
-		ANA_REG_GET(ANA_REG_GLB_ANA_STATUS));
-#endif
-
-#if defined(CONFIG_REGULATOR_ADC_DEBUG)
-	/*FIXME: enable all DCDC/LDOs for debug purpose */
-	ANA_REG_SET(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, -1, -1);
-	ANA_REG_SET(ANA_REG_GLB_LDO_PD_CTRL, 0, -1);
-#endif
 	return platform_driver_register(&sci_regulator_driver);
 }
 
@@ -1865,17 +1860,22 @@ int __init sci_regulator_init(void)
 		.name = "sc2713-regulator",
 		.id = -1,
 	};
+	static struct platform_device sc2713s_regulator_device = {
+		.name = "sc2713s-regulator",
+		.id = -1,
+	};
 
-	__adc_cal_fuse_setup();
-	return platform_device_register(&regulator_device);
+	if (sci_get_ana_chip_id() == 0x2713C000) /* SC2713S */
+		return platform_device_register(&sc2713s_regulator_device);
+	else
+		return platform_device_register(&regulator_device);
+#else
+	return of_platform_populate(of_find_node_by_path("/sprd-regulators"),
+				sprd_regulator_of_match, NULL, NULL);
 #endif
 }
 
-#ifndef CONFIG_OF
 subsys_initcall(regu_driver_init);
-#else
-module_init(regu_driver_init);
-#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum voltage regulator driver");

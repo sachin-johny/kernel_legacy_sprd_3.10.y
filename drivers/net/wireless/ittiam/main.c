@@ -664,11 +664,7 @@ static int vddwpa_wifi_enable_control(int flag)
 	printk("[wpa_wfi] LDO control : %s\n", flag ? "ON" : "OFF");
 
 	if (flag && (!f_enabled)) {
-#if defined(CONFIG_ADIE_SC2713S)
-		wpa_wifi = regulator_get(NULL, "dcdcwpa");
-#else
 		wpa_wifi = regulator_get(NULL, "vddwpa");
-#endif
 		if (IS_ERR(wpa_wifi)) {
 			printk("wifi could not find the vddwpa regulator\n");
 			wpa_wifi = NULL;

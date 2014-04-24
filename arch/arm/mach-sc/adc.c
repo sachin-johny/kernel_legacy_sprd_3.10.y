@@ -199,6 +199,8 @@ static int sci_adc_ratio(int channel, int scale, int mux)
 	case ADC_CHANNEL_VBAT:		//vbat
 	case ADC_CHANNEL_ISENSE:
 		return RATIO(7, 29);
+	case ADC_CHANNEL_VCHGSEN:
+		return RATIO(77, 1024);
 	case ADC_CHANNEL_DCDCCORE:		//dcdccore
 	case ADC_CHANNEL_DCDCARM:		//dcdcarm
 		return (scale ? RATIO(4, 5) : RATIO(1, 1));
@@ -207,7 +209,7 @@ static int sci_adc_ratio(int channel, int scale, int mux)
 	case ADC_CHANNEL_DCDCLDO:	//dcdcgen
 		return RATIO(4, 9);
 	case 0x14 /* ADC_CHANNEL_HEADMIC */:	//DCDCHEADMIC
-		return (scale ? RATIO(1, 3) : RATIO(1, 1));
+		return RATIO(1, 3);
 	case ADC_CHANNEL_LDO0:		//DCDC Supply LDO, VDD18/CAMIO/CAMD/EMMCIO
 		return RATIO(1, 2);
 	case ADC_CHANNEL_VBATBK:	//DCDCVBATBK

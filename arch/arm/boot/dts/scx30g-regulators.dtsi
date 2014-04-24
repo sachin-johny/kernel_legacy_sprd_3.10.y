@@ -8,8 +8,8 @@
 		dummy {
 		};
 
-		dcdccore: dcdccore {
-			regulator-name = "dcdccore";
+		vddcore: vddcore {
+			regulator-name = "vddcore";
 			reg = <0x40038810 9 0x40038814 9 0 0>;
 			reg-vol = <0x40038960 7 5 0x40038960 4 0>;
 			cal_sel = <0x40038844 0x0 13>;
@@ -21,8 +21,8 @@
 			dcdc;
 		};
 
-		dcdcarm: dcdcarm {
-			regulator-name = "dcdcarm";
+		vddarm: vddcarm {
+			regulator-name = "vddarm";
 			reg = <0x40038810 10 0x40038814 10 0x40038874 9>;
 			reg-vol = <0x40038964 7 5 0x40038964 4 0>;
 			cal_sel = <0x40038844 0x0 14>;
@@ -34,8 +34,8 @@
 			dcdc;
 		};
 
-		dcdcmem: dcdcmem {
-			regulator-name = "dcdcmem";
+		vddmem: vddmem {
+			regulator-name = "vddmem";
 			reg = <0x40038810 11 0x40038814 11 0 0>;
 			reg-vol = <0x40038968 5 0x40038968 4 0>;
 			cal_sel = <0x40038844 0x0 15>;
@@ -47,8 +47,8 @@
 			dcdc;
 		};
 
-		dcdcgen: dcdcgen {
-			regulator-name = "dcdcgen";
+		vddgen: vddgen {
+			regulator-name = "vddgen";
 			reg = <0x40038810 12 0x40038814 12 0x40038874 12>;
 			reg-vol = <0x4003896c 7 5 0x4003896c 4 0>;
 			cal_sel = <0x40038844 0x0 16>;
@@ -60,8 +60,8 @@
 			dcdc;
 		};
 
-		dcdcwpa: dcdcwpa {
-			regulator-name = "dcdcwpa";
+		vddwpa: vddwpa {
+			regulator-name = "vddwpa";
 			reg = <0x4003881c 11 0 0 0x40038874 11>;
 			reg-vol = <0 0 0 0x40038974 2 0>;
 			cal_sel = <0x40038844 0x0 17>;
@@ -72,8 +72,8 @@
 			dcdc;
 		};
 
-		dcdcwrf: dcdcwrf {
-			regulator-name = "dcdcwrf";
+		vddwrf: vddwrf {
+			regulator-name = "vddwrf";
 			reg = <0x40038810 13 0x40038814 13 0x40038874 10>;
 			reg-vol = <0x40038970 6 5 0x40038970 4 0>;
 			cal_sel = <0x40038844 0x0 18>;
