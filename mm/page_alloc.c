@@ -830,7 +830,7 @@ int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 }
 
 #ifdef CONFIG_PAGE_ALLOC_HIGHORDER_RESERVE
-static unsigned int page_alloc_highorder_reserve = 10 * 4;
+static unsigned int page_alloc_highorder_reserve = 20 * 4;
 module_param_named(high_reserve, page_alloc_highorder_reserve, uint,
 				S_IRUGO | S_IWUSR);
 
