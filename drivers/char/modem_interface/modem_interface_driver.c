@@ -561,6 +561,28 @@ retry:
         return 0;
 }
 
+int modem_intf_send_shutdown_message()
+{
+        struct modem_message_node *msg;
+
+        msg = find_msg_node();
+        if (msg == NULL) {
+                lost_msg_count++;
+                printk("modem_intf_send_shutdown_message MSG LOST !!!!!!\n");
+
+                return 0;
+        }
+        msg->src  = SRC_DLOADER;
+        msg->parameter1 = (int)modem_intf_device;
+        msg->parameter2 = MODEM_MODE_SHUTDOWN;
+        msg->type = MODEM_SET_MODE;
+
+        modem_send_message(msg);
+
+        return 0;
+}
+
+
 
 
 void modem_intf_send_GPIO_message(int gpio_no,int status,int index)
@@ -897,6 +919,7 @@ fail:
 }
 static void modem_intf_driver_shutdown(struct platform_device *_dev)
 {
+        modem_intf_send_shutdown_message();
         modem_poweroff();
 }
 
