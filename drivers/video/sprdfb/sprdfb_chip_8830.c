@@ -26,7 +26,7 @@ void dsi_enable(void)
 	sci_glb_set(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_REF_CKG_EN);
 	sci_glb_set(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_CFG_CKG_EN);
 #endif
-	printk("sprdfb:dsi_enable %08x",REG_AP_AHB_MISC_CKG_EN);
+	printk("sprdfb:dsi_enable %08x\n",REG_AP_AHB_MISC_CKG_EN);
 	sci_glb_set(DSI_REG_EB, DSI_BIT_EB);
 }
 
