@@ -202,6 +202,10 @@ typedef struct dphy_t
 	uint32_t address;
 	/** Reference frequency provided to PHY module [KHz] - REQUIRED */
 	uint32_t reference_freq;
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	/** mark if D-PHY should keep work or not */
+	uint32_t phy_keep_work;
+#endif
 	/** D-PHY driver state - used internally by driver */
 	dsih_state_t status;
 	/** Function handle of any board function that needs to be called

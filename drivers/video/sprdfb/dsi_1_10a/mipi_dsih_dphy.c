@@ -198,18 +198,22 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
 		input_divider = step + (loop_divider * phy->reference_freq) / output_freq;
 //		phy->log_info("D-PHY: Approximated Frequency: %d KHz", (loop_divider * (phy->reference_freq / input_divider)));
 	}
-
-    /* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
-    avoid transient periods in PHY operation during re-configuration procedures. */
-    mipi_dsih_dphy_reset(phy, 0);
-    mipi_dsih_dphy_clock_en(phy, 0);
-    mipi_dsih_dphy_shutdown(phy, 0);
-    /* provide an initial active-high test clear pulse in TESTCLR  */
-    mipi_dsih_dphy_test_clear(phy, 1);
-    mipi_dsih_dphy_test_clear(phy, 0);
-    for(n=0;n<100;n++){
-            ;
-    }
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		/* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
+		avoid transient periods in PHY operation during re-configuration procedures. */
+		mipi_dsih_dphy_reset(phy, 0);
+		mipi_dsih_dphy_clock_en(phy, 0);
+		mipi_dsih_dphy_shutdown(phy, 0);
+		/* provide an initial active-high test clear pulse in TESTCLR  */
+		mipi_dsih_dphy_test_clear(phy, 1);
+		mipi_dsih_dphy_test_clear(phy, 0);
+		for(n=0;n<100;n++){
+				;
+		}
+	}
     /* find ranges */
     for (range = 0; (range < (sizeof(ranges)/sizeof(ranges[0]))) && ((output_freq / 1000) > ranges[range].freq); range++)
     {
@@ -318,16 +322,21 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     /* PLL loop divider ratio - SET no|reserved|feedback divider [7]|[6:5]|[4:0] */
     mipi_dsih_dphy_write(phy, 0x18, data, no_of_bytes);
     mipi_dsih_dphy_no_of_lanes(phy, no_of_lanes);
-    mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
-    mipi_dsih_dphy_clock_en(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_shutdown(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_reset(phy, 1);
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
+		mipi_dsih_dphy_clock_en(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_shutdown(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_reset(phy, 1);
+	}
     return OK;
 }
 #else
@@ -430,14 +439,19 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
         return ERR_DSI_PHY_FREQ_OUT_OF_BOUND;
     }
     printk("sprdfb: Gen1 D-PHY: Approximated Frequency: %d KHz\n", (loop_divider * (phy->reference_freq / input_divider)));
-    /* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
-    avoid transient periods in PHY operation during re-configuration procedures. */
-    mipi_dsih_dphy_reset(phy, 0);
-    mipi_dsih_dphy_clock_en(phy, 0);
-    mipi_dsih_dphy_shutdown(phy, 0);
-    /* provide an initial active-high test clear pulse in TESTCLR  */
-    mipi_dsih_dphy_test_clear(phy, 1);
-    mipi_dsih_dphy_test_clear(phy, 0);
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		/* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
+		avoid transient periods in PHY operation during re-configuration procedures. */
+		mipi_dsih_dphy_reset(phy, 0);
+		mipi_dsih_dphy_clock_en(phy, 0);
+		mipi_dsih_dphy_shutdown(phy, 0);
+		/* provide an initial active-high test clear pulse in TESTCLR  */
+		mipi_dsih_dphy_test_clear(phy, 1);
+		mipi_dsih_dphy_test_clear(phy, 0);
+	}
 #ifdef DWC_MIPI_DPHY_BIDIR_TSMC40LP
     /* find ranges */
     for (range = 0; (range < (sizeof(ranges)/sizeof(ranges[0]))) && ((output_freq / 1000) > ranges[range].freq); range++)
@@ -529,16 +543,21 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     /* PLL loop divider ratio - SET no|reserved|feedback divider [7]|[6:5]|[4:0] */
     mipi_dsih_dphy_write(phy, 0x18, data, no_of_bytes);
     mipi_dsih_dphy_no_of_lanes(phy, no_of_lanes);
-    mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
-    mipi_dsih_dphy_clock_en(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_shutdown(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_reset(phy, 1);
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
+		mipi_dsih_dphy_clock_en(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_shutdown(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_reset(phy, 1);
+	}
     return OK;
 }
 #endif

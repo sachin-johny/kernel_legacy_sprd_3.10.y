@@ -37,6 +37,14 @@ enum{
 	SPRDFB_PANEL_IF_LIMIT
 };
 
+enum {
+	SPRDFB_UNKNOWN = 0,
+	SPRDFB_DYNAMIC_PCLK = 0x1,
+	SPRDFB_DYNAMIC_FPS,
+	SPRDFB_DYNAMIC_MIPI_CLK,
+	SPRDFB_FORCE_FPS,
+	SPRDFB_FORCE_PCLK,
+};
 
 enum{
 	MCU_LCD_REGISTER_TIMING = 0,
@@ -160,6 +168,8 @@ struct sprdfb_device {
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif
+
+	void *priv1;
 };
 
 struct display_ctrl {
@@ -174,7 +184,7 @@ struct display_ctrl {
 
 	int32_t	(*suspend)	  (struct sprdfb_device *dev);
 	int32_t 	(*resume)	  (struct sprdfb_device *dev);
-	void		(*update_clk)	  (struct sprdfb_device *dev);
+	int32_t (*update_clk) (struct sprdfb_device *dev);
 
 #ifdef CONFIG_FB_ESD_SUPPORT
 	int32_t	(*ESD_check)	  (struct sprdfb_device *dev);
@@ -189,10 +199,6 @@ struct display_ctrl {
 	int32_t 	(*wait_for_vsync) 	(struct sprdfb_device *dev);
 #endif
 
-#ifdef  CONFIG_FB_DYNAMIC_FPS_SUPPORT
-	int32_t 	(*change_fps) 	(struct sprdfb_device *dev, int fps_level);
-#endif
-
 #ifdef CONFIG_FB_MMAP_CACHED
 	void (*set_vma)(struct vm_area_struct *vma);
 #endif
@@ -200,5 +206,51 @@ struct display_ctrl {
 
 };
 
+#ifndef ROUND
+#define ROUND(a, b) (((a) + (b) / 2) / (b))
+#endif
+
+/* function declaration begin */
+int sprdfb_create_sysfs(struct sprdfb_device *fb_dev);
+void sprdfb_remove_sysfs(struct sprdfb_device *fb_dev);
+
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+int sprdfb_dispc_chg_clk(struct sprdfb_device *fb_dev,
+				int type, u32 new_val);
+#else
+#define sprdfb_dispc_chg_clk(fb_dev, type, new_val) ( \
+{ \
+	int _ret = -ENXIO; \
+	pr_err("dynamical clock feature hasn't been enabled yet\n"); \
+	_ret; \
+} \
+)
+#endif
+
+#if !defined(CONFIG_FB_SCX15)
+int sprdfb_dsi_chg_dphy_freq(struct sprdfb_device *fb_dev,
+		u32 dphy_freq);
+int32_t dsi_dpi_init(struct sprdfb_device *dev);
+#else
+#define sprdfb_dsi_chg_dphy_freq(fb_dev, dphy_freq) ( \
+{ \
+	int _ret = -ENXIO; \
+	pr_err("this chip doesn't support for mipi dsi\n"); \
+	_ret; \
+} \
+)
+
+#define dsi_dpi_init(fb_dev) ( \
+{ \
+	int _ret = -ENXIO; \
+	pr_err("this chip doesn't support for mipi dsi\n"); \
+	_ret; \
+} \
+)
+#endif
+
+int sprdfb_chg_clk_intf(struct sprdfb_device *fb_dev,
+			int type, u32 new_val);
+/* function declaration end */
 
 #endif

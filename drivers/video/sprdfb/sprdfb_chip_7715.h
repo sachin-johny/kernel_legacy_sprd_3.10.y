@@ -27,7 +27,7 @@
 #define DISPC_DBI_CLK				("clk_disc0_dbi")
 #define DISPC_DPI_CLK				("clk_disc0_dpi")
 #define DISPC_EMC_CLK				("clk_disp_emc")
-#define DISPC_DPI_CLOCK 			(192*1000000/7)
+#define DISPC_DPI_CLOCK 			(384*1000000/14)
 
 #define SPRD_DISPC_BASE			SPRD_LCDC_BASE
 #define	IRQ_DISPC_INT			IRQ_DISPC0_INT
@@ -108,6 +108,7 @@ enum{
 	DISPC_DPI_SEL_128M = 0,
 	DISPC_DPI_SEL_153_6M,
 	DISPC_DPI_SEL_192M,
+	DISPC_DPI_SEL_384M,
 };
 #endif
 

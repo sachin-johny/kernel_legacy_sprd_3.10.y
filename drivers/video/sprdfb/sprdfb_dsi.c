@@ -566,6 +566,38 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 	return 0;
 }
 
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+int sprdfb_dsi_chg_dphy_freq(struct sprdfb_device *fb_dev,
+				u32 dphy_freq)
+{
+	dsih_error_t result = OK;
+	dsih_ctrl_t *ctrl = &(dsi_ctx.dsi_inst);
+	struct info_mipi *mipi = fb_dev->panel->info.mipi;
+
+	if (ctrl->status == INITIALIZED) {
+		pr_info("Let's do update D-PHY frequency(%u)\n", dphy_freq);
+		ctrl->phy_instance.phy_keep_work = true;
+		result = mipi_dsih_dphy_configure(&ctrl->phy_instance,
+				mipi->lan_number, dphy_freq);
+		if (result != OK) {
+			pr_err("[%s]: mipi_dsih_dphy_configure fail (%d)\n",
+					__func__, result);
+			ctrl->phy_instance.phy_keep_work = false;
+			return -1;
+		}
+		ctrl->phy_instance.phy_keep_work = false;
+	}
+	mipi->phy_feq = dphy_freq;
+	return 0;
+}
+#else
+int sprdfb_dsi_chg_dphy_freq(struct sprdfb_device *fb_dev,
+		u32 dphy_freq)
+{
+	return -EINVAL;
+}
+#endif
+
 int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 {
 	dsih_error_t result = OK;

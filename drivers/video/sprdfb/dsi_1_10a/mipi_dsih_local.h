@@ -160,8 +160,12 @@ dsih_state_t;
 typedef struct dphy_t                                                                  
 {                                                                                      
     uint32_t address;                                                                  
-    uint32_t reference_freq;                                                           
-    dsih_state_t status;                                                               
+    uint32_t reference_freq;
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	/** mark if D-PHY should keep work or not */
+	uint32_t phy_keep_work;
+#endif
+    dsih_state_t status;
     void (*bsp_pre_config)(struct dphy_t *instance, void* param);                      
     uint32_t (*core_read_function)(uint32_t addr, uint32_t offset);                    
     void (*core_write_function)(uint32_t addr, uint32_t offset, uint32_t data);        
