@@ -98,10 +98,6 @@ static int sprdbat_start_chg_process_ext(void);
 static int plugin_callback_ext(int usb_cable, void *data);
 static int plugout_callback_ext(int usb_cable, void *data);
 #endif
-uint32_t sprd_get_vbat_voltage(void)
-{
-	return sprdbat_read_vbat_vol();
-}
 
 static int sprdbat_ac_get_property(struct power_supply *psy,
 				   enum power_supply_property psp,
