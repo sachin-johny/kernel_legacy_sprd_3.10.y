@@ -37,7 +37,7 @@
 #include "sprdfb_notifier.h"
 #endif
 
-#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
+//#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
 
 #ifndef CONFIG_OF
 #ifdef CONFIG_FB_SCX15
@@ -403,6 +403,16 @@ static void dispc_set_exp_mode(uint16_t exp_mode)
 	reg_val &= ~(0x3 << 16);
 	reg_val |= (exp_mode << 16);
 	dispc_write(reg_val, DISPC_CTRL);
+}
+
+/*
+ * thres0: module fetch data when buffer depth <= thres0
+ * thres1: module release busy and close AXI clock
+ * thres2: module open AXI clock and prepare to fetch data
+ */
+static void dispc_set_threshold(uint16_t thres0, uint16_t thres1, uint16_t thres2)
+{
+	dispc_write((thres0)|(thres1<<14)|(thres2<<16), DISPC_BUF_THRES);
 }
 
 static void dispc_module_enable(void)
@@ -897,7 +907,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	return 0;
 }
 
-#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
+#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
 struct devfreq_dbs sprd_fb_notify = {
 	.level = 0,
 	.data = &dispc_ctx,
@@ -953,7 +963,7 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 
 	dispc_ctx.is_inited = true;
 
-#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
+#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
 	devfreq_notifier_register(&sprd_fb_notify);
 #endif
 	return 0;
@@ -1170,6 +1180,10 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	dispc_set_exp_mode(0x0);
 	//enable DISPC Power Control
 	dispc_pwr_enable(true);
+#ifdef CONFIG_FB_SCX30G
+	//set buf thres
+	dispc_set_threshold(0x1000, 0x00, 0x1000);//0x1000: 4K
+#endif
 
 	if(dispc_ctx.is_first_frame){
 		dispc_layer_init(&(dev->fb->var));
@@ -2081,7 +2095,7 @@ static int32_t sprdfb_dispc_notify_change_fps(struct dispc_dbs *h, int fps_level
 
 #endif
 
-#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
+#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
 /*return value:
 0 -- Allow DMC change frequency
 1 -- Don't allow DMC change frequency*/
@@ -2108,9 +2122,9 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 		}
 */
 		if(state == DEVFREQ_PRE_CHANGE){
-			dispc_write(0x9600960, 0x0c);
+			dispc_set_threshold(0x960, 0x00, 0x960);
 		}else{
-			dispc_write(0x5000500, 0x0c);
+			dispc_set_threshold(0x500, 0x00, 0x500);
 		}
 
 /*
