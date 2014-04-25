@@ -827,11 +827,8 @@ static int __init sprd_cpufreq_modinit(void)
 	if (IS_ERR(sprd_cpufreq_conf->tdpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
 
-#if defined(CONFIG_ARCH_SCX30G)
-	sprd_cpufreq_conf->regulator = regulator_get(NULL, "dcdcarm");
-#else
 	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
-#endif
+
 	if (IS_ERR(sprd_cpufreq_conf->regulator))
 		return PTR_ERR(sprd_cpufreq_conf->regulator);
 

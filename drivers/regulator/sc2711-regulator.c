@@ -45,6 +45,8 @@
 #include <mach/adc.h>
 #include <mach/arch_misc.h>
 
+#define REGULATOR_ROOT_DIR	"sprd-regulator"
+
 #undef debug
 #define debug(format, arg...) pr_info("regu: " "@@@%s: " format, __func__, ## arg)
 #define debug0(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
@@ -105,6 +107,9 @@ enum {
 };
 
 #define REGU_VERIFY_DLY	(1000)	/*ms */
+
+static u16 ana_status_bondopt4;
+static u32 ana_chip_id;
 
 static DEFINE_MUTEX(adc_chan_mutex);
 extern int sci_efuse_calibration_get(u32 * p_cal_data);
@@ -390,7 +395,7 @@ static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 
 	/* FIXME: vddmem step 200/32mV */
-	return (0 == strcmp(desc->desc.name, "dcdcmem") ) ? (1000 * 200 / 32) : (1000 * 100 / 32) /*uV */;
+	return (0 == strcmp(desc->desc.name, "vddmem") ) ? (1000 * 200 / 32) : (1000 * 100 / 32) /*uV */;
 }
 
 static int __dcdc_enable_time(struct regulator_dev *rdev, int old_vol)
@@ -439,7 +444,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		int shft = __ffs(regs->vol_ctl_bits);
 		int j = (int)(mv - regs->vol_sel[i]) * 1000 / dcdc_get_trimming_step(rdev, 0);
 
-		if (0 == strcmp(desc->desc.name, "dcdcmem") )
+		if (0 == strcmp(desc->desc.name, "vddmem") )
 			j += 0x10;
 
 		BUG_ON(j > (regs->vol_trm_bits >> __ffs(regs->vol_trm_bits)));
@@ -502,7 +507,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 		}
 
 		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits);
-		if (0 == strcmp(desc->desc.name, "dcdcmem") )
+		if (0 == strcmp(desc->desc.name, "vddmem") )
 			cal -= 0x10;
 
 		cal *= dcdc_get_trimming_step(rdev, 0);	/*uV */
@@ -603,19 +608,17 @@ static int __init __adc_cal_setup(char *str)
 	}
 	return 0;
 }
-
 early_param("adc_cal", __adc_cal_setup);
 
 static int __init __adc_cal_fuse_setup(void)
 {
-#if defined(xxxCONFIG_ARCH_SCX15)
 	if (!__is_valid_adc_cal() &&
 	    sci_efuse_calibration_get((u32 *) adc_data)) {
 		debug("%d : %d -- %d : %d\n",
 		      (int)adc_data[0][0], (int)adc_data[0][1],
 		      (int)adc_data[1][0], (int)adc_data[1][1]);
 	}
-#endif
+
 	return 0;
 }
 
@@ -1078,6 +1081,14 @@ void *sci_regulator_register(struct platform_device *pdev,
 
 	desc->desc.id = atomic_inc_return(&idx) - 1;
 
+	if (0 == strcmp(desc->desc.name, "vddrf0")) {
+		if (ana_status_bondopt4) { /* BONDOPT4 */
+			desc->regs->vol_def = 2800;
+		} else {
+			desc->regs->vol_def = 1800;
+		}
+	}
+
 	BUG_ON(desc->regs->pd_set
 	       && desc->regs->pd_set == desc->regs->pd_rst
 	       && desc->regs->pd_set_bit == desc->regs->pd_rst_bit);
@@ -1138,15 +1149,54 @@ void *sci_regulator_register(struct platform_device *pdev,
  */
 static int sci_regulator_probe(struct platform_device *pdev)
 {
-	debug0("platform device %p\n", pdev);
-#include CONFIG_REGULATOR_SPRD_MAP 
+#ifdef CONFIG_DEBUG_FS
+	debugfs_root =
+		debugfs_create_dir(REGULATOR_ROOT_DIR, NULL);
+	if (IS_ERR(debugfs_root) || !debugfs_root) {
+		WARN(!debugfs_root,
+			 "%s: Failed to create debugfs directory\n", REGULATOR_ROOT_DIR);
+		debugfs_root = NULL;
+	}
+
+	/* compatible with 8810 adc test */
+	debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
+			   debugfs_root, (u32 *) & ana_addr);
+	debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
+				debugfs_root, &ana_addr, &fops_ana_addr);
+	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
+				debugfs_root, &adc_chan, &fops_adc_chan);
+	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
+			   debugfs_root, (u64 *) & adc_data);
+
+	{ /* vddarm/vddcore/vddmem common debugfs interface */
+		char str[NAME_MAX];
+		struct dentry *vol_root = debugfs_create_dir("vol", NULL);
+		sprintf(str, "../%s/vddarm/voltage", REGULATOR_ROOT_DIR);
+		debugfs_create_symlink("dcdcarm", vol_root, str);
+		sprintf(str, "../%s/vddcore/voltage", REGULATOR_ROOT_DIR);
+		debugfs_create_symlink("dcdccore", vol_root, str);
+		sprintf(str, "../%s/vddmem/voltage", REGULATOR_ROOT_DIR);
+		debugfs_create_symlink("dcdcmem", vol_root, str);
+	}
+#endif
+
+	ana_chip_id = (sci_get_ana_chip_id() | sci_get_ana_chip_ver());
+	ana_status_bondopt4 = (ANA_REG_GET(ANA_REG_GLB_LDO_V_CTRL9) >> 15) & 0x1;
+
+	pr_info("sc271x ana chip id: (0x%08x), bond opt (0x%08x)\n", ana_chip_id, ana_status_bondopt4);
+
+#include CONFIG_REGULATOR_SPRD_MAP
+
 	return 0;
 }
 
+#ifdef CONFIG_OF
 static struct of_device_id sprd_regulator_of_match[] = {
 	{ .compatible = "sprd,sc2711-regulator", },
 	{ }
 };
+#endif
+
 static struct platform_driver sci_regulator_driver = {
 	.driver = {
 		   .name = "sc2711-regulator",
@@ -1158,37 +1208,7 @@ static struct platform_driver sci_regulator_driver = {
 
 static int __init regu_driver_init(void)
 {
-#ifdef CONFIG_DEBUG_FS
-	debugfs_root =
-	    debugfs_create_dir(sci_regulator_driver.driver.name, NULL);
-	if (IS_ERR(debugfs_root) || !debugfs_root) {
-		WARN(!debugfs_root,
-		     "%s: Failed to create debugfs directory\n",
-		     sci_regulator_driver.driver.name);
-		debugfs_root = NULL;
-	}
-
-	/* compatible with 8810 adc test */
-	debugfs_create_u32("ana_addr", S_IRUGO | S_IWUSR,
-			   debugfs_root, (u32 *) & ana_addr);
-	debugfs_create_file("ana_valu", S_IRUGO | S_IWUSR,
-			    debugfs_root, &ana_addr, &fops_ana_addr);
-	debugfs_create_file("adc_chan", S_IRUGO | S_IWUSR,
-			    debugfs_root, &adc_chan, &fops_adc_chan);
-	debugfs_create_u64("adc_data", S_IRUGO | S_IWUSR,
-			   debugfs_root, (u64 *) & adc_data);
-
-	{ /* vddarm/vddcore/vddmem common debugfs interface */
-		char str[NAME_MAX];
-		struct dentry *vol_root = debugfs_create_dir("vol", NULL);
-		sprintf(str, "../%s/vddarm/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdcarm", vol_root, str);
-		sprintf(str, "../%s/vddcore/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdccore", vol_root, str);
-		sprintf(str, "../%s/dcdcmem/voltage", sci_regulator_driver.driver.name);
-		debugfs_create_symlink("dcdcmem", vol_root, str);
-	}
-#endif
+	__adc_cal_fuse_setup();
 
 	return platform_driver_register(&sci_regulator_driver);
 }
@@ -1201,27 +1221,22 @@ int __init sci_regulator_init(void)
 		.id = -1,
 	};
 
-#if defined(CONFIG_ARCH_SCX15)
 	sci_adi_raw_write(ANA_REG_GLB_PWR_WR_PROT_VALUE,
 			  BITS_PWR_WR_PROT_VALUE(0x6e7f));
 	WARN_ON(!
 		(sci_adi_read(ANA_REG_GLB_PWR_WR_PROT_VALUE) &
 		 BIT_PWR_WR_PROT));
 	sci_adi_raw_write(ANA_REG_GLB_PWR_WR_PROT_VALUE, 0);
-#endif
 
 	__adc_cal_fuse_setup();
 	return platform_device_register(&regulator_device);
 #else
-	return 0;
+	return of_platform_populate(of_find_node_by_path("/sprd-regulators"),
+			sprd_regulator_of_match, NULL, NULL);
 #endif
 }
 
-#ifndef CONFIG_OF
 subsys_initcall(regu_driver_init);
-#else
-module_init(regu_driver_init);
-#endif
 
 MODULE_LICENSE("GPL v2");
 MODULE_DESCRIPTION("Spreadtrum voltage regulator driver");
