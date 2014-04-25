@@ -178,6 +178,7 @@ enum {
 	DCAM_PATH0 = 0,
 	DCAM_PATH1,
 	DCAM_PATH2,
+	DCAM_PATH_MAX
 };
 
 #ifdef   __cplusplus

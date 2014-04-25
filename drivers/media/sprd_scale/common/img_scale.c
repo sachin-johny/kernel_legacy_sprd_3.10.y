@@ -23,6 +23,7 @@
 #include <linux/kthread.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/vmalloc.h>
 
 #include "dcam_drv.h"
 
@@ -302,7 +303,12 @@ static int img_scale_proc_read(char *page,
 
 	(void)start; (void)off; (void)count; (void)eof;
 
-	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
+	reg_buf = (uint32_t*)vzalloc(reg_buf_len);
+	if (!reg_buf) {
+		printk("alloc reg_buff fail");
+		return len;
+	}
+	memset(reg_buf, 0, reg_buf_len);
 	ret = scale_read_registers(reg_buf, &reg_buf_len);
 	if (ret)
 		return len;
@@ -323,7 +329,7 @@ static int img_scale_proc_read(char *page,
 	len += sprintf(page + len, "********************************************* \n");
 	len += sprintf(page + len, "The end of DCAM device \n");
 	msleep(10);
-	kfree(reg_buf);
+	vfree(reg_buf);
 
 	return len;
 }
@@ -358,7 +364,7 @@ int img_scale_probe(struct platform_device *pdev)
 	mutex_init(&scale_param_cfg_mutex);
 	mutex_init(&scale_dev_open_mutex);
 
-	g_scale_user = kzalloc(SCALE_USER_MAX * sizeof(struct scale_user), GFP_KERNEL);
+	g_scale_user = vzalloc(SCALE_USER_MAX * sizeof(struct scale_user));
 	if (NULL == g_scale_user) {
 		printk("scale_user, no mem");
 		return -1;
@@ -381,7 +387,7 @@ static int img_scale_remove(struct platform_device *dev)
 	SCALE_TRACE( "scale_remove called !\n");
 
 	if (g_scale_user) {
-		kfree(g_scale_user);
+		vfree(g_scale_user);
 	}
 
 	if (img_scale_proc_file) {

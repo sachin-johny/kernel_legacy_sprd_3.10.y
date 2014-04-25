@@ -39,6 +39,7 @@
 #include <mach/hardware.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/vmalloc.h>
 
 #if defined(CONFIG_ARCH_SCX35)
 #include "Shark_reg_isp.h"
@@ -129,6 +130,7 @@ struct isp_device_t
 	struct semaphore sem_isr;/*for interrupts*/
 	struct semaphore sem_isp;/*for the isp device, protect the isp hardware; protect  only  one caller use the oi*/ 
 				/*controll/read/write functions*/
+	struct clk* s_isp_clk_mm_i;
 	struct clk              *s_isp_clk;
 };
 
@@ -1179,28 +1181,27 @@ static int32_t __init isp_kernel_init(void)
 		return -1;
 	}
 
-	g_isp_dev_ptr = (struct isp_device_t*)kmalloc(sizeof(struct isp_device_t), GFP_KERNEL);
+	g_isp_dev_ptr = (struct isp_device_t*)vzalloc(sizeof(struct isp_device_t));
 	ISP_CHECK_ZERO(g_isp_dev_ptr);
-	memset(g_isp_dev_ptr, 0x00, sizeof(struct isp_device_t));
 	init_MUTEX(&g_isp_dev_ptr->sem_isp);
 	init_MUTEX_LOCKED(&g_isp_dev_ptr->sem_isr); /*for interrupt */
 	g_isp_dev_ptr->s_isp_clk = NULL;
+	g_isp_dev_ptr->s_isp_clk_mm_i = NULL;
 	g_isp_dev_ptr->buf_addr = 0;
 	g_isp_dev_ptr->buf_len = 0;
 
-	g_isp_dev_ptr->buf_addr = (uint32_t)kmalloc(ISP_BUF_MAX_SIZE, GFP_KERNEL);
+	g_isp_dev_ptr->buf_addr = (uint32_t)vzalloc(ISP_BUF_MAX_SIZE);
 	if (0 == g_isp_dev_ptr->buf_addr) {
 		ret = -1;
-		ISP_PRINT ("isp_kernel_init 1: kmalloc  error \n");
+		ISP_PRINT ("isp_kernel_init 1: alloc  error \n");
 		goto ISP_K_INIT_EXIT;
 	}
 	g_isp_dev_ptr->buf_len = ISP_BUF_MAX_SIZE;
-	memset((void*)g_isp_dev_ptr->buf_addr, 0x00, ISP_BUF_MAX_SIZE);
 
 	ret = _isp_alloc(&addr, ISP_BUF_MAX_SIZE);
 	if (ret) {
 		ret = -1;
-		ISP_PRINT ("isp_kernel_init 2: kmalloc  error \n");
+		ISP_PRINT ("isp_kernel_init 2: alloc  error \n");
 		goto ISP_K_INIT_EXIT;
 	}
 
@@ -1211,12 +1212,12 @@ static int32_t __init isp_kernel_init(void)
 ISP_K_INIT_EXIT:
 	_isp_free();
 	if (g_isp_dev_ptr->buf_addr) {
-		kfree((void *)g_isp_dev_ptr->buf_addr);
+		vfree((void *)g_isp_dev_ptr->buf_addr);
 		g_isp_dev_ptr->buf_addr = 0;
 		g_isp_dev_ptr->buf_len = 0;
 	}
 	if (g_isp_dev_ptr) {
-		kfree(g_isp_dev_ptr);
+		vfree(g_isp_dev_ptr);
 		g_isp_dev_ptr = 0;
 	}
 
@@ -1232,11 +1233,11 @@ static void isp_kernel_exit(void)
 	_isp_free();
 	ISP_CHECK_ZERO_VOID(g_isp_dev_ptr);
 	if (g_isp_dev_ptr->buf_addr) {
-		kfree((void *)g_isp_dev_ptr->buf_addr);
+		vfree((void *)g_isp_dev_ptr->buf_addr);
 		g_isp_dev_ptr->buf_addr = 0;
 		g_isp_dev_ptr->buf_len = 0;
 	}
-	kfree(g_isp_dev_ptr);
+	vfree(g_isp_dev_ptr);
 	g_isp_dev_ptr = NULL;
 
 	ISP_PRINT ("isp_k: exit end \n");

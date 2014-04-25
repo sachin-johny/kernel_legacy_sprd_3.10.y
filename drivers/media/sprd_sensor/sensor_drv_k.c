@@ -27,6 +27,7 @@
 #include <linux/slab.h>
 #include <linux/of_gpio.h>
 
+#include <linux/vmalloc.h>
 #include <linux/delay.h>
 #include <linux/i2c.h>
 #include <linux/gpio.h>
@@ -214,7 +215,7 @@ LOCAL struct sensor_module * s_p_sensor_mod = PNULL;
 SENSOR_PROJECT_FUNC_T s_sensor_project_func = {PNULL};
 
 
-LOCAL void* _sensor_k_kmalloc(size_t size, unsigned flags)
+LOCAL void* _sensor_k_kmalloc(size_t size)
 {
 	if (SENSOR_ADDR_INVALID(s_p_sensor_mod)) {        \
 		printk("SENSOR, zero pointer \n");         \
@@ -223,7 +224,7 @@ LOCAL void* _sensor_k_kmalloc(size_t size, unsigned flags)
 	}
 
 	if(PNULL == s_p_sensor_mod->sensor_mem.buf_ptr) {
-		s_p_sensor_mod->sensor_mem.buf_ptr = kmalloc(size, flags);
+		s_p_sensor_mod->sensor_mem.buf_ptr = vzalloc(size);
 		if(PNULL != s_p_sensor_mod->sensor_mem.buf_ptr) {
 			s_p_sensor_mod->sensor_mem.size = size;
 		}
@@ -232,12 +233,12 @@ LOCAL void* _sensor_k_kmalloc(size_t size, unsigned flags)
 	} else if (size <= s_p_sensor_mod->sensor_mem.size) {
 		return s_p_sensor_mod->sensor_mem.buf_ptr;
 
-	}  else {
+	} else {
 		//realloc memory
-		kfree(s_p_sensor_mod->sensor_mem.buf_ptr);
+		vfree(s_p_sensor_mod->sensor_mem.buf_ptr);
 		s_p_sensor_mod->sensor_mem.buf_ptr = PNULL;
 		s_p_sensor_mod->sensor_mem.size = 0;
-		s_p_sensor_mod->sensor_mem.buf_ptr = kmalloc(size, flags);
+		s_p_sensor_mod->sensor_mem.buf_ptr = vzalloc(size);
 		if (PNULL != s_p_sensor_mod->sensor_mem.buf_ptr) {
 			s_p_sensor_mod->sensor_mem.size = size;
 		}
@@ -246,12 +247,9 @@ LOCAL void* _sensor_k_kmalloc(size_t size, unsigned flags)
 	}
 }
 
-LOCAL void* _sensor_k_kzalloc(size_t size, unsigned flags)
+LOCAL void* _sensor_k_kzalloc(size_t size)
 {
-	void *ptr = _sensor_k_kmalloc(size, flags);
-	if(PNULL != ptr) {
-		 memset(ptr, 0, size);
-	}
+	void *ptr = _sensor_k_kmalloc(size);
 
 	return ptr;
 }
@@ -1117,13 +1115,13 @@ LOCAL int _sensor_k_wr_regtab(SENSOR_REG_TAB_PTR pRegTab)
 	do_gettimeofday(&time1);
 	
 	size = cnt*sizeof(SENSOR_REG_T);
-	pBuff = _sensor_k_kmalloc(size, GFP_KERNEL);
+	pBuff = _sensor_k_kmalloc(size);
 	if (PNULL == pBuff) {
 		ret = SENSOR_K_FAIL;
-		SENSOR_PRINT_ERR("sensor W RegTab err:kmalloc fail, cnt %d, size %d\n", cnt, size);
+		SENSOR_PRINT_ERR("sensor W RegTab err:alloc fail, cnt %d, size %d\n", cnt, size);
 		goto _Sensor_K_WriteRegTab_return;
 	} else {
-		SENSOR_PRINT("sensor W RegTab: kmalloc success, cnt %d, size %d \n",cnt, size);
+		SENSOR_PRINT("sensor W RegTab: alloc success, cnt %d, size %d \n",cnt, size);
 	}
 
 	if (copy_from_user(pBuff, pRegTab->sensor_reg_tab_ptr, size)) {
@@ -1177,12 +1175,12 @@ LOCAL int _sensor_k_wr_i2c(SENSOR_I2C_T_PTR pI2cTab)
 	int             ret = SENSOR_K_FAIL;
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
-	pBuff = _sensor_k_kmalloc(cnt, GFP_KERNEL);
+	pBuff = _sensor_k_kmalloc(cnt);
 	if (PNULL == pBuff) {
-		SENSOR_PRINT_ERR("sensor W I2C ERR: kmalloc fail, size %d\n", cnt);
+		SENSOR_PRINT_ERR("sensor W I2C ERR: alloc fail, size %d\n", cnt);
 		goto sensor_k_writei2c_return;
 	} else {
-		SENSOR_PRINT("sensor W I2C: kmalloc success, size %d\n", cnt);
+		SENSOR_PRINT("sensor W I2C: alloc success, size %d\n", cnt);
 	}
 
 	if (copy_from_user(pBuff, pI2cTab->i2c_data, cnt)) {
@@ -1271,12 +1269,12 @@ LOCAL ssize_t sensor_k_write(struct file *filp, const char __user *ubuf, size_t 
 		pBuff = buf;
 		need_alloc = 0;
 	}  else {
-		pBuff = _sensor_k_kmalloc(cnt, GFP_KERNEL);
+		pBuff = _sensor_k_kmalloc(cnt);
 		if (PNULL == pBuff) {
-			SENSOR_PRINT_ERR("sensor w ERR: kmalloc fail, size %d \n", cnt);
+			SENSOR_PRINT_ERR("sensor w ERR: alloc fail, size %d \n", cnt);
 			goto sensor_k_write_return;
 		} else {
-			SENSOR_PRINT("sensor w: kmalloc success, size %d \n", cnt);
+			SENSOR_PRINT("sensor w: alloc success, size %d \n", cnt);
 		}
 	}
 
@@ -1328,14 +1326,14 @@ int _sensor_burst_write_init(SENSOR_REG_T_PTR p_reg_table, uint32_t init_table_s
 		SENSOR_PRINT_ERR("SENSOR: burst w Init err, i2c_clnt NULL!.\n");
 		return -1;
 	}
-	p_reg_val_tmp = (uint8_t*)_sensor_k_kzalloc(init_table_size*sizeof(uint16_t) + 16, GFP_KERNEL);
+	p_reg_val_tmp = (uint8_t*)_sensor_k_kzalloc(init_table_size*sizeof(uint16_t) + 16);
 
 	if(PNULL == p_reg_val_tmp){
-		SENSOR_PRINT_ERR("_sensor_burst_write_init ERROR:kmalloc is fail, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
+		SENSOR_PRINT_ERR("_sensor_burst_write_init ERROR: alloc is fail, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
 		return -1;
 	}
 	else{
-		SENSOR_PRINT_HIGH("_sensor_burst_write_init: kmalloc success, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
+		SENSOR_PRINT_HIGH("_sensor_burst_write_init: alloc success, size = %d \n", init_table_size*sizeof(uint16_t) + 16);
 	}
 
 
@@ -1747,9 +1745,9 @@ int __init sensor_k_init(void)
 {
 	printk(KERN_INFO "sensor_k_init called !\n");
 
-	s_p_sensor_mod = (struct sensor_module *)kmalloc(sizeof(struct sensor_module), GFP_KERNEL);
+	s_p_sensor_mod = (struct sensor_module *)vzalloc(sizeof(struct sensor_module));
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
-	memset((void*)s_p_sensor_mod, 0, sizeof(struct sensor_module));
+
 	s_p_sensor_mod->sensor_id = SENSOR_ID_MAX;
 	mutex_init(&s_p_sensor_mod->sensor_lock);
 
@@ -1769,7 +1767,7 @@ void sensor_k_exit(void)
 	if (SENSOR_ADDR_INVALID(s_p_sensor_mod)) {
 		printk("SENSOR: Invalid addr, 0x%x", (uint32_t)s_p_sensor_mod);
 	} else {
-		kfree(s_p_sensor_mod);
+		vfree(s_p_sensor_mod);
 		s_p_sensor_mod = NULL;
 	}
 }
