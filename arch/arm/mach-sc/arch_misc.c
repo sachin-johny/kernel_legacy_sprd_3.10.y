@@ -22,6 +22,7 @@
 #include <linux/mm.h>
 #include <linux/clk.h>
 #include <linux/debugfs.h>
+#include <linux/mm.h>
 
 #include <asm/delay.h>
 #include <asm/memory.h>
@@ -34,7 +35,7 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/arch_misc.h>
-
+#include "../mm/mm.h"
 /*#define DEBUG */
 #ifdef DEBUG
 #define DEBUGSEE printk
@@ -67,6 +68,34 @@ int sci_get_ana_chip_ver(void)
 #endif
 }
 
+void set_section_ro(unsigned long virt, unsigned long numsections)
+{
+	pmd_t *pmd;
+	unsigned long start = virt;
+	unsigned long end = virt + (numsections << SECTION_SHIFT);
+	unsigned long pmd_end;
+
+	while (virt < end) {
+		pmd = pmd_off_k(virt);
+
+		if ((pmd_val(*pmd) & PMD_TYPE_MASK) != PMD_TYPE_SECT) {
+			pr_err("%s: pmd %p=%08lx for %08lx not section map\n",
+				__func__, pmd, pmd_val(*pmd), virt);
+			return;
+		}
+
+		/*
+		 * We set section page table entry APX:1 AP:01
+		 * Privileged : READ, Unprivileged : No Access
+		 */
+		*pmd |= PMD_SECT_APX;
+		pr_debug("%s: pmd %p=%08lx for %08lx ok\n",
+				__func__, pmd, pmd_val(*pmd), virt);
+		virt += SECTION_SIZE;
+	}
+
+	flush_tlb_kernel_range(start, end);
+}
 
 void __iomap_page(unsigned long virt, unsigned long size, int enable)
 {
