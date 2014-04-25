@@ -23,6 +23,7 @@
 #define DISPC_CTRL		(0x0000)
 #define DISPC_SIZE_XY		(0x0004)
 #define DISPC_RSTN		(0x0008)
+#define DISPC_BUF_THRES (0x000C)
 
 #define DISPC_STS			(0x0010)
 
