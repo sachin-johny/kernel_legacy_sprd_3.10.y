@@ -583,6 +583,10 @@ int mux_ipc_sdio_write_test(const char *buf, size_t  count)
 
 int mux_ipc_sdio_write(const char *buf, size_t  count)
 {
+        if(s_mux_ipc_event_flags & MUX_IPC_WRITE_DISABLE) {
+            printk("[mipc]mux_ipc_sdio_write write disabled!\r\n");
+            return -1;
+        }
         wait_cp_bootup();
         IPC_DBG("[mipc]mux_ipc_sdio_write write len:%d\r\n", count);
         return mux_ipc_xmit_buf(buf, count);

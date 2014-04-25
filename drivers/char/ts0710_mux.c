@@ -242,7 +242,6 @@ struct notify {
 
 struct sprd_mux {
 	SPRDMUX_ID_E mux_id;
-	unsigned long mux_recv_flags;
 	int mux_exiting;
 	mux_send_struct *mux_send_info[NR_MUXS];
 	volatile __u8 mux_send_info_flags[NR_MUXS];
@@ -1558,7 +1557,7 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 		break;
 
 	case UA:
-		MUX_TS0710_DEBUG(self->mux_id, "UA packet received\n");
+		printk(KERN_INFO "MUX: id[%d] dlci = %d UA packet received\n", self->mux_id, dlci);
 
 		if (!dlci) {
 			MUX_TS0710_DEBUG(self->mux_id, "server channel == 0|dlci[0].state=%d\n",
@@ -2944,10 +2943,6 @@ static void receive_worker(struct sprd_mux *self, int start)
 
 	count = self->io_hal->io_read(self->tbuf_ptr, TS0710MUX_MAX_BUF_SIZE - (self->tbuf_ptr - self->tbuf));
 	if (count <= 0 || self->cmux_mode == 0) {
-		memset(self->tbuf, 0, TS0710MUX_MAX_BUF_SIZE);
-		self->tbuf_ptr = self->tbuf;
-		self->start_flag = 0;
-		self->framelen = -1;
 		return;
 	}
 
@@ -2955,7 +2950,6 @@ static void receive_worker(struct sprd_mux *self, int start)
 
 	if ((self->start_flag != 0) && (self->framelen != -1)) {
 		if ((self->tbuf_ptr - self->start_flag) < self->framelen) {
-			clear_bit(RECV_RUNNING, &self->mux_recv_flags);
 			return;
 		}
 	}
@@ -3107,8 +3101,6 @@ static void receive_worker(struct sprd_mux *self, int start)
 			break;
 		}		/* End Frame Start Flag found */
 	}			/* End while(1) */
-
-	clear_bit(RECV_RUNNING, &self->mux_recv_flags);
 }
 
 static int mux_receive_thread(void *data)
@@ -3352,7 +3344,6 @@ int ts0710_mux_create(int mux_id)
 		mutex_init(&self->open_mutex[j]);
 	}
 
-	self->mux_recv_flags = 0;
 	self->framelen = -1;
 	self->expect_seq = 0;
 	self->mux_status = MUX_STATE_NOT_READY;
@@ -3872,6 +3863,11 @@ static void mux_tidy_buff(struct sprd_mux *self)
 		send_info->filled = 0;
 		send_info->length = 0;
 	}
+
+	memset(self->tbuf, 0, TS0710MUX_MAX_BUF_SIZE);
+	self->tbuf_ptr = self->tbuf;
+	self->start_flag = 0;
+	self->framelen = -1;
 
 	return;
 }
