@@ -20,8 +20,6 @@
 #include <linux/module.h>
 #include <linux/platform_device.h>
 #include <linux/io.h>
-#include <mach/pinmap.h>
-//#include "internal.h"
 
 #define	STRING_LEN	4
 
@@ -40,8 +38,8 @@ struct simdesc {
 #ifdef CONFIG_ARCH_SCX35
 
 static struct simdesc sim_cards[] = {
-	{ "0", "t", 0x08, 0x00100000 },
-	{ "1", "w", 0x08, 0x00400000 },
+	{ "0", "t", SPRD_PIN_BASE + 0x08, 0x00100000 },
+	{ "1", "w", SPRD_PIN_BASE + 0x08, 0x00400000 },
 };
 static int sim_count = ARRAY_SIZE(sim_cards);
 #else
@@ -52,46 +50,12 @@ static int sim_count = ARRAY_SIZE(sim_cards);
 
 static struct proc_dir_entry *simdir;
 
-static int simctrl_write_proc(struct file *file, const char __user *buffer,
-			   unsigned long count, void *data);
-static int simctrl_open_proc(struct inode *inode, struct file *filp);
-static ssize_t simctrl_read_proc(struct file *filp,
-		char __user *buf, size_t count, loff_t *ppos);
-
-static const struct file_operations simctrl_ops = {
-	.owner		= THIS_MODULE,
-    .open		= simctrl_open_proc,
-	.read		= simctrl_read_proc,
-	.write		= simctrl_write_proc,
-};
-
-
-static int simctrl_open_proc(struct inode *inode, struct file *filp)
+static int simctrl_read_proc(char *page, char **start, off_t off,
+			  int count, int *eof, void *data)
 {
-	struct simdesc *entry = (struct simdesc *)PDE_DATA(inode);
-	filp->private_data = entry;
+	struct simdesc *sim = (struct simdesc *)data;
 
-	return 0;
-}
-
-static ssize_t simctrl_read_proc(struct file *filp,
-		char __user *buf, size_t count, loff_t *ppos)
-{
-	struct simdesc *entry = (struct simdesc *)filp->private_data;
-
-	if (*ppos >= strlen(entry->type)) {
-		return 0;
-	}
-	
-	if (copy_to_user(buf, entry->type, strlen(entry->type))) {
-		printk("simctrl read proc: copy error \n");
-		return -EFAULT;
-	}
-
-	count = strlen(entry->type);
-	*ppos += count;
-
-    return count;
+	return sprintf(page, "%s\n", sim->type);
 }
 
 static int simctrl_write_proc(struct file *file, const char __user *buffer,
@@ -114,11 +78,14 @@ static int simctrl_write_proc(struct file *file, const char __user *buffer,
 
 	if (strcmp(sim_type, "t") == 0) {
 
-		value = pinmap_get(sim->addr) | sim->bitm;
-		pinmap_set(sim->addr, value);
+		value = __raw_readl(sim->addr) | sim->bitm;
+		__raw_writel(value, sim->addr);
+
 	} else if (strcmp(sim_type, "w") == 0) {
-		value = pinmap_get(sim->addr) & ~sim->bitm;
-		pinmap_set(sim->addr, value);
+
+		value = __raw_readl(sim->addr) & ~sim->bitm;
+		__raw_writel(value, sim->addr);
+
 	} else {
 		pr_info("Unknow sim type %s\n", sim_type);
 		return count;
@@ -132,12 +99,14 @@ static int simctrl_register(struct simdesc *sim)
 {
 	struct proc_dir_entry *node;
 
-	node = proc_create_data(sim->name, S_IWUSR | S_IRUSR, simdir, &simctrl_ops, sim);
-	//create_proc_entry(sim->name, S_IWUSR | S_IRUSR, simdir);
+	node = create_proc_entry(sim->name, S_IWUSR | S_IRUSR, simdir);
 	if (!node) {
 		return -EFAULT;
 	}
-	
+
+	node->read_proc = simctrl_read_proc;
+	node->write_proc = simctrl_write_proc;
+	node->data = sim;
 	sim->node = node;
 
 	return 0;
