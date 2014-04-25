@@ -614,14 +614,10 @@ static void ft53x6_power_on(void)
 static void ft5x0x_ts_suspend(struct early_suspend *handler)
 {
 	int ret = -1;
-	int count = 5;
 	pr_info("==%s==\n", __FUNCTION__);
 	ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
-	while(ret == 0 && count != 0) {
-			PRINT_ERR("trying to enter hibernate again. ret = %d\n", ret);
-			msleep(10);
-			ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
-			count--;
+	if(ret){
+		PRINT_ERR("==ft5x0x_ts_suspend==  ft5x0x_write_reg fail\n");
 	}
 	disable_irq(this_client->irq);
 	ft5x0x_clear_report_data(g_ft5x0x_ts);
@@ -987,18 +983,7 @@ static const struct i2c_device_id ft5x0x_ts_id[] = {
 
 static int ft5x0x_suspend(struct i2c_client *client, pm_message_t mesg)
 {
-	int ret = -1;
-	int count = 5;
 	PRINT_INFO("ft5x0x_suspend\n");
-	ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
-	if(ret != 0)
-		PRINT_INFO("CTP is in hibernate mode. ret = %d\n", ret);
-	while(ret == 0 && count != 0) {
-			PRINT_ERR("trying to enter hibernate again. ret = %d\n", ret);
-			msleep(10);
-			ret = ft5x0x_write_reg(FT5X0X_REG_PMODE, PMODE_HIBERNATE);
-			count--;
-	}
 	return 0;
 }
 static int ft5x0x_resume(struct i2c_client *client)
