@@ -958,16 +958,6 @@ static inline bool ipc_cansend(struct ipc_spi_dev *dev)
 	return bsend;
 }
 
-void ipc_debug(struct ipc_spi_dev *dev)
-{
-	struct ipc_transfer *p_transfer = &dev->tx_transfer;
-	struct ipc_transfer_frame *frame_ptr = NULL;
-	printk("++ tranfer count %d \n", p_transfer->counter);
-	list_for_each_entry(frame_ptr, &p_transfer->frame_fifo, link) {
-		printk("+-+-%p, %d, %d \n", frame_ptr, frame_ptr->pos, frame_ptr->seq);
-	}
-}
-
 static int mux_ipc_thread(void *data)
 {
 	int rval = 0;
@@ -997,14 +987,9 @@ static int mux_ipc_thread(void *data)
 				dev->tx_transfer.counter, dev->bneedrcv);
 		if(!dev->ipc_enable) {
 			printk(KERN_ERR "ipc was disabled , there must something wrong! \n");
-			printk("++-- %d, %d, %p \n", ipc_IsTransferFifoEmpty(&dev->tx_transfer), dev->tx_transfer.counter, dev->tx_transfer.cur_frame_ptr);
 			ipc_reset(dev);
-			ipc_debug(dev);
 			ipc_FlushTxTransfer(&dev->tx_transfer);
-			ipc_debug(dev);
 			ipc_FreeAllTxTransferFrame(dev);
-			ipc_debug(dev);
-			printk("+- %d, %d, %p \n", ipc_IsTransferFifoEmpty(&dev->tx_transfer), dev->tx_transfer.counter, dev->tx_transfer.cur_frame_ptr);
 			ipc_freeallrxframe(dev);
 			ap2cp_disable();
 			dev->rwctrl = 0;
@@ -1094,6 +1079,9 @@ static int ipc_debug_show(struct seq_file *m, void *private)
 {
 	u32 *sdata = NULL;
 	struct ipc_spi_dev *dev = ipc_dev;
+	struct ipc_transfer *p_transfer = &dev->tx_transfer;
+	struct ipc_transfer_frame *frame_ptr = NULL;
+	struct frame_list *frame_lst = NULL;
 	seq_printf(m, "======================================================================\n");
 	seq_printf(m, "ipc_enable: %d: rwctrl: %d\n", dev->ipc_enable, dev->rwctrl);
 	seq_printf(m, "bneedrcv: %d\n", dev->bneedrcv);
@@ -1124,7 +1112,36 @@ static int ipc_debug_show(struct seq_file *m, void *private)
 	seq_printf(m, "*******receive data: *********\n");
 
 	seq_printf(m, "======================================================================\n");
-
+	seq_printf(m, "show tx transfer list\n");
+	mutex_lock(&p_transfer->transfer_mutex);
+	list_for_each_entry(frame_ptr, &p_transfer->frame_fifo, link) {
+		seq_printf(m, "frameptr: %p, pos: %d, seq: %d status: %d \n", frame_ptr, frame_ptr->pos, frame_ptr->seq, frame_ptr->status);
+	}
+	mutex_unlock(&p_transfer->transfer_mutex);
+	seq_printf(m, "======================================================================\n");
+	seq_printf(m, "show tx free list\n");
+	frame_lst = &dev->tx_free_lst;
+	mutex_lock(&frame_lst->list_mutex);
+	list_for_each_entry(frame_ptr, &frame_lst->frame_list_head, link) {
+		seq_printf(m, "frameptr: %p, pos: %d, seq: %d status: %d \n", frame_ptr, frame_ptr->pos, frame_ptr->seq, frame_ptr->status);
+	}
+	mutex_unlock(&frame_lst->list_mutex);
+	seq_printf(m, "======================================================================\n");
+	seq_printf(m, "show rx receive list\n");
+	frame_lst = &dev->rx_recv_lst;
+	mutex_lock(&frame_lst->list_mutex);
+	list_for_each_entry(frame_ptr, &frame_lst->frame_list_head, link) {
+		seq_printf(m, "frameptr: %p, pos: %d, seq: %d status: %d \n", frame_ptr, frame_ptr->pos, frame_ptr->seq, frame_ptr->status);
+	}
+	mutex_unlock(&frame_lst->list_mutex);
+	seq_printf(m, "======================================================================\n");
+	seq_printf(m, "show rx free list\n");
+	frame_lst = &dev->rx_free_lst;
+	mutex_lock(&frame_lst->list_mutex);
+	list_for_each_entry(frame_ptr, &frame_lst->frame_list_head, link) {
+		seq_printf(m, "frameptr: %p, pos: %d, seq: %d status: %d \n", frame_ptr, frame_ptr->pos, frame_ptr->seq, frame_ptr->status);
+	}
+	mutex_unlock(&frame_lst->list_mutex);
 	seq_printf(m, "will show mipc_thread stack in kernel log \n");
 	show_stack(dev->task,NULL);
 
