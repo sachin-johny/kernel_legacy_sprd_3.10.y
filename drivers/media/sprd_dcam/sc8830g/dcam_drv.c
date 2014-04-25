@@ -24,6 +24,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#include <linux/vmalloc.h>
 
 #include "dcam_drv.h"
 #include "gen_scale_coef.h"
@@ -514,7 +515,7 @@ int dcam_scale_coeff_alloc(void)
 	int ret = 0;
 
 	if (NULL == s_dcam_scaling_coeff_addr) {
-		s_dcam_scaling_coeff_addr = (uint32_t *)kmalloc(DCAM_SC_COEFF_BUF_SIZE, GFP_KERNEL);
+		s_dcam_scaling_coeff_addr = (uint32_t *)vzalloc(DCAM_SC_COEFF_BUF_SIZE);
 		if (NULL == s_dcam_scaling_coeff_addr) {
 			printk("DCAM: _dcam_scale_coeff_alloc fail.\n");
 			ret = -1;
@@ -526,7 +527,7 @@ int dcam_scale_coeff_alloc(void)
 void dcam_scale_coeff_free(void)
 {
 	if (s_dcam_scaling_coeff_addr) {
-		kfree(s_dcam_scaling_coeff_addr);
+		vfree(s_dcam_scaling_coeff_addr);
 		s_dcam_scaling_coeff_addr = NULL;
 	}
 }
@@ -3582,10 +3583,10 @@ LOCAL int  _dcam_internal_init(void)
 {
 	int                     ret = 0;
 
-	s_p_dcam_mod = (struct dcam_module*)kmalloc(sizeof(struct dcam_module), GFP_KERNEL);
+	s_p_dcam_mod = (struct dcam_module*)vzalloc(sizeof(struct dcam_module));
+
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
-	memset((void*)s_p_dcam_mod, 0, sizeof(struct dcam_module));
 	sema_init(&s_p_dcam_mod->stop_sema, 0);
 	sema_init(&s_p_dcam_mod->dcam_path0.tx_done_sema, 0);
 	sema_init(&s_p_dcam_mod->dcam_path1.tx_done_sema, 0);
@@ -3603,7 +3604,7 @@ LOCAL void _dcam_internal_deinit(void)
 	if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
 		printk("DCAM: Invalid addr, 0x%x", (uint32_t)s_p_dcam_mod);
 	} else {
-		kfree(s_p_dcam_mod);
+		vfree(s_p_dcam_mod);
 		s_p_dcam_mod = NULL;
 	}
 	return;

@@ -21,6 +21,7 @@
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
 #include "dcam_drv.h"
+#include <linux/vmalloc.h>
 
 /*#define SCALE_DRV_DEBUG*/
 #define SCALE_LOWEST_ADDR 0x800
@@ -149,7 +150,7 @@ int  scale_coeff_alloc(void)
 	int ret = 0;
 
 	if (NULL == s_scaler_scaling_coeff_addr) {
-		s_scaler_scaling_coeff_addr = (uint32_t *)kmalloc(SC_COEFF_BUF_SIZE, GFP_KERNEL);
+		s_scaler_scaling_coeff_addr = (uint32_t *)vzalloc(SC_COEFF_BUF_SIZE);
 		if (NULL == s_scaler_scaling_coeff_addr) {
 			printk("SCALE DRV: scale_coeff_alloc fail.\n");
 			ret = -1;
@@ -161,7 +162,7 @@ int  scale_coeff_alloc(void)
 void  scale_coeff_free(void)
 {
 	if (s_scaler_scaling_coeff_addr) {
-		kfree(s_scaler_scaling_coeff_addr);
+		vfree(s_scaler_scaling_coeff_addr);
 		s_scaler_scaling_coeff_addr = NULL;
 	}
 }

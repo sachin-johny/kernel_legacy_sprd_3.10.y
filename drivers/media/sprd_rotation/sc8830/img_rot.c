@@ -29,6 +29,7 @@
 #include <linux/delay.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/vmalloc.h>
 
 #include "dcam_drv.h"
 #include "rot_drv.h"
@@ -148,7 +149,7 @@ static int rot_k_open(struct inode *node, struct file *file)
 		goto exit;
 	}
 
-	fd = kzalloc(sizeof(*fd), GFP_KERNEL);
+	fd = vzalloc(sizeof(*fd));
 	if (!fd) {
 		ret = -ENOMEM;
 		printk("rot_k_open fail alloc \n");
@@ -183,7 +184,7 @@ reg_faile:
 	rot_k_module_dis(fd ->dn);
 faile:
 	atomic_dec(&rot_private->users);
-	kfree(fd);
+	vfree(fd);
 	fd = NULL;
 open_out:
 	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
@@ -216,7 +217,7 @@ static int rot_k_release(struct inode *node, struct file *file)
 	ROTATE_TRACE("rot_user %d\n",atomic_read(&rot_private->users));
 
 fd_free:
-	kfree(fd);
+	vfree(fd);
 	fd = 0;
 	file->private_data = 0;
 release_exit:

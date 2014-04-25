@@ -37,6 +37,7 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 
+#include <linux/vmalloc.h>
 #include "dcam_drv.h"
 #include <mach/hardware.h>
 #include <asm/io.h>
@@ -56,7 +57,7 @@
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       16
 #define DCAM_TIMING_LEN                         16
-#define DCAM_TIMEOUT                            2000
+#define DCAM_TIMEOUT                            1000
 #define DEBUG_STR                               "Error L %d, %s: \n"
 #define DEBUG_ARGS                              __LINE__,__FUNCTION__
 #define V4L2_RTN_IF_ERR(n)          \
@@ -168,7 +169,7 @@ struct dcam_info {
 	struct dcam_size           cap_in_size;
 	struct dcam_rect           cap_in_rect;
 	struct dcam_size           cap_out_size;
-	
+
 	struct dcam_path_spec      dcam_path[DCAM_PATH_NUM];
 
 	uint32_t                   capture_mode;
@@ -258,7 +259,7 @@ LOCAL struct dcam_format dcam_img_fmt[] = {
 		.fourcc   = V4L2_PIX_FMT_NV21,
 		.depth    = 12,
 	},
-	
+
 	{
 		.name     = "YUV 4:2:0 planar (Y-Cb-Cr)",
 		.fourcc   = V4L2_PIX_FMT_YUV420,
@@ -295,7 +296,7 @@ LOCAL struct dcam_format dcam_img_fmt[] = {
 	{"4:2:2, packed, YUYV", V4L2_PIX_FMT_YUYV, 16},
 	{"4:2:2, packed, YVYU", V4L2_PIX_FMT_YVYU, 16},
 	{"4:2:2, packed, UYVY", V4L2_PIX_FMT_UYVY, 16},
-	{"4:2:2, packed, VYUY", V4L2_PIX_FMT_VYUY, 16},	
+	{"4:2:2, packed, VYUY", V4L2_PIX_FMT_VYUY, 16},
 	{"YUV 4:2:2, planar, (Y-Cb-Cr)", V4L2_PIX_FMT_YUV422P, 16},
 	{"YUV 4:2:0 planar (Y-CbCr)", V4L2_PIX_FMT_NV12, 12},
 	{"YVU 4:2:0 planar (Y-CrCb)", V4L2_PIX_FMT_NV21, 12},
@@ -321,6 +322,7 @@ enum cmr_flash_status {
 };
 
 #define DISCARD_FRAME_TIME (10000)
+
 
 LOCAL int sprd_v4l2_setflash(uint32_t flash_mode)
 {
@@ -367,7 +369,7 @@ LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
 		if(info->flash_status == FLASH_CLOSE_AFTER_AUTOFOCUS) {
 			v4l2_get_timestamp(&info->timestamp);
 			info->after_af = 1;
-			DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, time, %d %d \n", 
+			DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, time, %d %d \n",
 				(int)info->timestamp.tv_sec, (int)info->timestamp.tv_usec);
 		}
 		sprd_v4l2_setflash(info->flash_status);
@@ -475,9 +477,9 @@ LOCAL int sprd_v4l2_discard_frame(struct dcam_frame *frame, void* param)
 
 	info = &dev->dcam_cxt;
 	v4l2_get_timestamp(&timestamp);
-	DCAM_TRACE("DCAM: sprd_v4l2_discard_frame, time, %d %d \n", 
+	DCAM_TRACE("DCAM: sprd_v4l2_discard_frame, time, %d %d \n",
 		(int)timestamp.tv_sec, (int)timestamp.tv_usec);
-	if ((timestamp.tv_sec == info->timestamp.tv_sec) 
+	if ((timestamp.tv_sec == info->timestamp.tv_sec)
 		&& (timestamp.tv_usec -info->timestamp.tv_usec >= DISCARD_FRAME_TIME)){
 		flag = 1;
 	} else if (timestamp.tv_sec > info->timestamp.tv_sec) {
@@ -523,7 +525,7 @@ LOCAL uint32_t sprd_v4l2_get_fourcc(struct dcam_path_spec *path)
 
 		if (likely(DCAM_ENDIAN_LITTLE == path->end_sel.uv_endian))
 			fourcc = V4L2_PIX_FMT_NV12;
-		else 
+		else
 			fourcc = V4L2_PIX_FMT_NV21;
 		break;
 	case DCAM_YUV420_3FRAME:
@@ -641,7 +643,7 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 	uint32_t                 depth_pixel = 0;
 	struct dcam_path_spec    *path = &info->dcam_path[DCAM_PATH1];
 	uint32_t                 need_recal = 0;
-	
+
 	DCAM_TRACE("V4L2: check format for path1 \n");
 
 	path->frm_type = f->fmt.pix.colorspace;
@@ -1058,7 +1060,7 @@ LOCAL int sprd_v4l2_cap_cfg(struct dcam_info* info)
 	ret = dcam_cap_cfg(DCAM_CAP_SYNC_POL, &info->sync_pol);
 	V4L2_RTN_IF_ERR(ret);
 
-	if ((info->dcam_path[DCAM_PATH1].is_work && info->dcam_path[DCAM_PATH1].is_from_isp) || 
+	if ((info->dcam_path[DCAM_PATH1].is_work && info->dcam_path[DCAM_PATH1].is_from_isp) ||
 		(info->dcam_path[DCAM_PATH2].is_work && info->dcam_path[DCAM_PATH2].is_from_isp)) {
 		param = 1;
 	} else {
@@ -1081,7 +1083,7 @@ LOCAL int sprd_v4l2_cap_cfg(struct dcam_info* info)
 	}
 
 	ret = dcam_cap_cfg(DCAM_CAP_FRM_DECI, &info->frm_deci);
-	V4L2_RTN_IF_ERR(ret);	
+	V4L2_RTN_IF_ERR(ret);
 
 	ret = dcam_cap_cfg(DCAM_CAP_INPUT_RECT, &info->cap_in_rect);
 	V4L2_RTN_IF_ERR(ret);
@@ -1096,7 +1098,7 @@ LOCAL int sprd_v4l2_cap_cfg(struct dcam_info* info)
 	V4L2_RTN_IF_ERR(ret);
 
 	ret = dcam_cap_cfg(DCAM_CAP_IMAGE_XY_DECI, &info->img_deci);
-	
+
 exit:
 	return ret;
 }
@@ -1558,7 +1560,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 
 	DCAM_TRACE("V4L2: v4l2_s_parm, ability 0x%x \n", streamparm->parm.capture.capability);
 	memset((void*)&crop, 0, sizeof(struct v4l2_crop));
-	
+
 	switch (streamparm->parm.capture.capability) {
 	case CAPTURE_MODE:
 		mutex_lock(&dev->dcam_mutex);
@@ -1720,7 +1722,7 @@ LOCAL int v4l2_querycap(struct file *file,
 	return 0;
 }
 
-LOCAL int v4l2_cropcap(struct file *file, 
+LOCAL int v4l2_cropcap(struct file *file,
 			void  *priv,
 			struct v4l2_cropcap *cc)
 {
@@ -1747,7 +1749,7 @@ LOCAL int v4l2_cropcap(struct file *file,
 	return 0;
 }
 
-LOCAL int v4l2_s_crop(struct file *file, 
+LOCAL int v4l2_s_crop(struct file *file,
 			void  *priv,
 			const struct v4l2_crop *crop)
 {
@@ -1860,7 +1862,7 @@ LOCAL int v4l2_enum_fmt_vid_cap(struct file *file,
 	struct dcam_format          *fmt;
 
 	DCAM_TRACE("V4L2: v4l2_enum_fmt_vid_cap, type 0x%x index %d \n", f->type, f->index);
-	
+
 	if (unlikely(f->index >= ARRAY_SIZE(dcam_img_fmt)))
 		return -EINVAL;
 
@@ -1998,14 +2000,14 @@ LOCAL int v4l2_s_fmt_vid_cap(struct file *file,
 }
 
 LOCAL int v4l2_qbuf(struct file *file,
-			void *priv, 
+			void *priv,
 			struct v4l2_buffer *p)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_info         *info = &dev->dcam_cxt;
 	struct dcam_path_spec    *path;
-	uint32_t                 index;
+
 	uint32_t                 path_cnt;
 
 	mutex_lock(&dev->dcam_mutex);
@@ -2045,19 +2047,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 			}
 		}
 	} else {
-		if (unlikely(p->index > path->frm_id_base + path->frm_cnt_act - 1)) {
-			printk("V4L2: error, index %d, frm_id_base %d frm_cnt_act %d \n",
-				p->index, path->frm_id_base, path->frm_cnt_act);
-			ret = -EINVAL;
-		} else if (p->index < path->frm_id_base) {
-			printk("V4L2: error, index %d, frm_id_base %d \n",
-						p->index, path->frm_id_base);
-			ret = -EINVAL;		
-		} else {
-			index = p->index - path->frm_id_base;
-			dcam_frame_unlock(path->frm_ptr[index]);
-			DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", p->type, p->index);
-		}
+		printk("V4L2: v4l2_qbuf, path not idle \n");
 	}
 
 	mutex_unlock(&dev->dcam_mutex);
@@ -2066,7 +2056,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 }
 
 LOCAL int v4l2_dqbuf(struct file *file,
-			void *priv, 
+			void *priv,
 			struct v4l2_buffer *p)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
@@ -2119,7 +2109,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 }
 
 LOCAL int v4l2_streamon(struct file *file,
-			void *priv, 
+			void *priv,
 			enum v4l2_buf_type i_type)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
@@ -2130,13 +2120,23 @@ LOCAL int v4l2_streamon(struct file *file,
 
 	DCAM_TRACE("V4L2: v4l2_streamon, mode %d, buf_type 0x%x \n",
 		dev->stream_mode, i_type);
-	
+
 	mutex_lock(&dev->dcam_mutex);
 
 	path_0 = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
-	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n", 
+	memset((void*)path_0->frm_ptr,
+		0,
+		(uint32_t)(DCAM_FRM_CNT_MAX * sizeof(struct dcam_frame*)));
+	memset((void*)path_1->frm_ptr,
+		0,
+		(uint32_t)(DCAM_FRM_CNT_MAX * sizeof(struct dcam_frame*)));
+	memset((void*)path_2->frm_ptr,
+		0,
+		(uint32_t)(DCAM_FRM_CNT_MAX * sizeof(struct dcam_frame*)));
+
+	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n",
 		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
 
 	/* dcam driver module initialization */
@@ -2218,7 +2218,7 @@ LOCAL int v4l2_streamoff(struct file *file,
 	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
 	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 
-	DCAM_TRACE("V4L2: streamoff, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n", 
+	DCAM_TRACE("V4L2: streamoff, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n",
 		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
 
 	if (unlikely(0 == atomic_read(&dev->stream_on))) {
@@ -2274,7 +2274,7 @@ exit:
 }
 
 LOCAL int v4l2_g_output(struct file *file,
-			void *priv, 
+			void *priv,
 			unsigned int *i)
 {
 	int                      ret = DCAM_RTN_SUCCESS;
@@ -2381,7 +2381,7 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t
 
 	DCAM_TRACE("V4L2: pause, channel %d ,recfg flag %d\n",
 		channel_id,reconfig_flag);
-		
+
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
 
@@ -2418,7 +2418,7 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 	int                      ret = 0;
 
 	DCAM_TRACE("V4L2: resume, channel=%d \n", channel_id);
-	
+
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
 
@@ -2479,13 +2479,13 @@ LOCAL void sprd_v4l2_print_reg(void)
 	int                      ret;
 	uint32_t                 print_len = 0, print_cnt = 0;
 
-	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
+	reg_buf = (uint32_t*)vzalloc(reg_buf_len);
 	if (NULL == reg_buf)
 		return;
 
 	ret = dcam_read_registers(reg_buf, &reg_buf_len);
 	if (ret) {
-		kfree(reg_buf);
+		vfree(reg_buf);
 		return;
 	}
 
@@ -2504,7 +2504,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 #if 0
 	ret = csi_read_registers(reg_buf, &reg_buf_len);
 	if (ret) {
-		kfree(reg_buf);
+		vfree(reg_buf);
 		return;
 	}
 
@@ -2523,7 +2523,7 @@ LOCAL void sprd_v4l2_print_reg(void)
 	}
 #endif
 	udelay(1);
-	kfree(reg_buf);
+	vfree(reg_buf);
 
 	return;
 
@@ -2586,6 +2586,7 @@ LOCAL int sprd_init_handle(struct file *file)
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct dcam_info         *info = &dev->dcam_cxt;
 	struct dcam_path_spec    *path;
+	uint32_t                 i = 0;
 
 	if (NULL == info) {
 		printk("V4L2: init handle fail \n");
@@ -2593,32 +2594,19 @@ LOCAL int sprd_init_handle(struct file *file)
 	}
 	info->flash_status = FLASH_STATUS_MAX;
 	info->after_af = 0;
-	path = &info->dcam_path[DCAM_PATH1];
-	if (NULL == path) {
-		printk("V4L2: init path 1 fail \n");
-		return -EINVAL;
+	for (i = 0; i < DCAM_PATH_MAX; i++) {
+		path = &info->dcam_path[i];
+		if (NULL == path) {
+			printk("V4L2: init path %d fail \n", i);
+			return -EINVAL;
+		}
+		memset((void*)path->frm_ptr,
+			0,
+			(uint32_t)(DCAM_FRM_CNT_MAX * sizeof(struct dcam_frame*)));
+		path->frm_cnt_act = 0;
+		path->status = PATH_IDLE;
 	}
-
 	atomic_set(&dev->stream_on, 0);
-
-	path->frm_cnt_act = 0;
-	path->status = PATH_IDLE;
-
-	path = &info->dcam_path[DCAM_PATH2];
-	if (NULL == path) {
-		printk("V4L2:init path 2 fail \n");
-		return -EINVAL;
-	}
-	path->frm_cnt_act = 0;
-	path->status = PATH_IDLE;
-
-	path = &info->dcam_path[DCAM_PATH0];
-	if (NULL == path) {
-		printk("V4L2:init path 0 fail \n");
-		return -EINVAL;
-	}
-	path->frm_cnt_act = 0;
-	path->status = PATH_IDLE;
 	dev->got_resizer = 0;
 	return 0;
 }
@@ -2755,6 +2743,11 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 			return -EINVAL;
 		}
 
+		if (PATH_IDLE == path->status) {
+			DCAM_TRACE("V4L2 error: v4l2_qbuf, wrong status 0x%x \n", buf.type);
+			return -EINVAL;
+		}
+
 		if (unlikely(buf.index > path->frm_id_base + path->frm_cnt_act - 1)) {
 			printk("V4L2: error, index %d, frm_id_base %d frm_cnt_act %d \n",
 				buf.index, path->frm_id_base, path->frm_cnt_act);
@@ -2765,14 +2758,16 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 			ret = -EINVAL;
 		} else {
 			index = buf.index - path->frm_id_base;
-			dcam_frame_unlock(path->frm_ptr[index]);
+			if (path->frm_ptr[index]) {
+				dcam_frame_unlock(path->frm_ptr[index]);
+			}
 			DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", buf.type, buf.index);
 		}
 
 	break;
 
 	default:
-		printk("V4L2: flasg error! \n");
+		printk("V4L2: flag error! \n");
 		ret = -EINVAL;
 	break;
 	}
@@ -2842,7 +2837,7 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 	len += sprintf(page + len, " 2. sensor mode,          %d \n", dev->dcam_cxt.sn_mode);
 	len += sprintf(page + len, " 3. YUV pattern,          %d \n", dev->dcam_cxt.yuv_ptn);
 	len += sprintf(page + len, " 4. sync polarities,      v %d h %d p %d href %d \n",
-			dev->dcam_cxt.sync_pol.vsync_pol, 
+			dev->dcam_cxt.sync_pol.vsync_pol,
 			dev->dcam_cxt.sync_pol.hsync_pol,
 			dev->dcam_cxt.sync_pol.pclk_pol,
 			dev->dcam_cxt.sync_pol.need_href);
@@ -2899,10 +2894,10 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 
 	}
 
-	reg_buf = (uint32_t*)kmalloc(reg_buf_len, GFP_KERNEL);
+	reg_buf = (uint32_t*)vzalloc(reg_buf_len);
 	ret = dcam_read_registers(reg_buf, &reg_buf_len);
 	if (ret) {
-		kfree(reg_buf);
+		vfree(reg_buf);
 		return len;
 	}
 
@@ -2922,7 +2917,7 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 
 	ret = csi_read_registers(reg_buf, &reg_buf_len);
 	if (ret) {
-		kfree(reg_buf);
+		vfree(reg_buf);
 		return len;
 	}
 
@@ -2943,7 +2938,7 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 	len += sprintf(page + len, "*************************************************************** \n");
 	len += sprintf(page + len, "The end of DCAM device \n");
 	msleep(10);
-	kfree(reg_buf);
+	vfree(reg_buf);
 
 	return len;
 }
@@ -2951,7 +2946,7 @@ LOCAL int  sprd_v4l2_proc_read(char           *page,
 
 LOCAL const struct v4l2_ioctl_ops sprd_v4l2_ioctl_ops = {
 	.vidioc_g_parm                = v4l2_g_parm,
-	.vidioc_s_parm                = v4l2_s_parm,	
+	.vidioc_s_parm                = v4l2_s_parm,
 	.vidioc_querycap              = v4l2_querycap,
 	.vidioc_cropcap               = v4l2_cropcap,
 	//.vidioc_s_crop                = v4l2_s_crop,
@@ -3007,7 +3002,7 @@ LOCAL int release(void)
 			dev->vfd->num);
 		video_unregister_device(dev->vfd);
 		v4l2_device_unregister(&dev->v4l2_dev);
-		kfree(dev);
+		vfree(dev);
 	}
 	return 0;
 }
@@ -3018,7 +3013,7 @@ LOCAL int __init create_instance(struct platform_device *pdev)
 	struct video_device      *vfd;
 	int                      ret = DCAM_RTN_SUCCESS;
 
-	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
+	dev = vzalloc(sizeof(*dev));
 	if (!dev)
 		return -ENOMEM;
 
@@ -3067,7 +3062,7 @@ rel_vdev:
 unreg_dev:
 	v4l2_device_unregister(&dev->v4l2_dev);
 free_dev:
-	kfree(dev);
+	vfree(dev);
 
 	return ret;
 }
