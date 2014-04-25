@@ -51,8 +51,8 @@ static DEFINE_MUTEX(emc_mutex);
 static u32 emc_freq = 0;
 static u32 emc_delay = 20;
 static u32 chip_id = 0;
-static ddr_dfs_val_t __emc_param_configs[5];
-static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr);
+static ddr_dfs_v2_t __emc_param_configs[5];
+static void __timing_reg_dump(ddr_dfs_v2_t * dfs_val_ptr);
 u32 emc_clk_get(void);
 static u32 get_dpll_clk(void);
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
@@ -532,7 +532,7 @@ static void __emc_freq_test(void)
 }
 #endif
 
-static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr)
+static void __timing_reg_dump(ddr_dfs_v2_t * dfs_val_ptr)
 {
 	debug("umctl2_rfshtmg %x\n", dfs_val_ptr->ddr_clk);
 	debug("umctl2_rfshtmg %x\n", dfs_val_ptr->umctl_rfshtmg);
@@ -552,12 +552,12 @@ static void __timing_reg_dump(ddr_dfs_val_t * dfs_val_ptr)
 }
 static void __emc_timing_reg_init(void)
 {
-	ddr_dfs_val_t * dfs_val_ptr;
-	ddr_dfs_val_t *dmc_timing_ptr;
+	ddr_dfs_v2_t * dfs_val_ptr;
+	ddr_dfs_v2_t *dmc_timing_ptr;
 	u32 i;
 	memset(__emc_param_configs, 0, sizeof(__emc_param_configs));
 	for(i = 0; i < 5; i++) {
-		dfs_val_ptr = (ddr_dfs_val_t *)(DDR_TIMING_REG_VAL_ADDR + i * sizeof(ddr_dfs_val_t));
+		dfs_val_ptr = (ddr_dfs_v2_t *)(DDR_TIMING_REG_VAL_ADDR + i * sizeof(ddr_dfs_v2_t));
 		dmc_timing_ptr = 0;
 		if((dfs_val_ptr->ddr_clk >= 100) && (dfs_val_ptr->ddr_clk <= 533)) {
 			dmc_timing_ptr = &__emc_param_configs[i];
