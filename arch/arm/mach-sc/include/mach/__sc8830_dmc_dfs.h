@@ -40,6 +40,48 @@
 #define DMC_CHANGE_FREQ_WAIT_TIMEOUT		100
 typedef struct
 {
+    u32 ddr_clk;
+    //umctl reg
+    u32 umctl2_rfshtmg;
+    u32 umctl2_init0;
+    u32 umctl2_init1;
+    u32 umctl2_init2;
+    u32 umctl2_init3;
+    u32 umctl2_init4;
+    u32 umctl2_init5;
+    u32 umctl2_dramtmg0;
+    u32 umctl2_dramtmg1;
+    u32 umctl2_dramtmg2;
+    u32 umctl2_dramtmg3;
+    u32 umctl2_dramtmg4;
+    u32 umctl2_dramtmg5;
+    u32 umctl2_dramtmg6;
+    u32 umctl2_dramtmg7;
+    u32 umctl2_dramtmg8;
+    u32 umctl2_dfitmg0;
+    u32 umctl2_dfitmg1;
+    //publ reg
+    u32 publ_ptr0;
+    u32 publ_ptr1;
+    u32 publ_dtpr0;
+    u32 publ_dtpr1;
+    u32 publ_dtpr2;
+    u32 publ_mr0;
+    u32 publ_mr1;
+    u32 publ_mr2;
+    u32 publ_mr3;
+    u32 publ_dx0gcr;
+    u32 publ_dx1gcr;
+    u32 publ_dx2gcr;
+    u32 publ_dx3gcr;
+    u32 publ_dx0dqstr;
+    u32 publ_dx1dqstr;
+    u32 publ_dx2dqstr;
+    u32 publ_dx3dqstr;
+}ddr_dfs_val_t;
+
+typedef struct
+{
 	u32 ddr_clk;
 
 	//umctl reg
@@ -84,7 +126,8 @@ typedef struct
 	u32 publ_dx2lcdlr2;
 	u32 publ_dx3lcdlr2;
 	u32 resevered;
-}ddr_dfs_val_t;
+}ddr_dfs_v2_t;
+
 #define AP_DMC_DFS_MAX_REQ 	3
 #define AP_UNVALID_REQ	0
 struct dmc_req_array {

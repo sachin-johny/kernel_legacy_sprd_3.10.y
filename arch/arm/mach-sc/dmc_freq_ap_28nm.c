@@ -191,7 +191,7 @@ static inline void ddr_cam_command_dequeue(uint32 isEnable)
 }__attribute__((always_inline))
 
 
-static inline void ddr_timing_update_ex(ddr_dfs_val_t *timing_param)
+static inline void ddr_timing_update_ex(ddr_dfs_v2_t *timing_param)
 {
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
 	/* minimum time from refresh to refresh or active */
@@ -212,7 +212,7 @@ static inline void ddr_timing_update_ex(ddr_dfs_val_t *timing_param)
 
 }__attribute__((always_inline))
 
-static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_val_t *timing)
+static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_v2_t *timing)
 {
 	volatile uint32 i;
 	uint32 reg_store[3];
@@ -386,12 +386,12 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_val_t *timing
 
 #define DFS_PARAM_ADDR	(0x1C00)
 
-static inline  ddr_dfs_val_t *get_clk_timing( uint32 clk )
+static inline  ddr_dfs_v2_t *get_clk_timing( uint32 clk )
 {
 	volatile uint32 i;
-	ddr_dfs_val_t *timing;
+	ddr_dfs_v2_t *timing;
 
-	timing = (ddr_dfs_val_t *)(DFS_PARAM_ADDR);
+	timing = (ddr_dfs_v2_t *)(DFS_PARAM_ADDR);
 
 	for (i = 0; i < 5; i++) {
 		if (clk == timing->ddr_clk) {
@@ -400,14 +400,14 @@ static inline  ddr_dfs_val_t *get_clk_timing( uint32 clk )
 		timing++;
 	}
 
-	return (ddr_dfs_val_t *)0;
+	return (ddr_dfs_v2_t *)0;
 }__attribute__((always_inline))
 
 inline void dev_freq_set(unsigned long req)
 {
 	u32 clk;
 	u32 sene;
-	ddr_dfs_val_t *timing;
+	ddr_dfs_v2_t *timing;
 
 	/* initialize umctl, phy base address */
 	//gp_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
