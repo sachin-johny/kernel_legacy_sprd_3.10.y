@@ -247,17 +247,18 @@ int trout_fm_iis_pin_cfg(void)
 	unsigned int reg_data;
 
 	READ_REG(SYS_REG_PAD_IISDO, &reg_data);
-//      reg_data = (reg_data & 0xfffffff8);
 	reg_data |= 0x1;
 	WRITE_REG(SYS_REG_PAD_IISDO, reg_data);
 
+	READ_REG(SYS_REG_PAD_IISDI, &reg_data);
+	reg_data |= 0x1;
+	WRITE_REG(SYS_REG_PAD_IISDI, reg_data);
+
 	READ_REG(SYS_REG_PAD_IISCLK, &reg_data);
-//      reg_data = (reg_data & 0xfffffff8);
 	reg_data |= 0x1;
 	WRITE_REG(SYS_REG_PAD_IISCLK, reg_data);
 
 	READ_REG(SYS_REG_PAD_IISLRCK, &reg_data);
-//      reg_data = (reg_data & 0xfffffff8);
 	reg_data |= 0x1;
 	WRITE_REG(SYS_REG_PAD_IISLRCK, reg_data);
 
@@ -272,6 +273,10 @@ int trout_fm_pcm_pin_cfg(void)
 	READ_REG(SYS_REG_PAD_IISDO, &reg_data);
 	reg_data = (reg_data & 0xfffffff8);
 	WRITE_REG(SYS_REG_PAD_IISDO, reg_data);
+
+	READ_REG(SYS_REG_PAD_IISDI, &reg_data);
+	reg_data = (reg_data & 0xfffffff8);
+	WRITE_REG(SYS_REG_PAD_IISDI, reg_data);
 
 	READ_REG(SYS_REG_PAD_IISCLK, &reg_data);
 	reg_data = (reg_data & 0xfffffff8);

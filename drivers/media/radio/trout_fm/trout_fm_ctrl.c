@@ -22,6 +22,11 @@
 #define DRIVER_NAME "radio-trout"
 #define CARD_NAME "Trout FM Receiver"
 #define FM_FREQ_CONVERSION (100*16)
+#define V4L2_CID_PRIVATE_FM_AUDIO (V4L2_CID_BASE + 10)
+
+struct fmdev {
+  struct v4l2_ctrl_handler ctrl_handler; /* V4L2 ctrl framwork handler*/
+};
 
 atomic_t  is_fm_open;
 trout_interface_t  *p_trout_interface = NULL;
@@ -206,6 +211,24 @@ static int _trout_fm_seek(struct file *file,
    return 0;
 }
 
+static int _trout_fm_control(struct v4l2_ctrl *ctrl)
+{
+    switch (ctrl->id) {
+      case V4L2_CID_PRIVATE_FM_AUDIO:
+        if (((u8)ctrl->val) == 1)
+        {
+          trout_fm_iis_pin_cfg();
+        } else
+        {
+          trout_fm_pcm_pin_cfg();
+        }
+        break;
+      default:
+        TROUT_PRINT("Unknown fm control.");
+        break;
+    }
+}
+
 static const struct v4l2_file_operations trout_fops = {
 	.owner = THIS_MODULE,
 	.open = _trout_fm_open,
@@ -222,9 +245,14 @@ static const struct v4l2_ioctl_ops trout_ioctl_ops = {
 	.vidioc_s_hw_freq_seek = _trout_fm_seek,
 };
 
+static const struct v4l2_ctrl_ops trout_ctrl_ops = {
+  .s_ctrl = _trout_fm_control,
+};
 
 static int register_v4l2_device(void)
 {
+  int ret;
+  struct fmdev *fmdev = NULL;
 	struct video_device *radio = video_device_alloc();
 	if (!radio)
 	{
@@ -239,9 +267,28 @@ static int register_v4l2_device(void)
 	{
 		TROUT_PRINT("Could not register video_device");
 		video_device_release(radio);
-	    return -EINVAL;
+	  return -EINVAL;
 	}
-	s_radio = radio;
+  s_radio = radio;
+
+  fmdev = (struct fmdev *)kzalloc(sizeof(struct fmdev), GFP_KERNEL);
+  if (!fmdev)
+  {
+    TROUT_PRINT("Could not allocate fmdev");
+    return -EINVAL;
+  }
+  video_set_drvdata(radio, fmdev);
+  radio->ctrl_handler = &fmdev->ctrl_handler;
+  ret = v4l2_ctrl_handler_init(&fmdev->ctrl_handler, 1);
+  if (ret < 0)
+  {
+    TROUT_PRINT("Failed to int v4l2_ctrl_handler");
+    v4l2_ctrl_handler_free(&fmdev->ctrl_handler);
+    return -EINVAL;
+  }
+  v4l2_ctrl_new_std(&fmdev->ctrl_handler, &trout_ctrl_ops,
+      V4L2_CID_PRIVATE_FM_AUDIO, 0, 1, 1, 0);
+
 	TROUT_PRINT("Registered Trout FM Receiver.");
 	return 0;
 }
@@ -300,18 +347,24 @@ int __init init_fm_driver(void)
 
 void __exit exit_fm_driver(void)
 {
+  struct fmdev *fmdev;
 	TROUT_PRINT("exit_fm_driver!\n");
 	if(s_radio)
 	{
-      video_device_release(s_radio);
-	}
-	
-
-    if(p_trout_interface)
-    {
-        p_trout_interface->exit();
-        p_trout_interface = NULL;
+    fmdev = video_get_drvdata(s_radio);
+    if (fmdev) {
+      v4l2_ctrl_handler_free(&fmdev->ctrl_handler);
+      kfree(fmdev);
     }
+    video_unregister_device(s_radio);
+    s_radio = NULL;
+	}
+
+  if(p_trout_interface)
+  {
+      p_trout_interface->exit();
+      p_trout_interface = NULL;
+  }
 }
 
 
