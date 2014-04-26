@@ -913,7 +913,7 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
     {
         if (instance->log_error != 0)
         {
-            instance->log_error("tx rd command timed out");
+            instance->log_error("tx rd command timed out\n");
         }
         return 0;
     }
@@ -972,18 +972,18 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
             {
                 if (instance->log_error != 0)
                 {
-                    instance->log_error("rx buffer empty");
+                    instance->log_error("rx buffer empty\n");
                 }
                 return 0;
             }
         }
-#ifdef FB_CHECK_ESD_IN_VFP
+//#ifdef FB_CHECK_ESD_IN_VFP
         udelay(5);
-#endif
+//#endif
     }
     if (instance->log_error != 0)
     {
-        instance->log_error("rx command timed out");
+        instance->log_error("rx command timed out\n");
     }
     return 0;
 }
