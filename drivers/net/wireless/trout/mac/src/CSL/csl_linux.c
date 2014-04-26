@@ -1215,6 +1215,14 @@ int mac_close(struct net_device *dev)
 	send_mac_status(MAC_CLOSE);
 #endif
 
+#ifdef IBSS_BSS_STATION_MODE	
+    if(g_coex_trffc_chk.coex_traffic_check_alarm_handle != NULL)
+    {
+        stop_alarm(g_coex_trffc_chk.coex_traffic_check_alarm_handle);
+        delete_alarm(&g_coex_trffc_chk.coex_traffic_check_alarm_handle);
+    }
+#endif
+
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 #ifndef WIFI_SLEEP_POLICY
     mutex_unlock(&stp->cur_run_mutex);
