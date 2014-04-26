@@ -1984,7 +1984,7 @@ ERROR_DISPLAY_OVERLAY:
 static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 {
 	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
-	int ret;
+	int ret = 0;
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(!dispc_ctx.is_first_frame){
