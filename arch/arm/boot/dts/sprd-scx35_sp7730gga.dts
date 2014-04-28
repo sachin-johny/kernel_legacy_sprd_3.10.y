@@ -299,64 +299,7 @@
                  clocks = <&clk_mm>, <&clk_jpg>;
          };
 
-	 regulators {
-		 compatible = "sprd,sc2713-regulator";
 
-		 vddcore: vddcore {
-		 };
-		 vddarm{
-		 };
-		 vddmem{
-		 };
-		 vddldo{
-		 };
-		 vddwpa{
-		 };
-		 vddwrf{
-		 };
-		 vdd18{
-		 };
-		 vdd28{
-		 };
-		 vdd25{
-		 };
-		 vddrf0{
-		 };
-		 vddrf1{
-		 };
-		 vddrf2{
-		 };
-		 vddemmcio{
-		 };
-		 vddemmccore{
-		 };
-		 avdd18{
-		 };
-		 vddsd{
-		 };
-		 vddsim0{
-		 };
-		 vddsim1{
-		 };
-		 vddsim2{
-		 };
-		 vddcama{
-		 };
-		 vddcamd{
-		 };
-		 vddcamio{
-		 };
-		 vddcammot{
-		 };
-		 vddusb{
-		 };
-		 vddclsg{
-		 };
-		 chg_pump{
-		 };
-		 led_flash{
-		 };
-	 };
 	 i2c0: i2c@f536a000{
 		 compatible  = "sprd,i2c";
 		 interrupts = <0 11 0x0>;
