@@ -810,14 +810,18 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 			freq_next = policy->min;
 
 		if (!sd_tuners->powersave_bias) {
+#ifndef CONFIG_ARCH_SCX30G
 			__cpufreq_driver_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
+#endif
 			goto plug_check;
 		}
 
 		freq_next = sd_ops.powersave_bias_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
+#ifndef CONFIG_ARCH_SCX30G
 		__cpufreq_driver_target(policy, freq_next, CPUFREQ_RELATION_L);
+#endif
 	}
 
 plug_check:

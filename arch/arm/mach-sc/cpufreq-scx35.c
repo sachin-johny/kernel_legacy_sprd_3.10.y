@@ -441,6 +441,10 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int cur_freq = 0;
 	unsigned long irq_flags;
 
+#ifdef CONFIG_ARCH_SCX30G
+	return 0;
+#endif
+
 	/* delay 30s to enable dvfs&dynamic-hotplug,
          * except requirment from termal-cooling device
          */
@@ -474,6 +478,7 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	ret = sprd_update_cpu_speed(policy, new_speed, index);
 
 	return ret;
+
 }
 
 static unsigned int sprd_cpufreq_getspeed(unsigned int cpu)
