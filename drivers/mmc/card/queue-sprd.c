@@ -21,7 +21,7 @@
 #include "queue.h"
 
 #define MMC_QUEUE_BOUNCESZ	 131072
-#define MMC_QUEUE_SD_BOUNCESZ	 131072
+#define MMC_QUEUE_SD_BOUNCESZ	 262144
 
 static char mmc_queue_cur_bounce_buf[MMC_QUEUE_SD_BOUNCESZ] ____cacheline_aligned;
 static char mmc_queue_prev_bounce_buf[MMC_QUEUE_SD_BOUNCESZ] ____cacheline_aligned;
