@@ -84,7 +84,7 @@ static struct sprd_debug_entry sprd_debug_array[] = {
 #endif
 
 #ifdef CONFIG_SPRD_DEBUG_SCHED_LOG
-	NOD(SCHE,  "schedlog", 0, &scheinfo_proc_fops),
+	NOD(SCHE,  "schedlog", 0444 , &scheinfo_proc_fops),
 	NOD(SCHE,  "schedlog_num", 0, &scheinfo_num_proc_fops),
 	NOD(IRQ,   "irqlog", 0, &irqinfo_proc_fops),
 	NOD(IRQ,   "irqlog_num", 0, &irqinfo_num_proc_fops),
