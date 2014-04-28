@@ -842,7 +842,9 @@ static int __init sprd_cpufreq_modinit(void)
 		sprd_cpufreq_conf->vddarm_mv[0],
 		sprd_cpufreq_conf->vddarm_mv[0]);
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
-	clk_set_rate(sprd_cpufreq_conf->mpllclk, (sprd_top_frequency * 1000));
+	/*
+	* clk_set_rate(sprd_cpufreq_conf->mpllclk, (sprd_top_frequency * 1000));
+	*/
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
 	global_freqs.old = sprd_raw_get_cpufreq();
 
