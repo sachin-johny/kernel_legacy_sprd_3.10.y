@@ -1029,6 +1029,7 @@ static void sprd_sdhci_host_close(struct sdhci_host *host, struct sprd_sdhci_hos
 
 #ifdef CONFIG_OF
 static void sprd_sdhci_host_of_parse(struct platform_device *pdev, struct sdhci_host *host) {
+	unsigned int d3_gpio = 0, d3_index, sd_func, gpio_func;
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	struct sprd_sdhci_host_platdata *host_pdata = sprd_host->platdata;
 	struct device_node *np = pdev->dev.of_node;
@@ -1044,6 +1045,12 @@ static void sprd_sdhci_host_of_parse(struct platform_device *pdev, struct sdhci_
 	of_property_read_u32(np, "read-pos-delay", &host_pdata->read_pos_delay);
 	of_property_read_u32(np, "read-neg-delay", &host_pdata->read_neg_delay);
 	of_property_read_u32(np, "cd-gpios", &host_pdata->detect_gpio);
+	of_property_read_u32(np, "init-voltage-level", &host_pdata->init_voltage_level);
+	of_property_read_u32(np, "pinmap-offset", &host_pdata->pinmap_offset);
+	of_property_read_u32(np, "d3-gpio", &d3_gpio);  host_pdata->d3_gpio = d3_gpio;
+	of_property_read_u32(np, "d3-index", &d3_index); host_pdata->d3_index = d3_index;
+	of_property_read_u32(np, "sd-func", &sd_func); host_pdata->sd_func = sd_func;
+	of_property_read_u32(np, "gpio-func", &gpio_func); host_pdata->gpio_func = gpio_func;
 	of_property_read_string(np, "vdd-extmmc", &host_pdata->vdd_extmmc);
 	host_pdata->keep_power = of_property_read_bool(np, "keep-power");
 	host_pdata->runtime = of_property_read_bool(np, "runtime");

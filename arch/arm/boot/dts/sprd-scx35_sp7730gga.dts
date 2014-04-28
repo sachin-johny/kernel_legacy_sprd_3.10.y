@@ -641,7 +641,7 @@
 		max-frequency = <384000000>;
 		keep-power-in-suspend = <1>;
 		non-removable = <1>;
-		caps = <0x80000000>;
+		caps = <0x80000800>;
 		caps2 = <0x202>;
 		vdd-extmmc = "vddemmcio";
 		emmc-signal-supply = <&vddemmccore>;
@@ -669,6 +669,12 @@
 		vdd-extmmc = "vddsd";
 		sd-supply = <&vddsd>;
 		vdd-level = <0 0 1800000 3000000>;
+		init-voltage-level = <4>;
+		pinmap-offset = <0x0184>;
+		d3-gpio = <100>;
+		d3-index = <0>;
+		sd-func = <0>;
+		gpio-func = <3>;
 		clock-names = "clk_sdio0";
 		clocks = <&clk_sdio0>, <&clk_384m>;
 		enb-bit = <0x100>;
