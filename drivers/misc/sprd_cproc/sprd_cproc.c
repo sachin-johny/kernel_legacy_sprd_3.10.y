@@ -25,12 +25,13 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 #include <linux/slab.h>
+#include <asm/pgtable.h>
 #ifdef CONFIG_OF
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 #endif
-
+#include <mach/hardware.h>
 #include <linux/sprd_cproc.h>
 
 #define CPROC_WDT_TRUE   1
@@ -689,6 +690,17 @@ static int sprd_cproc_probe(struct platform_device *pdev)
 		sprd_cproc_destroy_pdata(&pdata);
 		printk(KERN_ERR "failed to allocate cproc device!\n");
 		return -ENOMEM;
+	}
+
+extern void set_section_ro(unsigned long virt, unsigned long numsections);
+	printk("%s %p %x\n", __func__, pdata->base, pdata->maxsz);
+	if ( pdata->base == WCN_START_ADDR)
+		set_section_ro(__va(pdata->base), (WCN_TOTAL_SIZE & ~(SECTION_SIZE - 1)) >> SECTION_SHIFT);
+	else {
+		if (!(pdata->maxsz % SECTION_SIZE))
+			set_section_ro(__va(pdata->base), pdata->maxsz >> SECTION_SHIFT);
+		else
+			printk("%s WARN can't be marked RO now\n", __func__);
 	}
 
 	cproc->initdata = pdata;
