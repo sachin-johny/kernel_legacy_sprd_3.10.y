@@ -262,10 +262,10 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	//printk("%s%d: underflow_ever_happened:0x%08x \n",__func__,__LINE__,underflow_ever_happened);
 	dispc_irq_trick_in(reg_val);
 
-	if(reg_val & 0x04){
+	if(reg_val & DISPC_INT_ERR_MASK){
 		printk("Warning: dispc underflow (0x%x)!\n",reg_val);
 		//underflow_ever_happened++;
-		dispc_write(0x04, DISPC_INT_CLR);
+		dispc_write(DISPC_INT_ERR_MASK, DISPC_INT_CLR);
 		//dispc_clear_bits(BIT(2), DISPC_INT_EN);
 	}
 
@@ -285,17 +285,17 @@ static irqreturn_t dispc_isr(int irq, void *data)
 			dispc_ctx->is_first_frame = false;
 		}
 #endif
-		dispc_write(0x10, DISPC_INT_CLR);
+		dispc_write(DISPC_INT_UPDATE_DONE_MASK, DISPC_INT_CLR);
 		done = true;
-	}else if ((reg_val & 0x1) && (SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type)){ /* dispc done isr */
-			dispc_write(1, DISPC_INT_CLR);
+	}else if ((reg_val & DISPC_INT_DONE_MASK) && (SPRDFB_PANEL_IF_DPI !=  dev->panel_if_type)){ /* dispc done isr */
+			dispc_write(DISPC_INT_DONE_MASK, DISPC_INT_CLR);
 			dispc_ctx->is_first_frame = false;
 			done = true;
 	}
 #ifdef CONFIG_FB_ESD_SUPPORT
 #ifdef FB_CHECK_ESD_BY_TE_SUPPORT
-	if((reg_val & 0x2) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){ /*dispc external TE isr*/
-		dispc_write(0x2, DISPC_INT_CLR);
+	if((reg_val & DISPC_INT_TE_MASK) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){ /*dispc external TE isr*/
+		dispc_write(DISPC_INT_TE_MASK, DISPC_INT_CLR);
 		if(0 != dev->esd_te_waiter){
 			printk("sprdfb:dispc_isr esd_te_done!");
 			dev->esd_te_done =1;
@@ -307,11 +307,11 @@ static irqreturn_t dispc_isr(int irq, void *data)
 #endif
 
 #ifdef CONFIG_FB_VSYNC_SUPPORT
-	if((reg_val & 0x1) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){/*dispc done isr*/
-		dispc_write(1, DISPC_INT_CLR);
+	if((reg_val & DISPC_INT_HWVSYNC) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){/*dispc done isr*/
+		dispc_write(DISPC_INT_HWVSYNC, DISPC_INT_CLR);
 		vsync = true;
-	}else if((reg_val & 0x2) && (SPRDFB_PANEL_IF_EDPI ==  dev->panel_if_type)){ /*dispc te isr*/
-		dispc_write(2, DISPC_INT_CLR);
+	}else if((reg_val & DISPC_INT_TE_MASK) && (SPRDFB_PANEL_IF_EDPI ==  dev->panel_if_type)){ /*dispc te isr*/
+		dispc_write(DISPC_INT_TE_MASK, DISPC_INT_CLR);
 		vsync = true;
 	}
 	if(vsync){
@@ -424,7 +424,7 @@ static void dispc_module_enable(void)
 	dispc_write(0x0, DISPC_INT_EN);
 
 	/* clear dispc INT */
-	dispc_write(0x1F, DISPC_INT_CLR);
+	dispc_write(0x3F, DISPC_INT_CLR);
 }
 
 static inline int32_t  dispc_set_disp_size(struct fb_var_screeninfo *var)
@@ -1203,6 +1203,8 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 		}
 		/*enable dispc update done INT*/
 		dispc_write((1<<4), DISPC_INT_EN);
+		/* enable hw vsync */
+		dispc_write(DISPC_INT_HWVSYNC, DISPC_INT_EN);
 	}else{
 		/* enable dispc DONE  INT*/
 		dispc_write((1<<0), DISPC_INT_EN);
@@ -1989,7 +1991,7 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(!dispc_ctx.is_first_frame){
 			dispc_ctx.waitfor_vsync_done = 0;
-			dispc_set_bits(BIT(0), DISPC_INT_EN);
+			//dispc_set_bits(BIT(0), DISPC_INT_EN);
 			dispc_ctx.waitfor_vsync_waiter++;
 			ret  = wait_event_interruptible_timeout(dispc_ctx.waitfor_vsync_queue,
 					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
@@ -2166,7 +2168,7 @@ static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 		udelay(25);
 
 		dispc_clear_bits(0x1f, DISPC_INT_EN);//disable all interrupt
-		dispc_set_bits(0x1f, DISPC_INT_CLR);// clear all interruption
+		dispc_set_bits(0x3f, DISPC_INT_CLR);// clear all interruption
 
 		dispc_set_bits(BIT(5), DISPC_DPI_CTRL);//update
 		udelay(30);
