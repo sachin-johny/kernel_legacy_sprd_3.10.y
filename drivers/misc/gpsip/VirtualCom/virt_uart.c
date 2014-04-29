@@ -238,16 +238,12 @@ out:
 	return rv;
 }
 
-static const char idleOffMsg[] = "$PCGDC,IDLEOFF,1,*1\r\n";
-static const char idleOnMsg[] = "$PCGDC,IDLEON,1,*1\r\n";
 
-static int count;
 static int	XVU_open(struct tty_struct *tty, struct file *filp)
 {
 	int	idx = 0;
 	int	rv  = -EINVAL;
 	int	idx2  = 0;
-	int	num  = 0;
 
 	if (down_interruptible(&xvu_dev.sem))
 		return -ERESTARTSYS;
@@ -272,29 +268,7 @@ static int	XVU_open(struct tty_struct *tty, struct file *filp)
 		XVU_ERR( "Endpoint[%d].tty=%p != tty=%p\n",
 				idx, xvu_dev.endpoint[idx].tty, tty);
 	}
-if(count++ >= 2)
-{
-	count = 5;
 
-	if ((idx % 2) == 1)
-	{
-		while (xvu_dev.endpoint[idx2].open_count == 0)
-		{
-			++num;
-			if (num > 10)
-			{
-				XVU_ERR( "GPS Not Open.\n");
-				goto out;
-			}
-			up(&xvu_dev.sem);
-			set_current_state(TASK_INTERRUPTIBLE);
-			schedule_timeout(100);
-			if (down_interruptible(&xvu_dev.sem))
-				return -ERESTARTSYS;
-			XVU_DBG( "Sleep [%d] to Opening: [%d], peer: [%d]\n", num, (idx % 2), xvu_dev.endpoint[idx2].open_count);
-		}
-	}
-}
 	xvu_dev.endpoint[idx].tty = tty;
 	xvu_dev.endpoint[idx].open_count++;
 
@@ -306,10 +280,6 @@ if(count++ >= 2)
 out:
 	up(&xvu_dev.sem);
 
-	if ((rv == 0)&&(xvu_dev.endpoint[idx2].open_count == 1)&&(xvu_dev.endpoint[idx2+1].open_count == 1)){
-//	if ((rv == 0)&&(xvu_dev.endpoint[idx].open_count == 1)){
-		XVU_write(tty, idleOffMsg, sizeof(idleOffMsg));
-	}
 
 	return rv;
 }
@@ -340,16 +310,9 @@ static void	XVU_close(struct tty_struct *tty, struct file *filp)
 	}
 
 	XVU_DBG( "Closing %d\n", idx );
-	if (xvu_dev.endpoint[idx].open_count <= 1) {
-		up(&xvu_dev.sem);
-		XVU_write(tty, idleOnMsg, sizeof(idleOnMsg));
-		down(&xvu_dev.sem);
-	}
-
 	xvu_dev.endpoint[idx].open_count--;
 
 	idx2 = (int)(idx/2);
-//	if (xvu_dev.endpoint[idx].open_count <= 0) {
 	if ((xvu_dev.endpoint[idx2].open_count <= 0) && (xvu_dev.endpoint[idx2+1].open_count <= 0)) {
 		/* No more users holding this device */
 		XVU_ERR( "No more users holding this device\n");
