@@ -34,7 +34,7 @@ static void pstimer_work_func(struct work_struct *work)
 #ifdef CONFIG_CFG80211
 	struct wireless_dev *wdev = g_mac_dev->ieee80211_ptr;
 #endif
-	pr_info("%s: entered\n", __func__);
+	//pr_info("%s: entered\n", __func__);
 
 	if (reset_mac_trylock() == 0){
 		pr_info("during reset_mac, nothing to do\n");
@@ -47,7 +47,7 @@ static void pstimer_work_func(struct work_struct *work)
 		return;
 	}
 
-	pr_info("%s: mutex_trylock\n", __func__);
+	//pr_info("%s: mutex_trylock\n", __func__);
 	if (mutex_trylock(&pstimer.run_lock) == 0){
 		/*If we cann't get run_lock, this means pstimer_stop is called*/
 		pr_info("%s: mutex_trylock failed\n", __func__);
@@ -69,13 +69,13 @@ static void pstimer_work_func(struct work_struct *work)
 	 * sta_sleep_disconnected will judge the current state,
 	 * if already in TROUT_SLEEP, nothing happens
 	 */
-	pr_info("%s: goint to sleep_disconnected\n", __func__);
+	//pr_info("%s: goint to sleep_disconnected\n", __func__);
 				sta_sleep_disconnected();
-	pr_info("%s: mod_timer to next 1s\n", __func__);
+	//pr_info("%s: mod_timer to next 1s\n", __func__);
 	mod_timer(&pstimer.timer, jiffies + 1 * HZ);
-	pr_info("%s: mod_timer ok\n", __func__);
+	//pr_info("%s: mod_timer ok\n", __func__);
 out:
-	pr_info("%s: exited\n", __func__);
+	//pr_info("%s: exited\n", __func__);
 	mutex_unlock(&pstimer.run_lock);
 	reset_mac_unlock();
 }
@@ -91,7 +91,7 @@ static void pstimer_expire_func(unsigned long data)
 		return ;
 	}
 
-	pr_info("%s: entered\n", __func__);
+	//pr_info("%s: entered\n", __func__);
 	schedule_work(&pstimer.work);
 }
 //---------Public interfaces----------
