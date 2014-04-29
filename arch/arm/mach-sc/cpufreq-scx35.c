@@ -838,9 +838,11 @@ static int __init sprd_cpufreq_modinit(void)
 		return PTR_ERR(sprd_cpufreq_conf->regulator);
 
 	/* set max voltage first */
+	/*
 	regulator_set_voltage(sprd_cpufreq_conf->regulator,
 		sprd_cpufreq_conf->vddarm_mv[0],
 		sprd_cpufreq_conf->vddarm_mv[0]);
+	*/
 	clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->tdpllclk);
 	/*
 	* clk_set_rate(sprd_cpufreq_conf->mpllclk, (sprd_top_frequency * 1000));
