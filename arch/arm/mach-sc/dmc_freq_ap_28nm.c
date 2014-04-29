@@ -30,15 +30,12 @@
 #define PUBL_REG_BASE  (0x30010000)
 #define UART1_PHYS_ADDR (0x70100000)
 
-#define DPLL_CLK			800
-#define DPLL_REFIN		26
-#define NINT(FREQ,REFIN)	(FREQ/REFIN)
-#define KINT(FREQ,REFIN)	((FREQ-(FREQ/REFIN)*REFIN)*1048576/REFIN)
+//#define DPLL_CLK			800
+//#define DPLL_REFIN		26
+//#define NINT(FREQ,REFIN)	(FREQ/REFIN)
+//#define KINT(FREQ,REFIN)	((FREQ-(FREQ/REFIN)*REFIN)*1048576/REFIN)
 
 typedef unsigned long int	uint32;
-
-//DMC_UMCTL_REG_INFO_PTR_T gp_umctl_reg;
-//DMC_PUBL_REG_INFO_PTR_T gp_publ_reg;
 
 static inline void uart_putch(uint32 c)
 {
@@ -125,8 +122,7 @@ static inline  void wait_queue_complete(void)
 			return;
 		}
 	}
-//}__attribute__((always_inline))
-}
+}__attribute__((always_inline))
 
 static inline void exit_lowpower_mode(uint32 *reg_store)
 {
@@ -191,9 +187,10 @@ static inline void ddr_cam_command_dequeue(uint32 isEnable)
 }__attribute__((always_inline))
 
 
-static inline void ddr_timing_update_ex(ddr_dfs_v2_t *timing_param)
+static inline void ddr_timing_update(ddr_dfs_v2_t *timing_param)
 {
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
+
 	/* minimum time from refresh to refresh or active */
 	//toggle this signel indicate refresh register has been update
 	p_umctl_reg->umctl_rfshtmg = timing_param->umctl_rfshtmg;
@@ -209,10 +206,9 @@ static inline void ddr_timing_update_ex(ddr_dfs_v2_t *timing_param)
 	p_umctl_reg->umctl_dramtmg[6] = timing_param->umctl_dramtmg6;
 	//p_umctl_reg->umctl_dramtmg[7] = timing_param->umctl_dramtmg7;
 	//p_umctl_reg->umctl_dramtmg[8] = timing_param->umctl_dramtmg8;
-
 }__attribute__((always_inline))
 
-static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_v2_t *timing)
+static inline void ddr_clk_set(uint32 new_clk, ddr_dfs_v2_t *timing)
 {
 	volatile uint32 i;
 	uint32 reg_store[3];
@@ -245,52 +241,16 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_v2_t *timing)
 
 	switch(new_clk) {
 		case 200:
+		case 233:
 		{
-		#if 0
-			if ((sene == EMC_FREQ_NORMAL_SWITCH_SENE)
-				|| (sene == EMC_FREQ_RESUME_SENE)) {
+			/* switch to dpll source */
+			reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x8, 2, 0x1);
+			for(i = 0; i < 0x2; i++);
 
-				/* set tdpll clock divider */
-				/* reg[0x402D0024] :*/
-				/* 			[9:8]  : clk_emc_div(clk_div= clk_src/(div+1)) */
-				/* 			[1:0]  : clk_emc_sel (0:pub 26m, 1: CPLL, 2:TDPLL, 3:DPLL)*/
-				reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x8, 2, 0x1);
-				for(i = 0; i < 0x2; i++);
-
-				/* switch to tdpll source 768Mhz */
-				reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x0, 2, 0x2);
-				for(i = 0; i < 0x2; i++);
-
-				/* 192M */
-			}
-
-			if(sene == EMC_FREQ_DEEP_SLEEP_SENE)
-		#endif
-			{
-			#if 0
-				/* set  dpll clock to 201M : set DPLL_REFIN to 26M * 31 = 806M*/
-				reg_val = REG32(REG_AON_APB_DPLL_CFG1);
-				reg_val |= 1 << 10; 		// fractional divider
-				reg_val &= ~(0xFFFFF << 12 | 0x3f);
-				reg_val |= (KINT(DPLL_CLK, DPLL_REFIN) & 0xFFFFF) << 12;
-				reg_val |= (NINT(DPLL_CLK, DPLL_REFIN)) & 0x3f;
-				REG32(REG_AON_APB_DPLL_CFG1)= reg_val;
-
-				reg_val = REG32(REG_AON_APB_DPLL_CFG); //DPLL reference clock  0-2M 1-4M 2-13M 3-26M
-				reg_val &= ~(3 << 24); 
-				reg_val |= (3 << 24); 
-				REG32(REG_AON_APB_DPLL_CFG) = reg_val;
-			#endif
-				/* switch to dpll source */
-				reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x8, 2, 0x1);
-				for(i = 0; i < 0x2; i++);
-
-				reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x0, 2, 0x3);
-				for(i = 0; i < 0x2; i++);
-			}
-
+			reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x0, 2, 0x3);
+			for(i = 0; i < 0x2; i++);
 			break;
-			}
+		}
 
 		case 384:
 		{
@@ -312,6 +272,8 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_v2_t *timing)
 		}
 
 		case 400:
+		case 466:
+		case 533:
 		{
 			/* set  dpll clock to 400M : set DPLL_REFIN to 4M*/
 			/* reg[0x402E3004] :*/
@@ -348,6 +310,7 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_v2_t *timing)
 
 			break;
 		}
+
 		default:
 			break;
 	}
@@ -363,7 +326,7 @@ static inline void ddr_clk_set(uint32 new_clk, uint32 sene,ddr_dfs_v2_t *timing)
 
 //	uart_putch('6');
 	/* step 6: update phy timing register. static and dynamic register */
-	ddr_timing_update_ex(timing);
+	ddr_timing_update(timing);
 
 //	uart_putch('7');
 	/* step 7: trigger the initization PHY */
@@ -409,14 +372,10 @@ inline void dev_freq_set(unsigned long req)
 	u32 sene;
 	ddr_dfs_v2_t *timing;
 
-	/* initialize umctl, phy base address */
-	//gp_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
-	//gp_publ_reg = (DMC_PUBL_REG_INFO_PTR_T) PUBL_REG_BASE;
-
 	//ddr_type = (req & EMC_DDR_TYPE_MASK) >> EMC_DDR_TYPE_OFFSET;
 	clk = (req & EMC_CLK_FREQ_MASK) >> EMC_CLK_FREQ_OFFSET;
 	//dll_mode = (req & EMC_DLL_MODE_MASK);
-	sene = (req & EMC_FREQ_SENE_MASK) >> EMC_FREQ_SENE_OFFSET;
+	//sene = (req & EMC_FREQ_SENE_MASK) >> EMC_FREQ_SENE_OFFSET;
 
 	timing = get_clk_timing(clk);
 	if(timing->ddr_clk != clk) {
@@ -432,7 +391,7 @@ inline void dev_freq_set(unsigned long req)
 		while(1);
 	}
 
-	ddr_clk_set(clk, sene, timing);
+	ddr_clk_set(clk, timing);
 } __attribute__((always_inline))
 
 void emc_dfs_main(unsigned long flag)
