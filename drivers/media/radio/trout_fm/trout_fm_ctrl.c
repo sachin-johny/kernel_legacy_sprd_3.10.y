@@ -227,6 +227,7 @@ static int _trout_fm_control(struct v4l2_ctrl *ctrl)
         TROUT_PRINT("Unknown fm control.");
         break;
     }
+    return 0;
 }
 
 static const struct v4l2_file_operations trout_fops = {
