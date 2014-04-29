@@ -94,7 +94,7 @@ int32_t clk_mm_i_eb(struct device_node *dn, uint32_t enable)
 		}
 #endif
 		PARSE_TRACE("clk_mm_i_eb enable ok.\n");
-		atomic_inc_return(&mm_enabe_cnt);
+		atomic_inc(&mm_enabe_cnt);
 	}else{
 #if defined(CONFIG_SPRD_IOMMU)
 		{
@@ -104,7 +104,7 @@ int32_t clk_mm_i_eb(struct device_node *dn, uint32_t enable)
 		clk_disable(clk_mm_i);
 		clk_put(clk_mm_i);
 		clk_mm_i = NULL;
-		atomic_dec_return(&mm_enabe_cnt);
+		atomic_dec(&mm_enabe_cnt);
 		PARSE_TRACE("clk_mm_i_eb disable ok.\n");
 	}
 
