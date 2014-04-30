@@ -35,16 +35,13 @@ static int __init __iomem_reserve_memblock(void)
 #else
 #ifndef CONFIG_OF
 	ret = dma_declare_contiguous(&sprd_ion_dev.dev, SPRD_ION_MEM_SIZE, SPRD_ION_MEM_BASE, 0);
-#else
-	static struct device ion_dev;
-	ret = dma_declare_contiguous(&ion_dev, SPRD_ION_MEM_SIZE, SPRD_ION_MEM_BASE, 0);
-#endif
 	if (unlikely(ret))
 	{
 		pr_err("reserve CMA area(base:%x size:%x) for ION failed!!!\n", SPRD_ION_MEM_BASE,SPRD_ION_MEM_SIZE);
 		return -ENOMEM;
 	}
 	pr_info("reserve CMA area(base:%x size:%x) for ION\n", SPRD_ION_MEM_BASE, SPRD_ION_MEM_SIZE);
+#endif
 #endif
 	return 0;
 }
@@ -105,8 +102,8 @@ int __init __sipc_reserve_memblock(void)
 
 void __init sci_reserve(void)
 {
-	int ret;
 #ifndef CONFIG_OF
+	int ret;
 	ret = __iomem_reserve_memblock();
 	if (ret != 0)
 		pr_err("Fail to reserve mem for iomem. errno=%d\n", ret);
@@ -115,7 +112,6 @@ void __init sci_reserve(void)
 	ret = __sipc_reserve_memblock();
 	if (ret != 0)
 		pr_err("Fail to reserve mem for sipc. errno=%d\n", ret);
-#endif
 #endif
 
 #ifdef CONFIG_PSTORE_RAM
@@ -128,5 +124,6 @@ void __init sci_reserve(void)
 	ret = __fbmem_reserve_memblock();
 	if (ret != 0)
 		pr_err("Fail to reserve mem for framebuffer . errno=%d\n", ret);
+#endif
 #endif
 }
