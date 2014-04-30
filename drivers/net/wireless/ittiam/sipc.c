@@ -887,6 +887,7 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 	memcpy(send_buf->u.cmd.variable, &flag, sizeof(flag));
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + sizeof(flag);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	pr_debug("%s mode %#x\n", __func__, flag);
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_DEV_CLOSE);
 

@@ -749,12 +749,12 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
 
+	wiphy_info(wiphy, "%s with cipher %d\n", __func__, params->cipher);
+
 	if (!itm_wlan_cfg80211_ready(priv)) {
 		wiphy_err(wiphy, "CP2 not ready!\n");
 		return -EIO;
 	}
-
-	wiphy_info(wiphy, "%s with cipher %d\n", __func__, params->cipher);
 
 	if (priv->mode == ITM_AP_MODE) {
 		u8 key[32];
@@ -1218,9 +1218,7 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	}
 
 	if (left < 10 || aborted) {
-		wiphy_err(wiphy,
-			  "%s invalid event len %d!\n", __func__,
-			  priv->wlan_sipc->wlan_sipc_event_len);
+		wiphy_err(wiphy, "%s invalid event len %d!\n", __func__, left);
 		goto out;
 	}
 
@@ -1293,8 +1291,10 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 		i++;
 	}
 
-	if (left)
+	if (left) {
+		wiphy_err(wiphy, "%s wrong event len %d!\n", __func__, left);
 		goto out;
+	}
 
 	del_timer_sync(&priv->scan_timeout);
 	cfg80211_scan_done(priv->scan_request, aborted);
@@ -1311,8 +1311,13 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 
 out:
 	del_timer_sync(&priv->scan_timeout);
-	cfg80211_scan_done(priv->scan_request, true);
-	priv->scan_request = NULL;
+	if (priv->scan_request) {
+		cfg80211_scan_done(priv->scan_request, true);
+		priv->scan_request = NULL;
+	} else {
+		wiphy_err(wiphy, "%s weird null scan_request!\n", __func__);
+	}
+
 	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
 	    priv->scan_done_lock.link.prev != LIST_POISON2)
 		wake_unlock(&priv->scan_done_lock);
@@ -1476,8 +1481,12 @@ static int itm_wlan_cfg80211_start_ap(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	if (info->ssid == NULL)
+	wiphy_info(wiphy, "%s\n", __func__);
+
+	if (info->ssid == NULL) {
+		wiphy_err(wiphy, "%s null ssid!\n", __func__);
 		return -EINVAL;
+	}
 
 	memcpy(priv->ssid, info->ssid, info->ssid_len);
 	priv->ssid_len = info->ssid_len;
@@ -1491,6 +1500,8 @@ static int itm_wlan_cfg80211_stop_ap(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 	int ret;
+
+	wiphy_info(wiphy, "%s\n", __func__);
 
 	ret = itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
 
