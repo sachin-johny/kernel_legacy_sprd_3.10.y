@@ -848,6 +848,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 #if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA)
 	vddwpa_wifi_enable_control(0);
 #endif
+	dev_info(&pdev->dev, "%s\n", __func__);
 
 	return 0;
 }
