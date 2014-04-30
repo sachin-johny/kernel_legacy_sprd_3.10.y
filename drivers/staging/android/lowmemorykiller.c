@@ -136,6 +136,7 @@ extern int user_process_meminfo_show(void);
 #ifdef CONFIG_ZRAM
 extern void zram_printlog(void);
 #endif
+extern void dump_tasks(const struct mem_cgroup *mem, const nodemask_t *nodemask);
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
@@ -310,7 +311,7 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 	dump_stack();
 	//mem_cgroup_print_oom_info(mem, p);
 	show_mem(SHOW_MEM_FILTER_NODES);
-	//dump_tasks(mem, nodemask);
+	dump_tasks(mem, nodemask);
 }
 
 
