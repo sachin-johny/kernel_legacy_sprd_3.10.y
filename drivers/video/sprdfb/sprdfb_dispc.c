@@ -1163,6 +1163,8 @@ ERROR_CLK_ENABLE:
 
 static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 {
+	uint32_t dispc_int_en_reg_val = 0x00;//ONLY for dispc interrupt en reg
+
 	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
 
 	if(NULL == dev){
@@ -1182,7 +1184,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	dispc_pwr_enable(true);
 #ifdef CONFIG_FB_SCX30G
 	//set buf thres
-	dispc_set_threshold(0x1000, 0x00, 0x1000);//0x1000: 4K
+	dispc_set_threshold(0x960, 0x00, 0x960);//0x1000: 4K
 #endif
 
 	if(dispc_ctx.is_first_frame){
@@ -1202,14 +1204,15 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 			dispc_clear_bits(BIT(4), DISPC_DPI_CTRL);
 		}
 		/*enable dispc update done INT*/
-		dispc_write((1<<4), DISPC_INT_EN);
+		dispc_int_en_reg_val |= DISPC_INT_UPDATE_DONE_MASK;
 		/* enable hw vsync */
-		dispc_write(DISPC_INT_HWVSYNC, DISPC_INT_EN);
+		dispc_int_en_reg_val |= DISPC_INT_HWVSYNC;
 	}else{
 		/* enable dispc DONE  INT*/
-		dispc_write((1<<0), DISPC_INT_EN);
+		dispc_int_en_reg_val |= DISPC_INT_DONE_MASK;
 	}
-	dispc_set_bits(BIT(2), DISPC_INT_EN);
+	dispc_int_en_reg_val |= DISPC_INT_ERR_MASK;
+	dispc_write(dispc_int_en_reg_val, DISPC_INT_EN);
 	dev->enable = 1;
 	return 0;
 }
