@@ -200,7 +200,7 @@ static int _lzo1x_decompress_queue(uint32_t src_addr , uint32_t src_num , uint32
 	return -1;
 }
 
-static int lzo1x_decompress_safe_hw_nodummy(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len)
+int lzo1x_decompress_safe_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len)
 {
 	volatile uint32_t dec_len;
 
@@ -222,13 +222,6 @@ static int lzo1x_decompress_safe_hw_nodummy(const unsigned char *src , size_t sr
 }
 
 extern unsigned int  get_zip_type(void);
-
-static ____cacheline_aligned unsigned char dummy_data[0x1000];
-int lzo1x_decompress_safe_hw(const unsigned char *src , size_t src_len , unsigned char *dst , size_t *dst_len)
-{
-	memcpy((void *)dummy_data,(void *)src,src_len);
-	return lzo1x_decompress_safe_hw_nodummy((unsigned char *)dummy_data,src_len,dst,dst_len);
-}
 
 EXPORT_SYMBOL_GPL(lzo1x_decompress_safe_hw);
 
@@ -270,7 +263,7 @@ static int __init ZipDec_Init(void)
 	}
 	_lzo1x_decompress_safe = (zipdec_param.work_mode==ZIPDEC_QUEUE) ? (_lzo1x_decompress_queue) : (_lzo1x_decompress_single);
 	Zip_Dec_Wait=(zipdec_param.wait_mode==ZIPDEC_WAIT_INT)? Zip_Dec_Wait_Int : Zip_Dec_Wait_Pool;
-	ZipDec_decompress = get_zip_type() ?  lzo1x_decompress_safe_hw_nodummy : lzo1x_decompress_safe;
+	ZipDec_decompress = get_zip_type() ?  lzo1x_decompress_safe_hw : lzo1x_decompress_safe;
 	//ZipDec_Set_Timeout(zipdec_param.timeout);
 	return 0;
 }
