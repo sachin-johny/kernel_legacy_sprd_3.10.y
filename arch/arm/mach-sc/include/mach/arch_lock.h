@@ -42,9 +42,9 @@ static __inline __init int __hwspinlock_init(void)
 #else
 static __inline __init int __hwspinlock_init(void)
 {
-	hwspinlock_vid = __raw_readl(SPRD_HWLOCK0_BASE + 0xffc);
-	__raw_writel(BIT_SPINLOCK_EB, REG_GLB_SET(REG_AP_AHB_AHB_EB));
-	__raw_writel(BIT_SPLK_EB, REG_GLB_SET(REG_AON_APB_APB_EB0));
+	hwspinlock_vid = __raw_readl((void *)(SPRD_HWLOCK0_BASE + 0xffc));
+	__raw_writel(BIT_SPINLOCK_EB, (void *)REG_GLB_SET(REG_AP_AHB_AHB_EB));
+	__raw_writel(BIT_SPLK_EB, (void *)REG_GLB_SET(REG_AON_APB_APB_EB0));
 	return 0;
 }
 #endif
@@ -102,12 +102,12 @@ static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
 	addr = HWLOCK_ADDR(lock_id);
 
 	if (hwspinlock_vid == 0x100) {
-		if (!readl(addr))
+		if (!readl((void *)addr))
 			goto __locked;
 	} else if (hwspinlock_vid == 0) {
-		if (HWSPINLOCK_NOTTAKEN_V0 == __raw_readl(addr)) {
-			__raw_writel(HWSPINLOCK_WRITE_KEY, addr);
-			if (HWSPINLOCK_WRITE_KEY == __raw_readl(addr)) {
+		if (HWSPINLOCK_NOTTAKEN_V0 == __raw_readl((void *)addr)) {
+			__raw_writel(HWSPINLOCK_WRITE_KEY, (void *)addr);
+			if (HWSPINLOCK_WRITE_KEY == __raw_readl((void *)addr)) {
 				goto __locked;
 			}
 		}
@@ -127,9 +127,9 @@ static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 	RECORD_HWLOCKS_STATUS_UNLOCK(lock_id);
 
 	if (hwspinlock_vid == 0x100)
-		__raw_writel(HWSPINLOCK_NOTTAKEN_V1, addr);
+		__raw_writel(HWSPINLOCK_NOTTAKEN_V1, (void *)addr);
 	else
-		__raw_writel(HWSPINLOCK_NOTTAKEN_V0, addr);
+		__raw_writel(HWSPINLOCK_NOTTAKEN_V0, (void *)addr);
 }
 
 #define arch_hwlock_fast(_LOCK_ID_) do { \

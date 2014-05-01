@@ -107,7 +107,7 @@ void __iomap_page(unsigned long virt, unsigned long size, int enable)
 	pte = (u32 *)__va(*pgd & 0xfffffc00);
 	pte += (addr >> 12) & 0xff;
 
-	pr_info("%s (%d) pgd %p, pte %p, *pte %x\n",
+	pr_debug("%s (%d) pgd %p, pte %p, *pte %x\n",
 		__FUNCTION__, enable, pgd, pte, *pte);
 
 	if (enable)
@@ -118,49 +118,63 @@ void __iomap_page(unsigned long virt, unsigned long size, int enable)
 	flush_tlb_kernel_range(virt, end);
 }
 
-#define sci_reg_set(reg, bit)	sci_write_va(reg, bit, 0)
-#define sci_reg_clr(reg, bit)	sci_write_va(reg, 0, bit)
+#define sci_mm_glb_set(reg, bit)	__raw_writel((bit), (void *)REG_GLB_SET(reg))
+#define sci_mm_glb_clr(reg, bit)	__raw_writel((bit), (void *)REG_GLB_CLR(reg))
+#define sci_mm_reg_set(reg, bit)	__raw_writel(__raw_readl((void *)(reg)) | (bit), (void *)(reg))
+#define sci_mm_reg_clr(reg, bit)	__raw_writel((__raw_readl((void *)(reg)) & ~(bit)), (void *)(reg))
 #ifdef CONFIG_OF
 int local_mm_enable(void *c, int enable)
 #else
-int sci_mm_enable(struct clk *c, int enable, unsigned long *pflags)
+int sci_mm_enable(void *c, int enable, unsigned long *pflags)
 #endif
 {
 	if (enable) {
+		int to = 2000;
+		/* FIXME: mm domain power on at first
+		 */
+		sci_mm_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+
 		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
 		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_VSP_BASE, SZ_4K, enable);
-#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
-		sci_reg_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
-#else
-		sci_reg_clr(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
-		/* FIXME: wait a moment for mm domain stable
-		*/
-		sci_reg_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
-		if (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1)) {
-			int to = 10;
-			while (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1) && to--) {
-				udelay(50);
-			}
-		}
-		WARN_ON(0 != sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, BITS_PD_MM_TOP_STATE(-1)));
 
-		sci_reg_set(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
-		sci_reg_set(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
-		sci_reg_set(REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+		sci_glb_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
+#else
+		sci_mm_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+		sci_glb_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
+		/* FIXME: wait a moment for mm domain stable
+		 */
+		while ((__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1)) && to--) {
+			udelay(50);
+		}
+
+		WARN(0 || 0 != sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, BITS_PD_MM_TOP_STATE(-1)),
+			"MM TOP CFG 0x%08x, TIMEOUT %d\n", __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG),
+			(2000 - to) * 50);
+
+		WARN(0 == sci_glb_read(REG_AON_APB_APB_EB0, BIT_MM_EB),
+			"AON APB EB0 0x%08x\n", __raw_readl((void *)REG_AON_APB_APB_EB0));
+
+		/* FIXME: force mm clock enable
+		 */
+		sci_mm_glb_set(REG_AON_APB_APB_EB0, BIT_MM_EB);
+		sci_mm_glb_set(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+		sci_mm_reg_set(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+		sci_mm_reg_set(REG_MM_CLK_MM_AHB_CFG, 0x3);/* default set mm ahb 153.6MHz */
 #endif
 	} else {
 #if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
-		sci_reg_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
+		sci_glb_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
 #else
-		sci_reg_clr(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
-		sci_reg_clr(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+		sci_mm_reg_clr(REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+		sci_mm_glb_clr(REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
 
-		sci_reg_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
+		sci_glb_clr(REG_AON_APB_APB_EB0, BIT_MM_EB);
 		/* FIXME: do not force mm domain power off before retention
 		*/
-		sci_reg_set(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+		sci_mm_glb_set(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 #endif
 		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
 		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);

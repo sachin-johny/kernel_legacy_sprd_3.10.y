@@ -23,6 +23,7 @@
 #include <linux/delay.h>
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/arch_lock.h>
 
 #ifdef CONFIG_OF
 
@@ -97,17 +98,25 @@ static inline void of_read_reg(struct cfg_reg *cfg, const __be32 * cell)
 static inline void __glbreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 				   int is_set)
 {
+	unsigned long flags;
 	if (!reg)
 		return;
 
 	clk_debug("%s %s %p[%x]\n", __clk_get_name(hw->clk),
 		  (is_set) ? "SET" : "CLR", reg, (u32) msk);
 
+	__arch_default_lock(HWLOCK_GLB, &flags);
+
 	if (is_set)
 		__raw_writel(msk, (void *)((u32) (reg) + 0x1000));
 	else
 		__raw_writel(msk, (void *)((u32) (reg) + 0x2000));
+
+	__arch_default_unlock(HWLOCK_GLB, &flags);
 }
+
+#define __glbreg_set(hw, reg, msk)	__glbreg_setclr(hw, reg, msk, 1)
+#define __glbreg_clr(hw, reg, msk)	__glbreg_setclr(hw, reg, msk, 0)
 
 static int sprd_clk_prepare(struct clk_hw *hw)
 {
@@ -141,14 +150,14 @@ static int sprd_clk_is_prepared(struct clk_hw *hw)
 static int sprd_clk_enable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__glbreg_setclr(hw, c->enb.reg, (u32) c->enb.msk, 1);
+	__glbreg_set(hw, c->enb.reg, (u32) c->enb.msk);
 	return 0;
 }
 
 static void sprd_clk_disable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__glbreg_setclr(hw, c->enb.reg, (u32) c->enb.msk, 0);
+	__glbreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
 }
 
 static int sprd_clk_is_enable(struct clk_hw *hw)
@@ -165,6 +174,32 @@ static unsigned long sprd_clk_fixed_pll_recalc_rate(struct clk_hw *hw,
 }
 
 #define BITS_MPLL_REFIN(_X_)                              ( (_X_) << 24 & (BIT(24)|BIT(25)) )
+
+/* bits definitions for register REG PLL CFG1 */
+#define BITS_PLL_KINT(_X_)                               ( (_X_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)|BIT(16)|BIT(17)|BIT(18)|BIT(19)|BIT(20)|BIT(21)|BIT(22)|BIT(23)|BIT(24)|BIT(25)|BIT(26)|BIT(27)|BIT(28)|BIT(29)|BIT(30)|BIT(31)) )
+#define BIT_PLL_DIV_S                                    ( BIT(10) )
+#define BITS_PLL_RSV(_X_)                                ( (_X_) << 8 & (BIT(8)|BIT(9)) )
+#define BIT_PLL_MOD_EN                                   ( BIT(7) )
+#define BIT_PLL_SDM_EN                                   ( BIT(6) )
+#define BITS_PLL_NINT(_X_)                               ( (_X_) & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)) )
+
+#define SHFT_PLL_KINT                                     ( 12 )
+#define SHFT_PLL_NINT                                     ( 0 )
+
+/*
+ How To look PLL Setting
+ reg name	 val	 bit
+ MPLL_CFG	 Fin	 [25:24]
+ MPLL_CFG	 N	 [5:0]
+ MPLL_CFG1	 div_s	 [10]
+ MPLL_CFG1	 sdm_en  [6]
+ MPLL_CFG1	 Nint	 [5:0]
+ MPLL_CFG1	 Kint	 [31:12]
+ div_s = 1	 sdm_en = 1  Fout = Fin * ( Nint + Kint/1048576)
+ div_s = 1	 sdm_en = 0  Fout = Fin * Nint
+ div_s = 0	 sdm_en = x  Fout = Fin * N
+ */
+
 static inline unsigned int __pll_get_refin_rate(void *reg)
 {
 	const unsigned long refin[4] = { 2000000, 4000000, 13000000, 26000000 };
@@ -181,10 +216,14 @@ static unsigned long sprd_clk_adjustable_pll_recalc_rate(struct clk_hw *hw,
 	unsigned int rate;
 
 #ifdef CONFIG_ARCH_SCX30G
-	unsigned int k, mn;
-	mn = __raw_readl(pll->m.mul.reg) & 0xfffff03f;
-	k = (mn >> 12);
-	mn = mn & 0x3f;
+	unsigned int k = 0, mn, cfg1;
+	cfg1 = __raw_readl(pll->m.mul.reg);
+	mn = (cfg1 & BITS_PLL_NINT(~0)) >> SHFT_PLL_NINT;
+
+	/* FIXME: Kint only valid while sdm_en = 1 */
+	if ((cfg1 & BIT_PLL_SDM_EN))
+		k = (cfg1 & BITS_PLL_KINT(~0)) >> SHFT_PLL_KINT;
+
 	rate = 26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100, 1048576) * 10000;
 	clk_debug("rate %u, k %u, mn %u\n", rate, k, mn);
 #else
@@ -230,11 +269,17 @@ static int sprd_clk_adjustable_pll_set_rate(struct clk_hw *hw,
 	struct clk_sprd *pll = to_clk_sprd(hw);
 	u32 old_rate = sprd_clk_adjustable_pll_recalc_rate(hw, 0) / 1000000;
 #ifdef CONFIG_ARCH_SCX30G
-	u32 k, mn;
+	u32 k, mn, cfg1;
+
 	mn = (rate / 1000000) / 26;
 	k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576, 26 * 100);
-	clk_debug("rate %u, k %u, mn %u\n", (u32) rate, k, mn);
-	__pllreg_write(pll->m.mul.reg, (k << 12)|(mn), 0xfffff03f);
+
+	cfg1 = BITS_PLL_NINT(mn);
+	if (k)
+		cfg1 |= BITS_PLL_KINT(k)|BIT_PLL_SDM_EN;
+
+	clk_debug("%s rate %u, k %u, mn %u\n", __clk_get_name(hw->clk), (u32) rate, k, mn);
+	__pllreg_write(pll->m.mul.reg, cfg1, BITS_PLL_KINT(~0)|BITS_PLL_NINT(~0)|BIT_PLL_SDM_EN);
 #else
 	u32 refin, mn;
 	refin = __pll_get_refin_rate(pll->m.mul.reg);
@@ -368,25 +413,29 @@ static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 		__raw_writel(__raw_readl((void *)reg) & ~msk, (void *)reg);
 }
 
+#define __mmreg_set(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 1)
+#define __mmreg_clr(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 0)
+
 static int sprd_mm_clk_prepare(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
 	if (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1)) {
-		int to = 10;
-		__glbreg_setclr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN, 0);
+		int to = 2000;
+		__glbreg_clr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 		/* FIXME: wait a moment for mm domain stable
 		*/
 		while (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1) && to--) {
 			udelay(50);
 		}
 	}
-	WARN_ON(__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1));
+	WARN(__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1),
+		"MM TOP CFG 0x%08x\n", __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG));
 
 	if (!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB)) {
-		__glbreg_setclr(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB, 1);
-		__glbreg_setclr(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB, 1);
-		__mmreg_setclr(hw, (void *)REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN, 1);
-		__mmreg_setclr(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3, 1);/* set mm ahb 153.6MHz */
+		__glbreg_set(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
+		__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+		__mmreg_set(hw, (void *)REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+		__mmreg_set(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
 	}
 #endif
 	return sprd_clk_prepare(hw);
@@ -400,14 +449,14 @@ static void sprd_mm_clk_unprepare(struct clk_hw *hw)
 static int sprd_mm_clk_enable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__mmreg_setclr(hw, c->enb.reg, (u32) c->enb.msk, 1);
+	__mmreg_set(hw, c->enb.reg, (u32) c->enb.msk);
 	return 0;
 }
 
 static void sprd_mm_clk_disable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__mmreg_setclr(hw, c->enb.reg, (u32) c->enb.msk, 0);
+	__mmreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
 }
 
 const struct clk_ops sprd_mm_clk_gate_ops = {
