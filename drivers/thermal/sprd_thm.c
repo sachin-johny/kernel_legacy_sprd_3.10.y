@@ -20,6 +20,12 @@
 #include <linux/sprd_thm.h>
 #include "thm.h"
 #include "linux/delay.h"
+#ifdef CONFIG_OF
+#include <linux/slab.h>
+#include <linux/of_device.h>
+//#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#endif
 
 ///#define COOLING_TEST
 #ifdef COOLING_TEST		//test cooling
@@ -238,15 +244,82 @@ static void sprd_thermal_resume_delay_work(struct work_struct *work)
 	dev_dbg(&pzone->therm_dev->device, "thermal resume delay work finished.\n");
 }
 
+#ifdef CONFIG_OF
+static struct sprd_thm_platform_data *thermal_detect_parse_dt(
+                         struct device *dev)
+{
+	struct sprd_thm_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	int ret;
+	u32 trip_points_active,trip_points_critical,trip_num;
+	int i = 0;
+
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return NULL;
+	}
+	ret = of_property_read_u32(np, "trip_points_active", &trip_points_active);
+	if(ret){
+		dev_err(dev, "fail to get trip_points_active\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "trip_points_critical", &trip_points_critical);
+	if(ret){
+		dev_err(dev, "fail to get trip_points_critical\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "trip_num", &trip_num);
+	if(ret){
+		dev_err(dev, "fail to get trip_num\n");
+		goto fail;
+	}
+	pdata->num_trips = trip_num;
+
+	for (i = 0; i < trip_num; i++){
+		if (i == trip_num - 1){
+			pdata->trip_points[i].temp = trip_points_critical;
+			pdata->trip_points[i].type = THERMAL_TRIP_CRITICAL;
+		}
+		else {
+			pdata->trip_points[i].temp = trip_points_active - (trip_num - 2 - i) * THM_TEMP_DEGREE_SETP;
+			pdata->trip_points[i].type = THERMAL_TRIP_ACTIVE;
+			memcpy(pdata->trip_points[i].cdev_name[0], "thermal-cpufreq-0", sizeof("thermal-cpufreq-0"));
+		}
+	}
+	return pdata;
+
+fail:
+	kfree(pdata);
+	return NULL;
+
+}
+#endif
+
+#ifdef CONFIG_OF
+extern int of_address_to_resource(struct device_node *dev, int index,
+				  struct resource *r);
+#endif
 static int sprd_thermal_probe(struct platform_device *pdev)
 {
 	struct sprd_thermal_zone *pzone = NULL;
 	struct sprd_thm_platform_data *ptrips = NULL;
 	struct resource *regs;
 	int thm_irq, ret = 0;
+#ifdef CONFIG_OF
+	struct device_node *np = pdev->dev.of_node;
+#endif
 
 	printk(KERN_INFO "sprd_thermal_probe id:%d\n", pdev->id);
+#ifdef CONFIG_OF
+	if (!np) {
+		dev_err(&pdev->dev, "device node not found\n");
+		return ERR_PTR(-EINVAL);
+	}
+	ptrips = thermal_detect_parse_dt(&pdev->dev);
+#else
 	ptrips = dev_get_platdata(&pdev->dev);
+#endif
 	if (!ptrips)
 		return -EINVAL;
 	pzone = devm_kzalloc(&pdev->dev, sizeof(*pzone), GFP_KERNEL);
@@ -256,17 +329,35 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 	mutex_lock(&pzone->th_lock);
 	pzone->mode = THERMAL_DEVICE_DISABLED;
 	pzone->trip_tab = ptrips;
+#ifdef CONFIG_OF
+	ret = of_property_read_u32(np, "id", &pdev->id);
+	if(ret){
+		printk(KERN_INFO "sprd_thermal_probe No sensor ID \n");
+		return -EINVAL;
+	}
 	pzone->sensor_id = pdev->id;
+#else
+	pzone->sensor_id = pdev->id;
+#endif
 	INIT_WORK(&pzone->therm_work, sprd_thermal_work);
 	INIT_DELAYED_WORK(&pzone->resume_delay_work,sprd_thermal_resume_delay_work);
+#ifdef CONFIG_OF
+	regs = kzalloc(sizeof(*regs), GFP_KERNEL);
+	ret = of_address_to_resource(np, 0, regs);
+#else
 	regs = platform_get_resource(pdev, IORESOURCE_MEM, 0);
+#endif
 	if (!regs) {
 		return -ENXIO;
 	}
 	pzone->reg_base = (void __iomem *)regs->start;
 	printk(KERN_INFO "sprd_thermal_probe id:%d,base:0x%x\n", pdev->id,
 	       (unsigned int)pzone->reg_base);
+#ifdef CONFIG_OF
+	thm_irq = irq_of_parse_and_map(np, 0);
+#else
 	thm_irq = platform_get_irq(pdev, 0);
+#endif
 	if (thm_irq < 0) {
 		dev_err(&pdev->dev, "Get IRQ_THM_INT failed.\n");
 		return thm_irq;
@@ -333,6 +424,13 @@ static int sprd_thermal_resume(struct platform_device *pdev)
 	return 0;
 }
 
+#ifdef CONFIG_OF
+static const struct of_device_id thermal_of_match[] = {
+       { .compatible = "sprd,sprd-thermal", },
+       { }
+};
+#endif
+
 static struct platform_driver sprd_thermal_driver = {
 	.probe = sprd_thermal_probe,
 	.suspend = sprd_thermal_suspend,
@@ -341,6 +439,9 @@ static struct platform_driver sprd_thermal_driver = {
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = "sprd-thermal",
+#ifdef CONFIG_OF
+			.of_match_table = of_match_ptr(thermal_of_match),
+#endif
 		   },
 };
 static int __init sprd_thermal_init(void)

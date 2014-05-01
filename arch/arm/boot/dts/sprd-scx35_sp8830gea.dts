@@ -684,7 +684,15 @@
 		 #address-cells = <1>;
 		 #size-cells = <0>;
 	 };
-
+	sprd_thermal {
+		compatible = "sprd,sprd-thermal";
+		id = <0>;
+		interrupts = <0 26 0x0>;
+		reg = <0xf5260000 0x1000>;
+		trip_points_active = <105>;
+		trip_points_critical = <114>;
+		trip_num = <5>;
+	};
 	sprd_battery {
 		compatible = "sprd,sprd-battery";
 		gpios = <&a_eic_gpio 0 0        /* chg int */
