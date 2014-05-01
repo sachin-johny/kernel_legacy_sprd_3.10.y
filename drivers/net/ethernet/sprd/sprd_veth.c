@@ -35,10 +35,12 @@
 #define VETH_INFO(fmt...)	pr_info("VETH: " fmt)
 #define VETH_DEBUG(fmt...)	pr_debug("VETH: " fmt)
 #define VETH_ERR(fmt...)	pr_err("VETH: Error: " fmt)
+#define VETH_WARNING(fmt...) 	printk(KERN_WARNING "VETH: Warning: " fmt)
 
 #define VETH_IPV4_HLEN 20
 #define VETH_IPV6_HLEN 40
 #define VETH_ETH_HLEN  ETH_HLEN
+#define VETH_ETH_FRAME_LEN ETH_FRAME_LEN
 
 #define VETH_MUX_TYPE_LEN 64
 #define VETH_MUX_TYPE_NUM 2
@@ -264,6 +266,15 @@ static int veth_perform_packet(struct veth_device *veth, uint8_t *data, uint32_t
 					return -EINVAL;
 				}
 
+				/* if plen is greater than ETH_FRAME_LEN, then drop the pkt */
+				if (vpkt->plen > VETH_ETH_FRAME_LEN) {
+					VETH_WARNING("received invalid packet, plen %d\n", vpkt->plen);
+					/* clean vpkt */
+					memset((uint8_t *)vpkt, 0, sizeof(struct veth_rx_packet));
+					vpkt->state = VETH_STATE_COMPLETE_PACKET;
+					return -EINVAL;
+				}
+
 				if (vpkt->plen > left) {
 					/* HLEN < left < PLEN  */
 					rval = veth_prepare_skb(veth, data + offset, left);
@@ -342,6 +353,15 @@ static int veth_perform_packet(struct veth_device *veth, uint8_t *data, uint32_t
 					vpkt->plen = ntohs(((struct ipv6hdr *)hdr)->payload_len) +
 						VETH_IPV6_HLEN + VETH_ETH_HLEN;
 				} else {
+					return -EINVAL;
+				}
+
+				/* if plen is greater than ETH_FRAME_LEN, then drop the pkt */
+				if (vpkt->plen > VETH_ETH_FRAME_LEN) {
+					VETH_WARNING("received invalid packet, plen %d\n", vpkt->plen);
+					/* clean vpkt */
+					memset((uint8_t *)vpkt, 0, sizeof(struct veth_rx_packet)    );
+					vpkt->state = VETH_STATE_COMPLETE_PACKET;
 					return -EINVAL;
 				}
 
@@ -550,7 +570,7 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	ret = NETDEV_TX_OK;
 	dev_kfree_skb_irq(skb);
 
-	VETH_INFO("%s start xmit done\n", dev->name);
+	VETH_DEBUG("%s start xmit done\n", dev->name);
 	return ret;
 }
 
