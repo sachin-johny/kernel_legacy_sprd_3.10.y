@@ -518,30 +518,30 @@
 		sprd,blknum = <64>;
 	};
 
-	scproc_cpw: scproc@0x88000000 {
-                compatible = "sprd,scproc";
-                sprd,name = "cpw";
-                sprd,ctrl-reg = <0x3c 0x3c 0xa8 0xb8>; /* <shut_down deep_sleep reset get_status> */
-                sprd,ctrl-mask = <0x02000000 0x10000000 0x01 0xf0000000>; /* masks <> */
-                sprd,iram-data = <0xe59f0000 0xe12fff10 0x88300000>; /* 3rd param equals modem_addr*/
-                reg = <0x88000000 0x18A0000>, /* <CP_start_addr total_size> */
-                        <0xf53d4000 0x0c>, /* <iram1_base size> */
-                        <0xf5230000 0x10000>; /* <pmu_base size> */
-                interrupts = <0 83 0x0>; /* cp0_wdg_int */
-                #address-cells = <1>;
-                #size-cells = <1>;
-                /* segnr=2 */
-                ranges = <0x300000 0x88300000 0x00800000>,
-                                <0x20000 0x88020000 0x00200000>;
-                modem@0x300000 {
-                        cproc,name = "modem";
-                        reg = <0x300000 0x00800000>; /* <modem_addr size> */
-                };
-                dsp@0x20000 {
-                        cproc,name = "dsp";
-                        reg = <0x20000 0x00200000>; /* <dsp_addr size>*/
-                };
-        };
+	scproc_cpw: scproc@0x90000000 {
+		compatible = "sprd,scproc";
+		sprd,name = "cpw";
+		sprd,ctrl-reg = <0x50 0x50 0xa8 0xbc>; /* <shut_down deep_sleep reset get_status> */
+		sprd,ctrl-mask = <0x02000000 0x10000000 0x02 0xf0000>; /* masks <> */
+		sprd,iram-data = <0xe59f0000 0xe12fff10 0x90300000>; /* 3rd param equals modem_addr*/
+		reg = <0x90000000 0x02100000>, /* <CP_start_addr total_size> = <+128M 33M> */
+			<0xf53d5800 0x0c>, /* <iram1_base size> */
+			<0xf5230000 0x10000>; /* <pmu_base size> */
+		interrupts = <0 84 0x0>; /* cp1_wdg_int */
+		#address-cells = <1>;
+		#size-cells = <1>;
+		/* segnr=2 */
+		ranges = <0x300000 0x90300000 0x00800000>,
+				<0x20000 0x90020000 0x002e0000>;
+		modem@0x300000 {
+			cproc,name = "modem";
+			reg = <0x300000 0x00800000>; /* <modem_addr size> */
+		};
+		dsp@0x20000 {
+			cproc,name = "dsp";
+			reg = <0x20000 0x002e0000>; /* <dsp_addr size>*/
+		};
+	};
 
 	saudio_w{
 		compatible = "sprd,saudio";
@@ -552,31 +552,6 @@
 		compatible = "sprd,saudio";
 		sprd,saudio-dst-id = <2>;
 		sprd,saudio-names = "saudio_voip";
-	};
-
-	scproc_cpt: scproc@0x88000000 {
-		compatible = "sprd,scproc";
-		sprd,name = "cpt";
-		sprd,ctrl-reg = <0x50 0x50 0xa8 0xbc>; /* <shut_down deep_sleep reset get_status> */
-		sprd,ctrl-mask = <0x02000000 0x10000000 0x02 0xf0000>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x88300000>; /* 3rd param equals modem_addr*/
-		reg = <0x88000000 0x01200000>, /* <CP_start_addr total_size> = <+128M 18M> */
-			<0xf53d5800 0x0c>, /* <iram1_base size> */
-			<0xf5230000 0x10000>; /* <pmu_base size> */
-		interrupts = <0 84 0x0>; /* cp1_wdg_int */
-		#address-cells = <1>;
-		#size-cells = <1>;
-		/* segnr=2 */
-		ranges = <0x300000 0x88300000 0x00800000>,
-				<0x20000 0x88020000 0x002e0000>;
-		modem@0x300000 {
-			cproc,name = "modem";
-			reg = <0x300000 0x00800000>; /* <modem_addr size> */
-		};
-		dsp@0x20000 {
-			cproc,name = "dsp";
-			reg = <0x20000 0x002e0000>; /* <dsp_addr size>*/
-		};
 	};
 
 	/* cpwcn virtual devices */
