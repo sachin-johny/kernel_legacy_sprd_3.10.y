@@ -59,7 +59,7 @@ struct modem_intf_platform_data modem_interface = {
        .modem_power_gpio       = 234,
        .modem_boot_gpio        = 236,
        .modem_watchdog_gpio    = 231,
-       .modem_alive_gpio       = 235,
+       .modem_alive_gpio       = 230,
        .modem_crash_gpio       = 237,
        .modem_reset_gpio       = 233,
 };
