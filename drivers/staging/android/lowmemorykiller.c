@@ -107,11 +107,13 @@ short cacl_zram_score_adj(void)
 	si_swapinfo(&swap_info);
 	if(!swap_info.totalswap)
 	{
-		return 0;
+		return  -1;
 	}
 
 	swap_free_percent =  swap_info.freeswap * 100/swap_info.totalswap;
 	zram_free_percent =  zram_mem_free_percent();
+	if(zram_free_percent < 0)
+		return -1;
 
 	ret = (swap_free_percent <  zram_free_percent) ?  swap_free_percent :  zram_free_percent;
 
@@ -365,8 +367,16 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 #ifdef CONFIG_ZRAM
 	zram_score_adj = cacl_zram_score_adj();
-	lmk_info.zram_mem_usage = zram_mem_usage();
-	lmk_info.zram_free_percent = zram_mem_free_percent();
+	if(zram_score_adj  < 0 )
+	{
+		zram_score_adj = min_score_adj;
+	}
+	else
+	{
+		lmk_info.zram_mem_usage = zram_mem_usage();
+		lmk_info.zram_free_percent = zram_mem_free_percent();
+	}
+
 	lmk_info.min_score_adj = min_score_adj;
 	lmk_info.zram_score_adj = zram_score_adj;
 
