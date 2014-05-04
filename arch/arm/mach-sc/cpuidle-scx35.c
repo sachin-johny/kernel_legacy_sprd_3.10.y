@@ -140,7 +140,9 @@ static void sc_cpuidle_debug(void)
 
 static void sc_cpuidle_light_sleep_en(int cpu)
 {
-#if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_MACH_SP8830GEA)
+
+/*200M ddr clk is not necessary for SCX30G when light sleep status to be entered*/
+#if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_ARCH_SCX30G)
         if(emc_clk_get() > 200){
                 return;
         }
