@@ -30,8 +30,7 @@ int sprd_iommu_mm_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *
 	}
 
 	dev->mmu_clock=of_clk_get(np, 0) ;
-	dev->mmu_mclock=NULL;
-//	dev->mmu_mclock=of_clk_get(np,1);
+	dev->mmu_mclock=of_clk_get(np,1);
 #else
 	dev->mmu_mclock= clk_get(NULL,"clk_mm_i");
 	dev->mmu_clock=clk_get(NULL,"clk_mmu");
