@@ -154,6 +154,8 @@
 #define MUX_STATE_CRASHED 3
 #define MUX_STATE_RECOVERING 4
 
+#define MUX_VETH_LINE_BEGIN 13
+#define MUX_VETH_LINE_END 17
 
 /* Debug */
 //#define TS0710DEBUG
@@ -2929,6 +2931,7 @@ static void receive_worker(struct sprd_mux *self, int start)
 	__u8 *uih_data_start;
 	__u32 uih_len;
 	/*For BP UART problem End */
+	int i;
 
 	if (!self || !self->io_hal || !self->io_hal->io_read) {
 		printk(KERN_ERR "MUX: Error %s self is NULL\n", __FUNCTION__);
@@ -2939,6 +2942,12 @@ static void receive_worker(struct sprd_mux *self, int start)
 		memset(self->tbuf, 0, TS0710MUX_MAX_BUF_SIZE);
 		self->tbuf_ptr = self->tbuf;
 		self->start_flag = 0;
+	}
+
+	for (i = MUX_VETH_LINE_BEGIN; i <= MUX_VETH_LINE_END; i++) {
+		if (self->callback[i].func) {
+			(*self->callback[i].func)(i, SPRDMUX_EVENT_READ_IND, NULL, 0, self->callback[i].user_data);
+		}
 	}
 
 	count = self->io_hal->io_read(self->tbuf_ptr, TS0710MUX_MAX_BUF_SIZE - (self->tbuf_ptr - self->tbuf));
