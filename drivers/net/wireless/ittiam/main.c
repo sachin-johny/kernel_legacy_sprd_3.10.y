@@ -777,8 +777,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_register_inetaddr_notifier;
 	}
 
-	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
-
 	ret = npi_init_netlink();
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
@@ -790,7 +788,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	return 0;
 
 err_npi_netlink:
-	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 err_register_inetaddr_notifier:
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
@@ -821,7 +818,6 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	int ret;
 
 	npi_exit_netlink();
-	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
 	unregister_early_suspend(&priv->early_suspend);
