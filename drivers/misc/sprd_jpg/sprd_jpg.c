@@ -515,10 +515,10 @@ static int jpg_open(struct inode *inode, struct file *filp)
     }
 #endif
 
-#ifndef CONFIG_OF
+
     printk("JPEG mmi_clk open");
     clk_enable(jpg_hw_dev.mm_clk);
-#endif
+
 
 #ifdef CONFIG_OF
     clk_jpg= of_clk_get_by_name(jpg_hw_dev.dev_np, "clk_jpg");
@@ -605,10 +605,8 @@ static int jpg_release (struct inode *inode, struct file *filp)
 
     kfree(filp->private_data);
 
-
-#ifndef CONFIG_OF
     clk_disable(jpg_hw_dev.mm_clk);
-#endif
+
     printk("JPEG mmi_clk close !!");
     printk(KERN_INFO "jpg_release %p\n", jpg_fp);
 

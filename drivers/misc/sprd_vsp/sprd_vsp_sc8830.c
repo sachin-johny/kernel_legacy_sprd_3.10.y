@@ -464,7 +464,7 @@ static int vsp_open(struct inode *inode, struct file *filp)
     }
 #endif
 
-#ifndef CONFIG_OF
+
     printk(KERN_INFO "VSP mmi_clk open");
     ret = clk_enable(vsp_hw_dev.mm_clk);
     if (ret) {
@@ -473,7 +473,7 @@ static int vsp_open(struct inode *inode, struct file *filp)
     } else {
         pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
     }
-#endif
+
 
 
 #ifdef CONFIG_OF
@@ -571,10 +571,8 @@ static int vsp_release (struct inode *inode, struct file *filp)
     kfree(filp->private_data);
     filp->private_data=NULL;
 
-
-#ifndef CONFIG_OF
     clk_disable(vsp_hw_dev.mm_clk);
-#endif
+
     printk(KERN_INFO "VSP mmi_clk close!!");
 
     return 0;
