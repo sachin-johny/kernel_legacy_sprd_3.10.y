@@ -725,6 +725,19 @@ void print_last_reg(void)
 {
 	printk("aon pmu status reg\n");
 	printk("REG_PMU_APB_PD_PUB_SYS_CFG ------ 0x%08x\n", pd_pub_sys);
+	printk("REG_PMU_APB_PD_MM_TOP_CFG ------ 0x%08x\n",
+			sci_glb_read(REG_PMU_APB_PD_MM_TOP_CFG, -1UL) );
+	printk("REG_PMU_APB_PD_AP_SYS_CFG ------ 0x%08x\n",
+			sci_glb_read(REG_PMU_APB_PD_AP_SYS_CFG, -1UL) );
+	printk("REG_PMU_APB_PD_AP_DISP_CFG ------ 0x%08x\n",
+			sci_glb_read(REG_PMU_APB_PD_AP_DISP_CFG, -1UL) );
+
+#if defined(CONFIG_ARCH_SCX30G)
+	printk("REG_PMU_APB_PD_DDR_PUBL_CFG ------ 0x%08x\n",
+			sci_glb_read(REG_PMU_APB_PD_DDR_PUBL_CFG, -1UL) );
+	printk("REG_PMU_APB_PD_DDR_PHY_CFG ------ 0x%08x\n",
+			sci_glb_read(REG_PMU_APB_PD_DDR_PHY_CFG, -1UL) );
+#endif
 	printk("REG_PMU_APB_CP_SLP_STATUS_DBG0 ----- 0x%08x\n", cp_slp_status_dbg0);
 	printk("REG_PMU_APB_CP_SLP_STATUS_DBG1 ----- 0x%08x\n", cp_slp_status_dbg1);
 	printk("REG_PMU_APB_PWR_STATUS0_DBG ----- 0x%08x\n", pwr_stat0);
@@ -755,6 +768,8 @@ void print_last_reg(void)
 	printk("REG_AON_APB_APB_EB0  ----- 0x%08x\n", apb_eb0);
 	printk("REG_AON_APB_APB_EB1  ----- 0x%08x\n", apb_eb1);
 	printk("REG_AON_APB_PWR_CTRL ----- 0x%08x\n", pwr_ctrl);
+	printk("REG_AON_APB_BB_BG_CTRL ------ 0x%08x\n",
+			sci_glb_read(REG_AON_APB_BB_BG_CTRL, -1UL) );
 
 	printk("ap ahb reg \n");
 	printk("REG_AP_AHB_AHB_EB ----- 0x%08x\n", ahb_eb);
