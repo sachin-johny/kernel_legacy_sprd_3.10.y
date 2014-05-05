@@ -18,6 +18,9 @@
 #include <linux/irqflags.h>
 #include <linux/delay.h>
 #include <linux/hwspinlock.h>
+#include <linux/slab.h>
+#include <linux/sort.h>
+#include <linux/miscdevice.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include <linux/of_address.h>
@@ -87,6 +90,290 @@ static unsigned adc_read(unsigned addr)
 #define BIT_ADC_EB                  ( BIT(5) )
 #endif
 
+struct sprd_adc_data{
+	struct miscdevice misc_dev;
+	struct mutex lock;
+	unsigned short channel;
+	unsigned char scale;
+	unsigned int voltage_ratio;
+};
+
+static ssize_t sprd_adc_store(struct device *dev,
+					struct device_attribute *dev_attr,
+					const char *buf, size_t count);
+static ssize_t sprd_adc_show(struct device *dev,
+				       struct device_attribute *dev_attr, char *buf);
+
+static struct device_attribute sprd_adc_attr[] = {
+	__ATTR(adc_channel, S_IRUGO | S_IWUSR | S_IWGRP, sprd_adc_show, sprd_adc_store),
+	__ATTR(adc_scale, S_IRUGO | S_IWUSR | S_IWGRP, sprd_adc_show, sprd_adc_store),
+	__ATTR(adc_voltage_ratio, S_IRUGO, sprd_adc_show, NULL),
+	__ATTR(adc_data_raw, S_IRUGO, sprd_adc_show, NULL),
+};
+
+#define SPRD_MODULE_NAME	"sprd-adc"
+
+#define DIV_ROUND(n, d)		(((n) + ((d)/2)) / (d))
+#define MEASURE_TIMES		( 15 )
+#define ADC_DROP_CNT		( DIV_ROUND(MEASURE_TIMES, 5) )
+
+static int average_int(int a[], int len)
+{
+	int i, sum = 0;
+	for (i = 0; i < len; i++)
+		sum += a[i];
+	return DIV_ROUND(sum, len);
+}
+
+static int compare_val(const void *a, const void *b)
+{
+	return *(int *)a - *(int *)b;
+}
+
+/*
+* Get the raw data of adc channel
+*/
+int sprd_get_adc_data(unsigned int channel, unsigned int scale)
+{
+	uint32_t adc_val[MEASURE_TIMES+1], adc_res = 0;
+	struct adc_sample_data adc_sample = {
+		.channel_id = channel,
+		.channel_type = 0,	/* sw */
+		.hw_channel_delay = 0,
+		.scale = scale, /* 1: big scale, 0: small scale */
+		.pbuf = &adc_val[0],
+		.sample_num = MEASURE_TIMES,
+		.sample_bits = 1, /* 12 bit*/
+		.sample_speed = 0,	/* quick mode */
+		.signal_mode = 0,	/* resistance path */
+	};
+
+	if (0 != sci_adc_get_values(&adc_sample)) {
+		pr_err("sprd_adc error occured in function %s\n", __func__);
+		sci_adc_dump_register();
+		//BUG_ON();
+	}
+
+	sort(adc_val, ARRAY_SIZE(adc_val), sizeof(uint32_t), compare_val, 0);
+
+	adc_res = average_int(&adc_val[ADC_DROP_CNT], MEASURE_TIMES - ADC_DROP_CNT * 2);
+
+	return (int)adc_res;
+}
+
+
+/*
+* The value of adc device node is set to kernel space
+*
+* Example:
+* $ adb root && adb shell
+* $ echo 5 > /sys/class/misc/adc_channel  # set current adc channel to 5 (vbat channel)
+* $ echo 1 > /sys/class/misc/adc_scale  #set adc to big scale
+*/
+static ssize_t sprd_adc_store(struct device *dev,
+					struct device_attribute *dev_attr,
+					const char *buf, size_t count)
+{
+	struct sprd_adc_data *adc_data = dev_get_drvdata(dev);
+	//const ptrdiff_t offset = dev_attr - sprd_adc_attr;
+	//unsigned long tmp = simple_strtoul(buf, NULL, 10);
+	unsigned int len = 0, tmp_data = 0;
+
+	len = sscanf(buf, "%d", &tmp_data);
+
+	if(NULL == adc_data)
+		return -EIO;
+
+	pr_info("%s attr name(%s), tmp_data %d, count %d, len %d\n", __func__,
+		dev_attr->attr.name, tmp_data, count, len);
+
+	mutex_lock(&adc_data->lock);
+
+	if (0 == strcmp(dev_attr->attr.name, "adc_channel")) {
+		WARN_ON(tmp_data > BIT_CH_ID(-1));
+
+		adc_data->channel = (unsigned short)tmp_data;
+	} else if (0 == strcmp(dev_attr->attr.name, "adc_scale")) {
+		adc_data->scale = (unsigned char)tmp_data;
+	}
+
+	mutex_unlock(&adc_data->lock);
+
+	return count;
+}
+
+/*
+* The value of adc device node is showed to user space
+*
+* Example:
+* $ adb root && adb shell
+* $ cat /sys/class/misc/adc_channel  # show current adc channel number
+* $ cat /sys/class/misc/adc_scale  #show adc scale value
+* $ cat /sys/class/misc/adc_data_raw  #show adc raw data
+*/
+static ssize_t sprd_adc_show(struct device *dev,
+				       struct device_attribute *dev_attr, char *buf)
+{
+	struct sprd_adc_data *adc_data = dev_get_drvdata(dev);
+	int len = 0, adc_value = 0;
+
+	if(NULL == adc_data)
+		return -EIO;
+
+	pr_info("%s attr name(%s), channel %d, scale %d\n", __func__,
+		dev_attr->attr.name, adc_data->channel, adc_data->scale);
+
+	mutex_lock(&adc_data->lock);
+
+	if (0 == strcmp(dev_attr->attr.name, "adc_channel")) {
+		len += sprintf(buf, "%d\n", adc_data->channel);
+	} else if (0 == strcmp(dev_attr->attr.name, "adc_scale")) {
+		len += sprintf(buf, "%d\n", adc_data->scale);
+	} else if (0 == strcmp(dev_attr->attr.name, "adc_voltage_ratio")) {
+		unsigned int div_num = 0, div_den = 0;
+
+		sci_adc_get_vol_ratio(adc_data->channel, adc_data->scale, &div_num, &div_den);
+		adc_data->voltage_ratio = (div_num << 16) | (div_den & 0xFFFF);
+		len += sprintf(buf, "%d\n", adc_data->voltage_ratio);
+	} else if (0 == strcmp(dev_attr->attr.name, "adc_data_raw")) {
+		adc_value = sprd_get_adc_data(adc_data->channel, adc_data->scale);
+		if (adc_value < 0)
+			adc_value = 0;
+		len += scnprintf(buf + len, PAGE_SIZE - len, "%d\n", adc_value);
+	}
+
+	mutex_unlock(&adc_data->lock);
+
+	return len;
+}
+
+static int sprd_device_delete_attributes(struct device *dev,
+	struct device_attribute *dev_attrs, int len)
+{
+	int i = 0;
+
+	for (i = 0; i < len; i++) {
+		device_remove_file(dev, &dev_attrs[i]);
+	}
+
+	return 0;
+}
+
+static int sprd_device_create_attributes(struct device *dev,
+	struct device_attribute *dev_attrs, int len)
+{
+	int i = 0, rc = 0;
+
+	for (i = 0; i < len; i++) {
+		rc = device_create_file(dev, &dev_attrs[i]);
+		if (rc)
+			break;
+	}
+
+	if (rc) {
+		for (; i >= 0 ; --i)
+			device_remove_file(dev, &dev_attrs[i]);
+	}
+
+	return rc;
+}
+
+static int __init sprd_adc_dev_register(void)
+{
+	static struct platform_device sprdadc_device = {
+		.name = SPRD_MODULE_NAME,
+		.id = -1,
+	};
+
+	return platform_device_register(&sprdadc_device);
+}
+
+static int sprd_adc_probe(struct platform_device *pdev)
+{
+	struct sprd_adc_data *adc_data = NULL;
+	int rc = 0;
+
+	pr_info("%s()->Line: %d\n", __func__, __LINE__);
+
+	adc_data = devm_kzalloc(&pdev->dev, sizeof(struct sprd_adc_data), GFP_KERNEL);
+	if (!adc_data) {
+		pr_err("%s failed to kzalloc sprd_adc_data!\n", __func__);
+		return -ENOMEM;
+	}
+
+	dev_set_drvdata(&pdev->dev, adc_data);
+
+	mutex_init(&adc_data->lock);
+
+	adc_data->misc_dev.minor = MISC_DYNAMIC_MINOR;
+	adc_data->misc_dev.name = SPRD_MODULE_NAME; //pdev->dev.driver->name
+	adc_data->misc_dev.fops = NULL;
+	adc_data->misc_dev.parent = NULL;
+
+	rc = misc_register(&adc_data->misc_dev);
+	if (rc) {
+		pr_err("%s failed to register misc device.\n", __func__);
+		return rc;
+	}
+
+	rc = sprd_device_create_attributes(adc_data->misc_dev.this_device, sprd_adc_attr, ARRAY_SIZE(sprd_adc_attr));
+	if (rc) {
+		pr_err("%s failed to create device attributes.\n", __func__);
+		return rc;
+	}
+
+	return rc;
+}
+
+static int sprd_adc_remove(struct platform_device *pdev)
+{
+	struct sprd_adc_data *adc_data = platform_get_drvdata(pdev); ;
+	int rc = 0;
+
+	sprd_device_delete_attributes(adc_data->misc_dev.this_device, sprd_adc_attr, ARRAY_SIZE(sprd_adc_attr));
+
+	rc = misc_deregister(&adc_data->misc_dev);
+	if (rc) {
+		pr_err("%s failed to unregister misc device.\n", __func__);
+	}
+
+	kfree(adc_data);
+
+	return rc;
+}
+
+
+#ifdef CONFIG_OF
+static struct of_device_id sprd_adc_of_match[] = {
+	{ .compatible = "sprd,sprd-adc", },
+	{ }
+};
+#endif
+
+static struct platform_driver sprd_adc_driver = {
+	.probe = sprd_adc_probe,
+	.remove = sprd_adc_remove,
+	.driver = {
+		   .name = SPRD_MODULE_NAME,
+		   .owner = THIS_MODULE,
+		   .of_match_table = of_match_ptr(sprd_adc_of_match),
+	},
+};
+
+static int __init sprd_adc_driver_init(void)
+{
+	return platform_driver_register(&sprd_adc_driver);
+}
+
+static void __exit sprd_adc_driver_exit(void)
+{
+	platform_driver_unregister(&sprd_adc_driver);
+}
+
+module_init(sprd_adc_driver_init);
+module_exit(sprd_adc_driver_exit);
+
+
 static void sci_adc_enable(void)
 {
 #if defined(CONFIG_ARCH_SC8825)
@@ -116,7 +403,6 @@ void sci_adc_dump_register()
 	}
 	printk("sci_adc_dump_register end\n");
 }
-
 EXPORT_SYMBOL(sci_adc_dump_register);
 
 void sci_adc_init(void __iomem * adc_base)
@@ -143,6 +429,7 @@ void sci_adc_init(void __iomem * adc_base)
 
 #else
 	io_base = adc_base;
+	sprd_adc_dev_register();
 #endif
 	adc_enable_irq(0);
 	adc_clear_irq();
