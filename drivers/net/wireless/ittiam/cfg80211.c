@@ -388,9 +388,6 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		return ret;
 	}
 
-	if (priv->scan_done_lock.link.next == LIST_POISON1 ||
-	    priv->scan_done_lock.link.prev == LIST_POISON2)
-		wake_lock(&priv->scan_done_lock);
 	/* Arm scan timeout timer */
 	mod_timer(&priv->scan_timeout,
 		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
@@ -1110,9 +1107,6 @@ out:
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
-		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-		    priv->scan_done_lock.link.prev != LIST_POISON2)
-			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 	}
 	if (priv->connect_status == ITM_CONNECTING) {
@@ -1141,9 +1135,6 @@ void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
 		del_timer_sync(&priv->scan_timeout);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
-		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-		    priv->scan_done_lock.link.prev != LIST_POISON2)
-			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 	}
 	if (priv->connect_status == ITM_CONNECTING) {
@@ -1177,9 +1168,6 @@ static void itm_cfg80211_scan_timeout(unsigned long data)
 		wiphy_err(priv->wdev->wiphy, "%s\n", __func__);
 		cfg80211_scan_done(priv->scan_request, true);
 		priv->scan_request = NULL;
-		if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-		    priv->scan_done_lock.link.prev != LIST_POISON2)
-			wake_unlock(&priv->scan_done_lock);
 		atomic_dec(&priv->scan_status);
 		return;
 	}
@@ -1302,9 +1290,6 @@ void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
 	wiphy_info(wiphy, "%s got %d BSSes\n", __func__, i);
 
 	priv->scan_request = NULL;
-	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-	    priv->scan_done_lock.link.prev != LIST_POISON2)
-		wake_unlock(&priv->scan_done_lock);
 	atomic_dec(&priv->scan_status);
 
 	return;
@@ -1318,9 +1303,6 @@ out:
 		wiphy_err(wiphy, "%s weird null scan_request!\n", __func__);
 	}
 
-	if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-	    priv->scan_done_lock.link.prev != LIST_POISON2)
-		wake_unlock(&priv->scan_done_lock);
 	atomic_dec(&priv->scan_status);
 
 	return;
@@ -1869,9 +1851,6 @@ void itm_unregister_wdev(struct itm_priv *priv)
 			}
 
 			priv->scan_request = NULL;
-			if (priv->scan_done_lock.link.next != LIST_POISON1 &&
-			    priv->scan_done_lock.link.prev != LIST_POISON2)
-				wake_unlock(&priv->scan_done_lock);
 			atomic_dec(&priv->scan_status);
 		}
 
