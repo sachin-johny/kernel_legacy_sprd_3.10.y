@@ -149,6 +149,7 @@ const static __u8 i2c_msg_buf_c1[][2] = {
 		{0x69, 0x1C},/*0x1F*/
 		{0x6B, 0x22},
 		{0x5C, 0xFF},
+		{0xB6, 0x20},
 #ifdef LINES_ALL_RIGHT_C1
         {0x13, 0x10},
 #elif defined LINES_ONLY_CLK_RIGHT_C1
@@ -534,7 +535,7 @@ static struct panel_operations lcd_nt51017_mipi_lvds_operations = {
 
 static struct timing_rgb lcd_nt51017_mipi_lvds_timing = {
 	.hfp = 110,  /* unit: pixel */
-	.hbp = 80,
+	.hbp = 76,
 	.hsync = 4,//4
 	.vfp = 18, /*unit: line*/
 	.vbp = 19,
