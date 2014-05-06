@@ -211,20 +211,24 @@ static ssize_t mem_free_percent(void)
 	for (i = 0; i < zram_get_num_devices(); i++) {
 
 		zram = &zram_devices[i];
-		if(!zram || !zram->init_done || !zram->disk)
+		if(!zram || !zram->disk)
 		{
 			continue;
 		}
 
-		down_read(&zram->lock);
+		if( !down_read_trylock(&zram->init_lock) )
+			return -1;
 
-		meta = zram->meta;
-		if (meta && meta->mem_pool)
+		if(zram->init_done)
 		{
-			val += zs_get_total_size_bytes(meta->mem_pool);
+			meta = zram->meta;
+			if (meta && meta->mem_pool)
+			{
+				val += zs_get_total_size_bytes(meta->mem_pool);
+			}
 		}
 
-		up_read(&zram->lock);
+		up_read(&zram->init_lock);
 	}
 
 	mem_used_pages = val >> PAGE_SHIFT;
