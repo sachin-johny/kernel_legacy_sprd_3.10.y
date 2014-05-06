@@ -41,7 +41,7 @@ static int sprdfb_i2c_probe(struct i2c_client *client,
 	int res = 0;
 //	struct sprdfb_device *dev = (struct sprdfb_device *)id->driver_data;;
 
-	printk(KERN_INFO "sprdfb:[%s], addr = %d\n", __FUNCTION__, client->addr);
+	printk(KERN_INFO "sprdfb: [%s], addr = %d\n", __FUNCTION__, client->addr);
 
 	if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C)) {
 		printk(KERN_INFO "sprdfb: [%s]: functionality check failed\n",
@@ -57,7 +57,7 @@ static int sprdfb_i2c_probe(struct i2c_client *client,
 		    (this_client->addr & (~0xFF)) |
 		    (i2c_panel_info->info.rgb->bus_info.i2c->i2c_addr & 0xFF);
 	}
-	printk(KERN_INFO "sordfb:[%s]:this_client->addr =0x%x\n", __FUNCTION__,
+	printk(KERN_INFO "sordfb: [%s]:this_client->addr =0x%x\n", __FUNCTION__,
 	       this_client->addr);
 	msleep(20);
 	return 0;
@@ -147,7 +147,7 @@ static int32_t sprdfb_i2c_write_8bits(uint8_t reg, uint8_t val)
 	for (i = 0; i < SPRDFB_I2C_TRY_NUM; i++) {
 		ret = i2c_transfer(this_client->adapter, &msg_w, 1);
 		if (ret != 1) {
-			printk("sprdfb:[%s] write panel reg fai, ret : %d, I2C w addr: 0x%x, \n",
+			printk("sprdfb: [%s] write panel reg fai, ret : %d, I2C w addr: 0x%x, \n",
 			     __FUNCTION__, ret, this_client->addr);
 			ret = -1;
 			msleep(20);
@@ -180,7 +180,7 @@ static int32_t sprdfb_i2c_read_8bits(uint8_t reg, uint8_t *val)
 	for (i = 0; i < SPRDFB_I2C_TRY_NUM; i++) {
 		ret = i2c_transfer(this_client->adapter, msg_r, 2);
 		if (ret != 2) {
-			printk("sprdfb:[%s]: read i2c reg fail, ret: %d, I2C r addr: 0x%x \n",
+			printk("sprdfb: [%s]: read i2c reg fail, ret: %d, I2C r addr: 0x%x \n",
 			     __FUNCTION__, ret, this_client->addr);
 			*val = 0xff;
 			ret = -1;

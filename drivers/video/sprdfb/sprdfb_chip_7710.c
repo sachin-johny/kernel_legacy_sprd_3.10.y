@@ -18,7 +18,7 @@
 
 void dispc_print_clk(void)
 {
-	printf("0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x23c));
+	printf("sprdfb: 0x20900220 = 0x%x\n", __raw_readl(SPRD_AHB_BASE + 0x23c));
 }
 
 

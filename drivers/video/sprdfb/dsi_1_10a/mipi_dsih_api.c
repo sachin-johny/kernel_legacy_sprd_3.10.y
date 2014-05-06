@@ -35,7 +35,7 @@ static void mipi_dsih_set_lp_clock(dsih_ctrl_t * instance)
 	uint32_t tx_escape_division = 1;
 	tx_escape_division = (instance->phy_feq>>4);
 	tx_escape_division = (tx_escape_division+9999)/10000;//ceiling calc
-	printk("sprdfb:[%s]: lp frequence div:%d\n", __func__, tx_escape_division);
+	printk("sprdfb: [%s]: lp frequence div:%d\n", __func__, tx_escape_division);
 	mipi_dsih_hal_tx_escape_division(instance, (uint8_t)tx_escape_division);
 }
 
@@ -77,7 +77,7 @@ dsih_error_t mipi_dsih_open(dsih_ctrl_t * instance)
         {
             if (instance->log_info != 0)
             {
-                instance->log_info("driver does not support this core version 0x%lX", version);
+                instance->log_info("sprdfb: driver does not support this core version 0x%lX", version);
             }
             return ERR_DSI_CORE_INCOMPATIBLE;
         }
@@ -173,7 +173,7 @@ void mipi_dsih_allow_return_to_lp(dsih_ctrl_t * instance, int hfp, int hbp, int 
 
     if (instance->log_error != 0)
     {
-        instance->log_error("invalid instance");
+        instance->log_error("sprdfb: invalid instance");
     }
 }
 void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, int short_write, int short_read)
@@ -194,7 +194,7 @@ void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
 
     if (instance->log_error != 0)
     {
-        instance->log_error("invalid instance");
+        instance->log_error("sprdfb: invalid instance");
     }
 }
 void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, int short_write, int short_read)
@@ -218,7 +218,7 @@ void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
     
     if (instance->log_error != 0)
     {
-        instance->log_error("invalid instance");
+        instance->log_error("sprdfb: invalid instance");
     }
 }
 /* packet handling */
@@ -379,7 +379,7 @@ dsih_error_t mipi_dsih_dpi_video(dsih_ctrl_t * instance, dsih_dpi_video_t * vide
         default:
             if (instance->log_error != 0)
             {
-                instance->log_error("invalid color coding");
+                instance->log_error("sprdfb: invalid color coding");
             }
             err_code = ERR_DSI_COLOR_CODING;
             break;
@@ -445,9 +445,9 @@ dsih_error_t mipi_dsih_dpi_video(dsih_ctrl_t * instance, dsih_dpi_video_t * vide
         /*      D E B U G       */
         if (instance->log_info != 0)
         {
-            instance->log_info("burst video");
-            instance->log_info("h line time %ld", (uint16_t)((video_params->h_total_pixels * ratio_clock_xPF) / PRECISION_FACTOR));
-            instance->log_info("video_size %ld", video_size);
+            instance->log_info("sprdfb: burst video");
+            instance->log_info("sprdfb: h line time %ld", (uint16_t)((video_params->h_total_pixels * ratio_clock_xPF) / PRECISION_FACTOR));
+            instance->log_info("sprdfb: video_size %ld", video_size);
         }
 #endif
     }
@@ -495,9 +495,9 @@ dsih_error_t mipi_dsih_dpi_video(dsih_ctrl_t * instance, dsih_dpi_video_t * vide
                 /*      D E B U G       */
                 if (instance->log_info != 0)
                 {
-                    instance->log_info("no multi no null video");
-                    instance->log_info("h line time %ld", (uint16_t)((video_params->h_total_pixels * ratio_clock_xPF) / PRECISION_FACTOR));
-                    instance->log_info("video_size %ld", video_size);
+                    instance->log_info("sprdfb: no multi no null video");
+                    instance->log_info("sprdfb: h line time %ld", (uint16_t)((video_params->h_total_pixels * ratio_clock_xPF) / PRECISION_FACTOR));
+                    instance->log_info("sprdfb: video_size %ld", video_size);
                 }
                 /************************/
 #endif
@@ -510,7 +510,7 @@ dsih_error_t mipi_dsih_dpi_video(dsih_ctrl_t * instance, dsih_dpi_video_t * vide
         }
         else
         {
-            instance->log_error("resolution cannot be sent to display through current settings");
+            instance->log_error("sprdfb: resolution cannot be sent to display through current settings");
             err_code = ERR_DSI_OVERFLOW;
         }
     }
@@ -523,12 +523,12 @@ dsih_error_t mipi_dsih_dpi_video(dsih_ctrl_t * instance, dsih_dpi_video_t * vide
     /*      D E B U G       */
     if (instance->log_info != 0)
     {
-        instance->log_info("total_bytes %d", total_bytes);
-        instance->log_info("bytes_per_chunk %d", bytes_per_chunk);
-        instance->log_info("bytes left %d", bytes_left);
-        instance->log_info("null packets %d", null_packet_size);
-        instance->log_info("chunks %ld", no_of_chunks);
-        instance->log_info("video_size %ld", video_size);
+        instance->log_info("sprdfb: total_bytes %d", total_bytes);
+        instance->log_info("sprdfb: bytes_per_chunk %d", bytes_per_chunk);
+        instance->log_info("sprdfb: bytes left %d", bytes_left);
+        instance->log_info("sprdfb: null packets %d", null_packet_size);
+        instance->log_info("sprdfb: chunks %ld", no_of_chunks);
+        instance->log_info("sprdfb: video_size %ld", video_size);
     }
     /************************/
 #endif
@@ -631,7 +631,7 @@ void mipi_dsih_cmd_mode(dsih_ctrl_t * instance, int en)
         
     if (instance->log_error != 0)
     {
-        instance->log_error("invalid instance");
+        instance->log_error("sprdfb: invalid instance");
     }
 }
 
@@ -658,7 +658,7 @@ void mipi_dsih_video_mode(dsih_ctrl_t * instance, int en)
 
     if (instance->log_error != 0)
     {
-        instance->log_error("invalid instance");
+        instance->log_error("sprdfb: invalid instance");
     }
 }
 
@@ -730,7 +730,7 @@ dsih_error_t mipi_dsih_gen_wr_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t
         {
             if (instance->log_error != 0)
             {
-                instance->log_error("sent > input payload. complemented with zeroes");
+                instance->log_error("sprdfb: sent > input payload. complemented with zeroes");
             }
             compliment_counter = (param_length - 2) - word_count;
         }
@@ -738,7 +738,7 @@ dsih_error_t mipi_dsih_gen_wr_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t
         {
             if (instance->log_error != 0)
             {
-                instance->log_error("Overflow - input > sent. payload truncated");
+                instance->log_error("sprdfb: Overflow - input > sent. payload truncated");
             }
         }
         for (i = 0; i < (param_length - 2); i += j)
@@ -837,7 +837,7 @@ uint16_t mipi_dsih_dcs_rd_cmd(dsih_ctrl_t * instance, uint8_t vc, uint8_t comman
         default:
             if (instance->log_error != 0)
             {
-                instance->log_error("invalid DCS command");
+                instance->log_error("sprdfb: invalid DCS command");
             }
             return 0;
     }
@@ -913,7 +913,7 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
     {
         if (instance->log_error != 0)
         {
-            instance->log_error("tx rd command timed out\n");
+            instance->log_error("sprdfb: tx rd command timed out\n");
         }
         return 0;
     }
@@ -972,7 +972,7 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
             {
                 if (instance->log_error != 0)
                 {
-                    instance->log_error("rx buffer empty\n");
+                    instance->log_error("sprdfb: rx buffer empty\n");
                 }
                 return 0;
             }
@@ -983,7 +983,7 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
     }
     if (instance->log_error != 0)
     {
-        instance->log_error("rx command timed out\n");
+        instance->log_error("sprdfb: rx command timed out\n");
     }
     return 0;
 }
@@ -1007,7 +1007,7 @@ uint32_t mipi_dsih_dump_register_configuration(dsih_ctrl_t * instance, int all, 
             {   /* no place to write - write to STD IO */
                 if (instance->log_info != 0)
                 {
-                    instance->log_info("DSI 0x%lX:0x%lX", current0, mipi_dsih_read_word(instance, current0));
+                    instance->log_info("sprdfb: DSI 0x%lX:0x%lX", current0, mipi_dsih_read_word(instance, current0));
                 }
             }
             else
@@ -1023,7 +1023,7 @@ uint32_t mipi_dsih_dump_register_configuration(dsih_ctrl_t * instance, int all, 
         {
             if (instance->log_error != 0)
             {
-                instance->log_error("invalid buffer");
+                instance->log_error("sprdfb: invalid buffer");
             }
         }
         else

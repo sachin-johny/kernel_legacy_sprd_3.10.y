@@ -161,7 +161,7 @@ void dsi_irq_trick(uint32_t int_id,uint32_t int_status)
 				s_trick_record0[i].begin_jiffies = jiffies;
 				s_trick_record0[i].disable_cnt++;
 				mask_irq0_times++;
-				pr_debug("%s[%d]: INT0[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record0[i].disable_cnt);
+				pr_debug("sprdfb: %s[%d]: INT0[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record0[i].disable_cnt);
 			}
 
 			if((s_trick_record0[i].begin_jiffies > 0)
@@ -171,7 +171,7 @@ void dsi_irq_trick(uint32_t int_id,uint32_t int_status)
 				s_trick_record0[i].begin_jiffies = 0;
 				s_trick_record0[i].enable_cnt++;
 				open_irq0_times++;
-				pr_debug("%s[%d]: INT0[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record0[i].enable_cnt);
+				pr_debug("sprdfb: %s[%d]: INT0[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record0[i].enable_cnt);
 			}
 		}
 		i++;
@@ -187,7 +187,7 @@ void dsi_irq_trick(uint32_t int_id,uint32_t int_status)
 				s_trick_record1[i].begin_jiffies = jiffies;
 				s_trick_record1[i].disable_cnt++;
 				mask_irq1_times++;
-				pr_debug("%s[%d]: INT1[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record1[i].disable_cnt);
+				pr_debug("sprdfb: %s[%d]: INT1[%d] disable times:0x%08x \n",__func__,__LINE__,i,s_trick_record1[i].disable_cnt);
 			}
 
 			if((s_trick_record1[i].begin_jiffies > 0)
@@ -197,13 +197,13 @@ void dsi_irq_trick(uint32_t int_id,uint32_t int_status)
 				s_trick_record1[i].begin_jiffies = 0;
 				s_trick_record1[i].enable_cnt++;
 				open_irq1_times++;
-				pr_debug("%s[%d]: INT1[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record1[i].enable_cnt);
+				pr_debug("sprdfb: %s[%d]: INT1[%d] enable times:0x%08x \n",__func__,__LINE__,i,s_trick_record1[i].enable_cnt);
 			}
 		}
 		i++;
 	}
 	if(int_status) {
-		printk("%s[%d]:total DSI_mask0:0x%08x DSI_open0:0x%08x; DSI_mask1:0x%08x DSI_open1:0x%08x\n",__func__,__LINE__,
+		printk("sprdfb: %s[%d]:total DSI_mask0:0x%08x DSI_open0:0x%08x; DSI_mask1:0x%08x DSI_open1:0x%08x\n",__func__,__LINE__,
 		mask_irq0_times,open_irq0_times,
 		mask_irq1_times,open_irq1_times);
 	}
@@ -298,7 +298,7 @@ static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)
 		color_coding = COLOR_CODE_24BIT;
 		break;
 	default:
-		printk(KERN_ERR "sprdfb:[%s] fail, invalid video_bus_width\n", __FUNCTION__);
+		printk(KERN_ERR "sprdfb: [%s] fail, invalid video_bus_width\n", __FUNCTION__);
 		return 0;
 	}
 
@@ -348,7 +348,7 @@ int32_t dsi_dpi_init(struct sprdfb_device *dev)
 		dpi_param.color_coding = COLOR_CODE_24BIT;
 		break;
 	default:
-		printk(KERN_ERR "sprdfb:[%s] fail, invalid video_bus_width\n", __FUNCTION__);
+		printk(KERN_ERR "sprdfb: [%s] fail, invalid video_bus_width\n", __FUNCTION__);
 		break;
 	}
 
@@ -401,7 +401,7 @@ static int32_t dsi_module_init(struct sprdfb_device *dev)
 	struct info_mipi * mipi = dev->panel->info.mipi;
 	int irq_num_1, irq_num_2;
 
-	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb: [%s]\n", __FUNCTION__);
 
 	if(dsi_ctx.is_inited){
 		printk(KERN_INFO "sprdfb: dsi_module_init. is_inited==true!");
@@ -583,7 +583,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		//init
 		if(dev->panel_ready){
 			//panel ready
-			printk(KERN_INFO "sprdfb:[%s]: dsi has alread initialized\n", __FUNCTION__);
+			printk(KERN_INFO "sprdfb: [%s]: dsi has alread initialized\n", __FUNCTION__);
 			dsi_instance->status = INITIALIZED;
 			dsi_module_init(dev);
 #ifdef FB_DSIH_VERSION_1P21A
@@ -595,7 +595,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 #endif
 		}else{
 			//panel not ready
-			printk(KERN_INFO "sprdfb:[%s]: dsi is not initialized\n", __FUNCTION__);
+			printk(KERN_INFO "sprdfb: [%s]: dsi is not initialized\n", __FUNCTION__);
 			dsi_enable();
 			dsi_reset();
 			dsi_module_init(dev);
@@ -603,7 +603,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 		}
 	}else{
 		//resume
-		printk(KERN_INFO "sprdfb:[%s]: resume\n", __FUNCTION__);
+		printk(KERN_INFO "sprdfb: [%s]: resume\n", __FUNCTION__);
 		dsi_enable();
 		dsi_reset();
 		result=sprdfb_dsih_init(dev);

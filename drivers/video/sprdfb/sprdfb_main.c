@@ -131,17 +131,17 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 		printk(KERN_ERR "sprdfb: Failed to allocate framebuffer memory\n");
 		return -ENOMEM;
 	}
-	pr_debug(KERN_INFO "sprdfb:  got %d bytes mem at 0x%lx\n", len, addr);
+	pr_debug(KERN_INFO "sprdfb: got %d bytes mem at 0x%lx\n", len, addr);
 
 	dev->fb->fix.smem_start = __pa(addr);
 	dev->fb->fix.smem_len = len;
 	dev->fb->screen_base = (char*)addr;
 #else
 	dev->fb->fix.smem_start = SPRD_FB_MEM_BASE;
-	printk("sprdfb:setup_fb_mem--smem_start:%lx,len:%d,reserved len:%d\n",dev->fb->fix.smem_start,len,SPRD_FB_MEM_SIZE);
+	printk("sprdfb: setup_fb_mem--smem_start:%lx,len:%d,reserved len:%d\n",dev->fb->fix.smem_start,len,SPRD_FB_MEM_SIZE);
 	addr =  (uint32_t)ioremap(SPRD_FB_MEM_BASE, len);
 	if (!addr) {
-		printk(KERN_ERR "sprdfb:Unable to map framebuffer base: 0x%08x\n", addr);
+		printk(KERN_ERR "sprdfb: Unable to map framebuffer base: 0x%08x\n", addr);
 		return -ENOMEM;
 	}
 	dev->fb->fix.smem_len = len;
@@ -259,7 +259,7 @@ static int sprdfb_pan_display(struct fb_var_screeninfo *var, struct fb_info *fb)
     }
 
 	if(0 == dev->enable){
-		printk(KERN_ERR "sprdfb:[%s]: Invalid Device status %d", __FUNCTION__, dev->enable);
+		printk(KERN_ERR "sprdfb: [%s]: Invalid Device status %d", __FUNCTION__, dev->enable);
 		return -1;
 	}
 
@@ -438,9 +438,9 @@ static int sprdfb_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct resource r;
 
-	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb: [%s]\n", __FUNCTION__);
 #else
-	pr_debug(KERN_INFO "sprdfb:[%s], id = %d\n", __FUNCTION__, pdev->id);
+	pr_debug(KERN_INFO "sprdfb: [%s], id = %d\n", __FUNCTION__, pdev->id);
 #endif
 
 	fb = framebuffer_alloc(sizeof(struct sprdfb_device), &pdev->dev);

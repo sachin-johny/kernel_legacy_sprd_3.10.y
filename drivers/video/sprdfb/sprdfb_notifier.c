@@ -67,14 +67,14 @@ int dispc_notifier_register(struct dispc_dbs *handler)
 {
 	struct list_head *pos;
 	struct dispc_dbs *e;
-		printk("dispc_notifier_register \n");
+		printk("sprdfb: dispc_notifier_register \n");
 
 	mutex_lock(&dispc_dev_lock);
 
 	list_for_each(pos, &dispc_dev_handlers) {
 		e = list_entry(pos, struct dispc_dbs, link);
 		if (e == handler) {
-			printk("***** %s, %pf already exsited ****\n",
+			printk("sprdfb: ***** %s, %pf already exsited ****\n",
 					__func__, e->dispc_notifier);
 
 			mutex_unlock(&dispc_dev_lock);
@@ -96,13 +96,13 @@ static unsigned int dispc_change_notification(int state, unsigned int type)
 	struct dispc_dbs *pos;
 	int forbidden;
 
-	printk("dispc_change_notification %d\n", state);
+	printk("sprdfb: dispc_change_notification %d\n", state);
 
 	mutex_lock(&dispc_dev_lock);
 
 	list_for_each_entry(pos, &dispc_dev_handlers, link) {
 		if (pos->dispc_notifier != NULL) {
-			printk("%s: state:%x, calling %pf,type:%d\n", __func__, state, pos->dispc_notifier,type);
+			printk("sprdfb: %s: state:%x, calling %pf,type:%d\n", __func__, state, pos->dispc_notifier,type);
 
 			if (type != pos->type) {
 				continue;
@@ -114,7 +114,7 @@ static unsigned int dispc_change_notification(int state, unsigned int type)
 				return forbidden;
 			}
 
-			printk("%s: calling %pf done \n", __func__, pos->dispc_notifier );
+			printk("sprdfb: %s: calling %pf done \n", __func__, pos->dispc_notifier );
 		}
 	}
 
@@ -189,7 +189,7 @@ static ssize_t __sprd_set_fps(struct sprd_notifier* dev, const char* buf, size_t
 
 	val = simple_strtol(buf, NULL, 10);
 
-	printk("__sprdfb_fps_set_val %d\n", val);
+	printk("sprdfb: __sprdfb_fps_set_val %d\n", val);
 
 	mutex_lock(&dev->ops_lock);
 
@@ -244,11 +244,11 @@ static int __init sprd_notifier_init(void)
 	dev_t dev = 0;
 	struct device* temp = NULL;
 
-	printk(KERN_ALERT"Initializing sprd dispc device.\n");
+	printk(KERN_ALERT"sprdfb: Initializing sprd dispc device.\n");
 
 	err = alloc_chrdev_region(&dev, 0, 1, SPRD_DISPC_DEVICE_NODE_NAME);
 	if(err < 0) {
-		printk(KERN_ALERT"Failed to alloc char dev region.\n");
+		printk(KERN_ALERT"sprdfb: Failed to alloc char dev region.\n");
 		goto fail;
 	}
 
@@ -258,20 +258,20 @@ static int __init sprd_notifier_init(void)
 	sprd_notifier_obj = kmalloc(sizeof(struct sprd_notifier), GFP_KERNEL);
 	if(!sprd_notifier_obj) {
 		err = -ENOMEM;
-		printk(KERN_ALERT"Failed to alloc sprd_notifier.\n");
+		printk(KERN_ALERT"sprdfb: Failed to alloc sprd_notifier.\n");
 		goto unregister;
 	}
 
 	err = __sprd_dispc_setup_dev(sprd_notifier_obj);
 	if(err) {
-		printk(KERN_ALERT"Failed to setup dev: %d.\n", err);
+		printk(KERN_ALERT"sprdfb: Failed to setup dev: %d.\n", err);
 		goto cleanup;
 	}
 
 	sprd_dispc_class = class_create(THIS_MODULE, SPRD_DISPC_DEVICE_CLASS_NAME);
 	if(IS_ERR(sprd_dispc_class)) {
 		err = PTR_ERR(sprd_dispc_class);
-		printk(KERN_ALERT"Failed to create sprd dispc class.\n");
+		printk(KERN_ALERT"sprdfb: Failed to create sprd dispc class.\n");
 		goto destroy_cdev;
    }
 
@@ -280,19 +280,19 @@ static int __init sprd_notifier_init(void)
 	temp = device_create(sprd_dispc_class, NULL, dev, "%s", SPRD_DISPC_DEVICE_FILE_NAME);
 	if(IS_ERR(temp)) {
 		err = PTR_ERR(temp);
-		printk(KERN_ALERT"Failed to create sprd dispc device.");
+		printk(KERN_ALERT"sprdfb: Failed to create sprd dispc device.");
 		goto destroy_class;
 	}
 
 	err = device_create_file(temp, &dev_attr_fps);
 	if(err < 0) {
-		printk(KERN_ALERT"Failed to create attribute val.");
+		printk(KERN_ALERT"sprdfb: Failed to create attribute val.");
 		goto destroy_device;
 	}
 
 	dev_set_drvdata(temp, sprd_notifier_obj);
 
-	printk(KERN_ALERT"Succedded to initialize sprd dispc device.\n");
+	printk(KERN_ALERT"sprdfb: Succedded to initialize sprd dispc device.\n");
 	return 0;
 
 destroy_device:
@@ -318,7 +318,7 @@ static void __exit sprd_notifier_exit(void)
 {
 	dev_t devno = MKDEV(sprd_dispc_major, sprd_dispc_minor);
 
-	printk(KERN_ALERT"Destroy sprd dispc device.\n");
+	printk(KERN_ALERT"sprdfb: Destroy sprd dispc device.\n");
 
 	if (sprd_dispc_class) {
 		device_destroy(sprd_dispc_class, MKDEV(sprd_dispc_major, sprd_dispc_minor));
