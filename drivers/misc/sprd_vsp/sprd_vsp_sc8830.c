@@ -86,9 +86,6 @@ static unsigned int VSP_GLB_REG_BASE;
 struct vsp_fh {
     int is_vsp_aquired;
     int is_clock_enabled;
-#if defined(CONFIG_SPRD_IOMMU)
-    int is_iommu_enabled;
-#endif
 
     wait_queue_head_t wait_queue_work;
     int condition_work;
@@ -112,6 +109,7 @@ struct vsp_dev {
 
 static struct vsp_dev vsp_hw_dev;
 static struct wake_lock vsp_wakelock;
+static atomic_t vsp_instance_cnt = ATOMIC_INIT(0);
 
 struct clock_name_map_t {
     unsigned long freq;
@@ -427,24 +425,16 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
     return 0;
 }
 
-static int vsp_open(struct inode *inode, struct file *filp)
+static int vsp_set_mm_clk(void)
 {
-    int ret;
+    int ret =0;
     struct clk *clk_mm_i;
     struct clk *clk_vsp;
     struct clk *clk_parent;
     char *name_parent;
-    struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
 
-    printk(KERN_INFO "vsp_open called %p\n", vsp_fp);
-
-    if (vsp_fp == NULL) {
-        printk(KERN_ERR "vsp open error occured\n");
-        return  -EINVAL;
-    }
-    filp->private_data = vsp_fp;
-    vsp_fp->is_clock_enabled = 0;
-    vsp_fp->is_vsp_aquired = 0;
+    printk(KERN_INFO "vsp_set_mm_clk: vsp_instance_cnt %d\n", instance_cnt);
 
 #if defined(CONFIG_ARCH_SCX35)
 
@@ -514,13 +504,8 @@ by clk_get()!\n", "clk_vsp", name_parent);
     printk("vsp_freq %d Hz",
            (int)clk_get_rate(vsp_hw_dev.vsp_clk));
 
-    init_waitqueue_head(&vsp_fp->wait_queue_work);
-    vsp_fp->vsp_int_status = 0;
-    vsp_fp->condition_work = 0;
-
 #if defined(CONFIG_SPRD_IOMMU)
     sprd_iommu_module_enable(IOMMU_MM);
-    vsp_fp->is_iommu_enabled = 1;
 #endif
 
     return 0;
@@ -540,20 +525,53 @@ errout:
     }
     return ret;
 }
+static int vsp_open(struct inode *inode, struct file *filp)
+{
+    int ret;
+    struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
+
+    printk(KERN_INFO "vsp_open called %p\n", vsp_fp);
+
+    if (vsp_fp == NULL) {
+        printk(KERN_ERR "vsp open error occured\n");
+        return  -EINVAL;
+    }
+    filp->private_data = vsp_fp;
+    vsp_fp->is_clock_enabled = 0;
+    vsp_fp->is_vsp_aquired = 0;
+
+    init_waitqueue_head(&vsp_fp->wait_queue_work);
+    vsp_fp->vsp_int_status = 0;
+    vsp_fp->condition_work = 0;
+
+    ret = vsp_set_mm_clk();
+
+    atomic_inc_return(&vsp_instance_cnt);
+
+    printk(KERN_INFO "vsp_open: ret %d\n", ret);
+
+    return ret;
+
+
+}
 
 static int vsp_release (struct inode *inode, struct file *filp)
 {
     int ret;
     struct vsp_fh *vsp_fp = filp->private_data;
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
 
     if (vsp_fp == NULL) {
         printk(KERN_ERR "vsp_release error occured, vsp_fp == NULL\n");
         return  -EINVAL;
     }
 
+    printk(KERN_INFO "vsp_release: instance_cnt %d\n", instance_cnt);
+
+    atomic_dec_return(&vsp_instance_cnt);
+
 #if defined(CONFIG_SPRD_IOMMU)
     sprd_iommu_module_disable(IOMMU_MM);
-    vsp_fp->is_iommu_enabled = 0;
 #endif
 
     if (vsp_fp->is_clock_enabled) {
@@ -596,50 +614,38 @@ static struct miscdevice vsp_dev = {
 static int vsp_suspend(struct platform_device *pdev, pm_message_t state)
 {
     int ret=-1;
+    int cnt;
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
 
-    if (vsp_hw_dev.vsp_fp != NULL) {
+    for (cnt = 0; cnt < instance_cnt; cnt++) {
 #if defined(CONFIG_SPRD_IOMMU)
-        struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
-
-        if (vsp_fp->is_iommu_enabled) {
-            sprd_iommu_module_disable(IOMMU_MM);
-            vsp_fp->is_iommu_enabled = 0;
-        }
+        sprd_iommu_module_disable(IOMMU_MM);
 #endif
 
         clk_disable(vsp_hw_dev.mm_clk);
 
-        printk(KERN_INFO "vsp_suspend");
+        printk(KERN_INFO "vsp_suspend, cnt: %d\n", cnt);
     }
+
 
     return 0;
 }
 
 static int vsp_resume(struct platform_device *pdev)
 {
-    int ret=-1;
 
-    if (vsp_hw_dev.vsp_fp != NULL) {
-        struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
+    int ret = 0;
+    int cnt;
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
 
-        ret = clk_enable(vsp_hw_dev.mm_clk);
-        if (ret) {
-            printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-            return ret;
-        } else {
-            pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
-        }
-
-#if defined(CONFIG_SPRD_IOMMU)
-        sprd_iommu_module_enable(IOMMU_MM);
-        vsp_fp->is_iommu_enabled = 1;
-#endif
-
-        printk(KERN_INFO "vsp_resume");
+    for (cnt = 0; cnt < instance_cnt; cnt++) {
+        ret = vsp_set_mm_clk();
+        printk(KERN_INFO "vsp_resume, cnt: %d\n", cnt);
     }
 
-    return 0;
+    return ret;
 }
+
 
 static int vsp_probe(struct platform_device *pdev)
 {
