@@ -155,6 +155,11 @@ config FB_LCD_ILI9806E_MIPI
 	depends on FB_SC8825 || FB_SCX35
 	default n
 
+config FB_LCD_T8861_MIPI
+	boolean "support t8861 mipi panel"
+	depends on FB_SC8825 || FB_SCX35
+	default n
+
 config FB_LCD_RESERVE_MEM
         boolean "support FB reserve mem"
         depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
