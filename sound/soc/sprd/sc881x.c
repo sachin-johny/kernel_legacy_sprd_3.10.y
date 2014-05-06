@@ -45,7 +45,8 @@ enum {
 	SC881X_FUNC_SPK = 0,
 	SC881X_FUNC_EAR,
 	SC881X_FUNC_HP,
-	SC881X_FUNC_LINE,
+	SC881X_FUNC_MUTE_MAX,
+	SC881X_FUNC_LINE = SC881X_FUNC_MUTE_MAX,
 	SC881X_FUNC_MIC,
 	SC881X_FUNC_HP_MIC,
 	SC881X_FUNC_LINEINREC,
@@ -66,9 +67,16 @@ static struct sc881x_pga sc881x_pga_cfg[SC881X_PGA_MAX] = {
 	 arch_audio_codec_lineinrec_get_pga},
 };
 
+struct sc881x_mute {
+	int need_mute;
+	int is_on;
+	int (*mute_func) (int);
+};
+
 static struct sc881x_priv {
 	int func[SC881X_FUNC_MAX];
 	int pga[SC881X_PGA_MAX];
+	struct sc881x_mute m[SC881X_FUNC_MUTE_MAX];
 } sc881x;
 
 static const char *func_name[SC881X_FUNC_MAX] = {
@@ -124,26 +132,66 @@ static inline void local_cpu_pa_control(bool enable)
 		pr_err("sc881x audio inter pa control error: %d\n", enable);
 }
 
-static void audio_speaker_enable(int enable)
+static void audio_speaker_enable_inter(int enable)
 {
+	if (enable
+	    && sc881x.m[SC881X_FUNC_SPK].need_mute) {
+		enable = 0;
+	}
 	if (audio_pa_amplifier && audio_pa_amplifier->speaker.control)
 		audio_pa_amplifier->speaker.control(enable, NULL);
 	else
 		local_cpu_pa_control(enable);
+	if (enable)
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
 }
 
+static void audio_speaker_enable(int enable)
+{
+	sc881x.m[SC881X_FUNC_SPK].is_on = enable;
+	sc881x.m[SC881X_FUNC_SPK].mute_func(enable);
+}
+static void audio_headphone_enable_inter(int enable)
+{
+	if (enable && sc881x.m[SC881X_FUNC_HP].need_mute) {
+		enable = 0;
+	}
+	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
+		audio_pa_amplifier->headset.control(enable, NULL);
+	if (enable)
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
+
+}
+static void audio_headphone_enable(int enable)
+{
+	sc881x.m[SC881X_FUNC_HP].is_on = enable;
+	sc881x.m[SC881X_FUNC_HP].mute_func(enable);
+}
 static int sc881x_hp_event(struct snd_soc_dapm_widget *w,
 			   struct snd_kcontrol *k, int event)
 {
 	sc881x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
-	if (audio_pa_amplifier && audio_pa_amplifier->headset.control)
-		audio_pa_amplifier->
-		    headset.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
-	if (! !SND_SOC_DAPM_EVENT_ON(event))
-		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
+	audio_headphone_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
+}
+
+static void audio_earpiece_enable_inter(int enable)
+{
+	if (enable && sc881x.m[SC881X_FUNC_EAR].need_mute) {
+		enable = 0;
+	}
+	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
+		audio_pa_amplifier->earpiece.control(enable, NULL);
+	if (enable)
+		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
+}
+
+static void audio_earpiece_enable(int enable)
+{
+	sc881x.m[SC881X_FUNC_EAR].is_on = enable;
+	sc881x.m[SC881X_FUNC_EAR].mute_func(enable);
 }
 
 static int sc881x_ear_event(struct snd_soc_dapm_widget *w,
@@ -151,11 +199,7 @@ static int sc881x_ear_event(struct snd_soc_dapm_widget *w,
 {
 	sc881x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
-	if (audio_pa_amplifier && audio_pa_amplifier->earpiece.control)
-		audio_pa_amplifier->
-		    earpiece.control(! !SND_SOC_DAPM_EVENT_ON(event), NULL);
-	if (! !SND_SOC_DAPM_EVENT_ON(event))
-		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
+	audio_earpiece_enable(! !SND_SOC_DAPM_EVENT_ON(event));
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -166,8 +210,7 @@ static int sc881x_amp_event(struct snd_soc_dapm_widget *w,
 	sc881x_dbg("Entering %s switch %s\n", __func__,
 		   SND_SOC_DAPM_EVENT_ON(event) ? "ON" : "OFF");
 	audio_speaker_enable(! !SND_SOC_DAPM_EVENT_ON(event));
-	if (! !SND_SOC_DAPM_EVENT_ON(event))
-		schedule_timeout_uninterruptible(msecs_to_jiffies(20));
+
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 0;
 }
@@ -219,6 +262,34 @@ static int sc881x_func_set(struct snd_kcontrol *kcontrol,
 
 	sc881x.func[id] = ucontrol->value.integer.value[0];
 	sc881x_ext_control(&card->dapm);
+	sc881x_dbg("Leaving %s\n", __func__);
+	return 1;
+}
+static int sc881x_mute_get(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+	ucontrol->value.integer.value[0] = sc881x.m[id].need_mute;
+	return 0;
+}
+
+static int sc881x_mute_set(struct snd_kcontrol *kcontrol,
+			   struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+
+	pr_info("%s switch %s\n", func_name[id],
+		ucontrol->value.integer.value[0] ? "Mute" : "Unmute");
+
+	if (sc881x.m[id].need_mute == ucontrol->value.integer.value[0])
+		return 0;
+
+	sc881x.m[id].need_mute = ucontrol->value.integer.value[0];
+	sc881x.m[id].mute_func(sc881x.m[id].is_on);
 	sc881x_dbg("Leaving %s\n", __func__);
 	return 1;
 }
@@ -284,6 +355,9 @@ static const DECLARE_TLV_DB_SCALE(lineinrec_tlv, -1050, 150, 0);
 #define SC881X_CODEC_FUNC(xname, xreg)\
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, sc881x_func_get, sc881x_func_set)
 
+#define SC881X_CODEC_MUTE(xname, xreg) \
+	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, sc881x_mute_get, sc881x_mute_set)
+
 static const struct snd_kcontrol_new dolphin_sc881x_controls[] = {
 	SC881X_CODEC_FUNC("Speaker Function", SC881X_FUNC_SPK),
 	SC881X_CODEC_FUNC("Earpiece Function", SC881X_FUNC_EAR),
@@ -301,6 +375,10 @@ static const struct snd_kcontrol_new dolphin_sc881x_controls[] = {
 	SOC_SINGLE_EXT_TLV("LineinRec Capture Volume",
 			   FUN_REG(SC881X_PGA_LINEINREC), 4,
 			   7, 1, sc881x_pga_get, sc881x_pga_set, lineinrec_tlv),
+
+	SC881X_CODEC_MUTE("Speaker Mute", SC881X_FUNC_SPK),
+	SC881X_CODEC_MUTE("Earpiece Mute", SC881X_FUNC_EAR),
+	SC881X_CODEC_MUTE("HeadPhone Mute", SC881X_FUNC_HP),
 };
 
 static int sc881x_late_probe(struct snd_soc_card *card)
@@ -360,6 +438,12 @@ static struct snd_soc_card sc881x_card = {
 	.late_probe = sc881x_late_probe,
 };
 
+static void sc881x_mute_init(void)
+{
+	sc881x.m[SC881X_FUNC_SPK].mute_func = audio_speaker_enable_inter;
+	sc881x.m[SC881X_FUNC_HP].mute_func = audio_headphone_enable_inter;
+	sc881x.m[SC881X_FUNC_EAR].mute_func = audio_earpiece_enable_inter;
+}
 static struct platform_device *sc881x_snd_device;
 
 static int __init sc881x_modinit(void)
@@ -375,6 +459,8 @@ static int __init sc881x_modinit(void)
 
 	if (ret)
 		platform_device_put(sc881x_snd_device);
+	else
+		sc881x_mute_init();
 
 	return ret;
 }
