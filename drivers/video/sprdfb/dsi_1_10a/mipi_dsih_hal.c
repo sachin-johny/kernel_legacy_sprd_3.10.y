@@ -54,7 +54,7 @@ dsih_error_t mipi_dsih_hal_dpi_color_coding(dsih_ctrl_t * instance, dsih_color_c
     {                                                                                                                                  
         if (instance->log_error != 0)                                                                                                  
         {                                                                                                                              
-            instance->log_error("invalid colour configuration");                                                                       
+            instance->log_error("sprdfb: invalid colour configuration");
         }                                                                                                                              
         err = ERR_DSI_COLOR_CODING;                                                                                                    
     }                                                                                                                                  
@@ -185,7 +185,7 @@ dsih_error_t mipi_dsih_hal_dpi_video_mode_type(dsih_ctrl_t * instance, dsih_vide
     {                                                                                                                                  
         if (instance->log_error != 0)                                                                                                  
         {                                                                                                                              
-            instance->log_error("undefined type");                                                                                     
+            instance->log_error("sprdfb: undefined type");
         }                                                                                                                              
         return ERR_DSI_OUT_OF_BOUND;                                                                                                   
     }                                                                                                                                  
@@ -269,7 +269,7 @@ dsih_error_t mipi_dsih_hal_dcs_rd_tx_type(dsih_ctrl_t * instance, unsigned no_of
         default:                                                                                                                       
             if (instance->log_error != 0)                                                                                              
             {                                                                                                                          
-                instance->log_error("undefined DCS Read packet type");                                                                 
+                instance->log_error("sprdfb: undefined DCS Read packet type");
             }                                                                                                                          
             err = ERR_DSI_OUT_OF_BOUND;                                                                                                
             break;                                                                                                                     
@@ -322,7 +322,7 @@ dsih_error_t mipi_dsih_hal_gen_rd_tx_type(dsih_ctrl_t * instance, unsigned no_of
         default:                                                                                                                       
             if (instance->log_error != 0)                                                                                              
             {                                                                                                                          
-                instance->log_error("undefined Generic Read packet type");                                                             
+                instance->log_error("sprdfb: undefined Generic Read packet type");
             }                                                                                                                          
             err = ERR_DSI_OUT_OF_BOUND;                                                                                                
             break;                                                                                                                     

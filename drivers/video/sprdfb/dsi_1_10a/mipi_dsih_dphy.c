@@ -429,7 +429,7 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     {
         return ERR_DSI_PHY_FREQ_OUT_OF_BOUND;
     }
-    printk("Gen1 D-PHY: Approximated Frequency: %d KHz\n", (loop_divider * (phy->reference_freq / input_divider)));
+    printk("sprdfb: Gen1 D-PHY: Approximated Frequency: %d KHz\n", (loop_divider * (phy->reference_freq / input_divider)));
     /* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
     avoid transient periods in PHY operation during re-configuration procedures. */
     mipi_dsih_dphy_reset(phy, 0);
@@ -737,7 +737,7 @@ dsih_error_t mipi_dsih_dphy_ulps_data_lanes(dphy_t * instance, int enable)
             }
 		if (mipi_dsih_dphy_status(instance, data_lanes_mask) != data_lanes_mask)
 		{
-			instance->log_info("stat %x, mask %x", mipi_dsih_dphy_status(instance, data_lanes_mask), data_lanes_mask);
+			instance->log_info("sprdfb: stat %x, mask %x", mipi_dsih_dphy_status(instance, data_lanes_mask), data_lanes_mask);
 			return ERR_DSI_TIMEOUT;
         }
         mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0, 3, 1);
@@ -804,7 +804,7 @@ dsih_error_t mipi_dsih_dphy_ulps_clk_lane(dphy_t * instance, int enable)
             /* mask 1010100100000 */
             if (mipi_dsih_dphy_status(instance, clk_lane_mask) == clk_lane_mask)
             {   /* wait at least 1ms */
-				instance->log_info("stat %x, mask %x", mipi_dsih_dphy_status(instance, clk_lane_mask), clk_lane_mask);
+				instance->log_info("sprdfb: stat %x, mask %x", mipi_dsih_dphy_status(instance, clk_lane_mask), clk_lane_mask);
 				break;
 			}
 			/* wait at least 1ms */

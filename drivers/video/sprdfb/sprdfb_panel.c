@@ -632,7 +632,7 @@ void sprdfb_panel_resume(struct sprdfb_device *dev, bool from_deep_sleep)
 		return;
 	}
 
-	printk(KERN_INFO "sprdfb:[%s], dev->enable= %d, from_deep_sleep = %d\n",__FUNCTION__, dev->enable, from_deep_sleep);
+	printk(KERN_INFO "sprdfb: [%s], dev->enable= %d, from_deep_sleep = %d\n",__FUNCTION__, dev->enable, from_deep_sleep);
 #if 0
 	/*Jessica TODO: resume i2c, spi, mipi*/
 	if(NULL != dev->panel->if_ctrl->panel_if_resume){

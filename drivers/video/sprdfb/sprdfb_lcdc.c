@@ -87,7 +87,7 @@ static void lcdc_reset(void)
 	#define REG_AHB_SOFT_RST (AHB_SOFT_RST + SPRD_AHB_BASE)
 	sci_glb_set(REG_AHB_SOFT_RST, (1<<LCDC_SOFT_RST));
 	udelay(10);
-	sci_glb_clr(REG_AHB_SOFT_RST, (1<<LCDC_SOFT_RST) );
+	sci_glb_clr(REG_AHB_SOFT_RST, (1<<LCDC_SOFT_RST));
 }
 
 static inline void lcdc_set_bg_color(uint32_t bg_color)
@@ -272,7 +272,7 @@ static int32_t sprdfb_lcdc_early_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
 
-	pr_debug(KERN_INFO "sprdfb:[%s]\n", __FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb: [%s]\n", __FUNCTION__);
 
 	if(lcdc_ctx.is_inited){
 		printk(KERN_WARNING "sprdfb: lcdc early init warning!(has been inited)");
@@ -330,7 +330,7 @@ static int32_t sprdfb_lcdc_early_init(struct sprdfb_device *dev)
 
 static int32_t sprdfb_lcdc_init(struct sprdfb_device *dev)
 {
-	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 
 	lcdc_set_bg_color(0xFFFFFFFF);
 	/*enable dithering*/
@@ -351,7 +351,7 @@ static int32_t sprdfb_lcdc_init(struct sprdfb_device *dev)
 
 static int32_t sprdfb_lcdc_uninit(struct sprdfb_device *dev)
 {
-	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 
 	dev->enable = 0;
 	if(lcdc_ctx.is_inited){
@@ -367,7 +367,7 @@ static int32_t sprdfb_lcdc_refresh (struct sprdfb_device *dev)
 
 	uint32_t base = fb->fix.smem_start + fb->fix.line_length * fb->var.yoffset;
 
-	pr_debug(KERN_INFO "sprdfb:[%s]\n",__FUNCTION__);
+	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 
 	lcdc_ctx.vsync_waiter ++;
 	lcdc_sync(dev);
@@ -444,13 +444,13 @@ static int32_t sprdfb_lcdc_refresh (struct sprdfb_device *dev)
 
 static int32_t sprdfb_lcdc_suspend(struct sprdfb_device *dev)
 {
-	printk(KERN_INFO "sprdfb:[%s], dev->enable = %d\n",__FUNCTION__, dev->enable);
+	printk(KERN_INFO "sprdfb: [%s], dev->enable = %d\n",__FUNCTION__, dev->enable);
 
 	if (0 != dev->enable){
 		/* must wait ,lcdc_sync() */
 		lcdc_ctx.vsync_waiter ++;
 		lcdc_sync(dev);
-		printk(KERN_INFO "sprdfb:[%s] got sync\n",__FUNCTION__);
+		printk(KERN_INFO "sprdfb: [%s] got sync\n",__FUNCTION__);
 
 		sprdfb_panel_suspend(dev);
 
@@ -464,7 +464,7 @@ static int32_t sprdfb_lcdc_suspend(struct sprdfb_device *dev)
 
 static int32_t sprdfb_lcdc_resume(struct sprdfb_device *dev)
 {
-	printk(KERN_INFO "sprdfb:[%s], dev->enable= %d\n",__FUNCTION__, dev->enable);
+	printk(KERN_INFO "sprdfb: [%s], dev->enable= %d\n",__FUNCTION__, dev->enable);
 
 	if (dev->enable == 0) {
 		clk_enable(lcdc_ctx.clk_lcdc);
