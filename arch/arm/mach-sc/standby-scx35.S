@@ -79,6 +79,23 @@ sprd_pm_mapped_va:
 	mov pc, r0
 sprd_pm_va_to_iram:
 	/* Run inside IRAM now. */
+#ifdef CONFIG_ARCH_SCX30G
+	/*
+	*   Tshark 28nm has a defect, hardware retention can not
+	* cover the whole registers, we need software to do the
+	* calibration job.
+	* r0: sub-system name, 0:AP, 1:cp0, 2:cp2
+	* r1: 1:enter deep sleep, 0: exit deep sleep
+	* r2: 1: exit deep sleep without powerdown
+	*     0: exit deep sleep after powerdown
+	*     when enter deep-sleep, the 3rd parameter is useless
+	*/
+	MOV r0,#0x0
+	MOV r1,#0x1
+	MOV r2,#0x0
+	LDR r3,=(SPRD_IRAM1_BASE+0x1800)
+	blx r3
+#endif
 	nop
 	nop
 	nop
@@ -100,6 +117,22 @@ sprd_pm_va_to_iram:
 	bne  	5b
 #if 0
 6:  b 6b
+#endif
+#ifdef CONFIG_ARCH_SCX30G
+	/*
+	*   Tshark 28nm has a defect, hardware retention can not
+	* cover the whole registers, we need software to do the
+	* calibration job.
+	* r0: sub-system name, 0:AP, 1:cp0, 2:cp2
+	* r1: 1:enter deep sleep, 0: exit deep sleep
+	* r2: 1: exit deep sleep without powerdown
+	*     0: exit deep sleep after powerdown
+	*/
+	mov r0, #0x0
+	mov r1, #0x0
+	mov r2, #0x1
+	ldr r3, =(SPRD_IRAM1_BASE+0x1800)
+	blx r3
 #endif
 	ldr r0, =REG_AON_APB_EB0_VIR
 	ldr r1, [r0]
@@ -153,6 +186,23 @@ ENTRY(sc8830_standby_exit_iram)
 
 	ldr r0, =0x20
 	bl my_delay
+#ifdef CONFIG_ARCH_SCX30G
+	/*
+	*   Tshark 28nm has a defect, hardware retention can not
+	* cover the whole registers, we need software to do the
+	* calibration job.
+	*   Here is the calibration code in IRAM 0x50001800.
+	* r0: sub-system name, 0:AP, 1:cp0, 2:cp2
+	* r1: 1:enter deep sleep, 0: exit deep sleep
+	* r2: 1: exit deep sleep without powerdown
+	*     0: exit deep sleep after powerdown
+	*/
+	mov r0,#0x0
+	mov r1,#0x0
+	mov r2,#0x0
+	ldr r3,=0x50001800
+	blx r3
+#endif
 
 /* DLL calibration */
 #if 0
