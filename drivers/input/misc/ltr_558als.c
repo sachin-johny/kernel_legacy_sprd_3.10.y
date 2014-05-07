@@ -964,7 +964,7 @@ static int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *i
         else
         {
             LTR_PLS_MODE = LTR_PLS_558;
-            p_gainrange = PS_558_RANGE8;
+            p_gainrange = PS_558_RANGE4;
             l_gainrange = ALS_558_RANGE2_64K;
         }
 
