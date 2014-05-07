@@ -53,6 +53,13 @@
 #define VETH_DEV_STATUS_ON 	1
 #define VETH_DEV_STATUS_OFF 	0
 
+#define VETH_NAPI
+
+#ifdef VETH_NAPI
+#define VETH_NAPI_WEIGHT 64
+#define VETH_NAPI_FIFO_DEPTH 256
+#endif
+
 enum {
 	VETH_STATE_COMPLETE_PACKET = 0,
 	VETH_STATE_INCOMPLETE_DATA,
@@ -62,6 +69,9 @@ enum {
 enum {
 	MUX_EVENT_RECV_DATA = SPRDMUX_EVENT_COMPLETE_READ,
 	MUX_EVENT_SENT_DATA = SPRDMUX_EVENT_COMPLETE_WRITE,
+#ifdef VETH_NAPI
+	MUX_EVENT_FLUSH_PACKET = SPRDMUX_EVENT_READ_IND,
+#endif
 	MUX_EVENT_TTY_OPEN,
 	MUX_EVENT_TTY_CLOSE,
 };
@@ -86,12 +96,27 @@ struct veth_rx_packet {
 	struct veth_header_info hdrinfo; /* packet header info */
 };
 
+#ifdef VETH_NAPI
+struct veth_rx_fifo {
+	uint32_t rd_ptr; /* read pointer */
+	uint32_t wr_ptr; /* write pointer */
+	struct sk_buff *cache[VETH_NAPI_FIFO_DEPTH]; /* rx packet cache */
+};
+#endif
+
 /* virtual ethernet device data struction */
 struct veth_device {
 	struct veth_init_data *pdata;
 	struct net_device 	*netdev;
 	struct veth_rx_packet 	*rxpkt;
 	int 	status;
+
+#ifdef VETH_NAPI
+	struct veth_rx_fifo *rx_fifo;
+	atomic_t busy; /* busy flag */
+	struct napi_struct napi; /* napi instance */
+#endif
+
 	struct net_device_stats stats;
 };
 
@@ -101,6 +126,63 @@ struct veth_init_data {
 	char *name;
 };
 
+struct veth_device * g_veth_devices[SPRDMUX_ID_MAX][5] = {NULL};
+#ifdef VETH_NAPI
+struct veth_rx_fifo g_rx_fifos[SPRDMUX_ID_MAX][5] = {0};
+#endif
+
+#ifdef VETH_NAPI
+static int veth_rx_poll_handler(struct napi_struct * napi, int budget)
+{
+	struct veth_device *veth = container_of(napi, struct veth_device, napi);
+	volatile struct veth_rx_fifo *rx_fifo;
+	struct sk_buff * skb;
+	int skb_cnt = 0;
+	int index;
+
+	if (!veth) {
+		VETH_ERR("veth_rx_poll_handler no veth device\n");
+		return 0;
+	}
+
+	rx_fifo = (volatile struct veth_rx_fifo *)veth->rx_fifo;
+
+	/* if the cache isn't empty, keep polling */
+	while ((budget - skb_cnt) && (rx_fifo->rd_ptr != rx_fifo->wr_ptr)) {
+		index = rx_fifo->rd_ptr & (VETH_NAPI_FIFO_DEPTH - 1);
+		skb = rx_fifo->cache[index];
+		if (!skb) {
+			rx_fifo->rd_ptr += 1;
+			VETH_ERR("veth_rx_poll_handler this skb is NULL, index %d\n", index);
+			continue;
+		}
+
+		skb->protocol = eth_type_trans(skb, veth->netdev);
+		skb->ip_summed = CHECKSUM_UNNECESSARY;
+		netif_receive_skb(skb);
+
+		/* update fifo rd_ptr */
+		rx_fifo->rd_ptr += 1;
+
+		veth->stats.rx_bytes += skb->len;
+		veth->stats.rx_packets++;
+
+		/* update skb counter*/
+		skb_cnt++;
+	}
+
+	VETH_DEBUG("napi polling done, busy %d, budget %d, skb cnt %d, cpu %d\n",
+			atomic_read(&veth->busy), budget, skb_cnt, smp_processor_id());
+	VETH_DEBUG("RX_FIFO, rd_ptr 0x%x, wr_ptr 0x%x\n", rx_fifo->rd_ptr, rx_fifo->wr_ptr);
+
+	if (skb_cnt >= 0 && budget > skb_cnt) {
+		napi_complete(napi);
+		atomic_dec(&veth->busy);
+	}
+
+	return skb_cnt;
+}
+#endif
 
 static int veth_prepare_skb(struct veth_device *veth, uint8_t *data, uint32_t len)
 {
@@ -156,6 +238,10 @@ static int veth_rx_data(struct veth_device *veth, uint8_t *data, uint32_t len)
 {
 	struct veth_rx_packet *vpkt = NULL;
 	struct sk_buff *skb = NULL;
+#ifdef VETH_NAPI
+	volatile struct veth_rx_fifo *rx_fifo = NULL;
+	int index;
+#endif
 	int rval;
 
 	if (!veth)
@@ -170,6 +256,9 @@ static int veth_rx_data(struct veth_device *veth, uint8_t *data, uint32_t len)
 		return -EINVAL;
 	}
 
+#ifdef VETH_NAPI
+	rx_fifo = (volatile struct veth_rx_fifo *)veth->rx_fifo;
+#endif
 	vpkt = veth->rxpkt;
 
 	rval = veth_prepare_skb(veth, data, len);
@@ -185,13 +274,32 @@ static int veth_rx_data(struct veth_device *veth, uint8_t *data, uint32_t len)
 		return -ENOMEM;
 	}
 
+#ifdef VETH_NAPI
+	/*if the fifo is full, drop the skb*/
+	if ((int)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= VETH_NAPI_FIFO_DEPTH) {
+		VETH_ERR("napi rx_fifo is full, drop the skb.\n");
+		VETH_ERR("RX FIFO, rd_ptr 0x%x, wr_ptr 0x%x, busy %d\n",
+				rx_fifo->rd_ptr, rx_fifo->wr_ptr, veth->busy);
+		veth->stats.rx_dropped++;
+		kfree(skb);
+		return -EBUSY;
+	}
+	index = rx_fifo->wr_ptr & (VETH_NAPI_FIFO_DEPTH - 1);
+	rx_fifo->cache[index] = skb;
+	rx_fifo->wr_ptr += 1;
+	if (!atomic_read(&veth->busy) &&
+			(int)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= VETH_NAPI_WEIGHT) {
+		atomic_inc(&veth->busy);
+		napi_schedule(&veth->napi);
+	}
+#else
 	skb->protocol = eth_type_trans(skb, veth->netdev);
 	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	veth->stats.rx_bytes += skb->len;
 	veth->stats.rx_packets++;
 
 	netif_rx(skb);
-
+#endif
 	return 0;
 }
 
@@ -412,6 +520,9 @@ static int veth_tty_open(struct veth_device *veth)
 	if (!netif_carrier_ok(veth->netdev)) {
 		netif_carrier_on(veth->netdev);
 	}
+
+	napi_enable(&veth->napi);
+
 	netif_wake_queue(veth->netdev);
 	return 0;
 }
@@ -430,6 +541,9 @@ static int veth_tty_close(struct veth_device *veth)
 	if (netif_carrier_ok(veth->netdev)) {
 		netif_carrier_off(veth->netdev);
 	}
+
+	napi_disable(&veth->napi);
+
 	netif_stop_queue(veth->netdev);
 	return 0;
 }
@@ -437,6 +551,9 @@ static int veth_tty_close(struct veth_device *veth)
 static int veth_notify_handler(int index, int event, uint8_t * data, uint32_t len, void *priv_data)
 {
 	struct veth_device *veth = (struct veth_device *)priv_data;
+	volatile struct veth_rx_fifo * rx_fifo;
+
+	rx_fifo = (volatile struct veth_rx_fifo *)veth->rx_fifo;
 	VETH_DEBUG("veth_notify_handler event %d\n", event);
 	switch(event) {
 		case MUX_EVENT_RECV_DATA:
@@ -448,6 +565,18 @@ static int veth_notify_handler(int index, int event, uint8_t * data, uint32_t le
 			VETH_DEBUG("%s handle sent data\n", veth->pdata->name);
 			veth_resume(veth);
 			break;
+#ifdef VETH_NAPI
+		case MUX_EVENT_FLUSH_PACKET:
+			VETH_DEBUG("%s handle flush data\n", veth->pdata->name);
+			VETH_DEBUG("RX FIFO, rd_ptr %d, wr_ptr %d, busy %d\n",
+				rx_fifo->rd_ptr, rx_fifo->wr_ptr, veth->busy);
+			if (!atomic_read(&veth->busy) &&
+					rx_fifo->rd_ptr != rx_fifo->wr_ptr) {
+				atomic_inc(&veth->busy);
+				napi_schedule(&veth->napi);
+			}
+			break;
+#endif
 		case MUX_EVENT_TTY_OPEN:
 			veth_tty_open(veth);
 			break;
@@ -501,6 +630,8 @@ static int veth_ndo_open (struct net_device *dev)
 	//veth_dev->netdev->flags &= ~IFF_MULTICAST;
 	//veth_dev->netdev->flags &= ~IFF_BROADCAST;
 
+	napi_enable(&veth->napi);
+
 	netif_start_queue(dev);
 	VETH_INFO("%s is started\n", dev->name);
 
@@ -516,6 +647,8 @@ static int veth_ndo_stop (struct net_device *dev)
 
 	inst_id = pdata->inst_id;
 	index = pdata->index;
+
+	napi_disable(&veth->napi);
 
 	netif_stop_queue(dev);
 	if (netif_carrier_ok(dev)) {
@@ -627,6 +760,10 @@ static int veth_probe(struct platform_device *pdev)
 	veth->netdev = netdev;
 	veth->rxpkt = vpkt;
 	veth->pdata = pdata;
+#ifdef VETH_NAPI
+	veth->rx_fifo = &g_rx_fifos[inst_id][index];
+	atomic_set(&veth->busy, 0);
+#endif
 
 	netdev->netdev_ops = &veth_ops;
 	netdev->watchdog_timeo = 2*HZ;
@@ -638,10 +775,16 @@ static int veth_probe(struct platform_device *pdev)
 //	netdev->flags |= IFF_NOARP;
 
 	random_ether_addr(netdev->dev_addr);
-
+#ifdef VETH_NAPI
+	netif_napi_add(netdev, &veth->napi, veth_rx_poll_handler, VETH_NAPI_WEIGHT);
+#endif
 	/* register new Ethernet interface */
 	if ((ret = register_netdev (netdev))) {
 		VETH_ERR ("%s failed to register netdev, %d\n", netdev->name, ret);
+		kfree(vpkt);
+#ifdef VETH_NAPI
+		netif_napi_del(&veth->napi);
+#endif
 		free_netdev(netdev);
 		netdev = NULL;
 		return ret;
@@ -651,6 +794,9 @@ static int veth_probe(struct platform_device *pdev)
 	netif_carrier_off(netdev);
 
 	platform_set_drvdata(pdev, veth);
+
+	g_veth_devices[inst_id][index] = veth;
+
 	VETH_INFO("%s probe done\n", netdev->name);
 	return 0;
 
@@ -660,11 +806,20 @@ static int veth_remove(struct platform_device *pdev)
 {
 	struct veth_device *veth = platform_get_drvdata(pdev);
 
-	if (veth->netdev) {
-		unregister_netdev(veth->netdev);
-		free_netdev(veth->netdev);
-	}
+	if (veth) {
+#ifdef VETH_NAPI
+		netif_napi_del(&veth->napi);
+#endif
 
+		if(veth->rxpkt) {
+			kfree(veth->rxpkt);
+		}
+
+		if (veth->netdev) {
+			unregister_netdev(veth->netdev);
+			free_netdev(veth->netdev);
+		}
+	}
 	platform_set_drvdata(pdev, NULL);
 
 	return 0;
