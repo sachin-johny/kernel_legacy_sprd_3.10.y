@@ -455,23 +455,11 @@ static int wrap_sci_adc_get_value(unsigned int channel, int scale)
 	int count = 0;
 	int average = 0;
 
-#if (defined(CONFIG_ARCH_SCX15))
-	average = sci_adc_get_value(channel, scale);
-#else
-	#if (defined(CONFIG_ARCH_SCX35))
-		if(ADC_CHANNEL_HEADMIC == channel) {
-			while(count < SCI_ADC_GET_VALUE_COUNT) {
-				average += sci_adc_get_value(channel, scale);
-				count++;
-			}
-			average /= SCI_ADC_GET_VALUE_COUNT;
-		}
-		else
-			average = sci_adc_get_value(channel, scale);
-	#else
-		average = sci_adc_get_value(channel, scale);
-	#endif
-#endif
+	while(count < SCI_ADC_GET_VALUE_COUNT) {
+		average += sci_adc_get_value(channel, scale);
+		count++;
+	}
+	average /= SCI_ADC_GET_VALUE_COUNT;
 
 	return average;
 }
@@ -497,9 +485,6 @@ static void headset_detect_clk_en(void)
 static void headset_detect_init(void)
 {
         headset_detect_clk_en();
-        headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_BUF_EN);
-        headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_V2ADC_EN);
-        headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD2ADC_SEL_MIC_IN, AUDIO_HEAD2ADC_SEL_MASK, AUDIO_HEAD2ADC_SEL_SHIFT);
         /* set headset detect voltage */
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_SDET_2P5_OR_1P6, AUDIO_HEAD_SDET_MASK, AUDIO_HEAD_SDET_SHIFT);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG20), AUDIO_HEAD_INS_VREF_2P1_OR_1P4, AUDIO_HEAD_INS_VREF_MASK, AUDIO_HEAD_INS_VREF_SHIFT);
@@ -769,7 +754,7 @@ static int adc_get_average(int gpio_num, int gpio_value)
 			}
 		}
 		if(1 == success) {
-			msleep(30);
+			msleep(DBNC_CNT3_VALUE);
 			if(gpio_get_value(gpio_num) != gpio_value) {
 				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step3)\n");
 				return -1;
@@ -1699,6 +1684,7 @@ static int headset_detect_probe(struct platform_device *pdev)
         int ana_sts0 = 0;
         int adie_chip_id_low = 0;
         int adie_chip_id_high = 0;
+
 #ifdef CONFIG_OF
         struct device_node *np = pdev->dev.of_node;
         if (pdev->dev.of_node && !pdata){
@@ -1712,6 +1698,7 @@ static int headset_detect_probe(struct platform_device *pdev)
                 goto fail_to_get_platform_data;
         }
 #endif
+
         adie_chip_id_low = sci_adi_read(ANA_CTL_GLB_BASE+ADIE_CHID_LOW);//A-die chip id LOW
         adie_chip_id_high = sci_adi_read(ANA_CTL_GLB_BASE+ADIE_CHID_HIGH);//A-die chip id HIGH
 
@@ -1762,20 +1749,21 @@ static int headset_detect_probe(struct platform_device *pdev)
 		}
 	}
 
+        ht->platform_data = pdata;
+        headset_detect_init();
+
+        ret = sprd_headset_power_init(&pdev->dev);
+        if (ret)
+                goto fail_to_sprd_headset_power_init;
+
+        if(adie_type < 3) {
+                headmicbias_power_on(&pdev->dev, 1);
+                msleep(5);//this time delay is necessary here
+        }
+
         PRINT_INFO("====================================================================\n");
         PRINT_INFO(" write 0~3 to \"/sys/kernel/headset/debug_level\" for headset debug\n");
         PRINT_INFO("====================================================================\n");
-
-        ht->platform_data = pdata;
-
-	ret = sprd_headset_power_init(&pdev->dev);
-	if (ret)
-		goto failed_to_request_gpio_switch;
-
-        if(adie_type < 3)
-		headmicbias_power_on(&pdev->dev, 1);
-        msleep(5);//this time delay is necessary here
-
         PRINT_INFO("D-die chip id = 0x%08X\n", __raw_readl(REG_AON_APB_CHIP_ID));
         PRINT_INFO("A-die chip id HIGH = 0x%08X\n", adie_chip_id_high);
         PRINT_INFO("A-die chip id LOW = 0x%08X\n", adie_chip_id_low);
@@ -1954,10 +1942,10 @@ failed_to_request_gpio_detect:
         if(0 != pdata->gpio_switch)
                 gpio_free(pdata->gpio_switch);
 failed_to_request_gpio_switch:
-
-	headmicbias_power_on(&pdev->dev, 0);
-        PRINT_ERR("headset_detect_probe failed\n");
+        headmicbias_power_on(&pdev->dev, 0);
+fail_to_sprd_headset_power_init:
 fail_to_get_platform_data:
+        PRINT_ERR("headset_detect_probe failed\n");
         return ret;
 }
 
