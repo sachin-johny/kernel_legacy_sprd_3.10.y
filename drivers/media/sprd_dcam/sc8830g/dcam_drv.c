@@ -276,7 +276,7 @@ LOCAL void        _dcam_path_updated_notice(enum dcam_path_index path_index);
 
 
 LOCAL const dcam_isr isr_list[DCAM_IRQ_NUMBER] = {
-	_dcam_isp_root,
+	NULL,//_dcam_isp_root,
 	_dcam_sensor_eof,
 	_dcam_cap_sof,
 	_dcam_cap_eof,
@@ -2191,7 +2191,9 @@ LOCAL irqreturn_t _dcam_isr_root(int irq, void *dev_id)
 	//for (i = DCAM_IRQ_NUMBER - 1; i >= 0; i--) {
 	for (i = 0; i < DCAM_IRQ_NUMBER; i++) {
 		if (irq_line & (1 << (uint32_t)i)) {
-			isr_list[i]();
+			if (isr_list[i]) {
+				isr_list[i]();
+			}
 		}
 		irq_line &= ~(uint32_t)(1 << (uint32_t)i); //clear the interrupt flag
 		if(!irq_line) //no interrupt source left
