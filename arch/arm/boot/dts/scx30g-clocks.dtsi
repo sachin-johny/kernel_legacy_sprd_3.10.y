@@ -645,7 +645,7 @@
 		clk_mmu: clk_mmu {
 			compatible = "sprd,gate-clock";
 			#clock-cells = <0>;
-			reg = <0x60d00000 0x0>;	/* enable reg */
+			reg = <0x60d00000 0x80>;	/* enable reg */
 			clocks = <&clk_mm_ahb>;
 			clock-output-names = "clk_mmu";
 		};
@@ -653,7 +653,7 @@
 		clk_mm_ckg: clk_mm_ckg {
 			compatible = "sprd,gate-clock";
 			#clock-cells = <0>;
-			reg = <0x60d00000 0x0>;	/* enable reg */
+			reg = <0x60d00000 0x40>;	/* enable reg */
 			clocks = <&clk_mm_ahb>;
 			clock-output-names = "clk_mm_ckg";
 		};
