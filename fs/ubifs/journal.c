@@ -1159,7 +1159,7 @@ int ubifs_jnl_truncate(struct ubifs_info *c, const struct inode *inode,
 
 	sz = UBIFS_TRUN_NODE_SZ + UBIFS_INO_NODE_SZ +
 	     UBIFS_MAX_DATA_NODE_SZ * WORST_COMPR_FACTOR;
-	ino = kmalloc(sz, GFP_NOFS);
+	ino = vmalloc(sz);
 	if (!ino)
 		return -ENOMEM;
 
@@ -1254,7 +1254,7 @@ int ubifs_jnl_truncate(struct ubifs_info *c, const struct inode *inode,
 	ui->synced_i_size = ui->ui_size;
 	spin_unlock(&ui->ui_lock);
 	mark_inode_clean(c, ui);
-	kfree(ino);
+	vfree(ino);
 	return 0;
 
 out_release:
@@ -1263,7 +1263,7 @@ out_ro:
 	ubifs_ro_mode(c, err);
 	finish_reservation(c);
 out_free:
-	kfree(ino);
+	vfree(ino);
 	return err;
 }
 
