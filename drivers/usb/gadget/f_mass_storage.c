@@ -2334,6 +2334,10 @@ reset:
 
 	common->fsg = new_fsg;
 	fsg = common->fsg;
+	if(new_fsg->common != common){
+		printk("%s new_fsg->common = 0x%x common = 0x%x\n",__func__,new_fsg->common,common);
+		return rc;
+	}
 
 	/* Enable the endpoints */
 	rc = config_ep_by_speed(common->gadget, &(fsg->function), fsg->bulk_in);
