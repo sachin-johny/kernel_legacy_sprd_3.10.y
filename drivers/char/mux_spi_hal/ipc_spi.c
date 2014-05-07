@@ -817,7 +817,7 @@ static int mux_ipc_spi_read(char *buf, size_t  count)
 	struct ipc_spi_dev *dev = ipc_dev;
 
 	ipc_hasdata(dev);
-    wait_event_interruptible(dev->rx_read_wait, dev->bneedread
+    wait_event(dev->rx_read_wait, dev->bneedread
 		|| (dev->rwctrl & IPC_READ_DISABLE));
 
 	if(dev->rwctrl & IPC_READ_DISABLE) {
@@ -874,7 +874,7 @@ int mux_ipc_spi_stop(int mode)
 		dev->rwctrl |=  IPC_WRITE_DISABLE;
 	}
 
-    wake_up_interruptible(&dev->rx_read_wait);
+    wake_up(&dev->rx_read_wait);
 
     return 0;
 }
