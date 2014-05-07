@@ -175,24 +175,12 @@ struct sprd_codec_mixer {
 	sprd_codec_mixer_set set;
 };
 
-static uint32_t sprd_get_vbat_voltage(void)
+uint32_t sprd_get_vbat_voltage(void)
+    __attribute__ ((weak, alias("__sprd_get_vbat_voltage")));
+static uint32_t __sprd_get_vbat_voltage(void)
 {
-	struct power_supply *psy;
-	union power_supply_propval value;
-	int ret;
-
-	psy = power_supply_get_by_name("battery");
-	if (!psy) {
-		pr_err("ERR:%s: Fail to psy (%s)\n",__func__, "battery");
-		value.intval = 3800*1000;
-	} else {
-		ret = psy->get_property(psy,POWER_SUPPLY_PROP_VOLTAGE_NOW, &value);
-		if (ret < 0) {
-			pr_err("ERR:%s: Fail to get  voltage(%d)\n",__func__, ret);
-			value.intval = 3800*1000;
-		}
-	}
-	return value.intval/1000;
+	pr_err("ERR: Can't get vbat!\n");
+	return 3800;
 }
 
 struct sprd_codec_ldo_v_map {
