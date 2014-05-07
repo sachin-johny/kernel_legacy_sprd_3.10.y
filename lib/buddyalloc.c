@@ -136,17 +136,13 @@ static unsigned long buddy_pool_order(unsigned long len)
  * Allocate the requested number of bytes from the specified chunk.
  * Uses the simple buddy algorithm
  */
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 void show_carveout_buddy_info(int rst);
-#endif
 static int buddy_chunk_alloc(struct buddy_pool_chunk *chunk, size_t nbits)
 {
 	int best_fit = -1;
 	int start_bit = 0;
 	int end_bit = chunk->nbits;
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 	int size = nbits;
-#endif
 	unsigned long flags;
 	
 	nbits = buddy_pool_order(nbits);
@@ -176,12 +172,10 @@ static int buddy_chunk_alloc(struct buddy_pool_chunk *chunk, size_t nbits)
 	 * return an error
 	 */
 	if (best_fit < 0) {
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 		if (nbits > 0) {
 			printk("%s ---- cant't get buddy memory: %d  rawsize: %d\n", __func__, 1UL << nbits, size);
 			show_carveout_buddy_info(0);
 		}
-#endif
 		spin_unlock_irqrestore(&chunk->lock, flags);
 		return -1;
 	}
@@ -197,9 +191,7 @@ static int buddy_chunk_alloc(struct buddy_pool_chunk *chunk, size_t nbits)
 		BUDDY_ORDER(chunk, buddy) = BUDDY_ORDER(chunk, best_fit);
 	}
 	chunk->bits[best_fit].allocated = 1;
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 	chunk->bits[best_fit].size = size;
-#endif
 	spin_unlock_irqrestore(&chunk->lock, flags);
 	return best_fit;
 }
@@ -292,7 +284,6 @@ void buddy_pool_free(struct buddy_pool *pool, unsigned long addr)
 }
 EXPORT_SYMBOL(buddy_pool_free);
 
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 void show_buddy_info(int rst, struct buddy_pool_chunk *chunk)
 {
 	int i;
@@ -312,6 +303,7 @@ void show_buddy_info(int rst, struct buddy_pool_chunk *chunk)
 			else {
 				printk("alloc start_bit  %d,  size: %d,  raw_size: %d\n", start_bit, 1UL << BUDDY_ORDER(chunk, start_bit),
 											 chunk->bits[start_bit].size);
+#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 				phyaddr = chunk->start_addr + ((unsigned long )start_bit << 12) + chunk->bits[start_bit].size;
 				kvaddr = NULL;
 				kvaddr = __arch_ioremap(phyaddr - 4096, 4096, MT_MEMORY_NONCACHED);
@@ -327,6 +319,7 @@ void show_buddy_info(int rst, struct buddy_pool_chunk *chunk)
 					}
 					__arch_iounmap(kvaddr);
 				}
+#endif
 			}
 		}
 		start_bit = BUDDY_NEXT_INDEX(chunk, start_bit);
@@ -344,4 +337,3 @@ void show_pool_info(int rst, struct buddy_pool *pool)
                 show_buddy_info(rst, chunk);
         }
 }
-#endif

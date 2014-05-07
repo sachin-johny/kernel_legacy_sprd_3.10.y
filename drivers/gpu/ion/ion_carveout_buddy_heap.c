@@ -33,7 +33,6 @@ struct ion_carveout_buddy_heap {
 	ion_phys_addr_t base;
 };
 
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 struct buddy_pool *g_carveout_pool = NULL;
 
 void proc_show_pool_info(struct seq_file *s, struct buddy_pool *pool);
@@ -43,7 +42,6 @@ void show_carveout_buddy_info(int rst)
 {
 	show_pool_info(rst, g_carveout_pool);
 }
-#endif
 
 ion_phys_addr_t ion_carveout_buddy_allocate(struct ion_heap *heap,
 					    unsigned long size,
@@ -161,9 +159,7 @@ struct ion_heap *ion_carveout_buddy_heap_create(struct ion_platform_heap *heap_d
 		return ERR_PTR(-ENOMEM);
 
 	carveout_buddy_heap->pool = buddy_pool_create(12, -1);
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 	g_carveout_pool = carveout_buddy_heap->pool;
-#endif
 	if (!carveout_buddy_heap->pool) {
 		kfree(carveout_buddy_heap);
 		return ERR_PTR(-ENOMEM);

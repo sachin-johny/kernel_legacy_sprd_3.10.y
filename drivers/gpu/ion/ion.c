@@ -1007,9 +1007,7 @@ end:
 	return handle;
 }
 
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 void show_carveout_buddy_info(int rst);
-#endif
 static int ion_debug_client_show(struct seq_file *s, void *unused)
 {
 	struct ion_client *client = s->private;
@@ -1059,9 +1057,7 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 			   atomic_read(&client->ref.refcount));
 #endif
 	}
-#ifdef CONFIG_ION_BUDDY_CHECKPAGE
 	show_carveout_buddy_info(0);
-#endif
 	return 0;
 }
 
