@@ -153,7 +153,7 @@ static void pwm_write(int index, uint32_t value, uint32_t reg)
 //sprd used PWM2(mapped to gpio190) for external backlight control.
 static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 {
-	u32 bl_brightness;
+	u32 led_level;
 
 	if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
 			bldev->props.power != FB_BLANK_UNBLANK ||
@@ -161,18 +161,18 @@ static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
 			bldev->props.brightness == 0) {
 		/* disable backlight */
 		pwm_write(sprdbl.pwm_index, 0, PWM_PRESCALE);
-		//clk_disable(sprdbl.clk);
 		bl_pwm_clk_en(0);
+		PRINT_INFO("[pwm] disabled\n");
 	} else {
-		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
-		//bl_brightness = (bl_brightness * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
-		if((bl_brightness >= 1) && (bl_brightness <= 10))
-			bl_brightness = 8;
-		PRINT_DBG("user requested brightness = %d, caculated brightness = %d\n", bldev->props.brightness, bl_brightness);
-		//clk_enable(sprdbl.clk);
+		led_level = bldev->props.brightness & PWM_MOD_MAX;
+		//led_level = (led_level * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
+		led_level = led_level * 67 / 100;
+		if(led_level < 8)
+			led_level = 8;
+		PRINT_INFO("[pwm] brightness = %d, led_level = %d\n", bldev->props.brightness, led_level);
 		bl_pwm_clk_en(1);
 		pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
-		pwm_write(sprdbl.pwm_index, (bl_brightness << 8) | PWM_MOD_MAX, PWM_CNT);
+		pwm_write(sprdbl.pwm_index, (led_level << 8) | PWM_MOD_MAX, PWM_CNT);
 		pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_LOW);
 		pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_HIG);
 		pwm_write(sprdbl.pwm_index, PWM_ENABLE, PWM_PRESCALE);
@@ -228,6 +228,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			/*yes, 1 is disbale and 0 is enable*/
 			sci_adi_set(ANA_REG_GLB_WHTLED_CTRL0, BIT_WHTLED_PD);
 		}
+		PRINT_INFO("[white led] disabled\n");
 	} else {
 		bl_brightness = bldev->props.brightness & PWM_MOD_MAX;
 		pwm_level = bl_brightness & 0x3;
@@ -238,7 +239,7 @@ static int sprd_bl_whiteled_update_status(struct backlight_device *bldev)
 			/*series mode*/
 			/*whiteled config*/
 			led_level = (((MAX_VOLTAGE_LEVEL - MIN_VOLTAGE_LEVEL + 1) * bl_brightness) / (PWM_MOD_MAX + 1)) + MIN_VOLTAGE_LEVEL;
-			PRINT_DBG("user requested brightness = %d, caculated led_level = %d\n", bldev->props.brightness, led_level);
+			PRINT_INFO("[white led] brightness = %d, led_level = %d\n", bldev->props.brightness, led_level);
 			reg_val = sci_adi_read(ANA_REG_GLB_WHTLED_CTRL1);
 
 #ifdef CONFIG_ARCH_SCX15
@@ -304,14 +305,14 @@ static const struct backlight_ops sprd_backlight_whiteled_ops = {
 static void sprd_backlight_earlysuspend(struct early_suspend *h)
 {
 	sprdbl.suspend = 1;
-	PRINT_INFO("current brightness = %d\n", sprdbl.bldev->props.brightness);
+	PRINT_INFO("early suspend\n");
 }
 
 static void sprd_backlight_lateresume(struct early_suspend *h)
 {
 	sprdbl.suspend = 0;
 	sprdbl.bldev->ops->update_status(sprdbl.bldev);
-	PRINT_INFO("current brightness = %d\n", sprdbl.bldev->props.brightness);
+	PRINT_INFO("late resume\n");
 }
 #endif
 
