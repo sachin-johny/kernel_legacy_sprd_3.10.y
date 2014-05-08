@@ -81,6 +81,11 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
 #define DBNC_CNT3_SHIFT (0)
 #define DBNC_CNT3_MASK (0xFFF << DBNC_CNT3_SHIFT)
 
+#define EIC5_DBNC_CTRL (0x54)
+#define DBNC_CNT5_VALUE (25)
+#define DBNC_CNT5_SHIFT (0)
+#define DBNC_CNT5_MASK (0xFFF << DBNC_CNT5_SHIFT)
+
 #if (defined(CONFIG_ARCH_SCX15))
         #define ADIE_CHID_LOW 0x0134
         #define ADIE_CHID_HIGH 0x0138
@@ -215,6 +220,10 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
                 #define AUDIO_HEAD2ADC_SEL_DRO_L (0)
         #endif
 #endif
+
+#define AUDIO_HEAD_BUTTON (BIT(7))
+#define AUDIO_HEAD_INSERT (BIT(6))
+#define AUDIO_HEAD_INSERT_2 (BIT(5))
 
 #define ABS(x) (((x) < (0)) ? (-(x)) : (x))
 #define MAX(x,y) (((x) > (y)) ? (x) : (y))
@@ -670,6 +679,14 @@ static void headmicbias_power_on(struct device *dev, int on)
 	return;
 }
 
+static int ana_sts0_confirm(void)
+{
+        if(0 == headset_reg_get_bit(HEADMIC_DETECT_REG(ANA_STS0), AUDIO_HEAD_INSERT))
+                return 0;
+        else
+                return 1;
+}
+
 static int adc_compare(int x1, int x2)
 {
         int delta = 0;
@@ -737,11 +754,19 @@ static int adc_get_average(int gpio_num, int gpio_value)
 			PRINT_INFO("gpio value changed!!! the adc read operation aborted (step1)\n");
 			return -1;
 		}
+		if(0 == ana_sts0_confirm()) {
+			PRINT_INFO("ana_sts0_confirm failed!!! the adc read operation aborted (step2)\n");
+			return -1;
+		}
 		adc[0] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
 		for(j=0; j<ADC_READ_COUNT-1; j++) {
 			udelay(100);
 			if(gpio_get_value(gpio_num) != gpio_value) {
-				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step2)\n");
+				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step3)\n");
+				return -1;
+			}
+			if(0 == ana_sts0_confirm()) {
+				PRINT_INFO("ana_sts0_confirm failed!!! the adc read operation aborted (step4)\n");
 				return -1;
 			}
 			adc[j+1] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
@@ -756,7 +781,11 @@ static int adc_get_average(int gpio_num, int gpio_value)
 		if(1 == success) {
 			msleep(DBNC_CNT3_VALUE);
 			if(gpio_get_value(gpio_num) != gpio_value) {
-				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step3)\n");
+				PRINT_INFO("gpio value changed!!! the adc read operation aborted (step5)\n");
+				return -1;
+			}
+			if(0 == ana_sts0_confirm()) {
+				PRINT_INFO("ana_sts0_confirm failed!!! the adc read operation aborted (step6)\n");
 				return -1;
 			}
 			for(i=0; i<ADC_READ_COUNT; i++) {
@@ -859,8 +888,14 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
 	int adc_last = 0;
 	int adc_current = 0;
 	int count = 0;
+	int adc_read_interval = 0;
 
-	msleep(50);
+	if(0 != pdata->gpio_switch)
+		adc_read_interval = 25;
+	else
+		adc_read_interval = 50;
+
+	msleep(adc_read_interval);
 	adc_last = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
 	if(-1 == adc_last) {
 		PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
@@ -879,7 +914,7 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
 		}
 		adc_last = adc_current;
 		count++;
-		msleep(50);
+		msleep(adc_read_interval);
 	}
 	PRINT_INFO("headset_plug_confirm_by_adc success!!!\n");
 	return adc_current;
@@ -933,6 +968,11 @@ no_mic_retry:
                 return HEADSET_TYPE_ERR;
         }
 
+        if(0 == ana_sts0_confirm()) {
+                PRINT_INFO("software debance (ana_sts0_confirm)!!!(headset_type_detect)\n");
+                return HEADSET_TYPE_ERR;
+        }
+
         if((adc_left_average < ADC_GND) && (adc_mic_average < pdata->adc_threshold_3pole_detect)) {
                 if(0 != no_mic_retry_count) {
                         PRINT_INFO("no_mic_retry\n");
@@ -941,7 +981,7 @@ no_mic_retry:
                 }
                 return HEADSET_NO_MIC;
         }
-        else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND) && (adc_mic_average < pdata->adc_threshold_4pole_detect))
+        else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND))
                 return HEADSET_NORMAL;
         else if((adc_left_average > ADC_GND) && (adc_mic_average > ADC_GND)
                 && (ABS(adc_mic_average - adc_left_average) < ADC_GND))
@@ -1380,6 +1420,7 @@ static void adpgar_byp_select_func(struct work_struct *work)
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG5), AUDIO_ADPGAR_BYP_HEADMIC_2_ADCR, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
         msleep(50);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG5), AUDIO_ADPGAR_BYP_NORMAL, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
+        PRINT_INFO("adpgar_byp_select_func\n");
 }
 #endif
 
@@ -1885,6 +1926,9 @@ static int headset_detect_probe(struct platform_device *pdev)
 
         //set EIC3 de-bounce time for button irq
         headset_reg_set_val((ANA_EIC_BASE+EIC3_DBNC_CTRL), DBNC_CNT3_VALUE, DBNC_CNT3_MASK, DBNC_CNT3_SHIFT);
+        //set EIC5 de-bounce time for inser irq
+        headset_reg_set_val((ANA_EIC_BASE+EIC5_DBNC_CTRL), DBNC_CNT5_VALUE, DBNC_CNT5_MASK, DBNC_CNT5_SHIFT);
+
         irqflags = pdata->irq_trigger_level_button ? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
         ret = request_irq(ht->irq_button, headset_button_irq_handler, irqflags | IRQF_NO_SUSPEND, "headset_button", ht);
         if (ret) {
