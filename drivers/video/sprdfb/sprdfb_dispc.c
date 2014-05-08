@@ -2133,8 +2133,8 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
 	struct sprdfb_device *dev = dispc_ctx->dev;
-//	bool dispc_run;
-//	unsigned long flags;
+	bool dispc_run;
+	unsigned long flags;
 	if(NULL == dev || 0 == dev->enable){
 		//printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
 		return 0;
@@ -2143,26 +2143,26 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 	printk(KERN_ERR "sprdfb: DMC change freq(%u)\n", state);
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		down(&dev->refresh_lock);
-/*
+
 		dispc_run = dispc_read(DISPC_CTRL) & BIT(4);
 		//if(!dispc_ctx->is_first_frame){
 		if(dispc_run){
 			local_irq_save(flags);
 			dispc_stop_for_feature(dev);
 		}
-*/
+
 		if(state == DEVFREQ_PRE_CHANGE){
 			dispc_set_threshold(0x960, 0x00, 0x960);
 		}else{
 			dispc_set_threshold(0x500, 0x00, 0x500);
 		}
 
-/*
+
 		if(dispc_run){
 			dispc_run_for_feature(dev);
 			local_irq_restore(flags);
 		}
-*/
+
 		//}
 		up(&dev->refresh_lock);
 	}
