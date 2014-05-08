@@ -616,6 +616,8 @@
 #define CPW_START_ADDR		(CONFIG_PHYS_OFFSET + 256 * SZ_1M)
 #if defined(CONFIG_MODEM_W_MEMCUT)
 #define CPW_TOTAL_SIZE		(SZ_1M * 28)
+#elif defined CONFIG_ARCH_SCX30G
+#define CPW_TOTAL_SIZE		(SZ_1M * 35)
 #else
 #define CPW_TOTAL_SIZE		(SZ_1M * 33)
 #endif
