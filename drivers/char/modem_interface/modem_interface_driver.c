@@ -679,7 +679,7 @@ void modem_intf_reboot_routine()
 
 void modem_intf_alive_routine()
 {
-		msleep(10*1000);
+        //msleep(10*1000);
         modem_intf_set_mode(MODEM_MODE_NORMAL, 0);
         modem_share_gpio_uninit(&(modem_intf_device->modem_config));
         sdio_ipc_enable(1);
