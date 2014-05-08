@@ -256,7 +256,12 @@ SYSCALL_DEFINE2(setgroups, int, gidsetsize, gid_t __user *, grouplist)
 /*
  * Check whether we're fsgid/egid or in the supplemental group..
  */
+/** for android app process */
 #define AID_SDCARD_RW     1015
+
+/** for system_server, surfaceflinger, rild_sp*/
+#define AID_SDCARD_R      1028
+
 extern int get_dumpTsk(void);
 int in_group_p(kgid_t grp)
 {
@@ -264,9 +269,10 @@ int in_group_p(kgid_t grp)
 	int retval = 1;
 
 	/* if in coredumping, kick off */
-	if((get_dumpTsk() == current) && (grp == AID_SDCARD_RW))
+	if(get_dumpTsk() == current)
 	{
-		return 1;
+		if ((__kgid_val(grp) == AID_SDCARD_RW) || (__kgid_val(grp) == AID_SDCARD_R))
+			return 1;
 	}
 
 	if (!gid_eq(grp, cred->fsgid))
