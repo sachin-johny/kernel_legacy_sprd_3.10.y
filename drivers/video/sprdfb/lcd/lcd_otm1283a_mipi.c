@@ -413,7 +413,7 @@ static uint32_t otm1283a_readpowermode(struct panel_spec *self)
 			rd_prepare++;
 		}
 		read_rtn = mipi_force_read(0x0A, 1,(uint8_t *)read_data);
-		printk("lcd_otm1283a_mipi read power mode 0x0A value is 0x%x! , read result(%d)\n", read_data[0], read_rtn);
+//		printk("lcd_otm1283a_mipi read power mode 0x0A value is 0x%x! , read result(%d)\n", read_data[0], read_rtn);
 		if((0x9c == read_data[0])  && (0 == read_rtn)){
 			pr_debug("lcd_otm1283a_mipi read power mode success!\n");
 			mipi_eotp_set(1,1);
