@@ -12,7 +12,7 @@
 /memreserve/ 0x87800000 0x240000; /* 2M+256K */
 
 /* memory reserved for CPT modem */
-/memreserve/ 0x90000000 0x2100000; /* 33M */
+/memreserve/ 0x90000000 0x2300000; /* 35M */
 
 /* memory reserved for CPWCN modem */
 /memreserve/ 0x94000000 0x201000;
@@ -428,9 +428,9 @@
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x10000000 0x90000000 0x2100000>,
+		ranges = <0x10000000 0x90000000 0x2300000>,
 				<0x07800000 0x87800000 0x180000>,
-				<0x120ff000 0x920ff000 0x1000>,
+				<0x122ff000 0x922ff000 0x1000>,
 			<0x14000000 0x94000000 0x201000>,
 				<0x07980000 0x87980000 0xc0000>,
 				<0x14200000 0x94200000 0x1000>;
@@ -442,9 +442,9 @@
 			sprd,trig = <0x01>; /* trigger bit */
 			sprd,clr = <0x01>; /* clear bit */
 			interrupts = <0 68 0x0>;
-			reg = <0x10000000 0x2100000> , /* <CP_start_addr size> */
+			reg = <0x10000000 0x2300000> , /* <CP_start_addr size> */
 				<0x07800000 0x180000>, /* <SMEM_phy_addr total_size> */
-				<0x120ff000 0x1000>; /* smsg ring buffer <base size> */
+				<0x122ff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 		sipc_wcn@0x14000000 {
 			sprd,name = "sipc-wcn";
@@ -523,19 +523,19 @@
 		sprd,name = "cpw";
 		sprd,ctrl-reg = <0x50 0x50 0xa8 0xbc>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x02000000 0x10000000 0x02 0xf0000>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x90300000>; /* 3rd param equals modem_addr*/
-		reg = <0x90000000 0x02100000>, /* <CP_start_addr total_size> = <+128M 33M> */
+		sprd,iram-data = <0xe59f0000 0xe12fff10 0x90500000>; /* 3rd param equals modem_addr*/
+		reg = <0x90000000 0x02300000>, /* <CP_start_addr total_size> = <+128M 33M> */
 			<0xf53d5800 0x0c>, /* <iram1_base size> */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 84 0x0>; /* cp1_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		/* segnr=2 */
-		ranges = <0x300000 0x90300000 0x00800000>,
+		ranges = <0x500000 0x90500000 0x00800000>,
 				<0x20000 0x90020000 0x002e0000>;
 		modem@0x300000 {
 			cproc,name = "modem";
-			reg = <0x300000 0x00800000>; /* <modem_addr size> */
+			reg = <0x500000 0x00800000>; /* <modem_addr size> */
 		};
 		dsp@0x20000 {
 			cproc,name = "dsp";
