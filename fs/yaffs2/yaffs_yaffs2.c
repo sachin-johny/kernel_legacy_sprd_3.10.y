@@ -954,6 +954,26 @@ static int yaffs2_ybicmp(const void *a, const void *b)
 		return aseq - bseq;
 }
 
+#ifndef ARRAYSIZE
+#define ARRAYSIZE(a)            (sizeof(a)/sizeof(a[0]))
+#endif
+
+static bool sprd_could_fail(const char * name)
+{
+    char * array[] = {
+        //"userdata",
+        "cache"
+    };
+
+    int i;
+
+    for (i = 0; i < ARRAYSIZE(array); i++)
+        if(!strncmp(name, array[i], strlen(array[i])))
+            return true;
+
+    return false;
+}
+
 int yaffs2_scan_backwards(struct yaffs_dev *dev)
 {
 	struct yaffs_ext_tags tags;
@@ -1042,6 +1062,24 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 			yaffs_trace(YAFFS_TRACE_BAD_BLOCKS,
 				"block %d is bad", blk);
 		} else if (state == YAFFS_BLOCK_STATE_EMPTY) {
+#if 0
+			/*erase all empty block when scan*/
+                        if (!yaffs_erase_block(dev, blk)) {
+                                dev->n_erase_failures++;
+                                yaffs_trace(YAFFS_TRACE_ERROR | YAFFS_TRACE_BAD_BLOCKS,"**>> Erasure failed %d", blk);
+                                continue;
+                        }
+#endif
+			yaffs_trace(YAFFS_TRACE_SCAN_DEBUG, "Block empty ");
+			dev->n_erased_blocks++;
+			dev->n_free_chunks += dev->param.chunks_per_block;
+		} else if (state == YAFFS_BLOCK_STATE_ECC_ERROR) {
+			/*erase all ecc error block when scan*/
+                        if (!yaffs_erase_block(dev, blk)) {
+                                dev->n_erase_failures++;
+                                yaffs_trace(YAFFS_TRACE_ERROR | YAFFS_TRACE_BAD_BLOCKS,"**>> Erasure failed %d", blk);
+                                continue;
+                        }
 			yaffs_trace(YAFFS_TRACE_SCAN_DEBUG, "Block empty ");
 			dev->n_erased_blocks++;
 			dev->n_free_chunks += dev->param.chunks_per_block;
@@ -1114,7 +1152,7 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 
 			chunk = blk * dev->param.chunks_per_block + c;
 
-			result = yaffs_rd_chunk_tags_nand(dev, chunk, NULL,
+			result = yaffs_rd_chunk_tags_nand(dev, chunk, chunk_data,
 							  &tags);
 
 			/* Let's have a good look at this chunk... */
@@ -1372,13 +1410,19 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 				}
 
 				if (!in->valid && in->variant_type !=
-				    (oh ? oh->type : tags.extra_obj_type))
+				    (oh ? oh->type : tags.extra_obj_type)) {
 					yaffs_trace(YAFFS_TRACE_ERROR,
 						"yaffs tragedy: Bad object type, %d != %d, for object %d at chunk %d during scan",
 						oh ?
 						oh->type : tags.extra_obj_type,
 						in->variant_type, tags.obj_id,
 						chunk);
+                                        // printk(KERN_WARNING "dev->param.name = %s\n", dev->param.name);
+                                        if(sprd_could_fail(dev->param.name)){
+                                                alloc_failed = 1;
+                                                goto Error;
+                                        }
+                                }
 
 				if (!in->valid &&
 				    (tags.obj_id == YAFFS_OBJECTID_ROOT ||
@@ -1572,6 +1616,8 @@ int yaffs2_scan_backwards(struct yaffs_dev *dev)
 		}
 
 	}
+
+Error:
 
 	yaffs_skip_rest_of_block(dev);
 
