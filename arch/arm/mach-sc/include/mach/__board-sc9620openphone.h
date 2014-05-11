@@ -95,10 +95,6 @@
 #define SPRD_PIN_SDIO0_SD_FUNC 0
 #define SPRD_PIN_SDIO0_GPIO_FUNC 3
 
-#define GPIO_NFC_IRQ     154
-#define GPIO_NFC_VEN     151
-#define GPIO_NFC_FIRM    149
-
 /* ION config info
 LCD:
    960x540

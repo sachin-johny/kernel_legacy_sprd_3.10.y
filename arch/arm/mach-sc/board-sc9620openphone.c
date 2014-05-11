@@ -65,9 +65,7 @@
 #include <linux/i2c/focaltech.h>
 #endif
 #include <mach/i2s.h>
-#if(defined(CONFIG_SPRD_NFC_PN544)||defined(CONFIG_SPRD_NFC_PN544_MODULE))
-#include <linux/pn544.h>
-#endif
+
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -412,21 +410,6 @@ static struct mpu_platform_data mpu9150_platform_data = {
 	.sec_slave_type = SECONDARY_SLAVE_TYPE_NONE,
 };
 #endif
-#if(defined(CONFIG_SPRD_NFC_PN544)||defined(CONFIG_SPRD_NFC_PN544_MODULE))
-static struct pn544_i2c_platform_data pn544_nfc_info = {
-	.irq_gpio = GPIO_NFC_IRQ,
-	.ven_gpio = GPIO_NFC_VEN,
-	.firm_gpio = GPIO_NFC_FIRM,
-};
-#endif
-
-static struct i2c_board_info i2c3_boardinfo[] = {
-#if(defined(CONFIG_SPRD_NFC_PN544)||defined(CONFIG_SPRD_NFC_PN544_MODULE))
-       {I2C_BOARD_INFO(NFC_I2C_NAME, NFC_I2C_ADDR),
-	  .platform_data = &pn544_nfc_info,
-       },
-#endif
-};
 
 static struct i2c_board_info i2c2_boardinfo[] = {
 #if(defined(CONFIG_SENSORS_AK8963)||defined(CONFIG_SENSORS_AK8963_MODULE))
@@ -473,7 +456,6 @@ static struct i2c_board_info i2c1_boardinfo[] = {
 
 static int sc8810_add_i2c_devices(void)
 {
-	i2c_register_board_info(3, i2c3_boardinfo, ARRAY_SIZE(i2c3_boardinfo));
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
