@@ -385,8 +385,6 @@ static int itm_wlan_open(struct net_device *dev)
 
 	/* if first open net device do nothing, otherwise act as resume */
 	napi_enable(&priv->napi);
-	if (netif_queue_stopped(dev))
-		netif_device_attach(dev);
 
 	return 0;
 }
@@ -396,14 +394,21 @@ static int itm_wlan_open(struct net_device *dev)
  */
 static int itm_wlan_close(struct net_device *dev)
 {
+	unsigned long flags;
 	struct itm_priv *priv = netdev_priv(dev);
 
 	dev_info(&dev->dev, "%s\n", __func__);
-
-	/* if netdevice carrier off, do nothing */
-	if (netif_queue_stopped(dev))
-		netif_device_attach(dev);
 	napi_disable(&priv->napi);
+
+	if (timer_pending(&priv->scan_timeout))
+		del_timer_sync(&priv->scan_timeout);
+	spin_lock_irqsave(&priv->scan_lock, flags);
+	if (priv->scan_request) {
+		/*If there's a pending scan request,abort it */
+		cfg80211_scan_done(priv->scan_request, true);
+		priv->scan_request = NULL;
+	}
+	spin_unlock_irqrestore(&priv->scan_lock, flags);
 
 	return 0;
 }

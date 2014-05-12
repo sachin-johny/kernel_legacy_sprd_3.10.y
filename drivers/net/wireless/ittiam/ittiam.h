@@ -72,10 +72,10 @@ struct itm_priv {
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;
-	atomic_t scan_status;
 
 	/* CFG80211 */
 	struct cfg80211_scan_request *scan_request;
+	spinlock_t scan_lock;
 	struct timer_list scan_timeout; /* Timer for catch scan event timeout */
 	int connect_status;
 	int mode;
