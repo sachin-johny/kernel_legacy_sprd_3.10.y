@@ -468,8 +468,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		lowmem_print(2, "select '%s' (%d), adj %hd, size %d, to kill\n",
 			     p->comm, p->pid, OOM_SCORE_ADJ_TO_OOM_ADJ(oom_score_adj), tasksize);
 	}
-	if (selected) {
-		if(selected_oom_score_adj || is_need_lmk_kill) {
+	if (selected && (selected_oom_score_adj || is_need_lmk_kill)) {
 			lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
@@ -500,7 +499,6 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			rcu_read_unlock();
 			/* give the system time to free up the memory */
 			msleep_interruptible(20);
-		}
 	} else
 		rcu_read_unlock();
 
