@@ -33,6 +33,9 @@
 #include <linux/delay.h>
 #include <linux/dma-mapping.h>
 #include <linux/slab.h>
+#if 1
+#include <linux/bitops.h>
+#endif
 
 #include <nk/nkern.h>
 
@@ -90,6 +93,7 @@ struct vaudio_stream {
     NkRingDesc*      rbase;	 /* ring descriptor base */
     nku32_f          resp;	 /* consumer response index */
     struct semaphore ctrl_sem;
+    spinlock_t       close_lock;
 
 #ifdef VAUDIO_CONFIG_NK_PMEM
     NkPhAddr		ring_buf_p;
@@ -122,7 +126,7 @@ static pid_t              vaudio_thread_id;
 static struct semaphore   vaudio_thread_sem;
 static bool		  vaudio_thread_aborted;
 static unsigned char	  vaudio_thread_init_now;
-#define VAUDIO_PROC_SYNC    1
+#define VAUDIO_PROC_SYNC    0
 #define VAUDIO_VTIMER_ROUND_JIFFIES (msecs_to_jiffies(800))
 
 #if VAUDIO_PROC_SYNC
@@ -374,12 +378,15 @@ vaudio_intr_data (void* cookie, NkXIrq xirq)
     const nku32_f mask   = ring->imask;
     const nku32_f nresp  = ring->iresp;
     bool	 trigger = 0;
+
+    spin_lock(&s->close_lock);
 #if VAUDIO_PROC_SYNC
     if (vaudio_sync_force_close &&
         s->stream->pcm->device == 0 &&
         s->stream->pstr->stream == SNDRV_PCM_STREAM_CAPTURE) {
         while (vaudio_send_data(s) >= 0);
         // memset(s->stream->dma_buffer.area, 0, NK_VAUDIO_MAX_RING_SIZE);
+	spin_unlock(&s->close_lock);
         return;
     }
 #endif
@@ -391,10 +398,10 @@ vaudio_intr_data (void* cookie, NkXIrq xirq)
 
 	if (s->stream_id == SNDRV_PCM_STREAM_PLAYBACK) {
 	    periods_avail = snd_pcm_playback_avail(runtime) /
-				    runtime->period_size;
+		runtime->period_size;
 	} else {
 	    periods_avail = snd_pcm_capture_avail(runtime) /
-				    runtime->period_size;
+		runtime->period_size;
 	}
 	DTRACE ("%d %d %d\n",
 		s->periods_avail, periods_avail, s->periods_tosend);
@@ -409,14 +416,12 @@ vaudio_intr_data (void* cookie, NkXIrq xirq)
 	    if (res == 1) trigger = 1;
 	    s->periods_tosend--;
 	}
-    }
-    while (oresp != nresp) {
-	NkRingDesc*  desc = s->rbase + (oresp & mask);
+	while (oresp != nresp) {
+	    NkRingDesc*  desc = s->rbase + (oresp & mask);
 
-	if (desc->status == (nku32_f) NK_VAUDIO_STATUS_ERROR) {
-	    snd_pcm_stop(s->stream, SNDRV_PCM_STATE_XRUN);
-	} else {
-	    if (s->active) {
+	    if (desc->status == (nku32_f) NK_VAUDIO_STATUS_ERROR) {
+		snd_pcm_stop(s->stream, SNDRV_PCM_STATE_XRUN);
+	    } else {
 		struct snd_pcm_runtime* runtime = s->stream->runtime;
 
 		s->hwptr_done++;
@@ -424,13 +429,14 @@ vaudio_intr_data (void* cookie, NkXIrq xirq)
 		snd_pcm_period_elapsed(s->stream);
 		s->periods_avail++;
 	    }
+	    oresp++;
 	}
-	oresp++;
+	s->resp = oresp;
+	if (trigger) {
+	    nkops.nk_xirq_trigger(ring->cxirq, s->vaudio->vlink->s_id);
+	}
     }
-    s->resp = oresp;
-    if (trigger) {
-	nkops.nk_xirq_trigger(ring->cxirq, s->vaudio->vlink->s_id);
-    }
+    spin_unlock(&s->close_lock);
 }
 
     static void
@@ -439,8 +445,8 @@ vaudio_intr_ctrl (void* cookie, NkXIrq xirq)
     struct vaudio_stream* s = (struct vaudio_stream*) cookie;
 
     (void) xirq;
-    up(&s->ctrl_sem);
     s->ctrl->command = NK_VAUDIO_COMMAND_NONE;
+    up(&s->ctrl_sem);
 }
 
     static void
@@ -449,8 +455,8 @@ vaudio_intr_mixer (void* cookie, NkXIrq xirq)
     NkVaudio vaudio = (NkVaudio) cookie;
 
     (void) xirq;
-    up(&vaudio->mixer_sem);
     vaudio->mixer->command = NK_VAUDIO_COMMAND_NONE;
+    up(&vaudio->mixer_sem);
 }
 
     /* PCM settings */
@@ -605,6 +611,7 @@ vaudio_snd_card_close (struct snd_pcm_substream* substream)
     const int             stream_id = substream->pstr->stream;
     struct vaudio_stream* s = &chip->s[dev][stream_id];
     NkVaudioCtrl*         ctrl = s->ctrl;
+    unsigned long flags;
 #if VAUDIO_PROC_SYNC
     mutex_lock(&vaudio_proc_sync_lock);
     if (/*dev == 0 && */stream_id == SNDRV_PCM_STREAM_CAPTURE) {
@@ -615,7 +622,10 @@ vaudio_snd_card_close (struct snd_pcm_substream* substream)
     mutex_unlock(&vaudio_proc_sync_lock);
 #endif
     ADEBUG();
+    spin_lock_irqsave(&s->close_lock, flags);
+    s->active = 0; /* force stop */
     s->stream = NULL;
+    spin_unlock_irqrestore(&s->close_lock, flags);
     ctrl->session_type = NK_VAUDIO_SS_TYPE_INVAL;
     ctrl->stream_type  = NK_VAUDIO_ST_TYPE_INVAL;
     ctrl->command      = NK_VAUDIO_COMMAND_CLOSE;
@@ -811,6 +821,7 @@ vaudio_snd_info (struct snd_kcontrol* kcontrol,
     mixer->mix_info.value.enumerated.item = uinfo->value.enumerated.item;
     nkops.nk_xirq_trigger(mixer->cxirq, vlink->s_id);
     down(&chip->mixer_sem);
+
     if (mixer->status != NK_VAUDIO_STATUS_OK) {
 	return 1;
     }
@@ -982,8 +993,9 @@ vaudio_snd_mixer (NkVaudio chip)
 		    SNDRV_CTL_ELEM_ACCESS_TLV_READ;
 	}
 	if ((err = snd_ctl_add(card, snd_ctl_new1(&vaudio_snd_controls[idx],
-			       chip))) < 0)
+			       chip))) < 0){
 	    return err;
+	}
     }
     return 0;
 }
@@ -1049,8 +1061,9 @@ vaudio_snd_init_card (NkVaudio dev)
 	    WTRACE("device %d initialization failed\n", i);
 	}
     }
-    if ((err = vaudio_snd_mixer(dev)) < 0)
+    if ((err = vaudio_snd_mixer(dev)) < 0){
 	goto nodev;
+    }
 
     snprintf (dev->card->driver, sizeof dev->card->driver, "VAUDIO");
     snprintf (dev->card->shortname, sizeof dev->card->shortname,
@@ -1066,6 +1079,7 @@ vaudio_snd_init_card (NkVaudio dev)
 	    TRACE("audio support initialized\n");
 	    return 0;
 	}
+	printk("snd_card_register result is err %x\n",err);
 	msleep_interruptible(10);
     } while (err);
 
@@ -1088,16 +1102,25 @@ vaudio_thread (void* data)
     while (!vaudio_thread_aborted) {
 	down (&vaudio_thread_sem);
 
+#if 0
 	if ( (vaudio_thread_init_now & 2) ) {
 	    vaudio_thread_init_now &= ~2;
+#else
+        if ( test_and_clear_bit(1, &vaudio_thread_init_now) ) {
+#endif
 	    snd_card_free(vaudio_card);
 	    if (vaudio_snd_probe() < 0) {
 		ETRACE ("virtual audio ALSA card initialization failed\n");
 	    }
 	}
 
+#if 0
 	if ( (vaudio_thread_init_now & 1) ) {
 	    vaudio_thread_init_now &= ~1;
+#else
+        if ( test_and_clear_bit(0, &vaudio_thread_init_now) ) {
+#endif
+	    data= vaudio_card->private_data;
 	    vaudio_snd_init_card(data);
 	}
     }
@@ -1136,7 +1159,11 @@ vaudio_handshake (NkVaudio dev)
     case NK_DEV_VLINK_RESET:
 	if (peer_state != NK_DEV_VLINK_OFF) {
 	    *my_state = NK_DEV_VLINK_ON;
+#if 0
 	    vaudio_thread_init_now |= 1;
+#else
+	    set_bit(0, &vaudio_thread_init_now);
+#endif
 	    up(&vaudio_thread_sem);
 	    vaudio_sysconf_trigger(dev);
 	}
@@ -1145,7 +1172,11 @@ vaudio_handshake (NkVaudio dev)
     case NK_DEV_VLINK_ON:
 	if (peer_state == NK_DEV_VLINK_OFF) {
 	    *my_state = NK_DEV_VLINK_OFF;
+#if 0
 	    vaudio_thread_init_now |= 2;
+#else
+	    set_bit(1, &vaudio_thread_init_now);
+#endif
 	    up(&vaudio_thread_sem);
 	    vaudio_sysconf_trigger(dev);
 	}
@@ -1290,6 +1321,8 @@ vaudio_snd_probe (void)
 
 	    vaudio->s[i][j].vaudio  = vaudio;
 	    sema_init(&vaudio->s[i][j].ctrl_sem, 0);
+	    spin_lock_init(&vaudio->s[i][j].close_lock);
+
 		/*
 		 * Perform initialization of the descriptor ring.
 		 */
