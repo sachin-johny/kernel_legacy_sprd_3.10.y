@@ -208,7 +208,6 @@ LOCAL atomic_t                 s_dcam_users = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_resize_flag = ATOMIC_INIT(0);
 LOCAL atomic_t                 s_rotation_flag = ATOMIC_INIT(0);
 LOCAL struct clk*              s_dcam_clk = NULL;
-LOCAL struct clk*              s_dcam_clk_mm_i = NULL;
 LOCAL struct dcam_module*      s_p_dcam_mod = 0;
 LOCAL uint32_t                 s_dcam_irq = 0x5A0000A5;
 LOCAL dcam_isr_func            s_user_func[DCAM_IRQ_NUMBER];
@@ -272,7 +271,6 @@ LOCAL void        _dcam_wait_path_done(enum dcam_path_index path_index, uint32_t
 LOCAL void        _dcam_path_done_notice(enum dcam_path_index path_index);
 LOCAL void        _dcam_rot_done(void);
 LOCAL void        _dcam_err_pre_proc(void);
-LOCAL int32_t     _dcam_is_clk_mm_i_eb(struct device_node *dn, uint32_t is_clk_mm_i_eb);
 LOCAL void        _dcam_frm_queue_clear(struct dcam_frm_queue *queue);
 LOCAL int32_t     _dcam_frame_enqueue(struct dcam_frm_queue *queue, struct dcam_frame *frame);
 LOCAL int32_t     _dcam_frame_dequeue(struct dcam_frm_queue *queue, struct dcam_frame **frame);
@@ -588,7 +586,7 @@ int32_t dcam_module_en(struct device_node *dn)
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		unsigned int irq_no;
 
-		ret = _dcam_is_clk_mm_i_eb(dn,1);
+		ret =  clk_mm_i_eb(dn,1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
@@ -646,7 +644,7 @@ int32_t dcam_module_dis(struct device_node *dn)
 		printk("DCAM: un register isr \n");
 		irq_no = parse_irq(dn);
 		free_irq(irq_no, (void*)&s_dcam_irq);
-		ret = _dcam_is_clk_mm_i_eb(dn,0);
+		ret = clk_mm_i_eb(dn,0);
 		if (ret) {
 			rtn =  -DCAM_RTN_MAX;
 		}
@@ -721,42 +719,6 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	DCAM_TRACE("DCAM: reset_mode=%x  end \n", reset_mode);
 
 	return -rtn;
-}
-
-int32_t _dcam_is_clk_mm_i_eb(struct device_node *dn, uint32_t is_clk_mm_i_eb)
-{
-#ifndef CONFIG_OF
-	int                     ret = 0;
-	if (NULL == s_dcam_clk_mm_i) {
-		s_dcam_clk_mm_i = clk_get(NULL, "clk_mm_i");
-		if (IS_ERR(s_dcam_clk_mm_i)) {
-			printk("dcam_is_clk_mm_i_eb: get fail.\n");
-			return -1;
-		}
-	}
-	if (is_clk_mm_i_eb) {
-		ret = clk_enable(s_dcam_clk_mm_i);
-		if (ret) {
-			printk("dcam_is_clk_mm_i_eb: enable fail.\n");
-			return -1;
-		}
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_enable(IOMMU_MM);
-		}
-#endif
-	} else {
-#if defined(CONFIG_SPRD_IOMMU)
-		{
-			sprd_iommu_module_disable(IOMMU_MM);
-		}
-#endif
-		clk_disable(s_dcam_clk_mm_i);
-		clk_put(s_dcam_clk_mm_i);
-		s_dcam_clk_mm_i = NULL;
-	}
-#endif
-	return 0;
 }
 
 int32_t dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel)
