@@ -26,7 +26,7 @@
 #include <asm/cputime.h>
 #include <asm/div64.h>
 #include <asm/uaccess.h>
-
+#include <linux/sysrq.h>
 #ifdef CONFIG_VM_EVENT_COUNTERS
 #include <../../../kernel/sched/sched.h>
 #include <linux/mm.h>
@@ -641,7 +641,8 @@ static void print_usage(struct seq_file *p, void *v)
 {
 	unsigned long flags;
 	unsigned long i;
-
+        /*trigger sysrq when print usage for extra debug info*/
+        __handle_sysrq('w' , false);
 	/*lock*/
 	spin_lock_irqsave(&usage_lock, flags);
 
