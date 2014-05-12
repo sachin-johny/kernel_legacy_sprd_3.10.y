@@ -532,11 +532,11 @@
 	scproc_cpt: scproc@0x88000000 {
 		compatible = "sprd,scproc";
 		sprd,name = "cpt";
-		sprd,ctrl-reg = <0x50 0x50 0xa8 0xbc>; /* <shut_down deep_sleep reset get_status> */
-		sprd,ctrl-mask = <0x02000000 0x10000000 0x02 0xf0000>; /* masks <> */
+		sprd,ctrl-reg = <0x44 0x44 0xb0 0xbc>; /* <shut_down deep_sleep reset get_status> */
+		sprd,ctrl-mask = <0x02000000 0x10000000 0x01 0xf0000>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x88300000>; /* 3rd param equals modem_addr*/
 		reg = <0x88000000 0x01200000>, /* <CP_start_addr total_size> = <+128M 18M> */
-			<0xf53d5800 0x0c>, /* <iram1_base size> */
+			<0xf53d4000 0x0c>, /* <iram1_base size> */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 84 0x0>; /* cp1_wdg_int */
 		#address-cells = <1>;
