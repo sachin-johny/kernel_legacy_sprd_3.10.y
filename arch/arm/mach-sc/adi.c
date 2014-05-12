@@ -349,10 +349,6 @@ int __init sci_adi_init(void)
 #elif defined(CONFIG_ARCH_SCX35)
 	/*enable adi in global regs*/
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_ADI_EB);
-	/*reset adi*/
-	sci_glb_set(REG_AON_APB_APB_RST0, BIT_ADI_SOFT_RST);
-	udelay(2);
-	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_ADI_SOFT_RST);
 #endif
 #ifdef CONFIG_OF
 	np = of_find_compatible_node(NULL, NULL, "sprd,adic");
