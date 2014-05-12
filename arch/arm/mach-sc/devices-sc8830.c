@@ -970,7 +970,11 @@ static struct resource sprd_sdio0_resources[] = {
 
 static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_4_BIT_DATA,
+#ifdef CONFIG_MACH_SC9620OPENPHONE
+	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL | MMC_CAP2_CD_ACTIVE_HIGH,
+#else
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
+#endif
 	.vdd_extmmc = "vddsd",
 #ifdef CONFIG_ARCH_SCX15
 	.detect_gpio = 193,
