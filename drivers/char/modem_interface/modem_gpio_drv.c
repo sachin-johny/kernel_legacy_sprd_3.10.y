@@ -28,6 +28,7 @@
 extern void free_irq(unsigned int irq, void *dev_id);
 extern void modem_intf_send_GPIO_message(int gpio_no,int status,int index);
 extern void modem_intf_send_ctrl_gpio_message(int assert_status, int alive_status);
+extern void on_modem_poweron(void);
 static unsigned int cp_to_ap_rdy_irq;
 static unsigned int cp_alive_gpio_irq;
 static unsigned int cp_crash_gpio_irq;
@@ -160,6 +161,36 @@ int modem_share_gpio_uninit(void *para)
         return 0;
 }
 
+int modem_gpio_irq_init(void *para)
+{
+        int    error = 0;
+
+        cp_alive_gpio_irq = gpio_to_irq(cp_alive_gpio);
+        if (cp_alive_gpio_irq < 0)
+                return -1;
+        error = request_threaded_irq(cp_alive_gpio_irq, cp_alive_gpio_handle,
+                                     NULL, IRQF_DISABLED|IRQF_NO_SUSPEND |IRQF_TRIGGER_HIGH, "modem_alive", para);
+        if (error) {
+                printk("modem_intf :cannot alloc cp_alive irq, err %d\r\n", error);
+                gpio_free(cp_alive_gpio);
+                return error;
+        }
+
+        enable_irq_wake(cp_alive_gpio_irq);
+
+        cp_crash_gpio_irq = gpio_to_irq(cp_crash_gpio);
+        if (cp_crash_gpio_irq < 0)
+                return -1;
+        error = request_threaded_irq(cp_crash_gpio_irq, cp_crash_gpio_handle,
+                                     NULL, IRQF_DISABLED|IRQF_NO_SUSPEND |IRQF_TRIGGER_HIGH, "modem_crash", para);
+        if (error) {
+                printk("modem_intf :cannot alloc cp_crash irq, err %d\r\n", error);
+                gpio_free(cp_crash_gpio);
+                return error;
+        }
+
+        enable_irq_wake(cp_crash_gpio_irq);
+}
 
 
 int modem_gpio_init(void *para)
@@ -207,19 +238,6 @@ int modem_gpio_init(void *para)
         gpio_export(cp_alive_gpio,0);
         gpio_direction_input(cp_alive_gpio);
 
-        cp_alive_gpio_irq = gpio_to_irq(cp_alive_gpio);
-        if (cp_alive_gpio_irq < 0)
-                return -1;
-        error = request_threaded_irq(cp_alive_gpio_irq, cp_alive_gpio_handle,
-                                     NULL, IRQF_DISABLED|IRQF_NO_SUSPEND |IRQF_TRIGGER_HIGH, "modem_alive", para);
-        if (error) {
-                printk("modem_intf :cannot alloc cp_alive irq, err %d\r\n", error);
-                gpio_free(cp_alive_gpio);
-                return error;
-        }
-
-        enable_irq_wake(cp_alive_gpio_irq);
-
         //crash gpio
         error = gpio_request(cp_crash_gpio, "modem_crash_gpio");
         if (error) {
@@ -230,21 +248,7 @@ int modem_gpio_init(void *para)
         gpio_export(cp_crash_gpio,0);
         gpio_direction_input(cp_crash_gpio);
 
-        cp_crash_gpio_irq = gpio_to_irq(cp_crash_gpio);
-        if (cp_crash_gpio_irq < 0)
-                return -1;
-        error = request_threaded_irq(cp_crash_gpio_irq, cp_crash_gpio_handle,
-                                     NULL, IRQF_DISABLED|IRQF_NO_SUSPEND |IRQF_TRIGGER_HIGH, "modem_crash", para);
-        if (error) {
-                printk("modem_intf :cannot alloc cp_crash irq, err %d\r\n", error);
-                gpio_free(cp_crash_gpio);
-                return error;
-        }
-
-        enable_irq_wake(cp_crash_gpio_irq);
 /////////////////////////////////////////////////
-
-        modem_share_gpio_init(para);
 
         return 0;
 }

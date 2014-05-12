@@ -44,6 +44,8 @@ extern int      modem_gpio_init(void *para);
 extern int      modem_share_gpio_uninit(void *para);
 extern int      modem_share_gpio_init(void *para);
 extern void  mux_ipc_enable(u8  is_enable);
+extern void  modem_gpio_irq_init(void* para);
+
 extern struct modem_device_operation	*modem_sdio_drv_init(void);
 extern int    modem_gpio_init(void *para);
 extern void   modem_poweron(void);
@@ -670,7 +672,7 @@ void modem_intf_reboot_routine()
         mux_ipc_enable(0);
         sdio_ipc_enable(0);
         modemsts_change_notification(MODEM_STATUS_REBOOT);
-        modem_share_gpio_init(&(modem_intf_device->modem_config));
+        //modem_share_gpio_init(&(modem_intf_device->modem_config));
 
         modem_intf_set_mode(MODEM_MODE_RESET, 0);
 
@@ -795,6 +797,9 @@ static ssize_t modem_intf_state_store(struct device *dev,struct device_attribute
         status = simple_strtoul(buf, NULL, 16);
         //status 0, mean enter boot mode
         if(0 == status) {
+                //status 0 means start to boot cp
+		modem_share_gpio_init(&(modem_intf_device->modem_config));
+
                 printk("modem_intf_open: modem_intf_send_boot_message mode = %d\n", MODEM_MODE_BOOT);
                 modem_intf_send_boot_message();
         } else {
@@ -807,6 +812,13 @@ static ssize_t modem_intf_state_store(struct device *dev,struct device_attribute
 DEVICE_ATTR(state, S_IRUGO | S_IWUSR, modem_intf_state_show,modem_intf_state_store);
 
 static int s_modem_poweron = 1;
+
+void on_modem_poweron()
+{
+    modem_gpio_irq_init(&(modem_intf_device->modem_config));
+	modemsts_change_notification(MODEM_STATUS_POWERON);
+}
+
 static ssize_t modem_intf_modempower_show(struct device *dev,struct device_attribute *attr, char *buf)
 {
         int count=0;
@@ -834,7 +846,7 @@ static ssize_t modem_intf_modempower_store(struct device *dev,struct device_attr
         power = simple_strtoul(buf, NULL, 16);
         if (power == 1) {
 			modem_poweron();
-			modemsts_change_notification(MODEM_STATUS_POWERON);
+            on_modem_poweron();
 			s_modem_poweron = 1;
         } else if(power == 0) {
                 if(!s_modem_poweron)
