@@ -833,8 +833,9 @@ static ssize_t modem_intf_modempower_store(struct device *dev,struct device_attr
                 return 0;
         power = simple_strtoul(buf, NULL, 16);
         if (power == 1) {
-                modem_poweron();
-                s_modem_poweron = 1;
+			modem_poweron();
+			modemsts_change_notification(MODEM_STATUS_POWERON);
+			s_modem_poweron = 1;
         } else if(power == 0) {
                 if(!s_modem_poweron)
                         return size;
