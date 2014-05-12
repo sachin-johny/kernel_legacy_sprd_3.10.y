@@ -891,6 +891,10 @@ static void  spi_ipc_enable(struct modemsts_chg *s, unsigned int is_enable)
 {
 	struct ipc_spi_dev *dev = ipc_dev;
 	printk("spi_ipc_enable %d, %d \n", is_enable, dev->task_status);
+	if(is_enable == MODEM_STATUS_POWERON) {
+		spi_hal_gpio_irq_init(dev);
+		return ;
+	}
 	if(is_enable == MODEM_STATUS_ALVIE) {
 		//dev->rwctrl = 0;
 		//dev->ipc_enable = true;
@@ -970,7 +974,7 @@ static int mux_ipc_thread(void *data)
 	spi_hal_gpio_init();
 
 	IPC_DBG("%s() spi channel opened %d\n", __func__, rval);
-	spi_hal_gpio_irq_init(dev);
+	//spi_hal_gpio_irq_init(dev);
 	dev->task_count = 0;
 	dev->task_status = 0;
 
