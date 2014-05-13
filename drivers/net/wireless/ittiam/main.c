@@ -727,6 +727,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 
 	priv->pm_status = false;
 	priv->tx_free = TX_SBLOCK_NUM;
+	spin_lock_init(&priv->scan_lock);
 
 	/*FIXME: If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
