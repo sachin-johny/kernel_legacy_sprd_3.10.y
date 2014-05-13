@@ -42,6 +42,10 @@
 #include "__board-sp7730gga.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7730GGAOPENPHONE
+#include "__board-sp7730ggaopenphone.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP8830GA
 #include "__board-sp8830ga.h"
 #endif
