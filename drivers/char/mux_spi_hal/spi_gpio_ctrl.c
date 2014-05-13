@@ -109,7 +109,7 @@ static irqreturn_t cp_to_ap_irq_handle(int irq, void *handle)
 
 static int spi_syscore_suspend(void)
 {
-	if(!cp2ap_sts() && irq_need_change) {
+	if(irq_need_change) {
 		irq_set_irq_type(cp_to_ap_irq,  IRQF_TRIGGER_HIGH);
 		irq_need_change = false;
 	}
