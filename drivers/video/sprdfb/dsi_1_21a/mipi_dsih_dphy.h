@@ -34,6 +34,7 @@ int mipi_dsih_dphy_wakeup_pll(dphy_t * instance);
 void mipi_dsih_dphy_stop_wait_time(dphy_t * instance, uint8_t no_of_byte_cycles);
 void mipi_dsih_dphy_no_of_lanes(dphy_t * instance, uint8_t no_of_lanes);
 uint8_t mipi_dsih_dphy_get_no_of_lanes(dphy_t * instance);
+void mipi_dsih_dphy_enable_nc_clk(dphy_t * instance, int enable);
 void mipi_dsih_dphy_enable_hs_clk(dphy_t * instance, int enable);
 dsih_error_t mipi_dsih_dphy_escape_mode_trigger(dphy_t * instance, uint8_t trigger_request);
 #ifdef GEN_2
