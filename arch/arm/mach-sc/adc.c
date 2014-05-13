@@ -130,12 +130,23 @@ static int compare_val(const void *a, const void *b)
 	return *(int *)a - *(int *)b;
 }
 
+static void dump_adc_data(uint32_t* p_adc_val, int len)
+{
+	int i = 0;
+
+	printk("dump adc data: ");
+	for (i = 0; i < len; i++) {
+		printk("%d ", p_adc_val[i]);
+	}
+	printk("\n");
+}
+
 /*
 * Get the raw data of adc channel
 */
 int sprd_get_adc_data(unsigned int channel, unsigned int scale)
 {
-	uint32_t adc_val[MEASURE_TIMES+1], adc_res = 0;
+	uint32_t adc_val[MEASURE_TIMES] = {0}, adc_res = 0;
 	struct adc_sample_data adc_sample = {
 		.channel_id = channel,
 		.channel_type = 0,	/* sw */
@@ -152,7 +163,10 @@ int sprd_get_adc_data(unsigned int channel, unsigned int scale)
 		pr_err("sprd_adc error occured in function %s\n", __func__);
 		sci_adc_dump_register();
 		//BUG_ON();
+		return 0;
 	}
+
+	dump_adc_data(adc_val, ARRAY_SIZE(adc_val));
 
 	sort(adc_val, ARRAY_SIZE(adc_val), sizeof(uint32_t), compare_val, 0);
 
@@ -181,10 +195,10 @@ static ssize_t sprd_adc_store(struct device *dev,
 
 	len = sscanf(buf, "%d", &tmp_data);
 
-	if(NULL == adc_data)
+	if ((NULL == adc_data) || (NULL == buf) || (0 == len))
 		return -EIO;
 
-	pr_info("%s attr name(%s), tmp_data %d, count %d, len %d\n", __func__,
+	pr_info("%s line: %d, attr name(%s), tmp_data %d, count %d, len %d\n", __func__, __LINE__,
 		dev_attr->attr.name, tmp_data, count, len);
 
 	mutex_lock(&adc_data->lock);
@@ -217,10 +231,10 @@ static ssize_t sprd_adc_show(struct device *dev,
 	struct sprd_adc_data *adc_data = dev_get_drvdata(dev);
 	int len = 0, adc_value = 0;
 
-	if(NULL == adc_data)
+	if ((NULL == adc_data) || (NULL == buf))
 		return -EIO;
 
-	pr_info("%s attr name(%s), channel %d, scale %d\n", __func__,
+	pr_info("%s line: %d, attr name(%s), channel(%d), scale(%d)\n", __func__, __LINE__,
 		dev_attr->attr.name, adc_data->channel, adc_data->scale);
 
 	mutex_lock(&adc_data->lock);
@@ -240,6 +254,8 @@ static ssize_t sprd_adc_show(struct device *dev,
 		if (adc_value < 0)
 			adc_value = 0;
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%d\n", adc_value);
+
+		pr_info("value: %d, len: %d\n", adc_value, len);
 	}
 
 	mutex_unlock(&adc_data->lock);
@@ -301,14 +317,15 @@ static int sprd_adc_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
-	dev_set_drvdata(&pdev->dev, adc_data);
-
-	mutex_init(&adc_data->lock);
-
+	adc_data->channel = 5;
 	adc_data->misc_dev.minor = MISC_DYNAMIC_MINOR;
 	adc_data->misc_dev.name = SPRD_MODULE_NAME; //pdev->dev.driver->name
 	adc_data->misc_dev.fops = NULL;
 	adc_data->misc_dev.parent = NULL;
+
+	dev_set_drvdata(&pdev->dev, adc_data);
+
+	mutex_init(&adc_data->lock);
 
 	rc = misc_register(&adc_data->misc_dev);
 	if (rc) {
@@ -327,7 +344,7 @@ static int sprd_adc_probe(struct platform_device *pdev)
 
 static int sprd_adc_remove(struct platform_device *pdev)
 {
-	struct sprd_adc_data *adc_data = platform_get_drvdata(pdev); ;
+	struct sprd_adc_data *adc_data = platform_get_drvdata(pdev);
 	int rc = 0;
 
 	sprd_device_delete_attributes(adc_data->misc_dev.this_device, sprd_adc_attr, ARRAY_SIZE(sprd_adc_attr));
