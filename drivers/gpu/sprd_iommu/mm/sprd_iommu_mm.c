@@ -108,7 +108,7 @@ int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 {
-	printk("%s line:%d\n",__FUNCTION__,__LINE__);
+	pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 	sprd_iommu_disable(dev);
 #ifdef CONFIG_OF
 	clk_disable_unprepare(dev->mmu_clock);
@@ -123,7 +123,7 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 {
-	printk("%s line:%d\n",__FUNCTION__,__LINE__);
+	pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 #ifdef CONFIG_OF
 	if (dev->mmu_mclock)
 		clk_prepare_enable(dev->mmu_mclock);

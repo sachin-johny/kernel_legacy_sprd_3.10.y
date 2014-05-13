@@ -190,7 +190,7 @@ static void sprd_iommu_gsp_late_resume(struct early_suspend* es)
 
 int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 {
-		printk("%s line:%d\n",__FUNCTION__,__LINE__);
+		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 		sprd_iommu_disable(dev);
 #if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
@@ -286,7 +286,7 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {
-		printk("%s line:%d\n",__FUNCTION__,__LINE__);
+		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 #if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_mclock);
