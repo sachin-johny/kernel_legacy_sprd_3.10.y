@@ -70,6 +70,10 @@
 #include "__board-sc9620openphone.h"
 #endif
 
+#ifdef	CONFIG_MACH_SC9620OPENPHONE_ZT
+#include "__board-sc9620openphone_zt.h"
+#endif
+
 #ifdef  CONFIG_MACH_SC9620FPGA
 #include "__board-sc9620fpga.h"
 #endif

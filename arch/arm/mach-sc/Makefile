@@ -49,6 +49,7 @@ obj-$(CONFIG_MACH_SP8835EB) += board-sp8835eb.o
 obj-$(CONFIG_MACH_SPX15FPGA) += board-sp8830fpga.o pinmap-sp8830fpga.o
 obj-$(CONFIG_MACH_SPX35EC) += board-sp8830ec.o
 obj-$(CONFIG_MACH_SC9620OPENPHONE) += board-sc9620openphone.o
+obj-$(CONFIG_MACH_SC9620OPENPHONE_ZT) += board-sc9620openphone_zt.o
 obj-$(CONFIG_MACH_SC9620FPGA) += board-sc9620fpga.o
 obj-$(CONFIG_MACH_SP8830GEA) += board-sp8830gea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730GGA) += board-sp7730gga.o dma_r4p0.o
