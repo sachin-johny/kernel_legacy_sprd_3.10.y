@@ -17,6 +17,10 @@
 #include <mach/hardware.h>
 #include <mach/watchdog.h>
 
+#ifdef CONFIG_MTD_NAND
+extern void sprd_nfc_fix_hynix_boot_issue(void);
+#endif
+
 static inline void arch_idle(void)
 {
 }
@@ -24,6 +28,9 @@ static inline void arch_idle(void)
 static inline void arch_reset(char mode, const char *cmd)
 {
 	sprd_set_reboot_mode(cmd);
+#ifdef CONFIG_MTD_NAND
+	sprd_nfc_fix_hynix_boot_issue();
+#endif
 	sprd_turnon_watchdog(50);
 }
 

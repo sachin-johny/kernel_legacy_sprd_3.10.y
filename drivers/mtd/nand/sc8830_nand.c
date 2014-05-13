@@ -2078,7 +2078,18 @@ int nand_scan_block(int block, int erasesize, int writesize){
 #endif
 #endif  //DOLPHIN_UBOOT end
 
+void sprd_nfc_fix_hynix_boot_issue(void)
+{
+	struct sprd_dolphin_nand_info *info = mtd_to_dolphin(0);
 
+	if(NAND_MFR_HYNIX == info->param->idMaker) {
+		printk("%s hynix reboot fix.", __func__);
+		sci_glb_set(DOLPHIN_AHB_BASE, BIT(6));
+		sprd_dolphin_nand_reset(info);
+		mdelay(10);
+	}
+	return;
+}
 
 #ifdef DOLPHIN_KERNEL
 extern int parse_mtd_partitions(struct mtd_info *master, const char **types,
