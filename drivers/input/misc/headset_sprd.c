@@ -1092,7 +1092,7 @@ static void headset_button_work_func(struct work_struct *work)
 out:
         headset_adc_en(0);
         headset_irq_button_enable(1, ht->irq_button);
-        wake_unlock(&headset_button_wakelock);
+        //wake_unlock(&headset_button_wakelock);
         up(&headset_sem);
         return;
 }
@@ -1291,7 +1291,7 @@ out:
         }
 
         headset_irq_detect_enable(1, ht->irq_detect);
-        wake_unlock(&headset_detect_wakelock);
+        //wake_unlock(&headset_detect_wakelock);
         up(&headset_sem);
         return;
 }
@@ -1418,8 +1418,10 @@ out:
 static void adpgar_byp_select_func(struct work_struct *work)
 {
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG5), AUDIO_ADPGAR_BYP_HEADMIC_2_ADCR, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
-        msleep(50);
+        PRINT_INFO("ANA_CFG5 = 0x%08X\n", sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG5)));
+        msleep(100);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_CFG5), AUDIO_ADPGAR_BYP_NORMAL, AUDIO_ADPGAR_BYP_MASK, AUDIO_ADPGAR_BYP_SHIFT);
+        PRINT_INFO("ANA_CFG5 = 0x%08X\n", sci_adi_read(HEADMIC_DETECT_REG(ANA_CFG5)));
         PRINT_INFO("adpgar_byp_select_func\n");
 }
 #endif
@@ -1537,7 +1539,7 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
         }
 
         headset_irq_button_enable(0, ht->irq_button);
-        wake_lock(&headset_button_wakelock);
+        wake_lock_timeout(&headset_button_wakelock, msecs_to_jiffies(2000));
         gpio_button_value_last = gpio_button_value_current;
         PRINT_DBG("headset_button_irq_handler: IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                   ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
@@ -1552,7 +1554,7 @@ static irqreturn_t headset_detect_irq_handler(int irq, void *dev)
 
         headset_irq_button_enable(0, ht->irq_button);
         headset_irq_detect_enable(0, ht->irq_detect);
-        wake_lock(&headset_detect_wakelock);
+        wake_lock_timeout(&headset_detect_wakelock, msecs_to_jiffies(2000));
         gpio_detect_value_last = gpio_get_value(ht->platform_data->gpio_detect);
         PRINT_DBG("headset_detect_irq_handler: IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                   ht->irq_detect, ht->platform_data->gpio_detect, gpio_detect_value_last,
