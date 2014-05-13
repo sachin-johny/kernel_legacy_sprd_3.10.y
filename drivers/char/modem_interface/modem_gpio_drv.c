@@ -259,6 +259,26 @@ int modem_gpio_uninit(void *para)
         return 0;
 }
 
+void modem_poweron_async_step1(void)
+{
+        if(GPIO_INVALID != modem_power_gpio) {
+                printk(KERN_ERR "modem_poweron_async_step1!!! \n");
+               gpio_direction_output(modem_power_gpio, 1);
+        } else {
+                printk(KERN_ERR "modem_poweron_async_step1 modem_power_gpio == GPIO_INVALID!!! \n");
+        }
+}
+
+void modem_poweron_async_step2(void)
+{
+        if(GPIO_INVALID != modem_power_gpio) {
+                gpio_set_value(modem_power_gpio, 0);
+                printk(KERN_ERR "modem_poweron_async_step2!!! \n");
+        } else {
+                printk(KERN_ERR "modem_poweron_async_step2 modem_power_gpio == GPIO_INVALID!!! \n");
+        }
+}
+
 void modem_poweron(void)
 {
         printk("modem power on!!! \n");

@@ -32,6 +32,8 @@
 #include <mach/globalregs.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
+#include <linux/timer.h>
+
 
 #define		MAX_MSG_NODE_NUM	32
 #define		BUSY_BIT		0x8000
@@ -45,6 +47,8 @@ extern int      modem_share_gpio_uninit(void *para);
 extern int      modem_share_gpio_init(void *para);
 extern void  mux_ipc_enable(u8  is_enable);
 extern void  modem_gpio_irq_init(void* para);
+extern void modem_poweron_async_step1(void);
+extern void modem_poweron_async_step2(void);
 
 extern struct modem_device_operation	*modem_sdio_drv_init(void);
 extern int    modem_gpio_init(void *para);
@@ -79,6 +83,7 @@ static int  modem_event = MODEM_INTF_EVENT_SHUTDOWN;
 static struct wake_lock   s_modem_intf_proc_wake_lock;
 static struct wake_lock   s_modem_intf_msg_wake_lock;
 static struct wake_lock   s_modem_intf_event_wake_lock;
+static struct  timer_list s_modem_watch_timer;
 
 
 
@@ -291,9 +296,12 @@ static int modem_protocol_thread(void *data)
 
         int boot_cpu = smp_processor_id();
         long rc;
+        struct sched_param	 param = {.sched_priority = 98};
 
         current_thread_info()->cpu = boot_cpu;
         rc = sched_setaffinity(current->pid, cpumask_of(boot_cpu));
+
+        sched_setscheduler(current, SCHED_FIFO, &param);
 
         while(1) {
                 msg = modem_intf_get_message();
@@ -811,7 +819,7 @@ static ssize_t modem_intf_state_store(struct device *dev,struct device_attribute
 
 DEVICE_ATTR(state, S_IRUGO | S_IWUSR, modem_intf_state_show,modem_intf_state_store);
 
-static int s_modem_poweron = 1;
+static int s_modem_poweron = 0;
 
 void on_modem_poweron()
 {
@@ -845,9 +853,11 @@ static ssize_t modem_intf_modempower_store(struct device *dev,struct device_attr
                 return 0;
         power = simple_strtoul(buf, NULL, 16);
         if (power == 1) {
+                if(s_modem_poweron)
+                      return size;
 			modem_poweron();
-            on_modem_poweron();
 			s_modem_poweron = 1;
+            on_modem_poweron();
         } else if(power == 0) {
                 if(!s_modem_poweron)
                         return size;
@@ -858,6 +868,25 @@ static ssize_t modem_intf_modempower_store(struct device *dev,struct device_attr
 }
 
 DEVICE_ATTR(modempower, S_IRUGO | S_IWUSR, modem_intf_modempower_show,modem_intf_modempower_store);
+
+static void modem_intf_init_poweron_timeout(unsigned long priv)
+{
+    modem_poweron_async_step2();
+    s_modem_poweron = 1;
+    on_modem_poweron();
+}
+
+static void modem_intf_init_poweron_modem()
+{
+    init_timer(&s_modem_watch_timer);
+    s_modem_watch_timer.expires = jiffies + (2 * HZ);
+    s_modem_watch_timer.data = (unsigned long)NULL;
+    s_modem_watch_timer.function = modem_intf_init_poweron_timeout;
+
+    modem_poweron_async_step1();
+
+    add_timer(&s_modem_watch_timer);
+}
 
 
 static ssize_t modem_intf_modemreset_store(struct device *dev,struct device_attribute *attr, const char *buf, size_t size)
@@ -924,6 +953,7 @@ static int modem_intf_driver_probe(struct platform_device *_dev)
         modem_event = MODEM_INTF_EVENT_SHUTDOWN;
         sema_init(&modem_event_sem,1);
         spin_lock_init(&int_lock);
+        modem_intf_init_poweron_modem();
         return 0;
 fail:
         kfree(device);
