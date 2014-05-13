@@ -544,6 +544,8 @@
 #define ANA_HDT_INT_BASE		(SPRD_ADISLAVE_BASE + 0x700 )
 #define ANA_CTL_GLB_BASE		(SPRD_ADISLAVE_BASE + 0x800 )
 
+#define SPRD_ANA_PIN_BASE		((unsigned int)SPRD_ADI_BASE + 0x8180)
+
 #ifndef REGS_AHB_BASE
 #define REGS_AHB_BASE                                   ( SPRD_AHB_BASE  + 0x200)
 #endif
