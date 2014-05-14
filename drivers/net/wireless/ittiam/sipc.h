@@ -34,17 +34,17 @@
 #define WLAN_SBUF_ID		7
 #define WLAN_SBUF_CH		4
 #define WLAN_SBUF_NUM		64
+/* WLAN_SBUF_SIZE should < 4k(sprd_spipe_wcn_pdata define 4k) */
 #define WLAN_SBUF_SIZE		(ETH_HLEN + ETH_DATA_LEN + NET_IP_ALIGN)
-#define WLAN_SBLOCK_CH		7 /* FIXME This should be 7 */
+#define WLAN_SBLOCK_CH		SMSG_CH_DATA0
 #define WLAN_SBLOCK_NUM		64
-#define WLAN_SBLOCK_SIZE	(ETH_HLEN + ETH_DATA_LEN + NET_IP_ALIGN + 84)
-#define WLAN_EVENT_SBLOCK_CH	8  /* FIXME This should be 7  1 */
+#define WLAN_SBLOCK_RX_NUM	128
+#define WLAN_SBLOCK_SIZE	1664
+#define WLAN_EVENT_SBLOCK_CH	SMSG_CH_DATA1
 #define WLAN_EVENT_SBLOCK_NUM	1
 #define WLAN_EVENT_SBLOCK_SIZE	(10 * 1024)	/* FIXME */
-
 #define ERR_AP_ZEROCOPY_CP_NOT	0xfd
 #define ERR_CP_ZEROCOPY_AP_NOT	0xfe
-
 /*COMMAND IDs*/
 enum wlan_sipc_cmd_id {
 	WIFI_CMD_DEV_MODE,
@@ -128,45 +128,29 @@ static inline bool is_wlan_sipc_cmd_id_valid(enum wlan_sipc_cmd_id id)
 	return ((id >= 0) && (id < WIFI_CMD_MAX));
 }
 
-static inline struct wlan_sipc_data *itm_wlan_get_new_buf(u32 size)
-{
-	struct wlan_sipc_data *wlan_sipc_data;
-
-	wlan_sipc_data = kzalloc(size, GFP_KERNEL);
-	if (!wlan_sipc_data)
-		return NULL;
-
-	return wlan_sipc_data;
-}
-
 /* global definition used for cfg80211 ops*/
 extern int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len,
-				u8 type, u8 id);
-extern int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc,
-				u16 len, u8 id);
-extern int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc,
-				u8 type, u8 id);
+			      u8 type, u8 id);
+extern int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id);
+extern int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id);
 extern int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid,
-				int len);
+			     int len);
 extern int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc,
-				u32 wpa_version);
-extern int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc,
-				u32 type);
+					u32 wpa_version);
+extern int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type);
 extern int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc,
-				u32 cipher, u8 cmd_id);
+				   u32 cipher, u8 cmd_id);
 extern int itm_wlan_set_key_management_cmd(struct wlan_sipc *wlan_sipc,
-				u8 key_mgmt);
+					   u8 key_mgmt);
 extern int itm_wlan_get_device_mode_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
 				const u8 *key, u32 key_len);
-extern int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc,
-				u32 channel);
-extern int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc,
-				const u8 *addr);
+extern int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel);
+extern int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr);
 extern int itm_wlan_set_essid_cmd(struct wlan_sipc *wlan_sipc,
-				const u8 *essid, int essid_len);
+				  const u8 *essid, int essid_len);
 extern int itm_wlan_disconnect_cmd(struct wlan_sipc *wlan_sipc,
-				u16 reason_code);
+				   u16 reason_code);
 extern int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
 				const u8 *key_data,
 				u8 key_len, u8 pairwise, u8 key_index,
@@ -175,30 +159,26 @@ extern int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
 extern int itm_wlan_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index);
 extern int itm_wlan_del_key_cmd(struct wlan_sipc *wlan_sipc,
 				u16 key_index, const u8 *mac_addr);
-extern int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc,
-				u16 rts_threshold);
+extern int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold);
 extern int itm_wlan_set_frag_cmd(struct wlan_sipc *wlan_sipc,
-				u16 frag_threshold);
+				 u16 frag_threshold);
 extern int itm_wlan_get_rssi_cmd(struct wlan_sipc *wlan_sipc,
-				s8 *signal, s8 *noise);
-extern int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc,
-				s32 *rate);
+				 s8 *signal, s8 *noise);
+extern int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate);
 extern int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc,
-				const u8 *bssid, const u8 *pmkid, u8 type);
+			      const u8 *bssid, const u8 *pmkid, u8 type);
 extern int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc,
-				u8 *beacon, u16 len);
+				   u8 *beacon, u16 len);
 extern int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
-				u8 type, const u8 *ie, u8 len);
+				   u8 type, const u8 *ie, u8 len);
 extern int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc,
-				u8 *addr, u8 flag);
+				      u8 *addr, u8 flag);
 extern int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc,
-				u8 mode, u8 *mac_addr);
+				 u8 mode, u8 *mac_addr);
 extern int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode);
 
 extern int itm_wlan_sipc_alloc(struct itm_priv *itm_priv);
 extern void itm_wlan_sipc_free(struct itm_priv *itm_priv);
-extern int itm_sblock_init(void);
-extern int itm_sblock_deinit(void);
 
 extern int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip);
 extern int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv);
@@ -207,4 +187,12 @@ extern int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc);
 extern void itm_wlan_get_ap_time(u8 *ts);
+#ifdef CONFIG_OF
+extern void itm_wlan_sipc_sblock_deinit(int sblock_ch);
+extern int itm_wlan_sipc_sblock_init(int sblock_ch,
+				     void (*handler) (int event, void *data),
+				     void *data);
+extern void wlan_sipc_sblock_handler(int event, void *data);
+#endif
+
 #endif/*__ITM_SIPC_CMD_H__*/

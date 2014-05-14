@@ -8,6 +8,7 @@
  * Leon Liu <leon.liu@spreadtrum.com>
  * Wenjie.Zhang <Wenjie.Zhang@spreadtrum.com>
  * Keguang Zhang <keguang.zhang@spreadtrum.com>
+ * Jingxiang Li <jingxiang.li@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -1843,11 +1844,12 @@ void itm_unregister_wdev(struct itm_priv *priv)
 	if (priv->wdev == NULL)
 		return;
 
+#ifndef CONFIG_OF
 	if (priv->mode == ITM_STATION_MODE || priv->mode == ITM_AP_MODE) {
 
 		itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
 	}
-
+#endif
 	wiphy_unregister(priv->wdev->wiphy);
 	wiphy_free(priv->wdev->wiphy);
 

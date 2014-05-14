@@ -4,6 +4,7 @@
  * Authors:
  * Keguang Zhang <keguang.zhang@spreadtrum.com>
  * Wenjie Zhang <wenjie.zhang@spreadtrum.com>
+ * Jingxiang Li <jingxiang.li@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -67,6 +68,7 @@
 
 void ittiam_nvm_init(void);
 
+#ifndef CONFIG_OF
 /*
  * Tx_ready handler.
  */
@@ -99,6 +101,7 @@ static void itm_wlan_tx_close_handler(struct itm_priv *priv)
 		netif_carrier_off(priv->ndev);
 	}
 }
+#endif
 
 static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 {
@@ -269,19 +272,25 @@ static void itm_wlan_handler(int event, void *data)
 		break;
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
+#ifndef CONFIG_OF
 		itm_wlan_tx_ready_handler(priv);
+#endif
 		break;
 	case SBLOCK_NOTIFY_OPEN:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_OPEN is received\n");
+#ifndef CONFIG_OF
 		itm_wlan_tx_open_handler(priv);
+#endif
 		break;
 	case SBLOCK_NOTIFY_CLOSE:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_CLOSE is received\n");
+#ifndef CONFIG_OF
 		itm_wlan_tx_close_handler(priv);
+#endif
 		break;
 	default:
 		dev_err(&priv->ndev->dev,
-			"Received event is invalid(event=%d)\n", event);
+			"data event is invalid(%d)\n", event);
 	}
 }
 
@@ -734,15 +743,9 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	ret = itm_get_mac_from_cfg(priv);
 	if (ret)
 		random_ether_addr(ndev->dev_addr);
-/*
-	ret = sblock_create(WLAN_CP_ID, WLAN_SBLOCK_CH,
-			    WLAN_SBLOCK_NUM, WLAN_SBLOCK_SIZE,
-			    WLAN_SBLOCK_NUM, WLAN_SBLOCK_SIZE);
-	if (ret) {
-		dev_err(&pdev->dev, "Failed to create sblock (%d)\n", ret);
-		goto err_sblock;
-	}
-*/
+
+	ittiam_nvm_init();
+#ifndef CONFIG_OF
 	ret = sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
 				       itm_wlan_handler, priv);
 	if (ret) {
@@ -750,9 +753,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 		goto err_notify_sblock;
 	}
-
-	ittiam_nvm_init();
-
+#endif
 	ret = itm_register_wdev(priv, &pdev->dev);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to register wiphy (%d)\n", ret);
@@ -789,11 +790,30 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
 		goto err_npi_netlink;
 	}
-
+#ifdef CONFIG_OF
+	ret = itm_wlan_sipc_sblock_init(WLAN_SBLOCK_CH, itm_wlan_handler, priv);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to init data sblock %d for wifi:%d\n",
+				WLAN_SBLOCK_CH, ret);
+		goto err_init_data_sblock;
+	}
+	ret = itm_wlan_sipc_sblock_init(WLAN_EVENT_SBLOCK_CH,
+			wlan_sipc_sblock_handler, priv);
+	if (ret) {
+		dev_err(&pdev->dev, "Failed to init event sblock %d for wifi:%d\n",
+				WLAN_EVENT_SBLOCK_CH, ret);
+		goto err_event_sblock;
+	}
+#endif
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
-
+#ifdef CONFIG_OF
+err_event_sblock:
+	itm_wlan_sipc_sblock_deinit(WLAN_SBLOCK_CH);
+err_init_data_sblock:
+	npi_exit_netlink();
+#endif
 err_npi_netlink:
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 err_register_inetaddr_notifier:
@@ -805,15 +825,23 @@ err_register_netdev:
 	netif_napi_del(&priv->napi);
 	itm_unregister_wdev(priv);
 err_register_wdev:
+#ifndef CONFIG_OF
 	sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH, NULL, NULL);
 err_notify_sblock:
-	/*sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/
-/*err_sblock:*/
+#endif
 	free_netdev(ndev);
 	platform_set_drvdata(pdev, NULL);
 out:
 	return ret;
 }
+#ifdef CONFIG_OF
+static void itm_wlan_pre_remove(struct itm_priv *priv)
+{
+	itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
+	itm_wlan_sipc_sblock_deinit(WLAN_SBLOCK_CH);
+	itm_wlan_sipc_sblock_deinit(WLAN_EVENT_SBLOCK_CH);
+}
+#endif
 
 /*
  * Cleanup WLAN device.
@@ -822,8 +850,11 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct itm_priv *priv = netdev_priv(ndev);
+#ifndef CONFIG_OF
 	int ret;
-
+#else
+	itm_wlan_pre_remove(priv);
+#endif
 	npi_exit_netlink();
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
@@ -832,12 +863,13 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	unregister_netdev(ndev);
 	netif_napi_del(&priv->napi);
 	itm_unregister_wdev(priv);
+#ifndef CONFIG_OF
 	ret = sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH, NULL, NULL);
 	if (ret) {
 		dev_err(&pdev->dev,
 			"Failed to regitster sblock notifier (%d)\n", ret);
 	}
-/*	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);*/ /*FIXME*/
+#endif
 
 	free_netdev(ndev);
 	platform_set_drvdata(pdev, NULL);
@@ -890,8 +922,6 @@ static int __init itm_wlan_init(void)
 	    platform_device_register_simple(ITM_DEV_NAME, 0, NULL, 0);
 	if (IS_ERR(itm_wlan_device))
 		return PTR_ERR(itm_wlan_device);
-#else
-	//itm_sblock_init();
 #endif
 	return platform_driver_register(&itm_wlan_driver);
 }
@@ -902,8 +932,6 @@ static void __exit itm_wlan_exit(void)
 #ifndef CONFIG_OF
 	platform_device_unregister(itm_wlan_device);
 	itm_wlan_device = NULL;
-#else
-	//itm_sblock_deinit();
 #endif
 }
 
