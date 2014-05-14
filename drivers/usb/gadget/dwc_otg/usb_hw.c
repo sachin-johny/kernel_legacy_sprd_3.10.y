@@ -112,7 +112,7 @@ void usb_phy_init(void)
 #ifdef CONFIG_USB_CORE_IP_293A
 #if defined(CONFIG_ARCH_SCX35)
 	/*shark and dolphin are the same value with SPRD ref phone*/
-#if defined(CONFIG_MACH_SC9620OPENPHONE)
+#if defined(CONFIG_MACH_SC9620OPENPHONE) || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
 	__raw_writel(0x44077e33,REG_AP_APB_USB_PHY_TUNE);
 #else
 	__raw_writel(0x44073e33,REG_AP_APB_USB_PHY_TUNE);
