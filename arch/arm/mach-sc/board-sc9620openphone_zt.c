@@ -24,6 +24,7 @@
 #include <linux/irqchip/arm-gic.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/localtimer.h>
+#include <linux/debugfs.h>
 
 #include <mach/hardware.h>
 #include <linux/i2c.h>
@@ -738,6 +739,92 @@ static inline int	__sci_get_chip_id(void)
 	return __raw_readl(CHIP_ID_LOW_REG);
 }
 
+#define REG_ANA_PIN_EXL_EN0	SCI_ADDR(SPRD_ANA_PIN_BASE, 0x50)
+
+static u32 cp_avdd18_en = 0;
+static u32 ana_pin_exl_en0_str = 0;
+static int cp_avdd18_en_set(u32 val)
+{
+	cp_avdd18_en = val;
+	printk("cp_avdd18_en_set %d\n", cp_avdd18_en);
+
+	ana_pin_exl_en0_str = sci_adi_read(REG_ANA_PIN_EXL_EN0);
+	if(cp_avdd18_en) {
+		sci_adi_set(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, BIT_15);
+		sci_adi_clr(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, BIT_15);
+
+		/* pinmap cfg */
+		sci_adi_clr(REG_ANA_PIN_EXL_EN0, 0x33); /* clear BIT_5 | BIT_4 | BIT_1 | BIT_0 */
+		sci_adi_set(REG_ANA_PIN_EXL_EN0, 0x2);   /* set bit_2 1 */
+
+		sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOAVDD18_PD_EN);/* the sleep of AVDD1V8 cannot be controled by shark */
+		sci_adi_set(ANA_REG_GLB_PWR_XTL_EN2, BIT_LDO_AVDD18_EXT_XTL0_EN);/* the sleep of AVDD1V8 can be controled by 9620 */
+	}
+	else {
+		sci_adi_clr(ANA_REG_GLB_PWR_XTL_EN2, BIT_LDO_AVDD18_EXT_XTL0_EN);
+
+		sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOAVDD18_PD_EN);
+
+		sci_adi_set(REG_ANA_PIN_EXL_EN0, ana_pin_exl_en0_str);
+
+		sci_adi_clr(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, BIT_15);
+		sci_adi_set(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, BIT_15);
+
+	}
+	return 0;
+}
+
+#define cp_attr(_name) \
+static struct kobj_attribute _name##_attr = {	\
+	.attr	= {				\
+		.name = __stringify(_name),	\
+		.mode = 0644,			\
+	},					\
+	.show	= _name##_show,			\
+	.store	= _name##_store,		\
+}
+
+static ssize_t cp_ldo_show(struct kobject *kobj, struct kobj_attribute *attr,
+			  char *buf)
+{
+	int err;
+	err = sprintf(buf, "%d \n", cp_avdd18_en);
+	return err;
+}
+static ssize_t cp_ldo_store(struct kobject *kobj, struct kobj_attribute *attr,
+			   const char *buf, size_t n)
+{
+	printk("cp_ldo_store %c\n", buf[0]);
+	switch(buf[0]) {
+	case '0':
+		cp_avdd18_en_set(0);
+		break;
+	case '1' :
+		cp_avdd18_en_set(1);
+		break;
+	default:
+		break;
+	}
+	return 1;
+}
+
+cp_attr(cp_ldo);
+static struct attribute * g[] = {
+	&cp_ldo_attr.attr,
+	NULL,
+};
+static struct attribute_group attr_group = {
+	.attrs = g,
+};
+
+struct kobject *cp_ldo_kobj;
+static int cp_ldo_ctrl_fs_creat(void)
+{
+	cp_ldo_kobj = kobject_create_and_add("cp_ldo", NULL);
+	if (!cp_ldo_kobj)
+		return -ENOMEM;
+	return sysfs_create_group(cp_ldo_kobj, &attr_group);
+}
 /*i2s0 config for BT, use pcm mode*/
 static struct i2s_config i2s0_config = {
 	.fs = 8000,
@@ -798,7 +885,12 @@ static void __init sc8830_init_early(void)
 	sci_glb_set(REG_AON_APB_APB_EB0, BIT_IPI_EB);
 }
 extern struct smp_operations sprd_smp_ops;
-
+int __init cp_ldo_init(void)
+{
+	printk("cp_ldo_init\n");
+	cp_ldo_ctrl_fs_creat();
+}
+arch_initcall(cp_ldo_init);
 MACHINE_START(SCPHONE, "sc8830")
 	.smp		= smp_ops(sprd_smp_ops),
 	.reserve	= sci_reserve,
