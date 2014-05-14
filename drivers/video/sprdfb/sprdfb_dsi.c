@@ -558,6 +558,9 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 		dsi_dpi_init(dev);
 	}
 
+#ifdef FB_DSIH_VERSION_1P21A
+	mipi_dsih_dphy_enable_nc_clk(&(dsi_instance->phy_instance), false);
+#endif
 	dsi_ctx.status = 0;
 
 	return 0;
@@ -618,7 +621,7 @@ int32_t sprdfb_dsi_uninit(struct sprdfb_device *dev)
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
 	printk(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 #ifdef FB_DSIH_VERSION_1P21A
-	dsi_core_and_function((SPRD_MIPI_DSIC_BASE+R_DPHY_LPCLK_CTRL),0xfffffffe);
+	mipi_dsih_dphy_enable_hs_clk(&(dsi_instance->phy_instance), false);
 #else
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0);
 #endif
@@ -686,14 +689,14 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
 #ifdef FB_DSIH_VERSION_1P21A
-		dsi_core_or_function((SPRD_MIPI_DSIC_BASE+R_DPHY_LPCLK_CTRL),0x1);
+		mipi_dsih_dphy_enable_hs_clk(&(dsi_ctx.dsi_inst.phy_instance), true);
 #else
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
 #endif
 	}else{
 #ifdef FB_DSIH_VERSION_1P21A
-		dsi_core_or_function((SPRD_MIPI_DSIC_BASE+R_DPHY_LPCLK_CTRL),0x1);
+		mipi_dsih_dphy_enable_hs_clk(&(dsi_ctx.dsi_inst.phy_instance), true);
 #else
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
 #endif
@@ -758,7 +761,7 @@ static int32_t sprdfb_dsi_set_lp_mode(void)
 	mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
 #ifdef FB_DSIH_VERSION_1P21A
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x01ffff00);
-	dsi_core_and_function((SPRD_MIPI_DSIC_BASE+R_DPHY_LPCLK_CTRL),0xfffffffe);
+	mipi_dsih_dphy_enable_hs_clk(&(dsi_ctx.dsi_inst.phy_instance), false);
 #else
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1fff);
 	reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL);
@@ -774,7 +777,7 @@ static int32_t sprdfb_dsi_set_hs_mode(void)
 
 	mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
 #ifdef FB_DSIH_VERSION_1P21A
-	dsi_core_or_function((SPRD_MIPI_DSIC_BASE+R_DPHY_LPCLK_CTRL),0x1);
+	mipi_dsih_dphy_enable_hs_clk(&(dsi_ctx.dsi_inst.phy_instance), true);
 #else
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);

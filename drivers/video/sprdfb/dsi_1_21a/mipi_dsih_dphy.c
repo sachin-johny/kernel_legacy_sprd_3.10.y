@@ -22,7 +22,6 @@
 #undef GEN_2
 #endif
 
-
 /**
  * Initialise D-PHY module and power up
  * @param phy pointer to structure which holds information about the d-phy
@@ -669,6 +668,19 @@ uint8_t mipi_dsih_dphy_get_no_of_lanes(dphy_t * instance)
 {
 	return mipi_dsih_dphy_read_part(instance, R_DPHY_IF_CFG, 0, 2);
 }
+
+/**
+ * SPRD ADD
+ * Set non-continuous clock mode
+ * @param instance pointer to structure which holds information about the d-phy
+ * module
+ * @param enable
+ */
+void mipi_dsih_dphy_enable_nc_clk(dphy_t * instance, int enable)
+{
+	mipi_dsih_dphy_write_part(instance, R_DPHY_LPCLK_CTRL, enable, 1, 1);
+}
+
 /**
  * Request the PHY module to start transmission of high speed clock.
  * This causes the clock lane to start transmitting DDR clock on the
