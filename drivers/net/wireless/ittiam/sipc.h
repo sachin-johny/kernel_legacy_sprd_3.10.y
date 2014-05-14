@@ -206,4 +206,5 @@ extern int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc);
 
 extern int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc);
+extern void itm_wlan_get_ap_time(u8 *ts);
 #endif/*__ITM_SIPC_CMD_H__*/

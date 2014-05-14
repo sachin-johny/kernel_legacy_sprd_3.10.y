@@ -844,6 +844,8 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 		memcpy(open->mac, mac_addr, 6);
 	memcpy((unsigned char *)(&(open->nvm_data)),
 	       (unsigned char *)(get_gWIFI_nvm_data()), sizeof(WIFI_nvm_data));
+	/*Addded AP timestamp members*/
+	itm_wlan_get_ap_time(open->ap_timestamp);
 	wlan_sipc->wlan_sipc_send_len =
 	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_mac_open);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
@@ -1306,4 +1308,17 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 	return 0;
+}
+
+void itm_wlan_get_ap_time(u8 *ts)
+{
+	unsigned long long t;
+	unsigned long ms;
+
+	/*Get ap time*/
+	t = cpu_clock(smp_processor_id());
+	ms = do_div(t, 1000000000);
+	ms /= 1000000;
+	memcpy(ts, &t, 4);
+	memcpy(ts + 4, &ms, 4);
 }
