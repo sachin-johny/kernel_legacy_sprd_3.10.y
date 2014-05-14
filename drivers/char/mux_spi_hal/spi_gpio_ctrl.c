@@ -68,12 +68,12 @@ void ap2cp_disable(void)
 
 void ap2cp_wakeup(void)
 {
-	gpio_set_value(GPIO_AP_WAKEUP_CP, 1);
+	gpio_set_value(GPIO_AP_WAKEUP_CP, 0);
 }
 
 void ap2cp_sleep(void)
 {
-	gpio_set_value(GPIO_AP_WAKEUP_CP, 0);
+	gpio_set_value(GPIO_AP_WAKEUP_CP, 1);
 }
 
 
@@ -152,7 +152,7 @@ int spi_hal_gpio_init(void)
 		gpio_free(GPIO_AP_WAKEUP_CP);
 		return ret;
 	}
-	gpio_direction_output(GPIO_AP_WAKEUP_CP, 0);
+	gpio_direction_output(GPIO_AP_WAKEUP_CP, 1);
 	gpio_export(GPIO_AP_WAKEUP_CP,  1);
 
 	//config cp_out_rdy
