@@ -209,6 +209,7 @@ struct wlan_sipc_mac_open {
 	u8 mode;	/* AP or STATION mode */
 	u8 mac[6];
 	WIFI_nvm_data nvm_data;
+	u8 ap_timestamp[8]; /* AP timestamp |seconds| microseconds| */
 } __packed;
 
 /* wlan_sipc wps ie struct */
