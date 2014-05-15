@@ -337,7 +337,8 @@ static long sprd_clk_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 		c->d.div_hw->clk = c->hw.clk;
 	clk_debug("%s rate %lu %lu\n", __clk_get_name(hw->clk), rate,
 		  (prate) ? *prate : 0);
-	return clk_divider_ops.round_rate(c->d.div_hw, rate, prate);
+    return rate;
+	//return clk_divider_ops.round_rate(c->d.div_hw, rate, prate);
 }
 
 static int sprd_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
