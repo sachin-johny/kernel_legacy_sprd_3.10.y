@@ -36,6 +36,10 @@ struct sprd_headset_platform_data {
         int gpio_button;
         int irq_trigger_level_detect;
         int irq_trigger_level_button;
+        int adc_threshold_3pole_detect;
+        int adc_threshold_4pole_detect;
+        int irq_threshold_buttont;
+        int voltage_headmicbias;
         struct headset_buttons *headset_buttons;
         int nbuttons;
         int (*external_headmicbias_power_on)(int);

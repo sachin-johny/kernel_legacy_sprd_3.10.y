@@ -34,11 +34,7 @@
 #include <mach/gpio.h>
 #include <linux/pstore_ram.h>
 #include <linux/sprd_iommu.h>
-#ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
-#include <linux/headset_sprd_cali.h>
-#else
 #include <linux/headset_sprd.h>
-#endif
 #ifdef CONFIG_BACKLIGHT_RT4502
 #include <linux/rt4502_bl.h>
 #endif
@@ -661,52 +657,23 @@ struct platform_device sprd_thm_a_device = {
 };
 #endif
 
-
 static struct headset_buttons sprd_headset_buttons[] = {
-#ifdef CONFIG_INPUT_SPRD_CALI_HEADSET
-	{
-		.adc_min = HEADSET_BUTTVOL_MEDIA_MIN,
-		.adc_max = HEADSET_BUTTVOL_MEDIA_MAX,
-		.code = KEY_MEDIA,
-	},
-	{
-		.adc_min = HEADSET_BUTTVOL_VOLUP_MIN,
-		.adc_max = HEADSET_BUTTVOL_VOLUP_MAX,
-		.code = KEY_VOLUMEUP,
-	},
-	{
-		.adc_min = HEADSET_BUTTVOL_VOLDOWN_MIN,
-		.adc_max = HEADSET_BUTTVOL_VOLDOWN_MAX,
-		.code = KEY_VOLUMEDOWN,
-	},
-	{
-		.adc_min = HEADSET_TYPEVOL_NOMIC_MIN,
-		.adc_max = HEADSET_TYPEVOL_NOMIC_MAX,
-		.type = HEADSET_NO_MIC,
-	},
-	{
-		.adc_min = HEADSET_TYPEVOL_MIC_MIN,
-		.adc_max = HEADSET_TYPEVOL_MIC_MAX,
-		.type = HEADSET_NORTH_AMERICA,
-	},
-#else
 	{
 		.adc_min = HEADSET_ADC_MIN_KEY_MEDIA,
 		.adc_max = HEADSET_ADC_MAX_KEY_MEDIA,
 		.code = KEY_MEDIA,
 	},
-	#ifdef CONFIG_HEADSET_KEY_VOLUME_SUPPORTED
-		{
-			.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEUP,
-			.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEUP,
-			.code = KEY_VOLUMEUP,
-		},
-		{
-			.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEDOWN,
-			.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEDOWN,
-			.code = KEY_VOLUMEDOWN,
-		},
-	#endif
+#ifdef CONFIG_HEADSET_KEY_VOLUME_SUPPORTED
+	{
+		.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEUP,
+		.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEUP,
+		.code = KEY_VOLUMEUP,
+	},
+	{
+		.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEDOWN,
+		.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEDOWN,
+		.code = KEY_VOLUMEDOWN,
+	},
 #endif
 };
 
@@ -740,6 +707,10 @@ static struct sprd_headset_platform_data sprd_headset_pdata = {
 	.gpio_button = HEADSET_BUTTON_GPIO,
 	.irq_trigger_level_detect = HEADSET_IRQ_TRIGGER_LEVEL_DETECT,
 	.irq_trigger_level_button = HEADSET_IRQ_TRIGGER_LEVEL_BUTTON,
+	.adc_threshold_3pole_detect = HEADSET_ADC_THRESHOLD_3POLE_DETECT,
+	.adc_threshold_4pole_detect = HEADSET_ADC_THRESHOLD_4POLE_DETECT,
+	.irq_threshold_buttont = HEADSET_IRQ_THRESHOLD_BUTTON,
+	.voltage_headmicbias = HEADSET_HEADMICBIAS_VOLTAGE,
 	.headset_buttons = sprd_headset_buttons,
 	.nbuttons = ARRAY_SIZE(sprd_headset_buttons),
 #ifdef CONFIG_HEADSET_EXTERNAL_HEADMICBIAS_POWER_SUPPORTED
