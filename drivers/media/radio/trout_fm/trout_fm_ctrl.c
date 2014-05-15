@@ -48,12 +48,6 @@ static int _trout_fm_open(struct file *file)
 		return -1;
 	}
 
-	if (get_suspend_state() != PM_SUSPEND_ON)
-	{
-		TROUT_PRINT("The system is suspending!");
-		return -2;
-	}
-
 	/*ret = nonseekable_open(inode, filep);
 	if (ret < 0)
 	{
