@@ -1042,6 +1042,8 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 	} else {
 		sprd_codec->inter_pa.set = 0;
 		sprd_codec_pa_en(codec, 0);
+		sprd_codec_wait(2);
+		sprd_codec_pa_sw_clr(codec, SPRD_CODEC_PA_SW_AOL);
 		sprd_codec_pa_ldo_en(codec, 0);
 	}
 	mutex_unlock(&sprd_codec->inter_pa_mutex);
