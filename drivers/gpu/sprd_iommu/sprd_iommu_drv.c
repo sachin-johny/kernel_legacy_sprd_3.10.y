@@ -197,11 +197,15 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 	struct device_node *np=pdev->dev.of_node;
 #endif
 	int err=-1;
-	struct sprd_iommu_init_data *pdata = pdev->dev.platform_data;
+	struct sprd_iommu_init_data *pdata;
 	struct sprd_iommu_dev *iommu_dev;
 
 #ifndef CONFIG_OF
 	pdata = pdev->dev.platform_data;
+	if (!pdata) {
+		printk(KERN_ERR "sprd_iommu_probe failed: No platform data!\n");
+		return -ENODEV;
+	}
 #endif
 
 	printk("%s,begin\n",__FUNCTION__);

@@ -264,19 +264,6 @@ err2:
 
 void ion_buffer_destroy(struct ion_buffer *buffer)
 {
-#if defined(CONFIG_SPRD_IOMMU)
-	if(buffer->iomap_cnt[IOMMU_GSP]>0)
-	{
-		sprd_iova_unmap(IOMMU_GSP,buffer->iova[IOMMU_GSP],buffer);
-		sprd_iova_free(IOMMU_GSP,buffer->iova[IOMMU_GSP],buffer->size);
-	}
-
-	if(buffer->iomap_cnt[IOMMU_MM]>0)
-	{
-		sprd_iova_unmap(IOMMU_MM,buffer->iova[IOMMU_MM],buffer);
-		sprd_iova_free(IOMMU_MM,buffer->iova[IOMMU_MM],buffer->size);
-	}
-#endif
 	if (WARN_ON(buffer->kmap_cnt > 0))
 		buffer->heap->ops->unmap_kernel(buffer->heap, buffer);
 	buffer->heap->ops->unmap_dma(buffer->heap, buffer);
@@ -291,6 +278,22 @@ static void _ion_buffer_destroy(struct kref *kref)
 	struct ion_buffer *buffer = container_of(kref, struct ion_buffer, ref);
 	struct ion_heap *heap = buffer->heap;
 	struct ion_device *dev = buffer->dev;
+
+#if defined(CONFIG_SPRD_IOMMU)
+	if(buffer->iomap_cnt[IOMMU_GSP]>0)
+	{
+		buffer->iomap_cnt[IOMMU_GSP] = 0;
+		sprd_iova_unmap(IOMMU_GSP,buffer->iova[IOMMU_GSP],buffer);
+		sprd_iova_free(IOMMU_GSP,buffer->iova[IOMMU_GSP],buffer->size);
+	}
+
+	if(buffer->iomap_cnt[IOMMU_MM]>0)
+	{
+		buffer->iomap_cnt[IOMMU_MM] = 0;
+		sprd_iova_unmap(IOMMU_MM,buffer->iova[IOMMU_MM],buffer);
+		sprd_iova_free(IOMMU_MM,buffer->iova[IOMMU_MM],buffer->size);
+	}
+#endif
 
 	mutex_lock(&dev->buffer_lock);
 	rb_erase(&buffer->node, &dev->buffers);

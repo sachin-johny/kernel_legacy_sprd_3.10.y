@@ -522,6 +522,12 @@ int sprd_ion_probe(struct platform_device *pdev)
 		need_free_pdata = 1;
 	} else {
 		pdata = pdev->dev.platform_data;
+
+		if (!pdata) {
+			pr_err("sprd_ion_probe failed: No platform data!\n");
+			return -ENODEV;
+		}
+
 		num_heaps = pdata->nr;
 		if (!num_heaps)
 			return -EINVAL;
