@@ -639,15 +639,20 @@ static int __init sprd_rtc_init(void)
 {
 	int err;
 
-	if ((err = platform_driver_register(&sprd_rtc_driver)))
+	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
+	wake_lock_init(&rtc_interrupt_wake_lock, WAKE_LOCK_SUSPEND, "rtc_interrupt");
+
+	if ((err = platform_driver_register(&sprd_rtc_driver))) {
+		wake_lock_destroy(&rtc_wake_lock);
+		wake_lock_destroy(&rtc_interrupt_wake_lock);
 		return err;
+	}
 
 	if(CONFIG_RTC_START_YEAR > 1970)
 		secs_start_year_to_1970 = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
 	else
 		secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
-	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
-	wake_lock_init(&rtc_interrupt_wake_lock, WAKE_LOCK_SUSPEND, "rtc_interrupt");
+
 	return 0;
 }
 
