@@ -432,6 +432,11 @@ config SPRD_MODEM_TD
 	help
 	  This option select modem type.
 
+config TD_AS_NOT_PRESENT
+	bool "only for GSM or EDGE"
+	default n
+	depends on SPRD_MODEM_TD
+
 config MODEM_W_MEMCUT
 	bool "SPRD w modem memory cut"
 	default n
