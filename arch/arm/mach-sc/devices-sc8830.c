@@ -1960,7 +1960,7 @@ struct platform_device sprd_saudio_td_device = {
 #endif
 #ifdef CONFIG_SIPC_WCDMA
 #ifndef CONFIG_OF
-#if CONFIG_ARCH_SCX30G
+#ifdef CONFIG_ARCH_SCX30G
 #define WCDMA_REG_CLK_ADDR         (SPRD_PMU_BASE + 0x44)
 #define WCDMA_REG_RESET_ADDR       (SPRD_PMU_BASE + 0xB0)
 
@@ -1968,7 +1968,7 @@ static int native_wcdmamodem_start(void *arg)
 {
 	u32 state;
 	u32 value;
-	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x500000};
+	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x2c0000};
 	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
 
 	/* clear cp1 force shutdown */
@@ -2025,7 +2025,7 @@ static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 	.segs		= {
 		{
 			.name  = "modem",
-			.base  = CPW_START_ADDR + 0x500000,
+			.base  = CPW_START_ADDR + 0x2c0000,
 			.maxsz = 0x00800000,
 		},
 		{
