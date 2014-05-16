@@ -63,17 +63,23 @@
 
 
 #define MAX_MIPC_RX_FRAME_SIZE    	(64*1024)
-#define MAX_MIPC_TX_FRAME_SIZE    	(16*1024)
+#define MAX_MIPC_TX_FRAME_SIZE    	(32*1024)
 
 #define MIN_MIPC_TX_FRAME_SIZE 		(4 * 1024)
 
 #define MAX_MIPC_RX_CACHE_SIZE   MAX_MIPC_RX_FRAME_SIZE*4
 
 //#define MAX_MIPC_TX_FIFO_SIZE    (1 << 7)   // 128
-#define MAX_MIPC_TX_FIFO_SIZE    (1 << 4)   // 16
+#define MAX_MIPC_TX_FIFO_SIZE    (1 << 3)   // 16
 
 
 #define MAX_MIPC_TX_FRAME_NUM    (MAX_MIPC_TX_FIFO_SIZE - 1)
+
+#ifdef SDIO_VARIABLE_DL_LEN
+#define DEFAULT_RX_FRAME_SIZE   MAX_MIPC_RX_FRAME_SIZE//(4*1024)
+#else
+#define DEFAULT_RX_FRAME_SIZE   MAX_MIPC_RX_FRAME_SIZE
+#endif
 
 #define NEXT_TX_FIFO_IDX(idx) (((idx) + 1) & (MAX_MIPC_TX_FIFO_SIZE - 1))
 
@@ -115,7 +121,9 @@ typedef struct  MIPC_FRAME_LIST_Tag {
 typedef struct MIPC_TRANSFER_Tag {
         struct mutex                             transfer_mutex;
         struct list_head                        frame_fifo;
+        wait_queue_head_t                       frame_free_wq;
         MIPC_TRANSF_FRAME_T*        cur_frame_ptr;
+        u32                                     frame_count;
         u32                                            counter;
 } MIPC_TRANSFER_T;
 
@@ -137,7 +145,7 @@ typedef struct MIPC_TX_CTRL_Tag {
 static struct kfifo  s_mipc_rx_cache_kfifo;
 
 u8* s_mipc_rx_buf = NULL;
-u32 s_mipc_next_rx_len = MAX_MIPC_RX_FRAME_SIZE;
+u32 s_mipc_next_rx_len = DEFAULT_RX_FRAME_SIZE;
 
 
 MIPC_TRANSF_FRAME_T   s_tx_transfer_frame[MAX_MIPC_TX_FRAME_NUM];
@@ -197,12 +205,15 @@ static MIPC_TX_CTRL_T s_mipc_tx_ctrl;
 
 
 static DEFINE_MUTEX(sdio_tx_lock);
-static ssize_t mux_ipc_xmit_buf(const char *buf, ssize_t len);
+static int mux_ipc_xmit_buf(const char *buf, ssize_t len);
 static int mux_ipc_sdio_write( const char *buf, size_t  count);
 static int mux_ipc_sdio_read(  char *buf, size_t  count);
 static u32 _FreeAllTxTransferFrame(void);
 static void _FreeFrame(MIPC_TRANSF_FRAME_T* frame_ptr, MIPC_FRAME_LIST_T*  frame_list_ptr);
 static u32 _FlushTxTransfer(void);
+static void _WaitTxTransferFree(void);
+static void _WakeTxTransfer(void);
+
 
 
 #include<mach/hardware.h>
@@ -451,10 +462,9 @@ void  sdio_ipc_enable(u8  is_enable)
                 s_acked_tx_frame = 0;
                 s_last_tx_frame = 0;
                 s_tx_frame_counter = 1; //tx frame number start from 1
-                s_mipc_next_rx_len = MAX_MIPC_RX_FRAME_SIZE;
+                s_mipc_next_rx_len = DEFAULT_RX_FRAME_SIZE;
                 //sdhci_resetconnect(MUX_IPC_DISABLE);
                 s_mux_ipc_event_flags = 0;
-                s_mipc_next_rx_len = MAX_MIPC_RX_FRAME_SIZE;
                 s_mipc_enable_change_flag = 0;
                 s_mux_ipc_enable = MUX_IPC_ENABLE;
                 wake_up_interruptible(&s_modem_ready);
@@ -482,7 +492,7 @@ int mux_ipc_sdio_stop(int mode)
         }
 
         wake_up_interruptible(&s_mux_read_rts);
-
+        _WakeTxTransfer();
         return 0;
 }
 
@@ -584,8 +594,8 @@ int mux_ipc_sdio_write_test(const char *buf, size_t  count)
 int mux_ipc_sdio_write(const char *buf, size_t  count)
 {
         if(s_mux_ipc_event_flags & MUX_IPC_WRITE_DISABLE) {
-            printk("[mipc]mux_ipc_sdio_write write disabled!\r\n");
-            return -1;
+                printk("[mipc]mux_ipc_sdio_write write disabled!\r\n");
+                return -1;
         }
         wait_cp_bootup();
         IPC_DBG("[mipc]mux_ipc_sdio_write write len:%d\r\n", count);
@@ -738,6 +748,8 @@ static void _TransferInit(MIPC_TRANSFER_T* transfer_ptr)
         mutex_init(&transfer_ptr->transfer_mutex);
         transfer_ptr->counter = 0;
         transfer_ptr->cur_frame_ptr = NULL;
+        transfer_ptr->frame_count = 0;
+        init_waitqueue_head(&transfer_ptr->frame_free_wq);
 }
 
 static void _transfer_frame_init(void)
@@ -788,6 +800,7 @@ static void _FreeFrame(MIPC_TRANSF_FRAME_T* frame_ptr, MIPC_FRAME_LIST_T*  frame
         list_add_tail(&frame_ptr->link, &frame_list_ptr->frame_list_head);
         frame_list_ptr->counter++;
         mutex_unlock(&frame_list_ptr->list_mutex);/*set  lock */
+        _WakeTxTransfer();
 }
 
 static  void _AddFrameToTxTransferFifo(MIPC_TRANSF_FRAME_T* frame_ptr, MIPC_TRANSFER_T*  transfer_ptr)
@@ -803,6 +816,7 @@ static  void _AddFrameToTxTransferFifo(MIPC_TRANSF_FRAME_T* frame_ptr, MIPC_TRAN
         header_ptr->reserved[1] = 0x33334444;
         header_ptr->reserved[2] = 0x55556666;
         list_add_tail(&frame_ptr->link,  &transfer_ptr->frame_fifo);
+        transfer_ptr->frame_count++;
 }
 
 static  u32 _GetFrameFromTxTransfer(MIPC_TRANSF_FRAME_T* * out_frame_ptr)
@@ -813,6 +827,7 @@ static  u32 _GetFrameFromTxTransfer(MIPC_TRANSF_FRAME_T* * out_frame_ptr)
         if(!list_empty(&transfer_ptr->frame_fifo)) {
                 frame_ptr = list_entry(transfer_ptr->frame_fifo.next, MIPC_TRANSF_FRAME_T, link);
                 list_del(&frame_ptr->link);
+                transfer_ptr->frame_count--;
         }
         mutex_unlock(&transfer_ptr->transfer_mutex);/*set  lock */
 
@@ -870,6 +885,7 @@ static u32 _AddDataToTxTransfer(u8* data_ptr, u32 len)
                         }
                         _AddFrameToTxTransferFifo(frame_ptr, transfer_ptr);
                         frame_ptr = new_frame_ptr;
+                        s_need_wake_up_tx_thread = 1;
                 }
                 memcpy(&frame_ptr->buf_ptr[frame_ptr->pos], data_ptr, len);
                 frame_ptr->pos  += len;
@@ -881,6 +897,17 @@ static u32 _AddDataToTxTransfer(u8* data_ptr, u32 len)
         mutex_unlock(&transfer_ptr->transfer_mutex);/*set	lock */
 
         return ret;
+}
+
+static void _WaitTxTransferFree(void)
+{
+        wait_event_interruptible(s_mipc_tx_tansfer.frame_free_wq, (s_mipc_tx_free_frame_list.counter ||
+                                 (s_mux_ipc_event_flags & MUX_IPC_WRITE_DISABLE)));
+}
+
+static void _WakeTxTransfer(void)
+{
+        wake_up_interruptible(&s_mipc_tx_tansfer.frame_free_wq);
 }
 
 static u32 _DelDataFromTxTransfer(MIPC_TRANSF_FRAME_T* frame_ptr)
@@ -954,7 +981,7 @@ static size_t sdio_write_modem_data(const u8 * buf, u32 len)
                 } else {
                         ipc_info_error_status(IPC_TX_CHANNEL, IPC_STATUS_CRC_ERROR);
                         result =  SDHCI_TRANSFER_ERROR;
-                        printk("SDIO  WRITE FAIL\n");
+                        printk("SDIO  WRITE FAIL ret: %d\n", ret);
                         ret = 0;
                 }
 
@@ -1080,16 +1107,15 @@ static int mux_test_cp2ap_rdy(void)
 }
 
 #endif
+
+#define TX_THRD_GATHER_COND (s_mipc_tx_tansfer.frame_count || ((s_mipc_tx_ctrl.fifo_wr == s_mipc_tx_ctrl.fifo_rd)&& s_tx_flow_info))
 static int mux_ipc_tx_thread(void *data)
 {
         MIPC_TRANSF_FRAME_T*  frame_ptr = NULL;
-        struct sched_param	 param = {.sched_priority = 30};
+        struct sched_param	 param = {.sched_priority = 10};
 
         printk(KERN_INFO "mux_ipc_tx_thread");
         sched_setscheduler(current, SCHED_FIFO, &param);
-
-        //msleep(10000);
-        //while(1) msleep(500);
 
 
         while (!kthread_should_stop()) {
@@ -1100,29 +1126,25 @@ static int mux_ipc_tx_thread(void *data)
                 }
 
                 while(s_mipc_tx_tansfer.counter) {
-                        //u32 prv_time = get_sys_cnt();
-                        unsigned long now = jiffies;
-                        while(_IsTransferFifoEmpty(&s_mipc_tx_tansfer)
-                              && MIPC_TX_REQ_FLAG
-                              && (msecs_to_jiffies(jiffies - now) < MAX_SDIO_TX_WAIT_TIMEOUT)) {
-
-                                printk("[mipc] msleep sdio_tx_wait_time\n");
-                                msleep(sdio_tx_wait_time);
-
-                        }
                         if(_IsTransferFifoEmpty(&s_mipc_tx_tansfer)) {
-
-                                if(_FlushTxTransfer()) {
-                                        printk("[mipc] s_mipc_tx_tansfer.counter: %d\n", s_mipc_tx_tansfer.counter);
-                                        printk("[mipc] transfer_ptr->cur_frame_ptr: 0x%X\n", s_mipc_tx_tansfer.cur_frame_ptr);
-                                        if(s_mipc_tx_tansfer.cur_frame_ptr) {
-                                                printk("[mipc] cur_frame_ptr->pos: %d\n", s_mipc_tx_tansfer.cur_frame_ptr->pos);
-                                        }
-                                        printk("[mipc] No Data To Send\n");
-                                        break;
-                                }
+                                //do not send right now, because now sdio is pending
+                                wait_event(s_mux_ipc_tx_wq, TX_THRD_GATHER_COND);
+                                printk("[mipc] tx thread wait TX_THRD_GATHER_COND OK!\r\n");
                         }
                         do {
+
+                                if(_IsTransferFifoEmpty(&s_mipc_tx_tansfer)) {
+                                        if(_FlushTxTransfer()) {
+                                                printk("[mipc] s_mipc_tx_tansfer.counter: %d\n", s_mipc_tx_tansfer.counter);
+                                                printk("[mipc] transfer_ptr->cur_frame_ptr: 0x%X\n", s_mipc_tx_tansfer.cur_frame_ptr);
+                                                if(s_mipc_tx_tansfer.cur_frame_ptr) {
+                                                        printk("[mipc] cur_frame_ptr->pos: %d\n", s_mipc_tx_tansfer.cur_frame_ptr->pos);
+                                                }
+                                                printk("[mipc] No Data To Send\n");
+                                                break;
+                                        }
+                                }
+
                                 if(_GetFrameFromTxTransfer(&frame_ptr)) {
                                         printk("[mipc] Error: Flush Empty Frame \n");
                                         break;
@@ -1130,21 +1152,10 @@ static int mux_ipc_tx_thread(void *data)
 
                                 _DelDataFromTxTransfer(frame_ptr);
 
+                                printk("[mipc] sending frame count: %d\n", (MAX_MIPC_TX_FRAME_NUM - s_mipc_tx_free_frame_list.counter));
                                 put_to_sdio_tx_fifo(frame_ptr);
                         } while(0);
 
-                        //printk("[mipc] write data time:%d\r\n", (get_sys_cnt() - prv_time));
-                        if(!_is_mux_ipc_enable()) {
-                                printk("[mipc] ipc reset free all tx data!\r\n");
-                                _FlushTxTransfer();
-                                _FreeAllTxTransferFrame();
-                                while(!_is_mux_ipc_enable()) {
-                                        printk("mux ipc tx Thread Wait enable!\r\n");
-                                        msleep(40);
-                                }
-                                printk("mux ipc tx Thread Wait enable Finished!\r\n");
-                                break;
-                        }
                 }
         }
 
@@ -1156,17 +1167,18 @@ static int mux_ipc_tx_thread(void *data)
 
 
 
-static ssize_t mux_ipc_xmit_buf(const char *buf, ssize_t len)
+static int mux_ipc_xmit_buf(const char *buf, ssize_t len)
 {
-        ssize_t ret = 0;
+        ssize_t ret = -1;
 
         mutex_lock(&sdio_tx_lock);
         do {
                 ret = _AddDataToTxTransfer((u8*)buf, len);
                 if(!ret) {
                         ipc_info_sdio_write_overflow(1);
-                        msleep(4);
-                        printk("[mipc] mux_ipc_xmit_buf msleep 8.\n");
+                        printk("[mipc] mux_ipc_xmit_buf begin _WaitTxTransferFree\n");
+                        _WaitTxTransferFree();
+                        printk("[mipc] mux_ipc_xmit_buf end _WaitTxTransferFree\n");
                 }
         } while(!ret);
 
@@ -1487,6 +1499,35 @@ static int mux_ipc_sdio_thread(void *data)
                         }
                 }
 
+                //do tx
+                if(MIPC_TX_REQ_FLAG) {
+
+                        MIPC_TRANSF_FRAME_T* frame = get_from_sdio_tx_fifo();
+
+                        if(frame) {
+                                do_sdio_tx(frame);
+                                continue_tx_cnt++;
+                        }
+
+                        force_tx = false;
+                }
+                //check modem status
+                if(!_is_mux_ipc_enable()) {
+                        continue;
+                }
+
+                //do tx,check again
+                if(MIPC_TX_REQ_FLAG) {
+
+                        MIPC_TRANSF_FRAME_T* frame = get_from_sdio_tx_fifo();
+
+                        if(frame) {
+                                do_sdio_tx(frame);
+                                continue_tx_cnt++;
+                        }
+
+                        force_tx = false;
+                }
                 //check modem status
                 if(!_is_mux_ipc_enable()) {
                         continue;
@@ -1495,12 +1536,21 @@ static int mux_ipc_sdio_thread(void *data)
                 //do rx first, if not force to do tx
                 if(s_mipc_rx_req_flag && !force_tx) {
                         int result;
+                        u32 last_tx_flow_info = s_tx_flow_info;
 
                         result = do_sdio_rx(&s_tx_flow_info, &s_acked_tx_frame);
                         s_mipc_rx_req_flag = 0;
                         continue_tx_cnt = 0;
 
                         if(SDHCI_TRANSFER_OK == result) {
+                                //out of flow ctrl, wake up tx thread
+                                if(!last_tx_flow_info && s_tx_flow_info) {
+                                        wake_up(&s_mux_ipc_tx_wq);
+                                        printk("[mipc] exit ul flow ctrl, s_tx_flow_info:%d\n", s_tx_flow_info);
+                                } else if(!s_tx_flow_info && last_tx_flow_info) {
+                                        printk("[mipc] enter ul flow ctrl,s_tx_flow_info:%d\n", s_tx_flow_info);
+                                }
+
                                 printk("[mipc] s_acked_tx_frame:%d, s_acked_tx_frame:%d, s_last_tx_frame:%d\n",
                                        s_mipc_tx_ctrl.last_ack_frame,
                                        s_acked_tx_frame,
@@ -1528,18 +1578,7 @@ static int mux_ipc_sdio_thread(void *data)
                         continue;
                 }
 
-                //do tx
-                if(MIPC_TX_REQ_FLAG) {
 
-                        MIPC_TRANSF_FRAME_T* frame = get_from_sdio_tx_fifo();
-
-                        if(frame) {
-                                do_sdio_tx(frame);
-                                continue_tx_cnt++;
-                        }
-
-                        force_tx = false;
-                }
 
                 //check cp read request after one cmd53
                 if(cp2ap_req()) {
@@ -1556,7 +1595,12 @@ static int mux_ipc_sdio_thread(void *data)
                         //implicit_ack_tx_frame();
                 }
 
-
+                //check need to wake tx_thread, nothing to send, wake up tx thread
+                if((s_mipc_tx_ctrl.fifo_wr == s_mipc_tx_ctrl.fifo_rd)
+                    && s_tx_flow_info
+                    && s_mipc_tx_tansfer.counter) {
+                        wake_up(&s_mux_ipc_tx_wq);
+                }
 
         }
 
