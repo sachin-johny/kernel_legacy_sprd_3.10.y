@@ -352,6 +352,8 @@ sprd_i2c_master_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg *msgs,
 {
 	int im = 0;
 	int ret = 0;
+	struct sprd_i2c *pi2c = i2c_adap->algo_data;
+	clk_prepare_enable(pi2c->clk);
 
 	dev_dbg(&i2c_adap->dev, "%s() msg num=%d\n", __func__, num);
 
@@ -359,6 +361,7 @@ sprd_i2c_master_xfer(struct i2c_adapter *i2c_adap, struct i2c_msg *msgs,
 		dev_dbg(&i2c_adap->dev, "%s() msg im=%d\n", __func__, im);
 		ret = sprd_i2c_handle_msg(i2c_adap, &msgs[im], im == num - 1);
 	}
+	clk_disable_unprepare(pi2c->clk);
 
 	return (ret >= 0)? im : -1;
 }
@@ -393,6 +396,7 @@ static void sprd_i2c_set_clk(struct sprd_i2c *pi2c, unsigned int freq)
 void sprd_i2c_ctl_chg_clk(unsigned int id_nr, unsigned int freq)
 {
 	unsigned int tmp;
+	clk_prepare_enable(sprd_i2c_ctl_id[id_nr]->clk);
 
 	tmp = __raw_readl(sprd_i2c_ctl_id[id_nr]->membase + I2C_CTL);
 	__raw_writel(tmp & (~I2C_CTL_EN),
@@ -405,33 +409,39 @@ void sprd_i2c_ctl_chg_clk(unsigned int id_nr, unsigned int freq)
 	__raw_writel(tmp | I2C_CTL_EN,
 		     sprd_i2c_ctl_id[id_nr]->membase + I2C_CTL);
 	tmp = __raw_readl(sprd_i2c_ctl_id[id_nr]->membase + I2C_CTL);
+	clk_disable_unprepare(sprd_i2c_ctl_id[id_nr]->clk);
+	
 }
 
 EXPORT_SYMBOL_GPL(sprd_i2c_ctl_chg_clk);
 
-static void sprd_i2c_reset(struct sprd_i2c *pi2c)
+static int sprd_i2c_clk_init(struct sprd_i2c *pi2c)
 {
 #if defined(CONFIG_ARCH_SCX35)
-	char buf[256] = { 0 };
-	if (unlikely(pi2c->adap.nr >= 5)) /* dolphin less than 5 and shark's i2c device that large than 5 is named clk_i2c' */
-		strcpy(buf, "clk_i2c");
-	else
-		sprintf(buf, "clk_i2c%d", pi2c->adap.nr);
-	dev_info(&pi2c->adap.dev, "%s buf=%s", __func__, buf);
+		char buf[256] = { 0 };
+		if (unlikely(pi2c->adap.nr >= 5)) /* dolphin less than 5 and shark's i2c device that large than 5 is named clk_i2c' */
+			strcpy(buf, "clk_i2c");
+		else
+			sprintf(buf, "clk_i2c%d", pi2c->adap.nr);
+		dev_info(&pi2c->adap.dev, "%s buf=%s", __func__, buf);
+		
+		pi2c->clk = clk_get(&pi2c->adap.dev, buf);
+		if (IS_ERR(pi2c->clk)) {
+			return -ENODEV;
+		}
 
-	pi2c->clk = clk_get(&pi2c->adap.dev, buf);
-	if (!WARN(IS_ERR(pi2c->clk), "clock: failed to get %s.\n", buf))
-		clk_prepare_enable(pi2c->clk);
 #elif defined(CONFIG_ARCH_SC8825)
-	/*enable i2c clock */
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 29) | BIT(4), GR_GEN0);
-	/*reset i2c module */
-	sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
-	sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
-	/*flush cmd buffer */
-	__raw_writel(I2C_RST_RST, pi2c->membase + I2C_RST);
-	__raw_writel(0, pi2c->membase + I2C_RST);
+		/*enable i2c clock */
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 29) | BIT(4), GR_GEN0);
+		/*reset i2c module */
+		sprd_greg_set_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
+		sprd_greg_clear_bits(REG_TYPE_GLOBAL, (0x07 << 2) | 0x01, GR_SOFT_RST);
+		/*flush cmd buffer */
+		__raw_writel(I2C_RST_RST, pi2c->membase + I2C_RST);
+		__raw_writel(0, pi2c->membase + I2C_RST);
 #endif
+return 0;
+
 }
 
 static void sprd_i2c_enable(struct sprd_i2c *pi2c)
@@ -497,12 +507,19 @@ static int sprd_i2c_probe(struct platform_device *pdev)
 	pi2c->adap.nr = pdev->id;
 	pi2c->membase = (void *)(res->start);
 	pi2c->adap.dev.of_node = pdev->dev.of_node;
-
 	dev_info(&pdev->dev, "%s() id=%d, base=%p \n", __func__, pi2c->adap.nr,
 		 pi2c->membase);
-
-	sprd_i2c_reset(pi2c);
+	ret = sprd_i2c_clk_init(pi2c);
+	if (ret) {
+		dev_err(&pdev->dev, "get src clk failed\n");
+		goto release_region;
+	}
+	
+	clk_prepare_enable(pi2c->clk);
 	sprd_i2c_enable(pi2c);
+	
+	clk_disable_unprepare(pi2c->clk);
+
 
 	ret = i2c_add_numbered_adapter(&pi2c->adap);
 	if (ret < 0) {
@@ -567,7 +584,7 @@ static int i2c_controller_suspend(struct platform_device *pdev,
 	struct sprd_i2c *pi2c = platform_get_drvdata(pdev);
 
 	if (pi2c && (pi2c->adap.nr < ARRAY_SIZE(l2c_saved_regs))) {
-
+		clk_prepare_enable(pi2c->clk);		
 		l2c_saved_regs[pi2c->adap.nr].ctl = __raw_readl(pi2c->membase + I2C_CTL);
 		l2c_saved_regs[pi2c->adap.nr].cmd = __raw_readl(pi2c->membase + I2C_CMD);
 		l2c_saved_regs[pi2c->adap.nr].div0 = __raw_readl(pi2c->membase + I2C_CLKD0);
@@ -598,6 +615,7 @@ static int i2c_controller_resume(struct platform_device *pdev)
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].rst, pi2c->membase + I2C_RST);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf, pi2c->membase + I2C_CMD_BUF);
 		__raw_writel(l2c_saved_regs[pi2c->adap.nr].cmd_buf_ctl, pi2c->membase + I2C_CMD_BUF_CTL);
+		clk_disable_unprepare(pi2c->clk);
 	}
 	return 0;
 }
