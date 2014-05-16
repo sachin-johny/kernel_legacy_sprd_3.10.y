@@ -18,6 +18,11 @@
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev);
 
+static inline void iommu_mm_reg_write(u32 reg, u32 val, u32 msk)
+{
+	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
+}
+
 int sprd_iommu_mm_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
 	int err=-1;
@@ -73,18 +78,26 @@ void sprd_iommu_mm_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, siz
 int sprd_iommu_mm_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
-	sprd_iommu_mm_enable(dev);
+
+	if (0 == dev->map_count)
+		sprd_iommu_mm_enable(dev);
+	dev->map_count++;
+
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
-	sprd_iommu_mm_disable(dev);
+
 	return err;
 }
 
 int sprd_iommu_mm_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
-	sprd_iommu_mm_enable(dev);
+
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
-	sprd_iommu_mm_disable(dev);
+
+	dev->map_count--;
+	if (0 == dev->map_count)
+		sprd_iommu_mm_disable(dev);
+
 	return err;
 }
 
@@ -109,7 +122,14 @@ int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 {
 	printk("%s line:%d\n",__FUNCTION__,__LINE__);
+
 	sprd_iommu_disable(dev);
+
+	mutex_lock(&dev->mutex_pgt);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	mutex_unlock(&dev->mutex_pgt);
+
 #ifdef CONFIG_OF
 	clk_disable_unprepare(dev->mmu_clock);
 	if (dev->mmu_mclock)
@@ -124,6 +144,7 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 {
 	printk("%s line:%d\n",__FUNCTION__,__LINE__);
+
 #ifdef CONFIG_OF
 	if (dev->mmu_mclock)
 		clk_prepare_enable(dev->mmu_mclock);
@@ -133,7 +154,16 @@ int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 	clk_enable(dev->mmu_clock);
 #endif
 	udelay(100);
+
 	sprd_iommu_enable(dev);
+
+	mutex_lock(&dev->mutex_pgt);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
+	mutex_unlock(&dev->mutex_pgt);
+
 	return 0;
 }
 

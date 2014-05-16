@@ -127,12 +127,14 @@ int sprd_iova_unmap(int iommu_id, unsigned long iova,  struct ion_buffer *handle
 
 void sprd_iommu_module_enable(uint32_t iommu_id)
 {
-	iommu_devs[iommu_id]->ops->enable(iommu_devs[iommu_id]);
+	if (IOMMU_GSP == iommu_id)
+		iommu_devs[iommu_id]->ops->enable(iommu_devs[iommu_id]);
 }
 
 void sprd_iommu_module_disable(uint32_t iommu_id)
 {
-	iommu_devs[iommu_id]->ops->disable(iommu_devs[iommu_id]);
+	if (IOMMU_GSP == iommu_id)
+		iommu_devs[iommu_id]->ops->disable(iommu_devs[iommu_id]);
 }
 
 static int sprd_iommu_suspend(struct platform_device *pdev, pm_message_t state)
