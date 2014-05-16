@@ -421,14 +421,10 @@ static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
 	show_mem(SHOW_MEM_FILTER_NODES);
 
 	if (sysctl_oom_dump_tasks){
-#ifdef CONFIG_ANDROID_LMK_DEBUG
 #ifdef CONFIG_ZRAM
 		zram_printlog();
 #endif
-		//user_process_meminfo_show();
-#else
 		dump_tasks(mem, nodemask);
-#endif
 	}
 }
 
