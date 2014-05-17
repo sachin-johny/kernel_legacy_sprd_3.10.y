@@ -98,10 +98,10 @@ static int sprd_sdio_channel_do_tx(const char *buf, unsigned int len, unsigned i
 
     func = sprd_sdio_channel->func;
     sdio_claim_host(func);
-	printk("begin to call  sdio_memcpy_toio()\n");
     retval =  sdio_memcpy_toio(func, addr, buf, len);
     //retval =  sdio_memcpy_toio(func, s_dbg_addr++, buf, len);
     if(retval) {
+                printk("%s retval: %d\n", __func__, retval);
 		printk("sprd_sdio_channel_do_tx fail, call sdio_abort()\n");
 		sdio_abort(func->card->host);
 		s_dbg_tx_sdio_abort_sent_cnt++;
@@ -111,7 +111,7 @@ static int sprd_sdio_channel_do_tx(const char *buf, unsigned int len, unsigned i
 	if(s_dbg_tx_sdio_abort_sent_cnt) {
 		printk("sprd_sdio_channel_do_tx s_dbg_tx_sdio_abort_sent_cnt: %d\n", s_dbg_tx_sdio_abort_sent_cnt);
 	}
-    printk("%s retval: %d\n", __func__, retval);
+    
     return retval;
 }
 
@@ -126,6 +126,7 @@ static int sprd_sdio_channel_do_rx(char *buf, unsigned int len, unsigned int add
     sdio_claim_host(func);
     retval = sdio_memcpy_fromio(func, buf, addr, len);
     if(retval) {
+                printk("%s retval: %d\n", __func__, retval);
 		printk("sprd_sdio_channel_do_rx fail, call sdio_abort()\n");
 		sdio_abort(func->card->host);
 		s_dbg_rx_sdio_abort_sent_cnt++;
@@ -134,7 +135,7 @@ static int sprd_sdio_channel_do_rx(char *buf, unsigned int len, unsigned int add
 	if(s_dbg_rx_sdio_abort_sent_cnt) {
 		printk("sprd_sdio_channel_do_rx s_dbg_rx_sdio_abort_sent_cnt: %d\n", s_dbg_rx_sdio_abort_sent_cnt);
 	}
-    printk("%s retval: %d\n", __func__, retval);
+    
     return retval;
 }
 
