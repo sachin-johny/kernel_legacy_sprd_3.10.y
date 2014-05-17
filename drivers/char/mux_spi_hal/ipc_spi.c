@@ -966,7 +966,7 @@ static int mux_ipc_thread(void *data)
 {
 	int rval = 0;
 	struct ipc_spi_dev *dev = (struct ipc_spi_dev*)data;
-	struct sched_param	 param = {.sched_priority = 30};
+	struct sched_param	 param = {.sched_priority = 10};
 
 	IPC_DBG("mux_ipc_tx_thread");
 	sched_setscheduler(current, SCHED_FIFO, &param);
