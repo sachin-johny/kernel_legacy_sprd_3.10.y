@@ -2644,7 +2644,7 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 
 		mux_sched_send(self);
 
-		printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] write  = %d\n", __FUNCTION__, mux_id, line, current->pid, c);
+//		printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] write  = %d\n", __FUNCTION__, mux_id, line, current->pid, c);
 
 		MUX_TS0710_DEBUG(mux_id, "line[%d] pid[%d] wait write\n", line, current->pid);
 
