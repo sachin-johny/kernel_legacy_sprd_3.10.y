@@ -562,7 +562,11 @@ static int gen_ndis_set_resp(u8 configNr, u32 OID, u8 *buf, u32 buf_len,
 /*
  * Response Functions
  */
-
+#ifdef CONFIG_USB_SPRD_DWC
+#define RNDIS_MSG_MAX_NUM 10
+#else
+#define RNDIS_MSG_MAX_NUM 1
+#endif
 static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 {
 	rndis_init_cmplt_type *resp;
@@ -585,12 +589,12 @@ static int rndis_init_response(int configNr, rndis_init_msg_type *buf)
 	resp->MinorVersion = cpu_to_le32(RNDIS_MINOR_VERSION);
 	resp->DeviceFlags = cpu_to_le32(RNDIS_DF_CONNECTIONLESS);
 	resp->Medium = cpu_to_le32(RNDIS_MEDIUM_802_3);
-	resp->MaxPacketsPerTransfer = cpu_to_le32(1);
+	resp->MaxPacketsPerTransfer = cpu_to_le32(RNDIS_MSG_MAX_NUM);
 	resp->MaxTransferSize = cpu_to_le32(
-		  params->dev->mtu
+		  (params->dev->mtu
 		+ sizeof(struct ethhdr)
 		+ sizeof(struct rndis_packet_msg_type)
-		+ 22);
+		+ 22)*RNDIS_MSG_MAX_NUM);
 	resp->PacketAlignmentFactor = cpu_to_le32(0);
 	resp->AFListOffset = cpu_to_le32(0);
 	resp->AFListSize = cpu_to_le32(0);
@@ -1003,7 +1007,75 @@ static rndis_resp_t *rndis_add_response(int configNr, u32 length)
 		&(rndis_per_dev_params[configNr].resp_queue));
 	return r;
 }
+#if 1
+int rndis_rm_hdr(struct gether *port,
+			struct sk_buff *skb,
+			struct sk_buff_head *list)
+{
+	int num_pkts = 0;
 
+
+	while (skb->len) {
+		struct rndis_packet_msg_type *hdr;
+		struct sk_buff		*skb2;
+		u32		msg_len, data_offset, data_len;
+
+		if (skb->len < sizeof *hdr) {
+			pr_err("invalid rndis pkt: skblen:%u hdr_len:%u",
+					skb->len, sizeof *hdr);
+			dev_kfree_skb_any(skb);
+			return -EINVAL;
+		}
+
+		hdr = (void *)skb->data;
+		msg_len = le32_to_cpu(hdr->MessageLength);
+		data_offset = le32_to_cpu(hdr->DataOffset);
+		data_len = le32_to_cpu(hdr->DataLength);
+
+		if (skb->len < msg_len ||
+			((data_offset + data_len + 8) > msg_len)) {
+			pr_err("invalid rndis message: %d/%d/%d/%d, len:%d\n",
+				le32_to_cpu(hdr->MessageType),
+				msg_len, data_offset, data_len, skb->len);
+			dev_kfree_skb_any(skb);
+			return -EOVERFLOW;
+		}
+
+		if (le32_to_cpu(hdr->MessageType) != RNDIS_MSG_PACKET) {
+			pr_err("invalid rndis message: %d/%d/%d/%d, len:%d\n",
+				le32_to_cpu(hdr->MessageType),
+				msg_len, data_offset, data_len, skb->len);
+			dev_kfree_skb_any(skb);
+			return -EINVAL;
+		}
+
+		num_pkts++;
+
+		skb_pull(skb, data_offset + 8);
+
+		if (data_len == skb->len ||
+				data_len == (skb->len - 1)) {
+			skb_trim(skb, data_len);
+			break;
+		}
+
+		skb2 = skb_clone(skb, GFP_ATOMIC);
+		if (!skb2) {
+			pr_err("%s:skb clone failed\n", __func__);
+			dev_kfree_skb_any(skb);
+			return -ENOMEM;
+		}
+
+		skb_pull(skb, msg_len - sizeof *hdr);
+		skb_trim(skb2, data_len);
+		skb_queue_tail(list, skb2);
+	}
+
+	skb_queue_tail(list, skb);
+
+	return 0;
+}
+#else
 int rndis_rm_hdr(struct gether *port,
 			struct sk_buff *skb,
 			struct sk_buff_head *list)
@@ -1029,7 +1101,7 @@ int rndis_rm_hdr(struct gether *port,
 	skb_queue_tail(list, skb);
 	return 0;
 }
-
+#endif
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 
 static int rndis_proc_show(struct seq_file *m, void *v)
