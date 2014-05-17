@@ -290,7 +290,10 @@ static int veth_rx_data(struct veth_device *veth, uint8_t *data, uint32_t len)
 	if (!atomic_read(&veth->busy) &&
 			(int)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= VETH_NAPI_WEIGHT) {
 		atomic_inc(&veth->busy);
-		napi_schedule(&veth->napi);
+
+		/* trigger a NET_RX_SOFTIRQ softirq directly */
+		raise_softirq(NET_RX_SOFTIRQ);
+		//napi_schedule(&veth->napi);
 	}
 #else
 	skb->protocol = eth_type_trans(skb, veth->netdev);
@@ -573,7 +576,10 @@ static int veth_notify_handler(int index, int event, uint8_t * data, uint32_t le
 			if (!atomic_read(&veth->busy) &&
 					rx_fifo->rd_ptr != rx_fifo->wr_ptr) {
 				atomic_inc(&veth->busy);
-				napi_schedule(&veth->napi);
+
+				/* trigger a NET_RX_SOFTIRQ softirq directly */
+				raise_softirq(NET_RX_SOFTIRQ);
+				//napi_schedule(&veth->napi);
 			}
 			break;
 #endif
