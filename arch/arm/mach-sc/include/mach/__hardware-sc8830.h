@@ -631,10 +631,11 @@
 #define CPW_RING_SIZE			(SZ_4K)
 #define CPW_SMEM_SIZE		(SZ_1M + SZ_256K)
 
-#define WCN_START_ADDR		(CONFIG_PHYS_OFFSET + 320 * SZ_1M)
 #if defined(CONFIG_ARCH_SCX30G)
+#define WCN_START_ADDR		(CONFIG_PHYS_OFFSET + 168 * SZ_1M)//Tshark moves cp2 to 168M
 #define WCN_TOTAL_SIZE		0x201000//Tshark 8830gea memcut to 2M+4k
 #else
+#define WCN_START_ADDR		(CONFIG_PHYS_OFFSET + 320 * SZ_1M)
 #define WCN_TOTAL_SIZE		0x281000//(SZ_1M * 5)
 #endif
 #define WCN_RING_ADDR		(WCN_START_ADDR + WCN_TOTAL_SIZE - SZ_4K)

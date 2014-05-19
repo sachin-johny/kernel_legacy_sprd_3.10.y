@@ -15,7 +15,7 @@
 /memreserve/ 0x88000000 0x1200000;
 
 /* memory reserved for CPWCN modem */
-/memreserve/ 0x94000000 0x201000;
+/memreserve/ 0x8a800000 0x201000;/*Offset:168M, Size:2M+4K*/
 
 /* memory reserved for ION */
 /memreserve/ 0x97600000 0x8a00000;
@@ -432,9 +432,9 @@
 		ranges = <0x08000000 0x88000000 0x1200000>,
 				<0x07800000 0x87800000 0x180000>,
 				<0x091ff000 0x891ff000 0x1000>,
-			<0x14000000 0x94000000 0x201000>,
+			<0x0a800000 0x8a800000 0x201000>,
 				<0x07980000 0x87980000 0xc0000>,
-				<0x14200000 0x94200000 0x1000>;
+				<0x0aa00000 0x8aa00000 0x1000>;
 		sipc_cpt@0x08000000 {
 			sprd,name = "sipc-td";
 			sprd,dst = <1>;
@@ -447,7 +447,7 @@
 				<0x07800000 0x180000>, /* <SMEM_phy_addr total_size> */
 				<0x091ff000 0x1000>; /* smsg ring buffer <base size> */
 		};
-		sipc_wcn@0x14000000 {
+		sipc_wcn@0x0a800000 {
 			sprd,name = "sipc-wcn";
 			sprd,dst = <3>;
 			sprd,ap2cp = <0xf5240000>; /* base on ipi reggister */
@@ -455,9 +455,9 @@
 			sprd,trig = <0x100>; /* trigger bit */
 			sprd,clr = <0x100>; /* clear bit */
 			interrupts = <0 73 0x0>;
-			reg = <0x14000000 0x201000> , /* <CP_start_addr size> */
+			reg = <0x0a800000 0x201000> , /* <CP_start_addr size> */
 				<0x07980000 0xc0000>, /* <SMEM_phy_addr total_size> */
-				<0x14200000 0x1000>; /* smsg ring buffer <base size> */
+				<0x0aa00000 0x1000>; /* smsg ring buffer <base size> */
 		};
 
 	};
@@ -584,22 +584,22 @@
 		sprd,bufid = <10>;
 	};
 
-	scproc_cpwcn: scproc@0x94000000 {
+	scproc_cpwcn: scproc@0x8a800000 {
 		compatible = "sprd,scproc";
 		sprd,name = "cpwcn";
 		sprd,ctrl-reg = <0x54 0x54 0xa8 0xc0>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x02000000 0x10000000 0x04 0xf0000000>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x94060000>; /* 3rd param equals modem_addr*/
-		reg = <0x94000000 0x201000>, /* <CP_start_addr total_size> = <+320M 5M> */
+		sprd,iram-data = <0xe59f0000 0xe12fff10 0x8a808000>; /* 3rd param equals modem_addr*/
+		reg = <0x8a800000 0x201000>, /* <CP_start_addr total_size> = <+320M 5M> */
 			<0xf53d7000 0x0c>, /* <iram1_base size> */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 85 0x0>; /* cp2_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x60000 0x94060000 0x00800000>;
-		modem@0x60000 {
+		ranges = <0x8000 0x8a808000 0x00800000>;
+		modem@0x8000 {
 			cproc,name = "modem";
-			reg = <0x60000 0x00800000>; /* <modem_addr size> */
+			reg = <0x8000 0x00800000>; /* <modem_addr size> */
 		};
 	};
 
