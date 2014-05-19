@@ -51,7 +51,7 @@
 
 #define MAX_SDIO_TX_WAIT_TIMEOUT    100
 
-#define MAX_SDIO_CP_AWAKE_TIMEOUT    800
+#define MAX_SDIO_CP_AWAKE_TIMEOUT    500
 #define MAX_SDIO_SLEEP_TIMEOUT    50
 #define MAX_SDIO_CP_ACK_TIMEOUT    1000
 #define MAX_SDIO_TX_WATERMARK    4
@@ -91,9 +91,9 @@
 #define IPC_DBG printk
 
 /* Log Macros */
-#define IPC_SDIO_INFO(fmt...)	//pr_info("IPC_SDIO: " fmt)
-#define IPC_SDIO_DEBUG(fmt...)	//pr_debug("IPC_SDIO: " fmt)
-#define IPC_SDIO_ERR(fmt...)	//pr_err("IPC_SDIO: Error: " fmt)
+#define IPC_SDIO_INFO(fmt...)  //pr_info("IPC_SDIO: " fmt)
+#define IPC_SDIO_DEBUG(fmt...) //pr_debug("IPC_SDIO: " fmt)
+#define IPC_SDIO_ERR(fmt...)   //pr_err("IPC_SDIO: Error: " fmt)
 
 
 
@@ -1485,11 +1485,10 @@ static int mux_ipc_sdio_thread(void *data)
                         continue;
                 }
 
-
-
+		//set ap2cp active before transfer
+		ap2cp_req_enable();
                 //make sure cp is awake
                 if(!get_cp_awake()) {
-                        ap2cp_req_enable();
 
                         //wait cp ack
                         if(!wait_cp_awake(msecs_to_jiffies(MAX_SDIO_CP_ACK_TIMEOUT))) {
