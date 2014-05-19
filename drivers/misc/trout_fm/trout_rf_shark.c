@@ -75,6 +75,7 @@ void trout_fm_enter_sleep(void)
 
 	if(fm_rf_ops != NULL)
 	{
+#if defined(CONFIG_ARCH_SCX15)
 		/*Disable the RSSI AGC*/
 		sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
 		udelay(5);
@@ -84,7 +85,9 @@ void trout_fm_enter_sleep(void)
 
 		/*Enable the RSSI AGC*/
 		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
-
+#elif defined(CONFIG_ARCH_SCX35)
+        sci_glb_clr(FM_REG_FM_EN,BIT_2|BIT_3);
+#endif
 		fm_rf_ops->write_reg(0x404, 0x0313);
 	}
 }
@@ -93,6 +96,7 @@ void trout_fm_exit_sleep(void)
 {
 	if(fm_rf_ops != NULL) 
 	{
+#if defined(CONFIG_ARCH_SCX15)
 		/*Disable the RSSI AGC*/
 		sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
 		udelay(5);
@@ -102,6 +106,9 @@ void trout_fm_exit_sleep(void)
 
 		/*Enable the RSSI AGC*/
 		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
+#elif defined(CONFIG_ARCH_SCX35)
+        sci_glb_set(FM_REG_FM_EN,BIT_2|BIT_3);
+#endif
 	}
 }
 
