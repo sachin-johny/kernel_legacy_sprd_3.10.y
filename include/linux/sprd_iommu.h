@@ -42,6 +42,7 @@ struct sprd_iommu_dev {
 	struct early_suspend	early_suspend;
 #endif
 	void *private;
+	unsigned int map_count;
 };
 
 struct sprd_iommu_ops {
