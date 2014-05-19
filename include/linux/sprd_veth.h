@@ -16,6 +16,7 @@
 struct veth_init_data {
 	int index;
 	int inst_id;
+	int dev_id;
 	char *name;
 };
 #endif
