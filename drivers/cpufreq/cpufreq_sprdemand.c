@@ -761,6 +761,9 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 	unsigned int itself_avg_load = 0;
 	struct unplug_work_info *puwi;
 
+	if(time_before(jiffies, boot_done))
+		return;
+
 	/* skip cpufreq adjustment if system enter into suspend */
 	if(true == sd_tuners->is_suspend) {
 		pr_info("%s: is_suspend=%s, skip cpufreq adjust\n",
