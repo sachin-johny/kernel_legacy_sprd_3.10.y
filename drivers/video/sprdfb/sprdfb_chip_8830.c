@@ -19,6 +19,9 @@
 
 void dsi_enable(void)
 {
+#ifdef CONFIG_FB_SCX30G
+    sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_DSI_PHY_PD);
+#endif
 	sci_glb_set(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_REF_CKG_EN);
 	sci_glb_set(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_CFG_CKG_EN);
 
@@ -32,6 +35,9 @@ void dsi_disable(void)
 	sci_glb_clr(REG_AP_AHB_MISC_CKG_EN, BIT_DPHY_CFG_CKG_EN);
 
 	sci_glb_clr(DSI_REG_EB, DSI_BIT_EB);
+#ifdef CONFIG_FB_SCX30G
+    sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_DSI_PHY_PD);
+#endif
 }
 
 
