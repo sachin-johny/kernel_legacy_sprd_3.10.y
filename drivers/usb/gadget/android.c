@@ -208,6 +208,7 @@ static void android_disable(struct android_dev *dev)
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
 		usb_remove_config(cdev, &android_config_driver);
+		cdev->next_string_id = 7;
 	}
 }
 
