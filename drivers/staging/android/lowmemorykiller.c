@@ -44,6 +44,7 @@
 #include <linux/delay.h>
 #include <linux/swap.h>
 #include <linux/fs.h>
+#include <linux/cpuset.h>
 
 #ifdef CONFIG_HIGHMEM
 #define _ZONE ZONE_HIGHMEM
@@ -280,6 +281,26 @@ typedef struct lmk_debug_info
 	ssize_t zram_mem_usage;
 }lmk_debug_info;
 
+extern void dump_tasks(const struct mem_cgroup *memcg, const nodemask_t *nodemask);
+
+static void dump_header(struct task_struct *p, gfp_t gfp_mask, int order,
+			struct mem_cgroup *memcg, const nodemask_t *nodemask)
+{
+	task_lock(current);
+	pr_warning("%s invoked lmk: gfp_mask=0x%x, order=%d, "
+		"oom_score_adj=%hd\n",
+		current->comm, gfp_mask, order,
+		current->signal->oom_score_adj);
+	cpuset_print_task_mems_allowed(current);
+	task_unlock(current);
+	dump_stack();
+	if (memcg)
+		mem_cgroup_print_oom_info(memcg, p);
+	else
+		show_mem(SHOW_MEM_FILTER_NODES);
+	dump_tasks(memcg, nodemask);
+}
+
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {
 	lmk_debug_info  lmk_info = {0};
@@ -444,6 +465,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	}
 	if (selected) {
 		if(selected_oom_score_adj || is_need_lmk_kill) {
+			lowmem_print(1, "send sigkill to selected process:\n");/*match monkey*/
 			lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
@@ -463,6 +485,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 				lmk_info.zram_mem_usage*PAGE_SIZE /1024);
 
 			lowmem_deathpending_timeout = jiffies + HZ;
+			/*from oomkill*/
+			dump_header(current, sc->gfp_mask, -1, 0, 0);
 			send_sig(SIGKILL, selected, 0);
 			set_tsk_thread_flag(selected, TIF_MEMDIE);
 			rem -= selected_tasksize;
