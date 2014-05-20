@@ -1578,6 +1578,7 @@ struct platform_device sprd_audio_null_codec_device = {
 static struct veth_init_data sprd_veth_spi0_pdata = {
 	.index 		= 13,
 	.inst_id 	= SPRDMUX_ID_SPI,
+	.dev_id 	= 0,
 	.name 		= "veth_spi0",
 };
 struct platform_device sprd_veth_spi0_device = {
@@ -1589,6 +1590,7 @@ struct platform_device sprd_veth_spi0_device = {
 static struct veth_init_data sprd_veth_spi1_pdata = {
 	.index 		= 14,
 	.inst_id 	= SPRDMUX_ID_SPI,
+	.dev_id 	= 1,
 	.name 		= "veth_spi1",
 };
 struct platform_device sprd_veth_spi1_device = {
@@ -1600,6 +1602,7 @@ struct platform_device sprd_veth_spi1_device = {
 static struct veth_init_data sprd_veth_spi2_pdata = {
 	.index 		= 15,
 	.inst_id 	= SPRDMUX_ID_SPI,
+	.dev_id 	= 2,
 	.name 		= "veth_spi2",
 };
 struct platform_device sprd_veth_spi2_device = {
@@ -1611,6 +1614,7 @@ struct platform_device sprd_veth_spi2_device = {
 static struct veth_init_data sprd_veth_spi3_pdata = {
 	.index 		= 16,
 	.inst_id 	= SPRDMUX_ID_SPI,
+	.dev_id 	= 3,
 	.name 		= "veth_spi3",
 };
 struct platform_device sprd_veth_spi3_device = {
@@ -1622,6 +1626,7 @@ struct platform_device sprd_veth_spi3_device = {
 static struct veth_init_data sprd_veth_spi4_pdata = {
 	.index 		= 17,
 	.inst_id 	= SPRDMUX_ID_SPI,
+	.dev_id 	= 4,
 	.name 		= "veth_spi4",
 };
 struct platform_device sprd_veth_spi4_device = {
@@ -1635,6 +1640,7 @@ struct platform_device sprd_veth_spi4_device = {
 static struct veth_init_data sprd_veth_sdio0_pdata = {
 	.index 		= 13,
 	.inst_id 	= SPRDMUX_ID_SDIO,
+	.dev_id 	= 0,
 	.name 		= "veth_sdio0",
 };
 struct platform_device sprd_veth_sdio0_device = {
@@ -1646,6 +1652,7 @@ struct platform_device sprd_veth_sdio0_device = {
 static struct veth_init_data sprd_veth_sdio1_pdata = {
 	.index 		= 14,
 	.inst_id 	= SPRDMUX_ID_SDIO,
+	.dev_id 	= 1,
 	.name 		= "veth_sdio1",
 };
 struct platform_device sprd_veth_sdio1_device = {
@@ -1657,6 +1664,7 @@ struct platform_device sprd_veth_sdio1_device = {
 static struct veth_init_data sprd_veth_sdio2_pdata = {
 	.index 		= 15,
 	.inst_id 	= SPRDMUX_ID_SDIO,
+	.dev_id 	= 2,
 	.name 		= "veth_sdio2",
 };
 struct platform_device sprd_veth_sdio2_device = {
@@ -1668,6 +1676,7 @@ struct platform_device sprd_veth_sdio2_device = {
 static struct veth_init_data sprd_veth_sdio3_pdata = {
 	.index 		= 16,
 	.inst_id 	= SPRDMUX_ID_SDIO,
+	.dev_id 	= 3,
 	.name 		= "veth_sdio3",
 };
 struct platform_device sprd_veth_sdio3_device = {
@@ -1679,6 +1688,7 @@ struct platform_device sprd_veth_sdio3_device = {
 static struct veth_init_data sprd_veth_sdio4_pdata = {
 	.index 		= 17,
 	.inst_id 	= SPRDMUX_ID_SDIO,
+	.dev_id 	= 4,
 	.name 		= "veth_sdio4",
 };
 struct platform_device sprd_veth_sdio4_device = {

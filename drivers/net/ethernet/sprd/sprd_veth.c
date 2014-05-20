@@ -30,6 +30,7 @@
 #include <linux/if_ether.h>
 #include <linux/platform_device.h>
 #include <linux/sprdmux.h>
+#include <linux/sprd_veth.h>
 
 /* Log Macros */
 #define VETH_INFO(fmt...)	pr_info("VETH: " fmt)
@@ -118,12 +119,6 @@ struct veth_device {
 #endif
 
 	struct net_device_stats stats;
-};
-
-struct veth_init_data {
-	int index;
-	int inst_id;
-	char *name;
 };
 
 struct veth_device * g_veth_devices[SPRDMUX_ID_MAX][5] = {NULL};
@@ -293,7 +288,6 @@ static int veth_rx_data(struct veth_device *veth, uint8_t *data, uint32_t len)
                 napi_schedule(&veth->napi);
 		/* trigger a NET_RX_SOFTIRQ softirq directly */
 		raise_softirq(NET_RX_SOFTIRQ);
-		//napi_schedule(&veth->napi);
 	}
 #else
 	skb->protocol = eth_type_trans(skb, veth->netdev);
@@ -579,7 +573,6 @@ static int veth_notify_handler(int index, int event, uint8_t * data, uint32_t le
 				napi_schedule(&veth->napi);
 				/* trigger a NET_RX_SOFTIRQ softirq directly */
 				raise_softirq(NET_RX_SOFTIRQ);
-				//napi_schedule(&veth->napi);
 			}
 			break;
 #endif
@@ -742,10 +735,12 @@ static int veth_probe(struct platform_device *pdev)
 	struct net_device *netdev;
 	struct veth_rx_packet *vpkt;
 	int inst_id;
+	int dev_id;
 	int index, ret;
 	char name[64] = {0};
 
 	index = pdata->index;
+	dev_id = pdata->dev_id;
 	inst_id = pdata->inst_id;
 
 	sprintf(name, "%s", pdata->name);
@@ -767,7 +762,7 @@ static int veth_probe(struct platform_device *pdev)
 	veth->rxpkt = vpkt;
 	veth->pdata = pdata;
 #ifdef VETH_NAPI
-	veth->rx_fifo = &g_rx_fifos[inst_id][index];
+	veth->rx_fifo = &g_rx_fifos[inst_id][dev_id];
 	atomic_set(&veth->busy, 0);
 #endif
 
@@ -801,7 +796,7 @@ static int veth_probe(struct platform_device *pdev)
 
 	platform_set_drvdata(pdev, veth);
 
-	g_veth_devices[inst_id][index] = veth;
+	g_veth_devices[inst_id][dev_id] = veth;
 
 	VETH_INFO("%s probe done\n", netdev->name);
 	return 0;
