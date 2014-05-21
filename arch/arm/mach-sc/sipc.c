@@ -11,8 +11,6 @@
  * GNU General Public License for more details.
  */
 
-
-
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/wait.h>
@@ -200,36 +198,5 @@ arch_initcall(sipc_init);
 MODULE_AUTHOR("Chen Gaopeng");
 MODULE_DESCRIPTION("SIPC module driver");
 MODULE_LICENSE("GPL");
-
-#else
-
-#ifdef CONFIG_SIPC_WCN
-static int __init itm_wlan_init(void)
-{
-	int ret;
-
-	ret = sblock_create(3, 7,
-			    64, 1600,
-			    64, 1600);
-	if (ret) {
-		printk(KERN_ERR "Failed to create data sblock (%d)\n", ret);
-		return -ENOMEM;
-	}
-
-	ret = sblock_create(3, 8,
-			    1, (10 * 1024),
-			    1, (10 * 1024));
-	if (ret) {
-		printk(KERN_ERR "Failed to create event sblock (%d)\n", ret);
-		sblock_destroy(3, 7);
-		return -ENOMEM;
-	}
-
-	printk(KERN_ERR "create sblock successfully\n");
-	return 0;
-}
-
-module_init(itm_wlan_init);
-#endif
 
 #endif /* end of CONFIG_OF */
