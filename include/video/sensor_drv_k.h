@@ -65,6 +65,7 @@ enum INTERFACE_TYPE_ID {
 typedef struct sensor_if_cfg_tag {
 	uint32_t is_open;
 	uint32_t if_type;
+	uint32_t phy_id;
 	uint32_t lane_num;
 	uint32_t bps_per_lane;
 }SENSOR_IF_CFG_T;

@@ -23,7 +23,7 @@ static void           *u_data = NULL;
 void csi_api_event1_handler(void *param);
 void csi_api_event2_handler(void *param);
 
-u8 csi_api_init(u32 pclk)
+u8 csi_api_init(u32 pclk, u32 phy_id)
 {
 	return ERR_NOT_COMPATIBLE;
 }
@@ -31,7 +31,7 @@ u8 csi_api_start(void)
 {
 	return ERR_NOT_COMPATIBLE;
 }
-u8 csi_api_close(void)
+u8 csi_api_close(u32 phy_id)
 {
 	return ERR_NOT_COMPATIBLE;
 }

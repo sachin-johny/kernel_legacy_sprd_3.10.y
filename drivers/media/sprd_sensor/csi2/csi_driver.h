@@ -110,7 +110,7 @@ struct csi_pclk_cfg {
 	u8    hsrxthssettle;
 };
 
-void dphy_init(u32 pclk);
+void dphy_init(u32 pclk, u32 phy_id);
 u8 csi_init(u32 base_address);
 u8 csi_close(void);
 u8 csi_get_on_lanes(void);

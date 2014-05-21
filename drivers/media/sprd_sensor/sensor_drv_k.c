@@ -1589,7 +1589,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							struct miscdevice *md = file->private_data ;
 							_sensor_k_mipi_clk_en(md->this_device->of_node);
 							udelay(1);
-							csi_api_init(if_cfg.bps_per_lane);
+							csi_api_init(if_cfg.bps_per_lane, if_cfg.phy_id);
 							csi_api_start();
 							csi_reg_isr(_sensor_csi2_error, (void*)s_p_sensor_mod);
 							csi_set_on_lanes(if_cfg.lane_num);
@@ -1602,7 +1602,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 				} else {
 					if (INTERFACE_MIPI == if_cfg.if_type) {
 						if (1 == s_p_sensor_mod->mipi_on) {
-							csi_api_close();
+							csi_api_close(if_cfg.phy_id);
 							_sensor_k_mipi_clk_dis();
 							s_p_sensor_mod->mipi_on = 0;
 							printk("MIPI off \n");

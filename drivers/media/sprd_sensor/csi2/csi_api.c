@@ -3,7 +3,7 @@
 #include <linux/delay.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
-
+#include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
 #include <mach/irqs.h>
 #include <mach/globalregs.h>
@@ -39,6 +39,38 @@ static void           *u_data = NULL;
 void csi_api_event1_handler(void *param);
 void csi_api_event2_handler(void *param);
 
+static void csi_phy_power_down(u32 phy_id, u32 is_eb)
+{
+#if defined(CONFIG_ARCH_SCX30G)
+	/*bit0: phya ; bit1: phyb*/
+	if (is_eb) {
+		if (0x03 == (phy_id & 0x03)) {
+			sci_glb_set(REG_AON_APB_PWR_CTRL, (BIT_CSI0_PHY_PD | BIT_CSI1_PHY_PD));
+		} else {
+			if (0x01 == (phy_id & 0x01)) {
+				sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_CSI0_PHY_PD);
+			}
+
+			if (0x02 == (phy_id & 0x02)) {
+				sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_CSI1_PHY_PD);
+			}
+		}
+	} else {
+		if (0x03 == (phy_id & 0x03)) {
+			sci_glb_clr(REG_AON_APB_PWR_CTRL, (BIT_CSI0_PHY_PD | BIT_CSI1_PHY_PD));
+		} else {
+			if (0x01 == (phy_id & 0x01)) {
+				sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_CSI0_PHY_PD);
+			}
+
+			if (0x02 == (phy_id & 0x02)) {
+				sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_CSI1_PHY_PD);
+			}
+		}
+	}
+#endif
+}
+
 static void csi_enable(void)
 {
     sci_glb_set(CSI2_EB, CSI2_EB_BIT);
@@ -47,13 +79,14 @@ static void csi_enable(void)
     sci_glb_clr(CSI2_RST, CSI2_RST_BIT);
 }
 
-u8 csi_api_init(u32 pclk)
+u8 csi_api_init(u32 pclk, u32 phy_id)
 {
     csi_error_t e = SUCCESS;
     u32 base_address = SPRD_CSI2_BASE;
     	
     do                                                                                                                     
     {
+        csi_phy_power_down(phy_id, 0);
         csi_enable();
         e = csi_init(base_address);                                                                                        
         if(e != SUCCESS)                                                                                                   
@@ -61,7 +94,7 @@ u8 csi_api_init(u32 pclk)
             LOG_ERROR("Unable to initialise driver");                                                                      
             break;                                                                                                         
         } 
-        dphy_init(pclk);
+        dphy_init(pclk, phy_id);
     }while(0);
 
     return e;
@@ -138,14 +171,16 @@ u8 csi_api_start(void)
 	return e;                                                                                                              
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_close(void)                                                                                                         
+u8 csi_api_close(u32 phy_id)
 {
     LOG_DEBUG("exit");
     csi_api_unregister_all_events();                                                                                       
     csi_shut_down_phy(1);    
     free_irq(IRQ_CSI_INT0, &g_csi2_irq);
     free_irq(IRQ_CSI_INT1, &g_csi2_irq);
-    return csi_close();                                                                                                    
+    csi_close();
+    csi_phy_power_down(phy_id, 1);
+    return SUCCESS;
 }                                                                                                                          
                                                                                                                            
 u8 csi_api_set_on_lanes(u8 no_of_lanes)                                                                                    

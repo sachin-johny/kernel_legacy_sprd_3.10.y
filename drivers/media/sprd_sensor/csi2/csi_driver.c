@@ -40,6 +40,36 @@ static const struct csi_pclk_cfg csi_pclk_setting[CSI_PCLK_CFG_COUNTER] = {
 	{950, 1000, 0x1A, 52}
 };
 
+static void dpy_ab_clr(void)
+{
+#if defined(CONFIG_ARCH_SCX30G)
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x1F);
+#endif
+}
+
+static void dpy_a_enable(void)
+{
+#if defined(CONFIG_ARCH_SCX30G)
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x07);
+	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x0C);
+#endif
+}
+
+static void dpy_b_enable(void)
+{
+#if defined(CONFIG_ARCH_SCX30G)
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x07);
+	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x0F);
+#endif
+}
+
+static void dpy_ab_sync(void)
+{
+#if defined(CONFIG_ARCH_SCX30G)
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x07);
+#endif
+}
+
 static void dphy_write(u8 test_code, u8 test_data, u8* test_out)
 {
 	u32 temp = 0xffffff00;
@@ -107,31 +137,66 @@ static void csi_get_pclk_cfg(u32 pclk, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
 	}
 }
 
-void dphy_init(u32 pclk)
+static void dphy_init_common(u32 pclk, u32 phy_id)
 {
-    u8 temp = 0;
-    struct csi_pclk_cfg csi_pclk_cfg_val = {0, 0, 0, 0};
+	u8 temp = 0;
+	struct csi_pclk_cfg csi_pclk_cfg_val = {0, 0, 0, 0};
 
-    csi_core_write_part(PHY_SHUTDOWNZ,  0, 0, 1);
-    csi_core_write_part(DPHY_RSTZ, 0, 0, 1);
-    csi_core_write_part(PHY_TST_CRTL0, 1, PHY_TESTCLR, 1);
-    udelay(1);
-    csi_core_write_part(PHY_TST_CRTL0, 0, PHY_TESTCLR, 1);
-    udelay(1);
-    dphy_cfg_start();
+	csi_core_write_part(PHY_SHUTDOWNZ,  0, 0, 1);
+	csi_core_write_part(DPHY_RSTZ, 0, 0, 1);
+	csi_core_write_part(PHY_TST_CRTL0, 1, PHY_TESTCLR, 1);
+	udelay(1);
+	csi_core_write_part(PHY_TST_CRTL0, 0, PHY_TESTCLR, 1);
+	udelay(1);
+	dphy_cfg_start();
 
-    csi_get_pclk_cfg(pclk, &csi_pclk_cfg_val);
-    dphy_write(0x34, 0x14, &temp);
-    dphy_write(0x44, (((csi_pclk_cfg_val.hsfreqrange & 0x3F) << 1) & 0x7E), &temp);
-    dphy_write(0x75, (0x80 | (csi_pclk_cfg_val.hsrxthssettle & 0x7F)), &temp);
-    dphy_write(0x54, 0x14, &temp);
-    dphy_write(0x64, 0x14, &temp);
-    dphy_write(0x74, 0x14, &temp);
+	csi_get_pclk_cfg(pclk, &csi_pclk_cfg_val);
 
-    dphy_cfg_done();
-   
+#if defined(CONFIG_ARCH_SCX30G)
+	if (0x03 == phy_id) {
+		if (0x01 == phy_id) {
+			dphy_write(0x34, 0xA0, &temp);
+		} else {
+			dphy_write(0x34, 0x14, &temp);
+		}
+	} else {
+		dphy_write(0x34, 0x14, &temp);
+	}
+#else
+	dphy_write(0x34, 0x14, &temp);
+#endif
+
+	dphy_write(0x44, (((csi_pclk_cfg_val.hsfreqrange & 0x3F) << 1) & 0x7E), &temp);
+	dphy_write(0x75, (0x80 | (csi_pclk_cfg_val.hsrxthssettle & 0x7F)), &temp);
+	dphy_write(0x54, 0x14, &temp);
+	dphy_write(0x64, 0x14, &temp);
+	dphy_write(0x74, 0x14, &temp);
+
+	dphy_cfg_done();
 }
 
+void dphy_init(u32 pclk, u32 phy_id)
+{
+#if defined(CONFIG_ARCH_SCX30G)
+	dpy_ab_clr();
+
+	if (phy_id & 0x01) {
+		dpy_a_enable();
+		dphy_init_common(pclk, phy_id);
+	}
+
+	if (phy_id & 0x02) {
+		dpy_b_enable();
+		dphy_init_common(pclk, phy_id);
+	}
+
+	if (0x03 == (phy_id & 0x03)) {
+		dpy_ab_sync();
+	}
+#else
+	dphy_init_common(pclk, phy_id);
+#endif
+}
 
 u8 csi_init(u32 base_address)
 {
@@ -179,13 +244,6 @@ u8 csi_get_on_lanes()
 
 u8 csi_set_on_lanes(u8 lanes)
 {
-#if defined(CONFIG_ARCH_SCX30G)
-	sci_glb_clr(SPRD_MMAHB_BASE + 0x00C, 0X02);
-	if (lanes > 2) {
-		sci_glb_clr(SPRD_MMAHB_BASE + 0x00C, 0X04);
-		sci_glb_set(SPRD_MMAHB_BASE + 0x00C, 0X02);
-	}
-#endif
 	return csi_core_write_part(N_LANES, (lanes - 1), 0, 2);
 }
 
