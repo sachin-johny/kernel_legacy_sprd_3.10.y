@@ -8,6 +8,7 @@
  * Leon Liu <leon.liu@spreadtrum.com>
  * Wenjie.Zhang <Wenjie.Zhang@spreadtrum.com>
  * Danny Deng <danny.deng@spreadtrum.com>
+ * Jingxiang Li <jingxiang.li@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -35,6 +36,72 @@
 
 extern WIFI_nvm_data *get_gWIFI_nvm_data(void);
 
+#define SIPC_PRI	"net wlan:"
+#ifdef CONFIG_OF
+/* sblock configs
+	[0] dst		[1] channel
+	[2] txblocknum	[3] txblocksize
+	[4] rxblocknum	[5] rxblocksize
+*/
+#define SIPC_SBLOCKS_NUM	2
+static int sipc_sblocks[][6] = {
+	{
+	 WLAN_CP_ID, WLAN_SBLOCK_CH,
+	 WLAN_SBLOCK_NUM, WLAN_SBLOCK_SIZE,
+	 WLAN_SBLOCK_RX_NUM, WLAN_SBLOCK_SIZE},
+	{
+	 WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
+	 WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE,
+	 WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE}
+};
+
+void itm_wlan_sipc_sblock_deinit(int sblock_ch)
+{
+	int i;
+	for (i = 0; i < SIPC_SBLOCKS_NUM; i++) {
+		if (sblock_ch == sipc_sblocks[i][1])
+			break;
+	}
+	if (i == SIPC_SBLOCKS_NUM)
+		return;
+	sblock_destroy(sipc_sblocks[i][0], sipc_sblocks[i][1]);
+}
+
+int itm_wlan_sipc_sblock_init(int sblock_ch,
+			      void (*handler) (int event, void *data),
+			      void *data)
+{
+	int i, ret = 0;
+
+	for (i = 0; i < SIPC_SBLOCKS_NUM; i++) {
+		if (sblock_ch == sipc_sblocks[i][1])
+			break;
+	}
+	if (i == SIPC_SBLOCKS_NUM)
+		return -EINVAL;
+
+	ret = sblock_create(sipc_sblocks[i][0], sipc_sblocks[i][1],
+			    sipc_sblocks[i][2], sipc_sblocks[i][3],
+			    sipc_sblocks[i][4], sipc_sblocks[i][5]);
+	if (ret) {
+		pr_err(SIPC_PRI "create sblock %d-%d failed:%d\n",
+		       sipc_sblocks[i][0], sipc_sblocks[i][1], ret);
+		return ret;
+	}
+
+	ret =
+	    sblock_register_notifier(sipc_sblocks[i][0], sipc_sblocks[i][1],
+				     handler, data);
+	if (ret) {
+		pr_err(SIPC_PRI "regitster sblock %d-%d notifier failed:%d\n",
+		       sipc_sblocks[i][0], sipc_sblocks[i][1], ret);
+		sblock_destroy(sipc_sblocks[i][0], sipc_sblocks[i][1]);
+	}
+
+	return ret;
+}
+#endif
+
 /* sbuf should be created and initilized */
 int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 {
@@ -51,17 +118,20 @@ int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 	send_buf->u.cmd.cmd_tag = cpu_to_le16(cmd_tag);
 /*      send_buf->u.seq_no = cpu_to_1e16(seq_no);*/
 
+	pr_debug(SIPC_PRI "send cmd [%d %d]\n", id, type);
 	/* sipc-sbuf ops */
 	send_len = sbuf_write(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
 			      send_buf, len,
 			      msecs_to_jiffies(DEFAULT_WAIT_SBUF_TIME));
 
 	if (send_len < 0) {
-		pr_err("sbuf_write error (%d)\n", send_len);
+		pr_err(SIPC_PRI "cmd [%d %d] sbuf_write error (%d)\n",
+		       id, type, send_len);
 		return send_len;
 	} else if (send_len != len) {
-		pr_err("sbuf_write not completely with send len %d\n",
-		       send_len);
+		pr_err(SIPC_PRI
+		       "cmd [%d %d] sbuf_write not completely with send len %d\n",
+		       id, type, send_len);
 		return -EIO;
 	} else {
 #ifdef DUMP_COMMAND
@@ -91,10 +161,11 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 			     msecs_to_jiffies(DEFAULT_WAIT_SBUF_TIME));
 
 	if (recv_len < 0) {
-		pr_err("sbuf_read error (%d)\n", recv_len);
+		pr_err(SIPC_PRI "cmd %d sbuf_read error (%d)\n", id, recv_len);
 		return recv_len;
 	} else if (recv_len != len) {
-		pr_err("sbuf_read not completely with recv len %d\n", recv_len);
+		pr_err(SIPC_PRI "cmd %d sbuf_read not completely,len %d\n",
+		       id, recv_len);
 		return -EIO;
 	}
 #ifdef DUMP_COMMAND_RESPONSE
@@ -113,17 +184,18 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 	cmd_id = ITM_WLAN_CMD_TAG_GET_ID(cmd_tag);
 
 	if ((msg_len != recv_len) || (msg_type != ITM_WLAN_MSG_CMD_RSP)) {
-		pr_err("msg_len is not expected or msg_type is not resp cmd\n");
+		pr_err(SIPC_PRI "cmd %d msg_len:%d msg_type:%d\n",
+		       id, msg_len, msg_type);
 		return -EIO;
 	}
 
 	if (cmd_dir != CMD_DIR_CP2AP) {
-		pr_err("cmd dir is not CP to AP\n");
+		pr_err(SIPC_PRI "cmd %d dir is not CP to AP:%d\n", id, cmd_dir);
 		return -EIO;
 	}
 
 	if (cmd_id != id) {
-		pr_err("cmd recv wrong cmd id %d\n", cmd_id);
+		pr_err(SIPC_PRI "cmd %d recv wrong cmd id %d\n", id, cmd_id);
 		return -EIO;
 	}
 
@@ -136,20 +208,21 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 	int ret = 0;
 
 	if (!mutex_trylock(&wlan_sipc->pm_lock)) {
-		pr_err("cmd could not get pm mutex\n");
+		pr_err(SIPC_PRI "cmd [%d %d] could not get pm mutex\n",
+		       id, type);
 		ret = -EBUSY;
 		return ret;
 	}
 
-	/* TODO sipc-sbuf ops */
+	/* make sure cmd more safe */
 	ret = sbuf_read(WLAN_CP_ID, WLAN_SBUF_CH, WLAN_SBUF_ID,
-			wlan_sipc->recv_buf, 256, 0);
-	if (ret == -ENODATA) {
-		pr_debug("no dirty data in sbuf\n");
-	} else if (ret > 0) {
-		pr_err("clean up dirty data in sbuf\n");
-	} else {
-		pr_err("sbuf recv channel error(%d)\n", ret);
+			wlan_sipc->recv_buf, WLAN_SBUF_SIZE, 0);
+	if (ret > 0) {
+		pr_err(SIPC_PRI "cmd [%d %d] clean dirty data,len:%d<%d\n",
+			id, type, ret, WLAN_SBUF_SIZE);
+	} else if (ret != -ENODATA) {
+		pr_err(SIPC_PRI "cmd [%d %d] sbuf recv channel error(%d)\n",
+			id, type, ret);
 		goto out;
 	}
 
@@ -158,7 +231,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 			       type, id);
 
 	if (ret) {
-		pr_err("cmd send error %d\n", ret);
+		pr_err(SIPC_PRI "cmd [%d %d] send error %d\n", id, type, ret);
 		goto out;
 	}
 
@@ -166,7 +239,7 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 				    id);
 
 	if (ret) {
-		pr_err("cmd recv error %d\n", ret);
+		pr_err(SIPC_PRI "cmd [%d %d] recv error %d\n", id, type, ret);
 		goto out;
 	}
 
@@ -174,7 +247,8 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 
 	/* FIXME consider return status */
 	if (status) {
-		pr_err("cmd status error %d\n", status);
+		pr_err(SIPC_PRI "cmd [%d %d] status error %d\n",
+		       id, type, status);
 		mutex_unlock(&wlan_sipc->pm_lock);
 		return status;
 	}
@@ -190,7 +264,7 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 	int send_len = 0;
 	int ret;
 
-	pr_debug("trigger scan\n");
+	pr_debug(SIPC_PRI "trigger scan\n");
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
@@ -204,7 +278,7 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_SCAN);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -222,7 +296,7 @@ int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
 
 	if (wpa_version == 0) {
 		/*Disable */
-		pr_debug("set wpa_version is zero\n");
+		pr_debug(SIPC_PRI "set wpa_version is zero\n");
 		return 0;
 	}
 
@@ -236,7 +310,7 @@ int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
 				     CMD_TYPE_SET, WIFI_CMD_WPA_VERSION);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -263,7 +337,7 @@ int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type)
 				     CMD_TYPE_SET, WIFI_CMD_AUTH_TYPE);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -282,7 +356,7 @@ int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
 	int ret;
 
 	if ((id != WIFI_CMD_PAIRWISE_CIPHER) && (id != WIFI_CMD_GROUP_CIPHER)) {
-		pr_err("not support this type cipher: %d\n", id);
+		pr_err(SIPC_PRI "not support this type cipher: %d\n", id);
 		return -EINVAL;
 	}
 
@@ -296,7 +370,7 @@ int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, cmd_id);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -322,7 +396,7 @@ int itm_wlan_set_key_management_cmd(struct wlan_sipc *wlan_sipc, u8 key_mgmt)
 				     CMD_TYPE_SET, WIFI_CMD_AKM_SUITE);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -347,7 +421,7 @@ int itm_wlan_get_device_mode_cmd(struct wlan_sipc *wlan_sipc)
 				     CMD_TYPE_SET, WIFI_CMD_DEV_MODE);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -367,12 +441,12 @@ int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
 	int ret;
 
 	if (key_len == 0) {
-		pr_err("PSK length is 0\n");
+		pr_err(SIPC_PRI "PSK length is 0\n");
 		return 0;
 	}
 
 	if (key_len > 32) {
-		pr_err("PSK length is larger than 32\n");
+		pr_err(SIPC_PRI "PSK length is larger than 32\n");
 		return -EINVAL;
 	}
 
@@ -385,7 +459,7 @@ int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_PSK);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -411,7 +485,7 @@ int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_CHANNEL);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -435,7 +509,7 @@ int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BSSID);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -460,7 +534,7 @@ int itm_wlan_set_essid_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_ESSID);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -478,12 +552,12 @@ int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
 	int ret;
 
 	if (bssid == NULL) {
-		pr_err("pmksa->bssid is null\n");
+		pr_err(SIPC_PRI "pmksa->bssid is null\n");
 		return -EINVAL;
 	}
 
 	if ((type != CMD_TYPE_FLUSH) && pmkid == NULL) {
-		pr_err("pmksa->pmkid is null\n");
+		pr_err(SIPC_PRI "pmksa->pmkid is null\n");
 		return -EINVAL;
 	}
 
@@ -500,7 +574,7 @@ int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, type, WIFI_CMD_PMKSA);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -525,7 +599,7 @@ int itm_wlan_disconnect_cmd(struct wlan_sipc *wlan_sipc, u16 reason_code)
 				     CMD_TYPE_SET, WIFI_CMD_DISCONNECT);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -563,7 +637,7 @@ int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD, WIFI_CMD_KEY);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -593,7 +667,7 @@ int itm_wlan_del_key_cmd(struct wlan_sipc *wlan_sipc, u16 key_index,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL, WIFI_CMD_KEY);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -618,7 +692,7 @@ int itm_wlan_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_KEY);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -644,7 +718,7 @@ int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold)
 				     WIFI_CMD_RTS_THRESHOLD);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -671,7 +745,7 @@ int itm_wlan_set_frag_cmd(struct wlan_sipc *wlan_sipc, u16 frag_threshold)
 				     WIFI_CMD_FRAG_THRESHOLD);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -695,7 +769,7 @@ int itm_wlan_get_rssi_cmd(struct wlan_sipc *wlan_sipc, s8 *signal, s8 *noise)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_RSSI);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -722,7 +796,7 @@ int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_TXRATE);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -751,7 +825,7 @@ int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BEACON);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -770,7 +844,7 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	int ret;
 
 	if (type != WPS_REQ_IE && type != WPS_ASSOC_IE) {
-		pr_err("wrong ie type is %d\n", type);
+		pr_err(SIPC_PRI "wrong ie type is %d\n", type);
 		return -EIO;
 	}
 
@@ -786,7 +860,7 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_WPS_IE);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -815,14 +889,14 @@ int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc, u8 *addr, u8 flag)
 					     WIFI_CMD_BLACKLIST);
 
 	if (ret) {
-		pr_err("blacklist wrong status code is %d\n", ret);
+		pr_err(SIPC_PRI "blacklist wrong status code is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
-	pr_debug("blacklist return status code successfully\n");
+	pr_debug(SIPC_PRI "blacklist return status code successfully\n");
 
 	return 0;
 }
@@ -849,19 +923,21 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	wlan_sipc->wlan_sipc_send_len =
 	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_mac_open);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	pr_debug("%s mode %#x cmd_len %d\n", __func__, open->mode,
+	pr_debug(SIPC_PRI "%s mode %#x cmd_len %d\n", __func__, open->mode,
 		 wlan_sipc->wlan_sipc_send_len);
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_DEV_OPEN);
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		switch (ret) {
 		case ERR_AP_ZEROCOPY_CP_NOT:
-			pr_err("%s AP: zero copy; CP: non zero copy \n",
+			pr_err(SIPC_PRI
+			       "%s AP: zero copy; CP: non zero copy\n",
 			       __func__);
 			break;
 		case ERR_CP_ZEROCOPY_AP_NOT:
-			pr_err("%s AP: non zero copy; CP: zero copy \n",
+			pr_err(SIPC_PRI
+			       "%s AP: non zero copy; CP: zero copy\n",
 			       __func__);
 			break;
 		default:
@@ -894,7 +970,7 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 				     WIFI_CMD_DEV_CLOSE);
 
 	if (ret) {
-		pr_err("%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -908,7 +984,7 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 {
 	struct sblock blk;
-	struct wlan_sipc_data *recv_buf = priv->wlan_sipc->event_buf;
+	struct wlan_sipc_data *recv_buf;
 	u32 msg_hdr;
 	u16 msg_type, msg_len;
 	u16 event_tag;
@@ -919,11 +995,10 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 
 	ret = sblock_receive(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH, &blk, 0);
 	if (ret) {
-		pr_err("Failed to receive sblock (%d)\n", ret);
+		pr_err(SIPC_PRI "Failed to receive sblock (%d)\n", ret);
 		return;
 	}
-
-	memcpy((u8 *) recv_buf, (u8 *) blk.addr, blk.length);
+	recv_buf = (struct wlan_sipc_data *)blk.addr;
 
 	msg_hdr = le32_to_cpu(recv_buf->msg_hdr);
 	event_tag = le16_to_cpu(recv_buf->u.event.event_tag);
@@ -931,22 +1006,26 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 
 	msg_type = ITM_WLAN_MSG_GET_TYPE(msg_hdr);
 	msg_len = ITM_WLAN_MSG_GET_LEN(msg_hdr);
+	if ((msg_len != blk.length) || (msg_type != ITM_WLAN_MSG_EVENT)) {
+		pr_err(SIPC_PRI
+		       "Recv msg_len(%d), blk.length(%d) and type(%d) is wrong\n",
+		       msg_len, blk.length, msg_type);
+		ret = sblock_release(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH, &blk);
+		if (ret)
+			pr_err(SIPC_PRI "release sblock failed (%d)\n", ret);
+		return;
+	}
 
 	event_type = ITM_WLAN_EVENT_TAG_GET_TYPE(event_tag);
 	event_id = ITM_WLAN_EVENT_TAG_GET_ID(event_tag);
+	if (event_type == EVENT_TYPE_SYSERR)
+		pr_err(SIPC_PRI "Recv event type is syserr\n");
 
 	priv->wlan_sipc->wlan_sipc_event_len =
 	    msg_len - ITM_WLAN_EVENT_HDR_SIZE;
 
-	if ((msg_len != blk.length) || (msg_type != ITM_WLAN_MSG_EVENT)) {
-		pr_err
-		    ("Recv msg_len(%d), blk.length(%d) and type(%d) is wrong\n",
-		     msg_len, blk.length, msg_type);
-		goto out;
-	}
-
-	if (event_type == EVENT_TYPE_SYSERR)
-		pr_err("Recv event type is syserr\n");
+	recv_buf = priv->wlan_sipc->event_buf;
+	memcpy((u8 *) recv_buf, (u8 *) blk.addr, blk.length);
 
 #ifdef DUMP_EVENT
 	if (event_id != WIFI_EVENT_SCANDONE) {
@@ -954,60 +1033,58 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 			       16, 1, blk.addr, blk.length, 0);
 	}
 #endif
+	ret = sblock_release(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH, &blk);
+	if (ret)
+		pr_err(SIPC_PRI "release sblock failed (%d)\n", ret);
 
 	switch (event_id) {
 	case WIFI_EVENT_CONNECT:
-		pr_debug("Recv sblock8 connect event\n");
+		pr_debug(SIPC_PRI "Recv sblock connect event\n");
 		itm_cfg80211_report_connect_result(priv);
 		break;
 	case WIFI_EVENT_DISCONNECT:
-		pr_debug("Recv sblock8 disconnect event\n");
+		pr_debug(SIPC_PRI "Recv sblock disconnect event\n");
 		itm_cfg80211_report_disconnect_done(priv);
 		break;
 	case WIFI_EVENT_SCANDONE:
-		pr_debug("Recv sblock8 scan result event\n");
+		pr_debug(SIPC_PRI "Recv sblock scan result event\n");
 		itm_cfg80211_report_scan_done(priv, false);
 		break;
 	case WIFI_EVENT_READY:
-		pr_debug("Recv sblock8 CP2 ready event\n");
+		pr_debug(SIPC_PRI "Recv sblock CP2 ready event\n");
 		itm_cfg80211_report_ready(priv);
 		break;
 	case WIFI_EVENT_TX_BUSY:
-		pr_debug("Recv data tx sblock busy event\n");
+		pr_debug(SIPC_PRI "Recv sblock tx busy event\n");
 		itm_cfg80211_report_tx_busy(priv);
 		break;
 	case WIFI_EVENT_SOFTAP:
-		pr_debug("Recv sblock8 softap event\n");
+		pr_debug(SIPC_PRI "Recv sblock softap event\n");
 		itm_cfg80211_report_softap(priv);
 		break;
 	default:
-		pr_err("Recv sblock8 unknow event id %d\n", event_id);
+		pr_err(SIPC_PRI "Recv sblock unknow event %d\n", event_id);
 		break;
 	}
 
-out:
-	ret = sblock_release(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH, &blk);
-	if (ret)
-		pr_err("release sblock failed (%d)\n", ret);
 }
 
-static void wlan_sipc_sblock_handler(int event, void *data)
+void wlan_sipc_sblock_handler(int event, void *data)
 {
 	struct itm_priv *priv = (struct itm_priv *)data;
 
 	switch (event) {
-	case SBLOCK_NOTIFY_GET:
-		pr_debug("SBLOCK_NOTIFY_GET is received\n");
-		break;
 	case SBLOCK_NOTIFY_RECV:
-		pr_debug("SBLOCK_NOTIFY_RECV is received\n");
 		wlan_sipc_event_rx_handler(priv);
 		break;
+	case SBLOCK_NOTIFY_GET:
 	case SBLOCK_NOTIFY_STATUS:
-		pr_debug("SBLOCK_NOTIFY_STATUS is received\n");
+	case SBLOCK_NOTIFY_OPEN:
+	case SBLOCK_NOTIFY_CLOSE:
+		pr_debug(SIPC_PRI "report event:%d received\n", event);
 		break;
 	default:
-		pr_err("Received event is invalid(event=%d)\n", event);
+		pr_err(SIPC_PRI "report event is invalid(%d)\n", event);
 	}
 }
 
@@ -1020,64 +1097,57 @@ int itm_wlan_sipc_alloc(struct itm_priv *itm_priv)
 
 	wlan_sipc = kzalloc(sizeof(struct wlan_sipc), GFP_KERNEL);
 	if (!wlan_sipc) {
-		pr_err("failed to alloc wlan_sipc struct\n");
+		pr_err(SIPC_PRI "failed to alloc wlan_sipc struct\n");
 		return -ENOMEM;
 	}
 
-	sipc_buf = itm_wlan_get_new_buf(WLAN_SBUF_SIZE);
+	sipc_buf = kzalloc(WLAN_SBUF_SIZE, GFP_KERNEL);
 	if (!sipc_buf) {
-		pr_err("get new send buf failed\n");
+		pr_err(SIPC_PRI "get new send buf failed\n");
 		ret = -ENOMEM;
 		goto fail_sendbuf;
 	}
 	wlan_sipc->send_buf = sipc_buf;
 
-	sipc_buf = itm_wlan_get_new_buf(WLAN_SBUF_SIZE);
+	sipc_buf = kzalloc(WLAN_SBUF_SIZE, GFP_KERNEL);
 	if (!sipc_buf) {
-		pr_err("get new recv buf failed\n");
+		pr_err(SIPC_PRI "get new recv buf failed\n");
 		ret = -ENOMEM;
 		goto fail_recvbuf;
 	}
 	wlan_sipc->recv_buf = sipc_buf;
 
-	sipc_buf = itm_wlan_get_new_buf(WLAN_EVENT_SBLOCK_SIZE);
+	sipc_buf = kzalloc(WLAN_EVENT_SBLOCK_SIZE, GFP_KERNEL);
 	if (!sipc_buf) {
-		pr_err("get new recv buf failed\n");
+		pr_err(SIPC_PRI "get new recv buf failed\n");
 		ret = -ENOMEM;
 		goto fail_eventbuf;
 	}
 	wlan_sipc->event_buf = sipc_buf;
-/*
-	ret = sblock_create(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
-			    WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE,
-			    WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE);
-	if (ret) {
-		pr_err("Failed to create event sblock (%d)\n", ret);
-		ret = -ENOMEM;
-		goto fail_sblock;
-	}
-*/
-	ret =
-	    sblock_register_notifier(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
-				     wlan_sipc_sblock_handler, itm_priv);
-	if (ret) {
-		pr_err("Failed to regitster event sblock notifier (%d)\n", ret);
-		ret = -ENOMEM;
-		goto fail_notifier;
-	}
 
 	spin_lock_init(&wlan_sipc->lock);
 	mutex_init(&wlan_sipc->cmd_lock);
 	mutex_init(&wlan_sipc->pm_lock);
 
 	itm_priv->wlan_sipc = wlan_sipc;
+#ifndef CONFIG_OF
+	ret =
+	    sblock_register_notifier(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
+				     wlan_sipc_sblock_handler, itm_priv);
+	if (ret) {
+		pr_err("%s Failed to regitster event sblock notifier (%d)\n",
+			__func__, ret);
+		ret = -ENOMEM;
+		goto fail_notifier;
+	}
+#endif
 
 	return 0;
 
+#ifndef CONFIG_OF
 fail_notifier:
-	//sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);
-/*fail_sblock:
-	kfree(wlan_sipc->event_buf);*/
+	itm_priv->wlan_sipc = NULL;
+#endif
 fail_eventbuf:
 	kfree(wlan_sipc->recv_buf);
 fail_recvbuf:
@@ -1089,60 +1159,18 @@ fail_sendbuf:
 
 void itm_wlan_sipc_free(struct itm_priv *itm_priv)
 {
+#ifndef CONFIG_OF
 	int ret;
-
+	ret = sblock_register_notifier(WLAN_CP_ID,
+		WLAN_EVENT_SBLOCK_CH, NULL, NULL);
+	if (ret)
+		pr_err("%s regitster event sblock notifier (%d) err\n",
+			__func__, ret);
+#endif
 	kfree(itm_priv->wlan_sipc->send_buf);
 	kfree(itm_priv->wlan_sipc->recv_buf);
 	kfree(itm_priv->wlan_sipc);
 	itm_priv->wlan_sipc = NULL;
-
-/*	sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);*/
-	/* FIXME it is a ugly method */
-	ret =
-	    sblock_register_notifier(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
-				     NULL, NULL);
-	if (ret) {
-		pr_err("Failed to regitster event sblock notifier (%d)\n", ret);
-		ret = -ENOMEM;
-	}
-
-	return;
-}
-
-/**
-* Init the sblock used for ittiam
-*/
-int itm_sblock_init(void)
-{
-	int ret;
-
-	ret = sblock_create(WLAN_CP_ID, WLAN_SBLOCK_CH,
-		WLAN_SBLOCK_NUM, 1600,
-		WLAN_SBLOCK_NUM, 1600);
-	if (ret) {
-		printk(KERN_ERR "ITM: (itm_wlan driver)Failed to create data sblock (%d)\n", ret);
-		return -ENOMEM;
-	}
-
-	ret = sblock_create(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
-		WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE,
-		WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE);
-	if (ret) {
-		printk(KERN_ERR "ITM: (itm_wlan driver)Failed to create event sblock (%d)\n", ret);
-		sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
-		return -ENOMEM;
-	}
-
-	printk(KERN_ERR "itm create sblock successfully\n");
-	return 0;
-}
-
-int itm_sblock_deinit(void)
-{
-	sblock_destroy(WLAN_CP_ID, WLAN_SBLOCK_CH);
-	sblock_destroy(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH);
-	printk(KERN_ERR "itm destroy sblock successfully\n");
-	return 0;
 }
 
 int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
@@ -1157,14 +1185,14 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	else
 		memset(send_buf->u.cmd.variable, 0, 4);
 
-	pr_debug("enter get ip send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
+	pr_debug(SIPC_PRI "enter get ip send\n");
 	ret =
 	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
 			       CMD_TYPE_SET, WIFI_CMD_LINK_STATUS);
 
 	if (ret) {
-		pr_err("get ip cmd send error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "get ip cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1172,7 +1200,7 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_LINK_STATUS);
 	if (ret) {
-		pr_err("get ip cmd recv error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "get ip cmd recv error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1180,7 +1208,7 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
 
 	if (status) {
-		pr_err("%s command error %d\n", __func__, status);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, status);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -1200,14 +1228,14 @@ int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv)
 	if (in != NULL)
 		memcpy(send_buf->u.cmd.variable, &in->ifa_address, 4);
 
-	pr_debug("enter ps cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
+	pr_debug(SIPC_PRI "enter ps cmd send\n");
 	ret =
 	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
 			       CMD_TYPE_SET, WIFI_CMD_PM_ENTER_PS);
 
 	if (ret) {
-		pr_err("cmd send error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1220,14 +1248,14 @@ int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
 {
 	int ret;
 
-	pr_debug("exit ps cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
+	pr_debug(SIPC_PRI "exit ps cmd send\n");
 	ret =
 	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
 			       WIFI_CMD_PM_EXIT_PS);
 
 	if (ret) {
-		pr_err("cmd send error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1241,14 +1269,14 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 	int ret;
 	u16 status;
 
-	pr_debug("early suspend cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
+	pr_debug(SIPC_PRI "early suspend cmd send\n");
 	ret =
 	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
 			       WIFI_CMD_PM_EARLY_SUSPEND);
 
 	if (ret) {
-		pr_err("cmd send error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1256,7 +1284,7 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_PM_EARLY_SUSPEND);
 	if (ret) {
-		pr_err("early suspend cmd recv error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "early suspend cmd recv error,ret %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1264,7 +1292,7 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
 
 	if (status) {
-		pr_err("%s command error %d\n", __func__, status);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, status);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -1278,14 +1306,14 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	int ret;
 	u16 status;
 
-	pr_debug("later resume cmd send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
+	pr_debug(SIPC_PRI "later resume cmd send\n");
 	ret =
 	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
 			       WIFI_CMD_PM_LATER_RESUME);
 
 	if (ret) {
-		pr_err("cmd send error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "cmd send error with ret is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1293,7 +1321,7 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_PM_LATER_RESUME);
 	if (ret) {
-		pr_err("later resume cmd recv error with ret is %d\n", ret);
+		pr_err(SIPC_PRI "later resume cmd recv error,ret %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1301,7 +1329,7 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	status = wlan_sipc->recv_buf->u.cmd_resp.status_code;
 
 	if (status) {
-		pr_err("%s command error %d\n", __func__, status);
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, status);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
