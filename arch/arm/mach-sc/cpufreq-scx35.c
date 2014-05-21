@@ -441,7 +441,7 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int cur_freq = 0;
 	unsigned long irq_flags;
 
-#ifdef CONFIG_ARCH_SCX30G
+#ifdef CONFIG_MACH_SP7730GGA
 	return 0;
 #endif
 
