@@ -297,7 +297,7 @@ void modem_poweroff(void)
         if (GPIO_INVALID != modem_power_gpio) {
                 gpio_direction_output(modem_power_gpio, 1); //2012.1.10
                 //gpio_set_value(modem_power_gpio, 1);
-                msleep(3000);//should be matched with Adie config of cp
+                msleep(3500);//should be matched with Adie config of cp
                 gpio_set_value(modem_power_gpio, 0);
         } else {
                 //sprd_greg_set_bits(REG_TYPE_GLOBAL, 0x00000040, 0x4C);
