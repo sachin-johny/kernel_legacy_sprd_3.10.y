@@ -782,7 +782,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 		if (policy->cur < policy->max)
 			dbs_info->rate_mult =
 				sd_tuners->sampling_down_factor;
-#ifndef CONFIG_ARCH_SCX30G
+#ifndef CONFIG_MACH_SP7730GGA
 		if(num_online_cpus() == sd_tuners->cpu_num_limit)
 			dbs_freq_increase(policy, policy->max);
 		else
@@ -813,7 +813,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 			freq_next = policy->min;
 
 		if (!sd_tuners->powersave_bias) {
-#ifndef CONFIG_ARCH_SCX30G
+#ifndef CONFIG_MACH_SP7730GGA
 			__cpufreq_driver_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
 #endif
@@ -822,7 +822,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 
 		freq_next = sd_ops.powersave_bias_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
-#ifndef CONFIG_ARCH_SCX30G
+#ifndef CONFIG_MACH_SP7730GGA
 		__cpufreq_driver_target(policy, freq_next, CPUFREQ_RELATION_L);
 #endif
 	}
