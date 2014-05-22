@@ -37,7 +37,7 @@
 
 #define		MAX_MSG_NODE_NUM	32
 #define		BUSY_BIT		0x8000
-
+#define         MAX_WAIT_WATCHDOG_TIME  5
 
 extern int      get_alive_status(void);
 extern int      get_assert_status(void);
@@ -61,6 +61,7 @@ extern void  sdio_ipc_enable(u8  is_enable);
 extern void shutdown_protocol(struct modem_message_node *msg);
 extern void bootcomp_protocol(struct modem_message_node *msg);
 extern void reset_protocol(struct modem_message_node *msg);
+extern int modem_intf_get_watchdog_gpio_value();
 
 
 
@@ -68,6 +69,7 @@ int modem_intf_send_boot_message(void);
 void modem_intf_reboot_routine(void);
 void modem_intf_alive_routine(void);
 void modem_intf_assert_routine(void);
+void modem_intf_wdg_reset_routine(void);
 
 
 static struct modem_intf_device *modem_intf_device = NULL;
@@ -78,7 +80,7 @@ static int				lost_msg_count;
 static LIST_HEAD(msg_list);
 static struct semaphore			msg_list_sem;
 static struct semaphore			modem_event_sem;
-static int    modem_gpio_status=0;
+static int    modem_gpio_status[CTRL_GPIO_MAX];
 static int  modem_event = MODEM_INTF_EVENT_SHUTDOWN;
 static struct wake_lock   s_modem_intf_proc_wake_lock;
 static struct wake_lock   s_modem_intf_msg_wake_lock;
@@ -487,20 +489,17 @@ void modem_intf_send_channel_message(int dir,int para,int index)
         modem_send_message(msg);
 }
 
-void modem_intf_send_ctrl_gpio_message(int assert_status, int alive_status)
+void modem_intf_send_ctrl_gpio_message(enum MSG_CTRL_GPIO_TYPE gpio_type, int gpio_value)
 {
-        int status;
         struct modem_message_node *msg;
 
-        printk("ctrl_gpio: assert = %d alive=%d\n", assert_status, alive_status);
+        printk("ctrl_gpio: gpio_type = %d value = %d\n", gpio_type, gpio_value);
 
-        status = ((assert_status << 1) | alive_status);
-
-        if(modem_gpio_status == status) {
+        if(modem_gpio_status[gpio_type] == gpio_value) {
                 return;
         }
 
-        modem_gpio_status = status;
+        modem_gpio_status[gpio_type] = gpio_value;
 
         //ctrl gpio only effective in these modem mode
         if(modem_intf_device->mode != MODEM_MODE_BOOT &&
@@ -519,7 +518,7 @@ void modem_intf_send_ctrl_gpio_message(int assert_status, int alive_status)
         }
         msg->src  = SRC_GPIO;
         msg->parameter1 = (int)modem_intf_device;
-        msg->parameter2 = ((assert_status << 1) | alive_status);
+        msg->parameter2 = ((gpio_type << 16) | gpio_value);
         msg->type = MODEM_CTRL_GPIO_CHG;
 
         modem_send_message(msg);
@@ -652,7 +651,7 @@ static ssize_t modem_intf_state_show(struct device *dev,struct device_attribute 
         if(ret == -EINTR)
                 return ret;
         printk("event available:%d ...\n",modem_event);
-        snprintf(buf,3,"%d\n",modem_event);
+        snprintf(buf,4,"%d\n",modem_event);
         printk("event = %s\n",buf);
         return strlen(buf);
 }
@@ -704,29 +703,64 @@ void modem_intf_assert_routine()
         modem_intf_send_event(MODEM_INTF_EVENT_ASSERT);
 }
 
+void modem_intf_wdg_reset_routine(void)
+{
+	modem_intf_send_event(MODEM_INTF_EVENT_WDG_RESET);
+}
 
+int chk_watchdog_reset()
+{
+        unsigned long now = jiffies;
 
+        do {
+                udelay(10);
+                if(1 == modem_intf_get_watchdog_gpio_value())
+                {
+                        return 1;
+                }
+
+        }while((msecs_to_jiffies(jiffies - now) < MAX_WAIT_WATCHDOG_TIME));
+
+        return 0;
+}
 void modem_intf_ctrl_gpio_handle_normal(int status)
 {
+        int type, value;
 
-        switch(status) {
-        case 0:
+        type = status >> 16;
+        value = status & 0xFFFF;
+
+        switch(type) {
+        case GPIO_RESET:
+                //reset -> 1, ,means need reboot
+                if(value) {
+                        modem_intf_assert_routine();
+                        modem_intf_set_mode(MODEM_MODE_DUMP, 0);
+                        modem_intf_cp_reset_req_routine();
+                }
+                break;
+        case GPIO_ALIVE:
                 //alive -> 0,means assert
-                modem_intf_assert_routine();
-                modem_intf_set_mode(MODEM_MODE_DUMP, 0);
+                if(!value) {
+                        //first check if watch dog reset changes cp_alive
+                        if(chk_watchdog_reset()) {
+                                printk("modem_intf: found watchdog reset in GPIO_ALIVE handle\n");
+                                modem_intf_wdg_reset_routine();
+                                modem_intf_set_mode(MODEM_MODE_DUMP, 0);
+                                break;
+                        }
+                        modem_intf_assert_routine();
+                        modem_intf_set_mode(MODEM_MODE_DUMP, 0);
+                }
                 break;
-        case 1:
-                //alive -> 1, nothing to do
-                break;
-        case 2:
-                //assert -> 1,means need reboot
-                modem_intf_assert_routine();
-                modem_intf_set_mode(MODEM_MODE_DUMP, 0);
-                modem_intf_cp_reset_req_routine();
+        case GPIO_WATCHDOG:
+                //watchdog -> 0,means watch dog reset
+                if(value) {
+                        modem_intf_wdg_reset_routine();
+                        modem_intf_set_mode(MODEM_MODE_DUMP, 0);
+                }
                 break;
         default:
-                //alive ->1 && assert -> 1, means need reboot
-                modem_intf_cp_reset_req_routine();
                 break;
         }
 
@@ -734,21 +768,25 @@ void modem_intf_ctrl_gpio_handle_normal(int status)
 
 void modem_intf_ctrl_gpio_handle_dump(int status)
 {
+        int type, value;
 
-        switch(status) {
-        case 0:
-                //alive -> 0, nothing to do
+        type = status >> 16;
+        value = status & 0xFFFF;
+
+        switch(type) {
+        case GPIO_RESET:
+                //reset -> 1,means need reboot
+                if(value) {
+                        modem_intf_cp_reset_req_routine();
+                }
                 break;
-        case 1:
-                //alive -> 1, nothing to do
+        case GPIO_ALIVE:
+
                 break;
-        case 2:
-                //assert -> 1,means need reboot
-                modem_intf_cp_reset_req_routine();
+        case GPIO_WATCHDOG:
+
                 break;
         default:
-                //alive ->1 && assert -> 1, means need reboot
-                modem_intf_cp_reset_req_routine();
                 break;
         }
 
@@ -756,20 +794,23 @@ void modem_intf_ctrl_gpio_handle_dump(int status)
 
 void modem_intf_ctrl_gpio_handle_boot(int status)
 {
+        int type, value;
 
-        switch(status) {
-        case 0:
-                //alive -> 0, nothing to do
+        type = status >> 16;
+        value = status & 0xFFFF;
+
+        switch(type) {
+        case GPIO_RESET:
                 break;
-        case 1:
+        case GPIO_ALIVE:
                 //alive -> 1, means alive
-                modem_intf_alive_routine();
+                if(value) {
+                        modem_intf_alive_routine();
+                }
                 break;
-        case 2:
-                //assert -> 1, nothing to do
+        case GPIO_WATCHDOG:
                 break;
         default:
-                //alive ->1 && assert -> 1, nothing to do
                 break;
         }
 
@@ -777,20 +818,23 @@ void modem_intf_ctrl_gpio_handle_boot(int status)
 
 void modem_intf_ctrl_gpio_handle_bootcomp(int status)
 {
+        int type, value;
 
-        switch(status) {
-        case 0:
-                //alive -> 0, nothing to do
+        type = status >> 16;
+        value = status & 0xFFFF;
+
+        switch(type) {
+        case GPIO_RESET:
                 break;
-        case 1:
+        case GPIO_ALIVE:
                 //alive -> 1, means alive
-                modem_intf_alive_routine();
+                if(value) {
+                        modem_intf_alive_routine();
+                }
                 break;
-        case 2:
-                //assert -> 1, nothing to do
+        case GPIO_WATCHDOG:
                 break;
         default:
-                //alive ->1 && assert -> 1, nothing to do
                 break;
         }
 
@@ -911,6 +955,7 @@ DEVICE_ATTR(modemreset, S_IWUSR, NULL,modem_intf_modemreset_store);
 static int modem_intf_driver_probe(struct platform_device *_dev)
 {
         int retval = 0;
+        int i;
         struct modem_intf_platform_data *modem_config = _dev->dev.platform_data;
         struct modem_intf_device *device;
 
@@ -944,12 +989,14 @@ static int modem_intf_driver_probe(struct platform_device *_dev)
         modem_intf_device = device;
         modem_intf_device->op = NULL;
 
+        for(i = 0; i < CTRL_GPIO_MAX; i++) {
+                modem_gpio_status[i] = 0xFF;
+        }
         retval = device_create_file(&_dev->dev, &dev_attr_state);
         retval = device_create_file(&_dev->dev, &dev_attr_modempower);
         retval = device_create_file(&_dev->dev, &dev_attr_modemreset);
         modem_gpio_init(&modem_intf_device->modem_config);
         modem_intf_register_device_operation(modem_sdio_drv_init());
-        modem_gpio_status = 0;
         modem_event = MODEM_INTF_EVENT_SHUTDOWN;
         sema_init(&modem_event_sem,1);
         spin_lock_init(&int_lock);

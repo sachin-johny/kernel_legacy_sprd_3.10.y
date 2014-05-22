@@ -8,6 +8,8 @@
 #define MODEM_INTF_EVENT_CP_REQ_RESET           2
 #define MODEM_INTF_EVENT_SHUTDOWN               4
 #define MODEM_INTF_EVENT_FORCE_RESET            8
+#define MODEM_INTF_EVENT_WDG_RESET				16
+
 
 
 
@@ -37,6 +39,14 @@ enum MODEM_MSG_type {
     MODEM_BOOT_CMP,
     MODEM_OPEN_DEVICE
 };
+
+enum MSG_CTRL_GPIO_TYPE {
+	GPIO_ALIVE = 0,
+	GPIO_RESET,
+	GPIO_WATCHDOG,
+	CTRL_GPIO_MAX
+};
+
 
 struct modem_message_node{
         struct list_head	link;
