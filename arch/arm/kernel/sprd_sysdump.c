@@ -88,7 +88,11 @@ struct sysdump_extra sprd_sysdump_extra = {
 };
 
 static struct sysdump_config sysdump_conf = {
+#ifdef CONFIG_SPRD_DEBUG
 	.enable = 1,
+#else
+	.enable = 0,
+#endif
 	.crashkey_only = 0,
 	.dump_modem = 1,
 	.reboot = 1,
