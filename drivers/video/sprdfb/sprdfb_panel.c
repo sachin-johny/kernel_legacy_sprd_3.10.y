@@ -461,11 +461,11 @@ void sprdfb_panel_after_refresh(struct sprdfb_device *dev)
 	}
 }
 
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
 void sprdfb_panel_change_fps(struct sprdfb_device *dev, int fps_level)
 {
 	if (dev->panel->ops->panel_change_fps!= NULL) {
-        printk("sprdfb: [%s] fps_level= %d\n", __FUNCTION__,fps_level);
+		printk("sprdfb: [%s] fps_level= %d\n", __FUNCTION__,fps_level);
 		dev->panel->ops->panel_change_fps(dev->panel,fps_level);
 	}
 }

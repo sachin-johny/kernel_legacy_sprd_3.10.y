@@ -185,9 +185,9 @@ config FB_DYNAMIC_CLK_SUPPORT
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
 	default n
 
-config FB_DYNAMIC_FPS_SUPPORT
-	boolean "support change fps dynamically"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+config FB_DYNAMIC_FREQ_SCALING
+	boolean "support change mipi clk/fps/dpi clk dynamically"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
 	default n
 
 config FB_MMAP_CACHED

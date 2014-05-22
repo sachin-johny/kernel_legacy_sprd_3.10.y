@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt)		"sprdfb: " fmt
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -18,6 +20,7 @@
 #endif
 #include <linux/platform_device.h>
 #include <linux/fb.h>
+#include <linux/uaccess.h>
 
 #ifdef CONFIG_OF
 #include <linux/of.h>
@@ -278,6 +281,7 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	int result = -1;
 	struct sprdfb_device *dev = NULL;
+	void __user *argp = (void __user *)arg;
 
 	if(NULL == info){
 		printk(KERN_ERR "sprdfb: sprdfb_ioctl error. (Invalid Parameter)");
@@ -309,13 +313,27 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 		}
 		break;
 #endif
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
-    case SPRD_FB_CHANGE_FPS:
-		printk(KERN_INFO "sprdfb: [%s]: SPRD_FB_CHANGE_FPS\n", __FUNCTION__);
-		if(NULL != dev->ctrl->change_fps){
-			result = dev->ctrl->change_fps(dev, (int)arg);
+
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	case SPRD_FB_CHANGE_FPS:
+		{
+			int fps;
+			result = copy_from_user(&fps, argp, sizeof(fps));
+			if (result) {
+				pr_err("%s: copy_from_user failed", __func__);
+				return result;
+			}
+			pr_info("%s: fps will be changed to %d via ioctl\n",
+					__func__, fps);
+			result = sprdfb_chg_clk_intf(dev,
+					SPRDFB_DYNAMIC_FPS, fps);
+			if (result) {
+				pr_err("%s: fps is set fail. fps=%d, ret=%d\n",
+						__func__, fps, result);
+				return result;
+			}
+			break;
 		}
-		break;
 #endif
 
 	case SPRD_FB_IS_REFRESH_DONE:
@@ -517,9 +535,6 @@ static int sprdfb_probe(struct platform_device *pdev)
 	}
 
 	setup_fb_info(dev);
-
-	dev->ctrl->init(dev);
-
 	/* register framebuffer device */
 	ret = register_framebuffer(fb);
 	if (ret) {
@@ -527,6 +542,9 @@ static int sprdfb_probe(struct platform_device *pdev)
 		goto cleanup;
 	}
 	platform_set_drvdata(pdev, dev);
+
+	sprdfb_create_sysfs(dev);
+	dev->ctrl->init(dev);
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	dev->early_suspend.suspend = sprdfb_early_suspend;
@@ -566,8 +584,9 @@ err0:
 static int sprdfb_remove(struct platform_device *pdev)
 {
 	struct sprdfb_device *dev = platform_get_drvdata(pdev);
-	printk("sprdfb: [%s]\n",__FUNCTION__);
 
+	printk("sprdfb: [%s]\n",__FUNCTION__);
+	sprdfb_remove_sysfs(dev);
 	sprdfb_panel_remove(dev);
 	dev->ctrl->uninit(dev);
 	fb_free_resources(dev);

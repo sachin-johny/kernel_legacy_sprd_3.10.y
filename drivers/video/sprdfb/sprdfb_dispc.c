@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#define pr_fmt(fmt) "sprdfb_dispc: " fmt
+
 #include <linux/workqueue.h>
 #include <linux/spinlock.h>
 #include <linux/clk.h>
@@ -33,9 +35,6 @@
 #include "sprdfb_panel.h"
 #include "sprdfb.h"
 #include "sprdfb_chip_common.h"
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
-#include "sprdfb_notifier.h"
-#endif
 
 //#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
 
@@ -45,8 +44,8 @@
 #define DISPC_CLOCK (192*1000000)
 #define DISPC_DBI_CLOCK_PARENT ("clk_256m")
 #define DISPC_DBI_CLOCK (256*1000000)
-#define DISPC_DPI_CLOCK_PARENT ("clk_192m")
-#define SPRDFB_DPI_CLOCK_SRC (192000000)
+#define DISPC_DPI_CLOCK_PARENT ("clk_384m")
+#define SPRDFB_DPI_CLOCK_SRC (384000000)
 #else
 #define DISPC_CLOCK_PARENT ("clk_256m")
 #define DISPC_CLOCK (256*1000000)
@@ -145,20 +144,6 @@ extern void sprdfb_panel_invalidate_rect(struct panel_spec *self,
 				uint16_t left, uint16_t top,
 				uint16_t right, uint16_t bottom);
 
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
-extern int32_t dsi_dpi_init(struct sprdfb_device *dev);
-static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level);
-static int32_t sprdfb_dispc_notify_change_fps(struct dispc_dbs *h, int fps_level);
-
-int32_t original_fps = -1;
-struct dispc_dbs sprd_fps_notify = {
-	.level = 0,
-	.type = DISPC_DBS_FPS,
-	.data = (void *)&dispc_ctx,
-	.dispc_notifier = sprdfb_dispc_notify_change_fps,
-};
-#endif
-
 #ifdef CONFIG_FB_ESD_SUPPORT
 extern uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev);
 #endif
@@ -178,6 +163,8 @@ static void dispc_stop_for_feature(struct sprdfb_device *dev);
 static void dispc_run_for_feature(struct sprdfb_device *dev);
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state);
 
+static int dispc_update_clk(struct sprdfb_device *fb_dev,
+					u32 new_val, int howto);
 //
 static volatile Trick_Item s_trick_record[DISPC_INT_MAX]= {
     //en interval begin dis_cnt en_cnt
@@ -187,6 +174,103 @@ static volatile Trick_Item s_trick_record[DISPC_INT_MAX]= {
     {0,  0,  0,  0,  0},//DISPC_INT_EDPI_TE
     {0,  0,  0,  0,  0},//DISPC_INT_UPDATE_DONE
 };
+
+/**
+ * author: Yang.Haibing haibing.yang@spreadtrum.com
+ *
+ * dispc_check_new_clk - check and convert new clock to the value that can be set
+ * @fb_dev: spreadtrum specific fb device
+ * @new_pclk: actual settable clock via calculating new_val and fps
+ * @pclk_src: clock source of dpi clock
+ * @new_val: expected clock
+ * @type: check the type is fps or pclk
+ *
+ * Returns 0 on success, MINUS on error.
+ */
+static int dispc_check_new_clk(struct sprdfb_device *fb_dev,
+				u32 *new_pclk, u32 pclk_src,
+				u32 new_val, int type)
+{
+	int divider;
+	u32 hpixels, vlines, pclk, fps;
+	struct panel_spec* panel = fb_dev->panel;
+	struct info_mipi * mipi;
+	struct info_rgb* rgb;
+
+	pr_debug("%s: enter\n", __func__);
+	if(!panel){
+		pr_err("No panel is specified!\n");
+		return -ENXIO;
+	}
+
+	mipi = panel->info.mipi;
+	rgb = panel->info.rgb;
+
+	if (fb_dev->panel_if_type != SPRDFB_PANEL_IF_DPI) {
+		pr_err("panel interface should be DPI\n");
+		return -EINVAL;
+	}
+	if (new_val <= 0 || !new_pclk) {
+		pr_err("new parameter is invalid\n");
+		return -EINVAL;
+	}
+
+	if (fb_dev->panel->type == LCD_MODE_DSI) {
+		hpixels = panel->width + mipi->timing->hsync +
+				mipi->timing->hbp + mipi->timing->hfp;
+		vlines = panel->height + mipi->timing->vsync +
+				mipi->timing->vbp + mipi->timing->vfp;
+	} else if(fb_dev->panel->type == LCD_MODE_RGB) {
+		hpixels = panel->width + rgb->timing->hsync +
+				rgb->timing->hbp + rgb->timing->hfp;
+		vlines = panel->height + rgb->timing->vsync +
+				rgb->timing->vbp + rgb->timing->vfp;
+	} else {
+		pr_err("[%s] unexpected panel type (%d)\n",
+				__func__, fb_dev->panel->type);
+		return -EINVAL;
+	}
+
+	switch (type) {
+	/*
+	 * FIXME: TODO: SPRDFB_FORCE_FPS will be used for accurate fps someday.
+	 * But now it is the same as SPRDFB_DYNAMIC_FPS.
+	 */
+	case SPRDFB_FORCE_FPS:
+	case SPRDFB_DYNAMIC_FPS:
+		if (new_val < LCD_MIN_FPS || new_val > LCD_MAX_FPS) {
+			pr_err("Unsupported FPS. fps range should be [%d, %d]\n",
+					LCD_MIN_FPS, LCD_MAX_FPS);
+			return -EINVAL;
+		}
+		pclk = hpixels * vlines * new_val;
+		divider = ROUND(pclk_src, pclk);
+		*new_pclk = pclk_src / divider;
+		/* Save the updated fps */
+		panel->fps = new_val;
+		break;
+
+	case SPRDFB_DYNAMIC_PCLK:
+		divider = ROUND(pclk_src, new_val);
+		pclk = pclk_src / divider;
+		fps = pclk / ( hpixels * vlines);
+		if (fps < LCD_MIN_FPS || fps > LCD_MAX_FPS) {
+			pr_err("Unsupported FPS. fps range should be [%d, %d]\n",
+					LCD_MIN_FPS, LCD_MAX_FPS);
+			return -EINVAL;
+		}
+		*new_pclk = pclk;
+		/* Save the updated fps */
+		panel->fps = fps;
+		break;
+
+	default:
+		pr_err("This checked type is unsupported.\n");
+		*new_pclk = 0;
+		return -EINVAL;
+	}
+	return 0;
+}
 
 /*
 func:dispc_irq_trick
@@ -633,80 +717,6 @@ static void dispc_stop(struct sprdfb_device *dev)
 	}
 }
 
-static void dispc_update_clock(struct sprdfb_device *dev)
-{
-	uint32_t hpixels, vlines, need_clock,  dividor;
-	int ret = 0;
-#ifdef CONFIG_OF
-	uint32_t clk_src[DISPC_CLOCK_NUM];
-#endif
-
-	struct panel_spec* panel = dev->panel;
-	struct info_mipi * mipi;
-	struct info_rgb* rgb;
-
-	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
-
-	if((NULL == panel) ||(0 == panel->fps)){
-		printk("sprdfb: No panel->fps specified!\n");
-		return;
-	}
-
-	mipi = panel->info.mipi;
-	rgb = panel->info.rgb;
-
-	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
-		if(LCD_MODE_DSI == dev->panel->type ){
-			hpixels = panel->width + mipi->timing->hsync + mipi->timing->hbp + mipi->timing->hfp;
-			vlines = panel->height + mipi->timing->vsync + mipi->timing->vbp + mipi->timing->vfp;
-		}else if(LCD_MODE_RGB == dev->panel->type ){
-			hpixels = panel->width + rgb->timing->hsync + rgb->timing->hbp + rgb->timing->hfp;
-			vlines = panel->height + rgb->timing->vsync + rgb->timing->vbp + rgb->timing->vfp;
-		}else{
-			printk("sprdfb: [%s] unexpected panel type!(%d)\n", __FUNCTION__, dev->panel->type);
-			return;
-		}
-
-#ifdef CONFIG_OF
-		ret = of_property_read_u32_array(dev->of_dev->of_node, "clock-src", clk_src, DISPC_CLOCK_NUM);
-		if(0 != ret){
-			printk("sprdfb: [%s] read clock-src fail (%d)\n", __FUNCTION__, ret);
-			return;
-		}
-#endif
-
-		need_clock = hpixels * vlines * panel->fps;
-#ifdef CONFIG_OF
-		dividor  = clk_src[DISPC_DPI_CLOCK_SRC_ID]/need_clock;
-		if(clk_src[DISPC_DPI_CLOCK_SRC_ID] - dividor*need_clock > (need_clock/2) ) {
-#else
-		dividor  = SPRDFB_DPI_CLOCK_SRC/need_clock;
-		if(SPRDFB_DPI_CLOCK_SRC - dividor*need_clock > (need_clock/2) ) {
-#endif
-			dividor += 1;
-		}
-
-		if((dividor < 1) || (dividor > 0x100)){
-			printk("sprdfb: [%s]: Invliad dividor(%d)!Not update dpi clock!\n", __FUNCTION__, dividor);
-			return;
-		}
-
-#ifdef CONFIG_OF
-		dev->dpi_clock = clk_src[DISPC_DPI_CLOCK_SRC_ID]/dividor;
-#else
-		dev->dpi_clock = SPRDFB_DPI_CLOCK_SRC/dividor;
-#endif
-		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
-
-		if(ret){
-			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
-		}
-
-		printk("sprdfb: [%s] need_clock = %d, dividor = %d, dpi_clock = %d\n", __FUNCTION__, need_clock, dividor, dev->dpi_clock);
-	}
-
-}
-
 static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
 {
 	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
@@ -720,6 +730,7 @@ static int32_t sprdfb_dispc_uninit(struct sprdfb_device *dev)
 static int32_t dispc_clk_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
+	u32 dpi_clk;
 	struct clk *clk_parent1, *clk_parent2, *clk_parent3, *clk_parent4;
 #ifdef CONFIG_OF
 	uint32_t clk_src[DISPC_CLOCK_NUM];
@@ -743,9 +754,10 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		printk("sprdfb: read dpi_clk_div fail (%d)\n", ret);
 		return -1;
 	}
-
 	clk_parent1 = of_clk_get_by_name(dev->of_dev->of_node, DISPC_CLOCK_PARENT);
+	dpi_clk = clk_src[DISPC_DPI_CLOCK_SRC_ID]/def_dpi_clk_div;
 #else
+	dpi_clk = DISPC_DPI_CLOCK;
 	clk_parent1 = clk_get(NULL, DISPC_CLOCK_PARENT);
 #endif
 	if (IS_ERR(clk_parent1)) {
@@ -875,20 +887,10 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 		printk(KERN_ERR "sprdfb: dispc set emc clk parent fail\n");
 	}
 
-	if((dev->panel != NULL) && (0 != dev->panel->fps)){
-		dispc_update_clock(dev);
-	}else{
-#ifdef CONFIG_OF
-		dev->dpi_clock = clk_src[DISPC_DPI_CLOCK_SRC_ID]/def_dpi_clk_div;
-		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, dev->dpi_clock);
-#else
-		dev->dpi_clock = DISPC_DPI_CLOCK;
-		ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, DISPC_DPI_CLOCK);
-#endif
-		if(ret){
-			printk(KERN_ERR "sprdfb: dispc set dpi clk parent fail\n");
-		}
-	}
+	if (dev->panel && dev->panel->fps)
+		dispc_update_clk(dev, dev->panel->fps, SPRDFB_FORCE_FPS);
+	else
+		dispc_update_clk(dev, dpi_clk, SPRDFB_FORCE_PCLK);
 
 #ifdef CONFIG_OF
 	ret = clk_prepare_enable(dispc_ctx.clk_dispc_emc);
@@ -980,8 +982,8 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
 
-        if(!dispc_ctx.is_inited){
-	    spin_lock_init(&dispc_ctx.clk_spinlock);
+	if (!dispc_ctx.is_inited) {
+		spin_lock_init(&dispc_ctx.clk_spinlock);
 	}
 
 	ret = dispc_clk_init(dev);
@@ -1003,7 +1005,6 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 			dispc_module_enable();
 			dispc_ctx.is_first_frame = true;
 		}
-		dispc_update_clock(dev);
 		ret = sprdfb_dispc_module_init(dev);
 	}else{
 		//resume
@@ -1012,9 +1013,7 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 		dispc_module_enable();
 		dispc_ctx.is_first_frame = true;
 	}
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
-	dispc_notifier_register(&sprd_fps_notify);
-#endif
+
 	return ret;
 }
 
@@ -1199,8 +1198,6 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 		dispc_layer_update(&(dev->fb->var));
 	}
 
-//	dispc_update_clock(dev);
-
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(dispc_ctx.is_first_frame){
 			/*set dpi register update only with SW*/
@@ -1220,6 +1217,7 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	dispc_int_en_reg_val |= DISPC_INT_ERR_MASK;
 	dispc_write(dispc_int_en_reg_val, DISPC_INT_EN);
 	dev->enable = 1;
+
 	return 0;
 }
 
@@ -2071,65 +2069,209 @@ static void dispc_run_for_feature(struct sprdfb_device *dev)
 	}
 }
 
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
-static int32_t sprdfb_update_fps_clock(struct sprdfb_device *dev, int fps_level)
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+/**
+ * author: Yang.Haibing haibing.yang@spreadtrum.com
+ *
+ * sprdfb_dispc_chg_clk - interface for sysfs to change dpi or dphy clock
+ * @fb_dev: spreadtrum specific fb device
+ * @type: check the type is fps or pclk or mipi dphy freq
+ * @new_val: fps or new dpi clock
+ *
+ * Returns 0 on success, MINUS on parsing error.
+ */
+int sprdfb_dispc_chg_clk(struct sprdfb_device *fb_dev,
+				int type, u32 new_val)
 {
-    uint32_t fps,dpi_clock;
-    struct panel_spec* panel = dev->panel;
-    fps = panel->fps;
-    dpi_clock = dev->dpi_clock;
+	int ret = 0;
+	unsigned long flags;
+	struct panel_spec* panel = fb_dev->panel;
 
-    printk("sprdfb: sprdfb_update_fps_clock--fps_level:%d \n",fps_level);
-    if((fps_level < 40) || (fps_level > 64)) {
-	printk("sprdfb: invalid fps set!\n");
-	return -1;
-    }
-
-    panel->fps = fps_level;
-
-    dispc_update_clock(dev);
-    dsi_dpi_init(dev);
-
-    panel->fps = fps;
-    dev->dpi_clock = dpi_clock;
-    return 0;
-}
-
-
-static int32_t sprdfb_dispc_change_fps(struct sprdfb_device *dev, int fps_level)
-{
-    int32_t ret = 0;
-    if(NULL == dev || 0 == dev->enable){
-		printk(KERN_ERR "sprdfb: sprdfb_dispc_change_fps fail. (dev not enable)\n");
-		return -1;
+	pr_debug("%s --enter--", __func__);
+	/* check if new value is valid */
+	if (new_val <= 0) {
+			pr_err("new value is invalid\n");
+			return -EINVAL;
 	}
-    if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
-		dispc_ctx.vsync_waiter ++;
-		dispc_sync(dev);
-                sprdfb_panel_change_fps(dev,fps_level);
-	}else{
-	        down(&dev->refresh_lock);
-		dispc_stop_for_feature(dev);
 
-                ret = sprdfb_update_fps_clock(dev,fps_level);
+	down(&fb_dev->refresh_lock);
+	/* Now let's do update dpi clock */
+	switch (type) {
+	case SPRDFB_DYNAMIC_PCLK:
+		if (fb_dev->panel_if_type != SPRDFB_PANEL_IF_DPI) {
+			pr_err("current dispc interface isn't DPI\n");
+			up(&fb_dev->refresh_lock);
+			return -EINVAL;
+		}
+		/* Note: local interrupt will be disabled */
+		local_irq_save(flags);
+		dispc_stop_for_feature(fb_dev);
+		ret = dispc_update_clk(fb_dev, new_val,
+				SPRDFB_DYNAMIC_PCLK);
+		break;
 
-                dispc_run_for_feature(dev);
-	        up(&dev->refresh_lock);
+	case SPRDFB_DYNAMIC_FPS:
+		if (fb_dev->panel_if_type != SPRDFB_PANEL_IF_DPI) {
+			dispc_ctx.vsync_waiter ++;
+			dispc_sync(fb_dev);
+			sprdfb_panel_change_fps(fb_dev, new_val);
+			up(&fb_dev->refresh_lock);
+			return ret;
+		}
+		/* Note: local interrupt will be disabled */
+		local_irq_save(flags);
+		dispc_stop_for_feature(fb_dev);
+		ret = dispc_update_clk(fb_dev, new_val, SPRDFB_DYNAMIC_FPS);
+		break;
+
+	case SPRDFB_DYNAMIC_MIPI_CLK:
+		/* Note: local interrupt will be disabled */
+		local_irq_save(flags);
+		dispc_stop_for_feature(fb_dev);
+		ret = dispc_update_clk(fb_dev, new_val, SPRDFB_DYNAMIC_MIPI_CLK);
+		break;
+
+	default:
+		ret = -EINVAL;
+		break;
 	}
-    return ret;
+
+	if (ret) {
+			pr_err("Failed to set pixel clock, fps or dphy freq.\n");
+			goto DONE;
+	}
+	if (type != SPRDFB_DYNAMIC_MIPI_CLK &&
+			panel->type == LCD_MODE_DSI &&
+			panel->info.mipi->work_mode ==
+			SPRDFB_MIPI_MODE_VIDEO &&
+			fb_dev->enable == true) {
+		ret = dsi_dpi_init(fb_dev);
+		if (ret)
+			pr_err("%s: dsi_dpi_init fail\n", __func__);
+	}
+
+DONE:
+	dispc_run_for_feature(fb_dev);
+	local_irq_restore(flags);
+	up(&fb_dev->refresh_lock);
+
+	pr_debug("%s --leave--", __func__);
+	return ret;
 }
-
-static int32_t sprdfb_dispc_notify_change_fps(struct dispc_dbs *h, int fps_level)
-{
-	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
-	struct sprdfb_device *dev = dispc_ctx->dev;
-
-	printk("sprdfb: sprdfb_dispc_notify_change_fps: %d\n", fps_level);
-
-	return sprdfb_dispc_change_fps(dev, fps_level);
-}
-
 #endif
+
+static int dispc_update_clk_intf(struct sprdfb_device *fb_dev)
+{
+	return dispc_update_clk(fb_dev, fb_dev->panel->fps, SPRDFB_FORCE_FPS);
+}
+
+/**
+ * author: Yang.Haibing haibing.yang@spreadtrum.com
+ *
+ * dispc_update_clk - update dpi clock via @howto and @new_val
+ * @fb_dev: spreadtrum specific fb device
+ * @new_val: fps or new dpi clock
+ * @howto: check the type is fps or pclk or mipi dphy freq
+ *
+ * Returns 0 on success, MINUS on error.
+ */
+static int dispc_update_clk(struct sprdfb_device *fb_dev,
+					u32 new_val, int howto)
+{
+	int ret;
+	u32 new_pclk;
+	u32 dpi_clk_src;
+	struct panel_spec* panel = fb_dev->panel;
+
+#ifdef CONFIG_OF
+	uint32_t clk_src[DISPC_CLOCK_NUM];
+
+	ret = of_property_read_u32_array(fb_dev->of_dev->of_node,
+			"clock-src", clk_src, DISPC_CLOCK_NUM);
+	if (ret) {
+		pr_err("[%s] read clock-src fail (%d)\n", __func__, ret);
+		return -EINVAL;
+	}
+	dpi_clk_src = clk_src[DISPC_DPI_CLOCK_SRC_ID];
+#else
+	dpi_clk_src = SPRDFB_DPI_CLOCK_SRC;
+#endif
+
+	switch (howto) {
+	case SPRDFB_FORCE_FPS:
+		ret = dispc_check_new_clk(fb_dev, &new_pclk,
+				dpi_clk_src, new_val,
+				SPRDFB_FORCE_FPS);
+		if (ret) {
+			pr_err("%s: new forced fps is invalid.", __func__);
+			return -EINVAL;
+		}
+		break;
+
+	case SPRDFB_DYNAMIC_FPS: /* Calc dpi clock via fps */
+		ret = dispc_check_new_clk(fb_dev, &new_pclk,
+				dpi_clk_src, new_val,
+				SPRDFB_DYNAMIC_FPS);
+		if (ret) {
+			pr_err("%s: new dynamic fps is invalid.", __func__);
+			return -EINVAL;
+		}
+		break;
+
+	case SPRDFB_FORCE_PCLK:
+		new_pclk = new_val;
+		break;
+
+	case SPRDFB_DYNAMIC_PCLK: /* Given dpi clock */
+		ret = dispc_check_new_clk(fb_dev, &new_pclk,
+				dpi_clk_src, new_val,
+				SPRDFB_DYNAMIC_PCLK);
+		if (ret) {
+			pr_err("%s: new dpi clock is invalid.", __func__);
+			return -EINVAL;
+		}
+		break;
+
+	case SPRDFB_DYNAMIC_MIPI_CLK: /* Given mipi clock */
+		if (panel && panel->type != LCD_MODE_DSI) {
+			pr_err("%s: panel type isn't dsi mode", __func__);
+			return -ENXIO;
+		}
+		ret = sprdfb_dsi_chg_dphy_freq(fb_dev, new_val);
+		if (ret) {
+			pr_err("%s: new dphy freq is invalid.", __func__);
+			return -EINVAL;
+		}
+		pr_info("dphy frequency is switched from %dHz to %dHz\n",
+						panel->info.mipi->phy_feq * 1000,
+						new_val * 1000);
+		return ret;
+
+	default:
+		pr_err("%s: Unsupported clock type.\n", __func__);
+		return -EINVAL;
+	}
+
+	if (howto != SPRDFB_FORCE_PCLK &&
+			howto != SPRDFB_FORCE_FPS &&
+			!fb_dev->enable) {
+		pr_warn("After fb_dev is resumed, dpi or mipi clk will be updated\n");
+		return ret;
+	}
+
+	/* Now let's do update dpi clock */
+	ret = clk_set_rate(dispc_ctx.clk_dispc_dpi, new_pclk);
+	if (ret) {
+		pr_err("Failed to set pixel clock.\n");
+		return ret;
+	}
+
+	pr_info("dpi clock is switched from %dHz to %dHz\n",
+					fb_dev->dpi_clock, new_pclk);
+	/* Save the updated clock */
+	fb_dev->dpi_clock = new_pclk;
+	return ret;
+}
 
 #if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
 /*return value:
@@ -2395,7 +2537,7 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 	.logo_proc		= sprdfb_dispc_logo_proc,
 	.suspend		= sprdfb_dispc_suspend,
 	.resume		= sprdfb_dispc_resume,
-	.update_clk	= dispc_update_clock,
+	.update_clk	= dispc_update_clk_intf,
 #ifdef CONFIG_FB_ESD_SUPPORT
 	.ESD_check	= sprdfb_dispc_check_esd,
 #endif
@@ -2405,9 +2547,6 @@ struct display_ctrl sprdfb_dispc_ctrl = {
 #endif
 #ifdef CONFIG_FB_VSYNC_SUPPORT
 	.wait_for_vsync = spdfb_dispc_wait_for_vsync,
-#endif
-#ifdef CONFIG_FB_DYNAMIC_FPS_SUPPORT
-    .change_fps = sprdfb_dispc_change_fps,
 #endif
 #ifdef CONFIG_FB_MMAP_CACHED
 	.set_vma = sprdfb_set_vma,

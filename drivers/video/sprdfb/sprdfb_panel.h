@@ -28,6 +28,10 @@
 #define LCD_MODE_RGB			1
 #define LCD_MODE_DSI			2
 
+/* LCD supported FPS */
+#define LCD_MAX_FPS 70
+#define LCD_MIN_FPS 30
+
 /* LCD suspend mode */
 
 /* SEND_SLEEP_CMD refer to send enter sleep cmd to panel before reset panel, 
