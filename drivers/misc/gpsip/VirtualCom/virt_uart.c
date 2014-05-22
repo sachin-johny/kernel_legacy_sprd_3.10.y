@@ -624,7 +624,10 @@ static int __init	XVU_Init(void)
 
 	down(&xvu_dev.sem);
 	for (i=0;i<XVU_PAIRS * 2; i++)
+	{
+		spin_lock_init(&xvu_dev.endpoint[i].sercnt_lock);
 		__XVU_SetMSR(i);
+	}
 	up(&xvu_dev.sem);
 
 	printk(KERN_INFO MODULE_NAME ": Virtual UART Device Ready... Major DevId: %d\n", xvu_ttydriver->major );
