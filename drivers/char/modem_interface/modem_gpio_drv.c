@@ -27,7 +27,7 @@
 
 extern void free_irq(unsigned int irq, void *dev_id);
 extern void modem_intf_send_GPIO_message(int gpio_no,int status,int index);
-extern void modem_intf_send_ctrl_gpio_message(int assert_status, int alive_status);
+extern void modem_intf_send_ctrl_gpio_message(enum MSG_CTRL_GPIO_TYPE gpio_type, int gpio_value);
 extern void on_modem_poweron(void);
 static unsigned int cp_to_ap_rdy_irq;
 static unsigned int cp_alive_gpio_irq;
@@ -68,9 +68,30 @@ static irqreturn_t cp_to_ap_rdy_handle(int irq, void *handle)
         return IRQ_HANDLED;
 }
 
+int modem_intf_get_watchdog_gpio_value()
+{
+
+        return gpio_get_value(cp_watchdog_gpio);
+}
+static irqreturn_t cp_watchdog_gpio_handle(int irq, void * handle)
+{
+	int wdg_reset_status;
+
+	wdg_reset_status = gpio_get_value(cp_watchdog_gpio);
+	printk("cp_watchdog_gpio: %d \n",wdg_reset_status);
+
+        if(wdg_reset_status == 0) {
+            irq_set_irq_type(cp_watchdog_gpio_irq,  IRQ_TYPE_LEVEL_HIGH);
+        } else {
+            irq_set_irq_type(cp_watchdog_gpio_irq,  IRQ_TYPE_LEVEL_LOW);
+        }
+
+	modem_intf_send_ctrl_gpio_message(GPIO_WATCHDOG, wdg_reset_status);
+	return IRQ_HANDLED;
+}
+
 static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
 {
-        int assert_status;
         int alive_status;
 
         alive_status = gpio_get_value(cp_alive_gpio);
@@ -82,8 +103,7 @@ static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
                 irq_set_irq_type(cp_alive_gpio_irq,  IRQ_TYPE_LEVEL_LOW);
         }
 
-        assert_status = gpio_get_value(cp_crash_gpio);
-        modem_intf_send_ctrl_gpio_message(assert_status, alive_status);
+        modem_intf_send_ctrl_gpio_message(GPIO_ALIVE, alive_status);
         return IRQ_HANDLED;
 }
 
@@ -91,10 +111,9 @@ static irqreturn_t cp_alive_gpio_handle(int irq, void *handle)
 static irqreturn_t cp_crash_gpio_handle(int irq, void *handle)
 {
         int assert_status;
-        int alive_status;
 
         assert_status = gpio_get_value(cp_crash_gpio);
-        printk("cp_crash_irq: %d \n",assert_status);
+        printk("cp_crash_gpio: %d \n",assert_status);
 
         if(assert_status == 0) {
                 irq_set_irq_type(cp_crash_gpio_irq,  IRQ_TYPE_LEVEL_HIGH);
@@ -102,8 +121,7 @@ static irqreturn_t cp_crash_gpio_handle(int irq, void *handle)
                 irq_set_irq_type(cp_crash_gpio_irq,  IRQ_TYPE_LEVEL_LOW);
         }
 
-        alive_status = gpio_get_value(cp_alive_gpio);
-        modem_intf_send_ctrl_gpio_message(assert_status, alive_status);
+        modem_intf_send_ctrl_gpio_message(GPIO_RESET, assert_status);
         return IRQ_HANDLED;
 }
 
@@ -165,6 +183,19 @@ int modem_gpio_irq_init(void *para)
 {
         int    error = 0;
 
+		cp_watchdog_gpio_irq = gpio_to_irq(cp_watchdog_gpio);
+		if(cp_watchdog_gpio_irq < 0)
+			return -1;
+		error = request_threaded_irq(cp_watchdog_gpio_irq, cp_watchdog_gpio_handle,
+                                     NULL, IRQF_DISABLED|IRQF_NO_SUSPEND |IRQF_TRIGGER_LOW, "modem_watchdog", para);
+        if (error) {
+                printk("modem_intf :cannot alloc cp_watchdog irq, err %d\r\n", error);
+                gpio_free(cp_watchdog_gpio);
+                return error;
+        }
+
+        enable_irq_wake(cp_watchdog_gpio_irq);
+
         cp_alive_gpio_irq = gpio_to_irq(cp_alive_gpio);
         if (cp_alive_gpio_irq < 0)
                 return -1;
@@ -216,7 +247,7 @@ int modem_gpio_init(void *para)
                 gpio_export(modem_reset_gpio,0);
         }
 
-        //alive gpio
+        //watchdog gpio
         error = gpio_request(cp_watchdog_gpio, "modem_watchdog_gpio");
         if (error) {
                 pr_err("Cannot request GPIO %d\n", cp_watchdog_gpio);
