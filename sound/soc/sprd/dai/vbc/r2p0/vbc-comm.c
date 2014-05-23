@@ -154,6 +154,7 @@ static int vbc_power(int enable)
 			for (i = 0; i < SPRD_VBC_PLAYBACK_COUNT; i++) {
 				vbc_da_buffer_clear_all(i);
 			}
+			arch_audio_sleep_xtl_enable();
 			sp_asoc_pr_dbg("VBC Power On\n");
 		}
 	} else {
@@ -161,6 +162,7 @@ static int vbc_power(int enable)
 			arch_audio_vbc_reset();
 			arch_audio_vbc_disable();
 			vbc_reg_disable();
+			arch_audio_sleep_xtl_disable();
 			sp_asoc_pr_dbg("VBC Power Off\n");
 		}
 		if (atomic_read(vbc_power_on) < 0) {
