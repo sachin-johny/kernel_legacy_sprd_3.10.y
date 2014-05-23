@@ -441,7 +441,7 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int cur_freq = 0;
 	unsigned long irq_flags;
 
-#ifdef CONFIG_MACH_SP7730GGA
+#if (defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_TSHARKWSAMSUNG))
 	return 0;
 #endif
 
