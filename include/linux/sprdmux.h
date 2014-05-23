@@ -52,6 +52,8 @@ extern int sprdmux_open(SPRDMUX_ID_E mux_id, int index);
 extern void sprdmux_close(SPRDMUX_ID_E mux_id, int index);
 extern int sprdmux_write(SPRDMUX_ID_E mux_id, int index, const unsigned char *buf, int count);
 extern int sprdmux_register_notify_callback(SPRDMUX_ID_E mux_id, struct sprdmux_notify *notify);
+extern int sprdmux_line_busy(SPRDMUX_ID_E mux_id, int line);
+extern void sprdmux_set_line_notify(SPRDMUX_ID_E mux_id, int line, __u8 notify);
 
 extern int ts0710_mux_create(int mux_id);
 extern void ts0710_mux_destory(int mux_id);

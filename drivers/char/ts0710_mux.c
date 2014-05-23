@@ -156,6 +156,7 @@
 
 #define MUX_VETH_LINE_BEGIN 13
 #define MUX_VETH_LINE_END 17
+#define MUX_VETH_RINGBUFER_NUM 24
 
 /* Debug */
 //#define TS0710DEBUG
@@ -205,15 +206,22 @@ static dlci_line dlci2line[] = {
 	{31, 31},		/* DLCI 32 */
 };
 
+/* set line ring buffer num*/
+static __u8 ringbuf_num[SPRDMUX_ID_MAX][NR_MUXS];
+
 typedef struct {
-	volatile __u8 buf[TS0710MUX_SEND_BUF_SIZE];
-	volatile __u8 *frame;
+	__u8 *buf;
+	__u8 **frame;
 	unsigned long flags;
-	volatile __u16 length;
-	volatile __u8 filled;
+	__u16 *length;
+	__u8 need_notify;
+
 	volatile __u8 dummy;	/* Allignment to 4*n bytes */
 	struct mutex send_lock;
 //	struct mutex send_data_lock; /*Todo*/
+	__u32 read_index;
+	__u32 write_index;
+
 	wait_queue_head_t tx_wait;
 } mux_send_struct;
 
@@ -329,7 +337,7 @@ static int send_ua(ts0710_con * ts0710, __u8 dlci);
 static int send_dm(ts0710_con * ts0710, __u8 dlci);
 static int send_sabm(ts0710_con * ts0710, __u8 dlci);
 static int send_disc(ts0710_con * ts0710, __u8 dlci);
-static void queue_uih(mux_send_struct * send_info, __u16 len, ts0710_con * ts0710, __u8 dlci);
+static void queue_uih(mux_send_struct * send_info, __u32 ring_index, __u16 len, ts0710_con * ts0710, __u8 dlci);
 static int send_pn_msg(ts0710_con * ts0710, __u8 prior, __u32 frame_size, __u8 credit_flow, __u8 credits, __u8 dlci, __u8 cr);
 static int send_nsc_msg(ts0710_con * ts0710, mcc_type cmd, __u8 cr);
 static void set_uih_hdr(short_frame * uih_pkt, __u8 dlci, __u32 len, __u8 cr);
@@ -355,6 +363,14 @@ static void mux_recover(struct sprd_mux *self);
 static int mux_recover_thread(void *data);
 static int mux_restore_channel(ts0710_con * ts0710);
 static void mux_display_connection(ts0710_con * ts0710, const char *tag);
+
+static void mux_set_ringbuf_num(void);
+static int mux_line_state(SPRDMUX_ID_E mux_id, int line);
+static mux_send_struct * mux_alloc_send_info(SPRDMUX_ID_E mux_id, int line);
+int sprdmux_line_busy(SPRDMUX_ID_E mux_id, int line);
+void sprdmux_set_line_notify(SPRDMUX_ID_E mux_id, int line, __u8 notify);
+static void mux_free_send_info(mux_send_struct * send_info);
+static void display_send_info(char * tag, SPRDMUX_ID_E mux_id, int line);
 
 #ifdef TS0710DEBUG
 
@@ -930,7 +946,7 @@ static int send_disc(ts0710_con * ts0710, __u8 dlci)
 	return basic_write(ts0710, buf, sizeof(short_frame) + FCS_SIZE);
 }
 
-static void queue_uih(mux_send_struct * send_info, __u16 len,
+static void queue_uih(mux_send_struct * send_info, __u32 ring_index, __u16 len,
 		      ts0710_con * ts0710, __u8 dlci)
 {
 	__u32 size;
@@ -945,26 +961,37 @@ static void queue_uih(mux_send_struct * send_info, __u16 len,
 		return;
 	}
 
+	if (!send_info->frame) {
+		printk(KERN_ERR "MUX: Error %s send_info->frame is NULL\n", __FUNCTION__);
+		return;
+	}
+
 	MUX_TS0710_DEBUG(((struct sprd_mux *)ts0710->user_data)->mux_id,"queue_uih: Creating UIH packet with %d bytes data to DLCI %d\n", len, dlci);
 
 	if (len > SHORT_PAYLOAD_SIZE) {
 		long_frame *l_pkt;
 
 		size = sizeof(long_frame) + len + FCS_SIZE;
-		l_pkt = (long_frame *) (send_info->frame - sizeof(long_frame));
+		l_pkt = (long_frame *) (send_info->frame[ring_index] - sizeof(long_frame));
 		set_uih_hdr((void *)l_pkt, dlci, len, ts0710->initiator);
 		l_pkt->data[len] = crc_calc((__u8 *) l_pkt, LONG_CRC_CHECK);
-		send_info->frame = ((__u8 *) l_pkt) - 1;
+		send_info->frame[ring_index] = ((__u8 *) l_pkt) - 1;
 	} else {
 		short_frame *s_pkt;
 
 		size = sizeof(short_frame) + len + FCS_SIZE;
-		s_pkt = (short_frame *) (send_info->frame - sizeof(short_frame));
+		s_pkt = (short_frame *) (send_info->frame[ring_index] - sizeof(short_frame));
 		set_uih_hdr((void *)s_pkt, dlci, len, ts0710->initiator);
 		s_pkt->data[len] = crc_calc((__u8 *) s_pkt, SHORT_CRC_CHECK);
-		send_info->frame = ((__u8 *) s_pkt) - 1;
+		send_info->frame[ring_index] = ((__u8 *) s_pkt) - 1;
 	}
-	send_info->length = size;
+
+	if (!send_info->length) {
+		printk(KERN_ERR "MUX: %s  pid[%d] send_info->length	NULL\n", __FUNCTION__, current->pid);
+		return;
+	}
+
+	send_info->length[ring_index] = size;
 }
 
 /* Multiplexer command packets functions */
@@ -2282,7 +2309,6 @@ void ts0710_mux_close(int mux_id, int line)
 	if (self->open_count[line] == 0) {
 		if ((self->mux_send_info_flags[line])
 			&& (self->mux_send_info[line])
-			/*&& (self->mux_send_info[line]->filled == 0) */
 			) {
 			self->mux_send_info_flags[line] = 0;
 			kfree(self->mux_send_info[line]);
@@ -2512,7 +2538,7 @@ int ts0710_mux_poll_wait(int mux_id, int line, struct file *filp, poll_table *wa
 		mask |= POLLIN | POLLRDNORM;
 	}
 
-	if (send_info->filled == 0 && self->mux_status == MUX_STATE_READY) {
+	if (mux_line_state(mux_id, line) == 0 && self->mux_status == MUX_STATE_READY) {
 		mask |= POLLOUT | POLLWRNORM;
 	}
 
@@ -2529,6 +2555,7 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 	struct sprd_mux *self = NULL;
 	ts0710_con *ts0710 = NULL;
 	int rval = 0;
+	__u32 ring_index;
 
 	MUX_TS0710_DEBUG(mux_id, "line[%d] pid[%d] count  = %d, timeout = %d\n", line, current->pid, count, timeout);
 
@@ -2584,7 +2611,7 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 				return -EBUSY;
 			}
 
-			if (send_info->filled) {
+			if (mux_line_state(mux_id, line)) {
 				printk(KERN_INFO "MUX: %s mux[%d] line[%d] pid[%d] is filled!\n", __FUNCTION__, mux_id, line, current->pid);
 				mutex_unlock(&send_info->send_lock);
 				return -EBUSY;
@@ -2601,7 +2628,7 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 
 				MUX_TS0710_DEBUG(mux_id, "line[%d] pid[%d] wait write\n", line, current->pid);
 
-				rval = wait_event_interruptible(send_info->tx_wait, send_info->filled == 0 && self->mux_status == MUX_STATE_READY);
+				rval = wait_event_interruptible(send_info->tx_wait, mux_line_state(mux_id, line) == 0 && self->mux_status == MUX_STATE_READY);
 				if (rval < 0) {
 					printk(KERN_WARNING "MUX: %s mux[%d] line[%d] pid[%d] write wait interrupted!\n", __FUNCTION__, mux_id, line, current->pid);
 					mutex_unlock(&send_info->send_lock);
@@ -2609,7 +2636,7 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 				}
 		}else {
 			mutex_lock(&send_info->send_lock);
-			rval = wait_event_interruptible_timeout(send_info->tx_wait, send_info->filled == 0 && self->mux_status == MUX_STATE_READY, timeout);
+			rval = wait_event_interruptible_timeout(send_info->tx_wait, mux_line_state(mux_id, line) == 0 && self->mux_status == MUX_STATE_READY, timeout);
 			if (rval < 0) {
 				printk(KERN_WARNING "MUX: %s mux[%d] line[%d] pid[%d] write wait interrupted!\n", __FUNCTION__, mux_id, line, current->pid);
 				mutex_unlock(&send_info->send_lock);
@@ -2621,7 +2648,11 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 			}
 		}
 
-		d_buf = ((__u8 *) send_info->buf) + TS0710MUX_SEND_BUF_OFFSET;
+		ring_index = send_info->write_index % ringbuf_num[mux_id][line];
+
+		d_buf = send_info->buf + (ring_index * TS0710MUX_SEND_BUF_SIZE) + TS0710MUX_SEND_BUF_OFFSET;
+
+//		printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] 	ring_index = %d, num = %d\n", __FUNCTION__, mux_id, line, current->pid, ring_index, ringbuf_num[mux_id][line]);
 
 		if ((uint32_t)buf > TASK_SIZE) {
 			memcpy(&d_buf[0], buf, c);
@@ -2636,9 +2667,18 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 		MUX_TS0710_DEBUG(self->mux_id, "Prepare to send %d bytes from /dev/mux%d", c, line);
 		MUX_TS0710_DEBUGHEX(self->mux_id, d_buf, c);
 
-		send_info->frame = d_buf;
-		queue_uih(send_info, c, ts0710, dlci);
-		send_info->filled = 1;
+		if (!send_info->frame) {
+			printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] send_info->frame  NULL\n", __FUNCTION__, mux_id, line, current->pid);
+			return 0;
+		}
+
+		send_info->frame[ring_index] = d_buf;
+
+		queue_uih(send_info, ring_index, c, ts0710, dlci);
+
+		printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] write  = %d\n", __FUNCTION__, mux_id, line, current->pid, c);
+
+		send_info->write_index++;
 
 		mutex_unlock(&send_info->send_lock);
 
@@ -2792,16 +2832,17 @@ int ts0710_mux_open(int mux_id, int line)
 
 	/* Allocate memory first. As soon as connection has been established, MUX may receive */
 	if (self->mux_send_info_flags[line] == 0) {
-		send_info = (mux_send_struct *) kmalloc(sizeof(mux_send_struct), GFP_KERNEL);
+		send_info = mux_alloc_send_info(mux_id, line);
 		if (!send_info) {
 			retval = -ENOMEM;
 			self->open_count[line]--;
 			mutex_unlock(&self->open_mutex[line]);
 			goto out;
 		}
-		send_info->length = 0;
+
+		send_info->read_index = 0;
+		send_info->write_index = 0;
 		send_info->flags = 0;
-		send_info->filled = 0;
 		mutex_init(&send_info->send_lock);
 		init_waitqueue_head(&send_info->tx_wait);
 
@@ -2815,8 +2856,9 @@ int ts0710_mux_open(int mux_id, int line)
 		recv_info = (mux_recv_struct *) kmalloc(sizeof(mux_recv_struct), GFP_KERNEL);
 		if (!recv_info) {
 			self->mux_send_info_flags[line] = 0;
-			kfree(self->mux_send_info[line]);
+			mux_free_send_info(self->mux_send_info[line]);
 			self->mux_send_info[line] = 0;
+
 			MUX_TS0710_DEBUG(self->mux_id, "Free mux_send_info for /dev/mux%d\n", line);
 			retval = -ENOMEM;
 
@@ -3146,6 +3188,8 @@ static int mux_send_thread(void *private_)
 	mux_send_struct *send_info;
 	__u8 dlci;
 	struct sprd_mux *self;
+	__u32 ring_index;
+	__u32 num;
 
 	self = (struct sprd_mux *)(private_);
 
@@ -3184,7 +3228,7 @@ static int mux_send_thread(void *private_)
 				continue;
 			}
 
-			if (!(send_info->filled)) {
+			if (send_info->write_index == send_info->read_index) {
 				continue;
 			}
 
@@ -3194,28 +3238,38 @@ static int mux_send_thread(void *private_)
 				continue;
 			} else if (ts0710->dlci[dlci].state != CONNECTED) {
 				MUX_TS0710_DEBUG(self->mux_id, "DLCI %d not connected\n", dlci);
-				send_info->filled = 0;
+				send_info->read_index = send_info->write_index;
 				wake_up_interruptible(&send_info->tx_wait);
 				continue;
 			}
 
-			if (send_info->length <= TS0710MUX_SERIAL_BUF_SIZE) {
-				MUX_TS0710_DEBUG(self->mux_id, "Send queued UIH for /dev/mux%d len = %d", j, send_info->length);
-				basic_write(ts0710, (__u8 *) send_info->frame, send_info->length);
+			while(send_info->write_index != send_info->read_index) {
+				ring_index = send_info->read_index % ringbuf_num[self->mux_id][j];
+				MUX_TS0710_DEBUG(self->mux_id, "Send queued UIH for /dev/mux%d ring_index = %d, len = %d", j,ring_index,  send_info->length[ring_index]);
 
-				send_info->length = 0;
-				send_info->filled = 0;
-
-				if (self->callback[j].func) {
-					(*self->callback[j].func)(j, SPRDMUX_EVENT_COMPLETE_WRITE, (__u8 *)send_info->frame, send_info->length, self->callback[j].user_data);
+				if (send_info->length[ring_index] <= TS0710MUX_SERIAL_BUF_SIZE) {
+					if (basic_write(ts0710, (__u8 *) send_info->frame[ring_index], send_info->length[ring_index]) <= 0 ) {
+						printk("[%s]: %s /dev/mux%d index = %d basic_write fail!\n", sprd_mux_mgr[self->mux_id].mux_name, __FUNCTION__, j, ring_index);
+						break;
+					}
+				} else {
+					printk("[%s]: %s /dev/mux%d send length is exceed %d\n", sprd_mux_mgr[self->mux_id].mux_name, __FUNCTION__, j, send_info->length[ring_index]);
 				}
-
-				wake_up_interruptible(&send_info->tx_wait);
-			} else {
-				printk("[%s]: %s /dev/mux%d send length is exceed %d\n", sprd_mux_mgr[self->mux_id].mux_name, __FUNCTION__, j, send_info->length);
-				wake_up_interruptible(&send_info->tx_wait);
-				break;
+				send_info->length[ring_index] = 0;
+				send_info->read_index++;
+				num = send_info->write_index - send_info->read_index;
+				if (send_info->need_notify || 0 == num) {
+					if (num <= ringbuf_num[self->mux_id][j]/2) {
+						send_info->need_notify = false;
+//						printk("[%s]: %s /dev/mux%d num = %d, cnt = %u\n", sprd_mux_mgr[self->mux_id].mux_name, __FUNCTION__, j, num, cnt++);
+						if (self->callback[j].func) {
+							(*self->callback[j].func)(j, SPRDMUX_EVENT_COMPLETE_WRITE, (__u8 *)send_info->frame, 0, self->callback[j].user_data);
+						}
+					}
+				}
 			}
+
+			wake_up_interruptible(&send_info->tx_wait);
 		}			/* End for() loop */
 
 	}
@@ -3284,6 +3338,128 @@ static int mux_create_proc(void)
 	return 0;
 }
 
+static void mux_set_ringbuf_num(void)
+{
+	int mux_id;
+	int line;
+
+	for(mux_id = SPRDMUX_ID_SPI; mux_id < SPRDMUX_ID_MAX; mux_id++) {
+		for(line = 0; line < NR_MUXS; line++) {
+			if (mux_id == SPRDMUX_ID_SDIO && (line >= MUX_VETH_LINE_BEGIN && line <=MUX_VETH_LINE_END)) {
+				ringbuf_num[mux_id][line] = MUX_VETH_RINGBUFER_NUM;
+			} else {
+				/* Default */
+				ringbuf_num[mux_id][line] = 1;
+			}
+		}
+	}
+}
+
+static int mux_line_state(SPRDMUX_ID_E mux_id, int line)
+{
+	struct sprd_mux *self = NULL;
+	mux_send_struct *send_info;
+
+	self = sprd_mux_mgr[mux_id].handle;
+
+	send_info = self->mux_send_info[line];
+
+	if (!send_info) {
+		printk(KERN_ERR "MUX Error: %s: mux_send_info[%d][%d] == 0\n", __FUNCTION__, mux_id, line);
+		return 1;
+	}
+
+	if (send_info->write_index - send_info->read_index >= ringbuf_num[mux_id][line]) {
+		/* No idle ring buffer */
+		return 1;
+	}
+
+	return 0;
+}
+
+int sprdmux_line_busy(SPRDMUX_ID_E mux_id, int line)
+{
+	return mux_line_state(mux_id, line);
+}
+
+void sprdmux_set_line_notify(SPRDMUX_ID_E mux_id, int line, __u8 notify)
+
+{
+	struct sprd_mux *self = NULL;
+	mux_send_struct *send_info;
+
+	self = sprd_mux_mgr[mux_id].handle;
+
+	send_info = self->mux_send_info[line];
+
+	if (!send_info) {
+		printk(KERN_ERR "MUX Error: %s: mux_send_info[%d][%d] == 0\n", __FUNCTION__, mux_id, line);
+		return;
+	}
+
+	send_info->need_notify = notify;
+}
+
+static mux_send_struct * mux_alloc_send_info(SPRDMUX_ID_E mux_id, int line)
+{
+	mux_send_struct *send_info_ptr = NULL;
+
+	send_info_ptr = (mux_send_struct *) kzalloc(sizeof(mux_send_struct), GFP_KERNEL);
+	if (!send_info_ptr) {
+		return NULL;
+	}
+
+	send_info_ptr->buf = (__u8 *)kmalloc(sizeof(__u8) * TS0710MUX_SEND_BUF_SIZE * ringbuf_num[mux_id][line], GFP_KERNEL);
+	if (!send_info_ptr->buf) {
+		kfree(send_info_ptr);
+		return NULL;
+	}
+
+	send_info_ptr->length = (__u16 *)kzalloc(sizeof(__u16) * ringbuf_num[mux_id][line], GFP_KERNEL);
+	if (!send_info_ptr->length) {
+		kfree(send_info_ptr->buf);
+		kfree(send_info_ptr);
+		return NULL;
+	}
+
+	send_info_ptr->frame = (__u8 **)kzalloc(sizeof(__u8 *) * ringbuf_num[mux_id][line], GFP_KERNEL);
+
+	if (!send_info_ptr->frame) {
+		kfree(send_info_ptr->length);
+		kfree(send_info_ptr->buf);
+		kfree(send_info_ptr);
+		return NULL;
+	}
+
+	return send_info_ptr;
+}
+
+static void mux_free_send_info(mux_send_struct * send_info)
+{
+	if (!send_info) {
+		return;
+	}
+
+	if (send_info->frame) {
+		kfree(send_info->frame);
+		send_info->frame = NULL;
+	}
+
+	if (send_info->length) {
+		kfree(send_info->length);
+		send_info->length = NULL;
+	}
+
+	if (send_info->buf) {
+		kfree(send_info->buf);
+		send_info->buf = NULL;
+
+	}
+
+	kfree(send_info);
+	send_info = NULL;
+}
+
 static void mux_remove_proc(void)
 {
 	remove_proc_entry("mux_mode", NULL);	/* remove /proc/mux_mode */
@@ -3299,6 +3475,7 @@ int ts0710_mux_init(void)
 		printk(KERN_ERR "MUX: Error %s create mux proc interface failed!\n", __FUNCTION__);
 	}
 
+	mux_set_ringbuf_num();
 	return 0;
 }
 
@@ -3410,11 +3587,10 @@ void ts0710_mux_destory(int mux_id)
 	}
 
 	for (j = 0; j < NR_MUXS; j++) {
-		if ((self->mux_send_info_flags[j]) && (self->mux_send_info[j])) {
-			kfree(self->mux_send_info[j]);
+		if (self->mux_send_info_flags[j]) {
+			mux_free_send_info(self->mux_send_info[j]);
+			self->mux_send_info_flags[j] = 0;
 		}
-		self->mux_send_info_flags[j] = 0;
-		self->mux_send_info[j] = 0;
 
 		if ((self->mux_recv_info_flags[j]) && (self->mux_recv_info[j])) {
 			free_mux_recv_struct(self->mux_recv_info[j]);
@@ -3852,6 +4028,7 @@ static void mux_wakeup_all_wait(struct sprd_mux *self)
 static void mux_tidy_buff(struct sprd_mux *self)
 {
 	int j;
+	int k;
 	mux_send_struct *send_info;
 
 	if (!self) {
@@ -3869,8 +4046,12 @@ static void mux_tidy_buff(struct sprd_mux *self)
 			continue;
 		}
 
-		send_info->filled = 0;
-		send_info->length = 0;
+		for (k = 0; k < ringbuf_num[self->mux_id][j]; k++) {
+			send_info->length[k] = 0;
+		}
+
+		send_info->read_index = 0;
+		send_info->write_index = 0;
 	}
 
 	memset(self->tbuf, 0, TS0710MUX_MAX_BUF_SIZE);
@@ -4098,12 +4279,58 @@ static int ts0710_ctrl_channel_status(ts0710_con * ts0710)
 	return 0;
 }
 
+static void display_send_info(char * tag, SPRDMUX_ID_E mux_id, int line)
+{
+	struct sprd_mux *self = NULL;
+	mux_send_struct *send_info;
+	int j;
+	self = sprd_mux_mgr[mux_id].handle;
+
+	if (!self) {
+		printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] pid[%d] self  NULL\n", tag, __FUNCTION__, mux_id, line, current->pid);
+		return;
+	}
+
+	send_info = self->mux_send_info[line];
+
+	if (!send_info) {
+		printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] pid[%d] send_info  NULL\n", tag, __FUNCTION__, mux_id, line, current->pid);
+		return;
+	}
+
+	if (!send_info->frame) {
+		printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] pid[%d] send_info->frame  NULL\n", tag, __FUNCTION__, mux_id, line, current->pid);
+		return;
+	}
+
+	if (!send_info->buf) {
+		printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] pid[%d] send_info->buf  NULL\n", tag, __FUNCTION__, mux_id, line, current->pid);
+		return;
+	}
+
+	if (!send_info->length) {
+		printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] pid[%d] send_info->length  NULL\n", tag, __FUNCTION__, mux_id, line, current->pid);
+		return;
+	}
+
+//	printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] buf = 0x%x, frame = 0x%x, length = 0x%x\n", tag, __FUNCTION__, mux_id, line, send_info->buf, send_info->frame, send_info->length);
+
+	for (j = 0; j < ringbuf_num[mux_id][line]; j++) {
+//		printk(KERN_ERR "MUX: %s, %s mux[%d] line[%d] index[%d] send_info->length[%d] = %u send_info->frame[%d] = 0x%u\n", tag, __FUNCTION__, mux_id, line, j,  send_info->length[j], j,send_info->frame[j]);
+	}
+}
+
+
+
 EXPORT_SYMBOL(sprdmux_register);
 EXPORT_SYMBOL(sprdmux_unregister);
 EXPORT_SYMBOL(sprdmux_open);
 EXPORT_SYMBOL(sprdmux_close);
 EXPORT_SYMBOL(sprdmux_write);
 EXPORT_SYMBOL(sprdmux_register_notify_callback);
+EXPORT_SYMBOL(sprdmux_line_busy);
+EXPORT_SYMBOL(sprdmux_set_line_notify);
+
 EXPORT_SYMBOL(ts0710_mux_create);
 EXPORT_SYMBOL(ts0710_mux_destory);
 EXPORT_SYMBOL(ts0710_mux_init);

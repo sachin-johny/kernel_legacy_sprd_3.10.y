@@ -499,7 +499,11 @@ static int veth_resume(struct veth_device *veth)
 		VETH_ERR("veth_resume, veth is NULL\n");
 		return -ENODEV;
 	}
+
+	if (veth->status == VETH_DEV_STATUS_ON && netif_queue_stopped(veth->netdev)) {
 	netif_wake_queue(veth->netdev);
+	}
+
 	return 0;
 }
 
@@ -685,14 +689,24 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 			dev->name, skb->len, (skb->data[VETH_ETH_HLEN] & 0xf0) >> 4);
 
 	/* notify the uplayer to stop sending */
-	netif_stop_queue(dev);
+//	netif_stop_queue(dev);
 
 	/* invoke mux write interface */
 	ret = sprdmux_write(pdata->inst_id, pdata->index, skb->data, skb->len);
 	if (ret <= 0){
 		VETH_ERR("%s failed to sprdmux write (%d)!!!\n", dev->name, ret);
 		veth->stats.tx_fifo_errors++;
+		/* notify the uplayer to stop sending */
+		netif_stop_queue(dev);
+
 		return NETDEV_TX_BUSY;
+	} else {
+		if (sprdmux_line_busy(pdata->inst_id, pdata->index)) {
+			netif_stop_queue(dev);
+			sprdmux_set_line_notify(pdata->inst_id, pdata->index, true);
+		} else {
+			sprdmux_set_line_notify(pdata->inst_id, pdata->index, false);
+		}
 	}
 
 	veth->stats.tx_packets++;
@@ -702,7 +716,7 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	ret = NETDEV_TX_OK;
 	dev_kfree_skb_irq(skb);
 
-	VETH_DEBUG("%s start xmit done\n", dev->name);
+//	VETH_DEBUG("%s start xmit done\n", dev->name);
 	return ret;
 }
 
