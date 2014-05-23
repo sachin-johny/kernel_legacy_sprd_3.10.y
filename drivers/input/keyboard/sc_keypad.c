@@ -44,6 +44,8 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
+#include <linux/input-hook.h>
+
 #define DEBUG_KEYPAD	0
 
 #ifndef CONFIG_OF
@@ -321,12 +323,18 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 
 	if (value) {
 		/* Release : low level */
+#ifdef HOOK_POWER_KEY
+		input_report_key_hook(sci_kpd->input_dev, key, 0);
+#endif
 		input_report_key(sci_kpd->input_dev, key, 0);
 		input_sync(sci_kpd->input_dev);
 		printk("Powerkey:%dU\n", key);
 		irq_set_irq_type(irq, IRQF_TRIGGER_HIGH);
 	} else {
 		/* Press : high level */
+#ifdef HOOK_POWER_KEY
+		input_report_key_hook(sci_kpd->input_dev, key, 1);
+#endif
 		input_report_key(sci_kpd->input_dev, key, 1);
 		input_sync(sci_kpd->input_dev);
 		printk("Powerkey:%dD\n", key);
@@ -697,11 +705,17 @@ struct platform_driver sci_keypad_driver = {
 
 static int __init sci_keypad_init(void)
 {
+#ifdef HOOK_POWER_KEY
+	input_hook_init();
+#endif
 	return platform_driver_register(&sci_keypad_driver);
 }
 
 static void __exit sci_keypad_exit(void)
 {
+#ifdef HOOK_POWER_KEY
+	input_hook_exit();
+#endif
 	platform_driver_unregister(&sci_keypad_driver);
 }
 
