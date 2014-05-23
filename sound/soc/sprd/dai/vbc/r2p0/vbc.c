@@ -394,7 +394,7 @@ static int vbc_hw_params(struct snd_pcm_substream *substream,
 #ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
 	if (substream->stream == SNDRV_PCM_STREAM_CAPTURE) {
 		if (params_rate(params) == 44100) {
-			if (dfm.hw_rate == 0)  {/*dfm is closed*/
+			if ((vbc_idx == 1 && dfm.hw_rate == 0) ||(vbc_idx == 2))  {/*dfm is closed for ad01 */
 				vbc_src_set(CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE,
 					    vbc_idx);
 			}

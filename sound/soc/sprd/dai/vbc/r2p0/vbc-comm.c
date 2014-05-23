@@ -183,7 +183,7 @@ static inline int vbc_da_enable_raw(int enable, int chan)
 static inline int vbc_ad_enable_raw(int enable, int chan)
 {
 	if (enable) {
-		vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBADCHEN_SHIFT + chan)),
+		vbc_reg_update(VBCHNEN, (1 << (VBADCHEN_SHIFT + chan)),
 			(1 << (VBADCHEN_SHIFT + chan)));
 	} else {
 		pr_info("Not close ad%d chan!", (chan ? 1:0));
@@ -194,8 +194,12 @@ static inline int vbc_ad_enable_raw(int enable, int chan)
 
 static inline int vbc_ad23_enable_raw(int enable, int chan)
 {
-	vbc_reg_update(VBCHNEN, ((enable ? 1 : 0) << (VBAD23CHEN_SHIFT + chan)),
-		       (1 << (VBAD23CHEN_SHIFT + chan)));
+	if (enable) {
+		vbc_reg_update(VBCHNEN, (1 << (VBAD23CHEN_SHIFT + chan)),
+			       (1 << (VBAD23CHEN_SHIFT + chan)));
+	} else {
+		pr_info("Not close ad%d chan!", (chan ? 3:2));
+	}
 	return 0;
 }
 

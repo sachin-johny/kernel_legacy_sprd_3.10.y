@@ -969,7 +969,7 @@ static int mux_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		mux->set = 0;
-		ret = vbc_mux_cfg[id] (0);
+		/*ret = vbc_mux_cfg[id] (0);*/
 		break;
 	default:
 		BUG();
