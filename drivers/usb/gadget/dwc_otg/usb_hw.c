@@ -29,7 +29,7 @@
 
 #if defined(CONFIG_ARCH_SC8825)||defined(CONFIG_ARCH_SCX35)
 #define  USB_LDO_NAME	"vddusb"
-#define  USB_CLK_NAME    	"clk_usb_ref"
+#define  USB_CLK_NAME   	"clk_usb_ref"
 #else
 #define	 USB_LDO_NAME    "V_USB"
 #define  USB_CLK_NAME    "clk_usb_ref"
@@ -37,10 +37,26 @@
 
 static int    gpio_vbus =0xffffffff ;
 static int    gpio_id=0xffffffff;
+static uint32_t tune_from_uboot = 0;
 
 #define GPIO_INVALID 0xffffffff
 
 extern int in_calibration(void);
+
+static int __init usb_phy_tune_get(char *str)
+{
+	if (str != NULL) {
+		sscanf(&str[0], "%x", &tune_from_uboot);
+	}
+	if(tune_from_uboot == 0)
+		{
+		tune_from_uboot = 0x44073e33;
+	}
+	pr_info("Usb_hw.c: [%s]usb phy tune from uboot: 0x%x\n", __FUNCTION__, tune_from_uboot);
+	return 1;
+}
+__setup("usb_phy_tune=", usb_phy_tune_get);
+
 
 static void usb_ldo_switch(int is_on)
 {
@@ -112,11 +128,8 @@ void usb_phy_init(void)
 #ifdef CONFIG_USB_CORE_IP_293A
 #if defined(CONFIG_ARCH_SCX35)
 	/*shark and dolphin are the same value with SPRD ref phone*/
-#if defined(CONFIG_MACH_SC9620OPENPHONE) || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
-	__raw_writel(0x44077e33,REG_AP_APB_USB_PHY_TUNE);
-#else
-	__raw_writel(0x44073e33,REG_AP_APB_USB_PHY_TUNE);
-#endif
+	__raw_writel(tune_from_uboot,REG_AP_APB_USB_PHY_TUNE);
+
 	//sci_glb_set(REG_AP_APB_USB_PHY_TUNE,BIT(9)|BIT(10)|BIT(11)|BIT(20));
 #else
 		/*
