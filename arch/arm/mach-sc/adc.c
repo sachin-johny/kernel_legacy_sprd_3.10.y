@@ -193,9 +193,12 @@ static ssize_t sprd_adc_store(struct device *dev,
 	//unsigned long tmp = simple_strtoul(buf, NULL, 10);
 	unsigned int len = 0, tmp_data = 0;
 
+	if ((NULL == adc_data) || (NULL == buf))
+		return -EIO;
+
 	len = sscanf(buf, "%d", &tmp_data);
 
-	if ((NULL == adc_data) || (NULL == buf) || (0 == len))
+	if (0 == len)
 		return -EIO;
 
 	pr_info("%s line: %d, attr name(%s), tmp_data %d, count %d, len %d\n", __func__, __LINE__,
