@@ -53,10 +53,16 @@ struct ion_unmap_data {
 	int fd_buffer;
 };
 
+enum SPRD_DEVICE_SYNC_TYPE {
+	SPRD_DEVICE_PRIMARY_SYNC,
+	SPRD_DEVICE_VIRTUAL_SYNC,
+};
+
 struct ion_fence_data {
-    int fence_fd;
-    char name[32];
-    unsigned long value;
+	uint32_t device_type;
+	int life_value;
+	int release_fence_fd;
+	int retired_fence_fd;
 };
 
 enum ION_SPRD_CUSTOM_CMD {
