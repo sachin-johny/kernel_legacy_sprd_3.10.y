@@ -4204,6 +4204,11 @@ static int mux_restore_channel(ts0710_con * ts0710)
 
 	mux_display_connection(ts0710, "before restore");
 
+	if (ts0710_ctrl_channel_status(self->connection) != 0) {
+		printk(KERN_ERR "MUX: Error %s ctrl channel status is Not OK\n", __FUNCTION__);
+		return -1;
+	}
+
 	for (j = 0; j < TS0710_MAX_CHN; j++) {
 		line = dlci2line[j].dataline;
 		if (ts0710->dlci[j].state == CONNECTING ||
