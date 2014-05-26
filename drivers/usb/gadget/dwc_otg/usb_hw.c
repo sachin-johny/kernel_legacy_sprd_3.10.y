@@ -37,7 +37,7 @@
 
 static int    gpio_vbus =0xffffffff ;
 static int    gpio_id=0xffffffff;
-static uint32_t tune_from_uboot = 0;
+static uint32_t tune_from_uboot = 0x44073e33;
 
 #define GPIO_INVALID 0xffffffff
 
