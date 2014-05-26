@@ -24,6 +24,13 @@
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
 
+#ifdef CONFIG_ITM_WIFI_DIRECT
+#include <linux/workqueue.h>
+#include <linux/fs.h>
+#include <linux/fs_struct.h>
+#include <linux/path.h>
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
+
 #include "sipc.h"
 #include "ittiam.h"
 #include "cfg80211.h"
@@ -94,6 +101,14 @@ static struct ieee80211_rate itm_rates[] = {
 #define itm_g_htcap (IEEE80211_HT_CAP_SUP_WIDTH_20_40 | \
 			IEEE80211_HT_CAP_SGI_20		 | \
 			IEEE80211_HT_CAP_SGI_40)
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+#define P2P_IE_ID 221
+#define P2P_IE_OUI_BYTE0 0x50
+#define P2P_IE_OUI_BYTE1 0x6F
+#define P2P_IE_OUI_BYTE2 0x9A
+#define P2P_IE_OUI_TYPE 0x09
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 static struct ieee80211_channel itm_2ghz_channels[] = {
 	CHAN2G(1, 2412, 0),
@@ -191,7 +206,215 @@ itm_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 				   .rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
 				   BIT(IEEE80211_STYPE_PROBE_REQ >> 4),
 				   },
+#ifdef CONFIG_ITM_WIFI_DIRECT
+/* Supported mgmt frame types for p2p*/
+	[NL80211_IFTYPE_ADHOC] = {
+				  .tx = 0xffff,
+				  .rx = BIT(IEEE80211_STYPE_ACTION >> 4)
+				  },
+	[NL80211_IFTYPE_STATION] = {
+				    .tx = 0xffff,
+				    .rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
+				    BIT(IEEE80211_STYPE_PROBE_REQ >> 4)
+				    },
+	[NL80211_IFTYPE_AP] = {
+			       .tx = 0xffff,
+			       .rx = BIT(IEEE80211_STYPE_ASSOC_REQ >> 4) |
+			       BIT(IEEE80211_STYPE_REASSOC_REQ >> 4) |
+			       BIT(IEEE80211_STYPE_PROBE_REQ >> 4) |
+			       BIT(IEEE80211_STYPE_DISASSOC >> 4) |
+			       BIT(IEEE80211_STYPE_AUTH >> 4) |
+			       BIT(IEEE80211_STYPE_DEAUTH >> 4) |
+			       BIT(IEEE80211_STYPE_ACTION >> 4)
+			       },
+	[NL80211_IFTYPE_AP_VLAN] = {
+				    /* copy AP */
+				    .tx = 0xffff,
+				    .rx = BIT(IEEE80211_STYPE_ASSOC_REQ >> 4) |
+				    BIT(IEEE80211_STYPE_REASSOC_REQ >> 4) |
+				    BIT(IEEE80211_STYPE_PROBE_REQ >> 4) |
+				    BIT(IEEE80211_STYPE_DISASSOC >> 4) |
+				    BIT(IEEE80211_STYPE_AUTH >> 4) |
+				    BIT(IEEE80211_STYPE_DEAUTH >> 4) |
+				    BIT(IEEE80211_STYPE_ACTION >> 4)
+				    },
+	[NL80211_IFTYPE_P2P_CLIENT] = {
+				       .tx = 0xffff,
+				       .rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
+				       BIT(IEEE80211_STYPE_PROBE_REQ >> 4)
+				       },
+	[NL80211_IFTYPE_P2P_GO] = {
+				   .tx = 0xffff,
+				   .rx = BIT(IEEE80211_STYPE_ASSOC_REQ >> 4) |
+				   BIT(IEEE80211_STYPE_REASSOC_REQ >> 4) |
+				   BIT(IEEE80211_STYPE_PROBE_REQ >> 4) |
+				   BIT(IEEE80211_STYPE_DISASSOC >> 4) |
+				   BIT(IEEE80211_STYPE_AUTH >> 4) |
+				   BIT(IEEE80211_STYPE_DEAUTH >> 4) |
+				   BIT(IEEE80211_STYPE_ACTION >> 4)
+				   },
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 };
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+#define P2P_MODE_PATH "/data/misc/wifi/fwpath"
+
+static int get_file_size(struct file *f)
+{
+	int error = -EBADF;
+	struct kstat stat;
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+	error = vfs_getattr(&f->f_path, &stat);
+#else
+	error = vfs_getattr(f->f_path.mnt, f->f_path.dentry, &stat);
+#endif
+	if (error == 0) {
+		return stat.size;
+	} else {
+		pr_err("get conf file stat error\n");
+		return error;
+	}
+}
+
+static char type_name[16][32] = {
+	"ASSO REQ",
+	"ASSO RESP",
+	"REASSO REQ",
+	"REASSO RESP",
+	"PROBE REQ",
+	"PROBE RESP",
+	"TIMING ADV",
+	"RESERVED",
+	"BEACON",
+	"ATIM",
+	"DISASSO",
+	"AUTH",
+	"DEAUTH",
+	"ACTION",
+	"ACTION NO ACK",
+	"RESERVED"
+};
+
+static char pub_action_name[][32] = {
+	"GO Negotiation Req",
+	"GO Negotiation Resp",
+	"GO Negotiation Conf",
+	"P2P Invitation Req",
+	"P2P Invitation Resp",
+	"Device Discovery Req",
+	"Device Discovery Resp",
+	"Provision Discovery Req",
+	"Provision Discovery Resp",
+	"Reserved"
+};
+
+static char p2p_action_name[][32] = {
+	"Notice of Absence",
+	"P2P Precence Req",
+	"P2P Precence Resp",
+	"GO Discoverability Req",
+	"Reserved"
+};
+
+#define MAC_LEN			(24)
+#define	ADDR1_OFFSET	(4)
+#define ADDR2_OFFSET	(10)
+#define	ACTION_TYPE		(13)
+#define	ACTION_SUBTYPE_OFFSET	(30)
+#define	PUB_ACTION		(0x4)
+#define	P2P_ACTION		(0x7f)
+
+static void cfg80211_dump_frame_prot_info(struct wiphy *wiphy,
+		int send,
+		int freq,
+		const unsigned char *buf,
+		int len)
+{
+	char print_buf[1024];
+	int buf_idx = 0;
+	int type = ((*buf) & IEEE80211_FCTL_FTYPE) >> 2;
+	int subtype = ((*buf) & IEEE80211_FCTL_STYPE) >> 4;
+	int action;
+	int action_subtype;
+
+	buf_idx += sprintf(print_buf + buf_idx, "[cfg80211] ");
+
+	if (send)
+		buf_idx += sprintf(print_buf + buf_idx, "SEND: ");
+	else
+		buf_idx += sprintf(print_buf + buf_idx, "RECV: ");
+
+	if(type == IEEE80211_FTYPE_MGMT){
+		buf_idx += sprintf(print_buf + buf_idx, "%dMHz, %s, ",
+			freq, type_name[subtype]);
+	}else{
+		buf_idx += sprintf(print_buf + buf_idx, "%dMHz, not mgmt frame, type=%d, ",
+			freq, type);
+	}
+
+	if (subtype == ACTION_TYPE) {
+		action = *(buf + MAC_LEN);
+		action_subtype = *(buf + ACTION_SUBTYPE_OFFSET);
+		if (action == PUB_ACTION)
+			buf_idx += sprintf(print_buf + buf_idx, "PUB:%s ",
+					pub_action_name[action_subtype]);
+		else if (action == P2P_ACTION)
+			buf_idx += sprintf(print_buf + buf_idx, "P2P:%s ",
+					p2p_action_name[action_subtype]);
+		else
+			buf_idx += sprintf(print_buf + buf_idx,
+					"Unknown ACTION(0x%x)",	action);
+	}
+
+	buf_idx += sprintf(print_buf + buf_idx, "%02x:%02x:%02x:%02x:%02x:%02x",
+	       *(buf + 4), *(buf + 5), *(buf + 6), *(buf + 7), *(buf + 8), *(buf + 9));
+	buf_idx += sprintf(print_buf + buf_idx, "  ");
+	buf_idx += sprintf(print_buf + buf_idx, "%02x:%02x:%02x:%02x:%02x:%02x",
+	       *(buf + 10), *(buf + 11), *(buf + 12), *(buf + 13), *(buf + 14), *(buf + 15));
+
+	wiphy_info(wiphy, "%s\n", print_buf);
+}
+
+int itm_get_p2p_mode_from_file(void)
+{
+	struct file *fp = 0;
+	mm_segment_t fs;
+	int size = 0;
+	loff_t pos = 0;
+	u8 *buf;
+	int ret = false;
+
+	fp = filp_open(P2P_MODE_PATH, O_RDONLY, 0);
+	if (IS_ERR(fp)) {
+		pr_err("open %s file error\n", P2P_MODE_PATH);
+		goto end;
+	}
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	size = get_file_size(fp);
+	if (size <= 0) {
+		pr_err("load file:%s error\n", P2P_MODE_PATH);
+		goto error;
+	}
+
+	buf = kzalloc(size + 1, GFP_KERNEL);
+	vfs_read(fp, buf, size, &pos);
+
+	if (strcmp(buf, "p2p_mode") == 0)
+		ret = true;
+
+	kfree(buf);
+
+error:
+	filp_close(fp, NULL);
+	set_fs(fs);
+end:
+	return ret;
+}
+
+#endif	/*CONFIG_ITM_WIFI_DIRECT */
 
 static bool itm_wlan_cfg80211_ready(struct itm_priv *priv)
 {
@@ -237,6 +460,37 @@ static bool itm_find_wpsie(const u8 *ies, size_t ies_len,
 	*wps_len = len;
 	return flags;
 }
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+static bool itm_find_p2p_ie(const u8 *ie, size_t ie_len, u8 *p2p_ie,
+			    size_t *p2p_ie_len)
+{
+	bool flags = false;
+	u16 index = 0;
+/*Find out P2P IE.*/
+
+	if (NULL == ie || ie_len <= 0 || NULL == p2p_ie)
+		return flags;
+
+	while (index < ie_len) {
+		if (P2P_IE_ID == ie[index]) {
+			*p2p_ie_len = ie[index + 1];
+			if (ie_len >= *p2p_ie_len &&
+			    P2P_IE_OUI_BYTE0 == ie[index + 2] &&
+			    P2P_IE_OUI_BYTE1 == ie[index + 3] &&
+			    P2P_IE_OUI_BYTE2 == ie[index + 4] &&
+			    P2P_IE_OUI_TYPE == ie[index + 5]) {
+				memcpy(p2p_ie, ie + index, *p2p_ie_len + 2);
+				*p2p_ie_len += 2;
+				return true;
+			}
+		}
+		index++;
+	}
+
+	return false;
+}
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
 
 static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 				   u8 key_index, u32 cipher, const u8 *key_seq,
@@ -305,6 +559,10 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 	unsigned int i, n;
 	int ret;
 	unsigned long flags;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	struct wlan_sipc_scan_channels scan_channels;
+	static u32 scan_channels_count = 0;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
@@ -327,9 +585,11 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		break;
 	case NL80211_IFTYPE_STATION:
 		break;
-/*	case NL80211_IFTYPE_P2P_CLIENT:
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
-	 */
+		break;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -350,6 +610,44 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 			return ret;
 		}
 	}
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	if(priv->p2p_mode)
+	{
+		/* set scan channel */
+		n = min(request->n_channels, 4U);
+		for (i = 0; i < n; i++) {
+			int ch = request->channels[i]->hw_value;
+			if (ch == 0) {
+				wiphy_err(wiphy,
+					  "%s unknown frequency: %dMHz\n", __func__,
+					request->channels[i]->center_freq);
+				continue;
+			}
+		}
+
+		if (request->n_channels > 4) {
+			scan_channels.channel_num = 0;
+		} else {
+			scan_channels.channel_num = request->n_channels;
+		}
+		for (i = 0; i < scan_channels.channel_num; i++) {
+			scan_channels.channel_freq[i] =
+			    request->channels[i]->center_freq;
+		}
+		scan_channels_count++;
+		scan_channels.random_count = scan_channels_count;
+		wiphy_info(wiphy, "%s: channel_num=%d[%d, %d, %d, %d], random_count=0x%x\n", __func__,
+			scan_channels.channel_num, scan_channels.channel_freq[0], scan_channels.channel_freq[1], 
+			scan_channels.channel_freq[2], scan_channels.channel_freq[3], scan_channels.random_count);
+		ret = itm_wlan_set_scan_channels_cmd(priv->wlan_sipc,
+		   (u8 *)&scan_channels, sizeof(struct wlan_sipc_scan_channels));
+		if (ret) {
+			wiphy_err(wiphy, "%s failed to set scan channels!\n", __func__);
+			return ret;
+		}
+	}
+#endif
 
 	n = min(request->n_ssids, 9);
 	if (n) {
@@ -382,8 +680,8 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		int ch = request->channels[i]->hw_value;
 		if (ch == 0) {
 			wiphy_err(wiphy,
-				  "%s unknown frequency: %dMHz\n", __func__,
-				  request->channels[i]->center_freq);
+				"%s unknown frequency: %dMHz\n", __func__,
+				request->channels[i]->center_freq);
 			continue;
 		}
 	}
@@ -426,6 +724,9 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	int auth_type = 0;
 	u8 *buf = NULL;
 	size_t wps_len = 0;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	size_t p2p_len = 0;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
@@ -462,6 +763,22 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 				return ret;
 			}
 		}
+#ifdef CONFIG_ITM_WIFI_DIRECT
+		if (itm_find_p2p_ie(sme->ie, sme->ie_len,
+				    buf, &p2p_len) == true) {
+			ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
+						      P2P_ASSOC_IE,
+						      buf, p2p_len);
+			if (ret) {
+				dev_err(&priv->ndev->dev,
+					"itm_wlan_set_p2p_ie failed with ret %d\n",
+					ret);
+				kfree(buf);
+				return ret;
+			}
+		}
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
+
 		kfree(buf);
 	}
 
@@ -766,7 +1083,11 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 		return -EIO;
 	}
 
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	if ((priv->mode == ITM_AP_MODE) && (priv->p2p_mode == false)) {
+#else	/* CONFIG_ITM_WIFI_DIRECT */
 	if (priv->mode == ITM_AP_MODE) {
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 		u8 key[32];
 		memset(key, 0, sizeof(key));
 		ret = hostap_conf_load(HOSTAP_CONF_FILE_NAME, key);
@@ -780,7 +1101,13 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 			wiphy_err(wiphy, "%s failed to set psk!\n", __func__);
 			return ret;
 		}
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	} else if ((priv->mode == ITM_STATION_MODE) ||
+		   priv->mode == ITM_P2P_CLIENT_MODE ||
+		   priv->mode == ITM_P2P_GO_MODE) {
+#else	/* CONFIG_ITM_WIFI_DIRECT */
 	} else if (priv->mode == ITM_STATION_MODE) {
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 		priv->key_index[pairwise] = idx;
 		priv->key_len[pairwise][idx] = params->key_len;
 		memcpy(priv->key[pairwise][idx], params->key, params->key_len);
@@ -805,7 +1132,7 @@ static int itm_wlan_cfg80211_del_key(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	wiphy_info(wiphy, "%s key_index %d\n", __func__, key_index);
+	wiphy_info(wiphy, "%s key_index=%d, pairwise=%d\n", __func__, key_index, pairwise);
 
 	if (!itm_wlan_cfg80211_ready(priv)) {
 		wiphy_err(wiphy, "CP2 not ready!\n");
@@ -1342,22 +1669,25 @@ void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
 
 void itm_cfg80211_report_softap(struct itm_priv *priv)
 {
-	struct wlan_softap_event event;
+	struct wlan_softap_event *event =
+	    (struct wlan_softap_event *)priv->wlan_sipc->event_buf->u.event.
+	    variable;
 	struct station_info sinfo;
-
-	/* The first value 0 mean disconnect, otherwise connected  */
-	memcpy(&event, priv->wlan_sipc->event_buf->u.event.variable,
-	       sizeof(struct wlan_softap_event));
-
 	memset(&sinfo, 0, sizeof(sinfo));
-	sinfo.filled = 0;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	if (event->req_ie_len > 0) {
+		sinfo.assoc_req_ies = event->ie;
+		sinfo.assoc_req_ies_len = event->req_ie_len;
+		sinfo.filled |= STATION_INFO_ASSOC_REQ_IES;
+	}
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
-	if (event.connected) {
-		cfg80211_new_sta(priv->ndev, (u8 const *)&event.mac, &sinfo,
+	if (event->connected) {
+		cfg80211_new_sta(priv->ndev, (u8 const *)&event->mac, &sinfo,
 				 GFP_KERNEL);
 		wiphy_dbg(priv->wdev->wiphy, "hotspot station is connected\n");
 	} else {
-		cfg80211_del_sta(priv->ndev, (u8 const *)&event.mac,
+		cfg80211_del_sta(priv->ndev, (u8 const *)&event->mac,
 				 GFP_ATOMIC);
 		wiphy_dbg(priv->wdev->wiphy,
 			  "hotspot station is disconnected\n");
@@ -1398,14 +1728,88 @@ static int itm_wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
 {
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	int ret = 0;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 	if (!itm_wlan_cfg80211_ready(priv)) {
 		wiphy_err(wiphy, "CP2 not ready!\n");
 		return -EIO;
 	}
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	cfg80211_dump_frame_prot_info(wiphy, 1, chan->center_freq, buf, len);
+
+	/* send tx mgmt */
+	if (len > 0) {
+		ret = itm_wlan_set_tx_mgmt_cmd(priv->wlan_sipc, chan,
+					       wait, buf, len);
+		if (ret) {
+			dev_err(&priv->ndev->dev,
+				"itm_wlan_set_tx_mgmt_cmd failed with ret %d\n",
+				ret);
+			return ret;
+		}
+	}
+
+	cfg80211_mgmt_tx_status(priv->wdev, *cookie, buf, len, 1, GFP_KERNEL);
+
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
 
 	return 0;
 }
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+static void register_frame_work_fun(struct work_struct *work)
+{
+	struct itm_priv *priv =
+	    container_of(work, struct itm_priv, work);
+	struct wlan_sipc *wlan_sipc = priv->wlan_sipc;
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_register_frame *data =
+	    (struct wlan_sipc_register_frame *)send_buf->u.cmd.variable;
+	int ret = 0;
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	data->type = priv->frame_type;
+	data->reg = priv->reg ? 1 : 0;
+	priv->frame_type = 0xffff;
+	priv->reg = 0;
+
+	wlan_sipc->wlan_sipc_send_len =
+	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_register_frame);
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+
+	ret =
+	    itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				   WIFI_CMD_REGISTER_FRAME);
+
+	if (ret)
+		pr_err("return wrong status code is %d\n", ret);
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+}
+
+void init_register_frame_param(struct itm_priv *priv)
+{
+	if (priv == NULL)
+		return;
+
+	priv->frame_type = 0xffff;
+	priv->reg = 0;
+	INIT_WORK(&priv->work, register_frame_work_fun);
+}
+
+static int itm_mac_register_frame(struct itm_priv *priv, u16 frame_type,
+				  bool reg)
+{
+	priv->frame_type = frame_type;
+	priv->reg = reg;
+	schedule_work(&priv->work);
+	return 0;
+}
+
+#endif
 
 static void itm_wlan_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
@@ -1415,14 +1819,157 @@ static void itm_wlan_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
 #endif
 						  u16 frame_type, bool reg)
 {
-	if (frame_type != (IEEE80211_FTYPE_MGMT | IEEE80211_STYPE_PROBE_REQ))
-		return;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	struct itm_priv *priv = *(struct itm_priv **)wiphy_priv(wiphy);
 
-	return;
+	if(priv->p2p_mode)
+		itm_mac_register_frame(priv, frame_type, reg);
+#endif
+}
+static int itm_wlan_change_beacon(struct itm_priv *priv,
+				  struct cfg80211_beacon_data *beacon)
+{
+	int ret = 0;
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	u16 ie_len;
+	u8 *ie_ptr;
+
+	if(priv->p2p_mode == false)
+	{
+		return ret;
+	}
+	/* send beacon extra ies */
+	if (beacon->head != NULL) {
+		ie_len = beacon->head_len;
+
+		ie_ptr = kmalloc(ie_len, GFP_ATOMIC);
+		if (ie_ptr == NULL)
+			return -EINVAL;
+
+		memcpy(ie_ptr, beacon->head, ie_len);
+		pr_debug("begin send beacon head ies\n");
+
+		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
+					      P2P_BEACON_IE_HEAD, ie_ptr,
+					      ie_len);
+		if (ret) {
+			dev_err(&priv->ndev->dev,
+				"itm_wlan_set_p2p_ie beacon_ies head failed with ret %d\n",
+				ret);
+		} else {
+			pr_debug("send beacon head ies successfully\n");
+		}
+
+		kfree(ie_ptr);
+	}
+
+	/* send beacon extra ies */
+	if (beacon->tail != NULL) {
+		ie_len = beacon->tail_len;
+
+		ie_ptr = kmalloc(ie_len, GFP_ATOMIC);
+		if (ie_ptr == NULL)
+			return -EINVAL;
+
+		memcpy(ie_ptr, beacon->tail, ie_len);
+		pr_debug("begin send beacon tail ies\n");
+
+		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
+					      P2P_BEACON_IE_TAIL, ie_ptr,
+					      ie_len);
+		if (ret) {
+			dev_err(&priv->ndev->dev,
+				"itm_wlan_set_p2p_ie beacon_ies tail failed with ret %d\n",
+				ret);
+		} else {
+			pr_debug("send beacon tail ies successfully\n");
+		}
+
+		kfree(ie_ptr);
+	}
+
+	/* send probe response ies */
+
+	/* send beacon extra ies */
+	if (beacon->beacon_ies != NULL) {
+		ie_len = beacon->beacon_ies_len;
+
+		ie_ptr = kmalloc(ie_len, GFP_ATOMIC);
+		if (ie_ptr == NULL)
+			return -EINVAL;
+
+		memcpy(ie_ptr, beacon->beacon_ies, ie_len);
+		pr_debug("begin send beacon extra ies\n");
+
+		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
+					      P2P_BEACON_IE, ie_ptr, ie_len);
+		if (ret) {
+			dev_err(&priv->ndev->dev,
+				"itm_wlan_set_p2p_ie beacon_ies failed with ret %d\n",
+				ret);
+		} else {
+			pr_debug("send beacon extra ies successfully\n");
+		}
+
+		kfree(ie_ptr);
+	}
+
+	/* send probe response ies */
+
+	if (beacon->proberesp_ies != NULL) {
+		ie_len = beacon->proberesp_ies_len;
+
+		ie_ptr = kmalloc(ie_len, GFP_ATOMIC);
+		if (ie_ptr == NULL)
+			return -EINVAL;
+
+		memcpy(ie_ptr, beacon->proberesp_ies, ie_len);
+		pr_debug("begin send probe response extra ies\n");
+
+		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
+					      P2P_PROBERESP_IE, ie_ptr, ie_len);
+		if (ret) {
+			dev_err(&priv->ndev->dev,
+				"itm_wlan_set_p2p_ie proberesp_ies failed with ret %d\n",
+				ret);
+		} else {
+			pr_debug("send probe response ies successfully\n");
+		}
+
+		kfree(ie_ptr);
+	}
+
+	/* send associate response ies */
+
+	if (beacon->assocresp_ies != NULL) {
+		ie_len = beacon->assocresp_ies_len;
+
+		ie_ptr = kmalloc(ie_len, GFP_ATOMIC);
+		if (ie_ptr == NULL)
+			return -EINVAL;
+
+		memcpy(ie_ptr, beacon->assocresp_ies, ie_len);
+		pr_debug("begin send associate response extra ies\n");
+
+		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
+					      P2P_ASSOCRESP_IE, ie_ptr, ie_len);
+		if (ret) {
+			dev_err(&priv->ndev->dev,
+				"itm_wlan_set_p2p_ie assocresp_ies failed with ret %d\n",
+				ret);
+		} else {
+			pr_debug("send associate response ies successfully\n");
+		}
+
+		kfree(ie_ptr);
+	}
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
+	return ret;
 }
 
-static int itm_wlan_send_beacon(struct itm_priv *priv,
-				struct cfg80211_beacon_data *beacon)
+static int itm_wlan_start_ap(struct itm_priv *priv,
+			     struct cfg80211_beacon_data *beacon)
 {
 	struct ieee80211_mgmt *mgmt;
 	u16 mgmt_len;
@@ -1432,6 +1979,7 @@ static int itm_wlan_send_beacon(struct itm_priv *priv,
 	 * info->interval
 	 * info->dtim_period
 	 */
+	itm_wlan_change_beacon(priv, beacon);
 
 	if (beacon->head == NULL)
 		return -EINVAL;
@@ -1455,11 +2003,10 @@ static int itm_wlan_send_beacon(struct itm_priv *priv,
 	/* ciphers_group */
 	/* ssid */
 
-	ret = itm_wlan_set_beacon_cmd(priv->wlan_sipc, (u8 *)mgmt, mgmt_len);
+	ret = itm_wlan_start_ap_cmd(priv->wlan_sipc, (u8 *)mgmt, mgmt_len);
 	kfree(mgmt);
 	if (ret != 0)
-		wiphy_err(priv->wdev->wiphy,
-			  "itm_wlan_set_beacon_cmd failed\n");
+		wiphy_err(priv->wdev->wiphy, "itm_wlan_start_ap_cmd failed\n");
 
 	return ret;
 }
@@ -1471,7 +2018,8 @@ static int itm_wlan_cfg80211_start_ap(struct wiphy *wiphy,
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	wiphy_info(wiphy, "%s\n", __func__);
+	wiphy_info(wiphy, "%s: mode = %d\n", __func__, 
+			priv->mode);
 
 	if (info->ssid == NULL) {
 		wiphy_err(wiphy, "%s null ssid!\n", __func__);
@@ -1481,7 +2029,13 @@ static int itm_wlan_cfg80211_start_ap(struct wiphy *wiphy,
 	memcpy(priv->ssid, info->ssid, info->ssid_len);
 	priv->ssid_len = info->ssid_len;
 
-	return itm_wlan_send_beacon(priv, &info->beacon);
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	if (!netif_carrier_ok(priv->ndev)) {
+		netif_carrier_on(priv->ndev);
+		netif_wake_queue(priv->ndev);
+	}
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
+	return itm_wlan_start_ap(priv, &info->beacon);
 }
 
 static int itm_wlan_cfg80211_stop_ap(struct wiphy *wiphy,
@@ -1492,7 +2046,12 @@ static int itm_wlan_cfg80211_stop_ap(struct wiphy *wiphy,
 	int ret;
 
 	wiphy_info(wiphy, "%s\n", __func__);
-
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	if (netif_carrier_ok(priv->ndev)) {
+		netif_carrier_off(priv->ndev);
+		netif_stop_queue(priv->ndev);
+	}
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 	ret = itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
 
 	return ret;
@@ -1502,10 +2061,14 @@ static int itm_wlan_cfg80211_change_beacon(struct wiphy *wiphy,
 					   struct net_device *ndev,
 					   struct cfg80211_beacon_data *beacon)
 {
+#ifdef CONFIG_ITM_WIFI_DIRECT
 	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
 	struct itm_priv *priv = *priv_ptr;
 
-	return itm_wlan_send_beacon(priv, beacon);
+	wiphy_info(wiphy, "[cfg80211] \t ==>>>%s\n", __func__);
+	return itm_wlan_change_beacon(priv, beacon);
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
+	return 0;
 }
 
 static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
@@ -1515,17 +2078,37 @@ static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
 
 	switch (type) {
 	case NL80211_IFTYPE_STATION:
+#ifdef CONFIG_ITM_WIFI_DIRECT
+		mode = priv->p2p_mode ? ITM_P2P_CLIENT_MODE : ITM_STATION_MODE;
+#else	/* CONFIG_ITM_WIFI_DIRECT */
 		mode = ITM_STATION_MODE;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 		break;
 	case NL80211_IFTYPE_AP:
+#ifdef CONFIG_ITM_WIFI_DIRECT
+		mode = priv->p2p_mode ? ITM_P2P_GO_MODE : ITM_AP_MODE;
+#else	/* CONFIG_ITM_WIFI_DIRECT */
 		mode = ITM_AP_MODE;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 		break;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	case NL80211_IFTYPE_P2P_CLIENT:
+		mode = ITM_P2P_CLIENT_MODE;
+		break;
+	case NL80211_IFTYPE_P2P_GO:
+		mode = ITM_P2P_GO_MODE;
+		break;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 	default:
 		wiphy_err(priv->wdev->wiphy, "invalid interface type %u\n",
 			  type);
 		return -EOPNOTSUPP;
 	}
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	priv->wdev->iftype = type;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
+	wiphy_info(priv->wdev->wiphy, "%s mode %d\n", __func__, mode);
 	if (mode == priv->mode)
 		return 0;
 
@@ -1557,6 +2140,11 @@ static int itm_wlan_cfg80211_change_iface(struct wiphy *wiphy,
 		wiphy_err(wiphy, "CP2 not ready!\n");
 		return -EIO;
 	}
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	priv->p2p_mode = itm_get_p2p_mode_from_file();
+	wiphy_info(wiphy, "[cfg80211] %s: p2p_mode: %d\n",
+			__func__, priv->p2p_mode);
+#endif				/* CONFIG_ITM_WIFI_DIRECT */
 
 	return itm_wlan_change_mode(priv, type);
 }
@@ -1630,6 +2218,234 @@ static int itm_wlan_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 	return 0;
 }
 */
+#ifdef CONFIG_ITM_WIFI_DIRECT
+
+void itm_cfg80211_p2p_prob_request(struct itm_priv *priv)
+{
+	u8 *req_ptr, *index;
+	u16 req_len, channel_len;
+	u8 channel;
+	u32 event_len;
+	int freq, left;
+	pr_debug("enter itm_cfg80211_p2p_prob_request\n");
+
+	event_len = priv->wlan_sipc->wlan_sipc_event_len;
+
+	index = priv->wlan_sipc->event_buf->u.event.variable;
+	left = event_len;
+
+	/* The first byte of event data is chan */
+	memcpy(&channel_len, index, 2);
+	index += 2;
+	left -= 2;
+
+	if (channel_len > 1) {
+		dev_err(&priv->ndev->dev, "channel len bigger than 1\n");
+		return;
+	}
+
+	memcpy(&channel, index, channel_len);
+	index += channel_len;
+	left -= channel_len;
+
+	if (!left) {
+		dev_err(&priv->ndev->dev, "There is no req frame!\n");
+		return;
+	}
+
+	/* The second event data is probe request */
+	memcpy(&req_len, index, 2);
+	index += 2;
+	left -= 2;
+
+	req_ptr = index;
+	left -= req_len;
+
+	freq = ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
+
+	cfg80211_rx_mgmt(priv->wdev, freq, 0, req_ptr, req_len - FCS_LEN,
+			 GFP_ATOMIC);
+
+	pr_debug("proccess probe request event completed\n");
+}
+
+void itm_cfg80211_mgmt_deauth(struct itm_priv *priv)
+{
+	struct wiphy *wiphy = priv->wdev->wiphy;
+	u8 *mac_ptr, *index;
+	u16 mac_len;
+
+	index = priv->wlan_sipc->event_buf->u.event.variable;
+	memcpy(&mac_len, index, 2);
+	index += 2;
+	mac_ptr = index;
+
+	cfg80211_dump_frame_prot_info(wiphy, 0, 0, mac_ptr, mac_len);
+
+	cfg80211_send_deauth(priv->ndev, mac_ptr, mac_len);
+}
+
+void itm_mac_event_report_frame(struct itm_priv *priv)
+{
+	struct wiphy *wiphy = priv->wdev->wiphy;
+	u16 mac_len;
+	u8 *mac_ptr = NULL;
+	u8 channel = 0, type = 0;
+	int freq;
+
+	struct wlan_sipc_event_report_frame *report_frame = NULL;
+
+	report_frame =
+	    (struct wlan_sipc_event_report_frame *)priv->wlan_sipc->event_buf->
+	    u.event.variable;
+	channel = report_frame->channel;
+	type = report_frame->frame_type;
+	freq = ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
+	mac_ptr = (u8 *)(report_frame + 1);
+	mac_len = report_frame->frame_len;
+
+	cfg80211_dump_frame_prot_info(wiphy, 0, freq, mac_ptr, mac_len);
+
+	cfg80211_rx_mgmt(priv->wdev, freq, 0, mac_ptr, mac_len - FCS_LEN,
+			 GFP_ATOMIC);
+}
+
+void itm_cfg80211_mgmt_disassoc(struct itm_priv *priv)
+{
+	struct wiphy *wiphy = priv->wdev->wiphy;
+	u8 *mac_ptr, *index;
+	u16 mac_len;
+
+	index = priv->wlan_sipc->event_buf->u.event.variable;
+	memcpy(&mac_len, index, 2);
+	index += 2;
+	mac_ptr = index;
+
+	cfg80211_dump_frame_prot_info(wiphy, 0, 0, mac_ptr, mac_len);
+
+	cfg80211_send_disassoc(priv->ndev, mac_ptr, mac_len);
+}
+
+void itm_cfg80211_remain_on_channel_expired(struct itm_priv *priv)
+{
+	struct wiphy *wiphy = priv->wdev->wiphy;
+	u8 *index = NULL;
+	u16 type_len;
+	u8 chan_type;
+	u32 event_len;
+	int left;
+
+	wiphy_info(wiphy, "[cfg80211] %s.\n", __func__);
+
+	event_len = priv->wlan_sipc->wlan_sipc_event_len;
+
+	index = priv->wlan_sipc->event_buf->u.event.variable;
+	left = event_len;
+
+	/* The first byte of event data is cookie */
+	memcpy(&type_len, index, 2);
+	index += 2;
+	left -= 2;
+
+	if (type_len > 1) {
+		dev_err(&priv->ndev->dev, "type len error\n");
+		return;
+	}
+
+	memcpy(&chan_type, index, type_len);
+	index += type_len;
+	left -= type_len;
+
+	cfg80211_remain_on_channel_expired(priv->wdev, priv->listen_cookie,
+					   &priv->listen_channel, GFP_KERNEL);
+}
+
+static int itm_wlan_cfg80211_remain_on_channel(struct wiphy *wiphy,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+					       struct wireless_dev *dev,
+#else
+					       struct net_device *dev,
+#endif
+					       struct ieee80211_channel
+					       *channel,
+					       unsigned int duration,
+					       u64 *cookie)
+{
+	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
+	struct itm_priv *priv = *priv_ptr;
+	int ret;
+	enum nl80211_channel_type channel_type = 0;
+
+	wiphy_info(wiphy, "[cfg80211] %s %d for %dms. cookie=0x%llx\n",
+		__func__, channel->center_freq, duration, *cookie);
+	if (priv->cp2_status != ITM_READY) {
+		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
+		return -EAGAIN;
+	}
+
+	memcpy(&priv->listen_channel, channel, sizeof(struct ieee80211_channel));
+	priv->listen_cookie = *cookie;
+
+	/* send remain chan */
+
+	ret = itm_wlan_remain_chan_cmd(priv->wlan_sipc, channel,
+				       channel_type, duration, cookie);
+	if (ret) {
+		dev_err(&priv->ndev->dev,
+			"itm_wlan_remain_chan_cmd failed with ret %d\n", ret);
+		return ret;
+	}
+	/* report remain chan */
+	cfg80211_ready_on_channel(dev, *cookie, channel, duration, GFP_KERNEL);
+	return 0;
+}
+
+static int itm_wlan_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy,
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+						      struct wireless_dev *dev,
+#else
+						      struct net_device *dev,
+#endif
+						      u64 cookie)
+{
+	int ret;
+	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
+	struct itm_priv *priv = *priv_ptr;
+
+	wiphy_info(wiphy, "[cfg80211] %s cookie = 0x%llx.\n",
+		__func__, cookie);
+
+	if (priv->cp2_status != ITM_READY) {
+		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
+		return -EAGAIN;
+	}
+
+	ret = itm_wlan_cancel_remain_chan_cmd(priv->wlan_sipc, cookie);
+	if (ret) {
+		dev_err(&priv->ndev->dev,
+			"itm_wlan_cancel_remain_chan_cmd failed with ret %d.\n",
+			ret);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int itm_wlan_cfg80211_del_station(struct wiphy *wiphy,
+					 struct net_device *ndev, u8 *mac)
+{
+	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
+	struct itm_priv *priv = *priv_ptr;
+
+	if (priv->cp2_status != ITM_READY) {
+		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
+
 static struct cfg80211_ops itm_cfg80211_ops = {
 /*#ifdef CONFIG_PM
 	.suspend = itm_wlan_cfg80211_suspend,
@@ -1675,6 +2491,12 @@ static struct cfg80211_ops itm_cfg80211_ops = {
 	LINUX_VERSION_CODE <= KERNEL_VERSION(2, 6, 35))
 	.action = itm_wlan_cfg80211_mgmt_tx,
 #endif
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	.remain_on_channel = itm_wlan_cfg80211_remain_on_channel,
+	.cancel_remain_on_channel = itm_wlan_cfg80211_cancel_remain_on_channel,
+	.del_station = itm_wlan_cfg80211_del_station,
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	.libertas_set_mesh_channel = itm_wlan_cfg80211_set_channel,
 #else
@@ -1832,6 +2654,15 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 #ifdef BSS_ACCESS_POINT_MODE
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_AP);
 #endif*/
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	wiphy->interface_modes |=
+	    BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_P2P_GO);
+	wiphy->max_remain_on_channel_duration = 5000;
+	wiphy->flags |= WIPHY_FLAG_HAS_REMAIN_ON_CHANNEL;
+	/* set AP SME flag, also needed by STA mode? */
+	wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
+	wiphy->ap_sme_capa = 1;
+#endif	/*CONFIG_ITM_WIFI_DIRECT */
 	/*Attach cipher suites */
 	wiphy->cipher_suites = itm_cipher_suites;
 	wiphy->n_cipher_suites = ARRAY_SIZE(itm_cipher_suites);

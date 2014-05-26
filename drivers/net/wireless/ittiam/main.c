@@ -693,6 +693,12 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	ndev->netdev_ops = &itm_wlan_ops;
 	ndev->watchdog_timeo = 1 * HZ;
 
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	priv->p2p_mode = 0;
+	init_register_frame_param(priv);
+#endif
+
+
 	priv->pm_status = false;
 	priv->tx_free = TX_SBLOCK_NUM;
 	spin_lock_init(&priv->scan_lock);
