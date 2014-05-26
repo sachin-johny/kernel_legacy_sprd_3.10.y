@@ -379,6 +379,16 @@ config MACH_SP7730GA
 	help
 	  SP7730GA board based on SC8830 serial.
 
+config MACH_TSHARKWSAMSUNG
+	bool "tsharkwsamsung Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
+	default n
+	help
+	  TSHARKWSAMSUNG board based on SC8830g serial.
+
 endmenu
 
 config SPRD_ION_MM_SIZE

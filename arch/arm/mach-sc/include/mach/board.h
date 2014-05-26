@@ -149,6 +149,10 @@
 #include "__board-higgs.h"
 #endif
 
+#ifdef	CONFIG_MACH_TSHARKWSAMSUNG
+#include "__board-tsharkwsamsung.h"
+#endif
+
 #include <asm/sizes.h>
 
 #ifdef CONFIG_SPRD_IOMMU
