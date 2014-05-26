@@ -441,10 +441,6 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int cur_freq = 0;
 	unsigned long irq_flags;
 
-#if (defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_TSHARKWSAMSUNG))
-	return 0;
-#endif
-
 	/* delay 30s to enable dvfs&dynamic-hotplug,
          * except requirment from termal-cooling device
          */
