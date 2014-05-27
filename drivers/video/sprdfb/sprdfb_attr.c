@@ -54,9 +54,9 @@ static ssize_t sysfs_write_mipi_clk(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count);
 
-static DEVICE_ATTR(dynamic_pclk, S_IRUGO | S_IWUGO, sysfs_rd_current_pclk,
+static DEVICE_ATTR(dynamic_pclk, S_IRUGO | S_IWUSR, sysfs_rd_current_pclk,
 		sysfs_write_pclk);
-static DEVICE_ATTR(dynamic_fps, S_IRUGO | S_IWUGO, sysfs_rd_current_fps,
+static DEVICE_ATTR(dynamic_fps, S_IRUGO | S_IWUSR, sysfs_rd_current_fps,
 		sysfs_write_fps);
 static DEVICE_ATTR(dynamic_mipi_clk, S_IRUGO | S_IWUSR,
 		sysfs_rd_current_mipi_clk, sysfs_write_mipi_clk);
