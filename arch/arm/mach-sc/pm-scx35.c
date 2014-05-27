@@ -1325,6 +1325,12 @@ void pm_ana_ldo_config(void)
 }
 static void init_led(void){}
 
+void sprd_pbint_7s_reset_disable(void)
+{
+	sci_adi_set(ANA_REG_GLB_POR_7S_CTRL, BIT_PBINT_7S_RST_DISABLE);
+}
+
+
 static void sc8830_power_off(void)
 {
 	u32 reg_val;
