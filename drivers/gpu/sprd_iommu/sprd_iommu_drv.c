@@ -40,12 +40,6 @@
 #include <linux/of_irq.h>
 #endif
 
-#define SPRD_IOMMU_PAGE_SIZE	0x1000
-/**
- * Page table index from address
- * Calculates the page table index from the given address
-*/
-#define SPRD_IOMMU_PTE_ENTRY(address) (((address)>>12) & 0x3FFF)
 
 struct sprd_iommu_dev *iommu_devs[IOMMU_MAX]={NULL,NULL};
 extern struct sprd_iommu_ops iommu_gsp_ops;

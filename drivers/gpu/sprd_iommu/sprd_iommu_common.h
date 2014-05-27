@@ -29,7 +29,7 @@
  * Page table index from address
  * Calculates the page table index from the given address
 */
-#define SPRD_IOMMU_PTE_ENTRY(address) (((address)>>12) & 0x3FFF)
+#define SPRD_IOMMU_PTE_ENTRY(address) (((address)>>12) & 0x7FFF)
 extern const struct of_device_id iommu_ids[];
 
 int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data);
