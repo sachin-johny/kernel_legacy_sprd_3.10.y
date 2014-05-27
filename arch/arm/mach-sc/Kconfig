@@ -196,6 +196,15 @@ config MACH_SP6815GA
 	default n
 	help
 	  SP6815GA board based on dolphin serial.
+
+config MACH_SP6815EA
+	bool "sp6815ea Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	SP6815EA board based on dolphin serial.
 config MACH_SP7715EA
 	bool "sp7715ea Phone Board"
 	depends on ARCH_SC

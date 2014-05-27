@@ -45,6 +45,7 @@ obj-$(CONFIG_MACH_SP7715EA) += board-sp7715ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715EAOPENPHONE) += board-sp7715eaopenphone.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715GATRISIM) += board-sp7715gatrisim.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7715GA) += board-sp7715ga.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP6815EA) += board-sp6815ea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP6815GA) += board-sp6815ga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8815GA) += board-sp8815ga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP8815GAOPENPHONE) += board-sp8815gaopenphone.o dma_r4p0.o
