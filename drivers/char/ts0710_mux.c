@@ -65,6 +65,7 @@
 #include <linux/sched/rt.h>
 #include <linux/version.h> 
 #include <linux/seq_file.h>
+#include <linux/vmalloc.h>
 #include "ts0710.h"
 #include "ts0710_mux.h"
 
@@ -3409,7 +3410,7 @@ static mux_send_struct * mux_alloc_send_info(SPRDMUX_ID_E mux_id, int line)
 		return NULL;
 	}
 
-	send_info_ptr->buf = (__u8 *)kmalloc(sizeof(__u8) * TS0710MUX_SEND_BUF_SIZE * ringbuf_num[mux_id][line], GFP_KERNEL);
+	send_info_ptr->buf = (__u8 *)vmalloc(sizeof(__u8) * TS0710MUX_SEND_BUF_SIZE * ringbuf_num[mux_id][line]);
 	if (!send_info_ptr->buf) {
 		kfree(send_info_ptr);
 		return NULL;
@@ -3417,7 +3418,7 @@ static mux_send_struct * mux_alloc_send_info(SPRDMUX_ID_E mux_id, int line)
 
 	send_info_ptr->length = (__u16 *)kzalloc(sizeof(__u16) * ringbuf_num[mux_id][line], GFP_KERNEL);
 	if (!send_info_ptr->length) {
-		kfree(send_info_ptr->buf);
+		vfree(send_info_ptr->buf);
 		kfree(send_info_ptr);
 		return NULL;
 	}
@@ -3426,7 +3427,7 @@ static mux_send_struct * mux_alloc_send_info(SPRDMUX_ID_E mux_id, int line)
 
 	if (!send_info_ptr->frame) {
 		kfree(send_info_ptr->length);
-		kfree(send_info_ptr->buf);
+		vfree(send_info_ptr->buf);
 		kfree(send_info_ptr);
 		return NULL;
 	}
@@ -3451,7 +3452,7 @@ static void mux_free_send_info(mux_send_struct * send_info)
 	}
 
 	if (send_info->buf) {
-		kfree(send_info->buf);
+		vfree(send_info->buf);
 		send_info->buf = NULL;
 
 	}
