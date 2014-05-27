@@ -1274,6 +1274,52 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.type	 	= SYSDUMP_RAM,
 	},
 #endif
+#elif defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_SPRD_MODEM_TD)
+	{
+		.paddr		= CONFIG_PHYS_OFFSET,
+		.vaddr		= PAGE_OFFSET,
+		.soff		= 0xffffffff,
+		.size		= CPT_START_ADDR - CONFIG_PHYS_OFFSET,
+		.type	 	= SYSDUMP_RAM,
+	},
+
+
+	{
+		.paddr		= CPT_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(CPT_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= CPT_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_TD
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+#else
+	{
+		.paddr		= CONFIG_PHYS_OFFSET,
+		.vaddr		= PAGE_OFFSET,
+		.soff		= 0xffffffff,
+		.size		= CPW_START_ADDR - CONFIG_PHYS_OFFSET,
+		.type		= SYSDUMP_RAM,
+	},
+
+	{
+		.paddr		= CPW_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(CPW_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= CPW_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_WCDMA
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+#endif
+
 #else
 
 	{
