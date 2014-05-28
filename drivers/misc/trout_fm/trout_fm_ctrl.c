@@ -125,7 +125,7 @@ static int _trout_fm_open(struct file *file)
 
 	TROUT_PRINT("Open fm module success.");
 
-	trout_fm_set_volume(7);
+	trout_fm_set_volume(1);
 
 	return 0;
 }
@@ -202,9 +202,12 @@ static int _trout_fm_seek(struct file *file, void *priv, struct v4l2_hw_freq_see
 
 	TROUT_PRINT("_trout_fm_seek Start !");
 
+	trout_fm_set_volume(0);
+
 	err = trout_fm_get_frequency((u16*)(&freq));
 	if(err) {
 		TROUT_PRINT("trout_fm_seek error due to get_frequency error.");
+	    trout_fm_set_volume(1);
 		return -EINVAL;
 	}
 
@@ -212,8 +215,8 @@ static int _trout_fm_seek(struct file *file, void *priv, struct v4l2_hw_freq_see
 		direction, /* seek direction*/
 		3000, /* time out */
 		&reserved);
-
-	if(err){
+	if(err) {
+	    trout_fm_set_volume(1);
 		return -EINVAL;
 		TROUT_PRINT("_trout_fm_seek Error !");
 	}
@@ -221,6 +224,8 @@ static int _trout_fm_seek(struct file *file, void *priv, struct v4l2_hw_freq_see
 
 	trout_fm_get_frequency(&freq);
 	trout_fm_set_tune(freq);
+
+	trout_fm_set_volume(1);
 
 	TROUT_PRINT("_trout_fm_seek Finish !");
 
