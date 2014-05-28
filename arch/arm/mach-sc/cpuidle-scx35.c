@@ -21,6 +21,7 @@
 #include <mach/sci.h>
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/cpuidle.h>
 
 
 /*#define SC_IDLE_DEBUG 1*/
@@ -90,6 +91,24 @@ enum {
 	CORE_PD,	/* cpu core power down except cpu0 */
 };
 
+static BLOCKING_NOTIFIER_HEAD(sc_cpuidle_chain_head);
+int register_sc_cpuidle_notifier(struct notifier_block *nb)
+{
+	printk("*** %s, nb->notifier_call:%pf ***\n", __func__, nb->notifier_call );
+	return blocking_notifier_chain_register(&sc_cpuidle_chain_head, nb);
+}
+EXPORT_SYMBOL_GPL(register_sc_cpuidle_notifier);
+int unregister_sc_cpuidle_notifier(struct notifier_block *nb)
+{
+	return blocking_notifier_chain_unregister(&sc_cpuidle_chain_head, nb);
+}
+EXPORT_SYMBOL_GPL(unregister_sc_cpuidle_notifier);
+int sc_cpuidle_notifier_call_chain(unsigned long val)
+{
+	int ret = blocking_notifier_call_chain(&sc_cpuidle_chain_head, val, NULL);
+	return notifier_to_errno(ret);
+}
+
 static void set_cpu_pd(void *data)
 {
 	int cpu_id = *((int*)data);
@@ -140,7 +159,7 @@ static void sc_cpuidle_debug(void)
 
 static void sc_cpuidle_light_sleep_en(int cpu)
 {
-
+	int error;
 /*200M ddr clk is not necessary for SCX30G when light sleep status to be entered*/
 #if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_ARCH_SCX30G)
         if(emc_clk_get() > 200){
@@ -164,10 +183,16 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 				zipenc_status  = 1;
 			}
 #endif
-			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
-			if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB) &&
-					(num_online_cpus() == 1))
+	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+			if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB) && (num_online_cpus() == 1)) {
+				error = sc_cpuidle_notifier_call_chain(SC_CPUIDLE_PREPARE);
+				if (error) {
+					sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
+					pr_debug("could not set %s ... \n", __func__);
+					return;
+				}
 				sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SYS_SLEEP_EN);
+			}
 		}
 		sci_glb_set(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
 	}

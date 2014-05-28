@@ -35,8 +35,9 @@
 #include "sprdfb_panel.h"
 #include "sprdfb.h"
 #include "sprdfb_chip_common.h"
-
+#include <mach/cpuidle.h>
 //#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
+#define DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
 
 #ifndef CONFIG_OF
 #ifdef CONFIG_FB_SCX15
@@ -923,6 +924,35 @@ struct devfreq_dbs sprd_fb_notify = {
 };
 #endif
 
+#ifdef DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
+
+static int scxx30_dispc_cpuidle_notify(struct notifier_block *nb, unsigned long event, void *dummy)
+{
+	if (event == SC_CPUIDLE_PREPARE){
+		 if(0 == dispc_ctx.vsync_done
+#ifdef CONFIG_FB_VSYNC_SUPPORT
+		|| 0 == dispc_ctx.waitfor_vsync_done
+#endif
+)
+		{
+			return NOTIFY_BAD;  //work now, can't not sleep
+		}
+		else
+		{
+			return NOTIFY_OK;
+		}
+	}
+	else{
+		printk("sprdfb: error in cpuidle notify type!\n");
+	}
+
+}
+
+static struct notifier_block scxx30_dispc_cpuidle_notifier = {
+	.notifier_call = scxx30_dispc_cpuidle_notify,
+};
+#endif
+
 static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 {
 	int ret = 0;
@@ -948,7 +978,7 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 #endif
 
 #ifdef CONFIG_FB_VSYNC_SUPPORT
-	dispc_ctx.waitfor_vsync_done = 0;
+	dispc_ctx.waitfor_vsync_done = 1;
 	dispc_ctx.waitfor_vsync_waiter = 0;
 	init_waitqueue_head(&(dispc_ctx.waitfor_vsync_queue));
 #endif
@@ -973,6 +1003,13 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 
 #if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
 	devfreq_notifier_register(&sprd_fb_notify);
+#endif
+
+#ifdef DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
+	ret = register_sc_cpuidle_notifier(&scxx30_dispc_cpuidle_notifier);
+	if (ret) {
+		printk("sprdfb: Failed to setup light sleep notifier!\n");
+	}
 #endif
 	return 0;
 
