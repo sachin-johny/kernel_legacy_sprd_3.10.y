@@ -572,10 +572,6 @@ static int __init sci_bm_init(void)
 	__sci_axi_bm_cnt_clr();
 	__sci_axi_bm_int_clr();
 
-	for (bm_index = AHB_BM0; bm_index <= AHB_BM2; bm_index++) {
-		__sci_bm_glb_reset_and_enable(bm_index, true);
-	}
-
 #ifdef DDR_MONITOR_LOG
 	__sci_axi_bm_set_winlen();
 	__sci_bm_glb_count_enable(false);
