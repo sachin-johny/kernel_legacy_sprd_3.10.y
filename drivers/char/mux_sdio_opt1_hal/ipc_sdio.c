@@ -460,7 +460,7 @@ void  sdio_ipc_enable(u8  is_enable)
 
 
         if(is_enable) {
-                msleep(1000);
+                //msleep(1000);
                 kfifo_reset(&s_mipc_rx_cache_kfifo);
                 _FlushTxTransfer();
                 _FreeAllTxTransferFrame();
