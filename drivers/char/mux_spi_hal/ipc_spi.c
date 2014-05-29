@@ -278,6 +278,30 @@ static void ipc_freerxrcvframe(struct ipc_spi_dev* dev, struct ipc_transfer_fram
 	ipc_FreeFrame(p_frame, pfreelist);
 }
 
+static u16 ipc_checksum(const unsigned char *src, int len)
+{
+	unsigned long sum =0;
+	int size1 = len >> 1;
+	int size2 = len & 0x01;
+	unsigned short *data = (unsigned short *)src;
+
+	if(len){
+		while (size1-- > 0)
+		{
+				sum += *data++;
+		}
+
+		if (size2)
+		{
+				sum +=src[len - 1];
+		}
+	}
+	sum = (sum >> 16)+(sum & 0xFFFF);
+	sum += (sum >> 16);
+	return ~sum;
+}
+
+
 static void ipc_ack(struct ipc_spi_dev* dev, u8* buf, u16* len)
 {
 	struct ack_packet *ack = (struct ack_packet*)buf;
@@ -316,30 +340,8 @@ static void ipc_ack(struct ipc_spi_dev* dev, u8* buf, u16* len)
 			p_frame = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 		}
 	}
+	ack->checksum = ipc_checksum(&ack->type, sizeof(struct ack_packet) - 4);
 	mutex_unlock(&plist->list_mutex);
-}
-
-static u16 ipc_checksum(const unsigned char *src, int len)
-{
-	unsigned long sum =0;
-	int size1 = len >> 1;
-	int size2 = len & 0x01;
-	unsigned short *data = (unsigned short *)src;
-
-	if(len){
-		while (size1-- > 0)
-		{
-				sum += *data++;
-		}
-
-		if (size2)
-		{
-				sum +=src[len - 1];
-		}
-	}
-	sum = (sum >> 16)+(sum & 0xFFFF);
-	sum += (sum >> 16);
-	return ~sum;
 }
 
 /*static*/ void ipc_setup(struct ipc_spi_dev* dev, u8* buf, u16* len)
@@ -357,6 +359,7 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 		ack->magic = ACK_MAGIC;
 		ack->type = TYPE_NAKALL;
 		*len = sizeof(struct ack_packet);
+		ack->checksum = ipc_checksum(&ack->type, sizeof(struct ack_packet) - 4);
 		//dev->rx_status = IDLE_STATUS;
 		return;
 	}
@@ -368,22 +371,23 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 			}
 		}*/
 		mutex_lock(&ptransfer->transfer_mutex);
+		/*
 		if(dev->remote_status == MODEM_STATUS_ASSERT) {
 			if(ptransfer->cur_frame_ptr && (ptransfer->cur_frame_ptr->pos > sizeof( struct data_packet_header))) {
 				ipc_AddFrameToTxTransferFifo(ptransfer->cur_frame_ptr, ptransfer);
 				ptransfer->cur_frame_ptr = NULL;
 			}
-		}
+		} */
 		list_for_each_entry(frame_ptr, &ptransfer->frame_fifo, link) {
 			if(frame_ptr->status == IDLE_STATUS) {
 				bfound = true;
 				break;
-			} else {
+			}/* else {
 				if(dev->remote_status == MODEM_STATUS_ASSERT)
 					break;
-			}
+			}*/
 		}
-		if(!bfound && (dev->remote_status != MODEM_STATUS_ASSERT)) {
+		if(!bfound/* && (dev->remote_status != MODEM_STATUS_ASSERT)*/) {
 			if(ptransfer->cur_frame_ptr && (ptransfer->cur_frame_ptr->pos > sizeof( struct data_packet_header))) {
 				ipc_AddFrameToTxTransferFifo(ptransfer->cur_frame_ptr, ptransfer);
 				frame_ptr = ptransfer->cur_frame_ptr;
@@ -402,10 +406,10 @@ static u16 ipc_checksum(const unsigned char *src, int len)
 				header->magic = DATA_MAGIC;
 			header->len = frame_ptr->pos - offset;
 			header->seqnum = frame_ptr->seq;
-			header->checksum = ipc_checksum(&frame_ptr->buf_ptr[4], header->len);
+			header->checksum = ipc_checksum(&frame_ptr->buf_ptr[4], header->len + offset - 4);
 			*len = MAX_MIPC_TX_FRAME_SIZE;
 			frame_ptr->status = ACK_STATUS;
-			printk("--seq %d \n", header->seqnum);
+			IPC_DBG("--seq %d \n", header->seqnum);
 			return;
 		}
 
@@ -612,20 +616,20 @@ static void ipc_rcv_data(struct ipc_spi_dev* dev, u8 *buf, u16 len)
 {
 	u32 offset = sizeof(struct data_packet_header);
 	struct data_packet_header *header = (struct data_packet_header*)buf;
-	u16 cs = ipc_checksum(buf + 4, header->len);
-	if(header->checksum == ipc_checksum(buf + 4, header->len)) {
+	//u16 cs = ipc_checksum(buf + 4, header->len);
+	if((header->len <= MAX_MIPC_RX_FRAME_SIZE - offset) && (header->checksum == ipc_checksum(buf + 4, header->len + offset - 4))) {
 		if(dev->rx_seqnum >= header->seqnum) {
 				dev->rx_curframe->status = ACK_STATUS;
 		}
 	} else {
-		printk("ipc_spi error data data checksum error 0x%x\n", cs);
+		printk("ipc_spi error data data checksum error \n");
 		ipc_print_errdata(buf, len);
 		if(dev->rx_seqnum >= header->seqnum)
 			dev->rx_curframe->status = ACK_STATUS;
 		else
 			dev->rx_curframe->status = NAK_STATUS;
 	}
-	printk("++seq %d \n", header->seqnum);
+	IPC_DBG("++seq %d \n", header->seqnum);
 	dev->rx_curframe->seq = header->seqnum;
 	dev->rx_curframe->pos = offset;
 	dev->rx_curframe->buf_size = header->len + offset;
@@ -658,13 +662,20 @@ static void ipc_process_errdata(struct ipc_spi_dev* dev)
 	dev->rx_status = NAKALL_STATUS;
 }
 
-static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf)
+static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf, bool bcheck)
 {
 	u32 seqnum;
 	struct ipc_transfer_frame *frame;
 	struct ipc_transfer *p_transfer = &dev->tx_transfer;
 	struct ack_packet *header = (struct ack_packet*)buf;
 	IPC_DBG("ipc_rcv_ack %d, %d, %d \n", header->type, header->seq_begin, header->seq_end);
+	if(bcheck
+		&& (header->checksum != ipc_checksum(&header->type, sizeof(struct ack_packet) - 4))) {
+		printk(KERN_ERR "ipc_spi wrong ack packet1 \n");
+		ipc_print_errdata(buf, sizeof(struct ack_packet));
+		ipc_process_errdata(dev);
+		return;
+	}
 	if(header->type == TYPE_ACK) {
 		mutex_lock(&p_transfer->transfer_mutex);
 		list_for_each_entry(frame, &p_transfer->frame_fifo, link) {
@@ -708,8 +719,26 @@ static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf)
 		}
 		mutex_unlock(&plist->list_mutex);
 	} else {
+		ipc_print_errdata(buf, sizeof(struct ack_packet));
 		ipc_process_errdata(dev);
 		printk(KERN_ERR "ipc_spi wrong ack packet \n");
+	}
+}
+
+static void ipc_rcv_dataack(struct ipc_spi_dev* dev, u8 *buf, u16 len)
+{
+	u32 offset = sizeof(struct data_packet_header);
+	struct data_packet_header *header = (struct data_packet_header*)buf;
+	if((header->len <= MAX_MIPC_RX_FRAME_SIZE - offset) && (header->checksum == ipc_checksum(buf + 4, header->len + offset - 4))) {
+		struct data_packet_header *data_header;
+		data_header = (struct data_packet_header*)buf;
+		ipc_rcv_ack(dev, (u8*)&(data_header->ack), false);
+		ipc_rcv_data(dev, buf, len);
+	} else {
+		printk(KERN_ERR "ipc_spi dataack checksum error \n");
+		ipc_print_errdata(buf, len);
+		ipc_process_errdata(dev);
+		return;
 	}
 }
 
@@ -735,12 +764,9 @@ static void ipc_process_rcvdata(struct ipc_spi_dev* dev, u8 *buf, u16 len)
 	if(DATA_MAGIC == *magic)
 		ipc_rcv_data(dev, buf, len);
 	else if(ACK_MAGIC == *magic)
-		ipc_rcv_ack(dev, buf);
+		ipc_rcv_ack(dev, buf, true);
 	else if (DATA_ACK_MAGIC == *magic) {
-		struct data_packet_header *data_header;
-		data_header = (struct data_packet_header*)buf;
-		ipc_rcv_ack(dev, (u8*)&(data_header->ack));
-		ipc_rcv_data(dev, buf, len);
+		ipc_rcv_dataack(dev, buf, len);
 	} else if(DUMMY_MAGIC == *magic) {
 		IPC_DBG("ipc dump data just discard \n");
 	} else {
@@ -1251,7 +1277,7 @@ static int __init ipc_spi_probe(struct spi_device *spi)
 	init_waitqueue_head(&dev->tx_frame_wait);
 	ipc_reset(dev);
 
-	dev->ipc_enable = false;
+	dev->ipc_enable = true;
 	dev->remote_status = 0;
 #ifdef CONFIG_PM
 	dev->bsuspend = false;
@@ -1338,7 +1364,7 @@ static int __exit ipc_spi_remove(struct spi_device *spi)
 static int ipc_spi_suspend(struct device *dev)
 {
 	struct ipc_spi_dev *ipc_dev = dev_get_drvdata(dev);
-	//printk("ipc_spi_suspend\n");
+	IPC_DBG("ipc_spi_suspend\n");
 	ipc_dev->bsuspend = true;
 	return 0;
 }
@@ -1346,7 +1372,7 @@ static int ipc_spi_suspend(struct device *dev)
 static int ipc_spi_resume(struct device *dev)
 {
 	struct ipc_spi_dev *ipc_dev = dev_get_drvdata(dev);
-	//printk("ipc_spi_resume\n");
+	IPC_DBG("ipc_spi_resume\n");
 	ipc_dev->bsuspend = false;
 	wake_up(&ipc_dev->wait);
 	return 0;
