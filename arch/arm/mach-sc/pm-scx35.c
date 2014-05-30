@@ -1040,6 +1040,21 @@ void show_deep_reg_status(void)
 }
 
 
+#if defined(CONFIG_MACH_SC9620OPENPHONE)
+void cp0_sys_power_domain_close(void)
+{
+	sci_glb_set(REG_PMU_APB_PD_CP0_SYS_CFG, BIT_CP0_FORCE_DEEP_SLEEP);//enable cp0 force sleep
+}
+
+void cp0_sys_power_domain_open(void)
+{
+	sci_glb_set(REG_PMU_APB_CP_SOFT_RST, BIT_CP0_SOFT_RST);//reset cp0
+	sci_glb_clr(REG_PMU_APB_PD_CP0_SYS_CFG, BIT_CP0_FORCE_DEEP_SLEEP);//close cp0 force sleep
+	mdelay(2);
+	sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, BIT_CP0_SOFT_RST);//release cp0
+}
+#endif
+
 extern void pm_debug_set_wakeup_timer(void);
 extern void pm_debug_set_apwdt(void);
 int deep_sleep(int from_idle)
@@ -1092,7 +1107,13 @@ int deep_sleep(int from_idle)
 	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(1));
 	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(0));
 #endif
+#if defined(CONFIG_MACH_SC9620OPENPHONE)
+        cp0_sys_power_domain_close();
+#endif
 	ret = sp_pm_collapse(0, from_idle);
+#if defined(CONFIG_MACH_SC9620OPENPHONE)
+        cp0_sys_power_domain_open();
+#endif
 
 #if defined(CONFIG_ARCH_SCX30G)
 	/* set auto powerdown mode */
