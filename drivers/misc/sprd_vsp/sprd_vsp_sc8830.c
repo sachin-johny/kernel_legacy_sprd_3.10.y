@@ -67,9 +67,6 @@
 struct vsp_fh {
     int is_vsp_aquired;
     int is_clock_enabled;
-#if defined(CONFIG_SPRD_IOMMU)
-    int is_iommu_enabled;
-#endif
 
     wait_queue_head_t wait_queue_work;
     int condition_work;
@@ -90,6 +87,7 @@ struct vsp_dev {
 
 static struct vsp_dev vsp_hw_dev;
 static struct wake_lock vsp_wakelock;
+static atomic_t vsp_instance_cnt = ATOMIC_INIT(0);
 
 struct clock_name_map_t {
     unsigned long freq;
@@ -117,7 +115,7 @@ static int max_freq_level = ARRAY_SIZE(clock_name_map);
 static char *vsp_get_clk_src_name(unsigned int freq_level)
 {
     if (freq_level >= max_freq_level ) {
-        printk(KERN_INFO "set freq_level to 0");
+        printk(KERN_INFO "set freq_level to 0\n");
         freq_level = 0;
     }
 
@@ -135,6 +133,97 @@ static int find_vsp_freq_level(unsigned long freq)
         }
     }
     return level;
+}
+
+static int vsp_set_mm_clk(void)
+{
+    int ret;
+    struct clk *clk_mm_i;
+    struct clk *clk_vsp;
+    struct clk *clk_parent;
+    char *name_parent;
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
+
+    printk(KERN_INFO "vsp_set_mm_clk: vsp_instance_cnt %d\n", instance_cnt);
+
+#if defined(CONFIG_ARCH_SCX35)
+    clk_mm_i = clk_get(NULL, "clk_mm_i");
+    if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
+        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+               "clk_mm_i");
+        printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
+        ret = -EINVAL;
+        goto errout;
+    } else {
+        vsp_hw_dev.mm_clk= clk_mm_i;
+    }
+#endif
+
+    printk(KERN_INFO "VSP mmi_clk open\n");
+    ret = clk_enable(vsp_hw_dev.mm_clk);
+    if (ret) {
+        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
+        return ret;
+    } else {
+        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+    }
+
+    clk_vsp = clk_get(NULL, "clk_vsp");
+    if (IS_ERR(clk_vsp) || (!clk_vsp)) {
+        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+               "clk_vsp");
+        printk(KERN_ERR "###: vsp_clk =  %p\n", clk_vsp);
+        ret = -EINVAL;
+        goto errout;
+    } else {
+        vsp_hw_dev.vsp_clk = clk_vsp;
+    }
+
+    name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
+    clk_parent = clk_get(NULL, name_parent);
+    if ((!clk_parent )|| IS_ERR(clk_parent) ) {
+        printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
+by clk_get()!\n", "clk_vsp", name_parent);
+        ret = -EINVAL;
+        goto errout;
+    } else {
+        vsp_hw_dev.vsp_parent_clk = clk_parent;
+    }
+
+    ret = clk_set_parent(vsp_hw_dev.vsp_clk, vsp_hw_dev.vsp_parent_clk);
+    if (ret) {
+        printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!\n",
+               "clk_vsp");
+        ret = -EINVAL;
+        goto errout;
+    }
+
+    printk("vsp parent clock name %s\n", name_parent);
+    printk("vsp_freq %d Hz\n",
+           (int)clk_get_rate(vsp_hw_dev.vsp_clk));
+
+#if defined(CONFIG_SPRD_IOMMU)
+    sprd_iommu_module_enable(IOMMU_MM);
+#endif
+
+    return 0;
+
+errout:
+#if defined(CONFIG_ARCH_SCX35)
+    if (vsp_hw_dev.mm_clk) {
+        clk_put(vsp_hw_dev.mm_clk);
+    }
+#endif
+
+    if (vsp_hw_dev.vsp_clk) {
+        clk_put(vsp_hw_dev.vsp_clk);
+    }
+
+    if (vsp_hw_dev.vsp_parent_clk) {
+        clk_put(vsp_hw_dev.vsp_parent_clk);
+    }
+
+    return ret;
 }
 
 #if defined(CONFIG_ARCH_SCX35)
@@ -166,7 +255,7 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         }
         ret = clk_set_parent(vsp_hw_dev.vsp_clk, clk_parent);
         if (ret) {
-            printk(KERN_ERR "clock[%s]: clk_set_parent() failed!","clk_vsp");
+            printk(KERN_ERR "clock[%s]: clk_set_parent() failed!\n","clk_vsp");
             return -EINVAL;
         } else {
             clk_put(vsp_hw_dev.vsp_parent_clk);
@@ -363,11 +452,7 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 
 static int vsp_open(struct inode *inode, struct file *filp)
 {
-    int ret;
-    struct clk *clk_mm_i;
-    struct clk *clk_vsp;
-    struct clk *clk_parent;
-    char *name_parent;
+    int ret = 0;
     struct vsp_fh *vsp_fp = kmalloc(sizeof(struct vsp_fh), GFP_KERNEL);
 
     printk(KERN_INFO "vsp_open called %p\n", vsp_fp);
@@ -380,86 +465,16 @@ static int vsp_open(struct inode *inode, struct file *filp)
     vsp_fp->is_clock_enabled = 0;
     vsp_fp->is_vsp_aquired = 0;
 
-#if defined(CONFIG_ARCH_SCX35)
-    clk_mm_i = clk_get(NULL, "clk_mm_i");
-    if (IS_ERR(clk_mm_i) || (!clk_mm_i)) {
-        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
-               "clk_mm_i");
-        printk(KERN_ERR "###: clk_mm_i =  %p\n", clk_mm_i);
-        ret = -EINVAL;
-        goto errout;
-    } else {
-        vsp_hw_dev.mm_clk= clk_mm_i;
-    }
-#endif
-
-    printk(KERN_INFO "VSP mmi_clk open");
-    ret = clk_enable(vsp_hw_dev.mm_clk);
-    if (ret) {
-        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-        return ret;
-    } else {
-        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
-    }
-
-    clk_vsp = clk_get(NULL, "clk_vsp");
-    if (IS_ERR(clk_vsp) || (!clk_vsp)) {
-        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
-               "clk_vsp");
-        printk(KERN_ERR "###: vsp_clk =  %p\n", clk_vsp);
-        ret = -EINVAL;
-        goto errout;
-    } else {
-        vsp_hw_dev.vsp_clk = clk_vsp;
-    }
-
-    name_parent = vsp_get_clk_src_name(vsp_hw_dev.freq_div);
-    clk_parent = clk_get(NULL, name_parent);
-    if ((!clk_parent )|| IS_ERR(clk_parent) ) {
-        printk(KERN_ERR "clock[%s]: failed to get parent in probe[%s] \
-by clk_get()!\n", "clk_vsp", name_parent);
-        ret = -EINVAL;
-        goto errout;
-    } else {
-        vsp_hw_dev.vsp_parent_clk = clk_parent;
-    }
-
-    ret = clk_set_parent(vsp_hw_dev.vsp_clk, vsp_hw_dev.vsp_parent_clk);
-    if (ret) {
-        printk(KERN_ERR "clock[%s]: clk_set_parent() failed in probe!",
-               "clk_vsp");
-        ret = -EINVAL;
-        goto errout;
-    }
-
-    printk("vsp parent clock name %s\n", name_parent);
-    printk("vsp_freq %d Hz",
-           (int)clk_get_rate(vsp_hw_dev.vsp_clk));
-
     init_waitqueue_head(&vsp_fp->wait_queue_work);
     vsp_fp->vsp_int_status = 0;
     vsp_fp->condition_work = 0;
 
-#if defined(CONFIG_SPRD_IOMMU)
-    sprd_iommu_module_enable(IOMMU_MM);
-    vsp_fp->is_iommu_enabled = 1;
-#endif
+    ret = vsp_set_mm_clk();
 
-    return 0;
-errout:
-#if defined(CONFIG_ARCH_SCX35)
-    if (vsp_hw_dev.mm_clk) {
-        clk_put(vsp_hw_dev.mm_clk);
-    }
-#endif
+    atomic_inc_return(&vsp_instance_cnt);
 
-    if (vsp_hw_dev.vsp_clk) {
-        clk_put(vsp_hw_dev.vsp_clk);
-    }
+    printk(KERN_INFO "vsp_open: ret %d\n", ret);
 
-    if (vsp_hw_dev.vsp_parent_clk) {
-        clk_put(vsp_hw_dev.vsp_parent_clk);
-    }
     return ret;
 }
 
@@ -473,9 +488,10 @@ static int vsp_release (struct inode *inode, struct file *filp)
         return  -EINVAL;
     }
 
+    atomic_dec_return(&vsp_instance_cnt);
+
 #if defined(CONFIG_SPRD_IOMMU)
     sprd_iommu_module_disable(IOMMU_MM);
-    vsp_fp->is_iommu_enabled = 0;
 #endif
 
     if (vsp_fp->is_clock_enabled) {
@@ -493,7 +509,7 @@ static int vsp_release (struct inode *inode, struct file *filp)
     kfree(filp->private_data);
     filp->private_data=NULL;
 
-    printk(KERN_INFO "VSP mmi_clk close");
+    printk(KERN_INFO "VSP mmi_clk close\n");
     clk_disable(vsp_hw_dev.mm_clk);
 
     return 0;
@@ -517,20 +533,17 @@ static struct miscdevice vsp_dev = {
 static int vsp_suspend(struct platform_device *pdev, pm_message_t state)
 {
     int ret=-1;
+    int cnt;
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
 
-    if (vsp_hw_dev.vsp_fp != NULL) {
+    for (cnt = 0; cnt < instance_cnt; cnt++) {
 #if defined(CONFIG_SPRD_IOMMU)
-        struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
-
-        if (vsp_fp->is_iommu_enabled) {
-            sprd_iommu_module_disable(IOMMU_MM);
-            vsp_fp->is_iommu_enabled = 0;
-        }
+        sprd_iommu_module_disable(IOMMU_MM);
 #endif
 
         clk_disable(vsp_hw_dev.mm_clk);
 
-        printk(KERN_INFO "vsp_suspend");
+        printk(KERN_INFO "vsp_suspend, cnt: %d\n", cnt);
     }
 
     return 0;
@@ -538,28 +551,16 @@ static int vsp_suspend(struct platform_device *pdev, pm_message_t state)
 
 static int vsp_resume(struct platform_device *pdev)
 {
-    int ret=-1;
+    int ret = 0;
+    int cnt;
+    int instance_cnt = atomic_read(&vsp_instance_cnt);
 
-    if (vsp_hw_dev.vsp_fp != NULL) {
-        struct vsp_fh *vsp_fp = vsp_hw_dev.vsp_fp;
-
-        ret = clk_enable(vsp_hw_dev.mm_clk);
-        if (ret) {
-            printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-            return ret;
-        } else {
-            pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
-        }
-
-#if defined(CONFIG_SPRD_IOMMU)
-        sprd_iommu_module_enable(IOMMU_MM);
-        vsp_fp->is_iommu_enabled = 1;
-#endif
-
-        printk(KERN_INFO "vsp_resume");
+    for (cnt = 0; cnt < instance_cnt; cnt++) {
+        ret = vsp_set_mm_clk();
+        printk(KERN_INFO "vsp_resume, cnt: %d\n", cnt);
     }
 
-    return 0;
+    return ret;
 }
 
 static int vsp_probe(struct platform_device *pdev)
