@@ -21,7 +21,7 @@
 #include <linux/platform_device.h>
 #include <linux/fb.h>
 #include <linux/uaccess.h>
-
+#include <asm/uaccess.h>
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_fdt.h>
@@ -281,6 +281,10 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 {
 	int result = -1;
 	struct sprdfb_device *dev = NULL;
+#ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
+	overlay_info local_overlay_info;
+	overlay_display local_overlay_display;
+#endif
 	void __user *argp = (void __user *)arg;
 
 	if(NULL == info){
@@ -294,14 +298,24 @@ static int sprdfb_ioctl(struct fb_info *info, unsigned int cmd,
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
 	case SPRD_FB_SET_OVERLAY:
 		pr_debug(KERN_INFO "sprdfb: [%s]: SPRD_FB_SET_OVERLAY\n", __FUNCTION__);
+		memset(&local_overlay_info,0,sizeof(local_overlay_info));
+		if (copy_from_user(&local_overlay_info, argp, sizeof(local_overlay_info))){
+			printk("sprdfb: SET_OVERLAY copy failed!\n");
+			return -EFAULT;
+		}
 		if(NULL != dev->ctrl->enable_overlay){
-			result = dev->ctrl->enable_overlay(dev, (overlay_info*)arg, 1);
+			result = dev->ctrl->enable_overlay(dev, &local_overlay_info, 1);
 		}
 		break;
 	case SPRD_FB_DISPLAY_OVERLAY:
 		pr_debug(KERN_INFO "sprdfb: [%s]: SPRD_FB_DISPLAY_OVERLAY\n", __FUNCTION__);
+		memset(&local_overlay_display,0,sizeof(local_overlay_display));
+		if (copy_from_user(&local_overlay_display, argp, sizeof(local_overlay_display))){
+			printk("sprdfb: DISPLAY_OVERLAY copy failed!\n");
+			return -EFAULT;
+		}
 		if(NULL != dev->ctrl->display_overlay){
-			result = dev->ctrl->display_overlay(dev, (overlay_display*)arg);
+			result = dev->ctrl->display_overlay(dev, &local_overlay_display);
 		}
 		break;
 #endif
