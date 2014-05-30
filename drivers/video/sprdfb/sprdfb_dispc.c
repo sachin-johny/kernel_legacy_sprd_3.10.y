@@ -945,6 +945,7 @@ static int scxx30_dispc_cpuidle_notify(struct notifier_block *nb, unsigned long 
 	else{
 		printk("sprdfb: error in cpuidle notify type!\n");
 	}
+	return 0;
 
 }
 
