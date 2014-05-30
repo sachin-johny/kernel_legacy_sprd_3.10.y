@@ -44,7 +44,9 @@ typedef enum {
 
 struct ack_packet {
 	u16 magic;
+	u16 checksum;
 	u16 type;
+	u16 dummy;
 	u32 seq_begin;
 	u32 seq_end;
 };
