@@ -3848,7 +3848,6 @@ static int mux_handshake(struct sprd_mux *self)
 	}
 	/*wait for response "OK \r" */
 	printk(KERN_INFO "\n MUX: id = %d,cmux receiving\n", self->mux_id);
-	msleep(1000);
 	while (1) {
 		count = self->io_hal->io_read(buff, sizeof(buffer) - (buff - buffer));
 		printk(KERN_INFO "MUX: id = %d,ts mux receive %d chars\n", self->mux_id, count);
@@ -4103,8 +4102,6 @@ static int mux_recover_thread(void *data)
 
 	MUX_TS0710_DEBUG(self->mux_id, "entered\n");
 
-	msleep(2000);
-
 	if (self->cmux_mode == 0) {
 		mutex_lock(&self->handshake_mutex);
 		mux_handshake(self);
@@ -4123,7 +4120,7 @@ static int mux_recover_thread(void *data)
 				break;
 			 } else {
 				printk(KERN_ERR "MUX: id[%d] %s recover failed retry\n", self->mux_id, __FUNCTION__);
-				msleep(3000);
+				msleep(500);
 			 }
 		}
 	}
