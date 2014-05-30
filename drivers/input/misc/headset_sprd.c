@@ -65,7 +65,7 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
 #define SPRD_STS_POLLING_EN
 #endif
 
-#define PLUG_CONFIRM_COUNT (8)
+#define PLUG_CONFIRM_COUNT (4)
 #define NO_MIC_RETRY_COUNT (1)
 #define ADC_READ_COUNT (5)
 #define ADC_READ_LOOP (2)
@@ -888,12 +888,7 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
 	int adc_last = 0;
 	int adc_current = 0;
 	int count = 0;
-	int adc_read_interval = 0;
-
-	if(0 != pdata->gpio_switch)
-		adc_read_interval = 25;
-	else
-		adc_read_interval = 50;
+	int adc_read_interval = 10;
 
 	msleep(adc_read_interval);
 	adc_last = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
@@ -941,17 +936,12 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 
 no_mic_retry:
 
-        if(0 != pdata->gpio_switch) {
-                //get adc value of left
-                set_adc_to_headmic(0);
-                msleep(50);
-                adc_left_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
-                if(-1 == adc_left_average)
-                        return HEADSET_TYPE_ERR;
-        } else {
-                PRINT_INFO("automatic type switch is unsupported, set adc_left_average = 0\n");
-                adc_left_average = 0;
-        }
+        //get adc value of left
+        set_adc_to_headmic(0);
+        msleep(50);
+        adc_left_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
+        if(-1 == adc_left_average)
+                return HEADSET_TYPE_ERR;
 
         //get adc value of mic
         set_adc_to_headmic(1);
