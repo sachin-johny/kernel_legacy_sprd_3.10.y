@@ -110,4 +110,6 @@ Camera:
 */
 #define SPRD_ION_MM_SIZE         (52 * SZ_1M)
 #define SPRD_ION_OVERLAY_SIZE    (12 * SZ_1M)
+#define GPIO_RF2351_POWER_CTRL_NUM 13
+
 #endif

@@ -670,37 +670,6 @@ static struct notifier_block itm_inetaddr_cb = {
 	.notifier_call = itm_inetaddr_event,
 };
 
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-static int vddwpa_wifi_enable_control(int flag)
-{
-	static struct regulator *wpa_wifi = NULL;
-	static int f_enabled = 0;
-	printk("[wpa_wfi] LDO control : %s\n", flag ? "ON" : "OFF");
-
-	if (flag && (!f_enabled)) {
-		wpa_wifi = regulator_get(NULL, "vddwpa");
-		if (IS_ERR(wpa_wifi)) {
-			printk("wifi could not find the vddwpa regulator\n");
-			wpa_wifi = NULL;
-			return EIO;
-		} else {
-			regulator_set_voltage(wpa_wifi, 3400000, 3400000);
-			regulator_enable(wpa_wifi);
-		}
-		f_enabled = 1;
-	}
-	if (f_enabled && (!flag)) {
-		if (wpa_wifi) {
-			regulator_disable(wpa_wifi);
-			regulator_put(wpa_wifi);
-			wpa_wifi = NULL;
-		}
-		f_enabled = 0;
-	}
-	return 0;
-}
-#endif
-
 /*
  * Initialize WLAN device.
  */
@@ -709,17 +678,9 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	struct net_device *ndev;
 	struct itm_priv *priv;
 	int ret;
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
-|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
-|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
-||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE) \
-|| defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
+	
 	rf2351_gpio_ctrl_power_enable(1);
-#endif
-#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-	vddwpa_wifi_enable_control(1);
-#endif
+	rf2351_vddwpa_ctrl_power_enable(1);
 
 	ndev =
 	    alloc_netdev(sizeof(struct itm_priv), ITM_INTF_NAME, ether_setup);
@@ -873,17 +834,10 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 
 	free_netdev(ndev);
 	platform_set_drvdata(pdev, NULL);
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
-|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
-|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
-||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SC9620OPENPHONE) \
-|| defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
 	rf2351_gpio_ctrl_power_enable(0);
-#endif
-#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-	vddwpa_wifi_enable_control(0);
-#endif
+
+	rf2351_vddwpa_ctrl_power_enable(0);
+
 	dev_info(&pdev->dev, "%s\n", __func__);
 
 	return 0;
