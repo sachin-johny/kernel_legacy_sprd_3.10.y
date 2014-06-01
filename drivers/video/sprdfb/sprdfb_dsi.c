@@ -87,7 +87,7 @@ void dsi_core_and_function(unsigned int addr,unsigned int data)
 	sci_glb_write(addr,(dispc_glb_read(addr) & data), 0xffffffff);
 }
 
-//
+#if 0
 static Trick_Item s_trick_record0[DSI_INT0_MAX]= {
 	//en interval begin dis_cnt en_cnt
 	{1,300,  0,  0,  0},//ack_with_err_0
@@ -134,10 +134,6 @@ static Trick_Item s_trick_record1[DSI_INT1_MAX]= {
 	{0,  0,  0,  0,  0},//dbi_pld_recv_err
 	{0,  0,  0,  0,  0},//dbi_illegal_comm_err
 };
-
-
-
-
 
 /*
 func:dsi_irq0_trick
@@ -208,6 +204,13 @@ void dsi_irq_trick(uint32_t int_id,uint32_t int_status)
 		mask_irq1_times,open_irq1_times);
 	}
 }
+#else
+void dsi_irq_trick(void)
+{
+    /*enable ack_with_err_0 interrupt*/
+    DSI_INT_MASK0_SET(0, 0);
+}
+#endif
 
 //static uint32_t sot_ever_happened = 0;
 static irqreturn_t dsi_isr0(int irq, void *data)
@@ -217,17 +220,22 @@ static irqreturn_t dsi_isr0(int irq, void *data)
 #else
 	uint32_t reg_val = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
 #endif
+
 	printk(KERN_ERR "sprdfb: [%s](0x%x)!\n", __FUNCTION__, reg_val);
 	/*
 	printk("Warning: sot_ever_happened:(0x%x)!\n",sot_ever_happened);
+	*/
 	if(reg_val & 0x1) {
-		sot_ever_happened = 1;
+/*
+		//sot_ever_happened = 1;
 		mask = dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0);
 		mask |= 0x1;
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_MSK0, mask);
+*/
+	    DSI_INT_MASK0_SET(0, 1);
 	}
-	*/
-	dsi_irq_trick(0,reg_val);
+
+	//dsi_irq_trick(0,reg_val);
 	return IRQ_HANDLED;
 }
 
@@ -255,7 +263,7 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 		printk("sprdfb: mipi->lan_number:%d ,mipi->phy_feq:%d \n",mipi->lan_number,mipi->phy_feq);
 		if(NULL == phy){
 			printk("sprdfb: the phy is null \n");
-			dsi_irq_trick(1,reg_val);
+			//dsi_irq_trick(1,reg_val);
 			return IRQ_NONE;
 		}
 
@@ -272,7 +280,7 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 		}
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
 	}
-	dsi_irq_trick(1,reg_val);
+	//dsi_irq_trick(1,reg_val);
 	return IRQ_HANDLED;
 }
 

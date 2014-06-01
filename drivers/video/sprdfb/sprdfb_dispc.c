@@ -166,7 +166,8 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 
 static int dispc_update_clk(struct sprdfb_device *fb_dev,
 					u32 new_val, int howto);
-//
+
+#if 0
 static volatile Trick_Item s_trick_record[DISPC_INT_MAX]= {
     //en interval begin dis_cnt en_cnt
     {0,  0,  0,  0,  0},//DISPC_INT_DONE
@@ -175,6 +176,7 @@ static volatile Trick_Item s_trick_record[DISPC_INT_MAX]= {
     {0,  0,  0,  0,  0},//DISPC_INT_EDPI_TE
     {0,  0,  0,  0,  0},//DISPC_INT_UPDATE_DONE
 };
+#endif
 
 /**
  * author: Yang.Haibing haibing.yang@spreadtrum.com
@@ -273,6 +275,7 @@ static int dispc_check_new_clk(struct sprdfb_device *fb_dev,
 	return 0;
 }
 
+#if 0
 /*
 func:dispc_irq_trick
 desc:if a xxx interruption come many times in a short time, print the firt one, mask the follows.
@@ -328,7 +331,20 @@ static void dispc_irq_trick_out(void)
 }
 
 extern void dsi_irq_trick(uint32_t int_id,uint32_t int_status);
+#else
+void dispc_irq_trick(struct sprdfb_device *dev)
+{
+    if(NULL == dev){
+        return;
+    }
 
+    if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+        dispc_set_bits(DISPC_INT_ERR_MASK, DISPC_INT_EN);
+    }
+}
+
+extern void dsi_irq_trick(void);
+#endif
 
 //static uint32_t underflow_ever_happened = 0;
 static irqreturn_t dispc_isr(int irq, void *data)
@@ -345,13 +361,14 @@ static irqreturn_t dispc_isr(int irq, void *data)
 
 	pr_debug("sprdfb: dispc_isr (0x%x)\n",reg_val );
 	//printk("%s%d: underflow_ever_happened:0x%08x \n",__func__,__LINE__,underflow_ever_happened);
-	dispc_irq_trick_in(reg_val);
+	//dispc_irq_trick_in(reg_val);
 
 	if(reg_val & DISPC_INT_ERR_MASK){
 		printk("sprdfb: Warning: dispc underflow (0x%x)!\n",reg_val);
 		//underflow_ever_happened++;
 		dispc_write(DISPC_INT_ERR_MASK, DISPC_INT_CLR);
-		//dispc_clear_bits(BIT(2), DISPC_INT_EN);
+		/*disable err interupt*/
+		dispc_clear_bits(DISPC_INT_ERR_MASK, DISPC_INT_EN);
 	}
 
 	if(NULL == dev){
@@ -699,9 +716,11 @@ static void dispc_run(struct sprdfb_device *dev)
 		/* start refresh */
 		dispc_set_bits((1 << 4), DISPC_CTRL);
 	}
-	dispc_irq_trick_out();
+	dispc_irq_trick(dev);
+	//dispc_irq_trick_out();
 #ifndef CONFIG_FB_SCX15
-	dsi_irq_trick(0,0);
+	//dsi_irq_trick(0,0);
+	dsi_irq_trick();
 #endif
 }
 
@@ -2032,6 +2051,7 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 {
 	pr_debug("sprdfb: [%s]\n", __FUNCTION__);
 	int ret = 0;
+	uint32_t reg_val0,reg_val1;
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		if(!dispc_ctx.is_first_frame){
@@ -2042,7 +2062,10 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
 
 			if (!ret) { /* time out */
-				printk(KERN_ERR "sprdfb: vsync time out!!!!!\n");
+			    reg_val0 = dispc_read(DISPC_INT_RAW);
+			    reg_val1 = dispc_read(DISPC_DPI_STS1);
+				printk(KERN_ERR "sprdfb: vsync time out!!!!!(0x%x, 0x%x)\n",
+				    reg_val0, reg_val1);
 				{/*for debug*/
 					int32_t i = 0;
 					for(i=0;i<256;i+=16){
