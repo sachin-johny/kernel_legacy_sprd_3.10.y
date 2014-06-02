@@ -11,6 +11,7 @@
  */
 #include <linux/battery/sec_battery.h>
 #include <linux/battery/sec_fuelgauge.h>
+#include <linux/rtc.h>
 
 #if defined(CONFIG_MFD_88PM800)
 #include <linux/mfd/88pm80x.h>
@@ -33,6 +34,9 @@ extern uint32_t sprdchg_read_vbat_vol(void);
 #else
 #error "please include sprd sc2713 interface"
 #endif
+
+#include <mach/adc.h>
+#include <mach/adi.h>
 
 static struct device_attribute sec_usb_attr[] = {
 	SEC_USB_ATTR(charging_mode_booting),
@@ -120,6 +124,10 @@ static enum power_supply_property sec_power_props[] = {
 
 static char *supply_list[] = {
 	"battery",
+};
+
+static char *battery_supply_list[] = {
+	"audio-ldo",
 };
 
 char *sec_bat_charging_mode_str[] = {
@@ -790,8 +798,7 @@ static bool sec_bat_get_temperature_by_adc(
 temp_by_adc_goto:
 	value->intval = temp;
 
-	dev_dbg(battery->dev,
-		"%s: Temp(%d), Temp-ADC(%d)\n",
+	printk("%s: Temp(%d), Temp-ADC(%d)\n",
 		__func__, temp, temp_adc);
 
 	return true;
@@ -1240,11 +1247,11 @@ static bool sec_bat_time_management(
 					battery->pdata->full_condition_soc)
 					battery->status =
 						POWER_SUPPLY_STATUS_FULL;
+			}else
+				battery->status =
+						POWER_SUPPLY_STATUS_FULL;
 					battery->charging_mode =
 						SEC_BATTERY_CHARGING_NONE;
-			} else
-				battery->charging_mode =
-					SEC_BATTERY_CHARGING_ABS;
 			if (sec_bat_set_charge(battery, false)) {
 				dev_err(battery->dev,
 					"%s: Fail to Set Charger\n", __func__);
@@ -1653,12 +1660,10 @@ static void sec_bat_get_battery_info(
 		break;
 	}
 
-	dev_info(battery->dev,
-		"%s:Vnow(%dmV),Inow(%dmA),SOC(%d%%),Tbat(%d)\n", __func__,
+	printk("%s:Vnow(%dmV),Inow(%dmA),SOC(%d%%),Tbat(%d)\n", __func__,
 		battery->voltage_now, battery->current_now,
 		battery->capacity, battery->temperature);
-	dev_dbg(battery->dev,
-		"%s,Vavg(%dmV),Vocv(%dmV),Tamb(%d),Iavg(%dmA),Iadc(%d)\n",
+	printk("%s %s,Vavg(%dmV),Vocv(%dmV),Tamb(%d),Iavg(%dmA),Iadc(%d)\n", __func__,
 		battery->present ? "Connected" : "Disconnected",
 		battery->voltage_avg, battery->voltage_ocv,
 		battery->temper_amb,
@@ -1862,6 +1867,8 @@ static void sec_bat_monitor_work(
 	struct sec_battery_info *battery =
 		container_of(work, struct sec_battery_info,
 		monitor_work.work);
+	struct timespec ts;
+    struct rtc_time tm;
 
 	dev_dbg(battery->dev, "%s: Start\n", __func__);
 
@@ -1903,9 +1910,13 @@ static void sec_bat_monitor_work(
 	/* 5. full charging check */
 	sec_bat_fullcharged_check(battery);
 
+	getnstimeofday(&ts);
+	rtc_time_to_tm(ts.tv_sec, &tm);
+	pr_info("%s (%d-%02d-%02d %02d:%02d:%02d.%09lu UTC)\n",__func__,
+			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
+			tm.tm_hour, tm.tm_min, tm.tm_sec, ts.tv_nsec);
 continue_monitor:
-	dev_info(battery->dev,
-		"%s: Status(%s), mode(%s), Health(%s), Cable(%d), siop_level(%d)\n",
+	printk("%s: Status(%s), mode(%s), Health(%s), Cable(%d), siop_level(%d)\n",
 		__func__,
 		sec_bat_status_str[battery->status],
 		sec_bat_charging_mode_str[battery->charging_mode],
@@ -2085,19 +2096,8 @@ ssize_t sec_bat_show_attrs(struct device *dev,
 	case BATT_VOL_ADC_AVER:
 		break;
 	case BATT_TEMP_ADC:
-	{
-		if (battery->pdata->thermal_source == SEC_BATTERY_THERMAL_SOURCE_FG) {
-			struct power_supply *psy_fuelgague = get_power_supply_by_name("sec-fuelgauge");
-			struct sec_fuelgauge_info *fuelgauge =
-				container_of(psy_fuelgague, struct sec_fuelgauge_info, psy_fg);
-
-			if (fuelgauge)
-				battery->temp_adc = fuelgauge->info.current_temp_adc;
-		}
-
 		i += scnprintf(buf + i, PAGE_SIZE - i, "%d\n",
 			       battery->temp_adc);
-	}
 		break;
 	case BATT_TEMP_AVER:
 		break;
@@ -2338,7 +2338,7 @@ ssize_t sec_bat_store_attrs(
 	switch (offset) {
 	case BATT_RESET_SOC:
 		/* Do NOT reset fuel gauge in charging mode */
-		if (battery->pdata->check_cable_callback() ==
+		if (battery->cable_type ==
 			POWER_SUPPLY_TYPE_BATTERY) {
 			union power_supply_propval value;
 
@@ -2432,15 +2432,16 @@ ssize_t sec_bat_store_attrs(
 				x=50;
 #endif
 			battery->pdata->siop_level = x;
-
+			if(battery->siop_level!=x&&x!=0){
 			if (battery->cable_type == POWER_SUPPLY_TYPE_MAINS ||
 			    battery->cable_type == POWER_SUPPLY_TYPE_MISC)
 			{
-				value.intval = 800;
-			psy_do_property("sec-charger", set,
+				value.intval = x;
+				psy_do_property("sec-charger", set,
 					POWER_SUPPLY_PROP_CURRENT_NOW, value);
 			}
-
+			battery->siop_level=x;
+			}
 			ret = count;
 		}
 		break;
@@ -2605,6 +2606,19 @@ ssize_t sec_bat_store_attrs(
 	case BATT_EVENT_GPS:
 		if (sscanf(buf, "%d\n", &x) == 1) {
 			sec_bat_event_set(battery, EVENT_GPS, x);
+			ret = count;
+		}
+		break;
+	case BATT_EVENT:
+		if (sscanf(buf, "%d\n", &x) == 1) {
+			battery->temp_high_threshold =
+				x == 0 ? 650 : 700;
+			pr_info("%s: high temp threshold : %d\n",
+				__func__, battery->temp_high_threshold);
+			battery->temp_high_recovery =
+				x == 0 ? 520 : 550;
+			pr_info("%s: high recovery threshold : %d\n",
+				__func__, battery->temp_high_recovery);
 			ret = count;
 		}
 		break;
@@ -2845,8 +2859,12 @@ static int sec_bat_get_property(struct power_supply *psy,
 		val->intval = battery->pdata->technology;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_NOW:
+		/* Changes for DFMS BATTTEST */
+		psy_do_property("sec-fuelgauge", get,
+                                POWER_SUPPLY_PROP_VOLTAGE_NOW, value);
+        val->intval = value.intval * 1000;
 		/* voltage value should be in uV */
-		val->intval = battery->voltage_now * 1000;
+		//val->intval = battery->voltage_now * 1000;
 		break;
 	case POWER_SUPPLY_PROP_VOLTAGE_AVG:
 		/* voltage value should be in uV */
@@ -2967,7 +2985,7 @@ no_cable_check:
 	return IRQ_HANDLED;
 }
 
-static int __init sec_battery_probe(struct platform_device *pdev)
+static int sec_battery_probe(struct platform_device *pdev)
 {
 	sec_battery_platform_data_t *pdata = dev_get_platdata(&pdev->dev);
 	struct sec_battery_info *battery;
@@ -2978,13 +2996,6 @@ static int __init sec_battery_probe(struct platform_device *pdev)
 
 	dev_info(&pdev->dev,
 		"%s: SEC Battery Driver Loading\n", __func__);
-
-#ifdef CONFIG_OF
-	extern sec_battery_platform_data_t sec_battery_pdata;
-	if (pdev->dev.of_node && !pdata) {
-		pdata = &sec_battery_pdata;
-	}
-#endif
 
 	battery = kzalloc(sizeof(*battery), GFP_KERNEL);
 	if (!battery)
@@ -3026,6 +3037,7 @@ static int __init sec_battery_probe(struct platform_device *pdev)
 	battery->charging_passed_time = 0;
 	battery->charging_next_time = 0;
 	battery->charging_fullcharged_time = 0;
+	battery->siop_level=100;
 
 #if defined(CONFIG_ANDROID_ALARM_ACTIVATED)
 	alarm_init(&battery->event_termination_alarm,
@@ -3055,6 +3067,8 @@ static int __init sec_battery_probe(struct platform_device *pdev)
 
 	battery->psy_bat.name = "battery",
 	battery->psy_bat.type = POWER_SUPPLY_TYPE_BATTERY,
+	battery->psy_bat.supplied_to = battery_supply_list,
+	battery->psy_bat.num_supplicants = ARRAY_SIZE(battery_supply_list),
 	battery->psy_bat.properties = sec_battery_props,
 	battery->psy_bat.num_properties = ARRAY_SIZE(sec_battery_props),
 	battery->psy_bat.get_property = sec_bat_get_property,
@@ -3210,7 +3224,7 @@ err_wake_lock:
 	return ret;
 }
 
-static int __exit sec_battery_remove(struct platform_device *pdev)
+static int sec_battery_remove(struct platform_device *pdev)
 {
 	struct sec_battery_info *battery = platform_get_drvdata(pdev);
 	int i;
@@ -3348,22 +3362,12 @@ static const struct dev_pm_ops sec_battery_pm_ops = {
 	.complete = sec_battery_complete,
 };
 
-#ifdef CONFIG_OF
-static const struct of_device_id  of_match_table_sec_battery[] = {
-		{ .compatible = "Samsung,battery", },
-		{ },
-};
-#endif
-
 static struct platform_driver sec_battery_driver = {
 	.driver = {
 		   .name = "sec-battery",
 		   .owner = THIS_MODULE,
 		   .pm = &sec_battery_pm_ops,
 		   .shutdown = sec_battery_shutdown,
-#ifdef CONFIG_OF
-			.of_match_table = of_match_ptr(of_match_table_sec_battery),
-#endif
 		   },
 	.probe = sec_battery_probe,
 	.remove = sec_battery_remove,

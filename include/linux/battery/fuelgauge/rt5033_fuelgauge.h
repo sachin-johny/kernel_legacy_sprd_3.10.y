@@ -38,19 +38,13 @@ struct battery_data_t{
 	gain_table_prop *param1;
 	gain_table_prop *param2;
 	gain_table_prop *param3;
-	gain_table_prop *param4;
-	offset_table_prop *offset1;
-	offset_table_prop *offset2;
-	offset_table_prop *offset3;
-	offset_table_prop *offset4;
+	offset_table_prop *offset_poweroff;
+//	offset_table_prop *offset_charging;
 	int param1_size;
 	int param2_size;
 	int param3_size;
-	int param4_size;
-	int offset1_size;
-	int offset2_size;
-	int offset3_size;
-	int offset4_size;
+	int offset_poweroff_size;
+//	int offset_charging_size;
 };
 
 struct sec_fg_info {
@@ -90,6 +84,7 @@ struct sec_fg_info {
 	uint32_t soc_alert_flag : 1;  /* 0 : nu-occur, 1: occur */
 	uint32_t bat_pres_flag : 1; /* 0 : removed, 1: inserted */
 	uint32_t flag_once_full_soc : 1;
+	int32_t irq_ctrl;
 };
 
 /*
