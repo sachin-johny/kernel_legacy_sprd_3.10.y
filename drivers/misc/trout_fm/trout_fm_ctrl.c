@@ -23,67 +23,36 @@
 #define DRIVER_NAME "radio-trout"
 #define CARD_NAME "Trout FM Receiver"
 #define FM_FREQ_CONVERSION (100*16)
-#define V4L2_CID_PRIVATE_FM_AUDIO (V4L2_CID_BASE + 10)
+#define V4L2_CID_PRIVATE_FM_MUTE (V4L2_CID_PRIVATE_BASE + 1)
 
-struct fmdev {
-	struct v4l2_ctrl_handler ctrl_handler; /* V4L2 ctrl framwork handler*/
-};
 
-atomic_t  is_fm_open;
+static atomic_t  s_opened;
+static int s_mute = 0;
 static struct video_device *s_radio = NULL;
+struct trout_interface *p_trout_interface = NULL;
 
-struct trout_interface *p_trout_interface;
-
-static int g_volume = 0;
-
-int trout_fm_set_volume(u8 iarg)
+static int _trout_fm_mute(int mute)
 {
-	TROUT_PRINT("FM set volume : %i.", iarg);
-
-	g_volume = (int)iarg;
-	if(0 == iarg) {
-		trout_fm_mute();
-	}
-	else {
-		trout_fm_unmute();
-	}
-
-	return 0;
-}
-
-int trout_fm_get_volume(void)
-{
-	TROUT_PRINT("FM get volume.");
-	return g_volume;
+    s_mute = mute;
+    if (mute == 1) {
+        trout_fm_mute();
+    } else {
+        trout_fm_unmute();
+    }
+    return 0;
 }
 
 static int _trout_fm_open(struct file *file)
 {
 	int ret = -EINVAL;
-    int status;
+  int status;
 
 	TROUT_PRINT("start open fm module...");
 
-	if (atomic_read(&is_fm_open)) {
-		TROUT_PRINT("trout_fm has been opened!");
-		return -1;
+	if (atomic_inc_return(&s_opened) > 1) {
+		TROUT_PRINT("trout_fm has been opened, ignore this operation.");
+		return 0;
 	}
-#if 0
-	if (get_suspend_state() != PM_SUSPEND_ON)
-	{
-		TROUT_PRINT("The system is suspending!");
-		return -2;
-	}
-
-	/*ret = nonseekable_open(inode, filep);
-	if (ret < 0)
-	{
-		TROUT_PRINT("open misc device failed.");
-		return ret;
-	}*/
-
-	Set_Trout_PowerOn(2/*FM_MODE*/);
-#endif
 	ret = trout_fm_init();
 	if(ret < 0) {
 		TROUT_PRINT("trout_fm_init failed!");
@@ -96,36 +65,17 @@ static int _trout_fm_open(struct file *file)
 		return ret;
 	}
 
-	if(status) {
+	if (status) {
 		TROUT_PRINT("trout fm have been opened.");
-	}
-	else {
+	} else {
 		ret = trout_fm_en();
 		if(ret < 0) {
 			TROUT_PRINT("trout_fm_en failed!");
 			return ret;
 		}
-#if 0
-		ret = trout_fm_iis_pin_cfg();
-		if(ret < 0)
-		{
-			TROUT_PRINT("trout_fm_iis_pin_cfg failed!");
-			return ret;
-		}
-#endif
 	}
 
-#if 0
-	/* set trout wifi goto sleep */
-	#ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
-	wifimac_sleep();
-	#endif
-#endif
-	atomic_cmpxchg(&is_fm_open, 0, 1);
-
 	TROUT_PRINT("Open fm module success.");
-
-	trout_fm_set_volume(1);
 
 	return 0;
 }
@@ -135,9 +85,12 @@ static int _trout_fm_release(struct file *file)
 {
 	TROUT_PRINT("trout_fm_release");
 
-	trout_fm_deinit();
+	if (atomic_dec_return(&s_opened) > 0) {
+		TROUT_PRINT("trout_fm has been opened by others.");
+		return 0;
+	}
 
-    atomic_cmpxchg(&is_fm_open, 1, 0);
+	trout_fm_deinit();
 
 	return 0;
 }
@@ -153,16 +106,18 @@ static int _trout_fm_querycap(struct file *file, void *priv, struct v4l2_capabil
 
 static int _trout_fm_get_tuner(struct file *file, void *priv, struct v4l2_tuner *tuner)
 {
-	strlcpy(tuner->name, "FM", sizeof(tuner->name));
+	/** TODO **/
+	/*strlcpy(tuner->name, "FM", sizeof(tuner->name));
 	tuner->type = V4L2_TUNER_RADIO;
 	tuner->rangelow = 1400000;
 	tuner->rangehigh = 1728000;
-	memset(tuner->reserved, 0, sizeof(tuner->reserved));
+	memset(tuner->reserved, 0, sizeof(tuner->reserved));*/
 	return -EINVAL;
 }
 
 static int _trout_fm_set_tuner(struct file *file, void *priv, const struct v4l2_tuner *tuner)
 {
+	/** TODO **/
 	return -EINVAL;
 }
 
@@ -186,50 +141,53 @@ static int _trout_fm_set_freq(struct file *file, void *priv, const struct v4l2_f
 {
 	int ret;
 	u16 ifreq = (freq->frequency) / FM_FREQ_CONVERSION;
-	TROUT_PRINT("_trout_fm_set_freq %d",ifreq);
 	ret = trout_fm_set_tune(ifreq);
 #ifdef TROUT_WIFI_POWER_SLEEP_ENABLE
 	wifimac_sleep();//hugh:add for power 20130425
 #endif
 	return ret;
 }
-static int _trout_fm_seek(struct file *file, void *priv, struct v4l2_hw_freq_seek *seek)
+
+static int _trout_fm_seek(struct file *file, void *priv, const struct v4l2_hw_freq_seek *seek)
 {
 	u16 freq = 0;
 	u16 reserved = 0;
 	u8 direction = seek->seek_upward;
 	int err;
 
-	TROUT_PRINT("_trout_fm_seek Start !");
-
-	trout_fm_set_volume(0);
-
 	err = trout_fm_get_frequency((u16*)(&freq));
 	if(err) {
 		TROUT_PRINT("trout_fm_seek error due to get_frequency error.");
-	    trout_fm_set_volume(1);
 		return -EINVAL;
 	}
 
+	int mute = s_mute;
+	if (mute != 1) {
+		_trout_fm_mute(1);
+	}
 	err = trout_fm_seek(freq, /* start frequency */
 		direction, /* seek direction*/
 		3000, /* time out */
 		&reserved);
-	if(err) {
-	    trout_fm_set_volume(1);
-		return -EINVAL;
+	if (err) {
 		TROUT_PRINT("_trout_fm_seek Error !");
 	}
-	seek->reserved[0] = reserved * FM_FREQ_CONVERSION;
+	if (mute != 1) {
+		_trout_fm_mute(mute);
+	}
 
-	trout_fm_get_frequency(&freq);
-	trout_fm_set_tune(freq);
+	return err ? -EINVAL : 0;
+}
 
-	trout_fm_set_volume(1);
-
-	TROUT_PRINT("_trout_fm_seek Finish !");
-
-	return 0;
+static int _trout_fm_control(struct file *file, void *priv, struct v4l2_control *ctrl) {
+    switch (ctrl->id) {
+		    case V4L2_CID_PRIVATE_FM_MUTE:
+		        return _trout_fm_mute(ctrl->value);
+		    default:
+		        TROUT_PRINT("Unknown fm control.");
+		        break;
+		}
+    return -1;
 }
 
 static const struct v4l2_file_operations trout_fops = {
@@ -246,16 +204,11 @@ static const struct v4l2_ioctl_ops trout_ioctl_ops = {
 	.vidioc_g_frequency = _trout_fm_get_freq,
 	.vidioc_s_frequency = _trout_fm_set_freq,
 	.vidioc_s_hw_freq_seek = _trout_fm_seek,
-};
-
-static const struct v4l2_ctrl_ops trout_ctrl_ops = {
- // .s_ctrl = _trout_fm_control,
+	.vidioc_s_ctrl = _trout_fm_control,
 };
 
 static int register_v4l2_device(void)
 {
-	int ret;
-	struct fmdev *fmdev = NULL;
 	struct video_device *radio = video_device_alloc();
 	if (!radio) {
 		TROUT_PRINT("Could not allocate video_device");
@@ -270,25 +223,7 @@ static int register_v4l2_device(void)
 		video_device_release(radio);
 		return -EINVAL;
 	}
-
 	s_radio = radio;
-
-	fmdev = (struct fmdev *)kzalloc(sizeof(struct fmdev), GFP_KERNEL);
-	if (!fmdev) {
-		TROUT_PRINT("Could not allocate fmdev");
-		return -EINVAL;
-	}
-
-	video_set_drvdata(radio, fmdev);
-	radio->ctrl_handler = &fmdev->ctrl_handler;
-	ret = v4l2_ctrl_handler_init(&fmdev->ctrl_handler, 1);
-	if (ret < 0) {
-		TROUT_PRINT("Failed to int v4l2_ctrl_handler");
-		v4l2_ctrl_handler_free(&fmdev->ctrl_handler);
-		return -EINVAL;
-	}
-
-	v4l2_ctrl_new_std(&fmdev->ctrl_handler, &trout_ctrl_ops, V4L2_CID_PRIVATE_FM_AUDIO, 0, 1, 1, 0);
 
 	TROUT_PRINT("Registered Trout FM Receiver.");
 	return 0;
@@ -335,14 +270,8 @@ static int  trout_fm_probe(struct platform_device *pdev)
 
 static int trout_fm_remove(struct platform_device *pdev)
 {
-	struct fmdev *fmdev;
 	TROUT_PRINT("exit_fm_driver!\n");
 	if(s_radio) {
-		fmdev = video_get_drvdata(s_radio);
-		if (fmdev) {
-			v4l2_ctrl_handler_free(&fmdev->ctrl_handler);
-			kfree(fmdev);
-		}
 		video_unregister_device(s_radio);
 		s_radio = NULL;
 	}
