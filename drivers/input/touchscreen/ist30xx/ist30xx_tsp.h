@@ -16,26 +16,26 @@
 #ifndef __IST30XX_TSP_H__
 #define __IST30XX_TSP_H__
 
-#define IST30XX_DD_VERSION  (2)
+#define IST30XX_DD_VERSION  (3)
 // Multi TSP not yet enabled in imagis 3038.
 #define IST30XX_MULTIPLE_TSP    (0)
 
 #define TSP_CHIP_VENDOR     ("IMAGIS")
-#define TSP_CHIP_NAME       ("IST3038B")
+#define TSP_CHIP_NAME       ("IST3038")
 
 #define FLAG_NODE_Y         (0)
 #define FLAG_NODE_X         (1)
 
-#define NODE_TX_NUM         (18)
-#define NODE_RX_NUM         (13)
-#define NODE_TOTAL_NUM      (TSP_TX_NUM * TSP_RX_NUM)
+#define NODE_TX_NUM         (21)
+#define NODE_RX_NUM         (14)
+#define NODE_TOTAL_NUM      (NODE_TX_NUM * NODE_RX_NUM)
 
-#define TSP_TX_NUM          (18)
-#define TSP_RX_NUM          (12)
+#define TSP_TX_NUM          (21)
+#define TSP_RX_NUM          (13)
 #define TSP_TOTAL_NUM       (TSP_TX_NUM * TSP_RX_NUM)
 
 #define TSP_THRESHOLD       (30)
-#define TKEY_THRESHOLD      (350)
+#define TKEY_THRESHOLD      (600)
 
 #define IST30XXB_PARSE_TSPTYPE(k)   ((k >> 1) & 0xF)
 
@@ -43,12 +43,10 @@
 #define TSP_TYPE_ALPS       (0xF)
 #define TSP_TYPE_EELY       (0xE)
 #define TSP_TYPE_TOP        (0xD)
-#define TSP_TYPE_DIGITECH   (0xC)
+#define TSP_TYPE_MELFAS     (0xC)
 #define TSP_TYPE_ILJIN      (0xB)
 #define TSP_TYPE_SYNOPEX    (0xA)
 #define TSP_TYPE_SMAC       (0x9)
-#define TSP_TYPE_TAEYANG    (0x8)
-#define TSP_TYPE_TOVIS      (0x7)
-#define TSP_TYPE_ELK        (0x6)
+#define TSP_TYPE_OTHERS     (0x8)
 
 #endif  // __IST30XX_TSP_H__

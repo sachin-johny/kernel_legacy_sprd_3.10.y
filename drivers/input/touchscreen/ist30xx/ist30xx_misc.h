@@ -30,6 +30,7 @@
 #define NODE_FLAG_FILTER            (1 << 2)
 #define NODE_FLAG_DIFF              (1 << 3)
 #define NODE_FLAG_ALL               (0xF)
+#define NODE_FLAG_NO_CCP            (1 << 7)
 
 struct TSP_CH_NUM {
 	u8	tx;
