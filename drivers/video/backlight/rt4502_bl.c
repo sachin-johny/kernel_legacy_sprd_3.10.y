@@ -32,12 +32,15 @@
 
 #include <linux/of.h>
 
+#include <mach/board.h>
+
 int current_intensity;
-#ifdef CONFIG_MACH_NEVISTD
-static int backlight_pin = 138;
+#ifdef SPI0_BACKLIGHT_PWM_GPIO
+static int backlight_pin = SPI0_BACKLIGHT_PWM_GPIO;
 #else
 static int backlight_pin = 190;
 #endif
+
 static DEFINE_SPINLOCK(bl_ctrl_lock);
 
 #define START_BRIGHTNESS 10 /*This value should be same as bootloader*/
