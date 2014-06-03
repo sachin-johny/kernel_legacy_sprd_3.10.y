@@ -38,11 +38,15 @@ static void sec_fg_get_scaled_capacity(
 				struct sec_fuelgauge_info *fuelgauge,
 				union power_supply_propval *val)
 {
+	dev_info(&fuelgauge->client->dev,
+		  "%s : val = %d, cap_min = %d, cap_max = %d\n", __func__,
+				val->intval, fuelgauge->pdata->capacity_min,
+				fuelgauge->capacity_max);
 	val->intval = (val->intval < fuelgauge->pdata->capacity_min) ?
 		0 : ((val->intval - fuelgauge->pdata->capacity_min) * 1000 /
 		(fuelgauge->capacity_max - fuelgauge->pdata->capacity_min));
 
-	dev_dbg(&fuelgauge->client->dev,
+	dev_info(&fuelgauge->client->dev,
 		"%s: scaled capacity (%d.%d)\n",
 		__func__, val->intval/10, val->intval%10);
 }
@@ -113,6 +117,7 @@ static int sec_fg_get_property(struct power_supply *psy,
 			/* capacity should be between 0% and 100%
 			 * (0.1% degree)
 			 */
+			pr_info("%s : soc = %d\n", __func__, val->intval);
 			if (val->intval > 1000)
 				val->intval = 1000;
 			if (val->intval < 0)
@@ -170,7 +175,7 @@ static int sec_fg_calculate_dynamic_scale(
 		fuelgauge->capacity_max =
 			fuelgauge->pdata->capacity_max -
 			fuelgauge->pdata->capacity_max_margin;
-		dev_dbg(&fuelgauge->client->dev, "%s: capacity_max (%d)",
+		dev_info(&fuelgauge->client->dev, "%s: capacity_max (%d)",
 			__func__, fuelgauge->capacity_max);
 	} else {
 		fuelgauge->capacity_max =
@@ -180,7 +185,7 @@ static int sec_fg_calculate_dynamic_scale(
 			(fuelgauge->pdata->capacity_max +
 			fuelgauge->pdata->capacity_max_margin) :
 			raw_soc_val.intval;
-		dev_dbg(&fuelgauge->client->dev, "%s: raw soc (%d)",
+		dev_info(&fuelgauge->client->dev, "%s: raw soc (%d)",
 			__func__, fuelgauge->capacity_max);
 	}
 
@@ -266,7 +271,7 @@ static irqreturn_t sec_fg_irq_thread(int irq, void *irq_data)
 
 		if (fuel_alerted == fuelgauge->is_fuel_alerted) {
 			if (!fuelgauge->pdata->repeated_fuelalert) {
-				dev_dbg(&fuelgauge->client->dev,
+				dev_info(&fuelgauge->client->dev,
 					"%s: Fuel-alert Repeated (%d)\n",
 					__func__, fuelgauge->is_fuel_alerted);
 				return IRQ_HANDLED;
@@ -345,17 +350,8 @@ ssize_t sec_fg_store_attrs(struct device *dev,
 	return ret;
 }
 
-#ifdef CONFIG_OF
-static struct of_device_id sec_fuelgauge_match_table[] = {
-	{ .compatible = "Samsung,fuelgauge",},
-	{},
-};
-#else
-#define sec_fuelgauge_match_table NULL
-#endif
-
 #if defined(CONFIG_FUELGAUGE_MFD)
-static int __init sec_fuelgauge_probe(struct platform_device *pdev)
+static int sec_fuelgauge_probe(struct platform_device *pdev)
 {
 	struct sec_fuelgauge_info *fuelgauge;
 #if defined(CONFIG_FUELGAUGE_D2199)
@@ -380,13 +376,6 @@ static int __init sec_fuelgauge_probe(struct platform_device *pdev)
 
 	fuelgauge->client = mfd_dev->pmic_i2c_client;
 	fuelgauge->pdata = pdata->pbat_platform;
-
-#ifdef CONFIG_OF
-	if (client->dev.of_node && !fuelgauge->pdata) {
-		extern sec_battery_platform_data_t sec_battery_pdata;
-		fuelgauge->pdata = &sec_battery_pdata;
-	}
-#endif
 #if defined(CONFIG_FUELGAUGE_D2199)
 	fuelgauge->info.pd2199 = mfd_dev;
 #endif
@@ -473,7 +462,7 @@ static int __init sec_fuelgauge_probe(struct platform_device *pdev)
 		goto err_irq;
 	}
 
-	dev_dbg(&pdev->dev,
+	dev_info(&pdev->dev,
 		"%s: SEC Fuelgauge Driver Loaded\n", __func__);
 	return 0;
 
@@ -534,7 +523,6 @@ static struct platform_driver sec_fuelgauge_driver = {
 		   .name = "sec-fuelgauge",
 		   .pm = &sec_fuelgauge_pm_ops,
 		   .shutdown = sec_fuelgauge_shutdown,
-		   .of_match_table = sec_fuelgauge_match_table,
 		   },
 	.probe	= sec_fuelgauge_probe,
 	.remove	= sec_fuelgauge_remove,
@@ -561,7 +549,7 @@ static int __init sec_fuelgauge_probe(struct i2c_client *client,
 	bool fuelalert_init_ret = false;
 	union power_supply_propval raw_soc_val;
 
-	dev_dbg(&client->dev,
+	dev_info(&client->dev,
 		"%s: SEC Fuelgauge Driver Loading\n", __func__);
 
 	if (!i2c_check_functionality(adapter, I2C_FUNC_SMBUS_BYTE))
@@ -575,12 +563,6 @@ static int __init sec_fuelgauge_probe(struct i2c_client *client,
 
 	fuelgauge->client = client;
 	fuelgauge->pdata = client->dev.platform_data;
-#ifdef CONFIG_OF
-	if (client->dev.of_node && !fuelgauge->pdata) {
-		extern sec_battery_platform_data_t sec_battery_pdata;
-		fuelgauge->pdata = &sec_battery_pdata;
-	}
-#endif
 
 	i2c_set_clientdata(client, fuelgauge);
 
@@ -664,7 +646,7 @@ static int __init sec_fuelgauge_probe(struct i2c_client *client,
 		goto err_irq;
 	}
 
-	dev_dbg(&client->dev,
+	dev_info(&client->dev,
 		"%s: SEC Fuelgauge Driver Loaded\n", __func__);
 	return 0;
 
@@ -682,7 +664,7 @@ err_free:
 	return ret;
 }
 
-static int __exit sec_fuelgauge_remove(
+static int sec_fuelgauge_remove(
 						struct i2c_client *client)
 {
 	struct sec_fuelgauge_info *fuelgauge = i2c_get_clientdata(client);
@@ -724,14 +706,12 @@ static const struct i2c_device_id sec_fuelgauge_id[] = {
 	{"sec-fuelgauge", 0},
 	{}
 };
+
 MODULE_DEVICE_TABLE(i2c, sec_fuelgauge_id);
-
-
 
 static struct i2c_driver sec_fuelgauge_driver = {
 	.driver = {
 		   .name = "sec-fuelgauge",
-		   .of_match_table = sec_fuelgauge_match_table,
 		   },
 	.probe	= sec_fuelgauge_probe,
 	.remove	= sec_fuelgauge_remove,

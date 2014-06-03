@@ -22,6 +22,7 @@
 #define RT5033_CHG_CTRL3        0x04
 #define RT5033_CHG_CTRL4        0x05
 #define RT5033_CHG_CTRL5        0x06
+#define RT5033_EOC_CTRL         0x07
 #define RT5033_CHG_RESET        0x08
 #define RT5033_UUG              0x19
 
@@ -30,6 +31,8 @@
 #define RT5033_OPAMODE_MASK (1 << 0)
 #define RT5033_COF_EN_MASK  (1 << 6)
 #define RT5033_TIMEREN_MASK (1 << 0)
+#define RT5033_SEL_SWFREQ_MASK   (1 << 2)
+#define RT5033_EOC_RESET_MASK   (1<<4)
 #define RT5033_TEEN_MASK    (1 << 3)
 #define RT5033_AICR_LIMIT_MASK (0x7 << 5)
 #define RT5033_AICR_LIMIT_SHIFT 5
@@ -66,7 +69,7 @@
 #define RT5033_HIGHER_OCP_SHIFT				4
 #define RT5033_TERMINATION_EN				0x0
 #define RT5033_TERMINATION_EN_SHIFT			3
-#define RT5033_SEL_SWFREQ					0x0
+#define RT5033_SEL_SWFREQ					0x1
 #define RT5033_SEL_SWFREQ_SHIFT				2
 #define RT5033_HIGH_IMPEDANCE				0
 #define RT5033_HIGH_IMPEDANCE_SHIFT			1

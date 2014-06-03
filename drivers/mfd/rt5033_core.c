@@ -14,6 +14,7 @@
 #include <linux/mfd/core.h>
 #include <linux/mfd/rt5033.h>
 #include <linux/mfd/rt5033_irq.h>
+#include <linux/battery/charger/rt5033_charger.h>
 #include <linux/errno.h>
 #include <linux/version.h>
 #include <linux/device.h>
@@ -27,11 +28,7 @@
 #include <linux/irqdomain.h>
 #include <linux/of.h>
 #include <linux/of_gpio.h>
-#include <mach/irqs.h>
 
-#ifdef CONFIG_FLED_RT5033
-#include <linux/leds/rt5033_fled.h>
-#endif
 
 #define RT5033_DECLARE_IRQ(irq) { \
 	irq, irq, \
@@ -147,10 +144,10 @@ inline static int rt5033_read_device(struct i2c_client *i2c,
 }
 
 inline static int rt5033_write_device(struct i2c_client *i2c,
-		int reg, int bytes, void *src)
+		int reg, int bytes, const void *src)
 {
 	int ret;
-	uint8_t *data;
+	const uint8_t *data;
 	if (bytes > 1)
 		ret = i2c_smbus_write_i2c_block_data(i2c, reg, bytes, src);
 	else {
@@ -173,7 +170,7 @@ int rt5033_block_read_device(struct i2c_client *i2c,
 EXPORT_SYMBOL(rt5033_block_read_device);
 
 int rt5033_block_write_device(struct i2c_client *i2c,
-		int reg, int bytes, void *src)
+		int reg, int bytes, const void *src)
 {
 	struct rt5033_mfd_chip *chip = i2c_get_clientdata(i2c);
 	int ret;
@@ -255,12 +252,11 @@ EXPORT_SYMBOL(rt5033_clr_bits);
 extern int rt5033_init_irq(rt5033_mfd_chip_t *chip);
 extern int rt5033_exit_irq(rt5033_mfd_chip_t *chip);
 
-#ifdef CONFIG_OF
-static rt5033_mfd_platform_data_t defdata;
-
 static int rt5033mfd_parse_dt(struct device *dev,
 		rt5033_mfd_platform_data_t *pdata)
 {
+	//irq_gpio
+	//irq_base = -1
 	int ret;
 	struct device_node *np = dev->of_node;
 	enum of_gpio_flags irq_gpio_flags;
@@ -272,31 +268,14 @@ static int rt5033mfd_parse_dt(struct device *dev,
 		return ret;
 	}
 
-	pdata->irq_base = __NR_IRQS;
+	pdata->irq_base = -1;
+	ret = of_property_read_u32(np, " ", (u32*)&pdata->irq_gpio);
 	if (ret < 0 || pdata->irq_base == -1) {
 		dev_info(dev, "%s : no assignment of irq_base, use irq_alloc_descs()\r\n",
 				__FUNCTION__);
 	}
-#ifndef CONFIG_MFD_RT5033_USE_DT
-#ifdef CONFIG_CHARGER_RT5033
-	extern rt5033_charger_platform_data_t charger_pdata;
-	pdata->charger_platform_data = &charger_pdata;
-#endif
-
-#ifdef CONFIG_FLED_RT5033
-	extern rt5033_fled_platform_data_t fled_pdata;
-	pdata->fled_platform_data = &fled_pdata;
-#endif
-
-#ifdef CONFIG_REGULATOR_RT5033
-	extern struct rt5033_regulator_platform_data rv_pdata;
-	pdata->regulator_platform_data = &rv_pdata;
-#endif
-#endif
-
 	return 0;
 }
-#endif
 
 static int __init rt5033_mfd_probe(struct i2c_client *i2c,
 		const struct i2c_device_id *id)
@@ -310,18 +289,6 @@ static int __init rt5033_mfd_probe(struct i2c_client *i2c,
 	rt5033_mfd_platform_data_t *pdata = i2c->dev.platform_data;
 
 	pr_info("%s : RT5033 MFD Driver start probe\n", __func__);
-
-#ifdef CONFIG_OF
-	if (of_node && !pdata) {
-		ret = rt5033mfd_parse_dt(&i2c->dev, &defdata);
-		if (ret < 0) {
-			return -ENODEV;
-		} else {
-			i2c->dev.platform_data = &defdata;
-			pdata = &defdata;
-		}
-	}
-#endif
 
 	chip = kzalloc(sizeof(*chip), GFP_KERNEL);
 	if (chip ==  NULL) {
@@ -500,20 +467,30 @@ int rt5033_mfd_resume(struct device *dev)
 	BUG_ON(chip == NULL);
 	return 0;
 }
+#endif /* CONFIG_PM */
 
 #define RT5033_REGULATOR_REG_OUTPUT_EN (0x41)
 #define RT5033_REGULATOR_EN_MASK_LDO_SAFE (1<<6)
 
-static void rt5033_shutdown(struct device *dev)
+const static uint8_t rt5033_chg_group1_default[] = { 0x40, 0x58 };
+const static uint8_t rt5033_chg_group2_default[] = {0x41, 0xAB, 0x35};
+
+static void rt5033_mfd_shutdown(struct i2c_client *client)
 {
-	struct i2c_client *i2c =
-		container_of(dev, struct i2c_client, dev);
+	struct i2c_client *i2c = client;
     /* Force to turn on SafeLDO */
     rt5033_set_bits(i2c, RT5033_REGULATOR_REG_OUTPUT_EN,
                     RT5033_REGULATOR_EN_MASK_LDO_SAFE);
+    /* Force to enable charger & reset charger before shutdown */
+    rt5033_clr_bits(i2c, RT5033_CHG_STAT_CTRL, RT5033_CHGENB_MASK);
+    /* Set all charger settings to default values */
+    rt5033_block_write_device(i2c, RT5033_CHG_CTRL1,
+                              sizeof(rt5033_chg_group1_default),
+                              rt5033_chg_group1_default);
+    rt5033_block_write_device(i2c, RT5033_CHG_CTRL3,
+                              sizeof(rt5033_chg_group2_default),
+                              rt5033_chg_group2_default);
 }
-
-#endif /* CONFIG_PM */
 
 static const struct i2c_device_id rt5033_mfd_id_table[] = {
 	{ "rt5033-mfd", 0 },
@@ -546,10 +523,9 @@ static struct i2c_driver rt5033_mfd_driver = {
 		.of_match_table = rt5033_match_table,
 #ifdef CONFIG_PM
 		.pm		= &rt5033_pm,
-		.shutdown = rt5033_shutdown,
 #endif
 	},
-
+	.shutdown 	= rt5033_mfd_shutdown,
 	.probe		= rt5033_mfd_probe,
 	.remove		= rt5033_mfd_remove,
 	.id_table	= rt5033_mfd_id_table,

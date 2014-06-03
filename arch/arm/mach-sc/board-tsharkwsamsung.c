@@ -72,6 +72,9 @@
 
 #include <mach/i2s.h>
 
+#include <linux/i2c-gpio.h>
+#include <linux/battery/fuelgauge/rt5033_fuelgauge.h>
+#include <linux/battery/fuelgauge/rt5033_fuelgauge_impl.h>
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -117,6 +120,14 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
+#if defined(CONFIG_BATTERY_SAMSUNG)
+static struct platform_device sec_device_battery;
+static struct platform_device fuelgauge_gpio_i2c_device;
+static struct platform_device rt5033_mfd_device;
+#ifdef CONFIG_MFD_RT8973
+static struct platform_device rt8973_mfd_device_i2cadaptor;
+#endif
+#endif
 
 static struct platform_device *devices[] __initdata = {
 	&sprd_serial_device0,
@@ -211,7 +222,812 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&sprd_saudio_voip_device,
 	&sprd_headset_device,
+// for samsung board ---------------------------------
+#if defined(CONFIG_BATTERY_SAMSUNG)
+	&sec_device_battery,
+	&fuelgauge_gpio_i2c_device,
+	&rt5033_mfd_device,
+#ifdef CONFIG_MFD_RT8973
+	&rt8973_mfd_device_i2cadaptor,
+#endif
+#endif
 };
+
+#if defined(CONFIG_BATTERY_SAMSUNG)
+#include <linux/battery/sec_battery.h>
+#include <linux/battery/sec_fuelgauge.h>
+#include <linux/battery/sec_charger.h>
+#if defined(CONFIG_FUELGAUGE_RT5033)
+#include <linux/battery/fuelgauge/rt5033_fuelgauge.h>
+#include <linux/battery/fuelgauge/rt5033_fuelgauge_impl.h>
+#include <linux/mfd/rt5033.h>
+#endif
+#ifdef CONFIG_FLED_RT5033
+#include <linux/leds/rt5033_fled.h>
+#endif
+
+/* ---- battery ---- */
+#define SEC_BATTERY_PMIC_NAME "rt5xx"
+
+unsigned int lpcharge;
+EXPORT_SYMBOL(lpcharge);
+
+unsigned int lpm_charge;
+EXPORT_SYMBOL(lpm_charge);
+
+static sec_bat_adc_region_t cable_adc_value_table[] = {
+	{ 0,    0 },    /* POWER_SUPPLY_TYPE_UNKNOWN */
+	{ 0,    500 },  /* POWER_SUPPLY_TYPE_BATTERY */
+	{ 0,    0 },    /* POWER_SUPPLY_TYPE_UPS */
+	{ 1000, 1500 }, /* POWER_SUPPLY_TYPE_MAINS */
+	{ 0,    0 },    /* POWER_SUPPLY_TYPE_USB */
+	{ 0,    0 },    /* POWER_SUPPLY_TYPE_OTG */
+	{ 0,    0 },    /* POWER_SUPPLY_TYPE_DOCK */
+	{ 0,    0 },    /* POWER_SUPPLY_TYPE_MISC */
+};
+
+/* assume that system's average current consumption is 150mA */
+/* We will suggest use 150mA as EOC setting */
+/* AICR of RT5033 is 100, 500, 700, 900, 1000, 1500, 2000, we suggest to use 500mA for USB */
+sec_charging_current_t charging_current_table[] = {
+	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_UNKNOWN */
+	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_BATTERY */
+	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_UPS */
+	{700,  1500,   	150,    1800},     /* POWER_SUPPLY_TYPE_MAINS */
+	{500,  1000,    150,    1800},     /* POWER_SUPPLY_TYPE_USB */
+	{500,  1000,    150,    1800},     /* POWER_SUPPLY_TYPE_USB_DCP */
+	{500,  1000,    150,    1800},     /* POWER_SUPPLY_TYPE_USB_CDP */
+	{500,  1000,    150,    1800},     /* POWER_SUPPLY_TYPE_USB_ACA */
+	{500,  1000,    150,   	1800},     /* POWER_SUPPLY_TYPE_MISC */
+	{0,     0,      0,      0},     /* POWER_SUPPLY_TYPE_CARDOCK */
+	{550,   500,    150,    1800},     /* POWER_SUPPLY_TYPE_WPC */
+	{700,  1500,   	150,    1800},     /* POWER_SUPPLY_TYPE_UARTOFF */
+};
+
+/* unit: seconds */
+static int polling_time_table[] = {
+	10,     /* BASIC */
+	30,     /* CHARGING */
+	30,     /* DISCHARGING */
+	30,     /* NOT_CHARGING */
+	3600,    /* SLEEP */
+};
+
+static bool sec_bat_gpio_init(void)
+{
+	return true;
+}
+
+static bool sec_fg_gpio_init(void)
+{
+	return true;
+}
+
+static bool sec_chg_gpio_init(void)
+{
+	int ret;
+
+	ret = gpio_request(GPIO_IF_PMIC_IRQ, "charger-irq");
+	if(ret)
+		return false;
+
+	gpio_direction_input(GPIO_IF_PMIC_IRQ);
+
+	return true;
+}
+
+/* Get LP charging mode state */
+
+static int __init mode_get(char *str)
+{
+	if (strcmp(str, "charger") == 0)
+		lpm_charge = 1;
+
+	return 1;
+}
+
+__setup("androidboot.mode=", mode_get);
+
+static int battery_get_lpm_state(char *str)
+{
+	get_option(&str, &lpcharge);
+	pr_info("%s: Low power charging mode: %d\n", __func__, lpcharge);
+
+	return lpcharge;
+}
+__setup("lpcharge=", battery_get_lpm_state);
+
+static bool sec_bat_is_lpm(void)
+{
+	return lpcharge == 1 ? true : false;
+}
+
+static bool sec_bat_check_jig_status(void) { return 0; }
+
+int current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+EXPORT_SYMBOL(current_cable_type);
+
+static int sec_bat_check_cable_callback(void)
+{
+	int ta_nconnected;
+	union power_supply_propval value;
+	struct power_supply *psy = power_supply_get_by_name("battery");
+
+	ta_nconnected = gpio_get_value(GPIO_IF_PMIC_IRQ);
+
+	pr_info("%s : ta_nconnected : %d\n", __func__, ta_nconnected);
+
+	if (ta_nconnected)
+		current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+	else
+		current_cable_type = POWER_SUPPLY_TYPE_MAINS;
+
+	if (!psy || !psy->set_property)
+		pr_err("%s: fail to get battery psy\n", __func__);
+	else {
+		value.intval = current_cable_type;
+		psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
+	}
+
+	return current_cable_type;
+}
+
+static void sec_bat_initial_check(void)
+{
+	union power_supply_propval value;
+
+	if (POWER_SUPPLY_TYPE_BATTERY < current_cable_type) {
+		value.intval = current_cable_type;
+		psy_do_property("battery", set,
+				POWER_SUPPLY_PROP_ONLINE, value);
+	} else {
+		psy_do_property("sec-charger", get,
+				POWER_SUPPLY_PROP_ONLINE, value);
+		if (value.intval == POWER_SUPPLY_TYPE_WPC) {
+			value.intval =
+				POWER_SUPPLY_TYPE_WPC;
+			psy_do_property("battery", set,
+					POWER_SUPPLY_PROP_ONLINE, value);
+		}
+#if 0
+		else {
+			value.intval =
+				POWER_SUPPLY_TYPE_BATTERY;
+			psy_do_property("sec-charger", set,
+					POWER_SUPPLY_PROP_ONLINE, value);
+		}
+#endif
+	}
+}
+
+static bool sec_bat_check_cable_result_callback(int cable_type)
+{
+	bool ret = true;
+	current_cable_type = cable_type;
+
+	switch (cable_type) {
+		case POWER_SUPPLY_TYPE_USB:
+			pr_info("%s set vbus applied\n",
+					__func__);
+			break;
+		case POWER_SUPPLY_TYPE_BATTERY:
+			pr_info("%s set vbus cut\n",
+					__func__);
+			break;
+		case POWER_SUPPLY_TYPE_MAINS:
+			break;
+		default:
+			pr_err("%s cable type (%d)\n",
+					__func__, cable_type);
+			ret = false;
+			break;
+	}
+	/* omap4_tab3_tsp_ta_detect(cable_type); */
+
+	return ret;
+}
+
+/* callback for battery check
+ * return : bool
+ * true - battery detected, false battery NOT detected
+ */
+static bool sec_bat_check_callback(void) { return true; }
+static bool sec_bat_check_result_callback(void) { return true; }
+
+/* Kanas battery parameter version 20140425 */
+
+static gain_table_prop rt5033_battery_param1[] =				/// <0oC
+
+{
+	{3300, 5, 10, 190, 110},
+	{4300, 5, 10, 190, 110},
+};
+
+
+static gain_table_prop rt5033_battery_param2[] =				/// 0oC ~ 50oC
+{
+	{3300, 41, 44, 52, 37},
+	{4300, 41, 44, 52, 37},
+};
+
+
+static gain_table_prop rt5033_battery_param3[] =				/// >50oC
+{
+	{3300, 42, 57, 80, 60},
+	{4300, 42, 57, 80, 60},
+};
+
+
+static offset_table_prop rt5033_poweroff_offset[] =							/// power off soc offset
+{
+	{0,   -12},																										/// /// SOC(unit:0.1%), Comp. (unit:0.1%)
+	{15,  -5},
+	{19,  -9},
+	{20,  -10},
+	{100,  0},
+	{1000, 0},
+};
+
+#if ENABLE_CHG_OFFSET
+static offset_table_prop rt5033_chg_offset[] =							/// charging soc offset
+{
+	{0,    0},						/// /// SOC(unit:0.1%), Comp. (unit:0.1%)
+	{100,  0},
+	{130,  0},
+	{170,  0},
+	{200,  0},
+	{1000, 0},
+};
+#endif
+
+static struct battery_data_t rt5033_comp_data[] =
+{
+	{
+		.param1 = rt5033_battery_param1,
+		.param1_size = sizeof(rt5033_battery_param1)/sizeof(gain_table_prop),
+		.param2 = rt5033_battery_param2,
+		.param2_size = sizeof(rt5033_battery_param2)/sizeof(gain_table_prop),
+		.param3 = rt5033_battery_param3,
+		.param3_size = sizeof(rt5033_battery_param3)/sizeof(gain_table_prop),
+		.offset_poweroff = rt5033_poweroff_offset,
+		.offset_poweroff_size = sizeof(rt5033_poweroff_offset)/sizeof(offset_table_prop),
+#if ENABLE_CHG_OFFSET
+		.offset_charging = rt5033_chg_offset,
+		.offset_charging_size = sizeof(rt5033_chg_offset)/sizeof(offset_table_prop),
+#endif
+	},
+};
+
+/* callback for OVP/UVLO check
+ * return : int
+ * battery health
+ */
+static int sec_bat_ovp_uvlo_callback(void)
+{
+	int health;
+	health = POWER_SUPPLY_HEALTH_GOOD;
+
+	return health;
+}
+
+static bool sec_bat_ovp_uvlo_result_callback(int health) { return true; }
+
+/*
+ * val.intval : temperature
+ */
+static bool sec_bat_get_temperature_callback(
+		enum power_supply_property psp,
+		union power_supply_propval *val) { return true; }
+
+static bool sec_fg_fuelalert_process(bool is_fuel_alerted) { return true; }
+
+static bool sec_bat_adc_none_init(struct platform_device *pdev) { return true; }
+static bool sec_bat_adc_none_exit(void) { return true; }
+static int sec_bat_adc_none_read(unsigned int channel) { return 0; }
+
+static bool sec_bat_adc_ap_init(struct platform_device *pdev) { return true; }
+static bool sec_bat_adc_ap_exit(void) { return true; }
+static int sec_bat_adc_ap_read(unsigned int channel) //{ channel = channel; return 0; } */
+{
+	int data = 0;
+	switch(channel)
+	{
+		case SEC_BAT_ADC_CHANNEL_TEMP:
+			data = sci_adc_get_value(ADC_CHANNEL_1,0);
+			if(data==4095){
+				printk("%s:Only One Thermistor",__func__);
+				data = sci_adc_get_value(ADC_CHANNEL_0,0);
+			}
+			break;
+		case SEC_BAT_ADC_CHANNEL_TEMP_AMBIENT:
+			data = sci_adc_get_value(ADC_CHANNEL_1,0);
+			if(data==4095)
+				data = sci_adc_get_value(ADC_CHANNEL_0,0);
+			break;
+		default:
+			break;
+	}
+	return data;
+}
+
+static bool sec_bat_adc_ic_init(struct platform_device *pdev) { return true; }
+static bool sec_bat_adc_ic_exit(void) { return true; }
+static int sec_bat_adc_ic_read(unsigned int channel) { return 0; }
+#if defined(CONFIG_MACH_KANAS)
+static const sec_bat_adc_table_data_t temp_table[] = {
+	{894 , 700}, /* 70 */
+	{981 , 670}, /* 67 */
+	{1041 , 650}, /* 65 */
+	{1080 , 630}, /* 63 */
+	{1142 , 600}, /* 60 */
+	{1292 , 550}, /* 55 */
+	{1477 , 500}, /* 50 */
+	{1657 , 450}, /* 45 */
+	{1707 , 430}, /* 43 */
+	{1780 , 400}, /* 40 */
+	{1972 , 350}, /* 35 */
+	{2180 , 300}, /* 30 */
+	{2373 , 250}, /* 25 */
+	{2563 , 200}, /* 20 */
+	{2842 , 150}, /* 15 */
+	{3122 , 100}, /* 10 */
+	{3292 , 50}, /* 5 */
+	{3383 , 20}, /* 2 */
+	{3424 , 0}, /* 0 */
+	{3466 , -20}, /* -2 */
+	{3543 , -50}, /* -5 */
+	{3593 , -70}, /* -7 */
+	{3782 , -150}, /* -15 */
+	{3887, -200},    /* -20 */
+};
+#else
+static const sec_bat_adc_table_data_t temp_table[] = {
+	{ 159,   800 },
+	{ 192,   750 },
+	{ 231,   700 },
+	{ 267,   650 },
+	{ 321,   600 },
+	{ 387,   550 },
+	{ 454,   500 },
+	{ 532,   450 },
+	{ 625,   400 },
+	{ 715,   350 },
+	{ 823,   300 },
+	{ 934,   250 },
+	{ 1033,  200 },
+	{ 1146,  150 },
+	{ 1259,  100 },
+	{ 1381,  50 },
+	{ 1489,  0 },
+	{ 1582,  -50 },
+	{ 1654,  -100 },
+	{ 1726,  -150 },
+};
+#endif
+sec_battery_platform_data_t sec_battery_pdata = {
+	/* NO NEED TO BE CHANGED */
+	.initial_check = sec_bat_initial_check,
+	.bat_gpio_init = sec_bat_gpio_init,
+	.fg_gpio_init = sec_fg_gpio_init,
+	.chg_gpio_init = sec_chg_gpio_init,
+
+	.is_lpm = sec_bat_is_lpm,
+	.check_jig_status = sec_bat_check_jig_status,
+	.check_cable_callback =
+		sec_bat_check_cable_callback,
+	//	.get_cable_from_extended_cable_type =
+	//	        sec_bat_get_cable_from_extended_cable_type,
+	.check_cable_result_callback =
+		sec_bat_check_cable_result_callback,
+	.check_battery_callback =
+		sec_bat_check_callback,
+	.check_battery_result_callback =
+		sec_bat_check_result_callback,
+	.ovp_uvlo_callback = sec_bat_ovp_uvlo_callback,
+	.ovp_uvlo_result_callback =
+		sec_bat_ovp_uvlo_result_callback,
+	.fuelalert_process = sec_fg_fuelalert_process,
+	.get_temperature_callback =
+		sec_bat_get_temperature_callback,
+
+	.adc_api[SEC_BATTERY_ADC_TYPE_NONE] = {
+		.init = sec_bat_adc_none_init,
+		.exit = sec_bat_adc_none_exit,
+		.read = sec_bat_adc_none_read
+	},
+	.adc_api[SEC_BATTERY_ADC_TYPE_AP] = {
+		.init = sec_bat_adc_ap_init,
+		.exit = sec_bat_adc_ap_exit,
+		.read = sec_bat_adc_ap_read
+	},
+	.adc_api[SEC_BATTERY_ADC_TYPE_IC] = {
+		.init = sec_bat_adc_ic_init,
+		.exit = sec_bat_adc_ic_exit,
+		.read = sec_bat_adc_ic_read
+	},
+	.cable_adc_value = cable_adc_value_table,
+	.charging_current = charging_current_table,
+	.polling_time = polling_time_table,
+	/* NO NEED TO BE CHANGED */
+
+	.pmic_name = SEC_BATTERY_PMIC_NAME,
+
+	.adc_check_count = 10,
+
+	.adc_type = {
+		SEC_BATTERY_ADC_TYPE_NONE,	/* CABLE_CHECK */
+		SEC_BATTERY_ADC_TYPE_NONE,      /* BAT_CHECK */
+		SEC_BATTERY_ADC_TYPE_AP,	/* TEMP */
+		SEC_BATTERY_ADC_TYPE_AP,	/* TEMP_AMB */
+		SEC_BATTERY_ADC_TYPE_NONE,      /* FULL_CHECK */
+	},
+
+	/* Battery */
+	.vendor = "SDI SDI",
+	.battery_data = (void *)rt5033_comp_data,
+	.technology = POWER_SUPPLY_TECHNOLOGY_LION,
+	.bat_polarity_ta_nconnected = 1,        /* active HIGH */
+	.bat_irq_attr = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.cable_check_type = SEC_BATTERY_CABLE_CHECK_INT,
+	.cable_source_type = //SEC_BATTERY_CABLE_SOURCE_CALLBACK,
+	SEC_BATTERY_CABLE_SOURCE_EXTERNAL,
+	//	SEC_BATTERY_CABLE_SOURCE_EXTENDED,
+
+	.event_check = false,
+	.event_waiting_time = 60,
+
+	/* Monitor setting */
+	.polling_type = SEC_BATTERY_MONITOR_WORKQUEUE,
+	.monitor_initial_count = 3,
+
+	/* Battery check */
+	.battery_check_type = SEC_BATTERY_CHECK_FUELGAUGE,
+	.check_count = 0,
+
+	/* Battery check by ADC */
+	.check_adc_max = 600,
+	.check_adc_min = 50,
+
+	/* OVP/UVLO check */
+	.ovp_uvlo_check_type = SEC_BATTERY_OVP_UVLO_CHGPOLLING,
+
+	.thermal_source = SEC_BATTERY_THERMAL_SOURCE_CALLBACK,
+	.temp_adc_table = temp_table,
+	.temp_adc_table_size = sizeof(temp_table)/sizeof(sec_bat_adc_table_data_t),
+	.temp_amb_adc_table = temp_table,
+	.temp_amb_adc_table_size = sizeof(temp_table)/sizeof(sec_bat_adc_table_data_t),
+	.temp_check_type = SEC_BATTERY_TEMP_CHECK_TEMP,
+
+	.temp_check_count = 1,
+	.temp_high_threshold_event = 650,
+	.temp_high_recovery_event = 520,
+	.temp_low_threshold_event = -50,
+	.temp_low_recovery_event = 50,
+	.temp_high_threshold_normal = 650,
+	.temp_high_recovery_normal = 520,
+	.temp_low_threshold_normal = -50,
+	.temp_low_recovery_normal = 50,
+	.temp_high_threshold_lpm = 650,
+	.temp_high_recovery_lpm = 520,
+	.temp_low_threshold_lpm = -50,
+	.temp_low_recovery_lpm = 50,
+
+	.full_check_type = SEC_BATTERY_FULLCHARGED_CHGPSY,
+	.full_check_type_2nd = SEC_BATTERY_FULLCHARGED_TIME,
+	.full_check_count = 1,
+	/* .full_check_adc_1st = 26500, */
+	/*.full_check_adc_2nd = 25800, */
+	.chg_polarity_full_check = 1,
+	.full_condition_type = SEC_BATTERY_FULL_CONDITION_SOC |
+		SEC_BATTERY_FULL_CONDITION_VCELL,
+	.full_condition_soc = 100,
+	.full_condition_vcell = 4150,
+	.full_condition_ocv = 4300,
+
+	.recharge_condition_type =
+		SEC_BATTERY_RECHARGE_CONDITION_AVGVCELL,
+
+	.recharge_condition_soc = 98,
+	.recharge_condition_avgvcell = 4300,
+	.recharge_condition_vcell = 4300,
+
+	.charging_total_time = 6 * 60 * 60,
+	.recharging_total_time = 90 * 60,
+	.charging_reset_time = 0,
+
+	/* Fuel Gauge */
+	.fg_irq_attr = IRQF_TRIGGER_FALLING | IRQF_ONESHOT,
+	.fuel_alert_soc = 1,
+	.repeated_fuelalert = false,
+	.capacity_calculation_type =
+		SEC_FUELGAUGE_CAPACITY_TYPE_DYNAMIC_SCALE,
+	.capacity_max = 1000,
+	.capacity_min = 0,
+	.capacity_max_margin = 30,
+
+	/* Charger */
+	.chg_polarity_en = 0,   /* active LOW charge enable */
+	.chg_polarity_status = 0,
+	.chg_irq_attr = IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+	.chg_float_voltage = 4350,
+};
+
+static struct platform_device sec_device_battery = {
+	.name = "sec-battery",
+	.id = -1,
+	.dev = {
+		.platform_data = &sec_battery_pdata,
+	},
+};
+
+static struct i2c_gpio_platform_data fuelgauge_gpio_i2c_pdata = {
+	.sda_pin = GPIO_FUELGAUGE_SDA,
+	.scl_pin = GPIO_FUELGAUGE_SCL,
+	.udelay = 10,
+	.timeout = 0,
+};
+
+static struct platform_device fuelgauge_gpio_i2c_device = {
+	.name = "i2c-gpio",
+	.id = 6,
+	.dev = {
+		.platform_data = &fuelgauge_gpio_i2c_pdata,
+	},
+};
+
+static struct i2c_board_info sec_brdinfo_fuelgauge[] __initdata = {
+	{
+		I2C_BOARD_INFO("sec-fuelgauge",
+				RT5033_SLAVE_ADDRESS),
+		.platform_data = &sec_battery_pdata,
+	}
+};
+
+/* ---- mfd ---- */
+#ifdef CONFIG_REGULATOR_RT5033
+static struct regulator_consumer_supply rt5033_safe_ldo_consumers[] = {
+	REGULATOR_SUPPLY("rt5033_safe_ldo",NULL),
+};
+static struct regulator_consumer_supply rt5033_ldo_consumers[] = {
+	REGULATOR_SUPPLY("rt5033_ldo",NULL),
+};
+static struct regulator_consumer_supply rt5033_buck_consumers[] = {
+	REGULATOR_SUPPLY("rt5033_buck",NULL),
+};
+
+static struct regulator_init_data rt5033_safe_ldo_data = {
+	.constraints = {
+		.min_uV = 3300000,
+		.max_uV = 4950000,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
+		.boot_on = 1,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(rt5033_safe_ldo_consumers),
+	.consumer_supplies = rt5033_safe_ldo_consumers,
+};
+static struct regulator_init_data rt5033_ldo_data = {
+	.constraints = {
+		.min_uV = 1200000,
+		.max_uV = 3000000,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(rt5033_ldo_consumers),
+	.consumer_supplies = rt5033_ldo_consumers,
+};
+static struct regulator_init_data rt5033_buck_data = {
+	.constraints = {
+		.min_uV = 1200000,
+		.max_uV = 1200000,
+		.valid_modes_mask = REGULATOR_MODE_NORMAL,
+		.valid_ops_mask = REGULATOR_CHANGE_VOLTAGE | REGULATOR_CHANGE_STATUS,
+	},
+	.num_consumer_supplies = ARRAY_SIZE(rt5033_buck_consumers),
+	.consumer_supplies = rt5033_buck_consumers,
+};
+
+const static struct rt5033_regulator_platform_data rv_pdata = {
+	.regulator = {
+		[RT5033_ID_LDO_SAFE] = &rt5033_safe_ldo_data,
+		[RT5033_ID_LDO1] = &rt5033_ldo_data,
+		[RT5033_ID_DCDC1] = &rt5033_buck_data,
+	},
+};
+#endif
+
+#ifdef CONFIG_RT5033_SADDR
+#define RT5033FG_SLAVE_ADDR_MSB (0x40)
+#else
+#define RT5033FG_SLAVE_ADDR_MSB (0x00)
+#endif
+
+#define RT5033_SLAVE_ADDR   (0x34|RT5033FG_SLAVE_ADDR_MSB)
+
+/* add regulator data */
+
+/* add fled platform data */
+#ifdef CONFIG_FLED_RT5033
+static rt5033_fled_platform_data_t fled_pdata = {
+	.fled1_en = 1,
+	.fled2_en = 1,
+	.fled_mid_track_alive = 0,
+	.fled_mid_auto_track_en = 0,
+	.fled_timeout_current_level = RT5033_TIMEOUT_LEVEL(50),
+	.fled_strobe_current = RT5033_STROBE_CURRENT(500),
+	.fled_strobe_timeout = RT5033_STROBE_TIMEOUT(544),
+	.fled_torch_current = RT5033_TORCH_CURRENT(38),
+	.fled_lv_protection = RT5033_LV_PROTECTION(3200),
+	.fled_mid_level = RT5033_MID_REGULATION_LEVEL(4400),
+};
+#endif
+
+rt5033_charger_platform_data_t charger_pdata = {
+	.charging_current_table = charging_current_table,
+	.chg_float_voltage = 4200,
+};
+
+/* Define mfd driver platform data*/
+// error: variable 'sc88xx_rt5033_info' has initializer but incomplete type
+struct rt5033_mfd_platform_data sc88xx_rt5033_info = {
+	.irq_gpio = GPIO_IF_PMIC_IRQ,
+	.irq_base = __NR_IRQS,
+#ifdef CONFIG_CHARGER_RT5033
+	.charger_data = &sec_battery_pdata,
+#endif
+
+#ifdef CONFIG_FLED_RT5033
+	.fled_platform_data = &fled_pdata,
+#endif
+
+#ifdef CONFIG_REGULATOR_RT5033
+	.regulator_platform_data = &rv_pdata,
+#endif
+};
+
+static struct i2c_gpio_platform_data rt5033_i2c_data = {
+	.sda_pin = GPIO_IF_PMIC_SDA,
+	.scl_pin = GPIO_IF_PMIC_SCL,
+	.udelay  = 3,
+	.timeout = 100,
+};
+
+static struct platform_device rt5033_mfd_device = {
+	.name   = "i2c-gpio",
+	.id     = 8,
+	.dev	= {
+		.platform_data = &rt5033_i2c_data,
+	}
+};
+
+static struct i2c_board_info __initdata rt5033_i2c_devices[] = {
+	{
+		I2C_BOARD_INFO("rt5033-mfd", RT5033_SLAVE_ADDR),
+		.platform_data	= &sc88xx_rt5033_info,
+	}
+};
+
+#ifdef CONFIG_MFD_RT8973
+static struct i2c_gpio_platform_data rt8973_i2cadaptor_data = {
+	.sda_pin = GPIO_MUIC_SDA,
+	.scl_pin = GPIO_MUIC_SCL,
+	.udelay  = 10,
+	.timeout = 0,
+};
+
+static struct platform_device rt8973_mfd_device_i2cadaptor = {
+	.name   = "i2c-gpio",
+	.id     = 7,
+	.dev	= {
+		.platform_data = &rt8973_i2cadaptor_data,
+	}
+};
+
+extern void dwc_udc_startup(void);
+extern void dwc_udc_shutdown(void);
+static void usb_cable_detect_callback(uint8_t attached)
+{
+	if (attached)
+		dwc_udc_startup();
+	else
+		dwc_udc_shutdown();
+}
+
+#include <linux/mfd/rt8973.h>
+static struct rt8973_platform_data rt8973_pdata = {
+	.irq_gpio = GPIO_MUIC_IRQ,
+	.cable_chg_callback = NULL,
+	.ocp_callback = NULL,
+	.otp_callback = NULL,
+	.ovp_callback = NULL,
+	.usb_callback = usb_cable_detect_callback,
+	.uart_callback = NULL,
+	.otg_callback = NULL,
+	.jig_callback = NULL,
+};
+
+static struct i2c_board_info rtmuic_i2c_boardinfo[] __initdata = {
+	{
+		I2C_BOARD_INFO("rt8973", 0x28 >> 1),
+		.platform_data = &rt8973_pdata,
+	},
+};
+#endif /*CONFIG_MFD_RT8973*/
+
+int epmic_event_handler(int level);
+u8 attached_cable;
+
+void sec_charger_cb(u8 cable_type)
+{
+	union power_supply_propval value;
+	struct power_supply *psy = power_supply_get_by_name("battery");
+	pr_info("%s: cable type (0x%02x)\n", __func__, cable_type);
+	attached_cable = cable_type;
+
+	switch (cable_type) {
+		case MUIC_RT8973_CABLE_TYPE_NONE:
+		case MUIC_RT8973_CABLE_TYPE_UNKNOWN:
+			current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+			break;
+		case MUIC_RT8973_CABLE_TYPE_USB:
+		case MUIC_RT8973_CABLE_TYPE_CDP:
+		case MUIC_RT8973_CABLE_TYPE_L_USB:
+			current_cable_type = POWER_SUPPLY_TYPE_USB;
+			break;
+		case MUIC_RT8973_CABLE_TYPE_REGULAR_TA:
+		case MUIC_RT8973_CABLE_TYPE_ATT_TA:
+			current_cable_type = POWER_SUPPLY_TYPE_MAINS;
+			break;
+		case MUIC_RT8973_CABLE_TYPE_OTG:
+			goto skip;
+		case MUIC_RT8973_CABLE_TYPE_JIG_UART_OFF_WITH_VBUS:
+			current_cable_type = POWER_SUPPLY_TYPE_UARTOFF;
+			break;
+		case MUIC_RT8973_CABLE_TYPE_JIG_UART_OFF:
+			/*
+			   if (!gpio_get_value(mfp_to_gpio(GPIO008_GPIO_8))) {
+			   pr_info("%s cable type POWER_SUPPLY_TYPE_UARTOFF\n", __func__);
+			   current_cable_type = POWER_SUPPLY_TYPE_UARTOFF;
+			   }
+			   else {
+			   current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+			   }*/
+			current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+
+			break;
+		case MUIC_RT8973_CABLE_TYPE_JIG_USB_ON:
+		case MUIC_RT8973_CABLE_TYPE_JIG_USB_OFF:
+			current_cable_type = POWER_SUPPLY_TYPE_USB;
+			break;
+		case MUIC_RT8973_CABLE_TYPE_0x1A:
+		case MUIC_RT8973_CABLE_TYPE_TYPE1_CHARGER:
+			current_cable_type = POWER_SUPPLY_TYPE_MAINS;
+			break;
+		case MUIC_RT8973_CABLE_TYPE_0x15:
+			current_cable_type = POWER_SUPPLY_TYPE_MISC;
+			break;
+		default:
+			pr_err("%s: invalid type for charger:%d\n",
+					__func__, cable_type);
+			current_cable_type = POWER_SUPPLY_TYPE_UNKNOWN;
+			goto skip;
+	}
+
+	if (!psy || !psy->set_property)
+		pr_err("%s: fail to get battery psy\n", __func__);
+	else {
+		value.intval = current_cable_type;
+		psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
+	}
+
+	if (current_cable_type == POWER_SUPPLY_TYPE_USB) {
+		epmic_event_handler(1);
+	}
+skip:
+	return;
+}
+EXPORT_SYMBOL(sec_charger_cb);
+#endif
 
 static struct platform_device *late_devices[] __initdata = {
 	/* 1. CODECS */
@@ -450,193 +1266,19 @@ static int sc8810_add_i2c_devices(void)
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
+#if defined(CONFIG_BATTERY_SAMSUNG)
+	gpio_request(GPIO_FUELGAUGE_ALERT, "RT5033_FG_ALERT");
+	sec_battery_pdata.fg_irq = gpio_to_irq(GPIO_FUELGAUGE_ALERT);
+	i2c_register_board_info(6, sec_brdinfo_fuelgauge, ARRAY_SIZE(sec_brdinfo_fuelgauge));
+	i2c_register_board_info(8, rt5033_i2c_devices, ARRAY_SIZE(rt5033_i2c_devices));
+#ifdef CONFIG_MFD_RT8973
+	i2c_register_board_info(7, rtmuic_i2c_boardinfo, ARRAY_SIZE(rtmuic_i2c_boardinfo));
+#endif
+#endif
 	return 0;
 }
 
-#if 0
-/* Control ldo for maxscend cmmb chip according to HW design */
-static struct regulator *cmmb_regulator_1v8 = NULL;
-
-#define SPI_PIN_FUNC_MASK  (0x3<<4)
-#define SPI_PIN_FUNC_DEF   (0x0<<4)
-#define SPI_PIN_FUNC_GPIO  (0x3<<4)
-
-struct spi_pin_desc {
-	const char   *name;
-	unsigned int pin_func;
-	unsigned int reg;
-	unsigned int gpio;
-};
-
-static struct spi_pin_desc spi_pin_group[] = {
-	{"SPI_DI",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI0_DI   + CTL_PIN_BASE,  158},
-	{"SPI_CLK", SPI_PIN_FUNC_DEF,  REG_PIN_SPI0_CLK  + CTL_PIN_BASE,  159},
-	{"SPI_DO",  SPI_PIN_FUNC_DEF,  REG_PIN_SPI0_DO   + CTL_PIN_BASE,  157},
-	{"SPI_CS0", SPI_PIN_FUNC_GPIO, REG_PIN_SPI0_CSN  + CTL_PIN_BASE,  156}
-};
-static void sprd_restore_spi_pin_cfg(void)
-{
-	unsigned int reg;
-	unsigned int  gpio;
-	unsigned int  pin_func;
-	unsigned int value;
-	unsigned long flags;
-	int i = 0;
-	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
-
-	for (; i < regs_count; i++) {
-	    pin_func = spi_pin_group[i].pin_func;
-	    gpio = spi_pin_group[i].gpio;
-	    if (pin_func == SPI_PIN_FUNC_DEF) {
-		 reg = spi_pin_group[i].reg;
-		 /* free the gpios that have request */
-		 gpio_free(gpio);
-		 local_irq_save(flags);
-		 /* config pin default spi function */
-		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_DEF);
-		 __raw_writel(value, reg);
-		 local_irq_restore(flags);
-	    }
-	    else {
-		 /* CS should config output */
-		 gpio_direction_output(gpio, 1);
-	    }
-	}
-
-}
-
-
-static void sprd_set_spi_pin_input(void)
-{
-	unsigned int reg;
-	unsigned int value;
-	unsigned int  gpio;
-	unsigned int  pin_func;
-	const char    *name;
-	unsigned long flags;
-	int i = 0;
-
-	int regs_count = sizeof(spi_pin_group)/sizeof(struct spi_pin_desc);
-
-	for (; i < regs_count; i++) {
-	    pin_func = spi_pin_group[i].pin_func;
-	    gpio = spi_pin_group[i].gpio;
-	    name = spi_pin_group[i].name;
-
-	    /* config pin GPIO function */
-	    if (pin_func == SPI_PIN_FUNC_DEF) {
-		 reg = spi_pin_group[i].reg;
-
-		 local_irq_save(flags);
-		 value = ((__raw_readl(reg) & ~SPI_PIN_FUNC_MASK) | SPI_PIN_FUNC_GPIO);
-		 __raw_writel(value, reg);
-		 local_irq_restore(flags);
-		 if (gpio_request(gpio, name)) {
-		     printk("smsspi: request gpio %d failed, pin %s\n", gpio, name);
-		 }
-
-	    }
-
-	    gpio_direction_input(gpio);
-	}
-
-}
-
-
-static void mxd_cmmb_poweron(void)
-{
-        regulator_set_voltage(cmmb_regulator_1v8, 1700000, 1800000);
-        regulator_disable(cmmb_regulator_1v8);
-        msleep(3);
-        regulator_enable(cmmb_regulator_1v8);
-        msleep(5);
-
-        /* enable 26M external clock */
-        gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 1);
-}
-
-static void mxd_cmmb_poweroff(void)
-{
-        regulator_disable(cmmb_regulator_1v8);
-        gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 0);
-}
-
-static int mxd_cmmb_init(void)
-{
-         int ret=0;
-         ret = gpio_request(GPIO_CMMB_26M_CLK_EN,   "MXD_CMMB_CLKEN");
-         if (ret)
-         {
-                   pr_debug("mxd spi req gpio clk en err!\n");
-                   goto err_gpio_init;
-         }
-         gpio_direction_output(GPIO_CMMB_26M_CLK_EN, 0);
-         cmmb_regulator_1v8 = regulator_get(NULL, "vddcmmb1p8");
-         return 0;
-
-err_gpio_init:
-	 gpio_free(GPIO_CMMB_26M_CLK_EN);
-         return ret;
-}
-
-static struct mxd_cmmb_026x_platform_data mxd_plat_data = {
-	.poweron  = mxd_cmmb_poweron,
-	.poweroff = mxd_cmmb_poweroff,
-	.init     = mxd_cmmb_init,
-	.set_spi_pin_input   = sprd_set_spi_pin_input,
-	.restore_spi_pin_cfg = sprd_restore_spi_pin_cfg,
-};
-
-static int spi_cs_gpio_map[][2] = {
-    {SPI0_CMMB_CS_GPIO,  0},
-    {SPI0_CMMB_CS_GPIO,  0},
-    {SPI0_CMMB_CS_GPIO,  0},
-} ;
-
-static struct spi_board_info spi_boardinfo[] = {
-	{
-	.modalias = "cmmb-dev",
-	.bus_num = 0,
-	.chip_select = 0,
-	.max_speed_hz = 8 * 1000 * 1000,
-	.mode = SPI_CPOL | SPI_CPHA,
-        .platform_data = &mxd_plat_data,
-	},
-	{
-	.modalias = "spidev",
-	.bus_num = 1,
-	.chip_select = 0,
-	.max_speed_hz = 1000 * 1000,
-	.mode = SPI_CPOL | SPI_CPHA,
-	},
-	{
-	.modalias = "spidev",
-	.bus_num = 2,
-	.chip_select = 0,
-	.max_speed_hz = 1000 * 1000,
-	.mode = SPI_CPOL | SPI_CPHA,
-	}
-};
-#endif
-static void sprd_spi_init(void)
-{
-#if 0
-	int busnum, cs, gpio;
-	int i;
-
-	struct spi_board_info *info = spi_boardinfo;
-
-	for (i = 0; i < ARRAY_SIZE(spi_boardinfo); i++) {
-		busnum = info[i].bus_num;
-		cs = info[i].chip_select;
-		gpio   = spi_cs_gpio_map[busnum][cs];
-
-		info[i].controller_data = (void *)gpio;
-	}
-
-        spi_register_board_info(info, ARRAY_SIZE(spi_boardinfo));
-#endif
-}
+static void sprd_spi_init(void) { }
 
 static int sc8810_add_misc_devices(void)
 {

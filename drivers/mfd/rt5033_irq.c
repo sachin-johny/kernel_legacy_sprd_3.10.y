@@ -219,6 +219,10 @@ static int rt5033_read_irq_staus(rt5033_mfd_chip_t *chip)
 				"Failed on reading CHG irq status\n");
 		return ret;
 	}
+
+	printk("charger irq = 0x%x 0x%x 0x%x\n", (int)now_irq_status->chg_irq_status[0],
+                                        (int)now_irq_status->chg_irq_status[1],
+                                        now_irq_status->chg_irq_status[2]);
 #endif
 #ifdef CONFIG_FLED_RT5033
 	ret = rt5033_block_read_device(iic, RT5033_LED_IRQ,
@@ -229,6 +233,7 @@ static int rt5033_read_irq_staus(rt5033_mfd_chip_t *chip)
 				"Failed on reading FlashLED irq status\n");
 		return ret;
 	}
+	printk("fled irq = 0x%x\n", (int)now_irq_status->fled_irq_status[0]);
 #endif /* CONFIG_FLED_RT5033 */
 
 #ifdef CONFIG_REGULATOR_RT5033
@@ -240,6 +245,7 @@ static int rt5033_read_irq_staus(rt5033_mfd_chip_t *chip)
 				"Failed on reading PMIC irq status\n");
 		return ret;
 	}
+	printk("regulator irq = 0x%x\n", (int)now_irq_status->pmic_irq_status[0]);
 #endif /* CONFIG_REGULATOR_RT5033 */
 
 	return 0;
@@ -247,33 +253,10 @@ static int rt5033_read_irq_staus(rt5033_mfd_chip_t *chip)
 
 static irqreturn_t rt5033_irq_handler(int irq, void *data)
 {
-	int ret, i;
-	rt5033_irq_status_t *status;
-	rt5033_mfd_chip_t *chip = data;
-
-	chip->irq = irq;
-	wake_lock_timeout(&chip->irq_wake_lock, HZ);
-
-	ret = rt5033_read_irq_staus(chip);
-	if (ret < 0) {
-		pr_err("%s :Error : can't read irq status (%d)\n",
-				__func__, ret);
-		return IRQ_NONE;
-	}
-	status = rt5033_get_irq_status(chip, RT5033_NOW_STATUS);
-
-	for (i = 0; i < RT5033_IRQ_REGS_NR; i++)
-		status->regs[i] &= ~chip->irq_masks_cache[i];
-
-	for (i = 0; i < RT5033_IRQS_NR; i++) {
-		if (status->regs[rt5033_irqs[i].offset] & rt5033_irqs[i].mask) {
-			pr_info("%s : Trigger IRQ %s \n",
-					__func__, rt5033_get_irq_name_by_index(i));
-			handle_nested_irq(chip->irq_base + i);
-		}
-	}
-
-	chip->irq_status_index ^= 0x01; // exchange irq index;
+    rt5033_mfd_chip_t *chip = data;
+    printk("RT5033 IRQ triggered\n");
+    wake_lock_timeout(&chip->irq_wake_lock, msecs_to_jiffies(500));
+    queue_delayed_work(chip->wq, &chip->irq_work, msecs_to_jiffies(20));
 	return IRQ_HANDLED;
 }
 
@@ -286,7 +269,7 @@ static int rt5033_irq_ctrl_regs[] = {
 };
 
 static uint8_t rt5033_irqs_ctrl_mask_all_val[] = {
-	0xf0,
+	0xf1,
 	0xbf,
 	0xf0,
 	0xc8,
@@ -324,6 +307,37 @@ static int rt5033_irq_init_read(rt5033_mfd_chip_t *chip)
 	return ret;
 }
 
+static void rt5033_irq_work(struct work_struct *work)
+{
+	int ret, i;
+	rt5033_mfd_chip_t *chip = container_of(to_delayed_work(work),
+					   rt5033_mfd_chip_t, irq_work);
+	rt5033_irq_status_t *status;
+	printk("RT5033 IRQ work queue\n");
+	/* cancel the other delayed work */
+	cancel_delayed_work(to_delayed_work(work));
+	ret = rt5033_read_irq_staus(chip);
+	if (ret < 0) {
+		pr_err("%s :Error : can't read irq status (%d)\n",
+				__func__, ret);
+		return;
+	}
+	status = rt5033_get_irq_status(chip, RT5033_NOW_STATUS);
+
+	for (i = 0; i < RT5033_IRQ_REGS_NR; i++)
+		status->regs[i] &= ~chip->irq_masks_cache[i];
+
+	for (i = 0; i < RT5033_IRQS_NR; i++) {
+		if (status->regs[rt5033_irqs[i].offset] & rt5033_irqs[i].mask) {
+			pr_info("%s : Trigger IRQ %s \n",
+					__func__, rt5033_get_irq_name_by_index(i));
+			handle_nested_irq(chip->irq_base + i);
+		}
+	}
+	chip->irq_status_index ^= 0x01; // exchange irq index;
+
+}
+
 int rt5033_init_irq(rt5033_mfd_chip_t *chip)
 {
 	int i, ret, curr_irq;
@@ -333,36 +347,11 @@ int rt5033_init_irq(rt5033_mfd_chip_t *chip)
 		pr_err("%s : Can't mask all irqs(%d)\n", __func__, ret);
 		goto err_mask_all_irqs;
 	}
+	chip->wq = create_workqueue("rt5033_irq_workqueue");
+	INIT_DELAYED_WORK(&chip->irq_work, rt5033_irq_work);
 
 	rt5033_irq_init_read(chip);
 	mutex_init(&chip->irq_lock);
-	ret = gpio_request(chip->pdata->irq_gpio, "rt5033_mfd_irq");
-	if (ret < 0) {
-		pr_err("%s : Request GPIO %d failed\n",
-			__func__, (int)chip->pdata->irq_gpio);
-		goto err_gpio_request;
-	}
-
-	ret = gpio_direction_input(chip->pdata->irq_gpio);
-	if (ret < 0) {
-		pr_err("Set GPIO direction to input : failed\n");
-		goto err_set_gpio_input;
-	}
-
-	chip->irq = gpio_to_irq(chip->pdata->irq_gpio);
-	ret = request_threaded_irq(chip->irq, NULL, rt5033_irq_handler,
-			IRQF_TRIGGER_FALLING | IRQF_ONESHOT, "rt5033", chip);
-	if (ret <0) {
-		pr_err("%s : Failed : request IRQ (%d)\n", __func__, ret);
-		goto err_request_irq;
-
-	}
-
-	ret = enable_irq_wake(chip->irq);
-	if (ret < 0) {
-		pr_info("%s : enable_irq_wake(%d) failed for (%d)\n",
-				__func__, chip->irq, ret);
-	}
 
 	/* Register with genirq */
 	for (i = 0; i < RT5033_IRQS_NR; i++) {
@@ -377,12 +366,54 @@ int rt5033_init_irq(rt5033_mfd_chip_t *chip)
 		irq_set_noprobe(curr_irq);
 #endif
 	}
+
+	ret = gpio_request(chip->pdata->irq_gpio, "rt5033_mfd_irq");
+	if (ret < 0) {
+		pr_err("%s : Request GPIO %d failed\n",
+			__func__, (int)chip->pdata->irq_gpio);
+		goto err_gpio_request;
+	}
+
+	ret = gpio_direction_input(chip->pdata->irq_gpio);
+	if (ret < 0) {
+		pr_err("Set GPIO direction to input : failed\n");
+		goto err_set_gpio_input;
+	}
+
+	chip->irq = gpio_to_irq(chip->pdata->irq_gpio);
+	ret = request_irq(chip->irq, rt5033_irq_handler,
+                   IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND, "rt5033", chip);
+
+	if (ret <0) {
+		pr_err("%s : Failed : request IRQ (%d)\n", __func__, ret);
+		goto err_request_irq;
+
+	}
+
+	ret = enable_irq_wake(chip->irq);
+	if (ret < 0) {
+		pr_info("%s : enable_irq_wake(%d) failed for (%d)\n",
+				__func__, chip->irq, ret);
+	}
+
+
 	return ret;
 err_request_irq:
 err_set_gpio_input:
 	gpio_free(chip->pdata->irq_gpio);
 err_gpio_request:
+	for (curr_irq = chip->irq_base;
+			curr_irq < chip->irq_base + RT5033_IRQS_NR;
+			curr_irq++) {
+#ifdef CONFIG_ARM
+		set_irq_flags(curr_irq, 0);
+#endif
+		irq_set_chip_and_handler(curr_irq, NULL, NULL);
+		irq_set_chip_data(curr_irq, NULL);
+	}
+
 	mutex_destroy(&chip->irq_lock);
+	destroy_workqueue(chip->wq);
 err_mask_all_irqs:
 	return ret;
 
@@ -405,6 +436,7 @@ int rt5033_exit_irq(rt5033_mfd_chip_t *chip)
 	if (chip->irq)
 		free_irq(chip->irq, chip);
 	mutex_destroy(&chip->irq_lock);
+	destroy_workqueue(chip->wq);
 	return 0;
 }
 

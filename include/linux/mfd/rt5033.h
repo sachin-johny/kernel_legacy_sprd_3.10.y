@@ -39,7 +39,7 @@
 
 #include <linux/battery/sec_charging_common.h>
 
-#define RT5033_DRV_VER "1.0.8_Y"
+#define RT5033_DRV_VER "1.1.1_S"
 
 #ifdef CONFIG_RT5033_SADDR
 #define RT5033FG_SLAVE_ADDR_MSB (0x40)
@@ -113,7 +113,7 @@ struct rt5033_mfd_platform_data {
 	int irq_base;
 
 #ifdef CONFIG_CHARGER_RT5033
-    rt5033_charger_platform_data_t *charger_platform_data;
+    sec_battery_platform_data_t *charger_data;
 #endif
 
 };
@@ -144,7 +144,8 @@ struct rt5033_mfd_chip
 #ifdef CONFIG_REGULATOR_RT5033
 	struct rt5033_regulator_info *regulator_info[RT5033_MAX_REGULATOR];
 #endif
-
+    struct workqueue_struct *wq;
+    struct delayed_work irq_work;
 };
 
 #define rt5033_mfd_chip_t \
@@ -154,7 +155,7 @@ extern int rt5033_block_read_device(struct i2c_client *i2c,
 		int reg, int bytes, void *dest);
 
 extern int rt5033_block_write_device(struct i2c_client *i2c,
-		int reg, int bytes, void *src);
+		int reg, int bytes, const void *src);
 
 extern int rt5033_reg_read(struct i2c_client *i2c, int reg_addr);
 extern int rt5033_reg_write(struct i2c_client *i2c, int reg_addr, unsigned char data);
