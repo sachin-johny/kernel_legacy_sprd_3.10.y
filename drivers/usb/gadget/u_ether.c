@@ -822,10 +822,11 @@ static int pkt_msg_send(struct rndis_msg *msg, struct pkt_msg *q,
 static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 {
 
-    struct pkt_msg  *q = req->context;
+	struct pkt_msg  *q = req->context;
 	struct eth_dev	*dev = ep->driver_data;
-    struct rndis_msg    *msg = get_rndis_msg();
-    int next = idx_add_one(msg->w_idx);
+	struct rndis_msg    *msg = get_rndis_msg();
+	struct pkt_msg* w_q;
+	int next = idx_add_one(msg->w_idx);
 
 	switch (req->status) {
 	default:
@@ -857,6 +858,19 @@ static void tx_complete(struct usb_ep *ep, struct usb_request *req)
 	spin_lock(&dev->req_lock);
 	list_add(&req->list, &dev->tx_reqs);
 	spin_unlock(&dev->req_lock);
+	spin_lock(&msg->buffer_lock);
+	w_q = msg->q + msg->w_idx;
+	if( msg->w_idx == msg->r_idx &&
+		w_q->state == RNDIS_QUEUE_GATHER &&
+		w_q->skb_idx == w_q->pkt_cnt){
+		msg->last_sent = w_q->q_idx;
+		w_q->state = RNDIS_QUEUE_SEND;
+		spin_unlock(&msg->buffer_lock);
+		pkt_msg_send(msg,w_q,dev->net);
+		return;
+	}
+	spin_unlock(&msg->buffer_lock);
+
 }
 
 
