@@ -108,9 +108,6 @@ static int sprd_sdio_channel_do_tx(const char *buf, unsigned int len, unsigned i
     }
 
     sdio_release_host(func);
-	if(s_dbg_tx_sdio_abort_sent_cnt) {
-		printk("sprd_sdio_channel_do_tx s_dbg_tx_sdio_abort_sent_cnt: %d\n", s_dbg_tx_sdio_abort_sent_cnt);
-	}
     
     return retval;
 }
@@ -132,9 +129,6 @@ static int sprd_sdio_channel_do_rx(char *buf, unsigned int len, unsigned int add
 		s_dbg_rx_sdio_abort_sent_cnt++;
     }
     sdio_release_host(func);
-	if(s_dbg_rx_sdio_abort_sent_cnt) {
-		printk("sprd_sdio_channel_do_rx s_dbg_rx_sdio_abort_sent_cnt: %d\n", s_dbg_rx_sdio_abort_sent_cnt);
-	}
     
     return retval;
 }
