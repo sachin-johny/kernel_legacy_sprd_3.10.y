@@ -58,16 +58,18 @@ extern int sr2351_fm_stop_seek(void);
 #ifndef CONFIG_OF
 #define SHARK_FM_REG_BASE               SPRD_FM_BASE
 #define SHARK_APB_BASE_ADDR         	SPRD_AONAPB_BASE
-#define  SHARK_PMU_BASE_ADDR       SPRD_PMU_BASE
+#define  SHARK_PMU_BASE_ADDR       		SPRD_PMU_BASE
+#define SHARK_AON_CLK_BASE_ADDR      	SPRD_AONCKG_BASE
 #else
-
 extern u32 rf2351_fm_get_fm_base(void);
 extern u32 rf2351_fm_get_apb_base(void);
 extern u32 rf2351_fm_get_pmu_base(void);
+extern u32 rf2351_fm_get_aonckg_base(void);
 
-#define SHARK_FM_REG_BASE     rf2351_fm_get_fm_base()              
-#define SHARK_APB_BASE_ADDR   rf2351_fm_get_apb_base()   
-#define SHARK_PMU_BASE_ADDR  rf2351_fm_get_pmu_base()
+#define SHARK_FM_REG_BASE			rf2351_fm_get_fm_base()
+#define SHARK_APB_BASE_ADDR			rf2351_fm_get_apb_base()
+#define SHARK_PMU_BASE_ADDR			rf2351_fm_get_pmu_base()
+#define SHARK_AON_CLK_BASE_ADDR		rf2351_fm_get_aonckg_base()
 #endif
 
 #define	FM_REG_FM_CTRL                  (SHARK_FM_REG_BASE + 0x0000)
@@ -190,7 +192,6 @@ extern u32 rf2351_fm_get_pmu_base(void);
 #define FM_REG_SPI_RD			(SHARK_FM_REG_BASE + 0x081C)
 #define FM_REG_SPI_FIFO_STS		(SHARK_FM_REG_BASE + 0x0820)
 
-
 #define SHARK_APB_EB0                  REG_AON_APB_APB_EB0 
 #define SHARK_APB_EB1                  REG_AON_APB_APB_EB1
 #define SHARK_APB_RST0                 REG_AON_APB_APB_RST0
@@ -199,6 +200,12 @@ extern u32 rf2351_fm_get_pmu_base(void);
 #define  SHARK_PMU_SLEEP_CTRL           REG_PMU_APB_SLEEP_CTRL
 
 #define SHARK_PMU_APB_MEM_PD_CFG0		REG_PMU_APB_MEM_PD_CFG0
+
+#if defined(CONFIG_ARCH_SCX30G)
+#define SHARK_MSPI_CLK_SWITCH       (SHARK_AON_CLK_BASE_ADDR + 0x0054)
+#elif defined(CONFIG_ARCH_SCX15)
+#define SHARK_MSPI_CLK_SWITCH       (SHARK_AON_CLK_BASE_ADDR + 0x0050)
+#endif
 
 
 

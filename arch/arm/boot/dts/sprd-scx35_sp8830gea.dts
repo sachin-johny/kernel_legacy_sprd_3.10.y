@@ -435,8 +435,9 @@
         sprd_fm: sprd_fm@40270000{
 		compatible  = "sprd,sprd_fm";
 		reg = <0xf5210000 0x1000>,
-		<0xf5250000 0x10000>, 
-                <0xf5230000 0x10000>;     
+			<0xf5250000 0x10000>,
+			<0xf5230000 0x10000>,
+			<0xf5242000 0x10000>;
         };
 
 	/* sipc initializer */

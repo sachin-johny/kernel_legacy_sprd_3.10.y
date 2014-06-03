@@ -21,7 +21,6 @@
 #define SR2351_FM_VERSION	"v0.9"
 static int g_volume = 0;
 
-
 int sr2351_fm_set_volume(u8 iarg)
 {
 	SR2351_PRINT("FM set volume : %i.", iarg);
@@ -215,6 +214,7 @@ static struct sr2351_fm_addr
    u32 fm_base;
    u32 apb_base;
    u32 pmu_base;
+   u32 aonckg_base;
 }sr2351_fm_base;
 
 u32 rf2351_fm_get_fm_base(void)
@@ -229,6 +229,11 @@ u32 rf2351_fm_get_apb_base(void)
 u32 rf2351_fm_get_pmu_base(void)
 {
     return sr2351_fm_base.pmu_base;
+}
+
+u32 rf2351_fm_get_aonckg_base(void)
+{
+    return sr2351_fm_base.aonckg_base;
 }
 
 static int  sr2351_fm_parse_dts(struct device_node *np)
@@ -270,6 +275,15 @@ static int  sr2351_fm_parse_dts(struct device_node *np)
     }
     sr2351_fm_base.pmu_base = res.start;
     SR2351_PRINT("pmu reg base is 0x%x\n", sr2351_fm_base.pmu_base);
+
+	ret = of_address_to_resource(np, 3, &res);
+	if (ret < 0)
+	{
+		SR2351_PRINT("Can't get the aonckg reg base!\n");
+		return -EIO;
+	}
+	sr2351_fm_base.aonckg_base = res.start;
+    SR2351_PRINT("pmu reg base is 0x%x\n", sr2351_fm_base.aonckg_base);
 	
     return 0;
 }
@@ -328,23 +342,13 @@ static int sr2351_fm_remove(struct platform_device *pdev)
 #ifdef CONFIG_PM
 static int sr2351_fm_suspend(struct platform_device *dev, pm_message_t state)
 {
-#ifdef CONFIG_ARCH_SCX30G	
-	sci_glb_clr(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_4|BIT_3|BIT_2|BIT_1|BIT_0);
 	sr2351_fm_enter_sleep();
-#else	
-    sr2351_fm_enter_sleep();
-#endif    
     return 0;
 }
 
 static int sr2351_fm_resume(struct platform_device *dev)
 {
-#ifdef CONFIG_ARCH_SCX30G	
-    sr2351_fm_exit_sleep();
-	sci_glb_set(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_3|BIT_1);
-#else
 	sr2351_fm_exit_sleep();
-#endif	
     return 0;
 }
 #else
