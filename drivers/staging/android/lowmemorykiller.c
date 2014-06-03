@@ -42,6 +42,8 @@
 #include <linux/sysfs.h>
 #include <linux/cpuset.h>
 
+#define B2G_FG_OOMADJ 2
+
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
 	0,
@@ -199,7 +201,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	}
 
 	si_swapinfo(&si);
-	if (lowmem_minfreeswap_check && si.totalswap) {
+	if (lowmem_minfreeswap_check && si.totalswap && (min_adj > B2G_FG_OOMADJ)) {
 		unsigned int minfreeswap = 0 ;
 		int temp_min_adj = OOM_ADJUST_MAX + 1;
 
@@ -217,6 +219,10 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		}
 		lowmem_print(4, "lowmem_shrink swapfree %u, min_swapfree %u, min_adj %d \n",
 				si.freeswap, minfreeswap, temp_min_adj);
+
+		/* don't kill foreground apps when free of swap disk low */
+                if(temp_min_adj <= B2G_FG_OOMADJ)
+                        temp_min_adj = B2G_FG_OOMADJ + 1;
 
 		if(temp_min_adj < min_adj)
 			min_adj = temp_min_adj;
