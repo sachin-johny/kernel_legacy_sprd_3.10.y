@@ -479,6 +479,10 @@ static inline void dispc_osd_enable(bool is_enable)
 	dispc_write(reg_val, DISPC_OSD_CTRL);
 }
 
+static inline void dispc_set_osd_alpha(uint8_t alpha)
+{
+	dispc_write(alpha, DISPC_OSD_ALPHA);
+}
 
 static void dispc_dithering_enable(bool enable)
 {
@@ -573,7 +577,7 @@ static void dispc_layer_init(struct fb_var_screeninfo *var)
 	dispc_write(reg_val, DISPC_OSD_CTRL);
 
 	/* OSD layer alpha value */
-	dispc_write(0xff, DISPC_OSD_ALPHA);
+	dispc_set_osd_alpha(0xff);
 
 	/* OSD layer size */
 	reg_val = ( var->xres & 0xfff) | (( var->yres & 0xfff ) << 16);
@@ -1307,8 +1311,10 @@ static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 
 	dispc_write(size, DISPC_SIZE_XY);
 
-	dispc_osd_enable(false);
 	dispc_set_bg_color(0x00);
+	dispc_write(dev->fb->fix.smem_start, DISPC_OSD_BASE_ADDR);
+	//dispc_osd_enable(false);
+	dispc_set_osd_alpha(0x00);
 	dispc_run(dev);
 	//dispc_osd_enable(true);
 	up(&dev->refresh_lock);
@@ -1371,7 +1377,8 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 		}
 	}
 #endif
-	dispc_osd_enable(true);
+	//dispc_osd_enable(true);
+	dispc_set_osd_alpha(0xff);
 
 //	dispc_ctx.dev = dev;
 #ifdef CONFIG_FB_LCD_OVERLAY_SUPPORT
@@ -1708,7 +1715,7 @@ static int overlay_start(struct sprdfb_device *dev, uint32_t layer_index)
 */
 	dispc_set_bg_color(0x0);
 	dispc_clear_bits(BIT(2), DISPC_OSD_CTRL); /*use pixel alpha*/
-	dispc_write(0x80, DISPC_OSD_ALPHA);
+	dispc_set_osd_alpha(0x80);
 
 	if((layer_index & SPRD_LAYER_IMG) && (0 != dispc_read(DISPC_IMG_Y_BASE_ADDR))){
 		dispc_set_bits(BIT(0), DISPC_IMG_CTRL);/* enable the image layer */
@@ -1863,7 +1870,7 @@ static int overlay_close(struct sprdfb_device *dev)
 */
 	dispc_set_bg_color(0xFFFFFFFF);
 	dispc_set_bits(BIT(2), DISPC_OSD_CTRL);/*use block alpha*/
-	dispc_write(0xff, DISPC_OSD_ALPHA);
+	dispc_set_osd_alpha(0xff);
 	dispc_clear_bits(BIT(0), DISPC_IMG_CTRL);	/* disable the image layer */
 	dispc_write(0, DISPC_IMG_Y_BASE_ADDR);
 	dispc_write(0, DISPC_OSD_BASE_ADDR);
@@ -2445,7 +2452,7 @@ static void sprdfb_dispc_logo_config(struct sprdfb_device *dev,uint32_t logo_dst
     /******************* OSD layer setting **********************/
 
     /* OSD layer alpha value */
-    dispc_write(0xff, DISPC_OSD_ALPHA);
+    dispc_set_osd_alpha(0xff);
     reg_val = (( dev->panel->width & 0xfff) | ((dev->panel->height & 0xfff ) << 16));
     dispc_write(reg_val, DISPC_SIZE_XY);
 #ifdef CONFIG_FB_LOW_RES_SIMU
