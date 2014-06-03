@@ -182,6 +182,16 @@ config MACH_SP7730GGA
 	help
 	  SP7730GGA board based on SC8830g serial.
 
+config MACH_SP7730GGA_LC
+	bool "sp7730gga_lc Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
+	default n
+	help
+	SP7730GGA_LC board based on SC8830g serial.
+
 config MACH_SP7730GGAOPENPHONE
 	bool "sp7730ggaopenphone Board"
 	depends on ARCH_SC

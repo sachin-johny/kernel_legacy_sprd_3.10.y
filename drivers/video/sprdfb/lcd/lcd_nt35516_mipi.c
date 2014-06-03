@@ -412,6 +412,10 @@ static struct info_mipi lcd_nt35516_mipi_info = {
 };
 
 struct panel_spec lcd_nt35516_mipi_spec = {
+#ifdef CONFIG_FB_LOW_RES_SIMU
+.display_width = 480,
+.display_height = 854,
+#endif
 	.width = 540,
 	.height = 960,
 	.fps = 60,
