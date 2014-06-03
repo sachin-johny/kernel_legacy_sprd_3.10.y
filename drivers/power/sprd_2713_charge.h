@@ -1,15 +1,15 @@
 /*
- * Copyright (C) 2012 Spreadtrum Communications Inc.
- *
- * This software is licensed under the terms of the GNU General Public
- * License version 2, as published by the Free Software Foundation, and
- * may be copied, distributed, and modified under those terms.
- *
- * This program is distributed in the hope that it will be useful,
- * but WITHOUT ANY WARRANTY; without even the implied warranty of
- * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- * GNU General Public License for more details.
- */
+* Copyright (C) 2012 Spreadtrum Communications Inc.
+*
+* This software is licensed under the terms of the GNU General Public
+* License version 2, as published by the Free Software Foundation, and
+* may be copied, distributed, and modified under those terms.
+*
+* This program is distributed in the hope that it will be useful,
+* but WITHOUT ANY WARRANTY; without even the implied warranty of
+* MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+* GNU General Public License for more details.
+*/
 
 #ifndef _SPRD_2713_CHARGE_H_
 #define _SPRD_2713_CHARGE_H_
@@ -26,7 +26,12 @@
 #define SPRDBAT_CHG_END_VOL_PURE			(4200)
 #define SPRDBAT_CHG_END_H			(4225)
 #define SPRDBAT_CHG_END_L			(4190)
+
+#ifdef CONFIG_SPRD_NOFGUCURRENT_CHG
+#define SPRDBAT_RECHG_VOL	4110	//recharge voltage
+#else
 #define SPRDBAT_RECHG_VOL	4131	//recharge voltage
+#endif
 
 #define SPRDBAT_CHG_OVP_LEVEL_MIN       5600
 #define SPRDBAT_CHG_OVP_LEVEL_MAX   9000
@@ -54,11 +59,19 @@
 #define SPRDBAT_CHG_NORMAL_TIMEOUT		(6*60*60)	/* set for charge over time, 6 hours */
 #define SPRDBAT_CHG_SPECIAL_TIMEOUT		(90*60)	/* when charge timeout, recharge timeout is 90min */
 
+#define SPRDBAT_CHG_CV_TIMEOUT		(60*60)     /*cv state timeout*/
+
+
 #define SPRDBAT_TRICKLE_CHG_TIME		(1500)	//reserved
 
 #define SPRDBAT_ADC_CHANNEL_VCHG ADC_CHANNEL_VCHGSEN
 
+#ifdef CONFIG_SPRD_NOFGUCURRENT_CHG
+#define SPRDBAT_POLL_TIMER_NORMAL   30
+#else
 #define SPRDBAT_POLL_TIMER_NORMAL   60
+#endif
+
 #define SPRDBAT_POLL_TIMER_TEMP   1
 
 #define SPRDBAT_TEMP_TRIGGER_TIMES 2
@@ -74,7 +87,7 @@
 #define SPRDBAT_ADC_CHANNEL_TEMP ADC_CHANNEL_1
 #endif
 
-
+#define SPRDBAT_EOC_SET_LEVEL   3
 #define SPRDBAT_TEMP_CURR_SOURCE_LEVEL  15
 //sprdchg api
 void sprdchg_timer_enable(uint32_t cycles);
@@ -86,6 +99,8 @@ int sprdchg_read_temp_adc(void);
 uint32_t sprdchg_read_vchg_vol(void);
 void sprdchg_start_charge(void);
 void sprdchg_stop_charge(void);
+void sprdchg_set_eoc_level(int level);
+int sprdchg_get_eoc_level(void);
 void sprdchg_set_cccvpoint(unsigned int cvpoint);
 uint32_t sprdchg_get_cccvpoint(void);
 uint32_t sprdchg_tune_endvol_cccv(uint32_t chg_end_vol, uint32_t cal_cccv);
