@@ -22,10 +22,10 @@
  * Release : 2014.01.07 by Ian Bae
  */
 
-#define IMAGIS_IST30XX          (1)
-#define IMAGIS_IST30XXB         (2)
-#define IMAGIS_IST3038          (3)
-#define IMAGIS_IST3044          (4)
+#define IMAGIS_IST30XX          (1)             /* 3026, 3032 */
+#define IMAGIS_IST30XXB         (2)             /* 3026B, 3032B */
+#define IMAGIS_IST3038          (3)             /* 3038 */
+#define IMAGIS_IST3044          (4)             /* 3044 */
 
 #define IMAGIS_TSP_IC           IMAGIS_IST3038
 
@@ -42,23 +42,21 @@
 #if IST30XX_EVENT_MODE
 # define IST30XX_NOISE_MODE     (1)
 # define IST30XX_TRACKING_MODE  (1)
-# define IST30XX_ALGORITHM_MODE (1)
 #else
 # define IST30XX_NOISE_MODE     (0)
 # define IST30XX_TRACKING_MODE  (0)
-# define IST30XX_ALGORITHM_MODE (0)
 #endif
-#define IST30XX_DETECT_TA       (1)
-#define IST30XX_DETECT_CALLER   (0)
+
 #define IST30XX_USE_KEY         (1)
 #define IST30XX_DEBUG           (1)
 
-#define SEC_FACTORY_TEST        (0)
+#define SEC_FACTORY_MODE        (1)
 
 #define IST30XX_DEV_NAME        "IST30XX"
 #define IST30XX_CHIP_ID         (0x30003000)
 #define IST30XXA_CHIP_ID        (0x300a300a)
 #define IST30XXB_CHIP_ID        (0x300b300b)
+#define IST3038_CHIP_ID         (0x30383038)
 
 #define IST30XX_DEV_ID          (0xA0 >> 1)
 #define IST30XX_FW_DEV_ID       (0xA4 >> 1)
@@ -94,7 +92,7 @@
 #define DEV_VERB    (5)
 
 #define IST30XX_DEBUG_TAG       "[ TSP ]"
-#define IST30XX_DEBUG_LEVEL     DEV_DEBUG
+#define IST30XX_DEBUG_LEVEL     DEV_INFO
 //#define IST30XX_DEBUG_LEVEL     DEV_VERB
 
 #define tsp_err(fmt, ...)   tsp_printk(DEV_ERR, fmt, ## __VA_ARGS__)
@@ -111,7 +109,7 @@ enum ist30xx_commands {
 	CMD_UPDATE_CONFIG           = 0x05,
 	CMD_ENTER_REG_ACCESS        = 0x07,
 	CMD_EXIT_REG_ACCESS         = 0x08,
-	CMD_SET_TA_MODE             = 0x0A,
+	CMD_SET_NOISE_MODE          = 0x0A,
 	CMD_START_SCAN              = 0x0B,
 	CMD_ENTER_FW_UPDATE         = 0x0C,
 	CMD_RUN_DEVICE              = 0x0D,
@@ -125,7 +123,9 @@ enum ist30xx_commands {
 	CMD_SAME_POSITION           = 0x16,
 	CMD_CHECK_CALIB             = 0x1A,
 	CMD_SET_TEMPER_MODE         = 0x1B,
-	CMD_SET_CALL_MODE           = 0x1C,
+	CMD_USE_CORRECT_CP          = 0x1C,
+	CMD_SET_REPORT_RATE         = 0x1D,
+	CMD_SET_IDLE_TIME           = 0x1E,
 
 	CMD_GET_COORD               = 0x20,
 
@@ -135,6 +135,7 @@ enum ist30xx_commands {
 	CMD_GET_LCD_RESOLUTION      = 0x33,
 	CMD_GET_TSP_CHNUM1          = 0x34,
 	CMD_GET_PARAM_VER           = 0x35,
+	CMD_GET_SUB_VER             = 0x36,
 	CMD_GET_CALIB_RESULT        = 0x37,
 	CMD_GET_TSP_SWAP_INFO       = 0x38,
 	CMD_GET_KEY_INFO1           = 0x39,
@@ -167,12 +168,11 @@ typedef struct _ALGR_INFO {
 } ALGR_INFO;
 
 #if IST30XX_EXTEND_COORD
-
+#define EXTEND_COORD_CHECKSUM   (0)
 #define IST30XX_INTR_STATUS1    (0x71000000)
 #define IST30XX_INTR_STATUS2    (0x00000C00)
 #define CHECK_INTR_STATUS1(n)   (((n & IST30XX_INTR_STATUS1) == IST30XX_INTR_STATUS1) ? 1 : 0)
 #define CHECK_INTR_STATUS2(n)   (((n & IST30XX_INTR_STATUS2) > 0) ? 0 : 1)
-
 #define PARSE_FINGER_CNT(n)     ((n >> 12) & 0xF)
 #define PARSE_KEY_CNT(n)        ((n >> 21) & 0x7)
 #define PARSE_FINGER_STATUS(n)  (n & 0x3FF)         /* Finger status: [9:0] */
@@ -189,8 +189,8 @@ typedef union {
 	} bit_field;
 	u32 full_field;
 } finger_info;
-#else  // IST30XX_EXTEND_COORD
-
+#else
+#define EXTEND_COORD_CHECKSUM   (0)
 typedef union {
 	struct {
 		u32	y       : 10;
@@ -218,6 +218,7 @@ struct ist30xx_fw {
 	u32	prev_param_ver;
 	u32	core_ver;
 	u32	param_ver;
+	u32	sub_ver;
 	u32	index;
 	u32	size;
 	u32	chksum;
@@ -268,7 +269,7 @@ struct ist30xx_data {
 	struct ist30xx_status	status;
 	struct ist30xx_fw	fw;
 	struct ist30xx_tags	tags;
-#if SEC_FACTORY_TEST
+#if SEC_FACTORY_MODE
 	struct sec_factory	sec;
 #endif
 	u32			chip_id;
@@ -292,10 +293,12 @@ extern struct mutex ist30xx_mutex;
 extern int ist30xx_dbg_level;
 
 void tsp_printk(int level, const char *fmt, ...);
+int ist30xx_intr_wait(long ms);
 
 void ist30xx_enable_irq(struct ist30xx_data *data);
 void ist30xx_disable_irq(struct ist30xx_data *data);
-
+void ist30xx_set_ta_mode(bool charging);
+void ist30xx_set_cover_mode(int mode);
 void ist30xx_start(struct ist30xx_data *data);
 int ist30xx_get_ver_info(struct ist30xx_data *data);
 int ist30xx_init_touch_driver(struct ist30xx_data *data);

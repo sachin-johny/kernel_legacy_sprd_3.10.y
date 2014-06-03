@@ -65,6 +65,11 @@
 #if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
 #include <linux/i2c/focaltech.h>
 #endif
+
+#if(defined(CONFIG_TOUCHSCREEN_IST30XX))
+#include "../../../drivers/input/touchscreen/ist30xx/ist30xx.h"
+#endif
+
 #include <mach/i2s.h>
 
 
@@ -77,6 +82,9 @@ extern int __init sci_regulator_init(void);
 #ifdef CONFIG_ANDROID_RAM_CONSOLE
 extern int __init sprd_ramconsole_init(void);
 #endif
+
+struct class *sec_class;
+EXPORT_SYMBOL(sec_class);
 
 /*keypad define */
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW0 | SCI_ROW1)
@@ -338,6 +346,12 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 };
 #endif
 
+#if defined (CONFIG_TOUCHSCREEN_IST30XX)
+static struct tsp_platform_data ist30xx_info = {
+	.gpio = GPIO_TOUCH_IRQ,
+};
+#endif
+
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PROX_INT,
@@ -411,25 +425,31 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 #endif
 };
 
-static struct i2c_board_info i2c1_boardinfo[] = {
+static struct i2c_board_info i2c0_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
 };
 
-static struct i2c_board_info i2c0_boardinfo[] = {
-	{
+static struct i2c_board_info i2c1_boardinfo[] = {
 #if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
+	{
 		I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
 		.platform_data = &ft5x0x_ts_info,
-#endif
 	},
+#endif
+#if defined (CONFIG_TOUCHSCREEN_IST30XX)
+	{
+		I2C_BOARD_INFO(IST30XX_DEV_NAME, 0x50),
+		.platform_data =&ist30xx_info,
+	},
+#endif
 };
 
 static int sc8810_add_i2c_devices(void)
 {
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
-	i2c_register_board_info(0, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
-	i2c_register_board_info(1, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
+	i2c_register_board_info(1, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
+	i2c_register_board_info(0, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
 	return 0;
 }
 
@@ -754,6 +774,13 @@ static void __init sc8830_init_machine(void)
 #else
 	of_platform_populate(NULL, of_sprd_default_bus_match_table, of_sprd_default_bus_lookup, NULL);
 #endif
+
+    sec_class = class_create(THIS_MODULE, "sec");
+    if (IS_ERR(sec_class)) {
+        pr_err("Failed to create class(sec)!\n");
+		printk("Failed create class \n");
+        return PTR_ERR(sec_class);
+    }
 }
 
 #ifdef CONFIG_OF

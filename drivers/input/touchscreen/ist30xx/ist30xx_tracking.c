@@ -21,7 +21,6 @@
 // Can use S_IRUGO for better security. Verify the same.
 #include <linux/stat.h>
 
-
 #include "ist30xx.h"
 #include "ist30xx_update.h"
 #include "ist30xx_misc.h"
@@ -78,7 +77,7 @@ int ist30xx_get_track(u32 *track, int cnt)
 	return IST30XX_RINGBUF_NO_ERR;
 }
 
-int ist30xx_get_track_cnt(void)
+u32 ist30xx_get_track_cnt(void)
 {
 	return pTrackBuf->RingBufCtr;
 }
@@ -163,7 +162,7 @@ ssize_t ist30xx_track_frame_show(struct device *dev, struct device_attribute *at
 				 char *buf)
 {
 	int i, buf_cnt = 0;
-	int track_cnt = MAX_TRACKING_COUNT;
+	u32 track_cnt = MAX_TRACKING_COUNT;
 	u32 track;
 	char msg[10];
 
@@ -205,8 +204,8 @@ ssize_t ist30xx_track_cnt_show(struct device *dev, struct device_attribute *attr
 
 
 /* sysfs  */
-static DEVICE_ATTR(track_frame, S_IRWXUGO, ist30xx_track_frame_show, NULL);
-static DEVICE_ATTR(track_cnt, S_IRWXUGO, ist30xx_track_cnt_show, NULL);
+static DEVICE_ATTR(track_frame, S_IRUGO, ist30xx_track_frame_show, NULL);
+static DEVICE_ATTR(track_cnt, S_IRUGO, ist30xx_track_cnt_show, NULL);
 
 static struct attribute *tracking_attributes[] = {
 	&dev_attr_track_frame.attr,

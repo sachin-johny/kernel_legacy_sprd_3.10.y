@@ -161,7 +161,7 @@ int ist30xx_cmd_reg(struct i2c_client *client, int cmd)
 
 int ist30xx_read_cmd(struct i2c_client *client, u32 cmd, u32 *buf)
 {
-	int ret;
+	int ret,count=0;
 	u32 le_reg = cpu_to_be32(cmd);
 
 	struct i2c_msg msg[READ_CMD_MSG_LEN] = {
@@ -178,9 +178,11 @@ int ist30xx_read_cmd(struct i2c_client *client, u32 cmd, u32 *buf)
 			.buf = (u8 *)buf,
 		},
 	};
-
+retry:
 	ret = i2c_transfer(client->adapter, msg, READ_CMD_MSG_LEN);
 	if (ret != READ_CMD_MSG_LEN) {
+		if(count++ < 3)
+			goto retry;
 		tsp_err("%s: i2c failed (%d), cmd: %x\n", __func__, ret, cmd);
 		return -EIO;
 	}
@@ -192,7 +194,7 @@ int ist30xx_read_cmd(struct i2c_client *client, u32 cmd, u32 *buf)
 
 int ist30xx_write_cmd(struct i2c_client *client, u32 cmd, u32 val)
 {
-	int ret;
+	int ret,count=0;
 	struct i2c_msg msg;
 	u8 msg_buf[IST30XX_ADDR_LEN + IST30XX_DATA_LEN];
 
@@ -203,9 +205,11 @@ int ist30xx_write_cmd(struct i2c_client *client, u32 cmd, u32 val)
 	msg.flags = 0;
 	msg.len = IST30XX_ADDR_LEN + IST30XX_DATA_LEN;
 	msg.buf = msg_buf;
-
+retry:
 	ret = i2c_transfer(client->adapter, &msg, WRITE_CMD_MSG_LEN);
 	if (ret != WRITE_CMD_MSG_LEN) {
+		if(count++ < 3)
+			goto retry;
 		tsp_err("%s: i2c failed (%d), cmd: %x(%x)\n", __func__, ret, cmd, val);
 		return -EIO;
 	}
@@ -312,11 +316,12 @@ int ist30xx_init_system(void)
 		tsp_err("%s: ist30xx_power_on failed (%d)\n", __func__, ret);
 		return -EIO;
 	}
+#if 0
 	ret = ist30xx_reset();
 	if (ret) {
 		tsp_err("%s: ist30xx_reset failed (%d)\n", __func__, ret);
 		return -EIO;
 	}
-
+#endif
 	return 0;
 }
