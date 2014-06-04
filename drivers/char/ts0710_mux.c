@@ -66,6 +66,9 @@
 #include <linux/version.h> 
 #include <linux/seq_file.h>
 #include <linux/vmalloc.h>
+#include <linux/init.h>
+#include <linux/module.h>
+#include <linux/timer.h>
 #include "ts0710.h"
 #include "ts0710_mux.h"
 
@@ -158,6 +161,8 @@
 #define MUX_VETH_LINE_BEGIN 13
 #define MUX_VETH_LINE_END 17
 #define MUX_VETH_RINGBUFER_NUM 24
+
+#define MUX_WATCH_INTERVAL	3 * HZ
 
 /* Debug */
 //#define TS0710DEBUG
@@ -288,6 +293,7 @@ struct sprd_mux {
 	/*For BP UART problem Begin */
 	__u8 expect_seq;
 	/*For BP UART problem End */
+	struct timer_list watch_timer;
 
 #ifdef TS0710DEBUG
 	unsigned char debug_hex_buf[TS0710MUX_MAX_BUF_SIZE];
@@ -372,6 +378,11 @@ int sprdmux_line_busy(SPRDMUX_ID_E mux_id, int line);
 void sprdmux_set_line_notify(SPRDMUX_ID_E mux_id, int line, __u8 notify);
 static void mux_free_send_info(mux_send_struct * send_info);
 static void display_send_info(char * tag, SPRDMUX_ID_E mux_id, int line);
+
+static void mux_init_timer(struct sprd_mux *self);
+static void mux_start_timer(struct sprd_mux *self);
+static void mux_wathch_check(unsigned long priv);
+static void mux_stop_timer(struct sprd_mux *self);
 
 #ifdef TS0710DEBUG
 
@@ -3871,8 +3882,11 @@ static int mux_handshake(struct sprd_mux *self)
 
 	/*wait for response "OK \r" */
 	printk(KERN_INFO "\n MUX: id = %d,cmux receiving\n", self->mux_id);
+	mux_init_timer(self);
 	while (1) {
+		mux_start_timer(self);
 		count = self->io_hal->io_read(buff, sizeof(buffer) - (buff - buffer));
+		mux_stop_timer(self);
 		printk(KERN_INFO "MUX: id = %d,ts mux received %d chars\n", self->mux_id, count);
 		if(count > 0) {
 			buff += count;
@@ -4299,6 +4313,56 @@ static void mux_display_connection(ts0710_con * ts0710, const char *tag)
 		}
 #endif
 	return;
+}
+
+static void mux_init_timer(struct sprd_mux *self)
+{
+	if (!self) {
+		printk(KERN_ERR "MUX: Error %s self is NULL\n", __FUNCTION__);
+		return;
+	}
+
+	init_timer(&self->watch_timer);
+}
+
+static void mux_start_timer(struct sprd_mux *self)
+{
+	if (!self) {
+		printk(KERN_ERR "MUX: Error %s self is NULL\n", __FUNCTION__);
+		return;
+	}
+
+	self->watch_timer.expires = jiffies + MUX_WATCH_INTERVAL;
+	self->watch_timer.data = (unsigned long)self;
+	self->watch_timer.function = mux_wathch_check;
+
+	add_timer(&self->watch_timer);
+}
+
+static void mux_wathch_check(unsigned long priv)
+{
+	struct sprd_mux *self = (struct sprd_mux *) priv;
+
+	if (!self) {
+		printk(KERN_ERR "MUX: Error %s self is NULL\n", __FUNCTION__);
+		return;
+	}
+
+	printk(KERN_ERR "MUX: %s called\n", __FUNCTION__);
+
+	if (self->cmux_mode == 0) {
+		self->io_hal->io_stop(self->mux_id);
+	}
+}
+
+static void mux_stop_timer(struct sprd_mux *self)
+{
+	if (!self) {
+		printk(KERN_ERR "MUX: Error %s self is NULL\n", __FUNCTION__);
+		return;
+	}
+
+	del_timer(&self->watch_timer);
 }
 
 static int ts0710_ctrl_channel_status(ts0710_con * ts0710)
