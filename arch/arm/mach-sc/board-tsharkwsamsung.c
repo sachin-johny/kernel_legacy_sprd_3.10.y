@@ -96,8 +96,8 @@ EXPORT_SYMBOL(sec_class);
 #define COLS	(2)
 #ifndef CONFIG_OF
 static const unsigned int board_keymap[] = {
-	KEY(0, 0, KEY_VOLUMEDOWN),
-	KEY(1, 0, KEY_VOLUMEUP),
+	KEY(0, 0, KEY_VOLUMEUP),
+	KEY(1, 0, KEY_VOLUMEDOWN),
 	KEY(0, 1, KEY_HOME),
 };
 
