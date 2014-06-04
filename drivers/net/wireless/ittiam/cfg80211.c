@@ -1845,10 +1845,8 @@ void itm_unregister_wdev(struct itm_priv *priv)
 		return;
 
 #ifndef CONFIG_OF
-	if (priv->mode == ITM_STATION_MODE || priv->mode == ITM_AP_MODE) {
-
+	if (priv->mode != ITM_NONE_MODE)
 		itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
-	}
 #endif
 	wiphy_unregister(priv->wdev->wiphy);
 	wiphy_free(priv->wdev->wiphy);
