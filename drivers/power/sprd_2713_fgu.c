@@ -216,9 +216,13 @@ static BLOCKING_NOTIFIER_HEAD(fgu_chain_head);
 extern int in_calibration(void);
 
 uint16_t voltage_capacity_table[][2] = {
+#ifdef CONFIG_SPRD_NOFGUCURRENT_CHG
+	{4160, 100}
+#else
 	{4180, 100}
+#endif
 	,
-	{4100, 95}
+	{4060, 95}
 	,
 	{3980, 80}
 	,
@@ -497,9 +501,13 @@ static inline int sprdfgu_cur_current_get(void)
 
 int sprdfgu_read_batcurrent(void)
 {
+#ifndef CONFIG_SPRD_NOFGUCURRENT_CHG
 	int temp = sprdfgu_cur_current_get();
 	//FGU_DEBUG("sprdfgu_read_batcurrent : %d\n", temp);
 	return temp;
+#else
+    return 0;
+#endif
 }
 
 static int sprdfgu_read_vbat_ocv_pure(uint32_t * vol)
@@ -517,6 +525,7 @@ static int sprdfgu_read_vbat_ocv_pure(uint32_t * vol)
 
 uint32_t sprdfgu_read_vbat_ocv(void)
 {
+#ifndef CONFIG_SPRD_NOFGUCURRENT_CHG
 	uint32_t vol;
 
 	if (sprdfgu_read_vbat_ocv_pure(&vol)) {
@@ -527,6 +536,9 @@ uint32_t sprdfgu_read_vbat_ocv(void)
 		    (sprdfgu_read_batcurrent() * battery_internal_impedance) /
 		    1000;
 	}
+#else
+    return sprdfgu_read_vbat_vol();
+#endif
 }
 
 int sprdfgu_read_soc(void)

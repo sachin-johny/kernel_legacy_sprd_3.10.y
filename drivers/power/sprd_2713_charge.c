@@ -266,7 +266,7 @@ void sprdchg_init(void)
 			     efuse_cal_data[0], efuse_cal_data[1]);
 		}
 	}
-	sci_adi_write((ANA_CTL_EIC_BASE + 0x50), 100, (0xFFF));	//eic debunce
+	sci_adi_write((ANA_CTL_EIC_BASE + 0x50), 10, (0xFFF));	//eic debunce
 	printk("ANA_CTL_EIC_BASE0x%x\n", sci_adi_read(ANA_CTL_EIC_BASE + 0x50));
 }
 
@@ -556,6 +556,23 @@ void sprdchg_start_charge(void)
 #endif
 	_sprdchg_set_recharge();
 }
+void sprdchg_set_eoc_level(int level)
+{
+#if defined(CONFIG_ARCH_SCX15)
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL2,
+		    BITS_CHGR_ITERM(level), BITS_CHGR_ITERM(~0));
+#endif
+}
+int sprdchg_get_eoc_level(void)
+{
+#if defined(CONFIG_ARCH_SCX15)
+	int shft = __ffs(BITS_CHGR_ITERM(~0));
+
+	return (sci_adi_read(ANA_REG_GLB_CHGR_CTRL2) & BITS_CHGR_ITERM(~0)) >>
+		    shft;
+
+#endif
+}
 
 static uint32_t _sprdchg_read_chg_current(void)
 {
@@ -575,7 +592,7 @@ static uint32_t _sprdchg_read_chg_current(void)
 	}
 	if (isense > vbat) {
 		uint32_t temp = ((isense - vbat) * 1000) / 68;	//(vol/68mohm)
-		printk(KERN_ERR "sprdchg: sprdchg_read_chg_current:%d\n", temp);
+		//printk(KERN_ERR "sprdchg: sprdchg_read_chg_current:%d\n", temp);
 		return temp;
 	} else {
 		printk(KERN_ERR
