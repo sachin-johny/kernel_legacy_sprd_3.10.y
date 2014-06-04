@@ -2158,7 +2158,36 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 		BUG();
 		ret = -EINVAL;
 	}
+	return ret;
+}
 
+static int adcpgar_byp_set(struct snd_soc_codec *codec, int value)
+{
+	int mask = ADCPGAR_BYP_MASK << ADCPGAR_BYP;
+	return snd_soc_update_bits(codec, SOC_REG(AACR2_AACR1), mask,
+				    value << ADCPGAR_BYP);
+}
+
+static int adcpgar_event(struct snd_soc_dapm_widget *w,
+			 struct snd_kcontrol *kcontrol, int event)
+{
+	struct snd_soc_codec *codec = w->codec;
+	int ret = 0;
+
+	sp_asoc_pr_dbg("%s  Event is %s\n", __func__,  get_event_name(event));
+
+	switch (event) {
+	case SND_SOC_DAPM_POST_PMU:
+		adcpgar_byp_set(codec, 2);
+		sprd_codec_wait(100);
+		adcpgar_byp_set(codec, 0);
+		break;
+	case SND_SOC_DAPM_PRE_PMD:
+		break;
+	default:
+		BUG();
+		ret = -EINVAL;
+	}
 	return ret;
 }
 
@@ -2571,8 +2600,8 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   NULL,
 			   0),
 	SND_SOC_DAPM_PGA_S("ADCR Switch", 1, SOC_REG(AACR2_AACR1), ADCR_PD, 1,
-			   NULL,
-			   0),
+			   adcpgar_event,
+			   SND_SOC_DAPM_POST_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_E("ADCL PGA", SND_SOC_NOPM, SPRD_CODEC_LEFT, 0, NULL,
 			   0,
 			   adc_switch_event,
