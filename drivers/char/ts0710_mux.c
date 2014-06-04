@@ -3857,16 +3857,23 @@ static int mux_handshake(struct sprd_mux *self)
 
 	memset(buffer, 0, 256);
 	printk(KERN_INFO "\n cmux say hello >, id %d \n", self->mux_id);
+
 	if (mux_mode == 1) {
-		self->io_hal->io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
+		count = self->io_hal->io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
 	} else {
-		self->io_hal->io_write("AT\r", strlen("AT\r"));
+		count = self->io_hal->io_write("AT\r", strlen("AT\r"));
 	}
+
+	if (count < 0) {
+		printk(KERN_INFO "\n MUX: id = %d,cmux write stoped for crash\n", self->mux_id);
+		return -1;
+	}
+
 	/*wait for response "OK \r" */
 	printk(KERN_INFO "\n MUX: id = %d,cmux receiving\n", self->mux_id);
 	while (1) {
 		count = self->io_hal->io_read(buff, sizeof(buffer) - (buff - buffer));
-		printk(KERN_INFO "MUX: id = %d,ts mux receive %d chars\n", self->mux_id, count);
+		printk(KERN_INFO "MUX: id = %d,ts mux received %d chars\n", self->mux_id, count);
 		if(count > 0) {
 			buff += count;
 			if (findInBuf(buffer, 256, "OK")) {
@@ -3876,14 +3883,21 @@ static int mux_handshake(struct sprd_mux *self)
 				break;
 			}
 		} else if (count == 0){
-			printk(KERN_INFO "MUX: id = %d,ts mux receive %d chars\n", self->mux_id, count);
 			continue;
 		} else {
+			if (self->mux_status == MUX_STATE_CRASHED) {
+				printk(KERN_INFO "\n MUX: id = %d,cmux read stoped for crash\n", self->mux_id);
+				return -1;
+			}
 			msleep(2000);
 			if (mux_mode == 1) {
-				self->io_hal->io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
+				count = self->io_hal->io_write("AT+SMMSWAP=0\r", strlen("AT+SMMSWAP=0\r"));
 			} else {
-				self->io_hal->io_write("AT\r", strlen("AT\r"));
+				count = self->io_hal->io_write("AT\r", strlen("AT\r"));
+			}
+			if (count < 0 && self->mux_status == MUX_STATE_CRASHED) {
+				printk(KERN_INFO "\n MUX: id = %d,cmux read stoped for crash\n", self->mux_id);
+				return -1;
 			}
 			i++;
 		}
@@ -3892,8 +3906,19 @@ static int mux_handshake(struct sprd_mux *self)
 			return -1;
 		}
 	}
-	self->io_hal->io_write("at+cmux=0\r", strlen("at+cmux=0\r"));
-	self->io_hal->io_read(buffer, sizeof(buffer));
+
+	count = self->io_hal->io_write("at+cmux=0\r", strlen("at+cmux=0\r"));
+	if (count < 0) {
+		printk(KERN_INFO "\n MUX: id = %d,cmux write stoped\n", self->mux_id);
+		return -1;
+	}
+
+	count = self->io_hal->io_read(buffer, sizeof(buffer));
+	if (count < 0) {
+		printk(KERN_INFO "\n MUX: id = %d,cmux read stoped\n", self->mux_id);
+		return -1;
+	}
+
 	printk(KERN_INFO "MUX: id = %d, handshake OK\n", self->mux_id);
 
 	return 0;
@@ -4116,11 +4141,16 @@ static int mux_recover_thread(void *data)
 		return 0;
 	}
 
-	MUX_TS0710_DEBUG(self->mux_id, "entered\n");
+	printk(KERN_ERR "MUX: id[%d] %s entered\n", self->mux_id, __FUNCTION__);
 
 	if (self->cmux_mode == 0) {
 		mutex_lock(&self->handshake_mutex);
-		mux_handshake(self);
+		if (mux_handshake(self) != 0) {
+			printk(KERN_ERR "MUX: id[%d] %s handshake fail\n", self->mux_id, __FUNCTION__);
+			mutex_unlock(&self->handshake_mutex);
+			return 0;
+		}
+
 		self->cmux_mode = 1;
 		wake_up(&self->handshake_ready);
 		mutex_unlock(&self->handshake_mutex);
@@ -4135,13 +4165,18 @@ static int mux_recover_thread(void *data)
 				printk(KERN_ERR "MUX: id[%d] %s recover successed\n", self->mux_id, __FUNCTION__);
 				break;
 			 } else {
+				if (self->mux_status == MUX_STATE_CRASHED) {
+					//another CP disable occured
+					printk(KERN_ERR "MUX: id[%d] %s out anoter disable occured\n", self->mux_id, __FUNCTION__);
+					break;
+				}
 				printk(KERN_ERR "MUX: id[%d] %s recover failed retry\n", self->mux_id, __FUNCTION__);
 				msleep(500);
 			 }
 		}
 	}
-	printk(KERN_ERR "MUX: id[%d] %s out\n", self->mux_id, __FUNCTION__);
 
+	printk(KERN_ERR "MUX: id[%d] %s out\n", self->mux_id, __FUNCTION__);
 
 	return 0;
 }
