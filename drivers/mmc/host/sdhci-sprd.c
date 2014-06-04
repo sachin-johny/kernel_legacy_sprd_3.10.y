@@ -1723,10 +1723,10 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (!(ctrl & SDHCI_CTRL_VDD_180))
 			return 0;
-
+#if 0
 		pr_warning("%s: 3.3V regulator output did not became stable\n",
 				mmc_hostname(host->mmc));
-
+#endif
 		return -EAGAIN;
 	case MMC_SIGNAL_VOLTAGE_180:
 		if (host->vqmmc) {
@@ -1753,10 +1753,10 @@ static int sdhci_do_start_signal_voltage_switch(struct sdhci_host *host,
 		ctrl = sdhci_readw(host, SDHCI_HOST_CONTROL2);
 		if (ctrl & SDHCI_CTRL_VDD_180)
 			return 0;
-
+#if 0
 		pr_warning("%s: 1.8V regulator output did not became stable\n",
 				mmc_hostname(host->mmc));
-
+#endif
 		return -EAGAIN;
 	case MMC_SIGNAL_VOLTAGE_120:
 		if (host->vqmmc) {
