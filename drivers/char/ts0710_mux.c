@@ -765,8 +765,6 @@ static void ts0710_reset_dlci(ts0710_con *ts0710, __u8 j)
 	ts0710->dlci[j].mtu = DEF_TS0710_MTU;
 	ts0710->dlci[j].initiated = 0;
 	ts0710->dlci[j].initiator = 0;
-	init_waitqueue_head(&ts0710->dlci[j].open_wait);
-	init_waitqueue_head(&ts0710->dlci[j].close_wait);
 }
 
 static void ts0710_reset_con(ts0710_con *ts0710)
@@ -782,10 +780,26 @@ static void ts0710_reset_con(ts0710_con *ts0710)
 	ts0710->mtu = DEF_TS0710_MTU + TS0710_MAX_HDR_SIZE;
 	ts0710->be_testing = 0;
 	ts0710->test_errs = 0;
-	init_waitqueue_head(&ts0710->test_wait);
 
 	for (j = 0; j < TS0710_MAX_CHN; j++) {
 		ts0710_reset_dlci(ts0710, j);
+	}
+}
+
+static void ts0710_init_waitqueue(ts0710_con *ts0710)
+{
+	__u8 j;
+
+	if (!ts0710) {
+		printk(KERN_ERR "MUX: Error %s ts0710 is NULL\n", __FUNCTION__);
+		return;
+	}
+
+	init_waitqueue_head(&ts0710->test_wait);
+
+	for (j = 0; j < TS0710_MAX_CHN; j++) {
+		init_waitqueue_head(&ts0710->dlci[j].open_wait);
+		init_waitqueue_head(&ts0710->dlci[j].close_wait);
 	}
 }
 
@@ -3518,6 +3532,8 @@ int ts0710_mux_create(int mux_id)
 	self->connection->user_data = (void *)self;
 
 	ts0710_init(self->connection);
+
+	ts0710_init_waitqueue(self->connection);
 
 	mutex_init(&self->handshake_mutex);
 
