@@ -623,7 +623,7 @@
 #if defined(CONFIG_MODEM_W_MEMCUT)
 #define CPW_TOTAL_SIZE		(SZ_1M * 28)
 #elif defined CONFIG_ARCH_SCX30G
-#define CPW_TOTAL_SIZE		(SZ_1M * 27)
+#define CPW_TOTAL_SIZE		0x18A0000//(SZ_1M * 27)
 #else
 #define CPW_TOTAL_SIZE		(SZ_1M * 33)
 #endif
