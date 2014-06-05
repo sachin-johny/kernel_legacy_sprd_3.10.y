@@ -50,6 +50,10 @@
 #include "__board-sp7730ggaopenphone.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7731GEA
+#include "__board-sp7731gea.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7731GEA_LC
 #include "__board-sp7731gea_lc.h"
 #endif
