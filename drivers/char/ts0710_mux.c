@@ -158,6 +158,8 @@
 #define MUX_STATE_CRASHED 3
 #define MUX_STATE_RECOVERING 4
 
+#define MUX_RIL_LINE_END 11
+
 #define MUX_VETH_LINE_BEGIN 13
 #define MUX_VETH_LINE_END 17
 #define MUX_VETH_RINGBUFER_NUM 24
@@ -1792,7 +1794,11 @@ static int ts0710_recv_data(ts0710_con * ts0710, char *data, int len)
 					break;
 				}
 
-				MUX_TS0710_DEBUG(self->mux_id, "Put received data into recv queue of /dev/mux%d\n", line);
+				if (line <= MUX_RIL_LINE_END) {
+					/* Just display AT line */
+					printk(KERN_ERR "MUX: id[%d] line[%d] received %d data\n", self->mux_id, line, uih_len);
+				}
+
 				mutex_lock(&recv_info->recv_data_lock);
 
 				if (recv_info->total != 0 || recv_info->length != 0) { /* add new data to tail */
@@ -2823,19 +2829,6 @@ int ts0710_mux_open(int mux_id, int line)
 			self->cmux_mode = 1;
 			wake_up(&self->handshake_ready);
 
-			/*create receive thread*/
-			self->mux_recv_kthread = kthread_create(mux_receive_thread, self, "mux_receive");
-			if(IS_ERR(self->mux_recv_kthread)) {
-				printk(KERN_ERR "MUX: Error Unable to create mux_receive thread\n");
-				retval = PTR_ERR(self->mux_recv_kthread);
-				self->mux_recv_kthread = NULL;
-				mutex_unlock(&self->handshake_mutex);
-				self->open_count[line]--;
-				mutex_unlock(&self->open_mutex[line]);
-				goto out;
-			}
-			wake_up_process(self->mux_recv_kthread);
-
 			/*	 Open server channel 0 first */
 			if ((retval = ts0710_open_channel(ts0710, 0)) != 0) {
 				printk(KERN_ERR "MUX: Error Can't connect server channel 0!\n");
@@ -3190,7 +3183,7 @@ static int mux_receive_thread(void *data)
 		return 0;
 	}
 
-	printk(KERN_INFO "MUX mux_receive_thread\n");
+	printk(KERN_ERR "MUX: id = %d %s entered\n", self->mux_id, __FUNCTION__);
 
 	mux_set_thread_pro(95);
 	while (!kthread_should_stop()) {
@@ -3224,7 +3217,7 @@ static int mux_send_thread(void *private_)
 		return 0;
 	}
 
-	MUX_TS0710_DEBUG(self->mux_id, "Enter into mux_send_thread\n");
+	printk(KERN_ERR "MUX: id = %d %s entered\n", self->mux_id, __FUNCTION__);
 
 	ts0710 = self->connection;
 	if (!ts0710) {
@@ -3574,15 +3567,25 @@ int ts0710_mux_create(int mux_id)
 		goto err_send_thread;
 	}
 
+	wake_up_process(self->mux_send_kthread);
+
+	/*create receive thread*/
+	self->mux_recv_kthread = kthread_create(mux_receive_thread, self, "mux_receive");
+	if(IS_ERR(self->mux_recv_kthread)) {
+		printk(KERN_ERR "MUX: Error %s Unable to create mux_receive thread err = %ld\n", __FUNCTION__, PTR_ERR(self->mux_recv_kthread));
+		rval = PTR_ERR(self->mux_recv_kthread);
+		goto err_recv_thread;
+	}
+	wake_up_process(self->mux_recv_kthread);
+
 	self->io_hal = &sprd_mux_mgr[mux_id].mux;
 	sprd_mux_mgr[mux_id].handle = self;
 
-	printk(KERN_INFO "ts0710MUX[%d] 0x%u, 0x%u 0x%u\n", mux_id, (unsigned int)self->io_hal->io_write, (unsigned int)self->io_hal->io_read, (unsigned int)self->io_hal->io_stop);
-
-	wake_up_process(self->mux_send_kthread);
-
 	return rval;
 
+err_recv_thread:
+	kthread_stop(self->mux_send_kthread);
+	self->mux_send_kthread = NULL;
 err_send_thread:
 	kfree(self->connection);
 err_conn:
