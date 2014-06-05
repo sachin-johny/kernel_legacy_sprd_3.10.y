@@ -629,7 +629,7 @@
 		clk_mm: clk_mm {
 			compatible = "sprd,gate-clock";
 			#clock-cells = <0>;
-			reg = <0x402e0000 0x2000000>;	/* 0x402b001d 0x2000000>; */	/* enable reg and prepare reg */
+			reg = <0x402e0000 0x2000000 0x402b001d 0x2000000>;	/* enable reg and prepare reg */
 			clocks = <&clk_aon_apb>;
 			clock-output-names = "clk_mm";
 		};

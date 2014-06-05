@@ -460,6 +460,14 @@ static void sprd_mm_clk_disable(struct clk_hw *hw)
 	__mmreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
 }
 
+const struct clk_ops sprd_clk_mm_gate_ops = {
+	.prepare = sprd_mm_clk_prepare,
+	.unprepare = sprd_mm_clk_unprepare,
+	.enable = sprd_clk_enable,
+	.disable = sprd_clk_disable,
+	.is_enabled = sprd_clk_is_enable,
+};
+
 const struct clk_ops sprd_mm_clk_gate_ops = {
 	.prepare = sprd_mm_clk_prepare,
 	.unprepare = sprd_mm_clk_unprepare,
@@ -690,6 +698,9 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 
 	if (of_get_property(node, "mm-domain", NULL)) {
 		init.ops = &sprd_mm_clk_gate_ops;
+	}
+	else if (0 == strcmp(clk_name, "clk_mm")) {
+		init.ops = &sprd_clk_mm_gate_ops;
 	}
 
 	of_property_read_string(node, "clock-output-names", &clk_name);
