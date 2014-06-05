@@ -42,8 +42,8 @@
 #include "__board-sp7730gga.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP7730GGA_LC
-#include "__board-sp7730gga_lc.h"
+#ifdef	CONFIG_MACH_SP7731GGA_LC
+#include "__board-sp7731gga_lc.h"
 #endif
 
 #ifdef	CONFIG_MACH_SP7730GGAOPENPHONE
@@ -218,7 +218,7 @@
 	#define SPRD_ION_MEM_SIZE	(SPRD_ION_MM_SIZE + SPRD_ION_OVERLAY_SIZE)
 #endif
 
-#if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP8815GAOPENPHONE) || defined(CONFIG_MACH_SP6815GA) || defined(CONFIG_MACH_SP7731GEA_LC)/* Nand 4+2 */
+#if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP8815GAOPENPHONE) || defined(CONFIG_MACH_SP6815GA) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GGA_LC)/* Nand 4+2 */
 #define SPRD_ION_MEM_BASE	\
 	((CONFIG_PHYS_OFFSET & (~(SZ_256M - 1))) + SZ_256M - SPRD_ION_MEM_SIZE)
 #else
