@@ -11,9 +11,9 @@
 		vddcore: vddcore {
 			regulator-name = "vddcore";
 			reg = <0x40038810 9 0x40038814 9 0 0>;
-			reg-vol = <0x40038960 7 5 0x40038960 4 0>;
+			reg-vol = <0x40038948 5 3 0x40038960 4 0>;
 			cal_sel = <0x40038844 0x0 13>;
-			regulator-default-microvolt = <1100000>;
+			regulator-default-microvolt = <900000>;
 			regulator-selects = <1100000 700000 800000 900000 1000000 650000 1200000 1300000>;
 			regulator-step-microvolt = <3125>;
 			regulator-min-microvolt = <650000>;
@@ -21,12 +21,12 @@
 			dcdc;
 		};
 
-		vddarm: vddcarm {
+		vddarm: vddarm {
 			regulator-name = "vddarm";
 			reg = <0x40038810 10 0x40038814 10 0x40038874 9>;
-			reg-vol = <0x40038964 7 5 0x40038964 4 0>;
+			reg-vol = <0x40038948 8 6 0x40038964 4 0>;
 			cal_sel = <0x40038844 0x0 14>;
-			regulator-default-microvolt = <1100000>;
+			regulator-default-microvolt = <900000>;
 			regulator-selects = <1100000 700000 800000 900000 1000000 650000 1200000 1300000>;
 			regulator-step-microvolt = <3125>;
 			regulator-min-microvolt = <650000>;
@@ -77,8 +77,8 @@
 			reg = <0x40038810 13 0x40038814 13 0x40038874 10>;
 			reg-vol = <0x40038970 6 5 0x40038970 4 0>;
 			cal_sel = <0x40038844 0x0 18>;
-			regulator-default-microvolt = <2800000>;
-			regulator-selects = <2600000 2700000 2800000 2900000>;
+			regulator-default-microvolt = <1500000>;
+			regulator-selects = <1300000 1400000 1500000 1600000>;
 			regulator-step-microvolt = <3125>;
 			regulator-min-microvolt = <2600000>;
 			regulator-max-microvolt = <2900000>;
@@ -110,9 +110,10 @@
 		vdd25: vdd25 {
 			regulator-name = "vdd25";
 			reg = <0x40038810 3 0x40038814 3 0x40038874 2>;
-			reg-vol = <0x40038820 5 4 0x4003882c 14 10>;
+			reg-vol = <0x40038948 10 9 0x4003882c 14 10>;
 			cal_sel = <0x40038844 0x600 21>;
-			regulator-default-microvolt = <2500000>;
+			regulator-default-microvolt = <1800000>;
+			regulator-selects = <2500000 2750000 1800000 1900000>;
 			regulator-step-microvolt = <15625>;
 			regulator-min-microvolt = <2500000>;
 			regulator-max-microvolt = <3000000>;
@@ -132,9 +133,10 @@
 		vddrf1: vddrf1 {
 			regulator-name = "vddrf1";
 			reg = <0x40038810 5 0x40038814 5 0x40038874 4>;
-			reg-vol = <0x40038820 9 8 0x40038830 9 5>;
+			reg-vol = <0x40038948 12 11 0x40038830 9 5>;
 			cal_sel = <0x40038844 0x2000 23>;
-			regulator-default-microvolt = <2850000>;
+			regulator-default-microvolt = <1200000>;
+			regulator-selects = <2850000 1800000 1500000 1200000>;
 			regulator-step-microvolt = <17812>;
 			regulator-min-microvolt = <1800000>;
 			regulator-max-microvolt = <2950000>;
