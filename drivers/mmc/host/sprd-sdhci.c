@@ -333,7 +333,7 @@ static unsigned int sprd_sdhci_host_get_max_clock(struct sdhci_host *host) {
 }
 
 static void sprd_sdhci_host_hw_reset(struct sdhci_host *host) {
-	printk("sprd_sdhci_host_hw_reset\n");
+	printk("%s,sprd_sdhci_host_hw_reset\n",mmc_hostname(host->mmc));
 	mmc_power_off(host->mmc);
 	msleep(299);
 	mmc_power_cycle(host->mmc);
