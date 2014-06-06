@@ -937,11 +937,18 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 no_mic_retry:
 
         //get adc value of left
-        set_adc_to_headmic(0);
-        msleep(50);
-        adc_left_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
-        if(-1 == adc_left_average)
-                return HEADSET_TYPE_ERR;
+        if(EIC_AUD_HEAD_INST2 == pdata->gpio_detect) {
+                PRINT_INFO("HEADSET_DETECT_GPIO=%d, matched the reference phone, now getting adc value of left\n", pdata->gpio_detect);
+                set_adc_to_headmic(0);
+                msleep(50);
+                adc_left_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
+                if(-1 == adc_left_average)
+                        return HEADSET_TYPE_ERR;
+        } else {
+                PRINT_INFO("HEADSET_DETECT_GPIO=%d, NOT matched the reference phone(GPIO_%d), set adc_left_average to 0\n",
+					pdata->gpio_detect, EIC_AUD_HEAD_INST2);
+                adc_left_average = 0;
+        }
 
         //get adc value of mic
         set_adc_to_headmic(1);
