@@ -2849,6 +2849,7 @@ CONFIG_SIPC_STTY=y
 # Sensor support
 #
 # CONFIG_SENSORS is not set
+CONFIG_SPRD_IQ=y
 
 #
 # File systems

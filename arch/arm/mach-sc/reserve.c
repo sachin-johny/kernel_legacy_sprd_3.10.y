@@ -22,6 +22,7 @@
 #include <linux/platform_device.h>
 #include "devices.h"
 
+#include <asm/setup.h>
 
 static int __init __iomem_reserve_memblock(void)
 {
@@ -100,6 +101,56 @@ int __init __sipc_reserve_memblock(void)
 }
 #endif
 
+#ifdef CONFIG_SPRD_IQ
+static phys_addr_t s_iq_addr = 0xffffffff;
+int in_iqmode(void);
+
+int __init __sprd_iq_memblock(void)
+{
+	int i, j;
+	struct membank bank;
+	bool bfound = false;
+	if(!in_iqmode())
+		return -EINVAL;
+	for(i = meminfo.nr_banks; i > 0; i--) {
+		printk("high: %d, start %d, size %d \n", meminfo.bank[i-1].highmem, meminfo.bank[i-1].start,
+			meminfo.bank[i-1].size);
+		if(meminfo.bank[i-1].highmem || meminfo.bank[i-1].size < SPRD_IQ_SIZE)
+			continue;
+		bank.start = meminfo.bank[i-1].start;
+		bank.size = meminfo.bank[i-1].size;
+		while(bank.size - SPRD_IQ_SIZE > 0) {
+			if(memblock_is_region_reserved(bank.start + bank.size - SPRD_IQ_SIZE, SPRD_IQ_SIZE)) {
+				bank.size -= SZ_1M;
+			} else {
+				bfound = true;
+				break;
+			}
+		}
+		if(bfound)
+			break;
+	}
+	printk("found mem %d \n", bank.size);
+	if(bfound) {
+		if(memblock_reserve(bank.start + bank.size - SPRD_IQ_SIZE, SPRD_IQ_SIZE))
+			return -ENOMEM;
+		else {
+			s_iq_addr = bank.start + bank.size - SPRD_IQ_SIZE;
+			return 0;
+		}
+	} else
+		return -ENOMEM;
+
+}
+
+phys_addr_t sprd_iq_addr(void)
+{
+	return s_iq_addr;
+}
+
+#endif
+
+
 void __init sci_reserve(void)
 {
 #ifndef CONFIG_OF
@@ -125,5 +176,12 @@ void __init sci_reserve(void)
 	if (ret != 0)
 		pr_err("Fail to reserve mem for framebuffer . errno=%d\n", ret);
 #endif
+#endif
+
+#ifdef CONFIG_SPRD_IQ
+	ret = __sprd_iq_memblock();
+	if (ret != 0)
+		printk("Fail to reserve mem for sprd iq. errno=%d\n", ret);
+
 #endif
 }

@@ -228,6 +228,7 @@ static inline void watchdog_start(int chip_margin, int ap_margin,
 #define HWRST_STATUS_PANIC (0X80)
 #define HWRST_STATUS_CFTREBOOT (0x90)
 #define HWRST_STATUS_AUTODLOADER (0xa0)
+#define HWRST_STATUS_IQMODE (0xb0)
 
 #ifdef CONFIG_SC_INTERNAL_WATCHDOG
 void sprd_set_reboot_mode(const char *cmd);
