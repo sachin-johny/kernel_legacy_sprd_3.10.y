@@ -2776,7 +2776,7 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
     //GSP_CLOCK_SET(GSP_CLOCK_256M_BIT);//GSP_CLOCK_256M_BIT
     GSP_AUTO_GATE_ENABLE();
     //GSP_AHB_CLOCK_SET(GSP_AHB_CLOCK_192M_BIT);
-    GSP_ENABLE_MM();
+    //GSP_ENABLE_MM();
 
     ret = gsp_clock_init();
     if (ret) {

@@ -59,32 +59,35 @@ struct clk_sprd {
 
 static inline u32 cfg_reg_p2v(const u32 regp)
 {
+	u32 regv = 0;
+
 	if (0) {
 	} else if (in_range(regp, SPRD_AHB_PHYS, SPRD_AHB_SIZE)) {
-		return to_range(regp, SPRD_AHB_PHYS, SPRD_AHB_BASE);
+		regv = to_range(regp, SPRD_AHB_PHYS, SPRD_AHB_BASE);
 	} else if (in_range(regp, SPRD_PMU_PHYS, SPRD_PMU_SIZE)) {
-		return to_range(regp, SPRD_PMU_PHYS, SPRD_PMU_BASE);
-	}
-	if (in_range(regp, SPRD_AONAPB_PHYS, SPRD_AONAPB_SIZE)) {
-		return to_range(regp, SPRD_AONAPB_PHYS, SPRD_AONAPB_BASE);
+		regv = to_range(regp, SPRD_PMU_PHYS, SPRD_PMU_BASE);
+	} else if (in_range(regp, SPRD_AONAPB_PHYS, SPRD_AONAPB_SIZE)) {
+		regv = to_range(regp, SPRD_AONAPB_PHYS, SPRD_AONAPB_BASE);
 	} else if (in_range(regp, SPRD_AONCKG_PHYS, SPRD_AONCKG_SIZE)) {
-		return to_range(regp, SPRD_AONCKG_PHYS, SPRD_AONCKG_BASE);
+		regv = to_range(regp, SPRD_AONCKG_PHYS, SPRD_AONCKG_BASE);
 	} else if (in_range(regp, SPRD_GPUCKG_PHYS, SPRD_GPUCKG_SIZE)) {
-		return to_range(regp, SPRD_GPUCKG_PHYS, SPRD_GPUCKG_BASE);
+		regv = to_range(regp, SPRD_GPUCKG_PHYS, SPRD_GPUCKG_BASE);
 	} else if (in_range(regp, SPRD_GPUAPB_PHYS, SPRD_GPUAPB_SIZE)) {
-		return to_range(regp, SPRD_GPUAPB_PHYS, SPRD_GPUAPB_BASE);
+		regv = to_range(regp, SPRD_GPUAPB_PHYS, SPRD_GPUAPB_BASE);
 	} else if (in_range(regp, SPRD_MMCKG_PHYS, SPRD_MMCKG_SIZE)) {
-		return to_range(regp, SPRD_MMCKG_PHYS, SPRD_MMCKG_BASE);
+		regv = to_range(regp, SPRD_MMCKG_PHYS, SPRD_MMCKG_BASE);
 	} else if (in_range(regp, SPRD_MMAHB_PHYS, SPRD_MMAHB_SIZE)) {
-		return to_range(regp, SPRD_MMAHB_PHYS, SPRD_MMAHB_BASE);
+		regv = to_range(regp, SPRD_MMAHB_PHYS, SPRD_MMAHB_BASE);
 	} else if (in_range(regp, SPRD_APBREG_PHYS, SPRD_APBREG_SIZE)) {
-		return to_range(regp, SPRD_APBREG_PHYS, SPRD_APBREG_BASE);
+		regv = to_range(regp, SPRD_APBREG_PHYS, SPRD_APBREG_BASE);
 	} else if (in_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_SIZE)) {
-		return to_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_BASE);
+		regv = to_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_BASE);
+	}
+	else {
+		WARN(1, "regp %08x\n", regp);
 	}
 
-	WARN(1, "regp = %u\n", regp);
-	return 0;
+	return regv;
 }
 
 static inline void of_read_reg(struct cfg_reg *cfg, const __be32 * cell)
@@ -337,7 +340,12 @@ static long sprd_clk_divider_round_rate(struct clk_hw *hw, unsigned long rate,
 		c->d.div_hw->clk = c->hw.clk;
 	clk_debug("%s rate %lu %lu\n", __clk_get_name(hw->clk), rate,
 		  (prate) ? *prate : 0);
-    return rate;
+
+	/* FIXME: see clk_divider_bestdiv()
+	 * bestdiv = DIV_ROUND_UP(parent_rate, rate);
+	 * so round rate would be lower than rate
+	 */
+	return rate;
 	//return clk_divider_ops.round_rate(c->d.div_hw, rate, prate);
 }
 
@@ -416,16 +424,65 @@ static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 
 #define __mmreg_set(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 1)
 #define __mmreg_clr(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 0)
-
-static int sprd_mm_clk_prepare(struct clk_hw *hw)
+#define __SPRD_MM_TIMEOUT		(1 * 1000)
+static int sprd_mm_domain_is_ready(void)
 {
 #ifdef CONFIG_ARCH_SCX35
-	if (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1)) {
-		int to = 2000;
+	/* FIXME: rtc domain */
+	u32 power_state1, power_state2, power_state3;
+	unsigned long timeout = jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
+
+	do {
+		power_state1 = __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG);
+		power_state2 = __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG);
+		power_state3 = __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG);
+		if (time_after(jiffies, timeout)) {
+			return 0;
+		}
+	}while(power_state1 != power_state2 || power_state2 != power_state3);
+
+	return ((power_state1 & BITS_PD_MM_TOP_STATE(-1)) == 0);
+#else
+	return 1;
+#endif
+}
+
+static u32 saved_mm_ckg[10];
+static void sprd_mm_domain_save(struct clk_hw *hw)
+{
+#ifdef CONFIG_ARCH_SCX35
+	u32 *ckg = (u32 *)REG_MM_CLK_MM_AHB_CFG;
+	int i;
+	BUG_ON(!sprd_mm_domain_is_ready() || !(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB));
+	for(i = 0; i < ARRAY_SIZE(saved_mm_ckg); i++, ckg++) {
+		saved_mm_ckg[i] = __raw_readl(ckg);
+	}
+	clk_debug("ahb %08x sensor %08x vsp %08x\n", saved_mm_ckg[0], saved_mm_ckg[1], saved_mm_ckg[4]);
+#endif
+}
+
+static void sprd_mm_domain_restore(struct clk_hw *hw)
+{
+#ifdef CONFIG_ARCH_SCX35
+	u32 *ckg = (u32 *)REG_MM_CLK_MM_AHB_CFG;
+	int i;
+	clk_debug("ahb %08x sensor %08x vsp %08x\n", saved_mm_ckg[0], saved_mm_ckg[1], saved_mm_ckg[4]);
+	BUG_ON(!sprd_mm_domain_is_ready() || !(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB));
+	for(i = 0; i < ARRAY_SIZE(saved_mm_ckg); i++, ckg++) {
+		__raw_writel(saved_mm_ckg[i], ckg);
+	}
+#endif
+}
+
+static int __sprd_mm_clk_prepare(struct clk_hw *hw)
+{
+#ifdef CONFIG_ARCH_SCX35
+	if (!sprd_mm_domain_is_ready()) {
+		unsigned long timeout = jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
 		__glbreg_clr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 		/* FIXME: wait a moment for mm domain stable
 		*/
-		while (__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1) && to--) {
+		while (!sprd_mm_domain_is_ready() && !time_after(jiffies, timeout)) {
 			udelay(50);
 		}
 	}
@@ -434,65 +491,136 @@ static int sprd_mm_clk_prepare(struct clk_hw *hw)
 
 	if (!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB)) {
 		__glbreg_set(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
-		__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
-		__mmreg_set(hw, (void *)REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
-		__mmreg_set(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
+		if (!(__raw_readl((void *)REG_MM_AHB_AHB_EB) & BIT_MM_CKG_EB)) {
+			__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+			__mmreg_set(hw, (void *)REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+			__mmreg_set(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
+		}
 	}
 #endif
-	return sprd_clk_prepare(hw);
+	return 0;
 }
 
-static void sprd_mm_clk_unprepare(struct clk_hw *hw)
+static int __sprd_clk_mm_enable(struct clk_hw *hw)
 {
-	sprd_clk_unprepare(hw);
+	if (sprd_mm_domain_is_ready()) {
+#ifndef CONFIG_ARCH_SCX35
+		sprd_clk_enable(hw);
+#endif
+		sprd_mm_domain_restore(hw);
+	}
+	return 0;
+}
+
+static void __sprd_clk_mm_disable(struct clk_hw *hw)
+{
+	/* FIXME: save all mm ckg regs before disable mm */
+	sprd_mm_domain_save(hw);
+	sprd_clk_disable(hw);
+}
+
+static int sprd_mm_clk_prepare(struct clk_hw *hw)
+{
+	__sprd_mm_clk_prepare(hw);
+	return sprd_clk_prepare(hw);
 }
 
 static int sprd_mm_clk_enable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__mmreg_set(hw, c->enb.reg, (u32) c->enb.msk);
+	if (sprd_mm_domain_is_ready()) {
+		__mmreg_set(hw, c->enb.reg, (u32) c->enb.msk);
+	}
 	return 0;
 }
 
 static void sprd_mm_clk_disable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	__mmreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
+	if (sprd_mm_domain_is_ready()) {
+		__mmreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
+	}
+}
+
+static int sprd_mm_clk_is_enable(struct clk_hw *hw)
+{
+	if (sprd_mm_domain_is_ready()) {
+		return sprd_clk_is_enable(hw);
+	}
+	return 0;
+}
+
+static u8 sprd_mm_clk_mux_get_parent(struct clk_hw *hw)
+{
+	if (sprd_mm_domain_is_ready()) {
+		return sprd_clk_mux_get_parent(hw);
+	}
+	return 0;
+}
+
+static int sprd_mm_clk_mux_set_parent(struct clk_hw *hw, u8 index)
+{
+	if (sprd_mm_domain_is_ready()) {
+		return sprd_clk_mux_set_parent(hw, index);
+	}
+	return 0;
+}
+
+static unsigned long sprd_mm_clk_divider_recalc_rate(struct clk_hw *hw,
+						  unsigned long parent_rate)
+{
+	if (sprd_mm_domain_is_ready()) {
+		return sprd_clk_divider_recalc_rate(hw, parent_rate);
+	}
+	return parent_rate;
+}
+
+static int sprd_mm_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
+				     unsigned long parent_rate)
+{
+	if (sprd_mm_domain_is_ready()) {
+		return sprd_clk_divider_set_rate(hw, rate, parent_rate);
+	}
+	return 0;
 }
 
 const struct clk_ops sprd_clk_mm_gate_ops = {
+#ifdef CONFIG_ARCH_SCX35
+	.prepare = __sprd_mm_clk_prepare,
+#else
 	.prepare = sprd_mm_clk_prepare,
-	.unprepare = sprd_mm_clk_unprepare,
-	.enable = sprd_clk_enable,
-	.disable = sprd_clk_disable,
+#endif
+	.unprepare = sprd_clk_unprepare,
+	.enable = __sprd_clk_mm_enable,
+	.disable = __sprd_clk_mm_disable,
 	.is_enabled = sprd_clk_is_enable,
 };
 
 const struct clk_ops sprd_mm_clk_gate_ops = {
 	.prepare = sprd_mm_clk_prepare,
-	.unprepare = sprd_mm_clk_unprepare,
+	.unprepare = sprd_clk_unprepare,
 	.enable = sprd_mm_clk_enable,
 	.disable = sprd_mm_clk_disable,
-	.is_enabled = sprd_clk_is_enable,
+	.is_enabled = sprd_mm_clk_is_enable,
 };
 
 const struct clk_ops sprd_mm_clk_mux_ops = {
 	.prepare = sprd_mm_clk_prepare,
-	.unprepare = sprd_mm_clk_unprepare,
+	.unprepare = sprd_clk_unprepare,
 	.enable = sprd_mm_clk_enable,
 	.disable = sprd_mm_clk_disable,
-	.get_parent = sprd_clk_mux_get_parent,
-	.set_parent = sprd_clk_mux_set_parent,
+	.get_parent = sprd_mm_clk_mux_get_parent,
+	.set_parent = sprd_mm_clk_mux_set_parent,
 };
 
 const struct clk_ops sprd_mm_clk_composite_ops = {
 	.enable = sprd_mm_clk_enable,
 	.disable = sprd_mm_clk_disable,
-	.get_parent = sprd_clk_mux_get_parent,
-	.set_parent = sprd_clk_mux_set_parent,
-	.recalc_rate = sprd_clk_divider_recalc_rate,
+	.get_parent = sprd_mm_clk_mux_get_parent,
+	.set_parent = sprd_mm_clk_mux_set_parent,
+	.recalc_rate = sprd_mm_clk_divider_recalc_rate,
 	.round_rate = sprd_clk_divider_round_rate,
-	.set_rate = sprd_clk_divider_set_rate,
+	.set_rate = sprd_mm_clk_divider_set_rate,
 };
 
 static void __init file_clk_data(struct clk *clk, const char *clk_name);
@@ -560,6 +688,8 @@ void __init of_sprd_fixed_factor_clk_setup(struct device_node *node)
 	}
 	clk_debug("[%p]%s parent %s mult %d div %d\n", clk, clk_name,
 		  parent_name, mult, div);
+
+	clk_debug("%s RATE %lu\n", __clk_get_name(clk), clk_get_rate(clk));
 }
 
 /**
@@ -609,6 +739,8 @@ static void __init of_sprd_fixed_pll_clk_setup(struct device_node *node)
 
 	clk_debug("[%p]%s fixed-pll-rate %d, prepare %p[%x]\n", clk, clk_name,
 		  rate, c->d.pre.reg, c->d.pre.msk);
+
+	clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
 }
 
 /**
@@ -666,6 +798,7 @@ static void __init of_sprd_adjustable_pll_clk_setup(struct device_node *node)
 		clk_debug("[%p]%s mul %p[%x]\n", clk, clk_name,
 			  c->m.mul.reg, c->m.mul.msk);
 
+	clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
 }
 
 /**
@@ -680,6 +813,7 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 	struct clk_init_data init = {
 		.name = clk_name,
 		.ops = &sprd_clk_gate_ops,
+		.flags = CLK_IGNORE_UNUSED,
 	};
 	const __be32 *enbreg, *prereg;
 
@@ -696,13 +830,6 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 		//prepare reg is optional
 	}
 
-	if (of_get_property(node, "mm-domain", NULL)) {
-		init.ops = &sprd_mm_clk_gate_ops;
-	}
-	else if (0 == strcmp(clk_name, "clk_mm")) {
-		init.ops = &sprd_clk_mm_gate_ops;
-	}
-
 	of_property_read_string(node, "clock-output-names", &clk_name);
 	parent_name = of_clk_get_parent_name(node, 0);
 
@@ -711,6 +838,15 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 	if (!c) {
 		pr_err("%s: could not allocate gated clk\n", __func__);
 		return;
+	}
+
+	if (of_get_property(node, "mm-domain", NULL)) {
+		init.ops = &sprd_mm_clk_gate_ops;
+	}
+	else if (0 == strcmp(clk_name, "clk_mm")) {
+		init.ops = &sprd_clk_mm_gate_ops;
+		__sprd_mm_clk_prepare(&c->hw);
+		sprd_mm_domain_save(&c->hw);
 	}
 
 	init.parent_names = (parent_name ? &parent_name : NULL);
@@ -751,6 +887,7 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 	const char *clk_name = node->name;
 	struct clk_init_data init = {
 		.name = clk_name,
+		.flags = CLK_IGNORE_UNUSED,
 	};
 	const __be32 *selreg = NULL, *divreg = NULL, *enbreg, *prereg = NULL;
 	int idx = 0;
@@ -854,16 +991,27 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 
 }
 
+#define to_clk_mux(_hw) container_of(_hw, struct clk_mux, hw)
+
 static void __init of_sprd_muxed_clk_setup(struct device_node *node)
 {
 	struct clk_sprd *c;
 	c = __of_sprd_composite_clk_setup(node, 1, 0);
 	if (!c)
 		return;
-	clk_debug("[%p]%s select %p[%x] enable %p[%x] prepare %p[%x]\n", c->hw.clk,
-		  __clk_get_name(c->hw.clk), c->m.sel.reg, c->m.sel.msk,
-		  c->enb.reg, c->enb.msk, c->d.pre.reg, c->d.pre.msk);
+
+	{
+		struct clk_mux *mux = to_clk_mux(c->m.mux_hw);
+		if (!mux)
+			return;
+		clk_debug("[%p]%s select %p[%x] enable %p[%x] prepare %p[%x]\n", c->hw.clk,
+			  __clk_get_name(c->hw.clk), mux->reg, c->m.sel.msk,
+			  c->enb.reg, c->enb.msk, c->d.pre.reg, c->d.pre.msk);
+		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+	}
 }
+
+#define to_clk_divider(_hw) container_of(_hw, struct clk_divider, hw)
 
 static void __init of_sprd_divider_clk_setup(struct device_node *node)
 {
@@ -871,9 +1019,15 @@ static void __init of_sprd_divider_clk_setup(struct device_node *node)
 	c = __of_sprd_composite_clk_setup(node, 0, 1);
 	if (!c)
 		return;
-	clk_debug("[%p]%s divider %p[%x] enable %p[%x]\n", c->hw.clk,
-		  __clk_get_name(c->hw.clk), c->d.div.reg,
-		  c->d.div.msk, c->enb.reg, c->enb.msk);
+	{
+		struct clk_divider *div = to_clk_divider(c->d.div_hw);
+		if (!div)
+			return;
+		clk_debug("[%p]%s divider %p[%x] enable %p[%x]\n", c->hw.clk,
+			  __clk_get_name(c->hw.clk), div->reg,
+			  c->d.div.msk, c->enb.reg, c->enb.msk);
+		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+	}
 }
 
 static void __init of_sprd_composite_clk_setup(struct device_node *node)
@@ -882,10 +1036,17 @@ static void __init of_sprd_composite_clk_setup(struct device_node *node)
 	c = __of_sprd_composite_clk_setup(node, 1, 1);
 	if (!c)
 		return;
-	clk_debug("[%p]%s select %p[%x] divider %p[%x] enable %p[%x]\n",
-		  c->hw.clk, __clk_get_name(c->hw.clk), c->m.sel.reg,
-		  c->m.sel.msk, c->d.div.reg, c->d.div.msk, c->enb.reg,
-		  c->enb.msk);
+	{
+		struct clk_mux *mux = to_clk_mux(c->m.mux_hw);
+		struct clk_divider *div = to_clk_divider(c->d.div_hw);
+		if (!mux || !div)
+			return;
+		clk_debug("[%p]%s select %p[%x] divider %p[%x] enable %p[%x]\n",
+			  c->hw.clk, __clk_get_name(c->hw.clk), mux->reg,
+			  c->m.sel.msk, div->reg, c->d.div.msk, c->enb.reg,
+			  c->enb.msk);
+		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+	}
 }
 
 /* register the clock */
@@ -940,6 +1101,8 @@ static void __init sprd_clocks_init(struct device_node *node)
 
 CLK_OF_DECLARE(scx15_clock, "sprd,scx15-clocks", sprd_clocks_init);
 CLK_OF_DECLARE(scx35_clock, "sprd,scx35-clocks", sprd_clocks_init);
+CLK_OF_DECLARE(scx30g_clock, "sprd,scx30g-clocks", sprd_clocks_init);
+CLK_OF_DECLARE(scx35l_clock, "sprd,scx35l-clocks", sprd_clocks_init);
 CLK_OF_DECLARE(fixed_clock, "sprd,fixed-clock", of_sprd_fixed_clk_setup);
 CLK_OF_DECLARE(fixed_factor_clock, "sprd,fixed-factor-clock",
 	       of_sprd_fixed_factor_clk_setup);

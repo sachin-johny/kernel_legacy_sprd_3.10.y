@@ -176,6 +176,9 @@ int sci_mm_enable(void *c, int enable, unsigned long *pflags)
 		*/
 		sci_mm_glb_set(REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 #endif
+		/* FIXME: clean mm io map,
+		 * do not access any reg in mm domain after mm clock disabled
+		 */
 		__iomap_page(REGS_MM_AHB_BASE, SZ_4K, enable);
 		__iomap_page(REGS_MM_CLK_BASE, SZ_4K, enable);
 		__iomap_page(SPRD_DCAM_BASE, SZ_4K, enable);
