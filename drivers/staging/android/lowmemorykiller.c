@@ -132,22 +132,6 @@ static inline void get_free_ram(int *p_other_free, int *p_other_file)
 	*p_other_file = other_file;
 }
 
-/*
-  * It's reasonable to grant the dying task an even higher priority to
-  * be sure it will be scheduled sooner and free the desired pmem.
-  * It was suggested using SCHED_FIFO:1 (the lowest RT priority),
-  * so that this task won't interfere with any running RT task.
-  */
-static void boost_dying_task_prio(struct task_struct *p)
-{
-	if (!rt_task(p)) {
-		struct sched_param param;
-		param.sched_priority = 1;
-		sched_setscheduler_nocheck(p, SCHED_FIFO, &param);
-	}
-}
-
-
 #ifdef CONFIG_ANDROID_LMK_DEBUG
 extern int user_process_meminfo_show(void);
 #endif
@@ -155,6 +139,7 @@ extern int user_process_meminfo_show(void);
 extern void zram_printlog(void);
 #endif
 extern void dump_tasks(const struct mem_cgroup *mem, const nodemask_t *nodemask);
+extern void boost_dying_task_prio(struct task_struct *p);
 
 static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 {

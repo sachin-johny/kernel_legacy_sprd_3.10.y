@@ -688,6 +688,21 @@ static void clear_system_oom(void)
 	spin_unlock(&zone_scan_lock);
 }
 
+/*
+  * It's reasonable to grant the dying task an even higher priority to
+  * be sure it will be scheduled sooner and free the desired pmem.
+  * It was suggested using SCHED_FIFO:1 (the lowest RT priority),
+  * so that this task won't interfere with any running RT task.
+  */
+void boost_dying_task_prio(struct task_struct *p)
+{
+        if (!rt_task(p)) {
+                struct sched_param param;
+                param.sched_priority = 1;
+                sched_setscheduler_nocheck(p, SCHED_FIFO, &param);
+        }
+}
+
 int kill_bad_process_lmk(void)
 {
 	struct task_struct *p;
@@ -752,6 +767,9 @@ int kill_bad_process_lmk(void)
 #endif
 		}
 #endif
+		//Improve the priority of killed process can accelerate the process to die,
+		//and the process memory would be released quickly
+		boost_dying_task_prio(selected);
 		force_sig(SIGKILL, selected);
 	}
 	return selected_tasksize;
