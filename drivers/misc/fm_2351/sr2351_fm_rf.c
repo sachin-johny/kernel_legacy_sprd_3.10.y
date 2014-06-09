@@ -186,9 +186,33 @@ int sr2351_fm_get_status(int *status)
 
 void sr2351_fm_enter_sleep(void)
 {
+
+	#ifdef CONFIG_ARCH_SCX30G
+	sci_glb_clr(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_4|BIT_3|BIT_2|BIT_1|BIT_0);
+	#endif
+
 	if(fm_rf_ops != NULL)
 	{
+		#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+		/*Disable the RSSI AGC*/
 		sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
+		udelay(5);
+
+		/*Switch the mspi clock*/
+		#if defined(CONFIG_ARCH_SCX30G)
+		printk("2351 fm enter sleep switch clock\n");
+		sci_glb_clr(SHARK_MSPI_CLK_SWITCH, BIT_0);
+		#elif defined(CONFIG_ARCH_SCX15)
+		sci_glb_set(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
+		#endif
+
+		/*Enable the RSSI AGC*/
+		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
+
+		#elif defined(CONFIG_ARCH_SCX35)
+		sci_glb_clr(FM_REG_FM_EN,BIT_2|BIT_3);
+		#endif
+
 		fm_rf_ops->write_reg(FM_SR2351_RX_GAIN, 0x0313);
 	}
 }
@@ -197,8 +221,30 @@ void sr2351_fm_exit_sleep(void)
 {
 	if(fm_rf_ops != NULL)
 	{
+		#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+		/*Disable the RSSI AGC*/
+		sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
+		udelay(5);
+
+		/*Switch the mspi clock*/
+		#if defined(CONFIG_ARCH_SCX30G)
+		printk("2351 fm exit sleep switch clock\n");
+		sci_glb_set(SHARK_MSPI_CLK_SWITCH, BIT_0);
+		#elif defined(CONFIG_ARCH_SCX15)
+		sci_glb_clr(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
+		#endif
+
+		/*Enable the RSSI AGC*/
 		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
+
+		#elif defined(CONFIG_ARCH_SCX35)
+		sci_glb_set(FM_REG_FM_EN,BIT_2|BIT_3);
+		#endif
 	}
+
+	#ifdef CONFIG_ARCH_SCX30G
+	sci_glb_set(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_3|BIT_1);
+	#endif
 }
 
 void sr2351_fm_mute(void)
