@@ -419,6 +419,9 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 	 else
 		shark_fm_seek_down();
 
+    /*Handel False station,change the spuer value when stark seek*/
+    WRITE_REG(FM_REG_SPUR_RM_CTL,FM_SPUR_RM_CTL_SET_VALUE);
+    WRITE_REG(FM_REG_SPUR_DC_RM_CTL,FM_SPUR_DC_RM_CTL_SET_VALUE);
 	WRITE_REG(FM_REG_FMCTL_STI, FM_CTL_STI_MODE_SEEK);	/* seek mode*/
 
 	shark_fm_int_en();
@@ -475,7 +478,11 @@ int trout_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 #endif
 	shark_fm_int_clr();
 
-	return ret;
+    /*Handel False station spuer,restore the default value when stop seek*/
+    WRITE_REG(FM_REG_SPUR_RM_CTL, FM_SPUR_RM_CTL_DEFAULT_VALUE);
+    WRITE_REG(FM_REG_SPUR_DC_RM_CTL, FM_SPUR_DC_RM_CTL_DEFAULT_VALUE);
+
+    return ret;
 }
 
 int trout_fm_get_frequency(u16 *freq)
