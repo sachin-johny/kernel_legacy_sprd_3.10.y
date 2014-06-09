@@ -37,7 +37,7 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
 #include <linux/regulator/consumer.h>
 #endif
 
@@ -670,7 +670,7 @@ static struct notifier_block itm_inetaddr_cb = {
 	.notifier_call = itm_inetaddr_event,
 };
 
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
+#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
 static int vddwpa_wifi_enable_control(int flag)
 {
 	static struct regulator *wpa_wifi = NULL;
@@ -717,7 +717,7 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
 	rf2351_gpio_ctrl_power_enable(1);
 #endif
-#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
+#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
 	vddwpa_wifi_enable_control(1);
 #endif
 
@@ -881,7 +881,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
 	rf2351_gpio_ctrl_power_enable(0);
 #endif
-#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
+#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
 	vddwpa_wifi_enable_control(0);
 #endif
 	dev_info(&pdev->dev, "%s\n", __func__);

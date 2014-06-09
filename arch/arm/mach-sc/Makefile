@@ -52,6 +52,7 @@ obj-$(CONFIG_MACH_SC9620OPENPHONE) += board-sc9620openphone.o
 obj-$(CONFIG_MACH_SC9620OPENPHONE_ZT) += board-sc9620openphone_zt.o
 obj-$(CONFIG_MACH_SC9620FPGA) += board-sc9620fpga.o
 obj-$(CONFIG_MACH_SP8830GEA) += board-sp8830gea.o dma_r4p0.o
+obj-$(CONFIG_MACH_SP7730GGA_LC) += board-sp7730gga_lc.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7731GGA_LC) += board-sp7731gga_lc.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730GGA) += board-sp7730gga.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7730GGAOPENPHONE) += board-sp7730ggaopenphone.o dma_r4p0.o
