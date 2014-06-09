@@ -1514,11 +1514,14 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
         int gpio_button_value_current = 0;
 
         if(0 == headset_button_valid(gpio_get_value(ht->platform_data->gpio_detect))) {
-                PRINT_INFO("headset_button_irq_handler: button is unvalid!!! IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
+                PRINT_INFO("headset_button_irq_handler: button is invalid!!! IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                         ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
                         sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0));
 				headset_button_hardware_bug_fix(ht);
-                headset_irq_button_enable(0, ht->irq_button);
+
+                if(0 == plug_state_last)
+                        headset_irq_button_enable(0, ht->irq_button);
+
                 return IRQ_HANDLED;
         }
 
