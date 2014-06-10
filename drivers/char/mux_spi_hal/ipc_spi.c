@@ -922,7 +922,7 @@ static void  spi_ipc_enable(struct modemsts_chg *s, unsigned int is_enable)
 		return ;
 	}
 	if(is_enable == MODEM_STATUS_ALVIE) {
-		//dev->rwctrl = 0;
+		dev->rwctrl = 0;
 		//dev->ipc_enable = true;
 		//dev->remote_status = REMOTE_ALIVE_STATUS;
 	} else if(is_enable == MODEM_STATUS_REBOOT){
@@ -1022,7 +1022,7 @@ static int mux_ipc_thread(void *data)
 			ipc_FreeAllTxTransferFrame(dev);
 			ipc_freeallrxframe(dev);
 			ap2cp_disable();
-			dev->rwctrl = 0;
+			//dev->rwctrl = 0;
 			dev->ipc_enable = true;
 			continue;
 		}
