@@ -19,16 +19,22 @@
 
 #include <linux/gpio.h>
 #include <linux/mutex.h>
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
 
-
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA)||defined(CONFIG_MACH_SP5735C1EA)
-#define GPIO_RF2351_POWER_CTRL 217
-#elif  defined(CONFIG_MACH_SC9620OPENPHONE) || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
-#define GPIO_RF2351_POWER_CTRL 13
-#else
-#define GPIO_RF2351_POWER_CTRL 169 //defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)
-#endif
 static struct sprd_2351_data rfspi;
+
+static int s_gpio_ctrl_num = 0;
+static bool s_is_gpio_register = false;
+static bool s_is_vddwpa_register = false;
+#define GPIO_RF2351_POWER_CTRL s_gpio_ctrl_num
+
+void sprd_sr2351_gpio_ctrl_power_register(int gpio_num)
+{
+    s_gpio_ctrl_num  = gpio_num;
+    s_is_gpio_register = true;
+    return;
+}
 
 static int sprd_rfspi_wait_write_idle(void)
 {
@@ -175,6 +181,8 @@ static int rf2351_power_count=0;
 
 void rf2351_gpio_ctrl_power_enable(int flag)
 {
+    if(!s_is_gpio_register)
+    return;
 
     if(!flag && (0 == rf2351_power_count))//avoid calling the func  first time with flag =0
     return;
@@ -214,6 +222,47 @@ void rf2351_gpio_ctrl_power_enable(int flag)
 
 
 EXPORT_SYMBOL(rf2351_gpio_ctrl_power_enable);
+
+void sprd_sr2351_vddwpa_ctrl_power_register(void)
+{
+    s_is_vddwpa_register = true;
+    return;
+}
+
+int rf2351_vddwpa_ctrl_power_enable(int flag)
+{
+    static struct regulator *wpa_rf2351 = NULL;
+    static int f_enabled = 0;
+
+    if (!s_is_vddwpa_register)
+    return 0;
+
+    printk("[wpa_rf2351] LDO control : %s\n", flag ? "ON" : "OFF");
+
+    if (flag && (!f_enabled)) {
+        wpa_rf2351 = regulator_get(NULL, "vddwpa");
+        if (IS_ERR(wpa_rf2351)) {
+            printk("rf2351 could not find the vddwpa regulator\n");
+            wpa_rf2351 = NULL;
+            return EIO;
+        } else {
+            regulator_set_voltage(wpa_rf2351, 3400000, 3400000);
+            regulator_enable(wpa_rf2351);
+        }
+        f_enabled = 1;
+    }
+    if (f_enabled && (!flag)) {
+        if (wpa_rf2351) {
+            regulator_disable(wpa_rf2351);
+            regulator_put(wpa_rf2351);
+            wpa_rf2351 = NULL;
+        }
+        f_enabled = 0;
+    }
+    return 0;
+}
+
+EXPORT_SYMBOL(rf2351_vddwpa_ctrl_power_enable);
 
 static struct sprd_2351_interface sprd_rf2351_ops = {
 	.name = "rf2351",

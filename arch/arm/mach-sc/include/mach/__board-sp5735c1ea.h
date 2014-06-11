@@ -114,4 +114,5 @@ Camera:
 #define GPIO_EXT_CHG_DONE   216
 #define GPIO_EXT_CHG_OVI    236
 
+#define GPIO_RF2351_POWER_CTRL_NUM 217
 #endif

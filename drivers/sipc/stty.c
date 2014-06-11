@@ -56,38 +56,6 @@ struct stty_device {
 	struct mutex 		stat_lock;
 };
 
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-static int vddwpa_bt_enable_control(int flag)
-{
-        
-        static struct regulator *wpa_bt = NULL;
-        static int f_enabled = 0;
-        printk("[wpa_bt] LDO control : %s\n", flag ? "ON" : "OFF");
-		
-        if (flag && (!f_enabled)) {
-		    wpa_bt = regulator_get(NULL, "vddwpa");		                     
-                      if (IS_ERR(wpa_bt)) {
-                          printk("bt could not find the vddwpa regulator\n");
-                                   wpa_bt = NULL;
-                                   return EIO;
-                      } else {
-                                   regulator_set_voltage(wpa_bt, 3400000, 3400000);
-                                   regulator_enable(wpa_bt);
-                      }
-                      f_enabled = 1;
-        }
-        if (f_enabled && (!flag))
-        {
-                      if (wpa_bt) {
-                                   regulator_disable(wpa_bt);
-                                   regulator_put(wpa_bt);
-                                   wpa_bt = NULL;
-                      }
-                      f_enabled = 0;
-        }
-        return 0;
-}
-#endif
 static void stty_handler (int event, void* data)
 {
 	struct stty_device *stty = data;
@@ -148,16 +116,7 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 	stty->state = STTY_STATE_OPEN;
 	mutex_unlock(&(stty->stat_lock));
 
-
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-    || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA) \
-    || defined(CONFIG_MACH_SC9620OPENPHONE) || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
     rf2351_gpio_ctrl_power_enable(1);
-#endif
-
-#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
- vddwpa_bt_enable_control(1);
- #endif
 
 	pr_debug("stty_open device success! \n");
 
@@ -184,15 +143,8 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 
 	pr_debug("stty_close device success !\n");
 
-    #if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) || defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-        || defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) || defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM)||defined(CONFIG_MACH_SP5735C1EA) \
-	|| defined(CONFIG_MACH_SC9620OPENPHONE) || defined(CONFIG_MACH_SC9620OPENPHONE_ZT)
-    	rf2351_gpio_ctrl_power_enable(0);
-    #endif
+    rf2351_gpio_ctrl_power_enable(0);
 
-	#if 0//defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-	vddwpa_bt_enable_control(0);
-	#endif
 	return;
 }
 

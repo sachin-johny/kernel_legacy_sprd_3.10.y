@@ -66,6 +66,7 @@
 #include <linux/regulator/consumer.h>
 #include <mach/regulator.h>
 #include <mach/i2s.h>
+#include <linux/sprd_2351.h>
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -786,6 +787,7 @@ static void __init sc8830_init_machine(void)
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+	sprd_sr2351_gpio_ctrl_power_register(GPIO_RF2351_POWER_CTRL_NUM);
 
 }
 
