@@ -26,7 +26,7 @@
 #define FLAG_NODE_Y         (0)
 #define FLAG_NODE_X         (1)
 
-#define NODE_TX_NUM         (21)
+#define NODE_TX_NUM         (22)
 #define NODE_RX_NUM         (14)
 #define NODE_TOTAL_NUM      (NODE_TX_NUM * NODE_RX_NUM)
 

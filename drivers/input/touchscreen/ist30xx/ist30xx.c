@@ -52,7 +52,7 @@ static const unsigned long touch_cpufreq_lock = 1200000;
 #endif
 
 #if IST30XX_USE_KEY
-int ist30xx_key_code[] = { 0, KEY_RECENT, KEY_BACK };
+int ist30xx_key_code[] = { 0, KEY_MENU, KEY_BACK };
 #endif
 
 DEFINE_MUTEX(ist30xx_mutex);
@@ -290,10 +290,15 @@ void ist30xx_print_info(void)
 
 #define CALIB_MSG_MASK          (0xF0000FFF)
 #define CALIB_MSG_VALID         (0x80000CAB)
+#define TRACKING_INTR_VALID     (0x127EA597)
+u32 tracking_intr_value = TRACKING_INTR_VALID;
+extern const u8 *ts_fw;
+extern u32 ts_fw_size;
 int ist30xx_get_info(struct ist30xx_data *data)
 {
 	int ret;
 	u32 calib_msg;
+	u32 ms;
 
 	mutex_lock(&ist30xx_mutex);
 	ist30xx_disable_irq(data);
@@ -332,7 +337,10 @@ int ist30xx_get_info(struct ist30xx_data *data)
 	ret = ist30xx_read_cmd(ts_data->client, CMD_GET_CALIB_RESULT, &calib_msg);
 	if (likely(ret == 0)) {
 		tsp_info("calib status: 0x%08x\n", calib_msg);
-		ist30xx_tracking(calib_msg);
+		ms = get_milli_second();
+		ist30xx_put_track_ms(ms);
+		ist30xx_put_track(&tracking_intr_value, 1);
+		ist30xx_put_track(&calib_msg, 1);
 		if ((calib_msg & CALIB_MSG_MASK) != CALIB_MSG_VALID ||
 		    CALIB_TO_STATUS(calib_msg) > 0) {
 			ist30xx_calibrate(IST30XX_FW_UPDATE_RETRY);
@@ -346,6 +354,7 @@ int ist30xx_get_info(struct ist30xx_data *data)
 		ret = ist30xx_cmd_check_calib(data->client);
 		if (likely(!ret)) {
 			data->status.calib = 1;
+			data->status.calib_msg = 0;
 			event_ms = (u32)get_milli_second();
 			data->status.event_mode = true;
 		}
@@ -520,6 +529,8 @@ static void release_key(int id, u8 key_status)
 	ist30xx_tracking(TRACK_POS_KEY + id);
 	tsp_debug("%s() key%d, status: %d\n", __func__, id, key_status);
 
+	tkey_pressed[id - 1] = false;
+
 	input_sync(ts_data->input_dev);
 }
 #else
@@ -560,10 +571,11 @@ static void clear_input_data(struct ist30xx_data *data)
 	status = PARSE_KEY_STATUS(data->t_status);
 	while (status) {
 		if (status & 1)
-			release_key(id+1, RELEASE_KEY);
+			release_key(id, RELEASE_KEY);
 		status >>= 1;
 		id++;
 	}
+	data->t_status = 0;
 #else
 	int i;
 	finger_info *fingers = (finger_info *)data->prev_fingers;
@@ -817,8 +829,10 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 		goto irq_end;
 
 	ms = get_milli_second();
+#if (EXTEND_COORD_CHECKSUM == 0)	
 	if (unlikely((ms >= event_ms) && (ms - event_ms < 6)))   // Noise detect
 		goto irq_end;
+#endif
 
 	memset(msg, 0, sizeof(msg));
 
@@ -839,6 +853,7 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 
 	event_ms = ms;
 	ist30xx_put_track_ms(event_ms);
+	ist30xx_put_track(&tracking_intr_value, 1);
 	ist30xx_put_track(msg, 1);
 
 	if (unlikely((*msg & CALIB_MSG_MASK) == CALIB_MSG_VALID)) {
@@ -853,7 +868,7 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 #if IST30XX_EXTEND_COORD
 	/* Unknown interrupt data for extend coordinate */
 #if EXTEND_COORD_CHECKSUM
-	if (unlikely(!CHECK_INTR_STATUS2(*msg)))
+	if (unlikely(!CHECK_INTR_STATUS3(*msg)))
 		goto irq_err;
 #else
 	if (unlikely(!CHECK_INTR_STATUS1(*msg) || !CHECK_INTR_STATUS2(*msg)))

@@ -34,6 +34,8 @@
 #if IST30XX_INTERNAL_BIN
 #if defined(CONFIG_MACH_KANAS)
 #include "./firmware/IST3038_FW_KANAS.h"
+#elif defined(CONFIG_MACH_TSHARKWSAMSUNG)
+#include "./firmware/ist3038_fw_tshark_ver0007.h"
 #else
 #include "./firmware/ist3038_fw_kanas_ver0006_20140401.h"
 #endif
