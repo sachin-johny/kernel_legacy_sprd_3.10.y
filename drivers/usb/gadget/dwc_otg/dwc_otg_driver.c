@@ -108,7 +108,7 @@ extern int dwc_udc_state(
 	void
 	);
 extern void usb_phy_init(
-	void
+	struct platform_device *_dev
 	);
 /*-------------------------------------------------------------------------*/
 /* Encapsulate the module parameter settings */
@@ -696,6 +696,7 @@ static int dwc_otg_driver_probe(
 		return NULL;
 	}
 #endif
+	usb_phy_init(_dev);
 
 	dev_dbg(&_dev->dev, "dwc_otg_driver_probe(%p)\n", _dev);
 
@@ -971,7 +972,7 @@ static int __init dwc_otg_driver_init(void)
 	printk(KERN_INFO "%s: version %s\n", dwc_driver_name,
 	       DWC_DRIVER_VERSION);
 	printk(KERN_INFO "Working version %s\n", "No 007 - 10/24/2007");
-	usb_phy_init();
+
 	retval = platform_driver_probe(&dwc_otg_driver, dwc_otg_driver_probe);
 	if (retval < 0) {
 		printk(KERN_ERR "%s retval=%d\n", __func__, retval);
