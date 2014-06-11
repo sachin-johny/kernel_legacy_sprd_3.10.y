@@ -636,6 +636,8 @@ static void ft5x0x_ts_resume_work(struct work_struct *work)
 	ft5x0x_ts_reset();
 	ft5x0x_write_reg(FT5X0X_REG_PERIODACTIVE, 7);
 	enable_irq(this_client->irq);
+	msleep(2);
+	ft5x0x_clear_report_data(g_ft5x0x_ts);
 }
 #endif
 
