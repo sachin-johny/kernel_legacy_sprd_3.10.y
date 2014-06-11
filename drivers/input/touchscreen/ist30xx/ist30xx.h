@@ -69,8 +69,8 @@
 #define IST30XX_MAX_MT_FINGERS  (10)
 #define IST30XX_MAX_KEYS        (5)
 
-#define IST30XX_MAX_X           (480)
-#define IST30XX_MAX_Y           (800)
+#define IST30XX_MAX_X           (540)
+#define IST30XX_MAX_Y           (960)
 #define IST30XX_MAX_W           (15)
 
 #define IST30XX                 (1)
@@ -168,11 +168,12 @@ typedef struct _ALGR_INFO {
 } ALGR_INFO;
 
 #if IST30XX_EXTEND_COORD
-#define EXTEND_COORD_CHECKSUM   (0)
+#define EXTEND_COORD_CHECKSUM   (1)
 #define IST30XX_INTR_STATUS1    (0x71000000)
 #define IST30XX_INTR_STATUS2    (0x00000C00)
 #define CHECK_INTR_STATUS1(n)   (((n & IST30XX_INTR_STATUS1) == IST30XX_INTR_STATUS1) ? 1 : 0)
 #define CHECK_INTR_STATUS2(n)   (((n & IST30XX_INTR_STATUS2) > 0) ? 0 : 1)
+#define CHECK_INTR_STATUS3(n)   (((n & IST30XX_INTR_STATUS2) == IST30XX_INTR_STATUS2) ? 1 : 0)
 #define PARSE_FINGER_CNT(n)     ((n >> 12) & 0xF)
 #define PARSE_KEY_CNT(n)        ((n >> 21) & 0x7)
 #define PARSE_FINGER_STATUS(n)  (n & 0x3FF)         /* Finger status: [9:0] */
