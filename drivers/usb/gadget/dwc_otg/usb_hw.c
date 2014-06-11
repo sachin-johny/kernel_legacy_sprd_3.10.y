@@ -26,6 +26,11 @@
 #include <mach/adi.h>
 #include <linux/io.h>//__raw_writel
 #include <mach/gpio.h>
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
+#endif
 
 #if defined(CONFIG_ARCH_SC8825)||defined(CONFIG_ARCH_SCX35)
 #define  USB_LDO_NAME	"vddusb"
@@ -123,11 +128,22 @@ static void usb_enable_module(int en)
 	}
 }
 #endif
-void usb_phy_init(void)
+void usb_phy_init(struct platform_device *_dev)
 {
 #ifdef CONFIG_USB_CORE_IP_293A
 #if defined(CONFIG_ARCH_SCX35)
 	/*shark and dolphin are the same value with SPRD ref phone*/
+#ifdef CONFIG_OF
+	struct device_node *np = _dev->dev.of_node;
+
+	if (of_property_read_u32(np, "tune_value", &tune_from_uboot))
+	{
+		pr_info("read tune_value error\n");
+		return -ENODEV;
+	}
+	pr_info("Usb_hw.c: [%s]usb phy tune from uboot: 0x%x\n", __FUNCTION__, tune_from_uboot);
+#endif
+
 	__raw_writel(tune_from_uboot,REG_AP_APB_USB_PHY_TUNE);
 
 	//sci_glb_set(REG_AP_APB_USB_PHY_TUNE,BIT(9)|BIT(10)|BIT(11)|BIT(20));
