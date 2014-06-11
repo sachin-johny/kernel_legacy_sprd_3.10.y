@@ -413,7 +413,7 @@ struct platform_device sprd_backlight_device = {
 #else
 struct resource sprd_bl_resource[] = {
 	[0] = {
-#if defined(CONFIG_ARCH_SCX15)||defined(CONFIG_MACH_TSHARKWSAMSUNG)
+#if defined(CONFIG_ARCH_SCX15)
 		.start = 2,
 		.end = 2,
 #else
