@@ -91,8 +91,8 @@
 #define IPC_DBG printk
 
 /* Log Macros */
-#define IPC_SDIO_INFO(fmt...)  //pr_info("IPC_SDIO: " fmt)
-#define IPC_SDIO_DEBUG(fmt...) //pr_debug("IPC_SDIO: " fmt)
+#define IPC_SDIO_INFO(fmt...)  pr_debug("IPC_SDIO: " fmt)
+#define IPC_SDIO_DEBUG(fmt...) pr_debug("IPC_SDIO: " fmt)
 #define IPC_SDIO_WARN(fmt...)   pr_warn("IPC_SDIO: " fmt)
 #define IPC_SDIO_ERR(fmt...)   pr_err("IPC_SDIO: Error: " fmt)
 
