@@ -75,7 +75,6 @@
 #include <linux/i2c-gpio.h>
 #include <linux/battery/fuelgauge/rt5033_fuelgauge.h>
 #include <linux/battery/fuelgauge/rt5033_fuelgauge_impl.h>
-#include <linux/sprd_2351.h>
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -1424,7 +1423,6 @@ static void __init sc8830_init_machine(void)
 		printk("Failed create class \n");
         return PTR_ERR(sec_class);
     }
-	sprd_sr2351_vddwpa_ctrl_power_register();
 }
 
 #ifdef CONFIG_OF

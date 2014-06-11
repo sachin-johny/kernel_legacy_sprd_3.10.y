@@ -36,8 +36,9 @@
 #include <linux/regulator/consumer.h>
 #endif
 
+#ifdef CONFIG_SPRD_2351
 #include <linux/sprd_2351.h>
-
+#endif
 
 #define STTY_DEV_MAX_NR 	1
 #define STTY_MAX_DATA_LEN 		4096
@@ -116,7 +117,9 @@ static int stty_open(struct tty_struct *tty, struct file * filp)
 	stty->state = STTY_STATE_OPEN;
 	mutex_unlock(&(stty->stat_lock));
 
+#ifdef CONFIG_SPRD_2351
     rf2351_gpio_ctrl_power_enable(1);
+#endif
 
 	pr_debug("stty_open device success! \n");
 
@@ -143,7 +146,9 @@ static void stty_close(struct tty_struct *tty, struct file * filp)
 
 	pr_debug("stty_close device success !\n");
 
+#ifdef CONFIG_SPRD_2351
     rf2351_gpio_ctrl_power_enable(0);
+#endif
 
 	return;
 }
