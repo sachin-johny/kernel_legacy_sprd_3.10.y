@@ -368,6 +368,10 @@ static int veth_perform_packet(struct veth_device *veth, uint8_t *data, uint32_t
 					vpkt->plen = ntohs(((struct ipv6hdr *)hdr)->payload_len) +
 						VETH_IPV6_HLEN + VETH_ETH_HLEN;
 				} else {
+					VETH_WARNING("receive packet, invalid proto=%u\n", ver);
+					/* clean vpkt */
+					memset((uint8_t *)vpkt, 0, sizeof(struct veth_rx_packet));
+					vpkt->state = VETH_STATE_COMPLETE_PACKET;
 					return -EINVAL;
 				}
 
@@ -458,16 +462,20 @@ static int veth_perform_packet(struct veth_device *veth, uint8_t *data, uint32_t
 					vpkt->plen = ntohs(((struct ipv6hdr *)hdr)->payload_len) +
 						VETH_IPV6_HLEN + VETH_ETH_HLEN;
 				} else {
-					return -EINVAL;
+					VETH_WARNING("receive packet, invalid proto=%u\n", ver);
+					/* clean vpkt */
+					memset((uint8_t *)vpkt, 0, sizeof(struct veth_rx_packet));
+					vpkt->state = VETH_STATE_COMPLETE_PACKET;
+					continue;
 				}
 
 				/* if plen is greater than ETH_FRAME_LEN, then drop the pkt */
 				if (vpkt->plen > VETH_ETH_FRAME_LEN) {
 					VETH_WARNING("received invalid packet, plen %d\n", vpkt->plen);
 					/* clean vpkt */
-					memset((uint8_t *)vpkt, 0, sizeof(struct veth_rx_packet)    );
+					memset((uint8_t *)vpkt, 0, sizeof(struct veth_rx_packet));
 					vpkt->state = VETH_STATE_COMPLETE_PACKET;
-					return -EINVAL;
+					continue;
 				}
 
 				vpkt->pdlen += pnum;
