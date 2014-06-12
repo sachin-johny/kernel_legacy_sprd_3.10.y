@@ -9,7 +9,7 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x240000; /* 2M+256K */
+/memreserve/ 0x87800000 0x200000; /* 2MK */
 
 /* memory reserved for CPW modem */
 /memreserve/ 0x88000000 0x1b00000; /* 27M */
@@ -18,7 +18,7 @@
 /memreserve/ 0x8a800000 0x201000;/*Offset:168M, SIZE:2M+4k*/
 
 /* memory reserved for ION */
-/memreserve/ 0x87600000 0x8a00000;
+/memreserve/ 0x8fc00000 0x400000; /* 4MK */
 
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
