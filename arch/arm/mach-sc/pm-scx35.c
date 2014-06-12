@@ -578,6 +578,21 @@ static void bak_restore_pub(int bak)
 		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG3, pub_reg_saved.ddr_qos_cfg3, -1UL);
 	}
 }
+static void bak_restore_ap_intc(int bak)
+{
+	static u32 intc0_eb, intc1_eb, intc2_eb,intc3_eb;
+	if(bak) {
+		intc0_eb = sci_glb_read(SPRD_INTC0_BASE + 0x8, -1UL);
+		intc1_eb = sci_glb_read(SPRD_INTC1_BASE + 0x8, -1UL);
+		intc2_eb = sci_glb_read(SPRD_INTC2_BASE + 0x8, -1UL);
+		intc3_eb = sci_glb_read(SPRD_INTC3_BASE + 0x8, -1UL);
+	} else {
+		sci_glb_write(SPRD_INTC0_BASE + 0x8, intc0_eb, -1UL);
+		sci_glb_write(SPRD_INTC1_BASE + 0x8, intc1_eb, -1UL);
+		sci_glb_write(SPRD_INTC2_BASE + 0x8, intc2_eb, -1UL);
+		sci_glb_write(SPRD_INTC3_BASE + 0x8, intc3_eb, -1UL);
+	}
+}
 #define REG_PIN_XTLEN                   ( SPRD_PIN_BASE + 0x0138 )
 #define REG_PIN_CHIP_SLEEP              ( SPRD_PIN_BASE + 0x0208 )
 #define REG_PIN_XTL_BUF_EN0             ( SPRD_PIN_BASE + 0x020C )
@@ -957,6 +972,7 @@ static __used void wait_until_uart1_tx_done(void)
 	bak_restore_ahb(1); \
 	bak_restore_aon(1); \
 	bak_restore_pub(1); \
+	bak_restore_ap_intc(1); \
 	}while(0)
 #define RESTORE_GLOBAL_REG do{ \
 	bak_restore_apb(0); \
@@ -964,6 +980,7 @@ static __used void wait_until_uart1_tx_done(void)
 	bak_restore_aon(0); \
 	bak_restore_ahb(0); \
 	bak_restore_pub(0); \
+	bak_restore_ap_intc(0); \
 	}while(0)
 
 /* arm core sleep*/

@@ -139,6 +139,17 @@ loopq:
 ENDPROC(sc8830_standby_iram)
 
 ENTRY(sc8830_standby_exit_iram)
+    mov	    r2,#0x3
+    ldr	    r0, =0x402b00c0
+check_pub_state:
+    ldr     r1,[r0]
+    and     r1,r1,#0xF0
+    cmp     r1,#0x0
+    bne     check_pub_state
+    sub     r2,r2,#0x1
+    cmp     r2,#0x0
+    bne     check_pub_state
+
 	ldr r0, =REG_AON_APB_EB0_PHY
 	ldr r1, [r0]
 	orr r1, #JTAG_DAP_EN
