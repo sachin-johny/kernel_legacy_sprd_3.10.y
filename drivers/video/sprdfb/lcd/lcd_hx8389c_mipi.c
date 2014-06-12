@@ -15,6 +15,7 @@
  * GNU General Public License for more details.
  */
 
+
 #define pr_fmt(fmt)		"sprdfb_hx8389c: " fmt
 
 #include <linux/kernel.h>
@@ -24,25 +25,31 @@
 
 #include "../sprdfb_panel.h"
 
-#define MAX_DATA 100
-#define MAX_RX_PKT_SIZE 0x37
-#define PANEL_ID_LENGTH 4
-#define PANEL_RETURN_ID 0x3344
-#define PANEL_ACTUAL_ID 0x8389
-#define PANEL_ID_REG 0x04
-#define PANEL_ID_READ_CNT 3
-#define PANEL_ID_OFFSET 1
+#define MAX_DATA				100
+#define DATA_TYPE_SET_RX_PKT_SIZE		0x37
+#define PANEL_READ_CNT				4
 
-#define LCM_TAG_SHIFT 24
-#define LCM_DATA_TYPE_SHITF 16
-#define LCM_TAG_MASK ((1 << LCM_DATA_TYPE_SHITF) - 1)
+#define PANEL_ID_LENGTH 			4
+#define PANEL_RETURN_ID				0x3344
+#define PANEL_ACTUAL_ID				0x8389
+#define PANEL_ID_REG				0x04
+#define PANEL_ID_OFFSET				1
+
+#define PANEL_POWER_MODE_REG			0x0A
+#define PANEL_POWER_MODE_LEN			2
+#define PANEL_NOT_DEAD_STS			0x1C
+#define PANEL_POWER_MODE_OFFSET			1
+
+#define LCM_TAG_SHIFT				24
+#define LCM_DATA_TYPE_SHIFT			16
+#define LCM_TAG_MASK ((1 << LCM_DATA_TYPE_SHIFT) - 1)
 
 #define LCM_TAG_SEND (1 << LCM_TAG_SHIFT)
 #define LCM_TAG_SLEEP (2 << LCM_TAG_SHIFT)
 
 #define LCM_SEND(len) (LCM_TAG_SEND | len)
 #define LCM_SEND_WITH_TYPE(len, type) \
-		(LCM_TAG_SEND | len | (type << LCM_DATA_TYPE_SHITF))
+		(LCM_TAG_SEND | len | (type << LCM_DATA_TYPE_SHIFT))
 #define LCM_SLEEP(ms) (LCM_TAG_SLEEP | ms)
 
 struct panel_cmds {
@@ -174,7 +181,7 @@ static struct panel_cmds sleep_out[] = {
 };
 
 int sprdfb_dsi_tx_cmds(struct panel_spec *panel,
-		struct panel_cmds *cmds, u32 cmds_len, u32 back2hs)
+		struct panel_cmds *cmds, u32 cmds_len, bool force_lp)
 {
 	int i, time;
 	struct ops_mipi *ops = panel->info.mipi->ops;
@@ -191,7 +198,7 @@ int sprdfb_dsi_tx_cmds(struct panel_spec *panel,
 		pr_err("%s: Expected functions are NULL.\n", __func__);
 		return -EFAULT;
 	}
-	if (back2hs) {
+	if (force_lp) {
 		if (work_mode == SPRDFB_MIPI_MODE_CMD)
 			ops->mipi_set_lp_mode();
 		else
@@ -214,7 +221,7 @@ int sprdfb_dsi_tx_cmds(struct panel_spec *panel,
 		cmds++;
 	}
 
-	if (back2hs) {
+	if (force_lp) {
 		if (work_mode == SPRDFB_MIPI_MODE_CMD)
 			ops->mipi_set_hs_mode();
 		else
@@ -224,14 +231,14 @@ int sprdfb_dsi_tx_cmds(struct panel_spec *panel,
 }
 
 int sprdfb_dsi_rx_cmds(struct panel_spec *panel,
-		u8 regs, u16 get_len, u8 *data, u32 back2hs)
+		u8 regs, u16 get_len, u8 *data, bool in_bllp)
 {
 	int ret;
 	struct ops_mipi *ops = panel->info.mipi->ops;
 	u8 pkt_size[2];
 	u16 work_mode = panel->info.mipi->work_mode;
 
-	pr_info("%s, read data len: %d\n", __func__, get_len);
+	pr_debug("%s, read data len: %d\n", __func__, get_len);
 	if (!data) {
 		pr_err("Expected registers or data is NULL.\n");
 		return -EIO;
@@ -243,24 +250,31 @@ int sprdfb_dsi_rx_cmds(struct panel_spec *panel,
 		return -EFAULT;
 	}
 
-	if (back2hs) {
+	if (!in_bllp) {
 		if (work_mode == SPRDFB_MIPI_MODE_CMD)
 			ops->mipi_set_lp_mode();
 		else
 			ops->mipi_set_data_lp_mode();
+		/*
+		 * If cmds is transmitted in LP mode, not in BLLP,
+		 * commands mode should be enabled
+		 * */
+		ops->mipi_set_cmd_mode();
 	}
 
 	pkt_size[0] = get_len & 0xff;
 	pkt_size[1] = (get_len >> 8) & 0xff;
-	ops->mipi_set_cmd_mode();
-	ops->mipi_force_write(MAX_RX_PKT_SIZE, pkt_size, sizeof(pkt_size));
+
+	ops->mipi_force_write(DATA_TYPE_SET_RX_PKT_SIZE,
+			pkt_size, sizeof(pkt_size));
 
 	ret = ops->mipi_force_read(regs, get_len, data);
 	if (ret < 0) {
 		pr_err("%s: dsi read id fail\n", __func__);
 		return -EINVAL;
 	}
-	if (back2hs) {
+
+	if (!in_bllp) {
 		if (work_mode == SPRDFB_MIPI_MODE_CMD)
 			ops->mipi_set_hs_mode();
 		else
@@ -288,7 +302,7 @@ int sprdfb_dsi_panel_sleep(struct panel_spec *panel, u8 is_sleep)
 
 u32 sprdfb_dsi_panel_readid(struct panel_spec *panel)
 {
-	int i, cnt = PANEL_ID_READ_CNT;
+	int i, cnt = PANEL_READ_CNT;
 	u8 regs = PANEL_ID_REG;
 	u8 data[PANEL_ID_LENGTH] = { 0 };
 	u8 id[PANEL_ID_LENGTH] = { 0 };
@@ -297,30 +311,46 @@ u32 sprdfb_dsi_panel_readid(struct panel_spec *panel)
 	id[i++] = PANEL_RETURN_ID & 0xFF;
 	id[i] = (PANEL_RETURN_ID >> 8) & 0xFF;
 	do {
-		sprdfb_dsi_rx_cmds(panel, regs, PANEL_ID_LENGTH, data, false);
-		pr_debug("%s: reading panel id(0x%2x) is ", __func__, regs);
-		for (i = 0; i < PANEL_ID_LENGTH; ++i) {
-			pr_debug("0x%2x, ", data[i]);
-		}
-		pr_debug("\n");
+		sprdfb_dsi_rx_cmds(panel, regs, PANEL_ID_LENGTH, data, true);
 		i = PANEL_ID_OFFSET;
+		pr_debug("%s: reading panel id(0x%2x) is 0x%x, 0x%x",
+				__func__, regs, data[i], data[i+1]);
 		if (data[i] == id[i] && data[i + 1] == id[i + 1])
 			return PANEL_ACTUAL_ID;
 	} while (cnt-- > 0);
 
+	pr_err("%s: failed to read panel id, 0x%x, 0x%x.\n",
+			__func__, data[i], data[i + 1]);
 	return 0;
+}
+
+static int hx8389c_dsi_panel_dead(struct panel_spec *panel)
+{
+	int i, cnt = PANEL_READ_CNT;
+	u8 regs = PANEL_POWER_MODE_REG;
+	u8 data[PANEL_POWER_MODE_LEN] = { 0 };
+	bool in_bllp = false;
+
+#ifdef FB_CHECK_ESD_IN_VFP
+	in_bllp = true;
+#endif
+	do {
+		sprdfb_dsi_rx_cmds(panel, regs, PANEL_POWER_MODE_LEN, data, in_bllp);
+		i = PANEL_POWER_MODE_OFFSET;
+		pr_debug("%s: reading panel power mode(0x%2x) is 0x%x",
+				__func__, regs, data[i]);
+		if ((data[i] & PANEL_NOT_DEAD_STS) == PANEL_NOT_DEAD_STS)
+			return true;
+	} while (cnt-- > 0);
+
+	pr_err("panel is dead, read power mode is 0x%x.\n", data[i]);
+	return false;
 }
 
 static int hx8389c_dsi_panel_init(struct panel_spec *panel)
 {
 	return sprdfb_dsi_tx_cmds(panel, hx8389c_init_cmds,
 			ARRAY_SIZE(hx8389c_init_cmds), false);
-}
-
-static int hx8389c_dsi_panel_dead(struct panel_spec *panel)
-{
-
-	return true;
 }
 
 static struct panel_operations lcd_hx8389c_mipi_ops = {
@@ -368,7 +398,7 @@ static struct panel_spec lcd_hx8389c_mipi_spec = {
 
 static struct panel_cfg lcd_hx8389c_mipi = {
 	.dev_id = SPRDFB_MAINLCD_ID,
-	.lcd_id = 0x8389,
+	.lcd_id = PANEL_ACTUAL_ID,
 	.lcd_name = "lcd_hx8389c_mipi",
 	.panel = &lcd_hx8389c_mipi_spec,
 };
