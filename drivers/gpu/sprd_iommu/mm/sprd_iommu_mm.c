@@ -103,19 +103,21 @@ int sprd_iommu_mm_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, siz
 
 int sprd_iommu_mm_backup(struct sprd_iommu_dev *dev)
 {
-	int err=-1;
-	sprd_iommu_mm_enable(dev);
-	err=sprd_iommu_backup(dev);
-	sprd_iommu_mm_disable(dev);
+	int err=0;
+
+	if (dev->map_count > 0)
+		err=sprd_iommu_backup(dev);
+
 	return err;
 }
 
 int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 {
-	int err=-1;
-	sprd_iommu_mm_enable(dev);
-	err=sprd_iommu_restore(dev);
-	sprd_iommu_mm_disable(dev);
+	int err=0;
+
+	if (dev->map_count > 0)
+		err=sprd_iommu_restore(dev);
+
 	return err;
 }
 
@@ -159,6 +161,7 @@ int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 
 	mutex_lock(&dev->mutex_pgt);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	memset((unsigned long *)(dev->init_data->pgt_base),0xFFFFFFFF,PAGE_ALIGN(dev->init_data->pgt_size));
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
