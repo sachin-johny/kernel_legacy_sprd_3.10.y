@@ -107,13 +107,13 @@ int in_iqmode(void);
 
 int __init __sprd_iq_memblock(void)
 {
-	int i, j;
+	int i;
 	struct membank bank;
 	bool bfound = false;
 	if(!in_iqmode())
 		return -EINVAL;
 	for(i = meminfo.nr_banks; i > 0; i--) {
-		printk("high: %d, start %d, size %d \n", meminfo.bank[i-1].highmem, meminfo.bank[i-1].start,
+		printk("sprd_iq high: %d, start %d, size %d \n", meminfo.bank[i-1].highmem, meminfo.bank[i-1].start,
 			meminfo.bank[i-1].size);
 		if(meminfo.bank[i-1].highmem || meminfo.bank[i-1].size < SPRD_IQ_SIZE)
 			continue;
@@ -130,10 +130,14 @@ int __init __sprd_iq_memblock(void)
 		if(bfound)
 			break;
 	}
-	printk("found mem %d \n", bank.size);
+	printk("sprd_iq found mem %d \n", bank.size);
 	if(bfound) {
-		if(memblock_reserve(bank.start + bank.size - SPRD_IQ_SIZE, SPRD_IQ_SIZE))
+		int err = memblock_reserve(bank.start + bank.size - SPRD_IQ_SIZE, SPRD_IQ_SIZE);
+		if(0 != err)
+		{
+			printk("sprd_iq memblock_reserve err =  %d \n", err);
 			return -ENOMEM;
+		}
 		else {
 			s_iq_addr = bank.start + bank.size - SPRD_IQ_SIZE;
 			return 0;
@@ -182,6 +186,5 @@ void __init sci_reserve(void)
 	ret = __sprd_iq_memblock();
 	if (ret != 0)
 		printk("Fail to reserve mem for sprd iq. errno=%d\n", ret);
-
 #endif
 }
