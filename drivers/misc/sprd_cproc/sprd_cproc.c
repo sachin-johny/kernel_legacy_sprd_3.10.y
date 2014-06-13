@@ -729,9 +729,9 @@ extern void set_section_ro(unsigned long virt, unsigned long numsections);
 	if (rval != 0) {
 		misc_deregister(&cproc->miscdev);
 		sprd_cproc_destroy_pdata(&cproc->initdata);
-		kfree(cproc);
 		printk(KERN_ERR "Cproc failed to request irq %s: %d\n",
 				cproc->initdata->devname, cproc->initdata->wdtirq);
+		kfree(cproc);
 		return rval;
 	}
 
