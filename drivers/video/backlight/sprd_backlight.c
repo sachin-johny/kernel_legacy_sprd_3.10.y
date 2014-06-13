@@ -301,7 +301,8 @@ static const struct backlight_ops sprd_backlight_whiteled_ops = {
 static void sprd_backlight_earlysuspend(struct early_suspend *h)
 {
 	sprdbl.suspend = 1;
-	PRINT_INFO("current brightness = %d\n", sprdbl.bldev->props.brightness);
+	sprdbl.bldev->ops->update_status(sprdbl.bldev);
+	PRINT_INFO("early suspend\n");
 }
 
 static void sprd_backlight_lateresume(struct early_suspend *h)
