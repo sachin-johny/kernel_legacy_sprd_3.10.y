@@ -47,9 +47,9 @@ typedef struct _rot_param_tag {
 struct rot_drv_private{
 	ROT_PARAM_CFG_T cfg;
 	rot_isr_func user_isr_func;
+	spinlock_t rot_drv_lock;
 	void *rot_fd;/*rot file*/
 };
-
 
 int rot_k_module_en(struct device_node *dn);
 int rot_k_module_dis(struct device_node *dn);

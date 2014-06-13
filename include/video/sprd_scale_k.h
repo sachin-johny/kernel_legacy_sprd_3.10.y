@@ -10,23 +10,107 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _SPRD_SCALE_H_
+#define _SPRD_SCALE_H_
 
-#define SCALE_IO_MAGIC                             'S'
-#define SCALE_IO_INPUT_SIZE                        _IOW(SCALE_IO_MAGIC, SCALE_INPUT_SIZE,         struct scale_size)
-#define SCALE_IO_INPUT_RECT                        _IOW(SCALE_IO_MAGIC, SCALE_INPUT_RECT,         struct scale_rect)
-#define SCALE_IO_INPUT_FORMAT                      _IOW(SCALE_IO_MAGIC, SCALE_INPUT_FORMAT,       enum scale_fmt)
-#define SCALE_IO_INPUT_ADDR                        _IOW(SCALE_IO_MAGIC, SCALE_INPUT_ADDR,         struct scale_addr)
-#define SCALE_IO_INPUT_ENDIAN                      _IOW(SCALE_IO_MAGIC, SCALE_INPUT_ENDIAN,       struct scale_endian_sel)
-#define SCALE_IO_OUTPUT_SIZE                       _IOW(SCALE_IO_MAGIC, SCALE_OUTPUT_SIZE,        struct scale_size)
-#define SCALE_IO_OUTPUT_FORMAT                     _IOW(SCALE_IO_MAGIC, SCALE_OUTPUT_FORMAT,      enum scale_fmt)
-#define SCALE_IO_OUTPUT_ADDR                       _IOW(SCALE_IO_MAGIC, SCALE_OUTPUT_ADDR,        struct scale_addr)
-#define SCALE_IO_OUTPUT_ENDIAN                     _IOW(SCALE_IO_MAGIC, SCALE_OUTPUT_ENDIAN,      struct scale_endian_sel)
-#define SCALE_IO_TEMP_BUFF                         _IOW(SCALE_IO_MAGIC, SCALE_TEMP_BUFF,          struct scale_addr)
-#define SCALE_IO_SCALE_MODE                        _IOW(SCALE_IO_MAGIC, SCALE_SCALE_MODE,         enum scle_mode)
-#define SCALE_IO_SLICE_SCALE_HEIGHT                _IOW(SCALE_IO_MAGIC, SCALE_SLICE_SCALE_HEIGHT, uint32_t)
-#define SCALE_IO_START                             _IO(SCALE_IO_MAGIC,  SCALE_START)
-#define SCALE_IO_CONTINUE                          _IO(SCALE_IO_MAGIC,  SCALE_CONTINUE)
-#define SCALE_IO_STOP                              _IO(SCALE_IO_MAGIC,  SCALE_STOP)
-#define SCALE_IO_INIT                              _IO(SCALE_IO_MAGIC,  SCALE_INIT)
-#define SCALE_IO_DEINIT                            _IO(SCALE_IO_MAGIC,  SCALE_DEINIT)
-#define SCALE_IO_IS_DONE                           _IOR(SCALE_IO_MAGIC, SCALE_IS_DONE,            struct scale_frame)
+enum scale_fmt_e {
+	SCALE_YUV422 = 0,
+	SCALE_YUV420,
+	SCALE_YUV400,
+	SCALE_YUV420_3FRAME,
+	SCALE_RGB565,
+	SCALE_RGB888,
+	SCALE_FTM_MAX
+};
+
+enum scale_data_endian_e {
+	SCALE_ENDIAN_BIG = 0,
+	SCALE_ENDIAN_LITTLE,
+	SCALE_ENDIAN_HALFBIG,
+	SCALE_ENDIAN_HALFLITTLE,
+	SCALE_ENDIAN_MAX
+};
+
+enum scale_mode_e {
+	SCALE_MODE_NORMAL = 0,
+	SCALE_MODE_SLICE,
+	SCALE_MODE_SLICE_READDR,
+	SCALE_MODE_MAX
+};
+
+enum scale_process_e {
+	SCALE_PROCESS_SUCCESS = 0,
+	SCALE_PROCESS_EXIT = -1,
+	SCALE_PROCESS_SYS_BUSY = -2,
+	SCALE_PROCESS_MAX = 0xFF
+};
+
+struct scale_size_t {
+	uint32_t w;
+	uint32_t h;
+};
+
+struct scale_rect_t {
+	uint32_t x;
+	uint32_t y;
+	uint32_t w;
+	uint32_t h;
+};
+
+struct scale_addr_t {
+	uint32_t yaddr;
+	uint32_t uaddr;
+	uint32_t vaddr;
+};
+
+struct scale_endian_sel_t {
+	uint8_t y_endian;
+	uint8_t uv_endian;
+	uint8_t reserved0;
+	uint8_t reserved1;
+};
+
+struct scale_slice_param_t {
+	uint32_t slice_height;
+	struct scale_rect_t input_rect;
+	struct scale_addr_t input_addr;
+	struct scale_addr_t output_addr;
+};
+
+struct scale_frame_param_t {
+	struct scale_size_t input_size;
+	struct scale_rect_t input_rect;
+	enum scale_fmt_e input_format;
+	struct scale_addr_t input_addr;
+	struct scale_endian_sel_t input_endian;
+	struct scale_size_t output_size;
+	enum scale_fmt_e output_format;
+	struct scale_addr_t output_addr;
+	struct scale_endian_sel_t output_endian;
+	enum scale_mode_e scale_mode;
+	uint32_t slice_height;
+	void  *coeff_addr;
+};
+
+struct scale_frame_info_t {
+	uint32_t type;
+	uint32_t lock;
+	uint32_t flags;
+	uint32_t fid;
+	uint32_t width;
+	uint32_t height;
+	uint32_t height_uv;
+	uint32_t yaddr;
+	uint32_t uaddr;
+	uint32_t vaddr;
+	struct scale_endian_sel_t endian;
+	enum scale_process_e scale_result;
+};
+
+
+#define SCALE_IO_MAGIC 'S'
+
+#define SCALE_IO_START _IOW(SCALE_IO_MAGIC, 0, struct scale_frame_param_t)
+#define SCALE_IO_CONTINUE _IOW(SCALE_IO_MAGIC, 1, struct scale_slice_param_t)
+
+#endif

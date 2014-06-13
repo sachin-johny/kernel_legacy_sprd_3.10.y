@@ -210,6 +210,10 @@ LOCAL void*                    s_user_data[DCAM_IRQ_NUMBER];
 LOCAL uint32_t                 *s_dcam_scaling_coeff_addr = NULL;
 
 LOCAL DEFINE_MUTEX(dcam_sem);
+LOCAL DEFINE_MUTEX(dcam_scale_sema);
+LOCAL DEFINE_MUTEX(dcam_rot_sema);
+LOCAL DEFINE_MUTEX(dcam_module_sema);
+LOCAL DEFINE_SPINLOCK(dcam_mod_lock);
 LOCAL DEFINE_SPINLOCK(dcam_lock);
 LOCAL DEFINE_SPINLOCK(dcam_glb_reg_cfg_lock);
 LOCAL DEFINE_SPINLOCK(dcam_glb_reg_control_lock);
@@ -533,7 +537,7 @@ int32_t dcam_module_en(struct device_node *dn)
 	int	ret = 0;
 
 	DCAM_TRACE("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
-
+	mutex_lock(&dcam_module_sema);
 	if (atomic_inc_return(&s_dcam_users) == 1) {
 		unsigned int irq_no;
 
@@ -572,9 +576,11 @@ int32_t dcam_module_en(struct device_node *dn)
 		DCAM_TRACE("DCAM: dcam_module_en end \n");
 	}
 	DCAM_TRACE("DCAM: dcam_module_en, Out %d \n", s_dcam_users.counter);
+	mutex_unlock(&dcam_module_sema);
 	return 0;
 fail_exit:
 	atomic_dec(&s_dcam_users);
+	mutex_unlock(&dcam_module_sema);
 	return ret;
 }
 
@@ -582,7 +588,7 @@ int32_t dcam_module_dis(struct device_node *dn)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	int	                    ret = 0;
-
+	mutex_lock(&dcam_module_sema);
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
 	if (atomic_dec_return(&s_dcam_users) == 0) {
@@ -600,6 +606,7 @@ int32_t dcam_module_dis(struct device_node *dn)
 	}
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
+	mutex_unlock(&dcam_module_sema);
 	return rtn;
 }
 
@@ -609,6 +616,9 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	uint32_t                time_out = 0;
 
 	DCAM_TRACE("DCAM: reset: %d \n", reset_mode);
+
+	mutex_lock(&dcam_scale_sema);
+	mutex_lock(&dcam_rot_sema);
 
 	if (DCAM_RST_ALL == reset_mode) {
 		if (atomic_read(&s_dcam_users)) {
@@ -648,6 +658,9 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 	case DCAM_RST_ALL:
 		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
 		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
+		dcam_glb_reg_owr(DCAM_INT_CLR,
+					DCAM_IRQ_LINE_MASK,
+					DCAM_INIT_CLR_REG);
 		dcam_glb_reg_owr(DCAM_INT_MASK,
 						DCAM_IRQ_LINE_MASK,
 						DCAM_INIT_MASK_REG);
@@ -665,7 +678,10 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 		}
 	}
 
-	DCAM_TRACE("DCAM: reset_mode=%x  end \n", reset_mode);
+	mutex_unlock(&dcam_rot_sema);
+	mutex_unlock(&dcam_scale_sema);
+
+	DCAM_TRACE("DCAM: reset: path=%x  end \n", reset_mode);
 
 	return -rtn;
 }
@@ -2034,14 +2050,20 @@ int32_t    dcam_rel_resizer(void)
 int32_t    dcam_resize_start(void)
 {
 	atomic_inc(&s_resize_flag);
+	mutex_lock(&dcam_scale_sema);
 	return 0;
 }
 
 int32_t    dcam_resize_end(void)
 {
-	atomic_dec(&s_resize_flag);
+	unsigned long flag;
 
+	atomic_dec(&s_resize_flag);
+	mutex_unlock(&dcam_scale_sema);
+
+	spin_lock_irqsave(&dcam_mod_lock, flag);
 	if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
+		spin_unlock_irqrestore(&dcam_mod_lock, flag);
 		return 0;
 	}
 
@@ -2051,20 +2073,27 @@ int32_t    dcam_resize_end(void)
 			s_p_dcam_mod->wait_resize_done = 0;
 		}
 	}
+	spin_unlock_irqrestore(&dcam_mod_lock, flag);
 	return 0;
 }
 
 int32_t    dcam_rotation_start(void)
 {
 	atomic_inc(&s_rotation_flag);
+	mutex_lock(&dcam_rot_sema);
 	return 0;
 }
 
 int32_t    dcam_rotation_end(void)
 {
-	atomic_dec(&s_rotation_flag);
+	unsigned long flag;
 
+	atomic_dec(&s_rotation_flag);
+	mutex_unlock(&dcam_rot_sema);
+
+	spin_lock_irqsave(&dcam_mod_lock, flag);
 	if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
+		spin_unlock_irqrestore(&dcam_mod_lock, flag);
 		return 0;
 	}
 
@@ -2074,6 +2103,7 @@ int32_t    dcam_rotation_end(void)
 			s_p_dcam_mod->wait_rotation_done = 0;
 		}
 	}
+	spin_unlock_irqrestore(&dcam_mod_lock, flag);
 	return 0;
 }
 
@@ -3457,7 +3487,11 @@ LOCAL void    _dcam_err_pre_proc(void)
 	_dcam_stopped();
 	if (0 == atomic_read(&s_resize_flag) &&
 		0 == atomic_read(&s_rotation_flag)) {
-		dcam_reset(DCAM_RST_ALL);
+		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
+		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
+		dcam_glb_reg_owr(DCAM_INT_MASK,
+				DCAM_IRQ_LINE_MASK,
+				DCAM_INIT_MASK_REG);
 	}
 	return;
 }
@@ -3516,12 +3550,14 @@ LOCAL int  _dcam_internal_init(void)
 }
 LOCAL void _dcam_internal_deinit(void)
 {
-	if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
-		printk("DCAM: Invalid addr, 0x%x", (uint32_t)s_p_dcam_mod);
-	} else {
+	unsigned long flag;
+
+	spin_lock_irqsave(&dcam_mod_lock, flag);
+	if (!DCAM_ADDR_INVALID(s_p_dcam_mod)) {
 		vfree(s_p_dcam_mod);
 		s_p_dcam_mod = NULL;
 	}
+	spin_unlock_irqrestore(&dcam_mod_lock, flag);
 	return;
 }
 

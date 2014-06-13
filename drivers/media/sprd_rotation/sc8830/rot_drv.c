@@ -23,8 +23,6 @@
 
 #define ALGIN_FOUR 0x03
 
-static DEFINE_SPINLOCK(rot_drv_lock);
-
 int rot_k_module_en(struct device_node *dn)
 {
 	int ret = 0;
@@ -34,8 +32,6 @@ int rot_k_module_en(struct device_node *dn)
 	if (ret) {
 		printk("dcam_module_en, failed  %d \n", ret);
 	}
-
-	spin_lock_init(&rot_drv_lock);
 
 	return ret;
 }
@@ -140,12 +136,14 @@ int rot_k_isr(struct dcam_frame* dcam_frm, void* u_data)
 		goto isr_exit;
 	}
 
-	spin_lock_irqsave(&rot_drv_lock, flag);
+	dcam_rotation_end();
+
+	spin_lock_irqsave(&private->rot_drv_lock, flag);
 	user_isr_func = private->user_isr_func;
 	if (user_isr_func) {
 		(*user_isr_func)(private->rot_fd);
 	}
-	spin_unlock_irqrestore(&rot_drv_lock, flag);
+	spin_unlock_irqrestore(&private->rot_drv_lock, flag);
 
 isr_exit:
 	return 0;
@@ -162,9 +160,9 @@ int rot_k_isr_reg(rot_isr_func user_func,struct rot_drv_private *drv_private)
 			goto reg_exit;
 		}
 
-		spin_lock_irqsave(&rot_drv_lock, flag);
+		spin_lock_irqsave(&drv_private->rot_drv_lock, flag);
 		drv_private->user_isr_func = user_func;
-		spin_unlock_irqrestore(&rot_drv_lock, flag);
+		spin_unlock_irqrestore(&drv_private->rot_drv_lock, flag);
 
 		dcam_reg_isr(DCAM_ROT_DONE, rot_k_isr, drv_private);
 	} else {

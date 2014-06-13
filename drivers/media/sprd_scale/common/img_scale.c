@@ -23,378 +23,302 @@
 #include <linux/kthread.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include "dcam_drv.h"
 #include <linux/vmalloc.h>
 
-#include "dcam_drv.h"
-
-#define PARAM_SIZE 128
-#define SCALE_USER_MAX 4
-#define INVALID_USER_ID PID_MAX_DEFAULT
+#define SCALE_DEVICE_NAME "sprd_scale"
 #define SCALE_TIMEOUT 5000/*ms*/
+#define SCALE_MINOR MISC_DYNAMIC_MINOR
+#define SC_COEFF_BUF_SIZE (24 << 10)
 
-struct scale_user {
-	pid_t pid;
-	struct device_node *dn;
-	struct semaphore sem_done;
-};
+static struct scale_k_private *s_scale_private;
 
-static struct mutex scale_param_cfg_mutex;
-static struct mutex scale_dev_open_mutex;
-static atomic_t scale_users = ATOMIC_INIT(0);
-static struct proc_dir_entry *img_scale_proc_file;
-static struct scale_frame frm_rtn;
-static struct scale_user *g_scale_user = NULL;
-static pid_t cur_task_pid;
-static uint32_t is_scale_hw_inited;
-
-static struct scale_user *scale_get_user(pid_t user_pid)
+static void scale_k_irq(void *fd)
 {
-	struct scale_user *ret_user = NULL;
-	int i = 0;
+	struct scale_k_file *scale_file = (struct scale_k_file *)fd;
 
-	for (i = 0; i < SCALE_USER_MAX; i ++) {
-		if ((g_scale_user + i)->pid == user_pid) {
-			ret_user = g_scale_user + i;
-			break;
-		}
+	if (!scale_file) {
+		printk("scale_k_irq error: hand is null");
+		return;
 	}
 
-	if (ret_user == NULL) {
-		for (i = 0; i < SCALE_USER_MAX; i ++) {
-			if ((g_scale_user + i)->pid == INVALID_USER_ID) {
-				ret_user = g_scale_user + i;
-				ret_user->pid = user_pid;
-				break;
-			}
-		}
-	}
-
-	return ret_user;
-}
-
-static void scale_done(struct scale_frame* frame, void* u_data)
-{
-	struct scale_user *p_user = NULL;
-	p_user = scale_get_user(cur_task_pid);
 	printk("sc done.\n");
-	(void)u_data;
-	memcpy(&frm_rtn, frame, sizeof(struct scale_frame));
-	frm_rtn.type = 0;
-	up(&p_user->sem_done);
+
+	up(&scale_file->scale_done_sem);
 }
 
-static int img_scale_hw_init(struct device_node *dn)
+struct platform_device*  scale_k_get_platform_device(void)
+{
+	struct device *dev;
+
+	dev = bus_find_device_by_name(&platform_bus_type, NULL, SCALE_DEVICE_NAME);
+	if (!dev) {
+		printk("%s error: find device\n", __func__);
+		return NULL;
+	}
+
+	return to_platform_device(dev);
+}
+
+static void scale_k_file_init(struct scale_k_file *fd, struct scale_k_private *scale_private)
+{
+	fd->scale_private = scale_private;
+
+	sema_init(&fd->scale_done_sem, 0);
+
+	fd->drv_private.scale_fd = (void*)fd;
+	fd->drv_private.path_info.coeff_addr = scale_private->coeff_addr;
+
+	spin_lock_init(&fd->drv_private.scale_drv_lock);
+	sema_init(&fd->drv_private.path_info.done_sem, 0);
+}
+
+static int scale_k_open(struct inode *node, struct file *file)
 {
 	int ret = 0;
+	struct scale_k_private *scale_private = s_scale_private; //platform_get_drvdata(scale_k_get_platform_device())
+	struct scale_k_file *fd = NULL;
+	struct miscdevice *md = file->private_data ;
 
-	ret = scale_module_en(dn);
-	if (unlikely(ret)) {
-		printk("Failed to enable scale module \n");
-		ret = -EIO;
+	if (!scale_private) {
+		ret = -EFAULT;
+		printk("scale_k_open error: scale_private is null \n");
 		goto exit;
 	}
 
-	ret = scale_reg_isr(SCALE_TX_DONE, scale_done, NULL);
-	if (unlikely(ret)) {
-		printk("Failed to register ISR \n");
-		ret = -EACCES;
-		goto reg_faile;
-	} else {
-		dcam_resize_start();
+	fd = vzalloc(sizeof(*fd));
+	if (!fd) {
+		ret = -ENOMEM;
+		printk("scale_k_open error: alloc \n");
 		goto exit;
 	}
+	fd ->dn = md->this_device->of_node;
+	scale_k_file_init(fd, scale_private);
 
-reg_faile:
-	scale_module_dis(dn);
+	file->private_data = fd;
+
+	SCALE_TRACE("scale_k_open fd=0x%x ret=%d\n", (int)fd, ret);
+
 exit:
-	if (0 == ret) {
-		is_scale_hw_inited = 1;
-	}
-	return ret;
-
-}
-
-static int img_scale_hw_deinit(struct device_node *dn)
-{
-	int ret = 0;
-
-	scale_reg_isr(SCALE_TX_DONE, NULL, NULL);
-	scale_module_dis(dn);
-
-	is_scale_hw_inited = 0;
-
 	return ret;
 }
 
-static int img_scale_open(struct inode *node, struct file *pf)
-{
-	int ret = 0;
-	struct scale_user *p_user = NULL;
-
-	mutex_lock(&scale_dev_open_mutex);
-
-	SCALE_TRACE("img_scale_open \n");
-
-	atomic_inc(&scale_users);
-
-	p_user = scale_get_user(current->pid);
-	if (NULL == p_user) {
-		printk("img_scale_open user cnt full  pid:%d. \n",current->pid);
-		ret = -1;
-		goto open_fail;
-	} else {
-		struct miscdevice *md = pf->private_data;
-		p_user->dn = md->this_device->of_node;
-		pf->private_data = p_user;
-		goto exit;
-	}
-
-open_fail:
-	atomic_dec(&scale_users);
-exit:
-	mutex_unlock(&scale_dev_open_mutex);
-
-	SCALE_TRACE("img_scale_open %d \n", ret);
-
-	return ret;
-}
-
-ssize_t img_scale_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
-{
-	(void)file; (void)u_data; (void)cnt_ret;
-	printk("scale write %d, \n", cnt);
-	frm_rtn.type = 0xFF;
-	up(&(((struct scale_user *)(file->private_data))->sem_done));
-
-	return 1;
-}
-
-ssize_t img_scale_read(struct file *file, char __user *u_data, size_t cnt, loff_t *cnt_ret)
+ssize_t scale_k_read(struct file *file, char __user *u_data, size_t cnt, loff_t *cnt_ret)
 {
 	uint32_t rt_word[2];
 
+	(void)file; (void)cnt; (void)cnt_ret;
+
 	if (cnt < sizeof(uint32_t)) {
-		printk("img_scale_read , wrong size of u_data %d \n", cnt);
+		printk("scale_k_read error: wrong size of u_data: %d \n", cnt);
 		return -1;
 	}
 
 	rt_word[0] = SCALE_LINE_BUF_LENGTH;
 	rt_word[1] = SCALE_SC_COEFF_MAX;
-	SCALE_TRACE("img_scale_read line threshold %d %d, sc factor \n", rt_word[0], rt_word[1]);
-	(void)file; (void)cnt; (void)cnt_ret;
-	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
+
+	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2 * sizeof(uint32_t)));
 }
 
-static int img_scale_release(struct inode *node, struct file *file)
+static int scale_k_release(struct inode *node, struct file *file)
 {
-	if (0 == atomic_dec_return(&scale_users)) {
-		if (is_scale_hw_inited) {
-			img_scale_hw_deinit(((struct scale_user *)(file->private_data))->dn);
-		}
-		mutex_init(&scale_param_cfg_mutex);
-		mutex_init(&scale_dev_open_mutex);
-		cur_task_pid = INVALID_USER_ID;
-	}
-	((struct scale_user *)(file->private_data))->pid = INVALID_USER_ID;
-	sema_init(&(((struct scale_user *)(file->private_data))->sem_done), 0);
+	struct scale_k_file *fd = NULL;
+	struct scale_k_private *scale_private = NULL;
 
-	SCALE_TRACE("img_scale_release \n");
+	fd = file->private_data;
+	if (!fd) {
+		goto exit;
+	}
+
+	scale_private = fd->scale_private;
+	if (!scale_private) {
+		goto fd_free;
+	}
+
+	down(&scale_private->start_sem);
+	up(&scale_private->start_sem);
+
+fd_free:
+	vfree(fd);
+	fd = NULL;
+	file->private_data = NULL;
+
+exit:
+	SCALE_TRACE("scale_k_release\n");
+
 	return 0;
 }
 
-static long img_scale_ioctl(struct file *file,
-				unsigned int cmd,
-				unsigned long arg)
+static long scale_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
 	int ret = 0;
-	uint8_t param[PARAM_SIZE];
-	uint32_t param_size;
-	void *data = param;
+	struct scale_k_private *scale_private;
+	struct scale_k_file *fd;
+	struct scale_frame_param_t frame_params;
+	struct scale_slice_param_t slice_params;
 
-	param_size = _IOC_SIZE(cmd);
-	SCALE_TRACE("img_scale_ioctl,io 0x%x, io number 0x%x, param_size %d \n",
-		cmd,
-		_IOC_NR(cmd),
-		param_size);
-
-	if (param_size) {
-		if (copy_from_user(data, (void*)arg, param_size)) {
-			printk("img_scale_ioctl, failed to copy param \n");
-			ret = -EFAULT;
-			goto exit;
-		}
+	fd = file->private_data;
+	if (!fd) {
+		ret = - EFAULT;
+		printk("scale_k_ioctl error:  fd null \n");
+		goto ioctl_exit;
 	}
-	if (SCALE_IO_IS_DONE == cmd) {
-		ret = down_interruptible(&(((struct scale_user *)(file->private_data))->sem_done));
+
+	scale_private = fd->scale_private;
+	if (!scale_private) {
+		ret = -EFAULT;
+		printk("scale_k_ioctl erro: scale private null \n");
+		goto ioctl_exit;
+	}
+
+	switch (cmd) {
+	case SCALE_IO_START:
+
+		down(&scale_private->start_sem);
+
+		ret = scale_k_module_en(fd->dn);
+		if (unlikely(ret)) {
+			printk("rot_k_ioctl erro: scale_module_en\n");
+			up(&scale_private->start_sem);
+			goto ioctl_exit;
+		}
+
+		ret = scale_k_isr_reg(scale_k_irq, &fd->drv_private);
+		if (unlikely(ret)) {
+			printk("rot_k_ioctl error:  scale_k_isr_reg\n");
+			scale_k_module_dis(fd->dn);
+			up(&scale_private->start_sem);
+			goto ioctl_exit;
+
+		}
+
+		ret = copy_from_user(&frame_params, (struct scale_frame_param_t *)arg, sizeof(frame_params));
 		if (ret) {
-			ret = 0;
-			printk("img_scale_ioctl, interruptible\n");
-			frm_rtn.scale_result = SCALE_PROCESS_SYS_BUSY;
-		} else {
-			if (frm_rtn.type) {
-				ret = -1;
-				frm_rtn.scale_result = SCALE_PROCESS_EXIT;
-			} else {
-				frm_rtn.scale_result = SCALE_PROCESS_SUCCESS;
-			}
-		}
-		if (copy_to_user((void*)arg, &frm_rtn, sizeof(struct scale_frame))) {
-			printk("img_scale_ioctl, failed to copy frame info \n");
+			printk("rot_k_ioctl error: get frame param info \n");
+			scale_k_module_dis(fd->dn);
+			up(&scale_private->start_sem);
+			goto ioctl_exit;
 		}
 
-	} else {
-		if (cur_task_pid == INVALID_USER_ID) {
-			mutex_lock(&scale_param_cfg_mutex);
-			cur_task_pid = ((struct scale_user *)(file->private_data))->pid;
-		} else if (cur_task_pid != ((struct scale_user *)(file->private_data))->pid) {
-			mutex_lock(&scale_param_cfg_mutex);
+		ret = scale_k_start(&frame_params, &fd->drv_private.path_info);
+		if (ret) {
+			printk("rot_k_ioctl error: frame start \n");
+			scale_k_module_dis(fd->dn);
+			up(&scale_private->start_sem);
+			goto ioctl_exit;
 		}
 
-		if (SCALE_IO_INIT == cmd) {
-			ret = img_scale_hw_init(((struct scale_user *)(file->private_data))->dn);
-		} else if (SCALE_IO_DEINIT == cmd) {
-			ret = img_scale_hw_deinit(((struct scale_user *)(file->private_data))->dn);
-			cur_task_pid = INVALID_USER_ID;
-			mutex_unlock(&scale_param_cfg_mutex);
-		} else {
-			ret = scale_cfg(_IOC_NR(cmd), data);
+		ret = down_timeout(&fd->scale_done_sem, msecs_to_jiffies(5000));
+		if (ret) {
+			printk("scale_k_ioctl error:  interruptible time out\n");
+			goto ioctl_out;
 		}
 
+		scale_k_stop();
+
+		scale_k_module_dis(fd->dn);
+
+		up(&scale_private->start_sem);
+
+		break;
+
+	case SCALE_IO_CONTINUE:
+		/*Caution: slice scale is not supported by current driver.Please do not use it*/
+		ret = copy_from_user(&slice_params, (struct scale_slice_param_t *)arg, sizeof(slice_params));
+		if (ret) {
+			printk("rot_k_ioctl error: get slice param info \n");
+			goto ioctl_exit;
+		}
+
+		ret = scale_k_continue(&slice_params, &fd->drv_private.path_info);
+		if (ret) {
+			printk("rot_k_ioctl error: continue \n");
+		}
+		break;
+
+	default:
+		break;
 	}
 
-	SCALE_TRACE("img_scale_ioctl,io 0x%x, done \n", cmd);
-
-exit:
-	if (ret) {
-		SCALE_TRACE("img_scale_ioctl, error code %d \n", ret);
-	}
+ioctl_exit:
 	return ret;
 
+ioctl_out:
+	dcam_resize_end();
+	scale_k_stop();
+	scale_k_module_dis(fd->dn);
+	up(&scale_private->start_sem);
+	return ret;
 }
 
-static struct file_operations img_scale_fops = {
+static struct file_operations scale_fops = {
 	.owner = THIS_MODULE,
-	.open = img_scale_open,
-	.write = img_scale_write,
-	.read = img_scale_read,
-	.unlocked_ioctl = img_scale_ioctl,
-	.release = img_scale_release
+	.open = scale_k_open,
+	.read = scale_k_read,
+	.unlocked_ioctl = scale_k_ioctl,
+	.release = scale_k_release,
 };
 
-static struct miscdevice img_scale_dev = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "sprd_scale",
-	.fops = &img_scale_fops
+static struct miscdevice scale_dev = {
+	.minor = SCALE_MINOR,
+	.name = SCALE_DEVICE_NAME,
+	.fops = &scale_fops,
 };
 
-#if 0
-static int img_scale_proc_read(char *page,
-			char **start,
-			off_t off,
-			int count,
-			int *eof,
-			void *data)
+int scale_k_probe(struct platform_device *pdev)
 {
+	int ret;
+	struct scale_k_private *scale_private;
 
-	int len = 0, ret;
-	uint32_t *reg_buf;
-	uint32_t reg_buf_len = 0x800;
-	uint32_t print_len = 0, print_cnt = 0;
-
-	(void)start; (void)off; (void)count; (void)eof;
-
-	reg_buf = (uint32_t*)vzalloc(reg_buf_len);
-	if (!reg_buf) {
-		printk("alloc reg_buff fail");
-		return len;
+	scale_private = devm_kzalloc(&pdev->dev, sizeof(*scale_private), GFP_KERNEL);
+	if (!scale_private) {
+		return -ENOMEM;
 	}
-	memset(reg_buf, 0, reg_buf_len);
-	ret = scale_read_registers(reg_buf, &reg_buf_len);
-	if (ret)
-		return len;
-
-	len += sprintf(page + len, "********************************************* \n");
-	len += sprintf(page + len, "scale registers \n");
-	print_cnt = 0;
-	while (print_len < reg_buf_len) {
-		len += sprintf(page + len, "offset 0x%x : 0x%x, 0x%x, 0x%x, 0x%x \n",
-			print_len,
-			reg_buf[print_cnt],
-			reg_buf[print_cnt+1],
-			reg_buf[print_cnt+2],
-			reg_buf[print_cnt+3]);
-		print_cnt += 4;
-		print_len += 16;
+	scale_private->coeff_addr = (void *)vzalloc(SC_COEFF_BUF_SIZE);
+	if (!scale_private->coeff_addr) {
+		devm_kfree(&pdev->dev, scale_private);
+		return -ENOMEM;
 	}
-	len += sprintf(page + len, "********************************************* \n");
-	len += sprintf(page + len, "The end of DCAM device \n");
-	msleep(10);
-	vfree(reg_buf);
+	sema_init(&scale_private->start_sem, 1);
 
-	return len;
-}
-#endif
+	platform_set_drvdata(pdev, scale_private);
 
-int img_scale_probe(struct platform_device *pdev)
-{
-	int ret = 0;
-	int i = 0;
-	struct scale_user *p_user = NULL;
+	s_scale_private = scale_private;
 
-	printk(KERN_ALERT"scale_probe called\n");
-
-	ret = misc_register(&img_scale_dev);
+	ret = misc_register(&scale_dev);
 	if (ret) {
-		SCALE_TRACE("cannot register miscdev (%d)\n", ret);
-		goto exit;
+		printk("scale_k_probe error: ret=%d\n", ret);
+		ret = -EACCES;
+		goto probe_out;
 	}
-/*
-	img_scale_proc_file = create_proc_read_entry("driver/scale",
-						0444,
-						NULL,
-						img_scale_proc_read,
-						NULL);
-	if (unlikely(NULL == img_scale_proc_file)) {
-		printk("Can't create an entry for scale in /proc \n");
-		ret = ENOMEM;
-		goto exit;
-	}
-*/
-	/* initialize locks */
-	mutex_init(&scale_param_cfg_mutex);
-	mutex_init(&scale_dev_open_mutex);
 
-	g_scale_user = vzalloc(SCALE_USER_MAX * sizeof(struct scale_user));
-	if (NULL == g_scale_user) {
-		printk("scale_user, no mem");
-		return -1;
-	}
-	p_user = g_scale_user;
-	for (i = 0; i < SCALE_USER_MAX; i++) {
-		p_user->pid = INVALID_USER_ID;
-		sema_init(&p_user->sem_done, 0);
-		p_user++;
-	}
-	cur_task_pid = INVALID_USER_ID;
-	is_scale_hw_inited = 0;
-	printk(KERN_ALERT"scale_probe Success\n");
+	goto exit;
+
+probe_out:
+	vfree(scale_private->coeff_addr);
+	devm_kfree(&pdev->dev, scale_private);
+	platform_set_drvdata(pdev, NULL);
 exit:
-	return ret;
+	return 0;
 }
 
-static int img_scale_remove(struct platform_device *dev)
+static int scale_k_remove(struct platform_device *pdev)
 {
-	SCALE_TRACE( "scale_remove called !\n");
+	struct scale_k_private *scale_private;
 
-	if (g_scale_user) {
-		vfree(g_scale_user);
+	scale_private = platform_get_drvdata(pdev);
+
+	if (!scale_private)
+		goto remove_exit;
+
+	misc_deregister(&scale_dev);
+	if (scale_private->coeff_addr) {
+		vfree(scale_private->coeff_addr);
 	}
+	devm_kfree(&pdev->dev, scale_private);
+	platform_set_drvdata(pdev, NULL);
 
-	if (img_scale_proc_file) {
-		remove_proc_entry("driver/scale", NULL);
-	}
-
-	misc_deregister(&img_scale_dev);
+remove_exit:
 	return 0;
 }
 
@@ -403,40 +327,33 @@ static const struct of_device_id of_match_table_scale[] = {
 	{ },
 };
 
-static struct platform_driver img_scale_driver =
+static struct platform_driver scale_driver =
 {
-	.probe = img_scale_probe,
-	.remove = img_scale_remove,
+	.probe = scale_k_probe,
+	.remove = scale_k_remove,
 	.driver = {
 		.owner = THIS_MODULE,
-		.name = "sprd_scale",
+		.name = SCALE_DEVICE_NAME,
 		.of_match_table = of_match_ptr(of_match_table_scale),
 	}
 };
 
-int __init img_scale_init(void)
+int __init scale_k_init(void)
 {
-	if (platform_driver_register(&img_scale_driver) != 0) {
-		printk("platform device register Failed \n");
-		return -1;
-	}
-
-	if (scale_coeff_alloc()) {
+	if (platform_driver_register(&scale_driver) != 0) {
+		printk("platform scale device register Failed \n");
 		return -1;
 	}
 
 	return 0;
 }
 
-void img_scale_exit(void)
+void scale_k_exit(void)
 {
-	scale_coeff_free();
-	platform_driver_unregister(&img_scale_driver);
+	platform_driver_unregister(&scale_driver);
 }
 
-module_init(img_scale_init);
-module_exit(img_scale_exit);
-
-MODULE_DESCRIPTION("Image Scale Driver");
+module_init(scale_k_init);
+module_exit(scale_k_exit);
+MODULE_DESCRIPTION("Sprd Scale Driver");
 MODULE_LICENSE("GPL");
-
