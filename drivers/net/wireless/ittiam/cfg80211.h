@@ -135,6 +135,12 @@ typedef struct android_wifi_priv_cmd {
 	int total_len;
 } android_wifi_priv_cmd;
 
+struct itm_ieee80211_regdomain {
+	u32 n_reg_rules;
+	char alpha2[2];
+	struct ieee80211_reg_rule reg_rules[];
+};
+
 void itm_cfg80211_report_connect_result(struct itm_priv *itm_priv);
 void itm_cfg80211_report_disconnect_done(struct itm_priv *itm_priv);
 void itm_cfg80211_report_scan_done(struct itm_priv *itm_priv, bool aborted);

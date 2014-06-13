@@ -1338,6 +1338,34 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	return 0;
 }
 
+int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom, u16 len)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_regdom *regdom_ptr =
+	    (struct wlan_sipc_regdom *)send_buf->u.cmd.variable;
+	int ret;
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	regdom_ptr->len = len;
+	memcpy(regdom_ptr->value, regdom, len);
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	    + sizeof(regdom_ptr->len) + len;
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_REGDOM);
+
+	if (ret) {
+		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	return 0;
+}
+
 void itm_wlan_get_ap_time(u8 *ts)
 {
 	unsigned long long t;

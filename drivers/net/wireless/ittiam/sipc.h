@@ -83,6 +83,8 @@ enum wlan_sipc_cmd_id {
 	WIFI_CMD_PM_EARLY_SUSPEND,
 	WIFI_CMD_PM_LATER_RESUME,
 	WIFI_CMD_BLACKLIST,
+
+	WIFI_CMD_REGDOM,
 	WIFI_CMD_MAX
 };
 
@@ -186,6 +188,9 @@ extern int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc);
 
 extern int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc);
+
+extern int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom,
+				   u16 len);
 extern void itm_wlan_get_ap_time(u8 *ts);
 #ifdef CONFIG_OF
 extern void itm_wlan_sipc_sblock_deinit(int sblock_ch);

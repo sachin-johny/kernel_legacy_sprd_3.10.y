@@ -112,7 +112,7 @@ static struct ieee80211_channel itm_2ghz_channels[] = {
 	CHAN2G(14, 2484, 0),
 };
 
-static struct ieee80211_channel itm_5ghz_channels[] = {
+/*static struct ieee80211_channel itm_5ghz_channels[] = {
 	CHAN5G(34, 0), CHAN5G(36, 0),
 	CHAN5G(38, 0), CHAN5G(40, 0),
 	CHAN5G(42, 0), CHAN5G(44, 0),
@@ -132,7 +132,7 @@ static struct ieee80211_channel itm_5ghz_channels[] = {
 	CHAN5G(200, 0), CHAN5G(204, 0),
 	CHAN5G(208, 0), CHAN5G(212, 0),
 	CHAN5G(216, 0),
-};
+};*/
 
 static struct ieee80211_supported_band itm_band_2ghz = {
 	.n_channels = ARRAY_SIZE(itm_2ghz_channels),
@@ -143,14 +143,14 @@ static struct ieee80211_supported_band itm_band_2ghz = {
 	.ht_cap.ht_supported = true,
 };
 
-static struct ieee80211_supported_band itm_band_5ghz = {
+/*static struct ieee80211_supported_band itm_band_5ghz = {
 	.n_channels = ARRAY_SIZE(itm_5ghz_channels),
 	.channels = itm_5ghz_channels,
 	.n_bitrates = ITM_A_RATE_NUM,
 	.bitrates = itm_a_rates,
 	.ht_cap.cap = itm_g_htcap,
 	.ht_cap.ht_supported = true,
-};
+};*/
 
 static const u32 itm_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_WEP40,
@@ -1719,6 +1719,99 @@ int itm_get_mac_from_cfg(struct itm_priv *priv)
 	return 0;
 }
 
+static void itm_cfg80211_reg_notify(struct wiphy *wiphy,
+				    struct regulatory_request *request)
+{
+	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
+	struct itm_priv *priv = *priv_ptr;
+	struct ieee80211_supported_band *sband;
+	struct ieee80211_channel *chan;
+	const struct ieee80211_freq_range *freq_range;
+	const struct ieee80211_reg_rule *reg_rule;
+	struct itm_ieee80211_regdomain *rd = NULL;
+	u32 band, channel, i;
+	u32 last_start_freq;
+	u32 n_rules = 0, rd_size;
+
+	wiphy_info(wiphy, "%s %c%c initiator %d hint_type %d\n", __func__,
+		   request->alpha2[0], request->alpha2[1],
+		   request->initiator, request->user_reg_hint_type);
+
+	/* Figure out the actual rule number */
+	for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
+		sband = wiphy->bands[band];
+		if (!sband)
+			continue;
+
+		last_start_freq = 0;
+		for (channel = 0; channel < sband->n_channels; channel++) {
+			chan = &sband->channels[channel];
+
+			reg_rule =
+			    freq_reg_info(wiphy, MHZ_TO_KHZ(chan->center_freq));
+			if (IS_ERR(reg_rule))
+				continue;
+
+			freq_range = &reg_rule->freq_range;
+			if (last_start_freq != freq_range->start_freq_khz) {
+				last_start_freq = freq_range->start_freq_khz;
+				n_rules++;
+			}
+		}
+	}
+
+	rd_size = sizeof(struct itm_ieee80211_regdomain) +
+	    n_rules * sizeof(struct ieee80211_reg_rule);
+
+	rd = kzalloc(rd_size, GFP_KERNEL);
+	if (!rd) {
+		wiphy_err(wiphy,
+			  "Failed to allocate itm_ieee80211_regdomain\n");
+		return;
+	}
+
+	/* Fill regulatory domain */
+	rd->n_reg_rules = n_rules;
+	memcpy(rd->alpha2, request->alpha2, ARRAY_SIZE(rd->alpha2));
+	for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
+		sband = wiphy->bands[band];
+		if (!sband)
+			continue;
+
+		last_start_freq = 0;
+		for (channel = i = 0; channel < sband->n_channels; channel++) {
+			chan = &sband->channels[channel];
+
+			if (chan->flags & IEEE80211_CHAN_DISABLED)
+				continue;
+
+			reg_rule =
+			    freq_reg_info(wiphy, MHZ_TO_KHZ(chan->center_freq));
+			if (IS_ERR(reg_rule))
+				continue;
+
+			freq_range = &reg_rule->freq_range;
+			if (last_start_freq != freq_range->start_freq_khz
+			    && i < n_rules) {
+				last_start_freq = freq_range->start_freq_khz;
+				memcpy(&rd->reg_rules[i], reg_rule,
+				       sizeof(struct ieee80211_reg_rule));
+				i++;
+				wiphy_dbg(wiphy,
+					  "%s %d KHz - %d KHz @ %d KHz flags %#x\n",
+					  __func__, freq_range->start_freq_khz,
+					  freq_range->end_freq_khz,
+					  freq_range->max_bandwidth_khz,
+					  reg_rule->flags);
+			}
+		}
+	}
+
+	if (itm_wlan_set_regdom_cmd(priv->wlan_sipc, (u8 *)rd, rd_size))
+		wiphy_err(wiphy, "%s failed to set regdomain!\n", __func__);
+	kfree(rd);
+}
+
 /*Init wiphy parameters*/
 static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 {
@@ -1744,7 +1837,7 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 	wiphy->n_cipher_suites = ARRAY_SIZE(itm_cipher_suites);
 	/*Attach bands */
 	wiphy->bands[IEEE80211_BAND_2GHZ] = &itm_band_2ghz;
-	wiphy->bands[IEEE80211_BAND_5GHZ] = &itm_band_5ghz;
+	/*wiphy->bands[IEEE80211_BAND_5GHZ] = &itm_band_5ghz;*/
 
 	/*Default not in powersave state */
 	wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
@@ -1753,6 +1846,7 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 	/*Set WoWLAN flags */
 	wiphy->wowlan.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT;
 #endif
+	wiphy->reg_notifier = itm_cfg80211_reg_notify;
 }
 
 int itm_register_wdev(struct itm_priv *priv, struct device *dev)
