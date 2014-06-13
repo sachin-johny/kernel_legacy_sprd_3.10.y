@@ -21,20 +21,16 @@
 #include "scale_drv.h"
 #include "gen_scale_coef.h"
 #include "dcam_drv.h"
-#include <linux/vmalloc.h>
 
-/*#define SCALE_DRV_DEBUG*/
 #define SCALE_LOWEST_ADDR 0x800
 #define SCALE_ADDR_INVALIDE(addr) ((addr) < SCALE_LOWEST_ADDR)
 #define SCALE_YUV_ADDR_INVALIDE(y,u,v) \
 	(SCALE_ADDR_INVALIDE(y) && \
 	SCALE_ADDR_INVALIDE(u) && \
 	SCALE_ADDR_INVALIDE(v))
-
 #define SC_COEFF_H_TAB_OFFSET 0x1400
 #define SC_COEFF_V_TAB_OFFSET 0x14F0
 #define SC_COEFF_V_CHROMA_TAB_OFFSET 0x18F0
-#define SC_COEFF_BUF_SIZE (24 << 10)
 #define SC_COEFF_COEF_SIZE (1 << 10)
 #define SC_COEFF_TMP_SIZE (21 << 10)
 #define SC_H_COEF_SIZE (0xC0)
@@ -46,75 +42,31 @@
 #define SCALE_PIXEL_ALIGNED 4
 #define SCALE_SLICE_HEIGHT_ALIGNED 4
 
-#define SCALE_CHECK_PARAM_ZERO_POINTER(n) \
-	do { \
-		if (0 == (int)(n)) \
-			return -SCALE_RTN_PARA_ERR; \
-	} while(0)
-
-#define SCALE_RTN_IF_ERR if(rtn) return rtn
-
-typedef void (*scale_isr)(void);
-
-struct scale_desc {
-	struct scale_size input_size;
-	struct scale_rect input_rect;
-	struct scale_size sc_input_size;
-	struct scale_addr input_addr;
-	uint32_t input_format;
-	struct scale_size output_size;
-	struct scale_addr output_addr;
-	uint32_t output_format;
-	uint32_t scale_mode;
-	uint32_t slice_height;
-	uint32_t slice_out_height;
-	uint32_t slice_in_height;
-	uint32_t is_last_slice;
-	scale_isr_func user_func;
-	void *user_data;
-	atomic_t start_flag;
-	uint32_t sc_deci_val;
-};
-
-static struct scale_desc scale_path;
-static struct scale_desc *g_path = &scale_path;
-static uint32_t s_wait_flag = 0;
-static struct semaphore scale_done_sema = __SEMAPHORE_INITIALIZER(scale_done_sema, 0);
-static uint32_t *s_scaler_scaling_coeff_addr = NULL;
-
-static DEFINE_SPINLOCK(scale_lock);
-static int32_t _scale_cfg_scaler(void);
-static int32_t _scale_calc_sc_size(void);
-static int32_t _scale_set_sc_coeff(void);
-static void _scale_reg_trace(void);
-static int _scale_isr_root(struct dcam_frame* dcam_frm, void* u_data);
-
-int32_t scale_module_en(struct device_node *dn)
+int scale_k_module_en(struct device_node *dn)
 {
 	int ret = 0;
 
-	ret = dcam_get_resizer(0);
+	ret = dcam_get_resizer(DCAM_WAIT_FOREVER);
 	if (ret) {
 		printk("scale_module_en, failed to get review path %d \n", ret);
-		goto fail_get_resizer;
+		goto get_resizer_fail;
 	}
 
 	ret = dcam_module_en(dn);
 	if (ret) {
 		printk("scale_module_en, failed to enable scale module %d \n", ret);
-		goto fail_dcam_eb;
+		goto dcam_eb_fail;
 	}
 
-	memset(g_path, 0, sizeof(scale_path));
 	return ret;
 
-fail_dcam_eb:
+dcam_eb_fail:
 	dcam_rel_resizer();
-fail_get_resizer:
+get_resizer_fail:
 	return ret;
 }
 
-int32_t scale_module_dis(struct device_node *dn)
+int scale_k_module_dis(struct device_node *dn)
 {
 	int ret = 0;
 
@@ -131,543 +83,21 @@ int32_t scale_module_dis(struct device_node *dn)
 	return ret;
 }
 
-static int32_t scale_check_deci_slice_mode(uint32_t deci_val, uint32_t slice_h)
+static int scale_k_check_deci_slice_mode(uint32_t deci_val, uint32_t slice_h)
 {
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
+	int rtn = 0;
 
 	if (deci_val > 0) {
 		if ((slice_h >= deci_val) && (0 == (slice_h % deci_val))) {
-			rtn = SCALE_RTN_SUCCESS;
+			rtn = 0;
 		} else {
-			rtn = SCALE_RTN_SC_ERR;
+			rtn = -1;
 		}
 	}
 	return rtn;
 }
 
-int  scale_coeff_alloc(void)
-{
-	int ret = 0;
-
-	if (NULL == s_scaler_scaling_coeff_addr) {
-		s_scaler_scaling_coeff_addr = (uint32_t *)vzalloc(SC_COEFF_BUF_SIZE);
-		if (NULL == s_scaler_scaling_coeff_addr) {
-			printk("SCALE DRV: scale_coeff_alloc fail.\n");
-			ret = -1;
-		}
-	}
-	return ret;
-}
-
-void  scale_coeff_free(void)
-{
-	if (s_scaler_scaling_coeff_addr) {
-		vfree(s_scaler_scaling_coeff_addr);
-		s_scaler_scaling_coeff_addr = NULL;
-	}
-}
-
-static uint32_t *get_scale_coeff_addr(void)
-{
-	return s_scaler_scaling_coeff_addr;
-}
-
-int32_t scale_start(void)
-{
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-
-	SCALE_TRACE("SCALE DRV: scale_start: %d \n", g_path->scale_mode);
-
-	if (SCALE_MODE_NORMAL == g_path->scale_mode) {
-		if (g_path->output_size.w > SCALE_FRAME_WIDTH_MAX) {
-			rtn = SCALE_RTN_SC_ERR;
-			goto exit;
-		}
-	} else {
-		if (g_path->output_size.w > SCALE_LINE_BUF_LENGTH) {
-			rtn = SCALE_RTN_SC_ERR;
-			goto exit;
-		}
-	}
-
-	g_path->slice_in_height = 0;
-	g_path->slice_out_height = 0;
-	g_path->is_last_slice = 0;
-	g_path->sc_deci_val = 0;
-	REG_MWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT), 0);
-
-	rtn = _scale_cfg_scaler();
-	if (rtn) goto exit;
-
-	if (SCALE_MODE_NORMAL != g_path->scale_mode) {
-		g_path->slice_in_height += g_path->slice_height;
-		rtn = scale_check_deci_slice_mode(g_path->sc_deci_val, g_path->slice_height);
-		if (rtn) goto exit;
-	}
-	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_MASK, SCALE_PATH_SELECT, DCAM_CFG_REG);
-	dcam_glb_reg_owr(SCALE_BASE, SCALE_PATH_EB_BIT, DCAM_CFG_REG);
-	_scale_reg_trace();
-
-	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
-	atomic_inc(&g_path->start_flag);
-#if defined(CONFIG_ARCH_SCX30G)
-	REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_START_BIT);
-#else
-	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
-#endif
-	return SCALE_RTN_SUCCESS;
-
-exit:
-	printk("SCALE DRV: ret %d \n", rtn);
-	return rtn;
-}
-
-static int32_t scale_continue(void)
-{
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-	uint32_t slice_h = g_path->slice_height;
-
-	SCALE_TRACE("SCALE DRV: continue %d, %d, %d \n",
-		g_path->slice_height, g_path->slice_in_height, g_path->scale_mode);
-
-	if (SCALE_MODE_NORMAL != g_path->scale_mode) {
-		if (g_path->slice_in_height + g_path->slice_height >= g_path->input_rect.h) {
-			slice_h = g_path->input_rect.h - g_path->slice_in_height;
-			if (scale_check_deci_slice_mode(g_path->sc_deci_val, slice_h))
-				return SCALE_RTN_SC_ERR;
-			g_path->is_last_slice = 1;
-			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, slice_h);
-			REG_OWR(SCALE_REV_SLICE_CFG, SCALE_IS_LAST_SLICE_BIT);
-			SCALE_TRACE("SCALE DRV: continue, last slice, 0x%x \n", REG_RD(SCALE_REV_SLICE_CFG));
-		} else {
-			g_path->is_last_slice = 0;
-			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_IS_LAST_SLICE_BIT, 0);
-		}
-		g_path->slice_in_height += g_path->slice_height;
-	}
-
-	_scale_reg_trace();
-	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
-	atomic_inc(&g_path->start_flag);
-	SCALE_TRACE("SCALE DRV: continue %x.\n", REG_RD(SCALE_CFG));
-
-	return rtn;
-}
-
-int32_t scale_stop(void)
-{
-	unsigned long flag;
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-
-	spin_lock_irqsave(&scale_lock, flag);
-	if (atomic_read(&g_path->start_flag)) {
-		s_wait_flag = 1;
-		spin_unlock_irqrestore(&scale_lock, flag);
-		if (down_interruptible(&scale_done_sema)) {
-			printk("scale_stop down error!\n");
-		}
-	} else {
-		spin_unlock_irqrestore(&scale_lock, flag);
-	}
-
-	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_EB_BIT, 0, DCAM_CFG_REG);
-
-	SCALE_TRACE("SCALE DRV: stop is OK.\n");
-	return rtn;
-}
-
-int32_t scale_reg_isr(enum scale_irq_id id, scale_isr_func user_func, void* u_data)
-{
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-	unsigned long flag;
-
-	if(id >= SCALE_IRQ_NUMBER) {
-		rtn = SCALE_RTN_ISR_ID_ERR;
-	} else {
-		spin_lock_irqsave(&scale_lock, flag);
-		g_path->user_func = user_func;
-		g_path->user_data = u_data;
-		spin_unlock_irqrestore(&scale_lock, flag);
-		if (user_func) {
-			dcam_reg_isr(DCAM_PATH2_DONE, _scale_isr_root, (void*)NULL);
-			dcam_reg_isr(DCAM_PATH2_SLICE_DONE, _scale_isr_root, (void*)NULL);
-		} else {
-			dcam_reg_isr(DCAM_PATH2_DONE, NULL, (void*)NULL);
-			dcam_reg_isr(DCAM_PATH2_SLICE_DONE, NULL, (void*)NULL);
-		}
-	}
-
-	return rtn;
-}
-
-int32_t scale_cfg(enum scale_cfg_id id, void *param)
-{
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-
-	switch (id) {
-
-	case SCALE_INPUT_SIZE:
-	{
-		struct scale_size *size = (struct scale_size*)param;
-		uint32_t reg_val = 0;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		SCALE_TRACE("SCALE DRV: SCALE_INPUT_SIZE {%d %d} \n", size->w, size->h);
-		if (size->w > SCALE_FRAME_WIDTH_MAX ||
-			size->h > SCALE_FRAME_HEIGHT_MAX) {
-			rtn = SCALE_RTN_SRC_SIZE_ERR;
-			dcam_resize_end();
-		} else {
-			reg_val = size->w | (size->h << 16);
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT, 0);
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, 0);
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, size->w);
-			g_path->input_size.w = size->w;
-			g_path->input_size.h = size->h;
-		}
-		break;
-	}
-
-	case SCALE_INPUT_RECT:
-	{
-		struct scale_rect *rect = (struct scale_rect*)param;
-		uint32_t reg_val = 0;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		SCALE_TRACE("SCALE DRV: SCALE_PATH_INPUT_RECT {%d %d %d %d} \n",
-			rect->x,
-			rect->y,
-			rect->w,
-			rect->h);
-
-		if (rect->x > SCALE_FRAME_WIDTH_MAX ||
-			rect->y > SCALE_FRAME_HEIGHT_MAX ||
-			rect->w > SCALE_FRAME_WIDTH_MAX ||
-			rect->h > SCALE_FRAME_HEIGHT_MAX) {
-			rtn = SCALE_RTN_TRIM_SIZE_ERR;
-			dcam_resize_end();
-		} else {
-			reg_val = rect->x | (rect->y << 16);
-			REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
-			REG_WR(SCALE_TRIM_START, 0);
-			reg_val = rect->w | (rect->h << 16);
-			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
-			REG_WR(SCALE_TRIM_SIZE, reg_val);
-			REG_WR(SCALE_SRC_SIZE, reg_val);
-			memcpy((void*)&g_path->input_rect,
-				(void*)rect,
-				sizeof(struct scale_rect));
-		}
-		break;
-	}
-
-	case SCALE_INPUT_FORMAT:
-	{
-		enum scale_fmt format = *(enum scale_fmt*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		g_path->input_format = format;
-		if (SCALE_YUV422 == format ||
-			SCALE_YUV420 == format ||
-			SCALE_YUV420_3FRAME == format) {
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_INPUT_MODE_MASK, (g_path->input_format << 16));
-		} else {
-			rtn = SCALE_RTN_IN_FMT_ERR;
-			g_path->input_format = SCALE_FTM_MAX;
-			dcam_resize_end();
-		}
-		break;
-
-	}
-
-	case SCALE_INPUT_ADDR:
-	{
-		struct scale_addr *p_addr = (struct scale_addr*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
-			rtn = SCALE_RTN_ADDR_ERR;
-			dcam_resize_end();
-		} else {
-			g_path->input_addr.yaddr = p_addr->yaddr;
-			g_path->input_addr.uaddr = p_addr->uaddr;
-			g_path->input_addr.vaddr = p_addr->vaddr;
-			REG_WR(SCALE_FRM_IN_Y, p_addr->yaddr);
-			REG_WR(SCALE_FRM_IN_U, p_addr->uaddr);
-			REG_WR(SCALE_FRM_IN_V, p_addr->vaddr);
-		}
-		break;
-	}
-
-	case SCALE_INPUT_ENDIAN:
-	{
-		struct scale_endian_sel *endian = (struct scale_endian_sel*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		if (endian->y_endian >= SCALE_ENDIAN_MAX ||
-			endian->uv_endian >= SCALE_ENDIAN_MAX) {
-			rtn = SCALE_RTN_ENDIAN_ERR;
-			dcam_resize_end();
-		} else {
-			dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT | SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
-			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_Y_ENDIAN_MASK, endian->y_endian, DCAM_ENDIAN_REG);
-			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_UV_ENDIAN_MASK, (endian->uv_endian << 2), DCAM_ENDIAN_REG);
-		}
-		break;
-	}
-
-	case SCALE_OUTPUT_SIZE:
-	{
-		struct scale_size *size = (struct scale_size*)param;
-		uint32_t reg_val = 0;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		SCALE_TRACE("SCALE DRV: SCALE_OUTPUT_SIZE {%d %d} \n", size->w, size->h);
-		if (size->w > SCALE_FRAME_WIDTH_MAX ||
-			size->h > SCALE_FRAME_HEIGHT_MAX) {
-			rtn = SCALE_RTN_SRC_SIZE_ERR;
-			dcam_resize_end();
-		} else {
-			reg_val = size->w | (size->h << 16);
-			REG_WR(SCALE_DST_SIZE, reg_val);
-			g_path->output_size.w = size->w;
-			g_path->output_size.h = size->h;
-		}
-		break;
-	}
-
-	case SCALE_OUTPUT_FORMAT:
-	{
-		enum scale_fmt format = *(enum scale_fmt*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		g_path->output_format = format;
-		if (SCALE_YUV422 == format) {
-			REG_MWR(SCALE_CFG, SCALE_OUTPUT_MODE_MASK, (0 << 6));
-		} else if (SCALE_YUV420 == format) {
-			REG_MWR(SCALE_CFG, SCALE_OUTPUT_MODE_MASK, (1 << 6));
-		} else if (SCALE_YUV420_3FRAME == format) {
-			REG_MWR(SCALE_CFG, SCALE_OUTPUT_MODE_MASK, (3 << 6));
-		} else {
-			rtn = SCALE_RTN_OUT_FMT_ERR;
-			g_path->output_format = SCALE_FTM_MAX;
-			dcam_resize_end();
-		}
-		break;
-	}
-
-	case SCALE_OUTPUT_ADDR:
-	{
-		struct scale_addr *p_addr = (struct scale_addr*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		if (SCALE_YUV_ADDR_INVALIDE(p_addr->yaddr, p_addr->uaddr, p_addr->vaddr)) {
-			rtn = SCALE_RTN_ADDR_ERR;
-			dcam_resize_end();
-		} else {
-			g_path->output_addr.yaddr = p_addr->yaddr;
-			g_path->output_addr.uaddr = p_addr->uaddr;
-			g_path->output_addr.vaddr = p_addr->vaddr;
-			REG_WR(SCALE_FRM_OUT_Y, p_addr->yaddr);
-			REG_WR(SCALE_FRM_OUT_U, p_addr->uaddr);
-			REG_WR(SCALE_FRM_OUT_V, p_addr->vaddr);
-		}
-		break;
-	}
-
-	case SCALE_OUTPUT_ENDIAN:
-	{
-		struct scale_endian_sel *endian = (struct scale_endian_sel*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		if (endian->y_endian >= SCALE_ENDIAN_MAX ||
-			endian->uv_endian >= SCALE_ENDIAN_MAX) {
-			rtn = SCALE_RTN_ENDIAN_ERR;
-			dcam_resize_end();
-		} else {
-			dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT|SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
-			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_Y_ENDIAN_MASK, (endian->y_endian << 10), DCAM_ENDIAN_REG);
-			dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_UV_ENDIAN_MASK, (endian->uv_endian << 12), DCAM_ENDIAN_REG);
-		}
-		break;
-	}
-
-	case SCALE_TEMP_BUFF:
-		break;
-
-	case SCALE_SCALE_MODE:
-	{
-		enum scle_mode mode = *(enum scle_mode*)param;
-
-		if (mode >= SCALE_MODE_MAX) {
-			rtn = SCALE_RTN_MODE_ERR;
-			dcam_resize_end();
-		} else {
-			g_path->scale_mode = mode;
-			if (SCALE_MODE_NORMAL == mode) {
-				REG_MWR(SCALE_CFG, SCALE_MODE_MASK, SCALE_MODE_NORMAL_TYPE);
-			} else if(SCALE_MODE_SLICE == mode) {
-				REG_MWR(SCALE_CFG, SCALE_MODE_MASK, SCALE_MODE_SLICE_TYPE);
-				REG_MWR(SCALE_REV_SLICE_CFG, SCALE_SLICE_TYPE_BIT, 0);
-			}else{
-				REG_MWR(SCALE_CFG, SCALE_MODE_MASK, SCALE_MODE_SLICE_TYPE);
-				REG_OWR(SCALE_REV_SLICE_CFG, SCALE_SLICE_TYPE_BIT);
-			}
-		}
-
-		break;
-	}
-
-	case SCALE_SLICE_SCALE_HEIGHT:
-	{
-		uint32_t height = *(uint32_t*)param;
-
-		SCALE_CHECK_PARAM_ZERO_POINTER(param);
-
-		if (height > SCALE_FRAME_HEIGHT_MAX || (height % SCALE_SLICE_HEIGHT_ALIGNED)) {
-			rtn = SCALE_RTN_PARA_ERR;
-			dcam_resize_end();
-		} else {
-			g_path->slice_height = height;
-			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, height);
-		}
-		break;
-	}
-
-	case SCALE_START:
-	{
-		rtn = scale_start();
-		if (rtn) {
-			dcam_resize_end();
-		}
-		break;
-
-	}
-
-	case SCALE_CONTINUE:
-	{
-		rtn = scale_continue();
-		break;
-	}
-
-	case SCALE_STOP:
-	{
-		rtn = scale_stop();
-		break;
-	}
-
-	default:
-		printk("SCALE DRV: error io 0x%x \n", id);
-		rtn = SCALE_RTN_IO_ID_ERR;
-		break;
-	}
-
-	return -rtn;
-}
-
-int32_t scale_read_registers(uint32_t* reg_buf, uint32_t *buf_len)
-{
-	uint32_t *reg_addr = (uint32_t*)SCALE_BASE;
-
-	if (NULL == reg_buf || NULL == buf_len || 0 != (*buf_len % 4)) {
-		return -1;
-	}
-
-	while (buf_len != 0 && (uint32_t)reg_addr < SCALE_REG_END) {
-		*reg_buf++ = REG_RD(reg_addr);
-		reg_addr++;
-		*buf_len -= 4;
-	}
-
-	*buf_len = (uint32_t)reg_addr - SCALE_BASE;
-	return 0;
-}
-
-static int32_t _scale_cfg_scaler(void)
-{
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-
-	rtn = _scale_calc_sc_size();
-	SCALE_RTN_IF_ERR;
-
-	if (g_path->sc_input_size.w != g_path->output_size.w ||
-		g_path->sc_input_size.h != g_path->output_size.h ||
-		SCALE_YUV420 == g_path->input_format) {
-		REG_MWR(SCALE_CFG, SCALE_BYPASS_BIT, 0);
-		rtn = _scale_set_sc_coeff();
-	} else {
-		REG_OWR(SCALE_CFG, SCALE_BYPASS_BIT);
-	}
-
-	return rtn;
-}
-
-static int32_t _scale_calc_sc_size(void)
-{
-	uint32_t reg_val = 0;
-	enum scale_drv_rtn rtn = SCALE_RTN_SUCCESS;
-	uint32_t div_factor = 1;
-	uint32_t i = 0, pixel_aligned_num = 0;
-
-	if (g_path->input_rect.w > (g_path->output_size.w * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
-		g_path->input_rect.h > (g_path->output_size.h * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
-		g_path->input_rect.w * SCALE_SC_COEFF_MAX < g_path->output_size.w ||
-		g_path->input_rect.h * SCALE_SC_COEFF_MAX < g_path->output_size.h) {
-		SCALE_TRACE("SCALE DRV: Target too small or large \n");
-		rtn = SCALE_RTN_SC_ERR;
-	} else {
-		g_path->sc_input_size.w = g_path->input_rect.w;
-		g_path->sc_input_size.h = g_path->input_rect.h;
-		if (g_path->input_rect.w > g_path->output_size.w * SCALE_SC_COEFF_MAX ||
-			g_path->input_rect.h > g_path->output_size.h * SCALE_SC_COEFF_MAX) {
-			for (i = 0; i < SCALE_DECI_FAC_MAX; i++) {
-				div_factor = (uint32_t)(SCALE_SC_COEFF_MAX * (1 << (1 + i)));
-				if (g_path->input_rect.w <= (g_path->output_size.w * div_factor) &&
-					g_path->input_rect.h <= (g_path->output_size.h * div_factor)) {
-					break;
-				}
-			}
-			g_path->sc_deci_val = (1 << (1 + i));
-			pixel_aligned_num = (g_path->sc_deci_val >= SCALE_PIXEL_ALIGNED) ? g_path->sc_deci_val : SCALE_PIXEL_ALIGNED;
-			g_path->sc_input_size.w = g_path->input_rect.w >> (1 + i);
-			g_path->sc_input_size.h = g_path->input_rect.h >> (1 + i);
-			if ((g_path->sc_input_size.w % pixel_aligned_num) ||
-				(g_path->sc_input_size.h % pixel_aligned_num)) {
-				g_path->sc_input_size.w = g_path->sc_input_size.w / pixel_aligned_num * pixel_aligned_num;
-				g_path->sc_input_size.h = g_path->sc_input_size.h / pixel_aligned_num * pixel_aligned_num;
-				g_path->input_rect.w = g_path->sc_input_size.w << (1 + i);
-				g_path->input_rect.h = g_path->sc_input_size.h << (1 + i);
-			}
-
-			REG_WR(SCALE_TRIM_START, 0);
-			reg_val = g_path->sc_input_size.w | (g_path->sc_input_size.h << 16);
-			REG_WR(SCALE_TRIM_SIZE, reg_val);
-			REG_WR(SCALE_SRC_SIZE, reg_val);
-
-			REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT);
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, (i << 13));
-			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, g_path->input_size.w);
-			reg_val = g_path->input_rect.x | (g_path->input_rect.y << 16);
-			REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
-			reg_val = g_path->input_rect.w | (g_path->input_rect.h << 16);
-			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
-		}
-
-	}
-
-	return rtn;
-}
-
-static int32_t _scale_set_sc_coeff(void)
+static int scale_k_set_sc_coeff(struct scale_path_info *path_info_ptr)
 {
 	uint32_t i = 0;
 	uint32_t h_coeff_addr = SCALE_BASE;
@@ -681,27 +111,32 @@ static int32_t _scale_set_sc_coeff(void)
 	uint8_t y_tap = 0;
 	uint8_t uv_tap = 0;
 
+	if (!path_info_ptr) {
+		printk("scale_k_set_sc_coeff error: path_info_ptr null \n");
+		return -1;
+	}
+
+	tmp_buf = (uint32_t *)path_info_ptr->coeff_addr;
+	if (NULL == tmp_buf) {
+		printk("scale_k_set_sc_coeff error: coeff mem null \n");
+		return -1;;
+	}
+
 	h_coeff_addr += SC_COEFF_H_TAB_OFFSET;
 	v_coeff_addr += SC_COEFF_V_TAB_OFFSET;
 	v_chroma_coeff_addr += SC_COEFF_V_CHROMA_TAB_OFFSET;
 
-	if(SCALE_YUV420 == g_path->output_format)
+	if (SCALE_YUV420 == path_info_ptr->output_format)
 		scale2yuv420 = 1;
-
-	tmp_buf = get_scale_coeff_addr();
-	if (NULL == tmp_buf) {
-		printk("SCALE DRV: No mem to alloc coeff buffer! \n");
-		return SCALE_RTN_NO_MEM;
-	}
 
 	h_coeff = tmp_buf;
 	v_coeff = tmp_buf + (SC_COEFF_COEF_SIZE/4);
 	v_chroma_coeff = v_coeff + (SC_COEFF_COEF_SIZE/4);
 
-	if (!(GenScaleCoeff((int16_t)g_path->sc_input_size.w,
-		(int16_t)g_path->sc_input_size.h,
-		(int16_t)g_path->output_size.w,
-		(int16_t)g_path->output_size.h,
+	if (!(GenScaleCoeff((int16_t)path_info_ptr->sc_input_size.w,
+		(int16_t)path_info_ptr->sc_input_size.h,
+		(int16_t)path_info_ptr->output_size.w,
+		(int16_t)path_info_ptr->output_size.h,
 		h_coeff,
 		v_coeff,
 		v_chroma_coeff,
@@ -710,8 +145,8 @@ static int32_t _scale_set_sc_coeff(void)
 		&uv_tap,
 		tmp_buf + (SC_COEFF_COEF_SIZE*3/4),
 		SC_COEFF_TMP_SIZE))) {
-		printk("SCALE DRV: _scale_set_sc_coeff error! \n");
-		return SCALE_RTN_GEN_COEFF_ERR;
+		printk("scale_k_set_sc_coeff error: gen scale coeff \n");
+		return -1;
 	}
 
 	for (i = 0; i < SC_COEFF_H_NUM; i++) {
@@ -735,62 +170,596 @@ static int32_t _scale_set_sc_coeff(void)
 	REG_MWR(SCALE_CFG, (BIT_19 | BIT_18 | BIT_17 | BIT_16), ((y_tap & 0x0F) << 16));
 	REG_MWR(SCALE_CFG, (BIT_15 | BIT_14 | BIT_13 | BIT_12 | BIT_11), ((uv_tap & 0x1F) << 11));
 
-	return SCALE_RTN_SUCCESS;
-}
-
-int _scale_isr_root(struct dcam_frame* dcam_frm, void* u_data)
-{
-	struct scale_frame frame;
-	unsigned long flag;
-
-	(void)dcam_frm; (void)u_data;
-
-	SCALE_TRACE("SCALE DRV: _scale_isr_root \n");
-	spin_lock_irqsave(&scale_lock, flag);
-	if (g_path->user_func) {
-		memset(&frame, 0, sizeof(frame));
-		frame.yaddr = g_path->output_addr.yaddr;
-		frame.uaddr = g_path->output_addr.uaddr;
-		frame.vaddr = g_path->output_addr.vaddr;
-		frame.width = g_path->output_size.w;
-		if (SCALE_MODE_NORMAL != g_path->scale_mode) {
-			frame.height_uv = REG_RD(SCALE_REV_SLICE_O_VCNT);
-			frame.height_uv = (frame.height_uv >> 16) & SCALE_OUTPUT_SLICE_HEIGHT_MASK;
-			frame.height = REG_RD(SCALE_REV_SLICE_O_VCNT);
-			frame.height = frame.height & SCALE_OUTPUT_SLICE_HEIGHT_MASK;
-			g_path->slice_out_height += frame.height;
-		} else {
-			frame.height = g_path->output_size.h;
-		}
-		g_path->user_func(&frame, g_path->user_data);
-	}
-
-	atomic_dec(&g_path->start_flag);
-	if (s_wait_flag) {
-		up(&scale_done_sema);
-		s_wait_flag = 0;
-	}
-	if (SCALE_MODE_NORMAL == g_path->scale_mode ||
-		(SCALE_MODE_NORMAL != g_path->scale_mode && g_path->output_size.h == g_path->slice_out_height)) {
-		dcam_resize_end();
-	}
-	spin_unlock_irqrestore(&scale_lock, flag);
-
 	return 0;
 }
 
-static void _scale_reg_trace(void)
+static int scale_k_calc_sc_size(struct scale_path_info *path_info_ptr)
 {
-#ifdef SCALE_DRV_DEBUG
-	uint32_t addr = 0;
+	int rtn = 0;
+	uint32_t reg_val = 0;
+	uint32_t div_factor = 1;
+	uint32_t i = 0, pixel_aligned_num = 0;
 
-	for (addr = SCALE_REG_START; addr <= SCALE_REG_END; addr += 16) {
-		printk("%x: %x %x %x %x \n",
-			 addr,
-			REG_RD(addr),
-			REG_RD(addr + 4),
-			REG_RD(addr + 8),
-			REG_RD(addr + 12));
+	if (!path_info_ptr) {
+		printk("scale_k_calc_sc_size error: path_info_ptr null \n");
+		return -1;
 	}
+
+	if (path_info_ptr->input_rect.w > (path_info_ptr->output_size.w * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
+		path_info_ptr->input_rect.h > (path_info_ptr->output_size.h * SCALE_SC_COEFF_MAX * (1 << SCALE_DECI_FAC_MAX)) ||
+		path_info_ptr->input_rect.w * SCALE_SC_COEFF_MAX < path_info_ptr->output_size.w ||
+		path_info_ptr->input_rect.h * SCALE_SC_COEFF_MAX < path_info_ptr->output_size.h) {
+		printk("scale_k_calc_sc_size error: input{%d %d}, output{%d %d}\n",
+			path_info_ptr->input_rect.w, path_info_ptr->input_rect.h,
+			path_info_ptr->output_size.w, path_info_ptr->output_size.h);
+		rtn = -1;
+	} else {
+		path_info_ptr->sc_input_size.w = path_info_ptr->input_rect.w;
+		path_info_ptr->sc_input_size.h = path_info_ptr->input_rect.h;
+		if (path_info_ptr->input_rect.w > path_info_ptr->output_size.w * SCALE_SC_COEFF_MAX ||
+			path_info_ptr->input_rect.h > path_info_ptr->output_size.h * SCALE_SC_COEFF_MAX) {
+			for (i = 0; i < SCALE_DECI_FAC_MAX; i++) {
+				div_factor = (uint32_t)(SCALE_SC_COEFF_MAX * (1 << (1 + i)));
+				if (path_info_ptr->input_rect.w <= (path_info_ptr->output_size.w * div_factor) &&
+					path_info_ptr->input_rect.h <= (path_info_ptr->output_size.h * div_factor)) {
+					break;
+				}
+			}
+			path_info_ptr->sc_deci_val = (1 << (1 + i));
+			pixel_aligned_num = (path_info_ptr->sc_deci_val >= SCALE_PIXEL_ALIGNED) ? path_info_ptr->sc_deci_val : SCALE_PIXEL_ALIGNED;
+			path_info_ptr->sc_input_size.w = path_info_ptr->input_rect.w >> (1 + i);
+			path_info_ptr->sc_input_size.h = path_info_ptr->input_rect.h >> (1 + i);
+			if ((path_info_ptr->sc_input_size.w % pixel_aligned_num) ||
+				(path_info_ptr->sc_input_size.h % pixel_aligned_num)) {
+				path_info_ptr->sc_input_size.w = path_info_ptr->sc_input_size.w / pixel_aligned_num * pixel_aligned_num;
+				path_info_ptr->sc_input_size.h = path_info_ptr->sc_input_size.h / pixel_aligned_num * pixel_aligned_num;
+				path_info_ptr->input_rect.w = path_info_ptr->sc_input_size.w << (1 + i);
+				path_info_ptr->input_rect.h = path_info_ptr->sc_input_size.h << (1 + i);
+			}
+
+			REG_WR(SCALE_TRIM_START, 0);
+			reg_val = path_info_ptr->sc_input_size.w | (path_info_ptr->sc_input_size.h << 16);
+			REG_WR(SCALE_TRIM_SIZE, reg_val);
+			REG_WR(SCALE_SRC_SIZE, reg_val);
+
+			REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT);
+			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, (i << 13));
+			REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, path_info_ptr->input_size.w);
+			reg_val = path_info_ptr->input_rect.x | (path_info_ptr->input_rect.y << 16);
+			REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
+			reg_val = path_info_ptr->input_rect.w | (path_info_ptr->input_rect.h << 16);
+			REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
+		}
+
+	}
+
+	return rtn;
+}
+
+static int scale_k_cfg_scaler(struct scale_path_info *path_info_ptr)
+{
+	int rtn = 0;
+
+	if (!path_info_ptr) {
+		printk("scale_k_cfg_scaler error: path_info_ptr null \n");
+		return -1;
+	}
+
+	rtn = scale_k_calc_sc_size(path_info_ptr);
+	if (rtn) {
+		printk("scale_k_cfg_scaler error: calc \n");
+		return rtn;
+	}
+
+	if (path_info_ptr->sc_input_size.w != path_info_ptr->output_size.w ||
+		path_info_ptr->sc_input_size.h != path_info_ptr->output_size.h ||
+		SCALE_YUV420 == path_info_ptr->input_format) {
+		REG_MWR(SCALE_CFG, SCALE_BYPASS_BIT, 0);
+		rtn = scale_k_set_sc_coeff(path_info_ptr);
+		if (rtn) {
+			printk("scale_k_cfg_scaler error: coeff \n");
+		}
+	} else {
+		REG_OWR(SCALE_CFG, SCALE_BYPASS_BIT);
+	}
+
+	return rtn;
+}
+
+int scale_k_slice_cfg(struct scale_slice_param_t *cfg_ptr, struct scale_path_info *path_info_ptr)
+{
+	int rtn = 0;
+	uint32_t reg_val = 0;
+
+	if (!cfg_ptr || !path_info_ptr) {
+		printk("scale_k_io_cfg error: cfg_ptr=%x path_info_ptr=%x",
+			(uint32_t)cfg_ptr, (uint32_t)path_info_ptr);
+		return -1;
+	}
+
+	/*set slice scale height*/
+	if (cfg_ptr->slice_height > SCALE_FRAME_HEIGHT_MAX
+		|| (cfg_ptr->slice_height  % SCALE_SLICE_HEIGHT_ALIGNED)) {
+		printk("scale_k_io_cfg error: slice_height:%d \n",
+			cfg_ptr->slice_height);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, cfg_ptr->slice_height);
+		path_info_ptr->slice_height = cfg_ptr->slice_height;
+	}
+
+	/*set input rect*/
+	if (cfg_ptr->input_rect.x > SCALE_FRAME_WIDTH_MAX
+		|| cfg_ptr->input_rect.y > SCALE_FRAME_HEIGHT_MAX
+		|| cfg_ptr->input_rect.w > SCALE_FRAME_WIDTH_MAX
+		|| cfg_ptr->input_rect.h > SCALE_FRAME_HEIGHT_MAX) {
+		printk("scale_k_io_cfg error: input_rect {%d %d %d %d} \n",
+			cfg_ptr->input_rect.x, cfg_ptr->input_rect.y,
+			cfg_ptr->input_rect.w, cfg_ptr->input_rect.h);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		reg_val = cfg_ptr->input_rect.x | (cfg_ptr->input_rect.y << 16);
+		REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
+		REG_WR(SCALE_TRIM_START, 0);
+		reg_val = cfg_ptr->input_rect.w | (cfg_ptr->input_rect.h << 16);
+		REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
+		REG_WR(SCALE_TRIM_SIZE, reg_val);
+		REG_WR(SCALE_SRC_SIZE, reg_val);
+		memcpy((void*)&path_info_ptr->input_rect, (void*)&cfg_ptr->input_rect,
+			sizeof(struct scale_rect_t ));
+	}
+
+	/*set input address*/
+	if (SCALE_YUV_ADDR_INVALIDE(cfg_ptr->input_addr.yaddr,
+		cfg_ptr->input_addr.uaddr, cfg_ptr->input_addr.vaddr)) {
+		printk("scale_k_io_cfg error: input_addr {%x %x %x} \n",
+			cfg_ptr->input_addr.yaddr, cfg_ptr->input_addr.uaddr,
+			cfg_ptr->input_addr.vaddr);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		REG_WR(SCALE_FRM_IN_Y, cfg_ptr->input_addr.yaddr);
+		REG_WR(SCALE_FRM_IN_U, cfg_ptr->input_addr.uaddr);
+		REG_WR(SCALE_FRM_IN_V, cfg_ptr->input_addr.vaddr);
+		path_info_ptr->input_addr.yaddr = cfg_ptr->input_addr.yaddr;
+		path_info_ptr->input_addr.uaddr = cfg_ptr->input_addr.uaddr;
+		path_info_ptr->input_addr.vaddr = cfg_ptr->input_addr.vaddr;
+	}
+
+	/*set output address*/
+	if (SCALE_YUV_ADDR_INVALIDE(cfg_ptr->output_addr.yaddr,
+		cfg_ptr->output_addr.uaddr, cfg_ptr->output_addr.vaddr)) {
+		printk("scale_k_io_cfg error: output_addr {%x %x %x} \n",
+			cfg_ptr->output_addr.yaddr, cfg_ptr->output_addr.uaddr,
+			cfg_ptr->output_addr.vaddr);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		REG_WR(SCALE_FRM_OUT_Y, cfg_ptr->output_addr.yaddr);
+		REG_WR(SCALE_FRM_OUT_U, cfg_ptr->output_addr.uaddr);
+		REG_WR(SCALE_FRM_OUT_V, cfg_ptr->output_addr.vaddr);
+		path_info_ptr->output_addr.yaddr = cfg_ptr->output_addr.yaddr;
+		path_info_ptr->output_addr.uaddr = cfg_ptr->output_addr.uaddr;
+		path_info_ptr->output_addr.vaddr = cfg_ptr->output_addr.vaddr;
+	}
+
+cfg_exit:
+	return rtn;
+}
+
+int scale_k_frame_cfg(struct scale_frame_param_t *cfg_ptr, struct scale_path_info *path_info_ptr)
+{
+	int rtn = 0;
+	uint32_t reg_val = 0;
+
+	if (!cfg_ptr || !path_info_ptr) {
+		printk("scale_k_io_cfg error: cfg_ptr=%x path_info_ptr=%x",
+			(uint32_t)cfg_ptr, (uint32_t)path_info_ptr);
+		return -1;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg :  input_size {%d %d} \n",
+		cfg_ptr->input_size.w, cfg_ptr->input_size.h);
+	/*set input size*/
+	if (cfg_ptr->input_size.w > SCALE_FRAME_WIDTH_MAX
+		|| cfg_ptr->input_size.h > SCALE_FRAME_HEIGHT_MAX) {
+		printk("scale_k_io_cfg error:  input_size {%d %d} \n",
+			cfg_ptr->input_size.w, cfg_ptr->input_size.h);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_EB_BIT, 0);
+		REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SUB_SAMPLE_MASK, 0);
+		REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_SRC_WIDTH_MASK, cfg_ptr->input_size.w);
+		path_info_ptr->input_size.w = cfg_ptr->input_size.w;
+		path_info_ptr->input_size.h= cfg_ptr->input_size.h;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg : input_rect {%d %d %d %d} \n",
+		cfg_ptr->input_rect.x, cfg_ptr->input_rect.y,
+		cfg_ptr->input_rect.w, cfg_ptr->input_rect.h);
+	/*set input rect*/
+	if (cfg_ptr->input_rect.x > SCALE_FRAME_WIDTH_MAX
+		|| cfg_ptr->input_rect.x > SCALE_FRAME_HEIGHT_MAX
+		|| cfg_ptr->input_rect.w > SCALE_FRAME_WIDTH_MAX
+		|| cfg_ptr->input_rect.h > SCALE_FRAME_HEIGHT_MAX) {
+		printk("scale_k_io_cfg error: input_rect {%d %d %d %d} \n",
+			cfg_ptr->input_rect.x, cfg_ptr->input_rect.y,
+			cfg_ptr->input_rect.w, cfg_ptr->input_rect.h);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		reg_val = cfg_ptr->input_rect.x | (cfg_ptr->input_rect.y << 16);
+		REG_WR(SCALE_REV_BURST_IN_TRIM_START, reg_val);
+		REG_WR(SCALE_TRIM_START, 0);
+		reg_val = cfg_ptr->input_rect.w | (cfg_ptr->input_rect.h << 16);
+		REG_WR(SCALE_REV_BURST_IN_TRIM_SIZE, reg_val);
+		REG_WR(SCALE_TRIM_SIZE, reg_val);
+		REG_WR(SCALE_SRC_SIZE, reg_val);
+		memcpy((void*)&path_info_ptr->input_rect, (void*)&cfg_ptr->input_rect,
+			sizeof(struct scale_rect_t ));
+	}
+
+	SCALE_TRACE("scale_k_io_cfg : input_format:%d \n",
+		cfg_ptr->input_format);
+	/*set input foramt*/
+	path_info_ptr->input_format = cfg_ptr->input_format;
+	if (SCALE_YUV422 == cfg_ptr->input_format
+		|| SCALE_YUV420 == cfg_ptr->input_format ||
+		SCALE_YUV420_3FRAME == cfg_ptr->input_format) {
+		REG_MWR(SCALE_REV_BURST_IN_CFG, SCALE_BURST_INPUT_MODE_MASK, (cfg_ptr->input_format << 16));
+	} else {
+		printk("scale_k_io_cfg error: input_format:%d \n",
+			cfg_ptr->input_format);
+		rtn = -1;
+		goto cfg_exit;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg : input_addr {%x %x %x} \n",
+		cfg_ptr->input_addr.yaddr, cfg_ptr->input_addr.uaddr,
+		cfg_ptr->input_addr.vaddr);
+	/*set input address*/
+	if (SCALE_YUV_ADDR_INVALIDE(cfg_ptr->input_addr.yaddr,
+		cfg_ptr->input_addr.uaddr, cfg_ptr->input_addr.vaddr)) {
+		printk("scale_k_io_cfg error: input_addr {%x %x %x} \n",
+			cfg_ptr->input_addr.yaddr, cfg_ptr->input_addr.uaddr,
+			cfg_ptr->input_addr.vaddr);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		REG_WR(SCALE_FRM_IN_Y, cfg_ptr->input_addr.yaddr);
+		REG_WR(SCALE_FRM_IN_U, cfg_ptr->input_addr.uaddr);
+		REG_WR(SCALE_FRM_IN_V, cfg_ptr->input_addr.vaddr);
+		path_info_ptr->input_addr.yaddr = cfg_ptr->input_addr.yaddr;
+		path_info_ptr->input_addr.uaddr = cfg_ptr->input_addr.uaddr;
+		path_info_ptr->input_addr.vaddr = cfg_ptr->input_addr.vaddr;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg : input_endian {%d %d} \n",
+		cfg_ptr->input_endian.y_endian, cfg_ptr->input_endian.uv_endian);
+	/*set input endian*/
+	if (cfg_ptr->input_endian.y_endian >= SCALE_ENDIAN_MAX
+		||cfg_ptr->input_endian.uv_endian >= SCALE_ENDIAN_MAX) {
+		printk("scale_k_io_cfg error: input_endian {%d %d} \n",
+			cfg_ptr->input_endian.y_endian, cfg_ptr->input_endian.uv_endian);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT | SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_Y_ENDIAN_MASK, cfg_ptr->input_endian.y_endian, DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_UV_ENDIAN_MASK, (cfg_ptr->input_endian.uv_endian << 2), DCAM_ENDIAN_REG);
+	}
+
+	SCALE_TRACE("scale_k_io_cfg: output_size {%d %d} \n",
+		cfg_ptr->output_size.w, cfg_ptr->output_size.h);
+
+	/*set output size*/
+	if (cfg_ptr->output_size.w > SCALE_FRAME_WIDTH_MAX ||
+		cfg_ptr->output_size.h > SCALE_FRAME_HEIGHT_MAX) {
+		printk("scale_k_io_cfg error: output_size {%d %d} \n",
+			cfg_ptr->output_size.w, cfg_ptr->output_size.h);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		reg_val = cfg_ptr->output_size.w | (cfg_ptr->output_size.h << 16);
+		REG_WR(SCALE_DST_SIZE, reg_val);
+		path_info_ptr->output_size.w = cfg_ptr->output_size.w;
+		path_info_ptr->output_size.h = cfg_ptr->output_size.h;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg: output_format:%d \n",
+		cfg_ptr->output_format);
+
+	/*set output format*/
+	path_info_ptr->output_format = cfg_ptr->output_format;
+	if (SCALE_YUV422 == cfg_ptr->output_format) {
+		REG_MWR(SCALE_CFG, SCALE_OUTPUT_MODE_MASK, (0 << 6));
+	} else if (SCALE_YUV420 == cfg_ptr->output_format) {
+		REG_MWR(SCALE_CFG, SCALE_OUTPUT_MODE_MASK, (1 << 6));
+	} else if (SCALE_YUV420_3FRAME == cfg_ptr->output_format) {
+		REG_MWR(SCALE_CFG, SCALE_OUTPUT_MODE_MASK, (3 << 6));
+	} else {
+		printk("scale_k_io_cfg error: output_format:%d \n",
+			cfg_ptr->output_format);
+		rtn = -1;
+		goto cfg_exit;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg : output_addr {%x %x %x} \n",
+		cfg_ptr->output_addr.yaddr, cfg_ptr->output_addr.uaddr,
+		cfg_ptr->output_addr.vaddr);
+
+	/*set output address*/
+	if (SCALE_YUV_ADDR_INVALIDE(cfg_ptr->output_addr.yaddr,
+		cfg_ptr->output_addr.uaddr, cfg_ptr->output_addr.vaddr)) {
+		printk("scale_k_io_cfg error: output_addr {%x %x %x} \n",
+			cfg_ptr->output_addr.yaddr, cfg_ptr->output_addr.uaddr,
+			cfg_ptr->output_addr.vaddr);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		REG_WR(SCALE_FRM_OUT_Y, cfg_ptr->output_addr.yaddr);
+		REG_WR(SCALE_FRM_OUT_U, cfg_ptr->output_addr.uaddr);
+		REG_WR(SCALE_FRM_OUT_V, cfg_ptr->output_addr.vaddr);
+		path_info_ptr->output_addr.yaddr = cfg_ptr->output_addr.yaddr;
+		path_info_ptr->output_addr.uaddr = cfg_ptr->output_addr.uaddr;
+		path_info_ptr->output_addr.vaddr = cfg_ptr->output_addr.vaddr;
+	}
+
+	SCALE_TRACE("scale_k_io_cfg: output_endian {%d %d} \n",
+		cfg_ptr->output_endian.y_endian, cfg_ptr->output_endian.uv_endian);
+
+	/*set output endian*/
+	if (cfg_ptr->output_endian.y_endian >= SCALE_ENDIAN_MAX ||
+		cfg_ptr->output_endian.uv_endian >= SCALE_ENDIAN_MAX) {
+		printk("scale_k_io_cfg error: output_endian {%d %d} \n",
+			cfg_ptr->output_endian.y_endian, cfg_ptr->output_endian.uv_endian);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT|SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_Y_ENDIAN_MASK, (cfg_ptr->output_endian.y_endian << 10), DCAM_ENDIAN_REG);
+		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_UV_ENDIAN_MASK, (cfg_ptr->output_endian.uv_endian<< 12), DCAM_ENDIAN_REG);
+	}
+
+	SCALE_TRACE("scale_k_io_cfg: scale_mode:%d \n",
+		cfg_ptr->scale_mode);
+
+	/*set scale mode*/
+	if (cfg_ptr->scale_mode >= SCALE_MODE_MAX) {
+		printk("scale_k_io_cfg error: scale_mode:%d \n",
+			cfg_ptr->scale_mode);
+		rtn = -1;
+		goto cfg_exit;
+	} else {
+		if (SCALE_MODE_NORMAL == cfg_ptr->scale_mode) {
+			REG_MWR(SCALE_CFG, SCALE_MODE_MASK, SCALE_MODE_NORMAL_TYPE);
+		} else if(SCALE_MODE_SLICE == cfg_ptr->scale_mode) {
+			REG_MWR(SCALE_CFG, SCALE_MODE_MASK, SCALE_MODE_SLICE_TYPE);
+			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_SLICE_TYPE_BIT, 0);
+		}else{
+			REG_MWR(SCALE_CFG, SCALE_MODE_MASK, SCALE_MODE_SLICE_TYPE);
+			REG_OWR(SCALE_REV_SLICE_CFG, SCALE_SLICE_TYPE_BIT);
+		}
+		path_info_ptr->scale_mode = cfg_ptr->scale_mode;
+	}
+
+	/*set slice scale height*/
+	if (SCALE_MODE_SLICE == cfg_ptr->scale_mode
+		|| SCALE_MODE_SLICE_READDR ==cfg_ptr->scale_mode) {
+		if (cfg_ptr->slice_height > SCALE_FRAME_HEIGHT_MAX
+			|| (cfg_ptr->slice_height  % SCALE_SLICE_HEIGHT_ALIGNED)) {
+			printk("scale_k_io_cfg error: slice_height:%d \n",
+				cfg_ptr->slice_height);
+			rtn = -1;
+			goto cfg_exit;
+		} else {
+			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, cfg_ptr->slice_height);
+			path_info_ptr->slice_height = cfg_ptr->slice_height;
+		}
+	}
+
+cfg_exit:
+	return rtn;
+}
+
+int scale_k_start(struct scale_frame_param_t *cfg_ptr, struct scale_path_info *path_info_ptr)
+{
+	int rtn = 0;
+
+	if (!path_info_ptr) {
+		printk("scale_k_start error: path_info_ptr null \n");
+		return -1;
+	}
+
+	dcam_resize_start();
+
+	rtn = scale_k_frame_cfg(cfg_ptr, path_info_ptr);
+	if (rtn) {
+		printk("scale_k_start error: frame cfg \n");
+		goto start_exit;
+	}
+
+	if (SCALE_MODE_NORMAL == path_info_ptr->scale_mode) {
+		if (path_info_ptr->output_size.w > SCALE_FRAME_WIDTH_MAX) {
+			rtn = -1;
+			printk("scale_k_start error: frame output_size_w=%d \n",
+				path_info_ptr->output_size.w);
+			goto start_exit;
+		}
+	} else {
+		if (path_info_ptr->output_size.w > SCALE_LINE_BUF_LENGTH) {
+			rtn = -1;
+			printk("scale_k_start error: frame output_size_w=%d \n",
+				path_info_ptr->output_size.w);
+			goto start_exit;
+		}
+	}
+
+	path_info_ptr->slice_in_height = 0;
+	path_info_ptr->slice_out_height = 0;
+	path_info_ptr->is_last_slice = 0;
+	path_info_ptr->sc_deci_val = 0;
+
+	REG_MWR(SCALE_CFG, (SCALE_DEC_X_EB_BIT|SCALE_DEC_Y_EB_BIT), 0);
+
+	rtn = scale_k_cfg_scaler(path_info_ptr);
+	if (rtn) {
+		printk("scale_k_start error: cfg \n");
+		goto start_exit;
+	}
+
+	if (SCALE_MODE_NORMAL != path_info_ptr->scale_mode) {
+		path_info_ptr->slice_in_height += path_info_ptr->slice_height;
+		rtn = scale_k_check_deci_slice_mode(path_info_ptr->sc_deci_val, path_info_ptr->slice_height);
+		if (rtn) goto start_exit;
+	}
+	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_MASK, SCALE_PATH_SELECT, DCAM_CFG_REG);
+	dcam_glb_reg_owr(SCALE_BASE, SCALE_PATH_EB_BIT, DCAM_CFG_REG);
+
+	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
+#if defined(CONFIG_ARCH_SCX30G)
+	REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_START_BIT);
+#else
+	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
 #endif
+	printk("scale_k_start\n");
+	return rtn;
+
+start_exit:
+	dcam_resize_end();
+	SCALE_TRACE("scale_k_start error: ret=%d \n", rtn);
+	return rtn;
+}
+
+int scale_k_continue(struct scale_slice_param_t *cfg_ptr, struct scale_path_info *path_info_ptr)
+{
+	int rtn = 0;
+	uint32_t slice_h = 0;
+
+	if (!path_info_ptr) {
+		printk("scale_k_continue error: path_info_ptr null \n");
+		return -1;
+	}
+
+	rtn = scale_k_slice_cfg(cfg_ptr, path_info_ptr);
+	if (rtn) {
+		printk("rot_k_ioctl error: slice cfg \n");
+		return -1;
+	}
+
+
+	SCALE_TRACE("scale_k_continue: { %d, %d, %d} \n",
+		path_info_ptr->slice_height, path_info_ptr->slice_in_height, path_info_ptr->scale_mode);
+
+	if (SCALE_MODE_NORMAL != path_info_ptr->scale_mode) {
+		if (path_info_ptr->slice_in_height + path_info_ptr->slice_height >= path_info_ptr->input_rect.h) {
+			slice_h = path_info_ptr->input_rect.h - path_info_ptr->slice_in_height;
+			if (scale_k_check_deci_slice_mode(path_info_ptr->sc_deci_val, slice_h)) {
+				printk("scale_k_continue error: check deci \n");
+				return -1;
+			}
+			path_info_ptr->is_last_slice = 1;
+			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_INPUT_SLICE_HEIGHT_MASK, slice_h);
+			REG_OWR(SCALE_REV_SLICE_CFG, SCALE_IS_LAST_SLICE_BIT);
+		} else {
+			path_info_ptr->is_last_slice = 0;
+			REG_MWR(SCALE_REV_SLICE_CFG, SCALE_IS_LAST_SLICE_BIT, 0);
+		}
+		path_info_ptr->slice_in_height += path_info_ptr->slice_height;
+	}
+
+	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
+
+	return rtn;
+}
+
+int scale_k_stop(void)
+{
+	int rtn = 0;
+
+	dcam_glb_reg_mwr(SCALE_BASE, SCALE_PATH_EB_BIT, 0, DCAM_CFG_REG);
+
+	return rtn;
+}
+
+int scale_k_isr(struct dcam_frame* dcam_frm, void* u_data)
+{
+	unsigned long flag;
+	scale_isr_func user_isr_func;
+	struct scale_drv_private *private = (struct scale_drv_private *)u_data;
+	struct scale_path_info *path_info_ptr;
+	struct scale_frame_info_t *frm_info_ptr;
+
+	if (!private) {
+		printk("scale_k_isr error: private null \n");
+		goto isr_exit;
+	}
+
+	user_isr_func = private->user_isr_func;
+	if (!user_isr_func) {
+		printk("scale_k_isr error: user_isr_func null \n");
+		goto isr_exit;
+	}
+	path_info_ptr = &private->path_info;
+	frm_info_ptr = &private->frm_info;
+
+	spin_lock_irqsave(&private->scale_drv_lock, flag);
+
+	memset(frm_info_ptr, 0, sizeof(struct scale_frame_info_t));
+	frm_info_ptr->yaddr = path_info_ptr->output_addr.yaddr;
+	frm_info_ptr->uaddr = path_info_ptr->output_addr.uaddr;
+	frm_info_ptr->vaddr = path_info_ptr->output_addr.vaddr;
+	frm_info_ptr->width = path_info_ptr->output_size.w;
+	if (SCALE_MODE_NORMAL != path_info_ptr->scale_mode) {
+		frm_info_ptr->height_uv = REG_RD(SCALE_REV_SLICE_O_VCNT);
+		frm_info_ptr->height_uv = (frm_info_ptr->height_uv >> 16) & SCALE_OUTPUT_SLICE_HEIGHT_MASK;
+		frm_info_ptr->height = REG_RD(SCALE_REV_SLICE_O_VCNT);
+		frm_info_ptr->height = frm_info_ptr->height & SCALE_OUTPUT_SLICE_HEIGHT_MASK;
+		path_info_ptr->slice_out_height += frm_info_ptr->height;
+	} else {
+		frm_info_ptr->height = path_info_ptr->output_size.h;
+	}
+
+	if (path_info_ptr->is_wait_stop) {
+		up(&path_info_ptr->done_sem);
+		path_info_ptr->is_wait_stop = 0;
+	}
+	if (SCALE_MODE_NORMAL == path_info_ptr->scale_mode ||
+		(SCALE_MODE_NORMAL != path_info_ptr->scale_mode && path_info_ptr->output_size.h == path_info_ptr->slice_out_height)) {
+		printk("begin to dcam_resize_end\n");
+		dcam_resize_end();
+	}
+	user_isr_func(private->scale_fd);
+	spin_unlock_irqrestore(&private->scale_drv_lock, flag);
+
+isr_exit:
+	return 0;
+}
+
+int scale_k_isr_reg(scale_isr_func user_func, struct scale_drv_private *drv_private)
+{
+	int rtn = 0;
+	unsigned long flag;
+
+	if (user_func) {
+		if (!drv_private) {
+			rtn = -1;
+			printk("scale_reg_isr Failed \n");
+			goto reg_exit;
+		}
+
+		spin_lock_irqsave(&drv_private->scale_drv_lock, flag);
+		drv_private->user_isr_func = user_func;
+		spin_unlock_irqrestore(&drv_private->scale_drv_lock, flag);
+
+		dcam_reg_isr(DCAM_PATH2_DONE, scale_k_isr, (void *)drv_private);
+	} else {
+		dcam_reg_isr(DCAM_PATH2_DONE, NULL, NULL);
+	}
+
+reg_exit:
+	return rtn;
 }

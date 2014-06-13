@@ -22,6 +22,7 @@
 #include <mach/sci_glb_regs.h>
 #include <mach/board.h>
 #include <linux/sprd_iommu.h>
+#include <linux/delay.h>
 
 #include "dcam_drv.h"
 
@@ -104,6 +105,7 @@ int32_t clk_mm_i_eb(struct device_node *dn, uint32_t enable)
 		clk_disable(clk_mm_i);
 		clk_put(clk_mm_i);
 		clk_mm_i = NULL;
+		udelay(500);
 		atomic_dec(&mm_enabe_cnt);
 		PARSE_TRACE("clk_mm_i_eb disable ok.\n");
 	}
@@ -121,6 +123,7 @@ int32_t clk_mm_i_eb(struct device_node *dn, uint32_t enable)
 			REG_AWR(REG_MM_AHB_GEN_CKG_CFG,~(BIT_SENSOR_CKG_EN|BIT_DCAM_AXI_CKG_EN));
 			REG_OWR(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 			REG_AWR(REG_AON_APB_APB_EB0,~BIT_MM_EB);
+			udelay(500);
 			PARSE_TRACE("mm disable ok.\n");
 		}
 	}

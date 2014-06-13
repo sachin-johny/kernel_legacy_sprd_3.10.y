@@ -1959,7 +1959,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 		mutex_unlock(&dev->dcam_mutex);
 		channel_id = DCAM_PATH1;
 	} else if (DCAM_PATH2 == f->fmt.pix.colorspace) {
-		if (unlikely(dcam_get_resizer(0))) {
+		if (unlikely(dcam_get_resizer(DCAM_WAIT_FOREVER))) {
 			/*no wait to get the controller of resizer, failed*/
 			printk("V4L2: path2 has been occupied by other app \n");
 			return -EIO;
@@ -2244,12 +2244,14 @@ LOCAL int v4l2_streamoff(struct file *file,
 
 	if (path_2->is_work) {
 		path_2->status = PATH_IDLE;
+
+		ret = sprd_v4l2_unreg_path2_isr(dev);
+		V4L2_PRINT_IF_ERR(ret);
+
 		if (dev->got_resizer) {
 			dcam_rel_resizer();
 			dev->got_resizer = 0;
 		}
-		ret = sprd_v4l2_unreg_path2_isr(dev);
-		V4L2_PRINT_IF_ERR(ret);
 	}
 
 	if (path_0->is_work) {
@@ -2431,7 +2433,7 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 			} else if (DCAM_PATH2 == channel_id) {
 				if (0 == dev->got_resizer) {
 					 /* if not owned resiezer, try to get it */
-					if (unlikely(dcam_get_resizer(0))) {
+					if (unlikely(dcam_get_resizer(DCAM_WAIT_FOREVER))) {
 						/*no wait to get the controller of resizer, failed*/
 						printk("V4L2: resume, path2 has been occupied by other app \n");
 						return -EIO;
