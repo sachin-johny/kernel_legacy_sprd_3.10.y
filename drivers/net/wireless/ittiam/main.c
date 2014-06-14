@@ -37,9 +37,6 @@
 #include <linux/earlysuspend.h>
 #endif
 
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-#include <linux/regulator/consumer.h>
-#endif
 
 #ifdef CONFIG_OF
 #include <linux/of.h>

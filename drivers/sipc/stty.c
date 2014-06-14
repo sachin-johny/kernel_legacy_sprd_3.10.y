@@ -32,9 +32,6 @@
 #include <linux/compat.h>
 #include <linux/tty_flip.h>
 #include <linux/kthread.h>
-#if defined(CONFIG_MACH_SP8830GEA) || defined(CONFIG_MACH_SP7730GGA) || defined(CONFIG_MACH_SP7731GGA_LC) || defined(CONFIG_MACH_SP7730GGA_LC) || defined(CONFIG_MACH_SP7731GEA_LC) || defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_TSHARKWSAMSUNG)
-#include <linux/regulator/consumer.h>
-#endif
 
 #ifdef CONFIG_SPRD_2351
 #include <linux/sprd_2351.h>
