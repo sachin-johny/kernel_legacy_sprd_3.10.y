@@ -18,7 +18,7 @@
 /memreserve/ 0x8a800000 0x201000;/*Offset:168M, SIZE:2M+4k*/
 
 /* memory reserved for ION */
-/memreserve/ 0x8d400000 0x2c00000; /* 4MK */
+/memreserve/ 0x8fc00000 0x400000; /* 4MK */
 
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
@@ -814,15 +814,15 @@
                  sprd,ion-heap@2 {
                        reg = <2>;                      /* MM */
                        reg-names = "ion_heap_carveout_mm";
-                       sprd,ion-heap-type = <2>;       /* carveout mm */
-                       sprd,ion-heap-mem = <0x8d400000 0x2800000>;
+                       sprd,ion-heap-type = <0>;       /* carveout mm */
+                       sprd,ion-heap-mem = <0x88b00000 0x7100000>;
                  };
 
                  sprd,ion-heap@3 {
                        reg = <3>;                      /* OVERLAY */
                        reg-names = "ion_heap_carveout_overlay";
                        sprd,ion-heap-type = <2>;       /* CARVEOUT */
-                       sprd,ion-heap-mem = <0x9fc00000 0x400000>;      /* 4M */
+                       sprd,ion-heap-mem = <0x8fc00000 0x400000>;      /* 4M */
                  };
          };
          sprd_iommu0:sprd_iommu@F5410000 {
