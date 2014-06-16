@@ -718,6 +718,10 @@ int kill_bad_process_lmk(gfp_t gfp_mask, int order)
 
 	for_each_process(p) {
 		task_lock(p);
+		if (test_tsk_thread_flag(p, TIF_MEMDIE)) {
+			task_unlock(p);
+			return -1;
+		}
 		mm = p->mm;
 		sig = p->signal;
 		if (!mm || !sig) {
@@ -754,6 +758,7 @@ int kill_bad_process_lmk(gfp_t gfp_mask, int order)
 		selected_tasksize = tasksize;
 		selected_oom_adj = oom_adj;
 	}
+
 	if (selected) {
 		pr_err("oom-killer use lmk strategy, send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
@@ -770,6 +775,7 @@ int kill_bad_process_lmk(gfp_t gfp_mask, int order)
 		//Improve the priority of killed process can accelerate the process to die,
 		//and the process memory would be released quickly
 		boost_dying_task_prio(selected);
+		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		force_sig(SIGKILL, selected);
 	}
 	return selected_tasksize;
@@ -838,6 +844,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	}
 
 retry:
+	/* while test(TIF_MEMDIE) true or kill sig sended,set killed*/
 	if (kill_bad_process_lmk(gfp_mask,order)){
 		killed = 1;
 		goto out;
