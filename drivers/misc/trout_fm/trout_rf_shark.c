@@ -312,6 +312,8 @@ void __trout_fm_show_status(void)
 
 int trout_fm_deinit(void)
 {
+    trout_fm_dis();
+
     fm_rf_ops->write_reg(0x400, 0x0000);
     fm_rf_ops->write_reg(0x6F, 0x201);
 	
