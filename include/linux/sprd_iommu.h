@@ -43,6 +43,7 @@ struct sprd_iommu_dev {
 #endif
 	void *private;
 	unsigned int map_count;
+	struct mutex mutex_clk_op;
 };
 
 struct sprd_iommu_ops {

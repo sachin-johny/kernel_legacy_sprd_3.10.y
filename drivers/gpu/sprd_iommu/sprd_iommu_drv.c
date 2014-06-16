@@ -251,6 +251,7 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 #endif
 	iommu_dev->init_data = pdata;
 	mutex_init(&iommu_dev->mutex_pgt);
+	mutex_init(&iommu_dev->mutex_clk_op);
 
 #ifndef CONFIG_OF
 	if(0==strncmp("sprd_iommu_gsp",pdata->name,14))
