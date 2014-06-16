@@ -395,7 +395,7 @@ void dump_tasks(const struct mem_cgroup *mem, const nodemask_t *nodemask)
 		pr_info("[%5d] %5d %5d %8lu %8lu %8lu %3u     %3d         %5d %s\n",
 			task->pid, task_uid(task), task->tgid,
 			task->mm->total_vm, get_mm_rss(task->mm),
-			mm_counter << (PAGE_SHIFT - 10),
+			mm_counter,
 			task_cpu(task), task->signal->oom_adj,
 			task->signal->oom_score_adj, task->comm);
 		task_unlock(task);
@@ -703,7 +703,7 @@ void boost_dying_task_prio(struct task_struct *p)
         }
 }
 
-int kill_bad_process_lmk(void)
+int kill_bad_process_lmk(gfp_t gfp_mask, int order)
 {
 	struct task_struct *p;
 	struct task_struct *selected = NULL;
@@ -760,7 +760,7 @@ int kill_bad_process_lmk(void)
 			     selected_oom_adj, selected_tasksize);
 #ifdef CONFIG_ANDROID_LMK_DEBUG
 		if (selected_oom_adj <= 16) {
-			dump_header(current, 0, -1, 0, 0);
+			dump_header(current, gfp_mask, order, 0, 0);
 			//user_process_meminfo_show();
 #ifdef CONFIG_ZRAM
 			zram_printlog();
@@ -838,7 +838,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	}
 
 retry:
-	if (kill_bad_process_lmk()){
+	if (kill_bad_process_lmk(gfp_mask,order)){
 		killed = 1;
 		goto out;
 	}
