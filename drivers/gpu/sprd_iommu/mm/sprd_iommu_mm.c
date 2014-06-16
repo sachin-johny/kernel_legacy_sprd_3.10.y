@@ -79,9 +79,11 @@ int sprd_iommu_mm_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_
 {
 	int err=-1;
 
+	mutex_lock(&dev->mutex_clk_op);
 	if (0 == dev->map_count)
 		sprd_iommu_mm_enable(dev);
 	dev->map_count++;
+	mutex_unlock(&dev->mutex_clk_op);
 
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
 
@@ -94,9 +96,11 @@ int sprd_iommu_mm_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, siz
 
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
 
+	mutex_lock(&dev->mutex_clk_op);
 	dev->map_count--;
 	if (0 == dev->map_count)
 		sprd_iommu_mm_disable(dev);
+	mutex_unlock(&dev->mutex_clk_op);
 
 	return err;
 }
