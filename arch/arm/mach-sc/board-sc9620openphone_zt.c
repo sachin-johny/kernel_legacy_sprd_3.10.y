@@ -723,7 +723,7 @@ int __init __clock_init_early(void)
 	sci_glb_clr(REG_AON_APB_APB_EB0,
 		BIT_AUDIF_EB			|
 		BIT_VBC_EB			|
-		BIT_PWM3_EB			|
+//		BIT_PWM3_EB			|
 		BIT_PWM1_EB			|
 		0);
 	sci_glb_clr(REG_AON_APB_APB_EB1,
