@@ -39,7 +39,8 @@
 #define LINES_ONLY_CLK_RIGHT_TI
 
 /* For CHIPONE! ONLY ONE of the flowing marco can be defined! */
-#ifdef CONFIG_SHARK_PAD_HW_V102  // 5735A-2 v1.0.2 & 5735C-1 v1.0.0
+//#ifdef CONFIG_SHARK_PAD_HW_V102  // 5735A-2 v1.0.2 & 5735C-1 v1.0.0
+#if 1
 #define LINES_ALL_WRONG_C1
 #else  // 5735A-2 v1.0.1
 #define LINES_ALL_RIGHT_C1
