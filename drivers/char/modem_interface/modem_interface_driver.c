@@ -734,7 +734,7 @@ void modem_intf_ctrl_gpio_handle_normal(int status)
         case GPIO_RESET:
                 //reset -> 1, ,means need reboot
                 if(value) {
-                        modem_intf_assert_routine();
+                        //modem_intf_assert_routine();
                         modem_intf_set_mode(MODEM_MODE_DUMP, 0);
                         modem_intf_cp_reset_req_routine();
                 }
