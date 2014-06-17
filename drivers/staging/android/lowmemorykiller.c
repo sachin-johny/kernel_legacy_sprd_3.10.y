@@ -74,6 +74,7 @@ static size_t lowmem_minfreeswap[6] = {
 };
 
 static size_t lowmem_minfree_notif_trigger;
+static size_t lowmem_minswapfree_notif_trigger = 1024;//page
 
 static struct task_struct *lowmem_deathpending;
 static unsigned long lowmem_deathpending_timeout;
@@ -227,12 +228,18 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     sc->nr_to_scan, sc->gfp_mask, rem);
 		return rem;
 	}
-
-        if (sc->nr_to_scan > 0 &&
-                        (other_free < lowmem_minfree_notif_trigger &&
-                        other_file < lowmem_minfree_notif_trigger)) {
-                lowmem_notify_killzone_approach();
-        }
+	/*
+	 add si.freeswap trigger check
+	 swap off check:
+		lowmem_minfreeswap_check && si.totalswap
+	*/
+	if (sc->nr_to_scan > 0 &&
+		((other_free < lowmem_minfree_notif_trigger &&
+		other_file < lowmem_minfree_notif_trigger) ||
+		(si.freeswap < lowmem_minswapfree_notif_trigger &&
+		lowmem_minfreeswap_check && si.totalswap))) {
+			lowmem_notify_killzone_approach();
+	}
 
 	selected_oom_adj = min_adj;
 
@@ -333,10 +340,15 @@ static ssize_t lowmem_notify_trigger_active_show(struct kobject *k,
 		struct kobj_attribute *attr, char *buf)
 {
 	int other_free, other_file;
+	struct sysinfo si = {0};
+
 	lowmem_print(5, "lowmem_shrink notify_trigger_active_show\n");
 	get_free_ram(&other_free, &other_file);
-	if (other_free < lowmem_minfree_notif_trigger &&
-			other_file < lowmem_minfree_notif_trigger)
+	si_swapinfo(&si);
+	if ((other_free < lowmem_minfree_notif_trigger &&
+		other_file < lowmem_minfree_notif_trigger) ||
+		(si.freeswap < lowmem_minswapfree_notif_trigger &&
+			lowmem_minfreeswap_check && si.totalswap))
 		return snprintf(buf, 3, "1\n");
 	else
 		return snprintf(buf, 3, "0\n");
@@ -426,6 +438,8 @@ module_param_named(lowmem_minfreeswap_check, lowmem_minfreeswap_check, uint, S_I
 module_param_array_named(lowmem_minfreeswap, lowmem_minfreeswap, uint,
 			 &lowmem_minfreeswap_size, S_IRUGO | S_IWUSR);
 module_param_named(notify_trigger, lowmem_minfree_notif_trigger, uint,
+			 S_IRUGO | S_IWUSR);
+module_param_named(notify_trigger_swap, lowmem_minswapfree_notif_trigger, uint,
 			 S_IRUGO | S_IWUSR);
 module_init(lowmem_init);
 module_exit(lowmem_exit);
