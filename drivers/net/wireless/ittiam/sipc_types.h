@@ -225,6 +225,12 @@ struct wlan_sipc_scan_ssid {
 	u8 ssid[0];
 } __packed;
 
+/* wlan_sipc regdom struct */
+struct wlan_sipc_regdom {
+	u32 len;
+	u8 value[0];
+} __packed;
+
 /* sblock data */
 struct wlan_sblock_recv_data {
 	u8 is_encrypted;
