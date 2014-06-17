@@ -804,7 +804,7 @@ static int sprdfgu_int_init(void)
 
 	sci_adi_write(REG_FGU_CLBCNT_DELTL, delta_cc & 0xFFFF, ~0);
 	sci_adi_write(REG_FGU_CLBCNT_DELTH, (delta_cc >> 16) & 0xFFFF, ~0);
-
+#if 0
 	ret = request_irq(IRQ_ANA_FGU_INT, _sprdfgu_interrupt,
 			  IRQF_NO_SUSPEND, "sprdfgu", NULL);
 
@@ -812,6 +812,8 @@ static int sprdfgu_int_init(void)
 		printk(KERN_ERR "sprdfgu: request sprdfgu irq %d failed\n",
 		       IRQ_ANA_FGU_INT);
 	}
+#endif
+
 	sci_adi_set(REG_FGU_INT_EN, BIT_VOLT_HIGH_INT);
 	return 0;
 }
