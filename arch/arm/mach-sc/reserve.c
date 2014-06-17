@@ -157,8 +157,9 @@ phys_addr_t sprd_iq_addr(void)
 
 void __init sci_reserve(void)
 {
-#ifndef CONFIG_OF
 	int ret;
+
+#ifndef CONFIG_OF
 	ret = __iomem_reserve_memblock();
 	if (ret != 0)
 		pr_err("Fail to reserve mem for iomem. errno=%d\n", ret);
