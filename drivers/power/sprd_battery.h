@@ -18,6 +18,8 @@
 #include <linux/hrtimer.h>
 #include <linux/wakelock.h>
 #include <linux/power_supply.h>
+#include <linux/sprd_battery_common.h>
+
 #include <mach/adc.h>
 
 #if defined(CONFIG_SPRD_2713_POWER)
@@ -50,24 +52,6 @@ enum sprd_adapter_type {
 	ADP_TYPE_SDP = 4,	//Standard Downstream Port,USB and nonstandard charge
 };
 
-struct sprdbat_param {
-	uint32_t chg_end_vol_h;
-	uint32_t chg_end_vol_l;
-	uint32_t chg_end_vol_pure;
-	int chg_end_cur;
-	uint32_t rechg_vol;
-	uint32_t adp_cdp_cur;
-	uint32_t adp_dcp_cur;
-	uint32_t adp_sdp_cur;
-	uint32_t ovp_stop;
-	uint32_t ovp_restart;
-	uint32_t chg_timeout;
-	int otp_high_stop;
-	int otp_high_restart;
-	int otp_low_stop;
-	int otp_low_restart;
-};
-
 struct sprdbat_info {
 	uint32_t module_state;
 	uint32_t bat_health;
@@ -86,10 +70,11 @@ struct sprdbat_info {
 	int cur_temp;
 	uint32_t capacity;
 	uint32_t soc;
+	uint32_t chg_this_timeout;
 };
 
 struct sprdbat_drivier_data {
-	struct sprdbat_param bat_param;
+	struct sprd_battery_platform_data *pdata;
 	struct sprdbat_info bat_info;
 	struct mutex lock;
 	struct device *dev;
@@ -108,9 +93,9 @@ struct sprdbat_drivier_data {
 	struct delayed_work battery_work;
 	struct delayed_work battery_sleep_work;
 	struct work_struct ovi_irq_work;
-	struct delayed_work * charge_work;
-	int (*start_charge)(void);
-	int (*stop_charge)(void);
+	struct delayed_work *charge_work;
+	int (*start_charge) (void);
+	int (*stop_charge) (void);
 #ifdef CONFIG_LEDS_TRIGGERS
 	struct led_classdev charging_led;
 #endif
@@ -130,6 +115,8 @@ struct sprdbat_auxadc_cal {
 #define sprdbat_adp_plug_nodify sprdfgu_adp_status_set
 #define sprdbat_read_temp_adc sprdchg_read_temp_adc
 
+int sprdbat_interpolate(int x, int n, struct sprdbat_table_data *tab);
+
 #ifdef SPRDBAT_TWO_CHARGE_CHANNEL
 #define SPRDBAT_CHG_EVENT_EXT_OVI   1
 #define SPRDBAT_CHG_EVENT_EXT_OVI_RESTART   2
@@ -137,11 +124,10 @@ void sprdchg_start_charge_ext(void);
 void sprdchg_stop_charge_ext(void);
 int sprdchg_is_chg_done_ext(void);
 int sprdchg_charge_init_ext(struct platform_device *pdev);
-void sprdchg_chg_monitor_cb_ext(void * data);
+void sprdchg_chg_monitor_cb_ext(void *data);
 void sprdchg_open_ovi_fun_ext(void);
 void sprdchg_close_ovi_fun_ext(void);
 void sprdbat_charge_event_ext(uint32_t event);
-
 #endif
 
 #endif /* _CHG_DRVAPI_H_ */

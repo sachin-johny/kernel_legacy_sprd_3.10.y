@@ -791,6 +791,7 @@ struct platform_device trout_fm_device = {
 };
 #endif
 
+#if 0   //move to board_common_battery.c
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,
@@ -838,7 +839,7 @@ struct platform_device sprd_battery_device = {
         .num_resources  = ARRAY_SIZE(sprd_battery_resources),
         .resource       = sprd_battery_resources,
 };
-
+#endif
 
 #if defined(CONFIG_SPRD_IOMMU)
 #if defined(CONFIG_ARCH_SCX15)

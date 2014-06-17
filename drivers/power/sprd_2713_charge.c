@@ -18,6 +18,9 @@
 #include <linux/err.h>
 #include <linux/spinlock.h>
 #include <linux/delay.h>
+#include <linux/platform_device.h>
+#include <linux/irq.h>
+#include <linux/interrupt.h>
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
@@ -27,77 +30,14 @@
 #include <mach/adc.h>
 #include <mach/usb.h>
 #include <mach/irqs.h>
-#include <linux/irq.h>
 #include <asm/io.h>
-#include <linux/interrupt.h>
 
 #include "sprd_battery.h"
 
-#define sprd_battery_data sprdbat_drivier_data
+static struct sprd_battery_platform_data *pbat_data;
+
 extern int sci_adc_get_value(unsigned chan, int scale);
 uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue);
-
-#ifdef SPRDBAT_BATTERY_TEMP_DECT
-int32_t temp_adc_table[][2] = {
-	{65, 3188},
-	{60, 3620},
-	{55, 4103},
-	{50, 4593},
-	{45, 5137},
-	{40, 5714},
-	{35, 6282},
-	{30, 6861},
-	{25, 7429},
-	{20, 7988},
-	{15, 8501},
-	{10, 8973},
-	{5, 9383},
-	{0, 9771},
-	{-5, 10084},
-	{-10, 10339},
-	{-15, 10550},
-	{-20, 10717},
-	{-25, 10845},
-};
-
-int sprdchg_adc_to_temp(uint16_t adcvalue)
-{
-	int table_size = ARRAY_SIZE(temp_adc_table);
-	int index;
-	int result;
-	int first, second;
-
-	for (index = 0; index < table_size; index++) {
-		if (index == 0 && adcvalue < temp_adc_table[0][1])
-			break;
-		if (index == table_size - 1
-		    && adcvalue >= temp_adc_table[index][1])
-			break;
-
-		if (adcvalue >= temp_adc_table[index][1]
-		    && adcvalue < temp_adc_table[index + 1][1])
-			break;
-	}
-
-	if (index == 0) {
-		first = 0;
-		second = 1;
-	} else if (index == table_size - 1) {
-		first = table_size - 2;
-		second = table_size - 1;
-	} else {
-		first = index;
-		second = index + 1;
-	}
-
-	result =
-	    (adcvalue - temp_adc_table[first][1]) * (temp_adc_table[first][0] -
-						     temp_adc_table[second][0])
-	    / (temp_adc_table[first][1] - temp_adc_table[second][1]) +
-	    temp_adc_table[first][0];
-	return result;
-}
-#endif
 
 #define VOL_TO_CUR_PARAM (576)
 uint32_t sprdchg_adc_to_cur(uint32_t cur_type, uint16_t voltage)
@@ -109,21 +49,9 @@ uint32_t sprdchg_adc_to_cur(uint32_t cur_type, uint16_t voltage)
 		VOL_TO_CUR_PARAM) / bat_denominators;
 }
 
-void __weak udc_enable(void)
-{
-}
-
-void __weak udc_phy_down(void)
-{
-}
-
-void __weak udc_disable(void)
-{
-}
-
 #define VPROG_RESULT_NUM 10
 #define VBAT_RESULT_DELAY 10
-int32_t sprdchg_get_vprog(struct sprd_battery_data *data)
+int32_t sprdchg_get_vprog(void)
 {
 	int i, temp;
 	volatile int j;
@@ -206,8 +134,11 @@ int sprdchg_timer_init(int (*fn_cb) (void *data), void *data)
 	sci_glb_set(REG_AON_APB_APB_EB1, BIT_AP_TMR1_EB);
 	sprdchg_timer_disable();
 	sprdchg_tm_cb = fn_cb;
-	ret = request_irq(IRQ_APTMR3_INT, _sprdchg_timer_interrupt,
-			  IRQF_NO_SUSPEND | IRQF_TIMER, "battery_timer", data);
+
+	ret =
+	    request_irq(((struct sprdbat_drivier_data *)data)->
+			pdata->irq_chg_timer, _sprdchg_timer_interrupt,
+			IRQF_NO_SUSPEND | IRQF_TIMER, "battery_timer", data);
 
 	if (ret) {
 		printk(KERN_ERR "request battery timer irq %d failed\n",
@@ -246,8 +177,11 @@ static int __init adc_cal_start(char *str)
 __setup("adc_cal", adc_cal_start);
 #include <linux/gpio.h>
 
-void sprdchg_init(void)
+void sprdchg_init(struct platform_device *pdev)
 {
+	struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
+	pbat_data = data->pdata;
+
 	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BITS_CHGR_CV_V(0), BITS_CHGR_CV_V(~0));
@@ -270,72 +204,94 @@ void sprdchg_init(void)
 	printk("ANA_CTL_EIC_BASE0x%x\n", sci_adi_read(ANA_CTL_EIC_BASE + 0x50));
 }
 
-static uint16_t sprdbat_adc_to_vol_channel(uint16_t channel, uint16_t adcvalue)
+static uint16_t sprdchg_adc_to_vol(uint16_t channel, int scale,
+				   uint16_t adcvalue)
 {
 	uint32_t result;
 	uint32_t vbat_vol = sprdchg_bat_adc_to_vol(adcvalue);
 	uint32_t m, n;
 	uint32_t bat_numerators, bat_denominators;
-	uint32_t vchg_numerators, vchg_denominators;
+	uint32_t numerators, denominators;
 
 	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
 			      &bat_denominators);
-	sci_adc_get_vol_ratio(channel, 0, &vchg_numerators, &vchg_denominators);
+	sci_adc_get_vol_ratio(channel, scale, &numerators, &denominators);
 
 	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
-	n = bat_denominators * vchg_numerators;
-	m = vbat_vol * bat_numerators * (vchg_denominators);
+	n = bat_denominators * numerators;
+	m = vbat_vol * bat_numerators * (denominators);
 	result = (m + n / 2) / n;
 	return result;
-
 }
 
 int sprdchg_read_temp_adc(void)
 {
-#ifdef SPRDBAT_BATTERY_TEMP_DECT
-	return sci_adc_get_value(SPRDBAT_ADC_CHANNEL_TEMP, true);
-#else
-	return 3000;
-#endif
+#define SAMPLE_NUM  15
+	int cnt = pbat_data->temp_adc_sample_cnt;
+
+	if (cnt > SAMPLE_NUM) {
+		cnt = SAMPLE_NUM;
+	} else if (cnt < 1) {
+		cnt = 1;
+	}
+
+	if (pbat_data->temp_support) {
+		int ret, i, j, temp;
+		int adc_val[cnt];
+		struct adc_sample_data data = {
+			.channel_id = pbat_data->temp_adc_ch,
+			.channel_type = 0,	/*sw */
+			.hw_channel_delay = 0,	/*reserved */
+			.scale = pbat_data->temp_adc_scale,	/*small scale */
+			.pbuf = &adc_val[0],
+			.sample_num = cnt,
+			.sample_bits = 1,
+			.sample_speed = 0,	/*quick mode */
+			.signal_mode = 0,	/*resistance path */
+		};
+
+		ret = sci_adc_get_values(&data);
+		WARN_ON(0 != ret);
+
+		for (j = 1; j <= cnt - 1; j++) {
+			for (i = 0; i < cnt - j; i++) {
+				if (adc_val[i] > adc_val[i + 1]) {
+					temp = adc_val[i];
+					adc_val[i] = adc_val[i + 1];
+					adc_val[i + 1] = temp;
+				}
+			}
+		}
+		printk("sprdchg: channel:%d,sprdchg_read_temp_adc:%d\n",
+		       data.channel_id, adc_val[cnt / 2]);
+		return adc_val[cnt / 2];
+	} else {
+		return 3000;
+	}
+}
+
+int sprdchg_search_temp_tab(int val)
+{
+	return sprdbat_interpolate(val, pbat_data->temp_tab_size,
+				   pbat_data->temp_tab);
 }
 
 int sprdchg_read_temp(void)
 {
-#ifdef SPRDBAT_BATTERY_TEMP_DECT
-#define SAMPLE_NUM  15
-	int ret, i, sum = 0;
-	int adc_val[SAMPLE_NUM];
-	struct adc_sample_data data = {
-		.channel_id = SPRDBAT_ADC_CHANNEL_TEMP,
-		.channel_type = 0,	/*sw */
-		.hw_channel_delay = 0,	/*reserved */
-		.scale = 1,	/*small scale */
-		.pbuf = &adc_val[0],
-		.sample_num = SAMPLE_NUM,
-		.sample_bits = 1,
-		.sample_speed = 0,	/*quick mode */
-		.signal_mode = 0,	/*resistance path */
-	};
+	if (pbat_data->temp_support) {
+		int val = sprdchg_read_temp_adc();
+		//voltage mode
+		if (pbat_data->temp_table_mode) {
+			val =
+			    sprdchg_adc_to_vol(pbat_data->temp_adc_ch,
+					       pbat_data->temp_adc_scale, val);
+			printk("sprdchg: sprdchg_read_temp voltage:%d\n", val);
+		}
 
-	ret = sci_adc_get_values(&data);
-	WARN_ON(0 != ret);
-
-	for (i = SAMPLE_NUM - 5; i < SAMPLE_NUM; i++) {
-		sum += adc_val[i];
+		return sprdchg_search_temp_tab(val);
+	} else {
+		return 200;
 	}
-	sum /= 5;
-	printk(KERN_ERR "sprdchg: adc_val[10]:%d\n", adc_val[10]);
-	printk(KERN_ERR "sprdchg: adc_val[14]:%d\n", adc_val[14]);
-	printk(KERN_ERR "sprdchg: channel:%d,sprdchg_read_temp adc:%d\n",
-	       data.channel_id, sum);
-
-	sum = sprdbat_adc_to_vol_channel(data.channel_id, sum);
-	sum = sum * 10;
-	printk(KERN_ERR "sprdchg: sprdchg_read_temp voltage:%d\n", sum);
-	return sprdchg_adc_to_temp(sum);
-#else
-	return 200;
-#endif
 }
 
 uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue)
@@ -350,32 +306,11 @@ uint16_t sprdchg_bat_adc_to_vol(uint16_t adcvalue)
 	return temp;
 }
 
-static uint16_t sprdbat_charger_adc_to_vol(uint16_t adcvalue)
-{
-	uint32_t result;
-	uint32_t vbat_vol = sprdchg_bat_adc_to_vol(adcvalue);
-	uint32_t m, n;
-	uint32_t bat_numerators, bat_denominators;
-	uint32_t vchg_numerators, vchg_denominators;
-
-	sci_adc_get_vol_ratio(ADC_CHANNEL_VBAT, 0, &bat_numerators,
-			      &bat_denominators);
-	sci_adc_get_vol_ratio(SPRDBAT_ADC_CHANNEL_VCHG, 0, &vchg_numerators,
-			      &vchg_denominators);
-
-	///v1 = vbat_vol*0.268 = vol_bat_m * r2 /(r1+r2)
-	n = bat_denominators * vchg_numerators;
-	m = vbat_vol * bat_numerators * (vchg_denominators);
-	result = (m + n / 2) / n;
-	return result;
-
-}
-
 uint32_t sprdchg_read_vchg_vol(void)
 {
 	int vchg_value;
 	vchg_value = sci_adc_get_value(SPRDBAT_ADC_CHANNEL_VCHG, false);
-	return sprdbat_charger_adc_to_vol(vchg_value);
+	return sprdchg_adc_to_vol(SPRDBAT_ADC_CHANNEL_VCHG, 0, vchg_value);	//sprdbat_charger_adc_to_vol(vchg_value);
 }
 
 int sprdchg_charger_is_adapter(void)
@@ -453,10 +388,6 @@ void sprdchg_set_chg_cur(uint32_t chg_current)
 
 void sprdchg_set_cccvpoint(unsigned int cvpoint)
 {
-	if (!sprdfgu_is_new_chip()) {
-		printk(KERN_ERR "sprdchg: sprdchg_set_cccvpoint old chip!\n");
-		cvpoint = 16;
-	}
 	BUG_ON(cvpoint > SPRDBAT_CCCV_MAX);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BITS_CHGR_CV_V(cvpoint), BITS_CHGR_CV_V(~0));
@@ -487,9 +418,10 @@ uint32_t sprdchg_tune_endvol_cccv(uint32_t chg_end_vol, uint32_t cal_cccv)
 				sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 					      BITS_CHGR_END_V(1),
 					      BITS_CHGR_END_V(~0));
-				return (cal_cccv - (((4300 - chg_end_vol) * 10) +
-						   (ONE_CCCV_STEP_VOL >> 1)) /
-				    ONE_CCCV_STEP_VOL);
+				return (cal_cccv -
+					(((4300 - chg_end_vol) * 10) +
+					 (ONE_CCCV_STEP_VOL >> 1)) /
+					ONE_CCCV_STEP_VOL);
 			} else {
 				return cv;
 			}
@@ -502,9 +434,10 @@ uint32_t sprdchg_tune_endvol_cccv(uint32_t chg_end_vol, uint32_t cal_cccv)
 				sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 					      BITS_CHGR_END_V(2),
 					      BITS_CHGR_END_V(~0));
-				return (cal_cccv - (((4400 - chg_end_vol) * 10) +
-						   (ONE_CCCV_STEP_VOL >> 1)) /
-				    ONE_CCCV_STEP_VOL);
+				return (cal_cccv -
+					(((4400 - chg_end_vol) * 10) +
+					 (ONE_CCCV_STEP_VOL >> 1)) /
+					ONE_CCCV_STEP_VOL);
 			} else {
 				sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 					      BITS_CHGR_END_V(1),
@@ -556,21 +489,24 @@ void sprdchg_start_charge(void)
 #endif
 	_sprdchg_set_recharge();
 }
+
 void sprdchg_set_eoc_level(int level)
 {
 #if defined(CONFIG_ARCH_SCX15)
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL2,
-		    BITS_CHGR_ITERM(level), BITS_CHGR_ITERM(~0));
+		      BITS_CHGR_ITERM(level), BITS_CHGR_ITERM(~0));
 #endif
 }
+
 int sprdchg_get_eoc_level(void)
 {
 #if defined(CONFIG_ARCH_SCX15)
 	int shft = __ffs(BITS_CHGR_ITERM(~0));
 
 	return (sci_adi_read(ANA_REG_GLB_CHGR_CTRL2) & BITS_CHGR_ITERM(~0)) >>
-		    shft;
-
+	    shft;
+#else
+	return 0;
 #endif
 }
 
