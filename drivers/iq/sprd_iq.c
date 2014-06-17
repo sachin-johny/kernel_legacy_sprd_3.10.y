@@ -24,6 +24,10 @@
 #include <asm/memory.h>
 #include <linux/memblock.h>
 #include <linux/devfreq.h>
+#include <linux/mm.h>
+#include <linux/miscdevice.h>
+#include <linux/debugfs.h>
+#include <mach/hardware.h>
 
 
 #define IQ_BUF_INIT                0x5A5A5A5A
@@ -65,6 +69,8 @@ static int __init early_mode(char *str)
 	printk("early_mode \n");
 	if(!memcmp(str, "iq", 2))
 		iq_mode = 1;
+
+    return 0;
 }
 
 int in_iqmode(void)
@@ -157,9 +163,69 @@ struct devfreq_dbs dmc_iq_notify = {
 };
 #endif
 
+static long iq_mem_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
+{
+    return 0;
+}
+
+static int iq_mem_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
+{
+    size_t size = vma->vm_end - vma->vm_start;
+
+    printk(KERN_INFO "iq_mem_nocache_mmap\n");
+
+    vma->vm_page_prot = pgprot_noncached(vma->vm_page_prot);
+
+    if (remap_pfn_range(vma,vma->vm_start, vma->vm_pgoff,
+                        vma->vm_end - vma->vm_start, vma->vm_page_prot))
+    {
+        printk(KERN_ERR "remap_pfn_range failed\n");
+        return -EAGAIN;
+    }
+
+    printk(KERN_INFO "iq mmap %x,%x,%x\n", (unsigned int)PAGE_SHIFT,
+           (unsigned int)vma->vm_start,
+           (unsigned int)(vma->vm_end - vma->vm_start));
+    return 0;
+}
+
+static int iq_mem_open(struct inode *inode, struct file *filp)
+{
+    printk(KERN_INFO "iq_mem_open called\n");
+    return 0;
+}
+
+static int iq_mem_release (struct inode *inode, struct file *filp)
+{
+    printk(KERN_INFO "iq_mem_release\n");
+    return 0;
+}
+
+
+static const struct file_operations iq_mem_fops =
+{
+    .owner = THIS_MODULE,
+    .unlocked_ioctl =iq_mem_ioctl,
+    .mmap  =iq_mem_nocache_mmap,
+    .open =iq_mem_open,
+    .release =iq_mem_release,
+};
+
+static struct miscdevice iq_mem_dev = {
+    .minor   = MISC_DYNAMIC_MINOR,
+    .name   = "iq_mem",
+    .fops   = &iq_mem_fops,
+};
+
 
 static int __init  sprd_iq_init(void)
 {
+    int ret;
+    ret = misc_register(&iq_mem_dev);
+    if (ret) {
+        printk(KERN_ERR "cannot register iq_mmap_dev ret = (%d)\n",ret);
+    }
+
 	if(!in_iqmode())
 		return -EINVAL;
 	if (sprd_iq_addr() == 0xffffffff)
@@ -191,7 +257,7 @@ static int __init  sprd_iq_init(void)
 
 static void __exit sprd_iq_exit(void)
 {
-
+    misc_deregister(&iq_mem_dev);
 }
 
 
