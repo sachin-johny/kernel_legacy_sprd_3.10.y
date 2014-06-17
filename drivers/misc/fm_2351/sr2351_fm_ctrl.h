@@ -12,15 +12,15 @@
 extern int sr2351_fm_en(void);
 extern int sr2351_fm_dis(void);
 extern int sr2351_fm_get_status(int *status);
-extern int sr2351_fm_get_frequency(u16 *);
+extern int sr2351_fm_get_frequency(u32 *);
 extern void sr2351_fm_enter_sleep(void);
 extern void sr2351_fm_exit_sleep(void);
 extern void sr2351_fm_mute(void);
 extern void sr2351_fm_unmute(void);
 extern int sr2351_fm_init(void);
 extern int sr2351_fm_deinit(void);
-extern int sr2351_fm_set_tune(u16 freq);
-extern int sr2351_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found);
+extern int sr2351_fm_set_tune(u32 freq);
+extern int sr2351_fm_seek(u32 frequency, u32 seek_dir, u32 time_out, u32 *freq_found);
 extern int sr2351_fm_stop_seek(void);
 
 /*FM Module Start*/

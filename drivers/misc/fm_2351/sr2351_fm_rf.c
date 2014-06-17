@@ -506,7 +506,7 @@ int shark_fm_wait_int(int time_out)
 	return ret;
 }
 
-int sr2351_fm_set_tune(u16 freq)
+int sr2351_fm_set_tune(u32 freq)
 {
 	u32 reg_data;
 	sr2351_fm_dis();
@@ -533,7 +533,7 @@ int sr2351_fm_set_tune(u16 freq)
 	return 0;
 }
 
-int sr2351_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
+int sr2351_fm_seek(u32 frequency, u32 seek_dir, u32 time_out, u32 *freq_found)
 {
 	int ret = 0;
 
@@ -634,7 +634,7 @@ int sr2351_fm_seek(u16 frequency, u8 seek_dir, u32 time_out, u16 *freq_found)
 	return ret;
 }
 
-int sr2351_fm_get_frequency(u16 *freq)
+int sr2351_fm_get_frequency(u32 *freq)
 {
 #ifdef CONFIG_FM_SEEK_STEP_50KHZ
 	*freq = shark_fm_info.freq_seek*5 + 10;
