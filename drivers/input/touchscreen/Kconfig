@@ -901,11 +901,11 @@ config TOUCHSCREEN_FOCALTECH
           module will be called focaltech_ts.o
 
 config TOUCHSCREEN_FIRMWARE_UPGRADE
-        tristate "touchscreen firmware upgrade"
+        bool "TOUCHSCREEN FIRMWARE UPGRADE"
+        depends on TOUCHSCREEN_FOCALTECH
+        default n
         help
-          Say Y here if you want to upgrade the firmware
-
-          If unsure, say N.
+	  Say Y here to enable support for the TP firmware update.
 
 config TOUCHSCREEN_GOODIX
         tristate "touchscreen_goodix driver"

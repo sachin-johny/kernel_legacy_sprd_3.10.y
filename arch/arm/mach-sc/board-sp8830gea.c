@@ -332,9 +332,9 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.reset_gpio_number  = GPIO_TOUCH_RESET,
 	.vdd_name           = "vdd28",
 	.virtualkeys = {
-			45,990,80,65,
-			280,1020,80,65,
-			405,990,80,65
+	         100,1020,80,65,
+	         280,1020,80,65,
+	         470,1020,80,65
 	         },
 	 .TP_MAX_X = 720,
 	 .TP_MAX_Y = 1280,
