@@ -121,6 +121,9 @@ static int sprdfb_mmap(struct fb_info *info,struct vm_area_struct *vma)
 static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 {
 	uint32_t len, addr;
+	bool use_reserve_mem;
+    uint32_t reserve_mem[2];
+    int ret;
 
 #ifdef CCONFIG_FB_LOW_RES_SIMU
 	if((0!= dev->panel->display_width) && (0 != dev->panel->display_height)){
@@ -128,28 +131,48 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
 	}else
 #endif
 	len = dev->panel->width * dev->panel->height * (dev->bpp / 8) * FRAMEBUFFER_NR;
-#ifndef	CONFIG_FB_LCD_RESERVE_MEM
-	addr = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, get_order(len));
-	if (!addr) {
-		printk(KERN_ERR "sprdfb: Failed to allocate framebuffer memory\n");
-		return -ENOMEM;
-	}
-	pr_debug(KERN_INFO "sprdfb: got %d bytes mem at 0x%lx\n", len, addr);
 
-	dev->fb->fix.smem_start = __pa(addr);
-	dev->fb->fix.smem_len = len;
-	dev->fb->screen_base = (char*)addr;
+#ifdef CONFIG_OF
+    use_reserve_mem = of_property_read_bool(pdev->dev.of_node, "sprd,fb_use_reservemem");
+    if(use_reserve_mem){
+        ret = of_property_read_u32_array(pdev->dev.of_node, "sprd,fb_mem",
+				reserve_mem, 2);
+		if(0 != ret){
+		    printk(KERN_ERR "sprdfb: Failed to got framebuffer memory from dt file\n");
+		}
+    }
 #else
-	dev->fb->fix.smem_start = SPRD_FB_MEM_BASE;
-	printk("sprdfb: setup_fb_mem--smem_start:%lx,len:%d,reserved len:%d\n",dev->fb->fix.smem_start,len,SPRD_FB_MEM_SIZE);
-	addr =  (uint32_t)ioremap(SPRD_FB_MEM_BASE, len);
-	if (!addr) {
-		printk(KERN_ERR "sprdfb: Unable to map framebuffer base: 0x%08x\n", addr);
-		return -ENOMEM;
-	}
-	dev->fb->fix.smem_len = len;
-	dev->fb->screen_base = (char*)addr;
+#ifdef	CONFIG_FB_LCD_RESERVE_MEM
+    use_reserve_mem = true;
+    reserve_mem[0] = SPRD_FB_MEM_BASE;
+    reserve_mem[1] = SPRD_FB_MEM_SIZE;
+#else
+    use_reserve_mem = false;
 #endif
+#endif
+
+    if(!use_reserve_mem){
+        addr = __get_free_pages(GFP_ATOMIC | __GFP_ZERO, get_order(len));
+        if (!addr) {
+        printk(KERN_ERR "sprdfb: Failed to allocate framebuffer memory\n");
+            return -ENOMEM;
+        }
+        printk(KERN_INFO "sprdfb: got %d bytes mem at 0x%x\n", len, addr);
+
+        dev->fb->fix.smem_start = __pa(addr);
+        dev->fb->fix.smem_len = len;
+        dev->fb->screen_base = (char*)addr;
+    }else{
+        dev->fb->fix.smem_start = reserve_mem[0];
+        printk("sprdfb: setup_fb_mem--smem_start:%lx,len:%d,reserved len:%d\n",dev->fb->fix.smem_start,len,reserve_mem[1]);
+        addr =  (uint32_t)ioremap(dev->fb->fix.smem_start, len);
+        if (!addr) {
+            printk(KERN_ERR "sprdfb: Unable to map framebuffer base: 0x%08x\n", addr);
+            return -ENOMEM;
+        }
+        dev->fb->fix.smem_len = len;
+        dev->fb->screen_base = (char*)addr;
+	}
 	return 0;
 }
 

@@ -17,8 +17,11 @@
 /* memory reserved for CPWCN modem */
 /memreserve/ 0x8a800000 0x201000;/*Offset:168M, Size:2M+4K*/
 
+/* memory reserved for fb */
+/memreserve/ 0x9f300000 0x600000; /* 6MK */
+
 /* memory reserved for ION */
-/memreserve/ 0x97600000 0x8a00000;
+/memreserve/ 0x9f900000 0x700000; /* 7MK */
 
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
@@ -422,6 +425,8 @@
 		clocks = <&clk_256m>, <&clk_256m>, <&clk_384m>, <&clk_aon_apb>, <&clk_dispc0>, <&clk_dispc0_dbi>, <&clk_dispc0_dpi>, <&clk_disp_emc>, <&clk_spi2>, <&ext_26m>;
 		clock-src = <256000000 256000000 384000000>;
 		dpi_clk_div = <7>;
+		sprd,fb_use_reservemem;
+		sprd,fb_mem = <0x9f300000 0x600000>;
 	};
 	gsp:gsp@20a00000 {
 		compatible = "sprd,gsp";
@@ -809,15 +814,15 @@
                  sprd,ion-heap@2 {
                        reg = <2>;                      /* MM */
                        reg-names = "ion_heap_carveout_mm";
-                       sprd,ion-heap-type = <2>;       /* carveout mm */
-                       sprd,ion-heap-mem = <0x97600000 0x7100000>;
+                       sprd,ion-heap-type = <0>;       /* carveout mm */
+                       sprd,ion-heap-mem = <0x98800000 0x7100000>;
                  };
 
                  sprd,ion-heap@3 {
                        reg = <3>;                      /* OVERLAY */
                        reg-names = "ion_heap_carveout_overlay";
                        sprd,ion-heap-type = <2>;       /* CARVEOUT */
-                       sprd,ion-heap-mem = <0x9e700000 0x1900000>;      /* 4M */
+                       sprd,ion-heap-mem = <0x9f900000 0x700000>;      /* 7M */
                  };
          };
          sprd_iommu0:sprd_iommu@F5410000 {
