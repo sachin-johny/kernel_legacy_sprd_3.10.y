@@ -3643,11 +3643,7 @@ LOCAL void    _dcam_err_pre_proc(void)
 	_dcam_stopped();
 	if (0 == atomic_read(&s_resize_flag) &&
 		0 == atomic_read(&s_rotation_flag)) {
-		sci_glb_set(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
-		sci_glb_clr(DCAM_RST, DCAM_MOD_RST_BIT | CCIR_RST_BIT);
-		dcam_glb_reg_owr(DCAM_INT_MASK,
-				DCAM_IRQ_LINE_MASK,
-				DCAM_INIT_MASK_REG);
+			dcam_reset(DCAM_RST_ALL);
 	}
 	return;
 }
