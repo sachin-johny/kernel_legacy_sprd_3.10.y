@@ -18,8 +18,6 @@
 
 #define WAIT_FENCE_TIMEOUT 200
 
-static struct mutex sync_mutex;
-
 /*
  *  Porting from software sync
  *  (sw_sync.h sw_sync.c)
@@ -130,175 +128,343 @@ void sprd_sync_timeline_inc(struct sprd_sync_timeline *obj, u32 inc)
  *  Porting software sync done
  * */
 
-int sprd_create_timeline(struct fence_sync *sprd_fence)
+/*
+ *  user interface
+ * */
+
+/*
+ *  Now build two timeline,
+ *  one for PrimaryDisplayDevice,
+ *  the other for VirtualDisplayDevice.
+ *  If we only use single timeline, the later Device will
+ *  block the former Device.
+ * */
+static struct sync_timeline_data sprd_timeline;
+static struct sync_timeline_data sprd_timeline_virtual;
+int sprd_create_timeline(enum SPRD_DEVICE_SYNC_TYPE type)
 {
-    static int init = 0;
-
-    if (sprd_fence == NULL)
-    {
-        printk(KERN_ERR "create_timeline, input parameter is NULL\n");
-        return -EINVAL;
-    }
-
-    if (init == 0)
-    {
-        sprd_fence->timeline_value = -1;
-        sprd_fence->timeline = NULL;
-        mutex_init(&sync_mutex);
-
-        init = 1;
-    }
-
-    mutex_lock(&sync_mutex);
-    if (sprd_fence->timeline == NULL)
-    {
-        sprd_fence->timeline = sprd_sync_timeline_create("sprd-timeline");
-        if (sprd_fence->timeline == NULL)
-        {
-            printk(KERN_ERR "create_timeline, cannot create time line\n");
-            mutex_unlock(&sync_mutex);
-            return -ENOMEM;
-        }
-        else
-        {
-            sprd_fence->timeline_value = 0;
-        }
-    }
-    mutex_unlock(&sync_mutex);
+	if (type == SPRD_DEVICE_PRIMARY_SYNC)
+	{
+		mutex_lock(&(sprd_timeline.sync_mutex));
+		if (sprd_timeline.timeline == NULL)
+		{
+			sprd_timeline.timeline = sprd_sync_timeline_create("sprd-timeline");
+			if (sprd_timeline.timeline == NULL)
+			{
+				printk(KERN_ERR "create_timeline, cannot create time line\n");
+				mutex_unlock(&(sprd_timeline.sync_mutex));
+				return -ENOMEM;
+			}
+			else
+			{
+				sprd_timeline.timeline_value = 0;
+			}
+		}
+		mutex_unlock(&(sprd_timeline.sync_mutex));
+	}
+	else if (type == SPRD_DEVICE_VIRTUAL_SYNC)
+	{
+		mutex_lock(&(sprd_timeline_virtual.sync_mutex));
+		if (sprd_timeline_virtual.timeline == NULL)
+		{
+			sprd_timeline_virtual.timeline = sprd_sync_timeline_create("sprd-timeline-virtual");
+			if (sprd_timeline_virtual.timeline == NULL)
+			{
+				printk(KERN_ERR "create_timeline, cannot create virtual time line\n");
+				mutex_unlock(&(sprd_timeline_virtual.sync_mutex));
+				return -ENOMEM;
+			}
+			else
+			{
+				sprd_timeline_virtual.timeline_value = 0;
+			}
+		}
+		mutex_unlock(&(sprd_timeline_virtual.sync_mutex));
+	}
 
     return 0;
 }
 
-int sprd_destroy_timeline(struct fence_sync *sprd_fence)
+int sprd_destroy_timeline(struct sync_timeline_data *parent)
 {
-    struct sprd_sync_timeline *obj = NULL;
+	struct sprd_sync_timeline *obj = NULL;
 
-    if (sprd_fence == NULL)
-    {
-        printk(KERN_ERR "sprd_fence is NULL\n");
-        return -EINVAL;
-    }
+	if (parent->timeline == NULL)
+	{
+		printk(KERN_ERR "sprd_fence timeline has been released\n");
+		return 0;
+	}
 
-    if (sprd_fence->timeline == NULL)
-    {
-        printk(KERN_ERR "sprd_fence timeline has been released\n");
-        return 0;
-    }
+	mutex_lock(&(parent->sync_mutex));
+	obj = parent->timeline;
+	sync_timeline_destroy(&obj->obj);
+	mutex_unlock(&(parent->sync_mutex));
 
-    obj = sprd_fence->timeline;
-    mutex_lock(&sync_mutex);
-    sync_timeline_destroy(&obj->obj);
-    mutex_unlock(&sync_mutex);
-
-    return 0;
+	return 0;
 }
 
-int sprd_fence_create(char *name, struct fence_sync *sprd_fence, u32 value, struct sync_fence **fence_obj)
+int open_sprd_sync_timeline(void)
 {
-    int fd = get_unused_fd();
-    struct sync_pt *pt;
-    struct sync_fence *fence;
+	int ret = -1;
+	static int init = 0;
 
-    mutex_lock(&sync_mutex);
+	if (init == 0)
+	{
+		sprd_timeline.timeline_value = -1;
+		sprd_timeline.timeline = NULL;
+		mutex_init(&(sprd_timeline.sync_mutex));
 
-    if (fd < 0)
-    {
-        fd = get_unused_fd();
-        if (fd < 0)
-        {
-            printk(KERN_ERR "sprd_sync_pt_create failed to get fd\n");
-            goto err2;
-        }
-    }
+		sprd_timeline_virtual.timeline_value = -1;
+		sprd_timeline_virtual.timeline = NULL;
+		mutex_init(&(sprd_timeline_virtual.sync_mutex));
 
-    pt = sprd_sync_pt_create(sprd_fence->timeline, sprd_fence->timeline_value + value);
-    if (pt == NULL)
-    {
-        printk(KERN_ERR "sprd_sync_pt_create failed\n");
-        goto err;
-    }
+		init = 1;
+	}
 
-    name[sizeof(name) - 1] = '\0';
-    fence = sync_fence_create(name, pt);
-    if (fence == NULL)
-    {
-        sync_pt_free(pt);
-        printk(KERN_ERR "sprd_create_fence failed\n");
-        goto err;
-    }
+	ret = sprd_create_timeline(SPRD_DEVICE_PRIMARY_SYNC);
+	if (ret < 0)
+	{
+		return ret;
+	}
+	ret = sprd_create_timeline(SPRD_DEVICE_VIRTUAL_SYNC);
 
-    sync_fence_install(fence, fd);
+	return ret;
+}
 
-    *fence_obj = fence;
+int close_sprd_sync_timeline(void)
+{
+	int ret = -1;
 
-    mutex_unlock(&sync_mutex);
+	ret = sprd_destroy_timeline(&sprd_timeline);
 
-    pr_debug("create a fence: %p, fd: %d, value: %d\n",
-             (void *)fence, fd, value);
+	ret = sprd_destroy_timeline(&sprd_timeline_virtual);
+
+	return ret;
+}
+
+int sprd_fence_create(struct ion_fence_data *data, char *name)
+{
+	int fd = get_unused_fd();
+	struct sync_pt *pt;
+	struct sync_fence *fence;
+	struct sync_timeline_data *parent = NULL;
+
+	if (data == NULL || name == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_create input para is NULL\n");
+		return -EFAULT;
+	}
+
+
+	if (fd < 0)
+	{
+		fd = get_unused_fd();
+		if (fd < 0)
+		{
+			printk(KERN_ERR "sprd_sync_pt_create failed to get fd\n");
+		}
+		return -EFAULT;
+	}
+
+	if (data->device_type == SPRD_DEVICE_PRIMARY_SYNC)
+	{
+		parent = &sprd_timeline;
+	}
+	else if (data->device_type == SPRD_DEVICE_VIRTUAL_SYNC)
+	{
+		parent = &sprd_timeline_virtual;
+	}
+
+	if (parent == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_create failed to get sync timeline\n");
+		return -EFAULT;
+	}
+
+	mutex_lock(&(parent->sync_mutex));
+
+	pt = sprd_sync_pt_create(parent->timeline, parent->timeline_value + data->life_value);
+	if (pt == NULL)
+	{
+		printk(KERN_ERR "sprd_sync_pt_create failed\n");
+		goto err;
+	}
+
+	name[sizeof(name) - 1] = '\0';
+	fence = sync_fence_create(name, pt);
+	if (fence == NULL)
+	{
+		sync_pt_free(pt);
+		printk(KERN_ERR "sprd_create_fence failed\n");
+		goto err;
+	}
+
+	sync_fence_install(fence, fd);
+
+	mutex_unlock(&(parent->sync_mutex));
+
+	pr_debug("create a fence: %p, fd: %d, life_value: %d, name: %s\n",
+			(void *)fence, fd, data->life_value, name);
 
     return fd;
 
 err:
    put_unused_fd(fd);
-err2:
-   mutex_unlock(&sync_mutex);
+   mutex_unlock(&(parent->sync_mutex));
    return -ENOMEM;
 }
 
-int sprd_fence_signal(struct fence_sync *sprd_fence)
+int sprd_fence_destroy(struct ion_fence_data *data)
 {
-    mutex_lock(&sync_mutex);
+	if (data == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_destroy parameters NULL\n");
+		return -EFAULT;
+	}
 
-    if (sprd_fence->timeline)
-    {
-        sprd_sync_timeline_inc(sprd_fence->timeline, 1);
-        sprd_fence->timeline_value++;
+	if (data->release_fence_fd >= 0)
+	{
+		struct sync_fence *fence = sync_fence_fdget(data->release_fence_fd);
+		if (fence == NULL)
+		{
+			printk(KERN_ERR "sprd_fence_destroy failed fence == NULL\n");
+			return -EFAULT;
+		}
+	}
+	else if (data->retired_fence_fd >= 0)
+	{
+		struct sync_fence *fence = sync_fence_fdget(data->retired_fence_fd);
+		if (fence == NULL)
+		{
+			printk(KERN_ERR "sprd_fence_destroy failed fence == NULL\n");
+		}	return -EFAULT;
+	}
 
-        /*
-         *  For avoiding overflow
-         * */
-        if (sprd_fence->timeline_value < 0)
-        {
-            sprd_fence->timeline_value = 0;
-        }
-    }
+	return 0;
+}
+int sprd_fence_build(struct ion_fence_data *data)
+{
+	if (data == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_build input para is NULL\n");
+		return -EFAULT;
+	}
 
-    mutex_unlock(&sync_mutex);
+	data->release_fence_fd = sprd_fence_create(data, "HWCRelease");
+	if (data->release_fence_fd < 0)
+	{
+		printk(KERN_ERR "sprd_fence_build failed to create release fence\n");
+		return -ENOMEM;
+	}
 
-    pr_debug("sprd_signal_fence value: %d\n", sprd_fence->timeline_value);
+	data->retired_fence_fd = sprd_fence_create(data, "HWCRetire");
+	if (data->retired_fence_fd < 0)
+	{
+		printk(KERN_ERR "sprd_fence_build failed to create release fence\n");
+		return -ENOMEM;
+	}
 
-    return 0;
+	return 0;
 }
 
-int sprd_fence_wait(struct fence_sync *sprd_fence, struct sync_fence *fence_obj)
+int sprd_fence_signal_timeline(struct sync_timeline_data *parent)
 {
-    int ret = 0;
+	if (parent == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_signal_timeline timeline is NULL\n");
+		return -EFAULT;
+	}
 
-    if (sprd_fence == NULL || fence_obj == NULL)
-    {
-        printk(KERN_ERR "sprd_wait_fence input parameters is NULL\n");
-        return -EFAULT;
-    }
+	mutex_lock(&(parent->sync_mutex));
 
-    ret = sync_fence_wait(fence_obj, WAIT_FENCE_TIMEOUT);
-    sync_fence_put(fence_obj);
-    if (ret < 0)
-    {
-        printk(KERN_ERR "sync_fence_wait failed, ret = %x\n", ret);
-    }
+	if (parent->timeline)
+	{
+		sprd_sync_timeline_inc(parent->timeline, 1);
+		parent->timeline_value++;
 
-    pr_debug("sprd_wait_fence wait fence: %p done\n", (void *)sprd_fence);
+		/*
+		 *  For avoiding overflow
+		 * */
+		if (parent->timeline_value < 0)
+		{
+			parent->timeline_value = 0;
+		}
+	}
 
-    return ret;
+	mutex_unlock(&(parent->sync_mutex));
+
+	pr_debug("sprd_signal_fence value: %d\n", parent->timeline_value);
+
+	return 0;
+}
+int sprd_fence_signal(struct ion_fence_data *data)
+{
+	struct sync_timeline_data *parent = NULL;
+	enum SPRD_DEVICE_SYNC_TYPE device_type= SPRD_DEVICE_PRIMARY_SYNC;
+
+	if (data == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_signal parameter is NULL\n");
+		return -EFAULT;
+	}
+
+	if (data->device_type == SPRD_DEVICE_PRIMARY_SYNC)
+	{
+		parent = &sprd_timeline;
+	}
+	else if (data->device_type == SPRD_DEVICE_VIRTUAL_SYNC)
+	{
+		parent = &sprd_timeline_virtual;
+	}
+
+	if (parent == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_signal failed to get sync timeline\n");
+		return -EFAULT;
+	}
+
+	sprd_fence_signal_timeline(parent);
+	pr_debug("sprd_signal_fence device_type: %d\n", data->device_type);
+
+	return 0;
+}
+
+int sprd_fence_wait(int fence_fd)
+{
+	int ret = 0;
+
+	struct sync_fence *fence = NULL;
+
+	if (fence_fd < 0)
+	{
+		printk(KERN_ERR "sprd_wait_fence input parameters is NULL\n");
+		return -EFAULT;
+	}
+
+	fence = sync_fence_fdget(fence_fd);
+	if (fence == NULL)
+	{
+		printk(KERN_ERR "sprd_fence_wait failed fence == NULL\n");
+		return -EFAULT;
+	}
+
+	ret = sync_fence_wait(fence, WAIT_FENCE_TIMEOUT);
+	sync_fence_put(fence);
+	if (ret < 0)
+	{
+		printk(KERN_ERR "sync_fence_wait failed, ret = %x\n", ret);
+	}
+
+	pr_debug("sprd_wait_fence wait fence: %p done\n", (void *)fence);
+
+	return ret;
 }
 
 struct sync_pt *sprd_fence_dup(struct sync_pt *sync_pt)
 {
-    struct sync_pt *pt = NULL;
+	struct sync_pt *pt = NULL;
 
-    mutex_lock(&sync_mutex);
-    pt = sprd_sync_pt_dup(sync_pt);
-    mutex_unlock(&sync_mutex);
+	pt = sprd_sync_pt_dup(sync_pt);
 
-    return pt;
+	return pt;
 }

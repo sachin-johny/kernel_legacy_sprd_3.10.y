@@ -17,6 +17,7 @@
 #include <linux/mutex.h>
 #include <linux/types.h>
 #include <linux/sync.h>
+#include <video/ion_sprd.h>
 
 struct sprd_sync_timeline {
     struct sync_timeline obj;
@@ -34,16 +35,18 @@ struct sprd_sync_create_fence_data {
     __s32 fence; /* fd of new fence */
 };
 
-struct fence_sync {
+struct sync_timeline_data {
     int timeline_value;
+    struct mutex sync_mutex;
     struct sprd_sync_timeline *timeline;
 };
 
-extern int sprd_create_timeline(struct fence_sync *sprd_fence);
-extern int sprd_destroy_timeline(struct fence_sync *sprd_fence);
-extern int sprd_fence_create(char *name, struct fence_sync *sprd_fence, u32 value, struct sync_fence **fence_obj);
-extern int sprd_fence_signal(struct fence_sync *sprd_fence);
-extern int sprd_fence_wait(struct fence_sync *sprd_fence, struct sync_fence *fence_obj);
+extern int open_sprd_sync_timeline(void);
+extern int close_sprd_sync_timeline(void);
+extern int sprd_fence_build(struct ion_fence_data *data);
+extern int sprd_fence_destroy(struct ion_fence_data *data);
+extern int sprd_fence_signal(struct ion_fence_data *data);
+extern int sprd_fence_wait(int fence_fd);
 extern struct sync_pt *sprd_fence_dup(struct sync_pt *sync_pt);
 
 #endif

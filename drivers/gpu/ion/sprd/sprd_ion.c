@@ -32,9 +32,6 @@ struct ion_device *idev;
 int num_heaps = 0;
 struct ion_heap **heaps;
 
-struct fence_sync sprd_fence;
-struct sync_fence *current_fence = NULL;
-
 #if 1
 static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
 {
@@ -333,6 +330,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 #endif
 	case ION_SPRD_CUSTOM_FENCE_CREATE:
 	{
+		int ret = -1;
 		struct ion_fence_data data;
 		
 		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
@@ -341,16 +339,16 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 			return -EFAULT;
 		}
 		
-		data.fence_fd = sprd_fence_create(data.name, &sprd_fence, data.value, &current_fence);
-		if (current_fence == NULL)
+		ret = sprd_fence_build(&data);
+		if (ret != 0)
 		{
-			pr_err("sprd_create_fence failed\n");
+			pr_err("sprd_fence_build failed\n");
 			return -EFAULT;
 		}
 		
 		if (copy_to_user((void __user *)arg, &data, sizeof(data)))
 		{
-			sync_fence_put(current_fence);
+			sprd_fence_destroy(&data);
 			pr_err("copy_to_user fence failed\n");
 			return -EFAULT;
 		}
@@ -359,7 +357,15 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
     }
 	case ION_SPRD_CUSTOM_FENCE_SIGNAL:
 	{
-		sprd_fence_signal(&sprd_fence);
+		struct ion_fence_data data;
+
+		if (copy_from_user(&data, (void __user *)arg, sizeof(data)))
+		{
+			pr_err("FENCE_CREATE user data is err\n");
+			return -EFAULT;
+		}
+
+		sprd_fence_signal(&data);
 		
 		break;
 	}
@@ -565,7 +571,7 @@ int sprd_ion_probe(struct platform_device *pdev)
 	}
 	platform_set_drvdata(pdev, idev);
 
-	ret = sprd_create_timeline(&sprd_fence);
+	ret = open_sprd_sync_timeline();
 	if (ret != 0) {
 		pr_err("%s: sprd_create_timeline failed\n", __func__);
 		goto out;
@@ -600,7 +606,7 @@ int sprd_ion_remove(struct platform_device *pdev)
 		__ion_heap_destroy(heaps[i]);
 	kfree(heaps);
 	
-	sprd_destroy_timeline(&sprd_fence);
+	close_sprd_sync_timeline();
 
 	return 0;
 }
