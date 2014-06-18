@@ -448,15 +448,15 @@
 
 	sipc: sipc@0x87800000 {
 		compatible = "sprd,sipc";
-		reg = <0x87800000 0x240000>; /* <SMEM SIZE>*/
+		reg = <0x87800000 0x200000>; /* <SMEM SIZE>*/
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x8000000 0x88000000 0x1b00000>,
-				<0x07800000 0x87800000 0x180000>,
+				<0x07800000 0x87800000 0x140000>,
 				<0x9aff000 0x89aff000 0x1000>,
 				<0x0a800000 0x8a800000 0x201000>,/*WCN MEMORY:OFFSET ADDRESS SIZE*/
-				<0x07980000 0x87980000 0xc0000>,
+				<0x07940000 0x87940000 0xc0000>,
 				<0x0aa00000 0x8aa00000 0x1000>;/*WCN SIPC-RING:OFFSET ADDRESS SIZE*/
 		sipc_cpw@0x8000000 {
 			sprd,name = "sipc-w";
@@ -467,7 +467,7 @@
 			sprd,clr = <0x01>; /* clear bit */
 			interrupts = <0 68 0x0>;
 			reg = <0x8000000 0x1b00000> , /* <CP_start_addr size> */
-				<0x07800000 0x180000>, /* <SMEM_phy_addr total_size> */
+				<0x07800000 0x140000>, /* <SMEM_phy_addr total_size> */
 				<0x9aff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 		sipc_wcn@0x0a800000 {
@@ -479,7 +479,7 @@
 			sprd,clr = <0x100>; /* clear bit */
 			interrupts = <0 73 0x0>;
 			reg = <0x0a800000 0x201000> , /* <CP_start_addr size> */
-				<0x07980000 0xc0000>, /* <SMEM_phy_addr total_size> */
+				<0x07940000 0xc0000>, /* <SMEM_phy_addr total_size> */
 				<0x0aa00000 0x1000>; /* smsg ring buffer <base size> */
 		};
 
@@ -523,7 +523,7 @@
 		sprd,name = "seth_w0";
 		sprd,dst = <2>;
 		sprd,channel = <7>;
-		sprd,blknum = <128>;
+		sprd,blknum = <64>;
 	};
 
 	seth1-cpw {
