@@ -116,6 +116,7 @@ enum ft5x0x_ts_regs {
 	#define ABS_MT_POSITION_Y	0x36	/* Center Y ellipse position */
 	#define ABS_MT_TOOL_TYPE	0x37	/* Type of touching device */
 	#define ABS_MT_BLOB_ID		0x38	/* Group set of pkts as blob */
+	#define ABS_MT_PRESSURE		0x3a	/* Pressure on contact area */
 	#endif /* ABS_MT_TOUCH_MAJOR */
 
 
