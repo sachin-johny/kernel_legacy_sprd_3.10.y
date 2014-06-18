@@ -266,13 +266,17 @@ static ssize_t sprdbat_store_caliberate(struct device *dev,
 	mutex_lock(&sprdbat_data->lock);
 	switch (off) {
 	case STOP_CHARGE:
-		sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
-#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
-		sprdbat_data->bat_info.ac_online = 0;
-		sprdbat_data->bat_info.usb_online = 0;
-		sprdchg_stop_charge();
-		sprdchg_stop_charge_ext();
-#endif
+		if (0 == set_value) {
+			sprdbat_change_module_state(SPRDBAT_ADP_PLUGIN_E);
+		} else {
+			sprdbat_change_module_state(SPRDBAT_ADP_PLUGOUT_E);
+		#ifdef SPRDBAT_TWO_CHARGE_CHANNEL
+			sprdbat_data->bat_info.ac_online = 0;
+			sprdbat_data->bat_info.usb_online = 0;
+			sprdchg_stop_charge();
+			sprdchg_stop_charge_ext();
+		#endif
+		}
 		break;
 	case BATTERY_0:
 		adc_cal.p0_vol = set_value & 0xffff;	//only for debug

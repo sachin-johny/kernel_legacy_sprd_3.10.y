@@ -2,7 +2,7 @@
 
 obj-y += sprd_dcam.o
 ccflags-y += -Idrivers/media/sprd_dcam/common
-common-file := common/dcam_v4l2.o  common/gen_scale_coef.o common/sin_cos.o
+common-file := common/dcam_v4l2.o  common/gen_scale_coef.o common/sin_cos.o  common/flash_test.o
 
 ifeq ($(CONFIG_ARCH_SCX15),y)
 ccflags-y += -Idrivers/media/sprd_dcam/scx15
