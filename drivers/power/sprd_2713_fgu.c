@@ -718,6 +718,7 @@ uint32_t sprdfgu_poweron_capacity(void)
 
 void sprdfgu_adp_status_set(int plugin)
 {
+#if 0
 	sprdfgu_data.adp_status = plugin;
 	if (plugin) {
 		uint32_t adc;
@@ -726,6 +727,7 @@ void sprdfgu_adp_status_set(int plugin)
 		sci_adi_write(REG_FGU_LOW_OVER, adc & 0xFFFF, ~0);
 		sci_adi_clr(REG_FGU_INT_EN, BIT_CLBCNT_DELTA_INT);
 	}
+#endif
 }
 
 static void sprdfgu_irq_works(struct work_struct *work)
@@ -814,12 +816,13 @@ static int sprdfgu_int_init(void)
 	}
 #endif
 
-	sci_adi_set(REG_FGU_INT_EN, BIT_VOLT_HIGH_INT);
+	//sci_adi_set(REG_FGU_INT_EN, BIT_VOLT_HIGH_INT);   //mingwei
 	return 0;
 }
 
 void sprdfgu_pm_op(int is_suspend)
 {
+#if 0
 	if (is_suspend) {
 		if (!sprdfgu_data.adp_status) {
 			sci_adi_set(REG_FGU_INT_EN, BIT_VOLT_LOW_INT);
@@ -835,6 +838,7 @@ void sprdfgu_pm_op(int is_suspend)
 		sci_adi_clr(REG_FGU_INT_EN,
 			    BIT_VOLT_LOW_INT | BIT_CLBCNT_DELTA_INT);
 	}
+#endif
 }
 
 static void sprdfgu_hw_init(void)
