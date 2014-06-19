@@ -46,9 +46,13 @@ void   parse_baseaddress(struct device_node	*dn)
 {
 #ifdef CONFIG_OF
 	struct resource  r;
-	of_address_to_resource(dn, 0,&r);
-	PARSE_TRACE("DCAM BASE=0x%x \n",r.start);
-	dcam_regbase = r.start;
+
+	if (0 == of_address_to_resource(dn, 0,&r)) {
+		PARSE_TRACE("DCAM BASE=0x%x \n",r.start);
+		dcam_regbase = r.start;
+	} else {
+		printk("DCAM BASE ADDRESS ERROR\n");
+	}
 #endif
 }
 

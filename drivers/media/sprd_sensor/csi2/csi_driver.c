@@ -154,7 +154,7 @@ static void dphy_init_common(u32 pclk, u32 phy_id)
 
 #if defined(CONFIG_ARCH_SCX30G)
 	if (0x03 == phy_id) {
-		if (0x01 == phy_id) {
+		if (0x01 == (phy_id & 0x01)) {
 			dphy_write(0x34, 0xA0, &temp);
 		} else {
 			dphy_write(0x34, 0x14, &temp);
