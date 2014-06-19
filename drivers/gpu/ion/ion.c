@@ -1057,7 +1057,10 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 			   atomic_read(&client->ref.refcount));
 #endif
 	}
+
+#ifdef CONFIG_ION_BUDDY_CARVEOUT
 	show_carveout_buddy_info(0);
+#endif
 	return 0;
 }
 

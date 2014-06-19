@@ -1,7 +1,6 @@
 menuconfig ION
 	tristate "Ion Memory Manager"
 	select GENERIC_ALLOCATOR
-	select BUDDY_ALLOCATOR
 	help
 	  Chose this option to enable the ION Memory Manager.
 
@@ -12,6 +11,13 @@ config ION_PAGECACHE
 	  Select this to enable spare carveout pages as page cache,
 	  when reading in file for a page fault or reading ahead pages for
 	  the share executable object.
+
+config ION_BUDDY_CARVEOUT
+	bool "use buddy memory management in ion carveout heap "
+	depends on ION
+	select BUDDY_ALLOCATOR
+	help
+	  Select this to enable buddy carveout heap
 
 config ION_BUDDY_CHECKPAGE
 	bool "Add one more page to check the modified memory"
