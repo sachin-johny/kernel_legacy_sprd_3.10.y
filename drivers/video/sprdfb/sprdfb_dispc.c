@@ -1528,6 +1528,7 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 		sprdfb_panel_suspend(dev);
 
 		dispc_stop(dev);
+		dispc_write(0, DISPC_INT_EN);
 
 		msleep(50); /*fps>20*/
 
