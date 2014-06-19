@@ -1047,13 +1047,13 @@ static void sprd_sdhci_host_of_parse(struct platform_device *pdev, struct sdhci_
 	of_property_read_u32(np, "cd-gpios", &host_pdata->detect_gpio);
 	of_property_read_u32(np, "init-voltage-level", &host_pdata->init_voltage_level);
 	of_property_read_u32(np, "pinmap-offset", &host_pdata->pinmap_offset);
-	of_property_read_u32(np, "d3-gpio", &d3_gpio);  host_pdata->d3_gpio = d3_gpio;
-	of_property_read_u32(np, "d3-index", &d3_index); host_pdata->d3_index = d3_index;
-	of_property_read_u32(np, "sd-func", &sd_func); host_pdata->sd_func = sd_func;
-	of_property_read_u32(np, "gpio-func", &gpio_func); host_pdata->gpio_func = gpio_func;
+	of_property_read_u32(np, "d3-gpio", &host_pdata->d3_gpio);
+	of_property_read_u32(np, "d3-index", &host_pdata->d3_index);
+	of_property_read_u32(np, "sd-func", &host_pdata->sd_func);
+	of_property_read_u32(np, "gpio-func", &host_pdata->gpio_func);
 	of_property_read_string(np, "vdd-extmmc", &host_pdata->vdd_extmmc);
-	host_pdata->keep_power = of_property_read_bool(np, "keep-power");
-	host_pdata->runtime = of_property_read_bool(np, "runtime");
+	of_property_read_u32(np, "keep-power", &host_pdata->keep_power);
+	of_property_read_u32(np, "runtime", &host_pdata->runtime);
 	mmc_of_parse(host->mmc);
 }
 #endif
