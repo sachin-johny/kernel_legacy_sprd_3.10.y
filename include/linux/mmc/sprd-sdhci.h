@@ -15,8 +15,8 @@ enum {
 };
 
 struct sprd_sdhci_host_platdata {
-	unsigned int runtime:1;
-	unsigned int keep_power:1;
+	unsigned int runtime;
+	unsigned int keep_power;
 	unsigned int caps;
 	unsigned int caps2;
 	int detect_gpio;
@@ -27,10 +27,10 @@ struct sprd_sdhci_host_platdata {
 	const char *clk_parent_name;
 	int max_frequency;
 	unsigned int pinmap_offset;
-	unsigned int d3_gpio:16;
-	unsigned int d3_index:8;
-	unsigned int sd_func:4;
-	unsigned int gpio_func:4;
+	unsigned int d3_gpio;
+	unsigned int d3_index;
+	unsigned int sd_func;
+	unsigned int gpio_func;
 	unsigned int enb_bit, rst_bit;
 	unsigned int enb_reg, rst_reg;
 	unsigned int write_delay;
