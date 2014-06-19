@@ -313,7 +313,7 @@ __setup("autotest=", autotest_start);
 
 int in_autotest(void)
 {
-    return false;//(int)(autotest_mode == true);
+    return (int)(autotest_mode == true);
 }
 
 EXPORT_SYMBOL(in_autotest);
