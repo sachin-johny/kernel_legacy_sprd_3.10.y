@@ -118,6 +118,7 @@
 #define CAP_CCIR_OBSERVE                               (DCAM_BASE + 0x0118UL)
 #define CAP_CCIR_JPG_CTRL                              (DCAM_BASE + 0x011CUL)
 #define CAP_CCIR_FRM_SIZE                              (DCAM_BASE + 0x0120UL)
+#define CAP_CCIR_PLCK_SRC                              (SPRD_PIN_BASE + 0x04)
 #define CAP_SPI_CFG                                    (DCAM_BASE + 0x0124UL)
 
 #define CAP_MIPI_CTRL                                  (DCAM_BASE + 0x0128UL)

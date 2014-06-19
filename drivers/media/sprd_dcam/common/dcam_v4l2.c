@@ -2350,11 +2350,13 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 			dev->dcam_cxt.sync_pol.vsync_pol = timing_param[4];
 			dev->dcam_cxt.sync_pol.hsync_pol = timing_param[5];
 			dev->dcam_cxt.sync_pol.pclk_pol  = timing_param[6];
+			dev->dcam_cxt.sync_pol.pclk_src  = timing_param[7];
 			dev->dcam_cxt.data_bits          = 8;
-			DCAM_TRACE("V4L2: CIR interface, vsync %d hsync %d pclk %d bits %d \n",
+			DCAM_TRACE("V4L2: CIR interface, vsync %d hsync %d pclk %d psrc %d bits %d \n",
 				dev->dcam_cxt.sync_pol.vsync_pol,
 				dev->dcam_cxt.sync_pol.hsync_pol,
 				dev->dcam_cxt.sync_pol.pclk_pol,
+				dev->dcam_cxt.sync_pol.pclk_src,
 				dev->dcam_cxt.data_bits);
 		} else {
 			dev->dcam_cxt.sync_pol.need_href = timing_param[4];

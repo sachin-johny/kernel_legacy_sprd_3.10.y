@@ -564,7 +564,6 @@ int32_t dcam_module_en(struct device_node *dn)
 		parse_baseaddress(dn);
 
 		dcam_reset(DCAM_RST_ALL);
-		sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 		atomic_set(&s_resize_flag, 0);
 		atomic_set(&s_rotation_flag, 0);
 		memset((void*)s_user_func, 0, sizeof(s_user_func));
@@ -1164,9 +1163,21 @@ int32_t dcam_cap_cfg(enum dcam_cfg_id id, void *param)
 			    sync_pol->pclk_pol > 1) {
 				rtn = DCAM_RTN_CAP_SYNC_POL_ERR;
 			} else {
+				sci_glb_set(DCAM_CCIR_PCLK_EB, CCIR_PCLK_EB_BIT);
 				REG_MWR(CAP_CCIR_CTRL, BIT_3, sync_pol->hsync_pol << 3);
 				REG_MWR(CAP_CCIR_CTRL, BIT_4, sync_pol->vsync_pol << 4);
 				//REG_MWR(CLK_DLY_CTRL,  BIT_19, sync_pol->pclk_pol << 19); // aiden todo
+
+				if (sync_pol->pclk_src == 0x00) {
+					sci_glb_clr(CAP_CCIR_PLCK_SRC, (BIT_25 | BIT_26));
+					DCAM_TRACE("DCAM: set pclk src0\n");
+				} else if (sync_pol->pclk_src == 0x01) {
+					sci_glb_clr(CAP_CCIR_PLCK_SRC, (BIT_25 | BIT_26));
+					sci_glb_set(CAP_CCIR_PLCK_SRC, (BIT_25));
+					DCAM_TRACE("DCAM: set pclk src1\n");
+				} else {
+					DCAM_TRACE("DCAM: set pclk src default\n");
+				}
 			}
 		} else {
 			if (sync_pol->need_href) {

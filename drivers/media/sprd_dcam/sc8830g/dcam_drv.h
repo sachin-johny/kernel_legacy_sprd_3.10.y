@@ -288,6 +288,8 @@ struct dcam_cap_sync_pol {
 	uint8_t               hsync_pol;
 	uint8_t               pclk_pol;
 	uint8_t               need_href;
+	uint8_t               pclk_src;
+	uint8_t               reserved[3];
 };
 
 struct dcam_endian_sel {
