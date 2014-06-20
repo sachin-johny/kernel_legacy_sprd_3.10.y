@@ -65,7 +65,7 @@
 
 #define REGU_NAME_CAMVIO     "vddcamio"
 
-#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD)
+#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD) || defined (CONFIG_MACH_TSHARKWSAMSUNG)
 #define REGU_NAME_SUB_CAMDVDD  "vddcamd"
 #define REGU_NAME_CAMMOT       "vddcama"
 #define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
