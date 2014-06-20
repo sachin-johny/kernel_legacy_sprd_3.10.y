@@ -1613,7 +1613,7 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(
                          struct device *dev)
 {
 	struct sprd_headset_platform_data *pdata;
-	struct device_node *np = dev->of_node,*buttons_np;
+	struct device_node *np = dev->of_node,*buttons_np = NULL;
 	int ret;
 	struct headset_buttons *buttons_data;
 
@@ -1683,7 +1683,7 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(
 	}
         pdata->headset_buttons = buttons_data;
 
-	buttons_np = of_get_next_child(np,buttons_np);
+	buttons_np = of_get_next_child(np,NULL);
 	ret = of_property_read_u32(buttons_np, "adc_min", &buttons_data->adc_min);
 	if (ret) {
 		dev_err(dev, "fail to get adc_min\n");

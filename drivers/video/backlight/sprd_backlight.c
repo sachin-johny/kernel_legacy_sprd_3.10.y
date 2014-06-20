@@ -358,7 +358,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 
 #ifdef SPRD_BACKLIGHT_PWM
 	struct clk* ext_26m = NULL;
-	struct resource *pwm_res;
+	struct resource *pwm_res = NULL;
 	char pwm_clk_name[32];
 
 #ifdef CONFIG_OF
@@ -367,11 +367,13 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 		pwm_res = sprd_backlight_parse_dt(pdev);
 		if (pwm_res){
                    pdev->resource = pwm_res;
-		}
-		else{
+		}else{
 			printk("Can't get pwm resource");
 			return -ENODEV;
 		}
+	}else{
+		printk("dev.of_node is NULL");
+		return -ENODEV;
 	}
 #else
 	pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
@@ -405,7 +407,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 
 #if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM))
 	struct clk* ext_26m = NULL;
-	struct resource *pwm_res;
+	struct resource *pwm_res = NULL;
 	char pwm_clk_name[32];
 	int adie_chip_ver = 0;
 
@@ -420,11 +422,13 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 			pwm_res = sprd_backlight_parse_dt(pdev);
 			if (pwm_res){
 				pdev->resource = pwm_res;
-			}
-			else{
+			}else{
 				printk("Can't get pwm resource");
 				return -ENODEV;
 			}
+		}else{
+			printk("dev.of_node is NULL");
+			return -ENODEV;
 		}
 #else
 		pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
