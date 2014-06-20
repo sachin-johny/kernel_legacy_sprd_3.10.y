@@ -86,7 +86,7 @@ u32 sprd_thm_temp2rawdata(u32 sensor, int temp);
 static inline int __thm_reg_write(u32 reg, u16 bits, u16 clear_msk)
 {
 	if (reg >= SPRD_THM_BASE && reg <= (SPRD_THM_BASE + SPRD_THM_SIZE)) {
-		__raw_writel(((__raw_readl(reg) & ~clear_msk) | bits), (reg));
+		__raw_writel(((__raw_readl((volatile void *)reg) & ~clear_msk) | bits), (volatile void *)(reg));
 	} else if (reg >= ANA_THM_BASE && reg <= (ANA_THM_BASE + SPRD_THM_SIZE)) {
 		sci_adi_write(reg, bits, clear_msk);
 	} else {
@@ -98,7 +98,7 @@ static inline int __thm_reg_write(u32 reg, u16 bits, u16 clear_msk)
 static inline u32 __thm_reg_read(u32 reg)
 {
 	if (reg >= SPRD_THM_BASE && reg <= (SPRD_THM_BASE + SPRD_THM_SIZE)) {
-		return __raw_readl(reg);
+		return __raw_readl((volatile void *)reg);
 	} else if (reg >= ANA_THM_BASE && reg <= (ANA_THM_BASE + SPRD_THM_SIZE)) {
 		return sci_adi_read(reg);
 	} else {
@@ -393,17 +393,23 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 
 int sprd_thm_hw_disable_sensor(u32 sensor_reg_base)
 {
+	int ret = 0;
 	// Sensor minitor disable
 	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x0, 0x8);
 	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x00, 0x01);
+	return ret;
+
 }
 
 int sprd_thm_hw_enable_sensor(u32 sensor_reg_base)
 {
+	int ret = 0;
 	// Sensor minitor enable
 	THM_DEBUG("sprd_2713_thm enable sensor sensor_reg_base:0x%x \n",sensor_reg_base);
 	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x01, 0x01);
 	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x8, 0x8);
+	return ret;
+
 }
 
 
