@@ -19,13 +19,13 @@
 #endif
 
 #define SR2351_FM_VERSION	"v0.9"
-static int g_volume = 0;
+static u32 g_volume = 0;
 
-int sr2351_fm_set_volume(u8 iarg)
+int sr2351_fm_set_volume(u32 iarg)
 {
 	SR2351_PRINT("FM set volume : %i.", iarg);
 
-    g_volume = (int)iarg;
+    g_volume = iarg;
 	if(0 == iarg)
 	{
 	     sr2351_fm_mute();
@@ -38,7 +38,7 @@ int sr2351_fm_set_volume(u8 iarg)
 	return 0;
 }
 
-int sr2351_fm_get_volume(void)
+u32 sr2351_fm_get_volume(void)
 {
 	SR2351_PRINT("FM get volume.");
 	return g_volume;
@@ -96,9 +96,9 @@ int sr2351_fm_open(struct inode *inode, struct file *filep)
 long sr2351_fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 {
 	void __user *argp = (void __user *)arg;
-	int ret = 0;
-	int iarg = 0;
-	int buf[4] = { 0 };
+	long ret = 0;
+	u32 iarg = 0;
+	u32 buf[4] = { 0 };
 
 	SR2351_PRINT("FM IOCTL: 0x%x.", cmd);
 
@@ -123,14 +123,12 @@ long sr2351_fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 	case FM_IOCTL_SET_TUNE:
 		if (copy_from_user(&iarg, argp, sizeof(iarg)))
-			ret = -EFAULT;
-
+			return -EFAULT;
 		ret = sr2351_fm_set_tune(iarg);
-
 		break;
 
 	case FM_IOCTL_GET_FREQ:
-		ret = sr2351_fm_get_frequency((u16 *)&iarg);
+		ret = sr2351_fm_get_frequency(&iarg);
 		if (copy_to_user(argp, &iarg, sizeof(iarg)))
 			ret = -EFAULT;
 		break;
@@ -142,7 +140,7 @@ long sr2351_fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		ret = sr2351_fm_seek(buf[0],	/* start frequency */
 				    buf[1],	/* seek direction */
 				    buf[2],	/* time out */
-				    (u16 *)&buf[3]);	/* frequency found */
+				    &buf[3]);	/* frequency found */
 
 		if (copy_to_user(argp, buf, sizeof(buf)))
 			ret = -EFAULT;
@@ -160,7 +158,7 @@ long sr2351_fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 		if (copy_from_user(&iarg, argp, sizeof(iarg)))
 			ret = -EFAULT;
 
-		ret = sr2351_fm_set_volume((u8) iarg);
+		ret = sr2351_fm_set_volume(iarg);
 		break;
 
 	case FM_IOCTL_GET_VOLUME:
@@ -299,12 +297,6 @@ static int sr2351_fm_probe(struct platform_device *pdev)
 {
 	int ret = -EINVAL;
 	char *ver_str = SR2351_FM_VERSION;
-
-	SR2351_PRINT("**********************************************");
-	SR2351_PRINT(" SR2351 FM driver ");
-	SR2351_PRINT(" Version: %s", ver_str);
-	SR2351_PRINT(" Build date: %s %s", __DATE__, __TIME__);
-	SR2351_PRINT("**********************************************");
 	
 #ifdef CONFIG_OF
     struct device_node *np;
@@ -317,6 +309,12 @@ static int sr2351_fm_probe(struct platform_device *pdev)
 		return ret;
 	}
 #endif
+
+	SR2351_PRINT("**********************************************");
+	SR2351_PRINT(" SR2351 FM driver ");
+	SR2351_PRINT(" Version: %s", ver_str);
+	SR2351_PRINT(" Build date: %s %s", __DATE__, __TIME__);
+	SR2351_PRINT("**********************************************");
 
 	ret = misc_register(&sr2351_fm_misc_device);
 	if (ret < 0) 
