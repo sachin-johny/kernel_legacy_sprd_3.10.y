@@ -30,4 +30,10 @@ config ITM_WLAN_PM_POWERSAVE
 	  The WLAN power management is took care by system.
 
 endchoice
+
+config ITM_WIFI_DIRECT
+	depends on ITTIAM && PM
+	bool "WiFi Direct"
+	help
+	  Connect to wifi direct device.
 endif

@@ -130,8 +130,16 @@
 #define ITM_PMKID_LEN		16
 
 /* WPS type */
-#define WPS_REQ_IE	1
-#define WPS_ASSOC_IE	2
+enum WPS_TYPE {
+	WPS_REQ_IE = 1,
+	WPS_ASSOC_IE,
+	P2P_ASSOC_IE,
+	P2P_BEACON_IE,
+	P2P_PROBERESP_IE,
+	P2P_ASSOCRESP_IE,
+	P2P_BEACON_IE_HEAD,
+	P2P_BEACON_IE_TAIL
+};
 
 #define ETH_ALEN		6
 
@@ -262,6 +270,59 @@ struct wlan_sblock_recv_data {
 struct wlan_softap_event {
 	u8 connected;
 	u8 mac[6];
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	u16 req_ie_len;
+	u8 ie[0];
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 } __packed;
 
+#ifdef CONFIG_ITM_WIFI_DIRECT
+struct wlan_sipc_scan_channels {
+	u8 channel_num;
+	/* set to 4 for p2p social scan */
+	u16 channel_freq[4];
+	u8 reserved[3];
+	/* sync logs between kernel and cp */
+	u32 random_count;
+} __packed;
+
+/* wlan_sipc management tx struct */
+struct wlan_sipc_mgmt_tx {
+	u8 chan;		/* send channel */
+	u32 wait;		/* wait time */
+	u32 len;		/* mac length */
+	u8 value[1];		/* mac */
+} __packed;
+
+struct wlan_sipc_remain_chan {
+	u8 chan;		/* send channel */
+	u8 chan_type;
+	u32 duraion;
+	u64 cookie;		/* cookie */
+} __packed;
+
+/* wlan_sipc wps ie struct */
+struct wlan_sipc_p2p_ie {
+	u8 type;		/*  assoc req ie */
+	u8 len;			/* max ie len is 255 */
+	u8 value[1];
+} __packed;
+
+/* wlan_sipc wps ie struct */
+struct wlan_sipc_register_frame {
+	u16 type;		/*  assoc req ie */
+	u8 reg;			/* max ie len is 255 */
+} __packed;
+
+/* wlan_sipc wps ie struct */
+struct wlan_sipc_event_report_frame {
+	u8 channel;
+	u8 frame_type;
+	u16 frame_len;
+} __packed;
+
+struct wlan_sipc_cancel_remain_chan {
+	u64 cookie;		/* cookie */
+} __packed;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 #endif/*__ITM_SIPC_TYPES_H__*/
