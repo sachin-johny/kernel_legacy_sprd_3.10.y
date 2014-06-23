@@ -137,7 +137,7 @@ static void csi_get_pclk_cfg(u32 pclk, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
 	}
 }
 
-static void dphy_init_common(u32 pclk, u32 phy_id)
+static void dphy_init_common(u32 pclk, u32 phy_id, u32 rx_mode)
 {
 	u8 temp = 0;
 	struct csi_pclk_cfg csi_pclk_cfg_val = {0, 0, 0, 0};
@@ -154,7 +154,7 @@ static void dphy_init_common(u32 pclk, u32 phy_id)
 
 #if defined(CONFIG_ARCH_SCX30G)
 	if (0x03 == phy_id) {
-		if (0x01 == (phy_id & 0x01)) {
+		if (0x00 == rx_mode) {
 			dphy_write(0x34, 0xA0, &temp);
 		} else {
 			dphy_write(0x34, 0x14, &temp);
@@ -182,12 +182,12 @@ void dphy_init(u32 pclk, u32 phy_id)
 
 	if (phy_id & 0x01) {
 		dpy_a_enable();
-		dphy_init_common(pclk, phy_id);
+		dphy_init_common(pclk, phy_id, 0);
 	}
 
 	if (phy_id & 0x02) {
 		dpy_b_enable();
-		dphy_init_common(pclk, phy_id);
+		dphy_init_common(pclk, phy_id, 1);
 	}
 
 	if (0x03 == (phy_id & 0x03)) {
