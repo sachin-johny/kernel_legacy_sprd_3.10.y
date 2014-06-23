@@ -112,14 +112,14 @@
 #define ITM_AUTH_SHARED	1
 
 /*cipher type*/
-#define NONE		0
-#define WEP40		1
-#define WEP104		2
-#define TKIP		3
-#define CCMP		4
-#define AP_TKIP		5
-#define AP_CCMP		6
-#define WAPI		7
+#define SPRDWL_CIPHER_NONE		0
+#define SPRDWL_CIPHER_WEP40		1
+#define SPRDWL_CIPHER_WEP104		2
+#define SPRDWL_CIPHER_TKIP		3
+#define SPRDWL_CIPHER_CCMP		4
+#define SPRDWL_CIPHER_AP_TKIP		5
+#define SPRDWL_CIPHER_AP_CCMP		6
+#define SPRDWL_CIPHER_WAPI		7
 
 /*AKM suite*/
 #define AKM_SUITE_PSK	1

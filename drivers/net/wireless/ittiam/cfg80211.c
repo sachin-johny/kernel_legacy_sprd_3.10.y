@@ -506,19 +506,19 @@ static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 		   pairwise: 0:GTK 1:PTK */
 		switch (cipher) {
 		case WLAN_CIPHER_SUITE_WEP40:
-			priv->cipher_type = WEP40;
+			priv->cipher_type = SPRDWL_CIPHER_WEP40;
 			break;
 		case WLAN_CIPHER_SUITE_WEP104:
-			priv->cipher_type = WEP104;
+			priv->cipher_type = SPRDWL_CIPHER_WEP104;
 			break;
 		case WLAN_CIPHER_SUITE_TKIP:
-			priv->cipher_type = TKIP;
+			priv->cipher_type = SPRDWL_CIPHER_TKIP;
 			break;
 		case WLAN_CIPHER_SUITE_CCMP:
-			priv->cipher_type = CCMP;
+			priv->cipher_type = SPRDWL_CIPHER_CCMP;
 			break;
 		case WLAN_CIPHER_SUITE_SMS4:
-			priv->cipher_type = WAPI;
+			priv->cipher_type = SPRDWL_CIPHER_WAPI;
 			break;
 		default:
 			wiphy_err(priv->wdev->wiphy,
@@ -736,7 +736,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	}
 
 	/* To avoid confused wapi frame */
-	priv->cipher_type = NONE;
+	priv->cipher_type = SPRDWL_CIPHER_NONE;
 	/* Get request status, type, bss, ie and so on */
 	/* Set appending ie */
 	/* Set wps ie */
@@ -811,20 +811,20 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	if (sme->crypto.n_ciphers_pairwise) {
 		switch (sme->crypto.ciphers_pairwise[0]) {
 		case WLAN_CIPHER_SUITE_WEP40:
-			cipher = WEP40;
+			cipher = SPRDWL_CIPHER_WEP40;
 			break;
 		case WLAN_CIPHER_SUITE_WEP104:
-			cipher = WEP104;
+			cipher = SPRDWL_CIPHER_WEP104;
 			break;
 		case WLAN_CIPHER_SUITE_TKIP:
-			cipher = TKIP;
+			cipher = SPRDWL_CIPHER_TKIP;
 			break;
 		case WLAN_CIPHER_SUITE_CCMP:
-			cipher = CCMP;
+			cipher = SPRDWL_CIPHER_CCMP;
 			break;
 			/* WAPI cipher is not processed by CP2 */
 		case WLAN_CIPHER_SUITE_SMS4:
-			cipher = WAPI;
+			cipher = SPRDWL_CIPHER_WAPI;
 			is_wapi = true;
 			break;
 		default:
@@ -854,20 +854,20 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 
 	/* Set group cipher */
 	switch (sme->crypto.cipher_group) {
-	case NONE:
-		cipher = NONE;
+	case 0:
+		cipher = SPRDWL_CIPHER_NONE;
 		break;
 	case WLAN_CIPHER_SUITE_WEP40:
-		cipher = WEP40;
+		cipher = SPRDWL_CIPHER_WEP40;
 		break;
 	case WLAN_CIPHER_SUITE_WEP104:
-		cipher = WEP104;
+		cipher = SPRDWL_CIPHER_WEP104;
 		break;
 	case WLAN_CIPHER_SUITE_TKIP:
-		cipher = TKIP;
+		cipher = SPRDWL_CIPHER_TKIP;
 		break;
 	case WLAN_CIPHER_SUITE_CCMP:
-		cipher = CCMP;
+		cipher = SPRDWL_CIPHER_CCMP;
 		break;
 	default:
 		wiphy_err(wiphy,
@@ -1152,7 +1152,7 @@ static int itm_wlan_cfg80211_del_key(struct wiphy *wiphy,
 	}
 
 	priv->key_len[pairwise][key_index] = 0;
-	priv->cipher_type = NONE;
+	priv->cipher_type = SPRDWL_CIPHER_NONE;
 
 	return itm_wlan_del_key_cmd(priv->wlan_sipc, key_index, mac_addr);
 }

@@ -141,7 +141,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 
 		if (data->is_encrypted == 1) {
 			if (priv->connect_status == ITM_CONNECTED &&
-			    priv->cipher_type == WAPI &&
+			    priv->cipher_type == SPRDWL_CIPHER_WAPI &&
 			    priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&
 			    priv->key_len[PAIRWISE][priv->
 						    key_index[PAIRWISE]] != 0) {
@@ -336,7 +336,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 	priv->tx_free--;
 	if (priv->connect_status == ITM_CONNECTED &&
-	    priv->cipher_type == WAPI &&
+	    priv->cipher_type == SPRDWL_CIPHER_WAPI &&
 /*            priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&*/
 	    priv->key_len[PAIRWISE][priv->key_index[PAIRWISE]] != 0 &&
 	    (*(u16 *)((u8 *)skb->data + ETH_PKT_TYPE_OFFSET) != 0xb488)) {
