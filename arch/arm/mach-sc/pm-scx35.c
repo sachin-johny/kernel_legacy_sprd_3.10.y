@@ -1252,8 +1252,8 @@ static void dcdc_core_ds_config(void)
 	/*1100,700,800,900,1000,650,1200,1300*/
 	static u32 step_ratio[]={10,10,6,3,3};
 	dcdc_core_ctl_adi = (sci_adi_read(ANA_REG_GLB_MP_MISC_CTRL) >> 3) & 0x7;
-	dcdc_core_ctl_ds  = dcdc_core_down_volt[dcdc_core_ctl_adi];
-	//dcdc_core_ctl_ds  = dcdc_core_ctl_adi;
+	//dcdc_core_ctl_ds  = dcdc_core_down_volt[dcdc_core_ctl_adi];
+	dcdc_core_ctl_ds  = dcdc_core_ctl_adi;
 	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n",dcdc_core_ctl_adi,dcdc_core_ctl_ds);
 
 	val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
@@ -1280,6 +1280,12 @@ static void dcdc_core_ds_config(void)
 				dcdc_core_ctl_ds = dcdc_core_up_volt[dcdc_core_ctl_ds];
 				dcdc_core_cal_adi = val - 0x1F;
 			}
+		}
+	} else {
+		dcdc_core_cal_adi = sci_adi_read(ANA_REG_GLB_DCDC_CORE_ADI) & 0x1F;
+		for(i=0;i<5;i++){
+			sci_adi_write(step_info[i].ctl_reg,dcdc_core_ctl_adi<<step_info[i].ctl_sht,0x07<<step_info[i].ctl_sht);
+			sci_adi_write(step_info[i].cal_reg,dcdc_core_cal_adi<<step_info[i].cal_sht,0x1F<<step_info[i].cal_sht);
 		}
 	}
 
