@@ -27,6 +27,7 @@
 #include <asm/cacheflush.h>
 
 #include "sprd_fence.h"
+#include <linux/dma-buf.h>
 
 struct ion_device *idev;
 int num_heaps = 0;
@@ -63,6 +64,110 @@ struct ion_client *sprd_ion_client_create(const char *name)
 	return ion_client_create(idev,name);
 }
 EXPORT_SYMBOL(sprd_ion_client_create);
+
+int sprd_ion_get_gsp_addr(struct ion_addr_data *data)
+{
+	int ret = 0;
+	struct dma_buf *dmabuf;
+	struct ion_buffer *buffer;
+
+	dmabuf = dma_buf_get(data->fd_buffer);
+	if (IS_ERR(dmabuf)) {
+		pr_err("sprd_ion_get_gsp_addr() dmabuf=0x%lx dma_buf_get error!\n", (unsigned long)dmabuf);
+		return -1;
+	}
+	/* if this memory came from ion */
+#if 0
+	if (dmabuf->ops != &dma_buf_ops) {
+		pr_err("%s: can not import dmabuf from another exporter\n",
+		       __func__);
+		dma_buf_put(dmabuf);
+		return ERR_PTR(-EINVAL);
+	}
+#endif
+	buffer = dmabuf->priv;
+	dma_buf_put(dmabuf);
+
+	if (ION_HEAP_TYPE_SYSTEM == buffer->heap->type) {
+#if defined(CONFIG_SPRD_IOMMU)
+		mutex_lock(&buffer->lock);
+		if(0 == buffer->iomap_cnt[IOMMU_GSP]) {
+			buffer->iova[IOMMU_GSP] = sprd_iova_alloc(IOMMU_GSP, buffer->size);
+			ret = sprd_iova_map(IOMMU_GSP, buffer->iova[IOMMU_GSP], buffer);
+		}
+		buffer->iomap_cnt[IOMMU_GSP]++;
+		data->iova_enabled = true;
+		data->iova_addr = buffer->iova[IOMMU_GSP];
+		data->size = buffer->size;
+		mutex_unlock(&buffer->lock);
+#else
+		ret = -1;
+#endif
+	} else {
+		if (!buffer->heap->ops->phys) {
+			pr_err("%s: ion_phys is not implemented by this heap.\n",
+			       __func__);
+			return -ENODEV;
+		}
+		ret = buffer->heap->ops->phys(buffer->heap, buffer, &(data->phys_addr), &(data->size));
+		data->iova_enabled = false;
+	}
+
+	if (ret) {
+		pr_err("sprd_ion_get_gsp_addr, error %d!\n",ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(sprd_ion_get_gsp_addr);
+
+int sprd_ion_free_gsp_addr(int fd)
+{
+	int ret = 0;
+	struct dma_buf *dmabuf;
+	struct ion_buffer *buffer;
+
+	dmabuf = dma_buf_get(fd);
+	if (IS_ERR(dmabuf)) {
+		pr_err("sprd_ion_free_gsp_addr() dmabuf=0x%lx dma_buf_get error!\n", (unsigned long)dmabuf);
+		return -1;
+	}
+	/* if this memory came from ion */
+#if 0
+	if (dmabuf->ops != &dma_buf_ops) {
+		pr_err("%s: can not import dmabuf from another exporter\n",
+		       __func__);
+		dma_buf_put(dmabuf);
+		return ERR_PTR(-EINVAL);
+	}
+#endif
+	buffer = dmabuf->priv;
+	dma_buf_put(dmabuf);
+
+	if (ION_HEAP_TYPE_SYSTEM == buffer->heap->type) {
+#if defined(CONFIG_SPRD_IOMMU)
+		mutex_lock(&buffer->lock);
+		if (buffer->iomap_cnt[IOMMU_GSP] > 0) {
+			buffer->iomap_cnt[IOMMU_GSP]--;
+			if(0 == buffer->iomap_cnt[IOMMU_GSP]) {
+				ret = sprd_iova_unmap(IOMMU_GSP, buffer->iova[IOMMU_GSP], buffer);
+				sprd_iova_free(IOMMU_GSP, buffer->iova[IOMMU_GSP], buffer->size);
+				buffer->iova[IOMMU_GSP] = 0;
+			}
+		}
+		mutex_unlock(&buffer->lock);
+#else
+		ret = -1;
+#endif
+	}
+
+	if (ret) {
+		pr_err("sprd_ion_free_gsp_addr, error %d!\n",ret);
+	}
+
+	return ret;
+}
+EXPORT_SYMBOL(sprd_ion_free_gsp_addr);
 
 static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 				unsigned long arg)

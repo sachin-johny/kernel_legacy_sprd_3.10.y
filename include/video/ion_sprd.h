@@ -37,6 +37,14 @@ struct ion_mmu_data {
 	size_t iova_size;
 };
 
+struct ion_addr_data {
+	int fd_buffer;
+	bool iova_enabled;
+	unsigned long iova_addr;
+	unsigned long phys_addr;
+	size_t size;
+};
+
 struct ion_msync_data {
 	int fd_buffer;
 	void *vaddr;
@@ -78,5 +86,9 @@ enum ION_SPRD_CUSTOM_CMD {
         ION_SPRD_CUSTOM_FENCE_SIGNAL,
         ION_SPRD_CUSTOM_FENCE_DUP,
 };
+
+int sprd_ion_get_gsp_addr(struct ion_addr_data *data);
+
+int sprd_ion_free_gsp_addr(int fd);
 
 #endif /* _ION_SPRD_H */
