@@ -80,7 +80,10 @@ static int _scheinfo_num_proc_write(struct file *file, const char __user *buf, s
 	int sche_num;
 	int err;
 
-	if (copy_from_user(&sche_num_buf, buf, 10))
+	if (len <= 0 || len >= 10)
+		return -EFAULT;
+
+	if (copy_from_user(&sche_num_buf, buf, len))
 		return -EFAULT;
 
 	err = strict_strtol(strstrip(sche_num_buf), 0, &sche_num);
@@ -169,7 +172,10 @@ static int _irqinfo_num_proc_write(struct file *file, const char __user *buf, si
 	int irq_num;
 	int err;
 
-	if (copy_from_user(&irq_num_buf, buf, 10))
+	if (len <= 0 || len >= 10)
+		return -EFAULT;
+
+	if (copy_from_user(&irq_num_buf, buf, len))
 		return -EFAULT;
 
 	err = strict_strtol(strstrip(irq_num_buf), 0, &irq_num);
