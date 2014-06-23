@@ -171,10 +171,6 @@ void mipi_dsih_allow_return_to_lp(dsih_ctrl_t * instance, int hfp, int hbp, int 
 {
     if(0 == instance)
     {
-		if (instance->log_error != 0)
-		{
-			instance->log_error("sprdfb: invalid instance");
-		}
         return;
     }
 
@@ -188,7 +184,10 @@ void mipi_dsih_allow_return_to_lp(dsih_ctrl_t * instance, int hfp, int hbp, int 
         mipi_dsih_hal_dpi_lp_during_vsync(instance, vsync);
         return;
     }
-
+    if (instance->log_error != 0)
+    {
+        instance->log_error("sprdfb: [mipi_dsih_allow_return_to_lp] invalid instance");
+    }
 
 }
 /**
@@ -202,10 +201,6 @@ void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
 {
     if(0 == instance)
     {
-	    if (instance->log_error != 0)
-	    {
-	        instance->log_error("sprdfb: invalid instance");
-	    }
         return;
     }
 
@@ -217,7 +212,10 @@ void mipi_dsih_dcs_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
         mipi_dsih_hal_dcs_rd_tx_type(instance, 0, short_read);
         return;
     }
-
+    if (instance->log_error != 0)
+    {
+        instance->log_error("sprdfb: [mipi_dsih_dcs_cmd_lp_transmission] invalid instance");
+    }
 
 }
 /**
@@ -231,10 +229,6 @@ void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
 {
     if(0 == instance)
     {
-	    if (instance->log_error != 0)
-	    {
-	        instance->log_error("sprdfb: invalid instance");
-	    }
         return;
     }
 
@@ -249,6 +243,11 @@ void mipi_dsih_gen_cmd_lp_transmission(dsih_ctrl_t * instance, int long_write, i
         mipi_dsih_hal_gen_rd_tx_type(instance, 2, short_read);
         return;
     }
+    if (instance->log_error != 0)
+    {
+        instance->log_error("sprdfb: [mipi_dsih_gen_cmd_lp_transmission] invalid instance");
+    }
+
 }
 /* packet handling */
 /**
@@ -780,17 +779,19 @@ void mipi_dsih_cmd_mode(dsih_ctrl_t * instance, int en)
 {
     if(0 == instance)
     {
-	    if (instance->log_error != 0)
-	    {
-	        instance->log_error("sprdfb: invalid instance");
-	    }
         return;
     }
 
     if (instance->status == INITIALIZED)
     {
 		mipi_dsih_hal_gen_cmd_mode_en(instance, en);
+                  return;
     }
+    if (instance->log_error != 0)
+    {
+        instance->log_error("sprdfb: [mipi_dsih_cmd_mode] invalid instance");
+    }
+
 }
 /**
  * Enable video mode
@@ -802,17 +803,19 @@ void mipi_dsih_video_mode(dsih_ctrl_t * instance, int en)
 {
     if(0 == instance)
     {
-	    if (instance->log_error != 0)
-	    {
-	        instance->log_error("sprdfb: invalid instance");
-	    }
         return;
     }
 
     if (instance->status == INITIALIZED)
     {
 		mipi_dsih_hal_dpi_video_mode_en(instance, en);
+                  return;
     }
+    if (instance->log_error != 0)
+    {
+        instance->log_error("sprdfb: [mipi_dsih_video_mode] invalid instance");
+    }
+
 }
 
 /**
