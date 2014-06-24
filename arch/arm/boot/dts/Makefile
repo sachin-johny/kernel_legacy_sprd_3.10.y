@@ -223,6 +223,7 @@ dtb-$(CONFIG_MACH_SP8830GEA) += sprd-scx35_sp8830gea.dtb
 dtb-$(CONFIG_MACH_SP7730GGA) += sprd-scx35_sp7730gga.dtb
 dtb-$(CONFIG_MACH_SP7731GGA_LC) += sprd-scx35_sp7731gga_lc.dtb
 dtb-$(CONFIG_MACH_SP7731GEA) += sprd-scx35_sp7731gea.dtb
+dtb-$(CONFIG_MACH_SP7731GEAOPENPHONE) += sprd-scx35_sp7731geaopenphone.dtb
 dtb-$(CONFIG_MACH_TSHARKWSAMSUNG) += sprd-scx35_tsharkwsamsung.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
