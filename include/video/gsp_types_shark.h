@@ -181,6 +181,7 @@ extern   "C"
         GSP_KERNEL_WAITDONE_INTR = 0x8D,        
         GSP_KERNEL_FORCE_EXIT = 0x8E,//not an err
         GSP_KERNEL_CTL_CMD_ERR = 0x8F,//not an err
+        GSP_KERNEL_ADDR_MAP_ERR = 0x90,//iommu map err
         /*GSP kernel driver defined err code, end*/
 		
 		/*GSP HAL defined err code, start*/
@@ -268,7 +269,14 @@ extern   "C"
     }
     GSP_DATA_ADDR_T;
 
-
+	typedef struct _GSP_MEM_INFO
+	{
+		uint8_t is_pa;
+		int share_fd;
+		uint32_t uv_offset;
+		uint32_t v_offset;
+	}
+	GSP_MEM_INFO;
 
 
     typedef struct _GSP_LAYER0_CONFIG_INFO_TAG_
@@ -282,6 +290,7 @@ extern   "C"
         GSP_ENDIAN_INFO_PARAM_T     endian_mode;
         GSP_LAYER_SRC_DATA_FMT_E        img_format;
         GSP_ROT_ANGLE_E             rot_angle;
+		GSP_MEM_INFO                mem_info;
         uint8_t                         row_tap_mode;
         uint8_t                         col_tap_mode;
         uint8_t                         alpha;
@@ -305,6 +314,7 @@ extern   "C"
         GSP_ENDIAN_INFO_PARAM_T     endian_mode;
         GSP_LAYER_SRC_DATA_FMT_E        img_format;
         GSP_ROT_ANGLE_E             rot_angle;
+		GSP_MEM_INFO                mem_info;
         uint8_t                         row_tap_mode;
         uint8_t                         col_tap_mode;
         uint8_t                         alpha;
@@ -322,6 +332,7 @@ extern   "C"
         uint32_t                            pitch;
         GSP_ENDIAN_INFO_PARAM_T     endian_mode;
         GSP_LAYER_DST_DATA_FMT_E        img_format;
+		GSP_MEM_INFO                mem_info;
         uint8_t                        compress_r8_en;
         //uint8_t                      layer_en;
     }

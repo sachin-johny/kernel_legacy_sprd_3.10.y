@@ -38,7 +38,7 @@
 
 #include <mach/hardware.h>
 #include <mach/arch_misc.h>// get chip id
-
+#include <video/ion_sprd.h>
 #include "gsp_drv.h"
 #include "scaler_coef_cal.h"
 
@@ -1984,6 +1984,70 @@ static void GSP_Release_HWSema(void)
     up(&gsp_hw_resource_sem);
 }
 
+static int GSP_Map()
+{
+	struct ion_addr_data data;
+
+	if(s_gsp_cfg.layer0_info.mem_info.share_fd){
+		data.fd_buffer = s_gsp_cfg.layer0_info.mem_info.share_fd;
+		if(sprd_ion_get_gsp_addr(&data)){
+			printk("%s, L%d, error!\n",__func__,__LINE__);
+			return -1;
+		}
+		if(data.iova_enabled)
+			s_gsp_cfg.layer0_info.src_addr.addr_y = data.iova_addr;
+		else
+			s_gsp_cfg.layer0_info.src_addr.addr_y = data.phys_addr;
+		s_gsp_cfg.layer0_info.src_addr.addr_uv = s_gsp_cfg.layer0_info.src_addr.addr_y + s_gsp_cfg.layer0_info.mem_info.uv_offset;
+		s_gsp_cfg.layer0_info.src_addr.addr_v = s_gsp_cfg.layer0_info.src_addr.addr_uv + s_gsp_cfg.layer0_info.mem_info.v_offset;
+	}
+
+	if(s_gsp_cfg.layer1_info.mem_info.share_fd){
+		data.fd_buffer = s_gsp_cfg.layer1_info.mem_info.share_fd;
+		if(sprd_ion_get_gsp_addr(&data)){
+			printk("%s, L%d, error!\n",__func__,__LINE__);
+			return -1;
+		}
+		if(data.iova_enabled)
+			s_gsp_cfg.layer1_info.src_addr.addr_y = data.iova_addr;
+		else
+			s_gsp_cfg.layer1_info.src_addr.addr_y = data.phys_addr;
+		s_gsp_cfg.layer1_info.src_addr.addr_uv = s_gsp_cfg.layer1_info.src_addr.addr_y + s_gsp_cfg.layer1_info.mem_info.uv_offset;
+		s_gsp_cfg.layer1_info.src_addr.addr_v = s_gsp_cfg.layer1_info.src_addr.addr_uv + s_gsp_cfg.layer1_info.mem_info.v_offset;
+
+	}
+
+	if(s_gsp_cfg.layer_des_info.mem_info.share_fd){
+		data.fd_buffer = s_gsp_cfg.layer_des_info.mem_info.share_fd;
+		if(sprd_ion_get_gsp_addr(&data)){
+			printk("%s, L%d, error!\n",__func__,__LINE__);
+			return -1;
+		}
+		if(data.iova_enabled)
+			s_gsp_cfg.layer_des_info.src_addr.addr_y = data.iova_addr;
+		else
+			s_gsp_cfg.layer_des_info.src_addr.addr_y = data.phys_addr;
+		s_gsp_cfg.layer_des_info.src_addr.addr_uv = s_gsp_cfg.layer_des_info.src_addr.addr_y + s_gsp_cfg.layer_des_info.mem_info.uv_offset;
+		s_gsp_cfg.layer_des_info.src_addr.addr_v = s_gsp_cfg.layer_des_info.src_addr.addr_uv + s_gsp_cfg.layer_des_info.mem_info.v_offset;
+
+	}
+
+	return 0;
+}
+
+static int GSP_Unmap()
+{
+	if(s_gsp_cfg.layer0_info.mem_info.share_fd)
+		sprd_ion_free_gsp_addr(s_gsp_cfg.layer0_info.mem_info.share_fd);
+
+	if(s_gsp_cfg.layer1_info.mem_info.share_fd)
+		sprd_ion_free_gsp_addr(s_gsp_cfg.layer1_info.mem_info.share_fd);
+
+	if(s_gsp_cfg.layer_des_info.mem_info.share_fd)
+		sprd_ion_free_gsp_addr(s_gsp_cfg.layer_des_info.mem_info.share_fd);
+
+	return 0;
+}
 
 static long gsp_drv_ioctl(struct file *file,
                           uint32_t cmd,
@@ -2120,9 +2184,7 @@ static long gsp_drv_ioctl(struct file *file,
                 {
                     printk("%s:pid:0x%08x, copy_params_from_user failed! \n",__func__,pUserdata->pid);
                     ret = GSP_KERNEL_COPY_ERR;
-                    gsp_cur_client_pid = INVALID_USER_ID;
-                    up(&gsp_hw_resource_sem);
-                    goto exit;
+                    goto exit1;
                 }
                 else
                 {
@@ -2150,6 +2212,11 @@ static long gsp_drv_ioctl(struct file *file,
                         }
                     }
 
+					if(GSP_Map()){
+						ret = GSP_KERNEL_ADDR_MAP_ERR;
+						goto exit3;
+					}
+
                     //s_gsp_cfg.misc_info.dithering_en = 1;//dither enabled default
                     s_gsp_cfg.misc_info.ahb_clock = ahb_clock;
                     s_gsp_cfg.misc_info.gsp_clock = gsp_clock;                    
@@ -2168,15 +2235,13 @@ static long gsp_drv_ioctl(struct file *file,
                     {
 						printCfgInfo();
 						printGPSReg();
-						GSP_Deinit();
-						gsp_cur_client_pid = INVALID_USER_ID;
-						up(&gsp_hw_resource_sem);
 						printk("%s%d:pid:0x%08x, gsp config err:%d, release hw sema.\n",__func__,__LINE__,pUserdata->pid,ret);
-                    }
+						goto exit3;
+					}
                 }
             }
         }
-        break;
+        //break;
 
         case GSP_IO_TRIGGER_RUN:
         {
@@ -2194,7 +2259,7 @@ static long gsp_drv_ioctl(struct file *file,
                 ret = GSP_work_around1(pUserdata);
                 if(ret)
                 {
-                goto exit;
+                goto exit3;
                 }
 
                 if(gsp_workaround_perf == PERF_MAGIC)
@@ -2220,7 +2285,7 @@ static long gsp_drv_ioctl(struct file *file,
 
                 if(ret)
                 {
-                    goto exit;
+                    goto exit3;
                 }
 
                 if(gsp_perf == PERF_MAGIC)
@@ -2236,21 +2301,18 @@ static long gsp_drv_ioctl(struct file *file,
 	                printGPSReg();
                     ERR_RECORD_ADD(*(GSP_REG_T *)GSP_REG_BASE);
                     ERR_RECORD_INDEX_ADD_WP();
-                    GSP_Deinit();
-
-                    gsp_cur_client_pid = INVALID_USER_ID;
-                    up(&gsp_hw_resource_sem);
                     GSP_TRACE("%s:pid:0x%08x, release hw sema, L%d \n",__func__,pUserdata->pid,__LINE__);
+					goto exit3;
                 }
             }
             else
             {
                 GSP_TRACE("%s:pid:0x%08x,exit L%d \n",__func__,pUserdata->pid,__LINE__);
                 ret = GSP_KERNEL_CALLER_NOT_OWN_HW;
-                goto exit;
+                goto exit3;
             }
         }
-        break;
+        //break;
 
 
         case GSP_IO_WAIT_FINISH:
@@ -2306,6 +2368,7 @@ static long gsp_drv_ioctl(struct file *file,
                 }
 
                 GSP_Wait_Finish();//wait busy-bit down
+                GSP_Unmap();
                 GSP_Cache_Invalidate();
                 GSP_Deinit();
                 gsp_cur_client_pid = INVALID_USER_ID;
@@ -2322,6 +2385,15 @@ static long gsp_drv_ioctl(struct file *file,
             break;
     }
 
+	return ret;
+
+exit3:
+	GSP_Deinit();
+exit2:
+	GSP_Unmap();
+exit1:
+	gsp_cur_client_pid = INVALID_USER_ID;
+	up(&gsp_hw_resource_sem);
 exit:
     if (ret)
     {
