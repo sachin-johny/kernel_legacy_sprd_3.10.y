@@ -25,6 +25,7 @@
 #include <linux/spinlock.h>
 #include <linux/netdevice.h>
 #include <linux/ieee80211.h>
+#include <net/cfg80211.h>
 #include <linux/if_ether.h>
 #include <linux/wakelock.h>
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
@@ -69,14 +70,13 @@ struct itm_priv {
 	atomic_t stopped;		/* sblock indicator */
 	int txrcnt;			/* tx resend count */
 	int tx_free;			/* tx flow control */
-	struct wake_lock scan_done_lock;
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;
-	atomic_t scan_status;
 
 	/* CFG80211 */
 	struct cfg80211_scan_request *scan_request;
+	spinlock_t scan_lock;
 	struct timer_list scan_timeout; /* Timer for catch scan event timeout */
 	int connect_status;
 	int mode;
@@ -90,6 +90,14 @@ struct itm_priv {
 	u8 key[2][4][WLAN_MAX_KEY_LEN];
 	u8 key_len[2][4];
 	u8 key_txrsc[2][WLAN_MAX_KEY_LEN];
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	struct work_struct work;
+	u16 frame_type;
+	bool reg;
+	int p2p_mode;
+	struct ieee80211_channel listen_channel;
+	u64 listen_cookie;
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 };
 
 #endif/*__ITTIAM_H__*/

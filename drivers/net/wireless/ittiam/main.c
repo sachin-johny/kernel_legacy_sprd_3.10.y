@@ -376,8 +376,6 @@ static int itm_wlan_open(struct net_device *dev)
 
 	/* if first open net device do nothing, otherwise act as resume */
 	napi_enable(&priv->napi);
-	if (netif_queue_stopped(dev))
-		netif_device_attach(dev);
 
 	return 0;
 }
@@ -387,14 +385,21 @@ static int itm_wlan_open(struct net_device *dev)
  */
 static int itm_wlan_close(struct net_device *dev)
 {
+	unsigned long flags;
 	struct itm_priv *priv = netdev_priv(dev);
 
 	dev_info(&dev->dev, "%s\n", __func__);
-
-	/* if netdevice carrier off, do nothing */
-	if (netif_queue_stopped(dev))
-		netif_device_attach(dev);
 	napi_disable(&priv->napi);
+
+	if (timer_pending(&priv->scan_timeout))
+		del_timer_sync(&priv->scan_timeout);
+	spin_lock_irqsave(&priv->scan_lock, flags);
+	if (priv->scan_request) {
+		/*If there's a pending scan request,abort it */
+		cfg80211_scan_done(priv->scan_request, true);
+		priv->scan_request = NULL;
+	}
+	spin_unlock_irqrestore(&priv->scan_lock, flags);
 
 	return 0;
 }
@@ -676,7 +681,15 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	ndev->netdev_ops = &itm_wlan_ops;
 	ndev->watchdog_timeo = 1 * HZ;
 
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	priv->p2p_mode = 0;
+	init_register_frame_param(priv);
+#endif
+
+
 	priv->pm_status = false;
+	priv->tx_free = TX_SBLOCK_NUM;
+	spin_lock_init(&priv->scan_lock);
 
 	/*FIXME: If get mac from cfg file error, got random addr */
 	ret = itm_get_mac_from_cfg(priv);
@@ -698,6 +711,8 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 			"Failed to regitster sblock notifier (%d)\n", ret);
 		goto err_notify_sblock;
 	}
+
+	ittiam_nvm_init();
 
 	ret = itm_register_wdev(priv, &pdev->dev);
 	if (ret) {
@@ -730,22 +745,17 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 		goto err_register_inetaddr_notifier;
 	}
 
-	wake_lock_init(&priv->scan_done_lock, WAKE_LOCK_SUSPEND, "scan_lock");
-	priv->tx_free = TX_SBLOCK_NUM;
-
 	ret = npi_init_netlink();
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
 		goto err_npi_netlink;
 	}
 
-	ittiam_nvm_init();
 	dev_info(&pdev->dev, "%s sucessfully\n", __func__);
 
 	return 0;
 
 err_npi_netlink:
-	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 err_register_inetaddr_notifier:
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
@@ -774,15 +784,8 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct itm_priv *priv = netdev_priv(ndev);
 	int ret;
-#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
-|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
-|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
-|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
-||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SP5735C2EA)
-	rf2351_gpio_ctrl_power_enable(0);
-#endif
+
 	npi_exit_netlink();
-	wake_lock_destroy(&priv->scan_done_lock);
 	unregister_inetaddr_notifier(&itm_inetaddr_cb);
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
 	unregister_early_suspend(&priv->early_suspend);
@@ -799,6 +802,14 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 
 	free_netdev(ndev);
 	platform_set_drvdata(pdev, NULL);
+#if defined(CONFIG_MACH_SP7730EC) || defined(CONFIG_MACH_SP7730GA) \
+|| defined(CONFIG_MACH_SPX35EC) || defined(CONFIG_MACH_SP8830GA) \
+|| defined(CONFIG_MACH_SP7715EA) || defined(CONFIG_MACH_SP7715EATRISIM) \
+|| defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) \
+||defined(CONFIG_MACH_SP5735C1EA) || defined(CONFIG_MACH_SP5735C2EA)
+	rf2351_gpio_ctrl_power_enable(0);
+#endif
+	dev_info(&pdev->dev, "%s\n", __func__);
 
 	return 0;
 }

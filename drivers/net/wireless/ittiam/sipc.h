@@ -76,13 +76,25 @@ enum wlan_sipc_cmd_id {
 	WIFI_CMD_PM_SUSPEND,
 	WIFI_CMD_PM_RESUME,
 	WIFI_CMD_PSK,
-	WIFI_CMD_BEACON,
+	WIFI_CMD_START_AP,
 	WIFI_CMD_NPI,
 	WIFI_CMD_WPS_IE,
 	WIFI_CMD_LINK_STATUS,
 	WIFI_CMD_PM_EARLY_SUSPEND,
 	WIFI_CMD_PM_LATER_RESUME,
 	WIFI_CMD_BLACKLIST,
+
+	WIFI_CMD_REGDOM,
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	WIFI_CMD_TX_MGMT,
+	WIFI_CMD_REMAIN_CHAN,
+	WIFI_CMD_CANCEL_REMAIN_CHAN,
+	WIFI_CMD_P2P_IE,
+	WIFI_CMD_CHANGE_BEACON,
+	WIFI_CMD_REGISTER_FRAME,
+	WIFI_CMD_SCAN_CHANNELS,
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 	WIFI_CMD_MAX
 };
 
@@ -97,6 +109,12 @@ enum wlan_sipc_event_id {
 	WIFI_EVENT_READY,
 
 	WIFI_EVENT_SOFTAP,
+#ifdef CONFIG_ITM_WIFI_DIRECT
+	WIFI_EVENT_MGMT_DEAUTH,
+	WIFI_EVENT_MGMT_DISASSOC,
+	WIFI_EVENT_REMAIN_ON_CHAN_EXPIRED,
+	WIFI_EVENT_REPORT_FRAME,
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 	WIFI_EVENT_MAX
 };
@@ -185,8 +203,6 @@ extern int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc,
 				s32 *rate);
 extern int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc,
 				const u8 *bssid, const u8 *pmkid, u8 type);
-extern int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc,
-				u8 *beacon, u16 len);
 extern int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 				u8 type, const u8 *ie, u8 len);
 extern int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc,
@@ -204,4 +220,15 @@ extern int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc);
 
 extern int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc);
 extern int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc);
+extern int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom,
+				   u16 len);
+extern int itm_wlan_start_ap_cmd(struct wlan_sipc *wlan_sipc,
+				u8 *beacon, u16 len);
+#ifdef CONFIG_ITM_WIFI_DIRECT
+extern int itm_get_p2p_mode_from_file(void);
+extern int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc,
+				const u8 *addr);
+extern int itm_wlan_set_scan_channels_cmd(struct wlan_sipc *wlan_sipc,
+				u8 *channel_info, int len);
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 #endif/*__ITM_SIPC_CMD_H__*/

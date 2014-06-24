@@ -31,8 +31,12 @@
 #include "sipc_types.h"
 #include "sipc.h"
 #include "cfg80211.h"
+#include "ittiam.h"
 
 extern WIFI_nvm_data *get_gWIFI_nvm_data(void);
+#ifdef CONFIG_ITM_WIFI_DIRECT
+static void wlan_sipc_event_rx_handler(struct itm_priv *priv);
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 /* sbuf should be created and initilized */
 int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
@@ -182,6 +186,41 @@ out:
 	mutex_unlock(&wlan_sipc->pm_lock);
 	return ret;
 }
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+int itm_wlan_set_scan_channels_cmd(struct wlan_sipc *wlan_sipc,
+				   u8 *channel_info, int len)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	int send_len = 0;
+	int ret;
+
+	pr_debug("set channels!\n");
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	if (channel_info && (len > 0)) {
+		memcpy(send_buf->u.cmd.variable, channel_info, len);
+		send_len = len;
+	}
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + send_len;
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret =
+	    itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				   WIFI_CMD_SCAN_CHANNELS);
+
+	if (ret) {
+		pr_err("%s command error %d\n", __func__, ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	return 0;
+}
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 {
@@ -732,7 +771,7 @@ int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
 	return 0;
 }
 
-int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
+int itm_wlan_start_ap_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_beacon *beacon_ptr =
@@ -747,7 +786,8 @@ int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
 	    + sizeof(beacon_ptr->len) + len;
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BEACON);
+	ret =
+	    itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_START_AP);
 
 	if (ret) {
 		pr_err("%s command error %d\n", __func__, ret);
@@ -759,6 +799,47 @@ int itm_wlan_set_beacon_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 
 	return 0;
 }
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+int itm_wlan_set_p2p_ie_cmd(struct wlan_sipc *wlan_sipc,
+			    u8 type, const u8 *ie, u8 len)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_p2p_ie *p2p_ptr =
+	    (struct wlan_sipc_p2p_ie *)send_buf->u.cmd.variable;
+	int ret;
+
+	if (type != P2P_ASSOC_IE && type != P2P_BEACON_IE &&
+	    type != P2P_PROBERESP_IE && type != P2P_ASSOCRESP_IE &&
+	    type != P2P_BEACON_IE_HEAD && type != P2P_BEACON_IE_TAIL) {
+		pr_err("wrong ie type is %d\n", type);
+		return -EIO;
+	}
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	p2p_ptr->type = type;
+	p2p_ptr->len = len;
+	memcpy(p2p_ptr->value, ie, len);
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	    + sizeof(struct wlan_sipc_p2p_ie) + len;
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_P2P_IE);
+
+	if (ret) {
+		pr_err("return wrong status code is %d\n", ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	pr_debug("set p2p ie return status code successfully\n");
+
+	return 0;
+}
+#endif	/* CONFIG_ITM_WIFI_DIRECT */
 
 int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 			    u8 type, const u8 *ie, u8 len)
@@ -836,6 +917,9 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	open->mode = mode;
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+	open->mode |= FW_ZEROCOPY;
+#endif
 	if (mac_addr)
 		memcpy(open->mac, mac_addr, 6);
 	memcpy((unsigned char *)(&(open->nvm_data)),
@@ -877,10 +961,13 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 	int ret;
 
 	mutex_lock(&wlan_sipc->cmd_lock);
-
+#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+	flag |= FW_ZEROCOPY;
+#endif
 	memcpy(send_buf->u.cmd.variable, &flag, sizeof(flag));
 	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + sizeof(flag);
 	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	pr_debug("%s mode %#x\n", __func__, flag);
 	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				     WIFI_CMD_DEV_CLOSE);
 
@@ -971,6 +1058,26 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 		pr_debug("Recv sblock8 softap event\n");
 		itm_cfg80211_report_softap(priv);
 		break;
+#ifdef CONFIG_ITM_WIFI_DIRECT
+
+	case WIFI_EVENT_REMAIN_ON_CHAN_EXPIRED:
+		pr_debug("Recv p2p  remain on channel EXPIRED event\n");
+		itm_cfg80211_remain_on_channel_expired(priv);
+		break;
+	case WIFI_EVENT_MGMT_DEAUTH:
+		pr_debug("Recv p2p deauth event\n");
+		itm_cfg80211_mgmt_deauth(priv);
+		break;
+	case WIFI_EVENT_MGMT_DISASSOC:
+		pr_debug("Recv p2p disassoc event\n");
+		itm_cfg80211_mgmt_disassoc(priv);
+		break;
+	case WIFI_EVENT_REPORT_FRAME:
+		pr_debug("Recv p2p EVENT_REPORT_FRAME\n");
+		itm_mac_event_report_frame(priv);
+		break;
+#endif				/*CONFIG_ITM_WIFI_DIRECT */
+
 	default:
 		pr_err("Recv sblock8 unknow event id %d\n", event_id);
 		break;
@@ -1264,3 +1371,141 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	mutex_unlock(&wlan_sipc->cmd_lock);
 	return 0;
 }
+
+int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom, u16 len)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_regdom *regdom_ptr =
+	    (struct wlan_sipc_regdom *)send_buf->u.cmd.variable;
+	int ret;
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	regdom_ptr->len = len;
+	memcpy(regdom_ptr->value, regdom, len);
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	    + sizeof(regdom_ptr->len) + len;
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_REGDOM);
+
+	if (ret) {
+		pr_err("command error %d\n", ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	return 0;
+}
+
+#ifdef CONFIG_ITM_WIFI_DIRECT
+int itm_wlan_set_tx_mgmt_cmd(struct wlan_sipc *wlan_sipc,
+			     struct ieee80211_channel *channel,
+			     unsigned int wait, const u8 *mac, size_t mac_len)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_mgmt_tx *mgmt_tx =
+	    (struct wlan_sipc_mgmt_tx *)send_buf->u.cmd.variable;
+
+	int ret;
+	u8 send_chan;
+
+	send_chan = ieee80211_frequency_to_channel(channel->center_freq);
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	mgmt_tx->chan = send_chan;
+	mgmt_tx->wait = wait;
+	mgmt_tx->len = mac_len;
+	memcpy(mgmt_tx->value, mac, mac_len);
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	    + sizeof(struct wlan_sipc_mgmt_tx) + mac_len;
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_TX_MGMT);
+
+	if (ret) {
+		pr_err("tx_mgmt return wrong status code is %d\n", ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	pr_debug("set tx mgmt return status code successfully\n");
+
+	return 0;
+}
+
+int itm_wlan_cancel_remain_chan_cmd(struct wlan_sipc *wlan_sipc, u64 cookie)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_cancel_remain_chan *cancel_remain_chan =
+	    (struct wlan_sipc_cancel_remain_chan *)send_buf->u.cmd.variable;
+	int ret;
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	cancel_remain_chan->cookie = cookie;
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	    + sizeof(struct wlan_sipc_cancel_remain_chan);
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				     WIFI_CMD_CANCEL_REMAIN_CHAN);
+
+	if (ret) {
+		pr_err("cancel remain on_chan return wrong status code is %d\n",
+		       ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+	pr_debug("cancel remain channel return status code successfully\n");
+
+	return 0;
+}
+
+int itm_wlan_remain_chan_cmd(struct wlan_sipc *wlan_sipc,
+			     struct ieee80211_channel *channel,
+			     enum nl80211_channel_type channel_type,
+			     unsigned int duration, u64 *cookie)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_remain_chan *remain_chan =
+	    (struct wlan_sipc_remain_chan *)send_buf->u.cmd.variable;
+	int ret;
+	u8 send_chan;
+
+	send_chan = ieee80211_frequency_to_channel(channel->center_freq);
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	remain_chan->chan = send_chan;
+	remain_chan->chan_type = channel_type;
+	remain_chan->duraion = duration;
+	remain_chan->cookie = *cookie;
+
+	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	    + sizeof(struct wlan_sipc_remain_chan);
+	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				     WIFI_CMD_REMAIN_CHAN);
+
+	if (ret) {
+		pr_err("remain_chan return wrong status code is %d\n", ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	pr_debug("remain channel return status code successfully\n");
+
+	return 0;
+}
+
+#endif				/*CONFIG_ITM_WIFI_DIRECT */

@@ -6,11 +6,11 @@ config ITTIAM
 	  Spreadtrum SC88xx based System-on-Chip devices.
 
 config ITM_WLAN_FW_ZEROCOPY
-       depends on ITTIAM
-       bool "Enable WLAN zerocopy"
-       default n
-       help
-               Say Y to enable WLAN zerocopy.
+	depends on ITTIAM
+	bool "Enable WLAN zerocopy"
+	default n
+	help
+	  Say Y to enable WLAN zerocopy.
 
 if ITTIAM
 choice
@@ -30,4 +30,10 @@ config ITM_WLAN_PM_POWERSAVE
 	  The WLAN power management is took care by system.
 
 endchoice
+
+config ITM_WIFI_DIRECT
+	depends on ITTIAM && PM
+	bool "WiFi Direct"
+	help
+	  Connect to wifi direct device.
 endif
