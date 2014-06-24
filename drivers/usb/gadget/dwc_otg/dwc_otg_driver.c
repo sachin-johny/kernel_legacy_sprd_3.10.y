@@ -745,6 +745,7 @@ static int dwc_otg_driver_probe(
 		if (of_property_read_u32(np, "ngpios", &pdata->gpio_num))
 		{
 			pr_info("read gpio number error\n");
+			__DWC_FREE(NULL , pdata);
 			return -ENODEV;
 		}
 		if (1 == pdata->gpio_num)
