@@ -3900,6 +3900,7 @@ static int mux_handshake(struct sprd_mux *self)
 				break;
 			}
 		} else if (count == 0){
+		        msleep(200);
 			continue;
 		} else {
 			if (self->mux_status == MUX_STATE_CRASHED) {
