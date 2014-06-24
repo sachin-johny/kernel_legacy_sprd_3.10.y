@@ -117,6 +117,7 @@ enum ft5x0x_ts_regs {
 	#define ABS_MT_TOOL_TYPE	0x37	/* Type of touching device */
 	#define ABS_MT_BLOB_ID		0x38	/* Group set of pkts as blob */
 	#define ABS_MT_PRESSURE		0x3a	/* Pressure on contact area */
+	#define ABS_MT_TRACKING_ID      0x39	/* Unique ID of initiated contact */
 	#endif /* ABS_MT_TOUCH_MAJOR */
 
 
