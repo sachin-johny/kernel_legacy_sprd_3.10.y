@@ -462,12 +462,13 @@ static int ft5x0x_update_data(void)
 {
 	struct ft5x0x_ts_data *data = i2c_get_clientdata(this_client);
 	struct ts_event *event = &data->event;
-	u8 buf[32] = {0};
+	u8 buf[33] = {0};
 	int ret = -1;
 	int i;
 	u16 x , y;
+	u8 ft_pressure , ft_size;
 
-	ret = ft5x0x_i2c_rxdata(buf, 31);
+	ret = ft5x0x_i2c_rxdata(buf, 33);
 
 	if (ret < 0) {
 		pr_err("%s read_data i2c_rxdata failed: %d\n", __func__, ret);
@@ -482,13 +483,21 @@ static int ft5x0x_update_data(void)
 			continue;
 		x = (s16)(buf[6*i+3] & 0x0F)<<8 | (s16)buf[6*i+4];	
 		y = (s16)(buf[6*i+5] & 0x0F)<<8 | (s16)buf[6*i+6];
+		ft_pressure = buf[6*i+7];
+		if(ft_pressure > 127)
+			ft_pressure = 127;
+		ft_size = (buf[6*i+8]>>4) & 0x0F;
 		if((buf[6*i+3] & 0x40) == 0x0) {
 		#if MULTI_PROTOCOL_TYPE_B
 			input_mt_slot(data->input_dev, buf[6*i+5]>>4);
 			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, true);
+		#else
+			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID, buf[6*i+5]>>4);
 		#endif
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, y);
+			input_report_abs(data->input_dev, ABS_MT_PRESSURE, ft_pressure);
+			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, ft_size);
 			input_report_key(data->input_dev, BTN_TOUCH, 1);
 		#if !MULTI_PROTOCOL_TYPE_B
 			input_mt_sync(data->input_dev);
@@ -838,8 +847,12 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 #endif
 	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, pdata->TP_MAX_X, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, pdata->TP_MAX_Y, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 15, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 15, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_PRESSURE, 0, 127, 0, 0);
+#if !MULTI_PROTOCOL_TYPE_B
+	input_set_abs_params(input_dev,ABS_MT_TRACKING_ID, 0, 255, 0, 0);
+#endif
 	#if 0
 	/*ft5306's firmware is qhd, ft5316's firmware is 720p*/
 	if (uc_reg_value == 0x0a || uc_reg_value == 0x0) {
