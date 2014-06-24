@@ -222,6 +222,16 @@ config MACH_SP7731GEA
 	help
 	SP7731GEA board based on SC8830g serial.
 
+config MACH_SP7731GEAOPENPHONE
+	bool "sp7731geaopenphone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
+	default n
+	help
+	SP7731GEAOPENPHONE board based on SC8830g serial.
+
 config MACH_SP7731GEA_LC
 	bool "sp7731gea_lc Board"
 	depends on ARCH_SC
