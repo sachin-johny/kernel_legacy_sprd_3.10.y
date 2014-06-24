@@ -111,10 +111,6 @@
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
 #define ANA_HWRST_RTC_REG		(SPRD_ANA_BASE + 0x98)
 
-#if(CONFIG_RTC_START_YEAR==1999)
-#define RTC_START_YEAR_2000	946634400
-#define RTC_START_YEAR_2012	1325347200
-#endif
 
 static ssize_t sprd_show_caliberate(struct device *dev,
 				    struct device_attribute *attr, char *buf);
@@ -437,21 +433,14 @@ static int sprd_rtc_read_time(struct device *dev,
 	if(secs > 0x7f000000){
 		while(sprd_rtc_set_sec(0)!=0&&(n--)>0);
 
-		secs = 0;
+		secs = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0) - secs_start_year_to_1970;
 	}
 	secs = secs + secs_start_year_to_1970;
 	if(secs > 0x7f000000){
-		secs = secs_start_year_to_1970;
+		secs = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
 		n =2;
 		while(sprd_rtc_set_sec(0)!=0&&(n--)>0);
 	}
-#if(CONFIG_RTC_START_YEAR==1999)
-	if(secs < RTC_START_YEAR_2000)
-	{
-		secs = RTC_START_YEAR_2012;
-		sprd_rtc_set_sec(secs - secs_start_year_to_1970);
-	}
-#endif
 	rtc_time_to_tm(secs, tm);
 	return 0;
 }
@@ -681,10 +670,7 @@ static int __init sprd_rtc_init(void)
 	if ((err = platform_driver_register(&sprd_rtc_driver)))
 		return err;
 
-	if(CONFIG_RTC_START_YEAR > 1970)
-		secs_start_year_to_1970 = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
-	else 
-		secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
+	secs_start_year_to_1970 = mktime(1970, 1, 1, 0, 0, 0);
 	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
 	return 0;
 }
