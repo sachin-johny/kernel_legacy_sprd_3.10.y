@@ -233,6 +233,25 @@ static struct platform_device *devices[] __initdata = {
 #endif
 };
 
+struct resource sprd_bl_resource[] = {
+	        [0] = {
+			.start = 2,
+			.end = 2,
+			.flags  = IORESOURCE_IO,
+		},
+		[1] = {
+			.start = 214, //ctl_pin
+			.end = 1, //high level enable
+			.flags = IORESOURCE_IRQ,
+		},
+};
+struct platform_device sprd_backlight_device  = {
+	        .name           = "sprd_backlight",
+	        .id             =  -1,  
+	        .num_resources  = ARRAY_SIZE(sprd_bl_resource),
+	        .resource       = sprd_bl_resource,
+};
+
 #if defined(CONFIG_BATTERY_SAMSUNG)
 #include <linux/battery/sec_battery.h>
 #include <linux/battery/sec_fuelgauge.h>

@@ -197,8 +197,10 @@
 		 		  <0X480 0Xf53f8480 0x80>;
 		 sprd_backlight {
                         compatible = "sprd,sprd_backlight";
-                        start = <3>;
-                        end = <3>;
+                        start = <2>;
+                        end = <2>;
+			ctl_pin = <214>;
+			ctl_pin_level = <1>;
                         flags = <0x100>;
 		 };
                  headset_detect {

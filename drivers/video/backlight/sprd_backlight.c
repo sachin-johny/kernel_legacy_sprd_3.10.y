@@ -19,6 +19,8 @@
 #include <linux/io.h>
 #include <linux/clk.h>
 #include <linux/earlysuspend.h>
+#include <linux/gpio.h>
+#include <linux/err.h>
 
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
@@ -107,9 +109,14 @@ struct sprd_bl_devdata {
 	int             suspend;
 	struct clk      *clk;
 	struct early_suspend sprd_early_suspend_desc;
+	int ctl_pin;
+	int ctl_pin_level;
 };
 
-static struct sprd_bl_devdata sprdbl;
+static struct sprd_bl_devdata sprdbl = {
+	.ctl_pin = -1,
+	.ctl_pin_level = -1,
+	};
 #if(defined(CONFIG_MACH_SP7715EA)||defined(CONFIG_MACH_SP7715EATRISIM))
 static int pwm_whiteled_both = 0;
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev);
@@ -302,8 +309,26 @@ static const struct backlight_ops sprd_backlight_whiteled_ops = {
 };
 
 #ifdef CONFIG_EARLYSUSPEND
+void set_ctl_pin_state(int on){
+        static int ret = 0;
+	
+	if (sprdbl.ctl_pin == -1)
+		return;
+	on = on ? sprdbl.ctl_pin_level : !sprdbl.ctl_pin_level;
+	if (ret == 0) {
+		ret = gpio_request(sprdbl.ctl_pin, "backlight_ctl_pin");
+		if (ret) {
+			printk("%s: request gpio error\n", __func__);
+			return -EIO;
+		}
+		gpio_direction_output(sprdbl.ctl_pin, on);
+		ret = 1;
+	}
+	gpio_set_value(sprdbl.ctl_pin,on);
+}
 static void sprd_backlight_earlysuspend(struct early_suspend *h)
 {
+	set_ctl_pin_state(0);
 	sprdbl.suspend = 1;
 	sprdbl.bldev->ops->update_status(sprdbl.bldev);
 	PRINT_INFO("early suspend\n");
@@ -311,6 +336,7 @@ static void sprd_backlight_earlysuspend(struct early_suspend *h)
 
 static void sprd_backlight_lateresume(struct early_suspend *h)
 {
+	set_ctl_pin_state(1);
 	sprdbl.suspend = 0;
 	sprdbl.bldev->ops->update_status(sprdbl.bldev);
 	PRINT_INFO("late resume\n");
@@ -338,6 +364,8 @@ static struct resource *sprd_backlight_parse_dt(struct platform_device *pdev)
 		dev_err(pdev, "fail to get resource.end\n");
 		goto fail;
 	}
+	ret = of_property_read_u32(np, "ctl_pin", &sprdbl.ctl_pin);
+	ret = of_property_read_u32(np, "ctl_pin_level", &sprdbl.ctl_pin_level);
 	ret = of_property_read_u32(np, "flags", &pwm_res->flags);
 	if(ret){
 		dev_err(pdev, "fail to get resource.flags\n");
@@ -359,6 +387,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 #ifdef SPRD_BACKLIGHT_PWM
 	struct clk* ext_26m = NULL;
 	struct resource *pwm_res = NULL;
+	struct resource *pwm_res1 = NULL;
 	char pwm_clk_name[32];
 
 #ifdef CONFIG_OF
@@ -377,9 +406,14 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	}
 #else
 	pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
-	if (IS_ERR(pwm_res)) {
+	if (pwm_res == NULL) {
 		printk("Can't get pwm resource");
 		return -ENODEV;
+	}
+	pwm_res1 = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
+	if (pwm_res1 != NULL) {
+		sprdbl.ctl_pin = pwm_res1->start;
+		sprdbl.ctl_pin_level = !!pwm_res1->end;
 	}
 #endif
 
