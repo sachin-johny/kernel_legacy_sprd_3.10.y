@@ -54,6 +54,7 @@ MODULE_VERSION("1.0");
 
 static const char longname[] = "Gadget Android";
 extern int in_calibration(void);
+extern int in_autotest(void);
 /* Default vendor and product IDs, overridden by userspace */
 #define VENDOR_ID		0x18D1
 #define PRODUCT_ID		0x0001
@@ -1574,7 +1575,7 @@ static int android_bind(struct usb_composite_dev *cdev)
 	if (id < 0)
 		return id;
 	strings_dev[STRING_SERIAL_IDX].id = id;
-	if(in_calibration()){
+	if(in_calibration() || in_autotest()){
 		device_desc.iSerialNumber = 0;
 		cdev->desc.bDeviceClass = 0xff;
 	}else

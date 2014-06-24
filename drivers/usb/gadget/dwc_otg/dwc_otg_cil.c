@@ -61,6 +61,7 @@
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
 extern int in_calibration(void);
+extern int in_autotest(void);
 extern void usb_phy_ahb_rst(void);
 static int dwc_otg_setup_params(dwc_otg_core_if_t * core_if);
 
@@ -1139,7 +1140,7 @@ static void init_devspd(dwc_otg_core_if_t * core_if)
 		val = 0x0;
 	}
 
-	if(in_calibration())
+	if(in_calibration() || in_autotest())
 		val = 1;
 	DWC_DEBUGPL(DBG_CIL, "Initializing DCFG.DevSpd to 0x%1x\n", val);
 
