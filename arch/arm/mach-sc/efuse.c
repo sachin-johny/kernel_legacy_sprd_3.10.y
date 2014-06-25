@@ -115,21 +115,24 @@ static DEFINE_MUTEX(adie_fuse_lock);
 static int efuse_auto_test_en = 0;
 #endif
 
+#define efuse_reg_read(r)               (__raw_readl((const volatile void*)(r)))
+#define efuse_reg_write(r, v)           (__raw_writel((v), (volatile void*)(r)))
+
 static void efuse_dump_register(u32 en)
 {
 #if defined(CONFIG_ARCH_SCX35)
 	efuse_dbg("----------------- efuse dump start --------------------------------\n");
 
 	efuse_dbg("Efuse base viral addr = 0x%08x\n", SPRD_EFUSE_BASE);
-	efuse_dbg("REG_EFUSE_DATA_RD = 0x%08x\n", __raw_readl(REG_EFUSE_DATA_RD));
-	efuse_dbg("REG_EFUSE_DATA_WR = 0x%08x\n", __raw_readl(REG_EFUSE_DATA_WR));
-	efuse_dbg("REG_EFUSE_BLOCK_INDEX = 0x%08x\n", __raw_readl(REG_EFUSE_BLOCK_INDEX));
-	efuse_dbg("REG_EFUSE_MODE_CTRL = 0x%08x\n", __raw_readl(REG_EFUSE_MODE_CTRL));
-	efuse_dbg("REG_EFUSE_PGM_PARA = 0x%08x\n", __raw_readl(REG_EFUSE_PGM_PARA));
-	efuse_dbg("REG_EFUSE_STATUS = 0x%08x\n", __raw_readl(REG_EFUSE_STATUS));
-	efuse_dbg("REG_EFUSE_BLK_FLAGS = 0x%08x\n", __raw_readl(REG_EFUSE_BLK_FLAGS));
-	efuse_dbg("REG_EFUSE_BLK_CLR = 0x%08x\n", __raw_readl(REG_EFUSE_BLK_CLR));
-	efuse_dbg("REG_EFUSE_MAGIC_NUMBER = 0x%08x\n", __raw_readl(REG_EFUSE_MAGIC_NUMBER));
+	efuse_dbg("REG_EFUSE_DATA_RD = 0x%08x\n", efuse_reg_read(REG_EFUSE_DATA_RD));
+	efuse_dbg("REG_EFUSE_DATA_WR = 0x%08x\n", efuse_reg_read(REG_EFUSE_DATA_WR));
+	efuse_dbg("REG_EFUSE_BLOCK_INDEX = 0x%08x\n", efuse_reg_read(REG_EFUSE_BLOCK_INDEX));
+	efuse_dbg("REG_EFUSE_MODE_CTRL = 0x%08x\n", efuse_reg_read(REG_EFUSE_MODE_CTRL));
+	efuse_dbg("REG_EFUSE_PGM_PARA = 0x%08x\n", efuse_reg_read(REG_EFUSE_PGM_PARA));
+	efuse_dbg("REG_EFUSE_STATUS = 0x%08x\n", efuse_reg_read(REG_EFUSE_STATUS));
+	efuse_dbg("REG_EFUSE_BLK_FLAGS = 0x%08x\n", efuse_reg_read(REG_EFUSE_BLK_FLAGS));
+	efuse_dbg("REG_EFUSE_BLK_CLR = 0x%08x\n", efuse_reg_read(REG_EFUSE_BLK_CLR));
+	efuse_dbg("REG_EFUSE_MAGIC_NUMBER = 0x%08x\n", efuse_reg_read(REG_EFUSE_MAGIC_NUMBER));
 
 	efuse_dbg("REG_AON_APB_APB_EB0 = 0x%08x\n", sci_glb_raw_read(REG_AON_APB_APB_EB0));
 	efuse_dbg("REG_AON_APB_PWR_CTRL = 0x%08x\n", sci_glb_raw_read(REG_AON_APB_PWR_CTRL));
@@ -144,7 +147,7 @@ static __inline void __ddie_fuse_wait_status_clean(u32 bits)
 
 	/* wait for maximum of 300 msec */
 	timeout = jiffies + msecs_to_jiffies(300);
-	while (__raw_readl(REG_EFUSE_STATUS) & bits) {
+	while (efuse_reg_read(REG_EFUSE_STATUS) & bits) {
 		if (time_after(jiffies, timeout)) {
 			WARN_ON(1);
 			break;
@@ -167,13 +170,13 @@ static __inline void __ddie_fuse_global_init(void)
 	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
 	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
 #endif
-	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) | BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN,
+	efuse_reg_write(efuse_reg_read(REG_EFUSE_PGM_PARA) | BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN,
 		     REG_EFUSE_PGM_PARA);
 }
 
 static __inline void __ddie_fuse_global_close(void)
 {
-	__raw_writel(__raw_readl(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
+	efuse_reg_write(efuse_reg_read(REG_EFUSE_PGM_PARA) & ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN),
 		     REG_EFUSE_PGM_PARA);
 
 #if defined(CONFIG_ARCH_SC8825)
@@ -204,14 +207,14 @@ static __inline int __ddie_fuse_read(u32 blk)
 	mutex_lock(&ddie_fuse_lock);
 	__ddie_fuse_global_init();
 	val = BITS_READ_INDEX(blk) | BITS_PGM_INDEX(blk);
-	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
+	efuse_reg_write(val, REG_EFUSE_BLOCK_INDEX);
 #ifdef CONFIG_DEBUG_FS
 	efuse_dump_register(1);
 #endif
-	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_RD_START,
+	efuse_reg_write(efuse_reg_read(REG_EFUSE_MODE_CTRL) | BIT_RD_START,
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_READ_BUSY);
-	val = __raw_readl(REG_EFUSE_DATA_RD);
+	val = efuse_reg_read(REG_EFUSE_DATA_RD);
 	__ddie_fuse_global_close();
 	mutex_unlock(&ddie_fuse_lock);
 
@@ -323,7 +326,6 @@ EXPORT_SYMBOL(sci_efuse_calibration_get);
 int sci_efuse_cccv_cal_get(unsigned int *p_cal_data)
 {
 	int data;
-	unsigned short adc_temp;
 
 	data = sci_efuse_get(CCCV_CAL_DATA_BLK);
 
@@ -344,7 +346,6 @@ int sci_efuse_cccv_cal_get(unsigned int *p_cal_data)
 int sci_efuse_fgu_cal_get(unsigned int *p_cal_data)
 {
 	int data;
-	unsigned short adc_temp;
 
 	data = sci_efuse_get(FGU_CAL_DATA_BLK0);
 
@@ -447,7 +448,7 @@ int sci_efuse_get_apt_cal(unsigned int * pdata, int num)
 	printk("%s: ", __func__);
 	for(i = 0; i < num; i++) {
 		pdata[i] = (unsigned int) OFFSET2VOL(offset[i], vol_ref[i]);
-		printk("(%lduV : %ld), ", vol_ref[i], pdata[i]);
+		printk("(%uuV : %u), ", vol_ref[i], pdata[i]);
 	}
 	printk("\n");
 
@@ -461,45 +462,45 @@ EXPORT_SYMBOL_GPL(sci_efuse_get_apt_cal);
 static __inline void __ddie_fuse_test_clear_blkerrflag(u32 blk)
 {
 	int offset = 0x8;
-	if (__raw_readl(REG_EFUSE_BLK_FLAGS) & (1 << (blk + offset))) {
+	if (efuse_reg_read(REG_EFUSE_BLK_FLAGS) & (1 << (blk + offset))) {
 		pr_debug("efuse_auto_test_en, find block = %d, error\n", blk);
-		__raw_writel(1 << (blk + offset), REG_EFUSE_BLK_CLR);
+		efuse_reg_write(1 << (blk + offset), REG_EFUSE_BLK_CLR);
 	}
 }
 
 static __inline void __ddie_fuse_test_clear_blkprotflag(u32 blk)
 {
 	int offset = 0x0;
-	if (__raw_readl(REG_EFUSE_BLK_FLAGS) & (1 << (blk + offset)))
-		__raw_writel(1 << (blk + offset), REG_EFUSE_BLK_CLR);
+	if (efuse_reg_read(REG_EFUSE_BLK_FLAGS) & (1 << (blk + offset)))
+		efuse_reg_write(1 << (blk + offset), REG_EFUSE_BLK_CLR);
 }
 
 static __inline void __ddie_fuse_program_getkey(void)
 {
 	u32 key = MAGIC_NUMBER;
-	int val = __raw_readl(REG_EFUSE_PGM_PARA);
+	int val = efuse_reg_read(REG_EFUSE_PGM_PARA);
 	val |= BIT_PGM_EN;
-	__raw_writel(val, REG_EFUSE_PGM_PARA);
-	__raw_writel(key, REG_EFUSE_MAGIC_NUMBER);
+	efuse_reg_write(val, REG_EFUSE_PGM_PARA);
+	efuse_reg_write(key, REG_EFUSE_MAGIC_NUMBER);
 }
 
 static __inline void __ddie_fuse_program_putkey(void)
 {
 	u32 key = ~MAGIC_NUMBER;
-	int val = __raw_readl(REG_EFUSE_PGM_PARA);
+	int val = efuse_reg_read(REG_EFUSE_PGM_PARA);
 	val &= ~BIT_PGM_EN;
-	__raw_writel(val, REG_EFUSE_PGM_PARA);
-	__raw_writel(key, REG_EFUSE_MAGIC_NUMBER);
+	efuse_reg_write(val, REG_EFUSE_PGM_PARA);
+	efuse_reg_write(key, REG_EFUSE_MAGIC_NUMBER);
 }
 
 static void sci_ddie_fuse_program_vdd(u32 enable, u32 msleep_value)
 {
 	u32 val = 0;
-	val = __raw_readl(REG_EFUSE_PGM_PARA);
+	val = efuse_reg_read(REG_EFUSE_PGM_PARA);
 #if defined(CONFIG_ARCH_SC8825)
 	if (enable) {
 		val |= (BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN);
-		__raw_writel(val, REG_EFUSE_PGM_PARA);
+		efuse_reg_write(val, REG_EFUSE_PGM_PARA);
 		sci_adi_write_fast(ANA_REG_GLB_EFS_PROT, ANA_PROT_KEY, 1);
 		sci_adi_write_fast(ANA_REG_GLB_EFS_CTRL, BIT_EFS_2P5V_PWR_ON,
 				   1);
@@ -507,7 +508,7 @@ static void sci_ddie_fuse_program_vdd(u32 enable, u32 msleep_value)
 			msleep(msleep_value);
 	} else {
 		val &= ~(BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN);
-		__raw_writel(val, REG_EFUSE_PGM_PARA);
+		efuse_reg_write(val, REG_EFUSE_PGM_PARA);
 		sci_adi_write_fast(ANA_REG_GLB_EFS_CTRL,
 				   (u16) ~ BIT_EFS_2P5V_PWR_ON, 1);
 		sci_adi_write_fast(ANA_REG_GLB_EFS_PROT, (u16) ~ ANA_PROT_KEY,
@@ -543,17 +544,17 @@ void sci_ddie_fuse_program(u32 blk, int data)
 	sci_ddie_fuse_program_vdd(1, 1);
 
 	if (efuse_auto_test_en) {
-		val = __raw_readl(REG_EFUSE_PGM_PARA);
+		val = efuse_reg_read(REG_EFUSE_PGM_PARA);
 		val |= (1 << (blk + 16));
-		__raw_writel(val, REG_EFUSE_PGM_PARA);
+		efuse_reg_write(val, REG_EFUSE_PGM_PARA);
 	}
 	val = BITS_PGM_INDEX(blk);
-	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
-	__raw_writel(data, REG_EFUSE_DATA_WR);
+	efuse_reg_write(val, REG_EFUSE_BLOCK_INDEX);
+	efuse_reg_write(data, REG_EFUSE_DATA_WR);
 #ifdef CONFIG_DEBUG_FS
 	efuse_dump_register(1);
 #endif
-	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_PG_START,
+	efuse_reg_write(efuse_reg_read(REG_EFUSE_MODE_CTRL) | BIT_PG_START,
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_PGM_BUSY);
 
@@ -583,7 +584,7 @@ void sci_ddie_fuse_set_cyclecnt(u32 cnt, u32 efuse_clk_div_en)
 	val = BITS_TPGM_TIME_CNT(cnt);
 	if (efuse_clk_div_en)
 		val |= BIT_PCLK_DIV_EN;
-	__raw_writel(val, REG_EFUSE_PGM_PARA);
+	efuse_reg_write(val, REG_EFUSE_PGM_PARA);
 	__ddie_fuse_program_putkey();
 
 	__ddie_fuse_global_close();
@@ -608,15 +609,15 @@ void sci_ddie_fuse_bist(u32 start_blk, u32 size)
 	sci_ddie_fuse_program_vdd(1, 1);
 
 	val = BITS_BIST_INDEX(start_blk) | BITS_BIST_SIZE(size);
-	__raw_writel(val, REG_EFUSE_BLOCK_INDEX);
-	val = __raw_readl(REG_EFUSE_PGM_PARA);
+	efuse_reg_write(val, REG_EFUSE_BLOCK_INDEX);
+	val = efuse_reg_read(REG_EFUSE_PGM_PARA);
 	val |= BIT_BIST_SW_EN;
-	__raw_writel(val, REG_EFUSE_PGM_PARA);
+	efuse_reg_write(val, REG_EFUSE_PGM_PARA);
 
-	__raw_writel(__raw_readl(REG_EFUSE_MODE_CTRL) | BIT_BIST_START,
+	efuse_reg_write(efuse_reg_read(REG_EFUSE_MODE_CTRL) | BIT_BIST_START,
 		     REG_EFUSE_MODE_CTRL);
 	__ddie_fuse_wait_status_clean(BIT_BIST_BUSY);
-	if (__raw_readl(REG_EFUSE_STATUS) & BIT_BIST_FAIL)
+	if (efuse_reg_read(REG_EFUSE_STATUS) & BIT_BIST_FAIL)
 		pr_debug("sci_efuse_bist error\n");
 
 	sci_ddie_fuse_program_vdd(0, 0);
@@ -716,7 +717,7 @@ DEFINE_SIMPLE_ATTRIBUTE(efuse_enable_fops, fuse_debug_get,
 static struct dentry *debugfs_base;
 static int __init fuse_debug_add(struct sci_fuse *fuse)
 {
-	if (!debugfs_create_file(fuse->name, S_IALLUGO, debugfs_base,
+	if (!debugfs_create_file(fuse->name, S_IRUGO | S_IWUSR, debugfs_base,
 				 fuse, &efuse_enable_fops))
 		return -ENOMEM;
 
