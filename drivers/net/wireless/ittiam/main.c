@@ -58,12 +58,10 @@
 #define ITM_INTF_NAME		"wlan%d"
 
 #define SETH_RESEND_MAX_NUM	10
-#define SIOGETSSID 0x89F2
+#define SIOGETSSID		0x89F2
 #ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
-#define SIPC_TRANS_OFFSET 50
+#define SIPC_TRANS_OFFSET	50
 #endif
-
-void ittiam_nvm_init(void);
 
 #ifndef CONFIG_OF
 /*
@@ -217,7 +215,8 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 #endif
 		skb->dev = priv->ndev;
 		skb->protocol = eth_type_trans(skb, priv->ndev);
-		/*skb->ip_summed = CHECKSUM_UNNECESSARY; *//*not supported by our hardware */
+		/*not supported by our hardware */
+		/*skb->ip_summed = CHECKSUM_UNNECESSARY; */
 
 		priv->ndev->stats.rx_packets++;
 		priv->ndev->stats.rx_bytes += skb->len;
@@ -230,9 +229,8 @@ rx_failed:
 			dev_err(&priv->ndev->dev,
 				"Failed to release sblock (%d)\n", ret);
 	}
-	if (work_done < budget) {
+	if (work_done < budget)
 		napi_complete(napi);
-	}
 
 	return work_done;
 }
@@ -440,7 +438,7 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 	int ret = 0;
 	char *command = NULL;
 	int bytes_written = 0;
-	android_wifi_priv_cmd priv_cmd;
+	struct android_wifi_priv_cmd priv_cmd;
 	u8 addr[6] = {0};
 
 	if (!ifr->ifr_data) {
@@ -448,7 +446,7 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 		goto exit;
 	}
 	if (copy_from_user(&priv_cmd, ifr->ifr_data,
-			   sizeof(android_wifi_priv_cmd))) {
+			   sizeof(struct android_wifi_priv_cmd))) {
 		ret = -EFAULT;
 		goto exit;
 	}
@@ -651,7 +649,7 @@ static int itm_inetaddr_event(struct notifier_block *this,
 
 	switch (event) {
 	case NETDEV_UP:
-		itm_wlan_get_ip_cmd(priv, (u8 *) & ifa->ifa_address);
+		itm_wlan_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
 		break;
 	case NETDEV_DOWN:
 		break;
@@ -670,12 +668,12 @@ static struct notifier_block itm_inetaddr_cb = {
 /*
  * Initialize WLAN device.
  */
-static int __devinit itm_wlan_probe(struct platform_device *pdev)
+static int itm_wlan_probe(struct platform_device *pdev)
 {
 	struct net_device *ndev;
 	struct itm_priv *priv;
 	int ret;
-	
+
 	rf2351_gpio_ctrl_power_enable(1);
 	rf2351_vddwpa_ctrl_power_enable(1);
 
@@ -697,7 +695,6 @@ static int __devinit itm_wlan_probe(struct platform_device *pdev)
 	priv->p2p_mode = 0;
 	init_register_frame_param(priv);
 #endif
-
 
 	priv->pm_status = false;
 	priv->tx_free = TX_SBLOCK_NUM;
@@ -810,7 +807,7 @@ static void itm_wlan_pre_remove(struct itm_priv *priv)
 /*
  * Cleanup WLAN device.
  */
-static int __devexit itm_wlan_remove(struct platform_device *pdev)
+static int itm_wlan_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
 	struct itm_priv *priv = netdev_priv(ndev);
@@ -846,7 +843,7 @@ static int __devexit itm_wlan_remove(struct platform_device *pdev)
 	return 0;
 }
 
-//if Macro CONFIG_OF is defined, then Device Tree is used
+/* if Macro CONFIG_OF is defined, then Device Tree is used */
 #ifdef CONFIG_OF
 static const struct of_device_id of_match_table_itm_wlan[] = {
 	{.compatible = "sprd,itm_wlan",},
@@ -856,7 +853,7 @@ static const struct of_device_id of_match_table_itm_wlan[] = {
 
 static struct platform_driver itm_wlan_driver __refdata = {
 	.probe = itm_wlan_probe,
-	.remove = __devexit_p(itm_wlan_remove),
+	.remove = itm_wlan_remove,
 	.driver = {
 		   .owner = THIS_MODULE,
 		   .name = ITM_DEV_NAME,

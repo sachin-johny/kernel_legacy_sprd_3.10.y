@@ -34,7 +34,6 @@
 #include "cfg80211.h"
 #include "ittiam.h"
 
-extern WIFI_nvm_data *get_gWIFI_nvm_data(void);
 #ifdef CONFIG_ITM_WIFI_DIRECT
 static void wlan_sipc_event_rx_handler(struct itm_priv *priv);
 #endif	/* CONFIG_ITM_WIFI_DIRECT */
@@ -997,7 +996,7 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	if (mac_addr)
 		memcpy(open->mac, mac_addr, 6);
 	memcpy((unsigned char *)(&(open->nvm_data)),
-	       (unsigned char *)(get_gWIFI_nvm_data()), sizeof(WIFI_nvm_data));
+	       (unsigned char *)(get_gwifi_nvm_data()), sizeof(wifi_nvm_data));
 	/*Addded AP timestamp members*/
 	itm_wlan_get_ap_time(open->ap_timestamp);
 	wlan_sipc->wlan_sipc_send_len =

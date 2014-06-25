@@ -34,22 +34,6 @@
 
 #include "sipc_types.h"
 
-#ifndef __exit
-#define __exit
-#endif
-#ifndef __devexit
-#define __devexit
-#endif
-#ifndef __devinit
-#define __devinit	__init
-#endif
-#ifndef __devinitdata
-#define __devinitdata
-#endif
-#ifndef __devexit_p
-#define __devexit_p(x)	x
-#endif
-
 #define TX_FLOW_LOW	5
 #define TX_FLOW_HIGH	10
 #define TX_SBLOCK_NUM   64

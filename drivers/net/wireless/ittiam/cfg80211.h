@@ -42,22 +42,14 @@
 /*FIXME: determine the actual values for the macros below*/
 #define SCAN_IE_LEN_MAX			2304
 #define MAX_NUM_PMKIDS			4
-
 #define MAX_SITES_FOR_SCAN		12
-
 #define WLAN_MAX_SSID_SIZE		32
-
 #define WLAN_MAX_KEY_INDEX		3
-
 #define ITM_SCAN_TIMER_INTERVAL_MS	8000
 
 /* parise or group key type */
 #define GROUP				0
 #define PAIRWISE			1
-
-#define KERNEL_VERSION(a, b, c) (((a) << 16) + ((b) << 8) + (c))
-/* emulate a modern version */
-#define LINUX_VERSION_CODE KERNEL_VERSION(3, 10, 0)
 
 enum ANDROID_WIFI_CMD {
 	ANDROID_WIFI_CMD_START,
@@ -156,7 +148,7 @@ void itm_mac_event_report_frame(struct itm_priv *priv);
 
 int hostap_conf_load(char *filename, u8 *key_val);
 
-typedef struct android_wifi_priv_cmd {
+struct android_wifi_priv_cmd {
 #ifdef CONFIG_COMPAT
 	compat_uptr_t buf;
 #else
@@ -164,7 +156,7 @@ typedef struct android_wifi_priv_cmd {
 #endif
 	int used_len;
 	int total_len;
-} android_wifi_priv_cmd;
+};
 
 struct itm_ieee80211_regdomain {
 	u32 n_reg_rules;

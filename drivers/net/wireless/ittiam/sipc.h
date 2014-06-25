@@ -222,4 +222,6 @@ extern int itm_wlan_sipc_sblock_init(int sblock_ch,
 				     void *data);
 extern void wlan_sipc_sblock_handler(int event, void *data);
 #endif
+extern void ittiam_nvm_init(void);
+extern wifi_nvm_data *get_gwifi_nvm_data(void);
 #endif/*__ITM_SIPC_CMD_H__*/

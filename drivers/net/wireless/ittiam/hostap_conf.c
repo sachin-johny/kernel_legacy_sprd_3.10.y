@@ -97,11 +97,8 @@ static int fp_size(struct file *f)
 {
 	int error = -EBADF;
 	struct kstat stat;
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+
 	error = vfs_getattr(&f->f_path, &stat);
-#else
-	error = vfs_getattr(f->f_path.mnt, f->f_path.dentry, &stat);
-#endif
 	if (error == 0) {
 		return stat.size;
 	} else {

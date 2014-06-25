@@ -50,7 +50,7 @@ const unsigned short seq_cntl_mask = 0x0F00;
 #define FK_PARAMETER_2  0x677d9197
 #define FK_PARAMETER_3  0xb27022dc
 
-static const unsigned char S_Box[] = {
+static const unsigned char s_box[] = {
 	0xd6, 0x90, 0xe9, 0xfe, 0xcc, 0xe1, 0x3d, 0xb7,
 	0x16, 0xb6, 0x14, 0xc2, 0x28, 0xfb, 0x2c, 0x05,
 	0x2b, 0x67, 0x9a, 0x76, 0x2a, 0xbe, 0x04, 0xc3,
@@ -84,10 +84,10 @@ static const unsigned char S_Box[] = {
 	0x18, 0xf0, 0x7d, 0xec, 0x3a, 0xdc, 0x4d, 0x20,
 	0x79, 0xee, 0x5f, 0x3e, 0xd7, 0xcb, 0x39, 0x48 };
 
-static const unsigned int FK_Parameter[] = { FK_PARAMETER_0, FK_PARAMETER_1,
+static const unsigned int fk_parameter[] = { FK_PARAMETER_0, FK_PARAMETER_1,
 					FK_PARAMETER_2, FK_PARAMETER_3 };
 
-static const unsigned char S_XState[] = {
+static const unsigned char s_xstate[] = {
 	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0x00-0x0F */
 	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x10-0x1F */
 	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x20-0x2F */
@@ -106,7 +106,7 @@ static const unsigned char S_XState[] = {
 	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0    /* 0xF0-0xFF */
 };
 
-static const unsigned int g_NextInputTable[RK_LEN] = {
+static const unsigned int g_nextinputtable[RK_LEN] = {
 	0x00070e15, 0x1c232a31, 0x383f464d, 0x545b6269,
 	0x70777e85, 0x8c939aa1, 0xa8afb6bd, 0xc4cbd2d9,
 	0xe0e7eef5, 0xfc030a11, 0x181f262d, 0x343b4249,
@@ -117,125 +117,125 @@ static const unsigned int g_NextInputTable[RK_LEN] = {
 	0x10171e25, 0x2c333a41, 0x484f565d, 0x646b7279
 };
 
-static const unsigned int CipherDataIdx[MK_LEN][MK_LEN] = {
+static const unsigned int cipherdataidx[MK_LEN][MK_LEN] = {
 	{3, 2, 1, 0},
 	{0, 3, 2, 1},
 	{1, 0, 3, 2},
 	{2, 1, 0, 3}
 };
 
-#define PARITY_MACRO(Value) (S_XState[(Value) >> 24]			\
-				^ S_XState[((Value) >> 16) & 0xFF]	\
-				^ S_XState[((Value) >> 8) & 0xFF]	\
-				^ S_XState[(Value) & 0xFF])
+#define PARITY_MACRO(value) (s_xstate[(value) >> 24]			\
+				^ s_xstate[((value) >> 16) & 0xFF]	\
+				^ s_xstate[((value) >> 8) & 0xFF]	\
+				^ s_xstate[(value) & 0xFF])
 #define XOR_MACRO(A, B) ((A) ^ (B))
-#define L_TRANSFORM_MACRO(Word, Key) MultiplyCircular(Word,		\
-				Key ? KEY_MULTIPLIER : TEXT_MULTIPLIER)
+#define L_TRANSFORM_MACRO(word, key) multiplycircular(word,		\
+				key ? KEY_MULTIPLIER : TEXT_MULTIPLIER)
 
-static unsigned int T_Transform(unsigned int Word)
+static unsigned int t_transform(unsigned int word)
 {
 	unsigned int j;
-	unsigned int New_Word;
+	unsigned int new_word;
 	int offset = 0;
 
-	New_Word = 0;
+	new_word = 0;
 	for (j = 0; j < MK_LEN; j++) {
-		New_Word = (New_Word << BYTE_LEN);
+		new_word = (new_word << BYTE_LEN);
 		offset =
-		    ((unsigned int) (Word >> (WORD_LEN - BYTE_LEN))) &
+		    ((unsigned int) (word >> (WORD_LEN - BYTE_LEN))) &
 		    ((unsigned int) ((1 << BYTE_LEN) - 1));
-		New_Word = New_Word | (unsigned int) S_Box[offset];
-		Word = (Word << BYTE_LEN);
+		new_word = new_word | (unsigned int) s_box[offset];
+		word = (word << BYTE_LEN);
 	}
-	return New_Word;
+	return new_word;
 }
 
-static unsigned int MultiplyCircular(unsigned int Word, unsigned int Basis)
+static unsigned int multiplycircular(unsigned int word, unsigned int basis)
 {
-	unsigned int New_Word;
+	unsigned int new_word;
 	unsigned int i;
 
-	New_Word = 0;
+	new_word = 0;
 
 	for (i = 0; i < WORD_LEN; i++) {
-		New_Word = (New_Word << 1) | PARITY_MACRO(Word & Basis);
+		new_word = (new_word << 1) | PARITY_MACRO(word & basis);
 
-		Basis = (Basis >> 1) | ((Basis & 1) << (WORD_LEN - 1));
+		basis = (basis >> 1) | ((basis & 1) << (WORD_LEN - 1));
 	}
-	return New_Word;
+	return new_word;
 }
 
-static unsigned int Iterate(bool Key, unsigned int Next_Input,
-			    unsigned int *Cipher_Text,
-			    unsigned int curIdx)
+static unsigned int iterate(bool key, unsigned int next_input,
+			    unsigned int *cipher_text,
+			    unsigned int curidx)
 {
-	unsigned int New_State;
+	unsigned int new_state;
 
-	New_State = Next_Input;
-	New_State = XOR_MACRO(New_State, Cipher_Text[CipherDataIdx[curIdx][0]]);
-	New_State = XOR_MACRO(New_State, Cipher_Text[CipherDataIdx[curIdx][1]]);
-	New_State = XOR_MACRO(New_State, Cipher_Text[CipherDataIdx[curIdx][2]]);
-	New_State = L_TRANSFORM_MACRO(T_Transform(New_State), Key);
-	New_State = XOR_MACRO(New_State, Cipher_Text[CipherDataIdx[curIdx][3]]);
+	new_state = next_input;
+	new_state = XOR_MACRO(new_state, cipher_text[cipherdataidx[curidx][0]]);
+	new_state = XOR_MACRO(new_state, cipher_text[cipherdataidx[curidx][1]]);
+	new_state = XOR_MACRO(new_state, cipher_text[cipherdataidx[curidx][2]]);
+	new_state = L_TRANSFORM_MACRO(t_transform(new_state), key);
+	new_state = XOR_MACRO(new_state, cipher_text[cipherdataidx[curidx][3]]);
 
-	Cipher_Text[curIdx] = New_State;
+	cipher_text[curidx] = new_state;
 
-	return New_State;
+	return new_state;
 }
 
-static void CalculateEnKey(unsigned char *Key, unsigned int *Key_Store)
+static void calculateenkey(unsigned char *key, unsigned int *key_store)
 {
-	unsigned int Cipher_Text[MK_LEN];
+	unsigned int cipher_text[MK_LEN];
 
-	unsigned int Next, i, j, Next_Input;
+	unsigned int next, i, j, next_input;
 
 	for (j = 0; j < MK_LEN; j++) {
-		Next = 0;
+		next = 0;
 		for (i = 0; i < BYTES_PER_WORD; i++) {
-			Next = (Next << BYTE_LEN);
-			Next = Next | Key[(j << 2) + i];
+			next = (next << BYTE_LEN);
+			next = next | key[(j << 2) + i];
 		}
 
-		Cipher_Text[j] = XOR_MACRO(Next, FK_Parameter[j]);
+		cipher_text[j] = XOR_MACRO(next, fk_parameter[j]);
 	}
 
 	for (i = 0; i < RK_LEN; i++) {
-		Next_Input = g_NextInputTable[i];
+		next_input = g_nextinputtable[i];
 
-		Key_Store[i] =
-		    Iterate(true, Next_Input, Cipher_Text, i & (MK_LEN - 1));
+		key_store[i] =
+		    iterate(true, next_input, cipher_text, i & (MK_LEN - 1));
 	}
 }
 
-static void SMS4_Run(unsigned int *Key_Store, unsigned char *PlainText,
-		     unsigned char *CipherText)
+static void SMS4_Run(unsigned int *key_store, unsigned char *plaintext,
+		     unsigned char *ciphertext)
 {
 	unsigned int i, j;
-	unsigned int Next;
-	unsigned int Next_Input;
-	unsigned int Plain_Text[MK_LEN];
+	unsigned int next;
+	unsigned int next_input;
+	unsigned int plain_text[MK_LEN];
 
 	for (j = 0; j < MK_LEN; j++) {
-		Next = 0;
+		next = 0;
 		for (i = 0; i < BYTES_PER_WORD; i++) {
-			Next = (Next << BYTE_LEN);
-			Next = Next | PlainText[(j << 2) + i];
+			next = (next << BYTE_LEN);
+			next = next | plaintext[(j << 2) + i];
 		}
-		Plain_Text[j] = Next;
+		plain_text[j] = next;
 	}
 
 	for (i = 0; i < RK_LEN; i++) {
-		Next_Input = Key_Store[i];
-		(void)Iterate(false, Next_Input, Plain_Text, i & (MK_LEN - 1));
+		next_input = key_store[i];
+		(void)iterate(false, next_input, plain_text, i & (MK_LEN - 1));
 	}
 
 	for (j = 0; j < MK_LEN; j++) {
-		Next = Plain_Text[(MK_LEN - 1) - j];
+		next = plain_text[(MK_LEN - 1) - j];
 		for (i = 0; i < BYTES_PER_WORD; i++) {
-			CipherText[(j << 2) + i] =
-			    (unsigned char) ((Next >> (WORD_LEN - BYTE_LEN)) &
+			ciphertext[(j << 2) + i] =
+			    (unsigned char) ((next >> (WORD_LEN - BYTE_LEN)) &
 				      ((1 << BYTE_LEN) - 1));
-			Next = (Next << BYTE_LEN);
+			next = (next << BYTE_LEN);
 		}
 	}
 }
@@ -248,7 +248,7 @@ void WapiCryptoSms4(unsigned char *iv, unsigned char *key, unsigned char *input,
 	unsigned char sms4Output[TEXT_BYTES];
 	unsigned char tmp_data[TEXT_BYTES];
 
-	unsigned int Key_Store[RK_LEN];
+	unsigned int key_store[RK_LEN];
 
 	unsigned int j = 0;
 	unsigned char *p[2];
@@ -258,11 +258,11 @@ void WapiCryptoSms4(unsigned char *iv, unsigned char *key, unsigned char *input,
 
 	memcpy(tmp_data, iv, TEXT_BYTES);
 
-	CalculateEnKey(key, Key_Store);
+	calculateenkey(key, key_store);
 
 	for (i = 0; i < length; i++) {
 		if ((i & (TEXT_BYTES - 1)) == 0) {
-			SMS4_Run(Key_Store, p[1 - j], p[j]);
+			SMS4_Run(key_store, p[1 - j], p[j]);
 
 			j = 1 - j;
 		}
@@ -278,64 +278,64 @@ void WapiCryptoSms4(unsigned char *iv, unsigned char *key, unsigned char *input,
 
 void WapiCryptoSms4Mic(unsigned char *iv, unsigned char *key,
 		       unsigned char *header,
-		       unsigned int headerLength, unsigned char *input,
-		       unsigned int dataLength, unsigned char *mic)
+		       unsigned int headerlength, unsigned char *input,
+		       unsigned int datalength, unsigned char *mic)
 {
-	unsigned int i, j = 0, totalLength;
+	unsigned int i, j = 0, totallength;
 	unsigned char sms4Output[TEXT_BYTES], sms4Input[TEXT_BYTES];
-	unsigned int tmp_headerLength = 0;
-	unsigned int tmp_dataLength = 0;
+	unsigned int tmp_headerlength = 0;
+	unsigned int tmp_datalenth = 0;
 
 	unsigned int header_cnt = 0;
 	unsigned int header0_cnt = 0;
 	unsigned int data_cnt = 0;
 	unsigned int data0_cnt = 0;
 
-	unsigned int Key_Store[RK_LEN];
+	unsigned int key_store[RK_LEN];
 
 	memcpy(sms4Input, iv, TEXT_BYTES);
 
-	totalLength = headerLength + dataLength;
-	tmp_headerLength =
-	    ((headerLength & (TEXT_BYTES - 1)) ==
-	     0) ? 0 : (TEXT_BYTES - (headerLength & (TEXT_BYTES - 1)));
-	tmp_dataLength =
-	    ((dataLength & (TEXT_BYTES - 1)) ==
-	     0) ? 0 : (TEXT_BYTES - (dataLength & (TEXT_BYTES - 1)));
+	totallength = headerlength + datalength;
+	tmp_headerlength =
+	    ((headerlength & (TEXT_BYTES - 1)) ==
+	     0) ? 0 : (TEXT_BYTES - (headerlength & (TEXT_BYTES - 1)));
+	tmp_datalenth =
+	    ((datalength & (TEXT_BYTES - 1)) ==
+	     0) ? 0 : (TEXT_BYTES - (datalength & (TEXT_BYTES - 1)));
 
-	totalLength += tmp_headerLength;
-	totalLength += tmp_dataLength;
+	totallength += tmp_headerlength;
+	totallength += tmp_datalenth;
 
-	CalculateEnKey(key, Key_Store);
+	calculateenkey(key, key_store);
 
-	for (i = 0; i < totalLength; i++) {
+	for (i = 0; i < totallength; i++) {
 		if ((i & (TEXT_BYTES - 1)) == 0)
-			SMS4_Run(Key_Store, sms4Input, sms4Output);
+			SMS4_Run(key_store, sms4Input, sms4Output);
 
-		if ((dataLength == 0) && (headerLength == 0)) {
+		if ((datalength == 0) && (headerlength == 0)) {
 			sms4Input[i & (TEXT_BYTES - 1)] =
 				0 ^ sms4Output[i & (TEXT_BYTES - 1)];
 			data0_cnt++;
-		} else if ((headerLength == 0) && (tmp_headerLength == 0)) {
+		} else if ((headerlength == 0) && (tmp_headerlength == 0)) {
 			sms4Input[i & (TEXT_BYTES - 1)] =
 			    input[j] ^ sms4Output[i & (TEXT_BYTES - 1)];
 			j++;
-			dataLength--;
+			datalength--;
 			data_cnt++;
-		} else if (headerLength == 0) {
+		} else if (headerlength == 0) {
 			sms4Input[i & (TEXT_BYTES - 1)] =
 				0 ^ sms4Output[i & (TEXT_BYTES - 1)];
-			tmp_headerLength--;
+			tmp_headerlength--;
 			header0_cnt++;
 		} else {
 			sms4Input[i & (TEXT_BYTES - 1)] =
 			    header[i] ^ sms4Output[i & (TEXT_BYTES - 1)];
-			headerLength--;
+			headerlength--;
 			header_cnt++;
 		}
 	}
 
-	SMS4_Run(Key_Store, sms4Input, mic);
+	SMS4_Run(key_store, sms4Input, mic);
 }
 
 unsigned short wlan_tx_wapi_encryption(struct itm_priv *priv,
@@ -446,10 +446,10 @@ unsigned short wlan_tx_wapi_encryption(struct itm_priv *priv,
 		/* MAC address, for the host interface. MAC layer acts as an  */
 		/* interface to the packets from Etherent and WLAN and takes  */
 		/* responsibility of ensuring proper interfacing.             */
-		if (eth_type == ARP_TYPE) {
 		/* The source MAC address is modified only if the packet is an*/
 		/* ARP Request or a Response. The appropriate bytes are checke*/
 		/* Type field (2 bytes): ARP Request (1) or an ARP Response(2)*/
+		if (eth_type == ARP_TYPE) {
 			if ((*(data + 20) == 0x00) &&
 			    (*(data + 21) == 0x02 || *(data + 21) == 0x01)) {
 				/* Set Address2 field with source address */
