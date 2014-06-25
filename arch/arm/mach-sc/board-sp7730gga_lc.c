@@ -302,6 +302,14 @@ int in_calibration(void)
 }
 
 EXPORT_SYMBOL(in_calibration);
+
+int in_autotest(void)
+{
+	return 0;
+}
+
+EXPORT_SYMBOL(in_autotest);
+
 #ifndef CONFIG_OF
 static void __init sprd_add_otg_device(void)
 {

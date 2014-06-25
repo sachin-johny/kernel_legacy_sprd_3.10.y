@@ -1127,17 +1127,9 @@ int in_calibration(void)
 
 EXPORT_SYMBOL(in_calibration);
 
-static int autotest_mode = false;
-static int __init autotest_start(char *str)
-{
-	autotest_mode = true;
-	return 1;
-}
-__setup("autotest=", autotest_start);
-
 int in_autotest(void)
 {
-	return (int)(autotest_mode == true);
+	return 0;
 }
 
 EXPORT_SYMBOL(in_autotest);
