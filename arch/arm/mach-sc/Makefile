@@ -13,7 +13,7 @@ obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o arch_misc.o pin_switch.
 obj-$(CONFIG_ARCH_SCX35) += timer_sc8830.o dma_r4p0.o
 
 ifeq ($(CONFIG_ARCH_SCX30G),y)
-obj-$(CONFIG_PM_DEVFREQ) += dmc_freq_28nm.o
+obj-$(CONFIG_PM_DEVFREQ) += dmc_freq_28nm.o dmc_dfs_test.o
 obj-$(CONFIG_SCX35_DMC_FREQ_AP) += dmc_freq_ap_28nm.o
 	CFLAGS_dmc_freq_ap_28nm.o += -fPIC
 else
