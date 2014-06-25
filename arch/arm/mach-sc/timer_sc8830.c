@@ -66,15 +66,13 @@ static int e_cpu = 0;
 #define	TIMER_INT_BUSY	(1 << 4)
 
 /**
- * timer0 of AONtimer is used as clockevent,
- * timer1 of AONtimer  is used as 32.768 clocksource
- * timer2 of AONtimer  is used as 128M clocksource
+ * timer0 is used as clockevent,
  * timer1 of aptimer0 is used as broadcast timer,
+ * timer2 is used as clocksource
  */
 #define	EVENT_TIMER	0
 #define	BC_TIMER	1
-#define	AON_PCLK_SOURCE_TIMER	2
-#define	AON_RTC_SOURCE_TIMER	1
+#define	SOURCE_TIMER	2
 
 #define BC_CPU 1
 #define BC_IRQ  IRQ_APTMR1_INT
@@ -282,24 +280,23 @@ static void sprd_gptimer_clockevent_init(unsigned int irq, const char *name,
 }
 
 /* ****************************************************************** */
-
 void __gptimer_clocksource_resume(struct clocksource *cs)
 {
 	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
-		 __raw_readl(TIMER_VALUE(e_cpu, AON_PCLK_SOURCE_TIMER)));
-	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+		 __raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
 }
 
 void __gptimer_clocksource_suspend(struct clocksource *cs)
 {
-	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
 	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
-		 __raw_readl(TIMER_VALUE(e_cpu, AON_PCLK_SOURCE_TIMER)));
+		 __raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
 }
 
 cycle_t __gptimer_clocksource_read(struct clocksource *cs)
 {
-	return ~readl_relaxed(TIMER_VALUE(e_cpu, AON_PCLK_SOURCE_TIMER));
+	return ~readl_relaxed(TIMER_VALUE(e_cpu, SOURCE_TIMER));
 }
 
 struct clocksource clocksource_sprd = {
@@ -315,91 +312,16 @@ struct clocksource clocksource_sprd = {
 static void __gptimer_clocksource_init(void)
 {
 	/* disalbe irq since it's just a read source */
-	__raw_writel(0, TIMER_INT(e_cpu, AON_PCLK_SOURCE_TIMER));
+	__raw_writel(0, TIMER_INT(e_cpu, SOURCE_TIMER));
 
-	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
-	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, AON_PCLK_SOURCE_TIMER));
-	__gptimer_ctl(e_cpu, AON_PCLK_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, SOURCE_TIMER));
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
 
-	/* do not register this timer as clocksource, because  the clock of this timer can be
-	   closed in one power save mode, without notifying the timekeeping
-	   subsystem */
-	/*if (clocksource_register_hz(&clocksource_sprd,gptimer_clock_source_freq))
-	   printk("%s: can't register clocksource\n", clocksource_sprd.name); */
-}
-
-void __gptimer_aon_rtc_clocksource_resume(struct clocksource *cs)
-{
-	cycle_t val1 = 0;
-	cycle_t val2 = 0;
-	val1 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	while (val2 != val1) {
-		val1 = val2;
-		val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	}
-	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__, val2);
-	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
-}
-
-void __gptimer_aon_rtc_clocksource_suspend(struct clocksource *cs)
-{
-	cycle_t val1 = 0;
-	cycle_t val2 = 0;
-	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
-	val1 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	while (val2 != val1) {
-		val1 = val2;
-		val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	}
-	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__, val2);
-}
-
-cycle_t __gptimer_aon_rtc_clocksource_read(struct clocksource *cs)
-{
-	cycle_t val_first = 0;
-	cycle_t val1 = 0;
-	cycle_t val2 = 0;
-
-	val_first = val1 =
-	    ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	while (val2 != val1) {
-		val1 = val2;
-		val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	}
-
-	if ((val2 - val_first) > 0x20)
-		printk(KERN_NOTICE
-		       "double read aon rtc timer1 counter: first:0x%x, last:0x%x\n",
-		       (int)val_first, (int)val2);
-
-	return val2;
-}
-
-struct clocksource aon_rtc_clocksource_sprd = {
-	.name = "aon_rtctimer1",
-	.rating = 300,
-	.read = __gptimer_aon_rtc_clocksource_read,
-	.mask = CLOCKSOURCE_MASK(32),
-	.flags = CLOCK_SOURCE_IS_CONTINUOUS,
-	.resume = __gptimer_aon_rtc_clocksource_resume,
-	.suspend = __gptimer_aon_rtc_clocksource_suspend,
-};
-
-static void __gptimer_aon_rtc_clocksource_init(void)
-{
-	/* disalbe irq since it's just a read source */
-	__raw_writel(0, TIMER_INT(e_cpu, AON_RTC_SOURCE_TIMER));
-
-	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
-	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, AON_RTC_SOURCE_TIMER));
-	__gptimer_ctl(e_cpu, AON_RTC_SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
-
-	if (clocksource_register_hz(&aon_rtc_clocksource_sprd, 32768))
+	if (clocksource_register_hz
+	    (&clocksource_sprd, gptimer_clock_source_freq))
 		printk("%s: can't register clocksource\n",
-		       aon_rtc_clocksource_sprd.name);
+		       clocksource_sprd.name);
 }
 
 static void __syscnt_clocksource_init(const char *name, unsigned long hz)
@@ -414,15 +336,7 @@ static void __syscnt_clocksource_init(const char *name, unsigned long hz)
 /* ****************************************************************** */
 static u32 notrace __update_sched_clock(void)
 {
-	cycle_t val1 = 0;
-	cycle_t val2 = 0;
-	val1 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	while (val2 != val1) {
-		val1 = val2;
-		val2 = ~readl_relaxed(TIMER_VALUE(e_cpu, AON_RTC_SOURCE_TIMER));
-	}
-	return val2;
+	return ~(readl_relaxed(TIMER_VALUE(0, SOURCE_TIMER)));
 }
 
 static void __init __sched_clock_init(unsigned long rate)
@@ -450,18 +364,17 @@ void __init sci_enable_timer_early(void)
 		}
 	}
 
-	/*val = sci_glb_read(REG_AON_CLK_AON_APB_CFG, -1) & 0x3;
-	   if (val == 0x1)
-	   sched_clock_source_freq = 76800000;
-	   else if (val == 0x2)
-	   sched_clock_source_freq = 96000000;
-	   else if (val == 0x3)
-	   sched_clock_source_freq = 128000000;
-	   else
-	   sched_clock_source_freq = 26000000;  default setting
+	val = sci_glb_read(REG_AON_CLK_AON_APB_CFG, -1) & 0x3;
+	if (val == 0x1)
+		sched_clock_source_freq = 76800000;
+	else if (val == 0x2)
+		sched_clock_source_freq = 96000000;
+	else if (val == 0x3)
+		sched_clock_source_freq = 128000000;
+	else
+		sched_clock_source_freq = 26000000;	/*default setting */
 
-	   gptimer_clock_source_freq = sched_clock_source_freq; */
-	sched_clock_source_freq = 32768;
+	gptimer_clock_source_freq = sched_clock_source_freq;
 #if !defined (CONFIG_HAVE_ARM_ARCH_TIMER)
 	__sched_clock_init(sched_clock_source_freq);
 #endif
@@ -499,16 +412,9 @@ void __init sci_timer_init(void)
 	}
 #endif
 #endif
-
-	/* setup aon timer1 as clocksource */
-	__gptimer_aon_rtc_clocksource_init();
-
-	/* enable AON timer2 */
-	/* __gptimer_clocksource_init(); */
-
-	/* setup syscnt  */
+	/* setup timer2 and syscnt as clocksource */
+	__gptimer_clocksource_init();
 	__syscnt_clocksource_init("syscnt", 1000);
-
 	/* setup timer1 of aon timer as clockevent. */
 	sprd_gptimer_clockevent_init(BC_IRQ, "bctimer", 32768);
 	register_persistent_clock(NULL, sprd_read_persistent_clock);
