@@ -1046,6 +1046,18 @@ static void __init sc8830_init_machine(void)
 
 	sci_adc_init((void __iomem *)ADC_BASE);
 	sci_regulator_init();
+#if defined(CONFIG_ION) && defined(SPRD_ION_BASE_USE_VARIABLE)
+	{
+	    extern void init_ion_addr_param(void);
+	    init_ion_addr_param();
+	}
+#endif
+#if defined(CONFIG_PSTORE_RAM) && defined(SPRD_ION_BASE_USE_VARIABLE)
+	{ 
+	    extern void init_pstore_addr_param(void);
+	    init_pstore_addr_param();
+	}
+#endif
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
