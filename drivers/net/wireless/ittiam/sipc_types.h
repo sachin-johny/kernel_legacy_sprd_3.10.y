@@ -103,8 +103,8 @@
 
 /*device mode*/
 #define DEVICE_MODE_STA				0
-#define DEVICE_MODE_Access_Point		1
-#define DEVICE_MODE_P2P_Client			2
+#define DEVICE_MODE_ACCESS_POINT		1
+#define DEVICE_MODE_P2P_CLIENT			2
 #define DEVICE_MODE_P2P_GO			3
 
 /* auth type */
@@ -151,7 +151,7 @@ enum wlan_sipc_status {
 /* The reason code is defined by CP2 */
 enum wlan_sipc_disconnect_reason {
 	AP_LEAVING = 0xc1,
-        AP_DEAUTH = 0xc4,
+	AP_DEAUTH = 0xc4,
 };
 
 /* ITM_WLAN SIPC DATA*/
@@ -216,7 +216,7 @@ struct wlan_sipc_beacon {
 struct wlan_sipc_mac_open {
 	u8 mode;	/* AP or STATION mode */
 	u8 mac[6];
-	WIFI_nvm_data nvm_data;
+	wifi_nvm_data nvm_data;
 	u8 ap_timestamp[8]; /* AP timestamp |seconds| microseconds| */
 } __packed;
 

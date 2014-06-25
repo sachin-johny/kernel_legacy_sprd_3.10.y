@@ -146,23 +146,14 @@ static int npi_nl_send_generic(struct genl_info *info, u8 attr,
 	if (!skb)
 		return -ENOMEM;
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
-	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq, &npi_genl_family,
-			  0, cmd);
-#else
-	hdr = genlmsg_put(skb, info->snd_pid, info->snd_seq, &npi_genl_family,
-			  0, cmd);
-#endif
+	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
+			&npi_genl_family, 0, cmd);
 	if (IS_ERR(hdr)) {
 		ret = PTR_ERR(hdr);
 		goto err_put;
 	}
 
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	nla_put(skb, attr, len, data);
-#else
-	NLA_PUT(skb, attr, len, data);
-#endif
 	genlmsg_end(skb, hdr);
 
 	return genlmsg_reply(skb, info);
@@ -239,7 +230,8 @@ NPI_SET_CMD(sin_wave, NPI_CMD_SIN_WAVE, NLNPI_CMD_SIN_WAVE,
 NPI_SET_CMD(lna_on, NPI_CMD_LNA_ON, NLNPI_CMD_LNA_ON, NLNPI_ATTR_LNA_ON)
 NPI_SET_CMD(lna_off, NPI_CMD_LNA_OFF, NLNPI_CMD_LNA_OFF, NLNPI_ATTR_LNA_OFF)
 NPI_SET_CMD(speed_up, NPI_CMD_SPEED_UP, NLNPI_CMD_SPEED_UP, NLNPI_ATTR_SPEED_UP)
-NPI_SET_CMD(speed_down, NPI_CMD_SPEED_DOWN, NLNPI_CMD_SPEED_DOWN, NLNPI_ATTR_SPEED_DOWN)
+NPI_SET_CMD(speed_down, NPI_CMD_SPEED_DOWN,
+		NLNPI_CMD_SPEED_DOWN, NLNPI_ATTR_SPEED_DOWN)
 
 
 #define NPI_GET_CMD(name, npi_cmd, nl_cmd, attr, arg_attr)	\
@@ -307,7 +299,8 @@ NPI_GET_CMD(get_reg, NPI_CMD_REG, NLNPI_CMD_GET_REG, NLNPI_ATTR_GET_REG,
 	    NLNPI_ATTR_GET_REG_ARG)
 NPI_GET_CMD(get_debug, NPI_CMD_DEBUG, NLNPI_CMD_GET_DEBUG, NLNPI_ATTR_GET_DEBUG,
 	    NLNPI_ATTR_GET_DEBUG_ARG)
-NPI_GET_CMD(get_lna_status, NPI_CMD_GET_LNA_STATUS, NLNPI_CMD_GET_LNA_STATUS, NLNPI_ATTR_GET_LNA_STATUS, NLNPI_ATTR_GET_NO_ARG)
+NPI_GET_CMD(get_lna_status, NPI_CMD_GET_LNA_STATUS, NLNPI_CMD_GET_LNA_STATUS,
+	NLNPI_ATTR_GET_LNA_STATUS, NLNPI_ATTR_GET_NO_ARG)
 
 static int sblock_tx(unsigned int len, char data)
 {
