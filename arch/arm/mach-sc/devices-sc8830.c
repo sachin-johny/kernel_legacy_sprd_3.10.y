@@ -1087,7 +1087,11 @@ static struct ion_platform_heap ion_pheaps[] = {
 #else
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_heap_carveout_mm",
+                      #ifndef SPRD_ION_BASE_USE_VARIABLE
                         .base   = SPRD_ION_MM_BASE,
+                      #else
+                        .base   = -1,
+                      #endif
                         .size   = SPRD_ION_MM_SIZE,
 #endif
                 },
@@ -1099,7 +1103,11 @@ static struct ion_platform_heap ion_pheaps[] = {
 #else
                         .type   = ION_HEAP_TYPE_CARVEOUT,
                         .name   = "ion_heap_carveout_overlay",
+                      #ifndef SPRD_ION_BASE_USE_VARIABLE
                         .base   = SPRD_ION_OVERLAY_BASE,
+                      #else
+                        .base   = -1,
+                      #endif
                         .size   = SPRD_ION_OVERLAY_SIZE,
 #endif
                 },
@@ -1115,6 +1123,22 @@ struct platform_device sprd_ion_dev = {
         .id = -1,
         .dev = { .platform_data = &ion_pdata },
 };
+
+#ifdef SPRD_ION_BASE_USE_VARIABLE
+void init_ion_addr_param(void)
+{
+	int i;
+	//printk("xxx: zz SPRD_ION_MEM_SIZE=%08x,SPRD_ION_MEM_BASE=%08x\n", SPRD_ION_MEM_SIZE,SPRD_ION_MEM_BASE);
+	for(i=0;i<sizeof(ion_pheaps)/sizeof(ion_pheaps[0]);i++)
+	{
+	    if(ion_pheaps[i].base == -1)
+	    {
+	        ion_pheaps[i].base = SPRD_ION_OVERLAY_BASE;
+	    }
+	    printk("xxx:ion_pheaps[%d].base=%08x\n",i,ion_pheaps[i].base);
+	}
+}
+#endif
 #endif
 
 
@@ -1467,7 +1491,9 @@ struct platform_device sprd_a7_pmu_device = {
 #ifdef CONFIG_PSTORE_RAM
 static struct ramoops_platform_data ramoops_data = {
 	.mem_size               = SPRD_RAM_CONSOLE_SIZE,
-	.mem_address            = SPRD_RAM_CONSOLE_START,
+  #ifndef SPRD_ION_BASE_USE_VARIABLE
+	.mem_address			= SPRD_RAM_CONSOLE_START,
+  #endif
 	.console_size			= SPRD_RAM_CONSOLE_SIZE,
 	.dump_oops              = 0,
 	.ecc_info               = {
@@ -1481,6 +1507,12 @@ struct platform_device sprd_ramoops_device = {
 		.platform_data = &ramoops_data,
 	},
 };
+#ifdef SPRD_ION_BASE_USE_VARIABLE
+void init_pstore_addr_param(void)
+{
+	ramoops_data.mem_address = SPRD_RAM_CONSOLE_START;
+}
+#endif
 #endif
 
 struct platform_device sprd_audio_vbc_r2p0_sprd_codec_v3_device = {
