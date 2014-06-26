@@ -59,6 +59,7 @@ obj-$(CONFIG_MACH_SP7730GGAOPENPHONE) += board-sp7730ggaopenphone.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7731GEAOPENPHONE) += board-sp7731geaopenphone.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7731GEA) += board-sp7731gea.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP7731GEA_LC) += board-sp7731gea_lc.o dma_r4p0.o
+obj-$(CONFIG_MACH_PIKEAYOUNG2DTV) += board-pikeayoung2dtv.o dma_r4p0.o
 obj-$(CONFIG_MACH_TSHARKWSAMSUNG) += board-tsharkwsamsung.o dma_r4p0.o
 obj-$(CONFIG_MACH_KANAS_W) += board-kanas_w.o
 obj-$(CONFIG_MACH_KANAS_TD) += board-kanas_td.o

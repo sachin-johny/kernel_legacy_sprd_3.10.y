@@ -173,6 +173,10 @@
 #include "__board-tsharkwsamsung.h"
 #endif
 
+#ifdef	CONFIG_MACH_PIKEAYOUNG2DTV
+#include "__board-pikeayoung2dtv.h"
+#endif
+
 #include <asm/sizes.h>
 
 #ifdef CONFIG_SPRD_IOMMU
