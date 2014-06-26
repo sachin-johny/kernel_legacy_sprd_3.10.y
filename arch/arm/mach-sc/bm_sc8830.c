@@ -353,7 +353,9 @@ void dmc_mon_cnt_stop(void)
 }
 EXPORT_SYMBOL_GPL(dmc_mon_cnt_stop);
 
+#ifdef DDR_MONITOR_LOG
 static void __sci_axi_bm_set_winlen(void);
+#endif
 void dmc_mon_resume(void)
 {
 #ifdef DDR_MONITOR_LOG
@@ -380,17 +382,22 @@ EXPORT_SYMBOL_GPL(dmc_mon_resume);
 
 
 #ifdef DDR_MONITOR_LOG
+
+extern u32 emc_clk_get(void);
+
 static void __sci_axi_bm_set_winlen(void)
 {
 	int bm_index;
 	u32 axi_clk, win_len;
-
 	/*the win len is 10ms*/
-	axi_clk = __raw_readl(REG_AON_APB_DPLL_CFG) & 0x7ff;
-	axi_clk = axi_clk << 2;
-	/*the win_len = (axk_clk / 1000) * 10 */
+#if CONFIG_ARCH_SCX30G
+axi_clk = emc_clk_get();
+#else
+axi_clk = __raw_readl(REG_AON_APB_DPLL_CFG) & 0x7ff;
+axi_clk = axi_clk << 2;
+#endif
+	/*the win_len = (axi_clk / 1000) * 10 */
 	win_len = axi_clk * 10000;
-
 	for (bm_index = AXI_BM0; bm_index <= AXI_BM9; bm_index++) {
 		__raw_writel(win_len, AXI_BM_CNT_WIN_LEN_REG(bm_index));
 	}
@@ -464,6 +471,8 @@ static irqreturn_t __bm_isr(int irq_num, void *dev)
 
 	/*count start time stamp */
 	bm_info[buf_write_index].t_start = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+	bm_info[buf_write_index].tmp1    = emc_clk_get();
+	bm_info[buf_write_index].tmp2	 = __raw_readl(REG_AON_APB_DPLL_CFG);
 
 	__sci_axi_bm_cnt_start();
 
