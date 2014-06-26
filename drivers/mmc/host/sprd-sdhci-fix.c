@@ -300,19 +300,19 @@ static void sprd_sdhci_host_enable_clock(struct sdhci_host *host, int enable) {
 	unsigned long flags;
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	if(enable) {
-		spin_lock_irqsave(&sprd_host->lock, flags);
+		/*spin_lock_irqsave(&sprd_host->lock, flags);*/
 		if(!sprd_host->clk_enabled) {
 			sprd_host->clk_enabled = true;
 			clk_prepare_enable(sprd_host->clk);
 		}
-		spin_unlock_irqrestore(&sprd_host->lock, flags);
+		/*spin_unlock_irqrestore(&sprd_host->lock, flags);*/
 	} else {
-		spin_lock_irqsave(&sprd_host->lock, flags);
+		/*spin_lock_irqsave(&sprd_host->lock, flags);*/
 		if(sprd_host->clk_enabled) {
 			sprd_host->clk_enabled = false;
 			clk_disable_unprepare(sprd_host->clk);
 		}
-		spin_unlock_irqrestore(&sprd_host->lock, flags);
+		/*spin_unlock_irqrestore(&sprd_host->lock, flags);*/
 	}
 }
 
@@ -1116,10 +1116,10 @@ static int sprd_sdhci_host_runtime_suspend(struct device *dev) {
 		struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 		sprd_sdhci_host_wake_lock(&sprd_host->wake_lock);
 		sdhci_runtime_suspend_host(host);
-		spin_lock_irqsave(&host->lock, flags);
+		/*spin_lock_irqsave(&host->lock, flags);*/
 		sprd_sdhci_host_close_clock(host);
 		sprd_sdhci_host_enable_clock(host, 0);
-		spin_unlock_irqrestore(&host->lock, flags);
+		/*spin_unlock_irqrestore(&host->lock, flags);*/
 		sprd_sdhci_host_wake_unlock(&sprd_host->wake_lock);
 		rc = 0;
 	}
@@ -1132,9 +1132,9 @@ static int sprd_sdhci_host_runtime_resume(struct device *dev) {
 	struct sdhci_host *host = platform_get_drvdata(pdev);
 	if(dev->driver != NULL) {
 		struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-		spin_lock_irqsave(&host->lock, flags);
+		/*spin_lock_irqsave(&host->lock, flags);*/
 		sprd_sdhci_host_enable_clock(host, 1);
-		spin_unlock_irqrestore(&host->lock, flags);
+		/*spin_unlock_irqrestore(&host->lock, flags);*/
 		udelay(100);
 		if(pdev->id == SDC_SLAVE_EMMC && host->mmc->ios.signal_voltage == MMC_SIGNAL_VOLTAGE_330)
 			host->mmc->ios.signal_voltage = MMC_SIGNAL_VOLTAGE_180;
