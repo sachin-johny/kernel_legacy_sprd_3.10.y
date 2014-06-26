@@ -611,19 +611,20 @@
 	scproc_cpwcn: scproc@0x8a800000 {
 		compatible = "sprd,scproc";
 		sprd,name = "cpwcn";
-		sprd,ctrl-reg = <0x54 0x54 0xa8 0xc0>; /* <shut_down deep_sleep reset get_status> */
-		sprd,ctrl-mask = <0x02000000 0x10000000 0x04 0xf0000000>; /* masks <> */
+		sprd,ctrl-reg = <0x68 0x68 0xb0 0xb0>; /* <shut_down deep_sleep reset get_status> */
+		sprd,ctrl-mask = <0x02000000 0x10000000 0x04 0x04>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x8a808000>; /* 3rd param equals modem_addr*/
-		reg = <0x8a800000 0x201000>, /* <CP_start_addr total_size> =  <+168M 2M+4k> */
-			<0xf53d7000 0x0c>, /* <iram1_base size> */
+		reg = <0x8a800000 0x201000>, /* <CP_start_addr total_size> = <+168M 2M+4k> */
+			<0x50003000 0x1000>, /* <iram1_phys size> use iram1 phys because of cp2 iram not maped */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 85 0x0>; /* cp2_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x8000 0x8a808000 0x00800000>;
+		/* segnr=1 */
+		ranges = <0x8000 0x8a808000 0x201000>;
 		modem@0x8000 {
 			cproc,name = "modem";
-			reg = <0x8000 0x00800000>; /* <modem_addr size> */
+			reg = <0x8000 0x201000>; /* <modem_addr size> */
 		};
 	};
 

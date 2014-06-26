@@ -2335,7 +2335,7 @@ static int native_wcnmodem_start(void *arg)
 	u32 value;
 	u32 cp_code_addr,code_phy_addr;
 
-	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x8000};
 	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
 	* Now it is different with CP1.You can take a refernce with bug#253748	
 	*/
@@ -2457,7 +2457,11 @@ static struct cproc_init_data sprd_cproc_wcn_pdata = {
 	.segs           = {
 		{
 		.name  = "modem",
+		#ifdef CONFIG_ARCH_SCX30G
+		.base  = WCN_START_ADDR + 0x8000,
+		#else
 		.base  = WCN_START_ADDR + 0x60000,
+		#endif
 		.maxsz = 0x00100000,
 		},
 	},

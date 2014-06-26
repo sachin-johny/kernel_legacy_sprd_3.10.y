@@ -522,6 +522,79 @@ static int sprd_cproc_native_cp_stop(void *arg)
         __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
         return 0;
 }
+
+static int sprd_cproc_native_cp2_start(void* arg)
+{
+	struct cproc_device *cproc = (struct cproc_device *)arg;
+	struct cproc_init_data *pdata = cproc->initdata;
+	struct cproc_ctrl *ctrl;
+	uint32_t value, state,cp2_code_addr;
+
+        if (!pdata) {
+            return -ENODEV;
+	}
+	ctrl = pdata->ctrl;
+	cp2_code_addr = (volatile u32)ioremap(ctrl->iram_addr,0x1000);
+	memcpy(cp2_code_addr, (void *)ctrl->iram_data, sizeof(ctrl->iram_data));
+
+#ifdef CONFIG_ARCH_SCX30G
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) &
+			~ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
+	msleep(50);
+
+	/* clear cp2 force deep sleep */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) &
+			~ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+	msleep(50);
+
+	/* clear reset cp2 */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
+		ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
+		~ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+
+
+	while(1)
+	{
+		state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS]);
+		if (!(state & ctrl->ctrl_mask[CPROC_CTRL_GET_STATUS]))	//(0xf <<16)
+			break;
+	}
+#else
+	/* clear cp2 force shutdown */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) &
+			~ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
+
+	while(1)
+	{
+		state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS]);
+		if (!(state & ctrl->ctrl_mask[CPROC_CTRL_GET_STATUS]))	//(0xf <<16)
+			break;
+	}
+
+	/* clear cp2 force deep sleep */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) &
+			~ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+
+	/* clear reset cp2 */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
+		ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
+		~ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+#endif
+	iounmap(cp2_code_addr);
+
+	return 0;
+}
 #endif
 
 static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev)
@@ -640,7 +713,10 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 		sprd_cproc_native_cp_stop, sprd_cproc_native_cp_start);
 	pdata->segnr = segnr;
 	pdata->stop = sprd_cproc_native_cp_stop;
-	pdata->start = sprd_cproc_native_cp_start;
+	if(segnr == 1)
+		pdata->start = sprd_cproc_native_cp2_start;
+	else
+		pdata->start = sprd_cproc_native_cp_start;
 	pdata->ctrl = ctrl;
 	*init = pdata;
 	return 0;
