@@ -260,8 +260,10 @@ typedef struct
 	volatile unsigned int umctl_perfwr[2];	/* 0x0268 ~ 0x026c write cam */
 	volatile unsigned int umctl_resv15[36];	/* 0x0270 ~ 0x02fc */
 	volatile unsigned int umctl_dbg[2];	/* 0x0300 ~ 0x0304 debug*/
-	volatile unsigned int umctl_dbgcam;	/* 0x0308 cam debug*/	
-	volatile unsigned int umctl_resv16[60];	/* 0x030c ~ 0x03f8 */
+	volatile unsigned int umctl_dbgcam;	/* 0x0308 cam debug*/
+	volatile unsigned int umctl_dbgcmd;	/* 0x030c cam debug*/
+	volatile unsigned int umctl_dbgstat;	/* 0x0310 cam debug*/
+	volatile unsigned int umctl_resv16[58];	/* 0x0314 ~ 0x03f8 */
 	volatile unsigned int umctl_pstat;	/* 0x03fc */
 	volatile unsigned int umctl_pccfg;	/* 0x0400 port common configruation*/
 	volatile unsigned int umctl_pcfgr0;	/* 0x0404 port 0 configruation read */
@@ -480,6 +482,6 @@ typedef struct
 #define BIT_PIR_INITBYP						( BIT(31) )
 
 
-
+//#define EMC_FREQ_AUTO_TEST
 
 #endif

@@ -92,7 +92,6 @@ typedef struct
 	u32 umctl_dramtmg3;
 	u32 umctl_dramtmg4;
 	u32 umctl_dramtmg5;
-	u32 umctl_dramtmg6;
 	u32 umctl_dramtmg7;
 	u32 umctl_dramtmg8;
 	u32 umctl_dfitmg0;
@@ -125,8 +124,38 @@ typedef struct
 	u32 publ_dx1lcdlr2;
 	u32 publ_dx2lcdlr2;
 	u32 publ_dx3lcdlr2;
+	u32 publ_dsgcr;
+	u32 publ_dtpr0;
+	u32 publ_dtpr1;
+	u32 publ_dtpr2;
+	u32 publ_dtpr3;
 	u32 resevered;
 }ddr_dfs_v2_t;
+
+typedef struct
+{
+	u32 ddr_clk;
+
+	u32 publ_acmdlr;
+	u32 publ_dx0mdlr;
+	u32 publ_dx1mdlr;
+	u32 publ_dx2mdlr;
+	u32 publ_dx3mdlr;
+
+	u32 publ_aclcdlr;
+	u32 publ_dx0lcdlr0;
+	u32 publ_dx1lcdlr0;
+	u32 publ_dx2lcdlr0;
+	u32 publ_dx3lcdlr0;
+	u32 publ_dx0lcdlr1;
+	u32 publ_dx1lcdlr1;
+	u32 publ_dx2lcdlr1;
+	u32 publ_dx3lcdlr1;
+	u32 publ_dx0lcdlr2;
+	u32 publ_dx1lcdlr2;
+	u32 publ_dx2lcdlr2;
+	u32 publ_dx3lcdlr2;
+} publ_calc_t;
 
 #define AP_DMC_DFS_MAX_REQ 	3
 #define AP_UNVALID_REQ	0

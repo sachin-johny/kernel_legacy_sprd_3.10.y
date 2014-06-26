@@ -26,6 +26,8 @@
 
 #define REG32(x)                           (*((volatile uint32 *)(x)))
 
+#define DFS_PARAM_ADDR	(0x1C00)
+#define DFS_CALC_PARAM_ADDR	(0x1F80)
 #define UMCTL_REG_BASE (0x30000000)
 #define PUBL_REG_BASE  (0x30010000)
 #define UART1_PHYS_ADDR (0x70100000)
@@ -45,8 +47,8 @@ static inline void uart_putch(uint32 c)
 static inline uint32 reg_bits_set(uint32 addr,uint32 start_bitpos,uint32 bit_num,uint32 value)
 {
 	/*create bit mask according to input param*/
-	uint32 bit_mask = (1 << bit_num) - 1;
-	uint32 reg_data = REG32(addr);
+	volatile uint32 bit_mask = (1 << bit_num) - 1;
+	volatile uint32 reg_data = REG32(addr);
 
 	reg_data &= ~(bit_mask<<start_bitpos);
 	reg_data |= ((value&bit_mask)<<start_bitpos);
@@ -107,6 +109,44 @@ static inline  void enable_cam_command_deque(void)
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
 	p_umctl_reg->umctl_dbg[1] &= ~BIT_DBG1_DIS_DQ;
 }__attribute__((always_inline))
+
+static inline uint32 dqs_gating_training(uint32 new_clk)
+{
+	volatile uint32 s_pgcr, s_dsgcr, i;
+	DMC_PUBL_REG_INFO_PTR_T p_publ_reg = (DMC_PUBL_REG_INFO_PTR_T) PUBL_REG_BASE;
+
+	/* phy rst */
+	p_publ_reg->publ_pgcr[1] &= ~(0x1 << 25);
+	for(i = 0; i < 2; i++);
+	p_publ_reg->publ_pgcr[1] |= (0x1 << 25);
+
+	/* ACBVT, [4:3]:RX FIFO Read Mode,00 asynchronous. */
+	s_pgcr = p_publ_reg->publ_pgcr[3];
+	p_publ_reg->publ_pgcr[3] &= ~((0x3 << 3) | (0x1 << 24));
+
+	/* DQSGX: DQS Gate extention, do not extend the gate. */
+	s_dsgcr = p_publ_reg->publ_dsgcr;
+	p_publ_reg->publ_dsgcr &= ~(0x03 << 6);
+
+	if( new_clk == 200 ) {
+		p_publ_reg->publ_dtpr[3] = 0x1;
+	}
+	else if (new_clk == 400){
+		p_publ_reg->publ_dtpr[3] = 0xa;
+	}
+
+	/*do training*/
+	p_publ_reg->publ_pir |= ((1 << 10)|(1 << 0));
+
+	while( (p_publ_reg->publ_pgsr[0] & (0x1 << 0)) != 0x1 );
+	/*check ddr training status*/
+	if( p_publ_reg->publ_pgsr[0] & (1<<22) ){
+		while(1);
+	}
+
+	p_publ_reg->publ_pgcr[3] = s_pgcr;
+	p_publ_reg->publ_dsgcr = s_dsgcr;
+}__attribute__((always_inline))
 #endif
 
 static inline  void wait_queue_complete(void)
@@ -136,13 +176,13 @@ static inline void exit_lowpower_mode(uint32 *reg_store)
 		val = p_umctl_reg->umctl_stat;
 	}
 #endif
+	/* disable_cgm */
+	REG32(SPRD_PMU_PHYS + 0xF8) &= ~((3 << 30) | 0x3FF);
+
 	/* disable lp interface. */
 	reg_store[0] = p_umctl_reg->umctl_hwlpctl;
 	p_umctl_reg->umctl_hwlpctl &= ~0x03;
 	//p_umctl_reg->umctl_dfilpcfg[0] = 0x0700f000;
-
-	/* disable_cgm */
-	REG32(SPRD_PMU_PHYS + 0xF8) &= ~((1 << 30) | 0x3FF);
 
 	/* disable_powerdown */
 	reg_store[1] = p_umctl_reg->umctl_pwrctl;
@@ -153,16 +193,13 @@ static inline void exit_lowpower_mode(uint32 *reg_store)
 		val = p_umctl_reg->umctl_stat;
 	}
 
-	/* disable_sleep */
+	/* disable dfi low power interface */
 	p_umctl_reg->umctl_dfilpcfg[0] &= ~(1 << 8);
 }__attribute__((always_inline))
 
 static inline void enable_lowpower_mode(uint32 *reg_store)
 {
         DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
-
-	/* enable_cgm */
-	REG32(SPRD_PMU_PHYS + 0xF8) |= ((1 << 30) | 0x3FF);
 
 	/* enable_sleep */
 	p_umctl_reg->umctl_dfilpcfg[0] |= (1 << 8);
@@ -172,6 +209,9 @@ static inline void enable_lowpower_mode(uint32 *reg_store)
 
 	/* enable_powerdown */
 	p_umctl_reg->umctl_pwrctl = reg_store[1];
+
+	/* enable_cgm */
+	REG32(SPRD_PMU_PHYS + 0xF8) |= ((1 << 30) | 0x3FF);
 }__attribute__((always_inline))
 
 static inline void ddr_cam_command_dequeue(uint32 isEnable)
@@ -190,6 +230,8 @@ static inline void ddr_cam_command_dequeue(uint32 isEnable)
 static inline void ddr_timing_update(ddr_dfs_v2_t *timing_param)
 {
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
+	DMC_PUBL_REG_INFO_PTR_T p_publ_reg = (DMC_PUBL_REG_INFO_PTR_T) PUBL_REG_BASE;
+	publ_calc_t *calc = (publ_calc_t *)DFS_CALC_PARAM_ADDR;
 
 	/* minimum time from refresh to refresh or active */
 	//toggle this signel indicate refresh register has been update
@@ -203,45 +245,96 @@ static inline void ddr_timing_update(ddr_dfs_v2_t *timing_param)
 	p_umctl_reg->umctl_dramtmg[3] = timing_param->umctl_dramtmg3;
 	p_umctl_reg->umctl_dramtmg[4] = timing_param->umctl_dramtmg4;
 	p_umctl_reg->umctl_dramtmg[5] = timing_param->umctl_dramtmg5;
-	p_umctl_reg->umctl_dramtmg[6] = timing_param->umctl_dramtmg6;
-	//p_umctl_reg->umctl_dramtmg[7] = timing_param->umctl_dramtmg7;
-	//p_umctl_reg->umctl_dramtmg[8] = timing_param->umctl_dramtmg8;
+	p_umctl_reg->umctl_dramtmg[7] = timing_param->umctl_dramtmg7;
+	p_umctl_reg->umctl_dramtmg[8] = timing_param->umctl_dramtmg8;
+
+	p_umctl_reg->umctl_dfitmg[0] = timing_param->umctl_dfitmg0;
+	p_umctl_reg->umctl_init[3] = timing_param->umctl_init3;
+	p_umctl_reg->umctl_zqctl[0] = timing_param->umctl_zqctl0;
+	p_umctl_reg->umctl_zqctl[1] = timing_param->umctl_zqctl1;
+
+	p_publ_reg->publ_mr[2] = timing_param->publ_mr2;
+
+	p_publ_reg->publ_dx0gtr = timing_param->publ_dx0gtr;
+	p_publ_reg->publ_dx1gtr = timing_param->publ_dx1gtr;
+	p_publ_reg->publ_dx2gtr = timing_param->publ_dx2gtr;
+	p_publ_reg->publ_dx3gtr = timing_param->publ_dx3gtr;
+
+	p_publ_reg->publ_pgcr[3] = timing_param->publ_pgcr3;
+	p_publ_reg->publ_acmdlr = calc->publ_acmdlr;
+	p_publ_reg->publ_dx0mdlr = calc->publ_dx0mdlr;
+	p_publ_reg->publ_dx1mdlr = calc->publ_dx1mdlr;
+	p_publ_reg->publ_dx2mdlr = calc->publ_dx2mdlr;
+	p_publ_reg->publ_dx3mdlr = calc->publ_dx3mdlr;
+	p_publ_reg->publ_aclcdlr = calc->publ_aclcdlr;
+	p_publ_reg->publ_dx0lcdlr[0] = calc->publ_dx0lcdlr0;
+	p_publ_reg->publ_dx0lcdlr[1] = calc->publ_dx0lcdlr1;
+	p_publ_reg->publ_dx0lcdlr[2] = calc->publ_dx0lcdlr2;
+	p_publ_reg->publ_dx1lcdlr[0] = calc->publ_dx1lcdlr0;
+	p_publ_reg->publ_dx1lcdlr[1] = calc->publ_dx1lcdlr1;
+	p_publ_reg->publ_dx1lcdlr[2] = calc->publ_dx1lcdlr2;
+	p_publ_reg->publ_dx2lcdlr[0] = calc->publ_dx2lcdlr0;
+	p_publ_reg->publ_dx2lcdlr[1] = calc->publ_dx2lcdlr1;
+	p_publ_reg->publ_dx2lcdlr[2] = calc->publ_dx2lcdlr2;
+	p_publ_reg->publ_dx3lcdlr[0] = calc->publ_dx3lcdlr0;
+	p_publ_reg->publ_dx3lcdlr[1] = calc->publ_dx3lcdlr1;
+	p_publ_reg->publ_dx3lcdlr[2] = calc->publ_dx3lcdlr2;
+
+	p_publ_reg->publ_dsgcr = timing_param->publ_dsgcr;
+	p_publ_reg->publ_dtpr[0] = timing_param->publ_dtpr0;
+	p_publ_reg->publ_dtpr[1] = timing_param->publ_dtpr1;
+	p_publ_reg->publ_dtpr[2] = timing_param->publ_dtpr2;
+	p_publ_reg->publ_dtpr[3] = timing_param->publ_dtpr3;
+
 }__attribute__((always_inline))
 
 static inline void ddr_clk_set(uint32 new_clk, ddr_dfs_v2_t *timing)
 {
 	volatile uint32 i;
 	uint32 reg_store[3];
+
 	DMC_UMCTL_REG_INFO_PTR_T p_umctl_reg = (DMC_UMCTL_REG_INFO_PTR_T)UMCTL_REG_BASE;
 	DMC_PUBL_REG_INFO_PTR_T p_publ_reg = (DMC_PUBL_REG_INFO_PTR_T) PUBL_REG_BASE;
 
 	uart_putch('d');
 	exit_lowpower_mode(&(reg_store[0]));
+#if 0
+REG32(0x8F001000)= 0x11223344;
 
-//	uart_putch('2');
-	/* step 1: assert PWRCTL.selfref_sw. */
-	/* step 2: wait until STAT.operating_mode[1:0] = 11, STAT.selfref_type[1:0] = 10 */
+for (i = 0; i < 0x20; i ++)
+{
+	REG32(0x1F00 + (i << 2)) = 0xAAAAAAAA;
+}
+#endif
+	/* step a: move dram into self-refresh. */
 	move_upctl_state_to_self_refresh();
 
-//	uart_putch('3');
-	/* step 3: hold bus : set DBG1.dis_dq = 1 */
+	/* step b: changing the input clock period. */
+	/* hold bus : set DBG1.dis_dq = 1 */
 	ddr_cam_command_dequeue(0);
+
+	/* DFIMISC.dfi_init_complete_en =0.hold not trigger sdram initialization */
+	p_umctl_reg->umctl_dfimisc &= ~BIT_DFIMISC_DFI_COMP_EN;
 	wait_queue_complete();
 
-//	uart_putch('4');
-	/* step4 : DFIMISC.dfi_init_complete_en =0.hold not trigger sdram initialization */
-	p_umctl_reg->umctl_dfimisc &= ~BIT_DFIMISC_DFI_COMP_EN;
-
-//	uart_putch('5');
-	/* step 5: change the clock frequency to the DWC_ddr_umctl2 and ensure no glitchs. */
+	/* step c: change the clock frequency to the DWC_ddr_umctl2 and ensure no glitchs. */
 	/* phy clock close : DDR_PHY_AUTO_GATE_EN */
 	reg_store[2] = REG32(SPRD_PMU_PHYS+0x00D0);
 	REG32(SPRD_PMU_PHYS+0x00D0) &= ~((1 << 6) | 0x07);
 	for(i = 0; i < 0x2; i++);
 
 	switch(new_clk) {
+		case 192:
+		{
+			reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x8, 2, 0x1);
+			for(i = 0; i < 0x2; i++);
+
+			reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x0, 2, 0x2);
+			for(i = 0; i < 0x2; i++);
+			break;
+		}
+
 		case 200:
-		case 233:
 		{
 			/* switch to dpll source */
 			reg_bits_set((SPRD_AONCKG_PHYS + 0x0024), 0x8, 2, 0x1);
@@ -317,48 +410,79 @@ static inline void ddr_clk_set(uint32 new_clk, ddr_dfs_v2_t *timing)
 
 	/* phy clock open */
 	REG32(SPRD_PMU_PHYS+0x00D0) = reg_store[2];
-	//REG32(SPRD_PMU_PHYS+0x00D0) |= (1 << 6);
 	for(i = 0; i < 0x2; i++);
 
-	/* PIR phy_init */
-	p_publ_reg->publ_pir |= ( BIT_PIR_DCAL | BIT_PIR_INIT);
+	/* step d: re-lock mode sequence. */
+	/* step e: set VT inhibit register pgcr1[26] and DCAL bypass PIR[29]. */
+	p_publ_reg->publ_pgcr[1] |= (0x1 << 26);
+	for(i = 0; i < 0x2; i++);
+	while((p_publ_reg->publ_pgsr[1] & (1<<30)) == 0);
+
+	p_publ_reg->publ_pir |=  BIT_PIR_DCALBYP;
+	for(i = 0; i < 0x2; i++);
 	while ((p_publ_reg->publ_pgsr[0] & 0x01) != 1);
 
-//	uart_putch('6');
-	/* step 6: update phy timing register. static and dynamic register */
+	/* step f: update phy timing register. static and dynamic register */
 	ddr_timing_update(timing);
 
-//	uart_putch('7');
-	/* step 7: trigger the initization PHY */
-	p_umctl_reg->umctl_dfimisc |= BIT_DFIMISC_DFI_COMP_EN;
+	/* step g: trigger the initization PHY */
+	p_publ_reg->publ_pgcr[1] &= ~(0x1 << 26);
+	for(i = 0; i < 0x2; i++);
+	p_publ_reg->publ_pir &= ~BIT_PIR_DCALBYP;
+	for(i = 0; i < 0x2; i++);
 
 	uart_putch('f');
-	/* step 8: require to exit sel_refresh by PWRCTL.selfref_sw. */
+	/* step i: require to exit sel_refresh by PWRCTL.selfref_sw. */
 	move_upctl_state_exit_self_refresh();
-//	uart_putch('9');
-	/* step 9: Update MR register setting of DRAM */
-	//p_umctl_reg->umctl_hwlpctl |= 0x03;
 
-	/* step 10: FBG1.dis_dq = 0 */
+	/* set ddr mr2 */
+	p_umctl_reg->umctl_mrctrl[1] = (2 << 8) | (timing->publ_mr2 & 0xFF);
+	p_umctl_reg->umctl_mrctrl[0] = (3 << 4) | (1 << 31);
+	while((p_umctl_reg->umctl_mrstat & 0x01) != 0);
+#if 0
+	/* step 9: do dqs traning. */
+	dqs_gating_training(new_clk);
+#endif
+
+	/* step j: FBG1.dis_dq = 0 */
 	ddr_cam_command_dequeue(1);
-	uart_putch('s');
 
 	/* enable lowpower */
 	enable_lowpower_mode(&(reg_store[0]));
-}__attribute__((always_inline))
+#if 0
+for (i = 0; i < 0x20; i ++)
+{
+	REG32(0x1F00 + (i << 2)) = REG32(0x8F001000);
+	//REG32(0x1F50 + (i << 2)) = p_publ_reg->publ_dx3lcdlr[2];
+}
 
-#define DFS_PARAM_ADDR	(0x1C00)
+for (i = 0; i < 0x20; i ++)
+{
+	if (REG32(0x1F00 + (i << 2)) != 0x11223344) {
+
+		while(1);
+	}
+}
+
+#endif
+
+	uart_putch('s');
+}__attribute__((always_inline))
 
 static inline  ddr_dfs_v2_t *get_clk_timing( uint32 clk )
 {
 	volatile uint32 i;
 	ddr_dfs_v2_t *timing;
+	publ_calc_t *calc;
 
 	timing = (ddr_dfs_v2_t *)(DFS_PARAM_ADDR);
+	calc = (publ_calc_t *)DFS_CALC_PARAM_ADDR;
 
 	for (i = 0; i < 5; i++) {
 		if (clk == timing->ddr_clk) {
-			return timing;
+			if (clk == calc->ddr_clk) {
+				return timing;
+			}
 		}
 		timing++;
 	}
@@ -369,7 +493,7 @@ static inline  ddr_dfs_v2_t *get_clk_timing( uint32 clk )
 inline void dev_freq_set(unsigned long req)
 {
 	u32 clk;
-	u32 sene;
+//	u32 sene;
 	ddr_dfs_v2_t *timing;
 
 	//ddr_type = (req & EMC_DDR_TYPE_MASK) >> EMC_DDR_TYPE_OFFSET;
@@ -411,7 +535,6 @@ void emc_dfs_main(unsigned long flag)
 			);
 
 	dev_freq_set(flag); /* call dfs freq set function */
-
 	/* jump back */
 	asm volatile (
 			"ldr r0, =cpu_resume \n"

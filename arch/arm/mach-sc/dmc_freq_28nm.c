@@ -19,7 +19,6 @@
 #include <linux/random.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/cacheflush.h>
-#include <mach/sc8830_emc_freq_data.h>
 #include <asm/suspend.h>
 #include <linux/vmalloc.h>
 #include <linux/printk.h>
@@ -31,9 +30,13 @@ static volatile u32 mutex_flg = 0;
 /* other PLL clock srv, t-shark is used 384 for tdpll */
 #define PLAT_CLK				384
 
-#define DDR_TIMING_REG_VAL_ADDR	(SPRD_IRAM0H_BASE + 0xc00)
-#define UMCTL_REG_BASE (0x30000000)
-#define PUBL_REG_BASE  (0x30010000)
+#define DDR_TIMING_REG_VAL_ADDR		(SPRD_IRAM0H_BASE + 0xc00)
+#define DDR_TIMING_CALC_VAL_ADDR	(SPRD_IRAM0H_BASE + 0xF80)
+//#define UMCTL_REG_BASE				(0x30000000)
+//#define PUBL_REG_BASE				(0x30010000)
+
+//SPRD_LPDDR2_BASE
+//SPRD_LPDDR2_PHY_BASE
 
 #define NINT(FREQ,REFIN)	(FREQ/REFIN)
 #define KINT(FREQ,REFIN)	((FREQ-(FREQ/REFIN)*REFIN)*1048576/REFIN)
@@ -46,10 +49,12 @@ static int emc_dfs_call(unsigned long flag);
 void emc_dfs_main(unsigned long flag);
 #endif
 #ifdef EMC_FREQ_AUTO_TEST
-static u32 get_sys_cnt(void)
-{
-	return __raw_readl(SPRD_GPTIMER_BASE + 0x44);
-}
+extern void __emc_freq_test(void);
+
+//static u32 get_sys_cnt(void)
+//{
+//	return __raw_readl(SPRD_GPTIMER_BASE + 0x44);
+//}
 #endif
 static u32 dpll_clk_get(void)
 {
@@ -178,6 +183,149 @@ static void dpll_clk_set(u32 clk)
 	udelay(100);
 }
 
+static u32 calc_tprd(u32 reg_addr, u32 new_clk, u32 cur_clk, u32 init_val)
+{
+	u32 tprd, reg;
+
+	reg = sci_glb_read(reg_addr ,-1);
+	tprd = (reg >> 8) & 0xFF;
+	tprd = tprd * cur_clk / new_clk;
+
+	reg = (init_val & (~0xFF00));
+	reg |= ((tprd & 0xFF) << 8 );
+
+	return reg;
+}
+
+static void emc_calc_phy_param(u32 new_clk)
+{
+	ddr_dfs_v2_t *init = (ddr_dfs_v2_t *)DDR_TIMING_REG_VAL_ADDR;
+	publ_calc_t *calc = (publ_calc_t *)DDR_TIMING_CALC_VAL_ADDR;
+	u32 cur_clk, i;
+	u32 cur_tprd, init_tprd;
+	u32 acd, r0wld, r1wld, wdqd, rdqsd, rdqsnd, r0dqsgd, r1dqsgd;
+
+	for (i = 0; i < 5; i++) {
+		if (init->ddr_clk == new_clk) {
+			break;
+		}
+		init++;
+	}
+	if (i == 5) {
+		return ;
+	}
+
+	cur_clk = emc_clk_get();
+	/* get register acmdlr.tprd [15:8]*/
+	calc->publ_acmdlr = calc_tprd((SPRD_LPDDR2_PHY_BASE +0x38),
+								new_clk, cur_clk, init->publ_acmdlr);
+	/* get register dx0mdlr.tprd [15:8]*/
+	calc->publ_dx0mdlr = calc_tprd((SPRD_LPDDR2_PHY_BASE +0x2C4),
+								new_clk, cur_clk, init->publ_dx0mdlr);
+	/* get register dx1mdlr.tprd [15:8]*/
+	calc->publ_dx1mdlr = calc_tprd((SPRD_LPDDR2_PHY_BASE +0x344),
+								new_clk, cur_clk, init->publ_dx1mdlr);
+	/* get register dx2mdlr.tprd [15:8]*/
+	calc->publ_dx2mdlr = calc_tprd((SPRD_LPDDR2_PHY_BASE +0x3C4),
+								new_clk, cur_clk, init->publ_dx2mdlr);
+	/* get register dx3mdlr.tprd [15:8]*/
+	calc->publ_dx3mdlr = calc_tprd((SPRD_LPDDR2_PHY_BASE +0x444),
+								new_clk, cur_clk, init->publ_dx3mdlr);
+
+	/* get alcdlr.acd [7:0] */
+	cur_tprd = (calc->publ_acmdlr >> 8 ) & 0xFF;
+	init_tprd = (init->publ_acmdlr >> 8) & 0xFF;
+	if (init_tprd == 0) {
+		printk("[emc_calc_phy_param] publ_acmdlr.init_tprd is 0x%d, error!\n\r", init_tprd);
+		return;
+	}
+	acd = (init->publ_aclcdlr & 0xFF) * cur_tprd / init_tprd;
+	calc->publ_aclcdlr = (init->publ_aclcdlr & (~0xFF)) | (acd & 0xFF);
+
+	/* DX0LCDLR0~3 */
+	cur_tprd = (calc->publ_dx0mdlr >> 8 ) & 0xFF;
+	init_tprd = (init->publ_dx0mdlr >> 8) & 0xFF;
+	if (init_tprd == 0) {
+		printk("[emc_calc_phy_param] publ_dx0mdlr.init_tprd is 0x%d, error!\n\r", init_tprd);
+		return;
+	}
+	r0wld = ((init->publ_dx0lcdlr0 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1wld = (((init->publ_dx0lcdlr0 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx0lcdlr0 = (init->publ_dx0lcdlr0 & (~0xFFFF)) | (r1wld << 8) | r0wld;
+
+	wdqd = ((init->publ_dx0lcdlr1 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsd = (((init->publ_dx0lcdlr1 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsnd = (((init->publ_dx0lcdlr1 >> 16) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx0lcdlr1 = (rdqsnd << 16) | (rdqsd << 8) | wdqd;
+
+	r0dqsgd = ((init->publ_dx0lcdlr2 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1dqsgd = (((init->publ_dx0lcdlr2 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx0lcdlr2 = (init->publ_dx0lcdlr2 & (~0xFFFF)) | (r1dqsgd << 8) | r0dqsgd;
+
+	/* DX1LCDLR0~3 */
+	cur_tprd = (calc->publ_dx1mdlr >> 8 ) & 0xFF;
+	init_tprd = (init->publ_dx1mdlr >> 8) & 0xFF;
+	if (init_tprd == 0) {
+		printk("[emc_calc_phy_param] publ_dx1mdlr.init_tprd is 0x%d, error!\n\r", init_tprd);
+		return;
+	}
+	r0wld = ((init->publ_dx1lcdlr0 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1wld = (((init->publ_dx1lcdlr0 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx1lcdlr0 = (init->publ_dx1lcdlr0 & (~0xFFFF)) | (r1wld << 8) | r0wld;
+
+	wdqd = ((init->publ_dx1lcdlr1 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsd = (((init->publ_dx1lcdlr1 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsnd = (((init->publ_dx1lcdlr1 >> 16) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx1lcdlr1 = (rdqsnd << 16) | (rdqsd << 8) | wdqd;
+
+	r0dqsgd = ((init->publ_dx1lcdlr2 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1dqsgd = (((init->publ_dx1lcdlr2 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx1lcdlr2 = (init->publ_dx1lcdlr2 & (~0xFFFF)) | (r1dqsgd << 8) | r0dqsgd;
+
+	/* DX2LCDLR0~3 */
+	cur_tprd = (calc->publ_dx2mdlr >> 8 ) & 0xFF;
+	init_tprd = (init->publ_dx2mdlr >> 8) & 0xFF;
+	if (init_tprd == 0) {
+		printk("[emc_calc_phy_param] publ_dx2mdlr.init_tprd is 0x%d, error!\n\r", init_tprd);
+		return;
+	}
+	r0wld = ((init->publ_dx2lcdlr0 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1wld = (((init->publ_dx2lcdlr0 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx2lcdlr0 = (init->publ_dx2lcdlr0 & (~0xFFFF)) | (r1wld << 8) | r0wld;
+
+	wdqd = ((init->publ_dx2lcdlr1 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsd = (((init->publ_dx2lcdlr1 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsnd = (((init->publ_dx2lcdlr1 >> 16) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx2lcdlr1 = (rdqsnd << 16) | (rdqsd << 8) | wdqd;
+
+	r0dqsgd = ((init->publ_dx2lcdlr2 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1dqsgd = (((init->publ_dx2lcdlr2 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx2lcdlr2 = (init->publ_dx2lcdlr2 & (~0xFFFF)) | (r1dqsgd << 8) | r0dqsgd;
+
+	/* DX3LCDLR0~3 */
+	cur_tprd = (calc->publ_dx3mdlr >> 8 ) & 0xFF;
+	init_tprd = (init->publ_dx3mdlr >> 8) & 0xFF;
+	if (init_tprd == 0) {
+		printk("[emc_calc_phy_param] publ_dx3mdlr.init_tprd is 0x%d, error!\n\r", init_tprd);
+		return;
+	}
+	r0wld = ((init->publ_dx3lcdlr0 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1wld = (((init->publ_dx3lcdlr0 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx3lcdlr0 = (init->publ_dx3lcdlr0 & (~0xFFFF)) | (r1wld << 8) | r0wld;
+
+	wdqd = ((init->publ_dx3lcdlr1 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsd = (((init->publ_dx3lcdlr1 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	rdqsnd = (((init->publ_dx3lcdlr1 >> 16) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx3lcdlr1 = (rdqsnd << 16) | (rdqsd << 8) | wdqd;
+
+	r0dqsgd = ((init->publ_dx3lcdlr2 & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	r1dqsgd = (((init->publ_dx3lcdlr2 >> 8) & 0xFF) * cur_tprd / init_tprd) & 0xFF;
+	calc->publ_dx3lcdlr2 = (init->publ_dx3lcdlr2 & (~0xFFFF)) | (r1dqsgd << 8) | r0dqsgd;
+
+	/* write new_clk in struct */
+	calc->ddr_clk = new_clk;
+}
+
 static u32 __emc_clk_set(u32 clk)
 {
 	u32 flag = 0;
@@ -185,10 +333,11 @@ static u32 __emc_clk_set(u32 clk)
 	/* check timing params */
 	flag = (clk << EMC_CLK_FREQ_OFFSET);
 
+	emc_calc_phy_param(clk);
+
 #ifdef CONFIG_SCX35_DMC_FREQ_AP
 	flush_cache_all();
 	cpu_suspend(flag, emc_dfs_call);
-
 #endif
 	if(emc_clk_get() != clk) {
 		printk("[__emc_clk_set] error, set clk = %d, get clk = %d\n\r", clk, emc_clk_get());
@@ -208,7 +357,6 @@ static u32 get_dpll_from_clk (u32 new_clk)
 		case 384:
 			/* this clock from tdpll */
 			break;
-		case 233:
 		case 466:
 			dpll = 932;
 			break;
@@ -269,10 +417,12 @@ static u32 check_need_plat_clk(u32 new_clk)
 u32 emc_clk_set(u32 new_clk, u32 sene)
 {
 	u32 old_clk, nd_dpll;
-	volatile u32 reg = 0, reg_val = 0;
+#if defined (EMC_FREQ_AUTO_TEST) || defined (CONFIG_SCX35_DMC_FREQ_AP)
+	unsigned long irq_flags = 0;
+#endif
 
 /* used to get dfs hold times for debug */
-#ifdef EMC_FREQ_AUTO_TEST
+#if 0
 	u32 start_t1, end_t1;
 	static u32 max_u_time = 0;
 	u32 current_u_time;
@@ -282,7 +432,7 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 
 	/* check new_clk */
 	if ((new_clk != 200) && (new_clk != 384) && (new_clk != 400)
-			&& (new_clk != 233) && (new_clk != 466) && (new_clk != 533)) {
+			&& (new_clk != 466) && (new_clk != 533)) {
 		printk("[emc_clk_set] : new_clk[%d] error!\n\r", new_clk);
 		return 0;
 	}
@@ -296,7 +446,6 @@ u32 emc_clk_set(u32 new_clk, u32 sene)
 
 	/* step 1: save irq and lock it */
 #if defined (EMC_FREQ_AUTO_TEST) || defined (CONFIG_SCX35_DMC_FREQ_AP)
-	unsigned long irq_flags = 0;
 	local_irq_save(irq_flags);
 #endif
 
@@ -328,7 +477,7 @@ out:
 	local_irq_restore(irq_flags);
 #endif
 	mutex_flg --;
-#ifdef EMC_FREQ_AUTO_TEST
+#if 0
 	end_t1 = get_sys_cnt();
 
 	current_u_time = (start_t1 - end_t1)/128;
@@ -366,6 +515,10 @@ static int __init emc_early_suspend_init(void)
 		printk("ioremap_page_range err %d\n", ret);
 		BUG();
 	}
+#endif
+
+#ifdef EMC_FREQ_AUTO_TEST
+	__emc_freq_test();
 #endif
 
 	return 0;
