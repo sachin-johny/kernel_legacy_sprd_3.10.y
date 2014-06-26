@@ -2791,7 +2791,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 		dev->proc_file = NULL;
 	}
 	mutex_lock(&dev->dcam_mutex);
-	dcam_reset(DCAM_RST_ALL);
+	dcam_reset(DCAM_RST_ALL, 0);
 	if (dev->got_resizer) {
 		dcam_rel_resizer();
 		dev->got_resizer = 0;

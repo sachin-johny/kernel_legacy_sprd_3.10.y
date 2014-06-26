@@ -563,7 +563,7 @@ int32_t dcam_module_en(struct device_node *dn)
 
 		parse_baseaddress(dn);
 
-		dcam_reset(DCAM_RST_ALL);
+		dcam_reset(DCAM_RST_ALL, 0);
 		atomic_set(&s_resize_flag, 0);
 		atomic_set(&s_rotation_flag, 0);
 		memset((void*)s_user_func, 0, sizeof(s_user_func));
@@ -617,15 +617,17 @@ int32_t dcam_module_dis(struct device_node *dn)
 	return rtn;
 }
 
-int32_t dcam_reset(enum dcam_rst_mode reset_mode)
+int32_t dcam_reset(enum dcam_rst_mode reset_mode,uint32_t is_isr)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	uint32_t                time_out = 0;
 
 	DCAM_TRACE("DCAM: reset: %d \n", reset_mode);
 
-	mutex_lock(&dcam_scale_sema);
-	mutex_lock(&dcam_rot_sema);
+	if (!is_isr) {
+		mutex_lock(&dcam_scale_sema);
+		mutex_lock(&dcam_rot_sema);
+	}
 
 	if (DCAM_RST_ALL == reset_mode) {
 		if (atomic_read(&s_dcam_users)) {
@@ -685,8 +687,10 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode)
 		}
 	}
 
-	mutex_unlock(&dcam_rot_sema);
-	mutex_unlock(&dcam_scale_sema);
+	if (!is_isr) {
+		mutex_unlock(&dcam_rot_sema);
+		mutex_unlock(&dcam_scale_sema);
+	}
 
 	DCAM_TRACE("DCAM: reset_mode=%x  end \n", reset_mode);
 
@@ -976,7 +980,7 @@ int32_t dcam_stop_cap(void)
 		rtn = down_timeout(&s_p_dcam_mod->rotation_done_sema, DCAM_PATH_TIMEOUT);
 	}
 
-	dcam_reset(DCAM_RST_ALL);
+	dcam_reset(DCAM_RST_ALL, 0);
 	DCAM_TRACE("DCAM: stop cap, Out \n");
 
 	return -rtn;
@@ -1002,7 +1006,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 			_dcam_wait_for_stop();
 			_dcam_wait_for_stop();
 		}
-		dcam_reset(DCAM_RST_PATH0);
+		dcam_reset(DCAM_RST_PATH0, 0);
 		_dcam_frm_clear(DCAM_PATH_IDX_0);
 		s_p_dcam_mod->dcam_path0.status = DCAM_ST_STOP;
 		s_p_dcam_mod->dcam_path0.valide = 0;
@@ -1014,7 +1018,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 			_dcam_wait_for_stop();
 			_dcam_wait_for_stop();
 		}
-		dcam_reset(DCAM_RST_PATH1);
+		dcam_reset(DCAM_RST_PATH1, 0);
 		_dcam_frm_clear(DCAM_PATH_IDX_1);
 		s_p_dcam_mod->dcam_path1.status = DCAM_ST_STOP;
 		s_p_dcam_mod->dcam_path1.valide = 0;
@@ -1028,7 +1032,7 @@ int32_t dcam_stop_path(enum dcam_path_index path_index)
 			/*_dcam_wait_for_stop();*/
 		}
 		DCAM_TRACE("DCAM: stop path2 Out \n");
-		dcam_reset(DCAM_RST_PATH2);
+		dcam_reset(DCAM_RST_PATH2, 0);
 		_dcam_frm_clear(DCAM_PATH_IDX_2);
 		s_p_dcam_mod->dcam_path2.status = DCAM_ST_STOP;
 		s_p_dcam_mod->dcam_path2.valide = 0;
@@ -3582,7 +3586,7 @@ LOCAL void    _dcam_err_pre_proc(void)
 	_dcam_stopped();
 	if (0 == atomic_read(&s_resize_flag) &&
 		0 == atomic_read(&s_rotation_flag)) {
-			dcam_reset(DCAM_RST_ALL);
+			dcam_reset(DCAM_RST_ALL, 1);
 	}
 	return;
 }

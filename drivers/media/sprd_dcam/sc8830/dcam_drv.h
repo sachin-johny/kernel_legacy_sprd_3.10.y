@@ -366,7 +366,7 @@ int32_t    dcam_mipi_clk_en(struct device_node *dn);
 int32_t    dcam_mipi_clk_dis(struct device_node *dn);
 int32_t    dcam_ccir_clk_en(void);
 int32_t    dcam_ccir_clk_dis(void);
-int32_t    dcam_reset(enum dcam_rst_mode reset_mode);
+int32_t    dcam_reset(enum dcam_rst_mode reset_mode, uint32_t is_isr);
 int32_t    dcam_set_clk(struct device_node *dn, enum dcam_clk_sel clk_sel);
 int32_t    dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_size,
 			struct dcam_rect *in_rect, struct dcam_size *out_size);
