@@ -408,6 +408,11 @@ static inline int32_t  dispc_set_disp_size(struct fb_var_screeninfo *var)
 static void dispc_layer_init(struct fb_var_screeninfo *var)
 {
 	uint32_t reg_val = 0;
+	uint32_t reg_val1 = 0, reg_val2 = 0;
+
+	reg_val1 = dispc_read(DISPC_OSD_CTRL);
+	reg_val2 = dispc_read(SHDW_OSD_CTRL);
+	printk("sprdfb:[%s] osd_ctrl = 0x%x, shdw_osd_ctrl = 0x%x\n", reg_val1, reg_val2);
 
 //	dispc_clear_bits((1<<0),DISPC_IMG_CTRL);
 	dispc_write(0x0, DISPC_IMG_CTRL);
@@ -1987,6 +1992,8 @@ static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 {
 	uint32_t i = 0;
 	unsigned long flags;
+	uint32_t reg_val1 = 0, reg_val2 = 0;
+
 	pr_debug("%s:[%d] panel_if_type:%d\n",__func__,__LINE__,dev->panel_if_type);
 
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type) {
@@ -2009,6 +2016,11 @@ static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 
 		dispc_set_bits(BIT(5), DISPC_DPI_CTRL);//update
 		udelay(30);
+
+		reg_val1 = dispc_read(DISPC_OSD_CTRL);
+		reg_val2 = dispc_read(SHDW_OSD_CTRL);
+		printk("sprdfb: [%s]: osd_ctrl = 0x%x, shdw_osd_ctrl = 0x%x\n", reg_val1, reg_val2);
+
 		dispc_clear_bits(BIT(4), DISPC_DPI_CTRL);//SW and VSync
 		dispc_set_bits(BIT(4), DISPC_CTRL);//run
 		local_irq_restore(flags);
@@ -2036,8 +2048,12 @@ static int32_t sprdfb_dispc_refresh_logo (struct sprdfb_device *dev)
 static void sprdfb_dispc_logo_config(struct sprdfb_device *dev,uint32_t logo_dst_p)
 {
     uint32_t reg_val = 0;
+    uint32_t reg_val1 = 0, reg_val2 = 0;
 
-    pr_debug("%s[%d] enter,dev:0x%08x\n",__func__,__LINE__,dev);
+    reg_val1 = dispc_read(DISPC_OSD_CTRL);
+    reg_val2 = dispc_read(SHDW_OSD_CTRL);
+    printk("%s[%d] enter,dev:0x%08x, osd_ctrl = 0x%x, shwd_osd_ctrl = 0x%x\n",__func__,__LINE__,
+            dev, reg_val1, reg_val2);
 
     dispc_clear_bits((1<<0),DISPC_IMG_CTRL);
     dispc_clear_bits((1<<0),DISPC_OSD_CTRL);
