@@ -31,6 +31,7 @@
 #include <linux/input/matrix_keypad.h>
 #include <linux/sysrq.h>
 #include <linux/sched.h>
+#include <linux/wakelock.h>
 
 #include <mach/globalregs.h>
 #include <mach/hardware.h>
@@ -110,6 +111,8 @@
 #define KPD_DEBUG_STATUS2        	(KPD_REG_BASE + 0x0038)
 
 #define PB_INT                  EIC_KEY_POWER
+
+static struct wake_lock kpad_wake_lock;
 
 #if defined(CONFIG_ARCH_SC8825)
 static __devinit void __keypad_enable(void)
@@ -197,8 +200,6 @@ static void dump_keypad_register(void)
 {
 }
 #endif
-
-
 
 static irqreturn_t sci_keypad_isr(int irq, void *dev_id)
 {
@@ -299,6 +300,8 @@ static irqreturn_t sci_powerkey_isr(int irq, void *dev_id)
 	unsigned short key = KEY_POWER;
 	unsigned long value = !(gpio_get_value(PB_INT));
 	struct sci_keypad_t *sci_kpd = dev_id;
+
+	wake_lock_timeout(&kpad_wake_lock, HZ / 2);
 
 	if (last_value == value) {
 		/* seems an event is missing, just report it */
@@ -541,6 +544,7 @@ struct platform_driver sci_keypad_driver = {
 
 static int __init sci_keypad_init(void)
 {
+	wake_lock_init(&kpad_wake_lock, WAKE_LOCK_SUSPEND, "power_key");
 	return platform_driver_register(&sci_keypad_driver);
 }
 
