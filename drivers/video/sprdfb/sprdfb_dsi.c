@@ -332,7 +332,7 @@ static int32_t dsi_edpi_init(void)
 
 int32_t dsi_dpi_init(struct sprdfb_device *dev)
 {
-	dsih_dpi_video_t dpi_param;
+	dsih_dpi_video_t dpi_param = {0};
 	dsih_error_t result;
 	struct panel_spec* panel = dev->panel;
 	struct info_mipi * mipi = panel->info.mipi;
