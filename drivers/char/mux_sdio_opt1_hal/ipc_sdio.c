@@ -471,7 +471,9 @@ void  sdio_ipc_enable(u8  is_enable)
                 s_tx_frame_counter = 1; //tx frame number start from 1
                 s_mipc_next_rx_len = DEFAULT_RX_FRAME_SIZE;
                 //sdhci_resetconnect(MUX_IPC_DISABLE);
+                mutex_lock(&ipc_mutex);
                 s_mux_ipc_event_flags = 0;
+                mutex_unlock(&ipc_mutex);
                 s_mipc_enable_change_flag = 0;
                 s_mux_ipc_enable = MUX_IPC_ENABLE;
                 wake_up_interruptible(&s_modem_ready);
@@ -490,6 +492,7 @@ void  sdio_ipc_enable(u8  is_enable)
 
 int mux_ipc_sdio_stop(int mode)
 {
+        mutex_lock(&ipc_mutex);
         if(mode & SPRDMUX_READ) {
                 s_mux_ipc_event_flags |=  MUX_IPC_READ_DISABLE;
         }
@@ -497,8 +500,8 @@ int mux_ipc_sdio_stop(int mode)
         if(mode & SPRDMUX_WRITE) {
                 s_mux_ipc_event_flags |=  MUX_IPC_WRITE_DISABLE;
         }
-
-        wake_up_interruptible(&s_mux_read_rts);
+        mutex_unlock(&ipc_mutex);
+        wake_up(&s_mux_read_rts);
         _WakeTxTransfer();
         return 0;
 }
@@ -625,7 +628,7 @@ int do_mux_ipc_sdio_read(char *buf, size_t  count)
 {
         int ret = 0;
 
-        wait_event_interruptible(s_mux_read_rts, !kfifo_is_empty(&s_mipc_rx_cache_kfifo) || s_mux_ipc_event_flags);
+        wait_event(s_mux_read_rts, !kfifo_is_empty(&s_mipc_rx_cache_kfifo) || s_mux_ipc_event_flags);
 
         if(s_mux_ipc_event_flags & MUX_IPC_READ_DISABLE) {
                 IPC_SDIO_ERR("[mipc] mux ipc  read disable!\r\n");
@@ -685,14 +688,16 @@ int mux_ipc_sdio_read(char *buf, size_t  count)
         //incrase read count
         //atomic_inc(&s_mipc_read_pending);
 
-        wait_event_interruptible(s_mux_read_rts, !kfifo_is_empty(&s_mipc_rx_cache_kfifo) || s_mux_ipc_event_flags);
+        wait_event(s_mux_read_rts, !kfifo_is_empty(&s_mipc_rx_cache_kfifo) || s_mux_ipc_event_flags);
 
         //decrase read count
         //atomic_dec(&s_mipc_read_pending);
         if(s_mux_ipc_event_flags & MUX_IPC_READ_DISABLE) {
                 IPC_SDIO_ERR("[mipc] mux ipc  read disable!\r\n");
                 //if(atomic_read(&s_mipc_read_pending) == 0) {
+                mutex_lock(&ipc_mutex);
                 s_mux_ipc_event_flags = 0;
+                mutex_unlock(&ipc_mutex);
                 //}
                 return -1;
         }
@@ -1368,7 +1373,7 @@ static int do_sdio_rx(u32 *tx_flow_info, u32 *acked_tx_frame)
                 if(packet->length) {
                         kfifo_in(&s_mipc_rx_cache_kfifo,&s_mipc_rx_buf[sizeof(struct packet_header )], packet->length);
 
-                        wake_up_interruptible(&s_mux_read_rts);
+                        wake_up(&s_mux_read_rts);
                 } else {
                         ipc_info_error_status(IPC_RX_CHANNEL, IPC_STATUS_INVALID_PACKET);
                 }
