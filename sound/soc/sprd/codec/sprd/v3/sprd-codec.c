@@ -1322,13 +1322,19 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 		&sprd_codec->inter_hp_pa.setting;
 
 	static struct regulator *regulator_reg= 0;
+
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+	static struct regulator *regulator_vb= 0;
+	int classg_vol = 2200000;
+#endif
+
 	if (on) {
 		if (!regulator) {
 			sp_asoc_pr_dbg("%s set vddclsg on\n", __func__);
 			/*1.CG_EN */
 			//open clk
 			regulator_reg = regulator_get(0, "VREG");
-			if (IS_ERR(regulator)) {
+			if (IS_ERR(regulator_reg)) {
 				pr_err("ERR:Failed to request %ld: %s\n",
 					   PTR_ERR(regulator_reg), "VREG");
 				BUG_ON(1);
@@ -1336,7 +1342,22 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 			regulator_set_mode(regulator_reg, REGULATOR_MODE_STANDBY);
 			if (regulator_enable(regulator_reg) < 0) {
 			} else {
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+				//open vb
+				regulator_vb = regulator_get(0, "VB");
+				if (IS_ERR(regulator_vb)) {
+					pr_err("ERR:Failed to request %ld: %s\n",
+						   PTR_ERR(regulator_vb), "VB");
+					BUG_ON(1);
+				}
+				regulator_set_mode(regulator_vb, REGULATOR_MODE_STANDBY);
+				if (regulator_enable(regulator_vb) < 0) {
+				} else {
+#endif
 				sprd_codec_hp_classg_en(codec, 1);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+				}
+#endif
 			}
 			//close clk
 			regulator_set_mode(regulator_reg,
@@ -1344,7 +1365,6 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 			regulator_disable(regulator_reg);
 			regulator_put(regulator_reg);
 			regulator_reg = 0;
-
 			sprd_codec_wait(p_setting->class_g_open_delay_10ms * 10);
 			/*2. LDO PD */
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
@@ -1354,6 +1374,11 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 				BUG_ON(1);
 			}
 			regulator_set_mode(regulator, REGULATOR_MODE_STANDBY);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+			if (sprd_codec->hp_ver == SPRD_CODEC_HP_PA_VER_1)
+				classg_vol = 1200000;
+			regulator_set_voltage(regulator, classg_vol, classg_vol);
+#endif
 			if (regulator_enable(regulator) < 0) {
 				regulator_set_mode(regulator,
 						   REGULATOR_MODE_NORMAL);
@@ -1373,7 +1398,7 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 			/*CG_EN*/
 			//open clk
 			regulator_reg = regulator_get(0, "VREG");
-			if (IS_ERR(regulator)) {
+			if (IS_ERR(regulator_reg)) {
 				pr_err("ERR:Failed to request %ld: %s\n",
 					   PTR_ERR(regulator_reg), "VREG");
 				BUG_ON(1);
@@ -1382,6 +1407,15 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 			if (regulator_enable(regulator_reg) < 0) {
 			} else {
 				sprd_codec_hp_classg_en(codec, 0);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+				if(regulator_vb) {
+					//close vb
+					regulator_set_mode(regulator_vb, REGULATOR_MODE_NORMAL);
+					regulator_disable(regulator_vb);
+					regulator_put(regulator_vb);
+					regulator_vb = 0;
+				}
+#endif
 			}
 			//close clk
 			regulator_set_mode(regulator_reg,
@@ -3506,7 +3540,9 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
 	int ret = 0;
+#ifndef  CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
 	int hp_plug_state = get_hp_plug_state();
+#endif
 
 	sp_asoc_pr_dbg("%s\n", __func__);
 
@@ -3517,8 +3553,11 @@ static int sprd_codec_soc_probe(struct snd_soc_codec *codec)
 	sprd_codec_proc_init(sprd_codec);
 
 	sprd_codec_audio_ldo(sprd_codec);
-
+#ifdef  CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+	sprd_inter_headphone_pa_pre(sprd_codec, 1);
+#else
 	sprd_inter_headphone_pa_pre(sprd_codec, hp_plug_state);
+#endif
 	return ret;
 }
 
@@ -3668,7 +3707,9 @@ static int sprd_codec_probe(struct platform_device *pdev)
 	sprd_codec_pa_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
 
 	sprd_codec->nb.notifier_call = hp_notifier_handler;
+#ifndef  CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
 	hp_register_notifier(&sprd_codec->nb);
+#endif
 
 	return 0;
 
@@ -3684,7 +3725,9 @@ static int sprd_codec_remove(struct platform_device *pdev)
 	sprd_codec_power_regulator_exit(sprd_codec);
 	free_irq(sprd_codec->ap_irq, sprd_codec);
 	free_irq(sprd_codec->dp_irq, sprd_codec);
+#ifndef  CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
 	hp_unregister_notifier(&sprd_codec->nb);
+#endif
 	snd_soc_unregister_codec(&pdev->dev);
 	return 0;
 }
