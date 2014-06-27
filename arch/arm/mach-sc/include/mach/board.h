@@ -195,7 +195,7 @@
 #endif
 
 #ifdef CONFIG_ARCH_SCX15
-//#define SPRD_ION_BASE_USE_VARIABLE
+#define SPRD_ION_BASE_USE_VARIABLE
 #endif
 #ifndef SPRD_ION_BASE_USE_VARIABLE
 #if defined(CONFIG_MACH_SP7715GA) || defined(CONFIG_MACH_SP7715GATRISIM) || defined(CONFIG_MACH_SP8815GA) || defined(CONFIG_MACH_SP8815GAOPENPHONE) || defined(CONFIG_MACH_SP6815GA) || defined(CONFIG_MACH_SP6815EA)/* Nand 4+2 */
@@ -206,8 +206,8 @@
 	((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_ION_MEM_SIZE)
 #endif
 #else
-extern phys_addr_t arm_lowmem_limit;
-#define SPRD_ION_MEM_BASE (arm_lowmem_limit - SPRD_ION_MEM_SIZE)
+extern phys_addr_t g_ram_size;//g_ram_size comes from u-boot mem=xxx or from dts file
+#define SPRD_ION_MEM_BASE ((CONFIG_PHYS_OFFSET & (~(g_ram_size - 1))) + g_ram_size - SPRD_ION_MEM_SIZE)
 #endif
 
 

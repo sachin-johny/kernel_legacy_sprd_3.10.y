@@ -527,6 +527,7 @@ void __init dump_machine_table(void)
 		/* can't use cpu_relax() here as it may require MMU setup */;
 }
 
+phys_addr_t g_ram_size=0;//record ram size
 int __init arm_add_memory(phys_addr_t start, phys_addr_t size)
 {
 	struct membank *bank = &meminfo.bank[meminfo.nr_banks];
@@ -536,6 +537,7 @@ int __init arm_add_memory(phys_addr_t start, phys_addr_t size)
 			"ignoring memory at 0x%08llx\n", (long long)start);
 		return -EINVAL;
 	}
+	g_ram_size = size;
 
 	/*
 	 * Ensure that start/size are aligned to a page boundary.

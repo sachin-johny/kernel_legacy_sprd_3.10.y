@@ -984,7 +984,7 @@ static struct ion_platform_heap ion_pheaps[] = {
                       #ifndef SPRD_ION_BASE_USE_VARIABLE
                         .base   = SPRD_ION_MM_BASE,
                       #else
-                        .base   = -1,
+                        .base   = -2,  //-2 mean will value SPRD_ION_MM_BASE
                       #endif
                         .size   = SPRD_ION_MM_SIZE,
 #endif
@@ -1000,7 +1000,7 @@ static struct ion_platform_heap ion_pheaps[] = {
                       #ifndef SPRD_ION_BASE_USE_VARIABLE
                         .base   = SPRD_ION_OVERLAY_BASE,
                       #else
-                        .base   = -1,
+                        .base   = -1, //-1 mean will value SPRD_ION_OVERLAY_BASE
                       #endif
                         .size   = SPRD_ION_OVERLAY_SIZE,
 #endif
@@ -1022,12 +1022,17 @@ struct platform_device sprd_ion_dev = {
 void init_ion_addr_param(void)
 {
 	int i;
+	//printk("xxx: zz old_SPRD_ION_MEM_BASE=%08x\n", ((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_ION_MEM_SIZE));
 	//printk("xxx: zz SPRD_ION_MEM_SIZE=%08x,SPRD_ION_MEM_BASE=%08x\n", SPRD_ION_MEM_SIZE,SPRD_ION_MEM_BASE);
 	for(i=0;i<sizeof(ion_pheaps)/sizeof(ion_pheaps[0]);i++)
 	{
 	    if(ion_pheaps[i].base == -1)
 	    {
 	        ion_pheaps[i].base = SPRD_ION_OVERLAY_BASE;
+	    }
+	    else if(ion_pheaps[i].base == -2)
+	    {
+	        ion_pheaps[i].base = SPRD_ION_MM_BASE;
 	    }
 	    printk("xxx:ion_pheaps[%d].base=%08x\n",i,ion_pheaps[i].base);
 	}
