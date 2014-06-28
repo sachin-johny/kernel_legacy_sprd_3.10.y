@@ -1614,6 +1614,7 @@ dsih_error_t mipi_dsih_edpi_video(dsih_ctrl_t * instance, dsih_cmd_mode_video_t 
 		break;
 	case COLOR_CODE_12BIT_YCC420:
 		bytes_per_pixel_x100 = 150;
+                  break;
 	default:
 		if (instance->log_error != 0)
 		{
