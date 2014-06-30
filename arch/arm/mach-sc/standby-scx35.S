@@ -153,6 +153,7 @@ ENTRY(sc8830_standby_exit_iram)
 	ldr r0, =0x20
 	bl my_delay
 #ifdef CONFIG_ARCH_SCX30G
+	mov r2, #0x3
 	ldr r0,=0x402b00c8
 check_phy_fsm:
 	ldr r1,[r0]
@@ -164,8 +165,11 @@ check_pub_fsm:
 	and r1,r1,#0x00f0
 	cmp r1,#0x0
 	bne check_pub_fsm
-
-	ldr r0,=0x30040000
+	sub r2,r2,#0x1
+	cmp r2,#0x0
+	bne check_phy_fsm
+	ldr r0,=0x50002404
+	ldr r0,[r0]
 	ldr r1,[r0]
 	tst r1,#0x1
 	bne next
@@ -174,7 +178,8 @@ check_pub_fsm:
 	mov r1,#0x4
 	str r1,[r0]
 
-1:	ldr r0,=0x30040000
+1:	ldr r0,=0x50002404
+	ldr r0,[r0]
 	ldr r1,[r0]
 	tst r1,#0x1
 	beq 1b

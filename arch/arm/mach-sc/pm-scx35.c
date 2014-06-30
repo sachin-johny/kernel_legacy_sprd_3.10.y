@@ -1102,10 +1102,15 @@ int deep_sleep(int from_idle)
 	 * param0, param1 are not used before
 	 * so we use second param to distinguish idle deep or real deep
 	 */
+
+#define dmc_retention_func	(SPRD_IRAM1_BASE + 0x1800)
+#define dmc_retention_para_vaddr	(SPRD_IRAM1_BASE + 0x2400)
+
 #if defined(CONFIG_ARCH_SCX30G)
 	/* set auto-self refresh mode */
 	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(1));
 	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(0));
+	((void (*)(unsigned long,unsigned long))(dmc_retention_func))(1,dmc_retention_para_vaddr);
 #endif
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
         cp0_sys_power_domain_close();
