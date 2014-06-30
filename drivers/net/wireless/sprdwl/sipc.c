@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_sipc.c
- * Abstract : This file is a implementation for itm sipc command/event function
+ * Filename : sipc.c
+ * Abstract : This file is a implementation for sprdwl SIPC command/event
  *
  * Authors	:
  * Leon Liu <leon.liu@spreadtrum.com>
@@ -29,16 +29,15 @@
 #include <linux/etherdevice.h>
 #include <linux/inetdevice.h>
 
-#include "sipc_types.h"
-#include "sipc.h"
 #include "cfg80211.h"
-#include "ittiam.h"
+#include "sipc.h"
+#include "sprdwl.h"
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
-static void wlan_sipc_event_rx_handler(struct itm_priv *priv);
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+static void wlan_sipc_event_rx_handler(struct sprdwl_priv *priv);
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
-#define SIPC_PRI	"net wlan:"
+#define SIPC_PRI	"net:"
 #ifdef CONFIG_OF
 /* sblock configs
 	[0] dst		[1] channel
@@ -57,7 +56,7 @@ static int sipc_sblocks[][6] = {
 	 WLAN_EVENT_SBLOCK_NUM, WLAN_EVENT_SBLOCK_SIZE}
 };
 
-void itm_wlan_sipc_sblock_deinit(int sblock_ch)
+void sprdwl_sipc_sblock_deinit(int sblock_ch)
 {
 	int i;
 	for (i = 0; i < SIPC_SBLOCKS_NUM; i++) {
@@ -69,9 +68,8 @@ void itm_wlan_sipc_sblock_deinit(int sblock_ch)
 	sblock_destroy(sipc_sblocks[i][0], sipc_sblocks[i][1]);
 }
 
-int itm_wlan_sipc_sblock_init(int sblock_ch,
-			      void (*handler) (int event, void *data),
-			      void *data)
+int sprdwl_sipc_sblock_init(int sblock_ch,
+			    void (*handler) (int event, void *data), void *data)
 {
 	int i, ret = 0;
 
@@ -113,8 +111,8 @@ int wlan_sipc_cmd_send(struct wlan_sipc *wlan_sipc, u16 len, u8 type, u8 id)
 	u16 cmd_tag;
 	int send_len;
 
-	msg_hdr = ITM_WLAN_MSG(ITM_WLAN_MSG_CMD, len);
-	cmd_tag = ITM_WLAN_CMD_TAG(type, CMD_DIR_AP2CP, CMD_LEVEL_NORMAL, id);
+	msg_hdr = SPRDWL_MSG(SPRDWL_MSG_CMD, len);
+	cmd_tag = SPRDWL_CMD_TAG(type, CMD_DIR_AP2CP, CMD_LEVEL_NORMAL, id);
 
 	send_buf->msg_hdr = cpu_to_le32(msg_hdr);
 	send_buf->u.cmd.cmd_tag = cpu_to_le16(cmd_tag);
@@ -179,13 +177,13 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 	cmd_tag = le16_to_cpu(recv_buf->u.cmd_resp.cmd_tag);
 /*      seq_no  = le16_to_cpu(recv_buf->u.cmd_resp.seq_no);*/
 
-	msg_type = ITM_WLAN_MSG_GET_TYPE(msg_hdr);
-	msg_len = ITM_WLAN_MSG_GET_LEN(msg_hdr);
+	msg_type = SPRDWL_MSG_GET_TYPE(msg_hdr);
+	msg_len = SPRDWL_MSG_GET_LEN(msg_hdr);
 
-	cmd_dir = ITM_WLAN_CMD_TAG_GET_DIR(cmd_tag);
-	cmd_id = ITM_WLAN_CMD_TAG_GET_ID(cmd_tag);
+	cmd_dir = SPRDWL_CMD_TAG_GET_DIR(cmd_tag);
+	cmd_id = SPRDWL_CMD_TAG_GET_ID(cmd_tag);
 
-	if ((msg_len != recv_len) || (msg_type != ITM_WLAN_MSG_CMD_RSP)) {
+	if ((msg_len != recv_len) || (msg_type != SPRDWL_MSG_CMD_RSP)) {
 		pr_err(SIPC_PRI "cmd %d msg_len:%d msg_type:%d\n",
 		       id, msg_len, msg_type);
 		return -EIO;
@@ -204,7 +202,7 @@ int wlan_sipc_cmd_receive(struct wlan_sipc *wlan_sipc, u16 len, u8 id)
 	return 0;
 }
 
-int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
+int sprdwl_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 {
 	u16 status;
 	int ret = 0;
@@ -221,10 +219,10 @@ int itm_wlan_cmd_send_recv(struct wlan_sipc *wlan_sipc, u8 type, u8 id)
 			wlan_sipc->recv_buf, WLAN_SBUF_SIZE, 0);
 	if (ret > 0) {
 		pr_err(SIPC_PRI "cmd [%d %d] clean dirty data,len:%d<%d\n",
-			id, type, ret, WLAN_SBUF_SIZE);
+		       id, type, ret, WLAN_SBUF_SIZE);
 	} else if (ret != -ENODATA) {
 		pr_err(SIPC_PRI "cmd [%d %d] sbuf recv channel error(%d)\n",
-			id, type, ret);
+		       id, type, ret);
 		goto out;
 	}
 
@@ -260,9 +258,9 @@ out:
 	return ret;
 }
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
-int itm_wlan_set_scan_channels_cmd(struct wlan_sipc *wlan_sipc,
-				   u8 *channel_info, int len)
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+int sprdwl_set_scan_channels_cmd(struct wlan_sipc *wlan_sipc,
+				 u8 *channel_info, int len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int send_len = 0;
@@ -277,8 +275,8 @@ int itm_wlan_set_scan_channels_cmd(struct wlan_sipc *wlan_sipc,
 		send_len = len;
 	}
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + send_len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + send_len;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 	ret =
 	    itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
 				   WIFI_CMD_SCAN_CHANNELS);
@@ -293,9 +291,9 @@ int itm_wlan_set_scan_channels_cmd(struct wlan_sipc *wlan_sipc,
 
 	return 0;
 }
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
-int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
+int sprdwl_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int send_len = 0;
@@ -310,9 +308,9 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 		send_len = len;
 	}
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + send_len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_SCAN);
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + send_len;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_SCAN);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -325,7 +323,7 @@ int itm_wlan_scan_cmd(struct wlan_sipc *wlan_sipc, const u8 *ssid, int len)
 	return 0;
 }
 
-int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
+int sprdwl_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u32 version = wpa_version;
@@ -340,11 +338,11 @@ int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &version, sizeof(version));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + sizeof(version);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(version);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc,
-				     CMD_TYPE_SET, WIFI_CMD_WPA_VERSION);
+	ret = sprdwl_cmd_send_recv(wlan_sipc,
+				   CMD_TYPE_SET, WIFI_CMD_WPA_VERSION);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -357,7 +355,7 @@ int itm_wlan_set_wpa_version_cmd(struct wlan_sipc *wlan_sipc, u32 wpa_version)
 	return 0;
 }
 
-int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type)
+int sprdwl_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u32 auth_type = type;
@@ -366,12 +364,10 @@ int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type)
 	mutex_lock(&wlan_sipc->cmd_lock);
 	memcpy(send_buf->u.cmd.variable, &auth_type, sizeof(auth_type));
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-	    + sizeof(auth_type);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(auth_type);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc,
-				     CMD_TYPE_SET, WIFI_CMD_AUTH_TYPE);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_AUTH_TYPE);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -385,7 +381,7 @@ int itm_wlan_set_auth_type_cmd(struct wlan_sipc *wlan_sipc, u32 type)
 }
 
 /* unicast cipher or group cipher */
-int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
+int sprdwl_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u32 chipher_val = cipher;
@@ -400,11 +396,11 @@ int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &chipher_val, sizeof(chipher_val));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(chipher_val);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, cmd_id);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, cmd_id);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -417,7 +413,7 @@ int itm_wlan_set_cipher_cmd(struct wlan_sipc *wlan_sipc, u32 cipher, u8 cmd_id)
 	return 0;
 }
 
-int itm_wlan_set_key_management_cmd(struct wlan_sipc *wlan_sipc, u8 key_mgmt)
+int sprdwl_set_key_management_cmd(struct wlan_sipc *wlan_sipc, u8 key_mgmt)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u8 key = key_mgmt;
@@ -426,11 +422,10 @@ int itm_wlan_set_key_management_cmd(struct wlan_sipc *wlan_sipc, u8 key_mgmt)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &key, sizeof(key));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + sizeof(key);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(key);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc,
-				     CMD_TYPE_SET, WIFI_CMD_AKM_SUITE);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_AKM_SUITE);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -443,19 +438,18 @@ int itm_wlan_set_key_management_cmd(struct wlan_sipc *wlan_sipc, u8 key_mgmt)
 	return 0;
 }
 
-int itm_wlan_get_device_mode_cmd(struct wlan_sipc *wlan_sipc)
+int sprdwl_get_device_mode_cmd(struct wlan_sipc *wlan_sipc)
 {
 	s32 device_mode;
 	int ret;
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE
 	    + sizeof(device_mode);
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc,
-				     CMD_TYPE_SET, WIFI_CMD_DEV_MODE);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_DEV_MODE);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -471,8 +465,7 @@ int itm_wlan_get_device_mode_cmd(struct wlan_sipc *wlan_sipc)
 	return device_mode;
 }
 
-int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
-			 const u8 *key, u32 key_len)
+int sprdwl_set_psk_cmd(struct wlan_sipc *wlan_sipc, const u8 *key, u32 key_len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int ret;
@@ -490,10 +483,10 @@ int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, key, key_len);
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + key_len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + key_len;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_PSK);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_PSK);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -506,7 +499,7 @@ int itm_wlan_set_psk_cmd(struct wlan_sipc *wlan_sipc,
 	return 0;
 }
 
-int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel)
+int sprdwl_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u32 channel_num = channel;
@@ -515,11 +508,11 @@ int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &channel_num, sizeof(channel_num));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(channel_num);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_CHANNEL);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_CHANNEL);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -532,7 +525,7 @@ int itm_wlan_set_channel_cmd(struct wlan_sipc *wlan_sipc, u32 channel)
 	return 0;
 }
 
-int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr)
+int sprdwl_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int ret;
@@ -540,10 +533,10 @@ int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, addr, 6);
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + 6;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + 6;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BSSID);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_BSSID);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -556,8 +549,8 @@ int itm_wlan_set_bssid_cmd(struct wlan_sipc *wlan_sipc, const u8 *addr)
 	return 0;
 }
 
-int itm_wlan_set_essid_cmd(struct wlan_sipc *wlan_sipc,
-			   const u8 *essid, int essid_len)
+int sprdwl_set_essid_cmd(struct wlan_sipc *wlan_sipc,
+			 const u8 *essid, int essid_len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int ret;
@@ -565,10 +558,10 @@ int itm_wlan_set_essid_cmd(struct wlan_sipc *wlan_sipc,
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, essid, essid_len);
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + essid_len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + essid_len;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_ESSID);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_ESSID);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -581,8 +574,8 @@ int itm_wlan_set_essid_cmd(struct wlan_sipc *wlan_sipc,
 	return 0;
 }
 
-int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
-		       const u8 *pmkid, u8 type)
+int sprdwl_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
+		     const u8 *pmkid, u8 type)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_pmkid *cmd;
@@ -605,10 +598,10 @@ int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
 	if (pmkid)
 		memcpy(cmd->pmkid, pmkid, sizeof(cmd->pmkid));
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(struct wlan_sipc_pmkid);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, type, WIFI_CMD_PMKSA);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, type, WIFI_CMD_PMKSA);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -621,7 +614,7 @@ int itm_wlan_pmksa_cmd(struct wlan_sipc *wlan_sipc, const u8 *bssid,
 	return 0;
 }
 
-int itm_wlan_disconnect_cmd(struct wlan_sipc *wlan_sipc, u16 reason_code)
+int sprdwl_disconnect_cmd(struct wlan_sipc *wlan_sipc, u16 reason_code)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int ret;
@@ -629,11 +622,11 @@ int itm_wlan_disconnect_cmd(struct wlan_sipc *wlan_sipc, u16 reason_code)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &reason_code, sizeof(reason_code));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(reason_code);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc,
-				     CMD_TYPE_SET, WIFI_CMD_DISCONNECT);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc,
+				   CMD_TYPE_SET, WIFI_CMD_DISCONNECT);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -646,10 +639,9 @@ int itm_wlan_disconnect_cmd(struct wlan_sipc *wlan_sipc, u16 reason_code)
 	return 0;
 }
 
-int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
-			 const u8 *key_data, u8 key_len,
-			 u8 pairwise, u8 key_index, const u8 *key_seq,
-			 u8 cypher_type, const u8 *pmac)
+int sprdwl_add_key_cmd(struct wlan_sipc *wlan_sipc, const u8 *key_data,
+		       u8 key_len, u8 pairwise, u8 key_index, const u8 *key_seq,
+		       u8 cypher_type, const u8 *pmac)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_add_key *add_key =
@@ -668,10 +660,10 @@ int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
 	add_key->key_len = key_len;
 	memcpy(add_key->value, key_data, key_len);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + key_len
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + key_len
 	    + sizeof(struct wlan_sipc_add_key);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD, WIFI_CMD_KEY);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD, WIFI_CMD_KEY);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -684,8 +676,8 @@ int itm_wlan_add_key_cmd(struct wlan_sipc *wlan_sipc,
 	return 0;
 }
 
-int itm_wlan_del_key_cmd(struct wlan_sipc *wlan_sipc, u16 key_index,
-			 const u8 *mac_addr)
+int sprdwl_del_key_cmd(struct wlan_sipc *wlan_sipc, u16 key_index,
+		       const u8 *mac_addr)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_del_key *del_key =
@@ -698,10 +690,10 @@ int itm_wlan_del_key_cmd(struct wlan_sipc *wlan_sipc, u16 key_index,
 		memcpy(del_key->mac, mac_addr, 6);
 	del_key->key_index = key_index;
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(struct wlan_sipc_del_key);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL, WIFI_CMD_KEY);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL, WIFI_CMD_KEY);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -714,7 +706,7 @@ int itm_wlan_del_key_cmd(struct wlan_sipc *wlan_sipc, u16 key_index,
 	return 0;
 }
 
-int itm_wlan_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index)
+int sprdwl_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int ret;
@@ -722,11 +714,10 @@ int itm_wlan_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &key_index, sizeof(key_index));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-	    + sizeof(key_index);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(key_index);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_KEY);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_KEY);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -739,7 +730,7 @@ int itm_wlan_set_key_cmd(struct wlan_sipc *wlan_sipc, u8 key_index)
 	return 0;
 }
 
-int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold)
+int sprdwl_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u16 threshold = rts_threshold;
@@ -748,11 +739,10 @@ int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, &threshold, sizeof(threshold));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-	    + sizeof(threshold);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_RTS_THRESHOLD);
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(threshold);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				   WIFI_CMD_RTS_THRESHOLD);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -765,7 +755,7 @@ int itm_wlan_set_rts_cmd(struct wlan_sipc *wlan_sipc, u16 rts_threshold)
 	return 0;
 }
 
-int itm_wlan_set_frag_cmd(struct wlan_sipc *wlan_sipc, u16 frag_threshold)
+int sprdwl_set_frag_cmd(struct wlan_sipc *wlan_sipc, u16 frag_threshold)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u16 threshold = frag_threshold;
@@ -775,11 +765,10 @@ int itm_wlan_set_frag_cmd(struct wlan_sipc *wlan_sipc, u16 frag_threshold)
 
 	memcpy(send_buf->u.cmd.variable, &threshold, sizeof(threshold));
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
-	    + sizeof(threshold);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_FRAG_THRESHOLD);
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(threshold);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				   WIFI_CMD_FRAG_THRESHOLD);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -792,7 +781,7 @@ int itm_wlan_set_frag_cmd(struct wlan_sipc *wlan_sipc, u16 frag_threshold)
 	return 0;
 }
 
-int itm_wlan_get_rssi_cmd(struct wlan_sipc *wlan_sipc, s8 *signal, s8 *noise)
+int sprdwl_get_rssi_cmd(struct wlan_sipc *wlan_sipc, s8 *signal, s8 *noise)
 {
 	struct wlan_sipc_data *recv_buf = wlan_sipc->recv_buf;
 	u32 rssi;
@@ -800,10 +789,9 @@ int itm_wlan_get_rssi_cmd(struct wlan_sipc *wlan_sipc, s8 *signal, s8 *noise)
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE
-	    + sizeof(rssi);
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_RSSI);
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE + sizeof(rssi);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_RSSI);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -820,17 +808,17 @@ int itm_wlan_get_rssi_cmd(struct wlan_sipc *wlan_sipc, s8 *signal, s8 *noise)
 	return 0;
 }
 
-int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
+int sprdwl_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
 {
 	struct wlan_sipc_data *recv_buf = wlan_sipc->recv_buf;
 	int ret;
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE
 	    + sizeof(*rate);
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_TXRATE);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_GET, WIFI_CMD_TXRATE);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -844,7 +832,7 @@ int itm_wlan_get_txrate_cmd(struct wlan_sipc *wlan_sipc, s32 *rate)
 	return 0;
 }
 
-int itm_wlan_start_ap_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
+int sprdwl_start_ap_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_beacon *beacon_ptr =
@@ -856,11 +844,10 @@ int itm_wlan_start_ap_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 	beacon_ptr->len = len;
 	memcpy(beacon_ptr->value, beacon, len);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(beacon_ptr->len) + len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret =
-	    itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_START_AP);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_START_AP);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -873,9 +860,9 @@ int itm_wlan_start_ap_cmd(struct wlan_sipc *wlan_sipc, u8 *beacon, u16 len)
 	return 0;
 }
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
-int itm_wlan_set_p2p_ie_cmd(struct wlan_sipc *wlan_sipc,
-			    u8 type, const u8 *ie, u8 len)
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+int sprdwl_set_p2p_ie_cmd(struct wlan_sipc *wlan_sipc,
+			  u8 type, const u8 *ie, u8 len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_p2p_ie *p2p_ptr =
@@ -895,27 +882,27 @@ int itm_wlan_set_p2p_ie_cmd(struct wlan_sipc *wlan_sipc,
 	p2p_ptr->len = len;
 	memcpy(p2p_ptr->value, ie, len);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(struct wlan_sipc_p2p_ie) + len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_P2P_IE);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_P2P_IE);
 
 	if (ret) {
-		pr_err("return wrong status code is %d\n", ret);
+		pr_err(SIPC_PRI "return wrong status code is %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
-	pr_debug("set p2p ie return status code successfully\n");
+	pr_debug(SIPC_PRI "set p2p ie return status code successfully\n");
 
 	return 0;
 }
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
-int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
-			    u8 type, const u8 *ie, u8 len)
+int sprdwl_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
+			  u8 type, const u8 *ie, u8 len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_wps_ie *wps_ptr =
@@ -933,10 +920,10 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	wps_ptr->len = len;
 	memcpy(wps_ptr->value, ie, len);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(wps_ptr) + len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_WPS_IE);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_WPS_IE);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -949,7 +936,7 @@ int itm_wlan_set_wps_ie_cmd(struct wlan_sipc *wlan_sipc,
 	return 0;
 }
 
-int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc, u8 *addr, u8 flag)
+int sprdwl_set_blacklist_cmd(struct wlan_sipc *wlan_sipc, u8 *addr, u8 flag)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	int ret;
@@ -957,15 +944,15 @@ int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc, u8 *addr, u8 flag)
 	mutex_lock(&wlan_sipc->cmd_lock);
 
 	memcpy(send_buf->u.cmd.variable, addr, 6);
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + 6;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + 6;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 
 	if (flag)
-		ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD,
-					     WIFI_CMD_BLACKLIST);
+		ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_ADD,
+					   WIFI_CMD_BLACKLIST);
 	else
-		ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL,
-					     WIFI_CMD_BLACKLIST);
+		ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_DEL,
+					   WIFI_CMD_BLACKLIST);
 
 	if (ret) {
 		pr_err(SIPC_PRI "blacklist wrong status code is %d\n", ret);
@@ -980,7 +967,7 @@ int itm_wlan_set_blacklist_cmd(struct wlan_sipc *wlan_sipc, u8 *addr, u8 flag)
 	return 0;
 }
 
-int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
+int sprdwl_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_mac_open *open =
@@ -989,23 +976,25 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 
 	mutex_lock(&wlan_sipc->cmd_lock);
 
+	sprdwl_nvm_init();
+
 	open->mode = mode;
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 	open->mode |= FW_ZEROCOPY;
 #endif
 	if (mac_addr)
 		memcpy(open->mac, mac_addr, 6);
 	memcpy((unsigned char *)(&(open->nvm_data)),
-	       (unsigned char *)(get_gwifi_nvm_data()), sizeof(wifi_nvm_data));
-	/*Addded AP timestamp members*/
-	itm_wlan_get_ap_time(open->ap_timestamp);
+	       (unsigned char *)(get_gwifi_nvm_data()),
+	       sizeof(struct wifi_nvm_data));
+	/*Addded AP timestamp members */
+	sprdwl_get_ap_time(open->ap_timestamp);
 	wlan_sipc->wlan_sipc_send_len =
-	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_mac_open);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
+	    SPRDWL_CMD_HDR_SIZE + sizeof(struct wlan_sipc_mac_open);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
 	pr_debug(SIPC_PRI "%s mode %#x cmd_len %d\n", __func__, open->mode,
 		 wlan_sipc->wlan_sipc_send_len);
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_DEV_OPEN);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_DEV_OPEN);
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
 		switch (ret) {
@@ -1031,22 +1020,21 @@ int itm_wlan_mac_open_cmd(struct wlan_sipc *wlan_sipc, u8 mode, u8 *mac_addr)
 	return 0;
 }
 
-int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
+int sprdwl_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	u8 flag = mode;
 	int ret;
 
 	mutex_lock(&wlan_sipc->cmd_lock);
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 	flag |= FW_ZEROCOPY;
 #endif
 	memcpy(send_buf->u.cmd.variable, &flag, sizeof(flag));
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + sizeof(flag);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	pr_debug("%s mode %#x\n", __func__, flag);
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_DEV_CLOSE);
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + sizeof(flag);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	pr_debug(SIPC_PRI "%s mode %#x\n", __func__, flag);
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_DEV_CLOSE);
 
 	if (ret) {
 		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
@@ -1060,7 +1048,7 @@ int itm_wlan_mac_close_cmd(struct wlan_sipc *wlan_sipc, u8 mode)
 }
 
 /* EVENT SBLOCK implementation */
-static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
+static void wlan_sipc_event_rx_handler(struct sprdwl_priv *priv)
 {
 	struct sblock blk;
 	struct wlan_sipc_data *recv_buf;
@@ -1083,9 +1071,9 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 	event_tag = le16_to_cpu(recv_buf->u.event.event_tag);
 /*      seq_no  = le16_to_cpu(recv_buf->u.event_tag.seq_no);*/
 
-	msg_type = ITM_WLAN_MSG_GET_TYPE(msg_hdr);
-	msg_len = ITM_WLAN_MSG_GET_LEN(msg_hdr);
-	if ((msg_len != blk.length) || (msg_type != ITM_WLAN_MSG_EVENT)) {
+	msg_type = SPRDWL_MSG_GET_TYPE(msg_hdr);
+	msg_len = SPRDWL_MSG_GET_LEN(msg_hdr);
+	if ((msg_len != blk.length) || (msg_type != SPRDWL_MSG_EVENT)) {
 		pr_err(SIPC_PRI
 		       "Recv msg_len(%d), blk.length(%d) and type(%d) is wrong\n",
 		       msg_len, blk.length, msg_type);
@@ -1095,16 +1083,15 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 		return;
 	}
 
-	event_type = ITM_WLAN_EVENT_TAG_GET_TYPE(event_tag);
-	event_id = ITM_WLAN_EVENT_TAG_GET_ID(event_tag);
+	event_type = SPRDWL_EVENT_TAG_GET_TYPE(event_tag);
+	event_id = SPRDWL_EVENT_TAG_GET_ID(event_tag);
 	if (event_type == EVENT_TYPE_SYSERR)
 		pr_err(SIPC_PRI "Recv event type is syserr\n");
 
-	priv->wlan_sipc->wlan_sipc_event_len =
-	    msg_len - ITM_WLAN_EVENT_HDR_SIZE;
+	priv->wlan_sipc->wlan_sipc_event_len = msg_len - SPRDWL_EVENT_HDR_SIZE;
 
 	recv_buf = priv->wlan_sipc->event_buf;
-	memcpy((u8 *) recv_buf, (u8 *) blk.addr, blk.length);
+	memcpy((u8 *)recv_buf, (u8 *)blk.addr, blk.length);
 
 #ifdef DUMP_EVENT
 	if (event_id != WIFI_EVENT_SCANDONE) {
@@ -1118,59 +1105,59 @@ static void wlan_sipc_event_rx_handler(struct itm_priv *priv)
 
 	switch (event_id) {
 	case WIFI_EVENT_CONNECT:
-		pr_debug(SIPC_PRI "Recv sblock connect event\n");
-		itm_cfg80211_report_connect_result(priv);
+		pr_debug(SIPC_PRI "Recv sblock8 connect event\n");
+		sprdwl_event_connect_result(priv);
 		break;
 	case WIFI_EVENT_DISCONNECT:
-		pr_debug(SIPC_PRI "Recv sblock disconnect event\n");
-		itm_cfg80211_report_disconnect_done(priv);
+		pr_debug(SIPC_PRI "Recv sblock8 disconnect event\n");
+		sprdwl_event_disconnect(priv);
 		break;
 	case WIFI_EVENT_SCANDONE:
-		pr_debug(SIPC_PRI "Recv sblock scan result event\n");
-		itm_cfg80211_report_scan_done(priv, false);
+		pr_debug(SIPC_PRI "Recv sblock8 scan result event\n");
+		sprdwl_event_scan_results(priv, false);
 		break;
 	case WIFI_EVENT_READY:
-		pr_debug(SIPC_PRI "Recv sblock CP2 ready event\n");
-		itm_cfg80211_report_ready(priv);
+		pr_debug(SIPC_PRI "Recv sblock8 CP2 ready event\n");
+		sprdwl_event_ready(priv);
 		break;
 	case WIFI_EVENT_TX_BUSY:
-		pr_debug(SIPC_PRI "Recv sblock tx busy event\n");
-		itm_cfg80211_report_tx_busy(priv);
+		pr_debug(SIPC_PRI "Recv data tx sblock busy event\n");
+		sprdwl_event_tx_busy(priv);
 		break;
 	case WIFI_EVENT_SOFTAP:
-		pr_debug(SIPC_PRI "Recv sblock softap event\n");
-		itm_cfg80211_report_softap(priv);
+		pr_debug(SIPC_PRI "Recv sblock8 softap event\n");
+		sprdwl_event_softap(priv);
 		break;
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 
 	case WIFI_EVENT_REMAIN_ON_CHAN_EXPIRED:
-		pr_debug("Recv p2p  remain on channel EXPIRED event\n");
-		itm_cfg80211_remain_on_channel_expired(priv);
+		pr_debug(SIPC_PRI
+			 "Recv p2p  remain on channel EXPIRED event\n");
+		sprdwl_event_remain_on_channel_expired(priv);
 		break;
 	case WIFI_EVENT_MGMT_DEAUTH:
-		pr_debug("Recv p2p deauth event\n");
-		itm_cfg80211_mgmt_deauth(priv);
+		pr_debug(SIPC_PRI "Recv p2p deauth event\n");
+		sprdwl_event_mgmt_deauth(priv);
 		break;
 	case WIFI_EVENT_MGMT_DISASSOC:
-		pr_debug("Recv p2p disassoc event\n");
-		itm_cfg80211_mgmt_disassoc(priv);
+		pr_debug(SIPC_PRI "Recv p2p disassoc event\n");
+		sprdwl_event_mgmt_disassoc(priv);
 		break;
 	case WIFI_EVENT_REPORT_FRAME:
-		pr_debug("Recv p2p EVENT_REPORT_FRAME\n");
-		itm_mac_event_report_frame(priv);
+		pr_debug(SIPC_PRI "Recv p2p EVENT_REPORT_FRAME\n");
+		sprdwl_event_report_frame(priv);
 		break;
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
 	default:
-		pr_err(SIPC_PRI "Recv sblock unknow event %d\n", event_id);
+		pr_err(SIPC_PRI "Recv sblock8 unknow event id %d\n", event_id);
 		break;
 	}
-
 }
 
 void wlan_sipc_sblock_handler(int event, void *data)
 {
-	struct itm_priv *priv = (struct itm_priv *)data;
+	struct sprdwl_priv *priv = (struct sprdwl_priv *)data;
 
 	switch (event) {
 	case SBLOCK_NOTIFY_RECV:
@@ -1188,7 +1175,7 @@ void wlan_sipc_sblock_handler(int event, void *data)
 }
 
 /* TODO -- add sbuf register and free */
-int itm_wlan_sipc_alloc(struct itm_priv *itm_priv)
+int sprdwl_sipc_alloc(struct sprdwl_priv *sprdwl_priv)
 {
 	struct wlan_sipc *wlan_sipc;
 	struct wlan_sipc_data *sipc_buf;
@@ -1228,14 +1215,13 @@ int itm_wlan_sipc_alloc(struct itm_priv *itm_priv)
 	mutex_init(&wlan_sipc->cmd_lock);
 	mutex_init(&wlan_sipc->pm_lock);
 
-	itm_priv->wlan_sipc = wlan_sipc;
+	sprdwl_priv->wlan_sipc = wlan_sipc;
 #ifndef CONFIG_OF
 	ret =
 	    sblock_register_notifier(WLAN_CP_ID, WLAN_EVENT_SBLOCK_CH,
-				     wlan_sipc_sblock_handler, itm_priv);
+				     wlan_sipc_sblock_handler, sprdwl_priv);
 	if (ret) {
-		pr_err("%s Failed to regitster event sblock notifier (%d)\n",
-			__func__, ret);
+		pr_err("Failed to regitster event sblock notifier (%d)\n", ret);
 		ret = -ENOMEM;
 		goto fail_notifier;
 	}
@@ -1245,7 +1231,7 @@ int itm_wlan_sipc_alloc(struct itm_priv *itm_priv)
 
 #ifndef CONFIG_OF
 fail_notifier:
-	itm_priv->wlan_sipc = NULL;
+	sprdwl_priv->wlan_sipc = NULL;
 #endif
 fail_eventbuf:
 	kfree(wlan_sipc->recv_buf);
@@ -1256,27 +1242,27 @@ fail_sendbuf:
 	return ret;
 }
 
-void itm_wlan_sipc_free(struct itm_priv *itm_priv)
+void sprdwl_sipc_free(struct sprdwl_priv *sprdwl_priv)
 {
 #ifndef CONFIG_OF
 	int ret;
 	ret = sblock_register_notifier(WLAN_CP_ID,
-		WLAN_EVENT_SBLOCK_CH, NULL, NULL);
+				       WLAN_EVENT_SBLOCK_CH, NULL, NULL);
 	if (ret)
 		pr_err("%s regitster event sblock notifier (%d) err\n",
-			__func__, ret);
+		       __func__, ret);
 #endif
-	kfree(itm_priv->wlan_sipc->send_buf);
-	kfree(itm_priv->wlan_sipc->recv_buf);
-	kfree(itm_priv->wlan_sipc);
-	itm_priv->wlan_sipc = NULL;
+	kfree(sprdwl_priv->wlan_sipc->send_buf);
+	kfree(sprdwl_priv->wlan_sipc->recv_buf);
+	kfree(sprdwl_priv->wlan_sipc);
+	sprdwl_priv->wlan_sipc = NULL;
 }
 
-int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
+int sprdwl_get_ip_cmd(struct sprdwl_priv *sprdwl_priv, u8 *ip)
 {
 	int ret;
 	u16 status;
-	struct wlan_sipc *wlan_sipc = itm_priv->wlan_sipc;
+	struct wlan_sipc *wlan_sipc = sprdwl_priv->wlan_sipc;
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 
 	if (ip != NULL)
@@ -1284,10 +1270,10 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	else
 		memset(send_buf->u.cmd.variable, 0, 4);
 
+	pr_debug("enter get ip send\n");
 	mutex_lock(&wlan_sipc->cmd_lock);
-	pr_debug(SIPC_PRI "enter get ip send\n");
 	ret =
-	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
+	    wlan_sipc_cmd_send(wlan_sipc, SPRDWL_CMD_HDR_SIZE + 4,
 			       CMD_TYPE_SET, WIFI_CMD_LINK_STATUS);
 
 	if (ret) {
@@ -1296,7 +1282,7 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 		return ret;
 	}
 
-	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
+	ret = wlan_sipc_cmd_receive(wlan_sipc, SPRDWL_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_LINK_STATUS);
 	if (ret) {
 		pr_err(SIPC_PRI "get ip cmd recv error with ret is %d\n", ret);
@@ -1316,21 +1302,21 @@ int itm_wlan_get_ip_cmd(struct itm_priv *itm_priv, u8 *ip)
 	return 0;
 }
 
-int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv)
+int sprdwl_pm_enter_ps_cmd(struct sprdwl_priv *sprdwl_priv)
 {
 	int ret;
-	struct wlan_sipc *wlan_sipc = itm_priv->wlan_sipc;
+	struct wlan_sipc *wlan_sipc = sprdwl_priv->wlan_sipc;
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
-	struct in_device *ip = (struct in_device *)itm_priv->ndev->ip_ptr;
+	struct in_device *ip = (struct in_device *)sprdwl_priv->ndev->ip_ptr;
 	struct in_ifaddr *in = ip->ifa_list;
 
 	if (in != NULL)
 		memcpy(send_buf->u.cmd.variable, &in->ifa_address, 4);
 
-	mutex_lock(&wlan_sipc->cmd_lock);
 	pr_debug(SIPC_PRI "enter ps cmd send\n");
+	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
-	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE + 4,
+	    wlan_sipc_cmd_send(wlan_sipc, SPRDWL_CMD_HDR_SIZE + 4,
 			       CMD_TYPE_SET, WIFI_CMD_PM_ENTER_PS);
 
 	if (ret) {
@@ -1343,14 +1329,14 @@ int itm_wlan_pm_enter_ps_cmd(struct itm_priv *itm_priv)
 	return 0;
 }
 
-int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
+int sprdwl_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
 {
 	int ret;
 
-	mutex_lock(&wlan_sipc->cmd_lock);
 	pr_debug(SIPC_PRI "exit ps cmd send\n");
+	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
-	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
+	    wlan_sipc_cmd_send(wlan_sipc, SPRDWL_CMD_HDR_SIZE, CMD_TYPE_SET,
 			       WIFI_CMD_PM_EXIT_PS);
 
 	if (ret) {
@@ -1363,15 +1349,15 @@ int itm_wlan_pm_exit_ps_cmd(struct wlan_sipc *wlan_sipc)
 	return 0;
 }
 
-int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
+int sprdwl_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 {
 	int ret;
 	u16 status;
 
-	mutex_lock(&wlan_sipc->cmd_lock);
 	pr_debug(SIPC_PRI "early suspend cmd send\n");
+	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
-	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
+	    wlan_sipc_cmd_send(wlan_sipc, SPRDWL_CMD_HDR_SIZE, CMD_TYPE_SET,
 			       WIFI_CMD_PM_EARLY_SUSPEND);
 
 	if (ret) {
@@ -1380,10 +1366,11 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 		return ret;
 	}
 
-	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
+	ret = wlan_sipc_cmd_receive(wlan_sipc, SPRDWL_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_PM_EARLY_SUSPEND);
 	if (ret) {
-		pr_err(SIPC_PRI "early suspend cmd recv error,ret %d\n", ret);
+		pr_err(SIPC_PRI "early suspend cmd recv error with ret is %d\n",
+		       ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1400,15 +1387,15 @@ int itm_wlan_pm_early_suspend_cmd(struct wlan_sipc *wlan_sipc)
 	return 0;
 }
 
-int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
+int sprdwl_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 {
 	int ret;
 	u16 status;
 
-	mutex_lock(&wlan_sipc->cmd_lock);
 	pr_debug(SIPC_PRI "later resume cmd send\n");
+	mutex_lock(&wlan_sipc->cmd_lock);
 	ret =
-	    wlan_sipc_cmd_send(wlan_sipc, ITM_WLAN_CMD_HDR_SIZE, CMD_TYPE_SET,
+	    wlan_sipc_cmd_send(wlan_sipc, SPRDWL_CMD_HDR_SIZE, CMD_TYPE_SET,
 			       WIFI_CMD_PM_LATER_RESUME);
 
 	if (ret) {
@@ -1417,10 +1404,11 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 		return ret;
 	}
 
-	ret = wlan_sipc_cmd_receive(wlan_sipc, ITM_WLAN_CMD_RESP_HDR_SIZE,
+	ret = wlan_sipc_cmd_receive(wlan_sipc, SPRDWL_CMD_RESP_HDR_SIZE,
 				    WIFI_CMD_PM_LATER_RESUME);
 	if (ret) {
-		pr_err(SIPC_PRI "later resume cmd recv error,ret %d\n", ret);
+		pr_err(SIPC_PRI "later resume cmd recv error with ret is %d\n",
+		       ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return ret;
 	}
@@ -1437,7 +1425,7 @@ int itm_wlan_pm_later_resume_cmd(struct wlan_sipc *wlan_sipc)
 	return 0;
 }
 
-int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom, u16 len)
+int sprdwl_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom, u16 len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_regdom *regdom_ptr =
@@ -1449,13 +1437,13 @@ int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom, u16 len)
 	regdom_ptr->len = len;
 	memcpy(regdom_ptr->value, regdom, len);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(regdom_ptr->len) + len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_REGDOM);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_REGDOM);
 
 	if (ret) {
-		pr_err(SIPC_PRI "%s command error %d\n", __func__, ret);
+		pr_err(SIPC_PRI "command error %d\n", ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
@@ -1465,7 +1453,7 @@ int itm_wlan_set_regdom_cmd(struct wlan_sipc *wlan_sipc, u8 *regdom, u16 len)
 	return 0;
 }
 
-void itm_wlan_get_ap_time(u8 *ts)
+void sprdwl_get_ap_time(u8 *ts)
 {
 	unsigned long long t;
 	unsigned long ms;
@@ -1477,10 +1465,43 @@ void itm_wlan_get_ap_time(u8 *ts)
 	memcpy(ts, &t, 4);
 	memcpy(ts + 4, &ms, 4);
 }
-#ifdef CONFIG_ITM_WIFI_DIRECT
-int itm_wlan_set_tx_mgmt_cmd(struct wlan_sipc *wlan_sipc,
-			     struct ieee80211_channel *channel,
-			     unsigned int wait, const u8 *mac, size_t mac_len)
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+int sprdwl_set_scan_chan_cmd(struct wlan_sipc *wlan_sipc,
+			     u8 *channel_info, int len)
+{
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	int send_len = 0;
+	int ret;
+
+	pr_debug("set channels!\n");
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	if (channel_info && (len > 0)) {
+		memcpy(send_buf->u.cmd.variable, channel_info, len);
+		send_len = len;
+	}
+
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + send_len;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret =
+	    sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				 WIFI_CMD_SCAN_CHANNELS);
+
+	if (ret) {
+		pr_err("%s command error %d\n", __func__, ret);
+		mutex_unlock(&wlan_sipc->cmd_lock);
+		return -EIO;
+	}
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+
+	return 0;
+}
+
+int sprdwl_set_tx_mgmt_cmd(struct wlan_sipc *wlan_sipc,
+			   struct ieee80211_channel *channel,
+			   unsigned int wait, const u8 *mac, size_t mac_len)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_mgmt_tx *mgmt_tx =
@@ -1498,25 +1519,26 @@ int itm_wlan_set_tx_mgmt_cmd(struct wlan_sipc *wlan_sipc,
 	mgmt_tx->len = mac_len;
 	memcpy(mgmt_tx->value, mac, mac_len);
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(struct wlan_sipc_mgmt_tx) + mac_len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_TX_MGMT);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET, WIFI_CMD_TX_MGMT);
 
 	if (ret) {
-		pr_err("tx_mgmt return wrong status code is %d\n", ret);
+		pr_err(SIPC_PRI "tx_mgmt return wrong status code is %d\n",
+		       ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
-	pr_debug("set tx mgmt return status code successfully\n");
+	pr_debug(SIPC_PRI "set tx mgmt return status code successfully\n");
 
 	return 0;
 }
 
-int itm_wlan_cancel_remain_chan_cmd(struct wlan_sipc *wlan_sipc, u64 cookie)
+int sprdwl_cancel_remain_chan_cmd(struct wlan_sipc *wlan_sipc, u64 cookie)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_cancel_remain_chan *cancel_remain_chan =
@@ -1527,29 +1549,31 @@ int itm_wlan_cancel_remain_chan_cmd(struct wlan_sipc *wlan_sipc, u64 cookie)
 
 	cancel_remain_chan->cookie = cookie;
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(struct wlan_sipc_cancel_remain_chan);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_CANCEL_REMAIN_CHAN);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				   WIFI_CMD_CANCEL_REMAIN_CHAN);
 
 	if (ret) {
-		pr_err("cancel remain on_chan return wrong status code is %d\n",
+		pr_err(SIPC_PRI
+		       "cancel remain on_chan return wrong status code is %d\n",
 		       ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
-	pr_debug("cancel remain channel return status code successfully\n");
+	pr_debug(SIPC_PRI
+		 "cancel remain channel return status code successfully\n");
 
 	return 0;
 }
 
-int itm_wlan_remain_chan_cmd(struct wlan_sipc *wlan_sipc,
-			     struct ieee80211_channel *channel,
-			     enum nl80211_channel_type channel_type,
-			     unsigned int duration, u64 *cookie)
+int sprdwl_remain_chan_cmd(struct wlan_sipc *wlan_sipc,
+			   struct ieee80211_channel *channel,
+			   enum nl80211_channel_type channel_type,
+			   unsigned int duration, u64 *cookie)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_remain_chan *remain_chan =
@@ -1566,23 +1590,24 @@ int itm_wlan_remain_chan_cmd(struct wlan_sipc *wlan_sipc,
 	remain_chan->duraion = duration;
 	remain_chan->cookie = *cookie;
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE
 	    + sizeof(struct wlan_sipc_remain_chan);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				     WIFI_CMD_REMAIN_CHAN);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				   WIFI_CMD_REMAIN_CHAN);
 
 	if (ret) {
-		pr_err("remain_chan return wrong status code is %d\n", ret);
+		pr_err(SIPC_PRI "remain_chan return wrong status code is %d\n",
+		       ret);
 		mutex_unlock(&wlan_sipc->cmd_lock);
 		return -EIO;
 	}
 
 	mutex_unlock(&wlan_sipc->cmd_lock);
 
-	pr_debug("remain channel return status code successfully\n");
+	pr_debug(SIPC_PRI "remain channel return status code successfully\n");
 
 	return 0;
 }
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
-#endif				/*CONFIG_ITM_WIFI_DIRECT */

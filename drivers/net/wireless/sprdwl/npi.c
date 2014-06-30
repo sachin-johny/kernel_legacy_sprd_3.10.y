@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_npi.c
+ * Filename : npi.c
  * Abstract : This file is a implementation for npi subsystem
  *
  * Authors	:
@@ -22,16 +22,15 @@
 #include <linux/sipc.h>
 
 #include "sipc.h"
-#include "ittiam.h"
+#include "sprdwl.h"
 #include "cfg80211.h"
 #include "npi.h"
-#include "nlnpi.h"
 
 static int nlnpi_pre_doit(struct genl_ops *ops, struct sk_buff *skb,
 			  struct genl_info *info)
 {
 	struct net_device *ndev;
-	struct itm_priv *priv;
+	struct sprdwl_priv *priv;
 	int ifindex;
 
 	if (info->attrs[NLNPI_ATTR_IFINDEX]) {
@@ -70,8 +69,8 @@ static struct genl_family npi_genl_family = {
 	.post_doit = nlnpi_post_doit,
 };
 
-int itm_wlan_npi_cmd(struct wlan_sipc *wlan_sipc, u8 type,
-		     u8 id, u16 s_len, u16 r_len, u8 *s_buf, u8 *r_buf)
+int sprdwl_npi_cmd(struct wlan_sipc *wlan_sipc, u8 type,
+		   u8 id, u16 s_len, u16 r_len, u8 *s_buf, u8 *r_buf)
 {
 	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
 	struct wlan_sipc_npi *npi =
@@ -108,9 +107,9 @@ int itm_wlan_npi_cmd(struct wlan_sipc *wlan_sipc, u8 type,
 		recv_len = 0;
 	}
 
-	wlan_sipc->wlan_sipc_send_len = ITM_WLAN_CMD_HDR_SIZE + send_len;
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE + recv_len;
-	ret = itm_wlan_cmd_send_recv(wlan_sipc, type, WIFI_CMD_NPI);
+	wlan_sipc->wlan_sipc_send_len = SPRDWL_CMD_HDR_SIZE + send_len;
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE + recv_len;
+	ret = sprdwl_cmd_send_recv(wlan_sipc, type, WIFI_CMD_NPI);
 
 	if (ret) {
 		pr_err("npi return wrong status code is %d\n", ret);
@@ -147,7 +146,7 @@ static int npi_nl_send_generic(struct genl_info *info, u8 attr,
 		return -ENOMEM;
 
 	hdr = genlmsg_put(skb, info->snd_portid, info->snd_seq,
-			&npi_genl_family, 0, cmd);
+			  &npi_genl_family, 0, cmd);
 	if (IS_ERR(hdr)) {
 		ret = PTR_ERR(hdr);
 		goto err_put;
@@ -162,7 +161,6 @@ err_put:
 	nlmsg_free(skb);
 	return ret;
 
-nla_put_failure:
 	genlmsg_cancel(skb, hdr);
 	nlmsg_free(skb);
 	return -EMSGSIZE;
@@ -172,7 +170,7 @@ nla_put_failure:
 static int npi_ ## name ## _cmd(struct sk_buff *skb_2,	\
 			 struct genl_info *info)	\
 {							\
-	struct itm_priv *priv;				\
+	struct sprdwl_priv *priv;				\
 	int ret = -EINVAL;				\
 	int attr_len = 0;				\
 	char *attr_data = NULL;				\
@@ -188,10 +186,10 @@ static int npi_ ## name ## _cmd(struct sk_buff *skb_2,	\
 		attr_data = nla_data(info->attrs[attr]);\
 		attr_len = nla_len(info->attrs[attr]);	\
 	}						\
-	ret = itm_wlan_npi_cmd(priv->wlan_sipc, CMD_TYPE_SET,	\
+	ret = sprdwl_npi_cmd(priv->wlan_sipc, CMD_TYPE_SET,	\
 			       npi_cmd, attr_len, 0, attr_data, NULL);\
 	if (ret != 0)						\
-		pr_err("npi_" #name ": itm_wlan_npi_cmd failed\n");\
+		pr_err("npi_" #name ": sprdwl_npi_cmd failed\n");\
 							\
 out:							\
 	ret = npi_nl_send_generic(info, NLNPI_ATTR_REPLY_STATUS,\
@@ -221,24 +219,21 @@ NPI_SET_CMD(start_rx_data, NPI_CMD_RX_START, NLNPI_CMD_RX_START,
 	    NLNPI_ATTR_RX_START)
 NPI_SET_CMD(stop_rx_data, NPI_CMD_RX_STOP, NLNPI_CMD_RX_STOP,
 	    NLNPI_ATTR_RX_STOP)
-NPI_SET_CMD(set_debug, NPI_CMD_DEBUG, NLNPI_CMD_SET_DEBUG,
-	    NLNPI_ATTR_SET_DEBUG)
+NPI_SET_CMD(set_debug, NPI_CMD_DEBUG, NLNPI_CMD_SET_DEBUG, NLNPI_ATTR_SET_DEBUG)
 NPI_SET_CMD(get_sblock, NPI_CMD_GET_SBLOCK, NLNPI_CMD_GET_SBLOCK,
 	    NLNPI_ATTR_SBLOCK_ARG)
-NPI_SET_CMD(sin_wave, NPI_CMD_SIN_WAVE, NLNPI_CMD_SIN_WAVE,
-	    NLNPI_ATTR_SIN_WAVE)
+NPI_SET_CMD(sin_wave, NPI_CMD_SIN_WAVE, NLNPI_CMD_SIN_WAVE, NLNPI_ATTR_SIN_WAVE)
 NPI_SET_CMD(lna_on, NPI_CMD_LNA_ON, NLNPI_CMD_LNA_ON, NLNPI_ATTR_LNA_ON)
 NPI_SET_CMD(lna_off, NPI_CMD_LNA_OFF, NLNPI_CMD_LNA_OFF, NLNPI_ATTR_LNA_OFF)
 NPI_SET_CMD(speed_up, NPI_CMD_SPEED_UP, NLNPI_CMD_SPEED_UP, NLNPI_ATTR_SPEED_UP)
 NPI_SET_CMD(speed_down, NPI_CMD_SPEED_DOWN,
-		NLNPI_CMD_SPEED_DOWN, NLNPI_ATTR_SPEED_DOWN)
-
+	    NLNPI_CMD_SPEED_DOWN, NLNPI_ATTR_SPEED_DOWN)
 
 #define NPI_GET_CMD(name, npi_cmd, nl_cmd, attr, arg_attr)	\
 static int npi_ ## name ## _cmd(struct sk_buff *skb_2,		\
 			 struct genl_info *info)		\
 {								\
-	struct itm_priv *priv;					\
+	struct sprdwl_priv *priv;					\
 	unsigned char data[1024];				\
 	int attr_len = 0;					\
 	int arg_attr_len = 0;					\
@@ -268,11 +263,11 @@ static int npi_ ## name ## _cmd(struct sk_buff *skb_2,		\
 		arg_attr_len = nla_len(info->attrs[arg_attr]);  \
 	}							\
 								\
-	ret = itm_wlan_npi_cmd(priv->wlan_sipc, CMD_TYPE_GET,	\
+	ret = sprdwl_npi_cmd(priv->wlan_sipc, CMD_TYPE_GET,	\
 			       npi_cmd, arg_attr_len, attr_len, \
 			       arg_attr_data, data);		\
 	if (ret != 0) {						\
-		pr_err("" #name ": itm_wlan_npi_cmd failed\n");	\
+		pr_err("" #name ": sprdwl_npi_cmd failed\n");	\
 		return -EIO;					\
 	}							\
 								\
@@ -300,7 +295,7 @@ NPI_GET_CMD(get_reg, NPI_CMD_REG, NLNPI_CMD_GET_REG, NLNPI_ATTR_GET_REG,
 NPI_GET_CMD(get_debug, NPI_CMD_DEBUG, NLNPI_CMD_GET_DEBUG, NLNPI_ATTR_GET_DEBUG,
 	    NLNPI_ATTR_GET_DEBUG_ARG)
 NPI_GET_CMD(get_lna_status, NPI_CMD_GET_LNA_STATUS, NLNPI_CMD_GET_LNA_STATUS,
-	NLNPI_ATTR_GET_LNA_STATUS, NLNPI_ATTR_GET_NO_ARG)
+	    NLNPI_ATTR_GET_LNA_STATUS, NLNPI_ATTR_GET_NO_ARG)
 
 static int sblock_tx(unsigned int len, char data)
 {
@@ -308,9 +303,7 @@ static int sblock_tx(unsigned int len, char data)
 	int ret = -EINVAL;
 	int i;
 
-	/*
-	 * Get a free sblock.
-	 */
+	/*Get a free sblock*/
 	ret = sblock_get(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 	if (ret) {
 		pr_err("Failed to get free sblock (%d)\n", ret);
@@ -371,7 +364,7 @@ static int npi_tx_sblock(struct sk_buff *skb_2, struct genl_info *info)
 
 static int npi_stop_cmd(struct sk_buff *skb_2, struct genl_info *info)
 {
-	struct itm_priv *priv;
+	struct sprdwl_priv *priv;
 	int ret = -EINVAL;
 
 	if (info == NULL)
@@ -381,9 +374,9 @@ static int npi_stop_cmd(struct sk_buff *skb_2, struct genl_info *info)
 	if (priv == NULL)
 		goto out;
 
-	ret = itm_wlan_mac_close_cmd(priv->wlan_sipc, ITM_NPI_MODE);
+	ret = sprdwl_mac_close_cmd(priv->wlan_sipc, SPRDWL_NPI_MODE);
 	if (ret != 0) {
-		pr_err("npi_stop_npi: itm_wlan_mac_close_cmd failed\n");
+		pr_err("npi_stop_npi: sprdwl_mac_close_cmd failed\n");
 		goto out;
 	}
 
@@ -396,7 +389,7 @@ out:
 
 static int npi_start_cmd(struct sk_buff *skb_2, struct genl_info *info)
 {
-	struct itm_priv *priv;
+	struct sprdwl_priv *priv;
 	int ret = -EINVAL;
 
 	if (info == NULL)
@@ -406,10 +399,10 @@ static int npi_start_cmd(struct sk_buff *skb_2, struct genl_info *info)
 	if (priv == NULL)
 		goto out;
 
-	ret = itm_wlan_mac_open_cmd(priv->wlan_sipc,
-				    ITM_NPI_MODE, priv->ndev->dev_addr);
+	ret = sprdwl_mac_open_cmd(priv->wlan_sipc,
+				  SPRDWL_NPI_MODE, priv->ndev->dev_addr);
 	if (ret != 0) {
-		pr_err("npi_start_npi: itm_wlan_mac_open_cmd failed\n");
+		pr_err("npi_start_npi: sprdwl_mac_open_cmd failed\n");
 		goto out;
 	}
 
@@ -575,52 +568,52 @@ static struct genl_ops npi_ops[] = {
 	 .cmd = NLNPI_CMD_SET_DEBUG,
 	 .policy = npi_genl_policy,
 	 .doit = npi_set_debug_cmd,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_GET_DEBUG,
 	 .policy = npi_genl_policy,
 	 .doit = npi_get_debug_cmd,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_SET_SBLOCK,
 	 .policy = npi_genl_policy,
 	 .doit = npi_tx_sblock,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_GET_SBLOCK,
 	 .policy = npi_genl_policy,
 	 .doit = npi_get_sblock_cmd,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_SIN_WAVE,
 	 .policy = npi_genl_policy,
 	 .doit = npi_sin_wave_cmd,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_LNA_ON,
 	 .policy = npi_genl_policy,
 	 .doit = npi_lna_on_cmd,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_LNA_OFF,
 	 .policy = npi_genl_policy,
 	 .doit = npi_lna_off_cmd,
-	},
+	 },
 	{
 	 .cmd = NLNPI_CMD_GET_LNA_STATUS,
 	 .policy = npi_genl_policy,
 	 .doit = npi_get_lna_status_cmd,
-	},
+	 },
 	{
-	.cmd = NLNPI_CMD_SPEED_UP,
-	.policy = npi_genl_policy,
-	.doit = npi_speed_up_cmd,
-	},
+	 .cmd = NLNPI_CMD_SPEED_UP,
+	 .policy = npi_genl_policy,
+	 .doit = npi_speed_up_cmd,
+	 },
 	{
-	.cmd = NLNPI_CMD_SPEED_DOWN,
-	.policy = npi_genl_policy,
-	.doit = npi_speed_down_cmd,
-	},
+	 .cmd = NLNPI_CMD_SPEED_DOWN,
+	 .policy = npi_genl_policy,
+	 .doit = npi_speed_down_cmd,
+	 },
 };
 
 int npi_init_netlink(void)

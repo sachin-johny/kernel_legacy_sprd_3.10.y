@@ -1316,7 +1316,7 @@ CONFIG_WLAN_SDIO=y
 # CONFIG_LIBERTAS is not set
 # CONFIG_WL_TI is not set
 # CONFIG_MWIFIEX is not set
-# CONFIG_ITTIAM is not set
+# CONFIG_SPRDWL is not set
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers

@@ -2,8 +2,6 @@
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
  * Filename : wapi.h
- * Abstract : This file is a definition of wapi decryption
- *            and encryption
  *
  * Authors      :
  * Wenjie.Zhang <Wenjie.Zhang@spreadtrum.com>
@@ -18,10 +16,10 @@
  * GNU General Public License for more details.
  */
 
-#ifndef WAPI_H
-#define WAPI_H
+#ifndef __WAPI_H__
+#define __WAPI_H__
 
-#include "ittiam.h"
+#include "sprdwl.h"
 
 #ifndef false
 #define false 0
@@ -94,12 +92,12 @@
 #define MAC_UDP_DATA_LEN          1472
 #define MAX_UDP_IP_PKT_LEN        (MAC_UDP_DATA_LEN + UDP_DATA_OFFSET)
 
-extern unsigned short wlan_tx_wapi_encryption(struct itm_priv *priv,
+extern unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 					      unsigned char *data,
 					      unsigned short data_len,
 					      unsigned char *ouput_buf);
 
-extern unsigned short wlan_rx_wapi_decryption(struct itm_priv *priv,
+extern unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
 					      unsigned char *input_ptk,
 					      unsigned short header_len,
 					      unsigned short data_len,
@@ -116,7 +114,8 @@ static inline bool is_group(unsigned char *addr)
 	return false;
 }
 
-static inline unsigned char *inc_wapi_pairwise_key_txrsc(struct itm_priv *priv)
+static inline unsigned char *inc_wapi_pairwise_key_txrsc(struct sprdwl_priv
+							 *priv)
 {
 	int i;
 
@@ -133,28 +132,28 @@ static inline unsigned char *inc_wapi_pairwise_key_txrsc(struct itm_priv *priv)
 	return priv->key_txrsc[1];
 }
 
-static inline unsigned char *mget_wapi_group_pkt_key(struct itm_priv *priv,
+static inline unsigned char *mget_wapi_group_pkt_key(struct sprdwl_priv *priv,
 						     int index)
 {
 	return (index >= 3) ? NULL : priv->key[0][index];
 }
 
-static inline unsigned char *mget_wapi_pairwise_pkt_key(struct itm_priv *priv,
-						 int index)
+static inline unsigned char *mget_wapi_pairwise_pkt_key(struct sprdwl_priv
+							*priv, int index)
 {
 	return (index >= 3) ? NULL : priv->key[1][index];
 }
 
-static inline unsigned char *mget_wapi_group_mic_key(struct itm_priv *priv,
+static inline unsigned char *mget_wapi_group_mic_key(struct sprdwl_priv *priv,
 						     int index)
 {
 	return (index >= 3) ? NULL : ((u8 *)priv->key[0][index] + 16);
 }
 
-static inline unsigned char *mget_wapi_pairwise_mic_key(struct itm_priv *priv,
-						 int index)
+static inline unsigned char *mget_wapi_pairwise_mic_key(struct sprdwl_priv
+							*priv, int index)
 {
 	return (index >= 3) ? NULL : ((u8 *)priv->key[1][index] + 16);
 }
 
-#endif /* WAPI_H */
+#endif /* __WAPI_H__ */

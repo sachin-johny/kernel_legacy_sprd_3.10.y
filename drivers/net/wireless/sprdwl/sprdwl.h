@@ -14,46 +14,44 @@
  * GNU General Public License for more details.
  */
 
-/*
- * Device instance data.
- */
-
-#ifndef __ITTIAM_H__
-#define __ITTIAM_H__
+#ifndef __SPRDWL_H__
+#define __SPRDWL_H__
 
 #include <linux/netdevice.h>
 #include <linux/spinlock.h>
 #include <linux/netdevice.h>
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
-#include <linux/if_ether.h>
-#include <linux/wakelock.h>
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
 #include <linux/earlysuspend.h>
 #endif
 
-#include "sipc_types.h"
+#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+#define STR2MAC(a) (unsigned int *)&(a)[0], (unsigned int *)&(a)[1], \
+	(unsigned int *)&(a)[2], (unsigned int *)&(a)[3], \
+	(unsigned int *)&(a)[4], (unsigned int *)&(a)[5]
 
 #define TX_FLOW_LOW	5
 #define TX_FLOW_HIGH	10
 #define TX_SBLOCK_NUM   64
 
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 #define FW_ZEROCOPY	0x80
 #endif
 
-struct itm_priv {
+struct sprdwl_priv {
 	struct net_device *ndev;	/* Linux net device */
 	struct wireless_dev *wdev;	/* Linux wireless device */
 	struct napi_struct napi;
 	bool pm_status;
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
-	struct early_suspend	early_suspend;
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
+	struct early_suspend early_suspend;
 #endif
 
-	atomic_t stopped;		/* sblock indicator */
-	int txrcnt;			/* tx resend count */
-	int tx_free;			/* tx flow control */
+	atomic_t stopped;	/* sblock indicator */
+	int txrcnt;		/* tx resend count */
+	int tx_free;		/* tx flow control */
 	struct wlan_sipc *wlan_sipc;	/* hook of sipc command ops */
 
 	int cp2_status;
@@ -61,7 +59,7 @@ struct itm_priv {
 	/* CFG80211 */
 	struct cfg80211_scan_request *scan_request;
 	spinlock_t scan_lock;
-	struct timer_list scan_timeout; /* Timer for catch scan event timeout */
+	struct timer_list scan_timeout;	/* Timer for catch scan event timeout */
 	int connect_status;
 	int mode;
 	int ssid_len;
@@ -74,14 +72,14 @@ struct itm_priv {
 	u8 key[2][4][WLAN_MAX_KEY_LEN];
 	u8 key_len[2][4];
 	u8 key_txrsc[2][WLAN_MAX_KEY_LEN];
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	struct work_struct work;
 	u16 frame_type;
 	bool reg;
 	int p2p_mode;
 	struct ieee80211_channel listen_channel;
 	u64 listen_cookie;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif	/* CONFIG_SPRDWL_WIFI_DIRECT */
 };
 
-#endif/*__ITTIAM_H__*/
+#endif/*__SPRDWL_H__*/

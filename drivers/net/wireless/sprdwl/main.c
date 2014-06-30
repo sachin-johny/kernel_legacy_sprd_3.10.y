@@ -33,41 +33,35 @@
 #include <asm/byteorder.h>
 #include <linux/platform_device.h>
 #include <linux/suspend.h>
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
 #include <linux/earlysuspend.h>
 #endif
-
-
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_device.h>
 #endif
-
 #include <linux/sipc.h>
 #include <linux/atomic.h>
 
 #include <linux/sprd_2351.h>
 
-#include "ittiam.h"
+#include "sprdwl.h"
 #include "sipc.h"
 #include "cfg80211.h"
 #include "npi.h"
 #include "wapi.h"
 
-#define ITM_DEV_NAME		"itm_wlan"
-#define ITM_INTF_NAME		"wlan%d"
+#define SPRDWL_DEV_NAME		"sprd_wlan"
+#define SPRDWL_INTF_NAME		"wlan%d"
 
 #define SETH_RESEND_MAX_NUM	10
 #define SIOGETSSID		0x89F2
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 #define SIPC_TRANS_OFFSET	50
 #endif
 
-#ifndef CONFIG_OF
-/*
- * Tx_ready handler.
- */
-static void itm_wlan_tx_ready_handler(struct itm_priv *priv)
+/*Tx_ready handler*/
+static void sprdwl_tx_ready_handler(struct sprdwl_priv *priv)
 {
 	if (!netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
@@ -75,10 +69,8 @@ static void itm_wlan_tx_ready_handler(struct itm_priv *priv)
 	}
 }
 
-/*
- * Tx_open handler.
- */
-static void itm_wlan_tx_open_handler(struct itm_priv *priv)
+/*Tx_open handler*/
+static void sprdwl_tx_open_handler(struct sprdwl_priv *priv)
 {
 	if (!netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
@@ -86,28 +78,25 @@ static void itm_wlan_tx_open_handler(struct itm_priv *priv)
 	}
 }
 
-/*
- * Tx_close handler.
- */
-static void itm_wlan_tx_close_handler(struct itm_priv *priv)
+/*Tx_close handler*/
+static void sprdwl_tx_close_handler(struct sprdwl_priv *priv)
 {
 	if (netif_carrier_ok(priv->ndev)) {
 		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
 		netif_carrier_off(priv->ndev);
 	}
 }
-#endif
 
-static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
+static int sprdwl_rx_handler(struct napi_struct *napi, int budget)
 {
-	struct itm_priv *priv = container_of(napi, struct itm_priv, napi);
+	struct sprdwl_priv *priv = container_of(napi, struct sprdwl_priv, napi);
 	struct sblock blk;
 	struct sk_buff *skb;
 	int ret, work_done;
 	u16 decryp_data_len = 0;
 	struct wlan_sblock_recv_data *data;
 	uint32_t length = 0;
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 	u8 offset = 0;
 #endif
 	for (work_done = 0; work_done < budget; work_done++) {
@@ -116,7 +105,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			dev_dbg(&priv->ndev->dev, "no more sblock to read\n");
 			break;
 		}
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 		offset = *(u8 *)blk.addr;
 		length = blk.length - 2 - offset;
 #else
@@ -130,21 +119,21 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 			priv->ndev->stats.rx_dropped++;
 			goto rx_failed;
 		}
-
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 		data = (struct wlan_sblock_recv_data *)(blk.addr + 2 + offset);
 #else
 		data = (struct wlan_sblock_recv_data *)blk.addr;
 #endif
 
 		if (data->is_encrypted == 1) {
-			if (priv->connect_status == ITM_CONNECTED &&
+			if (priv->connect_status == SPRDWL_CONNECTED &&
 			    priv->cipher_type == SPRDWL_CIPHER_WAPI &&
 			    priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&
-			    priv->key_len[PAIRWISE][priv->
-						    key_index[PAIRWISE]] != 0) {
-				u8 snap_header[6] = {0xaa, 0xaa, 0x03,
-						     0x00, 0x00, 0x00};
+			    priv->
+			    key_len[PAIRWISE][priv->key_index[PAIRWISE]] != 0) {
+				u8 snap_header[6] = { 0xaa, 0xaa, 0x03,
+					0x00, 0x00, 0x00
+				};
 				skb_reserve(skb, NET_IP_ALIGN);
 				decryp_data_len = wlan_rx_wapi_decryption(priv,
 						   (u8 *)&data->u2.encrypt,
@@ -156,7 +145,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 						   (skb->data + 12));
 				if (decryp_data_len == 0) {
 					dev_err(&priv->ndev->dev,
-						"wapi data decryption failed!\n");
+						"Failed to decrypt WAPI data!\n");
 					priv->ndev->stats.rx_dropped++;
 					dev_kfree_skb(skb);
 					goto rx_failed;
@@ -202,7 +191,7 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 				 sizeof(data->u1)));
 		} else {
 			dev_err(&priv->ndev->dev,
-				"wrong data fromat recieve!\n");
+				"wrong data fromat recieved!\n");
 			priv->ndev->stats.rx_dropped++;
 			dev_kfree_skb(skb);
 			goto rx_failed;
@@ -215,19 +204,19 @@ static int itm_wlan_rx_handler(struct napi_struct *napi, int budget)
 #endif
 		skb->dev = priv->ndev;
 		skb->protocol = eth_type_trans(skb, priv->ndev);
-		/*not supported by our hardware */
-		/*skb->ip_summed = CHECKSUM_UNNECESSARY; */
+		/* CHECKSUM_UNNECESSARY not supported by our hardware */
+		/* skb->ip_summed = CHECKSUM_UNNECESSARY; */
 
 		priv->ndev->stats.rx_packets++;
 		priv->ndev->stats.rx_bytes += skb->len;
 
-		napi_gro_receive(napi , skb);
+		napi_gro_receive(napi, skb);
 
 rx_failed:
 		ret = sblock_release(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 		if (ret)
 			dev_err(&priv->ndev->dev,
-				"Failed to release sblock (%d)\n", ret);
+				"Failed to release sblock (%d)!\n", ret);
 	}
 	if (work_done < budget)
 		napi_complete(napi);
@@ -235,11 +224,11 @@ rx_failed:
 	return work_done;
 }
 
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 /*
  * Tx_flow_control handler.
  */
-static void itm_tx_flow_control_handler(struct itm_priv *priv)
+static void sprdwl_tx_flow_control_handler(struct sprdwl_priv *priv)
 {
 	if (priv->tx_free > TX_FLOW_HIGH) {
 		dev_dbg(&priv->ndev->dev, "tx flow control send data\n");
@@ -249,14 +238,14 @@ static void itm_tx_flow_control_handler(struct itm_priv *priv)
 }
 #endif
 
-static void itm_wlan_handler(int event, void *data)
+static void sprdwl_handler(int event, void *data)
 {
-	struct itm_priv *priv = (struct itm_priv *)data;
+	struct sprdwl_priv *priv = (struct sprdwl_priv *)data;
 
 	switch (event) {
 	case SBLOCK_NOTIFY_GET:
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
-		itm_tx_flow_control_handler(priv);
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
+		sprdwl_tx_flow_control_handler(priv);
 #endif
 		priv->tx_free++;
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_GET is received\n");
@@ -268,38 +257,35 @@ static void itm_wlan_handler(int event, void *data)
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
 #ifndef CONFIG_OF
-		itm_wlan_tx_ready_handler(priv);
+		sprdwl_tx_ready_handler(priv);
 #endif
 		break;
 	case SBLOCK_NOTIFY_OPEN:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_OPEN is received\n");
 #ifndef CONFIG_OF
-		itm_wlan_tx_open_handler(priv);
+		sprdwl_tx_open_handler(priv);
 #endif
 		break;
 	case SBLOCK_NOTIFY_CLOSE:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_CLOSE is received\n");
 #ifndef CONFIG_OF
-		itm_wlan_tx_close_handler(priv);
+		sprdwl_tx_close_handler(priv);
 #endif
 		break;
 	default:
-		dev_err(&priv->ndev->dev,
-			"data event is invalid(%d)\n", event);
+		dev_err(&priv->ndev->dev, "invalid data event (%d)\n", event);
 	}
 }
 
-/*
- * Transmit interface
- */
-static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
+/*Transmit interface*/
+static int sprdwl_start_xmit(struct sk_buff *skb, struct net_device *dev)
 {
-	struct itm_priv *priv = netdev_priv(dev);
+	struct sprdwl_priv *priv = netdev_priv(dev);
 	struct sblock blk;
 	int ret;
 	u8 *addr = NULL;
 
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 	if (priv->tx_free < TX_FLOW_LOW) {
 		dev_err(&dev->dev, "tx flow control full\n");
 		netif_stop_queue(dev);
@@ -307,12 +293,10 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_BUSY;
 	}
 #endif
-	/*
-	 * Get a free sblock.
-	 */
+	/*Get a free sblock.*/
 	ret = sblock_get(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk, 0);
 	if (ret) {
-		dev_err(&dev->dev, "Failed to get free sblock (%d)\n", ret);
+		dev_err(&dev->dev, "Failed to get free sblock (%d)!\n", ret);
 		netif_stop_queue(dev);
 		priv->ndev->stats.tx_fifo_errors++;
 		return NETDEV_TX_BUSY;
@@ -327,13 +311,13 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_OK;
 	}
 
-#ifdef CONFIG_ITM_WLAN_FW_ZEROCOPY
+#ifdef CONFIG_SPRDWL_FW_ZEROCOPY
 	addr = blk.addr + SIPC_TRANS_OFFSET;
 #else
 	addr = blk.addr;
 #endif
 	priv->tx_free--;
-	if (priv->connect_status == ITM_CONNECTED &&
+	if (priv->connect_status == SPRDWL_CONNECTED &&
 	    priv->cipher_type == SPRDWL_CIPHER_WAPI &&
 /*            priv->key_len[GROUP][priv->key_index[GROUP]] != 0 &&*/
 	    priv->key_len[PAIRWISE][priv->key_index[PAIRWISE]] != 0 &&
@@ -355,7 +339,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 #endif
 	ret = sblock_send(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 	if (ret) {
-		dev_err(&dev->dev, "Failed to send sblock (%d)\n", ret);
+		dev_err(&dev->dev, "Failed to send sblock (%d)!\n", ret);
 		sblock_put(WLAN_CP_ID, WLAN_SBLOCK_CH, &blk);
 		priv->tx_free++;
 		priv->ndev->stats.tx_fifo_errors++;
@@ -365,9 +349,7 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 		return NETDEV_TX_BUSY;
 	}
 
-	/*
-	 * Statistics.
-	 */
+	/*Statistics*/
 	priv->ndev->stats.tx_bytes += skb->len;
 	priv->ndev->stats.tx_packets++;
 	dev->trans_start = jiffies;
@@ -378,12 +360,10 @@ static int itm_wlan_start_xmit(struct sk_buff *skb, struct net_device *dev)
 	return NETDEV_TX_OK;
 }
 
-/*
- * Open interface
- */
-static int itm_wlan_open(struct net_device *dev)
+/*Open interface*/
+static int sprdwl_open(struct net_device *dev)
 {
-	struct itm_priv *priv = netdev_priv(dev);
+	struct sprdwl_priv *priv = netdev_priv(dev);
 
 	dev_info(&dev->dev, "%s\n", __func__);
 
@@ -393,13 +373,11 @@ static int itm_wlan_open(struct net_device *dev)
 	return 0;
 }
 
-/*
- * Close interface
- */
-static int itm_wlan_close(struct net_device *dev)
+/*Close interface*/
+static int sprdwl_close(struct net_device *dev)
 {
 	unsigned long flags;
-	struct itm_priv *priv = netdev_priv(dev);
+	struct sprdwl_priv *priv = netdev_priv(dev);
 
 	dev_info(&dev->dev, "%s\n", __func__);
 	napi_disable(&priv->napi);
@@ -417,12 +395,12 @@ static int itm_wlan_close(struct net_device *dev)
 	return 0;
 }
 
-static struct net_device_stats *itm_wlan_get_stats(struct net_device *dev)
+static struct net_device_stats *sprdwl_get_stats(struct net_device *dev)
 {
 	return &(dev->stats);
 }
 
-static void itm_wlan_tx_timeout(struct net_device *dev)
+static void sprdwl_tx_timeout(struct net_device *dev)
 {
 	dev_info(&dev->dev, "%s\n", __func__);
 	dev->trans_start = jiffies;
@@ -432,9 +410,9 @@ static void itm_wlan_tx_timeout(struct net_device *dev)
 #define CMD_BLACKLIST_ENABLE		"BLOCK"
 #define CMD_BLACKLIST_DISABLE		"UNBLOCK"
 
-int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
+int sprdwl_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 {
-	struct itm_priv *priv = netdev_priv(dev);
+	struct sprdwl_priv *priv = netdev_priv(dev);
 	int ret = 0;
 	char *command = NULL;
 	int bytes_written = 0;
@@ -454,7 +432,7 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 	command = kmalloc(priv_cmd.total_len, GFP_KERNEL);
 	if (!command) {
 		dev_err(&priv->wdev->netdev->dev,
-			"%s: failed to allocate memory\n", __func__);
+			"%s: Failed to allocate command!\n", __func__);
 		ret = -ENOMEM;
 		goto exit;
 	}
@@ -470,12 +448,9 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 		dev_err(&priv->wdev->netdev->dev,
 			"%s, Received regular blacklist enable command\n",
 			__func__);
-		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(addr[0]), (unsigned int *)&(addr[1]),
-		       (unsigned int *)&(addr[2]), (unsigned int *)&(addr[3]),
-		       (unsigned int *)&(addr[4]), (unsigned int *)&(addr[5]));
-		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
-							   addr, 1);
+		sscanf(command + skip, "" MACSTR "", STR2MAC(addr));
+		bytes_written = sprdwl_set_blacklist_cmd(priv->wlan_sipc,
+							 addr, 1);
 	} else if (strnicmp(command, CMD_BLACKLIST_DISABLE,
 			    strlen(CMD_BLACKLIST_DISABLE)) == 0) {
 		int skip = strlen(CMD_BLACKLIST_DISABLE) + 1;
@@ -483,12 +458,9 @@ int itm_priv_cmd(struct net_device *dev, struct ifreq *ifr)
 		dev_err(&priv->wdev->netdev->dev,
 			"%s, Received regular blacklist disable command\n",
 			__func__);
-		sscanf(command + skip, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(addr[0]), (unsigned int *)&(addr[1]),
-		       (unsigned int *)&(addr[2]), (unsigned int *)&(addr[3]),
-		       (unsigned int *)&(addr[4]), (unsigned int *)&(addr[5]));
-		bytes_written = itm_wlan_set_blacklist_cmd(priv->wlan_sipc,
-							   addr, 0);
+		sscanf(command + skip, "" MACSTR "", STR2MAC(addr));
+		bytes_written = sprdwl_set_blacklist_cmd(priv->wlan_sipc,
+							 addr, 0);
 	}
 
 	if (bytes_written < 0)
@@ -500,14 +472,14 @@ exit:
 	return ret;
 }
 
-static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
+static int sprdwl_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 {
-	struct itm_priv *priv = netdev_priv(dev);
+	struct sprdwl_priv *priv = netdev_priv(dev);
 	struct iwreq *wrq = (struct iwreq *)req;
 
 	switch (cmd) {
 	case SIOCDEVPRIVATE + 1:
-		return itm_priv_cmd(dev, req);
+		return sprdwl_priv_cmd(dev, req);
 		break;
 	case SIOGETSSID:
 		if (priv->ssid_len > 0) {
@@ -528,49 +500,49 @@ static int itm_wlan_ioctl(struct net_device *dev, struct ifreq *req, int cmd)
 	return 0;
 }
 
-static struct net_device_ops itm_wlan_ops = {
-	.ndo_open = itm_wlan_open,
-	.ndo_stop = itm_wlan_close,
-	.ndo_start_xmit = itm_wlan_start_xmit,
-	.ndo_get_stats = itm_wlan_get_stats,
-	.ndo_tx_timeout = itm_wlan_tx_timeout,
-	.ndo_do_ioctl = itm_wlan_ioctl,
+static struct net_device_ops sprdwl_ops = {
+	.ndo_open = sprdwl_open,
+	.ndo_stop = sprdwl_close,
+	.ndo_start_xmit = sprdwl_start_xmit,
+	.ndo_get_stats = sprdwl_get_stats,
+	.ndo_tx_timeout = sprdwl_tx_timeout,
+	.ndo_do_ioctl = sprdwl_ioctl,
 };
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
-static void itm_wlan_early_suspend(struct early_suspend *es)
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
+static void sprdwl_early_suspend(struct early_suspend *es)
 {
-	struct itm_priv *priv = container_of(es, struct itm_priv,
-					     early_suspend);
+	struct sprdwl_priv *priv = container_of(es, struct sprdwl_priv,
+						early_suspend);
 	int ret = 0;
 
 	dev_info(&priv->ndev->dev, "%s\n", __func__);
 
-	ret = itm_wlan_pm_early_suspend_cmd(priv->wlan_sipc);
+	ret = sprdwl_pm_early_suspend_cmd(priv->wlan_sipc);
 	if (ret)
-		dev_err(&priv->ndev->dev, "Failed to early suspend (%d)\n",
+		dev_err(&priv->ndev->dev, "Failed to early suspend (%d)!\n",
 			ret);
 }
 
-static void itm_wlan_late_resume(struct early_suspend *es)
+static void sprdwl_late_resume(struct early_suspend *es)
 {
-	struct itm_priv *priv = container_of(es, struct itm_priv,
-					     early_suspend);
+	struct sprdwl_priv *priv = container_of(es, struct sprdwl_priv,
+						early_suspend);
 	int ret = 0;
 
 	dev_info(&priv->ndev->dev, "%s\n", __func__);
 
-	ret = itm_wlan_pm_later_resume_cmd(priv->wlan_sipc);
+	ret = sprdwl_pm_later_resume_cmd(priv->wlan_sipc);
 	if (ret)
-		dev_err(&priv->ndev->dev, "Failed to late resume(%d)\n", ret);
+		dev_err(&priv->ndev->dev, "Failed to late resume(%d)!\n", ret);
 }
 #endif
 
 #ifdef CONFIG_PM
-static int itm_wlan_suspend(struct device *dev)
+static int sprdwl_suspend(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
-	struct itm_priv *priv = netdev_priv(ndev);
+	struct sprdwl_priv *priv = netdev_priv(ndev);
 	int ret = 0;
 
 	dev_info(dev, "%s\n", __func__);
@@ -582,22 +554,22 @@ static int itm_wlan_suspend(struct device *dev)
 		priv->pm_status = true;
 	}
 
-#ifdef CONFIG_ITM_WLAN_PM_POWERSAVE
+#ifdef CONFIG_SPRDWL_PM_POWERSAVE
 	netif_device_detach(ndev);
 	napi_disable(&priv->napi);
 
-	ret = itm_wlan_pm_enter_ps_cmd(priv);
+	ret = sprdwl_pm_enter_ps_cmd(priv);
 #endif
 	if (ret)
-		dev_err(dev, "Failed to suspend (%d)\n", ret);
+		dev_err(dev, "Failed to suspend (%d)!\n", ret);
 
 	return ret;
 }
 
-static int itm_wlan_resume(struct device *dev)
+static int sprdwl_resume(struct device *dev)
 {
 	struct net_device *ndev = dev_get_drvdata(dev);
-	struct itm_priv *priv = netdev_priv(ndev);
+	struct sprdwl_priv *priv = netdev_priv(ndev);
 	int ret = 0;
 
 	dev_info(dev, "%s\n", __func__);
@@ -606,11 +578,10 @@ static int itm_wlan_resume(struct device *dev)
 		mutex_unlock(&priv->wlan_sipc->pm_lock);
 		priv->pm_status = false;
 	}
-
-#ifdef CONFIG_ITM_WLAN_PM_POWERSAVE
-	ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
+#ifdef CONFIG_SPRDWL_PM_POWERSAVE
+	ret = sprdwl_pm_exit_ps_cmd(priv->wlan_sipc);
 	if (ret)
-		dev_err(dev, "Failed to resume (%d)\n", ret);
+		dev_err(dev, "Failed to resume (%d)!\n", ret);
 
 	napi_enable(&priv->napi);
 	netif_device_attach(ndev);
@@ -618,18 +589,18 @@ static int itm_wlan_resume(struct device *dev)
 	return ret;
 }
 
-static const struct dev_pm_ops itm_wlan_pm = {
-	.suspend = itm_wlan_suspend,
-	.resume = itm_wlan_resume,
+static const struct dev_pm_ops sprdwl_pm = {
+	.suspend = sprdwl_suspend,
+	.resume = sprdwl_resume,
 };
 #else
-static const struct dev_pm_ops itm_wlan_pm;
+static const struct dev_pm_ops sprdwl_pm;
 #endif
 
-static int itm_inetaddr_event(struct notifier_block *this,
-			      unsigned long event, void *ptr)
+static int sprdwl_inetaddr_event(struct notifier_block *this,
+				 unsigned long event, void *ptr)
 {
-	struct itm_priv *priv;
+	struct sprdwl_priv *priv;
 	struct net_device *dev;
 
 	struct in_ifaddr *ifa = (struct in_ifaddr *)ptr;
@@ -644,12 +615,12 @@ static int itm_inetaddr_event(struct notifier_block *this,
 	if (!priv)
 		goto done;
 
-	if (strncmp(dev->name, ITM_INTF_NAME, 4) != 0)
+	if (strncmp(dev->name, SPRDWL_INTF_NAME, 4) != 0)
 		goto done;
 
 	switch (event) {
 	case NETDEV_UP:
-		itm_wlan_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
+		sprdwl_get_ip_cmd(priv, (u8 *)&ifa->ifa_address);
 		break;
 	case NETDEV_DOWN:
 		break;
@@ -661,26 +632,56 @@ done:
 	return NOTIFY_DONE;
 }
 
-static struct notifier_block itm_inetaddr_cb = {
-	.notifier_call = itm_inetaddr_event,
+static struct notifier_block sprdwl_inetaddr_cb = {
+	.notifier_call = sprdwl_inetaddr_event,
 };
 
-/*
- * Initialize WLAN device.
- */
-static int itm_wlan_probe(struct platform_device *pdev)
+#define ENG_MAC_ADDR_PATH "/data/misc/wifi/wifimac.txt"
+int sprdwl_get_mac_from_cfg(struct sprdwl_priv *priv)
+{
+	struct file *fp = 0;
+	mm_segment_t fs;
+	loff_t *pos;
+	u8 file_data[64] = { 0 };
+	u8 mac_addr[18] = { 0 };
+	u8 *tmp_p = NULL;
+
+	fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
+	if (IS_ERR(fp))
+		return -ENOENT;
+
+	fs = get_fs();
+	set_fs(KERNEL_DS);
+
+	pos = &(fp->f_pos);
+	vfs_read(fp, file_data, sizeof(file_data), pos);
+	tmp_p = file_data;
+	if (tmp_p != NULL) {
+		memcpy(mac_addr, tmp_p, 18);
+		sscanf(mac_addr, "" MACSTR "", STR2MAC(priv->ndev->dev_addr));
+	}
+
+	filp_close(fp, NULL);
+	set_fs(fs);
+
+	return 0;
+}
+
+/*Initialize WLAN device*/
+static int sprdwl_probe(struct platform_device *pdev)
 {
 	struct net_device *ndev;
-	struct itm_priv *priv;
+	struct sprdwl_priv *priv;
 	int ret;
 
 	rf2351_gpio_ctrl_power_enable(1);
 	rf2351_vddwpa_ctrl_power_enable(1);
 
 	ndev =
-	    alloc_netdev(sizeof(struct itm_priv), ITM_INTF_NAME, ether_setup);
+	    alloc_netdev(sizeof(struct sprdwl_priv), SPRDWL_INTF_NAME,
+			 ether_setup);
 	if (!ndev) {
-		dev_err(&pdev->dev, "Failed to allocate net_device\n");
+		dev_err(&pdev->dev, "Failed to allocate net_device!\n");
 		ret = -ENOMEM;
 		goto out;
 	}
@@ -688,10 +689,10 @@ static int itm_wlan_probe(struct platform_device *pdev)
 	priv = netdev_priv(ndev);
 	priv->ndev = ndev;
 	atomic_set(&priv->stopped, 0);
-	ndev->netdev_ops = &itm_wlan_ops;
+	ndev->netdev_ops = &sprdwl_ops;
 	ndev->watchdog_timeo = 1 * HZ;
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	priv->p2p_mode = 0;
 	init_register_frame_param(priv);
 #endif
@@ -701,68 +702,68 @@ static int itm_wlan_probe(struct platform_device *pdev)
 	spin_lock_init(&priv->scan_lock);
 
 	/*FIXME: If get mac from cfg file error, got random addr */
-	ret = itm_get_mac_from_cfg(priv);
+	ret = sprdwl_get_mac_from_cfg(priv);
 	if (ret)
 		random_ether_addr(ndev->dev_addr);
-
-	ittiam_nvm_init();
+	dev_info(&pdev->dev, "%s BSSID=" MACSTR "", __func__,
+		 MAC2STR(ndev->dev_addr));
 #ifndef CONFIG_OF
 	ret = sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH,
-				       itm_wlan_handler, priv);
+				       sprdwl_handler, priv);
 	if (ret) {
 		dev_err(&pdev->dev,
-			"Failed to regitster sblock notifier (%d)\n", ret);
+			"Failed to regitster sblock notifier (%d)!\n", ret);
 		goto err_notify_sblock;
 	}
 #endif
-	ret = itm_register_wdev(priv, &pdev->dev);
+	ret = sprdwl_register_wdev(priv, &pdev->dev);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to register wiphy (%d)\n", ret);
+		dev_err(&pdev->dev, "Failed to register wiphy (%d)!\n", ret);
 		goto err_register_wdev;
 	}
 
-	netif_napi_add(ndev, &priv->napi, itm_wlan_rx_handler, 64);
+	netif_napi_add(ndev, &priv->napi, sprdwl_rx_handler, 64);
 
 	/* register new Ethernet interface */
 	ret = register_netdev(ndev);
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to regitster net_dev (%d)\n", ret);
+		dev_err(&pdev->dev, "Failed to regitster netdev (%d)!\n", ret);
 		goto err_register_netdev;
 	}
 
 	platform_set_drvdata(pdev, ndev);
 
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
-	priv->early_suspend.suspend = itm_wlan_early_suspend;
-	priv->early_suspend.resume = itm_wlan_late_resume;
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
+	priv->early_suspend.suspend = sprdwl_early_suspend;
+	priv->early_suspend.resume = sprdwl_late_resume;
 	priv->early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN - 1;
 	register_early_suspend(&priv->early_suspend);
 #endif
 
-	ret = register_inetaddr_notifier(&itm_inetaddr_cb);
+	ret = register_inetaddr_notifier(&sprdwl_inetaddr_cb);
 	if (ret) {
 		dev_err(&pdev->dev,
-			"Failed to register inetaddr notifier (%d)\n", ret);
+			"Failed to register inetaddr notifier (%d)!\n", ret);
 		goto err_register_inetaddr_notifier;
 	}
 
 	ret = npi_init_netlink();
 	if (ret) {
-		dev_err(&pdev->dev, "Failed to init npi netlink (%d)\n", ret);
+		dev_err(&pdev->dev, "Failed to init NPI netlink (%d)!\n", ret);
 		goto err_npi_netlink;
 	}
 #ifdef CONFIG_OF
-	ret = itm_wlan_sipc_sblock_init(WLAN_SBLOCK_CH, itm_wlan_handler, priv);
+	ret = sprdwl_sipc_sblock_init(WLAN_SBLOCK_CH, sprdwl_handler, priv);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init data sblock %d for wifi:%d\n",
-				WLAN_SBLOCK_CH, ret);
+			WLAN_SBLOCK_CH, ret);
 		goto err_init_data_sblock;
 	}
-	ret = itm_wlan_sipc_sblock_init(WLAN_EVENT_SBLOCK_CH,
+	ret = sprdwl_sipc_sblock_init(WLAN_EVENT_SBLOCK_CH,
 			wlan_sipc_sblock_handler, priv);
 	if (ret) {
 		dev_err(&pdev->dev, "Failed to init event sblock %d for wifi:%d\n",
-				WLAN_EVENT_SBLOCK_CH, ret);
+			WLAN_EVENT_SBLOCK_CH, ret);
 		goto err_event_sblock;
 	}
 #endif
@@ -771,20 +772,20 @@ static int itm_wlan_probe(struct platform_device *pdev)
 	return 0;
 #ifdef CONFIG_OF
 err_event_sblock:
-	itm_wlan_sipc_sblock_deinit(WLAN_SBLOCK_CH);
+	sprdwl_sipc_sblock_deinit(WLAN_SBLOCK_CH);
 err_init_data_sblock:
 	npi_exit_netlink();
 #endif
 err_npi_netlink:
-	unregister_inetaddr_notifier(&itm_inetaddr_cb);
+	unregister_inetaddr_notifier(&sprdwl_inetaddr_cb);
 err_register_inetaddr_notifier:
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
 	unregister_early_suspend(&priv->early_suspend);
 #endif
 	unregister_netdev(ndev);
 err_register_netdev:
 	netif_napi_del(&priv->napi);
-	itm_unregister_wdev(priv);
+	sprdwl_unregister_wdev(priv);
 err_register_wdev:
 #ifndef CONFIG_OF
 	sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH, NULL, NULL);
@@ -796,48 +797,44 @@ out:
 	return ret;
 }
 #ifdef CONFIG_OF
-static void itm_wlan_pre_remove(struct itm_priv *priv)
+static void sprdwl_pre_remove(struct sprdwl_priv *priv)
 {
-	itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
-	itm_wlan_sipc_sblock_deinit(WLAN_SBLOCK_CH);
-	itm_wlan_sipc_sblock_deinit(WLAN_EVENT_SBLOCK_CH);
+	sprdwl_mac_close_cmd(priv->wlan_sipc, priv->mode);
+	sprdwl_sipc_sblock_deinit(WLAN_SBLOCK_CH);
+	sprdwl_sipc_sblock_deinit(WLAN_EVENT_SBLOCK_CH);
 }
 #endif
 
-/*
- * Cleanup WLAN device.
- */
-static int itm_wlan_remove(struct platform_device *pdev)
+/*Cleanup WLAN device*/
+static int sprdwl_remove(struct platform_device *pdev)
 {
 	struct net_device *ndev = platform_get_drvdata(pdev);
-	struct itm_priv *priv = netdev_priv(ndev);
+	struct sprdwl_priv *priv = netdev_priv(ndev);
 #ifndef CONFIG_OF
 	int ret;
 #else
-	itm_wlan_pre_remove(priv);
+	sprdwl_pre_remove(priv);
 #endif
 	npi_exit_netlink();
-	unregister_inetaddr_notifier(&itm_inetaddr_cb);
-#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_ITM_WLAN_ENHANCED_PM)
+	unregister_inetaddr_notifier(&sprdwl_inetaddr_cb);
+#if defined(CONFIG_HAS_EARLYSUSPEND) && defined(CONFIG_SPRDWL_ENHANCED_PM)
 	unregister_early_suspend(&priv->early_suspend);
 #endif
 	unregister_netdev(ndev);
 	netif_napi_del(&priv->napi);
-	itm_unregister_wdev(priv);
+	sprdwl_unregister_wdev(priv);
 #ifndef CONFIG_OF
 	ret = sblock_register_notifier(WLAN_CP_ID, WLAN_SBLOCK_CH, NULL, NULL);
 	if (ret) {
 		dev_err(&pdev->dev,
-			"Failed to regitster sblock notifier (%d)\n", ret);
+			"Failed to regitster sblock notifier (%d)!\n", ret);
 	}
 #endif
 
 	free_netdev(ndev);
 	platform_set_drvdata(pdev, NULL);
 	rf2351_gpio_ctrl_power_enable(0);
-
 	rf2351_vddwpa_ctrl_power_enable(0);
-
 	dev_info(&pdev->dev, "%s\n", __func__);
 
 	return 0;
@@ -845,52 +842,52 @@ static int itm_wlan_remove(struct platform_device *pdev)
 
 /* if Macro CONFIG_OF is defined, then Device Tree is used */
 #ifdef CONFIG_OF
-static const struct of_device_id of_match_table_itm_wlan[] = {
-	{.compatible = "sprd,itm_wlan",},
+static const struct of_device_id of_match_table_sprdwl[] = {
+	{.compatible = "sprd,sprd_wlan",},
 	{},
 };
 #endif
 
-static struct platform_driver itm_wlan_driver __refdata = {
-	.probe = itm_wlan_probe,
-	.remove = itm_wlan_remove,
+static struct platform_driver sprdwl_driver = {
+	.probe = sprdwl_probe,
+	.remove = sprdwl_remove,
 	.driver = {
 		   .owner = THIS_MODULE,
-		   .name = ITM_DEV_NAME,
+		   .name = SPRDWL_DEV_NAME,
 #ifdef CONFIG_OF
-		   .of_match_table = of_match_ptr(of_match_table_itm_wlan),
+		   .of_match_table = of_match_ptr(of_match_table_sprdwl),
 #endif
-		   .pm = &itm_wlan_pm,
+		   .pm = &sprdwl_pm,
 		   },
 };
 
 #ifndef CONFIG_OF
-static struct platform_device *itm_wlan_device;
+static struct platform_device *sprdwl_device;
 #endif
-static int __init itm_wlan_init(void)
+static int __init sprdwl_init(void)
 {
-	pr_info("ITTIAM Wireless Network Adapter (%s %s)\n", __DATE__,
+	pr_info("Spreadtrum Wireless Network Adapter (%s %s)\n", __DATE__,
 		__TIME__);
 #ifndef CONFIG_OF
-	itm_wlan_device =
-	    platform_device_register_simple(ITM_DEV_NAME, 0, NULL, 0);
-	if (IS_ERR(itm_wlan_device))
-		return PTR_ERR(itm_wlan_device);
+	sprdwl_device =
+	    platform_device_register_simple(SPRDWL_DEV_NAME, 0, NULL, 0);
+	if (IS_ERR(sprdwl_device))
+		return PTR_ERR(sprdwl_device);
 #endif
-	return platform_driver_register(&itm_wlan_driver);
+	return platform_driver_register(&sprdwl_driver);
 }
 
-static void __exit itm_wlan_exit(void)
+static void __exit sprdwl_exit(void)
 {
-	platform_driver_unregister(&itm_wlan_driver);
+	platform_driver_unregister(&sprdwl_driver);
 #ifndef CONFIG_OF
-	platform_device_unregister(itm_wlan_device);
-	itm_wlan_device = NULL;
+	platform_device_unregister(sprdwl_device);
+	sprdwl_device = NULL;
 #endif
 }
 
-module_init(itm_wlan_init);
-module_exit(itm_wlan_exit);
+module_init(sprdwl_init);
+module_exit(sprdwl_exit);
 
-MODULE_DESCRIPTION("ITTIAM Wireless Network Adapter");
+MODULE_DESCRIPTION("Spreadtrum Wireless Network Adapter");
 MODULE_LICENSE("GPL");

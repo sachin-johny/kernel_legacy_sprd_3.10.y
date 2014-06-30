@@ -1,5 +1,5 @@
 #include <linux/fs.h>
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 #include <linux/namei.h>
 #include <linux/vmalloc.h>
 #include <linux/init.h>
@@ -20,9 +20,9 @@
 /*static char *WIFI_CONFIG_FILE = "/system/etc/connectivity_configure.ini";*/
 static char *WIFI_CALI_FILE = "/productinfo/connectivity_calibration.ini";
 
-static wifi_nvm_data g_wifi_nvm_data;
+static struct wifi_nvm_data g_wifi_nvm_data;
 
-wifi_nvm_data *get_gwifi_nvm_data(void)
+struct wifi_nvm_data *get_gwifi_nvm_data(void)
 {
 	return &g_wifi_nvm_data;
 }
@@ -30,27 +30,27 @@ wifi_nvm_data *get_gwifi_nvm_data(void)
 static int find_type(char key)
 {
 	if ((key >= 'a' && key <= 'w')
-		|| (key >= 'y' && key <= 'z')
-		|| (key >= 'A' && key <= 'W')
-		|| (key >= 'Y' && key <= 'Z')
-		|| ('_' == key))
+	    || (key >= 'y' && key <= 'z')
+	    || (key >= 'A' && key <= 'W')
+	    || (key >= 'Y' && key <= 'Z')
+	    || ('_' == key))
 		return 1;
 	if ((key >= '0' && key <= '9')
-		|| ('-' == key))
+	    || ('-' == key))
 		return 2;
 	if (('x' == key)
-		|| ('X' == key)
-		|| ('.' == key))
+	    || ('X' == key)
+	    || ('.' == key))
 		return 3;
 	if ((key == '\0')
-		|| ('\r' == key)
-		|| ('\n' == key)
-		|| ('#' == key))
+	    || ('\r' == key)
+	    || ('\n' == key)
+	    || ('#' == key))
 		return 4;
 	return 0;
 }
 
-static void get_cmd_par(unsigned char *str, nvm_cali_cmd *cmd)
+static void get_cmd_par(unsigned char *str, struct nvm_cali_cmd *cmd)
 {
 	int i, j, buf_type, c_type, flag;
 	char tmp[128];
@@ -58,7 +58,7 @@ static void get_cmd_par(unsigned char *str, nvm_cali_cmd *cmd)
 	buf_type = -1;
 	c_type = 0;
 	flag = 0;
-	memset(cmd, 0, sizeof(nvm_cali_cmd));
+	memset(cmd, 0, sizeof(struct nvm_cali_cmd));
 	for (i = 0, j = 0;; i++) {
 		c = str[i];
 		c_type = find_type(c);
@@ -80,10 +80,11 @@ static void get_cmd_par(unsigned char *str, nvm_cali_cmd *cmd)
 			tmp[j] = '\0';
 
 			if ((1 == buf_type) && (0 == flag)) {
-				strcpy(cmd->itm, tmp);
+				strcpy(cmd->sprdwl, tmp);
 				flag = 1;
 			} else {
-				cmd->par[cmd->num] = simple_strtol(tmp, NULL, 0);
+				cmd->par[cmd->num] =
+				    simple_strtol(tmp, NULL, 0);
 				cmd->num++;
 			}
 			buf_type = -1;
@@ -97,47 +98,47 @@ static void get_cmd_par(unsigned char *str, nvm_cali_cmd *cmd)
 	return;
 }
 
-static int wifi_nvm_set_cmd(nvm_name_table *p_table, nvm_cali_cmd *cmd)
+static int wifi_nvm_set_cmd(struct nvm_name_table *p_table,
+			    struct nvm_cali_cmd *cmd)
 {
 	int i;
-	unsigned char  *p;
+	unsigned char *p;
 	if ((1 != p_table->type) && (2 != p_table->type)
-		&& (4 != p_table->type))
+	    && (4 != p_table->type))
 		return -1;
 	p = (unsigned char *)(&g_wifi_nvm_data) + p_table->mem_offset;
-	pr_info("###[g_table]%s, offset:%d, num:%d, value: %d  %d  %d  %d  %d  %d  %d  %d  %d  %d  %d  %d\n",
-	p_table->itm, p_table->mem_offset, cmd->num,
-	cmd->par[0], cmd->par[1], cmd->par[2],
-	cmd->par[3], cmd->par[4], cmd->par[5],
-	cmd->par[6], cmd->par[7], cmd->par[8],
-	cmd->par[9], cmd->par[10], cmd->par[11]);
+	pr_debug("###[g_table]%s, offset:%d, num:%d, value: %d  %d  %d  %d  %d  %d  %d  %d  %d  %d  %d  %d\n",
+		 p_table->sprdwl, p_table->mem_offset, cmd->num,
+		 cmd->par[0], cmd->par[1], cmd->par[2],
+		 cmd->par[3], cmd->par[4], cmd->par[5],
+		 cmd->par[6], cmd->par[7], cmd->par[8],
+		 cmd->par[9], cmd->par[10], cmd->par[11]);
 	for (i = 0; i < cmd->num; i++) {
 		if (1 == p_table->type)
 			*((unsigned char *)p + i) =
-			(unsigned char)(cmd->par[i]);
+			    (unsigned char)(cmd->par[i]);
 		else if (2 == p_table->type)
 			*((unsigned short *)p + i) =
-			(unsigned short)(cmd->par[i]);
+			    (unsigned short)(cmd->par[i]);
 		else if (4 == p_table->type)
-			*((unsigned int *)p + i) =
-			(unsigned int)(cmd->par[i]);
+			*((unsigned int *)p + i) = (unsigned int)(cmd->par[i]);
 		else
 			pr_err("%s, type err\n", __func__);
 	}
 	return 0;
 }
 
-static nvm_name_table *wifi_nvm_table_match(nvm_cali_cmd *cmd)
+static struct nvm_name_table *wifi_nvm_table_match(struct nvm_cali_cmd *cmd)
 {
 	int i;
-	nvm_name_table *p_table = NULL;
-	int len = sizeof(g_nvm_table) / sizeof(nvm_name_table);
-	if (NULL == cmd->itm)
+	struct nvm_name_table *p_table = NULL;
+	int len = sizeof(g_nvm_table) / sizeof(struct nvm_name_table);
+	if (NULL == cmd->sprdwl)
 		return NULL;
 	for (i = 0; i < len; i++) {
-		if (NULL == g_nvm_table[i].itm)
+		if (NULL == g_nvm_table[i].sprdwl)
 			continue;
-		if (0 != strcmp(g_nvm_table[i].itm, cmd->itm))
+		if (0 != strcmp(g_nvm_table[i].sprdwl, cmd->sprdwl))
 			continue;
 		p_table = &g_nvm_table[i];
 		break;
@@ -148,13 +149,13 @@ static nvm_name_table *wifi_nvm_table_match(nvm_cali_cmd *cmd)
 static int wifi_nvm_buf_operate(unsigned char *p_buf, int file_len)
 {
 	int i, p;
-	nvm_cali_cmd cmd;
-	nvm_name_table *p_table = NULL;
+	struct nvm_cali_cmd cmd;
+	struct nvm_name_table *p_table = NULL;
 	if ((NULL == p_buf) || (0 == file_len))
 		return -1;
 	for (i = 0, p = 0; i < file_len; i++) {
 		if (('\n' == *(p_buf + i)) || ('\r' == *(p_buf + i))
-			|| ('\0' == *(p_buf + i))) {
+		    || ('\0' == *(p_buf + i))) {
 			if (5 <= (i - p)) {
 				get_cmd_par((p_buf + p), &cmd);
 				p_table = wifi_nvm_table_match(&cmd);
@@ -163,14 +164,13 @@ static int wifi_nvm_buf_operate(unsigned char *p_buf, int file_len)
 			}
 			p = i + 1;
 		}
-
 	}
 	return 0;
 }
 
 int wifi_nvm_parse(const char *path)
 {
-	struct file    *filp = NULL;
+	struct file *filp = NULL;
 	struct inode *inode = NULL;
 	unsigned char *p_buf = NULL;
 	unsigned short len = 0;
@@ -214,7 +214,7 @@ int wifi_nvm_parse(const char *path)
 	pr_info("%s read %s data_len:0x%x\n", __func__, path, len);
 	wifi_nvm_buf_operate(p_buf, len);
 	kfree(p_buf);
-	pr_info("%s(), ok!\n",  __func__);
+	pr_info("%s(), ok!\n", __func__);
 	return 0;
 
 free_buf:
@@ -223,10 +223,9 @@ file_close:
 	filp_close(filp, NULL);
 nvm_read_err:
 	set_fs(oldfs);
-	pr_err("%s(), err!\n",  __func__);
+	pr_err("%s(), err!\n", __func__);
 	return -1;
 }
-
 
 bool wifi_cali_file_check(const char *path)
 {
@@ -243,10 +242,12 @@ bool wifi_cali_file_check(const char *path)
 	filp = filp_open(path, O_RDONLY, S_IRUSR);
 	if (IS_ERR(filp)) {
 		pr_err("%s,Unable to load '%s'.\n", __func__, path);
-		filp = filp_open(path, O_RDWR|O_CREAT|O_TRUNC, S_IRUSR|S_IWUSR);
+		filp =
+		    filp_open(path, O_RDWR | O_CREAT | O_TRUNC,
+			      S_IRUSR | S_IWUSR);
 		if (IS_ERR(filp)) {
 			pr_err("%s,Unable to Creat '%s' err=%ld.\n",
-				__func__, path, PTR_ERR(filp));
+			       __func__, path, PTR_ERR(filp));
 			goto file_create_error;
 		}
 	} else {
@@ -262,7 +263,7 @@ bool wifi_cali_file_check(const char *path)
 
 	len = i_size_read(file_inode(filp_2));
 	if (!(len > 0 && len < 62 * 1024)) {
-		pr_err("%s file size error %d\n", __func__ , len);
+		pr_err("%s file size error %d\n", __func__, len);
 		goto file_close;
 	}
 	p_buf = kmalloc(len, GFP_KERNEL);
@@ -272,7 +273,7 @@ bool wifi_cali_file_check(const char *path)
 	}
 	pos = 0;
 	if (vfs_read(filp_2, p_buf, len, &pos) != len) {
-		pr_err("%s Failed to read '%s'.\n",  __func__, path);
+		pr_err("%s Failed to read '%s'.\n", __func__, path);
 		kfree(p_buf);
 		goto file_close;
 	}
@@ -283,9 +284,8 @@ bool wifi_cali_file_check(const char *path)
 file_check_done:
 	filp_close(filp, NULL);
 	set_fs(fs);
-	pr_info("%s Done  '%s'.\n",  __func__, path);
+	pr_info("%s Done  '%s'.\n", __func__, path);
 	return TRUE;
-
 
 file_close:
 	filp_close(filp_2, NULL);
@@ -296,7 +296,7 @@ file_create_error:
 	return FALSE;
 }
 
-void ittiam_nvm_init(void)
+void sprdwl_nvm_init(void)
 {
 	int ret = 0;
 	int len = 0;
@@ -317,7 +317,6 @@ void ittiam_nvm_init(void)
 	|| (defined CONFIG_MACH_KANAS_TD) \
 	|| (defined CONFIG_MACH_SP5735C1EA) \
 	|| (defined CONFIG_MACH_SP5735EA)
-
 	char *WIFI_CONFIG_FILE[] = {
 		"/system/etc/connectivity_configure_hw100.ini",
 		"/system/etc/connectivity_configure_hw102.ini",
@@ -350,20 +349,20 @@ void ittiam_nvm_init(void)
 	else if (strstr(board_type_str, "1.0.2"))
 		board_type = 1;
 	else
-		board_type = 2; /* default is 1.0.4*/
+		board_type = 2;	/* default is 1.0.4 */
 #endif
 	pr_info("#### %s get2 board type len %d %s type %d ####\n",
-	__func__, len, board_type_str, board_type);
+		__func__, len, board_type_str, board_type);
 	ret = wifi_nvm_parse(WIFI_CONFIG_FILE[board_type]);
 	if (0 != ret) {
 		pr_err("%s(),parse:%s, err!\n", __func__,
-			WIFI_CONFIG_FILE[board_type]);
+		       WIFI_CONFIG_FILE[board_type]);
 		return;
 	}
 
 	if (wifi_cali_file_check(WIFI_CALI_FILE) == FALSE) {
 		pr_err("%s(),fail to load :%s, err!\n",
-			__func__, WIFI_CALI_FILE);
+		       __func__, WIFI_CALI_FILE);
 		return;
 	}
 

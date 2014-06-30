@@ -1,14 +1,14 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_cfg80211.c
+ * Filename : cfg80211.c
  * Abstract : This file is a implementation for cfg80211 subsystem
  *
  * Authors:
  * Leon Liu <leon.liu@spreadtrum.com>
  * Wenjie.Zhang <Wenjie.Zhang@spreadtrum.com>
  * Keguang Zhang <keguang.zhang@spreadtrum.com>
- * Jingxiang Li <jingxiang.li@spreadtrum.com>
+ * Jingxiang Li <Jingxiang.Li@spreadtrum.com>
  *
  * This software is licensed under the terms of the GNU General Public
  * License version 2, as published by the Free Software Foundation, and
@@ -24,15 +24,15 @@
 #include <linux/ieee80211.h>
 #include <net/cfg80211.h>
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 #include <linux/workqueue.h>
 #include <linux/fs.h>
 #include <linux/fs_struct.h>
 #include <linux/path.h>
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
 #include "sipc.h"
-#include "ittiam.h"
+#include "sprdwl.h"
 #include "cfg80211.h"
 
 /*----------CFG80211 macros and variables----------*/
@@ -61,7 +61,7 @@
 	.max_power		= 30,					\
 }
 
-static struct ieee80211_rate itm_rates[] = {
+static struct ieee80211_rate sprdwl_rates[] = {
 	RATETAB_ENT(10, 0x1, 0),
 	RATETAB_ENT(20, 0x2, 0),
 	RATETAB_ENT(55, 0x5, 0),
@@ -93,24 +93,24 @@ static struct ieee80211_rate itm_rates[] = {
 	RATETAB_ENT(1300, 0x8f, 0),
 };
 
-#define ITM_G_RATE_NUM	28
-#define itm_g_rates		(itm_rates)
-#define ITM_A_RATE_NUM	24
-#define itm_a_rates		(itm_rates + 4)
+#define SPRDWL_G_RATE_NUM	28
+#define sprdwl_g_rates		(sprdwl_rates)
+#define SPRDWL_A_RATE_NUM	24
+#define sprdwl_a_rates		(sprdwl_rates + 4)
 
-#define itm_g_htcap (IEEE80211_HT_CAP_SUP_WIDTH_20_40 | \
+#define sprdwl_g_htcap (IEEE80211_HT_CAP_SUP_WIDTH_20_40 | \
 			IEEE80211_HT_CAP_SGI_20		 | \
 			IEEE80211_HT_CAP_SGI_40)
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 #define P2P_IE_ID 221
 #define P2P_IE_OUI_BYTE0 0x50
 #define P2P_IE_OUI_BYTE1 0x6F
 #define P2P_IE_OUI_BYTE2 0x9A
 #define P2P_IE_OUI_TYPE 0x09
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
-static struct ieee80211_channel itm_2ghz_channels[] = {
+static struct ieee80211_channel sprdwl_2ghz_channels[] = {
 	CHAN2G(1, 2412, 0),
 	CHAN2G(2, 2417, 0),
 	CHAN2G(3, 2422, 0),
@@ -127,7 +127,7 @@ static struct ieee80211_channel itm_2ghz_channels[] = {
 	CHAN2G(14, 2484, 0),
 };
 
-/*static struct ieee80211_channel itm_5ghz_channels[] = {
+/*static struct ieee80211_channel sprdwl_5ghz_channels[] = {
 	CHAN5G(34, 0), CHAN5G(36, 0),
 	CHAN5G(38, 0), CHAN5G(40, 0),
 	CHAN5G(42, 0), CHAN5G(44, 0),
@@ -147,41 +147,41 @@ static struct ieee80211_channel itm_2ghz_channels[] = {
 	CHAN5G(200, 0), CHAN5G(204, 0),
 	CHAN5G(208, 0), CHAN5G(212, 0),
 	CHAN5G(216, 0),
-};*/
-
-static struct ieee80211_supported_band itm_band_2ghz = {
-	.n_channels = ARRAY_SIZE(itm_2ghz_channels),
-	.channels = itm_2ghz_channels,
-	.n_bitrates = ITM_G_RATE_NUM,
-	.bitrates = itm_g_rates,
-	.ht_cap.cap = itm_g_htcap,
+};
+*/
+static struct ieee80211_supported_band sprdwl_band_2ghz = {
+	.n_channels = ARRAY_SIZE(sprdwl_2ghz_channels),
+	.channels = sprdwl_2ghz_channels,
+	.n_bitrates = SPRDWL_G_RATE_NUM,
+	.bitrates = sprdwl_g_rates,
+	.ht_cap.cap = sprdwl_g_htcap,
 	.ht_cap.ht_supported = true,
 };
 
-/*static struct ieee80211_supported_band itm_band_5ghz = {
-	.n_channels = ARRAY_SIZE(itm_5ghz_channels),
-	.channels = itm_5ghz_channels,
-	.n_bitrates = ITM_A_RATE_NUM,
-	.bitrates = itm_a_rates,
-	.ht_cap.cap = itm_g_htcap,
+/*static struct ieee80211_supported_band sprdwl_band_5ghz = {
+	.n_channels = ARRAY_SIZE(sprdwl_5ghz_channels),
+	.channels = sprdwl_5ghz_channels,
+	.n_bitrates = SPRDWL_A_RATE_NUM,
+	.bitrates = sprdwl_a_rates,
+	.ht_cap.cap = sprdwl_g_htcap,
 	.ht_cap.ht_supported = true,
-};*/
-
-static const u32 itm_cipher_suites[] = {
+};
+*/
+static const u32 sprdwl_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_WEP40,
 	WLAN_CIPHER_SUITE_WEP104,
 	WLAN_CIPHER_SUITE_TKIP,
 	WLAN_CIPHER_SUITE_CCMP,
 	WLAN_CIPHER_SUITE_SMS4,
 #ifdef BSS_ACCESS_POINT_MODE
-	WLAN_CIPHER_SUITE_ITM_CCMP,
-	WLAN_CIPHER_SUITE_ITM_TKIP,
+	WLAN_CIPHER_SUITE_SPRDWL_CCMP,
+	WLAN_CIPHER_SUITE_SPRDWL_TKIP,
 #endif
 };
 
 /* Supported mgmt frame types to be advertised to cfg80211 */
 static const struct ieee80211_txrx_stypes
-itm_mgmt_stypes[NUM_NL80211_IFTYPES] = {
+sprdwl_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 	[NL80211_IFTYPE_STATION] = {
 				    .tx = BIT(IEEE80211_STYPE_ACTION >> 4) |
 				    BIT(IEEE80211_STYPE_PROBE_RESP >> 4),
@@ -206,7 +206,7 @@ itm_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 				   .rx = BIT(IEEE80211_STYPE_ACTION >> 4) |
 				   BIT(IEEE80211_STYPE_PROBE_REQ >> 4),
 				   },
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 /* Supported mgmt frame types for p2p*/
 	[NL80211_IFTYPE_ADHOC] = {
 				  .tx = 0xffff,
@@ -253,10 +253,10 @@ itm_mgmt_stypes[NUM_NL80211_IFTYPES] = {
 				   BIT(IEEE80211_STYPE_DEAUTH >> 4) |
 				   BIT(IEEE80211_STYPE_ACTION >> 4)
 				   },
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 };
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 #define P2P_MODE_PATH "/data/misc/wifi/fwpath"
 
 static int get_file_size(struct file *f)
@@ -321,8 +321,8 @@ static char p2p_action_name[][32] = {
 #define P2P_ACTION		(0x7f)
 
 static void cfg80211_dump_frame_prot_info(struct wiphy *wiphy,
-		int send, int freq,
-		const unsigned char *buf, int len)
+					  int send, int freq,
+					  const unsigned char *buf, int len)
 {
 	char print_buf[1024];
 	int buf_idx = 0;
@@ -338,40 +338,38 @@ static void cfg80211_dump_frame_prot_info(struct wiphy *wiphy,
 	else
 		buf_idx += sprintf(print_buf + buf_idx, "RECV: ");
 
-	if (type == IEEE80211_FTYPE_MGMT)
+	if (type == IEEE80211_FTYPE_MGMT) {
 		buf_idx += sprintf(print_buf + buf_idx, "%dMHz, %s, ",
 				   freq, type_name[subtype]);
-	else
+	} else {
 		buf_idx += sprintf(print_buf + buf_idx,
 				   "%dMHz, not mgmt frame, type=%d, ",
 				   freq, type);
+	}
 
 	if (subtype == ACTION_TYPE) {
 		action = *(buf + MAC_LEN);
 		action_subtype = *(buf + ACTION_SUBTYPE_OFFSET);
 		if (action == PUB_ACTION)
 			buf_idx += sprintf(print_buf + buf_idx, "PUB:%s ",
-					pub_action_name[action_subtype]);
+					   pub_action_name[action_subtype]);
 		else if (action == P2P_ACTION)
 			buf_idx += sprintf(print_buf + buf_idx, "P2P:%s ",
-					p2p_action_name[action_subtype]);
+					   p2p_action_name[action_subtype]);
 		else
 			buf_idx += sprintf(print_buf + buf_idx,
-					"Unknown ACTION(0x%x)",	action);
+					   "Unknown ACTION(0x%x)", action);
 	}
 
-	buf_idx += sprintf(print_buf + buf_idx, "%02x:%02x:%02x:%02x:%02x:%02x",
-			*(buf + 4), *(buf + 5), *(buf + 6),
-			*(buf + 7), *(buf + 8), *(buf + 9));
+	buf_idx += sprintf(print_buf + buf_idx, "" MACSTR "", MAC2STR(&buf[4]));
 	buf_idx += sprintf(print_buf + buf_idx, "  ");
-	buf_idx += sprintf(print_buf + buf_idx, "%02x:%02x:%02x:%02x:%02x:%02x",
-			*(buf + 10), *(buf + 11), *(buf + 12),
-			*(buf + 13), *(buf + 14), *(buf + 15));
+	buf_idx +=
+	    sprintf(print_buf + buf_idx, "" MACSTR "", MAC2STR(&buf[10]));
 
 	wiphy_info(wiphy, "%s\n", print_buf);
 }
 
-int itm_get_p2p_mode_from_file(void)
+int sprdwl_get_p2p_mode_from_file(void)
 {
 	struct file *fp = 0;
 	mm_segment_t fs;
@@ -410,15 +408,19 @@ end:
 	return ret;
 }
 
-#endif	/*CONFIG_ITM_WIFI_DIRECT */
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
-static bool itm_wlan_cfg80211_ready(struct itm_priv *priv)
+static inline bool sprdwl_is_ready(struct sprdwl_priv *priv)
 {
-	return (priv->cp2_status == ITM_READY);
+	if (priv->cp2_status == SPRDWL_READY)
+		return true;
+
+	wiphy_err(priv->wdev->wiphy, "firmware not ready!\n");
+	return false;
 }
 
 #define WLAN_EID_VENDOR_SPECIFIC 221
-static bool itm_is_wps_ie(const u8 *pos)
+static bool sprdwl_is_wps_ie(const u8 *pos)
 {
 	return (pos[0] == WLAN_EID_VENDOR_SPECIFIC &&
 		pos[1] >= 4 &&
@@ -426,8 +428,8 @@ static bool itm_is_wps_ie(const u8 *pos)
 		pos[5] == 0x04);
 }
 
-static bool itm_find_wpsie(const u8 *ies, size_t ies_len,
-			  u8 *buf, size_t *wps_len)
+static bool sprdwl_find_wpsie(const u8 *ies, size_t ies_len,
+			      u8 *buf, size_t *wps_len)
 {
 	const u8 *pos;
 	size_t len = 0;
@@ -440,7 +442,7 @@ static bool itm_find_wpsie(const u8 *ies, size_t ies_len,
 			if (pos + 2 + pos[1] > ies + ies_len)
 				break;
 
-			if (itm_is_wps_ie(pos)) {
+			if (sprdwl_is_wps_ie(pos)) {
 				memcpy(buf + len, pos, 2 + pos[1]);
 				len += 2 + pos[1];
 				flags = true;
@@ -454,14 +456,14 @@ static bool itm_find_wpsie(const u8 *ies, size_t ies_len,
 	return flags;
 }
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
-static bool itm_find_p2p_ie(const u8 *ie, size_t ie_len, u8 *p2p_ie,
-			    size_t *p2p_ie_len)
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+static bool sprdwl_find_p2p_ie(const u8 *ie, size_t ie_len, u8 *p2p_ie,
+			       size_t *p2p_ie_len)
 {
 	bool flags = false;
 	u16 index = 0;
 
-	/*Find out P2P IE.*/
+	/*Find out P2P IE*/
 	if (NULL == ie || ie_len <= 0 || NULL == p2p_ie)
 		return flags;
 
@@ -483,20 +485,22 @@ static bool itm_find_p2p_ie(const u8 *ie, size_t ie_len, u8 *p2p_ie,
 
 	return false;
 }
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
-static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
-				   u8 key_index, u32 cipher, const u8 *key_seq,
-				   const u8 *macaddr)
+static int sprdwl_add_cipher_key(struct sprdwl_priv *priv, bool pairwise,
+				 u8 key_index, u32 cipher, const u8 *key_seq,
+				 const u8 *macaddr)
 {
 	u8 pn_key[16] = { 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36,
-			  0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36};
+		0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36, 0x5c, 0x36
+	};
 	int ret;
 
 	if (priv->key_len[pairwise][0] || priv->key_len[pairwise][1] ||
 	    priv->key_len[pairwise][2] || priv->key_len[pairwise][3]) {
 		/* Only set wep keys if we have at least one of them.
-		   pairwise: 0:GTK 1:PTK */
+		 * pairwise: 0:GTK 1:PTK
+		 */
 		switch (cipher) {
 		case WLAN_CIPHER_SUITE_WEP40:
 			priv->cipher_type = SPRDWL_CIPHER_WEP40;
@@ -515,32 +519,105 @@ static int itm_wlan_add_cipher_key(struct itm_priv *priv, bool pairwise,
 			break;
 		default:
 			wiphy_err(priv->wdev->wiphy,
-				  "%s invalid cipher: %d\n", __func__,
+				  "%s invalid cipher: %d!\n", __func__,
 				  priv->cipher_type);
 			return -EINVAL;
 		}
 		memcpy(priv->key_txrsc[pairwise], pn_key, sizeof(pn_key));
-		ret = itm_wlan_add_key_cmd(priv->wlan_sipc,
-					   priv->key[pairwise][key_index],
-					   priv->key_len[pairwise][key_index],
-					   pairwise, key_index,
-					   key_seq, priv->cipher_type, macaddr);
+		ret = sprdwl_add_key_cmd(priv->wlan_sipc,
+					 priv->key[pairwise][key_index],
+					 priv->key_len[pairwise][key_index],
+					 pairwise, key_index,
+					 key_seq, priv->cipher_type, macaddr);
 		if (ret < 0) {
 			wiphy_err(priv->wdev->wiphy,
-				  "%s error %d\n", __func__, ret);
+				  "%s error %d!\n", __func__, ret);
 			return ret;
 		}
 	}
 	return 0;
 }
 
-/*supposing wlan_sipc cfg80211 privite struct is itm_priv. it should
-  be modified later*/
-static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
-				  struct cfg80211_scan_request *request)
+static int sprdwl_cfg80211_change_iface(struct wiphy *wiphy,
+					struct net_device *ndev,
+					enum nl80211_iftype type, u32 *flags,
+					struct vif_params *params)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+	int mode;
+	int ret;
+
+	wiphy_info(wiphy, "%s type %d\n", __func__, type);
+
+	if (!sprdwl_is_ready(priv))
+		return -EIO;
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	priv->p2p_mode = sprdwl_get_p2p_mode_from_file();
+	wiphy_info(wiphy, "[cfg80211] %s: p2p_mode: %d\n",
+		   __func__, priv->p2p_mode);
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+
+	switch (type) {
+	case NL80211_IFTYPE_STATION:
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+		mode =
+		    priv->p2p_mode ? SPRDWL_P2P_CLIENT_MODE :
+		    SPRDWL_STATION_MODE;
+#else /* CONFIG_SPRDWL_WIFI_DIRECT */
+		mode = SPRDWL_STATION_MODE;
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+		break;
+	case NL80211_IFTYPE_AP:
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+		mode = priv->p2p_mode ? SPRDWL_P2P_GO_MODE : SPRDWL_AP_MODE;
+#else /* CONFIG_SPRDWL_WIFI_DIRECT */
+		mode = SPRDWL_AP_MODE;
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+		break;
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	case NL80211_IFTYPE_P2P_CLIENT:
+		mode = SPRDWL_P2P_CLIENT_MODE;
+		break;
+	case NL80211_IFTYPE_P2P_GO:
+		mode = SPRDWL_P2P_GO_MODE;
+		break;
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+	default:
+		mode = SPRDWL_NONE_MODE;
+		wiphy_err(priv->wdev->wiphy, "%s invalid interface type %u\n",
+			  __func__, type);
+		return -EOPNOTSUPP;
+	}
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	priv->wdev->iftype = type;
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+
+	wiphy_info(priv->wdev->wiphy, "%s mode %d\n", __func__, mode);
+	if (mode == priv->mode)
+		return 0;
+
+	ret = sprdwl_mac_open_cmd(priv->wlan_sipc, mode, priv->ndev->dev_addr);
+	if (ret != 0) {
+		wiphy_err(priv->wdev->wiphy, "%s Failed to open mac!\n",
+			  __func__);
+		return -EIO;
+	}
+
+	priv->wdev->iftype = type;
+	priv->mode = mode;
+
+	return 0;
+}
+
+/* supposing wlan_sipc cfg80211 privite struct is sprdwl_priv. it should
+ * be modified later
+ */
+static int sprdwl_cfg80211_scan(struct wiphy *wiphy,
+				struct cfg80211_scan_request *request)
+{
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	struct wireless_dev *wdev = priv->wdev;
 	struct cfg80211_ssid *ssids = request->ssids;
 	struct wlan_sipc_scan_ssid *scan_ssids;
@@ -549,17 +626,15 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 	unsigned int i, n;
 	int ret;
 	unsigned long flags;
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	struct wlan_sipc_scan_channels scan_channels;
 	static u32 scan_channels_count;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
 	spin_lock_irqsave(&priv->scan_lock, flags);
 	if (priv->scan_request) {
@@ -575,11 +650,11 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		break;
 	case NL80211_IFTYPE_STATION:
 		break;
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	case NL80211_IFTYPE_P2P_CLIENT:
 	case NL80211_IFTYPE_P2P_GO:
 		break;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 	default:
 		return -EOPNOTSUPP;
 	}
@@ -592,16 +667,15 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 				  request->ie_len);
 			return -EOPNOTSUPP;
 		}
-		ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc, WPS_REQ_IE,
-					      request->ie, request->ie_len);
+		ret = sprdwl_set_wps_ie_cmd(priv->wlan_sipc, WPS_REQ_IE,
+					    request->ie, request->ie_len);
 		if (ret) {
 			wiphy_err(wiphy,
-				  "%s failed to set wps ie!\n", __func__);
+				  "%s Failed to set wps ie!\n", __func__);
 			return ret;
 		}
 	}
-
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	if (priv->p2p_mode) {
 		/* set scan channel */
 		n = min(request->n_channels, 4U);
@@ -617,7 +691,7 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		}
 
 		scan_channels.channel_num =
-			(request->n_channels > 4) ? 0 : request->n_channels;
+		    (request->n_channels > 4) ? 0 : request->n_channels;
 		for (i = 0; i < scan_channels.channel_num; i++) {
 			scan_channels.channel_freq[i] =
 			    request->channels[i]->center_freq;
@@ -625,19 +699,21 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		scan_channels_count++;
 		scan_channels.random_count = scan_channels_count;
 		wiphy_info(wiphy,
-			   "%s: channel_num=%d[%d, %d, %d, %d], random_count=0x%x\n",
+			   "%s:channel_num=%d[%d, %d, %d, %d] random_count=0x%x\n",
 			   __func__, scan_channels.channel_num,
 			   scan_channels.channel_freq[0],
 			   scan_channels.channel_freq[1],
 			   scan_channels.channel_freq[2],
 			   scan_channels.channel_freq[3],
 			   scan_channels.random_count);
-		ret = itm_wlan_set_scan_channels_cmd(priv->wlan_sipc,
-				(u8 *)&scan_channels,
-				sizeof(struct wlan_sipc_scan_channels));
+		ret = sprdwl_set_scan_chan_cmd(priv->wlan_sipc,
+					       (u8 *)&scan_channels,
+					       sizeof(struct
+						      wlan_sipc_scan_channels));
 		if (ret) {
 			wiphy_err(wiphy,
-				"%s failed to set scan channels!\n", __func__);
+				  "%s Failed to set scan channels!\n",
+				  __func__);
 			return ret;
 		}
 	}
@@ -648,8 +724,7 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 		sipc_data = kzalloc(512, GFP_ATOMIC);
 		if (!sipc_data) {
 			wiphy_err(wiphy,
-				  "%s failed to alloc memory for combo ssid!\n",
-				  __func__);
+				  "%s Failed to alloc combo ssid!\n", __func__);
 			return -2;
 		}
 		scan_ssids = (struct wlan_sipc_scan_ssid *)sipc_data;
@@ -682,7 +757,7 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 	spin_lock_irqsave(&priv->scan_lock, flags);
 	priv->scan_request = request;
 	spin_unlock_irqrestore(&priv->scan_lock, flags);
-	ret = itm_wlan_scan_cmd(priv->wlan_sipc, sipc_data, scan_ssids_len);
+	ret = sprdwl_scan_cmd(priv->wlan_sipc, sipc_data, scan_ssids_len);
 	kfree(sipc_data);
 	if (ret) {
 		wiphy_err(wiphy, "%s error %d\n", __func__, ret);
@@ -697,17 +772,16 @@ static int itm_wlan_cfg80211_scan(struct wiphy *wiphy,
 
 	/* Arm scan timeout timer */
 	mod_timer(&priv->scan_timeout,
-		  jiffies + ITM_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
+		  jiffies + SPRDWL_SCAN_TIMER_INTERVAL_MS * HZ / 1000);
 
 	return 0;
 }
 
-static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
-				     struct net_device *ndev,
-				     struct cfg80211_connect_params *sme)
+static int sprdwl_cfg80211_connect(struct wiphy *wiphy, struct net_device *ndev,
+				   struct cfg80211_connect_params *sme)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	struct wireless_dev *wdev = priv->wdev;
 	int ret;
 	u32 cipher = 0;
@@ -718,16 +792,14 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	int auth_type = 0;
 	u8 *buf = NULL;
 	size_t wps_len = 0;
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	size_t p2p_len = 0;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
 	/* To avoid confused wapi frame */
 	priv->cipher_type = SPRDWL_CIPHER_NONE;
@@ -745,33 +817,31 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		if (buf == NULL)
 			return -ENOMEM;
 
-		if (itm_find_wpsie(sme->ie, sme->ie_len, buf, &wps_len)) {
-			ret = itm_wlan_set_wps_ie_cmd(priv->wlan_sipc,
-						      WPS_ASSOC_IE,
-						      buf, wps_len);
+		if (sprdwl_find_wpsie(sme->ie, sme->ie_len, buf, &wps_len)) {
+			ret = sprdwl_set_wps_ie_cmd(priv->wlan_sipc,
+						    WPS_ASSOC_IE, buf, wps_len);
 			if (ret) {
 				wiphy_err(wiphy,
-					  "%s failed to set wpas ie!\n",
+					  "%s Failed to set wpas ie!\n",
 					  __func__);
 				kfree(buf);
 				return ret;
 			}
 		}
-#ifdef CONFIG_ITM_WIFI_DIRECT
-		if (itm_find_p2p_ie(sme->ie, sme->ie_len,
-				    buf, &p2p_len) == true) {
-			ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
-						      P2P_ASSOC_IE,
-						      buf, p2p_len);
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+		if (sprdwl_find_p2p_ie(sme->ie, sme->ie_len,
+				       buf, &p2p_len) == true) {
+			ret = sprdwl_set_p2p_ie_cmd(priv->wlan_sipc,
+						    P2P_ASSOC_IE, buf, p2p_len);
 			if (ret) {
-				dev_err(&priv->ndev->dev,
-					"itm_wlan_set_p2p_ie failed with ret %d\n",
-					ret);
+				wiphy_err(wiphy,
+					  "%s Failed to set p2p ie!\n",
+					  __func__);
 				kfree(buf);
 				return ret;
 			}
 		}
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
 		kfree(buf);
 	}
@@ -779,11 +849,10 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	/* Set WPA version */
 	wiphy_info(wiphy, "%s wpa_versions %#x\n", __func__,
 		   sme->crypto.wpa_versions);
-	ret =
-	    itm_wlan_set_wpa_version_cmd(priv->wlan_sipc,
+	ret = sprdwl_set_wpa_version_cmd(priv->wlan_sipc,
 					 sme->crypto.wpa_versions);
 	if (ret < 0) {
-		wiphy_err(wiphy, "%s failed to set wpa version!\n", __func__);
+		wiphy_err(wiphy, "%s Failed to set wpa version!\n", __func__);
 		return ret;
 	}
 
@@ -792,13 +861,13 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	/* Set the authorisation */
 	if ((sme->auth_type == NL80211_AUTHTYPE_OPEN_SYSTEM) ||
 	    ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && !is_wep))
-		auth_type = ITM_AUTH_OPEN;
+		auth_type = SPRDWL_AUTH_OPEN;
 	else if ((sme->auth_type == NL80211_AUTHTYPE_SHARED_KEY) ||
 		 ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && is_wep))
-		auth_type = ITM_AUTH_SHARED;
-	ret = itm_wlan_set_auth_type_cmd(priv->wlan_sipc, auth_type);
+		auth_type = SPRDWL_AUTH_SHARED;
+	ret = sprdwl_set_auth_type_cmd(priv->wlan_sipc, auth_type);
 	if (ret < 0) {
-		wiphy_err(wiphy, "%s failed to set auth type!\n", __func__);
+		wiphy_err(wiphy, "%s Failed to set auth type!\n", __func__);
 		return ret;
 	}
 	/* Set cipher - pairewise and group */
@@ -832,11 +901,11 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			wiphy_info(wiphy, "%s cipher_pairwise %#x\n", __func__,
 				   sme->crypto.ciphers_pairwise[0]);
 			ret =
-			    itm_wlan_set_cipher_cmd(priv->wlan_sipc, cipher,
-						    WIFI_CMD_PAIRWISE_CIPHER);
+			    sprdwl_set_cipher_cmd(priv->wlan_sipc, cipher,
+						  WIFI_CMD_PAIRWISE_CIPHER);
 			if (ret < 0) {
 				wiphy_err(wiphy,
-					  "%s failed to set pairwise cipher!\n",
+					  "%s Failed to set pairwise cipher!\n",
 					  __func__);
 				return ret;
 			}
@@ -874,11 +943,11 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		wiphy_info(wiphy, "%s cipher_group %#x\n", __func__,
 			   sme->crypto.cipher_group);
 		ret =
-		    itm_wlan_set_cipher_cmd(priv->wlan_sipc, cipher,
-					    WIFI_CMD_GROUP_CIPHER);
+		    sprdwl_set_cipher_cmd(priv->wlan_sipc, cipher,
+					  WIFI_CMD_GROUP_CIPHER);
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				  "%s failed to set group cipher!\n", __func__);
+				  "%s Failed to set group cipher!\n", __func__);
 			return ret;
 		}
 	}
@@ -889,13 +958,13 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	/* Set the authorisation */
 	if ((sme->auth_type == NL80211_AUTHTYPE_OPEN_SYSTEM) ||
 	    ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && !is_wep))
-		auth_type = ITM_AUTH_OPEN;
+		auth_type = SPRDWL_AUTH_OPEN;
 	else if ((sme->auth_type == NL80211_AUTHTYPE_SHARED_KEY) ||
 		 ((sme->auth_type == NL80211_AUTHTYPE_AUTOMATIC) && is_wep))
-		auth_type = ITM_AUTH_SHARED;
-	ret = itm_wlan_set_auth_type_cmd(priv->wlan_sipc, auth_type);
+		auth_type = SPRDWL_AUTH_SHARED;
+	ret = sprdwl_set_auth_type_cmd(priv->wlan_sipc, auth_type);
 	if (ret < 0) {
-		wiphy_err(wiphy, "%s failed to set auth type!\n", __func__);
+		wiphy_err(wiphy, "%s Failed to set auth type!\n", __func__);
 		return ret;
 	}
 
@@ -913,11 +982,10 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 
 		wiphy_info(wiphy, "%s akm_suites %#x\n", __func__,
 			   sme->crypto.akm_suites[0]);
-		ret =
-		    itm_wlan_set_key_management_cmd(priv->wlan_sipc, key_mgmt);
+		ret = sprdwl_set_key_management_cmd(priv->wlan_sipc, key_mgmt);
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				  "%s failed to set key management!\n",
+				  "%s Failed to set key management!\n",
 				  __func__);
 			return ret;
 		}
@@ -931,12 +999,12 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		priv->key_index[GROUP] = sme->key_idx;
 		priv->key_len[GROUP][sme->key_idx] = sme->key_len;
 		memcpy(priv->key[GROUP][sme->key_idx], sme->key, sme->key_len);
-		ret = itm_wlan_add_cipher_key(priv, 0, sme->key_idx,
-					      sme->crypto.ciphers_pairwise[0],
-					      NULL, NULL);
+		ret = sprdwl_add_cipher_key(priv, 0, sme->key_idx,
+					    sme->crypto.ciphers_pairwise[0],
+					    NULL, NULL);
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				  "%s failed to add cipher key!\n", __func__);
+				  "%s Failed to add cipher key!\n", __func__);
 			return ret;
 		}
 	} else {
@@ -946,7 +1014,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			ret = hostap_conf_load(HOSTAP_CONF_FILE_NAME, psk);
 			if (ret) {
 				wiphy_err(wiphy,
-					  "%s failed to load hostap conf!\n",
+					  "%s Failed to load hostap conf!\n",
 					  __func__);
 				return ret;
 			}
@@ -962,9 +1030,9 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 			key_len = sme->key_len;
 		}
 		wiphy_info(wiphy, "%s psk %s\n", __func__, sme->key);
-		ret = itm_wlan_set_psk_cmd(priv->wlan_sipc, psk, key_len);
+		ret = sprdwl_set_psk_cmd(priv->wlan_sipc, psk, key_len);
 		if (ret < 0) {
-			wiphy_err(wiphy, "%s failed to set psk!\n", __func__);
+			wiphy_err(wiphy, "%s Failed to set psk!\n", __func__);
 			return ret;
 		}
 	}
@@ -973,15 +1041,15 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 	/* Set channel */
 	if (sme->channel != NULL) {
 		wiphy_info(wiphy, "%s channel %d\n", __func__,
-			   ieee80211_frequency_to_channel(
-				   sme->channel->center_freq));
+			   ieee80211_frequency_to_channel(sme->channel->
+							  center_freq));
 		ret =
-		    itm_wlan_set_channel_cmd(priv->wlan_sipc,
-					     ieee80211_frequency_to_channel
-					     (sme->channel->center_freq));
+		    sprdwl_set_channel_cmd(priv->wlan_sipc,
+					   ieee80211_frequency_to_channel
+					   (sme->channel->center_freq));
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				  "%s failed to set channel!\n", __func__);
+				  "%s Failed to set channel!\n", __func__);
 			return ret;
 		}
 	} else {
@@ -990,9 +1058,9 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 
 	/* Set BSSID */
 	if (sme->bssid != NULL) {
-		ret = itm_wlan_set_bssid_cmd(priv->wlan_sipc, sme->bssid);
+		ret = sprdwl_set_bssid_cmd(priv->wlan_sipc, sme->bssid);
 		if (ret < 0) {
-			wiphy_err(wiphy, "%s failed to set bssid!\n", __func__);
+			wiphy_err(wiphy, "%s Failed to set bssid!\n", __func__);
 			return ret;
 		}
 		memcpy(priv->bssid, sme->bssid, 6);
@@ -1000,7 +1068,7 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 		wiphy_dbg(wiphy, "BSSID is not specified\n");
 	}
 
-	/* Special process for WEP(WEP key must be set before itm_set_essid) */
+	/* Special process for WEP(WEP key must be set before essid) */
 	if (sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP40 ||
 	    sme->crypto.cipher_group == WLAN_CIPHER_SUITE_WEP104) {
 		wiphy_info(wiphy, "%s WEP cipher_group\n", __func__);
@@ -1016,100 +1084,92 @@ static int itm_wlan_cfg80211_connect(struct wiphy *wiphy,
 				return -EINVAL;
 			}
 
-			itm_wlan_set_key_cmd(priv->wlan_sipc, sme->key_idx);
+			sprdwl_set_key_cmd(priv->wlan_sipc, sme->key_idx);
 		}
 	}
 
 	/* Set ESSID */
 	if (sme->ssid != NULL) {
 		wiphy_info(wiphy, "%s essid %s\n", __func__, sme->ssid);
-		ret = itm_wlan_set_essid_cmd(priv->wlan_sipc, sme->ssid,
-					     (int)sme->ssid_len);
+		ret = sprdwl_set_essid_cmd(priv->wlan_sipc, sme->ssid,
+					   (int)sme->ssid_len);
 		if (ret < 0) {
-			wiphy_err(wiphy, "%s failed to set essid!\n", __func__);
+			wiphy_err(wiphy, "%s Failed to set essid!\n", __func__);
 			return ret;
 		}
 		memcpy(priv->ssid, sme->ssid, sme->ssid_len);
 		priv->ssid_len = sme->ssid_len;
 	}
 
-	priv->connect_status = ITM_CONNECTING;
+	priv->connect_status = SPRDWL_CONNECTING;
 	return ret;
 }
 
-static int itm_wlan_cfg80211_disconnect(struct wiphy *wiphy,
-					struct net_device *ndev,
-					u16 reason_code)
+static int sprdwl_cfg80211_disconnect(struct wiphy *wiphy,
+				      struct net_device *ndev, u16 reason_code)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
 	wiphy_info(wiphy, "%s %s\n", __func__, priv->ssid);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
-	ret = itm_wlan_disconnect_cmd(priv->wlan_sipc, reason_code);
+	ret = sprdwl_disconnect_cmd(priv->wlan_sipc, reason_code);
 	if (ret < 0)
-		wiphy_err(wiphy, "%s failed disconnect!\n", __func__);
+		wiphy_err(wiphy, "%s Failed disconnect!\n", __func__);
 	memset(priv->ssid, 0, sizeof(priv->ssid));
 
 	return ret;
 }
 
-static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
-				     struct net_device *netdev, u8 idx,
-				     bool pairwise, const u8 *mac_addr,
-				     struct key_params *params)
+static int sprdwl_cfg80211_add_key(struct wiphy *wiphy, struct net_device *ndev,
+				   u8 idx, bool pairwise, const u8 *mac_addr,
+				   struct key_params *params)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
 	wiphy_info(wiphy, "%s with cipher %d\n", __func__, params->cipher);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
-
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	if ((priv->mode == ITM_AP_MODE) && (priv->p2p_mode == false)) {
-#else	/* CONFIG_ITM_WIFI_DIRECT */
-	if (priv->mode == ITM_AP_MODE) {
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	if ((priv->mode == SPRDWL_AP_MODE) && (priv->p2p_mode == false)) {
+#else /* CONFIG_SPRDWL_WIFI_DIRECT */
+	if (priv->mode == SPRDWL_AP_MODE) {
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 		u8 key[32];
 		memset(key, 0, sizeof(key));
 		ret = hostap_conf_load(HOSTAP_CONF_FILE_NAME, key);
 		if (ret != 0) {
-			wiphy_err(wiphy, "%s failed to load hostapd conf!\n",
+			wiphy_err(wiphy, "%s Failed to load hostapd conf!\n",
 				  __func__);
 			return ret;
 		}
-		ret = itm_wlan_set_psk_cmd(priv->wlan_sipc, key, sizeof(key));
+		ret = sprdwl_set_psk_cmd(priv->wlan_sipc, key, sizeof(key));
 		if (ret < 0) {
-			wiphy_err(wiphy, "%s failed to set psk!\n", __func__);
+			wiphy_err(wiphy, "%s Failed to set psk!\n", __func__);
 			return ret;
 		}
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	} else if ((priv->mode == ITM_STATION_MODE) ||
-		   priv->mode == ITM_P2P_CLIENT_MODE ||
-		   priv->mode == ITM_P2P_GO_MODE) {
-#else	/* CONFIG_ITM_WIFI_DIRECT */
-	} else if (priv->mode == ITM_STATION_MODE) {
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	} else if ((priv->mode == SPRDWL_STATION_MODE) ||
+		   priv->mode == SPRDWL_P2P_CLIENT_MODE ||
+		   priv->mode == SPRDWL_P2P_GO_MODE) {
+#else /* CONFIG_SPRDWL_WIFI_DIRECT */
+	} else if (priv->mode == SPRDWL_STATION_MODE) {
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 		priv->key_index[pairwise] = idx;
 		priv->key_len[pairwise][idx] = params->key_len;
 		memcpy(priv->key[pairwise][idx], params->key, params->key_len);
-		ret = itm_wlan_add_cipher_key(priv, pairwise, idx,
-					      params->cipher,
-					      params->seq, mac_addr);
+		ret = sprdwl_add_cipher_key(priv, pairwise, idx, params->cipher,
+					    params->seq, mac_addr);
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				  "%s failed to add cipher key!\n", __func__);
+				  "%s Failed to add cipher key!\n", __func__);
 			return ret;
 		}
 	}
@@ -1117,30 +1177,27 @@ static int itm_wlan_cfg80211_add_key(struct wiphy *wiphy,
 	return 0;
 }
 
-static int itm_wlan_cfg80211_del_key(struct wiphy *wiphy,
-				     struct net_device *ndev,
-				     u8 key_index, bool pairwise,
-				     const u8 *mac_addr)
+static int sprdwl_cfg80211_del_key(struct wiphy *wiphy, struct net_device *ndev,
+				   u8 key_index, bool pairwise,
+				   const u8 *mac_addr)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 
 	wiphy_info(wiphy, "%s key_index=%d, pairwise=%d\n",
 		   __func__, key_index, pairwise);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
 	if (key_index > WLAN_MAX_KEY_INDEX) {
-		wiphy_err(wiphy, "%s key index %d out of bounds\n", __func__,
+		wiphy_err(wiphy, "%s key index %d out of bounds!\n", __func__,
 			  key_index);
 		return -ENOENT;
 	}
 
 	if (!priv->key_len[pairwise][key_index]) {
-		wiphy_err(wiphy, "%s key index %d is empty\n", __func__,
+		wiphy_err(wiphy, "%s key index %d is empty!\n", __func__,
 			  key_index);
 		return 0;
 	}
@@ -1148,85 +1205,77 @@ static int itm_wlan_cfg80211_del_key(struct wiphy *wiphy,
 	priv->key_len[pairwise][key_index] = 0;
 	priv->cipher_type = SPRDWL_CIPHER_NONE;
 
-	return itm_wlan_del_key_cmd(priv->wlan_sipc, key_index, mac_addr);
+	return sprdwl_del_key_cmd(priv->wlan_sipc, key_index, mac_addr);
 }
 
-static int itm_wlan_cfg80211_set_default_key(struct wiphy *wiphy,
-					     struct net_device *ndev,
-					     u8 key_index, bool unicast,
-					     bool multicast)
+static int sprdwl_cfg80211_set_default_key(struct wiphy *wiphy,
+					   struct net_device *ndev,
+					   u8 key_index, bool unicast,
+					   bool multicast)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
 	if (key_index > 3) {
-		wiphy_err(wiphy, "%s invalid key index %d\n", __func__,
+		wiphy_err(wiphy, "%s invalid key index %d!\n", __func__,
 			  key_index);
 		return -EINVAL;
 	}
 
-	ret = itm_wlan_set_key_cmd(priv->wlan_sipc, key_index);
+	ret = sprdwl_set_key_cmd(priv->wlan_sipc, key_index);
 	if (ret < 0) {
-		wiphy_err(wiphy, "%s failed to set key\n", __func__);
+		wiphy_err(wiphy, "%s Failed to set key!\n", __func__);
 		return ret;
 	}
 
 	return 0;
 }
 
-static int itm_wlan_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
+static int sprdwl_cfg80211_set_wiphy_params(struct wiphy *wiphy, u32 changed)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
 	if (changed & WIPHY_PARAM_RTS_THRESHOLD) {
-		ret = itm_wlan_set_rts_cmd(priv->wlan_sipc,
-					   wiphy->rts_threshold);
+		ret = sprdwl_set_rts_cmd(priv->wlan_sipc, wiphy->rts_threshold);
 		if (ret != 0) {
-			wiphy_err(wiphy, "%s failed to set rts\n", __func__);
+			wiphy_err(wiphy, "%s Failed to set rts!\n", __func__);
 			return -EIO;
 		}
 	}
 
 	if (changed & WIPHY_PARAM_FRAG_THRESHOLD) {
 		ret =
-		    itm_wlan_set_frag_cmd(priv->wlan_sipc,
-					  wiphy->frag_threshold);
+		    sprdwl_set_frag_cmd(priv->wlan_sipc, wiphy->frag_threshold);
 		if (ret != 0) {
-			wiphy_err(wiphy, "%s failed to set frag\n", __func__);
+			wiphy_err(wiphy, "%s Failed to set frag!\n", __func__);
 			return -EIO;
 		}
 	}
 	return 0;
 }
 
-static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
-					 struct net_device *dev, u8 *mac,
-					 struct station_info *sinfo)
+static int sprdwl_cfg80211_get_station(struct wiphy *wiphy,
+				       struct net_device *ndev, u8 *mac,
+				       struct station_info *sinfo)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	s8 signal, noise;
 	s32 rate;
 	int ret;
 	size_t i;
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
 	sinfo->filled |= STATION_INFO_TX_BYTES |
 			 STATION_INFO_TX_PACKETS |
@@ -1238,20 +1287,20 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 	sinfo->rx_packets = priv->ndev->stats.rx_packets;
 
 	/* Get current RSSI */
-	ret = itm_wlan_get_rssi_cmd(priv->wlan_sipc, &signal, &noise);
+	ret = sprdwl_get_rssi_cmd(priv->wlan_sipc, &signal, &noise);
 	if (ret == 0) {
 		sinfo->signal = signal;
 		sinfo->filled |= STATION_INFO_SIGNAL;
 	} else {
-		wiphy_err(wiphy, "%s failed to get rssi!\n", __func__);
+		wiphy_err(wiphy, "%s Failed to get RSSI!\n", __func__);
 		return -EIO;
 	}
 
-	ret = itm_wlan_get_txrate_cmd(priv->wlan_sipc, &rate);
+	ret = sprdwl_get_txrate_cmd(priv->wlan_sipc, &rate);
 	if (ret == 0) {
 		sinfo->filled |= STATION_INFO_TX_BITRATE;
 	} else {
-		wiphy_err(wiphy, "%s failed to get txrate!\n", __func__);
+		wiphy_err(wiphy, "%s Failed to get txrate!\n", __func__);
 		return -EIO;
 	}
 
@@ -1260,17 +1309,17 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 		wiphy_info(wiphy, "%s rate %d\n", __func__, (rate & 0x7f));
 		sinfo->txrate.legacy = 10;
 	} else {
-		for (i = 0; i < ARRAY_SIZE(itm_rates); i++) {
-			if (rate == itm_rates[i].hw_value) {
-				sinfo->txrate.legacy = itm_rates[i].bitrate;
+		for (i = 0; i < ARRAY_SIZE(sprdwl_rates); i++) {
+			if (rate == sprdwl_rates[i].hw_value) {
+				sinfo->txrate.legacy = sprdwl_rates[i].bitrate;
 				if (rate & 0x80)
 					sinfo->txrate.mcs =
-					    itm_rates[i].hw_value;
+					    sprdwl_rates[i].hw_value;
 				break;
 			}
 		}
 
-		if (i >= ARRAY_SIZE(itm_rates))
+		if (i >= ARRAY_SIZE(sprdwl_rates))
 			sinfo->txrate.legacy = 10;
 	}
 
@@ -1280,69 +1329,199 @@ static int itm_wlan_cfg80211_get_station(struct wiphy *wiphy,
 	return 0;
 }
 
-static int itm_wlan_cfg80211_set_pmksa(struct wiphy *wiphy,
-				       struct net_device *netdev,
-				       struct cfg80211_pmksa *pmksa)
+static int sprdwl_cfg80211_set_pmksa(struct wiphy *wiphy,
+				     struct net_device *ndev,
+				     struct cfg80211_pmksa *pmksa)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
-	ret = itm_wlan_pmksa_cmd(priv->wlan_sipc, pmksa->bssid,
-				 pmksa->pmkid, CMD_TYPE_SET);
+	ret = sprdwl_pmksa_cmd(priv->wlan_sipc, pmksa->bssid,
+			       pmksa->pmkid, CMD_TYPE_SET);
 
 	return ret;
 }
 
-static int itm_wlan_cfg80211_del_pmksa(struct wiphy *wiphy,
-				       struct net_device *netdev,
-				       struct cfg80211_pmksa *pmksa)
+static int sprdwl_cfg80211_del_pmksa(struct wiphy *wiphy,
+				     struct net_device *ndev,
+				     struct cfg80211_pmksa *pmksa)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
-	ret = itm_wlan_pmksa_cmd(priv->wlan_sipc, pmksa->bssid,
-				 pmksa->pmkid, CMD_TYPE_DEL);
+	ret = sprdwl_pmksa_cmd(priv->wlan_sipc, pmksa->bssid,
+			       pmksa->pmkid, CMD_TYPE_DEL);
 
 	return ret;
 }
 
-static int itm_wlan_cfg80211_flush_pmksa(struct wiphy *wiphy,
-					 struct net_device *netdev)
+static int sprdwl_cfg80211_flush_pmksa(struct wiphy *wiphy,
+				       struct net_device *netdev)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
 	wiphy_info(wiphy, "%s\n", __func__);
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
-	ret = itm_wlan_pmksa_cmd(priv->wlan_sipc, priv->bssid,
-				 NULL, CMD_TYPE_FLUSH);
+	ret = sprdwl_pmksa_cmd(priv->wlan_sipc, priv->bssid,
+			       NULL, CMD_TYPE_FLUSH);
 
 	return ret;
 }
 
-void itm_cfg80211_report_connect_result(struct itm_priv *priv)
+static void sprdwl_scan_timeout(unsigned long data)
+{
+	struct sprdwl_priv *priv = (struct sprdwl_priv *)data;
+	unsigned long flags;
+
+	spin_lock_irqsave(&priv->scan_lock, flags);
+	if (priv->scan_request) {
+		wiphy_err(priv->wdev->wiphy, "%s\n", __func__);
+		cfg80211_scan_done(priv->scan_request, true);
+		priv->scan_request = NULL;
+	}
+	spin_unlock_irqrestore(&priv->scan_lock, flags);
+
+	return;
+}
+
+void sprdwl_event_scan_results(struct sprdwl_priv *priv, bool aborted)
+{
+	struct wiphy *wiphy = priv->wdev->wiphy;
+	struct ieee80211_supported_band *band;
+	struct ieee80211_channel *channel;
+	struct ieee80211_mgmt *mgmt = NULL;
+	struct cfg80211_bss *bss = NULL;
+	u32 i = 0, left = priv->wlan_sipc->wlan_sipc_event_len;
+	u8 *pos = priv->wlan_sipc->event_buf->u.event.variable;
+	u16 channel_num, channel_len;
+	u32 freq;
+	s16 rssi, rssi_len;
+	u32 mgmt_len = 0;
+	u64 tsf;
+	u16 capability, beacon_interval;
+	u8 *ie;
+	size_t ielen;
+	s32 signal;
+	unsigned long flags;
+
+	wiphy_info(wiphy, "%s\n", __func__);
+
+	spin_lock_irqsave(&priv->scan_lock, flags);
+	if (!priv->scan_request) {
+		spin_unlock_irqrestore(&priv->scan_lock, flags);
+		wiphy_err(wiphy, "%s null scan_request!\n", __func__);
+		return;
+	}
+	spin_unlock_irqrestore(&priv->scan_lock, flags);
+
+	if (left < 10 || aborted) {
+		wiphy_err(wiphy, "%s invalid event len %d!\n", __func__, left);
+		aborted = true;
+		goto out;
+	}
+
+	while (left >= 10) {
+		/* must use memcpy to protect unaligned */
+		/* The formate of frame is len(two bytes) + data */
+		memcpy(&channel_len, pos, 2);
+		pos += 2;
+		left -= 2;
+		memcpy(&channel_num, pos, channel_len);
+		pos += channel_len;
+		left -= channel_len;
+		/* FIXME only support 2GHZ */
+		band = wiphy->bands[IEEE80211_BAND_2GHZ];
+		freq = ieee80211_channel_to_frequency(channel_num, band->band);
+		channel = ieee80211_get_channel(wiphy, freq);
+		if (!channel) {
+			wiphy_err(wiphy, "%s invalid freq!\n", __func__);
+			continue;
+		}
+
+		/* The second two value of frame is rssi */
+		memcpy(&rssi_len, pos, 2);
+		pos += 2;
+		left -= 2;
+		memcpy(&rssi, pos, rssi_len);
+		pos += rssi_len;
+		left -= rssi_len;
+		signal = rssi * 100;
+
+		/* The third two value of frame is following data len */
+		memcpy(&mgmt_len, pos, 2);
+		pos += 2;
+		left -= 2;
+		if (mgmt_len > left) {
+			wiphy_err(wiphy,
+				  "%s mgmt_len(0x%08x) > left(0x%08x)!\n",
+				  __func__, mgmt_len, left);
+			aborted = true;
+			goto out;
+		}
+		/* The following is real data */
+		mgmt = (struct ieee80211_mgmt *)pos;
+		pos += mgmt_len;
+		left -= mgmt_len;
+		ie = mgmt->u.probe_resp.variable;
+		ielen = mgmt_len - offsetof(struct ieee80211_mgmt,
+					    u.probe_resp.variable);
+		tsf = le64_to_cpu(mgmt->u.probe_resp.timestamp);
+		beacon_interval = le16_to_cpu(mgmt->u.probe_resp.beacon_int);
+		capability = le16_to_cpu(mgmt->u.probe_resp.capab_info);
+		wiphy_dbg(wiphy, "   %s, " MACSTR ", channel %2u, signal %d\n",
+			  ieee80211_is_probe_resp(mgmt->frame_control)
+			  ? "proberesp" : "beacon   ",
+			  MAC2STR(mgmt->bssid), channel_num, rssi);
+
+		bss = cfg80211_inform_bss(wiphy, channel, mgmt->bssid,
+					  tsf, capability, beacon_interval, ie,
+					  ielen, signal, GFP_KERNEL);
+
+		if (unlikely(!bss))
+			wiphy_err(wiphy,
+				  "%s Failed to inform bss frame!\n", __func__);
+		cfg80211_put_bss(wiphy, bss);
+		i++;
+	}
+
+	if (left) {
+		wiphy_err(wiphy, "%s wrong event len %d!\n", __func__, left);
+		aborted = true;
+		goto out;
+	}
+	wiphy_info(wiphy, "%s got %d BSSes\n", __func__, i);
+
+out:
+	if (timer_pending(&priv->scan_timeout))
+		del_timer_sync(&priv->scan_timeout);
+	spin_lock_irqsave(&priv->scan_lock, flags);
+	if (priv->scan_request) {
+		cfg80211_scan_done(priv->scan_request, aborted);
+		priv->scan_request = NULL;
+	}
+	spin_unlock_irqrestore(&priv->scan_lock, flags);
+
+	return;
+}
+
+void sprdwl_event_connect_result(struct sprdwl_priv *priv)
 {
 	u8 *req_ie_ptr, *resp_ie_ptr, *bssid_ptr, *pos, *value_ptr;
 	u8 status_code = 0;
@@ -1368,14 +1547,14 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 	memcpy(&status_len, pos, 2);
 	if (status_len != 1) {
 		wiphy_err(priv->wdev->wiphy,
-			  "%s erro status len(%d)\n", __func__, status_len);
+			  "%s erro status len(%d)!\n", __func__, status_len);
 		goto freepos;
 	}
 	memcpy(&status_code, pos + 2, status_len);
 	/* FIXME later the status code should be reported by CP2 */
 	if (status_code != 0) {
 		wiphy_err(priv->wdev->wiphy,
-			  "%s failled to connect(%d)\n", __func__, status_code);
+			  "%s Failed to connect(%d)!\n", __func__, status_code);
 		goto freepos;
 	}
 
@@ -1395,7 +1574,7 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 		wiphy_err(priv->wdev->wiphy, "%s no req_ie frame!\n", __func__);
 		goto freepos;
 	}
-	req_ie_len = *(u8 *) (bssid_ptr + bssid_len);
+	req_ie_len = *(u8 *)(bssid_ptr + bssid_len);
 	left -= 1;
 	req_ie_ptr = bssid_ptr + bssid_len + 1;
 	left -= req_ie_len;
@@ -1404,12 +1583,12 @@ void itm_cfg80211_report_connect_result(struct itm_priv *priv)
 			  __func__);
 		goto freepos;
 	}
-	resp_ie_len = *(u8 *) (req_ie_ptr + req_ie_len);
+	resp_ie_len = *(u8 *)(req_ie_ptr + req_ie_len);
 	resp_ie_ptr = req_ie_ptr + req_ie_len + 1;
 
-	if (priv->connect_status == ITM_CONNECTING) {
+	if (priv->connect_status == SPRDWL_CONNECTING) {
 		/* inform connect result to cfg80211 */
-		priv->connect_status = ITM_CONNECTED;
+		priv->connect_status = SPRDWL_CONNECTED;
 		cfg80211_connect_result(priv->ndev,
 					bssid_ptr, req_ie_ptr, req_ie_len,
 					resp_ie_ptr, resp_ie_len,
@@ -1444,7 +1623,7 @@ out:
 		priv->scan_request = NULL;
 	}
 	spin_unlock_irqrestore(&priv->scan_lock, flags);
-	if (priv->connect_status == ITM_CONNECTING) {
+	if (priv->connect_status == SPRDWL_CONNECTING) {
 		cfg80211_connect_result(priv->ndev,
 					priv->bssid, NULL, 0,
 					NULL, 0,
@@ -1452,14 +1631,14 @@ out:
 					GFP_KERNEL);
 		wiphy_info(priv->wdev->wiphy, "%s %s fail!\n", __func__,
 			   priv->ssid);
-	} else if (priv->connect_status == ITM_CONNECTED) {
+	} else if (priv->connect_status == SPRDWL_CONNECTED) {
 		cfg80211_disconnected(priv->ndev, status_code,
 				      NULL, 0, GFP_KERNEL);
 	}
 	return;
 }
 
-void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
+void sprdwl_event_disconnect(struct sprdwl_priv *priv)
 {
 	u16 reason_code = 0;
 	unsigned long flags;
@@ -1474,19 +1653,19 @@ void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
 		priv->scan_request = NULL;
 	}
 	spin_unlock_irqrestore(&priv->scan_lock, flags);
-	if (priv->connect_status == ITM_CONNECTING) {
+	if (priv->connect_status == SPRDWL_CONNECTING) {
 		cfg80211_connect_result(priv->ndev,
 					priv->bssid, NULL, 0,
 					NULL, 0,
 					WLAN_STATUS_UNSPECIFIED_FAILURE,
 					GFP_KERNEL);
-	} else if (priv->connect_status == ITM_CONNECTED) {
+	} else if (priv->connect_status == SPRDWL_CONNECTED) {
 		cfg80211_disconnected(priv->ndev, reason_code,
 				      NULL, 0, GFP_KERNEL);
 		wiphy_info(priv->wdev->wiphy, "%s %s\n", __func__, priv->ssid);
 	}
 
-	priv->connect_status = ITM_DISCONNECTED;
+	priv->connect_status = SPRDWL_DISCONNECTED;
 	if (netif_carrier_ok(priv->ndev)) {
 		wiphy_dbg(priv->wdev->wiphy, "%s netif_carrier_off\n",
 			  __func__);
@@ -1496,148 +1675,12 @@ void itm_cfg80211_report_disconnect_done(struct itm_priv *priv)
 	return;
 }
 
-static void itm_cfg80211_scan_timeout(unsigned long data)
+void sprdwl_event_ready(struct sprdwl_priv *priv)
 {
-	struct itm_priv *priv = (struct itm_priv *)data;
-	unsigned long flags;
-
-	spin_lock_irqsave(&priv->scan_lock, flags);
-	if (priv->scan_request) {
-		wiphy_err(priv->wdev->wiphy, "%s\n", __func__);
-		cfg80211_scan_done(priv->scan_request, true);
-		priv->scan_request = NULL;
-	}
-	spin_unlock_irqrestore(&priv->scan_lock, flags);
-
-	return;
+	priv->cp2_status = SPRDWL_READY;
 }
 
-void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted)
-{
-	struct wiphy *wiphy = priv->wdev->wiphy;
-	struct ieee80211_supported_band *band;
-	struct ieee80211_channel *channel;
-	struct ieee80211_mgmt *mgmt = NULL;
-	struct cfg80211_bss *bss = NULL;
-	u32 i = 0, left = priv->wlan_sipc->wlan_sipc_event_len;
-	u8 *pos = priv->wlan_sipc->event_buf->u.event.variable;
-	u16 channel_num, channel_len;
-	u32 freq;
-	s16 rssi, rssi_len;
-	u32 mgmt_len = 0;
-	u64 tsf;
-	u16 capability, beacon_interval;
-	u8 *ie;
-	size_t ielen;
-	s32 signal;
-	unsigned long flags;
-
-	spin_lock_irqsave(&priv->scan_lock, flags);
-	if (!priv->scan_request) {
-		spin_unlock_irqrestore(&priv->scan_lock, flags);
-		wiphy_err(wiphy, "%s null scan_request!\n", __func__);
-		return;
-	}
-	spin_unlock_irqrestore(&priv->scan_lock, flags);
-
-	if (left < 10 || aborted) {
-		wiphy_err(wiphy, "%s invalid event len %d!\n", __func__, left);
-		aborted = true;
-		goto out;
-	}
-
-	while (left >= 10) {
-		/* must use memcpy to protect unaligned */
-		/* The formate of frame is len(two bytes) + data */
-		memcpy(&channel_len, pos, 2);
-		pos += 2;
-		left -= 2;
-		memcpy(&channel_num, pos, channel_len);
-		pos += channel_len;
-		left -= channel_len;
-		/* FIXME only support 2GHZ */
-		band = wiphy->bands[IEEE80211_BAND_2GHZ];
-		freq = ieee80211_channel_to_frequency(channel_num, band->band);
-		channel = ieee80211_get_channel(wiphy, freq);
-		if (!channel) {
-			wiphy_err(wiphy, "%s invalid freq\n", __func__);
-			continue;
-		}
-
-		/* The second two value of frame is rssi */
-		memcpy(&rssi_len, pos, 2);
-		pos += 2;
-		left -= 2;
-		memcpy(&rssi, pos, rssi_len);
-		pos += rssi_len;
-		left -= rssi_len;
-		signal = rssi * 100;
-
-		/* The third two value of frame is following data len */
-		memcpy(&mgmt_len, pos, 2);
-		pos += 2;
-		left -= 2;
-		if (mgmt_len > left) {
-			wiphy_err(wiphy,
-				  "%s mgmt_len(0x%08x) > left(0x%08x)!\n",
-				  __func__, mgmt_len, left);
-			aborted = true;
-			goto out;
-		}
-		/* The following is real data */
-		mgmt = (struct ieee80211_mgmt *)pos;
-		pos += mgmt_len;
-		left -= mgmt_len;
-		ie = mgmt->u.probe_resp.variable;
-		ielen = mgmt_len - offsetof(struct ieee80211_mgmt,
-					    u.probe_resp.variable);
-		tsf = le64_to_cpu(mgmt->u.probe_resp.timestamp);
-		beacon_interval = le16_to_cpu(mgmt->u.probe_resp.beacon_int);
-		capability = le16_to_cpu(mgmt->u.probe_resp.capab_info);
-		wiphy_dbg(wiphy,
-			  "%s %s, %02x:%02x:%02x:%02x:%02x:%02x, tsf %llu\n",
-			  __func__, ieee80211_is_probe_resp(mgmt->frame_control)
-			  ? "proberesp" : "beacon   ",
-			  mgmt->bssid[0], mgmt->bssid[1], mgmt->bssid[2],
-			  mgmt->bssid[3], mgmt->bssid[4], mgmt->bssid[5], tsf);
-
-		bss = cfg80211_inform_bss(wiphy, channel, mgmt->bssid,
-					  tsf, capability, beacon_interval, ie,
-					  ielen, signal, GFP_KERNEL);
-
-		if (unlikely(!bss))
-			wiphy_err(wiphy,
-				  "%s failed to inform bss frame!\n", __func__);
-		cfg80211_put_bss(wiphy, bss);
-		i++;
-	}
-
-	if (left) {
-		wiphy_err(wiphy, "%s wrong event len %d!\n", __func__, left);
-		aborted = true;
-		goto out;
-	}
-	wiphy_info(wiphy, "%s got %d BSSes\n", __func__, i);
-
-out:
-	if (timer_pending(&priv->scan_timeout))
-		del_timer_sync(&priv->scan_timeout);
-	spin_lock_irqsave(&priv->scan_lock, flags);
-	if (priv->scan_request) {
-		cfg80211_scan_done(priv->scan_request, aborted);
-		priv->scan_request = NULL;
-	}
-	spin_unlock_irqrestore(&priv->scan_lock, flags);
-
-	return;
-}
-
-void itm_cfg80211_report_ready(struct itm_priv *priv)
-{
-	priv->cp2_status = ITM_READY;
-}
-
-void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
+void sprdwl_event_tx_busy(struct sprdwl_priv *priv)
 {
 	u8 busy_flag = 0;
 
@@ -1656,20 +1699,20 @@ void itm_cfg80211_report_tx_busy(struct itm_priv *priv)
 	return;
 }
 
-void itm_cfg80211_report_softap(struct itm_priv *priv)
+void sprdwl_event_softap(struct sprdwl_priv *priv)
 {
 	struct wlan_softap_event *event =
-	    (struct wlan_softap_event *)priv->wlan_sipc->event_buf->u.event.
-	    variable;
+	    (struct wlan_softap_event *)priv->wlan_sipc->event_buf->u.
+	    event.variable;
 	struct station_info sinfo;
 	memset(&sinfo, 0, sizeof(sinfo));
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	if (event->req_ie_len > 0) {
 		sinfo.assoc_req_ies = event->ie;
 		sinfo.assoc_req_ies_len = event->req_ie_len;
 		sinfo.filled |= STATION_INFO_ASSOC_REQ_IES;
 	}
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
 	if (event->connected) {
 		cfg80211_new_sta(priv->ndev, (u8 const *)&event->mac, &sinfo,
@@ -1683,115 +1726,12 @@ void itm_cfg80211_report_softap(struct itm_priv *priv)
 	}
 }
 
-static int itm_wlan_cfg80211_mgmt_tx(struct wiphy *wiphy,
-				     struct wireless_dev *wdev,
-				     struct ieee80211_channel *chan,
-				     bool offchan, unsigned int wait,
-				     const u8 *buf, size_t len, bool no_cck,
-				     bool dont_wait_for_ack, u64 *cookie)
-{
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	int ret = 0;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
-		return -EIO;
-	}
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	cfg80211_dump_frame_prot_info(wiphy, 1, chan->center_freq, buf, len);
-
-	/* send tx mgmt */
-	if (len > 0) {
-		ret = itm_wlan_set_tx_mgmt_cmd(priv->wlan_sipc, chan,
-					       wait, buf, len);
-		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_tx_mgmt_cmd failed with ret %d\n",
-				ret);
-			return ret;
-		}
-	}
-
-	cfg80211_mgmt_tx_status(priv->wdev, *cookie, buf, len, 1, GFP_KERNEL);
-
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
-
-	return 0;
-}
-
-#ifdef CONFIG_ITM_WIFI_DIRECT
-static void register_frame_work_fun(struct work_struct *work)
-{
-	struct itm_priv *priv =
-	    container_of(work, struct itm_priv, work);
-	struct wlan_sipc *wlan_sipc = priv->wlan_sipc;
-	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
-	struct wlan_sipc_register_frame *data =
-	    (struct wlan_sipc_register_frame *)send_buf->u.cmd.variable;
-	int ret = 0;
-
-	mutex_lock(&wlan_sipc->cmd_lock);
-
-	data->type = priv->frame_type;
-	data->reg = priv->reg ? 1 : 0;
-	priv->frame_type = 0xffff;
-	priv->reg = 0;
-
-	wlan_sipc->wlan_sipc_send_len =
-	    ITM_WLAN_CMD_HDR_SIZE + sizeof(struct wlan_sipc_register_frame);
-	wlan_sipc->wlan_sipc_recv_len = ITM_WLAN_CMD_RESP_HDR_SIZE;
-
-	ret =
-	    itm_wlan_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
-				   WIFI_CMD_REGISTER_FRAME);
-
-	if (ret)
-		pr_err("return wrong status code is %d\n", ret);
-
-	mutex_unlock(&wlan_sipc->cmd_lock);
-}
-
-void init_register_frame_param(struct itm_priv *priv)
-{
-	if (priv == NULL)
-		return;
-
-	priv->frame_type = 0xffff;
-	priv->reg = 0;
-	INIT_WORK(&priv->work, register_frame_work_fun);
-}
-
-static int itm_mac_register_frame(struct itm_priv *priv, u16 frame_type,
-				  bool reg)
-{
-	priv->frame_type = frame_type;
-	priv->reg = reg;
-	schedule_work(&priv->work);
-	return 0;
-}
-
-#endif
-
-static void itm_wlan_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
-						  struct wireless_dev *wdev,
-						  u16 frame_type, bool reg)
-{
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	struct itm_priv *priv = *(struct itm_priv **)wiphy_priv(wiphy);
-
-	if (priv->p2p_mode)
-		itm_mac_register_frame(priv, frame_type, reg);
-#endif
-}
-static int itm_wlan_change_beacon(struct itm_priv *priv,
-				  struct cfg80211_beacon_data *beacon)
+static int sprdwl_change_beacon(struct sprdwl_priv *priv,
+				struct cfg80211_beacon_data *beacon)
 {
 	int ret = 0;
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	u16 ie_len;
 	u8 *ie_ptr;
 
@@ -1808,13 +1748,11 @@ static int itm_wlan_change_beacon(struct itm_priv *priv,
 		memcpy(ie_ptr, beacon->head, ie_len);
 		pr_debug("begin send beacon head ies\n");
 
-		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
-					      P2P_BEACON_IE_HEAD, ie_ptr,
-					      ie_len);
+		ret = sprdwl_set_p2p_ie_cmd(priv->wlan_sipc,
+					    P2P_BEACON_IE_HEAD, ie_ptr, ie_len);
 		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_p2p_ie beacon_ies head failed with ret %d\n",
-				ret);
+			pr_err("%s Failed to set p2p_ie of beacon_ies head!\n",
+			       __func__);
 		} else {
 			pr_debug("send beacon head ies successfully\n");
 		}
@@ -1833,13 +1771,11 @@ static int itm_wlan_change_beacon(struct itm_priv *priv,
 		memcpy(ie_ptr, beacon->tail, ie_len);
 		pr_debug("begin send beacon tail ies\n");
 
-		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
-					      P2P_BEACON_IE_TAIL, ie_ptr,
-					      ie_len);
+		ret = sprdwl_set_p2p_ie_cmd(priv->wlan_sipc,
+					    P2P_BEACON_IE_TAIL, ie_ptr, ie_len);
 		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_p2p_ie beacon_ies tail failed with ret %d\n",
-				ret);
+			pr_err("%s Failed to set p2p_ie of beacon_ies tail!\n",
+			       __func__);
 		} else {
 			pr_debug("send beacon tail ies successfully\n");
 		}
@@ -1860,12 +1796,11 @@ static int itm_wlan_change_beacon(struct itm_priv *priv,
 		memcpy(ie_ptr, beacon->beacon_ies, ie_len);
 		pr_debug("begin send beacon extra ies\n");
 
-		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
-					      P2P_BEACON_IE, ie_ptr, ie_len);
+		ret = sprdwl_set_p2p_ie_cmd(priv->wlan_sipc,
+					    P2P_BEACON_IE, ie_ptr, ie_len);
 		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_p2p_ie beacon_ies failed with ret %d\n",
-				ret);
+			pr_err("%s Failed to set p2p_ie of beacon_ies!\n",
+			       __func__);
 		} else {
 			pr_debug("send beacon extra ies successfully\n");
 		}
@@ -1885,12 +1820,11 @@ static int itm_wlan_change_beacon(struct itm_priv *priv,
 		memcpy(ie_ptr, beacon->proberesp_ies, ie_len);
 		pr_debug("begin send probe response extra ies\n");
 
-		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
-					      P2P_PROBERESP_IE, ie_ptr, ie_len);
+		ret = sprdwl_set_p2p_ie_cmd(priv->wlan_sipc,
+					    P2P_PROBERESP_IE, ie_ptr, ie_len);
 		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_p2p_ie proberesp_ies failed with ret %d\n",
-				ret);
+			pr_err("%s Failed to set p2p_ie of proberesp_ies!\n",
+			       __func__);
 		} else {
 			pr_debug("send probe response ies successfully\n");
 		}
@@ -1910,34 +1844,57 @@ static int itm_wlan_change_beacon(struct itm_priv *priv,
 		memcpy(ie_ptr, beacon->assocresp_ies, ie_len);
 		pr_debug("begin send associate response extra ies\n");
 
-		ret = itm_wlan_set_p2p_ie_cmd(priv->wlan_sipc,
-					      P2P_ASSOCRESP_IE, ie_ptr, ie_len);
+		ret = sprdwl_set_p2p_ie_cmd(priv->wlan_sipc,
+					    P2P_ASSOCRESP_IE, ie_ptr, ie_len);
 		if (ret) {
-			dev_err(&priv->ndev->dev,
-				"itm_wlan_set_p2p_ie assocresp_ies failed with ret %d\n",
-				ret);
+			pr_err("%s Failed to set p2p_ie of assocresp_ies!\n",
+			       __func__);
 		} else {
 			pr_debug("send associate response ies successfully\n");
 		}
 
 		kfree(ie_ptr);
 	}
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 	return ret;
 }
 
-static int itm_wlan_start_ap(struct itm_priv *priv,
-			     struct cfg80211_beacon_data *beacon)
+static int sprdwl_cfg80211_start_ap(struct wiphy *wiphy,
+				    struct net_device *ndev,
+				    struct cfg80211_ap_settings *info)
 {
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+	struct cfg80211_beacon_data *beacon = &info->beacon;
 	struct ieee80211_mgmt *mgmt;
 	u16 mgmt_len;
 	int ret;
+
+	wiphy_info(wiphy, "%s\n", __func__);
+
+	if (!sprdwl_is_ready(priv))
+		return -EIO;
+
+	if (info->ssid == NULL) {
+		wiphy_err(wiphy, "%s null ssid!\n", __func__);
+		return -EINVAL;
+	}
+
+	memcpy(priv->ssid, info->ssid, info->ssid_len);
+	priv->ssid_len = info->ssid_len;
+
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	if (!netif_carrier_ok(priv->ndev)) {
+		netif_carrier_on(priv->ndev);
+		netif_wake_queue(priv->ndev);
+	}
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
 	/* TODO:
 	 * info->interval
 	 * info->dtim_period
 	 */
-	itm_wlan_change_beacon(priv, beacon);
+	sprdwl_change_beacon(priv, beacon);
 
 	if (beacon->head == NULL)
 		return -EINVAL;
@@ -1960,207 +1917,103 @@ static int itm_wlan_start_ap(struct itm_priv *priv,
 	/* ciphers_pairwise */
 	/* ciphers_group */
 	/* ssid */
-
-	ret = itm_wlan_start_ap_cmd(priv->wlan_sipc, (u8 *)mgmt, mgmt_len);
+	ret = sprdwl_start_ap_cmd(priv->wlan_sipc, (u8 *)mgmt, mgmt_len);
 	kfree(mgmt);
 	if (ret != 0)
-		wiphy_err(priv->wdev->wiphy, "itm_wlan_start_ap_cmd failed\n");
+		wiphy_err(priv->wdev->wiphy, "%s Failed to start AP!\n",
+			  __func__);
 
 	return ret;
 }
 
-static int itm_wlan_cfg80211_start_ap(struct wiphy *wiphy,
-				      struct net_device *ndev,
-				      struct cfg80211_ap_settings *info)
+static int sprdwl_cfg80211_stop_ap(struct wiphy *wiphy, struct net_device *ndev)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-
-	wiphy_info(wiphy, "%s: mode %d\n", __func__, priv->mode);
-
-	if (info->ssid == NULL) {
-		wiphy_err(wiphy, "%s null ssid!\n", __func__);
-		return -EINVAL;
-	}
-
-	memcpy(priv->ssid, info->ssid, info->ssid_len);
-	priv->ssid_len = info->ssid_len;
-
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	if (!netif_carrier_ok(priv->ndev)) {
-		netif_carrier_on(priv->ndev);
-		netif_wake_queue(priv->ndev);
-	}
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-	return itm_wlan_start_ap(priv, &info->beacon);
-}
-
-static int itm_wlan_cfg80211_stop_ap(struct wiphy *wiphy,
-				     struct net_device *ndev)
-{
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
 	wiphy_info(wiphy, "%s\n", __func__);
-#ifdef CONFIG_ITM_WIFI_DIRECT
+
+	if (!sprdwl_is_ready(priv))
+		return -EIO;
+
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	if (netif_carrier_ok(priv->ndev)) {
 		netif_carrier_off(priv->ndev);
 		netif_stop_queue(priv->ndev);
 	}
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-	ret = itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+	ret = sprdwl_mac_close_cmd(priv->wlan_sipc, priv->mode);
 
 	return ret;
 }
 
-static int itm_wlan_cfg80211_change_beacon(struct wiphy *wiphy,
-					   struct net_device *ndev,
-					   struct cfg80211_beacon_data *beacon)
-{
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-
-	wiphy_info(wiphy, "[cfg80211] \t ==>>>%s\n", __func__);
-	return itm_wlan_change_beacon(priv, beacon);
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-	return 0;
-}
-
-static int itm_wlan_change_mode(struct itm_priv *priv, enum nl80211_iftype type)
-{
-	int mode;
-	int ret;
-
-	switch (type) {
-	case NL80211_IFTYPE_STATION:
-#ifdef CONFIG_ITM_WIFI_DIRECT
-		mode = priv->p2p_mode ? ITM_P2P_CLIENT_MODE : ITM_STATION_MODE;
-#else	/* CONFIG_ITM_WIFI_DIRECT */
-		mode = ITM_STATION_MODE;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-		break;
-	case NL80211_IFTYPE_AP:
-#ifdef CONFIG_ITM_WIFI_DIRECT
-		mode = priv->p2p_mode ? ITM_P2P_GO_MODE : ITM_AP_MODE;
-#else	/* CONFIG_ITM_WIFI_DIRECT */
-		mode = ITM_AP_MODE;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-		break;
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	case NL80211_IFTYPE_P2P_CLIENT:
-		mode = ITM_P2P_CLIENT_MODE;
-		break;
-	case NL80211_IFTYPE_P2P_GO:
-		mode = ITM_P2P_GO_MODE;
-		break;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-	default:
-		wiphy_err(priv->wdev->wiphy, "invalid interface type %u\n",
-			  type);
-		return -EOPNOTSUPP;
-	}
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	priv->wdev->iftype = type;
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
-
-	wiphy_info(priv->wdev->wiphy, "%s mode %d\n", __func__, mode);
-	if (mode == priv->mode)
-		return 0;
-
-	ret = itm_wlan_mac_open_cmd(priv->wlan_sipc,
-				    mode, priv->ndev->dev_addr);
-	if (ret != 0) {
-		wiphy_err(priv->wdev->wiphy, "%s failed to open mac!\n",
-			  __func__);
-		return -EIO;
-	}
-
-	priv->wdev->iftype = type;
-	priv->mode = mode;
-
-	return 0;
-}
-
-static int itm_wlan_cfg80211_change_iface(struct wiphy *wiphy,
-					  struct net_device *ndev,
-					  enum nl80211_iftype type, u32 *flags,
-					  struct vif_params *params)
-{
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-
-	wiphy_info(wiphy, "%s type %d\n", __func__, type);
-
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
-		return -EIO;
-	}
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	priv->p2p_mode = itm_get_p2p_mode_from_file();
-	wiphy_info(wiphy, "[cfg80211] %s: p2p_mode: %d\n",
-			__func__, priv->p2p_mode);
-#endif				/* CONFIG_ITM_WIFI_DIRECT */
-
-	return itm_wlan_change_mode(priv, type);
-}
-
-static int itm_wlan_cfg80211_set_channel(struct wiphy *wiphy,
+static int sprdwl_cfg80211_change_beacon(struct wiphy *wiphy,
 					 struct net_device *ndev,
-					 struct ieee80211_channel *channel)
+					 struct cfg80211_beacon_data *beacon)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+
+	if (!sprdwl_is_ready(priv))
+		return -EIO;
+
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	wiphy_info(wiphy, "[cfg80211] \t ==>>>%s\n", __func__);
+	return sprdwl_change_beacon(priv, beacon);
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+	return 0;
+}
+
+static int sprdwl_cfg80211_set_channel(struct wiphy *wiphy,
+				       struct net_device *ndev,
+				       struct ieee80211_channel *channel)
+{
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret = -ENOTSUPP;
 
-	if (!itm_wlan_cfg80211_ready(priv)) {
-		wiphy_err(wiphy, "CP2 not ready!\n");
+	if (!sprdwl_is_ready(priv))
 		return -EIO;
-	}
 
-	/*
-	 * FIXME: To be handled properly when monitor mode is supported.
-	 */
+	/*FIXME: To be handled properly when monitor mode is supported*/
 	ret =
-	    itm_wlan_set_channel_cmd(priv->wlan_sipc,
-				     ieee80211_frequency_to_channel
-				     (channel->center_freq));
+	    sprdwl_set_channel_cmd(priv->wlan_sipc,
+				   ieee80211_frequency_to_channel
+				   (channel->center_freq));
 	if (ret < 0) {
-		wiphy_err(wiphy,
-			  "itm_wlan_set_channel_cmd failed with ret %d\n", ret);
+		wiphy_err(wiphy, "%s Failed to set channel!\n", __func__);
 		return ret;
 	}
 
 	return 0;
 }
 
-/*
-static int itm_wlan_cfg80211_set_power_mgmt(struct wiphy *wiphy,
+/*static int sprdwl_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 					  struct net_device *dev,
 					  bool pmgmt, int timeout)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	int ret;
 
-	if (priv->cp2_status != ITM_READY) {
+	if (priv->cp2_status != SPRDWL_READY) {
 		wiphy_err(wiphy, "CP2 not ready!\n");
 		return -EAGAIN;
 	}
 
 	if (pmgmt) {
-		ret = itm_wlan_pm_enter_ps_cmd(priv->wlan_sipc);
+		ret = sprdwl_pm_enter_ps_cmd(priv->wlan_sipc);
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				"itm_wlan_pm_enter_ps_cmd failed(%d)\n", ret);
+				"sprdwl_pm_enter_ps_cmd failed(%d)\n", ret);
 			return ret;
 		}
 	} else {
-		ret = itm_wlan_pm_exit_ps_cmd(priv->wlan_sipc);
+		ret = sprdwl_pm_exit_ps_cmd(priv->wlan_sipc);
 		if (ret < 0) {
 			wiphy_err(wiphy,
-				"itm_wlan_pm_exit_ps_cmd failed(%d)\n", ret);
+				"sprdwl_pm_exit_ps_cmd failed(%d)\n", ret);
 			return ret;
 		}
 	}
@@ -2168,58 +2021,182 @@ static int itm_wlan_cfg80211_set_power_mgmt(struct wiphy *wiphy,
 	return 0;
 }
 */
-#ifdef CONFIG_ITM_WIFI_DIRECT
-
-void itm_cfg80211_p2p_prob_request(struct itm_priv *priv)
+static int sprdwl_cfg80211_mgmt_tx(struct wiphy *wiphy,
+				   struct wireless_dev *wdev,
+				   struct ieee80211_channel *chan,
+				   bool offchan, unsigned int wait,
+				   const u8 *buf, size_t len, bool no_cck,
+				   bool dont_wait_for_ack, u64 *cookie)
 {
-	u8 *req_ptr, *index;
-	u16 req_len, channel_len;
-	u8 channel;
-	u32 event_len;
-	int freq, left;
-	pr_debug("enter itm_cfg80211_p2p_prob_request\n");
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	int ret = 0;
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
-	event_len = priv->wlan_sipc->wlan_sipc_event_len;
+	if (!sprdwl_is_ready(priv))
+		return -EIO;
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	cfg80211_dump_frame_prot_info(wiphy, 1, chan->center_freq, buf, len);
 
-	index = priv->wlan_sipc->event_buf->u.event.variable;
-	left = event_len;
-
-	/* The first byte of event data is chan */
-	memcpy(&channel_len, index, 2);
-	index += 2;
-	left -= 2;
-
-	if (channel_len > 1) {
-		dev_err(&priv->ndev->dev, "channel len bigger than 1\n");
-		return;
+	/* send tx mgmt */
+	if (len > 0) {
+		ret = sprdwl_set_tx_mgmt_cmd(priv->wlan_sipc, chan,
+					     wait, buf, len);
+		if (ret) {
+			wiphy_err(wiphy,
+				  "%s Failed to set tx mgmt!\n", __func__);
+			return ret;
+		}
 	}
 
-	memcpy(&channel, index, channel_len);
-	index += channel_len;
-	left -= channel_len;
+	cfg80211_mgmt_tx_status(priv->wdev, *cookie, buf, len, 1, GFP_KERNEL);
 
-	if (!left) {
-		dev_err(&priv->ndev->dev, "There is no req frame!\n");
-		return;
-	}
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
-	/* The second event data is probe request */
-	memcpy(&req_len, index, 2);
-	index += 2;
-	left -= 2;
-
-	req_ptr = index;
-	left -= req_len;
-
-	freq = ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
-
-	cfg80211_rx_mgmt(priv->wdev, freq, 0, req_ptr, req_len - FCS_LEN,
-			 GFP_ATOMIC);
-
-	pr_debug("proccess probe request event completed\n");
+	return 0;
 }
 
-void itm_cfg80211_mgmt_deauth(struct itm_priv *priv)
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+static void register_frame_work_func(struct work_struct *work)
+{
+	struct sprdwl_priv *priv = container_of(work, struct sprdwl_priv, work);
+	struct wlan_sipc *wlan_sipc = priv->wlan_sipc;
+	struct wlan_sipc_data *send_buf = wlan_sipc->send_buf;
+	struct wlan_sipc_register_frame *data =
+	    (struct wlan_sipc_register_frame *)send_buf->u.cmd.variable;
+	int ret = 0;
+
+	mutex_lock(&wlan_sipc->cmd_lock);
+
+	data->type = priv->frame_type;
+	data->reg = priv->reg ? 1 : 0;
+	priv->frame_type = 0xffff;
+	priv->reg = 0;
+
+	wlan_sipc->wlan_sipc_send_len =
+	    SPRDWL_CMD_HDR_SIZE + sizeof(struct wlan_sipc_register_frame);
+	wlan_sipc->wlan_sipc_recv_len = SPRDWL_CMD_RESP_HDR_SIZE;
+
+	ret =
+	    sprdwl_cmd_send_recv(wlan_sipc, CMD_TYPE_SET,
+				 WIFI_CMD_REGISTER_FRAME);
+
+	if (ret)
+		pr_err("return wrong status code is %d\n", ret);
+
+	mutex_unlock(&wlan_sipc->cmd_lock);
+}
+
+void init_register_frame_param(struct sprdwl_priv *priv)
+{
+	if (priv == NULL)
+		return;
+
+	priv->frame_type = 0xffff;
+	priv->reg = 0;
+	INIT_WORK(&priv->work, register_frame_work_func);
+}
+
+static int sprdwl_register_frame(struct sprdwl_priv *priv, u16 frame_type,
+				 bool reg)
+{
+	priv->frame_type = frame_type;
+	priv->reg = reg;
+	schedule_work(&priv->work);
+	return 0;
+}
+#endif
+
+static void sprdwl_cfg80211_mgmt_frame_register(struct wiphy *wiphy,
+						struct wireless_dev *wdev,
+						u16 frame_type, bool reg)
+{
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	struct sprdwl_priv *priv = *(struct sprdwl_priv **)wiphy_priv(wiphy);
+
+	if (priv->p2p_mode)
+		sprdwl_register_frame(priv, frame_type, reg);
+#endif
+}
+
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+
+static int sprdwl_cfg80211_remain_on_channel(struct wiphy *wiphy,
+					     struct wireless_dev *dev,
+					     struct ieee80211_channel
+					     *channel, unsigned int duration,
+					     u64 *cookie)
+{
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+	int ret;
+	enum nl80211_channel_type channel_type = 0;
+
+	wiphy_info(wiphy, "[cfg80211] %s %d for %dms. cookie=0x%llx\n",
+		   __func__, channel->center_freq, duration, *cookie);
+	if (priv->cp2_status != SPRDWL_READY) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EAGAIN;
+	}
+
+	memcpy(&priv->listen_channel, channel,
+	       sizeof(struct ieee80211_channel));
+	priv->listen_cookie = *cookie;
+
+	/* send remain chan */
+
+	ret = sprdwl_remain_chan_cmd(priv->wlan_sipc, channel,
+				     channel_type, duration, cookie);
+	if (ret) {
+		wiphy_err(wiphy, "%s Failed to remain chan!\n", __func__);
+		return ret;
+	}
+	/* report remain chan */
+	cfg80211_ready_on_channel(dev, *cookie, channel, duration, GFP_KERNEL);
+	return 0;
+}
+
+static int sprdwl_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy,
+						    struct wireless_dev *dev,
+						    u64 cookie)
+{
+	int ret;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+
+	wiphy_info(wiphy, "[cfg80211] %s cookie = 0x%llx.\n", __func__, cookie);
+
+	if (priv->cp2_status != SPRDWL_READY) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EAGAIN;
+	}
+
+	ret = sprdwl_cancel_remain_chan_cmd(priv->wlan_sipc, cookie);
+	if (ret) {
+		wiphy_err(wiphy,
+			  "%s Failed to cancel remain chan!\n", __func__);
+		return ret;
+	}
+
+	return 0;
+}
+
+static int sprdwl_cfg80211_del_station(struct wiphy *wiphy,
+				       struct net_device *ndev, u8 *mac)
+{
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
+
+	if (priv->cp2_status != SPRDWL_READY) {
+		wiphy_err(wiphy, "CP2 not ready!\n");
+		return -EAGAIN;
+	}
+
+	return 0;
+}
+
+void sprdwl_event_mgmt_deauth(struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wdev->wiphy;
 	u8 *mac_ptr, *index;
@@ -2235,32 +2212,7 @@ void itm_cfg80211_mgmt_deauth(struct itm_priv *priv)
 	cfg80211_send_deauth(priv->ndev, mac_ptr, mac_len);
 }
 
-void itm_mac_event_report_frame(struct itm_priv *priv)
-{
-	struct wiphy *wiphy = priv->wdev->wiphy;
-	u16 mac_len;
-	u8 *mac_ptr = NULL;
-	u8 channel = 0, type = 0;
-	int freq;
-
-	struct wlan_sipc_event_report_frame *report_frame = NULL;
-
-	report_frame =
-	    (struct wlan_sipc_event_report_frame *)priv->wlan_sipc->event_buf->
-	    u.event.variable;
-	channel = report_frame->channel;
-	type = report_frame->frame_type;
-	freq = ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
-	mac_ptr = (u8 *)(report_frame + 1);
-	mac_len = report_frame->frame_len;
-
-	cfg80211_dump_frame_prot_info(wiphy, 0, freq, mac_ptr, mac_len);
-
-	cfg80211_rx_mgmt(priv->wdev, freq, 0, mac_ptr, mac_len - FCS_LEN,
-			 GFP_ATOMIC);
-}
-
-void itm_cfg80211_mgmt_disassoc(struct itm_priv *priv)
+void sprdwl_event_mgmt_disassoc(struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wdev->wiphy;
 	u8 *mac_ptr, *index;
@@ -2276,7 +2228,7 @@ void itm_cfg80211_mgmt_disassoc(struct itm_priv *priv)
 	cfg80211_send_disassoc(priv->ndev, mac_ptr, mac_len);
 }
 
-void itm_cfg80211_remain_on_channel_expired(struct itm_priv *priv)
+void sprdwl_event_remain_on_channel_expired(struct sprdwl_priv *priv)
 {
 	struct wiphy *wiphy = priv->wdev->wiphy;
 	u8 *index = NULL;
@@ -2298,7 +2250,7 @@ void itm_cfg80211_remain_on_channel_expired(struct itm_priv *priv)
 	left -= 2;
 
 	if (type_len > 1) {
-		dev_err(&priv->ndev->dev, "type len error\n");
+		wiphy_err(wiphy, "%s type len error\n", __func__);
 		return;
 	}
 
@@ -2310,158 +2262,70 @@ void itm_cfg80211_remain_on_channel_expired(struct itm_priv *priv)
 					   &priv->listen_channel, GFP_KERNEL);
 }
 
-static int itm_wlan_cfg80211_remain_on_channel(struct wiphy *wiphy,
-					       struct wireless_dev *dev,
-					       struct ieee80211_channel
-					       *channel, unsigned int duration,
-					       u64 *cookie)
+void sprdwl_event_report_frame(struct sprdwl_priv *priv)
 {
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-	int ret;
-	enum nl80211_channel_type channel_type = 0;
+	struct wiphy *wiphy = priv->wdev->wiphy;
+	u16 mac_len;
+	u8 *mac_ptr = NULL;
+	u8 channel = 0, type = 0;
+	int freq;
 
-	wiphy_info(wiphy, "[cfg80211] %s %d for %dms. cookie=0x%llx\n",
-		__func__, channel->center_freq, duration, *cookie);
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
+	struct wlan_sipc_event_report_frame *report_frame = NULL;
 
-	memcpy(&priv->listen_channel, channel,
-		sizeof(struct ieee80211_channel));
-	priv->listen_cookie = *cookie;
+	report_frame =
+	    (struct wlan_sipc_event_report_frame *)priv->wlan_sipc->
+	    event_buf->u.event.variable;
+	channel = report_frame->channel;
+	type = report_frame->frame_type;
+	freq = ieee80211_channel_to_frequency(channel, IEEE80211_BAND_2GHZ);
+	mac_ptr = (u8 *)(report_frame + 1);
+	mac_len = report_frame->frame_len;
 
-	/* send remain chan */
+	cfg80211_dump_frame_prot_info(wiphy, 0, freq, mac_ptr, mac_len);
 
-	ret = itm_wlan_remain_chan_cmd(priv->wlan_sipc, channel,
-				       channel_type, duration, cookie);
-	if (ret) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_remain_chan_cmd failed with ret %d\n", ret);
-		return ret;
-	}
-	/* report remain chan */
-	cfg80211_ready_on_channel(dev, *cookie, channel, duration, GFP_KERNEL);
-	return 0;
+	cfg80211_rx_mgmt(priv->wdev, freq, 0, mac_ptr, mac_len - FCS_LEN,
+			 GFP_ATOMIC);
 }
 
-static int itm_wlan_cfg80211_cancel_remain_on_channel(struct wiphy *wiphy,
-						      struct wireless_dev *dev,
-						      u64 cookie)
-{
-	int ret;
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 
-	wiphy_info(wiphy, "[cfg80211] %s cookie = 0x%llx.\n",
-		__func__, cookie);
-
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
-
-	ret = itm_wlan_cancel_remain_chan_cmd(priv->wlan_sipc, cookie);
-	if (ret) {
-		dev_err(&priv->ndev->dev,
-			"itm_wlan_cancel_remain_chan_cmd failed with ret %d.\n",
-			ret);
-		return ret;
-	}
-
-	return 0;
-}
-
-static int itm_wlan_cfg80211_del_station(struct wiphy *wiphy,
-					 struct net_device *ndev, u8 *mac)
-{
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
-
-	if (priv->cp2_status != ITM_READY) {
-		dev_err(&priv->ndev->dev, "CP2 not ready!\n");
-		return -EAGAIN;
-	}
-
-	return 0;
-}
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
-
-static struct cfg80211_ops itm_cfg80211_ops = {
-	.change_virtual_intf = itm_wlan_cfg80211_change_iface,
-	.scan = itm_wlan_cfg80211_scan,
-	.connect = itm_wlan_cfg80211_connect,
-	.disconnect = itm_wlan_cfg80211_disconnect,
-	.add_key = itm_wlan_cfg80211_add_key,
-	.del_key = itm_wlan_cfg80211_del_key,
-	.set_default_key = itm_wlan_cfg80211_set_default_key,
-	.set_wiphy_params = itm_wlan_cfg80211_set_wiphy_params,
-	.get_station = itm_wlan_cfg80211_get_station,
-	.set_pmksa = itm_wlan_cfg80211_set_pmksa,
-	.del_pmksa = itm_wlan_cfg80211_del_pmksa,
-	.flush_pmksa = itm_wlan_cfg80211_flush_pmksa,
+static struct cfg80211_ops sprdwl_cfg80211_ops = {
+	.change_virtual_intf = sprdwl_cfg80211_change_iface,
+	.scan = sprdwl_cfg80211_scan,
+	.connect = sprdwl_cfg80211_connect,
+	.disconnect = sprdwl_cfg80211_disconnect,
+	.add_key = sprdwl_cfg80211_add_key,
+	.del_key = sprdwl_cfg80211_del_key,
+	.set_default_key = sprdwl_cfg80211_set_default_key,
+	.set_wiphy_params = sprdwl_cfg80211_set_wiphy_params,
+	.get_station = sprdwl_cfg80211_get_station,
+	.set_pmksa = sprdwl_cfg80211_set_pmksa,
+	.del_pmksa = sprdwl_cfg80211_del_pmksa,
+	.flush_pmksa = sprdwl_cfg80211_flush_pmksa,
 	/* AP mode */
-	.start_ap = itm_wlan_cfg80211_start_ap,
-	.change_beacon = itm_wlan_cfg80211_change_beacon,
-	.stop_ap = itm_wlan_cfg80211_stop_ap,
-	.mgmt_tx = itm_wlan_cfg80211_mgmt_tx,
-	.mgmt_frame_register = itm_wlan_cfg80211_mgmt_frame_register,
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	.remain_on_channel = itm_wlan_cfg80211_remain_on_channel,
-	.cancel_remain_on_channel = itm_wlan_cfg80211_cancel_remain_on_channel,
-	.del_station = itm_wlan_cfg80211_del_station,
-#endif				/*CONFIG_ITM_WIFI_DIRECT */
-	.libertas_set_mesh_channel = itm_wlan_cfg80211_set_channel,
+	.start_ap = sprdwl_cfg80211_start_ap,
+	.change_beacon = sprdwl_cfg80211_change_beacon,
+	.stop_ap = sprdwl_cfg80211_stop_ap,
+	.libertas_set_mesh_channel = sprdwl_cfg80211_set_channel,
+	.mgmt_tx = sprdwl_cfg80211_mgmt_tx,
+	.mgmt_frame_register = sprdwl_cfg80211_mgmt_frame_register,
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	.remain_on_channel = sprdwl_cfg80211_remain_on_channel,
+	.cancel_remain_on_channel = sprdwl_cfg80211_cancel_remain_on_channel,
+	.del_station = sprdwl_cfg80211_del_station,
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 };
 
-#define ENG_MAC_ADDR_PATH "/data/misc/wifi/wifimac.txt"
-int itm_get_mac_from_cfg(struct itm_priv *priv)
+static void sprdwl_reg_notify(struct wiphy *wiphy,
+			      struct regulatory_request *request)
 {
-	struct file *fp = 0;
-	mm_segment_t fs;
-	loff_t *pos;
-	u8 file_data[64] = { 0 };
-	u8 mac_addr[18] = { 0 };
-	u8 *tmp_p = NULL;
-
-	fp = filp_open(ENG_MAC_ADDR_PATH, O_RDONLY, 0);
-	if (IS_ERR(fp))
-		return -ENOENT;
-
-	fs = get_fs();
-	set_fs(KERNEL_DS);
-
-	pos = &(fp->f_pos);
-	vfs_read(fp, file_data, sizeof(file_data), pos);
-	tmp_p = file_data;
-	if (tmp_p != NULL) {
-		memcpy(mac_addr, tmp_p, 18);
-		sscanf(mac_addr, "%02x:%02x:%02x:%02x:%02x:%02x",
-		       (unsigned int *)&(priv->ndev->dev_addr[0]),
-		       (unsigned int *)&(priv->ndev->dev_addr[1]),
-		       (unsigned int *)&(priv->ndev->dev_addr[2]),
-		       (unsigned int *)&(priv->ndev->dev_addr[3]),
-		       (unsigned int *)&(priv->ndev->dev_addr[4]),
-		       (unsigned int *)&(priv->ndev->dev_addr[5]));
-	}
-
-	filp_close(fp, NULL);
-	set_fs(fs);
-
-	return 0;
-}
-
-static void itm_cfg80211_reg_notify(struct wiphy *wiphy,
-				    struct regulatory_request *request)
-{
-	struct itm_priv **priv_ptr = wiphy_priv(wiphy);
-	struct itm_priv *priv = *priv_ptr;
+	struct sprdwl_priv **priv_ptr = wiphy_priv(wiphy);
+	struct sprdwl_priv *priv = *priv_ptr;
 	struct ieee80211_supported_band *sband;
 	struct ieee80211_channel *chan;
 	const struct ieee80211_freq_range *freq_range;
 	const struct ieee80211_reg_rule *reg_rule;
-	struct itm_ieee80211_regdomain *rd = NULL;
+	struct sprdwl_ieee80211_regdomain *rd = NULL;
 	u32 band, channel, i;
 	u32 last_start_freq;
 	u32 n_rules = 0, rd_size;
@@ -2493,13 +2357,14 @@ static void itm_cfg80211_reg_notify(struct wiphy *wiphy,
 		}
 	}
 
-	rd_size = sizeof(struct itm_ieee80211_regdomain) +
+	rd_size = sizeof(struct sprdwl_ieee80211_regdomain) +
 	    n_rules * sizeof(struct ieee80211_reg_rule);
 
 	rd = kzalloc(rd_size, GFP_KERNEL);
 	if (!rd) {
 		wiphy_err(wiphy,
-			  "Failed to allocate itm_ieee80211_regdomain\n");
+			  "%s Failed to allocate sprdwl_ieee80211_regdomain!\n",
+			  __func__);
 		return;
 	}
 
@@ -2531,8 +2396,8 @@ static void itm_cfg80211_reg_notify(struct wiphy *wiphy,
 				       sizeof(struct ieee80211_reg_rule));
 				i++;
 				wiphy_dbg(wiphy,
-					  "%s %d KHz - %d KHz @ %d KHz flags %#x\n",
-					  __func__, freq_range->start_freq_khz,
+					  "   %d KHz - %d KHz @ %d KHz flags %#x\n",
+					  freq_range->start_freq_khz,
 					  freq_range->end_freq_khz,
 					  freq_range->max_bandwidth_khz,
 					  reg_rule->flags);
@@ -2540,16 +2405,16 @@ static void itm_cfg80211_reg_notify(struct wiphy *wiphy,
 		}
 	}
 
-	if (itm_wlan_set_regdom_cmd(priv->wlan_sipc, (u8 *)rd, rd_size))
-		wiphy_err(wiphy, "%s failed to set regdomain!\n", __func__);
+	if (sprdwl_set_regdom_cmd(priv->wlan_sipc, (u8 *)rd, rd_size))
+		wiphy_err(wiphy, "%s Failed to set regdomain!\n", __func__);
 	kfree(rd);
 }
 
 /*Init wiphy parameters*/
-static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
+static void init_wiphy_parameters(struct sprdwl_priv *priv, struct wiphy *wiphy)
 {
 	wiphy->signal_type = CFG80211_SIGNAL_TYPE_MBM;
-	wiphy->mgmt_stypes = itm_mgmt_stypes;
+	wiphy->mgmt_stypes = sprdwl_mgmt_stypes;
 
 	wiphy->max_scan_ssids = MAX_SITES_FOR_SCAN;
 	wiphy->max_scan_ie_len = SCAN_IE_LEN_MAX;
@@ -2560,7 +2425,7 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 	wiphy->interface_modes = BIT(NL80211_IFTYPE_STATION)
 	    | BIT(NL80211_IFTYPE_AP)
 	    | BIT(NL80211_IFTYPE_ADHOC); /*fix the problem with ifconfig */
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 	wiphy->interface_modes |=
 	    BIT(NL80211_IFTYPE_P2P_CLIENT) | BIT(NL80211_IFTYPE_P2P_GO);
 	wiphy->max_remain_on_channel_duration = 5000;
@@ -2568,13 +2433,13 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 	/* set AP SME flag, also needed by STA mode? */
 	wiphy->flags |= WIPHY_FLAG_HAVE_AP_SME;
 	wiphy->ap_sme_capa = 1;
-#endif	/*CONFIG_ITM_WIFI_DIRECT */
+#endif /*CONFIG_SPRDWL_WIFI_DIRECT */
 	/*Attach cipher suites */
-	wiphy->cipher_suites = itm_cipher_suites;
-	wiphy->n_cipher_suites = ARRAY_SIZE(itm_cipher_suites);
+	wiphy->cipher_suites = sprdwl_cipher_suites;
+	wiphy->n_cipher_suites = ARRAY_SIZE(sprdwl_cipher_suites);
 	/*Attach bands */
-	wiphy->bands[IEEE80211_BAND_2GHZ] = &itm_band_2ghz;
-	/*wiphy->bands[IEEE80211_BAND_5GHZ] = &itm_band_5ghz;*/
+	wiphy->bands[IEEE80211_BAND_2GHZ] = &sprdwl_band_2ghz;
+	/*wiphy->bands[IEEE80211_BAND_5GHZ] = &sprdwl_band_5ghz;*/
 
 	/*Default not in powersave state */
 	wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
@@ -2583,10 +2448,10 @@ static void init_wiphy_parameters(struct itm_priv *priv, struct wiphy *wiphy)
 	/*Set WoWLAN flags */
 	wiphy->wowlan.flags = WIPHY_WOWLAN_ANY | WIPHY_WOWLAN_DISCONNECT;
 #endif
-	wiphy->reg_notifier = itm_cfg80211_reg_notify;
+	wiphy->reg_notifier = sprdwl_reg_notify;
 }
 
-int itm_register_wdev(struct itm_priv *priv, struct device *dev)
+int sprdwl_register_wdev(struct sprdwl_priv *priv, struct device *dev)
 {
 	int ret = 0;
 	struct wireless_dev *wdev;
@@ -2601,27 +2466,28 @@ int itm_register_wdev(struct itm_priv *priv, struct device *dev)
 	wdev = kzalloc(sizeof(struct wireless_dev), GFP_KERNEL);
 
 	if (wdev == NULL) {
-		dev_err(&priv->ndev->dev, "Failed to allocate wireless_dev\n");
+		dev_err(&priv->ndev->dev, "Failed to allocate wireless_dev!\n");
 		return -ENOMEM;
 	}
 
-	ret = itm_wlan_sipc_alloc(priv);
+	ret = sprdwl_sipc_alloc(priv);
 	if (ret) {
-		dev_err(&priv->ndev->dev, "Cannot allocate spic device\n");
+		dev_err(&priv->ndev->dev, "Cannot allocate spic device!\n");
 		ret = -ENOMEM;
 		goto out_free_wdev;
 	}
 
 	/*Allocate wiphy */
-	wdev->wiphy = wiphy_new(&itm_cfg80211_ops, sizeof(struct itm_priv *));
+	wdev->wiphy =
+	    wiphy_new(&sprdwl_cfg80211_ops, sizeof(struct sprdwl_priv *));
 
 	if (wdev->wiphy == NULL) {
-		dev_err(&priv->ndev->dev, "Failed to allocate wiphy\n");
+		dev_err(&priv->ndev->dev, "Failed to allocate wiphy!\n");
 		ret = -ENOMEM;
 		goto out_free_sipc;
 	}
 
-	*(struct itm_priv **)wiphy_priv(wdev->wiphy) = priv;
+	*(struct sprdwl_priv **)wiphy_priv(wdev->wiphy) = priv;
 	set_wiphy_dev(wdev->wiphy, dev);
 
 	priv->wdev = wdev;
@@ -2629,16 +2495,16 @@ int itm_register_wdev(struct itm_priv *priv, struct device *dev)
 
 	/*Init wdev_priv */
 	priv->scan_request = NULL;
-	priv->connect_status = ITM_DISCONNECTED;
+	priv->connect_status = SPRDWL_DISCONNECTED;
 	memset(priv->bssid, 0, sizeof(priv->bssid));
-	priv->mode = ITM_NONE_MODE;
+	priv->mode = SPRDWL_NONE_MODE;
 	/* FIXME it will be modify when cp2 code ready */
-	priv->cp2_status = ITM_READY;
+	priv->cp2_status = SPRDWL_READY;
 
 	/* Init scan_timeout timer */
 	init_timer(&priv->scan_timeout);
 	priv->scan_timeout.data = (unsigned long)priv;
-	priv->scan_timeout.function = itm_cfg80211_scan_timeout;
+	priv->scan_timeout.function = sprdwl_scan_timeout;
 
 	wdev->netdev = ndev;
 
@@ -2653,7 +2519,7 @@ int itm_register_wdev(struct itm_priv *priv, struct device *dev)
 
 	if (ret < 0) {
 		dev_err(&priv->ndev->dev,
-			"Failed to regitster wiphy (%d)\n", ret);
+			"Failed to regitster wiphy (%d)!\n", ret);
 		goto out_free_wiphy;
 	}
 
@@ -2664,25 +2530,24 @@ int itm_register_wdev(struct itm_priv *priv, struct device *dev)
 out_free_wiphy:
 	wiphy_free(wdev->wiphy);
 out_free_sipc:
-	itm_wlan_sipc_free(priv);
+	sprdwl_sipc_free(priv);
 out_free_wdev:
 	kfree(wdev);
 	return ret;
 }
 
-void itm_unregister_wdev(struct itm_priv *priv)
+void sprdwl_unregister_wdev(struct sprdwl_priv *priv)
 {
 	if (priv->wdev == NULL)
 		return;
 
-#ifndef CONFIG_OF
-	if (priv->mode != ITM_NONE_MODE)
-		itm_wlan_mac_close_cmd(priv->wlan_sipc, priv->mode);
-#endif
+	if (priv->mode != SPRDWL_NONE_MODE)
+		sprdwl_mac_close_cmd(priv->wlan_sipc, priv->mode);
+
 	wiphy_unregister(priv->wdev->wiphy);
 	wiphy_free(priv->wdev->wiphy);
 
-	itm_wlan_sipc_free(priv);
+	sprdwl_sipc_free(priv);
 
 	kfree(priv->wdev);
 }

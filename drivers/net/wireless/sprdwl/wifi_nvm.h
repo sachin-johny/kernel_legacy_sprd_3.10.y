@@ -1,24 +1,25 @@
-#ifndef ITTIAM_NVM_H_
-#define ITTIAM_NVM_H_
+#ifndef SPRDWL_NVM_H_
+#define SPRDWL_NVM_H_
 
-#include "WIFI_nvm_data.h"
+#include "wifi_nvm_data.h"
 
-typedef struct {
-	char *itm;
+struct nvm_name_table {
+	char *sprdwl;
 	unsigned int mem_offset;
 	int type;
-} nvm_name_table;
+};
 
-typedef struct {
-	char itm[64];
-	int  par[32];
-	int  num;
-} nvm_cali_cmd;
+struct nvm_cali_cmd {
+	char sprdwl[64];
+	int par[32];
+	int num;
+};
 
-#define  WIFI_NVM_TABLE(NAME, MEM_OFFSET, TYPE) \
-	{NAME, (unsigned int)(&(((wifi_nvm_data *)(0))->MEM_OFFSET)), TYPE}
+#define WIFI_NVM_TABLE(NAME, MEM_OFFSET, TYPE) \
+	{NAME, (unsigned int)(&(((struct wifi_nvm_data *)(0))->MEM_OFFSET)), \
+	TYPE}
 
-nvm_name_table g_nvm_table[] = {
+struct nvm_name_table g_nvm_table[] = {
 	WIFI_NVM_TABLE("version", cali_version, 1),
 	WIFI_NVM_TABLE("ref_clk", fem_ref_clk_conf.ref_clock, 1),
 	WIFI_NVM_TABLE("FEM_status", fem_ref_clk_conf.fem_status, 1),

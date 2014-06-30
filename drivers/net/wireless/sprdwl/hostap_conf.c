@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_hostap_conf.c
+ * Filename : hostap_conf.c
  * Abstract : This file is a implementation for loading the hostapd.conf
  * into kernel.
  *
@@ -149,7 +149,7 @@ static char *get_line(char *buf, char *end)
 }
 
 static unsigned char hostap_conf_parse(char *buf, int size,
-		struct hostap_conf *conf)
+				       struct hostap_conf *conf)
 {
 	unsigned char ret = 0;
 	char *spos = buf, *epos = NULL, *pos = NULL;
@@ -176,8 +176,7 @@ static unsigned char hostap_conf_parse(char *buf, int size,
 
 		pos = strchr(spos, '=');
 		if (pos == NULL) {
-			pr_err("Line %d: invalid line '%s'",
-			       line, spos);
+			pr_err("Line %d: invalid line '%s'", line, spos);
 			errors++;
 			continue;
 		}

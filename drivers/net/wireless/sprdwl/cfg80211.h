@@ -18,8 +18,8 @@
  * GNU General Public License for more details.
  */
 
-#ifndef __ITM_CFG80211_H__
-#define __ITM_CFG80211_H__
+#ifndef __CFG80211_H__
+#define __CFG80211_H__
 
 #include <linux/spinlock.h>
 #include <linux/kernel.h>
@@ -27,17 +27,14 @@
 #include <linux/module.h>
 #include <linux/netdevice.h>
 #include <linux/skbuff.h>
-#include <net/ieee80211_radiotap.h>
-#include <net/cfg80211.h>
 #include <linux/etherdevice.h>
 #include <linux/wireless.h>
-#include <net/iw_handler.h>
-#ifdef CONFIG_ITM_WIFI_DIRECT
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
 #include <linux/workqueue.h>
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
+#include <net/cfg80211.h>
 
-#include "ittiam.h"
-
+#include "sprdwl.h"
 
 /*FIXME: determine the actual values for the macros below*/
 #define SCAN_IE_LEN_MAX			2304
@@ -45,7 +42,7 @@
 #define MAX_SITES_FOR_SCAN		12
 #define WLAN_MAX_SSID_SIZE		32
 #define WLAN_MAX_KEY_INDEX		3
-#define ITM_SCAN_TIMER_INTERVAL_MS	8000
+#define SPRDWL_SCAN_TIMER_INTERVAL_MS	8000
 
 /* parise or group key type */
 #define GROUP				0
@@ -92,28 +89,28 @@ enum ANDROID_WIFI_CMD {
 };
 
 enum cp2_state {
-	ITM_NOT_READY,
-	ITM_READY
+	SPRDWL_NOT_READY,
+	SPRDWL_READY
 };
 
 enum wlan_state {
-	ITM_UNKOWN = 0,
-	ITM_SCANNING,
-	ITM_SCAN_ABORTING,
-	ITM_DISCONNECTED,
-	ITM_CONNECTING,
-	ITM_CONNECTED
+	SPRDWL_UNKOWN = 0,
+	SPRDWL_SCANNING,
+	SPRDWL_SCAN_ABORTING,
+	SPRDWL_DISCONNECTED,
+	SPRDWL_CONNECTING,
+	SPRDWL_CONNECTED
 };
 
 enum wlan_mode {
-	ITM_NONE_MODE,
-	ITM_STATION_MODE,
-	ITM_AP_MODE,
-	ITM_NPI_MODE,
-#ifdef CONFIG_ITM_WIFI_DIRECT
-	ITM_P2P_CLIENT_MODE,
-	ITM_P2P_GO_MODE,
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+	SPRDWL_NONE_MODE,
+	SPRDWL_STATION_MODE,
+	SPRDWL_AP_MODE,
+	SPRDWL_NPI_MODE,
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+	SPRDWL_P2P_CLIENT_MODE,
+	SPRDWL_P2P_GO_MODE,
+#endif				/* CONFIG_SPRDWL_WIFI_DIRECT */
 };
 
 #define HOSTAP_CONF_FILE_NAME "/data/misc/wifi/hostapd.conf"
@@ -123,28 +120,13 @@ struct hostap_conf {
 	unsigned int len;
 };
 
-#ifdef CONFIG_ITM_WIFI_DIRECT
-void init_register_frame_param(struct itm_priv *priv);
-void itm_cfg80211_p2p_rx_mgmt(struct itm_priv *priv);
-void itm_cfg80211_remain_on_channel_expired(struct itm_priv *priv);
-void itm_cfg80211_p2p_prob_request(struct itm_priv *priv);
-void itm_cfg80211_new_station(struct itm_priv *priv);
-void itm_cfg80211_mgmt_deauth(struct itm_priv *priv);
-void itm_cfg80211_mgmt_disassoc(struct itm_priv *priv);
-extern int itm_wlan_set_tx_mgmt_cmd(struct wlan_sipc *wlan_sipc,
-				    struct ieee80211_channel *channel,
-				    unsigned int wait, const u8 *mac,
-				    size_t mac_len);
-extern int itm_wlan_remain_chan_cmd(struct wlan_sipc *wlan_sipc,
-				    struct ieee80211_channel *channel,
-				    enum nl80211_channel_type channel_type,
-				    unsigned int duration, u64 *cookie);
-extern int itm_wlan_cancel_remain_chan_cmd(struct wlan_sipc *wlan_sipc,
-					   u64 cookie);
-extern int itm_wlan_set_p2p_ie_cmd(struct wlan_sipc *wlan_sipc, u8 type,
-				   const u8 *ie, u8 len);
-void itm_mac_event_report_frame(struct itm_priv *priv);
-#endif	/* CONFIG_ITM_WIFI_DIRECT */
+#ifdef CONFIG_SPRDWL_WIFI_DIRECT
+void init_register_frame_param(struct sprdwl_priv *priv);
+void sprdwl_event_remain_on_channel_expired(struct sprdwl_priv *priv);
+void sprdwl_event_mgmt_deauth(struct sprdwl_priv *priv);
+void sprdwl_event_mgmt_disassoc(struct sprdwl_priv *priv);
+void sprdwl_event_report_frame(struct sprdwl_priv *priv);
+#endif /* CONFIG_SPRDWL_WIFI_DIRECT */
 
 int hostap_conf_load(char *filename, u8 *key_val);
 
@@ -158,21 +140,19 @@ struct android_wifi_priv_cmd {
 	int total_len;
 };
 
-struct itm_ieee80211_regdomain {
+struct sprdwl_ieee80211_regdomain {
 	u32 n_reg_rules;
 	char alpha2[2];
 	struct ieee80211_reg_rule reg_rules[];
 };
 
-void itm_cfg80211_report_connect_result(struct itm_priv *priv);
-void itm_cfg80211_report_disconnect_done(struct itm_priv *priv);
-void itm_cfg80211_report_scan_done(struct itm_priv *priv, bool aborted);
-void itm_cfg80211_report_ready(struct itm_priv *priv);
-void itm_cfg80211_report_tx_busy(struct itm_priv *priv);
-void itm_cfg80211_report_softap(struct itm_priv *priv);
-int itm_cfg80211_android_priv_cmd(struct net_device *dev, struct ifreq *req);
-int itm_get_mac_from_cfg(struct itm_priv *priv);
-int itm_register_wdev(struct itm_priv *priv, struct device *dev);
-void itm_unregister_wdev(struct itm_priv *priv);
+void sprdwl_event_scan_results(struct sprdwl_priv *priv, bool aborted);
+void sprdwl_event_connect_result(struct sprdwl_priv *priv);
+void sprdwl_event_disconnect(struct sprdwl_priv *priv);
+void sprdwl_event_ready(struct sprdwl_priv *priv);
+void sprdwl_event_tx_busy(struct sprdwl_priv *priv);
+void sprdwl_event_softap(struct sprdwl_priv *priv);
+int sprdwl_register_wdev(struct sprdwl_priv *priv, struct device *dev);
+void sprdwl_unregister_wdev(struct sprdwl_priv *priv);
 
-#endif/* __ITM_CFG80211_H__ */
+#endif /* __CFG80211_H__ */

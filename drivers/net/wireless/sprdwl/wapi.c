@@ -1,8 +1,8 @@
 /*
  * Copyright (C) 2013 Spreadtrum Communications Inc.
  *
- * Filename : itm_wapi.c
- * Abstract : This file is a implementation of wapi decryption
+ * Filename : wapi.c
+ * Abstract : This file is a implementation of WAPI decryption
  *            and encryption
  *
  * Authors      :
@@ -82,28 +82,30 @@ static const unsigned char s_box[] = {
 	0x89, 0x69, 0x97, 0x4a, 0x0c, 0x96, 0x77, 0x7e,
 	0x65, 0xb9, 0xf1, 0x09, 0xc5, 0x6e, 0xc6, 0x84,
 	0x18, 0xf0, 0x7d, 0xec, 0x3a, 0xdc, 0x4d, 0x20,
-	0x79, 0xee, 0x5f, 0x3e, 0xd7, 0xcb, 0x39, 0x48 };
+	0x79, 0xee, 0x5f, 0x3e, 0xd7, 0xcb, 0x39, 0x48
+};
 
 static const unsigned int fk_parameter[] = { FK_PARAMETER_0, FK_PARAMETER_1,
-					FK_PARAMETER_2, FK_PARAMETER_3 };
+	FK_PARAMETER_2, FK_PARAMETER_3
+};
 
 static const unsigned char s_xstate[] = {
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0x00-0x0F */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x10-0x1F */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x20-0x2F */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0x30-0x3F */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x40-0x4F */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0x50-0x5F */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0x60-0x6F */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x70-0x7F */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0x80-0x8F */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0x90-0x9F */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0xA0-0xAF */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0xB0-0xBF */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,   /* 0xC0-0xCF */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0xD0-0xDF */
-	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,   /* 0xE0-0xEF */
-	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0    /* 0xF0-0xFF */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0x00-0x0F */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0x10-0x1F */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0x20-0x2F */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0x30-0x3F */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0x40-0x4F */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0x50-0x5F */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0x60-0x6F */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0x70-0x7F */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0x80-0x8F */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0x90-0x9F */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0xA0-0xAF */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0xB0-0xBF */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,	/* 0xC0-0xCF */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0xD0-0xDF */
+	1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,	/* 0xE0-0xEF */
+	0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0	/* 0xF0-0xFF */
 };
 
 static const unsigned int g_nextinputtable[RK_LEN] = {
@@ -142,9 +144,9 @@ static unsigned int t_transform(unsigned int word)
 	for (j = 0; j < MK_LEN; j++) {
 		new_word = (new_word << BYTE_LEN);
 		offset =
-		    ((unsigned int) (word >> (WORD_LEN - BYTE_LEN))) &
-		    ((unsigned int) ((1 << BYTE_LEN) - 1));
-		new_word = new_word | (unsigned int) s_box[offset];
+		    ((unsigned int)(word >> (WORD_LEN - BYTE_LEN))) &
+		    ((unsigned int)((1 << BYTE_LEN) - 1));
+		new_word = new_word | (unsigned int)s_box[offset];
 		word = (word << BYTE_LEN);
 	}
 	return new_word;
@@ -166,8 +168,7 @@ static unsigned int multiplycircular(unsigned int word, unsigned int basis)
 }
 
 static unsigned int iterate(bool key, unsigned int next_input,
-			    unsigned int *cipher_text,
-			    unsigned int curidx)
+			    unsigned int *cipher_text, unsigned int curidx)
 {
 	unsigned int new_state;
 
@@ -233,8 +234,8 @@ static void SMS4_Run(unsigned int *key_store, unsigned char *plaintext,
 		next = plain_text[(MK_LEN - 1) - j];
 		for (i = 0; i < BYTES_PER_WORD; i++) {
 			ciphertext[(j << 2) + i] =
-			    (unsigned char) ((next >> (WORD_LEN - BYTE_LEN)) &
-				      ((1 << BYTE_LEN) - 1));
+			    (unsigned char)((next >> (WORD_LEN - BYTE_LEN)) &
+					    ((1 << BYTE_LEN) - 1));
 			next = (next << BYTE_LEN);
 		}
 	}
@@ -314,7 +315,7 @@ void WapiCryptoSms4Mic(unsigned char *iv, unsigned char *key,
 
 		if ((datalength == 0) && (headerlength == 0)) {
 			sms4Input[i & (TEXT_BYTES - 1)] =
-				0 ^ sms4Output[i & (TEXT_BYTES - 1)];
+			    0 ^ sms4Output[i & (TEXT_BYTES - 1)];
 			data0_cnt++;
 		} else if ((headerlength == 0) && (tmp_headerlength == 0)) {
 			sms4Input[i & (TEXT_BYTES - 1)] =
@@ -324,7 +325,7 @@ void WapiCryptoSms4Mic(unsigned char *iv, unsigned char *key,
 			data_cnt++;
 		} else if (headerlength == 0) {
 			sms4Input[i & (TEXT_BYTES - 1)] =
-				0 ^ sms4Output[i & (TEXT_BYTES - 1)];
+			    0 ^ sms4Output[i & (TEXT_BYTES - 1)];
 			tmp_headerlength--;
 			header0_cnt++;
 		} else {
@@ -338,7 +339,7 @@ void WapiCryptoSms4Mic(unsigned char *iv, unsigned char *key,
 	SMS4_Run(key_store, sms4Input, mic);
 }
 
-unsigned short wlan_tx_wapi_encryption(struct itm_priv *priv,
+unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 				       unsigned char *data,
 				       unsigned short len,
 				       unsigned char *ouput_buf)
@@ -411,13 +412,13 @@ unsigned short wlan_tx_wapi_encryption(struct itm_priv *priv,
 	offset += 2;
 
 	/* save qos */
-	/*
-	if(qos_in)
+	/*if(qos_in)
 	{
 		memcpy(p_ptk_header,&header[offset],2);
 		p_ptk_header += 2;
 		offset       += 2;
-	}*/
+	}
+	*/
 
 	/* save keyid */
 	*p_ptk_header = keyid;
@@ -506,7 +507,7 @@ unsigned short wlan_tx_wapi_encryption(struct itm_priv *priv,
 	return data_len + 1 + 1 + 16;
 }
 
-unsigned short wlan_rx_wapi_decryption(struct itm_priv *priv,
+unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
 				       unsigned char *input_ptk,
 				       unsigned short header_len,
 				       unsigned short data_len,
@@ -621,8 +622,9 @@ unsigned short wlan_rx_wapi_decryption(struct itm_priv *priv,
 	if (is_group_ptk) {
 		/*if( (iv[15] & 0x01) == 0x00 )
 		{
-		      return 0;
-		}*/
+			return 0;
+		}
+		*/
 	} else {
 		if ((iv[15] & 0x01) != 0x01)
 			return 0;

@@ -622,8 +622,8 @@
 		};
 	};
 
-	itm_wlan{
-		compatible = "sprd,itm_wlan";
+	sprd_wlan{
+		compatible = "sprd,sprd_wlan";
 	};
 
 	sdhci3: sdhci@f511c000{
