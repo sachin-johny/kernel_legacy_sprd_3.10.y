@@ -164,7 +164,7 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	.host_ls_low_power_phy_clk = -1,
 	.enable_dynamic_fifo = -1,
 	.data_fifo_size = -1,
-	.dev_rx_fifo_size = 0x114,
+	.dev_rx_fifo_size = 0x320,
 	.dev_nperio_tx_fifo_size = 0x10,
 	.dev_perio_tx_fifo_size = {
 				   /* dev_perio_tx_fifo_size_1 */
