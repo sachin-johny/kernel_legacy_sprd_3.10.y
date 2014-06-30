@@ -78,7 +78,7 @@
 #define	USE_WORK_QUEUE	0
 
 #define	TOUCH_VIRTUAL_KEYS
-#define	MULTI_PROTOCOL_TYPE_B	0
+#define	MULTI_PROTOCOL_TYPE_B	1
 #define	TS_MAX_FINGER		5
 
 #define	FTS_PACKET_LENGTH	128
@@ -450,11 +450,11 @@ static void ft5x0x_clear_report_data(struct ft5x0x_ts_data *ft5x0x_ts)
 		input_mt_slot(ft5x0x_ts->input_dev, i);
 		input_mt_report_slot_state(ft5x0x_ts->input_dev, MT_TOOL_FINGER, false);
 	#endif
-		input_report_key(ft5x0x_ts->input_dev, BTN_TOUCH, 0);
+	}
+	input_report_key(ft5x0x_ts->input_dev, BTN_TOUCH, 0);
 	#if !MULTI_PROTOCOL_TYPE_B
 		input_mt_sync(ft5x0x_ts->input_dev);
 	#endif
-	}
 	input_sync(ft5x0x_ts->input_dev);
 }
 
@@ -511,8 +511,13 @@ static int ft5x0x_update_data(void)
 		#endif
 		}
 	}
-	if(event->touch_point==0)
-	{
+	if(0 == event->touch_point) {
+		for(i = 0; i < TS_MAX_FINGER; i ++) {
+			#if MULTI_PROTOCOL_TYPE_B
+                            input_mt_slot(data->input_dev, i);
+                            input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
+			#endif
+		}
 		input_report_key(data->input_dev, BTN_TOUCH, 0);
 		#if !MULTI_PROTOCOL_TYPE_B
 			input_mt_sync(data->input_dev);
