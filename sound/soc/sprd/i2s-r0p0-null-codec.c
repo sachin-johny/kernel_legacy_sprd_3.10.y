@@ -90,8 +90,11 @@ static int sprd_asoc_i2s_probe(struct platform_device *pdev)
 			char uni_sname[NAME_SIZE] = { 0 };
 			struct device_node *dai_node;
 			dai_node = of_parse_phandle(node, "sprd,i2s", i);
-			sp_asoc_pr_dbg("Register I2S dai node is %s\n",
+			if (dai_node)
+				sp_asoc_pr_dbg("Register I2S dai node is %s\n",
 				       dai_node->full_name);
+			else
+				pr_err("ERR:I2S dai node is not provided\n");
 			card->dai_link[i] = all_i2s_dai[0];
 			snprintf(uni_name, NAME_SIZE, "%s.%d",
 				 all_i2s_dai[0].name, i);
