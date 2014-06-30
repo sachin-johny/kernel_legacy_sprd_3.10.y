@@ -439,6 +439,16 @@ config MACH_TSHARKWSAMSUNG
 	help
 	  TSHARKWSAMSUNG board based on SC8830g serial.
 
+config MACH_PIKEAYOUNG2DTV
+	bool "pikeayoung2dtv Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
+	default n
+	help
+	PIKEAYOUNG2DTV board based on SC8830g serial.
+
 endmenu
 
 config SPRD_ION_MM_SIZE
