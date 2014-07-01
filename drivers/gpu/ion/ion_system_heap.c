@@ -351,10 +351,9 @@ void ion_system_heap_unmap_dma(struct ion_heap *heap,
 int ion_system_heap_map_iommu(struct ion_buffer *buffer, int domain_num, unsigned long *ptr_iova)
 {
 	int ret=0;
-	if(0==buffer->iomap_cnt[domain_num])
-	{
-		buffer->iova[domain_num]=sprd_iova_alloc(domain_num,buffer->size);
-		ret = sprd_iova_map(domain_num,buffer->iova[domain_num],buffer);
+	if (0 == buffer->iomap_cnt[domain_num]) {
+		buffer->iova[domain_num] = sprd_iova_alloc(domain_num,buffer->size);
+		ret = sprd_iova_map(domain_num, buffer->iova[domain_num], buffer);
 	}
 	*ptr_iova=buffer->iova[domain_num];
 	buffer->iomap_cnt[domain_num]++;
@@ -363,12 +362,13 @@ int ion_system_heap_map_iommu(struct ion_buffer *buffer, int domain_num, unsigne
 int ion_system_heap_unmap_iommu(struct ion_buffer *buffer, int domain_num)
 {
 	int ret=0;
-	buffer->iomap_cnt[domain_num]--;
-	if(0==buffer->iomap_cnt[domain_num])
-	{
-		ret=sprd_iova_unmap(domain_num,buffer->iova[domain_num],buffer);
-		sprd_iova_free(domain_num,buffer->iova[domain_num],buffer->size);
-		buffer->iova[domain_num]=0;
+	if (buffer->iomap_cnt[domain_num] > 0) {
+		buffer->iomap_cnt[domain_num]--;
+		if (0 == buffer->iomap_cnt[domain_num]) {
+			ret = sprd_iova_unmap(domain_num, buffer->iova[domain_num], buffer);
+			sprd_iova_free(domain_num, buffer->iova[domain_num], buffer->size);
+			buffer->iova[domain_num] = 0;
+		}
 	}
 	return ret;
 }
