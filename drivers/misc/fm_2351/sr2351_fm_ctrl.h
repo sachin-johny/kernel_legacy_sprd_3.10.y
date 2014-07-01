@@ -207,7 +207,7 @@ extern u32 rf2351_fm_get_aonckg_base(void);
 #define SHARK_MSPI_CLK_SWITCH       (SHARK_AON_CLK_BASE_ADDR + 0x0050)
 #endif
 
-
+#define  SHARK_PMU_APB_PD_AP_SYS_CFG    REG_PMU_APB_PD_AP_SYS_CFG
 
 #define INT_NUM_FM_test 27
 

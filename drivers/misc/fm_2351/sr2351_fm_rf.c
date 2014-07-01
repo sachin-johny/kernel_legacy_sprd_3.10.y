@@ -163,6 +163,10 @@ void sr2351_fm_config_xtl(void)
 
 int sr2351_fm_en(void)
 {
+#if defined(CONFIG_ARCH_SCX30G)	
+
+	sci_glb_clr(SHARK_PMU_APB_PD_AP_SYS_CFG,BIT_24);
+#endif	
 	sci_glb_set(FM_REG_FM_EN, BIT_31);
 
 	return 0;
@@ -171,6 +175,10 @@ int sr2351_fm_en(void)
 
 int sr2351_fm_dis(void)
 {
+#if defined(CONFIG_ARCH_SCX30G)	
+
+	sci_glb_set(SHARK_PMU_APB_PD_AP_SYS_CFG,BIT_24);
+#endif	
 	sci_glb_clr(FM_REG_FM_EN, BIT_31);
 
 	return 0;
