@@ -9,13 +9,10 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x240000; /* 2M+256K */
+/memreserve/ 0x87800000 0x240000; /* 2MK+256K */
 
 /* memory reserved for CPW modem */
-/memreserve/ 0x88000000 0x1a00000; /* 35M */
-
-/* memory reserved for CPWCN modem */
-/memreserve/ 0x8a800000 0x201000;/*Offset:168M, SIZE:2M+4k*/
+/memreserve/ 0x88000000 0x1b00000; /* 27M */
 
 /* memory reserved for fb */
 /memreserve/ 0x9f300000 0x600000; /* 6MK */
@@ -56,6 +53,9 @@
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
 		i2c3 = &i2c3;
+		i2c_gpio6 = &i2c_gpio6;
+		i2c_gpio7 = &i2c_gpio7;
+		i2c_gpio8 = &i2c_gpio8;
 		lcd0 = &fb0;
 		spi0 = &spi0;
 		spi1 = &spi1;
@@ -182,6 +182,24 @@
 		compatible = "sprd,adic";
 		reg = <0Xf53f0000 0x1000>;
 	};
+	pinctrl{
+		compatible = "sprd,pinctrl";
+		reg = <0xf5224000 0x1000>;
+		pwr_domain = "vdd28",
+		"vdd28",
+		"vddsim0",
+		"vddsim1",
+		"vddsim2",
+		"vddsd",
+		"vdd18";
+		ctrl_desc = <0x10 0 1
+				0x10 1 1
+				0x10 2 1
+				0x10 3 1
+				0x10 4 1
+				0x10 5 1
+				0x10 6 1>;
+	};
 	 adi: adi_bus{
 		 compatible = "sprd,adi-bus";
 		 interrupts = <0 38 0x0>;
@@ -203,7 +221,7 @@
 			ctl_pin_level = <1>;
                         flags = <0x100>;
 		 };
-                 headset_detect {
+/*                 headset_detect {
                         compatible = "sprd,headset-detect";
                         gpio_switch = <0>;
                         gpio_detect = <309>;
@@ -221,7 +239,7 @@
                                 code = <226>;
                                 type = <0>;
                         };
-                 };
+                 };*/
                  keyboard_backlight {
                         compatible = "sprd,keyboard-backlight";
                  };
@@ -289,6 +307,21 @@
 			 linux,code = <102>;
 		 };
 	 };
+	 gpio_keys {
+		compatible = "gpio-keys";
+		home {
+			label = "Home Key";
+			linux,code = <102>;
+			gpio = <&d_gpio_gpio 113 1>;
+			debounce-interval = <2>;
+			gpio-key,wakeup;
+		};
+	 };
+	 rfkill{
+		compatible = "broadcom,rfkill";
+		gpios = <&d_gpio_gpio 231 0  /* power */
+			&d_gpio_gpio 233 0>;  /* reset */
+	 };
 	 sprd_vsp@f5300000{
                  compatible = "sprd,sprd_vsp";
                  reg = <0Xf5300000 0xc000>;
@@ -326,43 +359,17 @@
 		 reg = <0xf536c000 0x1000>;
 		 #address-cells = <1>;
 		 #size-cells = <0>;
-		focaltech_ts@38{
-			compatible = "focaltech,focaltech_ts";
-			reg = <0x38>;
-			gpios = <&d_gpio_gpio 81 0
-				&d_gpio_gpio 82 0>;
-			vdd_name = "vdd28";
-			virtualkeys = <100 1020 80 65
-				280 1020 80 65
-				470 1020 80 65>;
-			TP_MAX_X = <720>;
-			TP_MAX_Y = <1280>;
-		};
+		 ist30xx_ts@50{
+			compatible = "Imagis,IST30XX";
+			reg = <0x50>;
+			gpios = <&d_gpio_gpio 82 0>; 
+		};  
 	 };
 	 i2c2: i2c@f5370000{
 		 compatible  = "sprd,i2c";
 		 interrupts = <0 13 0x0>;
 		 reg = <0xf5370000 0x1000>;
 		 #address-cells = <1>;
-		 #size-cells = <0>;
-		lis3dh_acc@18{
-			compatible = "ST,lis3dh_acc";
-			reg = <0x18>;
-			poll_interval = <10>;
-			min_interval = <10>;
-			g_range = <0>;
-			axis_map_x = <1>;
-			axis_map_y = <0>;
-			axis_map_z = <2>;
-			negate_x = <0>;
-			negate_y = <1>;
-			negate_z = <0>;
-		};
-		ltr_558als@23{
-			compatible = "LITEON,ltr_558als";
-			reg = <0x23>;
-			gpios = <&d_gpio_gpio 216 0>;
-		};
 	 };
 	 i2c3: i2c@f5372000{
 		 compatible  = "sprd,i2c";
@@ -371,6 +378,62 @@
 		 #address-cells = <1>;
 		 #size-cells = <0>;
 	 };
+	 
+	 sec-battery {
+		compatible  = "Samsung,battery";
+	 };
+	i2c_gpio6: i2c_gpio@0 {
+		compatible = "i2c-gpio";
+		gpios = <&d_gpio_gpio 66 0 /* sda */
+			&d_gpio_gpio 65 0 >;   /* scl */
+		/*i2c-gpio,sda-open-drain;*/
+		/*i2c-gpio,scl-open-drain;*/
+		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
+		i2c-gpio,timeout-ms = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		fuelgauge@35 {
+			compatible = "Samsung,fuelgauge";
+			reg = <0x35>;
+		};
+	};
+
+	i2c_gpio8: i2c_gpio@1 {
+		compatible = "i2c-gpio";
+		gpios = <&d_gpio_gpio 124 0 /* sda */
+			&d_gpio_gpio 125 0 >;  /* scl */
+		/*i2c-gpio,sda-open-drain;*/
+		/*i2c-gpio,scl-open-drain;*/
+		i2c-gpio,delay-us = <3>;    /* ~100 kHz */
+		i2c-gpio,timeout-ms = <100>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		rt5033mfd@34 {
+			compatible = "richtek,rt5033mfd";
+			reg = <0x34>;
+			rt5033,irq-gpio = <&d_gpio_gpio 126 0>;
+		};
+	};
+
+	 i2c_gpio7: i2c_gpio@2 {
+		 compatible = "i2c-gpio";
+		 gpios = <&d_gpio_gpio 108 0 /* sda */
+		 	&d_gpio_gpio 109 0 >;  /* scl */
+		/*i2c-gpio,sda-open-drain;*/
+		/*i2c-gpio,scl-open-drain;*/
+		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
+		i2c-gpio,timeout-ms = <0>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+		
+		rt8973@14 {
+			compatible = "richtek,rt8973";
+			reg = <0x14>;
+			rt8973,irq-gpio = <&d_gpio_gpio 110 0>;
+		};
+	};
+
 	 sprd_dcam{
 		 compatible  = "sprd,sprd_dcam";
 		 interrupts = <0 45 0>;
@@ -420,13 +483,6 @@
 		gsp_mmu_ctrl_base = <0xf5418000>;
 	};
 
-        sprd_fm: sprd_fm@40270000{
-		compatible  = "sprd,sprd_fm";
-		reg = <0xf5210000 0x1000>,
-		<0xf5250000 0x10000>, 
-                <0xf5230000 0x10000>;     
-        };
-
 	/* sipc initializer */
 
 	sipc: sipc@0x87800000 {
@@ -435,12 +491,9 @@
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x8000000 0x88000000 0x1a00000>,
+		ranges = <0x8000000 0x88000000 0x1b00000>,
 				<0x07800000 0x87800000 0x180000>,
-				<0x99ff000 0x899ff000 0x1000>,
-				<0x0a800000 0x8a800000 0x201000>,/*WCN MEMORY:OFFSET ADDRESS SIZE*/
-				<0x07980000 0x87980000 0xc0000>,
-				<0x0aa00000 0x8aa00000 0x1000>;/*WCN SIPC-RING:OFFSET ADDRESS SIZE*/
+				<0x9aff000 0x89aff000 0x1000>;
 		sipc_cpw@0x8000000 {
 			sprd,name = "sipc-w";
 			sprd,dst = <2>;
@@ -449,23 +502,10 @@
 			sprd,trig = <0x01>; /* trigger bit */
 			sprd,clr = <0x01>; /* clear bit */
 			interrupts = <0 68 0x0>;
-			reg = <0x8000000 0x1a00000> , /* <CP_start_addr size> */
+			reg = <0x8000000 0x1b00000> , /* <CP_start_addr size> */
 				<0x07800000 0x180000>, /* <SMEM_phy_addr total_size> */
-				<0x99ff000 0x1000>; /* smsg ring buffer <base size> */
+				<0x9aff000 0x1000>; /* smsg ring buffer <base size> */
 		};
-		sipc_wcn@0x0a800000 {
-			sprd,name = "sipc-wcn";
-			sprd,dst = <3>;
-			sprd,ap2cp = <0xf5240000>; /* base on ipi reggister */
-			sprd,cp2ap = <0xf5240004>;
-			sprd,trig = <0x100>; /* trigger bit */
-			sprd,clr = <0x100>; /* clear bit */
-			interrupts = <0 73 0x0>;
-			reg = <0x0a800000 0x201000> , /* <CP_start_addr size> */
-				<0x07980000 0xc0000>, /* <SMEM_phy_addr total_size> */
-				<0x0aa00000 0x1000>; /* smsg ring buffer <base size> */
-		};
-
 	};
 
 
@@ -530,23 +570,23 @@
 		sprd,name = "cpw";
 		sprd,ctrl-reg = <0x44 0x44 0xb0 0xbc>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x02000000 0x10000000 0x01 0xf0000>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x882c0000>; /* 3rd param equals modem_addr*/
-		reg = <0x88000000 0x1a00000>, /* <CP_start_addr total_size> = <+128M 26M> */
+		sprd,iram-data = <0xe59f0000 0xe12fff10 0x88300000>; /* 3rd param equals modem_addr*/
+		reg = <0x88000000 0x1b00000>, /* <CP_start_addr total_size> = <+128M 27M> */
 			<0xf53d4000 0x0c>, /* <iram1_base size> */
 			<0xf5230000 0x10000>; /* <pmu_base size> */
 		interrupts = <0 84 0x0>; /* cp1_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		/* segnr=2 */
-		ranges = <0x2c0000 0x882c0000 0x00800000>,
-				<0x20000 0x88020000 0x00200000>;
-		modem@0x2c0000 {
+		ranges = <0x300000 0x88300000 0x00800000>,
+				<0x20000 0x88020000 0x00220000>;
+		modem@0x300000 {
 			cproc,name = "modem";
-			reg = <0x2c0000 0x00800000>; /* <modem_addr size> */
+			reg = <0x300000 0x00800000>; /* <modem_addr size> */
 		};
 		dsp@0x20000 {
 			cproc,name = "dsp";
-			reg = <0x20000 0x00200000>; /* <dsp_addr size>*/
+			reg = <0x20000 0x00220000>; /* <dsp_addr size>*/
 		};
 	};
 
@@ -559,59 +599,6 @@
 		compatible = "sprd,saudio";
 		sprd,saudio-dst-id = <2>;
 		sprd,saudio-names = "saudio_voip";
-	};
-
-	/* cpwcn virtual devices */
-
-        spipe_cpwcn {
-		compatible = "sprd,spipe";
-		sprd,name = "spipe_wcn";
-		sprd,dst = <3>;
-		sprd,channel = <4>;
-		sprd,ringnr = <12>;
-		sprd,size-rxbuf = <0x1000>; /* 4*1024 */
-		sprd,size-txbuf = <0x1000>; /* 4*1024 */
-        };
-
-	slog_cpwcn {
-		compatible = "sprd,spipe";
-		sprd,name = "slog_wcn";
-		sprd,dst = <3>;
-		sprd,channel = <5>;
-		sprd,ringnr = <1>;
-		sprd,size-rxbuf = <0x40000>; /* 256*1024*/
-		sprd,size-txbuf = <0x8000>; /* 32*1024 */
-	};
-
-	stty4bt_cpwcn {
-		compatible = "sprd,stty4bt";
-		sprd,name = "sttybt";
-		sprd,dst = <3>;
-		sprd,channel = <4>;
-		sprd,bufid = <10>;
-	};
-
-	scproc_cpwcn: scproc@0x8a800000 {
-		compatible = "sprd,scproc";
-		sprd,name = "cpwcn";
-		sprd,ctrl-reg = <0x54 0x54 0xa8 0xc0>; /* <shut_down deep_sleep reset get_status> */
-		sprd,ctrl-mask = <0x02000000 0x10000000 0x04 0xf0000000>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x8a808000>; /* 3rd param equals modem_addr*/
-		reg = <0x8a800000 0x201000>, /* <CP_start_addr total_size> =  <+168M 2M+4k> */
-			<0xf53d7000 0x0c>, /* <iram1_base size> */
-			<0xf5230000 0x10000>; /* <pmu_base size> */
-		interrupts = <0 85 0x0>; /* cp2_wdg_int */
-		#address-cells = <1>;
-		#size-cells = <1>;
-		ranges = <0x8000 0x8a808000 0x00800000>;
-		modem@0x8000 {
-			cproc,name = "modem";
-			reg = <0x8000 0x00800000>; /* <modem_addr size> */
-		};
-	};
-
-	itm_wlan{
-		compatible = "sprd,itm_wlan";
 	};
 
 	sdhci3: sdhci@f511c000{
@@ -680,11 +667,6 @@
 		rst-bit = <0x1000>;
 		keep-power = <0>;
 		runtime = <1>;
-	};
-
-	nand0:nand@f5128000 {
-		compatible  = "sprd,sprd-nand";
-		reg = <0xf5128000 0x1000>;
 	};
 
 	 usb: usb@f5116000{
