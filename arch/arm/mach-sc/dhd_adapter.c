@@ -282,6 +282,7 @@ int wlan_device_set_carddetect(int val)
 #ifdef CONFIG_WLAN_SDIO
 //	sdhci_bus_scan();
        if(wlan_mmc) {
+		printk("just call mmc_detect_change\n");
 		mmc_detect_change(wlan_mmc, 0);
        } else {
 		pr_info("%s  wlan_mmc is null,carddetect failed \n ",__func__);
