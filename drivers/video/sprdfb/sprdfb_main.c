@@ -125,7 +125,7 @@ static int setup_fb_mem(struct sprdfb_device *dev, struct platform_device *pdev)
     uint32_t reserve_mem[2];
     int ret;
 
-#ifdef CCONFIG_FB_LOW_RES_SIMU
+#ifdef CONFIG_FB_LOW_RES_SIMU
 	if((0!= dev->panel->display_width) && (0 != dev->panel->display_height)){
 		len = dev->panel->display_width * dev->panel->display_height * (dev->bpp / 8) * FRAMEBUFFER_NR;
 	}else
