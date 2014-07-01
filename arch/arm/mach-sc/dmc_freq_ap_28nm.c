@@ -176,8 +176,9 @@ static inline void exit_lowpower_mode(uint32 *reg_store)
 		val = p_umctl_reg->umctl_stat;
 	}
 #endif
+
 	/* disable_cgm */
-	REG32(SPRD_PMU_PHYS + 0xF8) &= ~((3 << 30) | 0x3FF);
+	REG32(SPRD_PMU_PHYS + 0xF8) &= ~((3 << 30) );
 
 	/* disable lp interface. */
 	reg_store[0] = p_umctl_reg->umctl_hwlpctl;
@@ -195,6 +196,7 @@ static inline void exit_lowpower_mode(uint32 *reg_store)
 
 	/* disable dfi low power interface */
 	p_umctl_reg->umctl_dfilpcfg[0] &= ~(1 << 8);
+
 }__attribute__((always_inline))
 
 static inline void enable_lowpower_mode(uint32 *reg_store)
@@ -211,7 +213,8 @@ static inline void enable_lowpower_mode(uint32 *reg_store)
 	p_umctl_reg->umctl_pwrctl = reg_store[1];
 
 	/* enable_cgm */
-	REG32(SPRD_PMU_PHYS + 0xF8) |= ((1 << 30) | 0x3FF);
+	REG32(SPRD_PMU_PHYS + 0xF8) |= ((3 << 30) );
+
 }__attribute__((always_inline))
 
 static inline void ddr_cam_command_dequeue(uint32 isEnable)
@@ -298,6 +301,7 @@ static inline void ddr_clk_set(uint32 new_clk, ddr_dfs_v2_t *timing)
 
 	uart_putch('d');
 	exit_lowpower_mode(&(reg_store[0]));
+
 #if 0
 REG32(0x8F001000)= 0x11223344;
 
@@ -431,6 +435,9 @@ for (i = 0; i < 0x20; i ++)
 	p_publ_reg->publ_pir &= ~BIT_PIR_DCALBYP;
 	for(i = 0; i < 0x2; i++);
 
+	/* dfi complete enable */
+	p_umctl_reg->umctl_dfimisc |= BIT_DFIMISC_DFI_COMP_EN;
+
 	uart_putch('f');
 	/* step i: require to exit sel_refresh by PWRCTL.selfref_sw. */
 	move_upctl_state_exit_self_refresh();
@@ -439,6 +446,7 @@ for (i = 0; i < 0x20; i ++)
 	p_umctl_reg->umctl_mrctrl[1] = (2 << 8) | (timing->publ_mr2 & 0xFF);
 	p_umctl_reg->umctl_mrctrl[0] = (3 << 4) | (1 << 31);
 	while((p_umctl_reg->umctl_mrstat & 0x01) != 0);
+
 #if 0
 	/* step 9: do dqs traning. */
 	dqs_gating_training(new_clk);
@@ -453,7 +461,6 @@ for (i = 0; i < 0x20; i ++)
 for (i = 0; i < 0x20; i ++)
 {
 	REG32(0x1F00 + (i << 2)) = REG32(0x8F001000);
-	//REG32(0x1F50 + (i << 2)) = p_publ_reg->publ_dx3lcdlr[2];
 }
 
 for (i = 0; i < 0x20; i ++)
@@ -463,7 +470,6 @@ for (i = 0; i < 0x20; i ++)
 		while(1);
 	}
 }
-
 #endif
 
 	uart_putch('s');
