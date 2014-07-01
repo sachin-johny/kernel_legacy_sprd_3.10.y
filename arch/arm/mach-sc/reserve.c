@@ -154,10 +154,18 @@ phys_addr_t sprd_iq_addr(void)
 
 #endif
 
-
+#ifdef SPRD_ION_BASE_USE_VARIABLE
+phys_addr_t sprd_reserve_limit;
+extern phys_addr_t arm_lowmem_limit;
+#endif
 void __init sci_reserve(void)
 {
 	int ret;
+
+#ifdef SPRD_ION_BASE_USE_VARIABLE
+	/*sprd_reserve_limit is used save arm_lowmem_limit,will be use by ION*/
+	sprd_reserve_limit = arm_lowmem_limit;
+#endif
 
 #ifndef CONFIG_OF
 	ret = __iomem_reserve_memblock();
