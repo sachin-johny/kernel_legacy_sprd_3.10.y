@@ -312,6 +312,7 @@ struct fsg_common {
 	char inquiry_string[8 + 16 + 4 + 1];
 
 	struct kref		ref;
+	struct work_struct fsync_work;
 };
 
 struct fsg_config {
@@ -1448,10 +1449,33 @@ static int do_prevent_allow(struct fsg_common *common)
 		return -EINVAL;
 	}
 
-	if (curlun->prevent_medium_removal && !prevent)
+	if (!curlun->nofua && curlun->prevent_medium_removal && !prevent)
 		fsg_lun_fsync_sub(curlun);
+	else
+		schedule_work(&common->fsync_work);
+
 	curlun->prevent_medium_removal = prevent;
 	return 0;
+}
+
+static void do_fsync(struct work_struct *work)
+{
+	struct fsg_common *common =
+		container_of(work, struct fsg_common, fsync_work);
+
+	struct file	*filp = common->curlun->filp;
+	static int syncing = 0;
+
+	if (common->curlun->ro || !filp)
+		return;
+
+	if(!syncing) {
+		syncing = 1;
+		printk("ums sync 1\n");
+		vfs_fsync(filp, 1);
+		printk("ums sync 0\n");
+		syncing = 0;
+	}
 }
 
 static int do_read_format_capacities(struct fsg_common *common,
@@ -2756,6 +2780,7 @@ static struct fsg_common *fsg_common_init(struct fsg_common *common,
 		curlun->ro = lcfg->cdrom || lcfg->ro;
 		curlun->initially_ro = curlun->ro;
 		curlun->removable = lcfg->removable;
+		curlun->nofua = lcfg->nofua;
 		curlun->dev.release = fsg_lun_release;
 		curlun->dev.parent = &gadget->dev;
 		/* curlun->dev.driver = &fsg_driver.driver; XXX */
@@ -2848,6 +2873,8 @@ buffhds_first_it:
 	}
 	init_completion(&common->thread_notifier);
 	init_waitqueue_head(&common->fsg_wait);
+
+	INIT_WORK(&common->fsync_work, &do_fsync);
 
 	/* Information */
 	INFO(common, FSG_DRIVER_DESC ", version: " FSG_DRIVER_VERSION "\n");
