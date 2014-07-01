@@ -411,7 +411,7 @@ struct platform_device sprd_backlight_device = {
 
 
 #else
-struct resource sprd_bl_resource[] = {
+struct resource sprd_bl_resource[] __attribute__((weak))= {
 	[0] = {
 #if defined(CONFIG_ARCH_SCX15)
 		.start = 2,
@@ -424,7 +424,7 @@ struct resource sprd_bl_resource[] = {
 	},
 };
 
-struct platform_device sprd_backlight_device = {
+struct platform_device sprd_backlight_device __attribute__((weak)) = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
 	.num_resources	= ARRAY_SIZE(sprd_bl_resource),
