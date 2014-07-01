@@ -899,7 +899,7 @@ static int prep_new_page(struct page *page, int order, gfp_t gfp_flags)
 #define CONFIG_BUDDY_HIGH_ORDER_RESERVE
 
 #ifdef CONFIG_BUDDY_HIGH_ORDER_RESERVE
-static unsigned int  high_order_reserve_pages = 256; //40 * 4;
+static unsigned int  high_order_reserve_pages = 96; //40 * 4;
 module_param_named(high_reserve_pages, high_order_reserve_pages, uint, S_IRUGO | S_IWUSR);
 
 static inline  bool  zone_high_order_wmark_ok(struct zone *zone,  unsigned int  mark, int migratetype, bool  is_fallback)

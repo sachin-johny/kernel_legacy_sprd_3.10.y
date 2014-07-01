@@ -264,10 +264,7 @@ int __init dma_contiguous_reserve_area(struct device *dev, phys_addr_t size,
 	/* Sanitise input arguments */
 	alignment = PAGE_SIZE << max(MAX_ORDER - 1, pageblock_order);
 	base = ALIGN(base, alignment);
-	if(!reserve_size)
-		size = ALIGN(size, alignment);
-	else
-		size = ALIGN((size - reserve_size), alignment) + reserve_size;
+	size = ALIGN(size, alignment);
 	limit &= ~(alignment - 1);
 
 	/* Reserve memory */

@@ -99,10 +99,10 @@ static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj);
 #ifdef CONFIG_ZRAM
 extern ssize_t  zram_mem_usage(void);
 extern ssize_t zram_mem_free_percent(void);
-static uint lmk_lowmem_threshold_adj = 2;
+static uint lmk_lowmem_threshold_adj = 3;
 module_param_named(lmk_lowmem_threshold_adj, lmk_lowmem_threshold_adj, uint, S_IRUGO | S_IWUSR);
 
-static uint zone_wmark_ok_safe_gap = 256;
+static uint zone_wmark_ok_safe_gap = 512;
 module_param_named(zone_wmark_ok_safe_gap, zone_wmark_ok_safe_gap, uint, S_IRUGO | S_IWUSR);
 short cacl_zram_score_adj(void)
 {
@@ -456,7 +456,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 
 			zram_score_adj = min_score_adj;
 		}
-		else if (!zone_watermark_ok_safe(preferred_zone, 0, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
+		else if (!zone_watermark_ok_safe(preferred_zone, 1, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
 		{
 			zram_score_adj =  (min_score_adj + zram_score_adj)/2;
 		}
