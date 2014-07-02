@@ -952,10 +952,13 @@ static inline void sprd_codec_pa_demi_en(struct snd_soc_codec *codec, int on)
 
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
 	if (on)
-		pr_err("cann't open demi when open OCP mode!");
+		/*when emi is on, need to set this register from xun && junjie.chen*/
+		snd_soc_update_bits(codec, SOC_REG(DCR4_DCR3), 0xffff, 0x4);
+	else
+		snd_soc_update_bits(codec, SOC_REG(DCR4_DCR3), 0xffff, 0);
 
 	mask = BIT(PA_DEMI_EN);
-	snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), mask, 0);
+	snd_soc_update_bits(codec, SOC_REG(DCR2_DCR1), mask, on?mask:0);
 
 	/*open ocp from xun && weifeng*/
 	mask = BIT(DRV_OCP_AOL_PD) | BIT(DRV_OCP_AOR_PD);
