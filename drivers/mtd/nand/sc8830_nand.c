@@ -950,6 +950,10 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 	uint32_t cfg2;
 	uint32_t i;
 	uint32_t err;
+	int size = 0 ,sct_size;
+    int ret  = 0;
+    uint8_t ecc_bit=0 ;
+	int num  =0 ;
 	page_addr = dolphin->page;
 	
 	if(sbuf) {
@@ -1055,7 +1059,54 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 		for(i = 0; i < dolphin->sct_pg; i++) {
 			err = sprd_dolphin_get_decode_sts(i);
 			if(err == ERR_ERR_NUM0_MASK) {
+			                           ret = 0;
+                            ecc_bit = 0;
+                            size = dolphin->s_size * (i+1);
+                            sct_size = dolphin->s_size;
+                            while(sct_size--){
+                                if(sbuf[--size] != 0xFF){
+                                    DPRINT("%s spare area bif flip 0x%x\n",__func__, sbuf[size]);
+                                    for(num=0; num<8; num++){
+                                        if(!(sbuf[size]>>num & 0x1)){
+                                            ecc_bit++;
+                                            if(ecc_bit > chip->eccbitmode){
+                                                ret = -1;
+                                                DPRINT("%s spare area ecc check err\n",__func__);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if(ret<0){
 				mtd->ecc_stats.failed++;
+				                                       break;
+                                    }
+                                    sbuf[size]=0xff;
+                                }
+                            }
+                            if(!ret){
+                                size = dolphin->m_size*(i+1) ;
+                                sct_size = dolphin->m_size ;
+                                while(sct_size--){
+                                    if(mbuf[--size] != 0xFF){
+                                        DPRINT("%s main area bif flip 0x%x\n",__func__, mbuf[size]);
+                                        for(num = 0 ; num < 8 ; num++){
+                                            if(!(mbuf[size]>>num & 0x1) ){
+                                                ecc_bit++;
+                                            }
+                                            if(ecc_bit > chip->eccbitmode){
+                                                ret = -1;
+                                                DPRINT("%s main+spare area ecc check err\n",__func__);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if(ret<0){
+                                        mtd->ecc_stats.failed++;
+                                        break;
+                                    }
+                                    mbuf[size] = 0xff;
+                                }
+                            }
 			}
 			else {
 				mtd->ecc_stats.corrected += err;
@@ -1299,6 +1350,10 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 	uint32_t cfg2;
 	uint32_t i;
 	uint32_t err;
+	int size = 0 ,sct_size;
+    int ret  = 0;
+    int num  = 0;
+    uint8_t ecc_bit=0 ;
 	page_addr = dolphin->page;
 
 	//DPRINT("%s enter\n", __func__);
@@ -1401,7 +1456,54 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 		for(i = 0; i < dolphin->sct_pg; i++) {
 			err = sprd_dolphin_get_decode_sts(i);
 			if(err == ERR_ERR_NUM0_MASK) {
+						    ret = 0;
+                            ecc_bit = 0;
+                            size = dolphin->s_size * (i+1);
+                            sct_size = dolphin->s_size;
+                            while(sct_size--){
+                                if(sbuf[--size] != 0xFF){
+                                    DPRINT("%s spare area bif flip 0x%x\n",__func__,sbuf[size]);
+                                    for(num=0; num<8; num++){
+                                        if(!(sbuf[size]>>num & 0x1)){
+                                            ecc_bit++;
+                                            if(ecc_bit> chip->ecc.strength){
+                                                ret=-1;
+                                                DPRINT("%s  spare area ecc check error!\n",__func__);
+                                                break;
+                                            }
+                                        }
+                                    }
+                                    if(ret<0){
 				mtd->ecc_stats.failed++;
+				                                        break;
+                                    }
+                                    sbuf[size]=0xff;
+                                }
+                            }
+                            if(!ret){
+                                size = dolphin->m_size*(i+1) ;
+                                sct_size = dolphin->m_size ;
+                                while(sct_size--){
+                                    if(mbuf[--size] != 0xFF){
+                                        DPRINT("%s main area bif flip 0x%x\n",__func__,mbuf[size]);
+                                        for(num = 0 ; num < 8 ; num++){
+                                            if(!(mbuf[size]>>num & 0x1) ){
+                                                ecc_bit++;
+                                                if(ecc_bit > chip->ecc.strength){
+                                                    ret = -1;
+                                                    DPRINT("%s  main+spare area ecc check error!\n",__func__);
+                                                    break;
+                                                }
+                                            }
+                                        }
+                                    }
+                                    if(ret<0){
+                                        mtd->ecc_stats.failed++;
+                                        break;
+                                    }
+                                    mbuf[size] = 0xff;
+                               }
+                            }
 			}
 			else {
 				mtd->ecc_stats.corrected += err;
