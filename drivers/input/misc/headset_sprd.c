@@ -1676,34 +1676,39 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(
 		goto fail;
 	}
 
-	buttons_data = kzalloc(sizeof(*buttons_data),GFP_KERNEL);
+	buttons_data = kzalloc(pdata->nbuttons*sizeof(*buttons_data),GFP_KERNEL);
 	if (!buttons_data) {
 		dev_err(dev, "could not allocate memory for headset_buttons\n");
 		goto fail;
 	}
         pdata->headset_buttons = buttons_data;
 
-	buttons_np = of_get_next_child(np,NULL);
-	ret = of_property_read_u32(buttons_np, "adc_min", &buttons_data->adc_min);
-	if (ret) {
-		dev_err(dev, "fail to get adc_min\n");
-		goto fail_buttons_data;
-	}
-	ret = of_property_read_u32(buttons_np, "adc_max", &buttons_data->adc_max);
-	if (ret) {
-		dev_err(dev, "fail to get adc_max\n");
-		goto fail_buttons_data;
-	}
-	ret = of_property_read_u32(buttons_np, "code", &buttons_data->code);
-	if (ret) {
-		dev_err(dev, "fail to get code\n");
-		goto fail_buttons_data;
-	}
-	ret = of_property_read_u32(buttons_np, "type", &buttons_data->type);
-	if (ret) {
-		dev_err(dev, "fail to get type\n");
-		goto fail_buttons_data;
-	}
+	for_each_child_of_node(np,buttons_np){
+
+		ret = of_property_read_u32(buttons_np, "adc_min", &buttons_data->adc_min);
+		if (ret) {
+			dev_err(dev, "fail to get adc_min\n");
+			goto fail_buttons_data;
+		}
+		ret = of_property_read_u32(buttons_np, "adc_max", &buttons_data->adc_max);
+		if (ret) {
+			dev_err(dev, "fail to get adc_max\n");
+			goto fail_buttons_data;
+		}
+		ret = of_property_read_u32(buttons_np, "code", &buttons_data->code);
+		if (ret) {
+			dev_err(dev, "fail to get code\n");
+			goto fail_buttons_data;
+		}
+		ret = of_property_read_u32(buttons_np, "type", &buttons_data->type);
+		if (ret) {
+			dev_err(dev, "fail to get type\n");
+			goto fail_buttons_data;
+		}
+		printk("device tree data: adc_min = %d adc_max = %d code = %d type = %d \n", buttons_data->adc_min,
+			buttons_data->adc_max, buttons_data->code, buttons_data->type);
+		*buttons_data++;
+	};
 
 	return pdata;
 
