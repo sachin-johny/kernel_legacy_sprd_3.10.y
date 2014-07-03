@@ -24,7 +24,7 @@
 /include/ "scx30g-clocks.dtsi"
 /include/ "scx30g-regulators.dtsi"
 /include/ "sprd-sound.dtsi"
-/include/ "sprd-battery.dtsi"
+/include/ "rt5033.dtsi"
 
 / {
 	model = "Spreadtrum SP8835EB board";
@@ -391,48 +391,11 @@
 		 #address-cells = <1>;
 		 #size-cells = <0>;
 	 };
-	 
-	 sec-battery {
-		compatible  = "Samsung,battery";
-	 };
-	i2c_gpio6: i2c_gpio@0 {
-		compatible = "i2c-gpio";
-		gpios = <&d_gpio_gpio 66 0 /* sda */
-			&d_gpio_gpio 65 0 >;   /* scl */
-		/*i2c-gpio,sda-open-drain;*/
-		/*i2c-gpio,scl-open-drain;*/
-		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
-		i2c-gpio,timeout-ms = <0>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-		fuelgauge@35 {
-			compatible = "Samsung,fuelgauge";
-			reg = <0x35>;
-		};
-	};
-
-	i2c_gpio8: i2c_gpio@1 {
-		compatible = "i2c-gpio";
-		gpios = <&d_gpio_gpio 124 0 /* sda */
-			&d_gpio_gpio 125 0 >;  /* scl */
-		/*i2c-gpio,sda-open-drain;*/
-		/*i2c-gpio,scl-open-drain;*/
-		i2c-gpio,delay-us = <3>;    /* ~100 kHz */
-		i2c-gpio,timeout-ms = <100>;
-		#address-cells = <1>;
-		#size-cells = <0>;
-
-		rt5033mfd@34 {
-			compatible = "richtek,rt5033mfd";
-			reg = <0x34>;
-			rt5033,irq-gpio = <&d_gpio_gpio 126 0>;
-		};
-	};
 
 	 i2c_gpio7: i2c_gpio@2 {
 		 compatible = "i2c-gpio";
-		 gpios = <&d_gpio_gpio 108 0 /* sda */
-		 	&d_gpio_gpio 109 0 >;  /* scl */
+		 gpios = <&d_gpio_gpio 150 0 /* sda */
+		 	&d_gpio_gpio 151 0 >;  /* scl */
 		/*i2c-gpio,sda-open-drain;*/
 		/*i2c-gpio,scl-open-drain;*/
 		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
@@ -443,7 +406,8 @@
 		rt8973@14 {
 			compatible = "richtek,rt8973";
 			reg = <0x14>;
-			rt8973,irq-gpio = <&d_gpio_gpio 110 0>;
+			interrupt-parent = <&d_gpio_gpio>;
+			rt8973,irq-gpio = <&d_gpio_gpio 152 0>; 
 		};
 	};
 

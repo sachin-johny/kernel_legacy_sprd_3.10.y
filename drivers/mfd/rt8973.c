@@ -684,7 +684,6 @@ static char *rt8973_cable_names[] = {
 #define cable_change_callback sec_charger_cb
 extern void sec_charger_cb(u8 cable_type);
 #endif
-
 static void rt8973_cable_change_handler(struct rt8973_chip *chip,
 		const struct rt8973_event_handler
 		*handler, unsigned int old_status,
@@ -728,14 +727,19 @@ static void rt8973_otg_detach_handler(struct rt8973_chip *chip,
 		chip->pdata->otg_callback(0);
 }
 
+extern void dwc_udc_startup(void);
+extern void dwc_udc_shutdown(void);
 static void rt8973_usb_attach_handler(struct rt8973_chip *chip,
 		const struct rt8973_event_handler
 		*handler, unsigned int old_status,
 		unsigned int new_status)
 {
 	RTINFO("USB attached\n");
-	if (chip->pdata->usb_callback)
+	if (chip->pdata->usb_callback) {
 		chip->pdata->usb_callback(1);
+	} else {
+		dwc_udc_startup();
+	}
 }
 
 static void rt8973_usb_detach_handler(struct rt8973_chip *chip,
@@ -744,8 +748,11 @@ static void rt8973_usb_detach_handler(struct rt8973_chip *chip,
 		unsigned int new_status)
 {
 	RTINFO("USB detached\n");
-	if (chip->pdata->usb_callback)
+	if (chip->pdata->usb_callback) {
 		chip->pdata->usb_callback(0);
+	} else {
+		dwc_udc_shutdown();
+	}
 }
 
 static void rt8973_uart_attach_handler(struct rt8973_chip *chip,
