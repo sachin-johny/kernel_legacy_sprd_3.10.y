@@ -221,25 +221,37 @@
 			ctl_pin_level = <1>;
                         flags = <0x100>;
 		 };
-/*                 headset_detect {
+		headset_detect {
                         compatible = "sprd,headset-detect";
                         gpio_switch = <0>;
-                        gpio_detect = <309>;
-                        gpio_button = <307>;
-                        irq_trigger_level_detect = <1>;
-                        irq_trigger_level_button = <1>;
-                        adc_threshold_3pole_detect = <100>;
-                        adc_threshold_4pole_detect = <3100>;
+                        gpio_detect = <237>;
+                        gpio_button = <239>;
+                        irq_trigger_level_detect = <0>;
+                        irq_trigger_level_button = <0>;
+                        adc_threshold_3pole_detect = <1700>;
+                        adc_threshold_4pole_detect = <2700>;
                         irq_threshold_buttont = <1>;
                         voltage_headmicbias = <3000000>;
-                        nbuttons = <1>;
-                        headset_buttons {
+                        nbuttons = <3>;
+                        headset_buttons_media {
                                 adc_min = <0>;
-                                adc_max = <170>;
+                                adc_max = <190>;
                                 code = <226>;
                                 type = <0>;
                         };
-                 };*/
+			headset_buttons_up {
+				adc_min = <191>;
+				adc_max = <347>;
+				code = <115>;
+				type = <0>;
+			};
+			headset_buttons_down {
+				adc_min = <348>;
+				adc_max =<760>;
+				code = <114>;
+				type = <0>;
+			};
+                 };
                  keyboard_backlight {
                         compatible = "sprd,keyboard-backlight";
                  };
@@ -292,12 +304,12 @@
 		 sprd,support_long_key;
 
 		 key_volume_down {
-			 keypad,row = <0>;
+			 keypad,row = <1>;
 			 keypad,column = <0>;
 			 linux,code = <114>;
 		 };
 		 key_volume_up {
-			 keypad,row = <1>;
+			 keypad,row = <0>;
 			 keypad,column = <0>;
 			 linux,code = <115>;
 		 };
