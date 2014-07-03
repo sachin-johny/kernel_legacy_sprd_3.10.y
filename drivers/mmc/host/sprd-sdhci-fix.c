@@ -1024,7 +1024,9 @@ static void sprd_sdhci_host_close(struct sdhci_host *host, struct sprd_sdhci_hos
 	// close controller clock
 	sprd_sdhci_host_close_clock(host);
 	// ahb disable sdio controller
-	sci_glb_set(REG_AP_AHB_AHB_EB, host_pdata->enb_bit);
+	if(host_pdata){
+		sci_glb_set(REG_AP_AHB_AHB_EB, host_pdata->enb_bit);
+	}
 }
 
 #ifdef CONFIG_OF
