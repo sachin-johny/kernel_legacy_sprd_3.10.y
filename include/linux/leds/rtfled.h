@@ -31,25 +31,25 @@ typedef int (*rt_hal_fled_lv_protection_list)(struct rt_fled_info *info, int sel
 /* Return value : -EINVAL => selector parameter is out of range, otherwise time in ms*/
 typedef int (*rt_hal_fled_strobe_timeout_list)(struct rt_fled_info *info, int selector);
 typedef int (*rt_hal_fled_set_torch_current)(struct rt_fled_info *info,
-                                              int min_uA, int max_uA, int *selector);
+		int min_uA, int max_uA, int *selector);
 typedef int (*rt_hal_fled_set_strobe_current)(struct rt_fled_info *info,
-                                               int min_uA, int max_uA, int *selector);
+		int min_uA, int max_uA, int *selector);
 typedef int (*rt_hal_fled_set_timeout_level)(struct rt_fled_info *info,
-                                               int min_uA, int max_uA, int *selector);
+		int min_uA, int max_uA, int *selector);
 typedef int (*rt_hal_fled_set_lv_protection)(struct rt_fled_info *info,
-                                               int min_mV, int max_mV, int *selector);
+		int min_mV, int max_mV, int *selector);
 typedef int (*rt_hal_fled_set_strobe_timeout)(struct rt_fled_info *info,
-                                               int min_ms, int max_ms, int *selector);
+		int min_ms, int max_ms, int *selector);
 typedef int (*rt_hal_fled_set_torch_current_sel)(struct rt_fled_info *info,
-                                              int selector);
+		int selector);
 typedef int (*rt_hal_fled_set_strobe_current_sel)(struct rt_fled_info *info,
-                                               int selector);
+		int selector);
 typedef int (*rt_hal_fled_set_timeout_level_sel)(struct rt_fled_info *info,
-                                               int selector);
+		int selector);
 typedef int (*rt_hal_fled_set_lv_protection_sel)(struct rt_fled_info *info,
-                                               int selector);
+		int selector);
 typedef int (*rt_hal_fled_set_strobe_timeout_sel)(struct rt_fled_info *info,
-                                               int selector);
+		int selector);
 typedef int (*rt_hal_fled_get_torch_current_sel)(struct rt_fled_info *info);
 typedef int (*rt_hal_fled_get_strobe_current_sel)(struct rt_fled_info *info);
 typedef int (*rt_hal_fled_get_timeout_level_sel)(struct rt_fled_info *info);
@@ -63,51 +63,51 @@ typedef int (*rt_hal_fled_get_strobe_timeout)(struct rt_fled_info *info);
 typedef void (*rt_hal_fled_shutdown)(struct rt_fled_info *info);
 
 struct rt_fled_hal {
-    rt_hal_fled_init fled_init;
-    rt_hal_fled_suspend fled_suspend;
-    rt_hal_fled_resume fled_resume;
-    rt_hal_fled_set_mode fled_set_mode;
-    rt_hal_fled_get_mode fled_get_mode;
-    rt_hal_fled_strobe fled_strobe;
-    rt_hal_fled_torch_current_list  fled_troch_current_list;
-    rt_hal_fled_strobe_current_list fled_strobe_current_list;
-    rt_hal_fled_timeout_level_list fled_timeout_level_list;
-    rt_hal_fled_lv_protection_list fled_lv_protection_list;
-    rt_hal_fled_strobe_timeout_list fled_strobe_timeout_list;
-    /* method to set */
-    rt_hal_fled_set_torch_current_sel fled_set_torch_current_sel;
-    rt_hal_fled_set_strobe_current_sel fled_set_strobe_current_sel;
-    rt_hal_fled_set_timeout_level_sel fled_set_timeout_level_sel;
-    rt_hal_fled_set_lv_protection_sel fled_set_lv_protection_sel;
-    rt_hal_fled_set_strobe_timeout_sel fled_set_strobe_timeout_sel;
-    /* method to set, optional */
-    rt_hal_fled_set_torch_current fled_set_torch_current;
-    rt_hal_fled_set_strobe_current fled_set_strobe_current;
-    rt_hal_fled_set_timeout_level fled_set_timeout_level;
-    rt_hal_fled_set_lv_protection fled_set_lv_protection;
-    rt_hal_fled_set_strobe_timeout fled_set_strobe_timeout;
-    /* method to get */
-    rt_hal_fled_get_torch_current_sel fled_get_torch_current_sel;
-    rt_hal_fled_get_strobe_current_sel fled_get_strobe_current_sel;
-    rt_hal_fled_get_timeout_level_sel fled_get_timeout_level_sel;
-    rt_hal_fled_get_lv_protection_sel fled_get_lv_protection_sel;
-    rt_hal_fled_get_strobe_timeout_sel fled_get_strobe_timeout_sel;
-    /* method to get, optional*/
-    rt_hal_fled_get_torch_current fled_get_torch_current;
-    rt_hal_fled_get_strobe_current fled_get_strobe_current;
-    rt_hal_fled_get_timeout_level fled_get_timeout_level;
-    rt_hal_fled_get_lv_protection fled_get_lv_protection;
-    rt_hal_fled_get_strobe_timeout fled_get_strobe_timeout;
-    /* PM shutdown, optional */
-    rt_hal_fled_shutdown fled_shutdown;
+	rt_hal_fled_init fled_init;
+	rt_hal_fled_suspend fled_suspend;
+	rt_hal_fled_resume fled_resume;
+	rt_hal_fled_set_mode fled_set_mode;
+	rt_hal_fled_get_mode fled_get_mode;
+	rt_hal_fled_strobe fled_strobe;
+	rt_hal_fled_torch_current_list  fled_troch_current_list;
+	rt_hal_fled_strobe_current_list fled_strobe_current_list;
+	rt_hal_fled_timeout_level_list fled_timeout_level_list;
+	rt_hal_fled_lv_protection_list fled_lv_protection_list;
+	rt_hal_fled_strobe_timeout_list fled_strobe_timeout_list;
+	/* method to set */
+	rt_hal_fled_set_torch_current_sel fled_set_torch_current_sel;
+	rt_hal_fled_set_strobe_current_sel fled_set_strobe_current_sel;
+	rt_hal_fled_set_timeout_level_sel fled_set_timeout_level_sel;
+	rt_hal_fled_set_lv_protection_sel fled_set_lv_protection_sel;
+	rt_hal_fled_set_strobe_timeout_sel fled_set_strobe_timeout_sel;
+	/* method to set, optional */
+	rt_hal_fled_set_torch_current fled_set_torch_current;
+	rt_hal_fled_set_strobe_current fled_set_strobe_current;
+	rt_hal_fled_set_timeout_level fled_set_timeout_level;
+	rt_hal_fled_set_lv_protection fled_set_lv_protection;
+	rt_hal_fled_set_strobe_timeout fled_set_strobe_timeout;
+	/* method to get */
+	rt_hal_fled_get_torch_current_sel fled_get_torch_current_sel;
+	rt_hal_fled_get_strobe_current_sel fled_get_strobe_current_sel;
+	rt_hal_fled_get_timeout_level_sel fled_get_timeout_level_sel;
+	rt_hal_fled_get_lv_protection_sel fled_get_lv_protection_sel;
+	rt_hal_fled_get_strobe_timeout_sel fled_get_strobe_timeout_sel;
+	/* method to get, optional*/
+	rt_hal_fled_get_torch_current fled_get_torch_current;
+	rt_hal_fled_get_strobe_current fled_get_strobe_current;
+	rt_hal_fled_get_timeout_level fled_get_timeout_level;
+	rt_hal_fled_get_lv_protection fled_get_lv_protection;
+	rt_hal_fled_get_strobe_timeout fled_get_strobe_timeout;
+	/* PM shutdown, optional */
+	rt_hal_fled_shutdown fled_shutdown;
 };
 
 typedef struct rt_fled_info {
-    struct rt_fled_hal *hal;
-    struct flashlight_device *flashlight_dev;
-    const struct flashlight_properties *init_props;
-    char *name;
-    char *chip_name;
+	struct rt_fled_hal *hal;
+	struct flashlight_device *flashlight_dev;
+	const struct flashlight_properties *init_props;
+	char *name;
+	char *chip_name;
 } rt_fled_info_t;
 
 

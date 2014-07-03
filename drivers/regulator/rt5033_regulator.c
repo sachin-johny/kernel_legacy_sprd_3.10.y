@@ -114,7 +114,7 @@ static const unsigned int rt5033_safe_ldo_output_list[] = {
 #define RT5033_REGULATOR_DECL(_id, min, max,out_list)   \
 {								                        \
 	.desc	= {						                    \
-		.name	= "RT5033_REGULATOR" #_id,				\
+		.name	= "RT5033_REGULATOR_" #_id,				\
 		.ops	= &rt5033_regulator_ldo_dcdc_ops,		\
 		.type	= REGULATOR_VOLTAGE,			        \
 		.id	= RT5033_ID_##_id,			                \
@@ -351,24 +351,6 @@ inline struct regulator_dev* rt5033_regulator_register(struct regulator_desc *re
 
 static int rt5033_regulator_init_regs(struct regulator_dev* rdev)
 {
-	int ret;
-	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-	if (info->desc.id == RT5033_ID_LDO_SAFE)
-	{
-		ret = rt5033_reg_read(info->i2c, 0x00);
-		if (ret < 0) {
-			pr_err("%s I2C read failed (%d)\n",ALIAS_NAME, ret);
-			return ret;
-		}
-		if (ret & (0x01<<2)) //Power Good
-			rt5033_set_bits(info->i2c,
-					RT5033_REGULATOR_REG_OUTPUT_EN,
-					RT5033_REGULATOR_EN_MASK_LDO_SAFE);
-		else
-			rt5033_clr_bits(info->i2c,
-					RT5033_REGULATOR_REG_OUTPUT_EN,
-					RT5033_REGULATOR_EN_MASK_LDO_SAFE);
-	}
 	return 0;
 }
 
@@ -414,7 +396,7 @@ static struct regulator_init_data default_rt5033_buck_data = {
 	.consumer_supplies = default_rt5033_buck_consumers,
 };
 
-const static struct rt5033_regulator_platform_data default_rv_pdata = {
+static struct rt5033_regulator_platform_data default_rv_pdata = {
 	.regulator = {
 		[RT5033_ID_LDO_SAFE] = &default_rt5033_safe_ldo_data,
 		[RT5033_ID_LDO1] = &default_rt5033_ldo_data,
@@ -424,40 +406,40 @@ const static struct rt5033_regulator_platform_data default_rv_pdata = {
 
 
 struct rt5033_pmic_irq_handler {
-    char *name;
-    int irq_index;
-    irqreturn_t (*handler)(int irq, void *data);
+	char *name;
+	int irq_index;
+	irqreturn_t (*handler)(int irq, void *data);
 };
 
 #if EN_BUCK_IRQ
 static irqreturn_t rt5033_pmic_buck_ocp_event_handler(int irq, void *data)
 {
-    struct regulator_dev *rdev = data;
-    struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-    BUG_ON(rdev == NULL);
-    BUG_ON(info == NULL);
-    pr_info("Buck OCP\n");
-    return IRQ_HANDLED;
+	struct regulator_dev *rdev = data;
+	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
+	BUG_ON(rdev == NULL);
+	BUG_ON(info == NULL);
+	pr_info("Buck OCP\n");
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t rt5033_pmic_buck_lv_event_handler(int irq, void *data)
 {
-    struct regulator_dev *rdev = data;
-    struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-    BUG_ON(rdev == NULL);
-    BUG_ON(info == NULL);
-    pr_info("Buck LV\n");
-    return IRQ_HANDLED;
+	struct regulator_dev *rdev = data;
+	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
+	BUG_ON(rdev == NULL);
+	BUG_ON(info == NULL);
+	pr_info("Buck LV\n");
+	return IRQ_HANDLED;
 }
 
 static irqreturn_t rt5033_pmic_ot_event_handler(int irq, void *data)
 {
-    struct regulator_dev *rdev = data;
-    struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-    BUG_ON(rdev == NULL);
-    BUG_ON(info == NULL);
-    pr_info("PMIC OT\n");
-    return IRQ_HANDLED;
+	struct regulator_dev *rdev = data;
+	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
+	BUG_ON(rdev == NULL);
+	BUG_ON(info == NULL);
+	pr_info("PMIC OT\n");
+	return IRQ_HANDLED;
 }
 #endif /* EN_BUCK_IRQ */
 
@@ -465,131 +447,143 @@ static irqreturn_t rt5033_pmic_ot_event_handler(int irq, void *data)
 
 static irqreturn_t rt5033_pmic_vdda_uv_event_handler(int irq, void *data)
 {
-    struct regulator_dev *rdev = data;
-    struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-    BUG_ON(rdev == NULL);
-    BUG_ON(info == NULL);
-    pr_info("PMIC VDDA UV\n");
-    return IRQ_HANDLED;
+	struct regulator_dev *rdev = data;
+	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
+	BUG_ON(rdev == NULL);
+	BUG_ON(info == NULL);
+	pr_info("PMIC VDDA UV\n");
+	return IRQ_HANDLED;
 }
 #endif /* EN_VDDA_UV_IRQ */
 
 #if EN_SLDO_IRQ
 static irqreturn_t rt5033_pmic_safeldo_lv_event_handler(int irq, void *data)
 {
-    struct regulator_dev *rdev = data;
-    struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-    BUG_ON(rdev == NULL);
-    BUG_ON(info == NULL);
-    pr_info("Safe LDO LV\n");
-    return IRQ_HANDLED;
+	struct regulator_dev *rdev = data;
+	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
+	BUG_ON(rdev == NULL);
+	BUG_ON(info == NULL);
+	pr_info("Safe LDO LV\n");
+	return IRQ_HANDLED;
 }
 #endif /* EN_SLDO_IRQ */
 
 #if EN_LDO_IRQ
 static irqreturn_t rt5033_pmic_ldo_lv_event_handler(int irq, void *data)
 {
-    struct regulator_dev *rdev = data;
-    struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
-    BUG_ON(rdev == NULL);
-    BUG_ON(info == NULL);
-    pr_info("LDO LV\n");
-    return IRQ_HANDLED;
+	struct regulator_dev *rdev = data;
+	struct rt5033_regulator_info *info = rdev_get_drvdata(rdev);
+	BUG_ON(rdev == NULL);
+	BUG_ON(info == NULL);
+	pr_info("LDO LV\n");
+	return IRQ_HANDLED;
 }
 #endif /* EN_LDO_IRQ */
 
 const struct rt5033_pmic_irq_handler rt5033_pmic_buck_irq_handlers[] = {
 #if EN_BUCK_IRQ
-    {
-        .name = "BuckOCP",
-        .handler = rt5033_pmic_buck_ocp_event_handler,
-        .irq_index = RT5033_BUCK_OCP_IRQ,
-    },
-    {
-        .name = "BuckLV",
-        .handler = rt5033_pmic_buck_lv_event_handler,
-        .irq_index = RT5033_BUCK_LV_IRQ,
-    },
-    {
-        .name = "PMIC OT",
-        .handler = rt5033_pmic_ot_event_handler,
-        .irq_index = RT5033_OT_IRQ,
-    },
+	{
+		.name = "BuckOCP",
+		.handler = rt5033_pmic_buck_ocp_event_handler,
+		.irq_index = RT5033_BUCK_OCP_IRQ,
+	},
+	{
+		.name = "BuckLV",
+		.handler = rt5033_pmic_buck_lv_event_handler,
+		.irq_index = RT5033_BUCK_LV_IRQ,
+	},
+	{
+		.name = "PMIC OT",
+		.handler = rt5033_pmic_ot_event_handler,
+		.irq_index = RT5033_OT_IRQ,
+	},
 #endif /* EN_BUCK_IRQ */
 #if EN_VDDA_UV_IRQ
-    {
-        .name = "PMIC VDDA UV",
-        .handler = rt5033_pmic_vdda_uv_event_handler,
-        .irq_index = RT5033_VDDA_UV_IRQ,
-    },
+	{
+		.name = "PMIC VDDA UV",
+		.handler = rt5033_pmic_vdda_uv_event_handler,
+		.irq_index = RT5033_VDDA_UV_IRQ,
+	},
 #endif /* EN_VDDA_UV_IRQ */
 };
 
 const struct rt5033_pmic_irq_handler rt5033_pmic_safeldo_irq_handlers[] = {
 #if EN_SLDO_IRQ
-    {
-        .name = "SafeLDO LV",
-        .handler = rt5033_pmic_safeldo_lv_event_handler,
-        .irq_index = RT5033_SAFE_LDO_LV_IRQ,
-    },
+	{
+		.name = "SafeLDO LV",
+		.handler = rt5033_pmic_safeldo_lv_event_handler,
+		.irq_index = RT5033_SAFE_LDO_LV_IRQ,
+	},
 #endif
 };
 const struct rt5033_pmic_irq_handler rt5033_pmic_ldo_irq_handlers[] = {
 #if EN_LDO_IRQ
-    {
-        .name = "LDO LV",
-        .handler = rt5033_pmic_ldo_lv_event_handler,
-        .irq_index = RT5033_LDO_LV_IRQ,
-    },
+	{
+		.name = "LDO LV",
+		.handler = rt5033_pmic_ldo_lv_event_handler,
+		.irq_index = RT5033_LDO_LV_IRQ,
+	},
 #endif
 };
 
 static int register_irq(struct platform_device *pdev,
-                struct regulator_dev *rdev,
-                const struct rt5033_pmic_irq_handler *irq_handler,
-                int irq_handler_size)
+		struct regulator_dev *rdev,
+		const struct rt5033_pmic_irq_handler *irq_handler,
+		int irq_handler_size)
 {
-    int irq;
-    int i, j;
-    int ret;
-    const char *irq_name;
-    for (i = 0; i < irq_handler_size; i++) {
-        irq_name = rt5033_get_irq_name_by_index(irq_handler[i].irq_index);
-        irq = platform_get_irq_byname(pdev, irq_name);
-        ret = request_threaded_irq(irq, NULL, irq_handler[i].handler,
-                       IRQF_ONESHOT, irq_name, rdev);
-        if (ret < 0) {
-            pr_err("Failed to request IRQ: #%d: %d\n", irq, ret);
-            goto err_irq;
-        }
-    }
+	int irq;
+	int i, j;
+	int ret;
+	const char *irq_name;
+	for (i = 0; i < irq_handler_size; i++) {
+		irq_name = rt5033_get_irq_name_by_index(irq_handler[i].irq_index);
+		irq = platform_get_irq_byname(pdev, irq_name);
+		ret = request_threaded_irq(irq, NULL, irq_handler[i].handler,
+				IRQF_ONESHOT | IRQF_TRIGGER_RISING | IRQF_NO_SUSPEND,
+				irq_name, rdev);
+		if (ret < 0) {
+			pr_err("Failed to request IRQ: #%d: %d\n", irq, ret);
+			goto err_irq;
+		}
+	}
 
-    return 0;
+	return 0;
 err_irq:
-    for (j = 0; j < i; j++) {
-        irq_name = rt5033_get_irq_name_by_index(irq_handler[j].irq_index);
-        irq = platform_get_irq_byname(pdev, irq_name);
-        free_irq(irq, rdev);
-    }
-    return ret;
+	for (j = 0; j < i; j++) {
+		irq_name = rt5033_get_irq_name_by_index(irq_handler[j].irq_index);
+		irq = platform_get_irq_byname(pdev, irq_name);
+		free_irq(irq, rdev);
+	}
+	return ret;
 }
 
 static void unregister_irq(struct platform_device *pdev,
-                struct regulator_dev *rdev,
-                const struct rt5033_pmic_irq_handler *irq_handler,
-                int irq_handler_size)
+		struct regulator_dev *rdev,
+		const struct rt5033_pmic_irq_handler *irq_handler,
+		int irq_handler_size)
 {
-    int irq;
-    int i;
-    const char *irq_name;
-    for (i = 0; i < irq_handler_size; i++) {
-        irq_name = rt5033_get_irq_name_by_index(irq_handler[i].irq_index);
-        irq = platform_get_irq_byname(pdev, irq_name);
-        free_irq(irq, rdev);
-    }
+	int irq;
+	int i;
+	const char *irq_name;
+	for (i = 0; i < irq_handler_size; i++) {
+		irq_name = rt5033_get_irq_name_by_index(irq_handler[i].irq_index);
+		irq = platform_get_irq_byname(pdev, irq_name);
+		free_irq(irq, rdev);
+	}
 }
 
-static int __init rt5033_regulator_probe(struct platform_device *pdev)
+#ifdef CONFIG_OF
+static struct of_device_id rt5033_regulator_match_table[] = {
+	{ .compatible = "richtek,rt5033-safeldo",},
+	{ .compatible = "richtek,rt5033-ldo1",},
+	{ .compatible = "richtek,rt5033-dcdc1",},
+	{},
+};
+#else
+#define rt5033_regulator_match_table NULL
+#endif
+
+static int rt5033_regulator_probe(struct platform_device *pdev)
 {
 	struct rt5033_mfd_chip *chip = dev_get_drvdata(pdev->dev.parent);
 	struct rt5033_mfd_platform_data *mfd_pdata = chip->dev->platform_data;
@@ -601,21 +595,33 @@ static int __init rt5033_regulator_probe(struct platform_device *pdev)
 	struct regulator_init_data* init_data;
 	int ret;
 	dev_info(&pdev->dev, "Richtek RT5033 regulator driver probing (id = %d)...\n", pdev->id);
-	if (pdev->dev.of_node) {
-#if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,1,0))
-	    init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node);
-#else
-        init_data = of_get_regulator_init_data(&pdev->dev);
+#ifdef CONFIG_OF
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(3,10,0))
+	if (pdev->dev.parent->of_node) {
+		pdev->dev.of_node = of_find_compatible_node(
+				of_node_get(pdev->dev.parent->of_node), NULL,
+				rt5033_regulator_match_table[pdev->id].compatible);
+	}
 #endif
-        if (init_data == NULL)
-            init_data = default_rv_pdata.regulator[pdev->id];
+#endif
+	if (pdev->dev.of_node) {
+		dev_info(&pdev->dev, "Use DT...\n");
+#if (LINUX_VERSION_CODE>=KERNEL_VERSION(3,1,0))
+		init_data = of_get_regulator_init_data(&pdev->dev, pdev->dev.of_node);
+#else
+		init_data = of_get_regulator_init_data(&pdev->dev);
+#endif
+		if (init_data == NULL) {
+			dev_info(&pdev->dev, "Cannot find DTS data...\n");
+			init_data = default_rv_pdata.regulator[pdev->id];
+		}
 	}
 	else {
-        BUG_ON(mfd_pdata == NULL);
-        if (mfd_pdata->regulator_platform_data == NULL)
-            mfd_pdata->regulator_platform_data = &default_rv_pdata;
-        pdata = mfd_pdata->regulator_platform_data;
-        init_data = pdata->regulator[pdev->id];
+		BUG_ON(mfd_pdata == NULL);
+		if (mfd_pdata->regulator_platform_data == NULL)
+			mfd_pdata->regulator_platform_data = &default_rv_pdata;
+		pdata = mfd_pdata->regulator_platform_data;
+		init_data = pdata->regulator[pdev->id];
 	}
 	ri = find_regulator_info(pdev->id);
 	if (ri == NULL) {
@@ -631,91 +637,79 @@ static int __init rt5033_regulator_probe(struct platform_device *pdev)
 	chip->regulator_info[pdev->id] = ri;
 
 	rdev = rt5033_regulator_register(&ri->desc, &pdev->dev,
-				  init_data, ri);
+			init_data, ri);
 	if (IS_ERR(rdev)) {
 		dev_err(&pdev->dev, "failed to register regulator %s\n",
 				ri->desc.name);
 		return PTR_ERR(rdev);
 	}
 	platform_set_drvdata(pdev, rdev);
-    ret = rt5033_regulator_init_regs(rdev);
-    if (ret<0)
-        goto err_init_device;
+	ret = rt5033_regulator_init_regs(rdev);
+	if (ret<0)
+		goto err_init_device;
 	dev_info(&pdev->dev, "RT5033 Regulator %s driver loaded successfully...\n",
 			rdev->desc->name);
 
-    switch (pdev->id)
-    {
-        case RT5033_ID_LDO_SAFE:
-            irq_handler = rt5033_pmic_safeldo_irq_handlers;
-            irq_handler_size = ARRAY_SIZE(rt5033_pmic_safeldo_irq_handlers);
-            break;
-        case RT5033_ID_LDO1:
-            irq_handler = rt5033_pmic_ldo_irq_handlers;
-            irq_handler_size = ARRAY_SIZE(rt5033_pmic_ldo_irq_handlers);
-            break;
-        case RT5033_ID_DCDC1:
-            irq_handler = rt5033_pmic_buck_irq_handlers;
-            irq_handler_size = ARRAY_SIZE(rt5033_pmic_buck_irq_handlers);
-            break;
-        default:
-            pr_err("Error : invalid ID\n");
-    }
-    ret = register_irq(pdev, rdev, irq_handler, irq_handler_size);
-    if (ret < 0) {
-        pr_err("Error : can't register irq\n");
-        goto err_register_irq;
-    }
+	switch (pdev->id)
+	{
+		case RT5033_ID_LDO_SAFE:
+			irq_handler = rt5033_pmic_safeldo_irq_handlers;
+			irq_handler_size = ARRAY_SIZE(rt5033_pmic_safeldo_irq_handlers);
+			break;
+		case RT5033_ID_LDO1:
+			irq_handler = rt5033_pmic_ldo_irq_handlers;
+			irq_handler_size = ARRAY_SIZE(rt5033_pmic_ldo_irq_handlers);
+			break;
+		case RT5033_ID_DCDC1:
+			irq_handler = rt5033_pmic_buck_irq_handlers;
+			irq_handler_size = ARRAY_SIZE(rt5033_pmic_buck_irq_handlers);
+			break;
+		default:
+			pr_err("Error : invalid ID\n");
+	}
+	ret = register_irq(pdev, rdev, irq_handler, irq_handler_size);
+	if (ret < 0) {
+		pr_err("Error : can't register irq\n");
+		goto err_register_irq;
+	}
 	return 0;
 err_register_irq:
 err_init_device:
 	dev_info(&pdev->dev, "RT5033 Regulator %s unregistered...\n",
 			rdev->desc->name);
-    regulator_unregister(rdev);
-    return ret;
+	regulator_unregister(rdev);
+	return ret;
 }
 
-static int __exit rt5033_regulator_remove(struct platform_device *pdev)
+static int rt5033_regulator_remove(struct platform_device *pdev)
 {
 	struct regulator_dev *rdev = platform_get_drvdata(pdev);
 	const struct rt5033_pmic_irq_handler *irq_handler = NULL;
 	int irq_handler_size = 0;
 	dev_info(&pdev->dev, "RT5033 Regulator %s unregistered...\n",
 			rdev->desc->name);
-    switch (pdev->id)
-    {
-        case RT5033_ID_LDO_SAFE:
-            irq_handler = rt5033_pmic_safeldo_irq_handlers;
-            irq_handler_size = ARRAY_SIZE(rt5033_pmic_safeldo_irq_handlers);
-            break;
-        case RT5033_ID_LDO1:
-            irq_handler = rt5033_pmic_ldo_irq_handlers;
-            irq_handler_size = ARRAY_SIZE(rt5033_pmic_ldo_irq_handlers);
-            break;
-        case RT5033_ID_DCDC1:
-            irq_handler = rt5033_pmic_buck_irq_handlers;
-            irq_handler_size = ARRAY_SIZE(rt5033_pmic_buck_irq_handlers);
-            break;
-        default:
-            pr_err("Error : invalid ID\n");
-    }
-    unregister_irq(pdev, rdev, irq_handler, irq_handler_size);
+	switch (pdev->id)
+	{
+		case RT5033_ID_LDO_SAFE:
+			irq_handler = rt5033_pmic_safeldo_irq_handlers;
+			irq_handler_size = ARRAY_SIZE(rt5033_pmic_safeldo_irq_handlers);
+			break;
+		case RT5033_ID_LDO1:
+			irq_handler = rt5033_pmic_ldo_irq_handlers;
+			irq_handler_size = ARRAY_SIZE(rt5033_pmic_ldo_irq_handlers);
+			break;
+		case RT5033_ID_DCDC1:
+			irq_handler = rt5033_pmic_buck_irq_handlers;
+			irq_handler_size = ARRAY_SIZE(rt5033_pmic_buck_irq_handlers);
+			break;
+		default:
+			pr_err("Error : invalid ID\n");
+	}
+	unregister_irq(pdev, rdev, irq_handler, irq_handler_size);
 	platform_set_drvdata(pdev, NULL);
 	regulator_unregister(rdev);
 	return 0;
 }
-
-
-#ifdef CONFIG_OF
-static struct of_device_id rt5033_regulator_match_table[] = {
-	{ .compatible = "richtek,rt5033-safeldo",},
-	{ .compatible = "richtek,rt5033-ldo1",},
-	{ .compatible = "richtek,rt5033-dcdc1",},
-	{},
-};
-#else
-#define rt5033_regulator_match_table NULL
-#endif
 
 static struct platform_driver rt5033_regulator_driver = {
 	.driver		= {

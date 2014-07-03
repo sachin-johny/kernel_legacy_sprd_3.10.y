@@ -45,7 +45,7 @@
 #elif defined(CONFIG_CHARGER_BQ24157)
 #include <linux/battery/charger/bq24157_charger.h>
 #elif defined(CONFIG_CHARGER_BQ24190) || \
-		defined(CONFIG_CHARGER_BQ24191)
+	defined(CONFIG_CHARGER_BQ24191)
 #include <linux/battery/charger/bq24190_charger.h>
 #elif defined(CONFIG_CHARGER_BQ24260)
 #include <linux/battery/charger/bq24260_charger.h>
@@ -74,7 +74,7 @@ struct sec_charger_info {
 	 * (ex. dummy_charger.c)
 	 */
 #if defined(CONFIG_BATTERY_SAMSUNG) && defined(CONFIG_CHARGER_BQ24157)
-		struct sec_chg_info info;
+	struct sec_chg_info info;
 #endif
 
 	/* charging current : + charging, - OTG */
@@ -93,25 +93,25 @@ bool sec_hal_chg_suspend(struct i2c_client *);
 bool sec_hal_chg_resume(struct i2c_client *);
 bool sec_hal_chg_shutdown(struct i2c_client *);
 bool sec_hal_chg_get_property(struct i2c_client *,
-				enum power_supply_property,
-				union power_supply_propval *);
+		enum power_supply_property,
+		union power_supply_propval *);
 bool sec_hal_chg_set_property(struct i2c_client *,
-				enum power_supply_property,
-				const union power_supply_propval *);
+		enum power_supply_property,
+		const union power_supply_propval *);
 
 ssize_t sec_hal_chg_show_attrs(struct device *dev,
-				const ptrdiff_t offset, char *buf);
+		const ptrdiff_t offset, char *buf);
 
 ssize_t sec_hal_chg_store_attrs(struct device *dev,
-				const ptrdiff_t offset,
-				const char *buf, size_t count);
+		const ptrdiff_t offset,
+		const char *buf, size_t count);
 
 ssize_t sec_chg_show_attrs(struct device *dev,
-				struct device_attribute *attr, char *buf);
+		struct device_attribute *attr, char *buf);
 
 ssize_t sec_chg_store_attrs(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count);
+		struct device_attribute *attr,
+		const char *buf, size_t count);
 
 #define SEC_CHARGER_ATTR(_name)				\
 {							\
@@ -121,11 +121,11 @@ ssize_t sec_chg_store_attrs(struct device *dev,
 }
 
 /* never declare static varibles in header files
-static struct device_attribute sec_charger_attrs[] = {
-	SEC_CHARGER_ATTR(reg),
-	SEC_CHARGER_ATTR(data),
-	SEC_CHARGER_ATTR(regs),
-};*/
+   static struct device_attribute sec_charger_attrs[] = {
+   SEC_CHARGER_ATTR(reg),
+   SEC_CHARGER_ATTR(data),
+   SEC_CHARGER_ATTR(regs),
+   };*/
 
 enum {
 	CHG_REG = 0,

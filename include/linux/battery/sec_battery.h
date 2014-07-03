@@ -30,6 +30,16 @@
 #include <linux/workqueue.h>
 #include <linux/proc_fs.h>
 #include <linux/jiffies.h>
+#include <linux/of_gpio.h>
+
+#if defined(CONFIG_EXTCON)
+#include <linux/extcon.h>
+struct sec_battery_extcon_cable{
+	struct extcon_specific_cable_nb extcon_nb;
+	struct notifier_block batt_nb;
+	int cable_index;
+};
+#endif /* CONFIG_EXTCON */
 
 #define ADC_CH_COUNT		10
 #define ADC_SAMPLE_COUNT	10
@@ -49,7 +59,13 @@ struct sec_battery_info {
 	struct power_supply psy_bat;
 	struct power_supply psy_usb;
 	struct power_supply psy_ac;
+	struct power_supply psy_wireless;
+	struct power_supply psy_ps;
 	unsigned int irq;
+
+#if defined(CONFIG_EXTCON)
+	struct sec_battery_extcon_cable extcon_cable_list[EXTCON_NONE];
+#endif /* CONFIG_EXTCON */
 
 	int status;
 	int health;
@@ -60,6 +76,7 @@ struct sec_battery_info {
 	int voltage_ocv;		/* open circuit voltage (mV) */
 	int current_now;		/* current (mA) */
 	int current_avg;		/* average current (mA) */
+	int current_max;		/* input current limit (mA) */
 	int current_adc;
 
 	unsigned int capacity;			/* SOC (%) */
@@ -71,8 +88,8 @@ struct sec_battery_info {
 	struct wake_lock monitor_wake_lock;
 	struct workqueue_struct *monitor_wqueue;
 	struct delayed_work monitor_work;
-#if defined(CONFIG_SEC_GPIO_DVS)
-	struct delayed_work initdvs_work;
+#ifdef CONFIG_SAMSUNG_BATTERY_FACTORY
+	struct wake_lock lpm_wake_lock;
 #endif
 	unsigned int polling_count;
 	unsigned int polling_time;
@@ -86,9 +103,7 @@ struct sec_battery_info {
 	/* event set */
 	unsigned int event;
 	unsigned int event_wait;
-
 	struct alarm event_termination_alarm;
-
 	ktime_t	last_event_time;
 
 	/* battery check */
@@ -130,40 +145,34 @@ struct sec_battery_info {
 	unsigned int full_check_cnt;
 	unsigned int recharge_check_cnt;
 
-	/* wireless charging enable*/
+	/* wireless charging enable */
 	int wc_enable;
+	int wc_status;
+
+	int wire_status;
+
+	/* wearable charging */
+	int ps_enable;
+	int ps_status;
 
 	/* test mode */
-	int test_activated;
+	int test_mode;
 	bool factory_mode;
 	bool slate_mode;
 
 	int siop_level;
-	int siop_activated;
+#if defined(CONFIG_SAMSUNG_BATTERY_ENG_TEST)
+	int stability_test;
+	int eng_not_full_status;
+#endif
 };
 
 ssize_t sec_bat_show_attrs(struct device *dev,
-				struct device_attribute *attr, char *buf);
-
-ssize_t sec_usb_show_attrs(struct device *dev,
-				struct device_attribute *attr, char *buf);
-
-ssize_t sec_usb_store_attrs(
-					struct device *dev,
-					struct device_attribute *attr,
-					const char *buf, size_t count);
+		struct device_attribute *attr, char *buf);
 
 ssize_t sec_bat_store_attrs(struct device *dev,
-				struct device_attribute *attr,
-				const char *buf, size_t count);
-
-#define SEC_USB_ATTR(_name)						\
-{									\
-	.attr = {.name = #_name, .mode = 0664},	\
-	.show = sec_usb_show_attrs,					\
-	.store = sec_usb_store_attrs,				\
-}
-
+		struct device_attribute *attr,
+		const char *buf, size_t count);
 
 #define SEC_BATTERY_ATTR(_name)						\
 {									\
@@ -173,21 +182,37 @@ ssize_t sec_bat_store_attrs(struct device *dev,
 }
 
 /* event check */
-#define EVENT_NONE				(0)
+#define EVENT_NONE			(0)
 #define EVENT_2G_CALL			(0x1 << 0)
 #define EVENT_3G_CALL			(0x1 << 1)
-#define EVENT_MUSIC				(0x1 << 2)
-#define EVENT_VIDEO				(0x1 << 3)
+#define EVENT_MUSIC			(0x1 << 2)
+#define EVENT_VIDEO			(0x1 << 3)
 #define EVENT_BROWSER			(0x1 << 4)
 #define EVENT_HOTSPOT			(0x1 << 5)
 #define EVENT_CAMERA			(0x1 << 6)
 #define EVENT_CAMCORDER			(0x1 << 7)
 #define EVENT_DATA_CALL			(0x1 << 8)
-#define EVENT_WIFI				(0x1 << 9)
-#define EVENT_WIBRO				(0x1 << 10)
-#define EVENT_LTE				(0x1 << 11)
+#define EVENT_WIFI			(0x1 << 9)
+#define EVENT_WIBRO			(0x1 << 10)
+#define EVENT_LTE			(0x1 << 11)
 #define EVENT_LCD			(0x1 << 12)
 #define EVENT_GPS			(0x1 << 13)
+
+enum {
+	POWER_SUPPLY_TYPE_WPC = 0xfff,
+	POWER_SUPPLY_TYPE_MISC,
+	POWER_SUPPLY_TYPE_CARDOCK,
+	POWER_SUPPLY_TYPE_UARTOFF,
+	POWER_SUPPLY_TYPE_WIRELESS,
+	POWER_SUPPLY_TYPE_LAN_HUB,
+	POWER_SUPPLY_TYPE_MHL_500,
+	POWER_SUPPLY_TYPE_MHL_900,
+	POWER_SUPPLY_TYPE_MHL_1500,
+	POWER_SUPPLY_TYPE_MHL_USB,
+	POWER_SUPPLY_TYPE_SMART_OTG,
+	POWER_SUPPLY_TYPE_SMART_NOTG,
+	POWER_SUPPLY_TYPE_POWER_SHARING
+};
 
 enum {
 	BATT_RESET_SOC = 0,
@@ -199,6 +224,11 @@ enum {
 	BATT_VOL_ADC_CAL,
 	BATT_VOL_AVER,
 	BATT_VOL_ADC_AVER,
+
+	BATT_CURRENT_UA_NOW,
+	BATT_CURRENT_UA_AVG,
+
+	BATT_TEMP,
 	BATT_TEMP_ADC,
 	BATT_TEMP_AVER,
 	BATT_TEMP_ADC_AVER,
@@ -241,6 +271,7 @@ enum {
 	BATT_EVENT,
 #if defined(CONFIG_SAMSUNG_BATTERY_ENG_TEST)
 	BATT_TEST_CHARGE_CURRENT,
+	BATT_STABILITY_TEST,
 #endif
 #if defined(CONFIG_SPRD_2713_POWER)
 	BATT_2713_BATTERY_VOLTAGE,
@@ -248,26 +279,19 @@ enum {
 #endif
 };
 
-enum {
-	CHARGING_MODE_BOOTING = 0,
-};
+#ifdef CONFIG_OF
+extern int adc_read(struct sec_battery_info *battery, int channel);
+extern void board_battery_init(struct platform_device *pdev, struct sec_battery_info *battery);
+extern void cable_initial_check(struct sec_battery_info *battery);
+extern bool sec_bat_check_jig_status(void);
+extern void adc_exit(struct sec_battery_info *battery);
+extern int sec_bat_check_cable_callback(struct sec_battery_info *battery);
+extern bool sec_bat_check_cable_result_callback(int cable_type);
+extern bool sec_bat_check_callback(struct sec_battery_info *battery);
 
-enum {
-	ONLINE_TYPE_MAIN_SHIFT = 0,
-	ONLINE_TYPE_SUB_SHIFT,
-	ONLINE_TYPE_PWR_SHIFT,
-};
-#define ONLINE_TYPE_MAIN_MASK 	(1 << ONLINE_TYPE_MAIN_SHIFT)
-#define ONLINE_TYPE_SUB_MASK	(1 << ONLINE_TYPE_SUB_SHIFT)
-#define ONLINE_TYPE_PWR_MASK	(1 << ONLINE_TYPE_PWR_SHIFT)
-
-enum {
-	POWER_SUPPLY_TYPE_WPC = 0xfff,
-	POWER_SUPPLY_HEALTH_UNDERVOLTAGE,
-	POWER_SUPPLY_TYPE_OTG,
-	POWER_SUPPLY_TYPE_MISC,
-	POWER_SUPPLY_TYPE_CARDOCK,
-	POWER_SUPPLY_TYPE_UARTOFF,
-};
+/* set callback function pointer in platform_data object for DT
+   and link battery data*/
+extern void board_battery_init_link(sec_battery_platform_data_t *pdata);
+#endif
 
 #endif /* __SEC_BATTERY_H */

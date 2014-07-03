@@ -28,12 +28,12 @@
 
 #if RTDBGINFO_LEVEL<=RTDBGLEVEL
 #define RTINFO(format, args...) \
-    printk(KERN_INFO "%s:%s() line-%d: " format, \
-            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	printk(KERN_INFO "%s:%s() line-%d: " format, \
+			ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #define RTINFO_IF(cond, format, args...) \
-    if (cond) \
-        printk(KERN_INFO "%s:%s() line-%d: " format, \
-                ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	if (cond) \
+printk(KERN_INFO "%s:%s() line-%d: " format, \
+		ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #else
 #define RTINFO(format, args...)
 #define RTINFO_IF(cond, format, args...)
@@ -41,12 +41,12 @@
 
 #if RTDBGWARN_LEVEL<=RTDBGLEVEL
 #define RTWARN(format, args...) \
-    printk(KERN_WARNING "%s:%s() line-%d: " format, \
-            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	printk(KERN_WARNING "%s:%s() line-%d: " format, \
+			ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #define RTWARN_IF(cond, format, args...) \
-    if (cond) \
-        printk(KERN_WARNING "%s:%s() line-%d: " format, \
-                ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	if (cond) \
+printk(KERN_WARNING "%s:%s() line-%d: " format, \
+		ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #else
 #define RTWARN(format, args...)
 #define RTWARN_IF(cond, format, args...)
@@ -54,11 +54,11 @@
 
 #if RTDBGERR_LEVEL<=RTDBGLEVEL
 #define RTERR(format, args...) \
-    printk(KERN_ERR "%s:%s() line-%d: " format, \
-            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	printk(KERN_ERR "%s:%s() line-%d: " format, \
+			ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #define RTERR_IF(cond, format, args...) \
-    if (cond) printk(KERN_ERR "%s:%s() line-%d: " format, \
-            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	if (cond) printk(KERN_ERR "%s:%s() line-%d: " format, \
+			ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #else
 #define RTERR(format, args...)
 #define RTERR_IF(cond, format, args...)
@@ -66,11 +66,11 @@
 
 #if RTDBGFPRN_LEVEL<=RTDBGLEVEL
 #define RTPRN(format, args...) \
-    printk(KERN_DEBUG "%s:%s() line-%d: " format, \
-            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	printk(KERN_DEBUG "%s:%s() line-%d: " format, \
+			ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #define RTPRN_IF(cond, format, args...) \
-    if (cond) printk(KERN_DEBUG "%s:%s() line-%d: " format, \
-            ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
+	if (cond) printk(KERN_DEBUG "%s:%s() line-%d: " format, \
+			ALIAS_NAME, __FUNCTION__, __LINE__, ## args)
 #else
 #define RTPRN(format, args...)
 #define RTPRN_IF(cond, format, args...)
