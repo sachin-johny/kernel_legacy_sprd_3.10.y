@@ -82,8 +82,7 @@ static inline u32 cfg_reg_p2v(const u32 regp)
 		regv = to_range(regp, SPRD_APBREG_PHYS, SPRD_APBREG_BASE);
 	} else if (in_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_SIZE)) {
 		regv = to_range(regp, SPRD_APBCKG_PHYS, SPRD_APBCKG_BASE);
-	}
-	else {
+	} else {
 		WARN(1, "regp %08x\n", regp);
 	}
 
@@ -227,13 +226,15 @@ static unsigned long sprd_clk_adjustable_pll_recalc_rate(struct clk_hw *hw,
 	if ((cfg1 & BIT_PLL_SDM_EN))
 		k = (cfg1 & BITS_PLL_KINT(~0)) >> SHFT_PLL_KINT;
 
-	rate = 26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100, 1048576) * 10000;
+	rate =
+	    26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100,
+						    1048576) * 10000;
 	clk_debug("rate %u, k %u, mn %u\n", rate, k, mn);
 #else
 	unsigned int refin, mn;
 	refin = __pll_get_refin_rate(pll->m.mul.reg);
-	mn = (__raw_readl(pll->m.mul.reg) & pll->m.mul.msk) >> __ffs(pll->m.mul.
-								     msk);
+	mn = (__raw_readl(pll->m.mul.reg)
+	      & pll->m.mul.msk) >> __ffs(pll->m.mul.msk);
 
 	rate = refin * mn;
 	clk_debug("rate %u, refin %u, mn %u\n", rate, refin, mn);
@@ -250,7 +251,7 @@ static long sprd_clk_adjustable_pll_round_rate(struct clk_hw *hw,
 	return rate;
 }
 
-static void __pllreg_write(void * reg, u32 val, u32 msk)
+static void __pllreg_write(void *reg, u32 val, u32 msk)
 {
 	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
 }
@@ -275,14 +276,17 @@ static int sprd_clk_adjustable_pll_set_rate(struct clk_hw *hw,
 	u32 k, mn, cfg1;
 
 	mn = (rate / 1000000) / 26;
-	k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576, 26 * 100);
+	k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576,
+			      26 * 100);
 
 	cfg1 = BITS_PLL_NINT(mn);
 	if (k)
-		cfg1 |= BITS_PLL_KINT(k)|BIT_PLL_SDM_EN;
+		cfg1 |= BITS_PLL_KINT(k) | BIT_PLL_SDM_EN;
 
-	clk_debug("%s rate %u, k %u, mn %u\n", __clk_get_name(hw->clk), (u32) rate, k, mn);
-	__pllreg_write(pll->m.mul.reg, cfg1, BITS_PLL_KINT(~0)|BITS_PLL_NINT(~0)|BIT_PLL_SDM_EN);
+	clk_debug("%s rate %u, k %u, mn %u\n", __clk_get_name(hw->clk),
+		  (u32) rate, k, mn);
+	__pllreg_write(pll->m.mul.reg, cfg1,
+		       BITS_PLL_KINT(~0) | BITS_PLL_NINT(~0) | BIT_PLL_SDM_EN);
 #else
 	u32 refin, mn;
 	refin = __pll_get_refin_rate(pll->m.mul.reg);
@@ -290,7 +294,7 @@ static int sprd_clk_adjustable_pll_set_rate(struct clk_hw *hw,
 	clk_debug("rate %u, refin %u, mn %u\n", (u32) rate, refin, mn);
 	if (mn <= pll->m.mul.msk >> __ffs(pll->m.mul.msk)) {
 		__pllreg_write(pll->m.mul.reg, mn << __ffs(pll->m.mul.msk),
-			      pll->m.mul.msk);
+			       pll->m.mul.msk);
 	}
 #endif
 	__pll_enable_time(hw, old_rate);
@@ -408,7 +412,7 @@ const struct clk_ops sprd_clk_composite_ops = {
 };
 
 static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
-				   int is_set)
+				  int is_set)
 {
 	if (!reg)
 		return;
@@ -425,7 +429,7 @@ static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 #define __mmreg_set(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 1)
 #define __mmreg_clr(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 0)
 #define __SPRD_MM_TIMEOUT		(1 * 1000)
-static int sprd_mm_domain_is_ready(void)
+static int sprd_mm_domain_is_ready(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
 	/* FIXME: rtc domain */
@@ -433,15 +437,27 @@ static int sprd_mm_domain_is_ready(void)
 	unsigned long timeout = jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
 
 	do {
-		power_state1 = __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG);
-		power_state2 = __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG);
-		power_state3 = __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG);
+		cpu_relax();
+		power_state1 =
+		    __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) &
+		    BITS_PD_MM_TOP_STATE(-1);
+		power_state2 =
+		    __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) &
+		    BITS_PD_MM_TOP_STATE(-1);
+		power_state3 =
+		    __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) &
+		    BITS_PD_MM_TOP_STATE(-1);
 		if (time_after(jiffies, timeout)) {
+			WARN(1, "mm domain timeout, state %08x\n",
+			     __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG));
+			WARN(1, "mm prepare count %u, enable count %u\n",
+			     __clk_get_prepare_count(hw->clk),
+			     __clk_get_enable_count(hw->clk));
 			return 0;
 		}
-	}while(power_state1 != power_state2 || power_state2 != power_state3);
+	} while (power_state1 != power_state2 || power_state2 != power_state3);
 
-	return ((power_state1 & BITS_PD_MM_TOP_STATE(-1)) == 0);
+	return (power_state1 == 0 /*ready */ );
 #else
 	return 1;
 #endif
@@ -451,24 +467,28 @@ static u32 saved_mm_ckg[10];
 static void sprd_mm_domain_save(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
-	u32 *ckg = (u32 *)REG_MM_CLK_MM_AHB_CFG;
+	u32 *ckg = (u32 *) REG_MM_CLK_MM_AHB_CFG;
 	int i;
-	BUG_ON(!sprd_mm_domain_is_ready() || !(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB));
-	for(i = 0; i < ARRAY_SIZE(saved_mm_ckg); i++, ckg++) {
+	BUG_ON(!(sprd_mm_domain_is_ready(hw)));
+	BUG_ON(!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB));
+	for (i = 0; i < ARRAY_SIZE(saved_mm_ckg); i++, ckg++) {
 		saved_mm_ckg[i] = __raw_readl(ckg);
 	}
-	clk_debug("ahb %08x sensor %08x vsp %08x\n", saved_mm_ckg[0], saved_mm_ckg[1], saved_mm_ckg[4]);
+	clk_debug("ahb %08x sensor %08x vsp %08x\n", saved_mm_ckg[0],
+		  saved_mm_ckg[1], saved_mm_ckg[4]);
 #endif
 }
 
 static void sprd_mm_domain_restore(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
-	u32 *ckg = (u32 *)REG_MM_CLK_MM_AHB_CFG;
+	u32 *ckg = (u32 *) REG_MM_CLK_MM_AHB_CFG;
 	int i;
-	clk_debug("ahb %08x sensor %08x vsp %08x\n", saved_mm_ckg[0], saved_mm_ckg[1], saved_mm_ckg[4]);
-	BUG_ON(!sprd_mm_domain_is_ready() || !(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB));
-	for(i = 0; i < ARRAY_SIZE(saved_mm_ckg); i++, ckg++) {
+	clk_debug("ahb %08x sensor %08x vsp %08x\n", saved_mm_ckg[0],
+		  saved_mm_ckg[1], saved_mm_ckg[4]);
+	BUG_ON(!(sprd_mm_domain_is_ready(hw)));
+	BUG_ON(!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB));
+	for (i = 0; i < ARRAY_SIZE(saved_mm_ckg); i++, ckg++) {
 		__raw_writel(saved_mm_ckg[i], ckg);
 	}
 #endif
@@ -477,24 +497,31 @@ static void sprd_mm_domain_restore(struct clk_hw *hw)
 static int __sprd_mm_clk_prepare(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
-	if (!sprd_mm_domain_is_ready()) {
-		unsigned long timeout = jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
-		__glbreg_clr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG, BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+	if (!sprd_mm_domain_is_ready(hw)) {
+		unsigned long timeout =
+		    jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
+		__glbreg_clr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG,
+			     BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 		/* FIXME: wait a moment for mm domain stable
-		*/
-		while (!sprd_mm_domain_is_ready() && !time_after(jiffies, timeout)) {
+		 */
+		while (!sprd_mm_domain_is_ready(hw)
+		       && !time_after(jiffies, timeout)) {
 			udelay(50);
+			cpu_relax();
 		}
 	}
-	WARN(__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) & BITS_PD_MM_TOP_STATE(-1),
-		"MM TOP CFG 0x%08x\n", __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG));
+	WARN(__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) &
+	     BITS_PD_MM_TOP_STATE(-1), "MM TOP CFG 0x%08x\n",
+	     __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG));
 
 	if (!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB)) {
 		__glbreg_set(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
 		if (!(__raw_readl((void *)REG_MM_AHB_AHB_EB) & BIT_MM_CKG_EB)) {
-			__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
-			__mmreg_set(hw, (void *)REG_MM_AHB_GEN_CKG_CFG, BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
-			__mmreg_set(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3);/* set mm ahb 153.6MHz */
+			__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB,
+				     BIT_MM_CKG_EB);
+			__mmreg_set(hw, (void *)REG_MM_AHB_GEN_CKG_CFG,
+				    BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+			__mmreg_set(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3);	/* set mm ahb 153.6MHz */
 		}
 	}
 #endif
@@ -503,11 +530,18 @@ static int __sprd_mm_clk_prepare(struct clk_hw *hw)
 
 static int __sprd_clk_mm_enable(struct clk_hw *hw)
 {
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 #ifndef CONFIG_ARCH_SCX35
 		sprd_clk_enable(hw);
 #endif
 		sprd_mm_domain_restore(hw);
+	} else {
+		WARN(1, "mm domain not ready, state %08x %08x\n",
+		     __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG),
+		     __raw_readl((void *)REG_MM_AHB_AHB_EB));
+		WARN(1, "mm prepare count %u, enable count %u\n",
+		     __clk_get_prepare_count(hw->clk),
+		     __clk_get_enable_count(hw->clk));
 	}
 	return 0;
 }
@@ -528,7 +562,7 @@ static int sprd_mm_clk_prepare(struct clk_hw *hw)
 static int sprd_mm_clk_enable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		__mmreg_set(hw, c->enb.reg, (u32) c->enb.msk);
 	}
 	return 0;
@@ -537,14 +571,14 @@ static int sprd_mm_clk_enable(struct clk_hw *hw)
 static void sprd_mm_clk_disable(struct clk_hw *hw)
 {
 	struct clk_sprd *c = to_clk_sprd(hw);
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		__mmreg_clr(hw, c->enb.reg, (u32) c->enb.msk);
 	}
 }
 
 static int sprd_mm_clk_is_enable(struct clk_hw *hw)
 {
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		return sprd_clk_is_enable(hw);
 	}
 	return 0;
@@ -552,7 +586,7 @@ static int sprd_mm_clk_is_enable(struct clk_hw *hw)
 
 static u8 sprd_mm_clk_mux_get_parent(struct clk_hw *hw)
 {
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		return sprd_clk_mux_get_parent(hw);
 	}
 	return 0;
@@ -560,25 +594,25 @@ static u8 sprd_mm_clk_mux_get_parent(struct clk_hw *hw)
 
 static int sprd_mm_clk_mux_set_parent(struct clk_hw *hw, u8 index)
 {
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		return sprd_clk_mux_set_parent(hw, index);
 	}
 	return 0;
 }
 
 static unsigned long sprd_mm_clk_divider_recalc_rate(struct clk_hw *hw,
-						  unsigned long parent_rate)
+						     unsigned long parent_rate)
 {
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		return sprd_clk_divider_recalc_rate(hw, parent_rate);
 	}
 	return parent_rate;
 }
 
 static int sprd_mm_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
-				     unsigned long parent_rate)
+					unsigned long parent_rate)
 {
-	if (sprd_mm_domain_is_ready()) {
+	if (sprd_mm_domain_is_ready(hw)) {
 		return sprd_clk_divider_set_rate(hw, rate, parent_rate);
 	}
 	return 0;
@@ -740,7 +774,8 @@ static void __init of_sprd_fixed_pll_clk_setup(struct device_node *node)
 	clk_debug("[%p]%s fixed-pll-rate %d, prepare %p[%x]\n", clk, clk_name,
 		  rate, c->d.pre.reg, c->d.pre.msk);
 
-	clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+	clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk),
+		  clk_get_rate(c->hw.clk));
 }
 
 /**
@@ -798,7 +833,8 @@ static void __init of_sprd_adjustable_pll_clk_setup(struct device_node *node)
 		clk_debug("[%p]%s mul %p[%x]\n", clk, clk_name,
 			  c->m.mul.reg, c->m.mul.msk);
 
-	clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+	clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk),
+		  clk_get_rate(c->hw.clk));
 }
 
 /**
@@ -842,8 +878,7 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 
 	if (of_get_property(node, "mm-domain", NULL)) {
 		init.ops = &sprd_mm_clk_gate_ops;
-	}
-	else if (0 == strcmp(clk_name, "clk_mm")) {
+	} else if (0 == strcmp(clk_name, "clk_mm")) {
 		init.ops = &sprd_clk_mm_gate_ops;
 		__sprd_mm_clk_prepare(&c->hw);
 		sprd_mm_domain_save(&c->hw);
@@ -927,8 +962,8 @@ static struct clk_sprd *__init __of_sprd_composite_clk_setup(struct device_node
 			init.ops = &sprd_mm_clk_mux_ops;
 		}
 
-	    /* FIXME: Retrieve the phandle list property */
-	    of_get_property(node, "clocks", &num_parents);
+		/* FIXME: Retrieve the phandle list property */
+		of_get_property(node, "clocks", &num_parents);
 		init.num_parents = (u8) num_parents / 4;
 		mux =
 		    kzalloc(sizeof(struct clk_mux) +
@@ -1004,10 +1039,12 @@ static void __init of_sprd_muxed_clk_setup(struct device_node *node)
 		struct clk_mux *mux = to_clk_mux(c->m.mux_hw);
 		if (!mux)
 			return;
-		clk_debug("[%p]%s select %p[%x] enable %p[%x] prepare %p[%x]\n", c->hw.clk,
-			  __clk_get_name(c->hw.clk), mux->reg, c->m.sel.msk,
-			  c->enb.reg, c->enb.msk, c->d.pre.reg, c->d.pre.msk);
-		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+		clk_debug("[%p]%s select %p[%x] enable %p[%x] prepare %p[%x]\n",
+			  c->hw.clk, __clk_get_name(c->hw.clk), mux->reg,
+			  c->m.sel.msk, c->enb.reg, c->enb.msk, c->d.pre.reg,
+			  c->d.pre.msk);
+		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk),
+			  clk_get_rate(c->hw.clk));
 	}
 }
 
@@ -1026,7 +1063,8 @@ static void __init of_sprd_divider_clk_setup(struct device_node *node)
 		clk_debug("[%p]%s divider %p[%x] enable %p[%x]\n", c->hw.clk,
 			  __clk_get_name(c->hw.clk), div->reg,
 			  c->d.div.msk, c->enb.reg, c->enb.msk);
-		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk),
+			  clk_get_rate(c->hw.clk));
 	}
 }
 
@@ -1045,7 +1083,8 @@ static void __init of_sprd_composite_clk_setup(struct device_node *node)
 			  c->hw.clk, __clk_get_name(c->hw.clk), mux->reg,
 			  c->m.sel.msk, div->reg, c->d.div.msk, c->enb.reg,
 			  c->enb.msk);
-		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk), clk_get_rate(c->hw.clk));
+		clk_debug("%s RATE %lu\n", __clk_get_name(c->hw.clk),
+			  clk_get_rate(c->hw.clk));
 	}
 }
 
@@ -1098,6 +1137,28 @@ static void __init sprd_clocks_init(struct device_node *node)
 	init_clk_data(node);
 	of_clk_add_provider(node, of_clk_src_onecell_get, &clk_data);
 }
+
+/**
+ * clk_force_disable - force disable clock output
+ * @clk: clock source
+ *
+ * Forcibly disable the clock output.
+ * NOTE: this *will* disable the clock output even if other consumer
+ * devices have it enabled. This should be used for situations when device
+ * suspend or damage will likely occur if the devices is not disabled.
+ */
+void clk_force_disable(struct clk *clk)
+{
+	if (IS_ERR_OR_NULL(clk))
+		return;
+
+	clk_debug("clk %p, usage %d\n", clk, __clk_get_enable_count(clk));
+	while (__clk_get_enable_count(clk) > 0) {
+		clk_disable(clk);
+	}
+}
+
+EXPORT_SYMBOL_GPL(clk_force_disable);
 
 CLK_OF_DECLARE(scx15_clock, "sprd,scx15-clocks", sprd_clocks_init);
 CLK_OF_DECLARE(scx35_clock, "sprd,scx35-clocks", sprd_clocks_init);
