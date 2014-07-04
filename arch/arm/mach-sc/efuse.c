@@ -11,6 +11,8 @@
  * GNU General Public License for more details.
  */
 
+#if !defined(CONFIG_ARCH_SCX30G) && !defined(CONFIG_ARCH_SCX35L)
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/ctype.h>
@@ -116,7 +118,7 @@ static int efuse_auto_test_en = 0;
 #endif
 
 #define efuse_reg_read(r)               (__raw_readl((const volatile void*)(r)))
-#define efuse_reg_write(r, v)           (__raw_writel((v), (volatile void*)(r)))
+#define efuse_reg_write(v, r)           (__raw_writel((v), (volatile void*)(r)))
 
 static void efuse_dump_register(u32 en)
 {
@@ -738,4 +740,5 @@ int __init fuse_debug_init(void)
 
 late_initcall(fuse_debug_init);
 
+#endif
 #endif
