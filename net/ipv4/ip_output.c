@@ -466,6 +466,8 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 
 	iph = ip_hdr(skb);
 
+	/* avoid to ping some website failed, because they set IP_DF flag*/
+#if 0
 	if (unlikely(((iph->frag_off & htons(IP_DF)) && !skb->local_df) ||
 		     (IPCB(skb)->frag_max_size &&
 		      IPCB(skb)->frag_max_size > dst_mtu(&rt->dst)))) {
@@ -475,7 +477,7 @@ int ip_fragment(struct sk_buff *skb, int (*output)(struct sk_buff *))
 		kfree_skb(skb);
 		return -EMSGSIZE;
 	}
-
+#endif
 	/*
 	 *	Setup starting values.
 	 */
