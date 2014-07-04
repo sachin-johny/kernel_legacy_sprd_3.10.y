@@ -472,23 +472,28 @@ static int sprd_cproc_native_cp_start(void* arg)
 	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) &
 			~ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
 	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
-#ifndef CONFIG_ARCH_SCX30G
-        while(1)
-	{
-		state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS]);
-		if (!(state & ctrl->ctrl_mask[CPROC_CTRL_GET_STATUS]))  //(0xf <<16)
-			break;
-	}
-#endif
+	msleep(50);
+
 	/* clear cp1 force deep sleep */
 	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) &
 			~ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
 	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+	msleep(50);
 
 	/* clear reset cp1 */
+	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) |
+		ctrl->ctrl_mask[CPROC_CTRL_RESET]));
+	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
 	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
 		~ctrl->ctrl_mask[CPROC_CTRL_RESET]));
 	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+
+	while(1)
+		{
+			state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+			if (!(state & ctrl->ctrl_mask[CPROC_CTRL_RESET]))
+				break;
+		}
 
 	return 0;
 }
