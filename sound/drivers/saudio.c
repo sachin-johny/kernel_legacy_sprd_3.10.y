@@ -106,7 +106,7 @@
 #define SAUDIO_CARD_NAME_LEN_MAX	16
 
 #define  SAUDIO_STREAM_BLOCK_COUNT	4
-#define  SAUDIO_CMD_BLOCK_COUNT		4
+#define  SAUDIO_CMD_BLOCK_COUNT		8
 
 #define  SAUDIO_MONITOR_BLOCK_COUNT	2
 #define  SAUDIO_MONITOR_BLOCK_COUNT	2
@@ -262,7 +262,7 @@ static int saudio_wait_common_cmd(uint32_t dst, uint32_t channel,
 	if (result < 0) {
 		ETRACE("sblock_receive dst %d, channel %d result is %d \n", dst,
 		       channel, result);
-		return result;
+		return -1;
 	}
 
 	common = (struct cmd_common *)blk.addr;
