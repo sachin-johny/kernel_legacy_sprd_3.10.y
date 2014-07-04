@@ -316,9 +316,16 @@ static int sc271x_regulator_event(struct notifier_block *regu_nb,
 	struct pin_reg_desc *p_pin_reg_desc =
 	    container_of(regu_nb, struct pin_reg_desc, nb);
 	unsigned long best_data = (unsigned long *)data;
-	const char *regu_name = p_pin_reg_desc->supplies.supply;
-	u32 bit = p_pin_reg_desc->platform_data->bit_offset;
-	u32 reg = p_pin_reg_desc->platform_data->reg;
+	const char *regu_name;
+	u32 bit;
+	u32 reg;
+
+	if (!p_pin_reg_desc) {
+		return -EINVAL;
+	}
+	regu_name = p_pin_reg_desc->supplies.supply;
+	bit = p_pin_reg_desc->platform_data->bit_offset;
+	reg = p_pin_reg_desc->platform_data->reg;
 	pr_info("event:0x%x, best_data:0x%x\n", event, best_data);
 
 	if (event & REGULATOR_EVENT_VOLTAGE_CHANGE) {
