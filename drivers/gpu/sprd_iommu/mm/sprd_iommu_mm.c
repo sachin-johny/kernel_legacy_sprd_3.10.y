@@ -20,7 +20,7 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev);
 
 static inline void iommu_mm_reg_write(u32 reg, u32 val, u32 msk)
 {
-	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
+	__raw_writel((__raw_readl((void *)reg) & ~msk) | val, (void *)reg);
 }
 
 int sprd_iommu_mm_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
