@@ -77,6 +77,7 @@ static int __init hwspinlocks_init(void)
 	pdev = of_platform_device_create(np, 0, NULL);
 	if (!pdev) {
 		pr_warn("register hwspinlock1 failed!\n");
+		return -ENODEV;
 	}
 	pr_info("*****hwspinlock1's name is %s\n", pdev->name);
 	pr_info("SPRD register hwspinlock1 ok!\n");
