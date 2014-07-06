@@ -21,7 +21,7 @@
 /memreserve/ 0x8F8DF000 0x321000; /* 480*854*4*2, 4K alignment */
 
 /* memory reserved for ION */
-/memreserve/ 0x8fc00000 0x400000; /* 4MK */
+/memreserve/ 0x8fc00000 0x0; /* 0MK */
 
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
@@ -37,7 +37,7 @@
 	interrupt-parent = <&gic>;
 
 	chosen {
-		bootargs = "loglevel=1 console=ttyS1,115200n8 init=/init root=/dev/ram0 rw";
+		bootargs = "loglevel=1 console=ttyS1,115200n8 init=/init root=/dev/ram0 rw vmalloc=756M";
 		linux,initrd-start = <0x85500000>;
 		linux,initrd-end   = <0x855a3212>;
 	};
@@ -828,7 +828,7 @@
                        reg = <3>;                      /* OVERLAY */
                        reg-names = "ion_heap_carveout_overlay";
                        sprd,ion-heap-type = <2>;       /* CARVEOUT */
-                       sprd,ion-heap-mem = <0x8fc00000 0x400000>;      /* 4M */
+                       sprd,ion-heap-mem = <0x8fc00000 0x0>;      /* 0M */
                  };
          };
          sprd_iommu0:sprd_iommu@F5410000 {
