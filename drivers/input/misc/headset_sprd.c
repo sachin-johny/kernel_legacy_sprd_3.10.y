@@ -1707,7 +1707,7 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(
 		}
 		printk("device tree data: adc_min = %d adc_max = %d code = %d type = %d \n", buttons_data->adc_min,
 			buttons_data->adc_max, buttons_data->code, buttons_data->type);
-		*buttons_data++;
+		buttons_data++;
 	};
 
 	return pdata;
