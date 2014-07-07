@@ -200,7 +200,11 @@ static void wlan_clk_init(void)
 
 	clk_set_parent(wlan_clk, clk_parent);
 	clk_set_rate(wlan_clk, 32000);
+#ifdef CONFIG_OF  //for DT version
+	clk_prepare_enable(wlan_clk);   
+#else  // not DT
 	clk_enable(wlan_clk);
+#endif
 }
 
 int wlan_device_power(int on)
