@@ -835,18 +835,19 @@ STATIC_FUNC void sprd_dolphin_nand_wp_en(struct sprd_dolphin_nand_info *dolphin,
 		dolphin->wp_en = 0;
 	}
 }
+
 STATIC_FUNC void sprd_dolphin_select_chip(struct mtd_info *mtd, int chip)
 {
-	struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
-	if(chip < 0) { //for release caller
-		sci_glb_clr(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
-		return;
-	}
-	//DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
-	sci_glb_set(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
-	dolphin->chip = chip;
+       struct sprd_dolphin_nand_info *dolphin = mtd_to_dolphin(mtd);
+       if(chip < 0) { //for release caller
+               sci_glb_clr(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
+               return;
+       }
+       //DPRINT("sprd_dolphin_select_chip, %x\r\n", chip);
+       sci_glb_set(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
+       dolphin->chip = chip;
 #ifdef CONFIG_NAND_SPL
-	nand_hardware_config(mtd,dolphin->nand);
+       nand_hardware_config(mtd,dolphin->nand);
 #endif
 }
 
@@ -2172,7 +2173,9 @@ STATIC_FUNC int sprd_nand_resume(struct platform_device *dev)
 
 	//close write protect
 	sprd_dolphin_nand_wp_en(&g_dolphin, 0);
-	return 0;
+
+        sci_glb_clr(DOLPHIN_AHB_BASE, (BIT(19) | BIT(18) | BIT(17)));
+        return 0;
 }
 #else
 #define sprd_nand_suspend NULL
