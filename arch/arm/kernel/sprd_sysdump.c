@@ -384,7 +384,11 @@ static void sysdump_prepare_info(int enter_id, const char *reason,
 		reason, sizeof(sprd_sysdump_extra.reason));
 	sprd_sysdump_extra.enter_id = enter_id;
 
-	sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_SYSDUMP_MAGIC);
+	/* sprd_sysdump_info = (struct sysdump_info *)phys_to_virt(SPRD_SYSDUMP_MAGIC);  */
+	if(sprd_sysdump_info == NULL){
+		printk(KERN_ERR"[ sysdump_prepare_info ] sprd_sysdump_info ioremap error!! \n");
+		return;
+	}
 	printk("vaddr is %p,paddr is %p\n",sprd_sysdump_info, (void *)SPRD_SYSDUMP_MAGIC);
 	memcpy(sprd_sysdump_info->magic, SYSDUMP_MAGIC,
 			sizeof(sprd_sysdump_info->magic));
@@ -808,9 +812,14 @@ static struct ctl_table_header *sysdump_sysctl_hdr = NULL;
 
 int sysdump_sysctl_init(void)
 {
+	char *phy_sprd_sysdump_magic;
+
 	sysdump_sysctl_hdr = register_sysctl_table(sysdump_sysctl_root);
 	if (!sysdump_sysctl_hdr)
 		return -ENOMEM;
+	phy_sprd_sysdump_magic =((SPRD_SYSDUMP_MAGIC & (~(SZ_256M - 1))) + SZ_256M - SZ_1M);
+	/* FIXME: replace ioremap with some other methods... */
+	sprd_sysdump_info = (struct sysdump_info *)ioremap(phy_sprd_sysdump_magic, SZ_1M);
 
 	return 0;
 }
