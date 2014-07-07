@@ -145,6 +145,8 @@ void *sprd_otp_register(const char *name, void *ops, int blk_max, int blk_width)
 	int ret;
 	struct sprd_otp_device *otp;
 	otp = kzalloc(sizeof(struct sprd_otp_device), GFP_KERNEL);
+	if (unlikely(!otp))
+		return ERR_PTR(-ENOMEM);
 	INIT_LIST_HEAD(&otp->list);
 	otp->misc.minor = MISC_DYNAMIC_MINOR;
 	otp->misc.name = kstrdup(name, GFP_KERNEL);
@@ -188,6 +190,12 @@ static int __init sprd_otp_init(void)
 
 #if defined(CONFIG_OTP_SPRD_EFUSE)
 	sprd_efuse_init();
+#endif
+#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
+	sprd_adie_efuse_init();
+#endif
+#if defined(CONFIG_OTP_SPRD_LASER_FUSE)
+	sprd_adie_laserfuse_init();
 #endif
 	return ret;
 }

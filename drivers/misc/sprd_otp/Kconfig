@@ -16,9 +16,16 @@ config OTP_SPRD_EFUSE
       Say Y here to support spreadtrum ddie efuse for ip r3p0 version.
 
 config OTP_SPRD_ADIE_EFUSE
+    tristate "Spreadtrum A-die eFuse/eMemory driver"
+    depends on ADIE_SC2723
+    default y
+    help
+      Say Y here to support spreadtrum adie efuse.
+
+config OTP_SPRD_LASER_FUSE
     tristate "Spreadtrum A-die laser fuse driver (no longer recommended)"
     depends on ADIE_SC2713 || ADIE_SC2713S
-    default n
+    default y
     help
       Say Y here to support spreadtrum adie laser fuse.
 
