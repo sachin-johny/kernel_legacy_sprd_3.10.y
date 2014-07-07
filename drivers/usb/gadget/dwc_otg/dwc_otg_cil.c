@@ -1965,9 +1965,14 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 	}
 
 	if (core_if->snpsid >= OTG_CORE_REV_2_94a) {
+		static uint32_t first_entrance = 1;
 		dctl_data_t dctl = {.d32 = 0 };
 		dctl.d32 = DWC_READ_REG32(&dev_if->dev_global_regs->dctl);
-		dctl.b.sftdiscon = 0;
+		if(in_calibration() && first_entrance){
+			first_entrance = 0;
+			dctl.b.sftdiscon = 1;
+		}else
+			dctl.b.sftdiscon = 0;
 		DWC_WRITE_REG32(&dev_if->dev_global_regs->dctl, dctl.d32);
 	}
 }
