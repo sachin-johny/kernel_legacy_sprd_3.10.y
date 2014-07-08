@@ -44,6 +44,7 @@
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_device.h>
+#include <linux/of_address.h>
 #include <linux/regulator/of_regulator.h>
 #endif
 #include <linux/regulator/consumer.h>
@@ -64,6 +65,7 @@
 #define debug0(format, arg...)	//pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 #define debug2(format, arg...)	pr_debug("regu: " "@@@%s: " format, __func__, ## arg)
 
+
 #ifndef	ANA_REG_OR
 #define	ANA_REG_OR(_r, _b)	sci_adi_write(_r, _b, 0)
 #endif
@@ -80,7 +82,9 @@
 #define	ANA_REG_SET(_r, _v, _m)	sci_adi_write((_r), ((_v) & (_m)), (_m))
 #endif
 
-struct sci_regulator_regs {
+#define REGU_VERIFY_DLY	(1000)	/*ms */
+
+struct sci_regulator_regs{
 	int typ;
 	u32 pd_set, pd_set_bit;
 	/**
@@ -90,10 +94,12 @@ struct sci_regulator_regs {
 	u32 pd_rst, pd_rst_bit;
 	u32 slp_ctl, slp_ctl_bit;
 	u32 vol_trm, vol_trm_bits;
-	u32 cal_ctl, cal_ctl_bits;
+	u32 cal_ctl, cal_ctl_bits, cal_chan;
+	u32 min_uV, step_uV;
 	u32 vol_def;
 	u32 vol_ctl, vol_ctl_bits;
-	u32 vol_sel_cnt, vol_sel[];
+	u32 vol_sel_cnt;
+	u32 *vol_sel;
 };
 
 struct sci_regulator_data {
@@ -102,8 +108,8 @@ struct sci_regulator_data {
 
 struct sci_regulator_desc {
 	struct regulator_desc desc;
-	struct sci_regulator_ops *ops;
-	struct sci_regulator_regs *regs;
+	struct regulator_init_data *init_data;
+	struct sci_regulator_regs regs;
 	struct sci_regulator_data data;	/* FIXME: dynamic */
 #if defined(CONFIG_DEBUG_FS)
 	struct dentry *debugfs;
@@ -118,7 +124,10 @@ enum {
 	VDD_TYP_BOOST = 4,
 };
 
-#define REGU_VERIFY_DLY	(1000)	/*ms */
+static struct sci_regulator_desc *sci_desc_list = NULL;
+
+static atomic_t idx = ATOMIC_INIT(1);	/* 0: dummy */
+
 
 /*************************************************************************
 Reg: 0x40038800 + 0x00E4
@@ -150,38 +159,6 @@ static u32 ana_chip_id;
 static DEFINE_MUTEX(adc_chan_mutex);
 extern int sci_efuse_get_cal(unsigned int * pdata, int num);
 
-#define SCI_REGU_REG(VDD, TYP, PD_SET, SET_BIT, PD_RST, RST_BIT, SLP_CTL, SLP_CTL_BIT, \
-                     VOL_TRM, VOL_TRM_BITS, CAL_CTL, CAL_CTL_BITS, VOL_DEF, \
-                     VOL_CTL, VOL_CTL_BITS, VOL_SEL_CNT, ...)   \
-do { 														\
-	static struct sci_regulator_regs REGS_##VDD = {	\
-		.typ		= TYP,									\
-		.pd_set = PD_SET,                           		\
-		.pd_set_bit = SET_BIT,                      		\
-		.pd_rst = PD_RST,                           		\
-		.pd_rst_bit = RST_BIT,                      		\
-		.slp_ctl = SLP_CTL,                         		\
-		.slp_ctl_bit = SLP_CTL_BIT,                 		\
-		.vol_trm = VOL_TRM,                                 \
-		.vol_trm_bits = VOL_TRM_BITS,                       \
-		.cal_ctl = CAL_CTL, 								\
-		.cal_ctl_bits = CAL_CTL_BITS,						\
-		.vol_def = VOL_DEF,									\
-		.vol_ctl = VOL_CTL,                         		\
-		.vol_ctl_bits = VOL_CTL_BITS,               		\
-		.vol_sel_cnt = VOL_SEL_CNT,                 		\
-		.vol_sel = {__VA_ARGS__},                   		\
-	};														\
-	static struct sci_regulator_desc DESC_##VDD = {			\
-		.desc.name = #VDD,									\
-		.desc.id = 0,										\
-		.desc.ops = 0,										\
-		.desc.type = REGULATOR_VOLTAGE,						\
-		.desc.owner = THIS_MODULE,							\
-		.regs = &REGS_##VDD,								\
-	};														\
-	sci_regulator_register(pdev, &DESC_##VDD);				\
-} while (0)
 
 static struct sci_regulator_desc *__get_desc(struct regulator_dev *rdev)
 {
@@ -192,9 +169,9 @@ static struct sci_regulator_desc *__get_desc(struct regulator_dev *rdev)
 static int ldo_turn_on(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 
-	debug0("regu %p (%s), set %08x[%d], rst %08x[%d]\n", regs,
+	debug0("regu 0x%p (%s), set 0x%08x[%d], rst 0x%08x[%d]\n", regs,
 	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
 	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
@@ -204,16 +181,16 @@ static int ldo_turn_on(struct regulator_dev *rdev)
 	if (regs->pd_set)
 		ANA_REG_BIC(regs->pd_set, regs->pd_set_bit);
 
-	debug("regu %p (%s), turn on\n", regs, desc->desc.name);
+	debug("regu 0x%p (%s), turn on\n", regs, desc->desc.name);
 	return 0;
 }
 
 static int ldo_turn_off(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 
-	debug0("regu %p (%s), set %08x[%d], rst %08x[%d]\n", regs,
+	debug0("regu 0x%p (%s), set 0x%08x[%d], rst 0x%08x[%d]\n", regs,
 	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
 	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
@@ -225,7 +202,7 @@ static int ldo_turn_off(struct regulator_dev *rdev)
 		ANA_REG_BIC(regs->pd_rst, regs->pd_rst_bit);
 #endif
 
-	debug("regu %p (%s), turn off\n", regs, desc->desc.name);
+	debug("regu 0x%p (%s), turn off\n", regs, desc->desc.name);
 	return 0;
 }
 
@@ -233,9 +210,9 @@ static int ldo_is_on(struct regulator_dev *rdev)
 {
 	int ret = -EINVAL;
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 
-	debug0("regu %p (%s), set %08x[%d], rst %08x[%d]\n", regs,
+	debug0("regu 0x%p (%s), set 0x%08x[%d], rst 0x%08x[%d]\n", regs,
 	       desc->desc.name, regs->pd_set, __ffs(regs->pd_set_bit),
 	       regs->pd_rst, __ffs(regs->pd_rst_bit));
 
@@ -251,16 +228,16 @@ static int ldo_is_on(struct regulator_dev *rdev)
 		ret = !(ANA_REG_GET(regs->pd_set) & regs->pd_set_bit);
 	}
 
-	debug2("regu %p (%s) turn on, return %d\n", regs, desc->desc.name, ret);
+	debug2("regu 0x%p (%s) turn on, return %d\n", regs, desc->desc.name, ret);
 	return ret;
 }
 
 static int ldo_set_mode(struct regulator_dev *rdev, unsigned int mode)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 
-	debug("regu %p (%s), slp %08x[%d] mode %x\n", regs, desc->desc.name,
+	debug("regu 0x%p (%s), slp 0x%08x[%d] mode %x\n", regs, desc->desc.name,
 	      regs->slp_ctl, regs->slp_ctl_bit, mode);
 
 	if (!regs->slp_ctl)
@@ -279,14 +256,14 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 			   int max_uV, unsigned *selector)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
-	int mv = min_uV / 1000;
+	struct sci_regulator_regs *regs = &desc->regs;
+	int mv = min_uV;
 	int ret = -EINVAL;
 	int i, shft = __ffs(regs->vol_ctl_bits);
 
 	BUG_ON(regs->vol_sel_cnt > 4);
 
-	debug("regu %p (%s) set voltage, %d(uV) %d(uV)\n", regs, desc->desc.name, min_uV, max_uV);
+	debug("regu 0x%p (%s) set voltage, %d(uV) %d(uV)\n", regs, desc->desc.name, min_uV, max_uV);
 
 	if (!regs->vol_ctl)
 		return -EACCES;
@@ -309,11 +286,11 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 static int ldo_get_voltage(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 	u32 vol;
 	int i, shft = __ffs(regs->vol_ctl_bits);
 
-	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
+	debug0("regu 0x%p (%s), vol ctl 0x%08x, shft %d, mask 0x%08x\n",
 	       regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
 
 	if (!regs->vol_ctl)
@@ -324,8 +301,8 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 
 	vol = regs->vol_sel[i];
 
-	debug2("regu %p (%s) get voltage %d\n", regs, desc->desc.name, vol);
-	return vol * 1000;
+	debug2("regu 0x%p (%s) get voltage %d\n", regs, desc->desc.name, vol);
+	return vol;
 }
 
 
@@ -366,21 +343,22 @@ int regulator_default_get(const char con_id[])
 static int __init_trimming(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	const struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 	int ctl_vol, to_vol;
 
 	if (!regs->vol_trm)
 		return -1;
 
 	to_vol = regulator_default_get(desc->desc.name);
+	to_vol *= 1000;
 	if (!to_vol) {
 		to_vol = regs->vol_def;
 	}
 
 	if (to_vol && rdev->desc->ops->get_voltage) {
 		ctl_vol = rdev->desc->ops->get_voltage(rdev);
-		rdev->constraints->uV_offset = ctl_vol - to_vol * 1000;//uV
-		debug("regu %p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
+		rdev->constraints->uV_offset = ctl_vol - to_vol;//uV
+		debug("regu 0x%p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
 	}
 
 	return 0;
@@ -389,11 +367,11 @@ static int __init_trimming(struct regulator_dev *rdev)
 static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	if ((0 == strcmp(desc->desc.name, "vddmem")) ||
-		(0 == strcmp(desc->desc.name, "vddwrf"))) { /* FIXME: vddmem/vddwrf step 200/32mV */
-		return 1000 * 200 / 32;	/*uV */
-	}
-	return 1000 * 100 / 32;	/*uV */
+	struct sci_regulator_regs *regs = &desc->regs;
+
+	BUG_ON(!regs->step_uV);
+
+	return regs->step_uV;
 }
 
 static int dcdc_initial_value(struct sci_regulator_desc *desc)
@@ -431,7 +409,7 @@ static int __match_dcdc_vol(struct sci_regulator_regs *regs, u32 vol)
 
 static int __dcdc_enable_time(struct regulator_dev *rdev, int old_vol)
 {
-	int vol = rdev->desc->ops->get_voltage(rdev) / 1000;
+	int vol = rdev->desc->ops->get_voltage(rdev);
 	if (vol > old_vol) {
 		/* FIXME: for dcdc, each step (50mV) takes 10us */
 		int dly = (vol - old_vol) * 10 / 50;
@@ -445,11 +423,11 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			    int max_uV, unsigned *selector)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
-	int i, mv = min_uV / 1000;
-	int old_vol = rdev->desc->ops->get_voltage(rdev) / 1000;
+	struct sci_regulator_regs *regs = &desc->regs;
+	int i, mv = min_uV;
+	int old_vol = rdev->desc->ops->get_voltage(rdev);
 
-	debug0("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
+	debug0("regu 0x%p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
 
 	//BUG_ON(0 != __ffs(regs->vol_trm_bits));
 	BUG_ON(regs->vol_sel_cnt > 8);
@@ -463,7 +441,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return WARN(-EINVAL, "not found %s closely ctrl bits for %dmV\n",
 			    desc->desc.name, mv);
 
-	debug("regu %p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
+	debug("regu 0x%p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
 	       mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
 
 #if !defined(CONFIG_REGULATOR_CAL_DUMMY)
@@ -473,7 +451,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	{
 		int shft_ctl = __ffs(regs->vol_ctl_bits);
 		int shft_trm = __ffs(regs->vol_trm_bits);
-		int j = (int)(mv - regs->vol_sel[i]) * 1000 / dcdc_get_trimming_step(rdev, mv) % 32;
+		int j = (int)(mv - regs->vol_sel[i]) / dcdc_get_trimming_step(rdev, mv) % 32;
 
 		j += dcdc_initial_value(desc);
 
@@ -504,13 +482,13 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 static int dcdc_get_voltage(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 	u32 mv;
 	int i, cal = 0 /* uV */;
 	int shft_ctl = __ffs(regs->vol_ctl_bits);
 	int shft_trm = __ffs(regs->vol_trm_bits);
 
-	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x, sel %d\n",
+	debug0("regu 0x%p (%s), vol ctl %08x, shft %d, mask %08x, sel %d\n",
 	       regs, desc->desc.name, regs->vol_ctl,
 	       shft_ctl, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
@@ -530,9 +508,9 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 		cal *= dcdc_get_trimming_step(rdev, 0);	/*uV */
 	}
 
-	debug2("regu %p (%s) %d +%dmv\n", regs, desc->desc.name, mv, cal / 1000);
+	debug2("regu 0x%p (%s) %d +%duv\n", regs, desc->desc.name, mv, cal);
 
-	return (mv * 1000 + cal) /*uV */;
+	return (mv + cal) /*uV */;
 }
 
 
@@ -542,14 +520,14 @@ static int boost_set_current_limit(struct regulator_dev *rdev, int min_uA,
 				   int max_uA)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 	int ma = min_uA / 1000;
 	int ret = -EACCES;
 	int i, shft = __ffs(regs->vol_ctl_bits);
-	int trim = (int)regs->vol_def / 1000;
+	int trim = (int)regs->vol_def / (1000 * 1000);
 	int steps = (regs->vol_ctl_bits >> shft) + 1;
 
-	debug("regu %p (%s) %d %d\n", regs, desc->desc.name, min_uA, max_uA);
+	debug("regu 0x%p (%s) %d %d\n", regs, desc->desc.name, min_uA, max_uA);
 
 	if (!regs->vol_ctl)
 		goto exit;
@@ -576,12 +554,12 @@ exit:
 static int boost_get_current_limit(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 	u32 cur;
 	int i, shft = __ffs(regs->vol_ctl_bits);
 	int steps = (regs->vol_ctl_bits >> shft) + 1;
 
-	debug0("regu %p (%s), vol ctl %08x, shft %d, mask %08x\n",
+	debug0("regu 0x%p (%s), vol ctl 0x%08x, shft %d, mask 0x%08x\n",
 	       regs, desc->desc.name, regs->vol_ctl, shft, regs->vol_ctl_bits);
 
 	if (!regs->vol_ctl)
@@ -589,7 +567,7 @@ static int boost_get_current_limit(struct regulator_dev *rdev)
 
 	i = ((ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft);
 	cur = i * MAX_CURRENT_SINK / steps;
-	debug("regu %p (%s) get current %d\n", regs, desc->desc.name, cur);
+	debug("regu 0x%p (%s) get current %d\n", regs, desc->desc.name, cur);
 	return cur * 1000;
 }
 
@@ -679,9 +657,9 @@ static int cmp_val(const void *a, const void *b)
 static int regu_adc_voltage(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
-	struct sci_regulator_regs *regs = desc->regs;
+	struct sci_regulator_regs *regs = &desc->regs;
 
-	int ret, adc_chan = regs->cal_ctl_bits >> 16;
+	int ret, adc_chan = regs->cal_chan;
 	u16 ldo_cal_sel = regs->cal_ctl_bits & 0xFFFF;
 	u32 adc_res, adc_val[MEASURE_TIMES];
 	u32 chan_numerators = 1, chan_denominators = 1;
@@ -706,7 +684,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 		return -EINVAL;
 
 	/* enable ldo cal before adc sampling and ldo calibration */
-	if (0 == regs->typ) {
+	if (ldo_cal_sel) {
 		mutex_lock(&adc_chan_mutex);
 		ANA_REG_OR(regs->cal_ctl, ldo_cal_sel);
 		debug0("%s adc channel %d : %04x\n",
@@ -717,7 +695,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 	BUG_ON(0 != ret);
 
 	/* close ldo cal and release multiplexed aux adc channel */
-	if (0 == regs->typ) {
+	if (ldo_cal_sel) {
 		ANA_REG_BIC(regs->cal_ctl, ldo_cal_sel);
 		mutex_unlock(&adc_chan_mutex);
 	}
@@ -1017,41 +995,50 @@ static void rdev_init_debugfs(struct regulator_dev *rdev)
 }
 #endif
 
-static void *sci_regulator_register(struct platform_device *pdev,
-				       struct sci_regulator_desc *desc)
+
+static inline int __strcmp(const char *cs, const char *ct)
 {
-	static atomic_t idx = ATOMIC_INIT(1);	/* 0: dummy */
-	struct regulator_dev *rdev;
-	struct regulator_ops *__regs_ops[] = {
-		&ldo_ops, 0, &dcdc_ops, 0 /*lpref_ops */ , &boost_ops,
-		0,
-	};
-	struct regulator_consumer_supply consumer_supplies_default[] = {
-		[0] = {
-		       .supply = desc->desc.name,
-		       }
-	};
-	struct regulator_config config = { };
+	if (!cs || !ct)
+		return -1;
 
-	struct regulator_init_data init_data = {
-		.supply_regulator = 0,
-		.constraints = {
-				.min_uV = 0,
-				.max_uV = 4200 * 1000,
-				.valid_modes_mask =
-				REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY,
-				.valid_ops_mask =
-				REGULATOR_CHANGE_STATUS |
-				REGULATOR_CHANGE_VOLTAGE |
-				REGULATOR_CHANGE_MODE,
-				},
-		.num_consumer_supplies = 1,
-		.consumer_supplies = consumer_supplies_default,
-		.regulator_init = 0,
-		.driver_data = 0,
-	};
+	return strcmp(cs, ct);
+}
 
-	desc->desc.id = atomic_inc_return(&idx) - 1;
+static struct of_device_id sprd_regulator_of_match[] = {
+	{ .compatible = "sprd,sc2713s-regulator", },
+	{ }
+};
+//MODULE_DEVICE_TABLE(of, sprd_regulator_of_match);
+
+#undef REGS_ANA_GLB_BASE
+#ifndef REGS_ANA_GLB_BASE
+#define REGS_ANA_GLB_PHYS			(SPRD_ADI_PHYS + 0x8800)
+#define REGS_ANA_GLB_BASE			(SPRD_ADI_BASE + 0x8800)
+#define REGS_ANA_GLB_SIZE			(SZ_2K) //0x40038800 ~ 0x40039000
+#endif
+
+#define IS_VALID_ANA_ADDR(pa, pa_base, size)	( (pa) >= (pa_base) && (pa) < (pa_base) + (size) )
+#define PHY_TO_VIR(pa, pa_base, va_base) 		( (pa) - (pa_base) + (va_base) )
+
+static u32 phy2vir(const u32 reg_phy)
+{
+	u32 reg_vir = 0;
+
+	if(!reg_phy)
+		return 0;
+
+	if (IS_VALID_ANA_ADDR(reg_phy, REGS_ANA_GLB_PHYS, REGS_ANA_GLB_SIZE)) {
+		reg_vir = (u32)(PHY_TO_VIR(reg_phy, REGS_ANA_GLB_PHYS, REGS_ANA_GLB_BASE));
+	} else {
+		WARN(1, "reg(0x%08x) physical address is invalid!\n", reg_phy);
+	}
+
+	return reg_vir;
+}
+
+static int reconfig_regulator(struct sci_regulator_desc *desc)
+{
+	struct sci_regulator_regs *regs = &desc->regs;
 
 	/* Fixme: Config dynamically dcdc/ldo
 	 *   accoring to bit BONDOPT4 & BONDOPT6 for Reg(0x40038800 + 0x00E4)
@@ -1060,109 +1047,324 @@ static void *sci_regulator_register(struct platform_device *pdev,
 	/* BONDOPT6 */
 	if ((ana_status >> 6) & 0x1) {
 		if (0 == strcmp(desc->desc.name, "vddcore")) {
-			desc->regs->vol_def = 900;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
-			desc->regs->vol_ctl_bits = BIT(3)|BIT(4)|BIT(5);
+			regs->vol_def = 900;
+			regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			regs->vol_ctl_bits = BIT(3)|BIT(4)|BIT(5);
 		} else if (0 == strcmp(desc->desc.name, "vddarm")) {
-			desc->regs->vol_def = 900;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
-			desc->regs->vol_ctl_bits = BIT(6)|BIT(7)|BIT(8);
+			regs->vol_def = 900;
+			regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			regs->vol_ctl_bits = BIT(6)|BIT(7)|BIT(8);
 		} else if (0 == strcmp(desc->desc.name, "vdd25")) {
-			desc->regs->vol_def = 1800;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
-			desc->regs->vol_ctl_bits = BIT(9)|BIT(10);
-			desc->regs->vol_sel[0] = 2500;
-			desc->regs->vol_sel[1] = 2750;
-			desc->regs->vol_sel[2] = 1800;
-			desc->regs->vol_sel[3] = 1900;
+			regs->vol_def = 1800;
+			regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			regs->vol_ctl_bits = BIT(9)|BIT(10);
+			regs->vol_sel[0] = 2500;
+			regs->vol_sel[1] = 2750;
+			regs->vol_sel[2] = 1800;
+			regs->vol_sel[3] = 1900;
 		}
 	} else {
 		if (0 == strcmp(desc->desc.name, "vddcore")) {
-			desc->regs->vol_def = 1100;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_DCDC_CORE_ADI;
-			desc->regs->vol_ctl_bits = BIT(5)|BIT(6)|BIT(7);
+			regs->vol_def = 1100;
+			regs->vol_ctl = (u32)ANA_REG_GLB_DCDC_CORE_ADI;
+			regs->vol_ctl_bits = BIT(5)|BIT(6)|BIT(7);
 		} else if (0 == strcmp(desc->desc.name, "vddarm")) {
-			desc->regs->vol_def = 1100;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_DCDC_ARM_ADI;
-			desc->regs->vol_ctl_bits = BIT(5)|BIT(6)|BIT(7);
+			regs->vol_def = 1100;
+			regs->vol_ctl = (u32)ANA_REG_GLB_DCDC_ARM_ADI;
+			regs->vol_ctl_bits = BIT(5)|BIT(6)|BIT(7);
 		} else if (0 == strcmp(desc->desc.name, "vdd25")) {
-			desc->regs->vol_def = 2500;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_LDO_V_CTRL0;
-			desc->regs->vol_ctl_bits = BIT(4)|BIT(5);
-			desc->regs->vol_sel[0] = 2500;
-			desc->regs->vol_sel[1] = 2750;
-			desc->regs->vol_sel[2] = 3000;
-			desc->regs->vol_sel[3] = 2900;
+			regs->vol_def = 2500;
+			regs->vol_ctl = (u32)ANA_REG_GLB_LDO_V_CTRL0;
+			regs->vol_ctl_bits = BIT(4)|BIT(5);
+			regs->vol_sel[0] = 2500;
+			regs->vol_sel[1] = 2750;
+			regs->vol_sel[2] = 3000;
+			regs->vol_sel[3] = 2900;
 		}
 	}
 
 	/* BONDOPT4 */
 	if ((ana_status >> 4) & 0x1) {
 		if (0 == strcmp(desc->desc.name, "vddwrf")) {
-			desc->regs->vol_def = 2800;
-			desc->regs->vol_sel[0] = 2600;
-			desc->regs->vol_sel[1] = 2700;
-			desc->regs->vol_sel[2] = 2800;
-			desc->regs->vol_sel[3] = 2900;
+			regs->vol_def = 2800;
+			regs->vol_sel[0] = 2600;
+			regs->vol_sel[1] = 2700;
+			regs->vol_sel[2] = 2800;
+			regs->vol_sel[3] = 2900;
 		} else if (0 == strcmp(desc->desc.name, "vddrf1")) {
-			desc->regs->vol_def = 2850;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_LDO_V_CTRL0;
-			desc->regs->vol_ctl_bits = BIT(8)|BIT(9);
+			regs->vol_def = 2850;
+			regs->vol_ctl = (u32)ANA_REG_GLB_LDO_V_CTRL0;
+			regs->vol_ctl_bits = BIT(8)|BIT(9);
 		}
 	} else {
 		if (0 == strcmp(desc->desc.name, "vddwrf")) {
-			desc->regs->vol_def = 1500;
-			desc->regs->vol_sel[0] = 1300;
-			desc->regs->vol_sel[1] = 1400;
-			desc->regs->vol_sel[2] = 1500;
-			desc->regs->vol_sel[3] = 1600;
+			regs->vol_def = 1500;
+			regs->vol_sel[0] = 1300;
+			regs->vol_sel[1] = 1400;
+			regs->vol_sel[2] = 1500;
+			regs->vol_sel[3] = 1600;
 		} else if (0 == strcmp(desc->desc.name, "vddrf1")) {
-			desc->regs->vol_def = 1200;
-			desc->regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
-			desc->regs->vol_ctl_bits = BIT(11)|BIT(12);
+			regs->vol_def = 1200;
+			regs->vol_ctl = (u32)ANA_REG_GLB_MP_MISC_CTRL;
+			regs->vol_ctl_bits = BIT(11)|BIT(12);
 		}
 	}
 
-	BUG_ON(desc->regs->pd_set
-	       && desc->regs->pd_set == desc->regs->pd_rst
-	       && desc->regs->pd_set_bit == desc->regs->pd_rst_bit);
+	return 0;
+}
 
-	BUG_ON(desc->regs->typ >= ARRAY_SIZE(__regs_ops));
-	if (!desc->desc.ops)
-		desc->desc.ops = __regs_ops[desc->regs->typ];
+#define GET_CTL_BITS(bh, bl)	( ((1 << ((bh) - (bl) + 1)) - 1) << (bl) )
 
-	init_data.consumer_supplies =
-	    set_supply_map(&pdev->dev, desc->desc.name,
-			   &init_data.num_consumer_supplies);
+static int of_regu_read_reg(struct device_node *np, int idx,
+		struct sci_regulator_regs *regs)
+{
+	const __be32 *cell;
+	u32 reg_phy;
+	int count;
 
-	if (!init_data.consumer_supplies)
-		init_data.consumer_supplies = consumer_supplies_default;
+	if(!np || !regs)
+		return -EINVAL;
 
-	debug0("regu %p (%s)\n", desc->regs, desc->desc.name);
-#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0))
-	config.dev = &pdev->dev;
-	config.init_data = &init_data;
-	config.driver_data = NULL;
-	config.of_node = NULL;
-	rdev = regulator_register(&desc->desc, &config);
-#elif (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 2, 0))
-	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0, 0);
-#else
-	rdev = regulator_register(&desc->desc, &pdev->dev, &init_data, 0);
+	cell = of_get_property(np, "reg", &count);
+	count /= 4;
+	if(cell)
+		WARN_ON(idx >= count);
+
+	cell = of_get_address(np, idx, NULL, NULL);
+
+	switch(idx) {
+	case 0: /* ldo/dcdc power down */
+		if(cell) {
+			reg_phy = (u32)be32_to_cpu(*(cell++));
+			regs->pd_set = phy2vir(reg_phy);
+			regs->pd_set_bit = (u32)be32_to_cpu(*(cell++));
+			debug0("reg(%s) pd_set phy addr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x\n",
+				np->name, reg_phy, regs->pd_set, regs->pd_set_bit);
+		}
+		break;
+	case 1: /* ldo/dcdc power reset */
+		if(cell) {
+			reg_phy = (u32)be32_to_cpu(*(cell++));
+			regs->pd_rst = phy2vir(reg_phy);
+			regs->pd_rst_bit = (u32)be32_to_cpu(*(cell++));
+			debug0("reg(%s) pd_rst phy addr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x\n",
+				np->name, reg_phy, regs->pd_rst, regs->pd_rst_bit);
+		}
+		break;
+	case 2: /* ldo/dcdc auto sleep control */
+		if(cell) {
+			reg_phy = (u32)be32_to_cpu(*(cell++));
+			regs->slp_ctl = phy2vir(reg_phy);
+			regs->slp_ctl_bit = (u32)be32_to_cpu(*(cell++));
+			debug0("reg(%s) slp_ctl phy addr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x\n",
+				np->name, reg_phy, regs->slp_ctl, regs->slp_ctl_bit);
+		}
+		break;
+	default:
+		break;
+	}
+
+	return 0;
+}
+
+static int sci_regulator_parse_dt(struct platform_device *pdev,
+			struct device_node *np, struct sci_regulator_desc *desc,
+			struct regulator_consumer_supply *supply, int sz)
+{
+	struct sci_regulator_regs *regs = &desc->regs;
+	const __be32 *tmp;
+	u32 data[8] = {0};
+	u32 tmp_val_u32;
+	int type = 0, cnt = 0, ret = 0;
+
+	if(!pdev || !np || !desc || !supply) {
+		return -EINVAL;
+	}
+
+	desc->desc.name = np->name;
+	desc->desc.id = (atomic_inc_return(&idx) - 1);
+	desc->desc.type = REGULATOR_VOLTAGE;
+	desc->desc.owner = THIS_MODULE;
+
+	supply[0].supply = np->name;
+	desc->init_data = of_get_regulator_init_data(&pdev->dev, np);
+	if (!desc->init_data || 0 != __strcmp(desc->init_data->constraints.name, np->name)) {
+		dev_err(&pdev->dev, "failed to parse regulator(%s) init data! \n", np->name);
+		return -EINVAL;
+	}
+
+	desc->init_data->supply_regulator = 0;
+	desc->init_data->constraints.valid_modes_mask =
+		REGULATOR_MODE_NORMAL | REGULATOR_MODE_STANDBY;
+	desc->init_data->constraints.valid_ops_mask =
+		REGULATOR_CHANGE_MODE | REGULATOR_CHANGE_STATUS | REGULATOR_CHANGE_VOLTAGE;
+	desc->init_data->num_consumer_supplies = sz;
+
+	desc->init_data->consumer_supplies =
+		set_supply_map(&pdev->dev, desc->desc.name,
+			   &desc->init_data->num_consumer_supplies);
+
+	if (!desc->init_data->consumer_supplies)
+		desc->init_data->consumer_supplies = supply;
+
+	/* Fill struct sci_regulator_regs variable desc->regs */
+	type = (of_property_read_bool(np, "dcdc") ? 2 : 0);
+	regs->typ = type;
+
+	of_regu_read_reg(np, 0, regs);
+	of_regu_read_reg(np, 1, regs);
+	of_regu_read_reg(np, 2, regs);
+
+	regs->min_uV = desc->init_data->constraints.min_uV;
+#if 0
+	//ret = of_property_read_u32(np, "regulator-min-microvolt", &desc->regs.vol_def);
+	tmp = of_get_property(np, "regulator-min-microvolt", NULL);
+	if (tmp)
+		regs->vol_def = be32_to_cpu(*tmp);
 #endif
 
-	if (init_data.consumer_supplies != consumer_supplies_default)
-		kfree(init_data.consumer_supplies);
+	ret = of_property_read_u32(np, "regulator-step-microvolt", &tmp_val_u32);
+	if(!ret)
+		regs->step_uV = tmp_val_u32;
 
+	ret = of_property_read_u32(np, "regulator-default-microvolt", &tmp_val_u32);
+	if(!ret)
+		regs->vol_def = tmp_val_u32;
 
-	if (!IS_ERR_OR_NULL(rdev)) {
-		rdev->reg_data = rdev;
-		//INIT_DELAYED_WORK(&desc->data.dwork, do_regu_work);
-		desc->data.rdev = rdev;
-		__init_trimming(rdev);
-		rdev_init_debugfs(rdev);
+	debug("[%d] %s type %d, range %d(uV) - %d(uV), step %d(uV), defult %d(uV)\n", (idx.counter - 1),
+		np->name, type, desc->init_data->constraints.min_uV, desc->init_data->constraints.max_uV,
+		regs->step_uV, regs->vol_def);
+
+	tmp = of_get_property(np, "reg-vol", &cnt);
+	if (tmp) {
+		debug0("prop reg-vol len %d\n", cnt);
+		cnt /= 4;
+		ret = of_property_read_u32_array(np, "reg-vol", data, cnt);
+		if(!ret) {
+			regs->vol_ctl = phy2vir(data[0]);
+			regs->vol_ctl_bits = data[1];
+			regs->vol_trm = phy2vir(data[2]);
+			regs->vol_trm_bits = data[3];
+		}
+
+		debug0("vol_ctl (phyaddr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x) \n",
+			data[0], regs->vol_ctl, regs->vol_ctl_bits);
+
+		debug0("vol_trm (phyaddr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x)\n",
+			data[2], regs->vol_trm, regs->vol_trm_bits);
 	}
-	return rdev;
+
+	tmp = of_get_property(np, "regulator-cal-channel", &cnt);
+	if (tmp) {
+		cnt /= 4;
+		ret = of_property_read_u32_array(np, "regulator-cal-channel", data, cnt);
+		if(!ret) {
+			regs->cal_ctl = phy2vir(data[0]);
+			regs->cal_ctl_bits = data[1];
+			regs->cal_chan = data[2];
+		}
+
+		debug0("cal_ctl (phyaddr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x, chan: %d)\n",
+			data[0], regs->cal_ctl, regs->cal_ctl_bits, regs->cal_chan);
+	}
+
+	tmp = of_get_property(np, "regulator-selects", &cnt);
+	if (tmp) {
+		debug0("prop regulator-selects count(%d)\n", cnt);
+		cnt /= 4;
+		ret = of_property_read_u32_array(np, "regulator-selects", data, cnt);
+		if(!ret) {
+			int i = 0;
+
+			/* Dynamically allocate memory for voltage select array */
+			regs->vol_sel = kzalloc(cnt * sizeof(*regs->vol_sel), GFP_KERNEL);
+			if (!regs->vol_sel) {
+				pr_err("%s() failed to allocate memory for voltage select\n", __func__);
+				return -ENOMEM;
+			}
+
+			regs->vol_sel_cnt = cnt;
+			for(i = 0; i < cnt; i++) {
+				regs->vol_sel[i] = data[i];
+			}
+		}
+	}
+
+	return 0;
+}
+
+static int sci_regulator_register_dt(struct platform_device *pdev)
+{
+	struct sci_regulator_desc *sci_desc = NULL;
+
+	struct regulator_dev *rdev;
+	struct regulator_ops *__regs_ops[] = {
+		&ldo_ops, 0, &dcdc_ops, 0 /*lpref_ops */ , &boost_ops, 0,
+	};
+	struct regulator_consumer_supply consumer_supplies_default[1];
+	struct regulator_config config = { };
+
+	struct device_node *dev_np = pdev->dev.of_node;
+	struct device_node *child_np;
+	int regu_cnt = 0, ret = 0;
+
+	regu_cnt = of_get_child_count(dev_np);
+	if (!regu_cnt)
+		return -EINVAL;
+
+	regu_cnt -= 1; /* exclude dummy node */
+
+	sci_desc_list = devm_kzalloc(&pdev->dev, regu_cnt * sizeof(struct sci_regulator_desc), GFP_KERNEL);
+	if (!sci_desc_list) {
+		dev_err(&pdev->dev, "failed allocate memory for sci_regulator_desc list\n");
+		return -ENOMEM;
+	}
+	sci_desc = sci_desc_list;
+
+	debug("regulators desc list 0x%p, count %d, sci_regulator_desc size %d\n", sci_desc, regu_cnt, sizeof(struct sci_regulator_desc));
+
+	for_each_child_of_node(dev_np, child_np) {
+		if(0 == strcmp(child_np->name, "dummy")) /* skip dummy node */
+			continue;
+
+		ret = sci_regulator_parse_dt(pdev, child_np, sci_desc, consumer_supplies_default, ARRAY_SIZE(consumer_supplies_default));
+		if(ret) {
+			dev_err(&pdev->dev, "failed to parse regulator(%s) dts\n", child_np->name);
+			continue;
+		}
+
+		reconfig_regulator(sci_desc);
+
+		BUG_ON(sci_desc->regs.pd_set
+		       && sci_desc->regs.pd_set == sci_desc->regs.pd_rst
+		       && sci_desc->regs.pd_set_bit == sci_desc->regs.pd_rst_bit);
+
+		BUG_ON(sci_desc->regs.typ >= ARRAY_SIZE(__regs_ops));
+		if (!sci_desc->desc.ops)
+			sci_desc->desc.ops = __regs_ops[sci_desc->regs.typ];
+
+        config.dev = &pdev->dev;
+        config.init_data = sci_desc->init_data;
+        config.driver_data = NULL;
+        config.of_node = child_np;
+        rdev = regulator_register(&sci_desc->desc, &config);
+
+		debug0("regulator_desc 0x%p, rdev 0x%p\n", &sci_desc->desc, rdev);
+
+		if (sci_desc->init_data->consumer_supplies != consumer_supplies_default)
+			kfree(sci_desc->init_data->consumer_supplies);
+
+		if (!IS_ERR_OR_NULL(rdev)) {
+			rdev->reg_data = rdev;
+			sci_desc->data.rdev = rdev;
+			__init_trimming(rdev);
+			rdev_init_debugfs(rdev);
+		}
+
+		sci_desc++;
+	}
+
+	return 0;
 }
 
 /**
@@ -1215,7 +1417,19 @@ static int sci_regulator_probe(struct platform_device *pdev)
 	ANA_REG_BIC(ANA_REG_GLB_CA_CTRL0, BIT_LDO_CAMIO_V_B2);
 #endif
 
-#include CONFIG_REGULATOR_SPRD_MAP_V1
+	sci_regulator_register_dt(pdev);
+
+	return 0;
+}
+
+static int sci_regulator_remove(struct platform_device *pdev)
+{
+	if(sci_desc_list) {
+		if(sci_desc_list->init_data) {
+			kfree(sci_desc_list->init_data);
+		}
+		kfree(sci_desc_list);
+	}
 
 	return 0;
 }
@@ -1224,8 +1438,10 @@ static struct platform_driver sci_regulator_driver = {
 	.driver = {
 		.name = "sc2713s-regulator",
 		.owner = THIS_MODULE,
+		.of_match_table = of_match_ptr(sprd_regulator_of_match),
 	},
 	.probe = sci_regulator_probe,
+	.remove = sci_regulator_remove
 };
 
 static int __init regu_driver_init(void)
@@ -1238,12 +1454,8 @@ static int __init regu_driver_init(void)
 #ifndef CONFIG_REGULATOR_SC2713
 int __init sci_regulator_init(void)
 {
-	static struct platform_device regulator_device = {
-		.name = "sc2713s-regulator",
-		.id = -1,
-	};
-
-	return platform_device_register(&regulator_device);
+	return of_platform_populate(of_find_node_by_path("/sprd-regulators"),
+				sprd_regulator_of_match, NULL, NULL);
 }
 #endif
 
