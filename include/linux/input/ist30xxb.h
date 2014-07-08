@@ -61,7 +61,7 @@
 #if defined (CONFIG_MACH_CORSICA_VE) || defined (CONFIG_MACH_POCKET2)
 #define IST30XX_MAX_X           (240)
 #define IST30XX_MAX_Y           (320)
-#elif defined CONFIG_MACH_YOUNG2
+#elif defined CONFIG_MACH_YOUNG2 || defined (CONFIG_MACH_PIKEAYOUNG2DTV)
 #define IST30XX_MAX_X           (320)
 #define IST30XX_MAX_Y           (480)
 #elif defined CONFIG_MACH_VIVALTO

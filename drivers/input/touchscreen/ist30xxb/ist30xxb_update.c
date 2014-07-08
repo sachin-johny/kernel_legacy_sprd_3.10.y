@@ -31,6 +31,8 @@
 #include "IST30xxB_FW_Star2_Ver0002.h"
 #elif defined(CONFIG_MACH_YOUNG2)
 #include "ist30xxb_fw_young2_ver0001.h"
+#elif defined(CONFIG_MACH_PIKEAYOUNG2DTV)
+#include "ist30xxb_fw_pikeayoung2dtv_ver0001.h"
 #elif defined(CONFIG_MACH_CORSICA_VE)
 #include "IST30xxB_FW_Corsica_VE_Ver0007.h"
 #elif defined(CONFIG_MACH_VIVALTO)

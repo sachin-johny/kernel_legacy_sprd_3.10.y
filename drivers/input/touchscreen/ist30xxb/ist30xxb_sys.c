@@ -251,7 +251,7 @@ static void ts_power_enable(int en)
 		}
 	}
 }
-#elif defined(CONFIG_MACH_YOUNG2)
+#elif defined(CONFIG_MACH_YOUNG2) || defined(CONFIG_MACH_PIKEAYOUNG2DTV)
 static void ts_power_enable(int en)
 {
 	int ret=0;
