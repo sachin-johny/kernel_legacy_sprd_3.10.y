@@ -153,7 +153,7 @@ static int veth_rx_poll_handler(struct napi_struct * napi, int budget)
 		}
 
 		skb->protocol = eth_type_trans(skb, veth->netdev);
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+		skb->ip_summed = CHECKSUM_NONE;
 		netif_receive_skb(skb);
 
 		/* update fifo rd_ptr */
@@ -291,7 +291,7 @@ static int veth_rx_data(struct veth_device *veth, uint8_t *data, uint32_t len)
 	}
 #else
 	skb->protocol = eth_type_trans(skb, veth->netdev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
+	skb->ip_summed = CHECKSUM_NONE;
 	veth->stats.rx_bytes += skb->len;
 	veth->stats.rx_packets++;
 
@@ -566,9 +566,14 @@ static int veth_notify_handler(int index, int event, uint8_t * data, uint32_t le
 	VETH_DEBUG("veth_notify_handler event %d\n", event);
 	switch(event) {
 		case MUX_EVENT_RECV_DATA:
-			VETH_DEBUG("%s handle receive data, veth=0x%x, data=0x%x, len=%u\n",
-				veth->pdata->name, (uint32_t)veth, (uint32_t)data, len);
-			veth_perform_packet(veth, data, len);
+			VETH_DEBUG("%s handle receive data, veth=0x%x, data=0x%x, len=%u, status=%d\n",
+				veth->pdata->name, (uint32_t)veth, (uint32_t)data, len, veth->status);
+			if (veth->status == VETH_DEV_STATUS_ON) {
+				veth_perform_packet(veth, data, len);
+			} else {
+				VETH_WARNING("net device %s has been OFF, then abandon the data, status=%d\n",
+					veth->pdata->name, veth->status);
+			}
 			break;
 		case MUX_EVENT_SENT_DATA:
 			VETH_DEBUG("%s handle sent data\n", veth->pdata->name);
@@ -579,7 +584,8 @@ static int veth_notify_handler(int index, int event, uint8_t * data, uint32_t le
 			VETH_DEBUG("%s handle flush data\n", veth->pdata->name);
 			VETH_DEBUG("RX FIFO, rd_ptr %d, wr_ptr %d, busy %d\n",
 				rx_fifo->rd_ptr, rx_fifo->wr_ptr, veth->busy);
-			if (!atomic_read(&veth->busy) &&
+			if (veth->status == VETH_DEV_STATUS_ON &&
+					!atomic_read(&veth->busy) &&
 					rx_fifo->rd_ptr != rx_fifo->wr_ptr) {
 				atomic_inc(&veth->busy);
 				napi_schedule(&veth->napi);
@@ -627,22 +633,28 @@ static int veth_ndo_open (struct net_device *dev)
 	notify.index = index;
 	notify.func = veth_notify_handler;
 	notify.user_data = (void *)veth;
+	/* the notify func is registered only for the first veth open */
 	ret = sprdmux_register_notify_callback(inst_id, &notify);
 	if (ret) {
 		VETH_ERR("failed to regitster notify callback, tty-%d-%d", inst_id, index);
 		return -EINVAL;
 	}
 
+#ifdef VETH_NAPI
+	if (atomic_read(&veth->busy)) {
+		atomic_set(&veth->busy, 0);
+	}
+#endif
+
 	VETH_DEBUG("%s update veth status\n", dev->name);
 	veth->status = VETH_DEV_STATUS_ON;
 	if (!netif_carrier_ok(veth->netdev)) {
 		netif_carrier_on(veth->netdev);
 	}
-	//veth_dev->netdev->flags &= ~IFF_MULTICAST;
-	//veth_dev->netdev->flags &= ~IFF_BROADCAST;
 
+#ifdef VETH_NAPI
 	napi_enable(&veth->napi);
-
+#endif
 	netif_start_queue(dev);
 	VETH_INFO("%s is started\n", dev->name);
 
@@ -653,27 +665,26 @@ static int veth_ndo_stop (struct net_device *dev)
 {
 	struct veth_device *veth = netdev_priv(dev);
 	struct veth_init_data *pdata = veth->pdata;
-	int inst_id, index;
 	struct sprdmux_notify notify;
+	int inst_id, index;
 
 	inst_id = pdata->inst_id;
 	index = pdata->index;
 
-	napi_disable(&veth->napi);
-
-	netif_stop_queue(dev);
-	if (netif_carrier_ok(dev)) {
-		netif_carrier_off(dev);
-	}
 
 	VETH_DEBUG("%s close sprdmux tty-%d-%d\n", dev->name, inst_id, index);
 	sprdmux_close(inst_id, index);
 
 	veth->status = VETH_DEV_STATUS_OFF;
-	notify.index = index;
-	notify.func = NULL;
-	notify.user_data = NULL;
-	sprdmux_register_notify_callback(inst_id, &notify);
+
+#ifdef VETH_NAPI
+	napi_disable(&veth->napi);
+#endif
+	netif_stop_queue(dev);
+	if (netif_carrier_ok(dev)) {
+		netif_carrier_off(dev);
+	}
+
 	VETH_INFO("%s is stopped!\n", dev->name);
 
 	return 0;
@@ -695,9 +706,6 @@ static int veth_ndo_start_xmit(struct sk_buff *skb, struct net_device *dev)
 
 	VETH_DEBUG("%s is ready to send %d bytes, proto %d\n",
 			dev->name, skb->len, (skb->data[VETH_ETH_HLEN] & 0xf0) >> 4);
-
-	/* notify the uplayer to stop sending */
-//	netif_stop_queue(dev);
 
 	/* invoke mux write interface */
 	ret = sprdmux_write(pdata->inst_id, pdata->index, skb->data, skb->len);

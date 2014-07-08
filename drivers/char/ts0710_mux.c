@@ -3779,8 +3779,11 @@ int sprdmux_register_notify_callback(SPRDMUX_ID_E mux_id, struct sprdmux_notify 
 	self = sprd_mux_mgr[mux_id].handle;
 
 	if (self) {
-		self->callback[notify->index].func = notify->func;
-		self->callback[notify->index].user_data = notify->user_data;
+		if (!self->callback[notify->index].func) {
+			self->callback[notify->index].func = notify->func;
+			self->callback[notify->index].user_data = notify->user_data;
+		}
+
 		return 0;
 	}
 
