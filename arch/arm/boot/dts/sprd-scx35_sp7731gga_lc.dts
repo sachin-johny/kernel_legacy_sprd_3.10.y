@@ -632,30 +632,6 @@
 		compatible = "sprd,sprd_wlan";
 	};
 
-	sdhci3: sdhci@f511c000{
-		compatible  = "sprd,sdhci-shark";
-		interrupts = <0 60 0x0>;
-		reg = <0xf511c000 0x1000>;
-		id = <3>;
-		bus-width = <8>;
-		max-frequency = <384000000>;
-		keep-power-in-suspend = <1>;
-		non-removable = <1>;
-		caps = <0x80000000>;
-		caps2 = <0x202>;
-		vdd-extmmc = "vddemmcio";
-		emmc-signal-supply = <&vddemmccore>;
-		vdd-level = <1200000 1300000 1500000 1800000>;
-		clock-names = "clk_emmc";
-		clocks = <&clk_emmc>, <&clk_384m>;
-		enb-bit = <0x800>;
-		rst-bit = <0x4000>;
-		write-delay = <0x20>;
-		read-pos-delay = <0x07>;
-		read-neg-delay = <0x05>;
-		keep-power = <0>;
-		runtime = <1>;
-	};
 	sdhci0: sdhci@f5117000{
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 57 0x0>;
