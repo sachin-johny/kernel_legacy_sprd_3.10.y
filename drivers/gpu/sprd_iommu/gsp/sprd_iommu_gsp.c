@@ -236,13 +236,13 @@ static void gsp_iommu_workaround(struct sprd_iommu_dev *dev)
 	printk("%s line:%d REG_AON_APB_APB_EB1:0x%x\n",__func__,__LINE__,sci_glb_read(REG_AON_APB_APB_EB1,-1));
 	if (!(sci_glb_read(REG_AON_APB_APB_EB1,-1) & 0x800)) {
 		printk("%s line:%d dispc_emc not enable\n",__func__,__LINE__);
-		__raw_writel(0x10000001, dev->init_data->ctrl_reg);
+		__raw_writel(0x10000001, (void *)(dev->init_data->ctrl_reg));
 	} else {
-		printk("%s line:%d dispc_emc enabled:0x%x\n",__func__,__LINE__);
+		printk("%s line:%d dispc_emc enabled\n",__func__,__LINE__);
 		sci_glb_clr(REG_AON_APB_APB_EB1,0x800);
 		//udelay(2);
 		cycle_delay(5);
-		__raw_writel(0x10000001, dev->init_data->ctrl_reg);
+		__raw_writel(0x10000001, (void *)(dev->init_data->ctrl_reg));
 		//udelay(2);
 		cycle_delay(5);
 		sci_glb_set(REG_AON_APB_APB_EB1,0x800);
