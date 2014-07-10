@@ -33,6 +33,9 @@ struct sprd_otp_device {
 };
 
 int sprd_efuse_init(void);
+int sprd_adie_efuse_init(void);
+int sprd_adie_laserfuse_init(void);
+u32 __adie_laserfuse_read(int blk_index);
 void *sprd_otp_register(const char *name, void *ops, int blk_max,
 			int blk_width);
 
