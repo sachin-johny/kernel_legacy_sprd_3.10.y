@@ -588,10 +588,8 @@ static void headset_micbias_polling_en(int en)
 
 static void headset_irq_button_enable(int enable, unsigned int irq)
 {
-        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
 
-        spin_lock_irqsave(&irq_button_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
@@ -603,17 +601,14 @@ static void headset_irq_button_enable(int enable, unsigned int irq)
                         current_irq_state = 0;
                 }
         }
-        spin_unlock_irqrestore(&irq_button_lock, spin_lock_flags);
 
         return;
 }
 
 static void headset_irq_detect_enable(int enable, unsigned int irq)
 {
-        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
 
-        spin_lock_irqsave(&irq_detect_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
@@ -625,17 +620,14 @@ static void headset_irq_detect_enable(int enable, unsigned int irq)
                         current_irq_state = 0;
                 }
         }
-        spin_unlock_irqrestore(&irq_detect_lock, spin_lock_flags);
 
         return;
 }
 
 static void headmic_sleep_disable(struct device *dev, int on)
 {
-	unsigned long spin_lock_flags;
 	static int current_power_state = 0;
 
-	spin_lock_irqsave(&headmic_sleep_disable_lock, spin_lock_flags);
 	if (1 == on) {
 		if (0 == current_power_state) {
 			sprd_headset_audio_headmic_sleep_disable(dev, 1);
@@ -647,18 +639,15 @@ static void headmic_sleep_disable(struct device *dev, int on)
 			current_power_state = 0;
 		}
 	}
-	spin_unlock_irqrestore(&headmic_sleep_disable_lock, spin_lock_flags);
 
 	return;
 }
 
 static void headmicbias_power_on(struct device *dev, int on)
 {
-	unsigned long spin_lock_flags;
 	static int current_power_state = 0;
 	struct sprd_headset *ht = &headset;
 
-	spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
 	if (1 == on) {
 		if (0 == current_power_state) {
 			if(NULL != ht->platform_data->external_headmicbias_power_on)
@@ -674,7 +663,6 @@ static void headmicbias_power_on(struct device *dev, int on)
 			current_power_state = 0;
 		}
 	}
-	spin_unlock_irqrestore(&headmic_bias_lock, spin_lock_flags);
 
 	return;
 }
