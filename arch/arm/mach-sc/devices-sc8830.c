@@ -52,6 +52,9 @@
 #include <linux/sprd_thm.h>
 #include <linux/thermal.h>
 #include <linux/delay.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+
 #ifndef CONFIG_OF
 struct modem_intf_platform_data modem_interface = {
        .dev_type               = MODEM_DEV_SDIO,
@@ -2333,38 +2336,34 @@ struct platform_device sprd_saudio_wcdma_device = {
 static int native_wcnmodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp_code_addr,code_phy_addr;
 
 	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x8000};
 	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
 	* Now it is different with CP1.You can take a refernce with bug#253748	
 	*/
+	printk("%s\n",__func__);
 	code_phy_addr = SPRD_IRAM1_PHYS + 0x3000;
 	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
 	memcpy(cp_code_addr, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~(0x1<<25)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x02000000);
 	msleep(50);
 
 	/* clear cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~(0x1<<28)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x10000000);
 	msleep(50);
 
-	/* clear reset cp2*/
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) | (0x1<<2)));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~(0x1<<2)));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	/* clear reset cp2 */
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
+	sci_glb_clr(WCN_REG_RESET_ADDR, 0x00000004);
 
 	while(1)
 	{
-        state =  __raw_readl(WCN_REG_RESET_ADDR);
-        if(!(state & (0x1<<2)))
-             break;
+		state = sci_glb_read(WCN_REG_RESET_ADDR,-1UL);
+		if (!(state & (0x1<<2)))
+			break;
 	}
 
 	iounmap(cp_code_addr);
@@ -2372,18 +2371,15 @@ static int native_wcnmodem_start(void *arg)
 }
 static int native_wcnmodem_stop(void *arg)
 {
-	u32 value;
+	printk("%s\n",__func__);
 	/* reset cp2 */
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) | (0x1<<2)));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 
 	/* cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | (0x1<<28)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | (0x1<<25)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x02000000);
 	return 0;
 }
 
@@ -2395,35 +2391,34 @@ static int native_wcnmodem_stop(void *arg)
 static int native_wcnmodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp_code_addr,code_phy_addr;
 
 	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
 	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
 	* Now it is different with CP1.You can take a refernce with bug#253748 .		
 	*/
+	printk("%s\n",__func__);
+
 	code_phy_addr = SPRD_IRAM1_PHYS + 0x3000;
 	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
 	memcpy(cp_code_addr, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x02000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x02000000);
 
 	while(1)
 	{
-		state = __raw_readl(WCN_REG_STATUS_ADDR);
+		state = sci_glb_read(WCN_REG_STATUS_ADDR,-1UL);
 		if (!(state & (0xf)))
 		break;
 	}
 
 	/* clear cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x10000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* clear reset cp2*/
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~0x00000004));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
+	sci_glb_clr(WCN_REG_RESET_ADDR, 0x00000004);
 
 	iounmap(cp_code_addr);
 	
@@ -2431,18 +2426,17 @@ static int native_wcnmodem_start(void *arg)
 }
 static int native_wcnmodem_stop(void *arg)
 {
-	u32 value;
+	printk("%s\n",__func__);
+
 	/* reset cp2 */
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) | 0x00000004));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 
 	/* cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | 0x10000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | 0x02000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x02000000);
+
 	return 0;
 }
 #endif
