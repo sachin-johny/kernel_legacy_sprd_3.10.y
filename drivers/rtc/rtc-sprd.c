@@ -104,6 +104,12 @@ static unsigned int RTC_BASE;
 #define	  SPRD_ANA_BASE 	   (SPRD_MISC_BASE + 0x600)
 #define   ANA_REG_BASE         SPRD_ANA_BASE   /*  0x82000600 */
 #define   ANA_AGEN              (ANA_REG_BASE + 0x00)
+
+#define RTC_POWERDOWN_VAL	0xA596
+#define RTC_RST_CLEAN_VAL	0xFF
+#define ANA_RTC_RST2	(ANA_CTL_GLB_BASE + 0x164)
+#define ANA_RTC_RST1	(ANA_CTL_GLB_BASE + 0x160)
+
 static ssize_t sprd_show_caliberate(struct device *dev,
 				    struct device_attribute *attr, char *buf);
 
@@ -458,6 +464,25 @@ static int sprd_rtc_set_mmss(struct device *dev, unsigned long secs)
 	return 0;
 }
 
+static int sprd_rtc_check_power_down(struct device *dev)
+{
+	int rst_value;
+	int ret;
+	unsigned long secs;
+	struct rtc_time tm;
+
+	rst_value = sci_adi_read(ANA_RTC_RST2);
+	if(rst_value == RTC_POWERDOWN_VAL){
+		sci_adi_raw_write(ANA_RTC_RST1, RTC_RST_CLEAN_VAL);//clear ANA_RTC_RST2
+		printk("RTC power down and reset RTC time!\n");
+		secs = mktime(CONFIG_RTC_START_YEAR, 1, 1, 0, 0, 0);
+		rtc_time_to_tm(secs, &tm);
+		if((ret = sprd_rtc_set_time(dev,&tm)) < 0)
+			return ret;
+	}
+	return 0;
+}
+
 static int sprd_rtc_proc(struct device *dev, struct seq_file *seq)
 {
 	struct platform_device *plat_dev = to_platform_device(dev);
@@ -596,6 +621,8 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		return ret;
 	}
 	sprd_creat_caliberate_attr(rtc_data->rtc->dev);
+
+	sprd_rtc_check_power_down(&plat_dev->dev);
 	return 0;
 
 unregister_rtc:
