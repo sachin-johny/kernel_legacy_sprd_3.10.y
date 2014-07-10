@@ -91,12 +91,44 @@ sprd_pm_va_to_iram:
 	nop
 	dsb
 	isb
+#ifndef CONFIG_ARCH_SCX30G
 	wfi
-	mov 	r0, #0x400
+	mov	r0, #0x400
 	/*wait 60us for clk is safely closed*/
-5:  	sub	r0, r0, #0x1
+5:	sub	r0, r0, #0x1
 	cmp	r0, #0x0
-	bne  	5b
+	bne	5b
+#else
+	/*enable icache*/
+	mrc	p15, 0, r0, c1, c0, 0
+	orr	r0, r0, #0x1000
+	mcr	p15, 0, r0, c1, c0, 0
+
+	/*   NOTE: here is some trick code, please pay more attention.
+	 *   Put some code which before "wfi" executed into I-cache to avoid
+	 * some hang-up problems caused by FSM of chip-sleep.
+	 *   When code after "wfi" is executing, it means that cpu can not be
+	 * powerred off. So we delay some time(must longer than 6*RTC_cycle,
+	 * wait for FSM) in I-cache to avoid some access out of cpu.
+	 */
+	mov	r1, #0x0
+9:	cmp	r1, #0x1
+	wfieq
+	movne	r0, #0x1
+	moveq	r0, #0x20000
+	/*wait 60us for clk is safely closed*/
+5:	sub	r0, r0, #0x1
+	cmp	r0, #0x0
+	bne	5b
+
+	add	r1, r1, #0x1
+	cmp	r1, #0x1
+	beq	9b
+	/*disable icache*/
+	mrc	p15, 0, r0, c1, c0, 0
+	bic	r0, r0, #0x1000
+	mcr	p15, 0, r0, c1, c0, 0
+#endif
 #if 0
 6:  b 6b
 #endif
@@ -458,7 +490,9 @@ go_on:
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 	isb
-
+#ifdef CONFIG_ARCH_SCX30G
+	bl	v7_flush_icache_all
+#endif
 	bl sc8830_standby_iram
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
