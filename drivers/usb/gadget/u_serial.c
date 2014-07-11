@@ -80,7 +80,7 @@
  * consider it a NOP.  A third layer is provided by the TTY code.
  */
 #define QUEUE_SIZE		32
-#define WRITE_BUF_SIZE		8192		/* TX only */
+#define WRITE_BUF_SIZE		(2*1024)		/* TX only */
 
 /* circular buffer */
 struct gs_buf {
