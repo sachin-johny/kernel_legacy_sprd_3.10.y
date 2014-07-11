@@ -109,6 +109,10 @@
 #include "__board-sp7715ga.h"
 #endif
 
+#ifdef	CONFIG_MACH_X3542
+#include "__board-x3542.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7715GATRISIM
 #include "__board-sp7715gatrisim.h"
 #endif

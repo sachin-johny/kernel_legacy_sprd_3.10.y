@@ -900,6 +900,30 @@ config TOUCHSCREEN_FOCALTECH
           To compile this driver as a module, choose M here: the 
           module will be called focaltech_ts.o
 
+config TOUCHSCREEN_MSG2133A
+        tristate "touchscreen msg2138a driver"
+        depends on I2C 
+        help
+          Say Y here if you have a mstar based touchscreen
+          controller.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the 
+          module will be called msg2133a_ts.o
+
+config TOUCHSCREEN_FT5306
+        tristate "touchscreen ft5306 driver"
+        depends on I2C 
+        help
+          Say Y here if you have a FOCALTECH based touchscreen
+          controller.
+
+          If unsure, say N.
+
+          To compile this driver as a module, choose M here: the 
+          module will be called ft5306_ts.o
+
 config TOUCHSCREEN_FIRMWARE_UPGRADE
         tristate "touchscreen firmware upgrade"
         help

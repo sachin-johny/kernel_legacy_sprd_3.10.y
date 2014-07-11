@@ -241,6 +241,15 @@ config MACH_SP7715GA
 	help
 	  SP7715GA board based on dolphin serial.
 
+config MACH_X3542
+	bool "x3542 Phone Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX15
+	default n
+	help
+	X3542 board based on dolphin serial.
+
 config MACH_SP7715GATRISIM
 	bool "sp7715gatrisim Phone Board"
 	depends on ARCH_SC

@@ -881,7 +881,9 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_4_BIT_DATA,
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
 	.vdd_extmmc = "vddsd",
-#ifdef CONFIG_ARCH_SCX15
+#ifdef CONFIG_MACH_X3542 
+	.detect_gpio = -1,
+#elif defined CONFIG_ARCH_SCX15
 	.detect_gpio = 193,
 #else
 	.detect_gpio = 71,

@@ -152,6 +152,12 @@ struct sprd_nand_param sprd_nand_param_table[] = {
 		{ 10, 21 ,10 }, //ace, rwl, rwh
 		{ SZ_B_OOB(16), ECC_BITS(4), POS_ECC(9), SZ_ECC(7), POS_INFO(9), SZ_INFO(0) } 
 	}, 
+	{   {0xEC, 0xBC, 0x00, 0x6A, 0x56 }, 0xEC, 0xBC,
+        SZ_K_BLOCK(256), NUM_BLOCK(2048), SZ_K_PAGE(4), SZ_B_SECTOR(512), SZ_B_SPARE(128), BW_16, CYCLES_5,
+        { 10, 21 ,10 }, //ace, rwl, rwh
+        { SZ_B_OOB(16), ECC_BITS(4), POS_ECC(9), SZ_ECC(7), POS_INFO(9), SZ_INFO(0) }
+   	}, 
+
 #if 0
 	//toshiba ok
 	{ {0x98, 0xBC, 0x90, 0x66, 0x76}, 0x98, 0xBC, (256*1024), 2048, (4*1024), 64, 512, 8, 128, BW_16, CYCLES_5,
