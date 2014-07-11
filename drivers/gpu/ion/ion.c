@@ -164,7 +164,8 @@ struct ion_handle *ion_pagecache_rb_search(struct rb_root *root,
 }
 
 #ifdef CONFIG_ION_PAGECACHE
-static int ion_pagecache_flag = 1;
+static atomic_t ion_pagecache_flag = ATOMIC_INIT(1);
+static atomic_t ion_open_count = ATOMIC_INIT(0);
 unsigned long long total_allocated_ion_cache = 0;
 int ion_normal_allocated_page_count(void);
 static int ion_normal_allocing = 0;
@@ -185,7 +186,7 @@ struct page *ion_pagecache_alloc(gfp_t gfp)
 	if (ion_normal_allocing)
 		return NULL;
 
-	if (!ion_pagecache_flag)
+	if (!atomic_read(&ion_pagecache_flag))
 		return NULL;
 #endif
 
@@ -1041,6 +1042,8 @@ static int ion_debug_client_show(struct seq_file *s, void *unused)
 	mutex_unlock(&client->lock);
 
 #ifdef CONFIG_ION_PAGECACHE
+	seq_printf(s, "ion_pagecache_flag: %d  ion_open_count: %d\n",
+			atomic_read(&ion_pagecache_flag), atomic_read(&ion_open_count));
 	seq_printf(s, "%16.16s: %16.16s, %16s, %16s\n", "heap_name", "size_in_bytes", "allocated", "cachedpages");
 	seq_printf(s, "%llu %d\n", total_allocated_ion_cache, ion_normal_allocated_page_count());
 #else
@@ -1508,13 +1511,13 @@ ION_IOC_DISABLE_CACHE  0xc0044908
 #ifdef CONFIG_ION_PAGECACHE
 	case ION_IOC_ENABLE_CACHE:
 	{
-		ion_pagecache_flag = 1;
+		atomic_set(&ion_pagecache_flag, 1);
 		break;
 	}
 
 	case ION_IOC_DISABLE_CACHE:
 	{
-		ion_pagecache_flag = 0;
+		atomic_set(&ion_pagecache_flag, 0);
 		ion_pagecache_shrink_all();
 		break;
 	}
@@ -1537,6 +1540,12 @@ static int ion_release(struct inode *inode, struct file *file)
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	ion_client_put(client);
+
+#ifdef CONFIG_ION_PAGECACHE
+	atomic_dec(&ion_open_count);
+	if (!atomic_read(&ion_open_count))
+		atomic_set(&ion_pagecache_flag, 1);
+#endif
 	return 0;
 }
 
@@ -1548,9 +1557,13 @@ static int ion_open(struct inode *inode, struct file *file)
 
 	pr_debug("%s: %d\n", __func__, __LINE__);
 	client = ion_client_create(dev, -1, "user");
+
 	if (IS_ERR_OR_NULL(client))
 		return PTR_ERR(client);
 	file->private_data = client;
+#ifdef CONFIG_ION_PAGECACHE
+	atomic_inc(&ion_open_count);
+#endif
 	return 0;
 }
 
