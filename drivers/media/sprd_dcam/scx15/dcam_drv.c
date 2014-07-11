@@ -26,7 +26,7 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
-
+#include <linux/wakelock.h>
 #include "dcam_drv.h"
 #include "gen_scale_coef.h"
 
@@ -213,6 +213,7 @@ LOCAL uint32_t                 s_dcam_irq = 0x5A0000A5;
 LOCAL dcam_isr_func            s_user_func[DCAM_IRQ_NUMBER];
 LOCAL void*                    s_user_data[DCAM_IRQ_NUMBER];
 LOCAL uint32_t                 *s_dcam_scaling_coeff_addr = NULL;
+LOCAL struct wake_lock         dcam_wakelock;
 
 LOCAL DEFINE_MUTEX(dcam_sem);
 LOCAL DEFINE_MUTEX(dcam_scale_sema);
@@ -583,15 +584,20 @@ LOCAL uint32_t *dcam_get_scale_coeff_addr(void)
 
 int32_t dcam_module_en(struct device_node *dn)
 {
-	int	ret = 0;
+	int		ret = 0;
+	unsigned int	irq_no = 0;
 
-	mutex_lock(&dcam_module_sema);
 	DCAM_TRACE("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
 
+	mutex_lock(&dcam_module_sema);
 	if (atomic_inc_return(&s_dcam_users) == 1) {
-		unsigned int irq_no;
 
-		ret =  clk_mm_i_eb(dn,1);
+		wake_lock_init(&dcam_wakelock, WAKE_LOCK_SUSPEND,
+			"pm_message_wakelock_dcam");
+
+		wake_lock(&dcam_wakelock);
+
+		ret = clk_mm_i_eb(dn,1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
@@ -599,6 +605,7 @@ int32_t dcam_module_en(struct device_node *dn)
 
 		ret = dcam_set_clk(dn,DCAM_CLK_192M);
 		if (ret) {
+			clk_mm_i_eb(dn,0);
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
@@ -620,7 +627,9 @@ int32_t dcam_module_en(struct device_node *dn)
 				"DCAM",
 				(void*)&s_dcam_irq);
 		if (ret) {
-			DCAM_TRACE("DCAM: dcam_start, error %d \n", ret);
+			printk("DCAM: dcam_start, error %d \n", ret);
+			dcam_set_clk(dn,DCAM_CLK_NONE);
+			clk_mm_i_eb(dn,0);
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
@@ -630,7 +639,10 @@ int32_t dcam_module_en(struct device_node *dn)
 	DCAM_TRACE("DCAM: dcam_module_en, Out %d \n", s_dcam_users.counter);
 	mutex_unlock(&dcam_module_sema);
 	return 0;
+
 fail_exit:
+	wake_unlock(&dcam_wakelock);
+	wake_lock_destroy(&dcam_wakelock);
 	atomic_dec(&s_dcam_users);
 	mutex_unlock(&dcam_module_sema);
 	return ret;
@@ -638,14 +650,14 @@ fail_exit:
 
 int32_t dcam_module_dis(struct device_node *dn)
 {
-	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-	int	                    ret = 0;
+	enum dcam_drv_rtn	rtn = DCAM_RTN_SUCCESS;
+	int			ret = 0;
+	unsigned int		irq_no = 0;
 
-	mutex_lock(&dcam_module_sema);
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
+	mutex_lock(&dcam_module_sema);
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		unsigned int irq_no;
 
 		dcam_set_clk(dn,DCAM_CLK_NONE);
 		printk("DCAM: un register isr \n");
@@ -653,16 +665,19 @@ int32_t dcam_module_dis(struct device_node *dn)
 		free_irq(irq_no, (void*)&s_dcam_irq);
 		ret = clk_mm_i_eb(dn,0);
 		if (ret) {
-			rtn =  -DCAM_RTN_MAX;
+			rtn = -DCAM_RTN_MAX;
 		}
+		wake_unlock(&dcam_wakelock);
+		wake_lock_destroy(&dcam_wakelock);
 	}
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
 	mutex_unlock(&dcam_module_sema);
+
 	return rtn;
 }
 
-int32_t dcam_reset(enum dcam_rst_mode reset_mode,uint32_t is_isr)
+int32_t dcam_reset(enum dcam_rst_mode reset_mode, uint32_t is_isr)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
 	uint32_t                time_out = 0;
