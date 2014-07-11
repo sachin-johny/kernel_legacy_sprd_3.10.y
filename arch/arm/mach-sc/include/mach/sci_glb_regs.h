@@ -38,7 +38,11 @@
 
 #include "./chip_x30g/__regs_ada_apb_rf.h"
 //#include "./chip_x30g/__regs_ana_apb_if.h"
+#if defined(CONFIG_ADIE_SC2723S) || defined(CONFIG_ADIE_SC2723)
+#include "./chip_x30g/__regs_ana_sc2723_glb.h"
+#else
 #include "./chip_x30g/__regs_ana_sc2713s_glb.h"
+#endif
 #include "./chip_x30g/__regs_aon_apb.h"
 #include "./chip_x30g/__regs_ap_ahb.h"
 #include "./chip_x30g/__regs_ap_apb.h"
