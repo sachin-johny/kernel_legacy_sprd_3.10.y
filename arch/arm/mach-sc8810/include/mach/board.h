@@ -111,7 +111,7 @@
         #define SPRD_ION_SIZE   (8*1024*1024)
         #endif
     #else
-    #define SPRD_ION_SIZE   (19*1024*1024)
+    #define SPRD_ION_SIZE   (8*1024*1024)
     #endif
 
     #define SPRD_ION_OVERLAY_SIZE   (CONFIG_SPRD_ION_OVERLAY_SIZE*SZ_1M)
