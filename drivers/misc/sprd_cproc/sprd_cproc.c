@@ -463,7 +463,7 @@ static int sprd_cproc_native_cp_start(void* arg)
 	struct cproc_device *cproc = (struct cproc_device *)arg;
 	struct cproc_init_data *pdata = cproc->initdata;
 	struct cproc_ctrl *ctrl;
-	uint32_t value, state;
+	uint32_t  state;
 
         if (!pdata) {
             return -ENODEV;
@@ -472,28 +472,20 @@ static int sprd_cproc_native_cp_start(void* arg)
 	memcpy(ctrl->iram_addr, (void *)ctrl->iram_data, sizeof(ctrl->iram_data));
 
 	/* clear cp1 force shutdown */
-	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) &
-			~ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
-	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
+	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN] ,ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
 	msleep(50);
 
 	/* clear cp1 force deep sleep */
-	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) &
-			~ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
-	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP],ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
 	msleep(50);
 
 	/* clear reset cp1 */
-	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) |
-		ctrl->ctrl_mask[CPROC_CTRL_RESET]));
-	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
-	value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) &
-		~ctrl->ctrl_mask[CPROC_CTRL_RESET]));
-	__raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
 
 	while(1)
 		{
-			state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+			state = sci_glb_read(ctrl->ctrl_reg[CPROC_CTRL_RESET],-1UL);
 			if (!(state & ctrl->ctrl_mask[CPROC_CTRL_RESET]))
 				break;
 		}
@@ -506,28 +498,23 @@ static int sprd_cproc_native_cp_stop(void *arg)
 	struct cproc_device *cproc = (struct cproc_device *)arg;
 	struct cproc_init_data *pdata = cproc->initdata;
 	struct cproc_ctrl *ctrl;
-	uint32_t value;
 
         if (!pdata) {
             return -ENODEV;
 	}
 	ctrl = pdata->ctrl;
 
-        /* reset cp1 */
-        value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]) |
-			ctrl->ctrl_mask[CPROC_CTRL_RESET]));
-	pr_info("sprd_cproc: stop:read reset=%x\n",value);
-        __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_RESET]);
+	pr_info("sprd_cproc: stop:read reset\n");
 
-        /* cp1 force deep sleep */
-        value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]) |
-			ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]));
-        __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP]);
+	/* reset cp1 */
+	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
 
-        /* cp1 force shutdown */
-        value = ((__raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]) |
-			ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]));
-        __raw_writel(value, (void *)ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN]);
+	/* cp1 force deep sleep */
+	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP],ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
+
+	/* cp1 force shutdown */
+	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN],ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
+
         return 0;
 }
 
