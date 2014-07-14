@@ -533,7 +533,7 @@ int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout)
 	return rval;
 }
 
-int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk)
+static int sblock_send_ex(uint8_t dst, uint8_t channel, struct sblock *blk, bool yell)
 {
 	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
 	struct sblock_ring *ring;
@@ -562,7 +562,7 @@ int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk)
 	pr_debug("sblock_send: channel=%d, wrptr=%d, txpos=%d, addr=%x\n",
 			channel, ringhd->txblk_wrptr, txpos, ring->r_txblks[txpos].addr);
 	ringhd->txblk_wrptr = ringhd->txblk_wrptr + 1;
-	if (sblock->state == SBLOCK_STATE_READY) {
+	if (yell && sblock->state == SBLOCK_STATE_READY) {
 		smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
 		rval = smsg_send(dst, &mevt, 0);
 	}
@@ -572,6 +572,40 @@ int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk)
 	spin_unlock_irqrestore(&ring->r_txlock, flags);
 
 	return rval ;
+}
+
+int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk)
+{
+	return sblock_send_ex(dst, channel, blk, true);
+}
+
+int sblock_send_prepare(uint8_t dst, uint8_t channel, struct sblock *blk)
+{
+	return sblock_send_ex(dst, channel, blk, false);
+}
+
+int sblock_send_finish(uint8_t dst, uint8_t channel)
+{
+	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
+	struct sblock_ring *ring;
+	volatile struct sblock_ring_header *ringhd;
+	struct smsg mevt;
+	int rval;
+
+	if (!sblock || sblock->state != SBLOCK_STATE_READY) {
+		printk(KERN_ERR "sblock-%d-%d not ready!\n", dst, channel);
+		return sblock ? -EIO : -ENODEV;
+	}
+
+	ring = sblock->ring;
+	ringhd = (volatile struct sblock_ring_header *)(&ring->header->ring);
+
+	if (ringhd->txblk_wrptr != ringhd->txblk_rdptr) {
+		smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
+		rval = smsg_send(dst, &mevt, 0);
+	}
+
+	return rval;
 }
 
 int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout)
@@ -598,7 +632,7 @@ int sblock_receive(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout
 	if (ringhd->rxblk_wrptr == ringhd->rxblk_rdptr) {
 		if (timeout == 0) {
 			/* no wait */
-			printk(KERN_WARNING "sblock_receive %d-%d is empty!\n",
+			pr_debug("sblock_receive %d-%d is empty!\n",
 				dst, channel);
 			rval = -ENODATA;
 		} else if (timeout < 0) {
@@ -802,6 +836,8 @@ EXPORT_SYMBOL(sblock_destroy);
 EXPORT_SYMBOL(sblock_register_notifier);
 EXPORT_SYMBOL(sblock_get);
 EXPORT_SYMBOL(sblock_send);
+EXPORT_SYMBOL(sblock_send_prepare);
+EXPORT_SYMBOL(sblock_send_finish);
 EXPORT_SYMBOL(sblock_receive);
 EXPORT_SYMBOL(sblock_get_free_count);
 EXPORT_SYMBOL(sblock_release);

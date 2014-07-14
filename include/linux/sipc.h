@@ -322,7 +322,7 @@ int sblock_register_notifier(uint8_t dst, uint8_t channel,
 int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout);
 
 /**
- * sblock_send  -- send a sblock, it should be from sblock_get
+ * sblock_send  -- send a sblock with smsg, it should be from sblock_get
  *
  * @dst: dest processor ID
  * @channel: channel ID
@@ -330,6 +330,25 @@ int sblock_get(uint8_t dst, uint8_t channel, struct sblock *blk, int timeout);
  * @return: 0 on success, <0 on failue
  */
 int sblock_send(uint8_t dst, uint8_t channel, struct sblock *blk);
+
+/**
+ * sblock_send_prepare  -- send a sblock without smsg, it should be from sblock_get
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @blk: the sblock to be sent
+ * @return: 0 on success, <0 on failue
+ */
+int sblock_send_prepare(uint8_t dst, uint8_t channel, struct sblock *blk);
+
+/**
+ * sblock_send_finish  -- trigger an smsg to notify that sblock has been sent
+ *
+ * @dst: dest processor ID
+ * @channel: channel ID
+ * @return: 0 on success, <0 on failue
+ */
+int sblock_send_finish(uint8_t dst, uint8_t channel);
 
 /**
  * sblock_receive  -- receive a sblock, it should be released after it's handled
