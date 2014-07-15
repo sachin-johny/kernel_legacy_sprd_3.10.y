@@ -94,6 +94,11 @@ void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int* div
 			unsigned int* div_denominators );
 
 /*
+ * get adc channel voltage divider ratio for multi selected switch
+ */
+unsigned int sci_adc_get_ratio(unsigned int channel_id, int scale, int mux);
+
+/*
  * Use this interface to get one adc value and this function have set default
  * adc sample behavior.
  */
@@ -120,6 +125,12 @@ static inline int sci_adc_get_value(unsigned int channel, int scale)
 
 	return result[0];
 }
+
+
+/*
+ * get adc channel raw data
+ */
+int sci_get_adc_data(unsigned int channel, unsigned int scale);
 
 /*
  * Use this interface to get adc value by current sense

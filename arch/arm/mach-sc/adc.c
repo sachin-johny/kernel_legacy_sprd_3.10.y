@@ -144,7 +144,7 @@ static void dump_adc_data(uint32_t* p_adc_val, int len)
 /*
 * Get the raw data of adc channel
 */
-int sprd_get_adc_data(unsigned int channel, unsigned int scale)
+int sci_get_adc_data(unsigned int channel, unsigned int scale)
 {
 	uint32_t adc_val[MEASURE_TIMES] = {0}, adc_res = 0;
 	struct adc_sample_data adc_sample = {
@@ -174,7 +174,7 @@ int sprd_get_adc_data(unsigned int channel, unsigned int scale)
 
 	return (int)adc_res;
 }
-
+EXPORT_SYMBOL(sci_get_adc_data);
 
 /*
 * The value of adc device node is set to kernel space
@@ -253,7 +253,7 @@ static ssize_t sprd_adc_show(struct device *dev,
 		adc_data->voltage_ratio = (div_num << 16) | (div_den & 0xFFFF);
 		len += sprintf(buf, "%d\n", adc_data->voltage_ratio);
 	} else if (0 == strcmp(dev_attr->attr.name, "adc_data_raw")) {
-		adc_value = sprd_get_adc_data(adc_data->channel, adc_data->scale);
+		adc_value = sci_get_adc_data(adc_data->channel, adc_data->scale);
 		if (adc_value < 0)
 			adc_value = 0;
 		len += scnprintf(buf + len, PAGE_SIZE - len, "%d\n", adc_value);
@@ -493,7 +493,78 @@ static int sci_adc_config(struct adc_sample_data *adc)
 	return ret;
 }
 
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+#define RATIO(_n_, _d_) (_n_ << 16 | _d_)
+static int sci_adc_ratio(int channel, int scale, int mux)
+{
+	switch (channel) {
+	case ADC_CHANNEL_0:
+		return RATIO(1, 1);
+	case ADC_CHANNEL_1:
+	case ADC_CHANNEL_2:
+	case ADC_CHANNEL_3:
+		return (scale ? RATIO(400, 1025) : RATIO(1, 1));
+	case ADC_CHANNEL_VBAT:		//Vbat
+	case ADC_CHANNEL_ISENSE:
+		return RATIO(7, 29);
+	case ADC_CHANNEL_VCHGSEN:
+		return RATIO(77, 1024);
+	case ADC_CHANNEL_DCDCCORE:  //dcdc core/arm/mem/gen/rf/con/wpa
+		mux = mux >> 13;
+		switch (mux) {
+		case 1: //dcdcarm
+		case 2: //dcdccore
+			return (scale ? RATIO(36, 55) : RATIO(9, 11));
+		case 3: //dcdcmem
+		case 5: //dcdcrf
+			return (scale ? RATIO(12, 25) : RATIO(3, 5));
+		case 4: //dcdcgen
+			return (scale ? RATIO(3, 10) : RATIO(3, 8));
+		case 6: //dcdccon
+			return (scale ? RATIO(9, 20) : RATIO(9, 16));
+		case 7: //dcdwpa
+			return (scale ? RATIO(12, 55) : RATIO(3, 11));
+		default:
+			return RATIO(1, 1);
+		}
+	case 0xE:	//LP dcxo
+		return (scale ? RATIO(4, 5) : RATIO(1, 1));
+	case 0x14:	//headmic
+		return RATIO(1, 3);
+
+	case ADC_CHANNEL_LDO0:		//dcdc supply LDO, vdd18/vddcamd/vddcamio/vddrf0/vddgen1/vddgen0
+		return RATIO(1, 2);
+	case ADC_CHANNEL_VBATBK:	//VbatBK
+	case ADC_CHANNEL_LDO1:		//VbatD Domain LDO, vdd25/vddcama/vddsim2/vddsim1/vddsim0
+	case ADC_CHANNEL_LDO2:		//VbatA Domain LDO,  vddwifipa/vddcammot/vddemmccore/vdddcxo/vddsdcore/vdd28
+	case ADC_CHANNEL_WHTLED:	//kpled/vibr
+	case ADC_CHANNEL_WHTLED_VFB://vddsdio/vddusb/vddfgu
+	case ADC_CHANNEL_USBDP:		//DP from terminal
+	case ADC_CHANNEL_USBDM:		//DM from terminal
+		return RATIO(1, 3);
+
+	default:
+		return RATIO(1, 1);
+	}
+	return RATIO(1, 1);
+}
+
+void sci_adc_get_vol_ratio(unsigned int channel_id, int scale, unsigned int *div_numerators,
+			   unsigned int *div_denominators)
+{
+	unsigned int ratio = sci_adc_ratio(channel_id, scale, 0);
+	*div_numerators = ratio >> 16;
+	*div_denominators = ratio << 16 >> 16;
+}
+
+unsigned int sci_adc_get_ratio(unsigned int channel_id, int scale, int mux)
+{
+	unsigned int ratio = (unsigned int)sci_adc_ratio(channel_id, scale, mux);
+
+	return ratio;
+}
+
+#elif (defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2711))
 #define RATIO(_n_, _d_) (_n_ << 16 | _d_)
 static int sci_adc_ratio(int channel, int scale, int mux)
 {

@@ -50,6 +50,19 @@ config ADIE_SC2711
         default n
 	help
 	  Say Y here to support for Spreadtrum a-die sc2711 chip.
+
+config ADIE_SC2723
+	bool "Spredtrum A-die SC2723 Chip Support"
+        default n
+	help
+	  Say Y here to support for Spreadtrum a-die sc2723 chip.
+
+config ADIE_SC2723S
+	bool "Spredtrum A-die SC2723S Chip Support"
+        default n
+	help
+	  Say Y here to support for Spreadtrum a-die sc2723S chip.
+
 endmenu
 
 
