@@ -548,6 +548,13 @@ config REGULATOR_SC2713S
 	help
 	  Say Y here to support the voltage regulators for sc2713s
 
+config REGULATOR_SC2723
+	tristate "Spreadtrum PMIC SC2723/SC2723S regulator driver"
+	depends on ADIE_SC2723 || ADIE_SC2723S
+	default y
+	help
+	  Say Y here to support the voltage regulators for sc2723/sc2723s
+
 config REGULATOR_CAL_DUMMY
     bool "Regulator calibration is dummy"
     depends on REGULATOR_SC2713S || REGULATOR_SC2713

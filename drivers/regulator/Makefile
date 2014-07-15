@@ -80,6 +80,10 @@ else
 obj-$(CONFIG_REGULATOR_SC2713S) += sc2713s-regulator.o
 endif
 obj-$(CONFIG_REGULATOR_SC2711) += sc2711-regulator.o
-
+ifeq ($(CONFIG_OF), y)
+obj-$(CONFIG_REGULATOR_SC2723) += sc2723-regulator_dt.o
+else
+obj-$(CONFIG_REGULATOR_SC2723) += sc2723-regulator.o
+endif
 
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG
