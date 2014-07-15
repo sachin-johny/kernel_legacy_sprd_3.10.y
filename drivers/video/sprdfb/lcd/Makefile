@@ -25,4 +25,5 @@ obj-$(CONFIG_FB_LCD_T8861_MIPI)  += lcd_t8861_mipi.o
 obj-$(CONFIG_FB_LCD_HX8379A_MIPI)  += lcd_hx8379a_mipi.o
 obj-$(CONFIG_FB_LCD_HX8389C_MIPI) += lcd_hx8389c_mipi.o
 obj-$(CONFIG_FB_LCD_ILI9486S1_MIPI) += lcd_ili9486s1_mipi.o
+obj-$(CONFIG_FB_LCD_DUMMY) += lcd_dummy.o
 

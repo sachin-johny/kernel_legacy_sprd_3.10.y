@@ -344,6 +344,7 @@ static struct panel_spec *adapt_panel_from_uboot(uint16_t dev_id)
 static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 {
 	struct panel_cfg *cfg;
+	struct panel_cfg *dummy_cfg;
 	struct list_head *panel_list;
 	int id;
 
@@ -356,6 +357,10 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 	}
 
 	list_for_each_entry(cfg, panel_list, list) {
+		if(0xFFFFFFFF == cfg->lcd_id){
+			dummy_cfg = cfg;
+			continue;
+		}
 		printk("sprdfb: [%s]: try panel 0x%x\n", __FUNCTION__, cfg->lcd_id);
 		panel_mount(dev, cfg->panel);
 #ifndef CONFIG_MACH_SPX15FPGA
@@ -369,6 +374,23 @@ static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 			dev->panel->ops->panel_init(dev->panel);
 			panel_ready(dev);
 			return cfg->panel;
+		}
+		sprdfb_panel_remove(dev);
+	}
+	if(dummy_cfg != NULL){
+		printk("sprdfb: [%s]: Can't find read panel, Use dummy panel!\n", __FUNCTION__);
+		panel_mount(dev, dummy_cfg->panel);
+#ifndef CONFIG_MACH_SPX15FPGA
+		dev->ctrl->update_clk(dev);
+#endif
+		panel_init(dev);
+		panel_reset(dev);
+		id = dev->panel->ops->panel_readid(dev->panel);
+		if(id == dummy_cfg->lcd_id) {
+			pr_debug(KERN_INFO "sprdfb: [%s]: LCD Panel 0x%x is attached!\n", __FUNCTION__, dummy_cfg->lcd_id);
+			dev->panel->ops->panel_init(dev->panel);
+			panel_ready(dev);
+			return dummy_cfg->panel;
 		}
 		sprdfb_panel_remove(dev);
 	}

@@ -70,6 +70,11 @@ config FB_LCD_NT35516_MIPI
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
 	default n
 
+config FB_LCD_DUMMY
+	boolean "support DUMMY panel"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+	default y
+
 config FB_LCD_NT35502_MIPI
 	boolean "support NT35502 mipi panel"
 	depends on FB_SC8825 || FB_SCX35
