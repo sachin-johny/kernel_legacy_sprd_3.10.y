@@ -2161,6 +2161,10 @@ gfp_to_alloc_flags(gfp_t gfp_mask)
 	return alloc_flags;
 }
 
+static uint  debug_high_order_alloc = 0;
+
+module_param_named(debug_high_order_alloc, debug_high_order_alloc, uint, S_IRUGO | S_IWUSR);
+
 static inline struct page *
 __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 	struct zonelist *zonelist, enum zone_type high_zoneidx,
@@ -2260,6 +2264,12 @@ rebalance:
 	if (page)
 		goto got_pg;
 	sync_migration = true;
+
+	if(debug_high_order_alloc && (order > 1))
+	{
+		printk("%s: pid:%d, name:%s, mask:0x%X, order:%d \n", __func__, current->pid, current->comm, gfp_mask, order);
+		dump_stack();
+	}
 
 	/* Try direct reclaim and then allocating */
 	page = __alloc_pages_direct_reclaim(gfp_mask, order,
