@@ -325,7 +325,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			return 0;
 	}
 
-	other_free = global_page_state(NR_FREE_PAGES) - totalreserve_pages;
+	other_free = global_page_state(NR_FREE_PAGES);
 	if (global_page_state(NR_SHMEM) + total_swapcache_pages() <
 		global_page_state(NR_FILE_PAGES))
 		other_file = global_page_state(NR_FILE_PAGES) -
@@ -365,7 +365,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		return rem;
 	}
 
-#ifdef CONFIG_ZRAM
+#if defined(CONFIG_ZRAM) && !defined(CONFIG_RUNTIME_COMPCACHE)
 	zram_score_adj = cacl_zram_score_adj();
 	if(zram_score_adj  < 0 )
 	{
@@ -469,11 +469,13 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     p->comm, p->pid, OOM_SCORE_ADJ_TO_OOM_ADJ(oom_score_adj), tasksize);
 	}
 	if (selected && (selected_oom_score_adj || is_need_lmk_kill)) {
+			struct sysinfo si;
+			si_swapinfo(&si);
 			lowmem_print(1, "Killing '%s' (%d), adj %hd,\n" \
 				"   to free %ldkB on behalf of '%s' (%d) because\n" \
 				"   cache %ldkB is below limit %ldkB for oom_score_adj %hd\n" \
 				"   Free memory is %ldkB above reserved\n"	\
-				"   min adj %hd zram: adj %hd free %d%% usage %dkB\n",
+				"   swaptotal is %ldkB, swapfree is %ldkB\n",
 			     selected->comm, selected->pid,
 			     OOM_SCORE_ADJ_TO_OOM_ADJ(selected_oom_score_adj),
 			     selected_tasksize * (long)(PAGE_SIZE / 1024),
@@ -482,10 +484,8 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			     minfree * (long)(PAGE_SIZE / 1024),
 			     OOM_SCORE_ADJ_TO_OOM_ADJ(min_score_adj),
 			     other_free * (long)(PAGE_SIZE / 1024),
-				OOM_SCORE_ADJ_TO_OOM_ADJ(lmk_info.min_score_adj),
-				OOM_SCORE_ADJ_TO_OOM_ADJ(lmk_info.zram_score_adj),
-				lmk_info.zram_free_percent,
-				lmk_info.zram_mem_usage*PAGE_SIZE /1024);
+			     si.totalswap * (long)(PAGE_SIZE / 1024),
+			     si.freeswap * (long)(PAGE_SIZE / 1024));
 
 			lowmem_deathpending_timeout = jiffies + HZ;
 
