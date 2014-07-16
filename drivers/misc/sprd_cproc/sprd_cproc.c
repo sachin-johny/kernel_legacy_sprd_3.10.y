@@ -577,11 +577,14 @@ static int sprd_cproc_native_cp2_start(void* arg)
 	return 0;
 }
 
+#define WCN_SLEEP_STATUS	(SPRD_PMU_BASE + 0xD4)
+
 static int sprd_cproc_native_cp2_stop(void *arg)
 {
 	struct cproc_device *cproc = (struct cproc_device *)arg;
 	struct cproc_init_data *pdata = cproc->initdata;
 	struct cproc_ctrl *ctrl;
+	uint32_t state = 0;
 
         if (!pdata) {
             return -ENODEV;
@@ -590,6 +593,16 @@ static int sprd_cproc_native_cp2_stop(void *arg)
 	printk("%s\n",__func__);
 
 	ctrl = pdata->ctrl;
+
+	 while(1)
+	 {
+		state = sci_glb_read(WCN_SLEEP_STATUS,-1UL);
+		if (!(state & (0xf<<12)))
+			break;
+		msleep(1);
+	 }
+	printk("%s cp2 enter sleep\n",__func__);
+
 
 	/* reset cp2 */
 	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);

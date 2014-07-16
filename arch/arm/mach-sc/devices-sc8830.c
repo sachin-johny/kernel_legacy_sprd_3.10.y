@@ -2303,6 +2303,7 @@ struct platform_device sprd_saudio_wcdma_device = {
 #define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x68)
 #define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xB0)
 //#define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
+#define WCN_SLEEP_STATUS                               (SPRD_PMU_BASE + 0xD4)
 
 static int native_wcnmodem_start(void *arg)
 {
@@ -2342,7 +2343,18 @@ static int native_wcnmodem_start(void *arg)
 }
 static int native_wcnmodem_stop(void *arg)
 {
+	uint32_t state = 0;
+
 	printk("%s\n",__func__);
+	while(1)
+	{
+		state = sci_glb_read(WCN_SLEEP_STATUS,-1UL);
+		if (!(state & (0xf<<12)))
+			break;
+		msleep(1);
+	}
+	printk("%s cp2 enter sleep\n",__func__);
+
 	/* reset cp2 */
 	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 
@@ -2358,6 +2370,7 @@ static int native_wcnmodem_stop(void *arg)
 #define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x60)
 #define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xA8)
 #define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
+#define WCN_SLEEP_STATUS                               (SPRD_PMU_BASE + 0xCC)
 
 static int native_wcnmodem_start(void *arg)
 {
@@ -2397,7 +2410,17 @@ static int native_wcnmodem_start(void *arg)
 }
 static int native_wcnmodem_stop(void *arg)
 {
+	uint32_t state = 0;
+
 	printk("%s\n",__func__);
+	while(1)
+	{
+		state = sci_glb_read(WCN_SLEEP_STATUS,-1UL);
+		if (!(state & (0xf<<12)))
+			break;
+		msleep(1);
+	}
+	printk("%s cp2 enter sleep\n",__func__);
 
 	/* reset cp2 */
 	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
