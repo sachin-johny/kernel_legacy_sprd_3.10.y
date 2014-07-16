@@ -418,8 +418,8 @@ static int sprd_cpufreq_verify_speed(struct cpufreq_policy *policy)
 
 unsigned int cpufreq_min_limit = ULONG_MAX;
 unsigned int cpufreq_max_limit = 0;
-unsigned int dvfs_score_select = 4;
-unsigned int dvfs_unplug_select = 3;
+unsigned int dvfs_score_select = 5;
+unsigned int dvfs_unplug_select = 2;
 unsigned int dvfs_plug_select = 0;
 unsigned int dvfs_score_hi[4] = {0};
 unsigned int dvfs_score_mid[4] = {0};
@@ -551,8 +551,10 @@ static int sprd_cpufreq_init(struct cpufreq_policy *policy)
 		pr_err("%s Failed to config freq table: %d\n", __func__, ret);
 
 
-	pr_debug("%s policy->cpu=%d, policy->cur=%u, ret=%d\n",
+	pr_info("%s policy->cpu=%d, policy->cur=%u, ret=%d\n",
 		__func__, policy->cpu, policy->cur, ret);
+
+       cpumask_setall(policy->cpus);
 
 	return ret;
 }
