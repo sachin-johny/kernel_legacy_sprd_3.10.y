@@ -1106,7 +1106,7 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 		if (sprd_codec->hp_ver != SPRD_CODEC_HP_PA_VER_2)
 			sprd_codec_pa_ovp_v_sel(codec, PA_OVP_465);
 		else
-			sprd_codec_pa_ovp_v_sel(codec, PA_OVP_450);
+			sprd_codec_pa_ovp_v_sel(codec, PA_OVP_435);
 		sprd_codec_ovp_irq_enable(codec);
 		sprd_codec_pa_d_en(codec, p_setting->is_classD_mode);
 		sprd_codec_pa_demi_en(codec, p_setting->is_DEMI_mode);
