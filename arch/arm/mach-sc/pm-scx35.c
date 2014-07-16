@@ -1121,7 +1121,8 @@ int deep_sleep(int from_idle)
 	* This code should be deleted in future.
 	*/
 #if defined(CONFIG_MACH_SP7731GEA) | defined(CONFIG_MACH_SP7731GEA_LC) | \
-    defined(CONFIG_MACH_SP7731GGA) | defined(CONFIG_MACH_SP7731GGA_LC)
+    defined(CONFIG_MACH_SP7731GGA) | defined(CONFIG_MACH_SP7731GGA_LC) | \
+    defined(CONFIG_MACH_SP8730SEA)
 	sci_adi_clr(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SIM2_PD);
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
 #endif

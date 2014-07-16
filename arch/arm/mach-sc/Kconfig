@@ -370,6 +370,16 @@ config MACH_SP8815GAOPENPHONE
 	help
 	  SP8815GAOPENPHONE board based on dolphin serial.
 
+config MACH_SP8730SEA
+	bool "sp8739sea Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
+	default n
+	help
+	SP8730SEA board based on SC8830 serial.
+
 config MACH_POCKET2
 	bool "pocket2 Phone Board"
 	depends on ARCH_SC

@@ -38,6 +38,10 @@
 #include "__board-sp8830gea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP8730SEA
+#include "__board-sp8730sea.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7730GGA
 #include "__board-sp7730gga.h"
 #endif

@@ -220,6 +220,7 @@ endif
 dtb-$(CONFIG_MACH_CORSICA_VE_DT) += sprd-scx15_corsica_ve.dtb
 dtb-$(CONFIG_MACH_SPX35) += sprd-scx35_sp8830ec.dtb
 dtb-$(CONFIG_MACH_SP8830GEA) += sprd-scx35_sp8830gea.dtb
+dtb-$(CONFIG_MACH_SP8730SEA) += sprd-scx35_sp8730sea.dtb
 dtb-$(CONFIG_MACH_SP7730GGA) += sprd-scx35_sp7730gga.dtb
 dtb-$(CONFIG_MACH_SP7731GGA_LC) += sprd-scx35_sp7731gga_lc.dtb
 dtb-$(CONFIG_MACH_SP7731GEA) += sprd-scx35_sp7731gea.dtb
