@@ -432,6 +432,15 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 #endif
 };
 
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+
+static struct i2c_board_info i2c3_boardinfo[] = {
+	{
+	I2C_BOARD_INFO("fairchild_fan5405", 0x6a),
+	},
+};
+#endif
+
 static struct i2c_board_info i2c1_boardinfo[] = {
 	{I2C_BOARD_INFO("sensor_main",0x3C),},
 	{I2C_BOARD_INFO("sensor_sub",0x21),},
@@ -451,6 +460,10 @@ static int sc8810_add_i2c_devices(void)
 	i2c_register_board_info(2, i2c2_boardinfo, ARRAY_SIZE(i2c2_boardinfo));
 	i2c_register_board_info(0, i2c1_boardinfo, ARRAY_SIZE(i2c1_boardinfo));
 	i2c_register_board_info(1, i2c0_boardinfo, ARRAY_SIZE(i2c0_boardinfo));
+
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+	i2c_register_board_info(3, i2c3_boardinfo, ARRAY_SIZE(i2c3_boardinfo));
+#endif
 	return 0;
 }
 

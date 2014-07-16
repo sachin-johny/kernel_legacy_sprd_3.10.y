@@ -22,7 +22,7 @@
 
 #include <mach/adc.h>
 
-#if defined(CONFIG_SPRD_2713_POWER)
+#if defined(CONFIG_SPRD_2713_POWER) || defined(CONFIG_SPRD_EXT_IC_POWER)
 #include "sprd_2713_charge.h"
 #include "sprd_2713_fgu.h"
 #endif

@@ -105,6 +105,9 @@ extern int hub_control(struct usb_hcd *hcd,
 static int dwc_otg_bus_suspend(struct usb_hcd *hcd);
 static int dwc_otg_bus_resume(struct usb_hcd *hcd);
 
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+extern void sprd_extic_otg_power(int enable);
+#endif
 
 struct wrapper_priv_data {
 	dwc_otg_hcd_t *dwc_otg_hcd;
@@ -421,10 +424,16 @@ static irqreturn_t usb_otg_cable_detect_handler(int irq, void *dev)
 		pr_info("usb otg cable detect plug out\n");
 
 		usb_set_id_irq_type(irq, OTG_CABLE_PLUG_IN);
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+		sprd_extic_otg_power(0);    //Turn off ext ic otg func
+#endif
 	} else {
 		pr_info("usb otg cable detect plug in\n");		
 		disable_irq(vbus_irq);
 		usb_set_id_irq_type(irq, OTG_CABLE_PLUG_OUT);
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+		sprd_extic_otg_power(1);    //Turn on ext ic otg func
+#endif
 	}
 	/*use DWC workqueue*/
 	DWC_WORKQ_SCHEDULE(otg_dev->core_if->wq_otg, usb_otg_cable_detect_work,

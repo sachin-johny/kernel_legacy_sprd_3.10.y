@@ -387,6 +387,12 @@ config SPRD_2713_POWER
         Say Y to include support for Spreadtrum SoC's power supply and
         mesurement controller driver
 
+config SPRD_EXT_IC_POWER
+       tristate "Spreadtrum EXT_IC SoC's power supply& mesurement controller"
+       help
+        Say Y to include support for Spreadtrum SoC's power supply and
+        mesurement controller driver
+
 config SPRD_NOFGUCURRENT_CHG
 	bool "Spreadtrum sp2711 SoC's pulse charging driver featrue"
 	depends on SPRD_2713_POWER
@@ -394,6 +400,8 @@ config SPRD_NOFGUCURRENT_CHG
 	help
 	  Say Y to enable support charger driver, which allows board do not have
 	  current sense resistor( 20mohm,fgu current adc always is 0)  with 7715 chips.
+
+
 
 config BATTERY_GOLDFISH
 	tristate "Goldfish battery driver"

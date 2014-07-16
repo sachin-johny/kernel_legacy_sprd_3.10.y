@@ -1446,11 +1446,20 @@ void sprd_pbint_7s_reset_disable(void)
 	sci_adi_set(ANA_REG_GLB_POR_7S_CTRL, BIT_PBINT_7S_RST_DISABLE);
 }
 
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+//    EXT IC should disable otg mode when power off
+	extern void sprd_extic_otg_power(int enable);
+#endif
+
 
 static void sc8830_power_off(void)
 {
 	u32 reg_val;
 	/*turn off all modules's ldo*/
+
+#ifdef CONFIG_SPRD_EXT_IC_POWER
+	sprd_extic_otg_power(0);
+#endif
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
 
 #if defined(CONFIG_ARCH_SCX15)

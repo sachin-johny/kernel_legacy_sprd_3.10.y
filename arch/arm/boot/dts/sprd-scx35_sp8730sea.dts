@@ -374,6 +374,10 @@
 		 reg = <0xf5372000 0x1000>;
 		 #address-cells = <1>;
 		 #size-cells = <0>;
+		fairchild_fan5405@6a{
+			compatible = "fairchild,fairchild_fan5405";
+			reg = <0x6a>;
+		};
 	 };
 	 sprd_dcam{
 		 compatible  = "sprd,sprd_dcam";
