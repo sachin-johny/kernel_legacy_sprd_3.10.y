@@ -257,7 +257,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
-	int mv = min_uV;
+	//int mv = min_uV / 1000;
 	int ret = -EINVAL;
 	int i, shft = __ffs(regs->vol_ctl_bits);
 
@@ -269,7 +269,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EACCES;
 
 	for (i = 0; i < regs->vol_sel_cnt; i++) {
-		if (regs->vol_sel[i] == mv) {
+		if (regs->vol_sel[i] == min_uV) {
 			ANA_REG_SET(regs->vol_ctl,
 				    i << shft,
 				    regs->vol_ctl_bits);
@@ -279,7 +279,7 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 		}
 	}
 
-	WARN(0 != ret, "warning: regulator (%s) not support %dmV\n", desc->desc.name, mv);
+	WARN(0 != ret, "warning: regulator (%s) not support %d(uV)\n", desc->desc.name, min_uV);
 	return ret;
 }
 
@@ -301,7 +301,7 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 
 	vol = regs->vol_sel[i];
 
-	debug2("regu 0x%p (%s) get voltage %d\n", regs, desc->desc.name, vol);
+	debug2("regu 0x%p (%s) get voltage %d(uV)\n", regs, desc->desc.name, vol);
 	return vol;
 }
 
@@ -382,7 +382,7 @@ static int dcdc_initial_value(struct sci_regulator_desc *desc)
 static int __match_dcdc_vol(struct sci_regulator_regs *regs, u32 vol)
 {
 	int i, j = -1;
-	int ds, min_ds = 100;	/* mV, the max range of small voltage */
+	int ds, min_ds = 100 * 1000;	/* uV, the max range of small voltage */
 
 	for (i = 0; i < regs->vol_sel_cnt; i++) {
 		ds = vol - regs->vol_sel[i];
@@ -412,7 +412,7 @@ static int __dcdc_enable_time(struct regulator_dev *rdev, int old_vol)
 	int vol = rdev->desc->ops->get_voltage(rdev);
 	if (vol > old_vol) {
 		/* FIXME: for dcdc, each step (50mV) takes 10us */
-		int dly = (vol - old_vol) * 10 / 50;
+		int dly = (vol - old_vol) * 10 / (50 * 1000);
 		WARN_ON(dly > 1000);
 		udelay(dly);
 	}
@@ -424,7 +424,8 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
-	int i, mv = min_uV;
+	int i;
+	//int mV = min_uV / 1000;
 	int old_vol = rdev->desc->ops->get_voltage(rdev);
 
 	debug0("regu 0x%p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
@@ -436,13 +437,13 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		return -EACCES;
 
 	/* found the closely vol ctrl bits */
-	i = __match_dcdc_vol(regs, mv);
+	i = __match_dcdc_vol(regs, min_uV);
 	if (i < 0)
-		return WARN(-EINVAL, "not found %s closely ctrl bits for %dmV\n",
-			    desc->desc.name, mv);
+		return WARN(-EINVAL, "not found %s closely ctrl bits for %d(uV)\n",
+			    desc->desc.name, min_uV);
 
-	debug("regu 0x%p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
-	       mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
+	debug("regu 0x%p (%s) %d = %d %+duV\n", regs, desc->desc.name,
+	       min_uV, regs->vol_sel[i], min_uV - regs->vol_sel[i]);
 
 #if !defined(CONFIG_REGULATOR_CAL_DUMMY)
 	/* dcdc calibration control bits (default 00000),
@@ -451,7 +452,7 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 	{
 		int shft_ctl = __ffs(regs->vol_ctl_bits);
 		int shft_trm = __ffs(regs->vol_trm_bits);
-		int j = (int)(mv - regs->vol_sel[i]) / dcdc_get_trimming_step(rdev, mv) % 32;
+		int j = (int)(min_uV - regs->vol_sel[i]) / dcdc_get_trimming_step(rdev, min_uV) % 32;
 
 		j += dcdc_initial_value(desc);
 
@@ -483,7 +484,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
-	u32 mv;
+	u32 uV;
 	int i, cal = 0 /* uV */;
 	int shft_ctl = __ffs(regs->vol_ctl_bits);
 	int shft_trm = __ffs(regs->vol_trm_bits);
@@ -500,7 +501,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 
 	i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft_ctl;
 
-	mv = regs->vol_sel[i];
+	uV = regs->vol_sel[i];
 
 	if (regs->vol_trm) {
 		cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft_trm;
@@ -508,9 +509,9 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 		cal *= dcdc_get_trimming_step(rdev, 0);	/*uV */
 	}
 
-	debug2("regu 0x%p (%s) %d +%duv\n", regs, desc->desc.name, mv, cal);
+	debug2("regu 0x%p (%s) %d +%duv\n", regs, desc->desc.name, uV, cal);
 
-	return (mv + cal) /*uV */;
+	return (uV + cal) /*uV */;
 }
 
 
