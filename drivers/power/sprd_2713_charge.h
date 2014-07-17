@@ -33,6 +33,8 @@
 #define SPRDBAT_RECHG_VOL	4131	//recharge voltage
 #endif
 
+#define SPRDBAT_VBAT_SOFT_OVP   4550
+
 #define SPRDBAT_CHG_OVP_LEVEL_MIN       5600
 #define SPRDBAT_CHG_OVP_LEVEL_MAX   9000
 #define SPRDBAT_OVP_STOP_VOL           6500

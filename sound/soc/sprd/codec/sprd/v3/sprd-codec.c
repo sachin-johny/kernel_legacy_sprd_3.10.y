@@ -1112,8 +1112,11 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_info("inter PA Switch %s\n", STR_ON_OFF(on));
 	mutex_lock(&sprd_codec->inter_pa_mutex);
 	if (on) {
-		sprd_codec_pa_ovp_v_sel(codec, PA_OVP_465);
-		sprd_codec_ovp_irq_enable(codec);
+	        if (sprd_codec->hp_ver != SPRD_CODEC_HP_PA_VER_2)
+                    sprd_codec_pa_ovp_v_sel(codec, PA_OVP_465);
+                else
+                    sprd_codec_pa_ovp_v_sel(codec, PA_OVP_435);
+                sprd_codec_ovp_irq_enable(codec);
 		sprd_codec_pa_d_en(codec, p_setting->is_classD_mode);
 		sprd_codec_pa_demi_en(codec, p_setting->is_DEMI_mode);
 		sprd_codec_pa_ldo_en(codec, p_setting->is_LDO_mode);
@@ -1830,13 +1833,11 @@ static irqreturn_t sprd_codec_ap_irq(int irq, void *dev_id)
 	mask = snd_soc_read(codec, AUDIF_INT_MASK);
 	sp_asoc_pr_dbg("HP POP IRQ Mask = 0x%x\n", mask);
 	if (BIT(AUDIO_POP_IRQ) & mask) {
-		mask = BIT(AUDIO_POP_IRQ);
-		snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), mask, 0);
+		snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), BIT(AUDIO_POP_IRQ), 0);
 		complete(&sprd_codec->completion_hp_pop);
 	}
 	if (BIT(OVP_IRQ) & mask) {
-		mask = BIT(OVP_IRQ);
-		snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), mask, 0);
+		snd_soc_update_bits(codec, SOC_REG(AUDIF_INT_EN), BIT(OVP_IRQ), 0);
 		sprd_codec_ovp_start(sprd_codec, 1);
 		sprd_codec_ovp_irq_enable(codec);
 	}

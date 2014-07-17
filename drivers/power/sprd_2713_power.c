@@ -37,6 +37,7 @@
 #include "sprd_battery.h"
 #include <mach/usb.h>
 #include <linux/leds.h>
+#include <linux/reboot.h>
 
 #define SPRDBAT__DEBUG
 #ifdef SPRDBAT__DEBUG
@@ -1076,6 +1077,12 @@ static void sprdbat_update_capacty(void)
 		BUG_ON(1);
 		break;
 	}
+        if (sprdbat_data->bat_info.vbat_vol >=
+                   SPRDBAT_VBAT_SOFT_OVP) {
+               printk(KERN_ERR "soft vbat ovp, shutting down.... vol:%d",
+                                     sprdbat_data->bat_info.vbat_vol);
+               orderly_poweroff(true);
+        }
 
 	if (fgu_capacity != sprdbat_data->bat_info.capacity) {
 		sprdbat_data->bat_info.capacity = fgu_capacity;

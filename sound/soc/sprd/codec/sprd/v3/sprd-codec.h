@@ -167,14 +167,14 @@
 /* PMUR8_PMUR7 */
 #define PA_OVP_V		(13)
 #define PA_OVP_V_MASK		(0x7)
-#define PA_OVP_542		(0)
-#define PA_OVP_527		(1)
-#define PA_OVP_512		(2)
-#define PA_OVP_496		(3)
-#define PA_OVP_481		(4)
-#define PA_OVP_465		(5)
-#define PA_OVP_450		(6)
-#define PA_OVP_435		(7)
+#define PA_OVP_542		(0)//5.48V for 2711
+#define PA_OVP_527		(1)//5.33V for 2711
+#define PA_OVP_512		(2)//5.19V for 2711
+#define PA_OVP_496		(3)//5.05V for 2711
+#define PA_OVP_481		(4)//4.91V for 2711
+#define PA_OVP_465		(5)//4.76V for 2711
+#define PA_OVP_450		(6)//4.62V for 2711
+#define PA_OVP_435		(7)//4.48V for 2711
 
 /* CCR */
 #define ADC_CLK_EN		(7)
