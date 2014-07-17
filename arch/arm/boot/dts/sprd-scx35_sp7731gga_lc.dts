@@ -853,6 +853,7 @@
 };
 
 &i2s0 {
+        sprd,config = <&pcm_def_config>;
 	status = "okay";
 };
 

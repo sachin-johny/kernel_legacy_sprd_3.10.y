@@ -31,7 +31,7 @@ static struct snd_soc_dai_link all_i2s_dai[] = {
 
 	 .codec_name = "null-codec",
 	 .platform_name = "sprd-pcm-audio",
-	 .cpu_dai_name = "i2s.0",
+	 .cpu_dai_name = "bt_sco_iis0",
 	 .codec_dai_name = "null-codec-dai",
 	 },
 };

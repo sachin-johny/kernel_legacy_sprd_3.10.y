@@ -544,7 +544,7 @@ static int i2s_close(struct i2s_priv *i2s)
 		i2s_soft_reset(i2s);
 		i2s_global_disable(i2s);
 		if (!IS_ERR(i2s->i2s_clk)) {
-			clk_disable(i2s->i2s_clk);
+			clk_disable_unprepare(i2s->i2s_clk);
 			clk_put(i2s->i2s_clk);
 		}
 	}
@@ -570,7 +570,7 @@ static int i2s_open(struct i2s_priv *i2s)
 		i2s_soft_reset(i2s);
 		i2s_dma_ctrl(i2s, 0);
 		ret = i2s_config_apply(i2s);
-		clk_enable(i2s->i2s_clk);
+		clk_prepare_enable(i2s->i2s_clk);
 	}
 
 	return ret;
@@ -704,23 +704,45 @@ static struct snd_soc_dai_ops sprd_i2s_dai_ops = {
 	.trigger = i2s_trigger,
 };
 
-struct snd_soc_dai_driver sprd_i2s_dai = {
-	.id = I2S_MAGIC_ID,
-	.playback = {
-		     .channels_min = 1,
-		     .channels_max = 2,
-		     .rates = SNDRV_PCM_RATE_CONTINUOUS,
-		     .rate_max = 96000,
-		     .formats = SNDRV_PCM_FMTBIT_S16_LE,
-		     },
-	.capture = {
-		    .channels_min = 1,
-		    .channels_max = 2,
-		    .rates = SNDRV_PCM_RATE_CONTINUOUS,
-		    .rate_max = 96000,
-		    .formats = SNDRV_PCM_FMTBIT_S16_LE,
-		    },
-	.ops = &sprd_i2s_dai_ops,
+struct snd_soc_dai_driver sprd_i2s_dai[] = {
+    {
+        .id = I2S_MAGIC_ID,
+        .name = "bt_sco_iis0",
+        .playback = {
+             .channels_min = 1,
+             .channels_max = 2,
+             .rates = SNDRV_PCM_RATE_CONTINUOUS,
+             .rate_max = 96000,
+             .formats = SNDRV_PCM_FMTBIT_S16_LE,
+             },
+        .capture = {
+            .channels_min = 1,
+            .channels_max = 2,
+            .rates = SNDRV_PCM_RATE_CONTINUOUS,
+            .rate_max = 96000,
+            .formats = SNDRV_PCM_FMTBIT_S16_LE,
+            },
+        .ops = &sprd_i2s_dai_ops,
+    },
+    {
+        .id = I2S_MAGIC_ID+1,
+        .name = "bt_sco_iis1",
+        .playback = {
+             .channels_min = 1,
+             .channels_max = 2,
+             .rates = SNDRV_PCM_RATE_CONTINUOUS,
+             .rate_max = 96000,
+             .formats = SNDRV_PCM_FMTBIT_S16_LE,
+             },
+        .capture = {
+            .channels_min = 1,
+            .channels_max = 2,
+            .rates = SNDRV_PCM_RATE_CONTINUOUS,
+            .rate_max = 96000,
+            .formats = SNDRV_PCM_FMTBIT_S16_LE,
+            },
+        .ops = &sprd_i2s_dai_ops,
+    }
 };
 
 static const struct snd_soc_component_driver sprd_i2s_component = {
@@ -864,6 +886,10 @@ static int i2s_drv_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 		i2s->id = val[0];
+
+        if(i2s->id == 0)
+            i2s->id = I2S_MAGIC_ID;
+
 		if (of_property_read_u32(node, "sprd,hw_port", &val[0])) {
 			pr_err("ERR:Must give me the hw_port!\n");
 			return -EINVAL;
@@ -890,6 +916,10 @@ static int i2s_drv_probe(struct platform_device *pdev)
 		i2s->config =
 		    *((struct i2s_config *)(dev_get_platdata(&pdev->dev)));
 		i2s->id = pdev->id;
+
+        if(i2s->id == 0)
+            i2s->id = I2S_MAGIC_ID;
+
 		i2s->hw_port = i2s->config.hw_port;
 		sp_asoc_pr_dbg("i2s.%d(%d) default fs is (%d)\n", i2s->id,
 			       i2s->hw_port, i2s->config.fs);
@@ -918,7 +948,7 @@ static int i2s_drv_probe(struct platform_device *pdev)
 
 	ret =
 	    snd_soc_register_component(&pdev->dev, &sprd_i2s_component,
-				       &sprd_i2s_dai, 1);
+				       &sprd_i2s_dai, ARRAY_SIZE(sprd_i2s_dai));
 	sp_asoc_pr_dbg("return %i\n", ret);
 
 	return ret;
