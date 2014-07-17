@@ -18,7 +18,9 @@
 #endif
 
 /*static char *WIFI_CONFIG_FILE = "/system/etc/connectivity_configure.ini";*/
-static char *WIFI_CALI_FILE = "/productinfo/connectivity_calibration.ini";
+static char *WIFI_CALI_FILE_PRODUCT = "/productinfo/connectivity_calibration.ini";
+static char *WIFI_CALI_FILE_SYSTEM = "/system/etc/connectivity_calibration.ini";
+
 
 static struct wifi_nvm_data g_wifi_nvm_data;
 
@@ -164,6 +166,7 @@ static int wifi_nvm_buf_operate(unsigned char *p_buf, int file_len)
 			}
 			p = i + 1;
 		}
+
 	}
 	return 0;
 }
@@ -241,7 +244,7 @@ bool wifi_cali_file_check(const char *path)
 
 	filp = filp_open(path, O_RDONLY, S_IRUSR);
 	if (IS_ERR(filp)) {
-		pr_err("%s,Unable to load '%s'.\n", __func__, path);
+		pr_err("%s,Unable to load '%s' err=%ld.\n", __func__, path, PTR_ERR(filp));
 		filp =
 		    filp_open(path, O_RDWR | O_CREAT | O_TRUNC,
 			      S_IRUSR | S_IWUSR);
@@ -360,17 +363,24 @@ void sprdwl_nvm_init(void)
 		return;
 	}
 
-	if (wifi_cali_file_check(WIFI_CALI_FILE) == FALSE) {
-		pr_err("%s(),fail to load :%s, err!\n",
-		       __func__, WIFI_CALI_FILE);
-		return;
+	if (wifi_cali_file_check(WIFI_CALI_FILE_PRODUCT) == TRUE) {
+		pr_info("%s(),read %s success\n",__func__, WIFI_CALI_FILE_PRODUCT);
+		pr_info("%s(),load %s \n",__func__, WIFI_CALI_FILE_PRODUCT);
+		ret = wifi_nvm_parse(WIFI_CALI_FILE_PRODUCT);
+		if (0 != ret) {
+		    pr_err("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE_PRODUCT);
+		    return;
+		}
+	} else {/* read file from product failed */
+		pr_err("%s(),read %s fail\n",__func__, WIFI_CALI_FILE_PRODUCT);
+		pr_err("%s(),load %s \n",__func__, WIFI_CALI_FILE_SYSTEM);
+		ret = wifi_nvm_parse(WIFI_CALI_FILE_SYSTEM);
+		if (0 != ret) {
+		    pr_err("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE_SYSTEM);
+		    return;
+		}
 	}
 
-	ret = wifi_nvm_parse(WIFI_CALI_FILE);
-	if (0 != ret) {
-		pr_err("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE);
-		return;
-	}
 	g_wifi_nvm_data.data_init_ok = 1;
 	pr_info("%s(), ok!\n", __func__);
 	return;
