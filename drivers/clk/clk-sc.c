@@ -428,10 +428,9 @@ static inline void __mmreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 
 #define __mmreg_set(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 1)
 #define __mmreg_clr(hw, reg, msk)	__mmreg_setclr(hw, reg, msk, 0)
-#define __SPRD_MM_TIMEOUT		(1 * 1000)
-static int sprd_mm_domain_is_ready(struct clk_hw *hw)
+#define __SPRD_MM_TIMEOUT		(3 * 1000)
+static int sprd_mm_domain_state(struct clk_hw *hw)
 {
-#ifdef CONFIG_ARCH_SCX35
 	/* FIXME: rtc domain */
 	u32 power_state1, power_state2, power_state3;
 	unsigned long timeout = jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
@@ -448,21 +447,37 @@ static int sprd_mm_domain_is_ready(struct clk_hw *hw)
 		    __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) &
 		    BITS_PD_MM_TOP_STATE(-1);
 		if (time_after(jiffies, timeout)) {
-			WARN(1, "mm domain timeout, state %08x\n",
-			     __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG));
-			WARN(1, "mm prepare count %u, enable count %u\n",
-			     __clk_get_prepare_count(hw->clk),
-			     __clk_get_enable_count(hw->clk));
-			return 0;
+			pr_emerg("[%d]mm domain not ready, state %08x %08x\n",
+				 __LINE__, __raw_readl((void *)
+						       REG_PMU_APB_PWR_STATUS0_DBG), __raw_readl((void *)REG_MM_AHB_AHB_EB));
+			pr_emerg("mm prepare count %u, enable count %u\n",
+				 __clk_get_prepare_count(hw->clk),
+				 __clk_get_enable_count(hw->clk));
 		}
 	} while (power_state1 != power_state2 || power_state2 != power_state3);
 
-	return (power_state1 == 0 /*ready */ );
+	return (power_state1);
+}
+
+static int sprd_mm_domain_is_ready(struct clk_hw *hw)
+{
+#ifdef CONFIG_ARCH_SCX35
+	return sprd_mm_domain_state(hw) == BITS_PD_MM_TOP_STATE(0);
 #else
 	return 1;
 #endif
 }
 
+static int sprd_mm_domain_is_shutdown(struct clk_hw *hw)
+{
+#ifdef CONFIG_ARCH_SCX35
+	return sprd_mm_domain_state(hw) == BITS_PD_MM_TOP_STATE(7);
+#else
+	return 0;
+#endif
+}
+
+/* FIXME: mm domain soft-retention */
 static u32 saved_mm_ckg[10];
 static void sprd_mm_domain_save(struct clk_hw *hw)
 {
@@ -494,12 +509,13 @@ static void sprd_mm_domain_restore(struct clk_hw *hw)
 #endif
 }
 
-static int __sprd_mm_clk_prepare(struct clk_hw *hw)
+static int __sprd_clk_mm_prepare(struct clk_hw *hw)
 {
 #ifdef CONFIG_ARCH_SCX35
 	if (!sprd_mm_domain_is_ready(hw)) {
 		unsigned long timeout =
 		    jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
+
 		__glbreg_clr(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG,
 			     BIT_PD_MM_TOP_FORCE_SHUTDOWN);
 		/* FIXME: wait a moment for mm domain stable
@@ -509,10 +525,17 @@ static int __sprd_mm_clk_prepare(struct clk_hw *hw)
 			udelay(50);
 			cpu_relax();
 		}
+		WARN(!sprd_mm_domain_is_ready(hw),
+		     "MM TOP CFG 0x%08x, STATE 0x%08x\n",
+		     __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG),
+		     __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG));
+		__glbreg_set(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
+		__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+		__mmreg_set(hw, (void *)REG_MM_AHB_GEN_CKG_CFG,
+			    BIT_MM_MTX_AXI_CKG_EN | BIT_MM_AXI_CKG_EN);
+		__mmreg_set(hw, (void *)REG_MM_CLK_MM_AHB_CFG, 0x3);	/* set mm ahb 153.6MHz */
+		sprd_mm_domain_restore(hw);
 	}
-	WARN(__raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG) &
-	     BITS_PD_MM_TOP_STATE(-1), "MM TOP CFG 0x%08x\n",
-	     __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG));
 
 	if (!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB)) {
 		__glbreg_set(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
@@ -528,34 +551,66 @@ static int __sprd_mm_clk_prepare(struct clk_hw *hw)
 	return 0;
 }
 
-static int __sprd_clk_mm_enable(struct clk_hw *hw)
+static void __sprd_clk_mm_unprepare(struct clk_hw *hw)
 {
 	if (sprd_mm_domain_is_ready(hw)) {
-#ifndef CONFIG_ARCH_SCX35
-		sprd_clk_enable(hw);
-#endif
-		sprd_mm_domain_restore(hw);
+		unsigned long timeout =
+		    jiffies + msecs_to_jiffies(__SPRD_MM_TIMEOUT);
+
+		if (!(__raw_readl((void *)REG_AON_APB_APB_EB0) & BIT_MM_EB))
+			__glbreg_set(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
+		if (!(__raw_readl((void *)REG_MM_AHB_AHB_EB) & BIT_MM_CKG_EB))
+			__glbreg_set(hw, (void *)REG_MM_AHB_AHB_EB, BIT_MM_CKG_EB);
+		/* FIXME: save all mm ckg regs before disable mm */
+		sprd_mm_domain_save(hw);
+		__glbreg_clr(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
+
+		__glbreg_set(hw, (void *)REG_PMU_APB_PD_MM_TOP_CFG,
+			     BIT_PD_MM_TOP_FORCE_SHUTDOWN);
+		/* FIXME: wait a moment for mm domain stable
+		 */
+		while (!sprd_mm_domain_is_shutdown(hw)
+		       && !time_after(jiffies, timeout)) {
+			udelay(50);
+			cpu_relax();
+		}
+		WARN(!sprd_mm_domain_is_shutdown(hw),
+		     "MM TOP CFG 0x%08x, STATE 0x%08x\n",
+		     __raw_readl((void *)REG_PMU_APB_PD_MM_TOP_CFG),
+		     __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG));
 	} else {
-		WARN(1, "mm domain not ready, state %08x %08x\n",
-		     __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG),
-		     __raw_readl((void *)REG_MM_AHB_AHB_EB));
-		WARN(1, "mm prepare count %u, enable count %u\n",
-		     __clk_get_prepare_count(hw->clk),
-		     __clk_get_enable_count(hw->clk));
+		__glbreg_clr(hw, (void *)REG_AON_APB_APB_EB0, BIT_MM_EB);
+	}
+}
+
+static int __sprd_clk_mm_enable(struct clk_hw *hw)
+{
+	if (!sprd_mm_domain_is_ready(hw)) {
+		pr_emerg("[%d]mm domain not ready, state %08x %08x\n", __LINE__,
+			 __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG),
+			 __raw_readl((void *)REG_MM_AHB_AHB_EB));
+		pr_emerg("mm prepare count %u, enable count %u\n",
+			 __clk_get_prepare_count(hw->clk),
+			 __clk_get_enable_count(hw->clk));
 	}
 	return 0;
 }
 
 static void __sprd_clk_mm_disable(struct clk_hw *hw)
 {
-	/* FIXME: save all mm ckg regs before disable mm */
-	sprd_mm_domain_save(hw);
-	sprd_clk_disable(hw);
+	if (!sprd_mm_domain_is_ready(hw)) {
+		pr_emerg("[%d]mm domain not ready, state %08x %08x\n", __LINE__,
+			 __raw_readl((void *)REG_PMU_APB_PWR_STATUS0_DBG),
+			 __raw_readl((void *)REG_MM_AHB_AHB_EB));
+		pr_emerg("mm prepare count %u, enable count %u\n",
+			 __clk_get_prepare_count(hw->clk),
+			 __clk_get_enable_count(hw->clk));
+	}
 }
 
 static int sprd_mm_clk_prepare(struct clk_hw *hw)
 {
-	__sprd_mm_clk_prepare(hw);
+	__sprd_clk_mm_prepare(hw);
 	return sprd_clk_prepare(hw);
 }
 
@@ -619,12 +674,8 @@ static int sprd_mm_clk_divider_set_rate(struct clk_hw *hw, unsigned long rate,
 }
 
 const struct clk_ops sprd_clk_mm_gate_ops = {
-#ifdef CONFIG_ARCH_SCX35
-	.prepare = __sprd_mm_clk_prepare,
-#else
-	.prepare = sprd_mm_clk_prepare,
-#endif
-	.unprepare = sprd_clk_unprepare,
+	.prepare = __sprd_clk_mm_prepare,
+	.unprepare = __sprd_clk_mm_unprepare,
 	.enable = __sprd_clk_mm_enable,
 	.disable = __sprd_clk_mm_disable,
 	.is_enabled = sprd_clk_is_enable,
@@ -879,9 +930,10 @@ static void __init of_sprd_gate_clk_setup(struct device_node *node)
 	if (of_get_property(node, "mm-domain", NULL)) {
 		init.ops = &sprd_mm_clk_gate_ops;
 	} else if (0 == strcmp(clk_name, "clk_mm")) {
+#ifdef CONFIG_ARCH_SCX35
 		init.ops = &sprd_clk_mm_gate_ops;
-		__sprd_mm_clk_prepare(&c->hw);
-		sprd_mm_domain_save(&c->hw);
+		__sprd_clk_mm_prepare(&c->hw);
+#endif
 	}
 
 	init.parent_names = (parent_name ? &parent_name : NULL);
