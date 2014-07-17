@@ -18,11 +18,16 @@ $(KERNEL_CONFIG): kernel/arch/arm/configs/$(KERNEL_DEFCONFIG)
 ifeq ($(TARGET_BUILD_VARIANT),user)
 USER_CONFIG := $(TARGET_OUT)/dummy
 TARGET_DEVICE_USER_CONFIG := $(PLATDIR)/user_diff_config
+TARGET_DEVICE_CUSTOM_CONFIG := device/sprd/$(TARGET_DEVICE)/ProjectConfig.mk
 
 $(USER_CONFIG) : $(KERNEL_CONFIG)
+	$(info $(shell ./kernel/scripts/sprd_custom_config_kernel.sh $(KERNEL_CONFIG) $(TARGET_DEVICE_CUSTOM_CONFIG)))
 	$(info $(shell ./kernel/scripts/sprd_create_user_config.sh $(KERNEL_CONFIG) $(TARGET_DEVICE_USER_CONFIG)))
 else
-USER_CONFIG :=
+USER_CONFIG  := $(TARGET_OUT)/dummy
+TARGET_DEVICE_CUSTOM_CONFIG := device/sprd/$(TARGET_DEVICE)/ProjectConfig.mk
+$(USER_CONFIG) : $(KERNEL_CONFIG)
+	$(info $(shell ./kernel/scripts/sprd_custom_config_kernel.sh $(KERNEL_CONFIG) $(TARGET_DEVICE_CUSTOM_CONFIG)))
 endif
 
 $(TARGET_PREBUILT_KERNEL) : $(KERNEL_OUT) $(USER_CONFIG)|$(KERNEL_CONFIG)
