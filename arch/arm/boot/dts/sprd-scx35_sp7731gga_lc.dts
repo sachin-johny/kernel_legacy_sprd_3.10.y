@@ -852,6 +852,11 @@
 	sprd,audio_power_ver = <3>;
 };
 
+&sprd_codec {
+	status = "okay";
+	sprd,audio_power_ver = <4>;
+};
+
 &i2s0 {
         sprd,config = <&pcm_def_config>;
 	status = "okay";

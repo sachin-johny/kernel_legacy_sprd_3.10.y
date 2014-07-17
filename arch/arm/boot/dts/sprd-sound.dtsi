@@ -16,6 +16,14 @@
 		#size-cells = <1>;
 
 		/* 1. codecs */
+		sprd_codec: sprd-codec {
+			compatible = "sprd,sprd-codec";
+			status = "disable";
+			sprd,def_da_fs = <44100>;
+			sprd,ap_irq = <164>;
+			sprd,dp_irq = <52>;
+		};
+
 		sprd_codec_v3: sprd-codec-v3 {
 			compatible = "sprd,sprd-codec-v3";
 			status = "disable";
@@ -104,7 +112,16 @@
 		};
 
 		/* 4. machine */
-		vbc_sound: sound@0 {
+		vbc_sound0: sound@0 {
+			compatible = "sprd,vbc-r2p0-sprd-codec";
+			sprd,model = "sprdphone";
+			sprd,vaudio = <&vaudio>;
+			sprd,vbc = <&vbc_r2p0>;
+			sprd,codec = <&sprd_codec>;
+			sprd,pcm = <&sprd_pcm>;
+		};
+
+		vbc_sound1: sound@1 {
 			compatible = "sprd,vbc-r2p0-sprd-codec-v3";
 			sprd,model = "sprdphone";
 			sprd,vaudio = <&vaudio>;
@@ -113,7 +130,7 @@
 			sprd,pcm = <&sprd_pcm>;
 		};
 
-		i2s_sound: sound@1 {
+		i2s_sound: sound@2 {
 			compatible = "sprd,i2s-null-codec";
 			sprd,model = "all-i2s";
 			sprd,i2s = <&i2s0>, <&i2s1>, <&i2s2>, <&i2s3>;

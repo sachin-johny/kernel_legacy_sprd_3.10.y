@@ -552,8 +552,12 @@ static void sprd_asoc_shutdown(struct platform_device *pdev)
 #define BOARD_CODEC_MUTE(xname, xreg) \
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, board_mute_get, board_mute_set)
 
+#if defined(CONFIG_SND_SOC_SPRD_VBC_R2P0_SPRD_CODEC_V4)
+#include "vbc-r2p0-sprd-codec-v4.h"
+#else
 #include "vbc-r1p0-sprd-codec-v1.h"
 #include "vbc-r2p0-sprd-codec-v3.h"
+#endif
 
 MODULE_DESCRIPTION("ALSA ASoC SpreadTrum VBC SPRD-CODEC");
 MODULE_AUTHOR("Zhenfang Wang <zhenfang.wang@spreadtrum.com>");

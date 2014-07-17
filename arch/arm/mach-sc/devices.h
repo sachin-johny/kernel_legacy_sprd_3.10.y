@@ -111,6 +111,7 @@ extern struct platform_device sprd_memnand_userdata_device;
 extern struct platform_device sprd_memnand_cache_device;
 
 extern struct platform_device sprd_audio_vbc_r2p0_sprd_codec_v3_device;
+extern struct platform_device sprd_audio_vbc_r2p0_sprd_codec_device;
 extern struct platform_device sprd_audio_i2s_null_codec_device;
 extern struct platform_device sprd_audio_platform_pcm_device;
 extern struct platform_device sprd_audio_vaudio_device;
@@ -120,6 +121,7 @@ extern struct platform_device sprd_audio_i2s1_device;
 extern struct platform_device sprd_audio_i2s2_device;
 extern struct platform_device sprd_audio_i2s3_device;
 extern struct platform_device sprd_audio_sprd_codec_v3_device;
+extern struct platform_device sprd_audio_sprd_codec_device;
 extern struct platform_device sprd_audio_null_codec_device;
 
 #ifdef CONFIG_SPRD_VETH

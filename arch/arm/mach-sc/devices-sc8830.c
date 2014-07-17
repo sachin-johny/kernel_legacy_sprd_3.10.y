@@ -1529,6 +1529,11 @@ struct platform_device sprd_audio_vbc_r2p0_sprd_codec_v3_device = {
 	.id		= -1,
 };
 
+struct platform_device sprd_audio_vbc_r2p0_sprd_codec_device = {
+	.name		= "vbc-r2p0-sprd-codec",
+	.id		= -1,
+};
+
 struct platform_device sprd_audio_i2s_null_codec_device = {
 	.name		= "i2s-null-codec",
 	.id		= -1,
@@ -1647,6 +1652,11 @@ struct platform_device sprd_audio_i2s3_device = {
 	.id		= 3,
 	.num_resources  = ARRAY_SIZE(sprd_i2s3_resources),
 	.resource       = sprd_i2s3_resources,
+};
+
+struct platform_device sprd_audio_sprd_codec_device = {
+	.name		= "sprd-codec",
+	.id		= -1,
 };
 
 struct platform_device sprd_audio_sprd_codec_v3_device = {

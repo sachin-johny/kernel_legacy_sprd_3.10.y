@@ -10,4 +10,5 @@ obj-$(CONFIG_SND_SOC_SPRD_VAUDIO)     	+= dai/vaudio/
 obj-$(CONFIG_SND_SOC_SPRD_I2S)		+= dai/i2s/
 obj-$(CONFIG_SND_SOC_SPRD_CODEC_V1)	+= codec/sprd/v1/
 obj-$(CONFIG_SND_SOC_SPRD_CODEC_V3)	+= codec/sprd/v3/
+obj-$(CONFIG_SND_SOC_SPRD_CODEC_V4)	+= codec/sprd/v4/
 obj-$(CONFIG_SND_SOC_NULL_CODEC)	+= codec/null-codec/
