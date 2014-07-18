@@ -516,7 +516,7 @@ static inline int arch_audio_codec_analog_reg_enable(void)
 			  BIT_ANA_AUD_EN);
 	if (ret >= 0) {
 		/* Disable Sleep Control Audio Power */
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723S)
 		ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL, 0, 0xFFFF);
 #else
 		ret = sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
@@ -546,7 +546,7 @@ static inline int arch_audio_codec_analog_enable(void)
 	/* AUDIF , 6.5M */
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, mask, mask);
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723S)
 	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL0, BIT_CLK_AUD_6P5M_TX_INV_EN,
 		      BIT_CLK_AUD_6P5M_TX_INV_EN);
 #else
@@ -559,7 +559,7 @@ static inline int arch_audio_codec_analog_enable(void)
 	sci_adi_write(ANA_REG_GLB_XTL_WAIT_CTRL, BIT_XTL_EN, BIT_XTL_EN);
 
 	/* FIXME: disable deepsleep force power off audio ldo */
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723S)
 	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL, 0, 0xFFFF);
 #else
 	sci_adi_write(ANA_REG_GLB_AUD_SLP_CTRL4, 0, 0xFFFF);
@@ -589,7 +589,7 @@ static inline int arch_audio_codec_analog_disable(void)
 	/* AUDIF , 6.5M */
 	int mask = BIT_CLK_AUD_6P5M_EN | BIT_CLK_AUDIF_EN;
 	sci_adi_write(ANA_REG_GLB_ARM_CLK_EN, 0, mask);
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723S)
 	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL0, BIT_CLK_AUD_6P5M_TX_INV_EN,
 		      BIT_CLK_AUD_6P5M_TX_INV_EN);
 #else
