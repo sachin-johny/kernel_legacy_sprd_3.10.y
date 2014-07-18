@@ -251,7 +251,7 @@ static void ts_power_enable(int en)
 		}
 	}
 }
-#elif defined(CONFIG_MACH_YOUNG2) || defined(CONFIG_MACH_PIKEAYOUNG2DTV)
+#elif defined(CONFIG_MACH_YOUNG2)
 static void ts_power_enable(int en)
 {
 	int ret=0;
@@ -275,6 +275,51 @@ static void ts_power_enable(int en)
 	else
 	{
 		ret = regulator_disable(touch_regulator_3v0);
+		if (ret) {
+			tsp_info(KERN_ERR "%s: touch_regulator_3v0 disable failed (%d)\n",__func__, ret);
+		}
+	}
+}
+#elif defined(CONFIG_MACH_PIKEAYOUNG2DTV)
+static void ts_power_enable(int en)
+{
+	int ret=0;
+	struct regulator *touch_regulator_1v8 =  NULL;
+	struct regulator *touch_regulator_3v3 =  NULL;
+
+	tsp_info("[TSP] %s, %d\n", __func__, en );
+
+	touch_regulator_3v3 = regulator_get(NULL,"vddsim2");
+	if (IS_ERR(touch_regulator_3v3)) {
+		touch_regulator_3v3 = NULL;
+		tsp_info("get touch_regulator_1v8 regulator error\n");
+		return;
+	}
+
+	touch_regulator_1v8 = regulator_get(NULL,"vdd18");
+	
+	if (IS_ERR(touch_regulator_1v8)) {
+		touch_regulator_1v8 = NULL;
+		tsp_info("get touch_regulator_1v8 regulator error\n");
+		return;
+	}
+
+	if(en) {
+		regulator_set_voltage(touch_regulator_1v8, 1800000, 1800000);
+		ret = regulator_enable(touch_regulator_1v8);
+		if (ret) {
+			tsp_info(KERN_ERR "%s: touch_regulator_1v8 enable failed (%d)\n",__func__, ret);
+		}
+
+		regulator_set_voltage(touch_regulator_3v3, 3000000, 3000000);
+		ret = regulator_enable(touch_regulator_3v3);
+		if (ret) {
+			tsp_info(KERN_ERR "%s: touch_regulator_3v0 enable failed (%d)\n",__func__, ret);
+		}
+	}
+	else
+	{
+		ret = regulator_disable(touch_regulator_3v3);
 		if (ret) {
 			tsp_info(KERN_ERR "%s: touch_regulator_3v0 disable failed (%d)\n",__func__, ret);
 		}

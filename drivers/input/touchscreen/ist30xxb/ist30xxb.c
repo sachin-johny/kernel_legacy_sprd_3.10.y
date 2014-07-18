@@ -1056,13 +1056,14 @@ static int ist30xx_probe(struct i2c_client *		client,
 #endif
 
 	/* configure touchscreen interrupt gpio */
-	ret = gpio_request(52, "ist30xx_irq_gpio");
+	ret = gpio_request(pdata->gpio, "ist30xx_irq_gpio");
+      printk("[TSP] pdata->gpio : %d\n", pdata->gpio);
 	if (ret) {
 		tsp_err("unable to request gpio.(%s)\r\n",input_dev->name);
 		goto err_init_drv;
 	}
 
-	client->irq = gpio_to_irq(52);
+	client->irq = gpio_to_irq(pdata->gpio);
 
 	printk("[TSP] client->irq : %d\n", client->irq);
 	ret = request_threaded_irq(client->irq, NULL, ist30xx_irq_thread,
