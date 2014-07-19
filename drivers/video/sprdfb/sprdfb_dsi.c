@@ -385,7 +385,11 @@ int32_t dsi_dpi_init(struct sprdfb_device *dev)
 	dpi_param.receive_ack_packets = 0;
 	dpi_param.video_mode = VIDEO_BURST_WITH_SYNC_PULSES;
 	dpi_param.virtual_channel = 0;
+#ifndef CONFIG_FB_LCD_ILI9486S1_MIPI
 	dpi_param.is_18_loosely = 0;
+#else
+	dpi_param.is_18_loosely = 1;
+#endif
 
 	result = mipi_dsih_dpi_video(&(dsi_ctx.dsi_inst), &dpi_param);
 	if(result != OK){

@@ -33,20 +33,20 @@ typedef struct LCM_force_cmd_code_tag{
 #define LCM_TAG_SLEEP (1 << 1)
 
 static LCM_Init_Code init_data[] = {
-    //Power setting Sequence
-
+	//Power setting Sequence
 	{LCM_SEND(5),{3,0,0xC0,0x0A,0x0A}},
-	{LCM_SEND(4),{2,0,0xC1,0x45}},
-	{LCM_SEND(4),{2,0,0xC2,0x00}},
+	{LCM_SEND(2),{0xc1,0x45}},
+	{LCM_SEND(2),{0xc2, 0x00}},
+
 	//Initializing Sequence
 	{LCM_SEND(7),{5,0,0x2A,0x00,0x00,0x01,0x3F}},
 	{LCM_SEND(7),{5,0,0x2B,0x00,0x00,0x01,0xDF}},
-	{LCM_SEND(4),{2,0,0x36,0xC8}},
-	{LCM_SEND(4),{2,0,0x3A,0x66}},
-	{LCM_SEND(4),{2,0,0xB0,0x8C}},
-    {LCM_SEND(4),{2,0,0xB4,0x02}},
+	{LCM_SEND(2),{0x36,0xc8}},
+	{LCM_SEND(2),{0x3A,0x66}},
+	{LCM_SEND(2),{0xB0,0x8c}},
+	{LCM_SEND(2),{0xB4,0x02}},
 	{LCM_SEND(6),{4,0,0xB6,0x32,0x22,0x3B}},
-	{LCM_SEND(4),{2,0,0xB7,0xC6}},
+	{LCM_SEND(2),{0xB7,0xC6}},
 	{LCM_SEND(5),{3,0,0xF9,0x00,0x08}},
 	{LCM_SEND(7),{5,0,0xF7,0xA9,0x91,0x2D,0x8A}},
 	{LCM_SEND(6),{4,0,0xF8,0x21,0x07,0x02}},
@@ -65,12 +65,12 @@ static LCM_Init_Code init_data[] = {
 	0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,
 	0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,
 	0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x04,0x00}},
+
 	//Display on
 	{LCM_SEND(1),{0x11}},
 	{LCM_SLEEP(120)},
 	{LCM_SEND(1),{0x29}},
 	{LCM_SLEEP(100)},
-
 	
 };
 
@@ -105,7 +105,7 @@ static int32_t ili9486s1_mipi_init(struct panel_spec *self)
 	mipi_dcs_write_t mipi_dcs_write = self->info.mipi->ops->mipi_dcs_write;
 	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
 
-	printk("kernel nt35502_mipi_init\n");
+	printk("kernel ili9486s1_mipi_init\n");
 
 	mipi_set_cmd_mode();
 	mipi_eotp_set(0,0);
@@ -126,7 +126,8 @@ static int32_t ili9486s1_mipi_init(struct panel_spec *self)
 
 static uint32_t ili9486s1_readid(struct panel_spec *self)
 {
-	uint32 j =0;
+#if 0
+	uint8_t j =0;
 	uint8_t read_data[4] = {0};
 	int32_t read_rtn = 0;
 	uint8_t param[2] = {0};
@@ -161,8 +162,8 @@ static uint32_t ili9486s1_readid(struct panel_spec *self)
 	}
 
 	mipi_eotp_set(0,0);
-
-	return 0;
+#endif
+	return 0x8370;
 }
 
 
@@ -226,7 +227,7 @@ static struct info_mipi lcd_ili9486s1_mipi_info = {
 	.work_mode  = SPRDFB_MIPI_MODE_VIDEO,
 	.video_bus_width = 18, /*18,16*/
 	.lan_number = 	1,
-	.phy_feq =500*1000,
+	.phy_feq =340*1000,
 	.h_sync_pol = SPRDFB_POLARITY_POS,
 	.v_sync_pol = SPRDFB_POLARITY_POS,
 	.de_pol = SPRDFB_POLARITY_POS,
