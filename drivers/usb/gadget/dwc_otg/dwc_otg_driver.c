@@ -673,6 +673,7 @@ static int dwc_otg_resume(struct platform_device *dev)
  *
  * @param[in] _dev Bus device
  */
+ int   ldo_gpio =0xffffffff ;
 static int dwc_otg_driver_probe(
 	struct platform_device *_dev
 )
@@ -753,7 +754,7 @@ static int dwc_otg_driver_probe(
 			pdata->gpio_chgdet = of_get_gpio(np,  0);
 			if(pdata->gpio_chgdet<0){
 				printk(" get charge detect  error ,gpio is %d\n",pdata->gpio_chgdet);
-				pdata->gpio_otgdet = 0xffffffff;
+				pdata->gpio_chgdet = 0xffffffff;
 			}
 
 			pdata->gpio_otgdet = 0xffffffff;
@@ -762,7 +763,7 @@ static int dwc_otg_driver_probe(
 			pdata->gpio_chgdet = of_get_gpio(np,  0);
 			if(pdata->gpio_chgdet<0){
 				printk(" get charge detect  error ,gpio is %d\n",pdata->gpio_chgdet);
-				pdata->gpio_otgdet = 0xffffffff;
+				pdata->gpio_chgdet = 0xffffffff;
 			}
 
 			pdata->gpio_otgdet = of_get_gpio(np,  1);
@@ -776,7 +777,7 @@ static int dwc_otg_driver_probe(
 			pdata->gpio_chgdet = of_get_gpio(np,  0);
 			if(pdata->gpio_chgdet<0){
 			printk(" get charge detect  error ,gpio is %d\n",pdata->gpio_chgdet);
-			pdata->gpio_otgdet = 0xffffffff;
+			pdata->gpio_chgdet = 0xffffffff;
 			}
 			pdata->gpio_otgdet = of_get_gpio(np,  1);
 			if(pdata->gpio_otgdet<0){
@@ -784,11 +785,13 @@ static int dwc_otg_driver_probe(
 			pdata->gpio_otgdet = 0xffffffff;
 			}
 
-			pdata->gpio_boost = of_get_gpio(np,  2);
+			pdata->ldo_gpio = of_get_gpio(np,  2);
 			if(pdata->gpio_boost<0){
 				printk("get boost  error ,gpio is  %d\n",pdata->gpio_boost);
-				pdata->gpio_otgdet = 0xffffffff;
+				pdata->ldo_gpio = 0xffffffff;
 			}
+			pdata->gpio_otgdet = 0xffffffff;
+			ldo_gpio= pdata->ldo_gpio;
 		}else{
 			printk("gpio number more than three,gpio number  %d\n",pdata->gpio_num);
 		}
