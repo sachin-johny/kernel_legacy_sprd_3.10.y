@@ -207,7 +207,11 @@ static struct platform_device *devices[] __initdata = {
 
 static struct platform_device *late_devices[] __initdata = {
 	/* 1. CODECS */
-	&sprd_audio_sprd_codec_device,
+#ifdef CONFIG_SND_SOC_SPRD_CODEC_V3
+    &sprd_audio_sprd_codec_v3_device,
+#else
+    &sprd_audio_sprd_codec_device,
+#endif
 	&sprd_audio_null_codec_device,
 
 	/* 2. CPU DAIS */
@@ -222,7 +226,11 @@ static struct platform_device *late_devices[] __initdata = {
 	&sprd_audio_platform_pcm_device,
 
 	/* 4. MACHINE */
-	&sprd_audio_vbc_r2p0_sprd_codec_device,
+#ifdef CONFIG_SND_SOC_SPRD_CODEC_V3
+    &sprd_audio_vbc_r2p0_sprd_codec_v3_device,
+#else
+    &sprd_audio_vbc_r2p0_sprd_codec_device,
+#endif
 	&sprd_audio_i2s_null_codec_device,
 
 };

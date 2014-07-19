@@ -340,7 +340,7 @@ static int sprd_headset_power_init(struct device *dev)
 	ret =
 	    sprd_headset_power_get(dev, &sprd_hts_power.head_mic,
 				   "HEADMICBIAS");
-	if (ret) {
+	if (ret || (sprd_hts_power.head_mic == NULL)) {
 		sprd_hts_power.head_mic = 0;
 		return ret;
 	}
