@@ -132,6 +132,40 @@ struct brt_value brt_table_ktd[] = {
 	{248, 6},
 	{MAX_BRIGHTNESS_VALUE, 5},	/*Max pulse 1 */
 };
+#elif defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD) || defined(CONFIG_PIKEAYOUNG2DTV)
+struct brt_value brt_table_ktd[] = {
+	{ MIN_BRIGHTNESS_VALUE,  31 }, // Min pulse 32
+	{ 28,  31 },
+	{ 36,  30 },
+	{ 44,  29 },
+	{ 52,  28 },
+	{ 60,  27 },
+	{ 68,  26 },
+	{ 76,  25 },
+	{ 84,  24 },
+	{ 92,  23 },
+	{ 100,  22 },
+	{ 108,  21 },
+	{ 116,  20 },
+	{ 124,  19 },
+	{ 132,  18 },
+	{ 140,  17 },
+	{ 148,  16 },  //default value
+	{ 156,  15 },
+	{ 164,  14 },
+	{ 172,  13 },
+	{ 180,  12 },
+	{ 188,  11 },
+	{ 196,  10 },
+	{ 204,  9 },
+	{ 212,  8 },
+	{ 220,  7 },
+	{ 228,  6 },
+	{ 236,  5 },
+	{ 244,  4 },
+	{ 252,  3 },
+	{ MAX_BRIGHTNESS_VALUE, 2 },
+};
 #else
 struct brt_value brt_table_ktd[] = {
 { MIN_BRIGHTNESS_VALUE,  31 }, // Min pulse 32 
@@ -203,8 +237,8 @@ static int rt4502_backlight_update_status(struct backlight_device *bd)
 		user_intensity = 0;
 
 	mutex_lock(&rt4502_mutex);
-      if(backlight_mode==BACKLIGHT_RESUME){
-    		if(user_intensity > 0) {
+	if(backlight_mode==BACKLIGHT_RESUME){
+		if(user_intensity > 0) {
 			if(user_intensity < MIN_BRIGHTNESS_VALUE) {
 				tune_level = DIMMING_VALUE; //DIMMING
 			} else if (user_intensity == MAX_BRIGHTNESS_VALUE) {
@@ -218,41 +252,41 @@ static int rt4502_backlight_update_status(struct backlight_device *bd)
 				}
 			}
 		}
-        BLDBG("[BACKLIGHT] rt4502_backlight_update_status ==> tune_level : %d\n", tune_level);
-    if (real_level==tune_level)
-    {
-         mutex_unlock(&rt4502_mutex);   
-        return 0;
-	}
-    else
-    {
-	    if(tune_level<=0)
-	    {
-                gpio_set_value(backlight_pin,0);
-                mdelay(3); 
-	    }
-	    else
-	    {
-    		if( real_level<=tune_level)
-    		{
-    			pulse = tune_level - real_level;
-    		}
+		BLDBG("[BACKLIGHT] rt4502_backlight_update_status ==> real_level: %d, tune_level : %d\n", real_level, tune_level);
+		if (real_level==tune_level)
+		{
+			mutex_unlock(&rt4502_mutex);   
+			return 0;
+		}
 		else
 		{
-			pulse = 32 - (real_level - tune_level);
+			if(tune_level<=0)
+			{
+				gpio_set_value(backlight_pin,0);
+				mdelay(3);
+			}
+			else
+			{
+				if( real_level<=tune_level)
+				{
+					pulse = tune_level - real_level;
+				}
+				else
+				{
+					pulse = 32 - (real_level - tune_level);
+				}
+				//pulse = MAX_BRIGHTNESS_IN_BLU -tune_level;
+				if (pulse==0)
+				{
+					mutex_unlock(&rt4502_mutex);
+					return 0;
+				}
+				lcd_backlight_control(pulse);
+			}
+			real_level = tune_level;
 		}
-    		//pulse = MAX_BRIGHTNESS_IN_BLU -tune_level;
-            if (pulse==0)
-            {
-                mutex_unlock(&rt4502_mutex);            
-                return 0;
-            }
-            lcd_backlight_control(pulse); 
-    }
-    real_level = tune_level;
-    }
-}
-    mutex_unlock(&rt4502_mutex);	  
+	}
+	mutex_unlock(&rt4502_mutex);
 
        return 0;
 }
@@ -395,7 +429,8 @@ static int rt4502_backlight_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 	rt4502->ctrl_pin = data->ctrl_pin;
-    
+      backlight_pin = data->ctrl_pin;
+      
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = data->max_brightness;
 	props.type = BACKLIGHT_PLATFORM;

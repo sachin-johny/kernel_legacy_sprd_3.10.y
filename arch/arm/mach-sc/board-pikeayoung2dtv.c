@@ -69,7 +69,10 @@
 #if defined(CONFIG_TOUCHSCREEN_IST30XXB)
 #include <linux/input/ist30xxb.h>
 #endif
-#include <linux/ktd253b_bl.h>
+
+#ifdef CONFIG_BACKLIGHT_RT4502
+#include <linux/rt4502_bl.h>
+#endif
 
 #include <mach/i2s.h>
 
@@ -342,6 +345,20 @@ static struct platform_device *devices[] __initdata = {
 	&rt8973_mfd_device_i2cadaptor,
 #endif
 #endif
+};
+
+struct platform_rt4502_backlight_data sprd_rt4502_backlight_data = {
+	.max_brightness = 255,
+	.dft_brightness = 160,
+	.ctrl_pin = 234,
+};
+
+struct platform_device sprd_backlight_device = {
+	.name           = "sprd_backlight",
+	.id             =  -1,
+	.dev	= {
+		.platform_data	=  &sprd_rt4502_backlight_data,
+	},
 };
 
 #if defined(CONFIG_BATTERY_SAMSUNG)
@@ -1668,12 +1685,6 @@ static inline int	__sci_get_chip_id(void)
 	return __raw_readl(CHIP_ID_LOW_REG);
 }
 
-static struct platform_ktd253b_backlight_data ktd253b_data = {
-        .max_brightness = 255,
-        .dft_brightness = 50,
-        .ctrl_pin       = 234,
-};
-
 #ifndef CONFIG_OF
 /*i2s0 config for BT, use pcm mode*/
 static struct i2s_config i2s0_config = {
@@ -1739,7 +1750,6 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
-	platform_device_add_data(&sprd_backlight_device,&ktd253b_data,sizeof(ktd253b_data));
 	platform_device_add_data(&sprd_audio_i2s0_device,(const void*)&i2s0_config,sizeof(i2s0_config));
 	platform_device_add_data(&sprd_audio_i2s1_device,(const void*)&i2s1_config,sizeof(i2s1_config));
 	platform_device_add_data(&sprd_audio_i2s2_device,(const void*)&i2s2_config,sizeof(i2s2_config));

@@ -398,13 +398,13 @@ struct platform_device sprd_backlight_device = {
 
 #elif defined(CONFIG_BACKLIGHT_RT4502)
 
-static struct platform_rt4502_backlight_data sprd_rt4502_backlight_data = {
+struct platform_rt4502_backlight_data sprd_rt4502_backlight_data __attribute__((weak)) = {
 	.max_brightness = 255,
 	.dft_brightness = 160,
 	.ctrl_pin = 190,
 };
 
-struct platform_device sprd_backlight_device = {
+struct platform_device sprd_backlight_device __attribute__((weak)) = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
 	.dev	= {
