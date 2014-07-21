@@ -24,6 +24,7 @@
 #include <linux/interrupt.h>
 #include <linux/poll.h>
 #include <linux/sched.h>
+#include <mach/arch_misc.h>
 
 #include <linux/highmem.h>
 #include <linux/vmalloc.h>
@@ -253,11 +254,6 @@ int lzo1x_1_compress_hw(const unsigned char *src , size_t src_len , unsigned cha
 	return ZipEnc_compress(src,src_len,dst,dst_len,wrkmen);
 }
 
-unsigned int get_chip_aon_id()
-{
-        return __raw_readl(REG_AON_APB_AON_CHIP_ID);
-}
-
 unsigned int get_zip_type(void)
 {
 	static unsigned int lzo_algo_type = 0;
@@ -266,7 +262,7 @@ unsigned int get_zip_type(void)
 	if(!read_chip_cnt)
 	{
 		read_chip_cnt = 1;
-		chip_id = get_chip_aon_id();
+		chip_id = sci_get_chip_id();
 		if((chip_id==0x7715a000)||(chip_id==0x7715a001)||(chip_id==0x8815a000))
 		{
 			lzo_algo_type = 1;
