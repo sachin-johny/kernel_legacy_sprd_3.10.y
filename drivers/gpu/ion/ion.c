@@ -729,9 +729,9 @@ repeat:
 				continue;
 			mutex_unlock(&dev->lock);
 
-			if (tryhard++ < 3) {
+			if (tryhard++ < 2) {
 				int shrinksize;
-				shrinksize = heap->size >> (3 - tryhard);
+				shrinksize = heap->size >> (2 - tryhard);
 				__ion_pagecache_shrink(heap, shrinksize, tryhard, GFP_USER);
 				cond_resched();
 				goto repeat;
