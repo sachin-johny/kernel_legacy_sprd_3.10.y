@@ -31,6 +31,11 @@
 #include <linux/input/mt.h>
 
 #include <linux/input/ist30xxb.h>
+
+#ifdef CONFIG_OF
+#include <linux/of_gpio.h>
+#include <linux/of_device.h>
+#endif
 #include "ist30xxb_sec.h"
 #include "ist30xxb_update.h"
 
@@ -971,12 +976,24 @@ static int ist30xx_probe(struct i2c_client *		client,
 	struct ist30xx_data *data;
 	struct input_dev *input_dev;
 
-	struct tsp_dev_info *pdata = client->dev.platform_data;
+	struct tsp_dev_info *pdata = client->dev.platform_data;        
 	printk("[TSP] %s(), the i2c addr=0x%x", __func__, client->addr);
 
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+    
+#ifdef CONFIG_OF
+
+        struct device_node *np = client->dev.of_node;
+
+        printk("[TSP] the client->dev.of_node=0x%x\n", client->dev.of_node);
+        
+        if (client->dev.of_node && !pdata){
+            pdata->gpio = of_get_gpio(np, 0);              
+            printk("[TSP] gpio id=%d", pdata->gpio);
+        }
+#endif
 
 	input_dev = input_allocate_device();
 	if (!input_dev) {

@@ -216,11 +216,9 @@
 		 		  <0X480 0Xf53f8480 0x80>;
 		 sprd_backlight {
                         compatible = "sprd,sprd_backlight";
-                        start = <2>;
-                        end = <2>;
-			ctl_pin = <214>;
-			ctl_pin_level = <1>;
-                        flags = <0x100>;
+			max_brightness = <255>;
+			dft_brightness = <160>;
+			ctrl_pin = <234>;
 		 };
 		headset_detect {
                         compatible = "sprd,headset-detect";
@@ -373,7 +371,7 @@
 		 #address-cells = <1>;
 		 #size-cells = <0>;
 		 ist30xx_ts@50{
-			compatible = "Imagis,IST30XX";
+			compatible = "Imagis,IST30XXB";
 			reg = <0x50>;
 			gpios = <&d_gpio_gpio 82 0>; 
 		};  
