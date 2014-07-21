@@ -24,13 +24,15 @@ ENTRY(sci_secondary_startup)
 #ifndef CONFIG_OF
 	and	r0, r0, #15
 #else
-	and	r0, r0, #0xFFFFFF /* mpidr is 0xf00 0xf01, 0xf02, 0xf03 */
+	/*and	r0, r0, #0xFFFFFF*/ /* mpidr is 0xf00 0xf01, 0xf02, 0xf03 */
+	and	r0, r0, #15 /* mpidr is 0xf00 0xf01, 0xf02, 0xf03 */
 #endif
 	adr	r4, 1f
 	ldmia	r4, {r5, r6}
 	sub	r4, r4, r5
 	add	r6, r6, r4
 pen:	ldr	r7, [r6]
+	and	r7, r7, #15/* mpidr is 0xf00 0xf01, 0xf02, 0xf03 */
 	cmp	r7, r0
 	bne	pen
 

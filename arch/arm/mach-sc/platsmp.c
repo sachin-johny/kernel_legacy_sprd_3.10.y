@@ -1,5 +1,5 @@
 /* linux/arch/arm/mach-sc8830/platsmp.c
- * 
+ *
  * Copyright (c) 2010-2012 Spreadtrum Co., Ltd.
  *		http://www.spreadtrum.com
  * Copyright (c) 2010-2011 Samsung Electronics Co., Ltd.
@@ -159,6 +159,39 @@ static void __cpuinit write_pen_release(int val)
 
 static DEFINE_SPINLOCK(boot_lock);
 
+
+unsigned int  sprd_boot_magnum =	0xbadf1a90;
+
+#define SPRD_UP_FLAG0	(0x63507530)
+#define SPRD_UP_FLAG1	(0x63507531)
+#define SPRD_UP_FLAG2	(0x63507532)
+#define SPRD_UP_FLAG3	(0x63507533)
+
+unsigned int g_sprd_boot_flag_1 = 0;
+unsigned int g_sprd_boot_flag_2 = 0;
+char * ga_boot_flag1[4] =
+	{
+		"bf10",
+		"bf11",
+		"bf12",
+		"bf13"
+	};
+char * ga_boot_flag2[4] =
+	{
+		"bf20",
+		"bf21",
+		"bf22",
+		"bf23"
+	};
+
+unsigned int g_sprd_up_flag[4] =
+	{
+		SPRD_UP_FLAG0,
+		SPRD_UP_FLAG1,
+		SPRD_UP_FLAG2,
+		SPRD_UP_FLAG3
+	};
+
 void __cpuinit sprd_secondary_init(unsigned int cpu)
 {
 	/*
@@ -173,19 +206,26 @@ void __cpuinit sprd_secondary_init(unsigned int cpu)
 	 * pen, then head off into the C entry point
 	 */
 
-	write_pen_release(-1);
+	write_pen_release(g_sprd_up_flag[cpu]);
 
 	/*
 	 * Synchronise with the boot thread.
 	 */
 	spin_lock(&boot_lock);
 	spin_unlock(&boot_lock);
+
+	g_sprd_boot_flag_1 = 0;
+	g_sprd_boot_flag_2 = 0;
+
 }
+
+
 
 int __cpuinit sprd_boot_secondary(unsigned int cpu, struct task_struct *idle)
 {
 	unsigned long timeout;
 	int ret;
+	unsigned int val = sprd_boot_magnum;
 
 	/*
 	 * Set synchronisation state between this boot processor
@@ -199,30 +239,47 @@ int __cpuinit sprd_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * that it has been released by resetting pen_release.
 	 *
 	 */
-	write_pen_release(cpu_logical_map(cpu));
+
+	memcpy(&g_sprd_boot_flag_1,ga_boot_flag1[cpu],4);
+
+	val |= (cpu_logical_map(cpu) & 0x0000000f);
+
+	write_pen_release((int)val);
+
+	memcpy(&g_sprd_boot_flag_2,ga_boot_flag2[cpu],4);
 
 	ret = boot_secondary_cpus(cpu, virt_to_phys(sci_secondary_startup));
 	if (ret < 0)
 		pr_warn("SMP: boot_secondary(%u) error\n", cpu);
 
 	dsb_sev();
+
+
 	timeout = jiffies + (1 * HZ);
 
 	while (time_before(jiffies, timeout)) {
 		smp_rmb();
-		if (pen_release == -1)
+		if (pen_release == g_sprd_up_flag[cpu])
 			break;
 
 		udelay(10);
 	}
 
+	spin_unlock(&boot_lock);
+
 	/*
 	 * now the secondary core is starting up let it run its
 	 * calibrations, then wait for it to finish
 	 */
-	spin_unlock(&boot_lock);
+	if(pen_release != g_sprd_up_flag[cpu]){
+		printk("*** %s, pen_release:%x ***\n ", __func__, pen_release);
+		printk("*** %s, REG_PMU_APB_PWR_STATUS0_DBG:0x%x \n", __func__, sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
+		printk("*** %s, REG_AP_AHB_CA7_RST_SET:0x%x \n", __func__, sci_glb_read(REG_AP_AHB_CA7_RST_SET, -1UL));
+		printk("*** %s, REG_AP_AHB_CA7_STANDBY_STATUS:0x%x \n", __func__, sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL));
+		printk("*** %s, REG_AON_APB_MPLL_CFG:0x%x \n", __func__, sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL));
+	}
 
-	return pen_release != -1 ? -ENOSYS : 0;
+	return pen_release !=  g_sprd_up_flag[cpu] ? -ENOSYS : 0;
 }
 
 #ifdef CONFIG_HAVE_ARM_SCU
@@ -289,7 +346,7 @@ extern int sprd_cpu_kill(unsigned int cpu);
 extern int sprd_cpu_die(unsigned int cpu);
 extern int sprd_cpu_disable(unsigned int cpu);
 
-struct smp_operations sprd_smp_ops __initdata = { 
+struct smp_operations sprd_smp_ops __initdata = {
 	.smp_init_cpus      = sprd_smp_init_cpus,
 	.smp_prepare_cpus   = sprd_smp_prepare_cpus,
 	.smp_secondary_init = sprd_secondary_init,

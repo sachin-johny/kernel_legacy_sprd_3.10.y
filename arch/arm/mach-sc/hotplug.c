@@ -66,13 +66,19 @@ static inline void cpu_leave_lowpower(void)
 	  : "cc");
 }
 
+extern unsigned int  sprd_boot_magnum;
+
 static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 {
+	unsigned int val = sprd_boot_magnum;
+
 	/*
 	 * there is no power-control hardware on this platform, so all
 	 * we can do is put the core into WFI; this is safe as the calling
 	 * code will have already disabled interrupts
 	 */
+
+	val |= (cpu_logical_map(cpu) & 0x0000000f);
 	for (;;) {
 		/*
 		 * here's the WFI
@@ -82,10 +88,11 @@ static inline void platform_do_lowpower(unsigned int cpu, int *spurious)
 		    :
 		    : "memory", "cc");
 
-		if (pen_release == cpu_logical_map(cpu)) {
+		if (pen_release == val) {
 			/*
 			 * OK, proper wakeup, we're done
 			 */
+			 pr_info("platform_do_lowpower %x %x\n",pen_release,val);
 			break;
 		}
 
