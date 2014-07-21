@@ -61,6 +61,7 @@
 		i2s0: i2s@0 {
 			compatible = "sprd,i2s";
 			status = "disable";
+                        sprd,dai_name = "i2s_bt_sco0";
 			sprd,id = <0>;
 			sprd,hw_port = <0>;
 			sprd,base = <0x70D00000 0xF537C000>;
@@ -71,6 +72,7 @@
 		i2s1: i2s@1 {
 			compatible = "sprd,i2s";
 			status = "disable";
+                        sprd,dai_name = "i2s_bt_sco1";
 			sprd,id = <1>;
 			sprd,hw_port = <1>;
 			sprd,base = <0x70E00000 0xF5380000>;
@@ -81,6 +83,7 @@
 		i2s2: i2s@2 {
 			compatible = "sprd,i2s";
 			status = "disable";
+                        sprd,dai_name = "i2s_bt_sco2";
 			sprd,id = <2>;
 			sprd,hw_port = <2>;
 			sprd,base = <0x70F00000 0xF5382000>;
@@ -91,6 +94,7 @@
 		i2s3: i2s@3 {
 			compatible = "sprd,i2s";
 			status = "disable";
+                        sprd,dai_name = "i2s_bt_sco3";
 			sprd,id = <3>;
 			sprd,hw_port = <3>;
 			sprd,base = <0x71000000 0xF5384000>;

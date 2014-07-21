@@ -67,7 +67,7 @@
 struct i2s_rtx {
 	int dma_no;
 };
-
+#define DAI_NAME_SIZE 20
 struct i2s_priv {
 	int id;
 	int hw_port;
@@ -76,16 +76,14 @@ struct i2s_priv {
 	struct i2s_rtx rx;
 	struct i2s_rtx tx;
 	atomic_t open_cnt;
-
+	char dai_name[DAI_NAME_SIZE];
 	int irq_no;
 	void __iomem *membase;
 	unsigned int *memphys;
 	struct i2s_config config;
 	struct clk *i2s_clk;
+	struct snd_soc_dai_driver i2s_dai_driver[2];
 };
-
-static DEFINE_MUTEX(i2s_list_mutex);
-static LIST_HEAD(i2s_list);
 
 static struct sprd_pcm_dma_params i2s_pcm_stereo_out = {
 	.name = "I2S PCM Stereo out",
@@ -168,6 +166,12 @@ static int i2s_reg_write(unsigned int reg, int val)
 	return 0;
 }
 #endif
+
+
+static inline struct i2s_dai *to_info(struct snd_soc_dai *dai)
+{
+	return snd_soc_dai_get_drvdata(dai);
+}
 
 /*
  * Returns 1 for change, 0 for no change, or negative error code.
@@ -544,7 +548,7 @@ static int i2s_close(struct i2s_priv *i2s)
 		i2s_soft_reset(i2s);
 		i2s_global_disable(i2s);
 		if (!IS_ERR(i2s->i2s_clk)) {
-			clk_disable_unprepare(i2s->i2s_clk);
+			clk_disable(i2s->i2s_clk);
 			clk_put(i2s->i2s_clk);
 		}
 	}
@@ -570,7 +574,7 @@ static int i2s_open(struct i2s_priv *i2s)
 		i2s_soft_reset(i2s);
 		i2s_dma_ctrl(i2s, 0);
 		ret = i2s_config_apply(i2s);
-		clk_prepare_enable(i2s->i2s_clk);
+		clk_enable(i2s->i2s_clk);
 	}
 
 	return ret;
@@ -580,25 +584,9 @@ static int i2s_startup(struct snd_pcm_substream *substream,
 		       struct snd_soc_dai *dai)
 {
 	int ret;
-	struct i2s_priv *i2s;
-	int id = dai->id;
-
-	sp_asoc_pr_dbg("%s ID %d\n", __func__, id);
-	mutex_lock(&i2s_list_mutex);
-	list_for_each_entry(i2s, &i2s_list, list) {
-		if (i2s->id == id)
-			break;
-	}
-	mutex_unlock(&i2s_list_mutex);
-	if (i2s->id != id) {
-		pr_err("ERR:I2S ID(%d) Can't Find the Driver\n", id);
-		return -ENODEV;
-	}
-
-	sp_asoc_pr_dbg("hw_port %d\n", i2s->hw_port);
-
+	struct i2s_priv *i2s = to_info(dai);
+	printk("i2s->id %d \n",i2s->id);
 	dai->ac97_pdata = &i2s->config;
-
 	ret = i2s_open(i2s);
 	if (ret < 0) {
 		pr_err("ERR:I2S Open Error!\n");
@@ -704,46 +692,7 @@ static struct snd_soc_dai_ops sprd_i2s_dai_ops = {
 	.trigger = i2s_trigger,
 };
 
-struct snd_soc_dai_driver sprd_i2s_dai[] = {
-    {
-        .id = I2S_MAGIC_ID,
-        .name = "bt_sco_iis0",
-        .playback = {
-             .channels_min = 1,
-             .channels_max = 2,
-             .rates = SNDRV_PCM_RATE_CONTINUOUS,
-             .rate_max = 96000,
-             .formats = SNDRV_PCM_FMTBIT_S16_LE,
-             },
-        .capture = {
-            .channels_min = 1,
-            .channels_max = 2,
-            .rates = SNDRV_PCM_RATE_CONTINUOUS,
-            .rate_max = 96000,
-            .formats = SNDRV_PCM_FMTBIT_S16_LE,
-            },
-        .ops = &sprd_i2s_dai_ops,
-    },
-    {
-        .id = I2S_MAGIC_ID+1,
-        .name = "bt_sco_iis1",
-        .playback = {
-             .channels_min = 1,
-             .channels_max = 2,
-             .rates = SNDRV_PCM_RATE_CONTINUOUS,
-             .rate_max = 96000,
-             .formats = SNDRV_PCM_FMTBIT_S16_LE,
-             },
-        .capture = {
-            .channels_min = 1,
-            .channels_max = 2,
-            .rates = SNDRV_PCM_RATE_CONTINUOUS,
-            .rate_max = 96000,
-            .formats = SNDRV_PCM_FMTBIT_S16_LE,
-            },
-        .ops = &sprd_i2s_dai_ops,
-    }
-};
+
 
 static const struct snd_soc_component_driver sprd_i2s_component = {
 	.name = "i2s",
@@ -877,7 +826,6 @@ static int i2s_drv_probe(struct platform_device *pdev)
 		pr_err("ERR:No memery!\n");
 		return -ENOMEM;
 	}
-
 	i2s->dev = &pdev->dev;
 	if (node) {
 		u32 val[2];
@@ -886,10 +834,6 @@ static int i2s_drv_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 		i2s->id = val[0];
-
-        if(i2s->id == 0)
-            i2s->id = I2S_MAGIC_ID;
-
 		if (of_property_read_u32(node, "sprd,hw_port", &val[0])) {
 			pr_err("ERR:Must give me the hw_port!\n");
 			return -EINVAL;
@@ -911,15 +855,22 @@ static int i2s_drv_probe(struct platform_device *pdev)
 			return -EINVAL;
 		}
 		i2s->tx.dma_no = val[0];
+
+		const char *dai_name  = NULL;
+		if (of_property_read_string(node, "sprd,dai_name", &dai_name)) {
+			pr_err("ERR:Must give me the dma tx number!\n");
+			//return -EINVAL;
+		}
+		if (dai_name != NULL)
+			strcpy(i2s->dai_name,dai_name);
+		printk("dt version i2s->dai_name %s \n",i2s->dai_name);
 		ret = i2s_config_from_node(node, i2s);
 	} else {
 		i2s->config =
 		    *((struct i2s_config *)(dev_get_platdata(&pdev->dev)));
 		i2s->id = pdev->id;
-
-        if(i2s->id == 0)
-            i2s->id = I2S_MAGIC_ID;
-
+		snprintf(i2s->dai_name,DAI_NAME_SIZE,"%s%d","i2s_bt_sco",i2s->id);
+		printk("not bt version i2s->dai_name %s \n",i2s->dai_name);
 		i2s->hw_port = i2s->config.hw_port;
 		sp_asoc_pr_dbg("i2s.%d(%d) default fs is (%d)\n", i2s->id,
 			       i2s->hw_port, i2s->config.fs);
@@ -933,6 +884,27 @@ static int i2s_drv_probe(struct platform_device *pdev)
 		i2s->tx.dma_no = res->start;
 		i2s->rx.dma_no = res->end;
 	}
+
+	i2s->i2s_dai_driver[0].id = I2S_MAGIC_ID;
+	i2s->i2s_dai_driver[0].name = i2s->dai_name;
+	printk("i2s->i2s_dai_driver[0].name %s \n",i2s->i2s_dai_driver[0].name);
+	i2s->i2s_dai_driver[0].playback.channels_min = 1;
+	i2s->i2s_dai_driver[0].playback.channels_max = 2;
+	i2s->i2s_dai_driver[0].playback.rates = SNDRV_PCM_RATE_CONTINUOUS;
+	i2s->i2s_dai_driver[0].playback.rate_max = 96000;
+	i2s->i2s_dai_driver[0].playback.formats = SNDRV_PCM_FMTBIT_S16_LE;
+
+	i2s->i2s_dai_driver[0].capture.channels_min = 1;
+	i2s->i2s_dai_driver[0].capture.channels_max = 2;
+	i2s->i2s_dai_driver[0].capture.rates = SNDRV_PCM_RATE_CONTINUOUS;
+	i2s->i2s_dai_driver[0].capture.rate_max = 96000;
+	i2s->i2s_dai_driver[0].capture.formats = SNDRV_PCM_FMTBIT_S16_LE;
+	i2s->i2s_dai_driver[0].ops = &sprd_i2s_dai_ops;
+
+	i2s->i2s_dai_driver[1].id = I2S_MAGIC_ID + 1;
+	i2s->i2s_dai_driver[1].name = "i2s_bt_sco_dummy";
+	printk("i2s->i2s_dai_driver[1].name %s \n",i2s->i2s_dai_driver[1].name);
+
 	arch_audio_i2s_switch(i2s->hw_port, AUDIO_TO_ARM_CTRL);
 	sp_asoc_pr_dbg("membase = 0x%x memphys = 0x%x\n", (int)i2s->membase,
 		       (int)i2s->memphys);
@@ -940,15 +912,12 @@ static int i2s_drv_probe(struct platform_device *pdev)
 		       i2s->rx.dma_no);
 
 	platform_set_drvdata(pdev, i2s);
-	mutex_lock(&i2s_list_mutex);
-	list_add(&i2s->list, &i2s_list);
-	mutex_unlock(&i2s_list_mutex);
 
 	atomic_set(&i2s->open_cnt, 0);
 
 	ret =
 	    snd_soc_register_component(&pdev->dev, &sprd_i2s_component,
-				       &sprd_i2s_dai, ARRAY_SIZE(sprd_i2s_dai));
+				       i2s->i2s_dai_driver, ARRAY_SIZE(i2s->i2s_dai_driver));
 	sp_asoc_pr_dbg("return %i\n", ret);
 
 	return ret;
@@ -958,9 +927,7 @@ static int i2s_drv_remove(struct platform_device *pdev)
 {
 	struct i2s_priv *i2s;
 	i2s = platform_get_drvdata(pdev);
-	mutex_lock(&i2s_list_mutex);
-	list_del(&i2s->list);
-	mutex_unlock(&i2s_list_mutex);
+
 	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
