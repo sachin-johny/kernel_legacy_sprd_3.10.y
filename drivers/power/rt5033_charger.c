@@ -506,10 +506,10 @@ int rt5033_chg_fled_init(struct i2c_client *client)
 			if (ret < 0)
 				goto rt5033_chg_fled_init_exit;
 			if (is_750k_switching)
-				ret = rt5033_clr_bits(client, RT5033_CHG_CTRL1,
+				ret = rt5033_set_bits(client, RT5033_CHG_CTRL1,
 						RT5033_SEL_SWFREQ_MASK);
 			else
-				ret = rt5033_set_bits(client, RT5033_CHG_CTRL1,
+				ret = rt5033_clr_bits(client, RT5033_CHG_CTRL1,
 						RT5033_SEL_SWFREQ_MASK);
 			if (ret < 0)
 				goto rt5033_chg_fled_init_exit;
