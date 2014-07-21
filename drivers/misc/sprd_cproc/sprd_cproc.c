@@ -537,14 +537,17 @@ static int sprd_cproc_native_cp2_start(void* arg)
 #ifdef CONFIG_ARCH_SCX30G
 	/* clear cp2 force shutdown */
 	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN], ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
-	msleep(50);
+	msleep(5);
+
+	/* set reset cp2 */
+	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+	msleep(5);
 
 	/* clear cp2 force deep sleep */
 	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP], ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
-	msleep(50);
+	msleep(5);
 
 	/* clear reset cp2 */
-	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);
 	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);
 
 	while(1)
@@ -564,11 +567,13 @@ static int sprd_cproc_native_cp2_start(void* arg)
 			break;
 	}
 
+	/* set reset cp2 */
+	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+
 	/* clear cp2 force deep sleep */
 	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP], ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
 
 	/* clear reset cp2 */
-	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);
 	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_RESET], ctrl->ctrl_mask[CPROC_CTRL_RESET]);
 
 #endif

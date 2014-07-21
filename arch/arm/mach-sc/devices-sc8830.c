@@ -2331,14 +2331,17 @@ static int native_wcnmodem_start(void *arg)
 
 	/* clear cp2 force shutdown */
 	sci_glb_clr(WCN_REG_CLK_ADDR, 0x02000000);
-	msleep(50);
+	msleep(5);
+
+	/* set reset cp2 */
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
+	msleep(5);
 
 	/* clear cp2 force deep sleep */
 	sci_glb_clr(WCN_REG_CLK_ADDR, 0x10000000);
-	msleep(50);
+	msleep(5);
 
 	/* clear reset cp2 */
-	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 	sci_glb_clr(WCN_REG_RESET_ADDR, 0x00000004);
 
 	while(1)
@@ -2407,11 +2410,13 @@ static int native_wcnmodem_start(void *arg)
 		break;
 	}
 
+	/* set reset cp2*/
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
+
 	/* clear cp2 force deep sleep */
 	sci_glb_clr(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* clear reset cp2*/
-	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 	sci_glb_clr(WCN_REG_RESET_ADDR, 0x00000004);
 
 	iounmap(cp_code_addr);
