@@ -975,7 +975,7 @@ static int ist30xx_probe(struct i2c_client *		client,
 	int retry = 3;
 	struct ist30xx_data *data;
 	struct input_dev *input_dev;
-
+       int ist_gpio = 0;
 	struct tsp_dev_info *pdata = client->dev.platform_data;        
 	printk("[TSP] %s(), the i2c addr=0x%x", __func__, client->addr);
 
@@ -989,9 +989,9 @@ static int ist30xx_probe(struct i2c_client *		client,
 
         printk("[TSP] the client->dev.of_node=0x%x\n", client->dev.of_node);
         
-        if (client->dev.of_node && !pdata){
-            pdata->gpio = of_get_gpio(np, 0);              
-            printk("[TSP] gpio id=%d", pdata->gpio);
+        if (client->dev.of_node){
+            ist_gpio = of_get_gpio(np, 0);              
+            printk("[TSP] gpio id=%d", ist_gpio);
         }
 #endif
 
@@ -1072,15 +1072,18 @@ static int ist30xx_probe(struct i2c_client *		client,
 #endif
 #endif
 
+#ifndef CONFIG_OF
+      ist_gpio = pdata->gpio;
+#endif
 	/* configure touchscreen interrupt gpio */
-	ret = gpio_request(pdata->gpio, "ist30xx_irq_gpio");
-      printk("[TSP] pdata->gpio : %d\n", pdata->gpio);
+	ret = gpio_request(ist_gpio, "ist30xx_irq_gpio");
+      printk("[TSP] pdata->gpio : %d\n", ist_gpio);
 	if (ret) {
 		tsp_err("unable to request gpio.(%s)\r\n",input_dev->name);
 		goto err_init_drv;
 	}
 
-	client->irq = gpio_to_irq(pdata->gpio);
+	client->irq = gpio_to_irq(ist_gpio);
 
 	printk("[TSP] client->irq : %d\n", client->irq);
 	ret = request_threaded_irq(client->irq, NULL, ist30xx_irq_thread,
