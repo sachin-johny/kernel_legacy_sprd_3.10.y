@@ -728,11 +728,11 @@ repeat:
 					< num)
 				continue;
 			mutex_unlock(&dev->lock);
-			__ion_pagecache_shrink(heap, (tryhard + 1) * num, tryhard, GFP_USER);
 
-			if (tryhard++ < 5) {
-				if ((tryhard == 5) || ((tryhard + 1) * num) > heap->size)
-					ion_pagecache_shrink_all();
+			if (tryhard++ < 3) {
+				int shrinksize;
+				shrinksize = heap->size >> (3 - tryhard);
+				__ion_pagecache_shrink(heap, shrinksize, tryhard, GFP_USER);
 				cond_resched();
 				goto repeat;
 			}
@@ -1518,7 +1518,6 @@ ION_IOC_DISABLE_CACHE  0xc0044908
 	case ION_IOC_DISABLE_CACHE:
 	{
 		atomic_set(&ion_pagecache_flag, 0);
-		ion_pagecache_shrink_all();
 		break;
 	}
 #endif
