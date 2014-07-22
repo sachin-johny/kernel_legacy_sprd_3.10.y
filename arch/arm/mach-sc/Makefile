@@ -11,6 +11,7 @@ obj-$(CONFIG_ARCH_SCX35) += clock-sc8830.o
 endif
 obj-$(CONFIG_ARCH_SCX35) += devices-sc8830.o io-sc8830.o arch_misc.o pin_switch.o
 obj-$(CONFIG_ARCH_SCX35) += timer_sc8830.o dma_r4p0.o
+obj-$(CONFIG_MACH_SCX35_DT) += mach-scx35-dt.o
 
 ifeq ($(CONFIG_ARCH_SCX30G),y)
 obj-$(CONFIG_PM_DEVFREQ) += dmc_freq_28nm.o dmc_dfs_test.o
@@ -63,6 +64,7 @@ obj-$(CONFIG_MACH_SP7731GEA) += board-sp7731gea.o dma_r4p0.o board_common_batter
 obj-$(CONFIG_MACH_SP7731GEA_LC) += board-sp7731gea_lc.o dma_r4p0.o board_common_battery.o
 obj-$(CONFIG_MACH_PIKEAYOUNG2DTV) += board-pikeayoung2dtv.o dma_r4p0.o board_common_battery.o
 obj-$(CONFIG_MACH_TSHARKWSAMSUNG) += board-tsharkwsamsung.o dma_r4p0.o board_common_battery.o
+obj-$(CONFIG_MACH_CORE3) += dma_r4p0.o board_common_battery.o
 obj-$(CONFIG_MACH_KANAS_W) += board-kanas_w.o board_common_battery.o
 obj-$(CONFIG_MACH_KANAS_TD) += board-kanas_td.o board_common_battery.o
 obj-$(CONFIG_MACH_SP7715EATRISIM) += board-sp7715eatrisim.o board_common_battery.o

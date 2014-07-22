@@ -227,6 +227,7 @@ dtb-$(CONFIG_MACH_SP7731GEA) += sprd-scx35_sp7731gea.dtb
 dtb-$(CONFIG_MACH_SP7731GEAOPENPHONE) += sprd-scx35_sp7731geaopenphone.dtb
 dtb-$(CONFIG_MACH_TSHARKWSAMSUNG) += sprd-scx35_tsharkwsamsung.dtb
 dtb-$(CONFIG_MACH_PIKEAYOUNG2DTV) += sprd-scx35_pikeayoung2dtv.dtb
+dtb-$(CONFIG_MACH_CORE3) += sprd-scx35_core3.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)

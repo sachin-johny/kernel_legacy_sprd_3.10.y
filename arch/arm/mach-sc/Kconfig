@@ -29,6 +29,12 @@ config ARCH_SCX30G
 	select ARCH_SCX35
 	help
 	  Support for Spreadtrum scx30g(t-shark) based systems.
+
+config MACH_SCX35_DT
+	bool "scx35 series DT verison(tshark,pike)"
+	help
+	  Support for Spreadtrum scx35 device tree based systems.
+
 endmenu
 
 menu "Spreadtrum Adie Type"
@@ -453,7 +459,7 @@ config MACH_SP7730GA
 	  SP7730GA board based on SC8830 serial.
 
 config MACH_TSHARKWSAMSUNG
-	bool "tsharkwsamsung Board"
+	bool "Samsung tsharkwsamsung Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	select CLKSRC_OF if OF
@@ -461,6 +467,16 @@ config MACH_TSHARKWSAMSUNG
 	default n
 	help
 	  TSHARKWSAMSUNG board based on SC8830g serial.
+
+config MACH_CORE3
+	bool "Samsung Core3 Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	select CLKSRC_OF if OF
+	select COMMON_CLK if OF
+	default n
+	help
+	  Core3 board based on SC7730g serial.
 
 config MACH_PIKEAYOUNG2DTV
 	bool "pikeayoung2dtv Board"
