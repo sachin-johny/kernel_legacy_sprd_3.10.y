@@ -15,7 +15,7 @@
 /memreserve/ 0x88000000 0x1b00000; /* 27M */
 
 /* memory reserved for fb */
-/memreserve/ 0x9f300000 0x600000; /* 6MK */
+/memreserve/ 0x9F73E000 0x1c2000; /* 6MK */
 
 /* memory reserved for ION */
 /memreserve/ 0x9f900000 0x700000; /* 7MK */
@@ -483,7 +483,7 @@
 		clock-src = <256000000 256000000 384000000>;
 		dpi_clk_div = <7>;
 		sprd,fb_use_reservemem;
-		sprd,fb_mem = <0x9f300000 0x600000>;
+		sprd,fb_mem = <0x9F73E000 0x1c2000>;
 	};
 	gsp:gsp@20a00000 {
 		compatible = "sprd,gsp";
