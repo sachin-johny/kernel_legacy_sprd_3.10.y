@@ -21,7 +21,7 @@
 //#define printk printf
 
 #define  LCD_DEBUG
-#define THREE_LANE_SUPPORT
+//#define THREE_LANE_SUPPORT
 
 #ifdef LCD_DEBUG
 #define LCD_PRINT printk
