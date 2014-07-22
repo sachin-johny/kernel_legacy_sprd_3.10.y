@@ -1846,9 +1846,18 @@ static void get_scan_count(struct lruvec *lruvec, struct scan_control *sc,
 	 * With swappiness at 100, anonymous and file have the same priority.
 	 * This scanning priority is essentially the inverse of IO cost.
 	 */
+#if defined(CONFIG_ZRAM) && defined(CONFIG_RUNTIME_COMPCACHE)
+        if (rtcc_reclaim(sc)) {
+                anon_prio = vmscan_swappiness(sc);
+                file_prio = 200 - anon_prio;
+        } else {
+                anon_prio = (vmscan_swappiness(sc) * anon) / (anon + file + 1);
+                file_prio = (200 - vmscan_swappiness(sc)) * file / (anon + file + 1);
+        }
+#else
 	anon_prio = vmscan_swappiness(sc);
 	file_prio = 200 - anon_prio;
-
+#endif
 	/*
 	 * OK, so we have swap space and a fair amount of page cache
 	 * pages.  We use the recently rotated / recently scanned
