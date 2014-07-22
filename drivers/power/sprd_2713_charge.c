@@ -468,7 +468,7 @@ static void _sprdchg_stop_recharge(void)
 
 void sprdchg_stop_charge(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) ||defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0, BIT_CHGR_PD, BIT_CHGR_PD);
 #else
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
@@ -480,7 +480,7 @@ void sprdchg_stop_charge(void)
 
 void sprdchg_start_charge(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) ||defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0, 0, BIT_CHGR_PD);
 #else
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
@@ -492,7 +492,7 @@ void sprdchg_start_charge(void)
 
 void sprdchg_set_eoc_level(int level)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) ||defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL2,
 		      BITS_CHGR_ITERM(level), BITS_CHGR_ITERM(~0));
 #endif
@@ -500,7 +500,7 @@ void sprdchg_set_eoc_level(int level)
 
 int sprdchg_get_eoc_level(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) ||defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
 	int shft = __ffs(BITS_CHGR_ITERM(~0));
 
 	return (sci_adi_read(ANA_REG_GLB_CHGR_CTRL2) & BITS_CHGR_ITERM(~0)) >>

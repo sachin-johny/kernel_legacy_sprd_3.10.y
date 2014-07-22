@@ -748,7 +748,7 @@ static void sprdfgu_hw_init(void)
 	u32 pocv_raw;
 	FGU_DEBUG("FGU_Init\n");
 
-#if !defined(CONFIG_ARCH_SCX15)
+#if !defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_ADIE_SC2723S) && !defined(CONFIG_ADIE_SC2723)
 	sci_adi_set(ANA_REG_GLB_MP_MISC_CTRL, (BIT(1)));
 	sci_adi_write(ANA_REG_GLB_DCDC_CTRL2, (4 << 8), (7 << 8));
 #endif
@@ -756,7 +756,7 @@ static void sprdfgu_hw_init(void)
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_FGU_EN);
 	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_FGU_EN | BIT_RTC_FGUA_EN);
 
-#if !defined(CONFIG_ARCH_SCX15)
+#if !defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_ADIE_SC2723S) && !defined(CONFIG_ADIE_SC2723)
 	sci_adi_write(REG_FGU_CONFIG, BITS_VOLT_DUTY(3), BITS_VOLT_DUTY(3) | BIT_VOLT_H_VALID);	//mingwei
 #endif
 	sci_adi_write(REG_FGU_RELAX_CURT_THRE, BITS_RELAX_CUR_THRE(sprdfgu_cur2adc_ma(sprdfgu_data.pdata->relax_current)), BITS_RELAX_CUR_THRE(~0));	//mingwei
