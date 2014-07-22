@@ -2,7 +2,7 @@
 
 FN="$2"
 
-echo "==== remove kernel debug configs ===="
+echo "==== create user kernel configs ===="
 
 for line in `cat "$FN"`
 do
@@ -25,6 +25,10 @@ idx=`expr index $line "="`
 config=`expr substr "$line" 12 $[$idx-12]`
 str=`expr substr "$line" $[$idx+1] $len`
 ./kernel/scripts/config --file $1 --set-str $config $str
+
+elif [ "$prefix" = "ADD" ]; then
+config=${line:11}
+./kernel/scripts/config --file $1 -e $config
 
 fi
 done
