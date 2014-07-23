@@ -2343,7 +2343,7 @@ void ts0710_mux_close(int mux_id, int line)
 			&& (self->mux_send_info[line])
 			) {
 			self->mux_send_info_flags[line] = 0;
-			kfree(self->mux_send_info[line]);
+			mux_free_send_info(self->mux_send_info[line]);
 			self->mux_send_info[line] = 0;
 			MUX_TS0710_DEBUG(self->mux_id, "Free mux_send_info for /dev/mux%d\n", line);
 		}
@@ -2911,7 +2911,7 @@ int ts0710_mux_open(int mux_id, int line)
 			ts0710_reset_dlci(ts0710, dlci);
 
 			self->mux_send_info_flags[line] = 0;
-			kfree(self->mux_send_info[line]);
+			mux_free_send_info(self->mux_send_info[line]);
 			self->mux_send_info[line] = 0;
 
 			MUX_TS0710_DEBUG(self->mux_id, "Free mux_send_info for /dev/mux%d\n", line);
