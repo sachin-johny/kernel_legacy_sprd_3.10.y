@@ -25,7 +25,7 @@
 
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
-/include/ "scx30g-regulators.dtsi"
+/include/ "sc2723-regulators.dtsi"
 /include/ "sprd-sound.dtsi"
 /include/ "sprd-battery.dtsi"
 
@@ -654,8 +654,8 @@
 		keep-power-in-suspend = <1>;
 		caps = <0x80000000>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddsd";
-		sd-supply = <&vddsd>;
+		vdd-extmmc = "vddsdio";
+		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
 		init-voltage-level = <4>;
 		pinmap-offset = <0x0184>;
