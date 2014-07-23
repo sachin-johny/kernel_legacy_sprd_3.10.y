@@ -569,8 +569,10 @@ static void print_debug_info(void)
 	/*A-die*/
 	if (!(ldo_pd_ctrl & BIT_DCDC_WPA_PD))
 		printk("###---- BIT_DCDC_WPA_PD power on! ----###\n");
+#if defined(CONFIG_ADIE_SC2713S)
 	if (!(ldo_pd_ctrl & BIT_LDO_CLSG_PD))
 		printk("###---- BIT_LDO_CLSG_PD power on! ----###\n");
+#endif
 	if (!(ldo_pd_ctrl & BIT_LDO_USB_PD))
 		printk("###---- BIT_LDO_USB_PD power on! ----###\n");
 	if (!(ldo_pd_ctrl & BIT_LDO_CAMMOT_PD))
@@ -587,7 +589,13 @@ static void print_debug_info(void)
 		printk("###---- BIT_LDO_SIM1_PD power on! ----###\n");
 	if (!(ldo_pd_ctrl & BIT_LDO_SIM0_PD))
 		printk("###---- BIT_LDO_SIM0_PD power on! ----###\n");
+#if defined(CONFIG_ADIE_SC2713S)
 	if (!(ldo_pd_ctrl & BIT_LDO_SD_PD))
+#else
+#if defined(CONFIG_ADIE_SC2723S)
+	if (!(ldo_pd_ctrl & BIT_LDO_SDIO_PD))
+#endif
+#endif
 		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
 
 #if defined(CONFIG_ARCH_SCX15)
