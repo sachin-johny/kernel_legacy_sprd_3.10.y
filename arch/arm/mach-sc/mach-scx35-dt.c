@@ -29,7 +29,7 @@
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
-
+#include <mach/board.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/hardware.h>
