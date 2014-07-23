@@ -152,6 +152,7 @@ static data_point_t offset_low_power[] = {
 
 u8 attached_cable;
 int current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
+int epmic_event_handler(int level);
 
 void sec_charger_cb(u8 cable_type)
 {
@@ -198,6 +199,10 @@ void sec_charger_cb(u8 cable_type)
 		psy->set_property(psy, POWER_SUPPLY_PROP_ONLINE, &value);
 	}
 
+      if (current_cable_type == POWER_SUPPLY_TYPE_USB) {
+        epmic_event_handler(1);
+      }
+      
 skip:
 	return 0;
 }
@@ -678,7 +683,7 @@ sec_battery_platform_data_t sec_battery_pdata = {
 	.adc_api[SEC_BATTERY_ADC_TYPE_AP] = {
 		.init = sec_bat_adc_ap_init,
 		.exit = sec_bat_adc_ap_exit,
-		.read = sec_bat_adc_ap_read
+		//.read = sec_bat_adc_ap_read
 	},
 	.adc_api[SEC_BATTERY_ADC_TYPE_IC] = {
 		.init = sec_bat_adc_ic_init,
@@ -994,7 +999,6 @@ static struct i2c_board_info rtmuic_i2c_boardinfo[] __initdata = {
 };
 #endif /*CONFIG_MFD_RT8973*/
 
-int epmic_event_handler(int level);
 #endif
 
 static struct platform_device *late_devices[] __initdata = {
