@@ -263,7 +263,7 @@ static  u32  _is_mux_ipc_enable(void)
 
 void wait_cp_bootup(void)
 {
-        wait_event_interruptible(s_modem_ready, _is_mux_ipc_enable());
+        wait_event(s_modem_ready, _is_mux_ipc_enable());
 }
 
 void init_cp_awake_status(void)
@@ -476,14 +476,14 @@ void  sdio_ipc_enable(u8  is_enable)
                 mutex_unlock(&ipc_mutex);
                 s_mipc_enable_change_flag = 0;
                 s_mux_ipc_enable = MUX_IPC_ENABLE;
-                wake_up_interruptible(&s_modem_ready);
+                wake_up(&s_modem_ready);
         } else {
                 s_mux_ipc_enable = MUX_IPC_DISABLE;
                 //wakeup sdio thread to release sdio_gpio_res
                 s_mipc_enable_change_flag = 1;
                 wake_up(&s_mux_ipc_sdio_wq);
                 //wait all resources freed
-                wait_event_interruptible(s_sdio_gpio_res_free,
+                wait_event(s_sdio_gpio_res_free,
                                          (s_sdio_gpio_res_status == SDIO_GPIO_RES_FREE));
         }
 
@@ -643,7 +643,7 @@ int do_mux_ipc_sdio_read(char *buf, size_t  count)
         ipc_info_sdio_read_saved_count(kfifo_len(&s_mipc_rx_cache_kfifo));
 
         //wake up rx thread
-        wake_up_interruptible(&s_rx_fifo_avail);
+        wake_up(&s_rx_fifo_avail);
         return ret;
 }
 
@@ -712,7 +712,7 @@ int mux_ipc_sdio_read(char *buf, size_t  count)
         ipc_info_sdio_read_saved_count(kfifo_len(&s_mipc_rx_cache_kfifo));
 
         //wake up rx thread
-        wake_up_interruptible(&s_rx_fifo_avail);
+        wake_up(&s_rx_fifo_avail);
 
         return ret;
 }
@@ -913,13 +913,13 @@ static u32 _AddDataToTxTransfer(u8* data_ptr, u32 len)
 
 static void _WaitTxTransferFree(void)
 {
-        wait_event_interruptible(s_mipc_tx_tansfer.frame_free_wq, (s_mipc_tx_free_frame_list.counter ||
+        wait_event(s_mipc_tx_tansfer.frame_free_wq, (s_mipc_tx_free_frame_list.counter ||
                                  (s_mux_ipc_event_flags & MUX_IPC_WRITE_DISABLE)));
 }
 
 static void _WakeTxTransfer(void)
 {
-        wake_up_interruptible(&s_mipc_tx_tansfer.frame_free_wq);
+        wake_up(&s_mipc_tx_tansfer.frame_free_wq);
 }
 
 static u32 _DelDataFromTxTransfer(MIPC_TRANSF_FRAME_T* frame_ptr)
@@ -1083,7 +1083,7 @@ u32  process_modem_packet(unsigned long data)
         if(!have_buffer_to_read()) {
                 IPC_SDIO_ERR("[MIPC] MIPC Rx Cache Full!\r\n");
         }
-        wait_event_interruptible(s_rx_fifo_avail, have_buffer_to_read());
+        wait_event(s_rx_fifo_avail, have_buffer_to_read());
 
         //send sdio read request
         IPC_SDIO_DEBUG("[MIPC] MIPC Rx Cache Free!\r\n");
@@ -1434,7 +1434,7 @@ static void free_sdio_gpio_res()
                 sdhci_hal_gpio_exit();
                 sprd_sdio_channel_close();
                 s_sdio_gpio_res_status = SDIO_GPIO_RES_FREE;
-                wake_up_interruptible(&s_sdio_gpio_res_free);
+                wake_up(&s_sdio_gpio_res_free);
         }
 }
 
