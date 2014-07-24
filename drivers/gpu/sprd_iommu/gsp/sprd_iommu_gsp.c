@@ -114,18 +114,18 @@ void sprd_iommu_gsp_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, si
 int sprd_iommu_gsp_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
-	sprd_iommu_gsp_enable(dev);
+
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
-	sprd_iommu_gsp_disable(dev);
+
 	return err;
 }
 
 int sprd_iommu_gsp_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
-	sprd_iommu_gsp_enable(dev);
+
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
-	sprd_iommu_gsp_disable(dev);
+
 	return err;
 }
 
