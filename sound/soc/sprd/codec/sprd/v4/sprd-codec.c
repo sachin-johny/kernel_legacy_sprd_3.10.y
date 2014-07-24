@@ -112,6 +112,8 @@ enum {
 	SPRD_CODEC_PGA_HEADMIC,
 	SPRD_CODEC_PGA_AIL,
 	SPRD_CODEC_PGA_AIR,
+	SPRD_CODEC_PGA_CG_HPL,
+	SPRD_CODEC_PGA_CG_HPR,
 
 	SPRD_CODEC_PGA_END
 };
@@ -567,8 +569,8 @@ static int sprd_codec_pga_spk_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC11;
-    mask = AOL_G_MASK << AOL_G;
-    val = (pgaval << AOL_G) & mask;
+	mask = AOL_G_MASK << AOL_G;
+	val = (pgaval << AOL_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -576,8 +578,8 @@ static int sprd_codec_pga_spkr_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC11;
-    mask = AOR_G_MASK << AOR_G;
-    val = (pgaval << AOR_G) & mask;
+	mask = AOR_G_MASK << AOR_G;
+	val = (pgaval << AOR_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -585,8 +587,8 @@ static int sprd_codec_pga_hpl_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC12;
-    mask = HPL_G_MASK << HPL_G;
-    val = (pgaval << HPL_G) & mask;
+	mask = HPL_G_MASK << HPL_G;
+	val = (pgaval << HPL_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -594,8 +596,8 @@ static int sprd_codec_pga_hpr_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC12;
-    mask = HPR_G_MASK << HPR_G;
-    val = (pgaval << HPR_G) & mask;
+	mask = HPR_G_MASK << HPR_G;
+	val = (pgaval << HPR_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -603,35 +605,35 @@ static int sprd_codec_pga_ear_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC12;
-    mask = EAR_G_MASK << EAR_G;
-    val = (pgaval << EAR_G) & mask;
+	mask = EAR_G_MASK << EAR_G;
+	val = (pgaval << EAR_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
 static int sprd_codec_pga_adcl_set(struct snd_soc_codec *codec, int pgaval)
 {
-    int reg, val, mask;
-    reg = ANA_CDC9;
-    mask = ADC_PGA_L_MASK << ADC_PGA_L;
-    val = (pgaval << ADC_PGA_L) & mask;
-    return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+	int reg, val, mask;
+	reg = ANA_CDC9;
+	mask = ADC_PGA_L_MASK << ADC_PGA_L;
+	val = (pgaval << ADC_PGA_L) & mask;
+	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
 static int sprd_codec_pga_adcr_set(struct snd_soc_codec *codec, int pgaval)
 {
-    int reg, val, mask;
-    reg = ANA_CDC9;
-    mask = ADC_PGA_R_MASK << ADC_PGA_R;
-    val = (pgaval << ADC_PGA_R) & mask;
-    return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+	int reg, val, mask;
+	reg = ANA_CDC9;
+	mask = ADC_PGA_R_MASK << ADC_PGA_R;
+	val = (pgaval << ADC_PGA_R) & mask;
+	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
 static int sprd_codec_pga_dacl_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC10;
-    mask = DACL_G_MASK << DACL_G;
-    val = (pgaval << DACL_G) & mask;
+	mask = DACL_G_MASK << DACL_G;
+	val = (pgaval << DACL_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -639,8 +641,8 @@ static int sprd_codec_pga_dacr_set(struct snd_soc_codec *codec, int pgaval)
 {
 	int reg, val, mask;
 	reg = ANA_CDC10;
-    mask = DACR_G_MASK << DACR_G;
-    val = (pgaval << DACR_G) & mask;
+	mask = DACR_G_MASK << DACR_G;
+	val = (pgaval << DACR_G) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -649,7 +651,7 @@ static int sprd_codec_pga_mic_set(struct snd_soc_codec *codec, int pgaval)
 	int reg, val, mask;
 	reg = ANA_CDC8;
 	mask = ADC_MIC_PGA_MASK << ADC_MIC_PGA;
-    val = (pgaval << ADC_MIC_PGA) & mask;
+	val = (pgaval << ADC_MIC_PGA) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -658,7 +660,7 @@ static int sprd_codec_pga_auxmic_set(struct snd_soc_codec *codec, int pgaval)
 	int reg, val, mask;
 	reg = ANA_CDC8;
 	mask = ADC_AUXMIC_PGA_MASK << ADC_AUXMIC_PGA;
-    val = (pgaval << ADC_AUXMIC_PGA) & mask;
+	val = (pgaval << ADC_AUXMIC_PGA) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -667,7 +669,7 @@ static int sprd_codec_pga_headmic_set(struct snd_soc_codec *codec, int pgaval)
 	int reg, val, mask;
 	reg = ANA_CDC8;
 	mask = ADC_HEADMIC_PGA_MASK << ADC_HEADMIC_PGA;
-    val = (pgaval << ADC_HEADMIC_PGA) & mask;
+	val = (pgaval << ADC_HEADMIC_PGA) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
 
@@ -676,9 +678,28 @@ static int sprd_codec_pga_ailr_set(struct snd_soc_codec *codec, int pgaval)
 	int reg, val, mask;
 	reg = ANA_CDC8;
 	mask = ADC_AILR_PGA_MASK << ADC_AILR_PGA;
-    val = (pgaval << ADC_AILR_PGA) & mask;
+	val = (pgaval << ADC_AILR_PGA) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
+
+static int sprd_codec_pga_cg_hpl_set(struct snd_soc_codec *codec, int pgaval)
+{
+	int reg, val, mask;
+	reg = ANA_CDC13;
+	mask = CG_HPL_G_MASK << CG_HPL_G;
+	val = (pgaval << CG_HPL_G) & mask;
+	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
+
+static int sprd_codec_pga_cg_hpr_set(struct snd_soc_codec *codec, int pgaval)
+{
+	int reg, val, mask;
+	reg = ANA_CDC14;
+	mask = CG_HPR_G_MASK << CG_HPR_G;
+	val = (pgaval << CG_HPR_G) & mask;
+	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
+
 
 static struct sprd_codec_pga sprd_codec_pga_cfg[SPRD_CODEC_PGA_MAX] = {
 	{sprd_codec_pga_spk_set, 0},
@@ -697,6 +718,8 @@ static struct sprd_codec_pga sprd_codec_pga_cfg[SPRD_CODEC_PGA_MAX] = {
 	{sprd_codec_pga_headmic_set, 0},
 	{sprd_codec_pga_ailr_set, 0},
 	{sprd_codec_pga_ailr_set, 0},
+	{sprd_codec_pga_cg_hpl_set, 0},
+	{sprd_codec_pga_cg_hpr_set, 0},
 };
 
 /* adc mixer */
@@ -974,7 +997,7 @@ static inline void sprd_codec_pa_demi_en(struct snd_soc_codec *codec, int on)
 		snd_soc_update_bits(codec, SOC_REG(ANA_PMU6), 0xffff, 0);
 
 	mask = BIT(PA_DEMI_EN);
-	snd_soc_update_bits(codec, SOC_REG(ANA_CDC4), mask, 0);
+	snd_soc_update_bits(codec, SOC_REG(ANA_CDC4), mask, on?mask:0);
 
 	/*open ocp from xun && weifeng*/
 	mask = BIT(DRV_OCP_AOL_PD) | BIT(DRV_OCP_AOR_PD);
@@ -1056,9 +1079,9 @@ static inline void sprd_codec_inter_pa_init(struct sprd_codec_priv *sprd_codec)
 
 static void sprd_codec_ovp_irq_enable(struct snd_soc_codec *codec)
 {
-    int val_clr, val_en;
+	int val_clr, val_en;
 	val_clr = BIT(OVP_IRQ) << AUD_A_INT_CLR;
-    val_en = BIT(OVP_IRQ) << AUD_A_INT_EN;
+	val_en = BIT(OVP_IRQ) << AUD_A_INT_EN;
 	snd_soc_update_bits(codec, SOC_REG(DIG_CFG3), val_clr, val_clr);
 	snd_soc_update_bits(codec, SOC_REG(DIG_CFG4), val_en, val_en);
 }
@@ -1178,7 +1201,7 @@ static inline void sprd_codec_hp_classg_en(struct snd_soc_codec *codec, int on)
 	int val;
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
 	//SPRD_CODEC_HP_VER(AUDIO_CLASSG_EN);
-    mask = BIT(CG_REF_EN);
+	mask = BIT(CG_REF_EN);
 	val = on ? mask : 0;
     /* FIXME: change by jian.chen */
 	//snd_soc_update_bits(codec, SOC_REG(DCR8_DCR7), mask, val);
@@ -1215,7 +1238,7 @@ static inline void sprd_codec_hp_pa_lpw(struct snd_soc_codec *codec, int lpw)
 		break;
 	}
 	*/
-    mask = CG_LPW_MASK << CG_LPW;
+	mask = CG_LPW_MASK << CG_LPW;
 	val = (lpw << CG_LPW) & mask;
 	snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), mask, val);
 }
@@ -1244,7 +1267,7 @@ static inline void sprd_codec_hp_pa_mode(struct snd_soc_codec *codec, int on)
 		break;
 	}
     */
-    mask = BIT(CG_HP_MODE);
+	mask = BIT(CG_HP_MODE);
 	val = on? mask :0;
 	snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), mask, val);
 }
@@ -1269,7 +1292,7 @@ static inline void sprd_codec_hp_pa_osc(struct snd_soc_codec *codec, int osc)
 		break;
 	}
     */
-    mask = CG_CHP_OSC_MASK << CG_CHP_OSC;
+	mask = CG_CHP_OSC_MASK << CG_CHP_OSC;
 	val = (osc << CG_CHP_OSC) & mask;
 	snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), mask, val);
 }
@@ -1901,9 +1924,9 @@ static inline int _mixer_setting_one(struct snd_soc_codec *codec, int id,
 #ifndef CONFIG_SND_SOC_SPRD_CODEC_NO_HP_POP
 static void sprd_codec_hp_pop_irq_enable(struct snd_soc_codec *codec)
 {
-    int val_clr, val_en;
+	int val_clr, val_en;
 	val_clr = BIT(AUDIO_POP_IRQ) << AUD_A_INT_CLR;
-    val_en = BIT(AUDIO_POP_IRQ) << AUD_A_INT_EN;
+	val_en = BIT(AUDIO_POP_IRQ) << AUD_A_INT_EN;
 	snd_soc_update_bits(codec, SOC_REG(DIG_CFG3), val_clr, val_clr);
 	snd_soc_update_bits(codec, SOC_REG(DIG_CFG4), val_en, val_en);
 }
@@ -2772,7 +2795,20 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0, 0,
 			   spk_pa_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-
+	SND_SOC_DAPM_PGA_S("HPL CGL Switch", SPRD_CODEC_HP_PA_ORDER, SOC_REG(ANA_CDC7),
+			   HPL_CGL, 0, NULL,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("HPR CGR Switch", SPRD_CODEC_HP_PA_ORDER, SOC_REG(ANA_CDC7),
+			   HPR_CGR, 0, NULL,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("HPL CG Mute", SPRD_CODEC_HP_PA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPL),
+	           0, 0,
+			   pga_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_S("HPR CG Mute", SPRD_CODEC_HP_PA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPR),
+	           0, 0,
+			   pga_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_INPUT("DMIC"),
 	SND_SOC_DAPM_INPUT("DMIC1"),
 	SND_SOC_DAPM_OUTPUT("HEAD_P_L"),
@@ -2865,8 +2901,12 @@ static const struct snd_soc_dapm_route sprd_codec_intercon[] = {
 
 	{"HP PA", NULL, "HP PA POST Switch"},
 	{"HP PA POST Switch", NULL, "HP PA Switch"},
-	{"HP PA Switch", NULL, "HPL Mute"},
-	{"HP PA Switch", NULL, "HPR Mute"},
+	{"HPL CGL Switch", NULL, "HPL Mute"},
+	{"HPR CGR Switch", NULL, "HPR Mute"},
+	{"HPL CG Mute", NULL, "HPL CGL Switch"},
+	{"HPR CG Mute", NULL, "HPR CGR Switch"},
+	{"HP PA Switch", NULL, "HPL CG Mute"},
+	{"HP PA Switch", NULL, "HPR CG Mute"},
 
 	{"SPKL Mixer", "DACLSPKL Switch", "DACL Switch"},
 	{"SPKL Mixer", "DACRSPKL Switch", "DACR Switch"},
@@ -3183,6 +3223,11 @@ static const DECLARE_TLV_DB_SCALE(mic_tlv, 0, 600, 0);
 static const DECLARE_TLV_DB_SCALE(auxmic_tlv, 0, 600, 0);
 static const DECLARE_TLV_DB_SCALE(headmic_tlv, 0, 600, 0);
 static const DECLARE_TLV_DB_SCALE(ailr_tlv, 0, 600, 0);
+static const DECLARE_TLV_DB_RANGE(clsg_tlv,
+	0, 7, TLV_DB_SCALE_ITEM(-3000, 300, 1),
+	8, 46, TLV_DB_SCALE_ITEM(-850, 50, 0),
+);
+
 
 #define SPRD_CODEC_PGA(xname, xreg, tlv_array) \
 	SOC_SINGLE_EXT_TLV(xname, FUN_REG(xreg), 0, 15, 0, \
@@ -3201,6 +3246,8 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 	SPRD_CODEC_PGA("SPKR Playback Volume", SPRD_CODEC_PGA_SPKR, spk_tlv),
 	SPRD_CODEC_PGA("HPL Playback Volume", SPRD_CODEC_PGA_HPL, hp_tlv),
 	SPRD_CODEC_PGA("HPR Playback Volume", SPRD_CODEC_PGA_HPR, hp_tlv),
+	SPRD_CODEC_PGA("HPL CG Playback Volume", SPRD_CODEC_PGA_CG_HPL, clsg_tlv),
+	SPRD_CODEC_PGA("HPR CG Playback Volume", SPRD_CODEC_PGA_CG_HPR, clsg_tlv),
 	SPRD_CODEC_PGA("EAR Playback Volume", SPRD_CODEC_PGA_EAR, ear_tlv),
 
 	SPRD_CODEC_PGA_MAX("ADCL Capture Volume", SPRD_CODEC_PGA_ADCL, 63,
