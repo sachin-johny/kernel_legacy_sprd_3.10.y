@@ -26,7 +26,8 @@ typedef struct
 } nvm_cali_cmd;
 
 //static char *WIFI_CONFIG_FILE = "/system/etc/connectivity_configure.ini";
-static char *WIFI_CALI_FILE = "/productinfo/connectivity_calibration.ini";
+static char *WIFI_CALI_FILE_PRODUCT = "/productinfo/connectivity_calibration.ini";
+static char *WIFI_CALI_FILE_SYSTEM = "/system/etc/connectivity_calibration.ini";
 
 static WIFI_nvm_data   g_wifi_nvm_data;
 
@@ -255,8 +256,8 @@ bool wifi_cali_file_check(const char *path)
 
     filp = filp_open(path, O_RDONLY, S_IRUSR);
     if (IS_ERR(filp))
+		pr_err("%s,Unable to load '%s' err=%ld.\n", __func__, path, PTR_ERR(filp));
     {
-        printk( "%s,Unable to load '%s'.\n", __func__, path);
         filp = filp_open(path, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
         if (IS_ERR(filp))
         {
@@ -370,17 +371,22 @@ void ittiam_nvm_init(void )
 		return;
 	}
 
-	if(wifi_cali_file_check(WIFI_CALI_FILE)==FALSE)
-	{
-		printk("%s(),fail to load :%s, err!\n", __func__, WIFI_CALI_FILE);
-		return;
-	}
-
-	ret = wifi_nvm_parse(WIFI_CALI_FILE);
-	if(0 != ret)
-	{
-		printk("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE);
-		return;
+	if (wifi_cali_file_check(WIFI_CALI_FILE_PRODUCT) == TRUE) {
+		pr_info("%s(),read %s success\n",__func__, WIFI_CALI_FILE_PRODUCT);
+		pr_info("%s(),load %s \n",__func__, WIFI_CALI_FILE_PRODUCT);
+		ret = wifi_nvm_parse(WIFI_CALI_FILE_PRODUCT);
+		if (0 != ret) {
+		    pr_err("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE_PRODUCT);
+		    return;
+		}
+	} else {/* read file from product failed */
+		pr_err("%s(),read %s fail\n",__func__, WIFI_CALI_FILE_PRODUCT);
+		pr_err("%s(),load %s \n",__func__, WIFI_CALI_FILE_SYSTEM);
+		ret = wifi_nvm_parse(WIFI_CALI_FILE_SYSTEM);
+		if (0 != ret) {
+		    pr_err("%s(),parse:%s, err!\n", __func__, WIFI_CALI_FILE_SYSTEM);
+		    return;
+		}
 	}
 	g_wifi_nvm_data.data_init_ok = 1;
 	printk("%s(), ok!\n", __func__);
