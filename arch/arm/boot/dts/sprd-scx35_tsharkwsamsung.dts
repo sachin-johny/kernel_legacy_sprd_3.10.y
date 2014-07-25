@@ -589,7 +589,9 @@
 		non-removable = <1>;
 		caps = <0x80000000>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddemmcio";
+		host-caps-mask = <0x03000000>;
+		vdd-vmmc = "vddemmccore";
+		vdd-vqmmc = "vddemmcio";
 		emmc-signal-supply = <&vddemmccore>;
 		vdd-level = <1200000 1300000 1500000 1800000>;
 		clock-names = "clk_emmc";
@@ -612,10 +614,11 @@
 		keep-power-in-suspend = <1>;
 		caps = <0x80000000>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddsd";
+		host-caps-mask = <0x05000000>;
+		vdd-vqmmc = "vddsd";
 		sd-supply = <&vddsd>;
 		vdd-level = <0 0 1800000 3000000>;
-		init-voltage-level = <4>;
+		vqmmc-voltage-level = <3000000>;
 		pinmap-offset = <0x0184>;
 		d3-gpio = <100>;
 		d3-index = <0>;

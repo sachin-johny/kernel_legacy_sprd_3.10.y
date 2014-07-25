@@ -643,10 +643,11 @@
 		keep-power-in-suspend = <1>;
 		caps = <0x80000000>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddsd";
+		host-caps-mask = <0x05000000>;
+		vdd-vqmmc = "vddsd";
 		sd-supply = <&vddsd>;
 		vdd-level = <0 0 1800000 3000000>;
-		init-voltage-level = <4>;
+		vqmmc-voltage-level = <3000000>;
 		pinmap-offset = <0x0184>;
 		d3-gpio = <100>;
 		d3-index = <0>;
