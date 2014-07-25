@@ -32,6 +32,7 @@
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
 #include <mach/sci.h>
+#include <asm/atomic.h>
 
 extern void sci_secondary_startup(void);
 
@@ -82,13 +83,28 @@ int poweron_cpus(int cpu)
 	else
 		return -1;
 
-	val = BITS_PD_CA7_C3_PWR_ON_DLY(4) | BITS_PD_CA7_C3_PWR_ON_SEQ_DLY(4) | BITS_PD_CA7_C3_ISO_ON_DLY(4);
-	writel(val,poweron);
 
-	writel((__raw_readl(REG_AP_AHB_CA7_RST_SET) | (1 << cpu)), REG_AP_AHB_CA7_RST_SET);
+	val = sci_glb_read(REG_AP_AHB_CA7_RST_SET, -1UL);
+	val |= (1 << cpu);
+	sci_glb_write(REG_AP_AHB_CA7_RST_SET, val, -1UL);
+
+	val = BITS_PD_CA7_C3_PWR_ON_DLY(4) | BITS_PD_CA7_C3_PWR_ON_SEQ_DLY(4) | BITS_PD_CA7_C3_ISO_ON_DLY(4);
+	sci_glb_write(poweron, val, -1UL);
+
 	val = (BIT_PD_CA7_C3_AUTO_SHUTDOWN_EN | __raw_readl(poweron)) &~(BIT_PD_CA7_C3_FORCE_SHUTDOWN);
-	writel(val,poweron);
+	sci_glb_write(poweron, val, -1UL);
+	dmb();
 	udelay(1000);
+
+	while((__raw_readl(poweron)&BIT_PD_CA7_C3_FORCE_SHUTDOWN) ||
+		!(__raw_readl(REG_AP_AHB_CA7_RST_SET)&(1 << cpu)) ){
+		pr_debug("??? %s set regs failed ???\n", __func__ );
+		writel((__raw_readl(REG_AP_AHB_CA7_RST_SET) | (1 << cpu)), REG_AP_AHB_CA7_RST_SET);
+		val = (BIT_PD_CA7_C3_AUTO_SHUTDOWN_EN | __raw_readl(poweron)) &~(BIT_PD_CA7_C3_FORCE_SHUTDOWN);
+		writel(val,poweron);
+		dmb();
+		udelay(500);
+	}
 	writel((__raw_readl(REG_AP_AHB_CA7_RST_SET) & ~(1 << cpu)), REG_AP_AHB_CA7_RST_SET);
 	return 0;
 }
@@ -192,6 +208,9 @@ unsigned int g_sprd_up_flag[4] =
 		SPRD_UP_FLAG3
 	};
 
+atomic_t boot_lock_cnt  = ATOMIC_INIT(0);
+atomic_t boot_unlock_cnt = ATOMIC_INIT(0);
+
 void __cpuinit sprd_secondary_init(unsigned int cpu)
 {
 	/*
@@ -213,7 +232,7 @@ void __cpuinit sprd_secondary_init(unsigned int cpu)
 	 */
 	spin_lock(&boot_lock);
 	spin_unlock(&boot_lock);
-
+	atomic_inc(&boot_unlock_cnt);
 	g_sprd_boot_flag_1 = 0;
 	g_sprd_boot_flag_2 = 0;
 
@@ -232,6 +251,7 @@ int __cpuinit sprd_boot_secondary(unsigned int cpu, struct task_struct *idle)
 	 * and the secondary one
 	 */
 	spin_lock(&boot_lock);
+	atomic_inc(&boot_lock_cnt);
 
 	/*
 	 * The secondary processor is waiting to be released from
@@ -263,6 +283,7 @@ int __cpuinit sprd_boot_secondary(unsigned int cpu, struct task_struct *idle)
 			break;
 
 		udelay(10);
+		dsb_sev();
 	}
 
 	spin_unlock(&boot_lock);
