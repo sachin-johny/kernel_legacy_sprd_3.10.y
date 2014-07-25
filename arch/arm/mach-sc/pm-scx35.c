@@ -261,7 +261,7 @@ static void setup_autopd_mode(void)
 	sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 #endif
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	/* KEEP eMMC/SD power */
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN | BIT_SLP_LDOEMMCIO_PD_EN);
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOSD_PD_EN );
@@ -562,7 +562,7 @@ void bak_restore_aon(int bak)
 }
 void disable_ana_module(void)
 {
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	sci_adi_set(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
 		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD);
 #else
@@ -576,7 +576,7 @@ void bak_restore_ana(int bak)
 {
 	static uint32_t ldo_pd_ctrl;
 	static uint32_t mask;
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	mask = BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
 		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD;
 #else
@@ -727,7 +727,7 @@ void bak_last_reg(void)
 	sys_auto_sleep_cfg = __raw_readl(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG);
 	ca7_standby_status = __raw_readl(REG_AP_AHB_CA7_STANDBY_STATUS);
 
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	ldo_slp_ctrl0 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
 	ldo_slp_ctrl1 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
 	ldo_slp_ctrl2 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL2);
@@ -743,7 +743,7 @@ void bak_last_reg(void)
 
 #if defined(CONFIG_ARCH_SCX15)
 #else
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	ldo_aud_ctrl4 = sci_adi_read(ANA_REG_GLB_AUD_SLP_CTRL4);
 #else
 #if defined(CONFIG_ADIE_SC2723S)
@@ -830,7 +830,7 @@ void print_last_reg(void)
         printk("ANA_REG_GLB_PWR_XTL_EN1 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN1));
         printk("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
         printk("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	printk("ANA_REG_GLB_PWR_XTL_EN4 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN4));
 #if defined(CONFIG_ARCH_SCX15)
 #else
@@ -1163,7 +1163,7 @@ int deep_sleep(int from_idle)
     defined(CONFIG_MACH_SP7731GGA) | defined(CONFIG_MACH_SP7731GGA_LC) | \
     defined(CONFIG_MACH_SP8730SEA)
 	sci_adi_clr(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SIM2_PD);
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
 #else
 #if defined(CONFIG_ADIE_SC2723S)
@@ -1300,7 +1300,7 @@ static void dcdc_core_ds_config(void)
 	u32 dcdc_core_ctl_adi = 0;
 	u32 val = 0;
 	u32 dcdc_core_ctl_ds = -1;
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 #ifdef CONFIG_ARCH_SCX30G
 	static struct dcdc_core_ds_step_info step_info[5]={
 		{ANA_REG_GLB_MP_PWR_CTRL1, 0,ANA_REG_GLB_MP_PWR_CTRL2, 0},
@@ -1319,7 +1319,7 @@ static void dcdc_core_ds_config(void)
 	dcdc_core_ctl_ds  = dcdc_core_ctl_adi;
 	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n",dcdc_core_ctl_adi,dcdc_core_ctl_ds);
 
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
 #else
 #if defined(CONFIG_ADIE_SC2723S)
@@ -1328,7 +1328,7 @@ static void dcdc_core_ds_config(void)
 #endif
 	val &= ~0x7;
 	val |= dcdc_core_ctl_ds;
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
 #else
 #if defined(CONFIG_ADIE_SC2723S)
@@ -1394,7 +1394,7 @@ static void dcdc_core_ds_config(void)
 	/*valid value*/
 	if(dcdc_core_ctl_ds != -1) {
 #ifndef CONFIG_ARCH_SCX15
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
         val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
 #else
 #if defined(CONFIG_ADIE_SC2723S)
@@ -1403,7 +1403,7 @@ static void dcdc_core_ds_config(void)
 #endif
 		val &= ~(0x7);
 		val |= dcdc_core_ctl_ds;
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
 #else
 #if defined(CONFIG_ADIE_SC2723S)
@@ -1434,7 +1434,7 @@ void pm_ana_ldo_config(void)
 	/*open vdd28, vdd18 lp mode*/
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL3, BIT_SLP_LDOVDD28_LP_EN | BIT_SLP_LDOVDD18_LP_EN);
 	/*ddr2_buf quiesent curretn set to 4-5uA in deep sleep mode*/
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	sci_adi_clr(ANA_REG_GLB_DDR2_CTRL, BITS_DDR2_BUF_S_DS(0x3));
 #endif
 #endif
@@ -1470,7 +1470,7 @@ static void sc8830_power_off(void)
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL,0xfff);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD,0x7fff);
 #else
-#if defined(CONFIG_ADIE_SC2713S)
+#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	/*turn off system core's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, 0X7fff);
