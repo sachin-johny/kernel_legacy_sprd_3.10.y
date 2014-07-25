@@ -27,7 +27,7 @@ enum power_domain_id {
 	VDDSIM0,
 	VDDSIM1,
 	VDDSIM2,
-	VDDSD,
+	VDDSDCORE,
 	VDD18,
 	PD_CNT,
 };
