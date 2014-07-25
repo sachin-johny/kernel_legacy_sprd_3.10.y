@@ -255,9 +255,9 @@ bool wifi_cali_file_check(const char *path)
 	set_fs(KERNEL_DS);
 
     filp = filp_open(path, O_RDONLY, S_IRUSR);
-    if (IS_ERR(filp))
-		pr_err("%s,Unable to load '%s' err=%ld.\n", __func__, path, PTR_ERR(filp));
+    if (IS_ERR(filp))	
     {
+        pr_err("%s,Unable to load '%s' err=%ld.\n", __func__, path, PTR_ERR(filp));
         filp = filp_open(path, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
         if (IS_ERR(filp))
         {
