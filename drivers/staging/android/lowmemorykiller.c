@@ -57,7 +57,7 @@
 #endif
 
 #ifdef MULTIPLE_OOM_KILLER
-#define OOM_DEPTH 7
+#define OOM_DEPTH 3
 #endif
 
 static uint32_t lowmem_debug_level = 1;
@@ -78,6 +78,7 @@ static int lowmem_minfree_size = 4;
 static int lmk_fast_run = 1;
 
 static unsigned long lowmem_deathpending_timeout;
+static unsigned long oom_deathpending_timeout;
 
 #define lowmem_print(level, x...)			\
 	do {						\
@@ -588,6 +589,16 @@ static int android_oom_handler(struct notifier_block *nb,
 		if (tsk->flags & PF_KTHREAD)
 			continue;
 
+		if (test_task_flag(tsk, TIF_MEMDIE)) {
+			if (time_before_eq(jiffies, oom_deathpending_timeout)) {
+				read_unlock(&tasklist_lock);
+				/* give the system time to free up the memory */
+				msleep_interruptible(20);
+				return 0;
+			}
+			continue;
+		}
+
 		p = find_lock_task_mm(tsk);
 		if (!p)
 			continue;
@@ -665,6 +676,7 @@ static int android_oom_handler(struct notifier_block *nb,
 				     selected_oom_score_adj[i],
 				     selected_tasksize[i]);
 			send_sig(SIGKILL, selected[i], 0);
+			set_tsk_thread_flag(selected[i], TIF_MEMDIE);
 			rem -= selected_tasksize[i];
 			*freed += (unsigned long)selected_tasksize[i];
 #ifdef OOM_COUNT_READ
@@ -673,11 +685,14 @@ static int android_oom_handler(struct notifier_block *nb,
 
 		}
 	}
+	if(selected[0])
+		oom_deathpending_timeout = jiffies + HZ;
 #else
 	if (selected) {
 		lowmem_print(1, "oom: send sigkill to %d (%s), adj %d, size %d\n",
 			     selected->pid, selected->comm,
 			     selected_oom_score_adj, selected_tasksize);
+		oom_deathpending_timeout = jiffies + HZ;
 		send_sig(SIGKILL, selected, 0);
 		set_tsk_thread_flag(selected, TIF_MEMDIE);
 		rem -= selected_tasksize;
@@ -688,6 +703,9 @@ static int android_oom_handler(struct notifier_block *nb,
 	}
 #endif
 	read_unlock(&tasklist_lock);
+
+	/* give the system time to free up the memory */
+	msleep_interruptible(20);
 
 	lowmem_print(2, "oom: get memory %lu", *freed);
 	return rem;
