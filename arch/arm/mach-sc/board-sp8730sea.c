@@ -68,6 +68,10 @@
 #include <mach/i2s.h>
 #include <linux/sprd_2351.h>
 
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+#include <linux/sprd_pwm_bl.h>
+#endif
+
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
@@ -106,6 +110,16 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 	.debounce_time = 5000,
 };
 
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+static struct sprd_pwm_bl_platform_data sprd_pwm_bl_platform_data = {
+	.brightness_max = 255,
+	.brightness_min = 0,
+	.pwm_index = 3,
+	.gpio_ctrl_pin = -1,
+	.gpio_active_level = 0,
+};
+#endif
+
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
@@ -121,7 +135,10 @@ static struct platform_device *devices[] __initdata = {
 #ifdef CONFIG_PSTORE_RAM
 	&sprd_ramoops_device,
 #endif
-        &sprd_backlight_device,
+	&sprd_backlight_device,
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+	&sprd_pwm_bl_device,
+#endif
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
@@ -761,6 +778,9 @@ static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
 	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.2", .phys_addr = SPRD_SDIO2_BASE  },
 	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.3", .phys_addr = SPRD_EMMC_BASE  },
 	 { .compatible = "sprd,sprd_backlight",  .name = "sprd_backlight" },
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+	{ .compatible = "sprd,sprd_pwm_bl",  .name = "sprd_pwm_bl" },
+#endif
 	 {}
 };
 #endif
@@ -793,6 +813,9 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_audio_i2s1_device,(const void*)&i2s1_config,sizeof(i2s1_config));
 	platform_device_add_data(&sprd_audio_i2s2_device,(const void*)&i2s2_config,sizeof(i2s2_config));
 	platform_device_add_data(&sprd_audio_i2s3_device,(const void*)&i2s3_config,sizeof(i2s3_config));
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+	platform_device_add_data(&sprd_pwm_bl_device, (const void*)&sprd_pwm_bl_platform_data, sizeof(sprd_pwm_bl_platform_data));
+#endif
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();

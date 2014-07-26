@@ -434,6 +434,14 @@ struct platform_device sprd_backlight_device __attribute__((weak)) = {
 	.resource	= sprd_bl_resource,
 };
 #endif
+
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+struct platform_device sprd_pwm_bl_device = {
+	.name = "sprd_pwm_bl",
+	.id = -1,
+};
+#endif
+
 static struct resource sprd_i2c_resources0[] = {
 	[0] = {
 		.start = SPRD_I2C0_BASE,

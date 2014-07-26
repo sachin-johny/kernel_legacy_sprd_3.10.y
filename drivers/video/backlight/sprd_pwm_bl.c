@@ -28,19 +28,21 @@
 #include <mach/arch_misc.h>
 #include <linux/of.h>
 
-//#define SPRD_BACKLIGHT_DBG
-#ifdef SPRD_BACKLIGHT_DBG
-#define ENTER printk(KERN_INFO "[SPRD_BACKLIGHT_DBG] func: %s  line: %04d\n", __func__, __LINE__);
-#define PRINT_DBG(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_DBG] " x)
-#define PRINT_INFO(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_INFO] " x)
-#define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_WARN] " x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_BACKLIGHT_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#include <linux/sprd_pwm_bl.h>
+
+//#define SPRD_PWM_BL_DBG
+#ifdef SPRD_PWM_BL_DBG
+#define ENTER printk(KERN_INFO "[SPRD_PWM_BL_DBG] func: %s  line: %04d\n", __func__, __LINE__);
+#define PRINT_DBG(x...)  printk(KERN_INFO "[SPRD_PWM_BL_DBG] " x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[SPRD_PWM_BL_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_PWM_BL_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_PWM_BL_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
 #else
 #define ENTER
 #define PRINT_DBG(x...)
-#define PRINT_INFO(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_INFO] " x)
-#define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_BACKLIGHT_WARN] " x)
-#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_BACKLIGHT_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
+#define PRINT_INFO(x...)  printk(KERN_INFO "[SPRD_PWM_BL_INFO] " x)
+#define PRINT_WARN(x...)  printk(KERN_INFO "[SPRD_PWM_BL_WARN] " x)
+#define PRINT_ERR(format,x...)  printk(KERN_ERR "[SPRD_PWM_BL_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x)
 #endif
 
 /* register definitions */
@@ -62,30 +64,28 @@
 #define        PWM_MOD_MAX     0xff
 #define        PWM_DUTY_MAX     0x7f
 
-enum bl_pwm_mode {
-        normal_pwm,
-        dim_pwm,
-        pd_pwd,
-};
-
-struct sprd_bl_devdata {
-        enum bl_pwm_mode	pwm_mode;
-        u32		pwm_index;
+struct sprd_pwm_bl_device_data {
+        int suspend;
+        int brightness_max;
+        int brightness_min;
+        int pwm_index;
+        int gpio_ctrl_pin;
+        int gpio_active_level;
+        struct clk *clk;
         struct backlight_device *bldev;
-        int             suspend;
-        struct clk      *clk;
         struct early_suspend sprd_early_suspend_desc;
-        int ctl_pin;
-        int ctl_pin_level;
 };
 
-static struct sprd_bl_devdata sprdbl = {
-        .ctl_pin = -1,
-        .ctl_pin_level = -1,
+static struct sprd_pwm_bl_device_data sprd_pwm_bl = {
+        .brightness_max = 0,
+        .brightness_min = 0,
+        .pwm_index = 0,
+        .gpio_ctrl_pin = -1,
+        .gpio_active_level = 0,
 };
 
 static DEFINE_SPINLOCK(clock_en_lock);
-static void bl_pwm_clk_en(int enable)
+static void pwm_clk_en(int enable)
 {
         unsigned long spin_lock_flags;
         static int current_state = 0;
@@ -93,12 +93,12 @@ static void bl_pwm_clk_en(int enable)
         spin_lock_irqsave(&clock_en_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_state) {
-                        clk_prepare_enable(sprdbl.clk);
+                        clk_prepare_enable(sprd_pwm_bl.clk);
                         current_state = 1;
                 }
         } else {
                 if (1 == current_state) {
-                        clk_disable_unprepare(sprdbl.clk);
+                        clk_disable_unprepare(sprd_pwm_bl.clk);
                         current_state = 0;
                 }
         }
@@ -120,114 +120,120 @@ static void pwm_write(int index, uint32_t value, uint32_t reg)
 }
 
 //sprd used PWM2(mapped to gpio190) for external backlight control.
-static int sprd_bl_pwm_update_status(struct backlight_device *bldev)
+static int sprd_pwm_bl_update_status(struct backlight_device *bldev)
 {
         u32 led_level;
 
         if ((bldev->props.state & (BL_CORE_SUSPENDED | BL_CORE_FBBLANK)) ||
             bldev->props.power != FB_BLANK_UNBLANK ||
-            sprdbl.suspend ||
+            sprd_pwm_bl.suspend ||
             bldev->props.brightness == 0) {
                 /* disable backlight */
-                pwm_write(sprdbl.pwm_index, 0, PWM_PRESCALE);
-                bl_pwm_clk_en(0);
-                PRINT_INFO("[pwm] disabled\n");
+                pwm_write(sprd_pwm_bl.pwm_index, 0, PWM_PRESCALE);
+                pwm_clk_en(0);
+                PRINT_INFO("disabled\n");
         } else {
                 led_level = bldev->props.brightness & PWM_MOD_MAX;
                 //led_level = (led_level * (PWM_DUTY_MAX+1) / (PWM_MOD_MAX+1)) + 10;
                 led_level = led_level * 67 / 100;
                 if(led_level < 8)
                         led_level = 8;
-                PRINT_INFO("[pwm] brightness = %d, led_level = %d\n", bldev->props.brightness, led_level);
-                bl_pwm_clk_en(1);
-                pwm_write(sprdbl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
-                pwm_write(sprdbl.pwm_index, (led_level << 8) | PWM_MOD_MAX, PWM_CNT);
-                pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_LOW);
-                pwm_write(sprdbl.pwm_index, PWM_REG_MSK, PWM_PAT_HIG);
-                pwm_write(sprdbl.pwm_index, PWM_ENABLE, PWM_PRESCALE);
+                PRINT_INFO("brightness = %d, led_level = %d\n", bldev->props.brightness, led_level);
+                pwm_clk_en(1);
+                pwm_write(sprd_pwm_bl.pwm_index, PWM2_SCALE, PWM_PRESCALE);
+                pwm_write(sprd_pwm_bl.pwm_index, (led_level << 8) | PWM_MOD_MAX, PWM_CNT);
+                pwm_write(sprd_pwm_bl.pwm_index, PWM_REG_MSK, PWM_PAT_LOW);
+                pwm_write(sprd_pwm_bl.pwm_index, PWM_REG_MSK, PWM_PAT_HIG);
+                pwm_write(sprd_pwm_bl.pwm_index, PWM_ENABLE, PWM_PRESCALE);
         }
         return 0;
 }
 
-static int sprd_bl_pwm_get_brightness(struct backlight_device *bldev)
+static int sprd_pwm_bl_get_brightness(struct backlight_device *bldev)
 {
-        return (pwm_read(sprdbl.pwm_index, PWM_CNT) >> 8) & PWM_MOD_MAX;
+        return (pwm_read(sprd_pwm_bl.pwm_index, PWM_CNT) >> 8) & PWM_MOD_MAX;
 }
 
 static const struct backlight_ops sprd_backlight_pwm_ops = {
-        .update_status = sprd_bl_pwm_update_status,
-        .get_brightness = sprd_bl_pwm_get_brightness,
+        .update_status = sprd_pwm_bl_update_status,
+        .get_brightness = sprd_pwm_bl_get_brightness,
 };
 
-#ifdef CONFIG_EARLYSUSPEND
-void set_ctl_pin_state(int on)
+void set_gpio_ctrll_pin_state(int on)
 {
-        static int ret = 0;
-
-        if (sprdbl.ctl_pin == -1)
-                return;
-
-        on = on ? sprdbl.ctl_pin_level : !sprdbl.ctl_pin_level;
-        if (ret == 0) {
-                ret = gpio_request(sprdbl.ctl_pin, "backlight_ctl_pin");
-                if (ret) {
-                        PRINT_ERR("request gpio error!\n");
-                        return -EIO;
-                }
-                gpio_direction_output(sprdbl.ctl_pin, on);
-                ret = 1;
-        }
-
-        gpio_set_value(sprdbl.ctl_pin,on);
+        on = on ? sprd_pwm_bl.gpio_active_level : !sprd_pwm_bl.gpio_active_level;
+        gpio_direction_output(sprd_pwm_bl.gpio_ctrl_pin,on);
+        PRINT_INFO("set_gpio_ctrll_pin_state=%d\n", on);
 }
 
+#ifdef CONFIG_EARLYSUSPEND
 static void sprd_backlight_earlysuspend(struct early_suspend *h)
 {
-        set_ctl_pin_state(0);
-        sprdbl.suspend = 1;
-        sprdbl.bldev->ops->update_status(sprdbl.bldev);
+        if(-1 != sprd_pwm_bl.gpio_ctrl_pin)
+                set_gpio_ctrll_pin_state(0);
+
+        sprd_pwm_bl.suspend = 1;
+        sprd_pwm_bl.bldev->ops->update_status(sprd_pwm_bl.bldev);
         PRINT_INFO("early suspend\n");
 }
 
 static void sprd_backlight_lateresume(struct early_suspend *h)
 {
-        set_ctl_pin_state(1);
-        sprdbl.suspend = 0;
-        sprdbl.bldev->ops->update_status(sprdbl.bldev);
+        if(-1 != sprd_pwm_bl.gpio_ctrl_pin)
+                set_gpio_ctrll_pin_state(1);
+
+        sprd_pwm_bl.suspend = 0;
+        sprd_pwm_bl.bldev->ops->update_status(sprd_pwm_bl.bldev);
         PRINT_INFO("late resume\n");
 }
 #endif
 
 #ifdef CONFIG_OF
-static struct resource *sprd_backlight_parse_dt(struct platform_device *pdev) {
-        int ret;
+static struct sprd_pwm_bl_platform_data *sprd_pwm_bl_parse_dt(struct platform_device *pdev)
+{
+        int ret = -1;
         struct device_node *np = pdev->dev.of_node;
-        struct resource *pwm_res;
-        pwm_res = kzalloc(sizeof(*pwm_res), GFP_KERNEL);
-        if (!pwm_res) {
-                dev_err(pdev, "sprd_backlight Could not allocate struct resource");
+        struct sprd_pwm_bl_platform_data* pdata = NULL;
+
+        pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+        if (!pdata) {
+                PRINT_ERR("failed to allocate pdata!\n");
                 return NULL;
         }
-        ret = of_property_read_u32(np, "start", &pwm_res->start);
+
+        ret = of_property_read_u32(np, "pwm_index", &pdata->pwm_index);
         if(ret) {
-                dev_err(pdev, "fail to get resource.start\n");
+                PRINT_ERR("failed to get pwm_index\n");
                 goto fail;
         }
-        ret = of_property_read_u32(np, "end", &pwm_res->end);
+
+        ret = of_property_read_u32(np, "brightness_max", &pdata->brightness_max);
         if(ret) {
-                dev_err(pdev, "fail to get resource.end\n");
-                goto fail;
+                pdata->brightness_max = 255;
+                PRINT_WARN("failed to get brightness_max\n");
         }
-        ret = of_property_read_u32(np, "ctl_pin", &sprdbl.ctl_pin);
-        ret = of_property_read_u32(np, "ctl_pin_level", &sprdbl.ctl_pin_level);
-        ret = of_property_read_u32(np, "flags", &pwm_res->flags);
+
+        ret = of_property_read_u32(np, "brightness_min", &pdata->brightness_min);
         if(ret) {
-                dev_err(pdev, "fail to get resource.flags\n");
-                goto fail;
+                pdata->brightness_min = 0;
+                PRINT_WARN("failed to get brightness_min\n");
         }
-        return pwm_res;
+
+        ret = of_property_read_u32(np, "gpio_ctrl_pin", &pdata->gpio_ctrl_pin);
+        if(ret) {
+                pdata->gpio_ctrl_pin = -1;
+                PRINT_WARN("failed to get gpio_ctrl_pin\n");
+        }
+
+        ret = of_property_read_u32(np, "gpio_active_level", &pdata->gpio_active_level);
+        if(ret) {
+                pdata->gpio_active_level = 0;
+                PRINT_WARN("failed to get gpio_active_level\n");
+        }
+
+        return pdata;
 fail:
-        kfree(pwm_res);
+        kfree(pdata);
         return NULL;
 }
 #endif
@@ -236,21 +242,17 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 {
         struct backlight_properties props;
         struct backlight_device *bldev;
-        int use_pwm = 0;
-
         struct clk* ext_26m = NULL;
-        struct resource *pwm_res = NULL;
-        struct resource *pwm_res1 = NULL;
         char pwm_clk_name[32];
+        struct sprd_pwm_bl_platform_data* pdata = NULL;
+        int ret = -1;
 
 #ifdef CONFIG_OF
         struct device_node *np = pdev->dev.of_node;
         if(np) {
-                pwm_res = sprd_backlight_parse_dt(pdev);
-                if (pwm_res) {
-                        pdev->resource = pwm_res;
-                } else {
-                        PRINT_ERR("Can't get pwm resource!\n");
+                pdata = sprd_pwm_bl_parse_dt(pdev);
+                if (pdata == NULL) {
+                        PRINT_ERR("get dts data failed!\n");
                         return -ENODEV;
                 }
         } else {
@@ -258,40 +260,48 @@ static int sprd_backlight_probe(struct platform_device *pdev)
                 return -ENODEV;
         }
 #else
-        pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
-        if (pwm_res == NULL) {
-                PRINT_ERR("Can't get pwm resource!\n");
+        pdata = pdev->dev.platform_data;
+        if (pdata == NULL) {
+                PRINT_ERR("No platform data!\n");
                 return -ENODEV;
-        }
-        pwm_res1 = platform_get_resource(pdev, IORESOURCE_IRQ, 0);
-        if (pwm_res1 != NULL) {
-                sprdbl.ctl_pin = pwm_res1->start;
-                sprdbl.ctl_pin_level = !!pwm_res1->end;
         }
 #endif
 
-        sprdbl.pwm_index = pwm_res->start;
+        if(pdata->gpio_ctrl_pin > 0) {
+                sprd_pwm_bl.gpio_ctrl_pin = pdata->gpio_ctrl_pin;
+                sprd_pwm_bl.gpio_active_level= pdata->gpio_active_level;
+                ret = gpio_request(sprd_pwm_bl.gpio_ctrl_pin, "sprd_pwm_bl_gpio_ctrl_pin");
+                if (ret) {
+                        PRINT_ERR("request gpio_ctrl_pin error!\n");
+                        return -EIO;
+                }
+                set_gpio_ctrll_pin_state(1);
+        } else {
+                sprd_pwm_bl.gpio_ctrl_pin = -1;
+        }
+        PRINT_INFO("gpio_ctrl_pin=%d\n", sprd_pwm_bl.gpio_ctrl_pin);
+
+        sprd_pwm_bl.brightness_max= pdata->brightness_max;
+        sprd_pwm_bl.brightness_min= pdata->brightness_min;
+        sprd_pwm_bl.pwm_index = pdata->pwm_index;
+
         /*fixme, the pwm's clk name must like this:clk_pwmx*/
-        sprintf(pwm_clk_name, "%s%d", "clk_pwm", sprdbl.pwm_index);
-        sprdbl.clk = clk_get(&pdev->dev, pwm_clk_name);
-        if (IS_ERR(sprdbl.clk)) {
-                PRINT_ERR("Can't get pwm's clk!\n");
+        sprintf(pwm_clk_name, "%s%d", "clk_pwm", sprd_pwm_bl.pwm_index);
+        sprd_pwm_bl.clk = clk_get(&pdev->dev, pwm_clk_name);
+        if (IS_ERR(sprd_pwm_bl.clk)) {
+                PRINT_ERR("get pwm's clk failed!\n");
                 return -ENODEV;
         }
 
         ext_26m = clk_get(NULL, "ext_26m");
         if (IS_ERR(ext_26m)) {
-                PRINT_ERR("Can't get pwm's ext_26m!\n");
+                PRINT_ERR("get pwm's ext_26m failed!\n");
                 return -ENODEV;
         }
 
-        clk_set_parent(sprdbl.clk,ext_26m);
+        clk_set_parent(sprd_pwm_bl.clk,ext_26m);
 
-        sprdbl.pwm_mode = normal_pwm;
-        use_pwm = 1;
-        PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprdbl.pwm_index);
-
-
+        PRINT_INFO("PWM%d is used for brightness control (external backlight controller)\n", sprd_pwm_bl.pwm_index);
 
         memset(&props, 0, sizeof(struct backlight_properties));
         props.max_brightness = PWM_MOD_MAX;
@@ -300,27 +310,27 @@ static int sprd_backlight_probe(struct platform_device *pdev)
         props.brightness = PWM_MOD_MAX >> 1;
         props.power = FB_BLANK_UNBLANK;
 
-        if(1 == use_pwm) {
-                bldev = backlight_device_register(
-                                pdev->name, &pdev->dev,
-                                &sprdbl, &sprd_backlight_pwm_ops, &props);
-                if (IS_ERR(bldev)) {
-                        PRINT_ERR("Failed to register backlight device!\n");
-                        return -ENOMEM;
-                }
+        bldev = backlight_device_register(
+                        "sprd_backlight", &pdev->dev,
+                        &sprd_pwm_bl, &sprd_backlight_pwm_ops, &props);
+
+        if (IS_ERR(bldev)) {
+                PRINT_ERR("regist backlight device failed!\n");
+                return -ENOMEM;
         }
 
-        sprdbl.bldev = bldev;
+        sprd_pwm_bl.bldev = bldev;
         platform_set_drvdata(pdev, bldev);
         bldev->ops->update_status(bldev);
 
 #ifdef CONFIG_EARLYSUSPEND
-        sprdbl.sprd_early_suspend_desc.level	= EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
-        sprdbl.sprd_early_suspend_desc.suspend	= sprd_backlight_earlysuspend;
-        sprdbl.sprd_early_suspend_desc.resume	= sprd_backlight_lateresume;
-        register_early_suspend(&sprdbl.sprd_early_suspend_desc);
+        sprd_pwm_bl.sprd_early_suspend_desc.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN;
+        sprd_pwm_bl.sprd_early_suspend_desc.suspend = sprd_backlight_earlysuspend;
+        sprd_pwm_bl.sprd_early_suspend_desc.resume = sprd_backlight_lateresume;
+        register_early_suspend(&sprd_pwm_bl.sprd_early_suspend_desc);
 #endif
 
+        PRINT_INFO("probe success\n");
         return 0;
 }
 
@@ -333,13 +343,11 @@ static int sprd_backlight_remove(struct platform_device *pdev)
         bldev->props.brightness = PWM_MOD_MAX;
 
         backlight_update_status(bldev);
-
         backlight_device_unregister(bldev);
-
         platform_set_drvdata(pdev, NULL);
 
 #ifdef CONFIG_EARLYSUSPEND
-        unregister_early_suspend(&sprdbl.sprd_early_suspend_desc);
+        unregister_early_suspend(&sprd_pwm_bl.sprd_early_suspend_desc);
 #endif
         return 0;
 }
@@ -371,7 +379,7 @@ static int sprd_backlight_resume(struct platform_device *pdev)
 #endif
 
 static const struct of_device_id backlight_of_match[] = {
-        { .compatible = "sprd,sprd_backlight", },
+        { .compatible = "sprd,sprd_pwm_bl", },
         { }
 };
 static struct platform_driver sprd_backlight_driver = {
@@ -381,7 +389,7 @@ static struct platform_driver sprd_backlight_driver = {
         .resume = sprd_backlight_resume,
         .shutdown = sprd_backlight_shutdown,
         .driver = {
-                .name = "sprd_backlight",
+                .name = "sprd_pwm_bl",
                 .owner = THIS_MODULE,
                 .of_match_table = backlight_of_match,
         },

@@ -264,6 +264,14 @@
 			 interrupts = <5 0x0>; /* ext irq 5 */
 		 };
 	 };
+	sprd_pwm_bl {
+		compatible = "sprd,sprd_pwm_bl";
+		brightness_max = <255>;
+		brightness_min = <0>;
+		pwm_index = <3>;
+		gpio_ctrl_pin = <0>;
+		gpio_active_level = <0>;
+	};
 	 keypad@f5208000{
 		 compatible = "sprd,sci-keypad";
 		 reg = <0Xf5208000 0x1000>;
