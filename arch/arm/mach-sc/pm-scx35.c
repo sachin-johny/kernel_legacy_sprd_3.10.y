@@ -1159,7 +1159,7 @@ int deep_sleep(int from_idle)
 	* TODO: this is a workaroud for hardware. keep VDDSIM2 on in deep sleep
 	* This code should be deleted in future.
 	*/
-#if defined(CONFIG_MACH_SP7731GEA) | defined(CONFIG_MACH_SP7731GEA_LC) | \
+#if defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_SP7731GEA_FWVGA) | defined(CONFIG_MACH_SP7731GEA_LC) | \
     defined(CONFIG_MACH_SP7731GGA) | defined(CONFIG_MACH_SP7731GGA_LC) | \
     defined(CONFIG_MACH_SP8730SEA)
 	sci_adi_clr(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SIM2_PD);

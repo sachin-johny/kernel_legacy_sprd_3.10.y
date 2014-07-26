@@ -62,6 +62,10 @@
 #include "__board-sp7731gea.h"
 #endif
 
+#ifdef	CONFIG_MACH_SP7731GEA_FWVGA
+#include "__board-sp7731gea_fwvga.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7731GEAOPENPHONE
 #include "__board-sp7731geaopenphone.h"
 #endif
