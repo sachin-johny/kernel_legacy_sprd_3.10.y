@@ -20,7 +20,7 @@
 /* memory reserved for ION */
 /memreserve/ 0x9f900000 0x700000; /* 7MK */
 
-/include/ "rt5033.dtsi"
+/* /include/ "rt5033.dtsi" */
 /include/ "sprd-scx35.dtsi"
 
 / {
@@ -34,9 +34,9 @@
 	};
 
 	aliases {
-		i2c_gpio6 = &i2c_gpio6;
+		/*i2c_gpio6 = &i2c_gpio6;*/
 		i2c_gpio7 = &i2c_gpio7;
-		i2c_gpio8 = &i2c_gpio8;
+		/*i2c_gpio8 = &i2c_gpio8;*/
 	};
 
 	memory {
@@ -47,10 +47,8 @@
 	adi: adi_bus {
 		sprd_backlight {
 			compatible = "sprd,sprd_backlight";
-			start = <2>;
-			end = <2>;
-			ctl_pin = <214>;
-			ctl_pin_level = <1>;
+			start = <3>;
+			end = <3>;
 			flags = <0x100>;
 		};
 

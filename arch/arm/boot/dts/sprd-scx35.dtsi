@@ -8,7 +8,7 @@
  */
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
-/include/ "scx30g-regulators.dtsi"
+/include/ "sc2723-regulators.dtsi"
 /include/ "sprd-sound.dtsi"
 
 / {
@@ -169,7 +169,7 @@
 					"vddsim0",
 					"vddsim1",
 					"vddsim2",
-					"vddsd",
+					"vddsdio",
 					"vdd18";
 		 ctrl_desc = <0x10 0 1
 					0x10 1 1
@@ -472,8 +472,8 @@
 		caps = <0x80000000>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x05000000>;
-		vdd-vqmmc = "vddsd";
-		sd-supply = <&vddsd>;
+		vdd-vqmmc = "vddsdio";
+		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
 		vqmmc-voltage-level = <3000000>;
 		pinmap-offset = <0x0184>;
