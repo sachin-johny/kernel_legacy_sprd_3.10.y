@@ -169,7 +169,7 @@
 					"vddsim0",
 					"vddsim1",
 					"vddsim2",
-					"vddsdio",
+					"vddsdcore",
 					"vdd18";
 		 ctrl_desc = <0x10 0 1
 					0x10 1 1
@@ -434,7 +434,7 @@
 		compatible  = "sprd,sprd_dma_copy";
 	};
 
-	sdhci3: sdhci@f511c000 {
+	sdhci3: sdhci@f511c000{
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 60 0x0>;
 		reg = <0xf511c000 0x1000>;
@@ -443,25 +443,24 @@
 		max-frequency = <384000000>;
 		keep-power-in-suspend = <1>;
 		non-removable = <1>;
-		caps = <0x80000000>;
+		caps = <0x80000800>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x03000000>;
 		vdd-vmmc = "vddemmccore";
-		vdd-vqmmc = "vddemmcio";
+		vdd-vqmmc = "vddgen1";
 		emmc-signal-supply = <&vddemmccore>;
 		vdd-level = <1200000 1300000 1500000 1800000>;
 		clock-names = "clk_emmc";
 		clocks = <&clk_emmc>, <&clk_384m>;
 		enb-bit = <0x800>;
 		rst-bit = <0x4000>;
-		write-delay = <0x20>;
-		read-pos-delay = <0x07>;
-		read-neg-delay = <0x05>;
+		write-delay = <0x04>;
+		read-pos-delay = <0x04>;
+		read-neg-delay = <0x04>;
 		keep-power = <0>;
 		runtime = <1>;
 	};
-
-	sdhci0: sdhci@f5117000 {
+	sdhci0: sdhci@f5117000{
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 57 0x0>;
 		reg = <0xf5117000 0x1000>;
@@ -472,10 +471,10 @@
 		caps = <0x80000000>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x05000000>;
+		vdd-vmmc = "vddsdcore";
 		vdd-vqmmc = "vddsdio";
 		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
-		vqmmc-voltage-level = <3000000>;
 		pinmap-offset = <0x0184>;
 		d3-gpio = <100>;
 		d3-index = <0>;
@@ -488,8 +487,7 @@
 		keep-power = <0>;
 		runtime = <1>;
 	};
-
-	sdhci1: sdhci@f5118000 {
+	sdhci1: sdhci@f5118000{
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 58 0x0>;
 		reg = <0xf5118000 0x1000>;
