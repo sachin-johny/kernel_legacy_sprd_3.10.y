@@ -4,7 +4,9 @@
 #include <linux/thermal.h>
 
 #define COOLING_DEV_MAX 8
-#define THM_TEMP_DEGREE_SETP   15
+#define THM_TEMP_DEGREE_SETP   		10
+#define THM_TEMP_DEGREE_START  		105
+#define THM_TEMP_DEGREE_CRITICAL 	114
 
 enum sprd_thm_sensor_id {
 	SPRD_ARM_SENSOR = 0,

@@ -235,10 +235,9 @@ static void sprd_thermal_work(struct work_struct *work)
 
 static void sprd_thermal_resume_delay_work(struct work_struct *work)
 {
-	enum thermal_device_mode cur_mode;
 	struct sprd_thermal_zone *pzone;
 
-	pzone = container_of(work, struct sprd_thermal_zone, resume_delay_work);
+	pzone = container_of(work, struct sprd_thermal_zone, resume_delay_work.work);
 	dev_dbg(&pzone->therm_dev->device, "thermal resume delay work Started.\n");
 	sprd_thm_hw_resume(pzone);
 	dev_dbg(&pzone->therm_dev->device, "thermal resume delay work finished.\n");

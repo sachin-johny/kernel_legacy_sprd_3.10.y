@@ -34,11 +34,12 @@
 #define THM_CTRL            (0x0000)
 #define THM_INT_CTRL       (0x0004)
 #define SENSOR_CTRL         (0x0020)
+#define SENSOR_DET_PERI     (0x0024)
 #define SENSOR_INT_CTRL     (0x0028)
 #define SENSOR_INT_STS      (0x002C)
 #define SENSOR_INT_RAW_STS      (0x0030)
 #define SENSOR_INT_CLR      (0x0034)
-#define SENSOR_OVERHEAD_HOT_THRES   (0X0040)
+#define SENSOR_OVERHEAT_HOT_THRES   (0X0040)
 #define SENSOR_HOT2NOR__HIGHOFF_THRES   (0X0044)
 #define SENSOR_LOWOFF__COLD_THRES   (0X0048)
 #define SENSOR_TEMPER0_READ	(0x0058)
@@ -59,7 +60,7 @@
 
 #define HOT2NOR_RANGE   15
 #define LOCAL_SENSOR_ADDR_OFF 0x100
-#define DELAY_TEMPERATURE 2
+#define DELAY_TEMPERATURE 3
 
 #define TSMC_DOLPHINW4T_CHIP_ID_1  0x7715A001
 #define TSMC_DOLPHINW4T_CHIP_ID_2  0x7715A003
@@ -125,9 +126,7 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 		(u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 
 	//Disable sensor int
-	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL),
-			0,
-			0x7F);
+	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL),0,(0x7F & (~SEN_OVERHEAT_INT_BIT)));
 
 	//set hot int temp value
 	THM_DEBUG("thm sensor trip:%d, temperature:%d  \n", trip, trip_tab->trip_points[trip].temp);
@@ -137,7 +136,7 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 	if (raw_temp < RAW_TEMP_RANGE_MSK) {
 		raw_temp++;
 	}
-	__thm_reg_write((local_sensor_addr + SENSOR_OVERHEAD_HOT_THRES),
+	__thm_reg_write((local_sensor_addr + SENSOR_OVERHEAT_HOT_THRES),
 				     raw_temp,
 					 RAW_TEMP_RANGE_MSK);
 
@@ -157,7 +156,7 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 					raw_temp << RAW_TEMP_OFFSET,
 					RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);
 
-	THM_DEBUG("thm OVERHEAD_HOT:0x%x, HOT2NOR__HIGHOFF:0x%x, LOWOFF__COLD:0x%x\n", __thm_reg_read(local_sensor_addr + SENSOR_OVERHEAD_HOT_THRES),
+	THM_DEBUG("thm OVERHEAT_HOT:0x%x, HOT2NOR__HIGHOFF:0x%x, LOWOFF__COLD:0x%x\n", __thm_reg_read(local_sensor_addr + SENSOR_OVERHEAT_HOT_THRES),
 		  __thm_reg_read(local_sensor_addr + SENSOR_HOT2NOR__HIGHOFF_THRES), __thm_reg_read(local_sensor_addr + SENSOR_LOWOFF__COLD_THRES));
 
     // Restart sensor to enable new paramter
@@ -369,7 +368,7 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 						   1].temp - cal_offset);
 			//set overheat int temp value
 			__thm_reg_write((local_sensor_addr +
-					 SENSOR_OVERHEAD_HOT_THRES),
+					 SENSOR_OVERHEAT_HOT_THRES),
 					raw_temp << RAW_TEMP_OFFSET,
 					RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);
 			__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL),	//enable int
@@ -381,8 +380,9 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 	       local_sensor_addr,
 	       __thm_reg_read((local_sensor_addr + SENSOR_INT_CTRL)));
 
+	// Set sensor det period is 2.25S
+	__thm_reg_write((local_sensor_addr + SENSOR_DET_PERI), 0x2000, 0x2000);
 	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x101, 0x101);
-
      
 	// Start the sensor by set Sen_set_rdy(bit3)  
 	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x8, 0x8);
@@ -466,7 +466,7 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 	printk("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n",
 	       sprd_thm_temp_read(pzone->sensor_id));
 
-	overhead_hot_tem_cur = __thm_reg_read((local_sensor_addr + SENSOR_OVERHEAD_HOT_THRES))
+	overhead_hot_tem_cur = __thm_reg_read((local_sensor_addr + SENSOR_OVERHEAT_HOT_THRES))
 								& RAW_TEMP_RANGE_MSK;
 
 	if (int_sts & SEN_HOT_INT_BIT)
