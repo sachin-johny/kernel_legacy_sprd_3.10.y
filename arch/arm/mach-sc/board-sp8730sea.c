@@ -823,7 +823,7 @@ static void __init sc8830_init_machine(void)
 #else
 	of_platform_populate(NULL, of_sprd_default_bus_match_table, of_sprd_default_bus_lookup, NULL);
 #endif
-	sprd_sr2351_vddwpa_ctrl_power_register();
+	//sprd_sr2351_vddwpa_ctrl_power_register();
 }
 
 #ifdef CONFIG_OF
