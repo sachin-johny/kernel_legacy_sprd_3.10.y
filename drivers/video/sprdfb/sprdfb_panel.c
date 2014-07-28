@@ -344,7 +344,7 @@ static struct panel_spec *adapt_panel_from_uboot(uint16_t dev_id)
 static struct panel_spec *adapt_panel_from_readid(struct sprdfb_device *dev)
 {
 	struct panel_cfg *cfg;
-	struct panel_cfg *dummy_cfg;
+	struct panel_cfg *dummy_cfg = NULL;
 	struct list_head *panel_list;
 	int id;
 
