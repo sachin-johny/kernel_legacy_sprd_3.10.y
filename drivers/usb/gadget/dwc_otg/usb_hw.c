@@ -252,10 +252,12 @@ int usb_alloc_vbus_irq(int gpio)
 {
 	int irq;
 
-	gpio_request(gpio,"sprd_ogt");
+	gpio_request(gpio,"sprd_otg");
 	gpio_direction_input(gpio);
 	irq = gpio_to_irq(gpio);
+#ifndef CONFIG_MACH_SAMSUNG
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+#endif
 	gpio_vbus= gpio;
 
 	return irq;

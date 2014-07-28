@@ -472,6 +472,7 @@ config MACH_TSHARKWSAMSUNG
 	bool "Samsung tsharkwsamsung Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+	select MACH_SAMSUNG
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
@@ -482,6 +483,7 @@ config MACH_CORE3
 	bool "Samsung Core3 Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+	select MACH_SAMSUNG
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
@@ -492,11 +494,18 @@ config MACH_PIKEAYOUNG2DTV
 	bool "pikeayoung2dtv Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
+	select MACH_SAMSUNG
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
 	help
 	PIKEAYOUNG2DTV board based on SC8830g serial.
+
+config MACH_SAMSUNG
+	bool "Samsung Board"
+	default n
+	help
+	  all samsung boards.
 
 endmenu
 

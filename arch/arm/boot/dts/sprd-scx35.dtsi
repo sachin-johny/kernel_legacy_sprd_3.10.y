@@ -320,8 +320,8 @@
 	usb: usb@f5116000 {
 		compatible  = "sprd,usb";
 		interrupts = <0 55 0x0>;
-		ngpios = <2>;
-		gpios = <&a_eic_gpio 0 0>,<&d_gpio_gpio 72 0>;
+		ngpios = <3>;
+		gpios = <&a_eic_gpio 0 0>,<&d_gpio_gpio 72 0>,<&d_gpio_gpio 152 0>;
 		reg = <0xf5116000 0x1000>;
 		usb-supply = <&vddusb>;
 		#address-cells = <1>;
