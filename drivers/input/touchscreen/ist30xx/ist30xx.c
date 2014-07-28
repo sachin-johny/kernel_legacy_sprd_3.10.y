@@ -31,6 +31,11 @@
 #include "ist30xx_update.h"
 #include "ist30xx_tracking.h"
 
+#ifdef CONFIG_OF
+#include <linux/of_gpio.h>
+#include <linux/of_device.h>
+#endif
+
 #if IST30XX_DEBUG
 #include "ist30xx_misc.h"
 #endif
@@ -859,7 +864,6 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 	if (unlikely((*msg & CALIB_MSG_MASK) == CALIB_MSG_VALID)) {
 		data->status.calib_msg = *msg;
 		tsp_info("calib status: 0x%08x\n", data->status.calib_msg);
-
 		goto irq_end;
 	}
 
@@ -913,7 +917,7 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 			for (i = 0; i < read_cnt; i++) {
 				ret = ist30xx_get_position(data->client, &msg[i + offset], 1);
 				if (unlikely(ret))
-					goto irq_err;
+				goto irq_err;
 
 				data->fingers[i].full_field = msg[i + offset];
 			}
@@ -922,6 +926,7 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 			ist30xx_put_track(msg, read_cnt);
 		}
 	}
+
 #if (IST30XX_EXTEND_COORD == 0)
 	}
 #endif
@@ -929,7 +934,7 @@ static irqreturn_t ist30xx_irq_thread(int irq, void *ptr)
 #if EXTEND_COORD_CHECKSUM
 	ret = check_valid_coord(&msg[0], read_cnt + 1);
 	if (unlikely(ret < 0))
-		goto irq_err;
+            goto irq_err;
 #endif
 
 	if (unlikely(check_report_fingers(data, finger_cnt)))
@@ -1309,6 +1314,7 @@ static int __init ist30xx_probe(struct i2c_client *		client,
 	int retry = 3;
 	struct ist30xx_data *data;
 	struct input_dev *input_dev;
+       int ist_gpio = 0;
 	
 	tsp_info ("IST3038 Probe Called\n");
 	
@@ -1322,21 +1328,41 @@ static int __init ist30xx_probe(struct i2c_client *		client,
 	data = kzalloc(sizeof(*data), GFP_KERNEL);
 	if (!data)
 		return -ENOMEM;
+    
+#ifdef CONFIG_OF
+
+        struct device_node *np = client->dev.of_node;
+
+        tsp_info("[TSP] the client->dev.of_node=0x%x\n", client->dev.of_node);
+        
+        if (client->dev.of_node){
+            ist_gpio = of_get_gpio(np, 0);              
+            printk("[TSP] gpio id=%d", ist_gpio);
+        }
+#endif
 
 	input_dev = input_allocate_device();
 	if (unlikely(!input_dev)) {
 		ret = -ENOMEM;
 		tsp_err("%s(), input_allocate_device failed (%d)\n", __func__, ret);
 		goto err_alloc_dev;
-	}
+	} 
 
-	ret = gpio_request(82, "ist30xx_irq_gpio");
+#ifndef CONFIG_OF
+      ist_gpio = 82;
+#endif
+
+      /* configure touchscreen interrupt gpio */
+	ret = gpio_request(ist_gpio, "ist30xx_irq_gpio");
+      printk("[TSP]request gpio id = %d\n", ist_gpio);
 	if (ret) {
 		tsp_err("unable to request gpio.(%s)\r\n",input_dev->name);
 		goto err_init_drv;
-	}	
+	}
 
-	client->irq = gpio_to_irq(82);	
+	client->irq = gpio_to_irq(ist_gpio);
+	printk("[TSP] client->irq : %d\n", client->irq);
+    
 	data->max_fingers = data->max_keys = IST30XX_MAX_MT_FINGERS;
 	data->irq_enabled = 1;
 	data->client = client;
@@ -1547,6 +1573,12 @@ static const struct dev_pm_ops ist30xx_pm_ops = {
 };
 #endif
 
+#ifdef CONFIG_OF                
+static const struct of_device_id ist30xxb_ts_of_match[] = {
+        { .compatible = "Imagis,IST30XX", },
+        { }
+};                                      
+#endif
 
 static struct i2c_driver ist30xx_i2c_driver = {
 	.id_table	= ist30xx_idtable,
@@ -1558,6 +1590,10 @@ static struct i2c_driver ist30xx_i2c_driver = {
 		.name	= IST30XX_DEV_NAME,
 #ifdef CONFIG_HAS_EARLYSUSPEND
 		.pm	= &ist30xx_pm_ops,
+#endif
+
+#ifdef CONFIG_OF
+                .of_match_table = ist30xxb_ts_of_match,
 #endif
 	},
 };

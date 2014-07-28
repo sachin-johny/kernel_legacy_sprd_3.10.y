@@ -69,8 +69,16 @@
 #define IST30XX_MAX_MT_FINGERS  (10)
 #define IST30XX_MAX_KEYS        (5)
 
+#if defined(CONFIG_MACH_TSHARKWSAMSUNG)
 #define IST30XX_MAX_X           (540)
 #define IST30XX_MAX_Y           (960)
+#elif defined(CONFIG_MACH_CORE3)
+#define IST30XX_MAX_X           (480)
+#define IST30XX_MAX_Y           (800)
+#else
+#define IST30XX_MAX_X           (480)
+#define IST30XX_MAX_Y           (800)
+#endif
 #define IST30XX_MAX_W           (15)
 
 #define IST30XX                 (1)
@@ -92,8 +100,8 @@
 #define DEV_VERB    (5)
 
 #define IST30XX_DEBUG_TAG       "[ TSP ]"
-#define IST30XX_DEBUG_LEVEL     DEV_INFO
-//#define IST30XX_DEBUG_LEVEL     DEV_VERB
+//#define IST30XX_DEBUG_LEVEL     DEV_INFO
+#define IST30XX_DEBUG_LEVEL     DEV_VERB
 
 #define tsp_err(fmt, ...)   tsp_printk(DEV_ERR, fmt, ## __VA_ARGS__)
 #define tsp_warn(fmt, ...)  tsp_printk(DEV_WARN, fmt, ## __VA_ARGS__)
@@ -168,7 +176,11 @@ typedef struct _ALGR_INFO {
 } ALGR_INFO;
 
 #if IST30XX_EXTEND_COORD
+#ifdef defined(CONFIG_MACH_TSHARKWSAMSUNG) //only Tshark0.0 use this
 #define EXTEND_COORD_CHECKSUM   (1)
+#else
+#define EXTEND_COORD_CHECKSUM   (0)
+#endif
 #define IST30XX_INTR_STATUS1    (0x71000000)
 #define IST30XX_INTR_STATUS2    (0x00000C00)
 #define CHECK_INTR_STATUS1(n)   (((n & IST30XX_INTR_STATUS1) == IST30XX_INTR_STATUS1) ? 1 : 0)
