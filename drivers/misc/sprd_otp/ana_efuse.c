@@ -41,6 +41,18 @@
 #define EFUSE_BLOCK_WIDTH               ( 8 )	/* bit counts */
 
 static DEFINE_MUTEX(adie_efuse_mtx);
+void adie_efuse_workaround(void)
+{
+#define REG_ADI_GSSI_CFG0					(SPRD_ADI_PHYS + 0x1C)
+/** BIT_RF_GSSI_SCK_ALL_IN
+   * 0: sclk auto gate
+   * 1: sclk always on
+*/
+#define BIT_RF_GSSI_SCK_ALL_IN		BIT(30)
+	sci_glb_write(REG_ADI_GSSI_CFG0,
+		      BIT_RF_GSSI_SCK_ALL_IN, BIT_RF_GSSI_SCK_ALL_IN);
+}
+
 static void adie_efuse_lock(void)
 {
 	mutex_lock(&adie_efuse_mtx);
@@ -57,14 +69,16 @@ static void adie_efuse_reset(void)
 
 static void __adie_efuse_power_on(void)
 {
-	sci_glb_set(REG_AON_APB_APB_EB0, BIT_EFUSE_EB);
-
+	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_EFS_EN);
+	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EFS_EN);
 	/* FIXME: sclk always on or not ? */
+	/* adie_efuse_workaround(); */
 }
 
 static void __adie_efuse_power_off(void)
 {
-	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_EFUSE_EB);
+	sci_adi_clr(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EFS_EN);
+	sci_adi_clr(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_EFS_EN);
 }
 
 static __inline int __adie_efuse_wait_clear(u32 bits)
@@ -127,6 +141,24 @@ u32 __adie_efuse_read(int blk_index)
 
 EXPORT_SYMBOL_GPL(__adie_efuse_read);
 
+u32 __adie_efuse_read_bits(int bit_index, int length)
+{
+	int i, blk_index = (int)bit_index / EFUSE_BLOCK_WIDTH;
+	int blk_max = DIV_ROUND_UP(bit_index + length, EFUSE_BLOCK_WIDTH);
+	u32 val = 0;
+	pr_debug("otp read blk %d - %d\n", blk_index, blk_max);
+	/* FIXME: length should not bigger than 8 */
+	for (i = blk_index; i < blk_max; i++) {
+		val |= __adie_efuse_read(i)
+		    << ((i - blk_index) * EFUSE_BLOCK_WIDTH);
+	}
+	//pr_debug("val=%08x\n", val);
+	val >>= (bit_index & (EFUSE_BLOCK_WIDTH - 1));
+	val &= BIT(length) - 1;
+	pr_debug("otp read bits %d ++ %d 0x%08x\n\n", bit_index, length, val);
+	return val;
+}
+
 static ssize_t adie_efuse_block_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
@@ -137,13 +169,18 @@ static ssize_t adie_efuse_block_show(struct device *dev,
 static ssize_t adie_efuse_block_dump(struct device *dev,
 				     struct device_attribute *attr, char *buf)
 {
-	int idx;
+	int i, idx;
 	char *p = buf;
 
 	p += sprintf(p, "adie efuse blocks dump:\n");
+	p += sprintf(p, "    7 6 5 4 3 2 1 0");
 	for (idx = 0; idx < EFUSE_BLOCK_MAX; idx++) {
-		p += sprintf(p, "[%02d] %08x\n", idx, __adie_efuse_read(idx));
+		u32 val = __adie_efuse_read(idx);
+		p += sprintf(p, "\n%02d  ", idx);
+		for (i = EFUSE_BLOCK_WIDTH - 1; i >= 0; --i)
+			p += sprintf(p, "%s ", (val & BIT(i)) ? "1" : "0");
 	}
+	p += sprintf(p, "\n");
 	return p - buf;
 }
 
