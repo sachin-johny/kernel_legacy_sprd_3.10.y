@@ -1031,7 +1031,9 @@ static void *sci_regulator_register(struct platform_device *pdev,
 		       .supply = desc->desc.name,
 		       }
 	};
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 4, 0))
 	struct regulator_config config = { };
+#endif
 
 	struct regulator_init_data init_data = {
 		.supply_regulator = 0,

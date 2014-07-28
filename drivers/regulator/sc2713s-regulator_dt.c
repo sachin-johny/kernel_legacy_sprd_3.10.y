@@ -314,12 +314,13 @@ typedef struct {
 	const char name[14];
 }vol_para_t;
 
+
+int regulator_default_get(const char con_id[])
+{
 #define PP_VOL_PARA		( 0x50005C20 )	/* assert in iram2 */
 #define TO_IRAM2(_p_)	( SPRD_IRAM2_BASE + (u32)(_p_) - SPRD_IRAM2_PHYS )
 #define IN_IRAM2(_p_)	( (u32)(_p_) >= SPRD_IRAM2_PHYS && (u32)(_p_) < SPRD_IRAM2_PHYS + SPRD_IRAM2_SIZE )
 
-int regulator_default_get(const char con_id[])
-{
 	int i = 0, res = 0;
 	vol_para_t *pvol_para = (vol_para_t *)__raw_readl((void *)TO_IRAM2(PP_VOL_PARA));
 
@@ -489,7 +490,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 	int shft_ctl = __ffs(regs->vol_ctl_bits);
 	int shft_trm = __ffs(regs->vol_trm_bits);
 
-	debug0("regu 0x%p (%s), vol ctl %08x, shft %d, mask %08x, sel %d\n",
+	debug0("regu 0x%p (%s), vol ctl 0x%08x, shft %d, mask 0x%08x, sel %d\n",
 	       regs, desc->desc.name, regs->vol_ctl,
 	       shft_ctl, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
@@ -1187,6 +1188,7 @@ static int sci_regulator_parse_dt(struct platform_device *pdev,
 	desc->desc.type = REGULATOR_VOLTAGE;
 	desc->desc.owner = THIS_MODULE;
 
+	supply[0].dev_name = NULL;
 	supply[0].supply = np->name;
 	desc->init_data = of_get_regulator_init_data(&pdev->dev, np);
 	if (!desc->init_data || 0 != __strcmp(desc->init_data->constraints.name, np->name)) {
@@ -1302,7 +1304,7 @@ static int sci_regulator_register_dt(struct platform_device *pdev)
 	struct regulator_ops *__regs_ops[] = {
 		&ldo_ops, 0, &dcdc_ops, 0 /*lpref_ops */ , &boost_ops, 0,
 	};
-	struct regulator_consumer_supply consumer_supplies_default[1];
+	struct regulator_consumer_supply consumer_supplies_default[1] = { };
 	struct regulator_config config = { };
 
 	struct device_node *dev_np = pdev->dev.of_node;
