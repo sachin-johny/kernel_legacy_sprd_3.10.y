@@ -2505,7 +2505,7 @@ static struct spipe_init_data sprd_slog_wcn_pdata = {
 	.channel        = SMSG_CH_PLOG,
 	.ringnr         = 1,
 	.txbuf_size     = 32 * 1024,
-	.rxbuf_size     = 256 * 1024,
+	.rxbuf_size     = 128 * 1024,
 };
 struct platform_device sprd_slog_wcn_device = {
 	.name           = "spipe",
