@@ -870,6 +870,21 @@ static int32_t sprdfb_dsi_gen_write(uint8_t *param, uint16_t param_length)
 	return 0;
 }
 
+#define LCM_SEND(len) ((1 << 24)| len)
+#define LCM_TAG_MASK  ((1 << 24) -1)
+
+static unsigned char set_bl_seq[] = {
+	0x51, 0xFF
+};
+
+void backlight_control(int brigtness)
+{
+	set_bl_seq[1] = brigtness;
+	sprdfb_dsi_gen_write(set_bl_seq, LCM_SEND(2) & LCM_TAG_MASK);
+}
+EXPORT_SYMBOL(backlight_control);
+
+
 static int32_t sprdfb_dsi_gen_read(uint8_t *param, uint16_t param_length, uint8_t bytes_to_read, uint8_t *read_buffer)
 {
 	uint16_t result;
