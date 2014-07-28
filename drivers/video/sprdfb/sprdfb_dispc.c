@@ -592,9 +592,6 @@ static void dispc_layer_init(struct fb_var_screeninfo *var)
 
 	/* OSD color_key value */
 	dispc_set_osd_ck(0x0);
-
-	/* DISPC workplane size */
-	dispc_set_disp_size(var);
 }
 
 static void dispc_layer_update(struct fb_var_screeninfo *var)
@@ -1959,8 +1956,11 @@ ERROR_ENABLE_OVERLAY:
 static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct overlay_display* setting)
 {
 	struct overlay_rect* rect = &(setting->rect);
+#ifndef CONFIG_FB_LOW_RES_SIMU
 	uint32_t size =( (rect->h << 16) | (rect->w & 0xffff));
-
+#else
+	uint32_t size = (dev->panel->width &0xffff) | ((dev->panel->height)<<16);
+#endif
 	dispc_ctx.dev = dev;
 
 	pr_debug("sprdfb: sprdfb_dispc_display_overlay: layer:%d, (%d, %d,%d,%d)\n",
