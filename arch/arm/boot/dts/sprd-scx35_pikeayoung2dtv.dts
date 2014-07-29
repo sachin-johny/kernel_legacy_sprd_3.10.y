@@ -22,9 +22,9 @@
 
 /include/ "skeleton.dtsi"
 /include/ "scx30g-clocks.dtsi"
-/include/ "scx30g-regulators.dtsi"
+/include/ "sc2723-regulators.dtsi"
 /include/ "sprd-sound.dtsi"
-/include/ "rt5033.dtsi"
+/* /include/ "rt5033.dtsi" */
 
 / {
 	model = "Spreadtrum SP8835EB board";
@@ -54,9 +54,9 @@
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
 		i2c3 = &i2c3;
-		i2c_gpio6 = &i2c_gpio6;
+		/* i2c_gpio6 = &i2c_gpio6; */
 		i2c_gpio7 = &i2c_gpio7;
-		i2c_gpio8 = &i2c_gpio8;
+		/* i2c_gpio8 = &i2c_gpio8; */
 		lcd0 = &fb0;
 		spi0 = &spi0;
 		spi1 = &spi1;
@@ -191,7 +191,7 @@
 		"vddsim0",
 		"vddsim1",
 		"vddsim2",
-		"vddsd",
+		"vddsdio",
 		"vdd18";
 		ctrl_desc = <0x10 0 1
 				0x10 1 1
@@ -610,8 +610,8 @@
 		keep-power-in-suspend = <1>;
 		caps = <0x80000000>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddsd";
-		sd-supply = <&vddsd>;
+		vdd-extmmc = "vddsdio";
+		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
 		init-voltage-level = <4>;
 		pinmap-offset = <0x0184>;

@@ -90,7 +90,7 @@ static int rt5033_fled_init(struct rt_fled_info *fled_info)
 	/* Force to do normal read (read from e-fuse) ==> let FLED current be more accurate */
 	rt5033_set_bits(info->i2c_client, RT5033_OFF_EVENT_NRD, FORCE_NR);
 	/* Delay 100 us to wait for normal read complete */
-	usleep(100);
+	udelay(100);
 	/* Finsh normal read and clear FORCE_NR bit */
 	rt5033_clr_bits(info->i2c_client, RT5033_OFF_EVENT_NRD, FORCE_NR);
 #endif
@@ -236,7 +236,7 @@ int32_t rt5033_charger_notification(struct rt_fled_info *fled_info,
 	 * To fix flicking issue for torch while TA is removing
 	 */
 	if (force_torch_en) {
-		usleep(2500);
+		udelay(2500);
 		rt5033_clr_bits(info->i2c_client, 0x1a, 0x80);
 	}
 	RT5033_FLED_INFO("force_torch_en = %d\n",
