@@ -18,6 +18,14 @@ config MFD_CS5535
 	  This is the core driver for CS5535/CS5536 MFD functions.  This is
           necessary for using the board's GPIO and MFGPT functionality.
 
+config MFD_SM5504
+	tristate "SiliconMitus SM5504 MUIC"
+	depends on I2C
+	select MFD_CORE
+	default n
+	help
+	  Support SM5504 MUIC
+
 config MFD_RT8973
 	tristate "Richtek RT8973 MUIC"
 	depends on I2C
