@@ -950,11 +950,11 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 	uint32_t cfg2;
 	uint32_t i;
 	uint32_t err;
-	int size = 0 ,sct_size;
-    int ret  = 0;
-    uint8_t ecc_bit=0 ;
+        int size = 0 ,sct_size;
+        int ret  = 0;
+        uint8_t ecc_bit=0 ;
 	int num  =0 ;
-	page_addr = dolphin->page;
+        page_addr = dolphin->page;
 	
 	if(sbuf) {
 		column = mtd->writesize;
@@ -1059,7 +1059,7 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 		for(i = 0; i < dolphin->sct_pg; i++) {
 			err = sprd_dolphin_get_decode_sts(i);
 			if(err == ERR_ERR_NUM0_MASK) {
-			                           ret = 0;
+                            ret = 0;
                             ecc_bit = 0;
                             size = dolphin->s_size * (i+1);
                             sct_size = dolphin->s_size;
@@ -1077,8 +1077,8 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
                                         }
                                     }
                                     if(ret<0){
-				mtd->ecc_stats.failed++;
-				                                       break;
+				        mtd->ecc_stats.failed++;
+                                        break;
                                     }
                                     sbuf[size]=0xff;
                                 }
@@ -1351,9 +1351,9 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 	uint32_t i;
 	uint32_t err;
 	int size = 0 ,sct_size;
-    int ret  = 0;
-    int num  = 0;
-    uint8_t ecc_bit=0 ;
+        int ret  = 0;
+        int num  = 0;
+        uint8_t ecc_bit=0 ;
 	page_addr = dolphin->page;
 
 	//DPRINT("%s enter\n", __func__);
@@ -1456,7 +1456,7 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
 		for(i = 0; i < dolphin->sct_pg; i++) {
 			err = sprd_dolphin_get_decode_sts(i);
 			if(err == ERR_ERR_NUM0_MASK) {
-						    ret = 0;
+			    ret = 0;
                             ecc_bit = 0;
                             size = dolphin->s_size * (i+1);
                             sct_size = dolphin->s_size;
@@ -1474,8 +1474,8 @@ STATIC_FUNC int sprd_dolphin_nand_read_lp(struct mtd_info *mtd,uint8_t *mbuf, ui
                                         }
                                     }
                                     if(ret<0){
-				mtd->ecc_stats.failed++;
-				                                        break;
+                                        mtd->ecc_stats.failed++;
+                                        break;
                                     }
                                     sbuf[size]=0xff;
                                 }
