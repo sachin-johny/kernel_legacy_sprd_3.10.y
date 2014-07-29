@@ -62,6 +62,7 @@ obj-$(CONFIG_FLED_RT5033)       += rt5033_fled.o
 obj-$(CONFIG_FLED_SM5701)       += leds-sm5701.o
 # SPRD keyboard-backlight Drivers
 obj-$(CONFIG_LEDS_SPRD_KB) += leds-sprd-kb.o
+obj-$(CONFIG_SPRD_KPLED_2723) += leds-sprd-kpled-2723.o
 # SPRD rgb led Drivers
 obj-$(CONFIG_LEDS_SPRD_RGB)	+= leds-sprd-rgb.o
 # LED SPI Drivers

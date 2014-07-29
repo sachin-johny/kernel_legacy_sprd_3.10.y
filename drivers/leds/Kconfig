@@ -534,6 +534,12 @@ config LEDS_SPRD_KB
    help
      This option enables support.
 
+config SPRD_KPLED_2723
+   tristate "LED Support for SPRD_KPLED_2723"
+   default n
+   help
+     This option enables support.
+
 config LEDS_SPRD_RGB
 	tristate "LED Support for sprd rgb led"
 	depends on LEDS_CLASS

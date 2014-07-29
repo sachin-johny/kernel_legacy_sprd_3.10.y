@@ -33,6 +33,9 @@ extern struct platform_device sprd_backlight_device;
 #if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
 extern struct platform_device sprd_pwm_bl_device;
 #endif
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+extern struct platform_device sprd_kpled_2723_device;
+#endif
 extern struct platform_device sprd_i2c_device0;
 extern struct platform_device sprd_i2c_device1;
 extern struct platform_device sprd_i2c_device2;

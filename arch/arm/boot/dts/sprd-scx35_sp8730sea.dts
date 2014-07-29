@@ -260,6 +260,12 @@
                  keyboard_backlight {
                         compatible = "sprd,keyboard-backlight";
                  };
+			 	sprd_kpled_2723 {
+					compatible = "sprd,sprd-kpled-2723";
+					brightness_max = <255>;
+					brightness_min = <0>;
+					run_mode = <0>;
+				};
 		 watchdog@40{
 		 	compatible = "sprd,watchdog";
 		 	reg = <0X40 0x40>;

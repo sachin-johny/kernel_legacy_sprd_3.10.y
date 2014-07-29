@@ -75,6 +75,10 @@
 #include <linux/headset_sprd_sc2723.h>
 #endif
 
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+#include <linux/leds-sprd-kpled-2723.h>
+#endif
+
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
@@ -160,6 +164,14 @@ static struct sprd_headset_platform_data headset_sprd_sc2723_pdata = {
 };
 #endif
 
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+struct sprd_kpled_2723_platform_data sprd_kpled_2723_pdata = {
+	.brightness_max = 255,
+	.brightness_min = 0,
+	.run_mode = 0,
+}
+#endif
+
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
 static struct platform_device kb_backlight_device;
@@ -178,6 +190,9 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_backlight_device,
 #if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
 	&sprd_pwm_bl_device,
+#endif
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+	&sprd_kpled_2723_device,
 #endif
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
@@ -829,7 +844,10 @@ static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
 #if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
 	{ .compatible = "sprd,headset_sprd_sc2723",  .name = "headset_sprd_sc2723" },
 #endif
-	 {}
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+	{ .compatible = "sprd,sprd-kpled-2723",  .name = "sprd-kpled-2723" },
+#endif
+	{}
 };
 #endif
 
@@ -866,6 +884,9 @@ static void __init sc8830_init_machine(void)
 #endif
 #if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
 	platform_device_add_data(&headset_sprd_sc2723_device, (const void*)&headset_sprd_sc2723_pdata, sizeof(headset_sprd_sc2723_pdata));
+#endif
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+	platform_device_add_data(&sprd_kpled_2723_device, (const void*)&sprd_kpled_2723_pdata, sizeof(sprd_kpled_2723_pdata));
 #endif
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();

@@ -40,6 +40,7 @@ obj-$(CONFIG_SPRD_DCDC_DEBUG) += dcdc_debug.o
 obj-$(CONFIG_SMP) += platsmp.o headsmp.o
 obj-$(CONFIG_HOTPLUG_CPU) += hotplug.o
 obj-$(CONFIG_SC_VIBRATOR) += vibrator.o
+obj-$(CONFIG_SPRD_VIBRATOR_2723) += sprd_vibrator_2723.o
 obj-$(CONFIG_SIPC) += sipc.o
 ifeq ($(CONFIG_BCMDHD),m)
 obj-y += dhd_adapter.o

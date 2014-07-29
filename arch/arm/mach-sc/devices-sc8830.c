@@ -443,7 +443,12 @@ struct platform_device sprd_pwm_bl_device = {
 	.id = -1,
 };
 #endif
-
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+struct platform_device sprd_kpled_2723_device = {
+	.name = "sprd-kpled-2723",
+	.id = -1,
+};
+#endif
 static struct resource sprd_i2c_resources0[] = {
 	[0] = {
 		.start = SPRD_I2C0_BASE,

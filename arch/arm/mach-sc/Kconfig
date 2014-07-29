@@ -531,6 +531,11 @@ config SC_VIBRATOR
         select ANDROID_TIMED_OUTPUT
         default n
 
+config SPRD_VIBRATOR_2723
+        bool "vibrator for sprd_vibrator_2723"
+        select ANDROID_TIMED_OUTPUT
+        default n
+
 config SC_VIBRATOR_GPIO
         bool "vibrator for SC serials by gpio"
         default n
