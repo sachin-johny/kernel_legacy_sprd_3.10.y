@@ -83,7 +83,7 @@ config FB_LCD_DUMMY
 
 config FB_LCD_NT35502_MIPI
 	boolean "support NT35502 mipi panel"
-	depends on FB_SC8825 || FB_SCX35
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
 	default n
 	
 config FB_LCD_ILI9486S1_MIPI

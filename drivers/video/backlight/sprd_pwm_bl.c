@@ -395,9 +395,13 @@ static struct platform_driver sprd_backlight_driver = {
         },
 };
 
+extern int lcd_panel_cabc_pwm_backlight;
 static int __init sprd_backlight_init(void)
 {
+	if (!lcd_panel_cabc_pwm_backlight)
         return platform_driver_register(&sprd_backlight_driver);
+	else
+		return 0;
 }
 
 static void __exit sprd_backlight_exit(void)

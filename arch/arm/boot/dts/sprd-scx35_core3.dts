@@ -93,13 +93,6 @@
 	};
 
 	adi: adi_bus {
-		sprd_backlight {
-			compatible = "sprd,sprd_backlight";
-			start = <3>;
-			end = <3>;
-			flags = <0x100>;
-		};
-
 		headset_detect {
 			compatible = "sprd,headset-detect";
 			gpio_switch = <0>;
@@ -205,6 +198,10 @@
 			<0xf5250000 0x10000>;		/*APB_EB0*/
 		clock-names = "clk_cpll";
 		clocks = <&clk_cpll>;
+	};
+
+	panel_cabc_bl {
+		compatible = "sprd,panel_cabc_bl";
 	};
 
 	sprd_pwm_bl {
