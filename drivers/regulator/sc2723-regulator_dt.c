@@ -73,16 +73,20 @@
 
 struct sci_regulator_regs {
 	int typ;
-	u32 pd_set, pd_set_bit;
+	unsigned long pd_set;
+	u32 pd_set_bit;
 	/**
 	 * at new feature, some LDOs had only set, no rst bits.
 	 * and DCDCs voltage and trimming controller is the same register
 	 */
-	u32 vol_trm, vol_trm_bits;
-	u32 cal_ctl, cal_ctl_bits, cal_chan;
+	unsigned long vol_trm;
+	u32 vol_trm_bits;
+	unsigned long cal_ctl;
+	u32 cal_ctl_bits, cal_chan;
 	u32 min_uV, step_uV;
 	u32 vol_def;
-	u32 vol_ctl, vol_ctl_bits;
+	unsigned long vol_ctl;
+	u32 vol_ctl_bits;
 	u32 vol_sel_cnt;
 	u32 *vol_sel;
 };
@@ -121,6 +125,7 @@ static u32 ana_chip_id;
 static u16 ana_mixed_ctl;
 
 static DEFINE_MUTEX(adc_chan_mutex);
+static int regulator_get_trimming_step(struct regulator_dev *rdev, int to_vol);
 extern int sci_efuse_get_cal(unsigned int * pdata, int num);
 
 
@@ -221,26 +226,25 @@ static int ldo_set_voltage(struct regulator_dev *rdev, int min_uV,
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
-	int mv = min_uV;
+	//int mv = min_uV / 1000;
 	int ret = -EINVAL;
 
 	debug("regu 0x%p (%s) set voltage, %d(uV) %d(uV)\n", regs, desc->desc.name, min_uV, max_uV);
 
 	if (regs->vol_trm) {
 		int shft = __ffs(regs->vol_trm_bits);
-		u32 trim = DIV_ROUND_UP((int)(mv - regs->min_uV), regs->step_uV);
+		u32 trim = DIV_ROUND_UP((int)(min_uV - regs->min_uV), regs->step_uV);
 
 		ret = trim > (regs->vol_trm_bits >> shft);
 		WARN(0 != ret,
-		     "warning: regulator (%s) not support %dmV\n",
-		     desc->desc.name, mv);
+		     "warning: regulator (%s) not support %d(uV)\n",
+		     desc->desc.name, min_uV);
 
 		if (0 == ret) {
 			ANA_REG_SET(regs->vol_trm,
 				    trim << shft,
 				    regs->vol_trm_bits);
 		}
-		return ret;
 	}
 
 	return ret;
@@ -267,25 +271,48 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	return -EFAULT;
 }
 
+#undef CONFIG_OTP_SPRD_ADIE_EFUSE
+#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
+extern u32 __adie_efuse_read(int blk_index);
+
+static int get_otp_offset(struct regulator_dev *rdev)
+{
+	struct sci_regulator_desc *desc = __get_desc(rdev);
+	const char *regu_name = desc->desc.name;
+	u16 efuse_data = 0;
+
+	if (NULL == regu_name)
+		return 0;
+
+	//efuse_data = get_otp_cali(regu_name);
+
+	rdev->constraints->uV_offset = efuse_data * regulator_get_trimming_step(rdev, 0);
+
+	return (rdev->constraints->uV_offset);
+}
+#endif
+
+
 /* FIXME: get dcdc cal offset config from uboot */
 typedef struct {
 	u16 ideal_vol;
 	const char name[14];
 }vol_para_t;
 
+
 int regulator_default_get(const char con_id[])
 {
 #define PP_VOL_PARA		( 0x50005C20 )	/* assert in iram2 */
-#define TO_IRAM(_p_)	( SPRD_IRAM1_BASE + (u32)(_p_) - SPRD_IRAM1_PHYS )
-#define IN_IRAM(_p_)	( (u32)(_p_) >= SPRD_IRAM1_PHYS && (u32)(_p_) < SPRD_IRAM1_PHYS + SPRD_IRAM1_SIZE )
+#define TO_IRAM2(_p_)	( SPRD_IRAM2_BASE + (unsigned long)(_p_) - SPRD_IRAM2_PHYS )
+#define IN_IRAM2(_p_)	( (unsigned long)(_p_) >= SPRD_IRAM2_PHYS && (unsigned long)(_p_) < SPRD_IRAM2_PHYS + SPRD_IRAM2_SIZE )
 
 	int i = 0, res = 0;
-	vol_para_t *pvol_para = (vol_para_t *)__raw_readl((void *)TO_IRAM(PP_VOL_PARA));
+	vol_para_t *pvol_para = (vol_para_t *)__raw_readl((void *)TO_IRAM2(PP_VOL_PARA));
 
-	if (!(IN_IRAM(pvol_para)))
+	if (!(IN_IRAM2(pvol_para)))
 		return 0;
 
-	pvol_para = (vol_para_t *)TO_IRAM(pvol_para);
+	pvol_para = (vol_para_t *)TO_IRAM2(pvol_para);
 
 	if(strcmp((pvol_para)[0].name, "volpara_begin") || (0xfaed != (pvol_para)[0].ideal_vol))
 		return 0;
@@ -304,9 +331,19 @@ static int __init_trimming(struct regulator_dev *rdev)
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
 	int ctl_vol, to_vol;
+#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
+	uint otp_ana_flag = 0;
+#endif
 
 	if (!regs->vol_trm)
 		return -1;
+
+#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
+	otp_ana_flag = (u8)__adie_efuse_read(0) & BIT(7);
+	if(!otp_ana_flag) {
+		get_otp_offset(rdev);
+	} else {
+#endif
 
 	to_vol = regulator_default_get(desc->desc.name);
 	to_vol *= 1000; //uV
@@ -320,11 +357,15 @@ static int __init_trimming(struct regulator_dev *rdev)
 		debug("regu 0x%p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
 	}
 
+#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
+	}
+#endif
+
 	return 0;
 }
 
 
-static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
+static int regulator_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
@@ -337,7 +378,7 @@ static int dcdc_get_trimming_step(struct regulator_dev *rdev, int to_vol)
 static int __match_dcdc_vol(struct sci_regulator_regs *regs, u32 vol)
 {
 	int i, j = -1;
-	int ds, min_ds = 100;	/* mV, the max range of small voltage */
+	int ds, min_ds = 100 * 1000;	/* uV, the max range of small voltage */
 
 	for (i = 0; i < regs->vol_sel_cnt; i++) {
 		ds = vol - regs->vol_sel[i];
@@ -354,7 +395,7 @@ static int __dcdc_enable_time(struct regulator_dev *rdev, int old_vol)
 	int vol = rdev->desc->ops->get_voltage(rdev);
 	if (vol > old_vol) {
 		/* FIXME: for dcdc, each step (50mV) takes 10us */
-		int dly = (vol - old_vol) * 10 / 50;
+		int dly = (vol - old_vol) * 10 / (50 * 1000);
 		WARN_ON(dly > 1000);
 		udelay(dly);
 	}
@@ -366,21 +407,21 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
-	int i, mv = min_uV;
+	int i = 0;
+	//int mV = min_uV / 1000;
 	int old_vol = rdev->desc->ops->get_voltage(rdev);
 
 	debug0("regu 0x%p (%s) %d %d\n", regs, desc->desc.name, min_uV, max_uV);
 
 	if (regs->vol_ctl) {
 		/* found the closely vol ctrl bits */
-		i = __match_dcdc_vol(regs, mv);
+		i = __match_dcdc_vol(regs, min_uV);
 		if (i < 0)
-			return WARN(-EINVAL,
-				    "not found %s closely ctrl bits for %dmV\n",
-				    desc->desc.name, mv);
+			return WARN(-EINVAL, "not found %s closely ctrl bits for %d(uV)\n",
+				    desc->desc.name, min_uV);
 
-		debug("regu 0x%p (%s) %d = %d %+dmv\n", regs, desc->desc.name,
-		       mv, regs->vol_sel[i], mv - regs->vol_sel[i]);
+		debug("regu 0x%p (%s) %d = %d %+duV\n", regs, desc->desc.name,
+		       min_uV, regs->vol_sel[i], min_uV - regs->vol_sel[i]);
 	}
 
 #if !defined(CONFIG_REGULATOR_CAL_DUMMY)
@@ -395,11 +436,11 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 
 		if (regs->vol_ctl) {
 			shft_ctl = __ffs(regs->vol_ctl_bits);
-			step = dcdc_get_trimming_step(rdev, 0);
+			step = regulator_get_trimming_step(rdev, 0);
 
-			j = DIV_ROUND_UP((int)(mv - (int)regs->vol_sel[i]), step);
+			j = DIV_ROUND_UP((int)(min_uV - (int)regs->vol_sel[i]), step);
 		} else {
-			j = DIV_ROUND_UP((int)(mv - regs->min_uV), regs->step_uV);
+			j = DIV_ROUND_UP((int)(min_uV - regs->min_uV), regs->step_uV);
 		}
 
 		BUG_ON(j > (regs->vol_trm_bits >> shft_trm));
@@ -431,7 +472,7 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
-	u32 mv;
+	u32 uV;
 	int i, cal = 0 /* uV */;
 
 	if (regs->vol_ctl) {
@@ -443,23 +484,23 @@ static int dcdc_get_voltage(struct regulator_dev *rdev)
 			   shft_ctl, regs->vol_ctl_bits, regs->vol_sel_cnt);
 
 		i = (ANA_REG_GET(regs->vol_ctl) & regs->vol_ctl_bits) >> shft_ctl;
-		mv = regs->vol_sel[i];
+		uV = regs->vol_sel[i];
 
 		if (regs->vol_trm) {
 			cal = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft_trm;
-			cal *= dcdc_get_trimming_step(rdev, 0);	/*uV */
+			cal *= regulator_get_trimming_step(rdev, 0);	/* uV */
 		}
 
 	} else if (regs->vol_trm) {
 		int shft_trm = __ffs(regs->vol_trm_bits);
 		u32 trim =
 		    (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft_trm;
-		mv = regs->min_uV + trim * regs->step_uV;
+		uV = regs->min_uV + trim * regs->step_uV;
 	}
 
-	debug2("%s get voltage, %d +%duv\n", desc->desc.name, mv, cal);
+	debug2("%s get voltage, %d +%duv\n", desc->desc.name, uV, cal);
 
-	return (mv + cal) /*uV */;
+	return (uV + cal) /*uV */;
 }
 
 
@@ -618,7 +659,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 		.channel_id = adc_chan,
 		.channel_type = 0,	/*sw */
 		.hw_channel_delay = 0,	/*reserved */
-		.scale = 1,	/*big scale */
+		.scale = (((adc_chan != 13) && (adc_chan != 14)) ? 1 : 0),	/* chanel = 13/14: small scale, others: big scale */
 		.pbuf = &adc_val[0],
 		.sample_num = MEASURE_TIMES,
 		.sample_bits = adc_sample_bit,
@@ -657,7 +698,7 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 	chan_numerators = ratio >> 16;
 	chan_denominators = ratio && 0xFFFF;
 
-	ratio = (u32)sci_adc_get_ratio(ADC_CHANNEL_VBAT, 0, 0);
+	ratio = (u32)sci_adc_get_ratio(ADC_CHANNEL_VBAT, 1, 0);
 	bat_numerators = ratio >> 16;
 	bat_denominators = ratio && 0xFFFF;
 
@@ -966,15 +1007,15 @@ static struct of_device_id sprd_regulator_of_match[] = {
 #define IS_VALID_ANA_ADDR(pa, pa_base, size)	( (pa) >= (pa_base) && (pa) < (pa_base) + (size) )
 #define PHY_TO_VIR(pa, pa_base, va_base) 		( (pa) - (pa_base) + (va_base) )
 
-static u32 phy2vir(const u32 reg_phy)
+static unsigned long phy2vir(const u32 reg_phy)
 {
-	u32 reg_vir = 0;
+	unsigned long reg_vir = 0;
 
 	if(!reg_phy)
 		return 0;
 
 	if (IS_VALID_ANA_ADDR(reg_phy, REGS_ANA_GLB_PHYS, REGS_ANA_GLB_SIZE)) {
-		reg_vir = (u32)(PHY_TO_VIR(reg_phy, REGS_ANA_GLB_PHYS, REGS_ANA_GLB_BASE));
+		reg_vir = (unsigned long)(PHY_TO_VIR(reg_phy, REGS_ANA_GLB_PHYS, REGS_ANA_GLB_BASE));
 	} else {
 		WARN(1, "reg(0x%08x) physical address is invalid!\n", reg_phy);
 	}
@@ -1073,6 +1114,7 @@ static int sci_regulator_parse_dt(struct platform_device *pdev,
 	desc->desc.type = REGULATOR_VOLTAGE;
 	desc->desc.owner = THIS_MODULE;
 
+	supply[0].dev_name = NULL;
 	supply[0].supply = np->name;
 	desc->init_data = of_get_regulator_init_data(&pdev->dev, np);
 	if (!desc->init_data || 0 != __strcmp(desc->init_data->constraints.name, np->name)) {
