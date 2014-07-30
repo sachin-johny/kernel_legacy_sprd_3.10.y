@@ -36,6 +36,7 @@
 #include "sprdfb.h"
 #include "sprdfb_chip_common.h"
 #include <mach/cpuidle.h>
+#include <linux/dma-mapping.h>
 //#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
 #define DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
 
@@ -1358,8 +1359,8 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 
 #ifdef CONFIG_FB_MMAP_CACHED
 	if(NULL != dispc_ctx.vma){
-		pr_debug("sprdfb: sprdfb_dispc_refresh dmac_flush_range dispc_ctx.vma=0x%x\n ",dispc_ctx.vma);
-		dmac_flush_range(dispc_ctx.vma->vm_start, dispc_ctx.vma->vm_end);
+		pr_debug("sprdfb: sprdfb_dispc_refresh dispc_ctx.vma=0x%x\n ",dispc_ctx.vma);
+		dma_sync_single_for_device(dev, dev->fb->fix.smem_start, dev->fb->fix.smem_len, DMA_TO_DEVICE);
 	}
 	if(fb->var.reserved[3] == 1){
 		dispc_dithering_enable(false);
@@ -2484,8 +2485,7 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 	printk("sprdfb: %s[%d]: lcd_base_from_uboot: 0x%08x, logo_src_v:0x%08x\n",__func__,__LINE__,lcd_base_from_uboot,logo_src_v);
 	printk("sprdfb: %s[%d]: logo_dst_p:0x%08x,logo_dst_v:0x%08x\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
 	memcpy(logo_dst_v, logo_src_v, logo_size);
-
-	dmac_flush_range(logo_dst_v, logo_dst_v + logo_size);
+	dma_sync_single_for_device(dev, logo_dst_p, logo_size, DMA_TO_DEVICE);
 
 	iounmap(logo_src_v);
 #if 0
