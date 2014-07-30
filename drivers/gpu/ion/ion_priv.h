@@ -132,7 +132,6 @@ struct ion_heap {
 	int cachedpages;
 	int size;
 	int allocated;
-	int rangeshrunk;
 	spinlock_t pagecache_lock;
 	struct list_head pagecache_lru;
 	struct rb_root pagecaches;
@@ -196,7 +195,6 @@ void ion_carveout_free(struct ion_heap *heap, ion_phys_addr_t addr,
 int ion_pagecache_rb_insert(struct rb_root *root, struct ion_handle *handle);
 struct ion_handle *ion_pagecache_rb_search(struct rb_root *root,
 					   ion_phys_addr_t addr);
-unsigned long ion_carveout_heap_start_pfn(struct ion_heap *heap);
 #endif
 /**
  * The carveout heap returns physical addresses, since 0 may be a valid

@@ -165,7 +165,6 @@ static struct ion_heap_ops carveout_heap_ops = {
 struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 {
 	struct ion_carveout_heap *carveout_heap;
-	struct page *page;
 
 	carveout_heap = kzalloc(sizeof(struct ion_carveout_heap), GFP_KERNEL);
 	if (!carveout_heap)
@@ -183,8 +182,6 @@ struct ion_heap *ion_carveout_heap_create(struct ion_platform_heap *heap_data)
 	carveout_heap->heap.type = ION_HEAP_TYPE_CARVEOUT;
 #ifdef CONFIG_ION_PAGECACHE
 	carveout_heap->heap.size = heap_data->size >> PAGE_SHIFT;
-	page = phys_to_page(carveout_heap->base);
-	carveout_heap->heap.rangeshrunk = page_to_pfn(page);
 #endif
 
 	return &carveout_heap->heap;
@@ -198,13 +195,4 @@ void ion_carveout_heap_destroy(struct ion_heap *heap)
 	gen_pool_destroy(carveout_heap->pool);
 	kfree(carveout_heap);
 	carveout_heap = NULL;
-}
-
-unsigned long ion_carveout_heap_start_pfn(struct ion_heap *heap)
-{
-	struct page *page;
-	struct ion_carveout_heap *carveout_heap =
-	     container_of(heap, struct  ion_carveout_heap, heap);
-	page = phys_to_page(carveout_heap->base);
-	return page_to_pfn(page);
 }
