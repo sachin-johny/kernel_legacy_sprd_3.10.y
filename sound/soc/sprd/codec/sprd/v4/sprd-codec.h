@@ -98,14 +98,14 @@
 #define DAC_SDM_DC_R_MASK     (0xff)
 
 
-#define LDO_V_29		(0)
-#define LDO_V_31		(1)
-#define LDO_V_32		(2)
-#define LDO_V_33		(3)
-#define LDO_V_34		(4)
-#define LDO_V_35		(5)
-#define LDO_V_36		(6)
-#define LDO_V_38		(7)
+#define LDO_V_28		(0)
+#define LDO_V_29		(1)
+#define LDO_V_30		(2)
+#define LDO_V_31		(3)
+#define LDO_V_32		(4)
+#define LDO_V_33		(5)
+#define LDO_V_34		(6)
+#define LDO_V_36		(7)
 
 
 #define MIC_LDO_V_21		(0)
@@ -327,12 +327,17 @@
 #define HPR_G_MASK		(0xF)
 
 /* ANA_CDC13 */
-#define CG_HPL_G		(7)
-#define CG_HPL_G_MASK	(0x1FF)
+#define CG_HPL_G_2		(7)
+#define CG_HPL_G_2_MASK	(0x7)
+#define CG_HPL_G_1		(10)
+#define CG_HPL_G_1_MASK	(0x3F)
 
 /* ANA_CDC14 */
-#define CG_HPR_G		(7)
-#define CG_HPR_G_MASK	(0x1FF)
+#define CG_HPR_G_2		(7)
+#define CG_HPR_G_2_MASK	(0x7)
+#define CG_HPR_G_1		(10)
+#define CG_HPR_G_1_MASK	(0x3F)
+
 
 /* ANA_CDC15 */
 #define AUD_NG_EN		    (15)
@@ -394,9 +399,9 @@
 /* ANA_STS2 */
 
 /* DANGL */
-
+#define	AUDIO_DANGL			(15)
 /* DANGR */
-
+#define	AUDIO_DANGR			(15)
 /* DRE */
 
 /* DIG_CFG0 */

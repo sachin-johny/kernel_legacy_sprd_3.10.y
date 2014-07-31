@@ -553,6 +553,10 @@ static inline int arch_audio_codec_analog_enable(void)
 	sci_adi_write(ANA_REG_GLB_AUDIO_CTRL, BIT_CLK_AUD_6P5M_TX_INV_EN,
 		      BIT_CLK_AUD_6P5M_TX_INV_EN);
 #endif
+#if defined(CONFIG_ADIE_SC2723S)
+	/* disable ADSYNC reuse in tshark*/
+	sci_adi_write(ANA_AUDIFA_INT_BASE, 0, BIT(4));
+#endif
 	/* RTC */
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_AUD_EN, BIT_RTC_AUD_EN);
 	/* 26M */
