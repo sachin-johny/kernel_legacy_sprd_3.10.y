@@ -296,6 +296,117 @@ int ion_pagecache_complete(struct page *page)
 	return handle ? 0 : -1;
 }
 
+static int __ion_pagecache_range_shrink(struct ion_heap *heap, unsigned long start_pfn,
+				  unsigned long end_pfn, int tryhard, gfp_t gfp_mask)
+{
+	int shrunk = 0;
+	struct page *page;
+	struct ion_handle *handle, *next;
+	int loop_count = 0;
+	int repeat_cnt = 0;
+	int fail_cnt = 0;
+	LIST_HEAD(failed_pages);
+
+	atomic_inc(&heap->shrinking);
+	printk("==================  shrink start\n");
+	mem_cgroup_uncharge_start();
+
+	page = NULL;
+	spin_lock(&heap->pagecache_lock);
+
+	list_for_each_entry_safe(handle, next, &heap->pagecache_lru, list) {
+		struct address_space *mapping;
+		int locked;
+		ion_phys_addr_t addr;
+		size_t size;
+		unsigned long pfn;
+
+		loop_count++;
+		spin_unlock(&heap->pagecache_lock);
+
+		if (heap->ops->phys(heap, handle->buffer, &addr, &size)) {
+			page = NULL;
+			spin_lock(&heap->pagecache_lock);
+			continue;
+		}
+
+		page = phys_to_page(addr);
+		pfn = page_to_pfn(page);
+
+		if ((pfn < start_pfn) || (pfn > end_pfn)) {
+			page = NULL;
+			spin_lock(&heap->pagecache_lock);
+			continue;
+		}
+
+		locked = trylock_page(page);
+
+		if (!(tryhard || locked)) {
+			page = NULL;
+			spin_lock(&heap->pagecache_lock);
+			continue;
+		}
+
+		spin_lock(&heap->pagecache_lock);
+		list_del_init(&handle->list);
+		might_sleep();
+		spin_unlock(&heap->pagecache_lock);
+
+		if (!locked) {
+			might_sleep();
+			__lock_page(page);
+		}
+
+		if (unlikely(TestClearPageMlocked(page)))
+			__clear_page_mlock(page);
+		mapping = page_mapping(page);
+		if (page_mapped(page) && mapping) {
+			if (try_to_unmap(page, TTU_UNMAP|TTU_IGNORE_ACCESS)
+					!= SWAP_SUCCESS)
+				goto failed;
+		}
+		if (page_has_private(page) &&
+				!try_to_release_page(page, gfp_mask)) {
+			goto failed;
+		} else {
+			if (mapping) {
+				spin_lock_irq(&mapping->tree_lock);
+				__delete_from_page_cache(page);
+				spin_unlock_irq(&mapping->tree_lock);
+				mem_cgroup_uncharge_cache_page(page);
+			}
+		}
+		unlock_page(page);
+
+		if (likely(page_count(page) > 0)) {
+			page_cache_release(page);	/* pagecache ref */
+			shrunk++;
+		}
+
+		if (list_empty(&heap->pagecache_lru)) {
+			spin_lock(&heap->pagecache_lock);
+			break;
+		}
+repeat:
+		page = NULL;
+		spin_lock(&heap->pagecache_lock);
+	}
+
+	list_splice_tail(&failed_pages, &heap->pagecache_lru);
+	spin_unlock(&heap->pagecache_lock);
+
+	mem_cgroup_uncharge_end();
+	printk("==================  shrink end loop_count: %d, fail_cnt: %d, shrunk: %d\n", loop_count, fail_cnt, shrunk);
+	atomic_dec(&heap->shrinking);
+	return shrunk;
+
+failed:
+	unlock_page(page);
+	list_add(&handle->list, &failed_pages);
+	fail_cnt++;
+	goto repeat;
+}
+
 static int __ion_pagecache_shrink(struct ion_heap *heap, unsigned long max_scan,
 				  int tryhard, gfp_t gfp_mask)
 {
@@ -460,6 +571,59 @@ void ion_pagecache_shrink_all(void)
 		if (heap->cachedpages > 0)
 			__ion_pagecache_shrink(heap,
 					heap->cachedpages, 0, 0);
+	}
+}
+
+void ion_pagecache_range_shrink_reset(void)
+{
+	struct ion_device *ion_dev;
+	struct rb_node *n;
+
+	if (!ion_client_pagecache)
+		return -1;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps); n != NULL && n != NULL; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+		heap->rangeshrunk = ion_carveout_heap_start_pfn(heap);
+	}
+	return;
+}
+
+void ion_pagecache_range_shrink(int size)
+{
+	int shrunk;
+	struct ion_device *ion_dev;
+	struct rb_node *n;
+
+	if (!ion_client_pagecache)
+		return -1;
+	ion_dev = ion_client_pagecache->dev;
+
+	for (n = rb_first(&ion_dev->heaps); n != NULL && n != NULL; n = rb_next(n)) {
+		struct ion_heap *heap = rb_entry(n, struct ion_heap, node);
+		if (!((1 << heap->type) & ion_client_pagecache->heap_mask))
+			continue;
+
+		if (heap->cachedpages > 0) {
+			unsigned long heap_end_pfn;
+			heap_end_pfn = ion_carveout_heap_start_pfn(heap) + heap->size - 1;
+			if (heap->rangeshrunk <= heap_end_pfn) {
+				unsigned long start_pfn;
+				unsigned long end_pfn;
+
+				start_pfn = heap->rangeshrunk;
+				end_pfn = start_pfn + size - 1;
+				if (end_pfn > heap_end_pfn)
+					end_pfn = heap_end_pfn;
+
+				__ion_pagecache_range_shrink(heap,
+					start_pfn, end_pfn, 0, 0);
+				heap->rangeshrunk += size;
+			}
+		}
 	}
 }
 #endif
@@ -687,6 +851,9 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 #ifdef CONFIG_ION_PAGECACHE
 	int pagecache = flags & ION_ALLOC_PAGECACHE_MASK;
 	int tryhard = 0, num = len >> PAGE_SHIFT;
+
+	if (!pagecache)
+		ion_pagecache_range_shrink(num + 1);
 repeat:
 #endif
 
@@ -728,6 +895,7 @@ repeat:
 					< num)
 				continue;
 			mutex_unlock(&dev->lock);
+
 			__ion_pagecache_shrink(heap, (tryhard + 1) * num, tryhard, GFP_USER);
 
 			if (tryhard++ < 5) {
@@ -1512,13 +1680,13 @@ ION_IOC_DISABLE_CACHE  0xc0044908
 	case ION_IOC_ENABLE_CACHE:
 	{
 		atomic_set(&ion_pagecache_flag, 1);
+		ion_pagecache_range_shrink_reset();
 		break;
 	}
 
 	case ION_IOC_DISABLE_CACHE:
 	{
 		atomic_set(&ion_pagecache_flag, 0);
-		ion_pagecache_shrink_all();
 		break;
 	}
 #endif
@@ -1543,8 +1711,10 @@ static int ion_release(struct inode *inode, struct file *file)
 
 #ifdef CONFIG_ION_PAGECACHE
 	atomic_dec(&ion_open_count);
-	if (!atomic_read(&ion_open_count))
+	if (!atomic_read(&ion_open_count)) {
+		ion_pagecache_range_shrink_reset();
 		atomic_set(&ion_pagecache_flag, 1);
+	}
 #endif
 	return 0;
 }
@@ -1631,10 +1801,13 @@ static int ion_debug_heap_show(struct seq_file *s, void *unused)
 	for (n = rb_first(&dev->buffers); n; n = rb_next(n)) {
 		struct ion_buffer *buffer = rb_entry(n, struct ion_buffer,
 						     node);
+		struct page *page;
 		if (buffer->heap->id != heap->id)
 			continue;
 		if (buffer->heap->type != heap->type)
 			continue;
+		page = phys_to_page((unsigned int)buffer->priv_virt);
+		/*
 		seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
 flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
 			buffer->size,
@@ -1642,6 +1815,15 @@ flag= 0x%8x phy= 0x%8x vaddr= 0x%8x\n",
 			atomic_read(&buffer->ref.refcount),
 			(unsigned int)buffer->flags,
 			(unsigned int)buffer->priv_virt,
+			(unsigned int)buffer->vaddr);
+		*/
+		seq_printf(s, "--- size= %16u kmap_cnt= %2d ref= %2d \
+flag= 0x%8x pfn = 0x%8d vaddr= 0x%8x\n",
+			buffer->size >> PAGE_SHIFT,
+			buffer->kmap_cnt,
+			atomic_read(&buffer->ref.refcount),
+			(unsigned int)buffer->flags,
+			page_to_pfn(page),
 			(unsigned int)buffer->vaddr);
 	}
 	mutex_unlock(&dev->lock);
