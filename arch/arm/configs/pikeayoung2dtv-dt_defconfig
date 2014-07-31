@@ -1336,6 +1336,12 @@ CONFIG_WLAN=y
 CONFIG_WIFI_CONTROL_FUNC=y
 # CONFIG_ATH_CARDS is not set
 # CONFIG_BCMDHD is not set
+CONFIG_BCMDHD=m
+CONFIG_BCMDHD_FW_PATH="/system/etc/wifi/fw_bcmdhd.bin"
+CONFIG_BCMDHD_NVRAM_PATH="/system/etc/wifi/bcmdhd.cal"
+CONFIG_DHD_USE_SCHED_SCAN=y
+CONFIG_WLAN_SDIO=y
+
 # CONFIG_BRCMFMAC is not set
 # CONFIG_HOSTAP is not set
 # CONFIG_LIBERTAS is not set
