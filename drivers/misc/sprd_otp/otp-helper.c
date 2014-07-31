@@ -56,10 +56,12 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 	unsigned short adc_temp;
 
 	deta = __ddie_efuse_read(BLK_ADC_DETA);
-	deta &= ~(1 << 31);
+	//deta &= ~(1 << 31);
 
-	pr_info("%s() get efuse block %u, deta: 0x%08x\n", __func__,
-		BLK_ADC_DETA, deta);
+	pr_info("%s() get efuse block %u, deta: 0x%08x\n", __func__, BLK_ADC_DETA, deta);
+
+	WARN_ON(!(deta & BIT(31))); /* BIT 31 is protected bit */
+	deta &= 0xFFFFFF; /* get BIT0 ~ BIT23) in block 7 */
 
 	if ((!deta) || (p_cal_data == NULL)) {
 		return 0;
@@ -151,11 +153,12 @@ int sci_efuse_get_apt_cal(unsigned int *pdata, int num)
 
 	pr_info("%s efuse data: 0x%08x\n", __func__, efuse_data);
 
-	if (!(efuse_data /* & BIT(31) */ ) || (!pdata)) {
+	WARN_ON(!(efuse_data & BIT(31))); /* BIT 31 is protected bit */
+	efuse_data &= 0xFFFF; /* get BIT0 ~ BIT15 in block 10 */
+
+	if (!(efuse_data) || (!pdata)) {
 		return -1;
 	}
-
-	efuse_data &= ~(1 << 31);
 
 	printk("%s: ", __func__);
 	for (i = 0; i < num; i++) {
@@ -199,16 +202,17 @@ int sci_efuse_get_cal(unsigned int *pdata, int num)
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	efuse_data = __ddie_efuse_read(BLK_ADC_DETA_ABC);
 #else
-#warning "AuxADC CAL DETA need fixing"
+	#warning "AuxADC CAL DETA need fixing"
 #endif
 
 	pr_info("%s efuse data: 0x%08x\n", __func__, efuse_data);
 
-	if (!(efuse_data /* & BIT(31) */ ) || (!pdata)) {
+	WARN_ON(!(efuse_data & BIT(31))); /* BIT 31 is protected bit */
+	efuse_data &= 0xFFFFFF; /* get BIT0 ~ BIT23 in block 7 */
+
+	if (!(efuse_data) || (!pdata)) {
 		return -1;
 	}
-
-	efuse_data &= ~(1 << 31);
 
 	WARN_ON(!((delta[0] > delta[1]) && (delta[1] > delta[2])));
 
@@ -256,11 +260,14 @@ int sci_efuse_get_cal_v2(unsigned int *pdata, int num)
 
 	efuse_data = __ddie_efuse_read(BLK_ADC_DETA_ABC);
 
-	if (!(efuse_data /* & BIT(31) */ ) || (!pdata)) {
+	pr_info("%s efuse block(%d) data: 0x%08x\n", __func__, BLK_ADC_DETA_ABC, efuse_data);
+
+	WARN_ON(!(efuse_data & BIT(31))); /* BIT 31 is protected bit */
+	efuse_data &= 0xFFFFFF; /* get BIT0 ~ BIT23 in block 7 */
+
+	if (!(efuse_data) || (!pdata)) {
 		return -1;
 	}
-
-	efuse_data &= ~(1 << 31);
 
 	WARN_ON(!((delta[0] > delta[1]) && (delta[1] > delta[2])));
 
@@ -269,8 +276,10 @@ int sci_efuse_get_cal_v2(unsigned int *pdata, int num)
 		    (unsigned int)ADC_VOL(delta[i], ideal[i][1], ideal[i][0]);
 		if (3 == i) {
 			efuse_data = __ddie_efuse_read(BLK_ADC_DETA_D);
-			efuse_data &= ~(1 << 31);
-			if (!(efuse_data /* & BIT(31) */ )) {
+			pr_info("efuse block(%d) data: 0x%08x\n", BLK_ADC_DETA_D, efuse_data);
+			WARN_ON(!(efuse_data & BIT(31)));
+			efuse_data &= 0xFF0000; /* get BIT16 ~ BIT23 in block 9 */
+			if (!(efuse_data)) {
 				return -2;
 			}
 			pdata[i] =
