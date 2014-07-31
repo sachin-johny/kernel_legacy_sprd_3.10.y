@@ -191,7 +191,7 @@
 		"vddsim0",
 		"vddsim1",
 		"vddsim2",
-		"vddsdio",
+		"vddsdcore",
 		"vdd18";
 		ctrl_desc = <0x10 0 1
 				0x10 1 1
@@ -390,22 +390,20 @@
 		 #size-cells = <0>;
 	 };
 
-	 i2c_gpio7: i2c_gpio@2 {
-		 compatible = "i2c-gpio";
-		 gpios = <&d_gpio_gpio 150 0 /* sda */
-			&d_gpio_gpio 151 0 >;  /* scl */
-		/*i2c-gpio,sda-open-drain;*/
-		/*i2c-gpio,scl-open-drain;*/
-		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
-		i2c-gpio,timeout-ms = <0>;
+	i2c_gpio7: i2c_gpio@2 {
+		compatible = "i2c-gpio";
 		#address-cells = <1>;
 		#size-cells = <0>;
-		
-		rt8973@14 {
-			compatible = "richtek,rt8973";
+		gpios = <&d_gpio_gpio 150 0 /* sda */
+                        &d_gpio_gpio 151 0 >; /* scl */
+		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
+		i2c-gpio,timeout-ms = <0>;
+
+		sm5504@14 {
+			compatible = "SiliconMitus,sm5504";
 			reg = <0x14>;
 			interrupt-parent = <&d_gpio_gpio>;
-			rt8973,irq-gpio = <&d_gpio_gpio 152 0>;
+			sm5504,irq-gpio = <&d_gpio_gpio 149 0>; 
 		};
 	};
 
@@ -576,7 +574,7 @@
 		sprd,saudio-names = "saudio_voip";
 	};
 
-	sdhci3: sdhci@f511c000{
+	sdhci3: sdhci@f511c000 {
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 60 0x0>;
 		reg = <0xf511c000 0x1000>;
@@ -585,22 +583,25 @@
 		max-frequency = <384000000>;
 		keep-power-in-suspend = <1>;
 		non-removable = <1>;
-		caps = <0x80000000>;
+		caps = <0x80000800>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddemmcio";
+		host-caps-mask = <0x03000000>;
+		vdd-vmmc = "vddemmccore";
+		vdd-vqmmc = "vddgen1";
 		emmc-signal-supply = <&vddemmccore>;
 		vdd-level = <1200000 1300000 1500000 1800000>;
 		clock-names = "clk_emmc";
 		clocks = <&clk_emmc>, <&clk_384m>;
 		enb-bit = <0x800>;
 		rst-bit = <0x4000>;
-		write-delay = <0x20>;
-		read-pos-delay = <0x07>;
-		read-neg-delay = <0x05>;
+		write-delay = <0x04>;
+		read-pos-delay = <0x04>;
+		read-neg-delay = <0x04>;
 		keep-power = <0>;
 		runtime = <1>;
 	};
-	sdhci0: sdhci@f5117000{
+
+	sdhci0: sdhci@f5117000 {
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 57 0x0>;
 		reg = <0xf5117000 0x1000>;
@@ -610,10 +611,10 @@
 		keep-power-in-suspend = <1>;
 		caps = <0x80000000>;
 		caps2 = <0x202>;
-		vdd-extmmc = "vddsdio";
+		host-caps-mask = <0x05000000>;
+		vdd-vqmmc = "vddsdcore";
 		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
-		init-voltage-level = <4>;
 		pinmap-offset = <0x0184>;
 		d3-gpio = <100>;
 		d3-index = <0>;
@@ -626,7 +627,8 @@
 		keep-power = <0>;
 		runtime = <1>;
 	};
-	sdhci1: sdhci@f5118000{
+
+	sdhci1: sdhci@f5118000 {
 		compatible  = "sprd,sdhci-shark";
 		interrupts = <0 58 0x0>;
 		reg = <0xf5118000 0x1000>;
@@ -644,16 +646,17 @@
 		runtime = <1>;
 	};
 
-	 usb: usb@f5116000{
-		 compatible  = "sprd,usb";
-		 interrupts = <0 55 0x0>;
-		ngpios = <2>;
-		gpios = <&a_eic_gpio 0 0>,<&d_gpio_gpio 72 0>;
-		 reg = <0xf5116000 0x1000>;
-                 usb-supply = <&vddusb>;
-		 #address-cells = <1>;
-		 #size-cells = <0>;
-	 };
+	usb: usb@f5116000 {
+		compatible  = "sprd,usb";
+		interrupts = <0 55 0x0>;
+		ngpios = <3>;
+		gpios = <&a_eic_gpio 0 0>,<&d_gpio_gpio 72 0>,<&d_gpio_gpio 152 0>;
+		reg = <0xf5116000 0x1000>;
+		usb-supply = <&vddusb>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
 	sprd_thermal {
 		compatible = "sprd,sprd-thermal";
 		id = <0>;
@@ -799,9 +802,9 @@
 	status = "okay";
 };
 
-&sprd_codec_v3 {
+&sprd_codec {
 	status = "okay";
-	sprd,audio_power_ver = <3>;
+	sprd,audio_power_ver = <4>;
 };
 
 &i2s0 {
