@@ -694,7 +694,7 @@ static char *sm5504_cable_names[] = {
 };
 #endif /*RTDBGINFO_LEVEL<=RTDBGLEVEL */
 
-#if defined(CONFIG_BATTERY_SAMSUNG) || defined(CONFIG_RT_BATTERY)
+#if defined(CONFIG_BATTERY_SAMSUNG) || defined(CONFIG_RT_BATTERY) || defined(CONFIG_MFD_SM5504)
 #define cable_change_callback sec_charger_cb
 extern void sec_charger_cb(u8 cable_type);
 #endif
@@ -707,7 +707,7 @@ static void sm5504_cable_change_handler(struct sm5504_chip *chip,
 	RTINFO("Cable change to %s\n",
 	       sm5504_cable_names[chip->curr_status.cable_type]);
 
-#if defined(CONFIG_BATTERY_SAMSUNG) || defined(CONFIG_RT_BATTERY)
+#if defined(CONFIG_BATTERY_SAMSUNG) || defined(CONFIG_RT_BATTERY) || defined(CONFIG_MFD_SM5504)
     cable_change_callback(chip->curr_status.cable_type);
 #endif
 	if(!chip->curr_status.ovp_status){

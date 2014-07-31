@@ -349,8 +349,14 @@ enum sec_battery_temp_check {
  * @temperature: temperature(C) * 10
  */
 struct sec_bat_adc_table_data {
+#ifdef CONFIG_OF
+	unsigned int adc;
+	unsigned int data;
+#else
 	int adc;
 	int data;
+#endif
+	int temperature;
 };
 #define sec_bat_adc_table_data_t \
 	struct sec_bat_adc_table_data
@@ -363,10 +369,17 @@ struct sec_bat_adc_region {
 	struct sec_bat_adc_region
 
 struct sec_charging_current {
+#ifdef CONFIG_OF
+	unsigned int input_current_limit;
+	unsigned int fast_charging_current;
+	unsigned int full_check_current_1st;
+	unsigned int full_check_current_2nd;
+#else
 	int input_current_limit;
 	int fast_charging_current;
 	int full_check_current_1st;
 	int full_check_current_2nd;
+#endif
 };
 #define sec_charging_current_t \
 	struct sec_charging_current
@@ -407,11 +420,13 @@ struct sec_battery_platform_data {
 	sec_bat_adc_region_t *cable_adc_value;
 	/* charging current for type (0: not use) */
 	sec_charging_current_t *charging_current;
-
+#ifdef CONFIG_OF
+	unsigned int *polling_time;
+#else
+	int *polling_time;
+#endif
 	char *chip_vendor;
 	unsigned int temp_adc_type;
-
-	int *polling_time;
 	/* NO NEED TO BE CHANGED */
 
 	char *pmic_name;
@@ -473,19 +488,26 @@ struct sec_battery_platform_data {
 
 	sec_battery_temp_check_t temp_check_type;
 	unsigned int temp_check_count;
+	unsigned int temp_adc_channel;
 	/*
 	 * limit can be ADC value or Temperature
 	 * depending on temp_check_type
 	 * temperature should be temp x 10 (0.1 degree)
 	 */
+	int temp_highlimit_threshold_event;
+	int temp_highlimit_recovery_event;
 	int temp_high_threshold_event;
 	int temp_high_recovery_event;
 	int temp_low_threshold_event;
 	int temp_low_recovery_event;
+	int temp_highlimit_threshold_normal;
+	int temp_highlimit_recovery_normal;
 	int temp_high_threshold_normal;
 	int temp_high_recovery_normal;
 	int temp_low_threshold_normal;
 	int temp_low_recovery_normal;
+	int temp_highlimit_threshold_lpm;
+	int temp_highlimit_recovery_lpm;
 	int temp_high_threshold_lpm;
 	int temp_high_recovery_lpm;
 	int temp_low_threshold_lpm;
@@ -555,7 +577,11 @@ struct sec_battery_platform_data {
 	int chg_irq;
 	unsigned long chg_irq_attr;
 	/* float voltage (mV) */
+#ifdef CONFIG_OF
+	unsigned int chg_float_voltage;
+#else
 	int chg_float_voltage;
+#endif
 	sec_charger_functions_t chg_functions_setting;
 
 

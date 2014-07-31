@@ -61,3 +61,4 @@ sprd_2713_battery-$(CONFIG_SPRD_2713_POWER) := sprd_2713_power.o sprd_2713_charg
 sprd_ext_ic_battery-$(CONFIG_SPRD_EXT_IC_POWER) := sprd_ext_ic_power.o sprd_2713_charge.o sprd_2713_fgu.o fan5405.o
 obj-$(CONFIG_FUELGAUGE_RT5033)	+= rt5033_fuelgauge.o
 obj-$(CONFIG_CHARGER_RT5033)    += rt5033_charger.o
+obj-$(CONFIG_CHARGER_SM5701)    += sm5701_charger.o sec_dt_init.o

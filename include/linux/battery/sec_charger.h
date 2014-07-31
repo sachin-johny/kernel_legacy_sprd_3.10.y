@@ -57,7 +57,10 @@
 #include <linux/battery/charger/rt5033_charger.h>
 #elif defined(CONFIG_CHARGER_RT9455)
 #include <linux/battery/charger/rt9455_charger.h>
+#elif defined(CONFIG_CHARGER_SM5701)
+#include <linux/battery/charger/sm5701_charger.h>
 #endif
+
 
 struct sec_charger_info {
 	struct i2c_client		*client;

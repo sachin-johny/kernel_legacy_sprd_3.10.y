@@ -58,6 +58,8 @@ obj-$(CONFIG_LEDS_SC8810_KB)		+= leds-sc8810-kb.o
 obj-$(CONFIG_FLASHLIGHT)		+= flashlight.o
 obj-$(CONFIG_RT_FLASH_LED)		+= rtfled.o
 obj-$(CONFIG_FLED_RT5033)       += rt5033_fled.o
+#SiliconMitus
+obj-$(CONFIG_FLED_SM5701)       += leds-sm5701.o
 # SPRD keyboard-backlight Drivers
 obj-$(CONFIG_LEDS_SPRD_KB) += leds-sprd-kb.o
 # SPRD rgb led Drivers

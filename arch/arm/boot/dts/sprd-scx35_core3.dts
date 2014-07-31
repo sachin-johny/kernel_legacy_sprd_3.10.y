@@ -35,7 +35,7 @@
 	};
 
 	aliases {
-		/*i2c_gpio6 = &i2c_gpio6;*/
+		i2c_gpio6 = &i2c_gpio6;
 		i2c_gpio7 = &i2c_gpio7;
 		/*i2c_gpio8 = &i2c_gpio8;*/
 	};
@@ -173,6 +173,30 @@
 		gpios = <&d_gpio_gpio 186 0   /*reset*/
 				&d_gpio_gpio 187 0    /*main*/
 				&d_gpio_gpio 188 0>;  /*sub */
+	};
+
+	i2c_gpio6: i2c_gpio@0 {
+		compatible = "i2c-gpio";
+		#address-cells = <1>;
+		#size-cells = <0>;
+		gpios = <&d_gpio_gpio 159 0 /* sda */
+                        &d_gpio_gpio 160 0 >; /* scl */
+		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
+		i2c-gpio,timeout-ms = <0>;
+
+		sm5701-i2c@49 {
+			compatible = "sm,sm5701";
+			reg = <0x49>;
+                        chargermfd {
+                                   chgirq-gpio = <&d_gpio_gpio 161 0>;
+                                   charger {
+                                           compatible = "sm,sm5701-charger";
+                                           chgen-gpio = <&d_gpio_gpio 215 0>;
+	                                   chg-float-voltage = <4350>;
+                                   };
+
+                        };
+		};
 	};
 
 	i2c_gpio7: i2c_gpio@2 {

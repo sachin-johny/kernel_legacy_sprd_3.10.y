@@ -62,6 +62,13 @@ config FLED_RT5033_EXT_GPIO
 
 endchoice
 
+config FLED_SM5701
+	tristate "SiliconMitus SM5701 flash LED driver"
+	depends on MFD_SM5701
+	help
+	  A driver for SiliconMitus SM5701 flash LED
+
+
 config LEDS_88PM860X
 	tristate "LED Support for Marvell 88PM860x PMIC"
 	depends on LEDS_CLASS
