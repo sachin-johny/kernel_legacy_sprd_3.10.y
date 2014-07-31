@@ -1873,7 +1873,7 @@ static int dbs_input_connect(struct input_handler *handler,
 	if (error)
 		goto err1;
 
-	pr_info("[DVFS] dbs_input_connect register success\n");
+	pr_debug("[DVFS] dbs_input_connect register success\n");
 	return 0;
 err1:
 	pr_info("[DVFS] dbs_input_connect register fail err1\n");
@@ -1896,6 +1896,7 @@ static const struct input_device_id dbs_ids[] = {
 	{ },
 };
 
+#ifndef CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG
 struct input_handler dbs_input_handler = {
 	.event		= dbs_input_event,
 	.connect	= dbs_input_connect,
@@ -1903,6 +1904,8 @@ struct input_handler dbs_input_handler = {
 	.name		= "cpufreq_ond",
 	.id_table	= dbs_ids,
 };
+#endif
+
 static int __init cpufreq_gov_dbs_init(void)
 {
 	int i = 0;
