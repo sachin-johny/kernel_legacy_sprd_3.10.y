@@ -1174,7 +1174,7 @@ struct ion_handle *ion_import_dma_buf(struct ion_client *client, int fd)
 
 	dmabuf = dma_buf_get(fd);
 	if (IS_ERR(dmabuf)) {
-		pr_err("ion_import_dma_buf() dmabuf=0x%lx dma_buf_get error!\n", (unsigned long)dmabuf);
+		pr_err("ion_import_dma_buf() dmabuf=0x%lx, fd:%d, dma_buf_get error!\n", (unsigned long)dmabuf, fd);
 		return ERR_PTR(PTR_ERR(dmabuf));
 	}
 	/* if this memory came from ion */
