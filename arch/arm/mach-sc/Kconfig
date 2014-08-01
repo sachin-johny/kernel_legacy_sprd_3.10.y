@@ -473,6 +473,7 @@ config MACH_TSHARKWSAMSUNG
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	select MACH_SAMSUNG
+	select MUIC_CABLE_DETECT
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
@@ -484,6 +485,7 @@ config MACH_CORE3
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	select MACH_SAMSUNG
+	select MUIC_CABLE_DETECT
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
@@ -495,6 +497,7 @@ config MACH_PIKEAYOUNG2DTV
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	select MACH_SAMSUNG
+	select MUIC_CABLE_DETECT
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
@@ -665,4 +668,10 @@ config SS_FUNCTION
 config TSP_0_1_A
         bool "For corsica_ve 3131 0.1A board"
         default n
+
+config MUIC_CABLE_DETECT
+	bool "usb, jig-box and so on cables are detected by external MUIC chip"
+	default n
+	depends on MFD_SM5504 || MFD_RT8973
+
 endif
