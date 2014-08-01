@@ -1620,6 +1620,14 @@ static void sec_bat_get_battery_info(
 {
 	union power_supply_propval value;
 
+	if (get_power_supply_by_name(battery->pdata->fuelgauge_name) == NULL) {
+		battery->voltage_now = 4000;
+		battery->current_now = 3000;
+		battery->capacity = 50;
+		pr_err("%s: Fail to find (%s), force return\n", __func__, battery->pdata->fuelgauge_name);
+		return;
+	}
+
 	psy_do_property(battery->pdata->fuelgauge_name, get,
 			POWER_SUPPLY_PROP_VOLTAGE_NOW, value);
 	battery->voltage_now = value.intval;
