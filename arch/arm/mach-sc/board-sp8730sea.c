@@ -71,6 +71,9 @@
 #if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
 #include <linux/sprd_pwm_bl.h>
 #endif
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+#include <linux/headset_sprd_sc2723.h>
+#endif
 
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
@@ -117,6 +120,43 @@ static struct sprd_pwm_bl_platform_data sprd_pwm_bl_platform_data = {
 	.pwm_index = 3,
 	.gpio_ctrl_pin = -1,
 	.gpio_active_level = 0,
+};
+#endif
+
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+static struct headset_buttons headset_sprd_sc2723_buttons[] = {
+	{
+		.adc_min = HEADSET_ADC_MIN_KEY_MEDIA,
+		.adc_max = HEADSET_ADC_MAX_KEY_MEDIA,
+		.code = KEY_MEDIA,
+	},
+#if 0
+	{
+		.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEUP,
+		.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEUP,
+		.code = KEY_VOLUMEUP,
+	},
+	{
+		.adc_min = HEADSET_ADC_MIN_KEY_VOLUMEDOWN,
+		.adc_max = HEADSET_ADC_MAX_KEY_VOLUMEDOWN,
+		.code = KEY_VOLUMEDOWN,
+	},
+#endif
+};
+
+static struct sprd_headset_platform_data headset_sprd_sc2723_pdata = {
+	.gpio_switch = HEADSET_SWITCH_GPIO,
+	.gpio_detect = HEADSET_DETECT_GPIO,
+	.gpio_button = HEADSET_BUTTON_GPIO,
+	.irq_trigger_level_detect = HEADSET_IRQ_TRIGGER_LEVEL_DETECT,
+	.irq_trigger_level_button = HEADSET_IRQ_TRIGGER_LEVEL_BUTTON,
+	.adc_threshold_3pole_detect = HEADSET_ADC_THRESHOLD_3POLE_DETECT,
+	.adc_threshold_4pole_detect = HEADSET_ADC_THRESHOLD_4POLE_DETECT,
+	.irq_threshold_buttont = HEADSET_IRQ_THRESHOLD_BUTTON,
+	.voltage_headmicbias = HEADSET_HEADMICBIAS_VOLTAGE,
+	.headset_buttons = headset_sprd_sc2723_buttons,
+	.nbuttons = ARRAY_SIZE(headset_sprd_sc2723_buttons),
+	.external_headmicbias_power_on = NULL,
 };
 #endif
 
@@ -219,7 +259,12 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_sttybt_td_device,
 #endif
 	&sprd_saudio_voip_device,
+#if(defined(CONFIG_INPUT_SPRD_HEADSET_SHARK)||defined(CONFIG_INPUT_SPRD_HEADSET_SHARK_MODULE))
 	&sprd_headset_device,
+#endif
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+	&headset_sprd_sc2723_device,
+#endif
 };
 
 static struct platform_device *late_devices[] __initdata = {
@@ -781,6 +826,9 @@ static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
 #if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
 	{ .compatible = "sprd,sprd_pwm_bl",  .name = "sprd_pwm_bl" },
 #endif
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+	{ .compatible = "sprd,headset_sprd_sc2723",  .name = "headset_sprd_sc2723" },
+#endif
 	 {}
 };
 #endif
@@ -815,6 +863,9 @@ static void __init sc8830_init_machine(void)
 	platform_device_add_data(&sprd_audio_i2s3_device,(const void*)&i2s3_config,sizeof(i2s3_config));
 #if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
 	platform_device_add_data(&sprd_pwm_bl_device, (const void*)&sprd_pwm_bl_platform_data, sizeof(sprd_pwm_bl_platform_data));
+#endif
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+	platform_device_add_data(&headset_sprd_sc2723_device, (const void*)&headset_sprd_sc2723_pdata, sizeof(headset_sprd_sc2723_pdata));
 #endif
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();

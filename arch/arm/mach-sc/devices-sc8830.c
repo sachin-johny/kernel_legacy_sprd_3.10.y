@@ -37,7 +37,9 @@
 #ifdef CONFIG_TS0710_MUX_ENABLE
 #include <linux/sprdmux.h>
 #endif
+#if(defined(CONFIG_INPUT_SPRD_HEADSET_SHARK)||defined(CONFIG_INPUT_SPRD_HEADSET_SHARK_MODULE))
 #include <linux/headset_sprd.h>
+#endif
 #ifdef CONFIG_BACKLIGHT_RT4502
 #include <linux/rt4502_bl.h>
 #endif
@@ -725,6 +727,7 @@ struct platform_device sprd_thm_a_device = {
 };
 #endif
 
+#if(defined(CONFIG_INPUT_SPRD_HEADSET_SHARK)||defined(CONFIG_INPUT_SPRD_HEADSET_SHARK_MODULE))
 static struct headset_buttons sprd_headset_buttons[] = {
 	{
 		.adc_min = HEADSET_ADC_MIN_KEY_MEDIA,
@@ -794,6 +797,14 @@ struct platform_device sprd_headset_device = {
 		.platform_data = &sprd_headset_pdata,
 	},
 };
+#endif
+
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+struct platform_device headset_sprd_sc2723_device = {
+	.name = "headset_sprd_sc2723",
+	.id = -1,
+};
+#endif
 
 #ifdef CONFIG_RF_SHARK
 struct platform_device trout_fm_device = {
