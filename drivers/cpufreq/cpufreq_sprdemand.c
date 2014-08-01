@@ -776,9 +776,6 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 	if(local_cpu)
 		return;
 
-	if(time_before(jiffies, boot_done))
-		return;
-
 	/* skip cpufreq adjustment if system enter into suspend */
 	if(true == sd_tuners->is_suspend){
 		pr_info("%s: is_suspend=%s, skip cpufreq adjust\n",
@@ -1808,7 +1805,7 @@ static struct early_suspend sprdemand_gov_earlysuspend_handler = {
 
 
 static struct workqueue_struct *input_wq;
-static DEFINE_PER_CPU(struct work_struct, dbs_refresh_work);
+static struct work_struct dbs_refresh_work;
 
 static void dbs_refresh_callback(struct work_struct *work)
 {
@@ -1843,12 +1840,16 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 {
 	int i;
 	bool ret;
+	static int tp_time = 0;
 
-	for_each_online_cpu(i)
-	{
-		ret = queue_work_on(i, input_wq, &per_cpu(dbs_refresh_work, i));
-		pr_debug("[DVFS] dbs_input_event %d\n",ret);
+	if(jiffies <= (tp_time + 10)){
+		tp_time = jiffies;
+		return;
 	}
+	tp_time = jiffies;
+	ret = queue_work_on(0, input_wq, &dbs_refresh_work);
+	pr_debug("[DVFS] dbs_input_event %d\n",ret);
+
 }
 
 static int dbs_input_connect(struct input_handler *handler,
@@ -1929,12 +1930,15 @@ static int __init cpufreq_gov_dbs_init(void)
 		return -EFAULT;
 	}
 
-       for_each_possible_cpu(i)
-       {
-		INIT_WORK(&per_cpu(dbs_refresh_work, i), dbs_refresh_callback);
-	}
+	INIT_WORK(&dbs_refresh_work, dbs_refresh_callback);
+
 
 	g_sd_tuners = kzalloc(sizeof(struct sd_dbs_tuners), GFP_KERNEL);
+
+	if(input_register_handler(&dbs_input_handler))
+	{
+		pr_err("[DVFS] input_register_handler failed\n");
+	}
 
 	return cpufreq_register_governor(&cpufreq_gov_sprdemand);
 }
@@ -1949,6 +1953,7 @@ static void __exit cpufreq_gov_dbs_exit(void)
 #if defined(CONFIG_THERMAL)
 	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
 #endif
+	input_unregister_handler(&dbs_input_handler);
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");
