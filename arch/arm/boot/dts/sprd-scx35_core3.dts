@@ -216,6 +216,94 @@
 		};
 	};
 
+	sec-battery {
+		status = "okay";
+		compatible = "samsung,sec-battery";
+		vendor = "SDI SDI";
+		charger_name = "sec-charger";
+		fuelgauge_name = "sec-fuelgauge";
+		technology = <2>; /* POWER_SUPPLY_TECHNOLOGY_LION */
+		bat_irq_attr = <3>; /* IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING */
+		/* battery,ta_int = <&d_gpio_gpio 62 0x1>;
+		,ta_irq_attr = <0x3>; */
+
+		chip_vendor = "QCOM";
+		temp_adc_type = <1>; /* SEC_BATTERY_ADC_TYPE_AP */
+
+		polling_time = <10 30 30 30 3600>;
+
+		adc_check_count = <5>;
+
+		cable_check_type = <5>; /* SEC_BATTERY_CABLE_CHECK_PSY */
+		cable_source_type = <3>; /* SEC_BATTERY_CABLE_SOURCE_EXTERNAL */
+		event_check;
+		event_waiting_time = <600>;
+		polling_type = <1>; /* SEC_BATTERY_MONITOR_ALARM */
+		monitor_initial_count = <3>;
+
+		battery_check_type = <0>; /* SEC_BATTERY_CHECK_NONE */
+		check_count = <0>;
+		check_adc_max = <1440>;
+		check_adc_min = <0>;
+
+		ovp_uvlo_check_type = <3>; /* SEC_BATTERY_OVP_UVLO_CHGPOLLING */
+
+		thermal_source = <2>; /* SEC_BATTERY_THERMAL_SOURCE_ADC */
+
+		temp_table_adc = <27281 27669 28178 28724 29342 30101 30912 31807 32823 33858 34950 36049 37054
+			38025 38219 38448 38626 38795 38989 39229 39540 39687 39822 40523 41123 41619>;
+		temp_table_data = <700 650 600 550 500 450 400 350 300 250 200 150 100
+			50 40 30 20 10 0 (-10) (-30) (-40) (-50) (-100) (-150) (-200)>;
+		temp_check_type = <0>; /* SEC_BATTERY_TEMP_CHECK_NONE */
+		temp_check_count = <1>;
+		temp_high_threshold_event = <600>;
+		temp_high_recovery_event = <450>;
+		temp_low_threshold_event = <(-50)>;
+		temp_low_recovery_event = <0>;
+		temp_high_threshold_normal = <600>;
+		temp_high_recovery_normal = <450>;
+		temp_low_threshold_normal = <(-50)>;
+		temp_low_recovery_normal = <0>;
+		temp_high_threshold_lpm = <600>;
+		temp_high_recovery_lpm = <450>;
+		temp_low_threshold_lpm = <(-50)>;
+		temp_low_recovery_lpm = <0>;
+		full_check_type = <7>; /* SEC_BATTERY_FULLCHARGED_CHGPSY */
+		full_check_type_2nd = <3>; /* SEC_BATTERY_FULLCHARGED_TIME */
+		full_check_count = <1>;
+		chg_gpio_full_check = <0>;
+		chg_polarity_full_check = <1>;
+
+		/* SEC_BATTERY_FULL_CONDITION_SOC |
+		   SEC_BATTERY_FULL_CONDITION_NOTIMEFULL |
+		   SEC_BATTERY_FULL_CONDITION_VCELL */
+		full_condition_type = <13>;
+		full_condition_soc = <95>;
+		full_condition_vcell = <4300>;
+
+		recharge_check_count = <1>;
+		recharge_condition_type = <2>; /* SEC_BATTERY_RECHARGE_CONDITION_VCELL */
+		recharge_condition_soc = <98>;
+		recharge_condition_vcell = <4300>;
+
+		charging_total_time = <36000>;
+		recharging_total_time = <5400>;
+		charging_reset_time = <0>;
+
+                /* Charger */
+                vbus_ctrl_gpio = <&d_gpio_gpio 64 0x00>;
+                chg_gpio_en = <0>;
+                chg_polarity_en = <0>;
+                chg_gpio_status = <0>;
+                chg_polarity_status = <0>;
+                chg_float_voltage = <4350>;
+
+                input_current_limit = <1800 460 460 1800 460 900 1000 460 460 1000 650 1800 1800 460 1300 300 700 1300 300 1000 1800 460 460>;
+                fast_charging_current = <2100 0 460 2100 460 1200 1000 460 0 1200 750 2100 2100 (-1) 1300 300 700 1300 300 1000 2100 0 0>;
+                full_check_current_1st = <300 0 300 300 300 300 300 300 0 300 300 300 300 0 300 300 300 300 300 300 300 0 0>;
+                full_check_current_2nd = <2400 0 2400 2400 2400 2400 2400 2400 0 2400 2400 2400 2400 0 2400 2400 2400 2400 2400 2400 2400 0 0>;
+	};
+
 	sprd_rf2351: sprd_rf2351@40070000{
 		compatible  = "sprd,sprd_rf2351";
 		reg = <0xf51f8000 0x1000>,		/*RFSPI*/

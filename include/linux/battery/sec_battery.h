@@ -125,11 +125,14 @@ struct sec_battery_info {
 	int temp_adc;
 	int temp_ambient_adc;
 
+	int temp_highlimit_threshold;
+	int temp_highlimit_recovery;
 	int temp_high_threshold;
 	int temp_high_recovery;
 	int temp_low_threshold;
 	int temp_low_recovery;
 
+	unsigned int temp_highlimit_cnt;
 	unsigned int temp_high_cnt;
 	unsigned int temp_low_cnt;
 	unsigned int temp_recover_cnt;
@@ -137,7 +140,9 @@ struct sec_battery_info {
 	/* charging */
 	unsigned int charging_mode;
 	bool is_recharging;
+	bool is_jig_on;
 	int cable_type;
+	int muic_cable_type;
 	int extended_cable_type;
 	struct wake_lock cable_wake_lock;
 	struct work_struct cable_work;
@@ -154,6 +159,7 @@ struct sec_battery_info {
 	/* wearable charging */
 	int ps_enable;
 	int ps_status;
+	int ps_changed;
 
 	/* test mode */
 	int test_mode;
@@ -198,6 +204,7 @@ ssize_t sec_bat_store_attrs(struct device *dev,
 #define EVENT_LCD			(0x1 << 12)
 #define EVENT_GPS			(0x1 << 13)
 
+#if 0
 enum {
 	POWER_SUPPLY_TYPE_WPC = 0xfff,
 	POWER_SUPPLY_TYPE_MISC,
@@ -213,6 +220,7 @@ enum {
 	POWER_SUPPLY_TYPE_SMART_NOTG,
 	POWER_SUPPLY_TYPE_POWER_SHARING
 };
+#endif
 
 enum {
 	BATT_RESET_SOC = 0,

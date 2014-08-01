@@ -407,6 +407,7 @@ void sec_charger_cb(u8 cable_type)
 	case MUIC_SM5504_CABLE_TYPE_ATT_TA:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_OFF_WITH_VBUS:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON_WITH_VBUS:
+	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON:
 	case MUIC_SM5504_CABLE_TYPE_TYPE1_CHARGER:
 		current_cable_type = POWER_SUPPLY_TYPE_MAINS;
 		break;
@@ -911,51 +912,57 @@ int sec_chg_dt_init(struct device_node *np,
 	if (ret)
 		return ret;
 
-	np = of_find_node_by_name(NULL, "battery");
-	if (!np) {
-		pr_err("%s np NULL\n", __func__);
-	} else {
-		int i = 0;
-		const u32 *p;
-		p = of_get_property(np, "input_current_limit", &len);
-		if (!p)
-			return 1;
+        np = of_find_node_by_name(NULL, "sec-battery");
+        if (!np) {
+                pr_err("%s np NULL\n", __func__);
+        } 
+        else {
+                int i = 0;
+                const u32 *p;
+                p = of_get_property(np, "input_current_limit", &len);
+                if (!p){
 
-		len = len / sizeof(u32);
+                        pr_err("%s input_current_limit is Empty\n", __func__);
+                        //	return 1;
+                }
+                else{
 
-		pdata->charging_current = kzalloc(sizeof(sec_charging_current_t) * len,
-				GFP_KERNEL);
+                        len = len / sizeof(u32);
 
-		for(i = 0; i < len; i++) {
-			ret = of_property_read_u32_index(np,
-				"input_current_limit", i,
-				&pdata->charging_current[i].input_current_limit);
-			if (ret)
-				pr_info("%s : Input_current_limit is Empty\n",
-					__func__);
+                        pdata->charging_current = kzalloc(sizeof(sec_charging_current_t) * len,
+                                        GFP_KERNEL);
 
-			ret = of_property_read_u32_index(np,
-				"fast_charging_current", i,
-				&pdata->charging_current[i].fast_charging_current);
-			if (ret)
-				pr_info("%s : Fast charging current is Empty\n",
-						__func__);
+                        for(i = 0; i < len; i++) {
+                                ret = of_property_read_u32_index(np,
+                                                "input_current_limit", i,
+                                                &pdata->charging_current[i].input_current_limit);
+                                if (ret)
+                                        pr_info("%s : Input_current_limit is Empty\n",
+                                                        __func__);
 
-			ret = of_property_read_u32_index(np,
-				"full_check_current_1st", i,
-				&pdata->charging_current[i].full_check_current_1st);
-			if (ret)
-				pr_info("%s : Full check current 1st is Empty\n",
-						__func__);
+                                ret = of_property_read_u32_index(np,
+                                                "fast_charging_current", i,
+                                                &pdata->charging_current[i].fast_charging_current);
+                                if (ret)
+                                        pr_info("%s : Fast charging current is Empty\n",
+                                                        __func__);
 
-			ret = of_property_read_u32_index(np,
-				"full_check_current_2nd", i,
-				&pdata->charging_current[i].full_check_current_2nd);
-			if (ret)
-				pr_info("%s : Full check current 2nd is Empty\n",
-						__func__);
-		}
-	}
+                                ret = of_property_read_u32_index(np,
+                                                "full_check_current_1st", i,
+                                                &pdata->charging_current[i].full_check_current_1st);
+                                if (ret)
+                                        pr_info("%s : Full check current 1st is Empty\n",
+                                                        __func__);
+
+                                ret = of_property_read_u32_index(np,
+                                                "full_check_current_2nd", i,
+                                                &pdata->charging_current[i].full_check_current_2nd);
+                                if (ret)
+                                        pr_info("%s : Full check current 2nd is Empty\n",
+                                                        __func__);
+                        }
+                }
+        }
 
 	ret = of_property_read_u32(np, "ovp_uvlo_check_type",
 			&pdata->ovp_uvlo_check_type);

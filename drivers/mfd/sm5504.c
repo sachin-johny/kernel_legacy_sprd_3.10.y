@@ -1392,7 +1392,7 @@ static int sm5504_probe(struct i2c_client *client,
 #ifdef CONFIG_MUIC_FACTORY_EVENT
 	muic_init_factory_cb();
 #endif
-	pr_info("SM5504 : Richtek SM5504 MUIC driver %s initialize successfully\n", SM5504_DRV_VER);
+	pr_info("SM5504 : SiliconMitus SM5504 MUIC driver %s initialize successfully\n", SM5504_DRV_VER);
 	return 0;
 err_request_irq_fail:
 	mutex_destroy(&chip->io_lock);

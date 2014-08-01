@@ -26,6 +26,11 @@ extern uint32_t sprdchg_read_vbat_vol(void);
 #error "please include sprd sc2713 interface"
 #endif
 
+extern int sec_bat_dt_init(struct device_node *np,
+			 struct device *dev,
+			 sec_battery_platform_data_t *pdata);
+
+
 #if defined(CONFIG_TMM_CHG_CTRL)
 #define TUNER_SWITCHED_ON_SIGNAL -1
 #define TUNER_SWITCHED_OFF_SIGNAL -2
@@ -265,7 +270,8 @@ static int sec_bat_get_adc_data(struct sec_battery_info *battery,
 	for (i = 0; i < count; i++) {
 		mutex_lock(&battery->adclock);
 #ifdef CONFIG_OF
-		adc_data = adc_read(battery, adc_ch);
+                //temp
+		//adc_data = adc_read(battery, adc_ch);
 #else
 		adc_data = adc_read(battery->pdata, adc_ch);
 #endif
@@ -3277,6 +3283,7 @@ static int batt_handle_notification(struct notifier_block *nb,
 }
 #endif /* CONFIG_EXTCON */
 
+#if 0
 #ifdef CONFIG_OF
 static int sec_bat_read_u32_index_dt(const struct device_node *np,
 		const char *propname,
@@ -3562,7 +3569,7 @@ static int sec_bat_parse_dt(struct device *dev,
 				&pdata->charging_current[i].full_check_current_2nd);
 	}
 
-	board_battery_init_link(battery->pdata);
+//	board_battery_init_link(battery->pdata);
 
 	pr_info("%s: vendor : %s, technology : %d, cable_check_type : %d\n"
 			"cable_source_type : %d, event_waiting_time : %d\n"
@@ -3587,6 +3594,7 @@ static int sec_bat_parse_dt(struct device *dev,
 	return -EINVAL;
 }
 #endif
+#endif
 
 static int sec_battery_probe(struct platform_device *pdev)
 {
@@ -3596,6 +3604,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 #if !defined(CONFIG_OF) || defined(CONFIG_EXTCON)
 	int i;
 #endif
+	struct device_node *node = pdev->dev.of_node;
+
 
 #if defined(CONFIG_TMM_CHG_CTRL)
 	tuner_running_status=TUNER_IS_OFF;
@@ -3609,9 +3619,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	if (pdev->dev.of_node) {
-		pdata = devm_kzalloc(&pdev->dev,
-				sizeof(sec_battery_platform_data_t),
-				GFP_KERNEL);
+			pdata = kzalloc(sizeof(sec_battery_platform_data_t),
+								GFP_KERNEL);
 		if (!pdata) {
 			dev_err(&pdev->dev, "Failed to allocate memory\n");
 			ret = -ENOMEM;
@@ -3619,9 +3628,19 @@ static int sec_battery_probe(struct platform_device *pdev)
 		}
 
 		battery->pdata = pdata;
+#if 0
 		if (sec_bat_parse_dt(&pdev->dev, battery))
 			dev_err(&pdev->dev,
 					"%s: Failed to get fuel_int\n", __func__);
+#endif
+		ret = sec_bat_dt_init(node, &pdev->dev, pdata);
+		if (ret){
+			dev_err(&pdev->dev,
+					"%s: sec_bat_dt_init failed\n", __func__);
+
+			goto err_dt_init;
+		}
+
 	} else {
 		pdata = dev_get_platdata(&pdev->dev);
 		battery->pdata = pdata;
@@ -3639,7 +3658,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 	mutex_init(&battery->adclock);
 	dev_dbg(battery->dev, "%s: ADC init\n", __func__);
 #ifdef CONFIG_OF
-	board_battery_init(pdev, battery);
+        //temp
+	//board_battery_init(pdev, battery);
 #else
 	for (i = 0; i < SEC_BAT_ADC_CHANNEL_NUM; i++)
 		adc_init(pdev, pdata, i);
@@ -3682,6 +3702,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 
 	battery->wc_status = 0;
 	battery->ps_status= 0;
+	battery->ps_changed= 0;
 	battery->wire_status = POWER_SUPPLY_TYPE_BATTERY;
 
 #if defined(CONFIG_ANDROID_ALARM_ACTIVATED)
@@ -3694,6 +3715,10 @@ static int sec_battery_probe(struct platform_device *pdev)
 			sec_bat_event_expired_timer_func);
 #endif
 
+	battery->temp_highlimit_threshold =
+		pdata->temp_highlimit_threshold_normal;
+	battery->temp_highlimit_recovery =
+		pdata->temp_highlimit_recovery_normal;
 	battery->temp_high_threshold =
 		pdata->temp_high_threshold_normal;
 	battery->temp_high_recovery =
@@ -3929,6 +3954,9 @@ err_wake_lock:
 	wake_lock_destroy(&battery->cable_wake_lock);
 	wake_lock_destroy(&battery->vbus_wake_lock);
 	mutex_destroy(&battery->adclock);
+err_dt_init:
+	if (IS_ENABLED(CONFIG_OF))
+		kfree(pdata);
 err_bat_free:
 	kfree(battery);
 
@@ -3964,7 +3992,8 @@ static int sec_battery_remove(struct platform_device *pdev)
 
 	mutex_destroy(&battery->adclock);
 #ifdef CONFIG_OF
-	adc_exit(battery);
+        //temp
+	//adc_exit(battery);
 #else
 	for (i = 0; i < SEC_BAT_ADC_CHANNEL_NUM; i++)
 		adc_exit(battery->pdata, i);
