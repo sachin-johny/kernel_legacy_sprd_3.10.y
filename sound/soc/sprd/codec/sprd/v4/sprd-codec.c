@@ -1456,6 +1456,7 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 	static struct regulator *regulator_vb= 0;
 	int classg_vol = 2200000;
 #endif
+      return ;
 
 	if (on) {
 		if (!regulator) {

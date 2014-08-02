@@ -127,6 +127,26 @@
 			};
 		};
 
+		headset_sprd_sc2723 {
+                        compatible = "sprd,headset_sprd_sc2723";
+                        gpio_switch = <0>;
+                        gpio_detect = <237>;
+                        gpio_button = <239>;
+                        irq_trigger_level_detect = <0>;
+                        irq_trigger_level_button = <1>;
+                        adc_threshold_3pole_detect = <100>;
+                        adc_threshold_4pole_detect = <3100>;
+                        irq_threshold_buttont = <1>;
+                        voltage_headmicbias = <3000000>;
+                        nbuttons = <1>;
+                        headset_buttons {
+                                adc_min = <0>;
+                                adc_max = <170>;
+                                code = <226>;
+                                type = <0>;
+                        };
+                 };
+
 		keyboard_backlight {
 			compatible = "sprd,keyboard-backlight";
 		};
