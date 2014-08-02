@@ -19,7 +19,7 @@
 #ifndef __SEC_CHARGER_H
 #define __SEC_CHARGER_H __FILE__
 
-#if defined(CONFIG_CHARGER_MFD)
+#if defined(CONFIG_CHARGER_MFD) || defined(CONFIG_CHARGER_SPRD4SAMSUNG27X3)
 #define charger_variable charger
 #define charger_variable_t struct sec_charger_info
 #else
@@ -28,6 +28,9 @@
 #endif
 
 #include <linux/battery/sec_charging_common.h>
+#if defined(CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3) || defined(CONFIG_CHARGER_SPRD4SAMSUNG27X3)
+#include <linux/battery/charger/sprd27x3_charger4samsung.h>
+#endif
 
 #if defined(CONFIG_CHARGER_DUMMY) || \
 	defined(CONFIG_CHARGER_PM8917)
@@ -61,7 +64,6 @@
 #include <linux/battery/charger/sm5701_charger.h>
 #endif
 
-
 struct sec_charger_info {
 	struct i2c_client		*client;
 	sec_battery_platform_data_t *pdata;
@@ -88,9 +90,20 @@ struct sec_charger_info {
 	int reg_addr;
 	int reg_data;
 	int irq_base;
-
+	int siop_level;
 };
 
+#if defined(CONFIG_CHARGER_SPRD4SAMSUNG27X3)
+bool sec_hal_chg_init(charger_variable_t *);
+bool sec_hal_chg_suspend(charger_variable_t *);
+bool sec_hal_chg_resume(charger_variable_t *);
+bool sec_hal_chg_get_property(charger_variable_t *,
+				enum power_supply_property,
+				union power_supply_propval *);
+bool sec_hal_chg_set_property(charger_variable_t *,
+				enum power_supply_property,
+				const union power_supply_propval *);
+#else
 bool sec_hal_chg_init(struct i2c_client *);
 bool sec_hal_chg_suspend(struct i2c_client *);
 bool sec_hal_chg_resume(struct i2c_client *);
@@ -101,6 +114,7 @@ bool sec_hal_chg_get_property(struct i2c_client *,
 bool sec_hal_chg_set_property(struct i2c_client *,
 		enum power_supply_property,
 		const union power_supply_propval *);
+#endif
 
 ssize_t sec_hal_chg_show_attrs(struct device *dev,
 		const ptrdiff_t offset, char *buf);

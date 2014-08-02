@@ -62,3 +62,5 @@ sprd_ext_ic_battery-$(CONFIG_SPRD_EXT_IC_POWER) := sprd_ext_ic_power.o sprd_2713
 obj-$(CONFIG_FUELGAUGE_RT5033)	+= rt5033_fuelgauge.o
 obj-$(CONFIG_CHARGER_RT5033)    += rt5033_charger.o
 obj-$(CONFIG_CHARGER_SM5701)    += sm5701_charger.o sec_dt_init.o
+obj-$(CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3) += sprd27x3_fuelgauge4samsung.o sec_fuelgauge.o
+obj-$(CONFIG_CHARGER_SPRD4SAMSUNG27X3) += sprd27x3_charger4samsung.o sec_charger.o

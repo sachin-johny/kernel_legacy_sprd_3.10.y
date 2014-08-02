@@ -409,7 +409,26 @@ config SPRD_NOFGUCURRENT_CHG
 	  Say Y to enable support charger driver, which allows board do not have
 	  current sense resistor( 20mohm,fgu current adc always is 0)  with 7715 chips.
 
+config FUELGAUGE_SPRD4SAMSUNG27X3
+	tristate "SPRD27X3 fuel gauge driver"
+	default n
+	depends on BATTERY_SAMSUNG
+	select CHARGER_SPRD4SAMSUNG27X3
+	help
+	 Say Y to include support
+	 for SPRD27X3 fuel gauge driver.
+	 This driver source code implemented
+	 all functions for SPRD27X3 fuel gauge.
 
+config CHARGER_SPRD4SAMSUNG27X3
+	tristate "sprd27X3 charger driver"
+	default n
+	depends on BATTERY_SAMSUNG
+	help
+	 Say Y to include support
+	 for Summit sprd27X3 charger driver.
+	 This driver source code implemented
+	 all functions for sprd27X3 charger.
 
 config BATTERY_GOLDFISH
 	tristate "Goldfish battery driver"

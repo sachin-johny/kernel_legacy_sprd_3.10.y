@@ -24,6 +24,9 @@
 #ifdef CONFIG_MFD_SM5504
 #include <linux/mfd/sm5504.h>
 #endif
+#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
+#include <linux/battery/fuelgauge/sprd27x3_fuelgauge4samsung.h>
+#endif
 
 static int current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 static u8 attached_cable;
@@ -1020,6 +1023,44 @@ int sec_fg_dt_init(struct device_node *np,
 			&pdata->temp_adc_channel);
 	if (ret)
 		return ret;
+
+#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
+	{
+		struct battery_data_t *battery_data;
+		int len, i;
+		uint32_t cell_value;
+		battery_data = devm_kzalloc(dev, sizeof(*battery_data), GFP_KERNEL);
+		of_property_read_u32(np, "vmod", &battery_data->vmode);
+		of_property_read_u32(np, "alm_soc", &battery_data->alm_soc);
+		of_property_read_u32(np, "alm_vbat", &battery_data->alm_vbat);
+		of_property_read_u32(np, "rint", &battery_data->rint);
+		of_property_read_u32(np, "cnom", &battery_data->cnom);
+		of_property_read_u32(np, "rsense_real", &battery_data->rsense_real);
+		of_property_read_u32(np, "rsense_spec", &battery_data->rsense_spec);
+		of_property_read_u32(np, "relax_current", &battery_data->relax_current);
+		of_get_property(np, "ocv_table", &len);
+		len /= sizeof(u32);
+		for (i = 0; i < len; i++) {
+			of_property_read_u32_index(np, "ocv_table", i, &cell_value);
+			battery_data->ocv_table[i >> 1][i & 0x01] = cell_value;
+			if (0) {
+				char buf[128], *p;
+				switch (i & 0x01) {
+					case 0:
+						memset(buf, 0, sizeof buf);
+						p = buf;
+						p += sprintf(p, "ocv_table[%d] = { %d,", i >> 1, cell_value);
+						break;
+					case 1:
+						p += sprintf(p, "%d }\n", cell_value);
+						pr_info("%s", buf);
+						break;
+				}
+			}
+		}
+		pdata->battery_data = battery_data;
+	}
+#endif
 
 	pdata->fg_irq_attr = fg_irq_attr;
 	pdata->fuelalert_process = sec_fg_fuelalert_process;

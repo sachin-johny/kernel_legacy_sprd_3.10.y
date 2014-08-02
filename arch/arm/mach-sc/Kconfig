@@ -486,6 +486,7 @@ config MACH_CORE3
 	depends on ARCH_SCX35
 	select MACH_SAMSUNG
 	select MUIC_CABLE_DETECT
+	select FUELGAUGE_SPRD4SAMSUNG27X3
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n
@@ -498,6 +499,7 @@ config MACH_PIKEAYOUNG2DTV
 	depends on ARCH_SCX35
 	select MACH_SAMSUNG
 	select MUIC_CABLE_DETECT
+	select FUELGAUGE_SPRD4SAMSUNG27X3
 	select CLKSRC_OF if OF
 	select COMMON_CLK if OF
 	default n

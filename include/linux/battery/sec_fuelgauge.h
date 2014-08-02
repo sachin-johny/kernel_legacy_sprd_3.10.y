@@ -19,7 +19,7 @@
 #ifndef __SEC_FUELGAUGE_H
 #define __SEC_FUELGAUGE_H __FILE__
 
-#if defined(CONFIG_FUELGAUGE_MFD)
+#if defined(CONFIG_FUELGAUGE_MFD) || defined(CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3)
 #define fuelgauge_variable fuelgauge
 #define fuelgauge_variable_t struct sec_fuelgauge_info
 #else
@@ -46,6 +46,10 @@
 struct sec_fg_info {
 	bool dummy;
 };
+#endif
+
+#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
+#include <linux/battery/fuelgauge/sprd27x3_fuelgauge4samsung.h>
 #endif
 
 struct sec_fuelgauge_reg_data {
