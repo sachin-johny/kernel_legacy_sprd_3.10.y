@@ -297,11 +297,19 @@ struct sprd_codec_inter_hp_pa {
 	u32  class_g_all_close_delay_100ms:2;
 	//u32 RESV:0;
 };
+struct sprd_codec_inter_hp_pa_delay {
+	u32 class_g_delay1:4;
+	u32 class_g_delay2:4;
+};
 
 struct sprd_codec_hp_pa_setting {
 	union {
 		struct sprd_codec_inter_hp_pa setting;
 		u32 value;
+	};
+	union{
+	    struct sprd_codec_inter_hp_pa_delay delay_setting;
+	    u32 delay_value;
 	};
 	int set;
 };
@@ -352,7 +360,10 @@ struct sprd_codec_priv {
 
 	int hp_ver;
 	struct sprd_codec_hp_pa_setting inter_hp_pa;
+	int class_g_delay1;
+	int class_g_delay2;
 	struct mutex inter_hp_pa_mutex;
+	struct mutex inter_hp_pa_delay_mutex;
 
 	struct regulator *main_mic;
 	struct regulator *aux_mic;
@@ -1457,12 +1468,14 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
 		sprd_codec_hp_pa_osc(codec, p_setting->class_g_osc);
 		sprd_codec_hp_pa_cgcal_en(codec, p_setting->class_g_cgcal);
+		sprd_codec_wait(sprd_codec->class_g_delay1 * 30);
 		/*3. CHP EN */
 		sprd_codec_hp_pa_en(codec, 1);
 		sprd_codec_wait(p_setting->class_g_chp_delay_30ms * 30);
 		/*4. L/R EN */
 		sprd_codec_hp_pa_hpl_en(codec, 1);
 		sprd_codec_hp_pa_hpr_en(codec, 1);
+		sprd_codec_wait(sprd_codec->class_g_delay2* 30);
 		if (p_setting->class_g_cgcal) {
 			sprd_codec_wait(p_setting->class_g_cgcal_delay_10ms *10);
 		}
@@ -3049,6 +3062,56 @@ static int sprd_codec_inter_hp_pa_get(struct snd_kcontrol *kcontrol,
 	return 0;
 }
 
+static int sprd_codec_inter_hp_pa_delay_put(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	int ret = 0;
+	struct sprd_codec_inter_hp_pa *p_setting =
+	    &sprd_codec->inter_hp_pa.setting;
+
+	sp_asoc_pr_info("Config inter HP PA DELAY 0x%08x\n",
+			(int)ucontrol->value.integer.value[0]);
+
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (invert)
+		val = max - val;
+	mutex_lock(&sprd_codec->inter_hp_pa_delay_mutex);
+	sprd_codec->inter_hp_pa.delay_value = (u32) val;
+	sprd_codec->class_g_delay1 = sprd_codec->inter_hp_pa.delay_setting.class_g_delay1;
+	sprd_codec->class_g_delay2 = sprd_codec->inter_hp_pa.delay_setting.class_g_delay2;
+	mutex_unlock(&sprd_codec->inter_hp_pa_delay_mutex);
+	return ret;
+}
+
+static int sprd_codec_inter_hp_pa_delay_get(struct snd_kcontrol *kcontrol,
+				      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	int max = mc->max;
+	unsigned int invert = mc->invert;
+
+	mutex_lock(&sprd_codec->inter_hp_pa_delay_mutex);
+	ucontrol->value.integer.value[0] = sprd_codec->inter_hp_pa.delay_value;
+	mutex_unlock(&sprd_codec->inter_hp_pa_delay_mutex);
+	if (invert) {
+		ucontrol->value.integer.value[0] =
+		    max - ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
+
 static int sprd_codec_mic_bias_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -3162,6 +3225,9 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 
 	SOC_SINGLE_EXT("Inter HP PA Config", 0, 0, LONG_MAX, 0,
 		       sprd_codec_inter_hp_pa_get, sprd_codec_inter_hp_pa_put),
+
+	SOC_SINGLE_EXT("Inter HP PA Delay", 0, 0, LONG_MAX, 0,
+	       sprd_codec_inter_hp_pa_delay_get, sprd_codec_inter_hp_pa_delay_put),
 
 	SPRD_CODEC_MIC_BIAS("MIC Bias Switch", SPRD_CODEC_MIC_BIAS),
 
@@ -3704,6 +3770,7 @@ static int sprd_codec_probe(struct platform_device *pdev)
 
 	mutex_init(&sprd_codec->inter_pa_mutex);
 	mutex_init(&sprd_codec->inter_hp_pa_mutex);
+	mutex_init(&sprd_codec->inter_hp_pa_delay_mutex);
 	spin_lock_init(&sprd_codec->sprd_codec_fun_lock);
 	spin_lock_init(&sprd_codec->sprd_codec_pa_sw_lock);
 
