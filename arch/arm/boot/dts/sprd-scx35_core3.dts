@@ -356,12 +356,6 @@
 
 		/* Charger */
 		charger,vbus_ctrl_gpio = <&d_gpio_gpio 64 0x00>;
-		charger,chg_gpio_en = <0>;
-		charger,chg_polarity_en = <0>;
-		charger,chg_gpio_status = <0>;
-		charger,chg_polarity_status = <0>;
-		charger,chg_float_voltage = <4350>;
-
 		charger,input_current_limit = <1800 460 460 1800 460 900 1000 460 460 1000 650 1800 1800 460 1300 300 700 1300 300 1000 1800 460 460>;
 		charger,fast_charging_current = <2100 0 460 2100 460 1200 1000 460 0 1200 750 2100 2100 (-1) 1300 300 700 1300 300 1000 2100 0 0>;
 		charger,full_check_current_1st = <300 0 300 300 300 300 300 300 0 300 300 300 300 0 300 300 300 300 300 300 300 0 0>;

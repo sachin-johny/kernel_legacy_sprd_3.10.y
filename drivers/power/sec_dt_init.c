@@ -456,35 +456,35 @@ int sec_bat_dt_init(struct device_node *np,
         const u32 *p;
 
 	ret = of_property_read_string(np,
-		"vendor", (char const **)&pdata->vendor);
+		"battery,vendor", (char const **)&pdata->vendor);
 	if (ret)
 		pr_info("%s: Vendor is Empty\n", __func__);
 
 	ret = of_property_read_string(np,
-		"charger_name", (char const **)&pdata->charger_name);
+		"battery,charger_name", (char const **)&pdata->charger_name);
 	if (ret)
 		pr_info("%s: charger_name is Empty\n", __func__);
 
 	ret = of_property_read_string(np,
-		"fuelgauge_name", (char const **)&pdata->fuelgauge_name);
+		"battery,fuelgauge_name", (char const **)&pdata->fuelgauge_name);
 	if (ret)
 		pr_info("%s: fuelguage_name is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "technology",
+	ret = of_property_read_u32(np, "battery,technology",
 		&pdata->technology);
 	if (ret)
 		pr_info("%s : technology is Empty\n", __func__);
 
-	p = of_get_property(np, "polling_time", &len);
+	p = of_get_property(np, "battery,polling_time", &len);
 	if (!p)
 		return 1;
 
 	len = len / sizeof(u32);
 	pdata->polling_time = kzalloc(sizeof(*pdata->polling_time) * len, GFP_KERNEL);
-	ret = of_property_read_u32_array(np, "polling_time",
+	ret = of_property_read_u32_array(np, "battery,polling_time",
 			pdata->polling_time, len);
 
-	p = of_get_property(np, "temp_table_adc", &len);
+	p = of_get_property(np, "battery,temp_table_adc", &len);
 	if (!p)
 		return 1;
 
@@ -502,7 +502,7 @@ int sec_bat_dt_init(struct device_node *np,
 
 	for(i = 0; i < pdata->temp_adc_table_size; i++) {
 		ret = of_property_read_u32_index(np,
-				"temp_table_adc", i,
+				"battery,temp_table_adc", i,
 				&pdata->temp_adc_table[i].adc);
 		if (ret)
 			pr_info("%s : Temp_adc_table(adc) is Empty\n",
@@ -516,7 +516,7 @@ int sec_bat_dt_init(struct device_node *np,
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"temp_table_adc", i,
+				"battery,temp_table_adc", i,
 				&pdata->temp_amb_adc_table[i].adc);
 		if (ret)
 			pr_info("%s : Temp_amb_adc_table(adc) is Empty\n",
@@ -530,7 +530,7 @@ int sec_bat_dt_init(struct device_node *np,
 					__func__);
 	}
 
-	p = of_get_property(np, "input_current_limit", &len);
+	p = of_get_property(np, "charger,input_current_limit", &len);
 	if (!p)
 		return 1;
 
@@ -542,106 +542,106 @@ int sec_bat_dt_init(struct device_node *np,
 
 	for(i = 0; i < len; i++) {
 		ret = of_property_read_u32_index(np,
-				"input_current_limit", i,
+				"charger,input_current_limit", i,
 				&pdata->charging_current[i].input_current_limit);
 		if (ret)
 			pr_info("%s : Input_current_limit is Empty\n",
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"fast_charging_current", i,
+				"charger,fast_charging_current", i,
 				&pdata->charging_current[i].fast_charging_current);
 		if (ret)
 			pr_info("%s : Fast charging current is Empty\n",
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"full_check_current_1st", i,
+				"charger,full_check_current_1st", i,
 				&pdata->charging_current[i].full_check_current_1st);
 		if (ret)
 			pr_info("%s : Full check current 1st is Empty\n",
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"full_check_current_2nd", i,
+				"charger,full_check_current_2nd", i,
 				&pdata->charging_current[i].full_check_current_2nd);
 		if (ret)
 			pr_info("%s : Full check current 2nd is Empty\n",
 					__func__);
 	}
 
-	ret = of_property_read_u32(np, "adc_check_count",
+	ret = of_property_read_u32(np, "battery,adc_check_count",
 			&pdata->adc_check_count);
 	if (ret)
 		pr_info("%s : Adc check count is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "cable_check_type",
+	ret = of_property_read_u32(np, "battery,cable_check_type",
 			&pdata->cable_check_type);
 	if (ret)
 		pr_info("%s : Cable check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "cable_source_type",
+	ret = of_property_read_u32(np, "battery,cable_source_type",
 			&pdata->cable_source_type);
 	if (ret)
 		pr_info("%s : Cable source type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "event_waiting_time",
+	ret = of_property_read_u32(np, "battery,event_waiting_time",
 			&pdata->event_waiting_time);
 	if (ret)
 		pr_info("%s : Event waiting time is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "polling_type",
+	ret = of_property_read_u32(np, "battery,polling_type",
 			&pdata->polling_type);
 	if (ret)
 		pr_info("%s : Polling type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "monitor_initial_count",
+	ret = of_property_read_u32(np, "battery,monitor_initial_count",
 			&pdata->monitor_initial_count);
 	if (ret)
 		pr_info("%s : Monitor initial count is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "battery_check_type",
+	ret = of_property_read_u32(np, "battery,battery_check_type",
 			&pdata->battery_check_type);
 	if (ret)
 		pr_info("%s : Battery check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "check_count",
+	ret = of_property_read_u32(np, "battery,check_count",
 			&pdata->check_count);
 
 	if (ret)
 		pr_info("%s : Check count is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "check_adc_max",
+	ret = of_property_read_u32(np, "battery,check_adc_max",
 			&pdata->check_adc_max);
 	if (ret)
 		pr_info("%s : Check adc max is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "check_adc_min",
+	ret = of_property_read_u32(np, "battery,check_adc_min",
 			&pdata->check_adc_min);
 	if (ret)
 		pr_info("%s : Check adc min is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "ovp_uvlo_check_type",
+	ret = of_property_read_u32(np, "battery,ovp_uvlo_check_type",
 			&pdata->ovp_uvlo_check_type);
 	if (ret)
 		pr_info("%s : Ovp Uvlo check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "thermal_source",
+	ret = of_property_read_u32(np, "battery,thermal_source",
 			&pdata->thermal_source);
 	if (ret)
 		pr_info("%s : Thermal source is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_check_type",
+	ret = of_property_read_u32(np, "battery,temp_check_type",
 			&pdata->temp_check_type);
 	if (ret)
 		pr_info("%s : Temp check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_check_count",
+	ret = of_property_read_u32(np, "battery,temp_check_count",
 			&pdata->temp_check_count);
 	if (ret)
 		pr_info("%s : Temp check count is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_high_recovery_event",
+	ret = of_property_read_u32(np, "battery,temp_high_recovery_event",
 			&pdata->temp_high_recovery_event);
 	if (ret)
 		pr_info("%s : Temp high recovery event is Empty\n", __func__);
@@ -673,179 +673,179 @@ int sec_bat_dt_init(struct device_node *np,
 	pdata->temp_low_threshold_lpm = 0;
 	pdata->temp_low_recovery_lpm = 50;
 #else
-	ret = of_property_read_u32(np, "temp_highlimit_threshold_event",
+	ret = of_property_read_u32(np, "battery,temp_highlimit_threshold_event",
 		&pdata->temp_highlimit_threshold_event);
 	if (ret)
 		pr_info("%s : Temp highlimit threshold event is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_highlimit_recovery_event",
+	ret = of_property_read_u32(np, "battery,battery,temp_highlimit_recovery_event",
 		&pdata->temp_highlimit_recovery_event);
 	if (ret)
 		pr_info("%s : Temp highlimit threshold event recovery is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_highlimit_threshold_normal",
+	ret = of_property_read_u32(np, "battery,temp_highlimit_threshold_normal",
 		&pdata->temp_highlimit_threshold_normal);
 	if (ret)
 		pr_info("%s : Temp highlimit threshold normal is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_highlimit_recovery_normal",
+	ret = of_property_read_u32(np, "battery,temp_highlimit_recovery_normal",
 		&pdata->temp_highlimit_recovery_normal);
 	if (ret)
 		pr_info("%s : Temp highlimit threshold normal recovery is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_highlimit_threshold_lpm",
+	ret = of_property_read_u32(np, "battery,temp_highlimit_threshold_lpm",
 		&pdata->temp_highlimit_threshold_lpm);
 	if (ret)
 		pr_info("%s : Temp highlimit threshold lpm is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_highlimit_recovery_lpm",
+	ret = of_property_read_u32(np, "battery,temp_highlimit_recovery_lpm",
 		&pdata->temp_highlimit_recovery_lpm);
 	if (ret)
 		pr_info("%s : Temp highlimit threshold lpm recovery is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_high_threshold_event",
+	ret = of_property_read_u32(np, "battery,temp_high_threshold_event",
 		&pdata->temp_high_threshold_event);
 	if (ret)
 		pr_info("%s : Temp high threshold event is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_low_threshold_event",
+	ret = of_property_read_u32(np, "battery,temp_low_threshold_event",
 			&pdata->temp_low_threshold_event);
 	if (ret)
 		pr_info("%s : Temp low threshold event is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_low_recovery_event",
+	ret = of_property_read_u32(np, "battery,temp_low_recovery_event",
 			&pdata->temp_low_recovery_event);
 	if (ret)
 		pr_info("%s : Temp low recovery event is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_high_threshold_normal",
+	ret = of_property_read_u32(np, "battery,temp_high_threshold_normal",
 			&pdata->temp_high_threshold_normal);
 	if (ret)
 		pr_info("%s : Temp high threshold normal is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_high_recovery_normal",
+	ret = of_property_read_u32(np, "battery,temp_high_recovery_normal",
 			&pdata->temp_high_recovery_normal);
 	if (ret)
 		pr_info("%s : Temp high recovery normal is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_low_threshold_normal",
+	ret = of_property_read_u32(np, "battery,temp_low_threshold_normal",
 			&pdata->temp_low_threshold_normal);
 	if (ret)
 		pr_info("%s : Temp low threshold normal is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_low_recovery_normal",
+	ret = of_property_read_u32(np, "battery,temp_low_recovery_normal",
 			&pdata->temp_low_recovery_normal);
 
 	if (ret)
 		pr_info("%s : Temp low recovery normal is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_high_threshold_lpm",
+	ret = of_property_read_u32(np, "battery,temp_high_threshold_lpm",
 			&pdata->temp_high_threshold_lpm);
 	if (ret)
 		pr_info("%s : Temp high threshold lpm is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_high_recovery_lpm",
+	ret = of_property_read_u32(np, "battery,temp_high_recovery_lpm",
 			&pdata->temp_high_recovery_lpm);
 	if (ret)
 		pr_info("%s : Temp high recovery lpm is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_low_threshold_lpm",
+	ret = of_property_read_u32(np, "battery,temp_low_threshold_lpm",
 			&pdata->temp_low_threshold_lpm);
 	if (ret)
 		pr_info("%s : Temp low threshold lpm is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "temp_low_recovery_lpm",
+	ret = of_property_read_u32(np, "battery,temp_low_recovery_lpm",
 			&pdata->temp_low_recovery_lpm);
 	if (ret)
 		pr_info("%s : Temp low recovery lpm is Empty\n", __func__);
 #endif
 
-	ret = of_property_read_u32(np, "full_check_type",
+	ret = of_property_read_u32(np, "battery,full_check_type",
 			&pdata->full_check_type);
 	if (ret)
 		pr_info("%s : Full check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_check_type_2nd",
+	ret = of_property_read_u32(np, "battery,full_check_type_2nd",
 			&pdata->full_check_type_2nd);
 	if (ret)
 		pr_info("%s : Full check type 2nd is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_check_count",
+	ret = of_property_read_u32(np, "battery,full_check_count",
 			&pdata->full_check_count);
 	if (ret)
 		pr_info("%s : Full check count is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "chg_gpio_full_check",
+	ret = of_property_read_u32(np, "battery,chg_gpio_full_check",
 			&pdata->chg_gpio_full_check);
 	if (ret)
 		pr_info("%s : Chg gpio full check is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "chg_polarity_full_check",
+	ret = of_property_read_u32(np, "battery,chg_polarity_full_check",
 			&pdata->chg_polarity_full_check);
 	if (ret)
 		pr_info("%s : Chg polarity full check is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_condition_type",
+	ret = of_property_read_u32(np, "battery,full_condition_type",
 			&pdata->full_condition_type);
 	if (ret)
 		pr_info("%s : Full condition type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_condition_soc",
+	ret = of_property_read_u32(np, "battery,full_condition_soc",
 			&pdata->full_condition_soc);
 	if (ret)
 		pr_info("%s : Full condition soc is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_condition_vcell",
+	ret = of_property_read_u32(np, "battery,full_condition_vcell",
 			&pdata->full_condition_vcell);
 	if (ret)
 		pr_info("%s : Full condition vcell is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "recharge_check_count",
+	ret = of_property_read_u32(np, "battery,recharge_check_count",
 			&pdata->recharge_check_count);
 	if (ret)
 		pr_info("%s : Recharge check count is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "recharge_condition_type",
+	ret = of_property_read_u32(np, "battery,recharge_condition_type",
 			&pdata->recharge_condition_type);
 	if (ret)
 		pr_info("%s : Recharge condition type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "recharge_condition_soc",
+	ret = of_property_read_u32(np, "battery,recharge_condition_soc",
 			&pdata->recharge_condition_soc);
 	if (ret)
 		pr_info("%s : Recharge condition soc is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "recharge_condition_vcell",
+	ret = of_property_read_u32(np, "battery,recharge_condition_vcell",
 			&pdata->recharge_condition_vcell);
 	if (ret)
 		pr_info("%s : Recharge condition vcell is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "recharge_condition_avgvcell",
+	ret = of_property_read_u32(np, "battery,recharge_condition_avgvcell",
 			&pdata->recharge_condition_avgvcell);
 	if (ret)
 		pr_info("%s : Recharge condition avgvcell is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "charging_total_time",
+	ret = of_property_read_u32(np, "battery,charging_total_time",
 			(unsigned int *)&pdata->charging_total_time);
 	if (ret)
 		pr_info("%s : Charging total time is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "recharging_total_time",
+	ret = of_property_read_u32(np, "battery,recharging_total_time",
 			(unsigned int *)&pdata->recharging_total_time);
 	if (ret)
 		pr_info("%s : Recharging total time is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "charging_reset_time",
+	ret = of_property_read_u32(np, "battery,charging_reset_time",
 			(unsigned int *)&pdata->charging_reset_time);
 	if (ret)
 		pr_info("%s : Charging reset time is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "charging_reset_time",
+	ret = of_property_read_u32(np, "battery,charging_reset_time",
 			(unsigned int *)&pdata->charging_reset_time);
 	if (ret)
 		pr_info("%s : Charging reset time is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "bat-irq-attr", &bat_irq_attr);
+	ret = of_property_read_u32(np, "battery,bat-irq-attr", &bat_irq_attr);
 	if (ret)
 		pr_info("%s : Battery irq is Empty\n", __func__);
 
@@ -892,24 +892,6 @@ int sec_chg_dt_init(struct device_node *np,
 		return ret;
 	}
 
-/*	chg_irq = of_get_named_gpio(np, "chgirq-gpio", 0);
-	if (chg_irq < 0) {
-		pr_err("%s: of_get_named_gpio failed: %d\n", __func__,
-								chg_irq);
-		return chg_irq;
-	}
-
-	ret = gpio_request(chg_irq, "chgirq-gpio");
-	if (ret) {
-		pr_err("%s: gpio_request failed: chg_irq %d\n", __func__,
-								chg_irq);
-		return ret;
-	}
-
-	ret = of_property_read_u32(np, "chg-irq-attr", &chg_irq_attr);
-	if (ret)
-		return ret;
-*/
 	ret = of_property_read_u32(np, "chg-float-voltage",
 					&pdata->chg_float_voltage);
 	if (ret)
@@ -922,10 +904,10 @@ int sec_chg_dt_init(struct device_node *np,
         else {
                 int i = 0;
                 const u32 *p;
-                p = of_get_property(np, "input_current_limit", &len);
+                p = of_get_property(np, "charger,input_current_limit", &len);
                 if (!p){
 
-                        pr_err("%s input_current_limit is Empty\n", __func__);
+                        pr_err("%s charger,input_current_limit is Empty\n", __func__);
                         //	return 1;
                 }
                 else{
@@ -937,28 +919,28 @@ int sec_chg_dt_init(struct device_node *np,
 
                         for(i = 0; i < len; i++) {
                                 ret = of_property_read_u32_index(np,
-                                                "input_current_limit", i,
+                                                "charger,input_current_limit", i,
                                                 &pdata->charging_current[i].input_current_limit);
                                 if (ret)
                                         pr_info("%s : Input_current_limit is Empty\n",
                                                         __func__);
 
                                 ret = of_property_read_u32_index(np,
-                                                "fast_charging_current", i,
+                                                "charger,fast_charging_current", i,
                                                 &pdata->charging_current[i].fast_charging_current);
                                 if (ret)
                                         pr_info("%s : Fast charging current is Empty\n",
                                                         __func__);
 
                                 ret = of_property_read_u32_index(np,
-                                                "full_check_current_1st", i,
+                                                "charger,full_check_current_1st", i,
                                                 &pdata->charging_current[i].full_check_current_1st);
                                 if (ret)
                                         pr_info("%s : Full check current 1st is Empty\n",
                                                         __func__);
 
                                 ret = of_property_read_u32_index(np,
-                                                "full_check_current_2nd", i,
+                                                "charger,full_check_current_2nd", i,
                                                 &pdata->charging_current[i].full_check_current_2nd);
                                 if (ret)
                                         pr_info("%s : Full check current 2nd is Empty\n",
@@ -967,17 +949,17 @@ int sec_chg_dt_init(struct device_node *np,
                 }
         }
 
-	ret = of_property_read_u32(np, "ovp_uvlo_check_type",
+	ret = of_property_read_u32(np, "battery,ovp_uvlo_check_type",
 			&pdata->ovp_uvlo_check_type);
 	if (ret)
 		pr_info("%s : Ovp Uvlo check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_check_type",
+	ret = of_property_read_u32(np, "battery,full_check_type",
 			&pdata->full_check_type);
 	if (ret)
 		pr_info("%s : Full check type is Empty\n", __func__);
 
-	ret = of_property_read_u32(np, "full_check_type_2nd",
+	ret = of_property_read_u32(np, "battery,full_check_type_2nd",
 			&pdata->full_check_type_2nd);
 	if (ret)
 		pr_info("%s : Full check type 2nd is Empty\n", __func__);
