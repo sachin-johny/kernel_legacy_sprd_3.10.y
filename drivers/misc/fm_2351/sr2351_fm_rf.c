@@ -751,3 +751,14 @@ int sr2351_fm_stop_seek(void)
 
 	return 0;
 }
+
+int sr2351_fm_get_rssi(u32 *rssi)
+{
+  u32 reg_data;
+
+  read_fm_reg(FM_REG_INPWR_STS, &reg_data);
+  *rssi = reg_data;
+  SR2351_PRINT("rssi value in sr2351_fm_get_rssi() is %08x\r\n",*rssi);
+  
+  return 0;
+}

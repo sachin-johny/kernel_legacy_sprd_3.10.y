@@ -22,6 +22,7 @@ extern int sr2351_fm_deinit(void);
 extern int sr2351_fm_set_tune(u32 freq);
 extern int sr2351_fm_seek(u32 frequency, u32 seek_dir, u32 time_out, u32 *freq_found);
 extern int sr2351_fm_stop_seek(void);
+extern int sr2351_fm_get_rssi(u32 *);
 
 /*FM Module Start*/
 /* seek direction */
@@ -41,6 +42,7 @@ extern int sr2351_fm_stop_seek(void);
 #define FM_IOCTL_SET_VOLUME  _IOW(FM_IOCTL_BASE, 7, int)
 #define FM_IOCTL_GET_VOLUME  _IOW(FM_IOCTL_BASE, 8, int)
 #define FM_IOCTL_CONFIG      _IOW(FM_IOCTL_BASE, 9, int)
+#define FM_IOCTL_GET_RSSI    _IOW(FM_IOCTL_BASE, 10, int)
 
 
 #ifdef CONFIG_FM_SEEK_STEP_50KHZ
