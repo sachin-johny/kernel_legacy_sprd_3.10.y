@@ -3714,7 +3714,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 			"%s : Failed to create_attrs\n", __func__);
 		goto err_req_irq;
 	}
-	sprdbat_creat_caliberate_attr(battery->psy_bat.dev);
+	// sprdbat_creat_caliberate_attr(battery->psy_bat.dev);
 
 #if defined(CONFIG_MUIC_NOTIFIER)
 	muic_notifier_register(&battery->batt_nb,

@@ -413,7 +413,6 @@ config FUELGAUGE_SPRD4SAMSUNG27X3
 	tristate "SPRD27X3 fuel gauge driver"
 	default n
 	depends on BATTERY_SAMSUNG
-	select CHARGER_SPRD4SAMSUNG27X3
 	help
 	 Say Y to include support
 	 for SPRD27X3 fuel gauge driver.
