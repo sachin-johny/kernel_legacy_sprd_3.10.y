@@ -70,14 +70,19 @@ static void adie_efuse_reset(void)
 static void __adie_efuse_power_on(void)
 {
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_EFS_EN);
-	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EFS_EN);
+	/* FIXME: rtc_efs only for prog
+	   sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EFS_EN);
+	 */
+
 	/* FIXME: sclk always on or not ? */
 	/* adie_efuse_workaround(); */
 }
 
 static void __adie_efuse_power_off(void)
 {
-	sci_adi_clr(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EFS_EN);
+	/* FIXME: rtc_efs only for prog
+	   sci_adi_clr(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_EFS_EN);
+	 */
 	sci_adi_clr(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_EFS_EN);
 }
 
@@ -110,9 +115,10 @@ static u32 adie_efuse_read(int blk_index)
 	__adie_efuse_power_on();
 	/* enable adie_efuse module clk and power before */
 
-	/* FIXME: set read timing, why 0x20? */
-	sci_adi_raw_write(ANA_REG_EFUSE_RD_TIMING_CTRL,
-			  BITS_EFUSE_RD_TIMING(0x20));
+	/* FIXME: set read timing, why 0x20 (default value)
+	   sci_adi_raw_write(ANA_REG_EFUSE_RD_TIMING_CTRL,
+	   BITS_EFUSE_RD_TIMING(0x20));
+	 */
 
 	sci_adi_raw_write(ANA_REG_EFUSE_BLOCK_INDEX,
 			  BITS_READ_WRITE_INDEX(blk_index));
@@ -122,6 +128,9 @@ static u32 adie_efuse_read(int blk_index)
 		goto out;
 
 	val = sci_adi_read(ANA_REG_EFUSE_DATA_RD);
+
+	/* FIXME: reverse the otp value */
+	val = BITS_EFUSE_DATA_RD(~val);
 
 out:
 	__adie_efuse_power_off();
