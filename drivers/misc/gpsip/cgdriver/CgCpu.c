@@ -22,8 +22,11 @@
 		If you think something is wrong here, please contact CellGuide
 
 */
-#include "CgCpu.h"
 
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include "CgxDriverCore.h"
+#include "CgCpu.h"
 // Swap helper functions
 TCgByteSwapType CgGetByteSwapTypeU32(TCgByteOrder aFrom, TCgByteOrder aTo);
 void * CgGetSwapFunctionU32(TCgByteSwapType type);
@@ -160,8 +163,14 @@ TCgReturnCode CgCpuDelay(unsigned long aCount)
 
 TCgReturnCode CgCpuRFControlWriteByte(unsigned char aValue)
 {
-
-    return ECgOk;
+        printk(" CgCpuControlWriteByte.\n");
+             if(aValue == 1)
+                  CgxDriverRFPowerUp();
+             else if(aValue == 0)
+                  CgxDriverRFPowerDown();
+             else
+                  printk(" invalid arg.\n");
+      return ECgOk;
 }
 
 #ifdef CG_STORE_ERROR_LINE
