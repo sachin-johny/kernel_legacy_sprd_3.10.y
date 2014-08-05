@@ -65,7 +65,7 @@
 
 #define REGU_NAME_CAMVIO     "vddcamio"
 
-#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD) || defined (CONFIG_MACH_TSHARKWSAMSUNG) || defined(CONFIG_MACH_PIKEAYOUNG2DTV)
+#if defined(CONFIG_MACH_KANAS_W) || defined(CONFIG_MACH_KANAS_TD) || defined (CONFIG_MACH_TSHARKWSAMSUNG)
 #define REGU_NAME_SUB_CAMDVDD  "vddcamd"
 #define REGU_NAME_CAMMOT       "vddcama"
 #define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
@@ -75,6 +75,15 @@
 #define REGU_NAME_CAMAVDD    "vddcama"
 #define REGU_NAME_CAMDVDD    "vddcamd"
 #define REGU_NAME_CAMMOT       "vddcammot"
+#elif defined(CONFIG_MACH_PIKEAYOUNG2DTV)
+#ifdef REGU_NAME_CAMVIO
+#undef REGU_NAME_CAMVIO
+#define REGU_NAME_CAMVIO     "vddcamd"
+#endif
+#define REGU_NAME_SUB_CAMDVDD  "vddcamd"
+#define REGU_NAME_CAMAVDD    "vddcama"
+#define REGU_NAME_CAMDVDD    "vddcamio"
+#define REGU_NAME_CAMMOT       "vddcama"
 #else
 #define REGU_NAME_SUB_CAMDVDD  "vddcamd"
 #define GPIO_SUB_SENSOR_RESET        GPIO_SENSOR_RESET

@@ -456,8 +456,8 @@
 	 sprd_sensor {
 		 compatible  = "sprd,sprd_sensor";
 		 gpios = <&d_gpio_gpio 186 0   /*reset*/
-		        &d_gpio_gpio 163 0    /*main*/
-		        &d_gpio_gpio 188 0>;  /*sub */
+		        &d_gpio_gpio 188 0    /*main*/
+		        &d_gpio_gpio 187 0>;  /*sub */
 		 clock-names ="clk_mm_i","clk_sensor","clk_ccir","clk_dcam","clk_dcam_mipi";
 		 clocks = <&clk_mm>, <&clk_sensor>,<&clk_ccir>, <&clk_dcam>, <&clk_dcam_mipi>;
 		 };
