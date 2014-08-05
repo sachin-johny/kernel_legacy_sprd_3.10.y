@@ -275,8 +275,8 @@ static int sprd_audio_power_set_mode(struct regulator_dev *rdev, unsigned mode)
 }
 
 static const u16 VCOM_VSEL_table[] = {
-	2900, 3100, 3200, 3300,
-	3400, 3500, 3600, 3800,
+	2800, 2900, 3000, 3100,
+	3200, 3300, 3400, 3600,
 };
 
 static const u16 VPA_VSEL_table[] = {
@@ -285,8 +285,7 @@ static const u16 VPA_VSEL_table[] = {
 };
 
 static const u16 VMIC_VSEL_table[] = {
-	1700, 2210, 1900, 2470,
-	2100, 2730, 2300, 3000,
+	2200, 2600, 2800, 3000,
 };
 
 static const u16 VBG_IBAIS_VSEL_table[] = {
@@ -296,6 +295,14 @@ static const u16 VBG_IBAIS_VSEL_table[] = {
 static const u16 HIB_VSEL_table[] = {
 	1000, 950, 900, 850, 800, 750,
 	700, 650, 600, 550, 500, 450, 400,
+};
+
+static const u16 VCGLDO_VSEL_table[] = {
+	1600, 1700, 1800, 1900,
+	2000, 2100, 2200, 2300,
+	2400, 2500, 2600, 2700,
+	2800, 2900, 3000, 3100,
+	3200, 3300, 3400,
 };
 
 static int sprd_audio_power_list_voltage(struct regulator_dev *rdev,
@@ -440,6 +447,11 @@ SPRD_AUDIO_POWER_LDO(HEADMICBIAS, "VMICBIAS", 11, ANA_PMU0,
 		     BIT(HEADMICBIAS_EN), sprd_audio_power_sleep_ctrl,
 		     ANA_HDT0, HIB_SBUT_MASK, HIB_SBUT, HIB_VSEL_table, 0,
 		     0);
+SPRD_AUDIO_POWER_LDO(CGLDO, "VREG", 12, ANA_PMU0,
+		     BIT(LDOCG_EN), NULL,
+		     ANA_PMU3, CG_LDO_V_MASK, CG_LDO_V, VCGLDO_VSEL_table, 0,
+		     0);
+
 
 #define SPRD_OF_MATCH(comp, label) \
 	{ \
@@ -459,6 +471,7 @@ static const struct of_device_id sprd_audio_power_of_match[] = {
 	SPRD_OF_MATCH("sp,audio-micbias", MICBIAS),
 	SPRD_OF_MATCH("sp,audio-auxmicbias", AUXMICBIAS),
 	SPRD_OF_MATCH("sp,audio-headmicbias", HEADMICBIAS),
+	SPRD_OF_MATCH("sp,audio-classgldo", CGLDO),
 };
 
 static int sprd_audio_power_probe(struct platform_device *pdev)
@@ -596,6 +609,7 @@ static struct platform_device sprd_audio_regulator_devices[] = {
 	SPRD_AUDIO_DEVICE(MICBIAS),
 	SPRD_AUDIO_DEVICE(AUXMICBIAS),
 	SPRD_AUDIO_DEVICE(HEADMICBIAS),
+	SPRD_AUDIO_DEVICE(CGLDO),
 };
 
 #ifdef CONFIG_OF

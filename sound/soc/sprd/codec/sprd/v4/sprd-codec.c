@@ -353,6 +353,7 @@ struct sprd_codec_priv {
 	struct regulator *main_mic;
 	struct regulator *aux_mic;
 	struct regulator *head_mic;
+	struct regulator *cg_ldo;
 	atomic_t ldo_refcount;
 	struct delayed_work ovp_delayed_work;
 
@@ -378,7 +379,7 @@ static int sprd_codec_power_get(struct device *dev, struct regulator **regu,
 			pr_err("ERR:Failed to request %ld: %s\n",
 			       PTR_ERR(*regu), id);
 			*regu = 0;
-			return PTR_ERR(*regu);
+			return -1;
 		}
 	}
 	return 0;
@@ -395,7 +396,7 @@ static int sprd_codec_power_put(struct regulator **regu)
 	return 0;
 }
 
-static int sprd_codec_mic_bias_set(struct regulator **regu, int on)
+static int sprd_codec_regulator_set(struct regulator **regu, int on)
 {
 	int ret = 0;
 	if (*regu) {
@@ -1340,13 +1341,18 @@ static inline void sprd_codec_hp_pa_hpl_en(struct snd_soc_codec *codec, int on)
 
 static inline void sprd_codec_hp_cg_ldo_en(struct snd_soc_codec *codec, int on)
 {
-	int mask;
-	int val;
-	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
-
-	mask = BIT(LDOCG_EN);
-	val = on ? mask : 0;
-	snd_soc_update_bits(codec, SOC_REG(ANA_PMU0), mask, val);
+	int ret = 0;
+	struct regulator **regu;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	if(!sprd_codec->cg_ldo) {
+		ret = sprd_codec_power_get(0, &sprd_codec->cg_ldo, "CGLDO");
+		if (ret) {
+			pr_err("ERR:%s get CGLDO error %d\n", __func__, ret);
+			return;
+		}
+	}
+	regu = &sprd_codec->cg_ldo;
+	sprd_codec_regulator_set(regu, on);
 }
 
 static inline void sprd_codec_hp_cg_dangl_en(struct snd_soc_codec *codec, int on)
@@ -2296,10 +2302,10 @@ static int ear_switch_event(struct snd_soc_dapm_widget *w,
 
 	switch (event) {
 	case SND_SOC_DAPM_PRE_PMU:
-		sprd_codec_pa_sw_set(codec, SPRD_CODEC_PA_SW_EAR);
+		sprd_codec_pa_sw_set(w->codec, SPRD_CODEC_PA_SW_EAR);
 		break;
 	case SND_SOC_DAPM_POST_PMD:
-		sprd_codec_pa_sw_clr(codec, SPRD_CODEC_PA_SW_EAR);
+		sprd_codec_pa_sw_clr(w->codec, SPRD_CODEC_PA_SW_EAR);
 		break;
 	default:
 		BUG();
@@ -2479,7 +2485,7 @@ static int mic_bias_event(struct snd_soc_dapm_widget *w,
 		ret = -EINVAL;
 	}
 
-	ret = sprd_codec_mic_bias_set(regu, on);
+	ret = sprd_codec_regulator_set(regu, on);
 
 	return ret;
 }
@@ -3805,6 +3811,7 @@ static int sprd_codec_power_regulator_init(struct sprd_codec_priv *sprd_codec,
 	sprd_codec_power_get(dev, &sprd_codec->main_mic, "MICBIAS");
 	sprd_codec_power_get(dev, &sprd_codec->aux_mic, "AUXMICBIAS");
 	sprd_codec_power_get(dev, &sprd_codec->head_mic, "HEADMICBIAS");
+	sprd_codec_power_get(dev, &sprd_codec->cg_ldo, "CGLDO");
 
 	return 0;
 }
@@ -3814,6 +3821,7 @@ static void sprd_codec_power_regulator_exit(struct sprd_codec_priv *sprd_codec)
 	sprd_codec_power_put(&sprd_codec->main_mic);
 	sprd_codec_power_put(&sprd_codec->aux_mic);
 	sprd_codec_power_put(&sprd_codec->head_mic);
+	sprd_codec_power_put(&sprd_codec->cg_ldo);
 }
 
 static struct snd_soc_codec_driver soc_codec_dev_sprd_codec = {
