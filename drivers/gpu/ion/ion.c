@@ -349,7 +349,6 @@ static int __ion_pagecache_range_shrink(struct ion_heap *heap, unsigned long sta
 
 		spin_lock(&heap->pagecache_lock);
 		list_del_init(&handle->list);
-		might_sleep();
 		spin_unlock(&heap->pagecache_lock);
 
 		if (!locked) {
