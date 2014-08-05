@@ -128,7 +128,7 @@ static int sprd_sys_get_temp(struct thermal_zone_device *thermal,
 			     unsigned long *temp)
 {
 	struct sprd_thermal_zone *pzone = thermal->devdata;
-	*temp = sprd_thm_temp_read(pzone->sensor_id);
+	*temp = sprd_thm_temp_read(pzone);
 	return 0;
 }
 
@@ -313,7 +313,7 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	if (!np) {
 		dev_err(&pdev->dev, "device node not found\n");
-		return ERR_PTR(-EINVAL);
+		return -EINVAL;
 	}
 	ptrips = thermal_detect_parse_dt(&pdev->dev);
 #else
@@ -361,6 +361,7 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Get IRQ_THM_INT failed.\n");
 		return thm_irq;
 	}
+
 	ret =
 	    devm_request_threaded_irq(&pdev->dev, thm_irq, NULL,
 				      sprd_thm_irq_handler,
@@ -370,8 +371,10 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 		dev_err(&pdev->dev, "Failed to allocate temp low irq.\n");
 		return ret;
 	}
+
+	sprintf(pzone->thermal_zone_name,"sprd_thermal_zone%d",pzone->sensor_id);
 	pzone->therm_dev =
-	    thermal_zone_device_register("sprd_thermal_zone",
+	    thermal_zone_device_register(pzone->thermal_zone_name,
 					 ptrips->num_trips, 0, pzone,
 					 &thdev_ops, 0, 0, 0); 
 	if (IS_ERR_OR_NULL(pzone->therm_dev)) {

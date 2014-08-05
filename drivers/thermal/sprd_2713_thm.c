@@ -115,7 +115,7 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 	u32 local_sensor_addr = 0;
 	struct sprd_thm_platform_data *trip_tab = pzone->trip_tab;
 
-	THM_DEBUG("thm sensor id:%d, trip:%d cxz \n", pzone->sensor_id, trip);
+	THM_DEBUG("thm sensor id:%d, trip:%d  \n", pzone->sensor_id, trip);
 	if (trip < 0 || trip > (trip_tab->num_trips - 1))
 		return -1;
 	if (trip_tab->trip_points[trip].type != THERMAL_TRIP_ACTIVE)
@@ -245,10 +245,11 @@ int sprd_thm_rawdata2temp(u32 sensor, int rawdata)
 	    low_tab[rawdata & 0x0F];
 }
 
-int sprd_thm_temp_read(u32 sensor)
+int sprd_thm_temp_read(struct sprd_thermal_zone *pzone)
 {
 	u32 rawdata = 0;
 	int cal_offset = 0;
+	u32 sensor = pzone->sensor_id;
 
 	if (SPRD_ARM_SENSOR == sensor) {
 		rawdata = __thm_reg_read((SPRD_THM_BASE + SENSOR_TEMPER0_READ));
@@ -383,31 +384,35 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 	// Set sensor det period is 2.25S
 	__thm_reg_write((local_sensor_addr + SENSOR_DET_PERI), 0x2000, 0x2000);
 	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x101, 0x101);
-     
-	// Start the sensor by set Sen_set_rdy(bit3)  
+
+	// Start the sensor by set Sen_set_rdy(bit3)
 	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x8, 0x8);
 
 	return 0;
 
 }
 
-int sprd_thm_hw_disable_sensor(u32 sensor_reg_base)
+int sprd_thm_hw_disable_sensor(struct sprd_thermal_zone *pzone)
 {
 	int ret = 0;
 	// Sensor minitor disable
-	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x0, 0x8);
-	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x00, 0x01);
+	if(SPRD_ARM_SENSOR == pzone->sensor_id){
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x0, 0x8);
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x00, 0x01);
+	}
 	return ret;
 
 }
 
-int sprd_thm_hw_enable_sensor(u32 sensor_reg_base)
+int sprd_thm_hw_enable_sensor(struct sprd_thermal_zone *pzone)
 {
 	int ret = 0;
 	// Sensor minitor enable
-	THM_DEBUG("sprd_2713_thm enable sensor sensor_reg_base:0x%x \n",sensor_reg_base);
-	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x01, 0x01);
-	__thm_reg_write((sensor_reg_base + SENSOR_CTRL), 0x8, 0x8);
+	THM_DEBUG("sprd_2713_thm enable sensor sensor_ID:0x%x \n",pzone->sensor_id);
+	if(SPRD_ARM_SENSOR == pzone->sensor_id){
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x01, 0x01);
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x8, 0x8);
+	}
 	return ret;
 
 }
@@ -424,7 +429,7 @@ int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone)
 	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 	int_ctrl_reg[pzone->sensor_id] = __thm_reg_read((local_sensor_addr + SENSOR_INT_CTRL));
 
-	sprd_thm_hw_disable_sensor(local_sensor_addr);
+	sprd_thm_hw_disable_sensor(pzone);
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), 0, ~0);	//disable all int
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
 	return ret;
@@ -438,10 +443,12 @@ int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone)
 	local_sensor_addr =
 	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 
-	sprd_thm_hw_enable_sensor(local_sensor_addr);
-	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
-	__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), int_ctrl_reg[pzone->sensor_id], ~0);	//enable int of saved
-	__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x9, 0);
+	sprd_thm_hw_enable_sensor(pzone);
+	if(SPRD_ARM_SENSOR == pzone->sensor_id){
+		__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), ~0, 0);	//clr all int
+		__thm_reg_write((local_sensor_addr + SENSOR_INT_CTRL), int_ctrl_reg[pzone->sensor_id], ~0);	//enable int of saved
+		__thm_reg_write((local_sensor_addr + SENSOR_CTRL), 0x9, 0);
+	}
 	return ret;
 }
 
@@ -464,7 +471,7 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 	    ("sprd_thm_hw_irq_handle --------@@@------id:%d, int_sts :0x%x \n",
 	     pzone->sensor_id, int_sts);
 	printk("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n",
-	       sprd_thm_temp_read(pzone->sensor_id));
+	       sprd_thm_temp_read(pzone));
 
 	overhead_hot_tem_cur = __thm_reg_read((local_sensor_addr + SENSOR_OVERHEAT_HOT_THRES))
 								& RAW_TEMP_RANGE_MSK;

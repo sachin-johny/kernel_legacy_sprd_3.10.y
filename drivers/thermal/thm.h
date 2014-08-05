@@ -29,6 +29,7 @@ struct sprd_thermal_zone {
 	enum thermal_device_mode mode;
 	int sensor_id;
 	void __iomem *reg_base;
+	char thermal_zone_name[30];
 };
 
 extern int sprd_thm_chip_id_check(void);
@@ -36,5 +37,6 @@ extern int sprd_thm_hw_init(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone);
+extern int sprd_thm_temp_read(struct sprd_thermal_zone *pzone);
 
 #endif
