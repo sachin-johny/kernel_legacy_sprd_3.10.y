@@ -271,7 +271,7 @@ static int __init pin_switch_proc_add(struct sci_pin_switch *pin_switch)
 {
 	struct proc_dir_entry *tmp_proc;
 	tmp_proc =
-	    proc_create_data(pin_switch->filename, S_IALLUGO,
+	    proc_create_data(pin_switch->filename, S_IRWXUGO,
 			     pin_switch_proc_base, &pin_switch_fops,
 			     pin_switch);
 	if (!tmp_proc)
@@ -299,7 +299,7 @@ static int __init pin_switch_proc_add_dir(struct sci_pin_switch_dir
 			return EINVAL;
 		tmp_proc =
 		    proc_create_data(pin_switch_dir->sci_pin_switch[i].filename,
-				     S_IALLUGO, tmp_proc_dir,
+				     S_IRWXUGO, tmp_proc_dir,
 				     &pin_switch_dir_fops,
 				     &pin_switch_dir->sci_pin_switch[i]);
 		if (!tmp_proc)
