@@ -1825,8 +1825,6 @@ static void dbs_refresh_callback(struct work_struct *work)
 
 	if (policy->cur < policy->max)
 	{
-		policy->cur = policy->max;
-
 		cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
 
 		core_dbs_info->cdbs.prev_cpu_idle = get_cpu_idle_time(cpu,
@@ -1841,6 +1839,9 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 	int i;
 	bool ret;
 	static int tp_time = 0;
+
+	if(!dvfs_plug_select)
+		return;
 
 	if(jiffies <= (tp_time + 10)){
 		tp_time = jiffies;
@@ -1935,10 +1936,12 @@ static int __init cpufreq_gov_dbs_init(void)
 
 	g_sd_tuners = kzalloc(sizeof(struct sd_dbs_tuners), GFP_KERNEL);
 
+
 	if(input_register_handler(&dbs_input_handler))
 	{
 		pr_err("[DVFS] input_register_handler failed\n");
 	}
+
 
 	return cpufreq_register_governor(&cpufreq_gov_sprdemand);
 }
@@ -1953,7 +1956,9 @@ static void __exit cpufreq_gov_dbs_exit(void)
 #if defined(CONFIG_THERMAL)
 	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
 #endif
+
 	input_unregister_handler(&dbs_input_handler);
+
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");
