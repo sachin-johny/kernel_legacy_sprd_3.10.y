@@ -186,7 +186,6 @@ struct usb_ep {
 	int gpio_chgdet;
 	int gpio_otgdet;
 	int gpio_num;
-	int ldo_gpio;
 };
 /*-------------------------------------------------------------------------*/
 

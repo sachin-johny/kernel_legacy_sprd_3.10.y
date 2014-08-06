@@ -46,7 +46,6 @@ static uint32_t tune_from_uboot = 0x44073e33;
 
 #define GPIO_INVALID 0xffffffff
 
-extern int   ldo_gpio ;
 extern int in_calibration(void);
 
 static int __init usb_phy_tune_get(char *str)
@@ -68,33 +67,17 @@ static void usb_ldo_switch(int is_on)
 {
 	struct regulator *usb_regulator = NULL;
 
-	if( GPIO_INVALID !=ldo_gpio)
-	   {
-		pr_info("read usb_ldo_switch one\n");
-		 if(is_on){
-			gpio_request(ldo_gpio, USB_LDO_NAME);
-			gpio_direction_output(ldo_gpio,1);
-			gpio_set_value(ldo_gpio, is_on);
-		   }
-		 else{
-			gpio_request(ldo_gpio, USB_LDO_NAME);
-			gpio_direction_output(ldo_gpio,0);
-			gpio_set_value(ldo_gpio, is_on);
+	if(usb_regulator == NULL){
+		usb_regulator = regulator_get(NULL,USB_LDO_NAME);
+	}
+	if(!IS_ERR_OR_NULL(usb_regulator)){
+		if(is_on){
+			regulator_enable(usb_regulator);
+		}else{
+			regulator_disable(usb_regulator);
 		}
-	   }else{
-		pr_info("read usb_ldo_switch two\n");
-		if(usb_regulator == NULL){
-			usb_regulator = regulator_get(NULL,USB_LDO_NAME);
-		}
-		if(!IS_ERR_OR_NULL(usb_regulator)){
-			if(is_on){
-				regulator_enable(usb_regulator);
-			}else{
-				regulator_disable(usb_regulator);
-			}
-			regulator_put(usb_regulator);
-		}
-	   }
+		regulator_put(usb_regulator);
+	}
 }
 #if defined(CONFIG_ARCH_SC8825)
 static int usb_clk_status = 0;
