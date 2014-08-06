@@ -13,6 +13,7 @@
 
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
+#include <linux/of_irq.h>
 #include <linux/battery/sec_battery.h>
 
 #ifdef CONFIG_MFD_RT8973
@@ -1011,7 +1012,14 @@ int sec_fg_dt_init(struct device_node *np,
 		struct battery_data_t *battery_data;
 		int len, i;
 		uint32_t cell_value;
+		struct device_node *temp_np = NULL;
+
 		battery_data = devm_kzalloc(dev, sizeof(*battery_data), GFP_KERNEL);
+		temp_np = of_get_child_by_name(np, "sprd_fgu");
+		if (!temp_np) {
+			return ERR_PTR(-EINVAL);
+		}
+		battery_data->fgu_irq = irq_of_parse_and_map(temp_np, 0);
 		of_property_read_u32(np, "vmod", &battery_data->vmode);
 		of_property_read_u32(np, "alm_soc", &battery_data->alm_soc);
 		of_property_read_u32(np, "alm_vbat", &battery_data->alm_vbat);

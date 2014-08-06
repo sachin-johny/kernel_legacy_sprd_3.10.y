@@ -178,7 +178,7 @@ struct sprdfgu_drivier_data {
 };
 
 struct sprdfgu_drivier_data sprdfgu_data;
-
+unsigned int sprdfgu_irq = IRQ_ANA_FGU_INT;
 struct delayed_work sprdfgu_debug_work;
 uint32_t sprdfgu_debug_log_time = 30;
 #define SPRDFGU_POCV_VOL_ADJUST 16
@@ -197,15 +197,11 @@ static int FGU_IMPEDANCE_IDEA = 200;	//200
 static int  SPRDFGU_BATTERY_WARNING_VOL = 3500;
 
 #define FGU_CUR_SAMPLE_HZ   2
-#if defined(CONFIG_ARCH_SCX15)
+
 static int fgu_nv_4200mv = 2752;
 static int fgu_nv_3600mv = 2374;
 static int fgu_0_cur_adc = 8338;
-#else
-static int fgu_nv_4200mv = 2865;
-static int fgu_nv_3600mv = 2460;
-static int fgu_0_cur_adc = 8019;
-#endif
+
 static int fgu_cal_type = SPRDBAT_FGUADC_CAL_NO;
 static int battery_internal_impedance = 250;
 
@@ -270,12 +266,12 @@ static uint16_t  (* capacity_table)[2];
 #define capacity_table soc_capacity_table
 #endif
 #endif
-#define REG_SYST_VALUE                  (SPRD_SYSCNT_BASE + 0x0004)
+#define REG_SYST_VALUE                  ((void __iomem *)(SPRD_SYSCNT_BASE + 0x0004))
 static u32 sci_syst_read(void)
 {
-	u32 t = __raw_readl((const volatile void *)REG_SYST_VALUE);
-	while (t != __raw_readl((const volatile void *)REG_SYST_VALUE))
-		t = __raw_readl((const volatile void *)REG_SYST_VALUE);
+	u32 t = __raw_readl(REG_SYST_VALUE);
+	while (t != __raw_readl(REG_SYST_VALUE))
+		t = __raw_readl(REG_SYST_VALUE);
 	return t;
 }
 
@@ -345,7 +341,7 @@ static int __init fgu_cmd(char *str)
 }
 
 __setup("fgu_init", fgu_cmd);
-
+#if 0
 static int sprdfgu_cal_init(void)
 {
 	vol_1000mv_adc = ((fgu_nv_4200mv - fgu_nv_3600mv) * 10 + 3) / 6;
@@ -361,12 +357,30 @@ static int sprdfgu_cal_init(void)
 		       SPRDFGU_CHIP_CALVOL_ADJUST);
 	}
 
-	if (!sprdfgu_is_new_chip()) {
-		vol_offset = 327;
-		cur_offset = 59;
-		cur_1000ma_adc = 1760;
-		vol_1000mv_adc = 500;
+	printk
+	    ("sprdfgu: sprdfgu_cal_init fgu_nv_4200mv = %d,fgu_nv_3600mv = %d,fgu_0_cur_adc = %d\n",
+	     fgu_nv_4200mv, fgu_nv_3600mv, fgu_0_cur_adc);
+	printk
+	    ("sprdfgu: sprdfgu_cal_init cur_1000ma_adc = %d,vol_1000mv_adc = %d,vol_offset = %d,cur_offset = %d\n",
+	     cur_1000ma_adc, vol_1000mv_adc, vol_offset, cur_offset);
+	return 0;
+}
+#else
+static int sprdfgu_cal_init(void)
+{
+	vol_1000mv_adc = ((fgu_nv_4200mv) * 10 + 21) / 42;
+	vol_offset = 0;
+	cur_offset = 0;
+	cur_1000ma_adc =
+	    (vol_1000mv_adc * 4 * FGU_IMPEDANCE +
+	     FGU_IMPEDANCE_IDEA / 2) / FGU_IMPEDANCE_IDEA;
+
+	if (SPRDBAT_FGUADC_CAL_CHIP == fgu_cal_type) {
+		vol_offset += SPRDFGU_CHIP_CALVOL_ADJUST;
+		printk("sprdfgu: SPRDFGU_CHIP_CALVOL_ADJUST = %d\n",
+		       SPRDFGU_CHIP_CALVOL_ADJUST);
 	}
+
 	printk
 	    ("sprdfgu: sprdfgu_cal_init fgu_nv_4200mv = %d,fgu_nv_3600mv = %d,fgu_0_cur_adc = %d\n",
 	     fgu_nv_4200mv, fgu_nv_3600mv, fgu_0_cur_adc);
@@ -376,6 +390,7 @@ static int sprdfgu_cal_init(void)
 	return 0;
 }
 
+#endif
 int sci_efuse_fgu_cal_get(unsigned int *p_cal_data);
 static int sprdfgu_cal_from_chip(void)
 {
@@ -395,16 +410,6 @@ static int sprdfgu_cal_from_chip(void)
         fgu_cal_type = SPRDBAT_FGUADC_CAL_CHIP;
 
 	return 0;
-}
-
-int sprdfgu_is_new_chip(void)
-{
-#if defined(CONFIG_ARCH_SCX15)
-	return 1;
-#else
-	uint32_t achip_id_low = sci_adi_read(ANA_REG_GLB_CHIP_ID_LOW);
-	return (0xA000 != achip_id_low) ? 1 : 0;
-#endif
 }
 
 static u32 sprdfgu_adc2vol_mv(u32 adc)
@@ -435,7 +440,6 @@ static void sprdfgu_rtc_reg_write(uint32_t val)
 		      BITS_RTC_AREA(~0));
 }
 
-#if 0
 static uint32_t sprdfgu_rtc_reg_read(void)
 {
 	int shft = __ffs(BITS_RTC_AREA(~0));
@@ -457,7 +461,6 @@ static uint32_t sprdfgu_poweron_type_read(void)
 	return (sci_adi_read(REG_FGU_USER_AREA_STATUS) & BITS_POWERON_TYPE(~0))
 	    >> shft;
 }
-#endif
 
 static inline int sprdfgu_clbcnt_get(void)
 {
@@ -828,12 +831,6 @@ static int sprdfgu_int_init(void)
 	int delta_cc = sprdfgu_clbcnt_init(1);
 	int ret = -ENODEV;
 
-#if 1
-	printk(KERN_ERR "sprdfgu: request sprdfgu irq %d failed\n",
-		       IRQ_ANA_FGU_INT);
-	return 0;
-#endif
-
 	INIT_DELAYED_WORK(&sprdfgu_data.fgu_irq_work, sprdfgu_irq_works);
 
 	sci_adi_set(REG_FGU_INT_CLR, 0xFFFF);
@@ -846,7 +843,7 @@ static int sprdfgu_int_init(void)
 	sci_adi_write(REG_FGU_CLBCNT_DELTL, delta_cc & 0xFFFF, ~0);
 	sci_adi_write(REG_FGU_CLBCNT_DELTH, (delta_cc >> 16) & 0xFFFF, ~0);
 
-	ret = request_irq(IRQ_ANA_FGU_INT, _sprdfgu_interrupt,
+	ret = request_irq(sprdfgu_irq, _sprdfgu_interrupt,
 			  IRQF_NO_SUSPEND, "sprdfgu", NULL);
 
 	if (ret) {
@@ -883,20 +880,9 @@ static void sprdfgu_hw_init(void)
 	u32 pocv_raw;
 	FGU_DEBUG("FGU_Init\n");
 
-#if !defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_ADIE_SC2723S) && !defined(CONFIG_ADIE_SC2723)
-	sci_adi_set(ANA_REG_GLB_MP_MISC_CTRL, (BIT(1)));
-	sci_adi_write(ANA_REG_GLB_DCDC_CTRL2, (4 << 8), (7 << 8));
-#endif
-
 	sci_adi_set(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_FGU_EN);
 	sci_adi_set(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_FGU_EN | BIT_RTC_FGUA_EN);
 
-	if (!in_calibration()) {
-		sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
-	}
-#if !defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_ADIE_SC2723S) && !defined(CONFIG_ADIE_SC2723)
-	sci_adi_write(REG_FGU_CONFIG, BITS_VOLT_DUTY(3), BITS_VOLT_DUTY(3) | BIT_VOLT_H_VALID);	//mingwei
-#endif
 	sci_adi_write(REG_FGU_RELAX_CURT_THRE, BITS_RELAX_CUR_THRE(sprdfgu_cur2adc_ma(relax_curr)), BITS_RELAX_CUR_THRE(~0));	//mingwei
 	udelay(130);
 	sprdfgu_cal_battery_impedance();
@@ -906,28 +892,35 @@ static void sprdfgu_hw_init(void)
 	current_raw = sprdfgu_reg_get(REG_FGU_CURT_VAL);
 	start_time = sci_syst_read();
 
-#if !defined(CONFIG_ARCH_SCX15)
-	pcapacity = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
-#else
 	FGU_DEBUG("REG_FGU_USER_AREA_STATUS- = 0x%x\n",
 		  sci_adi_read(REG_FGU_USER_AREA_STATUS));
 	if ((FIRST_POWERTON == sprdfgu_poweron_type_read())
 	    || (sprdfgu_rtc_reg_read() == 0xFFF)) {
 		FGU_DEBUG("FIRST_POWERTON- = 0x%x\n",
 			  sprdfgu_poweron_type_read());
-		pcapacity =
-		    sprdfgu_vol2capacity(sprdfgu_adc2vol_mv(pocv_raw) +
-					 SPRDFGU_POCV_VOL_ADJUST);
+		{
+			int poci = sprdfgu_reg_get(REG_FGU_CLBCNT_QMAXL) << 1;
+			uint32_t p_ocv = sprdfgu_adc2vol_mv(pocv_raw) -
+			    (sprdfgu_adc2cur_ma
+			     (poci - CUR_0ma_IDEA_ADC +
+			      cur_offset) * battery_internal_impedance) / 1000;
+			pcapacity = sprdfgu_vol2capacity(p_ocv);
+			FGU_DEBUG("poci:%d,p_ocv:%d,pcapacity:%d\n", poci,
+				  p_ocv, pcapacity);
+		}
 		sprdfgu_rtc_reg_write(pcapacity);
 	} else {
 		pcapacity = sprdfgu_rtc_reg_read();
 		FGU_DEBUG("NORMAIL_POWERTON-- pcapacity= %d\n", pcapacity);
 	}
 	sprdfgu_poweron_type_write(NORMAIL_POWERTON);
-#endif
 
 	pclbcnt = init_clbcnt = sprdfgu_clbcnt_init(pcapacity);
 	sprdfgu_clbcnt_set(init_clbcnt);
+
+	if (!in_calibration()) {
+		sci_adi_write(REG_FGU_CURT_OFFSET, cur_offset, ~0);
+	}
 
 	FGU_DEBUG("pocv_raw = 0x%x,pocv_voltage = %d\n", pocv_raw,
 		  sprdfgu_adc2vol_mv(pocv_raw));
@@ -1124,6 +1117,7 @@ bool static sprdfgu_param_init(fuelgauge_variable_t * fg_var)
 		}
 	}
 	relax_curr = p_bat_param->relax_current;
+	sprdfgu_irq = p_bat_param->fgu_irq;
 	sprdfgu_full_capacity = p_bat_param->cnom;
 	FGU_DEBUG("sprdfgu_param_init cnom = %d \n",p_bat_param->cnom);
 
@@ -1139,10 +1133,14 @@ bool static sprdfgu_param_init(fuelgauge_variable_t * fg_var)
 }
 
 static uint32_t init_flag = 0;
-#define SPRDBAT_ONE_PERCENT_TIME   (60)
+#define SPRDBAT_ONE_PERCENT_TIME   (40)
+#define SPRDBAT_AVOID_JUMPING_TEMI  (SPRDBAT_ONE_PERCENT_TIME)
 
 static unsigned long sprdbat_update_capacity_time;
 static uint32_t update_capacity;
+
+static unsigned long sprdbat_last_query_time;
+
 
 bool sec_hal_fg_init(fuelgauge_variable_t * fg_var)
 {
@@ -1163,6 +1161,7 @@ static uint32_t sprdbat_update_capacty(void)
 {
 	uint32_t fgu_capacity = sprdfgu_read_capacity();
 	uint32_t flush_time = 0;
+	uint32_t period_time = 0;
 	struct timespec cur_time;
 	union power_supply_propval value;
 
@@ -1170,13 +1169,36 @@ static uint32_t sprdbat_update_capacty(void)
 
 	get_monotonic_boottime(&cur_time);
 	flush_time = cur_time.tv_sec - sprdbat_update_capacity_time;
+	period_time = cur_time.tv_sec - sprdbat_last_query_time;
+	sprdbat_last_query_time = cur_time.tv_sec;
+
+	pr_info("fgu_capacity: = %d,flush_time: = %d,period_time:=%d\n",
+		      fgu_capacity, flush_time, period_time);
 
 	switch (value.intval) {
 	case POWER_SUPPLY_STATUS_CHARGING:
-	case POWER_SUPPLY_STATUS_NOT_CHARGING:
 		if (fgu_capacity < update_capacity) {
+			if (sprdfgu_read_batcurrent() > 0) {
+				pr_info("avoid vol jumping\n");
 			fgu_capacity = update_capacity;
 		} else {
+				if (period_time <= SPRDBAT_AVOID_JUMPING_TEMI) {
+					fgu_capacity =update_capacity - 1;
+					pr_info("avoid jumping! fgu_capacity: = %d\n", fgu_capacity);
+				}
+				if ((update_capacity - fgu_capacity) >=
+				    (flush_time / SPRDBAT_ONE_PERCENT_TIME)) {
+					fgu_capacity =
+					    update_capacity -
+					    flush_time / SPRDBAT_ONE_PERCENT_TIME;
+				}
+			}
+		} else if (fgu_capacity > update_capacity) {
+			if (period_time <= SPRDBAT_AVOID_JUMPING_TEMI) {
+				fgu_capacity =
+					update_capacity + 1;
+				pr_info("avoid  jumping! fgu_capacity: = %d\n",fgu_capacity);
+			}
 			if ((fgu_capacity - update_capacity) >=
 			    (flush_time / SPRDBAT_ONE_PERCENT_TIME)) {
 				fgu_capacity =
@@ -1195,10 +1217,18 @@ static uint32_t sprdbat_update_capacty(void)
 		}
 
 		break;
+	case POWER_SUPPLY_STATUS_NOT_CHARGING:
 	case POWER_SUPPLY_STATUS_DISCHARGING:
-		if (fgu_capacity > update_capacity) {
+		if (fgu_capacity >= update_capacity) {
 			fgu_capacity = update_capacity;
 		} else {
+			if (period_time <= SPRDBAT_AVOID_JUMPING_TEMI) {
+				fgu_capacity =
+				    update_capacity - 1;
+				pr_info
+				    ("avoid jumping! fgu_capacity: = %d\n",
+				     fgu_capacity);
+			}
 			if ((update_capacity - fgu_capacity) >=
 			    (flush_time / SPRDBAT_ONE_PERCENT_TIME)) {
 				fgu_capacity =
@@ -1206,6 +1236,12 @@ static uint32_t sprdbat_update_capacty(void)
 				    flush_time / SPRDBAT_ONE_PERCENT_TIME;
 			}
 		}
+
+		if (sprdfgu_read_vbat_vol() < 3050) {
+			pr_info("soft uvlo vol 0...\n");
+			fgu_capacity = 0;
+		}
+
 		break;
 	case POWER_SUPPLY_STATUS_FULL:
 		sprdbat_update_capacity_time = cur_time.tv_sec;
@@ -1275,6 +1311,7 @@ bool sec_hal_fg_fuelalert_process(void *irq_data, bool is_fuel_alerted)
 {
 	return true;
 }
+
 bool sec_hal_fg_get_property(fuelgauge_variable_t * fg_var,
 			       enum power_supply_property psp,
 			       union power_supply_propval *val)
@@ -1327,9 +1364,9 @@ bool sec_hal_fg_get_property(fuelgauge_variable_t * fg_var,
 					cap = 99;
 				}
 			}
-#endif
+#else
 			int cap = sprdbat_update_capacty();
-
+#endif
 			val->intval = cap * 10;
 		} else {
 			val->intval = 500;
@@ -1356,6 +1393,12 @@ bool sec_hal_fg_set_property(fuelgauge_variable_t * fg_var,
 	switch (psp) {
 
 	case POWER_SUPPLY_PROP_ONLINE:
+		if (val->intval == POWER_SUPPLY_TYPE_BATTERY) {
+			sprdfgu_adp_status_set(0);
+		} else {
+			sprdfgu_adp_status_set(1);
+		}
+		break;
 	/* Battery Temperature */
 	case POWER_SUPPLY_PROP_TEMP:
 

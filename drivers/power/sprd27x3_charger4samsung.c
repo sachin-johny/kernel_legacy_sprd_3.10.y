@@ -666,9 +666,6 @@ void sprdchg_set_charge(struct sec_charger_info *charger)
 				is_fully_charged = 0;
 		}
 		disable_irq_nosync(irq_vchg_ovi);
-#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
-		sprdfgu_adp_status_set(0);
-#endif
 		sprdchg_stop_charge();
 	} else {
 		if (((charger->siop_level < 100) && (charger->siop_level > 0)) &&
@@ -689,9 +686,6 @@ void sprdchg_set_charge(struct sec_charger_info *charger)
 		sprdchg_start_charge();
 		irq_set_irq_type(irq_vchg_ovi, IRQ_TYPE_LEVEL_HIGH);
 		enable_irq(irq_vchg_ovi);
-#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
-		sprdfgu_adp_status_set(1);
-#endif
 	}
 }
 

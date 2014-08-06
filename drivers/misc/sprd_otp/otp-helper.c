@@ -16,7 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/stat.h>
 #include <linux/err.h>
-#include <sprd_otp.h>
+#include "sprd_otp.h"
 
 #define BLK_UID_HIGH                    ( 0 )
 #define BLK_UID_LOW                     ( 1 )
@@ -110,6 +110,29 @@ EXPORT_SYMBOL_GPL(sci_efuse_cccv_cal_get);
 
 int sci_efuse_fgu_cal_get(unsigned int *p_cal_data)
 {
+#if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+	unsigned int data,blk0;
+
+	blk0 = __adie_efuse_read(0);
+
+	if (blk0 & (1 << 7)) {
+		return 0;
+	}
+
+	data = __adie_efuse_read_bits(BITSINDEX(12, 0), 9);
+	printk("sci_efuse_fgu_cal_get 4.2 data data:0x%x\n", data);
+	p_cal_data[0] = (data + 6963) - 4096 - 256;	//4.0V or 4.2V
+
+	data = __adie_efuse_read_bits(BITSINDEX(14, 2), 6);
+	printk("sci_efuse_fgu_cal_get 3.6 data data:0x%x\n", data);
+	p_cal_data[1] = p_cal_data[0] - 410 - data + 16;	//3.6V
+
+	data = __adie_efuse_read_bits(BITSINDEX(13, 1), 9);
+	printk("sci_efuse_fgu_cal_get 0 data data:0x%x\n", data);
+	p_cal_data[2] = (((data) & 0x1FF) + 8192) - 256;
+
+	return 1;
+#else
 	unsigned int data;
 
 	data = __ddie_efuse_read(BLK_FGU_DETA_ABC);
@@ -121,14 +144,12 @@ int sci_efuse_fgu_cal_get(unsigned int *p_cal_data)
 		return 0;
 	}
 
-	p_cal_data[0] = (((data >> 16) & 0x1FF) + 6808) - 4096 - 256;	//4.0V or 4.2V
-	p_cal_data[1] = p_cal_data[0] - 390 - ((data >> 25) & 0x1FF) + 16;	//3.6V
+	p_cal_data[0] = (((data >> 16) & 0x1FF) + 6963) - 4096 - 256;   //4.0V or 4.2V
+	p_cal_data[1] = p_cal_data[0] - 410 - ((data >> 25) & 0x3F) + 16;  //3.6V
 	p_cal_data[2] = (((data) & 0x1FF) + 8192) - 256;
-	data = __ddie_efuse_read(BLK_FGU_DETA_D);
-	pr_info("sci_efuse_fgu_cal_get D data:0x%x\n", data);
-	p_cal_data[3] = (((data) & 0x1FF) + 8192) - 256;
 
 	return 1;
+#endif
 }
 
 EXPORT_SYMBOL_GPL(sci_efuse_fgu_cal_get);
