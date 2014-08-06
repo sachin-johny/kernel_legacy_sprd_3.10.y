@@ -72,13 +72,11 @@
 #endif
 
 struct sci_regulator_regs {
-	int typ;
+	int typ; /* BIT4: default on/off(0: off, 1: on); BIT0~BIT3: dcdc/ldo type(0: ldo; 2: dcdc) */
 	unsigned long pd_set;
 	u32 pd_set_bit;
-	/**
-	 * at new feature, some LDOs had only set, no rst bits.
-	 * and DCDCs voltage and trimming controller is the same register
-	 */
+	unsigned long pwr_sel; /* otp pwr select reg */
+	u32 pwr_sel_bit; /* 0: otp enable(from emmc), 1: otp disable(from sw register) */
 	unsigned long vol_trm;
 	u32 vol_trm_bits;
 	unsigned long cal_ctl;
@@ -122,10 +120,11 @@ static struct sci_regulator_desc *sci_desc_list = NULL;
 static atomic_t idx = ATOMIC_INIT(1);	/* 0: dummy */
 
 static u32 ana_chip_id;
-static u16 ana_mixed_ctl;
+static u16 ana_mixed_ctl, otp_pwr_sel;
 
 static DEFINE_MUTEX(adc_chan_mutex);
 static int regulator_get_trimming_step(struct regulator_dev *rdev, int to_vol);
+static int __is_valid_adc_cal(void);
 extern int sci_efuse_get_cal(unsigned int * pdata, int num);
 
 
@@ -271,26 +270,50 @@ static int ldo_get_voltage(struct regulator_dev *rdev)
 	return -EFAULT;
 }
 
-#undef CONFIG_OTP_SPRD_ADIE_EFUSE
-#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
-extern u32 __adie_efuse_read(int blk_index);
 
-static int get_otp_offset(struct regulator_dev *rdev)
+extern u32 __adie_efuse_read(int blk_index);
+extern int sci_otp_get_offset(const char *name);
+
+static int set_regu_offset(struct regulator_dev *rdev)
 {
 	struct sci_regulator_desc *desc = __get_desc(rdev);
+	struct sci_regulator_regs *regs = &desc->regs;
 	const char *regu_name = desc->desc.name;
-	u16 efuse_data = 0;
+	int efuse_data = 0;
 
 	if (NULL == regu_name)
-		return 0;
+		return -1;
 
-	//efuse_data = get_otp_cali(regu_name);
+	efuse_data = sci_otp_get_offset(regu_name);
+	if (!(desc->regs.typ & BIT(4)))
+		rdev->constraints->uV_offset = efuse_data * regulator_get_trimming_step(rdev, 0);
+	else
+		rdev->constraints->uV_offset = 0;
 
-	rdev->constraints->uV_offset = efuse_data * regulator_get_trimming_step(rdev, 0);
+	debug("%s otp delta: %d, voltage offset: %d(uV)\n", desc->desc.name, efuse_data, rdev->constraints->uV_offset);
 
-	return (rdev->constraints->uV_offset);
+	/* switch sw register control from otp emmc only for vddmem/vdd25 */
+	if ((0 == strcmp(regu_name, "vddmem"))
+		 || (0 == strcmp(regu_name, "vdd25"))) {
+		if (regs->pwr_sel) {
+			int shft = __ffs(regs->vol_trm_bits);
+			u32 trim = 0;
+
+			if (regs->vol_trm) {
+				trim = (ANA_REG_GET(regs->vol_trm) & regs->vol_trm_bits) >> shft;
+				trim += efuse_data;
+				ANA_REG_SET(regs->vol_trm,
+					    trim << shft,
+					    regs->vol_trm_bits);
+			}
+
+			/* set pwr sel bit for sw control */
+			ANA_REG_OR(regs->pwr_sel, regs->pwr_sel_bit);
+		}
+	}
+
+	return 0;
 }
-#endif
 
 
 /* FIXME: get dcdc cal offset config from uboot */
@@ -331,35 +354,30 @@ static int __init_trimming(struct regulator_dev *rdev)
 	struct sci_regulator_desc *desc = __get_desc(rdev);
 	struct sci_regulator_regs *regs = &desc->regs;
 	int ctl_vol, to_vol;
-#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
 	uint otp_ana_flag = 0;
-#endif
 
 	if (!regs->vol_trm)
 		return -1;
 
-#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
+	if(!__is_valid_adc_cal())
+		return -2;
+
 	otp_ana_flag = (u8)__adie_efuse_read(0) & BIT(7);
 	if(!otp_ana_flag) {
-		get_otp_offset(rdev);
+		set_regu_offset(rdev);
 	} else {
-#endif
 
-	to_vol = regulator_default_get(desc->desc.name);
-	to_vol *= 1000; //uV
-	if (!to_vol) {
-		to_vol = regs->vol_def;
-	}
+		to_vol = regulator_default_get(desc->desc.name);
+		to_vol *= 1000; //uV
+		if (!to_vol)
+			to_vol = regs->vol_def;
 
-	if (to_vol && rdev->desc->ops->get_voltage) {
-		ctl_vol = rdev->desc->ops->get_voltage(rdev);
-		rdev->constraints->uV_offset = ctl_vol - to_vol;//uV
-		debug("regu 0x%p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
+		if (to_vol && rdev->desc->ops->get_voltage) {
+			ctl_vol = rdev->desc->ops->get_voltage(rdev);
+			rdev->constraints->uV_offset = ctl_vol - to_vol;//uV
+			debug("regu 0x%p (%s), uV offset %d\n", regs, desc->desc.name, rdev->constraints->uV_offset);
+		}
 	}
-
-#if defined(CONFIG_OTP_SPRD_ADIE_EFUSE)
-	}
-#endif
 
 	return 0;
 }
@@ -419,9 +437,6 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 		if (i < 0)
 			return WARN(-EINVAL, "not found %s closely ctrl bits for %d(uV)\n",
 				    desc->desc.name, min_uV);
-
-		debug("regu 0x%p (%s) %d = %d %+duV\n", regs, desc->desc.name,
-		       min_uV, regs->vol_sel[i], min_uV - regs->vol_sel[i]);
 	}
 
 #if !defined(CONFIG_REGULATOR_CAL_DUMMY)
@@ -439,8 +454,14 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 			step = regulator_get_trimming_step(rdev, 0);
 
 			j = DIV_ROUND_UP((int)(min_uV - (int)regs->vol_sel[i]), step);
+
+			debug("regu 0x%p (%s) %d = %d %+duV(trim %#x)\n", regs, desc->desc.name,
+				   min_uV, regs->vol_sel[i], min_uV - regs->vol_sel[i], j);
 		} else {
 			j = DIV_ROUND_UP((int)(min_uV - regs->min_uV), regs->step_uV);
+
+			debug("regu 0x%p (%s) %d = %d %+duV(trim %#x)\n", regs, desc->desc.name,
+				   min_uV, regs->min_uV, min_uV - regs->min_uV, j);
 		}
 
 		BUG_ON(j > (regs->vol_trm_bits >> shft_trm));
@@ -565,9 +586,9 @@ static int adc_sample_bit = 1;	/*12bits mode */
 static short adc_data[3][2]
 #if defined(CONFIG_REGULATOR_ADC_DEBUG)
     = {
-	{4200, 3320},		/* same as nv adc_t */
-	{3600, 2844},
-	{400, 316},		/* 0.4@VBAT, Reserved IdealC Value */
+	{4200, 3387},  /* same as nv adc_t */
+	{3600, 2905},
+	{400, 316},  /* 0.4@VBAT, Reserved IdealC Value */
 }
 #endif
 ;
@@ -592,6 +613,7 @@ static int __init __adc_cal_setup(char *str)
 				adc_sample_bit = 0;	/*10bits mode */
 		}
 	}
+
 	return 0;
 }
 early_param("adc_cal", __adc_cal_setup);
@@ -696,11 +718,11 @@ static int regu_adc_voltage(struct regulator_dev *rdev)
 
 	ratio = (u32)sci_adc_get_ratio(data.channel_id, data.scale, ldo_cal_sel);
 	chan_numerators = ratio >> 16;
-	chan_denominators = ratio && 0xFFFF;
+	chan_denominators = ratio & 0xFFFF;
 
 	ratio = (u32)sci_adc_get_ratio(ADC_CHANNEL_VBAT, 1, 0);
 	bat_numerators = ratio >> 16;
-	bat_denominators = ratio && 0xFFFF;
+	bat_denominators = ratio & 0xFFFF;
 
 	adc_res = adc_val[MEASURE_TIMES / 2];
 	debug("%s adc channel %d : 0x%04x, ratio (%d/%d), result value %d\n",
@@ -1088,6 +1110,15 @@ static int of_regu_read_reg(struct device_node *np, int idx,
 				np->name, reg_phy, regs->vol_trm, regs->vol_trm_bits);
 		}
 		break;
+	case 2: /* otp pwr select */
+		if(cell) {
+			reg_phy = (u32)be32_to_cpu(*(cell++));
+			regs->pwr_sel = phy2vir(reg_phy);
+			regs->pwr_sel_bit= (u32)be32_to_cpu(*(cell++));
+			debug0("reg(%s) otp_pwr_sel phy addr: 0x%08x, vir addr: 0x%08x, msk: 0x%08x\n",
+				np->name, reg_phy, regs->pwr_sel, regs->pwr_sel_bit);
+		}
+		break;
 	default:
 		break;
 	}
@@ -1105,7 +1136,7 @@ static int sci_regulator_parse_dt(struct platform_device *pdev,
 	u32 tmp_val_u32;
 	int type = 0, cnt = 0, ret = 0;
 
-	if(!pdev || !np || !desc || !supply) {
+	if (!pdev || !np || !desc || !supply) {
 		return -EINVAL;
 	}
 
@@ -1140,29 +1171,33 @@ static int sci_regulator_parse_dt(struct platform_device *pdev,
 	type = (of_property_read_bool(np, "dcdc") ? 2 : 0);
 	regs->typ = type;
 
+	if (of_property_read_bool(np, "default-on"))
+		regs->typ |= BIT(4);
+
 	of_regu_read_reg(np, 0, regs);
 	of_regu_read_reg(np, 1, regs);
+	of_regu_read_reg(np, 2, regs);
 
 	regs->min_uV = desc->init_data->constraints.min_uV;
 
-	//ret = of_property_read_u32(np, "regulator-step-microvolt", regs->step_uV);
 	ret = of_property_read_u32(np, "regulator-step-microvolt", &tmp_val_u32);
-	if(!ret)
+	if (!ret)
 		regs->step_uV = tmp_val_u32;
 
 	ret = of_property_read_u32(np, "regulator-default-microvolt", &tmp_val_u32);
-	if(!ret)
+	if (!ret)
 		regs->vol_def = tmp_val_u32;
 
-	debug("[%d] %s type %d, range %d(uV) - %d(uV), step %d(uV), defult %d(uV)\n", (idx.counter - 1),
+	debug("[%d] %s type %d, range %d(uV) - %d(uV), step %d(uV), default %d(uV) - (%s)\n", (idx.counter - 1),
 		np->name, type, desc->init_data->constraints.min_uV, desc->init_data->constraints.max_uV,
-		regs->step_uV, regs->vol_def);
+		regs->step_uV, regs->vol_def, (regs->typ & BIT(4)) ? "on" : "off");
+
 
 	tmp = of_get_property(np, "regulator-cal-channel", &cnt);
 	if (tmp) {
 		cnt /= 4;
 		ret = of_property_read_u32_array(np, "regulator-cal-channel", data, cnt);
-		if(!ret) {
+		if (!ret) {
 			regs->cal_ctl = phy2vir(data[0]);
 			regs->cal_ctl_bits = data[1];
 			regs->cal_chan = data[2];
@@ -1178,7 +1213,7 @@ static int sci_regulator_parse_dt(struct platform_device *pdev,
 		debug0("prop regulator-selects count(%d)\n", cnt);
 		cnt /= 4;
 		ret = of_property_read_u32_array(np, "regulator-selects", data, cnt);
-		if(!ret) {
+		if (!ret) {
 			int i = 0;
 
 			/* Dynamically allocate memory for voltage select array */
@@ -1241,9 +1276,9 @@ static int sci_regulator_register_dt(struct platform_device *pdev)
 
 		reconfig_regulator(sci_desc);
 
-		BUG_ON(sci_desc->regs.typ >= ARRAY_SIZE(__regs_ops));
+		BUG_ON((sci_desc->regs.typ & (BIT(4) - 1)) >= ARRAY_SIZE(__regs_ops));
 		if (!sci_desc->desc.ops)
-			sci_desc->desc.ops = __regs_ops[sci_desc->regs.typ];
+			sci_desc->desc.ops = __regs_ops[sci_desc->regs.typ & (BIT(4) - 1)];
 
         config.dev = &pdev->dev;
         config.init_data = sci_desc->init_data;
@@ -1312,8 +1347,9 @@ static int sci_regulator_probe(struct platform_device *pdev)
 	ana_chip_id = ((u32)ANA_REG_GET(ANA_REG_GLB_CHIP_ID_HIGH) << 16) |
 				((u32)ANA_REG_GET(ANA_REG_GLB_CHIP_ID_LOW) & 0xFFFF);
 	ana_mixed_ctl = ANA_REG_GET(ANA_REG_GLB_MIXED_CTRL0);
+	otp_pwr_sel = ANA_REG_GET(ANA_REG_GLB_PWR_SEL);
 
-	pr_info("sc272x ana chip id: (0x%08x), ana_mixed_ctl: (0x%08x)\n", ana_chip_id, ana_mixed_ctl);
+	pr_info("sc272x ana chipid:(0x%08x), ana_mixed_ctl:(0x%08x), otp_sel:(0x%08x)\n", ana_chip_id, ana_mixed_ctl, otp_pwr_sel);
 
 	sci_regulator_register_dt(pdev);
 

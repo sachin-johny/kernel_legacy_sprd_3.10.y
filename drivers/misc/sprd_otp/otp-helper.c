@@ -16,6 +16,7 @@
 #include <linux/kernel.h>
 #include <linux/stat.h>
 #include <linux/err.h>
+#include <sprd_otp.h>
 
 #define BLK_UID_HIGH                    ( 0 )
 #define BLK_UID_LOW                     ( 1 )
@@ -24,6 +25,9 @@
 
 #define BLK_FGU_DETA_ABC                ( 8 )
 #define BLK_FGU_DETA_D                  ( 9 )
+
+#define BLK_WIDTH_OTP_EMEMORY			( 8 ) /* bit counts */
+#define BLK_ADC_DETA_ABC_OTP			( 8 ) /* start block for ADC otp delta */
 
 u32 __weak __ddie_efuse_read(int blk_index)
 {
@@ -55,12 +59,17 @@ int sci_efuse_calibration_get(unsigned int *p_cal_data)
 	unsigned int deta;
 	unsigned short adc_temp;
 
+#if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+	deta = __adie_efuse_read_bits(BLK_ADC_DETA_ABC_OTP * BLK_WIDTH_OTP_EMEMORY, 16);
+#elif defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	deta = __ddie_efuse_read(BLK_ADC_DETA);
-	//deta &= ~(1 << 31);
+	WARN_ON(!(deta & BIT(31))); /* BIT 31 is protected bit */
+#else
+	#warning "AuxADC CAL DETA need fixing"
+#endif
 
 	pr_info("%s() get efuse block %u, deta: 0x%08x\n", __func__, BLK_ADC_DETA, deta);
 
-	WARN_ON(!(deta & BIT(31))); /* BIT 31 is protected bit */
 	deta &= 0xFFFFFF; /* get BIT0 ~ BIT23) in block 7 */
 
 	if ((!deta) || (p_cal_data == NULL)) {
@@ -184,7 +193,7 @@ EXPORT_SYMBOL_GPL(sci_efuse_get_apt_cal);
  * returns negative number.
  */
 #define BLK_ADC_DETA_ABC					( 7 )
-#define BLK_ADC_DETA_D				( 9 )
+#define BLK_ADC_DETA_D						( 9 )
 #define DELTA2ADC(_delta_, _Ideal_) 		( ((_delta_) + (_Ideal_) - 128) << 2 )
 #define ADC_VOL(_delta_, _Ideal_, vol)		( (DELTA2ADC(_delta_, _Ideal_) << 16) | (vol) )
 
@@ -199,15 +208,17 @@ int sci_efuse_get_cal(unsigned int *pdata, int num)
 		{400, 79},
 	};
 
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+	efuse_data = __adie_efuse_read_bits(BLK_ADC_DETA_ABC_OTP * BLK_WIDTH_OTP_EMEMORY, 16);
+#elif defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	efuse_data = __ddie_efuse_read(BLK_ADC_DETA_ABC);
+	WARN_ON(!(efuse_data & BIT(31))); /* BIT 31 is protected bit */
 #else
 	#warning "AuxADC CAL DETA need fixing"
 #endif
 
 	pr_info("%s efuse data: 0x%08x\n", __func__, efuse_data);
 
-	WARN_ON(!(efuse_data & BIT(31))); /* BIT 31 is protected bit */
 	efuse_data &= 0xFFFFFF; /* get BIT0 ~ BIT23 in block 7 */
 
 	if (!(efuse_data) || (!pdata)) {
