@@ -427,6 +427,10 @@ static int sec_chg_set_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_ONLINE:
 		charger->cable_type = val->intval;
+		pr_info("charger->cable_type=%d, input_current_limit=%d, fast_charging_current=%d\n",
+				charger->cable_type,
+				charger->pdata->charging_current[charger->cable_type].input_current_limit,
+				charger->pdata->charging_current[charger->cable_type].fast_charging_current);
 		psy_do_property("battery", get,
 				POWER_SUPPLY_PROP_HEALTH, value);
 		if (val->intval == POWER_SUPPLY_TYPE_BATTERY) {
