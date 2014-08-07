@@ -437,14 +437,15 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		if (test_task_flag(tsk, TIF_MM_RELEASED))
 			continue;
 
-		if (time_before_eq(jiffies, lowmem_deathpending_timeout)) {
-			if (test_task_flag(tsk, TIF_MEMDIE)) {
+		if (test_task_flag(tsk, TIF_MEMDIE)) {
+			if (time_before_eq(jiffies, lowmem_deathpending_timeout)) {
 				rcu_read_unlock();
 				/* give the system time to free up the memory */
 				msleep_interruptible(20);
 				mutex_unlock(&scan_mutex);
 				return 0;
 			}
+			continue;
 		}
 
 		p = find_lock_task_mm(tsk);
