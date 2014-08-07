@@ -1155,23 +1155,6 @@ int deep_sleep(int from_idle)
         cp0_sys_power_domain_close();
 #endif
 
-	/*
-	* TODO: this is a workaroud for hardware. keep VDDSIM2 on in deep sleep
-	* This code should be deleted in future.
-	*/
-#if defined(CONFIG_MACH_SP7731GEA) || defined(CONFIG_MACH_SP7731GEA_FWVGA) | defined(CONFIG_MACH_SP7731GEA_LC) | \
-    defined(CONFIG_MACH_SP7731GGA) | defined(CONFIG_MACH_SP7731GGA_LC) | \
-    defined(CONFIG_MACH_SP8730SEA) | defined(CONFIG_MACH_CORE3) | defined(CONFIG_MACH_PIKEAYOUNG2DTV)
-	sci_adi_clr(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SIM2_PD);
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOSIM2_PD_EN);
-#endif
-#endif
-#endif
-
 	ret = sp_pm_collapse(0, from_idle);
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
         cp0_sys_power_domain_open();
