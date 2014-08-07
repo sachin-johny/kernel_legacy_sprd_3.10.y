@@ -966,6 +966,22 @@ static inline void __sprd_codec_pa_sw_en(struct snd_soc_codec *codec, int on)
 	snd_soc_update_bits(codec, SOC_REG(ANA_PMU0), mask, val);
 }
 
+static inline void __sprd_codec_speaker_pa_ibias_set(struct snd_soc_codec *codec, int c_sel)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s %d\n", __func__, c_sel);
+	mask = PA_AB_I_MASK << PA_AB_I;
+	val = (c_sel << PA_AB_I) & mask;
+	snd_soc_update_bits(codec, SOC_REG(ANA_PMU3), mask, val);
+}
+
+static void sprd_inter_speaker_pa_pre(struct snd_soc_codec *codec)
+{
+	/* set class-AB Ibias to 7.4/4.7 from weifeng */
+	__sprd_codec_speaker_pa_ibias_set(codec, 0);
+}
+
 static inline void sprd_codec_pa_sw_set(struct snd_soc_codec *codec, int fun)
 {
 	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
@@ -1158,6 +1174,7 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_info("inter PA Switch %s\n", STR_ON_OFF(on));
 	mutex_lock(&sprd_codec->inter_pa_mutex);
 	if (on) {
+		sprd_inter_speaker_pa_pre(codec);
 		sprd_codec_pa_ovp_v_sel(codec, PA_OVP_465);
 		sprd_codec_ovp_irq_enable(codec);
 		sprd_codec_pa_d_en(codec, p_setting->is_classD_mode);
@@ -1446,6 +1463,11 @@ static inline void sprd_codec_inter_hp_pa_init(struct sprd_codec_priv
 	sprd_codec->inter_hp_pa.setting.class_g_vdd_delay_10ms = 0;
 	sprd_codec->inter_hp_pa.setting.class_g_chp_delay_30ms = 0;
 	sprd_codec->inter_hp_pa.setting.class_g_all_close_delay_100ms = 0;
+	/* set class-G default pga from weifeng */
+	sprd_codec->pga[SPRD_CODEC_PGA_CG_HPL_1].pgaval = 0x10;
+	sprd_codec->pga[SPRD_CODEC_PGA_CG_HPR_1].pgaval = 0x10;
+	sprd_codec->pga[SPRD_CODEC_PGA_CG_HPL_2].pgaval = 0x7;
+	sprd_codec->pga[SPRD_CODEC_PGA_CG_HPR_2].pgaval = 0x7;
 }
 
 
