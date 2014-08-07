@@ -1672,7 +1672,7 @@ int sensor_k_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	sensor_dev.this_device->of_node = pdev->dev.of_node;
 	s_p_sensor_mod->pin_reset = of_get_gpio(sensor_dev.this_device->of_node,0);
-	s_p_sensor_mod->pin_reset_sub = s_p_sensor_mod->pin_reset;
+	s_p_sensor_mod->pin_reset_sub = of_get_gpio(sensor_dev.this_device->of_node,3);
 	s_p_sensor_mod->pin_main = of_get_gpio(sensor_dev.this_device->of_node,1);
 	s_p_sensor_mod->pin_sub = of_get_gpio(sensor_dev.this_device->of_node,2);
 #else
@@ -1698,6 +1698,13 @@ int sensor_k_probe(struct platform_device *pdev)
 	ret = gpio_request(s_p_sensor_mod->pin_reset, "ccirrst");
 	if (ret) {
 		tmp = s_p_sensor_mod->pin_reset;
+		goto gpio_err_exit;
+	}
+	ret = gpio_request(s_p_sensor_mod->pin_reset_sub, "mipisubrst");
+	if (ret) {
+		printk(KERN_ERR "sensor gpio pin main4\n"
+			);
+		tmp = s_p_sensor_mod->pin_reset_sub;
 		goto gpio_err_exit;
 	}
 
