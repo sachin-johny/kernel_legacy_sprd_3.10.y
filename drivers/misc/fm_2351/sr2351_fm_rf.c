@@ -32,6 +32,30 @@ struct shark_fm_info_t shark_fm_info = {
 	/*shark_fm_irq_handler,		(*irq_handler)(u32);*/
 };
 
+typedef struct {
+  uint32_t ver;
+  uint8_t  cap;
+}rom_callback_func_t;
+
+unsigned int get_shark_chip_id(void)
+{
+   unsigned int code_addr = 0;
+   unsigned int header_phy_addr = 0;
+   unsigned int header_addr = 0;
+   unsigned int header_offset = 0;
+   unsigned int chip_ver=0;
+   
+   code_addr =(volatile unsigned int) ioremap((unsigned int)0xFFFF0000,0x4000);
+   header_phy_addr = (rom_callback_func_t *)(*((unsigned int*)(code_addr +0x20)));
+   header_offset=header_phy_addr-0xffff0000;
+   header_addr=header_offset+code_addr;
+   chip_ver=*(unsigned int *)(header_addr);
+	
+   iounmap(code_addr);
+   
+   return chip_ver;
+}
+
 static void read_fm_reg(u32 reg_addr, u32 *reg_data)
 {
 	 *reg_data = sci_glb_read(reg_addr,-1UL);
@@ -194,6 +218,7 @@ int sr2351_fm_get_status(int *status)
 
 void sr2351_fm_enter_sleep(void)
 {
+	unsigned int chip_ver=0;
 
 	#ifdef CONFIG_ARCH_SCX30G
 	sci_glb_clr(SHARK_PMU_APB_MEM_PD_CFG0,BIT_5|BIT_4|BIT_3|BIT_2|BIT_1|BIT_0);
@@ -218,7 +243,35 @@ void sr2351_fm_enter_sleep(void)
 		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
 
 		#elif defined(CONFIG_ARCH_SCX35)
-		sci_glb_clr(FM_REG_FM_EN,BIT_2|BIT_3);
+
+		chip_ver =  get_shark_chip_id();
+		 //TROUT_PRINT("chip_ver in trout_fm_enter_sleep :  %d\r\n", chip_ver);
+		/*
+		* BD version is the latest version for shark chip .
+		* In this version, hardware fix the FM sleep bug about the Sensitivity.
+		* So we need modify the sleep action based on the shark chip version.
+		* The chip id of BD version is 1 ,and the one of the old version is 2,
+		* such as BA/BB/BC 
+		*/
+		if(chip_ver != 0)
+    		{
+	    		if(SHARK_CHIP_BD == chip_ver)
+	    		{
+		  	   /*Disable the RSSI AGC*/
+			   sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
+			   udelay(5);
+
+			    /*Switch the mspi clock*/
+			   sci_glb_set(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
+
+			    /*Enable the RSSI AGC*/
+		  	   sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
+	    		}else
+	    		{
+	    		   sci_glb_clr(FM_REG_FM_EN,BIT_2|BIT_3);
+	    		}
+    		}
+
 		#endif
 
 		fm_rf_ops->write_reg(FM_SR2351_RX_GAIN, 0x0313);
@@ -227,6 +280,8 @@ void sr2351_fm_enter_sleep(void)
 
 void sr2351_fm_exit_sleep(void)
 {
+    unsigned int chip_ver=0;
+
 	if(fm_rf_ops != NULL)
 	{
 		#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
@@ -246,7 +301,35 @@ void sr2351_fm_exit_sleep(void)
 		sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
 
 		#elif defined(CONFIG_ARCH_SCX35)
-		sci_glb_set(FM_REG_FM_EN,BIT_2|BIT_3);
+
+		chip_ver =  get_shark_chip_id();
+		//TROUT_PRINT("chip_ver in trout_fm_exit_sleep :  %d\r\n", chip_ver);
+		/*
+		* BD version is the latest version for shark chip .
+		* In this version, hardware fix the FM sleep bug about the Sensitivity.
+		* So we need modify the sleep action based on the shark chip version.
+		* The chip id of BD version is 1 ,and the one of the old version is 2,
+		* such as BA/BB/BC 
+		*/
+		if(chip_ver != 0)
+		{
+			if(SHARK_CHIP_BD == chip_ver)
+			{
+			  /*Disable the RSSI AGC*/
+			  sci_glb_clr(FM_REG_FM_EN, BIT_2 | BIT_3);
+			  udelay(5);
+
+			  /*Switch the mspi clock*/
+			  sci_glb_clr(SHARK_MSPI_CLK_SWITCH, BIT_0 | BIT_1);
+
+			  /*Enable the RSSI AGC*/
+			  sci_glb_set(FM_REG_FM_EN, BIT_2 | BIT_3);
+			}else
+			{
+			  sci_glb_set(FM_REG_FM_EN,BIT_2|BIT_3);
+			}
+		}	
+
 		#endif
 	}
 

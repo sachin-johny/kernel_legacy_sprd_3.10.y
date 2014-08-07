@@ -203,13 +203,15 @@ extern u32 rf2351_fm_get_aonckg_base(void);
 
 #if defined(CONFIG_ARCH_SCX30G)
 #define SHARK_MSPI_CLK_SWITCH       (SHARK_AON_CLK_BASE_ADDR + 0x0054)
-#elif defined(CONFIG_ARCH_SCX15)
+#elif defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX35)
 #define SHARK_MSPI_CLK_SWITCH       (SHARK_AON_CLK_BASE_ADDR + 0x0050)
 #endif
 
 #define  SHARK_PMU_APB_PD_AP_SYS_CFG    REG_PMU_APB_PD_AP_SYS_CFG
 
 #define INT_NUM_FM_test 27
+
+#define SHARK_CHIP_BD   1
 
 struct shark_fm_info_t {
 	int		int_happen;
