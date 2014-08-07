@@ -1219,9 +1219,9 @@ static int lis3dh_acc_input_init(struct lis3dh_acc_data *acc)
 	/*      next is used for interruptB sources data if the case */
 	set_bit(ABS_WHEEL, acc->input_dev->absbit);
 
-	input_set_abs_params(acc->input_dev, ABS_X, -G_MAX, G_MAX, FUZZ, FLAT);
-	input_set_abs_params(acc->input_dev, ABS_Y, -G_MAX, G_MAX, FUZZ, FLAT);
-	input_set_abs_params(acc->input_dev, ABS_Z, -G_MAX, G_MAX, FUZZ, FLAT);
+	input_set_abs_params(acc->input_dev, ABS_X, -G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(acc->input_dev, ABS_Y, -G_MAX, G_MAX, 0, 0);
+	input_set_abs_params(acc->input_dev, ABS_Z, -G_MAX, G_MAX, 0, 0);
 	/*      next is used for interruptA sources data if the case */
 	input_set_abs_params(acc->input_dev, ABS_MISC, INT_MIN, INT_MAX, 0, 0);
 	/*      next is used for interruptB sources data if the case */
