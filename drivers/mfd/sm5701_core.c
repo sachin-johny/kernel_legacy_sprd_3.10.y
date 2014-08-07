@@ -43,6 +43,8 @@ static struct mfd_cell SM5701_devs[] = {
 
 static struct i2c_client *SM5701_core_client = NULL;
 
+static int led_ready_state = 0;
+
 int SM5701_reg_read(struct i2c_client *i2c, u8 reg, u8 *dest)
 {
 	struct SM5701_dev *SM5701 = i2c_get_clientdata(i2c);
@@ -187,7 +189,65 @@ out_strtoint:
 	return ret;
 }
 
+void sm5701_led_ready(int led_status)
+{   
+    pr_info("%s led_status = %d\n",__func__,led_status);
+    // led_status == 0 : LED_DISABLE
+    // led_status == 1 : LED_FLASH
+    // led_status == 2 : LED_MOVIE
+	led_ready_state = led_status;
+
+    SM5701_operation_mode_function_control();
+}
+EXPORT_SYMBOL(sm5701_led_ready);
+
+int SM5701_operation_mode_function_control(void)
+{
+    struct i2c_client * client;
+    struct SM5701_platform_data *pdata;
+
+    client = SM5701_core_client;
+    pdata = client->dev.platform_data;
+
+	pr_info("%s cable_type=%d\n", __func__, pdata->charger_data->cable_type);
+
+    if ((pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_MAINS) ||
+		(pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_USB)) {
+		if (led_ready_state == LED_FLASH) {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
+        } else if (led_ready_state == LED_MOVIE) {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
+        } else if (led_ready_state == LED_DISABLE) {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
+        } else {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
+        }
+	} else if (pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_BATTERY) {
+		if (led_ready_state == LED_FLASH) {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
+        } else if (led_ready_state == LED_MOVIE) {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
+        } else if (led_ready_state == LED_DISABLE) {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
+        } else {
+            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
+        }    
+	} else {
+        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
+	}
+   
+    return 0;
+}
+EXPORT_SYMBOL(SM5701_operation_mode_function_control);
+
+
 static DEVICE_ATTR(SM5701_core, S_IWUSR, NULL, SM5701_core_store);
+
+void SM5701_set_charger_data(void *p)
+{
+	struct SM5701_platform_data *pdata = SM5701_core_client->dev.platform_data;
+    pdata->charger_data = p;
+}
 
 static int SM5701_parse_dt(struct SM5701_platform_data *pdata)
 {
@@ -230,6 +290,7 @@ static int SM5701_i2c_probe(struct i2c_client *i2c,
 		ret = SM5701_parse_dt(pdata);
 		if (ret < 0)
 			goto err_parse_dt;
+		i2c->dev.platform_data = pdata;
 	} else
 		pdata = i2c->dev.platform_data;
 

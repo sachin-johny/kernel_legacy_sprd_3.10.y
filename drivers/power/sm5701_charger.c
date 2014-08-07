@@ -40,30 +40,6 @@ extern int sec_chg_dt_init(struct device_node *np,
 			 struct device *dev,
 			 sec_battery_platform_data_t *pdata);
 
-struct SM5701_charger_data {
-	struct SM5701_dev *SM5701;
-	struct power_supply	psy_chg;
-
-	unsigned int	is_charging;
-	unsigned int	nchgen;
-	unsigned int	charging_type;
-	unsigned int	battery_state;
-	unsigned int	battery_present;
-	unsigned int	cable_type;
-	unsigned int	charging_current_max;
-	unsigned int	charging_current;
-	unsigned int	input_current_limit;
-	unsigned int	vbus_state;
-	bool is_fullcharged;
-	int		aicl_on;
-	int		status;
-	int siop_level;
-	int		input_curr_limit_step;
-	int		charging_curr_step;
-
-	sec_battery_platform_data_t	*pdata;
-};
-
 static enum power_supply_property sec_charger_props[] = {
         POWER_SUPPLY_PROP_STATUS,
         POWER_SUPPLY_PROP_CHARGE_TYPE,
@@ -346,6 +322,9 @@ static void SM5701_charger_initialize(struct SM5701_charger_data *charger)
 	reg_data |= 0x1A;
 	SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 */
+/* Set FREQSEL to 11(2.4MHz) */
+    reg_data = 0x72; 
+    SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 
 /* Disable AUTOSTOP */
 	SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
@@ -473,9 +452,9 @@ static int sec_chg_set_property(struct power_supply *psy,
 		pr_info("%s : STATUS OF CHARGER ON(0)/OFF(1): %d\n", __func__, charger->nchgen);
 		pr_info("%s : chg_gpio_en VALUE : %d\n", __func__, charger->pdata->chg_gpio_en);
 
-		SM5701_toggle_charger(charger, charger->is_charging);
+		//SM5701_toggle_charger(charger, charger->is_charging);
 
-		gpio_direction_output((charger->pdata->chg_gpio_en), charger->nchgen);
+		//gpio_direction_output((charger->pdata->chg_gpio_en), charger->nchgen);
 		/* if battery full, only disable charging  */
 		if ((charger->status == POWER_SUPPLY_STATUS_CHARGING) ||
 			(charger->status == POWER_SUPPLY_STATUS_DISCHARGING) ||
@@ -517,6 +496,10 @@ static int sec_chg_set_property(struct power_supply *psy,
 				__func__, charger->charging_current, charger->siop_level);
 			SM5701_set_fastchg_current(
 				charger, charger->charging_current);
+            /* set operation mode */
+            SM5701_operation_mode_function_control();
+            /* turn on charging mode */
+            gpio_direction_output((charger->pdata->chg_gpio_en), charger->nchgen);
 		}
 		break;
 	/* val->intval : input charging current */
@@ -585,6 +568,7 @@ static int SM5701_charger_probe(struct platform_device *pdev)
 		charger->pdata = pdata->charger_data;
 
 	platform_set_drvdata(pdev, charger);
+	SM5701_set_charger_data(charger);
 
     if (charger->pdata->charger_name == NULL)
             charger->pdata->charger_name = "sec-charger";

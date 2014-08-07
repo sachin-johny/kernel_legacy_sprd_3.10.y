@@ -78,10 +78,48 @@ struct SM5701_dev {
 	bool wakeup;
 };
 
+
+struct SM5701_charger_data {
+	struct SM5701_dev *SM5701;
+	struct power_supply	psy_chg;
+
+	unsigned int	is_charging;
+	unsigned int	nchgen;
+	unsigned int	charging_type;
+	unsigned int	battery_state;
+	unsigned int	battery_present;
+	unsigned int	cable_type;
+	unsigned int	charging_current_max;
+	unsigned int	charging_current;
+	unsigned int	input_current_limit;
+	unsigned int	vbus_state;
+	bool is_fullcharged;
+	int		aicl_on;
+	int		status;
+	int siop_level;
+	int		input_curr_limit_step;
+	int		charging_curr_step;
+
+	sec_battery_platform_data_t	*pdata;
+};
+
 struct SM5701_platform_data {
 	unsigned int irq;
 	unsigned int chgen;
-	sec_battery_platform_data_t *charger_data;
+	struct SM5701_charger_data *charger_data;
+};
+
+
+//CNTL
+#define SM5701_OPERATIONMODE_SUSPEND           0x0
+#define SM5701_OPERATIONMODE_CHGOFF            0x1
+#define SM5701_OPERATIONMODE_CHGON             0x2
+#define SM5701_OPERATIONMODE_FLASHBOOST        0x3
+
+enum led_state {
+    LED_DISABLE,
+    LED_FLASH,
+    LED_MOVIE,
 };
 
 //sm5701_core.c
@@ -92,6 +130,9 @@ extern int SM5701_bulk_write(struct i2c_client *i2c, u8 reg, int count, u8 *buf)
 extern int SM5701_reg_update(struct i2c_client *i2c, u8 reg, u8 val, u8 mask);
 extern void SM5701_test_read(struct i2c_client *client );
 extern void SM5701_set_operationmode(int operation_mode);
+extern void sm5701_led_ready(int led_status);
+extern int SM5701_operation_mode_function_control(void);
+extern void SM5701_set_charger_data(void *p);
 
 //leds-sm5701.c
 extern void SM5701_set_enabstmr(int abstmr_enable);

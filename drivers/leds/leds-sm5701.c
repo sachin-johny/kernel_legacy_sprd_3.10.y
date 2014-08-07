@@ -377,17 +377,23 @@ static int sm5701_control(struct sm5701_leds_data *chip,
                           u8 brightness, enum sm5701_oper_mode opmode)
 {
         switch (opmode) {
-        case NONE_MODE:            
+        case NONE_MODE:
+                sm5701_led_ready(LED_DISABLE);
                 sm5701_set_fleden(SM5701_FLEDEN_DISABLED);
+                SM5701_operation_mode_function_control();
                 break;
 
-        case FLASH_MODE:
+        case FLASH_MODE:            
+                sm5701_led_ready(FLASH_MODE);
                 sm5701_set_ifled(brightness);
+                SM5701_operation_mode_function_control();
                 sm5701_set_fleden(SM5701_FLEDEN_ON_FLASH);
                 break;
 
         case MOVIE_MODE:
+                sm5701_led_ready(MOVIE_MODE);
                 sm5701_set_imled(brightness);
+                SM5701_operation_mode_function_control();                
                 sm5701_set_fleden(SM5701_FLEDEN_ON_MOVIE);
                 break;
 
@@ -435,12 +441,22 @@ static DEVICE_ATTR(movie, S_IWUSR, NULL, sm5701_movie_store);
 
 static void sm5701_deferred_movie_brightness_set(struct work_struct *work)
 {
-        struct sm5701_leds_data *chip =
-            container_of(work, struct sm5701_leds_data, work_movie);
+    struct sm5701_leds_data *chip =
+        container_of(work, struct sm5701_leds_data, work_movie);
 
+    if(chip->br_movie == 0)
+    {
+        mutex_lock(&chip->lock);
+        sm5701_control(chip, chip->br_movie, NONE_MODE);
+        mutex_unlock(&chip->lock);
+    }
+    else
+    {
         mutex_lock(&chip->lock);
         sm5701_control(chip, chip->br_movie, MOVIE_MODE);
         mutex_unlock(&chip->lock);
+    }
+
 }
 
 static void sm5701_movie_brightness_set(struct led_classdev *cdev,
@@ -490,12 +506,22 @@ static DEVICE_ATTR(flash, S_IWUSR, NULL, sm5701_flash_store);
 
 static void sm5701_deferred_flash_brightness_set(struct work_struct *work)
 {
-        struct sm5701_leds_data *chip =
-            container_of(work, struct sm5701_leds_data, work_flash);
-
+    struct sm5701_leds_data *chip =
+        container_of(work, struct sm5701_leds_data, work_flash);
+    
+    if(chip->br_flash == 0)
+    {
+        mutex_lock(&chip->lock);
+        sm5701_control(chip, chip->br_flash, NONE_MODE);
+        mutex_unlock(&chip->lock);          
+    }
+    else
+    {
         mutex_lock(&chip->lock);
         sm5701_control(chip, chip->br_flash, FLASH_MODE);
         mutex_unlock(&chip->lock);
+    }
+
 }
 
 static void sm5701_flash_brightness_set(struct led_classdev *cdev,
