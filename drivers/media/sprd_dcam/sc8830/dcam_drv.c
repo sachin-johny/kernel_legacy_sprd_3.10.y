@@ -3213,10 +3213,17 @@ LOCAL void    _dcam_path0_overflow(void)
 
 	printk("DCAM: _path0_overflow \n");
 	path = &s_p_dcam_mod->dcam_path0;
-	frame = path->output_frame_cur->prev->prev;
 
-	if (user_func) {
-		(*user_func)(frame, data);
+	if (path->output_frame_cur) {
+		if (path->output_frame_cur->prev) {
+			frame = path->output_frame_cur->prev->prev;
+
+			if (user_func) {
+				(*user_func)(frame, data);
+			}
+		}
+	} else {
+		printk("DCAM: path0 not cfg  \n");
 	}
 
 	return;
