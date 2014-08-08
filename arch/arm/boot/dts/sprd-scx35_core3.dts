@@ -205,8 +205,7 @@
 		compatible  = "sprd,sprd_sensor";
 		gpios = <&d_gpio_gpio 186 0   /*reset*/
 				&d_gpio_gpio 188 0    /*main*/
-				&d_gpio_gpio 187 0    /*sub */
-                                &d_gpio_gpio 238 0>;  /*sub reset*/
+				&d_gpio_gpio 187 0>;  /*sub */
 	};
 
 	i2c_gpio6: i2c_gpio@0 {
