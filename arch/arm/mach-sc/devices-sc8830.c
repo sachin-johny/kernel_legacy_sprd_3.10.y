@@ -651,38 +651,17 @@ static struct resource sprd_thm_resources[] = {
 static struct sprd_thm_platform_data sprd_thm_data =
 {
 		.trip_points[0] = {
-			.temp = THM_TEMP_DEGREE_START - 3*THM_TEMP_DEGREE_SETP,
-			.type = THERMAL_TRIP_ACTIVE,
-			.cdev_name = {
-					[0] = "thermal-cpufreq-0",
-			},
-		},
-		.trip_points[1] = {
-			.temp = THM_TEMP_DEGREE_START - 2*THM_TEMP_DEGREE_SETP,
-			.type = THERMAL_TRIP_ACTIVE,
-			.cdev_name = {
-				[0] = "thermal-cpufreq-0",
-		},
-		},
-		.trip_points[2] = {
-			.temp = THM_TEMP_DEGREE_START - 1*THM_TEMP_DEGREE_SETP,
-			.type = THERMAL_TRIP_ACTIVE,
-			.cdev_name = {
-				[0] = "thermal-cpufreq-0",
-			},
-		},
-		.trip_points[3] = {
 			.temp = THM_TEMP_DEGREE_START,
 			.type = THERMAL_TRIP_ACTIVE,
 			.cdev_name = {
 				[0] = "thermal-cpufreq-0",
 			},
 		},
-		.trip_points[4] = {
+		.trip_points[1] = {
 			.temp = THM_TEMP_DEGREE_CRITICAL,
 			.type = THERMAL_TRIP_CRITICAL,
 		},
-		.num_trips = 5,
+		.num_trips = 2,
 };
 
 struct platform_device sprd_thm_device = {
