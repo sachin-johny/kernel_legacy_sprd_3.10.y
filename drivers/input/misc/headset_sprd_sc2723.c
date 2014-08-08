@@ -197,6 +197,10 @@ static struct delayed_work adpgar_byp_select_work;
 static struct workqueue_struct *adpgar_byp_select_work_queue;
 #endif
 
+static DEFINE_SPINLOCK(irq_button_lock);
+static DEFINE_SPINLOCK(irq_detect_lock);
+
+
 static int debug_level = 0;
 static int adie_type = -1;
 static int gpio_detect_value_last = 0;
@@ -437,8 +441,9 @@ static void headset_button_irq_threshold(int enable)
 
 static void headset_irq_button_enable(int enable, unsigned int irq)
 {
+        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
-
+        spin_lock_irqsave(&irq_button_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
@@ -450,14 +455,15 @@ static void headset_irq_button_enable(int enable, unsigned int irq)
                         current_irq_state = 0;
                 }
         }
-
+        spin_unlock_irqrestore(&irq_button_lock, spin_lock_flags);
         return;
 }
 
 static void headset_irq_detect_enable(int enable, unsigned int irq)
 {
+        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
-
+        spin_lock_irqsave(&irq_detect_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
@@ -469,7 +475,7 @@ static void headset_irq_detect_enable(int enable, unsigned int irq)
                         current_irq_state = 0;
                 }
         }
-
+        spin_unlock_irqrestore(&irq_detect_lock, spin_lock_flags);
         return;
 }
 
