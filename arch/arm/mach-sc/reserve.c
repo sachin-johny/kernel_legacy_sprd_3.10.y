@@ -162,6 +162,9 @@ void __init sci_reserve(void)
 {
 	int ret;
 
+	/* FIXME: reserve the first page for DDR training operation */
+	memblock_reserve(CONFIG_PHYS_OFFSET, PAGE_SIZE);
+
 #ifdef SPRD_ION_BASE_USE_VARIABLE
 	/*sprd_reserve_limit is used save arm_lowmem_limit,will be use by ION*/
 	sprd_reserve_limit = arm_lowmem_limit;
