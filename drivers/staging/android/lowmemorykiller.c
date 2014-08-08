@@ -42,7 +42,7 @@
 #include <linux/sysfs.h>
 #include <linux/cpuset.h>
 
-#define B2G_FG_OOMADJ 2
+#define B2G_FG_OOMADJ 0
 
 static uint32_t lowmem_debug_level = 2;
 static int lowmem_adj[6] = {
