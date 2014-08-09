@@ -472,7 +472,8 @@
 		caps = <0x80000000>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x05000000>;
-		vdd-vqmmc = "vddsdcore";
+		vdd-vmmc = "vddsdcore";
+		vdd-vqmmc = "vddsdio";
 		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
 		pinmap-offset = <0x0184>;
@@ -480,6 +481,7 @@
 		d3-index = <0>;
 		sd-func = <0>;
 		gpio-func = <3>;
+		cd-gpios = <71>;
 		clock-names = "clk_sdio0";
 		clocks = <&clk_sdio0>, <&clk_384m>;
 		enb-bit = <0x100>;
