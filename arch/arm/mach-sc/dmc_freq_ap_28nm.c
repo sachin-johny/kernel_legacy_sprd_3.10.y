@@ -26,7 +26,7 @@
 
 #define REG32(x)                           (*((volatile uint32 *)(x)))
 
-#define DFS_PARAM_ADDR	(0x1C00)
+#define DFS_PARAM_ADDR	(0x1C0C)
 #define DFS_CALC_PARAM_ADDR	(0x1F80)
 #define UMCTL_REG_BASE (0x30000000)
 #define PUBL_REG_BASE  (0x30010000)
