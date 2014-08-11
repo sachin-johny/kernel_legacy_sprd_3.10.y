@@ -93,6 +93,13 @@
 			reg = <0xf03>;
 		};
 	};
+        pmu {
+                compatible = "arm,cortex-a7-pmu";
+                interrupts = <0 92 0x400>,
+				<0 93 0x400>,
+				<0 94 0x400>,
+				<0 95 0x400>;
+        };
 
     gic: interrupt-controller@12001000 {
         compatible = "arm,cortex-a15-gic", "arm,cortex-a9-gic";
