@@ -194,11 +194,13 @@ static void div64_compute_ratio(const unsigned long long dividend, const unsigne
 	result[1] = result[0] % 100;
 	result[0] = result[0] / 100;
 
+#if 0
 	/*to avoid cpu rate > 100%*/
 	if(result[0] > 100) {
 		result[0] = 100;
 		result[1] = 0;
 	}
+#endif
 }
 
 #ifdef arch_idle_time
@@ -224,7 +226,14 @@ static cputime64_t get_iowait_time(int cpu)
 #else
 static u64 get_idle_time(int cpu)
 {
-	u64 idle, idle_time = get_cpu_idle_time_us(cpu, NULL);
+	u64 idle, idle_time = -1ULL;
+
+	/* FIXME: the idle time from get_cpu_idle_time_us() is reset while CPU is hot-pluged.
+	 *        Using cpustat[CPUTIME_IDLE] to get idle. It isn't very accurate, but stable */
+#if 0
+	if (cpu_online(cpu))
+		idle_time = get_cpu_idle_time_us(cpu, NULL);
+#endif
 
 	if (idle_time == -1ULL)
 		idle = kcpustat_cpu(cpu).cpustat[CPUTIME_IDLE];
@@ -240,7 +249,14 @@ static u64 get_idle_time(int cpu)
 
 static u64 get_iowait_time(int cpu)
 {
-	u64 iowait, iowait_time = get_cpu_iowait_time_us(cpu, NULL);
+	u64 iowait, iowait_time = -1ULL;
+
+	/* FIXME: the iowait time from get_cpu_iowait_time_us() is reset while CPU is hot-pluged.
+	 *        Using cpustat[CPUTIME_IOWAIT] to get iowait. It isn't very accurate, but stable */
+#if 0
+	if (cpu_online(cpu))
+		iowait_time = get_cpu_iowait_time_us(cpu, NULL);
+#endif
 
 	if (iowait_time == -1ULL)
 		iowait = kcpustat_cpu(cpu).cpustat[CPUTIME_IOWAIT];
@@ -453,18 +469,18 @@ static void compute_print_cpu_rate(struct seq_file *p, void *v, struct cpu_recor
 
 	for_each_possible_cpu(i) {
 		/*compute each cpu*/
-		div64_compute_ratio(record->percpu[i].idle, record->total.sum, idle_ratio);
-		div64_compute_ratio(record->percpu[i].user, record->total.sum, user_ratio);
-		div64_compute_ratio(record->percpu[i].system, record->total.sum, system_ratio);
-		div64_compute_ratio(record->percpu[i].nice, record->total.sum, nice_ratio);
-		div64_compute_ratio(record->percpu[i].iowait, record->total.sum, iowait_ratio);
-		div64_compute_ratio(record->percpu[i].irq, record->total.sum, irq_ratio);
-		div64_compute_ratio(record->percpu[i].softirq, record->total.sum, softirq_ratio);
-		div64_compute_ratio(record->percpu[i].steal, record->total.sum, steal_ratio);
-		div64_compute_ratio(record->percpu[i].sum, record->total.sum, sum_ratio);
+		div64_compute_ratio(record->percpu[i].idle, record->percpu[i].sum, idle_ratio);
+		div64_compute_ratio(record->percpu[i].user, record->percpu[i].sum, user_ratio);
+		div64_compute_ratio(record->percpu[i].system, record->percpu[i].sum, system_ratio);
+		div64_compute_ratio(record->percpu[i].nice, record->percpu[i].sum, nice_ratio);
+		div64_compute_ratio(record->percpu[i].iowait, record->percpu[i].sum, iowait_ratio);
+		div64_compute_ratio(record->percpu[i].irq, record->percpu[i].sum, irq_ratio);
+		div64_compute_ratio(record->percpu[i].softirq, record->percpu[i].sum, softirq_ratio);
+		div64_compute_ratio(record->percpu[i].steal, record->percpu[i].sum, steal_ratio);
+		div64_compute_ratio(record->percpu[i].sum, record->percpu[i].sum, sum_ratio);
 		/*print each cpu*/
-		seq_printf(p, " cpu%d:  %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% | %15lu %15lu %15lu\n",
-				i, idle_ratio[0],idle_ratio[1], user_ratio[0],user_ratio[1], system_ratio[0],system_ratio[1], \
+		seq_printf(p, " cpu%d(%d): %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% | %15lu %15lu %15lu\n",
+				i, cpu_online(i), idle_ratio[0],idle_ratio[1], user_ratio[0],user_ratio[1], system_ratio[0],system_ratio[1], \
 				nice_ratio[0],nice_ratio[1], iowait_ratio[0],iowait_ratio[1], irq_ratio[0],irq_ratio[1], \
 				softirq_ratio[0],softirq_ratio[1], steal_ratio[0],steal_ratio[1], sum_ratio[0],sum_ratio[1], \
 				record->percpu[i].context_switch, record->percpu[i].pagefault, record->percpu[i].pagemajfault);
@@ -483,7 +499,7 @@ static void compute_print_cpu_rate(struct seq_file *p, void *v, struct cpu_recor
 		div64_compute_ratio(record->total.sum, record->total.sum, sum_ratio);
 		/*print total*/
 		seq_printf(p, " ------------------\n");
-		seq_printf(p, " Total: %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% | %15lu %15lu %15lu\n",
+		seq_printf(p, " Total:   %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% %4lu.%02lu%% | %15lu %15lu %15lu\n",
 				idle_ratio[0],idle_ratio[1], user_ratio[0],user_ratio[1], system_ratio[0],system_ratio[1], \
 				nice_ratio[0],nice_ratio[1], iowait_ratio[0],iowait_ratio[1], irq_ratio[0],irq_ratio[1], \
 				softirq_ratio[0],softirq_ratio[1], steal_ratio[0],steal_ratio[1], sum_ratio[0],sum_ratio[1], \
@@ -504,9 +520,9 @@ static void compute_print_each_thread_rate(struct seq_file *p, void *v, int pid,
 	ns_2_ms(timer_circle_long);
 
 	/*compute ratio*/
-	div64_compute_ratio(u_time, (NR_CPUS * timer_circle_long), utime_ratio);
-	div64_compute_ratio(s_time, (NR_CPUS * timer_circle_long), stime_ratio);
-	div64_compute_ratio((u_time + s_time), (NR_CPUS * timer_circle_long), ttime_ratio);
+	div64_compute_ratio(u_time, timer_circle_long, utime_ratio);
+	div64_compute_ratio(s_time, timer_circle_long, stime_ratio);
+	div64_compute_ratio((u_time + s_time), timer_circle_long, ttime_ratio);
 
 	if(NULL != name) {
 		seq_printf(p, " %-6d  %4lu.%02lu%%  %4lu.%02lu%%  %4lu.%02lu%%    %-15s\n",
@@ -583,8 +599,8 @@ static void print_cpu_usage(struct seq_file *p, void *v, unsigned long bufid)
 	}
 
 	/*print tile*/
-	seq_printf(p, "%-85s   %-s\n", " * CPU USAGE:", " | * OTHER COUNTS:");
-	seq_printf(p, " -%lu-    %8s %8s %8s %8s %8s %8s %8s %8s %8s | %15s %15s %15s\n",
+	seq_printf(p, "%-87s   %-s\n", " * CPU USAGE:", " | * OTHER COUNTS:");
+	seq_printf(p, " -%lu-      %8s %8s %8s %8s %8s %8s %8s %8s %8s | %15s %15s %15s\n",
 			bufid, "IDLE", "USER", "SYSTEM", "NICE", "IOWAIT", "IRQ", "SOFTIRQ", "STEAL", "TOTAL", "CTXT_SWITCH", "FG_FAULT", "FG_MAJ_FAULT");
 
 	/*compute & print*/
