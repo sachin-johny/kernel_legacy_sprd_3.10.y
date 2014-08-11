@@ -305,9 +305,29 @@ static int32_t _isp_lnc_param_load(struct isp_reg_bits *reg_bits_ptr, uint32_t c
 		outer_flush_range(__pa(ptr), __pa(ptr) + len);
 
 		reg_bits_ptr->reg_value=(uint32_t)__pa(reg_bits_ptr->reg_value);
+#if defined(CONFIG_MACH_CORE3)
+		{
+			unsigned long flags;
 
+			local_irq_save(flags);
+
+			reg_value=ISP_READL(ISP_LNC_STATUS);
+			while((0x00==(reg_value&ISP_LNC_STATUS_OK)) && (time_out_cnt < (ISP_TIME_OUT_MAX*1000))) {
+				udelay(1);
+				reg_value=ISP_READL(ISP_LNC_STATUS);
+				time_out_cnt++;
+			}
+			if (time_out_cnt >= (ISP_TIME_OUT_MAX*1000)) {
+				ret = -1;
+				ISP_PRINT("isp_k: isp lnc status time out\n");
+			}
+
+			_write_reg(reg_bits_ptr, counts);
+			local_irq_restore(flags);
+		}
+#else
 		_write_reg(reg_bits_ptr, counts);
-
+#endif
 		reg_value=ISP_READL(ISP_INT_RAW);
 
 		while((0x00==(reg_value&ISP_INT_LENS_LOAD)) && (time_out_cnt < ISP_TIME_OUT_MAX)) {
@@ -745,7 +765,11 @@ void _dcam_isp_root(void)
 	if(0x00 !=s_dcam_int_eb)
 	{
 		spin_lock_irqsave(&isp_spin_lock,flag);
+		#if defined(CONFIG_MACH_CORE3)
+		node.dcam_irq_val = ISP_INT_FETCH_EOF;
+		#else
 		node.dcam_irq_val = ISP_INT_FETCH_SOF;
+		#endif
 
 		//ISP_PRINT("isp_k: dcam sof irq :0x%x\n", node.dcam_irq_val);
 		ret = _isp_queue_write((struct isp_queue *)&g_isp_dev_ptr->queue, (struct isp_node*)&node);

@@ -38,6 +38,10 @@ struct isp_reg_bits {
 } ;
 
 enum {
+	ISP_LNC_STATUS_OK = (1<<0),
+};
+
+enum {
 	ISP_INT_HIST_STORE = (1<<0),
 	ISP_INT_STORE = (1<<1),
 	ISP_INT_LENS_LOAD = (1<<2),
