@@ -2708,7 +2708,9 @@ int ts0710_mux_write(int mux_id, int line, const unsigned char *buf, int count, 
 
 		queue_uih(send_info, ring_index, c, ts0710, dlci);
 
-		printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] write  = %d\n", __FUNCTION__, mux_id, line, current->pid, c);
+		if (line <= MUX_RIL_LINE_END) {
+		    printk(KERN_ERR "MUX: %s mux[%d] line[%d] pid[%d] write  = %d\n", __FUNCTION__, mux_id, line, current->pid, c);
+		}
 
 		send_info->write_index++;
 
