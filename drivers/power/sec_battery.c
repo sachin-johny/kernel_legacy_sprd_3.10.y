@@ -2857,12 +2857,7 @@ static int sec_bat_get_property(struct power_supply *psy,
 #endif
 		break;
 	case POWER_SUPPLY_PROP_TEMP:
-#if 0
 		val->intval = battery->temperature;
-#else
-		val->intval = 38;
-		pr_err("BUG Fatal error - sprdfgu battery temperature is %d higher than 68.0C, so android BatteryService.java will shutdown, force assign 38.0C\n", battery->temperature);
-#endif
 		break;
 	case POWER_SUPPLY_PROP_TEMP_AMBIENT:
 		val->intval = battery->temper_amb;
