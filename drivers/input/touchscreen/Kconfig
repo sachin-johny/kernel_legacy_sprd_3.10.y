@@ -944,6 +944,18 @@ config TOUCHSCREEN_IST30XX
              To compile this driver as a module, choose M here: the
              module will be called ist30xx.
 
+config TOUCHSCREEN_IST30XXA
+        tristate "IST30XXA I2C Touchscreen"
+        depends on I2C
+           help
+             Say Y here if you have the Imagis IST30XXA I2C touchscreen
+             connected to your system.
+
+             If unsure, say N.
+
+             To compile this driver as a module, choose M here: the
+             module will be called ist30xxa.
+
 config TOUCHSCREEN_IST30XXB
         tristate "IST30XXB I2C Touchscreen"
         depends on I2C
