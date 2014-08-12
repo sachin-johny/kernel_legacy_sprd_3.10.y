@@ -410,9 +410,10 @@
 	 };
 	 sprd_sensor {
 		 compatible  = "sprd,sprd_sensor";
-		 gpios = <&d_gpio_gpio 186 0   /*reset*/
-		        &d_gpio_gpio 187 0    /*main*/
-		        &d_gpio_gpio 188 0>;  /*sub */
+		 gpios = <&d_gpio_gpio 186 0   /*main reset*/
+		        &d_gpio_gpio 187 0    /*main power down*/
+		        &d_gpio_gpio 186 0    /*sub reset */
+                        &d_gpio_gpio 188 0>;  /*sub power down*/
 		 clock-names ="clk_mm_i","clk_sensor","clk_ccir","clk_dcam","clk_dcam_mipi";
 		 clocks = <&clk_mm>, <&clk_sensor>,<&clk_ccir>, <&clk_dcam>, <&clk_dcam_mipi>;
 		 };

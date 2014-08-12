@@ -204,10 +204,10 @@ struct sensor_module {
 	struct regulator                *cammot_regulator;
 	struct i2c_driver               sensor_i2c_driver;
 	struct sensor_mem_tag           sensor_mem;
-	unsigned                        pin_reset;
-	unsigned                        pin_reset_sub;
-	unsigned                        pin_main;
-	unsigned                        pin_sub;
+	unsigned                        pin_main_reset;
+	unsigned                        pin_sub_reset;
+	unsigned                        pin_main_pd;
+	unsigned                        pin_sub_pd;
 	atomic_t                        open_count;
 };
 
@@ -320,22 +320,22 @@ LOCAL int _sensor_k_powerdown(BOOLEAN power_level)
 	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 		{
-			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_main %d\n", power_level,s_p_sensor_mod->pin_main);
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_main %d\n", power_level,s_p_sensor_mod->pin_main_pd);
 			if (0 == power_level) {
-				gpio_direction_output(s_p_sensor_mod->pin_main, 0);
+				gpio_direction_output(s_p_sensor_mod->pin_main_pd, 0);
 
 			} else {
-				gpio_direction_output(s_p_sensor_mod->pin_main, 1);
+				gpio_direction_output(s_p_sensor_mod->pin_main_pd, 1);
 			}
 			break;
 		}
 	case SENSOR_SUB:
 		{
-			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_sub %d\n", power_level,s_p_sensor_mod->pin_sub);
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_sub %d\n", power_level,s_p_sensor_mod->pin_sub_pd);
 			if (0 == power_level) {
-				gpio_direction_output(s_p_sensor_mod->pin_sub, 0);
+				gpio_direction_output(s_p_sensor_mod->pin_sub_pd, 0);
 			} else {
-				gpio_direction_output(s_p_sensor_mod->pin_sub, 1);
+				gpio_direction_output(s_p_sensor_mod->pin_sub_pd, 1);
 			}
 			break;
 		}
@@ -939,19 +939,19 @@ LOCAL int _sensor_k_reset(uint32_t level, uint32_t width)
 	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 	{
-		gpio_direction_output(s_p_sensor_mod->pin_reset, level);
-		gpio_set_value(s_p_sensor_mod->pin_reset, level);
+		gpio_direction_output(s_p_sensor_mod->pin_main_reset, level);
+		gpio_set_value(s_p_sensor_mod->pin_main_reset, level);
 		SLEEP_MS(width);
-		gpio_set_value(s_p_sensor_mod->pin_reset, !level);
+		gpio_set_value(s_p_sensor_mod->pin_main_reset, !level);
 		mdelay(1);
 		break;
 	}
 	case SENSOR_SUB:
 	{
-		gpio_direction_output(s_p_sensor_mod->pin_reset_sub, level);
-		gpio_set_value(s_p_sensor_mod->pin_reset_sub, level);
+		gpio_direction_output(s_p_sensor_mod->pin_sub_reset, level);
+		gpio_set_value(s_p_sensor_mod->pin_sub_reset, level);
 		SLEEP_MS(width);
-		gpio_set_value(s_p_sensor_mod->pin_reset_sub, !level);
+		gpio_set_value(s_p_sensor_mod->pin_sub_reset, !level);
 		mdelay(1);
 		break;
 	}
@@ -982,11 +982,24 @@ LOCAL int _sensor_k_i2c_deInit(uint32_t sensor_id)
 
 LOCAL int _sensor_k_set_rst_level(uint32_t plus_level)
 {
-	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, s_p_sensor_mod->pin_reset);
+	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, s_p_sensor_mod->pin_main_reset);
 
-	gpio_direction_output(s_p_sensor_mod->pin_reset, plus_level);
-	gpio_set_value(s_p_sensor_mod->pin_reset, plus_level);
-
+	switch (_sensor_K_get_curId()) {
+		case SENSOR_MAIN:
+		{
+			gpio_direction_output(s_p_sensor_mod->pin_main_reset, plus_level);
+			gpio_set_value(s_p_sensor_mod->pin_main_reset, plus_level);
+			break;
+		}
+		case SENSOR_SUB:
+		{
+			gpio_direction_output(s_p_sensor_mod->pin_sub_reset, plus_level);
+			gpio_set_value(s_p_sensor_mod->pin_sub_reset, plus_level);
+			break;
+		}
+		default:
+		break;
+	}
 
 	return SENSOR_K_SUCCESS;
 }
@@ -1671,34 +1684,47 @@ int sensor_k_probe(struct platform_device *pdev)
 	}
 #ifdef CONFIG_OF
 	sensor_dev.this_device->of_node = pdev->dev.of_node;
-	s_p_sensor_mod->pin_reset = of_get_gpio(sensor_dev.this_device->of_node,0);
-	s_p_sensor_mod->pin_reset_sub = s_p_sensor_mod->pin_reset;
-	s_p_sensor_mod->pin_main = of_get_gpio(sensor_dev.this_device->of_node,1);
-	s_p_sensor_mod->pin_sub = of_get_gpio(sensor_dev.this_device->of_node,2);
+	s_p_sensor_mod->pin_main_reset = of_get_gpio(sensor_dev.this_device->of_node,0);
+	s_p_sensor_mod->pin_main_pd = of_get_gpio(sensor_dev.this_device->of_node,1);
+	s_p_sensor_mod->pin_sub_reset = of_get_gpio(sensor_dev.this_device->of_node,2);
+	s_p_sensor_mod->pin_sub_pd = of_get_gpio(sensor_dev.this_device->of_node,3);
 #else
-	s_p_sensor_mod->pin_reset = GPIO_SENSOR_RESET;
-	s_p_sensor_mod->pin_reset_sub = GPIO_SUB_SENSOR_RESET;
-	s_p_sensor_mod->pin_main= GPIO_MAIN_SENSOR_PWN;
-	s_p_sensor_mod->pin_sub= GPIO_SUB_SENSOR_PWN;
+	s_p_sensor_mod->pin_main_reset = GPIO_SENSOR_RESET;
+	s_p_sensor_mod->pin_main_pd= GPIO_MAIN_SENSOR_PWN;
+	s_p_sensor_mod->pin_sub_reset = GPIO_SUB_SENSOR_RESET;
+	s_p_sensor_mod->pin_sub_pd= GPIO_SUB_SENSOR_PWN;
 #endif
-	printk("sensor pin_reset =%d\n",s_p_sensor_mod->pin_reset);
-	printk("sensor pin_main =%d\n",s_p_sensor_mod->pin_main);
-	printk("sensor pin_sub =%d\n",s_p_sensor_mod->pin_sub);
+	printk("sensor pin_main_reset =%d\n",s_p_sensor_mod->pin_main_reset);
+	printk("sensor pin_main_pd =%d\n",s_p_sensor_mod->pin_main_pd);
+	printk("sensor pin_sub_reset =%d\n",s_p_sensor_mod->pin_sub_reset);
+	printk("sensor pin_sub_pd =%d\n",s_p_sensor_mod->pin_sub_pd);
 
-	ret = gpio_request(s_p_sensor_mod->pin_main, "main camera");
+	ret = gpio_request(s_p_sensor_mod->pin_main_reset, "main camera rst");
 	if (ret) {
-		tmp = s_p_sensor_mod->pin_main;
+		tmp = s_p_sensor_mod->pin_main_reset;
 		goto gpio_err_exit;
 	}
-	ret = gpio_request(s_p_sensor_mod->pin_sub, "sub camera");
+
+	ret = gpio_request(s_p_sensor_mod->pin_main_pd, "main camera pd");
 	if (ret) {
-		tmp = s_p_sensor_mod->pin_sub;
+		tmp = s_p_sensor_mod->pin_main_pd;
 		goto gpio_err_exit;
 	}
-	ret = gpio_request(s_p_sensor_mod->pin_reset, "ccirrst");
-	if (ret) {
-		tmp = s_p_sensor_mod->pin_reset;
-		goto gpio_err_exit;
+
+	if (s_p_sensor_mod->pin_sub_reset != s_p_sensor_mod->pin_main_reset) {
+		ret = gpio_request(s_p_sensor_mod->pin_sub_reset, "sub camera rst");
+		if (ret) {
+			tmp = s_p_sensor_mod->pin_sub_reset;
+			goto gpio_err_exit;
+		}
+	}
+
+	if (s_p_sensor_mod->pin_sub_pd != s_p_sensor_mod->pin_main_pd) {
+		ret = gpio_request(s_p_sensor_mod->pin_sub_pd, "sub camera pd");
+		if (ret) {
+			tmp = s_p_sensor_mod->pin_sub_pd;
+			goto gpio_err_exit;
+		}
 	}
 
 	s_p_sensor_mod->sensor_i2c_driver.driver.owner = THIS_MODULE;
@@ -1731,9 +1757,14 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "sensor remove called !\n");
 
-	gpio_free(s_p_sensor_mod->pin_reset);
-	gpio_free(s_p_sensor_mod->pin_sub);
-	gpio_free(s_p_sensor_mod->pin_main);
+	if (s_p_sensor_mod->pin_sub_reset != s_p_sensor_mod->pin_main_reset) {
+		gpio_free(s_p_sensor_mod->pin_sub_reset);
+	}
+	if (s_p_sensor_mod->pin_sub_pd != s_p_sensor_mod->pin_main_pd) {
+		gpio_free(s_p_sensor_mod->pin_sub_pd);
+	}
+	gpio_free(s_p_sensor_mod->pin_main_reset);
+	gpio_free(s_p_sensor_mod->pin_main_pd);
 
 	misc_deregister(&sensor_dev);
 	printk(KERN_INFO "sensor remove Success !\n");
