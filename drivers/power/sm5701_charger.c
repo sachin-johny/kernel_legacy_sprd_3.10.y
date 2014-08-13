@@ -323,8 +323,8 @@ static void SM5701_charger_initialize(struct SM5701_charger_data *charger)
 	SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 */
 /* Set FREQSEL to 11(2.4MHz) */
-    reg_data = 0x72; 
-    SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
+    //reg_data = 0x72; 
+    //SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 
 /* Disable AUTOSTOP */
 	SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
