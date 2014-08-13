@@ -126,17 +126,17 @@
 		};
 
 		headset_sprd_sc2723 {
-                        compatible = "sprd,headset_sprd_sc2723";
-                        gpio_switch = <0>;
-                        gpio_detect = <237>;
-                        gpio_button = <239>;
-                        irq_trigger_level_detect = <0>;
-                        irq_trigger_level_button = <0>;
-                        adc_threshold_3pole_detect = <100>;
-                        adc_threshold_4pole_detect = <3100>;
-                        irq_threshold_buttont = <1>;
-                        voltage_headmicbias = <3000000>;
-                        nbuttons = <3>;
+			compatible = "sprd,headset_sprd_sc2723";
+			gpio_switch = <0>;
+			gpio_detect = <237>;
+			gpio_button = <239>;
+			irq_trigger_level_detect = <0>;
+			irq_trigger_level_button = <0>;
+			adc_threshold_3pole_detect = <100>;
+			adc_threshold_4pole_detect = <3100>;
+			irq_threshold_buttont = <1>;
+			voltage_headmicbias = <3000000>;
+			nbuttons = <3>;
 			headset_buttons_media {
 				adc_min = <0>;
 				adc_max = <190>;
@@ -157,23 +157,19 @@
 				code = <114>;
 				type = <0>;
 			};
-                 };
-
-		keyboard_backlight {
-			compatible = "sprd,keyboard-backlight";
 		};
 	};
 
-	gpio_keys {
-		compatible = "gpio-keys";
-		home {
-			label = "Home Key";
-			linux,code = <102>;
-			gpio = <&d_gpio_gpio 113 1>;
-			debounce-interval = <2>;
-			gpio-key,wakeup;
-		};
-	};
+   gpio_keys {
+	   compatible = "gpio-keys";
+	   home {
+		   label = "Home Key";
+		   linux,code = <102>;
+		   gpio = <&d_gpio_gpio 113 1>;
+		   debounce-interval = <2>;
+		   gpio-key,wakeup;
+	   };
+   };
 
 	rfkill {
 		compatible = "broadcom,rfkill";

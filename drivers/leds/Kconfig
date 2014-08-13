@@ -529,13 +529,14 @@ config LEDS_SC8810_KB
 
 config LEDS_SPRD_KB
    tristate "LED Support for sprd keyboard backlight"
-   depends on LEDS_CLASS
+   depends on LEDS_CLASS && (ADIE_SC2713S || ADIE_SC2713)
    default n
    help
      This option enables support.
 
 config SPRD_KPLED_2723
    tristate "LED Support for SPRD_KPLED_2723"
+   depends on LEDS_CLASS && (ADIE_SC2723S || ADIE_SC2723)
    default n
    help
      This option enables support.
