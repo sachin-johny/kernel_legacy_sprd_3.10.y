@@ -1345,16 +1345,39 @@ static int sec_get_usb_vbus(unsigned int *level)
 }
 #endif
 
+void __attribute__((weak)) dwc_udc_startup(void)
+{ }
+
+void __attribute__((weak)) dwc_udc_shutdown(void)
+{ }
+
+static void sprd_usb_cable_detect_callback(uint8_t attached)
+{
+	if (attached)
+		dwc_udc_startup();
+	else
+		dwc_udc_shutdown();
+}
+
+void (*usb_callback[5])(uint8_t attached) = {
+	[0] = sprd_usb_cable_detect_callback,
+};
+
 static int sm5504_parse_dt(struct device *dev,
                            struct sm5504_platform_data *pdata)
 {
     struct device_node *np = dev->of_node;
     enum of_gpio_flags irq_gpio_flags;
+	int id_vendor = 0;
 
     pr_info("[SM5504] sm5504_parse_dt \n");
 
     pdata->irq_gpio = of_get_named_gpio_flags(np, "sm5504,irq-gpio",
                 0, &irq_gpio_flags);
+
+	id_vendor = 0; /* dt usb callback description */
+	pdata->usb_callback = usb_callback[id_vendor];
+
     return 0;
 }
 
