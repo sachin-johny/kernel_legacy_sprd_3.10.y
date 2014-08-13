@@ -4171,6 +4171,7 @@ static int mux_recover_thread(void *data)
 		if (mux_handshake(self) != 0) {
 			printk(KERN_ERR "MUX: id[%d] %s handshake fail\n", self->mux_id, __FUNCTION__);
 			mutex_unlock(&self->handshake_mutex);
+			self->mux_recover_kthread = NULL;
 			return 0;
 		}
 
