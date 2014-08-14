@@ -43,7 +43,7 @@ void sprd_set_reboot_mode(const char *cmd)
 	} else if(cmd){
 		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
 	}else{
-		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_SPECIAL);
+		sci_adi_raw_write(ANA_RST_STATUS, HWRST_STATUS_NORMAL);
 	}
 }
 
