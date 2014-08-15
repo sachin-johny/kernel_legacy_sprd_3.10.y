@@ -96,9 +96,11 @@
 #define SPRDBAT_CAPACITY_MONITOR_NORMAL	(HZ*10)
 #define SPRDBAT_CAPACITY_MONITOR_FAST	(HZ*5)
 
+#if !defined(CONFIG_CHARGER_SM5414)
 struct sec_chg_info {
 	bool dummy;
 };
+#endif
 
 struct sprdbat_auxadc_cal {
 	uint16_t p0_vol;	//4.2V
