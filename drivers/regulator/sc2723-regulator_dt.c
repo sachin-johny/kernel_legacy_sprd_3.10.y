@@ -322,21 +322,29 @@ typedef struct {
 	const char name[14];
 }vol_para_t;
 
+static void __iomem * spl_start_base = NULL;
+
+#if defined(CONFIG_ARCH_SCX35L)
+#define SPRD_SPL_PHYS	( 0x50003000 )
+#else
+#define SPRD_SPL_PHYS	( 0x50005000 )
+#endif
+#define SPRD_SPL_SIZE	( SZ_32K )
+#define PP_VOL_PARA		( SPRD_SPL_PHYS + 0xC20 ) /* assert in iram2 */
+#define TO_IRAM2(_p_)	( (unsigned long)spl_start_base + (unsigned long)(_p_) - SPRD_SPL_PHYS )
+#define IN_IRAM2(_p_)	( (unsigned long)(_p_) >= SPRD_SPL_PHYS && (unsigned long)(_p_) < SPRD_SPL_PHYS + SPRD_SPL_SIZE )
 
 int regulator_default_get(const char con_id[])
 {
-#define PP_VOL_PARA		( 0x50005C20 )	/* assert in iram2 */
-#define TO_IRAM2(_p_)	( SPRD_IRAM2_BASE + (unsigned long)(_p_) - SPRD_IRAM2_PHYS )
-#define IN_IRAM2(_p_)	( (unsigned long)(_p_) >= SPRD_IRAM2_PHYS && (unsigned long)(_p_) < SPRD_IRAM2_PHYS + SPRD_IRAM2_SIZE )
-
 	int i = 0, res = 0;
 	vol_para_t *pvol_para = (vol_para_t *)__raw_readl((void *)TO_IRAM2(PP_VOL_PARA));
+	debug0("pvol_para phy_addr 0x%08x\n", pvol_para);
 
 	if (!(IN_IRAM2(pvol_para)))
 		return 0;
 
 	pvol_para = (vol_para_t *)TO_IRAM2(pvol_para);
-
+	debug0("pvol_para vir_addr 0x%08x\n", pvol_para);
 	if(strcmp((pvol_para)[0].name, "volpara_begin") || (0xfaed != (pvol_para)[0].ideal_vol))
 		return 0;
 
@@ -362,8 +370,9 @@ static int __init_trimming(struct regulator_dev *rdev)
 	if(!__is_valid_adc_cal())
 		return -2;
 
-	otp_ana_flag = (u8)__adie_efuse_read(0) & BIT(7);
-	if(!otp_ana_flag) {
+	otp_ana_flag = (u8)__adie_efuse_read(0);
+	debug("emmeory block(0) data %#x\n", otp_ana_flag);;
+	if(!(otp_ana_flag & BIT(7))) {
 		set_regu_offset(rdev);
 	} else {
 
@@ -1351,7 +1360,19 @@ static int sci_regulator_probe(struct platform_device *pdev)
 
 	pr_info("sc272x ana chipid:(0x%08x), ana_mixed_ctl:(0x%08x), otp_sel:(0x%08x)\n", ana_chip_id, ana_mixed_ctl, otp_pwr_sel);
 
+	spl_start_base = ioremap(SPRD_SPL_PHYS, 0x8000);
+	if(spl_start_base) {
+		pr_info("%s remap iram phy addr(%#x) to vir addr (0x%p) ok!\n", __func__, SPRD_SPL_PHYS, spl_start_base);
+	} else {
+		pr_info("%s remap iram phy addr(%#x) error!\n", __func__, SPRD_SPL_PHYS);
+	}
+
 	sci_regulator_register_dt(pdev);
+
+	if(spl_start_base) {
+		iounmap(spl_start_base);
+		spl_start_base = NULL;
+	}
 
 	return 0;
 }

@@ -56,10 +56,15 @@ EXPORT_SYMBOL_GPL(sci_efuse_get_uid);
 #define ADC_DATA_OFFSET			128
 int sci_efuse_calibration_get(unsigned int *p_cal_data)
 {
-	unsigned int deta;
-	unsigned short adc_temp;
+	unsigned int deta = 0;
+	unsigned short adc_temp = 0;
 
 #if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+	/* verify the otp data of ememory written or not */
+	adc_temp = (__adie_efuse_read(0) & BIT(7));
+	if (adc_temp)
+		return 0;
+
 	deta = __adie_efuse_read_bits(BLK_ADC_DETA_ABC_OTP * BLK_WIDTH_OTP_EMEMORY, 16);
 #elif defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	deta = __ddie_efuse_read(BLK_ADC_DETA);
@@ -230,6 +235,11 @@ int sci_efuse_get_cal(unsigned int *pdata, int num)
 	};
 
 #if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+	/* verify the otp data of ememory written or not */
+	efuse_data = (__adie_efuse_read(0) & BIT(7));
+	if (efuse_data)
+		return -2;
+
 	efuse_data = __adie_efuse_read_bits(BLK_ADC_DETA_ABC_OTP * BLK_WIDTH_OTP_EMEMORY, 16);
 #elif defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	efuse_data = __ddie_efuse_read(BLK_ADC_DETA_ABC);
