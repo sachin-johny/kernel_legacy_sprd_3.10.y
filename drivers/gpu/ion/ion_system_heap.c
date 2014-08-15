@@ -144,6 +144,14 @@ static struct page_info *alloc_deferred_page(struct ion_system_heap *heap,
 		}
 	}
 	rt_mutex_unlock(&heap->lock);
+
+	/* either low_order_gfp_flags or high_order_gfp_flags has __GFP_ZERO */
+	if (found) {
+		int i;
+
+		for (i = 0; i < (1 << found->order); i++)
+			clear_highpage(found->page + i);
+	}
 	return found;
 }
 
