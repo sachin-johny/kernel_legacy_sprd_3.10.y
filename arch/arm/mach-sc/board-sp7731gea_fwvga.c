@@ -101,7 +101,7 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 	.rows_number = ROWS,
 	.cols_number = COLS,
 	.keymap_data = &customize_keymap,
-	.support_long_key = 1,
+	.support_long_key = 0,
 	.repeat = 0,
 	.debounce_time = 5000,
 };
