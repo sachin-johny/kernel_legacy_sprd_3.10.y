@@ -54,7 +54,7 @@
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
 		i2c3 = &i2c3;
-		i2c_gpio6 = &i2c_gpio6;
+		/*i2c_gpio6 = &i2c_gpio6;*/
 		i2c_gpio7 = &i2c_gpio7;
 		/* i2c_gpio8 = &i2c_gpio8; */
 		lcd0 = &fb0;
@@ -416,11 +416,19 @@
 		 #address-cells = <1>;
 	 };
 	 i2c3: i2c@f5372000{
-		 compatible  = "sprd,i2c";
-		 interrupts = <0 14 0x0>;
-		 reg = <0xf5372000 0x1000>;
-		 #address-cells = <1>;
-		 #size-cells = <0>;
+		compatible  = "sprd,i2c";
+		interrupts = <0 14 0x0>;
+		reg = <0xf5372000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+
+		sm5414-i2c@49 {
+					compatible = "samsung,sec-charger";
+					reg = <0x49>;
+					chgirq-gpio = <&d_gpio_gpio 153 0>;
+					chgen-gpio = <&d_gpio_gpio 215 0>;
+					chg-float-voltage = <4350>;
+				};
 	 };
 
 	i2c_gpio7: i2c_gpio@2 {
@@ -462,23 +470,6 @@
 		 clock-names ="clk_mm_i","clk_sensor","clk_ccir","clk_dcam","clk_dcam_mipi";
 		 clocks = <&clk_mm>, <&clk_sensor>,<&clk_ccir>, <&clk_dcam>, <&clk_dcam_mipi>;
 		 };
-	i2c_gpio6: i2c_gpio@0 {
-		compatible = "i2c-gpio";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		gpios = <&d_gpio_gpio 66 0 /* sda */
-				&d_gpio_gpio 65 0 >; /* scl */
-		i2c-gpio,delay-us = <10>;    /* ~100 kHz */
-		i2c-gpio,timeout-ms = <0>;
-
-		sm5414-i2c@49 {
-					compatible = "samsung,sec-charger";
-					reg = <0x49>;
-					chgirq-gpio = <&d_gpio_gpio 153 0>;
-					chgen-gpio = <&d_gpio_gpio 215 0>;
-					chg-float-voltage = <4350>;
-				};
-		};
 
         sec-fuelgauge {
                 compatible = "samsung,sec-fuelgauge";
