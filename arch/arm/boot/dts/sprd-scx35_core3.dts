@@ -21,10 +21,13 @@
 /memreserve/ 0x9f900000 0x700000; /* 7MK */
 
 /include/ "sprd-scx35.dtsi"
+/include/ "sprd-scx35_sc7730.dtsi"
 
 / {
 	model = "Spreadtrum SP7730G board";
 	compatible = "sprd,scx35";
+	#address-cells = <1>;
+	#size-cells = <1>;
 
 	chosen {
 		bootargs = "init=/init root=/dev/ram0 rw";
