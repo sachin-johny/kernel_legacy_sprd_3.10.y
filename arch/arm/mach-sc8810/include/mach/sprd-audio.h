@@ -487,7 +487,7 @@ static inline int arch_audio_inter_pa_enable(void)
 	ret = sci_adi_raw_write(ANA_AUDIO_PA_CTRL0, (0x1101 | reg));
 	if (ret < 0)
 		return ret;
-	ret = sci_adi_raw_write(ANA_AUDIO_PA_CTRL1, 0x1e41);
+	ret = sci_adi_raw_write(ANA_AUDIO_PA_CTRL1, 0x6e41);
 #endif
 
 	return ret;
