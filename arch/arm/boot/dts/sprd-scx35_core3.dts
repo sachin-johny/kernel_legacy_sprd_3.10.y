@@ -254,7 +254,6 @@
 		capacity-min = <10>;
 		fg-irq-attr = <0>;
 		fuel-alert-soc = <1000>;
-		temp_adc_channel = <0>;
 		vmode = <0>; /* 1=Voltage mode, 0=mixed mode */
 		alm_soc = <5>; /* SOC alm level %*/
 		alm_vbat = <3500>; /* Vbat alm level mV*/
@@ -300,6 +299,7 @@
 
 		battery,chip_vendor = "SPRD";
 		battery,temp_adc_type = <1>; /* SEC_BATTERY_ADC_TYPE_AP */
+		battery,temp_adc_channel = <1>;
 
 		battery,polling_time = <10 30 30 30 3600>;
 

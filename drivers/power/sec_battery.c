@@ -201,7 +201,7 @@ static int sec_bat_get_adc_data(struct sec_battery_info *battery,
 	for (i = 0; i < count; i++) {
 		mutex_lock(&battery->adclock);
 #ifdef CONFIG_OF
-		// adc_data = adc_read(battery, adc_ch);
+		adc_data = adc_read(battery, adc_ch);
 #else
 		adc_data = adc_read(battery->pdata, adc_ch);
 #endif
@@ -3311,6 +3311,9 @@ static int sec_bat_parse_dt(struct device *dev,
 	ret = of_property_read_u32(np, "battery,temp_adc_type",
 		&pdata->temp_adc_type);
 
+	ret = of_property_read_u32(np, "battery,temp_adc_channel",
+		&pdata->temp_adc_channel);
+
 	ret = of_property_read_u32(np, "battery,cable_check_type",
 		&pdata->cable_check_type);
 
@@ -3503,7 +3506,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 	dev_dbg(battery->dev, "%s: ADC init\n", __func__);
 
 #ifdef CONFIG_OF
-	// adc_init(pdev, battery);
+	adc_init(pdev, battery);
 #else
 	for (i = 0; i < SEC_BAT_ADC_CHANNEL_FULL_CHECK; i++)
 		adc_init(pdev, pdata, i);

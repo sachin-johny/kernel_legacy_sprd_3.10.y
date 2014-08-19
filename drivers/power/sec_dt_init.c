@@ -1002,11 +1002,6 @@ int sec_fg_dt_init(struct device_node *np,
 	if (of_find_property(np, "repeated-fuelalert", NULL))
 		pdata->repeated_fuelalert = true;
 
-	ret = of_property_read_u32(np, "temp_adc_channel",
-			&pdata->temp_adc_channel);
-	if (ret)
-		return ret;
-
 #ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
 	{
 		struct battery_data_t *battery_data;
