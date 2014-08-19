@@ -14,7 +14,6 @@
  */
 #include <linux/kernel.h>
 #include <linux/string.h>
-#include "sprd_otp.h"
 
 u32 __adie_efuse_read_bits(int bit_index, int length);
 
@@ -23,6 +22,7 @@ struct otp_bitmap {
 	int bits_idx, bits_len;/* field bits offset and length */
 };
 
+#define BITSINDEX(b, o)	( (b) * 8 + (o) )
 const struct otp_bitmap otp_bitmap[] = {
 	/* regulator name,   block, offset, length */
 	//DCDC (6)

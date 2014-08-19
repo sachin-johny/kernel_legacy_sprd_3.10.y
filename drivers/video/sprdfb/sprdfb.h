@@ -251,6 +251,9 @@ int32_t dsi_dpi_init(struct sprdfb_device *dev);
 
 int sprdfb_chg_clk_intf(struct sprdfb_device *fb_dev,
 			int type, u32 new_val);
-/* function declaration end */
+#if defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA)
+int sprdchip_lvds_init(void);
+#endif
+/* Function declare end */
 
 #endif

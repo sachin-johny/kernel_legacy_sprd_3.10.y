@@ -18,13 +18,15 @@
 #error  "Don't include this file directly, include <mach/board.h>"
 #endif
 
-#define GPIO_TOUCH_RESET         142
-#define GPIO_TOUCH_IRQ           141
+#define GPIO_TOUCH_RESET         145
+#define GPIO_TOUCH_IRQ           144
 
 #define HEADSET_SWITCH_GPIO	237
 #define GPIO_SENSOR_RESET        41
 #define GPIO_MAIN_SENSOR_PWN     42
 #define GPIO_SUB_SENSOR_PWN      43
+
+#define USB_OTG_CABLE_DETECT     72
 
 #define SPRD_FLASH_OFST          0x890
 #define SPRD_FLASH_CTRL_BIT      0x8000
@@ -37,6 +39,16 @@
 #define EIC_KEY_POWER           (A_EIC_START + 3)
 #define HEADSET_BUTTON_GPIO		(A_EIC_START + 4)
 #define HEADSET_DETECT_GPIO		139
+#define EIC_AUD_HEAD_INST2      (A_EIC_START + 5)
+
+/*fixme */
+#define EIC_CHG_CV_STATE       (A_EIC_START + 4)
+#define EIC_VCHG_OVI	          (A_EIC_START + 6)
+
+#define GPIO_KEY_VOLUMEDOWN 124
+#define GPIO_KEY_VOLUMEUP 125
+//#define GPIO_KEY_CAMERA 0
+//#define GPIO_KEY_HOME 0
 
 #define HEADSET_IRQ_TRIGGER_LEVEL_DETECT 1
 #define HEADSET_IRQ_TRIGGER_LEVEL_BUTTON 1
@@ -64,6 +76,7 @@
 #define GPIO_WIFI_RESET		190
 #define GPIO_WIFI_IRQ	    -1
 
+#define GPIO_PROX_INT       140
 #define GPIO_GPS_ONOFF	        174
 
 #define GPIO_SDIO_DETECT      75

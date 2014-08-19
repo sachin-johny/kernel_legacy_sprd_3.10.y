@@ -184,7 +184,7 @@ size_t ion_heap_freelist_size(struct ion_heap *heap)
 	return size;
 }
 
-size_t ion_heap_freelist_drain(struct ion_heap *heap, int cached, size_t size)
+size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
 {
 	struct ion_buffer *buffer, *tmp;
 	size_t total_drained = 0;
@@ -199,8 +199,6 @@ size_t ion_heap_freelist_drain(struct ion_heap *heap, int cached, size_t size)
 	list_for_each_entry_safe(buffer, tmp, &heap->free_list, list) {
 		if (total_drained >= size)
 			break;
-		if (!(cached < 0 || cached == ion_buffer_cached(buffer)))
-			continue;
 		list_del(&buffer->list);
 		heap->free_list_size -= buffer->size;
 		total_drained += buffer->size;

@@ -24,7 +24,7 @@ extern struct clk	*g_gsp_emc_clk;
 extern struct clk	*g_gsp_clk;
 #ifdef CONFIG_OF
 extern uint32_t gsp_base_addr;
-#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 extern uint32_t gsp_mmu_ctrl_addr;
 #endif
 #endif

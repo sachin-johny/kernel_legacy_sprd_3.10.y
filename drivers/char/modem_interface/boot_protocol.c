@@ -43,7 +43,6 @@ typedef enum   MBUS_DL_status{
 
 
 extern void modem_intf_ctrl_gpio_handle_boot(int status);
-extern int dloader_abort();
 
 char *boot_status_string(DL_STATUS_E status)
 {
@@ -81,7 +80,6 @@ static void boot_idle(struct modem_message_node *msg,struct modem_intf_device *d
             modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;
@@ -103,7 +101,6 @@ static void boot_wait_request(struct modem_message_node *msg,struct modem_intf_d
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		case MODEM_TRANSFER_END:
 		break;
@@ -131,7 +128,6 @@ static void boot_wait_RTS(struct modem_message_node *msg,struct modem_intf_devic
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;
@@ -175,7 +171,6 @@ static void boot_setup(struct modem_message_node *msg,struct modem_intf_device *
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;
@@ -218,7 +213,6 @@ static void boot_setup_comp(struct modem_message_node *msg,struct modem_intf_dev
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;
@@ -271,7 +265,6 @@ static void boot_data(struct modem_message_node *msg,struct modem_intf_device *d
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;
@@ -293,7 +286,6 @@ static void boot_data_comp(struct modem_message_node *msg,struct modem_intf_devi
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;
@@ -339,7 +331,6 @@ static void boot_ack(struct modem_message_node *msg,struct modem_intf_device *de
 			modem_intf_set_mode(msg->parameter2, 1);
 			device->status = (int)MBUS_DL_IDLE;
 			device->out_transfering = 0;
-                        dloader_abort();
 		break;
 		default:
 		break;

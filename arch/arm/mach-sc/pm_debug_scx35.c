@@ -476,15 +476,20 @@ static void print_debug_info(void)
 	ap_apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
 	apb_eb0 = sci_glb_read(REG_AON_APB_APB_EB0, -1UL);
 	cp_slp_status0 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL);
+#if !defined(CONFIG_ARCH_SCX35L)
 	cp_slp_status1 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL);
+#endif
 	apb_pwrstatus0 = sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL);
 	apb_pwrstatus1 = sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL);
 	apb_pwrstatus2 = sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL);
+#if !defined(CONFIG_ARCH_SCX35L)
 	apb_pwrstatus3 = sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL);
+#endif
 	apb_slp_status = __raw_readl(REG_PMU_APB_SLEEP_STATUS);
+#if defined(CONFIG_ARCH_SCX15)
 	mpll_cfg = sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL);
 	dpll_cfg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
-	emc_clk_cfg = sci_glb_read(REG_AON_CLK_EMC_CFG, -1UL);
+#endif
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
 #if defined(CONFIG_ARCH_SCX30G)
 	mpll_cfg1 = sci_glb_read(REG_AON_APB_MPLL_CFG1, -1UL);
@@ -527,8 +532,10 @@ static void print_debug_info(void)
 
 	if (ahb_eb & BIT_GSP_EB)
 		printk("###---- BIT_GSP_EB still set ----###\n");
+#if defined(CONFIG_ARCH_SCX15)
 	if (ahb_eb & BIT_DISPC1_EB)
 		printk("###---- BIT_DISPC1_EB still set ----###\n");
+#endif
 	if (ahb_eb & BIT_DISPC0_EB)
 		printk("###---- BIT_DISPC0_EB still set ----###\n");
 	if (ahb_eb & BIT_SDIO0_EB)
@@ -569,8 +576,8 @@ static void print_debug_info(void)
 	/*A-die*/
 	if (!(ldo_pd_ctrl & BIT_DCDC_WPA_PD))
 		printk("###---- BIT_DCDC_WPA_PD power on! ----###\n");
-#if defined(CONFIG_ADIE_SC2713S)
-	if (!(ldo_pd_ctrl & BIT_LDO_CLSG_PD))
+#if !defined(CONFIG_ADIE_SC2723)
+        if (!(ldo_pd_ctrl & BIT_LDO_CLSG_PD))
 		printk("###---- BIT_LDO_CLSG_PD power on! ----###\n");
 #endif
 	if (!(ldo_pd_ctrl & BIT_LDO_USB_PD))
@@ -589,14 +596,13 @@ static void print_debug_info(void)
 		printk("###---- BIT_LDO_SIM1_PD power on! ----###\n");
 	if (!(ldo_pd_ctrl & BIT_LDO_SIM0_PD))
 		printk("###---- BIT_LDO_SIM0_PD power on! ----###\n");
-#if defined(CONFIG_ADIE_SC2713S)
-	if (!(ldo_pd_ctrl & BIT_LDO_SD_PD))
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	if (!(ldo_pd_ctrl & BIT_LDO_SDIO_PD))
-#endif
-#endif
+#if defined(CONFIG_ADIE_SC2723)
+        if (!(ldo_pd_ctrl & BIT_LDO_SDIO_PD))
 		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
+#else
+        if (!(ldo_pd_ctrl & BIT_LDO_SD_PD))
+		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
+#endif
 
 #if defined(CONFIG_ARCH_SCX15)
 	if (!(ldo_dcdc_pd_ctrl & BIT_BG_PD))

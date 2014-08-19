@@ -167,18 +167,18 @@ static int sprd_iommu_get_resource(struct device_node *np, struct sprd_iommu_ini
 	printk("%s,name:%s\n",__FUNCTION__,pdata->name);
 	pdata->iova_base = res.start;
 	pdata->iova_size = resource_size(&res);
-	printk("%s,iova_base:0x%lx,iova_size:%zx\n",__FUNCTION__,pdata->iova_base,pdata->iova_size);
+	printk("%s,iova_base:%x,	iova_size:%x\n",__FUNCTION__,pdata->iova_base,	pdata->iova_size);
 	err = of_address_to_resource(np, 1, &res);
 	if(err < 0) return err;
 
 	pdata->pgt_base= res.start;
 	pdata->pgt_size= resource_size(&res);
-	printk("%s,pgt_base:0x%lx,pgt_size:%zx\n",__FUNCTION__,pdata->pgt_base,pdata->pgt_size);
+	printk("%s,pgt_base:%x,pgt_size:%x\n",__FUNCTION__,pdata->pgt_base,pdata->pgt_size);
 	err = of_address_to_resource(np, 2, &res);
 	if(err < 0) return err;
 
 	pdata->ctrl_reg= res.start;
-	printk("%s,ctrl_reg:0x%x\n",__FUNCTION__,pdata->ctrl_reg);
+	printk("%s,ctrl_reg:%x\n",__FUNCTION__,pdata->ctrl_reg);
 	return err;
 }
 

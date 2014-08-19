@@ -41,6 +41,7 @@ void csi_api_event2_handler(void *param);
 
 static void csi_phy_power_down(u32 phy_id, u32 is_eb)
 {
+
 #if defined(CONFIG_ARCH_SCX30G)
 	/*bit0: phya ; bit1: phyb*/
 	if (is_eb) {
@@ -65,6 +66,37 @@ static void csi_phy_power_down(u32 phy_id, u32 is_eb)
 
 			if (0x02 == (phy_id & 0x02)) {
 				sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_CSI1_PHY_PD);
+			}
+		}
+	}
+#elif defined(CONFIG_ARCH_SCX35L)
+	/*bit0: phya ; bit1: phyb*/
+	if (is_eb) {
+		if (0x03 == (phy_id & 0x03)) {
+			sci_glb_set(REG_AON_APB_PWR_CTRL, (BIT_CSI0_PHY_PD | BIT_CSI1_PHY_PD));
+		} else {
+			if (0x01 == (phy_id & 0x01)) {
+				sci_glb_set(REG_AON_APB_PWR_CTRL, (3 << 12));
+			}
+
+			if (0x02 == (phy_id & 0x02)) {
+				sci_glb_set(REG_AON_APB_PWR_CTRL, (3 << 10));
+			}
+		}
+	} else {
+		if (0x03 == (phy_id & 0x03)) {
+			sci_glb_clr(REG_AON_APB_PWR_CTRL, (BIT_CSI0_PHY_PD | BIT_CSI1_PHY_PD));
+		} else {
+			if (0x01 == (phy_id & 0x01)) {
+				sci_glb_clr(REG_AON_APB_PWR_CTRL, (1 << 13));
+				udelay(500);
+				sci_glb_clr(REG_AON_APB_PWR_CTRL, (1 << 12));
+			}
+
+			if (0x02 == (phy_id & 0x02)) {
+				sci_glb_clr(REG_AON_APB_PWR_CTRL, (1 << 11));
+				udelay(500);
+				sci_glb_clr(REG_AON_APB_PWR_CTRL, (1 << 10));
 			}
 		}
 	}

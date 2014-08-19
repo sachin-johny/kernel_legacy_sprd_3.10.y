@@ -4,9 +4,9 @@
 #include <linux/thermal.h>
 
 #define COOLING_DEV_MAX 8
-#define THM_TEMP_DEGREE_SETP   		15
-#define THM_TEMP_DEGREE_START  		105
-#define THM_TEMP_DEGREE_CRITICAL 	114
+#define THM_TEMP_DEGREE_SETP   15
+#define THM_TEMP_DEGREE_START           105
+#define THM_TEMP_DEGREE_CRITICAL        114
 
 enum sprd_thm_sensor_id {
 	SPRD_ARM_SENSOR = 0,
@@ -22,5 +22,6 @@ struct sprd_thm_platform_data {
 	struct sprd_trip_point trip_points[THERMAL_MAX_TRIPS];
 	int num_trips;
 };
+extern int sprd_thm_temp_read(u32 sensor);
 
 #endif /**/

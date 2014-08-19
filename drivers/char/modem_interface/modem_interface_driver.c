@@ -1007,32 +1007,11 @@ fail:
         modem_intf_device = NULL;
         return retval;
 }
-
 static void modem_intf_driver_shutdown(struct platform_device *_dev)
 {
-        unsigned long timeout = jiffies + 30 * HZ;
-
-        //wait downloading cp finished
-        printk(KERN_ERR "modem_intf: modem_intf_driver_shutdown enter!\n" );
-        while(time_after(timeout, jiffies)) {
-                if(modem_intf_device->mode == MODEM_MODE_BOOT)
-                {
-                        printk(KERN_ERR "modem_intf: shutdown found booting cp ...!\n" );
-                        msleep(1000);
-                } else {
-                        break;
-                }
-        }
-
-        //send message
-        printk(KERN_ERR "modem_intf: shutdown modem_intf_send_shutdown_message!\n" );
         modem_intf_send_shutdown_message();
-
-        //power off modem
-        printk(KERN_ERR "modem_intf: shutdown modem_poweroff!\n" );
         modem_poweroff();
 }
-
 
 static struct platform_driver modem_intf_driver = {
         .driver		= {

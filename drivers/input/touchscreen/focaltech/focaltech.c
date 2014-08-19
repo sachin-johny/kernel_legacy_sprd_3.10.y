@@ -78,7 +78,7 @@
 #define	USE_WORK_QUEUE	0
 
 #define	TOUCH_VIRTUAL_KEYS
-#define	MULTI_PROTOCOL_TYPE_B	1
+#define	MULTI_PROTOCOL_TYPE_B	0
 #define	TS_MAX_FINGER		5
 
 #define	FTS_PACKET_LENGTH	128
@@ -450,11 +450,11 @@ static void ft5x0x_clear_report_data(struct ft5x0x_ts_data *ft5x0x_ts)
 		input_mt_slot(ft5x0x_ts->input_dev, i);
 		input_mt_report_slot_state(ft5x0x_ts->input_dev, MT_TOOL_FINGER, false);
 	#endif
-	}
-	input_report_key(ft5x0x_ts->input_dev, BTN_TOUCH, 0);
+		input_report_key(ft5x0x_ts->input_dev, BTN_TOUCH, 0);
 	#if !MULTI_PROTOCOL_TYPE_B
 		input_mt_sync(ft5x0x_ts->input_dev);
 	#endif
+	}
 	input_sync(ft5x0x_ts->input_dev);
 }
 
@@ -491,13 +491,9 @@ static int ft5x0x_update_data(void)
 		#if MULTI_PROTOCOL_TYPE_B
 			input_mt_slot(data->input_dev, buf[6*i+5]>>4);
 			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, true);
-		#else
-			input_report_abs(data->input_dev, ABS_MT_TRACKING_ID, buf[6*i+5]>>4);
 		#endif
 			input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
 			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, y);
-			input_report_abs(data->input_dev, ABS_MT_PRESSURE, ft_pressure);
-			input_report_abs(data->input_dev, ABS_MT_TOUCH_MAJOR, ft_size);
 			input_report_key(data->input_dev, BTN_TOUCH, 1);
 		#if !MULTI_PROTOCOL_TYPE_B
 			input_mt_sync(data->input_dev);
@@ -511,13 +507,8 @@ static int ft5x0x_update_data(void)
 		#endif
 		}
 	}
-	if(0 == event->touch_point) {
-		for(i = 0; i < TS_MAX_FINGER; i ++) {
-			#if MULTI_PROTOCOL_TYPE_B
-                            input_mt_slot(data->input_dev, i);
-                            input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
-			#endif
-		}
+	if(event->touch_point==0)
+	{
 		input_report_key(data->input_dev, BTN_TOUCH, 0);
 		#if !MULTI_PROTOCOL_TYPE_B
 			input_mt_sync(data->input_dev);
@@ -852,12 +843,8 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 #endif
 	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, pdata->TP_MAX_X, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, pdata->TP_MAX_Y, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 15, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 15, 0, 0);
-	input_set_abs_params(input_dev,ABS_MT_PRESSURE, 0, 127, 0, 0);
-#if !MULTI_PROTOCOL_TYPE_B
-	input_set_abs_params(input_dev,ABS_MT_TRACKING_ID, 0, 255, 0, 0);
-#endif
+	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
+	input_set_abs_params(input_dev,ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 	#if 0
 	/*ft5306's firmware is qhd, ft5316's firmware is 720p*/
 	if (uc_reg_value == 0x0a || uc_reg_value == 0x0) {

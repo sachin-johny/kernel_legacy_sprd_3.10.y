@@ -23,12 +23,14 @@ cgxdrv-c-objs   += gps_gpio.o
 cgxdrv-c-objs   += gps_dma.o
 
 #bxd
-#cgxdrv-objs     += gpsspi.o
+cgxdrv-objs     += gpsspi.o
 
 
 cgxdrv-objs     += $(cgxdrv-c-objs)
 
-
+ifeq ($(TARGET_PRODUCT),sp8825eagreeneye26m)
+EXTRA_CFLAGS += -DCGCORE_GPS_26M
+endif
 
 
 

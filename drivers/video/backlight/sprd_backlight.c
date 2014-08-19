@@ -406,7 +406,7 @@ static int sprd_backlight_probe(struct platform_device *pdev)
 	}
 #else
 	pwm_res = platform_get_resource(pdev, IORESOURCE_IO, 0);
-	if (pwm_res == NULL) {
+	if (IS_ERR(pwm_res)) {
 		printk("Can't get pwm resource");
 		return -ENODEV;
 	}

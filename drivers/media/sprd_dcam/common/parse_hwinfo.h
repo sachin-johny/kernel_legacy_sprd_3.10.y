@@ -20,9 +20,19 @@
 
 #ifdef CONFIG_OF
 extern uint32_t                   dcam_regbase;
+extern uint32_t                   isp_regbase;
 #define DCAM_BASE		dcam_regbase
+#define ISP_BASE		isp_regbase
 #else
 #define DCAM_BASE		SPRD_DCAM_BASE
+#define ISP_BASE		SPRD_ISP_BASE
+#endif
+
+/*for FPGA debug*/
+#ifdef	CONFIG_SC_FPGA
+//#define CONFIG_SC_FPGA_CLK
+#define CONFIG_SC_FPGA_LDO
+#define CONFIG_SC_FPGA_PIN
 #endif
 
 void   parse_baseaddress(struct device_node	*dn);

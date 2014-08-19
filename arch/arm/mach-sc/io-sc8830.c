@@ -36,7 +36,7 @@
 	}
 
 #define ARCH_SC_SOC_IO_MAP
-static struct map_desc sprd_io_desc[] __initdata = {	
+static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(CORE),
 	SPRD_DEVICE(DMA0),
 	SPRD_DEVICE(USB),
@@ -46,7 +46,9 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(EMMC),
 	SPRD_DEVICE(DRM),
 	SPRD_DEVICE(LCDC),
+#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(LCDC1),
+#endif
 	SPRD_DEVICE(GSP),
 	SPRD_DEVICE(NFC),
 	SPRD_DEVICE(AHB),
@@ -54,7 +56,9 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(BM1),
 	SPRD_DEVICE(BM2),
 	SPRD_DEVICE(DSI),
+#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(GPS),
+#endif
 	SPRD_DEVICE(LPDDR2),
 	SPRD_DEVICE(LPDDR2_PHY),
 	SPRD_DEVICE(PUB),
@@ -67,7 +71,9 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(AXIBM6),
 	SPRD_DEVICE(AXIBM7),
 	SPRD_DEVICE(AXIBM8),
+#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(AXIBM9),
+#endif
 	SPRD_DEVICE(AUDIO),
 	SPRD_DEVICE(AUDIO_IF),
 	SPRD_DEVICE(VBC),
@@ -77,7 +83,9 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(GPTIMER0),
 	SPRD_DEVICE(HWLOCK0),
 	SPRD_DEVICE(HWLOCK1),
+#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(RFSPI),
+#endif
 	SPRD_DEVICE(I2C),
 	SPRD_DEVICE(INT),
 	SPRD_DEVICE(EIC),
@@ -96,7 +104,9 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(AONAPB),
 	SPRD_DEVICE(THM),
 	SPRD_DEVICE(AVSCA7),
+#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(AVSTOP),
+#endif
 	SPRD_DEVICE(CA7WDG),
 	SPRD_DEVICE(APTIMER1),
 	SPRD_DEVICE(APTIMER2),
@@ -143,7 +153,17 @@ static struct map_desc sprd_io_desc[] __initdata = {
 #else
 	SPRD_DEVICE(IRAM1),
 #endif
+
+#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(IRAM2),
+#endif
+#ifdef CONFIG_ARCH_SCX35L
+	SPRD_DEVICE(SEND_MBOX),
+	SPRD_DEVICE(RECV_MBOX),
+#endif
+#ifdef CONFIG_SIPC_PMIC
+        SPRD_DEVICE(AON_RAM),
+#endif
 #if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 	SPRD_DEVICE(ZIPENC),
 	SPRD_DEVICE(ZIPDEC),
@@ -154,7 +174,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(MMMMU),
 #endif
 
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	SPRD_DEVICE(GSPMMU),
 	SPRD_DEVICE(MMMMU),
 #endif

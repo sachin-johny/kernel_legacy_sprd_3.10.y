@@ -382,7 +382,7 @@ void __init sci_enable_timer_early(void)
 		}
 	}
 
-#if defined(CONFIG_ARCH_SCX30G)	/*timer2 fixed 26M clk */
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)	/*timer2 fixed 26M clk */
 	sched_clock_source_freq = 26000000;
 #else /*timer2 clk source is from apb clk */
 	val = sci_glb_read(REG_AON_CLK_AON_APB_CFG, -1) & 0x3;

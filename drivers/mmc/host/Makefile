@@ -6,11 +6,7 @@ obj-$(CONFIG_MMC_ARMMMCI)	+= mmci.o
 obj-$(CONFIG_MMC_PXA)		+= pxamci.o
 obj-$(CONFIG_MMC_MXC)		+= mxcmmc.o
 obj-$(CONFIG_MMC_MXS)		+= mxs-mmc.o
-ifeq ($(CONFIG_OF),y)
-obj-$(CONFIG_MMC_SDHCI)		+= sprd-sdhci-common-of.o
-else
 obj-$(CONFIG_MMC_SDHCI)		+= sprd-sdhci-common.o
-endif
 obj-$(CONFIG_MMC_SDHCI_PCI)	+= sdhci-pci.o
 obj-$(subst m,y,$(CONFIG_MMC_SDHCI_PCI))	+= sdhci-pci-data.o
 obj-$(CONFIG_MMC_SDHCI_ACPI)	+= sdhci-acpi.o
@@ -52,12 +48,8 @@ obj-$(CONFIG_MMC_JZ4740)	+= jz4740_mmc.o
 obj-$(CONFIG_MMC_VUB300)	+= vub300.o
 obj-$(CONFIG_MMC_USHC)		+= ushc.o
 obj-$(CONFIG_MMC_WMT)		+= wmt-sdmmc.o
-ifeq ($(CONFIG_OF),y)
-obj-$(CONFIG_MMC_SDHCI_SPRD)    += sprd-sdhci-fix-of.o
-else
 obj-$(CONFIG_MMC_SDHCI_SPRD)    += sprd-sdhci-fix.o
-obj-$(CONFIG_MMC_SDHCI_SPRD)    += sprd-sdhci-regulator.o
-endif
+
 obj-$(CONFIG_MMC_REALTEK_PCI)	+= rtsx_pci_sdmmc.o
 
 obj-$(CONFIG_MMC_REALTEK_PCI)	+= rtsx_pci_sdmmc.o

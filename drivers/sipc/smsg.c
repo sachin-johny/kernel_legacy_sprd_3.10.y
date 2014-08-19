@@ -22,7 +22,9 @@
 #include <linux/io.h>
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
-
+#ifdef CONFIG_SPRD_MAILBOX
+#include <mach/mailbox.h>
+#endif
 
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
@@ -136,6 +138,17 @@ int smsg_ipc_create(uint8_t dst, struct smsg_ipc *ipc)
 
 	smsg_ipcs[dst] = ipc;
 
+#ifdef CONFIG_SPRD_MAILBOX
+	/* explicitly call irq handler in case of missing irq on boot */
+	ipc->irq_handler(ipc->core_id, ipc);
+
+	rval = mbox_register_irq_handle(ipc->core_id, ipc->irq_handler, ipc);
+	if (rval != 0) {
+		printk(KERN_ERR "Failed to register irq handler in mailbox: %s\n",
+				ipc->name);
+		return rval;
+	}
+#else
 	/* explicitly call irq handler in case of missing irq on boot */
 	ipc->irq_handler(ipc->irq, ipc);
 
@@ -147,7 +160,7 @@ int smsg_ipc_create(uint8_t dst, struct smsg_ipc *ipc)
 				ipc->name, ipc->irq);
 		return rval;
 	}
-
+#endif
 	return 0;
 }
 

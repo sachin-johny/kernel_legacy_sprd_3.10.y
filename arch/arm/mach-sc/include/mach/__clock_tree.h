@@ -21,6 +21,12 @@
 #include "chip_x30g/__clock_tree.h"
 #elif defined(CONFIG_ARCH_SCX15)
 #include "chip_x15/__clock_tree.h"
+#elif defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_SC_FPGA)
+#include "chip_x35l/__clock_tree.h"
+#else
+#include "chip_x35l/__scx35l_clock_tree.h"
+#endif
 #elif defined(CONFIG_ARCH_SCX35)
 #include "chip_x35/__clock_tree.h"
 #elif defined(CONFIG_ARCH_SC8825)

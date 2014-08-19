@@ -32,9 +32,14 @@
 #ifdef CONFIG_ARCH_SCX35
 #include <mach/sci_glb_regs.h>
 #define ANA_VIBRATOR_CTRL0      (ANA_REG_GLB_VIBR_CTRL0)
+#if defined(CONFIG_ADIE_SC2723)
+#define BIT_VIBRATOR_PD         BIT_LDO_VIBR_PD
+#else
+#define BIT_VIBRATOR_PD         BIT_VIBR_PON
 #define ANA_VIBRATOR_CTRL1      (ANA_REG_GLB_VIBR_CTRL1)
 #define ANA_VIBRATOR_CTRL2      (ANA_REG_GLB_VIBR_CTRL2)
 #define ANA_VIBR_WR_PROT        (ANA_REG_GLB_VIBR_WR_PROT_VALUE)
+#endif
 #define VIBRATOR_REG_UNLOCK     (0x1A2B)
 #else
 #define SPRD_ANA_BASE           (SPRD_MISC_BASE + 0x600)
@@ -111,13 +116,15 @@ static void set_vibrator(int on)
 		regulator_disable(vibrator_regulator);
 	}
 #else
+#if !defined(CONFIG_ADIE_SC2723)
 	/* unlock vibrator registor */
-	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
+        sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
+#endif
 #ifdef CONFIG_ARCH_SCX35
 	if (on)
-		sci_adi_write(ANA_VIBRATOR_CTRL0, BIT_VIBR_PON, BIT_VIBR_PON);
+		sci_adi_write(ANA_VIBRATOR_CTRL0, BIT_VIBRATOR_PD, BIT_VIBRATOR_PD);
 	else
-		sci_adi_write(ANA_VIBRATOR_CTRL0, 0, BIT_VIBR_PON);
+		sci_adi_write(ANA_VIBRATOR_CTRL0, 0, BIT_VIBRATOR_PD);
 #else
 	sci_adi_clr(ANA_VIBRATOR_CTRL0, VIBR_PD_SET | VIBR_PD_RST);
 	if (on)
@@ -125,8 +132,10 @@ static void set_vibrator(int on)
 	else
 		sci_adi_set(ANA_VIBRATOR_CTRL0, VIBR_PD_SET);
 #endif
+#if !defined(CONFIG_ADIE_SC2723)
 	/* lock vibrator registor */
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
+#endif
 #endif
 }
 
@@ -139,7 +148,9 @@ static void vibrator_hw_init(void)
 	vibrator_regulator = regulator_get(NULL, "vddcammot");
 	regulator_set_voltage(vibrator_regulator, 3300000, 3300000);
 #else
+#if !defined(CONFIG_ADIE_SC2723)
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_UNLOCK, 0xffff);
+#endif
 #ifdef CONFIG_ARCH_SCX35
 	sci_adi_write(ANA_REG_GLB_RTC_CLK_EN, BIT_RTC_VIBR_EN, BIT_RTC_VIBR_EN);
 #else
@@ -153,9 +164,11 @@ static void vibrator_hw_init(void)
 	sci_adi_write(ANA_VIBRATOR_CTRL0,
 		      (VIBRATOR_STABLE_LEVEL << VIBR_STABLE_V_SHIFT),
 		      VIBR_STABLE_V_MSK);
+#if !defined(CONFIG_ADIE_SC2723)
 	/* set stable current level */
 	sci_adi_write(ANA_VIBRATOR_CTRL1, VIBRATOR_INIT_STATE_CNT, 0xffff);
 	sci_adi_write(ANA_VIBR_WR_PROT, VIBRATOR_REG_LOCK, 0xffff);
+#endif
 #endif
 }
 

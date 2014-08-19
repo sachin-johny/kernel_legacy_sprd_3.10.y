@@ -10,12 +10,13 @@ config FB_SC8825
 
 config FB_SCX35
 	boolean "SC8830 frame buffer support "
-	depends on FB && ARCH_SCX35 && (!ARCH_SCX30G)
+	depends on FB && ARCH_SCX35 && (!ARCH_SCX30G) && (!ARCH_SCX35L)
 	select FB_CFB_FILLRECT
 	select FB_CFB_COPYAREA
 	select FB_CFB_IMAGEBLIT
 	help
           Frame buffer driver for sc8830 based boards.
+
 config FB_SCX30G
 	boolean "SC8830G frame buffer support "
 	depends on FB && ARCH_SCX30G
@@ -24,6 +25,15 @@ config FB_SCX30G
 	select FB_CFB_IMAGEBLIT
 	help
           Frame buffer driver for sc8830G based boards.
+
+config FB_SCX35L
+	boolean "SharkL frame buffer support "
+	depends on FB && ARCH_SCX35L
+	select FB_CFB_FILLRECT
+	select FB_CFB_COPYAREA
+	select FB_CFB_IMAGEBLIT
+	help
+		Frame buffer driver for SharkL based boards.
 
 config FB_SCX15
 	boolean "SC7715 frame buffer support "
@@ -38,7 +48,7 @@ config SPRD_FB_SIZE
 	int "MB size for frame buffer, should larger or equal lcd_w*lcd_h*4*2"
 	range 1 16
 	default 8
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G || FB_SCX35L
 
 config FB_LCD_HX8363_MCU
 	boolean "support HX8363 panel mcu"
@@ -60,12 +70,6 @@ config FB_LCD_HX8369
 	depends on FB_SC8825 || FB_SCX35
 	default n
 
-config FB_LCD_HX8369B_MIPI
-	boolean "support HX8369B MIPI panel"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
-	default n
-
-
 config FB_LCD_S6D0139
 	boolean "support S6D0139 panel"
 	depends on FB_SC8825 || FB_SCX35
@@ -73,22 +77,22 @@ config FB_LCD_S6D0139
 
 config FB_LCD_NT35516_MIPI
 	boolean "support NT35516 mipi panel"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
 	default n
 
-config FB_LCD_DUMMY
-	boolean "support DUMMY panel"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
-	default y
+config FB_LCD_ILI6150_LVDS
+	boolean "support ILI6150 lvds panel"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
+	default n
+
+config FB_LCD_RM68180_MIPI
+	boolean "support rm68180 mipi panel"
+	depends on FB_SCX35 || FB_SCX35L || FB_SCX30G
+	default n
 
 config FB_LCD_NT35502_MIPI
 	boolean "support NT35502 mipi panel"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
-	default n
-	
-config FB_LCD_ILI9486S1_MIPI
-	boolean "support ILI9486S1 mipi panel"
-	depends on FB_SCX35 || FB_SCX15 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35
 	default n
 
 config FB_LCD_NT35516_RGB_I2C
@@ -103,7 +107,7 @@ config FB_LCD_NT35516_RGB_SPI
 
 config FB_LCD_NT35516_MCU
 	boolean "support NT35516 mcu panel"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G || FB_SCX35L
 	default n
 
 config FB_LCD_NT35510_MIPI
@@ -188,27 +192,27 @@ config FB_LCD_HX8389C_MIPI
 
 config FB_LCD_RESERVE_MEM
         boolean "support FB reserve mem"
-        depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
+        depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G || FB_SCX35L
         default n
 
 config FB_LCD_OVERLAY_SUPPORT
 	boolean "support lcd overlay"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G || FB_SCX35L
 	default n
 
 config FB_VSYNC_SUPPORT
 	boolean "support wait for vsync io"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G || FB_SCX35L
 	default y
 
 config FB_ESD_SUPPORT
 	boolean "support esd check"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
 	default n
 
 config FB_DYNAMIC_CLK_SUPPORT
 	boolean "support close clk dynamically"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
 	default n
 
 config FB_DYNAMIC_FREQ_SCALING
@@ -223,7 +227,7 @@ config FB_MMAP_CACHED
 
 config FB_LOW_RES_SIMU
 	boolean "support low resolution simulator"
-	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15 || FB_SCX30G
+	depends on FB_SC8825 || FB_SCX35 ||FB_SCX15 || FB_SCX30G || FB_SCX35L
 	default n
 
 config FB_TRIPLE_FRAMEBUFFER

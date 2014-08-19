@@ -45,6 +45,11 @@ struct smsg_ipc {
 	uint32_t		rxbuf_rdptr;
 	uint32_t		rxbuf_wrptr;
 
+#ifdef 	CONFIG_SPRD_MAILBOX
+	/* target core_id over mailbox */
+	int 			core_id;
+#endif
+
 	/* sipc irq related */
 	int			irq;
 	irq_handler_t		irq_handler;

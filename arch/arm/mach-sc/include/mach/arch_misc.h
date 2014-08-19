@@ -21,7 +21,7 @@
 #define SCX35_BETA_TAPOUT_MASK	(0xFFFFFFFF)
 
 #define SCX35G_ALPHA_TAPOUT            (0x8730b000)
-#define SCX35G_ALPHA_TAPOUT_MASK       (0xFFFFF000)
+#define SCX35G_ALPHA_TAPOUT_MASK       (0xFFFFFFFF)
 
 /**
  * sci_get_chip_id - read chip id

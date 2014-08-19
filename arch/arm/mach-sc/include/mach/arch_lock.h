@@ -80,7 +80,7 @@ static inline void arch_hwlocks_implemented(void)
 #endif
 static inline unsigned long HWLOCK_ADDR(unsigned int id)
 {
-	if (hwspinlock_vid == 0x100) {
+	if (hwspinlock_vid == 0x100 || hwspinlock_vid == 0x200) {
 		BUG_ON(id > 63);
 		if (id < 31)
 			return SPRD_HWLOCK1_BASE + 0x800 + 0x4*id;
@@ -101,7 +101,7 @@ static inline int arch_hwlock_fast_trylock(unsigned int lock_id)
 	__hwspinlock_init();
 	addr = HWLOCK_ADDR(lock_id);
 
-	if (hwspinlock_vid == 0x100) {
+	if (hwspinlock_vid == 0x100 || hwspinlock_vid == 0x200) {
 		if (!readl((void *)addr))
 			goto __locked;
 	} else if (hwspinlock_vid == 0) {
@@ -126,7 +126,7 @@ static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 	dsb();
 	RECORD_HWLOCKS_STATUS_UNLOCK(lock_id);
 
-	if (hwspinlock_vid == 0x100)
+	if (hwspinlock_vid == 0x100 || hwspinlock_vid == 0x200)
 		__raw_writel(HWSPINLOCK_NOTTAKEN_V1, (void *)addr);
 	else
 		__raw_writel(HWSPINLOCK_NOTTAKEN_V0, (void *)addr);
@@ -142,20 +142,28 @@ static inline void arch_hwlock_fast_unlock(unsigned int lock_id)
 
 static inline void __arch_default_lock(unsigned int lock_id, unsigned long *flags)
 {
+#if defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA)
+/*if the hwspinlock not in the bitfile */
+#else
 	if (arch_get_hwlock(lock_id))
 		WARN_ON(IS_ERR_VALUE
 			(hwspin_lock_timeout_irqsave
 			 (arch_get_hwlock(lock_id), -1, flags)));
 	else
 		arch_hwlock_fast(lock_id);
+#endif
 }
 
 static inline void __arch_default_unlock(unsigned int lock_id, unsigned long *flags)
 {
+#if defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA)
+/*if the hwspinlock not in the bitfile */
+#else
 	if (arch_get_hwlock(lock_id))
 		hwspin_unlock_irqrestore(arch_get_hwlock(lock_id), flags);
 	else
 		arch_hwunlock_fast(lock_id);
+#endif
 }
 
 #endif

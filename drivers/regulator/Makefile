@@ -86,4 +86,5 @@ else
 obj-$(CONFIG_REGULATOR_SC2723) += sc2723-regulator.o
 endif
 
+
 ccflags-$(CONFIG_REGULATOR_DEBUG) += -DDEBUG

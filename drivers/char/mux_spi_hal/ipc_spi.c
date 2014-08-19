@@ -340,7 +340,7 @@ static void ipc_ack(struct ipc_spi_dev* dev, u8* buf, u16* len)
 			p_frame = list_entry(&plist->frame_list_head, struct ipc_transfer_frame, link);
 		}
 	}
-	ack->checksum = ipc_checksum((const unsigned char*)&ack->type, sizeof(struct ack_packet) - 4);
+	ack->checksum = ipc_checksum(&ack->type, sizeof(struct ack_packet) - 4);
 	mutex_unlock(&plist->list_mutex);
 }
 
@@ -359,7 +359,7 @@ static void ipc_ack(struct ipc_spi_dev* dev, u8* buf, u16* len)
 		ack->magic = ACK_MAGIC;
 		ack->type = TYPE_NAKALL;
 		*len = sizeof(struct ack_packet);
-		ack->checksum = ipc_checksum((const unsigned char*)&ack->type, sizeof(struct ack_packet) - 4);
+		ack->checksum = ipc_checksum(&ack->type, sizeof(struct ack_packet) - 4);
 		//dev->rx_status = IDLE_STATUS;
 		return;
 	}
@@ -670,7 +670,7 @@ static void ipc_rcv_ack(struct ipc_spi_dev* dev, u8 *buf, bool bcheck)
 	struct ack_packet *header = (struct ack_packet*)buf;
 	IPC_DBG("ipc_rcv_ack %d, %d, %d \n", header->type, header->seq_begin, header->seq_end);
 	if(bcheck
-		&& (header->checksum != ipc_checksum((const unsigned char*)&header->type, sizeof(struct ack_packet) - 4))) {
+		&& (header->checksum != ipc_checksum(&header->type, sizeof(struct ack_packet) - 4))) {
 		printk(KERN_ERR "ipc_spi wrong ack packet1 \n");
 		ipc_print_errdata(buf, sizeof(struct ack_packet));
 		ipc_process_errdata(dev);
@@ -1007,7 +1007,7 @@ static int mux_ipc_thread(void *data)
 	while (!kthread_should_stop()) {
 		dev->task_count++;
 		dev->task_status = 1;
-		wait_event(dev->wait, dev->remote_status || !dev->ipc_enable);
+		wait_event(dev->wait, dev->remote_status);
 		dev->task_status = 2;
 		wait_event(dev->wait,  dev->bneedsend || dev->bneedrcv || !dev->ipc_enable);
 		dev->task_status = 3;

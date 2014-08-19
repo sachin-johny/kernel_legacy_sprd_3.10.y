@@ -112,8 +112,9 @@ static inline void __glbreg_setclr(struct clk_hw *hw, void *reg, u32 msk,
 	if (is_set)
 		__raw_writel(msk, (void *)((u32) (reg) + 0x1000));
 	else
+	{
 		__raw_writel(msk, (void *)((u32) (reg) + 0x2000));
-
+	}
 	__arch_default_unlock(HWLOCK_GLB, &flags);
 }
 
@@ -175,8 +176,7 @@ static unsigned long sprd_clk_fixed_pll_recalc_rate(struct clk_hw *hw,
 	return to_clk_sprd(hw)->m.fixed_rate;
 }
 
-#define BITS_MPLL_REFIN(_X_)                              ( (_X_) << 24 & (BIT(24)|BIT(25)) )
-
+#ifdef CONFIG_ARCH_SCX30G
 /* bits definitions for register REG PLL CFG1 */
 #define BITS_PLL_KINT(_X_)                               ( (_X_) << 12 & (BIT(12)|BIT(13)|BIT(14)|BIT(15)|BIT(16)|BIT(17)|BIT(18)|BIT(19)|BIT(20)|BIT(21)|BIT(22)|BIT(23)|BIT(24)|BIT(25)|BIT(26)|BIT(27)|BIT(28)|BIT(29)|BIT(30)|BIT(31)) )
 #define BIT_PLL_DIV_S                                    ( BIT(10) )
@@ -187,6 +187,30 @@ static unsigned long sprd_clk_fixed_pll_recalc_rate(struct clk_hw *hw,
 
 #define SHFT_PLL_KINT                                     ( 12 )
 #define SHFT_PLL_NINT                                     ( 0 )
+
+#elif defined(CONFIG_ARCH_SCX35L)
+/* bits definitions for register REG_AON_APB_PLL_CFG1 */
+#define BITS_PLL_RES(_X_)                                ( (_X_) << 28 & (BIT(28)|BIT(29)) )
+#define BIT_PLL_LOCK_DONE                                ( BIT(27) )
+#define BIT_PLL_DIV_S                                    ( BIT(26) )
+#define BIT_PLL_MOD_EN                                   ( BIT(25) )
+#define BIT_PLL_SDM_EN                                   ( BIT(24) )
+#define BITS_PLL_LPF(_X_)                                ( (_X_) << 20 & (BIT(20)|BIT(21)|BIT(22)) )
+#define BITS_PLL_REFIN(_X_)                              ( (_X_) << 18 & (BIT(18)|BIT(19)) )
+#define BITS_PLL_IBIAS(_X_)                              ( (_X_) << 16 & (BIT(16)|BIT(17)) )
+#define BITS_PLL_N(_X_)                                  ( (_X_) & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)) )
+
+/* bits definitions for register REG_AON_APB_PLL_CFG2 */
+#define BITS_PLL_NINT(_X_)                               ( (_X_) << 24 & (BIT(24)|BIT(25)|BIT(26)|BIT(27)|BIT(28)|BIT(29)) )
+#define BITS_PLL_KINT(_X_)                               ( (_X_) & (BIT(0)|BIT(1)|BIT(2)|BIT(3)|BIT(4)|BIT(5)|BIT(6)|BIT(7)|BIT(8)|BIT(9)|BIT(10)|BIT(11)|BIT(12)|BIT(13)|BIT(14)|BIT(15)|BIT(16)|BIT(17)|BIT(18)|BIT(19)) )
+
+#define SHFT_PLL_KINT                                     ( 0 )
+#define SHFT_PLL_NINT                                     ( 24 )
+
+#else
+#define BITS_MPLL_REFIN(_X_)                              ( (_X_) << 24 & (BIT(24)|BIT(25)) )
+
+#endif
 
 /*
  How To look PLL Setting
@@ -225,6 +249,20 @@ static unsigned long sprd_clk_adjustable_pll_recalc_rate(struct clk_hw *hw,
 	/* FIXME: Kint only valid while sdm_en = 1 */
 	if ((cfg1 & BIT_PLL_SDM_EN))
 		k = (cfg1 & BITS_PLL_KINT(~0)) >> SHFT_PLL_KINT;
+
+	rate =
+	    26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100,
+						    1048576) * 10000;
+	clk_debug("rate %u, k %u, mn %u\n", rate, k, mn);
+#elif defined(CONFIG_ARCH_SCX35L)
+	unsigned int k = 0, mn, cfg1, cfg2;
+	cfg1 = __raw_readl(pll->m.mul.reg);
+	cfg2 = __raw_readl((u32 *)pll->m.mul.reg + 1);
+	mn = (cfg2 & BITS_PLL_NINT(~0)) >> SHFT_PLL_NINT;
+
+	/* FIXME: Kint only valid while sdm_en = 1 */
+	if ((cfg1 & BIT_PLL_SDM_EN))
+		k = (cfg2 & BITS_PLL_KINT(~0)) >> SHFT_PLL_KINT;
 
 	rate =
 	    26 * (mn) * 1000000 + DIV_ROUND_CLOSEST(26 * k * 100,
@@ -287,6 +325,25 @@ static int sprd_clk_adjustable_pll_set_rate(struct clk_hw *hw,
 		  (u32) rate, k, mn);
 	__pllreg_write(pll->m.mul.reg, cfg1,
 		       BITS_PLL_KINT(~0) | BITS_PLL_NINT(~0) | BIT_PLL_SDM_EN);
+#elif defined(CONFIG_ARCH_SCX35L)
+	u32 k, mn, cfg1, cfg2;
+
+	mn = (rate / 1000000) / 26;
+	k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576,
+			      26 * 100);
+
+	cfg2 = BITS_PLL_NINT(mn);
+	if (k) {
+		cfg2 |= BITS_PLL_KINT(k);
+		cfg1 |= BIT_PLL_SDM_EN;
+	}
+
+	clk_debug("%s rate %u, k %u, mn %u\n", __clk_get_name(hw->clk),
+		  (u32) rate, k, mn);
+
+	__pllreg_write((u32 *)pll->m.mul.reg + 1, cfg2, BITS_PLL_KINT(~0) | BITS_PLL_NINT(~0));
+	/* FIXME: pll clock set should not two-step */
+	__pllreg_write(pll->m.mul.reg, cfg1, BIT_PLL_SDM_EN);
 #else
 	u32 refin, mn;
 	refin = __pll_get_refin_rate(pll->m.mul.reg);

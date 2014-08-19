@@ -17,5 +17,23 @@ obj-$(CONFIG_FB_SCX15) := sprdfb_main.o sprdfb_panel.o sprdfb_dispc.o sprdfb_mcu
 obj-$(CONFIG_FB_SCX15) += spi/
 obj-$(CONFIG_FB_SCX15) += lcd/
 
+# ========== SharkL configuration begin ===========
+ifeq ($(CONFIG_FB_SCX35L), y)
+obj-y := sprdfb_main.o sprdfb_panel.o sprdfb_dispc.o
+obj-y += sprdfb_dsi.o sprdfb_mipi.o
+obj-y += sprdfb_mcu.o sprdfb_rgb.o sprdfb_spi.o sprdfb_i2c.o
+obj-y += sprdfb_chip_common.o sprdfb_chip_9630.o
+endif
+ifeq ($(CONFIG_MACH_SPX35LFPGA), y)
+obj-$(CONFIG_FB_SCX35L) += spi_gpio_drv.o
+endif
+ifeq ($(CONFIG_MACH_PIKELFPGA), y)
+obj-$(CONFIG_FB_SCX35L) += spi_gpio_drv.o
+endif
+obj-$(CONFIG_FB_SCX35L) += dsi_1_21a/
+obj-$(CONFIG_FB_SCX35L) += spi/
+obj-$(CONFIG_FB_SCX35L) += lcd/
+# ========== SharkL configuration end ============
+
 # This file is used for creating file node
 obj-y += sprdfb_attr.o

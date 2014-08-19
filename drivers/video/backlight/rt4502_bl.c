@@ -429,7 +429,7 @@ static int rt4502_backlight_probe(struct platform_device *pdev)
 		goto err_alloc;
 	}
 	rt4502->ctrl_pin = data->ctrl_pin;
-      backlight_pin = data->ctrl_pin;
+	backlight_pin = data->ctrl_pin;
       
 	memset(&props, 0, sizeof(struct backlight_properties));
 	props.max_brightness = data->max_brightness;

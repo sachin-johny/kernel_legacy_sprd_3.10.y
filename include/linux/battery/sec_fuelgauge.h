@@ -19,7 +19,7 @@
 #ifndef __SEC_FUELGAUGE_H
 #define __SEC_FUELGAUGE_H __FILE__
 
-#if defined(CONFIG_FUELGAUGE_MFD) || defined(CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3)
+#if defined(CONFIG_FUELGAUGE_MFD)
 #define fuelgauge_variable fuelgauge
 #define fuelgauge_variable_t struct sec_fuelgauge_info
 #else
@@ -32,24 +32,20 @@
 #if defined(CONFIG_FUELGAUGE_DUMMY) || \
 	defined(CONFIG_FUELGAUGE_PM8917)
 #include <linux/battery/fuelgauge/dummy_fuelgauge.h>
+#elif defined(CONFIG_FUELGAUGE_ADC)
+#include <linux/battery/fuelgauge/adc_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX17042)
 #include <linux/battery/fuelgauge/max17042_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX17048)
 #include <linux/battery/fuelgauge/max17048_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_MAX17050)
 #include <linux/battery/fuelgauge/max17050_fuelgauge.h>
-#elif defined(CONFIG_FUELGAUGE_MAX77823)
-#include <linux/battery/fuelgauge/max77823_fuelgauge.h>
+#elif defined(CONFIG_FUELGAUGE_STC3115)
+#include <linux/battery/fuelgauge/stc3115_fuelgauge.h>
+#elif defined(CONFIG_FUELGAUGE_D2199)
+#include <linux/battery/fuelgauge/d2199_fuelgauge.h>
 #elif defined(CONFIG_FUELGAUGE_RT5033)
 #include <linux/battery/fuelgauge/rt5033_fuelgauge.h>
-#else
-struct sec_fg_info {
-	bool dummy;
-};
-#endif
-
-#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
-#include <linux/battery/fuelgauge/sprd27x3_fuelgauge4samsung.h>
 #endif
 
 struct sec_fuelgauge_reg_data {
@@ -71,7 +67,10 @@ struct sec_fuelgauge_info {
 	 * used in individual fuel gauge file only
 	 * (ex. dummy_fuelgauge.c)
 	 */
+
+#if defined(CONFIG_BATTERY_SAMSUNG)
 	struct sec_fg_info	info;
+#endif
 
 	bool is_fuel_alerted;
 	struct wake_lock fuel_alert_wake_lock;
@@ -86,7 +85,6 @@ struct sec_fuelgauge_info {
 	int reg_addr;
 	u8 reg_data[2];
 
-	int fg_irq;
 };
 
 bool sec_hal_fg_init(fuelgauge_variable_t *);
@@ -98,34 +96,25 @@ bool sec_hal_fg_fuelalert_process(void *, bool);
 bool sec_hal_fg_full_charged(fuelgauge_variable_t *);
 bool sec_hal_fg_reset(fuelgauge_variable_t *);
 bool sec_hal_fg_get_property(fuelgauge_variable_t *,
-		enum power_supply_property,
-		union power_supply_propval *);
+				enum power_supply_property,
+				union power_supply_propval *);
 bool sec_hal_fg_set_property(fuelgauge_variable_t *,
-		enum power_supply_property,
-		const union power_supply_propval *);
+				enum power_supply_property,
+				const union power_supply_propval *);
 
 ssize_t sec_hal_fg_show_attrs(struct device *dev,
-		const ptrdiff_t offset, char *buf);
+				const ptrdiff_t offset, char *buf);
 
 ssize_t sec_hal_fg_store_attrs(struct device *dev,
-		const ptrdiff_t offset,
-		const char *buf, size_t count);
+				const ptrdiff_t offset,
+				const char *buf, size_t count);
 
 ssize_t sec_fg_show_attrs(struct device *dev,
-		struct device_attribute *attr, char *buf);
+				struct device_attribute *attr, char *buf);
 
 ssize_t sec_fg_store_attrs(struct device *dev,
-		struct device_attribute *attr,
-		const char *buf, size_t count);
-
-#ifdef CONFIG_OF
-#if defined(CONFIG_FUELGAUGE_MAX77823)
-void board_fuelgauge_init(struct max77823_fuelgauge_data *fuelgauge);
-#else
-extern void board_fuelgauge_init(struct sec_fuelgauge_info *fuelgauge);
-#endif
-extern bool sec_bat_check_jig_status(void);
-#endif
+				struct device_attribute *attr,
+				const char *buf, size_t count);
 
 #define SEC_FG_ATTR(_name)				\
 {							\
@@ -134,10 +123,19 @@ extern bool sec_bat_check_jig_status(void);
 	.store = sec_fg_store_attrs,			\
 }
 
+#if defined(CONFIG_FUELGAUGE_D2199)
 enum {
 	FG_REG = 0,
 	FG_DATA,
 	FG_REGS,
 };
+#else
+enum {
+	FG_CURR_UA = 0,
+	FG_REG,
+	FG_DATA,
+	FG_REGS,
+};
+#endif
 
 #endif /* __SEC_FUELGAUGE_H */

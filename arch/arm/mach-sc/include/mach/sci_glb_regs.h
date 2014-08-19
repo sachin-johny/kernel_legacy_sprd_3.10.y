@@ -38,11 +38,7 @@
 
 #include "./chip_x30g/__regs_ada_apb_rf.h"
 //#include "./chip_x30g/__regs_ana_apb_if.h"
-#if defined(CONFIG_ADIE_SC2723S) || defined(CONFIG_ADIE_SC2723)
-#include "./chip_x30g/__regs_ana_sc2723_glb.h"
-#else
 #include "./chip_x30g/__regs_ana_sc2713s_glb.h"
-#endif
 #include "./chip_x30g/__regs_aon_apb.h"
 #include "./chip_x30g/__regs_ap_ahb.h"
 #include "./chip_x30g/__regs_ap_apb.h"
@@ -82,6 +78,20 @@
 #define ANA_REG_GLB_LDO_SLP_CTRL2	ANA_REG_GLB_PWR_SLP_CTRL2
 #define ANA_REG_GLB_LDO_SLP_CTRL3	ANA_REG_GLB_PWR_SLP_CTRL3
 #define REG_AON_APB_CHIP_ID	REG_AON_APB_AON_CHIP_ID
+
+#elif defined(CONFIG_ARCH_SCX35L)
+#include "./chip_x35l/__regs_ana_sc2723_glb.h"
+#include "./chip_x35l/__regs_ada_apb_rf.h"
+#include "./chip_x35l/__regs_aon_apb_rf.h"
+#include "./chip_x35l/__regs_aon_clk.h"
+#include "./chip_x35l/__regs_ap_ahb_rf.h"
+#include "./chip_x35l/__regs_ap_clk.h"
+#include "./chip_x35l/__regs_ap_apb.h"
+#include "./chip_x35l/__regs_gpu_apb_rf.h"
+#include "./chip_x35l/__regs_mm_ahb_rf.h"
+#include "./chip_x35l/__regs_mm_clk.h"
+#include "./chip_x35l/__regs_pmu_apb_rf.h"
+#include "./chip_x35l/__regs_pub_apb.h"
 
 #elif defined(CONFIG_ARCH_SCX35)
 

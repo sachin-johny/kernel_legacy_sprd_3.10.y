@@ -94,6 +94,18 @@ int __init __sipc_reserve_memblock(void)
 	smem_size += WCN_SMEM_SIZE;
 #endif
 
+#ifdef 	CONFIG_SIPC_GGE
+	if (memblock_reserve(GGE_START_ADDR, GGE_TOTAL_SIZE))
+		return -ENOMEM;
+	smem_size += GGE_SMEM_SIZE;
+#endif
+
+#ifdef 	CONFIG_SIPC_LTE
+	if (memblock_reserve(LTE_START_ADDR, LTE_TOTAL_SIZE))
+		return -ENOMEM;
+	smem_size += LTE_SMEM_SIZE;
+#endif
+
 	if (memblock_reserve(SIPC_SMEM_ADDR, smem_size))
 		return -ENOMEM;
 
@@ -154,48 +166,10 @@ phys_addr_t sprd_iq_addr(void)
 
 #endif
 
-#ifdef SPRD_ION_BASE_USE_VARIABLE
-phys_addr_t sprd_reserve_limit;
-extern phys_addr_t arm_lowmem_limit;
-#endif
-static int dram_cs_num = 0;
-static u32 dram_cs0_size = 0x0;
-static int __init mem_cs_num_get(char *str)
-{
-	dram_cs_num=simple_strtoul(str,0, 16);
-	printk("mem_cs_get dram_cs_num=%d\n",dram_cs_num);
-	return 0;
-}
-static int __init mem_cs0_size_get(char *str)
-{
-	dram_cs0_size=simple_strtoul(str,0, 16);
-	printk("mem_cs0_size_get dram_cs0_size =0x%08x\n",dram_cs0_size);
-	return 0;
-}
-early_param("mem_cs", mem_cs_num_get);
-early_param("mem_cs0_sz", mem_cs0_size_get);
-static int __ddr_training_memblock(void)
-{
-	memblock_reserve(CONFIG_PHYS_OFFSET, PAGE_SIZE);
-	if(2 == dram_cs_num) {
-		if(0==dram_cs0_size){
-			pr_err("dram_cs0_size = 0, error, please check the dram size\n");
-			return -ENOMEM;
-		}
-		memblock_reserve(CONFIG_PHYS_OFFSET+dram_cs0_size, PAGE_SIZE);
-	}
-	return 0;
-}
+
 void __init sci_reserve(void)
 {
 	int ret;
-#ifdef CONFIG_ARCH_SCX30G
-	__ddr_training_memblock();
-#endif
-#ifdef SPRD_ION_BASE_USE_VARIABLE
-	/*sprd_reserve_limit is used save arm_lowmem_limit,will be use by ION*/
-	sprd_reserve_limit = arm_lowmem_limit;
-#endif
 
 #ifndef CONFIG_OF
 	ret = __iomem_reserve_memblock();

@@ -497,17 +497,8 @@ struct mem_size_stats {
 	unsigned long swap;
 	unsigned long nonlinear;
 	u64 pss;
-	u64 pswap;
 };
 
-#ifdef CONFIG_SWAP
-extern struct swap_info_struct *swap_info_get(swp_entry_t entry);
-
-static inline unsigned char swap_count(unsigned char ent)
-{
-	return ent & ~SWAP_HAS_CACHE;	/* may include SWAP_HAS_CONT flag */
-}
-#endif
 
 static void smaps_pte_entry(pte_t ptent, unsigned long addr,
 		unsigned long ptent_size, struct mm_walk *walk)
@@ -522,23 +513,9 @@ static void smaps_pte_entry(pte_t ptent, unsigned long addr,
 		page = vm_normal_page(vma, addr, ptent);
 	} else if (is_swap_pte(ptent)) {
 		swp_entry_t swpent = pte_to_swp_entry(ptent);
-		struct swap_info_struct *p;
 
-		if (!non_swap_entry(swpent)) {
+		if (!non_swap_entry(swpent))
 			mss->swap += ptent_size;
-#ifdef CONFIG_SWAP
-			p = swap_info_get(swpent);
-			if (p) {
-				int swapcount = swap_count(
-					p->swap_map[swp_offset(swpent)]);
-				if (!swapcount)
-					swapcount = 1;
-				mss->pswap +=
-					(ptent_size << PSS_SHIFT) / swapcount;
-				spin_unlock(&p->lock);
-			}
-#endif
-		}
 		else if (is_migration_entry(swpent))
 			page = migration_entry_to_page(swpent);
 	} else if (pte_file(ptent)) {
@@ -688,7 +665,6 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 		   "Anonymous:      %8lu kB\n"
 		   "AnonHugePages:  %8lu kB\n"
 		   "Swap:           %8lu kB\n"
-		   "PSwap:          %8lu kB\n"
 		   "KernelPageSize: %8lu kB\n"
 		   "MMUPageSize:    %8lu kB\n"
 		   "Locked:         %8lu kB\n",
@@ -703,7 +679,6 @@ static int show_smap(struct seq_file *m, void *v, int is_pid)
 		   mss.anonymous >> 10,
 		   mss.anonymous_thp >> 10,
 		   mss.swap >> 10,
-		   (unsigned long)(mss.pswap >> (10 + PSS_SHIFT)),
 		   vma_kernel_pagesize(vma) >> 10,
 		   vma_mmu_pagesize(vma) >> 10,
 		   (vma->vm_flags & VM_LOCKED) ?

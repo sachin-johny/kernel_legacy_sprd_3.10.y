@@ -40,6 +40,17 @@ extern int sec_chg_dt_init(struct device_node *np,
 			 struct device *dev,
 			 sec_battery_platform_data_t *pdata);
 
+static enum power_supply_property sec_charger_props[] = {
+        POWER_SUPPLY_PROP_STATUS,
+        POWER_SUPPLY_PROP_CHARGE_TYPE,
+        POWER_SUPPLY_PROP_HEALTH,
+        POWER_SUPPLY_PROP_PRESENT,
+        POWER_SUPPLY_PROP_ONLINE,
+        POWER_SUPPLY_PROP_CURRENT_MAX,
+        POWER_SUPPLY_PROP_CURRENT_AVG,
+        POWER_SUPPLY_PROP_CURRENT_NOW,
+};
+
 static void SM5701_charger_initialize(struct SM5701_charger_data *charger);
 
 static int SM5701_get_battery_present(struct SM5701_charger_data *charger)

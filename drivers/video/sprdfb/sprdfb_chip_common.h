@@ -14,7 +14,10 @@
 #ifndef __DISPC_CHIP_COM_H_
 #define __DISPC_CHIP_COM_H_
 
-#if defined(CONFIG_FB_SCX35) || defined(CONFIG_FB_SCX30G)
+#if defined(CONFIG_FB_SCX35L)
+#include "sprdfb_chip_9630.h"
+#define SPRDFB_SUPPORT_LVDS_PANEL
+#elif defined(CONFIG_FB_SCX35) || defined(CONFIG_FB_SCX30G)
 #include "sprdfb_chip_8830.h"
 #elif defined(CONFIG_FB_SCX15)
 #include "sprdfb_chip_7715.h"
@@ -31,7 +34,6 @@
 #include <linux/io.h>
 #include <mach/irqs.h>
 #include <mach/sci.h>
-
 
 typedef struct _trick_item_
 {

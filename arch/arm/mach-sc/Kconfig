@@ -24,17 +24,22 @@ config ARCH_SCX15
 	help
 	  Support for Spreadtrum scx15(dolphin) based systems.
 
+config ARCH_SCX35L
+	bool "shark-l series"
+	select ARCH_SCX35
+	help
+	  Support for Spreadtrum scx35l(shark-l) based systems.
+
+config MACH_SCX35_DT
+        bool "scx35 series DT verison(tshark,pike)"
+        help
+          Support for Spreadtrum scx35 device tree based systems.
+
 config ARCH_SCX30G
 	bool "scx30g series(t-shark,depend on ARCH_SCX35)"
 	select ARCH_SCX35
 	help
 	  Support for Spreadtrum scx30g(t-shark) based systems.
-
-config MACH_SCX35_DT
-	bool "scx35 series DT verison(tshark,pike)"
-	help
-	  Support for Spreadtrum scx35 device tree based systems.
-
 endmenu
 
 menu "Spreadtrum Adie Type"
@@ -242,14 +247,14 @@ config MACH_SP7731GEA
 	SP7731GEA board based on SC8830g serial.
 
 config MACH_SP7731GEA_FWVGA
-	bool "sp7731gea_fwvga Board"
-	depends on ARCH_SC
-	depends on ARCH_SCX35
-	select CLKSRC_OF if OF
-	select COMMON_CLK if OF
-	default n
-	help
-	SP7731GEA_FWVGA board based on SC8830g serial.
+        bool "sp7731gea_fwvga Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        select CLKSRC_OF if OF
+        select COMMON_CLK if OF
+        default n
+        help
+        SP7731GEA_FWVGA board based on SC8830g serial.
 
 config MACH_SP7731GEAOPENPHONE
 	bool "sp7731geaopenphone Board"
@@ -310,10 +315,43 @@ config MACH_SPX15FPGA
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	depends on ARCH_SCX15
-	default y
+	default n
         select  SC_FPGA
 	help
 	  SPX15 fpga board based on dolphin serial.
+
+config MACH_SPX35LFPGA
+	bool "spx35l FPGA Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX35L
+	default n
+        select  SC_FPGA
+	select COMMON_CLK if OF
+	select CLKSRC_OF if OF
+	help
+	  SPX35L fpga board based on shark-l serial.
+
+config MACH_PIKELFPGA
+	bool "PIKEL FPGA Board"
+	depends on ARCH_SC
+	depends on ARCH_SCX35
+	depends on ARCH_SCX35L
+	default n
+        select  SC_FPGA
+	help
+	  PIKEL fpga board based on shark-l serial.
+
+config MACH_SPX35L
+        bool "spx35l Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        depends on ARCH_SCX35L
+        default n
+	select COMMON_CLK if OF
+	select CLKSRC_OF if OF
+        help
+          SPX35L board based on shark-l serial.
 
 config MACH_SP6815GA
 	bool "sp6815ga Phone Board"
@@ -387,14 +425,14 @@ config MACH_SP8815GAOPENPHONE
 	  SP8815GAOPENPHONE board based on dolphin serial.
 
 config MACH_SP8730SEA
-	bool "sp8739sea Board"
-	depends on ARCH_SC
-	depends on ARCH_SCX35
-	select CLKSRC_OF if OF
-	select COMMON_CLK if OF
-	default n
-	help
-	SP8730SEA board based on SC8830 serial.
+        bool "sp8739sea Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        select CLKSRC_OF if OF
+        select COMMON_CLK if OF
+        default n
+        help
+        SP8730SEA board based on SC8830 serial.
 
 config MACH_POCKET2
 	bool "pocket2 Phone Board"
@@ -468,49 +506,50 @@ config MACH_SP7730GA
 	help
 	  SP7730GA board based on SC8830 serial.
 
+
 config MACH_TSHARKWSAMSUNG
-	bool "Samsung tsharkwsamsung Board"
-	depends on ARCH_SC
-	depends on ARCH_SCX35
-	select MACH_SAMSUNG
-	select MUIC_CABLE_DETECT
-	select CLKSRC_OF if OF
-	select COMMON_CLK if OF
-	default n
-	help
-	  TSHARKWSAMSUNG board based on SC8830g serial.
+        bool "Samsung tsharkwsamsung Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        select MACH_SAMSUNG
+        select MUIC_CABLE_DETECT
+        select CLKSRC_OF if OF
+        select COMMON_CLK if OF
+        default n
+        help
+          TSHARKWSAMSUNG board based on SC8830g serial.
 
 config MACH_CORE3
-	bool "Samsung Core3 Board"
-	depends on ARCH_SC
-	depends on ARCH_SCX35
-	select MACH_SAMSUNG
-	select MUIC_CABLE_DETECT
-	select FUELGAUGE_SPRD4SAMSUNG27X3
-	select CLKSRC_OF if OF
-	select COMMON_CLK if OF
-	default n
-	help
-	  Core3 board based on SC7730g serial.
+        bool "Samsung Core3 Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        select MACH_SAMSUNG
+        select MUIC_CABLE_DETECT
+        select FUELGAUGE_SPRD4SAMSUNG27X3
+        select CLKSRC_OF if OF
+        select COMMON_CLK if OF
+        default n
+        help
+          Core3 board based on SC7730g serial.
 
 config MACH_PIKEAYOUNG2DTV
-	bool "pikeayoung2dtv Board"
-	depends on ARCH_SC
-	depends on ARCH_SCX35
-	select MACH_SAMSUNG
-	select MUIC_CABLE_DETECT
-	select FUELGAUGE_SPRD4SAMSUNG27X3
-	select CLKSRC_OF if OF
-	select COMMON_CLK if OF
-	default n
-	help
-	PIKEAYOUNG2DTV board based on SC8830g serial.
+        bool "pikeayoung2dtv Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        select MACH_SAMSUNG
+        select MUIC_CABLE_DETECT
+        select FUELGAUGE_SPRD4SAMSUNG27X3
+        select CLKSRC_OF if OF
+        select COMMON_CLK if OF
+        default n
+        help
+        PIKEAYOUNG2DTV board based on SC8830g serial.
 
 config MACH_SAMSUNG
-	bool "Samsung Board"
-	default n
-	help
-	  all samsung boards.
+        bool "Samsung Board"
+        default n
+        help
+          all samsung boards.
 
 endmenu
 
@@ -645,6 +684,22 @@ config SIPC_WCN
 	select SIPC
 	default n
 
+config SIPC_PMIC
+	bool "SIPC instance of PMIC arm7 modem"
+	select SIPC
+	default n
+
+
+config SIPC_GGE
+	bool "SIPC instance of GGE modem"
+	select SIPC
+	default n
+
+config SIPC_LTE
+	bool "SIPC instance of LTE modem"
+	select SIPC
+	default n
+
 config VOIP_CPT
 	bool "VOIP process in modem T,it is processed in modem W by default"
 	default n
@@ -676,9 +731,14 @@ config TSP_0_1_A
         bool "For corsica_ve 3131 0.1A board"
         default n
 
+config SPRD_MAILBOX
+        bool "Spreadtrum Mailbox IPI Arch"
+        default n
+
+
 config MUIC_CABLE_DETECT
-	bool "usb, jig-box and so on cables are detected by external MUIC chip"
-	default n
-	depends on MFD_SM5504 || MFD_RT8973
+        bool "usb, jig-box and so on cables are detected by external MUIC chip"
+        default n
+        depends on MFD_SM5504 || MFD_RT8973
 
 endif

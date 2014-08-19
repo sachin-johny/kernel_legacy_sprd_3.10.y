@@ -252,10 +252,8 @@ int ion_heap_init_deferred_free(struct ion_heap *heap);
 void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer);
 
 /**
- * ion_heap_freelist_drain - drain the deferred free list to
- * the reserved list
+ * ion_heap_freelist_drain - drain the deferred free list
  * @heap:		the heap
- * @cached:		only drain the cached buffer list
  * @size:		ammount of memory to drain in bytes
  *
  * Drains the indicated amount of memory from the deferred freelist immediately.
@@ -263,7 +261,7 @@ void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer *buffer);
  * on the size of the items in the list, or lower if there is insufficient
  * total memory on the freelist.
  */
-size_t ion_heap_freelist_drain(struct ion_heap *heap, int cached, size_t size);
+size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size);
 
 /**
  * ion_heap_freelist_size - returns the size of the freelist in bytes

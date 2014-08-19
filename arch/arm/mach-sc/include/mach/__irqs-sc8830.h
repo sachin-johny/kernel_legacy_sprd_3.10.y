@@ -191,7 +191,7 @@
 #define IRQ_ANA_TPC_INT			SCI_EXT_IRQ(9)
 #define NR_ANA_IRQS			(10)
 #else
-#define IRQ_ANA_THM_OTP_INT			SCI_EXT_IRQ(9)
+#define IRQ_ANA_THM_OTP_INT			SCI_EXT_IRQ(8)
 #define IRQ_ANA_DCD_OTP_INT			SCI_EXT_IRQ(10)/*bit9 is reserved in adie intc*/
 #define NR_ANA_IRQS			(11)
 #endif

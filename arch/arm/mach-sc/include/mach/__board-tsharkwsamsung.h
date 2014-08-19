@@ -99,15 +99,7 @@
 #define GPIO_AP2BT_WAKE     235
 
 #define GPIO_WIFI_SHUTDOWN	230
-
-
-
-
-//modify by sam.sun,
-//#define GPIO_WIFI_IRQ		234
-#define GPIO_WIFI_IRQ		148
-
-
+#define GPIO_WIFI_IRQ		234
 
 #define GPIO_PROX_INT 216
 #define GPIO_GYRO_INT1 163

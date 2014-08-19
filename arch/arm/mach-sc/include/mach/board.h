@@ -38,10 +38,6 @@
 #include "__board-sp8830gea.h"
 #endif
 
-#ifdef	CONFIG_MACH_SP8730SEA
-#include "__board-sp8730sea.h"
-#endif
-
 #ifdef	CONFIG_MACH_SP7730GGA
 #include "__board-sp7730gga.h"
 #endif
@@ -60,10 +56,6 @@
 
 #ifdef	CONFIG_MACH_SP7731GEA
 #include "__board-sp7731gea.h"
-#endif
-
-#ifdef	CONFIG_MACH_SP7731GEA_FWVGA
-#include "__board-sp7731gea_fwvga.h"
 #endif
 
 #ifdef	CONFIG_MACH_SP7731GEAOPENPHONE
@@ -118,8 +110,12 @@
 #include "__board-sp5735c1ea.h"
 #endif
 
-#if defined (CONFIG_MACH_SPX35FPGA) || defined (CONFIG_MACH_SPX15FPGA)
+#if defined (CONFIG_MACH_SPX35FPGA) || defined (CONFIG_MACH_SPX15FPGA) || defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA)
 #include "__board-sp8830fpga.h"
+#endif
+
+#ifdef CONFIG_MACH_SPX35L
+#include "__board-sp9630.h"
 #endif
 
 #ifdef	CONFIG_MACH_SP7735EC
@@ -179,14 +175,6 @@
 
 #ifdef	CONFIG_MACH_TSHARKWSAMSUNG
 #include "__board-tsharkwsamsung.h"
-#endif
-
-#ifdef  CONFIG_MACH_CORE3
-#include "__board-core3.h"
-#endif
-
-#ifdef	CONFIG_MACH_PIKEAYOUNG2DTV
-#include "__board-pikeayoung2dtv.h"
 #endif
 
 #include <asm/sizes.h>
@@ -252,8 +240,8 @@
 	((CONFIG_PHYS_OFFSET & (~(SZ_512M - 1))) + SZ_512M - SPRD_ION_MEM_SIZE)
 #endif
 #else
-extern phys_addr_t sprd_reserve_limit;
-#define SPRD_ION_MEM_BASE (sprd_reserve_limit - SPRD_ION_MEM_SIZE)
+extern phys_addr_t arm_lowmem_limit;
+#define SPRD_ION_MEM_BASE (arm_lowmem_limit - SPRD_ION_MEM_SIZE)
 #endif
 
 

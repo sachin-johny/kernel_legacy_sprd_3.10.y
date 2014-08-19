@@ -36,6 +36,7 @@ obj-$(CONFIG_FB_SC8825)           += sprdfb/
 obj-$(CONFIG_FB_SCX35)            += sprdfb/
 obj-$(CONFIG_FB_SCX30G)           += sprdfb/
 obj-$(CONFIG_FB_SCX15)            += sprdfb/
+obj-$(CONFIG_FB_SCX35L)           += sprdfb/
 obj-$(CONFIG_FB_AMIGA)            += amifb.o c2p_planar.o
 obj-$(CONFIG_FB_ARC)              += arcfb.o
 obj-$(CONFIG_FB_CLPS711X)         += clps711xfb.o

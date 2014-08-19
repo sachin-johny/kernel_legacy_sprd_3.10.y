@@ -54,6 +54,8 @@
 #include "chip_x15/__regs_pinmap.h"
 #elif defined(CONFIG_ARCH_SCX30G)
 #include "chip_x30g/__regs_pinmap.h"
+#elif defined(CONFIG_ARCH_SCX35L)
+#include "chip_x35l/__regs_pinmap.h"
 #elif defined(CONFIG_ARCH_SCX35)
 #include "chip_x35/__regs_pinmap.h"
 #else

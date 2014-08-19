@@ -33,9 +33,7 @@
  * coalesce naturally under reasonable reclaim pressure and those which
  * will not.
  */
-/* Reduce the costly order to 2 from 3 for the platform with
- * ultra low memory (<= 512MB) */
-#define PAGE_ALLOC_COSTLY_ORDER 2
+#define PAGE_ALLOC_COSTLY_ORDER 3
 
 enum {
 	MIGRATE_UNMOVABLE,

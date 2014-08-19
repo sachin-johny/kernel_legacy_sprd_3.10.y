@@ -100,7 +100,7 @@ static int __hwspinlock_trylock(struct hwspinlock *lock)
 {
 	void __iomem *addr = lock->priv;
 
-	if (hwspinlock_vid == 0x100) {
+	if (hwspinlock_vid == 0x100 || hwspinlock_vid == 0x200) {
 		if (!readl(addr))
 			goto __locked;
 	} else {
@@ -126,7 +126,7 @@ static void __hwspinlock_unlock(struct hwspinlock *lock)
 	void __iomem *lock_addr = lock->priv;
 	int unlock_key = 0;
 
-	if (hwspinlock_vid == 0x100) {
+	if (hwspinlock_vid == 0x100 || hwspinlock_vid == 0x200) {
 		unlock_key = HWSPINLOCK_NOTTAKEN_V1;
 	} else {
 		unlock_key = HWSPINLOCK_NOTTAKEN_V0;
@@ -185,7 +185,7 @@ static int sci_hwspinlock_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, bank);
 
 	for (i = 0, hwlock = &bank->lock[0]; i < num_locks; i++, hwlock++) {
-		if (hwspinlock_vid == 0x100)
+		if (hwspinlock_vid == 0x100 || hwspinlock_vid == 0x200)
 			hwlock->priv =
 			    (void __iomem *)(res->start +
 					     HWSPINLOCK_TOKEN_V1(i));

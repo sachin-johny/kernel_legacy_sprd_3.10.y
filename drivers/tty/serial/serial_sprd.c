@@ -1070,15 +1070,6 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 	/* TODO */
 	int id = dev->id;
 	struct uart_port *port;
-
-	port = serial_sprd_ports[id];
-	uart_bak[id].ien = serial_in(port, ARM_UART_IEN);
-	uart_bak[id].ctrl0 = serial_in(port, ARM_UART_CTL0);
-	uart_bak[id].ctrl1 = serial_in(port, ARM_UART_CTL1);
-	uart_bak[id].ctrl2 = serial_in(port, ARM_UART_CTL2);
-	uart_bak[id].clkd0 = serial_in(port, ARM_UART_CLKD0);
-	uart_bak[id].clkd1 = serial_in(port, ARM_UART_CLKD1);
-
 	if (BT_RX_WAKE_UP == plat_data.wakeup_type) {
 		is_uart_rx_wakeup = false;
 	} else if (BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type) {
@@ -1086,15 +1077,22 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 		   control as the AF3 to make the pin can be set to high */
 		unsigned long fc = 0;
 		struct uart_port *port = serial_sprd_ports[0];
-		pinmap_set(REG_PIN_U0RTS,
-			   (BITS_PIN_DS(3) | BITS_PIN_AF(3) | BIT_PIN_WPU |
-			    BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE));
 		fc = serial_in(port, ARM_UART_CTL1);
 		fc &= ~(RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
 		serial_out(port, ARM_UART_CTL1, fc);
+		pinmap_set(REG_PIN_U0RTS,
+			   (BITS_PIN_DS(3) | BITS_PIN_AF(3) | BIT_PIN_WPU |
+			    BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE));
 	} else {
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
+	port = serial_sprd_ports[id];
+	uart_bak[id].ien = serial_in(port, ARM_UART_IEN);
+	uart_bak[id].ctrl0 = serial_in(port, ARM_UART_CTL0);
+	uart_bak[id].ctrl1 = serial_in(port, ARM_UART_CTL1);
+	uart_bak[id].ctrl2 = serial_in(port, ARM_UART_CTL2);
+	uart_bak[id].clkd0 = serial_in(port, ARM_UART_CLKD0);
+	uart_bak[id].clkd1 = serial_in(port, ARM_UART_CLKD1);
 
 	return 0;
 }
@@ -1104,15 +1102,6 @@ static int serial_sprd_resume(struct platform_device *dev)
 	/* TODO */
 	int id = dev->id;
 	struct uart_port *port = serial_sprd_ports[id];
-
-	port = serial_sprd_ports[id];
-	serial_out(port, ARM_UART_CTL0, uart_bak[id].ctrl0);
-	serial_out(port, ARM_UART_CTL1, uart_bak[id].ctrl1);
-	serial_out(port, ARM_UART_CTL2, uart_bak[id].ctrl2);
-	serial_out(port, ARM_UART_CLKD0, uart_bak[id].clkd0);
-	serial_out(port, ARM_UART_CLKD1, uart_bak[id].clkd1);
-	serial_out(port, ARM_UART_IEN, uart_bak[id].ien);
-
 	if (BT_RX_WAKE_UP == plat_data.wakeup_type) {
 		if (is_uart_rx_wakeup) {
 			is_uart_rx_wakeup = false;
@@ -1124,15 +1113,22 @@ static int serial_sprd_resume(struct platform_device *dev)
 		   hardware */
 		unsigned long fc = 0;
 		struct uart_port *port = serial_sprd_ports[0];
-		fc = serial_in(port, ARM_UART_CTL1);
-		fc |= (RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
-		serial_out(port, ARM_UART_CTL1, fc);
 		pinmap_set(REG_PIN_U0RTS,
 			   (BITS_PIN_DS(1) | BITS_PIN_AF(0) | BIT_PIN_NUL |
 			    BIT_PIN_SLP_NUL | BIT_PIN_SLP_Z));
+		fc = serial_in(port, ARM_UART_CTL1);
+		fc |= (RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
+		serial_out(port, ARM_UART_CTL1, fc);
 	} else {
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
+	port = serial_sprd_ports[id];
+	serial_out(port, ARM_UART_IEN, uart_bak[id].ien);
+	serial_out(port, ARM_UART_CTL0, uart_bak[id].ctrl0);
+	serial_out(port, ARM_UART_CTL1, uart_bak[id].ctrl1);
+	serial_out(port, ARM_UART_CTL2, uart_bak[id].ctrl2);
+	serial_out(port, ARM_UART_CLKD0, uart_bak[id].clkd0);
+	serial_out(port, ARM_UART_CLKD1, uart_bak[id].clkd1);
 
 	return 0;
 }

@@ -375,7 +375,7 @@ static int board_func_set(struct snd_kcontrol *kcontrol,
 		return 0;
 
 	board.func[id] = ucontrol->value.integer.value[0];
-	board_try_inter_pa_control(card, id, 1);
+	board_try_inter_pa_control(card, id, 0);
 	board_ext_control(&card->dapm, id, id + 1);
 	return 1;
 }

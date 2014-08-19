@@ -57,6 +57,9 @@
 
 #include "csi2/csi_api.h"
 #include "parse_hwinfo.h"
+#ifdef  CONFIG_SC_FPGA
+#include "dcam_reg.h"
+#endif
 
 /* FIXME: Move to camera device platform data later */
 /*#if defined(CONFIG_ARCH_SC8825)*/
@@ -70,23 +73,12 @@
 #define REGU_NAME_CAMMOT       "vddcama"
 #define REGU_NAME_CAMAVDD	"RT5033_REGULATORLDO1"
 #define REGU_NAME_CAMDVDD	"RT5033_REGULATORDCDC1"
-#elif defined(CONFIG_MACH_CORE3)
-#define REGU_NAME_SUB_CAMDVDD  "vddcamd"
-#define REGU_NAME_CAMAVDD    "vddcama"
-#define REGU_NAME_CAMDVDD    "vddcamd"
-#define REGU_NAME_CAMMOT       "vddcammot"
-#elif defined(CONFIG_MACH_PIKEAYOUNG2DTV)
-#ifdef REGU_NAME_CAMVIO
-#undef REGU_NAME_CAMVIO
-#define REGU_NAME_CAMVIO     "vddcamd"
-#endif
-#define REGU_NAME_SUB_CAMDVDD  "vddcamd"
-#define REGU_NAME_CAMAVDD    "vddcama"
-#define REGU_NAME_CAMDVDD    "vddcamio"
-#define REGU_NAME_CAMMOT       "vddcama"
 #else
 #define REGU_NAME_SUB_CAMDVDD  "vddcamd"
+#ifndef GPIO_MAIN_SENSOR_RESET
+#define GPIO_MAIN_SENSOR_RESET        GPIO_SENSOR_RESET
 #define GPIO_SUB_SENSOR_RESET        GPIO_SENSOR_RESET
+#endif
 #define REGU_NAME_CAMAVDD    "vddcama"
 #define REGU_NAME_CAMDVDD    "vddcamd"
 #define REGU_NAME_CAMMOT       "vddcammot"
@@ -108,7 +100,7 @@
 
 #define DEBUG_SENSOR_DRV
 #ifdef  DEBUG_SENSOR_DRV
-#define SENSOR_PRINT                      pr_debug
+#define SENSOR_PRINT                      printk
 #else
 #define SENSOR_PRINT(...)
 #endif
@@ -120,9 +112,11 @@
 #define SENSOR_K_FALSE                    0
 #define SENSOR_K_TRUE                     1
 
-
+#ifndef  CONFIG_SC_FPGA
 #define LOCAL                             static
-//#define LOCAL
+#else
+#define LOCAL
+#endif
 
 #define PNULL                             ((void *)0)
 
@@ -204,10 +198,10 @@ struct sensor_module {
 	struct regulator                *cammot_regulator;
 	struct i2c_driver               sensor_i2c_driver;
 	struct sensor_mem_tag           sensor_mem;
-	unsigned                        pin_main_reset;
-	unsigned                        pin_sub_reset;
-	unsigned                        pin_main_pd;
-	unsigned                        pin_sub_pd;
+	unsigned                        pin_reset;
+	unsigned                        pin_main;
+	unsigned                        pin_reset_sub;
+	unsigned                        pin_sub;
 	atomic_t                        open_count;
 };
 
@@ -317,31 +311,61 @@ LOCAL int sensor_detect(struct i2c_client *client, struct i2c_board_info *info)
 LOCAL int _sensor_k_powerdown(BOOLEAN power_level)
 {
 
+#ifndef	CONFIG_SC_FPGA_PIN
 	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 		{
-			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_main %d\n", power_level,s_p_sensor_mod->pin_main_pd);
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_main %d\n", power_level,s_p_sensor_mod->pin_main);
 			if (0 == power_level) {
-				gpio_direction_output(s_p_sensor_mod->pin_main_pd, 0);
+				gpio_direction_output(s_p_sensor_mod->pin_main, 0);
 
 			} else {
-				gpio_direction_output(s_p_sensor_mod->pin_main_pd, 1);
+				gpio_direction_output(s_p_sensor_mod->pin_main, 1);
 			}
 			break;
 		}
 	case SENSOR_SUB:
 		{
-			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_sub %d\n", power_level,s_p_sensor_mod->pin_sub_pd);
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_sub %d\n", power_level,s_p_sensor_mod->pin_sub);
 			if (0 == power_level) {
-				gpio_direction_output(s_p_sensor_mod->pin_sub_pd, 0);
+				gpio_direction_output(s_p_sensor_mod->pin_sub, 0);
 			} else {
-				gpio_direction_output(s_p_sensor_mod->pin_sub_pd, 1);
+				gpio_direction_output(s_p_sensor_mod->pin_sub, 1);
 			}
 			break;
 		}
 	default:
 		break;
 	}
+#else
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL 0x%x\n", CAP_SENSOR_CTRL);
+	switch (_sensor_K_get_curId()) {
+	case SENSOR_MAIN:
+		{
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_main %d\n", power_level,s_p_sensor_mod->pin_main);
+			if (0 == power_level) {
+				REG_MWR(CAP_SENSOR_CTRL,0x0f,0);
+			} else {
+				REG_MWR(CAP_SENSOR_CTRL,0x0f,0x0f);
+			}
+			break;
+		}
+	case SENSOR_SUB:
+		{
+			SENSOR_PRINT_HIGH("SENSOR: pwdn %d,pin_sub %d\n", power_level,s_p_sensor_mod->pin_sub);
+			if (0 == power_level) {
+				REG_MWR(CAP_SENSOR_CTRL,0x0f,0);
+			} else {
+				REG_MWR(CAP_SENSOR_CTRL,0x0f,0x0f);
+			}
+			break;
+		}
+	default:
+		break;
+	}
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL val=0x%x\n", REG_RD(CAP_SENSOR_CTRL));
+
+#endif
 	return SENSOR_K_SUCCESS;
 }
 
@@ -385,6 +409,10 @@ LOCAL int _sensor_k_set_voltage_cammot(uint32_t cammot_val)
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set CAMMOT val %d\n",cammot_val);
+
+#ifdef	CONFIG_SC_FPGA_LDO
+	return 0;
+#endif
 
 	if (NULL == s_p_sensor_mod->cammot_regulator) {
 		s_p_sensor_mod->cammot_regulator = regulator_get(NULL, REGU_NAME_CAMMOT);
@@ -474,6 +502,10 @@ LOCAL int _sensor_k_set_voltage_avdd(uint32_t avdd_val)
 
 	SENSOR_PRINT_HIGH("sensor set AVDD val %d\n",avdd_val);
 
+#ifdef	CONFIG_SC_FPGA_LDO
+	return 0;
+#endif
+
 	if (NULL == s_p_sensor_mod->camavdd_regulator) {
 		s_p_sensor_mod->camavdd_regulator = regulator_get(NULL, REGU_NAME_CAMAVDD);
 		if (IS_ERR(s_p_sensor_mod->camavdd_regulator)) {
@@ -549,6 +581,10 @@ LOCAL int _sensor_k_set_voltage_dvdd(uint32_t dvdd_val)
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set DVDD val %d\n",dvdd_val);
+
+#ifdef	CONFIG_SC_FPGA_LDO
+	return 0;
+#endif
 
 	if (!s_p_sensor_mod->camdvdd_regulator) {
 		switch (_sensor_K_get_curId()) {
@@ -654,6 +690,10 @@ LOCAL int _sensor_k_set_voltage_iovdd(uint32_t iodd_val)
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
 	SENSOR_PRINT_HIGH("sensor set IOVDD val %d\n",iodd_val);
+
+#ifdef	CONFIG_SC_FPGA_LDO
+	return 0;
+#endif
 
 	if(NULL == s_p_sensor_mod->camvio_regulator) {
 		s_p_sensor_mod->camvio_regulator = regulator_get(NULL, REGU_NAME_CAMVIO);
@@ -796,6 +836,9 @@ int32_t _sensor_k_mipi_clk_en(struct device_node *dn)
 
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
+#ifdef	CONFIG_SC_FPGA_CLK
+	return 0;
+#endif
 	if (NULL == s_p_sensor_mod->mipi_clk) {
 		s_p_sensor_mod->mipi_clk = parse_clk(dn,"clk_dcam_mipi");
 	}
@@ -818,6 +861,10 @@ int32_t _sensor_k_mipi_clk_dis(void)
 {
 	SENSOR_CHECK_ZERO(s_p_sensor_mod);
 
+#ifdef	CONFIG_SC_FPGA_CLK
+	return 0;
+#endif
+
 	if (s_p_sensor_mod->mipi_clk) {
 		clk_disable(s_p_sensor_mod->mipi_clk);
 		clk_put(s_p_sensor_mod->mipi_clk);
@@ -836,6 +883,10 @@ LOCAL int _sensor_k_set_mclk(struct device_node *dn,uint32_t mclk)
 
 	SENSOR_PRINT_HIGH("SENSOR: set mclk org = %d, clk = %d\n",
 				s_p_sensor_mod->sensor_mclk, mclk);
+
+#ifdef	CONFIG_SC_FPGA_CLK
+	return 0;
+#endif
 
 	if ((0 != mclk) && (s_p_sensor_mod->sensor_mclk != mclk)) {
 		if (s_p_sensor_mod->ccir_clk) {
@@ -936,29 +987,39 @@ LOCAL int _sensor_k_reset(uint32_t level, uint32_t width)
 {
 	SENSOR_PRINT("SENSOR:_sensor_k_reset, reset_val=%d  camera:%d (0:main 1:sub)\n",level, _sensor_K_get_curId());
 
+#ifndef	CONFIG_SC_FPGA_PIN
 	switch (_sensor_K_get_curId()) {
 	case SENSOR_MAIN:
 	{
-		gpio_direction_output(s_p_sensor_mod->pin_main_reset, level);
-		gpio_set_value(s_p_sensor_mod->pin_main_reset, level);
+		gpio_direction_output(s_p_sensor_mod->pin_reset, level);
+		gpio_set_value(s_p_sensor_mod->pin_reset, level);
 		SLEEP_MS(width);
-		gpio_set_value(s_p_sensor_mod->pin_main_reset, !level);
+		gpio_set_value(s_p_sensor_mod->pin_reset, !level);
 		mdelay(1);
 		break;
 	}
 	case SENSOR_SUB:
 	{
-		gpio_direction_output(s_p_sensor_mod->pin_sub_reset, level);
-		gpio_set_value(s_p_sensor_mod->pin_sub_reset, level);
+		gpio_direction_output(s_p_sensor_mod->pin_reset_sub, level);
+		gpio_set_value(s_p_sensor_mod->pin_reset_sub, level);
 		SLEEP_MS(width);
-		gpio_set_value(s_p_sensor_mod->pin_sub_reset, !level);
+		gpio_set_value(s_p_sensor_mod->pin_reset_sub, !level);
 		mdelay(1);
 		break;
 	}
 	default:
 		break;
 	}
+#else
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL 0x%x\n", CAP_SENSOR_CTRL);
 
+	REG_MWR(CAP_SENSOR_CTRL,0xf0,level!=0?0xf0:0);
+	SLEEP_MS(width);
+	REG_MWR(CAP_SENSOR_CTRL,0xf0,level!=0?0:0xf0);
+	mdelay(1);
+
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL val=0x%x\n", REG_RD(CAP_SENSOR_CTRL));
+#endif
 	return SENSOR_K_SUCCESS;
 }
 
@@ -982,24 +1043,18 @@ LOCAL int _sensor_k_i2c_deInit(uint32_t sensor_id)
 
 LOCAL int _sensor_k_set_rst_level(uint32_t plus_level)
 {
-	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, s_p_sensor_mod->pin_main_reset);
+	SENSOR_PRINT("sensor set rst lvl: lvl %d, rst pin %d \n", plus_level, s_p_sensor_mod->pin_reset);
 
-	switch (_sensor_K_get_curId()) {
-		case SENSOR_MAIN:
-		{
-			gpio_direction_output(s_p_sensor_mod->pin_main_reset, plus_level);
-			gpio_set_value(s_p_sensor_mod->pin_main_reset, plus_level);
-			break;
-		}
-		case SENSOR_SUB:
-		{
-			gpio_direction_output(s_p_sensor_mod->pin_sub_reset, plus_level);
-			gpio_set_value(s_p_sensor_mod->pin_sub_reset, plus_level);
-			break;
-		}
-		default:
-		break;
-	}
+#ifndef CONFIG_SC_FPGA_PIN
+	gpio_direction_output(s_p_sensor_mod->pin_reset, plus_level);
+	gpio_set_value(s_p_sensor_mod->pin_reset, plus_level);
+#else
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL 0x%x\n", CAP_SENSOR_CTRL);
+
+	REG_MWR(CAP_SENSOR_CTRL,0xf0,plus_level!=0?0xf0:0x0);
+
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL val=0x%x\n", REG_RD(CAP_SENSOR_CTRL));
+#endif
 
 	return SENSOR_K_SUCCESS;
 }
@@ -1609,6 +1664,11 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 		{
 			SENSOR_IF_CFG_T if_cfg;
 			ret = copy_from_user((void*)&if_cfg, (SENSOR_IF_CFG_T *)arg, sizeof(SENSOR_IF_CFG_T));
+#if defined(CONFIG_ARCH_SCX35L)
+			if(if_cfg.phy_id==3){
+				printk("invalid phy_id 3\n");
+			}
+#endif
 			if (0 == ret) {
 				if (INTERFACE_OPEN == if_cfg.is_open) {
 					if (INTERFACE_MIPI == if_cfg.if_type) {
@@ -1682,50 +1742,52 @@ int sensor_k_probe(struct platform_device *pdev)
 			SENSOR_MINOR, ret);
 		return ret;
 	}
+#ifndef	CONFIG_SC_FPGA_PIN
+
 #ifdef CONFIG_OF
 	sensor_dev.this_device->of_node = pdev->dev.of_node;
-	s_p_sensor_mod->pin_main_reset = of_get_gpio(sensor_dev.this_device->of_node,0);
-	s_p_sensor_mod->pin_main_pd = of_get_gpio(sensor_dev.this_device->of_node,1);
-	s_p_sensor_mod->pin_sub_reset = of_get_gpio(sensor_dev.this_device->of_node,2);
-	s_p_sensor_mod->pin_sub_pd = of_get_gpio(sensor_dev.this_device->of_node,3);
+	s_p_sensor_mod->pin_reset = of_get_gpio(sensor_dev.this_device->of_node,0);
+	s_p_sensor_mod->pin_main = of_get_gpio(sensor_dev.this_device->of_node,1);
+	s_p_sensor_mod->pin_reset_sub = of_get_gpio(sensor_dev.this_device->of_node,2);
+	s_p_sensor_mod->pin_sub = of_get_gpio(sensor_dev.this_device->of_node,3);
 #else
-	s_p_sensor_mod->pin_main_reset = GPIO_SENSOR_RESET;
-	s_p_sensor_mod->pin_main_pd= GPIO_MAIN_SENSOR_PWN;
-	s_p_sensor_mod->pin_sub_reset = GPIO_SUB_SENSOR_RESET;
-	s_p_sensor_mod->pin_sub_pd= GPIO_SUB_SENSOR_PWN;
+	s_p_sensor_mod->pin_reset = GPIO_MAIN_SENSOR_RESET;
+	s_p_sensor_mod->pin_main= GPIO_MAIN_SENSOR_PWN;
+	s_p_sensor_mod->pin_reset_sub = GPIO_SUB_SENSOR_RESET;
+	s_p_sensor_mod->pin_sub= GPIO_SUB_SENSOR_PWN;
 #endif
-	printk("sensor pin_main_reset =%d\n",s_p_sensor_mod->pin_main_reset);
-	printk("sensor pin_main_pd =%d\n",s_p_sensor_mod->pin_main_pd);
-	printk("sensor pin_sub_reset =%d\n",s_p_sensor_mod->pin_sub_reset);
-	printk("sensor pin_sub_pd =%d\n",s_p_sensor_mod->pin_sub_pd);
+	printk("sensor pin_reset =%d\n",s_p_sensor_mod->pin_reset);
+	printk("sensor pin_main =%d\n",s_p_sensor_mod->pin_main);
+	printk("sensor pin_reset_sub =%d\n",s_p_sensor_mod->pin_reset_sub);
+	printk("sensor pin_sub =%d\n",s_p_sensor_mod->pin_sub);
 
-	ret = gpio_request(s_p_sensor_mod->pin_main_reset, "main camera rst");
+	ret = gpio_request(s_p_sensor_mod->pin_reset, "main rst");
 	if (ret) {
-		tmp = s_p_sensor_mod->pin_main_reset;
+		tmp = s_p_sensor_mod->pin_reset;
 		goto gpio_err_exit;
 	}
-
-	ret = gpio_request(s_p_sensor_mod->pin_main_pd, "main camera pd");
+	ret = gpio_request(s_p_sensor_mod->pin_main, "main pwdn");
 	if (ret) {
-		tmp = s_p_sensor_mod->pin_main_pd;
+		tmp = s_p_sensor_mod->pin_main;
 		goto gpio_err_exit;
 	}
-
-	if (s_p_sensor_mod->pin_sub_reset != s_p_sensor_mod->pin_main_reset) {
-		ret = gpio_request(s_p_sensor_mod->pin_sub_reset, "sub camera rst");
+	if(s_p_sensor_mod->pin_reset_sub != s_p_sensor_mod->pin_reset){
+		ret = gpio_request(s_p_sensor_mod->pin_reset_sub, "sub rst");
 		if (ret) {
-			tmp = s_p_sensor_mod->pin_sub_reset;
+			tmp = s_p_sensor_mod->pin_reset_sub;
 			goto gpio_err_exit;
 		}
 	}
-
-	if (s_p_sensor_mod->pin_sub_pd != s_p_sensor_mod->pin_main_pd) {
-		ret = gpio_request(s_p_sensor_mod->pin_sub_pd, "sub camera pd");
-		if (ret) {
-			tmp = s_p_sensor_mod->pin_sub_pd;
-			goto gpio_err_exit;
-		}
+	ret = gpio_request(s_p_sensor_mod->pin_sub, "sub pwdn");
+	if (ret) {
+		tmp = s_p_sensor_mod->pin_sub;
+		goto gpio_err_exit;
 	}
+
+#else
+	SENSOR_PRINT_HIGH("DCAM_BASE 0x%x\n", DCAM_BASE);
+	SENSOR_PRINT_HIGH("CAP_SENSOR_CTRL 0x%x\n", CAP_SENSOR_CTRL);
+#endif
 
 	s_p_sensor_mod->sensor_i2c_driver.driver.owner = THIS_MODULE;
 	s_p_sensor_mod->sensor_i2c_driver.probe  = sensor_probe;
@@ -1757,14 +1819,15 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 {
 	printk(KERN_INFO "sensor remove called !\n");
 
-	if (s_p_sensor_mod->pin_sub_reset != s_p_sensor_mod->pin_main_reset) {
-		gpio_free(s_p_sensor_mod->pin_sub_reset);
+#ifndef CONFIG_SC_FPGA_PIN
+	gpio_free(s_p_sensor_mod->pin_reset);
+	gpio_free(s_p_sensor_mod->pin_main);
+	if(s_p_sensor_mod->pin_reset_sub != s_p_sensor_mod->pin_reset){
+		gpio_free(s_p_sensor_mod->pin_reset_sub);
 	}
-	if (s_p_sensor_mod->pin_sub_pd != s_p_sensor_mod->pin_main_pd) {
-		gpio_free(s_p_sensor_mod->pin_sub_pd);
-	}
-	gpio_free(s_p_sensor_mod->pin_main_reset);
-	gpio_free(s_p_sensor_mod->pin_main_pd);
+	gpio_free(s_p_sensor_mod->pin_sub);
+
+#endif
 
 	misc_deregister(&sensor_dev);
 	printk(KERN_INFO "sensor remove Success !\n");

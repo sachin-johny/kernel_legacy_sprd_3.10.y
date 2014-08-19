@@ -169,8 +169,10 @@ static __inline void __ddie_fuse_global_init(void)
 	udelay(5);
 	sci_glb_clr(REG_AON_APB_APB_RST0, BIT_EFUSE_SOFT_RST);
 
+#if !defined(CONFIG_ARCH_SCX35L)
 	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
 	sci_glb_set(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
+#endif
 #endif
 	efuse_reg_write(efuse_reg_read(REG_EFUSE_PGM_PARA) | BIT_EFUSE_VDD_ON | BIT_CLK_EFS_EN,
 		     REG_EFUSE_PGM_PARA);
@@ -185,8 +187,10 @@ static __inline void __ddie_fuse_global_close(void)
 	sci_glb_clr(REG_GLB_GEN0, BIT_EFUSE_EB);
 #elif defined(CONFIG_ARCH_SCX35)
 	sci_glb_clr(REG_AON_APB_APB_EB0,BIT_EFUSE_EB);
+#if !defined(CONFIG_ARCH_SCX35L)
 	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_EFUSE0_PWR_ON);
 	sci_glb_clr(REG_AON_APB_PWR_CTRL, BIT_EFUSE1_PWR_ON);
+#endif
 #endif
 }
 
@@ -236,6 +240,8 @@ static __inline int __adie_fuse_getdata(void)
 {
 #if defined(CONFIG_ARCH_SCX15)
 	return 0;
+#elif defined(CONFIG_ARCH_SCX35L)
+
 #else
 	int val = 0;
 	unsigned long timeout;
@@ -631,6 +637,8 @@ void sci_adie_fuse_set_readdly(u32 read_delay)
 {
 #if defined(CONFIG_ARCH_SCX15)
 	return;
+#elif defined(CONFIG_ARCH_SCX35L)
+
 #else
 	u32 v = 0;
 	mutex_lock(&adie_fuse_lock);

@@ -57,3 +57,4 @@ obj-$(CONFIG_KEYBOARD_TWL4030)		+= twl4030_keypad.o
 obj-$(CONFIG_KEYBOARD_XTKBD)		+= xtkbd.o
 obj-$(CONFIG_KEYBOARD_W90P910)		+= w90p910_keypad.o
 obj-$(CONFIG_KEYBOARD_SC)		+= sc_keypad.o input-hook.o
+obj-$(CONFIG_KEYBOARD_SPRD_EIC)		+= sprd_eic_keys.o input-hook.o

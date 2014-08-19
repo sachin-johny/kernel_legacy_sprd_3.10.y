@@ -31,13 +31,9 @@ struct sprd_otp_device {
 	struct sprd_otp_operations *ops;
 	struct list_head list;
 };
-#define BITSINDEX(b, o)	( (b) * 8 + (o) )
 
 int sprd_efuse_init(void);
 int sprd_adie_efuse_init(void);
-u32 __adie_efuse_read(int blk_index);
-u32 __adie_efuse_read_bits(int bit_index, int length);
-
 int sprd_adie_laserfuse_init(void);
 void *sprd_otp_register(const char *name, void *ops, int blk_max,
 			int blk_width);

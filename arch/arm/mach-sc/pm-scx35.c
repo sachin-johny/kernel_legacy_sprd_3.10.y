@@ -261,16 +261,13 @@ static void setup_autopd_mode(void)
 	sci_glb_clr(REG_PMU_APB_PD_MM_TOP_CFG,BIT_PD_MM_TOP_AUTO_SHUTDOWN_EN);
 #endif
 	sci_glb_write(REG_PMU_APB_AP_WAKEUP_POR_CFG, 0x1, -1UL);
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	/* KEEP eMMC/SD power */
+#if defined(CONFIG_ADIE_SC2723)
+	sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN);
+	sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOSDCORE_PD_EN | BIT_SLP_LDOSDIO_PD_EN);
+#else
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN | BIT_SLP_LDOEMMCIO_PD_EN);
 	sci_adi_clr(ANA_REG_GLB_LDO_SLP_CTRL1, BIT_SLP_LDOSD_PD_EN );
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	/* KEEP eMMC/SD power */
-	sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL0, BIT_SLP_LDOEMMCCORE_PD_EN); /* | BIT_SLP_LDOEMMCIO_PD_EN);*/
-	sci_adi_clr(ANA_REG_GLB_PWR_SLP_CTRL1, BIT_SLP_LDOSDIO_PD_EN );
-#endif
 #endif
 	/*****************  for idle to deep  ****************/
 	configure_for_deepsleep(1);
@@ -354,14 +351,24 @@ void bak_restore_ahb(int bak)
 	volatile u32 i;
 	if(bak){
 		ap_ahb_reg_saved.ahb_eb                 = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
+		#if defined(CONFIG_ARCH_SCX35L)
+		ap_ahb_reg_saved.ca7_ckg_cfg            = sci_glb_read(REG_AP_AHB_CA7_CKG_SEL_CFG, -1UL);
+		#else
 		ap_ahb_reg_saved.ca7_ckg_cfg            = sci_glb_read(REG_AP_AHB_CA7_CKG_CFG, -1UL);
+		#endif
 		ap_ahb_reg_saved.misc_ckg_en            = sci_glb_read(REG_AP_AHB_MISC_CKG_EN, -1UL);
 		ap_ahb_reg_saved.misc_cfg               = sci_glb_read(REG_AP_AHB_MISC_CFG, -1UL);
 	} else{
 		sci_glb_write(REG_AP_AHB_AHB_EB, 	ap_ahb_reg_saved.ahb_eb, -1UL);
+		#if defined(CONFIG_ARCH_SCX35L)
+		sci_glb_write(REG_AP_AHB_CA7_CKG_SEL_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg & (~0x7), -1UL);
+		for(i = 0; i < 20; i++);
+		sci_glb_write(REG_AP_AHB_CA7_CKG_SEL_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg, -1UL);
+		#else
 		sci_glb_write(REG_AP_AHB_CA7_CKG_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg & (~0x7), -1UL);
 		for(i = 0; i < 20; i++);
 		sci_glb_write(REG_AP_AHB_CA7_CKG_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg, -1UL);
+		#endif
 		sci_glb_write(REG_AP_AHB_MISC_CKG_EN, 	ap_ahb_reg_saved.misc_ckg_en, -1UL);
 		sci_glb_write(REG_AP_AHB_MISC_CFG, 	ap_ahb_reg_saved.misc_cfg, -1UL);
 	}
@@ -381,11 +388,15 @@ void bak_restore_apb(int bak)
 	if(bak){
 		ap_apb_reg_saved.apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
 		ap_apb_reg_saved.apb_misc_ctrl = sci_glb_read(REG_AP_APB_APB_MISC_CTRL, -1UL);
+#if !defined(CONFIG_ARCH_SCX35L)
 		ap_apb_reg_saved.usb_phy_tune = sci_glb_read(REG_AP_APB_USB_PHY_TUNE, -1UL);
+#endif
 	}else{
 		sci_glb_write(REG_AP_APB_APB_EB, ap_apb_reg_saved.apb_eb, -1UL);
 		sci_glb_write(REG_AP_APB_APB_MISC_CTRL, ap_apb_reg_saved.apb_misc_ctrl, -1UL);
+#if !defined(CONFIG_ARCH_SCX35L)
 		sci_glb_write(REG_AP_APB_USB_PHY_TUNE, ap_apb_reg_saved.usb_phy_tune, -1UL);
+#endif
 	}
 	return;
 }
@@ -417,17 +428,25 @@ static void bak_ap_clk_reg(int bak)
 		ap_clk_reg_saved.dispc0_cfg      = sci_glb_read(REG_AP_CLK_DISPC0_CFG      , -1UL);
 		ap_clk_reg_saved.dispc0_dbi_cfg  = sci_glb_read(REG_AP_CLK_DISPC0_DBI_CFG  , -1UL);
 		ap_clk_reg_saved.dispc0_dpi_cfg  = sci_glb_read(REG_AP_CLK_DISPC0_DPI_CFG  , -1UL);
+		#if defined(CONFIG_ARCH_SCX35L)
+		ap_clk_reg_saved.nfc_cfg         = sci_glb_read(REG_AP_CLK_NANDC_ECC_CFG   , -1UL);
+		#else
 		ap_clk_reg_saved.dispc1_cfg      = sci_glb_read(REG_AP_CLK_DISPC1_CFG      , -1UL);
 		ap_clk_reg_saved.dispc1_dbi_cfg  = sci_glb_read(REG_AP_CLK_DISPC1_DBI_CFG  , -1UL);
 		ap_clk_reg_saved.dispc1_dpi_cfg  = sci_glb_read(REG_AP_CLK_DISPC1_DPI_CFG  , -1UL);
 		ap_clk_reg_saved.nfc_cfg         = sci_glb_read(REG_AP_CLK_NFC_CFG         , -1UL);
+		#endif
 		ap_clk_reg_saved.sdio0_cfg       = sci_glb_read(REG_AP_CLK_SDIO0_CFG       , -1UL);
 		ap_clk_reg_saved.sdio1_cfg       = sci_glb_read(REG_AP_CLK_SDIO1_CFG       , -1UL);
 		ap_clk_reg_saved.sdio2_cfg       = sci_glb_read(REG_AP_CLK_SDIO2_CFG       , -1UL);
 		ap_clk_reg_saved.emmc_cfg        = sci_glb_read(REG_AP_CLK_EMMC_CFG        , -1UL);
+		#if defined(CONFIG_ARCH_SCX35L)
+		ap_clk_reg_saved.usb_ref_cfg     = sci_glb_read(REG_AP_CLK_OTG_REF_CFG     , -1UL);
+		#else
 		ap_clk_reg_saved.gps_cfg         = sci_glb_read(REG_AP_CLK_GPS_CFG         , -1UL);
 		ap_clk_reg_saved.gps_tcxo_cfg    = sci_glb_read(REG_AP_CLK_GPS_TCXO_CFG    , -1UL);
 		ap_clk_reg_saved.usb_ref_cfg     = sci_glb_read(REG_AP_CLK_USB_REF_CFG     , -1UL);
+		#endif
 		ap_clk_reg_saved.uart0_cfg       = sci_glb_read(REG_AP_CLK_UART0_CFG       , -1UL);
 		ap_clk_reg_saved.uart1_cfg       = sci_glb_read(REG_AP_CLK_UART1_CFG       , -1UL);
 		ap_clk_reg_saved.uart2_cfg       = sci_glb_read(REG_AP_CLK_UART2_CFG       , -1UL);
@@ -460,6 +479,11 @@ static void bak_ap_clk_reg(int bak)
 		sci_glb_write(REG_AP_CLK_DISPC0_DPI_CFG  , ap_clk_reg_saved.dispc0_dpi_cfg & (~0x3),-1UL);
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_DISPC0_DPI_CFG  , ap_clk_reg_saved.dispc0_dpi_cfg  ,-1UL);
+		#if defined(CONFIG_ARCH_SCX35L)
+		sci_glb_write(REG_AP_CLK_NANDC_ECC_CFG         , ap_clk_reg_saved.nfc_cfg & (~0x3),-1UL);
+		for(i = 0; i < 10; i++);
+		sci_glb_write(REG_AP_CLK_NANDC_ECC_CFG         , ap_clk_reg_saved.nfc_cfg         ,-1UL);
+		#else
 		sci_glb_write(REG_AP_CLK_DISPC1_CFG      , ap_clk_reg_saved.dispc1_cfg & (~0x3),-1UL);
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_DISPC1_CFG      , ap_clk_reg_saved.dispc1_cfg      ,-1UL);
@@ -474,15 +498,20 @@ static void bak_ap_clk_reg(int bak)
 		sci_glb_write(REG_AP_CLK_NFC_CFG         , ap_clk_reg_saved.nfc_cfg & (~0x3),-1UL);
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_NFC_CFG         , ap_clk_reg_saved.nfc_cfg         ,-1UL);
+		#endif
 		sci_glb_write(REG_AP_CLK_SDIO0_CFG       , ap_clk_reg_saved.sdio0_cfg & (~0x3),-1UL);
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_SDIO0_CFG       , ap_clk_reg_saved.sdio0_cfg       ,-1UL);
 		sci_glb_write(REG_AP_CLK_SDIO1_CFG       , ap_clk_reg_saved.sdio1_cfg       ,-1UL);
 		sci_glb_write(REG_AP_CLK_SDIO2_CFG       , ap_clk_reg_saved.sdio2_cfg       ,-1UL);
 		sci_glb_write(REG_AP_CLK_EMMC_CFG        , ap_clk_reg_saved.emmc_cfg        ,-1UL);
+		#if defined(CONFIG_ARCH_SCX35L)
+		sci_glb_write(REG_AP_CLK_OTG_REF_CFG     , ap_clk_reg_saved.usb_ref_cfg     ,-1UL);
+		#else
 		sci_glb_write(REG_AP_CLK_GPS_CFG         , ap_clk_reg_saved.gps_cfg         ,-1UL);
 		sci_glb_write(REG_AP_CLK_GPS_TCXO_CFG    , ap_clk_reg_saved.gps_tcxo_cfg    ,-1UL);
 		sci_glb_write(REG_AP_CLK_USB_REF_CFG     , ap_clk_reg_saved.usb_ref_cfg     ,-1UL);
+		#endif
 		sci_glb_write(REG_AP_CLK_UART0_CFG       , ap_clk_reg_saved.uart0_cfg & (~0x3),-1UL);
 		for(i = 0; i < 10; i++);
 		sci_glb_write(REG_AP_CLK_UART0_CFG       , ap_clk_reg_saved.uart0_cfg       ,-1UL);
@@ -560,35 +589,25 @@ void bak_restore_aon(int bak)
 	}
 	return;
 }
+
+#if defined(CONFIG_ADIE_SC2723)
+static uint32_t ldo_pd_mask = (BIT_LDO_SDIO_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD | \
+		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_LDO_SDCORE_PD | BIT_LDO_WIFIPA_PD | BIT_DCDC_CON_PD | BIT_DCDC_WPA_PD);
+#else
+static uint32_t ldo_pd_mask = (BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD | \
+		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD);
+#endif
 void disable_ana_module(void)
 {
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-	sci_adi_set(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
-		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	sci_adi_set(ANA_REG_GLB_LDO_PD_CTRL, BIT_LDO_SDIO_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
-                BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD);
-#endif
-#endif
+	sci_adi_set(ANA_REG_GLB_LDO_PD_CTRL, ldo_pd_mask);
 }
 void bak_restore_ana(int bak)
 {
 	static uint32_t ldo_pd_ctrl;
-	static uint32_t mask;
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-	mask = BIT_LDO_SD_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
-		BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD;
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	mask = BIT_LDO_SDIO_PD | BIT_LDO_SIM0_PD | BIT_LDO_SIM1_PD | BIT_LDO_SIM2_PD | BIT_LDO_CAMA_PD |\
-                BIT_LDO_CAMD_PD | BIT_LDO_CAMIO_PD | BIT_LDO_CAMMOT_PD  | BIT_DCDC_WPA_PD;
-#endif
-#endif
 	if(bak){
 		ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
 	}else{
-		sci_adi_write(ANA_REG_GLB_LDO_PD_CTRL, ldo_pd_ctrl, mask);
+		sci_adi_write(ANA_REG_GLB_LDO_PD_CTRL, ldo_pd_ctrl, ldo_pd_mask);
 	}
 	return;
 }
@@ -626,14 +645,20 @@ void show_pin_reg(void)
 #if defined(CONFIG_ARCH_SCX15)
 	sci_glb_set(REG_PMU_APB_XTL0_REL_CFG, 0x4);
 	sci_glb_set(REG_PMU_APB_XTLBUF0_REL_CFG, 0x4);
+#if !defined(CONFIG_ARCH_SCX35L)
 	sci_glb_clr(REG_PMU_APB_PD_CP1_TD_CFG, BIT(24));
+#endif /* CONFIG_ARCH_SCX35L */
 #endif
 	printk("REG_PMU_APB_XTL0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL0_REL_CFG, -1UL));
 	printk("REG_PMU_APB_XTL1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL1_REL_CFG, -1UL));
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("REG_PMU_APB_XTL2_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTL2_REL_CFG, -1UL));
+#endif
 	printk("REG_PMU_APB_XTLBUF0_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF0_REL_CFG, -1UL));
 	printk("REG_PMU_APB_XTLBUF1_REL_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_XTLBUF1_REL_CFG, -1UL));
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("REG_PMU_APB_PD_CP1_TD_CFG 0x%08x\n", sci_glb_read(REG_PMU_APB_PD_CP1_TD_CFG, -1Ul));
+#endif
 }
 void force_mcu_core_sleep(void)
 {
@@ -675,7 +700,7 @@ void show_reg_status(void)
 	PRINT_REG(REG_PMU_APB_SLEEP_STATUS);
 }
 uint32_t pwr_stat0=0, pwr_stat1=0, pwr_stat2=0, pwr_stat3=0, apb_eb0=0, apb_eb1=0, ahb_eb=0, apb_eb=0, mcu_pause=0, sys_force_sleep=0, sys_auto_sleep_cfg=0;
-uint32_t ldo_slp_ctrl0, ldo_slp_ctrl1, ldo_slp_ctrl2, xtl_wait_ctrl, ldo_slp_ctrl3, ldo_aud_ctrl4;
+uint32_t ldo_slp_ctrl0, ldo_slp_ctrl1, ldo_slp_ctrl2, xtl_wait_ctrl, ldo_slp_ctrl3, ldo_slp_ctrl4, ldo_aud_ctrl4;
 uint32_t mm_apb, ldo_pd_ctrl, arm_module_en;
 uint32_t cp_slp_status_dbg0, cp_slp_status_dbg1, sleep_ctrl, ddr_sleep_ctrl, sleep_status, pwr_ctrl, ca7_standby_status;
 uint32_t pd_pub_sys;
@@ -689,11 +714,15 @@ void bak_last_reg(void)
 {
 	pd_pub_sys = __raw_readl(REG_PMU_APB_PD_PUB_SYS_CFG);
 	cp_slp_status_dbg0 = __raw_readl(REG_PMU_APB_CP_SLP_STATUS_DBG0);
+#if !defined(CONFIG_ARCH_SCX35L)
 	cp_slp_status_dbg1 = __raw_readl(REG_PMU_APB_CP_SLP_STATUS_DBG1);
+#endif
 	pwr_stat0 = __raw_readl(REG_PMU_APB_PWR_STATUS0_DBG);
 	pwr_stat1 = __raw_readl(REG_PMU_APB_PWR_STATUS1_DBG);
 	pwr_stat2 = __raw_readl(REG_PMU_APB_PWR_STATUS2_DBG);
+#if !defined(CONFIG_ARCH_SCX35L)
 	pwr_stat3 = __raw_readl(REG_PMU_APB_PWR_STATUS3_DBG);
+#endif
 	sleep_ctrl = __raw_readl(REG_PMU_APB_SLEEP_CTRL);
 	ddr_sleep_ctrl = __raw_readl(REG_PMU_APB_DDR_SLEEP_CTRL);
 	sleep_status = __raw_readl(REG_PMU_APB_SLEEP_STATUS);
@@ -726,30 +755,23 @@ void bak_last_reg(void)
 	sys_force_sleep = __raw_readl(REG_AP_AHB_AP_SYS_FORCE_SLEEP_CFG);
 	sys_auto_sleep_cfg = __raw_readl(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG);
 	ca7_standby_status = __raw_readl(REG_AP_AHB_CA7_STANDBY_STATUS);
-
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-	ldo_slp_ctrl0 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
-	ldo_slp_ctrl1 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
-	ldo_slp_ctrl2 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL2);
-	ldo_slp_ctrl3 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL3);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
+#if defined(CONFIG_ADIE_SC2723)
 	ldo_slp_ctrl0 = sci_adi_read(ANA_REG_GLB_PWR_SLP_CTRL0);
 	ldo_slp_ctrl1 = sci_adi_read(ANA_REG_GLB_PWR_SLP_CTRL1);
 	ldo_slp_ctrl2 = sci_adi_read(ANA_REG_GLB_PWR_SLP_CTRL2);
 	ldo_slp_ctrl3 = sci_adi_read(ANA_REG_GLB_PWR_SLP_CTRL3);
-#endif
+	ldo_slp_ctrl4 = sci_adi_read(ANA_REG_GLB_PWR_SLP_CTRL4);
+#else
+	ldo_slp_ctrl0 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL0);
+	ldo_slp_ctrl1 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL1);
+	ldo_slp_ctrl2 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL2);
+	ldo_slp_ctrl3 = sci_adi_read(ANA_REG_GLB_LDO_SLP_CTRL3);
 #endif
 
-#if defined(CONFIG_ARCH_SCX15)
-#else
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-	ldo_aud_ctrl4 = sci_adi_read(ANA_REG_GLB_AUD_SLP_CTRL4);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
+#if defined(CONFIG_ADIE_SC2723)
 	ldo_aud_ctrl4 = sci_adi_read(ANA_REG_GLB_AUD_SLP_CTRL);
-#endif
-#endif
+#elif !defined(CONFIG_ARCH_SCX15)
+	ldo_aud_ctrl4 = sci_adi_read(ANA_REG_GLB_AUD_SLP_CTRL4);
 #endif
 	xtl_wait_ctrl = sci_adi_read(ANA_REG_GLB_XTL_WAIT_CTRL);
 #if defined(CONFIG_ARCH_SCX15)
@@ -766,8 +788,10 @@ void print_last_reg(void)
 			sci_glb_read(REG_PMU_APB_PD_MM_TOP_CFG, -1UL) );
 	printk("REG_PMU_APB_PD_AP_SYS_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_AP_SYS_CFG, -1UL) );
+#ifdef REG_PMU_APB_PD_AP_DISP_CFG
 	printk("REG_PMU_APB_PD_AP_DISP_CFG ------ 0x%08x\n",
 			sci_glb_read(REG_PMU_APB_PD_AP_DISP_CFG, -1UL) );
+#endif
 
 #if defined(CONFIG_ARCH_SCX30G)
 	printk("REG_PMU_APB_PD_DDR_PUBL_CFG ------ 0x%08x\n",
@@ -776,11 +800,15 @@ void print_last_reg(void)
 			sci_glb_read(REG_PMU_APB_PD_DDR_PHY_CFG, -1UL) );
 #endif
 	printk("REG_PMU_APB_CP_SLP_STATUS_DBG0 ----- 0x%08x\n", cp_slp_status_dbg0);
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("REG_PMU_APB_CP_SLP_STATUS_DBG1 ----- 0x%08x\n", cp_slp_status_dbg1);
+#endif
 	printk("REG_PMU_APB_PWR_STATUS0_DBG ----- 0x%08x\n", pwr_stat0);
 	printk("REG_PMU_APB_PWR_STATUS1_DBG ----- 0x%08x\n", pwr_stat1);
 	printk("REG_PMU_APB_PWR_STATUS2_DBG ----- 0x%08x\n", pwr_stat2);
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("REG_PMU_APB_PWR_STATUS3_DBG ----- 0x%08x\n", pwr_stat3);
+#endif
 	printk("REG_PMU_APB_SLEEP_CTRL ----- 0x%08x\n", sleep_ctrl);
 	printk("REG_PMU_APB_DDR_SLEEP_CTRL ----- 0x%08x\n", ddr_sleep_ctrl);
 	printk("REG_PMU_APB_SLEEP_STATUS ----- 0x%08x\n", sleep_status);
@@ -827,15 +855,14 @@ void print_last_reg(void)
 	printk("ANA_REG_GLB_XTL_WAIT_CTRL --- 0x%08x\n", xtl_wait_ctrl);
 
 	printk("ANA_REG_GLB_PWR_XTL_EN0 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN0));
-        printk("ANA_REG_GLB_PWR_XTL_EN1 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN1));
-        printk("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
-        printk("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
+	printk("ANA_REG_GLB_PWR_XTL_EN1 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN1));
+	printk("ANA_REG_GLB_PWR_XTL_EN2 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN2));
+	printk("ANA_REG_GLB_PWR_XTL_EN3 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN3));
+#if !defined(CONFIG_ADIE_SC2723)
 	printk("ANA_REG_GLB_PWR_XTL_EN4 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN4));
-#if defined(CONFIG_ARCH_SCX15)
-#else
-	printk("ANA_REG_GLB_PWR_XTL_EN5 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN5));
 #endif
+#if !defined(CONFIG_ARCH_SCX15) && !defined(CONFIG_ADIE_SC2723)
+	printk("ANA_REG_GLB_PWR_XTL_EN5 -- 0x%08x\n", sci_adi_read(ANA_REG_GLB_PWR_XTL_EN5));
 #endif
 	printk("mm reg\n");
 	printk("REG_MM_AHB_AHB_EB ---- 0x%08x\n", mm_apb);
@@ -1074,8 +1101,9 @@ void show_deep_reg_status(void)
 	printk("PWR_STATUS0_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
 	printk("PWR_STATUS1_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL));
 	printk("PWR_STATUS2_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL));
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("PWR_STATUS3_DBG	0x%08x\n", sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL));
-
+#endif /* CONFIG_ARCH_SCX35L */
 }
 
 
@@ -1141,20 +1169,14 @@ int deep_sleep(int from_idle)
 	 * param0, param1 are not used before
 	 * so we use second param to distinguish idle deep or real deep
 	 */
-
-#define dmc_retention_func	(SPRD_IRAM1_BASE + 0x1800)
-#define dmc_retention_para_vaddr	(SPRD_IRAM1_BASE + 0x2400)
-
 #if defined(CONFIG_ARCH_SCX30G)
 	/* set auto-self refresh mode */
 	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(1));
 	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(0));
-	((void (*)(unsigned long,unsigned long))(dmc_retention_func))(1,dmc_retention_para_vaddr);
 #endif
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
         cp0_sys_power_domain_close();
 #endif
-
 	ret = sp_pm_collapse(0, from_idle);
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
         cp0_sys_power_domain_open();
@@ -1283,7 +1305,6 @@ static void dcdc_core_ds_config(void)
 	u32 dcdc_core_ctl_adi = 0;
 	u32 val = 0;
 	u32 dcdc_core_ctl_ds = -1;
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 #ifdef CONFIG_ARCH_SCX30G
 	static struct dcdc_core_ds_step_info step_info[5]={
 		{ANA_REG_GLB_MP_PWR_CTRL1, 0,ANA_REG_GLB_MP_PWR_CTRL2, 0},
@@ -1302,22 +1323,10 @@ static void dcdc_core_ds_config(void)
 	dcdc_core_ctl_ds  = dcdc_core_ctl_adi;
 	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n",dcdc_core_ctl_adi,dcdc_core_ctl_ds);
 
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL0);
-#endif
-#endif
 	val &= ~0x7;
 	val |= dcdc_core_ctl_ds;
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-	sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL0, val, 0xffff);
-#endif
-#endif
 
 	if(dcdc_core_ctl_ds < dcdc_core_ctl_adi){
 		dcdc_core_cal_adi = sci_adi_read(ANA_REG_GLB_DCDC_CORE_ADI) & 0x1F;
@@ -1346,6 +1355,7 @@ static void dcdc_core_ds_config(void)
 			sci_adi_write(step_info[i].cal_reg,dcdc_core_cal_adi<<step_info[i].cal_sht,0x1F<<step_info[i].cal_sht);
 		}
 	}
+
 #else
 	dcdc_core_ctl_adi = sci_adi_read(ANA_REG_GLB_DCDC_CORE_ADI);
 	dcdc_core_ctl_adi = dcdc_core_ctl_adi >> 0x5;
@@ -1376,37 +1386,29 @@ static void dcdc_core_ds_config(void)
 	printk("dcdc_core_ctl_adi = %d, dcdc_core_ctl_ds = %d\n", dcdc_core_ctl_adi, dcdc_core_ctl_ds);
 	/*valid value*/
 	if(dcdc_core_ctl_ds != -1) {
-#ifndef CONFIG_ARCH_SCX15
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-        val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-        val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL0);
-#endif
-#endif
-		val &= ~(0x7);
+#if defined(CONFIG_ADIE_SC2723)
+		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL1);
+		val &= ~(0xF);
 		val |= dcdc_core_ctl_ds;
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
-		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
-#else
-#if defined(CONFIG_ADIE_SC2723S)
-		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL0, val, 0xffff);
-#endif
-#endif
-#else
+		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL1, val, 0xffff);
+#elif defined(CONFIG_ARCH_SCX15)
 		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL0);
 		val &= ~(0x7 << 4);
 		val |= (dcdc_core_ctl_ds << 4);
 		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL0, val, 0xffff);
+#else
+		val = sci_adi_read(ANA_REG_GLB_DCDC_SLP_CTRL);
+		val &= ~(0x7);
+		val |= dcdc_core_ctl_ds;
+		sci_adi_write(ANA_REG_GLB_DCDC_SLP_CTRL, val, 0xffff);
 #endif
 	}
-#endif
 #endif
 }
 
 void pm_ana_ldo_config(void)
 {
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723)
 	dcdc_core_ds_config();
 #else
 	/*set vddcore deep sleep voltage to 0.9v*/
@@ -1417,9 +1419,7 @@ void pm_ana_ldo_config(void)
 	/*open vdd28, vdd18 lp mode*/
 	//sci_adi_set(ANA_REG_GLB_LDO_SLP_CTRL3, BIT_SLP_LDOVDD28_LP_EN | BIT_SLP_LDOVDD18_LP_EN);
 	/*ddr2_buf quiesent curretn set to 4-5uA in deep sleep mode*/
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	sci_adi_clr(ANA_REG_GLB_DDR2_CTRL, BITS_DDR2_BUF_S_DS(0x3));
-#endif
 #endif
 }
 static void init_led(void){}
@@ -1429,23 +1429,14 @@ void sprd_pbint_7s_reset_disable(void)
 	sci_adi_set(ANA_REG_GLB_POR_7S_CTRL, BIT_PBINT_7S_RST_DISABLE);
 }
 
-#ifdef CONFIG_SPRD_EXT_IC_POWER
-//    EXT IC should disable otg mode when power off
-	extern void sprd_extic_otg_power(int enable);
-#endif
-
 
 static void sc8830_power_off(void)
 {
 	u32 reg_val;
 	/*turn off all modules's ldo*/
-
-#ifdef CONFIG_SPRD_EXT_IC_POWER
-	sprd_extic_otg_power(0);
-#endif
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
 
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723)
 	sci_adi_raw_write(ANA_REG_GLB_PWR_WR_PROT_VALUE,BITS_PWR_WR_PROT_VALUE(0x6e7f));
 	do{
 		reg_val = (sci_adi_read(ANA_REG_GLB_PWR_WR_PROT_VALUE) & BIT_PWR_WR_PROT);
@@ -1453,11 +1444,9 @@ static void sc8830_power_off(void)
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL,0xfff);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD,0x7fff);
 #else
-#if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	/*turn off system core's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, 0X7fff);
-#endif
 #endif
 }
 

@@ -262,24 +262,6 @@ config CHARGER_SM5701
 	 Say Y to include support
 	 for SiliconMitus SM5701 charger driver..
 
-config CHARGER_SM5414
-        tristate "SM5414 charger driver"
-        default n
-        help
-         Say Y to include support
-         for SM5414 charger driver.
-         This driver source code implemented
-         all functions for SMB5414 charger.
-
-config CHARGER_SM5418
-        tristate "SM5418 charger driver"
-        default n
-        help
-         Say Y to include support
-         for SM5418 charger driver.
-         This driver source code implemented
-         all functions for SMB5418 charger.
-
 config BATTERY_JZ4740
 	tristate "Ingenic JZ4740 battery"
 	depends on MACH_JZ4740

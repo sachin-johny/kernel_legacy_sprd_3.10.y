@@ -2541,9 +2541,10 @@ __alloc_pages_slowpath(gfp_t gfp_mask, unsigned int order,
 
 #ifdef CONFIG_SPRD_MEM_POOL
 	/*sprd alloc*/
-	if(-1 == sprd_page_mask_check(current->pid))
+	if (-1 == sprd_page_mask_check(current->pid))
 		return NULL;
 #endif
+
 	/*
 	 * In the slowpath, we sanity check order to avoid ever trying to
 	 * reclaim >= MAX_ORDER areas which will never succeed. Callers may

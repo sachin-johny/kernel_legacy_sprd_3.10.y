@@ -141,7 +141,11 @@ struct clk *clk_get_sys(const char *dev_id, const char *con_id)
 	struct clk_lookup *cl;
 
 	mutex_lock(&clocks_mutex);
+#ifndef CONFIG_SC_FPGA
 	cl = clk_find(dev_id, con_id);
+#else
+	cl = clk_find(NULL, "ext_26m");
+#endif
 	if (cl && !__clk_get(cl->clk))
 		cl = NULL;
 	mutex_unlock(&clocks_mutex);

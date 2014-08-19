@@ -340,7 +340,7 @@ static int sprd_headset_power_init(struct device *dev)
 	ret =
 	    sprd_headset_power_get(dev, &sprd_hts_power.head_mic,
 				   "HEADMICBIAS");
-	if (ret || (sprd_hts_power.head_mic == NULL)) {
+	if (ret) {
 		sprd_hts_power.head_mic = 0;
 		return ret;
 	}
@@ -588,8 +588,10 @@ static void headset_micbias_polling_en(int en)
 
 static void headset_irq_button_enable(int enable, unsigned int irq)
 {
+        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
 
+        spin_lock_irqsave(&irq_button_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
@@ -601,14 +603,17 @@ static void headset_irq_button_enable(int enable, unsigned int irq)
                         current_irq_state = 0;
                 }
         }
+        spin_unlock_irqrestore(&irq_button_lock, spin_lock_flags);
 
         return;
 }
 
 static void headset_irq_detect_enable(int enable, unsigned int irq)
 {
+        unsigned long spin_lock_flags;
         static int current_irq_state = 1;//irq is enabled after request_irq()
 
+        spin_lock_irqsave(&irq_detect_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_irq_state) {
                         enable_irq(irq);
@@ -620,14 +625,17 @@ static void headset_irq_detect_enable(int enable, unsigned int irq)
                         current_irq_state = 0;
                 }
         }
+        spin_unlock_irqrestore(&irq_detect_lock, spin_lock_flags);
 
         return;
 }
 
 static void headmic_sleep_disable(struct device *dev, int on)
 {
+	unsigned long spin_lock_flags;
 	static int current_power_state = 0;
 
+	spin_lock_irqsave(&headmic_sleep_disable_lock, spin_lock_flags);
 	if (1 == on) {
 		if (0 == current_power_state) {
 			sprd_headset_audio_headmic_sleep_disable(dev, 1);
@@ -639,15 +647,18 @@ static void headmic_sleep_disable(struct device *dev, int on)
 			current_power_state = 0;
 		}
 	}
+	spin_unlock_irqrestore(&headmic_sleep_disable_lock, spin_lock_flags);
 
 	return;
 }
 
 static void headmicbias_power_on(struct device *dev, int on)
 {
+	unsigned long spin_lock_flags;
 	static int current_power_state = 0;
 	struct sprd_headset *ht = &headset;
 
+	spin_lock_irqsave(&headmic_bias_lock, spin_lock_flags);
 	if (1 == on) {
 		if (0 == current_power_state) {
 			if(NULL != ht->platform_data->external_headmicbias_power_on)
@@ -663,6 +674,7 @@ static void headmicbias_power_on(struct device *dev, int on)
 			current_power_state = 0;
 		}
 	}
+	spin_unlock_irqrestore(&headmic_bias_lock, spin_lock_flags);
 
 	return;
 }
@@ -1664,39 +1676,34 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(
 		goto fail;
 	}
 
-	buttons_data = kzalloc(pdata->nbuttons*sizeof(*buttons_data),GFP_KERNEL);
+	buttons_data = kzalloc(sizeof(*buttons_data),GFP_KERNEL);
 	if (!buttons_data) {
 		dev_err(dev, "could not allocate memory for headset_buttons\n");
 		goto fail;
 	}
         pdata->headset_buttons = buttons_data;
 
-	for_each_child_of_node(np,buttons_np){
-
-		ret = of_property_read_u32(buttons_np, "adc_min", &buttons_data->adc_min);
-		if (ret) {
-			dev_err(dev, "fail to get adc_min\n");
-			goto fail_buttons_data;
-		}
-		ret = of_property_read_u32(buttons_np, "adc_max", &buttons_data->adc_max);
-		if (ret) {
-			dev_err(dev, "fail to get adc_max\n");
-			goto fail_buttons_data;
-		}
-		ret = of_property_read_u32(buttons_np, "code", &buttons_data->code);
-		if (ret) {
-			dev_err(dev, "fail to get code\n");
-			goto fail_buttons_data;
-		}
-		ret = of_property_read_u32(buttons_np, "type", &buttons_data->type);
-		if (ret) {
-			dev_err(dev, "fail to get type\n");
-			goto fail_buttons_data;
-		}
-		printk("device tree data: adc_min = %d adc_max = %d code = %d type = %d \n", buttons_data->adc_min,
-			buttons_data->adc_max, buttons_data->code, buttons_data->type);
-		buttons_data++;
-	};
+	buttons_np = of_get_next_child(np,NULL);
+	ret = of_property_read_u32(buttons_np, "adc_min", &buttons_data->adc_min);
+	if (ret) {
+		dev_err(dev, "fail to get adc_min\n");
+		goto fail_buttons_data;
+	}
+	ret = of_property_read_u32(buttons_np, "adc_max", &buttons_data->adc_max);
+	if (ret) {
+		dev_err(dev, "fail to get adc_max\n");
+		goto fail_buttons_data;
+	}
+	ret = of_property_read_u32(buttons_np, "code", &buttons_data->code);
+	if (ret) {
+		dev_err(dev, "fail to get code\n");
+		goto fail_buttons_data;
+	}
+	ret = of_property_read_u32(buttons_np, "type", &buttons_data->type);
+	if (ret) {
+		dev_err(dev, "fail to get type\n");
+		goto fail_buttons_data;
+	}
 
 	return pdata;
 

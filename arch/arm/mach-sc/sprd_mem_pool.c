@@ -28,8 +28,6 @@
 #include <linux/pfn.h>
 #include <linux/memory.h>
 #include <linux/slab.h>
-#include <linux/kthread.h>
-#include <linux/sched.h>
 
 /**
  * add another order pool, plz modify:
@@ -38,7 +36,8 @@
  * */
 
 /*Magic Numbers*/
-#define DEBUG_PRINT	1	/*used for debug*/
+#define DEBUG_PRINT	0	/*used for debug*/
+#define STATUS_PRINT	1	/*used for status*/
 #define UNSIGNED_LONG_MAX	0xffffffff
 #define PAGE_POOL_MAX_COUNT	5
 
@@ -57,7 +56,9 @@ static struct {
 	unsigned long node_count;
 	unsigned long *buffer;
 	struct mutex lock;
+#if STATUS_PRINT
 	struct status stat;
+#endif
 	struct workqueue_struct *sprd_alloc_wq;
 	struct work_struct sprd_alloc_work;
 } page_pool[PAGE_POOL_MAX_COUNT] = {
@@ -71,10 +72,12 @@ static struct {
 		.node_count = 15,
 		.buffer = NULL,
 		.lock = __MUTEX_INITIALIZER(page_pool[1].lock),
+#if STATUS_PRINT
 		.stat.used = 0,
 		.stat.free = 0,
 		.stat.peak = 0,
 		.stat.total = 0,
+#endif
 		.sprd_alloc_wq = NULL,
 	}, {
 		.order = 2,
@@ -82,10 +85,12 @@ static struct {
 		.node_count = 10,
 		.buffer = NULL,
 		.lock = __MUTEX_INITIALIZER(page_pool[2].lock),
+#if STATUS_PRINT
 		.stat.used = 0,
 		.stat.free = 0,
 		.stat.peak = 0,
 		.stat.total = 0,
+#endif
 		.sprd_alloc_wq = NULL,
 	}, {
 		.order = 3,
@@ -93,10 +98,12 @@ static struct {
 		.node_count = 3,
 		.buffer = NULL,
 		.lock = __MUTEX_INITIALIZER(page_pool[3].lock),
+#if STATUS_PRINT
 		.stat.used = 0,
 		.stat.free = 0,
 		.stat.peak = 0,
 		.stat.total = 0,
+#endif
 		.sprd_alloc_wq = NULL,
 	}, {
 		.order = 4,
@@ -104,25 +111,23 @@ static struct {
 		.node_count = 2,
 		.buffer = NULL,
 		.lock = __MUTEX_INITIALIZER(page_pool[4].lock),
+#if STATUS_PRINT
 		.stat.used = 0,
 		.stat.free = 0,
 		.stat.peak = 0,
 		.stat.total = 0,
+#endif
 		.sprd_alloc_wq = NULL,
 	}
 };
 
 /*global variables*/
-static unsigned long sys_buddy_info[MAX_ORDER];
 static unsigned long alloc_flag = 1;
-static int sprd_alloc_workqueue_pid = -1;
+static unsigned long sys_buddy_info[MAX_ORDER];
 
 /*extern functions*/
 extern void msleep(unsigned int msecs);
 extern void dump_stack(void);
-struct mutex sprd_mem_stat_lock;
-static int sprd_mem_pool_stat = 0;
-static unsigned long long sprd_mem_alloc_count = 0;
 
 /*internal functions*/
 static unsigned long pow2(unsigned long x, unsigned long y)
@@ -202,6 +207,92 @@ static unsigned long get_page_count(unsigned int entry_order)
 	return page_count;
 }
 
+static void sprd_alloc_delay(struct work_struct *work)
+{
+	int start = 0;
+
+	printk("__SPRD__ALLOC__DELAY__: work active!!!\n"); 
+
+	/*forall page pool*/
+	for(start = PAGE_POOL_MAX_COUNT - 1; start > 0; start--) {
+		unsigned long sub = 0;
+		unsigned long queueworkflag = 0;
+
+		/*for single page buffer*/
+		for(sub = 0; sub < page_pool[start].node_count; sub++) {
+			gfp_t gfp_mask = GFP_KERNEL;
+
+			/*jump !null node*/
+			if(page_pool[start].buffer[sub]) continue;
+
+			/*check if sys pages enough*/
+			if(page_pool[start].threshold > get_page_count(page_pool[start].order)) {
+				queueworkflag = 1;
+				break;
+			}
+
+			/*alloc page from sys for null node*/
+			page_pool[start].buffer[sub] = __get_free_pages(gfp_mask, page_pool[start].order);
+			if(!page_pool[start].buffer[sub]) {
+				queueworkflag = 1;
+				break;
+			}
+
+#if STATUS_PRINT
+	#if DEBUG_PRINT
+			printk("__SPRD__ALLOC__DELAY__: fill buffer 1 for order = %d; free = %lu, used = %lu, sys =%lu; peak = %lu, total = %lu;  Call Stack:\n",
+				start, page_pool[start].stat.free, page_pool[start].stat.used, get_page_count(start), page_pool[start].stat.peak, page_pool[start].stat.total);
+			dumpstack();
+	#endif
+
+			/*stats record*/
+			mutex_lock(&(page_pool[start].lock));
+			page_pool[start].stat.free++;
+			page_pool[start].stat.used--;
+			mutex_unlock(&(page_pool[start].lock));
+
+	#if DEBUG_PRINT
+			printk("__SPRD__ALLOC__DELAY__: fill buffer 2 for order = %d; free = %lu, used = %lu, sys =%lu; peak = %lu, total = %lu;  Call Stack:\n",
+				start, page_pool[start].stat.free, page_pool[start].stat.used, get_page_count(start), page_pool[start].stat.peak, page_pool[start].stat.total);
+			dumpstack();
+	#endif
+#endif
+
+			printk("__SPRD__ALLOC__DELAY__: work done!!!\n"); 
+
+			/*fill first null node ok*/
+			break;
+		}
+
+		/*check if still exist null node*/
+		if(!queueworkflag) {
+			for(sub = 0; sub < page_pool[start].node_count; sub++) {
+				/*jump !null node*/
+				if(page_pool[start].buffer[sub]) continue;
+				/*still exist null node*/
+				queueworkflag = 1;
+				break;
+			}
+		}
+
+		/*queue work*/
+		if(queueworkflag) {
+			msleep(1000);
+			queue_work(page_pool[start].sprd_alloc_wq, &(page_pool[start].sprd_alloc_work));
+#if STATUS_PRINT
+	#if DEBUG_PRINT
+			printk("__SPRD__ALLOC__DELAY__: queuework again: buffer for order = %d; free = %lu, used = %lu, sys = %lu; peak = %lu, total = %lu;  Call Stack:\n",
+				start, page_pool[start].stat.free, page_pool[start].stat.used, get_page_count(start), page_pool[start].stat.peak, page_pool[start].stat.total);
+			dumpstack();
+	#endif
+#endif
+			printk("__SPRD__ALLOC__DELAY__: work delay!!!\n"); 
+		}
+	}
+
+	return;
+}
+
 static unsigned long sprd_alloc_one(unsigned long order)
 {
 	unsigned long sub = 0;
@@ -220,48 +311,72 @@ static unsigned long sprd_alloc_one(unsigned long order)
 		address = page_pool[order].buffer[sub];
 		page_pool[order].buffer[sub] = 0;
 
+#if STATUS_PRINT
+	#if DEBUG_PRINT
+		printk("__SPRD__ALLOC__ONE__: allocated from buffer 1, order = %lu; free = %lu, used = %lu, sys = %lu; peak = %lu, total = %lu;  call stack:\n",
+			order, page_pool[order].stat.free, page_pool[order].stat.used, get_page_count(order), page_pool[order].stat.peak, page_pool[order].stat.total);
+	#endif
 		/*status record*/
 		page_pool[order].stat.free--;
 		page_pool[order].stat.used++;
-
-		mutex_lock(&sprd_mem_stat_lock);
-		sprd_mem_alloc_count++;
-		sprd_mem_pool_stat = 1;
-		mutex_unlock(&sprd_mem_stat_lock);
-
+	#if DEBUG_PRINT
+		printk("__SPRD__ALLOC__ONE__: allocated from buffer 2, order = %lu; free = %lu, used = %lu, sys = %lu; peak = %lu, total = %lu;  call stack:\n",
+			order, page_pool[order].stat.free, page_pool[order].stat.used, get_page_count(order), page_pool[order].stat.peak, page_pool[order].stat.total);
+	#endif
 		if(strncmp(current->comm, "sprd-page-alloc", 13)) {
 			if(page_pool[order].stat.peak < page_pool[order].stat.used)
 				page_pool[order].stat.peak = page_pool[order].stat.used;
 			if(page_pool[order].stat.total < UNSIGNED_LONG_MAX)
 				page_pool[order].stat.total++;
 		}
-	goto end;
+#endif
+
+		/*unlock*/
+		mutex_unlock(&(page_pool[order].lock));
+
+		/*queue work*/
+		goto queuework;
 	}
 
-end:
 	/*unlock*/
 	mutex_unlock(&(page_pool[order].lock));
 
-#if DEBUG_PRINT
+#if STATUS_PRINT
+	#if DEBUG_PRINT
 	printk("__SPRD__ALLOC__ONE__: buffer for order = %lu empty; free = %lu, used = %lu, sys = %lu; peak = %lu, total = %lu;  Call Stack:\n",
-		order, page_pool[order].stat.free, page_pool[order].stat.used,
-		get_page_count(order), page_pool[order].stat.peak, page_pool[order].stat.total);
+			order, page_pool[order].stat.free, page_pool[order].stat.used, get_page_count(order), page_pool[order].stat.peak, page_pool[order].stat.total);
 	dumpstack();
+    #endif
 #endif
+
+queuework:
+	/*feather-weight : reduce "self-work aquire self-pool" counts*/
+	if(strncmp(current->comm, "sprd-page-alloc", 13)) {
+		queue_work(page_pool[order].sprd_alloc_wq, &(page_pool[order].sprd_alloc_work));
+
+#if STATUS_PRINT
+	#if DEBUG_PRINT
+		printk("__SPRD__ALLOC__ONE__: queue work, order = %lu; free = %lu, used = %lu, sys = %lu; peak = %lu, total = %lu;  Call stack:\n",
+			order, page_pool[order].stat.free, page_pool[order].stat.used, get_page_count(order), page_pool[order].stat.peak, page_pool[order].stat.total);
+		dumpstack();
+	#endif
+#endif
+	}
+
 	return address;
-}
-
-int sprd_page_mask_check(int pid)
-{
-	if(pid == sprd_alloc_workqueue_pid) return -1;
-
-	return 0;
 }
 
 struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long zoneidx)
 {
 	unsigned long address = 0;
 	struct page *page = NULL;
+
+#if STATUS_PRINT
+	#if DEBUG_PRINT
+	printk("__SPRD__ALLOC__: gfp_mask = 0x%lx, alloc_flag = %lu, zoneidx = %lu, order = %u, free = %lu, used = %lu, peak = %lu, total = %lu\n",
+			(unsigned long)gfp_mask, alloc_flag, zoneidx, order, page_pool[order].stat.free, page_pool[order].stat.used, page_pool[order].stat.peak, page_pool[order].stat.total);
+    #endif
+#endif
 
 	/*check some flags*/
 	if((!alloc_flag) || (GFP_KERNEL != gfp_mask) || (ZONE_NORMAL != zoneidx) || (order > PAGE_POOL_MAX_COUNT - 1) || (order < 1))
@@ -273,6 +388,14 @@ struct page *sprd_page_alloc(gfp_t gfp_mask, unsigned int order, unsigned long z
 
 	/*convert address to page*/
 	page = address_to_pages(address);
+
+#if STATUS_PRINT
+	#if DEBUG_PRINT
+	printk("__SPRD__ALLOC__: Process Name: %s, Process Pid: %d, Parent Name: %s, Parent Pid: %d, address: %p, page: %p, free: %lu, used: %lu, peak: %lu, total: %lu\n",
+			current->comm, current->pid, current->parent->comm, current->parent->pid, (void *)address, page,
+			page_pool[order].stat.free, page_pool[order].stat.used, page_pool[order].stat.peak, page_pool[order].stat.total);
+    #endif
+#endif
 
 	return page;
 
@@ -289,21 +412,25 @@ static int sprd_show_pages_info(struct seq_file *m, void *v)
 		"sprd pool summery:\n"
 		"    status: %s\n",
 		(alloc_flag ? "open" : "closed"));
+#if STATUS_PRINT
 	for(start = 1; start < PAGE_POOL_MAX_COUNT; start++) {
 		seq_printf(m,
 			"    free node (order=%lu) = %lu, used node (order=%lu) = %lu\n",
 			start, page_pool[start].stat.free, start, page_pool[start].stat.used);
 	}
+#endif
 	for(start = 1; start < PAGE_POOL_MAX_COUNT; start++) {
 		seq_printf(m,
 			"    system memory count (order=%lu) = %lu\n",
 			start, get_page_count(start));
 	}
+#if STATUS_PRINT
 	for(start = 1; start < PAGE_POOL_MAX_COUNT; start++) {
 		seq_printf(m,
 			"    alloc peak (order=%lu) = %lu, alloc total (order=%lu) = %lu\n",
 			start, page_pool[start].stat.peak, start, page_pool[start].stat.total);
 	}
+#endif
 
 	seq_printf(m, "buddy info:\n");
 	get_buddy_info();
@@ -321,9 +448,6 @@ static int sprd_show_pages_info(struct seq_file *m, void *v)
 		}
 	}
 
-	seq_printf(m, "sprd_mem_alloc_count %d\n", sprd_mem_alloc_count);
-	seq_printf(m, "sprd_mem_pool_stat %d\n", sprd_mem_pool_stat);
-	sprd_alloc_one(3);
 	return 0;
 }
 
@@ -355,82 +479,15 @@ static const struct file_operations sprd_page_info_fops = {
 	.release	= single_release,
 };
 
-static int sprd_mem_pool_daemon(void *arg)
-{
-	while (1) {
-		int start = 0;
-
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule_timeout(msecs_to_jiffies(1000));
-		set_current_state(TASK_RUNNING);
-
-		if (!sprd_mem_pool_stat)
-			continue;
-
-		mutex_lock(&sprd_mem_stat_lock);
-		sprd_mem_pool_stat = 0;
-		mutex_unlock(&sprd_mem_stat_lock);
-
-		for(start = PAGE_POOL_MAX_COUNT - 1; start > 0; start--) {
-			unsigned long sub = 0;
-
-			if (page_pool[start].node_count == page_pool[start].stat.free)
-				continue;
-			else {
-				mutex_lock(&sprd_mem_stat_lock);
-				if (!sprd_mem_pool_stat)
-					sprd_mem_pool_stat = 1;
-				mutex_unlock(&sprd_mem_stat_lock);
-			}
-
-	                /*for single page buffer*/
-			for(sub = 0; sub < page_pool[start].node_count; sub++) {
-				mutex_lock(&(page_pool[start].lock));
-				gfp_t gfp_mask = GFP_KERNEL;
-
-				/*jump !null node*/
-				if(page_pool[start].buffer[sub]) {
-					mutex_unlock(&(page_pool[start].lock));
-					continue;
-				}
-
-				/*check if sys pages enough*/
-				if(page_pool[start].threshold > get_page_count(page_pool[start].order)) {
-					mutex_unlock(&(page_pool[start].lock));
-					break;
-				}
-
-				/*alloc page from sys for null node*/
-				page_pool[start].buffer[sub] = __get_free_pages(gfp_mask, page_pool[start].order);
-				if(!page_pool[start].buffer[sub]) {
-					mutex_unlock(&(page_pool[start].lock));
-					break;
-				}
-
-	                        /*stats record*/
-				page_pool[start].stat.free++;
-				page_pool[start].stat.used--;
-				mutex_unlock(&(page_pool[start].lock));
-			}
-		}
-
-		mutex_lock(&sprd_mem_stat_lock);
-		if(!sprd_mem_pool_stat)
-			sprd_mem_alloc_count = 0;
-		mutex_unlock(&sprd_mem_stat_lock);
-	}
-}
 
 static int __init sprd_pages_init(void)
 {
 	int start = 0, mem_sum = 0;
 	gfp_t gfp_mask = GFP_KERNEL;
 	struct workqueue_struct *sprd_alloc_wq = NULL;
-	struct task_struct *p = NULL;
 
 	/*init global*/
 	memset(sys_buddy_info, 0, sizeof(sys_buddy_info));
-	mutex_init(&sprd_mem_stat_lock);
 
 	/*init page pool*/
 	for(start = 1; start < PAGE_POOL_MAX_COUNT; start++) {
@@ -443,8 +500,10 @@ static int __init sprd_pages_init(void)
 		for(sub = 0; sub < page_pool[start].node_count; sub++) {
 			/*alloc page from sys*/
 			page_pool[start].buffer[sub] = __get_free_pages(gfp_mask, page_pool[start].order);
+#if STATUS_PRINT
 			/*stats record*/
 			page_pool[start].buffer[sub] ? page_pool[start].stat.free++ : page_pool[start].stat.used++;
+#endif
 		}
 
 		/*alloc total size*/
@@ -454,10 +513,15 @@ static int __init sprd_pages_init(void)
 		printk("__SPRD__INIT__: page_pool[%d].node_count = %lu, page_pool[%d].order = %lu, mem_sum = %d KiB\n",
 			start, page_pool[start].node_count, start, page_pool[start].order, mem_sum);
 #endif
+
+		/*work queue*/
+		if(!sprd_alloc_wq)
+			sprd_alloc_wq = create_singlethread_workqueue("sprd-page-alloc");
+		page_pool[start].sprd_alloc_wq = sprd_alloc_wq;
+
+		/*work*/
+		INIT_WORK(&(page_pool[start].sprd_alloc_work), sprd_alloc_delay);
 	}
-	p = kthread_create(sprd_mem_pool_daemon, NULL, "%s", "sprdmempool");
-	wake_up_process(p);
-	sprd_alloc_workqueue_pid = p->pid;
 
 	printk("__SPRD__INIT__: Sprd memory pool initialized, %d KiB memory allocated.\n", mem_sum);
 

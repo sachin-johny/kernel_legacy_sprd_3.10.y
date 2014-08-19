@@ -297,7 +297,9 @@ int __cpuinit sprd_boot_secondary(unsigned int cpu, struct task_struct *idle)
 		printk("*** %s, REG_PMU_APB_PWR_STATUS0_DBG:0x%x \n", __func__, sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL));
 		printk("*** %s, REG_AP_AHB_CA7_RST_SET:0x%x \n", __func__, sci_glb_read(REG_AP_AHB_CA7_RST_SET, -1UL));
 		printk("*** %s, REG_AP_AHB_CA7_STANDBY_STATUS:0x%x \n", __func__, sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL));
+#ifndef CONFIG_ARCH_SCX35L
 		printk("*** %s, REG_AON_APB_MPLL_CFG:0x%x \n", __func__, sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL));
+#endif
 	}
 
 	return pen_release !=  g_sprd_up_flag[cpu] ? -ENOSYS : 0;

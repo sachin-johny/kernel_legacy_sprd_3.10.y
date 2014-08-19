@@ -62,6 +62,21 @@ static void dpy_ab_sync(void)
 {
 	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x07);
 }
+#else if defined(CONFIG_ARCH_SCX35L)
+static void dpy_ab_clr(void)
+{
+}
+static void dpy_a_enable(void)
+{
+	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x00);
+}
+static void dpy_b_enable(void)
+{
+	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x01);
+}
+static void dpy_ab_sync(void)
+{
+}
 #endif
 
 static void dphy_write(u8 test_code, u8 test_data, u8* test_out)
@@ -146,7 +161,7 @@ static void dphy_init_common(u32 pclk, u32 phy_id, u32 rx_mode)
 
 	csi_get_pclk_cfg(pclk, &csi_pclk_cfg_val);
 
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	if (0x03 == phy_id) {
 		if (0x00 == rx_mode) {
 			dphy_write(0x34, 0xA0, &temp);
@@ -171,7 +186,7 @@ static void dphy_init_common(u32 pclk, u32 phy_id, u32 rx_mode)
 
 void dphy_init(u32 pclk, u32 phy_id)
 {
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	dpy_ab_clr();
 
 	if (phy_id & 0x01) {

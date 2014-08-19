@@ -176,11 +176,11 @@ long sr2351_fm_ioctl(struct file *filep, unsigned int cmd, unsigned long arg)
 
 		break;
 
-  case FM_IOCTL_GET_RSSI:
-    ret = sr2351_fm_get_rssi(&iarg);
-    if(copy_to_user(argp,&iarg,sizeof(iarg)))
-      ret = -EFAULT;
-    break;
+	case FM_IOCTL_GET_RSSI:
+		ret = sr2351_fm_get_rssi(&iarg);
+		if(copy_to_user(argp,&iarg,sizeof(iarg)))
+			ret = -EFAULT;
+		break;
 
 	default:
 		SR2351_PRINT("Unknown FM IOCTL!");

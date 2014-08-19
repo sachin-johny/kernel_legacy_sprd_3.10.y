@@ -1233,11 +1233,11 @@ int mmc_regulator_set_ocr(struct mmc_host *mmc,
 		 */
 		tmp = vdd_bit - ilog2(MMC_VDD_165_195);
 		if (tmp == 0) {
-			min_uV = 1800 * 1000;
-			max_uV = min_uV;
+			min_uV = 1650 * 1000;
+			max_uV = 1950 * 1000;
 		} else {
 			min_uV = 1900 * 1000 + tmp * 100 * 1000;
-			max_uV = min_uV ;
+			max_uV = min_uV + 100 * 1000;
 		}
 
 		/*
@@ -1256,13 +1256,12 @@ int mmc_regulator_set_ocr(struct mmc_host *mmc,
 		else
 			result = 0;
 
-		if (vdd_bit) {
+		if (result == 0 && !mmc->regulator_enabled) {
 			result = regulator_enable(supply);
 			if (!result)
 				mmc->regulator_enabled = true;
 		}
-	} else {
-		printk("mmc_regulator_set_ocr regulator_disable\n");
+	} else if (mmc->regulator_enabled) {
 		result = regulator_disable(supply);
 		if (result == 0)
 			mmc->regulator_enabled = false;

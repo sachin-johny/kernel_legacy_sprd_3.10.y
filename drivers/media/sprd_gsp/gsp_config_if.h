@@ -32,7 +32,7 @@ extern   "C"
 //#include "shark_reg_int.h" //for INT1_IRQ_EN
 
 
-#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 
 #ifdef CONFIG_ARCH_SCX15
 //#define GSP_IOMMU_WORKAROUND1
@@ -193,7 +193,7 @@ GSP_CORE_GREQ;
 
 #define GSP_EMC_CLOCK_PARENT_NAME		("clk_aon_apb")
 
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 #define GSP_EMC_CLOCK_NAME				("clk_gsp_emc")
 #else
 #define GSP_EMC_CLOCK_NAME				("clk_disp_emc")
@@ -268,13 +268,13 @@ GSP_CORE_GREQ;
 
 #endif
 
-#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 //in dolphin,soft reset should not be called for iommu workaround
 #ifdef CONFIG_OF
 #define GSP_MMU_CTRL_BASE        (gsp_mmu_ctrl_addr)
 #else
 
-#ifdef CONFIG_ARCH_SCX30G
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 #define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x8000)
 #else
 #define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x4000)

@@ -26,7 +26,7 @@
 
 #include "dcam_drv.h"
 
-//#define PARSE_DEBUG
+#define PARSE_DEBUG
 
 #ifdef PARSE_DEBUG
 	#define PARSE_TRACE             printk
@@ -34,10 +34,15 @@
 	#define PARSE_TRACE             pr_debug
 #endif
 
+#ifdef	CONFIG_SC_FPGA_CLK
+#define  CLK_MM_I_IN_CLOCKTREE  0
+#else
 #define  CLK_MM_I_IN_CLOCKTREE  1
+#endif
 
 #ifdef CONFIG_OF
 uint32_t		dcam_regbase;
+uint32_t        isp_regbase;
 #else
 #endif
 static atomic_t	mm_enabe_cnt = ATOMIC_INIT(0);
@@ -95,6 +100,7 @@ int32_t clk_mm_i_eb(struct device_node *dn, uint32_t enable)
 		}
 #if defined(CONFIG_SPRD_IOMMU)
 		{
+			PARSE_TRACE("clk_mm_i_eb sprd_iommu_module_enable.\n");
 			sprd_iommu_module_enable(IOMMU_MM);
 		}
 #endif
@@ -103,6 +109,7 @@ int32_t clk_mm_i_eb(struct device_node *dn, uint32_t enable)
 	}else{
 #if defined(CONFIG_SPRD_IOMMU)
 		{
+			PARSE_TRACE("clk_mm_i_eb sprd_iommu_module_disable.\n");
 			sprd_iommu_module_disable(IOMMU_MM);
 		}
 #endif

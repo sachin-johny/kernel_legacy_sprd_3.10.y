@@ -1159,7 +1159,7 @@ int ubifs_jnl_truncate(struct ubifs_info *c, const struct inode *inode,
 
 	sz = UBIFS_TRUN_NODE_SZ + UBIFS_INO_NODE_SZ +
 	     UBIFS_MAX_DATA_NODE_SZ * WORST_COMPR_FACTOR;
-	ino = __vmalloc(sz, GFP_NOFS, PAGE_KERNEL);
+	ino = vmalloc(sz);
 	if (!ino)
 		return -ENOMEM;
 

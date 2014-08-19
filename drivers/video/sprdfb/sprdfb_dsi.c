@@ -29,7 +29,7 @@
 #include "sprdfb_panel.h"
 #include "sprdfb_chip_common.h"
 
-#ifdef CONFIG_FB_SCX30G
+#if defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L)
 #define FB_DSIH_VERSION_1P21A
 #endif
 #ifdef FB_DSIH_VERSION_1P21A
@@ -332,7 +332,7 @@ static int32_t dsi_edpi_init(void)
 
 int32_t dsi_dpi_init(struct sprdfb_device *dev)
 {
-	dsih_dpi_video_t dpi_param = {0};
+	dsih_dpi_video_t dpi_param;
 	dsih_error_t result;
 	struct panel_spec* panel = dev->panel;
 	struct info_mipi * mipi = panel->info.mipi;
@@ -734,6 +734,7 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 		mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
 #ifdef FB_DSIH_VERSION_1P21A
 		mipi_dsih_dphy_enable_hs_clk(&(dsi_ctx.dsi_inst.phy_instance), true);
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x0);
 #else
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
@@ -870,20 +871,20 @@ static int32_t sprdfb_dsi_gen_write(uint8_t *param, uint16_t param_length)
 	return 0;
 }
 
+
 #define LCM_SEND(len) ((1 << 24)| len)
 #define LCM_TAG_MASK  ((1 << 24) -1)
 
 static unsigned char set_bl_seq[] = {
-	0x51, 0xFF
+        0x51, 0xFF
 };
 
 void backlight_control(int brigtness)
 {
-	set_bl_seq[1] = brigtness;
-	sprdfb_dsi_gen_write(set_bl_seq, LCM_SEND(2) & LCM_TAG_MASK);
+        set_bl_seq[1] = brigtness;
+        sprdfb_dsi_gen_write(set_bl_seq, LCM_SEND(2) & LCM_TAG_MASK);
 }
 EXPORT_SYMBOL(backlight_control);
-
 
 static int32_t sprdfb_dsi_gen_read(uint8_t *param, uint16_t param_length, uint8_t bytes_to_read, uint8_t *read_buffer)
 {
