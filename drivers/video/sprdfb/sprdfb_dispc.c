@@ -272,7 +272,11 @@ static irqreturn_t dispc_isr(int irq, void *data)
 	}
 #ifdef CONFIG_FB_ESD_SUPPORT
 #ifdef FB_CHECK_ESD_BY_TE_SUPPORT
+#ifdef CONFIG_MACH_X3542
+	if((reg_val & 0x2)){ /*dispc external TE isr*/
+#else
 	if((reg_val & 0x2) && (SPRDFB_PANEL_IF_DPI ==  dev->panel_if_type)){ /*dispc external TE isr*/
+#endif
 		dispc_write(0x2, DISPC_INT_CLR);
 		if(0 != dev->esd_te_waiter){
 			printk("sprdfb:dispc_isr esd_te_done!");
@@ -1416,11 +1420,14 @@ static int32_t sprdfb_dispc_check_esd(struct sprdfb_device *dev)
 
 	pr_debug("sprdfb: [%s] \n", __FUNCTION__);
 
+#ifndef CONFIG_MACH_X3542
+
 	if(SPRDFB_PANEL_IF_DBI == dev->panel_if_type){
 		printk("sprdfb: [%s] leave (not support dbi mode now)!\n", __FUNCTION__);
 		ret = -1;
 		goto ERROR_CHECK_ESD;
 	}
+#endif
 	down(&dev->refresh_lock);
 	is_refresh_lock_down=true;
 	if(0 == dev->enable){
@@ -1430,7 +1437,11 @@ static int32_t sprdfb_dispc_check_esd(struct sprdfb_device *dev)
 	}
 
 	printk("sprdfb: [%s] (%d, %d, %d)\n",__FUNCTION__, dev->check_esd_time, dev->panel_reset_time, dev->reset_dsi_time);
+#ifdef CONFIG_MACH_X3542
+	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type ||SPRDFB_PANEL_IF_DBI == dev->panel_if_type ){
+#else
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+#endif
 		ret=sprdfb_dispc_check_esd_dpi(dev);
 	}
 	else{

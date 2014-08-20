@@ -487,7 +487,11 @@ uint32_t sprdfb_panel_ESD_check(struct sprdfb_device *dev)
 			result = dev->panel->ops->panel_esd_check(dev->panel);
 			pr_debug("sprdfb: [%s] panel check return %d\n", __FUNCTION__, result);
 		}
+#ifdef CONFIG_MACH_X3542
+    }else{
+#else
 	}else if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
+#endif
 #ifdef FB_CHECK_ESD_BY_TE_SUPPORT
 		dev->esd_te_waiter++;
 		dev->esd_te_done = 0;

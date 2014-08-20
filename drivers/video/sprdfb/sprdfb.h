@@ -23,8 +23,9 @@
 #ifdef CONFIG_FB_MMAP_CACHED
 #include <linux/mm_types.h>
 #endif
-
-//#define FB_CHECK_ESD_BY_TE_SUPPORT
+#ifdef CONFIG_MACH_X3542
+#define FB_CHECK_ESD_BY_TE_SUPPORT
+#endif
 #define BIT_PER_PIXEL_SURPPORT
 
 enum{

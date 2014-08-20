@@ -23,89 +23,89 @@ static int32_t ili9488_init(struct panel_spec *self)
 	printk("ili9488_init\n");
 
 	//************* Start Initial Sequence **********//	
-	send_cmd(0XF7);	
-	send_data(0xA9);	
-	send_data(0x51);	
-	send_data(0x2C);	
-	send_data(0x82);	
-	//Power Control 1 
-	send_cmd(0xC0);	
+	send_cmd(0XF7);
+	send_data(0xA9);
+	send_data(0x51);
+	send_data(0x2C);
+	send_data(0x82);
+		//Power Control 1
+	send_cmd(0xC0);
 	send_data(0x11);	//Verg1out =4.52
 	send_data(0x11);	//Vreg2out = -4.12
-	
-	//Power Control 2 
+
+		//Power Control 2
 	send_cmd(0xC1);	//VGH=14.17,VGL =-9.42
-	send_data(0x41);	
-	
-	send_cmd(0XC5);	
-	send_data(0x00);	
-	send_data(0x18);//µ÷Íø¸ñÎÆ	
-	send_data(0x80);	
-	
-	send_cmd(0xB1);	//Frame rate 
+	send_data(0x41);
+
+	send_cmd(0XC5);
+	send_data(0x00);
+	send_data(0x17);
+	send_data(0x80);
+
+	send_cmd(0xB1);	//Frame rate
 	send_data(0xB0);//70Hz
-	send_data(0x11);	
-	
-	send_cmd(0xB4);	//Display Inversion Control 			
-	send_data(0x02);	//2-dot 			
-	
-	send_cmd(0xB6);	// Interface Mode Control			
-	send_data(0x02); //RGB/MCU Interface Control //RGB
-	send_data(0x02);//42µ¹ÆÁ				
-	
-	send_cmd(0x55);				
-	send_data(0x00);			
-	
-	send_cmd(0xE9);				
-	send_data(0x00);			//00=18BIT,01=24BIT	
-	
-	send_cmd(0x36);	
-	send_data(0x48);//08µ¹ÆÁ	
-	
+	send_data(0x11);
+
+	send_cmd(0xB4);	//Display Inversion Control
+	send_data(0x02);	//2-dot
+
+	send_cmd(0xB6);	// Interface Mode Control
+	send_data(0x02); //RGB/MCU Interface Control			//RGB
+	send_data(0x02);//42µ¹ÆÁ
+
+	send_cmd(0x55);
+	send_data(0x00);
+
+	send_cmd(0xE9);
+	send_data(0x01);			//00=18BIT,01=24BIT
+
+	send_cmd(0x36);
+	send_data(0x48);//08µ¹ÆÁ
+
 	send_cmd(0x3A);	//Interface Pixel Format
-	send_data(0x66);//77-FOR 24BIT	
-	 
-	send_cmd(0xE0);	
-	send_data(0x00);	
-	send_data(0x08);	
-	send_data(0x0f);	
-	send_data(0x09);	
-	send_data(0x19);	
-	send_data(0x0B);	
-	send_data(0x44);	
-	send_data(0x6C);//	
-	send_data(0x50);
+	send_data(0x77);//77-FOR 24BIT
+
+	send_cmd(0xE0);
+	send_data(0x00);
 	send_data(0x06);
-	send_data(0x0b);
+	send_data(0x06);
+	send_data(0x08);
+	send_data(0x18);
+	send_data(0x0c);
+	send_data(0x41);
+	send_data(0x9b);
+	send_data(0x4f);
 	send_data(0x07);
+	send_data(0x0e);
+	send_data(0x0c);
 	send_data(0x1c);
 	send_data(0x1c);
 	send_data(0x0F);
-	
+
 	send_cmd(0XE1);
 	send_data(0x00);
-	send_data(0x1a);
-	send_data(0x1d);
-	send_data(0x01);
-	send_data(0x0d);
+	send_data(0x1b);
+	send_data(0x1e);
+	send_data(0x03);
+	send_data(0x0e);
 	send_data(0x04);
-	send_data(0x33);
-	send_data(0x38);//33	
-	send_data(0x46);	
-	send_data(0x01);	
-	send_data(0x0a);	
-	send_data(0x09);	
-	send_data(0x34);	
-	send_data(0x39);	
+	send_data(0x35);
+	send_data(0x24);
+	send_data(0x49);
+	send_data(0x04);
+	send_data(0x0f);
+	send_data(0x0e);
+	send_data(0x37);
+	send_data(0x3a);
 	send_data(0x0F);
-	
-	send_cmd(0x35);	
+
+	send_cmd(0x35);
 	send_data(0x00);//TE ON
-	
-	send_cmd(0x11);	
-	LCD_DelayMS(120);	
-	send_cmd(0x29);	
-	
+
+	send_cmd(0x11);
+	LCD_DelayMS(120);
+	send_cmd(0x29);
+
 	return 0;
 }
 
@@ -223,8 +223,8 @@ static struct timing_mcu lcd_ili9488_mcu_timing[] = {
 
 static struct info_mcu lcd_ili9488_mcu_info = {
 	.bus_mode = LCD_BUS_8080,
-	.bus_width = 18,
-	.bpp = 18,
+	.bus_width = 24,
+	.bpp = 24,
 	.timing =lcd_ili9488_mcu_timing,
 	.ops = NULL,
 };
