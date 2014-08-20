@@ -18,7 +18,7 @@
 #include "dcam_reg.h"
 #include "parse_hwinfo.h"
 
-#define DCAM_DEBUG
+//#define DCAM_DEBUG
 
 #ifdef DCAM_DEBUG
 	#define DCAM_TRACE             printk

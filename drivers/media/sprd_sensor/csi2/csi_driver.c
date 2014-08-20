@@ -68,7 +68,7 @@ static void dpy_ab_clr(void)
 }
 static void dpy_a_enable(void)
 {
-	sci_glb_set(SPRD_MMAHB_BASE + 0x000C, 0x00);
+	sci_glb_clr(SPRD_MMAHB_BASE + 0x000C, 0x01);
 }
 static void dpy_b_enable(void)
 {
