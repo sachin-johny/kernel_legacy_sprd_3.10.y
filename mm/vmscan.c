@@ -1934,8 +1934,8 @@ out:
 }
 
 #ifdef CONFIG_RUNTIME_COMPCACHE
-/* reserve 256 pages when allocate memory for swap */
-static int swap_reserve = 256;
+/* reserve 512 pages when allocate memory for swap */
+static int swap_reserve = 512;
 module_param_named(swap_reserve, swap_reserve, int, S_IRUGO | S_IWUSR);
 #endif
 
@@ -1953,6 +1953,8 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 #ifdef CONFIG_RUNTIME_COMPCACHE
 	struct rtcc_control *rc = sc->rc;
 	unsigned long mem_available;
+	struct zone *zone = lruvec_zone(lruvec);
+	unsigned long file_pages;
 #endif /* CONFIG_RUNTIME_COMPCACHE */
 
 	get_scan_count(lruvec, sc, nr);
@@ -1972,6 +1974,11 @@ static void shrink_lruvec(struct lruvec *lruvec, struct scan_control *sc)
 		mem_available = global_page_state(NR_FREE_PAGES) - global_page_state(NR_FREE_CMA_PAGES);
 		if(mem_available < swap_reserve)
 			nr[LRU_INACTIVE_ANON] = nr[LRU_ACTIVE_ANON] = 0;
+
+		/* Stop dropping file caches when there are too little left */
+		file_pages = global_page_state(NR_ACTIVE_FILE) + global_page_state(NR_INACTIVE_FILE);
+		if(file_pages < min_wmark_pages(zone))
+			nr[LRU_INACTIVE_FILE] = nr[LRU_ACTIVE_FILE] = 0;
 #endif /* CONFIG_RUNTIME_COMPCACHE */
 
 		for_each_evictable_lru(lru) {
