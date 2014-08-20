@@ -345,6 +345,7 @@ extern   "C"
 		uint8_t                        gsp_clock;//gsp clock(0:96M 1:153.6M 2:192M 3:256M)
 		uint8_t                        ahb_clock;//ahb clock(0:26M 1:76M 2:128M 3:192M)
 		uint8_t                        split_pages;//0:not split  1: split
+		uint8_t                        y2r_opt;// 0 : full YUV;  1:reduce YUV
     }
     GSP_MISC_CONFIG_INFO_T;
 
@@ -358,19 +359,83 @@ extern   "C"
     }
     GSP_CONFIG_INFO_T;
 
+
+
+typedef struct
+{
+    uint16_t    w;
+    uint16_t    h;
+} GSP_RECT_SIZE_T;
+
+typedef struct
+{
+    uint16_t    x;
+    uint16_t    y;
+} GSP_POSITION_T;
+
+#define CAPABILITY_MAGIC_NUMBER 0xDEEFBEEF
+typedef struct __GSP_Capability_
+{
+    uint32_t magic;//used to indicate struct is initialized
+
+    /*version
+    00: only support phy addr, shark
+    01: add IOMMU,but IOMMU ctl reg access bug and YUV need copy--blackline bug, output need phy addr, dolphin V1
+    02: with IOMMU, IOMMU ctl reg access ok, but YUV need copy--blackline bug, output need phy addr, dolphin V2
+    03: with IOMMU, IOMMU ctl reg access ok, YUV don't need copy--no blackline bug, output support IOVA, dolphin V3
+    04: with IOMMU, IOMMU ctl reg access ok, but YUV need copy--blackline bug, output need phy addr, GSP use different DDR port with DISPC,8830gea 7731gea
+    05: with IOMMU, IOMMU ctl reg access ok, YUV don't need copy--no blackline bug, output support IOVA, GSP use different DDR port with DISPC,7731gea AB
+    06:GSP with contrast saturation adjust, pike
+    07:GPP, whale
+    */
+    uint8_t version;
+
+    uint8_t scale_updown_sametime;// 0:not supported; 1:supported
+    uint8_t OSD_scaling;// 0:not supported; 1:supported
+    uint8_t dummy;
+
+    uint16_t scale_range_up;// 1 means 1/16, 64 means 4
+    uint16_t scale_range_down;// 1 means 1/16, 64 means 4
+
+    uint8_t buf_type_support;// GSP_ADDR_TYPE_PHYSICAL:phy addr; GSP_ADDR_TYPE_IOVIRTUAL:IOVA addr
+    uint8_t yuv_xywh_even;// 0: even and odd both supported; 1:only even supported
+
+    uint8_t video_need_copy;// 0:don't need; 1:need,
+    uint8_t max_video_size;// 0: 1920x1080 1:1280x720, used to alloc copy temp buffer
+
+    /* blend_video_with_OSD
+    to video case, GSP only support 1 layer, because GSP is not able to strech YCbCr to YUV,
+    if GSP blend OSD layer, OSD color will be strech too in DISPC,
+    ofcourse, we can use GSP to blend video with OSD, if we don't care about that.
+    to UI case, GSP support blending a few times, and each layer can scaling/rotation.
+    multi-YUV layers, supported by GSP, but output color must YUV, so DISPC can strech it to 0~255
+    */
+    uint8_t blend_video_with_OSD;// 0: only support YUV layer blend; 1:support YUV layers blend with RGB layers
+    uint8_t max_layer_cnt; // max layer count of GSP blending supported, depend on GSP process time
+
+    uint8_t max_videoLayer_cnt; //max video layer count
+    uint8_t max_layer_cnt_with_video; //max total layer count , when has video
+
+    GSP_RECT_SIZE_T crop_min;
+    GSP_RECT_SIZE_T crop_max;
+    GSP_RECT_SIZE_T out_min;
+    GSP_RECT_SIZE_T out_max;
+} GSP_CAPABILITY_T;
+
+
     enum gsp_ioctl_id
     {
         GSP_SET_PARAM = 0,
         GSP_TRIGGER_RUN,
         GSP_WAIT_FINISH,
-        GSP_GET_ADDR_TYPE,
+        GSP_GET_CAPABILITY,
     };
 
 #define GSP_IO_MAGIC                'G'
 #define GSP_IO_SET_PARAM            _IOW(GSP_IO_MAGIC, GSP_SET_PARAM,GSP_CONFIG_INFO_T)
 #define GSP_IO_TRIGGER_RUN          _IO(GSP_IO_MAGIC, GSP_TRIGGER_RUN)
 #define GSP_IO_WAIT_FINISH          _IO(GSP_IO_MAGIC, GSP_WAIT_FINISH)
-#define GSP_IO_GET_ADDR_TYPE        _IO(GSP_IO_MAGIC, GSP_GET_ADDR_TYPE)
+#define GSP_IO_GET_CAPABILITY	     _IOW(GSP_IO_MAGIC, GSP_GET_CAPABILITY,GSP_CAPABILITY_T)
 
 #ifndef CEIL
 #define CEIL(x,y)   ({uint32_t __x = (x),__y = (y);(__x + __y -1)/__y;})
@@ -391,8 +456,8 @@ extern   "C"
                 volatile uint32_t pmargb_mod1           :1;
                 volatile uint32_t pmargb_en         :1;
                 volatile uint32_t scale_en          :1;
-                volatile uint32_t reserved2         :1;
-				volatile uint32_t no_split          :1; // 0: split, split into 2 burst request, 1 : not split, one burst stride pages boarder
+                volatile uint32_t y2r_opt           :1; // 0 : full YUV;  1:reduce YUV
+                volatile uint32_t no_split          :1; // 0: split, split into 2 burst request, 1 : not split, one burst stride pages boarder
                 volatile uint32_t scale_status_clr    :1;
                 volatile uint32_t l0_en             :1;
                 volatile uint32_t l1_en             :1;

@@ -438,6 +438,10 @@ GSP_CORE_GREQ;
 #define GSP_PAGES_BOARDER_SPLIT_SET(v)\
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.no_split = (!(v))
 
+#define GSP_Y2R_OPT_SET(v)\
+    ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.y2r_opt = (v)
+
+
 #define GSP_PAGES_BOARDER_SPLIT_GET()\
 		(!((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.no_split)
 

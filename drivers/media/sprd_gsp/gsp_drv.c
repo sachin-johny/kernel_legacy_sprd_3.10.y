@@ -121,15 +121,11 @@ static struct early_suspend s_earlysuspend;
 #endif
 static volatile uint32_t s_suspend_resume_flag = 0;// 0 : resume, in ON state; 1: suspend, in OFF state
 
-//#ifdef CONFIG_ARCH_SCX15
-static volatile GSP_ADDR_TYPE_E s_gsp_addr_type = GSP_ADDR_TYPE_INVALUE;// 0 : resume, in ON state; 1: suspend, in OFF state
-static uint32_t s_iommuCtlBugChipList[]={0x7715a000,0x7715a001,0x8815a000};//bug chip list
-//0x8730b000 tshark
-//0x8300a001 shark
+
 #ifndef ARRAY_SIZE
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #endif
-//#endif
+
 
 static gsp_user gsp_user_array[GSP_MAX_USER];
 static gsp_user* gsp_get_user(pid_t user_pid)
@@ -318,7 +314,7 @@ static void printGPSReg(void)
             g_gsp_reg->gsp_cfg_u.mBits.pmargb_mod1,
             g_gsp_reg->gsp_cfg_u.mBits.pmargb_en,
             g_gsp_reg->gsp_cfg_u.mBits.scale_en,
-            g_gsp_reg->gsp_cfg_u.mBits.reserved2,
+            g_gsp_reg->gsp_cfg_u.mBits.y2r_opt,
             g_gsp_reg->gsp_cfg_u.mBits.scale_status_clr,
             g_gsp_reg->gsp_cfg_u.mBits.l0_en,
             g_gsp_reg->gsp_cfg_u.mBits.l1_en,
@@ -1984,7 +1980,7 @@ static void GSP_Release_HWSema(void)
     up(&gsp_hw_resource_sem);
 }
 
-static int GSP_Map()
+static int GSP_Map(void)
 {
 	struct ion_addr_data data;
 
@@ -1999,7 +1995,7 @@ static int GSP_Map()
 		else
 			s_gsp_cfg.layer0_info.src_addr.addr_y = data.phys_addr;
 		s_gsp_cfg.layer0_info.src_addr.addr_uv = s_gsp_cfg.layer0_info.src_addr.addr_y + s_gsp_cfg.layer0_info.mem_info.uv_offset;
-		s_gsp_cfg.layer0_info.src_addr.addr_v = s_gsp_cfg.layer0_info.src_addr.addr_uv + s_gsp_cfg.layer0_info.mem_info.v_offset;
+		s_gsp_cfg.layer0_info.src_addr.addr_v = s_gsp_cfg.layer0_info.src_addr.addr_y + s_gsp_cfg.layer0_info.mem_info.v_offset;
 	}
 
 	if(s_gsp_cfg.layer1_info.mem_info.share_fd){
@@ -2013,7 +2009,7 @@ static int GSP_Map()
 		else
 			s_gsp_cfg.layer1_info.src_addr.addr_y = data.phys_addr;
 		s_gsp_cfg.layer1_info.src_addr.addr_uv = s_gsp_cfg.layer1_info.src_addr.addr_y + s_gsp_cfg.layer1_info.mem_info.uv_offset;
-		s_gsp_cfg.layer1_info.src_addr.addr_v = s_gsp_cfg.layer1_info.src_addr.addr_uv + s_gsp_cfg.layer1_info.mem_info.v_offset;
+		s_gsp_cfg.layer1_info.src_addr.addr_v = s_gsp_cfg.layer1_info.src_addr.addr_y + s_gsp_cfg.layer1_info.mem_info.v_offset;
 
 	}
 
@@ -2028,14 +2024,14 @@ static int GSP_Map()
 		else
 			s_gsp_cfg.layer_des_info.src_addr.addr_y = data.phys_addr;
 		s_gsp_cfg.layer_des_info.src_addr.addr_uv = s_gsp_cfg.layer_des_info.src_addr.addr_y + s_gsp_cfg.layer_des_info.mem_info.uv_offset;
-		s_gsp_cfg.layer_des_info.src_addr.addr_v = s_gsp_cfg.layer_des_info.src_addr.addr_uv + s_gsp_cfg.layer_des_info.mem_info.v_offset;
+		s_gsp_cfg.layer_des_info.src_addr.addr_v = s_gsp_cfg.layer_des_info.src_addr.addr_y + s_gsp_cfg.layer_des_info.mem_info.v_offset;
 
 	}
 
 	return 0;
 }
 
-static int GSP_Unmap()
+static int GSP_Unmap(void)
 {
 	if(s_gsp_cfg.layer0_info.mem_info.share_fd)
 		sprd_ion_free_gsp_addr(s_gsp_cfg.layer0_info.mem_info.share_fd);
@@ -2049,6 +2045,141 @@ static int GSP_Unmap()
 	return 0;
 }
 
+static GSP_ADDR_TYPE_E GSP_Get_Addr_Type(void)
+{
+    static volatile GSP_ADDR_TYPE_E s_gsp_addr_type = GSP_ADDR_TYPE_INVALUE;
+    static uint32_t s_iommuCtlBugChipList[]= {0x7715a000,0x7715a001,0x8815a000}; //bug chip list
+    //0x8730b000 tshark
+    //0x8300a001 shark
+
+
+#ifndef CONFIG_SPRD_IOMMU // shark or (dolphin/tshark not define IOMMU)
+    s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
+#else // (dolphin/tshark defined IOMMU)
+    if(s_gsp_addr_type == GSP_ADDR_TYPE_INVALUE) {
+        uint32_t adie_chip_id = 0;
+        int i = 0;
+        /*set s_gsp_addr_type according to the chip id*/
+        //adie_chip_id = sci_get_ana_chip_id();
+        //printk("GSPa : get chip id :0x%08x \n", adie_chip_id);
+        adie_chip_id = sci_get_chip_id();
+        printk("GSPd : get chip id :0x%08x \n", adie_chip_id);
+
+        if((adie_chip_id & 0xffff0000) > 0x50000000) {
+            printk("GSP : get chip id :%08x is validate, scan bugchip list.\n", adie_chip_id);
+            for (i=0; i<ARRAY_SIZE(s_iommuCtlBugChipList); i++) {
+                if(s_iommuCtlBugChipList[i] == adie_chip_id) {
+                    printk("GSP : match bug chip id :%08x == [%d]\n", adie_chip_id,i);
+#ifdef GSP_IOMMU_WORKAROUND1
+                    s_gsp_addr_type = GSP_ADDR_TYPE_IOVIRTUAL;
+#else
+                    s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
+#endif
+                    break;
+                }
+            }
+            if(s_gsp_addr_type == GSP_ADDR_TYPE_INVALUE) {
+                printk("GSP : mismatch bug chip id.\n");
+                s_gsp_addr_type = GSP_ADDR_TYPE_IOVIRTUAL;
+                printk("dolphin tshark GSP : gsp address type :%d \n", s_gsp_addr_type);
+            }
+        } else {
+            printk("GSP : get chip id :%08x is invalidate,set address type as physical.\n", adie_chip_id);
+            s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
+        }
+    }
+#endif
+    printk("GSP [%d]: gsp address type :%d ,\n", __LINE__, s_gsp_addr_type);
+    return s_gsp_addr_type;
+}
+
+
+
+
+static volatile GSP_CAPABILITY_T* GSP_Config_Capability(void)
+{
+    uint32_t adie_chip_id = 0;
+    static volatile GSP_CAPABILITY_T s_gsp_capability;
+
+    if(s_gsp_capability.magic != CAPABILITY_MAGIC_NUMBER)  { // not initialized
+        memset((void*)&s_gsp_capability,0,sizeof(s_gsp_capability));
+        s_gsp_capability.max_layer_cnt = 1;
+        s_gsp_capability.blend_video_with_OSD=0;
+        s_gsp_capability.max_videoLayer_cnt = 1;
+        s_gsp_capability.max_layer_cnt_with_video = 1;
+        s_gsp_capability.scale_range_up=64;
+        s_gsp_capability.scale_range_down=1;
+        s_gsp_capability.scale_updown_sametime=0;
+        s_gsp_capability.OSD_scaling=0;
+
+        adie_chip_id = sci_get_chip_id();
+        switch(adie_chip_id) {
+            case 0x8300a001://shark,9620
+                s_gsp_capability.version = 0x00;
+                s_gsp_capability.scale_range_up=256;
+                break;
+
+            case 0x7715a000:
+            case 0x7715a001:
+            case 0x8815a000://dolphin iommu ctl reg access err
+                s_gsp_capability.version = 0x01;
+                s_gsp_capability.video_need_copy = 1;
+                s_gsp_capability.max_video_size = 1;
+                break;
+                /*
+                case 0x8300a001://dolphin iommu ctl reg access ok, but with black line bug
+                s_gsp_capability.version = 0x02;
+                s_gsp_capability.video_need_copy = 1;
+                s_gsp_capability.max_video_size = 1;
+                break;
+                case 0x8300a001://dolphin black line bug fixed
+                s_gsp_capability.version = 0x03;
+                s_gsp_capability.max_video_size = 1;
+                s_gsp_capability.scale_range_up=256;
+                break;
+                */
+
+            case 0x8730b000://tshark, with black line bug
+                s_gsp_capability.version = 0x04;
+                s_gsp_capability.video_need_copy = 1;
+                break;
+            case 0x8730b001://tshark, black line bug fixed
+                s_gsp_capability.version = 0x05;
+                s_gsp_capability.max_layer_cnt = 2;
+                s_gsp_capability.scale_range_up=256;
+                break;
+            case 0x96300000://SharkL==Tshark+YCbCr->RGB888
+                s_gsp_capability.version = 0x06;
+                s_gsp_capability.blend_video_with_OSD=1;
+                s_gsp_capability.max_layer_cnt_with_video = 2;
+                s_gsp_capability.max_layer_cnt = 2;
+                s_gsp_capability.scale_range_up=256;
+                break;
+                /*
+                case 0x8300a001://pike, yuv contrast saturation can adjust
+                s_gsp_capability.version = 0x06;
+                s_gsp_capability.blend_video_with_OSD = 1;
+                s_gsp_capability.max_layer_cnt_with_video = 3;
+                s_gsp_capability.max_layer_cnt = 4;
+                break;
+                */
+
+            default:
+                s_gsp_capability.version = 0x00;
+                break;
+        }
+
+        s_gsp_capability.buf_type_support=GSP_Get_Addr_Type();
+
+        s_gsp_capability.yuv_xywh_even = 1;
+        s_gsp_capability.crop_min.w=s_gsp_capability.crop_min.h=4;
+        s_gsp_capability.out_min.w=s_gsp_capability.out_min.h=4;
+        s_gsp_capability.crop_max.w=s_gsp_capability.crop_max.h=4095;
+        s_gsp_capability.out_max.w=s_gsp_capability.out_max.h=4095;
+        s_gsp_capability.magic = CAPABILITY_MAGIC_NUMBER;
+    }
+    return &s_gsp_capability;
+}
 static long gsp_drv_ioctl(struct file *file,
                           uint32_t cmd,
                           unsigned long arg)
@@ -2066,9 +2197,9 @@ static long gsp_drv_ioctl(struct file *file,
                 cmd,
                 _IOC_NR(cmd),
                 param_size);
-    GSP_TRACE("%s:GSP_IO_GET_ADDR_TYPE:0x%08x\n",
+    GSP_TRACE("%s:GSP_IO_GET_CAPABILITY:0x%08x\n",
                 __func__,
-                GSP_IO_GET_ADDR_TYPE);
+                GSP_IO_GET_CAPABILITY);
     if(s_suspend_resume_flag==1)
     {
         GSP_TRACE("%s[%d]: in suspend, ioctl just return!\n",__func__,__LINE__);
@@ -2076,55 +2207,23 @@ static long gsp_drv_ioctl(struct file *file,
     }
     switch (cmd)
     {
-//#ifdef CONFIG_ARCH_SCX15
-        case GSP_IO_GET_ADDR_TYPE:
-        {
-#ifndef CONFIG_SPRD_IOMMU // shark or (dolphin/tshark not define IOMMU)
-			s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
-#else // (dolphin/tshark defined IOMMU)
-            if(s_gsp_addr_type == GSP_ADDR_TYPE_INVALUE)
-            {
-                uint32_t adie_chip_id = 0;
-                int i = 0;
-                /*set s_gsp_addr_type according to the chip id*/
-                //adie_chip_id = sci_get_ana_chip_id();
-                //printk("GSPa : get chip id :0x%08x \n", adie_chip_id);
-                adie_chip_id = sci_get_chip_id();
-                printk("GSPd : get chip id :0x%08x \n", adie_chip_id);
+        case GSP_IO_GET_CAPABILITY:
+            if (param_size>=sizeof(GSP_CAPABILITY_T)) {
+                volatile GSP_CAPABILITY_T *cap=GSP_Config_Capability();
 
-                if((adie_chip_id & 0xffff0000) > 0x50000000)
-                {
-                    printk("GSP : get chip id :%08x is validate, scan bugchip list.\n", adie_chip_id);
-                    for (i=0; i<ARRAY_SIZE(s_iommuCtlBugChipList); i++)
-                    {
-                        if(s_iommuCtlBugChipList[i] == adie_chip_id)
-                        {
-                            printk("GSP : match bug chip id :%08x == [%d]\n", adie_chip_id,i);
-#ifdef GSP_IOMMU_WORKAROUND1
-                            s_gsp_addr_type = GSP_ADDR_TYPE_IOVIRTUAL;
-#else
-                            s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
-#endif
-                            break;
-                        }
-                    }
-                    if(s_gsp_addr_type == GSP_ADDR_TYPE_INVALUE)
-                    {
-                        printk("GSP : mismatch bug chip id.\n");
-                        s_gsp_addr_type = GSP_ADDR_TYPE_IOVIRTUAL;
-                        printk("dolphin tshark GSP : gsp address type :%d \n", s_gsp_addr_type);
-                    }
+                ret=copy_to_user((void __user *)arg,(volatile void*)cap,sizeof(GSP_CAPABILITY_T));
+                if(ret) {
+                    printk("%s[%d] err:get gsp capability failed in copy_to_user !\n",__func__,__LINE__);
+                    ret = GSP_KERNEL_COPY_ERR;
+                    goto exit;
                 }
-                else
-                {
-                    printk("GSP : get chip id :%08x is invalidate,set address type as physical.\n", adie_chip_id);
-                    s_gsp_addr_type = GSP_ADDR_TYPE_PHYSICAL;
-                }
+                GSP_TRACE("%s[%d]: get gsp capability success in copy_to_user \n",__func__,__LINE__);
+            } else {
+                printk("%s[%d] err:get gsp capability, buffer is too small,come:%d,need:%d!",__func__, __LINE__,
+                       param_size,sizeof(GSP_CAPABILITY_T));
+                ret = GSP_KERNEL_COPY_ERR;
+                goto exit;
             }
-#endif
-            printk("GSP [%d]: gsp address type :%d ,\n", __LINE__, s_gsp_addr_type);
-            return s_gsp_addr_type;
-        }
         break;
 //#endif
         case GSP_IO_SET_PARAM:
@@ -2389,7 +2488,7 @@ static long gsp_drv_ioctl(struct file *file,
 
 exit3:
 	GSP_Deinit();
-exit2:
+//exit2:
 	GSP_Unmap();
 exit1:
 	gsp_cur_client_pid = INVALID_USER_ID;
@@ -2832,8 +2931,8 @@ int32_t gsp_drv_probe(struct platform_device *pdev)
 	ret = of_property_read_u32(gsp_of_dev->of_node, "gsp_mmu_ctrl_base", &gsp_mmu_ctrl_addr);
 	printk("gsp_dt gsp_mmu_ctrl_addr = 0x%x\n",gsp_mmu_ctrl_addr);
 	if(0 != ret){
-		printk("%s: read gsp_mmu_ctrl_addr fail (%d)\n", ret);
-		return;
+		printk("%s: read gsp_mmu_ctrl_addr fail (%d)\n", __func__, ret);
+		return ret;
 	}
 #endif
 #endif

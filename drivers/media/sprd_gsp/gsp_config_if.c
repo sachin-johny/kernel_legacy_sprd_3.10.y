@@ -128,8 +128,8 @@ LOCAL void GSP_SetMiscParameter(void)
     GSP_PMARGB_ENABLE_SET(s_gsp_cfg.layer0_info.pmargb_en||s_gsp_cfg.layer1_info.pmargb_en);
     GSP_L0_PMARGBMODE_SET(s_gsp_cfg.layer0_info.pmargb_mod);
     GSP_L1_PMARGBMODE_SET(s_gsp_cfg.layer1_info.pmargb_mod);
-	GSP_PAGES_BOARDER_SPLIT_SET(s_gsp_cfg.misc_info.split_pages);
-
+    GSP_PAGES_BOARDER_SPLIT_SET(s_gsp_cfg.misc_info.split_pages);
+    GSP_Y2R_OPT_SET(s_gsp_cfg.misc_info.y2r_opt);
     GSP_DITHER_ENABLE_SET(s_gsp_cfg.misc_info.dithering_en);
     //GSP_AHB_CLOCK_SET(s_gsp_cfg.misc_info.ahb_clock);
     GSP_CLOCK_SET(s_gsp_cfg.misc_info.gsp_clock);
