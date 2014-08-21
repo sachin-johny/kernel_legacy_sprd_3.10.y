@@ -615,6 +615,7 @@
 			<0xf5250000 0x400>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
 			<0xf5230000 0x100>; /* <pmu_base size> */
+                interrupts = <0 0x7c 0x0>; /* no arm7_wdg_int number,so give it a invalid irq number */
 		#address-cells = <1>;
 		#size-cells = <1>;
 		/* segnr=1 */
@@ -632,7 +633,7 @@
 		sprd,ctrl-mask = <0x20000 0x10000000 0x01 0xf0000>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x88400000>; /* 3rd param equals modem_addr*/
 		reg = <0x88000000 0x1600000>, /* <CP_start_addr total_size> = <+128M 26M> */
-			<0xf53d4000 0xc>, /* <iram1_base size> */
+			<0xf53e0000 0xc>, /* <iram1_base size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
@@ -660,7 +661,7 @@
 		sprd,ctrl-mask = <0x100000 0x40000 0x02 0xf0000>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x89a00000>; /* 3rd param equals modem_addr*/
 		reg = <0x89600000 0x6a00000>, /* <CP_start_addr total_size> = <+128M 26M> */
-			<0xf53d5000 0x0c>, /* <iram1_base size> */
+			<0xf53e1000 0x0c>, /* <iram1_base size> */
 			<0xf5250000 0x100>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */

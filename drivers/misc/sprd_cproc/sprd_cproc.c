@@ -288,11 +288,23 @@ static ssize_t cproc_proc_write(struct file *filp,
 		base = cproc->initdata->segs[0].base;
 		size = cproc->initdata->segs[0].maxsz;
 		offset = *ppos;
-	} else if (strcmp(type, "dsp") == 0) {
+	}
+        else if (strcmp(type, "dsp") == 0) {
 		base = cproc->initdata->segs[1].base;
 		size = cproc->initdata->segs[1].maxsz;
 		offset = *ppos;
-	} else {
+	}
+        else if (strcmp(type, "tgdsp") == 0) {
+		base = cproc->initdata->segs[1].base;
+		size = cproc->initdata->segs[1].maxsz;
+		offset = *ppos;
+	}
+        else if (strcmp(type, "ldsp") == 0) {
+		base = cproc->initdata->segs[2].base;
+		size = cproc->initdata->segs[2].maxsz;
+		offset = *ppos;
+	}
+        else {
 		return -EINVAL;
 	}
 
