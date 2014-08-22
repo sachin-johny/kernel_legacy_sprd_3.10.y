@@ -32,6 +32,9 @@
 #include <mach/pinmap.h>
 #include "sdhci.h"
 #include "sprd-sdhci-regulator.h"
+#include <mach/adi.h>
+
+#define	ANA_REG_GET(_r)		sci_adi_read(_r)
 
 extern void mmc_power_off(struct mmc_host *host);
 extern void mmc_power_cycle(struct mmc_host *host);
@@ -296,6 +299,7 @@ static ssize_t sprd_sdhci_host_runtime_restore(struct device *dev, struct device
 }
 #endif
 
+#if !defined(CONFIG_SC_FPGA)
 static void sprd_sdhci_host_enable_clock(struct sdhci_host *host, int enable) {
 	unsigned long flags;
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
@@ -315,6 +319,9 @@ static void sprd_sdhci_host_enable_clock(struct sdhci_host *host, int enable) {
 		/*spin_unlock_irqrestore(&sprd_host->lock, flags);*/
 	}
 }
+#else
+#define sprd_sdhci_host_enable_clock(a,b)
+#endif
 
 static void sprd_sdhci_host_set_clock(struct sdhci_host *host, unsigned int clock) {
 	sprd_sdhci_host_close_clock(host);
@@ -623,50 +630,34 @@ static void sprd_sdhci_host_fix_mmc_core_detect_work(struct sdhci_host *host) {
 }
 
 static void sprd_sdhci_host_fix_mmc_core_get_regulator(struct sdhci_host *host) {
-	struct platform_device *pdev = to_platform_device(mmc_dev(host->mmc));
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	struct sprd_sdhci_host_platdata *host_pdata =  sprd_host->platdata;
-	sprd_host->vmmc_nb.notifier_call = sprd_sdhci_host_regulator_vmmc_notify;
-	sprd_host->vmmc_rdev = sprd_sdhci_regulator_init(pdev, &sprd_host->vmmc_nb, host_pdata->vdd_extmmc);
-	if(!IS_ERR_OR_NULL(sprd_host->vmmc_rdev)) {
-		struct regulator *vmmc, *vqmmc;
-		vmmc = regulator_get(mmc_dev(host->mmc), "vmmc");
-		if(!IS_ERR_OR_NULL(vmmc)) {
-			u32 caps;
-			unsigned int ocr_avail;
-			ocr_avail = mmc_regulator_get_ocrmask(vmmc);
-			regulator_put(vmmc);
-			caps = sdhci_readl(host, SDHCI_CAPABILITIES);
-			if(!((caps & SDHCI_CAN_VDD_330) && (ocr_avail & (MMC_VDD_32_33 | MMC_VDD_33_34)))) {
-				ocr_avail &= ~(MMC_VDD_32_33 | MMC_VDD_33_34);
-				caps &= ~ SDHCI_CAN_VDD_330;
-				host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-			}
-			if(!((caps & SDHCI_CAN_VDD_300) && (ocr_avail & (MMC_VDD_29_30 | MMC_VDD_30_31)))) {
-				ocr_avail &= ~(MMC_VDD_29_30 | MMC_VDD_30_31);
-				caps &= ~ SDHCI_CAN_VDD_300;
-				host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-			}
-			if(!((caps & SDHCI_CAN_VDD_180) && (ocr_avail & (MMC_VDD_165_195)))) {
-				ocr_avail &= ~(MMC_VDD_165_195);
-				caps &= ~ SDHCI_CAN_VDD_180;
-				host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
-			}
-			if(host->quirks & SDHCI_QUIRK_MISSING_CAPS) {
-				host->caps = caps;
-				host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
-			}
-			host->ocr_avail_mmc = host->ocr_avail_sd = host->ocr_avail_sdio = ocr_avail;
+	u32 caps;
+	unsigned int ocr_avail;
+
+	if(host->vqmmc){
+		ocr_avail = mmc_regulator_get_ocrmask(host->vqmmc);
+		caps = host->caps;
+		printk("sprd_sdhci_host_fix_mmc_core_get_regulator ocr_avail0=%x,caps=%x\n",ocr_avail,caps);
+		if(!((caps & SDHCI_CAN_VDD_330) && (ocr_avail & (MMC_VDD_32_33 | MMC_VDD_33_34)))) {
+					ocr_avail &= ~(MMC_VDD_32_33 | MMC_VDD_33_34);
+					caps &= ~ SDHCI_CAN_VDD_330;
+					host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+				}
+		if(!((caps & SDHCI_CAN_VDD_300) && (ocr_avail & (MMC_VDD_29_30 | MMC_VDD_30_31)))) {
+					ocr_avail &= ~(MMC_VDD_29_30 | MMC_VDD_30_31);
+					caps &= ~ SDHCI_CAN_VDD_300;
+					host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+				}
+		if(!((caps & SDHCI_CAN_VDD_180) && (ocr_avail & (MMC_VDD_165_195)))) {
+					ocr_avail &= ~(MMC_VDD_165_195);
+					caps &= ~ SDHCI_CAN_VDD_180;
+					host->quirks |= SDHCI_QUIRK_MISSING_CAPS;
+				}
+		if(host->quirks & SDHCI_QUIRK_MISSING_CAPS) {
+					host->caps = caps;
+					host->caps1 = sdhci_readl(host, SDHCI_CAPABILITIES_1);
 		}
-		if(host_pdata->init_voltage_level > 0) {
-			vqmmc = regulator_get(mmc_dev(host->mmc), "vqmmc");
-			if(!IS_ERR_OR_NULL(vqmmc)) {
-				int uV = regulator_list_voltage(vqmmc, host_pdata->init_voltage_level - 1);
-				if(uV > 0)
-					regulator_set_voltage(vqmmc, uV, uV);
-				regulator_put(vqmmc);
-			}
-		}
+		host->ocr_avail_mmc = host->ocr_avail_sd = host->ocr_avail_sdio = ocr_avail;
+		printk("sprd_sdhci_host_fix_mmc_core_get_regulator ocr_avail1=%x,caps=%x\n",ocr_avail,caps);
 	}
 }
 
@@ -851,7 +842,7 @@ static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_detect_work = {
 
 static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_regulator = {
 	.start_version = KERNEL_VERSION(3, 10, 0),
-	.probe = sprd_sdhci_host_fix_mmc_core_get_regulator,
+	.probe =sprd_sdhci_host_fix_mmc_core_get_regulator,
 };
 
 static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_mmc_ops = {
@@ -880,8 +871,7 @@ static const struct sprd_mmc_core_fix sprd_sdhci_host_fix_card_event = {
 
 static const struct sprd_sdhci_host_fix *sprd_sdhci_host_sprd_host_fixes_shark[] = {
 	[0] = &sprd_sdhci_host_fix_base,
-	[1] = &sprd_sdhci_host_fix_chip_select,
-	[2] = &sprd_sdhci_host_fix_sd_uhsi_1p8v,
+	[1] = &sprd_sdhci_host_fix_sd_uhsi_1p8v,
 	[SDHCI_FIX_PRE_COUNT + 0] = &sprd_sdhci_host_fix_execute_tuning,
 	[SDHCI_FIX_PRE_COUNT + 1] = NULL,
 };
@@ -1038,6 +1028,7 @@ static void sprd_sdhci_host_of_parse(struct platform_device *pdev, struct sdhci_
 	of_property_read_u32(np, "id", &pdev->id);
 	of_property_read_u32(np, "caps", &host_pdata->caps);
 	of_property_read_u32(np, "caps2", &host_pdata->caps2);
+	of_property_read_u32(np, "host-caps-mask", &host_pdata->host_caps_mask);
 	of_property_read_u32(np, "max-frequency", &host_pdata->max_frequency);
 	of_property_read_u32(np, "enb-bit", &host_pdata->enb_bit);
 	of_property_read_u32(np, "rst-bit", &host_pdata->rst_bit);
@@ -1047,13 +1038,14 @@ static void sprd_sdhci_host_of_parse(struct platform_device *pdev, struct sdhci_
 	of_property_read_u32(np, "read-pos-delay", &host_pdata->read_pos_delay);
 	of_property_read_u32(np, "read-neg-delay", &host_pdata->read_neg_delay);
 	of_property_read_u32(np, "cd-gpios", &host_pdata->detect_gpio);
-	of_property_read_u32(np, "init-voltage-level", &host_pdata->init_voltage_level);
+	of_property_read_u32(np, "vqmmc-voltage-level", &host_pdata->vqmmc_voltage_level);
 	of_property_read_u32(np, "pinmap-offset", &host_pdata->pinmap_offset);
 	of_property_read_u32(np, "d3-gpio", &host_pdata->d3_gpio);
 	of_property_read_u32(np, "d3-index", &host_pdata->d3_index);
 	of_property_read_u32(np, "sd-func", &host_pdata->sd_func);
 	of_property_read_u32(np, "gpio-func", &host_pdata->gpio_func);
-	of_property_read_string(np, "vdd-extmmc", &host_pdata->vdd_extmmc);
+	of_property_read_string(np, "vdd-vmmc", &host_pdata->vdd_vmmc);
+	of_property_read_string(np, "vdd-vqmmc", &host_pdata->vdd_vqmmc);
 	of_property_read_u32(np, "keep-power", &host_pdata->keep_power);
 	of_property_read_u32(np, "runtime", &host_pdata->runtime);
 	mmc_of_parse(host->mmc);
@@ -1203,9 +1195,12 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 #else
 	host->mmc->pm_caps |= MMC_PM_IGNORE_PM_NOTIFY | MMC_PM_KEEP_POWER;
 #endif
+	sprd_sdhci_host_open(host, sprd_host);
 	host->mmc->pm_flags |=  MMC_PM_IGNORE_PM_NOTIFY;
 	host->mmc->caps |= host_pdata->caps;
 	host->mmc->caps2 |= host_pdata->caps2;
+	host->caps = sdhci_readl(host, SDHCI_CAPABILITIES) & ~(host_pdata->host_caps_mask);
+	printk("sprd_sdhci_host_probe host->caps=%x,host_pdata->host_caps_mask=%x\n",host->caps,host_pdata->host_caps_mask);
 #ifdef CONFIG_PM_RUNTIME
 	if(!host_pdata->runtime)
 		host->mmc->caps &= ~MMC_CAP_POWER_OFF_CARD;
@@ -1216,16 +1211,30 @@ static int sprd_sdhci_host_probe(struct platform_device *pdev)
 	wake_lock_init(&sprd_host->wake_lock, WAKE_LOCK_SUSPEND, kasprintf(GFP_KERNEL, "%s-wakelock", dev_name(&pdev->dev)));
 	device_init_wakeup(&pdev->dev, 0);
 	device_set_wakeup_enable(&pdev->dev, 0);
+#if !defined(CONFIG_SC_FPGA)
 	retval = sprd_sdhci_host_get_clock(pdev, host);
 	if(retval < 0)
 		goto ERROR_CLOCK;
+#endif
 	pm_runtime_get_noresume(&pdev->dev);
 #ifdef CONFIG_PM_RUNTIME
 	retval = sprd_sdhci_host_get_runtime(pdev, host);
 	if (retval < 0)
 		goto ERROR_RUNTIME;
 #endif
-	sprd_sdhci_host_open(host, sprd_host);
+
+	if(host_pdata->vdd_vqmmc) {
+	    host->vqmmc = regulator_get(NULL, host_pdata->vdd_vqmmc);
+	    BUG_ON(IS_ERR(host->vqmmc));
+		if(host_pdata->vqmmc_voltage_level) {
+		regulator_set_voltage(host->vqmmc,host_pdata->vqmmc_voltage_level,host_pdata->vqmmc_voltage_level);
+	   }
+	}
+	if(host_pdata->vdd_vmmc) {
+	    host->vmmc = regulator_get(NULL, host_pdata->vdd_vmmc);
+	    BUG_ON(IS_ERR(host->vmmc));
+	 }
+
 	sprd_sdhci_host_fix_mmc_core_pre(host);
 	sprd_sdhci_host_fix_sprd_host_pre(host);
 	retval = sdhci_add_host(host);
@@ -1247,7 +1256,9 @@ ERROR_RUNTIME:
 	pm_runtime_put_noidle(&pdev->dev);
 #endif
 ERROR_CLOCK:
+#if !defined(CONFIG_SC_FPGA)
 	sprd_sdhci_host_put_clock(pdev, host);
+#endif
 #ifdef CONFIG_OF
 	kfree(host_pdata);
 ERROR_ALLOC:
@@ -1268,7 +1279,9 @@ static int sprd_sdhci_host_remove(struct platform_device *pdev) {
 		mmc_gpio_free_cd(mmc);
 	mmc_claim_host(mmc);
 	sprd_sdhci_host_put_runtime(pdev, host);
+#if !defined(CONFIG_SC_FPGA)
 	sprd_sdhci_host_put_clock(pdev, host);
+#endif
 	sprd_sdhci_host_fix_mmc_core_remove(host);
 	mmc_release_host(mmc);
 	sdhci_remove_host(host, 1);

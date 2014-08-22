@@ -13,7 +13,7 @@ enum {
 	SDC_SLAVE_CP,
 	SDC_SLAVE_EMMC
 };
-#ifdef CONFIG_OF
+
 struct sprd_sdhci_host_platdata {
 	unsigned int runtime;
 	unsigned int keep_power;
@@ -39,29 +39,5 @@ struct sprd_sdhci_host_platdata {
 	unsigned int read_pos_delay;
 	unsigned int read_neg_delay;
 };
-#else
-struct sprd_sdhci_host_platdata {
-	unsigned int runtime;
-	unsigned int keep_power;
-	unsigned int caps;
-	unsigned int caps2;
-	int detect_gpio;
-	const char *vdd_extmmc;
-	unsigned int init_voltage_level;
-	unsigned int vdd_voltage_level[4];
-	const char *clk_name;
-	const char *clk_parent_name;
-	int max_frequency;
-	unsigned int pinmap_offset;
-	unsigned int d3_gpio;
-	unsigned int d3_index;
-	unsigned int sd_func;
-	unsigned int gpio_func;
-	unsigned int enb_bit, rst_bit;
-	unsigned int enb_reg, rst_reg;
-	unsigned int write_delay;
-	unsigned int read_pos_delay;
-	unsigned int read_neg_delay;
-};
-#endif
+
 #endif
