@@ -206,7 +206,7 @@ static int32_t _isp_module_eb(void)
 	if (0x01 == atomic_inc_return(&s_isp_users)) {
 
 		ret = clk_mm_i_eb(isp_dev.this_device->of_node,1);
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 		ret = _isp_set_clk(ISP_CLK_312M);
 #else
 		ret = _isp_set_clk(ISP_CLK_256M);
@@ -445,9 +445,9 @@ static int32_t _isp_set_clk(enum isp_clk_sel clk_sel)
 	}
 
 	if (NULL == g_isp_dev_ptr->s_isp_clk) {
-		g_isp_dev_ptr->s_isp_clk = clk_get(NULL, "clk_isp");
+		g_isp_dev_ptr->s_isp_clk = parse_clk(isp_dev.this_device->of_node, "clk_isp");
 		if (IS_ERR(g_isp_dev_ptr->s_isp_clk)) {
-			ISP_PRINT("isp_k: clk_get fail, %d \n", (int)g_isp_dev_ptr->s_isp_clk);
+			ISP_PRINT("isp_k: parse_clk fail, %d \n", (int)g_isp_dev_ptr->s_isp_clk);
 			return -1;
 		} else {
 			ISP_PRINT("isp_k: get clk_parent ok \n");

@@ -73,7 +73,7 @@ static void csi_phy_power_down(u32 phy_id, u32 is_eb)
 	/*bit0: phya ; bit1: phyb*/
 	if (is_eb) {
 		if (0x03 == (phy_id & 0x03)) {
-			sci_glb_set(REG_AON_APB_PWR_CTRL, (BIT_CSI0_PHY_PD | BIT_CSI1_PHY_PD));
+			printk("csi phy erro: scx35l does not support the combination of phya & phyb\n");
 		} else {
 			if (0x01 == (phy_id & 0x01)) {
 				sci_glb_set(REG_AON_APB_PWR_CTRL, (3 << 12));
@@ -85,7 +85,7 @@ static void csi_phy_power_down(u32 phy_id, u32 is_eb)
 		}
 	} else {
 		if (0x03 == (phy_id & 0x03)) {
-			sci_glb_clr(REG_AON_APB_PWR_CTRL, (BIT_CSI0_PHY_PD | BIT_CSI1_PHY_PD));
+			printk("csi phy erro: scx35l does not support the combination of phya & phyb\n");
 		} else {
 			if (0x01 == (phy_id & 0x01)) {
 				sci_glb_clr(REG_AON_APB_PWR_CTRL, (1 << 13));
