@@ -24,7 +24,6 @@ extern struct ops_spi sprdfb_spi_ops;
 
 extern bool sprdfb_i2c_init(struct sprdfb_device *dev);
 extern bool sprdfb_i2c_uninit(struct sprdfb_device *dev);
-
 extern bool sprdfb_spi_init(struct sprdfb_device *dev);
 extern bool sprdfb_spi_uninit(struct sprdfb_device *dev);
 
@@ -37,7 +36,7 @@ static uint32_t rgb_readid(struct panel_spec *self)
 	/* default id reg is 0 */
 	if(SPRDFB_RGB_BUS_TYPE_I2C == rgb->cmd_bus_mode){
 		rgb->bus_info.i2c->ops->i2c_read_16bits(0x0, false, (uint16_t*)&id, false);
-	} else {
+	}else{
 		rgb->bus_info.spi->ops->spi_send_cmd(0x0);
 		rgb->bus_info.spi->ops->spi_read(&id);
 	}
@@ -56,8 +55,7 @@ static void rgb_dispc_init_config(struct panel_spec *panel)
 		return;
 	}
 
-	if (SPRDFB_PANEL_TYPE_RGB != panel->type &&
-			SPRDFB_PANEL_TYPE_LVDS != panel->type) {
+	if(SPRDFB_PANEL_TYPE_RGB != panel->type){
 		printk(KERN_ERR "sprdfb: [%s] fail.(not  mcu panel)\n", __FUNCTION__);
 		return;
 	}
@@ -175,9 +173,8 @@ static int32_t sprdfb_rgb_panel_check(struct panel_spec *panel)
 		return false;
 	}
 
-	if(SPRDFB_PANEL_TYPE_RGB != panel->type &&
-			SPRDFB_PANEL_TYPE_LVDS != panel->type) {
-		printk("sprdfb: [%s] fail. (not rgb or lvds param)\n", __FUNCTION__);
+	if(SPRDFB_PANEL_TYPE_RGB != panel->type){
+		printk("sprdfb: [%s] fail. (not rgb param)\n", __FUNCTION__);
 		return false;
 	}
 
@@ -196,11 +193,11 @@ static void sprdfb_rgb_panel_mount(struct sprdfb_device *dev)
 	pr_debug(KERN_INFO "sprdfb: [%s], dev_id = %d\n",__FUNCTION__, dev->dev_id);
 
 	dev->panel_if_type = SPRDFB_PANEL_IF_DPI;
+
 	if(SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode){
 		dev->panel->info.rgb->bus_info.i2c->ops = &sprdfb_i2c_ops;
-	} else {
-		if (dev->panel->info.rgb->bus_info.spi)
-			dev->panel->info.rgb->bus_info.spi->ops = &sprdfb_spi_ops;
+	}else{
+		dev->panel->info.rgb->bus_info.spi->ops = &sprdfb_spi_ops;
 	}
 
 	if(NULL == dev->panel->ops->panel_readid){
@@ -216,11 +213,10 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 	bool ret = false;
 	if(SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode){
 		ret = sprdfb_i2c_init(dev);
-	} else if (SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
+	}else if(SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
 		ret = sprdfb_spi_init(dev);
-	} else if (dev->panel->info.rgb->cmd_bus_mode == SPRDFB_RGB_BUS_TYPE_LVDS) {
-		ret = true;
 	}
+
 	if(!ret) {
 		printk(KERN_ERR "sprdfb: [%s]: bus init fail!\n", __FUNCTION__);
 		return false;
@@ -235,29 +231,14 @@ static bool sprdfb_rgb_panel_init(struct sprdfb_device *dev)
 		udelay(100);
 		dispc_clear_bits(BIT(4), DISPC_CTRL);
 	}
-
-#ifdef SPRDFB_SUPPORT_LVDS_PANEL
-	if (dev->panel->type == SPRDFB_PANEL_TYPE_LVDS) {
-		pr_info("sprdfb: [%s]: Now initialize LVDS mode\n", __FUNCTION__);
-		/* bit[16] clk from LVDS TX (need set when in LVDS mode) */
-		__raw_writel(BIT(16), REG_AP_CLK_DISPC0_DPI_CFG);
-		/* a4, bit[0]: LVDS AP select */
-		/* 60, bit[0]: LVDS TX power down (active '1') */
-		__raw_writel(BIT(0), REG_PMU_APB_LVDSDIS_PLL_REL_CFG);
-		__raw_writel(BIT(0), REG_AON_APB_LVDS_CFG);
-		/* '0': R/G/B[1:0] sent by lan3; '1': RGB[7:6] sent by lan3 */
-		dispc_set_bits(BIT(21), DISPC_CTRL + 0x18);
-	}
-#endif
-
 	return true;
 }
 
 static void sprdfb_rgb_panel_uninit(struct sprdfb_device *dev)
 {
-	if (SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode) {
+	if(SPRDFB_RGB_BUS_TYPE_I2C == dev->panel->info.rgb->cmd_bus_mode){
 		sprdfb_i2c_uninit(dev);
-	} else if (SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
+	}else if(SPRDFB_RGB_BUS_TYPE_SPI == dev->panel->info.rgb->cmd_bus_mode) {
 		sprdfb_spi_uninit(dev);
 	}
 }

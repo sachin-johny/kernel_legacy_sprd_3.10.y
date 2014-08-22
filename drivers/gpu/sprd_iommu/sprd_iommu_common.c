@@ -5,7 +5,7 @@ extern struct sprd_iommu_ops iommu_mm_ops;
 #endif
 static int mmu_reg_write(u32 reg, u32 val, u32 msk)
 {
-	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
+	__raw_writel((__raw_readl((void *)reg) & ~msk) | val, (void *)reg);
 	return 0;
 }
 

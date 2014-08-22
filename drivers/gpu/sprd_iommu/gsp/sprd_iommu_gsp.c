@@ -29,7 +29,7 @@ static void sprd_iommu_gsp_late_resume(struct early_suspend* es);
 int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
 		int err=-1;
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		struct device_node *np;
 
@@ -114,18 +114,18 @@ void sprd_iommu_gsp_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, si
 int sprd_iommu_gsp_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
-	sprd_iommu_gsp_enable(dev);
+
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
-	sprd_iommu_gsp_disable(dev);
+
 	return err;
 }
 
 int sprd_iommu_gsp_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	int err=-1;
-	sprd_iommu_gsp_enable(dev);
+
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
-	sprd_iommu_gsp_disable(dev);
+
 	return err;
 }
 
@@ -192,7 +192,7 @@ int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 {
 		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 		sprd_iommu_disable(dev);
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		clk_disable_unprepare(dev->mmu_clock);
 		clk_disable_unprepare(dev->mmu_mclock);
@@ -236,13 +236,13 @@ static void gsp_iommu_workaround(struct sprd_iommu_dev *dev)
 	printk("%s line:%d REG_AON_APB_APB_EB1:0x%x\n",__func__,__LINE__,sci_glb_read(REG_AON_APB_APB_EB1,-1));
 	if (!(sci_glb_read(REG_AON_APB_APB_EB1,-1) & 0x800)) {
 		printk("%s line:%d dispc_emc not enable\n",__func__,__LINE__);
-		__raw_writel(0x10000001, dev->init_data->ctrl_reg);
+		__raw_writel(0x10000001, (void *)(dev->init_data->ctrl_reg));
 	} else {
-		printk("%s line:%d dispc_emc enabled:0x%x\n",__func__,__LINE__);
+		printk("%s line:%d dispc_emc enabled\n",__func__,__LINE__);
 		sci_glb_clr(REG_AON_APB_APB_EB1,0x800);
 		//udelay(2);
 		cycle_delay(5);
-		__raw_writel(0x10000001, dev->init_data->ctrl_reg);
+		__raw_writel(0x10000001, (void *)(dev->init_data->ctrl_reg));
 		//udelay(2);
 		cycle_delay(5);
 		sci_glb_set(REG_AON_APB_APB_EB1,0x800);
@@ -254,7 +254,7 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 
 {
 		printk("%s line:%d\n",__FUNCTION__,__LINE__);
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_clock);
 		clk_prepare_enable(dev->mmu_mclock);
@@ -287,7 +287,7 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {
 		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_ARCH_SCX30G)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_mclock);
 		clk_prepare_enable(dev->mmu_clock);

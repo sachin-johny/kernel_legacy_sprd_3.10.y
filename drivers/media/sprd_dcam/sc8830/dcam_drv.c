@@ -24,9 +24,9 @@
 #include <mach/irqs.h>
 #include <mach/sci.h>
 #include <linux/vmalloc.h>
+#include <linux/wakelock.h>
 #include "dcam_drv.h"
 #include "gen_scale_coef.h"
-
 
 #define LOCAL static
 /*#define LOCAL*/
@@ -208,6 +208,7 @@ LOCAL uint32_t                 s_dcam_irq = 0x5A0000A5;
 LOCAL dcam_isr_func            s_user_func[DCAM_IRQ_NUMBER];
 LOCAL void*                    s_user_data[DCAM_IRQ_NUMBER];
 LOCAL uint32_t                 *s_dcam_scaling_coeff_addr = NULL;
+LOCAL struct wake_lock         dcam_wakelock;
 
 LOCAL DEFINE_MUTEX(dcam_sem);
 LOCAL DEFINE_MUTEX(dcam_scale_sema);
@@ -534,24 +535,34 @@ LOCAL uint32_t *dcam_get_scale_coeff_addr(void)
 
 int32_t dcam_module_en(struct device_node *dn)
 {
-	int	ret = 0;
+	int		ret = 0;
+	unsigned int	irq_no = 0;
 
 	DCAM_TRACE("DCAM: dcam_module_en, In %d \n", s_dcam_users.counter);
+
 	mutex_lock(&dcam_module_sema);
 	if (atomic_inc_return(&s_dcam_users) == 1) {
-		unsigned int irq_no;
+
+		wake_lock_init(&dcam_wakelock, WAKE_LOCK_SUSPEND,
+			"pm_message_wakelock_dcam");
+
+		wake_lock(&dcam_wakelock);
 
 		ret = clk_mm_i_eb(dn,1);
 		if (ret) {
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
+
 		ret = dcam_set_clk(dn,DCAM_CLK_256M);
 		if (ret) {
+			clk_mm_i_eb(dn,0);
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
-		/*REG_OWR(DCAM_EB, DCAM_EB_BIT);*/
+
+		parse_baseaddress(dn);
+
 		dcam_reset(DCAM_RST_ALL, 0);
 		atomic_set(&s_resize_flag, 0);
 		atomic_set(&s_rotation_flag, 0);
@@ -567,7 +578,9 @@ int32_t dcam_module_en(struct device_node *dn)
 				"DCAM",
 				(void*)&s_dcam_irq);
 		if (ret) {
-			DCAM_TRACE("DCAM: dcam_start, error %d \n", ret);
+			printk("DCAM: dcam_start, error %d \n", ret);
+			dcam_set_clk(dn,DCAM_CLK_NONE);
+			clk_mm_i_eb(dn,0);
 			ret = -DCAM_RTN_MAX;
 			goto fail_exit;
 		}
@@ -577,7 +590,10 @@ int32_t dcam_module_en(struct device_node *dn)
 	DCAM_TRACE("DCAM: dcam_module_en, Out %d \n", s_dcam_users.counter);
 	mutex_unlock(&dcam_module_sema);
 	return 0;
+
 fail_exit:
+	wake_unlock(&dcam_wakelock);
+	wake_lock_destroy(&dcam_wakelock);
 	atomic_dec(&s_dcam_users);
 	mutex_unlock(&dcam_module_sema);
 	return ret;
@@ -585,13 +601,14 @@ fail_exit:
 
 int32_t dcam_module_dis(struct device_node *dn)
 {
-	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-	int	                    ret = 0;
-	mutex_lock(&dcam_module_sema);
+	enum dcam_drv_rtn	rtn = DCAM_RTN_SUCCESS;
+	int			ret = 0;
+	unsigned int		irq_no = 0;
+
 	DCAM_TRACE("DCAM: dcam_module_dis, In %d \n", s_dcam_users.counter);
 
+	mutex_lock(&dcam_module_sema);
 	if (atomic_dec_return(&s_dcam_users) == 0) {
-		unsigned int irq_no;
 
 		sci_glb_clr(DCAM_EB, DCAM_EB_BIT);
 		dcam_set_clk(dn,DCAM_CLK_NONE);
@@ -600,12 +617,15 @@ int32_t dcam_module_dis(struct device_node *dn)
 		free_irq(irq_no, (void*)&s_dcam_irq);
 		ret = clk_mm_i_eb(dn,0);
 		if (ret) {
-			rtn =  -DCAM_RTN_MAX;
+			rtn = -DCAM_RTN_MAX;
 		}
+		wake_unlock(&dcam_wakelock);
+		wake_lock_destroy(&dcam_wakelock);
 	}
 
 	DCAM_TRACE("DCAM: dcam_module_dis, Out %d \n", s_dcam_users.counter);
 	mutex_unlock(&dcam_module_sema);
+
 	return rtn;
 }
 
@@ -684,7 +704,7 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode, uint32_t is_isr)
 		mutex_unlock(&dcam_scale_sema);
 	}
 
-	DCAM_TRACE("DCAM: reset: path=%x  end \n", reset_mode);
+	DCAM_TRACE("DCAM: reset_mode=%x  end \n", reset_mode);
 
 	return -rtn;
 }
@@ -3193,10 +3213,17 @@ LOCAL void    _dcam_path0_overflow(void)
 
 	printk("DCAM: _path0_overflow \n");
 	path = &s_p_dcam_mod->dcam_path0;
-	frame = path->output_frame_cur->prev->prev;
 
-	if (user_func) {
-		(*user_func)(frame, data);
+	if (path->output_frame_cur) {
+		if (path->output_frame_cur->prev) {
+			frame = path->output_frame_cur->prev->prev;
+
+			if (user_func) {
+				(*user_func)(frame, data);
+			}
+		}
+	} else {
+		printk("DCAM: path0 not cfg  \n");
 	}
 
 	return;
@@ -3564,9 +3591,7 @@ LOCAL void _dcam_internal_deinit(void)
 	unsigned long flag;
 
 	spin_lock_irqsave(&dcam_mod_lock, flag);
-	if (DCAM_ADDR_INVALID(s_p_dcam_mod)) {
-		printk("DCAM: Invalid addr, 0x%x", (uint32_t)s_p_dcam_mod);
-	} else {
+	if (!DCAM_ADDR_INVALID(s_p_dcam_mod)) {
 		vfree(s_p_dcam_mod);
 		s_p_dcam_mod = NULL;
 	}

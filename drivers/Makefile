@@ -107,7 +107,7 @@ obj-$(CONFIG_EDAC)		+= edac/
 obj-$(CONFIG_EISA)		+= eisa/
 obj-y				+= lguest/
 obj-$(CONFIG_CPU_FREQ)		+= cpufreq/
-obj-$(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)  +=cpuhotplug/
+obj-$(CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG)	+=cpuhotplug/
 obj-$(CONFIG_CPU_IDLE)		+= cpuidle/
 obj-y				+= mmc/
 obj-$(CONFIG_MEMSTICK)		+= memstick/
@@ -160,4 +160,3 @@ obj-$(CONFIG_SIPC)		+= sipc/
 obj-$(CONFIG_SENSORS)           += sensor/
 
 obj-$(CONFIG_SPRD_IQ)           += iq/
-

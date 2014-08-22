@@ -18,6 +18,23 @@ config MFD_CS5535
 	  This is the core driver for CS5535/CS5536 MFD functions.  This is
           necessary for using the board's GPIO and MFGPT functionality.
 
+config MFD_SM5504
+	tristate "SiliconMitus SM5504 MUIC"
+	depends on I2C
+	select MFD_CORE
+	default n
+	help
+	  Support SM5504 MUIC
+
+config MFD_SM5701
+	tristate "Support for SiliconMitus SM5701 I/F PMIC"
+	depends on I2C
+	select MFD_CORE
+	default n
+	help
+	  If you say yes to this option, support will be included for the
+	  SM5701 I/F PMIC chip.
+
 config MFD_RT8973
 	tristate "Richtek RT8973 MUIC"
 	depends on I2C
@@ -36,13 +53,21 @@ config MFD_AS3711
 	  Support for the AS3711 PMIC from AMS
 
 config MFD_RT5033
-        tristate "Support for Richtek RT5033 I/F PMIC"
+	tristate "Support for Richtek RT5033 I/F PMIC"
 	depends on I2C
 	select MFD_CORE
 	default n
 	help
 	  If you say yes to this option, support will be included for the
 	  RT5033 I/F PMIC chip.
+
+config MFD_RT5033_EN_MRSTB
+	bool "Enable MRSTB function"
+	depends on MFD_RT5033
+	default y
+	help
+	  If you enable this function, you need to connect MRSTB to AP's GPIO,
+	  and then assign GPIO number in DTSI or board file
 
 config MFD_RT5033_USE_DT
 	bool "Use device tree"

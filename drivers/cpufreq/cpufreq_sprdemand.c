@@ -30,8 +30,11 @@
 #include <linux/earlysuspend.h>
 #include <linux/suspend.h>
 #include <asm/cacheflush.h>
+#include <linux/kthread.h>
+#include <linux/delay.h>
 
 #include "cpufreq_governor.h"
+#include <linux/input.h>
 
 /* On-demand governor macros */
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
@@ -47,7 +50,7 @@
 /* whether plugin cpu according to this score up threshold */
 #define DEF_CPU_SCORE_UP_THRESHOLD		(100)
 /* whether unplug cpu according to this down threshold*/
-#define DEF_CPU_LOAD_DOWN_THRESHOLD		(20)
+#define DEF_CPU_LOAD_DOWN_THRESHOLD		(30)
 #define DEF_CPU_DOWN_COUNT			(3)
 
 #define LOAD_CRITICAL 100
@@ -74,6 +77,8 @@ struct unplug_work_info {
 };
 
 struct delayed_work plugin_work;
+struct delayed_work unplug_work;
+
 static DEFINE_PER_CPU(struct unplug_work_info, uwi);
 
 static DEFINE_SPINLOCK(g_lock);
@@ -127,7 +132,7 @@ static int should_io_be_busy(void)
 			boot_cpu_data.x86_model >= 15)
 		return 1;
 #endif
-	return 0;
+	return 1;
 }
 
 struct sd_dbs_tuners *g_sd_tuners = NULL;
@@ -237,10 +242,10 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 
 static void sprd_unplug_one_cpu(struct work_struct *work)
 {
-	struct unplug_work_info *puwi = container_of(work,
-		struct unplug_work_info, unplug_work.work);
-	struct dbs_data *dbs_data = puwi->dbs_data;
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+	struct dbs_data *dbs_data = policy->governor_data;
 	struct sd_dbs_tuners *sd_tuners = NULL;
+	int cpuid;
 
 	if(NULL == dbs_data)
 	{
@@ -258,8 +263,9 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 #ifdef CONFIG_HOTPLUG_CPU
 	if (num_online_cpus() > 1) {
 		if (!sd_tuners->cpu_hotplug_disable) {
-			pr_info("!!  we gonna unplug cpu%d  !!\n", puwi->cpuid);
-			cpu_down(puwi->cpuid);
+			cpuid = cpumask_next(0, cpu_online_mask);
+			pr_info("!!  we gonna unplug cpu%d  !!\n", cpuid);
+			cpu_down(cpuid);
 		}
 	}
 #endif
@@ -300,7 +306,7 @@ static void sprd_plugin_one_cpu(struct work_struct *work)
 
 unsigned int percpu_load[4] = {0};
 #define MAX_CPU_NUM  (4)
-#define MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE  (8)
+#define MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE  (10)
 #define MAX_PLUG_AVG_LOAD_SIZE (2)
 
 unsigned int ga_percpu_total_load[MAX_CPU_NUM][MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE] = {{0}};
@@ -335,9 +341,9 @@ int a_score_sub[4][4][11]=
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
-		{0,0,0,0,0,0,0,3,5,10,20},
-		{-10,-5,-5,0,0,0,0,0,5,5,10},
-		{-20,-10,-5,0,0,0,0,0,5,5,10},
+		{0,0,0,0,0,0,0,0,5,10,20},
+		{-10,-5,-5,0,0,0,0,0,0,5,10},
+		{-20,-10,-5,0,0,0,0,0,0,5,10},
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
@@ -347,9 +353,9 @@ int a_score_sub[4][4][11]=
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
-		{0,0,0,0,0,0,0,20,30,30,50},
-		{0,0,0,0,0,0,0,10,20,20,30},
-		{0,0,0,0,0,0,0,0,5,10,20},
+		{0,0,0,0,0,0,0,0,30,30,50},
+		{-20,-20,0,0,0,0,0,0,20,20,30},
+		{-40,-20,0,0,0,0,0,0,5,10,20},
 		{0,0,0,0,0,0,0,0,0,0,0}
 	}
 };
@@ -760,22 +766,29 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 	unsigned int local_load = 0;
 	unsigned int itself_avg_load = 0;
 	struct unplug_work_info *puwi;
+	int local_cpu = 0;
 
 	if(time_before(jiffies, boot_done))
 		return;
 
+	local_cpu = smp_processor_id();
+
+	if(local_cpu)
+		return;
+
 	/* skip cpufreq adjustment if system enter into suspend */
-	if(true == sd_tuners->is_suspend) {
+	if(true == sd_tuners->is_suspend){
 		pr_info("%s: is_suspend=%s, skip cpufreq adjust\n",
 			__func__, sd_tuners->is_suspend?"true":"false");
 		goto plug_check;
 	}
 
+
 	dbs_info->freq_lo = 0;
 
 	local_load = load_freq/policy->cur;
 
-        pr_debug("[DVFS] load %d %x load_freq %d policy->cur %d\n",local_load,local_load,load_freq,policy->cur);
+        pr_debug("[DVFS %d] load %d %x load_freq %d policy->cur %d\n",cpu,local_load,local_load,load_freq,policy->cur);
 	/* Check for frequency increase */
 	if (load_freq > sd_tuners->up_threshold * policy->cur) {
 		/* If switching to max speed, apply sampling_down_factor */
@@ -830,7 +843,6 @@ plug_check:
 		return;
 
 	/* cpu plugin check */
-	spin_lock(&g_lock);
 	if(num_online_cpus() < sd_tuners->cpu_num_limit) {
 		cpu_score += cpu_evaluate_score(policy->cpu,sd_tuners, local_load);
 		if (cpu_score < 0)
@@ -841,75 +853,64 @@ plug_check:
 			schedule_delayed_work_on(0, &plugin_work, 0);
 		}
 	}
-	spin_unlock(&g_lock);
+
 
 	/* cpu unplug check */
-	puwi = &per_cpu(uwi, policy->cpu);
+	puwi = &per_cpu(uwi, local_cpu);
 	if((num_online_cpus() > 1) && (dvfs_unplug_select == 1)){
-		percpu_total_load[policy->cpu] += local_load;
-		percpu_check_count[policy->cpu]++;
-		if(percpu_check_count[policy->cpu] == sd_tuners->cpu_down_count) {
+		percpu_total_load[local_cpu] += local_load;
+		percpu_check_count[local_cpu]++;
+		if(percpu_check_count[cpu] == sd_tuners->cpu_down_count) {
 			/* calculate itself's average load */
-			itself_avg_load = percpu_total_load[policy->cpu]/sd_tuners->cpu_down_count;
-			pr_debug("check unplug: for cpu%u avg_load=%d\n", policy->cpu, itself_avg_load);
+			itself_avg_load = percpu_total_load[local_cpu]/sd_tuners->cpu_down_count;
+			pr_debug("check unplug: for cpu%u avg_load=%d\n", local_cpu, itself_avg_load);
 			if(itself_avg_load < sd_tuners->cpu_down_threshold) {
-				if (policy->cpu) {
 					pr_info("cpu%u's avg_load=%d,begin unplug cpu\n",
 						policy->cpu, itself_avg_load);
-					schedule_delayed_work_on(0, &puwi->unplug_work, 0);
-				}
+					schedule_delayed_work_on(0, &unplug_work, 0);
 			}
-			percpu_check_count[policy->cpu] = 0;
-			percpu_total_load[policy->cpu] = 0;
+			percpu_check_count[local_cpu] = 0;
+			percpu_total_load[local_cpu] = 0;
 		}
 	}
-	else if(num_online_cpus() > 1 && (dvfs_unplug_select == 2))
+	else if((num_online_cpus() > 1) && (dvfs_unplug_select == 2))
 	{
 		/* calculate itself's average load */
-		itself_avg_load = sd_unplug_avg_load1(policy->cpu, sd_tuners, local_load);
-		pr_debug("check unplug: for cpu%u avg_load=%d\n", policy->cpu, itself_avg_load);
+		itself_avg_load = sd_unplug_avg_load1(local_cpu, sd_tuners, local_load);
+		pr_debug("check unplug: for cpu%u avg_load=%d\n", local_cpu, itself_avg_load);
 		if(itself_avg_load < sd_tuners->cpu_down_threshold)
 		{
-			if (policy->cpu)
-			{
 				pr_info("cpu%u's avg_load=%d,begin unplug cpu\n",
-						policy->cpu, itself_avg_load);
-				percpu_load[policy->cpu] = 0;
-				cur_window_size[policy->cpu] = 0;
-				cur_window_index[policy->cpu] = 0;
-				cur_window_cnt[policy->cpu] = 0;
-				prev_window_size[policy->cpu] = 0;
-				first_window_flag[policy->cpu] = 0;
-				sum_load[policy->cpu] = 0;
-				memset(&ga_percpu_total_load[policy->cpu][0],0,sizeof(int) * MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE);
-				schedule_delayed_work_on(0, &puwi->unplug_work, 0);
-			}
-
+						local_cpu, itself_avg_load);
+				percpu_load[local_cpu] = 0;
+				cur_window_size[local_cpu] = 0;
+				cur_window_index[local_cpu] = 0;
+				cur_window_cnt[local_cpu] = 0;
+				prev_window_size[local_cpu] = 0;
+				first_window_flag[local_cpu] = 0;
+				sum_load[local_cpu] = 0;
+				memset(&ga_percpu_total_load[local_cpu][0],0,sizeof(int) * MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE);
+				schedule_delayed_work_on(0, &unplug_work, 0);
 		}
 	}
-	else if(num_online_cpus() > 1 && (dvfs_unplug_select > 2))
+	else if((num_online_cpus() > 1) && (dvfs_unplug_select > 2))
 	{
 		/* calculate itself's average load */
-		itself_avg_load = sd_unplug_avg_load11(policy->cpu, sd_tuners, local_load);
-		pr_debug("check unplug: for cpu%u avg_load=%d\n", policy->cpu, itself_avg_load);
+		itself_avg_load = sd_unplug_avg_load11(local_cpu, sd_tuners, local_load);
+		pr_debug("check unplug: for cpu%u avg_load=%d\n", local_cpu, itself_avg_load);
 		if(itself_avg_load < sd_tuners->cpu_down_threshold)
 		{
-			if (policy->cpu)
-			{
 				pr_info("cpu%u's avg_load=%d,begin unplug cpu\n",
-						policy->cpu, itself_avg_load);
-				percpu_load[policy->cpu] = 0;
-				cur_window_size[policy->cpu] = 0;
-				cur_window_index[policy->cpu] = 0;
-				cur_window_cnt[policy->cpu] = 0;
-				prev_window_size[policy->cpu] = 0;
-				first_window_flag[policy->cpu] = 0;
-				sum_load[policy->cpu] = 0;
-				memset(&ga_percpu_total_load[policy->cpu][0],0,sizeof(int) * MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE);
-
-				schedule_delayed_work_on(0, &puwi->unplug_work, 0);
-			}
-
+						local_cpu, itself_avg_load);
+				percpu_load[local_cpu] = 0;
+				cur_window_size[local_cpu] = 0;
+				cur_window_index[local_cpu] = 0;
+				cur_window_cnt[local_cpu] = 0;
+				prev_window_size[local_cpu] = 0;
+				first_window_flag[local_cpu] = 0;
+				sum_load[local_cpu] = 0;
+				memset(&ga_percpu_total_load[local_cpu][0],0,sizeof(int) * MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE);
+				schedule_delayed_work_on(0, &unplug_work, 0);
 		}
 	}
 }
@@ -1584,6 +1585,8 @@ static int sd_init(struct dbs_data *dbs_data)
 	mutex_init(&dbs_data->mutex);
 
 	INIT_DELAYED_WORK(&plugin_work, sprd_plugin_one_cpu);
+	INIT_DELAYED_WORK(&unplug_work, sprd_unplug_one_cpu);
+
 	for_each_possible_cpu(i) {
 		puwi = &per_cpu(uwi, i);
 		puwi->cpuid = i;
@@ -1800,8 +1803,114 @@ static struct early_suspend sprdemand_gov_earlysuspend_handler = {
 };
 #endif
 
+
+static struct workqueue_struct *input_wq;
+static struct work_struct dbs_refresh_work;
+
+static void dbs_refresh_callback(struct work_struct *work)
+{
+	unsigned int cpu = smp_processor_id();
+	struct od_cpu_dbs_info_s *core_dbs_info = &per_cpu(sd_cpu_dbs_info,
+			cpu);
+
+	struct cpufreq_policy *policy;
+
+	policy = core_dbs_info->cdbs.cur_policy;
+
+	if (!policy)
+	{
+		return;
+	}
+
+
+	if (policy->cur < policy->max)
+	{
+		cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
+
+		core_dbs_info->cdbs.prev_cpu_idle = get_cpu_idle_time(cpu,
+				&core_dbs_info->cdbs.prev_cpu_wall,should_io_be_busy());
+	}
+
+}
+
+static void dbs_input_event(struct input_handle *handle, unsigned int type,
+		unsigned int code, int value)
+{
+	int i;
+	bool ret;
+	static int tp_time = 0;
+
+	if(!dvfs_plug_select)
+		return;
+
+	if(jiffies <= (tp_time + 10)){
+		tp_time = jiffies;
+		return;
+	}
+	tp_time = jiffies;
+	ret = queue_work_on(0, input_wq, &dbs_refresh_work);
+	pr_debug("[DVFS] dbs_input_event %d\n",ret);
+
+}
+
+static int dbs_input_connect(struct input_handler *handler,
+		struct input_dev *dev, const struct input_device_id *id)
+{
+	struct input_handle *handle;
+	int error;
+
+	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
+	if (!handle)
+		return -ENOMEM;
+
+	handle->dev = dev;
+	handle->handler = handler;
+	handle->name = "cpufreq";
+
+	error = input_register_handle(handle);
+	if (error)
+		goto err2;
+
+	error = input_open_device(handle);
+	if (error)
+		goto err1;
+
+	pr_debug("[DVFS] dbs_input_connect register success\n");
+	return 0;
+err1:
+	pr_info("[DVFS] dbs_input_connect register fail err1\n");
+	input_unregister_handle(handle);
+err2:
+	pr_info("[DVFS] dbs_input_connect register fail err2\n");
+	kfree(handle);
+	return error;
+}
+
+static void dbs_input_disconnect(struct input_handle *handle)
+{
+	input_close_device(handle);
+	input_unregister_handle(handle);
+	kfree(handle);
+}
+
+static const struct input_device_id dbs_ids[] = {
+	{ .driver_info = 1 },
+	{ },
+};
+
+#ifndef CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG
+struct input_handler dbs_input_handler = {
+	.event		= dbs_input_event,
+	.connect	= dbs_input_connect,
+	.disconnect	= dbs_input_disconnect,
+	.name		= "cpufreq_ond",
+	.id_table	= dbs_ids,
+};
+#endif
+
 static int __init cpufreq_gov_dbs_init(void)
 {
+	int i = 0;
 	boot_done = jiffies + GOVERNOR_BOOT_TIME;
 #if defined(CONFIG_THERMAL)
 	thermal_cooling_info.cdev = thermal_cooling_device_register("thermal-cpufreq-0", 0,
@@ -1814,7 +1923,25 @@ static int __init cpufreq_gov_dbs_init(void)
 	register_early_suspend(&sprdemand_gov_earlysuspend_handler);
 #endif
 
+	input_wq = alloc_workqueue("iewq", WQ_MEM_RECLAIM|WQ_SYSFS, 1);
+
+	if (!input_wq)
+	{
+		printk(KERN_ERR "Failed to create iewq workqueue\n");
+		return -EFAULT;
+	}
+
+	INIT_WORK(&dbs_refresh_work, dbs_refresh_callback);
+
+
 	g_sd_tuners = kzalloc(sizeof(struct sd_dbs_tuners), GFP_KERNEL);
+
+
+	if(input_register_handler(&dbs_input_handler))
+	{
+		pr_err("[DVFS] input_register_handler failed\n");
+	}
+
 
 	return cpufreq_register_governor(&cpufreq_gov_sprdemand);
 }
@@ -1829,6 +1956,9 @@ static void __exit cpufreq_gov_dbs_exit(void)
 #if defined(CONFIG_THERMAL)
 	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
 #endif
+
+	input_unregister_handler(&dbs_input_handler);
+
 }
 
 MODULE_AUTHOR("Venkatesh Pallipadi <venkatesh.pallipadi@intel.com>");

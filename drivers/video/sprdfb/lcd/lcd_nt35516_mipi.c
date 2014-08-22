@@ -269,8 +269,7 @@ static uint32_t nt35516_readid(struct panel_spec *self)
 		}
 	}
 	mipi_eotp_set(1,1);
-	//return 0x0;
-	return 0x16;
+	return 0x0;
 }
 
 static int32_t nt35516_enter_sleep(struct panel_spec *self, uint8_t is_sleep)

@@ -21,12 +21,10 @@
 #include <linux/debugfs.h>
 
 #include <mach/hardware.h>
-#ifdef CONFIG_SPRD_MAILBOX
-#include <mach/mailbox.h>
-#endif
 
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
+
 #ifndef CONFIG_OF
 
 #define SMSG_TXBUF_ADDR		(0)
@@ -165,114 +163,6 @@ static int __init itm_sblock_init(void)
 	return 0;
 }
 #endif
-#ifdef CONFIG_SIPC_PMIC
-extern uint32_t pmic_rxirq_status(void);
-extern void pmic_rxirq_clear(void);
-extern void pmic_txirq_trigger(void);
-
-static struct smsg_ipc smsg_ipc_pmic = {
-	.name = "sipc-pmic",
-	.dst = SIPC_ID_PMIC,
-#ifdef CONFIG_SPRD_MAILBOX
-	.core_id = ARM7,
-#else
-	.irq = IRQ_SIPC_PMIC,
-#endif
-	.rxirq_status = pmic_rxirq_status,
-	.rxirq_clear = pmic_rxirq_clear,
-	.txirq_trigger = pmic_txirq_trigger,
-};
-
-static int __init sipc_pmic_init(void)
-{
-	uint32_t base = (uint32_t)PMIC_SIPC_RING_ADDR;
-
-	smsg_ipc_pmic.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_pmic.txbuf_addr = base + SMSG_TXBUF_ADDR;
-	smsg_ipc_pmic.txbuf_rdptr =base+0x1c00+ 0;
-	smsg_ipc_pmic.txbuf_wrptr = base+0x1c00+ 4;
-
-	smsg_ipc_pmic.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_pmic.rxbuf_addr = base + SMSG_RXBUF_ADDR;
-	smsg_ipc_pmic.rxbuf_rdptr =  base+0x1c00+ 8;
-	smsg_ipc_pmic.rxbuf_wrptr =  base+0x1c00+ 12;
-
-	return smsg_ipc_create(SIPC_ID_PMIC, &smsg_ipc_pmic);
-}
-#endif
-
-#ifdef CONFIG_SIPC_GGE
-extern uint32_t gge_rxirq_status(void);
-extern void gge_rxirq_clear(void);
-extern void gge_txirq_trigger(void);
-
-static struct smsg_ipc smsg_ipc_gge = {
-	.name = "sipc-gge",
-	.dst = SIPC_ID_GGE,
-#ifdef CONFIG_SPRD_MAILBOX
-	.core_id = MBOX_CORE_GGE,
-#else
-	.irq = IRQ_SIPC_GGE,
-#endif
-	.rxirq_status = gge_rxirq_status,
-	.rxirq_clear = gge_rxirq_clear,
-	.txirq_trigger = gge_txirq_trigger,
-};
-
-static int __init sipc_gge_init(void)
-{
-	uint32_t base = (uint32_t)ioremap(GGE_RING_ADDR, GGE_RING_SIZE);
-
-	smsg_ipc_gge.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_gge.txbuf_addr = base + SMSG_TXBUF_ADDR;
-	smsg_ipc_gge.txbuf_rdptr = base + SMSG_TXBUF_RDPTR;
-	smsg_ipc_gge.txbuf_wrptr = base + SMSG_TXBUF_WRPTR;
-
-	smsg_ipc_gge.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_gge.rxbuf_addr = base + SMSG_RXBUF_ADDR;
-	smsg_ipc_gge.rxbuf_rdptr = base + SMSG_RXBUF_RDPTR;
-	smsg_ipc_gge.rxbuf_wrptr = base + SMSG_RXBUF_WRPTR;
-
-	return smsg_ipc_create(SIPC_ID_GGE, &smsg_ipc_gge);
-}
-#endif // end of CONFIG_SIPC_GGE
-
-#ifdef CONFIG_SIPC_LTE
-extern uint32_t lte_rxirq_status(void);
-extern void lte_rxirq_clear(void);
-extern void lte_txirq_trigger(void);
-
-static struct smsg_ipc smsg_ipc_lte = {
-	.name = "sipc-lte",
-	.dst = SIPC_ID_LTE,
-
-#ifdef CONFIG_SPRD_MAILBOX
-	.core_id = MBOX_CORE_LTE,
-#else
-	.irq = IRQ_SIPC_LTE,
-#endif
-	.rxirq_status = lte_rxirq_status,
-	.rxirq_clear = lte_rxirq_clear,
-	.txirq_trigger = lte_txirq_trigger,
-};
-
-static int __init sipc_lte_init(void)
-{
-	uint32_t base = (uint32_t)ioremap(LTE_RING_ADDR, LTE_RING_SIZE);
-
-	smsg_ipc_lte.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_lte.txbuf_addr = base + SMSG_TXBUF_ADDR;
-	smsg_ipc_lte.txbuf_rdptr = base + SMSG_TXBUF_RDPTR;
-	smsg_ipc_lte.txbuf_wrptr = base + SMSG_TXBUF_WRPTR;
-
-	smsg_ipc_lte.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);
-	smsg_ipc_lte.rxbuf_addr = base + SMSG_RXBUF_ADDR;
-	smsg_ipc_lte.rxbuf_rdptr = base + SMSG_RXBUF_RDPTR;
-	smsg_ipc_lte.rxbuf_wrptr = base + SMSG_RXBUF_WRPTR;
-
-	return smsg_ipc_create(SIPC_ID_LTE, &smsg_ipc_lte);
-}
-#endif // end of CONFIG_SIPC_LTE
 
 static int __init sipc_init(void)
 {
@@ -295,20 +185,6 @@ static int __init sipc_init(void)
 	sipc_wcn_init();
 #endif
 
-#ifdef CONFIG_SIPC_GGE
-	smem_size += GGE_SMEM_SIZE;
-	sipc_gge_init();
-#endif
-
-#ifdef CONFIG_SIPC_LTE
-	smem_size += LTE_SMEM_SIZE;
-	sipc_lte_init();
-#endif
-#ifdef CONFIG_SIPC_PMIC
-	 sipc_pmic_init();
-#endif
-
-
 	smem_init(SIPC_SMEM_ADDR, smem_size);
 
 #ifdef CONFIG_SIPC_WCN
@@ -317,8 +193,7 @@ static int __init sipc_init(void)
 	return 0;
 }
 
-subsys_initcall(sipc_init);
-//arch_initcall(sipc_init);
+arch_initcall(sipc_init);
 
 MODULE_AUTHOR("Chen Gaopeng");
 MODULE_DESCRIPTION("SIPC module driver");

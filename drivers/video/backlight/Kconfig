@@ -465,11 +465,11 @@ config BACKLIGHT_RT4502
 	  enable its driver.
 
 config BACKLIGHT_LCD_PANEL_CABC
-        tristate "Backlight driver for lcd panel inner CABC PWM"
-        depends on BACKLIGHT_CLASS_DEVICE
-        help
-          If you have a backlight driven by a lcd panel inner CABC PWM, say Y here to
-          enable its driver.
+	tristate "Backlight driver for lcd panel inner CABC PWM"
+	depends on BACKLIGHT_CLASS_DEVICE
+	help
+	  If you have a backlight driven by a lcd panel inner CABC PWM, say Y here to
+	  enable its driver.
 
 endif # BACKLIGHT_CLASS_DEVICE
 

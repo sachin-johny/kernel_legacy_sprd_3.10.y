@@ -220,7 +220,7 @@ struct regulator_dev *sprd_sdhci_regulator_init(struct platform_device *pdev, st
 	retval = of_property_read_u32_array(np, "vdd-level", sprd_sdhci_regulator_voltage_level[pdev->id], 4);
 	if(IS_ERR(ERR_PTR(retval)))
 		dev_err(&pdev->dev, "vdd-level failed\n");
-	regulators = of_find_node_by_name(NULL, "regulators");
+	regulators = of_find_node_by_name(NULL, "sprd-regulators");
 	if(!regulators) {
 		dev_err(&pdev->dev, "regulators failed\n");
 		return NULL;

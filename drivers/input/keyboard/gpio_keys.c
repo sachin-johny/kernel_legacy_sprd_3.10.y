@@ -30,24 +30,6 @@
 #include <linux/of_gpio.h>
 #include <linux/spinlock.h>
 
-//====================  debug  ====================
-static int debug_level = 0;
-#define ENTER \
-do{ if(debug_level >= 1) printk(KERN_INFO "[SPRD_GPIO_KEYS_DBG] func: %s  line: %04d\n", __func__, __LINE__); }while(0)
-
-#define PRINT_DBG(format,x...)  \
-do{ if(debug_level >= 1) printk(KERN_INFO "[SPRD_GPIO_KEYS_DBG] " format, ## x); }while(0)
-
-#define PRINT_INFO(format,x...)  \
-do{ printk(KERN_INFO "[SPRD_GPIO_KEYS_INFO] " format, ## x); }while(0)
-
-#define PRINT_WARN(format,x...)  \
-do{ printk(KERN_INFO "[SPRD_GPIO_KEYS_WARN] " format, ## x); }while(0)
-
-#define PRINT_ERR(format,x...)  \
-do{ printk(KERN_ERR "[SPRD_GPIO_KEYS_ERR] func: %s  line: %04d  info: " format, __func__, __LINE__, ## x); }while(0)
-//====================  debug  ====================
-
 struct gpio_button_data {
 	const struct gpio_keys_button *button;
 	struct input_dev *input;
@@ -357,11 +339,9 @@ static void gpio_keys_gpio_report_event(struct gpio_button_data *bdata)
 		/* raise the missing key event */
 		if (last_state == state) {
 			input_event(input, type, button->code, !state);
-			PRINT_INFO("Key:%s ScanCode:%d value:%d\n", button->desc, button->code, !state);
 		}
 
 		input_event(input, type, button->code, !!state);
-		PRINT_INFO("Key:%s ScanCode:%d value:%d\n", button->desc, button->code, !!state);
 
 		last_state = state;
 	}
@@ -615,8 +595,6 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 	int error;
 	int nbuttons;
 	int i;
-	char *input_name = NULL;
-	int ret = -1;
 
 	node = dev->of_node;
 	if (!node) {
@@ -641,14 +619,6 @@ gpio_keys_get_devtree_pdata(struct device *dev)
 	pdata->nbuttons = nbuttons;
 
 	pdata->rep = !!of_get_property(node, "autorepeat", NULL);
-
-	ret = of_property_read_string(node, "input-name", &input_name);
-	if (0 == ret) {
-		pdata->name = input_name;
-		PRINT_INFO("input-name=\"%s\"\n", input_name);
-	}
-	else
-		PRINT_WARN("failed to get input-name\n");
 
 	i = 0;
 	for_each_child_of_node(node, pp) {
@@ -766,9 +736,9 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, ddata);
 	input_set_drvdata(input, ddata);
 #ifndef CONFIG_OF
-	input->name = pdata->name ? pdata->name : pdev->name;
+	input->name = pdata->name ? : pdev->name;
 #else
-	input->name = pdata->name ? pdata->name : "gpio-keys";
+	input->name = "gpio-keys";
 #endif
 	input->phys = "gpio-keys/input0";
 	input->dev.parent = &pdev->dev;
@@ -812,7 +782,6 @@ static int gpio_keys_probe(struct platform_device *pdev)
 
 	device_init_wakeup(&pdev->dev, wakeup);
 
-	PRINT_INFO("probe success!\n");
 	return 0;
 
  fail3:
@@ -829,7 +798,6 @@ static int gpio_keys_probe(struct platform_device *pdev)
 	if (!dev_get_platdata(&pdev->dev))
 		kfree(pdata);
 
-	PRINT_ERR("probe failed!\n");
 	return error;
 }
 

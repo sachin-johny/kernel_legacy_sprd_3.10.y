@@ -33,6 +33,9 @@ extern struct platform_device sprd_backlight_device;
 #if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
 extern struct platform_device sprd_pwm_bl_device;
 #endif
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+extern struct platform_device sprd_kpled_2723_device;
+#endif
 extern struct platform_device sprd_i2c_device0;
 extern struct platform_device sprd_i2c_device1;
 extern struct platform_device sprd_i2c_device2;
@@ -44,21 +47,11 @@ extern struct platform_device sprd_spi0_device;
 extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_spi2_device;
 extern struct platform_device sprd_keypad_device;
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
-extern struct platform_device sprd_gpio_keys_device;
-#endif
-#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
-extern struct platform_device sprd_eic_keys_device;
-#endif
 extern struct platform_device sprd_thm_device;
 extern struct platform_device sprd_thm_a_device;
 extern struct platform_device sprd_battery_device;
-#if(defined(CONFIG_INPUT_SPRD_HEADSET_SHARK)||defined(CONFIG_INPUT_SPRD_HEADSET_SHARK_MODULE))
 extern struct platform_device sprd_headset_device;
-#endif
-#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
-extern struct platform_device headset_sprd_sc2723_device;
-#endif
+
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_jpg_device;
@@ -117,28 +110,6 @@ extern struct platform_device sprd_slog_wcn_device;
 extern struct platform_device sprd_cproc_wcn_device;
 extern struct platform_device sprd_sttybt_td_device;
 #endif
-#ifdef CONFIG_SIPC_PMIC
-extern struct platform_device sprd_sctrl_pmic_device;
-#endif
-#ifdef CONFIG_SIPC_GGE
-extern struct platform_device sprd_cproc_cp0_device;
-extern struct platform_device sprd_spipe_gge_device;
-extern struct platform_device sprd_slog_gge_device;
-extern struct platform_device sprd_stty_gge_device;
-extern struct platform_device sprd_seth0_gge_device;
-extern struct platform_device sprd_seth1_gge_device;
-extern struct platform_device sprd_seth2_gge_device;
-#endif
-#ifdef CONFIG_SIPC_LTE
-extern struct platform_device sprd_cproc_cp1_device;
-extern struct platform_device sprd_spipe_lte_device;
-extern struct platform_device sprd_slog_lte_device;
-extern struct platform_device sprd_stty_lte_device;
-extern struct platform_device sprd_seth0_lte_device;
-extern struct platform_device sprd_seth1_lte_device;
-extern struct platform_device sprd_seth2_lte_device;
-#endif
-
 extern struct platform_device sprd_saudio_voip_device;
 extern struct platform_device sprd_a7_pmu_device;
 extern struct platform_device sprd_memnand_system_device;

@@ -63,10 +63,10 @@
 #define VALRT_SOC						0				/* unit : % */
 
 
-#define GAIN_RANGE1		0
-#define GAIN_RANGE2		50
-//#define GAIN_RANGE3		25
-//#define GAIN_RANGE4		45
+#define GAIN_RANGE1		-20
+#define GAIN_RANGE2		5
+#define GAIN_RANGE3		25
+#define GAIN_RANGE4		45
 #define GAIN_TABLE1_INDEX	1
 #define GAIN_TABLE2_INDEX	2
 #define GAIN_TABLE3_INDEX	3
@@ -91,14 +91,6 @@
 #define	ENABLE_LOCK_SOC				0
 #define	ENABLE_SMOOTH_SOC			0
 #define	ENABLE_SOC_IRREVERSIBLE	0
-#define ENABLE_CHG_OFFSET           0
 
-int my_gain_search(gain_table_prop* target_list, int nKey, int nSize);
-int my_interpolation(int x_key, int x1, int x2, int y1, int y2);
-int my_offs_search(offset_table_prop* target_list, int nKey, int nSize);
-gain_table_prop Gain_Search(struct i2c_client *client, int nTemp, int nVolt);
-offset_table_prop Offs_Search(struct i2c_client *client, int speci_case_flag, int nChg, int nTemp, int nVolt);
-offset_table_prop Poweroff_Offs_Search(struct i2c_client *client, int nSOC);
-//offset_table_prop Chg_Offs_Search(struct i2c_client *client, int nSOC);
 
 #endif // RT5033_FUELGAUGE_IMPL_H

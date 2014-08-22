@@ -536,7 +536,7 @@ config REGULATOR_SC2711
 
 config REGULATOR_SC2713
 	tristate "Spreadtrum PMIC for shark, also integrated audio codec"
-	depends on (ARCH_SCX35 && !ARCH_SCX15 && !ARCH_SCX30G && !ARCH_SCX35L) || ARCH_SC7710 || ADIE_SC2713
+	depends on (ARCH_SCX35 && !ARCH_SCX15 && !ARCH_SCX30G) || ARCH_SC7710 || ADIE_SC2713
 	default y
 	help
 	  This driver supports spreadtrum voltage regulator chips.
@@ -579,10 +579,9 @@ config REGULATOR_SPRD_MAP
 
 config REGULATOR_SPRD_MAP_V1
 	string "sc2713s/sc2723... regulator map file name"
-	depends on REGULATOR_SC2713S || REGULATOR_SC2723
+	depends on REGULATOR_SC2713S
 	default "mach/chip_x30g/__sc2713s_regulator_map.h" if ARCH_SCX30G && ADIE_SC2713S
 	default "mach/chip_x35/__sc2713s_regulator_map.h" if ARCH_SCX35 && ADIE_SC2713S
-	default "mach/chip_x35l/__sc2723_regulator_map.h" if ARCH_SCX35L && (ADIE_SC2723 || ADIE_SC2723S)
 	default "mach/__regulator_map.h"
 
 config REGULATOR_SUPPORT_CAMIO_1200MV

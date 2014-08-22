@@ -46,6 +46,7 @@ static uint32_t tune_from_uboot = 0x44073e33;
 
 #define GPIO_INVALID 0xffffffff
 
+extern int   ldo_gpio ;
 extern int in_calibration(void);
 
 static int __init usb_phy_tune_get(char *str)
@@ -67,17 +68,33 @@ static void usb_ldo_switch(int is_on)
 {
 	struct regulator *usb_regulator = NULL;
 
-	if(usb_regulator == NULL){
-		usb_regulator = regulator_get(NULL,USB_LDO_NAME);
-	}
-	if(!IS_ERR_OR_NULL(usb_regulator)){
-		if(is_on){
-			regulator_enable(usb_regulator);
-		}else{
-			regulator_disable(usb_regulator);
+	if( GPIO_INVALID !=ldo_gpio)
+	   {
+		pr_info("read usb_ldo_switch one\n");
+		 if(is_on){
+			gpio_request(ldo_gpio, USB_LDO_NAME);
+			gpio_direction_output(ldo_gpio,1);
+			gpio_set_value(ldo_gpio, is_on);
+		   }
+		 else{
+			gpio_request(ldo_gpio, USB_LDO_NAME);
+			gpio_direction_output(ldo_gpio,0);
+			gpio_set_value(ldo_gpio, is_on);
 		}
-		regulator_put(usb_regulator);
-	}
+	   }else{
+		pr_info("read usb_ldo_switch two\n");
+		if(usb_regulator == NULL){
+			usb_regulator = regulator_get(NULL,USB_LDO_NAME);
+		}
+		if(!IS_ERR_OR_NULL(usb_regulator)){
+			if(is_on){
+				regulator_enable(usb_regulator);
+			}else{
+				regulator_disable(usb_regulator);
+			}
+			regulator_put(usb_regulator);
+		}
+	   }
 }
 #if defined(CONFIG_ARCH_SC8825)
 static int usb_clk_status = 0;
@@ -143,11 +160,9 @@ void usb_phy_init(struct platform_device *_dev)
 	}
 	pr_info("Usb_hw.c: [%s]usb phy tune from uboot: 0x%x\n", __FUNCTION__, tune_from_uboot);
 #endif
-#if defined(CONFIG_ARCH_SCX35L)
-	__raw_writel(tune_from_uboot,REG_AP_AHB_OTG_PHY_TUNE);
-#else
+
 	__raw_writel(tune_from_uboot,REG_AP_APB_USB_PHY_TUNE);
-#endif
+
 	//sci_glb_set(REG_AP_APB_USB_PHY_TUNE,BIT(9)|BIT(10)|BIT(11)|BIT(20));
 #else
 		/*
@@ -237,10 +252,12 @@ int usb_alloc_vbus_irq(int gpio)
 {
 	int irq;
 
-	gpio_request(gpio,"sprd_ogt");
+	gpio_request(gpio,"sprd_otg");
 	gpio_direction_input(gpio);
 	irq = gpio_to_irq(gpio);
+#ifndef CONFIG_MUIC_CABLE_DETECT
 	set_irq_flags(irq, IRQF_VALID | IRQF_NOAUTOEN);
+#endif
 	gpio_vbus= gpio;
 
 	return irq;

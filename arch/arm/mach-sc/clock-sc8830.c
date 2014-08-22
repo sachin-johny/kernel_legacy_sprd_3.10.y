@@ -148,11 +148,9 @@ EXPORT_SYMBOL(clk_round_rate);
 
 int clk_set_rate(struct clk *clk, unsigned long rate)
 {
-	int ret = 0;
+	int ret;
 	unsigned long flags;
 	debug0("clk %p, rate %lu\n", clk, rate);
-
-#ifndef CONFIG_SC_FPGA
 	if (IS_ERR_OR_NULL(clk) || rate == 0)
 		return -EINVAL;
 
@@ -169,7 +167,6 @@ int clk_set_rate(struct clk *clk, unsigned long rate)
 	spin_lock_irqsave(&clocks_lock, flags);
 	ret = (clk->ops->set_rate) (clk, rate);
 	spin_unlock_irqrestore(&clocks_lock, flags);
-#endif
 	return ret;
 }
 
@@ -184,14 +181,12 @@ EXPORT_SYMBOL(clk_get_parent);
 
 int clk_set_parent(struct clk *clk, struct clk *parent)
 {
-	int ret = 0;
+	int ret = -EACCES;
 	unsigned long flags;
 #if defined(CONFIG_DEBUG_FS)
 	struct clk *old_parent = clk_get_parent(clk);
 #endif
 	debug0("clk %p, parent %p <<< %p\n", clk, parent, clk_get_parent(clk));
-
-#ifndef CONFIG_SC_FPGA
 	if (IS_ERR_OR_NULL(clk) || IS_ERR(parent))
 		return -EINVAL;
 
@@ -212,7 +207,6 @@ int clk_set_parent(struct clk *clk, struct clk *parent)
 		debugfs_rename(old_parent->dent, clk->dent,
 			       parent->dent, clk->regs->name);
 	}
-#endif
 #endif
 	return ret;
 }
@@ -596,8 +590,8 @@ int __init sci_clk_register(struct clk_lookup *cl)
 
 static int __init sci_clock_dump(void)
 {
-#if 0
 	clk_enable(&clk_mm_i);
+#if 0
 	struct clk_lookup *cl = (struct clk_lookup *)(&__clkinit_begin + 1);
 	clk_enable(&clk_gpu_i);
 	while (cl < (struct clk_lookup *)&__clkinit_end) {
@@ -614,8 +608,8 @@ static int __init sci_clock_dump(void)
 	}
 	debug("okay\n");
 	clk_disable(&clk_gpu_i);
-	clk_disable(&clk_mm_i);
 #endif
+	clk_disable(&clk_mm_i);
 	return 0;
 }
 
@@ -647,7 +641,7 @@ int __init sci_clock_init(void)
 
 	__raw_writel(__raw_readl((void *)REG_AON_APB_APB_EB0) | BIT_MM_EB |
 		     BIT_GPU_EB, (void *)REG_AON_APB_APB_EB0);
-#ifndef CONFIG_SC_FPGA
+
 	__raw_writel(__raw_readl((void *)REG_MM_AHB_AHB_EB) | BIT_MM_CKG_EB,
 		     (void *)REG_MM_AHB_AHB_EB);
 
@@ -657,9 +651,7 @@ int __init sci_clock_init(void)
 
 	__raw_writel(__raw_readl((void *)REG_MM_CLK_MM_AHB_CFG) | 0x3,
 		     (void *)REG_MM_CLK_MM_AHB_CFG);
-#endif
-//#ifndef CONFIG_MACH_SPX15FPGA
-//#ifndef CONFIG_SC_FPGA
+#ifndef CONFIG_MACH_SPX15FPGA
 #if defined(CONFIG_DEBUG_FS)
 	clk_debugfs_root = debugfs_create_dir("sprd-clock", NULL);
 	if (IS_ERR_OR_NULL(clk_debugfs_root))
@@ -689,7 +681,7 @@ int __init sci_clock_init(void)
 	/* keep track of cpu frequency transitions */
 	cpufreq_register_notifier(&__clk_cpufreq_notifier_block,
 				  CPUFREQ_TRANSITION_NOTIFIER);
-//#endif
+#endif
 	return 0;
 }
 

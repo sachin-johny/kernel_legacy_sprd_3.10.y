@@ -208,7 +208,7 @@ static long scale_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 			goto ioctl_exit;
 		}
 
-		ret = down_timeout(&fd->scale_done_sem, msecs_to_jiffies(SCALE_TIMEOUT));
+		ret = down_timeout(&fd->scale_done_sem, msecs_to_jiffies(5000));
 		if (ret) {
 			printk("scale_k_ioctl error:  interruptible time out\n");
 			goto ioctl_out;

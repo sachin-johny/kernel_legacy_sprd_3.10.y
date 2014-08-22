@@ -25,9 +25,6 @@
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
 
-#ifdef CONFIG_SPRD_MAILBOX
-#include <mach/mailbox.h>
-#endif
 
 #include <linux/sipc.h>
 #include <linux/sipc_priv.h>
@@ -43,30 +40,6 @@
 #define SMSG_RXBUF_RDPTR	(SMSG_RINGHDR + 8)
 #define SMSG_RXBUF_WRPTR	(SMSG_RINGHDR + 12)
 
-
-/* if it's upon mailbox arch, overwrite the implementation*/
-#ifdef CONFIG_SPRD_MAILBOX
-
-#define DEFINE_SIPC_RXIRQ_STATUS_FN(id) \
-static int sipc_rxirq_status##id(void) \
-{ \
-	return 1;\
-}
-
-#define DEFINE_SIPC_RXIRQ_CLEAR_FN(id) \
-static void sipc_rxirq_clear##id(void) \
-{ \
-	return;\
-}
-
-#define DEFINE_SIPC_TXIRQ_TRIGGER_FN(id) \
-static void sipc_txirq_trigger##id(void) \
-{ \
-	struct sipc_child_node_info *info = &sipc_dev->pdata->info_table[id];\
-	mbox_raw_sent(info->core_id, 0);\
-}
-
-#else
 
 #define DEFINE_SIPC_RXIRQ_STATUS_FN(id) \
 static int sipc_rxirq_status##id(void) \
@@ -88,7 +61,6 @@ static void sipc_txirq_trigger##id(void) \
 	__raw_writel(info->ap2cp_bit_trig, (volatile void *)info->ap2cp_int_ctrl);\
 }
 
-#endif
 
 #define __GET_SIPC_FN_NAME(fn, id) fn##id
 
@@ -128,19 +100,16 @@ struct sipc_child_node_info {
 	uint32_t smem_base;
 	uint32_t smem_size;
 
-#ifdef CONFIG_SPRD_MAILBOX
-	uint32_t core_id;
-#else
 	uint32_t ap2cp_int_ctrl;
 	uint32_t cp2ap_int_ctrl;
 	uint32_t ap2cp_bit_trig;
 	uint32_t ap2cp_bit_clr;
 
 	uint32_t irq;
-#endif
 };
 
 struct sipc_init_data {
+	int is_alloc;
 	uint32_t chd_nr;
 	uint32_t smem_base;
 	uint32_t smem_size;
@@ -229,6 +198,7 @@ static int sipc_parse_dt(struct sipc_init_data **init, struct device *dev)
 		pr_err("sipc: failed to alloc mem for pdata\n");
 		return -ENOMEM;
 	}
+	pdata->is_alloc = 1;
 
 	ret = of_address_to_resource(np, 0, &res);
 	if (ret) {
@@ -256,7 +226,6 @@ static int sipc_parse_dt(struct sipc_init_data **init, struct device *dev)
 		info[i].dst = (uint8_t)data;
 		pr_info("sipc:[%d] dst=%u\n", i, info[i].dst);
 
-#ifndef CONFIG_SPRD_MAILBOX
 		/* get ipi base addr */
 		ret = of_property_read_u32(nchd, "sprd,ap2cp", &info[i].ap2cp_int_ctrl);
 		if (ret) {
@@ -281,7 +250,7 @@ static int sipc_parse_dt(struct sipc_init_data **init, struct device *dev)
 		}
 		pr_info("sipc:[%d] ap2cp_bit_trig=0x%x, ap2cp_bit_clr=0x%x\n",
 			i, info[i].ap2cp_bit_trig, info[i].ap2cp_bit_clr);
-#endif
+
 		/* get cp base addr */
 		ret = of_address_to_resource(nchd, 0, &res);
 		if (ret) {
@@ -310,13 +279,6 @@ static int sipc_parse_dt(struct sipc_init_data **init, struct device *dev)
 		info[i].ring_size = (uint32_t)(res.end - res.start + 1);
 		pr_info("sipc:[%d] ring_base=0x%x, ring_size=0x%x\n", i, info[i].ring_base, info[i].ring_size);
 
-#ifdef CONFIG_SPRD_MAILBOX
-		ret = of_property_read_u32(nchd, "mailbox,core", &info[i].core_id);
-		if (ret) {
-			goto error;
-		}
-		pr_info("sipc:[%d] core_id=%u\n", i, info[i].core_id);
-#else
 		/* get irq */
 		info[i].irq = irq_of_parse_and_map(nchd, 0);
 		if (!info[i].irq) {
@@ -324,7 +286,7 @@ static int sipc_parse_dt(struct sipc_init_data **init, struct device *dev)
 			goto error;
 		}
 		pr_info("sipc:[%d] irq=%d\n", i, info[i].irq);
-#endif
+
 		i++;
 	}
 	*init = pdata;
@@ -334,8 +296,12 @@ error:
 	return ret;
 }
 
-static void sipc_destroy_pdata(struct sipc_init_data **pdata)
+static void sipc_destroy_pdata(struct sipc_init_data **ppdata)
 {
+	struct sipc_init_data *pdata = ppdata;
+	if (pdata && pdata->is_alloc) {
+		kfree(pdata);
+	}
 	return;
 }
 
@@ -384,11 +350,7 @@ static int sipc_probe(struct platform_device *pdev)
 	for (i = 0; i < num; i++) {
 		smsg[i].name = info[i].name;
 		smsg[i].dst = info[i].dst;
-#ifdef CONFIG_SPRD_MAILBOX
-		smsg[i].core_id = info[i].core_id;
-#else
 		smsg[i].irq = info[i].irq;
-#endif
 		smsg[i].rxirq_status = GET_SIPC_RXIRQ_STATUS_FN(i);
 		smsg[i].rxirq_clear = GET_SIPC_RXIRQ_CLEAR_FN(i);
 		smsg[i].txirq_trigger = GET_SIPC_TXIRQ_TRIGGER_FN(i);
@@ -396,13 +358,8 @@ static int sipc_probe(struct platform_device *pdev)
 		pr_info("sipc: [%d] fn status=0x%x, clear=0x%x, trigger=0x%x\n",
 			i, (uint32_t)smsg[i].rxirq_status, (uint32_t)smsg[i].rxirq_clear,
 			(uint32_t)smsg[i].txirq_trigger);
-#ifdef CONFIG_SPRD_MAILBOX
-		pr_info("sipc:[%d] smsg name=%s, dst=%u, core_id=%d\n",
-			i, smsg[i].name, smsg[i].dst, smsg[i].core_id);
-#else
 		pr_info("sipc:[%d] smsg name=%s, dst=%u, irq=%d\n",
 			i, smsg[i].name, smsg[i].dst, smsg[i].irq);
-#endif
 	}
 
 	sipc->pdata = pdata;
@@ -459,6 +416,6 @@ static void __exit sipc_exit(void)
 arch_initcall(sipc_init);
 module_exit(sipc_exit);
 
-MODULE_AUTHOR("Qiu Yi");
+MODULE_AUTHOR("Chen Gaopeng");
 MODULE_DESCRIPTION("SIPC module driver");
 MODULE_LICENSE("GPL");

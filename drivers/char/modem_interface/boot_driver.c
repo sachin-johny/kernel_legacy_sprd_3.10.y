@@ -129,7 +129,11 @@ static int dloader_read(struct file *filp,char __user *buf,size_t count,loff_t *
 				return -EFAULT;
 			}
 		}
-	}
+	} else {
+
+                dloader_unlock(&dl_dev->read_excl);
+                return -EFAULT;
+        }
 
 	dloader_unlock(&dl_dev->read_excl);
 
@@ -155,7 +159,11 @@ static int dloader_write(struct file *filp, const char __user *buf,size_t count,
 			return -EFAULT;
 		}
 		modem_intf_write(dl_dev->write_buffer,count,0);
-	}
+	} else {
+
+                dloader_unlock(&dl_dev->write_excl);
+                return -EFAULT;
+        }
 
 	dloader_unlock(&dl_dev->write_excl);
 
@@ -176,6 +184,15 @@ static int dloader_release(struct inode *inode,struct file *filp)
 
 	return 0;
 }
+
+int dloader_abort()
+{
+	printk(KERN_INFO "dloader_abort!\n");
+	dl_dev->mode = MODEM_MODE_NORMAL;
+
+	return 0;
+}
+
 
 static struct file_operations dloader_fops = {
 	.owner = THIS_MODULE,

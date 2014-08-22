@@ -28,7 +28,6 @@
 #include <asm/pmu.h>
 #include <mach/hardware.h>
 #include <mach/sci_glb_regs.h>
-#include <mach/sci.h>
 #include <mach/irqs.h>
 #include <mach/dma.h>
 #include <mach/board.h>
@@ -50,15 +49,14 @@
 #ifdef CONFIG_SPRD_VETH
 #include <linux/sprd_veth.h>
 #endif
-#ifdef CONFIG_SPRD_MAILBOX
-#include <mach/mailbox.h>
-#endif
-
 #include "devices.h"
 #include <mach/modem_interface.h>
 #include <linux/sprd_thm.h>
 #include <linux/thermal.h>
 #include <linux/delay.h>
+#include <mach/sci.h>
+#include <mach/sci_glb_regs.h>
+
 #ifndef CONFIG_OF
 struct modem_intf_platform_data modem_interface = {
        .dev_type               = MODEM_DEV_SDIO,
@@ -341,7 +339,7 @@ static struct resource sprd_lcd_resources[] = {
 		.end = IRQ_DISPC0_INT,
 		.flags = IORESOURCE_IRQ,
 	},
-
+	
 	[2] = {
 		.start = IRQ_DISPC1_INT,
 		.end = IRQ_DISPC1_INT,
@@ -402,13 +400,13 @@ struct platform_device sprd_backlight_device = {
 
 #elif defined(CONFIG_BACKLIGHT_RT4502)
 
-static struct platform_rt4502_backlight_data sprd_rt4502_backlight_data = {
+struct platform_rt4502_backlight_data sprd_rt4502_backlight_data __attribute__((weak)) = {
 	.max_brightness = 255,
 	.dft_brightness = 160,
 	.ctrl_pin = 190,
 };
 
-struct platform_device sprd_backlight_device = {
+struct platform_device sprd_backlight_device __attribute__((weak)) = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
 	.dev	= {
@@ -418,7 +416,7 @@ struct platform_device sprd_backlight_device = {
 
 
 #else
-struct resource sprd_bl_resource[] = {
+struct resource sprd_bl_resource[] __attribute__((weak))= {
 	[0] = {
 #if defined(CONFIG_ARCH_SCX15)
 		.start = 2,
@@ -431,7 +429,7 @@ struct resource sprd_bl_resource[] = {
 	},
 };
 
-struct platform_device sprd_backlight_device = {
+struct platform_device sprd_backlight_device __attribute__((weak)) = {
 	.name           = "sprd_backlight",
 	.id             =  -1,
 	.num_resources	= ARRAY_SIZE(sprd_bl_resource),
@@ -445,7 +443,12 @@ struct platform_device sprd_pwm_bl_device = {
 	.id = -1,
 };
 #endif
-
+#if(defined(CONFIG_SPRD_KPLED_2723) || defined(CONFIG_SPRD_KPLED_2723_MODULE))
+struct platform_device sprd_kpled_2723_device = {
+	.name = "sprd-kpled-2723",
+	.id = -1,
+};
+#endif
 static struct resource sprd_i2c_resources0[] = {
 	[0] = {
 		.start = SPRD_I2C0_BASE,
@@ -532,17 +535,6 @@ struct platform_device sprd_i2c_device3 = {
 
 #if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
 #include <mach/pin_switch.h>
-#if defined(CONFIG_ADIE_SC2723S)||defined(CONFIG_ADIE_SC2723)
-static struct sprd_pin_switch_platform_data sprd_pin_switch_data[PD_CNT] = {
-	{"vdd28", 0x10, 0, 1},
-	{"vdd28", 0x10, 1, 1},
-	{"vddsim0", 0x10, 2, 1},
-	{"vddsim1", 0x10, 3, 1},
-	{"vddsim2", 0x10, 4, 1},
-	{"vddsdio", 0x10, 5, 1},
-	{"vdd18", 0x10, 6, 1},
-};
-#else
 static struct sprd_pin_switch_platform_data sprd_pin_switch_data[PD_CNT] = {
 	{"vdd28", 0x10, 0, 1},
 	{"vdd28", 0x10, 1, 1},
@@ -552,7 +544,7 @@ static struct sprd_pin_switch_platform_data sprd_pin_switch_data[PD_CNT] = {
 	{"vddsd", 0x10, 5, 1},
 	{"vdd18", 0x10, 6, 1},
 };
-#endif
+
 struct platform_device sprd_pin_switch_device = {
 	.name = "pin_switch",
 	.id = 0,
@@ -633,7 +625,6 @@ struct platform_device sprd_axi_bm0_device = {
 	.name = "sprd_axi_busmonitor",
 	.id = 0,
 };
-
 static struct resource sci_keypad_resources[] = {
 	{
 	        .start = IRQ_KPD_INT,
@@ -648,20 +639,6 @@ struct platform_device sprd_keypad_device = {
 	.num_resources = ARRAY_SIZE(sci_keypad_resources),
 	.resource = sci_keypad_resources,
 };
-
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
-struct platform_device sprd_gpio_keys_device = {
-    .name = "gpio-keys",
-    .id = -1,
-};
-#endif
-
-#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
-struct platform_device sprd_eic_keys_device = {
-    .name = "sprd-eic-keys",
-    .id = -1,
-};
-#endif
 
 static struct resource sprd_thm_resources[] = {
     [0] = {
@@ -679,38 +656,17 @@ static struct resource sprd_thm_resources[] = {
 static struct sprd_thm_platform_data sprd_thm_data =
 {
 		.trip_points[0] = {
-			.temp = 105 - 3*THM_TEMP_DEGREE_SETP,
+			.temp = THM_TEMP_DEGREE_START,
 			.type = THERMAL_TRIP_ACTIVE,
 			.cdev_name = {
-					[0] = "thermal-cpufreq-0",
+				[0] = "thermal-cpufreq-0",
 			},
 		},
 		.trip_points[1] = {
-			.temp = 105 - 2*THM_TEMP_DEGREE_SETP,
-			.type = THERMAL_TRIP_ACTIVE,
-			.cdev_name = {
-				[0] = "thermal-cpufreq-0",
-		},
-		},
-		.trip_points[2] = {
-			.temp = 105 - 1*THM_TEMP_DEGREE_SETP,
-			.type = THERMAL_TRIP_ACTIVE,
-			.cdev_name = {
-				[0] = "thermal-cpufreq-0",
-			},
-		},
-		.trip_points[3] = {
-			.temp = 105,
-			.type = THERMAL_TRIP_ACTIVE,
-			.cdev_name = {
-				[0] = "thermal-cpufreq-0",
-			},
-		},
-		.trip_points[4] = {
-			.temp = 114,
+			.temp = THM_TEMP_DEGREE_CRITICAL,
 			.type = THERMAL_TRIP_CRITICAL,
 		},
-		.num_trips = 5,
+		.num_trips = 2,
 };
 
 struct platform_device sprd_thm_device = {
@@ -841,6 +797,7 @@ struct platform_device trout_fm_device = {
 };
 #endif
 
+#if 0   //move to board_common_battery.c
 static struct resource sprd_battery_resources[] = {
         [0] = {
                 .start = EIC_CHARGER_DETECT,
@@ -888,7 +845,7 @@ struct platform_device sprd_battery_device = {
         .num_resources  = ARRAY_SIZE(sprd_battery_resources),
         .resource       = sprd_battery_resources,
 };
-
+#endif
 
 #if defined(CONFIG_SPRD_IOMMU)
 #if defined(CONFIG_ARCH_SCX15)
@@ -923,7 +880,7 @@ struct platform_device sprd_iommu_mm_device = {
 	.id = 1,
 	.dev = {.platform_data = &sprd_iommu_mm_data },
 };
-#elif defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#elif defined(CONFIG_ARCH_SCX30G)
 static struct sprd_iommu_init_data sprd_iommu_gsp_data = {
 	.id=0,
 	.name="sprd_iommu_gsp",
@@ -1025,14 +982,7 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 #else
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
 #endif
-#ifdef CONFIG_ARCH_SCX35L
-	.vdd_vqmmc = "vddsdio",
-	.vdd_vmmc = "vddsdcore",
-#else
-	.vdd_vqmmc = "vddsd",
-#endif
-	.vqmmc_voltage_level = 3000000,
-	.host_caps_mask = 0x05000000,
+	.vdd_extmmc = "vddsd",
 #ifdef CONFIG_ARCH_SCX15
 	.detect_gpio = 193,
 #else
@@ -1043,9 +993,6 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 		.clk_parent_name = "clk_384m",
 		.max_frequency = 384000000,
 #elif defined(CONFIG_ARCH_SCX30G)
-		.clk_parent_name = "clk_384m",
-		.max_frequency = 384000000,
-#elif defined(CONFIG_ARCH_SCX35L)
 		.clk_parent_name = "clk_384m",
 		.max_frequency = 384000000,
 #else
@@ -1059,6 +1006,7 @@ static struct sprd_sdhci_host_platdata sprd_sdio0_pdata = {
 	.sd_func = SPRD_PIN_SDIO0_SD_FUNC,
 	.gpio_func = SPRD_PIN_SDIO0_GPIO_FUNC,
 #endif
+	.init_voltage_level = 4,
 	.enb_bit = BIT_SDIO0_EB,
 	.rst_bit = BIT_SDIO0_SOFT_RST,//FIXME:
 	.runtime = 1,
@@ -1149,7 +1097,8 @@ static struct ion_platform_heap ion_pheaps[] = {
                       #ifndef SPRD_ION_BASE_USE_VARIABLE
                         .base   = SPRD_ION_MM_BASE,
                       #else
-                        .base   = -1,
+                        /*-2 mean will value SPRD_ION_MM_BASE*/
+                        .base   = -2,
                       #endif
                         .size   = SPRD_ION_MM_SIZE,
 #endif
@@ -1165,6 +1114,7 @@ static struct ion_platform_heap ion_pheaps[] = {
                       #ifndef SPRD_ION_BASE_USE_VARIABLE
                         .base   = SPRD_ION_OVERLAY_BASE,
                       #else
+                        /*-1 mean will value SPRD_ION_OVERLAY_BASE*/
                         .base   = -1,
                       #endif
                         .size   = SPRD_ION_OVERLAY_SIZE,
@@ -1187,12 +1137,15 @@ struct platform_device sprd_ion_dev = {
 void init_ion_addr_param(void)
 {
 	int i;
-	//printk("xxx: zz SPRD_ION_MEM_SIZE=%08x,SPRD_ION_MEM_BASE=%08x\n", SPRD_ION_MEM_SIZE,SPRD_ION_MEM_BASE);
 	for(i=0;i<sizeof(ion_pheaps)/sizeof(ion_pheaps[0]);i++)
 	{
 	    if(ion_pheaps[i].base == -1)
 	    {
 	        ion_pheaps[i].base = SPRD_ION_OVERLAY_BASE;
+	    }
+	    else if(ion_pheaps[i].base == -2)
+	    {
+	        ion_pheaps[i].base = SPRD_ION_MM_BASE;
 	    }
 	    printk("xxx:ion_pheaps[%d].base=%08x\n",i,ion_pheaps[i].base);
 	}
@@ -1268,32 +1221,20 @@ static struct resource sprd_emmc_resources[] = {
 static struct sprd_sdhci_host_platdata sprd_emmc_pdata = {
 	.caps = MMC_CAP_HW_RESET | MMC_CAP_NONREMOVABLE | MMC_CAP_8_BIT_DATA,// | MMC_CAP_1_8V_DDR,
 	.caps2 = MMC_CAP2_HC_ERASE_SZ | MMC_CAP2_CACHE_CTRL,
-#ifdef CONFIG_ARCH_SCX35L
-	.vdd_vmmc = "vddemmccore",
-	.vdd_vqmmc = "vddgen1",
-#else
-	.vdd_vmmc = "vddemmccore",
-	.vdd_vqmmc = "vddemmcio",
-#endif
+	.vdd_extmmc = "vddemmcio",
 	.clk_name = "clk_emmc",
 #ifdef CONFIG_ARCH_SCX15
 	.clk_parent_name = "clk_384m",
 	.max_frequency = 384000000,
 #else
-	#ifdef CONFIG_ARCH_SCX35L
-	.clk_parent_name = "clk_384m",
-	.max_frequency = 384000000,
-	#else
 	.clk_parent_name = "clk_192m",
 	.max_frequency = 192000000,
-	#endif
 #endif
-	.host_caps_mask = 0x03000000,
 	.enb_bit = BIT_EMMC_EB,
 	.rst_bit = BIT_EMMC_SOFT_RST,
-	.write_delay = 0x4,
-	.read_pos_delay = 0x4,
-	.read_neg_delay = 0x4,
+	.write_delay = 0x20,
+	.read_pos_delay = 0x07,
+	.read_neg_delay = 0x05,
 	.runtime = 1,
 };
 
@@ -1868,29 +1809,24 @@ struct platform_device sprd_veth_sdio4_device = {
 static int native_tdmodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x300000};
 	memcpy((void *)SPRD_IRAM1_BASE, cp1data, sizeof(cp1data));
 
 	/* clear cp1 force shutdown */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~(0x1<<25)));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_clr(TD_REG_CLK_ADDR,(0x1<<25));
 	msleep(50);
 
 	/* clear cp1 force deep sleep */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~(0x1<<28)));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_clr(TD_REG_CLK_ADDR,(0x1<<28));
 	msleep(50);
 
 	/* clear reset cp1 */
-	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x1));
-	__raw_writel(value, TD_REG_RESET_ADDR);
-	value = ((__raw_readl(TD_REG_RESET_ADDR) & ~0x1));
-	__raw_writel(value, TD_REG_RESET_ADDR);
+	sci_glb_set(TD_REG_RESET_ADDR, 0x1);
+	sci_glb_clr(TD_REG_RESET_ADDR,0x1);
 
 	while(1)
 	{
-        state =  __raw_readl(TD_REG_RESET_ADDR);
+        state =  sci_glb_read(TD_REG_RESET_ADDR,-1UL);
         if(!(state & 0x1))
              break;
 	}
@@ -1899,18 +1835,14 @@ static int native_tdmodem_start(void *arg)
 }
 static int native_tdmodem_stop(void *arg)
 {
-	u32 value;
 	/* reset cp1 */
-	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x1));
-	__raw_writel(value, TD_REG_RESET_ADDR);
+	sci_glb_set(TD_REG_RESET_ADDR, 0x1);
 
 	/* cp1 force deep sleep */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) | (0x1<<28)));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_set(TD_REG_CLK_ADDR, (0x1<<28));
 
 	/* cp1 force shutdown */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) | (0x1<<25)));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_set(TD_REG_CLK_ADDR, (0x1<<25));
 
 	return 0;
 }
@@ -1942,44 +1874,38 @@ static struct cproc_init_data sprd_cproc_td_pdata = {
 static int native_tdmodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x300000};
 	memcpy((void *)(SPRD_IRAM1_BASE + 0x1800), cp1data, sizeof(cp1data));
 
 	/* clear cp1 force shutdown */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x02000000));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_clr(TD_REG_CLK_ADDR, 0x02000000);
 
 	while(1)
 	{
-		state = __raw_readl(TD_REG_STATUS_ADDR);
+		state = sci_glb_read(TD_REG_STATUS_ADDR,-1UL);
 		if (!(state & (0xf<<16)))
 			break;
 	}
 
 	/* clear cp1 force deep sleep */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) & ~0x10000000));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_clr(TD_REG_CLK_ADDR, 0x10000000);
 
 	/* clear reset cp1 */
-	value = ((__raw_readl(TD_REG_RESET_ADDR) & ~0x00000002));
-	__raw_writel(value, TD_REG_RESET_ADDR);
+	sci_glb_clr(TD_REG_RESET_ADDR,0x00000002);
+
 	return 0;
 }
 static int native_tdmodem_stop(void *arg)
 {
-	u32 value;
 	/* reset cp1 */
-	value = ((__raw_readl(TD_REG_RESET_ADDR) | 0x00000002));
-	__raw_writel(value, TD_REG_RESET_ADDR);
+	sci_glb_set(TD_REG_RESET_ADDR, 0x00000002);
 
 	/* cp1 force deep sleep */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) | 0x10000000));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_set(TD_REG_CLK_ADDR, 0x10000000);
 
 	/* cp1 force shutdown */
-	value = ((__raw_readl(TD_REG_CLK_ADDR) | 0x02000000));
-	__raw_writel(value, TD_REG_CLK_ADDR);
+	sci_glb_set(TD_REG_CLK_ADDR, 0x02000000);
+
 	return 0;
 }
 
@@ -2136,29 +2062,24 @@ struct platform_device sprd_saudio_td_device = {
 static int native_wcdmamodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x300000};
 	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
 
 	/* clear cp1 force shutdown */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~(0x1<<25)));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_clr(WCDMA_REG_CLK_ADDR,(0x1<<25));
 	msleep(50);
 
 	/* clear cp1 force deep sleep */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~(0x1<<28)));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_clr(WCDMA_REG_CLK_ADDR,(0x1<<28));
 	msleep(50);
 
 	/* clear reset cp1 */
-	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x1));
-	__raw_writel(value, WCDMA_REG_RESET_ADDR);
-	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) & ~0x1));
-	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+	sci_glb_set(WCDMA_REG_RESET_ADDR, 0x1);
+	sci_glb_clr(WCDMA_REG_RESET_ADDR,0x1);
 
 	while(1)
 	{
-        state =  __raw_readl(WCDMA_REG_RESET_ADDR);
+        state =  sci_glb_read(WCDMA_REG_RESET_ADDR,-1UL);
         if(!(state & 0x1))
              break;
 	}
@@ -2167,18 +2088,14 @@ static int native_wcdmamodem_start(void *arg)
 }
 static int native_wcdmamodem_stop(void *arg)
 {
-	u32 value;
 	/* reset cp1 */
-	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x1));
-	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+	sci_glb_set(WCDMA_REG_RESET_ADDR, 0x1);
 
 	/* cp1 force deep sleep */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | (0x1<<28)));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_set(WCDMA_REG_CLK_ADDR, (0x1<<28));
 
 	/* cp1 force shutdown */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | (0x1<<25)));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_set(WCDMA_REG_CLK_ADDR, (0x1<<25));
 
 	return 0;
 }
@@ -2212,7 +2129,6 @@ static struct cproc_init_data sprd_cproc_wcdma_pdata = {
 static int native_wcdmamodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 #if defined(CONFIG_ARCH_SCX15)
 	u32 cp0data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x2c0000};
 #else
@@ -2221,39 +2137,35 @@ static int native_wcdmamodem_start(void *arg)
 	memcpy((void *)SPRD_IRAM1_BASE, cp0data, sizeof(cp0data));
 
 	/* clear cp0 force shutdown */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x02000000));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_clr(WCDMA_REG_CLK_ADDR, 0x02000000);
 
 	while(1)
 	{
-		state = __raw_readl(WCDMA_REG_STATUS_ADDR);
+		state = sci_glb_read(WCDMA_REG_STATUS_ADDR,-1UL);
 		if (!(state & (0xf<<28)))
 			break;
 	}
 
 	/* clear cp0 force deep sleep */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) & ~0x10000000));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_clr(WCDMA_REG_CLK_ADDR, 0x10000000);
 
 	/* clear reset cp0 cp1 */
-	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) & ~0x00000001));
-	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+	sci_glb_clr(WCDMA_REG_RESET_ADDR, 0x00000001);
+
 	return 0;
 }
 static int native_wcdmamodem_stop(void *arg)
 {
 	u32 value;
 	/* reset cp0 */
-	value = ((__raw_readl(WCDMA_REG_RESET_ADDR) | 0x00000001));
-	__raw_writel(value, WCDMA_REG_RESET_ADDR);
+	sci_glb_set(WCDMA_REG_RESET_ADDR, 0x00000001);
 
 	/* cp0 force deep sleep */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | ~0x10000000));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_set(WCDMA_REG_CLK_ADDR, 0x10000000);
 
 	/* clear cp0 force shutdown */
-	value = ((__raw_readl(WCDMA_REG_CLK_ADDR) | ~0x02000000));
-	__raw_writel(value, WCDMA_REG_CLK_ADDR);
+	sci_glb_set(WCDMA_REG_CLK_ADDR, 0x02000000);
+
 	return 0;
 }
 
@@ -2404,42 +2316,42 @@ struct platform_device sprd_saudio_wcdma_device = {
 #define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x68)
 #define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xB0)
 //#define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
+#define WCN_SLEEP_STATUS                               (SPRD_PMU_BASE + 0xD4)
 
 static int native_wcnmodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp_code_addr,code_phy_addr;
 
-	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
+	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x8000};
 	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
-	* Now it is different with CP1.You can take a refernce with bug#253748
+	* Now it is different with CP1.You can take a refernce with bug#253748	
 	*/
+	printk("%s\n",__func__);
 	code_phy_addr = SPRD_IRAM1_PHYS + 0x3000;
 	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
 	memcpy(cp_code_addr, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~(0x1<<25)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
-	msleep(50);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x02000000);
+	msleep(5);
+
+	/* set reset cp2 */
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
+	msleep(5);
 
 	/* clear cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~(0x1<<28)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
-	msleep(50);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x10000000);
+	msleep(5);
 
-	/* clear reset cp2*/
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) | (0x1<<2)));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~(0x1<<2)));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	/* clear reset cp2 */
+	sci_glb_clr(WCN_REG_RESET_ADDR, 0x00000004);
 
 	while(1)
 	{
-        state =  __raw_readl(WCN_REG_RESET_ADDR);
-        if(!(state & (0x1<<2)))
-             break;
+		state = sci_glb_read(WCN_REG_RESET_ADDR,-1UL);
+		if (!(state & (0x1<<2)))
+			break;
 	}
 
 	iounmap(cp_code_addr);
@@ -2447,18 +2359,26 @@ static int native_wcnmodem_start(void *arg)
 }
 static int native_wcnmodem_stop(void *arg)
 {
-	u32 value;
+	uint32_t state = 0;
+
+	printk("%s\n",__func__);
+	while(1)
+	{
+		state = sci_glb_read(WCN_SLEEP_STATUS,-1UL);
+		if (!(state & (0xf<<12)))
+			break;
+		msleep(1);
+	}
+	printk("%s cp2 enter sleep\n",__func__);
+
 	/* reset cp2 */
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) | (0x1<<2)));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 
 	/* cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | (0x1<<28)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | (0x1<<25)));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x02000000);
 	return 0;
 }
 
@@ -2466,58 +2386,69 @@ static int native_wcnmodem_stop(void *arg)
 #define WCN_REG_CLK_ADDR                               (SPRD_PMU_BASE + 0x60)
 #define WCN_REG_RESET_ADDR                             (SPRD_PMU_BASE + 0xA8)
 #define WCN_REG_STATUS_ADDR                    		   (SPRD_PMU_BASE + 0xC0)
+#define WCN_SLEEP_STATUS                               (SPRD_PMU_BASE + 0xCC)
 
 static int native_wcnmodem_start(void *arg)
 {
 	u32 state;
-	u32 value;
 	u32 cp_code_addr,code_phy_addr;
 
 	u32 cp2data[3] = {0xe59f0000, 0xe12fff10, WCN_START_ADDR + 0x60000};
 	/*Notice: According to emc_earlysuspend_8830.c,the address is remapped here.
-	* Now it is different with CP1.You can take a refernce with bug#253748 .
+	* Now it is different with CP1.You can take a refernce with bug#253748 .		
 	*/
+	printk("%s\n",__func__);
+
 	code_phy_addr = SPRD_IRAM1_PHYS + 0x3000;
 	cp_code_addr = (volatile u32)ioremap(code_phy_addr,0x1000);
 	memcpy(cp_code_addr, cp2data, sizeof(cp2data));
 
 	/* clear cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x02000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x02000000);
 
 	while(1)
 	{
-		state = __raw_readl(WCN_REG_STATUS_ADDR);
+		state = sci_glb_read(WCN_REG_STATUS_ADDR,-1UL);
 		if (!(state & (0xf)))
 		break;
 	}
 
+	/* set reset cp2*/
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
+
 	/* clear cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) & ~0x10000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_clr(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* clear reset cp2*/
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) & ~0x00000004));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	sci_glb_clr(WCN_REG_RESET_ADDR, 0x00000004);
 
 	iounmap(cp_code_addr);
-
+	
 	return 0;
 }
 static int native_wcnmodem_stop(void *arg)
 {
-	u32 value;
+	uint32_t state = 0;
+
+	printk("%s\n",__func__);
+	while(1)
+	{
+		state = sci_glb_read(WCN_SLEEP_STATUS,-1UL);
+		if (!(state & (0xf<<12)))
+			break;
+		msleep(1);
+	}
+	printk("%s cp2 enter sleep\n",__func__);
+
 	/* reset cp2 */
-	value = ((__raw_readl(WCN_REG_RESET_ADDR) | 0x00000004));
-	__raw_writel(value, WCN_REG_RESET_ADDR);
+	sci_glb_set(WCN_REG_RESET_ADDR, 0x00000004);
 
 	/* cp2 force deep sleep */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | 0x10000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x10000000);
 
 	/* cp2 force shutdown */
-	value = ((__raw_readl(WCN_REG_CLK_ADDR) | 0x02000000));
-	__raw_writel(value, WCN_REG_CLK_ADDR);
+	sci_glb_set(WCN_REG_CLK_ADDR, 0x02000000);
+
 	return 0;
 }
 #endif
@@ -2533,7 +2464,11 @@ static struct cproc_init_data sprd_cproc_wcn_pdata = {
 	.segs           = {
 		{
 		.name  = "modem",
+		#ifdef CONFIG_ARCH_SCX30G
+		.base  = WCN_START_ADDR + 0x8000,
+		#else
 		.base  = WCN_START_ADDR + 0x60000,
+		#endif
 		.maxsz = 0x00100000,
 		},
 	},
@@ -2565,7 +2500,7 @@ static struct spipe_init_data sprd_slog_wcn_pdata = {
 	.channel        = SMSG_CH_PLOG,
 	.ringnr         = 1,
 	.txbuf_size     = 32 * 1024,
-	.rxbuf_size     = 256 * 1024,
+	.rxbuf_size     = 128 * 1024,
 };
 struct platform_device sprd_slog_wcn_device = {
 	.name           = "spipe",
@@ -2585,369 +2520,7 @@ struct platform_device sprd_sttybt_td_device = {
 	.dev		= {.platform_data = &sprd_sttybt_td_pdata},
 };
 #endif
-#endif /* CONFIG_SIPC_WCN */
-#ifdef CONFIG_SIPC_PMIC
-uint32_t pmic_rxirq_status(void)
-{
-	return 1;
-}
-
-void pmic_rxirq_clear(void)
-{
-	;
-}
-
-void pmic_txirq_trigger(void)
-{
-	mbox_raw_sent(ARM7, 0);
-}
-static int native_pmic_arm7_start(void *arg)
-{
-	u32 state;
-	u32 value;
-        /* clear reset arm7*/
-         sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 0x1 << 8);
-	 sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 0x1 << 8);
-
-	while(1)
-	{
-            state = sci_glb_read( REG_PMU_APB_CP_SOFT_RST,-1UL);
-            if (!(state & (0x1 << 8)))
-                break;
-	}
-	return 0;
-}
-static int  native_pmic_arm7_stop(void *arg)
-{
-	u32 value;
-	/* reset arm7*/
-         sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 0x1 << 8);
-         return 0;
-}
-static struct cproc_init_data sprd_cproc_pmic_pdata= {
-	.devname	= "cppmic",
-	.base		= CPT_START_ADDR,
-	.maxsz		= CPT_TOTAL_SIZE,
-	.start		= native_pmic_arm7_start,
-	.stop 		= native_pmic_arm7_stop,
-	.wdtirq		= IRQ_CP1_WDG_INT,
-	.segnr		= 2,
-	.segs		= {
-		{
-			.name  = "modem",
-			.base  = CPT_START_ADDR ,
-			.maxsz = 0x008000,
-		}
-        },
-};
-struct platform_device sprd_cproc_pmic_device = {
-	.name           = "sprd_cproc",
-	.id             = 0,
-	.dev		= {.platform_data = &sprd_cproc_pmic_pdata},
-};
-
-
-static struct spipe_init_data sprd_sctrl_pmic_pdata = {
-	.name		= "sctrl_pmic",
-	.dst		= SIPC_ID_PMIC,
-	.channel	= 1,
-	.ringnr		= 1,
-	.txbuf_size	= 1024,
-	.rxbuf_size	= 1024,
-};
-struct platform_device sprd_sctrl_pmic_device = {
-	.name           = "sctrl",
-	.id             = 0,
-	.dev		= {.platform_data = &sprd_sctrl_pmic_pdata},
-};
 #endif
-
-#ifdef CONFIG_SIPC_GGE
-static int native_cp0_arm0_start(void *arg)
-{
-	u32 state;
-	u32 value;
-	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPT_START_ADDR + 0x400000};
-        //hard instrction at address 0x5000,0000 zero address remapped to cp0
-	memcpy((void *)(SPRD_IRAM1_BASE), cp1data, sizeof(cp1data));
-
-        sci_glb_clr(REG_PMU_APB_SLEEP_CTRL, 0x1 << 17);
-	        /* clear reset cp0 */
-        sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 0x1);
-        sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 0x1);
-
-	while(1)
-	{
-		state = sci_glb_read(REG_PMU_APB_CP_SOFT_RST,-1UL);
-		if (!(state & (0x1)))
-			break;
-	}
-	return 0;
-}
-static int   native_cp0_arm0_stop(void *arg)
-{
-	u32 value;
-	/* reset cp0 */
-        sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 0x1);
-
-        sci_glb_set(REG_PMU_APB_SLEEP_CTRL, 0x1 << 17);
-		return 0;
-}
-static struct cproc_init_data sprd_cproc_cp0_pdata= {
-	.devname	= "cpgge",
-	.base		= CPT_START_ADDR,
-	.maxsz		= CPT_TOTAL_SIZE,
-	.start		= native_cp0_arm0_start,
-	.stop 		= native_cp0_arm0_stop,
-	.wdtirq		= IRQ_CP1_WDG_INT,
-	.segnr		= 2,
-	.segs		= {
-		{
-			.name  = "modem",
-			.base  = CPT_START_ADDR + 0x400000,
-			.maxsz = 0x00800000,
-		},
-		{
-			.name  = "dsp",
-			.base  = CPT_START_ADDR + 0x20000,
-			.maxsz = 0x00400000,
-		},
-	},
-};
-struct platform_device sprd_cproc_cp0_device = {
-	.name           = "sprd_cproc",
-	.id             = 0,
-	.dev		= {.platform_data = &sprd_cproc_cp0_pdata},
-};
-
-
-static struct spipe_init_data sprd_spipe_gge_pdata = {
-	.name		= "spipe_gge",
-	.dst		= SIPC_ID_GGE,
-	.channel	= SMSG_CH_PIPE,
-	.ringnr		= 9,
-	.txbuf_size	= 4096,
-	.rxbuf_size	= 4096,
-};
-struct platform_device sprd_spipe_gge_device = {
-	.name           = "spipe",
-	.id             = 0,
-	.dev		= {.platform_data = &sprd_spipe_gge_pdata},
-};
-
-static struct spipe_init_data sprd_slog_gge_pdata = {
-	.name		= "slog_gge",
-	.dst		= SIPC_ID_GGE,
-	.channel	= SMSG_CH_PLOG,
-	.ringnr		= 1,
-	.txbuf_size	= 32 * 1024,
-	.rxbuf_size	= 256 * 1024,
-};
-struct platform_device sprd_slog_gge_device = {
-	.name           = "spipe",
-	.id             = 1,
-	.dev		= {.platform_data = &sprd_slog_gge_pdata},
-};
-
-static struct spipe_init_data sprd_stty_gge_pdata = {
-	.name		= "stty_gge",
-	.dst		= SIPC_ID_GGE,
-	.channel	= SMSG_CH_TTY,
-	.ringnr		= 32,
-	.txbuf_size	= 2*1024,
-	.rxbuf_size	= 2*1024,
-};
-struct platform_device sprd_stty_gge_device = {
-	.name           = "spipe",
-	.id             = 2,
-	.dev		= {.platform_data = &sprd_stty_gge_pdata},
-};
-
-static struct seth_init_data sprd_seth0_gge_pdata = {
-	.name		= "seth_gge0",
-	.dst		= SIPC_ID_GGE,
-	.channel	= SMSG_CH_DATA0,
-	.blocknum	= 128,
-};
-struct platform_device sprd_seth0_gge_device = {
-	.name           = "seth",
-	.id             =  0,
-	.dev		= {.platform_data = &sprd_seth0_gge_pdata},
-};
-
-static struct seth_init_data sprd_seth1_gge_pdata = {
-	.name		= "seth_gge1",
-	.dst		= SIPC_ID_GGE,
-	.channel	= SMSG_CH_DATA1,
-	.blocknum	= 64,
-};
-struct platform_device sprd_seth1_gge_device = {
-	.name           = "seth",
-	.id             =  1,
-	.dev		= {.platform_data = &sprd_seth1_gge_pdata},
-};
-
-static struct seth_init_data sprd_seth2_gge_pdata = {
-	.name		= "seth_gge2",
-	.dst		= SIPC_ID_GGE,
-	.channel	= SMSG_CH_DATA2,
-	.blocknum	= 64,
-};
-struct platform_device sprd_seth2_gge_device = {
-	.name           = "seth",
-	.id             =  2,
-	.dev		= {.platform_data = &sprd_seth2_gge_pdata},
-};
-
-#endif //end of CONFIG_SIPC_GGE
-
-#ifdef CONFIG_SIPC_LTE
-static int native_cp1_start(void *arg)
-{
-	u32 state;
-	u32 value;
-	u32 cp1data[3] = {0xe59f0000, 0xe12fff10, CPW_START_ADDR + 0x400000};
-	memcpy((void *)SPRD_IRAM1_BASE+0x1000, cp1data, sizeof(cp1data));
-
-        sci_glb_clr(REG_PMU_APB_SLEEP_CTRL, 0x1 << 18);
-
-	/* clear cp1 force shutdown */
-        sci_glb_clr(REG_AON_APB_APB_RST1, 0x1 << 20);
-
-        sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 0x1 << 1);
-        sci_glb_clr(REG_PMU_APB_CP_SOFT_RST, 0x1 << 1);
-
-
-        /* clear reset cp1 */
-        while(1)
-	{
-		state = sci_glb_read(REG_PMU_APB_CP_SOFT_RST,-1UL);
-		if (!(state & (0x1<<1)))
-			break;
-	}
-	return 0;
-}
-static int native_cp1_stop(void *arg)
-{
-    u32 value;
-
-        sci_glb_set(REG_PMU_APB_SLEEP_CTRL, 0x1 << 18);
-
-	/* clear cp1 force shutdown */
-        sci_glb_set(REG_AON_APB_APB_RST1, 0x1 << 20);
-
-        sci_glb_set(REG_PMU_APB_CP_SOFT_RST, 0x1 << 1);
-            return 0;
-}
-
-static struct cproc_init_data sprd_cproc_cp1_pdata = {
-	.devname	= "cptl",
-	.base		= CPW_START_ADDR,
-	.maxsz		= CPW_TOTAL_SIZE,
-	.start		= native_cp1_start,
-	.stop 		= native_cp1_stop,
-	.wdtirq		= IRQ_CP0_WDG_INT,
-	.segnr		= 2,
-	.segs		= {
-		{
-			.name  = "modem",
-			.base  = CPW_START_ADDR + 0x400000, //modem start adr 0x89a00000
-			.maxsz = 0x00800000,
-		},
-		{
-			.name  = "dsp",
-			.base  = CPW_START_ADDR +0x20000,//begin at 0x89600000
-			.maxsz = 0x00400000,
-		},
-	},
-};
-struct platform_device sprd_cproc_cp1_device = {
-	.name           = "sprd_cproc",
-	.id             = 1,
-	.dev		= {.platform_data = &sprd_cproc_cp1_pdata },
-};
-
-
-static struct spipe_init_data sprd_spipe_lte_pdata = {
-	.name		= "spipe_lte",
-	.dst		= SIPC_ID_LTE,
-	.channel	= SMSG_CH_PIPE,
-	.ringnr		= 9,
-	.txbuf_size	= 4096,
-	.rxbuf_size	= 4096,
-};
-struct platform_device sprd_spipe_lte_device = {
-	.name           = "spipe",
-	.id             = 3,
-	.dev		= {.platform_data = &sprd_spipe_lte_pdata},
-};
-
-static struct spipe_init_data sprd_slog_lte_pdata = {
-	.name		= "slog_lte",
-	.dst		= SIPC_ID_LTE,
-	.channel	= SMSG_CH_PLOG,
-	.ringnr		= 1,
-	.txbuf_size	= 32 * 1024,
-	.rxbuf_size	= 256 * 1024,
-};
-struct platform_device sprd_slog_lte_device = {
-	.name           = "spipe",
-	.id             = 4,
-	.dev		= {.platform_data = &sprd_slog_lte_pdata},
-};
-
-static struct spipe_init_data sprd_stty_lte_pdata = {
-	.name		= "stty_lte",
-	.dst		= SIPC_ID_LTE,
-	.channel	= SMSG_CH_TTY,
-	.ringnr		= 32,
-	.txbuf_size	= 2*1024,
-	.rxbuf_size	= 2*1024,
-};
-struct platform_device sprd_stty_lte_device = {
-	.name           = "spipe",
-	.id             = 5,
-	.dev		= {.platform_data = &sprd_stty_lte_pdata},
-};
-
-static struct seth_init_data sprd_seth0_lte_pdata = {
-	.name		= "seth_lte0",
-	.dst		= SIPC_ID_LTE,
-	.channel	= SMSG_CH_DATA0,
-	.blocknum	= 128,
-};
-struct platform_device sprd_seth0_lte_device = {
-	.name           = "seth",
-	.id             =  3,
-	.dev		= {.platform_data = &sprd_seth0_lte_pdata},
-};
-
-static struct seth_init_data sprd_seth1_lte_pdata = {
-	.name		= "seth_lte1",
-	.dst		= SIPC_ID_LTE,
-	.channel	= SMSG_CH_DATA1,
-	.blocknum	= 64,
-};
-struct platform_device sprd_seth1_lte_device = {
-	.name           = "seth",
-	.id             =  4,
-	.dev		= {.platform_data = &sprd_seth1_lte_pdata},
-};
-
-static struct seth_init_data sprd_seth2_lte_pdata = {
-	.name		= "seth_lte2",
-	.dst		= SIPC_ID_LTE,
-	.channel	= SMSG_CH_DATA2,
-	.blocknum	= 64,
-};
-struct platform_device sprd_seth2_lte_device = {
-	.name           = "seth",
-	.id             =  5,
-	.dev		= {.platform_data = &sprd_seth2_lte_pdata},
-};
-
-#endif //end of CONFIG_SIPC_LTE
-
 #ifndef CONFIG_OF
 static struct saudio_init_data sprd_saudio_voip={
 	"saudiovoip",
@@ -3054,41 +2627,3 @@ void wcn_txirq_trigger(void)
 	__raw_writel(AP2WCN_IRQ0_TRIG, AP2CP_INT_CTRL);
 }
 
-
-#ifdef CONFIG_SIPC_LTE
-uint32_t lte_rxirq_status(void)
-{
-	return 1;
-}
-
-void lte_rxirq_clear(void)
-{
-	;
-}
-
-void lte_txirq_trigger(void)
-{
-#ifdef CONFIG_SPRD_MAILBOX
-	mbox_raw_sent(MBOX_CORE_LTE, 0);
-#endif
-}
-#endif // end of CONFIG_SIPC_LTE
-
-#ifdef CONFIG_SIPC_GGE
-uint32_t gge_rxirq_status(void)
-{
-	return 1;
-}
-
-void gge_rxirq_clear(void)
-{
-	;
-}
-
-void gge_txirq_trigger(void)
-{
-#ifdef CONFIG_SPRD_MAILBOX
-	mbox_raw_sent(MBOX_CORE_GGE, 0);
-#endif
-}
-#endif // end of CONFIG_SIPC_GGE

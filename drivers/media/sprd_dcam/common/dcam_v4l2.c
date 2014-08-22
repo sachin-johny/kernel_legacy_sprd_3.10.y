@@ -57,12 +57,7 @@
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       16
 #define DCAM_TIMING_LEN                         16
-#if CONFIG_SC_FPGA
-#define DCAM_TIMEOUT                            (2000*10)
-#else
 #define DCAM_TIMEOUT                            1000
-#endif
-
 #define DEBUG_STR                               "Error L %d, %s: \n"
 #define DEBUG_ARGS                              __LINE__,__FUNCTION__
 #define V4L2_RTN_IF_ERR(n)          \
@@ -615,10 +610,6 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 
 	DCAM_TRACE("V4L2: check format for path0 \n");
 
-#if CONFIG_ARCH_SCX35L
-	path->is_from_isp = f->fmt.pix.priv;
-#endif
-
 	path->frm_type = f->fmt.pix.colorspace;
 	path->is_work = 0;
 
@@ -631,18 +622,6 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 		path->out_fmt = 0; // 0 - word, 1 - half word
 		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
 		break;
-		
-#if CONFIG_ARCH_SCX35L
-	case V4L2_PIX_FMT_YUYV:
-		path->out_fmt = DCAM_OUTPUT_YVYU_1FRAME; 
-		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
-		break;
-		
-	case V4L2_PIX_FMT_NV21:
-		path->out_fmt = DCAM_OUTPUT_YUV420;
-		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
-		break;
-#endif
 
 	default:
 		printk("V4L2: unsupported image format for path0 0x%x \n", fourcc);
@@ -1081,8 +1060,7 @@ LOCAL int sprd_v4l2_cap_cfg(struct dcam_info* info)
 	ret = dcam_cap_cfg(DCAM_CAP_SYNC_POL, &info->sync_pol);
 	V4L2_RTN_IF_ERR(ret);
 
-	if ((info->dcam_path[DCAM_PATH0].is_work && info->dcam_path[DCAM_PATH0].is_from_isp) ||
-		(info->dcam_path[DCAM_PATH1].is_work && info->dcam_path[DCAM_PATH1].is_from_isp) ||
+	if ((info->dcam_path[DCAM_PATH1].is_work && info->dcam_path[DCAM_PATH1].is_from_isp) ||
 		(info->dcam_path[DCAM_PATH2].is_work && info->dcam_path[DCAM_PATH2].is_from_isp)) {
 		param = 1;
 	} else {
@@ -1141,8 +1119,6 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 		sprd_v4l2_start_flash(frame, param);
 	}
 	atomic_set(&dev->run_flag, 1);
-	
-	memset((void*)&node, 0, sizeof(struct dcam_node));
 	node.irq_flag = V4L2_TX_DONE;
 	node.f_type   = frame->type;
 	node.index    = frame->fid;
@@ -1165,7 +1141,7 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	if (fmr_index >= path->frm_cnt_act) {
 		DCAM_TRACE("V4L2: index error %d, actually count %d \n",
 			fmr_index,
-			path->frm_cnt_act);
+			path->frm_id_base);
 	}
 	path->frm_ptr[fmr_index] = frame;
 	if (dev->dcam_cxt.after_af && DCAM_PATH1 == frame->type) {
@@ -1233,7 +1209,6 @@ LOCAL int sprd_v4l2_tx_stop(void* param)
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
 	struct dcam_node         node;
 
-	memset((void*)&node, 0, sizeof(struct dcam_node));
 	node.irq_flag = V4L2_TX_STOP;
 	ret = sprd_v4l2_queue_write(&dev->queue, &node);
 	if (ret)
@@ -1300,23 +1275,8 @@ LOCAL int sprd_v4l2_path0_cfg(path_cfg_func path_cfg,
 	if (NULL == path_cfg || NULL == path_spec)
 		return -EINVAL;
 
-	if (path_spec->is_from_isp) {
-		param = 1;
-	} else {
-		param = 0;
-	}
-#if CONFIG_ARCH_SCX35L
-	ret = path_cfg(DCAM_PATH_SRC_SEL, &param);
-	V4L2_RTN_IF_ERR(ret);
-#endif
-
 	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path_spec->in_size);
 	V4L2_RTN_IF_ERR(ret);
-
-#if CONFIG_ARCH_SCX35L
-	ret = path_cfg(DCAM_PATH_INPUT_RECT, &path_spec->in_rect);
-	V4L2_RTN_IF_ERR(ret);
-#endif
 
 	ret = path_cfg(DCAM_PATH_OUTPUT_FORMAT, &path_spec->out_fmt);
 	V4L2_RTN_IF_ERR(ret);
@@ -2432,7 +2392,7 @@ LOCAL int sprd_v4l2_streampause(struct file *file, uint32_t channel_id, uint32_t
 	if (PATH_RUN == path->status) {
 		ret = dcam_stop_path(path_index);
 		V4L2_PRINT_IF_ERR(ret);
-		path->status = PATH_PAUSE;
+		path->status = PATH_IDLE;
 		if ((reconfig_flag) && (DCAM_PATH2 == channel_id)) {
 			path->is_work = 0;
 			path->frm_cnt_act = 0;
@@ -2466,7 +2426,7 @@ LOCAL int sprd_v4l2_streamresume(struct file *file, uint32_t channel_id)
 	path = &dev->dcam_cxt.dcam_path[channel_id];
 	path_index = sprd_v4l2_get_path_index(channel_id);
 
-	if (PATH_PAUSE == path->status) {
+	if (PATH_IDLE == path->status) {
 		if (path->is_work) {
 			if (DCAM_PATH0 == channel_id) {
 				path_cfg = dcam_path0_cfg;
@@ -2783,12 +2743,12 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 		} else if (DCAM_PATH0 == buf.type){
 			path = &info->dcam_path[DCAM_PATH0];
 		} else {
-			printk("V4L2 error: v4l2_write, type 0x%x \n", buf.type);
+			printk("V4L2 error: v4l2_qbuf, type 0x%x \n", buf.type);
 			return -EINVAL;
 		}
 
 		if (PATH_IDLE == path->status) {
-			DCAM_TRACE("V4L2 error: v4l2_write, wrong status 0x%x \n", buf.type);
+			DCAM_TRACE("V4L2 error: v4l2_qbuf, wrong status 0x%x \n", buf.type);
 			return -EINVAL;
 		}
 
@@ -2805,7 +2765,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 			if (path->frm_ptr[index]) {
 				dcam_frame_unlock(path->frm_ptr[index]);
 			}
-			DCAM_TRACE("V4L2: v4l2_write, type 0x%x, index = 0x%x \n", buf.type, buf.index);
+			DCAM_TRACE("V4L2: v4l2_qbuf, type 0x%x, index = 0x%x \n", buf.type, buf.index);
 		}
 
 	break;

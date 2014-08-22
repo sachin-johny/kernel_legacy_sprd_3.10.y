@@ -55,4 +55,4 @@ obj-$(CONFIG_BACKLIGHT_SPRD_PWM)	+= sprd_pwm_bl.o
 obj-$(CONFIG_BACKLIGHT_KTD253B)		+= ktd253b_bl.o
 obj-$(CONFIG_BACKLIGHT_KTD2801)        += ktd2801_bl.o
 obj-$(CONFIG_BACKLIGHT_RT4502) 	   += rt4502_bl.o
-obj-$(CONFIG_BACKLIGHT_LCD_PANEL_CABC)  += lcd_panel_cabc_pwm_bl.o
+obj-$(CONFIG_BACKLIGHT_LCD_PANEL_CABC)	+= lcd_panel_cabc_pwm_bl.o
