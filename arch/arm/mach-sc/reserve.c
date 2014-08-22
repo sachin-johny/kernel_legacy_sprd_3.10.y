@@ -94,6 +94,18 @@ int __init __sipc_reserve_memblock(void)
 	smem_size += WCN_SMEM_SIZE;
 #endif
 
+#ifdef  CONFIG_SIPC_GGE
+        if (memblock_reserve(GGE_START_ADDR, GGE_TOTAL_SIZE))
+                return -ENOMEM;
+        smem_size += GGE_SMEM_SIZE;
+#endif
+
+#ifdef  CONFIG_SIPC_LTE
+        if (memblock_reserve(LTE_START_ADDR, LTE_TOTAL_SIZE))
+                return -ENOMEM;
+        smem_size += LTE_SMEM_SIZE;
+#endif
+
 	if (memblock_reserve(SIPC_SMEM_ADDR, smem_size))
 		return -ENOMEM;
 

@@ -38,6 +38,10 @@
 #include "__board-sp8830gea.h"
 #endif
 
+#ifdef CONFIG_MACH_SP8730SEA
+#include "__board-sp8730sea.h"
+#endif
+
 #ifdef	CONFIG_MACH_SP7730GGA
 #include "__board-sp7730gga.h"
 #endif
@@ -56,6 +60,10 @@
 
 #ifdef	CONFIG_MACH_SP7731GEA
 #include "__board-sp7731gea.h"
+#endif
+
+#ifdef CONFIG_MACH_SP7731GEA_FWVGA
+#include "__board-sp7731gea_fwvga.h"
 #endif
 
 #ifdef	CONFIG_MACH_SP7731GEAOPENPHONE
@@ -175,6 +183,14 @@
 
 #ifdef	CONFIG_MACH_TSHARKWSAMSUNG
 #include "__board-tsharkwsamsung.h"
+#endif
+
+#ifdef CONFIG_MACH_CORE3
+#include "__board-core3.h"
+#endif
+
+#ifdef CONFIG_MACH_PIKEAYOUNG2DTV
+#include "__board-pikeayoung2dtv.h"
 #endif
 
 #include <asm/sizes.h>

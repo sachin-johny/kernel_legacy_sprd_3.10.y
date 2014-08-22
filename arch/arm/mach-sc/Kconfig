@@ -30,6 +30,12 @@ config ARCH_SCX30G
 	help
 	  Support for Spreadtrum scx30g(t-shark) based systems.
 
+config ARCH_SCX35L
+	bool "shark-l series"
+	select ARCH_SCX35
+	help
+	  Support for Spreadtrum scx35l(shark-l) based systems.
+
 config MACH_SCX35_DT
 	bool "scx35 series DT verison(tshark,pike)"
 	help
@@ -314,6 +320,39 @@ config MACH_SPX15FPGA
         select  SC_FPGA
 	help
 	  SPX15 fpga board based on dolphin serial.
+
+config MACH_SPX35LFPGA
+        bool "spx35l FPGA Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        depends on ARCH_SCX35L
+        default n
+        select  SC_FPGA
+        select COMMON_CLK if OF
+        select CLKSRC_OF if OF
+        help
+          SPX35L fpga board based on shark-l serial.
+
+config MACH_PIKELFPGA
+        bool "PIKEL FPGA Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        depends on ARCH_SCX35L
+        default n
+        select  SC_FPGA
+        help
+          PIKEL fpga board based on shark-l serial.
+
+config MACH_SPX35L
+        bool "spx35l Board"
+        depends on ARCH_SC
+        depends on ARCH_SCX35
+        depends on ARCH_SCX35L
+        default n
+        select COMMON_CLK if OF
+        select CLKSRC_OF if OF
+        help
+          SPX35L board based on shark-l serial.
 
 config MACH_SP6815GA
 	bool "sp6815ga Phone Board"

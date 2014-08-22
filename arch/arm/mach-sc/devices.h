@@ -120,6 +120,28 @@ extern struct platform_device sprd_slog_wcn_device;
 extern struct platform_device sprd_cproc_wcn_device;
 extern struct platform_device sprd_sttybt_td_device;
 #endif
+#ifdef CONFIG_SIPC_PMIC
+extern struct platform_device sprd_sctrl_pmic_device;
+#endif
+#ifdef CONFIG_SIPC_GGE
+extern struct platform_device sprd_cproc_cp0_device;
+extern struct platform_device sprd_spipe_gge_device;
+extern struct platform_device sprd_slog_gge_device;
+extern struct platform_device sprd_stty_gge_device;
+extern struct platform_device sprd_seth0_gge_device;
+extern struct platform_device sprd_seth1_gge_device;
+extern struct platform_device sprd_seth2_gge_device;
+#endif
+#ifdef CONFIG_SIPC_LTE
+extern struct platform_device sprd_cproc_cp1_device;
+extern struct platform_device sprd_spipe_lte_device;
+extern struct platform_device sprd_slog_lte_device;
+extern struct platform_device sprd_stty_lte_device;
+extern struct platform_device sprd_seth0_lte_device;
+extern struct platform_device sprd_seth1_lte_device;
+extern struct platform_device sprd_seth2_lte_device;
+#endif
+
 extern struct platform_device sprd_saudio_voip_device;
 extern struct platform_device sprd_a7_pmu_device;
 extern struct platform_device sprd_memnand_system_device;
