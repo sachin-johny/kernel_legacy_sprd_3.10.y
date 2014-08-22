@@ -459,6 +459,44 @@ static struct wake_lock messages_wakelock;
 #endif
 
 #define PM_PRINT_ENABLE
+#if defined(CONFIG_ARCH_SCX35L)
+void cp0_power_domain_debug(void)
+{
+        unsigned long cp0_arm9_0_cfg = __raw_readl(REG_PMU_APB_PD_CP0_ARM9_0_CFG);
+        unsigned long cp0_arm9_1_cfg = __raw_readl(REG_PMU_APB_PD_CP0_ARM9_1_CFG);
+        unsigned long cp0_hu3ge_cfg = __raw_readl(REG_PMU_APB_PD_CP0_HU3GE_CFG);
+        unsigned long cp0_gsm_0_cfg = __raw_readl(REG_PMU_APB_PD_CP0_GSM_0_CFG);
+        unsigned long cp0_gsm_1_cfg = __raw_readl(REG_PMU_APB_PD_CP0_GSM_1_CFG);
+        unsigned long cp0_td_cfg = __raw_readl(REG_PMU_APB_PD_CP0_TD_CFG);
+        unsigned long cp0_ceva_0_cfg = __raw_readl(REG_PMU_APB_PD_CP0_CEVA_0_CFG);
+        unsigned long cp0_ceva_1_cfg = __raw_readl(REG_PMU_APB_PD_CP0_CEVA_1_CFG);
+
+        printk("###---- REG_PMU_APB_PD_CP0_ARM9_0_CFG : 0x%08x\n", cp0_arm9_0_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_ARM9_1_CFG : 0x%08x\n", cp0_arm9_1_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_HU3GE_CFG : 0x%08x\n", cp0_hu3ge_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_GSM_0_CFG : 0x%08x\n", cp0_gsm_0_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_GSM_1_CFG : 0x%08x\n", cp0_gsm_1_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_TD_CFG : 0x%08x\n", cp0_td_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_CEVA_0_CFG : 0x%08x\n", cp0_ceva_0_cfg);
+        printk("###---- REG_PMU_APB_PD_CP0_CEVA_1_CFG : 0x%08x\n", cp0_ceva_1_cfg);
+}
+
+void cp1_power_domain_debug(void)
+{
+        unsigned long cp1_ca5_cfg = __raw_readl(REG_PMU_APB_PD_CP1_CA5_CFG);
+        unsigned long cp1_lte_p1_cfg = __raw_readl(REG_PMU_APB_PD_CP1_LTE_P1_CFG);
+        unsigned long cp1_lte_p2_cfg = __raw_readl(REG_PMU_APB_PD_CP1_LTE_P2_CFG);
+        unsigned long cp1_ceva_cfg = __raw_readl(REG_PMU_APB_PD_CP1_CEVA_CFG);
+        /*unsigned long cp1_comwrap_cfg = __raw_readl(REG_PMU_APB_PD_COMWRAP_CFG);*/
+
+        printk("###---- REG_PMU_APB_PD_CP1_CA5_CFG : 0x%08x\n", cp1_ca5_cfg);
+        printk("###---- REG_PMU_APB_PD_CP1_LTE_P1_CFG : 0x%08x\n", cp1_lte_p1_cfg);
+        printk("###---- REG_PMU_APB_PD_CP1_LTE_P2_CFG : 0x%08x\n", cp1_lte_p2_cfg);
+        printk("###---- REG_PMU_APB_PD_CP1_CEVA_CFG : 0x%08x\n", cp1_ceva_cfg);
+        /*printk("REG_PMU_APB_PD_COMWRAP_CFG ------ 0x%08x\n", cp1_comwrap_cfg);*/
+}
+#endif
+
 static void print_debug_info(void)
 {
 	unsigned int ahb_eb, apb_eb0, cp_slp_status0, cp_slp_status1, ldo_pd_ctrl,
@@ -468,52 +506,81 @@ static void print_debug_info(void)
 #if defined(CONFIG_ARCH_SCX15)
 	unsigned int ldo_dcdc_pd_ctrl;
 #endif
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	unsigned int mpll_cfg1, dpll_cfg1, aon_apb_eb1;
+#endif
+#if defined(CONFIG_ARCH_SCX35L)
+	unsigned int mpll_cfg2, dpll_cfg2;
 #endif
 	ahb_eb = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
 	ap_sys_auto_sleep_cfg = sci_glb_read(REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG, -1UL);
 	ap_apb_eb = sci_glb_read(REG_AP_APB_APB_EB, -1UL);
 	apb_eb0 = sci_glb_read(REG_AON_APB_APB_EB0, -1UL);
 	cp_slp_status0 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL);
+#if !defined(CONFIG_ARCH_SCX35L)
 	cp_slp_status1 = sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL);
+#endif
 	apb_pwrstatus0 = sci_glb_read(REG_PMU_APB_PWR_STATUS0_DBG, -1UL);
 	apb_pwrstatus1 = sci_glb_read(REG_PMU_APB_PWR_STATUS1_DBG, -1UL);
 	apb_pwrstatus2 = sci_glb_read(REG_PMU_APB_PWR_STATUS2_DBG, -1UL);
+#if !defined(CONFIG_ARCH_SCX35L)
 	apb_pwrstatus3 = sci_glb_read(REG_PMU_APB_PWR_STATUS3_DBG, -1UL);
+#endif
 	apb_slp_status = __raw_readl(REG_PMU_APB_SLEEP_STATUS);
+#if defined(CONFIG_ARCH_SCX15)
 	mpll_cfg = sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL);
 	dpll_cfg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
-	emc_clk_cfg = sci_glb_read(REG_AON_CLK_EMC_CFG, -1UL);
+#endif
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	mpll_cfg1 = sci_glb_read(REG_AON_APB_MPLL_CFG1, -1UL);
 	dpll_cfg1 = sci_glb_read(REG_AON_APB_DPLL_CFG1, -1UL);
 	aon_apb_eb1 = sci_glb_read(REG_AON_APB_APB_EB1, -1UL);
 #endif
+#if defined(CONFIG_ARCH_SCX35L)
+	mpll_cfg2 = sci_glb_read(REG_AON_APB_MPLL_CFG2, -1UL);
+    dpll_cfg2 = sci_glb_read(REG_AON_APB_DPLL_CFG2, -1UL);
+#endif
 #if defined(CONFIG_ARCH_SCX15)
-       ldo_dcdc_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_DCDC_PD);
+	ldo_dcdc_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_DCDC_PD);
+#endif
+	unsigned long sleep_ctrl = __raw_readl(REG_PMU_APB_SLEEP_CTRL);
+	printk("###---- REG_PMU_APB_SLEEP_CTRL : 0x%08x\n", sleep_ctrl);
+#if defined(CONFIG_ARCH_SCX35L)
+	cp0_power_domain_debug();
+	cp1_power_domain_debug();
 #endif
 	printk("###---- REG_AP_AHB_AHB_EB : 0x%08x\n", ahb_eb);
 	printk("###---- REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG : 0x%08x\n", ap_sys_auto_sleep_cfg);
 	printk("###---- REG_AP_APB_APB_EB : 0x%08x\n", ap_apb_eb);
 	printk("###---- REG_AON_APB_APB_EB0 : 0x%08x\n", apb_eb0);
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+	printk("###---- REG_AON_APB_APB_EB1 : 0x%08x\n", aon_apb_eb1);
+#endif
 	printk("###---- REG_PMU_APB_CP_SLP_STATUS_DBG0 : 0x%08x\n", cp_slp_status0);
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("###---- REG_PMU_APB_CP_SLP_STATUS_DBG1 : 0x%08x\n", cp_slp_status1);
+#endif
 	printk("###---- REG_PMU_APB_PWR_STATUS0_DBG : 0x%08x\n", apb_pwrstatus0);
 	printk("###---- REG_PMU_APB_PWR_STATUS1_DBG : 0x%08x\n", apb_pwrstatus1);
 	printk("###---- REG_PMU_APB_PWR_STATUS2_DBG : 0x%08x\n", apb_pwrstatus2);
+#if !defined(CONFIG_ARCH_SCX35L)
 	printk("###---- REG_PMU_APB_PWR_STATUS3_DBG : 0x%08x\n", apb_pwrstatus3);
+#endif
 	printk("###---- REG_PMU_APB_SLEEP_STATUS : 0x%08x\n", apb_slp_status);
 	printk("###---- REG_AON_APB_MPLL_CFG : 0x%08x\n", mpll_cfg);
 	printk("###---- REG_AON_APB_DPLL_CFG : 0x%08x\n", dpll_cfg);
 	printk("###---- REG_AON_CLK_EMC_CFG : 0x%08x\n", emc_clk_cfg);
 	printk("###---- ANA_REG_GLB_LDO_PD_CTRL : 0x%08x\n", ldo_pd_ctrl);
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	printk("###---- REG_AON_APB_MPLL_CFG1 : 0x%08x\n", mpll_cfg1);
 	printk("###---- REG_AON_APB_DPLL_CFG1 : 0x%08x\n", dpll_cfg1);
 	printk("###---- REG_PMU_APB_DDR_SLEEP_CTRL : 0x%08x\n",
 				sci_glb_read(REG_PMU_APB_DDR_SLEEP_CTRL, -1UL) );
+#endif
+#if defined(CONFIG_ARCH_SCX35L)
+	printk("###---- REG_AON_APB_MPLL_CFG2 : 0x%08x\n", mpll_cfg2);
+        printk("###---- REG_AON_APB_DPLL_CFG2 : 0x%08x\n", dpll_cfg2);
 #endif
 #if defined(CONFIG_ARCH_SCX15)
        printk("###---- ANA_REG_GLB_LDO_DCDC_PD_CTRL : 0x%08x\n", ldo_dcdc_pd_ctrl);
@@ -527,8 +594,10 @@ static void print_debug_info(void)
 
 	if (ahb_eb & BIT_GSP_EB)
 		printk("###---- BIT_GSP_EB still set ----###\n");
+#if !defined(CONFIG_ARCH_SCX35L)
 	if (ahb_eb & BIT_DISPC1_EB)
 		printk("###---- BIT_DISPC1_EB still set ----###\n");
+#endif
 	if (ahb_eb & BIT_DISPC0_EB)
 		printk("###---- BIT_DISPC0_EB still set ----###\n");
 	if (ahb_eb & BIT_SDIO0_EB)
@@ -591,13 +660,16 @@ static void print_debug_info(void)
 		printk("###---- BIT_LDO_SIM0_PD power on! ----###\n");
 #if defined(CONFIG_ADIE_SC2713S)
 	if (!(ldo_pd_ctrl & BIT_LDO_SD_PD))
-#else
+		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
+#endif
 #if defined(CONFIG_ADIE_SC2723S)
 	if (!(ldo_pd_ctrl & BIT_LDO_SDIO_PD))
-#endif
-#endif
 		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
-
+#endif
+#if defined(CONFIG_ADIE_SC2723)
+	if (!(ldo_pd_ctrl & BIT_LDO_SDIO_PD))
+		printk("###---- BIT_LDO_SD_PD power on! ----###\n");
+#endif
 #if defined(CONFIG_ARCH_SCX15)
 	if (!(ldo_dcdc_pd_ctrl & BIT_BG_PD))
 		printk("###---- BIT_BG_PD power on! ----###\n");
