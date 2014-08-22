@@ -47,11 +47,21 @@ extern struct platform_device sprd_spi0_device;
 extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_spi2_device;
 extern struct platform_device sprd_keypad_device;
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+extern struct platform_device sprd_gpio_keys_device;
+#endif
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+extern struct platform_device sprd_eic_keys_device;
+#endif
 extern struct platform_device sprd_thm_device;
 extern struct platform_device sprd_thm_a_device;
 extern struct platform_device sprd_battery_device;
+#if(defined(CONFIG_INPUT_SPRD_HEADSET_SHARK)||defined(CONFIG_INPUT_SPRD_HEADSET_SHARK_MODULE))
 extern struct platform_device sprd_headset_device;
-
+#endif
+#if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
+extern struct platform_device headset_sprd_sc2723_device;
+#endif
 extern struct platform_device sprd_battery_device;
 extern struct platform_device sprd_vsp_device;
 extern struct platform_device sprd_jpg_device;

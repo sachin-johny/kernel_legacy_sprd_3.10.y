@@ -640,6 +640,20 @@ struct platform_device sprd_keypad_device = {
 	.resource = sci_keypad_resources,
 };
 
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+struct platform_device sprd_gpio_keys_device = {
+    .name = "gpio-keys",
+    .id = -1,
+};
+#endif
+
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+struct platform_device sprd_eic_keys_device = {
+    .name = "sprd-eic-keys",
+    .id = -1,
+};
+#endif
+
 static struct resource sprd_thm_resources[] = {
     [0] = {
         .start = SPRD_THM_BASE,

@@ -17,6 +17,7 @@
 #include <linux/delay.h>
 #include <linux/export.h>
 #include <linux/irqchip/arm-gic.h>
+#include <linux/input.h>
 
 #include <asm/io.h>
 #include <asm/setup.h>
@@ -25,7 +26,11 @@
 #include <asm/mach-types.h>
 #include <asm/hardware/cache-l2x0.h>
 #include <asm/localtimer.h>
-
+#ifdef CONFIG_OF
+#include <linux/of_platform.h>
+#include <linux/clocksource.h>
+#include <linux/clk-provider.h>
+#endif
 #include <mach/hardware.h>
 #include <linux/i2c.h>
 #if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
@@ -52,11 +57,9 @@
 #include <linux/akm8975.h>
 #endif
 #include <linux/irq.h>
-#include <linux/input/matrix_keypad.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
-#include <mach/kpd.h>
 
 #include <mach/sci_glb_regs.h>
 
@@ -71,6 +74,20 @@
 #include <linux/i2c/focaltech.h>
 #endif
 
+#if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
+#include <linux/input/matrix_keypad.h>
+#include <mach/kpd.h>
+#endif
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+#include <linux/gpio_keys.h>
+#endif
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+#include <linux/sprd_eic_keys.h>
+#endif
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+#include <linux/sprd_pwm_bl.h>
+#endif
+
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
@@ -81,12 +98,12 @@ extern int __init sci_regulator_init(void);
 extern int __init sprd_ramconsole_init(void);
 #endif
 
-/*keypad define */
+#ifndef CONFIG_OF
+#if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
 #define CUSTOM_KEYPAD_ROWS          (SCI_ROW7 | SCI_ROW6 | SCI_ROW5 | SCI_ROW4 | SCI_ROW3 | SCI_ROW2 | SCI_ROW1 | SCI_ROW0)
 #define CUSTOM_KEYPAD_COLS          (SCI_COL7 | SCI_COL6 | SCI_COL5 | SCI_COL4 | SCI_COL3 | SCI_COL2 | SCI_COL1 | SCI_COL0)
 #define ROWS	(8)
 #define COLS	(8)
-
 static const unsigned int board_keymap[] = {
 	KEY(0, 0, KEY_F1),
 
@@ -175,6 +192,106 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 	.repeat = 0,
 	.debounce_time = 5000,
 };
+#endif
+
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+static struct gpio_keys_button gpio_keys_button[] = {
+    {
+        .code = KEY_VOLUMEDOWN,
+        .type = EV_KEY,
+        .gpio = GPIO_KEY_VOLUMEDOWN,
+        .active_low = 1,
+        .wakeup = 1,
+        .debounce_interval = 5, /* ms */
+        .desc = "key_volumedown",
+    },
+    {
+        .code = KEY_VOLUMEUP,
+        .type = EV_KEY,
+        .gpio = GPIO_KEY_VOLUMEUP,
+        .active_low = 1,
+        .wakeup = 1,
+        .debounce_interval = 5, /* ms */
+        .desc = "key_volumeup",
+    },
+#if 0
+    {
+        .code = KEY_CAMERA,
+        .type = EV_KEY,
+        .gpio = GPIO_KEY_CAMERA,
+        .active_low = 1,
+        .wakeup = 1,
+        .debounce_interval = 5, /* ms */
+        .desc = "key_camera",
+    },
+    {
+        .code = KEY_HOME,
+        .type = EV_KEY,
+        .gpio = GPIO_KEY_HOME,
+        .active_low = 1,
+        .wakeup = 1,
+        .debounce_interval = 5, /* ms */
+        .desc = "key_home",
+    },
+#endif
+};
+
+static struct gpio_keys_platform_data gpio_keys_platform_data = {
+    .buttons = gpio_keys_button,
+    .nbuttons = ARRAY_SIZE(gpio_keys_button),
+    .rep = 0,
+};
+#endif
+
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+static struct sprd_eic_keys_button sprd_eic_keys_button[] = {
+    {
+        .code = KEY_POWER,
+        .type = EV_KEY,
+        .gpio = EIC_KEY_POWER,
+        .active_low = 0,
+        .wakeup = 1,
+        .debounce_interval = 50, /*Note: Hardware debounce (ms) */
+        .desc = "key_power",
+    },
+#if 0
+    {
+        .code = KEY_VOLUMEDOWN,
+        .type = EV_KEY,
+        .gpio = GPIO_KEY_VOLUMEDOWN,
+        .active_low = 1,
+        .wakeup = 1,
+        .debounce_interval = 5, /* ms */
+        .desc = "key_volumedown",
+    },
+    {
+        .code = KEY_VOLUMEUP,
+        .type = EV_KEY,
+        .gpio = GPIO_KEY_VOLUMEUP,
+        .active_low = 1,
+        .wakeup = 1,
+        .debounce_interval = 5, /* ms */
+        .desc = "key_volumeup",
+    },
+#endif
+};
+
+static struct sprd_eic_keys_platform_data sprd_eic_keys_platform_data = {
+    .buttons = sprd_eic_keys_button,
+    .nbuttons = ARRAY_SIZE(sprd_eic_keys_button),
+    .rep = 0,
+};
+#endif
+
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+static struct sprd_pwm_bl_platform_data sprd_pwm_bl_platform_data = {
+	.brightness_max = 255,
+	.brightness_min = 0,
+	.pwm_index = 2,
+	.gpio_ctrl_pin = -1,
+	.gpio_active_level = 0,
+};
+#endif
 
 static struct platform_device rfkill_device;
 static struct platform_device brcm_bluesleep_device;
@@ -192,6 +309,9 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_ram_console,
 #endif
 	&sprd_backlight_device,
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+	&sprd_pwm_bl_device,
+#endif
 	&sprd_i2c_device0,
 	&sprd_i2c_device1,
 	&sprd_i2c_device2,
@@ -199,7 +319,15 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_spi0_device,
 	&sprd_spi1_device,
 	&sprd_spi2_device,
+#if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
 	&sprd_keypad_device,
+#endif
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+	&sprd_gpio_keys_device,
+#endif
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+	&sprd_eic_keys_device,
+#endif
 	&sprd_audio_platform_pcm_device,
 	&sprd_audio_cpu_dai_vaudio_device,
 	&sprd_audio_cpu_dai_vbc_device,
@@ -316,6 +444,7 @@ static struct platform_device kb_backlight_device = {
 	.name           = "keyboard-backlight",
 	.id             =  -1,
 };
+#endif /* CONFIG_OF */
 
 static int calibration_mode = false;
 static int __init calibration_start(char *str)
@@ -760,6 +889,35 @@ static inline int	__sci_get_chip_id(void)
 {
 	return __raw_readl(CHIP_ID_LOW_REG);
 }
+#ifdef CONFIG_OF
+const struct of_device_id of_sprd_default_bus_match_table[] = {
+	{ .compatible = "simple-bus", },
+	{ .compatible = "sprd,adi-bus", },
+	{}
+};
+#endif
+#ifdef CONFIG_OF
+static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
+	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.0", .phys_addr = SPRD_SDIO0_BASE  },
+	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.1", .phys_addr = SPRD_SDIO1_BASE  },
+	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.2", .phys_addr = SPRD_SDIO2_BASE  },
+	 { .compatible = "sprd,sdhci-shark",  .name = "sprd-sdhci.3", .phys_addr = SPRD_EMMC_BASE  },
+	 { .compatible = "sprd,sprd_backlight",  .name = "sprd_backlight" },
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+	{ .compatible = "sprd,sprd_pwm_bl",  .name = "sprd_pwm_bl" },
+#endif
+#if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
+	{.compatible = "sprd,sci-keypad", .name = "sci-keypad" },
+#endif
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+	{.compatible = "gpio-keys", .name = "gpio-keys" },
+#endif
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+	{.compatible = "sprd,sprd-eic-keys", .name = "sprd-eic-keys" },
+#endif
+	 {}
+};
+#endif
 
 static void __init sc8830_init_machine(void)
 {
@@ -767,15 +925,30 @@ static void __init sc8830_init_machine(void)
 
 	sci_adc_init((void __iomem *)ADC_BASE);
 	sci_regulator_init();
+#ifndef CONFIG_OF
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
 	platform_device_add_data(&sprd_serial_device1,(const void*)&plat_data1,sizeof(plat_data1));
 	platform_device_add_data(&sprd_serial_device2,(const void*)&plat_data2,sizeof(plat_data2));
+#if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
+#endif
+#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+	platform_device_add_data(&sprd_gpio_keys_device,(const void*)&gpio_keys_platform_data,sizeof(gpio_keys_platform_data));
+#endif
+#if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
+	platform_device_add_data(&sprd_eic_keys_device,(const void*)&sprd_eic_keys_platform_data,sizeof(sprd_eic_keys_platform_data));
+#endif
+#if(defined(CONFIG_BACKLIGHT_SPRD_PWM)||defined(CONFIG_BACKLIGHT_SPRD_PWM_MODULE))
+	platform_device_add_data(&sprd_pwm_bl_device, (const void*)&sprd_pwm_bl_platform_data, sizeof(sprd_pwm_bl_platform_data));
+#endif
 	platform_add_devices(devices, ARRAY_SIZE(devices));
 	sc8810_add_i2c_devices();
 	sc8810_add_misc_devices();
 	sprd_spi_init();
+#else
+	of_platform_populate(NULL, of_sprd_default_bus_match_table, of_sprd_default_bus_lookup, NULL);
+#endif
 }
 
 extern void __init  sci_enable_timer_early(void);
