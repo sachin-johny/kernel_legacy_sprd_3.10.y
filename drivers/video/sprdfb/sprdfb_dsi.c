@@ -29,7 +29,7 @@
 #include "sprdfb_panel.h"
 #include "sprdfb_chip_common.h"
 
-#ifdef CONFIG_FB_SCX30G
+#if defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L)
 #define FB_DSIH_VERSION_1P21A
 #endif
 #ifdef FB_DSIH_VERSION_1P21A
@@ -734,6 +734,7 @@ int32_t sprdfb_dsi_ready(struct sprdfb_device *dev)
 		mipi_dsih_cmd_mode(&(dsi_ctx.dsi_inst), 1);
 #ifdef FB_DSIH_VERSION_1P21A
 		mipi_dsih_dphy_enable_hs_clk(&(dsi_ctx.dsi_inst.phy_instance), true);
+		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x0);
 #else
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);

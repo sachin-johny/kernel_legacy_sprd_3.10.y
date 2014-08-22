@@ -245,6 +245,7 @@ static bool panel_check(struct panel_cfg *cfg)
 		cfg->panel->if_ctrl = &sprdfb_mcu_ctrl;
 		break;
 	case SPRDFB_PANEL_TYPE_RGB:
+	case SPRDFB_PANEL_TYPE_LVDS:
 		cfg->panel->if_ctrl = &sprdfb_rgb_ctrl;
 		break;
 #ifndef CONFIG_FB_SCX15

@@ -29,7 +29,7 @@ static void sprd_iommu_gsp_late_resume(struct early_suspend* es);
 int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
 		int err=-1;
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
 		struct device_node *np;
 
@@ -192,7 +192,7 @@ int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 {
 		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 		sprd_iommu_disable(dev);
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
 		clk_disable_unprepare(dev->mmu_clock);
 		clk_disable_unprepare(dev->mmu_mclock);
@@ -254,7 +254,7 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 
 {
 		printk("%s line:%d\n",__FUNCTION__,__LINE__);
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_clock);
 		clk_prepare_enable(dev->mmu_mclock);
@@ -287,7 +287,7 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {
 		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_mclock);
 		clk_prepare_enable(dev->mmu_clock);

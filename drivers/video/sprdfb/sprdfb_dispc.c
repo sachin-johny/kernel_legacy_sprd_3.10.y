@@ -38,7 +38,9 @@
 #include <mach/cpuidle.h>
 #include <linux/dma-mapping.h>
 //#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
-#define DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
+#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA) && !(CONFIG_MACH_SPX35L)
+ #define DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
+#endif
 
 #ifndef CONFIG_OF
 #ifdef CONFIG_FB_SCX15
@@ -77,7 +79,7 @@
 #define DISPC_CLOCK_NUM 3
 #endif
 
-#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L)
 #define SPRDFB_BRIGHTNESS           (0x02<<16)//(0x03<<16)// 9-bits
 #define SPRDFB_CONTRAST             (0x12A<<0) //10-bits
 #define SPRDFB_OFFSET_U             (0x80<<16)//8-bits
@@ -224,7 +226,8 @@ static int dispc_check_new_clk(struct sprdfb_device *fb_dev,
 				mipi->timing->hbp + mipi->timing->hfp;
 		vlines = panel->height + mipi->timing->vsync +
 				mipi->timing->vbp + mipi->timing->vfp;
-	} else if(fb_dev->panel->type == LCD_MODE_RGB) {
+	} else if(fb_dev->panel->type == LCD_MODE_RGB ||
+			fb_dev->panel->type == LCD_MODE_LVDS) {
 		hpixels = panel->width + rgb->timing->hsync +
 				rgb->timing->hbp + rgb->timing->hfp;
 		vlines = panel->height + rgb->timing->vsync +
@@ -1771,7 +1774,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 
 	if(type < SPRD_DATA_TYPE_RGB888) {
 		dispc_write(1, DISPC_Y2R_CTRL);
-#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L)
 		dispc_write(SPRDFB_BRIGHTNESS|SPRDFB_CONTRAST, DISPC_Y2R_Y_PARAM);
 		dispc_write(SPRDFB_OFFSET_U|SPRDFB_SATURATION_U, DISPC_Y2R_U_PARAM);
 		dispc_write(SPRDFB_OFFSET_V|SPRDFB_SATURATION_V, DISPC_Y2R_V_PARAM);
@@ -1789,7 +1792,7 @@ static int overlay_img_configure(struct sprdfb_device *dev, int type, overlay_re
 	pr_debug("sprdfb: DISPC_IMG_PITCH: 0x%x\n", dispc_read(DISPC_IMG_PITCH));
 	pr_debug("sprdfb: DISPC_IMG_DISP_XY: 0x%x\n", dispc_read(DISPC_IMG_DISP_XY));
 	pr_debug("sprdfb: DISPC_Y2R_CTRL: 0x%x\n", dispc_read(DISPC_Y2R_CTRL));
-#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
+#if (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L)
 	pr_debug("sprdfb: DISPC_Y2R_Y_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_Y_PARAM));
 	pr_debug("sprdfb: DISPC_Y2R_U_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_U_PARAM));
 	pr_debug("sprdfb: DISPC_Y2R_V_PARAM: 0x%x\n", dispc_read(DISPC_Y2R_V_PARAM));
@@ -2066,9 +2069,13 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 			dispc_ctx.waitfor_vsync_done = 0;
 			//dispc_set_bits(BIT(0), DISPC_INT_EN);
 			dispc_ctx.waitfor_vsync_waiter++;
+#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA)
 			ret  = wait_event_interruptible_timeout(dispc_ctx.waitfor_vsync_queue,
 					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
-
+#else /* fpga dpi clock is 6-7MHz, timeout should be longer than reference phone */
+			ret  = wait_event_interruptible_timeout(dispc_ctx.waitfor_vsync_queue,
+					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(300));
+#endif
 			if (!ret) { /* time out */
 			    reg_val0 = dispc_read(DISPC_INT_RAW);
 			    reg_val1 = dispc_read(DISPC_DPI_STS1);
