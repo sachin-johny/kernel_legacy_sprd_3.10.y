@@ -30,7 +30,7 @@ struct sci_pin_switch {
 	u32 func;
 };
 static struct sci_pin_switch sci_pin_switch_array[] = {
-#if !defined(CONFIG_ARCH_SCX15)
+	#if !(defined(CONFIG_ARCH_SCX15)||defined(CONFIG_ARCH_SCX35L))
 	{"", "vbc_dac_iislrck_pin_in_sel", 0x4, 24, 1, 0},
 	{"", "vbc_dac_iisclk_pin_in_sel", 0x4, 23, 1, 0},
 	{"", "vbc_adc_iislrck_pin_in_sel", 0x4, 22, 1, 0},
@@ -60,6 +60,40 @@ static struct sci_pin_switch sci_pin_switch_array[] = {
 	{"", "iis01_loop_sel", 0xc, 0, 1, 0},
 };
 
+
+#if defined(CONFIG_ARCH_SCX35L)
+static struct sci_pin_switch iis_0_array[] = {
+	{"iis0_sys_sel", "ap_iis0", 0xc, 6, 3, 0},
+	{"iis0_sys_sel", "cp0_iis0", 0xc, 6, 3, 1},
+	{"iis0_sys_sel", "cp1_iis0", 0xc, 6, 3, 2},
+	{"iis0_sys_sel", "vbc_iis0", 0xc, 6, 3, 3},
+	{"iis0_sys_sel", "vbc_iis1", 0xc, 6, 3, 4},
+};
+
+static struct sci_pin_switch iis_1_array[] = {
+	{"iis1_sys_sel", "ap_iis1", 0xc, 9, 3, 0},
+	{"iis1_sys_sel", "cp0_iis1", 0xc, 9, 3, 1},
+	{"iis1_sys_sel", "cp1_iis1", 0xc, 9, 3, 2},
+	{"iis1_sys_sel", "vbc_iis0", 0xc, 9, 3, 3},
+	{"iis1_sys_sel", "vbc_iis1", 0xc, 9, 3, 4},
+};
+
+static struct sci_pin_switch iis_2_array[] = {
+	{"iis2_sys_sel", "ap_iis2", 0xc, 12, 3, 0},
+	{"iis2_sys_sel", "cp0_iis2", 0xc, 12, 3, 1},
+	{"iis2_sys_sel", "cp1_iis2", 0xc, 12, 3, 2},
+	{"iis2_sys_sel", "vbc_iis0", 0xc, 12, 3, 3},
+	{"iis2_sys_sel", "vbc_iis1", 0xc, 12, 3, 4},
+};
+
+static struct sci_pin_switch iis_3_array[] = {
+	{"iis3_sys_sel", "ap_iis3", 0xc, 15, 3, 0},
+	{"iis3_sys_sel", "cp0_iis3", 0xc, 15, 3, 1},
+	{"iis3_sys_sel", "cp1_iis3", 0xc, 15, 3, 2},
+	{"iis3_sys_sel", "vbc_iis0", 0xc, 15, 3, 3},
+	{"iis3_sys_sel", "vbc_iis1", 0xc, 15, 3, 4},
+};
+#else
 static struct sci_pin_switch bt_iis_sys_sel_array[] = {
 	{"bt_iis_sys_sel", "cp0_iis0", 0x8, 28, 4, 0},
 	{"bt_iis_sys_sel", "cp0_iis1", 0x8, 28, 4, 1},
@@ -108,6 +142,7 @@ static struct sci_pin_switch iis_3_array[] = {
 	{"iis3_sys_sel", "cp2_iis3", 0xc, 15, 2, 3},
 };
 #endif
+#endif
 
 #if defined(CONFIG_PIN_POWER_DOMAIN_SWITCH)
 struct pin_reg_desc {
@@ -121,14 +156,17 @@ static struct sci_pin_switch_dir {
 	struct sci_pin_switch *sci_pin_switch;
 	u32 array_size;
 } sci_pin_switch_dir_array[] = {
+#if !defined(CONFIG_ARCH_SCX35L)
 	{
-	bt_iis_sys_sel_array, ARRAY_SIZE(bt_iis_sys_sel_array)}, {
+	bt_iis_sys_sel_array, ARRAY_SIZE(bt_iis_sys_sel_array)},
+#endif
+	{
 	iis_0_array, ARRAY_SIZE(iis_0_array)}, {
 	iis_1_array, ARRAY_SIZE(iis_1_array)},
 #if !defined(CONFIG_ARCH_SCX15)
 	{
-	iis_2_array, ARRAY_SIZE(iis_1_array)}, {
-	iis_3_array, ARRAY_SIZE(iis_1_array)},
+	iis_2_array, ARRAY_SIZE(iis_2_array)}, {
+	iis_3_array, ARRAY_SIZE(iis_3_array)},
 #endif
 };
 
@@ -331,13 +369,13 @@ static int sc271x_regulator_event(struct notifier_block *regu_nb,
 	if (event & REGULATOR_EVENT_VOLTAGE_CHANGE) {
 		if (p_pin_reg_desc) {
 			if (best_data > VOL_THRESHOLD) {
-				pinmap_set(reg, (pinmap_get(reg) & ~bit));
+				pinmap_set(reg, (pinmap_get(reg) & ~(1 << bit)));
 				pr_info
 				    ("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",
 				     __func__, __LINE__, regu_name, event,
 				     best_data);
 			} else {
-				pinmap_set(reg, (pinmap_get(reg) | bit));
+				pinmap_set(reg, (pinmap_get(reg) | (1 << bit)));
 				pr_info
 				    ("%s()->Line:%d, --REGULATOR_EVENT_VOLTAGE_CHANGE--> %s event %ld, data %ld\n",
 				     __func__, __LINE__, regu_name, event,
