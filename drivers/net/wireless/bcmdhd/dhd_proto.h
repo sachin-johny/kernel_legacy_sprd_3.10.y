@@ -4,9 +4,9 @@
  * Provides type definitions and function prototypes used to link the
  * DHD OS, bus, and protocol modules.
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -24,7 +24,7 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: dhd_proto.h 325560 2012-04-03 21:28:08Z $
+ * $Id: dhd_proto.h 455951 2014-02-17 10:52:22Z $
  */
 
 #ifndef _dhd_proto_h_
@@ -34,8 +34,12 @@
 #include <wlioctl.h>
 
 #ifndef IOCTL_RESP_TIMEOUT
-#define IOCTL_RESP_TIMEOUT  1500  /* In milli second default value for Production FW */
-#endif
+#define IOCTL_RESP_TIMEOUT  2000  /* In milli second default value for Production FW */
+#endif /* IOCTL_RESP_TIMEOUT */
+
+#ifndef MFG_IOCTL_RESP_TIMEOUT
+#define MFG_IOCTL_RESP_TIMEOUT  20000  /* In milli second default value for MFG FW */
+#endif /* MFG_IOCTL_RESP_TIMEOUT */
 
 /*
  * Exported from the dhd protocol module (dhd_cdc, dhd_rndis)
@@ -61,7 +65,7 @@ extern void dhd_prot_stop(dhd_pub_t *dhdp);
 extern void dhd_prot_hdrpush(dhd_pub_t *, int ifidx, void *txp);
 
 /* Remove any protocol-specific data header. */
-extern int dhd_prot_hdrpull(dhd_pub_t *, int *ifidx, void *rxp);
+extern int dhd_prot_hdrpull(dhd_pub_t *, int *ifidx, void *rxp, uchar *buf, uint *len);
 
 /* Use protocol to issue ioctl to dongle */
 extern int dhd_prot_ioctl(dhd_pub_t *dhd, int ifidx, wl_ioctl_t * ioc, void * buf, int len);
@@ -83,11 +87,19 @@ extern int dhd_ioctl(dhd_pub_t * dhd_pub, dhd_ioctl_t *ioc, void * buf, uint buf
 
 extern int dhd_preinit_ioctls(dhd_pub_t *dhd);
 
-#ifdef PROP_TXSTATUS
-extern int dhd_wlfc_enque_sendq(void* state, int prec, void* p);
-extern int dhd_wlfc_commit_packets(void* state, f_commitpkt_t fcommit, void* commit_ctx);
-extern void dhd_wlfc_cleanup(dhd_pub_t *dhd);
-#endif /* PROP_TXSTATUS */
+extern int dhd_process_pkt_reorder_info(dhd_pub_t *dhd, uchar *reorder_info_buf,
+	uint reorder_info_len, void **pkt, uint32 *free_buf_count);
+
+#ifdef BCMPCIE
+extern int dhd_prot_process_msgbuf(dhd_pub_t *dhd);
+extern int dhd_prot_process_ctrlbuf(dhd_pub_t * dhd);
+extern bool dhd_prot_dtohsplit(dhd_pub_t * dhd);
+extern int dhd_post_dummy_msg(dhd_pub_t *dhd);
+extern int dhdmsgbuf_lpbk_req(dhd_pub_t *dhd, uint len);
+extern void dhd_prot_rx_dataoffset(dhd_pub_t *dhd, uint32 offset);
+extern int dhd_prot_txdata(dhd_pub_t *dhd, void *p, uint8 ifidx);
+extern int dhdmsgbuf_dmaxfer_req(dhd_pub_t *dhd, uint len, uint srcdelay, uint destdelay);
+#endif
 
 /********************************
  * For version-string expansion *
@@ -96,8 +108,6 @@ extern void dhd_wlfc_cleanup(dhd_pub_t *dhd);
 #define DHD_PROTOCOL "bdc"
 #elif defined(CDC)
 #define DHD_PROTOCOL "cdc"
-#elif defined(RNDIS)
-#define DHD_PROTOCOL "rndis"
 #else
 #define DHD_PROTOCOL "unknown"
 #endif /* proto */

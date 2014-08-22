@@ -1,7 +1,9 @@
 /*
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * BT-AMP (BlueTooth Alternate Mac and Phy) 802.11 PAL (Protocol Adaptation Layer)
+ *
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -19,31 +21,25 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: epivers.h.in 277737 2011-08-16 17:54:59Z $
- *
+ * $Id: 802.11_bta.h 382882 2013-02-04 23:24:31Z $
 */
 
+#ifndef _802_11_BTA_H_
+#define _802_11_BTA_H_
 
-#ifndef _epivers_h_
-#define _epivers_h_
+#define BT_SIG_SNAP_MPROT		"\xAA\xAA\x03\x00\x19\x58"
 
-#define	EPI_MAJOR_VERSION	@EPI_MAJOR_VERSION@
+/* BT-AMP 802.11 PAL Protocols */
+#define BTA_PROT_L2CAP				1
+#define	BTA_PROT_ACTIVITY_REPORT		2
+#define BTA_PROT_SECURITY			3
+#define BTA_PROT_LINK_SUPERVISION_REQUEST	4
+#define BTA_PROT_LINK_SUPERVISION_REPLY		5
 
-#define	EPI_MINOR_VERSION	@EPI_MINOR_VERSION@
-
-#define	EPI_RC_NUMBER		@EPI_RC_NUMBER@
-
-#define	EPI_INCREMENTAL_NUMBER	@EPI_INCREMENTAL_NUMBER@
-
-#define	EPI_BUILD_NUMBER	@EPI_BUILD_NUMBER@
-
-#define	EPI_VERSION		@EPI_VERSION@
-
-#define	EPI_VERSION_NUM		@EPI_VERSION_NUM@
-
-#define EPI_VERSION_DEV		@EPI_VERSION_DEV@
-
-
-#define	EPI_VERSION_STR		"@EPI_VERSION_STR@@EPI_VERSION_TYPE@"
-
-#endif 
+/* BT-AMP 802.11 PAL AMP_ASSOC Type IDs */
+#define BTA_TYPE_ID_MAC_ADDRESS			1
+#define BTA_TYPE_ID_PREFERRED_CHANNELS		2
+#define BTA_TYPE_ID_CONNECTED_CHANNELS		3
+#define BTA_TYPE_ID_CAPABILITIES		4
+#define BTA_TYPE_ID_VERSION			5
+#endif /* _802_11_bta_h_ */

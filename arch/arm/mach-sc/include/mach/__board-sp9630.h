@@ -85,7 +85,7 @@
 /*#define GPIO_BT_RESET		194 */
 #define GPIO_WIFI_POWERON	189
 #define GPIO_WIFI_SHUTDOWN	130
-#define GPIO_WIFI_IRQ		97//yangyufeng debug
+#define GPIO_WIFI_IRQ		97
 
 #define GPIO_PROX_INT       140
 #define GPIO_GPS_ONOFF	        174

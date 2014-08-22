@@ -1,9 +1,9 @@
 /*
- * BT-AMP (BlueTooth Alternate Mac and Phy) 802.11 PAL (Protocol Adaptation Layer)
+ * BCM common config options
  *
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -21,25 +21,9 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * $Id: 802.11_bta.h 277737 2011-08-16 17:54:59Z $
-*/
+ * $Id: bcm_cfg.h 351867 2012-08-21 18:46:16Z $
+ */
 
-#ifndef _802_11_BTA_H_
-#define _802_11_BTA_H_
-
-#define BT_SIG_SNAP_MPROT		"\xAA\xAA\x03\x00\x19\x58"
-
-/* BT-AMP 802.11 PAL Protocols */
-#define BTA_PROT_L2CAP				1
-#define	BTA_PROT_ACTIVITY_REPORT		2
-#define BTA_PROT_SECURITY			3
-#define BTA_PROT_LINK_SUPERVISION_REQUEST	4
-#define BTA_PROT_LINK_SUPERVISION_REPLY		5
-
-/* BT-AMP 802.11 PAL AMP_ASSOC Type IDs */
-#define BTA_TYPE_ID_MAC_ADDRESS			1
-#define BTA_TYPE_ID_PREFERRED_CHANNELS		2
-#define BTA_TYPE_ID_CONNECTED_CHANNELS		3
-#define BTA_TYPE_ID_CAPABILITIES		4
-#define BTA_TYPE_ID_VERSION			5
-#endif /* _802_11_bta_h_ */
+#ifndef _bcm_cfg_h_
+#define _bcm_cfg_h_
+#endif /* _bcm_cfg_h_ */

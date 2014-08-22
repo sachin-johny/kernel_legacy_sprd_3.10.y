@@ -1,7 +1,9 @@
 /*
- * Copyright (C) 1999-2011, Broadcom Corporation
+ * Definitions for nl80211 testmode access to host driver
+ *
+ * Copyright (C) 1999-2014, Broadcom Corporation
  * 
- *         Unless you and Broadcom execute a separate written software license
+ *      Unless you and Broadcom execute a separate written software license
  * agreement governing use of this software, this software is licensed to you
  * under the terms of the GNU General Public License version 2 (the "GPL"),
  * available at http://www.broadcom.com/licenses/GPLv2.php, with the
@@ -19,31 +21,36 @@
  * software in any way with any other Broadcom software provided under a license
  * other than the GPL, without Broadcom's express prior written consent.
  *
- * Fundamental types and constants relating to 802.1D
+ * $Id: brcm_nl80211.h 454792 2014-02-11 20:40:19Z $
  *
- * $Id: 802.1d.h 277737 2011-08-16 17:54:59Z $
  */
 
+#ifndef _brcm_nl80211_h_
+#define _brcm_nl80211_h_
 
-#ifndef _802_1_D_
-#define _802_1_D_
+struct bcm_nlmsg_hdr {
+	uint cmd;	/* common ioctl definition */
+	uint len;	/* attached buffer length */
+	uint offset;	/* user buffer offset */
+	uint set;	/* get or set request optional */
+	uint magic;	/* magic number for verification */
+};
 
+enum bcmnl_attrs {
+	BCM_NLATTR_UNSPEC,
 
-#define	PRIO_8021D_NONE		2	
-#define	PRIO_8021D_BK		1	
-#define	PRIO_8021D_BE		0	
-#define	PRIO_8021D_EE		3	
-#define	PRIO_8021D_CL		4	
-#define	PRIO_8021D_VI		5	
-#define	PRIO_8021D_VO		6	
-#define	PRIO_8021D_NC		7	
-#define	MAXPRIO			7	
-#define NUMPRIO			(MAXPRIO + 1)
+	BCM_NLATTR_LEN,
+	BCM_NLATTR_DATA,
 
-#define ALLPRIO		-1	
+	__BCM_NLATTR_AFTER_LAST,
+	BCM_NLATTR_MAX = __BCM_NLATTR_AFTER_LAST - 1
+};
 
+struct nl_prv_data {
+	int err;			/* return result */
+	void *data;			/* ioctl return buffer pointer */
+	uint len;			/* ioctl return buffer length */
+	struct bcm_nlmsg_hdr *nlioc;	/* bcm_nlmsg_hdr header pointer */
+};
 
-#define PRIO2PREC(prio) \
-	(((prio) == PRIO_8021D_NONE || (prio) == PRIO_8021D_BE) ? ((prio^2)) : (prio))
-
-#endif 
+#endif /* _brcm_nl80211_h_ */
