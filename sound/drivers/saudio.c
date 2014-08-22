@@ -1272,11 +1272,15 @@ static int snd_saudio_probe(struct platform_device *devptr)
 	struct snd_saudio *saudio = NULL;
 	static pid_t thread_id = (pid_t) - 1;
 #ifdef CONFIG_OF
-	int ret, id;
+	int ret, id, ctrl_ch, playback_ch, capture_ch, monitor_ch;
 	const char *name = NULL;
 	struct saudio_init_data snd_init_data = {0};
 	const char *saudio_names = "sprd,saudio-names";
 	const char *saudio_dst_id = "sprd,saudio-dst-id";
+	const char *ctrl_channel = "sprd,ctrl_channel";
+	const char *playback_channel = "sprd,playback_channel";
+	const char *capture_channel = "sprd,capture_channel";
+	const char *monitor_channel = "sprd,monitor_channel";
 	struct saudio_init_data *init_data = &snd_init_data;
 #else
 	struct saudio_init_data *init_data = devptr->dev.platform_data;
@@ -1290,45 +1294,49 @@ static int snd_saudio_probe(struct platform_device *devptr)
 		printk("saudio: %s: missing %s in dt node\n", __func__, saudio_dst_id);
 		return ret;
 	} else {
-		if ((id == SIPC_ID_CPT) || (id == SIPC_ID_CPW)) {
-			printk("saudio: %s: %s is %d\n", __func__, __func__, saudio_dst_id, id);
-		} else {
-			printk("saudio: %s: %s is %d and only support 1,2\n", __func__, saudio_dst_id, id);
-			return ret;
-		}
+		printk("saudio: %s: %s is %d\n", __func__, saudio_dst_id, id);
+	}
+	ret = of_property_read_u32(devptr->dev.of_node, ctrl_channel, &ctrl_ch);
+	if (ret) {
+		printk("saudio: %s: missing %s in dt node\n", __func__, ctrl_channel);
+		return ret;
+	} else {
+		printk("saudio: %s: %s is %d\n", __func__, ctrl_channel, ctrl_ch);
+	}
+	ret = of_property_read_u32(devptr->dev.of_node, playback_channel, &playback_ch);
+	if (ret) {
+		printk("saudio: %s: missing %s in dt node\n", __func__, playback_channel);
+		return ret;
+	} else {
+		printk("saudio: %s: %s is %d\n", __func__, playback_channel, playback_ch);
+	}
+	ret = of_property_read_u32(devptr->dev.of_node, capture_channel, &capture_ch);
+	if (ret) {
+		printk("saudio: %s: missing %s in dt node\n", __func__, capture_channel);
+		return ret;
+	} else {
+		printk("saudio: %s: %s is %d\n", __func__, capture_channel, capture_ch);
+	}
+	ret = of_property_read_u32(devptr->dev.of_node, monitor_channel, &monitor_ch);
+	if (ret) {
+		printk("saudio: %s: missing %s in dt node\n", __func__, monitor_channel);
+		return ret;
+	} else {
+		printk("saudio: %s: %s is %d\n", __func__, monitor_channel, monitor_ch);
 	}
 	ret = of_property_read_string(devptr->dev.of_node, saudio_names, &name);
 	if (ret) {
 		printk("saudio: %s: missing %s in dt node\n", __func__, saudio_names);
 		return ret;
 	} else {
-		printk("saudio: %s: %s is %s\n", __func__, __func__, saudio_names, name);
+		printk("saudio: %s: %s is %s\n", __func__, saudio_names, name);
 	}
-
-	if (!strcmp(name, "saudio_voip")) {
-		init_data->name = "saudiovoip";
-		init_data->dst = id;
-		init_data->ctrl_channel = SMSG_CH_CTRL_VOIP;
-		init_data->playback_channel = SMSG_CH_PLAYBACK_VOIP;
-		init_data->capture_channel = SMSG_CH_CAPTURE_VOIP;
-		init_data->monitor_channel = SMSG_CH_MONITOR_VOIP;
-	} else if(id == SIPC_ID_CPT) {
-		init_data->name = "VIRTUAL AUDIO";
-		init_data->dst = id;
-		init_data->ctrl_channel = SMSG_CH_VBC;
-		init_data->playback_channel = SMSG_CH_PLAYBACK;
-		init_data->capture_channel = SMSG_CH_CAPTURE;
-		init_data->monitor_channel = SMSG_CH_MONITOR_AUDIO;
-	} else if(id == SIPC_ID_CPW) {
-		init_data->name = "VIRTUAL AUDIO W";
-		init_data->dst = id;
-		init_data->ctrl_channel = SMSG_CH_VBC;
-		init_data->playback_channel = SMSG_CH_PLAYBACK;
-		init_data->capture_channel = SMSG_CH_CAPTURE;
-		init_data->monitor_channel = SMSG_CH_MONITOR_AUDIO;
-	} else {
-		printk("saudio: %s: get data in dt node failed\n", __func__);
-	}
+	init_data->name = (char *)name;
+	init_data->dst = id;
+	init_data->ctrl_channel = ctrl_ch;
+	init_data->playback_channel = playback_ch;
+	init_data->capture_channel = capture_ch;
+	init_data->monitor_channel = monitor_ch;
 #endif
 
 	if (!(saudio = saudio_card_probe(init_data))) {

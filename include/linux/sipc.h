@@ -25,6 +25,9 @@ enum {
 	SIPC_ID_CPT,		/* TD processor */
 	SIPC_ID_CPW,		/* WCDMA processor */
 	SIPC_ID_WCN,		/* Wireless Connectivity */
+	SIPC_ID_GGE, 		/* Gsm Gprs Edge processor */
+	SIPC_ID_LTE, 		/* LTE processor */
+        SIPC_ID_PMIC,
 	SIPC_ID_NR,		/* total processor number */
 };
 

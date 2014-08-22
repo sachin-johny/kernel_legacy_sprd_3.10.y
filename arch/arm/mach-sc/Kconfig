@@ -650,6 +650,11 @@ config VOIP_CPT
 	default n
 	depends on SIPC_TD
 
+config VOIP_LTE
+	bool "VOIP process in modem LTE,it is processed in modem W by default"
+	default n
+	depends on SIPC_LTE
+
 config CP_SWITCH
 	bool "cp switch"
 	default n

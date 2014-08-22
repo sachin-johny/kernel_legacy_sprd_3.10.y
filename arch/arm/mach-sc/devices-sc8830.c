@@ -2521,11 +2521,29 @@ struct platform_device sprd_sttybt_td_device = {
 };
 #endif
 #endif
+
+static struct saudio_init_data sprd_saudio_lte={
+	"saudiolte",
+	SIPC_ID_LTE,
+	SMSG_CH_VBC,
+	SMSG_CH_PLAYBACK,
+	SMSG_CH_CAPTURE,
+	SMSG_CH_MONITOR_AUDIO,
+};
+
+struct platform_device sprd_saudio_lte_device = {
+	.name       = "saudio",
+	.id         = 0,
+	.dev        = {.platform_data=&sprd_saudio_lte},
+};
+
 #ifndef CONFIG_OF
 static struct saudio_init_data sprd_saudio_voip={
 	"saudiovoip",
 #ifdef CONFIG_VOIP_CPT
 	SIPC_ID_CPT,
+#elif defined(CONFIG_VOIP_LTE)
+	SIPC_ID_LTE,
 #else
 	SIPC_ID_CPW,
 #endif
