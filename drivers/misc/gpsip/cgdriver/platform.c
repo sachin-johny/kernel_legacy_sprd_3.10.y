@@ -25,6 +25,10 @@
 
 #include <asm/uaccess.h>
 #include <mach/gpio.h>
+#include <linux/regulator/consumer.h>
+#include <mach/regulator.h>
+#include <linux/clk.h>
+#include <linux/delay.h>
 
 #include "CgxDriverApi.h"
 #include "CgCpu.h"
@@ -33,11 +37,13 @@
 #include "CgxDriverOs.h"
 #include "CgxDriverCore.h"
 
+#ifndef CGCORE_ACCESS_VIA_SPI
 extern TCgReturnCode CGCoreSclkEnable(int enable);
+struct sprd_2351_interface *gps_rf_ops;
+#endif
 
 /** Native byte order for this CPU */
 const TCgByteOrder CGX_DRIVER_NATIVE_BYTE_ORDER = ECG_BYTE_ORDER_4321;	// SPRD_FPGA is little endian
-struct sprd_2351_interface *gps_rf_ops;
 
 /*
     Reset the core and timers and initialize GPIO (direction and special function)
@@ -121,7 +127,12 @@ U32 CgxDriverDataReadyInterruptCode(void)
 U32 CgxDriverGpsInterruptCode(void)
 {
 	// TODO return the interrupt code for 'CGsnap' interrupt
+#ifndef CGCORE_ACCESS_VIA_SPI
 	return SPRD_GPS_INT;
+#else
+	gpio_direction_input (CG_DRIVER_GPIO_GPS_INT);
+	return gpio_to_irq(CG_DRIVER_GPIO_GPS_INT);
+#endif
 }
 
 
@@ -211,6 +222,291 @@ TCgReturnCode CgxDriverReadDataTail(unsigned char *aTargetVirtualAddress, unsign
 	return ECgOk;
 }
 
+#ifdef CGCORE_ACCESS_VIA_SPI
+static void CgxDriverRFInit(void)
+{
+	u32 value;
+
+	value = 0x005f8420;
+	gps_spi_write_bytes(1, 0x82*4, value);
+	gps_spi_read_bytes(1, 0x82*4, &value);
+
+	value = 0x00010003;
+	gps_spi_write_bytes(1, 0x83*4, value);
+
+	/*RF4in1 */
+	value = 0x006f0609;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x007b8020;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x07000001;//GPS Mode 0:Idle 1:Rx
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+#if 0
+	value = 0x004af417;
+	gps_spi_write_bytes(1, 0x80*4, value);
+#endif
+	value = 0x07385400;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x076c0721;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	/*for 26M/16M TCXO AGC 1bit*/
+	value = 0x07635140;//0x07635141;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x0704ef00;//max gain
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+#if 1 //def CGCORE_GPS_26M  /*for 26M  TCXO*/
+	value = 0x073c08d2;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x07023d61;
+	gps_spi_write_bytes(1, 0x80*4, value);
+#else  /*for 16M TCXO*/
+	value = 0x073c0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x07026180;
+	gps_spi_write_bytes(1, 0x80*4, value);
+#endif
+
+	//for dma block size
+	gps_spi_sysreg_read_bytes(1,0x01,&value);;
+	value = 0;
+	value = ((1<<28)|(1<<26)|(1<<25));
+	gps_spi_sysreg_write_bytes(1,0x01,value );
+	gps_spi_sysreg_read_bytes(1,0x01,&value);
+
+#if 1
+	/*When for RX  Analog test such as GAIN and IF frequency ,
+	we will add following  configuration*/
+	value = 0x077b0112;//0x077b0101;
+	gps_spi_write_bytes(1, 0x80*4, value);
+#endif
+
+#if 0 //for RF Test
+	value = 0x075d88e6;
+	gps_spi_write_bytes(1, 0x80*4, value);
+
+	value = 0x070a7835;
+	gps_spi_write_bytes(1, 0x80*4, value);
+#endif
+	
+	//read reg
+	value = 0x806f0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x006f0609:0x%x\n",value);
+
+	value = 0x807b0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x007b8020:0x%x\n",value);
+
+	value = 0x87000000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x07000001:0x%x\n",value);
+
+	value = 0x87380000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x07385400:0x%x\n",value);
+
+	value = 0x876c0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x076c0721:0x%x\n",value);
+
+
+	value = 0x87630000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x07635140:0x%x\n",value);
+
+	value = 0x87040000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x0704ef00:0x%x\n",value);
+
+#if 1   /*for 26M  TCXO*/
+	value = 0x873c0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x073c08d2:0x%x\n",value);
+
+	value = 0x87020000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x07023d61:0x%x\n",value);
+#else
+	value = 0x873c0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x073c0000:0x%x\n",value);
+
+	value = 0x87020000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x07026180:0x%x\n",value);
+#endif
+
+	value = 0x877b0000;
+	gps_spi_write_bytes(1, 0x80*4, value);
+	gps_spi_read_bytes(1, 0x81*4, &value);
+	printk("rf 0x077b0112:0x%x\n",value);
+}
+
+void gps_gpio_request(void)
+{
+	int ret;
+	ret = gpio_request (CG_DRIVER_GPIO_GPS_PDN, "gps_pdn");
+	if (ret){
+		printk ("gps_pdn request err: %d\n", CG_DRIVER_GPIO_GPS_PDN);
+	}
+
+	ret = gpio_request (CG_DRIVER_GPIO_GPS_MRSTN, "gps_reset");
+	if (ret){
+		printk ("gps_reset request err: %d\n", CG_DRIVER_GPIO_GPS_MRSTN);
+	}
+
+	ret = gpio_request (CG_DRIVER_GPIO_GPS_SPI_CS, "gps_spi_cs");
+	if (ret){
+		printk ("gps_spi_cs request err: %d\n", CG_DRIVER_GPIO_GPS_SPI_CS);
+	}
+
+	ret = gpio_request (CG_DRIVER_GPIO_GPS_INT, "gps-req-int");
+	if (ret)
+	{
+		printk ("gps-req- int err: %d\n", CG_DRIVER_GPIO_GPS_INT);
+	}
+}
+
+static struct regulator *greeneye_vdd = NULL;
+static void greeneye_vddsim2_enable(bool on)
+{
+	int ret;
+	if (greeneye_vdd == NULL) {
+		greeneye_vdd = regulator_get(NULL, "vddsim2");
+
+		if (IS_ERR(greeneye_vdd)) {
+			pr_err("Get regulator of vddsim2  error!\n");
+			return;
+		}
+	}
+	if (on) {
+		regulator_set_voltage(greeneye_vdd, 2800000, 2800000);
+		ret = regulator_enable(greeneye_vdd);
+	}
+	else if (regulator_is_enabled(greeneye_vdd)) {
+		ret = regulator_disable(greeneye_vdd);
+	}
+}
+
+
+static void gps_clk_init(bool enable)
+{
+	static struct clk *gps_clk_32k=NULL;
+
+	if (gps_clk_32k == NULL) {
+		gps_clk_32k = clk_get(NULL, "ext_32k");
+		if (IS_ERR(gps_clk_32k)) {
+			printk("failed to get parent ext_32k\n");
+			return;
+		}
+	}
+	if (enable) {
+		#ifndef CONFIG_OF
+		clk_enable(gps_clk_32k);
+		#else
+		clk_prepare_enable(gps_clk_32k);
+		#endif
+	}else{
+		#ifndef CONFIG_OF
+		clk_disable(gps_clk_32k);
+		#else
+		clk_disable_unprepare(gps_clk_32k);
+		#endif
+	}
+}
+
+TCgReturnCode CgxDriverRFPowerDown(void)
+{
+	//DBG_FUNC_NAME("CgxDriverRFPowerDown")
+	TCgReturnCode rc = ECgOk;
+	u32 value;
+
+	printk("%s\n",__func__);
+
+	/*RF4in1 */
+	value = 0x07000000;//GPS Mode 0:Idle 1:Rx
+	gps_spi_write_bytes(1, 0x80*4, value);
+	return rc;
+}
+
+TCgReturnCode CgxDriverRFPowerUp(void)
+{
+	//DBG_FUNC_NAME("CgxDriverRFPowerDown")
+	TCgReturnCode rc = ECgOk;
+
+	printk("%s\n",__func__);
+	CgxDriverRFInit();
+	return rc;
+}
+
+void gps_chip_power_on(void)
+{
+	printk("%s\n",__func__);
+
+	greeneye_vddsim2_enable(1);
+	gps_clk_init(1);
+
+	//pdn pin pull high
+	CgCpuGpioModeSet(CG_DRIVER_GPIO_GPS_PDN, ECG_CPU_GPIO_OUTPUT);
+	CgCpuGpioSet(CG_DRIVER_GPIO_GPS_PDN);
+	CgCpuDelay(1000);
+
+	//reset
+	CgCpuGpioModeSet(CG_DRIVER_GPIO_GPS_MRSTN, ECG_CPU_GPIO_OUTPUT);
+	CgCpuIPMasterResetClear();
+	msleep(1);
+	CgCpuIPMasterResetOn();
+	msleep(5);
+	CgCpuIPMasterResetClear();
+	msleep(1);
+
+	//gps core reset
+	gps_spi_write_bytes(1, 0Xfc, 0x0);
+	gps_spi_write_bytes(1, 0Xfc, 0x0f);
+	msleep(1);
+	CgxDriverRFPowerUp();
+}
+
+void gps_chip_power_off(void)
+{
+	printk("%s\n",__func__);
+
+	//pdn pin pull low
+	CgCpuGpioModeSet(CG_DRIVER_GPIO_GPS_PDN, ECG_CPU_GPIO_OUTPUT);
+	CgCpuGpioReset(CG_DRIVER_GPIO_GPS_PDN);
+	CgCpuDelay(1000);
+	msleep(1);
+
+	//reset pin pull low
+	CgCpuIPMasterResetOn();
+
+	//spi2  pin pull low
+	gpio_direction_output(CG_DRIVER_GPIO_GPS_SPI_CS, 0);
+	greeneye_vddsim2_enable(0);
+	gps_clk_init(0);
+}
+
+#else
 static TCgReturnCode CgxDriverRFInit(void)
 {
 	u32 value;
@@ -359,8 +655,6 @@ void gps_chip_power_on(void)
 
 void gps_chip_power_off(void)
 {
-	int value;
-
 	printk("%s\n",__func__);
 
 	CgxDriverRFPowerDown();
@@ -369,7 +663,7 @@ void gps_chip_power_off(void)
 	CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, 0xfc,0x0);
 	CGCoreSclkEnable(0);
 }
-
+#endif
 
 TCgReturnCode CgxDriverTcxoEnable(U32 aEnable)
 {
@@ -428,7 +722,11 @@ TCgReturnCode CgCpuIPMasterResetClear(void)
 
 	DBGMSG("start");
 	// Set master reset pin to '1' (reset off - device active)
+	#ifdef CGCORE_ACCESS_VIA_SPI
+	CgCpuGpioSet(CG_DRIVER_GPIO_GPS_MRSTN);
+	#else
    // CgCpuGpioSet(CG_DRIVER_GPIO_GPS_MRSTN);
+	#endif
 
 	return rc;
 }
@@ -444,7 +742,11 @@ TCgReturnCode CgCpuIPMasterResetOn(void)
 	DBGMSG("start");
 	// Set master reset pin to '0' (reset on - device inactive)
 
-    CgCpuGpioReset(CG_DRIVER_GPIO_GPS_MRSTN);
+	#ifdef CGCORE_ACCESS_VIA_SPI
+	CgCpuGpioReset(CG_DRIVER_GPIO_GPS_MRSTN);
+	#else
+    //CgCpuGpioReset(CG_DRIVER_GPIO_GPS_MRSTN);
+	#endif
 
 	return rc;
 }

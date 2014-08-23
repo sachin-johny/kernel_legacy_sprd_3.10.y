@@ -45,6 +45,11 @@
 #define CGCORE_INT_EOT					(0x00000020)	// End of BS tracking period Interrupt
 #define CGCORE_INT_EOM					(0x00000040)	// End of drift meas measurement period Interrupt
 
+#ifdef CGCORE_ACCESS_VIA_SPI
+#define CGCORE_INT_DMA_REQ				(0x00002000)
+#define CGCORE_INT_DMA_OVERRUN				(0x00004000)
+#endif
+
 #define CGCORE_REG_INT_RAW				(0x80)
 #define CGCORE_REG_INT_SRC				(0x84)
 #define CGCORE_REG_INT_EN				(0x88)

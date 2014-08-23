@@ -90,6 +90,10 @@ const U32 CGCORE_REG_OFFSET_CORE_RESETS = 0x000000FC;
 	#define RF_POWER_UP_VAL	(0)	// ACLYS requires '0' for PU
 #endif
 
+#ifdef CGCORE_ACCESS_VIA_SPI
+extern void init_spi_block_var(void);
+static unsigned int block_num;
+#endif
 bool flag_power_up = 0;
 TCgReturnCode CgxDriverTcxoControl(u32 aEnable);
 
@@ -115,7 +119,7 @@ const U32 CGCORE_CORE_RESETS_ENABLE		= ((1<<CGCORE_ENABLE_CORE) | (1<<CGCORE_ENA
 
 TCgReturnCode CGCoreReset(U32 aUnitToReset);
 
-
+#ifndef CGCORE_ACCESS_VIA_SPI
 //bxd add for slck enable
 TCgReturnCode CGCoreSclkEnable(int enable)
 {
@@ -131,7 +135,7 @@ TCgReturnCode CGCoreSclkEnable(int enable)
 	}
  	return rc;
 }
-
+#endif
 
 
 TCgReturnCode CgxDriverDestroy(void *pDriver)
@@ -199,13 +203,15 @@ TCgReturnCode CgxDriverConstruct(void *pDriver, TCgxDriverState *pState)
 
     if (OK(rc)) rc = CgCpuGpioModeSet(CG_DRIVER_GPIO_TCXO_EN, ECG_CPU_GPIO_OUTPUT);
 	if (OK(rc)) rc = CgxDriverTcxoControl(TRUE);
-	gps_chip_power_off();
 #endif
 
 	gps_gpio_request();
 
 	pState->constructionRc = rc;	// For later reference (if needed by application)
 	pState->flags.resume = FALSE;
+	#ifdef CGCORE_ACCESS_VIA_SPI
+	gps_chip_power_off();
+	#endif
 
 	return rc;
 }
@@ -232,12 +238,22 @@ TCgReturnCode CgxDriverPowerDown(void)
 	return rc;
 }
 
+#ifdef CGCORE_ACCESS_VIA_SPI
+unsigned int get_block_num(void )
+{
+    return block_num;
+}
+#endif
+
 #if 0
 //gaole add
 void CgCoreReleaseRes(void)
 {
 	printk("\n gaole:  run to CgCoreReleaseRes \n");
 	memset(gChunksList,0,sizeof(TCgCpuDmaTask)*MAX_DMA_TRANSFER_TASKS);
+#ifdef CGCORE_ACCESS_VIA_SPI
+	block_num = 0;
+#endif
 }
 
 void CgGpsReset(void)
@@ -302,6 +318,9 @@ TCgReturnCode CgxDriverPrepareRecieve(
 	pState->transfer.bytes.received = 0;
 
 	pState->transfer.blocks.required = (length + pState->transfer.blockSize - 1) / pState->transfer.blockSize;
+#ifdef CGCORE_ACCESS_VIA_SPI
+	block_num = pState->transfer.blocks.required;
+#endif
 	DBGMSG1("%d blocks required", pState->transfer.blocks.required);
 	pState->transfer.lastBlockSize = length - (pState->transfer.blocks.required - 1) * pState->transfer.blockSize;
 	DBGMSG1("last block size: %d bytes", pState->transfer.lastBlockSize);
@@ -563,13 +582,18 @@ TCgReturnCode CgxDriverExecuteSpecific(
 			switch( pControl->reset.resetLevel )
 			{
 			case 0:	// Full reset
+				#if 0
 				if (OK(pResults->rc)) pResults->rc = CgCpuIPMasterResetOn();
 				if (OK(pResults->rc)) pResults->rc = CgCpuDelay(CGCORE_RESET_DELAY);
 				if (OK(pResults->rc)) pResults->rc = CgCpuIPMasterResetClear();
+				#endif
 				if (OK(pResults->rc)) pResults->rc = CGCORE_WRITE_REG( CGCORE_REG_OFFSET_CORE_RESETS, CGCORE_CORE_RESETS_ENABLE);
 				break;
 			case 1:	// Semi reset
 				if (OK(pResults->rc)) pResults->rc = CGCoreReset(CGCORE_ENABLE_CORE);
+				#ifdef CGCORE_ACCESS_VIA_SPI
+				init_spi_block_var();
+				#endif
 				break;
 			case 2:	// CPU reset
 				break;
@@ -718,6 +742,7 @@ TCgReturnCode CgxDriverPowerOn(void)
 	gps_chip_power_on();
 
 	// Enable clock to the GPS device
+	msleep(1);
 	rc = CGCoreEnable(CGCORE_ENABLE_TCXO);
 
 	return rc;
@@ -741,7 +766,7 @@ TCgReturnCode CgxDriverTcxoControl(u32 aEnable)
 	if(aEnable)
 		CGCoreEnable(CGCORE_ENABLE_TCXO);
 	else
-		CGCoreDisable(CGCORE_ENABLE_TCXO);;
+		CGCoreDisable(CGCORE_ENABLE_TCXO);
 
 	return rc;
 }

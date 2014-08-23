@@ -83,6 +83,7 @@ struct device      * gps_dev;
 //#define FIX_MEMORY
 #ifdef CGCORE_ACCESS_VIA_SPI
 extern int  gpsspidev_init(void);
+extern void gpsspidev_exit(void);
 #endif
 
 
@@ -186,8 +187,14 @@ static irqreturn_t DataReady_TH(int irq, void *dev_id)
 
 
 #ifdef CGCORE_ACCESS_VIA_SPI
+u32 GetRequestLen(void)
+{
+   TCgxDriverState *pState = &DrvContext.state;
+  
+   return pState->transfer.bytes.required;
+}
 
-void* Data_Get_DrvContext()
+void* Data_Get_DrvContext(void)
 {
 
         return DrvContext.xfer_buff_ptr;
@@ -292,8 +299,11 @@ TCgReturnCode CgxDriverGpsInterruptHandlerStart(void *pDriver)
 			DBGMSG("create_singlethread_workqueue(" GIRQ_WQ_NAME ") Failed");
 			return ECgInitFailure;
 			}
-
+		#ifdef CGCORE_ACCESS_VIA_SPI
+		rv = request_irq( pDriverInfo->GpsIntr_irq, GpsIntr_TH, IRQF_TRIGGER_RISING, "girq-bh", NULL );
+		#else
 		rv = request_irq( pDriverInfo->GpsIntr_irq, GpsIntr_TH, IRQF_DISABLED, "girq-bh", NULL );
+		#endif
 		if (rv != 0) {
 			DBGMSG1("request_irq(%d) Failed", pDriverInfo->GpsIntr_irq );
 			return ECgInitFailure;
@@ -398,10 +408,12 @@ unsigned char buf_data[6*1024*1024];
  void* buf_data;
 #endif
 
+#ifndef CGCORE_ACCESS_VIA_SPI
 void clear_buf_data(void)
 {
 	memset(DrvContext.xfer_buff_ptr,0,DrvContext.xfer_buff_len);
 }
+#endif
 
 TCgReturnCode CgxDriverAllocInternalBuff(void *pDriver, unsigned long aLength, void **apBuffer, U32 aProcessID)
 {
@@ -452,7 +464,7 @@ TCgReturnCode CgxDriverAllocInternalBuff(void *pDriver, unsigned long aLength, v
 }
 
 #ifdef CGCORE_ACCESS_VIA_SPI
-int get_blocksize()
+int get_blocksize(void)
 {
     return DrvContext.state.transfer.blockSize;
 }
@@ -774,28 +786,16 @@ static int CGX_Mmap(struct file *filp, struct vm_area_struct *vma)
 		return -EINVAL;
 	}
 
-#if  1
-
+#ifdef CGCORE_ACCESS_VIA_SPI
+	rv = remap_pfn_range(vma, vma->vm_start,
+						 physical >> PAGE_SHIFT, len,
+						 (vma->vm_page_prot));
+#else
 
 	rv = remap_pfn_range(vma, vma->vm_start,
 						 physical >> PAGE_SHIFT, len,
 						 pgprot_noncached(vma->vm_page_prot));
 
-#else
-
-
-        //vma->vm_flags |= VM_RESERVED;  //set the attribute maybe need it ,no need ,the function add it default
-
-       #if 1
-	rv = remap_pfn_range(vma, vma->vm_start,
-						 physical >> PAGE_SHIFT, len,
-						 (vma->vm_page_prot));
-        #else
-
-        simple_nopage_mmap(vma, vma->vm_start,
-						 physical >> PAGE_SHIFT, len,
-						 (vma->vm_page_prot));
-        #endif
 #endif
 
 
@@ -886,6 +886,7 @@ struct file_operations cgx_fops = {
 };
 
 #ifdef CONFIG_OF
+#ifndef CGCORE_ACCESS_VIA_SPI
 struct gps_2351_addr gps_2351;
 u32 gps_get_core_base(void)
 {
@@ -967,7 +968,7 @@ static int cgxdrv_gps_source_init(void)
 	}
 	return ret;
 }
-
+#endif
 #endif
 static int __init  CGX_Init(void)
 {
@@ -980,7 +981,9 @@ static int __init  CGX_Init(void)
 	DBGMSG("Initializing");
 
 	#ifdef CONFIG_OF
+	#ifndef CGCORE_ACCESS_VIA_SPI
 	cgxdrv_gps_source_init();
+	#endif
 	#endif
 
 	//bxd add for first alloc mem failed from engine
@@ -988,11 +991,11 @@ static int __init  CGX_Init(void)
 	if(init_buff_ptr == NULL)
 		printk("init_buff_ptr alloc failed\n");
 
+#ifndef CGCORE_ACCESS_VIA_SPI
 	sprd_get_rf2351_ops(&gps_rf_ops);
+#endif
 
 #ifdef CGCORE_ACCESS_VIA_SPI
-
-        printk(" addr = %x\n",buf_data);
         gpsspidev_init();
 #endif
 
@@ -1051,15 +1054,6 @@ static int __init  CGX_Init(void)
         class_destroy(gps_class);
     }
 
-	/*
-	 * OK. rv == 0
-	 */
-/*module insmod */
-//	gpsspidev_init();
-
-
-
-	DBGMSG2(" Remapped GIB Physmem 0x%08x to VA: 0x%08lx", CG_DRIVER_CGCORE_BASE_PA, CG_DRIVER_CGCORE_BASE_VA );
 	DBGMSG1(" Driver Ready... Major DevId: %d", cgxdrv_major );
     DBGMSG1(" Driver Byte order %d", CGX_DRIVER_NATIVE_BYTE_ORDER);
 
@@ -1126,7 +1120,9 @@ static void	 __exit  CGX_Deinit(void)
 
     //free_irq(TEMPLATE_CPU_DMA_IRQ, NULL);
 
+#ifndef CGCORE_ACCESS_VIA_SPI
 	sprd_put_rf2351_ops(&gps_rf_ops);
+#endif
 	CgxDriverFreeInternalBuff(&DrvContext, 0);
 
 	cdev_del(&DrvContext.cdev);
@@ -1135,12 +1131,14 @@ static void	 __exit  CGX_Deinit(void)
     class_destroy(gps_class);
 
 	unregister_chrdev_region(MKDEV(cgxdrv_major, 0), 1);
-
+#ifdef CGCORE_ACCESS_VIA_SPI
+	gpsspidev_exit();
+#endif
     printk(KERN_ERR "CGX_Deinit out");
 }
 
 
-module_init(CGX_Init);
+late_initcall(CGX_Init);
 module_exit(CGX_Deinit);
 
 

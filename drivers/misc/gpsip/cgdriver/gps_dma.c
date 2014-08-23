@@ -22,7 +22,7 @@
 #include "CgCpu.h"
 #include "platform.h"
 
-
+#ifndef CGCORE_ACCESS_VIA_SPI
 #define INVALIDE_DMA_CHN (-1)
 
 static struct sci_dma_cfg *cfg_list;
@@ -246,6 +246,48 @@ TCgReturnCode CgCpuDmaSetupFromGps(TCgCpuDmaTask *apDmaTask, U32 aDmaTaskCount, 
 
 	return ECgOk;
 }
+#else
+TCgReturnCode CgCpuDmaCreate(U32 aDmaChannel, U32 aIpDataSourceAddress)
+{
+	return ECgOk;
+}
+
+TCgReturnCode CgCpuDmaDestroy(U32 aDmaChannel, U32 aIpDataSourceAddress)
+{
+	return ECgOk ;
+}
+
+TCgReturnCode CgCpuDmaIsReady(U32 aDmaChannel)
+{
+	return ECgOk;
+}
+
+TCgReturnCode CgCpuDmaStop(U32 aDmaChannel)
+{
+	return ECgOk;
+}
+
+TCgReturnCode CgCpuDmaCurCount(U32 aDmaChannel, U32 *apCount)
+{
+	return ECgOk;
+}
+
+TCgReturnCode CgCpuDmaRequestedCount(U32 aDmaChannel, U32 *apCount)
+{
+	return ECgOk;
+}
+
+TCgReturnCode CgCpuDmaStart(U32 aDmaChannel)
+{
+	return ECgOk;
+}
+
+TCgReturnCode CgCpuDmaSetupFromGps(TCgCpuDmaTask *apDmaTask, U32 aDmaTaskCount, U32 aDmaChannel, U32 aDeviceAddress)
+{
+	return ECgOk;
+}
+
+#endif
 
 #ifdef TRACE_ON
 void DbgStatDMA(const char *aTitle)

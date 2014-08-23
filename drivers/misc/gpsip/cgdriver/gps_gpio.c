@@ -29,7 +29,9 @@ extern "C" {
 #endif
 
 
-#include <linux/gpio.h>
+//#include <linux/gpio.h>
+#include <mach/gpio.h>
+
 #include <asm/mach-types.h>
 #include <asm/io.h>
 #include <mach/board.h>
@@ -77,7 +79,7 @@ TCgReturnCode CgCpuGpioSet(U32 aPin)
 
         U32 gpio_num;
         gpio_num = aPin;
-       // __gpio_set_value(gpio_num,1);
+        __gpio_set_value(gpio_num,1);
 
         return ECgOk;
 }
@@ -88,7 +90,7 @@ TCgReturnCode CgCpuGpioReset(U32 aPin)
         U32 gpio_num;
 
         gpio_num = aPin;
-       // __gpio_set_value(gpio_num,0);
+        __gpio_set_value(gpio_num,0);
         return ECgOk ;
 }
 
@@ -99,7 +101,7 @@ TCgReturnCode CgCpuGpioGet(U32 aPin, int *aValue)
 	//DBG_FUNC_NAME("CgCpuGpioGet");
 
 
-      //  *aValue = __gpio_get_value(aPin);
+        *aValue = __gpio_get_value(aPin);
 		*aValue = 0;
 	return rc;
 }
@@ -110,7 +112,11 @@ TCgReturnCode CgCpuGpioModeSet(U32 aPin, TCgCpuGpioMode aMode)
     	//U32 extint = 0;
         TCgReturnCode rc = ECgOk;
        // unsigned long gpio_dir = 0;
-
+//bxd add
+	   if(aMode == ECG_CPU_GPIO_INPUT)
+	   		gpio_direction_input (aPin);
+	   else if(aMode == ECG_CPU_GPIO_OUTPUT)
+	   		gpio_direction_output(aPin,1);
 
     //DBG_FUNC_NAME("CgCpuGpioModeSet")
 

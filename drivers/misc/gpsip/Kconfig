@@ -1,6 +1,6 @@
 config CGX
 	bool "Sprd gps"
-	depends on SPRD_2351
+	default n
 	help
 	  GPS can locate you position
 
@@ -12,6 +12,12 @@ config CGX_DRIVER
 
 config CGX_VIRTUALCOM
 	tristate "Sprd gps virtual com"
+	depends on CGX
+	help
+	  GPS can locate you position
+
+config CGX_GE_GPS
+	tristate "Sprd greeneye gps use spi interface"
 	depends on CGX
 	help
 	  GPS can locate you position

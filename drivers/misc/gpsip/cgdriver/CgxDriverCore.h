@@ -230,16 +230,20 @@ void CgGpsReset(void);
 
 //#define CGCORE_ACCESS_VIA_SPI
 extern bool flag_power_up;
+extern void gps_gpio_request(void);
 
 #ifdef CGCORE_ACCESS_VIA_SPI
+extern int gps_spi_sysreg_write_bytes (u32 len, u32 addr, u32 data);
+extern int gps_spi_sysreg_read_bytes (u32 len, u32 addr, u32 * data);
+
 extern  int gps_spi_write_bytes( unsigned int  len, unsigned int  addr,unsigned int data);
     #define CGCORE_WRITE_REG(addr,val)        \
-            gps_spi_write_bytes(1,addr,val)
+            gps_spi_write_bytes(1,(U32)addr,val)
 
 
 extern int gps_spi_read_bytes( unsigned int len,unsigned int addr,unsigned int *data);
     #define CGCORE_READ_REG(addr,val)        \
-        gps_spi_read_bytes(1,addr,val)
+        gps_spi_read_bytes(1,(U32)addr,(unsigned int *)val)
 
 #else
      #define CGCORE_WRITE_REG(addr,val)          CgxCpuWriteMemory((U32)CG_DRIVER_CGCORE_BASE_VA, (U32)addr, val);

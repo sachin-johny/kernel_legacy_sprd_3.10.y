@@ -23,9 +23,10 @@ cgxdrv-c-objs   += gps_gpio.o
 cgxdrv-c-objs   += gps_dma.o
 
 #bxd
-#cgxdrv-objs     += gpsspi.o
-
-
+ifeq ($(CONFIG_CGX_GE_GPS),y)
+cgxdrv-objs     += gpsspi.o
+EXTRA_CFLAGS += -DCGCORE_ACCESS_VIA_SPI
+endif
 cgxdrv-objs     += $(cgxdrv-c-objs)
 
 

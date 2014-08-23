@@ -41,9 +41,11 @@
 #include <linux/dma-mapping.h>
 
 #include <mach/hardware.h>
-#include <linux/sprd_2351.h>
 #include <mach/sci.h>
-#include <mach/sci_glb_regs.h>
+#ifndef CGCORE_ACCESS_VIA_SPI
+#include <linux/sprd_2351.h>
+#endif
+#include "CgxDriverCore.h"
 
 
 #define CGX_PLATFORM_NAME "SPRD_FPGA_FPGA"
@@ -60,11 +62,6 @@
 #define MAX_DMA_CHUNK_SIZE				(0x80000)	// 512K
 #define MAX_DMA_TRANSFER_TASKS			(64)		/**< Maximum number of DMA tasks */
 
-
-#define CG_DRIVER_GPIO_TCXO_EN	    (22)
-#define CG_DRIVER_GPIO_GPS_MRSTN    (22)
-
-
 /**
 	CGsnap IP physical address
 	\attention Need to be ported
@@ -73,23 +70,18 @@
         TODO: modify by sprd
 	
 */
-#define CG_DRIVER_CGCORE_BASE_PA    0x21C00000 /* cg ip base */
-
+#define CG_DRIVER_CGCORE_BASE_PA    (0x21C00000) /* cg ip base */
 #define CG_DRIVER_GPIO_BASE_PA		(0x8A000000)
-
 #define CG_DRIVER_INTR_BASE_PA		(0xFC000000)
-
-
 #define CG_DRIVER_CLK_BASE_PA		(0xFC802000)
 
 
-/** 
-	\name Memory Mapping (Virtual Memory Addresses)
-	in Linux, the driver run in kernel space, and can access all physical addresses directly,
-	so, VA=PA 
-	\{
- */
-
+#ifdef CGCORE_ACCESS_VIA_SPI
+#define CG_DRIVER_GPIO_GPS_MRSTN    (90)
+#define CG_DRIVER_GPIO_GPS_PDN		(76)
+#define CG_DRIVER_GPIO_GPS_INT		(96)
+#define CG_DRIVER_GPIO_GPS_SPI_CS	(52)
+#else
 #ifdef CONFIG_OF
 struct gps_2351_addr
 {
@@ -141,6 +133,7 @@ extern u32 gps_get_pmu_base(void);
 #define SPRD_GPS_LNA_EN    (35)
 #elif defined(CONFIG_SHARK_CHIP_2351)
 #define SPRD_GPS_LNA_EN    (50)
+#endif
 #endif
 #endif
 
@@ -238,8 +231,9 @@ extern u32 gps_get_pmu_base(void);
 
 #define CGX5000_DR							(0 + 18)
 
+#ifndef CGCORE_ACCESS_VIA_SPI
 extern struct sprd_2351_interface *gps_rf_ops;
-
+#endif
 
 
 //#define CGX5000_INT		(CG_CPU_GPIO_GROUP_D + 9)

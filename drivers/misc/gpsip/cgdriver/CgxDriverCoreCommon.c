@@ -33,13 +33,14 @@ If you think something is wrong here, please contact CellGuide
 #include "CgxDriverCoreCommon.h"
 #include "CgxDriverOs.h"
 
+#ifdef CGCORE_ACCESS_VIA_SPI
+extern void Reset_GPS_RecvAddress(void); //add reset spi rcv address by use space 
+extern int data_req_handle (int para, void *param);
+#endif
 extern TCgCpuDmaTask gChunksList[MAX_DMA_TRANSFER_TASKS]; /**< DMA tasks list */
 
 /** CGcore base address */
 const U32 CGCORE_BASE_ADDR = CG_DRIVER_CGCORE_BASE_PA; /* Physical */
-#ifndef CG_DRIVER_CGCORE_BASE_VA
-	extern U32 CG_DRIVER_CGCORE_BASE_VA;
-#endif
 
 // Check validity of DMA channel and controller number, for read and write channels
 ///////////////////////////////////////////////////////////////////////////////////
@@ -319,7 +320,14 @@ TCgReturnCode CgxDriverDataReadyInterruptHandler(void *pDriver, TCgxDriverState 
 	pState->transfer.bytes.received += gChunksList[pState->transfer.chunks.active-1].length;
 
 	DBGMSG2("%d/%d", pState->transfer.chunks.active, pState->transfer.chunks.required);
-
+	#ifdef CGCORE_ACCESS_VIA_SPI
+	//add by wlh for reset the rev address 
+    if(gChunksList[pState->transfer.chunks.received].address == gChunksList[0].address )
+     {
+          Reset_GPS_RecvAddress();
+     }
+    //end by wlh for reset the rev address 
+	#endif
 	if (pState->flags.wait) // release a waiting thread, if any
 		rc = CgxDriverTransferEndSignal(pDriver);
 
@@ -369,6 +377,13 @@ TCgReturnCode CgxDriverGpsInterruptHandler(void *pDriver, TCgxDriverState *pStat
 		intcode & CGCORE_INT_EOT		? "EOT " : "",
 		intcode & CGCORE_INT_EOM		? "EOM " : ""
 		);
+
+	#ifdef CGCORE_ACCESS_VIA_SPI
+	if (intcode & CGCORE_INT_DMA_REQ)
+	{
+		data_req_handle(0,NULL);
+	}
+	#endif
 
 	if (intcode & CGCORE_INT_SNAP_START) { // Indicates snap was started
 		pState->counters.interrupt.snapStart++;
