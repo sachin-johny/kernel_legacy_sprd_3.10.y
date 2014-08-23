@@ -68,6 +68,26 @@ static const struct intc _intc[] = {
 		{SPRD_INTC2_BASE, 66, 95, 64},
 		{SPRD_INTC3_BASE, 98, 124, 96},
 };
+#if defined(CONFIG_ARCH_SCX35L)
+static struct intc_mux_irq _mux[] = {
+		{30,SPRD_INT_BASE,2,0},{31,SPRD_INT_BASE,2,0},{28,SPRD_INT_BASE,2,0},
+		{121,SPRD_INT_BASE,2,0},{120,SPRD_INT_BASE,2,0},{119,SPRD_INT_BASE,2,0},
+		{118,SPRD_INT_BASE,2,0},{29,SPRD_INT_BASE,2,0},
+		{21,SPRD_INT_BASE,3,0},{22,SPRD_INT_BASE,3,0},{23,SPRD_INT_BASE,3,0},{24,SPRD_INT_BASE,3,0},
+		{35,SPRD_INT_BASE,4,0},{36,SPRD_INT_BASE,4,0},{38,SPRD_INT_BASE,4,0},{25,SPRD_INT_BASE,4,0},
+		{20,SPRD_INT_BASE,4,0},{34,SPRD_INT_BASE,4,0},/* missing lvds_trx, mdar */
+		{41,SPRD_INT_BASE,5,0},{40,SPRD_INT_BASE,5,0},{42,SPRD_INT_BASE,5,0},{44,SPRD_INT_BASE,5,0},
+		{45,SPRD_INT_BASE,5,0},{43,SPRD_INT_BASE,5,0},
+		{39,SPRD_INT_BASE,6,0},
+		{84,SPRD_INT_BASE,7,0},{83,SPRD_INT_BASE,7,0},
+		{123,SPRD_INT_BASE,8,0},{124,SPRD_INT_BASE,8,0},
+		{122,SPRD_INT_BASE,9,0},{26,SPRD_INT_BASE,9,0},
+		{86,SPRD_INT_BASE,10,0},
+		/* bit11: missing mbox_tar_arm7 */
+		{69,SPRD_INT_BASE,12,0},
+		{37,SPRD_INT_BASE,31,0},
+};
+#else
 static struct intc_mux_irq _mux[] = {
 		{30,SPRD_INT_BASE,2,0},{31,SPRD_INT_BASE,2,0},{28,SPRD_INT_BASE,2,0},
 		{121,SPRD_INT_BASE,2,0},{120,SPRD_INT_BASE,2,0},{119,SPRD_INT_BASE,2,0},
@@ -87,6 +107,7 @@ static struct intc_mux_irq _mux[] = {
 		{86,SPRD_INT_BASE,13,0},
 		{37,SPRD_INT_BASE,14,0},
 };
+#endif
 
 #define LEGACY_FIQ_BIT	(32)
 #define LEGACY_IRQ_BIT	(29)
