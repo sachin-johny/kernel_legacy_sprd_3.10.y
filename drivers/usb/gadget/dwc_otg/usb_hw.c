@@ -160,8 +160,11 @@ void usb_phy_init(struct platform_device *_dev)
 	}
 	pr_info("Usb_hw.c: [%s]usb phy tune from uboot: 0x%x\n", __FUNCTION__, tune_from_uboot);
 #endif
-
+#if defined(CONFIG_ARCH_SCX35L) 
+	__raw_writel(tune_from_uboot,REG_AP_AHB_OTG_PHY_TUNE);
+#else
 	__raw_writel(tune_from_uboot,REG_AP_APB_USB_PHY_TUNE);
+#endif
 
 	//sci_glb_set(REG_AP_APB_USB_PHY_TUNE,BIT(9)|BIT(10)|BIT(11)|BIT(20));
 #else
