@@ -39,7 +39,8 @@ static void bt_clk_init(void)
 		printk("clock: failed to get clk_aux0\n");
 	}
 	clk_set_rate(bt_clk, 32000);
-	clk_enable(bt_clk);
+	//clk_enable(bt_clk);
+        clk_prepare_enable(bt_clk);
 }
 
 
