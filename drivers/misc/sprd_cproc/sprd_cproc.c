@@ -475,7 +475,7 @@ static int sprd_cproc_native_cp_start(void* arg)
 	struct cproc_device *cproc = (struct cproc_device *)arg;
 	struct cproc_init_data *pdata = cproc->initdata;
 	struct cproc_ctrl *ctrl;
-	uint32_t  state;
+	uint32_t value, state;
 
         if (!pdata) {
             return -ENODEV;
@@ -484,23 +484,33 @@ static int sprd_cproc_native_cp_start(void* arg)
 	memcpy(ctrl->iram_addr, (void *)ctrl->iram_data, sizeof(ctrl->iram_data));
 
 	/* clear cp1 force shutdown */
-	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN] ,ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
-	msleep(50);
+        if((ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN] & 0xff)!= 0xff){
+              sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN], ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
+        }
+#if !defined(CONFIG_ARCH_SCX30G) && !defined(CONFIG_ARCH_SCX35)
+        while(1)
+	{
+		state = __raw_readl((void *)ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS]);
+		if (!(state & ctrl->ctrl_mask[CPROC_CTRL_GET_STATUS]))  //(0xf <<16)
+			break;
+	}
+#endif
+        if((ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP] & 0xff)!= 0xff){
+            /* clear cp1 force deep sleep */
+             sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP], ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
+        }
 
-	/* clear cp1 force deep sleep */
-	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP],ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
-	msleep(50);
-
-	/* clear reset cp1 */
-	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
-	sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
-
-	while(1)
-		{
-			state = sci_glb_read(ctrl->ctrl_reg[CPROC_CTRL_RESET],-1UL);
-			if (!(state & ctrl->ctrl_mask[CPROC_CTRL_RESET]))
-				break;
-		}
+        if((ctrl->ctrl_reg[CPROC_CTRL_RESET] & 0xff)!= 0xff){
+             /* clear reset cp1 */
+            sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+            msleep(50);
+            sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+            while(1) {
+                state = sci_glb_read(ctrl->ctrl_reg[CPROC_CTRL_RESET],-1UL);
+                if (!(state & ctrl->ctrl_mask[CPROC_CTRL_RESET]))
+                    break;
+            }
+        }
 
 	return 0;
 }
@@ -510,23 +520,28 @@ static int sprd_cproc_native_cp_stop(void *arg)
 	struct cproc_device *cproc = (struct cproc_device *)arg;
 	struct cproc_init_data *pdata = cproc->initdata;
 	struct cproc_ctrl *ctrl;
+	uint32_t value;
 
         if (!pdata) {
             return -ENODEV;
 	}
 	ctrl = pdata->ctrl;
 
-	pr_info("sprd_cproc: stop:read reset\n");
+        if((ctrl->ctrl_reg[CPROC_CTRL_RESET] & 0xff)!= 0xff){
+            /* reset cp1 */
+            sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+            pr_info("sprd_cproc: stop:read reset=%x\n",value);
+        }
 
-	/* reset cp1 */
-	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
+        if((ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP] & 0xff)!= 0xff){
+            /* cp1 force deep sleep */
+            sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP],ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
+        }
 
-	/* cp1 force deep sleep */
-	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP],ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
-
-	/* cp1 force shutdown */
-	sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN],ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
-
+        if((ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN] & 0xff)!= 0xff){
+            /* cp1 force shutdown */
+            sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN],ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
+        }
         return 0;
 }
 
@@ -643,6 +658,7 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 	struct device_node *np = dev->of_node, *chd;
 	int ret, i, segnr;
 	uint32_t base, offset;
+        uint32_t reg_base[6];
 
 	segnr = of_get_child_count(np);
 	pr_info("sprd_cproc mem size: %u\n", sizeof(struct cproc_init_data) + segnr * sizeof(struct cproc_segments));
@@ -665,20 +681,22 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 	}
 
 	/* get pmu base addr */
-	ret = of_address_to_resource(np, 2, &res);
+        for(i=0;i < 6;i++){
+	ret = of_address_to_resource(np, i, &res);
 	if (ret) {
 		ret = -ENODEV;
 		goto error;
 	}
-	base = res.start;
-	pr_info("sprd_cproc: base 0x%x\n", base);
-	/* get ctrl_reg addr on pmu base */
+        reg_base[i] = res.start;
+	pr_info("sprd_cproc: base 0x%x\n", reg_base[i]);
+        }
+        /* get ctrl_reg addr on pmu base */
 	ret = of_property_read_u32_array(np, "sprd,ctrl-reg", (uint32_t *)ctrl->ctrl_reg, CPROC_CTRL_NR);
 	if (ret) {
 		goto error;
 	}
 	for (i = 0; i < CPROC_CTRL_NR; i++) {
-		ctrl->ctrl_reg[i] += base;
+		ctrl->ctrl_reg[i] += reg_base[i+2];
 		pr_info("sprd_cproc: ctrl_reg[%d] = 0x%08x\n", i, ctrl->ctrl_reg[i]);
 	}
 

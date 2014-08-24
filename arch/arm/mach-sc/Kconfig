@@ -684,6 +684,22 @@ config SIPC_WCN
 	select SIPC
 	default n
 
+config SIPC_PMIC
+	bool "SIPC instance of PMIC arm7 modem"
+	select SIPC
+	default n
+
+
+config SIPC_GGE
+	bool "SIPC instance of GGE modem"
+	select SIPC
+	default n
+
+config SIPC_LTE
+	bool "SIPC instance of LTE modem"
+	select SIPC
+	default n
+
 config VOIP_CPT
 	bool "VOIP process in modem T,it is processed in modem W by default"
 	default n
@@ -718,6 +734,10 @@ config SS_FUNCTION
         default n
 config TSP_0_1_A
         bool "For corsica_ve 3131 0.1A board"
+        default n
+
+config SPRD_MAILBOX
+        bool "Spreadtrum Mailbox IPI Arch"
         default n
 
 config MUIC_CABLE_DETECT
