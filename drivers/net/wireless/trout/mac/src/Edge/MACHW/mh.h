@@ -2162,7 +2162,7 @@ INLINE void set_machw_cw_vo(UWORD8 cmax, UWORD8 cmin)
 #endif
     //chenq mod
     //rMAC_CW_MIN_MAX_AC_VO = convert_to_le(temp);
-    host_write_trout_reg( convert_to_le(temp),
+    host_write_trout_reg( 0x00000022,
                           (UWORD32)rMAC_CW_MIN_MAX_AC_VO );
     // host_write_trout_reg( 0x00000022,
      //                     (UWORD32)rMAC_CW_MIN_MAX_AC_VO );
@@ -2180,7 +2180,7 @@ INLINE void set_machw_cw_vi(UWORD8 cmax, UWORD8 cmin)
 
     //chenq mod
     //rMAC_CW_MIN_MAX_AC_VI = convert_to_le(temp);
-    host_write_trout_reg( convert_to_le(temp),
+    host_write_trout_reg( 0x00000022,
                           (UWORD32)rMAC_CW_MIN_MAX_AC_VI );
     //host_write_trout_reg( 0x00000022,
      //                     (UWORD32)rMAC_CW_MIN_MAX_AC_VI );
@@ -2198,7 +2198,7 @@ INLINE void set_machw_cw_be(UWORD8 cmax, UWORD8 cmin)
 
     //chenq mod
     //rMAC_CW_MIN_MAX_AC_BE = convert_to_le(temp);
-    host_write_trout_reg( convert_to_le(temp),
+    host_write_trout_reg( 0x00000022,
                           (UWORD32)rMAC_CW_MIN_MAX_AC_BE );
     //host_write_trout_reg( 0x00000022,
       //                    (UWORD32)rMAC_CW_MIN_MAX_AC_BE );
