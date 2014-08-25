@@ -116,7 +116,14 @@ struct clock_name_map_t {
     char *name;
 };
 
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX35L)
+static struct clock_name_map_t clock_name_map[] = {
+    {312000000,"clk_312m"},
+    {256000000,"clk_256m"},
+    {128000000,"clk_128m"},
+    {76800000,"clk_76m8"}
+};
+#elif defined(CONFIG_ARCH_SCX15)
 static struct clock_name_map_t clock_name_map[] = {
     {192000000,"clk_192m"},
     {153600000,"clk_153m6"},
