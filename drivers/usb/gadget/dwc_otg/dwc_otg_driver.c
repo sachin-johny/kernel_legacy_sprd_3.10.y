@@ -164,7 +164,7 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
 	.host_ls_low_power_phy_clk = -1,
 	.enable_dynamic_fifo = -1,
 	.data_fifo_size = -1,
-	.dev_rx_fifo_size = 0x320,
+	.dev_rx_fifo_size = 0x114,
 	.dev_nperio_tx_fifo_size = 0x10,
 	.dev_perio_tx_fifo_size = {
 				   /* dev_perio_tx_fifo_size_1 */
@@ -673,7 +673,6 @@ static int dwc_otg_resume(struct platform_device *dev)
  *
  * @param[in] _dev Bus device
  */
- int   ldo_gpio =0xffffffff ;
 static int dwc_otg_driver_probe(
 	struct platform_device *_dev
 )
@@ -785,13 +784,11 @@ static int dwc_otg_driver_probe(
 			pdata->gpio_otgdet = 0xffffffff;
 			}
 
-			pdata->ldo_gpio = of_get_gpio(np,  2);
+			pdata->gpio_boost = of_get_gpio(np,  2);
 			if(pdata->gpio_boost<0){
 				printk("get boost  error ,gpio is  %d\n",pdata->gpio_boost);
-				pdata->ldo_gpio = 0xffffffff;
+				pdata->gpio_boost = 0xffffffff;
 			}
-			pdata->gpio_otgdet = 0xffffffff;
-			ldo_gpio= pdata->ldo_gpio;
 		}else{
 			printk("gpio number more than three,gpio number  %d\n",pdata->gpio_num);
 		}
