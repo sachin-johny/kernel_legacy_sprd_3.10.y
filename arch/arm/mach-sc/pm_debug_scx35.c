@@ -531,6 +531,7 @@ static void print_debug_info(void)
 	mpll_cfg = sci_glb_read(REG_AON_APB_MPLL_CFG, -1UL);
 	dpll_cfg = sci_glb_read(REG_AON_APB_DPLL_CFG, -1UL);
 #endif
+	emc_clk_cfg = sci_glb_read(REG_AON_CLK_EMC_CFG, -1UL);
 	ldo_pd_ctrl = sci_adi_read(ANA_REG_GLB_LDO_PD_CTRL);
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	mpll_cfg1 = sci_glb_read(REG_AON_APB_MPLL_CFG1, -1UL);
@@ -546,10 +547,6 @@ static void print_debug_info(void)
 #endif
 	unsigned long sleep_ctrl = __raw_readl(REG_PMU_APB_SLEEP_CTRL);
 	printk("###---- REG_PMU_APB_SLEEP_CTRL : 0x%08x\n", sleep_ctrl);
-#if defined(CONFIG_ARCH_SCX35L)
-	cp0_power_domain_debug();
-	cp1_power_domain_debug();
-#endif
 	printk("###---- REG_AP_AHB_AHB_EB : 0x%08x\n", ahb_eb);
 	printk("###---- REG_AP_AHB_AP_SYS_AUTO_SLEEP_CFG : 0x%08x\n", ap_sys_auto_sleep_cfg);
 	printk("###---- REG_AP_APB_APB_EB : 0x%08x\n", ap_apb_eb);
@@ -568,8 +565,10 @@ static void print_debug_info(void)
 	printk("###---- REG_PMU_APB_PWR_STATUS3_DBG : 0x%08x\n", apb_pwrstatus3);
 #endif
 	printk("###---- REG_PMU_APB_SLEEP_STATUS : 0x%08x\n", apb_slp_status);
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SCX30G)
 	printk("###---- REG_AON_APB_MPLL_CFG : 0x%08x\n", mpll_cfg);
 	printk("###---- REG_AON_APB_DPLL_CFG : 0x%08x\n", dpll_cfg);
+#endif
 	printk("###---- REG_AON_CLK_EMC_CFG : 0x%08x\n", emc_clk_cfg);
 	printk("###---- ANA_REG_GLB_LDO_PD_CTRL : 0x%08x\n", ldo_pd_ctrl);
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
@@ -594,20 +593,32 @@ static void print_debug_info(void)
 
 	if (ahb_eb & BIT_GSP_EB)
 		printk("###---- BIT_GSP_EB still set ----###\n");
-#if !defined(CONFIG_ARCH_SCX35L)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SCX30G)
 	if (ahb_eb & BIT_DISPC1_EB)
 		printk("###---- BIT_DISPC1_EB still set ----###\n");
 #endif
+#if defined(CONFIG_ARCH_SCX35L)
+	if (ahb_eb & BIT_HSIC_EB)
+                printk("###---- BIT_HSIC_EB still set ----###\n");
+	if (ahb_eb & BIT_DISPC_EB)
+                printk("###---- BIT_DISPC_EB still set ----###\n");
+#else
 	if (ahb_eb & BIT_DISPC0_EB)
 		printk("###---- BIT_DISPC0_EB still set ----###\n");
+#endif
 	if (ahb_eb & BIT_SDIO0_EB)
 		printk("###---- SDIO0_EB still set ----###\n");
 	if (ahb_eb & BIT_SDIO1_EB)
 		printk("###---- SDIO1_EB still set ----###\n");
 	if (ahb_eb & BIT_SDIO2_EB)
 		printk("###---- BIT_SDIO2_EB still set ----###\n");
+#if defined(CONFIG_ARCH_SCX35L)
+	if (ahb_eb & BIT_OTG_EB)
+                printk("###---- BIT_OTG_EB still set ----###\n");
+#else
 	if (ahb_eb & BIT_USB_EB)
 		printk("###---- BIT_USB_EB still set ----###\n");
+#endif
 	if (ahb_eb & BIT_DMA_EB)
 		printk("###---- BIT_DMA_EB still set ----###\n");
 	if (ahb_eb & BIT_NFC_EB)

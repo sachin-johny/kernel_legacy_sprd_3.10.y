@@ -41,7 +41,7 @@ static unsigned int zipenc_status;
 static unsigned int zipdec_status;
 #endif
 static int light_sleep_en = 1;
-static int idle_deep_en = 1;
+static int idle_deep_en = 0;
 static int cpuidle_debug = 0;
 module_param_named(cpuidle_debug, cpuidle_debug, int, S_IRUGO | S_IWUSR);
 module_param_named(light_sleep_en, light_sleep_en, int, S_IRUGO | S_IWUSR);
@@ -163,6 +163,7 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 /*200M ddr clk is not necessary for SCX30G when light sleep status to be entered*/
 #if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_ARCH_SCX30G)
         if(emc_clk_get() > 200){
+		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
                 return;
         }
 #endif
