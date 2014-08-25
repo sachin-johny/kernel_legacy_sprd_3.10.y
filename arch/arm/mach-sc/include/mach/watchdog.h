@@ -70,7 +70,7 @@
 #define WDG_NEW_VERSION
 #ifdef CONFIG_ARCH_SCX15
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0x118)
-#elif defined(CONFIG_ARCH_SCX35)
+#elif defined(CONFIG_ARCH_SCX35L)
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0x124)
 #else
 #define ANA_RST_STATUS          (ANA_REG_BASE + 0xE8)
