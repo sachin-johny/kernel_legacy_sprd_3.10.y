@@ -1236,6 +1236,69 @@ sensor_k_writei2c_return:
 	return ret;
 }
 
+LOCAL int _sensor_k_rd_i2c(SENSOR_I2C_T_PTR pI2cTab)
+{
+	struct i2c_msg	   msg_r[2];
+	int                i;
+	char               *pBuff = PNULL;
+	uint32_t           cnt = pI2cTab->i2c_count;
+	int                ret = SENSOR_K_FAIL;
+	uint16_t           read_num = cnt;
+
+
+	SENSOR_CHECK_ZERO(s_p_sensor_mod);
+
+	/*alloc buffer */
+	pBuff = _sensor_k_kmalloc(cnt);
+	if (PNULL == pBuff) {
+		ret = SENSOR_K_FAIL;
+		SENSOR_PRINT_ERR("sensor rd I2C ERR: alloc fail, size %d\n", cnt);
+		goto sensor_k_readi2c_return;
+	} else {
+		SENSOR_PRINT("sensor rd I2C: alloc success, size %d\n", cnt);
+	}
+
+	if (copy_from_user(pBuff, pI2cTab->i2c_data, cnt)) {
+		ret = SENSOR_K_FAIL;
+		SENSOR_PRINT_ERR("sensor W I2C ERR: copy user fail, size %d \n", cnt);
+		goto sensor_k_readi2c_return;
+	}
+
+
+	for (i = 0; i < SENSOR_I2C_OP_TRY_NUM; i++) {
+		msg_r[0].addr =  pI2cTab->slave_addr;
+		msg_r[0].flags = 0;
+		msg_r[0].buf = pBuff;
+		msg_r[0].len = cnt;
+		msg_r[1].addr =  pI2cTab->slave_addr;
+		msg_r[1].flags = I2C_M_RD;
+		msg_r[1].buf = pBuff;
+		msg_r[1].len = read_num;
+		ret = i2c_transfer(s_p_sensor_mod->cur_i2c_client->adapter, msg_r, 2);
+		if (ret != 2) {
+			SENSOR_PRINT_ERR("SENSOR:read reg fail, ret %d, addr 0x%x \n",
+					ret, s_p_sensor_mod->cur_i2c_client->addr);
+			SLEEP_MS(20);
+			ret = SENSOR_K_FAIL;
+		} else {
+			ret = SENSOR_K_SUCCESS;
+			if (copy_to_user(pI2cTab->i2c_data, pBuff, read_num)) {
+				ret = SENSOR_K_FAIL;
+				SENSOR_PRINT_ERR("sensor W I2C ERR: copy user fail, size %d \n", cnt);
+				goto sensor_k_readi2c_return;
+			}
+			break;
+		}
+	}
+
+sensor_k_readi2c_return:
+	if(PNULL != pBuff)
+		_sensor_k_kfree(pBuff);
+
+	SENSOR_PRINT("_Sensor_K_ReadI2C, ret %d \n", ret);
+	return ret;
+}
+
 LOCAL int _sensor_csi2_error(uint32_t err_id, uint32_t err_status, void* u_data)
 {
 	int                      ret = 0;
@@ -1581,6 +1644,15 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&i2cTab, (SENSOR_I2C_T *) arg, sizeof(SENSOR_I2C_T));
 			if (0 == ret)
 				ret = _sensor_k_wr_i2c(&i2cTab);
+		}
+		break;
+
+	case SENSOR_IO_I2C_READ_EXT:
+		{
+			SENSOR_I2C_T i2cTab;
+			ret = copy_from_user(&i2cTab, (SENSOR_I2C_T *) arg, sizeof(SENSOR_I2C_T));
+			if (0 == ret)
+				ret = _sensor_k_rd_i2c(&i2cTab);
 		}
 		break;
 
