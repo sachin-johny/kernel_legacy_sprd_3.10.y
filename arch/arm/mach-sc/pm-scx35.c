@@ -1516,19 +1516,18 @@ static void sc8830_power_off(void)
 #endif
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL, 0x1fff);
 
-#if defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
 	sci_adi_raw_write(ANA_REG_GLB_PWR_WR_PROT_VALUE,BITS_PWR_WR_PROT_VALUE(0x6e7f));
 	do{
 		reg_val = (sci_adi_read(ANA_REG_GLB_PWR_WR_PROT_VALUE) & BIT_PWR_WR_PROT);
 	}while(reg_val == 0);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_PD_CTRL,0xfff);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD,0x7fff);
-#else
+#endif
 #if defined(CONFIG_ADIE_SC2713S) || defined(CONFIG_ADIE_SC2713)
 	/*turn off system core's ldo*/
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCCLR, 0x0);
 	sci_adi_raw_write(ANA_REG_GLB_LDO_DCDC_PD_RTCSET, 0X7fff);
-#endif
 #endif
 }
 
