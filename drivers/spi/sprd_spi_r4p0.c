@@ -84,7 +84,6 @@ struct sprd_spi_devdata {
 	bool is_active;
 };
 
-extern void clk_force_disable(struct clk *);
 
 static void sprd_spi_dump_regs(u32 reg_base)
 {
@@ -372,7 +371,7 @@ static void  sprd_spi_transfer_work(struct work_struct *work)
 
 	spi_chip = container_of(work, struct sprd_spi_devdata, work);
 
-	clk_enable(spi_chip->clk);
+	clk_prepare_enable(spi_chip->clk);
 
 	/*fixme*/
 	spin_lock_irqsave(&spi_chip->lock, flags);
@@ -400,7 +399,7 @@ static void  sprd_spi_transfer_work(struct work_struct *work)
 		spin_lock_irqsave(&spi_chip->lock, flags);
 	}
 
-	clk_disable(spi_chip->clk);
+	clk_disable_unprepare(spi_chip->clk);
 
 	spin_unlock_irqrestore(&spi_chip->lock, flags);
 }
@@ -498,7 +497,7 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 	clk_set_parent(spi_chip->clk, clk_parent);
 
 	/*global enable*/
-	clk_enable(spi_chip->clk);
+	clk_prepare_enable(spi_chip->clk);
 
 	/*spi config*/
 	if (spi_dev->bits_per_word > MAX_BITS_PER_WORD) {
@@ -558,7 +557,7 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 	spi_chip->is_active = true;
 
 	/*disable the clk after config complete*/
-	clk_disable(spi_chip->clk);
+	clk_disable_unprepare(spi_chip->clk);
 
 	return 0;
 }
@@ -569,7 +568,7 @@ static void sprd_spi_cleanup(struct spi_device *spi)
 
 	spi_chip = spi_master_get_devdata(spi->master);
 
-	clk_force_disable(spi_chip->clk);
+	clk_disable_unprepare(spi_chip->clk);
 }
 
 static int __init sprd_spi_probe(struct platform_device *pdev)
@@ -672,7 +671,7 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
 
 	destroy_workqueue(spi_chip->work_queue);
 
-	clk_force_disable(spi_chip->clk);
+	clk_disable_unprepare(spi_chip->clk);
 
 	spi_unregister_master(master);
 
@@ -693,7 +692,7 @@ static int sprd_spi_suspend(struct platform_device *pdev, pm_message_t mesg)
 	}
 
 	if (spi_chip->is_active)
-		clk_force_disable(spi_chip->clk);
+		clk_disable_unprepare(spi_chip->clk);
 
 	return 0;
 }
@@ -706,11 +705,11 @@ static int sprd_spi_resume(struct platform_device *pdev)
 
 	if (spi_chip->is_active) {
 
-		clk_enable(spi_chip->clk);
+		clk_prepare_enable(spi_chip->clk);
 
 		sprd_spi_restore_config(spi_chip);
 
-		clk_force_disable(spi_chip->clk);
+		clk_disable_unprepare(spi_chip->clk);
 	}
 
 	return 0;
