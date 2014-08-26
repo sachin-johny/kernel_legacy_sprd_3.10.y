@@ -593,7 +593,7 @@ static void print_debug_info(void)
 
 	if (ahb_eb & BIT_GSP_EB)
 		printk("###---- BIT_GSP_EB still set ----###\n");
-#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G)
 	if (ahb_eb & BIT_DISPC1_EB)
 		printk("###---- BIT_DISPC1_EB still set ----###\n");
 #endif
