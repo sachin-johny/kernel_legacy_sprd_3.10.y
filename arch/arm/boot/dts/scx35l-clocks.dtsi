@@ -546,9 +546,17 @@
 		clk_nandc_ecc: clk_nandc_ecc {
 			compatible = "sprd,muxed-clock";
 			#clock-cells = <0>;
-			reg = <0x21500038 0x1 0x20e00000 0x80000>;	/* select reg and enable reg */
+			reg = <0x21500038 0x1 0x20e00000 0x80000 0x20e00000 0x20000>;	/* select reg and ckg enable reg and prepare reg */
 			clocks = <&clk_153m6>, <&clk_192m>;
 			clock-output-names = "clk_nandc_ecc";
+		};
+
+		clk_nandc_2x: clk_nandc_2x {
+			compatible = "sprd,composite-dev-clock";
+			#clock-cells = <0>;
+			reg = <0x20e03038 0x3 0x20e03038 0xc 0x20e00000 0xe0000>;	/* select reg and divider reg and enable reg */
+			clocks = <&clk_192m>, <&clk_256m>, <&clk_307m2>, <&clk_384m>;
+			clock-output-names = "clk_nandc_2x";
 		};
 
 		clk_sdio0: clk_sdio0 {
