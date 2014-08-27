@@ -69,7 +69,7 @@ struct cproc_proc_fs {
 	struct cproc_proc_entry		start;
 	struct cproc_proc_entry		stop;
 	struct cproc_proc_entry		modem;
-	struct cproc_proc_entry		dsp;
+	struct cproc_proc_entry		dsp[2];
 	struct cproc_proc_entry		status;
 	struct cproc_proc_entry		wdtirq;
 	struct cproc_proc_entry		mem;
@@ -408,6 +408,7 @@ struct file_operations cpproc_fs_fops = {
 
 static inline void sprd_cproc_fs_init(struct cproc_device *cproc)
 {
+        uint8_t i= 0;
 	cproc->procfs.procdir = proc_mkdir(cproc->name, NULL);
 
 	cproc->procfs.start.name = "start";
@@ -420,15 +421,17 @@ static inline void sprd_cproc_fs_init(struct cproc_device *cproc)
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.stop));
 	cproc->procfs.stop.cproc = cproc;
 
-	cproc->procfs.modem.name = "modem";
+	cproc->procfs.modem.name =cproc->initdata->segs[0].name;
 	cproc->procfs.modem.entry = proc_create_data(cproc->procfs.modem.name, S_IWUSR,
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.modem));
 	cproc->procfs.modem.cproc = cproc;
 
-	cproc->procfs.dsp.name = "dsp";
-	cproc->procfs.dsp.entry = proc_create_data(cproc->procfs.dsp.name, S_IWUSR,
-			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.dsp));
-	cproc->procfs.dsp.cproc = cproc;
+       for(i = 0; i < cproc->initdata->segnr - 1; i++){
+            cproc->procfs.dsp[i].name = cproc->initdata->segs[1+i].name;
+            cproc->procfs.dsp[i].entry = proc_create_data(cproc->procfs.dsp[i].name, S_IWUSR,
+                            cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.dsp[i]));
+            cproc->procfs.dsp[i].cproc = cproc;
+        }
 
 	cproc->procfs.status.name = "status";
 	cproc->procfs.status.entry = proc_create_data(cproc->procfs.status.name, S_IWUSR,
@@ -451,7 +454,8 @@ static inline void sprd_cproc_fs_exit(struct cproc_device *cproc)
 	remove_proc_entry(cproc->procfs.start.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.stop.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.modem.name, cproc->procfs.procdir);
-	remove_proc_entry(cproc->procfs.dsp.name, cproc->procfs.procdir);
+	remove_proc_entry(cproc->procfs.dsp[0].name, cproc->procfs.procdir);
+	remove_proc_entry(cproc->procfs.dsp[1].name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.status.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.wdtirq.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.mem.name, cproc->procfs.procdir);
