@@ -149,8 +149,10 @@ static void sc_cpuidle_debug(void)
 				__func__, sci_glb_read(REG_AP_AHB_CA7_STANDBY_STATUS, -1UL));
 		printk("*** %s, REG_PMU_APB_CP_SLP_STATUS_DBG0:0x%x ***\n",
 				__func__, sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG0, -1UL));
+#if !defined(CONFIG_ARCH_SCX35L)
 		printk("*** %s, REG_PMU_APB_CP_SLP_STATUS_DBG1:0x%x ***\n",
 				__func__, sci_glb_read(REG_PMU_APB_CP_SLP_STATUS_DBG1, -1UL));
+#endif
 		printk("*** %s, DDR_OP_MODE:0x%x ***\n",
 				__func__, __raw_readl(SPRD_LPDDR2_BASE + 0x03fc) );
 	}else
@@ -160,8 +162,8 @@ static void sc_cpuidle_debug(void)
 static void sc_cpuidle_light_sleep_en(int cpu)
 {
 	int error;
-/*200M ddr clk is not necessary for SCX30G when light sleep status to be entered*/
-#if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_ARCH_SCX30G)
+/*200M ddr clk is not necessary for SCX30G and SCX35L when light sleep status to be entered*/
+#if defined(CONFIG_PM_DEVFREQ) && !defined(CONFIG_ARCH_SCX30G) && !defined(CONFIG_ARCH_SCX35L)
         if(emc_clk_get() > 200){
 		sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
                 return;
