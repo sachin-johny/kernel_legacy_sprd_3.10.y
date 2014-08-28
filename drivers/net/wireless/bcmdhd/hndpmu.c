@@ -2,27 +2,9 @@
  * Misc utility routines for accessing PMU corerev specific features
  * of the SiliconBackplane-based Broadcom chips.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: hndpmu.c 433378 2013-10-31 17:19:39Z $
+ * $Id: hndpmu.c 475037 2014-05-02 23:55:49Z $
  */
 
 
@@ -178,8 +160,6 @@ static const sdiod_drive_str_t sdiod_drive_strength_tab7_1v8[] = {
 void
 si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength)
 {
-	chipcregs_t *cc;
-	uint origidx, intr_val = 0;
 	sdiod_drive_str_t *str_tab = NULL;
 	uint32 str_mask = 0;	/* only alter desired bits in PMU chipcontrol 1 register */
 	uint32 str_shift = 0;
@@ -189,9 +169,6 @@ si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength)
 	if (!(sih->cccaps & CC_CAP_PMU)) {
 		return;
 	}
-
-	/* Remember original core before switch to chipc */
-	cc = (chipcregs_t *) si_switch_core(sih, CC_CORE_ID, &origidx, &intr_val);
 
 	switch (SDIOD_DRVSTR_KEY(sih->chip, sih->pmurev)) {
 	case SDIOD_DRVSTR_KEY(BCM4325_CHIP_ID, 1):
@@ -251,7 +228,7 @@ si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength)
 		break;
 	}
 
-	if (str_tab != NULL && cc != NULL) {
+	if (str_tab != NULL) {
 		uint32 cc_data_temp;
 		int i;
 
@@ -264,19 +241,16 @@ si_sdiod_drive_strength_init(si_t *sih, osl_t *osh, uint32 drivestrength)
 		if (i > 0 && drivestrength > str_tab[i].strength)
 			i--;
 
-		W_REG(osh, &cc->chipcontrol_addr, PMU_CHIPCTL1);
-		cc_data_temp = R_REG(osh, &cc->chipcontrol_data);
+		W_REG(osh, PMUREG(sih, chipcontrol_addr), PMU_CHIPCTL1);
+		cc_data_temp = R_REG(osh, PMUREG(sih, chipcontrol_data));
 		cc_data_temp &= ~str_mask;
 		cc_data_temp |= str_tab[i].sel << str_shift;
-		W_REG(osh, &cc->chipcontrol_data, cc_data_temp);
+		W_REG(osh, PMUREG(sih, chipcontrol_data), cc_data_temp);
 		if (str_ovr_pmuval) { /* enables the selected drive strength */
-			W_REG(osh,  &cc->chipcontrol_addr, str_ovr_pmuctl);
-			OR_REG(osh, &cc->chipcontrol_data, str_ovr_pmuval);
+			W_REG(osh,  PMUREG(sih, chipcontrol_addr), str_ovr_pmuctl);
+			OR_REG(osh, PMUREG(sih, chipcontrol_data), str_ovr_pmuval);
 		}
 		PMU_MSG(("SDIO: %dmA drive strength requested; set to %dmA\n",
 		         drivestrength, str_tab[i].strength));
 	}
-
-	/* Return to original core */
-	si_restore_core(sih, origidx, intr_val);
 } /* si_sdiod_drive_strength_init */

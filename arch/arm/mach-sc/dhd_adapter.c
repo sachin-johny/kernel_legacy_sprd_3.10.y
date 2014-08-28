@@ -30,8 +30,6 @@
 #include <linux/mmc/sdhci.h>
 #include <mach/pinmap.h>
 
-#define GPIO_WIFI_SHUTDOWN	130
-#define GPIO_WIFI_IRQ		97//yangyufeng debug
 #define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	        1
 
 #define WLAN_STATIC_SCAN_BUF0		5

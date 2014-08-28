@@ -1,27 +1,9 @@
 /*
  * Linux Wireless Extensions support
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: wl_iw.c 425990 2013-09-26 07:28:16Z $
+ * $Id: wl_iw.c 467328 2014-04-03 01:23:40Z $
  */
 
 #if defined(USE_IW)
@@ -1396,6 +1378,17 @@ wl_iw_handle_scanresults_ies(char **event_p, char *end,
 		uint8 *ptr = ((uint8 *)bi) + sizeof(wl_bss_info_t);
 		int ptr_len = bi->ie_length;
 
+		/* OSEN IE */
+		if ((ie = bcm_parse_tlvs(ptr, ptr_len, DOT11_MNG_VS_ID)) &&
+			ie->len > WFA_OUI_LEN + 1 &&
+			!bcmp((const void *)&ie->data[0], (const void *)WFA_OUI, WFA_OUI_LEN) &&
+			ie->data[WFA_OUI_LEN] == WFA_OUI_TYPE_OSEN) {
+			iwe.cmd = IWEVGENIE;
+			iwe.u.data.length = ie->len + 2;
+			event = IWE_STREAM_ADD_POINT(info, event, end, &iwe, (char *)ie);
+		}
+		ptr = ((uint8 *)bi) + sizeof(wl_bss_info_t);
+
 		if ((ie = bcm_parse_tlvs(ptr, ptr_len, DOT11_MNG_RSN_ID))) {
 			iwe.cmd = IWEVGENIE;
 			iwe.u.data.length = ie->len + 2;
@@ -1542,8 +1535,9 @@ wl_iw_get_scan(
 
 		/* Channel */
 		iwe.cmd = SIOCGIWFREQ;
+
 		iwe.u.freq.m = wf_channel2mhz(CHSPEC_CHANNEL(bi->chanspec),
-			CHSPEC_CHANNEL(bi->chanspec) <= CH_MAX_2G_CHANNEL ?
+			(CHSPEC_IS2G(bi->chanspec)) ?
 			WF_CHAN_FACTOR_2_4_G : WF_CHAN_FACTOR_5_G);
 		iwe.u.freq.e = 6;
 		event = IWE_STREAM_ADD_EVENT(info, event, end, &iwe, IW_EV_FREQ_LEN);
@@ -1665,8 +1659,9 @@ wl_iw_iscan_get_scan(
 
 		/* Channel */
 		iwe.cmd = SIOCGIWFREQ;
+
 		iwe.u.freq.m = wf_channel2mhz(CHSPEC_CHANNEL(bi->chanspec),
-			CHSPEC_CHANNEL(bi->chanspec) <= CH_MAX_2G_CHANNEL ?
+			(CHSPEC_IS2G(bi->chanspec)) ?
 			WF_CHAN_FACTOR_2_4_G : WF_CHAN_FACTOR_5_G);
 		iwe.u.freq.e = 6;
 		event = IWE_STREAM_ADD_EVENT(info, event, end, &iwe, IW_EV_FREQ_LEN);

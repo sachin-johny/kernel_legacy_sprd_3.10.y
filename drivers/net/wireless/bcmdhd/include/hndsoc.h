@@ -1,27 +1,9 @@
 /*
  * Broadcom HND chip & on-chip-interconnect-related definitions.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: hndsoc.h 432420 2013-10-28 14:14:02Z $
+ * $Id: hndsoc.h 473238 2014-04-28 19:14:56Z $
  */
 
 #ifndef	_HNDSOC_H
@@ -73,6 +55,7 @@
 #define	SI_ARM_FLASH1		0xffff0000	/* ARM Flash Region 1 */
 #define	SI_ARM_FLASH1_SZ	0x00010000	/* ARM Size of Flash Region 1 */
 
+#define SI_SFLASH		0x14000000
 #define SI_PCI_DMA		0x40000000	/* Client Mode sb2pcitranslation2 (1 GB) */
 #define SI_PCI_DMA2		0x80000000	/* Client Mode sb2pcitranslation2 (1 GB) */
 #define SI_PCI_DMA_SZ		0x40000000	/* Client Mode sb2pcitranslation2 size in bytes */
@@ -145,6 +128,7 @@
 #define USB30D_CORE_ID		0x83d		/* usb 3.0 device core */
 #define ARMCR4_CORE_ID		0x83e		/* ARM CR4 CPU */
 #define GCI_CORE_ID		0x840		/* GCI Core */
+#define M2MDMA_CORE_ID          0x844           /* memory to memory dma */
 #define APB_BRIDGE_CORE_ID	0x135		/* APB bridge core ID */
 #define AXI_CORE_ID		0x301		/* AXI/GPV core ID */
 #define EROM_CORE_ID		0x366		/* EROM core ID */
@@ -183,6 +167,7 @@
 #define CC_4706B0_CORE_REV	0x8000001f		/* chipcommon core */
 #define SOCRAM_4706B0_CORE_REV	0x80000005		/* internal memory core */
 #define GMAC_4706B0_CORE_REV	0x80000000		/* Gigabit MAC core */
+#define NS_PCIEG2_CORE_REV_B0	0x7		/* NS-B0 PCIE Gen 2 core rev */
 
 /* There are TWO constants on all HND chips: SI_ENUM_BASE above,
  * and chipcommon being the first core:
@@ -233,6 +218,7 @@
 #define CCS_USBCLKREQ		0x00000100	/* USB Clock Req */
 #define CCS_SECICLKREQ		0x00000100	/* SECI Clock Req */
 #define CCS_ARMFASTCLOCKREQ	0x00000100	/* ARM CR4 fast clock request */
+#define CCS_AVBCLKREQ		0x00000400	/* AVB Clock enable request */
 #define CCS_ERSRC_REQ_MASK	0x00000700	/* external resource requests */
 #define CCS_ERSRC_REQ_SHIFT	8
 #define	CCS_ALPAVAIL		0x00010000	/* ALP is available */
@@ -274,9 +260,9 @@
 #define	SOC_KNLDEV_NORFLASH	0x00000002
 #define	SOC_KNLDEV_NANDFLASH	0x00000004
 
-#ifndef _LANGUAGE_ASSEMBLY
+#if !defined(_LANGUAGE_ASSEMBLY) && !defined(__ASSEMBLY__)
 int soc_boot_dev(void *sih);
 int soc_knl_dev(void *sih);
-#endif	/* _LANGUAGE_ASSEMBLY */
+#endif	/* !defined(_LANGUAGE_ASSEMBLY) && !defined(__ASSEMBLY__) */
 
 #endif /* _HNDSOC_H */

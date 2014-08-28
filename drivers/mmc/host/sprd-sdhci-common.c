@@ -722,7 +722,7 @@ static void sdhci_prepare_data(struct sdhci_host *host, struct mmc_command *cmd)
 	host->data->bytes_xfered = 0;
 
 	if (host->flags & (SDHCI_USE_SDMA | SDHCI_USE_ADMA))
-		host->flags &= ~SDHCI_REQ_USE_DMA;//temporary solution//host->flags |= SDHCI_REQ_USE_DMA;
+		host->flags |= SDHCI_REQ_USE_DMA;
 
 	/*
 	 * FIXME: This doesn't account for merging when mapping the

@@ -1,33 +1,16 @@
 /*
  * Linux OS Independent Layer
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: linux_osl.h 432719 2013-10-29 12:04:59Z $
+ * $Id: linux_osl.h 491170 2014-07-15 06:23:58Z $
  */
 
 #ifndef _linux_osl_h_
 #define _linux_osl_h_
 
 #include <typedefs.h>
+#define DECLSPEC_ALIGN(x)	__attribute__ ((aligned(x)))
 
 /* Linux Kernel: File Operations: start */
 extern void * osl_os_open_image(char * filename);
@@ -50,6 +33,10 @@ extern int osl_static_mem_init(osl_t *osh, void *adapter);
 extern int osl_static_mem_deinit(osl_t *osh, void *adapter);
 extern void osl_set_bus_handle(osl_t *osh, void *bus_handle);
 extern void* osl_get_bus_handle(osl_t *osh);
+#ifdef EXYNOS5433_PCIE_WAR
+extern void exynos_pcie_set_l1_exit(void);
+extern void exynos_pcie_clear_l1_exit(void);
+#endif /* EXYNOS5433_PCIE_WAR */
 
 /* Global ASSERT type */
 extern uint32 g_assert_type;
@@ -71,6 +58,19 @@ extern void osl_assert(const char *exp, const char *file, int line);
 		#endif /* GCC_VERSION > 30100 */
 	#endif /* __GNUC__ */
 #endif 
+
+/* bcm_prefetch_32B */
+static inline void bcm_prefetch_32B(const uint8 *addr, const int cachelines_32B)
+{
+#if defined(BCM47XX_CA9) && (__LINUX_ARM_ARCH__ >= 5)
+	switch (cachelines_32B) {
+		case 4: __asm__ __volatile__("pld\t%a0" :: "p"(addr + 96) : "cc");
+		case 3: __asm__ __volatile__("pld\t%a0" :: "p"(addr + 64) : "cc");
+		case 2: __asm__ __volatile__("pld\t%a0" :: "p"(addr + 32) : "cc");
+		case 1: __asm__ __volatile__("pld\t%a0" :: "p"(addr +  0) : "cc");
+	}
+#endif 
+}
 
 /* microsecond delay */
 #define	OSL_DELAY(usec)		osl_delay(usec)
@@ -97,9 +97,14 @@ extern void osl_pci_write_config(osl_t *osh, uint offset, uint size, uint val);
 /* PCI device bus # and slot # */
 #define OSL_PCI_BUS(osh)	osl_pci_bus(osh)
 #define OSL_PCI_SLOT(osh)	osl_pci_slot(osh)
+#define OSL_PCIE_DOMAIN(osh)	osl_pcie_domain(osh)
+#define OSL_PCIE_BUS(osh)	osl_pcie_bus(osh)
 extern uint osl_pci_bus(osl_t *osh);
 extern uint osl_pci_slot(osl_t *osh);
+extern uint osl_pcie_domain(osl_t *osh);
+extern uint osl_pcie_bus(osl_t *osh);
 extern struct pci_dev *osl_pci_device(osl_t *osh);
+
 
 /* Pkttag flag should be part of public information */
 typedef struct {
@@ -109,6 +114,9 @@ typedef struct {
 	void *tx_ctx;		/* Context to the callback function */
 	void	*unused[3];
 } osl_pubinfo_t;
+
+extern void osl_flag_set(osl_t *osh, uint32 mask);
+extern bool osl_is_flag_set(osl_t *osh, uint32 mask);
 
 #define PKTFREESETCB(osh, _tx_fn, _tx_ctx)		\
 	do {						\
@@ -147,8 +155,8 @@ extern uint osl_malloc_failed(osl_t *osh);
 	osl_dma_free_consistent((osh), (void*)(va), (size), (pa))
 
 extern uint osl_dma_consistent_align(void);
-extern void *
-osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align, uint *tot, dmaaddr_t *pap);
+extern void *osl_dma_alloc_consistent(osl_t *osh, uint size, uint16 align,
+	uint *tot, dmaaddr_t *pap);
 extern void osl_dma_free_consistent(osl_t *osh, void *va, uint size, dmaaddr_t pa);
 
 /* map/unmap direction */
@@ -165,30 +173,60 @@ extern void osl_dma_unmap(osl_t *osh, uint pa, uint size, int direction);
 /* API for DMA addressing capability */
 #define OSL_DMADDRWIDTH(osh, addrwidth) ({BCM_REFERENCE(osh); BCM_REFERENCE(addrwidth);})
 
-#if defined(__ARM_ARCH_7A__)
+#if (defined(BCM47XX_CA9) && defined(__ARM_ARCH_7A__))
 	extern void osl_cache_flush(void *va, uint size);
 	extern void osl_cache_inv(void *va, uint size);
 	extern void osl_prefetch(const void *ptr);
 	#define OSL_CACHE_FLUSH(va, len)	osl_cache_flush((void *) va, len)
 	#define OSL_CACHE_INV(va, len)		osl_cache_inv((void *) va, len)
 	#define OSL_PREFETCH(ptr)			osl_prefetch(ptr)
+#ifdef __ARM_ARCH_7A__
+	extern int osl_arch_is_coherent(void);
+	#define OSL_ARCH_IS_COHERENT()		osl_arch_is_coherent()
+#else
+	#define OSL_ARCH_IS_COHERENT()		NULL
+#endif /* __ARM_ARCH_7A__ */
 #else
 	#define OSL_CACHE_FLUSH(va, len)	BCM_REFERENCE(va)
 	#define OSL_CACHE_INV(va, len)		BCM_REFERENCE(va)
-	#define OSL_PREFETCH(ptr)			prefetch(ptr)
+	#define OSL_PREFETCH(ptr)		BCM_REFERENCE(ptr)
+
+	#define OSL_ARCH_IS_COHERENT()		NULL
 #endif 
 
 /* register access macros */
+#if defined(BCMSDIO)
 	#include <bcmsdh.h>
 	#define OSL_WRITE_REG(osh, r, v) (bcmsdh_reg_write(osl_get_bus_handle(osh), \
 		(uintptr)(r), sizeof(*(r)), (v)))
 	#define OSL_READ_REG(osh, r) (bcmsdh_reg_read(osl_get_bus_handle(osh), \
 		(uintptr)(r), sizeof(*(r))))
+#elif defined(BCM47XX_ACP_WAR)
+extern void osl_pcie_rreg(osl_t *osh, ulong addr, void *v, uint size);
 
+#define OSL_READ_REG(osh, r) \
+	({\
+		__typeof(*(r)) __osl_v; \
+		osl_pcie_rreg(osh, (uintptr)(r), (void *)&__osl_v, sizeof(*(r))); \
+		__osl_v; \
+	})
+#endif 
+
+#if defined(BCM47XX_ACP_WAR)
+	#define SELECT_BUS_WRITE(osh, mmap_op, bus_op) ({BCM_REFERENCE(osh); mmap_op;})
+	#define SELECT_BUS_READ(osh, mmap_op, bus_op) ({BCM_REFERENCE(osh); bus_op;})
+#else
+
+#if defined(BCMSDIO)
 	#define SELECT_BUS_WRITE(osh, mmap_op, bus_op) if (((osl_pubinfo_t*)(osh))->mmbus) \
 		mmap_op else bus_op
 	#define SELECT_BUS_READ(osh, mmap_op, bus_op) (((osl_pubinfo_t*)(osh))->mmbus) ? \
 		mmap_op : bus_op
+#else
+	#define SELECT_BUS_WRITE(osh, mmap_op, bus_op) ({BCM_REFERENCE(osh); mmap_op;})
+	#define SELECT_BUS_READ(osh, mmap_op, bus_op) ({BCM_REFERENCE(osh); mmap_op;})
+#endif 
+#endif /* BCM47XX_ACP_WAR */
 
 #define OSL_ERROR(bcmerror)	osl_error(bcmerror)
 extern int osl_error(int bcmerror);
@@ -210,7 +248,7 @@ extern int osl_error(int bcmerror);
 #else
 #define OSL_SYSUPTIME()		((uint32)jiffies * (1000 / HZ))
 #endif /* LINUX_VERSION_CODE >= KERNEL_VERSION(2, 4, 29) */
-#define	printf(fmt, args...)	printk("BCM:"fmt , ## args)
+#define	printf(fmt, args...)	printk(fmt , ## args)
 #include <linux/kernel.h>	/* for vsn/printf's */
 #include <linux/string.h>	/* for mem*, str* */
 /* bcopy's: Linux kernel doesn't provide these (anymore) */
@@ -220,6 +258,26 @@ extern int osl_error(int bcmerror);
 
 /* register access macros */
 
+#ifdef EXYNOS5433_PCIE_WAR
+#define R_REG(osh, r) (\
+	SELECT_BUS_READ(osh, \
+		({ \
+			__typeof(*(r)) __osl_v; \
+			exynos_pcie_set_l1_exit();	\
+			switch (sizeof(*(r))) { \
+				case sizeof(uint8):	__osl_v = \
+					readb((volatile uint8*)(r)); break; \
+				case sizeof(uint16):	__osl_v = \
+					readw((volatile uint16*)(r)); break; \
+				case sizeof(uint32):	__osl_v = \
+					readl((volatile uint32*)(r)); break; \
+			} \
+			exynos_pcie_clear_l1_exit();	\
+			__osl_v; \
+		}), \
+		OSL_READ_REG(osh, r)) \
+)
+#else
 #define R_REG(osh, r) (\
 	SELECT_BUS_READ(osh, \
 		({ \
@@ -236,7 +294,21 @@ extern int osl_error(int bcmerror);
 		}), \
 		OSL_READ_REG(osh, r)) \
 )
+#endif /* EXYNOS5433_PCIE_WAR */
 
+#ifdef EXYNOS5433_PCIE_WAR
+#define W_REG(osh, r, v) do { \
+	exynos_pcie_set_l1_exit();	\
+	SELECT_BUS_WRITE(osh, \
+		switch (sizeof(*(r))) { \
+			case sizeof(uint8):	writeb((uint8)(v), (volatile uint8*)(r)); break; \
+			case sizeof(uint16):	writew((uint16)(v), (volatile uint16*)(r)); break; \
+			case sizeof(uint32):	writel((uint32)(v), (volatile uint32*)(r)); break; \
+		}, \
+		(OSL_WRITE_REG(osh, r, v))); \
+		exynos_pcie_clear_l1_exit();	\
+	} while (0)
+#else
 #define W_REG(osh, r, v) do { \
 	SELECT_BUS_WRITE(osh, \
 		switch (sizeof(*(r))) { \
@@ -246,6 +318,7 @@ extern int osl_error(int bcmerror);
 		}, \
 		(OSL_WRITE_REG(osh, r, v))); \
 	} while (0)
+#endif /* EXYNOS5433_PCIE_WAR */
 
 #define	AND_REG(osh, r, v)		W_REG(osh, (r), R_REG(osh, r) & (v))
 #define	OR_REG(osh, r, v)		W_REG(osh, (r), R_REG(osh, r) | (v))
@@ -356,6 +429,12 @@ extern int osl_error(int bcmerror);
 #define PKTID(skb)              ({BCM_REFERENCE(skb); 0;})
 #define PKTSETID(skb, id)       ({BCM_REFERENCE(skb); BCM_REFERENCE(id);})
 #define PKTSHRINK(osh, m)		({BCM_REFERENCE(osh); m;})
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 6, 0)
+#define PKTORPHAN(skb)          skb_orphan(skb)
+#else
+#define PKTORPHAN(skb)          ({BCM_REFERENCE(skb); 0;})
+#endif /* LINUX VERSION >= 3.6 */
+
 
 #ifdef BCMDBG_CTRACE
 #define	DEL_CTRACE(zosh, zskb) { \
@@ -590,6 +669,152 @@ typedef struct ctf_mark {
 #define CTF_MARK(m)		({BCM_REFERENCE(m); 0;})
 #endif /* HNDCTF */
 
+#if defined(BCM_GMAC3)
+
+/** pktalloced accounting in devices using GMAC Bulk Forwarding to DHD */
+
+/* Account for packets delivered to downstream forwarder by GMAC interface. */
+extern void osl_pkt_tofwder(osl_t *osh, void *skbs, int skb_cnt);
+#define PKTTOFWDER(osh, skbs, skb_cnt)  \
+	osl_pkt_tofwder(((osl_t *)osh), (void *)(skbs), (skb_cnt))
+
+/* Account for packets received from downstream forwarder. */
+#if defined(BCMDBG_CTRACE) /* pkt logging */
+extern void osl_pkt_frmfwder(osl_t *osh, void *skbs, int skb_cnt,
+                             int line, char *file);
+#define PKTFRMFWDER(osh, skbs, skb_cnt) \
+	osl_pkt_frmfwder(((osl_t *)osh), (void *)(skbs), (skb_cnt), \
+	                 __LINE__, __FILE__)
+#else  /* ! (BCMDBG_PKT || BCMDBG_CTRACE) */
+extern void osl_pkt_frmfwder(osl_t *osh, void *skbs, int skb_cnt);
+#define PKTFRMFWDER(osh, skbs, skb_cnt) \
+	osl_pkt_frmfwder(((osl_t *)osh), (void *)(skbs), (skb_cnt))
+#endif 
+
+
+/** GMAC Forwarded packet tagging for reduced cache flush/invalidate.
+ * In FWDERBUF tagged packet, only FWDER_PKTMAPSZ amount of data would have
+ * been accessed in the GMAC forwarder. This may be used to limit the number of
+ * cachelines that need to be flushed or invalidated.
+ * Packets sent to the DHD from a GMAC forwarder will be tagged w/ FWDERBUF.
+ * DHD may clear the FWDERBUF tag, if more than FWDER_PKTMAPSZ was accessed.
+ * Likewise, a debug print of a packet payload in say the ethernet driver needs
+ * to be accompanied with a clear of the FWDERBUF tag.
+ */
+
+/** Forwarded packets, have a HWRXOFF sized rx header (etc.h) */
+#define FWDER_HWRXOFF       (30)
+
+/** Maximum amount of a pktadat that a downstream forwarder (GMAC) may have
+ * read into the L1 cache (not dirty). This may be used in reduced cache ops.
+ *
+ * Max 56: ET HWRXOFF[30] + BRCMHdr[4] + EtherHdr[14] + VlanHdr[4] + IP[4]
+ */
+#define FWDER_PKTMAPSZ      (FWDER_HWRXOFF + 4 + 14 + 4 + 4)
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+
+#define FWDERBUF            (1 << 4)
+#define PKTSETFWDERBUF(osh, skb) \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->pktc_flags |= FWDERBUF); \
+	 })
+#define PKTCLRFWDERBUF(osh, skb) \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->pktc_flags &= (~FWDERBUF)); \
+	 })
+#define PKTISFWDERBUF(osh, skb) \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->pktc_flags & FWDERBUF); \
+	 })
+
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
+
+#define FWDERBUF	        (1 << 20)
+#define PKTSETFWDERBUF(osh, skb) \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->mac_len |= FWDERBUF); \
+	 })
+#define PKTCLRFWDERBUF(osh, skb)  \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->mac_len &= (~FWDERBUF)); \
+	 })
+#define PKTISFWDERBUF(osh, skb) \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->mac_len & FWDERBUF); \
+	 })
+
+#else /* 2.6.22 */
+
+#define FWDERBUF            (1 << 4)
+#define PKTSETFWDERBUF(osh, skb)  \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->__unused |= FWDERBUF); \
+	 })
+#define PKTCLRFWDERBUF(osh, skb)  \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->__unused &= (~FWDERBUF)); \
+	 })
+#define PKTISFWDERBUF(osh, skb) \
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->__unused & FWDERBUF); \
+	 })
+
+#endif /* 2.6.22 */
+
+#else  /* ! BCM_GMAC3 */
+
+#define PKTSETFWDERBUF(osh, skb)  ({ BCM_REFERENCE(osh); BCM_REFERENCE(skb); })
+#define PKTCLRFWDERBUF(osh, skb)  ({ BCM_REFERENCE(osh); BCM_REFERENCE(skb); })
+#define PKTISFWDERBUF(osh, skb)   ({ BCM_REFERENCE(osh); BCM_REFERENCE(skb); FALSE;})
+
+#endif /* ! BCM_GMAC3 */
+
+
+#ifdef HNDCTF
+/* For broadstream iqos */
+
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 36)
+#define	TOBR		(1 << 5)
+#define	PKTSETTOBR(osh, skb)	\
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->pktc_flags |= TOBR); \
+	 })
+#define	PKTCLRTOBR(osh, skb)	\
+	({ \
+	 BCM_REFERENCE(osh); \
+	 (((struct sk_buff*)(skb))->pktc_flags &= (~TOBR)); \
+	 })
+#define	PKTISTOBR(skb)	(((struct sk_buff*)(skb))->pktc_flags & TOBR)
+#define	PKTSETCTFIPCTXIF(skb, ifp)	(((struct sk_buff*)(skb))->ctf_ipc_txif = ifp)
+#elif LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 22)
+#define	PKTSETTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
+#define	PKTCLRTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
+#define	PKTISTOBR(skb)	({BCM_REFERENCE(skb); FALSE;})
+#define	PKTSETCTFIPCTXIF(skb, ifp)	({BCM_REFERENCE(skb); BCM_REFERENCE(ifp);})
+#else /* 2.6.22 */
+#define	PKTSETTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
+#define	PKTCLRTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
+#define	PKTISTOBR(skb)	({BCM_REFERENCE(skb); FALSE;})
+#define	PKTSETCTFIPCTXIF(skb, ifp)	({BCM_REFERENCE(skb); BCM_REFERENCE(ifp);})
+#endif /* 2.6.22 */
+#else /* HNDCTF */
+#define	PKTSETTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
+#define	PKTCLRTOBR(osh, skb)	({BCM_REFERENCE(osh); BCM_REFERENCE(skb);})
+#define	PKTISTOBR(skb)	({BCM_REFERENCE(skb); FALSE;})
+#endif /* HNDCTF */
+
+
 #ifdef BCMFA
 #ifdef BCMFA_HW_HASH
 #define PKTSETFAHIDX(skb, idx)	(((struct sk_buff*)(skb))->napt_idx = idx)
@@ -622,6 +847,7 @@ typedef struct ctf_mark {
 extern void osl_pktfree(osl_t *osh, void *skb, bool send);
 extern void *osl_pktget_static(osl_t *osh, uint len);
 extern void osl_pktfree_static(osl_t *osh, void *skb, bool send);
+extern void osl_pktclone(osl_t *osh, void **pkt);
 
 #ifdef BCMDBG_CTRACE
 #define PKT_CTRACE_DUMP(osh, b)	osl_ctrace_dump((osh), (b))
@@ -671,6 +897,9 @@ extern struct sk_buff *osl_pkt_tonative(osl_t *osh, void *pkt);
 
 #define PKTALLOCED(osh)		osl_pktalloced(osh)
 extern uint osl_pktalloced(osl_t *osh);
+
+#define OSL_RAND()		osl_rand()
+extern uint32 osl_rand(void);
 
 #define	DMA_MAP(osh, va, size, direction, p, dmah) \
 	osl_dma_map((osh), (va), (size), (direction), (p), (dmah))

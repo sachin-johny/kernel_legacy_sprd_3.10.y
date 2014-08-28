@@ -5,27 +5,9 @@
  *
  * Definitions subject to change without notice.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: dhdioctl.h 454792 2014-02-11 20:40:19Z $
+ * $Id: dhdioctl.h 438755 2013-11-22 23:20:40Z $
  */
 
 #ifndef _dhdioctl_h_
@@ -86,7 +68,11 @@ enum {
 #define DHD_GLOM_VAL	0x0400
 #define DHD_EVENT_VAL	0x0800
 #define DHD_BTA_VAL	0x1000
+#if 0 && (NDISVER >= 0x0630) && 1
+#define DHD_SCAN_VAL	0x2000
+#else
 #define DHD_ISCAN_VAL	0x2000
+#endif
 #define DHD_ARPOE_VAL	0x4000
 #define DHD_REORDER_VAL	0x8000
 #define DHD_WL_VAL		0x10000

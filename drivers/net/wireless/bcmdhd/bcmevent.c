@@ -1,26 +1,8 @@
 /*
  * bcmevent read-only data shared by kernel or app layers
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
- * $Id: bcmevent.c 440870 2013-12-04 05:23:45Z $
+ * $Copyright Open Broadcom Corporation$
+ * $Id: bcmevent.c 487838 2014-06-27 05:51:44Z $
  */
 
 #include <typedefs.h>
@@ -29,10 +11,17 @@
 #include <proto/bcmeth.h>
 #include <proto/bcmevent.h>
 
+
+/* Table of event name strings for UIs and debugging dumps */
+typedef struct {
+	uint event;
+	const char *name;
+} bcmevent_name_str_t;
+
 /* Use the actual name for event tracing */
 #define BCMEVENT_NAME(_event) {(_event), #_event}
 
-const bcmevent_name_t bcmevent_names[] = {
+static const bcmevent_name_str_t bcmevent_names[] = {
 	BCMEVENT_NAME(WLC_E_SET_SSID),
 	BCMEVENT_NAME(WLC_E_JOIN),
 	BCMEVENT_NAME(WLC_E_START),
@@ -73,6 +62,10 @@ const bcmevent_name_t bcmevent_names[] = {
 #endif /* defined(IBSS_PEER_DISCOVERY_EVENT) */
 	BCMEVENT_NAME(WLC_E_RADIO),
 	BCMEVENT_NAME(WLC_E_PSM_WATCHDOG),
+#if defined(BCMCCX) && defined(CCX_SDK)
+	BCMEVENT_NAME(WLC_E_CCX_ASSOC_START),
+	BCMEVENT_NAME(WLC_E_CCX_ASSOC_ABORT),
+#endif /* BCMCCX && CCX_SDK */
 	BCMEVENT_NAME(WLC_E_PROBREQ_MSG),
 	BCMEVENT_NAME(WLC_E_SCAN_CONFIRM_IND),
 	BCMEVENT_NAME(WLC_E_PSK_SUP),
@@ -82,6 +75,9 @@ const bcmevent_name_t bcmevent_names[] = {
 	BCMEVENT_NAME(WLC_E_UNICAST_DECODE_ERROR),
 	BCMEVENT_NAME(WLC_E_MULTICAST_DECODE_ERROR),
 	BCMEVENT_NAME(WLC_E_TRACE),
+#ifdef WLBTAMP
+	BCMEVENT_NAME(WLC_E_BTA_HCI_EVENT),
+#endif
 	BCMEVENT_NAME(WLC_E_IF),
 #ifdef WLP2P
 	BCMEVENT_NAME(WLC_E_P2P_DISC_LISTEN_COMPLETE),
@@ -94,6 +90,19 @@ const bcmevent_name_t bcmevent_names[] = {
 	BCMEVENT_NAME(WLC_E_ACTION_FRAME_RX),
 	BCMEVENT_NAME(WLC_E_ACTION_FRAME_COMPLETE),
 #endif
+#if 0 && (NDISVER >= 0x0620)
+	BCMEVENT_NAME(WLC_E_PRE_ASSOC_IND),
+	BCMEVENT_NAME(WLC_E_PRE_REASSOC_IND),
+	BCMEVENT_NAME(WLC_E_CHANNEL_ADOPTED),
+	BCMEVENT_NAME(WLC_E_AP_STARTED),
+	BCMEVENT_NAME(WLC_E_DFS_AP_STOP),
+	BCMEVENT_NAME(WLC_E_DFS_AP_RESUME),
+	BCMEVENT_NAME(WLC_E_ASSOC_IND_NDIS),
+	BCMEVENT_NAME(WLC_E_REASSOC_IND_NDIS),
+	BCMEVENT_NAME(WLC_E_ACTION_FRAME_RX_NDIS),
+	BCMEVENT_NAME(WLC_E_AUTH_REQ),
+	BCMEVENT_NAME(WLC_E_IBSS_COALESCE),
+#endif 
 #ifdef BCMWAPI_WAI
 	BCMEVENT_NAME(WLC_E_WAI_STA_EVENT),
 	BCMEVENT_NAME(WLC_E_WAI_MSG),
@@ -123,7 +132,6 @@ const bcmevent_name_t bcmevent_names[] = {
 #endif
 	BCMEVENT_NAME(WLC_E_ASSOC_REQ_IE),
 	BCMEVENT_NAME(WLC_E_ASSOC_RESP_IE),
-	BCMEVENT_NAME(WLC_E_ACTION_FRAME_RX_NDIS),
 	BCMEVENT_NAME(WLC_E_BEACON_FRAME_RX),
 #ifdef WLTDLS
 	BCMEVENT_NAME(WLC_E_TDLS_PEER_EVENT),
@@ -149,6 +157,42 @@ const bcmevent_name_t bcmevent_names[] = {
 	BCMEVENT_NAME(WLC_E_BCMC_CREDIT_SUPPORT),
 #endif
 	BCMEVENT_NAME(WLC_E_TXFAIL_THRESH),
+#ifdef WLAIBSS
+	BCMEVENT_NAME(WLC_E_AIBSS_TXFAIL),
+#endif /* WLAIBSS */
+#ifdef WLBSSLOAD_REPORT
+	BCMEVENT_NAME(WLC_E_BSS_LOAD),
+#endif
+#if defined(BT_WIFI_HANDOVER) || defined(WL_TBOW)
+	BCMEVENT_NAME(WLC_E_BT_WIFI_HANDOVER_REQ),
+#endif
+#ifdef WLFBT
+	BCMEVENT_NAME(WLC_E_FBT_AUTH_REQ_IND),
+#endif /* WLFBT */
+	BCMEVENT_NAME(WLC_E_RMC_EVENT),
 };
 
-const int bcmevent_names_size = ARRAYSIZE(bcmevent_names);
+
+const char *bcmevent_get_name(uint event_type)
+{
+	/* note:  first coded this as a static const but some
+	 * ROMs already have something called event_name so
+	 * changed it so we don't have a variable for the
+	 * 'unknown string
+	 */
+	const char *event_name = NULL;
+
+	uint idx;
+	for (idx = 0; idx < (uint)ARRAYSIZE(bcmevent_names); idx++) {
+
+		if (bcmevent_names[idx].event == event_type) {
+			event_name = bcmevent_names[idx].name;
+			break;
+		}
+	}
+
+	/* if we find an event name in the array, return it.
+	 * otherwise return unknown string.
+	 */
+	return ((event_name) ? event_name : "Unknown Event");
+}

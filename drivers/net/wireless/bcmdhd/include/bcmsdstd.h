@@ -1,27 +1,9 @@
 /*
  *  'Standard' SDIO HOST CONTROLLER driver
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $ Copyright Open Broadcom Corporation $
  *
- * $Id: bcmsdstd.h 455427 2014-02-14 00:11:19Z $
+ * $Id: bcmsdstd.h 455390 2014-02-13 22:14:56Z $
  */
 #ifndef	_BCM_SD_STD_H
 #define	_BCM_SD_STD_H
@@ -237,8 +219,8 @@ extern void sdstd_spinbits(sdioh_info_t *sd, uint16 norm, uint16 err);
  */
 
 /* Register mapping routines */
-extern uint32 *sdstd_reg_map(osl_t *osh, int32 addr, int size);
-extern void sdstd_reg_unmap(osl_t *osh, int32 addr, int size);
+extern uint32 *sdstd_reg_map(osl_t *osh, ulong addr, int size);
+extern void sdstd_reg_unmap(osl_t *osh, ulong addr, int size);
 
 /* Interrupt (de)registration routines */
 extern int sdstd_register_irq(sdioh_info_t *sd, uint irq);

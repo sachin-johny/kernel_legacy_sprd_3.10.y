@@ -1,35 +1,15 @@
 /*
  * OS Abstraction Layer
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: osl.h 424562 2013-09-18 10:57:30Z $
+ * $Id: osl.h 474639 2014-05-01 23:52:31Z $
  */
 
 #ifndef _osl_h_
 #define _osl_h_
 
-/* osl handle type forward declaration */
-typedef struct osl_info osl_t;
-typedef struct osl_dmainfo osldma_t;
+#include <osl_decl.h>
 
 #define OSL_PKTTAG_SZ	32 /* Size of PktTag */
 
@@ -39,6 +19,7 @@ typedef void (*pktfree_cb_fn_t)(void *ctx, void *pkt, unsigned int status);
 /* Drivers use REGOPSSET() to register register read/write funcitons */
 typedef unsigned int (*osl_rreg_fn_t)(void *ctx, volatile void *reg, unsigned int size);
 typedef void  (*osl_wreg_fn_t)(void *ctx, volatile void *reg, unsigned int val, unsigned int size);
+
 
 
 #include <linux_osl.h>
@@ -113,8 +94,9 @@ do { \
 #define PKTSETFRAGTOTNUM(osh, lb, tot)	BCM_REFERENCE(osh)
 #define PKTFRAGTOTLEN(osh, lb)		(0)
 #define PKTSETFRAGTOTLEN(osh, lb, len)	BCM_REFERENCE(osh)
-#define PKTFRAGIFINDEX(osh, lb)		(0)
-#define PKTSETFRAGIFINDEX(osh, lb, idx)	BCM_REFERENCE(osh)
+#define PKTIFINDEX(osh, lb)		(0)
+#define PKTSETIFINDEX(osh, lb, idx)	BCM_REFERENCE(osh)
+#define	PKTGETLF(osh, len, send, lbuf_type)	(0)
 
 /* in rx path, reuse totlen as used len */
 #define PKTFRAGUSEDLEN(osh, lb)			(0)
@@ -133,10 +115,17 @@ do { \
 #define PKTRESETRXFRAG(osh, lb)		BCM_REFERENCE(osh)
 
 /* TX FRAG */
-#define PKTISTXFRAG(osh, lb)       	(0)
+#define PKTISTXFRAG(osh, lb)		(0)
 #define PKTSETTXFRAG(osh, lb)		BCM_REFERENCE(osh)
+
+/* Need Rx completion used for AMPDU reordering */
+#define PKTNEEDRXCPL(osh, lb)           (TRUE)
+#define PKTSETNORXCPL(osh, lb)          BCM_REFERENCE(osh)
+#define PKTRESETNORXCPL(osh, lb)        BCM_REFERENCE(osh)
 
 #define PKTISFRAG(osh, lb)		(0)
 #define PKTFRAGISCHAINED(osh, i)	(0)
+/* TRIM Tail bytes from lfrag */
+#define PKTFRAG_TRIM_TAILBYTES(osh, p, len)	PKTSETLEN(osh, p, PKTLEN(osh, p) - len)
 
 #endif	/* _osl_h_ */

@@ -1,27 +1,9 @@
 /*
  * DHD Protocol Module for CDC and BDC.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: dhd_cdc.c 449353 2014-01-16 21:34:16Z $
+ * $Id: dhd_cdc.c 472193 2014-04-23 06:27:38Z $
  *
  * BDC is like CDC, except it includes a header for data packets to convey
  * packet priority over the bus, and flags (e.g. to indicate checksum status
@@ -379,6 +361,17 @@ dhd_prot_hdrpush(dhd_pub_t *dhd, int ifidx, void *PKTBUF)
 }
 #undef PKTBUF	/* Only defined in the above routine */
 
+uint
+dhd_prot_hdrlen(dhd_pub_t *dhd, void *PKTBUF)
+{
+	uint hdrlen = 0;
+#ifdef BDC
+	/* Length of BDC(+WLFC) headers pushed */
+	hdrlen = BDC_HEADER_LEN + (((struct bdc_header *)PKTBUF)->dataOffset * 4);
+#endif
+	return hdrlen;
+}
+
 int
 dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_info,
 	uint *reorder_info_len)
@@ -436,6 +429,13 @@ dhd_prot_hdrpull(dhd_pub_t *dhd, int *ifidx, void *pktbuf, uchar *reorder_buf_in
 	PKTPULL(dhd->osh, pktbuf, BDC_HEADER_LEN);
 #endif /* BDC */
 
+#if defined(NDISVER) && (NDISVER < 0x0630)
+	if (PKTLEN(dhd->osh, pktbuf) < (uint32) (data_offset << 2)) {
+		DHD_ERROR(("%s: rx data too short (%d < %d)\n", __FUNCTION__,
+		           PKTLEN(dhd->osh, pktbuf), (data_offset * 4)));
+		return BCME_ERROR;
+	}
+#endif /* (NDISVER < 0x0630) */
 
 #ifdef PROP_TXSTATUS
 	if (!DHD_PKTTAG_PKTDIR(PKTTAG(pktbuf))) {
@@ -498,7 +498,8 @@ dhd_prot_detach(dhd_pub_t *dhd)
 void
 dhd_prot_dstats(dhd_pub_t *dhd)
 {
-/* No stats from dongle added yet, copy bus stats */
+	/*  copy bus stats */
+
 	dhd->dstats.tx_packets = dhd->tx_packets;
 	dhd->dstats.tx_errors = dhd->tx_errors;
 	dhd->dstats.rx_packets = dhd->rx_packets;
@@ -509,7 +510,7 @@ dhd_prot_dstats(dhd_pub_t *dhd)
 }
 
 int
-dhd_prot_init(dhd_pub_t *dhd)
+dhd_sync_with_dongle(dhd_pub_t *dhd)
 {
 	int ret = 0;
 	wlc_rev_info_t revinfo;
@@ -523,13 +524,23 @@ dhd_prot_init(dhd_pub_t *dhd)
 		goto done;
 
 
+	dhd_process_cid_mac(dhd, TRUE);
+
 	ret = dhd_preinit_ioctls(dhd);
+
+	if (!ret)
+		dhd_process_cid_mac(dhd, FALSE);
 
 	/* Always assumes wl for now */
 	dhd->iswl = TRUE;
 
 done:
 	return ret;
+}
+
+int dhd_prot_init(dhd_pub_t *dhd)
+{
+	return TRUE;
 }
 
 void

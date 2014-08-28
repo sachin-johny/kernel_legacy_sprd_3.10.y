@@ -2,27 +2,9 @@
  * Generic Broadcom Home Networking Division (HND) DMA engine HW interface
  * This supports the following chips: BCM42xx, 44xx, 47xx .
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: sbhnddma.h 424099 2013-09-16 07:44:34Z $
+ * $Id: sbhnddma.h 452424 2014-01-30 09:43:39Z $
  */
 
 #ifndef	_sbhnddma_h_
@@ -346,6 +328,7 @@ typedef volatile struct {
 #define DMA_CTRL_USB_BOUNDRY4KB_WAR (1 << 4)
 #define DMA_CTRL_DMA_AVOIDANCE_WAR (1 << 5)	/* DMA avoidance WAR for 4331 */
 #define DMA_CTRL_RXSINGLE	(1 << 6)	/* always single buffer */
+#define DMA_CTRL_SDIO_RXGLOM	(1 << 7)	/* DMA Rx glome is enabled */
 
 /* receive descriptor table pointer */
 #define	D64_RP_LD_MASK		0x00001fff	/* last valid descriptor */

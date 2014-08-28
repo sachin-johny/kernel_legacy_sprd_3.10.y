@@ -1,27 +1,9 @@
 /*
  * Include file private to the SOC Interconnect support files.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: siutils_priv.h 431423 2013-10-23 16:07:35Z $
+ * $Id: siutils_priv.h 474902 2014-05-02 18:31:33Z $
  */
 
 #ifndef	_siutils_priv_h_
@@ -113,6 +95,7 @@ typedef struct si_info {
 
 	void *cores_info;
 	gci_gpio_item_t	*gci_gpio_head;	/* gci gpio interrupts head */
+	uint	chipnew;		/* new chip number */
 } si_info_t;
 
 
@@ -211,6 +194,9 @@ extern uint32 sb_set_initiator_to(si_t *sih, uint32 to, uint idx);
 
 extern bool sb_taclear(si_t *sih, bool details);
 
+#if defined(BCMDBG_PHYDUMP)
+extern void sb_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif 
 
 /* Wake-on-wireless-LAN (WOWL) */
 extern bool sb_pci_pmecap(si_t *sih);
@@ -240,13 +226,20 @@ extern void ai_core_cflags_wo(si_t *sih, uint32 mask, uint32 val);
 extern uint32 ai_core_sflags(si_t *sih, uint32 mask, uint32 val);
 extern uint ai_corereg(si_t *sih, uint coreidx, uint regoff, uint mask, uint val);
 extern void ai_core_reset(si_t *sih, uint32 bits, uint32 resetbits);
+extern void ai_d11rsdb_core_reset(si_t *sih, uint32 bits,
+	uint32 resetbits, void *p, void *s);
 extern void ai_core_disable(si_t *sih, uint32 bits);
+extern void ai_d11rsdb_core_disable(const si_info_t *sii, uint32 bits,
+	aidmp_t *pmacai, aidmp_t *smacai);
 extern int ai_numaddrspaces(si_t *sih);
 extern uint32 ai_addrspace(si_t *sih, uint asidx);
 extern uint32 ai_addrspacesize(si_t *sih, uint asidx);
 extern void ai_coreaddrspaceX(si_t *sih, uint asidx, uint32 *addr, uint32 *size);
 extern uint ai_wrap_reg(si_t *sih, uint32 offset, uint32 mask, uint32 val);
 
+#if defined(BCMDBG_PHYDUMP)
+extern void ai_dumpregs(si_t *sih, struct bcmstrbuf *b);
+#endif 
 
 
 #define ub_scan(a, b, c) do {} while (0)

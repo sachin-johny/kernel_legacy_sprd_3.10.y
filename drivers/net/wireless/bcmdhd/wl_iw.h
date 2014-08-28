@@ -1,27 +1,9 @@
 /*
  * Linux Wireless Extensions support
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: wl_iw.h 291086 2011-10-21 01:17:24Z $
+ * $Id: wl_iw.h 488316 2014-06-30 15:22:21Z $
  */
 
 #ifndef _wl_iw_h_
@@ -55,7 +37,7 @@
 #define TXPOWER_SET_CMD			"TXPOWER"
 
 #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
-#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MACSTR "%02X:%02X:%02X:%02X:%02X:%02X"
 
 /* Structure to keep global parameters */
 typedef struct wl_iw_extra_params {

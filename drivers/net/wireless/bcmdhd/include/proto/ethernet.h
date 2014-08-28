@@ -1,27 +1,9 @@
 /*
  * From FreeBSD 2.2.7: Fundamental constants relating to ethernet.
  *
- * Copyright (C) 1999-2014, Broadcom Corporation
- * 
- *      Unless you and Broadcom execute a separate written software license
- * agreement governing use of this software, this software is licensed to you
- * under the terms of the GNU General Public License version 2 (the "GPL"),
- * available at http://www.broadcom.com/licenses/GPLv2.php, with the
- * following added to such license:
- * 
- *      As a special exception, the copyright holders of this software give you
- * permission to link this software with independent modules, and to copy and
- * distribute the resulting executable under terms of your choice, provided that
- * you also meet, for each linked independent module, the terms and conditions of
- * the license of that module.  An independent module is a module which is not
- * derived from this software.  The special exception does not apply to any
- * modifications of the software.
- * 
- *      Notwithstanding the above, under no circumstances may you combine this
- * software in any way with any other Broadcom software provided under a license
- * other than the GPL, without Broadcom's express prior written consent.
+ * $Copyright Open Broadcom Corporation$
  *
- * $Id: ethernet.h 403353 2013-05-20 14:05:33Z $
+ * $Id: ethernet.h 473238 2014-04-28 19:14:56Z $
  */
 
 #ifndef _NET_ETHERNET_H_	/* use native BSD ethernet.h when available */
@@ -181,6 +163,14 @@ do { \
 	((uint16 *)(d))[0] = ((uint16 *)(s))[0]; \
 } while (0)
 
+/* Copy 14B ethernet header: 32bit aligned source and destination. */
+#define ehcopy32(s, d) \
+do { \
+	((uint32 *)(d))[0] = ((const uint32 *)(s))[0]; \
+	((uint32 *)(d))[1] = ((const uint32 *)(s))[1]; \
+	((uint32 *)(d))[2] = ((const uint32 *)(s))[2]; \
+	((uint16 *)(d))[6] = ((const uint16 *)(s))[6]; \
+} while (0)
 
 
 static const struct ether_addr ether_bcast = {{255, 255, 255, 255, 255, 255}};
