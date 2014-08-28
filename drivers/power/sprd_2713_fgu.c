@@ -784,10 +784,11 @@ static void sprdfgu_hw_init(void)
 	sprdfgu_data.init_clbcnt = poweron_clbcnt =
 	    sprdfgu_clbcnt_init(sprdfgu_data.init_cap);
 	sprdfgu_clbcnt_set(poweron_clbcnt);
-
+#if 0   //workaround chip bug
 	if (!in_calibration()) {
 		sci_adi_write(REG_FGU_CURT_OFFSET, fgu_cal.cur_offset, ~0);
 	}
+#endif
 
 	FGU_DEBUG("pocv_raw = 0x%x,pocv_voltage = %d\n", pocv_raw,
 		  sprdfgu_adc2vol_mv(pocv_raw));
