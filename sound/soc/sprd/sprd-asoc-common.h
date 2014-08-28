@@ -28,6 +28,12 @@
 #define SP_AUDIO_DEBUG_REG	(1<<2)
 #define SP_AUDIO_DEBUG_DEFAULT (SP_AUDIO_DEBUG_BASIC)
 
+#define SP_AUDIO_CODEC_NUM	(2)
+#define AUDIO_CODEC_2713	(0)
+#define AUDIO_CODEC_2723	(1)
+static const char *codec_hw_info[] =
+    { "2713", "2723" };
+
 struct snd_card;
 int sprd_audio_debug_init(struct snd_card *card);
 int get_sp_audio_debug_flag(void);
