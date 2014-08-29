@@ -544,13 +544,26 @@ static int sprdfb_remove(struct platform_device *pdev)
 	fb_free_resources(dev);
 	return 0;
 }
+#ifdef CONFIG_MACH_X3542
+ static int sprdfb_shutdown(struct platform_device *pdev)
+{
+	struct sprdfb_device *dev = platform_get_drvdata(pdev);
+	printk("sprdfb: [%s]\n",__FUNCTION__);
 
+    dev->panel->ops->panel_enter_sleep(dev->panel,1);
+
+	return 0;
+}
+#endif
 static struct platform_driver sprdfb_driver = {
 	.probe = sprdfb_probe,
 
 #ifndef CONFIG_HAS_EARLYSUSPEND
 	.suspend = sprdfb_suspend,
 	.resume = sprdfb_resume,
+#endif
+#ifdef CONFIG_MACH_X3542
+ .shutdown = sprdfb_shutdown,
 #endif
 	.remove = sprdfb_remove,
 	.driver = {
