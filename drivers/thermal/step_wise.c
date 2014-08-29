@@ -46,6 +46,7 @@
  *       if the cooling state already equals lower limit,
  *       deactive the thermal instance
  */
+#if 0
 static unsigned long get_target_state(struct thermal_instance *instance,
 				enum thermal_trend trend, bool throttle)
 {
@@ -148,6 +149,52 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 
 	mutex_unlock(&tz->lock);
 }
+#else
+
+#define TEMP_OFFSET	3
+
+static int get_trip_target(struct thermal_zone_device *tz)
+{
+	int count = 0;
+	unsigned long trip_temp;
+
+	if (tz->trips == 0 || !tz->ops->get_trip_temp)
+		return 0;
+
+	for (count = 0; count < tz->trips; count++) {
+		tz->ops->get_trip_temp(tz, count, &trip_temp);
+		printk("temp:%d, trip_temp:%d\n", tz->temperature, trip_temp);
+		if (tz->temperature < (long)trip_temp  - TEMP_OFFSET)
+			break;
+	}
+	return count;
+}
+
+static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
+{
+	struct thermal_instance *instance;
+	int target;
+
+	mutex_lock(&tz->lock);
+	list_for_each_entry(instance, &tz->thermal_instances, tz_node) {
+		if (instance->trip != trip)
+			continue;
+		target = get_trip_target(tz);
+		printk("target_state: %d\n", target);
+		if (target < instance->lower){
+			target = instance->upper;
+		}
+		if (target > instance->upper){
+			target = instance->upper;
+		}
+		instance->target  = target;
+		instance->cdev->updated = false; /* cdev needs update */
+	}
+	mutex_unlock(&tz->lock);
+
+	return;
+}
+#endif
 
 /**
  * step_wise_throttle - throttles devices asscciated with the given zone
