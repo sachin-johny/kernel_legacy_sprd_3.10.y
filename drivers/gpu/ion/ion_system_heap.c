@@ -151,6 +151,9 @@ static struct page_info *alloc_deferred_page(struct ion_system_heap *heap,
 
 		for (i = 0; i < (1 << found->order); i++)
 			clear_highpage(found->page + i);
+		arm_dma_ops.sync_single_for_device(NULL,
+			pfn_to_dma(NULL, page_to_pfn(found->page)),
+			PAGE_SIZE << found->order, DMA_BIDIRECTIONAL);
 	}
 	return found;
 }
