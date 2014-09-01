@@ -90,7 +90,7 @@
 #if(defined(CONFIG_INPUT_HEADSET_SPRD_SC2723)||defined(CONFIG_INPUT_HEADSET_SPRD_SC2723_MODULE))
 #include <linux/headset_sprd_sc2723.h>
 #endif
-
+extern void bluesleep_setup_uart_port(struct platform_device *uart_dev);
 extern void __init sci_reserve(void);
 extern void __init sci_map_io(void);
 extern void __init sci_init_irq(void);
@@ -398,10 +398,10 @@ static struct platform_device *devices[] __initdata = {
 	&sprd_axi_bm1_device,
 	&sprd_axi_bm2_device,
 #endif
-#if 0
+
 	&rfkill_device,
 	&brcm_bluesleep_device,
-#endif
+
 #ifdef CONFIG_SIPC_TD
 	&sprd_cproc_td_device,
 	&sprd_spipe_td_device,
@@ -1084,6 +1084,7 @@ static void __init sc8830_init_machine(void)
 #else
 	of_platform_populate(NULL, of_sprd_default_bus_match_table, of_sprd_default_bus_lookup, NULL);
 #endif
+       // bluesleep_setup_uart_port(&sprd_serial_device0);
 }
 
 #ifdef CONFIG_OF

@@ -306,6 +306,13 @@
 		gpios = <&d_gpio_gpio 131 0  /* power */
 			&d_gpio_gpio 122 0>;  /* reset */
 	 };
+
+        bluesleep {
+               compatible = "broadcom,bluesleep";
+               bt-wake-gpio = <&d_gpio_gpio 132 0>;  /*GPIO_AP2BT_WAKE*/
+               host-wake-gpio = <&d_gpio_gpio 133 0>; /*GPIO_BT2AP_WAKE*/
+         };
+
 	 sprd_vsp@f5300000{
                  compatible = "sprd,sprd_vsp";
                  reg = <0Xf5300000 0xc000>;

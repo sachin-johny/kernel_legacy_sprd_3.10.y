@@ -810,6 +810,19 @@ static int serial_sprd_probe(struct platform_device *pdev)
 	return ret;
 }
 
+struct uart_port * serial_get_uart_port(int uart_index)
+{
+	int i = 0;
+	for(i= 0;i < UART_NR_MAX;i++){
+		if(serial_sprd_ports[i]->line == uart_index){
+			return serial_sprd_ports[uart_index];
+		}
+	}
+	return NULL;	
+}
+EXPORT_SYMBOL(serial_get_uart_port);
+
+
 static int serial_sprd_remove(struct platform_device *dev)
 {
 	struct uart_port *up = platform_get_drvdata(dev);
