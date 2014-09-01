@@ -50,7 +50,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 
 #ifdef CONFIG_TOUCHSCREEN_FIRMWARE_UPGRADE
 static unsigned char CTPM_FW[] = {
-#include "Ft5x16_720P_Ver0x0f_app.h"
+#include "FT6x06_4Column_V02_20140901_app.h"
 };
 #else
 static unsigned char CTPM_FW[] = {
