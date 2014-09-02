@@ -343,8 +343,8 @@ config MACH_PIKELFPGA
         help
           PIKEL fpga board based on shark-l serial.
 
-config MACH_SPX35L
-        bool "spx35l Board"
+config MACH_SP9630EA
+        bool "sp9630ea Board"
         depends on ARCH_SC
         depends on ARCH_SCX35
         depends on ARCH_SCX35L

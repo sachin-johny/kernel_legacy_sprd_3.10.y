@@ -95,5 +95,5 @@ obj-$(CONFIG_SPRD_AVS_DEBUG) += avs_debug.o
 obj-$(CONFIG_SPRD_AUX_DEBUG) += aux_debug.o
 obj-$(CONFIG_MACH_SPX35LFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_PIKELFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
-obj-$(CONFIG_MACH_SPX35L) += board-sp9630.o dma_r4p0.o mailbox.o 
+obj-$(CONFIG_MACH_SP9630EA) += board-sp9630ea.o dma_r4p0.o mailbox.o
 

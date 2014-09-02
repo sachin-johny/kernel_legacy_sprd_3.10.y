@@ -38,7 +38,7 @@
 #include <mach/cpuidle.h>
 #include <linux/dma-mapping.h>
 //#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
-#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA) && !(CONFIG_MACH_SPX35L)
+#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA) && !(CONFIG_MACH_SP9630EA)
  #define DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
 #endif
 

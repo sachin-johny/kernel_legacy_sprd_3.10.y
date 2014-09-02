@@ -122,8 +122,8 @@
 #include "__board-sp8830fpga.h"
 #endif
 
-#ifdef CONFIG_MACH_SPX35L
-#include "__board-sp9630.h"
+#ifdef CONFIG_MACH_SP9630EA
+#include "__board-sp9630ea.h"
 #endif
 
 #ifdef	CONFIG_MACH_SP7735EC

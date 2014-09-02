@@ -463,7 +463,7 @@ static struct platform_device *devices[] __initdata = {
 };
 
 static struct platform_device *late_devices[] __initdata = {
-#if defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA) || defined(CONFIG_MACH_SPX35L)
+#if defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA) || defined(CONFIG_MACH_SP9630EA)
 	/* 1. CODECS */
 	&sprd_audio_sprd_codec_device,
 	&sprd_audio_null_codec_device,
