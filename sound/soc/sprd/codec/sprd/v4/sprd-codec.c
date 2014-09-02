@@ -1137,6 +1137,8 @@ static inline void sprd_codec_pa_en(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
 	spin_lock(&sprd_codec->sprd_codec_pa_sw_lock);
 	if (on) {
+		/* delay 20ms as weifeng's suggestion to avoid pop noise from spk */
+		sprd_codec_wait(20);
 		mask = BIT(PA_EN);
 		val = mask;
 	} else {
