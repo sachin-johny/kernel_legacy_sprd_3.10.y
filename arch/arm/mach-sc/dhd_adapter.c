@@ -54,7 +54,7 @@
 #define WLAN_SKB_BUF_NUM	16
 #define IFHWADDRLEN        	6
 
-#define CUSTOMER_MAC_FILE "/data/wifimac.txt"
+#define CUSTOMER_MAC_FILE "/data/misc/wifi/wifimac.txt"
 
 extern void * dhd_os_open_image(char *filename);
 extern int  dhd_os_get_image_block(char *buf, int len, void *image);
