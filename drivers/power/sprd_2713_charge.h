@@ -37,7 +37,7 @@
 void sprdchg_timer_enable(uint32_t cycles);
 void sprdchg_timer_disable(void);
 int sprdchg_timer_init(int (*fn_cb) (void *data), void *data);
-void sprdchg_init(struct platform_device *pdev);
+void sprdchg_init(struct sprd_battery_platform_data *pdata);
 int sprdchg_read_temp(void);
 int sprdchg_read_temp_adc(void);
 uint32_t sprdchg_read_vchg_vol(void);

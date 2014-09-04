@@ -254,6 +254,8 @@
 		capacity-min = <10>;
 		fg-irq-attr = <0>;
 		fuel-alert-soc = <1000>;
+		chg_bat_safety_vol = <4600>;
+		soft_vbat_uvlo = <3050>;
 		vmode = <0>; /* 1=Voltage mode, 0=mixed mode */
 		alm_soc = <5>; /* SOC alm level %*/
 		alm_vbat = <3500>; /* Vbat alm level mV*/
@@ -262,6 +264,7 @@
 		rsense_real = <200>; /* sense resistor 0.1mOhm from real environment*/
 		rsense_spec = <200>; /* sense resistor 0.1mOhm from specification*/
 		relax_current = <50>; /* current for relaxation in mA (< C/20) */
+		cal_ajust = <0>; /* ajust calibration data */
 		ocv_table = <4386 100
 					4332 95
 					4277 90

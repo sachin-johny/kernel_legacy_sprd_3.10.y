@@ -34,7 +34,7 @@
 #define SPRDBAT_CHG_END_TIMEOUT_BIT		(1 << 3)
 #define SPRDBAT_CHG_END_OVP_BIT		(1 << 4)
 
-#define SPRDBAT_AVERAGE_COUNT   3
+//#define SPRDBAT_AVERAGE_COUNT   3
 
 #define SPRDBAT_AUXADC_CAL_TYPE_NO         0
 #define SPRDBAT_AUXADC_CAL_TYPE_NV         1
@@ -102,6 +102,7 @@ struct sec_chg_info {
 };
 #endif
 
+#if 0
 struct sprdbat_auxadc_cal {
 	uint16_t p0_vol;	//4.2V
 	uint16_t p0_adc;
@@ -109,6 +110,7 @@ struct sprdbat_auxadc_cal {
 	uint16_t p1_adc;
 	uint16_t cal_type;
 };
+#endif
 #endif /* __SPRD27X3_CHARGER4SAMSUNG_H */
 
 

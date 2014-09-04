@@ -177,10 +177,10 @@ static int __init adc_cal_start(char *str)
 __setup("adc_cal", adc_cal_start);
 #include <linux/gpio.h>
 
-void sprdchg_init(struct platform_device *pdev)
+void sprdchg_init(struct sprd_battery_platform_data *pdata)
 {
-	struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
-	pbat_data = data->pdata;
+	//struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
+	pbat_data = pdata;
 
 	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,

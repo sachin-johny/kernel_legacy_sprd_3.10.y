@@ -1109,6 +1109,7 @@ static void sprdbat_update_capacty(void)
 	if (fgu_capacity != sprdbat_data->bat_info.capacity) {
 		sprdbat_data->bat_info.capacity = fgu_capacity;
 		sprdbat_update_capacity_time = cur_time.tv_sec;
+		sprdfgu_record_cap(sprdbat_data->bat_info.capacity);
 		power_supply_changed(&sprdbat_data->battery);
 	}
 
@@ -2055,8 +2056,8 @@ static int sprdbat_probe(struct platform_device *pdev)
 
 	sprdchg_set_chg_ovp(data->pdata->ovp_stop);
 
-	sprdchg_init(pdev);
-	sprdfgu_init(pdev);
+	sprdchg_init(data->pdata);
+	sprdfgu_init(data->pdata);
 
 #ifdef CONFIG_LEDS_TRIGGERS
 	data->charging_led.name = "sprdbat_charging_led";

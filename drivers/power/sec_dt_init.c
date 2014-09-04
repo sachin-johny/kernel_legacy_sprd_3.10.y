@@ -975,6 +975,10 @@ int sec_chg_dt_init(struct device_node *np,
 	return 0;
 }
 
+#ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
+struct battery_data_t bat_data;
+#endif
+
 int sec_fg_dt_init(struct device_node *np,
 			 struct device *dev,
 			 sec_battery_platform_data_t *pdata)
@@ -1004,7 +1008,7 @@ int sec_fg_dt_init(struct device_node *np,
 
 #ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
 	{
-		struct battery_data_t *battery_data;
+		struct sprd_battery_platform_data *battery_data;
 		int len, i;
 		uint32_t cell_value;
 		struct device_node *temp_np = NULL;
@@ -1014,36 +1018,33 @@ int sec_fg_dt_init(struct device_node *np,
 		if (!temp_np) {
 			return ERR_PTR(-EINVAL);
 		}
-		battery_data->fgu_irq = irq_of_parse_and_map(temp_np, 0);
-		of_property_read_u32(np, "vmod", &battery_data->vmode);
+		battery_data->irq_fgu = irq_of_parse_and_map(temp_np, 0);
+		of_property_read_u32(np, "chg_bat_safety_vol", &battery_data->chg_bat_safety_vol);
+		of_property_read_u32(np, "soft_vbat_uvlo", &battery_data->soft_vbat_uvlo);
+		of_property_read_u32(np, "vmod", &battery_data->fgu_mode);
 		of_property_read_u32(np, "alm_soc", &battery_data->alm_soc);
-		of_property_read_u32(np, "alm_vbat", &battery_data->alm_vbat);
+		of_property_read_u32(np, "alm_vbat", &battery_data->alm_vol);
 		of_property_read_u32(np, "rint", &battery_data->rint);
 		of_property_read_u32(np, "cnom", &battery_data->cnom);
 		of_property_read_u32(np, "rsense_real", &battery_data->rsense_real);
 		of_property_read_u32(np, "rsense_spec", &battery_data->rsense_spec);
 		of_property_read_u32(np, "relax_current", &battery_data->relax_current);
+		of_property_read_u32(np, "cal_ajust", &battery_data->fgu_cal_ajust);
 		of_get_property(np, "ocv_table", &len);
 		len /= sizeof(u32);
+		battery_data->ocv_tab_size = len >> 1;
+		battery_data->ocv_tab = kzalloc(sizeof(struct sprdbat_table_data) *
+				 battery_data->ocv_tab_size, GFP_KERNEL);
 		for (i = 0; i < len; i++) {
 			of_property_read_u32_index(np, "ocv_table", i, &cell_value);
-			battery_data->ocv_table[i >> 1][i & 0x01] = cell_value;
-			if (0) {
-				char buf[128], *p;
-				switch (i & 0x01) {
-					case 0:
-						memset(buf, 0, sizeof buf);
-						p = buf;
-						p += sprintf(p, "ocv_table[%d] = { %d,", i >> 1, cell_value);
-						break;
-					case 1:
-						p += sprintf(p, "%d }\n", cell_value);
-						pr_info("%s", buf);
-						break;
-				}
-			}
+                   if(i&0x1) {
+			    battery_data->ocv_tab[i >> 1].y = cell_value;
+                    } else {
+                        battery_data->ocv_tab[i >> 1].x = cell_value;
+                    }
 		}
-		pdata->battery_data = battery_data;
+		bat_data.pdata = battery_data;
+		pdata->battery_data = &bat_data;
 	}
 #endif
 

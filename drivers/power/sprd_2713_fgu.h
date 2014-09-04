@@ -1,7 +1,7 @@
 
 #ifndef _SPRD_2713_FGU_H_
 #define _SPRD_2713_FGU_H_
-
+#include <linux/sprd_battery_common.h>
 #include <linux/types.h>
 #if defined(CONFIG_SPRD_2713_POWER) || defined(CONFIG_SPRD_EXT_IC_POWER)
 #include "sprd_2713_charge.h"
@@ -11,7 +11,9 @@
 #define SPRDBAT_FGUADC_CAL_NV         1
 #define SPRDBAT_FGUADC_CAL_CHIP      2
 
-int sprdfgu_init(struct platform_device *pdev);
+int sprdfgu_init(struct sprd_battery_platform_data *pdata);
+int sprdfgu_reset(void);
+void sprdfgu_record_cap(u32 cap);
 uint32_t sprdfgu_read_capacity(void);
 uint32_t sprdfgu_poweron_capacity(void);
 int sprdfgu_read_soc(void);

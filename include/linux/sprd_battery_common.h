@@ -10,6 +10,9 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
+#ifndef _SPRD_BATTERY_COMMON_H_
+#define _SPRD_BATTERY_COMMON_H_
+
 #include <linux/types.h>
 #include <linux/power_supply.h>
 
@@ -90,3 +93,4 @@ struct sprd_battery_platform_data {
 	int ocv_tab_size;
 	void *ext_data;		/*reserved, other battery data,fg ic data,and so on */
 };
+#endif

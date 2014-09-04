@@ -1336,8 +1336,8 @@ static int sprdbat_probe(struct platform_device *pdev)
 
 	sprdchg_timer_init(sprdbat_timer_handler,data);
 //	sprdchg_set_chg_ovp(data->bat_param.ovp_stop);
-	sprdchg_init(pdev);
-	sprdfgu_init(pdev);
+	sprdchg_init(data->pdata);
+	sprdfgu_init(data->pdata);
 
 #ifdef CONFIG_LEDS_TRIGGERS
 	data->charging_led.name = "sprdbat_charging_led";

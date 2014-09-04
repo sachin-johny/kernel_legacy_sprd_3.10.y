@@ -71,6 +71,13 @@
 #define REG_FGU_OCV_LAST_CNT            SCI_ADDR(REGS_FGU_BASE, 0x008c)
 #define REG_FGU_CURT_OFFSET             SCI_ADDR(REGS_FGU_BASE, 0x0090)
 
+#define REG_FGU_USER_AREA_SET             SCI_ADDR(REGS_FGU_BASE, 0x00A0)
+#define REG_FGU_USER_AREA_CLEAR             SCI_ADDR(REGS_FGU_BASE, 0x00A4)
+#define REG_FGU_USER_AREA_STATUS             SCI_ADDR(REGS_FGU_BASE, 0x00A8)
+
+#define BITS_POWERON_TYPE(_x_)           ( (_x_) << 12 & (0xF000))
+#define BITS_RTC_AREA(_x_)           ( (_x_) << 0 & (0xFFF) )
+
 /* bits definitions for register REG_FGU_START */
 #define BIT_QMAX_UPDATE_EN              ( BIT(2) )
 #define BIT_FGU_RESET                   ( BIT(1) )
@@ -163,6 +170,9 @@
 
 #define FGU_CUR_SAMPLE_HZ   2
 
+#define FIRST_POWERTON  0xF
+#define NORMAIL_POWERTON  0x5
+#define WDG_POWERTON  0xA
 struct sprdfgu_drivier_data {
 	struct sprd_battery_platform_data *pdata;
 	int adp_status;
@@ -170,6 +180,7 @@ struct sprdfgu_drivier_data {
 	int shutdown_vol;
 	int bat_full_vol;
 	int cur_rint;
+	int poweron_rint;
 	int init_cap;
 	int init_clbcnt;
 	unsigned int int_status;
@@ -327,6 +338,37 @@ static u32 sprdfgu_cur2adc_ma(u32 cur)
 	return (cur * fgu_cal.cur_1000ma_adc) / 1000;
 }
 
+#if defined(CONFIG_ADIE_SC2723S) || defined(CONFIG_ADIE_SC2723)
+static void sprdfgu_rtc_reg_write(uint32_t val)
+{
+	sci_adi_write(REG_FGU_USER_AREA_CLEAR, BITS_RTC_AREA(~val),
+		      BITS_RTC_AREA(~0));
+	sci_adi_write(REG_FGU_USER_AREA_SET, BITS_RTC_AREA(val),
+		      BITS_RTC_AREA(~0));
+}
+
+static uint32_t sprdfgu_rtc_reg_read(void)
+{
+	int shft = __ffs(BITS_RTC_AREA(~0));
+	return (sci_adi_read(REG_FGU_USER_AREA_STATUS) & BITS_RTC_AREA(~0)) >>
+	    shft;
+}
+
+static void sprdfgu_poweron_type_write(uint32_t val)
+{
+	sci_adi_write(REG_FGU_USER_AREA_CLEAR, BITS_POWERON_TYPE(~val),
+		      BITS_POWERON_TYPE(~0));
+	sci_adi_write(REG_FGU_USER_AREA_SET, BITS_POWERON_TYPE(val),
+		      BITS_POWERON_TYPE(~0));
+}
+
+static uint32_t sprdfgu_poweron_type_read(void)
+{
+	int shft = __ffs(BITS_POWERON_TYPE(~0));
+	return (sci_adi_read(REG_FGU_USER_AREA_STATUS) & BITS_POWERON_TYPE(~0))
+	    >> shft;
+}
+#endif
 static inline int sprdfgu_clbcnt_get(void)
 {
 	volatile int cc1 = 0, cc2 = 1;
@@ -407,7 +449,7 @@ static inline int sprdfgu_cur_current_get(void)
 	current_raw = sprdfgu_reg_get(REG_FGU_CURT_VAL);
 	//FGU_DEBUG("current_raw: %d\n", current_raw);
 
-	return sprdfgu_adc2cur_ma(current_raw - 0x2000);
+	return sprdfgu_adc2cur_ma(current_raw - CUR_0ma_IDEA_ADC);
 }
 
 int sprdfgu_read_batcurrent(void)
@@ -479,6 +521,11 @@ int sprdfgu_read_soc(void)
 			sprdfgu_soc_adjust(100);
 		}
 	}
+
+	if (capcity_delta > 100) {
+		capcity_delta = 100;
+		sprdfgu_soc_adjust(100);
+	}
 	if (capcity_delta <= sprdfgu_data.warning_cap
 	    && cur_ocv > sprdfgu_data.pdata->alm_vol) {
 		FGU_DEBUG("sprdfgu_read_soc soc low...\n");
@@ -486,8 +533,8 @@ int sprdfgu_read_soc(void)
 		sprdfgu_soc_adjust(capcity_delta);
 	} else if (capcity_delta <= 0 && cur_ocv > sprdfgu_data.shutdown_vol) {
 		FGU_DEBUG("sprdfgu_read_soc soc 0...\n");
-		sprdfgu_soc_adjust(sprdfgu_vol2capacity(cur_ocv));
-		capcity_delta = sprdfgu_vol2capacity(cur_ocv);
+		capcity_delta = 1;
+		sprdfgu_soc_adjust(capcity_delta);
 	} else if (cur_ocv < sprdfgu_data.shutdown_vol) {
 		FGU_DEBUG("sprdfgu_read_soc vol 0...\n");
 		capcity_delta = 0;
@@ -590,12 +637,12 @@ static void sprdfgu_cal_battery_impedance(void)
 
 	impedance = abs(temp);
 	if (impedance > 100) {
-		sprdfgu_data.cur_rint = impedance;
+		sprdfgu_data.poweron_rint = impedance;
 	} else {
 		printk("sprdfgu: impedance warning: %d!\n", impedance);
 	}
-	printk("sprdfgu: fgu sprdfgu_data.cur_rint: %d!\n",
-	       sprdfgu_data.cur_rint);
+	printk("sprdfgu: fgu sprdfgu_data.poweron_rint: %d!\n",
+	       sprdfgu_data.poweron_rint);
 }
 
 uint32_t sprdfgu_read_capacity(void)
@@ -768,7 +815,30 @@ static void sprdfgu_hw_init(void)
 	current_raw = sprdfgu_reg_get(REG_FGU_CURT_VAL);
 	start_time = sci_syst_read();
 
-//#if !defined(CONFIG_ARCH_SCX15)
+#if defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
+        FGU_DEBUG("REG_FGU_USER_AREA_STATUS- = 0x%x\n",
+              sci_adi_read(REG_FGU_USER_AREA_STATUS));
+        if ((FIRST_POWERTON == sprdfgu_poweron_type_read())
+            || (sprdfgu_rtc_reg_read() == 0xFFF)) {
+            FGU_DEBUG("FIRST_POWERTON- = 0x%x\n",
+                  sprdfgu_poweron_type_read());
+            {
+                int poci_raw = sprdfgu_reg_get(REG_FGU_CLBCNT_QMAXL) << 1;
+                int poci_curr = sprdfgu_adc2cur_ma(poci_raw - CUR_0ma_IDEA_ADC + fgu_cal.cur_offset);
+                uint32_t p_ocv = sprdfgu_adc2vol_mv(pocv_raw) -
+                    (poci_curr * sprdfgu_data.poweron_rint) / 1000;
+                sprdfgu_data.init_cap = sprdfgu_vol2capacity(p_ocv);
+                FGU_DEBUG("poci_raw:0x%x,poci_current:%d,p_softocv:%d,sprdfgu_data.init_cap:%d\n", poci_raw,poci_curr,
+                      p_ocv, sprdfgu_data.init_cap);
+            }
+            sprdfgu_rtc_reg_write(sprdfgu_data.init_cap);
+        } else {
+            sprdfgu_data.init_cap = sprdfgu_rtc_reg_read();
+            FGU_DEBUG("NORMAIL_POWERTON-- sprdfgu_data.init_cap= %d\n", sprdfgu_data.init_cap);
+        }
+        sprdfgu_poweron_type_write(NORMAIL_POWERTON);
+
+#else
 	{
 		uint32_t soft_ocv = sprdfgu_read_vbat_vol() -
 		    (sprdfgu_adc2cur_ma
@@ -776,10 +846,7 @@ static void sprdfgu_hw_init(void)
 		      fgu_cal.cur_offset) * sprdfgu_data.cur_rint) / 1000;
 		sprdfgu_data.init_cap = sprdfgu_vol2capacity(soft_ocv);
 	}
-	//sprdfgu_data.init_cap = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
-//#else
-//      sprdfgu_data.init_cap = sprdfgu_vol2capacity(sprdfgu_adc2vol_mv(pocv_raw)+SPRDFGU_POCV_VOL_ADJUST);
-//#endif
+#endif
 
 	sprdfgu_data.init_clbcnt = poweron_clbcnt =
 	    sprdfgu_clbcnt_init(sprdfgu_data.init_cap);
@@ -797,9 +864,10 @@ static void sprdfgu_hw_init(void)
 	FGU_DEBUG("ocv_raw: 0x%x,ocv voltage = %d\n", ocv_raw,
 		  sprdfgu_adc2vol_mv(ocv_raw));
 	FGU_DEBUG("current_raw: 0x%x,current = %d\n", current_raw,
-		  sprdfgu_adc2cur_ma(current_raw - 0x2000));
+		  sprdfgu_adc2cur_ma(current_raw - CUR_0ma_IDEA_ADC));
 	FGU_DEBUG("poweron_clbcnt: 0x%x,cur_cc0x%x\n", poweron_clbcnt,
 		  sprdfgu_clbcnt_get());
+	FGU_DEBUG("sprdfgu_data.poweron_rint = %d\n", sprdfgu_data.poweron_rint);
 
 }
 
@@ -937,13 +1005,13 @@ static int sprdfgu_power_get_property(struct power_supply *psy,
 	return -EINVAL;
 }
 
-int sprdfgu_init(struct platform_device *pdev)
+int sprdfgu_init(struct sprd_battery_platform_data *pdata)
 {
 	int ret = 0;
 	int temp;
-	struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
+	//struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
 
-	sprdfgu_data.pdata = data->pdata;
+	sprdfgu_data.pdata = pdata;
 	sprdfgu_data.warning_cap =
 	    sprdfgu_vol2capacity(sprdfgu_data.pdata->alm_vol);
 	temp = sprdfgu_data.pdata->ocv_tab_size;
@@ -951,6 +1019,7 @@ int sprdfgu_init(struct platform_device *pdev)
 
 	sprdfgu_data.bat_full_vol = sprdfgu_data.pdata->ocv_tab[0].x;
 	sprdfgu_data.cur_rint = sprdfgu_data.pdata->rint;
+	sprdfgu_data.poweron_rint = sprdfgu_data.pdata->rint;
 
 	if (fgu_cal.cal_type == SPRDBAT_FGUADC_CAL_NO) {
 		sprdfgu_cal_from_chip();	//try to find cal data from efuse
@@ -960,7 +1029,7 @@ int sprdfgu_init(struct platform_device *pdev)
 
 	sprdfgu_data.sprdfgu.name = "sprdfgu";
 	sprdfgu_data.sprdfgu.get_property = sprdfgu_power_get_property;
-	ret = power_supply_register(&pdev->dev, &sprdfgu_data.sprdfgu);
+	ret = power_supply_register(NULL, &sprdfgu_data.sprdfgu);
 	if (ret) {
 		pr_err("register power supply error!\n");
 		return -EFAULT;
@@ -975,4 +1044,22 @@ int sprdfgu_init(struct platform_device *pdev)
 	schedule_delayed_work(&sprdfgu_debug_work, sprdfgu_debug_log_time * HZ);
 	FGU_DEBUG("sprdfgu_init end\n");
 	return ret;
+}
+int sprdfgu_reset(void)
+{
+	start_time = sci_syst_read();
+	sprdfgu_data.init_cap = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
+
+	sprdfgu_rtc_reg_write(sprdfgu_data.init_cap);
+	sprdfgu_data.init_clbcnt = poweron_clbcnt =
+	    sprdfgu_clbcnt_init(sprdfgu_data.init_cap);
+	sprdfgu_clbcnt_set(poweron_clbcnt);
+
+	return 0;
+}
+void sprdfgu_record_cap(u32 cap)
+{
+#if defined(CONFIG_ADIE_SC2723S) || defined(CONFIG_ADIE_SC2723)
+	sprdfgu_rtc_reg_write(cap);
+#endif
 }
