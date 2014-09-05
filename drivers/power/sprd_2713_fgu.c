@@ -1049,8 +1049,9 @@ int sprdfgu_reset(void)
 {
 	start_time = sci_syst_read();
 	sprdfgu_data.init_cap = sprdfgu_vol2capacity(sprdfgu_read_vbat_ocv());
-
+#if defined(CONFIG_ADIE_SC2723S) || defined(CONFIG_ADIE_SC2723)
 	sprdfgu_rtc_reg_write(sprdfgu_data.init_cap);
+#endif
 	sprdfgu_data.init_clbcnt = poweron_clbcnt =
 	    sprdfgu_clbcnt_init(sprdfgu_data.init_cap);
 	sprdfgu_clbcnt_set(poweron_clbcnt);
