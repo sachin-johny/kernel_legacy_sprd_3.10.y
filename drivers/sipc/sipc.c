@@ -140,6 +140,7 @@ struct sipc_child_node_info {
 };
 
 struct sipc_init_data {
+        int is_alloc;
 	uint32_t chd_nr;
 	uint32_t smem_base;
 	uint32_t smem_size;
@@ -229,6 +230,7 @@ static int sipc_parse_dt(struct sipc_init_data **init, struct device *dev)
 		return -ENOMEM;
 	}
 
+        pdata->is_alloc = 1;
 	ret = of_address_to_resource(np, 0, &res);
 	if (ret) {
 		goto error;
@@ -335,7 +337,11 @@ error:
 
 static void sipc_destroy_pdata(struct sipc_init_data **ppdata)
 {
-	return;
+    struct sipc_init_data *pdata = ppdata;
+    if (pdata && pdata->is_alloc) {
+           kfree(pdata);
+       }
+    return;
 }
 
 static int sipc_probe(struct platform_device *pdev)
