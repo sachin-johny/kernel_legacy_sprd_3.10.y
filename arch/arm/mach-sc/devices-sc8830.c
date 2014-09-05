@@ -1370,6 +1370,39 @@ struct sysdump_mem sprd_dump_mem[] = {
 	},
 #endif
 #elif defined(CONFIG_ARCH_SCX35L)
+	{
+		.paddr          = CONFIG_PHYS_OFFSET,
+		.vaddr          = PAGE_OFFSET,
+		.soff           = 0xffffffff,
+		.size           = GGE_START_ADDR - CONFIG_PHYS_OFFSET,
+		.type           = SYSDUMP_RAM,
+	},
+	{
+		.paddr		= GGE_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(GGE_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= GGE_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_GGE
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+	{
+		.paddr		= LTE_START_ADDR,
+		.vaddr		= PAGE_OFFSET +
+					(LTE_START_ADDR - CONFIG_PHYS_OFFSET),
+		.soff		= 0xffffffff,
+		.size		= LTE_TOTAL_SIZE,
+#ifdef CONFIG_SIPC_LTE
+		.type		= SYSDUMP_MODEM,
+#else
+		.type		= SYSDUMP_RAM,
+#endif
+	},
+
+#else
 
 	{
 		.paddr		= CONFIG_PHYS_OFFSET,
@@ -1410,56 +1443,17 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.type		= SYSDUMP_RAM,
 #endif
 	},
+#endif
+#ifdef CONFIG_ARCH_SCX35L
 	{
-		.paddr		= CPW_START_ADDR+CPW_TOTAL_SIZE,
+		.paddr		= LTE_START_ADDR + LTE_TOTAL_SIZE,
 		.vaddr		= PAGE_OFFSET +
-					(CPW_START_ADDR + CPW_TOTAL_SIZE - CONFIG_PHYS_OFFSET),
+						(LTE_START_ADDR + LTE_TOTAL_SIZE - CONFIG_PHYS_OFFSET),
 		.soff		= 0xffffffff,
-		.size		= WCN_START_ADDR-(CPW_START_ADDR+CPW_TOTAL_SIZE),
+		.size		= 0,
 		.type		= SYSDUMP_RAM,
 	},
 #else
-
-	{
-		.paddr		= CONFIG_PHYS_OFFSET,
-		.vaddr		= PAGE_OFFSET,
-		.soff		= 0xffffffff,
-		.size		= CPT_START_ADDR - CONFIG_PHYS_OFFSET,
-		.type	 	= SYSDUMP_RAM,
-	},
-	{
-		.paddr		= CPT_START_ADDR,
-		.vaddr		= PAGE_OFFSET +
-					(CPT_START_ADDR - CONFIG_PHYS_OFFSET),
-		.soff		= 0xffffffff,
-		.size		= CPT_TOTAL_SIZE,
-#ifdef CONFIG_SIPC_TD
-		.type		= SYSDUMP_MODEM,
-#else
-		.type		= SYSDUMP_RAM,
-#endif
-	},
-	{
-		.paddr		= CPT_START_ADDR + CPT_TOTAL_SIZE,
-		.vaddr		= PAGE_OFFSET +
-					(CPT_START_ADDR + CPT_TOTAL_SIZE - CONFIG_PHYS_OFFSET),
-		.soff		= 0xffffffff,
-		.size		= CPW_START_ADDR - (CPT_START_ADDR + CPT_TOTAL_SIZE),
-		.type		= SYSDUMP_RAM,
-	},
-	{
-		.paddr		= CPW_START_ADDR,
-		.vaddr		= PAGE_OFFSET +
-					(CPW_START_ADDR - CONFIG_PHYS_OFFSET),
-		.soff		= 0xffffffff,
-		.size		= CPW_TOTAL_SIZE,
-#ifdef CONFIG_SIPC_WCDMA
-		.type		= SYSDUMP_MODEM,
-#else
-		.type		= SYSDUMP_RAM,
-#endif
-	},
-#endif
 	{
 		.paddr		= WCN_START_ADDR,
 		.vaddr		= PAGE_OFFSET +
@@ -1480,6 +1474,7 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.size		= 0, /* fill this dynamically according to real ram size */
 		.type		= SYSDUMP_RAM,
 	},
+#endif
 	{
 		.paddr		= SPRD_AHB_PHYS,
 		.vaddr		= SPRD_AHB_BASE,
