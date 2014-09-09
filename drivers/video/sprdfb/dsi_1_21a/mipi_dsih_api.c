@@ -20,6 +20,9 @@
 #define NULL_PACKET_OVERHEAD 	6
 #define SHORT_PACKET			4
 #define BLANKING_PACKET         6
+
+#define SPRDFB_MIPI_READ_COUNT_MAX 100
+
 /** Version supported by this driver */
 static const uint32_t mipi_dsih_supported_versions[] = {0x3132302A, 0x3132312A};
 static const uint32_t mipi_dsih_no_of_versions = sizeof(mipi_dsih_supported_versions) / sizeof(uint32_t);
@@ -1122,6 +1125,7 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
 	{
 		return 0;
 	}
+
 #ifndef FB_CHECK_ESD_IN_VFP
 	/* make sure command mode is on */
 	mipi_dsih_cmd_mode(instance, 1);
@@ -1153,7 +1157,8 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
 		{
 			if (!mipi_dsih_hal_gen_read_fifo_empty(instance))
 			{
-				for (counter = 0; (!mipi_dsih_hal_gen_read_fifo_empty(instance)); counter += 4)
+				for (counter = 0; (!mipi_dsih_hal_gen_read_fifo_empty(instance) && (counter < SPRDFB_MIPI_READ_COUNT_MAX)); counter += 4)
+				//for (counter = 0; (!mipi_dsih_hal_gen_read_fifo_empty(instance)); counter += 4)
 				{
 					err_code = mipi_dsih_hal_gen_read_payload(instance, temp);
 					if (err_code)
@@ -1191,6 +1196,11 @@ uint16_t mipi_dsih_gen_rd_packet(dsih_ctrl_t * instance, uint8_t vc, uint8_t dat
 						}
 					}
 				}
+
+				if(counter >=  SPRDFB_MIPI_READ_COUNT_MAX){
+					printk("sprdfb: read too many buffers!\n");
+				}
+
 				return last_count + 1;
 			}
 #ifdef FB_CHECK_ESD_IN_VFP

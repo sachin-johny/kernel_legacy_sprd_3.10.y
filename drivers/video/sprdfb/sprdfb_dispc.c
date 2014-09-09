@@ -1327,6 +1327,14 @@ static void sprdfb_dispc_clean_lcd (struct sprdfb_device *dev)
 	dispc_run(dev);
 	//dispc_osd_enable(true);
 	up(&dev->refresh_lock);
+	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
+		dispc_sync(dev);
+	}
+#ifdef CONFIG_FB_TRIPLE_FRAMEBUFFER
+	else{
+		dispc_sync(dev);
+	}
+#endif
 	mdelay(30);
 }
 

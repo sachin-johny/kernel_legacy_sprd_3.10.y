@@ -40,6 +40,28 @@ void dsi_disable(void)
 #endif
 }
 
+#if 0
+void dsi_print_global_config(void)
+{
+	u32 reg_val0, reg_val1;
+#ifdef CONFIG_FB_SCX30G
+	u32 reg_val2;
+#endif
+	reg_val0 = sci_glb_read(REG_AP_AHB_MISC_CKG_EN, 0xffffffff);
+	reg_val1 = sci_glb_read(DSI_REG_EB, 0xffffffff);
+#ifdef CONFIG_FB_SCX30G
+	reg_val2 = sci_glb_read(REG_AON_APB_PWR_CTRL, 0xffffffff);
+#endif
+
+#ifdef CONFIG_FB_SCX30G
+	printk("sprdfb: dsi: 0x20D00040 = 0x%x, 0x20D00000 = 0x%x, 0x402E0024 = 0x%x\n",
+		reg_val0, reg_val1, reg_val2);
+#else
+	printk("sprdfb: dsi: 0x20D00040 = 0x%x, 0x20D00000 = 0x%x\n",
+		reg_val0, reg_val1);
+#endif
+}
+#endif
 
 void dispc_print_clk(void)
 {

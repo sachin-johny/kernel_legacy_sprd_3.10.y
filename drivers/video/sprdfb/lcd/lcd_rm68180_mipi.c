@@ -140,9 +140,56 @@ static int32_t rm68180_mipi_init(struct panel_spec *self)
 
 static uint32_t rm68180_readid(struct panel_spec *self)
 {
+//{LCM_SEND(8), {6,0,0xF0,0x55,0xAA,0x52,0x08,0x01}},
 	/*Jessica TODO: need read id*/
+	int32_t i = 0;
+	uint32_t j =0;
+	LCM_Force_Cmd_Code * rd_prepare = rd_prep_code;
 	
-		return 0x00;
+	uint8_t read_data[3] = {0};
+	uint8_t read_c5[3] = {0};
+	int32_t read_rtn = 0;
+	unsigned int tag = 0;
+#if 1
+	mipi_set_cmd_mode_t mipi_set_cmd_mode = self->info.mipi->ops->mipi_set_cmd_mode;
+	mipi_force_write_t mipi_force_write = self->info.mipi->ops->mipi_force_write;
+	mipi_force_read_t mipi_force_read = self->info.mipi->ops->mipi_force_read;
+	mipi_set_lp_mode_t mipi_set_lp_mode = self->info.mipi->ops->mipi_set_lp_mode;
+	mipi_set_hs_mode_t mipi_set_hs_mode = self->info.mipi->ops->mipi_set_hs_mode;
+	mipi_eotp_set_t mipi_eotp_set = self->info.mipi->ops->mipi_eotp_set;
+
+	printk("lcd_rm68180_mipi read id!\n");
+	mipi_set_cmd_mode();
+	mipi_eotp_set(1,0);
+	mipi_force_read(0x0, 3,(uint8_t *)read_data);
+
+	for(j = 0; j < 4; j++){
+		for(i = 0; i < ARRAY_SIZE(rd_prep_code); i++){
+			tag = (rd_prepare->real_cmd_code.tag >> 24);
+			if(tag & LCM_TAG_SEND){
+				mipi_force_write(rd_prepare->datatype, rd_prepare->real_cmd_code.data, (rd_prepare->real_cmd_code.tag & LCM_TAG_MASK));
+			}else if(tag & LCM_TAG_SLEEP){
+				udelay((rd_prepare->real_cmd_code.tag & LCM_TAG_MASK) * 1000);
+			}
+			rd_prepare++;
+		}
+		read_rtn = mipi_force_read(0x04, 3,(uint8_t *)read_data);
+		printk("lcd_rm68180_mipi read id value is 0x%x, 0x%x, 0x%x!\n", read_data[0], read_data[1], read_data[2]);
+		//0x00 0x80 0x00
+		return 0x80;
+		if((0x80 == read_data[1])){
+			self->info.mipi->ops->mipi_set_hs_mode();
+			printk("lcd_rm68180_mipi read id success!\n");
+			mipi_eotp_set(1,1);
+			return 0x80;
+		}
+		else
+			printk("lcd_rm68180_mipi read id failed!\n");
+
+	}
+	mipi_eotp_set(1,1);
+#endif
+	return 0x00;
 }
 
 static uint32_t rm68180_readpowermode(struct panel_spec *self)

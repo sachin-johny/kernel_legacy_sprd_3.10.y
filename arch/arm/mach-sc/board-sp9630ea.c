@@ -964,8 +964,8 @@ int __init __clock_init_early(void)
 		BIT_GSP_EB		|
 		BIT_DISPC1_EB		|
 #endif
-		BIT_DISPC0_EB		|
-		BIT_DSI_EB		|
+		//BIT_DISPC0_EB		|
+		//BIT_DSI_EB		|
 		0);
 	sci_glb_clr(REG_AP_APB_APB_EB,
 		BIT_INTC3_EB		|

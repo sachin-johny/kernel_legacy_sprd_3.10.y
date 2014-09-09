@@ -59,6 +59,7 @@ void dsi_enable(void);
 void dsi_disable(void);
 
 void dispc_print_clk(void);
+//void dsi_print_global_config(void);
 
 
 #endif
