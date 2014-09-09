@@ -451,10 +451,13 @@ static inline void sprd_cproc_fs_init(struct cproc_device *cproc)
 
 static inline void sprd_cproc_fs_exit(struct cproc_device *cproc)
 {
+        uint8_t i= 0;
 	remove_proc_entry(cproc->procfs.start.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.stop.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.modem.name, cproc->procfs.procdir);
-	remove_proc_entry(cproc->procfs.dsp[0].name, cproc->procfs.procdir);
+        for(i = 0; i < cproc->initdata->segnr - 1; i++){
+            remove_proc_entry(cproc->procfs.dsp[i].name, cproc->procfs.procdir);
+        }
 	remove_proc_entry(cproc->procfs.dsp[1].name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.status.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.wdtirq.name, cproc->procfs.procdir);
@@ -489,7 +492,7 @@ static int sprd_cproc_native_cp_start(void* arg)
 
 	/* clear cp1 force shutdown */
         if((ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN] & 0xff)!= 0xff){
-              sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN], ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);
+              sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN], 0x100000);
         }
 #if !defined(CONFIG_ARCH_SCX30G) && !defined(CONFIG_ARCH_SCX35)
         while(1)
@@ -506,7 +509,6 @@ static int sprd_cproc_native_cp_start(void* arg)
 
         if((ctrl->ctrl_reg[CPROC_CTRL_RESET] & 0xff)!= 0xff){
              /* clear reset cp1 */
-            sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
             msleep(50);
             sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
             while(1) {
@@ -531,17 +533,20 @@ static int sprd_cproc_native_cp_stop(void *arg)
 	}
 	ctrl = pdata->ctrl;
 
-        if((ctrl->ctrl_reg[CPROC_CTRL_RESET] & 0xff)!= 0xff){
             /* reset cp1 */
+        if((ctrl->ctrl_reg[CPROC_CTRL_RESET] & 0xff)!= 0xff){
             sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
             pr_info("sprd_cproc: stop:read reset=%x\n",value);
+            msleep(50);
         }
-
         if((ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP] & 0xff)!= 0xff){
             /* cp1 force deep sleep */
             sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP],ctrl->ctrl_mask[CPROC_CTRL_DEEP_SLEEP]);
+            msleep(50);
         }
-
+        if((ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS] & 0xff)!= 0xff){
+           sci_glb_clr(ctrl->ctrl_reg[CPROC_CTRL_GET_STATUS],ctrl->ctrl_mask[CPROC_CTRL_GET_STATUS]);
+       }
         if((ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN] & 0xff)!= 0xff){
             /* cp1 force shutdown */
             sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_SHUT_DOWN],ctrl->ctrl_mask[CPROC_CTRL_SHUT_DOWN]);

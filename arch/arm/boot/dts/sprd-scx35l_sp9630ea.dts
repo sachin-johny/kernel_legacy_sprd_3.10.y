@@ -657,15 +657,15 @@
 	scproc_cp1: scproc@0x89600000 {
 		compatible = "sprd,scproc";
 		sprd,name = "cptl";
-		sprd,ctrl-reg = <0x0c 0xcc 0xb0 0xff>; /* <shut_down deep_sleep reset get_status> */
-		sprd,ctrl-mask = <0x100000 0x40000 0x02 0xf0000>; /* masks <> */
+		sprd,ctrl-reg = <0x0c 0xff 0xb0 0x78>; /* <shut_down deep_sleep reset get_status> */
+		sprd,ctrl-mask = <0x300000 0x40000 0x02 0x1>; /* masks <> */
 		sprd,iram-data = <0xe59f0000 0xe12fff10 0x89a00000>; /* 3rd param equals modem_addr*/
 		reg = <0x89600000 0x6a00000>, /* <CP_start_addr total_size> = <+128M 26M> */
 			<0xf53e1000 0x0c>, /* <iram1_base size> */
 			<0xf5250000 0x100>, /* <aon_apb_base size> */
-			<0xf5230000 0x100>, /* <aon_apb_base size> */
+			<0xf5230000 0x100>, /* <pmu_apb size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
-			<0xf5230000 0x100>; /* <pmu_base size> */
+			<0xf5250000 0x100>; /* <aon_apb_base size> */
 		interrupts = <0 84 0x0>; /* cp1_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;
