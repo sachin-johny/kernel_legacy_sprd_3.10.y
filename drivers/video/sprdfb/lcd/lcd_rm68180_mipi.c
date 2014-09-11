@@ -83,9 +83,9 @@ static LCM_Init_Code init_data[] = {
      {LCM_SEND(7),{5,0,0x2A,0x00,0x00,0x01,0xDF}},
      {LCM_SEND(7),{5,0,0x2B,0x00,0x00,0x03,0x1F}}, //0x355
      {LCM_SEND(1),{0x11}},
-     {LCM_SEND(1),{120}},
+     {LCM_SLEEP(120)},
      {LCM_SEND(1),{0x29}},
-     {LCM_SEND(1),{100}},
+     {LCM_SLEEP(100)},
 #endif
 };
 
@@ -99,7 +99,7 @@ static LCM_Init_Code sleep_in[] =  {
 {LCM_SEND(1), {0x28}},
 {LCM_SLEEP(120)},
 {LCM_SEND(1), {0x10}},
-{LCM_SLEEP(5)},
+{LCM_SLEEP(100)},
 {LCM_SEND(2), {0x4F,0x01}},
 //{LCM_SEND(2), {0x4f, 0x01}},
 };
@@ -161,7 +161,7 @@ static uint32_t rm68180_readid(struct panel_spec *self)
 	printk("lcd_rm68180_mipi read id!\n");
 	mipi_set_cmd_mode();
 	mipi_eotp_set(1,0);
-	mipi_force_read(0x0, 3,(uint8_t *)read_data);
+	//mipi_force_read(0x0, 3,(uint8_t *)read_data);
 
 	for(j = 0; j < 4; j++){
 		for(i = 0; i < ARRAY_SIZE(rd_prep_code); i++){
@@ -176,7 +176,7 @@ static uint32_t rm68180_readid(struct panel_spec *self)
 		read_rtn = mipi_force_read(0x04, 3,(uint8_t *)read_data);
 		printk("lcd_rm68180_mipi read id value is 0x%x, 0x%x, 0x%x!\n", read_data[0], read_data[1], read_data[2]);
 		//0x00 0x80 0x00
-		return 0x80;
+		//return 0x80;
 		if((0x80 == read_data[1])){
 			self->info.mipi->ops->mipi_set_hs_mode();
 			printk("lcd_rm68180_mipi read id success!\n");
