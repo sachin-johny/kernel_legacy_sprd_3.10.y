@@ -37,6 +37,8 @@
 #define SPRDBAT_CHG_END_OTP_COLD_BIT    (1 << 2)
 #define SPRDBAT_CHG_END_TIMEOUT_BIT		(1 << 3)
 #define SPRDBAT_CHG_END_OVP_BIT		(1 << 4)
+#define SPRDBAT_CHG_END_UNSPEC		(1 << 8)
+
 
 #define SPRDBAT_AVERAGE_COUNT   8
 #define SPRDBAT_PLUG_WAKELOCK_TIME_SEC 3
@@ -84,15 +86,18 @@ struct sprdbat_drivier_data {
 	uint32_t gpio_charger_detect;
 	uint32_t gpio_chg_cv_state;
 	uint32_t gpio_vchg_ovi;
+	uint32_t gpio_vbat_detect;
 	uint32_t irq_charger_detect;
 	uint32_t irq_chg_cv_state;
 	uint32_t irq_vchg_ovi;
+	uint32_t irq_vbat_detect;
 	struct wake_lock charger_plug_out_lock;
 	struct workqueue_struct *monitor_wqueue;
 	struct delayed_work cv_irq_work;
 	struct delayed_work battery_work;
 	struct delayed_work battery_sleep_work;
 	struct work_struct ovi_irq_work;
+	struct work_struct vbat_detect_irq_work;
 	struct delayed_work *charge_work;
 	int (*start_charge) (void);
 	int (*stop_charge) (void);

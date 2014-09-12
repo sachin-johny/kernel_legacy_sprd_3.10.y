@@ -181,6 +181,9 @@ void sprdchg_init(struct sprd_battery_platform_data *pdata)
 {
 	//struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
 	pbat_data = pdata;
+#if defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
+	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0, BIT_CHGLDO_DIS, BIT_CHGLDO_DIS);
+#endif
 
 	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,

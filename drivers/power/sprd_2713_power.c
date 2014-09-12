@@ -64,6 +64,7 @@ enum sprdbat_event {
 	SPRDBAT_RECHARGE_E,
 	SPRDBAT_CHG_TIMEOUT_E,
 	SPRDBAT_CHG_TIMEOUT_RESTART_E,
+	SPRDBAT_CHG_UNSPEC_E,
 };
 
 static struct sprdbat_drivier_data *sprdbat_data;
@@ -447,9 +448,26 @@ static void sprdbat_info_init(struct sprdbat_drivier_data *data)
 {
 	struct timespec cur_time;
 	data->bat_info.adp_type = ADP_TYPE_UNKNOW;
-	data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
+	if (data->gpio_vbat_detect > 0) {
+		if (gpio_get_value(sprdbat_data->gpio_vbat_detect)) {
+			SPRDBAT_DEBUG("vbat good!!!\n");
+			data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
+			data->bat_info.chg_stop_flags =
+			    SPRDBAT_CHG_END_NONE_BIT;
+		} else {
+			SPRDBAT_DEBUG("vbat unspec!!!\n");
+			data->stop_charge();
+			data->bat_info.bat_health =
+			    POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+			data->bat_info.chg_stop_flags |= SPRDBAT_CHG_END_UNSPEC;
+		}
+	} else {
+		SPRDBAT_DEBUG("vbat no detected!!!\n");
+		data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
+		data->bat_info.chg_stop_flags = SPRDBAT_CHG_END_NONE_BIT;
+	}
+
 	data->bat_info.module_state = POWER_SUPPLY_STATUS_DISCHARGING;
-	data->bat_info.chg_stop_flags = SPRDBAT_CHG_END_NONE_BIT;
 	data->bat_info.chg_start_time = 0;
 	get_monotonic_boottime(&cur_time);
 	sprdbat_update_capacity_time = cur_time.tv_sec;
@@ -557,6 +575,11 @@ static inline void _sprdbat_clear_stopflags(uint32_t flag_msk)
 		//sprdbat_start_charge();
 		sprdbat_data->start_charge();
 	} else if (sprdbat_data->bat_info.
+		   chg_stop_flags & SPRDBAT_CHG_END_UNSPEC) {
+		sprdbat_data->bat_info.bat_health =
+		    POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+
+	} else if (sprdbat_data->bat_info.
 		   chg_stop_flags & SPRDBAT_CHG_END_OTP_OVERHEAT_BIT) {
 		sprdbat_data->bat_info.bat_health =
 		    POWER_SUPPLY_HEALTH_OVERHEAT;
@@ -608,14 +631,25 @@ static void sprdbat_change_module_state(uint32_t event)
 	case SPRDBAT_ADP_PLUGIN_E:
 		sprdbat_data->bat_info.chg_this_timeout =
 		    sprdbat_data->pdata->chg_timeout;
-		_sprdbat_clear_stopflags(~0);
+		_sprdbat_clear_stopflags(~SPRDBAT_CHG_END_UNSPEC);
+		if (sprdbat_data->
+		    bat_info.chg_stop_flags & SPRDBAT_CHG_END_UNSPEC) {
+			sprdbat_data->bat_info.module_state =
+			    POWER_SUPPLY_STATUS_NOT_CHARGING;
+		}
 		queue_delayed_work(sprdbat_data->monitor_wqueue,
 				   sprdbat_data->charge_work, 2 * HZ);
 		break;
 	case SPRDBAT_ADP_PLUGOUT_E:
-		sprdbat_data->bat_info.bat_health = POWER_SUPPLY_HEALTH_GOOD;
-		sprdbat_data->bat_info.chg_stop_flags =
-		    SPRDBAT_CHG_END_NONE_BIT;
+		if (sprdbat_data->
+		    bat_info.chg_stop_flags & SPRDBAT_CHG_END_UNSPEC) {
+			sprdbat_data->bat_info.bat_health =
+			    POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+		} else {
+			sprdbat_data->bat_info.bat_health =
+			    POWER_SUPPLY_HEALTH_GOOD;
+		}
+		sprdbat_data->bat_info.chg_stop_flags &= SPRDBAT_CHG_END_UNSPEC;
 		sprdbat_data->bat_info.module_state =
 		    POWER_SUPPLY_STATUS_DISCHARGING;
 		//sprdbat_stop_charge();
@@ -670,6 +704,15 @@ static void sprdbat_change_module_state(uint32_t event)
 	case SPRDBAT_CHG_TIMEOUT_RESTART_E:
 		_sprdbat_clear_stopflags(SPRDBAT_CHG_END_TIMEOUT_BIT);
 		break;
+	case SPRDBAT_CHG_UNSPEC_E:
+		if (sprdbat_data->bat_info.bat_health ==
+		    POWER_SUPPLY_HEALTH_GOOD) {
+			sprdbat_data->bat_info.bat_health =
+			    POWER_SUPPLY_HEALTH_UNSPEC_FAILURE;
+		}
+		_sprdbat_set_stopflags(SPRDBAT_CHG_END_UNSPEC);
+		break;
+
 	default:
 		BUG_ON(1);
 		break;
@@ -972,6 +1015,30 @@ static void sprdbat_ovi_irq_works(struct work_struct *work)
 	mutex_unlock(&sprdbat_data->lock);
 }
 
+static __used irqreturn_t sprdbat_vbat_detect_irq(int irq, void *dev_id)
+{
+	sprdbat_data->stop_charge();
+	disable_irq_nosync(sprdbat_data->irq_vbat_detect);
+	SPRDBAT_DEBUG("battery remove!!!!\n");
+	queue_work(sprdbat_data->monitor_wqueue,
+		   &sprdbat_data->vbat_detect_irq_work);
+	return IRQ_HANDLED;
+}
+
+static void sprdbat_vbat_detect_irq_works(struct work_struct *work)
+{
+	int value;
+
+	value = gpio_get_value(sprdbat_data->gpio_vbat_detect);
+	SPRDBAT_DEBUG("bat_detect value:%d\n", value);
+
+	mutex_lock(&sprdbat_data->lock);
+
+	sprdbat_change_module_state(SPRDBAT_CHG_UNSPEC_E);
+
+	mutex_unlock(&sprdbat_data->lock);
+}
+
 static void sprdbat_chg_print_log(void)
 {
 	struct timespec cur_time;
@@ -1012,11 +1079,11 @@ static void sprdbat_print_battery_log(void)
 
 	get_monotonic_boottime(&cur_time);
 
-	SPRDBAT_DEBUG("bat_log:time:%ld,vbat:%d,\
-ocv:%d,current:%d,cap:%d,state:%d,auxbat:%d\n", cur_time.tv_sec, sprdbat_data->bat_info.vbat_vol,
-		      sprdbat_data->bat_info.vbat_ocv, sprdbat_data->bat_info.bat_current,
-		      sprdbat_data->bat_info.capacity, sprdbat_data->bat_info.module_state,
-		      sprdchg_read_vbat_vol());
+	SPRDBAT_DEBUG("bat_log:time:%ld,vbat:%d,ocv:%d,current:%d,cap:%d,state:%d,auxbat:%d\n",
+		cur_time.tv_sec, sprdbat_data->bat_info.vbat_vol,
+		sprdbat_data->bat_info.vbat_ocv, sprdbat_data->bat_info.bat_current,
+		sprdbat_data->bat_info.capacity, sprdbat_data->bat_info.module_state,
+		sprdchg_read_vbat_vol());
 }
 
 static void sprdbat_update_capacty(void)
@@ -1787,6 +1854,18 @@ static struct sprd_battery_platform_data *sprdbat_parse_dt(struct
 
 	pdata->gpio_cv_state = (uint32_t) of_get_named_gpio(np, "gpios", 1);
 	pdata->gpio_vchg_ovi = (uint32_t) of_get_named_gpio(np, "gpios", 2);
+
+	temp = (uint32_t) of_get_named_gpio(np, "gpios", 3);
+	if (gpio_is_valid(temp)) {
+		pdata->gpio_vbat_detect = (uint32_t) temp;
+		printk("sprdbat:gpio_vbat_detect support =%d\n",
+		       pdata->gpio_vbat_detect);
+	} else {
+		pdata->gpio_vbat_detect = 0;
+		printk("sprdbat:gpio_vbat_detect do Not support =%d\n",
+		       pdata->gpio_vbat_detect);
+	}
+
 	temp_np = of_get_child_by_name(np, "sprd_chg");
 	if (!temp_np) {
 		goto err_parse_dt;
@@ -2038,6 +2117,24 @@ static int sprdbat_probe(struct platform_device *pdev)
 			  IRQF_NO_SUSPEND, "sprdbat_vchg_ovi", data);
 	if (ret)
 		goto err_request_irq_ovi_failed;
+
+	data->gpio_vbat_detect = data->pdata->gpio_vbat_detect;
+	if (data->gpio_vbat_detect > 0) {
+		gpio_request(data->gpio_vbat_detect, "vbat_detect");
+		gpio_direction_input(data->gpio_vbat_detect);
+		data->irq_vbat_detect = gpio_to_irq(data->gpio_vbat_detect);
+
+		set_irq_flags(data->irq_vbat_detect,
+			      IRQF_VALID | IRQF_NOAUTOEN);
+		ret =
+		    request_irq(data->irq_vbat_detect, sprdbat_vbat_detect_irq,
+				IRQ_TYPE_LEVEL_LOW | IRQF_NO_SUSPEND,
+				"sprdbat_vbat_detect", data);
+		if (ret)
+			dev_err(&pdev->dev, "failed to use vbat gpio: %d\n",
+				ret);
+	}
+
 	mutex_init(&data->lock);
 
 	wake_lock_init(&(data->charger_plug_out_lock), WAKE_LOCK_SUSPEND,
@@ -2048,6 +2145,7 @@ static int sprdbat_probe(struct platform_device *pdev)
 	INIT_DELAYED_WORK(&data->battery_sleep_work,
 			  sprdbat_battery_sleep_works);
 	INIT_WORK(&data->ovi_irq_work, sprdbat_ovi_irq_works);
+	INIT_WORK(&data->vbat_detect_irq_work, sprdbat_vbat_detect_irq_works);
 
 	INIT_DELAYED_WORK(&sprdbat_charge_work, sprdbat_charge_works);
 	data->charge_work = &sprdbat_charge_work;
@@ -2086,6 +2184,11 @@ static int sprdbat_probe(struct platform_device *pdev)
 	INIT_WORK(&sprdbat_chg_detect_work, sprdbat_chg_detect_works);
 #endif
 	sprdbat_info_init(data);
+
+	if (data->gpio_vbat_detect > 0) {
+		enable_irq(sprdbat_data->irq_vbat_detect);
+	}
+
 	sprdbat_notifier.notifier_call = sprdbat_fgu_event;
 	sprdfgu_register_notifier(&sprdbat_notifier);
 	usb_register_hotplug_callback(&power_cb);

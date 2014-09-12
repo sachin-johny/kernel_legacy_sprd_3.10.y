@@ -925,3 +925,11 @@
 &i2s_sound {
 	sprd,i2s = <&i2s0>, <&i2s1>, <&i2s2>, <&i2s3>;
 };
+
+&sprd_battery {
+	gpios = <&a_eic_gpio 0 0        /* chg int */
+		&a_eic_gpio 4 0        /* cv state */
+		&a_eic_gpio 6 0		/* chg ovi */
+		&a_eic_gpio 9 0>;	/* battery detect */
+	rsense-real = <230>;
+};
