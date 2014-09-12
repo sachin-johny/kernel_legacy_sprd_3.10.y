@@ -302,10 +302,17 @@ static int32_t rm68180_enter_sleep(struct panel_spec *self, uint8_t is_sleep)
 	return 0;
 }
 
+static uint32_t rm68180_mipi_after_suspend(struct panel_spec *self)
+{
+	return 0;
+}
+
+
 static struct panel_operations lcd_rm68180_mipi_operations = {
 	.panel_init = rm68180_mipi_init,
 	.panel_readid = rm68180_readid,
 	.panel_enter_sleep = rm68180_enter_sleep,
+	.panel_after_suspend = rm68180_mipi_after_suspend,
 	.panel_esd_check = rm68180_check_esd,
 };
 
@@ -358,7 +365,7 @@ struct panel_spec lcd_rm68180_mipi_spec = {
 	.height = 800, //854,
 	.fps = 60,
 	.reset_timing = {20,20,120},
-	.suspend_mode = SEND_SLEEP_CMD,
+	//.suspend_mode = SEND_SLEEP_CMD,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
 	.is_clean_lcd = true,
