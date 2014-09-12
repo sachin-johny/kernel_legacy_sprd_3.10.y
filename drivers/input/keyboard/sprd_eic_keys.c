@@ -368,8 +368,8 @@ static int sprd_eic_keys_resume(struct platform_device *dev)
 
 static struct platform_driver sprd_eic_keys_device_driver = {
         .probe = sprd_eic_keys_probe,
-        .suspend = sprd_eic_keys_suspend,
-        .resume = sprd_eic_keys_resume,
+        .suspend = NULL,
+        .resume = NULL,
         .driver = {
                 .name = "sprd-eic-keys",
                 .owner = THIS_MODULE,

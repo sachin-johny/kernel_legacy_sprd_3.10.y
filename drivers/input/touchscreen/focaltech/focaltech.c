@@ -1020,8 +1020,8 @@ static struct i2c_driver ft5x0x_ts_driver = {
 		.owner	= THIS_MODULE,
 		.of_match_table = focaltech_of_match,
 	},
-	.suspend = ft5x0x_suspend,
-	.resume = ft5x0x_resume,
+	.suspend = NULL,
+	.resume = NULL,
 };
 
 static int __init ft5x0x_ts_init(void)
