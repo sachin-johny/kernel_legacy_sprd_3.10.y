@@ -38,10 +38,13 @@ typedef enum {
 	SENSOR_VDD_UNUSED
 } SENSOR_VDD_VAL_E;
 
-#define SENSOR_MAIN_I2C_NAME                 "sensor_main"
-#define SENSOR_SUB_I2C_NAME                  "sensor_sub"
-#define SENSOR_MAIN_I2C_ADDR                 0x30
-#define SENSOR_SUB_I2C_ADDR                  0x21
+#define SENSOR_DEV0_I2C_NAME                 "sensor_main"
+#define SENSOR_DEV1_I2C_NAME                 "sensor_sub"
+#define SENSOR_DEV2_I2C_NAME                 "sensor_i2c_dev2"
+
+#define SENSOR_DEV0_I2C_ADDR                 0x30
+#define SENSOR_DEV1_I2C_ADDR                 0x21
+#define SENSOR_DEV2_I2C_ADDR                 0x30
 
 #define SENSOR_I2C_BUST_NB                   7
 

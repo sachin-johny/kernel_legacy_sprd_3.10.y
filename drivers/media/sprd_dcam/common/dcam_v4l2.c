@@ -43,6 +43,7 @@
 #include <asm/io.h>
 #include <mach/adi.h>
 #include <../flash/flash.h>
+#include <video/sprd_v4l2.h>
 
 
 //#define LOCAL   static
@@ -56,8 +57,15 @@
 #define DCAM_MINOR_VERSION                      0
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       16
-#define DCAM_TIMING_LEN                         16
 #define DCAM_TIMEOUT                            1000
+
+#define DCAM_ZOOM_LEVEL_MAX                     4
+#define DCAM_ZOOM_STEP(x, y)                   (((x) - (y)) / DCAM_ZOOM_LEVEL_MAX)
+#define DCAM_PIXEL_ALIGNED                         4
+#define DCAM_WIDTH(w)                          ((w)& ~(DCAM_PIXEL_ALIGNED - 1))
+#define DCAM_HEIGHT(h)                          ((h)& ~(DCAM_PIXEL_ALIGNED - 1))
+
+
 #define DEBUG_STR                               "Error L %d, %s: \n"
 #define DEBUG_ARGS                              __LINE__,__FUNCTION__
 #define V4L2_RTN_IF_ERR(n)          \
@@ -82,24 +90,8 @@ typedef int (*path_cfg_func)(enum dcam_cfg_id, void *);
 
 enum
 {
-	V4L2_TX_DONE  = 0x00,
-	V4L2_NO_MEM   = 0x01,
-	V4L2_TX_ERR   = 0x02,
-	V4L2_CSI2_ERR = 0x03,
-	V4L2_SYS_BUSY = 0x04,
-	V4L2_TIMEOUT  = 0x10,
-	V4L2_TX_STOP  = 0xFF
-};
-
-enum
-{
 	PATH_IDLE  = 0x00,
 	PATH_RUN,
-};
-
-enum mipi_if_status {
-	IF_OPEN = 0,
-	IF_CLOSE
 };
 
 LOCAL int video_nr = -1;
@@ -143,12 +135,16 @@ struct dcam_path_spec {
 	struct dcam_size           in_size;
 	struct dcam_path_dec       img_deci;
 	struct dcam_rect           in_rect;
+	struct dcam_rect           in_rect_current;
+	struct dcam_rect           in_rect_backup;
 	struct dcam_size           out_size;
 	enum   dcam_fmt            out_fmt;
 	struct dcam_endian_sel     end_sel;
+	uint32_t                   fourcc;
 	uint32_t                   pixel_depth;
 	uint32_t                   frm_id_base;
 	uint32_t                   frm_type;
+	uint32_t                   index[DCAM_FRM_CNT_MAX];
 	struct dcam_addr           frm_addr[DCAM_FRM_CNT_MAX];
 	struct dcam_frame          *frm_ptr[DCAM_FRM_CNT_MAX];
 	uint32_t                   frm_cnt_act;
@@ -169,6 +165,9 @@ struct dcam_info {
 	struct dcam_size           cap_in_size;
 	struct dcam_rect           cap_in_rect;
 	struct dcam_size           cap_out_size;
+	struct dcam_size           dst_size;
+	uint32_t                   pxl_fmt;
+	uint32_t                   need_isp_tool;
 
 	struct dcam_path_spec      dcam_path[DCAM_PATH_NUM];
 
@@ -176,7 +175,8 @@ struct dcam_info {
 	uint32_t                   skip_number;
 	uint32_t                   flash_status;
 	uint32_t                   after_af;
-	struct timeval         timestamp;
+	uint32_t                   is_smooth_zoom;
+	struct timeval             timestamp;
 };
 
 struct dcam_dev {
@@ -198,6 +198,11 @@ struct dcam_dev {
 	struct semaphore         flash_thread_sem;
 	struct task_struct*      flash_thread;
 	uint32_t                 is_flash_thread_stop;
+	struct semaphore         zoom_thread_sem;
+	struct task_struct*      zoom_thread;
+	uint32_t                 is_zoom_thread_stop;
+	uint32_t                 zoom_level;
+	uint32_t                 channel_id;
 };
 
 #ifndef __SIMULATOR__
@@ -216,6 +221,8 @@ LOCAL int sprd_v4l2_unreg_isr(struct dcam_dev* param);
 LOCAL int sprd_v4l2_unreg_path2_isr(struct dcam_dev* param);
 /*LOCAL int sprd_v4l2_proc_read(char *page, char **start,off_t off, int count, int *eof, void *data);*/
 LOCAL void sprd_v4l2_print_reg(void);
+LOCAL int sprd_v4l2_start_zoom(struct dcam_frame *frame, void* param);
+
 
 LOCAL const dcam_isr_func sprd_v4l2_isr[] = {
 	sprd_v4l2_tx_done,
@@ -643,6 +650,7 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 		printk("V4L2: unsupported image format for path0 0x%x \n", fourcc);
 		return -EINVAL;
 	}
+	path->fourcc = fourcc;
 
 	DCAM_TRACE("V4L2: check format for path0: out_fmt=%d, is_loose=%d \n", path->out_fmt, info->is_loose);
 
@@ -883,6 +891,7 @@ LOCAL int sprd_v4l2_check_path1_cap(uint32_t fourcc,
 		return -EINVAL;
 	}
 
+	path->fourcc = fourcc;
 	path->pixel_depth = depth_pixel;
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth_pixel) >> 3;
 	path->out_size.w = f->fmt.pix.width;
@@ -1048,13 +1057,14 @@ LOCAL int sprd_v4l2_check_path2_cap(uint32_t fourcc,
 
 
 		depth_pixel = sprd_v4l2_endian_sel(fourcc, path);
-		path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE; // tmp fix: output is vu, jpeg only support vu
+		//path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE; // tmp fix: output is vu, jpeg only support vu
 		break;
 	default:
 		printk("V4L2: unsupported image format for path2 0x%x \n", fourcc);
 		return -EINVAL;
 	}
 
+	path->fourcc = fourcc;
 	f->fmt.pix.priv = path->is_from_isp;
 	path->pixel_depth = depth_pixel;
 	f->fmt.pix.bytesperline = (f->fmt.pix.width * depth_pixel) >> 3;
@@ -1113,6 +1123,8 @@ LOCAL int sprd_v4l2_cap_cfg(struct dcam_info* info)
 
 	ret = dcam_cap_cfg(DCAM_CAP_SAMPLE_MODE, &info->capture_mode);
 	V4L2_RTN_IF_ERR(ret);
+
+	ret = dcam_cap_cfg(DCAM_CAP_ZOOM_MODE, &info->is_smooth_zoom);
 
 	ret = dcam_cap_cfg(DCAM_CAP_IMAGE_XY_DECI, &info->img_deci);
 
@@ -1241,16 +1253,17 @@ LOCAL int sprd_v4l2_tx_stop(void* param)
 
 LOCAL int sprd_v4l2_reg_isr(struct dcam_dev* param)
 {
-	dcam_reg_isr(DCAM_PATH0_DONE,   sprd_v4l2_tx_done,  param);
-	dcam_reg_isr(DCAM_PATH1_DONE,   sprd_v4l2_tx_done,  param);
-	dcam_reg_isr(DCAM_PATH0_OV,     sprd_v4l2_tx_error, param);
-	dcam_reg_isr(DCAM_PATH1_OV,     sprd_v4l2_tx_error, param);
-	dcam_reg_isr(DCAM_ISP_OV,       sprd_v4l2_tx_error, param);
-	dcam_reg_isr(DCAM_MIPI_OV,      sprd_v4l2_tx_error, param);
-	dcam_reg_isr(DCAM_SN_LINE_ERR,  sprd_v4l2_tx_error, param);
-	dcam_reg_isr(DCAM_SN_FRAME_ERR, sprd_v4l2_tx_error, param);
-	dcam_reg_isr(DCAM_JPEG_BUF_OV,  sprd_v4l2_no_mem,   param);
-	dcam_reg_isr(DCAM_SN_EOF,  sprd_v4l2_start_flash,   param);
+	dcam_reg_isr(DCAM_PATH0_DONE,   sprd_v4l2_tx_done,       param);
+	dcam_reg_isr(DCAM_PATH1_DONE,   sprd_v4l2_tx_done,       param);
+	dcam_reg_isr(DCAM_PATH0_OV,     sprd_v4l2_tx_error,      param);
+	dcam_reg_isr(DCAM_PATH1_OV,     sprd_v4l2_tx_error,      param);
+	dcam_reg_isr(DCAM_ISP_OV,       sprd_v4l2_tx_error,      param);
+	dcam_reg_isr(DCAM_MIPI_OV,      sprd_v4l2_tx_error,      param);
+	dcam_reg_isr(DCAM_SN_LINE_ERR,  sprd_v4l2_tx_error,      param);
+	dcam_reg_isr(DCAM_SN_FRAME_ERR, sprd_v4l2_tx_error,      param);
+	dcam_reg_isr(DCAM_JPEG_BUF_OV,  sprd_v4l2_no_mem,        param);
+	dcam_reg_isr(DCAM_SN_EOF,       sprd_v4l2_start_flash,   param);
+	dcam_reg_isr(DCAM_PATH1_SOF,    sprd_v4l2_start_zoom,    param);
 
 	return 0;
 }
@@ -1539,8 +1552,17 @@ LOCAL int v4l2_g_parm(struct file *file,
 {
 	struct dcam_dev          *dev = video_drvdata(file);
 	struct timeval           time;
+	uint32_t                 channel_id;
+	int                      ret = DCAM_RTN_SUCCESS;
+	struct dcam_path_spec    *path_0 = NULL;
+	struct dcam_path_spec    *path_1 = NULL;
+	struct dcam_path_spec    *path_2 = NULL;
+	struct dcam_get_path_id  path_id;
 
 	DCAM_TRACE("V4L2: v4l2_g_parm, capability 0x%x \n", streamparm->parm.capture.capability);
+	path_0 = &dev->dcam_cxt.dcam_path[DCAM_PATH0];
+	path_1 = &dev->dcam_cxt.dcam_path[DCAM_PATH1];
+	path_2 = &dev->dcam_cxt.dcam_path[DCAM_PATH2];
 
 	streamparm->parm.capture.capturemode  = dev->dcam_cxt.capture_mode;
 	streamparm->parm.capture.reserved[0]  = dev->dcam_cxt.skip_number;
@@ -1550,34 +1572,22 @@ LOCAL int v4l2_g_parm(struct file *file,
 	v4l2_get_timestamp(&time);
 	streamparm->parm.capture.timeperframe.numerator    = time.tv_sec;
 	streamparm->parm.capture.timeperframe.denominator  = time.tv_usec;
-	DCAM_TRACE("V4L2: v4l2_g_parm sec %d, usec %d \n", (int)time.tv_sec, (int)time.tv_usec);
 
-	return 0;
+	memset((void*)&path_id, 0, sizeof(struct dcam_get_path_id));
+	path_id.input_size.w = dev->dcam_cxt.dst_size.w;
+	path_id.input_size.h = dev->dcam_cxt.dst_size.h;
+	path_id.fourcc = dev->dcam_cxt.pxl_fmt;
+	path_id.need_isp_tool = dev->dcam_cxt.need_isp_tool;
+	path_id.is_path_work[DCAM_PATH0] = path_0->is_work;
+	path_id.is_path_work[DCAM_PATH1] = path_1->is_work;
+	path_id.is_path_work[DCAM_PATH2] = path_2->is_work;
+	ret = dcam_get_path_id(&path_id, &channel_id);
+	streamparm->parm.capture.extendedmode = channel_id;
+
+	DCAM_TRACE("V4L2: v4l2_g_parm sec %d, usec %d channel_id %d \n", (int)time.tv_sec, (int)time.tv_usec, channel_id);
+
+	return ret;
 }
-
-/*
-	capability       parameters                         structure member
-	0x1000           capture mode, single or multi      capture.capturemode
-	0x1001           skip number for CAP sub-module     capture.reserved[0];
-	0x1002           image width/height from sensor     capture.reserved[2], capture.reserved[3];
-	0x1003           base id for each frame             capture.reserved[1];
-
-	0x2000           path skip and deci number          recerved[0] channel, [1] deci number
-	0x2001           path pause                         recerved[0] channel
-	0x2002           path resume                        recerved[0] channel
-*/
-enum dcam_parm_id {
-	CAPTURE_MODE = 0x1000,
-	CAPTURE_SKIP_NUM,
-	CAPTURE_SENSOR_SIZE,
-	CAPTURE_SENSOR_TRIM,
-	CAPTURE_FRM_ID_BASE,
-	CAPTURE_SET_CROP,
-	CAPTURE_SET_FLASH,
-	PATH_FRM_DECI = 0x2000,
-	PATH_PAUSE    = 0x2001,
-	PATH_RESUME   = 0x2002,
-};
 
 LOCAL int v4l2_s_parm(struct file *file,
 			void *priv,
@@ -1593,7 +1603,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 	struct dcam_size         *input_size;
 	int                      ret = DCAM_RTN_SUCCESS;
 
-	DCAM_TRACE("V4L2: v4l2_s_parm, ability 0x%x \n", streamparm->parm.capture.capability);
+	printk("V4L2: v4l2_s_parm, ability 0x%x \n", streamparm->parm.capture.capability);
 	memset((void*)&crop, 0, sizeof(struct v4l2_crop));
 
 	switch (streamparm->parm.capture.capability) {
@@ -1702,6 +1712,16 @@ LOCAL int v4l2_s_parm(struct file *file,
 		mutex_unlock(&dev->dcam_mutex);
 		break;
 
+	case CAPTURE_SET_OUTPUT_SIZE:
+		printk("come here\n");
+		mutex_lock(&dev->dcam_mutex);
+		dev->dcam_cxt.dst_size.w = streamparm->parm.capture.reserved[0];
+		dev->dcam_cxt.dst_size.h = streamparm->parm.capture.reserved[1];
+		dev->dcam_cxt.pxl_fmt = streamparm->parm.capture.reserved[2];
+		dev->dcam_cxt.need_isp_tool = streamparm->parm.capture.reserved[3];
+		mutex_unlock(&dev->dcam_mutex);
+		break;
+
 	case PATH_FRM_DECI:
 		mutex_lock(&dev->dcam_mutex);
 		channel_id = streamparm->parm.capture.reserved[0];
@@ -1728,6 +1748,13 @@ LOCAL int v4l2_s_parm(struct file *file,
 		dev->dcam_cxt.flash_status = streamparm->parm.capture.reserved[0];
 		mutex_unlock(&dev->dcam_mutex);
 		DCAM_TRACE("V4L2: s_parm, status %d \n", dev->dcam_cxt.flash_status);
+		break;
+
+	case CAPTURE_SET_ZOOM_MODE:
+		mutex_lock(&dev->dcam_mutex);
+		dev->dcam_cxt.is_smooth_zoom = streamparm->parm.capture.reserved[0];
+		mutex_unlock(&dev->dcam_mutex);
+		DCAM_TRACE("V4L2: s_parm, zoom mode %d \n", dev->dcam_cxt.is_smooth_zoom);
 		break;
 
 	default:
@@ -1938,6 +1965,184 @@ LOCAL int v4l2_g_fmt_vid_cap(struct file *file,
 	return 0;
 }
 
+LOCAL int v4l2_get_zoom_rect(struct dcam_rect *src_rect, struct dcam_rect *dst_rect, struct dcam_rect *output_rect, uint32_t zoom_level)
+{
+	uint32_t trim_width = 0;
+	uint32_t trim_height = 0;
+	uint32_t zoom_step_w = 0, zoom_step_h = 0;
+
+	if (NULL == src_rect || NULL == dst_rect || NULL == output_rect) {
+		printk("V4L2 v4l2_get_zoom_rect: 0x%x, 0x%x, 0X%x\n", (uint32_t)src_rect, (uint32_t)dst_rect, (uint32_t)output_rect);
+		return -EINVAL;
+	}
+
+	if (0 == dst_rect->w || 0 == dst_rect->h) {
+		printk("V4L2 v4l2_get_zoom_rect: dst0x%x, 0x%x\n", dst_rect->w, dst_rect->h);
+		return -EINVAL;
+	}
+
+	if (src_rect->w > dst_rect->w && src_rect->h > dst_rect->h) {
+		zoom_step_w = DCAM_ZOOM_STEP(src_rect->w, dst_rect->w);
+		zoom_step_w &= ~1;
+		zoom_step_w *= zoom_level;
+		trim_width = src_rect->w - zoom_step_w;
+
+		zoom_step_h = DCAM_ZOOM_STEP(src_rect->h, dst_rect->h);
+		zoom_step_h &= ~1;
+		zoom_step_h *= zoom_level;
+		trim_height = src_rect->h - zoom_step_h;
+
+		output_rect->x = src_rect->x + ((src_rect->w - trim_width) >> 1);
+		output_rect->y = src_rect->y + ((src_rect->h - trim_height) >> 1);
+	} else if (src_rect->w < dst_rect->w && src_rect->h < dst_rect->h) {
+		zoom_step_w = DCAM_ZOOM_STEP(dst_rect->w, src_rect->w);
+		zoom_step_w &= ~1;
+		zoom_step_w *= zoom_level;
+		trim_width = src_rect->w + zoom_step_w;
+
+		zoom_step_h = DCAM_ZOOM_STEP(dst_rect->h, src_rect->h);
+		zoom_step_h &= ~1;
+		zoom_step_h *= zoom_level;
+		trim_height = src_rect->h + zoom_step_h;
+
+		output_rect->x = src_rect->x - ((trim_width - src_rect->w) >> 1);
+		output_rect->y = src_rect->y - ((trim_height - src_rect->h) >> 1);
+	} else {
+		printk("V4L2 v4l2_get_zoom_rect: param error\n");
+		return -EINVAL;
+	}
+
+	output_rect->x = DCAM_WIDTH(output_rect->x);
+	output_rect->y = DCAM_HEIGHT(output_rect->y);
+	output_rect->w = DCAM_WIDTH(trim_width);
+	output_rect->h = DCAM_HEIGHT(trim_height);
+	DCAM_TRACE("V4L2: zoom_level %d, trim rect, %d %d %d %d\n",
+		zoom_level,
+		output_rect->x,
+		output_rect->y,
+		output_rect->w,
+		output_rect->h);
+
+	return 0;
+}
+
+LOCAL int sprd_v4l2_start_zoom(struct dcam_frame *frame, void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+
+	if (dev == NULL) {
+		DCAM_TRACE("sprd_v4l2_start_zoom, dev is NULL \n");
+		return -1;
+	}
+	DCAM_TRACE("v4l2:start zoom level %d \n", dev->zoom_level);
+	if (dev->zoom_level <= DCAM_ZOOM_LEVEL_MAX && dev->dcam_cxt.is_smooth_zoom) {
+		up(&dev->zoom_thread_sem);
+	} else {
+		dcam_stop_sc_coeff();
+	}
+
+	return 0;
+}
+
+int sprd_v4l2_zoom_thread_loop(void *arg)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)arg;
+	int                      ret = DCAM_RTN_SUCCESS;
+	struct dcam_rect         zoom_rect = {0};
+	struct dcam_path_spec    *path = NULL;
+	enum dcam_path_index     path_index;
+
+	if (dev == NULL) {
+		printk("zoom_thread_loop, dev is NULL \n");
+		return -1;
+	}
+	while (1) {
+		if (0 == down_interruptible(&dev->zoom_thread_sem)) {
+			DCAM_TRACE("v4l2:zoom thread level %d \n", dev->zoom_level);
+			if (dev->is_zoom_thread_stop) {
+				printk("zoom_thread_loop stop \n");
+				break;
+			}
+
+			if (dev->zoom_level > DCAM_ZOOM_LEVEL_MAX) {
+				continue;
+			}
+			mutex_lock(&dev->dcam_mutex);
+			path = &dev->dcam_cxt.dcam_path[dev->channel_id];
+			path_index = sprd_v4l2_get_path_index(dev->channel_id);
+			if (dev->zoom_level < DCAM_ZOOM_LEVEL_MAX) {
+				ret = v4l2_get_zoom_rect(&path->in_rect_backup, &path->in_rect, &zoom_rect, dev->zoom_level);
+				if (!ret) {
+					memcpy((void*)&path->in_rect_current, (void*)&zoom_rect, sizeof(struct dcam_rect));
+					dcam_update_path(path_index, &path->in_size, &zoom_rect, &path->out_size);
+				}
+			} else {
+				dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
+				memcpy((void*)&path->in_rect_backup, (void*)&path->in_rect, sizeof(struct dcam_rect));
+				memcpy((void*)&path->in_rect_current, (void*)&path->in_rect_backup, sizeof(struct dcam_rect));
+			}
+			dev->zoom_level++;
+			mutex_unlock(&dev->dcam_mutex);
+			DCAM_TRACE("v4l2:zoom thread level  %d  end \n", dev->zoom_level);
+
+		} else {
+			printk("zoom int!");
+			break;
+		}
+	}
+	dev->is_zoom_thread_stop = 0;
+
+	return 0;
+}
+
+int sprd_v4l2_create_zoom_thread(void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+
+	if (dev == NULL) {
+		DCAM_TRACE("create_zoom_thread, dev is NULL \n");
+		return -1;
+	}
+	printk("v4l2:create_zoom_thread E!\n");
+
+	dev->is_zoom_thread_stop = 0;
+	dev->zoom_level = DCAM_ZOOM_LEVEL_MAX + 1;
+	sema_init(&dev->zoom_thread_sem, 0);
+	dev->zoom_thread = kthread_run(sprd_v4l2_zoom_thread_loop, param, "v4l2_zoom_thread");
+	if (IS_ERR(dev->zoom_thread)) {
+		printk("v4l2:create_zoom_thread error!\n");
+		return -1;
+	}
+	return 0;
+}
+
+int sprd_v4l2_stop_zoom_thread(void* param)
+{
+	struct dcam_dev          *dev = (struct dcam_dev*)param;
+	int cnt = 0;
+
+	if (dev == NULL) {
+		DCAM_TRACE("stop_zoom_thread, dev is NULL \n");
+		return -1;
+	}
+	printk("v4l2:stop_zoom_thread E!\n");
+	if (dev->zoom_thread) {
+		dev->is_zoom_thread_stop = 1;
+		up(&dev->zoom_thread_sem);
+		if (0 != dev->is_zoom_thread_stop) {
+			while (cnt < 500) {
+				cnt++;
+				if (0 == dev->is_zoom_thread_stop)
+					break;
+				msleep(1);
+			}
+		}
+		dev->zoom_thread = NULL;
+	}
+
+	return 0;
+}
+
 LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
@@ -1945,6 +2150,7 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 	struct dcam_path_spec    *path = NULL;
 	path_cfg_func            path_cfg;
 	enum dcam_path_index     path_index;
+
 
 	DCAM_TRACE("V4L2: sprd_v4l2_update_video, channel=%d \n", channel_id);
 
@@ -1959,10 +2165,38 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 		path_cfg = dcam_path2_cfg;
 	}
 
-	ret = dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
+	if (dev->dcam_cxt.is_smooth_zoom) {
+		dev->zoom_level = 1;
+		dev->channel_id = channel_id;
+		if (0 == path->in_rect_backup.w || 0 == path->in_rect_backup.h) {
+			path->in_rect_backup.x = 0;
+			path->in_rect_backup.y = 0;
+			path->in_rect_backup.w = path->in_size.w;
+			path->in_rect_backup.h = path->in_size.h;
+			memcpy((void*)&path->in_rect_current, (void*)&path->in_rect_backup, sizeof(struct dcam_rect));
+		} else {
+			memcpy((void*)&path->in_rect_backup, (void*)&path->in_rect_current, sizeof(struct dcam_rect));
+		}
+
+		DCAM_TRACE("in_size{%d %d}, in_rect{%d %d %d %d}, in_rect_backup{%d %d %d %d}, out_size{%d %d}\n",
+				path->in_size.w,
+				path->in_size.h,
+				path->in_rect.x,
+				path->in_rect.y,
+				path->in_rect.w,
+				path->in_rect.h,
+				path->in_rect_backup.x,
+				path->in_rect_backup.y,
+				path->in_rect_backup.w,
+				path->in_rect_backup.h,
+				path->out_size.w,
+				path->out_size.h);
+	} else {
+		ret = dcam_update_path(path_index, &path->in_size, &path->in_rect, &path->out_size);
+	}
 
 	mutex_unlock(&dev->dcam_mutex);
-
+	DCAM_TRACE("V4L2: update video 0x%x \n", ret);
 	if (ret) {
 		printk("V4L2: Failed to update video 0x%x \n", ret);
 	}
@@ -2075,6 +2309,7 @@ LOCAL int v4l2_qbuf(struct file *file,
 				path->frm_addr[path->frm_cnt_act].yaddr = p->m.userptr;
 				path->frm_addr[path->frm_cnt_act].uaddr = p->length;
 				path->frm_addr[path->frm_cnt_act].vaddr = p->reserved;
+				path->index[path->frm_cnt_act] = p->field;
 				path->frm_cnt_act++;
 			} else {
 				printk("V4L2: frm_cnt_act error %d \n", path->frm_cnt_act);
@@ -2098,6 +2333,7 @@ LOCAL int v4l2_dqbuf(struct file *file,
 	struct dcam_node         node;
 	struct dcam_path_spec    *path;
 	int                      ret = 0;
+	int                      fmr_index;
 
 	DCAM_TRACE("V4L2: v4l2_dqbuf \n");
 
@@ -2132,6 +2368,11 @@ LOCAL int v4l2_dqbuf(struct file *file,
 		p->reserved = node.height;
 		p->sequence = node.reserved;
 		path = &dev->dcam_cxt.dcam_path[p->type];
+		fmr_index  = node.index - path->frm_id_base;
+		p->field = path->index[fmr_index];
+		p->length = path->frm_id_base;
+		p->memory = path->fourcc;
+		DCAM_TRACE("index %d real_index %d frm_id_base %d fmr_index %d \n", node.index, p->field, path->frm_id_base, fmr_index);
 		memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
 	} else {
 		if (p->flags == V4L2_TIMEOUT)
@@ -2173,6 +2414,9 @@ LOCAL int v4l2_streamon(struct file *file,
 
 	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n",
 		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
+
+	memset((void*)&path_1->in_rect_backup, 0x00, sizeof(struct dcam_rect));
+	memset((void*)&path_1->in_rect_current, 0x00, sizeof(struct dcam_rect));
 
 	/* dcam driver module initialization */
 	ret = dcam_module_init(dev->dcam_cxt.if_mode, dev->dcam_cxt.sn_mode);
@@ -2356,21 +2600,21 @@ static  int v4l2_s_ctrl(struct file *file, void *priv,
 				struct v4l2_control *ctrl)
 {
 	struct dcam_dev          *dev = video_drvdata(file);
-	uint32_t                 timing_param[DCAM_TIMING_LEN];
+	uint32_t                 timing_param[V4L2_TIMING_LEN];
 	int                      ret = 0;
 
 	mutex_lock(&dev->dcam_mutex);
 
 	ret = copy_from_user((void*)timing_param, (void*)ctrl->value,
-		(uint32_t)(DCAM_TIMING_LEN*sizeof(uint32_t)));
+		(uint32_t)(V4L2_TIMING_LEN*sizeof(uint32_t)));
 
 	if (unlikely(ret)) {
 		printk("V4L2: v4l2_s_ctrl, error, 0x%x \n", ctrl->value);
 		ret = -EFAULT;
 		V4L2_RTN_IF_ERR(ret);
 	}
-	if (IF_OPEN == timing_param[DCAM_TIMING_LEN-2]) {
-		dev->dcam_cxt.if_mode     = timing_param[DCAM_TIMING_LEN-1];
+	if (IF_OPEN == timing_param[V4L2_TIMING_LEN-2]) {
+		dev->dcam_cxt.if_mode     = timing_param[V4L2_TIMING_LEN-1];
 		dev->dcam_cxt.sn_mode     = timing_param[0];
 		dev->dcam_cxt.yuv_ptn     = timing_param[1];
 		dev->dcam_cxt.frm_deci    = timing_param[3];
@@ -2698,6 +2942,13 @@ LOCAL int sprd_v4l2_open(struct file *file)
 		goto exit;
 	}
 
+	ret = sprd_v4l2_create_zoom_thread(dev);
+	if (unlikely(0 != ret)) {
+		printk("V4L2: Failed to create zoom thread \n");
+		ret = -EIO;
+		goto exit;
+	}
+
 	DCAM_TRACE("V4L2: open /dev/video%d type=%s \n", dev->vfd->num,
 		v4l2_type_names[V4L2_BUF_TYPE_VIDEO_CAPTURE]);
 
@@ -2725,7 +2976,7 @@ exit:
 
 ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_t *cnt_ret)
 {
-	uint32_t                 rt_word[2];
+	uint32_t                 rt_word[3];
 
 	if (cnt < sizeof(uint32_t)) {
 		printk("sprd_v4l2_read , wrong size of u_data %d \n", cnt);
@@ -2734,9 +2985,10 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 
 	rt_word[0] = DCAM_PATH2_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_UP_MAX;
-	DCAM_TRACE("sprd_v4l2_read line threshold %d, sc factor %d.\n", rt_word[0], rt_word[1]);
+	rt_word[2] = DCAM_SCALING_THRESHOLD;
+	DCAM_TRACE("sprd_v4l2_read cnt %d, line threshold %d, sc factor %d, scaling %d.\n", cnt, rt_word[0], rt_word[1], rt_word[2]);
 	(void)file; (void)cnt; (void)cnt_ret;
-	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(2*sizeof(uint32_t)));
+	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(3*sizeof(uint32_t)));
 }
 
 ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cnt, loff_t *cnt_ret)
@@ -2845,6 +3097,7 @@ LOCAL int sprd_v4l2_close(struct file *file)
 	sprd_stop_timer(&dev->dcam_timer);
 	atomic_dec(&dev->users);
 	dcam_stop_flash_thread(dev);
+	sprd_v4l2_stop_zoom_thread(dev);
 	mutex_unlock(&dev->dcam_mutex);
 
 	DCAM_TRACE("V4L2: close end. \n");

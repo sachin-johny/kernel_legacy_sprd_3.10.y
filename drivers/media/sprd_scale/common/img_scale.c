@@ -208,6 +208,8 @@ static long scale_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 			goto ioctl_exit;
 		}
 
+		break;
+	case SCALE_IO_DONE:
 		ret = down_timeout(&fd->scale_done_sem, msecs_to_jiffies(SCALE_TIMEOUT));
 		if (ret) {
 			printk("scale_k_ioctl error:  interruptible time out\n");
@@ -219,9 +221,7 @@ static long scale_k_ioctl(struct file *file, unsigned int cmd, unsigned long arg
 		scale_k_module_dis(fd->dn);
 
 		up(&scale_private->start_sem);
-
 		break;
-
 	case SCALE_IO_CONTINUE:
 		/*Caution: slice scale is not supported by current driver.Please do not use it*/
 		ret = copy_from_user(&slice_params, (struct scale_slice_param_t *)arg, sizeof(slice_params));

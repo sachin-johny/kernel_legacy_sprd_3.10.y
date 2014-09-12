@@ -167,6 +167,7 @@ enum dcam_cfg_id {
 	DCAM_CAP_JPEG_SET_BUF_LEN,
 	DCAM_CAP_TO_ISP,
 	DCAM_CAP_SAMPLE_MODE,
+	DCAM_CAP_ZOOM_MODE,
 
 	DCAM_PATH_INPUT_SIZE,
 	DCAM_PATH_INPUT_RECT,
@@ -361,6 +362,13 @@ struct dcam_frame {
 	struct dcam_frame      *next;
 };
 
+struct dcam_get_path_id {
+	uint32_t               fourcc;
+	uint32_t               is_path_work[DCAM_PATH_MAX];
+	uint32_t               need_isp_tool;
+	struct dcam_size       input_size;
+};
+
 typedef int (*dcam_isr_func)(struct dcam_frame* frame, void* u_data);
 
 int32_t    dcam_module_init(enum dcam_cap_if_mode if_mode,
@@ -407,5 +415,6 @@ int        dcam_scale_coeff_alloc(void);
 void       dcam_scale_coeff_free(void);
 int32_t    dcam_rotation_start(void);
 int32_t    dcam_rotation_end(void);
-
+int32_t    dcam_get_path_id(struct dcam_get_path_id *path_id, uint32_t *channel_id);
+int32_t    dcam_stop_sc_coeff(void);
 #endif //_DCAM_DRV_8830_H_

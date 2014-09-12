@@ -110,7 +110,8 @@ struct scale_frame_info_t {
 
 #define SCALE_IO_MAGIC 'S'
 
-#define SCALE_IO_START _IOW(SCALE_IO_MAGIC, 0, struct scale_frame_param_t)
-#define SCALE_IO_CONTINUE _IOW(SCALE_IO_MAGIC, 1, struct scale_slice_param_t)
+#define SCALE_IO_START     _IOW(SCALE_IO_MAGIC, 0, struct scale_frame_param_t)
+#define SCALE_IO_CONTINUE  _IOW(SCALE_IO_MAGIC, 1, struct scale_slice_param_t)
+#define SCALE_IO_DONE      _IOW(SCALE_IO_MAGIC, 2, struct scale_slice_param_t)
 
 #endif
