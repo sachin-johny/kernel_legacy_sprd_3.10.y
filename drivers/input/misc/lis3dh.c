@@ -1678,8 +1678,8 @@ static struct i2c_driver lis3dh_acc_driver = {
 		   },
 	.probe = lis3dh_acc_probe,
 	.remove = lis3dh_acc_remove,
-	.resume = lis3dh_acc_resume,
-	.suspend = lis3dh_acc_suspend,
+	.resume = NULL,
+	.suspend = NULL,
 	.id_table = lis3dh_acc_id,
 };
 
