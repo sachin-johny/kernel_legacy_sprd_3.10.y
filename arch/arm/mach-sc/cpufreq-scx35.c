@@ -229,6 +229,18 @@ static struct cpufreq_table_data sc8830t_cpufreq_table_data_es = {
 	},
 };
 
+static struct cpufreq_table_data sc9630_cpufreq_table_data = {
+	.freq_tbl = {
+		{0, 1350000},
+		{1, 900000},
+		{2, CPUFREQ_TABLE_END},
+	},
+	.vddarm_mv = {
+		1000000,
+		900000,
+		900000,
+	},
+};
 struct cpufreq_conf sc8830_cpufreq_conf = {
 	.clk = NULL,
 	.mpllclk = NULL,
@@ -255,10 +267,18 @@ static void cpufreq_set_clock(unsigned int freq)
 		pr_err("Failed to set cpu parent to tdpll\n");
 	if (freq == SHARK_TDPLL_FREQUENCY/2) {
 		//ca7 clk div
+		#ifndef CONFIG_ARCH_SCX35L
 		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#else
+		sci_glb_set(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#endif
 		sci_glb_clr(REG_PMU_APB_MPLL_REL_CFG, BIT_MPLL_AP_SEL);
 	} else if (freq == SHARK_TDPLL_FREQUENCY) {
-		sci_glb_clr(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#ifndef CONFIG_ARCH_SCX35L
+		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#else
+		sci_glb_set(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#endif
 	} else {
 	/*
 		if (clk_get_parent(sprd_cpufreq_conf->clk) != sprd_cpufreq_conf->tdpllclk) {
@@ -277,7 +297,11 @@ static void cpufreq_set_clock(unsigned int freq)
 		ret = clk_set_parent(sprd_cpufreq_conf->clk, sprd_cpufreq_conf->mpllclk);
 		if (ret)
 			pr_err("Failed to set cpu parent to mpll\n");
-		sci_glb_clr(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#ifndef CONFIG_ARCH_SCX35L
+		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#else
+		sci_glb_set(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		#endif
 	}
 }
 static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
@@ -519,6 +543,10 @@ static int sprd_freq_table_init(void)
 	else if(soc_is_scx35g_v0()){
 	        sprd_cpufreq_conf->freq_tbl = sc8830t_cpufreq_table_data_es.freq_tbl;
 	        sprd_cpufreq_conf->vddarm_mv = sc8830t_cpufreq_table_data_es.vddarm_mv;
+	}
+else if(soc_is_scx9630_v0()){
+	        sprd_cpufreq_conf->freq_tbl = sc9630_cpufreq_table_data.freq_tbl;
+	        sprd_cpufreq_conf->vddarm_mv = sc9630_cpufreq_table_data.vddarm_mv;
 	}
         else {
 		pr_err("%s error chip id\n", __func__);
@@ -836,9 +864,11 @@ static int __init sprd_cpufreq_modinit(void)
 	if (IS_ERR(sprd_cpufreq_conf->mpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->mpllclk);
 
+#if !defined(CONFIG_ARCH_SCX35L)
 	sprd_cpufreq_conf->tdpllclk = clk_get_sys(NULL, "clk_tdpll");
 	if (IS_ERR(sprd_cpufreq_conf->tdpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
+#endif
 
 	sprd_cpufreq_conf->regulator = regulator_get(NULL, "vddarm");
 
