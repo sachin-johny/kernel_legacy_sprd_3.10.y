@@ -952,8 +952,8 @@ static struct platform_driver dwc_otg_driver = {
 
 	.probe =        dwc_otg_driver_probe,
 	.remove =       dwc_otg_driver_remove,
-	.suspend =	dwc_otg_suspend,
-	.resume =	dwc_otg_resume,
+	//.suspend =	dwc_otg_suspend,
+	//.resume =	dwc_otg_resume,
 
 };
 /**
