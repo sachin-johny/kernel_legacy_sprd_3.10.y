@@ -159,6 +159,8 @@ struct sensor_file_tag {
 	uint32_t                        motpower_on_count;
 	uint32_t                        mipi_on;
 	uint32_t                        padding;
+	uint32_t                        phy_id;
+	uint32_t                        if_type;
 	struct sensor_gpio_tag          gpio_tab;
 	struct clk                      *ccir_clk;
 	struct clk                      *ccir_enable_clk;
@@ -991,6 +993,27 @@ int sensor_k_open(struct inode *node, struct file *file)
 	return ret;
 }
 
+int _sensor_k_close_mipi(struct file *file)
+{
+	int                            ret = 0;
+	struct sensor_file_tag         *p_file = file->private_data;
+
+	SENSOR_CHECK_ZERO(p_file);
+
+	if (INTERFACE_MIPI == p_file->if_type) {
+		if (1 == p_file->mipi_on) {
+			csi_api_close(p_file->phy_id);
+			_sensor_k_mipi_clk_dis(p_file);
+			p_file->mipi_on = 0;
+			printk("MIPI off \n");
+		} else {
+			printk("MIPI already off \n");
+		}
+
+	}
+	return ret;
+}
+
 int sensor_k_release(struct inode *node, struct file *file)
 {
 	int                            ret = 0;
@@ -1009,7 +1032,9 @@ int sensor_k_release(struct inode *node, struct file *file)
 		_sensor_k_set_voltage_dvdd(p_file, SENSOR_VDD_CLOSED);
 		_sensor_k_set_voltage_iovdd(p_file, SENSOR_VDD_CLOSED);
 		_sensor_k_set_mclk(p_file, dn,0);
+		_sensor_k_close_mipi(file);
 		ret = clk_mm_i_eb(dn,0);
+
 		wake_unlock(&p_mod->wakelock);
 	}
 	if (SENSOR_ADDR_INVALID(p_file)) {
@@ -1369,7 +1394,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 				ret = _sensor_k_wr_i2c(p_file, &i2cTab);
 		}
 		break;
-		
+
 	case SENSOR_IO_I2C_READ_EXT:
 		{
 			struct sensor_i2c_tag i2cTab;
@@ -1418,6 +1443,8 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							csi_reg_isr(_sensor_csi2_error, (void*)p_file);
 							csi_set_on_lanes(if_cfg.lane_num);
 							p_file->mipi_on = 1;
+							p_file->phy_id = if_cfg.phy_id;
+							p_file->if_type = INTERFACE_MIPI;
 							printk("MIPI on, lane %d, bps %d, wait 10us \n", if_cfg.lane_num, if_cfg.bps_per_lane);
 						} else {
 							printk("MIPI already on \n");
