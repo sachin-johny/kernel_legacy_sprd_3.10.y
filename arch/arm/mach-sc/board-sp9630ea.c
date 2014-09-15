@@ -369,9 +369,7 @@ static struct platform_device *devices[] __initdata = {
 #if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
 	&sprd_eic_keys_device,
 #endif
-#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA)
 	&sprd_battery_device,
-#endif
 #ifdef CONFIG_ION
 	&sprd_ion_dev,
 #endif
@@ -381,10 +379,8 @@ static struct platform_device *devices[] __initdata = {
 #endif
 	&sprd_emmc_device,
 	&sprd_sdio0_device,
-#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA)
 	&sprd_sdio1_device,
 	&sprd_sdio2_device,
-#endif
 	&sprd_dcam_device,
 	&sprd_scale_device,
 	&sprd_rotation_device,
@@ -463,7 +459,6 @@ static struct platform_device *devices[] __initdata = {
 };
 
 static struct platform_device *late_devices[] __initdata = {
-#if defined(CONFIG_MACH_SPX35LFPGA) || defined(CONFIG_MACH_PIKELFPGA) || defined(CONFIG_MACH_SP9630EA)
 	/* 1. CODECS */
 	&sprd_audio_sprd_codec_device,
 	&sprd_audio_null_codec_device,
@@ -482,7 +477,6 @@ static struct platform_device *late_devices[] __initdata = {
 	/* 4. MACHINE */
 	&sprd_audio_vbc_r2p0_sprd_codec_device,
 	&sprd_audio_i2s_null_codec_device,
-#endif
 };
 
 
@@ -1043,9 +1037,7 @@ static void __init sc8830_init_machine(void)
 	printk("sci get chip id = 0x%x\n",__sci_get_chip_id());
 
 	sci_adc_init((void __iomem *)ADC_BASE);
-#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA)
 	sci_regulator_init();
-#endif
 #ifndef CONFIG_OF
 	sprd_add_otg_device();
 	platform_device_add_data(&sprd_serial_device0,(const void*)&plat_data0,sizeof(plat_data0));
