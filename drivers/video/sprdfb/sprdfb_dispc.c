@@ -38,9 +38,6 @@
 #include <mach/cpuidle.h>
 #include <linux/dma-mapping.h>
 //#define SHARK_LAYER_COLOR_SWITCH_FEATURE // bug212892
-#if !defined(CONFIG_MACH_SPX35LFPGA) && !defined(CONFIG_MACH_PIKELFPGA) && !(CONFIG_MACH_SP9630EA)
- #define DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
-#endif
 
 #ifndef CONFIG_OF
 #ifdef CONFIG_FB_SCX15
@@ -957,7 +954,7 @@ struct devfreq_dbs sprd_fb_notify = {
 };
 #endif
 
-#ifdef DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
+#ifdef CONFIG_CPU_IDLE
 
 static int scxx30_dispc_cpuidle_notify(struct notifier_block *nb, unsigned long event, void *dummy)
 {
@@ -1039,7 +1036,7 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 	devfreq_notifier_register(&sprd_fb_notify);
 #endif
 
-#ifdef DISPC_AHB_CLOCK_MCU_SLEEP_FEATURE
+#ifdef CONFIG_CPU_IDLE
 	ret = register_sc_cpuidle_notifier(&scxx30_dispc_cpuidle_notifier);
 	if (ret) {
 		printk("sprdfb: Failed to setup light sleep notifier!\n");
