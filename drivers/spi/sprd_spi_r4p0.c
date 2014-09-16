@@ -361,6 +361,23 @@ static int sprd_spi_transfer_full_duplex(struct spi_device *spi_dev,
 	return trans_node->len;
 }
 
+static void sprd_spi_restore_config(const struct sprd_spi_devdata *spi_chip);
+
+static int sprd_spi_wakeup_restore(struct sprd_spi_devdata *spi_chip)
+{
+	if (spi_chip->is_active) {
+
+		clk_prepare_enable(spi_chip->clk);
+
+		sprd_spi_restore_config(spi_chip);
+
+		clk_disable_unprepare(spi_chip->clk);
+		printk("spi_chip->is_active\n");
+	}
+
+	return 0;
+}
+
 static void  sprd_spi_transfer_work(struct work_struct *work)
 {
 	int ret;
@@ -368,11 +385,17 @@ static void  sprd_spi_transfer_work(struct work_struct *work)
 	struct spi_message *spi_msg;
 	struct spi_transfer *transfer_node;
 	unsigned long flags;
+	u32 check_reg_val;
 
 	spi_chip = container_of(work, struct sprd_spi_devdata, work);
 
 	clk_prepare_enable(spi_chip->clk);
-
+	/*check register reset*/
+	check_reg_val=__raw_readl(spi_chip->reg_base + SPI_CTL6);
+	if(check_reg_val!=0x1010){
+		sprd_spi_wakeup_restore(spi_chip);
+		printk("spi wake up store register\n");
+	}
 	/*fixme*/
 	spin_lock_irqsave(&spi_chip->lock, flags);
 
@@ -544,6 +567,8 @@ static int sprd_spi_setup(struct spi_device *spi_dev)
 	for (i = 0; i < 0x20; i++);
 	__raw_writel(0x0, spi_chip->reg_base + SPI_FIFO_RST);
 
+	/*check register reset*/
+	__raw_writel(0x0810, spi_chip->reg_base + SPI_CTL6);
 	clk_set_rate(spi_chip->clk, spi_src_clk);
 
 	spi_clk_div = spi_src_clk / (spi_dev->max_speed_hz << 1) - 1;
@@ -680,45 +705,9 @@ static int __exit sprd_spi_remove(struct platform_device *pdev)
 	return 0;
 }
 
-#ifdef CONFIG_PM
-static int sprd_spi_suspend(struct platform_device *pdev, pm_message_t mesg)
-{
-	struct spi_master *master = platform_get_drvdata(pdev);
 
-	struct sprd_spi_devdata *spi_chip = spi_master_get_devdata(master);
-	if (IS_ERR(spi_chip->clk)) {
-		pr_err("can't get spi_clk when suspend()\n");
-		return -1;
-	}
-
-	if (spi_chip->is_active)
-		clk_disable_unprepare(spi_chip->clk);
-
-	return 0;
-}
-
-static int sprd_spi_resume(struct platform_device *pdev)
-{
-	struct spi_master *master = platform_get_drvdata(pdev);
-
-	struct sprd_spi_devdata *spi_chip = spi_master_get_devdata(master);
-
-	if (spi_chip->is_active) {
-
-		clk_prepare_enable(spi_chip->clk);
-
-		sprd_spi_restore_config(spi_chip);
-
-		clk_disable_unprepare(spi_chip->clk);
-	}
-
-	return 0;
-}
-
-#else
 #define	sprd_spi_suspend NULL
 #define	sprd_spi_resume NULL
-#endif
 
 static const struct of_device_id sprd_spi_of_match[] = {
 	{ .compatible = "sprd,sprd-spi", },
