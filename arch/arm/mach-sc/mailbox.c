@@ -39,6 +39,7 @@ static irqreturn_t mbox_recv_irqhandle(int irq_num, void *dev)
 	u32 irq_sts;
 	u32 reg_val;
 	void *priv_data;
+        unsigned long flags;
 
 	irq_sts = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_FIFO_STS) >> 8;
 
@@ -48,16 +49,16 @@ static irqreturn_t mbox_recv_irqhandle(int irq_num, void *dev)
 			break;
 		}
 		irq_sts &= irq_sts - 1;
-		spin_lock(&mbox_chns[target_id].mbox_lock);
+		spin_lock_irqsave(&mbox_chns[target_id].mbox_lock,flags);
 		if (mbox_chns[target_id].mbox_recv_irq_handler) {
 			priv_data = mbox_chns[target_id].mbox_priv_data;
 			/*we will use tasklet later*/
 			mbox_chns[target_id].mbox_recv_irq_handler(irq_num, priv_data);
-			reg_val = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);	
+			reg_val = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);
 			reg_val |= (0x1 << target_id) << 8;
 			__raw_writel(reg_val, SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);
 		}
-		spin_unlock(&mbox_chns[target_id].mbox_lock);
+		spin_unlock_irqrestore(&mbox_chns[target_id].mbox_lock,flags);
 	}
 
 	return IRQ_HANDLED;
@@ -103,7 +104,7 @@ int mbox_unregister_irq_handle(u8 target_id)
 
 	__raw_writel(reg_val, SPRD_RECV_MBOX_BASE + MBOX_IRQ_MSK);
 
-	reg_val = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);	
+	reg_val = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);
 
 	reg_val |= (0x1 << target_id) << 8;
 
@@ -127,9 +128,9 @@ int mbox_raw_sent(u8 target_id, u64 msg)
 	__raw_writeq(msg, SPRD_SEND_MBOX_BASE + MBOX_MSG_L );
 #endif
 	__raw_writel(target_id, SPRD_SEND_MBOX_BASE + MBOX_ID);
-	
+
 	__raw_writel(0x1, SPRD_SEND_MBOX_BASE + MBOX_TRI);
-	
+
 	__raw_writel(MBOX_UNLOCK_KEY, SPRD_SEND_MBOX_BASE + MBOX_LOCK);
 
 	return 0;
@@ -143,6 +144,7 @@ static int __init mbox_init(void)
 {
 	int i;
 	int ret;
+        int vmailbox_irq = 69+32;
 
 	/*glb enable and rst*/
 	sci_glb_set(REG_AON_APB_APB_EB1, BIT_MBOX_EB);
@@ -156,10 +158,11 @@ static int __init mbox_init(void)
 	/*recv use the irq_type_1 default*/
 	__raw_writel(0x10000, SPRD_RECV_MBOX_BASE +  MBOX_FIFO_RST);
 	/* FIXME: irq num */
-	ret = request_irq(69 + 32, mbox_recv_irqhandle, 0, "sprd-mailbox", NULL);
+	ret = request_irq(vmailbox_irq, mbox_recv_irqhandle, IRQF_NO_SUSPEND, "sprd-mailbox", NULL);
 	if (ret) {
 		/*fixme*/
 	}
+        enable_irq_wake(vmailbox_irq);
 
 	/*disable recv irq*/
 	__raw_writel(0xff00, SPRD_RECV_MBOX_BASE + MBOX_IRQ_MSK);
