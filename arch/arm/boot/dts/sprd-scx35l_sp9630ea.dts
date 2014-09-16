@@ -18,10 +18,12 @@
 /memreserve/ 0x89600000 0x6A00000; /* Offset:150M, Size:106M*/
 
 /* memory reserved for fb */
-/memreserve/ 0x9f300000 0x600000; /* 6MK */
+/memreserve/ 0x9F956000 0x3AA000; /* 400*800*4*3, 4K alignment*/
+
 
 /* memory reserved for ION */
-/memreserve/ 0x9f900000 0x700000; /* 7MK */
+/memreserve/ 0x9FD00000 0x300000; /* 400*800*4*2, 1M alignment*/
+
 
 /include/ "skeleton.dtsi"
 /include/ "scx35l-clocks.dtsi"
@@ -426,7 +428,7 @@
 		clock-src = <256000000 256000000 384000000>;
 		dpi_clk_div = <7>;
 		sprd,fb_use_reservemem;
-		sprd,fb_mem = <0x9f300000 0x600000>;
+		sprd,fb_mem = <0x9F956000 0x3AA000>;
 	};
 	gsp:gsp@20a00000 {
 		compatible = "sprd,gsp";
@@ -870,7 +872,7 @@
                        reg = <3>;                      /* OVERLAY */
                        reg-names = "ion_heap_carveout_overlay";
                        sprd,ion-heap-type = <2>;       /* CARVEOUT */
-                       sprd,ion-heap-mem = <0x9f900000 0x700000>;      /* 7M */
+                       sprd,ion-heap-mem = <0x9FD00000 0x300000>;      /* 400*800*4*2, 1M alignment */
                  };
          };
          sprd_iommu0:sprd_iommu@F5410000 {
