@@ -47,7 +47,7 @@ extern struct platform_device sprd_spi0_device;
 extern struct platform_device sprd_spi1_device;
 extern struct platform_device sprd_spi2_device;
 extern struct platform_device sprd_keypad_device;
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+#if(defined(CONFIG_KEYBOARD_GPIO_SPRD)||defined(CONFIG_KEYBOARD_GPIO_SPRD_MODULE))
 extern struct platform_device sprd_gpio_keys_device;
 #endif
 #if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))

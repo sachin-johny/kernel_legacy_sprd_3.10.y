@@ -78,8 +78,8 @@
 #include <linux/input/matrix_keypad.h>
 #include <mach/kpd.h>
 #endif
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
-#include <linux/gpio_keys.h>
+#if(defined(CONFIG_KEYBOARD_GPIO_SPRD)||defined(CONFIG_KEYBOARD_GPIO_SPRD_MODULE))
+#include <linux/gpio_keys_sprd.h>
 #endif
 #if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
 #include <linux/sprd_eic_keys.h>
@@ -197,7 +197,7 @@ static struct sci_keypad_platform_data sci_keypad_data = {
 };
 #endif
 
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+#if(defined(CONFIG_KEYBOARD_GPIO_SPRD)||defined(CONFIG_KEYBOARD_GPIO_SPRD_MODULE))
 static struct gpio_keys_button gpio_keys_button[] = {
     {
         .code = KEY_VOLUMEDOWN,
@@ -363,7 +363,7 @@ static struct platform_device *devices[] __initdata = {
 #if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
 	&sprd_keypad_device,
 #endif
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+#if(defined(CONFIG_KEYBOARD_GPIO_SPRD)||defined(CONFIG_KEYBOARD_GPIO_SPRD_MODULE))
 	&sprd_gpio_keys_device,
 #endif
 #if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
@@ -1019,7 +1019,7 @@ static const struct of_dev_auxdata of_sprd_default_bus_lookup[] = {
 #if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
 	{.compatible = "sprd,sci-keypad", .name = "sci-keypad" },
 #endif
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+#if(defined(CONFIG_KEYBOARD_GPIO_SPRD)||defined(CONFIG_KEYBOARD_GPIO_SPRD_MODULE))
 	{.compatible = "gpio-keys", .name = "gpio-keys" },
 #endif
 #if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
@@ -1046,7 +1046,7 @@ static void __init sc8830_init_machine(void)
 #if(defined(CONFIG_KEYBOARD_SC)||defined(CONFIG_KEYBOARD_SC_MODULE))
 	platform_device_add_data(&sprd_keypad_device,(const void*)&sci_keypad_data,sizeof(sci_keypad_data));
 #endif
-#if(defined(CONFIG_KEYBOARD_GPIO)||defined(CONFIG_KEYBOARD_GPIO_MODULE))
+#if(defined(CONFIG_KEYBOARD_GPIO_SPRD)||defined(CONFIG_KEYBOARD_GPIO_SPRD_MODULE))
 	platform_device_add_data(&sprd_gpio_keys_device,(const void*)&gpio_keys_platform_data,sizeof(gpio_keys_platform_data));
 #endif
 #if(defined(CONFIG_KEYBOARD_SPRD_EIC)||defined(CONFIG_KEYBOARD_SPRD_EIC_MODULE))
