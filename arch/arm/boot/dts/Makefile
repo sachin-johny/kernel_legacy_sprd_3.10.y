@@ -231,6 +231,7 @@ dtb-$(CONFIG_MACH_PIKEAYOUNG2DTV) += sprd-scx35_pikeayoung2dtv.dtb
 dtb-$(CONFIG_MACH_CORE3) += sprd-scx35_core3.dtb
 dtb-$(CONFIG_MACH_SPX35LFPGA) += sprd-scx35l_sp9630fpga.dtb
 dtb-$(CONFIG_MACH_SP9630EA) += sprd-scx35l_sp9630ea.dtb
+dtb-$(CONFIG_MACH_SP9630EA_4MOD) += sprd-scx35l_sp9630ea_4mod.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
 ifneq ($(DTB_NAMES),)
