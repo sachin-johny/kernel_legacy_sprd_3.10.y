@@ -79,8 +79,10 @@ const struct of_device_id iommu_ids[] __initconst = {
 static struct platform_driver iommu_driver = {
 	.probe = sprd_iommu_probe,
 	.remove = sprd_iommu_remove,
+#ifndef CONFIG_ARCH_SCX35L
 	.suspend = sprd_iommu_suspend,
 	.resume = sprd_iommu_resume,
+#endif
 	.driver = {
 		.owner=THIS_MODULE,
 		.name="sprd_iommu",
@@ -91,8 +93,10 @@ static struct platform_driver iommu_driver = {
 static struct platform_driver iommu_driver = {
 	.probe = sprd_iommu_probe,
 	.remove = sprd_iommu_remove,
+#ifndef CONFIG_ARCH_SCX35L
 	.suspend = sprd_iommu_suspend,
 	.resume = sprd_iommu_resume,
+#endif
 	.driver = {
 		.owner=THIS_MODULE,
 		.name="sprd_iommu",
