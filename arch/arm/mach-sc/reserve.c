@@ -201,9 +201,7 @@ static int __ddr_training_memblock(void)
 void __init sci_reserve(void)
 {
 	int ret;
-#ifdef CONFIG_ARCH_SCX30G
 	__ddr_training_memblock();
-#endif
 #ifdef SPRD_ION_BASE_USE_VARIABLE
 	/*sprd_reserve_limit is used save arm_lowmem_limit,will be use by ION*/
 	sprd_reserve_limit = arm_lowmem_limit;
