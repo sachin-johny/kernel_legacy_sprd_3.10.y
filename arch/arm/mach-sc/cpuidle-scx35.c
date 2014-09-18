@@ -186,7 +186,12 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 				zipenc_status  = 1;
 			}
 #endif
-	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+			sci_glb_clr(REG_AON_APB_APB_EB0, BIT_CA7_DAP_EB);
+#if defined(CONFIG_ARCH_SCX35L)
+			 if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB)) {
+                                sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SYS_SLEEP_EN);
+                        }
+#else
 			if (!(sci_glb_read(REG_AP_AHB_AHB_EB, -1UL) & BIT_DMA_EB) && (num_online_cpus() == 1)) {
 				error = sc_cpuidle_notifier_call_chain(SC_CPUIDLE_PREPARE);
 				if (error) {
@@ -196,8 +201,18 @@ static void sc_cpuidle_light_sleep_en(int cpu)
 				}
 				sci_glb_set(REG_AP_AHB_MCU_PAUSE, BIT_MCU_SYS_SLEEP_EN);
 			}
+#endif
 		}
 		sci_glb_set(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE);
+#if defined(CONFIG_ARCH_SCX35L)
+		/*modify SCX35L light sleep for self-ram dispc*/
+		error = sc_cpuidle_notifier_call_chain(SC_CPUIDLE_PREPARE);                             /*dispc notifier call*/
+		if (error) {
+			sci_glb_clr(REG_AP_AHB_MCU_PAUSE, LIGHT_SLEEP_ENABLE | BIT_MCU_SYS_SLEEP_EN);
+			pr_debug("could not set %s ... \n", __func__);
+			return;
+		}
+#endif
 	}
 	if(cpuidle_debug){
 		sc_cpuidle_debug();
