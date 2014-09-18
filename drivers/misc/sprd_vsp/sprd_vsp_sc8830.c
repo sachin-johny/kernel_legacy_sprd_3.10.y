@@ -730,8 +730,10 @@ static int vsp_remove(struct platform_device *pdev)
 static struct platform_driver vsp_driver = {
     .probe    = vsp_probe,
     .remove   = vsp_remove,
+#if !defined(CONFIG_ARCH_SCX35L)
     .suspend = vsp_suspend,
     .resume = vsp_resume,
+#endif
     .driver   = {
         .owner = THIS_MODULE,
         .name = "sprd_vsp",
