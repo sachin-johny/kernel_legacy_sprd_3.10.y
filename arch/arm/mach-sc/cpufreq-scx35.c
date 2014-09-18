@@ -468,6 +468,7 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int cur_freq = 0;
 	unsigned long irq_flags;
 
+	return 0;
 	/* delay 30s to enable dvfs&dynamic-hotplug,
          * except requirment from termal-cooling device
          */
