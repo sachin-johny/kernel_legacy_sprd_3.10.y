@@ -115,6 +115,7 @@ static struct snd_soc_dai_link vbc_r2p0_codec_dai[] = {
 	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vbc-r2p0",
 	 .codec_dai_name = "sprd-codec-i2s",
+	 .ignore_suspend = 1,
 	 },
 #ifdef CONFIG_SND_SOC_SPRD_VAUDIO
 	{
@@ -125,6 +126,7 @@ static struct snd_soc_dai_link vbc_r2p0_codec_dai[] = {
 	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio",
 	 .codec_dai_name = "sprd-codec-vaudio",
+	 .ignore_suspend = 1,
 	 },
 #endif
 	{
@@ -135,6 +137,7 @@ static struct snd_soc_dai_link vbc_r2p0_codec_dai[] = {
 	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vbc-r2p0-ad23",
 	 .codec_dai_name = "codec-i2s-ext",
+	 .ignore_suspend = 1,
 	 },
 #ifdef CONFIG_SND_SOC_SPRD_VAUDIO
 	{
@@ -145,6 +148,7 @@ static struct snd_soc_dai_link vbc_r2p0_codec_dai[] = {
 	 .platform_name = "sprd-pcm-audio",
 	 .cpu_dai_name = "vaudio-ad23",
 	 .codec_dai_name = "codec-vaudio-ext",
+	 .ignore_suspend = 1,
 	 },
 #endif
 	{
@@ -156,6 +160,7 @@ static struct snd_soc_dai_link vbc_r2p0_codec_dai[] = {
 	 .cpu_dai_name = "vbc-dfm",
 	 .codec_dai_name = "sprd-codec-fm",
 	 .ops = &dfm_ops,
+	 .ignore_suspend = 1,
 	 },
 };
 
