@@ -91,7 +91,7 @@ sprd_pm_va_to_iram:
 	nop
 	dsb
 	isb
-#ifndef CONFIG_ARCH_SCX30G
+#if !(defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L))
 	wfi
 	mov	r0, #0x400
 	/*wait 60us for clk is safely closed*/
@@ -216,6 +216,24 @@ check_pub_fsm:
 	tst r1,#0x1
 	beq 1b
 next:
+#endif
+
+#ifdef CONFIG_ARCH_SCX35L
+	ldr r0,=0x402b00c4
+	mov r1,#0x3
+check_pub_fsm:
+	ldr r2,[r0]
+	and r2,r2,#0x0f000000
+	cmp r2,#0x0
+	bne check_pub_fsm
+	sub r1,r1,#0x1
+	cmp r1,#0x0
+	bne check_pub_fsm
+	ldr r0,=0x30010184
+check_ddr_done:
+	ldr r1,[r0]
+	tst r1,#0x1
+	beq check_ddr_done
 #endif
 
 /* DLL calibration */

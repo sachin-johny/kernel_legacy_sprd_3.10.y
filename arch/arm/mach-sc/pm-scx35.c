@@ -242,7 +242,7 @@ static void setup_autopd_mode(void)
 	if (soc_is_scx35_v1()) {
 		sci_glb_set(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 	}
-#ifndef CONFIG_ARCH_SCX30G
+#if !(defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L))
 	else {
 		sci_glb_clr(REG_PMU_APB_PD_PUB_SYS_CFG, BIT_PD_PUB_SYS_AUTO_SHUTDOWN_EN);
 	}
