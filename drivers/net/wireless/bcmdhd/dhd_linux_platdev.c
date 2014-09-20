@@ -343,8 +343,8 @@ static const struct of_device_id wifi_device_dt_match[] = {
 static struct platform_driver wifi_platform_dev_driver = {
 	.probe          = wifi_plat_dev_drv_probe,
 	.remove         = wifi_plat_dev_drv_remove,
-	.suspend        = wifi_plat_dev_drv_suspend,
-	.resume         = wifi_plat_dev_drv_resume,
+	.suspend        = NULL,//wifi_plat_dev_drv_suspend,
+	.resume         = NULL,//wifi_plat_dev_drv_resume,
 	.driver         = {
 	.name   = WIFI_PLAT_NAME,
 #ifdef CONFIG_DTS
