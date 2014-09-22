@@ -1649,8 +1649,8 @@ static struct platform_driver headset_detect_driver = {
                 .of_match_table = headset_detect_of_match,
         },
         .probe = headset_detect_probe,
-        .suspend = headset_suspend,
-        .resume = headset_resume,
+        //.suspend = headset_suspend,
+        //.resume = headset_resume,
 };
 
 static int __init headset_init(void)

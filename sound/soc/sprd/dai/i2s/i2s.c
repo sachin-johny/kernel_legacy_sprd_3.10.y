@@ -83,6 +83,7 @@ struct i2s_priv {
 	struct i2s_config config;
 	struct clk *i2s_clk;
 	struct snd_soc_dai_driver i2s_dai_driver[2];
+	int i2s_type;
 };
 
 static struct sprd_pcm_dma_params i2s_pcm_stereo_out = {
@@ -113,9 +114,9 @@ const static struct i2s_config def_pcm_config = {
 	.bus_type = PCM_BUS,
 	.byte_per_chan = I2S_BPCH_16,
 	.mode = I2S_MASTER,
-	.lsb = I2S_LSB,
+	.lsb = I2S_MSB,
 	.rtx_mode = I2S_RTX_MODE,
-	.sync_mode = I2S_LRCK,
+	.sync_mode = I2S_SYNC,// I2S_SYNC better!
 	.lrck_inv = I2S_L_LEFT,
 	.clk_inv = I2S_CLK_N,
 	.pcm_bus_mode = I2S_SHORT_FRAME,
@@ -548,7 +549,7 @@ static int i2s_close(struct i2s_priv *i2s)
 		i2s_soft_reset(i2s);
 		i2s_global_disable(i2s);
 		if (!IS_ERR(i2s->i2s_clk)) {
-			clk_disable(i2s->i2s_clk);
+			clk_disable_unprepare(i2s->i2s_clk);
 			clk_put(i2s->i2s_clk);
 		}
 	}
@@ -574,7 +575,7 @@ static int i2s_open(struct i2s_priv *i2s)
 		i2s_soft_reset(i2s);
 		i2s_dma_ctrl(i2s, 0);
 		ret = i2s_config_apply(i2s);
-		clk_enable(i2s->i2s_clk);
+		clk_prepare_enable(i2s->i2s_clk);
 	}
 
 	return ret;
@@ -714,6 +715,33 @@ static int i2s_config_from_node(struct device_node *node, struct i2s_priv *i2s)
 			i2s->config = def_i2s_config;
 			sp_asoc_pr_dbg("Use I2S default config!\n");
 		}
+
+		if (!of_property_read_u32
+			(config_node, "sprd,_hw_port", &val)) {
+			i2s->config.hw_port = val;
+			sp_asoc_pr_dbg("Change _hw_port to %d!\n", val);
+		}
+		if (!of_property_read_u32
+			(config_node, "sprd,fs", &val)) {
+			i2s->config.fs = val;
+			sp_asoc_pr_dbg("Change fs to %d!\n", val);
+		}
+		if (!of_property_read_u32
+			(config_node, "sprd,bus_type", &val)) {
+			if (val){
+				i2s->config.bus_type = PCM_BUS;
+			} else {
+				i2s->config.bus_type = I2S_BUS;
+			}
+			sp_asoc_pr_dbg("Change bus_type to %d!\n", val);
+		}
+
+		if (!of_property_read_u32
+			(config_node, "sprd,rtx_mode", &val)) {
+			i2s->config.rtx_mode = val;
+			sp_asoc_pr_dbg("Change rtx_mode to %d!\n", val);
+		}
+
 		if (!of_property_read_u32
 		    (config_node, "sprd,slave_timeout", &val)) {
 			i2s->config.slave_timeout = val;
@@ -831,40 +859,184 @@ static int i2s_drv_probe(struct platform_device *pdev)
 		u32 val[2];
 		if (of_property_read_u32(node, "sprd,id", &val[0])) {
 			pr_err("ERR:Must give me the id!\n");
-			return -EINVAL;
+			goto out;
 		}
 		i2s->id = val[0];
 		if (of_property_read_u32(node, "sprd,hw_port", &val[0])) {
 			pr_err("ERR:Must give me the hw_port!\n");
-			return -EINVAL;
+			goto out;
 		}
 		i2s->hw_port = val[0];
 		if (of_property_read_u32_array(node, "sprd,base", &val[0], 2)) {
 			pr_err("ERR:Must give me the base address!\n");
-			return -EINVAL;
+			goto out;
 		}
 		i2s->memphys = (unsigned int *)val[0];
 		i2s->membase = (void __iomem *)val[1];
 		if (of_property_read_u32(node, "sprd,dma_rx_no", &val[0])) {
 			pr_err("ERR:Must give me the dma rx number!\n");
-			return -EINVAL;
+			goto out;
 		}
 		i2s->rx.dma_no = val[0];
 		if (of_property_read_u32(node, "sprd,dma_tx_no", &val[0])) {
 			pr_err("ERR:Must give me the dma tx number!\n");
-			return -EINVAL;
+			goto out;
 		}
 		i2s->tx.dma_no = val[0];
 
 		const char *dai_name  = NULL;
 		if (of_property_read_string(node, "sprd,dai_name", &dai_name)) {
-			pr_err("ERR:Must give me the dma tx number!\n");
-			//return -EINVAL;
+			pr_err("ERR:Must give me the dai_name!\n");
+			//goto out;
 		}
 		if (dai_name != NULL)
 			strcpy(i2s->dai_name,dai_name);
 		printk("dt version i2s->dai_name %s \n",i2s->dai_name);
 		ret = i2s_config_from_node(node, i2s);
+
+		const char * config_type = NULL;
+		if (of_property_read_string(node, "sprd,config_type", &config_type)) {
+			i2s->config = def_pcm_config;
+			i2s->i2s_type = 0;
+			printk("warning:Must give me the config_type! default is pcm\n");
+		}
+		printk("i2s config_type %s \n",config_type);
+
+		if (config_type != NULL){
+			if (strcmp(config_type,"i2s") == 0){
+				i2s->config = def_i2s_config;
+				i2s->i2s_type = 1;
+			} else if (strcmp(config_type,"pcm") == 0) {
+				i2s->config = def_pcm_config;
+				i2s->i2s_type = 0;
+			} else {
+				pr_err("ERR:config_type must be pcm or i2s !\n");
+			}
+		}
+
+		if (!of_property_read_u32
+			(node, "sprd,_hw_port", &val[0])) {
+			i2s->config.hw_port = val[0];
+			sp_asoc_pr_dbg("Change _hw_port to %d!\n", val[0]);
+		}
+		if (!of_property_read_u32
+			(node, "sprd,fs", &val[0])) {
+			i2s->config.fs = val[0];
+			sp_asoc_pr_dbg("Change fs to %d!\n", val[0]);
+		}
+		if (!of_property_read_u32
+			(node, "sprd,bus_type", &val[0])) {
+			if (val[0]){
+				i2s->config.bus_type = PCM_BUS;
+			} else {
+				i2s->config.bus_type = I2S_BUS;
+			}
+			sp_asoc_pr_dbg("Change bus_type to %d!\n", val[0]);
+		}
+
+		if (!of_property_read_u32
+			(node, "sprd,rtx_mode", &val[0])) {
+			i2s->config.rtx_mode = val[0];
+			sp_asoc_pr_dbg("Change rtx_mode to %d!\n", val[0]);
+		}
+
+		if (!of_property_read_u32
+			(node, "sprd,slave_timeout", &val[0])) {
+			i2s->config.slave_timeout = val[0];
+			sp_asoc_pr_dbg("Change slave_timeout to %d!\n", val[0]);
+		}
+		if (!of_property_read_u32
+			(node, "sprd,byte_per_chan", &val[0])) {
+			i2s->config.byte_per_chan = val[0];
+			sp_asoc_pr_dbg("Change byte per channal to %d!\n", val[0]);
+		}
+		if (!of_property_read_u32(node, "sprd,slave_mode", &val[0])) {
+			if (val[0]) {
+				i2s->config.mode = I2S_SLAVE;
+			} else {
+				i2s->config.mode = I2S_MASTER;
+			}
+			sp_asoc_pr_dbg("Change to %s!\n",
+					val[0] ? "Slave" : "Master");
+		}
+		if (!of_property_read_u32(node, "sprd,lsb", &val[0])) {
+			if (val[0]) {
+				i2s->config.lsb = I2S_LSB;
+			} else {
+				i2s->config.lsb = I2S_MSB;
+			}
+			sp_asoc_pr_dbg("Change to %s!\n", val[0] ? "LSB" : "MSB");
+		}
+		if (!of_property_read_u32(node, "sprd,lrck", &val[0])) {
+			if (val[0]) {
+				i2s->config.sync_mode = I2S_LRCK;
+			} else {
+				i2s->config.sync_mode = I2S_SYNC;
+			}
+			sp_asoc_pr_dbg("Change to %s!\n",
+					val[0] ? "LRCK" : "SYNC");
+		}
+		if (!of_property_read_u32
+		    (node, "sprd,low_for_left", &val[0])) {
+			if (val[0]) {
+				i2s->config.lrck_inv = I2S_L_LEFT;
+			} else {
+				i2s->config.lrck_inv = I2S_L_RIGTH;
+			}
+			sp_asoc_pr_dbg("Change to %s!\n",
+					val[0] ? "Low for Left" : "Low for Right");
+		}
+		if (!of_property_read_u32(node, "sprd,clk_inv", &val[0])) {
+			if (val[0]) {
+				i2s->config.clk_inv = I2S_CLK_R;
+			} else {
+				i2s->config.clk_inv = I2S_CLK_N;
+			}
+			sp_asoc_pr_dbg("Change to %s!\n",
+					val[0] ? "CLK INV" : "CLK Normal");
+		}
+		if (i2s->i2s_type){
+			if (!of_property_read_u32
+				(node, "sprd,i2s_compatible", &val[0])) {
+				if (val[0]) {
+					i2s->config.i2s_bus_mode = I2S_COMPATIBLE;//I2S_SHORT_FRAME
+				} else {
+					i2s->config.i2s_bus_mode = I2S_MSBJUSTFIED;//I2S_LONG_FRAME
+				}
+				sp_asoc_pr_dbg("Change to %s!\n",
+						val[0] ? "Compatible" : "MSBJustfied");
+			}
+		}
+		if (!of_property_read_u32
+			(node, "sprd,pcm_short_frame", &val[0])) {
+			if (val[0]) {
+				i2s->config.pcm_bus_mode = I2S_SHORT_FRAME;
+			} else {
+				i2s->config.pcm_bus_mode = I2S_LONG_FRAME;
+			}
+			sp_asoc_pr_dbg("Change to %s!\n",
+					val[0] ? "Short Frame" : "Long Frame");
+		}
+		if (!i2s->i2s_type) {
+			if (!of_property_read_u32(node, "sprd,pcm_slot", &val[0])) {
+				i2s->config.pcm_slot = val[0];
+				sp_asoc_pr_dbg("Change PCM Slot to 0x%x!\n", val[0]);
+			}
+			if (!of_property_read_u32(node, "sprd,pcm_cycle", &val[0])) {
+				i2s->config.pcm_cycle = val[0];
+				sp_asoc_pr_dbg("Change PCM Cycle to %d!\n", val[0]);
+			}
+		}
+		if (!of_property_read_u32
+			(node, "sprd,tx_watermark", &val[0])) {
+			i2s->config.tx_watermark = val[0];
+			sp_asoc_pr_dbg("Change TX Watermark to %d!\n", val[0]);
+		}
+		if (!of_property_read_u32
+			(node, "sprd,rx_watermark", &val[0])) {
+			i2s->config.rx_watermark = val[0];
+			sp_asoc_pr_dbg("Change RX Watermark to %d!\n", val[0]);
+		}
 	} else {
 		i2s->config =
 		    *((struct i2s_config *)(dev_get_platdata(&pdev->dev)));
@@ -921,6 +1093,9 @@ static int i2s_drv_probe(struct platform_device *pdev)
 	sp_asoc_pr_dbg("return %i\n", ret);
 
 	return ret;
+out:
+	devm_kfree(&pdev->dev,i2s);
+	return -EINVAL;
 }
 
 static int i2s_drv_remove(struct platform_device *pdev)
