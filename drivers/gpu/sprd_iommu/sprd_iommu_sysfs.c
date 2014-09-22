@@ -20,8 +20,8 @@ extern int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev);
 static void iova_dump_chunk_bitmap(struct gen_pool *pool, struct gen_pool_chunk *chunk, void *data)
 {
 	struct seq_file *s=(struct seq_file *)data;
-	unsigned int nbits=((chunk->end_addr-chunk->start_addr) + (1UL << 12) - 1) >> 12; 
-	seq_printf(s,"chunk phys_addr:0x%x start_addr:0x%lx end_addr:0x%lx\n",chunk->phys_addr,chunk->start_addr,chunk->end_addr);
+	unsigned long nbits=((chunk->end_addr-chunk->start_addr) + (1UL << 12) - 1) >> 12;
+	seq_printf(s,"chunk phys_addr:0x%lx start_addr:0x%lx end_addr:0x%lx\n",chunk->phys_addr,chunk->start_addr,chunk->end_addr);
 	seq_bitmap(s,chunk->bits,nbits);
 	seq_printf(s,"\n");
 }
@@ -29,7 +29,7 @@ static void iova_dump_chunk_bitmap(struct gen_pool *pool, struct gen_pool_chunk 
 static int iova_show(struct seq_file *s, void *unused)
 {
 	struct sprd_iommu_dev *iommu_dev = (struct sprd_iommu_dev *)s->private;
-	seq_printf(s,"iommu_name:%s  iova_base:0x%lx  iova_size:0x%x\n",iommu_dev->init_data->name,iommu_dev->init_data->iova_base,iommu_dev->init_data->iova_size);
+	seq_printf(s,"iommu_name:%s  iova_base:0x%lx  iova_size:0x%zx\n",iommu_dev->init_data->name,iommu_dev->init_data->iova_base,iommu_dev->init_data->iova_size);
 	gen_pool_for_each_chunk(iommu_dev->pool, iova_dump_chunk_bitmap, s);
 	return 0;
 }
@@ -50,8 +50,8 @@ static const struct file_operations iova_fops = {
 static int pgt_show(struct seq_file *s, void *unused)
 {
 	struct sprd_iommu_dev *iommu_dev = (struct sprd_iommu_dev *)s->private;
-	int i=0;
-	seq_printf(s,"iommu_name:%s  pgt_base:0x%lx  pgt_size:0x%x\n",iommu_dev->init_data->name,iommu_dev->init_data->pgt_base,iommu_dev->init_data->pgt_size);
+	unsigned long i=0;
+	seq_printf(s,"iommu_name:%s  pgt_base:0x%lx  pgt_size:0x%zx\n",iommu_dev->init_data->name,iommu_dev->init_data->pgt_base,iommu_dev->init_data->pgt_size);
 	mutex_lock(&iommu_dev->mutex_clk_op);
 	if (0 == iommu_dev->map_count)
 		iommu_dev->ops->enable(iommu_dev);
@@ -64,7 +64,7 @@ static int pgt_show(struct seq_file *s, void *unused)
 			seq_printf(s,"\n0x%lx: ",iommu_dev->init_data->pgt_base+i*4);
 		}
 		//seq_printf(s,"%8x,",*((uint32_t*)(iommu_dev->pgt+i)));
-		seq_printf(s,"%8x,",*(((uint32_t*)iommu_dev->init_data->pgt_base)+i));
+		seq_printf(s,"%lx,",*(((unsigned long *)iommu_dev->init_data->pgt_base)+i));
 	}
 	mutex_unlock(&iommu_dev->mutex_pgt);
 	if (0 == iommu_dev->map_count)

@@ -24,12 +24,18 @@
 #include <linux/of.h>
 #endif
 
-#define SPRD_IOMMU_PAGE_SIZE	0x1000
+#define SPRD_IOMMU_PAGE_SIZE	PAGE_SIZE//0x1000  //need check
 /**
  * Page table index from address
  * Calculates the page table index from the given address
 */
 #define SPRD_IOMMU_PTE_ENTRY(address) (((address)>>12) & 0x7FFF)
+
+/*64-bit virtual addr and 32bit phy addr in arm 64-bit of TSharkL.
+  *So we use (sizeof(unsigned int)).
+  */
+#define SPRD_IOMMU_IOVA_SIZE_TO_PGT(size)  ((sizeof(unsigned int))*size/SPRD_IOMMU_PAGE_SIZE)
+
 extern const struct of_device_id iommu_ids[];
 
 int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data);

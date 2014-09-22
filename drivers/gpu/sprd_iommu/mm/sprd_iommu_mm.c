@@ -18,7 +18,7 @@
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev);
 
-static inline void iommu_mm_reg_write(u32 reg, u32 val, u32 msk)
+static inline void iommu_mm_reg_write(unsigned long reg, unsigned long val, unsigned long msk)
 {
 	__raw_writel((__raw_readl((void *)reg) & ~msk) | val, (void *)reg);
 }
@@ -165,7 +165,7 @@ int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 
 	mutex_lock(&dev->mutex_pgt);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
-	memset((unsigned long *)(dev->init_data->pgt_base),0xFFFFFFFF,PAGE_ALIGN(dev->init_data->pgt_size));
+	memset((void *)(dev->init_data->pgt_base),0xFF,PAGE_ALIGN(dev->init_data->pgt_size));
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);

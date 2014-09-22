@@ -3,32 +3,35 @@
 //extern struct sprd_iommu_ops iommu_gsp_ops;
 extern struct sprd_iommu_ops iommu_mm_ops;
 #endif
-static int mmu_reg_write(u32 reg, u32 val, u32 msk)
+static int mmu_reg_write(unsigned long reg, unsigned long val, unsigned long msk)
 {
 	__raw_writel((__raw_readl((void *)reg) & ~msk) | val, (void *)reg);
 	return 0;
 }
 
-unsigned int get_phys_addr(struct scatterlist *sg)
+unsigned long get_phys_addr(struct scatterlist *sg)
 {
 	/*
 	 * Try sg_dma_address first so that we can
 	 * map carveout regions that do not have a
 	 * struct page associated with them.
 	 */
-	unsigned int pa = sg_dma_address(sg);
+	unsigned long pa = sg_dma_address(sg);
 	if (pa == 0)
 		pa = sg_phys(sg);
 	return pa;
 }
 
-static inline void sprd_iommu_update_pgt(unsigned long pgt_base, unsigned long iova, uint32_t paddr, size_t size)
+static inline void sprd_iommu_update_pgt(unsigned long pgt_base, unsigned long iova, unsigned long paddr, size_t size)
 {
 	unsigned long end_iova=iova+size;
 	for(;iova<end_iova;iova+=SPRD_IOMMU_PAGE_SIZE,paddr+=SPRD_IOMMU_PAGE_SIZE)
 	{
 		//printk("sprd_iommu pgt_base:0x%x offset:0x%x iova:0x%x paddr:0x%x\n",pgt_base,SPRD_IOMMU_PTE_ENTRY(iova),iova,paddr);
-		*((unsigned long *)(pgt_base)+SPRD_IOMMU_PTE_ENTRY(iova))=paddr;
+		/*64-bit virtual addr and 32bit phy addr in arm 64-bit of TSharkL.
+		  *paddr: 32-bit in TSharkL actually.
+		  */
+		*((unsigned int *)(pgt_base)+SPRD_IOMMU_PTE_ENTRY(iova))=(unsigned int)paddr;
 		//printk("sprd_iommu pgt_addr:0x%x paddr:0x%x\n",
 		//	(uint32_t)((uint32_t *)(pgt_base)+SPRD_IOMMU_PTE_ENTRY(iova)),*((uint32_t *)(pgt_base)+SPRD_IOMMU_PTE_ENTRY(iova)) );
 	}
@@ -36,16 +39,27 @@ static inline void sprd_iommu_update_pgt(unsigned long pgt_base, unsigned long i
 
 static inline void sprd_iommu_clear_pgt(unsigned long pgt_base, unsigned long iova, size_t size)
 {
-	pr_debug("sprd_iommu pgt_base:0x%lx offset:0x%lx iova:0x%lx size:0x%x\n",pgt_base,SPRD_IOMMU_PTE_ENTRY(iova),iova,size);
-	memset((unsigned long *)pgt_base+SPRD_IOMMU_PTE_ENTRY(iova),0xFFFFFFFF,(size>>10));
+	unsigned long end_iova;
+	unsigned long pgt_start = (unsigned long)((unsigned int *)(pgt_base)+SPRD_IOMMU_PTE_ENTRY(iova));
+	pr_debug("sprd_iommu_clear_pgt, pgt_start:0x%lx offset:0x%lx iova:0x%lx size:0x%zx, %zd, %ld\n",
+	    pgt_start,SPRD_IOMMU_PTE_ENTRY(iova),iova,size,sizeof(unsigned long),pgt_start % sizeof(unsigned long));
+
+        if (pgt_start % sizeof(unsigned long)) {
+            *((unsigned int *)pgt_start) =  (unsigned int)-1;
+            memset((void *)((unsigned int *)pgt_start + 1), 0xFF, SPRD_IOMMU_IOVA_SIZE_TO_PGT(size));
+        } else {
+            memset((void *)pgt_start, 0xFF, SPRD_IOMMU_IOVA_SIZE_TO_PGT(size));
+        }
+
 }
 
 int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
-	pr_debug("sprd_iommu %s iova_base:0x%lx, iova_size:0x%x, pgt_base:0x%lx, pgt_size:0x%x",
-		dev->init_data->name,data->iova_base,data->iova_size,data->pgt_base,data->pgt_size);
+	printk("sprd_iommu %s iova_base:0x%lx, iova_size:0x%zx, pgt_base:0x%lx, pgt_size:0x%zx,ctrl_reg:0x%lx\n",
+		dev->init_data->name,data->iova_base,data->iova_size,data->pgt_base,data->pgt_size,dev->init_data->ctrl_reg);
 	dev->pgt=__get_free_pages(GFP_KERNEL,get_order(data->pgt_size));
-	memset((unsigned long *)data->pgt_base,0xFFFFFFFF,PAGE_ALIGN(data->pgt_size));
+	//memset((unsigned long *)data->pgt_base,0xFFFFFFFF,PAGE_ALIGN(data->pgt_size));
+	memset((void *)data->pgt_base,0xFF,PAGE_ALIGN(data->pgt_size));
 	if(!dev->pgt)
 	{
 		pr_err("sprd_iommu %s get_free_pages fail\n",dev->init_data->name);
@@ -86,14 +100,14 @@ unsigned long sprd_iommu_iova_alloc(struct sprd_iommu_dev *dev, size_t iova_leng
 
 	if(0==iova_length)
 	{
-		pr_err("sprd_iommu %s sprd_iommu_iova_alloc iova_length:0x%x\n",dev->init_data->name,iova_length);
+		pr_err("sprd_iommu %s sprd_iommu_iova_alloc iova_length:0x%zx\n",dev->init_data->name,iova_length);
 		return 0;
 	}
 
 	iova =  gen_pool_alloc(dev->pool, iova_length);
-	pr_debug("sprd_iommu %s iova_alloc iova:0x%lx, iova_length:0x%x\n",dev->init_data->name,iova,iova_length);
+	pr_debug("sprd_iommu %s iova_alloc iova:0x%lx, iova_length:0x%zx\n",dev->init_data->name,iova,iova_length);
 	if (0 == iova) {
-		pr_err("sprd_iommu %s iova_alloc iova_base: iova:0x%lx iova_length:0x%x\n",dev->init_data->name,iova,iova_length);
+		pr_err("sprd_iommu %s iova_alloc iova_base: iova:0x%lx iova_length:0x%zx\n",dev->init_data->name,iova,iova_length);
 	}
 
 	return (iova);
@@ -103,23 +117,24 @@ void sprd_iommu_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, size_t
 {
 	if(((dev->init_data->iova_base+dev->init_data->iova_size)<(iova+iova_length))||(0==iova)||(0==iova_length))
 	{
-		pr_err("sprd_iommu %s iova_free iova_base:0x%lx iova_size:0x%x iova:0x%lx iova_length:0x%x\n",
+		pr_err("sprd_iommu %s iova_free iova_base:0x%lx iova_size:0x%zx iova:0x%lx iova_length:0x%zx\n",
 			dev->init_data->name,dev->init_data->iova_base,dev->init_data->iova_size,iova,iova_length);
 		return;
 	}
 	gen_pool_free(dev->pool, iova, iova_length);
-	pr_debug("sprd_iommu %s iova_free iova:0x%lx, iova_length:0x%x\n",dev->init_data->name,iova,iova_length);
+	pr_debug("sprd_iommu %s iova_free iova:0x%lx, iova_length:0x%zx\n",dev->init_data->name,iova,iova_length);
 }
 
 int sprd_iommu_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
 	struct sg_table *table = handle->sg_table;
 	struct scatterlist *sg;
-	int i=0,iova_cur=0;
+	int i=0;
+	unsigned long iova_cur=0;
 
 	if((0==iova)||(0==iova_length)||IS_ERR(handle))
 	{
-		pr_err("sprd_iommu %s sprd_iommu_iova_cur_map iova:0x%lx iova_length:0x%x handle:0x%p\n",dev->init_data->name,iova,iova_length,handle);
+		pr_err("sprd_iommu %s sprd_iommu_iova_cur_map iova:0x%lx iova_length:0x%zx handle:0x%p\n",dev->init_data->name,iova,iova_length,handle);
 		return -1;
 	}
 	iova_cur=iova;
@@ -148,7 +163,7 @@ int sprd_iommu_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t i
 #endif
 	mutex_unlock(&dev->mutex_pgt);
 
-	pr_debug("sprd_iommu %s iova_map iova:0x%lx, iova_length:0x%x count:0x%x\n",dev->init_data->name,iova,iova_length,handle->iomap_cnt[dev->init_data->id]);
+	pr_debug("sprd_iommu %s iova_map iova:0x%lx, iova_length:0x%zx count:0x%x\n",dev->init_data->name,iova,iova_length,handle->iomap_cnt[dev->init_data->id]);
 	return 0;
 }
 
@@ -156,7 +171,7 @@ int sprd_iommu_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t
 {
 	if((0==iova)||(0==iova_length)||IS_ERR(handle))
 	{
-		pr_err("sprd_iommu %s sprd_iommu_iova_unmap iova:0x%lx iova_length:0x%x handle:0x%p\n",dev->init_data->name,iova,iova_length,handle);
+		pr_err("sprd_iommu %s sprd_iommu_iova_unmap iova:0x%lx iova_length:0x%zx handle:0x%p\n",dev->init_data->name,iova,iova_length,handle);
 		return -1;
 	}
 
@@ -180,7 +195,7 @@ int sprd_iommu_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t
 #endif
 	mutex_unlock(&dev->mutex_pgt);
 
-	pr_debug("sprd_iommu %s iova_unmap iova:0x%lx, iova_length:0x%x count:0x%x\n",dev->init_data->name,iova,iova_length,handle->iomap_cnt[dev->init_data->id]);
+	pr_debug("sprd_iommu %s iova_unmap iova:0x%lx, iova_length:0x%zx count:0x%x\n",dev->init_data->name,iova,iova_length,handle->iomap_cnt[dev->init_data->id]);
 	return 0;
 }
 

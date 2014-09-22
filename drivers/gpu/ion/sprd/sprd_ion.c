@@ -34,10 +34,10 @@ int num_heaps = 0;
 struct ion_heap **heaps;
 
 #if 1
-static uint32_t user_va2pa(struct mm_struct *mm, uint32_t addr)
+static unsigned long user_va2pa(struct mm_struct *mm, unsigned long addr)
 {
 	pgd_t *pgd = pgd_offset(mm, addr);
-	uint32_t pa = 0;
+	unsigned long pa = 0;
 	
 	if (!pgd_none(*pgd)) {
 		pud_t *pud = pud_offset(pgd, addr);
@@ -238,7 +238,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 			return -EFAULT;
 		}
 
-		if ((int)data.vaddr & (PAGE_SIZE - 1)) {
+		if ((unsigned long)data.vaddr & (PAGE_SIZE - 1)) {
 			pr_err("sprd_heap_ioctl free data.vaddr=%p error!\n",data.vaddr);
 			return -EFAULT;
 		}
@@ -248,7 +248,7 @@ static long sprd_heap_ioctl(struct ion_client *client, unsigned int cmd,
 
 		v_addr = data.vaddr;
 		while (v_addr < data.vaddr + data.size) {
-			uint32_t phy_addr = user_va2pa(current->mm, (uint32_t)v_addr);
+			unsigned long phy_addr = user_va2pa(current->mm, (unsigned long)v_addr);
 			if (phy_addr) {
 				outer_flush_range(phy_addr, phy_addr + PAGE_SIZE);
 			}
@@ -499,7 +499,7 @@ static struct ion_heap *__ion_heap_create(struct ion_platform_heap *heap_data, s
 	}
 
 	if (IS_ERR_OR_NULL(heap)) {
-		pr_err("%s: error creating heap %s type %d base %lu size %u\n",
+		pr_err("%s: error creating heap %s type %d base %lu size %zd\n",
 		       __func__, heap_data->name, heap_data->type,
 		       heap_data->base, heap_data->size);
 		return ERR_PTR(-EINVAL);
