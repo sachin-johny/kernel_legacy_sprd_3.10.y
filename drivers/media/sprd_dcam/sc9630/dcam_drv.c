@@ -831,6 +831,7 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 	DCAM_CHECK_ZERO(s_dcam_sc_array);
 
+	spin_lock_irqsave(&dcam_lock, flags);
 	if ((DCAM_PATH_IDX_1 & path_index) && s_p_dcam_mod->dcam_path1.valide) {
 		rtn = dcam_path1_cfg(DCAM_PATH_INPUT_SIZE, in_size);
 		DCAM_RTN_IF_ERR;
@@ -844,40 +845,35 @@ int32_t dcam_update_path(enum dcam_path_index path_index, struct dcam_size *in_s
 		rtn = _dcam_path_scaler(DCAM_PATH_IDX_1);
 		DCAM_RTN_IF_ERR;
 		DCAM_TRACE("DCAM: dcam_update_path 1 \n");
-			if (s_dcam_sc_array->is_smooth_zoom) {
-				spin_lock_irqsave(&dcam_lock, flags);
-				s_p_dcam_mod->dcam_path1.is_update = 1;
-				spin_unlock_irqrestore(&dcam_lock, flags);
-			} else {
-				_dcam_wait_update_done(DCAM_PATH_IDX_1, &s_p_dcam_mod->dcam_path1.is_update);
-			}
+		if (s_dcam_sc_array->is_smooth_zoom) {
+			s_p_dcam_mod->dcam_path1.is_update = 1;
+			spin_unlock_irqrestore(&dcam_lock, flags);
+		} else {
+			spin_unlock_irqrestore(&dcam_lock, flags);
+			_dcam_wait_update_done(DCAM_PATH_IDX_1, &s_p_dcam_mod->dcam_path1.is_update);
+		}
 		if (!s_dcam_sc_array->is_smooth_zoom) {
 			_dcam_wait_update_done(DCAM_PATH_IDX_1, NULL);
 		}
 	}
 
 	if ((DCAM_PATH_IDX_2 & path_index) && s_p_dcam_mod->dcam_path2.valide) {
-		local_irq_save(flags);
-		if(s_p_dcam_mod->dcam_path2.is_update){
-			local_irq_restore(flags);
+		if (s_p_dcam_mod->dcam_path2.is_update) {
+			spin_unlock_irqrestore(&dcam_lock, flags);
 			DCAM_TRACE("DCAM: dcam_update_path 2:  updating return \n");
 			return rtn;
 		}
-		local_irq_restore(flags);
-
 		rtn = dcam_path2_cfg(DCAM_PATH_INPUT_SIZE, in_size);
 		DCAM_RTN_IF_ERR;
 		rtn = dcam_path2_cfg(DCAM_PATH_INPUT_RECT, in_rect);
 		DCAM_RTN_IF_ERR;
 		rtn = dcam_path2_cfg(DCAM_PATH_OUTPUT_SIZE, out_size);
 		DCAM_RTN_IF_ERR;
-
 		rtn = _dcam_path_scaler(DCAM_PATH_IDX_2);
 		DCAM_RTN_IF_ERR;
-
-		local_irq_save(flags);
 		s_p_dcam_mod->dcam_path2.is_update = 1;
-		local_irq_restore(flags);
+		spin_unlock_irqrestore(&dcam_lock, flags);
+
 	}
 
 	DCAM_TRACE("DCAM: dcam_update_path: done \n");
@@ -2337,14 +2333,10 @@ int32_t dcam_frame_lock(struct dcam_frame *frame)
 
 	DCAM_TRACE("DCAM: lock %d \n", (uint32_t)(0xF&frame->fid));
 
-	/*To disable irq*/
-	local_irq_save(flags);
 	if (likely(frame))
 		frame->lock = DCAM_FRM_LOCK_WRITE;
 	else
 		rtn = DCAM_RTN_PARA_ERR;
-	local_irq_restore(flags);
-	/*To enable irq*/
 
 	return -rtn;
 }
@@ -2359,12 +2351,12 @@ int32_t dcam_frame_unlock(struct dcam_frame *frame)
 	DCAM_TRACE("DCAM: unlock %d \n", (uint32_t)(0xF&frame->fid));
 
 	/*To disable irq*/
-	local_irq_save(flags);
+	spin_lock_irqsave(&dcam_lock, flags);
 	if (likely(frame))
 		frame->lock = DCAM_FRM_UNLOCK;
 	else
 		rtn = DCAM_RTN_PARA_ERR;
-	local_irq_restore(flags);
+	spin_unlock_irqrestore(&dcam_lock, flags);
 	/*To enable irq*/
 
 	return -rtn;
@@ -3738,11 +3730,7 @@ LOCAL void    _dcam_path1_sof(void)
 			}
 			path->is_update = 0;
 			DCAM_TRACE("DCAM: path1 updated \n");
-			if (rtn) {
-				_dcam_auto_copy_ext(DCAM_PATH_IDX_1, false, true);
-			} else {
-				_dcam_auto_copy_ext(DCAM_PATH_IDX_1, true, true);
-			}
+			_dcam_auto_copy_ext(DCAM_PATH_IDX_1, true, true);
 		} else {
 			if (rtn) {
 				DCAM_TRACE("DCAM: path1 updated \n");
@@ -3796,11 +3784,7 @@ LOCAL void    _dcam_path2_sof(void)
 				_dcam_path2_set();
 				path->is_update = 0;
 				DCAM_TRACE("DCAM: path2 updated \n");
-				if (rtn) {
-					_dcam_auto_copy_ext(DCAM_PATH_IDX_2, false, true);
-				} else {
-					_dcam_auto_copy_ext(DCAM_PATH_IDX_2, true, true);
-				}
+				_dcam_auto_copy_ext(DCAM_PATH_IDX_2, true, true);
 			} else {
 				if (rtn) {
 					DCAM_TRACE("DCAM: path2 updated \n");

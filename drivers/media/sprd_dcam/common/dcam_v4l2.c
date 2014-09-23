@@ -366,13 +366,13 @@ LOCAL int sprd_v4l2_opt_flash(struct dcam_frame *frame, void* param)
 	struct dcam_info         *info = NULL;
 
 	if (dev == NULL) {
-		DCAM_TRACE("sprd_v4l2_opt_flash, dev is NULL \n");
+		DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, dev is NULL \n");
 		return 0;
 	}
 
 	info = &dev->dcam_cxt;
 	if (info->flash_status < FLASH_STATUS_MAX) {
-		DCAM_TRACE("sprd_v4l2_opt_flash, status %d \n", info->flash_status);
+		DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, status %d \n", info->flash_status);
 		if(info->flash_status == FLASH_CLOSE_AFTER_AUTOFOCUS) {
 			v4l2_get_timestamp(&info->timestamp);
 			info->after_af = 1;
@@ -392,7 +392,7 @@ LOCAL int sprd_v4l2_start_flash(struct dcam_frame *frame, void* param)
 	struct dcam_info         *info = NULL;
 
 	if (dev == NULL) {
-		DCAM_TRACE("sprd_v4l2_start_flash, dev is NULL \n");
+		DCAM_TRACE("V4L2: sprd_v4l2_start_flash, dev is NULL \n");
 		return -1;
 	}
 
@@ -409,19 +409,19 @@ int flash_thread_loop(void *arg)
 	struct dcam_dev          *dev = (struct dcam_dev*)arg;
 
 	if (dev == NULL) {
-		DCAM_TRACE("flash_thread_loop, dev is NULL \n");
+		DCAM_TRACE("V4L2: flash_thread_loop, dev is NULL \n");
 		return -1;
 	}
 	while (1) {
 		if (0 == down_interruptible(&dev->flash_thread_sem)) {
 			if (dev->is_flash_thread_stop) {
 				sprd_v4l2_setflash(0);
-				printk("flash_thread_loop stop \n");
+				printk("V4L2: flash_thread_loop stop \n");
 				break;
 			}
 			sprd_v4l2_opt_flash(NULL, arg);
 		} else {
-			printk("flash int!");
+			printk("V4L2: flash int!");
 			break;
 		}
 	}
@@ -435,14 +435,14 @@ int dcam_create_flash_thread(void* param)
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
 
 	if (dev == NULL) {
-		DCAM_TRACE("dcam_create_flash_thread, dev is NULL \n");
+		DCAM_TRACE("V4L2: dcam_create_flash_thread, dev is NULL \n");
 		return -1;
 	}
 	dev->is_flash_thread_stop = 0;
 	sema_init(&dev->flash_thread_sem, 0);
 	dev->flash_thread = kthread_run(flash_thread_loop, param, "dcam_flash_thread");
 	if (IS_ERR(dev->flash_thread)) {
-		printk("v4l2:dcam_create_flash_thread error!\n");
+		printk("V4L2: dcam_create_flash_thread error!\n");
 		return -1;
 	}
 	return 0;
@@ -454,7 +454,7 @@ int dcam_stop_flash_thread(void* param)
 	int cnt = 0;
 
 	if (dev == NULL) {
-		DCAM_TRACE("sprd_v4l2_opt_flash, dev is NULL \n");
+		DCAM_TRACE("V4L2: sprd_v4l2_opt_flash, dev is NULL \n");
 		return -1;
 	}
 	if (dev->flash_thread) {
@@ -484,7 +484,7 @@ LOCAL int sprd_v4l2_discard_frame(struct dcam_frame *frame, void* param)
 
 	info = &dev->dcam_cxt;
 	v4l2_get_timestamp(&timestamp);
-	DCAM_TRACE("DCAM: sprd_v4l2_discard_frame, time, %d %d \n",
+	DCAM_TRACE("V4L2: sprd_v4l2_discard_frame, time, %d %d \n",
 		(int)timestamp.tv_sec, (int)timestamp.tv_usec);
 	if ((timestamp.tv_sec == info->timestamp.tv_sec)
 		&& (timestamp.tv_usec -info->timestamp.tv_usec >= DISCARD_FRAME_TIME)){
@@ -496,7 +496,7 @@ LOCAL int sprd_v4l2_discard_frame(struct dcam_frame *frame, void* param)
 	}
 
 	if (flag) {
-		DCAM_TRACE("DCAM: sprd_v4l2_discard_frame,unlock frame 0x%x \n", (uint32_t)frame);
+		DCAM_TRACE("V4L2: sprd_v4l2_discard_frame,unlock frame 0x%x \n", (uint32_t)frame);
 		dcam_frame_unlock(frame);
 		ret =  DCAM_RTN_SUCCESS;
 	}
@@ -1603,7 +1603,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 	struct dcam_size         *input_size;
 	int                      ret = DCAM_RTN_SUCCESS;
 
-	printk("V4L2: v4l2_s_parm, ability 0x%x \n", streamparm->parm.capture.capability);
+	DCAM_TRACE("V4L2: v4l2_s_parm, ability 0x%x \n", streamparm->parm.capture.capability);
 	memset((void*)&crop, 0, sizeof(struct v4l2_crop));
 
 	switch (streamparm->parm.capture.capability) {
@@ -1713,7 +1713,7 @@ LOCAL int v4l2_s_parm(struct file *file,
 		break;
 
 	case CAPTURE_SET_OUTPUT_SIZE:
-		printk("come here\n");
+		DCAM_TRACE("V4L2: set output size \n");
 		mutex_lock(&dev->dcam_mutex);
 		dev->dcam_cxt.dst_size.w = streamparm->parm.capture.reserved[0];
 		dev->dcam_cxt.dst_size.h = streamparm->parm.capture.reserved[1];
@@ -1972,12 +1972,12 @@ LOCAL int v4l2_get_zoom_rect(struct dcam_rect *src_rect, struct dcam_rect *dst_r
 	uint32_t zoom_step_w = 0, zoom_step_h = 0;
 
 	if (NULL == src_rect || NULL == dst_rect || NULL == output_rect) {
-		printk("V4L2 v4l2_get_zoom_rect: 0x%x, 0x%x, 0X%x\n", (uint32_t)src_rect, (uint32_t)dst_rect, (uint32_t)output_rect);
+		printk("V4L2: v4l2_get_zoom_rect: 0x%x, 0x%x, 0X%x\n", (uint32_t)src_rect, (uint32_t)dst_rect, (uint32_t)output_rect);
 		return -EINVAL;
 	}
 
 	if (0 == dst_rect->w || 0 == dst_rect->h) {
-		printk("V4L2 v4l2_get_zoom_rect: dst0x%x, 0x%x\n", dst_rect->w, dst_rect->h);
+		printk("V4L2: v4l2_get_zoom_rect: dst0x%x, 0x%x\n", dst_rect->w, dst_rect->h);
 		return -EINVAL;
 	}
 
@@ -2008,7 +2008,7 @@ LOCAL int v4l2_get_zoom_rect(struct dcam_rect *src_rect, struct dcam_rect *dst_r
 		output_rect->x = src_rect->x - ((trim_width - src_rect->w) >> 1);
 		output_rect->y = src_rect->y - ((trim_height - src_rect->h) >> 1);
 	} else {
-		printk("V4L2 v4l2_get_zoom_rect: param error\n");
+		printk("V4L2: V4L2 v4l2_get_zoom_rect: param error\n");
 		return -EINVAL;
 	}
 
@@ -2031,10 +2031,10 @@ LOCAL int sprd_v4l2_start_zoom(struct dcam_frame *frame, void* param)
 	struct dcam_dev          *dev = (struct dcam_dev*)param;
 
 	if (dev == NULL) {
-		DCAM_TRACE("sprd_v4l2_start_zoom, dev is NULL \n");
+		DCAM_TRACE("V4L2: sprd_v4l2_start_zoom, dev is NULL \n");
 		return -1;
 	}
-	DCAM_TRACE("v4l2:start zoom level %d \n", dev->zoom_level);
+	DCAM_TRACE("V4L2: start zoom level %d \n", dev->zoom_level);
 	if (dev->zoom_level <= DCAM_ZOOM_LEVEL_MAX && dev->dcam_cxt.is_smooth_zoom) {
 		up(&dev->zoom_thread_sem);
 	} else {
@@ -2053,14 +2053,14 @@ int sprd_v4l2_zoom_thread_loop(void *arg)
 	enum dcam_path_index     path_index;
 
 	if (dev == NULL) {
-		printk("zoom_thread_loop, dev is NULL \n");
+		printk("V4L2: zoom_thread_loop, dev is NULL \n");
 		return -1;
 	}
 	while (1) {
 		if (0 == down_interruptible(&dev->zoom_thread_sem)) {
-			DCAM_TRACE("v4l2:zoom thread level %d \n", dev->zoom_level);
+			DCAM_TRACE("V4L2: v4l2:zoom thread level %d \n", dev->zoom_level);
 			if (dev->is_zoom_thread_stop) {
-				printk("zoom_thread_loop stop \n");
+				printk("V4L2: zoom_thread_loop stop \n");
 				break;
 			}
 
@@ -2083,10 +2083,10 @@ int sprd_v4l2_zoom_thread_loop(void *arg)
 			}
 			dev->zoom_level++;
 			mutex_unlock(&dev->dcam_mutex);
-			DCAM_TRACE("v4l2:zoom thread level  %d  end \n", dev->zoom_level);
+			DCAM_TRACE("V4L2: zoom thread level  %d  end \n", dev->zoom_level);
 
 		} else {
-			printk("zoom int!");
+			printk("V4L2: zoom int!");
 			break;
 		}
 	}
@@ -2103,14 +2103,14 @@ int sprd_v4l2_create_zoom_thread(void* param)
 		DCAM_TRACE("create_zoom_thread, dev is NULL \n");
 		return -1;
 	}
-	printk("v4l2:create_zoom_thread E!\n");
+	printk("V4L2: create_zoom_thread E!\n");
 
 	dev->is_zoom_thread_stop = 0;
 	dev->zoom_level = DCAM_ZOOM_LEVEL_MAX + 1;
 	sema_init(&dev->zoom_thread_sem, 0);
 	dev->zoom_thread = kthread_run(sprd_v4l2_zoom_thread_loop, param, "v4l2_zoom_thread");
 	if (IS_ERR(dev->zoom_thread)) {
-		printk("v4l2:create_zoom_thread error!\n");
+		printk("V4L2: create_zoom_thread error!\n");
 		return -1;
 	}
 	return 0;
@@ -2125,7 +2125,7 @@ int sprd_v4l2_stop_zoom_thread(void* param)
 		DCAM_TRACE("stop_zoom_thread, dev is NULL \n");
 		return -1;
 	}
-	printk("v4l2:stop_zoom_thread E!\n");
+	printk("V4L2: stop_zoom_thread E!\n");
 	if (dev->zoom_thread) {
 		dev->is_zoom_thread_stop = 1;
 		up(&dev->zoom_thread_sem);
@@ -2178,7 +2178,7 @@ LOCAL int sprd_v4l2_update_video(struct file *file, uint32_t channel_id)
 			memcpy((void*)&path->in_rect_backup, (void*)&path->in_rect_current, sizeof(struct dcam_rect));
 		}
 
-		DCAM_TRACE("in_size{%d %d}, in_rect{%d %d %d %d}, in_rect_backup{%d %d %d %d}, out_size{%d %d}\n",
+		DCAM_TRACE("V4L2: in_size{%d %d}, in_rect{%d %d %d %d}, in_rect_backup{%d %d %d %d}, out_size{%d %d}\n",
 				path->in_size.w,
 				path->in_size.h,
 				path->in_rect.x,
@@ -2821,7 +2821,7 @@ LOCAL void sprd_timer_callback(unsigned long data)
 	DCAM_TRACE("V4L2: sprd_timer_callback \n");
 
 	if (0 == data || 0 == atomic_read(&dev->stream_on)) {
-		printk("timer cb error \n");
+		printk("V4L2: timer cb error \n");
 		return;
 	}
 
@@ -2979,14 +2979,14 @@ ssize_t sprd_v4l2_read(struct file *file, char __user *u_data, size_t cnt, loff_
 	uint32_t                 rt_word[3];
 
 	if (cnt < sizeof(uint32_t)) {
-		printk("sprd_v4l2_read , wrong size of u_data %d \n", cnt);
+		printk("V4L2: sprd_v4l2_read , wrong size of u_data %d \n", cnt);
 		return -1;
 	}
 
 	rt_word[0] = DCAM_PATH2_LINE_BUF_LENGTH;
 	rt_word[1] = DCAM_SC_COEFF_UP_MAX;
 	rt_word[2] = DCAM_SCALING_THRESHOLD;
-	DCAM_TRACE("sprd_v4l2_read cnt %d, line threshold %d, sc factor %d, scaling %d.\n", cnt, rt_word[0], rt_word[1], rt_word[2]);
+	DCAM_TRACE("V4L2: sprd_v4l2_read cnt %d, line threshold %d, sc factor %d, scaling %d.\n", cnt, rt_word[0], rt_word[1], rt_word[2]);
 	(void)file; (void)cnt; (void)cnt_ret;
 	return copy_to_user(u_data, (void*)rt_word, (uint32_t)(3*sizeof(uint32_t)));
 }
@@ -3000,7 +3000,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 	uint32_t                 index;
 	int                      ret = 0;
 
-	DCAM_TRACE("sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
+	DCAM_TRACE("V4L2: sprd_v4l2_write %d, dev 0x%x \n", cnt, (uint32_t)dev);
 	if (cnt < sizeof(struct v4l2_buffer)) {
 		printk("V4L2: Failed to enable dcam module \n");
 		return -EIO;
@@ -3020,7 +3020,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 
 	case DCAM_V4L2_WRITE_FREE_FRAME:
 		if (0 == atomic_read(&dev->stream_on)) {
-			printk("V4L2 dev close, no need free!");
+			printk("V4L2: dev close, no need free!");
 			break;
 		}
 		if (DCAM_PATH1 == buf.type) {
@@ -3030,12 +3030,12 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 		} else if (DCAM_PATH0 == buf.type){
 			path = &info->dcam_path[DCAM_PATH0];
 		} else {
-			printk("V4L2 error: v4l2_write, type 0x%x \n", buf.type);
+			printk("V4L2: error v4l2_write, type 0x%x \n", buf.type);
 			return -EINVAL;
 		}
 
 		if (PATH_IDLE == path->status) {
-			DCAM_TRACE("V4L2 error: v4l2_write, wrong status 0x%x \n", buf.type);
+			DCAM_TRACE("V4L2: error v4l2_write, wrong status 0x%x \n", buf.type);
 			return -EINVAL;
 		}
 
