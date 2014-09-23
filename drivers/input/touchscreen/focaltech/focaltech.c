@@ -716,8 +716,8 @@ static struct ft5x0x_ts_platform_data *ft5x0x_ts_parse_dt(struct device *dev)
 		goto fail;
 	}
 	pdata->irq_gpio_number = of_get_gpio(np, 1);
-	if(pdata->reset_gpio_number < 0){
-		dev_err(dev, "fail to get reset_gpio_number\n");
+	if(pdata->irq_gpio_number < 0){
+		dev_err(dev, "fail to get irq_gpio_number\n");
 		goto fail;
 	}
 	ret = of_property_read_string(np, "vdd_name", &pdata->vdd_name);
