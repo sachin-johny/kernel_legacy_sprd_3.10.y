@@ -60,33 +60,6 @@
 #define SIPC_TRANS_OFFSET	50
 #endif
 
-/*Tx_ready handler*/
-static void sprdwl_tx_ready_handler(struct sprdwl_priv *priv)
-{
-	if (!netif_carrier_ok(priv->ndev)) {
-		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
-		netif_carrier_on(priv->ndev);
-	}
-}
-
-/*Tx_open handler*/
-static void sprdwl_tx_open_handler(struct sprdwl_priv *priv)
-{
-	if (!netif_carrier_ok(priv->ndev)) {
-		dev_dbg(&priv->ndev->dev, "netif_carrier_on\n");
-		netif_carrier_on(priv->ndev);
-	}
-}
-
-/*Tx_close handler*/
-static void sprdwl_tx_close_handler(struct sprdwl_priv *priv)
-{
-	if (netif_carrier_ok(priv->ndev)) {
-		dev_dbg(&priv->ndev->dev, "netif_carrier_off\n");
-		netif_carrier_off(priv->ndev);
-	}
-}
-
 static int sprdwl_rx_handler(struct napi_struct *napi, int budget)
 {
 	struct sprdwl_priv *priv = container_of(napi, struct sprdwl_priv, napi);
@@ -256,21 +229,12 @@ static void sprdwl_handler(int event, void *data)
 		break;
 	case SBLOCK_NOTIFY_STATUS:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_STATUS is received\n");
-#ifndef CONFIG_OF
-		sprdwl_tx_ready_handler(priv);
-#endif
 		break;
 	case SBLOCK_NOTIFY_OPEN:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_OPEN is received\n");
-#ifndef CONFIG_OF
-		sprdwl_tx_open_handler(priv);
-#endif
 		break;
 	case SBLOCK_NOTIFY_CLOSE:
 		dev_dbg(&priv->ndev->dev, "SBLOCK_NOTIFY_CLOSE is received\n");
-#ifndef CONFIG_OF
-		sprdwl_tx_close_handler(priv);
-#endif
 		break;
 	default:
 		dev_err(&priv->ndev->dev, "invalid data event (%d)\n", event);
