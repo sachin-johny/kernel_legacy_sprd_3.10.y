@@ -1551,8 +1551,9 @@ void mmc_power_off(struct mmc_host *host)
 	 * XO-1.5, require a short delay after poweroff before the card
 	 * can be successfully turned on again.
 	 */
+	#if 0 /*for decrease suspend time*/
 	mmc_delay(1);
-
+	#endif
 	mmc_host_clk_release(host);
 }
 
@@ -2598,7 +2599,9 @@ int mmc_card_sleep(struct mmc_host *host)
 {
 	int err = -ENOSYS;
 
+#if 0 /*for decrease suspend time*/
 	if (host->caps2 & MMC_CAP2_NO_SLEEP_CMD)
+#endif
 		return 0;
 
 	mmc_bus_get(host);
