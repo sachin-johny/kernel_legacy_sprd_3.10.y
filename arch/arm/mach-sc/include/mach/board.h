@@ -126,6 +126,10 @@
 #include "__board-sp9630ea.h"
 #endif
 
+#ifdef CONFIG_MACH_COREPRIMELITE
+#include "__board-coreprimelite.h"
+#endif
+
 #ifdef CONFIG_MACH_SP9630EA_4MOD
 #include "__board-sp9630ea_4mod.h"
 #endif
