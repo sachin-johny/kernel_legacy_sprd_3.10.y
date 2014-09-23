@@ -172,6 +172,7 @@ static void dispc_module_enable(void);
 static void dispc_stop_for_feature(struct sprdfb_device *dev);
 static void dispc_run_for_feature(struct sprdfb_device *dev);
 static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigned int state);
+static unsigned int sprdfb_dispc_threshold_check();
 
 static int dispc_update_clk(struct sprdfb_device *fb_dev,
 					u32 new_val, int howto);
@@ -946,7 +947,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	return 0;
 }
 
-#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
+#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
 struct devfreq_dbs sprd_fb_notify = {
 	.level = 0,
 	.data = &dispc_ctx,
@@ -1032,8 +1033,10 @@ static int32_t sprdfb_dispc_module_init(struct sprdfb_device *dev)
 
 	dispc_ctx.is_inited = true;
 
-#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
-	devfreq_notifier_register(&sprd_fb_notify);
+#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
+	ret=sprdfb_dispc_threshold_check();
+	if(ret)
+		devfreq_notifier_register(&sprd_fb_notify);
 #endif
 
 #ifdef CONFIG_CPU_IDLE
@@ -1255,9 +1258,11 @@ static int32_t sprdfb_dispc_init(struct sprdfb_device *dev)
 	dispc_set_exp_mode(0x0);
 	//enable DISPC Power Control
 	dispc_pwr_enable(true);
-#ifdef CONFIG_FB_SCX30G
+#if defined( CONFIG_FB_SCX30G)
 	//set buf thres
 	dispc_set_threshold(0x960, 0x00, 0x960);//0x1000: 4K
+#else defined(CONFIG_FB_SCX35L)
+	dispc_set_threshold(0x1388, 0x00, 0x1388);//For sharkl, linebuffer size: 5K
 #endif
 
 	if(dispc_ctx.is_first_frame){
@@ -2363,7 +2368,17 @@ static int dispc_update_clk(struct sprdfb_device *fb_dev,
 	return ret;
 }
 
-#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ)) && (!defined(CONFIG_FB_SCX30G))
+#if (defined(CONFIG_SPRD_SCXX30_DMC_FREQ) || defined(CONFIG_SPRD_SCX35_DMC_FREQ))
+
+static unsigned int sprdfb_dispc_threshold_check()
+{
+#if defined CONFIG_FB_SCX30G || defined CONFIG_FB_SCX35L
+	//For Tshark and SharkL, not need to change threshlod
+	return 0;
+#endif
+	return 1;
+}
+
 /*return value:
 0 -- Allow DMC change frequency
 1 -- Don't allow DMC change frequency*/
@@ -2371,38 +2386,18 @@ static unsigned int sprdfb_dispc_change_threshold(struct devfreq_dbs *h, unsigne
 {
 	struct sprdfb_dispc_context *dispc_ctx = (struct sprdfb_dispc_context *)h->data;
 	struct sprdfb_device *dev = dispc_ctx->dev;
-	bool dispc_run;
-	unsigned long flags;
 	if(NULL == dev || 0 == dev->enable){
 		//printk(KERN_ERR "sprdfb: sprdfb_dispc_change_threshold fail.(dev not enable)\n");
 		return 0;
 	}
-
 	printk(KERN_ERR "sprdfb: DMC change freq(%u)\n", state);
+	mdelay(10);
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
-		down(&dev->refresh_lock);
-
-		dispc_run = dispc_read(DISPC_CTRL) & BIT(4);
-		//if(!dispc_ctx->is_first_frame){
-		if(dispc_run){
-			local_irq_save(flags);
-			dispc_stop_for_feature(dev);
-		}
-
 		if(state == DEVFREQ_PRE_CHANGE){
 			dispc_set_threshold(0x960, 0x00, 0x960);
 		}else{
 			dispc_set_threshold(0x500, 0x00, 0x500);
 		}
-
-
-		if(dispc_run){
-			dispc_run_for_feature(dev);
-			local_irq_restore(flags);
-		}
-
-		//}
-		up(&dev->refresh_lock);
 	}
 	return 0;
 }
