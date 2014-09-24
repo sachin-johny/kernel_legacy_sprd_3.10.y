@@ -1,3 +1,5 @@
+
+#ifdef CONFIG_ARCH_SCX30G
 #include <linux/init.h>
 #include <linux/suspend.h>
 #include <linux/kobject.h>
@@ -530,3 +532,123 @@ static void  __exit emc_early_suspend_exit(void)
 
 module_init(emc_early_suspend_init);
 module_exit(emc_early_suspend_exit);
+#endif
+
+#ifdef CONFIG_MACH_SP9630EA
+#include <linux/init.h>
+#include <linux/suspend.h>
+#include <linux/kobject.h>
+#include <linux/fs.h>
+#include <linux/io.h>
+#include <linux/errno.h>
+#include <linux/mm.h>
+#include <linux/io.h>
+#include <linux/debugfs.h>
+#include <linux/delay.h>
+#include <linux/wakelock.h>
+#include <linux/module.h>
+#include <linux/kthread.h>
+#include <mach/common.h>
+#include <mach/hardware.h>
+#include <mach/sci.h>
+#include <linux/earlysuspend.h>
+#include <mach/sci_glb_regs.h>
+
+#define DDR_TIMING_REG_VAL_ADDR		(SPRD_IRAM0H_BASE + 0xc00)
+#define DDR_TIMING_CALC_VAL_ADDR	(SPRD_IRAM0H_BASE + 0xF80)
+
+static u32 dpll_clk_get(void)
+{
+	u32 clk = 0;
+	u32 nint, kint, refin, pnt = 0 ;
+	u32 reg1, reg2, div_s, sdm_en, n;
+
+	reg1 = sci_glb_read(REG_AON_APB_DPLL_CFG1, -1);
+	reg2 = sci_glb_read(REG_AON_APB_DPLL_CFG2, -1);
+	kint = reg2 & 0xFFFFF;
+	nint = (reg2>>24) & 0x3F;
+	div_s = (reg1 >> 26) & 0x01;
+	sdm_en = (reg1 >> 24) & 0x01;
+	n = reg1 & 0x7ff;
+
+	switch((reg1>>18)&0x3)
+	{
+		case 0:
+			refin = 2;
+			break;
+		case 1:
+			refin = 4;
+			break;
+		case 2:
+			refin = 13;
+			break;
+		case 3:
+			refin = 26;
+			break;
+	}
+	
+
+	if ((div_s != 0) && (sdm_en != 0)) {
+		if (((kint * refin ) & 0xFFFFF) >= 0x80000) {
+			pnt = 1;
+		}
+		else {
+			pnt = 0;
+		}
+		kint = ((kint * refin) >> 20) + pnt;
+		clk = nint * refin + kint;
+	}
+	else if ((div_s != 0) && (sdm_en == 0)) {
+		clk = nint * refin;
+	}
+	else/* if (div_s == 0) */ {
+		clk = refin * n;
+	}
+
+	return clk;
+}
+
+u32 emc_clk_get(void)
+{
+	u32 pll_clk;
+	u32 div;
+	u32 reg_val;
+	u32 sel;
+	u32 clk;
+	reg_val = sci_glb_read(REG_AON_CLK_EMC_CFG, -1);
+	sel = reg_val & 0x7;
+	div = (reg_val >> 8) & 0x7;
+	switch(sel) {
+		case 0:
+			pll_clk = 26;
+			break;
+		case 1:
+			pll_clk = 192;
+			break;
+		case 2:
+			pll_clk = 307;
+			break;
+		case 3:
+			pll_clk = 384;
+			break;
+		case 4:
+			pll_clk = 512;
+			break;
+		case 5:
+			pll_clk = 614;
+			break;
+		case 6:
+			pll_clk = 768;
+			break;		
+		case 7:
+			pll_clk = dpll_clk_get();
+			break;
+		default:
+			break;
+	}
+
+	clk = (pll_clk / (div + 1)) >> 1;
+	return clk;
+}
+EXPORT_SYMBOL(emc_clk_get);
+#endif
