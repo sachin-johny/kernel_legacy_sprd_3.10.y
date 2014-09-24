@@ -770,9 +770,21 @@
 		id = <0>;
 		interrupts = <0 26 0x0>;
 		reg = <0xf5260000 0x1000>;
-		trip_points_active = <105>;
+		trip_points_active = <80 88 100>;
+		trip_points_lowoff = <72 72 81>;
+		trip_points_critical = <110>;
+		trip_num = <4>;
+	};
+	sprd_thermal1 {
+		compatible = "sprd,sprd-thermal";
+		id = <1>;
+		interrupt-parent = <&adi>;
+		interrupts = <9 0x0>;
+		reg = <0xf53f8280 0x1000>;
+		trip_points_active = <90>;
+		trip_points_lowoff = <81>; /*no use, jut for compatiable*/
 		trip_points_critical = <114>;
-		trip_num = <5>;
+		trip_num = <2>;
 	};
 	 spi0: spi@70a00000{
 		 compatible  = "sprd,sprd-spi";
