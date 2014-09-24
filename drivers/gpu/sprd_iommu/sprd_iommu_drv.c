@@ -256,6 +256,9 @@ static int sprd_iommu_probe(struct platform_device *pdev)
 	iommu_dev->init_data = pdata;
 	mutex_init(&iommu_dev->mutex_pgt);
 	mutex_init(&iommu_dev->mutex_clk_op);
+        /*If ddr frequency >= 500Mz, iommu need div2 frequency,
+         * because frq of iommu is lower than ddr frq.*/
+        iommu_dev->div2_frq = 500;
 
 #ifndef CONFIG_OF
 	if(0==strncmp("sprd_iommu_gsp",pdata->name,14))

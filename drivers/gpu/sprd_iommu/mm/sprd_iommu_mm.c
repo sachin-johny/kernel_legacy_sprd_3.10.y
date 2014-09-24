@@ -127,11 +127,12 @@ int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 {
-	printk("%s line:%d\n",__FUNCTION__,__LINE__);
+	printk("%s, line:%d\n",__FUNCTION__,__LINE__);
 
 	sprd_iommu_disable(dev);
 
 	mutex_lock(&dev->mutex_pgt);
+	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 	mutex_unlock(&dev->mutex_pgt);
@@ -149,7 +150,7 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 {
-	printk("%s line:%d\n",__FUNCTION__,__LINE__);
+	printk("%s, line:%d, ddr frq:%d\n",__FUNCTION__,__LINE__,emc_clk_get());
 
 #ifdef CONFIG_OF
 	if (dev->mmu_mclock)
@@ -166,6 +167,9 @@ int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 	mutex_lock(&dev->mutex_pgt);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 	memset((void *)(dev->init_data->pgt_base),0xFF,PAGE_ALIGN(dev->init_data->pgt_size));
+        if (emc_clk_get() >= dev->div2_frq) {
+            iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
+        }
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
