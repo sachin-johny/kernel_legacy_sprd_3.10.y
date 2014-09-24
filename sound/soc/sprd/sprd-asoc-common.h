@@ -31,6 +31,8 @@
 #define SP_AUDIO_CODEC_NUM	(2)
 #define AUDIO_CODEC_2713	(0)
 #define AUDIO_CODEC_2723	(1)
+#define AUDIO_2723_VER_AA	(0)
+
 static const char *codec_hw_info[] =
     { "2713", "2723" };
 

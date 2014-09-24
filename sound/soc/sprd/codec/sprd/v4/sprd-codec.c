@@ -76,6 +76,7 @@ enum {
 	SPRD_CODEC_HP_PA_POST_ORDER = 103,
 	SPRD_CODEC_HP_POP_ORDER = 104,
 	SPRD_CODEC_PA_ORDER = 104, /*last power up, later with ANA_MIXER order*/
+	SPRD_CODEC_CG_PGA_ORDER
 };
 
 enum {
@@ -293,6 +294,10 @@ struct sprd_codec_inter_hp_pa {
 	u32 class_g_mode:2;
 	u32 class_g_low_power:2;
 	u32 class_g_cgcal:2;
+	u32 class_g_pa_en_delay_10ms:4;
+	u32 class_g_hp_switch_delay_10ms:4;
+	u32 class_g_hp_on_delay_20ms:4;
+/*
 	u32 class_g_unmute_delay_100ms:3;
 	u32 class_g_cgcal_delay_10ms:3;
 	u32 class_g_close_delay_10ms:2;
@@ -301,6 +306,7 @@ struct sprd_codec_inter_hp_pa {
 	u32  class_g_chp_delay_30ms:4;
 	u32  class_g_all_close_delay_100ms:2;
 	//u32 RESV:0;
+*/
 };
 
 struct sprd_codec_hp_pa_setting {
@@ -742,10 +748,10 @@ static struct sprd_codec_pga sprd_codec_pga_cfg[SPRD_CODEC_PGA_MAX] = {
 	{sprd_codec_pga_headmic_set, 0},
 	{sprd_codec_pga_ailr_set, 0},
 	{sprd_codec_pga_ailr_set, 0},
-	{sprd_codec_pga_cg_hpl_1_set, 0},
-	{sprd_codec_pga_cg_hpr_1_set, 0},
-	{sprd_codec_pga_cg_hpl_2_set, 0},
-	{sprd_codec_pga_cg_hpr_2_set, 0},
+	{sprd_codec_pga_cg_hpl_1_set, -1},
+	{sprd_codec_pga_cg_hpr_1_set, -1},
+	{sprd_codec_pga_cg_hpl_2_set, -1},
+	{sprd_codec_pga_cg_hpr_2_set, -1},
 };
 
 static void _mixer_adc_linein_mute_nolock(struct snd_soc_codec *codec, int need_mute)
@@ -1509,18 +1515,67 @@ static inline void sprd_codec_hp_pa_cgcal_en(struct snd_soc_codec *codec,
 	snd_soc_update_bits(codec, SOC_REG(ANA_CDC3), mask, val);
 }
 
+static inline void sprd_codec_ldocg_fal_ild_en(struct snd_soc_codec *codec,
+						int on)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+
+	mask = BIT(LDOCG_EN_FAL_ILD);
+	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(ANA_PMU1), mask, val);
+}
+
+static inline void sprd_codec_ldocg_iset_fal_current_sel(struct snd_soc_codec *codec,
+						int i_sel)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, i_sel);
+
+	mask = BIT(LDOCG_ISET_FAL);
+	val = i_sel ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(ANA_PMU1), mask, val);
+}
+
+static inline void sprd_codec_ldocg_ldocg_ramp_en(struct snd_soc_codec *codec,
+						int on)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+
+	mask = BIT(LDOCG_RAMP_EN);
+	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(ANA_PMU1), mask, val);
+}
+
+static inline void sprd_codec_head_l_int_pu_pd(struct snd_soc_codec *codec,
+						int on)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+
+	mask = BIT(AUD_HEAD_L_INT_PU_PD);
+	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(ANA_HDT1), mask, val);
+}
+
 static inline void sprd_codec_inter_hp_pa_init(struct sprd_codec_priv
 					       *sprd_codec)
 {
 	sprd_codec->inter_hp_pa.setting.class_g_osc = 0x01;
 	sprd_codec->inter_hp_pa.setting.class_g_cgcal = 1;
-	sprd_codec->inter_hp_pa.setting.class_g_cgcal_delay_10ms = 3;
-	sprd_codec->inter_hp_pa.setting.class_g_unmute_delay_100ms = 5;
-	sprd_codec->inter_hp_pa.setting.class_g_close_delay_10ms = 0;
-	sprd_codec->inter_hp_pa.setting.class_g_open_delay_10ms = 0;
-	sprd_codec->inter_hp_pa.setting.class_g_vdd_delay_10ms = 0;
-	sprd_codec->inter_hp_pa.setting.class_g_chp_delay_30ms = 0;
-	sprd_codec->inter_hp_pa.setting.class_g_all_close_delay_100ms = 0;
+	sprd_codec->inter_hp_pa.setting.class_g_pa_en_delay_10ms = 1;
+	sprd_codec->inter_hp_pa.setting.class_g_hp_switch_delay_10ms = 3;
+	sprd_codec->inter_hp_pa.setting.class_g_hp_on_delay_20ms = 1;
+
+	//sprd_codec->inter_hp_pa.setting.class_g_open_delay_10ms = 0;
+	//sprd_codec->inter_hp_pa.setting.class_g_vdd_delay_10ms = 0;
+	//sprd_codec->inter_hp_pa.setting.class_g_chp_delay_30ms = 0;
+	//sprd_codec->inter_hp_pa.setting.class_g_all_close_delay_100ms = 0;
 	/* set class-G default pga from weifeng */
 	sprd_codec->pga[SPRD_CODEC_PGA_CG_HPL_1].pgaval = 0x10;
 	sprd_codec->pga[SPRD_CODEC_PGA_CG_HPR_1].pgaval = 0x10;
@@ -1582,7 +1637,7 @@ static void sprd_inter_headphone_pa_pre(struct sprd_codec_priv *sprd_codec,int o
 			regulator_put(regulator_reg);
 			regulator_reg = 0;
 
-			sprd_codec_wait(p_setting->class_g_open_delay_10ms * 10);
+			//sprd_codec_wait(p_setting->class_g_open_delay_10ms * 10);
 			/*2. LDO PD */
 			regulator = regulator_get(0, CLASS_G_LDO_ID);
 			if (IS_ERR(regulator)) {
@@ -1660,49 +1715,52 @@ static int sprd_inter_headphone_pa(struct snd_soc_codec *codec, int on)
 	sp_asoc_pr_info("inter HP PA Switch %s\n", STR_ON_OFF(on));
 	mutex_lock(&sprd_codec->inter_hp_pa_mutex);
 	if (on) {
-		/*mute */
-		sprd_codec_hp_pa_hpl_mute(codec, 1);
-		sprd_codec_hp_pa_hpr_mute(codec, 1);
-		sprd_codec_auxadc_en(codec, 1);
 		sprd_codec_hp_pa_lpw(codec, p_setting->class_g_low_power);
-		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
+
 		sprd_codec_hp_pa_osc(codec, p_setting->class_g_osc);
-		sprd_codec_hp_pa_cgcal_en(codec, p_setting->class_g_cgcal);
 		/* CG_REF_EN */
 		sprd_codec_hp_classg_en(codec, 1);
 		/* LDOCG_EN */
 		sprd_codec_hp_cg_ldo_en(codec, 1);
-		/*3. CHP EN */
+		/* CHP EN */
 		sprd_codec_hp_pa_en(codec, 1);
-		sprd_codec_wait(p_setting->class_g_chp_delay_30ms * 30);
+
+		sprd_codec_ldocg_fal_ild_en(codec, 1);
+		sprd_codec_ldocg_iset_fal_current_sel(codec, 1);
+		sprd_codec_ldocg_ldocg_ramp_en(codec, 1);
+
+		/* Head_L_INT pull up power down */
+		sprd_codec_head_l_int_pu_pd(codec, 1);
 		/* DANGL/R EN */
-		sprd_codec_hp_cg_dangl_en(codec, 1);
-		sprd_codec_hp_cg_dangr_en(codec, 1);
-		/*4. L/R EN */
-		sprd_codec_hp_pa_hpl_en(codec, 1);
-		sprd_codec_hp_pa_hpr_en(codec, 1);
-		if (p_setting->class_g_cgcal) {
-			sprd_codec_wait(p_setting->class_g_cgcal_delay_10ms *10);
+		if (AUDIO_2723_VER_AA == sci_get_ana_chip_ver()) {
+			sprd_codec_hp_cg_dangl_en(codec, 1);
+			sprd_codec_hp_cg_dangr_en(codec, 1);
 		}
+		/* Set CG as weifeng's suggestion */
+		sprd_codec_pga_cg_hpl_1_set(codec, 0x10);
+		sprd_codec_pga_cg_hpr_1_set(codec, 0x10);
+		sprd_codec_pga_cg_hpl_2_set(codec, 0x7);
+		sprd_codec_pga_cg_hpr_2_set(codec, 0x7);
+
+		sprd_codec_wait(p_setting->class_g_hp_switch_delay_10ms * 10);
+
 	} else {
-		sprd_codec_wait(p_setting->class_g_close_delay_10ms * 10);
-		sprd_codec_auxadc_en(codec, 0);
-		/*1. L/R disable */
-		sprd_codec_hp_pa_hpl_en(codec, 0);
-		sprd_codec_hp_pa_hpr_en(codec, 0);
-		/* DANGL/R disable */
-		sprd_codec_hp_cg_dangl_en(codec, 0);
-		sprd_codec_hp_cg_dangr_en(codec, 0);
-		/*2. CHP disable */
-		sprd_codec_hp_pa_en(codec, 0);
-		/* LDOCG disable */
-		sprd_codec_hp_cg_ldo_en(codec, 0);
 		/* CG_REF disable */
 		sprd_codec_hp_classg_en(codec, 0);
-		/*3. unmute */
-		sprd_codec_hp_pa_hpl_mute(codec, 0);
-		sprd_codec_hp_pa_hpr_mute(codec, 0);
-		sprd_codec_wait(p_setting->class_g_all_close_delay_100ms* 100);
+
+		/* LDOCG disable */
+		sprd_codec_hp_cg_ldo_en(codec, 0);
+		/* CHP disable */
+		sprd_codec_hp_pa_en(codec, 0);
+		sprd_codec_ldocg_fal_ild_en(codec, 0);
+		sprd_codec_ldocg_iset_fal_current_sel(codec, 0);
+		sprd_codec_ldocg_ldocg_ramp_en(codec, 0);
+
+		/* DANGL/R disable */
+		if (AUDIO_2723_VER_AA == sci_get_ana_chip_ver()) {
+			sprd_codec_hp_cg_dangl_en(codec, 0);
+			sprd_codec_hp_cg_dangr_en(codec, 0);
+		}
 	}
 	mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
 	return 0;
@@ -1716,7 +1774,16 @@ static int sprd_inter_headphone_pa_post(struct snd_soc_codec *codec, int on)
 	mutex_lock(&sprd_codec->inter_hp_pa_mutex);
 	if (on) {
 		/*open classG mute delay time */
-		sprd_codec_wait(p_setting->class_g_unmute_delay_100ms * 100);
+		//sprd_codec_wait(p_setting->class_g_unmute_delay_100ms * 100);
+		/* L/R EN */
+		sprd_codec_hp_pa_mode(codec, p_setting->class_g_mode);
+		sprd_codec_hp_pa_cgcal_en(codec, p_setting->class_g_cgcal);
+
+		sprd_codec_wait(p_setting->class_g_pa_en_delay_10ms * 10);
+		sprd_codec_hp_pa_hpl_en(codec, 1);
+		sprd_codec_hp_pa_hpr_en(codec, 1);
+		sprd_codec_wait(p_setting->class_g_hp_on_delay_20ms * 20);
+
 		/*unmute */
 		sprd_codec_hp_pa_hpl_mute(codec, 0);
 		sprd_codec_hp_pa_hpr_mute(codec, 0);
@@ -1727,7 +1794,11 @@ static int sprd_inter_headphone_pa_post(struct snd_soc_codec *codec, int on)
 		/*mute */
 		sprd_codec_hp_pa_hpl_mute(codec, 1);
 		sprd_codec_hp_pa_hpr_mute(codec, 1);
+		sprd_codec_hp_pa_hpr_en(codec, 0);
+		sprd_codec_hp_pa_hpl_en(codec, 0);
 		sprd_codec_wait(10);
+		sprd_codec_hp_pa_cgcal_en(codec, 0);
+		sprd_codec_hp_pa_mode(codec, 0);
 	}
 	mutex_unlock(&sprd_codec->inter_hp_pa_mutex);
 	return 0;
@@ -2452,7 +2523,8 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
 		pga->set = 0;
-		ret = sprd_codec_pga_cfg[id].set(codec, min);
+		if(min >= 0)
+			ret = sprd_codec_pga_cfg[id].set(codec, min);
 		break;
 	default:
 		BUG();
@@ -2983,25 +3055,25 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0, 0,
 			   spk_pa_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("HPL CGL Switch", SPRD_CODEC_HP_PA_ORDER, SOC_REG(ANA_CDC7),
+	SND_SOC_DAPM_PGA_S("HPL CGL Switch", SPRD_CODEC_HP_PA_POST_ORDER, SOC_REG(ANA_CDC7),
 			   HPL_CGL, 0, NULL,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("HPR CGR Switch", SPRD_CODEC_HP_PA_ORDER, SOC_REG(ANA_CDC7),
+	SND_SOC_DAPM_PGA_S("HPR CGR Switch", SPRD_CODEC_HP_PA_POST_ORDER, SOC_REG(ANA_CDC7),
 			   HPR_CGR, 0, NULL,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("HPL CG Mute1", SPRD_CODEC_HP_PA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPL_1),
+	SND_SOC_DAPM_PGA_S("HPL CG Mute1", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPL_1),
 	           0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPR CG Mute1", SPRD_CODEC_HP_PA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPR_1),
+	SND_SOC_DAPM_PGA_S("HPR CG Mute1", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPR_1),
 	           0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPL CG Mute2", SPRD_CODEC_HP_PA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPL_2),
+	SND_SOC_DAPM_PGA_S("HPL CG Mute2", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPL_2),
 	           0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
-	SND_SOC_DAPM_PGA_S("HPR CG Mute2", SPRD_CODEC_HP_PA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPR_2),
+	SND_SOC_DAPM_PGA_S("HPR CG Mute2", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPR_2),
 	           0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),

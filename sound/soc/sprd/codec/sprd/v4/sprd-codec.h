@@ -134,6 +134,9 @@
 #define VCMI_FAST_EN	(10)
 #define MICBIAS_EN		(9)
 #define AUXMICBIAS_EN	(8)
+#define LDOCG_EN_FAL_ILD	(3)
+#define LDOCG_ISET_FAL	(2)
+#define LDOCG_RAMP_EN	(1)
 
 /* ANA_PMU2 */
 #define VCM_V			    (13)
@@ -387,6 +390,12 @@
 #define HIB_SBUT_MASK       (0xF)
 
 /* ANA_HDT1 */
+#define AUD_GND_DET_PU_PD	(15)
+#define AUD_HEAD_L_INT_PU_PD	(14)
+#define AUD_HEAD_APP_G		(9)
+#define AUD_HEAD_APP_G_MASK	(3)
+#define AUD_HEAD_APP_P		(7)
+#define AUD_HEAD_APP_P_MASK	(3)
 
 /* ANA_HDT2 */
 
