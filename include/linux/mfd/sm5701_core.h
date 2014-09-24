@@ -54,6 +54,8 @@
 #define SM5701_FLEDCNTL5_ENLOWBATT		0x80
 //FLEDCNTL6
 #define SM5701_FLEDCNTL6_BSTOUT			0x0F
+#define SM5701_BSTOUT_4P5               0x05
+#define SM5701_BSTOUT_5P0               0x0A
 
 /**
  * struct sm5701_dev
@@ -111,15 +113,32 @@ struct SM5701_platform_data {
 
 
 //CNTL
-#define SM5701_OPERATIONMODE_SUSPEND           0x0
-#define SM5701_OPERATIONMODE_CHGOFF            0x1
-#define SM5701_OPERATIONMODE_CHGON             0x2
-#define SM5701_OPERATIONMODE_FLASHBOOST        0x3
+#define SM5701_OPERATIONMODE_SUSPEND                0x0 // 000 : Suspend (charger-OFF) MODE
+#define SM5701_OPERATIONMODE_FLASH_ON               0x1 // 001 : Flash LED Driver=ON Ready in Charger & OTG OFF Mode
+#define SM5701_OPERATIONMODE_OTG_ON                 0x2 // 010 : OTG=ON in Charger & Flash OFF Mode
+#define SM5701_OPERATIONMODE_OTG_ON_FLASH_ON        0x3 // 011 : OTG=ON & Flash LED Driver=ON Ready in charger OFF Mode
+#define SM5701_OPERATIONMODE_CHARGER_ON             0x4 // 100 : Charger=ON in OTG & Flash OFF Mode. Same as 0x6(110)
+#define SM5701_OPERATIONMODE_CHARGER_ON_FLASH_ON    0x5 // 101 : Charger=ON & Flash LED Driver=ON Ready in OTG OFF Mode. Same as 0x7(111)
+
 
 enum led_state {
     LED_DISABLE,
-    LED_FLASH,
     LED_MOVIE,
+    LED_FLASH,
+};
+
+enum sm5701_flash_mode {
+        NONE_MODE = 0,
+        MOVIE_MODE,
+        FLASH_MODE,
+};
+
+enum sm5701_flash_operation {
+
+        SM5701_FLEDEN_DISABLED = 0,
+        SM5701_FLEDEN_ON_MOVIE,
+        SM5701_FLEDEN_ON_FLASH,
+        SM5701_FLEDEN_EXTERNAL_CONTOL
 };
 
 //sm5701_core.c
@@ -149,6 +168,7 @@ extern void SM5701_set_lbrstimer(int lbrstimer_us);
 extern void SM5701_set_lowbatt(int lowbatt_v);
 extern void SM5701_set_lbdhys(int lbdhys_mv);
 extern void SM5701_set_bstout(int bstout_mv);
+extern void sm5701_set_fleden(int fled_enable);
 
 //sm5701_irq
 extern int SM5701_irq_init(struct SM5701_dev *sm5701);

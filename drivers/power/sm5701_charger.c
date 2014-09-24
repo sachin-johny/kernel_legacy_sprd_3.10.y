@@ -42,6 +42,17 @@ extern int sec_chg_dt_init(struct device_node *np,
 
 static void SM5701_charger_initialize(struct SM5701_charger_data *charger);
 
+
+//To SPRD : Please make below sequence code.
+//          When OTGOCP interrupt event is happened, please read OTGOCP status and then release the OCP latch condition via SM5701_otgocp_clear().
+static void SM5701_otgocp_clear(struct SM5701_charger_data *charger)
+{
+    //To release the OCP latch condition, the operation mode should be set to bit[2:0]=000 ata 09h register.
+    SM5701_set_operationmode(SM5701_OPERATIONMODE_SUSPEND);
+    SM5701_operation_mode_function_control();
+}
+
+
 static int SM5701_get_battery_present(struct SM5701_charger_data *charger)
 {
 	u8 data;
@@ -58,7 +69,7 @@ static int SM5701_get_battery_present(struct SM5701_charger_data *charger)
 static int SM5701_get_charging_status(struct SM5701_charger_data *charger)
 {
 	int status = POWER_SUPPLY_STATUS_UNKNOWN;
-	u8 stat2, chg_en, cln;
+	u8 stat2, cln;
 
 	SM5701_reg_read(charger->SM5701->i2c, SM5701_STATUS2, &stat2);
 	pr_info("%s : SM5701_STATUS2 : 0x%02x\n", __func__, stat2);
@@ -66,23 +77,19 @@ static int SM5701_get_charging_status(struct SM5701_charger_data *charger)
 //	Clear interrupt register 2
 	SM5701_reg_read(charger->SM5701->i2c, SM5701_INT2, &cln);
 
-	SM5701_reg_read(charger->SM5701->i2c, SM5701_CNTL, &chg_en);
-	chg_en &= SM5701_CNTL_OPERATIONMODE;
+	stat2 = (stat2 & (SM5701_STATUS2_CHGON | SM5701_STATUS2_DONE | SM5701_STATUS2_TOPOFF));
 
-	if((stat2 & SM5701_STATUS2_DONE) || (stat2 & SM5701_STATUS2_TOPOFF)) {
-		status = POWER_SUPPLY_STATUS_FULL;
+	if((stat2 & SM5701_STATUS2_DONE) || (stat2 & SM5701_STATUS2_TOPOFF)){
+		status = POWER_SUPPLY_STATUS_FULL;        
 		charger->is_fullcharged = true;
 		pr_info("%s : Status, Power Supply Full \n", __func__);
-	} else if (chg_en & OP_MODE_CHG_ON) {
-		int nCHG;
-		nCHG = gpio_get_value(charger->pdata->chg_gpio_en);
-		if (nCHG)
-			status = POWER_SUPPLY_STATUS_DISCHARGING;
-		else
-			status = POWER_SUPPLY_STATUS_CHARGING;
-	} else {
-		status = POWER_SUPPLY_STATUS_DISCHARGING;
-	}
+    }
+    else if((stat2 & SM5701_STATUS2_CHGON)){
+        status = POWER_SUPPLY_STATUS_CHARGING;
+    }
+    else{
+		status = POWER_SUPPLY_STATUS_DISCHARGING;        
+    }
 
 	return (int)status;
 }
@@ -121,14 +128,17 @@ static u8 SM5701_set_batreg_voltage(
 
 	data &= BATREG_MASK;
 
-	if ((batreg_voltage*10) < 40125) {
+	if ((batreg_voltage*10) < 37250) {
 		data = 0x00;
 		goto set_batreg_voltage_end;
 	}
 	else if ((batreg_voltage*10) > 44000)
 		batreg_voltage = 4400;
 
-	data = ((batreg_voltage*10 - 40125) / 125);
+    if ((batreg_voltage*10 >= 37250) && (batreg_voltage*10 < 43125))
+        data = (batreg_voltage*10 - 37250) / 250;
+    else if ((batreg_voltage*10 >= 43125) && (batreg_voltage*10 <= 44000)) 
+        data = 24 + ((batreg_voltage*10 - 43125) / 125);
 
 set_batreg_voltage_end:
 	SM5701_reg_write(charger->SM5701->i2c, SM5701_CHGCNTL3, data);
@@ -312,8 +322,8 @@ static void SM5701_charger_initialize(struct SM5701_charger_data *charger)
 	SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 */
 /* Set FREQSEL to 11(2.4MHz) */
-    //reg_data = 0x72; 
-    //SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
+    reg_data = 0xE4; 
+    SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 
 /* Disable AUTOSTOP */
 	SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
@@ -372,6 +382,11 @@ static int sec_chg_get_property(struct power_supply *psy,
 		break;
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		break;
+
+    case POWER_SUPPLY_PROP_CHARGE_OTG_CONTROL:
+    case POWER_SUPPLY_PROP_POWER_STATUS:
+        break;
+		
 	default:
 		return -EINVAL;
 	}
@@ -485,11 +500,18 @@ static int sec_chg_set_property(struct power_supply *psy,
 				__func__, charger->charging_current, charger->siop_level);
 			SM5701_set_fastchg_current(
 				charger, charger->charging_current);
+            //To SPRD : Please remove below 4 line on New & Old version code
             /* set operation mode */
-            SM5701_operation_mode_function_control();
+            //SM5701_operation_mode_function_control();
             /* turn on charging mode */
-            gpio_direction_output((charger->pdata->chg_gpio_en), charger->nchgen);
+            //gpio_direction_output((charger->pdata->chg_gpio_en), charger->nchgen);
 		}
+        //To SPRD : Please add below code on New & Old version code
+        /* set operation mode */
+        SM5701_operation_mode_function_control();
+        /* turn on charging mode */
+        gpio_direction_output((charger->pdata->chg_gpio_en), charger->nchgen);
+        
 		break;
 	/* val->intval : input charging current */
 	case POWER_SUPPLY_PROP_CURRENT_MAX:
@@ -557,7 +579,6 @@ static int SM5701_charger_probe(struct platform_device *pdev)
 		charger->pdata = pdata->charger_data;
 
 	platform_set_drvdata(pdev, charger);
-	SM5701_set_charger_data(charger);
 
     if (charger->pdata->charger_name == NULL)
             charger->pdata->charger_name = "sec-charger";
@@ -580,6 +601,8 @@ static int SM5701_charger_probe(struct platform_device *pdev)
             goto err_power_supply_register;
     }
 
+    SM5701_set_charger_data(charger);
+    
 	pr_info("%s: SM5701 Charger Probe Loaded\n", __func__);
 	return 0;
 

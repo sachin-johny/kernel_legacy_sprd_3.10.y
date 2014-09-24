@@ -39,6 +39,12 @@ static struct mfd_cell SM5701_devs[] = {
 		.of_compatible = "sm,sm5701-charger"
 #endif
 	},
+	{
+        .name = "leds_sm5701",
+#ifdef CONFIG_OF
+        .of_compatible = "sm,leds_sm5701"
+#endif
+	},
 };
 
 static struct i2c_client *SM5701_core_client = NULL;
@@ -172,13 +178,17 @@ static ssize_t SM5701_core_store(struct device *dev,
 	if (state == 0)
 	        SM5701_set_operationmode(SM5701_OPERATIONMODE_SUSPEND);
 	else if (state == 1)
-	        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGOFF);
+	        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
 	else if (state == 2)
-	        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
+	        SM5701_set_operationmode(SM5701_OPERATIONMODE_OTG_ON);
 	else if (state == 3)
-	        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
-	else
-	        SM5701_set_operationmode(SM5701_OPERATIONMODE_SUSPEND);
+	        SM5701_set_operationmode(SM5701_OPERATIONMODE_OTG_ON_FLASH_ON);
+	else if (state == 4)
+	        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
+	else if (state == 5)
+	        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON_FLASH_ON);
+        else
+	        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
 
 	//SM5701_dump_register();
 
@@ -203,40 +213,92 @@ EXPORT_SYMBOL(sm5701_led_ready);
 
 int SM5701_operation_mode_function_control(void)
 {
-    struct i2c_client * client;
-    struct SM5701_platform_data *pdata;
+        struct i2c_client * client;
+        struct SM5701_platform_data *pdata;
 
-    client = SM5701_core_client;
-    pdata = client->dev.platform_data;
+        client = SM5701_core_client;
+        pdata = client->dev.platform_data;
 
-	pr_info("%s cable_type=%d\n", __func__, pdata->charger_data->cable_type);
+        if ((pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_MAINS) || 
+                        (pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_USB))
+        {
+                if (led_ready_state == LED_FLASH)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
+                }
+                else if (led_ready_state == LED_MOVIE)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON_FLASH_ON);
+                }
+                else if (led_ready_state == LED_DISABLE)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
+                }
+                else
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
+                }
 
-    if ((pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_MAINS) ||
-		(pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_USB)) {
-		if (led_ready_state == LED_FLASH) {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
-        } else if (led_ready_state == LED_MOVIE) {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
-        } else if (led_ready_state == LED_DISABLE) {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
-        } else {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
         }
-	} else if (pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_BATTERY) {
-		if (led_ready_state == LED_FLASH) {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
-        } else if (led_ready_state == LED_MOVIE) {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASHBOOST);
-        } else if (led_ready_state == LED_DISABLE) {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
-        } else {
-            SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
-        }    
-	} else {
-        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHGON);
-	}
-   
-    return 0;
+        else if ((pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_BATTERY) ||
+                        (pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_UNKNOWN))
+        {
+                if (led_ready_state == LED_FLASH)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
+                }
+                else if (led_ready_state == LED_MOVIE)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
+                }
+                else if (led_ready_state == LED_DISABLE)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
+                }  
+                else
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
+                }     
+        }
+        else if (pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_OTG)
+        {
+                if (led_ready_state == LED_FLASH)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
+                }
+                else if (led_ready_state == LED_MOVIE)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_5P0);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
+                }
+                else if (led_ready_state == LED_DISABLE)
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_5P0);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_OTG_ON);
+                }  
+                else
+                {
+                        SM5701_set_bstout(SM5701_BSTOUT_5P0);
+                        SM5701_set_operationmode(SM5701_OPERATIONMODE_OTG_ON);
+                }    
+        }
+        else
+        {
+                SM5701_set_bstout(SM5701_BSTOUT_4P5);
+                SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON);
+
+        }
+
+        return 0;
 }
 EXPORT_SYMBOL(SM5701_operation_mode_function_control);
 
@@ -245,8 +307,8 @@ static DEVICE_ATTR(SM5701_core, S_IWUSR, NULL, SM5701_core_store);
 
 void SM5701_set_charger_data(void *p)
 {
-	struct SM5701_platform_data *pdata = SM5701_core_client->dev.platform_data;
-    pdata->charger_data = p;
+        struct SM5701_platform_data *pdata = SM5701_core_client->dev.platform_data;
+        pdata->charger_data = p;
 }
 
 static int SM5701_parse_dt(struct SM5701_platform_data *pdata)
@@ -297,7 +359,8 @@ static int SM5701_i2c_probe(struct i2c_client *i2c,
 	SM5701 = kzalloc(sizeof(struct SM5701_dev), GFP_KERNEL);
 	if (!SM5701) {
 		dev_err(&i2c->dev, "Failed to allocate memory for SM5701 \n");
-		return -ENOMEM;
+		ret = -ENOMEM;
+		goto err_parse_dt;
 	}
 
 	i2c_set_clientdata(i2c, SM5701);
@@ -309,7 +372,7 @@ static int SM5701_i2c_probe(struct i2c_client *i2c,
     SM5701_core_client = i2c;
 
 	if (!pdata)
-		goto err;
+		goto err_pdata_null;
 
 	mutex_init(&SM5701->i2c_lock);
 
@@ -333,18 +396,23 @@ static int SM5701_i2c_probe(struct i2c_client *i2c,
 	dev_info(SM5701->dev ,"SM5701 MFD probe done!!! \n");
 	return ret;
 
-err_parse_dt:
-	pr_info("%s: parse_dt error \n", __func__);
-err_dt_nomem:
-	pr_info("%s: dt_nomem error \n", __func__);
 err:
 	pr_info("%s: err error \n", __func__);
 	mfd_remove_devices(SM5701->dev);
 //err_irq_init:
 //	SM5701_irq_exit(SM5701);
-	kfree(SM5701);
 err_create_core_file:
 	device_remove_file(SM5701->dev, &dev_attr_SM5701_core);
+err_pdata_null:
+	i2c_set_clientdata(i2c, NULL);
+	kfree(SM5701);
+err_parse_dt:
+	if (of_node) {
+		devm_kfree(&i2c->dev, pdata);
+	}
+	pr_info("%s: parse_dt error \n", __func__);
+err_dt_nomem:
+	pr_info("%s: dt_nomem error \n", __func__);
 	return ret;
 }
 

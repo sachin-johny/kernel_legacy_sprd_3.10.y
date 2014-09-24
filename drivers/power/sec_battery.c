@@ -3329,6 +3329,9 @@ static int sec_bat_parse_dt(struct device *dev,
 	ret = of_property_read_u32(np, "battery,monitor_initial_count",
 		&pdata->monitor_initial_count);
 
+	ret = of_property_read_u32(np, "battery,battery_check_type",
+			&pdata->battery_check_type);
+
 	ret = of_property_read_u32(np, "battery,check_count",
 		&pdata->check_count);
 

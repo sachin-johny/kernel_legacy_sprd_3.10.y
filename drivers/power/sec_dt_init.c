@@ -280,7 +280,7 @@ void sec_charger_cb(u8 cable_type)
 		goto skip;
 	case MUIC_RT8973_CABLE_TYPE_0x15:
 	case MUIC_RT8973_CABLE_TYPE_0x1A:
-	case MUIC_RT8973_CABLE_TYPE_0x1A_VBUS:
+	//case MUIC_RT8973_CABLE_TYPE_0x1A_VBUS:
 		current_cable_type = POWER_SUPPLY_TYPE_MISC;
 		break;
 	default:
@@ -304,7 +304,7 @@ void sec_charger_cb(u8 cable_type)
 	}
 
 skip:
-	return 0;
+	return;
 }
 #endif
 
@@ -531,7 +531,7 @@ int sec_bat_dt_init(struct device_node *np,
 					__func__);
 	}
 
-	p = of_get_property(np, "charger,input_current_limit", &len);
+	p = of_get_property(np, "battery,input_current_limit", &len);
 	if (!p)
 		return 1;
 
@@ -543,28 +543,28 @@ int sec_bat_dt_init(struct device_node *np,
 
 	for(i = 0; i < len; i++) {
 		ret = of_property_read_u32_index(np,
-				"charger,input_current_limit", i,
+				"battery,input_current_limit", i,
 				&pdata->charging_current[i].input_current_limit);
 		if (ret)
 			pr_info("%s : Input_current_limit is Empty\n",
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"charger,fast_charging_current", i,
+				"battery,fast_charging_current", i,
 				&pdata->charging_current[i].fast_charging_current);
 		if (ret)
 			pr_info("%s : Fast charging current is Empty\n",
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"charger,full_check_current_1st", i,
+				"battery,full_check_current_1st", i,
 				&pdata->charging_current[i].full_check_current_1st);
 		if (ret)
 			pr_info("%s : Full check current 1st is Empty\n",
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"charger,full_check_current_2nd", i,
+				"battery,full_check_current_2nd", i,
 				&pdata->charging_current[i].full_check_current_2nd);
 		if (ret)
 			pr_info("%s : Full check current 2nd is Empty\n",
@@ -905,10 +905,10 @@ int sec_chg_dt_init(struct device_node *np,
         else {
                 int i = 0;
                 const u32 *p;
-                p = of_get_property(np, "charger,input_current_limit", &len);
+                p = of_get_property(np, "battery,input_current_limit", &len);
                 if (!p){
 
-                        pr_err("%s charger,input_current_limit is Empty\n", __func__);
+                        pr_err("%s battery,input_current_limit is Empty\n", __func__);
                         //	return 1;
                 }
                 else{
@@ -920,28 +920,28 @@ int sec_chg_dt_init(struct device_node *np,
 
                         for(i = 0; i < len; i++) {
                                 ret = of_property_read_u32_index(np,
-                                                "charger,input_current_limit", i,
+                                                "battery,input_current_limit", i,
                                                 &pdata->charging_current[i].input_current_limit);
                                 if (ret)
                                         pr_info("%s : Input_current_limit is Empty\n",
                                                         __func__);
 
                                 ret = of_property_read_u32_index(np,
-                                                "charger,fast_charging_current", i,
+                                                "battery,fast_charging_current", i,
                                                 &pdata->charging_current[i].fast_charging_current);
                                 if (ret)
                                         pr_info("%s : Fast charging current is Empty\n",
                                                         __func__);
 
                                 ret = of_property_read_u32_index(np,
-                                                "charger,full_check_current_1st", i,
+                                                "battery,full_check_current_1st", i,
                                                 &pdata->charging_current[i].full_check_current_1st);
                                 if (ret)
                                         pr_info("%s : Full check current 1st is Empty\n",
                                                         __func__);
 
                                 ret = of_property_read_u32_index(np,
-                                                "charger,full_check_current_2nd", i,
+                                                "battery,full_check_current_2nd", i,
                                                 &pdata->charging_current[i].full_check_current_2nd);
                                 if (ret)
                                         pr_info("%s : Full check current 2nd is Empty\n",

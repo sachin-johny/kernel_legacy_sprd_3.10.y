@@ -20,7 +20,7 @@
 #include <linux/fs.h>
 #include <linux/workqueue.h>
 #include <linux/mfd/sm5701_core.h>
-#include <linux/platform_data/leds-sm5701.h>
+//#include <linux/platform_data/leds-sm5701.h>
 
 
 enum sm5701_oper_mode {
@@ -30,15 +30,9 @@ enum sm5701_oper_mode {
         CHARGING_FLASH_BOOST_MODE
 };
 
-enum sm5701_flash_mode {
-        NONE_MODE = 0,
-        FLASH_MODE,
-        MOVIE_MODE
-};
-    
-struct sm5701_leds_data {
+struct SM5701_leds_data {
         struct device *dev;
-        struct sm5701_dev *iodev;
+        struct SM5701_dev *iodev;
 
         struct led_classdev cdev_flash;
         struct led_classdev cdev_movie;
@@ -68,11 +62,11 @@ void sm5701_set_enabstmr(int abstmr_enable)
 
     pr_info("%s abstmr_enable = %d\n",__func__,abstmr_enable);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL1, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL1, &data);
 
     data = (data & (~SM5701_FLEDCNTL1_ENABSTMR)) | (abstmr_enable << ENABSTMR_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL1,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL1,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL1, data);
     
@@ -91,11 +85,11 @@ void sm5701_set_abstmr(int abstmr_sec)
 
     pr_info("%s abstmr_sec = %d\n",__func__,abstmr_sec);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL1, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL1, &data);
 
     data = (data & (~SM5701_FLEDCNTL1_ABSTMR)) | (abstmr_sec << ABSTMR_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL1,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL1,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL1, data);
     
@@ -113,11 +107,11 @@ void sm5701_set_fleden(int fled_enable)
 
     pr_info("%s fled_enable = %d\n",__func__,fled_enable);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL1, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL1, &data);
     
     data = (data & (~SM5701_FLEDCNTL1_FLEDEN)) | fled_enable;
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL1,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL1,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL1, data);
     
@@ -136,11 +130,11 @@ void sm5701_set_nensafet(int nensafet_enable)
 
     pr_info("%s nensafet_enable = %d\n",__func__,nensafet_enable);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL2, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL2, &data);
 
     data = (data & (~SM5701_FLEDCNTL2_nENSAFET)) | (nensafet_enable << nENSAFET_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL2,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL2,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL2, data);
     
@@ -159,11 +153,11 @@ void sm5701_set_safet(int safet_us)
 
     pr_info("%s safet_us = %d\n",__func__,safet_us);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL2, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL2, &data);
 
     data = (data & (~SM5701_FLEDCNTL2_SAFET)) | (safet_us << SAFET_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL2,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL2,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL2, data);
     
@@ -182,11 +176,11 @@ void sm5701_set_noneshot(int noneshot_enable)
 
     pr_info("%s noneshot_enable = %d\n",__func__,noneshot_enable);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL2, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL2, &data);
 
     data = (data & (~SM5701_FLEDCNTL2_nONESHOT)) | (noneshot_enable << nONESHOT_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL2,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL2,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL2, data);
     
@@ -204,17 +198,19 @@ void sm5701_set_onetimer(int onetimer_ms)
 
     pr_info("%s onetimer_ms = %d\n",__func__,onetimer_ms);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL2, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL2, &data);
 
     data = (data & (~SM5701_FLEDCNTL2_ONETIMER)) | onetimer_ms;
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL2,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL2,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL2, data);
     
 }
 EXPORT_SYMBOL(sm5701_set_onetimer);
 
+#define IFLED_MAX   0x1F
+#define IFLED_MIN   0x0
 void sm5701_set_ifled(int ifled_ma)
 {
     struct i2c_client * client;
@@ -226,17 +222,24 @@ void sm5701_set_ifled(int ifled_ma)
 
     pr_info("%s ifled_ma = %d\n",__func__,ifled_ma);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL3, &data);
+    if(ifled_ma < IFLED_MIN)
+        ifled_ma = IFLED_MIN;
+    else if (ifled_ma > IFLED_MAX)
+        ifled_ma = IFLED_MAX;
+    
+    SM5701_reg_read(client, SM5701_FLEDCNTL3, &data);
 
     data = (data & (~SM5701_FLEDCNTL3_IFLED)) | ifled_ma;
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL3,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL3,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL3, data);
     
 }
 EXPORT_SYMBOL(sm5701_set_ifled);
 
+#define IMLED_MAX   0x1F
+#define IMLED_MIN   0x0
 void sm5701_set_imled(int imled_ma)
 {
     struct i2c_client * client;
@@ -248,11 +251,16 @@ void sm5701_set_imled(int imled_ma)
 
     pr_info("%s imled_ma = %d\n",__func__,imled_ma);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL4, &data);
+    if(imled_ma < IMLED_MIN) 
+        imled_ma = IMLED_MIN;
+    else if(imled_ma > IMLED_MAX) 
+        imled_ma = IMLED_MAX;
+
+    SM5701_reg_read(client, SM5701_FLEDCNTL4, &data);
 
     data = (data & (~SM5701_FLEDCNTL4_IMLED)) | imled_ma;
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL4,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL4,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL4, data);
     
@@ -271,11 +279,11 @@ void sm5701_set_enlowbatt(int enlowbatt_enable)
 
     pr_info("%s enlowbatt_enable = %d\n",__func__,enlowbatt_enable);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL5, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL5, &data);
 
     data = (data & (~SM5701_FLEDCNTL5_ENLOWBATT)) | (enlowbatt_enable << ENLOWBATT_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL5,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL5,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL5, data);
     
@@ -294,11 +302,11 @@ void sm5701_set_lbrstimer(int lbrstimer_us)
 
     pr_info("%s lbrstimer_us = %d\n",__func__,lbrstimer_us);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL5, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL5, &data);
 
     data = (data & (~SM5701_FLEDCNTL5_LBRSTIMER)) | (lbrstimer_us << LBRSTIMER_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL5,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL5,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL5, data);
     
@@ -317,11 +325,11 @@ void sm5701_set_lowbatt(int lowbatt_v)
 
     pr_info("%s lowbatt_v = %d\n",__func__,lowbatt_v);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL5, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL5, &data);
 
     data = (data & (~SM5701_FLEDCNTL5_LOWBATT)) | (lowbatt_v << LOWBATT_SHIFT);
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL5,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL5,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL5, data);
     
@@ -339,18 +347,18 @@ void sm5701_set_lbdhys(int lbdhys_mv)
 
     pr_info("%s lbdhys_mv = %d\n",__func__,lbdhys_mv);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL5, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL5, &data);
 
     data = (data & (~SM5701_FLEDCNTL5_LBDHYS))| lbdhys_mv;
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL5,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL5,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL5, data);
     
 }
 EXPORT_SYMBOL(sm5701_set_lbdhys);
 
-void sm5701_set_bstout(int bstout_mv)
+void SM5701_set_bstout(int bstout_mv)
 {
     struct i2c_client * client;
     u8 data = 0;
@@ -361,47 +369,38 @@ void sm5701_set_bstout(int bstout_mv)
 
     pr_info("%s bstout_mv = %d\n",__func__,bstout_mv);
 
-    sm5701_reg_read(client, SM5701_FLEDCNTL6, &data);
+    SM5701_reg_read(client, SM5701_FLEDCNTL6, &data);
 
     data = (data & (~SM5701_FLEDCNTL6_BSTOUT))| bstout_mv;
 
-    sm5701_reg_write(client,SM5701_FLEDCNTL6,data);    
+    SM5701_reg_write(client,SM5701_FLEDCNTL6,data);    
   
     pr_info("write SM5701 addr : 0x%02x data : 0x%02x\n", SM5701_FLEDCNTL6, data);
     
 }
-EXPORT_SYMBOL(sm5701_set_bstout);
+EXPORT_SYMBOL(SM5701_set_bstout);
 
-/* chip control */
-static int sm5701_control(struct sm5701_leds_data *chip,
-                          u8 brightness, enum sm5701_oper_mode opmode)
+/* brightness control */
+static int sm5701_brightness_control(struct SM5701_leds_data *chip,
+                          u8 brightness, enum sm5701_flash_mode flash_mode)
 {
-        switch (opmode) {
+        switch (flash_mode) {
         case NONE_MODE:
-                sm5701_led_ready(LED_DISABLE);
-                sm5701_set_fleden(SM5701_FLEDEN_DISABLED);
-                SM5701_operation_mode_function_control();
                 break;
 
         case FLASH_MODE:            
-                sm5701_led_ready(FLASH_MODE);
                 sm5701_set_ifled(brightness);
-                SM5701_operation_mode_function_control();
-                sm5701_set_fleden(SM5701_FLEDEN_ON_FLASH);
                 break;
 
         case MOVIE_MODE:
-                sm5701_led_ready(MOVIE_MODE);
                 sm5701_set_imled(brightness);
-                SM5701_operation_mode_function_control();                
-                sm5701_set_fleden(SM5701_FLEDEN_ON_MOVIE);
                 break;
 
         default:
                 break;
         }
         
-        return opmode;
+        return flash_mode;
 }
 
 /* movie */
@@ -413,8 +412,8 @@ static ssize_t sm5701_movie_store(struct device *dev,
 {
         ssize_t ret;
         struct led_classdev *led_cdev = dev_get_drvdata(dev);
-        struct sm5701_leds_data *chip =
-            container_of(led_cdev, struct sm5701_leds_data, work_movie);
+        struct SM5701_leds_data *chip =
+            container_of(led_cdev, struct SM5701_leds_data, work_movie);
         unsigned int state;
 
         ret = kstrtouint(buf, 10, &state);
@@ -441,32 +440,25 @@ static DEVICE_ATTR(movie, S_IWUSR, NULL, sm5701_movie_store);
 
 static void sm5701_deferred_movie_brightness_set(struct work_struct *work)
 {
-    struct sm5701_leds_data *chip =
-        container_of(work, struct sm5701_leds_data, work_movie);
+    struct SM5701_leds_data *chip =
+        container_of(work, struct SM5701_leds_data, work_movie);
 
-    if(chip->br_movie == 0)
-    {
         mutex_lock(&chip->lock);
-        sm5701_control(chip, chip->br_movie, NONE_MODE);
+        sm5701_brightness_control(chip, chip->br_movie, MOVIE_MODE);
         mutex_unlock(&chip->lock);
-    }
-    else
-    {
-        mutex_lock(&chip->lock);
-        sm5701_control(chip, chip->br_movie, MOVIE_MODE);
-        mutex_unlock(&chip->lock);
-    }
-
 }
 
 static void sm5701_movie_brightness_set(struct led_classdev *cdev,
                                         enum led_brightness brightness)
 {
-        struct sm5701_leds_data *chip =
-            container_of(cdev, struct sm5701_leds_data, cdev_movie);
-
-        chip->br_movie = brightness;
-        schedule_work(&chip->work_movie);
+        struct SM5701_leds_data *chip =
+            container_of(cdev, struct SM5701_leds_data, cdev_movie);
+        
+        if(brightness >= 0 && brightness <= cdev->max_brightness )
+        {
+            chip->br_movie = brightness;
+            schedule_work(&chip->work_movie);
+        }
 }
 
 /* flash */
@@ -478,8 +470,8 @@ static ssize_t sm5701_flash_store(struct device *dev,
 {
         ssize_t ret;
         struct led_classdev *led_cdev = dev_get_drvdata(dev);
-        struct sm5701_leds_data *chip =
-            container_of(led_cdev, struct sm5701_leds_data, work_flash);
+        struct SM5701_leds_data *chip =
+            container_of(led_cdev, struct SM5701_leds_data, work_flash);
         unsigned int state;
 
         ret = kstrtouint(buf, 10, &state);
@@ -506,59 +498,57 @@ static DEVICE_ATTR(flash, S_IWUSR, NULL, sm5701_flash_store);
 
 static void sm5701_deferred_flash_brightness_set(struct work_struct *work)
 {
-    struct sm5701_leds_data *chip =
-        container_of(work, struct sm5701_leds_data, work_flash);
+    struct SM5701_leds_data *chip =
+        container_of(work, struct SM5701_leds_data, work_flash);
     
-    if(chip->br_flash == 0)
-    {
         mutex_lock(&chip->lock);
-        sm5701_control(chip, chip->br_flash, NONE_MODE);
-        mutex_unlock(&chip->lock);          
-    }
-    else
-    {
-        mutex_lock(&chip->lock);
-        sm5701_control(chip, chip->br_flash, FLASH_MODE);
+        sm5701_brightness_control(chip, chip->br_flash, FLASH_MODE);
         mutex_unlock(&chip->lock);
-    }
-
 }
 
 static void sm5701_flash_brightness_set(struct led_classdev *cdev,
                                          enum led_brightness brightness)
 {
-        struct sm5701_leds_data *chip =
-            container_of(cdev, struct sm5701_leds_data, cdev_flash);
+        struct SM5701_leds_data *chip =
+            container_of(cdev, struct SM5701_leds_data, cdev_flash);
 
-        chip->br_flash = brightness;
-        schedule_work(&chip->work_flash);
+        if(brightness >= 0 && brightness <= cdev->max_brightness )
+        {
+            chip->br_flash = brightness;
+            schedule_work(&chip->work_flash);
+        }
 }
 
 /* chip initialize */
-static int sm5701_chip_init(struct sm5701_leds_data *chip)
+static int sm5701_chip_init(struct SM5701_leds_data *chip)
 {
         int ret = 0;
+
+        chip->br_movie = 0x9; //100mA
+        sm5701_set_imled(chip->br_movie);
+
+        chip->br_flash = 0x0C; //600mA
+        sm5701_set_ifled(chip->br_flash);
+
+        //sm5701_dump_register();
+
+        //disable ABSTMR
+        sm5701_set_enabstmr(0);
 
         return ret;
 }
 
 
-static __devinit int leds_sm5701_probe(struct platform_device *pdev)
+static int leds_sm5701_probe(struct platform_device *pdev)
 {
-    	struct sm5701_dev *iodev = dev_get_drvdata(pdev->dev.parent);
-    	struct sm5701_platform_data *pdata = dev_get_platdata(iodev->dev);
-        struct sm5701_leds_data *chip;
+    	struct SM5701_dev *iodev = dev_get_drvdata(pdev->dev.parent);
+        struct SM5701_leds_data *chip;
 
         int err;
 
         printk("******* %s *******\n",__func__);
 
-        if (!pdata) {
-            dev_err(pdev->dev.parent, "Platform data not supplied\n");
-            return -ENODEV;
-        }
-
-    	chip = kzalloc(sizeof(struct sm5701_leds_data), GFP_KERNEL);        
+    	chip = kzalloc(sizeof(struct SM5701_leds_data), GFP_KERNEL);        
         if (!chip)
            return -ENOMEM;
 
@@ -575,14 +565,10 @@ static __devinit int leds_sm5701_probe(struct platform_device *pdev)
 
         mutex_init(&chip->lock);
 
-        err = sm5701_chip_init(chip);
-        if (err < 0)
-                goto err_out;
-
         /* flash */
         INIT_WORK(&chip->work_flash, sm5701_deferred_flash_brightness_set);
         chip->cdev_flash.name = "flash";
-        chip->cdev_flash.max_brightness = 32;
+        chip->cdev_flash.max_brightness = 32-1;//0x1f
         chip->cdev_flash.brightness_set = sm5701_flash_brightness_set;
         chip->cdev_flash.default_trigger = "flash";
         err = led_classdev_register((struct device *)
@@ -601,7 +587,7 @@ static __devinit int leds_sm5701_probe(struct platform_device *pdev)
         /* movie */
         INIT_WORK(&chip->work_movie, sm5701_deferred_movie_brightness_set);
         chip->cdev_movie.name = "movie";
-        chip->cdev_movie.max_brightness = 32;
+        chip->cdev_movie.max_brightness = 32-1;//0x1f
         chip->cdev_movie.brightness_set = sm5701_movie_brightness_set;
         chip->cdev_movie.default_trigger = "movie";
         err = led_classdev_register((struct device *)
@@ -615,6 +601,12 @@ static __devinit int leds_sm5701_probe(struct platform_device *pdev)
                 dev_err(chip->dev, "failed to create movie file\n");
                 goto err_create_movie_pin_file;
         }
+
+        err = sm5701_chip_init(chip);
+        if (err < 0)
+                goto err_out;
+
+        //sm5701_dump_register();
 
         dev_info(chip->dev, "LEDs_SM5701 Probe Done\n");
       return 0;
@@ -631,9 +623,9 @@ err_out:
         return err;
 }
 
-static int __devexit leds_sm5701_remove(struct platform_device *pdev)
+static int leds_sm5701_remove(struct platform_device *pdev)
 {
-        struct sm5701_leds_data *chip = platform_get_drvdata(pdev);
+        struct SM5701_leds_data *chip = platform_get_drvdata(pdev);
 
         device_remove_file(chip->cdev_movie.dev, &dev_attr_movie);
         led_classdev_unregister(&chip->cdev_movie);
@@ -651,10 +643,20 @@ static const struct platform_device_id leds_sm5701_id[] = {
 
 MODULE_DEVICE_TABLE(platform, leds_sm5701_id);
 
+#ifdef CONFIG_OF
+static struct of_device_id leds_sm5701_match_table[] = {
+	{ .compatible = "sm,leds_sm5701",},
+	{},
+};
+#else
+#define SM5701_match_table NULL
+#endif
+
 static struct platform_driver leds_sm5701_driver = {
         .driver = {
                    .name = "leds_sm5701",
                    .owner = THIS_MODULE,
+                   .of_match_table = leds_sm5701_match_table,
                    },
         .probe = leds_sm5701_probe,
         .remove = leds_sm5701_remove,
