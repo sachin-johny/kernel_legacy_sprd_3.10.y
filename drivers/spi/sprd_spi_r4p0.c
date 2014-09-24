@@ -392,7 +392,7 @@ static void  sprd_spi_transfer_work(struct work_struct *work)
 	clk_prepare_enable(spi_chip->clk);
 	/*check register reset*/
 	check_reg_val=__raw_readl(spi_chip->reg_base + SPI_CTL6);
-	if(check_reg_val!=0x1010){
+	if(check_reg_val==0x1010){
 		sprd_spi_wakeup_restore(spi_chip);
 		printk("spi wake up store register\n");
 	}
