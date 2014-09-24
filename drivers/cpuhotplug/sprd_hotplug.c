@@ -71,7 +71,7 @@ static unsigned int percpu_load[4] = {0};
 #define MAX_PLUG_AVG_LOAD_SIZE (2)
 
 
-struct sd_dbs_tuners {                                                                                   
+struct sd_dbs_tuners {
         unsigned int ignore_nice;                                                                        
         unsigned int sampling_rate;                                                                      
         unsigned int sampling_down_factor;                                                               
@@ -216,7 +216,7 @@ static inline u64 get_cpu_idle_time(unsigned int cpu, u64 *wall, int io_busy)
 	return idle_time;
 }
 
-static void sprd_plugin_one_cpu_ss(struct work_struct *work)
+static void __cpuinit sprd_plugin_one_cpu_ss(struct work_struct *work)
 {
 	int cpuid;
 
@@ -509,13 +509,16 @@ static int cpu_evaluate_score(int cpu, struct sd_dbs_tuners *sd_tunners , unsign
 		if((delta > 30)
 			&&(load > 80))
 		{
+			if (unlikely(rate[cpu] > 100))
+				rate[cpu] = 1;
+
 			rate[cpu] +=2;
-			score = a_score_sub[dvfs_score_select - 4][num_online_cpus() - 1][load/10] * rate[cpu];
+			score = a_score_sub[dvfs_score_select % 4][num_online_cpus() - 1][load/10] * rate[cpu];
 			rate[cpu] --;
 		}
 		else
 		{
-			score = a_score_sub[dvfs_score_select - 4][num_online_cpus() - 1][load/10];
+			score = a_score_sub[dvfs_score_select % 4][num_online_cpus() - 1][load/10];
 			rate[cpu] = 1;
 		}
 	}
@@ -751,13 +754,13 @@ static ssize_t dvfs_score_show(struct device *dev, struct device_attribute *attr
 	ret += snprintf(buf + ret,200,"dvfs_score_critical[3] = %d dvfs_score_hi[3] = %d dvfs_score_mid[3] = %d\n",dvfs_score_critical[3],dvfs_score_hi[3],dvfs_score_mid[3]);
 
 	ret += snprintf(buf + ret,200,"percpu_total_load[0] = %d,%d->%d\n",
-		percpu_load[0],ga_percpu_total_load[0][(cur_window_index[0] - 1 + 10) % 10],ga_percpu_total_load[0][cur_window_index[0]]);
+		percpu_load[0],ga_percpu_total_load[0][(cur_window_index[0] - 1 + MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE) % MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE],ga_percpu_total_load[0][cur_window_index[0]]);
 	ret += snprintf(buf + ret,200,"percpu_total_load[1] = %d,%d->%d\n",
-		percpu_load[1],ga_percpu_total_load[1][(cur_window_index[1] - 1 + 10) % 10],ga_percpu_total_load[1][cur_window_index[1]]);
+		percpu_load[1],ga_percpu_total_load[1][(cur_window_index[1] - 1 + MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE) % MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE],ga_percpu_total_load[1][cur_window_index[1]]);
 	ret += snprintf(buf + ret,200,"percpu_total_load[2] = %d,%d->%d\n",
-		percpu_load[2],ga_percpu_total_load[2][(cur_window_index[2] - 1 + 10) % 10],ga_percpu_total_load[2][cur_window_index[2]]);
+		percpu_load[2],ga_percpu_total_load[2][(cur_window_index[2] - 1 + MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE) % MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE],ga_percpu_total_load[2][cur_window_index[2]]);
 	ret += snprintf(buf + ret,200,"percpu_total_load[3] = %d,%d->%d\n",
-		percpu_load[3],ga_percpu_total_load[3][(cur_window_index[3] - 1 + 10) % 10],ga_percpu_total_load[3][cur_window_index[3]]);
+		percpu_load[3],ga_percpu_total_load[3][(cur_window_index[3] - 1 + MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE) % MAX_PERCPU_TOTAL_LOAD_WINDOW_SIZE],ga_percpu_total_load[3][cur_window_index[3]]);
 
 	return strlen(buf) + 1;
 }
@@ -1022,7 +1025,8 @@ static ssize_t show_cpu_down_count(struct device *dev, struct device_attribute *
 	return strlen(buf) + 1;
 }
 
-static ssize_t store_cpu_hotplug_disable(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+static ssize_t __ref store_cpu_hotplug_disable(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+
 {
 	struct sd_dbs_tuners *sd_tuners = g_sd_tuners;
 	unsigned int input, cpu;
@@ -1102,6 +1106,7 @@ static struct kobj_type hotplug_dir_ktype = {
 
 static void dbs_refresh_callback(struct work_struct *work)
 {
+#if 0
 	unsigned int cpu = smp_processor_id();
 
 	struct cpufreq_policy *policy;
@@ -1120,7 +1125,7 @@ static void dbs_refresh_callback(struct work_struct *work)
 		g_prev_cpu_idle[cpu] = get_cpu_idle_time(cpu,
 				&g_prev_cpu_wall[cpu],should_io_be_busy());
 	}
-
+#endif
 }
 
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
