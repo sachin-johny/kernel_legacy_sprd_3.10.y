@@ -71,11 +71,15 @@ config FB_LCD_HX8369
 	depends on FB_SC8825 || FB_SCX35
 	default n
 
+config FB_LCD_HX8369B_MIPI_COREPRIMELIT
+	boolean "support HX8369B coreprimelite MIPI panel"
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
+	default n
+
 config FB_LCD_HX8369B_MIPI
 	boolean "support HX8369B MIPI panel"
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G
 	default n
-
 
 config FB_LCD_S6D0139
 	boolean "support S6D0139 panel"
