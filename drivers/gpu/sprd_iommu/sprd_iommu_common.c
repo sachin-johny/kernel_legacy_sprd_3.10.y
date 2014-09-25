@@ -55,9 +55,10 @@ static inline void sprd_iommu_clear_pgt(unsigned long pgt_base, unsigned long io
 
 int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
-	printk("sprd_iommu %s iova_base:0x%lx, size:0x%zx, pgt_base:0x%lx, pgt_size:0x%zx,ctrl_reg:0x%lx,ddr frq:%d,div2 frq:%d\n",dev->init_data->name,data->iova_base,data->iova_size,
-	        data->pgt_base,data->pgt_size,dev->init_data->ctrl_reg,emc_clk_get(),dev->div2_frq);
-	        dev->pgt=__get_free_pages(GFP_KERNEL,get_order(data->pgt_size));
+	printk("sprd_iommu %s iova_base:0x%lx, size:0x%zx, pgt_base:0x%lx, pgt_size:0x%zx,ctrl_reg:0x%lx\n",
+	    dev->init_data->name,data->iova_base,data->iova_size,data->pgt_base,data->pgt_size,dev->init_data->ctrl_reg);
+
+	dev->pgt=__get_free_pages(GFP_KERNEL,get_order(data->pgt_size));
 	memset((void *)data->pgt_base,0xFF,PAGE_ALIGN(data->pgt_size));
 	if(!dev->pgt)
 	{
@@ -74,9 +75,12 @@ int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *dat
 	//write start_addr to MMU_CTL register
 	//TLB enable
 	//MMU enable
+#ifdef CONFIG_ARCH_SCX35L
+        printk("sprd_iommu %s, ddr frq:%d, div2 frq:%d\n",emc_clk_get(), dev->div2_frq);
         if (emc_clk_get() >= dev->div2_frq) {
             mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
         }
+#endif
 	mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
@@ -234,17 +238,21 @@ int sprd_iommu_restore(struct sprd_iommu_dev *dev)
 	memcpy((unsigned long*)dev->init_data->pgt_base,(unsigned long*)dev->pgt,PAGE_ALIGN(dev->init_data->pgt_size));
 #ifdef GSP_IOMMU_WORKAROUND1
 	if(dev->ops == &iommu_mm_ops){
+#ifdef CONFIG_ARCH_SCX35L
                 if (emc_clk_get() >= dev->div2_frq) {
                     mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
                 }
+#endif
 		mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
 	}
 #else
+#ifdef CONFIG_ARCH_SCX35L
         if (emc_clk_get() >= dev->div2_frq) {
             mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
         }
+#endif
 	mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);

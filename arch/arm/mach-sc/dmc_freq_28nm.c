@@ -534,7 +534,7 @@ module_init(emc_early_suspend_init);
 module_exit(emc_early_suspend_exit);
 #endif
 
-#if defined(CONFIG_MACH_SP9630EA) || defined(CONFIG_MACH_COREPRIMELITE)
+#ifdef CONFIG_ARCH_SCX35L
 #include <linux/init.h>
 #include <linux/suspend.h>
 #include <linux/kobject.h>
