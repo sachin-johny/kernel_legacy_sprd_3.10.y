@@ -534,7 +534,7 @@ module_init(emc_early_suspend_init);
 module_exit(emc_early_suspend_exit);
 #endif
 
-#ifdef CONFIG_MACH_SP9630EA
+#if defined(CONFIG_MACH_SP9630EA) || defined(CONFIG_MACH_COREPRIMELITE)
 #include <linux/init.h>
 #include <linux/suspend.h>
 #include <linux/kobject.h>

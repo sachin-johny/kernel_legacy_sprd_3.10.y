@@ -96,6 +96,6 @@ obj-$(CONFIG_SPRD_AUX_DEBUG) += aux_debug.o
 obj-$(CONFIG_MACH_SPX35LFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_PIKELFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_SP9630EA_4MOD) += board-sp9630ea_4mod.o dma_r4p0.o mailbox.o
-obj-$(CONFIG_MACH_COREPRIMELITE) += board-coreprimelite.o dma_r4p0.o mailbox.o
+obj-$(CONFIG_MACH_COREPRIMELITE) += board-coreprimelite.o dma_r4p0.o mailbox.o dmc_freq_28nm.o
 obj-$(CONFIG_MACH_SP9630EA) += board-sp9630ea.o dma_r4p0.o mailbox.o dmc_freq_28nm.o
 
