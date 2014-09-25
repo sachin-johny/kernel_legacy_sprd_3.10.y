@@ -8340,6 +8340,11 @@ wl_cfg80211_reg_notifier(
 		request->alpha2[0], request->alpha2[1],
 		((request->initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE) ? " 11d AP" : "User")));
 
+	if(request->initiator == NL80211_REGDOM_SET_BY_COUNTRY_IE){
+		WL_ERR(("Skip set country code from COUNTRY_IE\n"));
+		return 0;
+	}
+
 	if ((ret = wldev_set_country(bcmcfg_to_prmry_ndev(cfg), request->alpha2,
 		false, (request->initiator == NL80211_REGDOM_SET_BY_USER ? true : false))) < 0) {
 		WL_ERR(("set country Failed :%d\n", ret));
