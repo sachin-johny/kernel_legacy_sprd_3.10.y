@@ -629,8 +629,9 @@
 		caps = <0x80000000>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x05000000>;
-		vdd-vmmc = "vddsdcore";
-		vdd-vqmmc = "vddsdio";
+		/*sharkl reference phone hardware just use the vddsdcore*/
+		/*vdd-vmmc = "vddsdcore";*/
+		vdd-vqmmc = "vddsdcore";
 		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
 		clock-names = "clk_sdio0";
