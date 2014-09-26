@@ -246,7 +246,7 @@ static int bcmsdh_sdmmc_suspend(struct device *pdev)
 		return err;
 	}
 #if defined(OOB_INTR_ONLY)
-	bcmsdh_oob_intr_set(sdioh->bcmsdh, FALSE);
+//	bcmsdh_oob_intr_set(sdioh->bcmsdh, FALSE);
 #endif 
 	dhd_mmc_suspend = TRUE;
 	smp_mb();

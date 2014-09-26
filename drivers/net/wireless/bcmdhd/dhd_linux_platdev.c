@@ -255,6 +255,7 @@ static int wifi_plat_dev_drv_probe(struct platform_device *pdev)
 	if (resource) {
 		adapter->irq_num = resource->start;
 		adapter->intr_flags = resource->flags & IRQF_TRIGGER_MASK;
+		adapter->intr_flags |= IRQF_NO_SUSPEND;
 	}
 
 #ifdef CONFIG_DTS
