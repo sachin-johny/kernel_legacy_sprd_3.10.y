@@ -43,7 +43,7 @@
 #include <linux/completion.h>
 #include <linux/err.h>
 
-#ifdef CONFIG_I2C_SPRD
+#if(defined(CONFIG_I2C_SPRD) || defined(CONFIG_I2C_SPRD_V1))
 #include <mach/i2c-sprd.h>
 #endif
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -791,7 +791,7 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 	i2c_set_clientdata(client, ft5x0x_ts);
 	client->irq = gpio_to_irq(pdata->irq_gpio_number);
 
-	#ifdef CONFIG_I2C_SPRD
+	#if(defined(CONFIG_I2C_SPRD) || defined(CONFIG_I2C_SPRD_V1))
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
 	#endif
 

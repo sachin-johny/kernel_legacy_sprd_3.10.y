@@ -18,22 +18,14 @@
  */
 
 //#include "tpd.h"
-
 //#include "tpd_custom_fts.h"
-
-
-
 #include <linux/netdevice.h>
 #include <linux/mount.h>
 //#include <linux/netdevice.h>
 #include <linux/proc_fs.h>
-
 #include <linux/i2c/focaltech.h>
 #include <linux/i2c/focaltech_ex_fun.h>
 #include <linux/i2c/focaltech_ctl.h>
-
-
-
 
 static struct mutex g_device_mutex;
 extern void mt65xx_eint_unmask(unsigned int line);
@@ -44,18 +36,18 @@ volatile u32 I2CDMABuf_pa = NULL;
 
 extern struct Upgrade_Info fts_updateinfo_curr;
 
-
 int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth);
 
-#ifdef CONFIG_TOUCHSCREEN_FIRMWARE_UPGRADE
-static unsigned char CTPM_FW[] = {
+static unsigned char FT6306_FW[] = {
 #include "FT6x06_4Column_V02_20140901_app.h"
 };
-#else
-static unsigned char CTPM_FW[] = {
+
+static unsigned char FT_FW_NULL[] = {
 };
-#endif
+
+static unsigned char *CTPM_FW = FT_FW_NULL;
+static u32 fw_size = 0;
 
 static DEFINE_MUTEX(g_device_mutex);
 
@@ -288,23 +280,23 @@ int fts_ctpm_fw_upgrade_with_i_file(struct i2c_client *client)
 {
 	u8 *pbt_buf = NULL;
 	int i_ret;
-	int fw_len = sizeof(CTPM_FW);
+	//int fw_len = sizeof(CTPM_FW);
 
 	/*judge the fw that will be upgraded
 	* if illegal, then stop upgrade and return.
 	*/
-	if (fw_len < 8 || fw_len > 32 * 1024) {
+	if (fw_size < 8 || fw_size > 32 * 1024) {
 		dev_err(&client->dev, "%s:FW length error\n", __func__);
 		return -EIO;
 	}
 
-	if ((CTPM_FW[fw_len - 8] ^ CTPM_FW[fw_len - 6]) == 0xFF
-		&& (CTPM_FW[fw_len - 7] ^ CTPM_FW[fw_len - 5]) == 0xFF
-		&& (CTPM_FW[fw_len - 3] ^ CTPM_FW[fw_len - 4]) == 0xFF) {
+	if ((CTPM_FW[fw_size - 8] ^ CTPM_FW[fw_size - 6]) == 0xFF
+		&& (CTPM_FW[fw_size - 7] ^ CTPM_FW[fw_size - 5]) == 0xFF
+		&& (CTPM_FW[fw_size - 3] ^ CTPM_FW[fw_size - 4]) == 0xFF) {
 		/*FW upgrade */
 		pbt_buf = CTPM_FW;
 		/*call the upgrade function */
-		i_ret = fts_ctpm_fw_upgrade(client, pbt_buf, sizeof(CTPM_FW));
+		i_ret = fts_ctpm_fw_upgrade(client, pbt_buf, fw_size);
 		if (i_ret != 0)
 			dev_err(&client->dev, "%s:upgrade failed. err.\n",
 					__func__);
@@ -322,7 +314,8 @@ int fts_ctpm_fw_upgrade_with_i_file(struct i2c_client *client)
 u8 fts_ctpm_get_i_file_ver(void)
 {
 	u16 ui_sz;
-	ui_sz = sizeof(CTPM_FW);
+	//ui_sz = sizeof(CTPM_FW);
+	ui_sz = fw_size;
 	if (ui_sz > 2)
 		return CTPM_FW[ui_sz - 2];
 
@@ -436,7 +429,18 @@ int fts_ctpm_auto_upgrade(struct i2c_client *client)
 	u8 uc_host_fm_ver = FT_REG_FW_VER;
 	u8 uc_tp_fm_ver;
 	int i_ret;
+	unsigned char uc_reg_value;
 
+	fts_read_reg(client, FT5X0X_REG_CIPHER, &uc_reg_value);
+	printk("[FTS] read chip id is %x\n",uc_reg_value);
+#ifdef CONFIG_TOUCHSCREEN_FIRMWARE_UPGRADE
+/*the chip id of FT6306 is 0x06*/
+	if (uc_reg_value == 0x06)
+	{
+		CTPM_FW = FT6306_FW;
+		fw_size = sizeof(FT6306_FW);
+	}
+#endif
 	fts_read_reg(client, FT_REG_FW_VER, &uc_tp_fm_ver);
 	uc_host_fm_ver = fts_ctpm_get_i_file_ver();
 
