@@ -2240,6 +2240,7 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 {
 	struct page *page;
 
+	printk("== oom __alloc_pages_may_oom enter\n");
 	/* Acquire the OOM killer lock for the zones in zonelist */
 	if (!try_set_zonelist_oom(zonelist, gfp_mask)) {
 		schedule_timeout_uninterruptible(1);
@@ -2279,6 +2280,7 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 	out_of_memory(zonelist, gfp_mask, order, nodemask, false);
 
 out:
+	printk("== oom __alloc_pages_may_oom return\n");
 	clear_zonelist_oom(zonelist, gfp_mask);
 	return page;
 }
