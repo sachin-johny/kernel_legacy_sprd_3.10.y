@@ -41,7 +41,10 @@ static irqreturn_t mbox_recv_irqhandle(int irq_num, void *dev)
 	void *priv_data;
         unsigned long flags;
 
-	irq_sts = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_FIFO_STS) >> 8;
+	irq_sts = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_FIFO_STS);
+        irq_sts = irq_sts & 0x0000ff00;
+        __raw_writel(irq_sts, SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);
+        irq_sts = (irq_sts) >> 8;
 
 	while (irq_sts) {
 		target_id = __ffs(irq_sts);
@@ -54,10 +57,7 @@ static irqreturn_t mbox_recv_irqhandle(int irq_num, void *dev)
 			priv_data = mbox_chns[target_id].mbox_priv_data;
 			/*we will use tasklet later*/
 			mbox_chns[target_id].mbox_recv_irq_handler(irq_num, priv_data);
-			reg_val = __raw_readl(SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);
-			reg_val |= (0x1 << target_id) << 8;
-			__raw_writel(reg_val, SPRD_RECV_MBOX_BASE + MBOX_IRQ_STS);
-		}
+			}
 		spin_unlock_irqrestore(&mbox_chns[target_id].mbox_lock,flags);
 	}
 
@@ -144,7 +144,7 @@ static int __init mbox_init(void)
 {
 	int i;
 	int ret;
-        int vmailbox_irq = 69+32;
+        int vmailbox_irq = SCI_IRQ(69);
 
 	/*glb enable and rst*/
 	sci_glb_set(REG_AON_APB_APB_EB1, BIT_MBOX_EB);
@@ -160,7 +160,8 @@ static int __init mbox_init(void)
 	/* FIXME: irq num */
 	ret = request_irq(vmailbox_irq, mbox_recv_irqhandle, IRQF_NO_SUSPEND, "sprd-mailbox", NULL);
 	if (ret) {
-		/*fixme*/
+            pr_err("mbox request irq:%d failed\n",vmailbox_irq);
+            return 0; /*fixme*/
 	}
         enable_irq_wake(vmailbox_irq);
 
