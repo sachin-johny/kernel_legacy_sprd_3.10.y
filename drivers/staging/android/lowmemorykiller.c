@@ -99,7 +99,7 @@ static int lowmem_oom_score_adj_to_oom_adj(int oom_score_adj);
 #ifdef CONFIG_ZRAM
 extern ssize_t  zram_mem_usage(void);
 extern ssize_t zram_mem_free_percent(void);
-static uint lmk_lowmem_threshold_adj = 3;
+static uint lmk_lowmem_threshold_adj = 2; /* For FFOS, foreground apps oom_adj <= 2 */
 module_param_named(lmk_lowmem_threshold_adj, lmk_lowmem_threshold_adj, uint, S_IRUGO | S_IWUSR);
 
 static uint zone_wmark_ok_safe_gap = 512;
@@ -368,7 +368,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 	unsigned long nr_to_scan = sc->nr_to_scan;
 
 #ifdef CONFIG_ZRAM
-	short zram_score_adj = 0;
+	short zram_score_adj = OOM_SCORE_ADJ_MAX + 1;
 #endif
 
 	if (nr_to_scan > 0) {
@@ -405,6 +405,7 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 			break;
 		}
 	}
+	lmk_info.min_score_adj = min_score_adj;
 	if (nr_to_scan > 0)
 		lowmem_print(3, "lowmem_shrink %lu, %x, ofree %d %d, ma %hd\n",
 				nr_to_scan, sc->gfp_mask, other_free,
@@ -423,53 +424,39 @@ static int lowmem_shrink(struct shrinker *s, struct shrink_control *sc)
 		return rem;
 	}
 
+
 #ifdef CONFIG_ZRAM
-	zram_score_adj = cacl_zram_score_adj();
-	if(zram_score_adj  < 0 )
-	{
-		zram_score_adj = min_score_adj;
-	}
-	else
+{
+	struct sysinfo swap_info;
+	int zram_free = 0;
+	int zram_minfree = 0;
+
+	si_swapinfo(&swap_info);
+	if(swap_info.totalswap)
 	{
 		lmk_info.zram_mem_usage = zram_mem_usage();
 		lmk_info.zram_free_percent = zram_mem_free_percent();
 	}
-
-	lmk_info.min_score_adj = min_score_adj;
-	lmk_info.zram_score_adj = zram_score_adj;
-
-	if(min_score_adj < zram_score_adj)
+	if(swap_info.totalswap && min_score_adj > OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj))
 	{
-		gfp_t gfp_mask;
-		struct zone *preferred_zone;
-		struct zonelist *zonelist;
-		enum zone_type high_zoneidx;
-		gfp_mask = sc->gfp_mask;
-		zonelist = node_zonelist(0, gfp_mask);
-		high_zoneidx = gfp_zone(gfp_mask);
-		first_zones_zonelist(zonelist, high_zoneidx, NULL, &preferred_zone);
-		if (zram_score_adj <= OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj))
-		{
-			printk("%s:min:%d, zram:%d, threshold:%d\r\n", __func__, min_score_adj,zram_score_adj, OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj));
-			if(!min_score_adj)
-				is_need_lmk_kill = false;
+		zram_free = swap_info.freeswap;
+		for (i = 0; i < array_size; i++) {
+			zram_minfree = lowmem_minfree[i];
+			if (zram_free < zram_minfree) {
+				zram_score_adj = lowmem_adj[i];
+				break;
+			}
+		}
 
-			zram_score_adj = min_score_adj;
-		}
-		else if (!zone_watermark_ok_safe(preferred_zone, 1, min_wmark_pages(preferred_zone)  + zone_wmark_ok_safe_gap, 0, 0))
-		{
-			zram_score_adj =  (min_score_adj + zram_score_adj)/2;
-		}
-		else
-		{
-			lowmem_print(2, "ZRAM: return min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
-			if (nr_to_scan > 0)
-				mutex_unlock(&scan_mutex);
-			return rem;
-		}
+		lmk_info.zram_score_adj = zram_score_adj;
+		/* don't kill foreground apps when free of swap disk low */
+		if (zram_score_adj <= OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj))
+			zram_score_adj = OOM_ADJ_TO_OOM_SCORE_ADJ(lmk_lowmem_threshold_adj + 1);
+
+		lowmem_print(2, "ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
 	}
-	lowmem_print(2, "ZRAM: min_score_adj:%d, zram_score_adj:%d\r\n", min_score_adj, zram_score_adj);
-	min_score_adj = zram_score_adj;
+	min_score_adj = min_score_adj < zram_score_adj ? min_score_adj : zram_score_adj;
+}
 #endif
 
 	selected_oom_score_adj = min_score_adj;
