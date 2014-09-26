@@ -13,6 +13,8 @@
 #include <linux/battery/sec_adc.h>
 #include <mach/adc.h>
 
+#define ADC_CHANNEL_TEMP        1
+
 static struct iio_channel *temp_adc;
 
 static void sec_bat_adc_ap_init(struct platform_device *pdev)
@@ -23,27 +25,38 @@ static void sec_bat_adc_ap_init(struct platform_device *pdev)
 	return true;
 }
 
-static int sec_bat_adc_ap_read(struct sec_battery_info *battery, int channel)
+static int sec_bat_adc_ap_read(int channel)
 {
-	int data = 0;
+	int data;
+	int ret = 0;
 
-	switch (channel) {
-		case SEC_BAT_ADC_CHANNEL_CABLE_CHECK:
-		case SEC_BAT_ADC_CHANNEL_BAT_CHECK:
-			break;
-		case SEC_BAT_ADC_CHANNEL_TEMP:
-		case SEC_BAT_ADC_CHANNEL_TEMP_AMBIENT:
-			data = sci_adc_get_value(battery->pdata->temp_adc_channel, false);
-			pr_info("adc[%d] = %d\n", battery->pdata->temp_adc_channel, data);
-			break;
-		case SEC_BAT_ADC_CHANNEL_FULL_CHECK:
-		case SEC_BAT_ADC_CHANNEL_VOLTAGE_NOW:
-		case SEC_BAT_ADC_CHANNEL_NUM:
-			break;
-		default:
-			break;
+	data = sci_adc_get_value(ADC_CHANNEL_TEMP, false);
+	pr_info("read channel [%d]\n", data);
+	/*
+	int data = -1;
+	int ret = 0;
+
+	switch (channel)
+	{
+	case SEC_BAT_ADC_CHANNEL_CABLE_CHECK:
+	case SEC_BAT_ADC_CHANNEL_BAT_CHECK:
+		break;
+	case SEC_BAT_ADC_CHANNEL_TEMP:
+	case SEC_BAT_ADC_CHANNEL_TEMP_AMBIENT:
+		data = sci_adc_get_value(ADC_CHANNEL_1,0);
+		if (ret < 0)
+			pr_info("read channel error[%d]\n", ret);
+		else
+			pr_debug("TEMP ADC(%d)\n", data);
+		break;
+	case SEC_BAT_ADC_CHANNEL_FULL_CHECK:
+	case SEC_BAT_ADC_CHANNEL_VOLTAGE_NOW:
+	case SEC_BAT_ADC_CHANNEL_NUM:
+		break;
+	default:
+		break;
 	}
-
+	*/
 	return data;
 }
 
@@ -59,7 +72,7 @@ static void sec_bat_adc_none_init(struct platform_device *pdev)
 {
 }
 
-static int sec_bat_adc_none_read(struct sec_battery_info *battery, int channel)
+static int sec_bat_adc_none_read(int channel)
 {
 	return 0;
 }
@@ -72,7 +85,7 @@ static void sec_bat_adc_ic_init(struct platform_device *pdev)
 {
 }
 
-static int sec_bat_adc_ic_read(struct sec_battery_info *battery, int channel)
+static int sec_bat_adc_ic_read(int channel)
 {
 	return 0;
 }
@@ -87,13 +100,13 @@ static int adc_read_type(struct sec_battery_info *battery, int channel)
 	switch (battery->pdata->temp_adc_type)
 	{
 	case SEC_BATTERY_ADC_TYPE_NONE :
-		adc = sec_bat_adc_none_read(battery, channel);
+		adc = sec_bat_adc_none_read(channel);
 		break;
 	case SEC_BATTERY_ADC_TYPE_AP :
-		adc = sec_bat_adc_ap_read(battery, channel);
+		adc = sec_bat_adc_ap_read(channel);
 		break;
 	case SEC_BATTERY_ADC_TYPE_IC :
-		adc = sec_bat_adc_ic_read(battery, channel);
+		adc = sec_bat_adc_ic_read(channel);
 		break;
 	case SEC_BATTERY_ADC_TYPE_NUM :
 		break;

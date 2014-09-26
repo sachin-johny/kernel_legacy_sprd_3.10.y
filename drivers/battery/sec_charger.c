@@ -28,6 +28,23 @@ static struct device_attribute sec_charger_attrs[] = {
 	SEC_CHARGER_ATTR(regs),
 };
 
+static enum power_supply_property sec_charger_props[] = {
+	POWER_SUPPLY_PROP_STATUS,
+	POWER_SUPPLY_PROP_CHARGE_TYPE,
+	POWER_SUPPLY_PROP_HEALTH,
+	POWER_SUPPLY_PROP_ONLINE,
+	POWER_SUPPLY_PROP_CURRENT_MAX,
+	POWER_SUPPLY_PROP_CURRENT_AVG,
+	POWER_SUPPLY_PROP_CURRENT_NOW,
+	POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
+#if defined(CONFIG_FUELGAUGE_88PM822) || \
+	defined(CONFIG_FUELGAUGE_88PM800) || \
+	defined(CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3)
+	POWER_SUPPLY_PROP_POWER_STATUS,
+	POWER_SUPPLY_PROP_CHARGE_NOW,
+#endif
+};
+
 static int input_current[] = {
 	800,
 	800,
@@ -216,7 +233,7 @@ static void sec_chg_isr_work(struct work_struct *work)
 							dev_err(&charger->client->dev,
 								"%s: Charging disable error\n", __func__);
 #endif
-
+			
 			psy_do_property("battery", set,
 				POWER_SUPPLY_PROP_STATUS, val);
 			break;
@@ -375,7 +392,7 @@ ssize_t sec_chg_store_attrs(struct device *dev,
 	return ret;
 }
 
-#if defined(CONFIG_CHARGER_MFD) || defined(CONFIG_CHARGER_SPRD4SAMSUNG27X3)
+#if defined(CONFIG_CHARGER_MFD)
 static int sec_charger_probe(struct platform_device *pdev)
 {
 	struct sec_charger_info *charger;
@@ -451,7 +468,7 @@ static int sec_charger_probe(struct platform_device *pdev)
 		goto err_req_irq;
 	}
 
-	dev_dbg(&pdev->dev,
+	dev_info(&pdev->dev,
 		"%s: SEC Charger Driver Loaded\n", __func__);
 	return 0;
 
@@ -524,6 +541,7 @@ static void __exit sec_charger_exit(void)
 {
 	platform_driver_unregister(&sec_charger_driver);
 }
+
 #else
 
 static struct of_device_id sec_charger_dt_ids[] = {
@@ -533,7 +551,7 @@ static struct of_device_id sec_charger_dt_ids[] = {
 MODULE_DEVICE_TABLE(of, sec_charger_dt_ids);
 
 static int sec_charger_probe(struct i2c_client *client,
-			     const struct i2c_device_id *id)
+						const struct i2c_device_id *id)
 {
 	sec_battery_platform_data_t *pdata = client->dev.platform_data;
 	struct sec_charger_info *charger;

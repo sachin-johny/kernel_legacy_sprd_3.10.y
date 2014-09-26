@@ -288,7 +288,6 @@ enum {
 };
 
 #ifdef CONFIG_OF
-extern void adc_init(struct platform_device *pdev, struct sec_battery_info *battery);
 extern int adc_read(struct sec_battery_info *battery, int channel);
 extern void board_battery_init(struct platform_device *pdev, struct sec_battery_info *battery);
 extern void cable_initial_check(struct sec_battery_info *battery);

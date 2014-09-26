@@ -15,7 +15,9 @@
 #if defined(CONFIG_MACH_CORSICA_VE) || defined(CONFIG_MACH_VIVALTO)
 extern int get_hw_rev();
 #endif
-extern int sprdbat_creat_caliberate_attr(struct device *dev);
+//extern int sprdbat_creat_caliberate_attr(struct device *dev);
+
+extern void sec_bat_initial_check(void);
 
 static struct device_attribute sec_battery_attrs[] = {
 	SEC_BATTERY_ATTR(batt_reset_soc),
@@ -158,7 +160,8 @@ static int sec_bat_set_charge(
 		val.intval = battery->cable_type;
 		/*Reset charging start time only in initial charging start */
 		if (battery->charging_start_time == 0) {
-			battery->charging_start_time = ts.tv_sec;
+			battery->charging_start_time =
+				ts.tv_sec ? ts.tv_sec :	1;
 			battery->charging_next_time =
 				battery->pdata->charging_reset_time;
 		}
@@ -2744,6 +2747,12 @@ static int sec_bat_set_property(struct power_supply *psy,
 		battery->capacity = val->intval;
 		power_supply_changed(&battery->psy_bat);
 		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		cancel_delayed_work(&battery->monitor_work);
+		wake_lock(&battery->monitor_wake_lock);
+		queue_delayed_work_on(0, battery->monitor_wqueue,
+				&battery->monitor_work, 0);
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -3251,6 +3260,9 @@ static int sec_bat_parse_dt(struct device *dev,
 	ret = of_property_read_u32(np, "battery,technology",
 		&pdata->technology);
 
+	ret = of_property_read_u32(np, "battery,battery_check_type",
+			&pdata->battery_check_type);
+
 	p = of_get_property(np, "battery,polling_time", &len);
 
 	len = len / sizeof(u32);
@@ -3311,9 +3323,6 @@ static int sec_bat_parse_dt(struct device *dev,
 	ret = of_property_read_u32(np, "battery,temp_adc_type",
 		&pdata->temp_adc_type);
 
-	ret = of_property_read_u32(np, "battery,temp_adc_channel",
-		&pdata->temp_adc_channel);
-
 	ret = of_property_read_u32(np, "battery,cable_check_type",
 		&pdata->cable_check_type);
 
@@ -3328,9 +3337,6 @@ static int sec_bat_parse_dt(struct device *dev,
 
 	ret = of_property_read_u32(np, "battery,monitor_initial_count",
 		&pdata->monitor_initial_count);
-
-	ret = of_property_read_u32(np, "battery,battery_check_type",
-			&pdata->battery_check_type);
 
 	ret = of_property_read_u32(np, "battery,check_count",
 		&pdata->check_count);
@@ -3493,7 +3499,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 		if (sec_bat_parse_dt(&pdev->dev, battery))
 			dev_err(&pdev->dev,
-				"%s: Failed to get fuel_int\n", __func__);
+				"%s: Failed to get battery init\n", __func__);
 #endif
 	} else {
 		pdata = dev_get_platdata(&pdev->dev);
@@ -3509,7 +3515,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 	dev_dbg(battery->dev, "%s: ADC init\n", __func__);
 
 #ifdef CONFIG_OF
-	adc_init(pdev, battery);
+	// adc_init(pdev, battery);
 #else
 	for (i = 0; i < SEC_BAT_ADC_CHANNEL_FULL_CHECK; i++)
 		adc_init(pdev, pdata, i);
@@ -3715,7 +3721,7 @@ static int sec_battery_probe(struct platform_device *pdev)
 			"%s : Failed to create_attrs\n", __func__);
 		goto err_req_irq;
 	}
-	// sprdbat_creat_caliberate_attr(battery->psy_bat.dev);
+	//sprdbat_creat_caliberate_attr(battery->psy_bat.dev);
 
 #if defined(CONFIG_MUIC_NOTIFIER)
 	muic_notifier_register(&battery->batt_nb,
@@ -3725,6 +3731,8 @@ static int sec_battery_probe(struct platform_device *pdev)
 
 	if (pdata->initial_check)
 		pdata->initial_check(battery);
+	else
+		sec_bat_initial_check();
 
 	psy_do_property("battery", get,
 				POWER_SUPPLY_PROP_ONLINE, value);

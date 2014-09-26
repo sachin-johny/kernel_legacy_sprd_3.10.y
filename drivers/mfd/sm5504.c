@@ -29,6 +29,10 @@
 #include <linux/switch.h>
 #endif
 #endif
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+extern void dwc_udc_startup(void);
+extern void dwc_udc_shutdown(void);
+#endif
 
 
 #define SM5504_DEVICE_NAME "sm5504"
@@ -67,6 +71,11 @@ extern void switch_set_state(struct switch_dev *sdev, int state);
 extern struct class *sec_class;
 #endif
 int epmic_event_handler(int level);
+
+#ifdef CONFIG_MUIC_SUPPORT_RUSTPROOF
+bool is_close_uart_path = false;
+#endif
+
 #if defined(CONFIG_TOUCHSCREEN_IST30XXA) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
 int flag =0;
 extern void ist30xx_set_ta_mode(bool charging);
@@ -784,6 +793,10 @@ static void sm5504_usb_attach_handler(struct sm5504_chip *chip,
 	uint8_t usb_type;
 	RTINFO("USB attached\n");
 	usb_type = get_usb_type(chip->curr_status.cable_type);
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+	pr_info("usb: [%s] startup usb by muic\n", __func__);
+	dwc_udc_startup();
+#endif
 	if (chip->pdata->usb_callback)
 		chip->pdata->usb_callback(usb_type);
 }
@@ -795,6 +808,10 @@ static void sm5504_usb_detach_handler(struct sm5504_chip *chip,
 {
 	RTINFO("USB detached\n");
 	epmic_event_handler(0);
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+	pr_info("usb: [%s] shutdown usb by muic\n", __func__);
+	dwc_udc_shutdown();
+#endif
 	if (chip->pdata->usb_callback)
 		chip->pdata->usb_callback(0);
 }
@@ -805,9 +822,17 @@ static void sm5504_uart_attach_handler(struct sm5504_chip *chip,
 				       unsigned int new_status)
 {
 	RTINFO("UART attached\n");
+#if defined(CONFIG_MUIC_SUPPORT_RUSTPROOF) && !defined(CONFIG_MUIC_SUPPORT_FACTORY)
+		sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x00);
+        	sm5504_clr_bits(chip, SM5504_REG_CONTROL, 1 << 2);
+		is_close_uart_path = true;
+        	RTINFO("Close UART PATH on USER Binary\n");
+#else
 	if (chip->pdata->uart_callback)
 		chip->pdata->uart_callback(1);
+#endif
 }
+
 
 static void sm5504_uart_detach_handler(struct sm5504_chip *chip,
 				       const struct sm5504_event_handler
@@ -815,9 +840,20 @@ static void sm5504_uart_detach_handler(struct sm5504_chip *chip,
 				       unsigned int new_status)
 {
 	RTINFO("UART detached\n");
+#if defined(CONFIG_MUIC_SUPPORT_RUSTPROOF) && !defined(CONFIG_MUIC_SUPPORT_FACTORY)
+	if(is_close_uart_path)
+	{
+	        sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x00);
+        	sm5504_set_bits(chip, SM5504_REG_CONTROL, 1 << 2);
+		is_close_uart_path = false;
+		RTINFO("Open UART PATH by detaching\n");
+	}
+#else
 	if (chip->pdata->uart_callback)
 		chip->pdata->uart_callback(0);
+#endif
 }
+
 
 static inline jig_type_t get_jig_type(int cable_type)
 {
@@ -1197,6 +1233,7 @@ static void sm5504_init_regs(sm5504_chip_t *chip)
 	sm5504_reg_write(chip, SM5504_REG_INTERRUPT_MASK1, 0x20);
 	/* Only mask OCP_LATCH and POR */
 	sm5504_reg_write(chip, SM5504_REG_INTERRUPT_MASK2, 0x24);
+	sm5504_reg_write(chip, 0x20,0x06);
 	queue_delayed_work(chip->wq, &chip->init_work, 0);
 }
 #ifdef CONFIG_MUIC_FACTORY_EVENT
@@ -1237,7 +1274,7 @@ static ssize_t sm5504_muic_set_apo_factory(struct device *dev,
         return count;
 }
 
-static DEVICE_ATTR(apo_factory, 0664,
+static DEVICE_ATTR(apo_factory, 0666,
                 sm5504_muic_show_apo_factory,
                 sm5504_muic_set_apo_factory);
 

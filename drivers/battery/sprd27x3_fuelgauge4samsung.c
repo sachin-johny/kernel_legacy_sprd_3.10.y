@@ -27,8 +27,6 @@
 #include <linux/power_supply.h>
 #include <linux/battery/sec_fuelgauge.h>
 #include <linux/sprd_battery_common.h>
-#include "sprd_2713_fgu.h"
-#include "sprd_battery.h"
 
 int sprdbat_interpolate(int x, int n, struct sprdbat_table_data *tab)
 {

@@ -508,7 +508,7 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 		}
 		break;
 	case POWER_SUPPLY_PROP_POWER_STATUS:
-		val->intval = 0;//POWER_SUPPLY_PWR_RDY_UNKNOWN;
+		val->intval = POWER_SUPPLY_PWR_RDY_UNKNOWN;
 		break;
 	default:
 		return false;

@@ -666,6 +666,7 @@ void sprdchg_set_charge(struct sec_charger_info *charger)
 				is_fully_charged = 0;
 		}
 		disable_irq_nosync(irq_vchg_ovi);
+
 		sprdchg_stop_charge();
 	} else {
 		if (((charger->siop_level < 100) && (charger->siop_level > 0)) &&

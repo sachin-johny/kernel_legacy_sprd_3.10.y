@@ -197,7 +197,7 @@ int sec_bat_check_cable_callback(struct sec_battery_info *battery)
 	return current_cable_type;
 }
 
-static void sec_bat_initial_check(void)
+void sec_bat_initial_check(void)
 {
 	union power_supply_propval value;
 
@@ -304,7 +304,7 @@ void sec_charger_cb(u8 cable_type)
 	}
 
 skip:
-	return;
+	return 0;
 }
 #endif
 
@@ -398,11 +398,13 @@ void sec_charger_cb(u8 cable_type)
 
 	switch (cable_type) {
 	case MUIC_SM5504_CABLE_TYPE_NONE:
+	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_OFF:
 		current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 		break;
 	case MUIC_SM5504_CABLE_TYPE_USB:
 	case MUIC_SM5504_CABLE_TYPE_CDP:
+	case MUIC_SM5504_CABLE_TYPE_L_USB:
 	case MUIC_SM5504_CABLE_TYPE_JIG_USB_ON:
 	case MUIC_SM5504_CABLE_TYPE_JIG_USB_OFF:
 		current_cable_type = POWER_SUPPLY_TYPE_USB;
@@ -411,7 +413,6 @@ void sec_charger_cb(u8 cable_type)
 	case MUIC_SM5504_CABLE_TYPE_ATT_TA:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_OFF_WITH_VBUS:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON_WITH_VBUS:
-	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON:
 	case MUIC_SM5504_CABLE_TYPE_TYPE1_CHARGER:
 		current_cable_type = POWER_SUPPLY_TYPE_MAINS;
 		break;
@@ -510,7 +511,7 @@ int sec_bat_dt_init(struct device_node *np,
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"temp_table_data", i,
+				"battery,temp_table_data", i,
 				&pdata->temp_adc_table[i].temperature);
 		if (ret)
 			pr_info("%s : Temp_adc_table(data) is Empty\n",
@@ -524,7 +525,7 @@ int sec_bat_dt_init(struct device_node *np,
 					__func__);
 
 		ret = of_property_read_u32_index(np,
-				"temp_table_data", i,
+				"battery,temp_table_data", i,
 				&pdata->temp_amb_adc_table[i].temperature);
 		if (ret)
 			pr_info("%s : Temp_amb_adc_table(data) is Empty\n",
@@ -876,6 +877,7 @@ int sec_chg_dt_init(struct device_node *np,
 	int ret = 0, len = 0;
 	unsigned int chg_irq_attr = 0;
 	int chg_gpio_en = 0;
+	int chg_irq_gpio = 0;
 
 	if (!np)
 		return -EINVAL;
@@ -893,6 +895,14 @@ int sec_chg_dt_init(struct device_node *np,
 		return ret;
 	}
 
+	chg_irq_gpio = of_get_named_gpio(np, "chgirq-gpio", 0);
+	if (chg_irq_gpio < 0) 
+		pr_err("%s: chgirq gpio get failed: %d\n", __func__, chg_irq_gpio);
+
+	ret = gpio_request(chg_irq_gpio, "chgirq-gpio");
+	if (ret)
+		pr_err("%s gpio_request failed: %d\n", __func__, chg_irq_gpio);
+
 	ret = of_property_read_u32(np, "chg-float-voltage",
 					&pdata->chg_float_voltage);
 	if (ret)
@@ -901,14 +911,14 @@ int sec_chg_dt_init(struct device_node *np,
         np = of_find_node_by_name(NULL, "sec-battery");
         if (!np) {
                 pr_err("%s np NULL\n", __func__);
-        } 
+        }
         else {
                 int i = 0;
                 const u32 *p;
                 p = of_get_property(np, "battery,input_current_limit", &len);
                 if (!p){
 
-                        pr_err("%s battery,input_current_limit is Empty\n", __func__);
+                        pr_err("%s charger,input_current_limit is Empty\n", __func__);
                         //	return 1;
                 }
                 else{
@@ -965,8 +975,10 @@ int sec_chg_dt_init(struct device_node *np,
 	if (ret)
 		pr_info("%s : Full check type 2nd is Empty\n", __func__);
 
-	pdata->chg_irq_attr = chg_irq_attr;
-	pdata->chg_irq = gpio_to_irq(chg_irq);
+	if (chg_irq_gpio) {
+		pdata->chg_irq_attr = chg_irq_attr;
+		pdata->chg_irq = gpio_to_irq(chg_irq_gpio);
+	}
 	pdata->chg_gpio_en = chg_gpio_en;
 	pdata->chg_gpio_init = sec_chg_gpio_init;
 	pdata->check_cable_result_callback =
@@ -1005,6 +1017,11 @@ int sec_fg_dt_init(struct device_node *np,
 		return ret;
 	if (of_find_property(np, "repeated-fuelalert", NULL))
 		pdata->repeated_fuelalert = true;
+
+	ret = of_property_read_u32(np, "temp_adc_channel",
+			&pdata->temp_adc_channel);
+	if (ret)
+		return ret;
 
 #ifdef CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3
 	{

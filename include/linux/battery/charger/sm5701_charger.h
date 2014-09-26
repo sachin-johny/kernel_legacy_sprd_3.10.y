@@ -44,7 +44,7 @@
 #define SM5701_FLEDCNTL4	0x12
 #define SM5701_FLEDCNTL5	0x13
 #define SM5701_FLEDCNTL6	0x14
-#define SM5701_DEVICE       0x15
+#define SM5701_DEVICE_ID       0x15
 
 #define BATREG_MASK			0x00
 
@@ -150,6 +150,11 @@
 
 /* Disable charger Operation Mode */
 #define OP_MODE_CHG_OFF 0x01
+
+#define FREQ_15				(0x00 << 6)
+#define FREQ_12				(0x01 << 6)
+#define FREQ_18                         (0x02 << 6)
+#define FREQ_24                         (0x03 << 6)
 
 enum {
 	POWER_SUPPLY_VBUS_UNKNOWN = 0,

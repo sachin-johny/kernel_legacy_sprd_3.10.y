@@ -21,7 +21,8 @@
 
 #if defined(CONFIG_CHARGER_MFD) || \
 	defined(CONFIG_CHARGER_SPRD4SAMSUNG27X3) && \
-	!defined(CONFIG_CHARGER_SM5414)
+	!defined(CONFIG_CHARGER_SM5414) && \
+	!defined(CONFIG_CHARGER_SMB328)
 #define charger_variable charger
 #define charger_variable_t struct sec_charger_info
 #else
@@ -62,10 +63,10 @@
 #include <linux/battery/charger/rt5033_charger.h>
 #elif defined(CONFIG_CHARGER_RT9455)
 #include <linux/battery/charger/rt9455_charger.h>
-#elif defined(CONFIG_CHARGER_SM5701)
-#include <linux/battery/charger/sm5701_charger.h>
 #elif defined(CONFIG_CHARGER_SM5414)
 #include <linux/battery/charger/sm5414_charger.h>
+#elif defined(CONFIG_CHARGER_SM5701)
+#include <linux/battery/charger/sm5701_charger.h>
 #endif
 
 struct sec_charger_info {
@@ -105,29 +106,12 @@ struct sec_charger_info {
 	int siop_level;
 };
 
-static enum power_supply_property sec_charger_props[] = {
-        POWER_SUPPLY_PROP_STATUS,
-        POWER_SUPPLY_PROP_CHARGE_TYPE,
-        POWER_SUPPLY_PROP_HEALTH,
-        POWER_SUPPLY_PROP_ONLINE,
-        POWER_SUPPLY_PROP_CURRENT_MAX,
-        POWER_SUPPLY_PROP_CURRENT_AVG,
-        POWER_SUPPLY_PROP_CURRENT_NOW,
-        POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN,
-#if defined(CONFIG_FUELGAUGE_88PM822) || \
-        defined(CONFIG_FUELGAUGE_88PM800) || \
-        defined(CONFIG_FUELGAUGE_SPRD4SAMSUNG27X3)
-        POWER_SUPPLY_PROP_POWER_STATUS,
-        POWER_SUPPLY_PROP_CHARGE_NOW,
-#endif
-};
-
 #if defined(CONFIG_CHARGER_SPRD4SAMSUNG27X3) && \
-	!defined(CONFIG_CHARGER_SM5414)
+	!defined(CONFIG_CHARGER_SM5414) && \
+	!defined(CONFIG_CHARGER_SMB328)
 bool sec_hal_chg_init(charger_variable_t *);
 bool sec_hal_chg_suspend(charger_variable_t *);
 bool sec_hal_chg_resume(charger_variable_t *);
-bool sec_hal_chg_shutdown(charger_variable_t *);
 bool sec_hal_chg_get_property(charger_variable_t *,
 				enum power_supply_property,
 				union power_supply_propval *);
@@ -183,6 +167,5 @@ enum {
 	CHG_DATA,
 	CHG_REGS,
 };
-
 
 #endif /* __SEC_CHARGER_H */
