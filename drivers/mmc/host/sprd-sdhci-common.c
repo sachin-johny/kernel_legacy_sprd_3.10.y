@@ -2673,7 +2673,9 @@ int sdhci_runtime_resume_host(struct sdhci_host *host)
 
 	sdhci_update_clock(host);
 
-	sdhci_do_start_signal_voltage_switch(host, &host->mmc->ios);
+#if 0 /*increase suspend time,when pm suspend,need tuntime resume at first*/
+		sdhci_do_start_signal_voltage_switch(host, &host->mmc->ios);
+#endif
 	if ((host_flags & SDHCI_PV_ENABLED) &&
 		!(host->quirks2 & SDHCI_QUIRK2_PRESET_VALUE_BROKEN)) {
 		spin_lock_irqsave(&host->lock, flags);
