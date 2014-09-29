@@ -297,7 +297,6 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
 	day = temp;
 
 	if (rtc_alarm_in_update) {
-		rtc_alarm_in_update = false;
 		while ((sci_adi_read((unsigned long)ANA_RTC_INT_RSTS) & RTC_ALM_TIME_MASK) !=
 			RTC_ALM_TIME_MASK)
 		{
