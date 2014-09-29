@@ -101,7 +101,7 @@ static void free_buffer_page(struct ion_system_heap *heap,
 	bool split_pages = ion_buffer_fault_user_mappings(buffer);
 	int i;
 
-	if (!cached) {
+	if (!cached && !(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)) {
 		struct ion_page_pool *pool = heap->pools[order_to_index(order)];
 		ion_page_pool_free(pool, page);
 	} else if (split_pages) {
@@ -295,7 +295,7 @@ void ion_system_heap_free(struct ion_buffer *buffer)
 
 	/* uncached pages come from the page pools, zero them before returning
 	   for security purposes (other allocations are zerod at alloc time */
-	if (!cached) {
+	if (!cached && !(buffer->private_flags & ION_PRIV_FLAG_SHRINKER_FREE)) {
 		ion_heap_buffer_zero(buffer);
 
 #ifndef BAD_PAGE_WORKAROUND	/* FIXME: this is a temp workaround */
@@ -453,7 +453,7 @@ static int ion_system_heap_shrink(struct shrinker *shrinker,
 
 	/* shrink the free list first, no point in zeroing the memory if
 	   we're just going to reclaim it */
-	nr_freed += ion_heap_freelist_drain(heap, -1, nr_to_scan * PAGE_SIZE) /
+	nr_freed += ion_heap_freelist_shrink(heap, -1, nr_to_scan * PAGE_SIZE) /
 		PAGE_SIZE;
 
 	if (nr_freed >= nr_to_scan)
