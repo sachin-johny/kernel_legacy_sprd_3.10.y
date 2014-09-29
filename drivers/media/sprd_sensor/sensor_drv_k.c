@@ -47,6 +47,7 @@
 #include "sensor_drv_sprd.h"
 #include "csi2/csi_api.h"
 #include "parse_hwinfo.h"
+#include "power/sensor_power.h"
 
 #define SENSOR_CLK                        "clk_sensor"
 #define SENSOR_DEVICE_NAME                "sprd_sensor"
@@ -110,13 +111,6 @@
 			return;                                             \
 		}                                                       \
 	} while(0)
-
-enum sensor_id_e {
-	SENSOR_DEV_0 = 0,
-	SENSOR_DEV_1,
-	SENSOR_DEV_2,
-	SENSOR_DEV_MAX
-};
 
 struct sensor_mclk_tag {
 	uint32_t                        clock;
@@ -215,6 +209,7 @@ LOCAL void _sensor_k_free(struct sensor_file_tag *fd_handle, void *p)
 	return;
 }
 
+#if 0
 LOCAL struct platform_device*  _sensor_k_get_platform_device(void)
 {
 	struct device *dev;
@@ -227,16 +222,23 @@ LOCAL struct platform_device*  _sensor_k_get_platform_device(void)
 
 	return to_platform_device(dev);
 }
+#endif
 
-LOCAL int _sensor_k_powerdown(struct sensor_file_tag *fd_handle, uint8_t power_level)
+int sensor_k_set_pd_level(uint32_t *fd_handle, uint8_t power_level)
 {
-	SENSOR_CHECK_ZERO(fd_handle);
+	struct sensor_module_tab_tag    *p_mod;
+	struct sensor_file_tag          *fd = (struct sensor_file_tag *)fd_handle;
 
-	SENSOR_PRINT_HIGH("SENSOR: pwn %d \n", fd_handle->gpio_tab.pwn);
+	SENSOR_CHECK_ZERO(fd);
+	p_mod = fd->module_data;
+	SENSOR_CHECK_ZERO(p_mod);
+
+	get_gpio_id(p_mod->of_node, &fd->gpio_tab.pwn, &fd->gpio_tab.reset, fd->sensor_id);
+	SENSOR_PRINT_HIGH("SENSOR: pwn %d \n", fd->gpio_tab.pwn);
 	if (0 == power_level) {
-		gpio_direction_output(fd_handle->gpio_tab.pwn, 0);
+		gpio_direction_output(fd->gpio_tab.pwn, 0);
 	} else {
-		gpio_direction_output(fd_handle->gpio_tab.pwn, 1);
+		gpio_direction_output(fd->gpio_tab.pwn, 1);
 	}
 
 	return SENSOR_K_SUCCESS;
@@ -403,24 +405,47 @@ LOCAL int _sensor_k_set_voltage(struct sensor_file_tag *fd_handle, uint32_t val,
 	return ret;
 }
 
-LOCAL int _sensor_k_set_voltage_cammot(struct sensor_file_tag *fd_handle, uint32_t cammot_val)
+int sensor_k_set_voltage_cammot(uint32_t *fd_handle, uint32_t cammot_val)
 {
-	return _sensor_k_set_voltage(fd_handle, cammot_val, REGU_CAMMOT);
+	return _sensor_k_set_voltage((struct sensor_file_tag *)fd_handle, cammot_val, REGU_CAMMOT);
 }
 
-LOCAL int _sensor_k_set_voltage_avdd(struct sensor_file_tag *fd_handle, uint32_t avdd_val)
+int sensor_k_set_voltage_avdd(uint32_t *fd_handle, uint32_t avdd_val)
 {
-	return _sensor_k_set_voltage(fd_handle, avdd_val, REGU_CAMAVDD);
+	return _sensor_k_set_voltage((struct sensor_file_tag *)fd_handle, avdd_val, REGU_CAMAVDD);
 }
 
-LOCAL int _sensor_k_set_voltage_dvdd(struct sensor_file_tag *fd_handle, uint32_t dvdd_val)
+int sensor_k_set_voltage_dvdd(uint32_t *fd_handle, uint32_t dvdd_val)
 {
-	return _sensor_k_set_voltage(fd_handle, dvdd_val, REGU_CAMDVDD);
+#ifdef DVDD_ENABLE_BY_GPIO
+	int                              gpio_id = 0;
+	struct sensor_module_tab_tag     *p_mod;
+	struct sensor_file_tag           *fd = (struct sensor_file_tag *)fd_handle;
+
+	SENSOR_CHECK_ZERO(fd);
+	p_mod = fd->module_data;
+	SENSOR_CHECK_ZERO(p_mod);
+
+	if (SENSOR_DEV_0 == fd->sensor_id) {
+		get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, fd->sensor_id);
+		SENSOR_PRINT_HIGH("sensor set DVDD gpio %d\n", gpio_id);
+		if (SENSOR_VDD_CLOSED == dvdd_val) {
+			gpio_direction_output(gpio_id, 1);
+			gpio_set_value(gpio_id, 0);
+		} else {
+			gpio_direction_output(gpio_id, 1);
+			gpio_set_value(gpio_id, 1);
+		}
+		return SENSOR_K_SUCCESS;
+	}
+#endif
+
+	return _sensor_k_set_voltage((struct sensor_file_tag *)fd_handle, dvdd_val, REGU_CAMDVDD);
 }
 
-LOCAL int _sensor_k_set_voltage_iovdd(struct sensor_file_tag *fd_handle, uint32_t iodd_val)
+int sensor_k_set_voltage_iovdd(uint32_t *fd_handle, uint32_t iodd_val)
 {
-	return _sensor_k_set_voltage(fd_handle, iodd_val, REGU_CAMIOVDD);
+	return _sensor_k_set_voltage((struct sensor_file_tag *)fd_handle, iodd_val, REGU_CAMIOVDD);
 }
 
 LOCAL int _select_sensor_mclk(struct sensor_file_tag *fd_handle, uint8_t clk_set, char **clk_src_name,
@@ -503,12 +528,12 @@ int32_t _sensor_k_mipi_clk_dis(struct sensor_file_tag *fd_handle)
 	return 0;
 }
 
-LOCAL int _sensor_k_set_mclk(struct sensor_file_tag *fd_handle, struct device_node *dn,uint32_t mclk)
+LOCAL int _sensor_k_set_mclk(struct sensor_file_tag *fd_handle, struct device_node *dn, uint32_t mclk)
 {
-	struct clk            *clk_parent = NULL;
-	int                   ret;
-	char                  *clk_src_name = NULL;
-	uint8_t               clk_div;
+	struct clk                *clk_parent = NULL;
+	int                       ret;
+	char                      *clk_src_name = NULL;
+	uint8_t                   clk_div;
 	SENSOR_CHECK_ZERO(fd_handle);
 
 	SENSOR_PRINT_HIGH("SENSOR: set mclk org = %d, clk = %d\n",
@@ -609,10 +634,27 @@ LOCAL int _sensor_k_set_mclk(struct sensor_file_tag *fd_handle, struct device_no
 	return 0;
 }
 
+int sensor_k_set_mclk(uint32_t *fd_handle, uint32_t mclk)
+{
+	struct sensor_module_tab_tag    *p_mod;
+	struct sensor_file_tag          *fd = (struct sensor_file_tag *)fd_handle;
+
+	SENSOR_CHECK_ZERO(fd);
+	p_mod = fd->module_data;
+	SENSOR_CHECK_ZERO(p_mod);
+
+	return _sensor_k_set_mclk(fd, p_mod->of_node, mclk);
+}
+
 LOCAL int _sensor_k_reset(struct sensor_file_tag *fd_handle, uint32_t level, uint32_t width)
 {
-	SENSOR_CHECK_ZERO(fd_handle);
+	struct sensor_module_tab_tag    *p_mod;
 
+	SENSOR_CHECK_ZERO(fd_handle);
+	p_mod = fd_handle->module_data;
+	SENSOR_CHECK_ZERO(p_mod);
+
+	get_gpio_id(p_mod->of_node, &fd_handle->gpio_tab.pwn, &fd_handle->gpio_tab.reset, fd_handle->sensor_id);
 	SENSOR_PRINT_HIGH("SENSOR: reset val %d id %d reset %d\n",level, fd_handle->sensor_id, fd_handle->gpio_tab.reset);
 
 	gpio_direction_output(fd_handle->gpio_tab.reset, level);
@@ -623,31 +665,39 @@ LOCAL int _sensor_k_reset(struct sensor_file_tag *fd_handle, uint32_t level, uin
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _sensor_k_i2c_init(struct sensor_file_tag *fd_handle, uint32_t sensor_id)
+int sensor_k_sensor_sel(uint32_t *fd_handle, uint32_t sensor_id)
 {
-	SENSOR_CHECK_ZERO(fd_handle);
-	fd_handle->sensor_id = sensor_id;
+	struct sensor_file_tag          *fd = (struct sensor_file_tag *)fd_handle;
+	SENSOR_CHECK_ZERO(fd);
+	fd->sensor_id = sensor_id;
 
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _sensor_k_i2c_deInit(struct sensor_file_tag *fd_handle, uint32_t sensor_id)
+int sensor_k_sensor_desel(struct sensor_file_tag *fd_handle, uint32_t sensor_id)
 {
 	SENSOR_CHECK_ZERO(fd_handle);
-	//fd_handle->sensor_id = SENSOR_DEV_MAX;
+	//fd_handle->sensor_id = SENSOR_ID_MAX;
 
-	SENSOR_PRINT_HIGH("-I2C %d OK.\n", sensor_id);
+	SENSOR_PRINT_HIGH("sensor desel %d OK.\n", sensor_id);
 
 	return SENSOR_K_SUCCESS;
 }
 
-LOCAL int _sensor_k_set_rst_level(struct sensor_file_tag *fd_handle, uint32_t plus_level)
+int sensor_k_set_rst_level(uint32_t *fd_handle, uint32_t plus_level)
 {
-	SENSOR_PRINT("SENSOR: set rst lvl: lvl %d, rst pin %d \n", plus_level, fd_handle->gpio_tab.reset);
+	struct sensor_module_tab_tag    *p_mod;
+	struct sensor_file_tag          *fd = (struct sensor_file_tag *)fd_handle;
 
-	gpio_direction_output(fd_handle->gpio_tab.reset, plus_level);
-	gpio_set_value(fd_handle->gpio_tab.reset, plus_level);
+	SENSOR_CHECK_ZERO(fd);
+	p_mod = fd->module_data;
+	SENSOR_CHECK_ZERO(p_mod);
 
+	get_gpio_id(p_mod->of_node, &fd->gpio_tab.pwn, &fd->gpio_tab.reset, fd->sensor_id);
+	SENSOR_PRINT("SENSOR: set rst lvl: lvl %d, rst pin %d \n", plus_level, fd->gpio_tab.reset);
+
+	gpio_direction_output(fd->gpio_tab.reset, plus_level);
+	gpio_set_value(fd->gpio_tab.reset, plus_level);
 
 	return SENSOR_K_SUCCESS;
 }
@@ -1027,11 +1077,11 @@ int sensor_k_release(struct inode *node, struct file *file)
 	SENSOR_PRINT("sensor: release \n");
 	if (atomic_dec_return(&p_mod->total_users) == 0) {
 		struct device_node *dn = p_mod->of_node;
-		_sensor_k_set_voltage_cammot(p_file, SENSOR_VDD_CLOSED);
-		_sensor_k_set_voltage_avdd(p_file, SENSOR_VDD_CLOSED);
-		_sensor_k_set_voltage_dvdd(p_file, SENSOR_VDD_CLOSED);
-		_sensor_k_set_voltage_iovdd(p_file, SENSOR_VDD_CLOSED);
-		_sensor_k_set_mclk(p_file, dn,0);
+		sensor_k_set_voltage_cammot((uint32_t *)p_file, SENSOR_VDD_CLOSED);
+		sensor_k_set_voltage_avdd((uint32_t *)p_file, SENSOR_VDD_CLOSED);
+		sensor_k_set_voltage_dvdd((uint32_t *)p_file, SENSOR_VDD_CLOSED);
+		sensor_k_set_voltage_iovdd((uint32_t *)p_file, SENSOR_VDD_CLOSED);
+		_sensor_k_set_mclk(p_file, dn, 0);
 		_sensor_k_close_mipi(file);
 		ret = clk_mm_i_eb(dn,0);
 
@@ -1225,7 +1275,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			ret = copy_from_user(&power_level, (uint8_t *) arg, sizeof(uint8_t));
 
 			if (0 == ret)
-				ret = _sensor_k_powerdown(p_file, power_level);
+				ret = sensor_k_set_pd_level((uint32_t *)p_file, power_level);
 		}
 		break;
 
@@ -1235,7 +1285,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_SET_CAMMOT \n");
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_set_voltage_cammot(p_file, vdd_val);
+				ret = sensor_k_set_voltage_cammot((uint32_t *)p_file, vdd_val);
 		}
 		break;
 
@@ -1245,7 +1295,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_SET_AVDD \n");
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_set_voltage_avdd(p_file, vdd_val);
+				ret = sensor_k_set_voltage_avdd((uint32_t *)p_file, vdd_val);
 		}
 		break;
 
@@ -1255,7 +1305,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_SET_DVDD \n");
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_set_voltage_dvdd(p_file, vdd_val);
+				ret = sensor_k_set_voltage_dvdd((uint32_t *)p_file, vdd_val);
 		}
 		break;
 
@@ -1265,7 +1315,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_SET_IOVDD \n");
 			ret = copy_from_user(&vdd_val, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_set_voltage_iovdd(p_file, vdd_val);
+				ret = sensor_k_set_voltage_iovdd((uint32_t *)p_file, vdd_val);
 		}
 		break;
 
@@ -1295,7 +1345,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_I2C_INIT \n");
 			ret = copy_from_user(&sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_i2c_init(p_file, sensor_id);
+				ret = sensor_k_sensor_sel((uint32_t *)p_file, sensor_id);
 		}
 		break;
 
@@ -1305,7 +1355,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_I2C_DEINIT \n");
 			ret = copy_from_user(&sensor_id, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_i2c_deInit(p_file, sensor_id);
+				ret = sensor_k_sensor_desel(p_file, sensor_id);
 		}
 		break;
 
@@ -1323,7 +1373,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_RST_LEVEL \n");
 			ret = copy_from_user(&level, (uint32_t *) arg, sizeof(uint32_t));
 			if (0 == ret)
-				ret = _sensor_k_set_rst_level(p_file, level);
+				ret = sensor_k_set_rst_level((uint32_t *)p_file, level);
 		}
 		break;
 
@@ -1467,6 +1517,21 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 			}
 		}
 		break;
+
+		case SENSOR_IO_POWER_CFG:
+		{
+			struct sensor_power_info_tag pwr_cfg;
+
+			ret = copy_from_user(&pwr_cfg, (struct sensor_power_info_tag*) arg, sizeof(struct sensor_power_info_tag));
+			if (0 == ret) {
+				if (pwr_cfg.is_on) {
+					ret = sensor_power_on((uint32_t *)p_file, pwr_cfg.op_sensor_id, &pwr_cfg.dev0, &pwr_cfg.dev1, &pwr_cfg.dev2);
+				} else {
+					ret = sensor_power_off((uint32_t *)p_file, pwr_cfg.op_sensor_id, &pwr_cfg.dev0, &pwr_cfg.dev1, &pwr_cfg.dev2);
+				}
+			}
+		}
+		break;
 	default:
 		SENSOR_PRINT("sensor_k_ioctl: inv cmd %x  \n", cmd);
 		break;
@@ -1580,6 +1645,18 @@ int sensor_k_probe(struct platform_device *pdev)
 			printk("sensor:  gpio already request reset %d %d.\n", gpio_tab.reset, i);
 		}
 	}
+#ifdef DVDD_ENABLE_BY_GPIO
+	{
+		int gpio_id = 0;
+
+		get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 0);
+		ret = gpio_request(gpio_id, NULL);
+		if (ret) {
+			tmp = 1;
+			printk("sensor: gpio already request GPIO_CAMDVDD %d.\n", gpio_id);
+		}
+	}
+#endif
 	ret = sensor_k_register_subdevs(pdev);
 	if (ret) {
 		printk(KERN_ERR "can't reg sub dev=%d (%d)\n",
@@ -1623,6 +1700,15 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 		gpio_free(gpio_tab.pwn);
 		gpio_free(gpio_tab.reset);
 	}
+
+#ifdef DVDD_ENABLE_BY_GPIO
+	{
+		int gpio_id = 0;
+
+		get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 0);
+		gpio_free(gpio_id);
+	}
+#endif
 
 	misc_deregister(&sensor_dev);
 	wake_lock_destroy(&p_mod->wakelock);

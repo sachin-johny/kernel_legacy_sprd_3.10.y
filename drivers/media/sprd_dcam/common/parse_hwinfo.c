@@ -34,13 +34,17 @@
 	#define PARSE_TRACE             pr_debug
 #endif
 
+#if defined (CONFIG_MACH_COREPRIMELITE)
+#define DVDD_ENABLE_BY_GPIO
+#endif
+
 #define  CLK_MM_I_IN_CLOCKTREE  1
 
 #ifdef CONFIG_OF
-uint32_t		dcam_regbase;
+uint32_t          dcam_regbase;
 #else
 #endif
-static atomic_t	mm_enabe_cnt = ATOMIC_INIT(0);
+static atomic_t   mm_enabe_cnt = ATOMIC_INIT(0);
 
 void   parse_baseaddress(struct device_node	*dn)
 {
@@ -159,10 +163,10 @@ int get_gpio_id(struct device_node *dn, int *pwn, int *reset, uint32_t sensor_id
 #ifdef CONFIG_OF
 	if (0 == sensor_id) {
 		*pwn   = of_get_gpio(dn, 1);
-		*reset = of_get_gpio(dn,0);
+		*reset = of_get_gpio(dn, 0);
 	} else if (1 == sensor_id) {
-		*pwn   = of_get_gpio(dn, 2);
-		*reset = of_get_gpio(dn,0);
+		*pwn   = of_get_gpio(dn, 3);
+		*reset = of_get_gpio(dn, 2);
 	} else {
 		*pwn   = 0;
 		*reset = 0;
@@ -182,6 +186,29 @@ int get_gpio_id(struct device_node *dn, int *pwn, int *reset, uint32_t sensor_id
 
 	return 0;
 }
+
+int get_gpio_id_ex(struct device_node *dn, int type, int *id, uint32_t sensor_id)
+{
+	if (NULL == id)
+		return -1;
+
+#ifdef CONFIG_OF
+	switch (type) {
+	case GPIO_CAMDVDD:
+		*id = of_get_gpio(dn, 4);
+		break;
+
+	default:
+		*id = 0;
+		break;
+	}
+#else
+	*id = 0;
+#endif
+
+	return 0;
+}
+
 
 #ifndef REGU_DEV0_CAMAVDD
 #define REGU_DEV0_CAMAVDD                 "vddcama"

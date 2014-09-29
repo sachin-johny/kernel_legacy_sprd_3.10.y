@@ -66,6 +66,23 @@ struct sensor_socid_tag {
 	uint32_t a_die;
 };
 
+struct sensor_power {
+	uint32_t af_volt_level;
+	uint32_t avdd_volt_level;
+	uint32_t dvdd_volt_level;
+	uint32_t iovdd_volt_level;
+	uint32_t power_down_level;
+	uint32_t reset_level;
+	uint32_t default_mclk;
+};
+
+struct sensor_power_info_tag {
+	uint32_t            is_on;
+	uint32_t            op_sensor_id;
+	struct sensor_power dev0;
+	struct sensor_power dev1;
+	struct sensor_power dev2;
+};
 
 #define SENSOR_IOC_MAGIC			'R'
 
@@ -90,7 +107,9 @@ struct sensor_socid_tag {
 #define SENSOR_IO_GET_FLASH_LEVEL   _IOWR(SENSOR_IOC_MAGIC, 18, struct sensor_flash_level)
 #define SENSOR_IO_IF_CFG            _IOW(SENSOR_IOC_MAGIC,  19, struct sensor_if_cfg_tag)
 #define SENSOR_IO_I2C_READ_EXT      _IOWR(SENSOR_IOC_MAGIC, 20, struct sensor_i2c_tag)
+#define SENSOR_IO_POWER_CFG         _IOWR(SENSOR_IOC_MAGIC, 21, struct sensor_power_info_tag)
 #define SENSOR_IO_GET_SOCID         _IOWR(SENSOR_IOC_MAGIC, 255,struct sensor_socid_tag)
+
 
 
 

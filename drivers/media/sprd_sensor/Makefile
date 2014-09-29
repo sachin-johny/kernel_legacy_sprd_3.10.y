@@ -11,3 +11,4 @@ ifeq ($(CONFIG_ARCH_SCX15),y)
 sprd_sensor-objs := csi2/csi_api_null.o
 endif
 sprd_sensor-objs += sensor_drv_k.o $(common-file)
+obj-y += power/

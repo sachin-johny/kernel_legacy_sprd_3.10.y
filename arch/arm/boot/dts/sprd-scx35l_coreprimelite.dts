@@ -604,7 +604,8 @@
 		gpios = <&d_gpio_gpio 44 0	/*main reset*/
 				 &d_gpio_gpio 46 0	/*main powerdown*/
 				 &d_gpio_gpio 45 0	/*sub reset*/
-				 &d_gpio_gpio 47 0>;	/*sub powerdown*/
+				 &d_gpio_gpio 47 0	/*sub powerdown*/
+				 &d_gpio_gpio 134 0>;	/*main core voltage*/
 		clock-names ="clk_mm_i","clk_sensor","clk_ccir","clk_dcam","clk_dcam_mipi";
 		clocks = <&clk_mm>, <&clk_sensor>,<&clk_ccir>, <&clk_dcam>, <&clk_dcam_mipi>;
 	};
