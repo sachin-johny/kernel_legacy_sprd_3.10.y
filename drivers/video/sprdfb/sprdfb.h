@@ -24,7 +24,7 @@
 #include <linux/mm_types.h>
 #endif
 
-#ifdef CONFIG_FB_SCX30G
+#if (defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L))
 #define FB_CHECK_ESD_IN_VFP
 #endif
 //#define FB_CHECK_ESD_BY_TE_SUPPORT

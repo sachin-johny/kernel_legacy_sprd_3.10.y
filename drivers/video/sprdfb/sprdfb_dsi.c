@@ -29,7 +29,7 @@
 #include "sprdfb_panel.h"
 #include "sprdfb_chip_common.h"
 
-#if defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L)
+#if (defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L))
 #define FB_DSIH_VERSION_1P21A
 #endif
 #ifdef FB_DSIH_VERSION_1P21A

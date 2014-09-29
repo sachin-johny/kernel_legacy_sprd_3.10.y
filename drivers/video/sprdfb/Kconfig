@@ -193,7 +193,7 @@ config FB_LCD_OTM1283A_MIPI
 
 config FB_LCD_ILI9806E_MIPI
 	boolean "support ili9806e mipi panel"
-	depends on FB_SC8825 || FB_SCX35
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX35L
 	default n
 
 config FB_LCD_T8861_MIPI

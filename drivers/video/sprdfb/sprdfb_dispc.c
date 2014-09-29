@@ -85,7 +85,7 @@
 #define SPRDFB_OFFSET_V             (0x80<<16)//8-bits
 #define SPRDFB_SATURATION_V         (0x100<<0)//(0x12A<<0)//10-bits
 
-#elif (defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G)
+#elif ((defined CONFIG_FB_SCX15) || (defined CONFIG_FB_SCX30G))
 #define SPRDFB_BRIGHTNESS           (0x02<<16)//(0x03<<16)// 9-bits
 #define SPRDFB_CONTRAST             (0x12A<<0) //10-bits
 #define SPRDFB_OFFSET_U             (0x80<<16)//8-bits
