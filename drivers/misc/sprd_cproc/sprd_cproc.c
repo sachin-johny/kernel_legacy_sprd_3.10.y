@@ -268,7 +268,7 @@ static ssize_t cproc_proc_write(struct file *filp,
 	void *vmem;
 	size_t r, i;/*count ioremap, shi yunlong*/
 
-	pr_info("cproc proc write type: %s\n!", type);
+	pr_debug("cproc proc write type: %s\n!", type);
 
 	if (strcmp(type, "start") == 0) {
 		printk(KERN_INFO "cproc_proc_write to map cproc base start\n");
@@ -314,7 +314,7 @@ static ssize_t cproc_proc_write(struct file *filp,
 		return count;
 	}
 
-	pr_info("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
+	pr_debug("cproc proc write: 0x%08x, 0x%08x\n!", base + offset, count);
 	count = min((size-offset), count);
 	r = count, i = 0;
 	do{
