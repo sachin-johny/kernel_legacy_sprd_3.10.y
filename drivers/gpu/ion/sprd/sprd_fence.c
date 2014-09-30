@@ -290,7 +290,6 @@ int sprd_fence_create(struct ion_fence_data *data, char *name)
 		goto err;
 	}
 
-	name[sizeof(name) - 1] = '\0';
 	fence = sync_fence_create(name, pt);
 	if (fence == NULL)
 	{
