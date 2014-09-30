@@ -85,7 +85,7 @@ static void getIoResourceDT(struct platform_device  *pdev)
 
 static int bluetooth_set_power(void *data, bool blocked)
 {
-	printk("%s: block=%d\n",__func__, blocked);
+	printk("%s: start_block=%d\n",__func__, blocked);
 
 	if (!blocked) {
 		gpio_direction_output(bt_power, 0);
@@ -94,13 +94,13 @@ static int bluetooth_set_power(void *data, bool blocked)
 		gpio_direction_output(bt_power, 1);
 		gpio_direction_output(bt_reset, 1);
 		mdelay(150);
-                bt_clk_init();
+               // bt_clk_init();
 	} else {
  		gpio_direction_output(bt_power, 0);
 		gpio_direction_output(bt_reset, 0);
 		mdelay(10);
 	}
-
+	printk("%s: end_block=%d\n",__func__, blocked);
 	return 0;
 }
 
@@ -151,6 +151,7 @@ static int rfkill_bluetooth_probe(struct platform_device *pdev)
 
 	rfkill_set_sw_state(bt_rfk,true);
 	bluetooth_set_power(NULL, default_state);
+        bt_clk_init();
 
 	printk(KERN_INFO "<--%s\n", __func__);
 	return 0;
