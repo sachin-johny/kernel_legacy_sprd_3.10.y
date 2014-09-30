@@ -126,13 +126,13 @@ static void dphy_cfg_done(void)
 	udelay(1);
 }
 
-static void csi_get_pclk_cfg(u32 pclk, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
+static void csi_get_pclk_cfg(u32 bps_per_lane, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
 {
 	u32 i = 0;
 	int rtn = -1;
 
 	for (i =0 ; i < CSI_PCLK_CFG_COUNTER; i++) {
-		if ( pclk >= csi_pclk_setting[i].pclk_start && pclk < csi_pclk_setting[i].pclk_end) {
+		if ( bps_per_lane >= csi_pclk_setting[i].pclk_start && bps_per_lane < csi_pclk_setting[i].pclk_end) {
 			csi_pclk_cfg_ptr->hsfreqrange = csi_pclk_setting[i].hsfreqrange;
 			csi_pclk_cfg_ptr->hsrxthssettle = csi_pclk_setting[i].hsrxthssettle;
 			rtn = 0;
@@ -146,7 +146,7 @@ static void csi_get_pclk_cfg(u32 pclk, struct csi_pclk_cfg *csi_pclk_cfg_ptr)
 	}
 }
 
-static void dphy_init_common(u32 pclk, u32 phy_id, u32 rx_mode)
+static void dphy_init_common(u32 bps_per_lane, u32 phy_id, u32 rx_mode)
 {
 	u8 temp = 0;
 	struct csi_pclk_cfg csi_pclk_cfg_val = {0, 0, 0, 0};
@@ -159,7 +159,7 @@ static void dphy_init_common(u32 pclk, u32 phy_id, u32 rx_mode)
 	udelay(1);
 	dphy_cfg_start();
 
-	csi_get_pclk_cfg(pclk, &csi_pclk_cfg_val);
+	csi_get_pclk_cfg(bps_per_lane, &csi_pclk_cfg_val);
 
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	if (0x03 == phy_id) {
@@ -184,26 +184,26 @@ static void dphy_init_common(u32 pclk, u32 phy_id, u32 rx_mode)
 	dphy_cfg_done();
 }
 
-void dphy_init(u32 pclk, u32 phy_id)
+void dphy_init(u32 bps_per_lane, u32 phy_id)
 {
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	dpy_ab_clr();
 
 	if (phy_id & 0x01) {
 		dpy_a_enable();
-		dphy_init_common(pclk, phy_id, 0);
+		dphy_init_common(bps_per_lane, phy_id, 0);
 	}
 
 	if (phy_id & 0x02) {
 		dpy_b_enable();
-		dphy_init_common(pclk, phy_id, 1);
+		dphy_init_common(bps_per_lane, phy_id, 1);
 	}
 
 	if (0x03 == (phy_id & 0x03)) {
 		dpy_ab_sync();
 	}
 #else
-	dphy_init_common(pclk, phy_id, 1);
+	dphy_init_common(bps_per_lane, phy_id, 1);
 #endif
 }
 

@@ -1495,7 +1495,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							p_file->mipi_on = 1;
 							p_file->phy_id = if_cfg.phy_id;
 							p_file->if_type = INTERFACE_MIPI;
-							printk("MIPI on, lane %d, bps %d, wait 10us \n", if_cfg.lane_num, if_cfg.bps_per_lane);
+							printk("MIPI on, lane %d, bps_per_lane %d, wait 10us \n", if_cfg.lane_num, if_cfg.bps_per_lane);
 						} else {
 							printk("MIPI already on \n");
 						}
