@@ -51,6 +51,7 @@ struct ap_ahb_reg_bak {
 	u32 ca7_ckg_cfg;
 	u32 misc_ckg_en;
 	u32 misc_cfg;
+	u32 usb_phy_tune;
 };
 struct ap_clk_reg_bak {
 	u32 ap_ahb_cfg;
@@ -359,6 +360,7 @@ void bak_restore_ahb(int bak)
 		ap_ahb_reg_saved.ahb_eb                 = sci_glb_read(REG_AP_AHB_AHB_EB, -1UL);
 #if defined(CONFIG_ARCH_SCX35L)
 		ap_ahb_reg_saved.ca7_ckg_cfg            = sci_glb_read(REG_AP_AHB_CA7_CKG_SEL_CFG, -1UL);
+		ap_ahb_reg_saved.usb_phy_tune		= sci_glb_read(REG_AP_AHB_OTG_PHY_TUNE, -1UL);
 #else
 		ap_ahb_reg_saved.ca7_ckg_cfg            = sci_glb_read(REG_AP_AHB_CA7_CKG_CFG, -1UL);
 #endif
@@ -370,6 +372,7 @@ void bak_restore_ahb(int bak)
 		sci_glb_write(REG_AP_AHB_CA7_CKG_SEL_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg & (~0x7), -1UL);
 		for(i = 0; i < 20; i++);
 		sci_glb_write(REG_AP_AHB_CA7_CKG_SEL_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg, -1UL);
+		sci_glb_write(REG_AP_AHB_OTG_PHY_TUNE, 		ap_ahb_reg_saved.usb_phy_tune, -1UL);
 #else
 		sci_glb_write(REG_AP_AHB_CA7_CKG_CFG, 	ap_ahb_reg_saved.ca7_ckg_cfg & (~0x7), -1UL);
 		for(i = 0; i < 20; i++);
