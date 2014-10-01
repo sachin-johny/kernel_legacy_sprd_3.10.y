@@ -22,7 +22,7 @@
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
 
-#include <mach/pinmap.h>
+//#include <mach/pinmap.h>
 
 #include "dispc_reg.h"
 #include "lcd_dummy.h"
