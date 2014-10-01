@@ -34,10 +34,6 @@
 	#define PARSE_TRACE             pr_debug
 #endif
 
-#if defined (CONFIG_MACH_COREPRIMELITE)
-#define DVDD_ENABLE_BY_GPIO
-#endif
-
 #define  CLK_MM_I_IN_CLOCKTREE  1
 
 #ifdef CONFIG_OF

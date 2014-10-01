@@ -366,8 +366,8 @@ LOCAL int _sensor_k_set_voltage(struct sensor_file_tag *fd_handle, uint32_t val,
 	}
 
 
+	get_regulator_name(p_mod->of_node, type, fd_handle->sensor_id, &regu_name);
 	if (NULL == *p_regulator) {
-		get_regulator_name(p_mod->of_node, type, fd_handle->sensor_id, &regu_name);
 		*p_regulator = regulator_get(NULL, regu_name);
 		if (IS_ERR(*p_regulator)) {
 			SENSOR_PRINT_ERR("SENSOR:get regu.fail %s %d\n", regu_name, type);
