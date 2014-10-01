@@ -11,8 +11,7 @@
 /* memory reserved for SMEM */
 /memreserve/ 0x87800000 0x400000; /* Offset:120M, Size:4M */
 
-/* memory reserved for GGE modem */
-/memreserve/ 0x88000000 0x1600000; /* Offset:128M, Size:22M */
+
 
 /* memory reserved for LTE modem */
 /memreserve/ 0x89600000 0x6A00000; /* Offset:150M, Size:106M*/
@@ -447,28 +446,16 @@
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x08000000 0x88000000 0x1600000>,
-				<0x07800000 0x87800000 0x200000>,
-				<0x095ff000 0x895ff000 0x1000>,
-			<0x09600000 0x89600000 0x6a00000>,
-				<0x07a00000 0x87a00000 0x200000>,
+		ranges =<0x09600000 0x89600000 0x6a00000>,
+				<0x07800000 0x87800000 0x400000>,
 				<0x0ffff000 0x8ffff000 0x1000>;
-		sipc_gge@0x08000000 {
-			sprd,name = "sipc-gge";
-			sprd,dst = <4>;
-			/* it's unnecessary to config IPI info upon mailbox arch */
-			mailbox,core = <4>;
-			reg = <0x08000000 0x1600000> , /* <CP_start_addr size> */
-				<0x07800000 0x200000>, /* <SMEM_phy_addr total_size> */
-				<0x095ff000 0x1000>; /* smsg ring buffer <base size> */
-		};
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
 			sprd,dst = <5>;
 			/* it's unnecessary to config IPI info upon mailbox arch */
 			mailbox,core = <7>;
 			reg = <0x09600000 0x6a00000> , /* <CP_start_addr size> */
-				<0x07a00000 0x200000>, /* <SMEM_phy_addr total_size> */
+				<0x07800000 0x400000>, /* <SMEM_phy_addr total_size> */
 				<0x0ffff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 
@@ -491,62 +478,6 @@
 		sprd,capture_channel = <16>;	/* SMSG_CH_CAPTURE_VOIP */
 		sprd,monitor_channel = <17>;	/*SMSG_CH_MONITOR_VOIP */
 		sprd,saudio-names = "saudiovoip";
-	};
-
-	/* GGE modem virtual devices */
-
-	spipe_gge {
-		compatible = "sprd,spipe";
-		sprd,name = "spipe_gge";
-		sprd,dst = <4>;
-		sprd,channel = <4>;
-		sprd,ringnr = <9>;
-		sprd,size-rxbuf = <0x1000>; /* 4*1024 */
-		sprd,size-txbuf = <0x1000>; /* 4*1024 */
-	};
-
-	slog_gge {
-		compatible = "sprd,spipe";
-		sprd,name = "slog_gge";
-		sprd,dst = <4>;
-		sprd,channel = <5>;
-		sprd,ringnr = <1>;
-		sprd,size-rxbuf = <0x40000>; /* 256*1024*/
-		sprd,size-txbuf = <0x8000>; /* 32*1024 */
-	};
-
-	stty_gge {
-		compatible = "sprd,spipe";
-		sprd,name = "stty_gge";
-		sprd,dst = <4>;
-		sprd,channel = <6>;
-		sprd,ringnr = <32>;
-		sprd,size-rxbuf = <0x0800>; /* 2*1024*/
-		sprd,size-txbuf = <0x0800>; /* 2*1024 */
-	};
-
-	seth0_gge {
-		compatible = "sprd,seth";
-		sprd,name = "seth_gge0";
-		sprd,dst = <4>;
-		sprd,channel = <7>;
-		sprd,blknum = <64>;
-	};
-
-	seth1_gge {
-		compatible = "sprd,seth";
-		sprd,name = "seth_gge1";
-		sprd,dst = <4>;
-		sprd,channel = <8>;
-		sprd,blknum = <64>;
-	};
-
-	seth2_gge {
-		compatible = "sprd,seth";
-		sprd,name = "seth_gge2";
-		sprd,dst = <4>;
-		sprd,channel = <9>;
-		sprd,blknum = <64>;
 	};
 
 	/* LTE modem virtual devices */
@@ -625,34 +556,6 @@
 		modem@0x0 {
 			cproc,name = "modem";
 			reg = <0x0 0x8000>; /* <modem_addr size> */
-		};
-	};
-
-        scproc_cp0: scproc@0x88000000 {
-		compatible = "sprd,scproc";
-		sprd,name = "cpgge";
-		sprd,ctrl-reg = <0xcc 0xff 0xb0 0xff>; /* <shut_down deep_sleep reset get_status> */
-		sprd,ctrl-mask = <0x20000 0x10000000 0x01 0xf0000>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x88400000>; /* 3rd param equals modem_addr*/
-		reg = <0x88000000 0x1600000>, /* <CP_start_addr total_size> = <+128M 26M> */
-			<0xf53e0000 0xc>, /* <iram1_base size> */
-			<0xf5230000 0x100>, /* <pmu_base size> */
-			<0xf5230000 0x100>, /* <pmu_base size> */
-			<0xf5230000 0x100>, /* <pmu_base size> */
-			<0xf5230000 0x100>; /* <pmu_base size> */
-		interrupts = <0 83 0x0>; /* cp0_wdg_int */
-		#address-cells = <1>;
-		#size-cells = <1>;
-		/* segnr=2 */
-		ranges = <0x400000 0x88400000 0x01200000>,
-				<0x20000 0x88020000 0x00320000>;
-		modem@0x400000 {
-			cproc,name = "modem";
-			reg = <0x400000 0x01200000>; /* <modem_addr size> */
-		};
-		dsp@0x20000 {
-			cproc,name = "dsp";
-			reg = <0x20000 0x00220000>; /* <dsp_addr size>*/
 		};
 	};
 
