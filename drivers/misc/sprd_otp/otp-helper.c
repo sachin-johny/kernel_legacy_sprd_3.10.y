@@ -27,7 +27,7 @@
 #define BLK_FGU_DETA_D                  ( 9 )
 
 #define BLK_WIDTH_OTP_EMEMORY			( 8 ) /* bit counts */
-#define BLK_ADC_DETA_ABC_OTP			( 8 ) /* start block for ADC otp delta */
+#define BLK_ADC_DETA_ABC_OTP			( 7 ) /* start block for ADC otp delta */
 
 u32 __weak __ddie_efuse_read(int blk_index)
 {

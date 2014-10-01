@@ -33,7 +33,7 @@ const struct otp_bitmap otp_bitmap[] = {
 	{"vddmem", 		BITSINDEX(3, 6), 7},	/* DCDC_MEM */
 	{"vddgen", 		BITSINDEX(4, 5), 7},	/* DCDC_GEN */
 	{"vddrf", 		BITSINDEX(5, 4), 7},
-	{"vddcon", 		BITSINDEX(6, 3), 7},	/* DCDC_CON?DCDC_WPA? */
+	{"vddcon", 		BITSINDEX(13, 1), 7},	/* DCDC_CON?DCDC_WPA? */
 
 	//LDO (20)
 	{"vdd25", 		BITSINDEX(18, 2), 6},	/* AVDD28? *//* FIXME: be care LDO_VDD2V5_OPT 0 : 1.8v, 1 : 2.8V */
