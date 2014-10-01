@@ -86,6 +86,7 @@ static struct panel_spec *autotst_panel = NULL;
 static uint32_t g_patten_table[PATTEN_COLOR_COUNT] =
 	{0xffff0000, 0xff00ff00, 0xff0000ff, 0xffffff00, 0xff00ffff, 0xffff00ff, 0xffffffff};
 
+#if 0 /*designed for RGB, not used for SHARKL*/
 int autotst_dispc_pin_ctrl(int type)
 {
 	static int pin_table[29];
@@ -120,6 +121,7 @@ int autotst_dispc_pin_ctrl(int type)
 
 	return 0;
 }
+#endif
 
 /**********************************************/
 /*                      MCU PANEL CONFIG                                */

@@ -36,6 +36,6 @@ int32_t autotst_dispc_init(int display_type);
 int32_t autotst_dispc_uninit(int display_type);
 int32_t autotst_dispc_refresh (void);
 
-int autotst_dispc_pin_ctrl(int type);
+//int autotst_dispc_pin_ctrl(int type);
 
 #endif

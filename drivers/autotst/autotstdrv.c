@@ -398,7 +398,7 @@ static int __init autotst_init(void)
     s_class = class_create(THIS_MODULE, CDEV_NAME);
     device_create(s_class, NULL, MKDEV(MAJOR(s_devt), MINOR(s_devt)), NULL, CDEV_NAME);
 
-	autotst_dispc_pin_ctrl(DISPC_PIN_FUNC3);
+//	autotst_dispc_pin_ctrl(DISPC_PIN_FUNC3);
 
     //for( i = 0; i < SPRD_MAX_PIN; ++i ) {
     //    sGpioPins[i] = SPRD_GPIO_PIN_INVALID_VALUE;
@@ -419,7 +419,7 @@ static void __exit autotst_exit(void)
     cdev_del(&s_cdev);
     unregister_chrdev_region(s_devt, 1);
 
-	autotst_dispc_pin_ctrl(DISPC_PIN_FUNC0);
+//	autotst_dispc_pin_ctrl(DISPC_PIN_FUNC0);
 
     FUN_LEAVE;
 }
