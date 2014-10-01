@@ -444,7 +444,7 @@
 		battery,charging_reset_time = <0>;
 
 		/* Charger */
-		charger,vbus_ctrl_gpio = <&d_gpio_gpio 64 0x00>;
+//		charger,vbus_ctrl_gpio = <&d_gpio_gpio 64 0x00>;
 		battery,input_current_limit = <700 460 460 700 460 700 700 460 460 700 700 700 700 460 700 300 700 700 300 700 700 460 460>;
 		battery,fast_charging_current = <975 0 975 975 975 975 975 975 0 975 975 975 975 (-1) 975 975 975 975 975 975 975 0 0>;
 		battery,full_check_current_1st = <175 0 175 175 175 175 175 175 0 175 175 175 175 0 175 175 175 175 175 175 175 0 0>;
@@ -579,6 +579,14 @@
 		compatible = "sprd,i2c";
 		interrupts = <0 14 0x0>;
 		reg = <0xf5372000 0x1000>;
+		#address-cells = <1>;
+		#size-cells = <0>;
+	};
+
+	i2c4: i2c@f5374000{
+		compatible = "sprd,i2c";
+		interrupts = <0 15 0x0>;
+		reg = <0xf5374000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
 	};
