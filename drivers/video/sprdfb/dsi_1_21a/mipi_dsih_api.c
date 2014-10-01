@@ -27,6 +27,27 @@
 static const uint32_t mipi_dsih_supported_versions[] = {0x3132302A, 0x3132312A};
 static const uint32_t mipi_dsih_no_of_versions = sizeof(mipi_dsih_supported_versions) / sizeof(uint32_t);
 
+/*
+func:mipi_dsih_set_lp_clock
+desc:in low-power mode, max PHY frequency should smaller than 20MHz,
+     in synopsys IP, low-power clock divide from high-speed clock,
+     this function is designed to adapt low-power clock to various high-speed clock.
+arithmetic:
+     Fhs : high-speed frequence
+     Flp : low-power frequence
+     div : mipi_dsih_hal_tx_escape_division() param, byte clock unit.
+     because of the 20MHz demand, Flp == Fhs/(div*8) <= 20 MHz, here 500000 present 500MHz, so MHz equal 1000
+     so div >= { Fhs/(20Mhz*8) == Fhs/(20000*8) == (Fhs>>4)/10000 }
+*/
+static void mipi_dsih_set_lp_clock(dsih_ctrl_t * instance)
+{
+	uint32_t tx_escape_division = 1;
+	tx_escape_division = (instance->phy_feq>>4);
+	tx_escape_division = (tx_escape_division+9999)/10000;//ceiling calc
+	printk("sprdfb: [%s]: lp frequence div:%d\n", __func__, tx_escape_division);
+	mipi_dsih_hal_tx_escape_division(instance, (uint8_t)tx_escape_division);
+}
+
 /**
  * Open controller instance
  * - Check if driver is compatible with core version
@@ -130,7 +151,8 @@ dsih_error_t mipi_dsih_open(dsih_ctrl_t * instance)
     mipi_dsih_hal_power(instance, 1);//Jessica
 
     /* dividing by 6 is aimed for max PHY frequency, 1GHz */
-    mipi_dsih_hal_tx_escape_division(instance, 4); //6    //Jessica
+//    mipi_dsih_hal_tx_escape_division(instance, 4); //6    //Jessica
+    mipi_dsih_set_lp_clock(instance);
     instance->status = INITIALIZED;
     /* initialize pll so escape clocks could be generated at 864MHz, 1 lane */
     /* however the high speed clock will not be requested */
@@ -564,7 +586,8 @@ dsih_error_t mipi_dsih_dpi_video(dsih_ctrl_t * instance, dsih_dpi_video_t * vide
 		}
 	}
     /* TX_ESC_CLOCK_DIV must be less than 20000KHz */
-    mipi_dsih_hal_tx_escape_division(instance, 4); //6 //Jessia
+   // mipi_dsih_hal_tx_escape_division(instance, 4); //6 //Jessia
+    mipi_dsih_set_lp_clock(instance);
 	/* video packetisation */
 	if (video_params->video_mode == VIDEO_BURST_WITH_SYNC_PULSES)
 	{ /* BURST */

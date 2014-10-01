@@ -236,6 +236,8 @@ typedef struct dsih_ctrl_t
 	uint32_t address;
 	/** D-PHY instance associated with the DSI host controller - REQUIRED */
 	dphy_t phy_instance;
+	/**D-PHY frequency*/
+	uint32_t phy_feq;
 	/** Number of lanes physically connected to controller - REQUIRED */
 	uint8_t max_lanes;
 	/** Maximum number of byte clock cycles needed by the PHY to perform
