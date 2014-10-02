@@ -286,17 +286,31 @@
 			gpio_switch = <0>;
 			gpio_detect = <141>;
 			gpio_button = <143>;
-			irq_trigger_level_detect = <1>;
-			irq_trigger_level_button = <1>;
-			adc_threshold_3pole_detect = <100>;
+			irq_trigger_level_detect = <0>;
+			irq_trigger_level_button = <0>;
+			adc_threshold_3pole_detect = <1070>;
 			adc_threshold_4pole_detect = <3100>;
 			irq_threshold_buttont = <1>;
 			voltage_headmicbias = <3000000>;
-			nbuttons = <1>;
-			headset_buttons {
+			nbuttons = <3>;
+			headset_buttons_media {
 				adc_min = <0>;
-				adc_max = <170>;
+				adc_max = <180>;
 				code = <226>;
+				type = <0>;
+			};
+
+			headset_buttons_up {
+				adc_min = <181>;
+				adc_max = <365>;
+				code = <115>;
+				type = <0>;
+			};
+
+			headset_buttons_down {
+				adc_min = <366>;
+				adc_max =<3100>;
+				code = <114>;
 				type = <0>;
 			};
 		};

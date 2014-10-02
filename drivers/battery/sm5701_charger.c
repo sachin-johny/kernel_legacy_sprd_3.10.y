@@ -415,9 +415,9 @@ static void SM5701_charger_initialize(struct SM5701_charger_data *charger)
 	SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 
 	/* Disable AUTOSTOP */
-	SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
-	reg_data &= ~SM5701_CHGCNTL1_AUTOSTOP;
-	SM5701_reg_write(charger->SM5701->i2c, SM5701_CHGCNTL1, reg_data);
+	//SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
+	//reg_data &= ~SM5701_CHGCNTL1_AUTOSTOP;
+	//SM5701_reg_write(charger->SM5701->i2c, SM5701_CHGCNTL1, reg_data);
 
 	(void) debugfs_create_file("SM5701_regs",
 		S_IRUGO, NULL, (void *)charger, &SM5701_debugfs_fops);
