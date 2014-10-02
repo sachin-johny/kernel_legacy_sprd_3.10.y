@@ -53,6 +53,7 @@
 		i2c1 = &i2c1;
 		i2c2 = &i2c2;
 		i2c3 = &i2c3;
+		i2c4 = &i2c4;
 		lcd0 = &fb0;
 		spi0 = &spi0;
 		spi1 = &spi1;
@@ -60,7 +61,7 @@
 		hwspinlock0 = &hwspinlock0;
 		hwspinlock1 = &hwspinlock1;
 //		i2c_gpio6 = &i2c_gpio6;
-		i2c_gpio7 = &i2c_gpio7;
+//		i2c_gpio7 = &i2c_gpio7;
 		/*i2c_gpio8 = &i2c_gpio8;*/
 	};
 
@@ -311,23 +312,23 @@
 //		i2c-gpio,timeout-ms = <0>;
 //	};
 
-	// should be i2c4
-	i2c_gpio7: i2c_gpio@2 {
-		compatible = "i2c-gpio";
-		#address-cells = <1>;
-		#size-cells = <0>;
-		gpios = <&d_gpio_gpio 155 0 /* sda */
-				 &d_gpio_gpio 154 0 >; /* scl */
-		i2c-gpio,delay-us = <10>;	/* ~100 kHz */
-		i2c-gpio,timeout-ms = <0>;
-
-		sm5504@14 {
-			compatible = "SiliconMitus,sm5504";
-			reg = <0x14>;
-			interrupt-parent = <&d_gpio_gpio>;
-			sm5504,irq-gpio = <&d_gpio_gpio 55 0>; 
-		};
-	};
+//	// should be i2c4
+//	i2c_gpio7: i2c_gpio@2 {
+//		compatible = "i2c-gpio";
+//		#address-cells = <1>;
+//		#size-cells = <0>;
+//		gpios = <&d_gpio_gpio 155 0 /* sda */
+//				 &d_gpio_gpio 154 0 >; /* scl */
+//		i2c-gpio,delay-us = <10>;	/* ~100 kHz */
+//		i2c-gpio,timeout-ms = <0>;
+//
+//		sm5504@14 {
+//			compatible = "SiliconMitus,sm5504";
+//			reg = <0x14>;
+//			interrupt-parent = <&d_gpio_gpio>;
+//			sm5504,irq-gpio = <&d_gpio_gpio 55 0>; 
+//		};
+//	};
 
 	sec-fuelgauge {
 		compatible = "samsung,sec-fuelgauge";
@@ -589,6 +590,13 @@
 		reg = <0xf5374000 0x1000>;
 		#address-cells = <1>;
 		#size-cells = <0>;
+
+		sm5504@14 {
+			compatible = "SiliconMitus,sm5504";
+			reg = <0x14>;
+			interrupt-parent = <&d_gpio_gpio>;
+			sm5504,irq-gpio = <&d_gpio_gpio 55 0>; 
+		};
 	};
 
 	sprd_dcam{
