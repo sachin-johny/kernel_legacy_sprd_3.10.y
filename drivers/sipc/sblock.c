@@ -369,6 +369,8 @@ int sblock_create(uint8_t dst, uint8_t channel,
 		poolhd->rxblk_wrptr++;
 	}
 
+        sblock->ring->yell = 0;
+
 	init_waitqueue_head(&sblock->ring->getwait);
 	init_waitqueue_head(&sblock->ring->recvwait);
 	spin_lock_init(&sblock->ring->r_txlock);
@@ -537,7 +539,7 @@ static int sblock_send_ex(uint8_t dst, uint8_t channel, struct sblock *blk, bool
 {
 	struct sblock_mgr *sblock = (struct sblock_mgr *)sblocks[dst][channel];
 	struct sblock_ring *ring;
-	volatile struct sblock_ring_header *ringhd;
+	volatile struct sblock_ring_header *ringhd, *poolhd;
 	struct smsg mevt;
 	int txpos, index;
 	int rval = 0;
@@ -553,6 +555,7 @@ static int sblock_send_ex(uint8_t dst, uint8_t channel, struct sblock *blk, bool
 
 	ring = sblock->ring;
 	ringhd = (volatile struct sblock_ring_header *)(&ring->header->ring);
+        poolhd = (volatile struct sblock_ring_header *)(&ring->header->pool);
 
 	spin_lock_irqsave(&ring->r_txlock, flags);
 
@@ -562,9 +565,17 @@ static int sblock_send_ex(uint8_t dst, uint8_t channel, struct sblock *blk, bool
 	pr_debug("sblock_send: channel=%d, wrptr=%d, txpos=%d, addr=%x\n",
 			channel, ringhd->txblk_wrptr, txpos, ring->r_txblks[txpos].addr);
 	ringhd->txblk_wrptr = ringhd->txblk_wrptr + 1;
-	if (yell && sblock->state == SBLOCK_STATE_READY) {
-		smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
-		rval = smsg_send(dst, &mevt, 0);
+        if (sblock->state == SBLOCK_STATE_READY) {
+                if(yell) {
+		        smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
+		        rval = smsg_send(dst, &mevt, 0);
+                }
+                else if(!ring->yell) {
+                        if(((int)(ringhd->txblk_wrptr - ringhd->txblk_rdptr) == 1) &&
+                                ((int)(poolhd->txblk_wrptr - poolhd->txblk_rdptr) == (sblock->txblknum - 1))) {
+                                ring->yell = 1;
+                        }
+                }
 	}
 	index = sblock_get_index((blk->addr - ring->txblk_virt), sblock->txblksz);
 	ring->txrecord[index] = SBLOCK_BLK_STATE_DONE;
@@ -600,7 +611,8 @@ int sblock_send_finish(uint8_t dst, uint8_t channel)
 	ring = sblock->ring;
 	ringhd = (volatile struct sblock_ring_header *)(&ring->header->ring);
 
-	if (ringhd->txblk_wrptr != ringhd->txblk_rdptr) {
+	if (ring->yell) {
+                ring->yell = 0;
 		smsg_set(&mevt, channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBLOCK_SEND, 0);
 		rval = smsg_send(dst, &mevt, 0);
 	}

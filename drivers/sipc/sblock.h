@@ -69,7 +69,7 @@ struct sblock_ring {
 
 	int 			*txrecord; /* record the state of every txblk */
 	int 			*rxrecord; /* record the state of every rxblk */
-
+        int                     yell; /* need to notify cp */
 	spinlock_t		r_txlock; /* send */
 	spinlock_t		r_rxlock; /* recv */
 	spinlock_t 		p_txlock; /* get */
