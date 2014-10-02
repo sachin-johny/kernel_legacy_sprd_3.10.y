@@ -704,7 +704,7 @@ static inline int arch_audio_sleep_xtl_enable(void)
 {
 
 #if FIXED_AUDIO
-		sci_glb_set(REG_PMU_APB_SLEEP_CTRL, BIT_AP_SLEEP_XTL_ON);
+		sci_glb_set(REG_PMU_APB_SLEEP_XTLON_CTRL, BIT_AP_SLEEP_XTL_ON);
 #endif
 	return 0;
 }
@@ -712,7 +712,7 @@ static inline int arch_audio_sleep_xtl_disable(void)
 {
 
 #if FIXED_AUDIO
-		sci_glb_clr(REG_PMU_APB_SLEEP_CTRL, BIT_AP_SLEEP_XTL_ON);
+		sci_glb_clr(REG_PMU_APB_SLEEP_XTLON_CTRL, BIT_AP_SLEEP_XTL_ON);
 #endif
 	return 0;
 }
