@@ -684,12 +684,8 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode, uint32_t is_isr)
 	uint32_t                time_out = 0;
 
 	DCAM_TRACE("DCAM: reset: %d \n", reset_mode);
-
-	if (!is_isr) {
-		mutex_lock(&dcam_scale_sema);
-		mutex_lock(&dcam_rot_sema);
-	}
-
+	(void)is_isr;
+	printk("DCAM: reset: %d %d \n", reset_mode, is_isr);
 	if (DCAM_RST_ALL == reset_mode) {
 		/* then wait for AHB busy cleared */
 		while (++time_out < DCAM_AXI_STOP_TIMEOUT) {
@@ -743,11 +739,6 @@ int32_t dcam_reset(enum dcam_rst_mode reset_mode, uint32_t is_isr)
 			/* the end, enable AXI writing */
 			dcam_glb_reg_awr(DCAM_AHBM_STS, ~BIT_6, DCAM_AHBM_STS_REG);
 		}
-	}
-
-	if (!is_isr) {
-		mutex_unlock(&dcam_rot_sema);
-		mutex_unlock(&dcam_scale_sema);
 	}
 
 	DCAM_TRACE("DCAM: reset_mode=%x  end \n", reset_mode);
@@ -1013,24 +1004,7 @@ int32_t dcam_start(void)
 int32_t dcam_stop_cap(void)
 {
 	enum dcam_drv_rtn       rtn = DCAM_RTN_SUCCESS;
-#if 0
-	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
-	printk("DCAM: stop cap %d \n", s_p_dcam_mod->dcam_mode);
-	dcam_glb_reg_mwr(DCAM_CONTROL, BIT_2, 0, DCAM_CONTROL_REG); /* Cap Enable */
-	DCAM_TRACE("DCAM: stop cap, s_resize_flag %d \n", atomic_read(&s_resize_flag));
-	if (atomic_read(&s_resize_flag)) {
-		s_p_dcam_mod->wait_resize_done = 1;
-		rtn = down_timeout(&s_p_dcam_mod->resize_done_sema, DCAM_PATH_TIMEOUT);
-	}
-	if (atomic_read(&s_rotation_flag)) {
-		s_p_dcam_mod->wait_rotation_done = 1;
-		rtn = down_timeout(&s_p_dcam_mod->rotation_done_sema, DCAM_PATH_TIMEOUT);
-	}
-
-	dcam_reset(DCAM_RST_ALL, 0);
-	DCAM_TRACE("DCAM: stop cap, Out \n");
-#endif
 	return -rtn;
 }
 
@@ -1202,11 +1176,10 @@ int32_t dcam_stop(void)
 		rtn = down_timeout(&s_p_dcam_mod->rotation_done_sema, DCAM_PATH_TIMEOUT);
 	}
 
-	spin_lock_irqsave(&dcam_lock, flag);
+	mutex_lock(&dcam_scale_sema);
+	mutex_lock(&dcam_rot_sema);
 
-	dcam_glb_reg_owr(DCAM_INT_MASK,
-						DCAM_IRQ_LINE_MASK,
-						DCAM_INIT_MASK_REG);
+	spin_lock_irqsave(&dcam_lock, flag);
 
 	_dcam_wait_for_quickstop(DCAM_PATH_IDX_ALL);
 	s_p_dcam_mod->dcam_path0.status = DCAM_ST_STOP;
@@ -1221,6 +1194,9 @@ int32_t dcam_stop(void)
 	spin_unlock_irqrestore(&dcam_lock, flag);
 
 	dcam_reset(DCAM_RST_ALL, 0);
+	mutex_unlock(&dcam_rot_sema);
+	mutex_unlock(&dcam_scale_sema);
+
 	s_p_dcam_mod->state &= ~DCAM_STATE_QUICKQUIT;
 
 	DCAM_TRACE("DCAM: dcam_stop Out, s_resize_flag %d \n", atomic_read(&s_resize_flag));
