@@ -231,13 +231,13 @@ static struct cpufreq_table_data sc8830t_cpufreq_table_data_es = {
 
 static struct cpufreq_table_data sc9630_cpufreq_table_data = {
 	.freq_tbl = {
-		{0, 1350000},
-		{1, 900000},
+		{0, 1000000},
+		{1, 768000},
 		{2, CPUFREQ_TABLE_END},
 	},
 	.vddarm_mv = {
 		1000000,
-		900000,
+		1000000,
 		900000,
 	},
 };
@@ -275,9 +275,9 @@ static void cpufreq_set_clock(unsigned int freq)
 		sci_glb_clr(REG_PMU_APB_MPLL_REL_CFG, BIT_MPLL_AP_SEL);
 	} else if (freq == SHARK_TDPLL_FREQUENCY) {
 		#ifndef CONFIG_ARCH_SCX35L
-		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		sci_glb_clr(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
 		#else
-		sci_glb_set(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		sci_glb_clr(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(1));
 		#endif
 	} else {
 	/*
@@ -300,7 +300,7 @@ static void cpufreq_set_clock(unsigned int freq)
 		#ifndef CONFIG_ARCH_SCX35L
 		sci_glb_set(REG_AP_AHB_CA7_CKG_CFG, BITS_CA7_MCU_CKG_DIV(1));
 		#else
-		sci_glb_set(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(1));
+		sci_glb_set(REG_AP_AHB_CA7_CKG_DIV_CFG, BITS_CA7_MCU_CKG_DIV(0));
 		#endif
 	}
 }
@@ -468,7 +468,6 @@ static int sprd_cpufreq_target(struct cpufreq_policy *policy,
 	int cur_freq = 0;
 	unsigned long irq_flags;
 
-	return 0;
 	/* delay 30s to enable dvfs&dynamic-hotplug,
          * except requirment from termal-cooling device
          */
@@ -553,6 +552,7 @@ else if(soc_is_scx9630_v0()){
 		pr_err("%s error chip id\n", __func__);
 		return -EINVAL;
 	}
+	pr_info("sprd_freq_table_init \n");
 	sprd_set_cpureq_limit();
 	return 0;
 }
@@ -784,6 +784,7 @@ static ssize_t dvfs_plug_store(struct device *dev, struct device_attribute *attr
 	return count;
 }
 
+
 static ssize_t dvfs_plug_show(struct device *dev, struct device_attribute *attr,char *buf)
 {
 	int ret = 0;
@@ -799,6 +800,31 @@ static ssize_t cpufreq_table_show(struct device *dev, struct device_attribute *a
 	memcpy(buf,sprd_cpufreq_conf->freq_tbl,sizeof(* sprd_cpufreq_conf->freq_tbl));
 	return sizeof(* sprd_cpufreq_conf->freq_tbl);
 }
+
+static ssize_t dvfs_prop_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	printk(KERN_ERR"dvfs_status %s\n",buf);
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	printk(KERN_ERR"dvfs_plug_select %x\n",value);
+
+	dvfs_plug_select = (value ) & 0x0f;
+	return count;
+}
+
+static ssize_t dvfs_prop_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	int ret = 0;
+
+	ret = snprintf(buf + ret,50,"dvfs_plug_select %d\n",dvfs_plug_select);
+
+	return strlen(buf) + 1;
+}
+
 static DEVICE_ATTR(cpufreq_min_limit, 0660, cpufreq_min_limit_show, cpufreq_min_limit_store);
 static DEVICE_ATTR(cpufreq_max_limit, 0660, cpufreq_max_limit_show, cpufreq_max_limit_store);
 static DEVICE_ATTR(cpufreq_min_limit_debug, 0440, cpufreq_min_limit_debug_show, NULL);
@@ -809,6 +835,7 @@ static DEVICE_ATTR(cpufreq_table, 0440, cpufreq_table_show, NULL);
 static DEVICE_ATTR(dvfs_score, 0660, dvfs_score_show, dvfs_score_store);
 static DEVICE_ATTR(dvfs_unplug, 0660, dvfs_unplug_show, dvfs_unplug_store);
 static DEVICE_ATTR(dvfs_plug, 0660, dvfs_plug_show, dvfs_plug_store);
+static DEVICE_ATTR(dvfs_prop, 0660, dvfs_prop_show, dvfs_prop_store);
 #endif
 
 static struct attribute *g[] = {
@@ -822,6 +849,7 @@ static struct attribute *g[] = {
 	&dev_attr_dvfs_unplug.attr,
 	&dev_attr_dvfs_plug.attr,
 #endif
+	&dev_attr_dvfs_prop.attr,
 	NULL,
 };
 
@@ -867,6 +895,11 @@ static int __init sprd_cpufreq_modinit(void)
 
 #if !defined(CONFIG_ARCH_SCX35L)
 	sprd_cpufreq_conf->tdpllclk = clk_get_sys(NULL, "clk_tdpll");
+	if (IS_ERR(sprd_cpufreq_conf->tdpllclk))
+		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
+#else
+//	sprd_cpufreq_conf->tdpllclk = clk_get_sys(NULL, "clk_twpll");
+	sprd_cpufreq_conf->tdpllclk = clk_get_sys(NULL, "clk_768m");
 	if (IS_ERR(sprd_cpufreq_conf->tdpllclk))
 		return PTR_ERR(sprd_cpufreq_conf->tdpllclk);
 #endif

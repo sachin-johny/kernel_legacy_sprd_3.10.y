@@ -421,13 +421,16 @@ static int cpu_evaluate_score(int cpu, struct sd_dbs_tuners *sd_tunners , unsign
 		if((delta > 30)
 			&&(load > 80))
 		{
+			if (unlikely(rate[cpu] > 100))
+				rate[cpu] = 1;
+
 			rate[cpu] +=2;
-			score = a_score_sub[dvfs_score_select - 4][num_online_cpus() - 1][load/10] * rate[cpu];
+			score = a_score_sub[dvfs_score_select % 4][num_online_cpus() - 1][load/10] * rate[cpu];
 			rate[cpu] --;
 		}
 		else
 		{
-			score = a_score_sub[dvfs_score_select - 4][num_online_cpus() - 1][load/10];
+			score = a_score_sub[dvfs_score_select % 4][num_online_cpus() - 1][load/10];
 			rate[cpu] = 1;
 		}
 	}
@@ -795,11 +798,14 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 		if (policy->cur < policy->max)
 			dbs_info->rate_mult =
 				sd_tuners->sampling_down_factor;
+#ifndef CONFIG_ARCH_SCX35L
 		if(num_online_cpus() == sd_tuners->cpu_num_limit)
 			dbs_freq_increase(policy, policy->max);
 		else
 			dbs_freq_increase(policy, policy->max-1);
-
+#else
+		dbs_freq_increase(policy, policy->max);
+#endif
 		goto plug_check;
 	}
 
