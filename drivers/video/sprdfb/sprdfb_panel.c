@@ -68,11 +68,11 @@ static int __init lcd_id_get(char *str)
 	if ((str != NULL) && (str[0] == 'I') && (str[1] == 'D')) {
 		sscanf(&str[2], "%x", &lcd_id_from_uboot);
 	}
-
+#if 0
 	if (lcd_id_from_uboot == 0x8369) {
 		lcd_panel_cabc_pwm_backlight = 1;
 	}
-
+#endif
 	pr_info("lcd_panel_cabc_pwm_backlight = %d\n", lcd_panel_cabc_pwm_backlight);
 	printk(KERN_INFO "sprdfb: [%s]LCD Panel ID from uboot: 0x%x\n", __FUNCTION__, lcd_id_from_uboot);
 	return 1;
