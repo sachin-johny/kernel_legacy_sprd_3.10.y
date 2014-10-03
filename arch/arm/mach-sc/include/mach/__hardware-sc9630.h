@@ -567,7 +567,7 @@
 #define GGE_SMEM_SIZE			(SZ_1M * 2)
 
 #define LTE_START_ADDR		(CONFIG_PHYS_OFFSET + 150 * SZ_1M)
-#define LTE_TOTAL_SIZE			(SZ_1M * 106)
+#define LTE_TOTAL_SIZE			(SZ_1M * 64)
 #define LTE_RING_ADDR			(LTE_START_ADDR + LTE_TOTAL_SIZE - SZ_4K)
 #define LTE_RING_SIZE			(SZ_4K)
 #define LTE_SMEM_SIZE			(SZ_1M * 2)
