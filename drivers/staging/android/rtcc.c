@@ -56,6 +56,8 @@ static unsigned long boost_end_jiffy;
 
 #define RTCC_DBG			1
 
+DECLARE_WAIT_QUEUE_HEAD(rtcc_wq);
+
 int get_rtcc_status(void)
 {
 	return atomic_read(&krtccd_running);
@@ -186,12 +188,18 @@ static int rtcc_thread(void * nothing)
 
 	set_freezable();
 
-	for ( ; ; ) {
+	while (!kthread_should_stop()) {
+
 		try_to_freeze();
+
+		wait_event_freezable(rtcc_wq,
+				atomic_read(&krtccd_running) || kthread_should_stop());
+
 		if (kthread_should_stop())
 			break;
 
-		if (likely(atomic_read(&krtccd_running) == 1)) {
+		if(atomic_read(&krtccd_running) == 1) {
+			atomic_set(&krtccd_running, 0);
 #if RTCC_DBG
 			do_gettimeofday(&tv1);
 #endif
@@ -224,8 +232,6 @@ static int rtcc_thread(void * nothing)
 				printk("%s: time out, swapped %ldMB, exit boost mode.\n", __func__, get_swapped_pages()/256);
 			}
 
-			atomic_set(&krtccd_running, 0);
-
 #if RTCC_DBG
 			do_gettimeofday(&tv2);
 			dt = tv2.tv_sec*1000000 + tv2.tv_usec - tv1.tv_sec*1000000 - tv1.tv_usec;
@@ -233,9 +239,6 @@ static int rtcc_thread(void * nothing)
 			printk("expect=%ld, swappiness=%d \n", (nr_reclaimed*swappiness/200), swappiness);
 #endif
 		}
-
-		set_current_state(TASK_INTERRUPTIBLE);
-		schedule();
 	}
 
 	return 0;
@@ -264,12 +267,10 @@ static ssize_t rtcc_trigger_store(struct class *class, struct class_attribute *a
 		pr_info("%s: wake up krtccd async\n", __func__);
 		atomic_set(&need_to_reclaim, 1);
 	} else if (val == RTCC_MSG_SYNC) {
-		if (atomic_read(&krtccd_running) == 0) {
-			pr_info("%s: wake up krtccd sync\n", __func__);
-			atomic_set(&krtccd_running, 1);
-			wake_up_process(krtccd);
-			prev_jiffy = jiffies;
-		}
+		pr_info("%s: wake up krtccd sync\n", __func__);
+		atomic_set(&krtccd_running, 1);
+		wake_up_interruptible(&rtcc_wq);
+		prev_jiffy = jiffies;
 	} else {
 		rtcc_dump();
 	}
@@ -285,8 +286,6 @@ static struct class *rtcc_class;
  */
 static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void *data)
 {
-	int cpu;
-
 	if (likely(atomic_read(&need_to_reclaim) == 0))
 		return 0;
 
@@ -303,12 +302,10 @@ static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void 
 	if (unlikely(idle_cpu(task_cpu(krtccd)) && this_cpu_loadx(3) == 0) || rtcc_boost_mode)
 #endif
 	{
-			if (likely(atomic_read(&krtccd_running) == 0)) {
-				pr_info("%s: wake up krtccd!!!!!!\n", __func__);
-				atomic_set(&krtccd_running, 1);
-				wake_up_process(krtccd);
-				prev_jiffy = jiffies;
-			}
+		pr_info("%s: wake up krtccd!!!!!!\n", __func__);
+		atomic_set(&krtccd_running, 1);
+		wake_up_interruptible(&rtcc_wq);
+		prev_jiffy = jiffies;
 	}
 
 	return 0;
