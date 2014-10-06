@@ -34,7 +34,7 @@
 	interrupt-parent = <&gic>;
 
 	chosen {
-		bootargs = "init=/init root=/dev/ram0 rw";
+		bootargs = "loglevel=1 init=/init root=/dev/ram0 rw";
 		linux,initrd-start = <0x85500000>;
 		linux,initrd-end   = <0x855a3212>;
 	};
@@ -60,9 +60,6 @@
 		spi2 = &spi2;
 		hwspinlock0 = &hwspinlock0;
 		hwspinlock1 = &hwspinlock1;
-//		i2c_gpio6 = &i2c_gpio6;
-//		i2c_gpio7 = &i2c_gpio7;
-		/*i2c_gpio8 = &i2c_gpio8;*/
 	};
 
 	cpus {
@@ -259,13 +256,6 @@
 			interrupts = <1 0x0>; /* ext irq 1 */
 		};
 
-		sprd_backlight {
-			compatible = "sprd,sprd_backlight";
-			max_brightness = <255>;
-			dft_brightness = <160>;
-			ctrl_pin = <138>;
-		};
-
 		keyboard_backlight {
 			compatible = "sprd,keyboard-backlight";
 		};
@@ -315,34 +305,6 @@
 			};
 		};
 	};
-
-//	i2c_gpio6: i2c_gpio@0 {
-//		compatible = "i2c-gpio";
-//		#address-cells = <1>;
-//		#size-cells = <0>;
-//		gpios = <&d_gpio_gpio 159 0 /* sda */
-//				 &d_gpio_gpio 160 0 >; /* scl */
-//		i2c-gpio,delay-us = <10>;	/* ~100 kHz */
-//		i2c-gpio,timeout-ms = <0>;
-//	};
-
-//	// should be i2c4
-//	i2c_gpio7: i2c_gpio@2 {
-//		compatible = "i2c-gpio";
-//		#address-cells = <1>;
-//		#size-cells = <0>;
-//		gpios = <&d_gpio_gpio 155 0 /* sda */
-//				 &d_gpio_gpio 154 0 >; /* scl */
-//		i2c-gpio,delay-us = <10>;	/* ~100 kHz */
-//		i2c-gpio,timeout-ms = <0>;
-//
-//		sm5504@14 {
-//			compatible = "SiliconMitus,sm5504";
-//			reg = <0x14>;
-//			interrupt-parent = <&d_gpio_gpio>;
-//			sm5504,irq-gpio = <&d_gpio_gpio 55 0>; 
-//		};
-//	};
 
 	sec-fuelgauge {
 		compatible = "samsung,sec-fuelgauge";
@@ -464,10 +426,6 @@
 		battery,fast_charging_current = <975 0 975 975 975 975 975 975 0 975 975 975 975 (-1) 975 975 975 975 975 975 975 0 0>;
 		battery,full_check_current_1st = <175 0 175 175 175 175 175 175 0 175 175 175 175 0 175 175 175 175 175 175 175 0 0>;
 		battery,full_check_current_2nd = <1800 0 1800 1800 1800 1800 1800 1800 0 1800 1800 1800 1800 0 1800 1800 1800 1800 1800 1800 1800 0 0>;
-	};
-
-	panel_cabc_bl {
-		compatible = "sprd,panel_cabc_bl";
 	};
 
 	sprd_pwm_bl {
@@ -866,7 +824,7 @@
 		caps2 = <0x202>;
 		host-caps-mask = <0x05000000>;
 		vdd-vmmc = "vddsdcore";
-		vdd-vqmmc = "vddsdio";
+		vdd-vqmmc = "vddsdcore";
 		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
 		clock-names = "clk_sdio0";
