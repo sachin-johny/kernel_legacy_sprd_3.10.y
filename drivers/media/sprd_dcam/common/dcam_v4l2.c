@@ -641,8 +641,15 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 		break;
 
 	case V4L2_PIX_FMT_NV21:
+	case V4L2_PIX_FMT_NV12:
 		path->out_fmt = DCAM_OUTPUT_YUV420;
 		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
+		if (V4L2_PIX_FMT_NV12 == fourcc) {
+			path->end_sel.uv_endian = DCAM_ENDIAN_LITTLE;
+		} else {
+			path->end_sel.uv_endian = DCAM_ENDIAN_HALFBIG;
+		}
+		printk("V4L2: path->end_sel.uv_endian=%d \n", path->end_sel.uv_endian);
 		break;
 #endif
 
@@ -1574,8 +1581,10 @@ LOCAL int v4l2_g_parm(struct file *file,
 	streamparm->parm.capture.timeperframe.denominator  = time.tv_usec;
 
 	memset((void*)&path_id, 0, sizeof(struct dcam_get_path_id));
-	path_id.input_size.w = dev->dcam_cxt.dst_size.w;
-	path_id.input_size.h = dev->dcam_cxt.dst_size.h;
+	path_id.input_size.w = dev->dcam_cxt.cap_in_rect.w;
+	path_id.input_size.h = dev->dcam_cxt.cap_in_rect.h;
+	path_id.output_size.w = dev->dcam_cxt.dst_size.w;
+	path_id.output_size.h = dev->dcam_cxt.dst_size.h;
 	path_id.fourcc = dev->dcam_cxt.pxl_fmt;
 	path_id.need_isp_tool = dev->dcam_cxt.need_isp_tool;
 	path_id.is_path_work[DCAM_PATH0] = path_0->is_work;

@@ -2372,9 +2372,11 @@ int32_t    dcam_get_path_id(struct dcam_get_path_id *path_id, uint32_t *channel_
 		*channel_id = DCAM_PATH0;
 	} else if (V4L2_PIX_FMT_JPEG == path_id->fourcc && !path_id->is_path_work[DCAM_PATH0]) {
 		*channel_id = DCAM_PATH0;
-	} else if (path_id->input_size.w <= DCAM_PATH1_LINE_BUF_LENGTH  && !path_id->is_path_work[DCAM_PATH1]) {
+	} else if (path_id->output_size.w == path_id->input_size.w && path_id->output_size.h == path_id->input_size.h) {
+		*channel_id = DCAM_PATH0;
+	} else if (path_id->output_size.w <= DCAM_PATH1_LINE_BUF_LENGTH  && !path_id->is_path_work[DCAM_PATH1]) {
 		*channel_id = DCAM_PATH1;
-	} else if (path_id->input_size.w <= DCAM_PATH2_LINE_BUF_LENGTH  && !path_id->is_path_work[DCAM_PATH2]) {
+	} else if (path_id->output_size.w <= DCAM_PATH2_LINE_BUF_LENGTH  && !path_id->is_path_work[DCAM_PATH2]) {
 		*channel_id = DCAM_PATH2;
 	} else {
 		*channel_id = DCAM_PATH0;
@@ -2466,7 +2468,26 @@ LOCAL void _dcam_path0_set(void)
 
 	if (path->valid_param.data_endian) {
 		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_5 | BIT_4, path->data_endian.y_endian << 4, DCAM_ENDIAN_REG);
-		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_20, path->data_endian.uv_endian << 20, DCAM_ENDIAN_REG);
+		if (DCAM_ENDIAN_BIG == path->data_endian.y_endian) {
+			if (DCAM_ENDIAN_LITTLE == path->data_endian.uv_endian ||
+				DCAM_ENDIAN_HALFBIG == path->data_endian.uv_endian) {
+				dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_20, 1 << 20, DCAM_ENDIAN_REG);
+			} else {
+				dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_20, 0, DCAM_ENDIAN_REG);
+			}
+		} else if (DCAM_ENDIAN_LITTLE == path->data_endian.y_endian) {
+			if (DCAM_ENDIAN_BIG == path->data_endian.uv_endian ||
+				DCAM_ENDIAN_HALFBIG == path->data_endian.uv_endian) {
+				dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_20, 1 << 20, DCAM_ENDIAN_REG);
+			} else {
+				dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_20, 0, DCAM_ENDIAN_REG);
+			}
+		} else {
+			printk("DCAM DRV: endian, do nothing u %d, v %d \n",
+				path->data_endian.y_endian,
+				path->data_endian.uv_endian);
+		}
+
 		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_18, BIT_18, DCAM_ENDIAN_REG); // axi write
 		dcam_glb_reg_mwr(DCAM_ENDIAN_SEL, BIT_19, BIT_19, DCAM_ENDIAN_REG); // axi read
 		DCAM_TRACE("DCAM DRV: path 0: data_endian y=0x%x, uv=0x%x \n",
