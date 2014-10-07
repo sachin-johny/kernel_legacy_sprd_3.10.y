@@ -12,7 +12,7 @@
 /memreserve/ 0x87800000 0x400000; /* Offset:120M, Size:4M */
 
 /* memory reserved for LTE modem */
-/memreserve/ 0x89600000 0x6A00000; /* Offset:150M, Size:106M*/
+/memreserve/ 0x89600000 0x4000000; /* Offset:150M, Size:64M*/
 
 /* memory reserved for fb */
 /memreserve/ 0x9F89B000 0x465000; /* 480*800*4*3, 4K alignment*/
@@ -637,17 +637,17 @@
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges = <0x09600000 0x89600000 0x6a00000>,
+		ranges = <0x09600000 0x89600000 0x4000000>,
 				 <0x07800000 0x87800000 0x400000>,
-				 <0x0ffff000 0x8ffff000 0x1000>;
+				 <0x0d5ff000 0x8d5ff000 0x1000>;
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
 			sprd,dst = <5>;
 			/* it's unnecessary to config IPI info upon mailbox arch */
 			mailbox,core = <7>;
-			reg = <0x09600000 0x6a00000> , /* <CP_start_addr size> */
+			reg = <0x09600000 0x4000000> , /* <CP_start_addr size> */
 				  <0x07800000 0x400000>, /* <SMEM_phy_addr total_size> */
-				  <0x0ffff000 0x1000>; /* smsg ring buffer <base size> */
+				  <0x0d5ff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 	};
 
@@ -755,8 +755,8 @@
 		sprd,name = "cptl";
 		sprd,ctrl-reg = <0x0c 0xff 0xb0 0x78>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x300000 0x40000 0x02 0x1>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x89a00000>; /* 3rd param equals modem_addr*/
-		reg = <0x89600000 0x6a00000>, /* <CP_start_addr total_size> = <+128M 26M> */
+		sprd,iram-data = <0xe59f0000 0xe12fff10 0x8ae00000>; /* 3rd param equals modem_addr*/
+		reg = <0x89600000 0x4000000>, /* <CP_start_addr total_size> = <+128M 26M> */
 			<0xf53e1000 0x0c>, /* <iram1_base size> */
 			<0xf5250000 0x100>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <pmu_apb size> */
@@ -766,22 +766,22 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		/* segnr=2 */
-		ranges = <0x400000 0x89a00000 0x06600000>,
+		ranges = <0x1800000 0x8ae00000 0x03100000>,
 				 <0x20000 0x89620000 0x00320000>;
 
-		modem@0x400000 {
+		modem@0x1800000 {
 			cproc,name = "modem";
-			reg = <0x400000 0x06600000>; /* <modem_addr size> */
+			reg = <0x1800000 0x031000000>; /* <modem_addr size> */
 		};
 
 		dsp@0x20000 {
 			cproc,name = "tgdsp";
-			reg = <0x20000 0x003e0000>; /* <dsp_addr size>*/
+			reg = <0x20000 0x002e0000>; /* <dsp_addr size>*/
 		};
 
-		dsp@0xd80000 {
+		dsp@0x300000 {
 			cproc,name = "ldsp";
-			reg = <0xd80000 0x1c0000>; /* <dsp_addr size>*/
+			reg = <0x300000 0x1c0000>; /* <dsp_addr size>*/
 		};
 	};
 
