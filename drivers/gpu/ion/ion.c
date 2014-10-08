@@ -188,13 +188,18 @@ static struct ion_buffer *ion_buffer_create(struct ion_heap *heap,
 	buffer->flags = flags;
 	kref_init(&buffer->ref);
 
+    if (heap->flags & ION_HEAP_FLAG_DEFER_FREE) {
+		bool cached = ion_buffer_cached(buffer);
+		ion_heap_freelist_drain(heap, cached, len);
+	}
+
 	ret = heap->ops->allocate(heap, buffer, len, align, flags);
 
 	if (ret) {
 		if (!(heap->flags & ION_HEAP_FLAG_DEFER_FREE))
 			goto err2;
 
-		ion_heap_freelist_drain(heap, 0);
+		ion_heap_freelist_drain(heap, -1,0);
 		ret = heap->ops->allocate(heap, buffer, len, align,
 					  flags);
 		if (ret)

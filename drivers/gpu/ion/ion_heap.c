@@ -14,6 +14,8 @@
  *
  */
 
+
+
 #include <linux/err.h>
 #include <linux/freezer.h>
 #include <linux/ion.h>
@@ -166,10 +168,10 @@ void ion_heap_free_pages(struct ion_buffer *buffer, struct page *page,
 
 void ion_heap_freelist_add(struct ion_heap *heap, struct ion_buffer * buffer)
 {
-	rt_mutex_lock(&heap->lock);
+	spin_lock(&heap->free_lock);
 	list_add(&buffer->list, &heap->free_list);
 	heap->free_list_size += buffer->size;
-	rt_mutex_unlock(&heap->lock);
+	spin_unlock(&heap->free_lock);
 	wake_up(&heap->waitqueue);
 }
 
@@ -177,36 +179,68 @@ size_t ion_heap_freelist_size(struct ion_heap *heap)
 {
 	size_t size;
 
-	rt_mutex_lock(&heap->lock);
+    spin_lock(&heap->free_lock);
 	size = heap->free_list_size;
-	rt_mutex_unlock(&heap->lock);
+	spin_unlock(&heap->free_lock);
 
 	return size;
 }
-
-size_t ion_heap_freelist_drain(struct ion_heap *heap, size_t size)
+static size_t _ion_heap_freelist_drain(struct ion_heap *heap, int cached,
+                                       size_t size, bool skip_pools)
 {
-	struct ion_buffer *buffer, *tmp;
-	size_t total_drained = 0;
+    struct ion_buffer *buffer, *tmp;
+    size_t total_drained = 0;
+    struct list_head free_list;
 
-	if (ion_heap_freelist_size(heap) == 0)
-		return 0;
+    if (ion_heap_freelist_size(heap) == 0)
+        return 0;
 
-	rt_mutex_lock(&heap->lock);
-	if (size == 0)
-		size = heap->free_list_size;
+    spin_lock(&heap->free_lock);
+    if (size == 0)
+        size = heap->free_list_size;
+    /*
+       list_for_each_entry_safe(buffer, tmp, &heap->free_list, list) {
+       if (total_drained >= size)
+       break;
+       list_del(&buffer->list);
+       ion_buffer_destroy(buffer);
+       heap->free_list_size -= buffer->size;
+       total_drained += buffer->size;
+       }
+       rt_mutex_unlock(&heap->lock);
+       */
+    INIT_LIST_HEAD(&free_list);
 
-	list_for_each_entry_safe(buffer, tmp, &heap->free_list, list) {
-		if (total_drained >= size)
-			break;
-		list_del(&buffer->list);
-		ion_buffer_destroy(buffer);
-		heap->free_list_size -= buffer->size;
-		total_drained += buffer->size;
-	}
-	rt_mutex_unlock(&heap->lock);
+    list_for_each_entry_safe(buffer, tmp, &heap->free_list, list) {
+        if (total_drained >= size)
+            break;
+        if (!(cached < 0 || cached == ion_buffer_cached(buffer)))
+            continue;
+        list_del(&buffer->list);
+        list_add(&buffer->list, &free_list);
+        heap->free_list_size -= buffer->size;
+        if (skip_pools)
+            buffer->private_flags |= ION_PRIV_FLAG_SHRINKER_FREE;
+        total_drained += buffer->size;
+    }
+    spin_unlock(&heap->free_lock);
 
-	return total_drained;
+    list_for_each_entry_safe(buffer, tmp, &free_list, list) {
+        list_del(&buffer->list);
+        ion_buffer_destroy(buffer);
+    }
+
+    return total_drained;
+}
+
+size_t ion_heap_freelist_drain(struct ion_heap *heap, int cached, size_t size)
+{
+	return _ion_heap_freelist_drain(heap, cached, size, false);
+}
+
+size_t ion_heap_freelist_shrink(struct ion_heap *heap, int cached, size_t size)
+{
+	return _ion_heap_freelist_drain(heap, cached, size, true);
 }
 
 int ion_heap_deferred_free(void *data)
@@ -219,7 +253,7 @@ int ion_heap_deferred_free(void *data)
 		wait_event_freezable(heap->waitqueue,
 				     ion_heap_freelist_size(heap) > 0);
 
-		rt_mutex_lock(&heap->lock);
+		spin_lock(&heap->free_lock);
 		if (list_empty(&heap->free_list)) {
 			/*
 			 *  Sprd Change
@@ -230,14 +264,14 @@ int ion_heap_deferred_free(void *data)
 			{
 			    heap->free_list_size = 0;
 			}
-			rt_mutex_unlock(&heap->lock);
+			spin_unlock(&heap->free_lock);
 			continue;
 		}
 		buffer = list_first_entry(&heap->free_list, struct ion_buffer,
 					  list);
 		list_del(&buffer->list);
 		heap->free_list_size -= buffer->size;
-		rt_mutex_unlock(&heap->lock);
+		spin_unlock(&heap->free_lock);
 		ion_buffer_destroy(buffer);
 	}
 
@@ -250,7 +284,7 @@ int ion_heap_init_deferred_free(struct ion_heap *heap)
 
 	INIT_LIST_HEAD(&heap->free_list);
 	heap->free_list_size = 0;
-	rt_mutex_init(&heap->lock);
+	spin_lock_init(&heap->free_lock);
 	init_waitqueue_head(&heap->waitqueue);
 	heap->task = kthread_run(ion_heap_deferred_free, heap,
 				 "%s", heap->name);
@@ -327,3 +361,5 @@ void ion_heap_destroy(struct ion_heap *heap)
 		       heap->type);
 	}
 }
+
+
