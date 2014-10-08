@@ -2598,7 +2598,12 @@ static int ana_loop_event(struct snd_soc_dapm_widget *w,
 		}
 		break;
 	case SND_SOC_DAPM_PRE_PMD:
+	case SND_SOC_DAPM_POST_PMD:
 		s_need_wait = 1;
+		mixer = &(sprd_codec->mixer[id]);
+		if (mixer->set) {
+			mixer->set(codec, mixer->on);
+		}
 		break;
 	default:
 		BUG();
@@ -2812,7 +2817,7 @@ static const struct snd_kcontrol_new spkr_mixer_controls[] = {
 /*ANA LOOP SWITCH*/
 #define SPRD_CODEC_LOOP_SWITCH(xname, xreg)\
 	SND_SOC_DAPM_PGA_S(xname, SPRD_CODEC_ANA_MIXER_ORDER, FUN_REG(xreg), 0, 0, ana_loop_event,\
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD)
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD)
 
 #ifndef SND_SOC_DAPM_MICBIAS_E
 #define SND_SOC_DAPM_MICBIAS_E(wname, wreg, wshift, winvert, wevent, wflags) \
