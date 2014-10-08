@@ -280,8 +280,8 @@ static int vbc_enable(int enable)
 	if (enable) {
 		atomic_inc(vbc_on);
 		if (atomic_read(vbc_on) == 1) {
-			vbc_da_eq6_enable(1);
-			vbc_da_alc_enable(1);
+			//vbc_da_eq6_enable(1);
+			//vbc_da_alc_enable(1);
 			/*todo?? */
 			/*vbc_da_eq4_enable(1); */
 			/*vbc_ad01_eq6_enable(1); */
@@ -292,8 +292,8 @@ static int vbc_enable(int enable)
 	} else {
 		if (atomic_dec_and_test(vbc_on)) {
 			vbc_enable_set(0);
-			vbc_da_eq6_enable(0);
-			vbc_da_alc_enable(0);
+			//vbc_da_eq6_enable(0);
+			//vbc_da_alc_enable(0);
 			/*vbc_da_eq4_enable(0); */
 			/*vbc_ad01_eq6_enable(0); */
 			/*vbc_ad23_eq6_enable(0); */

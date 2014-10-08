@@ -1496,7 +1496,7 @@ static void vbc_da_alc_reg_set(void *data)
 	u32 *effect_paras = (u32 *) data;
 	u32 reg_addr;
 	u32 val;
-	for (reg_addr = DAALCCTL0; reg_addr <= DAALCCTL10; reg_addr += 4) {
+	for (reg_addr = DAHPCTL; reg_addr <= DAALCCTL10; reg_addr += 4) {
 		val = vbc_reg_read(reg_addr);
 		gray_set_reg(reg_addr, val,
 			     effect_paras[vbc_da_eq_reg_offset(reg_addr)]);
@@ -1525,10 +1525,7 @@ static void vbc_eq_reg_apply(struct snd_soc_codec *codec, void *data,
 			       BIT(VBDAEQ_HP_REG_CLR));
 
 		/*a,b set */
-		if (val & VBDAC_EQ6_EN)
-			effect_paras = data;
-		else
-			effect_paras = &vbc_da_eq_profile_default;
+		effect_paras = data;
 
 		for (reg = HPCOEF35_H; reg >= HPCOEF0_H; reg -= 0x38) {
 			vbc_eq_iir_ab_set_data(reg, effect_paras);
@@ -1541,10 +1538,6 @@ static void vbc_eq_reg_apply(struct snd_soc_codec *codec, void *data,
 		vbc_da_eq_reg_set(DAHPCTL, data);
 
 		/*ALC set */
-		if (val & VBDAC_ALC_EN)
-			effect_paras = data;
-		else
-			effect_paras = &vbc_da_eq_profile_default;
 		vbc_da_alc_reg_set(effect_paras);
 
 		/*iir state set */
