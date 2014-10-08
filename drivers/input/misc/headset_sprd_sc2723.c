@@ -141,6 +141,9 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
 #define AUDIO_HEAD_INSERT (BIT(10))
 #define AUDIO_HEAD_INSERT_2 (BIT(9))
 
+#define AUDIO_PMUR1 (BIT(0))
+#define ANA_PMU1 (0x0004)
+
 #define ABS(x) (((x) < (0)) ? (-(x)) : (x))
 #define MAX(x,y) (((x) > (y)) ? (x) : (y))
 
@@ -392,6 +395,7 @@ static void headset_detect_init(void)
 {
         headset_detect_clk_en();
         /* set headset detect voltage */
+        headset_reg_set_bit(HEADMIC_DETECT_REG(ANA_PMU1), AUDIO_PMUR1);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_HDT0), AUDIO_HEAD_SDET_2P5, AUDIO_HEAD_SDET_MASK, AUDIO_HEAD_SDET_SHIFT);
         headset_reg_set_val(HEADMIC_DETECT_REG(ANA_HDT0), AUDIO_HEAD_INS_VREF_2P1, AUDIO_HEAD_INS_VREF_MASK, AUDIO_HEAD_INS_VREF_SHIFT);
 }
