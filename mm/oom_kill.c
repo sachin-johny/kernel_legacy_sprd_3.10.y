@@ -605,7 +605,6 @@ int try_set_zonelist_oom(struct zonelist *zonelist, gfp_t gfp_mask)
 
 out:
 	spin_unlock(&zone_scan_lock);
-	dump_stack();
 	return ret;
 }
 
@@ -626,7 +625,6 @@ void clear_zonelist_oom(struct zonelist *zonelist, gfp_t gfp_mask)
 		zone_clear_flag(zone, ZONE_OOM_LOCKED);
 	}
 	spin_unlock(&zone_scan_lock);
-	dump_stack();
 }
 
 /**
@@ -656,6 +654,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	blocking_notifier_call_chain(&oom_notify_list, 0, &freed);
 	if (freed > 0)
 		/* Got some memory back in the last second. */
+		printk("== oom out_of_memory  1\n");
 		return;
 
 	/*
@@ -665,6 +664,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	 */
 	if (fatal_signal_pending(current) || current->flags & PF_EXITING) {
 		set_thread_group_flag(current, TIF_MEMDIE);
+		printk("== oom out_of_memory  2\n");
 		return;
 	}
 
@@ -684,6 +684,7 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 		oom_kill_process(current, gfp_mask, order, 0, totalpages, NULL,
 				 nodemask,
 				 "Out of memory (oom_kill_allocating_task)");
+		printk("== oom out_of_memory  3\n");
 		goto out;
 	}
 
@@ -703,6 +704,7 @@ out:
 	 * Give the killed threads a good chance of exiting before trying to
 	 * allocate memory again.
 	 */
+	printk("== oom out_of_memory  4\n");
 	if (killed)
 		schedule_timeout_killable(1);
 }

@@ -2256,16 +2256,23 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 		order, zonelist, high_zoneidx,
 		ALLOC_WMARK_HIGH|ALLOC_CPUSET,
 		preferred_zone, migratetype);
-	if (page)
+	if (page) {
+
+		printk("== oom __alloc_pages_may_oom 1\n");
 		goto out;
+	}
 
 	if (!(gfp_mask & __GFP_NOFAIL)) {
 		/* The OOM killer will not help higher order allocs */
-		if (order > PAGE_ALLOC_COSTLY_ORDER)
+		if (order > PAGE_ALLOC_COSTLY_ORDER) {
+			printk("== oom __alloc_pages_may_oom 2\n");
 			goto out;
+		}
 		/* The OOM killer does not needlessly kill tasks for lowmem */
-		if (high_zoneidx < ZONE_NORMAL)
+		if (high_zoneidx < ZONE_NORMAL) {
+			printk("== oom __alloc_pages_may_oom 3\n");
 			goto out;
+		}
 		/*
 		 * GFP_THISNODE contains __GFP_NORETRY and we never hit this.
 		 * Sanity check for bare calls of __GFP_THISNODE, not real OOM.
@@ -2273,8 +2280,10 @@ __alloc_pages_may_oom(gfp_t gfp_mask, unsigned int order,
 		 * it specifies __GFP_THISNODE.
 		 * Note: Hugepage uses it but will hit PAGE_ALLOC_COSTLY_ORDER.
 		 */
-		if (gfp_mask & __GFP_THISNODE)
+		if (gfp_mask & __GFP_THISNODE) {
+			printk("== oom __alloc_pages_may_oom 4\n");
 			goto out;
+		}
 	}
 	/* Exhausted what can be done so it's blamo time */
 	out_of_memory(zonelist, gfp_mask, order, nodemask, false);
