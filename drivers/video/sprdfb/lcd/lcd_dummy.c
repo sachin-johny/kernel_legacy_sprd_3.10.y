@@ -83,8 +83,8 @@ static struct info_mipi lcd_dummy_info = {
 };
 
 struct panel_spec lcd_dummy_spec = {
-	.width = 540,
-	.height = 960,
+	.width = 320,
+	.height = 480,
 	.fps = 60,
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
