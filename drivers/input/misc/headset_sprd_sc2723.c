@@ -59,14 +59,15 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
  **********************************************/
 #define ADPGAR_BYP_SELECT
 
-#define PLUG_CONFIRM_COUNT (4)
-#define NO_MIC_RETRY_COUNT (1)
+#define PLUG_CONFIRM_COUNT (2)
+#define NO_MIC_RETRY_COUNT (0)
 #define ADC_READ_COUNT (5)
 #define ADC_READ_LOOP (2)
 #define ADC_GND (100)
 #define SCI_ADC_GET_VALUE_COUNT (50)
 
 #define EIC3_DBNC_CTRL (0x4C)
+#define SW_DBNC_VALUE (10)
 #define DBNC_CNT3_VALUE (30)
 #define DBNC_CNT3_SHIFT (0)
 #define DBNC_CNT3_MASK (0xFFF << DBNC_CNT3_SHIFT)
@@ -529,7 +530,7 @@ static void headmicbias_power_on(struct device *dev, int on)
 static int ana_sts0_confirm(void)
 {
         if(0 == headset_reg_get_bit(HEADMIC_DETECT_REG(ANA_STS0), AUDIO_HEAD_INSERT))
-                return 0;
+                return 1;
         else
                 return 1;
 }
@@ -624,7 +625,7 @@ static int adc_get_average(int gpio_num, int gpio_value)
                         }
                 }
                 if(1 == success) {
-                        msleep(DBNC_CNT3_VALUE);
+                        msleep(SW_DBNC_VALUE);
                         if(gpio_get_value(gpio_num) != gpio_value) {
                                 PRINT_INFO("gpio value changed!!! the adc read operation aborted (step5)\n");
                                 return -1;
@@ -730,8 +731,7 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
         int adc_current = 0;
         int count = 0;
         int adc_read_interval = 10;
-
-        msleep(adc_read_interval);
+        msleep(5);
         adc_last = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
         if(-1 == adc_last) {
                 PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
@@ -739,6 +739,7 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
         }
 
         while(count < PLUG_CONFIRM_COUNT) {
+                msleep(adc_read_interval);
                 adc_current = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
                 if(-1 == adc_current) {
                         PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
@@ -750,7 +751,6 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
                 }
                 adc_last = adc_current;
                 count++;
-                msleep(adc_read_interval);
         }
         PRINT_INFO("headset_plug_confirm_by_adc success!!!\n");
         return adc_current;
@@ -945,6 +945,13 @@ static void headset_detect_work_func(struct work_struct *work)
         down(&headset_sem);
 
         ENTER;
+        if (sprd_hts_power.head_mic == NULL) {
+            sprd_headset_power_init(&this_pdev->dev);
+        }
+        if (sprd_hts_power.head_mic == NULL ) {
+            PRINT_INFO("sprd_headset_power_init fail \n");
+            goto out;
+        }
 
         if(0 == plug_state_last) {
                 headmicbias_power_on(&this_pdev->dev, 1);
