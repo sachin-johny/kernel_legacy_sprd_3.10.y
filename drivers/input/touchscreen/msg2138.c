@@ -30,7 +30,6 @@
  * Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307 USA
  */ 
 
-
 #include <linux/i2c.h>
 #include <linux/input.h>
 #include <linux/gpio.h>
@@ -70,12 +69,8 @@
 #include <mach/i2c-sprd.h>
 #endif
 
-
-struct regulator		*g_cg_reg_vdd;
-
 /*********************************Bee-0928-TOP****************************************/
 //#define SYSFS_DEBUG  //cg,20130929
-
 //#define PIXCIR_DEBUG		
 //#define PIXCIR_CQ_CALL		0
 #ifdef PIXCIR_DEBUG
@@ -92,29 +87,24 @@ struct regulator		*g_cg_reg_vdd;
 #define	USE_THREADED_IRQ	0
 #define	USE_WORK_QUEUE	0
 
+#define TOUCH_VIRTUAL_KEYS
 //#define TP_X_CHANGE
 #define TP_XY_CHANGE 0
 #define SLAVE_ADDR		0x48
 #define	BOOTLOADER_ADDR		0x5d
-
-#define MS_TS_MSG21XX_X_MAX 480
-#define MS_TS_MSG21XX_Y_MAX 800
 
 #ifndef I2C_MAJOR
 #define I2C_MAJOR 		125
 #endif
 
 #define I2C_MINORS 		256
-
 #define	CALIBRATION_FLAG	1
 #define	BOOTLOADER		7
 #define RESET_TP		9
-
 #define	ENABLE_IRQ		10
 #define	DISABLE_IRQ		11
 #define	BOOTLOADER_STU		16
 #define ATTB_VALUE		17
-
 #define	MAX_FINGER_NUM		5
 #define X_OFFSET		30
 #define Y_OFFSET		40
@@ -127,17 +117,9 @@ struct regulator		*g_cg_reg_vdd;
 #define TPD_SYSINFO_MODE 0x10
 #define GET_HSTMODE(reg)  ((reg & 0x70) >> 4)  // in op mode or not 
 #define GET_BOOTLOADERMODE(reg) ((reg & 0x10) >> 4)  // in bl mode 
-
-
-#define sprd_3rdparty_gpio_tp_rst 	81
-#define sprd_3rdparty_gpio_tp_irq 	82
-
 #define	__FIRMWARE_UPDATE__
-
 #define REG_RT_PRIO(x) ((x) | 0x10000000)
-#define RTPM_PRIO_TPD                       REG_RT_PRIO(4)
-
-static struct i2c_client * msg21xx_i2c_client;
+#define RTPM_PRIO_TPD               REG_RT_PRIO(4)
 
 #if USE_WAIT_QUEUE
 static struct task_struct *thread = NULL;
@@ -145,93 +127,93 @@ static DECLARE_WAIT_QUEUE_HEAD(waiter);
 static int tpd_flag = 0;
 #endif
 
-//extern int tp_cg_flag;
+struct pixcir_i2c_ts_data {
+	 struct i2c_client *client;
+	 struct input_dev *input;
+#if USE_WORK_QUEUE
+	 struct work_struct	pen_event_work;
+	 struct workqueue_struct *ts_workqueue;
+#endif
+#ifdef CONFIG_HAS_EARLYSUSPEND
+	 struct work_struct		 resume_work;
+	 struct workqueue_struct *ts_resume_workqueue;
+	 struct early_suspend	early_suspend;
+#endif
+	 struct msg2138_ts_platform_data *platform_data;
+	 //const struct pixcir_ts_platform_data *chip;
+	 bool exiting;
+};
 
 static unsigned char  bl_cmd[] = {
 	 0x00, 0xFF, 0xA5,
 	 0x00, 0x01, 0x02,
 	 0x03, 0x04, 0x05,
-	 0x06, 0x07};
-	 //exit bl mode 
-	 struct tpd_operation_data_t{
-		 unsigned char  hst_mode;
-		 unsigned char  tt_mode;
-		 unsigned char  tt_stat;
-		 
-		 unsigned char  x1_M,x1_L;
-		 unsigned char  y1_M,y1_L;
-		 unsigned char  z1;
-		 unsigned char  evnt_id;
-	 
-		 unsigned char  x2_M,x2_L;
-		 unsigned char  y2_M,y2_L;
-		 unsigned char  r_0d;
-		 unsigned char  gest_cnt;
-		 unsigned char  gest_id;
-	 };
-	 struct tpd_bootloader_data_t{
-		 unsigned char  bl_file;
-		 unsigned char  bl_status;
-		 unsigned char  bl_error;
-		 unsigned char  blver_hi,blver_lo;
-		 unsigned char  bld_blver_hi,bld_blver_lo;
-	 
-		 unsigned char  ttspver_hi,ttspver_lo;
-		 unsigned char  appid_hi,appid_lo;
-		 unsigned char  appver_hi,appver_lo;
-	 
-		 unsigned char  cid_0;
-		 unsigned char  cid_1;
-		 unsigned char  cid_2;
-		 
-	 };
-	 struct tpd_sysinfo_data_t{
-				  unsigned char    hst_mode;
-				  unsigned char   mfg_cmd;
-				  unsigned char   mfg_stat;
-				  unsigned char  cid[3];
-				  unsigned char  tt_undef1;
- 
-				  unsigned char  uid[8];
-				  unsigned char   bl_verh;
-				  unsigned char   bl_verl;
- 
-				  unsigned char  tts_verh;
-				  unsigned char  tts_verl;
-
-				  unsigned char  app_idh;
-				   unsigned char  app_idl;
-				   unsigned char  app_verh;
-				   unsigned char  app_verl;
-
-				   unsigned char  tt_undef2[6];
-				   unsigned char   act_intrvl;
-				   unsigned char   tch_tmout;
-				   unsigned char   lp_intrvl;
-	 
-				  
-				 
-					  
-	 };
-struct touch_info {
-    int x1, y1;
-    int x2, y2;
-	int x3, y3;
-    int p1, p2,p3;
-    int count;
+	 0x06, 0x07
 };
-#if 0
-struct TouchScreenInfo_t{
-    unsigned char nTouchKeyMode;
-    unsigned char nTouchKeyCode;
-    //unsigned char nFingerNum;
-} ;
-#endif
+	 //exit bl mode
+struct tpd_operation_data_t {
+	 unsigned char  hst_mode;
+	 unsigned char  tt_mode;
+	 unsigned char  tt_stat;
 
-static unsigned char status_reg = 0;
-int global_irq;
+	 unsigned char  x1_M,x1_L;
+	 unsigned char  y1_M,y1_L;
+	 unsigned char  z1;
+	 unsigned char  evnt_id;
 
-struct timer_list	tp_timer;		/* "no irq" timer */
+	 unsigned char  x2_M,x2_L;
+	 unsigned char  y2_M,y2_L;
+	 unsigned char  r_0d;
+	 unsigned char  gest_cnt;
+	 unsigned char  gest_id;
+};
+struct tpd_bootloader_data_t {
+	 unsigned char  bl_file;
+	 unsigned char  bl_status;
+	 unsigned char  bl_error;
+	 unsigned char  blver_hi,blver_lo;
+	 unsigned char  bld_blver_hi,bld_blver_lo;
+
+	 unsigned char  ttspver_hi,ttspver_lo;
+	 unsigned char  appid_hi,appid_lo;
+	 unsigned char  appver_hi,appver_lo;
+
+	 unsigned char  cid_0;
+	 unsigned char  cid_1;
+	 unsigned char  cid_2;
+};
+struct tpd_sysinfo_data_t {
+	 unsigned char    hst_mode;
+	 unsigned char   mfg_cmd;
+	 unsigned char   mfg_stat;
+	 unsigned char  cid[3];
+	 unsigned char  tt_undef1;
+
+	 unsigned char  uid[8];
+	 unsigned char   bl_verh;
+	 unsigned char   bl_verl;
+
+	 unsigned char  tts_verh;
+	 unsigned char  tts_verl;
+
+	 unsigned char  app_idh;
+	 unsigned char  app_idl;
+	 unsigned char  app_verh;
+	 unsigned char  app_verl;
+
+	 unsigned char  tt_undef2[6];
+	 unsigned char   act_intrvl;
+	 unsigned char   tch_tmout;
+	 unsigned char   lp_intrvl;
+};
+struct touch_info {
+	 int x1, y1;
+	 int x2, y2;
+	 int x3, y3;
+	 int p1, p2,p3;
+	 int count;
+};
+
 struct i2c_dev
 {
 	struct list_head list;
@@ -239,15 +221,16 @@ struct i2c_dev
 	struct device *dev;
 };
 
+static struct i2c_client * msg21xx_i2c_client;
+static struct pixcir_i2c_ts_data *msg21xx_i2c_ts_data;
+//static unsigned char status_reg = 0;
+static int global_irq;
 static struct i2c_driver pixcir_i2c_ts_driver;
 static struct class *i2c_dev_class;
+
 static LIST_HEAD( i2c_dev_list);
 static DEFINE_SPINLOCK( i2c_dev_list_lock);
 
-#define TOUCH_VIRTUAL_KEYS
-
-//static struct i2c_client *msg21xx_i2c_client;
-static int pixcir_irq;
 static int suspend_flag;
 static struct early_suspend	pixcir_early_suspend;
 
@@ -255,23 +238,15 @@ static ssize_t pixcir_set_calibrate(struct device* cd, struct device_attribute *
 		       const char* buf, size_t len);
 static ssize_t pixcir_show_suspend(struct device* cd,struct device_attribute *attr, char* buf);
 static ssize_t pixcir_store_suspend(struct device* cd, struct device_attribute *attr,const char* buf, size_t len);
-
-static void pixcir_reset(void);
 static void pixcir_ts_suspend(struct early_suspend *handler);
 static void pixcir_ts_resume(struct early_suspend *handler);
-static void pixcir_ts_pwron(void);
-static void pixcir_ts_pwroff(void);
- static struct tpd_operation_data_t g_operation_data;
- static struct tpd_bootloader_data_t g_bootloader_data;
- static struct tpd_sysinfo_data_t g_sysinfo_data;
 
-//extern unsigned char poweroff_ctp_fm_flag;
-static void sy_init();
-
+//static struct tpd_operation_data_t g_operation_data;
+static struct tpd_bootloader_data_t g_bootloader_data;
+static struct tpd_sysinfo_data_t g_sysinfo_data;
 #ifdef SYSFS_DEBUG
 static  char *cg_fw_version = NULL;
 #endif //cg,20130929
-
 #ifdef __FIRMWARE_UPDATE__
 #define FW_ADDR_MSG21XX   (0xC4>>1)
 #define FW_ADDR_MSG21XX_TP   (0x4C>>1)
@@ -571,11 +546,12 @@ static ssize_t firmware_update_show ( struct device *dev,
 /*reset the chip*/
 static void _HalTscrHWReset(void)
 {
-	gpio_direction_output(sprd_3rdparty_gpio_tp_rst, 1);
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 1);
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 0);
+	struct msg2138_ts_platform_data *pdata = msg21xx_i2c_ts_data->platform_data;
+	gpio_direction_output(pdata->reset_gpio_number, 1);
+	gpio_set_value(pdata->reset_gpio_number, 1);
+	gpio_set_value(pdata->reset_gpio_number, 0);
 	mdelay(10);  /* Note that the RST must be in LOW 10ms at least */
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 1);
+	gpio_set_value(pdata->reset_gpio_number, 1);
 	/* Enable the interrupt service thread/routine for INT after 50ms */
 	mdelay(50);
 }
@@ -2010,9 +1986,6 @@ static ssize_t firmware_data_store(struct device *dev,
 static DEVICE_ATTR(data, 0664, firmware_data_show, firmware_data_store);
 #endif  //__FIRMWARE_UPDATE__
 
-
-
-
 static int pixcir_i2c_txdata(char *txdata, int length)
 {
 		int ret;
@@ -2039,8 +2012,6 @@ static int pixcir_i2c_write_data(unsigned char addr, unsigned char data)
 	buf[1]=data;
 	return pixcir_i2c_txdata(buf, 2); 
 }
-
-
 
 static bool msg2138_i2c_read(char *pbt_buf, int dw_lenth)
 {
@@ -2090,8 +2061,6 @@ static ssize_t pixcir_set_calibrate(struct device* cd, struct device_attribute *
 	return len;
 }
 
-
-
 static ssize_t pixcir_show_suspend(struct device* cd,
 				     struct device_attribute *attr, char* buf)
 {
@@ -2126,6 +2095,19 @@ static ssize_t pixcir_store_suspend(struct device* cd, struct device_attribute *
 	}
 	
 	return len;
+}
+
+static void pixcir_reset(void)
+{
+	struct msg2138_ts_platform_data *pdata = msg21xx_i2c_ts_data->platform_data;
+
+	PIXCIR_DBG("%s\n",__func__);
+	gpio_set_value(pdata->reset_gpio_number, 1);
+	msleep(3);
+	gpio_set_value(pdata->reset_gpio_number, 0);
+	msleep(310);
+	gpio_set_value(pdata->reset_gpio_number, 1);
+	msleep(100);
 }
 
 //cg,20130929,start
@@ -2200,7 +2182,6 @@ static DEVICE_ATTR(fwversion, S_IRUGO, cg_tpfwver_show,NULL);
 #endif
 //cg,20130929,end
 
-
 static int pixcir_create_sysfs(struct i2c_client *client)
 {
 	int err;
@@ -2213,48 +2194,36 @@ static int pixcir_create_sysfs(struct i2c_client *client)
 	#ifdef SYSFS_DEBUG
 	err = device_create_file(dev, &dev_attr_fwversion); //cg,20130929
 	#endif
-	
 	return err;
 }
-#ifdef CONFIG_HAS_EARLYSUSPEND
 
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void pixcir_ts_suspend(struct early_suspend *handler)
 {
+	struct msg2138_ts_platform_data *pdata = msg21xx_i2c_ts_data->platform_data;
        	printk("==%s==\n", __func__);
 	disable_irq_nosync(global_irq);
        	msleep(3);
-		gpio_set_value(sprd_3rdparty_gpio_tp_rst, 0);
-		msleep(10);
+	gpio_set_value(pdata->reset_gpio_number, 0);
+	msleep(10);
 }
-
 static void pixcir_ts_resume(struct early_suspend *handler)
 {	
-        unsigned char rdbuf[27];
-       int num = 10;
-       //disable_irq_nosync(global_irq);
-       
+	//unsigned char rdbuf[27];
+	//int num = 10;
+	//disable_irq_nosync(global_irq);
+
 #if 0
 	   struct pixcir_i2c_ts_data  *pixcir_ts = (struct pixcir_i2c_ts_data *)i2c_get_clientdata(msg21xx_i2c_client);
 	   queue_work(pixcir_ts->ts_resume_workqueue, &pixcir_ts->resume_work);
 #endif
-#if 1
 	printk("==%s==start==\n", __func__);
-	pixcir_ts_pwron();
+	pixcir_reset();
 	enable_irq(global_irq);
-#endif
 	printk("==%s==end==\n", __func__);
 
 }
-static void pixcir_ts_resume_work(struct work_struct *work)
-{
-	pr_info("==%s==\n", __FUNCTION__);
-	pixcir_ts_pwron();
-	enable_irq(global_irq);
-}
-
 #endif
-
-
 
 #ifdef TOUCH_VIRTUAL_KEYS
 #define SC8810_KEY_HOME	102
@@ -2262,9 +2231,8 @@ static void pixcir_ts_resume_work(struct work_struct *work)
 #define SC8810_KEY_BACK	17
 #define SC8810_KEY_SEARCH  217
 
+//static char keymap[]={SC8810_KEY_MENU,SC8810_KEY_HOME,SC8810_KEY_BACK};
 
-static char keymap[]={SC8810_KEY_MENU,SC8810_KEY_HOME,SC8810_KEY_BACK};
-   
 static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf,
@@ -2306,66 +2274,32 @@ static void pixcir_ts_virtual_keys_init(void)
     if (!properties_kobj || ret)
         pr_err("failed to create board_properties\n");    
 }
-
-
 #endif
 
-static void pixcir_ts_pwron(void)
+static void  pixcir_ts_hw_init(struct pixcir_i2c_ts_data *tsdata)
 {
-		
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 0);
-	regulator_set_voltage(g_cg_reg_vdd, 2700000, 2800000);
-	regulator_enable(g_cg_reg_vdd);
-	msleep(320);
-	
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst,1);
+	struct regulator *g_cg_reg_vdd;
+	struct msg2138_ts_platform_data *pdata = tsdata->platform_data;
+	struct i2c_client *client = tsdata->client;
+	int err= 0;
+	gpio_request(pdata->reset_gpio_number, "gpio_tp_rst");
+	gpio_request(pdata->irq_gpio_number, "gpio_tp_irq");
+	gpio_direction_output(pdata->reset_gpio_number,1);
+	gpio_direction_input(pdata->irq_gpio_number);
+	g_cg_reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
+	if (!WARN(IS_ERR(g_cg_reg_vdd), "[MSG2138] pixcir_ts_hw_init regulator: failed to get %s.\n", pdata->vdd_name)) {
+		regulator_set_voltage(g_cg_reg_vdd, 2800000, 2800000);
+		err = regulator_enable(g_cg_reg_vdd);
+	}
 	msleep(100);
-
-}  
-
-static void pixcir_ts_pwroff(void)
-{
-      
-//	regulator_disable(g_cg_reg_vdd);
-	PIXCIR_DBG("%s\n",__func__);
-}
-
-static int  pixcir_ts_config_pins(void)
-{
-	pixcir_ts_pwron();
-	gpio_direction_input(sprd_3rdparty_gpio_tp_irq);	
-	pixcir_irq=gpio_to_irq(sprd_3rdparty_gpio_tp_irq);
 	pixcir_reset();
-
-	return pixcir_irq;
 }
 
-
-static int attb_read_val(void)
+/*static int attb_read_val(void)
 {
-	return gpio_get_value(sprd_3rdparty_gpio_tp_irq);
-}
-
-static void pixcir_reset(void)
-{
-	PIXCIR_DBG("%s\n",__func__);
-	gpio_direction_output(sprd_3rdparty_gpio_tp_rst, 1);
-	msleep(3);
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 0);
-	msleep(310);
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst,1);
-	msleep(100);
-}
-
-static int  pixcir_init(void)
-{
-	int irq;
-	PIXCIR_DBG("%s\n",__func__);
-	irq = pixcir_ts_config_pins();
-	//pixcir_config_intmode();
-	return irq;
-}
-
+	struct msg2138_ts_platform_data *pdata = msg21xx_i2c_ts_data->platform_data;
+	return gpio_get_value(pdata->irq_gpio_number);
+}*/
 
 unsigned char tpd_check_sum(unsigned char *pval)
 {
@@ -2378,7 +2312,6 @@ unsigned char tpd_check_sum(unsigned char *pval)
 
     return (unsigned char)((-sum) & 0xFF);
 }
-
 
 static void return_i2c_dev(struct i2c_dev *i2c_dev)
 {
@@ -2427,23 +2360,6 @@ static struct i2c_dev *get_free_i2c_dev(struct i2c_adapter *adap)
 }
 /*********************************Bee-0928-bottom**************************************/
 
-struct pixcir_i2c_ts_data {
-	struct i2c_client *client;
-	struct input_dev *input;
-	
-#if USE_WORK_QUEUE
-		struct work_struct	pen_event_work;
-		struct workqueue_struct *ts_workqueue;
-#endif
-#ifdef CONFIG_HAS_EARLYSUSPEND
-		struct work_struct		 resume_work;
-		struct workqueue_struct *ts_resume_workqueue;
-		struct early_suspend	early_suspend;
-#endif
-	//const struct pixcir_ts_platform_data *chip;
-	bool exiting;
-};
-
 struct point_node_t{
 	unsigned char 	active ;
 	unsigned char	finger_id;
@@ -2455,26 +2371,22 @@ static struct point_node_t point_slot[MAX_FINGER_NUM*2];
 static int keycode;
 static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
  	{
-
-	u32 retval;
+	//u32 retval;
 	//static unsigned char tt_mode;
 	//pinfo->count = cinfo->count;
 	unsigned char reg_val[8] = {0};
-	int dst_x=0,dst_y=0,xysawp_temp=0;
+	int dst_x=0,dst_y=0;
 	unsigned int temp_checksum;
 	struct TouchScreenInfo_t touchData;
-	unsigned char touchkeycode = 0;
-	static int preKeyStatus;
-	
+	//unsigned char touchkeycode = 0;
+	//static int preKeyStatus;
+
 	//TPD_DEBUG("pinfo->count =%d\n",pinfo->count);
       cinfo->count  = 0; //touch end
       msg2138_i2c_read(reg_val, 8);
-	
+
 	//retval = i2c_smbus_read_i2c_block_data(msg21xx_i2c_client, TPD_REG_BASE, 8, (unsigned char *)&g_operation_data);
 	//retval += i2c_smbus_read_i2c_block_data(msg21xx_i2c_client, TPD_REG_BASE + 8, 8, (((unsigned char *)(&g_operation_data)) + 8));
-
-	
-
 
 	cinfo->x1 =  ((reg_val[1] & 0xF0) << 4) | reg_val[2];	
 	cinfo->y1  = ((reg_val[1] & 0x0F) << 8) | reg_val[3];
@@ -2593,7 +2505,6 @@ static int sy_rxdata(struct touch_info *cinfo, struct touch_info *pinfo)
 
         return 1;
     }
-	 
 	 return 1;
  }
 static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
@@ -2601,10 +2512,10 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
 	struct pixcir_i2c_ts_data *tsdata = data;
 	struct touch_info cinfo, pinfo;
 	int *p;
-	unsigned char touch, button, pix_id,slot_id;
+	unsigned char touch;
 	unsigned char rdbuf[27];
-	int ret, i;
-	static int lastkey=0;
+	int i;
+	//static int lastkey=0;
        // printk("===%s===\n",__func__);
 	rdbuf[0]=0;
 	//pixcir_i2c_rxdata(rdbuf, 27);
@@ -2632,20 +2543,12 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
 		for (i=0; i<touch; i++) {
 			if (point_slot[i].active == 1) {
 				if(point_slot[i].posy<0) {
-					//printk("\033[33;1m%s: dirty slot=%d,x%d=%d,y%d=%d\033[m\n", \
-						//__func__, i, i/2,point_slot[i].posx, i/2, point_slot[i].posy);
 				} else {
 					if(point_slot[i].posx<0) {
-						//printk("\033[33;1m%s: slot=%d, convert x%d from %d to 0\033[m\n",\
-							//__func__, i, i/2,point_slot[i].posx);
 						point_slot[i].posx = 0;
 					} else if (point_slot[i].posx>(MS_TS_MSG21XX_X_MAX -2)) {
-						//printk("\033[33;1m%s: slot=%d, convert x%d from %d to 480\033[m\n",\
-							//__func__, i, i/2,point_slot[i].posx);
 						point_slot[i].posx = (MS_TS_MSG21XX_X_MAX -2);
 					}
-					
-					
 					input_report_abs(tsdata->input, ABS_MT_POSITION_X,  point_slot[i].posx);
 					input_report_abs(tsdata->input, ABS_MT_POSITION_Y,  point_slot[i].posy);
 					//input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 15);
@@ -2684,10 +2587,8 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
 		}
 		point_slot[i].active = 0;
 	}
-
-
-
 }
+
 #if USE_WAIT_QUEUE
 static int touch_event_handler(void *unused)
 {
@@ -2712,7 +2613,6 @@ static int touch_event_handler(void *unused)
 
 static irqreturn_t pixcir_ts_isr(int irq, void *dev_id)
 {
-
 #if USE_WAIT_QUEUE
 	tpd_flag = 1;
 	wake_up_interruptible(&waiter);
@@ -2837,8 +2737,7 @@ static int tpd_get_bl_info (int show)
 	return retval;
  }
  
-
-static void sy_init()
+static int sy_init(void)
 {
         int retval = TPD_OK;
         int tries = 0;
@@ -2848,7 +2747,7 @@ static void sy_init()
         retval = i2c_smbus_write_i2c_block_data(msg21xx_i2c_client,TPD_REG_BASE,sizeof(host_reg),&host_reg);
        // printk("==sy_init==1==retval:%d==",retval);
         if(retval < TPD_OK)
-	return retval;
+	         return retval;
  
          do{
 	 mdelay(100);
@@ -2934,88 +2833,66 @@ static void sy_init()
 #ifdef ITO_TEST
 static void ito_test_create_entry(void);
 #endif
-static int  pixcir_i2c_ts_probe(struct i2c_client *client,
-					 const struct i2c_device_id *id)
+static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
-	//const struct pixcir_ts_platform_data *pdata = client->dev.platform_data;
+	struct msg2138_ts_platform_data *pdata = client->dev.platform_data;
 	struct pixcir_i2c_ts_data *tsdata;
 	struct input_dev *input;
 	struct device *dev;
 	struct i2c_dev *i2c_dev;
 	int i, error;
-        u32 retval;
- 	
-	/*if (0 != tp_cg_flag)
-	{
-			return -ENODEV;
-	} */ 
-	struct msg2138_ts_platform_data *pdata = client->dev.platform_data;
-	//if (!pdata) {
-	//	dev_err(&client->dev, "platform data not defined\n");
-	//	return -EINVAL;
-	//}
-	
+
 	TPD_DEBUG("msg2138 probe in! \n");
+
+	tsdata = kzalloc(sizeof(*tsdata), GFP_KERNEL);
+	if (!tsdata) {
+		error = -ENOMEM;
+		dev_err(&client->dev, "Failed to allocate tsdata!\n");
+		goto exit_alloc_tsdata_failed;
+	}
+
 	msg21xx_i2c_client = client;
-	client->addr = 0x26;
-	#if 0
-	gpio_request(pdata->irq_gpio_number, "ts_irq_pin");
-	gpio_request(pdata->reset_gpio_number, "ts_rst_pin");
-	gpio_direction_output(pdata->reset_gpio_number, 1);
-	gpio_direction_input(pdata->irq_gpio_number);
-	#endif 
-	
-	//#if defined(CONFIG_ARCH_SC8825)
-	g_cg_reg_vdd = regulator_get(&client->dev, pdata->vdd_name);
-//#else
-//	g_cg_reg_vdd = regulator_get(&client->dev, REGU_NAME_TP);
-//#endif
-	
-	client->irq = pixcir_ts_config_pins(); //reset pin set to 0 or 1 and platform init
-       msleep(10);
+	tsdata->client = client;
+	msg21xx_i2c_ts_data = tsdata;
+	tsdata->platform_data = pdata;
+	MS_TS_MSG21XX_X_MAX = pdata->TP_MAX_X;
+	MS_TS_MSG21XX_Y_MAX = pdata->TP_MAX_Y;
+	//client->addr = 0x26;
+	pixcir_ts_hw_init(tsdata);
+	client->irq = gpio_to_irq(pdata->irq_gpio_number);
+	i2c_set_clientdata(client, tsdata);
 
 #if defined(CONFIG_I2C_SPRD) || defined(CONFIG_I2C_SPRD_V1)
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
 #endif
-	
+
+	/*err = ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
+	if (err < 0)
+	{
+		pr_err("[FST] read chip id error %x\n", uc_reg_value);
+		err = -ENODEV;
+		goto exit_chip_check_failed;
+	}*/
+
 	for(i=0; i<MAX_FINGER_NUM*2; i++) {
 		point_slot[i].active = 0;
 	}
         sy_init();
-
-	/*init_timer(&tp_timer);
-	tp_timer.function = &tp_timer_handle;
-	tp_timer.expires = jiffies +500;
-	add_timer(&tp_timer);*/
 	msleep(200);
-	
-/*#ifdef CONFIG_HAS_EARLYSUSPEND
-		INIT_WORK(&tsdata->resume_work, pixcir_ts_resume_work);
-		tsdata->ts_resume_workqueue = create_singlethread_workqueue("pixcir_ts_resume_work");
-		if (!tsdata->ts_resume_workqueue) {
-			error = -ESRCH;
-			goto err_free_irq;
-		}
-#endif*/
-	
-	
-#if 1
-	tsdata = kzalloc(sizeof(*tsdata), GFP_KERNEL);
+
 	input = input_allocate_device();
-	if (!tsdata || !input) {
-		dev_err(&client->dev, "Failed to allocate driver data!\n");
+	if (!input) {
+		dev_err(&client->dev, "Failed to allocate input device!\n");
 		error = -ENOMEM;
-		goto err_free_mem;
+		goto exit_input_alloc_failed;
 	}
+
 #ifdef TOUCH_VIRTUAL_KEYS
 	pixcir_ts_virtual_keys_init();
 #endif
 
-	tsdata->client = client;
 	tsdata->input = input;
-	//tsdata->chip = pdata;
 	global_irq = client->irq;
-
 	input->name = client->name;
 	input->id.bustype = BUS_I2C;
 	input->dev.parent = &client->dev;
@@ -3033,65 +2910,48 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,
 	__set_bit(KEY_BACK,  input->keybit);
 	__set_bit(KEY_HOME,  input->keybit);
 	__set_bit(KEY_SEARCH,  input->keybit);
-	
+
+	input_set_abs_params(input, ABS_MT_POSITION_X, 0, pdata->TP_MAX_X, 0, 0);
+	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, pdata->TP_MAX_Y, 0, 0);
 	input_set_abs_params(input, ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
-	input_set_abs_params(input, ABS_MT_POSITION_X, 0, MS_TS_MSG21XX_X_MAX, 0, 0);
-	input_set_abs_params(input, ABS_MT_POSITION_Y, 0, MS_TS_MSG21XX_Y_MAX, 0, 0);
-	input_set_abs_params(input, ABS_MT_WIDTH_MAJOR, 0, 200, 0, 0);
-
-
+	input_set_abs_params(input, ABS_MT_WIDTH_MAJOR, 0, 255, 0, 0);
 	input_set_drvdata(input, tsdata);
 
-
-
-		error = request_irq(client->irq, pixcir_ts_isr,
+	error = request_irq(client->irq, pixcir_ts_isr,
 			IRQF_TRIGGER_FALLING, client->name, tsdata);
-
-	/*error = request_threaded_irq(client->irq, NULL, pixcir_ts_isr,
-				     IRQF_TRIGGER_FALLING,
-				     client->name, tsdata);*/
 	if (error) {
 		dev_err(&client->dev, "Unable to request touchscreen IRQ.\n");
-		goto err_free_mem;
+		goto exit_requst_irq_failed;
 	}
 	disable_irq_nosync(client->irq);
 
 	error = input_register_device(input);
 	if (error)
-		goto err_free_irq;
-
-	i2c_set_clientdata(client, tsdata);
+		goto exit_input_register_failed;
 	device_init_wakeup(&client->dev, 1);
 
 	/*********************************Bee-0928-TOP****************************************/
 	i2c_dev = get_free_i2c_dev(client->adapter);
 	if (IS_ERR(i2c_dev)) {
 		error = PTR_ERR(i2c_dev);
-		return error;
+		goto exit_get_i2c_dev_failed;
 	}
 
 	dev = device_create(i2c_dev_class, &client->adapter->dev, MKDEV(I2C_MAJOR,
 			client->adapter->nr), NULL, "pixcir_i2c_ts%d", 0);
 	if (IS_ERR(dev)) {
 		error = PTR_ERR(dev);
-		return error;
+		goto exit_device_create_failed;
 	}
 	/*********************************Bee-0928-BOTTOM****************************************/
 #ifdef CONFIG_HAS_EARLYSUSPEND
-
 	pixcir_early_suspend.level = EARLY_SUSPEND_LEVEL_BLANK_SCREEN + 1;
 	pixcir_early_suspend.suspend = pixcir_ts_suspend;
 	pixcir_early_suspend.resume	= pixcir_ts_resume;
 	register_early_suspend(&pixcir_early_suspend);
 #endif
-	/*if(pixcir_config_intmode()<0) {
-		printk("%s: I2C error\n",__func__);
-		goto err_free_irq;
-	}*/
-
 
 	/*********  frameware upgrade *********/
-	
 #ifdef __FIRMWARE_UPDATE__
 	firmware_class = class_create(THIS_MODULE, "ms-touchscreen-msg20xx");
     if (IS_ERR(firmware_class))
@@ -3119,35 +2979,47 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,
 #ifdef ITO_TEST
     ito_test_create_entry();
 #endif
-	pixcir_create_sysfs(client);
+	error = pixcir_create_sysfs(client);
+	if (error) {
+	       dev_err(&client->dev, "insmod successfully!\n");
+	       goto exit_create_sysfs_failed;
+	};
 
-	dev_err(&tsdata->client->dev, "insmod successfully!\n");
-    
 #ifdef SYSFS_DEBUG
  	cg_tpfwver_readfwver();
 #endif //cg,20130929
 
 #if USE_WAIT_QUEUE
-		thread = kthread_run(touch_event_handler, 0, "pixcir-wait-queue");
-		if (IS_ERR(thread))
-		{
-			error = PTR_ERR(thread);
-			TPD_DEBUG("failed to create kernel thread: %d\n", err);
-		}
+	thread = kthread_run(touch_event_handler, 0, "pixcir-wait-queue");
+	if (IS_ERR(thread))
+	{
+		error = PTR_ERR(thread);
+		dev_err(&client->dev, "failed to create kernel thread\n");
+		goto exit_kthread_run_failed;
+	}
 #endif
 
 	enable_irq(client->irq);
 	//tp_cg_flag=2;
 	return 0;
 
-err_free_irq:
+exit_kthread_run_failed:
+exit_create_sysfs_failed:
+exit_device_create_failed:
+exit_get_i2c_dev_failed:
+	input_unregister_device(input);
+exit_input_register_failed:
 	free_irq(client->irq, tsdata);
-	//sprd_free_gpio_irq(pixcir_irq);
-err_free_mem:
+exit_requst_irq_failed:
 	input_free_device(input);
+exit_input_alloc_failed:
+	gpio_free(pdata->irq_gpio_number);
+	gpio_free(pdata->reset_gpio_number);
 	kfree(tsdata);
-	#endif
-	
+exit_alloc_tsdata_failed:
+	tsdata = NULL;
+	pdata = NULL;
+	client = NULL;
 	return error;
 }
 
@@ -3174,7 +3046,6 @@ static int  pixcir_i2c_ts_remove(struct i2c_client *client)
 	device_destroy(i2c_dev_class, MKDEV(I2C_MAJOR, client->adapter->nr));
 	/*********************************Bee-0928-BOTTOM****************************************/
 	unregister_early_suspend(&pixcir_early_suspend);
-	//sprd_free_gpio_irq(pixcir_irq);
 	input_unregister_device(tsdata->input);
 	kfree(tsdata);
 
@@ -3227,7 +3098,7 @@ static int pixcir_open(struct inode *inode, struct file *file)
 /*************************************Bee-0928****************************************/
 static long pixcir_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-	struct i2c_client *client = (struct i2c_client *) file->private_data;
+	//struct i2c_client *client = (struct i2c_client *) file->private_data;
 
 	PIXCIR_DBG("pixcir_ioctl(),cmd = %d,arg = %ld\n", cmd, arg);
 
@@ -3286,8 +3157,8 @@ static long pixcir_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 /***********************************Bee-0928****************************************/
 static ssize_t pixcir_read (struct file *file, char __user *buf, size_t count,loff_t *offset)
 {
-	struct i2c_client *client = (struct i2c_client *)file->private_data;
-	unsigned char *tmp, bootloader_stu[4], attb_value[1];
+	//struct i2c_client *client = (struct i2c_client *)file->private_data;
+	//unsigned char *tmp, bootloader_stu[4], attb_value[1];
 	int ret = 0;
 #if 0
 	switch(status_reg)
@@ -3353,9 +3224,9 @@ static ssize_t pixcir_read (struct file *file, char __user *buf, size_t count,lo
 /***********************************Bee-0928****************************************/
 static ssize_t pixcir_write(struct file *file,const char __user *buf,size_t count, loff_t *ppos)
 {
-	struct i2c_client *client;
-	unsigned char *tmp, bootload_data[143];
-	int ret=0, i=0;
+	//struct i2c_client *client;
+	//unsigned char *tmp, bootload_data[143];
+	int ret=0;
 #if 0
 	client = file->private_data;
 
@@ -3464,7 +3335,6 @@ static const struct file_operations pixcir_i2c_ts_fops =
 };
 /*********************************Bee-0928-BOTTOM****************************************/
 
-
 static const struct i2c_device_id pixcir_i2c_ts_id[] = {
 	{ "pixcir_ts", 0x26 },//0
 	{ }
@@ -3528,7 +3398,6 @@ module_exit(pixcir_i2c_ts_exit);
 
 #ifdef ITO_TEST
 
-//modify:¸ù¾ÝÏîÄ¿ÐÞ¸Ä
 #include "./ito_test/open_test_ANA1_8861A_lianchuang.h"
 #include "./ito_test/open_test_ANA2_8861A_lianchuang.h"
 #include "./ito_test/open_test_ANA1_B_8861A_lianchuang.h"
@@ -3586,7 +3455,7 @@ u8 *MAP41_4 = NULL;
 #define BIT15 (1<<15)
 
 
-static int ito_test_i2c_read(u8 addr, u8* read_data, u16 size)//modify : ¸ù¾ÝÏîÄ¿ÐÞ¸Ä msg21xx_i2c_client
+static int ito_test_i2c_read(u8 addr, u8* read_data, u16 size)
 {
     int rc;
     u8 addr_before = msg21xx_i2c_client->addr;
@@ -3620,7 +3489,7 @@ static int ito_test_i2c_read(u8 addr, u8* read_data, u16 size)//modify : ¸ù¾ÝÏîÄ
     return rc;
 }
 
-static int ito_test_i2c_write(u8 addr, u8* data, u16 size)//modify : ¸ù¾ÝÏîÄ¿ÐÞ¸Ä msg21xx_i2c_client
+static int ito_test_i2c_write(u8 addr, u8* data, u16 size)
 {
     int rc;
     u8 addr_before = msg21xx_i2c_client->addr;
@@ -3654,32 +3523,33 @@ static int ito_test_i2c_write(u8 addr, u8* data, u16 size)//modify : ¸ù¾ÝÏîÄ¿ÐÞ¸
     return rc;
 }
 
-static void ito_test_reset(void)//modify:¸ù¾ÝÏîÄ¿ÐÞ¸Ä
+static void ito_test_reset(void)
 {
-	gpio_direction_output(sprd_3rdparty_gpio_tp_rst, 1);
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 1);
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 0);
+	struct msg2138_ts_platform_data *pdata = msg21xx_i2c_ts_data->platform_data;
+	gpio_direction_output(pdata->reset_gpio_number, 1);
+	gpio_set_value(pdata->reset_gpio_number, 1);
+	gpio_set_value(pdata->reset_gpio_number, 0);
 	mdelay(100);  
-    ITO_TEST_DEBUG("reset tp\n");
-	gpio_set_value(sprd_3rdparty_gpio_tp_rst, 1);
+	ITO_TEST_DEBUG("reset tp\n");
+	gpio_set_value(pdata->reset_gpio_number, 1);
 	mdelay(200);
 }
-static void ito_test_disable_irq(void)//modify:¸ù¾ÝÏîÄ¿ÐÞ¸Ä
+static void ito_test_disable_irq(void)
 {
 	disable_irq_nosync(global_irq);
 }
-static void ito_test_enable_irq(void)//modify:¸ù¾ÝÏîÄ¿ÐÞ¸Ä
+static void ito_test_enable_irq(void)
 {
 	enable_irq(global_irq);
 }
 
-static void ito_test_set_iic_rate(u32 iicRate)//modify:¸ù¾ÝÆ½Ì¨ÐÞ¸Ä,iicËÙÂÊÒªÇó50K
+static void ito_test_set_iic_rate(u32 iicRate)
 {
-	#ifdef CONFIG_I2C_SPRD//Õ¹Ñ¶Æ½Ì¨
+	#ifdef CONFIG_I2C_SPRD
         sprd_i2c_ctl_chg_clk(msg21xx_i2c_client->adapter->nr, iicRate);
         mdelay(100);
 	#endif
-    #if MTK//MTKÆ½Ì¨
+    #if MTK
         msg21xx_i2c_client->timing = iicRate/1000;
     #endif
 }
@@ -3727,7 +3597,6 @@ static u32 ito_test_get_TpType(void)
     
 }
 
-//modify:×¢Òâ¸ÃÏîÄ¿tpÊýÄ¿
 #define TP_OF_LIANCHUANG    (2)
 static u32 ito_test_choose_TpType(void)
 {
@@ -3758,7 +3627,7 @@ static u32 ito_test_choose_TpType(void)
     {
         tpType = ito_test_get_TpType();
         ITO_TEST_DEBUG("tpType=%d;i=%d;\n",tpType,i);
-        if(TP_OF_LIANCHUANG==tpType)//modify:×¢Òâ¸ÃÏîÄ¿tpÊýÄ¿
+        if(TP_OF_LIANCHUANG==tpType)
         {
             break;
         }
@@ -3772,7 +3641,7 @@ static u32 ito_test_choose_TpType(void)
         }
     }
     
-    if(TP_OF_LIANCHUANG==tpType)//modify:×¢Òâ¸ÃÏîÄ¿tpÊýÄ¿
+    if(TP_OF_LIANCHUANG==tpType)
     {
         open_1 = open_1_lianchuang;
         open_1B = open_1B_lianchuang;
@@ -4233,7 +4102,7 @@ ITO_TEST_RET ito_test_second (u8 item_id)
 			if (s16_raw_data_1[MAP40_1[i]] > jg_tmp1_avg_Th_max || s16_raw_data_1[MAP40_1[i]] < jg_tmp1_avg_Th_min) 
 				return ITO_TEST_FAIL;
 		}
-		for (i=0; i<(ito_test_trianglenum/2)-3; i++)//modify: ×¢Òâsensor´ÎÐò
+		for (i=0; i<(ito_test_trianglenum/2)-3; i++)
         {
             if (s16_raw_data_1[MAP40_1[i]] > s16_raw_data_1[MAP40_1[i+1]] ) 
                 return ITO_TEST_FAIL;
@@ -4252,7 +4121,7 @@ ITO_TEST_RET ito_test_second (u8 item_id)
 			if (s16_raw_data_2[MAP41_1[i]] > jg_tmp1_avg_Th_max || s16_raw_data_2[MAP41_1[i]] < jg_tmp1_avg_Th_min) 
 				return ITO_TEST_FAIL;
 		}
-        for (i=0; i<(ito_test_trianglenum/2)-3; i++)//modify: ×¢Òâsensor´ÎÐò
+        for (i=0; i<(ito_test_trianglenum/2)-3; i++)
         {
             if (s16_raw_data_2[MAP41_1[i]] < s16_raw_data_2[MAP41_1[i+1]] ) 
                 return ITO_TEST_FAIL;
@@ -4591,7 +4460,6 @@ static void ito_test_create_entry(void)
     }
 }
 #endif
-
 MODULE_AUTHOR("Jianchun Bian <jcbian@pixcir.com.cn>");
 MODULE_DESCRIPTION("Pixcir I2C Touchscreen Driver");
 MODULE_LICENSE("GPL");

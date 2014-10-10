@@ -7,8 +7,10 @@
 #define VIRTUAL_KEYS				1
 #define MSG2138_UPDATE				1
 
-#define TS_WIDTH_MAX				480
-#define	TS_HEIGHT_MAX				800
+//#define TS_WIDTH_MAX				480
+//#define	TS_HEIGHT_MAX				800
+static int MS_TS_MSG21XX_X_MAX = 0;
+static int MS_TS_MSG21XX_Y_MAX = 0;
 
 #define MSG2138_BUS_NUM			2
 #define MSG2138_TS_NAME	   	    "msg2138"
@@ -31,7 +33,6 @@ struct msg2138_ts_platform_data{
 	int irq_gpio_number;
 	int reset_gpio_number;
 	const char *vdd_name;
-	int virtualkeys[12];
 	int TP_MAX_X;
 	int TP_MAX_Y;
 };

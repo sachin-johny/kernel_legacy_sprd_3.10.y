@@ -388,6 +388,15 @@
 			TP_MAX_X = <480>;
 			TP_MAX_Y = <800>;
 		 };
+		 pixcir_ts@26{
+			compatible = "msg2138,pixcir_ts";
+			reg = <0x26>;
+			gpios = <&d_gpio_gpio 145 0
+                                 &d_gpio_gpio 144 0>;
+			vdd_name = "vdd28";
+			TP_MAX_X = <480>;
+			TP_MAX_Y = <800>;
+		 };
 	 };
 	 sprd_dcam{
 		 compatible  = "sprd,sprd_dcam";

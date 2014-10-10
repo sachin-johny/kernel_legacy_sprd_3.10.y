@@ -39,9 +39,9 @@
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 #include <linux/i2c/ltr_558als.h>
 #endif
-//#include <linux/i2c/ft53x6_ts.h>
-//#include <linux/i2c/lis3dh.h>
-//#include <linux/i2c/ltr_558als.h>
+#if(defined(CONFIG_TOUCHSCREEN_MSG2138)||defined(CONFIG_TOUCHSCREEN_MSG2138_MODULE))
+#include <linux/i2c/msg2138.h>
+#endif
 //#include <linux/akm8975.h>
 #include <linux/spi/spi.h>
 #include <linux/gpio.h>
@@ -610,6 +610,16 @@ static struct ft5x0x_ts_platform_data ft5x0x_ts_info = {
 	.TP_MAX_Y = 800,
 };
 #endif
+#if(defined(CONFIG_TOUCHSCREEN_MSG2138)||defined(CONFIG_TOUCHSCREEN_MSG2138_MODULE))
+static struct msg2138_ts_platform_data msg2138_ts_info = {
+	// // cg
+	.irq_gpio_number	= GPIO_TOUCH_IRQ,
+	.reset_gpio_number	= GPIO_TOUCH_RESET,
+	.vdd_name 			= "vdd28",
+	.TP_MAX_X        = 480,
+	.TP_MAX_Y        = 800,
+};
+#endif
 
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 static struct ltr558_pls_platform_data ltr558_pls_info = {
@@ -690,12 +700,16 @@ static struct i2c_board_info i2c0_boardinfo[] = {
 };
 
 static struct i2c_board_info i2c3_boardinfo[] = {
-	{
 #if(defined(CONFIG_TOUCHSCREEN_FOCALTECH)||defined(CONFIG_TOUCHSCREEN_FOCALTECH_MODULE))
-		I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
-		.platform_data = &ft5x0x_ts_info,
-#endif
+	{ I2C_BOARD_INFO(FOCALTECH_TS_NAME, FOCALTECH_TS_ADDR),
+	  .platform_data = &ft5x0x_ts_info,
 	},
+#endif
+#if(defined(CONFIG_TOUCHSCREEN_MSG2138)||defined(CONFIG_TOUCHSCREEN_MSG2138_MODULE))
+	{ I2C_BOARD_INFO("pixcir_ts", 0x26),
+	  .platform_data = &msg2138_ts_info,
+	},
+#endif
 };
 
 static int sc8810_add_i2c_devices(void)
