@@ -601,7 +601,7 @@ int sblock_send_finish(uint8_t dst, uint8_t channel)
 	struct sblock_ring *ring;
 	volatile struct sblock_ring_header *ringhd;
 	struct smsg mevt;
-	int rval;
+	int rval = 0;
 
 	if (!sblock || sblock->state != SBLOCK_STATE_READY) {
 		printk(KERN_ERR "sblock-%d-%d not ready!\n", dst, channel);
