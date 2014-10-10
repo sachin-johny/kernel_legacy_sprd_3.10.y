@@ -431,6 +431,7 @@ static void raise_exception(struct fsg_common *common, enum fsg_state new_state)
 	 * If a lower-or-equal priority exception is in progress, preempt it
 	 * and notify the main thread by sending it a signal.
 	 */
+	printk("%s:state=%d,%d fsg=%p \n",__func__,common->state,new_state,common->new_fsg);
 	spin_lock_irqsave(&common->lock, flags);
 	if (common->state <= new_state) {
 		common->exception_req_tag = common->ep0_req_tag;
@@ -2356,12 +2357,12 @@ reset:
 	if (!new_fsg || rc)
 		return rc;
 
-	common->fsg = new_fsg;
-	fsg = common->fsg;
 	if(new_fsg->common != common){
 		printk("%s new_fsg->common = 0x%x common = 0x%x\n",__func__,new_fsg->common,common);
 		return rc;
 	}
+	common->fsg = new_fsg;
+	fsg = common->fsg;
 
 	/* Enable the endpoints */
 	rc = config_ep_by_speed(common->gadget, &(fsg->function), fsg->bulk_in);
@@ -2413,7 +2414,9 @@ reset:
 static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+
 	fsg->common->new_fsg = fsg;
+	printk("%s f=%p,fsg=%p\n",__func__,f,fsg);
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 	return USB_GADGET_DELAYED_STATUS;
 }
@@ -2421,6 +2424,8 @@ static int fsg_set_alt(struct usb_function *f, unsigned intf, unsigned alt)
 static void fsg_disable(struct usb_function *f)
 {
 	struct fsg_dev *fsg = fsg_from_func(f);
+
+	printk("%s f=%p\n",__func__,f);
 	fsg->common->new_fsg = NULL;
 	raise_exception(fsg->common, FSG_STATE_CONFIG_CHANGE);
 }
