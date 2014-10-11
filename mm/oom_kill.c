@@ -652,10 +652,11 @@ void out_of_memory(struct zonelist *zonelist, gfp_t gfp_mask,
 	int killed = 0;
 
 	blocking_notifier_call_chain(&oom_notify_list, 0, &freed);
-	if (freed > 0)
+	if (freed > 0) {
 		/* Got some memory back in the last second. */
 		printk("== oom out_of_memory  1\n");
 		return;
+	}
 
 	/*
 	 * If current has a pending SIGKILL or is exiting, then automatically
