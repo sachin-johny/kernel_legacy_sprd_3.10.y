@@ -75,7 +75,7 @@
 
 /*********************************Bee-0928-TOP****************************************/
 //#define SYSFS_DEBUG  //cg,20130929
-//#define PIXCIR_DEBUG		
+#define PIXCIR_DEBUG
 //#define PIXCIR_CQ_CALL		0
 #ifdef PIXCIR_DEBUG
 #define PIXCIR_DBG(format, ...)	\
@@ -121,7 +121,7 @@
 #define TPD_SYSINFO_MODE 0x10
 #define GET_HSTMODE(reg)  ((reg & 0x70) >> 4)  // in op mode or not 
 #define GET_BOOTLOADERMODE(reg) ((reg & 0x10) >> 4)  // in bl mode 
-#define	__FIRMWARE_UPDATE__
+//#define	__FIRMWARE_UPDATE__
 #define REG_RT_PRIO(x) ((x) | 0x10000000)
 #define RTPM_PRIO_TPD               REG_RT_PRIO(4)
 
@@ -231,6 +231,8 @@ static struct pixcir_i2c_ts_data *msg21xx_i2c_ts_data;
 static int global_irq;
 static struct i2c_driver pixcir_i2c_ts_driver;
 static struct class *i2c_dev_class;
+static int MS_TS_MSG21XX_X_MAX = 0;
+static int MS_TS_MSG21XX_Y_MAX = 0;
 
 static LIST_HEAD( i2c_dev_list);
 static DEFINE_SPINLOCK( i2c_dev_list_lock);
@@ -2230,14 +2232,7 @@ static void pixcir_ts_resume(struct early_suspend *handler)
 #endif
 
 #ifdef TOUCH_VIRTUAL_KEYS
-#define SC8810_KEY_HOME	102
-#define SC8810_KEY_MENU	30
-#define SC8810_KEY_BACK	17
-#define SC8810_KEY_SEARCH  217
-
-//static char keymap[]={SC8810_KEY_MENU,SC8810_KEY_HOME,SC8810_KEY_BACK};
-
-static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+/*static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
 {
 	return sprintf(buf,
 		__stringify(EV_KEY) ":" __stringify(KEY_HOMEPAGE) ":192:1000:64:60"
@@ -2245,6 +2240,15 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 		":" __stringify(EV_KEY) ":" __stringify(KEY_BACK) ":128:1000:64:60"
 		":" __stringify(EV_KEY) ":" __stringify(KEY_SEARCH) ":64:1000:64:60"
 		"\n");
+}*/
+static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *attr, char *buf)
+{
+	struct pixcir_i2c_ts_data *data = i2c_get_clientdata(msg21xx_i2c_client);
+	struct msg2138_ts_platform_data *pdata = data->platform_data;
+	return sprintf(buf,"%s:%s:%d:%d:%d:%d:%s:%s:%d:%d:%d:%d:%s:%s:%d:%d:%d:%d\n"
+		,__stringify(EV_KEY), __stringify(KEY_MENU),pdata ->virtualkeys[0],pdata ->virtualkeys[1],pdata ->virtualkeys[2],pdata ->virtualkeys[3]
+		,__stringify(EV_KEY), __stringify(KEY_HOMEPAGE),pdata ->virtualkeys[4],pdata ->virtualkeys[5],pdata ->virtualkeys[6],pdata ->virtualkeys[7]
+		,__stringify(EV_KEY), __stringify(KEY_BACK),pdata ->virtualkeys[8],pdata ->virtualkeys[9],pdata ->virtualkeys[10],pdata ->virtualkeys[11]);
 }
 
 static struct kobj_attribute virtual_keys_attr = {
@@ -2557,6 +2561,7 @@ static void pixcir_ts_poscheck(struct pixcir_i2c_ts_data *data)
 					input_report_abs(tsdata->input, ABS_MT_POSITION_Y,  point_slot[i].posy);
 					//input_report_abs(tsdata->input, ABS_MT_TOUCH_MAJOR, 15);
 					//input_report_abs(tsdata->input, ABS_MT_WIDTH_MAJOR, 1);
+					input_report_key(tsdata->input, BTN_TOUCH, 1);
 					input_mt_sync(tsdata->input);
 					PIXCIR_DBG("%s: slot=%d,x%d=%d,y%d=%d\n",__func__, i, i/2,point_slot[i].posx, i/2, point_slot[i].posy);
 				}
@@ -2841,7 +2846,7 @@ static void ito_test_create_entry(void);
 #ifdef CONFIG_OF
 static struct msg2138_ts_platform_data *pixcir_ts_parse_dt(struct device *dev)
 {
-	struct msg2138_ts_platform_data *pdata;
+	struct msg2138_ts_platform_data *pdata = NULL;
 	struct device_node *np = dev->of_node;
 	int ret;
 
@@ -2865,11 +2870,11 @@ static struct msg2138_ts_platform_data *pixcir_ts_parse_dt(struct device *dev)
 		dev_err(dev, "fail to get vdd_name\n");
 		goto fail;
 	}
-	/*ret = of_property_read_u32_array(np, "virtualkeys", &pdata->virtualkeys,12);
+	ret = of_property_read_u32_array(np, "virtualkeys", &pdata->virtualkeys,12);
 	if(ret){
 		dev_err(dev, "fail to get virtualkeys\n");
 		goto fail;
-	}*/
+	}
 	ret = of_property_read_u32(np, "TP_MAX_X", &pdata->TP_MAX_X);
 	if(ret){
 		dev_err(dev, "fail to get TP_MAX_X\n");
@@ -2891,10 +2896,10 @@ fail:
 static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
 	struct msg2138_ts_platform_data *pdata = client->dev.platform_data;
-	struct pixcir_i2c_ts_data *tsdata;
-	struct input_dev *input;
-	struct device *dev;
-	struct i2c_dev *i2c_dev;
+	struct pixcir_i2c_ts_data *tsdata = NULL;
+	struct input_dev *input = NULL;
+	struct device *dev = NULL;
+	struct i2c_dev *i2c_dev = NULL;
 	int i, error;
 
 	TPD_DEBUG("msg2138 probe in! \n");
@@ -3086,10 +3091,9 @@ exit_input_alloc_failed:
 	gpio_free(pdata->reset_gpio_number);
 	kfree(tsdata);
 exit_alloc_tsdata_failed:
-exit_alloc_platform_data_failed:
-	tsdata = NULL;
 	pdata = NULL;
 	client = NULL;
+exit_alloc_platform_data_failed:
 	return error;
 }
 

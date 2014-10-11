@@ -616,6 +616,11 @@ static struct msg2138_ts_platform_data msg2138_ts_info = {
 	.irq_gpio_number	= GPIO_TOUCH_IRQ,
 	.reset_gpio_number	= GPIO_TOUCH_RESET,
 	.vdd_name 			= "vdd28",
+	.virtualkeys = {
+	         256,1000,64,60,
+	         192,1000,64,60,
+	         128,1000,64,60
+	},
 	.TP_MAX_X        = 480,
 	.TP_MAX_Y        = 800,
 };
