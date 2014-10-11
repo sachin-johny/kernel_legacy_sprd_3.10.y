@@ -108,7 +108,8 @@ struct ion_handle {
 };
 
 static int ion_debug_heap_show_err(struct ion_heap *heap);
-
+static size_t ion_debug_heap_total(struct ion_client *client,
+				   unsigned int id);
 
 
 bool ion_buffer_fault_user_mappings(struct ion_buffer *buffer)
@@ -465,6 +466,7 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 	struct ion_buffer *buffer = NULL;
 	struct ion_heap *heap;
 	int ret;
+	size_t size;
 
 	pr_debug("%s: len %d align %d heap_id_mask %u flags %x\n", __func__,
 		 len, align, heap_id_mask, flags);
@@ -479,11 +481,22 @@ struct ion_handle *ion_alloc(struct ion_client *client, size_t len,
 
 	len = PAGE_ALIGN(len);
 
+	/*one allocation size should < 32M bytes */
+	if (len > (1 << 25))
+		return ERR_PTR(-EINVAL);
+
 	down_read(&dev->lock);
 	plist_for_each_entry(heap, &dev->heaps, node) {
 		/* if the caller didn't specify this heap id */
 		if (!((1 << heap->id) & heap_id_mask))
 			continue;
+
+		/* all allocation size should < totol memory/4 */
+		size = ion_debug_heap_total(client, heap->id);
+		buffer = NULL;
+		if (len + size > ((totalram_pages * PAGE_SIZE) >> 2))
+			break;
+
 		buffer = ion_buffer_create(heap, dev, len, align, flags);
 		if (!IS_ERR(buffer))
 			break;
