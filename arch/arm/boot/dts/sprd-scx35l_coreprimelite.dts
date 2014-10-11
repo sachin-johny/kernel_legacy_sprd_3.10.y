@@ -325,26 +325,26 @@
 		rsense_spec = <200>; /* sense resistor 0.1mOhm from specification*/
 		relax_current = <50>; /* current for relaxation in mA (< C/20) */
 		cal_ajust = <0>; /* ajust calibration data */
-		ocv_table = <4386 100
-					 4332 95
-					 4277 90
-					 4221 85
-					 4166 80
-					 4113 75
-					 4063 70
-					 4018 65
-					 3977 60
-					 3933 55
-					 3881 50
-					 3850 45
-					 3826 40
-					 3807 35
-					 3791 30
-					 3778 25
-					 3762 20
-					 3742 15
-					 3711 10
-					 3683 5
+		ocv_table = <4384 100
+					 4324 95
+					 4264 90
+					 4204 85
+					 4146 80
+					 4092 75
+					 4041 70
+					 3991 65
+					 3952 60
+					 3897 55
+					 3855 50
+					 3828 45
+					 3807 40
+					 3790 35
+					 3777 30
+					 3769 25
+					 3750 20
+					 3720 15
+					 3684 10
+					 3672 5
 					 3400 0>;
 		sprd_fgu: sprd_fgu{
 			compatible = "sprd,sprd_fgu";
