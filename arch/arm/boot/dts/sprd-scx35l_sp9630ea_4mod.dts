@@ -483,7 +483,18 @@
 				<0x07a00000 0x200000>, /* <SMEM_phy_addr total_size> */
 				<0x0ffff000 0x1000>; /* smsg ring buffer <base size> */
 		};
+	};
 
+        sctrl_pmic{
+                compatible = "sprd,sctrl";
+                sprd,name = "sctrl_pmic";
+                sprd,dst = <6>;
+                sprd,channel= <1>;
+                /* it's unnecessary to config IPI info upon mailbox arch */
+                mailbox,core = <1>;
+		sprd,ringbase = <0xf5429000>; /* SMSG ring mem base address*/
+                sprd,size-rxbuf = <0x0400>; /* 2*1024*/
+		sprd,size-txbuf = <0x0400>; /* 2*1024 */
 	};
 
 	saudio_lte{

@@ -20,12 +20,24 @@
 #ifdef CONFIG_OF
 #include <linux/of_device.h>
 #endif
+#include "../../arch/arm/mach-sc/include/mach/mailbox.h"
 #include <linux/sched.h>
 #include <linux/kthread.h>
 #include <linux/delay.h>
 #include <linux/sipc.h>
 #include <linux/spipe.h>
+#include <linux/sipc_priv.h>
 #include "sctrl.h"
+#define SMSG_TXBUF_ADDR		(0)
+#define SMSG_TXBUF_SIZE		(SZ_1K)
+#define SMSG_RXBUF_ADDR		(SMSG_TXBUF_SIZE)
+#define SMSG_RXBUF_SIZE		(SZ_1K)
+
+#define SMSG_RINGHDR		(SMSG_TXBUF_SIZE + SMSG_RXBUF_SIZE)
+#define SMSG_TXBUF_RDPTR	(SMSG_RINGHDR + 0)
+#define SMSG_TXBUF_WRPTR	(SMSG_RINGHDR + 4)
+#define SMSG_RXBUF_RDPTR	(SMSG_RINGHDR + 8)
+#define SMSG_RXBUF_WRPTR	(SMSG_RINGHDR + 12)
 
 struct sctrl_device {
 	struct spipe_init_data	*init;
@@ -72,7 +84,7 @@ static int sctrl_thread(void *data)
     /* since the channel open may hang, we call it in the sctrl thread */
     rval = smsg_ch_open(strcl_mgr_ptr->dst, strcl_mgr_ptr->channel, -1);
     if (rval != 0) {
-        printk(KERN_ERR "Failed to open channel %d\n", strcl_mgr_ptr->channel);
+        printk(KERN_ERR "Failed to open channel %d, rval=%d\n", strcl_mgr_ptr->channel,rval);
         /* assign NULL to thread poniter as failed to open channel */
         strcl_mgr_ptr->thread = NULL;
         return rval;
@@ -264,7 +276,42 @@ static long sctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	return 0;
 }
+uint32_t pmic_rxirq_status(void)
+{
+    return 1;
+}
+void pmic_rxirq_clear(void)
+{
+}
+void pmic_txirq_trigger(void)
+{
+    mbox_raw_sent(ARM7, 0);
+}
 
+static struct smsg_ipc smsg_ipc_pmic = {
+	.name = "sipc-pmic",
+	.dst = SIPC_ID_PMIC,
+	.core_id = ARM7,
+	.rxirq_status = pmic_rxirq_status,
+	.rxirq_clear = pmic_rxirq_clear,
+	.txirq_trigger = pmic_txirq_trigger,
+};
+
+static int __init sipc_pmic_init(uint32_t base)
+{
+
+	smsg_ipc_pmic.txbuf_size = SMSG_TXBUF_SIZE / sizeof(struct smsg);
+	smsg_ipc_pmic.txbuf_addr = base + SMSG_TXBUF_ADDR;
+	smsg_ipc_pmic.txbuf_rdptr =base+0x1c00+ 0;
+	smsg_ipc_pmic.txbuf_wrptr = base+0x1c00+ 4;
+
+	smsg_ipc_pmic.rxbuf_size = SMSG_RXBUF_SIZE / sizeof(struct smsg);
+	smsg_ipc_pmic.rxbuf_addr = base + SMSG_RXBUF_ADDR;
+	smsg_ipc_pmic.rxbuf_rdptr =  base+0x1c00+ 8;
+	smsg_ipc_pmic.rxbuf_wrptr =  base+0x1c00+ 12;
+
+	return smsg_ipc_create(SIPC_ID_PMIC, &smsg_ipc_pmic);
+}
 static const struct file_operations sctrl_fops = {
 	.open		= sctrl_open,
 	.release	= sctrl_release,
@@ -281,6 +328,9 @@ static int sctrl_parse_dt(struct spipe_init_data **init, struct device *dev)
 #ifdef CONFIG_OF
 	struct device_node *np = dev->of_node;
 	struct spipe_init_data *pdata = NULL;
+        uint32_t ring_base = 0;
+        uint32_t rxbuf_size = 0;
+        uint32_t txbuf_size = 0;
 	int ret;
 	uint32_t data;
 
@@ -292,35 +342,39 @@ static int sctrl_parse_dt(struct spipe_init_data **init, struct device *dev)
 
 	ret = of_property_read_string(np, "sprd,name", (const char**)&pdata->name);
 	if (ret) {
+		printk(KERN_ERR "Failed to read sprd name\n");
 		goto error;
 	}
 
 	ret = of_property_read_u32(np, "sprd,dst", (uint32_t *)&data);
 	if (ret) {
+		printk(KERN_ERR "Failed to read sprd dst\n");
 		goto error;
 	}
 	pdata->dst = (uint8_t)data;
 
 	ret = of_property_read_u32(np, "sprd,channel", (uint32_t *)&data);
 	if (ret) {
+		printk(KERN_ERR "Failed to read sprd channel\n");
 		goto error;
 	}
 	pdata->channel = (uint8_t)data;
-
-	ret = of_property_read_u32(np, "sprd,ringnr", (uint32_t *)&pdata->ringnr);
+	ret = of_property_read_u32(np, "sprd,ringbase", &ring_base);
 	if (ret) {
 		goto error;
 	}
 
-	ret = of_property_read_u32(np, "sprd,size-rxbuf", (uint32_t *)&pdata->rxbuf_size);
+	ret = of_property_read_u32(np, "sprd,size-rxbuf", &rxbuf_size);
 	if (ret) {
 		goto error;
 	}
 
-	ret = of_property_read_u32(np, "sprd,size-txbuf", (uint32_t *)&pdata->txbuf_size);
+	ret = of_property_read_u32(np, "sprd,size-txbuf", &txbuf_size);
 	if (ret) {
 		goto error;
 	}
+        pr_info("sipc_pmic_init with base=0x%x\n", ring_base);
+        sipc_pmic_init(ring_base);
 	*init = pdata;
 	return ret;
 error:
@@ -379,7 +433,6 @@ static int sctrl_probe(struct platform_device *pdev)
 		printk(KERN_ERR "Failed to allocate sctrl_device\n");
 		return -ENOMEM;
 	}
-
 	rval = alloc_chrdev_region(&devid, 0, init->ringnr, init->name);
 	if (rval != 0) {
 		sbuf_destroy(init->dst, init->channel);
