@@ -125,13 +125,13 @@ int sprd_iova_unmap(int iommu_id, unsigned long iova,  struct ion_buffer *handle
 
 void sprd_iommu_module_enable(uint32_t iommu_id)
 {
-	if (IOMMU_GSP == iommu_id)
+	if (IOMMU_GSP == iommu_id || iommu_devs[iommu_id]->light_sleep_en)
 		iommu_devs[iommu_id]->ops->enable(iommu_devs[iommu_id]);
 }
 
 void sprd_iommu_module_disable(uint32_t iommu_id)
 {
-	if (IOMMU_GSP == iommu_id)
+        if (IOMMU_GSP == iommu_id || iommu_devs[iommu_id]->light_sleep_en)
 		iommu_devs[iommu_id]->ops->disable(iommu_devs[iommu_id]);
 }
 
@@ -259,6 +259,7 @@ static int sprd_iommu_probe(struct platform_device *pdev)
         /*If ddr frequency >= 500Mz, iommu need div2 frequency,
          * because frq of iommu is lower than ddr frq.*/
         iommu_dev->div2_frq = 500;
+        iommu_dev->light_sleep_en = false;
 
 #ifndef CONFIG_OF
 	if(0==strncmp("sprd_iommu_gsp",pdata->name,14))

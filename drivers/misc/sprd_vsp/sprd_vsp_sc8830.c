@@ -100,11 +100,13 @@ struct vsp_dev {
     struct clk *vsp_clk;
     struct clk *vsp_parent_clk;
     struct clk *mm_clk;
+    struct clk *mm_clk_axi;
 
     unsigned int irq;
 
     struct vsp_fh *vsp_fp;
     struct device_node *dev_np;
+    bool  light_sleep_en;
 };
 
 static struct vsp_dev vsp_hw_dev;
@@ -255,10 +257,32 @@ static long vsp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 #endif
         vsp_fp->is_vsp_aquired = 1;
         vsp_hw_dev.vsp_fp = vsp_fp;
+
+        if (vsp_hw_dev.light_sleep_en) {
+            pr_debug("VSP mmi_clk open\n");
+            ret = clk_prepare_enable(vsp_hw_dev.mm_clk);
+            if (ret) {
+                printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_prepare_enable() failed!\n");
+                return ret;
+            } else {
+                pr_debug("###vsp_hw_dev.mm_clk: clk_prepare_enable() ok.\n");
+            }
+#if defined(CONFIG_SPRD_IOMMU)
+            sprd_iommu_module_enable(IOMMU_MM);
+#endif
+        }
         pr_debug("vsp ioctl VSP_ACQUAIRE end\n");
         break;
     case VSP_RELEASE:
         pr_debug("vsp ioctl VSP_RELEASE\n");
+
+        if (vsp_hw_dev.light_sleep_en) {
+#if defined(CONFIG_SPRD_IOMMU)
+            sprd_iommu_module_disable(IOMMU_MM);
+#endif
+            clk_disable_unprepare(vsp_hw_dev.mm_clk);
+            pr_debug("VSP mmi_clk close\n");
+        }
         vsp_fp->is_vsp_aquired = 0;
         vsp_hw_dev.vsp_fp = NULL;
         up(&vsp_hw_dev.vsp_mutex);
@@ -435,6 +459,7 @@ static int vsp_nocache_mmap(struct file *filp, struct vm_area_struct *vma)
 static int vsp_set_mm_clk(void)
 {
     int ret =0;
+    struct clk *clk_mm_axi;
     struct clk *clk_mm_i;
     struct clk *clk_vsp;
     struct clk *clk_parent;
@@ -444,6 +469,20 @@ static int vsp_set_mm_clk(void)
     printk(KERN_INFO "vsp_set_mm_clk: vsp_instance_cnt %d\n", instance_cnt);
 
 #if defined(CONFIG_ARCH_SCX35)
+
+#ifdef CONFIG_OF
+    clk_mm_axi = of_clk_get_by_name(vsp_hw_dev.dev_np, "clk_mm_axi");
+    if (IS_ERR(clk_mm_axi) || (!clk_mm_axi)) {
+        printk(KERN_ERR "###: Failed : Can't get clock [%s}!\n",
+               "clk_mm_axi");
+        printk(KERN_ERR "###: clk_mm_axi =  %p\n", clk_mm_axi);
+        vsp_hw_dev.mm_clk_axi = NULL;
+        vsp_hw_dev.light_sleep_en = false;
+    } else {
+        vsp_hw_dev.mm_clk_axi= clk_mm_axi;
+        vsp_hw_dev.light_sleep_en = true;
+    }
+#endif
 
 #ifdef CONFIG_OF
     clk_mm_i = of_clk_get_by_name(vsp_hw_dev.dev_np, "clk_mm_i");
@@ -461,17 +500,25 @@ static int vsp_set_mm_clk(void)
     }
 #endif
 
-
-    printk(KERN_INFO "VSP mmi_clk open");
-    ret = clk_enable(vsp_hw_dev.mm_clk);
-    if (ret) {
-        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_enable() failed!\n");
-        return ret;
-    } else {
-        pr_debug("###vsp_hw_dev.mm_clk: clk_enable() ok.\n");
+    if (vsp_hw_dev.mm_clk_axi) {
+        printk(KERN_INFO "VSP mmi_clk_axi open");
+        ret = clk_prepare(vsp_hw_dev.mm_clk_axi);
+        if (ret) {
+            printk(KERN_ERR "###:vsp_hw_dev.mm_clk_axi: clk_prepare() failed!\n");
+            goto errout;
+        } else {
+            pr_debug("###vsp_hw_dev.mm_clk_axi: clk_prepare() ok.\n");
+        }
     }
 
-
+    printk(KERN_INFO "VSP mmi_clk open\n");
+    ret = clk_prepare_enable(vsp_hw_dev.mm_clk);
+    if (ret) {
+        printk(KERN_ERR "###:vsp_hw_dev.mm_clk: clk_prepare_enable() failed!\n");
+        goto errout;
+    } else {
+        pr_debug("###vsp_hw_dev.mm_clk: clk_prepare_enable() ok.\n");
+    }
 
 #ifdef CONFIG_OF
     clk_vsp = of_clk_get_by_name(vsp_hw_dev.dev_np, "clk_vsp");
@@ -508,16 +555,21 @@ by clk_get()!\n", "clk_vsp", name_parent);
     }
 
     printk("vsp parent clock name %s\n", name_parent);
-    printk("vsp_freq %d Hz",
+    printk("vsp_freq %d Hz\n",
            (int)clk_get_rate(vsp_hw_dev.vsp_clk));
 
-#if defined(CONFIG_SPRD_IOMMU)
-    sprd_iommu_module_enable(IOMMU_MM);
-#endif
+    if (vsp_hw_dev.light_sleep_en){
+        clk_disable_unprepare(vsp_hw_dev.mm_clk);
+        pr_debug("VSP mmi_clk close\n");
+	}
 
     return 0;
 errout:
 #if defined(CONFIG_ARCH_SCX35)
+    if (vsp_hw_dev.mm_clk_axi) {
+        clk_put(vsp_hw_dev.mm_clk_axi);
+    }
+
     if (vsp_hw_dev.mm_clk) {
         clk_put(vsp_hw_dev.mm_clk);
     }
@@ -564,7 +616,6 @@ static int vsp_open(struct inode *inode, struct file *filp)
 
 static int vsp_release (struct inode *inode, struct file *filp)
 {
-    int ret;
     struct vsp_fh *vsp_fp = filp->private_data;
     int instance_cnt = atomic_read(&vsp_instance_cnt);
 
@@ -576,10 +627,6 @@ static int vsp_release (struct inode *inode, struct file *filp)
     printk(KERN_INFO "vsp_release: instance_cnt %d\n", instance_cnt);
 
     atomic_dec_return(&vsp_instance_cnt);
-
-#if defined(CONFIG_SPRD_IOMMU)
-    sprd_iommu_module_disable(IOMMU_MM);
-#endif
 
     if (vsp_fp->is_clock_enabled) {
         printk(KERN_ERR "error occured and close clock \n");
@@ -596,9 +643,15 @@ static int vsp_release (struct inode *inode, struct file *filp)
     kfree(filp->private_data);
     filp->private_data=NULL;
 
-    clk_disable(vsp_hw_dev.mm_clk);
+    if (!vsp_hw_dev.light_sleep_en){
+        clk_disable_unprepare(vsp_hw_dev.mm_clk);
+        printk(KERN_INFO "VSP mmi_clk close!\n");
+    }
 
-    printk(KERN_INFO "VSP mmi_clk close!!");
+    if (vsp_hw_dev.mm_clk_axi){
+        clk_unprepare(vsp_hw_dev.mm_clk_axi);
+        printk(KERN_INFO "VSP mm_clk_axi close!\n");
+    }
 
     return 0;
 }
@@ -625,22 +678,22 @@ static int vsp_suspend(struct platform_device *pdev, pm_message_t state)
     int instance_cnt = atomic_read(&vsp_instance_cnt);
 
     for (cnt = 0; cnt < instance_cnt; cnt++) {
-#if defined(CONFIG_SPRD_IOMMU)
-        sprd_iommu_module_disable(IOMMU_MM);
-#endif
-
-        clk_disable(vsp_hw_dev.mm_clk);
+        if (!vsp_hw_dev.light_sleep_en){
+            clk_disable_unprepare(vsp_hw_dev.mm_clk);
+            pr_debug("VSP mm_clk close\n");
+        }else{
+            clk_unprepare(vsp_hw_dev.mm_clk_axi);
+            pr_debug("VSP mm_clk_axi close\n");
+        }
 
         printk(KERN_INFO "vsp_suspend, cnt: %d\n", cnt);
     }
-
 
     return 0;
 }
 
 static int vsp_resume(struct platform_device *pdev)
 {
-
     int ret = 0;
     int cnt;
     int instance_cnt = atomic_read(&vsp_instance_cnt);
@@ -678,7 +731,9 @@ static int vsp_probe(struct platform_device *pdev)
     vsp_hw_dev.vsp_clk = NULL;
     vsp_hw_dev.vsp_parent_clk = NULL;
     vsp_hw_dev.mm_clk= NULL;
+    vsp_hw_dev.mm_clk_axi = NULL;
     vsp_hw_dev.vsp_fp = NULL;
+    vsp_hw_dev.light_sleep_en = false;
 
     ret = misc_register(&vsp_dev);
     if (ret) {

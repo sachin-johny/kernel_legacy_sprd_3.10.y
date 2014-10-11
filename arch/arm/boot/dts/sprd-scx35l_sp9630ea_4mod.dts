@@ -318,8 +318,8 @@
                  compatible = "sprd,sprd_vsp";
                  reg = <0Xf5300000 0xc000>;
                  interrupts = <0 43 0x0>;
-                 clock-names = "clk_mm_i","clk_vsp";
-                 clocks = <&clk_mm>, <&clk_vsp>;
+                 clock-names = "clk_mm_i","clk_vsp","clk_mm_axi";
+                 clocks = <&clk_mm>, <&clk_vsp>, <&clk_mm_axi>;
          };
         sprd_jpg {
                  compatible  = "sprd,sprd_jpg";
@@ -936,8 +936,8 @@
                        <0xF5430000 0x20000>,     //pgt
                        <0xF5450000 0x2000>;      //ctrl_reg
                  reg_name = "iova","pgt","ctrl_reg";
-                 clock-names = "clk_mmu","clk_mm_i";
-                 clocks = <&clk_mmu>,<&clk_mm>;
+                 clock-names = "clk_mmu","clk_mm_i","clk_mm_axi";
+                 clocks = <&clk_mmu>,<&clk_mm>,<&clk_mm_axi>;
                  status = "ok";
          };
 };

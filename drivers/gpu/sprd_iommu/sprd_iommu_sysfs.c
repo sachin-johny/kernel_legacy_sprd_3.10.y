@@ -53,8 +53,18 @@ static int pgt_show(struct seq_file *s, void *unused)
 	unsigned long i=0;
 	seq_printf(s,"iommu_name:%s  pgt_base:0x%lx  pgt_size:0x%zx\n",iommu_dev->init_data->name,iommu_dev->init_data->pgt_base,iommu_dev->init_data->pgt_size);
 	mutex_lock(&iommu_dev->mutex_clk_op);
-	if (0 == iommu_dev->map_count)
-		iommu_dev->ops->enable(iommu_dev);
+	if (iommu_dev->light_sleep_en) {
+            if (0 == iommu_dev->map_count) {
+                iommu_dev->ops->enable(iommu_dev);
+                iommu_dev->ops->open(iommu_dev);
+            } else {
+                iommu_dev->ops->enable(iommu_dev);
+            }
+	} else {
+            if (0 == iommu_dev->map_count) {
+                iommu_dev->ops->enable(iommu_dev);
+            }
+	}
 	mutex_lock(&iommu_dev->mutex_pgt);
 	for(i=0;i<(iommu_dev->init_data->pgt_size>>2);i++)
 	{
@@ -67,8 +77,18 @@ static int pgt_show(struct seq_file *s, void *unused)
 		seq_printf(s,"%lx,",*(((unsigned long *)iommu_dev->init_data->pgt_base)+i));
 	}
 	mutex_unlock(&iommu_dev->mutex_pgt);
-	if (0 == iommu_dev->map_count)
-		iommu_dev->ops->disable(iommu_dev);
+	if (iommu_dev->light_sleep_en) {
+            if (0 == iommu_dev->map_count) {
+                iommu_dev->ops->release(iommu_dev);
+                iommu_dev->ops->disable(iommu_dev);
+            } else {
+                iommu_dev->ops->disable(iommu_dev);
+            }
+	} else {
+            if (0 == iommu_dev->map_count) {
+                iommu_dev->ops->disable(iommu_dev);
+            }
+	}
 	mutex_unlock(&iommu_dev->mutex_clk_op);
 	return 0;
 }

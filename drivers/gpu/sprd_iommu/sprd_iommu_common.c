@@ -76,7 +76,7 @@ int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *dat
 	//TLB enable
 	//MMU enable
 #ifdef CONFIG_ARCH_SCX35L
-        printk("sprd_iommu %s, ddr frq:%d, div2 frq:%d\n",emc_clk_get(), dev->div2_frq);
+        printk("ssprd_iommu_init, ddr frq:%d, div2 frq:%d\n",emc_clk_get(), dev->div2_frq);
         if (emc_clk_get() >= dev->div2_frq) {
             mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
         }

@@ -38,6 +38,7 @@ struct sprd_iommu_dev {
 	struct clk* mmu_mclock;
 	struct clk* mmu_pclock;
 	struct clk* mmu_clock;
+	struct clk* mmu_axiclock;
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	struct early_suspend	early_suspend;
 #endif
@@ -45,6 +46,7 @@ struct sprd_iommu_dev {
 	unsigned int map_count;
 	struct mutex mutex_clk_op;
 	unsigned int div2_frq;
+	bool light_sleep_en;
 };
 
 struct sprd_iommu_ops {
@@ -59,6 +61,8 @@ struct sprd_iommu_ops {
 	int (*disable)(struct sprd_iommu_dev *dev);
 	int (*enable)(struct sprd_iommu_dev *dev);
 	int (*dump)(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length);
+	int (*open)(struct sprd_iommu_dev *dev);
+	int (*release)(struct sprd_iommu_dev *dev);
 };
 
 enum IOMMU_ID {
