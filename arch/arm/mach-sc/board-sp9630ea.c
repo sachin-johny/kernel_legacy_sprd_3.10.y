@@ -706,7 +706,7 @@ static struct i2c_board_info i2c3_boardinfo[] = {
 	},
 #endif
 #if(defined(CONFIG_TOUCHSCREEN_MSG2138)||defined(CONFIG_TOUCHSCREEN_MSG2138_MODULE))
-	{ I2C_BOARD_INFO("pixcir_ts", 0x26),
+	{ I2C_BOARD_INFO(MSG2138_TS_NAME, MSG2138_TS_ADDR),
 	  .platform_data = &msg2138_ts_info,
 	},
 #endif

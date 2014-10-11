@@ -69,6 +69,10 @@
 #include <mach/i2c-sprd.h>
 #endif
 
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_gpio.h>
+
 /*********************************Bee-0928-TOP****************************************/
 //#define SYSFS_DEBUG  //cg,20130929
 //#define PIXCIR_DEBUG		
@@ -2833,6 +2837,57 @@ static int sy_init(void)
 #ifdef ITO_TEST
 static void ito_test_create_entry(void);
 #endif
+
+#ifdef CONFIG_OF
+static struct msg2138_ts_platform_data *pixcir_ts_parse_dt(struct device *dev)
+{
+	struct msg2138_ts_platform_data *pdata;
+	struct device_node *np = dev->of_node;
+	int ret;
+
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "Could not allocate struct msg2138_ts_platform_data");
+		return NULL;
+	}
+	pdata->reset_gpio_number = of_get_gpio(np, 0);
+	if(pdata->reset_gpio_number < 0){
+		dev_err(dev, "fail to get reset_gpio_number\n");
+		goto fail;
+	}
+	pdata->irq_gpio_number = of_get_gpio(np, 1);
+	if(pdata->irq_gpio_number < 0){
+		dev_err(dev, "fail to get irq_gpio_number\n");
+		goto fail;
+	}
+	ret = of_property_read_string(np, "vdd_name", &pdata->vdd_name);
+	if(ret){
+		dev_err(dev, "fail to get vdd_name\n");
+		goto fail;
+	}
+	/*ret = of_property_read_u32_array(np, "virtualkeys", &pdata->virtualkeys,12);
+	if(ret){
+		dev_err(dev, "fail to get virtualkeys\n");
+		goto fail;
+	}*/
+	ret = of_property_read_u32(np, "TP_MAX_X", &pdata->TP_MAX_X);
+	if(ret){
+		dev_err(dev, "fail to get TP_MAX_X\n");
+		goto fail;
+	}
+	ret = of_property_read_u32(np, "TP_MAX_Y", &pdata->TP_MAX_Y);
+	if(ret){
+		dev_err(dev, "fail to get TP_MAX_Y\n");
+		goto fail;
+	}
+
+	return pdata;
+fail:
+	kfree(pdata);
+	return NULL;
+}
+#endif
+
 static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
 	struct msg2138_ts_platform_data *pdata = client->dev.platform_data;
@@ -2843,6 +2898,20 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 	int i, error;
 
 	TPD_DEBUG("msg2138 probe in! \n");
+
+#ifdef CONFIG_OF
+	struct device_node *np = client->dev.of_node;
+	if (np && !pdata){
+		pdata = pixcir_ts_parse_dt(&client->dev);
+		if(pdata){
+			client->dev.platform_data = pdata;
+		}
+		else{
+			error = -ENOMEM;
+			goto exit_alloc_platform_data_failed;
+		}
+	}
+#endif
 
 	tsdata = kzalloc(sizeof(*tsdata), GFP_KERNEL);
 	if (!tsdata) {
@@ -2893,7 +2962,7 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 
 	tsdata->input = input;
 	global_irq = client->irq;
-	input->name = client->name;
+	input->name = MSG2138_TS_NAME;
 	input->id.bustype = BUS_I2C;
 	input->dev.parent = &client->dev;
 
@@ -3017,6 +3086,7 @@ exit_input_alloc_failed:
 	gpio_free(pdata->reset_gpio_number);
 	kfree(tsdata);
 exit_alloc_tsdata_failed:
+exit_alloc_platform_data_failed:
 	tsdata = NULL;
 	pdata = NULL;
 	client = NULL;
@@ -3336,7 +3406,7 @@ static const struct file_operations pixcir_i2c_ts_fops =
 /*********************************Bee-0928-BOTTOM****************************************/
 
 static const struct i2c_device_id pixcir_i2c_ts_id[] = {
-	{ "pixcir_ts", 0x26 },//0
+	{ MSG2138_TS_NAME, MSG2138_TS_ADDR },//0
 	{ }
 };
 MODULE_DEVICE_TABLE(i2c, pixcir_i2c_ts_id);
@@ -3346,12 +3416,17 @@ static unsigned short force[] = {0,0x4c,I2C_CLIENT_END,I2C_CLIENT_END};
 static const unsigned short * const forces[] = { force, NULL };
 static struct i2c_client_address_data addr_data = { .forces = forces, };
 #endif 
+static const struct of_device_id msg2138_of_match[] = {
+       { .compatible = "msg2138,pixcir_ts", },
+       { }
+};
+MODULE_DEVICE_TABLE(of, msg2138_of_match);
 
 static struct i2c_driver pixcir_i2c_ts_driver = {
 	.driver = {
 		.owner	= THIS_MODULE,
-		.name	= "pixcir_i2c_ts_v3.2.0A",
-		//.pm	= &pixcir_dev_pm_ops,
+		.name	= MSG2138_TS_NAME,
+		.of_match_table = msg2138_of_match,
 	},
 	.probe		= pixcir_i2c_ts_probe,
 	.remove		= pixcir_i2c_ts_remove,
