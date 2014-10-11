@@ -328,6 +328,8 @@ static LCM_Init_Code init_data[] = {
 
 	{LCM_SEND(2), {0x40,0x22}},
 
+	{LCM_SEND(2), {0x58,0xa7}},//refresh black after resume
+
 	{LCM_SEND(8), {6, 0,0xFF,0xFF,0x98,0x06,0x04,0x07}}, // Change to Page 7
 	{LCM_SEND(2), {0x17,0x22}},
 
@@ -340,7 +342,7 @@ static LCM_Init_Code init_data[] = {
 	{LCM_SLEEP(120)},
 
 	{LCM_SEND(1), {0x29}},
-	{LCM_SLEEP(100)},
+	{LCM_SLEEP(10)},
  };
 
 #endif
@@ -602,6 +604,7 @@ struct panel_spec lcd_ili9806e_mipi_spec = {
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
 	.is_clean_lcd = true,
+	.reset_timing = {5, 15, 120},
 	.info = {
 		.mipi = &lcd_ili9806e_mipi_info
 	},

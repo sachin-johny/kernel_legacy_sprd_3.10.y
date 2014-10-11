@@ -196,7 +196,7 @@ static LCM_Init_Code init_data[] = {
 	{LCM_SLEEP(120)},
 
 	{LCM_SEND(1), {0x29}},
-	{LCM_SLEEP(100)},
+	{LCM_SLEEP(10)},
  };
 
 static LCM_Init_Code disp_on =  {LCM_SEND(1), {0x29}};
@@ -457,6 +457,7 @@ struct panel_spec lcd_ili9806e_2_mipi_spec = {
 	.type = LCD_MODE_DSI,
 	.direction = LCD_DIRECT_NORMAL,
 	.is_clean_lcd = true,
+	.reset_timing = {5, 15, 120},
 	.info = {
 		.mipi = &lcd_ili9806e_2_mipi_info
 	},
