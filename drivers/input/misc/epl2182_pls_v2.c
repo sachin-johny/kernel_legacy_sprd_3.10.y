@@ -37,12 +37,13 @@
 #include <linux/platform_device.h>
 #include <linux/poll.h>
 #include <linux/i2c/epl2182_pls_v2.h>
-
+#include <linux/of_device.h>
+#include <linux/of_gpio.h>
 
 /******************************************************************************
  * configuration
 *******************************************************************************/
-#define PS_INTERRUPT_MODE		0		// 0 is polling mode, 1 is interrupt mode
+#define PS_INTERRUPT_MODE		1		// 0 is polling mode, 1 is interrupt mode
 #define P_SENSOR_LTHD			800//120		//100
 #define P_SENSOR_HTHD			1500//170		//500
 
@@ -98,7 +99,7 @@ typedef struct _epl_raw_data
 struct elan_epl_data
 {
     struct i2c_client *client;
-    struct input_dev *als_input_dev;
+    //struct input_dev *als_input_dev;
     struct input_dev *ps_input_dev;
     struct workqueue_struct *epl_wq;
     struct early_suspend early_suspend;
@@ -773,7 +774,7 @@ static int elan_ps_release(struct inode *inode, struct file *file)
 
 static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    int value;
+    //int value;
     int flag;
     unsigned long buf[1];
     struct elan_epl_data *epld = epl_data;
@@ -847,7 +848,7 @@ static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg
             buf[0] = (unsigned long)gRawData.als_ch1_raw;
             if(copy_to_user(argp, &buf , 2))
                 return -EFAULT;
-            LOG_INFO("elan proximity Sensor get data (%d) \n",value);
+            LOG_INFO("elan als Sensor get data (%lu)\n",buf[0]);
             break;
 #endif //Flank end
         default:
@@ -909,7 +910,7 @@ static int initial_sensor(struct elan_epl_data *epld)
 
     return ret;
 }
-
+#if 0   //ices add
 /*----------------------------------------------------------------------------*/
 static ssize_t light_enable_show(struct device *dev,
 					 struct device_attribute *attr, char *buf)
@@ -954,7 +955,7 @@ static struct attribute_group light_attribute_group = {
 	.attrs = light_sysfs_attrs,
 };
 /*----------------------------------------------------------------------------*/
-#if 0   //ices add
+
 static int lightsensor_setup(struct elan_epl_data *epld)
 {
     int err = 0;
@@ -1120,7 +1121,7 @@ static int setup_interrupt(struct elan_epl_data *epld)
 
     }
 #endif
-    err = request_irq(epld->irq,elan_sensor_irq_handler, IRQF_TRIGGER_FALLING ,
+    err = request_irq(epld->irq,elan_sensor_irq_handler, IRQF_TRIGGER_FALLING | IRQF_NO_SUSPEND ,
                       client->dev.driver->name, epld);
     if(err <0)
     {
@@ -1208,16 +1209,33 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
 {
     int err = 0;
     struct elan_epl_data *epld ;
-    //struct elan_epl_platform_data *pdata;
+    struct elan_epl_platform_data *pdata = client->dev.platform_data;
     static struct platform_device *sensor_dev;
-
-	printk("elan_sensor_probe()!!!!!!!!!!!!!!!!!!!!!!\n");
-
+    struct device_node *np = client->dev.of_node;
     LOG_INFO("elan sensor probe enter.\n");
+#ifdef CONFIG_OF
+        if (np && !pdata){
+		pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+		if (!pdata) {
+			dev_err(&client->dev, "Could not allocate struct elan_epl_platform_data");
+			goto exit_allocate_pdata_failed;
+		}
+		pdata->irq_gpio_number = of_get_gpio(np, 0);
+		if(pdata->irq_gpio_number < 0){
+			dev_err(&client->dev, "fail to get irq_gpio_number\n");
+			kfree(pdata);
+			goto exit_irq_gpio_read_fail;
+		}
+		client->dev.platform_data = pdata;
+	}
+#endif
 
     epld = kzalloc(sizeof(struct elan_epl_data), GFP_KERNEL);
-    if (!epld)
-        return -ENOMEM;
+    if (!epld) {
+        err = -ENOMEM;
+        LOG_ERR("kzalloc elan_epl_data failed!\n");
+        goto exit_kzalloc_epld_failed;
+    }
 
     if (!i2c_check_functionality(client->adapter, I2C_FUNC_I2C))
     {
@@ -1312,11 +1330,11 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
     return err;
 
 err_fail:
-    input_unregister_device(epld->als_input_dev);
+    //input_unregister_device(epld->als_input_dev);
     input_unregister_device(epld->ps_input_dev);
-    input_free_device(epld->als_input_dev);
+    //input_free_device(epld->als_input_dev);
     input_free_device(epld->ps_input_dev);
-err_lightsensor_setup:
+//err_lightsensor_setup:
 err_psensor_setup:
 err_sensor_setup:
     destroy_workqueue(epld->epl_wq);
@@ -1326,6 +1344,11 @@ err_create_singlethread_workqueue:
 i2c_fail:
 //err_platform_data_null:
     kfree(epld);
+exit_kzalloc_epld_failed:
+#ifdef CONFIG_OF
+exit_irq_gpio_read_fail:
+exit_allocate_pdata_failed:
+#endif
     return err;
 }
 
@@ -1336,9 +1359,9 @@ static int elan_sensor_remove(struct i2c_client *client)
     dev_dbg(&client->dev, "%s: enter.\n", __func__);
 
     unregister_early_suspend(&epld->early_suspend);
-    input_unregister_device(epld->als_input_dev);
+    //input_unregister_device(epld->als_input_dev);
     input_unregister_device(epld->ps_input_dev);
-    input_free_device(epld->als_input_dev);
+    //input_free_device(epld->als_input_dev);
     input_free_device(epld->ps_input_dev);
     misc_deregister(&elan_ps_device);
 //    misc_deregister(&elan_als_device);    //ices add
@@ -1354,6 +1377,12 @@ static const struct i2c_device_id elan_sensor_id[] =
     { }
 };
 
+static const struct of_device_id epl2182_of_match[] = {
+       { .compatible = "ELAN,epl2182_pls", },
+        {}
+};
+MODULE_DEVICE_TABLE(of, epl2182_of_match);
+
 static struct i2c_driver elan_sensor_driver =
 {
     .probe	= elan_sensor_probe,
@@ -1362,6 +1391,7 @@ static struct i2c_driver elan_sensor_driver =
     .driver	= {
         .name = EPL2182_PLS_DEVICE,
         .owner = THIS_MODULE,
+        .of_match_table = epl2182_of_match,
     },
 #ifdef CONFIG_SUSPEND
     .suspend = elan_sensor_suspend,

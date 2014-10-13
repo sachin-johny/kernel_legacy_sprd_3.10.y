@@ -376,6 +376,11 @@
 			reg = <0x23>;
 			gpios = <&d_gpio_gpio 140 0>;
 		};
+                epl2182_pls@49{
+                         compatible = "ELAN,epl2182_pls";
+                         reg = <0x49>;
+                         gpios = <&d_gpio_gpio 140 0>;
+                 };
 	 };
 	 i2c3: i2c@f5372000{
 		 compatible  = "sprd,i2c";
