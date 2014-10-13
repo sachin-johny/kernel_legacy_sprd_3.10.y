@@ -71,9 +71,7 @@ static struct map_desc sprd_io_desc[] __initdata = {
 	SPRD_DEVICE(AXIBM6),
 	SPRD_DEVICE(AXIBM7),
 	SPRD_DEVICE(AXIBM8),
-#ifndef CONFIG_ARCH_SCX35L
 	SPRD_DEVICE(AXIBM9),
-#endif
 	SPRD_DEVICE(AUDIO),
 	SPRD_DEVICE(AUDIO_IF),
 	SPRD_DEVICE(VBC),
