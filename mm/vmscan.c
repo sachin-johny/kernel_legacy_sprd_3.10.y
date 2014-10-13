@@ -148,7 +148,6 @@ unsigned long vm_total_pages;	/* The total number of pages which the VM controls
 
 #ifdef CONFIG_RUNTIME_COMPCACHE
 extern int get_rtcc_status(void);
-atomic_t kswapd_running = ATOMIC_INIT(1);
 long nr_kswapd_swapped = 0;
 
 static bool rtcc_reclaim(struct scan_control *sc)
@@ -3058,10 +3057,6 @@ static void kswapd_try_to_sleep(pg_data_t *pgdat, int order, int classzone_idx)
 	if (prepare_kswapd_sleep(pgdat, order, remaining, classzone_idx)) {
 		trace_mm_vmscan_kswapd_sleep(pgdat->node_id);
 
-#ifdef CONFIG_RUNTIME_COMPCACHE
-		atomic_set(&kswapd_running, 0);
-#endif /* CONFIG_RUNTIME_COMPCACHE */
-
 		/*
 		 * vmstat counters are not perfectly accurate and the estimated
 		 * value for counters such as NR_FREE_PAGES can deviate from the
@@ -3182,10 +3177,6 @@ static int kswapd(void *p)
 		ret = try_to_freeze();
 		if (kthread_should_stop())
 			break;
-
-#ifdef CONFIG_RUNTIME_COMPCACHE
-		atomic_set(&kswapd_running, 1);
-#endif /* CONFIG_RUNTIME_COMPCACHE */
 
 		/*
 		 * We can speed up thawing tasks if we don't call balance_pgdat

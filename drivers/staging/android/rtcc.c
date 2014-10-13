@@ -31,7 +31,6 @@
  */
 extern unsigned long rtcc_reclaim_pages(unsigned long nr_to_reclaim,
 	int swappiness, unsigned long *nr_swapped);
-extern atomic_t kswapd_running;
 extern long nr_kswapd_swapped;
 
 static long nr_krtccd_swapped;
@@ -286,6 +285,8 @@ static struct class *rtcc_class;
 static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void *data)
 {
 	int cpu;
+	struct pglist_data *pgdat;
+	pgdat = NODE_DATA(numa_node_id());
 
 	if (likely(atomic_read(&need_to_reclaim) == 0))
 		return 0;
@@ -293,8 +294,8 @@ static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void 
 	// To prevent RTCC from running too frequently
 	if (likely(time_before(jiffies, prev_jiffy + rtcc_reclaim_interval)))
 		return 0;
-
-	if (unlikely(atomic_read(&kswapd_running) == 1))
+	/*make sure kswapd is not running*/
+	if (unlikely(!waitqueue_active(&pgdat->kswapd_wait)))
 		return 0;
 
 #ifdef CONFIG_SMP
