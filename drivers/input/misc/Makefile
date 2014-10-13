@@ -63,6 +63,7 @@ obj-$(CONFIG_INPUT_WM831X_ON)		+= wm831x-on.o
 obj-$(CONFIG_INPUT_XEN_KBDDEV_FRONTEND)	+= xen-kbdfront.o
 obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_LTR558_I2C)		+= ltr_558als.o
+obj-$(CONFIG_INPUT_EPL2182_I2C)         += epl2182_pls_v2.o
 obj-$(CONFIG_INPUT_LIS3DH_I2C)          += lis3dh.o
 obj-$(CONFIG_INPUT_LIS3DH_ZT_I2C)          += lis3dh_zt.o
 obj-$(CONFIG_INPUT_SPRD_HEADSET_SHARK)  += headset_sprd.o

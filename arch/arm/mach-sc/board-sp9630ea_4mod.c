@@ -39,6 +39,9 @@
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 #include <linux/i2c/ltr_558als.h>
 #endif
+#if(defined(CONFIG_INPUT_EPL2182_I2C)||defined(CONFIG_INPUT_EPL2182_I2C_MODULE))
+#include <linux/i2c/epl2182_pls_v2.h>
+#endif
 #if(defined(CONFIG_TOUCHSCREEN_MSG2138)||defined(CONFIG_TOUCHSCREEN_MSG2138_MODULE))
 #include <linux/i2c/msg2138.h>
 #endif
@@ -631,6 +634,11 @@ static struct ltr558_pls_platform_data ltr558_pls_info = {
 	.irq_gpio_number	= GPIO_PROX_INT,
 };
 #endif
+#if(defined(CONFIG_INPUT_EPL2182_I2C)||defined(CONFIG_INPUT_EPL2182_I2C_MODULE))
+static struct elan_epl_platform_data epl2182_pls_info = {
+	.irq_gpio_number	= GPIO_PROX_INT,
+};
+#endif
 
 #if(defined(CONFIG_INPUT_LIS3DH_I2C)||defined(CONFIG_INPUT_LIS3DH_I2C_MODULE))
 static struct lis3dh_acc_platform_data lis3dh_plat_data = {
@@ -690,6 +698,11 @@ static struct i2c_board_info i2c2_boardinfo[] = {
 #if(defined(CONFIG_INPUT_LTR558_I2C)||defined(CONFIG_INPUT_LTR558_I2C_MODULE))
 	{ I2C_BOARD_INFO(LTR558_I2C_NAME,  LTR558_I2C_ADDR),
 	  .platform_data = &ltr558_pls_info,
+	},
+#endif
+#if(defined(CONFIG_INPUT_EPL2182_I2C)||defined(CONFIG_INPUT_EPL2182_I2C_MODULE))
+	{ I2C_BOARD_INFO(EPL2182_PLS_DEVICE,  EPL2182_I2C_ADDR),
+	  .platform_data = &epl2182_pls_info,
 	},
 #endif
 #if(defined(CONFIG_SENSORS_AK8975)||defined(CONFIG_SENSORS_AK8975_MODULE))
