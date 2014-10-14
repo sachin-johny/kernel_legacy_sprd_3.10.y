@@ -63,7 +63,7 @@
 #ifdef WLMEDIA_HTSF
 extern void htsf_update(struct dhd_info *dhd, void *data);
 #endif
-int dhd_msg_level = 7;//DHD_ERROR_VAL;//yangyufeng debug
+int dhd_msg_level = DHD_ERROR_VAL;
 
 
 #include <wl_iw.h>
