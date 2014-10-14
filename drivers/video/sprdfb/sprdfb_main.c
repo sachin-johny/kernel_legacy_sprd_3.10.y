@@ -237,13 +237,13 @@ static void setup_fb_info(struct sprdfb_device *dev)
 
 	/* only support two pixel format */
 	if (dev->bpp == 32) { /* ABGR */
-		fb->var.red.offset     = 24;
+		fb->var.red.offset     = 16;
 		fb->var.red.length     = 8;
 		fb->var.red.msb_right  = 0;
-		fb->var.green.offset   = 16;
+		fb->var.green.offset   = 8;
 		fb->var.green.length   = 8;
 		fb->var.green.msb_right = 0;
-		fb->var.blue.offset    = 8;
+		fb->var.blue.offset    = 0;
 		fb->var.blue.length    = 8;
 		fb->var.blue.msb_right = 0;
 	} else { /*BGR*/
