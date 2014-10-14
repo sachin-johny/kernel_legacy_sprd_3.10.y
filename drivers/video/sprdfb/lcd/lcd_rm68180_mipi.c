@@ -317,7 +317,7 @@ static struct panel_operations lcd_rm68180_mipi_operations = {
 };
 
 static struct timing_rgb lcd_rm68180_mipi_timing = {
-#if 0
+#if 1
 	
 	.hfp = 20,  /* unit: pixel */
 	.hbp = 20,
@@ -346,7 +346,7 @@ static struct timing_rgb lcd_rm68180_mipi_timing = {
 };
 
 static struct info_mipi lcd_rm68180_mipi_info = {
-	.work_mode  = SPRDFB_MIPI_MODE_CMD,
+	.work_mode  = SPRDFB_MIPI_MODE_VIDEO,
 	.video_bus_width = 24, /*18,16*/
 	.lan_number = 2,
 	.phy_feq = 400*1000,
