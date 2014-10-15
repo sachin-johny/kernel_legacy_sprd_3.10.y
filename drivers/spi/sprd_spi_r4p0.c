@@ -422,9 +422,11 @@ static void  sprd_spi_transfer_work(struct work_struct *work)
 		spin_lock_irqsave(&spi_chip->lock, flags);
 	}
 
-	clk_disable_unprepare(spi_chip->clk);
+	//clk_disable_unprepare(spi_chip->clk);
 
 	spin_unlock_irqrestore(&spi_chip->lock, flags);
+	
+	clk_disable_unprepare(spi_chip->clk);
 }
 
 static int sprd_spi_transfer(struct spi_device *spi_dev, struct spi_message *msg)
