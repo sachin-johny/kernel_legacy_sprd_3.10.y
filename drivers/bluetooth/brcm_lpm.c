@@ -396,7 +396,8 @@ static int bluesleep_open_proc_btwrite(struct inode *inode, struct file *file)
  * @param data Not used.
  */
 static void bluesleep_tx_timer_expire(unsigned long data)
-{   
+{	if(bsi->uport==NULL)
+		return;
     if (bsi->uport->ops->tx_empty(bsi->uport))
     	{  BT_ERR("empty");
            gpio_set_value(bsi->ext_wake, 1);
