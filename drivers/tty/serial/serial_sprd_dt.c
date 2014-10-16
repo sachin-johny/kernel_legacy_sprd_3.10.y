@@ -30,7 +30,6 @@
 #include <linux/slab.h>
 #include <mach/hardware.h>
 #include <linux/clk.h>
-#include <mach/pinmap.h>
 #include <mach/serial_sprd.h>
 #include <linux/wakelock.h>
 #include <linux/of.h>
@@ -861,9 +860,6 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 		   control as the AF3 to make the pin can be set to high */
 		unsigned long fc = 0;
 		struct uart_port *port = serial_sprd_ports[0];
-		pinmap_set(REG_PIN_U0RTS,
-			   (BITS_PIN_DS(3) | BITS_PIN_AF(3) | BIT_PIN_WPU |
-			    BIT_PIN_SLP_WPU | BIT_PIN_SLP_OE));
 		fc = serial_in(port, ARM_UART_CTL1);
 		fc &= ~(RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
 		serial_out(port, ARM_UART_CTL1, fc);
@@ -902,9 +898,6 @@ static int serial_sprd_resume(struct platform_device *dev)
 		fc = serial_in(port, ARM_UART_CTL1);
 		fc |= (RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
 		serial_out(port, ARM_UART_CTL1, fc);
-		pinmap_set(REG_PIN_U0RTS,
-			   (BITS_PIN_DS(1) | BITS_PIN_AF(0) | BIT_PIN_NUL |
-			    BIT_PIN_SLP_NUL | BIT_PIN_SLP_Z));
 	} else {
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
