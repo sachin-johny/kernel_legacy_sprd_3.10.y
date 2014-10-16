@@ -19,11 +19,6 @@
 int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev);
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev);
 
-static inline void iommu_mm_reg_write(unsigned long reg, unsigned long val, unsigned long msk)
-{
-	__raw_writel((__raw_readl((void *)reg) & ~msk) | val, (void *)reg);
-}
-
 static void sprd_iommu_mm_prepare(struct sprd_iommu_dev *dev)
 {
 #ifdef CONFIG_OF
@@ -51,23 +46,20 @@ static void sprd_iommu_mm_unprepare(struct sprd_iommu_dev *dev)
 void sprd_iommu_mm_open(struct sprd_iommu_dev *dev)
 {
 #ifdef CONFIG_ARCH_SCX35L
-	unsigned int ddr_frq = emc_clk_get();
-	printk("%s, light_sleep_en:%d, ddr frq:%d\n",__FUNCTION__, dev->light_sleep_en, ddr_frq);
+	printk("%s, light_sleep_en:%d, ddr frq:%d\n",__FUNCTION__, dev->light_sleep_en, emc_clk_get());
 #else
 	printk("%s, light_sleep_en:%d\n",__FUNCTION__, dev->light_sleep_en);
 #endif
 
         mutex_lock(&dev->mutex_pgt);
-        iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+        mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
         memset((void *)(dev->init_data->pgt_base),0xFF,PAGE_ALIGN(dev->init_data->pgt_size));
 #ifdef CONFIG_ARCH_SCX35L
-            if (ddr_frq >= dev->div2_frq) {
-                iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
-            }
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
 #endif
-        iommu_mm_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
-        iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
-        iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
+        mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
+        mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+        mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
         mutex_unlock(&dev->mutex_pgt);
 
 	return;
@@ -78,9 +70,9 @@ void sprd_iommu_mm_release(struct sprd_iommu_dev *dev)
 	printk("%s\n",__FUNCTION__);
 
 	mutex_lock(&dev->mutex_pgt);
-	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
-	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
-	iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 	mutex_unlock(&dev->mutex_pgt);
 
 	return;
@@ -157,106 +149,107 @@ void sprd_iommu_mm_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, siz
 
 int sprd_iommu_mm_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
-    int err=-1;
+	int err = -1;
 
-    if (dev->light_sleep_en) {
-        mutex_lock(&dev->mutex_clk_op);
-        if (0 == dev->map_count)
-                sprd_iommu_mm_prepare(dev);
+	if (dev->light_sleep_en) {
+		mutex_lock(&dev->mutex_map);
+		if (0 == dev->map_count)
+			sprd_iommu_mm_prepare(dev);
 
-        sprd_iommu_mm_enable(dev);
+		sprd_iommu_mm_enable(dev);
 
-        if (0 == dev->map_count)
-                sprd_iommu_mm_open(dev);
+		if (0 == dev->map_count)
+			sprd_iommu_mm_open(dev);
+		dev->map_count++;
 
-        dev->map_count++;
-        mutex_unlock(&dev->mutex_clk_op);
+		err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
+		sprd_iommu_mm_disable(dev);
+		mutex_unlock(&dev->mutex_map);
+	} else {
+		mutex_lock(&dev->mutex_map);
+		if (0 == dev->map_count)
+			sprd_iommu_mm_enable(dev);
 
-        err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
+		dev->map_count++;
 
-        sprd_iommu_mm_disable(dev);
-    } else {
-        mutex_lock(&dev->mutex_clk_op);
-        if (0 == dev->map_count)
-                sprd_iommu_mm_enable(dev);
-
-        dev->map_count++;
-        mutex_unlock(&dev->mutex_clk_op);
-
-        err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
-    }
-    return err;
+		err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
+		mutex_unlock(&dev->mutex_map);
+	}
+	return err;
 }
 
 int sprd_iommu_mm_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
-    int err = -1;
+	int err = -1;
 
-    if (dev->light_sleep_en) {
-        sprd_iommu_mm_enable(dev);
+	if (dev->light_sleep_en) {
+		mutex_lock(&dev->mutex_map);
+		sprd_iommu_mm_enable(dev);
+		err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
 
-        err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
+		dev->map_count--;
+		if (0 == dev->map_count)
+			sprd_iommu_mm_release(dev);
 
-        mutex_lock(&dev->mutex_clk_op);
-        dev->map_count--;
-        if (0 == dev->map_count)
-                sprd_iommu_mm_release(dev);
+		sprd_iommu_mm_disable(dev);
 
-        sprd_iommu_mm_disable(dev);
+		if (0 == dev->map_count)
+			sprd_iommu_mm_unprepare(dev);
+		mutex_unlock(&dev->mutex_map);
+	} else {
+		mutex_lock(&dev->mutex_map);
+		err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
 
-        if (0 == dev->map_count)
-                sprd_iommu_mm_unprepare(dev);
-        mutex_unlock(&dev->mutex_clk_op);
-    } else {
-        err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
-
-        mutex_lock(&dev->mutex_clk_op);
-        dev->map_count--;
-        if (0 == dev->map_count)
-                sprd_iommu_mm_disable(dev);
-        mutex_unlock(&dev->mutex_clk_op);
-    }
-    return err;
+		dev->map_count--;
+		if (0 == dev->map_count)
+		        sprd_iommu_mm_disable(dev);
+		mutex_unlock(&dev->mutex_map);
+	}
+	return err;
 }
 
 int sprd_iommu_mm_backup(struct sprd_iommu_dev *dev)
 {
-    int err = 0;
+	int err = 0;
 
-    printk("%s, map_count:%d\n",__FUNCTION__,dev->map_count);
+	mutex_lock(&dev->mutex_map);
+	printk("%s, map_count:%d\n",__FUNCTION__,dev->map_count);
 
-    if (dev->light_sleep_en) {
-        if (dev->map_count > 0) {
-            sprd_iommu_mm_enable(dev);
-            err = sprd_iommu_backup(dev);
-            sprd_iommu_mm_disable(dev);
-            sprd_iommu_mm_unprepare(dev);
-        }
-    } else {
-        if (dev->map_count > 0)
-            err=sprd_iommu_backup(dev);
-    }
-    return err;
+	if (dev->light_sleep_en) {
+		if (dev->map_count > 0) {
+			sprd_iommu_mm_enable(dev);
+			err = sprd_iommu_backup(dev);
+			sprd_iommu_mm_disable(dev);
+			sprd_iommu_mm_unprepare(dev);
+		}
+	} else {
+		if (dev->map_count > 0)
+			err=sprd_iommu_backup(dev);
+	}
+	mutex_unlock(&dev->mutex_map);
+	return err;
 }
 
 int sprd_iommu_mm_restore(struct sprd_iommu_dev *dev)
 {
-    int err = 0;
+	int err = 0;
 
-    printk("%s, map_count:%d\n",__FUNCTION__,dev->map_count);
+	mutex_lock(&dev->mutex_map);
+	printk("%s, map_count:%d\n",__FUNCTION__,dev->map_count);
 
-    if (dev->light_sleep_en) {
-        if (dev->map_count > 0) {
-            sprd_iommu_mm_prepare(dev);
-            sprd_iommu_mm_enable(dev);
-            err = sprd_iommu_restore(dev);
-            sprd_iommu_mm_disable(dev);
-        }
-    } else {
-        if (dev->map_count > 0)
-            err=sprd_iommu_restore(dev);
-    }
-    return err;
+	if (dev->light_sleep_en) {
+		if (dev->map_count > 0) {
+			sprd_iommu_mm_prepare(dev);
+			sprd_iommu_mm_enable(dev);
+			err = sprd_iommu_restore(dev);
+			sprd_iommu_mm_disable(dev);
+		}
+	} else {
+		if (dev->map_count > 0)
+			err=sprd_iommu_restore(dev);
+	}
+	mutex_unlock(&dev->mutex_map);
+	return err;
 }
 
 int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
@@ -266,9 +259,9 @@ int sprd_iommu_mm_disable(struct sprd_iommu_dev *dev)
 	if (!dev->light_sleep_en) {
 		printk("%s\n",__FUNCTION__);
 		mutex_lock(&dev->mutex_pgt);
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 		mutex_unlock(&dev->mutex_pgt);
 	}
 #ifdef CONFIG_OF
@@ -298,22 +291,19 @@ int sprd_iommu_mm_enable(struct sprd_iommu_dev *dev)
 
 	if (!dev->light_sleep_en) {
 #ifdef CONFIG_ARCH_SCX35L
-		unsigned int ddr_frq = emc_clk_get();
-		printk("%s, ddr frq:%d\n",__FUNCTION__,ddr_frq);
+		printk("%s, ddr frq:%d\n",__FUNCTION__,emc_clk_get());
 #else
 		printk("%s\n",__FUNCTION__);
 #endif
 		mutex_lock(&dev->mutex_pgt);
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 		memset((void *)(dev->init_data->pgt_base),0xFF,PAGE_ALIGN(dev->init_data->pgt_size));
 #ifdef CONFIG_ARCH_SCX35L
-		if (ddr_frq >= dev->div2_frq) {
-			iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
-		}
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
 #endif
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
-		iommu_mm_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
 		mutex_unlock(&dev->mutex_pgt);
 	}
 	return 0;

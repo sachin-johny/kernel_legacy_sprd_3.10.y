@@ -44,7 +44,7 @@ struct sprd_iommu_dev {
 #endif
 	void *private;
 	unsigned int map_count;
-	struct mutex mutex_clk_op;
+	struct mutex mutex_map;
 	unsigned int div2_frq;
 	bool light_sleep_en;
 };

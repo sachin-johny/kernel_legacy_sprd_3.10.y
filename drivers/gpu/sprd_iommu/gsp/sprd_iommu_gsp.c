@@ -26,6 +26,32 @@ static void sprd_iommu_gsp_early_suspend(struct early_suspend* es);
 static void sprd_iommu_gsp_late_resume(struct early_suspend* es);
 #endif
 
+void sprd_iommu_gsp_open(struct sprd_iommu_dev *dev)
+{
+	pr_debug("%s\n",__FUNCTION__);
+	mutex_lock(&dev->mutex_pgt);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+#ifdef CONFIG_ARCH_SCX35L
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
+#endif
+	mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(1),MMU_EN_MASK);
+	mutex_unlock(&dev->mutex_pgt);
+	return;
+}
+
+void sprd_iommu_gsp_release(struct sprd_iommu_dev *dev)
+{
+	pr_debug("%s\n",__FUNCTION__);
+	mutex_lock(&dev->mutex_pgt);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
+	mutex_unlock(&dev->mutex_pgt);
+	return;
+}
+
 int sprd_iommu_gsp_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data)
 {
 		int err=-1;
@@ -113,18 +139,30 @@ void sprd_iommu_gsp_iova_free(struct sprd_iommu_dev *dev, unsigned long iova, si
 
 int sprd_iommu_gsp_iova_map(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
-	int err=-1;
+	int err = -1;
+
+	mutex_lock(&dev->mutex_map);
+	if (0 == dev->map_count)
+		sprd_iommu_gsp_open(dev);
+	dev->map_count++;
 
 	err = sprd_iommu_iova_map(dev,iova,iova_length,handle);
+	mutex_unlock(&dev->mutex_map);
 
 	return err;
 }
 
 int sprd_iommu_gsp_iova_unmap(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length, struct ion_buffer *handle)
 {
-	int err=-1;
+	int err = -1;
 
+	mutex_lock(&dev->mutex_map);
 	err = sprd_iommu_iova_unmap(dev,iova,iova_length,handle);
+
+	dev->map_count--;
+	if (0 == dev->map_count)
+		sprd_iommu_gsp_release(dev);
+	mutex_unlock(&dev->mutex_map);
 
 	return err;
 }
@@ -134,10 +172,14 @@ int sprd_iommu_gsp_backup(struct sprd_iommu_dev *dev)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	return 0;
 #else
-	int err=-1;
-	sprd_iommu_gsp_enable(dev);
-	err=sprd_iommu_backup(dev);
-	sprd_iommu_gsp_disable(dev);
+	int err = -1;
+
+	mutex_lock(&dev->mutex_map);
+	printk("%s, map_count:%d\n", __FUNCTION__, dev->map_count);
+	if (dev->map_count > 0)
+		err = sprd_iommu_backup(dev);
+	mutex_unlock(&dev->mutex_map);
+
 	return err;
 #endif
 }
@@ -147,50 +189,62 @@ int sprd_iommu_gsp_restore(struct sprd_iommu_dev *dev)
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	return 0;
 #else
-	int err=-1;
+	int err = -1;
+
 #ifdef GSP_IOMMU_WORKAROUND1
 	sprd_iommu_gsp_enable_withworkaround(dev);
-#else
-	sprd_iommu_gsp_enable(dev);
 #endif
-	err=sprd_iommu_restore(dev);
-#endif
+
+	mutex_lock(&dev->mutex_map);
+	printk("%s, map_count:%d\n", __FUNCTION__, dev->map_count);
+	if (dev->map_count > 0)
+		err = sprd_iommu_restore(dev);
+	mutex_unlock(&dev->mutex_map);
+
+#ifdef GSP_IOMMU_WORKAROUND1
 	sprd_iommu_gsp_disable(dev);
+#endif
+#endif
+
 }
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
 static void sprd_iommu_gsp_early_suspend(struct early_suspend* es)
 {
-	int err=-1;
+	int err = -1;
 	struct sprd_iommu_dev *dev = container_of(es, struct sprd_iommu_dev, early_suspend);
 
-	printk("%s%d\n",__func__,__LINE__);
-
-	sprd_iommu_gsp_enable(dev);
-	err=sprd_iommu_backup(dev);
-	sprd_iommu_gsp_disable(dev);
+	mutex_lock(&dev->mutex_map);
+	printk("%s, map_count:%d\n", __FUNCTION__, dev->map_count);
+	if (dev->map_count > 0)
+		err = sprd_iommu_backup(dev);
+	mutex_unlock(&dev->mutex_map);
 }
 
 static void sprd_iommu_gsp_late_resume(struct early_suspend* es)
 {
-	int err=-1;
+	int err = -1;
 	struct sprd_iommu_dev *dev = container_of(es, struct sprd_iommu_dev, early_suspend);
-
-	printk("%s%d\n",__func__,__LINE__);
 
 #ifdef GSP_IOMMU_WORKAROUND1
 	sprd_iommu_gsp_enable_withworkaround(dev);
-#else
-	sprd_iommu_gsp_enable(dev);
 #endif
-	err=sprd_iommu_restore(dev);
-	sprd_iommu_gsp_disable(dev);
+
+	mutex_lock(&dev->mutex_map);
+	printk("%s, map_count:%d\n", __FUNCTION__, dev->map_count);
+	if (dev->map_count > 0)
+		err = sprd_iommu_restore(dev);
+	mutex_unlock(&dev->mutex_map);
+
+#ifdef GSP_IOMMU_WORKAROUND1
+		sprd_iommu_gsp_disable(dev);
+#endif
 }
 #endif
 
 int sprd_iommu_gsp_disable(struct sprd_iommu_dev *dev)
 {
-		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
+		pr_debug("%s\n",__FUNCTION__);
 		sprd_iommu_disable(dev);
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
@@ -253,7 +307,7 @@ static void gsp_iommu_workaround(struct sprd_iommu_dev *dev)
 int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 
 {
-		printk("%s line:%d\n",__FUNCTION__,__LINE__);
+		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_clock);
@@ -276,8 +330,8 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 		gsp_iommu_workaround(dev);
 		clk_enable(dev->mmu_mclock);
 	#endif
+	udelay(100);
 #endif
-		udelay(100);
 		sprd_iommu_enable(dev);
 		return 0;
 }
@@ -286,7 +340,7 @@ int sprd_iommu_gsp_enable_withworkaround(struct sprd_iommu_dev *dev)
 
 int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 {
-		pr_debug("%s line:%d\n",__FUNCTION__,__LINE__);
+		pr_debug("%s\n",__FUNCTION__);
 #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	#ifdef CONFIG_OF
 		clk_prepare_enable(dev->mmu_mclock);
@@ -305,8 +359,8 @@ int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 		clk_set_parent(dev->mmu_clock,dev->mmu_pclock);
 		clk_enable(dev->mmu_clock);
 	#endif
+	udelay(100);
 #endif
-		udelay(100);
 		sprd_iommu_enable(dev);
 		return 0;
 }
@@ -314,16 +368,6 @@ int sprd_iommu_gsp_enable(struct sprd_iommu_dev *dev)
 int sprd_iommu_gsp_dump(struct sprd_iommu_dev *dev, unsigned long iova, size_t iova_length)
 {
 	return sprd_iommu_dump(dev,iova,iova_length);
-}
-
-void sprd_iommu_gsp_open(struct sprd_iommu_dev *dev)
-{
-    return;
-}
-
-void sprd_iommu_gsp_release(struct sprd_iommu_dev *dev)
-{
-    return;
 }
 
 struct sprd_iommu_ops iommu_gsp_ops={

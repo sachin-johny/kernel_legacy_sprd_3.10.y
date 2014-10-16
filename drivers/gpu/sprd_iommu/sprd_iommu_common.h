@@ -42,6 +42,8 @@ extern const struct of_device_id iommu_ids[];
 extern u32 emc_clk_get(void);
 #endif
 
+void mmu_reg_write(unsigned long reg, unsigned long val, unsigned long msk);
+
 int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *data);
 
 int sprd_iommu_exit(struct sprd_iommu_dev *dev);

@@ -3,10 +3,9 @@
 //extern struct sprd_iommu_ops iommu_gsp_ops;
 extern struct sprd_iommu_ops iommu_mm_ops;
 #endif
-static int mmu_reg_write(unsigned long reg, unsigned long val, unsigned long msk)
+inline void mmu_reg_write(unsigned long reg, unsigned long val, unsigned long msk)
 {
 	__raw_writel((__raw_readl((void *)reg) & ~msk) | val, (void *)reg);
-	return 0;
 }
 
 unsigned long get_phys_addr(struct scatterlist *sg)
@@ -76,10 +75,8 @@ int sprd_iommu_init(struct sprd_iommu_dev *dev, struct sprd_iommu_init_data *dat
 	//TLB enable
 	//MMU enable
 #ifdef CONFIG_ARCH_SCX35L
-        printk("ssprd_iommu_init, ddr frq:%d, div2 frq:%d\n",emc_clk_get(), dev->div2_frq);
-        if (emc_clk_get() >= dev->div2_frq) {
-            mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
-        }
+	printk("%s, ddr frq:%d, div2 frq:%d\n", __FUNCTION__, emc_clk_get(), dev->div2_frq);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
 #endif
 	mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
@@ -212,12 +209,12 @@ int sprd_iommu_backup(struct sprd_iommu_dev *dev)
 	memcpy((unsigned long*)dev->pgt,(unsigned long*)dev->init_data->pgt_base,PAGE_ALIGN(dev->init_data->pgt_size));
 #ifdef GSP_IOMMU_WORKAROUND1
 	if(dev->ops == &iommu_mm_ops){
-	        mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
 		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
 		mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 	}
 #else
-        mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(0),MMU_RAMCLK_DIV2_EN_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(0),MMU_TLB_EN_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_EN(0),MMU_EN_MASK);
 #endif
@@ -239,9 +236,7 @@ int sprd_iommu_restore(struct sprd_iommu_dev *dev)
 #ifdef GSP_IOMMU_WORKAROUND1
 	if(dev->ops == &iommu_mm_ops){
 #ifdef CONFIG_ARCH_SCX35L
-                if (emc_clk_get() >= dev->div2_frq) {
-                    mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
-                }
+		mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
 #endif
 		mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 		mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);
@@ -249,9 +244,7 @@ int sprd_iommu_restore(struct sprd_iommu_dev *dev)
 	}
 #else
 #ifdef CONFIG_ARCH_SCX35L
-        if (emc_clk_get() >= dev->div2_frq) {
-            mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
-        }
+	mmu_reg_write(dev->init_data->ctrl_reg,MMU_RAMCLK_DIV2_EN(1),MMU_RAMCLK_DIV2_EN_MASK);
 #endif
 	mmu_reg_write(dev->init_data->ctrl_reg,dev->init_data->iova_base,MMU_START_MB_ADDR_MASK);
 	mmu_reg_write(dev->init_data->ctrl_reg,MMU_TLB_EN(1),MMU_TLB_EN_MASK);

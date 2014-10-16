@@ -52,7 +52,7 @@ static int pgt_show(struct seq_file *s, void *unused)
 	struct sprd_iommu_dev *iommu_dev = (struct sprd_iommu_dev *)s->private;
 	unsigned long i=0;
 	seq_printf(s,"iommu_name:%s  pgt_base:0x%lx  pgt_size:0x%zx\n",iommu_dev->init_data->name,iommu_dev->init_data->pgt_base,iommu_dev->init_data->pgt_size);
-	mutex_lock(&iommu_dev->mutex_clk_op);
+	mutex_lock(&iommu_dev->mutex_map);
 	if (iommu_dev->light_sleep_en) {
             if (0 == iommu_dev->map_count) {
                 iommu_dev->ops->enable(iommu_dev);
@@ -89,7 +89,7 @@ static int pgt_show(struct seq_file *s, void *unused)
                 iommu_dev->ops->disable(iommu_dev);
             }
 	}
-	mutex_unlock(&iommu_dev->mutex_clk_op);
+	mutex_unlock(&iommu_dev->mutex_map);
 	return 0;
 }
 
