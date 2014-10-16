@@ -31,6 +31,7 @@
 #include <linux/wakelock.h>
 #include <linux/syscore_ops.h>
 
+extern uint8_t assert_trigger_state;
 static struct smsg_ipc *smsg_ipcs[SIPC_ID_NR];
 
 static ushort debug_enable = 0;
@@ -59,7 +60,7 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 			readl(ipc->rxbuf_wrptr), readl(ipc->rxbuf_rdptr), rxpos);
 		pr_debug("irq read smsg: channel=%d, type=%d, flag=0x%04x, value=0x%08x\n",
 			msg->channel, msg->type, msg->flag, msg->value);
-		if(msg->type == SMSG_TYPE_DIE) {
+		if((msg->type == SMSG_TYPE_DIE)||(TRUE==assert_trigger_state)){
 			if(debug_enable)
 				panic("cpcrash");
 			else {

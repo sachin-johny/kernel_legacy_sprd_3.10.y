@@ -38,7 +38,7 @@
 #define SMSG_TXBUF_WRPTR	(SMSG_RINGHDR + 4)
 #define SMSG_RXBUF_RDPTR	(SMSG_RINGHDR + 8)
 #define SMSG_RXBUF_WRPTR	(SMSG_RINGHDR + 12)
-
+uint8_t assert_trigger_state = 0;
 struct sctrl_device {
 	struct spipe_init_data	*init;
 	int			major;
@@ -312,6 +312,24 @@ static int __init sipc_pmic_init(uint32_t base)
 
 	return smsg_ipc_create(SIPC_ID_PMIC, &smsg_ipc_pmic);
 }
+static ssize_t  smsg_assert_trigger_show(struct device *dev,
+                struct device_attribute *attr, char *buf)
+{
+    return sprintf(buf,"%d\n",assert_trigger_state);
+}
+
+static ssize_t smsg_assert_trigger_store(struct device *dev,
+                struct device_attribute *attr, const char *buf, size_t size)
+{
+    uint8_t value;
+    if (sscanf(buf, "%d", &value) == 1) {
+         assert_trigger_state = value;
+         return size;
+    }
+    return -1;
+}
+static DEVICE_ATTR(assert_trigger, S_IRUGO | S_IWUSR, smsg_assert_trigger_show, smsg_assert_trigger_store);
+
 static const struct file_operations sctrl_fops = {
 	.open		= sctrl_open,
 	.release	= sctrl_release,
@@ -405,8 +423,10 @@ static int sctrl_probe(struct platform_device *pdev)
 {
 	struct spipe_init_data *init = pdev->dev.platform_data;
 	struct sctrl_device *sctrl;
+        struct device *pdevice;
+        struct device_attribute *attr;
 	dev_t devid;
-	int i, rval;
+	int i,err, rval;
 
 	if (pdev->dev.of_node && !init) {
 		rval = sctrl_parse_dt(&init, &pdev->dev);
@@ -457,14 +477,25 @@ static int sctrl_probe(struct platform_device *pdev)
 	sctrl->minor = MINOR(devid);
 	if (init->ringnr > 1) {
 		for (i = 0; i < init->ringnr; i++) {
-			device_create(sctrl_class, NULL,
-				MKDEV(sctrl->major, sctrl->minor + i),
+			device_create(sctrl_class, NULL,\
+				MKDEV(sctrl->major, sctrl->minor + i),\
 				NULL, "%s%d", init->name, i);
 		}
+
 	} else {
-		device_create(sctrl_class, NULL,
+		pdevice = device_create(sctrl_class, NULL,
 			MKDEV(sctrl->major, sctrl->minor),
 			NULL, "%s", init->name);
+                if (IS_ERR(pdevice))
+                            return PTR_ERR(pdevice);
+                attr = &dev_attr_assert_trigger;
+                dev_set_drvdata(pdevice, pdev);
+                err = device_create_file(pdevice, attr);
+                if (err) {
+                    device_destroy(sctrl_class, pdevice->devt);
+                    return err;
+                }
+
 	}
 
 	sctrl->init = init;
