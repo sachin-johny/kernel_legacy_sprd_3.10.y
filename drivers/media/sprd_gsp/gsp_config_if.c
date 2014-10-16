@@ -186,9 +186,12 @@ PUBLIC void GSP_Init(void)
         pr_debug(KERN_INFO "%s: enable emc clock ok!\n",__FUNCTION__);
     }
 
-#ifndef GSP_IOMMU_WORKAROUND1
-    GSP_HWMODULE_SOFTRESET();//workaround gsp-iommu bug
+#ifndef GSP_IOMMU_WORKAROUND1//workaround gsp-iommu bug
+#ifndef CONFIG_ARCH_SCX35L//sharkL bug 350028
+    GSP_HWMODULE_SOFTRESET();
 #endif
+#endif
+
     GSP_IRQMODE_SET(GSP_IRQ_MODE_LEVEL);
 }
 PUBLIC void GSP_Deinit(void)
