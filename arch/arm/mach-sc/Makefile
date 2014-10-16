@@ -95,7 +95,11 @@ obj-$(CONFIG_MACH_SP7730ECTRISIM) += board-sp7730ectrisim.o board_common_battery
 
 obj-$(CONFIG_SPRD_DEBUG) += sprd_debug.o
 obj-$(CONFIG_SPRD_MEM_POOL) += sprd_mem_pool.o
+ifeq ($(CONFIG_ARCH_SCX35L),y)
+obj-$(CONFIG_SPRD_AVS_DEBUG) += avs_debug_scx30g.o
+else
 obj-$(CONFIG_SPRD_AVS_DEBUG) += avs_debug.o
+endif
 obj-$(CONFIG_SPRD_AUX_DEBUG) += aux_debug.o
 obj-$(CONFIG_MACH_SPX35LFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_PIKELFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o

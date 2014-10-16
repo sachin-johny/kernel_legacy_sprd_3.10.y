@@ -825,6 +825,33 @@ static ssize_t dvfs_prop_show(struct device *dev, struct device_attribute *attr,
 	return strlen(buf) + 1;
 }
 
+#ifdef CONFIG_SPRD_AVS_DEBUG
+extern unsigned int g_avs_log_flag;
+
+static ssize_t avs_log_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	printk(KERN_ERR"g_avs_log_flag %s\n",buf);
+	ret = strict_strtoul(buf,16,(long unsigned int *)&value);
+
+	printk(KERN_ERR"g_avs_log_flag %x\n",value);
+
+	g_avs_log_flag = (value ) & 0x0f;
+	return count;
+}
+
+static ssize_t avs_log_show(struct device *dev, struct device_attribute *attr,char *buf)
+{
+	int ret = 0;
+
+	ret = snprintf(buf + ret,50,"g_avs_log_flag %d\n",g_avs_log_flag);
+
+	return strlen(buf) + 1;
+}
+#endif
 static DEVICE_ATTR(cpufreq_min_limit, 0660, cpufreq_min_limit_show, cpufreq_min_limit_store);
 static DEVICE_ATTR(cpufreq_max_limit, 0660, cpufreq_max_limit_show, cpufreq_max_limit_store);
 static DEVICE_ATTR(cpufreq_min_limit_debug, 0440, cpufreq_min_limit_debug_show, NULL);
@@ -835,9 +862,11 @@ static DEVICE_ATTR(cpufreq_table, 0440, cpufreq_table_show, NULL);
 static DEVICE_ATTR(dvfs_score, 0660, dvfs_score_show, dvfs_score_store);
 static DEVICE_ATTR(dvfs_unplug, 0660, dvfs_unplug_show, dvfs_unplug_store);
 static DEVICE_ATTR(dvfs_plug, 0660, dvfs_plug_show, dvfs_plug_store);
-static DEVICE_ATTR(dvfs_prop, 0660, dvfs_prop_show, dvfs_prop_store);
 #endif
-
+static DEVICE_ATTR(dvfs_prop, 0660, dvfs_prop_show, dvfs_prop_store);
+#ifdef CONFIG_SPRD_AVS_DEBUG
+static DEVICE_ATTR(avs_log, 0660, avs_log_show, avs_log_store);
+#endif
 static struct attribute *g[] = {
 	&dev_attr_cpufreq_min_limit.attr,
 	&dev_attr_cpufreq_max_limit.attr,
@@ -850,6 +879,9 @@ static struct attribute *g[] = {
 	&dev_attr_dvfs_plug.attr,
 #endif
 	&dev_attr_dvfs_prop.attr,
+#ifdef CONFIG_SPRD_AVS_DEBUG	
+	&dev_attr_avs_log.attr,
+#endif	
 	NULL,
 };
 
