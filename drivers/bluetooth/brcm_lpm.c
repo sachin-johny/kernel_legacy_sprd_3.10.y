@@ -540,7 +540,7 @@ static void bluesleep_stop(void)
         /* assert BT_WAKE */
 	if (bsi->has_ext_wake == 1)
         gpio_set_value(bsi->ext_wake, 0);
-	clear_bit(BT_EXT_WAKE, &flags);
+		clear_bit(BT_EXT_WAKE, &flags);
         del_timer(&tx_timer);
         clear_bit(BT_PROTO, &flags);
 
@@ -556,8 +556,10 @@ static void bluesleep_stop(void)
 
 #if BT_ENABLE_IRQ_WAKE
         if (disable_irq_wake(bsi->host_wake_irq))
-                BT_SLEEP_DBG("Couldn't disable hostwake IRQ wakeup mode\n");
+			BT_SLEEP_DBG("Couldn't disable hostwake IRQ wakeup mode\n");
 #endif
+	wake_unlock(&bsi->host_wakelock);
+	wake_unlock(&bsi->BT_wakelock);
       //  wake_lock_timeout(&bsi->wake_lock, HZ / 2);
 }
 
@@ -814,8 +816,8 @@ static int bluesleep_probe(struct platform_device *pdev)
 
 	//wake_lock_init(&bsi->wake_lock, WAKE_LOCK_SUSPEND, "bluesleep");
 	
-	wake_lock_init(&bsi->BT_wakelock, WAKE_LOCK_SUSPEND, "bluesleep");
-	wake_lock_init(&bsi->host_wakelock, WAKE_LOCK_SUSPEND, "bluesleep");
+	wake_lock_init(&bsi->BT_wakelock, WAKE_LOCK_SUSPEND, "bluesleep1");
+	wake_lock_init(&bsi->host_wakelock, WAKE_LOCK_SUSPEND, "bluesleep2");
 	clear_bit(BT_SUSPEND, &flags);
 
 	BT_INFO("host_wake_irq %d, polarity %d",
