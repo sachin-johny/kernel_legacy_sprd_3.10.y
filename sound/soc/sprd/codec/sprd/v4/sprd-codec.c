@@ -1984,6 +1984,8 @@ static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 			    BIT(SEL_VCMI));
 	snd_soc_update_bits(codec, SOC_REG(ANA_PMU1), BIT(VCMI_FAST_EN),
 			    BIT(VCMI_FAST_EN));
+	/*Bug 362021*/
+	snd_soc_update_bits(codec,SOC_REG(ANA_CDC2),BIT(DACDC_RMV_EN),BIT(DACDC_RMV_EN));
 
 	return ret;
 }
@@ -1999,6 +2001,10 @@ static int sprd_codec_digital_open(struct snd_soc_codec *codec)
 	snd_soc_update_bits(codec, SOC_REG(AUD_DAC_CTL), BIT(DAC_MUTE_EN), 0);
 
 	sprd_codec_sample_rate_setting(sprd_codec);
+
+	/*Bug 362021*/
+	snd_soc_update_bits(codec, SOC_REG(AUD_DAC_SDM_L), 0xFFFF, 0X9999);
+	snd_soc_update_bits(codec, SOC_REG(AUD_DAC_SDM_H), 0xFF, 0x1);
 
 	return ret;
 }
