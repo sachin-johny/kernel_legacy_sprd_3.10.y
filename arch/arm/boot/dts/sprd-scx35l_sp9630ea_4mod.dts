@@ -406,9 +406,9 @@
 			gpios = <&d_gpio_gpio 145 0
                                  &d_gpio_gpio 144 0>;
 			vdd_name = "vdd28";
-			virtualkeys = <256 1000 64 60
-				192 1000 64 60
-				128 1000 64 60>;
+			virtualkeys = <256 1062 64 60
+				192 1062 64 60
+				128 1062 64 60>;
 			TP_MAX_X = <480>;
 			TP_MAX_Y = <800>;
 		 };
