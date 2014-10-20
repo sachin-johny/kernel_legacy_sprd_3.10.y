@@ -789,7 +789,7 @@ static int sblock_debug_show(struct seq_file *m, void *private)
 			ring = sblock->ring;
 			ringhd = (volatile struct sblock_ring_header *)(&sblock->ring->header->ring);
 			poolhd = (volatile struct sblock_ring_header *)(&sblock->ring->header->pool);
-
+			seq_printf(m, "************************************************************************************************\n");
 			seq_printf(m, "sblock dst 0x%0x, channel: 0x%0x, state: %d, smem_virt: 0x%0x, smem_addr: 0x%0x, smem_size: 0x%0x, txblksz: %d, rxblksz: %d \n",
 				sblock->dst, sblock->channel, sblock->state,
 				(uint32_t)sblock->smem_virt, sblock->smem_addr,
@@ -814,6 +814,7 @@ static int sblock_debug_show(struct seq_file *m, void *private)
 				poolhd->txblk_wrptr, poolhd->txblk_size,
 				(int)(poolhd->txblk_wrptr - poolhd->txblk_rdptr),
 				poolhd->txblk_blks );
+			seq_printf(m, "************************************************************************************************\n\n");
 		}
 	}
 	return 0;

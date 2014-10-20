@@ -25,50 +25,72 @@
 #include <linux/workqueue.h>
 #include <linux/ipv6.h>
 #include <linux/ip.h>
+#include <linux/tcp.h>
+#include <linux/icmp.h>
+#include <linux/icmpv6.h>
 #include <asm/byteorder.h>
 #include <linux/tty.h>
 #include <linux/platform_device.h>
 #include <linux/atomic.h>
+#include <linux/sched.h>
+#include <linux/kthread.h>
+#ifdef CONFIG_DEBUG_FS
+#include <linux/debugfs.h>
+#include <linux/seq_file.h>
+#endif
+
 #ifdef CONFIG_OF
 #include <linux/of_device.h>
 #endif
-#include <linux/sched.h>
-#include <linux/kthread.h>
-
 
 #include <linux/sipc.h>
 #include <linux/seth.h>
 
-//#define SETH_THRD
-
-#ifdef SETH_THRD
-#include "simple_events.h"
-#endif
+#define seth_max(a,b) ((a) > (b) ? (a) : (b))
+#define seth_min(a,b) ((a) < (b) ? (a) : (b))
 
 /* debugging macros */
 #define SETH_INFO(x...)		pr_info("SETH: " x)
 #define SETH_DEBUG(x...)	pr_debug("SETH: " x)
 #define SETH_ERR(x...)		pr_err("SETH: Error: " x)
 
+/* defination of sblock length */
 #define SETH_BLOCK_SIZE	(ETH_HLEN + ETH_DATA_LEN + NET_IP_ALIGN)
 
+/* device status */
 #define DEV_ON 1
 #define DEV_OFF 0
 
-#define SETH_RESEND_MAX_NUM	10
-
+/* enable NAPI */
 #define SETH_NAPI
+
 #define SETH_SHARKL
 
-#define SETH_TX_NO_ERR          0
-#define SETH_TX_NO_BLK          -1
-#define SETH_TX_INVALID_BLK     -2
+/* tx pkt return value */
+#define SETH_TX_SUCCESS		 0
+#define SETH_TX_NO_BLK		-1
+#define SETH_TX_INVALID_BLK	-2
+
+/* Macro of Packet Field  */
+#define SETH_IPV4_HLEN 20
+#define SETH_IPV6_HLEN 40
+#define SETH_ETH_HLEN  ETH_HLEN
+#define SETH_ETH_FRAME_LEN ETH_FRAME_LEN
+#define SETH_IPV4_VERSION 0x04
+#define SETH_IPV6_VERSION 0x06
+
+/* Macro of protocol type */
+#define SETH_PRO_TCP	6
+#define SETH_PRO_ICMP	1
+
+/* Macro of ICMP type */
+#define SETH_ICMP_PING	ICMP_ECHO
+#define SETH_ICMP6_PING	ICMPV6_ECHO_REQUEST
 
 #ifdef SETH_NAPI
-#define SETH_NAPI_WEIGHT 128
+#define SETH_NAPI_WEIGHT 64
 #define SETH_NAPI_FIFO_DEPTH 256
-#define SETH_TX_WEIGHT 250
-#define SETH_TX_FIFO_DEPTH 256
+#define SETH_TX_WEIGHT 16
 
 struct seth_rx_fifo {
 	uint32_t rd_ptr; /* read pointer */
@@ -76,14 +98,24 @@ struct seth_rx_fifo {
 	struct sk_buff *cache[SETH_NAPI_FIFO_DEPTH]; /* rx packet cache */
 };
 
-struct seth_tx_fifo {
-	uint32_t rd_ptr; /* read pointer */
-	uint32_t wr_ptr; /* write pointer */
-	struct sk_buff *cache[SETH_TX_FIFO_DEPTH]; /* tx packet cache */
+/* struct of data transfer statistics */
+struct seth_dtrans_stats {
+	uint32_t rx_pkt_max;
+	uint32_t rx_pkt_min;
+	uint32_t rx_sum;
+	uint32_t rx_cnt;
+	uint32_t rx_fifo_overflows;
+	uint32_t rx_alloc_fails;
+
+	uint32_t tx_pkt_max;
+	uint32_t tx_pkt_min;
+	uint32_t tx_sum;
+	uint32_t tx_cnt;
+	uint32_t tx_ping_cnt;
+	uint32_t tx_ack_cnt;
 };
 
-struct wake_lock seth_rx_wakelock;
-#endif
+#endif /* end of SETH_NAPI*/
 
 /*
  * Device instance data.
@@ -94,26 +126,49 @@ typedef struct SEth {
 	struct seth_init_data* pdata;	/* platform data */
 	int state;			/* device state */
 	int txstate;			/* device txstate */
-	int stopped;		/* sblock indicator */
 
 #ifdef SETH_NAPI
 	struct seth_rx_fifo *rx_fifo;
-	struct seth_rx_fifo p_rx_fifos;
+	atomic_t rx_busy;
+
+	atomic_t txpending;	/* seth tx resend count*/
+	struct timer_list tx_timer;
 	struct napi_struct napi; /* napi instance */
-	struct timer_list seth_tx_timer;
-        atomic_t txpending;			/* seth tx resend count*/
-
-#ifdef SETH_THRD
-        struct task_struct *rx_thrd;
-        simple_event_t rx_evt;
-	struct task_struct *tx_thrd;
-        simple_event_t tx_evt;
-#endif /* SETH_THRD */
-
+	struct seth_dtrans_stats dt_stats; /* record data_transfer statistics*/
 #endif /* SETH_NAPI */
 } SEth;
 
+#ifdef CONFIG_DEBUG_FS
+struct dentry *root = NULL;
+uint32_t seth_print_seq = 0;
+static int seth_debugfs_mknod(void *root, void * data);
+#endif
+
 #ifdef SETH_NAPI
+
+static inline void seth_dt_stats_init(struct seth_dtrans_stats * stats)
+{
+	memset(stats, 0, sizeof(struct seth_dtrans_stats));
+	stats->rx_pkt_min = 0xff;
+	stats->tx_pkt_min = 0xff;
+}
+
+static inline void seth_rx_stats_update(struct seth_dtrans_stats *stats, uint32_t cnt)
+{
+	stats->rx_pkt_max = seth_max(stats->rx_pkt_max, cnt);
+	stats->rx_pkt_min = seth_min(stats->rx_pkt_min, cnt);
+	stats->rx_sum += cnt;
+	stats->rx_cnt++;
+}
+
+static inline void seth_tx_stats_update(struct seth_dtrans_stats *stats, uint32_t cnt)
+{
+	stats->tx_pkt_max = seth_max(stats->tx_pkt_max, cnt);
+	stats->tx_pkt_min = seth_min(stats->tx_pkt_min, cnt);
+	stats->tx_sum += cnt;
+	stats->tx_cnt++;
+}
+
 static int seth_rx_poll_handler(struct napi_struct * napi, int budget)
 {
 	struct SEth *seth = container_of(napi, struct SEth, napi);
@@ -141,7 +196,7 @@ static int seth_rx_poll_handler(struct napi_struct * napi, int budget)
 
 		skb->protocol = eth_type_trans(skb, seth->netdev);
 		skb->ip_summed = CHECKSUM_NONE;
-		netif_receive_skb(skb);
+		napi_gro_receive(napi, skb);
 
 		/* update fifo rd_ptr */
 		rx_fifo->rd_ptr += 1;
@@ -154,40 +209,131 @@ static int seth_rx_poll_handler(struct napi_struct * napi, int budget)
 	}
 
 	SETH_DEBUG("napi polling done, budget %d, skb cnt %d, cpu %d\n",
-				budget, skb_cnt, smp_processor_id());
+			budget, skb_cnt, smp_processor_id());
 	SETH_DEBUG("napi rx_fifo:rd_ptr 0x%x, wr_ptr 0x%x\n", rx_fifo->rd_ptr, rx_fifo->wr_ptr);
 
 	if (skb_cnt >= 0 && budget > skb_cnt) {
 		napi_complete(napi);
+		atomic_dec(&seth->rx_busy);
 	}
 
 	return skb_cnt;
 }
 
-static int
-is_skb_tcpdata(struct sk_buff* skb){
-	//SETH_DEBUG ("SKBdata: len = 0x%x,ip version = 0x%x\n",
-		//skb->len,((uint8_t)(*(skb->data+12))<<8)+(uint8_t)(*(skb->data+13)));
-	if((uint8_t)(*(skb->data+12))==0x08 && (uint8_t)(*(skb->data+13))==0x00){	//ipv4
-		//SETH_DEBUG ("TCPdata: L4 type = 0x%x ,tcp flag = 0x%x\n",
-						//(uint8_t)(*(skb->data+23)),(uint8_t)(*(skb->data+47)));
-		if(((uint8_t)(*(skb->data+23)))==0x06){		//tcp
-			if((((uint8_t)(*(skb->data+47)))&0x12)==0x00
-				|| ((((uint8_t)(*(skb->data+47)))&0x12)==0x10 && skb->len>200)){	//tcp flag
-				return 1;
-			}
+
+static inline int pkt_is_ping(void *data)
+{
+	uint8_t *idata = (uint8_t *)data;
+	uint8_t ver, protocol;
+	uint32_t ip_hlen;
+	int ret = 0;
+
+	/* parse the version of IP protocol */
+	ver = (idata[SETH_ETH_HLEN] & 0xf0) >> 4;
+	if (ver == SETH_IPV4_VERSION) {
+		struct iphdr * ip_hdr;
+		struct icmphdr *icmp_hdr;
+
+		ip_hdr = (struct iphdr *)(&idata[SETH_ETH_HLEN]);
+		/* get length of ip header */
+		ip_hlen = ip_hdr->ihl * 4;
+		/* get the protocol */
+		protocol = ip_hdr->protocol;
+		icmp_hdr = (struct icmphdr *)(&idata[SETH_ETH_HLEN + ip_hlen]);
+		if (protocol == SETH_PRO_ICMP && icmp_hdr->type == SETH_ICMP_PING) {
+			ret = 1;
 		}
-	}else if((uint8_t)(*(skb->data+12))==0x86 && (uint8_t)(*(skb->data+13))==0xdd){	//ipv6
-		//SETH_DEBUG ("TCPdata: L4 type = 0x%x ,tcp flag = 0x%x\n",
-						//(uint8_t)(*(skb->data+20)),(uint8_t)(*(skb->data+67)));
-		if(((uint8_t)(*(skb->data+20)))==0x06){		//tcp
-			if((((uint8_t)(*(skb->data+67)))&0x12)==0x00
-				|| ((((uint8_t)(*(skb->data+67)))&0x12)==0x10 && skb->len>200)){	//tcp flag
-				return 1;
-			}
+	} else if (ver == SETH_IPV6_VERSION) {
+		struct ipv6hdr *ipv6_hdr;
+		struct icmp6hdr *icmp6_hdr;
+
+		ipv6_hdr = (struct ipv6hdr *)(&idata[SETH_ETH_HLEN]);
+		ip_hlen = SETH_ETH_HLEN;
+		/* get the protocol */
+		protocol = ipv6_hdr->nexthdr;
+		icmp6_hdr = (struct icmp6hdr *)(&idata[SETH_ETH_HLEN + ip_hlen]);
+		if (protocol == SETH_PRO_ICMP && icmp6_hdr->icmp6_type == SETH_ICMP6_PING) {
+			ret = 1;
 		}
 	}
-	return 0;
+
+	return ret;
+}
+
+static inline int pkt_is_ack(void *data)
+{
+	uint8_t *idata = (uint8_t *)data;
+	uint8_t ver, protocol;
+	uint32_t ip_hlen;
+	struct tcphdr *tcp_hdr;
+	int ret = 0;
+
+	/* parse the version of IP protocol */
+	ver = (idata[SETH_ETH_HLEN] & 0xf0) >> 4;
+	if (ver == SETH_IPV4_VERSION) {
+		struct iphdr *ip_hdr;
+
+		ip_hdr = (struct iphdr *)(&idata[SETH_ETH_HLEN]);
+		/*get length of ip header */
+		ip_hlen = ip_hdr->ihl * 4;
+		/* get the protocol*/
+		protocol = ip_hdr->protocol;
+	} else if (ver == SETH_IPV6_VERSION){
+		struct ipv6hdr *ipv6_hdr;
+
+		ipv6_hdr = (struct ipv6hdr *)(&idata[SETH_ETH_HLEN]);
+		ip_hlen = SETH_IPV6_HLEN;
+		/* get the protocol */
+		protocol = ipv6_hdr->nexthdr;
+	} else {
+		return 0;
+	}
+
+	tcp_hdr = (struct tcphdr *)(&idata[SETH_ETH_HLEN + ip_hlen]);
+	if (protocol == SETH_PRO_TCP && (tcp_hdr->ack || tcp_hdr->syn)) {
+		ret = 1;
+	}
+
+	return ret;
+}
+
+static inline void pkt_seq_print(void *data)
+{
+	uint8_t *idata = (uint8_t *)data;
+	uint8_t ver, proto;
+	uint32_t seq, ip_hlen;
+	static uint32_t nr = 0;
+	struct tcphdr *tcp_hdr;
+
+	/* parse the version of IP protocol */
+	ver = (idata[SETH_ETH_HLEN] & 0xf0) >> 4;
+
+	if (ver == SETH_IPV4_VERSION) {
+		struct iphdr *ip_hdr;
+
+		ip_hdr = (struct iphdr *)(&idata[SETH_ETH_HLEN]);
+		/* get length of ip header */
+		ip_hlen = ip_hdr->ihl * 4;
+		/* get the protocol */
+		proto = ip_hdr->protocol;
+	} else if (ver == SETH_IPV6_VERSION) {
+		struct ipv6hdr *ipv6_hdr;
+
+		ipv6_hdr = (struct ipv6hdr *)(&idata[SETH_ETH_HLEN]);
+		ip_hlen = SETH_IPV6_HLEN;
+		/* get  protocol */
+		proto = ipv6_hdr->nexthdr;
+	} else {
+		return;
+	}
+
+	/* print tcp seq */
+	if (proto == SETH_PRO_TCP) {
+		tcp_hdr = (struct tcphdr*)(&idata[SETH_ETH_HLEN + ip_hlen]);
+		seq = ntohl(tcp_hdr->seq);
+		pr_err("SETH: rx pkt: no.%u, ipv%u, nseq = 0x%08x, hseq = 0x%08x\n",
+				nr++, proto, tcp_hdr->seq, seq);
+	}
 }
 
 #endif
@@ -200,7 +346,7 @@ seth_tx_ready_handler (void* data)
 {
 	SEth* seth = (SEth*) data;
 
-	printk(KERN_INFO "seth_tx_ready_handler state %0x\n", seth->state);
+	SETH_INFO("seth_tx_ready_handler state %0x\n", seth->state);
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
 		seth->txstate = DEV_ON;
@@ -212,10 +358,7 @@ seth_tx_ready_handler (void* data)
 		seth->state = DEV_OFF;
 		seth->txstate = DEV_OFF;
 		if (netif_carrier_ok (seth->netdev)) {
-		netif_carrier_off (seth->netdev);
-		/*
-		netif_carrier_on (seth->netdev);
-		*/
+			netif_carrier_off (seth->netdev);
 		}
 	}
 }
@@ -228,7 +371,7 @@ seth_tx_open_handler (void* data)
 {
 	SEth* seth = (SEth*) data;
 
-	printk(KERN_INFO "seth_tx_open_handler state %0x\n", seth->state);
+	SETH_DEBUG("seth_tx_open_handler state %0x\n", seth->state);
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
 		seth->txstate = DEV_ON;
@@ -246,7 +389,7 @@ seth_tx_close_handler (void* data)
 {
 	SEth* seth = (SEth*) data;
 
-	printk(KERN_INFO "seth_tx_close_handler state %0x\n", seth->state);
+	SETH_INFO("seth_tx_close_handler state %0x\n", seth->state);
 	if (seth->state != DEV_OFF) {
 		seth->state = DEV_OFF;
 		seth->txstate = DEV_OFF;
@@ -263,16 +406,15 @@ seth_rx_handler (void* data)
 	struct seth_init_data *pdata = seth->pdata;
 	struct sblock blk;
 	struct sk_buff* skb;
-	int ret,sblkret,count;
-        int need_flush = 0;
+	uint32_t cnt;
+	int ret, sblkret;
 #ifdef SETH_NAPI
-	volatile struct seth_rx_fifo *rx_fifo = NULL;
 	int index;
+	volatile struct seth_rx_fifo *rx_fifo = NULL;
+	struct seth_dtrans_stats *dt_stats = &seth->dt_stats;
 	rx_fifo = (volatile struct seth_rx_fifo *)seth->rx_fifo;
 #endif
 
-	sblkret=0;
-	count=0;
 	if (seth->state != DEV_ON) {
 		SETH_ERR ("rx_handler the state of %s is off!\n", seth->netdev->name);
 		seth->stats.rx_errors++;
@@ -284,94 +426,98 @@ seth_rx_handler (void* data)
 		}
 		goto rx_failed;
 	}
-	wake_lock(&seth_rx_wakelock);
+
+	sblkret = 0;
+	cnt = 0;
 	while(!sblkret){
-		sblkret=sblock_receive(pdata->dst, pdata->channel, &blk, 0);
+		sblkret = sblock_receive(pdata->dst, pdata->channel, &blk, 0);
 		if (sblkret) {
-#ifdef SETH_NAPI
-			if(count>0){
-				napi_schedule(&seth->napi);
-				/* trigger a NET_RX_SOFTIRQ softirq directly */
-                                if(need_flush) {
-                                        need_flush = 0;
-				        raise_softirq(NET_RX_SOFTIRQ);
-                                }
-				SETH_DEBUG ("SETH_RX:rx_fifo->wr_ptr = 0x%x, rx_fifo->rd_ptr = 0x%x ,napi_schedule\n",
-				rx_fifo->wr_ptr,rx_fifo->rd_ptr);
-			}
-#endif
-			SETH_DEBUG("receiving sblock is empty (%d)\n", sblkret);
-			wake_unlock(&seth_rx_wakelock);
-			goto rx_failed;
+			SETH_DEBUG("receive sblock error %d\n", sblkret);
+			break;
 		}
 
-#ifdef SETH_SHARKL
-		skb = dev_alloc_skb (blk.length); //16 bytes align
-		if (!skb) {
-                SETH_ERR ("alloc skbuff failed!\n");
-                seth->stats.rx_dropped++;
-                ret = sblock_release(pdata->dst, pdata->channel, &blk);
-                if (ret) {
-                        SETH_ERR ("release sblock failed (%d)\n", ret);
-                }
-                continue;
+#ifdef CONFIG_DEBUG_FS
+		if (seth_print_seq) {
+			pkt_seq_print((void *)(blk.addr + NET_IP_ALIGN));
 		}
-		/*if((((uint32_t)(skb->data))&0x03) != 0){
-			SETH_DEBUG ("SKBADDR:skb->data= 0x%x ,addr value is not 4x\n",
-					skb->data);
-		}*/
+#endif
+
+#ifdef SETH_SHARKL
+		/*
+		 * start from SHARKL, the first 2 bytes of sblock are reserved for optimization,
+		 * so IP field has been aligned to 4 Bytes already
+		 */
+		skb = dev_alloc_skb (blk.length);
+		if (!skb) {
+			SETH_ERR ("failed to alloc skb!\n");
+			seth->stats.rx_dropped++;
+			ret = sblock_release(pdata->dst, pdata->channel, &blk);
+			if (ret) {
+				SETH_ERR ("release sblock failed %d\n", ret);
+			}
+			dt_stats->rx_alloc_fails++;
+			continue;
+		}
+
 		memcpy(skb->data, blk.addr, blk.length);
+		ret = sblock_release(pdata->dst, pdata->channel, &blk);
+		if (ret) {
+			SETH_ERR("release sblock error %d\n", ret);
+		}
+
+		/* update skb poiter */
 		skb_reserve(skb, NET_IP_ALIGN);
 		skb_put (skb, blk.length - NET_IP_ALIGN);
 #else
-		skb = dev_alloc_skb (blk.length + NET_IP_ALIGN); //16 bytes align
+		skb = dev_alloc_skb (blk.length + NET_IP_ALIGN);
 		if (!skb) {
 			SETH_ERR ("alloc skbuff failed!\n");
 			seth->stats.rx_dropped++;
 			ret = sblock_release(pdata->dst, pdata->channel, &blk);
 			if (ret) {
-				SETH_ERR ("release sblock failed (%d)\n", ret);
+				SETH_ERR ("release sblock failed %d\n", ret);
 			}
 			continue;
 		}
+
 		skb_reserve(skb, NET_IP_ALIGN);
 		memcpy(skb->data, blk.addr, blk.length);
+		ret = sblock_release(pdata->dst, pdata->channel, &blk);
+		if (ret) {
+			SETH_ERR("release sblock error %d\n", ret);
+		}
 		skb_put (skb, blk.length);
 #endif
 
 #ifdef SETH_NAPI
 		/*if the fifo is full, drop the skb*/
-		if ((int)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= SETH_NAPI_FIFO_DEPTH) {
+		if ((int32_t)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= SETH_NAPI_FIFO_DEPTH) {
 			SETH_ERR("napi rx_fifo is full, drop the skb.\n");
-                SETH_ERR("napi rx_fifo:rd_ptr 0x%x, wr_ptr 0x%x\n",
-                        rx_fifo->rd_ptr, rx_fifo->wr_ptr);
-                seth->stats.rx_dropped++;
-                kfree(skb);
-                ret = sblock_release(pdata->dst, pdata->channel, &blk);
-                if (ret) {
-                        SETH_ERR ("release sblock failed (%d)\n", ret);
-                }
-                continue;
+			SETH_ERR("napi rx_fifo:rd_ptr 0x%x, wr_ptr 0x%x\n",
+					rx_fifo->rd_ptr, rx_fifo->wr_ptr);
+			seth->stats.rx_dropped++;
+			dt_stats->rx_fifo_overflows++;
+			kfree_skb(skb);
+			continue;
 		}
+
+		/* enqueue the skb into rx_fifo*/
 		index = rx_fifo->wr_ptr & (SETH_NAPI_FIFO_DEPTH - 1);
 		rx_fifo->cache[index] = skb;
 		rx_fifo->wr_ptr += 1;
-		count++;
-                if(!need_flush) {
-                        need_flush = !is_skb_tcpdata(skb);
-                }
-		if(((uint32_t)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= SETH_NAPI_WEIGHT)
-			&&((count&0x3f)==0x00)) {		//>=128, trigger per 64
+
+		if( !atomic_read(&seth->rx_busy) &&
+				((int32_t)(rx_fifo->wr_ptr - rx_fifo->rd_ptr) >= SETH_NAPI_WEIGHT)) {
+			atomic_inc(&seth->rx_busy);
+			/* update rx stats*/
+			cnt = rx_fifo->wr_ptr - rx_fifo->rd_ptr;
+			seth_rx_stats_update(dt_stats, cnt);
+
 			napi_schedule(&seth->napi);
 			/* trigger a NET_RX_SOFTIRQ softirq directly */
-                        need_flush = 0;
 			raise_softirq(NET_RX_SOFTIRQ);
-			SETH_DEBUG ("SETH_RX:rx_fifo->wr_ptr = 0x%x, rx_fifo->rd_ptr = 0x%x ,napi_schedule SETH_NAPI_WEIGHT\n",
-					rx_fifo->wr_ptr,rx_fifo->rd_ptr);
-		}
-		ret = sblock_release(pdata->dst, pdata->channel, &blk);
-		if (ret) {
-			SETH_ERR ("release sblock failed (%d)\n", ret);
+			SETH_DEBUG ("seth_rx_handler trigger napi: rx_fifo->wr_ptr = 0x%x, rx_fifo->rd_ptr = 0x%x, weight = %u\n",
+					rx_fifo->wr_ptr, rx_fifo->rd_ptr, SETH_NAPI_WEIGHT);
 		}
 #else
 		skb->dev = seth->netdev;
@@ -386,15 +532,23 @@ seth_rx_handler (void* data)
 		seth->netdev->last_rx = jiffies;
 #endif
 	}
-	wake_unlock(&seth_rx_wakelock);
+
+#ifdef SETH_NAPI
+	if (!atomic_read(&seth->rx_busy) &&
+			((int32_t)(rx_fifo->wr_ptr - rx_fifo->rd_ptr)) > 0) {
+		atomic_inc(&seth->rx_busy);
+		/* update rx stats*/
+		cnt = rx_fifo->wr_ptr - rx_fifo->rd_ptr;
+		seth_rx_stats_update(dt_stats, cnt);
+
+		napi_schedule(&seth->napi);
+		raise_softirq(NET_RX_SOFTIRQ);
+		SETH_DEBUG("seth_rx_handler loop done: rx_fifo->wr_ptr = 0x%x, rx_fifo->rd_ptr = 0x%x, rx_busy = %u\n",
+				rx_fifo->wr_ptr, rx_fifo->rd_ptr, atomic_read(&seth->rx_busy));
+	}
+#endif
 
 rx_failed:
-	if (!sblkret) {
-		ret = sblock_release(pdata->dst, pdata->channel, &blk);
-		if (ret) {
-			SETH_ERR ("release sblock failed (%d)\n", ret);
-		}
-	}
 	return;
 }
 
@@ -410,7 +564,9 @@ seth_tx_pre_handler (void* data)
 		seth->txstate = DEV_ON;
 		SETH_INFO ("seth_tx_ready_handler txstate %0x\n", seth->txstate );
 		seth->netdev->trans_start = jiffies;
-		netif_wake_queue(seth->netdev);
+		if (netif_queue_stopped(seth->netdev)) {
+			netif_wake_queue(seth->netdev);
+		}
 	}
 }
 
@@ -426,11 +582,7 @@ seth_handler (int event, void* data)
 			break;
 		case SBLOCK_NOTIFY_RECV:
 			SETH_DEBUG ("SBLOCK_NOTIFY_RECV is received\n");
-#ifndef SETH_THRD
 			seth_rx_handler(seth);
-#else
-                        simple_evnet_set(&seth->rx_evt, SBLOCK_NOTIFY_RECV, 0);
-#endif
 			break;
 		case SBLOCK_NOTIFY_STATUS:
 			SETH_DEBUG ("SBLOCK_NOTIFY_STATUS is received\n");
@@ -452,34 +604,40 @@ seth_handler (int event, void* data)
 static int
 seth_tx_pkt(void* data, struct sk_buff* skb)
 {
-        struct sblock blk;
-        SEth* seth    = netdev_priv (data);
+	struct sblock blk;
+	SEth* seth = netdev_priv (data);
 	struct seth_init_data *pdata = seth->pdata;
 	int ret;
 
-
-        /*
-	* Get a free sblock.
-	*/
+	/*
+	 * Get a free sblock.
+	 */
 	ret = sblock_get(pdata->dst, pdata->channel, &blk, 0);
 	if(ret) {
 		SETH_INFO("Get free sblock failed(%d), drop data!\n", ret);
 		seth->stats.tx_fifo_errors++;
-		netif_stop_queue (data);
-		seth->txstate = DEV_OFF;
 		return SETH_TX_NO_BLK;
 	}
 
-        if(blk.length < (skb->len + NET_IP_ALIGN)) {
+	if(blk.length < (skb->len + NET_IP_ALIGN)) {
 		SETH_ERR("The size of sblock is so tiny!\n");
+		/* recycle the unused sblock */
 		sblock_put(pdata->dst, pdata->channel, &blk);
 		seth->stats.tx_fifo_errors++;
+		netif_wake_queue(seth->netdev);
 		return SETH_TX_INVALID_BLK;
 	}
 
-        blk.length = skb->len + NET_IP_ALIGN;
-	memcpy (blk.addr + NET_IP_ALIGN, skb->data, skb->len);
+#ifdef SETH_SHARKL
+	/* padding 2 Bytes in the head */
+	blk.length = skb->len + NET_IP_ALIGN;
+	memcpy(blk.addr + NET_IP_ALIGN, skb->data, skb->len);
+#else
+	blk.length = skb->len;
+	memcpy(blk.addr, skb->data,skb->len);
+#endif
 	sblock_send_prepare(pdata->dst, pdata->channel, &blk);
+	dev_kfree_skb_any(skb);
 
 	/*
 	* Statistics.
@@ -487,29 +645,29 @@ seth_tx_pkt(void* data, struct sk_buff* skb)
 	seth->stats.tx_bytes += skb->len;
 	seth->stats.tx_packets++;
 #ifdef SETH_NAPI
-        atomic_inc(&seth->txpending);
+	atomic_inc(&seth->txpending);
 #endif
 
-        return NETDEV_TX_OK;
+	return SETH_TX_SUCCESS;
 }
 
-static int
-seth_tx_flush(void* data)
+static void seth_tx_flush(unsigned long data)
 {
-        int ret;
-        SEth* seth    = netdev_priv (data);
-        struct seth_init_data *pdata = seth->pdata;
+	int ret;
+	uint32_t cnt;
+	SEth* seth = netdev_priv((void *)data);
+	struct seth_init_data *pdata = seth->pdata;
 
-        ret = sblock_send_finish(pdata->dst, pdata->channel);
+	cnt = (uint32_t)atomic_read(&seth->txpending);
+	ret = sblock_send_finish(pdata->dst, pdata->channel);
+	seth_tx_stats_update(&seth->dt_stats, cnt);
 	if(ret) {
 		SETH_INFO("seth tx failed(%d)!\n", ret);
 	} else {
 #ifdef SETH_NAPI
-                atomic_set(&seth->txpending, 0);
+		atomic_set(&seth->txpending, 0);
 #endif
-        }
-
-        return NETDEV_TX_OK;
+	}
 }
 
 /*
@@ -518,8 +676,10 @@ seth_tx_flush(void* data)
 static int
 seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 {
-	SEth* seth = netdev_priv (dev);
-        int ret = 0;
+	SEth* seth = netdev_priv(dev);
+	struct seth_dtrans_stats *dt_stats;
+	int flag = 0, ret = 0;
+	int blk_cnt = 0;
 
 	if (seth->state != DEV_ON) {
 		SETH_ERR ("xmit the state of %s is off\n", dev->name);
@@ -529,36 +689,51 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		return NETDEV_TX_OK;
 	}
 
+	/* update tx statistics */
+	dt_stats = &seth->dt_stats;
+	if (pkt_is_ping((void *)skb->data)) {
+		dt_stats->tx_ping_cnt++;
+		flag = 1;
+	} else if (pkt_is_ack((void *)skb->data)) {
+		dt_stats->tx_ack_cnt++;
+		flag = 1;
+	}
 
-        ret = seth_tx_pkt(dev, skb);
-	/*if the fifo is full, drop the skb*/
+	ret = seth_tx_pkt(dev, skb);
 	if (SETH_TX_NO_BLK == ret) {
-                //do flush first
-                seth_tx_flush(dev);
+		/* if there are no available sblks, enter flow control */
+		seth->txstate = DEV_OFF;
+		netif_stop_queue(dev);
+		/* anyway, flush the stored sblks */
+		seth_tx_flush((unsigned long)dev);
 		return NETDEV_TX_BUSY;
-	} else if(SETH_TX_INVALID_BLK == ret) {
-	        dev_kfree_skb_any(skb);
-                return NETDEV_TX_OK;
-        }
+	} else if (SETH_TX_INVALID_BLK == ret) {
+		return NETDEV_TX_OK;
+	}
+
+	/* if there are no available sblock for subsequent skb, start flow control*/
+	blk_cnt = sblock_get_free_count(seth->pdata->dst, seth->pdata->channel);
+	if (!blk_cnt) {
+		SETH_DEBUG("start flow control\n");
+		seth->txstate = DEV_OFF;
+		netif_stop_queue(dev);
+	}
 
 #ifdef SETH_NAPI
-	if((atomic_read(&seth->txpending) >= SETH_TX_WEIGHT) || (is_skb_tcpdata(skb) == 0)) {
-		del_timer(&seth->seth_tx_timer);
-		seth_tx_flush(dev);
-                dev_kfree_skb_any(skb);
+	if ((atomic_read(&seth->txpending) >= SETH_TX_WEIGHT) || flag) {
+		del_timer(&seth->tx_timer);
+		seth_tx_flush((unsigned long)dev);
 		SETH_DEBUG ("seth_start_xmit:at once\n");
-	} else {
-	        dev_kfree_skb_any(skb);
-		seth->seth_tx_timer.function = seth_tx_flush;
-		seth->seth_tx_timer.expires = jiffies + 1;
-		seth->seth_tx_timer.data = (unsigned long)dev;
-		del_timer(&seth->seth_tx_timer);
-		add_timer(&seth->seth_tx_timer);
+	} else if (atomic_read(&seth->txpending) == 1){
+		/* start a timer with 1 jiffy expries (10 ms) */
+		seth->tx_timer.function = seth_tx_flush;
+		seth->tx_timer.expires = jiffies + 1;
+		seth->tx_timer.data = (unsigned long)dev;
+		mod_timer(&seth->tx_timer, seth->tx_timer.expires);
 		SETH_DEBUG ("seth_start_xmit:Timer\n");
 	}
 #else
-        seth_tx_flush(dev);
-        dev_kfree_skb_any(skb);
+	seth_tx_flush((unsigned long)dev);
 #endif
 	dev->trans_start = jiffies;
 	return NETDEV_TX_OK;
@@ -580,7 +755,9 @@ static int seth_open (struct net_device *dev)
 	}
 
 #ifdef SETH_NAPI
+	atomic_set(&seth->rx_busy, 0);
 	napi_enable(&seth->napi);
+	seth_dt_stats_init(&seth->dt_stats);
 #endif
 
 	seth->txstate = DEV_ON;
@@ -602,10 +779,6 @@ static int seth_close (struct net_device *dev)
 #endif
 
 	netif_stop_queue(dev);
-
-	/*
-	seth->state = DEV_OFF;
-	*/
 
 	seth->txstate = DEV_OFF;
 
@@ -698,71 +871,7 @@ static inline void seth_destroy_pdata(struct seth_init_data **init)
 #endif
 }
 
-#ifdef SETH_THRD
-
-static int seth_rx_thread(void *data)
-{
-        int ret = 0;
-        SEth *seth = (SEth*)data;
-        struct sched_param param = {.sched_priority = 1};
-
-        /*set the thread as a real time thread, and its priority is 90*/
-        //sched_setscheduler(current, SCHED_RR, &param);
-
-        printk("seth: seth_rx_thread enter\n");
-        /* handle the seth rx events */
-        while (!kthread_should_stop()) {
-                unsigned int req_flags = SBLOCK_NOTIFY_RECV;
-                unsigned int actual_flags = 0;
-
-                printk("seth: seth_rx_thread start simple_evnet_get\n");
-                ret = simple_evnet_get(&seth->rx_evt, req_flags, &actual_flags);
-                if(ret) {
-                        panic("seth_rx_thread simple_evnet_get failed (%d)\n", ret);
-                        break;
-                }
-
-                printk("seth: seth_rx_thread start got event:%d\n", actual_flags);
-                if(!actual_flags) continue;
-
-                if(actual_flags | SBLOCK_NOTIFY_RECV) {
-                        seth_rx_handler(seth);
-                }
-        }
-
-        return ret;
-}
-
-
-static int seth_tx_thread(void *data)
-{
-        int ret = 0;
-        SEth *seth = (SEth*)data;
-        struct sched_param param = {.sched_priority = 1};
-
-        /*set the thread as a real time thread, and its priority is 90*/
-        //sched_setscheduler(current, SCHED_RR, &param);
-
-
-        /* handle the seth rx events */
-        while (!kthread_should_stop()) {
-                unsigned int req_flags = SBLOCK_NOTIFY_GET | SBLOCK_NOTIFY_STATUS;
-                unsigned int actual_flags = 0;
-
-                ret = simple_evnet_get(&seth->tx_evt, req_flags, &actual_flags);
-                if(ret) {
-                        SETH_ERR ("seth_tx_thread simple_evnet_get failed (%d)\n", ret);
-                        continue;
-                }
-
-                if(!actual_flags) continue;
-
-        }
-
-        return ret;
-}
-#endif
-static int  seth_probe(struct platform_device *pdev)
+static int seth_probe(struct platform_device *pdev)
 {
 	struct seth_init_data *pdata = pdev->dev.platform_data;
 	struct net_device* netdev;
@@ -773,7 +882,7 @@ static int  seth_probe(struct platform_device *pdev)
 	if (pdev->dev.of_node && !pdata) {
 		ret = seth_parse_dt(&pdata, &pdev->dev);
 		if (ret) {
-			printk(KERN_ERR "failed to parse seth device tree, ret=%d\n", ret);
+			SETH_ERR( "failed to parse seth device tree, ret=%d\n", ret);
 			return ret;
 		}
 	}
@@ -795,13 +904,20 @@ static int  seth_probe(struct platform_device *pdev)
 	seth->pdata = pdata;
 	seth->netdev = netdev;
 	seth->state = DEV_OFF;
-	seth->stopped = 0;
 
 #ifdef SETH_NAPI
-        atomic_set(&seth->txpending, 0);
-	seth->rx_fifo = &(seth->p_rx_fifos);
-	init_timer(&seth->seth_tx_timer);
-	wake_lock_init(&seth_rx_wakelock,WAKE_LOCK_SUSPEND,"seth_rx_wakelock");
+	atomic_set(&seth->rx_busy, 0);
+	atomic_set(&seth->txpending, 0);
+
+	seth->rx_fifo = kzalloc(sizeof(struct seth_rx_fifo), GFP_KERNEL);
+	if (!seth->rx_fifo) {
+		free_netdev(netdev);
+		seth_destroy_pdata(&pdata);
+		SETH_ERR("failed to alloc mem for rx_fifo\n");
+		return -ENOMEM;
+	}
+	init_timer(&seth->tx_timer);
+	seth_dt_stats_init(&seth->dt_stats);
 #endif
 
 	netdev->netdev_ops = &seth_ops;
@@ -815,40 +931,15 @@ static int  seth_probe(struct platform_device *pdev)
 	netif_napi_add(netdev, &seth->napi, seth_rx_poll_handler, SETH_NAPI_WEIGHT);
 #endif
 
-#ifdef SETH_THRD
-        //create threads
-        simple_evnet_init(&seth->rx_evt);
-        simple_evnet_init(&seth->tx_evt);
-
-        seth->rx_thrd = kthread_create(seth_rx_thread, seth,
-			"seth_rx-%d-%d", pdata->dst, pdata->channel);
-        if (IS_ERR(seth->rx_thrd)) {
-		free_netdev(netdev);
-		seth_destroy_pdata(&pdata);
-                ret = PTR_ERR(seth->rx_thrd);
-                SETH_ERR ("create seth rx_thrd failed (%d)\n", ret);
-                return ret;
-        }
-        wake_up_process(seth->rx_thrd);
-        /*
-        seth->tx_thrd = kthread_create(seth_tx_thread, seth,
-			"seth_tx-%d-%d", pdata->dst, pdata->channel);
-        if (IS_ERR(seth->tx_thrd)) {
-                kthread_stop(seth->rx_thrd);
-		free_netdev(netdev);
-		seth_destroy_pdata(&pdata);
-                ret = PTR_ERR(seth->tx_thrd);
-                SETH_ERR ("create seth tx_thrd failed (%d)\n", ret);
-                return ret;
-        }
-        wake_up_process(seth->tx_thrd);
-        */
-#endif
 	ret = sblock_create(pdata->dst, pdata->channel,
 		pdata->blocknum, SETH_BLOCK_SIZE,
 		pdata->blocknum, SETH_BLOCK_SIZE);
 	if (ret) {
 		SETH_ERR ("create sblock failed (%d)\n", ret);
+#ifdef SETH_NAPI
+		netif_napi_del(&seth->napi);
+		kfree(seth->rx_fifo);
+#endif
 		free_netdev(netdev);
 		seth_destroy_pdata(&pdata);
 		return ret;
@@ -857,8 +948,13 @@ static int  seth_probe(struct platform_device *pdev)
 	ret = sblock_register_notifier(pdata->dst, pdata->channel, seth_handler, seth);
 	if (ret) {
 		SETH_ERR ("regitster notifier failed (%d)\n", ret);
+#ifdef SETH_NAPI
+		netif_napi_del(&seth->napi);
+		kfree(seth->rx_fifo);
+#endif
 		free_netdev(netdev);
 		sblock_destroy(pdata->dst, pdata->channel);
+		seth_destroy_pdata(&pdata);
 		return ret;
 	}
 
@@ -867,6 +963,7 @@ static int  seth_probe(struct platform_device *pdev)
 		SETH_ERR ("register_netdev() failed (%d)\n", ret);
 #ifdef SETH_NAPI
 		netif_napi_del(&seth->napi);
+		kfree(seth->rx_fifo);
 #endif
 		free_netdev(netdev);
 		sblock_destroy(pdata->dst, pdata->channel);
@@ -878,20 +975,24 @@ static int  seth_probe(struct platform_device *pdev)
 	netif_carrier_off (netdev);
 
 	platform_set_drvdata(pdev, seth);
+#ifdef CONFIG_DEBUG_FS
+	seth_debugfs_mknod(root, (void *)seth);
+#endif
 	return 0;
 }
 
 /*
  * Cleanup Ethernet device driver.
  */
-static int  seth_remove (struct platform_device *pdev)
+static int seth_remove (struct platform_device *pdev)
 {
 	struct SEth* seth = platform_get_drvdata(pdev);
 	struct seth_init_data *pdata = seth->pdata;
 
 #ifdef SETH_NAPI
 	netif_napi_del(&seth->napi);
-	del_timer(&seth->seth_tx_timer);
+	kfree(seth->rx_fifo);
+	del_timer_sync(&seth->tx_timer);
 #endif
 
 	sblock_destroy(pdata->dst, pdata->channel);
@@ -932,7 +1033,83 @@ static void __exit seth_exit(void)
 module_init (seth_init);
 module_exit (seth_exit);
 
+#ifdef CONFIG_DEBUG_FS
+static int seth_debug_show(struct seq_file *m, void *v)
+{
+	struct SEth *seth = (struct SEth*)(m->private);
+	struct seth_dtrans_stats *stats;
+	struct seth_init_data *pdata;
+
+	if(!seth) {
+		SETH_ERR("invalid data, seth is NULL\n");
+		return -EINVAL;
+	}
+
+	pdata = seth->pdata;
+	stats = &seth->dt_stats;
+
+	seq_printf(m, "******************************************************************\n");
+	seq_printf(m, "DEVICE: %s, state %d, NET_SKB_PAD %u\n", pdata->name, seth->state, NET_SKB_PAD);
+	seq_printf(m, "\nRX statistics:\n");
+	seq_printf(m, "rx_pkt_max=%u, rx_pkt_min=%u, rx_sum=%u, rx_cnt=%u\n",
+			stats->rx_pkt_max, stats->rx_pkt_min, stats->rx_sum, stats->rx_cnt);
+	seq_printf(m, "rx_fifo_overflows=%u, rx_alloc_fails=%u\n", stats->rx_fifo_overflows, stats->rx_alloc_fails);
+
+	seq_printf(m, "\nTX statistics:\n");
+	seq_printf(m, "tx_pkt_max=%u, tx_pkt_min=%u, tx_sum=%u, tx_cnt=%u\n",
+			stats->tx_pkt_max, stats->tx_pkt_min, stats->tx_sum, stats->tx_cnt);
+	seq_printf(m, "tx_ping_cnt=%u, tx_ack_cnt=%u\n",
+			stats->tx_ping_cnt, stats->tx_ack_cnt);
+	seq_printf(m, "******************************************************************\n");
+	return 0;
+}
+
+static int seth_debug_open(struct inode *inode, struct file *file)
+{
+        return single_open(file, seth_debug_show, inode->i_private);
+}
+
+static const struct file_operations seth_debug_fops = {
+        .open = seth_debug_open,
+        .read = seq_read,
+        .llseek = seq_lseek,
+        .release = single_release,
+};
+
+static int seth_debugfs_mknod(void *root, void * data)
+{
+	struct SEth *seth = (struct SEth*) data;
+	struct seth_init_data *pdata;
+
+	if (!seth) {
+		return -ENODEV;
+	}
+	pdata = seth->pdata;
+
+        if (!root)
+                return -ENXIO;
+
+        debugfs_create_file(pdata->name, S_IRUGO, (struct dentry *)root, data, &seth_debug_fops);
+        return 0;
+}
+
+static int __init seth_debugfs_init(void)
+{
+	root = debugfs_create_dir("seth", NULL);
+	if (!root) {
+		SETH_ERR("failed to create seth debugfs dir\n");
+		return -ENODEV;
+	}
+
+	debugfs_create_u32("print_seq", S_IRUGO | S_IWUGO, root, &seth_print_seq);
+
+	return 0;
+}
+
+fs_initcall(seth_debugfs_init);
+#endif
+
+MODULE_AUTHOR("Qiu Yi");
 MODULE_DESCRIPTION ("Spreadtrum Ethernet device driver");
 MODULE_LICENSE ("GPL");
-
 
