@@ -1,20 +1,27 @@
-
+/**
+ * @file mipi_dsih_dphy.c
+ * @brief D-PHY driver
+ *
+ *  Synopsys Inc.
+ *  SG DWC PT02
+ */
 #include "mipi_dsih_dphy.h"
-
-#define PRECISION_FACTOR        (1000)
+#define PRECISION_FACTOR 		(1000)
 /* Reference clock frequency divided by Input Frequency Division Ratio LIMITS */
-#define DPHY_DIV_UPPER_LIMIT    (40000)
+#define DPHY_DIV_UPPER_LIMIT	(40000)
 #ifdef GEN_2
 #define DPHY_DIV_LOWER_LIMIT	(5000)
 #else
-#define DPHY_DIV_LOWER_LIMIT    (1000)
+#define DPHY_DIV_LOWER_LIMIT	(1000)
 #endif
+
 #if ((defined DWC_MIPI_DPHY_BIDIR_TSMC40LP) || (defined GEN_2))
-#define MIN_OUTPUT_FREQ         (80)
+#define MIN_OUTPUT_FREQ			(80)
 #elif defined DPHY2Btql
-#define MIN_OUTPUT_FREQ         (200)
+#define MIN_OUTPUT_FREQ			(200)
 #undef GEN_2
 #endif
+
 /**
  * Initialise D-PHY module and power up
  * @param phy pointer to structure which holds information about the d-phy
@@ -23,49 +30,30 @@
  */
 dsih_error_t mipi_dsih_dphy_open(dphy_t * phy)
 {
-    if (phy == 0)
-    {
-        return ERR_DSI_PHY_INVALID;
-    }
-    else if ((phy->core_read_function == 0) || (phy->core_write_function == 0))
-    {
-        return ERR_DSI_INVALID_IO;
-    }
-    else if (phy->status == INITIALIZED)
-    {
-        return ERR_DSI_PHY_INVALID;
-    }
-    phy->status = NOT_INITIALIZED;
+	if (phy == 0)
+	{
+		return ERR_DSI_PHY_INVALID;
+	}
+	else if ((phy->core_read_function == 0) || (phy->core_write_function == 0))
+	{
+		return ERR_DSI_INVALID_IO;
+	}
+	else if (phy->status == INITIALIZED)
+	{
+		return ERR_DSI_PHY_INVALID;
+	}
+	phy->status = NOT_INITIALIZED;
 #if 0
-    mipi_dsih_dphy_reset(phy, 0);
-    mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
-    mipi_dsih_dphy_no_of_lanes(phy, 1);
-    mipi_dsih_dphy_clock_en(phy, 1);
-    mipi_dsih_dphy_shutdown(phy, 1);
-    mipi_dsih_dphy_reset(phy, 1);
+	mipi_dsih_dphy_reset(phy, 0);
+	mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
+	mipi_dsih_dphy_no_of_lanes(phy, 1);
+	mipi_dsih_dphy_clock_en(phy, 1);
+	mipi_dsih_dphy_shutdown(phy, 1);
+	mipi_dsih_dphy_reset(phy, 1);
 #endif
-    phy->status = INITIALIZED;
-    return OK;
+	phy->status = INITIALIZED;
+	return OK;
 }
-uint8_t mipi_dsih_dphy_test_data_read(dphy_t * instance, uint8_t address)
-{
-      uint32_t i = 0;
-      mipi_dsih_dphy_test_clock(instance, 1);
-      /* set the desired test code in the input 8-bit bus TESTDIN[7:0] */
-      mipi_dsih_dphy_test_data_in(instance, address);
-      /* set TESTEN input high  */
-      mipi_dsih_dphy_test_en(instance, 1);
-      /* drive the TESTCLK input low; the falling edge captures the chosen test code into the transceiver */
-      mipi_dsih_dphy_test_clock(instance, 0);
-      /* set TESTEN input low to disable further test mode code latching  */
-      mipi_dsih_dphy_test_en(instance, 0);
-
-//      udelay(1);
-      for(i=0;i<1000;i++)
-        ;
-      return mipi_dsih_dphy_test_data_out(instance);
-}
-
 /**
  * Configure D-PHY and PLL module to desired operation mode
  * @param phy pointer to structure which holds information about the d-phy
@@ -74,7 +62,6 @@ uint8_t mipi_dsih_dphy_test_data_read(dphy_t * instance, uint8_t address)
  * @param output_freq desired high speed frequency
  * @return error code
  */
-
  #ifdef GEN_2
 dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_t output_freq)
 {
@@ -198,18 +185,22 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
 		input_divider = step + (loop_divider * phy->reference_freq) / output_freq;
 //		phy->log_info("D-PHY: Approximated Frequency: %d KHz", (loop_divider * (phy->reference_freq / input_divider)));
 	}
-
-    /* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
-    avoid transient periods in PHY operation during re-configuration procedures. */
-    mipi_dsih_dphy_reset(phy, 0);
-    mipi_dsih_dphy_clock_en(phy, 0);
-    mipi_dsih_dphy_shutdown(phy, 0);
-    /* provide an initial active-high test clear pulse in TESTCLR  */
-    mipi_dsih_dphy_test_clear(phy, 1);
-    mipi_dsih_dphy_test_clear(phy, 0);
-    for(n=0;n<100;n++){
-            ;
-    }
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		/* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
+		avoid transient periods in PHY operation during re-configuration procedures. */
+		mipi_dsih_dphy_reset(phy, 0);
+		mipi_dsih_dphy_clock_en(phy, 0);
+		mipi_dsih_dphy_shutdown(phy, 0);
+		/* provide an initial active-high test clear pulse in TESTCLR  */
+		mipi_dsih_dphy_test_clear(phy, 1);
+		mipi_dsih_dphy_test_clear(phy, 0);
+		for(n=0;n<100;n++){
+				;
+		}
+	}
     /* find ranges */
     for (range = 0; (range < (sizeof(ranges)/sizeof(ranges[0]))) && ((output_freq / 1000) > ranges[range].freq); range++)
     {
@@ -250,6 +241,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     //mipi_dsih_dphy_write(phy, 0x74, data, 1);
 
   /* Jessica add - end*/
+
+    data[0] =  0x70;
+    mipi_dsih_dphy_write(phy, 0x16, data, 1);
 
     /* setup digital part */
     /* hs frequency range [7]|[6:1]|[0]*/
@@ -294,6 +288,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     data[0] = input_divider - 1;
     mipi_dsih_dphy_write(phy, 0x17, data, 1);           //Jessica
 
+    data[0] =	0x04; //short the delay time before BTA
+    mipi_dsih_dphy_write(phy, 0x07, data, 1);
+
 //    data[0] = 1;
 //    mipi_dsih_dphy_write(phy, 0xB0, data, 1);
 
@@ -312,17 +309,22 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     /* PLL loop divider ratio - SET no|reserved|feedback divider [7]|[6:5]|[4:0] */
     mipi_dsih_dphy_write(phy, 0x18, data, no_of_bytes);
     mipi_dsih_dphy_no_of_lanes(phy, no_of_lanes);
-    mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
-    mipi_dsih_dphy_clock_en(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_shutdown(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_reset(phy, 1);
-    return OK;
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
+		mipi_dsih_dphy_clock_en(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_shutdown(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_reset(phy, 1);
+	}
+	return OK;
 }
 #else
 dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_t output_freq)
@@ -423,15 +425,20 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     {
         return ERR_DSI_PHY_FREQ_OUT_OF_BOUND;
     }
-    printk("Gen1 D-PHY: Approximated Frequency: %d KHz\n", (loop_divider * (phy->reference_freq / input_divider)));
-    /* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
-    avoid transient periods in PHY operation during re-configuration procedures. */
-    mipi_dsih_dphy_reset(phy, 0);
-    mipi_dsih_dphy_clock_en(phy, 0);
-    mipi_dsih_dphy_shutdown(phy, 0);
-    /* provide an initial active-high test clear pulse in TESTCLR  */
-    mipi_dsih_dphy_test_clear(phy, 1);
-    mipi_dsih_dphy_test_clear(phy, 0);
+    printk("sprdfb: Gen1 D-PHY: Approximated Frequency: %d KHz\n", (loop_divider * (phy->reference_freq / input_divider)));
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		/* get the PHY in power down mode (shutdownz=0) and reset it (rstz=0) to
+		avoid transient periods in PHY operation during re-configuration procedures. */
+		mipi_dsih_dphy_reset(phy, 0);
+		mipi_dsih_dphy_clock_en(phy, 0);
+		mipi_dsih_dphy_shutdown(phy, 0);
+		/* provide an initial active-high test clear pulse in TESTCLR  */
+		mipi_dsih_dphy_test_clear(phy, 1);
+		mipi_dsih_dphy_test_clear(phy, 0);
+	}
 #ifdef DWC_MIPI_DPHY_BIDIR_TSMC40LP
     /* find ranges */
     for (range = 0; (range < (sizeof(ranges)/sizeof(ranges[0]))) && ((output_freq / 1000) > ranges[range].freq); range++)
@@ -502,6 +509,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
    data[0] = input_divider - 1;
    mipi_dsih_dphy_write(phy, 0x17, data, 1);           //Jessica
 
+    data[0] =	0x04; //short the delay time before BTA
+    mipi_dsih_dphy_write(phy, 0x07, data, 1);
+
 //    data[0] = 1;
 //    mipi_dsih_dphy_write(phy, 0xB0, data, 1);
 
@@ -520,16 +530,21 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
     /* PLL loop divider ratio - SET no|reserved|feedback divider [7]|[6:5]|[4:0] */
     mipi_dsih_dphy_write(phy, 0x18, data, no_of_bytes);
     mipi_dsih_dphy_no_of_lanes(phy, no_of_lanes);
-    mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
-    mipi_dsih_dphy_clock_en(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_shutdown(phy, 1);
-    for(n=0;n<100;n++){
-            ;
-    }
-    mipi_dsih_dphy_reset(phy, 1);
+#ifdef CONFIG_FB_DYNAMIC_FREQ_SCALING
+	if (phy->phy_keep_work != true)
+#endif
+	{
+		mipi_dsih_dphy_stop_wait_time(phy, 0x1C);
+		mipi_dsih_dphy_clock_en(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_shutdown(phy, 1);
+		for(n=0;n<100;n++){
+			;
+		}
+		mipi_dsih_dphy_reset(phy, 1);
+	}
     return OK;
 }
 #endif
@@ -539,26 +554,25 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
  * module
  * @return error code
  */
-
 dsih_error_t mipi_dsih_dphy_close(dphy_t * phy)
 {
-    if (phy == 0)
-    {
-        return ERR_DSI_INVALID_INSTANCE;
-    }
-    else if ((phy->core_read_function == 0) || (phy->core_write_function == 0))
-    {
-        return ERR_DSI_INVALID_IO;
-    }
-    if (phy->status < NOT_INITIALIZED)
-    {
-        return ERR_DSI_INVALID_INSTANCE;
-    }
-    mipi_dsih_dphy_reset(phy, 0);
-    mipi_dsih_dphy_reset(phy, 1);
-    mipi_dsih_dphy_shutdown(phy, 0);
-    phy->status = NOT_INITIALIZED;
-    return OK;
+	if (phy == 0)
+	{
+		return ERR_DSI_INVALID_INSTANCE;
+	}
+	else if ((phy->core_read_function == 0) || (phy->core_write_function == 0))
+	{
+		return ERR_DSI_INVALID_IO;
+	}
+	if (phy->status < NOT_INITIALIZED)
+	{
+		return ERR_DSI_INVALID_INSTANCE;
+	}
+	mipi_dsih_dphy_reset(phy, 0);
+	mipi_dsih_dphy_reset(phy, 1);
+	mipi_dsih_dphy_shutdown(phy, 0);
+	phy->status = NOT_INITIALIZED;
+	return OK;
 }
 /**
  * Enable clock lane module
@@ -568,7 +582,7 @@ dsih_error_t mipi_dsih_dphy_close(dphy_t * phy)
  */
 void mipi_dsih_dphy_clock_en(dphy_t * instance, int en)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_RSTZ, en, 2, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_RSTZ, en, 2, 1);
 }
 /**
  * Reset D-PHY module
@@ -578,7 +592,7 @@ void mipi_dsih_dphy_clock_en(dphy_t * instance, int en)
  */
 void mipi_dsih_dphy_reset(dphy_t * instance, int reset)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_RSTZ, reset, 1, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_RSTZ, reset, 1, 1);
 }
 /**
  * Power up/down D-PHY module
@@ -588,7 +602,60 @@ void mipi_dsih_dphy_reset(dphy_t * instance, int reset)
  */
 void mipi_dsih_dphy_shutdown(dphy_t * instance, int powerup)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_RSTZ, powerup, 0, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_RSTZ, powerup, 0, 1);
+}
+/**
+ * Force D-PHY PLL to stay on while in ULPS
+ * @param instance pointer to structure which holds information about the d-phy
+ * module
+ * @param force (1) disable (0)
+ * @note To follow the programming model, use wakeup_pll function
+ */
+void mipi_dsih_dphy_force_pll(dphy_t * instance, int force)
+{
+	mipi_dsih_dphy_write_part(instance, R_DPHY_RSTZ, force, 3, 1);
+}
+/**
+ * Get force D-PHY PLL module
+ * @param instance pointer to structure which holds information about the d-phy
+ * module
+ * @return force value
+ */
+int mipi_dsih_dphy_get_force_pll(dphy_t * instance)
+{
+	return mipi_dsih_dphy_read_part(instance, R_DPHY_RSTZ, 3, 1);
+}
+/**
+ * Wake up or make sure D-PHY PLL module is awake
+ * This function must be called after going into ULPS and before exiting it
+ * to force the DPHY PLLs to wake up. It will wait until the DPHY status is
+ * locked. It follows the procedure described in the user guide.
+ * This function should be used to make sure the PLL is awake, rather than
+ * the force_pll above.
+ * @param instance pointer to structure which holds information about the d-phy
+ * module
+ * @return error code
+ * @note this function has an active wait
+ */
+int mipi_dsih_dphy_wakeup_pll(dphy_t * instance)
+{
+	unsigned i = 0;
+	if (mipi_dsih_dphy_status(instance, 0x1) == 0)
+	{
+		mipi_dsih_dphy_force_pll(instance, 1);
+		for (i = 0; i < DSIH_PHY_ACTIVE_WAIT; i++)
+		{
+			if(mipi_dsih_dphy_status(instance, 0x1))
+			{
+				break;
+			}
+		}
+		if (mipi_dsih_dphy_status(instance, 0x1) == 0)
+		{
+			return ERR_DSI_PHY_PLL_NOT_LOCKED;
+		}
+	}
+	return OK;
 }
 /**
  * Configure minimum wait period for HS transmission request after a stop state
@@ -598,7 +665,7 @@ void mipi_dsih_dphy_shutdown(dphy_t * instance, int powerup)
  */
 void mipi_dsih_dphy_stop_wait_time(dphy_t * instance, uint8_t no_of_byte_cycles)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CFG, no_of_byte_cycles, 2, 8);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_IF_CFG, no_of_byte_cycles, 8, 8);
 }
 /**
  * Set number of active lanes
@@ -608,7 +675,7 @@ void mipi_dsih_dphy_stop_wait_time(dphy_t * instance, uint8_t no_of_byte_cycles)
  */
 void mipi_dsih_dphy_no_of_lanes(dphy_t * instance, uint8_t no_of_lanes)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CFG, no_of_lanes - 1, 0, 2);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_IF_CFG, no_of_lanes - 1, 0, 2);
 }
 /**
  * Get number of currently active lanes
@@ -618,8 +685,21 @@ void mipi_dsih_dphy_no_of_lanes(dphy_t * instance, uint8_t no_of_lanes)
  */
 uint8_t mipi_dsih_dphy_get_no_of_lanes(dphy_t * instance)
 {
-    return mipi_dsih_dphy_read_part(instance, R_DSI_HOST_PHY_IF_CFG, 0, 2);
+	return mipi_dsih_dphy_read_part(instance, R_DPHY_IF_CFG, 0, 2);
 }
+
+/**
+ * SPRD ADD
+ * Set non-continuous clock mode
+ * @param instance pointer to structure which holds information about the d-phy
+ * module
+ * @param enable
+ */
+void mipi_dsih_dphy_enable_nc_clk(dphy_t * instance, int enable)
+{
+	mipi_dsih_dphy_write_part(instance, R_DPHY_LPCLK_CTRL, enable, 1, 1);
+}
+
 /**
  * Request the PHY module to start transmission of high speed clock.
  * This causes the clock lane to start transmitting DDR clock on the
@@ -632,7 +712,7 @@ uint8_t mipi_dsih_dphy_get_no_of_lanes(dphy_t * instance)
  */
 void mipi_dsih_dphy_enable_hs_clk(dphy_t * instance, int enable)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, enable, 0, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_LPCLK_CTRL, enable, 0, 1);
 }
 /**
  * One bit is asserted in the trigger_request (4bits) to cause the lane module
@@ -646,31 +726,31 @@ void mipi_dsih_dphy_enable_hs_clk(dphy_t * instance, int enable)
  */
 dsih_error_t mipi_dsih_dphy_escape_mode_trigger(dphy_t * instance, uint8_t trigger_request)
 {
-    uint8_t sum = 0;
-    int i = 0;
-    for (i = 0; i < 4; i++)
-    {
-        sum += ((trigger_request >> i) & 1);
-    }
-    if (sum == 1)
-    {   /* clear old trigger */
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0x00, 5, 4);
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, trigger_request, 5, 4);
-        for (i = 0; i < DSIH_PHY_ACTIVE_WAIT; i++)
-        {
-            if(mipi_dsih_dphy_status(instance, 0x0010))
-            {
-                break;
-            }
-        }
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0x00, 5, 4);
-        if (i >= DSIH_PHY_ACTIVE_WAIT)
-        {
-            return ERR_DSI_TIMEOUT;
-        }
-        return OK;
-    }
-    return ERR_DSI_INVALID_COMMAND;
+	uint8_t sum = 0;
+	int i = 0;
+	for (i = 0; i < 4; i++)
+	{
+		sum += ((trigger_request >> i) & 1);
+	}
+	if (sum == 1)
+	{	/* clear old trigger */
+		mipi_dsih_dphy_write_part(instance, R_DPHY_TX_TRIGGERS, 0x00, 0, 4);
+		mipi_dsih_dphy_write_part(instance, R_DPHY_TX_TRIGGERS, trigger_request, 0, 4);
+		for (i = 0; i < DSIH_PHY_ACTIVE_WAIT; i++)
+		{
+			if(mipi_dsih_dphy_status(instance, 0x0010))
+			{
+				break;
+			}
+		}
+		mipi_dsih_dphy_write_part(instance, R_DPHY_TX_TRIGGERS, 0x00, 0, 4);
+		if (i >= DSIH_PHY_ACTIVE_WAIT)
+		{
+			return ERR_DSI_TIMEOUT;
+		}
+		return OK;
+	}
+	return ERR_DSI_INVALID_COMMAND;
 }
 /**
  * ULPS mode request/exit on all active data lanes.
@@ -683,21 +763,21 @@ dsih_error_t mipi_dsih_dphy_escape_mode_trigger(dphy_t * instance, uint8_t trigg
 #ifdef GEN_2
 dsih_error_t mipi_dsih_dphy_ulps_data_lanes(dphy_t * instance, int enable)
 {
-    int timeout;
+	int timeout;
 	/* mask 1 0101 0010 0000 */
 	uint16_t data_lanes_mask = 0;
-    if (enable)
-    {
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 1, 3, 1);
+	if (enable)
+	{
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 1, 2, 1);
 		return OK;
-    }
-    else
-    {
+	}
+	else
+	{
 		if (mipi_dsih_dphy_status(instance, 0x1) == 0)
 		{
 			return ERR_DSI_PHY_PLL_NOT_LOCKED;
 		}
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 1, 4, 1);
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 1, 3, 1);
 		switch (mipi_dsih_dphy_get_no_of_lanes(instance))
 		{
 			case 3:
@@ -713,27 +793,27 @@ dsih_error_t mipi_dsih_dphy_ulps_data_lanes(dphy_t * instance, int enable)
 				data_lanes_mask = 0;
 				break;
 		}
-        for (timeout = 0; timeout < DSIH_PHY_ACTIVE_WAIT; timeout++)
-        {   /* verify that the DPHY has left ULPM */
-            /* mask 1010100100000 */
-            if (mipi_dsih_dphy_status(instance, data_lanes_mask) == data_lanes_mask)
-            {
+		for (timeout = 0; timeout < DSIH_PHY_ACTIVE_WAIT; timeout++)
+		{	/* verify that the DPHY has left ULPM */
+
+			if (mipi_dsih_dphy_status(instance, data_lanes_mask) == data_lanes_mask)
+			{
 				break;
 			}
-				/* wait at least 1ms */
-                for (timeout = 0; timeout < ONE_MS_ACTIVE_WAIT; timeout++)
-                {
-                    ;
-                }
-            }
+			/* wait at least 1ms */
+			for (timeout = 0; timeout < ONE_MS_ACTIVE_WAIT; timeout++)
+			{
+				;
+			}
+		}
 		if (mipi_dsih_dphy_status(instance, data_lanes_mask) != data_lanes_mask)
 		{
-			instance->log_info("stat %x, mask %x", mipi_dsih_dphy_status(instance, data_lanes_mask), data_lanes_mask);
+			instance->log_info("sprdfb: stat %x, mask %x", mipi_dsih_dphy_status(instance, data_lanes_mask), data_lanes_mask);
 			return ERR_DSI_TIMEOUT;
-        }
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0, 3, 1);
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0, 4, 1);
-    }
+		}
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 0, 2, 1);
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 0, 3, 1);
+	}
 	return OK;
 }
 #else
@@ -775,42 +855,42 @@ void mipi_dsih_dphy_ulps_data_lanes(dphy_t * instance, int enable)
 #ifdef GEN_2
 dsih_error_t mipi_dsih_dphy_ulps_clk_lane(dphy_t * instance, int enable)
 {
-    int timeout;
+	int timeout;
 	/* mask 1000 */
 	uint16_t clk_lane_mask = 0x0008;
-    if (enable)
-    {
-//        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0, 0, 1);
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 1, 1, 1);
-    }
-    else
-    {
+	if (enable)
+	{
+		/* mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 0, 0, 1); */
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 1, 0, 1);
+	}
+	else
+	{
 		if (mipi_dsih_dphy_status(instance, 0x1) == 0)
 		{
 			return ERR_DSI_PHY_PLL_NOT_LOCKED;
 		}
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 1, 2, 1);
-        for (timeout = 0; timeout < DSIH_PHY_ACTIVE_WAIT; timeout++)
-        {   /* verify that the DPHY has left ULPM */
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 1, 1, 1);
+		for (timeout = 0; timeout < DSIH_PHY_ACTIVE_WAIT; timeout++)
+		{	/* verify that the DPHY has left ULPM */
             /* mask 1010100100000 */
             if (mipi_dsih_dphy_status(instance, clk_lane_mask) == clk_lane_mask)
             {   /* wait at least 1ms */
-				instance->log_info("stat %x, mask %x", mipi_dsih_dphy_status(instance, clk_lane_mask), clk_lane_mask);
+				instance->log_info("sprdfb: stat %x, mask %x", mipi_dsih_dphy_status(instance, clk_lane_mask), clk_lane_mask);
 				break;
 			}
 			/* wait at least 1ms */
-                for (timeout = 0; timeout < ONE_MS_ACTIVE_WAIT; timeout++)
-                {
-				 	enable = mipi_dsih_dphy_status(instance, clk_lane_mask);
-                }
-            }
+			for (timeout = 0; timeout < ONE_MS_ACTIVE_WAIT; timeout++)
+			{	/* dummy operation for the loop not to be optimised */
+				 enable = mipi_dsih_dphy_status(instance, clk_lane_mask);
+			}
+		}
 		if (mipi_dsih_dphy_status(instance, clk_lane_mask) != clk_lane_mask)
 		{
 			return ERR_DSI_TIMEOUT;
-        }
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0, 1, 1);
-        mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_IF_CTRL, 0, 2, 1);
-    }
+		}
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 0, 0, 1);
+		mipi_dsih_dphy_write_part(instance, R_DPHY_ULPS_CTRL, 0, 1, 1);
+	}
 	return OK;
 }
 #else
@@ -851,7 +931,7 @@ void mipi_dsih_dphy_ulps_clk_lane(dphy_t * instance, int enable)
  */
 uint32_t mipi_dsih_dphy_status(dphy_t * instance, uint16_t mask)
 {
-    return mipi_dsih_dphy_read_word(instance, R_DSI_HOST_PHY_STATUS) & mask;
+	return mipi_dsih_dphy_read_word(instance, R_DPHY_STATUS) & mask;
 }
 /**
  * @param instance pointer to structure which holds information about the d-phy
@@ -860,7 +940,7 @@ uint32_t mipi_dsih_dphy_status(dphy_t * instance, uint16_t mask)
  */
 void mipi_dsih_dphy_test_clock(dphy_t * instance, int value)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_TST_CRTL0, value, 1, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_TST_CRTL0, value, 1, 1);
 }
 /**
  * @param instance pointer to structure which holds information about the d-phy
@@ -869,7 +949,7 @@ void mipi_dsih_dphy_test_clock(dphy_t * instance, int value)
  */
 void mipi_dsih_dphy_test_clear(dphy_t * instance, int value)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_TST_CRTL0, value, 0, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_TST_CRTL0, value, 0, 1);
 }
 /**
  * @param instance pointer to structure which holds information about the d-phy
@@ -878,7 +958,7 @@ void mipi_dsih_dphy_test_clear(dphy_t * instance, int value)
  */
 void mipi_dsih_dphy_test_en(dphy_t * instance, uint8_t on_falling_edge)
 {
-    mipi_dsih_dphy_write_part(instance, R_DSI_HOST_PHY_TST_CRTL1, on_falling_edge, 16, 1);
+	mipi_dsih_dphy_write_part(instance, R_DPHY_TST_CRTL1, on_falling_edge, 16, 1);
 }
 /**
  * @param instance pointer to structure which holds information about the d-phy
@@ -886,7 +966,7 @@ void mipi_dsih_dphy_test_en(dphy_t * instance, uint8_t on_falling_edge)
  */
 uint8_t mipi_dsih_dphy_test_data_out(dphy_t * instance)
 {
-    return mipi_dsih_dphy_read_part(instance, R_DSI_HOST_PHY_TST_CRTL1, 8, 8);
+	return mipi_dsih_dphy_read_part(instance, R_DPHY_TST_CRTL1, 8, 8);
 }
 /**
  * @param instance pointer to structure which holds information about the d-phy
@@ -895,7 +975,7 @@ uint8_t mipi_dsih_dphy_test_data_out(dphy_t * instance)
  */
 void mipi_dsih_dphy_test_data_in(dphy_t * instance, uint8_t test_data)
 {
-    mipi_dsih_dphy_write_word(instance, R_DSI_HOST_PHY_TST_CRTL1, test_data);
+	mipi_dsih_dphy_write_word(instance, R_DPHY_TST_CRTL1, test_data);
 }
 /**
  * Write to D-PHY module (encapsulating the digital interface)
@@ -907,30 +987,30 @@ void mipi_dsih_dphy_test_data_in(dphy_t * instance, uint8_t test_data)
  */
 void mipi_dsih_dphy_write(dphy_t * instance, uint8_t address, uint8_t * data, uint8_t data_length)
 {
-    unsigned i = 0;
-    if (data != 0)
-    {
+	unsigned i = 0;
+	if (data != 0)
+	{
 #if ((defined DWC_MIPI_DPHY_BIDIR_TSMC40LP) || (defined DPHY2Btql) || (defined GEN_2))
-        /* set the TESTCLK input high in preparation to latch in the desired test mode */
-        mipi_dsih_dphy_test_clock(instance, 1);
-        /* set the desired test code in the input 8-bit bus TESTDIN[7:0] */
-        mipi_dsih_dphy_test_data_in(instance, address);
-        /* set TESTEN input high  */
-        mipi_dsih_dphy_test_en(instance, 1);
-        /* drive the TESTCLK input low; the falling edge captures the chosen test code into the transceiver */
-        mipi_dsih_dphy_test_clock(instance, 0);
-        /* set TESTEN input low to disable further test mode code latching  */
-        mipi_dsih_dphy_test_en(instance, 0);
-        /* start writing MSB first */
-        for (i = data_length; i > 0; i--)
-        {   /* set TESTDIN[7:0] to the desired test data appropriate to the chosen test mode */
-            mipi_dsih_dphy_test_data_in(instance, data[i - 1]);
-            /* pulse TESTCLK high to capture this test data into the macrocell; repeat these two steps as necessary */
-            mipi_dsih_dphy_test_clock(instance, 1);
-            mipi_dsih_dphy_test_clock(instance, 0);
-        }
+		/* set the TESTCLK input high in preparation to latch in the desired test mode */
+		mipi_dsih_dphy_test_clock(instance, 1);
+		/* set the desired test code in the input 8-bit bus TESTDIN[7:0] */
+		mipi_dsih_dphy_test_data_in(instance, address);
+		/* set TESTEN input high  */
+		mipi_dsih_dphy_test_en(instance, 1);
+		/* drive the TESTCLK input low; the falling edge captures the chosen test code into the transceiver */
+		mipi_dsih_dphy_test_clock(instance, 0);
+		/* set TESTEN input low to disable further test mode code latching  */
+		mipi_dsih_dphy_test_en(instance, 0);
+		/* start writing MSB first */
+		for (i = data_length; i > 0; i--)
+		{	/* set TESTDIN[7:0] to the desired test data appropriate to the chosen test mode */
+			mipi_dsih_dphy_test_data_in(instance, data[i - 1]);
+			/* pulse TESTCLK high to capture this test data into the macrocell; repeat these two steps as necessary */
+			mipi_dsih_dphy_test_clock(instance, 1);
+			mipi_dsih_dphy_test_clock(instance, 0);
+		}
 #endif
-    }
+	}
 }
 
 
@@ -945,10 +1025,10 @@ void mipi_dsih_dphy_write(dphy_t * instance, uint8_t address, uint8_t * data, ui
  */
 void mipi_dsih_dphy_write_word(dphy_t * instance, uint32_t reg_address, uint32_t data)
 {
-    if (instance->core_write_function != 0)
-    {
-        instance->core_write_function(instance->address, reg_address, data);
-    }
+	if (instance->core_write_function != 0)
+	{
+		instance->core_write_function(instance->address, reg_address, data);
+	}
 }
 /**
  * Write bit field to D-PHY module (encapsulating the bus interface)
@@ -961,16 +1041,16 @@ void mipi_dsih_dphy_write_word(dphy_t * instance, uint32_t reg_address, uint32_t
  */
 void mipi_dsih_dphy_write_part(dphy_t * instance, uint32_t reg_address, uint32_t data, uint8_t shift, uint8_t width)
 {
-    uint32_t mask = 0;
-    uint32_t temp = 0;
-    if (instance->core_read_function != 0)
-    {
-        mask = (1 << width) - 1;
-        temp = mipi_dsih_dphy_read_word(instance, reg_address);
-        temp &= ~(mask << shift);
-        temp |= (data & mask) << shift;
-        mipi_dsih_dphy_write_word(instance, reg_address, temp);
-    }
+	uint32_t mask = 0;
+	uint32_t temp = 0;
+	if (instance->core_read_function != 0)
+	{
+		mask = (1 << width) - 1;
+		temp = mipi_dsih_dphy_read_word(instance, reg_address);
+		temp &= ~(mask << shift);
+		temp |= (data & mask) << shift;
+		mipi_dsih_dphy_write_word(instance, reg_address, temp);
+	}
 }
 /**
  * Read whole register from D-PHY module (encapsulating the bus interface)
@@ -981,11 +1061,11 @@ void mipi_dsih_dphy_write_part(dphy_t * instance, uint32_t reg_address, uint32_t
  */
 uint32_t mipi_dsih_dphy_read_word(dphy_t * instance, uint32_t reg_address)
 {
-    if (instance->core_read_function == 0)
-    {
-        return ERR_DSI_INVALID_IO;
-    }
-    return instance->core_read_function(instance->address, reg_address);
+	if (instance->core_read_function == 0)
+	{
+		return ERR_DSI_INVALID_IO;
+	}
+	return instance->core_read_function(instance->address, reg_address);
 }
 /**
  * Read bit field from D-PHY module (encapsulating the bus interface)
@@ -998,6 +1078,5 @@ uint32_t mipi_dsih_dphy_read_word(dphy_t * instance, uint32_t reg_address)
  */
 uint32_t mipi_dsih_dphy_read_part(dphy_t * instance, uint32_t reg_address, uint8_t shift, uint8_t width)
 {
-    return (mipi_dsih_dphy_read_word(instance, reg_address) >> shift) & ((1 << width) - 1);
+	return (mipi_dsih_dphy_read_word(instance, reg_address) >> shift) & ((1 << width) - 1);
 }
-

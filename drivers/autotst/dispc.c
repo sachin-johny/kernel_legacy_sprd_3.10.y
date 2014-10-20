@@ -50,9 +50,15 @@
 
 #define DISPC_EMC_EN_PARENT ("clk_aon_apb")
 
+#if (defined(CONFIG_FB_SCX30G) || defined(CONFIG_FB_SCX35L))
+#define DISPC_PLL_CLK				("clk_dispc0")
+#define DISPC_DBI_CLK				("clk_dispc0_dbi")
+#define DISPC_DPI_CLK				("clk_dispc0_dpi")
+#else
 #define DISPC_PLL_CLK				("clk_disc0")
 #define DISPC_DBI_CLK				("clk_disc0_dbi")
 #define DISPC_DPI_CLK				("clk_disc0_dpi")
+#endif
 #define DISPC_EMC_CLK				("clk_disp_emc")
 
 #define PATTEN_GRID_WIDTH (40)
@@ -870,7 +876,7 @@ static int32_t dispc_clk_init(void)
 
 	autotst_dispc_ctx.clk_dispc_emc = clk_get(NULL, DISPC_EMC_CLK);
 	if (IS_ERR(autotst_dispc_ctx.clk_dispc_emc)) {
-		printk(KERN_WARNING "autotst_dispc: get clk_dispc_dpi fail!\n");
+		printk(KERN_WARNING "autotst_dispc: get clk_dispc_emc fail!\n");
 		return -1;
 	} else {
 		pr_debug(KERN_INFO "autotst_dispc: get clk_dispc_emc ok!\n");
@@ -1087,9 +1093,17 @@ int32_t autotst_dispc_init(int display_type)
 int32_t autotst_dispc_refresh (void)
 {
 	int ret = 0;
-	uint32_t size = (autotst_panel->width& 0xffff) | ((autotst_panel->height) << 16);
+
+	uint32_t size = 0;
 
 	printk(KERN_INFO "autotst_dispc:[%s]\n",__FUNCTION__);
+
+	if(NULL == autotst_panel){
+		printk("autotst_dispc: [%s] error! (no panel)!\n", __FUNCTION__);
+		return 0;
+	}
+
+	size = (autotst_panel->width& 0xffff) | ((autotst_panel->height) << 16);
 
         //autotst_dsi_dump();
 

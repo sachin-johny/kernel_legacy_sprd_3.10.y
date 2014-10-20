@@ -34,7 +34,6 @@
 
 #define pr_debug printk
 
-
 #define DSI_PHY_REF_CLOCK (26*1000)
 #define DSI_EDPI_CFG (0x6c)
 
@@ -53,6 +52,8 @@
 
 #define DSI_AHB_SOFT_RST           		REG_AP_AHB_AHB_RST
 
+
+
 struct autotst_dsi_context {
 	struct clk		*clk_dsi;
 	bool			is_inited;
@@ -70,6 +71,15 @@ static uint32_t dsi_core_read_function(uint32_t addr, uint32_t offset)
 static void dsi_core_write_function(uint32_t addr, uint32_t offset, uint32_t data)
 {
 	sci_glb_write((addr + offset), data, 0xffffffff);
+}
+
+static void dsi_core_or_function(unsigned int addr,unsigned int data)
+{
+	sci_glb_write(addr,(sci_glb_read(addr, 0xffffffff) | data), 0xffffffff);
+}
+static void dsi_core_and_function(unsigned int addr,unsigned int data)
+{
+	sci_glb_write(addr,(sci_glb_read(addr, 0xffffffff) & data), 0xffffffff);
 }
 
 #if 0
@@ -107,14 +117,23 @@ static int32_t dsi_edpi_setbuswidth(struct info_mipi * mipi)
 		return 0;
 	}
 
+#ifdef FB_DSIH_VERSION_1P21A
+	dsi_core_and_function((SPRD_MIPI_DSIC_BASE+R_DSI_HOST_DPI_COLOR_CODE),0xfffffff0);
+	dsi_core_or_function((SPRD_MIPI_DSIC_BASE+R_DSI_HOST_DPI_COLOR_CODE),color_coding);
+#else
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_DPI_CFG, ((uint32_t)color_coding<<2));
+#endif
 	return 0;
 }
 
 
 static int32_t dsi_edpi_init(void)
 {
+#ifdef FB_DSIH_VERSION_1P21A
+	dsi_core_write_function((uint32_t)SPRD_MIPI_DSIC_BASE,	(uint32_t)R_DSI_HOST_EDPI_CMD_SIZE, 0x500);
+#else
 	dsi_core_write_function((uint32_t)SPRD_MIPI_DSIC_BASE,  (uint32_t)DSI_EDPI_CFG, 0x10500);
+#endif
 	return 0;
 }
 
@@ -127,6 +146,10 @@ static int32_t dsi_dpi_init(struct panel_spec* panel)
 	dpi_param.no_of_lanes = mipi->lan_number;
 	dpi_param.byte_clock = mipi->phy_feq / 8;
 	dpi_param.pixel_clock = DISPC_DPI_CLOCK / 1000;
+#ifdef FB_DSIH_VERSION_1P21A
+	dpi_param.max_hs_to_lp_cycles = 4;//110;
+	dpi_param.max_lp_to_hs_cycles = 15;//10;
+#endif
 
 	switch(mipi->video_bus_width){
 	case 16:
@@ -217,8 +240,10 @@ static int32_t dsi_module_init(struct panel_spec *panel)
 	dsi_instance->log_info = NULL;
 	 /*in our rtl implementation, this is max rd time, not bta time and use 15bits*/
 	dsi_instance->max_bta_cycles = 0x6000;//10;
+#ifndef FB_DSIH_VERSION_1P21A
 	dsi_instance->max_hs_to_lp_cycles = 4;//110;
 	dsi_instance->max_lp_to_hs_cycles = 15;//10;
+#endif
 	dsi_instance->max_lanes = mipi->lan_number;
 #if 0
 	ret = request_irq(IRQ_DSI_INTN0, dsi_isr0, IRQF_DISABLED, "DSI_INT0", &autotst_dsi_ctx);
@@ -247,15 +272,21 @@ static int32_t dsih_init(struct panel_spec *panel)
 	dphy_t *phy = &(dsi_instance->phy_instance);
 	struct info_mipi * mipi = panel->info.mipi;
 	int i = 0;
-
+#ifdef FB_DSIH_VERSION_1P21A
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_INT_MSK0, 0x1fffff);
+	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_INT_MSK1, 0x3ffff);
+#else
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x1fffff);
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
+#endif
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		dsi_edpi_init();
 	}
 
+#ifndef FB_DSIH_VERSION_1P21A
 	dsi_instance->phy_feq = panel->info.mipi->phy_feq;
+#endif
 	result = mipi_dsih_open(dsi_instance);
 	if(OK != result){
 		printk(KERN_ERR "autotst_dsi: [%s]: mipi_dsih_open fail (%d)!\n", __FUNCTION__, result);
@@ -312,6 +343,9 @@ static int32_t dsih_init(struct panel_spec *panel)
 		dsi_dpi_init(panel);
 	}
 
+#ifdef FB_DSIH_VERSION_1P21A
+	mipi_dsih_dphy_enable_nc_clk(&(dsi_instance->phy_instance), false);
+#endif
 	autotst_dsi_ctx.status = 0;
 
 	return 0;
@@ -344,22 +378,39 @@ static int32_t dsi_ready(struct panel_spec *panel)
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
 		mipi_dsih_cmd_mode(&(autotst_dsi_ctx.dsi_inst), 1);
+#ifdef FB_DSIH_VERSION_1P21A
+		mipi_dsih_dphy_enable_hs_clk(&(autotst_dsi_ctx.dsi_inst.phy_instance), true);
+#else
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_CMD_MODE_CFG, 0x1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
+#endif
 	}else{
+#ifdef FB_DSIH_VERSION_1P21A
+		mipi_dsih_dphy_enable_hs_clk(&(autotst_dsi_ctx.dsi_inst.phy_instance), true);
+#else
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_IF_CTRL, 0x1);
+#endif
 		mipi_dsih_video_mode(&(autotst_dsi_ctx.dsi_inst), 1);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 0);
 		udelay(100);
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
 		mdelay(3);
+#ifdef FB_DSIH_VERSION_1P21A
+		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_INT_ST0);
+		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_INT_ST1);
+#else
 		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST0);
 		dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_ERROR_ST1);
+#endif
 	}
 
+#ifdef FB_DSIH_VERSION_1P21A
+	//dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_INT_MSK0, 0x0);
+	//dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_INT_MSK1, 0x800);
+#else
 	//dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK0, 0x0);
 	//dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x800);
-
+#endif
 	return 0;
 }
 
