@@ -358,4 +358,11 @@ config DMATEST
 	  Simple DMA test client. Say N unless you're debugging a
 	  DMA Device driver.
 
+config SPRD_DMA
+	tristate "SPRD DMA support"
+	select DMA_ENGINE
+	default y
+	help
+	  Support the SPRD DMA engine.
+
 endif
