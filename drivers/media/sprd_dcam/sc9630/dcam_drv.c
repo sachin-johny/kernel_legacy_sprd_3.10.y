@@ -2882,10 +2882,11 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 			dcam_frame_lock(frame);
 			path->output_frame_cur = frame->next;
 		} else {
+			printk("DCAM: path frame locked, path_index %d", path_index);
 			rtn = DCAM_RTN_PATH_FRAME_LOCKED;
 		}
 	} else {
-		DCAM_TRACE("DCAM: No freed frame \n");
+		printk("DCAM: No freed frame,  path_index %d \n", path_index);
 		rtn = DCAM_RTN_PATH_FRAME_LOCKED;
 	}
 
