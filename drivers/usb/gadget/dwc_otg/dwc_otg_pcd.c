@@ -152,6 +152,8 @@ void dwc_otg_request_nuke(dwc_otg_pcd_ep_t * ep)
 		req = DWC_CIRCLEQ_FIRST(&ep->queue);
 		dwc_otg_request_done(ep, req, -DWC_E_SHUTDOWN);
 	}
+	if(ep->dwc_ep.num)
+	printk("%s release EP number is %d,directin is %d\n",__func__,ep->dwc_ep.num,ep->dwc_ep.is_in);
 }
 
 void dwc_otg_pcd_start(dwc_otg_pcd_t * pcd,

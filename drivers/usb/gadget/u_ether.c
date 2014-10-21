@@ -360,6 +360,7 @@ quiesce:
 	if (!netif_running(dev->net)) {
 clean:
 		spin_lock(&dev->req_lock);
+		printk("%s release EP number is %s\n",__func__,ep->name);
 		list_add(&req->list, &dev->rx_reqs);
 		spin_unlock(&dev->req_lock);
 		req = NULL;
