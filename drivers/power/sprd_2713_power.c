@@ -26,6 +26,7 @@
 #include <linux/irq.h>
 #include <linux/wakelock.h>
 #include <linux/delay.h>
+#include <linux/reboot.h>
 #include <mach/hardware.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
@@ -1079,13 +1080,16 @@ static void sprdbat_print_battery_log(void)
 
 	get_monotonic_boottime(&cur_time);
 
-	SPRDBAT_DEBUG("bat_log:time:%ld,vbat:%d,ocv:%d,current:%d,cap:%d,state:%d,auxbat:%d\n",
-		cur_time.tv_sec, sprdbat_data->bat_info.vbat_vol,
-		sprdbat_data->bat_info.vbat_ocv, sprdbat_data->bat_info.bat_current,
-		sprdbat_data->bat_info.capacity, sprdbat_data->bat_info.module_state,
-		sprdchg_read_vbat_vol());
+	SPRDBAT_DEBUG
+	    ("bat_log:time:%ld,vbat:%d,ocv:%d,current:%d,cap:%d,state:%d,auxbat:%d\n",
+	     cur_time.tv_sec, sprdbat_data->bat_info.vbat_vol,
+	     sprdbat_data->bat_info.vbat_ocv,
+	     sprdbat_data->bat_info.bat_current,
+	     sprdbat_data->bat_info.capacity,
+	     sprdbat_data->bat_info.module_state, sprdchg_read_vbat_vol());
 }
 
+#define SPRDBAT_SHUTDOWN_OFSSET 50
 static void sprdbat_update_capacty(void)
 {
 	uint32_t fgu_capacity = sprdfgu_read_capacity();
@@ -1105,9 +1109,32 @@ static void sprdbat_update_capacty(void)
 
 	switch (sprdbat_data->bat_info.module_state) {
 	case POWER_SUPPLY_STATUS_CHARGING:
-		if (fgu_capacity <= sprdbat_data->bat_info.capacity) {
-			fgu_capacity = sprdbat_data->bat_info.capacity;
-		} else {
+		if (fgu_capacity < sprdbat_data->bat_info.capacity) {
+			if (sprdfgu_read_batcurrent() >= 0) {
+				pr_info("avoid vol jumping\n");
+				fgu_capacity = sprdbat_data->bat_info.capacity;
+			} else {
+				if (period_time <
+				    sprdbat_data->pdata->cap_one_per_time) {
+					fgu_capacity =
+					    sprdbat_data->bat_info.capacity - 1;
+					SPRDBAT_DEBUG
+					    ("cap decrease when charging fgu_capacity: = %d\n",
+					     fgu_capacity);
+				}
+				if ((sprdbat_data->bat_info.capacity -
+				     fgu_capacity) >=
+				    (flush_time /
+				     sprdbat_data->pdata->cap_one_per_time)) {
+					fgu_capacity =
+					    sprdbat_data->bat_info.capacity -
+					    flush_time /
+					    sprdbat_data->
+					    pdata->cap_one_per_time;
+				}
+
+			}
+		} else if (fgu_capacity > sprdbat_data->bat_info.capacity) {
 			if (period_time < sprdbat_data->pdata->cap_one_per_time) {
 				fgu_capacity =
 				    sprdbat_data->bat_info.capacity + 1;
@@ -1133,6 +1160,15 @@ static void sprdbat_update_capacty(void)
 				fgu_capacity = 99;
 			}
 		}
+
+		if (sprdbat_data->bat_info.vbat_vol <=
+		    (sprdbat_data->pdata->soft_vbat_uvlo - SPRDBAT_SHUTDOWN_OFSSET)) {
+			fgu_capacity = 0;
+			SPRDBAT_DEBUG("soft uvlo, shutdown by kernel.. vol:%d",
+				      sprdbat_data->bat_info.vbat_vol);
+			orderly_poweroff(true);
+		}
+
 		break;
 	case POWER_SUPPLY_STATUS_NOT_CHARGING:
 	case POWER_SUPPLY_STATUS_DISCHARGING:
@@ -1161,6 +1197,15 @@ static void sprdbat_update_capacty(void)
 		if (fgu_capacity != 100) {
 			fgu_capacity = 100;
 		}
+
+		if (sprdbat_data->bat_info.vbat_vol <=
+		    (sprdbat_data->pdata->soft_vbat_uvlo - SPRDBAT_SHUTDOWN_OFSSET)) {
+			fgu_capacity = 0;
+			SPRDBAT_DEBUG("soft uvlo, shutdown by kernel when status is full.. vol:%d",
+				      sprdbat_data->bat_info.vbat_vol);
+			orderly_poweroff(true);
+		}
+
 		break;
 	default:
 		BUG_ON(1);
@@ -1170,9 +1215,10 @@ static void sprdbat_update_capacty(void)
 	if (sprdbat_data->bat_info.vbat_vol <=
 	    sprdbat_data->pdata->soft_vbat_uvlo) {
 		fgu_capacity = 0;
-		SPRDBAT_DEBUG("soft uvlo, shutdown.... vol:%d",
+		SPRDBAT_DEBUG("soft uvlo, vbat very low,level..0.. vol:%d",
 			      sprdbat_data->bat_info.vbat_vol);
 	}
+
 	if (fgu_capacity != sprdbat_data->bat_info.capacity) {
 		sprdbat_data->bat_info.capacity = fgu_capacity;
 		sprdbat_update_capacity_time = cur_time.tv_sec;

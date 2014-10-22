@@ -272,15 +272,27 @@ __setup("fgu_init", fgu_cmd);
 
 static int sprdfgu_cal_init(void)
 {
-	fgu_cal.vol_1000mv_adc = ((fgu_nv_4200mv - fgu_nv_3600mv) * 10 + 3) / 6;
-	fgu_cal.vol_offset =
-	    0 - (fgu_nv_4200mv * 10 - fgu_cal.vol_1000mv_adc * 42) / 10;
-	fgu_cal.cur_offset = CUR_0ma_IDEA_ADC - fgu_0_cur_adc;
-	fgu_cal.cur_1000ma_adc =
-	    (fgu_cal.vol_1000mv_adc * 4 * sprdfgu_data.pdata->rsense_real +
-	     sprdfgu_data.pdata->rsense_spec / 2) /
-	    sprdfgu_data.pdata->rsense_spec;
-
+	BUG_ON(fgu_nv_4200mv <= fgu_nv_3600mv);
+	if (0 == fgu_nv_3600mv) {
+		fgu_cal.vol_1000mv_adc =
+		    DIV_ROUND_CLOSEST((fgu_nv_4200mv) * 10, 42);
+		fgu_cal.vol_offset = 0;
+		fgu_cal.cur_offset = 0;
+		fgu_cal.cur_1000ma_adc =
+		    DIV_ROUND_CLOSEST(fgu_cal.vol_1000mv_adc * 4 *
+				      sprdfgu_data.pdata->rsense_real,
+				      sprdfgu_data.pdata->rsense_spec);
+	} else {
+		fgu_cal.vol_1000mv_adc =
+		    DIV_ROUND_CLOSEST((fgu_nv_4200mv - fgu_nv_3600mv) * 10, 6);
+		fgu_cal.vol_offset =
+		    0 - (fgu_nv_4200mv * 10 - fgu_cal.vol_1000mv_adc * 42) / 10;
+		fgu_cal.cur_offset = CUR_0ma_IDEA_ADC - fgu_0_cur_adc;
+		fgu_cal.cur_1000ma_adc =
+		    DIV_ROUND_CLOSEST(fgu_cal.vol_1000mv_adc * 4 *
+				      sprdfgu_data.pdata->rsense_real,
+				      sprdfgu_data.pdata->rsense_spec);
+	}
 	if (SPRDBAT_FGUADC_CAL_CHIP == fgu_cal.cal_type) {
 		fgu_cal.vol_offset += sprdfgu_data.pdata->fgu_cal_ajust;
 		printk("sprdfgu: sprdfgu_data.pdata->fgu_cal_ajust = %d\n",
@@ -311,8 +323,13 @@ static int sprdfgu_cal_from_chip(void)
 	printk("sprdfgu: sprdfgu_cal_from_chip\n");
 
 	fgu_nv_4200mv = fgu_data[0];
+#if defined(CONFIG_ADIE_SC2723)	//2723 use one point to cal fgu adc
+	fgu_nv_3600mv = 0;
+	fgu_0_cur_adc = 0;
+#else
 	fgu_nv_3600mv = fgu_data[1];
 	fgu_0_cur_adc = fgu_data[2];
+#endif
 	fgu_cal.cal_type = SPRDBAT_FGUADC_CAL_CHIP;
 
 	return 0;
@@ -816,27 +833,33 @@ static void sprdfgu_hw_init(void)
 	start_time = sci_syst_read();
 
 #if defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
-        FGU_DEBUG("REG_FGU_USER_AREA_STATUS- = 0x%x\n",
-              sci_adi_read(REG_FGU_USER_AREA_STATUS));
-        if ((FIRST_POWERTON == sprdfgu_poweron_type_read())
-            || (sprdfgu_rtc_reg_read() == 0xFFF)) {
-            FGU_DEBUG("FIRST_POWERTON- = 0x%x\n",
-                  sprdfgu_poweron_type_read());
-            {
-                int poci_raw = sprdfgu_reg_get(REG_FGU_CLBCNT_QMAXL) << 1;
-                int poci_curr = sprdfgu_adc2cur_ma(poci_raw - CUR_0ma_IDEA_ADC + fgu_cal.cur_offset);
-                uint32_t p_ocv = sprdfgu_adc2vol_mv(pocv_raw) -
-                    (poci_curr * sprdfgu_data.poweron_rint) / 1000;
-                sprdfgu_data.init_cap = sprdfgu_vol2capacity(p_ocv);
-                FGU_DEBUG("poci_raw:0x%x,poci_current:%d,p_softocv:%d,sprdfgu_data.init_cap:%d\n", poci_raw,poci_curr,
-                      p_ocv, sprdfgu_data.init_cap);
-            }
-            sprdfgu_rtc_reg_write(sprdfgu_data.init_cap);
-        } else {
-            sprdfgu_data.init_cap = sprdfgu_rtc_reg_read();
-            FGU_DEBUG("NORMAIL_POWERTON-- sprdfgu_data.init_cap= %d\n", sprdfgu_data.init_cap);
-        }
-        sprdfgu_poweron_type_write(NORMAIL_POWERTON);
+	FGU_DEBUG("REG_FGU_USER_AREA_STATUS- = 0x%x\n",
+		  sci_adi_read(REG_FGU_USER_AREA_STATUS));
+	if ((FIRST_POWERTON == sprdfgu_poweron_type_read())
+	    || (sprdfgu_rtc_reg_read() == 0xFFF)) {
+		FGU_DEBUG("FIRST_POWERTON- = 0x%x\n",
+			  sprdfgu_poweron_type_read());
+		{
+			int poci_raw =
+			    sprdfgu_reg_get(REG_FGU_CLBCNT_QMAXL) << 1;
+			int poci_curr =
+			    sprdfgu_adc2cur_ma(poci_raw - CUR_0ma_IDEA_ADC +
+					       fgu_cal.cur_offset);
+			uint32_t p_ocv =
+			    sprdfgu_adc2vol_mv(pocv_raw) -
+			    (poci_curr * sprdfgu_data.poweron_rint) / 1000;
+			sprdfgu_data.init_cap = sprdfgu_vol2capacity(p_ocv);
+			FGU_DEBUG
+			    ("poci_raw:0x%x,poci_current:%d,p_softocv:%d,sprdfgu_data.init_cap:%d\n",
+			     poci_raw, poci_curr, p_ocv, sprdfgu_data.init_cap);
+		}
+		sprdfgu_rtc_reg_write(sprdfgu_data.init_cap);
+	} else {
+		sprdfgu_data.init_cap = sprdfgu_rtc_reg_read();
+		FGU_DEBUG("NORMAIL_POWERTON-- sprdfgu_data.init_cap= %d\n",
+			  sprdfgu_data.init_cap);
+	}
+	sprdfgu_poweron_type_write(NORMAIL_POWERTON);
 
 #else
 	{
@@ -851,7 +874,7 @@ static void sprdfgu_hw_init(void)
 	sprdfgu_data.init_clbcnt = poweron_clbcnt =
 	    sprdfgu_clbcnt_init(sprdfgu_data.init_cap);
 	sprdfgu_clbcnt_set(poweron_clbcnt);
-#if 0   //workaround chip bug
+#if 0				//workaround chip bug
 	if (!in_calibration()) {
 		sci_adi_write(REG_FGU_CURT_OFFSET, fgu_cal.cur_offset, ~0);
 	}
@@ -867,7 +890,8 @@ static void sprdfgu_hw_init(void)
 		  sprdfgu_adc2cur_ma(current_raw - CUR_0ma_IDEA_ADC));
 	FGU_DEBUG("poweron_clbcnt: 0x%x,cur_cc0x%x\n", poweron_clbcnt,
 		  sprdfgu_clbcnt_get());
-	FGU_DEBUG("sprdfgu_data.poweron_rint = %d\n", sprdfgu_data.poweron_rint);
+	FGU_DEBUG("sprdfgu_data.poweron_rint = %d\n",
+		  sprdfgu_data.poweron_rint);
 
 }
 
@@ -1045,6 +1069,7 @@ int sprdfgu_init(struct sprd_battery_platform_data *pdata)
 	FGU_DEBUG("sprdfgu_init end\n");
 	return ret;
 }
+
 int sprdfgu_reset(void)
 {
 	start_time = sci_syst_read();
@@ -1058,6 +1083,7 @@ int sprdfgu_reset(void)
 
 	return 0;
 }
+
 void sprdfgu_record_cap(u32 cap)
 {
 #if defined(CONFIG_ADIE_SC2723S) || defined(CONFIG_ADIE_SC2723)

@@ -22,7 +22,7 @@
 		rechg-vol = <4131>;
 		adp-cdp-cur = <700>;
 		adp-dcp-cur = <700>;
-		adp-sdp-cur = <500>;
+		adp-sdp-cur = <450>;
 		ovp-stop = <6500>;
 		ovp-restart = <5800>;
 		chg-timeout = <21600>;
@@ -41,7 +41,7 @@
 		bat-polling-time = <15>;
 		bat-polling-time-fast = <15>;
 		cap-one-per-time = <30>;
-		cap-valid-range-poweron = <50>;
+		cap-valid-range-poweron = <0>;
 		temp-support = <0>;
 		temp-adc-ch = <3>;
 		temp-adc-scale = <1>;
@@ -54,21 +54,19 @@
 		temp-tab-temp = <750 800 850 900 950 1000	/* temperature + 1000,750 = 1000 + (-250)*/
 				1050 1100 1150 1200 1250 1300
 				1350 1400 1450 1500 1550 1600 1650>;
-		fgu-mode = <1>;
+		fgu-mode = <0>;
 		alm-soc = <5>;
-		alm-vol = <3600>;
+		alm-vol = <3500>;
 		soft-vbat-uvlo = <3100>;
 		rint = <250>;
-		cnom = <1500>;
+		cnom = <1800>;
 		rsense-real = <215>;
 		rsense-spec = <200>;
 		relax-current = <50>;
 		fgu-cal-ajust = <0>;
-		ocv-tab-size = <12>;
-		ocv-tab-vol = <4180 4100 4000 3950 3900 3850
-			       3810 3775 3740 3720 3680 3400>;
-		ocv-tab-cap = <100 95 80 70 60 50
-			       40  30 20 15 5  0>;
+		ocv-tab-size = <21>;
+		ocv-tab-vol = <4185 4113 4066 4022 3983 3949 3917 3889 3864 3835 3805 3787 3777 3773 3770 3765 3752 3724 3680 3605 3400>;
+		ocv-tab-cap = <100  95   90   85   80   75   70   65   60   55   50   45   40   35   30   25   20   15   10   5    0>;
 		sprd_chg: sprd_chg{
 			compatible  = "sprd,sprd_chg";
 			interrupt-parent = <&gic>;
