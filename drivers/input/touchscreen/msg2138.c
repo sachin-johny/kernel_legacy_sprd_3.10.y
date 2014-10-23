@@ -75,7 +75,7 @@
 
 /*********************************Bee-0928-TOP****************************************/
 //#define SYSFS_DEBUG  //cg,20130929
-#define PIXCIR_DEBUG
+//#define PIXCIR_DEBUG
 //#define PIXCIR_CQ_CALL		0
 #ifdef PIXCIR_DEBUG
 #define PIXCIR_DBG(format, ...)	\
@@ -253,23 +253,10 @@ static struct tpd_sysinfo_data_t g_sysinfo_data;
 #ifdef SYSFS_DEBUG
 static  char *cg_fw_version = NULL;
 #endif //cg,20130929
-#ifdef __FIRMWARE_UPDATE__
+
+#define CTP_ID_MSG21XX      1
+#define CTP_ID_MSG21XXA    2
 #define FW_ADDR_MSG21XX   (0xC4>>1)
-#define FW_ADDR_MSG21XX_TP   (0x4C>>1)
-#define FW_UPDATE_ADDR_MSG21XX   (0x92>>1)
-#define TP_DEBUG	printk//(x)		//x//
-#define DBUG	printk//(x) //x
-static  char *fw_version = NULL;
-
-static u8 temp[94][1024];
-u8  Fmr_Loader[1024];
-u32 crc_tab[256];
-static u8 g_dwiic_info_data[1024];   // Buffer for info data
-static int FwDataCnt;
-struct class *firmware_class;
-struct device *firmware_cmd_dev;
-
-
 static u8 HalTscrCReadI2CSeq(u8 addr, u8* read_data, u16 size)
 {
    //according to your platform.
@@ -313,6 +300,21 @@ static u8 HalTscrCDevWriteI2CSeq(u8 addr, u8* data, u16 size)
 	}
 	return rc;
 }
+
+#ifdef __FIRMWARE_UPDATE__
+#define FW_ADDR_MSG21XX_TP   (0x4C>>1)
+#define FW_UPDATE_ADDR_MSG21XX   (0x92>>1)
+#define TP_DEBUG	printk//(x)		//x//
+#define DBUG	printk//(x) //x
+static  char *fw_version = NULL;
+
+static u8 temp[94][1024];
+u8  Fmr_Loader[1024];
+u32 crc_tab[256];
+static u8 g_dwiic_info_data[1024];   // Buffer for info data
+static int FwDataCnt;
+struct class *firmware_class;
+struct device *firmware_cmd_dev;
 
 static void dbbusDWIICEnterSerialDebugMode(void)
 {
@@ -2284,6 +2286,37 @@ static void pixcir_ts_virtual_keys_init(void)
 }
 #endif
 
+static u8 getchipType(void)
+{
+    u8 curr_ic_type = 0;
+    u8 dbbus_tx_data[4];
+    unsigned char dbbus_rx_data[2] = {0};
+    u8 error = 0;
+
+    //check id
+    dbbus_tx_data[0] = 0x10;
+    dbbus_tx_data[1] = 0x1E;
+    dbbus_tx_data[2] = 0xCC;
+    error = HalTscrCDevWriteI2CSeq ( FW_ADDR_MSG21XX, dbbus_tx_data, 3 );
+    if (error < 0) {
+           pr_err("[MSG2138A] getchipType() write i2c error\n");
+           return error;
+    }
+    error = HalTscrCReadI2CSeq ( FW_ADDR_MSG21XX, &dbbus_rx_data[0], 2 );
+    if (error < 0) {
+           pr_err("[MSG2138A] getchipType() read i2c error\n");
+           return error;
+    }
+    if ( dbbus_rx_data[0] == 2 ) {
+           curr_ic_type = CTP_ID_MSG21XXA;
+    } else {
+           curr_ic_type = CTP_ID_MSG21XX;
+    }
+
+    return curr_ic_type;
+
+}
+
 static void  pixcir_ts_hw_init(struct pixcir_i2c_ts_data *tsdata)
 {
 	struct regulator *g_cg_reg_vdd;
@@ -2902,7 +2935,7 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 	struct i2c_dev *i2c_dev = NULL;
 	int i, error;
 
-	TPD_DEBUG("msg2138 probe in! \n");
+	printk("msg2138 probe in! \n");
 
 #ifdef CONFIG_OF
 	struct device_node *np = client->dev.of_node;
@@ -2940,18 +2973,19 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 	sprd_i2c_ctl_chg_clk(client->adapter->nr, 400000);
 #endif
 
-	/*err = ft5x0x_read_reg(FT5X0X_REG_CIPHER, &uc_reg_value);
-	if (err < 0)
-	{
-		pr_err("[FST] read chip id error %x\n", uc_reg_value);
-		err = -ENODEV;
+	error = getchipType();
+	if (error < 0) {
+		pr_err("[MSG2138A] read chip id error %d\n", error);
+		error = -ENODEV;
 		goto exit_chip_check_failed;
-	}*/
+	} else {
+		printk("[MSG2138A] the chip id is %d\n",error);
+	}
 
 	for(i=0; i<MAX_FINGER_NUM*2; i++) {
 		point_slot[i].active = 0;
 	}
-        sy_init();
+	sy_init();
 	msleep(200);
 
 	input = input_allocate_device();
@@ -3051,16 +3085,17 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 	dev_set_drvdata(firmware_cmd_dev, NULL);
 #endif //__FIRMWARE_UPDATE__
 #ifdef ITO_TEST
-    ito_test_create_entry();
+	ito_test_create_entry();
 #endif
+#if 0
 	error = pixcir_create_sysfs(client);
 	if (error) {
 	       dev_err(&client->dev, "insmod successfully!\n");
 	       goto exit_create_sysfs_failed;
 	};
-
+#endif
 #ifdef SYSFS_DEBUG
- 	cg_tpfwver_readfwver();
+	cg_tpfwver_readfwver();
 #endif //cg,20130929
 
 #if USE_WAIT_QUEUE
@@ -3075,6 +3110,7 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 
 	enable_irq(client->irq);
 	//tp_cg_flag=2;
+	printk("[MSG2138A]pixcir_i2c probe success\n");
 	return 0;
 
 exit_kthread_run_failed:
@@ -3087,6 +3123,7 @@ exit_input_register_failed:
 exit_requst_irq_failed:
 	input_free_device(input);
 exit_input_alloc_failed:
+exit_chip_check_failed:
 	gpio_free(pdata->irq_gpio_number);
 	gpio_free(pdata->reset_gpio_number);
 	kfree(tsdata);
