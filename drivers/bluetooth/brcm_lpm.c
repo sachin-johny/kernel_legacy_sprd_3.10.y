@@ -290,7 +290,7 @@ static void bluesleep_hostwake_task(unsigned long data)
 static void bluesleep_outgoing_data(void)
 {      
         unsigned long irq_flags;
-        BT_ERR("bluesleep_outgoing_data\n");
+        //BT_ERR("bluesleep_outgoing_data\n");
         spin_lock_irqsave(&rw_lock, irq_flags);
 		wake_lock(&bsi->BT_wakelock);
 
@@ -362,14 +362,14 @@ static int bluesleep_open_proc_lpm(struct inode *inode, struct file *file)
 static ssize_t bluesleep_write_proc_btwrite(struct file *file, const char __user *buffer,size_t count, loff_t *pos)
 {                           
 	char b;
-	BT_ERR("bluesleep_write_proc_btwrite");
+	//BT_ERR("bluesleep_write_proc_btwrite");
 
 	if (count < 1)
 		return -EINVAL;
 
 	if (copy_from_user(&b, buffer, 1))
 		return -EFAULT;
-	BT_ERR("bluesleep_write_proc_btwrite=%d",b);
+	//BT_ERR("bluesleep_write_proc_btwrite=%d",b);
 
 	/* HCI_DEV_WRITE */
 	if (b != '0')
@@ -399,13 +399,13 @@ static void bluesleep_tx_timer_expire(unsigned long data)
 {	if(bsi->uport==NULL)
 		return;
     if (bsi->uport->ops->tx_empty(bsi->uport))
-    	{  BT_ERR("empty");
+    	{//  BT_ERR("empty");
            gpio_set_value(bsi->ext_wake, 1);
 		   wake_unlock(&bsi->BT_wakelock);
     	}
 	else
 		{
-		  BT_ERR("not  empty");
+		 // BT_ERR("not  empty");
 		  mod_timer(&tx_timer, jiffies + (TX_TIMER_INTERVAL*HZ));
 		}
 
@@ -448,10 +448,10 @@ static irqreturn_t bluesleep_hostwake_isr(int irq, void *dev_id)
 	/* schedule a tasklet to handle the change in the host wake line */
 
 	int ext_wake, host_wake;
-	BT_ERR("bluesleep_hostwake_isr\n");
+	//BT_ERR("bluesleep_hostwake_isr\n");
 	ext_wake = gpio_get_value(bsi->ext_wake);
 	host_wake = gpio_get_value(bsi->host_wake);
-	BT_DBG("ext_wake : %d, host_wake : %d", ext_wake, host_wake);
+	//BT_DBG("ext_wake : %d, host_wake : %d", ext_wake, host_wake);
     if(host_wake== 0)
     	{
     	  wake_lock(&bsi->host_wakelock);
@@ -467,7 +467,7 @@ static irqreturn_t bluesleep_hostwake_isr(int irq, void *dev_id)
 		
 //	irq_set_irq_type(irq, host_wake ? IRQF_TRIGGER_LOW : IRQF_TRIGGER_HIGH);
 	if (host_wake == 0) {
-		BT_DBG("bluesleep_hostwake_isr : Registration Tasklet");
+		//BT_DBG("bluesleep_hostwake_isr : Registration Tasklet");
 	   // tasklet_schedule(&hostwake_task);
 	}
 	
