@@ -1986,6 +1986,8 @@ static int sprd_codec_analog_open(struct snd_soc_codec *codec)
 			    BIT(VCMI_FAST_EN));
 	/*Bug 362021*/
 	snd_soc_update_bits(codec,SOC_REG(ANA_CDC2),BIT(DACDC_RMV_EN),BIT(DACDC_RMV_EN));
+	snd_soc_update_bits(codec, SOC_REG(ANA_PMU1), BIT(LDOVBO_FAST_EN),
+				BIT(LDOVBO_FAST_EN));
 
 	return ret;
 }

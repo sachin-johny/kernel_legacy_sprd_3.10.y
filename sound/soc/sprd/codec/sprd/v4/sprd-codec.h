@@ -137,6 +137,7 @@
 #define LDOCG_EN_FAL_ILD	(3)
 #define LDOCG_ISET_FAL	(2)
 #define LDOCG_RAMP_EN	(1)
+#define LDOVBO_FAST_EN (0)
 
 /* ANA_PMU2 */
 #define VCM_V			    (13)
