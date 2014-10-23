@@ -88,14 +88,14 @@ static uint32_t g_patten_table[PATTEN_COLOR_COUNT] =
 
 int autotst_dispc_pin_ctrl(int type)
 {
-	static int pin_table[29];
+	static int pin_table[31];
 	static int is_first_time = true;
 	int i;
 	u32 regs = REG_PIN_LCD_CSN1;
 	u32 func;
 
 	if (is_first_time) {
-		for (i = 0; i < 29; ++i) {
+		for (i = 0; i < 31; ++i) {
 			pin_table[i] = pinmap_get(regs);
 			regs += 4;
 		}
@@ -110,7 +110,7 @@ int autotst_dispc_pin_ctrl(int type)
 	}
 
 	regs = REG_PIN_LCD_CSN1;
-	for (i = 0; i < 29; ++i) {
+	for (i = 0; i < 31; ++i) {
 		if (type == DISPC_PIN_FUNC0)
 			pinmap_set(regs, pin_table[i]);
 		else
