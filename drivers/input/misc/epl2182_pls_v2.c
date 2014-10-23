@@ -124,7 +124,7 @@ static int ps_data_changed;
 static int ls_data_changed;
 
 
-static struct wake_lock g_ps_wlock;
+//static struct wake_lock g_ps_wlock;
 struct elan_epl_data *epl_data;
 static epl_raw_data	gRawData;
 static int dual_count;
@@ -510,6 +510,7 @@ static void polling_do_work(struct work_struct *work)
     }
 }
 
+#if 0
 static ssize_t elan_ls_operationmode_store(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
 {
     uint16_t mode=0;
@@ -611,6 +612,8 @@ static struct attribute_group ets_attr_group =
 {
     .attrs = ets_attributes,
 };
+#endif
+
 #if 0   //ices add
 static int elan_als_open(struct inode *inode, struct file *file)
 {
@@ -774,83 +777,62 @@ static int elan_ps_release(struct inode *inode, struct file *file)
 
 static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    //int value;
     int flag;
-    unsigned long buf[1];
+    unsigned long buf;
     struct elan_epl_data *epld = epl_data;
-
     void __user *argp = (void __user *)arg;
 
     LOG_INFO("ps io ctrl cmd %d\n", _IOC_NR(cmd));
-
     //ioctl message handle must define by android sensor library (case by case)
     switch(cmd)
     {
         case ELAN_EPL6800_IOCTL_GET_PFLAG:
-
-            LOG_INFO("elan Proximity Sensor IOCTL get pflag \n");
             flag = epld->enable_pflag;
             if (copy_to_user(argp, &flag, sizeof(flag)))
                 return -EFAULT;
-
             LOG_INFO("elan Proximity Sensor get pflag %d\n",flag);
             break;
 
         case ELAN_EPL6800_IOCTL_ENABLE_PFLAG:
-            LOG_INFO("elan Proximity IOCTL Sensor set pflag \n");
             if (copy_from_user(&flag, argp, sizeof(flag)))
                 return -EFAULT;
-			if(flag) {
-				flag = 1;
-			}else {
-				flag = 0;
-			}
-            //if (flag < 0 || flag > 1)
-            //    return -EINVAL;
-
+            LOG_INFO("elan Proximity Sensor set pflag %d\n",flag);
+            if(flag) {
+		    flag = 1;
+            }else {
+		    flag = 0;
+            }
             epld->enable_pflag = flag;
             elan_sensor_restart_work();
-
-            LOG_INFO("elan Proximity Sensor set pflag %d\n",flag);
             break;
-#if 1 //Flank add
-		case ELAN_EPL6800_IOCTL_GET_LFLAG:
 
-            LOG_INFO("elan ambient-light IOCTL Sensor get lflag \n");
+        case ELAN_EPL6800_IOCTL_GET_LFLAG:
             flag = epld->enable_lflag;
             if (copy_to_user(argp, &flag, sizeof(flag)))
                 return -EFAULT;
-
             LOG_INFO("elan ambient-light Sensor get lflag %d\n",flag);
             break;
 
         case ELAN_EPL6800_IOCTL_ENABLE_LFLAG:
-
-            LOG_INFO("elan ambient-light IOCTL Sensor set lflag \n");
-            if (copy_from_user(&flag, argp, 1))
+            if (copy_from_user(&flag, argp, sizeof(flag)))
                 return -EFAULT;
-			LOG_INFO("elan ambient-light Sensor set lflag %d\n",flag);
-			if(flag) {
-				flag = 1;
-			}else {
-				flag = 0;
-			}
-            //if (flag < 0 || flag > 1)
-            //    return -EINVAL;
-
+            LOG_INFO("elan ambient-light Sensor set lflag %d\n",flag);
+            if(flag) {
+		    flag = 1;
+            }else {
+		    flag = 0;
+            }
             epld->enable_lflag = flag;
             elan_sensor_restart_work();
-
-            //LOG_INFO("elan ambient-light Sensor set lflag %d\n",flag);
             break;
 
         case ELAN_EPL6800_IOCTL_GETDATA:
-            buf[0] = (unsigned long)gRawData.als_ch1_raw;
-            if(copy_to_user(argp, &buf , 2))
+            buf = (unsigned long)gRawData.als_ch1_raw;
+            if(copy_to_user(argp, &buf , sizeof(buf)))
                 return -EFAULT;
-            LOG_INFO("elan als Sensor get data (%lu)\n",buf[0]);
+            LOG_INFO("elan als Sensor get data (%lu)\n",buf);
             break;
-#endif //Flank end
+
         default:
             LOG_ERR("invalid cmd %d\n", _IOC_NR(cmd));
             return -EINVAL;
@@ -1210,7 +1192,7 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
     int err = 0;
     struct elan_epl_data *epld ;
     struct elan_epl_platform_data *pdata = client->dev.platform_data;
-    static struct platform_device *sensor_dev;
+    //static struct platform_device *sensor_dev;
     struct device_node *np = client->dev.of_node;
     LOG_INFO("elan sensor probe enter.\n");
 #ifdef CONFIG_OF
@@ -1309,6 +1291,8 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
     epld->early_suspend.resume = elan_sensor_late_resume;
     register_early_suspend(&epld->early_suspend);
 #endif
+
+#if 0
     wake_lock_init(&g_ps_wlock, WAKE_LOCK_SUSPEND, "ps_wakelock");
 
     sensor_dev = platform_device_register_simple("elan_alsps", -1, NULL, 0);
@@ -1324,6 +1308,7 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
         dev_err(&client->dev,"%s:create sysfs group error", __func__);
         goto err_fail;
     }
+#endif
 
     LOG_INFO("sensor probe success.\n");
 
