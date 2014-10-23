@@ -84,6 +84,9 @@ enum {
 	SMSG_TYPE_FUNC_CALL,	/* RPC func, value=addr */
 	SMSG_TYPE_FUNC_RETURN,	/* return of RPC func */
 	SMSG_TYPE_DIE,
+	SMSG_TYPE_DFS,
+	SMSG_TYPE_DFS_RSP,
+	SMSG_TYPE_ASS_TRG,
 	SMSG_TYPE_NR,		/* total type number */
 };
 

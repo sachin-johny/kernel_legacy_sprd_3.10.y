@@ -35,10 +35,12 @@ extern uint8_t assert_trigger_state;
 static struct smsg_ipc *smsg_ipcs[SIPC_ID_NR];
 
 static ushort debug_enable = 0;
+static ushort assert_trigger = 0;
 
 static struct wake_lock sipc_wake_lock;
 
 module_param_named(debug_enable, debug_enable, ushort, 0644);
+module_param_named(assert_trigger, assert_trigger, ushort, 0644);
 
 irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 {
@@ -64,6 +66,17 @@ irqreturn_t smsg_irq_handler(int irq, void *dev_id)
 			if(debug_enable)
 				panic("cpcrash");
 			else {
+				/* update smsg rdptr */
+				writel(readl(ipc->rxbuf_rdptr) + 1, ipc->rxbuf_rdptr);
+
+				continue;
+			}
+		}
+                if(msg->type == SMSG_TYPE_ASS_TRG){
+			if(assert_trigger)
+				panic("cpcrash");
+			else {
+                            pr_info(" SMSG_TYPE_ASS_TRG received\n");
 				/* update smsg rdptr */
 				writel(readl(ipc->rxbuf_rdptr) + 1, ipc->rxbuf_rdptr);
 
