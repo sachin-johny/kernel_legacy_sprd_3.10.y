@@ -162,7 +162,7 @@ static inline s64 timekeeping_get_ns(struct timekeeper *tk)
 {
 	cycle_t cycle_now, cycle_delta;
 	struct clocksource *clock;
-	s64 nsec;
+	u64 nsec;
 
 	/* read clocksource: */
 	clock = tk->clock;
@@ -175,7 +175,7 @@ static inline s64 timekeeping_get_ns(struct timekeeper *tk)
 	nsec >>= tk->shift;
 
 	/* If arch requires, add in get_arch_timeoffset() */
-	return nsec + get_arch_timeoffset();
+	return (s64)(nsec + get_arch_timeoffset());
 }
 
 static inline s64 timekeeping_get_ns_raw(struct timekeeper *tk)
