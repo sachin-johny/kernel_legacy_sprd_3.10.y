@@ -131,6 +131,7 @@ static struct hci_dev *bluesleep_hdev;
 
 static struct platform_device *bluesleep_uart_dev;
 static struct bluesleep_info *bsi;
+static bool is_bt_stoped=0;
 
 /* module usage */
 static atomic_t open_count = ATOMIC_INIT(1);
@@ -366,6 +367,8 @@ static ssize_t bluesleep_write_proc_btwrite(struct file *file, const char __user
 
 	if (count < 1)
 		return -EINVAL;
+	if (is_bt_stoped==1)
+		return count;
 
 	if (copy_from_user(&b, buffer, 1))
 		return -EFAULT;
@@ -484,6 +487,7 @@ static int bluesleep_start(void)
         int retval;
         unsigned long irq_flags;
        	BT_ERR("bluesleep_start\n");
+		is_bt_stoped=0;
         spin_lock_irqsave(&rw_lock, irq_flags);
 
         if (test_bit(BT_PROTO, &flags)) {
@@ -560,7 +564,8 @@ static void bluesleep_stop(void)
 #endif
 	wake_unlock(&bsi->host_wakelock);
 	wake_unlock(&bsi->BT_wakelock);
-      //  wake_lock_timeout(&bsi->wake_lock, HZ / 2);
+	is_bt_stoped=1;
+     //  wake_lock_timeout(&bsi->wake_lock, HZ / 2);
 }
 
 /**
