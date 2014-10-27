@@ -257,7 +257,7 @@ static  char *cg_fw_version = NULL;
 #define CTP_ID_MSG21XX      1
 #define CTP_ID_MSG21XXA    2
 #define FW_ADDR_MSG21XX   (0xC4>>1)
-static u8 HalTscrCReadI2CSeq(u8 addr, u8* read_data, u16 size)
+static int HalTscrCReadI2CSeq(u8 addr, u8* read_data, u16 size)
 {
    //according to your platform.
    	int rc;
@@ -280,7 +280,7 @@ static u8 HalTscrCReadI2CSeq(u8 addr, u8* read_data, u16 size)
 	return rc;
 }
 
-static u8 HalTscrCDevWriteI2CSeq(u8 addr, u8* data, u16 size)
+static int HalTscrCDevWriteI2CSeq(u8 addr, u8* data, u16 size)
 {
     //according to your platform.
    	int rc;
@@ -2286,12 +2286,12 @@ static void pixcir_ts_virtual_keys_init(void)
 }
 #endif
 
-static u8 getchipType(void)
+static int getchipType(void)
 {
-    u8 curr_ic_type = 0;
+    int curr_ic_type = 0;
     u8 dbbus_tx_data[4];
     unsigned char dbbus_rx_data[2] = {0};
-    u8 error = 0;
+    int error = 0;
 
     //check id
     dbbus_tx_data[0] = 0x10;
@@ -2299,12 +2299,12 @@ static u8 getchipType(void)
     dbbus_tx_data[2] = 0xCC;
     error = HalTscrCDevWriteI2CSeq ( FW_ADDR_MSG21XX, dbbus_tx_data, 3 );
     if (error < 0) {
-           pr_err("[MSG2138A] getchipType() write i2c error\n");
+           pr_err("[MSG2138A] getchipType() write i2c error %d\n",error);
            return error;
     }
     error = HalTscrCReadI2CSeq ( FW_ADDR_MSG21XX, &dbbus_rx_data[0], 2 );
     if (error < 0) {
-           pr_err("[MSG2138A] getchipType() read i2c error\n");
+           pr_err("[MSG2138A] getchipType() read i2c error %d\n",error);
            return error;
     }
     if ( dbbus_rx_data[0] == 2 ) {
@@ -2975,7 +2975,7 @@ static int  pixcir_i2c_ts_probe(struct i2c_client *client,const struct i2c_devic
 
 	error = getchipType();
 	if (error < 0) {
-		pr_err("[MSG2138A] read chip id error %d\n", error);
+		pr_err("[MSG2138A] read chip id failed\n");
 		error = -ENODEV;
 		goto exit_chip_check_failed;
 	} else {
