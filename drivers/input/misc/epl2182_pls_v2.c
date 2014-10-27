@@ -122,7 +122,7 @@ static DECLARE_WAIT_QUEUE_HEAD(ls_waitqueue);
 
 static int ps_data_changed;
 static int ls_data_changed;
-
+static struct i2c_client *this_client = NULL;
 
 //static struct wake_lock g_ps_wlock;
 struct elan_epl_data *epl_data;
@@ -775,10 +775,24 @@ static int elan_ps_release(struct inode *inode, struct file *file)
     return 0;
 }
 
+static int epl2182_read_chip_info(struct i2c_client *client, char *buf)
+{
+        if((NULL == buf) || (NULL == client))
+        {
+                *buf = 0;
+                return -1;
+        } else {
+                sprintf(buf, "EPL2182");
+                printk("[EPL2182] epl2182_read_chip_info %s\n",buf);
+                return 0;
+        }
+}
+
 static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
     int flag;
     unsigned long buf;
+    char strbuf[256];
     struct elan_epl_data *epld = epl_data;
     void __user *argp = (void __user *)arg;
 
@@ -804,6 +818,12 @@ static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg
             }
             epld->enable_pflag = flag;
             elan_sensor_restart_work();
+            break;
+
+        case ELAN_EPL6800_IOCTL_GET_CHIPINFO:
+                epl2182_read_chip_info(this_client, strbuf);
+                if(copy_to_user(argp, strbuf, strlen(strbuf)+1))
+                        return -EFAULT;
             break;
 
         case ELAN_EPL6800_IOCTL_GET_LFLAG:
@@ -1190,6 +1210,7 @@ static void elan_sensor_late_resume(struct early_suspend *h)
 static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_id *id)
 {
     int err = 0;
+    int chip_id = 0;
     struct elan_epl_data *epld ;
     struct elan_epl_platform_data *pdata = client->dev.platform_data;
     //static struct platform_device *sensor_dev;
@@ -1225,6 +1246,13 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
         err = -ENOTSUPP;
         goto i2c_fail;
     }
+    chip_id = i2c_smbus_read_byte_data(client, 0x00);
+    if (chip_id < 0)
+    {
+        dev_err(&client->dev,"read chip id REG 0x00 failed\n");
+        err = -ENODEV;
+        goto exit_read_chipid_failed;
+    }
     LOG_INFO("chip id REG 0x00 value = %8x\n", i2c_smbus_read_byte_data(client, 0x00));
     LOG_INFO("chip id REG 0x01 value = %8x\n", i2c_smbus_read_byte_data(client, 0x08));
     LOG_INFO("chip id REG 0x02 value = %8x\n", i2c_smbus_read_byte_data(client, 0x10));
@@ -1242,6 +1270,7 @@ static int elan_sensor_probe(struct i2c_client *client,const struct i2c_device_i
     LOG_INFO("chip id REG 0x13 value = %8x\n", i2c_smbus_read_byte_data(client, 0x98));
 
     epld->client = client;
+    this_client = client;
     epld->irq = client->irq;
     i2c_set_clientdata(client, epld);
 
@@ -1326,6 +1355,7 @@ err_sensor_setup:
     misc_deregister(&elan_ps_device);
 //    misc_deregister(&elan_als_device);    //ices add
 err_create_singlethread_workqueue:
+exit_read_chipid_failed:
 i2c_fail:
 //err_platform_data_null:
     kfree(epld);

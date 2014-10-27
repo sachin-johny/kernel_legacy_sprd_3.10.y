@@ -194,6 +194,27 @@ static int ltr558_i2c_write_1_byte(u8 reg, u8 value)
         return 1;
 }
 
+static int ltr_read_chip_info(struct i2c_client *client, char *buf)
+{
+        if((NULL == buf) || (NULL == client))
+        {
+                *buf = 0;
+                return -1;
+        }
+
+        if( LTR_PLS_553 == LTR_PLS_MODE)
+        {
+                sprintf(buf, "LTR553ALS");
+                printk("[LTR553] ltr_read_chip_info %s\n",buf);
+        }
+        if(LTR_PLS_558 == LTR_PLS_MODE)
+        {
+                sprintf(buf, "LTR558ALS");
+                printk("[LTR558] ltr_read_chip_info %s\n",buf);
+        }
+        return 0;
+}
+
 static int ltr558_ps_enable(u8 gainrange)
 {
         int ret = -1;
@@ -429,7 +450,7 @@ static long ltr558_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
         void __user *argp = (void __user *)arg;
         int flag;
-
+        char strbuf[256];
         PRINT_INFO("cmd = %d, %d\n", _IOC_NR(cmd), cmd);
         switch (cmd) {
         case LTR_IOCTL_SET_PFLAG: {
@@ -462,6 +483,12 @@ static long ltr558_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
                         return -EINVAL;
                 }
                 l_flag = flag;
+        }
+        break;
+        case LTR_IOCTL_GET_CHIPINFO: {
+                ltr_read_chip_info(this_client, strbuf);
+                if(copy_to_user(argp, strbuf, strlen(strbuf)+1))
+                        return -EFAULT;
         }
         break;
         case LTR_IOCTL_GET_PFLAG: {
@@ -912,6 +939,7 @@ static int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *i
         ltr558_t *ltr_558als = NULL;
         struct input_dev *input_dev = NULL;
         struct ltr558_pls_platform_data *pdata = client->dev.platform_data;
+        int chip_id = 0;
 #ifdef CONFIG_OF
         struct device_node *np = client->dev.of_node;
         if (np && !pdata){
@@ -955,7 +983,14 @@ static int ltr558_probe(struct i2c_client *client, const struct i2c_device_id *i
         ltr_558als->client = client;
         this_client = client;
 
-        if(LTR_553_PART_ID == ltr558_i2c_read_1_byte(LTR558_PART_ID))
+        chip_id = ltr558_i2c_read_1_byte(LTR558_PART_ID);
+        if(chip_id < 0)
+        {
+            PRINT_ERR("ltr558 or ltr553 read chip_id failed!\n");
+            ret = -ENOMEM;
+            goto exit_read_chip_id_failed;
+        }
+        if(LTR_553_PART_ID == chip_id)
         {
             LTR_PLS_MODE = LTR_PLS_553;
             p_gainrange = PS_553_RANGE16;
@@ -1058,6 +1093,7 @@ exit_misc_register_failed:
         input_unregister_device(input_dev);
 exit_input_register_device_failed:
 exit_input_allocate_device_failed:
+exit_read_chip_id_failed:
         kfree(ltr_558als);
         ltr_558als = NULL;
 exit_kzalloc_failed:

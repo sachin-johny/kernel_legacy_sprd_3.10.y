@@ -17,6 +17,7 @@
 #define LTR_IOCTL_SET_PFLAG     _IOW(LTR_IOCTL_MAGIC, 3, int)
 #define LTR_IOCTL_SET_LFLAG     _IOW(LTR_IOCTL_MAGIC, 4, int)
 #define LTR_IOCTL_GET_DATA      _IOW(LTR_IOCTL_MAGIC, 5, unsigned char)
+#define LTR_IOCTL_GET_CHIPINFO  _IOR(LTR_IOCTL_MAGIC, 6, char)
 
 /*LTR-558ALS Registers*/
 #define LTR558_ALS_CONTR        0x80
