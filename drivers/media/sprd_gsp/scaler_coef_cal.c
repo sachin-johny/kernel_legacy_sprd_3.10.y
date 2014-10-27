@@ -540,6 +540,8 @@ typedef struct _coef_entry
     uint16_t in_h;
     uint16_t out_w;
     uint16_t out_h;
+    uint16_t hor_tap;
+    uint16_t ver_tap;
     uint32_t coef[COEF_MATRIX_ENTRY_SIZE];
 } Coef_Entry;
 
@@ -560,16 +562,17 @@ Coef_Entry *Coef_Entry_List_Head = NULL;
 	pEntry->next->prev = pEntry->prev;\
 }
 
-#define LIST_SET_ENTRY_KEY(pEntry,i_w,i_h,o_w,o_h)\
+#define LIST_SET_ENTRY_KEY(pEntry,i_w,i_h,o_w,o_h,h_t,v_t)\
 {\
-	pEntry->in_w = i_w;\
-	pEntry->in_h = i_h;\
-	pEntry->out_w = o_w;\
-	pEntry->out_h = o_h;\
+    pEntry->in_w = i_w;\
+    pEntry->in_h = i_h;\
+    pEntry->out_w = o_w;\
+    pEntry->out_h = o_h;\
+    pEntry->hor_tap = h_t;\
+    pEntry->ver_tap = v_t;\
 }
 
 #define LIST_GET_THE_TAIL_ENTRY()	(Coef_Entry_List_Head->prev)
-
 
 static uint32_t s_cache_coef_init_flag = 0;
 static int32_t cache_coef_init(void)
@@ -611,7 +614,8 @@ func:cache_coef_hit_check
 desc:find the entry have the same in_w in_h out_w out_h
 return:if hit,return the entry pointer; else return null;
 */
-static Coef_Entry* cache_coef_hit_check(uint16_t in_w, uint16_t in_h, uint16_t out_w,uint16_t out_h)
+static Coef_Entry* cache_coef_hit_check(uint16_t in_w, uint16_t in_h, uint16_t out_w,uint16_t out_h,
+                                        uint16_t hor_tap, uint16_t ver_tap)
 {
     static uint32_t total_cnt = 0;
     static uint32_t hit_cnt = 0;
@@ -622,9 +626,11 @@ static Coef_Entry* cache_coef_hit_check(uint16_t in_w, uint16_t in_h, uint16_t o
     while(walk->in_w != 0)
     {
         if(walk->in_w == in_w
-                && walk->in_h == in_h
-                && walk->out_w == out_w
-                && walk->out_h == out_h)
+           && walk->in_h == in_h
+           && walk->out_w == out_w
+           && walk->out_h == out_h
+           && walk->hor_tap == hor_tap
+           && walk->ver_tap == ver_tap)
         {
             hit_cnt++;
             pr_debug("GSP_CACHE_COEF:hit, hit_ratio:%d percent\n",hit_cnt*100/total_cnt);
@@ -722,7 +728,7 @@ uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
 
     if(s_cache_coef_init_flag == 1)
     {
-        pEntry = cache_coef_hit_check(i_w,i_h,o_w,o_h);
+        pEntry = cache_coef_hit_check(i_w,i_h,o_w,o_h,hor_tap,ver_tap);
         if(pEntry)   //hit
         {
             memcpy((void*)coeff_h_ptr, (void*)pEntry->coef, COEF_MATRIX_ENTRY_SIZE*4);
@@ -845,7 +851,7 @@ uint8_t GSP_Gen_Block_Ccaler_Coef(uint32_t i_w,
         }
         memcpy((void*)pEntry->coef,(void*)coeff_h_ptr,COEF_MATRIX_ENTRY_SIZE*4);
         cache_coef_move_entry_to_list_head(pEntry);
-        LIST_SET_ENTRY_KEY(pEntry,i_w,i_h,o_w,o_h);
+        LIST_SET_ENTRY_KEY(pEntry,i_w,i_h,o_w,o_h,hor_tap,ver_tap);
     }
 #endif
 

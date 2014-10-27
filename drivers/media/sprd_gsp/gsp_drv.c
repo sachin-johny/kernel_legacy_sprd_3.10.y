@@ -28,6 +28,7 @@
 #include <linux/io.h>//for ioremap
 #include <linux/pid.h>
 
+
 #ifdef CONFIG_OF
 #include <linux/of.h>
 #include <linux/of_fdt.h>
@@ -1809,7 +1810,8 @@ static int32_t GSP_Scaling_Coef_Gen_And_Config(volatile uint32_t* force_calc)
     static volatile uint32_t coef_in_h_last = 0;
     static volatile uint32_t coef_out_w_last = 0;
     static volatile uint32_t coef_out_h_last = 0;
-
+    static volatile uint32_t coef_h_tap_last = 0;
+    static volatile uint32_t coef_v_tap_last = 0;
 
     if(s_gsp_cfg.layer0_info.scaling_en == 1)
     {
@@ -1874,11 +1876,42 @@ static int32_t GSP_Scaling_Coef_Gen_And_Config(volatile uint32_t* force_calc)
         coef_in_h = CEIL(after_rotate_h,coef_factor_h);
         coef_out_w = s_gsp_cfg.layer0_info.des_rect.rect_w;
         coef_out_h = s_gsp_cfg.layer0_info.des_rect.rect_h;
+
+
+        //printk("GSP coef, f:%d,%dx%d->%dx%d\n",s_gsp_cfg.layer0_info.img_format,coef_in_w,coef_in_h,coef_out_w,coef_out_h);
+        if(GSP_SRC_FMT_RGB565 < s_gsp_cfg.layer0_info.img_format
+           && s_gsp_cfg.layer0_info.img_format < GSP_SRC_FMT_8BPP
+           && (coef_in_w>coef_out_w||coef_in_h>coef_out_h))   //video scaling down
+        {
+            h_tap = 2;
+            v_tap = 2;
+            if(coef_in_w*3 <= coef_in_h*2)   // height is larger than 1.5*width
+            {
+                v_tap = 4;
+            }
+            if(coef_in_h*3 <= coef_in_w*2)   // width is larger than 1.5*height
+            {
+                h_tap = 4;
+            }
+            //printk("GSP, for video scaling down, we change tap to 2.\n");
+        }
+
+        //give hal a chance to set tap number
+        if((s_gsp_cfg.layer0_info.row_tap_mode>0) || (s_gsp_cfg.layer0_info.col_tap_mode>0))
+        {
+            //printk("GSP, hwc set tap: %dx%d-> ",h_tap,v_tap);
+            h_tap = (s_gsp_cfg.layer0_info.row_tap_mode>0)?s_gsp_cfg.layer0_info.row_tap_mode:h_tap;
+            v_tap = (s_gsp_cfg.layer0_info.col_tap_mode>0)?s_gsp_cfg.layer0_info.col_tap_mode:v_tap;
+            //printk("%dx%d\n",h_tap,v_tap);
+        }
+
         if(*force_calc == 1
-			||coef_in_w_last != coef_in_w
+           ||coef_in_w_last != coef_in_w
            || coef_in_h_last != coef_in_h
            || coef_out_w_last != coef_out_w
-           || coef_out_h_last != coef_out_h)
+           || coef_out_h_last != coef_out_h
+           || coef_h_tap_last != h_tap
+           || coef_v_tap_last != v_tap)
         {
             tmp_buf = (uint32_t *)kmalloc(GSP_COEFF_BUF_SIZE, GFP_KERNEL);
             if (NULL == tmp_buf)
@@ -1909,6 +1942,8 @@ static int32_t GSP_Scaling_Coef_Gen_And_Config(volatile uint32_t* force_calc)
             coef_in_h_last = coef_in_h;
             coef_out_w_last = coef_out_w;
             coef_out_h_last = coef_out_h;
+            coef_h_tap_last = h_tap;
+            coef_v_tap_last = v_tap;
 			*force_calc = 0;
         }
 
@@ -2190,7 +2225,8 @@ static long gsp_drv_ioctl(struct file *file,
     struct timespec start_time;
     struct timespec end_time;
     //long long cost=0;
-
+    memset(&start_time,0,sizeof(start_time));
+    memset(&end_time,0,sizeof(end_time));
     GSP_TRACE("%s:pid:0x%08x,cmd:0x%08x, io number 0x%x, param_size %d \n",
                 __func__,
                 pUserdata->pid,
