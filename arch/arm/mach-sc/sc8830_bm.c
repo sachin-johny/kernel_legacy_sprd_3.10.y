@@ -18,7 +18,14 @@
 #include <mach/irqs.h>
 #include <mach/busmonitor.h>
 
+//#define BM_DEFAULT_VALUE_SET
+
 static DEFINE_SPINLOCK(bm_lock);
+
+#define BM_DBG(f,x...)	printk(KERN_DEBUG "BM_INFO" f, ##x)
+#define BM_INFO(f,x...)	printk(KERN_INFO "BM_INFO" f, ##x)
+#define BM_WRN(f,x...)	printk(KERN_WARNING"BM_INFO" f, ##x)
+#define BM_ERR(f,x...)	printk(KERN_ERR "BM_INFO" f, ##x)
 
 struct bm_callback_desc {
 	void (*fun)(void);
@@ -29,12 +36,13 @@ static struct bm_callback_desc bm_callback_set[BM_SIZE];
 #define PER_COUTN_LIST_SIZE 128
 /*the buf can store 8 secondes data*/
 #define PER_COUNT_RECORD_SIZE 800
+#define PER_COUNT_BUF_SIZE (64 * 4 * PER_COUNT_RECORD_SIZE)
 
 #define LOG_FILE_PATH "/mnt/obb/axi_per_log"
 /*the log file size about 1.5Mbytes per min*/
 #define LOG_FILE_SECONDS (60  * 30)
 #define LOG_FILE_MAX_RECORDS (LOG_FILE_SECONDS * 100)
-#define BM_CONTINUE_DEBUG_SIZE	50
+#define BM_CONTINUE_DEBUG_SIZE	20
 
 static struct file *log_file;
 static struct semaphore bm_seam;
@@ -44,7 +52,7 @@ static bool bm_irq_in_process;
 /*the star log include a lot of unuseful info, we need skip it.*/
 static int buf_skip_cnt;
 long long t_stamp;
-static struct bm_per_info per_buf[PER_COUNT_RECORD_SIZE];
+static void *per_buf = NULL;
 static int per_count_list[PER_COUTN_LIST_SIZE];
 static int list_write_index;
 static bool glb_count_flag;
@@ -96,6 +104,35 @@ static struct bm_chn_name_info bm_chn_name[BM_CHANNEL_SIZE + 1] = {
 	{BM_CHANNEL_SIZE,""},
 };
 
+#ifdef BM_DEFAULT_VALUE_SET
+struct bm_chn_def_val {
+	u32 str_addr;
+	u32 end_addr;
+	u32 min_data;
+	u32 max_data;
+	u32 mode;
+	u32 chn_sel;
+};
+static struct bm_chn_def_val bm_def_value[BM_SIZE] = {
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL},	//ca7
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL},	//DISP
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //GSP/GPU
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //ZIP/AP
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //MM
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP0 ARM0/1/WCDMA
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP0 DSPx2
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //HARQ/LTE ACC
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP1 DPS
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP1 A5
+
+	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-DAP, 1-CA7, 2-DMA WRITE, 3-DMA READ
+	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-SDIO 0, 1-SDIO 1, 2-SDIO 2, 3-EMMC
+	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-NFC, 1-USB, 2-HSIC
+	{},
+};
+#endif
+
+extern int in_calibration(void);
 
 static u32 __sci_get_bm_base(u32 bm_index)
 {
@@ -235,7 +272,7 @@ static void __sci_axi_bm_cnt_clr(void)
 		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
 		val |= (BM_CNT_CLR);
 		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
-		printk(KERN_INFO " chn:%d, val:0x%x, reg:0x%x \n", bm_index, val, base_reg);
+		BM_INFO(" chn:%d, val:0x%x, reg:0x%x \n", bm_index, val, base_reg);
 		//__sci_axi_bm_chn_cnt_bw(bm_index);
 	}
 	return;
@@ -385,8 +422,12 @@ static int __sci_bm_store_int_info(u32 bm_index)
 		debug_bm_int_info[bm_index].msk_cmd = msk_cmd;
 		debug_bm_int_info[bm_index].msk_data_l = msk_data_l;
 		debug_bm_int_info[bm_index].msk_data_h = msk_data_h;
-		printk(KERN_INFO "__sci_bm_store_int_info %d	0x%X	0x%X	0x%X	0x%X\n",debug_bm_int_info[bm_index].bm_index,debug_bm_int_info[bm_index].msk_addr,
-			debug_bm_int_info[bm_index].msk_cmd,debug_bm_int_info[bm_index].msk_data_l,debug_bm_int_info[bm_index].msk_data_h);
+		BM_INFO("__sci_bm_store_int_info	%d	0x%X	0x%X	0x%X	0x%X\n",
+			debug_bm_int_info[bm_index].bm_index,
+			debug_bm_int_info[bm_index].msk_addr,
+			debug_bm_int_info[bm_index].msk_cmd,
+			debug_bm_int_info[bm_index].msk_data_l,
+			debug_bm_int_info[bm_index].msk_data_h);
 	}else{
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index = bm_index;
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr = msk_addr;
@@ -401,6 +442,8 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 {
 	u32 bm_index, rwbw_cnt, bm_chn, bm_reg, bm_int;
 	void (*fun)(void*);
+	struct bm_per_info *bm_info;
+	bm_info = (struct bm_per_info *)per_buf;
 
 	spin_lock(&bm_lock);
 
@@ -419,20 +462,20 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 
 		rwbw_cnt = 0x0;
 		/*count stop time stamp */
-		per_buf[buf_write_index].t_stop = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+		bm_info[buf_write_index].t_stop = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
 
 		for (bm_chn = AXI_BM0_CA7; bm_chn <= AXI_BM9_CP1_A5; bm_chn++) {
 			bm_reg = __sci_get_bm_base(bm_chn);
-			per_buf[buf_write_index].per_data[bm_chn][0] = __raw_readl(bm_reg + AXI_BM_RTRANS_IN_WIN_REG);
-			per_buf[buf_write_index].per_data[bm_chn][1] = __raw_readl(bm_reg + AXI_BM_RBW_IN_WIN_REG);
-			per_buf[buf_write_index].per_data[bm_chn][2] = __raw_readl(bm_reg + AXI_BM_RLATENCY_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][0] = __raw_readl(bm_reg + AXI_BM_RTRANS_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][1] = __raw_readl(bm_reg + AXI_BM_RBW_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][2] = __raw_readl(bm_reg + AXI_BM_RLATENCY_IN_WIN_REG);
 
-			per_buf[buf_write_index].per_data[bm_chn][3] = __raw_readl(bm_reg + AXI_BM_WTRANS_IN_WIN_REG);
-			per_buf[buf_write_index].per_data[bm_chn][4] = __raw_readl(bm_reg + AXI_BM_WBW_IN_WIN_REG);
-			per_buf[buf_write_index].per_data[bm_chn][5] = __raw_readl(bm_reg + AXI_BM_WLATENCY_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][3] = __raw_readl(bm_reg + AXI_BM_WTRANS_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][4] = __raw_readl(bm_reg + AXI_BM_WBW_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][5] = __raw_readl(bm_reg + AXI_BM_WLATENCY_IN_WIN_REG);
 
-			rwbw_cnt += per_buf[buf_write_index].per_data[bm_chn][1];
-			rwbw_cnt += per_buf[buf_write_index].per_data[bm_chn][4];
+			rwbw_cnt += bm_info[buf_write_index].per_data[bm_chn][1];
+			rwbw_cnt += bm_info[buf_write_index].per_data[bm_chn][4];
 		}
 		per_count_list[list_write_index] = rwbw_cnt;
 		if (++list_write_index == PER_COUTN_LIST_SIZE) {
@@ -461,9 +504,9 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 		__sci_axi_bm_set_winlen();
 
 		/*count start time stamp */
-		per_buf[buf_write_index].t_start = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
-		per_buf[buf_write_index].tmp1	 = 640;//emc_clk_get();
-		per_buf[buf_write_index].tmp2	 = 640;//__raw_readl(REG_AON_APB_DPLL_CFG);
+		bm_info[buf_write_index].t_start = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+		bm_info[buf_write_index].tmp1	 = 640;//emc_clk_get();
+		bm_info[buf_write_index].tmp2	 = 640;//__raw_readl(REG_AON_APB_DPLL_CFG);
 
 		__sci_axi_bm_cnt_start();
 
@@ -641,6 +684,23 @@ void sci_bm_set_perform_point(void)
 	__sci_bm_glb_count_enable(true);
 }
 
+#ifdef BM_DEFAULT_VALUE_SET
+static void sci_bm_def_val_set(void)
+{
+	u32 bm_chn, ret;
+	struct sci_bm_cfg bm_cfg;
+
+	for (bm_chn = 0; bm_chn < BM_SIZE; bm_chn++){
+		bm_cfg.addr_min = bm_def_value[bm_chn].str_addr;
+		bm_cfg.addr_max = bm_def_value[bm_chn].end_addr;
+		bm_cfg.bm_mode = bm_def_value[bm_chn].mode;
+		ret = sci_bm_set_point(bm_chn, bm_def_value[bm_chn].chn_sel, &bm_cfg, NULL, NULL);
+		if(SPRD_BM_SUCCESS != ret)
+			return;
+	}
+}
+#endif
+
 static int bm_output_log(void *p)
 {
 	mm_segment_t old_fs;
@@ -713,7 +773,7 @@ static ssize_t bm_axi_dbg_show(struct device *dev,
 		sprintf(chn_info, "%d	0x%x	0x%x	%s\n", bm_index, str_addr, end_addr, bm_chn_name[bm_index].chn_name);
 		strcat(info_buf, chn_info);
 	}
-	printk(KERN_INFO "%s\n", info_buf);
+	BM_INFO("%s\n", info_buf);
 	return sprintf(buf, "%s\n", info_buf);
 }
 
@@ -724,7 +784,7 @@ static ssize_t bm_axi_dbg_store(struct device *dev,
 				size_t count)
 {
 	unsigned char start[12], end[12], chn[6], mod[3];
-	unsigned long start_addr, end_addr, channel;
+	unsigned long start_addr, end_addr, channel, bm_index;
 	struct sci_bm_cfg bm_cfg;
 	u32 rd_wt;
 	int ret,i;
@@ -733,16 +793,16 @@ static ssize_t bm_axi_dbg_store(struct device *dev,
 
 	ret = strict_strtoul(start, 0, &start_addr);
 	if (ret)
-		printk(KERN_ERR "start %s is not in hex or decimal form.\n", buf);
+		BM_ERR("start %s is not in hex or decimal form.\n", buf);
 	ret = strict_strtoul(end, 0, &end_addr);
 	if (ret)
-		printk(KERN_ERR "end %s is not in hex or decimal form.\n", buf);
+		BM_ERR("end %s is not in hex or decimal form.\n", buf);
 	if((chn[0] >= '0') && (chn[0] <= '9'))
 		channel = chn[0] - '0';
 	else if(strcmp(chn, "all") == 0)
 		channel = BM_DEBUG_ALL_CHANNEL;
 	else{
-		printk(KERN_ERR "please input a legal channel number! e.g: 0-9,all.");
+		BM_ERR("please input a legal channel number! e.g: 0-9,all.");
 		return EINVAL;
 	}
 	if((strcmp(mod, "r") == 0)||(strcmp(mod, "R") == 0))
@@ -752,13 +812,16 @@ static ssize_t bm_axi_dbg_store(struct device *dev,
 	else if((strcmp(mod, "rw") == 0)||(strcmp(mod, "RW") == 0))
 		rd_wt = RW_MODE;
 	else{
-		printk(KERN_ERR "please input a legal channel mode! e.g: r,w,rw");
+		BM_ERR("please input a legal channel mode! e.g: r,w,rw");
 		return EINVAL;
 	}
 
-	printk(KERN_ERR "str addr 0x%lx end addr 0x%lx	chn %d	rw %d\n", start_addr, end_addr, channel, rd_wt);
+	BM_INFO("str addr 0x%lx end addr 0x%lx	chn %d	rw %d\n", start_addr, end_addr, channel, rd_wt);
 	if(((channel > AXI_BM9_CP1_A5) && (channel != BM_DEBUG_ALL_CHANNEL)) || (rd_wt > RW_MODE) || (start_addr > end_addr))
 		return -EINVAL;
+
+	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++)
+		__sci_bm_glb_reset_and_enable(bm_index, true);
 
 	if(channel != BM_DEBUG_ALL_CHANNEL){
 		bm_cfg.addr_min = (u32)start_addr;
@@ -799,7 +862,7 @@ static ssize_t bm_ahb_dbg_show(struct device *dev,
 			str_data, end_data, bm_chn_name[chn_sel].chn_name);
 		strcat(info_buf, chn_info);
 	}
-	printk(KERN_INFO "%s\n", info_buf);
+	BM_INFO("%s\n", info_buf);
 	return sprintf(buf, "%s\n", info_buf);
 }
 
@@ -810,7 +873,7 @@ static ssize_t bm_ahb_dbg_store(struct device *dev,
 {
 	unsigned char addr_start[12], data_min[12];
 	unsigned char addr_end[12], data_max[12];
-	unsigned long start_addr, end_addr, min_data, max_data, channel, chn_sel;
+	unsigned long start_addr, end_addr, min_data, max_data, channel, chn_sel, bm_index;
 	struct sci_bm_cfg bm_cfg;
 	int ret,i;
 
@@ -818,20 +881,24 @@ static ssize_t bm_ahb_dbg_store(struct device *dev,
 
 	ret = strict_strtoul(addr_start, 0, &start_addr);
 	if (ret)
-		printk(KERN_ERR "start addr %s is not in hex or decimal form.\n", buf);
+		BM_ERR("start addr %s is not in hex or decimal form.\n", buf);
 	ret = strict_strtoul(addr_end, 0, &end_addr);
 	if (ret)
-		printk(KERN_ERR "end addr %s is not in hex or decimal form.\n", buf);
+		BM_ERR("end addr %s is not in hex or decimal form.\n", buf);
 	ret = strict_strtoul(data_min, 0, &min_data);
 	if (ret)
-		printk(KERN_ERR "start data %s is not in hex or decimal form.\n", buf);
+		BM_ERR("start data %s is not in hex or decimal form.\n", buf);
 	ret = strict_strtoul(data_max, 0, &max_data);
 	if (ret)
-		printk(KERN_ERR "end data %s is not in hex or decimal form.\n", buf);
+		BM_ERR("end data %s is not in hex or decimal form.\n", buf);
 
-	printk(KERN_INFO "str addr 0x%X end addr 0x%X min data 0x%X max data 0x%X\n", start_addr, end_addr, min_data, max_data);
+	BM_INFO("str addr 0x%X end addr 0x%X min data 0x%X max data 0x%X\n", start_addr, end_addr, min_data, max_data);
 	if((channel > 3) || (chn_sel > 4) || (start_addr > end_addr) || (min_data > max_data))
 		return -EINVAL;
+
+	for (bm_index = AHB_BM0_DAP_A7_DMA; bm_index <= AHB_BM2_NFC_USB; bm_index++)
+		__sci_bm_glb_reset_and_enable(bm_index, true);
+
 	bm_cfg.addr_min = (u32)start_addr;
 	bm_cfg.addr_max = (u32)end_addr;
 	bm_cfg.data_min_l = (u32)min_data;
@@ -858,13 +925,21 @@ static ssize_t bm_bandwidth_store(struct device *dev,
 	u32 bw_en, bm_index;
 	sscanf(buf, "%d", &bw_en);
 	if(bw_en){
-		printk(KERN_INFO "bm bandwidth mode enable!!!\n");
+		BM_INFO("bm bandwidth mode enable!!!\n");
+		if(per_buf == NULL)
+			per_buf = kmalloc(PER_COUNT_BUF_SIZE, GFP_KERNEL);
+			if (!per_buf)
+				pr_err("kmalloc failed!\n");
+
 		for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++)
 			__sci_bm_glb_reset_and_enable(bm_index, true);
 		sci_bm_set_perform_point();
 		msleep(100);
 	}else{
-		printk(KERN_INFO "bm bandwidth mode disable!!!\n");
+		BM_INFO("bm bandwidth mode disable!!!\n");
+		if(per_buf != NULL)
+			kfree(per_buf);
+
 		for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++)
 			__sci_bm_glb_reset_and_enable(bm_index, false);
 
@@ -882,8 +957,12 @@ static ssize_t bm_occur_show(struct device *dev,
 
 	for(bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++){
 		if(debug_bm_int_info[bm_index].msk_addr != 0){
-			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n ---\n", bm_chn_name[bm_index].chn_name, debug_bm_int_info[bm_index].msk_addr,
-				debug_bm_int_info[bm_index].msk_cmd,debug_bm_int_info[bm_index].msk_data_l,debug_bm_int_info[bm_index].msk_data_h);
+			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n ---\n",
+				bm_chn_name[bm_index].chn_name,
+				debug_bm_int_info[bm_index].msk_addr,
+				debug_bm_int_info[bm_index].msk_cmd,
+				debug_bm_int_info[bm_index].msk_data_l,
+				debug_bm_int_info[bm_index].msk_data_h);
 			strcat(chn_info, occ_info);
 		}
 	}
@@ -898,12 +977,16 @@ static ssize_t bm_continue_show(struct device *dev,
 {
 	u32 bm_index, occ_addr;
 	char occ_info[96] = {};
-	char chn_info[96*10] = {};
+	char chn_info[96*50] = {};
 
-	for(bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++){
-		if(debug_bm_int_info[bm_index].msk_addr != 0){
-			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n ---\n", bm_chn_name[bm_index].chn_name, debug_bm_int_info[bm_index].msk_addr,
-				debug_bm_int_info[bm_index].msk_cmd,debug_bm_int_info[bm_index].msk_data_l,debug_bm_int_info[bm_index].msk_data_h);
+	for(bm_index = 0; bm_index < bm_ctn_dbg.loop_cnt; bm_index++){
+		if(bm_ctn_dbg.bm_ctn_info[bm_index].msk_addr != 0){
+			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n ---\n", 
+				bm_ctn_dbg.bm_ctn_info[bm_index].bm_index,
+				bm_ctn_dbg.bm_ctn_info[bm_index].msk_addr,
+				bm_ctn_dbg.bm_ctn_info[bm_index].msk_cmd,
+				bm_ctn_dbg.bm_ctn_info[bm_index].msk_data_l,
+				bm_ctn_dbg.bm_ctn_info[bm_index].msk_data_h);
 			strcat(chn_info, occ_info);
 		}
 	}
@@ -920,14 +1003,14 @@ static ssize_t bm_continue_store(struct device *dev,
 	u32 ctn_num;
 	sscanf(buf, "%d", &ctn_num);
 	if(ctn_num){
-		printk(KERN_INFO "BM support continue debug!!!\n");
+		BM_INFO("BM support continue debug!!!\n");
 		bm_ctn_dbg.bm_continue_dbg = true;
 		if(ctn_num > 50)
 			bm_ctn_dbg.loop_cnt = 50;
 		else
 			bm_ctn_dbg.loop_cnt = ctn_num;
 	}else{
-		printk(KERN_INFO "BM do not support continue debug!!!\n");
+		BM_INFO("BM do not support continue debug!!!\n");
 		bm_ctn_dbg.bm_continue_dbg = false;
 		bm_ctn_dbg.loop_cnt = 0;
 	}
@@ -949,17 +1032,26 @@ static DEVICE_ATTR(occur, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(continue, S_IRUGO | S_IWUSR,
 	NULL, bm_continue_store);
 
-static struct attribute *bm_attrs[] = {
+static struct attribute *bm_axi_attrs[] = {
 	&dev_attr_axi_dbg.attr,
-	&dev_attr_ahb_dbg.attr,
 	&dev_attr_bandwidth.attr,
 	&dev_attr_occur.attr,
 	&dev_attr_continue.attr,
 	NULL,
 };
+static struct attribute *bm_ahb_attrs[] = {
+	&dev_attr_ahb_dbg.attr,
+	&dev_attr_occur.attr,
+	&dev_attr_continue.attr,
+	NULL,
+};
 
-static struct attribute_group bm_attr_group = {
-	.attrs = bm_attrs,
+static struct attribute_group bm_axi_attr_group = {
+	.attrs = bm_axi_attrs,
+};
+
+static struct attribute_group bm_ahb_attr_group = {
+	.attrs = bm_ahb_attrs,
 };
 
 static int sci_bm_probe(struct platform_device *pdev)
@@ -968,19 +1060,32 @@ static int sci_bm_probe(struct platform_device *pdev)
 	u32 bm_index;
 	struct task_struct *t;
 
-	sema_init(&bm_seam, 0);
-	t = kthread_run(bm_output_log, NULL, "%s", "bm_per_log");
-
-	__sci_bm_init();
+	if (in_calibration()){
+		return SPRD_BM_SUCCESS;
+	}
 
 	if (0 == strcmp(SPRD_AXI_BM_NAME, pdev->name)) {
+		__sci_bm_init();
 		ret = request_irq(IRQ_AXI_BM_PUB_INT, __sci_bm_isr, IRQF_TRIGGER_NONE, pdev->name, pdev);
 		if (ret)
 			return ret;
 
+		sema_init(&bm_seam, 0);
+		t = kthread_run(bm_output_log, NULL, "%s", "bm_per_log");
+		if (IS_ERR(t)) {
+			BM_ERR("bm probe: Failed to run thread bm_per_log\n");
+			kthread_stop(t);
+			return t;
+		}
+
 		for (bm_index = AXI_BM0_CA7; bm_index < AHB_BM0_DAP_A7_DMA; bm_index++)
 			__sci_bm_glb_reset_and_enable(bm_index, true);
 		__sci_bm_glb_count_enable(true);
+
+		ret = sysfs_create_group(&pdev->dev.kobj, &bm_axi_attr_group);
+		if (ret) {
+			BM_ERR("Unable to export sysfs\n");
+		}
 	}
 
 	if (0 == strcmp(SPRD_AHB_BM_NAME, pdev->name)) {
@@ -996,10 +1101,12 @@ static int sci_bm_probe(struct platform_device *pdev)
 
 		for (bm_index = AHB_BM0_DAP_A7_DMA; bm_index < BM_SIZE; bm_index++)
 			__sci_bm_glb_reset_and_enable(bm_index, true);
-	}
-	ret = sysfs_create_group(&pdev->dev.kobj, &bm_attr_group);
-	if (ret) {
-		printk(KERN_ERR "Unable to export sysfs\n");
+
+		ret = sysfs_create_group(&pdev->dev.kobj, &bm_ahb_attr_group);
+		if (ret) {
+			BM_ERR("Unable to export sysfs\n");
+			return ret;
+		}
 	}
 	return SPRD_BM_SUCCESS;
 }
