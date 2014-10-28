@@ -66,6 +66,9 @@ enum {
 	SMSG_CH_PLAYBACK_VOIP, 	/* audio voip playback channel */
 	SMSG_CH_CAPTURE_VOIP,	/* audio voip capture channel */
 	SMSG_CH_MONITOR_VOIP,	/* audio voip monitor channel */
+	SMSG_CH_DATA3,		/* 2G/3G wirleless data */
+	SMSG_CH_DATA4,		/* 2G/3G wirleless data */
+	SMSG_CH_DATA5,		/* 2G/3G wirleless data */
 	SMSG_CH_NR,		/* total channel number */
 };
 
