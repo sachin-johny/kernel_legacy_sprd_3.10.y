@@ -2275,6 +2275,7 @@ static int dispc_update_clk(struct sprdfb_device *fb_dev,
 {
 	int ret;
 	u32 new_pclk;
+	u32 old_val;
 	u32 dpi_clk_src;
 	struct panel_spec* panel = fb_dev->panel;
 
@@ -2332,13 +2333,14 @@ static int dispc_update_clk(struct sprdfb_device *fb_dev,
 			pr_err("%s: panel type isn't dsi mode", __func__);
 			return -ENXIO;
 		}
+		old_val = panel->info.mipi->phy_feq;
 		ret = sprdfb_dsi_chg_dphy_freq(fb_dev, new_val);
 		if (ret) {
 			pr_err("%s: new dphy freq is invalid.", __func__);
 			return -EINVAL;
 		}
 		pr_info("dphy frequency is switched from %dHz to %dHz\n",
-						panel->info.mipi->phy_feq * 1000,
+						old_val * 1000,
 						new_val * 1000);
 		return ret;
 

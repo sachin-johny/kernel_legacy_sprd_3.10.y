@@ -632,6 +632,7 @@ int32_t sprdfb_dsi_init(struct sprdfb_device *dev)
 			//panel ready
 			printk(KERN_INFO "sprdfb: [%s]: dsi has alread initialized\n", __FUNCTION__);
 			dsi_instance->status = INITIALIZED;
+			dsi_instance->phy_instance.status = INITIALIZED;
 			dsi_module_init(dev);
 #ifdef FB_DSIH_VERSION_1P21A
 			dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_INT_MSK0, 0x0);

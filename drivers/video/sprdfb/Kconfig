@@ -243,8 +243,8 @@ config FB_DYNAMIC_CLK_SUPPORT
 
 config FB_DYNAMIC_FREQ_SCALING
 	boolean "support change mipi clk/fps/dpi clk dynamically"
-	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G
-	default n
+	depends on FB_SC8825 || FB_SCX35 || FB_SCX15 || FB_SCX30G || FB_SCX35L
+	default y
 
 config FB_MMAP_CACHED
 	boolean "support fb_mmap with cach"
