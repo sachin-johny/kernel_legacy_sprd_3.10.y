@@ -4055,8 +4055,10 @@ int32_t dcam_stop_sc_coeff(void)
 	DCAM_CHECK_ZERO(s_dcam_sc_array);
 
 	zoom_mode = s_dcam_sc_array->is_smooth_zoom;
-	memset((void*)s_dcam_sc_array, 0, sizeof(struct dcam_sc_array));
+	/*memset((void*)s_dcam_sc_array, 0, sizeof(struct dcam_sc_array));*/
 	s_dcam_sc_array->is_smooth_zoom = zoom_mode;
+	s_dcam_sc_array->valid_cnt = 0;
+	memset(&s_dcam_sc_array->scaling_coeff_queue, 0, DCAM_SC_COEFF_BUF_COUNT*sizeof(struct dcam_sc_coeff *));
 
 	return 0;
 }
