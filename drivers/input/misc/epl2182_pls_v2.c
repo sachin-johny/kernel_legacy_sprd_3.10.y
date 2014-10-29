@@ -44,8 +44,8 @@
  * configuration
 *******************************************************************************/
 #define PS_INTERRUPT_MODE		1		// 0 is polling mode, 1 is interrupt mode
-#define P_SENSOR_LTHD			800//120		//100
-#define P_SENSOR_HTHD			1500//170		//500
+#define P_SENSOR_LTHD			37000+1000//120		//100
+#define P_SENSOR_HTHD			37000+1500//170		//500
 
 #define PS_POLLING_RATE			100
 #define ALS_POLLING_RATE		1000
