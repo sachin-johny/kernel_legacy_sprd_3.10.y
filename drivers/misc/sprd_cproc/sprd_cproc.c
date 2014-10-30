@@ -526,7 +526,6 @@ static int sprd_cproc_native_cp_stop(void *arg)
 	struct cproc_device *cproc = (struct cproc_device *)arg;
 	struct cproc_init_data *pdata = cproc->initdata;
 	struct cproc_ctrl *ctrl;
-	uint32_t value;
 
         if (!pdata) {
             return -ENODEV;
@@ -536,7 +535,6 @@ static int sprd_cproc_native_cp_stop(void *arg)
             /* reset cp1 */
         if((ctrl->ctrl_reg[CPROC_CTRL_RESET] & 0xff)!= 0xff){
             sci_glb_set(ctrl->ctrl_reg[CPROC_CTRL_RESET],ctrl->ctrl_mask[CPROC_CTRL_RESET]);
-            pr_info("sprd_cproc: stop:read reset=%x\n",value);
             msleep(50);
         }
         if((ctrl->ctrl_reg[CPROC_CTRL_DEEP_SLEEP] & 0xff)!= 0xff){

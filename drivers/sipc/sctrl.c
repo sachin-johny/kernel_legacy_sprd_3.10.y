@@ -87,6 +87,7 @@ static int sctrl_thread(void *data)
         printk(KERN_ERR "Failed to open channel %d, rval=%d\n", strcl_mgr_ptr->channel,rval);
         /* assign NULL to thread poniter as failed to open channel */
         strcl_mgr_ptr->thread = NULL;
+        kfree(strcl_mgr_ptr);
         return rval;
     }
 
@@ -163,6 +164,7 @@ static int sctrl_thread(void *data)
         }
 #endif
     }
+    kfree(strcl_mgr_ptr);
     return 0;
 }
 void sctrl_send_request(uint32_t type, uint32_t target_id, uint32_t value)
@@ -233,7 +235,7 @@ static ssize_t sctrl_read(struct file *filp,
 		char __user *buf, size_t count, loff_t *ppos)
 {
 	struct sctrl_buf *sbuf = filp->private_data;
-        struct smsg mevt;
+        struct smsg mevt = {0};
 	int timeout = -1;
 
 	if (filp->f_flags & O_NONBLOCK) {
@@ -241,7 +243,9 @@ static ssize_t sctrl_read(struct file *filp,
 	}
         if(smsg_recv(sbuf->dst,&mevt,timeout) == 0)
         {
-            copy_to_user((void __user *)buf, (void *)&mevt, sizeof(struct smsg));
+            if(copy_to_user((void __user *)buf, (void *)&mevt, sizeof(struct smsg))){
+                return -1;
+            }
             return 0;
         }
         else{
@@ -253,7 +257,7 @@ static ssize_t sctrl_write(struct file *filp,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
 	struct sctrl_buf *sbuf = filp->private_data;
-        struct smsg mevt;
+        struct smsg mevt = {0};
 	int timeout = -1;
 
 	if (filp->f_flags & O_NONBLOCK) {
@@ -262,6 +266,7 @@ static ssize_t sctrl_write(struct file *filp,
 
         smsg_set(&mevt, sbuf->channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_WRPTR,  sbuf->bufid);
         smsg_send(sbuf->dst, &mevt, -1);
+        return count;
 }
 
 static unsigned int sctrl_poll(struct file *filp, poll_table *wait)
@@ -492,6 +497,7 @@ static int sctrl_probe(struct platform_device *pdev)
                 dev_set_drvdata(pdevice, pdev);
                 err = device_create_file(pdevice, attr);
                 if (err) {
+                    sctrl_destroy_pdata(&init);
                     device_destroy(sctrl_class, pdevice->devt);
                     return err;
                 }
@@ -517,7 +523,6 @@ static int  sctrl_remove(struct platform_device *pdev)
 		MKDEV(sctrl->major, sctrl->minor), sctrl->init->ringnr);
 
 	sbuf_destroy(sctrl->init->dst, sctrl->init->channel);
-
 	sctrl_destroy_pdata(&sctrl->init);
 
 	kfree(sctrl);
