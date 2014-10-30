@@ -2421,6 +2421,13 @@ LOCAL int v4l2_streamon(struct file *file,
 		0,
 		(uint32_t)(DCAM_FRM_CNT_MAX * sizeof(struct dcam_frame*)));
 
+	ret = sprd_v4l2_queue_init(&dev->queue);
+	if (unlikely(0 != ret)) {
+		printk("V4L2: streamon, Failed to init queue \n");
+		ret = -EIO;
+		goto exit;
+	}
+
 	DCAM_TRACE("V4L2: streamon, is_work: path_0 = %d, path_1 = %d, path_2 = %d, stream_on = %d \n",
 		path_0->is_work, path_1->is_work, path_2->is_work, atomic_read(&dev->stream_on));
 
