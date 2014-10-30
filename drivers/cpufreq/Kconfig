@@ -239,6 +239,12 @@ config CPU_FREQ_GOV_SPRDEMAND
 	  If you don't have one of these architectures or devices, use
 	  'ondemand' instead.
 
+config SCX35L_1350MHZ
+	bool "SCX35L 1350MHZ"
+	depends on ARCH_SCX35L
+	default n
+	help
+	  enable the 1350MHZ
 config GENERIC_CPUFREQ_CPU0
 	tristate "Generic CPU0 cpufreq driver"
 	depends on HAVE_CLK && REGULATOR && PM_OPP && OF
