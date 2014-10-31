@@ -1039,7 +1039,7 @@ int sensor_k_open(struct inode *node, struct file *file)
 		ret = clk_mm_i_eb(dn,1);
 		wake_lock(&p_mod->wakelock);
 	}
-	SENSOR_PRINT("sensor open %d\n", ret);
+	printk("sensor open %d\n", ret);
 	return ret;
 }
 
@@ -1074,7 +1074,7 @@ int sensor_k_release(struct inode *node, struct file *file)
 	p_mod = p_file->module_data;
 	SENSOR_CHECK_ZERO(p_mod);
 
-	SENSOR_PRINT("sensor: release \n");
+	printk("sensor: release \n");
 	if (atomic_dec_return(&p_mod->total_users) == 0) {
 		struct device_node *dn = p_mod->of_node;
 		sensor_k_set_voltage_cammot((uint32_t *)p_file, SENSOR_VDD_CLOSED);
@@ -1094,7 +1094,7 @@ int sensor_k_release(struct inode *node, struct file *file)
 		p_file = NULL;
 		file->private_data = NULL;
 	}
-	SENSOR_PRINT("sensor: release %d \n", ret);
+	printk("sensor: release %d \n", ret);
 	return ret;
 }
 
@@ -1380,7 +1380,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 	case SENSOR_IO_I2C_ADDR:
 		{
 			uint16_t i2c_addr;
-			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_I2C_ADDR \n");
+			printk("SENSOR: ioctl SENSOR_IO_I2C_ADDR \n");
 			ret = copy_from_user(&i2c_addr, (uint16_t *) arg, sizeof(uint16_t));
 			if (0 == ret) {
 				p_mod->sensor_dev_tab[p_file->sensor_id].cur_i2c_client->addr = (p_mod->sensor_dev_tab[p_file->sensor_id].cur_i2c_client->addr & (~0xFF)) |i2c_addr;
@@ -1533,7 +1533,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 		}
 		break;
 	default:
-		SENSOR_PRINT("sensor_k_ioctl: inv cmd %x  \n", cmd);
+		printk("sensor_k_ioctl: inv cmd %x  \n", cmd);
 		break;
 	}
 
