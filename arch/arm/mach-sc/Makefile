@@ -105,5 +105,6 @@ obj-$(CONFIG_MACH_SPX35LFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_PIKELFPGA) += board-sp8830fpga.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_SP9630EA_4MOD) += board-sp9630ea_4mod.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_COREPRIMELITE) += board-coreprimelite.o dma_r4p0.o mailbox.o
+obj-$(CONFIG_MACH_SP9630EA_3592M_3MOD) += board-sp9630ea_3592m_3mod.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_SP9630EA) += board-sp9630ea.o dma_r4p0.o mailbox.o
 
