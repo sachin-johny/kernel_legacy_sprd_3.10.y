@@ -329,10 +329,10 @@ LOCAL int _sensor_k_set_voltage(struct sensor_file_tag *fd_handle, uint32_t val,
 {
 	int                              ret = SENSOR_K_SUCCESS;
 	uint32_t                         volt_value = 0;
-	uint32_t                         *poweron_count;
+	uint32_t                         *poweron_count = NULL;
 	char                             *regu_name;
 	struct sensor_module_tab_tag     *p_mod;
-	struct regulator                 **p_regulator;
+	struct regulator                 **p_regulator = NULL;
 
 	SENSOR_CHECK_ZERO(fd_handle);
 	p_mod = fd_handle->module_data;
@@ -362,9 +362,14 @@ LOCAL int _sensor_k_set_voltage(struct sensor_file_tag *fd_handle, uint32_t val,
 		break;
 
 	default:
+		SENSOR_PRINT_ERR("error type = %d\n",type);
 		break;
 	}
 
+	if ((NULL == poweron_count) || (NULL == p_regulator)) {
+		SENSOR_PRINT_ERR("error param");
+		return SENSOR_K_FAIL;
+	}
 
 	get_regulator_name(p_mod->of_node, type, fd_handle->sensor_id, &regu_name);
 	if (NULL == *p_regulator) {
