@@ -838,6 +838,19 @@ static ssize_t dvfs_prop_store(struct device *dev, struct device_attribute *attr
 	return count;
 }
 
+extern void dbs_refresh_callback(struct work_struct *work);
+
+static ssize_t dvfs_tb_store(struct device *dev, struct device_attribute *attr,const char *buf, size_t count)
+{
+	int ret;
+	int value;
+	unsigned long irq_flags;
+
+	dbs_refresh_callback(NULL);
+
+	return count;
+}
+
 static ssize_t dvfs_prop_show(struct device *dev, struct device_attribute *attr,char *buf)
 {
 	int ret = 0;
@@ -886,6 +899,8 @@ static DEVICE_ATTR(dvfs_unplug, 0660, dvfs_unplug_show, dvfs_unplug_store);
 static DEVICE_ATTR(dvfs_plug, 0660, dvfs_plug_show, dvfs_plug_store);
 #endif
 static DEVICE_ATTR(dvfs_prop, 0660, dvfs_prop_show, dvfs_prop_store);
+static DEVICE_ATTR(dvfs_tb, 0660, NULL, dvfs_tb_store);
+
 #ifdef CONFIG_SPRD_AVS_DEBUG
 static DEVICE_ATTR(avs_log, 0660, avs_log_show, avs_log_store);
 #endif
@@ -901,9 +916,10 @@ static struct attribute *g[] = {
 	&dev_attr_dvfs_plug.attr,
 #endif
 	&dev_attr_dvfs_prop.attr,
-#ifdef CONFIG_SPRD_AVS_DEBUG	
+	&dev_attr_dvfs_tb.attr,
+#ifdef CONFIG_SPRD_AVS_DEBUG
 	&dev_attr_avs_log.attr,
-#endif	
+#endif
 	NULL,
 };
 

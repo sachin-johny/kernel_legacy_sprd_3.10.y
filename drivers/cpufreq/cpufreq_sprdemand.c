@@ -1813,7 +1813,7 @@ static struct early_suspend sprdemand_gov_earlysuspend_handler = {
 static struct workqueue_struct *input_wq;
 static struct work_struct dbs_refresh_work;
 
-static void dbs_refresh_callback(struct work_struct *work)
+void dbs_refresh_callback(struct work_struct *work)
 {
 	unsigned int cpu = smp_processor_id();
 	struct od_cpu_dbs_info_s *core_dbs_info = &per_cpu(sd_cpu_dbs_info,
