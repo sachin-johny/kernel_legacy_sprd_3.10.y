@@ -2255,7 +2255,7 @@ static ssize_t virtual_keys_show(struct kobject *kobj, struct kobj_attribute *at
 
 static struct kobj_attribute virtual_keys_attr = {
     .attr = {
-        .name = "virtualkeys.pixcir_ts",
+        .name = "virtualkeys.msg2138_ts",
         .mode = S_IRUGO,
     },
     .show = &virtual_keys_show,
@@ -3458,7 +3458,7 @@ static const unsigned short * const forces[] = { force, NULL };
 static struct i2c_client_address_data addr_data = { .forces = forces, };
 #endif 
 static const struct of_device_id msg2138_of_match[] = {
-       { .compatible = "msg2138,pixcir_ts", },
+       { .compatible = "Mstar,msg2138_ts", },
        { }
 };
 MODULE_DEVICE_TABLE(of, msg2138_of_match);

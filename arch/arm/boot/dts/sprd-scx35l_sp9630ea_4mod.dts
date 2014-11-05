@@ -400,8 +400,8 @@
 			TP_MAX_X = <480>;
 			TP_MAX_Y = <800>;
 		 };
-		 pixcir_ts@26{
-			compatible = "msg2138,pixcir_ts";
+		 msg2138_ts@26{
+			compatible = "Mstar,msg2138_ts";
 			reg = <0x26>;
 			gpios = <&d_gpio_gpio 145 0
                                  &d_gpio_gpio 144 0>;

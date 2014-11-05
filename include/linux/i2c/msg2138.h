@@ -11,7 +11,7 @@
 //#define	TS_HEIGHT_MAX				800
 
 #define MSG2138_BUS_NUM			2
-#define MSG2138_TS_NAME	   	    "pixcir_ts"
+#define MSG2138_TS_NAME	   	    "msg2138_ts"
 #define MSG2138_TS_ADDR			0x26
 #define MSG2138_FW_ADDR			0x62
 #define MSG2138_FW_UPDATE_ADDR   	0x49	
