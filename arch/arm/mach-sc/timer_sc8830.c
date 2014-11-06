@@ -64,6 +64,7 @@ static int e_cpu = 0;
 #define	TIMER_VALUE(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x0004)
 #define	TIMER_CTL(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x0008)
 #define	TIMER_INT(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x000C)
+#define	TIMER_CNT_RD(ind, id)	(base_gptimer[ind] + 0x20 * (id) + 0x0010)
 
 #define	ONETIME_MODE	(0 << 6)
 #define	PERIOD_MODE	(1 << 6)
@@ -74,7 +75,7 @@ static int e_cpu = 0;
 #define	TIMER_INT_EN	(1 << 0)
 #define	TIMER_INT_CLR	(1 << 3)
 #define	TIMER_INT_BUSY	(1 << 4)
-
+#define TIMER_NEW       (1 << 8)
 /**
  * timer0 is used as clockevent,
  * timer1 of aptimer0 is used as broadcast timer,
@@ -82,7 +83,7 @@ static int e_cpu = 0;
  */
 #define	EVENT_TIMER	0
 #define	BC_TIMER	1
-#define	SOURCE_TIMER	2
+#define	SOURCE_TIMER	1
 
 #define BC_CPU 1
 #ifndef CONFIG_OF
@@ -300,25 +301,25 @@ static void sprd_gptimer_clockevent_init(unsigned int irq, const char *name,
 /* ****************************************************************** */
 void __gptimer_clocksource_resume(struct clocksource *cs)
 {
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE|TIMER_NEW, PERIOD_MODE);
 	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
-		 __raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+		 __raw_readl(TIMER_CNT_RD(e_cpu, SOURCE_TIMER)));
 }
 
 void __gptimer_clocksource_suspend(struct clocksource *cs)
 {
 	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
 	pr_debug("%s: timer_val=0x%x\n", __FUNCTION__,
-		 __raw_readl(TIMER_VALUE(e_cpu, SOURCE_TIMER)));
+		 __raw_readl(TIMER_CNT_RD(e_cpu, SOURCE_TIMER)));
 }
 
 cycle_t __gptimer_clocksource_read(struct clocksource *cs)
 {
-	return ~readl_relaxed(TIMER_VALUE(e_cpu, SOURCE_TIMER));
+	return ~readl_relaxed(TIMER_CNT_RD(e_cpu, SOURCE_TIMER));
 }
 
 struct clocksource clocksource_sprd = {
-	.name = "gptimer2",
+	.name = "aon_timer_timer1",
 	.rating = 300,
 	.read = __gptimer_clocksource_read,
 	.mask = CLOCKSOURCE_MASK(32),
@@ -332,9 +333,10 @@ static void __gptimer_clocksource_init(void)
 	/* disalbe irq since it's just a read source */
 	__raw_writel(0, TIMER_INT(e_cpu, SOURCE_TIMER));
 
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_DISABLE|TIMER_NEW, PERIOD_MODE);
 	__raw_writel(ULONG_MAX, TIMER_LOAD(e_cpu, SOURCE_TIMER));
-	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_NEW, PERIOD_MODE);
+	__gptimer_ctl(e_cpu, SOURCE_TIMER, TIMER_ENABLE|TIMER_NEW, PERIOD_MODE);
 
 	if (clocksource_register_hz
 	    (&clocksource_sprd, gptimer_clock_source_freq))
@@ -354,7 +356,7 @@ static void __syscnt_clocksource_init(const char *name, unsigned long hz)
 /* ****************************************************************** */
 static u32 notrace __update_sched_clock(void)
 {
-	return ~(readl_relaxed(TIMER_VALUE(0, SOURCE_TIMER)));
+	return ~(readl_relaxed(TIMER_CNT_RD(0, SOURCE_TIMER)));
 }
 
 static void __init __sched_clock_init(unsigned long rate)
@@ -382,8 +384,8 @@ void __init sci_enable_timer_early(void)
 		}
 	}
 
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)	/*timer2 fixed 26M clk */
-	sched_clock_source_freq = 26000000;
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)	/*timer1 fixed 32K clk */
+	sched_clock_source_freq = 32768;
 #else /*timer2 clk source is from apb clk */
 	val = sci_glb_read(REG_AON_CLK_AON_APB_CFG, -1) & 0x3;
 	if (val == 0x1)
@@ -434,7 +436,7 @@ void __init sci_timer_init(void)
 	}
 #endif
 #endif
-	/* setup timer2 and syscnt as clocksource */
+	/* setup aon timer timer1 and syscnt as clocksource */
 	__gptimer_clocksource_init();
 	__syscnt_clocksource_init("syscnt", 1000);
 	/* setup timer1 of aon timer as clockevent. */
