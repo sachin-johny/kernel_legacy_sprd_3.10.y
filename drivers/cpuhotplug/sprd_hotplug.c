@@ -1104,7 +1104,7 @@ static struct kobj_type hotplug_dir_ktype = {
 	.default_attrs	= g,
 };
 
-static void dbs_refresh_callback(struct work_struct *work)
+void dbs_refresh_callback(struct work_struct *work)
 {
 #if 0
 	unsigned int cpu = smp_processor_id();
