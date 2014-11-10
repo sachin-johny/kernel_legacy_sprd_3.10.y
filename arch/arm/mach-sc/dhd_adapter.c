@@ -291,8 +291,8 @@ int wlan_device_power(int on)
 			msleep(100);
 		}
 	#else
-		if(wlan_mmc)
-		flush_delayed_work(&wlan_mmc->detect);
+//		if(wlan_mmc)
+//		flush_delayed_work(&wlan_mmc->detect);
 	#endif
 		printk("%s after delay %d times (100ms)\n", __func__, i);
 	/* enable SDIO clock */
@@ -302,7 +302,7 @@ int wlan_device_power(int on)
 		gpio_direction_output(GPIO_WIFI_SHUTDOWN, 0);
 		mdelay(10);
 		gpio_direction_output(GPIO_WIFI_SHUTDOWN, 1);
-		mdelay(200);
+//		mdelay(200);
 	}
 	else {
 	/* disale SDIO clock */
