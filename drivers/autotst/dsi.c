@@ -149,6 +149,8 @@ static int32_t dsi_dpi_init(struct panel_spec* panel)
 #ifdef FB_DSIH_VERSION_1P21A
 	dpi_param.max_hs_to_lp_cycles = 4;//110;
 	dpi_param.max_lp_to_hs_cycles = 15;//10;
+	dpi_param.max_clk_hs_to_lp_cycles = 4;//110;
+	dpi_param.max_clk_lp_to_hs_cycles = 15;//10;
 #endif
 
 	switch(mipi->video_bus_width){

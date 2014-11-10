@@ -2179,7 +2179,7 @@ int sprdfb_dispc_chg_clk(struct sprdfb_device *fb_dev,
 				int type, u32 new_val)
 {
 	int ret = 0;
-	unsigned long flags;
+	unsigned long flags = 0;
 	struct panel_spec* panel = fb_dev->panel;
 
 	pr_debug("%s --enter--", __func__);
@@ -2329,7 +2329,11 @@ static int dispc_update_clk(struct sprdfb_device *fb_dev,
 		break;
 
 	case SPRDFB_DYNAMIC_MIPI_CLK: /* Given mipi clock */
-		if (panel && panel->type != LCD_MODE_DSI) {
+		if(!panel){
+			pr_err("%s: there is no panel!", __func__);
+			return -ENXIO;
+		}
+		if (panel->type != LCD_MODE_DSI) {
 			pr_err("%s: panel type isn't dsi mode", __func__);
 			return -ENXIO;
 		}
