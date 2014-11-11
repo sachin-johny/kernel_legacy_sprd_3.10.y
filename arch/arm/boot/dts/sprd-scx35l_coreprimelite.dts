@@ -827,6 +827,7 @@
 		vdd-vqmmc = "vddsdcore";
 		sd-supply = <&vddsdio>;
 		vdd-level = <0 0 1800000 3000000>;
+		cd-gpios = <144>;
 		clock-names = "clk_sdio0";
 		clocks = <&clk_sdio0>, <&clk_384m>;
 		enb-bit = <0x100>;

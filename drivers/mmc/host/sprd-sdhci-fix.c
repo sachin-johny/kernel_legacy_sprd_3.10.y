@@ -699,12 +699,12 @@ static void sprd_sdhci_host_fix_mmc_core_card_event(struct sdhci_host *host) {
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
 	struct sprd_sdhci_host_platdata *host_pdata = sprd_host->platdata;
 	if(host_pdata->detect_gpio > 0) {
-#ifndef CONFIG_OF
+//#ifndef CONFIG_OF
 		int retval;
 		retval = mmc_gpio_request_cd(host->mmc, host_pdata->detect_gpio);
 		if(retval <  0)
 			return;
-#endif
+//#endif
 		sprd_host->mmc_host_ops.card_event = sprd_sdhci_host_card_event;
 	}
 }
