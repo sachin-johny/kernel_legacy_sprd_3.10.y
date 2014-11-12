@@ -422,7 +422,6 @@ int sensor_k_set_voltage_avdd(uint32_t *fd_handle, uint32_t avdd_val)
 
 int sensor_k_set_voltage_dvdd(uint32_t *fd_handle, uint32_t dvdd_val)
 {
-#ifdef DVDD_ENABLE_BY_GPIO
 	int                              gpio_id = 0;
 	struct sensor_module_tab_tag     *p_mod;
 	struct sensor_file_tag           *fd = (struct sensor_file_tag *)fd_handle;
@@ -431,8 +430,8 @@ int sensor_k_set_voltage_dvdd(uint32_t *fd_handle, uint32_t dvdd_val)
 	p_mod = fd->module_data;
 	SENSOR_CHECK_ZERO(p_mod);
 
-	if (SENSOR_DEV_0 == fd->sensor_id) {
-		get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, fd->sensor_id);
+	get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, fd->sensor_id);
+	if (SENSOR_DEV_0 == fd->sensor_id && 0 != gpio_id) {
 		SENSOR_PRINT_HIGH("sensor set DVDD gpio %d\n", gpio_id);
 		if (SENSOR_VDD_CLOSED == dvdd_val) {
 			gpio_direction_output(gpio_id, 1);
@@ -443,7 +442,6 @@ int sensor_k_set_voltage_dvdd(uint32_t *fd_handle, uint32_t dvdd_val)
 		}
 		return SENSOR_K_SUCCESS;
 	}
-#endif
 
 	return _sensor_k_set_voltage((struct sensor_file_tag *)fd_handle, dvdd_val, REGU_CAMDVDD);
 }
@@ -1613,6 +1611,7 @@ int sensor_k_probe(struct platform_device *pdev)
 	int                          i;
 	struct sensor_module_tab_tag *p_mod;
 	struct sensor_gpio_tag       gpio_tab;
+	int                          gpio_id = 0;
 
 	printk(KERN_ALERT "sensor probe called\n");
 
@@ -1650,18 +1649,14 @@ int sensor_k_probe(struct platform_device *pdev)
 			printk("sensor:  gpio already request reset %d %d.\n", gpio_tab.reset, i);
 		}
 	}
-#ifdef DVDD_ENABLE_BY_GPIO
-	{
-		int gpio_id = 0;
 
-		get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 0);
-		ret = gpio_request(gpio_id, NULL);
-		if (ret) {
-			tmp = 1;
-			printk("sensor: gpio already request GPIO_CAMDVDD %d.\n", gpio_id);
-		}
+	get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 0);
+	ret = gpio_request(gpio_id, NULL);
+	if (ret) {
+		tmp = 1;
+		printk("sensor: gpio already request GPIO_CAMDVDD %d.\n", gpio_id);
 	}
-#endif
+
 	ret = sensor_k_register_subdevs(pdev);
 	if (ret) {
 		printk(KERN_ERR "can't reg sub dev=%d (%d)\n",
@@ -1694,7 +1689,8 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 {
 	struct sensor_module_tab_tag *p_mod = platform_get_drvdata(dev);
 	struct sensor_gpio_tag       gpio_tab;
-	int i;
+	int                          i;
+	int                          gpio_id = 0;
 
 	SENSOR_CHECK_ZERO(p_mod);
 
@@ -1706,14 +1702,8 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 		gpio_free(gpio_tab.reset);
 	}
 
-#ifdef DVDD_ENABLE_BY_GPIO
-	{
-		int gpio_id = 0;
-
-		get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 0);
-		gpio_free(gpio_id);
-	}
-#endif
+	get_gpio_id_ex(p_mod->of_node, GPIO_CAMDVDD, &gpio_id, 0);
+	gpio_free(gpio_id);
 
 	misc_deregister(&sensor_dev);
 	wake_lock_destroy(&p_mod->wakelock);

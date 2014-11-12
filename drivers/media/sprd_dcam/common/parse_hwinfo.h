@@ -25,10 +25,6 @@ extern uint32_t                   dcam_regbase;
 #define DCAM_BASE		SPRD_DCAM_BASE
 #endif
 
-#if defined (CONFIG_MACH_COREPRIMELITE)
-#define DVDD_ENABLE_BY_GPIO
-#endif
-
 enum get_regu_type_e {
 	REGU_CAMAVDD = 0,
 	REGU_CAMDVDD,
