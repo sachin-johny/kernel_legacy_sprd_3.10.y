@@ -920,7 +920,7 @@ static netdev_tx_t eth_alloc_req(struct net_device *net,
 	}
 
 	*req = container_of(dev->tx_reqs.next, struct usb_request, list);
-	list_del(&(*req)->list);
+	__list_del_entry(&(*req)->list);
 
 	/* temporarily stop TX queue when the freelist empties */
 	if (list_empty(&dev->tx_reqs)){
