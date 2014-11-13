@@ -1,0 +1,53 @@
+/*
+* Copyright (C) 2013 Spreadtrum Communication Incorporated
+*               http://www.spreadtrum.com/
+*
+* This program is free software; you can redistribute it and/or modify
+* it under the terms of the GNU General Public License version 2 as
+* published by the Free Software Foundation.
+*/
+
+/include/ "sprd-scx35l_sp9630ea.dts"
+
+
+/ {
+	 sprd_thermal {
+		compatible = "sprd,sprd-thermal";
+		id = <0>;
+		interrupts = <0 26 0x0>;
+		reg = <0xf5260000 0x1000>;
+		trip_points_active = <62 65 68>;
+		trip_points_lowoff = <55 55 58>;
+		trip_points_critical = <110>;
+		trip_num = <4>;
+	};
+	sprd_thermal1 {
+		compatible = "sprd,sprd-thermal";
+		id = <1>;
+		interrupt-parent = <&adi>;
+		interrupts = <9 0x0>;
+		reg = <0xf51c8280 0x1000>;
+		trip_points_active = <110>;
+		trip_points_lowoff = <90>; /*no use, jut for compatiable*/
+		trip_points_critical = <114>;
+		trip_num = <2>;
+	};
+	 sprd_thermal2 {
+		compatible = "sprd,sprd-thermal";
+		id = <2>;
+		interrupts = <0 26 0x0>;
+		reg = <0xf5260000 0x1000>;
+		trip_points_active = <110>;
+		trip_points_lowoff = <90>;
+		trip_points_critical = <110>;
+		trip_num = <2>;
+	};
+	sprd_cpu_cooling{
+		compatible = "sprd,sprd-cpu-cooling";
+		id = <0>;
+		max_freq = <1350000 900000 768000 768000>;
+		max_core = <4 4 4 1>;
+		state_num = <4>;
+	};
+
+};

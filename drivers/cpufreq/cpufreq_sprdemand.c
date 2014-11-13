@@ -35,6 +35,11 @@
 
 #include "cpufreq_governor.h"
 #include <linux/input.h>
+#include <linux/sprd_cpu_cooling.h>
+#include <linux/platform_device.h>
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#endif
 
 /* On-demand governor macros */
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
@@ -89,6 +94,9 @@ static int cpu_score = 0;
 struct thermal_cooling_info_t {
 	struct thermal_cooling_device *cdev;
 	unsigned long cooling_state;
+	struct sprd_cpu_cooling_platform_data *pdata;
+	int max_state;
+	int limit_freq;
 } thermal_cooling_info = {
 	.cdev = NULL,
 	.cooling_state = 0,
@@ -792,8 +800,19 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 	local_load = load_freq/policy->cur;
 
         pr_debug("[DVFS %d] load %d %x load_freq %d policy->cur %d\n",cpu,local_load,local_load,load_freq,policy->cur);
+
+	if (thermal_cooling_info.cooling_state && policy->cur > thermal_cooling_info.limit_freq){
+		__cpufreq_driver_target(policy, thermal_cooling_info.limit_freq, CPUFREQ_RELATION_L);
+	}
+
 	/* Check for frequency increase */
 	if (load_freq > sd_tuners->up_threshold * policy->cur) {
+		if (thermal_cooling_info.cooling_state){
+			__cpufreq_driver_target(policy,
+					thermal_cooling_info.limit_freq, CPUFREQ_RELATION_L);
+			goto plug_check;
+		}
+
 		/* If switching to max speed, apply sampling_down_factor */
 		if (policy->cur < policy->max)
 			dbs_info->rate_mult =
@@ -1646,12 +1665,13 @@ struct cpufreq_governor cpufreq_gov_sprdemand = {
 	.owner			= THIS_MODULE,
 };
 
+#if defined(CONFIG_THERMAL)
 static int get_max_state(struct thermal_cooling_device *cdev,
 			 unsigned long *state)
 {
 	int ret = 0;
 
-	*state = 2;
+	*state = thermal_cooling_info.max_state;
 
 	return ret;
 }
@@ -1669,59 +1689,45 @@ static int get_cur_state(struct thermal_cooling_device *cdev,
 static int set_cur_state(struct thermal_cooling_device *cdev,
 			 unsigned long state)
 {
-	int ret = 0, cpu;
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
 	struct dbs_data *dbs_data = policy->governor_data;
 	struct sd_dbs_tuners *sd_tuners = NULL;
+	struct thermal_cooling_info_t *c_info = &thermal_cooling_info;
+	int cpus ,i;
+	int max_core;
 
-	if(NULL == dbs_data)
-	{
-		pr_info("set_cur_state governor %s return\n", policy->governor->name);
-		if (g_sd_tuners == NULL)
-			return ret;
-		sd_tuners = g_sd_tuners;
+	if(time_before(jiffies, boot_done)){
+		return 0;
 	}
-	else
-	{
+	if(NULL == dbs_data){
+		pr_info("sprdemand_gov_pm_notifier_call governor %s return\n", policy->governor->name);
+		return 0;
+	}else{
 		sd_tuners = dbs_data->tuners;
 	}
 
-
-	thermal_cooling_info.cooling_state = state;
-	if (state) {
-		pr_info("%s:cpufreq heating up\n", __func__);
-		if (sd_tuners->cpu_num_limit > 1)
-			if(cpu_hotplug_disable_set == false)
-				sd_tuners->cpu_hotplug_disable = true;
-		dbs_freq_increase(policy, policy->max-1);
-		/* unplug all online cpu except cpu0 mandatory */
-#ifdef CONFIG_HOTPLUG_CPU
-		for_each_online_cpu(cpu) {
-			if (cpu)
-				{
-				cpu_down(cpu);
-			  }
-		}
-#endif
-	} else {
-		pr_info("%s:cpufreq cooling down\n", __func__);
-		if (sd_tuners->cpu_num_limit > 1)
-			if(cpu_hotplug_disable_set == false)
-				sd_tuners->cpu_hotplug_disable = false;
-		/* plug-in all offline cpu mandatory if we didn't
-		  * enbale CPU_DYNAMIC_HOTPLUG
-		 */
-#ifdef CONFIG_HOTPLUG_CPU
-		for_each_cpu(cpu, cpu_possible_mask) {
-			if (!cpu_online(cpu))
-				{
-				cpu_up(cpu);
-			  }
-		}
-#endif
+	if (c_info->cooling_state == state){
+		return 0;
+	}else{
+		c_info->cooling_state = state;
 	}
 
-	return ret;
+	c_info->limit_freq = c_info->pdata->cpu_state[state].max_freq;
+	max_core = c_info->pdata->cpu_state[state].max_core;
+	pr_info("cpu cooling %s: %d limit_freq: %d kHz max_core: %d\n",
+			__func__, state, c_info->limit_freq, max_core);
+
+	if (sd_tuners->cpu_num_limit <=  max_core){
+		sd_tuners->cpu_num_limit = max_core;
+		return 0;
+	}
+	sd_tuners->cpu_num_limit = max_core;
+	cpus = num_online_cpus();
+	for (i = 0; i < cpus - max_core; ++i){
+		schedule_delayed_work_on(0, &unplug_work, 0);
+	}
+
+	return 0;
 }
 
 static struct thermal_cooling_device_ops sprd_cpufreq_cooling_ops = {
@@ -1729,6 +1735,7 @@ static struct thermal_cooling_device_ops sprd_cpufreq_cooling_ops = {
 	.get_cur_state = get_cur_state,
 	.set_cur_state = set_cur_state,
 };
+#endif
 
 static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 	unsigned long event, void *dummy)
@@ -1831,7 +1838,9 @@ void dbs_refresh_callback(struct work_struct *work)
 
 	if (policy->cur < policy->max)
 	{
-		cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
+		if (thermal_cooling_info.cooling_state){
+			cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
+		}
 
 		core_dbs_info->cdbs.prev_cpu_idle = get_cpu_idle_time(cpu,
 				&core_dbs_info->cdbs.prev_cpu_wall,should_io_be_busy());
@@ -1904,6 +1913,111 @@ static const struct input_device_id dbs_ids[] = {
 	{ },
 };
 
+#if defined(CONFIG_THERMAL)
+#ifdef CONFIG_OF
+static int get_cpu_cooling_dt_data(struct device *dev)
+{
+	struct sprd_cpu_cooling_platform_data *pdata = NULL;
+	struct thermal_cooling_info_t *c_info = &thermal_cooling_info;
+	struct device_node *np = dev->of_node;
+	int max_freq[MAX_CPU_STATE];
+	int max_core[MAX_CPU_STATE];
+	int ret, i;
+
+	if (!np) {
+		dev_err(dev, "device node not found\n");
+		return ERR_PTR(-EINVAL);
+	}
+	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
+	if (!pdata) {
+		dev_err(dev, "could not allocate memory for platform data\n");
+		return -1;
+	}
+	ret = of_property_read_u32(np, "state_num", &pdata->state_num);
+	if(ret){
+		dev_err(dev, "fail to get state_num\n");
+		goto error;
+	}
+	ret = of_property_read_u32_array(np, "max_freq", max_freq, pdata->state_num);
+	if(ret){
+		dev_err(dev, "fail to get max_freq\n");
+		goto error;
+	}
+	ret = of_property_read_u32_array(np, "max_core", max_core, pdata->state_num);
+	if(ret){
+		dev_err(dev, "fail to get max_core\n");
+		goto error;
+	}
+	for (i = 0; i < pdata->state_num; ++i){
+		pdata->cpu_state[i].max_freq = max_freq[i];
+		pdata->cpu_state[i].max_core = max_core[i];
+		dev_info(dev, "state:%d, max_freq:%d, max_core:%d\n", i, max_freq[i], max_core[i]);
+	}
+	c_info->max_state = pdata->state_num - 1;
+	c_info->pdata = pdata;
+
+	return 0;
+
+error:
+	return -1;
+}
+#endif
+
+static int sprd_cpu_cooling_probe(struct platform_device *pdev)
+{
+	struct sprd_cpu_cooling_platform_data *pdata = NULL;
+	struct thermal_cooling_info_t *c_info = &thermal_cooling_info;
+	int ret = 0;
+
+#ifdef CONFIG_OF
+	ret = get_cpu_cooling_dt_data(&pdev->dev);
+	if (ret < 0){
+		return -1;
+	}
+#else
+	pdata = dev_get_platdata(&pdev->dev);
+	if (NULL == pdata){
+		dev_err(&pdev->dev, "%s platform data is NULL!\n", __func__);
+		return -1;
+	}
+	c_info->max_state = pdata->state_num - 1;
+	c_info->pdata = pdata;
+#endif
+
+	c_info->cdev = thermal_cooling_device_register("thermal-cpufreq-0", 0,
+						&sprd_cpufreq_cooling_ops);
+	if (IS_ERR(c_info->cdev)){
+		return PTR_ERR(c_info->cdev);
+	}
+
+	return ret;
+}
+
+static int sprd_cpu_cooling_remove(struct platform_device *pdev)
+{
+	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
+}
+
+#ifdef CONFIG_OF
+static const struct of_device_id cpu_cooling_of_match[] = {
+       { .compatible = "sprd,sprd-cpu-cooling", },
+       { }
+};
+#endif
+
+static struct platform_driver cpu_cooling_driver = {
+	.probe = sprd_cpu_cooling_probe,
+	.remove = sprd_cpu_cooling_remove,
+	.driver = {
+		.owner = THIS_MODULE,
+		.name = "sprd-cpu-cooling",
+#ifdef CONFIG_OF
+		.of_match_table = of_match_ptr(cpu_cooling_of_match),
+#endif
+	},
+};
+#endif
+
 #ifndef CONFIG_SPRD_CPU_DYNAMIC_HOTPLUG
 struct input_handler dbs_input_handler = {
 	.event		= dbs_input_event,
@@ -1918,12 +2032,6 @@ static int __init cpufreq_gov_dbs_init(void)
 {
 	int i = 0;
 	boot_done = jiffies + GOVERNOR_BOOT_TIME;
-#if defined(CONFIG_THERMAL)
-	thermal_cooling_info.cdev = thermal_cooling_device_register("thermal-cpufreq-0", 0,
-						&sprd_cpufreq_cooling_ops);
-	if (IS_ERR(thermal_cooling_info.cdev))
-		return PTR_ERR(thermal_cooling_info.cdev);
-#endif
 	register_pm_notifier(&sprdemand_gov_pm_notifier);
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	register_early_suspend(&sprdemand_gov_earlysuspend_handler);
@@ -1948,6 +2056,9 @@ static int __init cpufreq_gov_dbs_init(void)
 		pr_err("[DVFS] input_register_handler failed\n");
 	}
 
+#if defined(CONFIG_THERMAL)
+	platform_driver_register(&cpu_cooling_driver);
+#endif
 
 	return cpufreq_register_governor(&cpufreq_gov_sprdemand);
 }
@@ -1960,7 +2071,7 @@ static void __exit cpufreq_gov_dbs_exit(void)
 #endif
 	unregister_pm_notifier(&sprdemand_gov_pm_notifier);
 #if defined(CONFIG_THERMAL)
-	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
+	platform_driver_unregister(&cpu_cooling_driver);
 #endif
 
 	input_unregister_handler(&dbs_input_handler);
