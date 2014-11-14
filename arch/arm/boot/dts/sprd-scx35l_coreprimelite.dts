@@ -797,7 +797,7 @@
 		max-frequency = <384000000>;
 		keep-power-in-suspend = <1>;
 		non-removable = <1>;
-		caps = <0x80000000>;
+		caps = <0x80000800>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x03000000>;
 		vdd-vmmc = "vddemmccore";
@@ -808,9 +808,9 @@
 		clocks = <&clk_emmc>, <&clk_384m>;
 		enb-bit = <0x800>;
 		rst-bit = <0x4000>;
-		write-delay = <0x04>;
-		read-pos-delay = <0x04>;
-		read-neg-delay = <0x04>;
+		write-delay = <0x20>;
+		read-pos-delay = <0x1b>;
+		read-neg-delay = <0x13>;
 		keep-power = <0>;
 		runtime = <1>;
 	};
