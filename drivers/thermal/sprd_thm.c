@@ -250,18 +250,14 @@ static struct sprd_thm_platform_data *thermal_detect_parse_dt(
 	struct sprd_thm_platform_data *pdata;
 	struct device_node *np = dev->of_node;
 	int ret;
-	u32 trip_points_active,trip_points_critical,trip_num;
+	u32 trip_points_critical,trip_num;
+	u32 trip_temp[COOLING_DEV_MAX], trip_lowoff[COOLING_DEV_MAX];
 	int i = 0;
 
 	pdata = kzalloc(sizeof(*pdata), GFP_KERNEL);
 	if (!pdata) {
 		dev_err(dev, "could not allocate memory for platform data\n");
 		return NULL;
-	}
-	ret = of_property_read_u32(np, "trip_points_active", &trip_points_active);
-	if(ret){
-		dev_err(dev, "fail to get trip_points_active\n");
-		goto fail;
 	}
 	ret = of_property_read_u32(np, "trip_points_critical", &trip_points_critical);
 	if(ret){
@@ -273,19 +269,31 @@ static struct sprd_thm_platform_data *thermal_detect_parse_dt(
 		dev_err(dev, "fail to get trip_num\n");
 		goto fail;
 	}
+	ret = of_property_read_u32_array(np, "trip_points_active", trip_temp, trip_num - 1);
+	if(ret){
+		dev_err(dev, "fail to get trip_points_active\n");
+		goto fail;
+	}
+	ret = of_property_read_u32_array(np, "trip_points_lowoff", trip_lowoff, trip_num - 1);
+	if(ret){
+		dev_err(dev, "fail to get trip_points_lowoff\n");
+		goto fail;
+	}
+
 	pdata->num_trips = trip_num;
 
-	for (i = 0; i < trip_num; i++){
-		if (i == trip_num - 1){
-			pdata->trip_points[i].temp = trip_points_critical;
-			pdata->trip_points[i].type = THERMAL_TRIP_CRITICAL;
-		}
-		else {
-			pdata->trip_points[i].temp = trip_points_active - (trip_num - 2 - i) * THM_TEMP_DEGREE_SETP;
+	for (i = 0; i < trip_num -1; ++i){
+			pdata->trip_points[i].temp = trip_temp[i];
+			pdata->trip_points[i].lowoff = trip_lowoff[i];
 			pdata->trip_points[i].type = THERMAL_TRIP_ACTIVE;
-			memcpy(pdata->trip_points[i].cdev_name[0], "thermal-cpufreq-0", sizeof("thermal-cpufreq-0"));
-		}
+			memcpy(pdata->trip_points[i].cdev_name[0],
+					"thermal-cpufreq-0", sizeof("thermal-cpufreq-0"));
+			dev_info(dev, "trip[%d] temp: %d lowoff: %d\n",
+					i, trip_temp[i], trip_lowoff[i]);
 	}
+	pdata->trip_points[i].temp = trip_points_critical;
+	pdata->trip_points[i].type = THERMAL_TRIP_CRITICAL;
+
 	return pdata;
 
 fail:
@@ -308,7 +316,6 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 #ifdef CONFIG_OF
 	struct device_node *np = pdev->dev.of_node;
 #endif
-
 	printk(KERN_INFO "sprd_thermal_probe id:%d\n", pdev->id);
 #ifdef CONFIG_OF
 	if (!np) {
@@ -382,7 +389,6 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 		return PTR_ERR(pzone->therm_dev);
 	}
 	dev_info(&pdev->dev, "Thermal zone device registered.\n");
-
 	//config hardware
 	sprd_thm_hw_init(pzone);
 	platform_set_drvdata(pdev, pzone);

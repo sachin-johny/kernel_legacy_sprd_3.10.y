@@ -61,6 +61,7 @@
 #define HOT2NOR_RANGE   15
 #define LOCAL_SENSOR_ADDR_OFF 0x100
 #define DELAY_TEMPERATURE 3
+#define INTOFFSET 3
 
 #define TSMC_DOLPHINW4T_CHIP_ID_1  0x7715A001
 #define TSMC_DOLPHINW4T_CHIP_ID_2  0x7715A003
@@ -132,7 +133,7 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 	THM_DEBUG("thm sensor trip:%d, temperature:%d  \n", trip, trip_tab->trip_points[trip].temp);
 	raw_temp =
 		sprd_thm_temp2rawdata(pzone->sensor_id,
-				              trip_tab->trip_points[trip].temp - pmic_sen_cal_offset);
+				              trip_tab->trip_points[trip].temp - pmic_sen_cal_offset - INTOFFSET);
 	if (raw_temp < RAW_TEMP_RANGE_MSK) {
 		raw_temp++;
 	}
@@ -142,16 +143,14 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 
 	//set Hot2Normal int temp value
 	raw_temp =
-		sprd_thm_temp2rawdata(pzone->sensor_id,
-				  trip_tab->trip_points[trip].temp - THM_TEMP_DEGREE_SETP/2 - pmic_sen_cal_offset);
+		sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff - INTOFFSET - pmic_sen_cal_offset);
 	__thm_reg_write((local_sensor_addr + SENSOR_HOT2NOR__HIGHOFF_THRES),
 					raw_temp << RAW_TEMP_OFFSET,
 					RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);
 
 	//set cold int temp value
 	raw_temp =
-		sprd_thm_temp2rawdata(pzone->sensor_id,
-				  trip_tab->trip_points[trip].temp - THM_TEMP_DEGREE_SETP - THM_TEMP_DEGREE_SETP/3 - pmic_sen_cal_offset);
+		sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff - INTOFFSET - pmic_sen_cal_offset);
 	__thm_reg_write((local_sensor_addr + SENSOR_LOWOFF__COLD_THRES),
 					raw_temp << RAW_TEMP_OFFSET,
 					RAW_TEMP_RANGE_MSK << RAW_TEMP_OFFSET);
@@ -397,8 +396,8 @@ int sprd_thm_hw_disable_sensor(struct sprd_thermal_zone *pzone)
 	int ret = 0;
 	// Sensor minitor disable
 	if(SPRD_ARM_SENSOR == pzone->sensor_id){
-		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x0, 0x8);
-		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x00, 0x01);
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x0, 0x01);
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x8, 0x8);
 	}
 	return ret;
 
@@ -460,47 +459,39 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 	int ret = 0;
 	u32 overhead_hot_tem_cur = 0;
 	struct sprd_thm_platform_data *trip_tab = pzone->trip_tab;
+	int temp;
 
 	local_sensor_addr =
 	    (u32) pzone->reg_base + local_sen_id * LOCAL_SENSOR_ADDR_OFF;
 	int_sts = __thm_reg_read(local_sensor_addr + SENSOR_INT_STS);
 
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), int_sts, ~0);	//CLR INT
+	temp = sprd_thm_temp_read(pzone->sensor_id);
 
-	printk
-	    ("sprd_thm_hw_irq_handle --------@@@------id:%d, int_sts :0x%x \n",
+	printk("sprd_thm_hw_irq_handle --------@@@------id:%d, int_sts :0x%x \n",
 	     pzone->sensor_id, int_sts);
-	printk("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n",
-	       sprd_thm_temp_read(pzone));
+	printk("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n", temp);
 
 	overhead_hot_tem_cur = __thm_reg_read((local_sensor_addr + SENSOR_OVERHEAT_HOT_THRES))
 								& RAW_TEMP_RANGE_MSK;
 
-	if (int_sts & SEN_HOT_INT_BIT)
-	{
-		if ((current_trip_num) < (trip_tab->num_trips - 2))
-		{
-			current_trip_num ++;
-			sprd_thm_set_active_trip(pzone,current_trip_num);
-		}
-		else
-		{
+	if (int_sts & SEN_HOT_INT_BIT){
+		if ((current_trip_num) >= (trip_tab->num_trips - 2)){
 			current_trip_num = trip_tab->num_trips - 2;
+			return ret;
 		}
-	}
-	else if (int_sts & SEN_LOWOFF_INT_BIT)
-	{
-		if (current_trip_num > 0)
-		{
-			current_trip_num --;
+		if (temp >= trip_tab->trip_points[current_trip_num].temp - INTOFFSET){
+			current_trip_num++;
 			sprd_thm_set_active_trip(pzone,current_trip_num);
 		}
-		else
-			current_trip_num = 0;
-	}
-	else
-	{
+	}else if (int_sts & SEN_LOWOFF_INT_BIT){
+		if (temp < trip_tab->trip_points[current_trip_num].lowoff + INTOFFSET){
+			current_trip_num--;
+			sprd_thm_set_active_trip(pzone,current_trip_num);
+		}
+	}else{
 		THM_DEBUG("sprd_thm_hw_irq_handle NOT a HOT or LOWOFF interrupt \n");
+		return ret;
 	}
 	return ret;
 }
