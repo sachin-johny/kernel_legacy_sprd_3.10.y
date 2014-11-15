@@ -293,7 +293,7 @@ static uint32_t otm8019a_readid(struct panel_spec *self)
 
                 mipi_eotp_set(1,1);
 
-		if((0x01 == read_data[0])&&(0x8b == read_data[1])&&(0x80 == read_data[2])&&(0x09 == read_data[3])&&(0xff == read_data[4])){
+		if((0x01 == read_data[0])&&(0x8b == read_data[1])&&(0x80 == read_data[2])&&(0x19 == read_data[3])&&(0xff == read_data[4])){
 			LCD_PRINT("lcd_otm8019a_mipi read id success!\n");
 			return 0x8019;
 		}
@@ -452,6 +452,7 @@ struct panel_spec lcd_otm8019a_mipi_spec = {
 	.reset_timing = {5,40,20},
 	.type					= LCD_MODE_DSI,
 	.direction				= LCD_DIRECT_NORMAL,
+	.is_clean_lcd = true,
 //	.suspend_mode = SEND_SLEEP_CMD,
 	.info = {
 		.mipi				= &lcd_otm8019a_mipi_info
