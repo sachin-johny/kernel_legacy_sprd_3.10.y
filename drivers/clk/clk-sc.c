@@ -326,7 +326,8 @@ static int sprd_clk_adjustable_pll_set_rate(struct clk_hw *hw,
 	__pllreg_write(pll->m.mul.reg, cfg1,
 		       BITS_PLL_KINT(~0) | BITS_PLL_NINT(~0) | BIT_PLL_SDM_EN);
 #elif defined(CONFIG_ARCH_SCX35L)
-	u32 k, mn, cfg1, cfg2;
+	u32 k, mn, cfg2;
+	u32 cfg1 = 0;
 
 	mn = (rate / 1000000) / 26;
 	k = DIV_ROUND_CLOSEST(((rate / 10000) - 26 * mn * 100) * 1048576,
