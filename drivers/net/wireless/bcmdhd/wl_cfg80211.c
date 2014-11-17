@@ -9004,6 +9004,7 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 	struct net_device *ndev = NULL;
 	s32 err = 0;
 	u32 event = ntoh32(e->event_type);
+	char btc_flag4_default[8]   = { 4, 00, 00, 00, 0x0, 0x00, 0x00, 0x00};
 
 	ndev = cfgdev_to_wlc_ndev(cfgdev, cfg);
 
@@ -9024,6 +9025,15 @@ wl_notify_connect_status(struct bcm_cfg80211 *cfg, bcm_struct_cfgdev *cfgdev,
 			if (!wl_get_drv_status(cfg, DISCONNECTING, ndev)) {
 					printk("wl_bss_connect_done succeeded with " MACDBG "\n",
 						MAC2STRDBG((u8*)(&e->addr)));
+
+					/* set btc flag4 */
+					if (wldev_iovar_setbuf(ndev, "btc_flags",
+						(char*)&btc_flag4_default[0], sizeof(btc_flag4_default), cfg->ioctl_buf,
+						WLC_IOCTL_MAXLEN, NULL) < 0)
+						WL_ERR(("wl_notify_connect_status : set btc flags failed\n"));
+					else
+						WL_ERR(("wl_notify_connect_status : set btc flags OK\n"));
+
 					wl_bss_connect_done(cfg, ndev, e, data, true);
 					WL_DBG(("joined in BSS network \"%s\"\n",
 					((struct wlc_ssid *)

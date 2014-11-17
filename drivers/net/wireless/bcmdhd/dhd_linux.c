@@ -5500,6 +5500,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 #ifdef PKT_FILTER_SUPPORT
 	dhd_pkt_filter_enable = TRUE;
 #endif /* PKT_FILTER_SUPPORT */
+	char btc_flag4_default[8]   = { 4, 00, 00, 00, 0x0, 0x00, 0x00, 0x00};
 #ifdef WLTDLS
 	dhd->tdls_enable = FALSE;
 #endif /* WLTDLS */
@@ -5670,6 +5671,11 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
 		DHD_ERROR(("%s wl vhtmode 0 failed %d\n", __FUNCTION__, ret));
 #endif /* DISABLE_11AC */
+
+	/* Set btc coex flags 4 */
+	bcm_mkiovar("btc_flags", (char *)&btc_flag4_default[0], sizeof(btc_flag4_default), iovbuf, sizeof(iovbuf));
+	if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0)) < 0)
+		DHD_ERROR(("%s btc_flags set failed %d\n", __FUNCTION__, ret));
 
 	/* Set Listen Interval */
 	bcm_mkiovar("assoc_listen", (char *)&listen_interval, 4, iovbuf, sizeof(iovbuf));
