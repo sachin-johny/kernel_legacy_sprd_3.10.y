@@ -97,35 +97,34 @@ static void noinline dump_log(unsigned char * buf, int len, int direction)
 void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 			  int32_t status)
 {
-	unsigned stopped = ep->stopped;
+	unsigned i, stopped = ep->stopped;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(ep %p req %p)\n", __func__, ep, req);
 	DWC_CIRCLEQ_REMOVE_INIT(&ep->queue, req, queue_entry);
 
 	/* don't modify queue heads during completion callback */
 	ep->stopped = 1;
-#if 1 //need to check our own solution
-	//sword
 	if (GET_CORE_IF(ep->pcd)->dma_enable){
-		if (req->mapped) {
-			dma_unmap_single(NULL, req->dma, req->length,
-					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
-					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-					 DMA_FROM_DEVICE));
-			req->dma = DWC_DMA_ADDR_INVALID;
-			req->mapped = 0;
-		} else {
-			dma_sync_single_for_cpu(NULL, req->dma, req->length,
-					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
-					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-					 DMA_FROM_DEVICE));
+		for(i = 0; i < req->buf_num; i++) {
+			if (req->mapped & (1 << i)) {
+				dma_unmap_single(NULL, req->dma[i], req->buf_len[i],
+						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+						 DMA_FROM_DEVICE));
+				req->dma[i] = DWC_DMA_ADDR_INVALID;
+			} else {
+				dma_sync_single_for_cpu(NULL, req->dma[i], req->buf_len[i],
+						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+						 DMA_FROM_DEVICE));
+			}
 		}
+		req->mapped = 0;
 	}
 
 	if (!ep->dwc_ep.is_in) {
-		dump_log(req->buf, req->actual, 0);
+		dump_log(req->buf[0], req->actual, 0);
 	}
-#endif //need to check
 	/* spin_unlock/spin_lock now done in fops->complete() */
 	ep->pcd->fops->complete(ep->pcd, ep->priv, req->priv, status,
 				req->actual);
@@ -606,7 +605,7 @@ void dwc_otg_iso_ep_start_buf_transfer(dwc_otg_core_if_t * core_if,
 			/* Program the transfer size and packet count
 			 *      as follows: xfersize = N * maxpacket +
 			 *      short_packet pktcnt = N + (short_packet
-			 *      exist ? 1 : 0) 
+			 *      exist ? 1 : 0)
 			 */
 			deptsiz.b.mc = ep->pkt_per_frm;
 			deptsiz.b.xfersize = ep->xfer_len;
@@ -689,7 +688,7 @@ static void dwc_otg_iso_ep_start_transfer(dwc_otg_core_if_t * core_if,
 
 /**
  * This function stops transfer for an EP and
- * resets the ep's variables. 
+ * resets the ep's variables.
  *
  * @param core_if Programming view of DWC_otg controller.
  * @param ep The EP to start the transfer on.
@@ -1178,7 +1177,7 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 	}
 
 	/*
-	 * Initialized the Core for Device mode here if there is nod ADP support. 
+	 * Initialized the Core for Device mode here if there is nod ADP support.
 	 * Otherwise it will be done later in dwc_otg_adp_start routine.
 	 */
 	if (dwc_otg_is_device_mode(core_if) /*&& !core_if->adp_enable */ ) {
@@ -1299,7 +1298,7 @@ dwc_otg_pcd_t *dwc_otg_pcd_init(dwc_otg_core_if_t * core_if)
 	core_if->srp_timer = DWC_TIMER_ALLOC("SRP TIMER", srp_timeout, core_if);
 
 	if (core_if->core_params->dev_out_nak) {
-		/** 
+		/**
 		* Initialize xfer timeout timer. Implemented for
 		* 2.93a feature "Device DDMA OUT NAK Enhancement"
 		*/
@@ -1478,7 +1477,7 @@ static void release_tx_fifo(dwc_otg_core_if_t * core_if, uint32_t fifo_num)
 }
 
 /**
- * This function is being called from gadget 
+ * This function is being called from gadget
  * to enable PCD endpoint.
  */
 int dwc_otg_pcd_ep_enable(dwc_otg_pcd_t * pcd,
@@ -1619,7 +1618,7 @@ out:
 }
 
 /**
- * This function is being called from gadget 
+ * This function is being called from gadget
  * to disable PCD endpoint.
  */
 int dwc_otg_pcd_ep_disable(dwc_otg_pcd_t * pcd, void *ep_handle)
@@ -1710,7 +1709,7 @@ int dwc_otg_pcd_xiso_start_next_request(dwc_otg_pcd_t * pcd,
 	if (dwcep->xiso_active_xfers > 0) {
 #if 0	//Disable this to decrease s/w overhead that is crucial for Isoc transfers
 		DWC_WARN("There are currently active transfers for EP%d \
-				(active=%d; queued=%d)", dwcep->num, dwcep->xiso_active_xfers, 
+				(active=%d; queued=%d)", dwcep->num, dwcep->xiso_active_xfers,
 				dwcep->xiso_queued_xfers);
 #endif
 		return 0;
@@ -1777,7 +1776,7 @@ int dwc_otg_pcd_xiso_start_next_request(dwc_otg_pcd_t * pcd,
 			/* Setup DMA Descriptor chain for OUT Isoc request */
 			for (i = 0; i < ereq->pio_pkt_count; i++) {
 				//if ((i % (nat + 1)) == 0)
-				dwcep->xiso_frame_num = (dwcep->xiso_bInterval + 
+				dwcep->xiso_frame_num = (dwcep->xiso_bInterval +
 										dwcep->xiso_frame_num) & 0x3FFF;
 				dwcep->desc_addr[i].buf =
 				    req->dma + ddesc_iso[i].offset;
@@ -1794,14 +1793,14 @@ int dwc_otg_pcd_xiso_start_next_request(dwc_otg_pcd_t * pcd,
 				dwcep->desc_addr[i].status.b_iso_out.ioc = 0;
 				dwcep->desc_addr[i].status.b_iso_out.pid = nat + 1;
 				dwcep->desc_addr[i].status.b_iso_out.l = 0;
-				
+
 				/* Process the last descriptor */
 				if (i == ereq->pio_pkt_count - 1) {
 					dwcep->desc_addr[i].status.b_iso_out.ioc = 1;
 					dwcep->desc_addr[i].status.b_iso_out.l = 1;
-				}			
+				}
 			}
-			
+
 			/* Setup and start the transfer for this endpoint */
 			dwcep->xiso_active_xfers++;
 			DWC_WRITE_REG32(&GET_CORE_IF(pcd)->
@@ -2059,14 +2058,35 @@ int dwc_otg_pcd_xiso_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 
 #endif
 /* END ifdef DWC_UTE_PER_IO ***************************************************/
+
+/**
+ ** Change log: Add  Scatter/Gather DMA Mode Transfer Implement
+ ** Author: Miao.Zhu
+ ** Date: 10.16th.2014
+ ** It's a workaround for the purpose of backward compatibility to buffer DMA mode
+ **
+ ** As seen the definition of struct usb_request, We use <num_sgs> as a flag of
+ ** whether scatter buffer list is employed in this request.
+ ** If <num_sgs> equals ZERO, <buf> will be interpreted as buffer address of
+ ** data to be transfered.
+ ** If <num_sgs> is greater than ZERO, <buf> wil be interpreted as the base address
+ ** of a buffer list whose each node contains two elements buffer address
+ ** and its length (see at the definition of <struct sg_buf_list> in dwc_otg_cil.h),
+ ** <num_sgs> means buffer number.
+ ** <length> denotes total length of this transfer.
+ ** You may wonder why I use this weird method instead of <sg> which is for scattered
+ ** buffer list. Trust me, I've tried but failed. I bet none ever uses <scatterlist> in SPRD,
+ ** interfaces for its dma handling does not work.
+ **/
 int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 			 uint8_t * buf, dwc_dma_t dma_buf, uint32_t buflen,
-			 int zero, void *req_handle, int atomic_alloc)
+			 int zero, uint32_t num_sgs, void *req_handle, int atomic_alloc)
 {
 	dwc_irqflags_t flags;
 	dwc_otg_pcd_request_t *req;
 	dwc_otg_pcd_ep_t *ep;
-	uint32_t max_transfer;
+	sg_buf_list_t *buf_list;
+	uint32_t i, max_transfer;
 
 	ep = get_ep_from_handle(pcd, ep_handle);
 	if (!ep || (!ep->desc && ep->dwc_ep.num != 0)) {
@@ -2090,34 +2110,64 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 				  req_handle, buflen, buf);
 		}
 	}
-#if 1 //need to check our own solution
+
+	if (num_sgs > 1 && (!GET_CORE_IF(pcd)->dma_desc_enable)) {
+	 	DWC_ERROR("scatter buffer list is not supported in buffer DMA mode, \
+	 			queue req %p, buf %p\n", req_handle, buf);
+		return -DWC_E_INVALID;
+	}
+	if (num_sgs > 1 && ep->dwc_ep.num == 0) {
+	 	DWC_ERROR("more than one buffer is not supported in EP0, \
+	 			queue req %p, buf %p\n", req_handle, buf);
+		return -DWC_E_INVALID;
+	}
 	if (ep->dwc_ep.is_in) {
 		dump_log(buf, buflen, 1);
 	}
 
-	if (GET_CORE_IF(pcd)->dma_enable){
-		if (dma_buf == DWC_DMA_ADDR_INVALID){
-			req->dma = dma_map_single(NULL,
-				buf,
-				buflen,
-				(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
-				((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-				 DMA_FROM_DEVICE));
-			req->mapped = 1;
+	if (GET_CORE_IF(pcd)->dma_enable) {
+		req->mapped = 0;
+		if (!num_sgs) {
+			if (dma_buf == DWC_DMA_ADDR_INVALID) {
+				dma_buf = dma_map_single(NULL, buf, buflen,
+					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
+				req->mapped = 1;
+			} else {
+				dma_sync_single_for_device(NULL, dma_buf, buflen,
+					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
+			}
+			req->buf[0] = buf;
+			req->dma[0] = dma_buf;
+			req->buf_len[0] = buflen;
+			req->length = buflen;
+			req->buf_num = 1;
 		} else {
-			dma_sync_single_for_device(NULL, req->dma, req->length,
-				(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
-				((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
-				 DMA_FROM_DEVICE));
-			req->mapped = 0;
+			buf_list = (sg_buf_list_t*)buf;
+			req->length = 0;
+			for (i = 0; i < num_sgs; i++) {
+				if (buf_list->dma == DWC_DMA_ADDR_INVALID) {
+					buf_list->dma = dma_map_single(NULL,
+						buf_list->buf, buf_list->buf_len,
+						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
+					req->mapped |= 1<<i;
+				} else {
+					dma_sync_single_for_device(NULL,
+						buf_list->dma, buf_list->buf_len,
+						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
+				}
+				req->buf[i] = buf_list->buf;
+				req->dma[i] = buf_list->dma;
+				req->buf_len[i] = buf_list->buf_len;
+				buf_list++;
+			}
+			req->length = buflen;
+			req->buf_num = num_sgs;
 		}
 	}
-
-	dma_buf = req->dma;
-#endif
-	req->buf = buf;
-	//req->dma = dma_buf;
-	req->length = buflen;
 	req->sent_zlp = zero;
 	req->priv = req_handle;
 	req->dw_align_buf = NULL;
@@ -2129,7 +2179,7 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 
 	/*
 	 * After adding request to the queue for IN ISOC wait for In Token Received
-	 * when TX FIFO is empty interrupt and for OUT ISOC wait for OUT Token 
+	 * when TX FIFO is empty interrupt and for OUT ISOC wait for OUT Token
 	 * Received when EP is disabled interrupt to obtain starting microframe
 	 * (odd/even) start transfer
 	 */
@@ -2199,24 +2249,19 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 				DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 				return -DWC_E_SHUTDOWN;
 			}
-
-			ep->dwc_ep.dma_addr = dma_buf;
-			ep->dwc_ep.start_xfer_buff = buf;
-			ep->dwc_ep.xfer_buff = buf;
-			ep->dwc_ep.xfer_len = buflen;
+			ep->dwc_ep.start_xfer_buff = req->buf[0];
+			ep->dwc_ep.xfer_buff = req->buf[0];
+			ep->dwc_ep.dma_addr = req->dma[0];
+			ep->dwc_ep.xfer_len = req->length;
 			ep->dwc_ep.xfer_count = 0;
 			ep->dwc_ep.sent_zlp = 0;
-			ep->dwc_ep.total_len = ep->dwc_ep.xfer_len;
-
 			if (zero) {
 				if ((ep->dwc_ep.xfer_len %
 				     ep->dwc_ep.maxpacket == 0)
 				    && (ep->dwc_ep.xfer_len != 0)) {
 					ep->dwc_ep.sent_zlp = 1;
 				}
-
 			}
-
 			dwc_otg_ep0_start_transfer(GET_CORE_IF(pcd),
 						   &ep->dwc_ep);
 		}		// non-ep0 endpoints
@@ -2230,67 +2275,44 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 			} else {
 #endif
 				max_transfer =
-				    GET_CORE_IF(ep->pcd)->core_params->
-				    max_transfer_size;
-
-				/* Setup and start the Transfer */
+				    GET_CORE_IF(ep->pcd)->core_params->max_transfer_size;
+				ep->dwc_ep.maxxfer = max_transfer;
+				if (GET_CORE_IF(pcd)->dma_desc_enable) {
+					uint32_t out_max_xfer =
+					    DDMA_MAX_TRANSFER_SIZE - (DDMA_MAX_TRANSFER_SIZE % 4);
+					if (ep->dwc_ep.is_in) {
+						if (ep->dwc_ep.maxxfer > DDMA_MAX_TRANSFER_SIZE)
+							ep->dwc_ep.maxxfer = DDMA_MAX_TRANSFER_SIZE;
+					} else {
+						if (ep->dwc_ep.maxxfer > out_max_xfer)
+							ep->dwc_ep.maxxfer = out_max_xfer;
+					}
+				}
 				if (req->dw_align_buf) {
 					if (ep->dwc_ep.is_in)
 						dwc_memcpy(req->dw_align_buf,
 							   buf, buflen);
-					ep->dwc_ep.dma_addr =
-					    req->dw_align_buf_dma;
-					ep->dwc_ep.start_xfer_buff =
-					    req->dw_align_buf;
-					ep->dwc_ep.xfer_buff =
-					    req->dw_align_buf;
-				} else {
-					ep->dwc_ep.dma_addr = dma_buf;
-					ep->dwc_ep.start_xfer_buff = buf;
-					ep->dwc_ep.xfer_buff = buf;
 				}
 				ep->dwc_ep.xfer_len = 0;
 				ep->dwc_ep.xfer_count = 0;
 				ep->dwc_ep.sent_zlp = 0;
-				ep->dwc_ep.total_len = buflen;
-
-				ep->dwc_ep.maxxfer = max_transfer;
-				if (GET_CORE_IF(pcd)->dma_desc_enable) {
-					uint32_t out_max_xfer =
-					    DDMA_MAX_TRANSFER_SIZE -
-					    (DDMA_MAX_TRANSFER_SIZE % 4);
-					if (ep->dwc_ep.is_in) {
-						if (ep->dwc_ep.maxxfer >
-						    DDMA_MAX_TRANSFER_SIZE) {
-							ep->dwc_ep.maxxfer =
-							    DDMA_MAX_TRANSFER_SIZE;
-						}
-					} else {
-						if (ep->dwc_ep.maxxfer >
-						    out_max_xfer) {
-							ep->dwc_ep.maxxfer =
-							    out_max_xfer;
-						}
+				ep->dwc_ep.total_len = req->length;
+				if (zero) {
+					if ((ep->dwc_ep.total_len % ep->dwc_ep.maxpacket == 0)
+						&& (ep->dwc_ep.total_len != 0)) {
+						ep->dwc_ep.sent_zlp = 1;
 					}
 				}
 				if (ep->dwc_ep.maxxfer < ep->dwc_ep.total_len) {
 					ep->dwc_ep.maxxfer -=
-					    (ep->dwc_ep.maxxfer %
-					     ep->dwc_ep.maxpacket);
+						(ep->dwc_ep.maxxfer % ep->dwc_ep.maxpacket);
 				}
 
-				if (zero) {
-					if ((ep->dwc_ep.total_len %
-					     ep->dwc_ep.maxpacket == 0)
-					    && (ep->dwc_ep.total_len != 0)) {
-						ep->dwc_ep.sent_zlp = 1;
-					}
-				}
 #ifdef DWC_UTE_CFI
 			}
 #endif
 			dwc_otg_ep_start_transfer(GET_CORE_IF(pcd),
-						  &ep->dwc_ep);
+							  &ep->dwc_ep, req);
 		}
 	}
 
@@ -2569,7 +2591,7 @@ void dwc_otg_pcd_disconnect_us(dwc_otg_pcd_t * pcd, int no_of_usecs)
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, 0, dctl.d32);
 		dwc_udelay(no_of_usecs);
 		DWC_MODIFY_REG32(&core_if->dev_if->dev_global_regs->dctl, dctl.d32,0);
-		
+
 	} else{
 		DWC_PRINTF("NOT SUPPORTED IN HOST MODE\n");
 	}

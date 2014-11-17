@@ -239,15 +239,6 @@ void start_next_request(dwc_otg_pcd_ep_t * ep)
 		} else {
 #endif
 			/* Setup and start the Transfer */
-			if (req->dw_align_buf) {
-				ep->dwc_ep.dma_addr = req->dw_align_buf_dma;
-				ep->dwc_ep.start_xfer_buff = req->dw_align_buf;
-				ep->dwc_ep.xfer_buff = req->dw_align_buf;
-			} else {
-				ep->dwc_ep.dma_addr = req->dma;
-				ep->dwc_ep.start_xfer_buff = req->buf;
-				ep->dwc_ep.xfer_buff = req->buf;
-			}
 			ep->dwc_ep.sent_zlp = 0;
 			ep->dwc_ep.total_len = req->length;
 			ep->dwc_ep.xfer_len = 0;
@@ -285,7 +276,7 @@ void start_next_request(dwc_otg_pcd_ep_t * ep)
 #ifdef DWC_UTE_CFI
 		}
 #endif
-		dwc_otg_ep_start_transfer(GET_CORE_IF(ep->pcd), &ep->dwc_ep);
+		dwc_otg_ep_start_transfer(GET_CORE_IF(ep->pcd), &ep->dwc_ep, req);
 	} else if (ep->dwc_ep.type == DWC_OTG_EP_TYPE_ISOC) {
 		DWC_PRINTF("There are no more ISOC requests \n");
 		ep->dwc_ep.frame_num = 0xFFFFFFFF;
@@ -1273,8 +1264,8 @@ static inline void ep0_do_stall(dwc_otg_pcd_t * pcd, const int err_val)
 {
 	dwc_otg_pcd_ep_t *ep0 = &pcd->ep0;
 	usb_device_request_t *ctrl = &pcd->setup_pkt->req;
-	DWC_WARN("req %02x.%02x 0x%x 0x%x 0x%x  protocol STALL; err %d\n",
-		 ctrl->bmRequestType, ctrl->bRequest,ctrl->wValue,ctrl->wIndex,ctrl->wLength, err_val);
+	DWC_WARN("req: 0x%x 0x%x  protocol STALL; err %d\n",
+		 *(uint32_t*)ctrl, *((uint32_t*)ctrl + 1), err_val);
 
 	ep0->dwc_ep.is_in = 1;
 	dwc_otg_ep_set_stall(GET_CORE_IF(pcd), &ep0->dwc_ep);
@@ -2168,8 +2159,6 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 					    ep->dwc_ep.xfer_len -
 					    ep->dwc_ep.xfer_count;
 
-					ep->dwc_ep.xfer_buff += byte_count;
-					ep->dwc_ep.dma_addr += byte_count;
 					ep->dwc_ep.xfer_count += byte_count;
 
 					DWC_DEBUGPL(DBG_PCDV,
@@ -2184,9 +2173,9 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 					if (ep->dwc_ep.xfer_len <
 					    ep->dwc_ep.total_len) {
 						dwc_otg_ep_start_transfer
-						    (core_if, &ep->dwc_ep);
+						    (core_if, &ep->dwc_ep, req);
 					} else if (ep->dwc_ep.sent_zlp) {
-						/*     
+						/*
 						 * This fragment of code should initiate 0
 						 * length transfer in case if it is queued
 						 * a transfer with size divisible to EPs max
@@ -2277,7 +2266,7 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 				 */
 				if (ep->dwc_ep.xfer_len < ep->dwc_ep.total_len) {
 					dwc_otg_ep_start_transfer(core_if,
-								  &ep->dwc_ep);
+								  &ep->dwc_ep, req);
 				} else if (ep->dwc_ep.sent_zlp) {
 					/*     
 					 * This fragment of code should initiate 0
@@ -2363,16 +2352,14 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 						    ep->dwc_ep.maxpacket;
 					if (ep->dwc_ep.xfer_len > 0) {
 						dwc_otg_ep_start_transfer
-						    (core_if, &ep->dwc_ep);
+						    (core_if, &ep->dwc_ep, req);
 					} else {
 						is_last = 1;
 					}
 				} else {
 					ep->dwc_ep.xfer_count =
 					    ep->dwc_ep.total_len - byte_count +
-					    ((4 -
-					      (ep->dwc_ep.
-					       total_len & 0x3)) & 0x3);
+					    ((4 - (ep->dwc_ep.total_len & 0x3)) & 0x3);
 					is_last = 1;
 				}
 			} else {
@@ -2392,7 +2379,7 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 				 */
 				if (ep->dwc_ep.xfer_len < ep->dwc_ep.total_len) {
 					dwc_otg_ep_start_transfer(core_if,
-								  &ep->dwc_ep);
+								  &ep->dwc_ep, req);
 				} else if (ep->dwc_ep.sent_zlp) {
 					/*     
 					 * This fragment of code should initiate 0
@@ -2421,7 +2408,7 @@ static void complete_ep(dwc_otg_pcd_ep_t * ep)
 			 *      if no, setup transfer for next portion of data
 			 */
 			if (ep->dwc_ep.xfer_len < ep->dwc_ep.total_len) {
-				dwc_otg_ep_start_transfer(core_if, &ep->dwc_ep);
+				dwc_otg_ep_start_transfer(core_if, &ep->dwc_ep, req);
 			} else if (ep->dwc_ep.sent_zlp) {
 				/*     
 				 * This fragment of code should initiate 0
@@ -3306,6 +3293,7 @@ static void restart_transfer(dwc_otg_pcd_t * pcd, const uint32_t epnum)
 	dwc_otg_dev_if_t *dev_if;
 	deptsiz_data_t dieptsiz = {.d32 = 0 };
 	dwc_otg_pcd_ep_t *ep;
+	dwc_otg_pcd_request_t *req;
 
 	ep = get_in_ep(pcd, epnum);
 
@@ -3314,6 +3302,17 @@ static void restart_transfer(dwc_otg_pcd_t * pcd, const uint32_t epnum)
 		return;
 	}
 #endif /* DWC_EN_ISOC  */
+	/* Get any pending requests */
+	if (!DWC_CIRCLEQ_EMPTY(&ep->queue)) {
+		req = DWC_CIRCLEQ_FIRST(&ep->queue);
+		if (!req) {
+			DWC_PRINTF("restart_transfer 0x%p, req = NULL!\n", ep);
+			return;
+		}
+	} else {
+		DWC_PRINTF("restart_transfer 0x%p, ep->queue empty!\n", ep);
+		return;
+	}
 
 	core_if = GET_CORE_IF(pcd);
 	dev_if = core_if->dev_if;
@@ -3347,7 +3346,7 @@ static void restart_transfer(dwc_otg_pcd_t * pcd, const uint32_t epnum)
 		if (epnum == 0) {
 			dwc_otg_ep0_start_transfer(core_if, &ep->dwc_ep);
 		} else {
-			dwc_otg_ep_start_transfer(core_if, &ep->dwc_ep);
+			dwc_otg_ep_start_transfer(core_if, &ep->dwc_ep, req);
 		}
 	}
 }
@@ -3899,31 +3898,7 @@ do { \
 #endif
 			doepint.d32 =
 			    dwc_otg_read_dev_out_ep_intr(core_if, dwc_ep);
-			/* Moved this interrupt upper due to core deffect of asserting 
-			 * OUT EP 0 xfercompl along with stsphsrcvd in BDMA */
-			if (doepint.b.stsphsercvd) {
-				deptsiz0_data_t deptsiz;
-				CLEAR_OUT_EP_INTR(core_if, epnum, stsphsercvd);
-				deptsiz.d32 =
-				    DWC_READ_REG32(&core_if->dev_if->
-						   out_ep_regs[0]->doeptsiz);
-				if (core_if->snpsid >= OTG_CORE_REV_3_00a
-				    && core_if->dma_enable
-				    && core_if->dma_desc_enable == 0
-				    && doepint.b.xfercompl
-				    && deptsiz.b.xfersize == 24) {
-					CLEAR_OUT_EP_INTR(core_if, epnum,
-							  xfercompl);
-					doepint.b.xfercompl = 0;
-					ep0_out_start(core_if, pcd);
-				}
-				if ((core_if->dma_desc_enable) ||
-				    (core_if->dma_enable
-				     && core_if->snpsid >=
-				     OTG_CORE_REV_3_00a)) {
-					do_setup_in_status_phase(pcd);
-				}
-			}
+
 			/* Transfer complete */
 			if (doepint.b.xfercompl) {
 
@@ -4032,6 +4007,32 @@ do { \
 					} else {
 						DWC_PRINTF("complete_ep 0x%p, ep->queue empty!\n", ep);
 					}
+				}
+			}
+			/* Moved this interrupt upper due to core deffect of asserting
+			 * OUT EP 0 xfercompl along with stsphsrcvd in BDMA */
+			if (doepint.b.stsphsercvd) {
+				deptsiz0_data_t deptsiz;
+
+				CLEAR_OUT_EP_INTR(core_if, epnum, stsphsercvd);
+				deptsiz.d32 =
+				    DWC_READ_REG32(&core_if->dev_if->
+						   out_ep_regs[0]->doeptsiz);
+				if (core_if->snpsid >= OTG_CORE_REV_3_00a
+				    && core_if->dma_enable
+				    && core_if->dma_desc_enable == 0
+				    && doepint.b.xfercompl
+				    && deptsiz.b.xfersize == 24) {
+					CLEAR_OUT_EP_INTR(core_if, epnum,
+							  xfercompl);
+					doepint.b.xfercompl = 0;
+					ep0_out_start(core_if, pcd);
+				}
+				if ((core_if->dma_desc_enable) ||
+				    (core_if->dma_enable
+				     && core_if->snpsid >=
+				     OTG_CORE_REV_3_00a)) {
+					do_setup_in_status_phase(pcd);
 				}
 			}
 			/* AHB Error */
