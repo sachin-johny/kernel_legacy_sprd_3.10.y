@@ -964,6 +964,12 @@ sdioh_request_packet_chain(sdioh_info_t *sd, uint fix_inc, uint write, uint func
 	uint32 sg_count;
 	struct sdio_func *sdio_func = sd->func[func];
 	struct mmc_host *host = sdio_func->card->host;
+       #ifdef BCMSDIOH_TXGLOM
+	uint8 *localbuf = NULL;
+	uint local_plen = 0;
+	uint pkt_len = 0;
+	uint copy_mode = (SDPCM_DEFGLOM_MODE == SDPCM_TXGLOM_CPY) ? 1 : 0;
+       #endif /* BCMSDIOH_TXGLOM */
 
 	sd_trace(("%s: Enter\n", __FUNCTION__));
 	ASSERT(pkt);
@@ -976,8 +982,13 @@ sdioh_request_packet_chain(sdioh_info_t *sd, uint fix_inc, uint write, uint func
 
 	pkt_offset = 0;
 	pnext = pkt;
-
-	while (pnext != NULL) {
+	ttl_len = 0;
+	sg_count = 0;
+ 
+       #ifdef BCMSDIOH_TXGLOM
+	if(copy_mode == 0) {
+       #endif
+       while (pnext != NULL) {
 		ttl_len = 0;
 		sg_count = 0;
 		memset(&mmc_req, 0, sizeof(struct mmc_request));
@@ -1065,6 +1076,78 @@ sdioh_request_packet_chain(sdioh_info_t *sd, uint fix_inc, uint write, uint func
 		}
 	}
 
+#ifdef BCMSDIOH_TXGLOM
+	} else if(copy_mode == 1) {
+		for (pnext = pkt; pnext; pnext = PKTNEXT(sd->osh, pnext)) {
+			ttl_len += PKTLEN(sd->osh, pnext);
+		}
+
+                /* Claim host controller */
+		sdio_claim_host(sd->func[func]);
+		for (pnext = pkt; pnext; pnext = PKTNEXT(sd->osh, pnext)) {
+			uint8 *buf = (uint8*)PKTDATA(sd->osh, pnext);
+			pkt_len = PKTLEN(sd->osh, pnext);
+
+			if (!localbuf) {
+				localbuf = (uint8 *)MALLOC(sd->osh, ttl_len);
+				if (localbuf == NULL) {
+					sd_err(("%s: %s TXGLOM: localbuf malloc FAILED\n",
+						__FUNCTION__, (write) ? "TX" : "RX"));
+					goto txglomfail;
+				}
+			}
+
+			bcopy(buf, (localbuf + local_plen), pkt_len);
+			local_plen += pkt_len;
+			if (PKTNEXT(sd->osh, pnext))
+				continue;
+
+			buf = localbuf;
+			pkt_len = local_plen;
+txglomfail:
+			/* Align Patch */
+			if (!write || pkt_len < 32)
+				pkt_len = (pkt_len + 3) & 0xFFFFFFFC;
+			else if (pkt_len % blk_size)
+				pkt_len += blk_size - (pkt_len % blk_size);
+
+			if ((write) && (!fifo))
+				err_ret = sdio_memcpy_toio(
+						sd->func[func],
+						addr, buf, pkt_len);
+			else if (write)
+				err_ret = sdio_memcpy_toio(
+						sd->func[func],
+						addr, buf, pkt_len);
+			else if (fifo)
+				err_ret = sdio_readsb(
+						sd->func[func],
+						buf, addr, pkt_len);
+			else
+				err_ret = sdio_memcpy_fromio(
+						sd->func[func],
+						buf, addr, pkt_len);
+
+			if (err_ret)
+				sd_err(("%s: %s FAILED %p[%d], addr=0x%05x, pkt_len=%d, ERR=%d\n",
+				       __FUNCTION__,
+				       (write) ? "TX" : "RX",
+				       pnext, SGCount, addr, pkt_len, err_ret));
+			else
+				sd_trace(("%s: %s xfr'd %p[%d], addr=0x%05x, len=%d\n",
+					__FUNCTION__,
+					(write) ? "TX" : "RX",
+					pnext, SGCount, addr, pkt_len));
+
+			if (!fifo)
+				addr += pkt_len;
+		}
+		sdio_release_host(sd->func[func]);
+	}
+
+	if (localbuf)
+		MFREE(sd->osh, localbuf, ttl_len);
+#endif /* BCMSDIOH_TXGLOM */
 	sd_trace(("%s: Exit\n", __FUNCTION__));
 	return SDIOH_API_RC_SUCCESS;
 }

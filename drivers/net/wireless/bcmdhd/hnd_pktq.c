@@ -21,6 +21,7 @@ pktq_penq(struct pktq *pq, int prec, void *p)
 	struct pktq_prec *q;
 
 	ASSERT(prec >= 0 && prec < pq->num_prec);
+	PKTSETLINK(p, NULL);
 	ASSERT(PKTLINK(p) == NULL);         /* queueing chains not allowed */
 
 	ASSERT(!pktq_full(pq));

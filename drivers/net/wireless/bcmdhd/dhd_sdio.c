@@ -1790,7 +1790,9 @@ static int dhdsdio_txpkt_preprocess(dhd_bus_t *bus, void *pkt, int chan, int txs
 		if (last_chained_pkt && bus->blocksize != 0 &&
 			(cur_chain_total_len > (int)bus->blocksize || prev_chain_total_len > 0)) {
 			modulo = cur_chain_total_len % bus->blocksize;
-			chain_tail_padding = modulo > 0 ? (bus->blocksize - modulo) : 0;
+			//chain_tail_padding = modulo > 0 ? (bus->blocksize - modulo) : 0;
+			//skip pad, will pad in when send to sdio
+			chain_tail_padding = 0;
 		}
 
 #ifdef DHDENABLE_TAILPAD

@@ -2669,7 +2669,11 @@ wl_cfg80211_scan(struct wiphy *wiphy, struct net_device *ndev,
 
 	WL_DBG(("Enter \n"));
 	RETURN_EIO_IF_NOT_UP(cfg);
-
+	if(cfg->hw_scan_disable)
+	{
+		printk("%s::scan disabled!\n",__func__);
+		return -EBUSY;
+	}
 	err = __wl_cfg80211_scan(wiphy, ndev, request, NULL);
 	if (unlikely(err)) {
 		if ((err == BCME_EPERM) && cfg->scan_suppressed)
@@ -8225,6 +8229,15 @@ exit:
 	return err;
 }
 #endif /* WL_SUPPORT_ACS */
+static int wl_set_hw_scan_disable(struct wiphy *wiphy,
+				       struct wireless_dev *wdev,
+				       bool state)
+{
+	struct bcm_cfg80211 *cfg = wiphy_priv(wiphy);
+	WL_ERR(("Enter %d\n",state));
+	cfg->hw_scan_disable = state;
+	return 0;
+}
 
 static struct cfg80211_ops wl_cfg80211_ops = {
 	.add_virtual_intf = wl_cfg80211_add_virtual_iface,
@@ -8289,6 +8302,7 @@ static struct cfg80211_ops wl_cfg80211_ops = {
 #ifdef WL_CFG80211_ACL
 	.set_mac_acl = wl_cfg80211_set_mac_acl,
 #endif /* WL_CFG80211_ACL */
+//	.set_hw_scan_disable = wl_set_hw_scan_disable,
 };
 
 s32 wl_mode_to_nl80211_iftype(s32 mode)
@@ -13443,6 +13457,23 @@ out:
 	return ret;
 }
 #endif /* LINUX_VERSION > VERSION(3,2,0) || WL_COMPAT_WIRELESS */
+#if defined(CONFIG_PM) && defined(WL_CFG80211_P2P_DEV_IF) && 0
+static void
+wl_cfg80211_set_wakeup(struct wiphy *wiphy, bool enabled)
+{
+	int ret = 0;
+	struct bcm_cfg80211 *wl = wiphy_priv(wiphy);
+	struct net_device *ndev = bcmcfg_to_prmry_ndev(wl);//wl_to_prmry_ndev(wl);
+
+#if !defined(CONFIG_HAS_EARLYSUSPEND) || !defined(DHD_USE_EARLYSUSPEND)
+	if (!(ret = net_os_set_suspend(ndev, enabled, 0)))
+		WL_INFO(("%s: Suspend Mode %d\n", __FUNCTION__, enabled));
+	else
+		WL_ERR(("%s: failed %d\n", __FUNCTION__, ret));
+	//#endif
+#endif
+}
+#endif
 
 s32 wl_cfg80211_set_wps_p2p_ie(struct net_device *net, char *buf, int len,
 	enum wl_management_type type)

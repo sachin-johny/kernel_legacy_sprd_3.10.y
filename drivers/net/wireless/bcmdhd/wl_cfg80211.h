@@ -638,6 +638,7 @@ struct bcm_cfg80211 {
 #ifdef WLFBT
 	uint8 fbt_key[FBT_KEYLEN];
 #endif
+	bool hw_scan_disable;	/*driver scan disable flag*/
 	bool roam_offload;
 	bool nan_running;
 };

@@ -1348,6 +1348,13 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 	uint nd_ra_filter = 0;
 	int ret = 0;
 
+#ifdef DYNAMIC_SWOOB_DURATION
+#ifndef CUSTOM_INTR_WIDTH
+#define CUSTOM_INTR_WIDTH 100
+#endif /* CUSTOM_INTR_WIDTH */
+	int intr_width = 0;
+#endif /* DYNAMIC_SWOOB_DURATION */
+
 	if (!dhd)
 		return -ENODEV;
 
@@ -1382,19 +1389,21 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 				 * each third DTIM for better power savings.  Note that
 				 * one side effect is a chance to miss BC/MC packet.
 				 */
+#if 0
 				bcn_li_dtim = dhd_get_suspend_bcn_li_dtim(dhd);
 				bcm_mkiovar("bcn_li_dtim", (char *)&bcn_li_dtim,
 					4, iovbuf, sizeof(iovbuf));
 				if (dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf),
 					TRUE, 0) < 0)
 					DHD_ERROR(("%s: set dtim failed\n", __FUNCTION__));
-
+#endif
 #ifndef ENABLE_FW_ROAM_SUSPEND
 				/* Disable firmware roaming during suspend */
 				bcm_mkiovar("roam_off", (char *)&roamvar, 4,
 					iovbuf, sizeof(iovbuf));
 				dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
 #endif /* ENABLE_FW_ROAM_SUSPEND */
+#if 0
 				if (FW_SUPPORTED(dhd, ndoe)) {
 					/* enable IPv6 RA filter in  firmware during suspend */
 					nd_ra_filter = 1;
@@ -1405,12 +1414,29 @@ static int dhd_set_suspend(int value, dhd_pub_t *dhd)
 						DHD_ERROR(("failed to set nd_ra_filter (%d)\n",
 							ret));
 				}
+#endif
+#ifdef DYNAMIC_SWOOB_DURATION
+				intr_width = CUSTOM_INTR_WIDTH;
+				bcm_mkiovar("bus:intr_width", (char *)&intr_width, 4,
+					iovbuf, sizeof(iovbuf));
+				if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
+					sizeof(iovbuf), TRUE, 0)) < 0)
+					DHD_ERROR(("failed to set intr_width (%d)\n", ret));
+#endif /* DYNAMIC_SWOOB_DURATION */
 			} else {
 #ifdef PKT_FILTER_SUPPORT
 				dhd->early_suspended = 0;
 #endif
 				/* Kernel resumed  */
 				DHD_ERROR(("%s: Remove extra suspend setting \n", __FUNCTION__));
+#ifdef DYNAMIC_SWOOB_DURATION
+				intr_width = 0;
+				bcm_mkiovar("bus:intr_width", (char *)&intr_width, 4,
+					iovbuf, sizeof(iovbuf));
+				if ((ret = dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf,
+					sizeof(iovbuf), TRUE, 0)) < 0)
+					DHD_ERROR(("failed to set intr_width (%d)\n", ret));
+#endif /* DYNAMIC_SWOOB_DURATION */
 
 #ifndef SUPPORT_PM2_ONLY
 				power_mode = PM_FAST;
@@ -5420,7 +5446,7 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 	uint32 credall = 1;
 #endif
 #if defined(VSDB) || defined(ROAM_ENABLE)
-	uint bcn_timeout = 8;
+	uint bcn_timeout = 10;
 #else
 	uint bcn_timeout = 4;
 #endif 
