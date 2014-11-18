@@ -323,7 +323,7 @@
 			compatible = "sprd,composite-dev-clock";
 			#clock-cells = <0>;
 			reg = <0x402d0024 0x3 0x402d0024 0x300>;	/* select reg and divider reg */
-			clocks = <&ext_4m>, <&ext_26m>, <&clk_96m>, <&clk_128m>;
+			clocks = <&ext_4m>, <&ext_26m>, <&clk_76m8>, <&clk_96m>;
 			clock-output-names = "clk_aon_apb";
 		};
 
