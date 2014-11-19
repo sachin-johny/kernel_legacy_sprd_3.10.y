@@ -775,7 +775,11 @@ void __meminit __free_pages_bootmem(struct page *page, unsigned int order)
 
 	page_zone(page)->managed_pages += 1 << order;
 	set_page_refcounted(page);
+#ifndef CONFIG_SPRD_PAGERECORDER
 	__free_pages(page, order);
+#else
+	__free_pages_nopagedebug(page, order);
+#endif
 }
 
 #ifdef CONFIG_CMA
@@ -2856,6 +2860,36 @@ unsigned long __get_free_pages(gfp_t gfp_mask, unsigned int order)
 }
 EXPORT_SYMBOL(__get_free_pages);
 
+#ifdef CONFIG_SPRD_PAGERECORDER
+/*
+ * Common helper functions.
+ */
+unsigned long __get_free_pages_nopagedebug(gfp_t gfp_mask, unsigned int order)
+{
+        struct page *page;
+
+        /*
+         * __get_free_pages() returns a 32-bit address, which cannot represent
+         * a highmem page
+         */
+        VM_BUG_ON((gfp_mask & __GFP_HIGHMEM) != 0);
+
+        page = alloc_pages_nopagedebug(gfp_mask, order);
+        if (!page)
+                return 0;
+        return (unsigned long) page_address(page);
+}
+EXPORT_SYMBOL(__get_free_pages_nopagedebug);
+
+unsigned long get_zeroed_page_nopagedebug(gfp_t gfp_mask)
+{
+        return __get_free_pages_nopagedebug(gfp_mask | __GFP_ZERO, 0);
+}
+EXPORT_SYMBOL(get_zeroed_page_nopagedebug);
+
+#endif
+
+
 unsigned long get_zeroed_page(gfp_t gfp_mask)
 {
 	return __get_free_pages(gfp_mask | __GFP_ZERO, 0);
@@ -2864,6 +2898,12 @@ EXPORT_SYMBOL(get_zeroed_page);
 
 void __free_pages(struct page *page, unsigned int order)
 {
+#ifdef CONFIG_SPRD_PAGERECORDER
+	if(!in_interrupt())
+	{
+		remove_page_record((void *)page,order);
+	}
+#endif
 	if (put_page_testzero(page)) {
 		if (order == 0)
 			free_hot_cold_page(page, 0);
@@ -2884,6 +2924,30 @@ void free_pages(unsigned long addr, unsigned int order)
 
 EXPORT_SYMBOL(free_pages);
 
+#ifdef CONFIG_SPRD_PAGERECORDER
+void __free_pages_nopagedebug(struct page *page, unsigned int order)
+{
+       if (put_page_testzero(page)) {
+                if (order == 0)
+                        free_hot_cold_page(page, 0);
+                else
+                        __free_pages_ok(page, order);
+        }
+}
+
+EXPORT_SYMBOL(__free_pages_nopagedebug);
+
+void free_pages_nopagedebug(unsigned long addr, unsigned int order)
+{
+        if (addr != 0) {
+                VM_BUG_ON(!virt_addr_valid((void *)addr));
+                __free_pages_nopagedebug(virt_to_page((void *)addr), order);
+        }
+}
+
+EXPORT_SYMBOL(free_pages_nopagedebug);
+#endif
+
 /*
  * __free_memcg_kmem_pages and free_memcg_kmem_pages will free
  * pages allocated with __GFP_KMEMCG.
@@ -2900,6 +2964,14 @@ void __free_memcg_kmem_pages(struct page *page, unsigned int order)
 	memcg_kmem_uncharge_pages(page, order);
 	__free_pages(page, order);
 }
+
+#ifdef CONFIG_SPRD_PAGERECORDER
+void __free_memcg_kmem_pages_nopagedebug(struct page *page, unsigned int order)
+{
+	memcg_kmem_uncharge_pages(page, order);
+	__free_pages_nopagedebug(page, order);
+}
+#endif
 
 void free_memcg_kmem_pages(unsigned long addr, unsigned int order)
 {

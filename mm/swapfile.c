@@ -2361,7 +2361,11 @@ int add_swap_count_continuation(swp_entry_t entry, gfp_t gfp_mask)
 	 * When debugging, it's easier to use __GFP_ZERO here; but it's better
 	 * for latency not to zero a page while GFP_ATOMIC and holding locks.
 	 */
+#ifndef CONFIG_SPRD_PAGERECORDER
 	page = alloc_page(gfp_mask | __GFP_HIGHMEM);
+#else
+	page = alloc_page_nopagedebug(gfp_mask | __GFP_HIGHMEM);
+#endif
 
 	si = swap_info_get(entry);
 	if (!si) {

@@ -577,7 +577,11 @@ redo1:
 			int error, atomic = 1;
 
 			if (!page) {
-				page = alloc_page(GFP_HIGHUSER);
+				#ifndef CONFIG_SPRD_PAGERECORDER
+					page = alloc_page(GFP_HIGHUSER);
+				#else
+					page = alloc_page_nopagedebug(GFP_HIGHUSER);
+				#endif
 				if (unlikely(!page)) {
 					ret = ret ? : -ENOMEM;
 					break;

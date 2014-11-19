@@ -1328,7 +1328,11 @@ static inline void __free_reserved_page(struct page *page)
 {
 	ClearPageReserved(page);
 	init_page_count(page);
+#ifndef CONFIG_SPRD_PAGERECORDER
 	__free_page(page);
+#else
+	__free_page_nopagedebug(page);
+#endif
 }
 
 static inline void free_reserved_page(struct page *page)

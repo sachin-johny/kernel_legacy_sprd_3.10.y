@@ -192,7 +192,11 @@ static int tlb_next_batch(struct mmu_gather *tlb)
 	if (tlb->batch_count == MAX_GATHER_BATCH_COUNT)
 		return 0;
 
+#ifndef CONFIG_SPRD_PAGERECORDER
 	batch = (void *)__get_free_pages(GFP_NOWAIT | __GFP_NOWARN, 0);
+#else
+	batch = (void *)__get_free_pages_nopagedebug(GFP_NOWAIT | __GFP_NOWARN, 0);
+#endif
 	if (!batch)
 		return 0;
 
