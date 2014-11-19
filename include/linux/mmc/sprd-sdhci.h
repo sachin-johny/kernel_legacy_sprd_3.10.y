@@ -28,11 +28,6 @@ struct sprd_sdhci_host_platdata {
 	const char *clk_name;
 	const char *clk_parent_name;
 	int max_frequency;
-	unsigned int pinmap_offset;
-	unsigned int d3_gpio;
-	unsigned int d3_index;
-	unsigned int sd_func;
-	unsigned int gpio_func;
 	unsigned int enb_bit, rst_bit;
 	unsigned int enb_reg, rst_reg;
 	unsigned int write_delay;

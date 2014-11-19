@@ -347,42 +347,6 @@ static unsigned int sprd_sdhci_host_get_ro(struct sdhci_host *host) {
 	return sprd_host->ro;
 }
 
-static void sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select(struct sdhci_host *host, u8 power_mode) {
-	struct mmc_host *mmc = host->mmc;
-	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	struct sprd_sdhci_host_platdata *host_pdata = sprd_host->platdata;
-	spin_lock(&sprd_host->lock);
-	if(sprd_host->chip_select_last ==  MMC_CS_DONTCARE && mmc->ios.chip_select == MMC_CS_HIGH) {
-		sprd_host->chip_select_last = MMC_CS_HIGH;
-		if(host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
-			unsigned int reg_val;
-			reg_val = pinmap_get(host_pdata->pinmap_offset + host_pdata->d3_index);
-			reg_val &= ~(3UL << 4);
-			reg_val |= (host_pdata->gpio_func << 4);
-			pinmap_set( host_pdata->pinmap_offset + host_pdata->d3_index, reg_val);
-			if(!gpio_request(host_pdata->d3_gpio, "d3-gpio")) {
-				gpio_direction_output(host_pdata->d3_gpio, 1);
-				gpio_set_value(host_pdata->d3_gpio, 1);
-				gpio_free(host_pdata->d3_gpio);
-			} else {
-				reg_val &= ~(3UL << 4);
-				reg_val |= (host_pdata->sd_func << 4);
-				pinmap_set(host_pdata->pinmap_offset + host_pdata->d3_index, reg_val);
-			}
-		}
-	} else  if(sprd_host->chip_select_last ==  MMC_CS_HIGH && mmc->ios.chip_select == MMC_CS_DONTCARE) {
-		sprd_host->chip_select_last = MMC_CS_DONTCARE;
-		if(host_pdata->d3_gpio > 0 && gpio_is_valid(host_pdata->d3_gpio)) {
-			unsigned int reg_val;
-			reg_val = pinmap_get(host_pdata->pinmap_offset + host_pdata->d3_index);
-			reg_val &=  ~(3UL << 4);
-			reg_val |= (host_pdata->sd_func << 4);
-			pinmap_set(host_pdata->pinmap_offset + host_pdata->d3_index, reg_val);
-		}
-	}
-	spin_unlock(&sprd_host->lock);
-}
-
 static int sprd_sdhci_host_set_uhs_signaling(struct sdhci_host *host, unsigned int uhs) {
 	u16 clk, div, ctrl_2;
 	unsigned int pre_addr = 0;
@@ -605,7 +569,7 @@ static void sprd_sdhci_host_platform_reset_exit(struct sdhci_host *host, u8 mask
 
 static void sprd_sdhci_host_fix_sprd_host_chip_select(struct sdhci_host *host) {
 	struct sprd_sdhci_host *sprd_host = SDHCI_HOST_TO_SPRD_HOST(host);
-	sprd_host->sdhci_host_ops.platform_send_init_74_clocks = sprd_sdhci_host_redirect_platform_send_init_74_clocks_to_chip_select;
+	sprd_host->sdhci_host_ops.platform_send_init_74_clocks = NULL;
 }
 
 static void sprd_sdhci_host_fix_sprd_host_execute_tuning(struct sdhci_host *host) {
@@ -1034,11 +998,6 @@ static void sprd_sdhci_host_of_parse(struct platform_device *pdev, struct sdhci_
 	of_property_read_u32(np, "read-neg-delay", &host_pdata->read_neg_delay);
 	of_property_read_u32(np, "cd-gpios", &host_pdata->detect_gpio);
 	of_property_read_u32(np, "vqmmc-voltage-level", &host_pdata->vqmmc_voltage_level);
-	of_property_read_u32(np, "pinmap-offset", &host_pdata->pinmap_offset);
-	of_property_read_u32(np, "d3-gpio", &host_pdata->d3_gpio);
-	of_property_read_u32(np, "d3-index", &host_pdata->d3_index);
-	of_property_read_u32(np, "sd-func", &host_pdata->sd_func);
-	of_property_read_u32(np, "gpio-func", &host_pdata->gpio_func);
 	of_property_read_string(np, "vdd-vmmc", &host_pdata->vdd_vmmc);
 	of_property_read_string(np, "vdd-vqmmc", &host_pdata->vdd_vqmmc);
 	of_property_read_u32(np, "keep-power", &host_pdata->keep_power);
