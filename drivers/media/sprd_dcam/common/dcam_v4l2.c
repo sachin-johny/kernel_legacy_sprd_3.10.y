@@ -2361,8 +2361,8 @@ LOCAL int v4l2_dqbuf(struct file *file,
 
 	if (sprd_v4l2_queue_read(&dev->queue, &node)) {
 		printk("V4L2: v4l2_dqbuf, failed read queue \n");
-		p->flags = V4L2_TX_ERR;
-		return -ERESTARTSYS;
+		p->flags = V4L2_TX_CLEAR;
+		return DCAM_RTN_SUCCESS;
 	}
 
 	memset(p,0,sizeof(*p));
@@ -2564,6 +2564,13 @@ LOCAL int v4l2_streamoff(struct file *file,
 
 	ret = sprd_v4l2_local_deinit(dev);
 	V4L2_PRINT_IF_ERR(ret);
+
+	ret = sprd_v4l2_queue_init(&dev->queue);
+	if (unlikely(0 != ret)) {
+		printk("V4L2: Streamoff Failed to init queue \n");
+		ret = -EIO;
+		goto exit;
+	}
 
 exit:
 	mutex_unlock(&dev->dcam_mutex);
