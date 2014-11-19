@@ -196,10 +196,12 @@ static int ltr558_i2c_write_1_byte(u8 reg, u8 value)
 
 static int ltr_read_chip_info(struct i2c_client *client, char *buf)
 {
-        if((NULL == buf) || (NULL == client))
-        {
-                *buf = 0;
+        if(NULL == buf) {
                 return -1;
+        }
+        if(NULL == client) {
+                *buf = 0;
+                return -2;
         }
 
         if( LTR_PLS_553 == LTR_PLS_MODE)
@@ -449,7 +451,7 @@ static int ltr558_release(struct inode *inode, struct file *file)
 static long ltr558_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
         void __user *argp = (void __user *)arg;
-        int flag;
+        int flag, err;
         char strbuf[256];
         PRINT_INFO("cmd = %d, %d\n", _IOC_NR(cmd), cmd);
         switch (cmd) {
@@ -486,7 +488,9 @@ static long ltr558_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
         }
         break;
         case LTR_IOCTL_GET_CHIPINFO: {
-                ltr_read_chip_info(this_client, strbuf);
+                err = ltr_read_chip_info(this_client, strbuf);
+                if(err < 0)
+                        return -EFAULT;
                 if(copy_to_user(argp, strbuf, strlen(strbuf)+1))
                         return -EFAULT;
         }

@@ -777,20 +777,22 @@ static int elan_ps_release(struct inode *inode, struct file *file)
 
 static int epl2182_read_chip_info(struct i2c_client *client, char *buf)
 {
-        if((NULL == buf) || (NULL == client))
-        {
-                *buf = 0;
+        if(NULL == buf) {
                 return -1;
-        } else {
-                sprintf(buf, "EPL2182");
-                printk("[EPL2182] epl2182_read_chip_info %s\n",buf);
-                return 0;
         }
+        if(NULL == client) {
+                *buf = 0;
+                return -2;
+        }
+
+        sprintf(buf, "EPL2182");
+        printk("[EPL2182] epl2182_read_chip_info %s\n",buf);
+        return 0;
 }
 
 static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
 {
-    int flag;
+    int flag, err;
     unsigned long buf;
     char strbuf[256];
     struct elan_epl_data *epld = epl_data;
@@ -821,7 +823,9 @@ static long elan_ps_ioctl(struct file *file, unsigned int cmd, unsigned long arg
             break;
 
         case ELAN_EPL6800_IOCTL_GET_CHIPINFO:
-                epl2182_read_chip_info(this_client, strbuf);
+                err = epl2182_read_chip_info(this_client, strbuf);
+                if(err < 0)
+                        return -EFAULT;
                 if(copy_to_user(argp, strbuf, strlen(strbuf)+1))
                         return -EFAULT;
             break;
