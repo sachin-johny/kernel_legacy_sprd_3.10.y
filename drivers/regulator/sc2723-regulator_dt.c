@@ -500,7 +500,6 @@ static int dcdc_set_voltage(struct regulator_dev *rdev, int min_uV,
 static int dcdc_set_voltage_step(struct regulator_dev *rdev, int min_uV,
 			int max_uV, unsigned *selector)
 {
-	struct sci_regulator_desc *desc = __get_desc(rdev);
 	int to_vol = min_uV;
 	int step = 25 * 1000;/*uV*/
 	int vol = rdev->desc->ops->get_voltage(rdev);
