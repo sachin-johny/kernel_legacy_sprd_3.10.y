@@ -2096,10 +2096,11 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 					dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(300));
 #endif
 			if (!ret) { /* time out */
-			    reg_val0 = dispc_read(DISPC_INT_RAW);
-			    reg_val1 = dispc_read(DISPC_DPI_STS1);
+				dispc_ctx.waitfor_vsync_done = 1;
+				reg_val0 = dispc_read(DISPC_INT_RAW);
+				reg_val1 = dispc_read(DISPC_DPI_STS1);
 				printk(KERN_ERR "sprdfb: vsync time out!!!!!(0x%x, 0x%x)\n",
-				    reg_val0, reg_val1);
+					reg_val0, reg_val1);
 				{/*for debug*/
 					int32_t i = 0;
 					for(i=0;i<256;i+=16){
@@ -2122,6 +2123,7 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 				dispc_ctx.waitfor_vsync_done, msecs_to_jiffies(100));
 
 		if (!ret) { /* time out */
+			dispc_ctx.waitfor_vsync_done = 1;
 			printk(KERN_ERR "sprdfb: vsync time out!!!!!\n");
 			{/*for debug*/
 				int32_t i = 0;
