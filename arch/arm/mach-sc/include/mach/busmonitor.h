@@ -1,6 +1,8 @@
 #ifndef __SPRD_BM_H__
 #define __SPRD_BM_H__
 
+#define BM_DEFAULT_VALUE_SET
+
 #define AXI_BM_INTC_REG				0x0
 #define AXI_BM_CFG_REG				0x4
 #define AXI_BM_ADDR_MIN_REG			0x8
@@ -25,9 +27,7 @@
 #define AXI_BM_WBW_IN_WIN_REG		0x54
 #define AXI_BM_WLATENCY_IN_WIN_REG	0x58
 #define AXI_BM_PEAKBW_IN_WIN_REG	0x5c
-
-#define SPRD_AHB_BM_NAME "sprd_ahb_bm"
-#define SPRD_AXI_BM_NAME "sprd_axi_bm"
+#define AXI_BM_MATCH_ID_REG			0x64
 
 #define SPRD_BM_SUCCESS	0
 #define BM_INT_MSK_STS	BIT(31)
@@ -38,6 +38,32 @@
 #define BM_CNT_EN		BIT(1)
 #define BM_CHN_EN		BIT(0)
 #define BM_DEBUG_ALL_CHANNEL	0xFF
+
+#define BM_DBG(f,x...)	printk(KERN_DEBUG "BM_INFO " f, ##x)
+#define BM_INFO(f,x...)	printk(KERN_INFO "BM_INFO " f, ##x)
+#define BM_WRN(f,x...)	printk(KERN_WARNING"BM_INFO " f, ##x)
+#define BM_ERR(f,x...)	printk(KERN_ERR "BM_INFO " f, ##x)
+
+#define PER_COUTN_LIST_SIZE 128
+/*the buf can store 8 secondes data*/
+#define PER_COUNT_RECORD_SIZE 800
+#define PER_COUNT_BUF_SIZE (64 * 4 * PER_COUNT_RECORD_SIZE)
+
+#define LOG_FILE_PATH "/mnt/obb/axi_per_log"
+/*the log file size about 1.5Mbytes per min*/
+#define LOG_FILE_SECONDS (60  * 30)
+#define LOG_FILE_MAX_RECORDS (LOG_FILE_SECONDS * 100)
+#define BM_CONTINUE_DEBUG_SIZE	20
+
+static struct file *log_file;
+static struct semaphore bm_seam;
+static int buf_read_index;
+static int buf_write_index;
+static bool bm_irq_in_process;
+/*the star log include a lot of unuseful info, we need skip it.*/
+static int buf_skip_cnt;
+long long t_stamp;
+static void *per_buf = NULL;
 
 /*depending on the platform*/
 enum sci_bm_index {
@@ -70,6 +96,34 @@ enum sci_ahb_bm_index {
 	AHB_BM2_USB,
 	AHB_BM2_HSIC,
 	BM_CHANNEL_SIZE,
+};
+
+struct bm_callback_desc {
+	void (*fun)(void *);
+	void *data;
+};
+static struct bm_callback_desc bm_callback_set[BM_SIZE];
+
+enum sci_bm_cmd_index {
+	BM_STATE = 0x0,
+	BM_CHANNELS,
+	BM_AXI_DEBUG_SET,
+	BM_AHB_DEBUG_SET,
+	BM_PERFORM_SET,
+	BM_PERFORM_UNSET,
+	BM_OCCUR,
+	BM_CONTINUE_SET,
+	BM_CONTINUE_UNSET,
+	BM_DFS_SET,
+	BM_DFS_UNSET,
+	BM_PANIC_SET,
+	BM_PANIC_UNSET,
+	BM_BW_CNT_START,
+	BM_BW_CNT_STOP,
+	BM_BW_CNT_RESUME,
+	BM_BW_CNT,
+	BM_BW_CNT_CLR,
+	BM_CMD_MAX,
 };
 
 enum sci_bm_chn {
@@ -142,5 +196,88 @@ struct sci_bm_reg {
 	u32 wlatency_in_win;
 	u32 peakbw_in_win;
 };
+
+struct bm_debug_info{
+	u32 bm_index;
+	u32 msk_addr;
+	u32 msk_cmd;
+	u32 msk_data_l;
+	u32 msk_data_h;
+	u32 msk_id;
+};
+static struct bm_debug_info debug_bm_int_info[BM_SIZE];
+
+struct bm_continue_debug{
+	bool bm_continue_dbg;
+	u32 loop_cnt;
+	u32 current_cnt;
+	struct bm_debug_info bm_ctn_info[BM_CONTINUE_DEBUG_SIZE];
+};
+static struct bm_continue_debug bm_ctn_dbg;
+
+struct bm_state_info{
+	bool bm_dbg_st;
+	bool bm_dfs_off_st;
+	bool bm_panic_st;
+	bool bm_stack_st;
+};
+static struct bm_state_info bm_st_info;
+
+struct bm_chn_name_info {
+	u32 chn_num;
+	unsigned char *chn_name;
+};
+static struct bm_chn_name_info bm_chn_name[BM_CHANNEL_SIZE + 1] = {
+	{AXI_BM0_CA7, "CA7"},
+	{AXI_BM1_DISP, "DISP"},
+	{AXI_BM2_GSP_GPU, "GSP/GPU"},
+	{AXI_BM3_ZIP_AP, "ZIP/AP"},
+	{AXI_BM4_MM, "MM"},
+	{AXI_BM5_CP0ARM_WCDMA, "CP0 ARM0/1/WCDMA"},
+	{AXI_BM6_CP0_DSP, "CP0 DSPx2"},
+	{AXI_BM7_HARQ_LTEACC, "HARQ/LTE ACC"},
+	{AXI_BM8_CP1_DPS, "CP1 DPS"},
+	{AXI_BM9_CP1_A5, "CP1 A5"},
+
+	{AHB_BM0_DAP, "DAP"},
+	{AHB_BM0_CA7, "CA7"},
+	{AHB_BM0_DMA_WR, "DMA WRITE"},
+	{AHB_BM0_DMA_RD, "DMA READ"},
+	{AHB_BM1_SDIO0, "SDIO 0"},
+	{AHB_BM1_SDIO1, "SDIO 1"},
+	{AHB_BM1_SDIO2, "SDIO 2"},
+	{AHB_BM1_EMMC, "EMMC"},
+	{AHB_BM2_NFC, "NFC"},
+	{AHB_BM2_USB, "USB"},
+	{AHB_BM2_HSIC, "HSIC"},
+	{BM_CHANNEL_SIZE,""},
+};
+
+#ifdef BM_DEFAULT_VALUE_SET
+struct bm_chn_def_val {
+	u32 str_addr;
+	u32 end_addr;
+	u32 min_data;
+	u32 max_data;
+	u32 mode;
+	u32 chn_sel;
+};
+static struct bm_chn_def_val bm_def_value[BM_SIZE] = {
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0},	//ca7
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0},	//DISP
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0}, //GSP/GPU
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0}, //ZIP/AP
+	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0}, //MM
+	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP0 ARM0/1/WCDMA
+	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP0 DSPx2
+	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //HARQ/LTE ACC
+	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP1 DPS
+	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP1 A5
+
+	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-DAP, 1-CA7, 2-DMA WRITE, 3-DMA READ
+	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-SDIO 0, 1-SDIO 1, 2-SDIO 2, 3-EMMC
+	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-NFC, 1-USB, 2-HSIC
+};
+#endif
 
 #endif

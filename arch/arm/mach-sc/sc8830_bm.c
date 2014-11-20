@@ -11,6 +11,8 @@
 #include <linux/io.h>
 #include <linux/sysfs.h>
 #include <linux/delay.h>
+#include <linux/fs.h>
+#include <linux/miscdevice.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
@@ -18,119 +20,44 @@
 #include <mach/irqs.h>
 #include <mach/busmonitor.h>
 
-//#define BM_DEFAULT_VALUE_SET
+#ifdef CONFIG_OF
+#include <linux/of_device.h>
+#include <linux/of_address.h>
+#include <linux/of_irq.h>
+#endif
+
+struct memory_layout{
+	u32 dram_start;
+	u32 dram_end;
+
+	u32 ap_start1;
+	u32 ap_end1;
+
+	u32 shm_start;
+	u32 shm_end;
+
+	u32 ap_start2;
+	u32 ap_end2;
+
+	u32 cpgge_start;
+	u32 cpgge_end;
+
+	u32 cptl_start;
+	u32 cptl_end;
+
+	u32 ap_start3;
+	u32 ap_end3;
+
+	u32 fb_start;
+	u32 fb_end;
+
+	u32 ion_start;
+	u32 ion_end;
+};
+
+static struct memory_layout memory_layout;
 
 static DEFINE_SPINLOCK(bm_lock);
-
-#define BM_DBG(f,x...)	printk(KERN_DEBUG "BM_INFO" f, ##x)
-#define BM_INFO(f,x...)	printk(KERN_INFO "BM_INFO" f, ##x)
-#define BM_WRN(f,x...)	printk(KERN_WARNING"BM_INFO" f, ##x)
-#define BM_ERR(f,x...)	printk(KERN_ERR "BM_INFO" f, ##x)
-
-struct bm_callback_desc {
-	void (*fun)(void);
-	void *data;
-};
-static struct bm_callback_desc bm_callback_set[BM_SIZE];
-
-#define PER_COUTN_LIST_SIZE 128
-/*the buf can store 8 secondes data*/
-#define PER_COUNT_RECORD_SIZE 800
-#define PER_COUNT_BUF_SIZE (64 * 4 * PER_COUNT_RECORD_SIZE)
-
-#define LOG_FILE_PATH "/mnt/obb/axi_per_log"
-/*the log file size about 1.5Mbytes per min*/
-#define LOG_FILE_SECONDS (60  * 30)
-#define LOG_FILE_MAX_RECORDS (LOG_FILE_SECONDS * 100)
-#define BM_CONTINUE_DEBUG_SIZE	20
-
-static struct file *log_file;
-static struct semaphore bm_seam;
-static int buf_read_index;
-static int buf_write_index;
-static bool bm_irq_in_process;
-/*the star log include a lot of unuseful info, we need skip it.*/
-static int buf_skip_cnt;
-long long t_stamp;
-static void *per_buf = NULL;
-static int per_count_list[PER_COUTN_LIST_SIZE];
-static int list_write_index;
-static bool glb_count_flag;
-
-struct bm_debug_info{
-	u32 bm_index;
-	u32 msk_addr;
-	u32 msk_cmd;
-	u32 msk_data_l;
-	u32 msk_data_h;
-};
-static struct bm_debug_info debug_bm_int_info[BM_SIZE];
-
-struct bm_continue_debug{
-	bool bm_continue_dbg;
-	u32 loop_cnt;
-	u32 current_cnt;
-	struct bm_debug_info bm_ctn_info[BM_CONTINUE_DEBUG_SIZE];
-};
-static struct bm_continue_debug bm_ctn_dbg;
-
-struct bm_chn_name_info {
-	u32 chn_num;
-	unsigned char *chn_name;
-};
-static struct bm_chn_name_info bm_chn_name[BM_CHANNEL_SIZE + 1] = {
-	{AXI_BM0_CA7, "CA7"},
-	{AXI_BM1_DISP, "DISP"},
-	{AXI_BM2_GSP_GPU, "GSP/GPU"},
-	{AXI_BM3_ZIP_AP, "ZIP/AP"},
-	{AXI_BM4_MM, "MM"},
-	{AXI_BM5_CP0ARM_WCDMA, "CP0 ARM0/1/WCDMA"},
-	{AXI_BM6_CP0_DSP, "CP0 DSPx2"},
-	{AXI_BM7_HARQ_LTEACC, "HARQ/LTE ACC"},
-	{AXI_BM8_CP1_DPS, "CP1 DPS"},
-	{AXI_BM9_CP1_A5, "CP1 A5"},
-
-	{AHB_BM0_DAP, "DAP"},
-	{AHB_BM0_CA7, "CA7"},
-	{AHB_BM0_DMA_WR, "DMA WRITE"},
-	{AHB_BM0_DMA_RD, "DMA READ"},
-	{AHB_BM1_SDIO0, "SDIO 0"},
-	{AHB_BM1_SDIO1, "SDIO 1"},
-	{AHB_BM1_SDIO2, "SDIO 2"},
-	{AHB_BM1_EMMC, "EMMC"},
-	{AHB_BM2_NFC, "NFC"},
-	{AHB_BM2_USB, "USB"},
-	{AHB_BM2_HSIC, "HSIC"},
-	{BM_CHANNEL_SIZE,""},
-};
-
-#ifdef BM_DEFAULT_VALUE_SET
-struct bm_chn_def_val {
-	u32 str_addr;
-	u32 end_addr;
-	u32 min_data;
-	u32 max_data;
-	u32 mode;
-	u32 chn_sel;
-};
-static struct bm_chn_def_val bm_def_value[BM_SIZE] = {
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL},	//ca7
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL},	//DISP
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //GSP/GPU
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //ZIP/AP
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //MM
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP0 ARM0/1/WCDMA
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP0 DSPx2
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //HARQ/LTE ACC
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP1 DPS
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, NULL}, //CP1 A5
-
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-DAP, 1-CA7, 2-DMA WRITE, 3-DMA READ
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-SDIO 0, 1-SDIO 1, 2-SDIO 2, 3-EMMC
-	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-NFC, 1-USB, 2-HSIC
-	{},
-};
-#endif
 
 extern int in_calibration(void);
 
@@ -172,7 +99,7 @@ static u32 __sci_get_bm_base(u32 bm_index)
 
 static void __sci_bm_init(void)
 {
-	int bm_index;
+	u32 bm_index;
 	volatile struct sci_bm_reg *bm_reg;
 
 	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++) {
@@ -186,9 +113,9 @@ static inline void __sci_axi_bm_chn_en(int chn)
 	u32 val, base_reg;
 
 	base_reg = __sci_get_bm_base(chn);
-	val = __raw_readl(base_reg + AXI_BM_INTC_REG);
+	val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
 	val |= (BM_CHN_EN);
-	__raw_writel(val, base_reg + AXI_BM_INTC_REG);
+	__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 
 	return;
 }
@@ -199,9 +126,9 @@ static inline void __sci_axi_bm_chn_int_clr(int chn)
 	u32 base_reg, val;
 
 	base_reg = __sci_get_bm_base(chn);
-	val = __raw_readl(base_reg + AXI_BM_INTC_REG);
+	val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
 	val |= (BM_INT_CLR);
-	__raw_writel(val, base_reg + AXI_BM_INTC_REG);
+	__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 
 	return;
 
@@ -212,8 +139,8 @@ static inline u32 __sci_axi_bm_chn_cnt_bw(int chn)
 	u32 base_reg, rbw, wbw;
 
 	base_reg = __sci_get_bm_base(chn);
-	rbw = __raw_readl(base_reg + AXI_BM_RBW_IN_WIN_REG);
-	wbw = __raw_readl(base_reg + AXI_BM_WBW_IN_WIN_REG);
+	rbw = __raw_readl((volatile void *)(base_reg + AXI_BM_RBW_IN_WIN_REG));
+	wbw = __raw_readl((volatile void *)(base_reg + AXI_BM_WBW_IN_WIN_REG));
 	if(rbw || wbw)
 		pr_debug(" chn:%d, rbw:%u, wbw:%u \n", chn, rbw, wbw );
 
@@ -222,28 +149,26 @@ static inline u32 __sci_axi_bm_chn_cnt_bw(int chn)
 
 static void __sci_axi_bm_cnt_start(void)
 {
-	int bm_index;
-	u32 base_reg, val;
+	u32 bm_index, base_reg, val;
 
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
 		base_reg = __sci_get_bm_base(bm_index);
-		val = __raw_readl(base_reg + AXI_BM_INTC_REG);
+		val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
 		val |= (BM_CHN_EN | BM_CNT_EN | BM_CNT_START | BM_INT_EN);
-		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
+		__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 	}
 	return;
 }
 
 static void __sci_axi_bm_cnt_stop(void)
 {
-	int bm_index;
-	u32 base_reg, val;
+	u32 bm_index, base_reg, val;
 
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
 		base_reg = __sci_get_bm_base(bm_index);
-		val = __raw_readl(base_reg + AXI_BM_INTC_REG);
+		val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
 		val &= ~(BM_CNT_START | BM_INT_EN);//disable cnt and disable int
-		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
+		__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 	}
 	return;
 }
@@ -260,30 +185,26 @@ static void __sci_axi_bm_int_clr(void)
 /* performance count clear */
 static void __sci_axi_bm_cnt_clr(void)
 {
-	int bm_index;
-	u32 base_reg, val;
+	u32 bm_index, base_reg, val;
 
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
 		base_reg = __sci_get_bm_base(bm_index);
-		val = __raw_readl(base_reg);
-		val |= (BM_CHN_EN | BM_CHN_EN);
-		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
+		val = __raw_readl((volatile void *)base_reg);
+		val |= (BM_CHN_EN | BM_CNT_EN);
+		__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 		val &= ~(BM_CNT_START);
-		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
+		__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 		val |= (BM_CNT_CLR);
-		__raw_writel(val, base_reg + AXI_BM_INTC_REG);
-		BM_INFO(" chn:%d, val:0x%x, reg:0x%x \n", bm_index, val, base_reg);
-		//__sci_axi_bm_chn_cnt_bw(bm_index);
+		__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 	}
 	return;
 }
 
 static void __sci_axi_bm_set_winlen(void)
 {
-	int bm_index;
-	u32 base_reg, axi_clk, win_len;
+	u32 bm_index, base_reg, axi_clk, win_len;
 	/*the win len is 10ms*/
-#if CONFIG_ARCH_SCX30G
+#ifdef CONFIG_ARCH_SCX30G
 axi_clk = 640;//emc_clk_get();
 #else
 //axi_clk = __raw_readl(REG_AON_APB_DPLL_CFG) & 0x7ff;
@@ -294,7 +215,7 @@ axi_clk = 640;
 	win_len = axi_clk * 10000;
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
 		base_reg = __sci_get_bm_base(bm_index);
-		__raw_writel(win_len, base_reg + AXI_BM_CNT_WIN_LEN_REG);
+		__raw_writel(win_len, (volatile void *)(base_reg + AXI_BM_CNT_WIN_LEN_REG));
 	}
 }
 
@@ -407,33 +328,39 @@ static int __sci_bm_chn_sel(u32 bm_index, u32 chn_id)
 	return SPRD_BM_SUCCESS;
 }
 
-static int __sci_bm_store_int_info(u32 bm_index)
+static void __sci_bm_store_int_info(u32 bm_index)
 {
-	u32 reg_addr, msk_addr, msk_cmd, msk_data_l, msk_data_h;
+	u32 reg_addr;
 
 	reg_addr = __sci_get_bm_base(bm_index);
-	msk_addr = __raw_readl(reg_addr + AXI_BM_MATCH_ADDR_REG);
-	msk_cmd = __raw_readl(reg_addr + AXI_BM_MATCH_CMD_REG);
-	msk_data_l = __raw_readl(reg_addr + AXI_BM_MATCH_DATA_L_REG);
-	msk_data_h = __raw_readl(reg_addr + AXI_BM_MATCH_DATA_H_REG);
 	if(bm_ctn_dbg.bm_continue_dbg == false){
 		debug_bm_int_info[bm_index].bm_index = bm_index;
-		debug_bm_int_info[bm_index].msk_addr = msk_addr;
-		debug_bm_int_info[bm_index].msk_cmd = msk_cmd;
-		debug_bm_int_info[bm_index].msk_data_l = msk_data_l;
-		debug_bm_int_info[bm_index].msk_data_h = msk_data_h;
-		BM_INFO("__sci_bm_store_int_info	%d	0x%X	0x%X	0x%X	0x%X\n",
+		debug_bm_int_info[bm_index].msk_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ADDR_REG));
+		debug_bm_int_info[bm_index].msk_cmd = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_CMD_REG));
+		debug_bm_int_info[bm_index].msk_data_l = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_L_REG));
+		debug_bm_int_info[bm_index].msk_data_h = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_H_REG));
+		debug_bm_int_info[bm_index].msk_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
+		BM_INFO("bm int info:\n	%d	0x%X	0x%X	0x%X	0x%X	0x%X\n",
 			debug_bm_int_info[bm_index].bm_index,
 			debug_bm_int_info[bm_index].msk_addr,
 			debug_bm_int_info[bm_index].msk_cmd,
 			debug_bm_int_info[bm_index].msk_data_l,
-			debug_bm_int_info[bm_index].msk_data_h);
+			debug_bm_int_info[bm_index].msk_data_h,
+			debug_bm_int_info[bm_index].msk_id);
 	}else{
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index = bm_index;
-		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr = msk_addr;
-		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd = msk_cmd;
-		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l = msk_data_l;
-		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h = msk_data_h;
+		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ADDR_REG));
+		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_CMD_REG));
+		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_L_REG));
+		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_H_REG));
+		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
+		BM_INFO("bm ctn int info:\n	%d	0x%X	0x%X	0x%X	0x%X	0x%X\n",
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index,
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr,
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd,
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l,
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h,
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id);
 		bm_ctn_dbg.current_cnt++;
 	}
 }
@@ -441,7 +368,6 @@ static int __sci_bm_store_int_info(u32 bm_index)
 static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 {
 	u32 bm_index, rwbw_cnt, bm_chn, bm_reg, bm_int;
-	void (*fun)(void*);
 	struct bm_per_info *bm_info;
 	bm_info = (struct bm_per_info *)per_buf;
 
@@ -456,55 +382,45 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 	}
 
 	bm_reg = __sci_get_bm_base(AXI_BM0_CA7);
-	if(__raw_readl(bm_reg + AXI_BM_INTC_REG) & BM_CNT_EN)
+	if(__raw_readl((volatile void *)(bm_reg + AXI_BM_INTC_REG)) & BM_CNT_EN)
 	{
 		__sci_axi_bm_cnt_stop();
 
 		rwbw_cnt = 0x0;
 		/*count stop time stamp */
-		bm_info[buf_write_index].t_stop = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+		bm_info[buf_write_index].t_stop = __raw_readl((const volatile void *)(SPRD_SYSCNT_BASE + 0xc));
 
 		for (bm_chn = AXI_BM0_CA7; bm_chn <= AXI_BM9_CP1_A5; bm_chn++) {
 			bm_reg = __sci_get_bm_base(bm_chn);
-			bm_info[buf_write_index].per_data[bm_chn][0] = __raw_readl(bm_reg + AXI_BM_RTRANS_IN_WIN_REG);
-			bm_info[buf_write_index].per_data[bm_chn][1] = __raw_readl(bm_reg + AXI_BM_RBW_IN_WIN_REG);
-			bm_info[buf_write_index].per_data[bm_chn][2] = __raw_readl(bm_reg + AXI_BM_RLATENCY_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][0] = __raw_readl((volatile void *)(bm_reg + AXI_BM_RTRANS_IN_WIN_REG));
+			bm_info[buf_write_index].per_data[bm_chn][1] = __raw_readl((volatile void *)(bm_reg + AXI_BM_RBW_IN_WIN_REG));
+			bm_info[buf_write_index].per_data[bm_chn][2] = __raw_readl((volatile void *)(bm_reg + AXI_BM_RLATENCY_IN_WIN_REG));
 
-			bm_info[buf_write_index].per_data[bm_chn][3] = __raw_readl(bm_reg + AXI_BM_WTRANS_IN_WIN_REG);
-			bm_info[buf_write_index].per_data[bm_chn][4] = __raw_readl(bm_reg + AXI_BM_WBW_IN_WIN_REG);
-			bm_info[buf_write_index].per_data[bm_chn][5] = __raw_readl(bm_reg + AXI_BM_WLATENCY_IN_WIN_REG);
+			bm_info[buf_write_index].per_data[bm_chn][3] = __raw_readl((volatile void *)(bm_reg + AXI_BM_WTRANS_IN_WIN_REG));
+			bm_info[buf_write_index].per_data[bm_chn][4] = __raw_readl((volatile void *)(bm_reg + AXI_BM_WBW_IN_WIN_REG));
+			bm_info[buf_write_index].per_data[bm_chn][5] = __raw_readl((volatile void *)(bm_reg + AXI_BM_WLATENCY_IN_WIN_REG));
 
 			rwbw_cnt += bm_info[buf_write_index].per_data[bm_chn][1];
 			rwbw_cnt += bm_info[buf_write_index].per_data[bm_chn][4];
 		}
-		per_count_list[list_write_index] = rwbw_cnt;
-		if (++list_write_index == PER_COUTN_LIST_SIZE) {
-			list_write_index = 0;
+		if (++buf_write_index == PER_COUNT_RECORD_SIZE) {
+			buf_write_index = 0;
+			buf_skip_cnt++;
 		}
 
-		if (__raw_readl(REG_PUB_APB_BUSMON_CNT_START) == 0x1) {
-			glb_count_flag = true;
-			if (++buf_write_index == PER_COUNT_RECORD_SIZE) {
-				buf_write_index = 0;
-				buf_skip_cnt++;
-			}
-
-			/*wake up the thread to output log per 4 second*/
-			if ((buf_write_index == 0) ||
-				buf_write_index == (PER_COUNT_RECORD_SIZE >> 1) ) {
-				/*need to skip the star buf, because it includes a lot of usefull info,skip 8s buf*/
-				if(buf_skip_cnt > 1)
-					up(&bm_seam);
-			}
-		} else {
-			glb_count_flag = false;
+		/*wake up the thread to output log per 4 second*/
+		if ((buf_write_index == 0) ||
+			buf_write_index == (PER_COUNT_RECORD_SIZE >> 1) ) {
+			/*need to skip the star buf, because it includes a lot of usefull info,skip 8s buf*/
+			if(buf_skip_cnt > 1)
+				up(&bm_seam);
 		}
 		__sci_axi_bm_int_clr();
 		__sci_axi_bm_cnt_clr();
 		__sci_axi_bm_set_winlen();
 
 		/*count start time stamp */
-		bm_info[buf_write_index].t_start = __raw_readl(SPRD_SYSCNT_BASE + 0xc);
+		bm_info[buf_write_index].t_start = __raw_readl((const volatile void *)(SPRD_SYSCNT_BASE + 0xc));
 		bm_info[buf_write_index].tmp1	 = 640;//emc_clk_get();
 		bm_info[buf_write_index].tmp2	 = 640;//__raw_readl(REG_AON_APB_DPLL_CFG);
 
@@ -519,7 +435,7 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 	for(bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
 	{
 		bm_reg = __sci_get_bm_base(bm_index);
-		bm_int = __raw_readl(bm_reg + AXI_BM_INTC_REG);
+		bm_int = __raw_readl((volatile void *)(bm_reg + AXI_BM_INTC_REG));
 		if (bm_int & BM_INT_MSK_STS) {
 			__sci_bm_store_int_info(bm_index);
 			if((bm_ctn_dbg.bm_continue_dbg == true)||(bm_ctn_dbg.current_cnt <= BM_CONTINUE_DEBUG_SIZE)){
@@ -528,10 +444,17 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 			}else{
 				bm_int &= ~BM_INT_EN;
 			}
-			__raw_writel(bm_int, bm_reg);
-			fun = bm_callback_set[bm_index].fun;
-			if (fun)
-				fun(bm_callback_set[bm_index].data);
+			__raw_writel(bm_int, (volatile void *)bm_reg);
+			if (bm_callback_set[bm_index].fun)
+				bm_callback_set[bm_index].fun(bm_callback_set[bm_index].data);
+			if(bm_st_info.bm_stack_st == true){
+				BM_ERR("Bus Monitor output stack!\n");
+				dump_stack();
+			}
+			if(true == bm_st_info.bm_panic_st){
+				BM_ERR("Bus Monitor enter panic!\n");
+				BUG();
+			}
 		}
 	}
 	bm_irq_in_process = false;
@@ -545,6 +468,8 @@ unsigned int dmc_mon_cnt_bw(void)
 	int chn;
 	u32 cnt = 0;
 
+	if(true == bm_st_info.bm_dfs_off_st)
+		return 0xFFFFFFFF;
 	for (chn = AXI_BM0_CA7; chn <= AXI_BM9_CP1_A5; chn++)
 		cnt += __sci_axi_bm_chn_cnt_bw(chn);
 	return cnt;
@@ -584,8 +509,7 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 
 	bm_reg = (struct sci_bm_reg *)__sci_get_bm_base(bm_index);
 	/*clean the irq status*/
-	if(bm_reg->intc & BM_CNT_EN)
-		bm_reg->intc |= BM_INT_CLR;
+	bm_reg->intc |= BM_INT_CLR;
 	bm_reg->intc = 0x0;
 	memset((void *)bm_reg, 0x0, sizeof(*bm_reg));
 
@@ -665,9 +589,9 @@ void sci_bm_unset_point(enum sci_bm_index bm_index)
 
 	reg_addr = __sci_get_bm_base(bm_index);
 
-	writel(BM_INT_CLR | BM_CHN_EN, reg_addr);
+	__raw_writel(BM_INT_CLR | BM_CHN_EN, (volatile void *)reg_addr);
 
-	writel(0x0, reg_addr);
+	__raw_writel(0x0, (volatile void *)reg_addr);
 
 	bm_callback_set[bm_index].fun = NULL;
 }
@@ -685,12 +609,29 @@ void sci_bm_set_perform_point(void)
 }
 
 #ifdef BM_DEFAULT_VALUE_SET
+static void sci_bm_def_val_set_by_dts(void)
+{
+	u32 bm_chn, ret;
+	struct sci_bm_cfg bm_cfg;
+
+	for (bm_chn = AXI_BM5_CP0ARM_WCDMA; bm_chn <= AXI_BM9_CP1_A5; bm_chn++){
+		bm_cfg.addr_min = memory_layout.ap_start3;
+		bm_cfg.addr_max = memory_layout.ap_end3;
+		bm_cfg.bm_mode = W_MODE;
+		ret = sci_bm_set_point(bm_chn, CHN0, &bm_cfg, NULL, NULL);
+		if(SPRD_BM_SUCCESS != ret)
+			return;
+	}
+}
+
 static void sci_bm_def_val_set(void)
 {
 	u32 bm_chn, ret;
 	struct sci_bm_cfg bm_cfg;
 
-	for (bm_chn = 0; bm_chn < BM_SIZE; bm_chn++){
+	for (bm_chn = AXI_BM0_CA7; bm_chn < BM_SIZE; bm_chn++){
+		if((0x00000000 == bm_def_value[bm_chn].str_addr) && (0x00000000 == bm_def_value[bm_chn].end_addr))
+			continue;
 		bm_cfg.addr_min = bm_def_value[bm_chn].str_addr;
 		bm_cfg.addr_max = bm_def_value[bm_chn].end_addr;
 		bm_cfg.bm_mode = bm_def_value[bm_chn].mode;
@@ -701,7 +642,7 @@ static void sci_bm_def_val_set(void)
 }
 #endif
 
-static int bm_output_log(void *p)
+static int sci_bm_output_log(void *p)
 {
 	mm_segment_t old_fs;
 	int ret;
@@ -726,21 +667,10 @@ static int bm_output_log(void *p)
 		default:
 			pr_err("get buf_read_indiex failed!\n");
 		}
-#if 0
-		unsigned long nanosec_rem;
-
-		nanosec_rem = do_div(t_stamp, 1000000000);
-
-		sprintf(log_file_path, "%s%5lu.%06lu-log",
-				LOG_FILE_PRFEX,
-				(unsigned long) t_stamp,
-				nanosec_rem / 1000);
-#endif
 		old_fs = get_fs();
 		set_fs(get_ds());
-
 		ret = vfs_write(log_file,
-			(const char *)(per_buf + buf_read_index),
+			(const char *)(per_buf + buf_read_index * sizeof(struct bm_per_info)),
 			sizeof(struct bm_per_info) *(PER_COUNT_RECORD_SIZE >> 1),
 			&log_file->f_pos);
 
@@ -758,7 +688,30 @@ static int bm_output_log(void *p)
 
 }
 
-static ssize_t bm_axi_dbg_show(struct device *dev,
+static ssize_t sci_bm_state_show(struct device *dev,
+			struct device_attribute *attr,  char *buf)
+{
+	if(bm_st_info.bm_dbg_st == true)
+		return sprintf(buf, "Bus Monitor in debug mode!\n");
+	else
+		return sprintf(buf, "Bus Monitor in bandwidth mode!\n");
+}
+
+static ssize_t sci_bm_chn_show(struct device *dev,
+			struct device_attribute *attr,  char *buf)
+{
+	u32 bm_index;
+	char occ_info[20] = {};
+	char chn_info[20*BM_CHANNEL_SIZE] = {};
+
+	for(bm_index = AXI_BM0_CA7; bm_index < BM_CHANNEL_SIZE; bm_index++){
+			sprintf(occ_info, "%s\n", bm_chn_name[bm_index].chn_name);
+			strcat(chn_info, occ_info);
+	}
+	return sprintf(buf, "%s\n", chn_info);
+}
+
+static ssize_t sci_bm_axi_dbg_show(struct device *dev,
 			struct device_attribute *attr,  char *buf)
 {
 	u32 bm_index;
@@ -768,18 +721,16 @@ static ssize_t bm_axi_dbg_show(struct device *dev,
 
 	for(bm_index = AXI_BM0_CA7; bm_index < AHB_BM0_DAP_A7_DMA; bm_index++){
 		reg_addr = __sci_get_bm_base(bm_index);
-		str_addr = __raw_readl(reg_addr + AXI_BM_ADDR_MIN_REG);
-		end_addr = __raw_readl(reg_addr + AXI_BM_ADDR_MAX_REG);
-		sprintf(chn_info, "%d	0x%x	0x%x	%s\n", bm_index, str_addr, end_addr, bm_chn_name[bm_index].chn_name);
+		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG));
+		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG));
+		sprintf(chn_info, "%d	0x%08X	0x%08X	%s\n", bm_index, str_addr, end_addr, bm_chn_name[bm_index].chn_name);
 		strcat(info_buf, chn_info);
 	}
 	BM_INFO("%s\n", info_buf);
 	return sprintf(buf, "%s\n", info_buf);
 }
 
-//------echo 8 0x12340000 0x45670000 r > axi_dbg------
-//------echo all 0x12340000 0x45670000 RW > axi_dbg------
-static ssize_t bm_axi_dbg_store(struct device *dev,
+static ssize_t sci_bm_axi_dbg_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
 {
@@ -816,12 +767,13 @@ static ssize_t bm_axi_dbg_store(struct device *dev,
 		return EINVAL;
 	}
 
-	BM_INFO("str addr 0x%lx end addr 0x%lx	chn %d	rw %d\n", start_addr, end_addr, channel, rd_wt);
+	BM_INFO("str addr 0x%lx end addr 0x%lx	chn %ld	rw %d\n", start_addr, end_addr, channel, rd_wt);
 	if(((channel > AXI_BM9_CP1_A5) && (channel != BM_DEBUG_ALL_CHANNEL)) || (rd_wt > RW_MODE) || (start_addr > end_addr))
 		return -EINVAL;
 
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
+	bm_st_info.bm_dbg_st = true;
 
 	if(channel != BM_DEBUG_ALL_CHANNEL){
 		bm_cfg.addr_min = (u32)start_addr;
@@ -843,7 +795,7 @@ static ssize_t bm_axi_dbg_store(struct device *dev,
 	return strnlen(buf, count);
 }
 
-static ssize_t bm_ahb_dbg_show(struct device *dev,
+static ssize_t sci_bm_ahb_dbg_show(struct device *dev,
 			struct device_attribute *attr,  char *buf)
 {
 	u32 bm_index, chn_sel;
@@ -853,12 +805,12 @@ static ssize_t bm_ahb_dbg_show(struct device *dev,
 
 	for(bm_index = AHB_BM0_DAP_A7_DMA; bm_index < BM_SIZE; bm_index++){
 		reg_addr = __sci_get_bm_base(bm_index);
-		str_addr = __raw_readl(reg_addr + AXI_BM_ADDR_MIN_REG);
-		end_addr = __raw_readl(reg_addr + AXI_BM_ADDR_MAX_REG);
-		str_data = __raw_readl(reg_addr + AXI_BM_DATA_MIN_L_REG);
-		end_data = __raw_readl(reg_addr + AXI_BM_DATA_MAX_L_REG);
+		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG));
+		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG));
+		str_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MIN_L_REG));
+		end_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MAX_L_REG));
 		chn_sel = __sci_bm_get_chn_sel(bm_index);
-		sprintf(chn_info, "%d	0x%x	0x%x	0x%x	0x%x	%s\n", bm_index, str_addr, end_addr,
+		sprintf(chn_info, "%d	0x%08X	0x%08X	0x%08X	0x%08X	%s\n", bm_index, str_addr, end_addr,
 			str_data, end_data, bm_chn_name[chn_sel].chn_name);
 		strcat(info_buf, chn_info);
 	}
@@ -866,8 +818,7 @@ static ssize_t bm_ahb_dbg_show(struct device *dev,
 	return sprintf(buf, "%s\n", info_buf);
 }
 
-//------echo 1 0 0x12340000 0x45670000 0x00000000 0xffffffff > ahb_dbg------
-static ssize_t bm_ahb_dbg_store(struct device *dev,
+static ssize_t sci_bm_ahb_dbg_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
 {
@@ -875,9 +826,9 @@ static ssize_t bm_ahb_dbg_store(struct device *dev,
 	unsigned char addr_end[12], data_max[12];
 	unsigned long start_addr, end_addr, min_data, max_data, channel, chn_sel, bm_index;
 	struct sci_bm_cfg bm_cfg;
-	int ret,i;
+	int ret;
 
-	sscanf(buf, "%d %d %s %s %s %s", &channel, &chn_sel, addr_start, addr_end, data_min, data_max);
+	sscanf(buf, "%ld %ld %s %s %s %s", &channel, &chn_sel, addr_start, addr_end, data_min, data_max);
 
 	ret = strict_strtoul(addr_start, 0, &start_addr);
 	if (ret)
@@ -892,12 +843,13 @@ static ssize_t bm_ahb_dbg_store(struct device *dev,
 	if (ret)
 		BM_ERR("end data %s is not in hex or decimal form.\n", buf);
 
-	BM_INFO("str addr 0x%X end addr 0x%X min data 0x%X max data 0x%X\n", start_addr, end_addr, min_data, max_data);
+	BM_INFO("str addr 0x%lX end addr 0x%lX min data 0x%lX max data 0x%lX\n", start_addr, end_addr, min_data, max_data);
 	if((channel > 3) || (chn_sel > 4) || (start_addr > end_addr) || (min_data > max_data))
 		return -EINVAL;
 
 	for (bm_index = AHB_BM0_DAP_A7_DMA; bm_index <= AHB_BM2_NFC_USB; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
+	bm_st_info.bm_dbg_st = true;
 
 	bm_cfg.addr_min = (u32)start_addr;
 	bm_cfg.addr_max = (u32)end_addr;
@@ -912,25 +864,29 @@ static ssize_t bm_ahb_dbg_store(struct device *dev,
 	return strnlen(buf, count);
 }
 
-static ssize_t bm_bandwidth_show(struct device *dev,
-			struct device_attribute *attr,  char *buf)
-{
-	return sprintf(buf, "%s\n", 1);
-}
-
-static ssize_t bm_bandwidth_store(struct device *dev,
+static ssize_t sci_bm_bandwidth_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
 {
 	u32 bw_en, bm_index;
+	struct task_struct *t;
+
+	bm_st_info.bm_dbg_st = false;
 	sscanf(buf, "%d", &bw_en);
 	if(bw_en){
 		BM_INFO("bm bandwidth mode enable!!!\n");
-		if(per_buf == NULL)
+		if(per_buf == NULL){
 			per_buf = kmalloc(PER_COUNT_BUF_SIZE, GFP_KERNEL);
 			if (!per_buf)
-				pr_err("kmalloc failed!\n");
-
+				BM_ERR("kmalloc failed!\n");
+			sema_init(&bm_seam, 0);
+			t = kthread_run(sci_bm_output_log, NULL, "%s", "bm_per_log");
+			if (IS_ERR(t)) {
+				BM_ERR("bm probe: Failed to run thread bm_per_log\n");
+				kthread_stop(t);
+				return 0;
+			}
+		}
 		for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++)
 			__sci_bm_glb_reset_and_enable(bm_index, true);
 		sci_bm_set_perform_point();
@@ -948,21 +904,22 @@ static ssize_t bm_bandwidth_store(struct device *dev,
 	return strnlen(buf, count);
 }
 
-static ssize_t bm_occur_show(struct device *dev,
+static ssize_t sci_bm_occur_show(struct device *dev,
 			struct device_attribute *attr,  char *buf)
 {
-	u32 bm_index, occ_addr;
+	u32 bm_index;
 	char occ_info[96] = {};
 	char chn_info[96*10] = {};
 
 	for(bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++){
 		if(debug_bm_int_info[bm_index].msk_addr != 0){
-			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n ---\n",
+			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n id 0x%X\n",
 				bm_chn_name[bm_index].chn_name,
 				debug_bm_int_info[bm_index].msk_addr,
 				debug_bm_int_info[bm_index].msk_cmd,
 				debug_bm_int_info[bm_index].msk_data_l,
-				debug_bm_int_info[bm_index].msk_data_h);
+				debug_bm_int_info[bm_index].msk_data_h,
+				debug_bm_int_info[bm_index].msk_id);
 			strcat(chn_info, occ_info);
 		}
 	}
@@ -972,21 +929,22 @@ static ssize_t bm_occur_show(struct device *dev,
 	return sprintf(buf, "%s\n", chn_info);
 }
 
-static ssize_t bm_continue_show(struct device *dev,
+static ssize_t sci_bm_continue_show(struct device *dev,
 			struct device_attribute *attr,  char *buf)
 {
-	u32 bm_index, occ_addr;
+	u32 bm_index;
 	char occ_info[96] = {};
 	char chn_info[96*50] = {};
 
 	for(bm_index = 0; bm_index < bm_ctn_dbg.loop_cnt; bm_index++){
 		if(bm_ctn_dbg.bm_ctn_info[bm_index].msk_addr != 0){
-			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n ---\n", 
+			sprintf(occ_info, " %d\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n id 0x%X\n",
 				bm_ctn_dbg.bm_ctn_info[bm_index].bm_index,
 				bm_ctn_dbg.bm_ctn_info[bm_index].msk_addr,
 				bm_ctn_dbg.bm_ctn_info[bm_index].msk_cmd,
 				bm_ctn_dbg.bm_ctn_info[bm_index].msk_data_l,
-				bm_ctn_dbg.bm_ctn_info[bm_index].msk_data_h);
+				bm_ctn_dbg.bm_ctn_info[bm_index].msk_data_h,
+				bm_ctn_dbg.bm_ctn_info[bm_index].msk_id);
 			strcat(chn_info, occ_info);
 		}
 	}
@@ -996,118 +954,286 @@ static ssize_t bm_continue_show(struct device *dev,
 	return sprintf(buf, "%s\n", chn_info);
 }
 
-static ssize_t bm_continue_store(struct device *dev,
+static ssize_t sci_bm_continue_store(struct device *dev,
 				struct device_attribute *attr, const char *buf,
 				size_t count)
 {
 	u32 ctn_num;
 	sscanf(buf, "%d", &ctn_num);
 	if(ctn_num){
-		BM_INFO("BM support continue debug!!!\n");
+		BM_INFO("Set BM support continue debug!!!\n");
 		bm_ctn_dbg.bm_continue_dbg = true;
-		if(ctn_num > 50)
-			bm_ctn_dbg.loop_cnt = 50;
+		if(ctn_num > BM_CONTINUE_DEBUG_SIZE)
+			bm_ctn_dbg.loop_cnt = BM_CONTINUE_DEBUG_SIZE;
 		else
 			bm_ctn_dbg.loop_cnt = ctn_num;
 	}else{
-		BM_INFO("BM do not support continue debug!!!\n");
+		BM_INFO("Set BM do not support continue debug!!!\n");
 		bm_ctn_dbg.bm_continue_dbg = false;
 		bm_ctn_dbg.loop_cnt = 0;
 	}
 	return strnlen(buf, count);
 }
 
+static ssize_t sci_bm_dfs_show(struct device *dev,
+			struct device_attribute *attr,  char *buf)
+{
+	if(bm_st_info.bm_dfs_off_st == true)
+		return sprintf(buf, "The BM DFS is closed.\n");
+	else
+		return sprintf(buf, "The BM DFS is open.\n");
+}
+
+static ssize_t sci_bm_dfs_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	u32 dfs_flg;
+	sscanf(buf, "%d", &dfs_flg);
+	if(dfs_flg){
+		BM_INFO("Reopen BM DFS.\n");
+		bm_st_info.bm_dfs_off_st = true;
+	}else{
+		BM_INFO("Disable BM DFS.\n");
+		bm_st_info.bm_dfs_off_st = false;
+	}
+	return strnlen(buf, count);
+}
+
+static ssize_t sci_bm_panic_show(struct device *dev,
+			struct device_attribute *attr,  char *buf)
+{
+	if(bm_st_info.bm_panic_st == true)
+		return sprintf(buf, "The BM panic is open.\n");
+	else
+		return sprintf(buf, "The BM panic is close.\n");
+
+}
+
+static ssize_t sci_bm_panic_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	u32 panic_flg;
+	sscanf(buf, "%d", &panic_flg);
+	if(panic_flg){
+		BM_INFO("Reopen BM DFS.\n");
+		bm_st_info.bm_panic_st = true;
+	}else{
+		BM_INFO("Disable BM DFS.\n");
+		bm_st_info.bm_panic_st = false;
+	}
+	return strnlen(buf, count);
+}
+
+static ssize_t sci_bm_stack_show(struct device *dev,
+			struct device_attribute *attr,  char *buf)
+{
+	if(bm_st_info.bm_stack_st == true)
+		return sprintf(buf, "The BM stack is open.\n");
+	else
+		return sprintf(buf, "The BM stack is close.\n");
+}
+
+static ssize_t sci_bm_stack_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	u32 panic_flg;
+	sscanf(buf, "%d", &panic_flg);
+	if(panic_flg){
+		BM_INFO("Reopen BM DFS.\n");
+		bm_st_info.bm_stack_st = true;
+	}else{
+		BM_INFO("Disable BM DFS.\n");
+		bm_st_info.bm_stack_st = false;
+	}
+	return strnlen(buf, count);
+}
+
+static DEVICE_ATTR(state, S_IRUGO | S_IWUSR,
+	sci_bm_state_show, NULL);
+
+static DEVICE_ATTR(chn, S_IRUGO | S_IWUSR,
+	sci_bm_chn_show, NULL);
+
 static DEVICE_ATTR(axi_dbg, S_IRUGO | S_IWUSR,
-	bm_axi_dbg_show, bm_axi_dbg_store);
+	sci_bm_axi_dbg_show, sci_bm_axi_dbg_store);
 
 static DEVICE_ATTR(ahb_dbg, S_IRUGO | S_IWUSR,
-	bm_ahb_dbg_show, bm_ahb_dbg_store);
+	sci_bm_ahb_dbg_show, sci_bm_ahb_dbg_store);
 
 static DEVICE_ATTR(bandwidth, S_IRUGO | S_IWUSR,
-	bm_bandwidth_show, bm_bandwidth_store);
+	NULL, sci_bm_bandwidth_store);
 
 static DEVICE_ATTR(occur, S_IRUGO | S_IWUSR,
-	bm_occur_show, NULL);
+	sci_bm_occur_show, NULL);
 
 static DEVICE_ATTR(continue, S_IRUGO | S_IWUSR,
-	NULL, bm_continue_store);
+	sci_bm_continue_show, sci_bm_continue_store);
 
-static struct attribute *bm_axi_attrs[] = {
+static DEVICE_ATTR(dfs, S_IRUGO | S_IWUSR,
+	sci_bm_dfs_show, sci_bm_dfs_store);
+
+static DEVICE_ATTR(panic, S_IRUGO | S_IWUSR,
+	sci_bm_panic_show, sci_bm_panic_store);
+
+static DEVICE_ATTR(stack, S_IRUGO | S_IWUSR,
+	sci_bm_stack_show, sci_bm_stack_store);
+
+static struct attribute *bm_attrs[] = {
+	&dev_attr_state.attr,
+	&dev_attr_chn.attr,
 	&dev_attr_axi_dbg.attr,
+	&dev_attr_ahb_dbg.attr,
 	&dev_attr_bandwidth.attr,
 	&dev_attr_occur.attr,
 	&dev_attr_continue.attr,
-	NULL,
-};
-static struct attribute *bm_ahb_attrs[] = {
-	&dev_attr_ahb_dbg.attr,
-	&dev_attr_occur.attr,
-	&dev_attr_continue.attr,
+	&dev_attr_dfs.attr,
+	&dev_attr_panic.attr,
+	&dev_attr_stack.attr,
 	NULL,
 };
 
-static struct attribute_group bm_axi_attr_group = {
-	.attrs = bm_axi_attrs,
+static struct attribute_group bm_attr_group = {
+	.attrs = bm_attrs,
 };
 
-static struct attribute_group bm_ahb_attr_group = {
-	.attrs = bm_ahb_attrs,
-};
+static int sci_bm_get_mem_layout(void)
+{
+#ifdef CONFIG_OF
+	struct device_node *np = NULL;
+	struct resource res;
+	int ret;
+	char *devname;
+
+	np = of_find_node_by_name(NULL, "memory");
+	if(np){
+		ret = of_address_to_resource(np, 0, &res);
+		if(!ret){
+			memory_layout.dram_start = res.start;
+			memory_layout.dram_end = res.end;
+		}
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "sprd,sipc");
+	if(np){
+		ret = of_address_to_resource(np, 0, &res);
+		if(!ret){
+			memory_layout.shm_start = res.start;
+			memory_layout.shm_end = res.end;
+		}
+	}
+
+	for_each_compatible_node(np, NULL, "sprd,scproc"){
+		if(np){
+			of_property_read_string(np, "sprd,name", (const char **)&devname);
+
+			if(!strcmp(devname, "cpgge")){
+				ret = of_address_to_resource(np, 0, &res);
+				if(!ret){
+					memory_layout.cpgge_start = res.start;
+					memory_layout.cpgge_end = res.end;
+				}
+			}
+			else if(!strcmp(devname, "cptl")){
+				ret = of_address_to_resource(np, 0, &res);
+				if(!ret){
+					memory_layout.cptl_start = res.start;
+					memory_layout.cptl_end = res.end;
+				}
+			}
+		}
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "sprd,sprdfb");
+	if(np){
+		u32 val[2] = { 0 };
+		ret = of_property_read_u32_array(np, "sprd,fb_mem", val, 2);
+		if(!ret){
+			memory_layout.fb_start = val[0];
+			memory_layout.fb_end = val[0] + val[1] - 1;
+		}
+	}
+
+	np = of_find_compatible_node(NULL, NULL, "sprd,ion-sprd");
+	if(np){
+		struct device_node *child = NULL;
+		char *reg_name = NULL;
+		u32 val[2] = { 0 };
+
+		for_each_child_of_node(np, child){
+			of_property_read_string(child, "reg-names", (const char **)&reg_name);
+			if(!strcmp("ion_heap_carveout_overlay", reg_name)){
+				ret = of_property_read_u32_array(child, "sprd,ion-heap-mem", val, 2);
+				if(!ret){
+					memory_layout.ion_start = val[0];
+					memory_layout.ion_end= val[0] + val[1] - 1;
+				}
+			}
+		}
+	}
+#endif
+
+	memory_layout.ap_start1 = memory_layout.dram_start;
+	memory_layout.ap_end1 = memory_layout.shm_start - 1;
+	memory_layout.ap_start2 = memory_layout.shm_end + 1;
+	memory_layout.ap_end2 = memory_layout.cpgge_start -1;
+	memory_layout.ap_start3 = memory_layout.cptl_end + 1;
+	memory_layout.ap_end3 = memory_layout.fb_start -1;
+
+	BM_INFO("%s: dram: 0x%08X ~ 0x%08X\n", __func__, memory_layout.dram_start, memory_layout.dram_end);
+	BM_INFO("%s: ap_1: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start1, memory_layout.ap_end1);
+	BM_INFO("%s: shm : 0x%08X ~ 0x%08X\n", __func__, memory_layout.shm_start, memory_layout.shm_end);
+	BM_INFO("%s: ap_2: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start2, memory_layout.ap_end2);
+	BM_INFO("%s: cpge: 0x%08X ~ 0x%08X\n", __func__, memory_layout.cpgge_start, memory_layout.cpgge_end);
+	BM_INFO("%s: cptl: 0x%08X ~ 0x%08X\n", __func__, memory_layout.cptl_start, memory_layout.cptl_end);
+	BM_INFO("%s: ap_3: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start3, memory_layout.ap_end3);
+	BM_INFO("%s: fb  : 0x%08X ~ 0x%08X\n", __func__, memory_layout.fb_start, memory_layout.fb_end);
+	BM_INFO("%s: ion : 0x%08X ~ 0x%08X\n", __func__, memory_layout.ion_start, memory_layout.ion_end);
+
+	return 0;
+}
 
 static int sci_bm_probe(struct platform_device *pdev)
 {
 	int ret;
 	u32 bm_index;
-	struct task_struct *t;
 
 	if (in_calibration()){
 		return SPRD_BM_SUCCESS;
 	}
 
-	if (0 == strcmp(SPRD_AXI_BM_NAME, pdev->name)) {
-		__sci_bm_init();
-		ret = request_irq(IRQ_AXI_BM_PUB_INT, __sci_bm_isr, IRQF_TRIGGER_NONE, pdev->name, pdev);
-		if (ret)
-			return ret;
+	ret = request_irq(IRQ_AXI_BM_PUB_INT, __sci_bm_isr, IRQF_TRIGGER_NONE, pdev->name, pdev);
+	if (ret)
+		return ret;
+	ret = request_irq(IRQ_BM0_INT, __sci_bm_isr, IRQF_SHARED, pdev->name, pdev);
+	if (ret)
+		return ret;
+	ret = request_irq(IRQ_BM1_INT, __sci_bm_isr, IRQF_SHARED, pdev->name, pdev);
+	if (ret)
+		return ret;
+	ret = request_irq(IRQ_BM2_INT, __sci_bm_isr, IRQF_SHARED, pdev->name, pdev);
+	if (ret)
+		return ret;
 
-		sema_init(&bm_seam, 0);
-		t = kthread_run(bm_output_log, NULL, "%s", "bm_per_log");
-		if (IS_ERR(t)) {
-			BM_ERR("bm probe: Failed to run thread bm_per_log\n");
-			kthread_stop(t);
-			return t;
-		}
+	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
+		__sci_bm_glb_reset_and_enable(bm_index, true);
+	__sci_bm_glb_count_enable(true);
+	__sci_bm_init();
 
-		for (bm_index = AXI_BM0_CA7; bm_index < AHB_BM0_DAP_A7_DMA; bm_index++)
-			__sci_bm_glb_reset_and_enable(bm_index, true);
-		__sci_bm_glb_count_enable(true);
-
-		ret = sysfs_create_group(&pdev->dev.kobj, &bm_axi_attr_group);
-		if (ret) {
-			BM_ERR("Unable to export sysfs\n");
-		}
+	ret = sysfs_create_group(&pdev->dev.kobj, &bm_attr_group);
+	if (ret) {
+		BM_ERR("Unable to export sysfs\n");
+		return ret;
 	}
-
-	if (0 == strcmp(SPRD_AHB_BM_NAME, pdev->name)) {
-		ret = request_irq(IRQ_BM0_INT, __sci_bm_isr, IRQF_SHARED, pdev->name, pdev);
-		if (ret)
-			return ret;
-		ret = request_irq(IRQ_BM1_INT, __sci_bm_isr, IRQF_SHARED, pdev->name, pdev);
-		if (ret)
-			return ret;
-		ret = request_irq(IRQ_BM2_INT, __sci_bm_isr, IRQF_SHARED, pdev->name, pdev);
-		if (ret)
-			return ret;
-
-		for (bm_index = AHB_BM0_DAP_A7_DMA; bm_index < BM_SIZE; bm_index++)
-			__sci_bm_glb_reset_and_enable(bm_index, true);
-
-		ret = sysfs_create_group(&pdev->dev.kobj, &bm_ahb_attr_group);
-		if (ret) {
-			BM_ERR("Unable to export sysfs\n");
-			return ret;
-		}
-	}
+#ifdef BM_DEFAULT_VALUE_SET
+	sci_bm_get_mem_layout();
+	sci_bm_def_val_set_by_dts();
+	bm_st_info.bm_dbg_st = true;
+	bm_st_info.bm_stack_st = true;
+	bm_st_info.bm_panic_st = true;
+#endif
 	return SPRD_BM_SUCCESS;
 }
 
@@ -1117,8 +1243,9 @@ static int sci_bm_remove(struct platform_device *pdev)
 
 	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, false);
-
 	__sci_bm_glb_count_enable(false);
+
+	sysfs_remove_group(&pdev->dev.kobj, &bm_attr_group);
 	free_irq(IRQ_AXI_BM_PUB_INT, pdev);
 	free_irq(IRQ_BM0_INT, pdev);
 	free_irq(IRQ_BM1_INT, pdev);
@@ -1126,49 +1253,169 @@ static int sci_bm_remove(struct platform_device *pdev)
 	return SPRD_BM_SUCCESS;
 }
 
-static const struct platform_device_id sci_bm_ids[] = {
-	[0] = {
-		.name = SPRD_AXI_BM_NAME,
-	},
-	[1] = {
-		.name = SPRD_AHB_BM_NAME,
-	},
-	[2] = {
-	},
+static int sci_bm_open(struct inode *inode, struct file *filp)
+{
+	u32 bm_index;
+	BM_INFO("%s!\n", __func__);
+	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
+		__sci_bm_glb_reset_and_enable(bm_index, true);
+	return 0;
+}
+
+static int sci_bm_release(struct inode *inode, struct file *filp)
+{
+	u32 bm_index;
+	BM_INFO("%s!\n", __func__);
+	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
+		__sci_bm_glb_reset_and_enable(bm_index, false);
+	return 0;
+}
+
+static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args)
+{
+	struct sci_bm_cfg bm_cfg;
+	struct task_struct *t;
+	unsigned long bm_user;
+	u32 ret, bm_index;
+
+	if(_IOC_TYPE(cmd) >= BM_CMD_MAX)
+		return -EINVAL;
+
+	switch(cmd){
+		case BM_STATE:
+			if(bm_st_info.bm_dbg_st)
+				bm_user = 1;
+			if(put_user(bm_user, (unsigned long __user *)args))
+				return -EFAULT;
+			break;
+		case BM_CHANNELS:
+			if(copy_to_user((struct bm_chn_name_info __user *)args, bm_chn_name, sizeof(struct bm_chn_name_info)))
+				return -EFAULT;
+			break;
+		case BM_AXI_DEBUG_SET://set axi debug point
+			if(copy_from_user(&bm_cfg, (struct sci_bm_cfg __user *)args, sizeof(struct sci_bm_cfg)))
+				return -EFAULT;
+			ret = sci_bm_set_point(bm_cfg.chn, CHN0, &bm_cfg, NULL, NULL);
+			if(SPRD_BM_SUCCESS != ret)
+				return ret;
+			bm_st_info.bm_dbg_st = true;
+			break;
+		case BM_AHB_DEBUG_SET://set ahb debug point
+			if(copy_from_user(&bm_cfg, (struct sci_bm_cfg __user *)args, sizeof(struct sci_bm_cfg)))
+				return -EFAULT;
+			ret = sci_bm_set_point(bm_cfg.chn, bm_cfg.data, &bm_cfg, NULL, NULL);
+			if(SPRD_BM_SUCCESS != ret)
+				return ret;
+			bm_st_info.bm_dbg_st = true;
+			break;
+		case BM_PERFORM_SET://set performance point
+			if(per_buf == NULL){
+				per_buf = kmalloc(PER_COUNT_BUF_SIZE, GFP_KERNEL);
+				if (!per_buf)
+					BM_ERR("kmalloc failed!\n");
+				sema_init(&bm_seam, 0);
+				t = kthread_run(sci_bm_output_log, NULL, "%s", "bm_per_log");
+				if (IS_ERR(t)) {
+					BM_ERR("bm probe: Failed to run thread bm_per_log\n");
+					kthread_stop(t);
+					return -EFAULT;
+				}
+			}
+			for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++)
+				__sci_bm_glb_reset_and_enable(bm_index, true);
+			sci_bm_set_perform_point();
+			msleep(100);
+			bm_st_info.bm_dbg_st = false;
+			break;
+		case BM_PERFORM_UNSET://unset performance point
+			if(per_buf != NULL)
+				kfree(per_buf);
+			for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++)
+				__sci_bm_glb_reset_and_enable(bm_index, false);
+			__sci_bm_glb_count_enable(false);
+			break;
+		case BM_OCCUR://read dbg info
+			if(copy_to_user((struct bm_debug_info __user *)args, debug_bm_int_info, sizeof(struct bm_debug_info)))
+				return -EFAULT;
+			break;
+		case BM_CONTINUE_SET://set continue statue
+			if(copy_from_user(&bm_ctn_dbg, (struct bm_continue_debug __user *)args, sizeof(struct bm_continue_debug)))
+				return -EFAULT;
+			break;
+		case BM_CONTINUE_UNSET:
+			bm_ctn_dbg.bm_continue_dbg = false;
+			break;
+		case BM_DFS_SET://set DFS statue
+		case BM_DFS_UNSET:
+			if(get_user(bm_user,(unsigned long __user *)(&args)))
+				return -EFAULT;
+			bm_st_info.bm_dfs_off_st = bm_user;
+			break;
+		case BM_PANIC_SET://set DFS statue
+		case BM_PANIC_UNSET:
+			if(get_user(bm_user,(unsigned long __user *)(&args)))
+				return -EFAULT;
+			bm_st_info.bm_panic_st = bm_user;
+			break;
+		case BM_BW_CNT_START:
+			dmc_mon_cnt_start();
+			break;
+		case BM_BW_CNT_STOP:
+			dmc_mon_cnt_stop();
+			break;
+		case BM_BW_CNT_RESUME:
+			break;
+		case BM_BW_CNT:
+			bm_user = dmc_mon_cnt_bw();
+			if(put_user(bm_user, (unsigned long __user *)args))
+				return -EFAULT;
+		case BM_BW_CNT_CLR:
+			dmc_mon_cnt_clr();
+			break;
+		default:
+		return -EINVAL;
+	}
+	return 0;
+}
+
+static struct file_operations bm_fops = {
+	.owner = THIS_MODULE,
+	.open = sci_bm_open,
+	.release = sci_bm_release,
+	.unlocked_ioctl = sci_bm_ioctl,
+};
+
+static struct miscdevice bm_misc = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "sprd_bm",
+	.fops = &bm_fops,
+};
+
+static const struct of_device_id bm_of_match[] = {
+        { .compatible = "sprd,sprd_bm", },
+        { }
 };
 
 static struct platform_driver sprd_bm_driver = {
 	.probe    = sci_bm_probe,
 	.remove   = sci_bm_remove,
-	.id_table = sci_bm_ids,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "sprd_bm",
+		.of_match_table = bm_of_match,
 	},
-};
-
-static struct platform_device sprd_bm_axi_device = {
-	.name = SPRD_AXI_BM_NAME,
-	.id = 0,
-};
-
-static struct platform_device sprd_bm_ahb_device = {
-	.name = SPRD_AHB_BM_NAME,
-	.id = 0,
 };
 
 static int __init sci_bm_init(void)
 {
-	platform_device_register(&sprd_bm_axi_device);
-	platform_device_register(&sprd_bm_ahb_device);
+	misc_register(&bm_misc);
 	return platform_driver_register(&sprd_bm_driver);
 }
 
 static void __exit sci_bm_exit(void)
 {
 	platform_driver_unregister(&sprd_bm_driver);
-	platform_device_unregister(&sprd_bm_axi_device);
-	platform_device_unregister(&sprd_bm_ahb_device);
+	misc_deregister(&bm_misc);
 }
 
 module_init(sci_bm_init);

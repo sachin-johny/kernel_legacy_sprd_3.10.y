@@ -877,6 +877,9 @@
                  clocks = <&clk_mmu>,<&clk_mm>,<&clk_mm_axi>;
                  status = "ok";
          };
+         sprd_bm {
+                 compatible = "sprd,sprd_bm";
+         };
 };
 
 &vbc_r2p0 {
