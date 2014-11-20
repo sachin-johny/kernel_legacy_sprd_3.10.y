@@ -318,15 +318,12 @@ static struct panel_operations lcd_rm68180_mipi_operations = {
 
 static struct timing_rgb lcd_rm68180_mipi_timing = {
 #if 1
-	
-	.hfp = 60,  /* unit: pixel */
+	.hfp = 20,  /* unit: pixel */
 	.hbp = 20,
-	.hsync = 10,//4,
-	.vfp = 16, /*unit: line*/
-	.vbp = 8,
-	.vsync = 4,//6
-
-
+	.hsync = 6,//4,
+	.vfp = 20, /*unit: line*/
+	.vbp = 20,
+	.vsync = 6,//6
 #else
 /*
 	.hfp = 120,  
