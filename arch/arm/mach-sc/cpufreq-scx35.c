@@ -242,6 +242,22 @@ static struct cpufreq_table_data sc9630_cpufreq_table_data = {
 	},
 };
 
+static struct cpufreq_table_data sc9630_1500m_cpufreq_table_data = {
+	.freq_tbl = {
+		{0, 1500000},
+		{1, 1350000},
+		{2, 900000},
+		{3, 768000},
+		{4, CPUFREQ_TABLE_END},
+	},
+	.vddarm_mv = {
+		1100000,
+		1000000,
+		900000,
+		900000,
+		900000,
+	},
+};
 static struct cpufreq_table_data sc9630_1350m_cpufreq_table_data = {
 	.freq_tbl = {
 		{0, 1350000},
@@ -562,12 +578,15 @@ static int sprd_freq_table_init(void)
 	        sprd_cpufreq_conf->vddarm_mv = sc8830t_cpufreq_table_data_es.vddarm_mv;
 	}
 else if(soc_is_scx9630_v0()){
-#ifndef CONFIG_SCX35L_1350MHZ
-	        sprd_cpufreq_conf->freq_tbl = sc9630_cpufreq_table_data.freq_tbl;
-	        sprd_cpufreq_conf->vddarm_mv = sc9630_cpufreq_table_data.vddarm_mv;
-#else
+#if defined(CONFIG_SCX35L_1350MHZ)
 	        sprd_cpufreq_conf->freq_tbl = sc9630_1350m_cpufreq_table_data.freq_tbl;
 	        sprd_cpufreq_conf->vddarm_mv = sc9630_1350m_cpufreq_table_data.vddarm_mv;
+#elif defined(CONFIG_SCX35L_1500MHZ)
+	        sprd_cpufreq_conf->freq_tbl = sc9630_1500m_cpufreq_table_data.freq_tbl;
+	        sprd_cpufreq_conf->vddarm_mv = sc9630_1500m_cpufreq_table_data.vddarm_mv;
+#else
+	        sprd_cpufreq_conf->freq_tbl = sc9630_cpufreq_table_data.freq_tbl;
+	        sprd_cpufreq_conf->vddarm_mv = sc9630_cpufreq_table_data.vddarm_mv;
 #endif
 	}
         else {

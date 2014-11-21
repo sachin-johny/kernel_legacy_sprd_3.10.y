@@ -245,6 +245,13 @@ config SCX35L_1350MHZ
 	default n
 	help
 	  enable the 1350MHZ
+config SCX35L_1500MHZ
+	bool "SCX35L 1500MHZ"
+	depends on ARCH_SCX35L
+	default n
+	help
+	  enable the 1500MHZ
+
 config GENERIC_CPUFREQ_CPU0
 	tristate "Generic CPU0 cpufreq driver"
 	depends on HAVE_CLK && REGULATOR && PM_OPP && OF
