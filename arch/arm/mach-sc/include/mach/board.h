@@ -126,6 +126,10 @@
 #include "__board-sp9630ea.h"
 #endif
 
+#ifdef CONFIG_MACH_SP9830EA3MN
+#include "__board-sp9830ea3mn.h"
+#endif
+
 #ifdef CONFIG_MACH_SP9630EA_3592M_3MOD
 #include "__board-sp9630ea_3592m_3mod.h"
 #endif

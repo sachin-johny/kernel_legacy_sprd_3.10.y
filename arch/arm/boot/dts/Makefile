@@ -232,6 +232,7 @@ dtb-$(CONFIG_MACH_CORE3) += sprd-scx35_core3.dtb
 dtb-$(CONFIG_MACH_SPX35LFPGA) += sprd-scx35l_sp9630fpga.dtb
 ifeq ($(CONFIG_SCX35L_1350MHZ), y)
 dtb-$(CONFIG_MACH_SP9630EA) += sprd-scx35l_sp9630ea_1350mhz.dtb
+dtb-$(CONFIG_MACH_SP9830EA3MN) += sprd-scx35l_sp9830ea3mn_1350mhz.dtb
 else
 dtb-$(CONFIG_MACH_SP9630EA) += sprd-scx35l_sp9630ea.dtb
 endif
