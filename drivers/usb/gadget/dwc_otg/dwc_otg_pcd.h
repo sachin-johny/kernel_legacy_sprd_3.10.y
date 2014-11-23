@@ -124,6 +124,33 @@ struct dwc_iso_xreq_port {
 	struct dwc_iso_pkt_desc_port *per_io_frame_descs;
 };
 #endif
+/** DWC_otg request structure.
+ * This structure is a list of requests.
+ */
+typedef struct dwc_otg_pcd_request {
+	void *priv;
+	void *buf;
+	dwc_dma_t dma;
+	uint32_t length;
+	uint32_t actual;
+	
+	unsigned sent_zlp:1;
+	unsigned mapped:1;//for DMA transfer lee
+    /**
+     * Used instead of original buffer if
+     * it(physical address) is not dword-aligned.
+     **/
+	uint8_t *dw_align_buf;
+	dwc_dma_t dw_align_buf_dma;
+
+	 DWC_CIRCLEQ_ENTRY(dwc_otg_pcd_request) queue_entry;
+#ifdef DWC_UTE_PER_IO
+	struct dwc_iso_xreq_port ext_req;
+	//void *priv_ereq_nport; /*  */
+#endif
+} dwc_otg_pcd_request_t;
+
+DWC_CIRCLEQ_HEAD(req_list, dwc_otg_pcd_request);
 
 /**	  PCD EP structure.
  * This structure describes an EP, there is an array of EPs in the PCD

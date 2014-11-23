@@ -62,15 +62,6 @@ typedef enum _data_buffer_mode {
 } data_buffer_mode_e;
 #endif //DWC_UTE_CFI
 
-#define MAX_SG_BUF_NUM 32
-/* List of USB transfer buffers */
-typedef struct sg_buf_list{
-	uint8_t* buf;
-	dma_addr_t dma;
-	uint32_t buf_len;
-}sg_buf_list_t;
-
-
 /** Macros defined for DWC OTG HW Release version */
 
 #define OTG_CORE_REV_2_60a	0x4F54260A
@@ -1007,38 +998,6 @@ struct dwc_otg_core_if {
 
 };
 
-/** DWC_otg request structure.
- * This structure is a list of requests.
- */
-
-typedef struct dwc_otg_pcd_request {
-	void *priv;
-	void *buf[MAX_SG_BUF_NUM];
-	dwc_dma_t dma[MAX_SG_BUF_NUM];
-	uint32_t buf_len[MAX_SG_BUF_NUM];
-	uint32_t buf_num;
-	uint32_t length;
-	uint32_t actual;
-
-	unsigned sent_zlp:1;
-	unsigned mapped;//for DMA transfer lee
-	/**
-	 * Used instead of original buffer if
-	 * it(physical address) is not dword-aligned.
-	 **/
-	uint8_t *dw_align_buf;
-	dwc_dma_t dw_align_buf_dma;
-
-	DWC_CIRCLEQ_ENTRY(dwc_otg_pcd_request) queue_entry;
-#ifdef DWC_UTE_PER_IO
-	struct dwc_iso_xreq_port ext_req;
-	//void *priv_ereq_nport; /*  */
-#endif
-} dwc_otg_pcd_request_t;
-
-DWC_CIRCLEQ_HEAD(req_list, dwc_otg_pcd_request);
-
-
 #ifdef DEBUG
 /*
  * This function is called when transfer is timed out.
@@ -1100,8 +1059,8 @@ extern uint32_t dwc_otg_get_frame_number(dwc_otg_core_if_t * _core_if);
 extern void dwc_otg_ep0_activate(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
 extern void dwc_otg_ep_activate(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
 extern void dwc_otg_ep_deactivate(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
-extern void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
-									dwc_otg_pcd_request_t *req);
+extern void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * _core_if,
+				      dwc_ep_t * _ep);
 extern void dwc_otg_ep_start_zl_transfer(dwc_otg_core_if_t * _core_if,
 					 dwc_ep_t * _ep);
 extern void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * _core_if,

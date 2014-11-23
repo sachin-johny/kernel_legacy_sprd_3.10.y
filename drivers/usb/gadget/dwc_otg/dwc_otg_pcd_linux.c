@@ -383,7 +383,7 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	usb_req->actual = 0;
 
 	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, usb_req->dma/*dma_addr*/,
-				      usb_req->length, usb_req->zero, usb_req->num_sgs, usb_req,
+				      usb_req->length, usb_req->zero, usb_req,
 				      gfp_flags == GFP_ATOMIC ? 1 : 0);
 	if (retval) {
 		pr_err("%s, cannot enqueue a renquest, err :%d\n", __func__,
@@ -1517,6 +1517,8 @@ struct platform_device *_dev
  */
 static int dwc_usb_gadget_start(struct usb_gadget *gadget, struct usb_gadget_driver *driver)
 {
+	int retval;
+
 	DWC_DEBUGPL(DBG_PCD, "registering gadget driver '%s'\n",
 			driver->driver.name);
 	pr_info("%s\n", __func__);

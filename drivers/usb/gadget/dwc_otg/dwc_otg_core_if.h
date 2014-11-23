@@ -462,7 +462,7 @@ extern int32_t dwc_otg_get_param_reload_ctl(dwc_otg_core_if_t * core_if);
 extern int dwc_otg_set_param_dev_out_nak(dwc_otg_core_if_t * core_if,
 					 int32_t val);
 extern int32_t dwc_otg_get_param_dev_out_nak(dwc_otg_core_if_t * core_if);
-#define dwc_param_dev_out_nak_default 1
+#define dwc_param_dev_out_nak_default 0
 
 extern int dwc_otg_set_param_cont_on_bna(dwc_otg_core_if_t * core_if,
 					 int32_t val);

@@ -60,8 +60,6 @@
 #include "dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
-#include "dwc_otg_pcd.h"
-
 extern int in_calibration(void);
 extern int in_autotest(void);
 extern void usb_phy_ahb_rst(void);
@@ -3496,99 +3494,85 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 
 /**
  * This function initializes dma descriptor chain.
- * Auther: Miao.Zhu@spreadtrum.com
+ *
  * @param core_if Programming view of DWC_otg controller.
  * @param ep The EP to start the transfer on.
  */
-static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
-								dwc_otg_pcd_request_t *req)
+static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 {
 	dwc_otg_dev_dma_desc_t *dma_desc;
 	uint32_t offset;
 	uint32_t xfer_est;
 	int i;
-	unsigned maxxfer_local, bytes;
-	dma_addr_t dma_addr;
+	unsigned maxxfer_local, total_len;
 
 	if (!ep->is_in && ep->type == DWC_OTG_EP_TYPE_INTR &&
 	    (ep->maxpacket % 4)) {
 		maxxfer_local = ep->maxpacket;
+		total_len = ep->xfer_len;
 	} else {
 		maxxfer_local = ep->maxxfer;
+		total_len = ep->total_len;
 	}
-	dma_desc = ep->desc_addr;
-	ep->desc_cnt = 0;
 
-	for (i = 0; i < req->buf_num; i++) {
-		xfer_est = req->buf_len[i];
-		dma_addr = req->dma[i];
-		offset = 0;
-		if (!xfer_est) {
+	ep->desc_cnt = (total_len / maxxfer_local) +
+	    ((total_len % maxxfer_local) ? 1 : 0);
+
+	if (!ep->desc_cnt)
+		ep->desc_cnt = 1;
+
+	if (ep->desc_cnt > MAX_DMA_DESC_CNT)
+		ep->desc_cnt = MAX_DMA_DESC_CNT;
+
+	dma_desc = ep->desc_addr;
+	if (maxxfer_local == ep->maxpacket) {
+		if ((total_len % maxxfer_local) &&
+		    (total_len / maxxfer_local < MAX_DMA_DESC_CNT)) {
+			xfer_est = (ep->desc_cnt - 1) * maxxfer_local +
+			    (total_len % maxxfer_local);
+		} else
+			xfer_est = ep->desc_cnt * maxxfer_local;
+	} else
+		xfer_est = total_len;
+	offset = 0;
+	for (i = 0; i < ep->desc_cnt; ++i) {
+		/** DMA Descriptor Setup */
+		if (xfer_est > maxxfer_local) {
 			dma_desc->status.b.bs = BS_HOST_BUSY;
 			dma_desc->status.b.l = 0;
 			dma_desc->status.b.ioc = 0;
-			dma_desc->status.b.sp = 1;
-			dma_desc->status.b.bytes = 0;
-			dma_desc->buf = 0;
+			dma_desc->status.b.sp = 0;
+			dma_desc->status.b.bytes = maxxfer_local;
+			dma_desc->buf = ep->dma_addr + offset;
 			dma_desc->status.b.sts = 0;
 			dma_desc->status.b.bs = BS_HOST_READY;
-			dma_desc++;
-			continue;
-		}
-		/** DMA Descriptor Setup */
-		while (xfer_est) {
-			if (xfer_est > maxxfer_local) {
-				dma_desc->status.b.bs = BS_HOST_BUSY;
-				dma_desc->status.b.l = 0;
-				dma_desc->status.b.ioc = 0;
-				dma_desc->status.b.sp = 0;
-				dma_desc->status.b.bytes = maxxfer_local;
-				dma_desc->buf = dma_addr + offset;
-				dma_desc->status.b.sts = 0;
-				dma_desc->status.b.bs = BS_HOST_READY;
 
-				xfer_est -= maxxfer_local;
-				offset += maxxfer_local;
-			} else {
-				dma_desc->status.b.bs = BS_HOST_BUSY;
-				dma_desc->status.b.l = 0;
-				dma_desc->status.b.ioc = 0;
-				/** WORKROUND: If this buffer length is not multiple of DWORD,
-				 ** and it wants to concatenate to next buffer, DMA would behave
-				 ** abnormally, so it is sent as a short packet.
-				 */
-				//if( core_if->snpsid <= OTG_CORE_REV_2_94a)
-				dma_desc->status.b.sp = xfer_est % 4 ? 1 : 0;
+			xfer_est -= maxxfer_local;
+			offset += maxxfer_local;
+		} else {
+			dma_desc->status.b.bs = BS_HOST_BUSY;
+			dma_desc->status.b.l = 1;
+			dma_desc->status.b.ioc = 1;
+			if (ep->is_in) {
+				dma_desc->status.b.sp =
+				    (xfer_est %
+				     ep->maxpacket) ? 1 : ((ep->
+							    sent_zlp) ? 1 : 0);
 				dma_desc->status.b.bytes = xfer_est;
-				dma_desc->buf = dma_addr + offset;
-				dma_desc->status.b.sts = 0;
-				dma_desc->status.b.bs = BS_HOST_READY;
-
-				xfer_est = 0;
+			} else {
+				if (maxxfer_local == ep->maxpacket)
+					dma_desc->status.b.bytes = xfer_est;
+				else	
+					dma_desc->status.b.bytes =
+				    		xfer_est + ((4 - (xfer_est & 0x3)) & 0x3);
 			}
-			++dma_desc;
-			/** No more descriptors? */
-			if( ++ep->desc_cnt > MAX_DMA_DESC_CNT)
-				goto end;
+
+			dma_desc->buf = ep->dma_addr + offset;
+			dma_desc->status.b.sts = 0;
+			dma_desc->status.b.bs = BS_HOST_READY;
 		}
+		dma_desc++;
 	}
-end:
-	/** the Last DMA Descriptor Setup */
-	--dma_desc;
-	bytes = dma_desc->status.b.bytes;
-	dma_desc->status.b.bs = BS_HOST_BUSY;
-	dma_desc->status.b.l = 1;
-	dma_desc->status.b.ioc = 1;
-	if (ep->is_in && bytes) {
-		dma_desc->status.b.sp =
-		    (bytes % ep->maxpacket) ? 1 : ((ep->sent_zlp) ? 1 : 0);
-	} else {
-		if (!(maxxfer_local == ep->maxpacket))
-			dma_desc->status.b.bytes =
-		    		bytes + ((4 - (bytes & 0x3)) & 0x3);
-	}
-	dma_desc->status.b.sts = 0;
-	dma_desc->status.b.bs = BS_HOST_READY;
 }
 
 /**
@@ -3654,8 +3638,7 @@ static int32_t write_isoc_tx_fifo(dwc_otg_core_if_t * core_if, dwc_ep_t * dwc_ep
  * @param ep The EP to start the transfer on.
  */
 
-void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
-									dwc_otg_pcd_request_t *req)
+void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 {
 	depctl_data_t depctl;
 	deptsiz_data_t deptsiz;
@@ -3717,17 +3700,12 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 		/* Write the DMA register */
 		if (core_if->dma_enable) {
 			if (core_if->dma_desc_enable == 0) {
-				dma_addr_t buf_dma;
-				if (req->dw_align_buf_dma)
-					buf_dma = req->dw_align_buf_dma + ep->xfer_count;
-				else
-					buf_dma = req->dma[0] + ep->xfer_count;
 				if (ep->type != DWC_OTG_EP_TYPE_ISOC)
 					deptsiz.b.mc = 1;
 				DWC_WRITE_REG32(&in_regs->dieptsiz,
 						deptsiz.d32);
 				DWC_WRITE_REG32(&(in_regs->diepdma),
-						(uint32_t) buf_dma);
+						(uint32_t) ep->dma_addr);
 			} else {
 #ifdef DWC_UTE_CFI
 				/* The descriptor chain should be already initialized by now */
@@ -3736,8 +3714,8 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 							ep->descs_dma_addr);
 				} else {
 #endif
-					init_dma_desc_chain(core_if, ep, req);
-					/** DIEPDMAn Register write */
+					init_dma_desc_chain(core_if, ep);
+				/** DIEPDMAn Register write */
 					DWC_WRITE_REG32(&in_regs->diepdma,
 							ep->dma_desc_addr);
 #ifdef DWC_UTE_CFI
@@ -3840,16 +3818,11 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 
 		if (core_if->dma_enable) {
 			if (!core_if->dma_desc_enable) {
-				dma_addr_t buf_dma;
-				if (req->dw_align_buf_dma)
-					buf_dma = req->dw_align_buf_dma;
-				else
-					buf_dma = req->dma[0];
 				DWC_WRITE_REG32(&out_regs->doeptsiz,
 						deptsiz.d32);
 
 				DWC_WRITE_REG32(&(out_regs->doepdma),
-						(uint32_t) buf_dma);
+						(uint32_t) ep->dma_addr);
 			} else {
 #ifdef DWC_UTE_CFI
 				/* The descriptor chain should be already initialized by now */
@@ -3861,7 +3834,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 					/** This is used for interrupt out transfers*/
 					if (!ep->xfer_len)
 						ep->xfer_len = ep->total_len;
-					init_dma_desc_chain(core_if, ep, req);
+					init_dma_desc_chain(core_if, ep);
 
 					if (core_if->core_params->dev_out_nak) {
 						if (ep->type == DWC_OTG_EP_TYPE_BULK) {
@@ -4141,13 +4114,14 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 				dma_desc->status.b.sp =
 				    (ep->xfer_len == ep->maxpacket) ? 0 : 1;
 				dma_desc->status.b.bytes = ep->xfer_len;
-				dma_desc->buf = ep->xfer_len ? ep->dma_addr : 0;
+				dma_desc->buf = ep->dma_addr;
 				dma_desc->status.b.sts = 0;
 				dma_desc->status.b.bs = BS_HOST_READY;
 
 				/** DIEPDMA0 Register write */
 				DWC_WRITE_REG32(&in_regs->diepdma,
-						core_if->dev_if->dma_in_desc_addr);
+						core_if->
+						dev_if->dma_in_desc_addr);
 			}
 		} else {
 			DWC_WRITE_REG32(&in_regs->dieptsiz, deptsiz.d32);
@@ -4224,7 +4198,8 @@ void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
 
 				/** DOEPDMA0 Register write */
 				DWC_WRITE_REG32(&out_regs->doepdma,
-						core_if->dev_if->dma_out_desc_addr);
+						core_if->dev_if->
+						dma_out_desc_addr);
 			}
 		} else {
 			DWC_WRITE_REG32(&out_regs->doeptsiz, deptsiz.d32);

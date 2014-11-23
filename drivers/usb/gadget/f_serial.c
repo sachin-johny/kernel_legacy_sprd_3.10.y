@@ -354,11 +354,6 @@ static void gser_unbind(struct usb_configuration *c, struct usb_function *f)
 	usb_free_all_descriptors(f);
 }
 #ifdef CONFIG_USB_SPRD_DWC
-
-static void gser_setup_complete(struct usb_ep *ep, struct usb_request *req)
-{
-}
-
 static int gser_setup(struct usb_composite_dev *cdev, const struct usb_ctrlrequest *ctrl)
 {
 	u16 w_length = le16_to_cpu(ctrl->wLength);
@@ -379,7 +374,6 @@ static int gser_setup(struct usb_composite_dev *cdev, const struct usb_ctrlreque
 		int rc;
 		cdev->req->zero = value < w_length;
 		cdev->req->length = value;
-		cdev->req->complete = gser_setup_complete;
 		rc = usb_ep_queue(cdev->gadget->ep0, cdev->req, GFP_ATOMIC);
 		if (rc < 0)
 			printk("%s setup response queue error\n", __func__);
