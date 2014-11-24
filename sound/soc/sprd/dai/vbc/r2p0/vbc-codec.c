@@ -1828,9 +1828,13 @@ static int vbc_eq_loading(struct snd_soc_codec *codec)
 		goto req_fw_err;
 	}
 	fw_data = fw->data;
-	old_num_profile = p_eq_setting->hdr.num_profile;
-	for (vbc_idx = 0; vbc_idx < VBC_IDX_MAX; vbc_idx++) {
-		old_num_da[vbc_idx] = p_eq_setting->hdr.num_da[vbc_idx];
+    old_num_profile = p_eq_setting->hdr.num_profile;
+    if (fw_data == NULL) {
+        pr_err("ERR:firmware data error!\n");
+        goto eq_out;
+    }
+    for (vbc_idx = 0; vbc_idx < VBC_IDX_MAX; vbc_idx++) {
+        old_num_da[vbc_idx] = p_eq_setting->hdr.num_da[vbc_idx];
 	}
 
 	memcpy(&p_eq_setting->hdr, fw_data, sizeof(p_eq_setting->hdr));
