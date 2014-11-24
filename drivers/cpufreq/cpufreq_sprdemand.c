@@ -349,9 +349,9 @@ int a_score_sub[4][4][11]=
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
-		{0,0,0,0,0,0,0,0,5,10,20},
-		{-10,-5,-5,0,0,0,0,0,0,5,10},
-		{-20,-10,-5,0,0,0,0,0,0,5,10},
+		{0,0,0,0,0,0,0,0,13,13,30},
+		{-9,-9,0,0,0,0,0,0,9,9,10},
+		{-18,-9,0,0,0,0,0,0,4,5,9},
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
@@ -817,14 +817,12 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 		if (policy->cur < policy->max)
 			dbs_info->rate_mult =
 				sd_tuners->sampling_down_factor;
-#ifndef CONFIG_ARCH_SCX35L
+
 		if(num_online_cpus() == sd_tuners->cpu_num_limit)
 			dbs_freq_increase(policy, policy->max);
 		else
 			dbs_freq_increase(policy, policy->max-1);
-#else
-		dbs_freq_increase(policy, policy->max);
-#endif
+
 		goto plug_check;
 	}
 
