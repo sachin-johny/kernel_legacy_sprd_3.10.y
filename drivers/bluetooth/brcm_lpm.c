@@ -912,6 +912,7 @@ static const struct file_operations lpm_proc_btwake_fops = {
 	.open = bluepower_open_proc_btwake,
 	.read = seq_read,
 	.write = bluepower_write_proc_btwake,
+	.release = single_release,
 };
 
 
@@ -919,6 +920,7 @@ static const struct file_operations lpm_proc_hostwake_fops = {
 		.owner = THIS_MODULE,
 		.open = bluepower_open_proc_hostwake,
 		.read = seq_read,
+		.release = single_release,
 	};
 
 static const struct file_operations lpm_proc_proto_fops = {
@@ -926,6 +928,7 @@ static const struct file_operations lpm_proc_proto_fops = {
 	.open= bluesleep_open_proc_proto,
 	.read=seq_read,
 	.write = bluesleep_write_proc_proto,
+	.release = single_release,
 };
 
 static const struct file_operations lpm_proc_asleep_fops = {
@@ -933,6 +936,7 @@ static const struct file_operations lpm_proc_asleep_fops = {
 	.open= bluesleep_open_proc_asleep,
 	.read= seq_read,
 //	.read = bluesleep_read_proc_asleep,
+	.release = single_release,
 };
 
 static const struct file_operations lpm_proc_lpm_fops = {
@@ -940,6 +944,7 @@ static const struct file_operations lpm_proc_lpm_fops = {
 	.open= bluesleep_open_proc_lpm,
 	.read = seq_read,
 	.write = bluesleep_write_proc_lpm,
+	.release = single_release,
 };
 
 static const struct file_operations lpm_proc_btwrite_fops = {
@@ -947,6 +952,7 @@ static const struct file_operations lpm_proc_btwrite_fops = {
 	.open = bluesleep_open_proc_btwrite,
 	.read = seq_read,
 	.write = bluesleep_write_proc_btwrite,
+	.release = single_release,
 };
 
 
