@@ -25,7 +25,7 @@
 #define DOWNLOAD_POWER_ON	_IO(DOWNLOAD_IOCTL_BASE, 0x01)
 #define DOWNLOAD_POWER_OFF	_IO(DOWNLOAD_IOCTL_BASE, 0x02)
 #define DOWNLOAD_POWER_RST	_IO(DOWNLOAD_IOCTL_BASE, 0x03)
-//#define DOWNLOAD_GPIO_RST	(47)
+
 #define DOWNLOAD_GPIO_RST	(122)
 
 
@@ -72,13 +72,21 @@ static void sprd_download_poweron(bool enable)
 {
 	int ret;
 	static struct regulator *download_vdd = NULL;
+	static struct regulator *vddwifipa = NULL;
 
 	if (download_vdd == NULL) {
-		//download_vdd = regulator_get(NULL, "vddwrf");
 		download_vdd = regulator_get(NULL, "vddcon");
 
 		if (IS_ERR(download_vdd)) {
-			pr_err("Get regulator of vddwrf  error!\n");
+			printk("Get regulator of vddcon  error!\n");
+			return;
+		}
+	}
+
+	if (vddwifipa == NULL) {
+		vddwifipa = regulator_get(NULL, "vddwifipa");
+		if (IS_ERR(vddwifipa)) {
+			printk("Get regulator of vddwifipa  error!\n");
 			return;
 		}
 	}
@@ -86,9 +94,13 @@ static void sprd_download_poweron(bool enable)
 	if (enable) {
 		regulator_set_voltage(download_vdd, 1600000, 1600000);
 		ret = regulator_enable(download_vdd);
+
+		regulator_set_voltage(vddwifipa, 3300000, 3300000);
+		ret = regulator_enable(vddwifipa);
 	}
 	else if (regulator_is_enabled(download_vdd)) {
 		ret = regulator_disable(download_vdd);
+		ret = regulator_disable(vddwifipa);
 	}
 }
 
