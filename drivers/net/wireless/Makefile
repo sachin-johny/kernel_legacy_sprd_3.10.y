@@ -61,3 +61,4 @@ obj-$(CONFIG_BRCMFMAC)	+= brcm80211/
 obj-$(CONFIG_BRCMSMAC)	+= brcm80211/
 
 obj-$(CONFIG_SPRDWL)	+= sprdwl/
+obj-$(CONFIG_SPRDWL_MEM_ALLOC) += sprdwl/sprdwl_mem_alloc/

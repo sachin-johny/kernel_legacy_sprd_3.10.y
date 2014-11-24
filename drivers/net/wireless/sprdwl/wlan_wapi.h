@@ -19,7 +19,7 @@
 #ifndef __WAPI_H__
 #define __WAPI_H__
 
-#include "sprdwl.h"
+#include "wlan_common.h"
 
 #ifndef false
 #define false 0
@@ -92,12 +92,12 @@
 #define MAC_UDP_DATA_LEN          1472
 #define MAX_UDP_IP_PKT_LEN        (MAC_UDP_DATA_LEN + UDP_DATA_OFFSET)
 
-extern unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
+extern unsigned short wlan_tx_wapi_encryption(wlan_vif_t *vif,
 					      unsigned char *data,
 					      unsigned short data_len,
 					      unsigned char *ouput_buf);
 
-extern unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
+extern unsigned short wlan_rx_wapi_decryption(wlan_vif_t *vif,
 					      unsigned char *input_ptk,
 					      unsigned short header_len,
 					      unsigned short data_len,
@@ -114,46 +114,45 @@ static inline bool is_group(unsigned char *addr)
 	return false;
 }
 
-static inline unsigned char *inc_wapi_pairwise_key_txrsc(struct sprdwl_priv
-							 *priv)
+static inline unsigned char *inc_wapi_pairwise_key_txrsc(wlan_vif_t *vif)
 {
 	int i;
 
-	priv->key_txrsc[1][15] += 2;
+	 vif->cfg80211.key_txrsc[1][15] += 2;
 
-	if (priv->key_txrsc[1][15] == 0x00) {
+	if (vif->cfg80211.key_txrsc[1][15] == 0x00) {
 		for (i = 14; i >= 0; i--) {
-			priv->key_txrsc[1][i] += 1;
-			if ((priv->key_txrsc[1][i]) != 0x00)
+			vif->cfg80211.key_txrsc[1][i] += 1;
+			if ((vif->cfg80211.key_txrsc[1][i]) != 0x00)
 				break;
 		}
 	}
 
-	return priv->key_txrsc[1];
+	return vif->cfg80211.key_txrsc[1];
 }
 
-static inline unsigned char *mget_wapi_group_pkt_key(struct sprdwl_priv *priv,
+static inline unsigned char *mget_wapi_group_pkt_key(wlan_vif_t *vif,
 						     int index)
 {
-	return (index >= 3) ? NULL : priv->key[0][index];
+	return (index >= 3) ? NULL : vif->cfg80211.key[0][index];
 }
 
-static inline unsigned char *mget_wapi_pairwise_pkt_key(struct sprdwl_priv
-							*priv, int index)
+static inline unsigned char *mget_wapi_pairwise_pkt_key(wlan_vif_t
+							*vif, int index)
 {
-	return (index >= 3) ? NULL : priv->key[1][index];
+	return (index >= 3) ? NULL : vif->cfg80211.key[1][index];
 }
 
-static inline unsigned char *mget_wapi_group_mic_key(struct sprdwl_priv *priv,
+static inline unsigned char *mget_wapi_group_mic_key(wlan_vif_t *vif,
 						     int index)
 {
-	return (index >= 3) ? NULL : ((u8 *)priv->key[0][index] + 16);
+	return (index >= 3) ? NULL : ((u8 *)vif->cfg80211.key[0][index] + 16);
 }
 
-static inline unsigned char *mget_wapi_pairwise_mic_key(struct sprdwl_priv
-							*priv, int index)
+static inline unsigned char *mget_wapi_pairwise_mic_key(wlan_vif_t
+							*vif, int index)
 {
-	return (index >= 3) ? NULL : ((u8 *)priv->key[1][index] + 16);
+	return (index >= 3) ? NULL : ((u8 *)vif->cfg80211.key[1][index] + 16);
 }
 
 #endif /* __WAPI_H__ */

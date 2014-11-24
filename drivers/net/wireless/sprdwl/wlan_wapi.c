@@ -17,9 +17,7 @@
  * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  * GNU General Public License for more details.
  */
-
-#include "cfg80211.h"
-#include "wapi.h"
+#include "wlan_wapi.h"
 
 #define KEYID_LEN 1
 #define RESERVD_LEN 1
@@ -339,7 +337,7 @@ void WapiCryptoSms4Mic(unsigned char *iv, unsigned char *key,
 	SMS4_Run(key_store, sms4Input, mic);
 }
 
-unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
+unsigned short wlan_tx_wapi_encryption(wlan_vif_t *vif,
 				       unsigned char *data,
 				       unsigned short len,
 				       unsigned char *ouput_buf)
@@ -363,8 +361,8 @@ unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 	unsigned char *p_outputdata = ouput_buf;
 	unsigned char data_mic[16] = { 0 };
 
-	unsigned char *iv = inc_wapi_pairwise_key_txrsc(priv);
-	unsigned char keyid = priv->key_index[PAIRWISE];
+	unsigned char *iv = inc_wapi_pairwise_key_txrsc(vif);
+	unsigned char keyid = vif->cfg80211.key_index[PAIRWISE];
 
 	int i = 0;
 
@@ -387,9 +385,8 @@ unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 
 	/* jump over duration id */
 	offset += 2;
-
 	/* save addr1 addr2 */
-	memcpy(p_ptk_header, priv->bssid, 6);
+	memcpy(p_ptk_header, vif->cfg80211.bssid, 6);
 	memcpy(p_ptk_header + 6, data + 6, 6);
 	p_ptk_header += 12;
 	offset += 12;
@@ -478,7 +475,7 @@ unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 
 	/* calc mic */
 	WapiCryptoSms4Mic(iv,
-			  mget_wapi_pairwise_mic_key(priv, keyid),
+			  mget_wapi_pairwise_mic_key(vif, keyid),
 			  ptk_header, ptk_headr_len, data_pos, data_len,
 			  data_mic);
 
@@ -487,7 +484,7 @@ unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 
 	/* encryption data(inclue mic) & save keyid & iv */
 	WapiCryptoSms4(iv,
-		       mget_wapi_pairwise_pkt_key(priv, keyid),
+		       mget_wapi_pairwise_pkt_key(vif, keyid),
 		       data_pos, data_len, data_mic, p_outputdata + 1 + 1 + 16);
 	if (snap_flag)
 		memcpy(data_pos, snap_backup, sizeof(snap_hdr));
@@ -503,11 +500,10 @@ unsigned short wlan_tx_wapi_encryption(struct sprdwl_priv *priv,
 		*p_outputdata = iv[i];
 		p_outputdata++;
 	}
-
 	return data_len + 1 + 1 + 16;
 }
 
-unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
+unsigned short wlan_rx_wapi_decryption(wlan_vif_t *vif,
 				       unsigned char *input_ptk,
 				       unsigned short header_len,
 				       unsigned short data_len,
@@ -542,7 +538,7 @@ unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
 		/* add qos len 2 byte */
 		ptk_headr_len += 2;
 	}
-
+        
 	/* valid addr4 in case:ToDS==1 && FromDS==1 */
 	if ((*(p_ptk_header + 1) & 0x03) != 0x03)
 		valid_addr4 = false;
@@ -554,7 +550,8 @@ unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
 	offset += 2;
 
 	/* save addr1 addr2 */
-	memcpy(p_ptk_header, &input_ptk[offset], 12);
+       memcpy(p_ptk_header, &input_ptk[offset], 6);
+       memcpy(p_ptk_header + 6, vif->cfg80211.bssid, 6);
 	is_group_ptk = is_group(p_ptk_header);
 	p_ptk_header += 12;
 	offset += 12;
@@ -629,11 +626,10 @@ unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
 		if ((iv[15] & 0x01) != 0x01)
 			return 0;
 	}
-
 	/* decryption */
 	if (is_group_ptk) {
 		WapiCryptoSms4(iv,
-			       mget_wapi_group_pkt_key(priv, keyid),
+			       mget_wapi_group_pkt_key(vif, keyid),
 			       (input_ptk + header_len + KEYID_LEN +
 				RESERVD_LEN + PN_LEN), encryp_data_len,
 			       (input_ptk + header_len + KEYID_LEN +
@@ -641,24 +637,24 @@ unsigned short wlan_rx_wapi_decryption(struct sprdwl_priv *priv,
 			       output_buf);
 	} else {
 		WapiCryptoSms4(iv,
-			       mget_wapi_pairwise_pkt_key(priv, keyid),
+			       mget_wapi_pairwise_pkt_key(vif, keyid),
 			       (input_ptk + header_len + KEYID_LEN +
 				RESERVD_LEN + PN_LEN), encryp_data_len,
 			       (input_ptk + header_len + KEYID_LEN +
 				RESERVD_LEN + PN_LEN + encryp_data_len - 16),
 			       output_buf);
 	}
-	memcpy(data_mic, output_buf + ral_data_len, MIC_LEN);
+	memcpy(data_mic, output_buf + ral_data_len, MIC_LEN);     
 
 	/* calc mic */
 	if (is_group_ptk) {
 		WapiCryptoSms4Mic(iv,
-				  mget_wapi_group_mic_key(priv, keyid),
+				  mget_wapi_group_mic_key(vif, keyid),
 				  ptk_header, ptk_headr_len,
 				  (output_buf), ral_data_len, calc_data_mic);
 	} else {
 		WapiCryptoSms4Mic(iv,
-				  mget_wapi_pairwise_mic_key(priv, keyid),
+				  mget_wapi_pairwise_mic_key(vif, keyid),
 				  ptk_header, ptk_headr_len,
 				  (output_buf), ral_data_len, calc_data_mic);
 	}

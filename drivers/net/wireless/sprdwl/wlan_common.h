@@ -1,0 +1,263 @@
+#ifndef SPRD_WLAN_COMMON_H_
+#define SPRD_WLAN_COMMON_H_
+
+#include <linux/proc_fs.h>
+#include <linux/sipc.h>
+#include <linux/mutex.h>
+#include <linux/spinlock.h>
+#include <linux/ieee80211.h>
+#include <linux/printk.h>
+#include <linux/inetdevice.h>
+#include <linux/spinlock.h>
+#include <net/cfg80211.h>
+#include <linux/kernel.h>
+#include <linux/errno.h>
+#include <linux/module.h>
+#include <linux/netdevice.h>
+#include <linux/skbuff.h>
+#include <net/ieee80211_radiotap.h>
+#include <linux/etherdevice.h>
+#include <linux/wireless.h>
+#include <net/iw_handler.h>
+#include <linux/string.h>
+#include <linux/delay.h>
+#include <linux/interrupt.h>
+#include <linux/init.h>
+#include <linux/wakelock.h>
+#include <linux/workqueue.h>
+#include <linux/ipv6.h>
+#include <linux/ip.h>
+#include <linux/inetdevice.h>
+#include <asm/byteorder.h>
+#include <linux/platform_device.h>
+#include <linux/atomic.h>
+#include <linux/wait.h>
+#include <linux/semaphore.h>
+#include <linux/vmalloc.h>
+#include <linux/kthread.h>
+#include <linux/time.h>
+#include <linux/delay.h>
+#include <linux/timer.h>
+#include <linux/completion.h>
+#include <asm/atomic.h>
+#include <linux/ieee80211.h>
+#include <linux/delay.h>
+#include <linux/wakelock.h>
+#include <linux/earlysuspend.h>
+#include <mach/gpio.h>
+#include "wlan_event_q.h"
+#include "wlan_fifo.h"
+#include "wlan_cmd.h"
+#include "wlan_cfg80211.h"
+
+#define WLAN_DRV_SLEEP
+#define WIFI_DRV_WAPI
+ 
+#define KERNEL_VERSION(a, b, c)              (((a) << 16) + ((b) << 8) + (c))
+#define LINUX_VERSION_CODE                   KERNEL_VERSION(3, 10, 0)
+#define GPIO_POLL_SUPPORT
+
+#define SDIO_ALIGN_SIZE                      (1024)
+#define ALIGN_4BYTE(a)                       (  (((a)+3)&(~3))  ) 
+#define INCR_RING_BUFF_INDX(indx,max_num)    ((((indx) + 1) < (max_num)) ?  ((indx) + 1) : (0) )
+#define MAX_TX_BUFFER_ID                     (12)
+#define TEST_BIT(a, k)                       ((a>>k)&1)
+#define CLEAR_BIT(a, k)                      ({a = ( a&(~(1<<k)) );0;})
+#define SET_BIT(a, k)                        ({a=( a | (1<<k) ); 0; })
+#define WLAN_SYSTEM_DBG                      TEST_BIT(g_dbg, 1)
+#define WLAN_PATH_DBG                        TEST_BIT(g_dbg, 2)
+#define WLAN_HEX_DBG                         TEST_BIT(g_dbg, 3)
+#define ETH_PCAP                             TEST_BIT(g_dbg, 4)
+#define MAC_PCAP                             TEST_BIT(g_dbg, 5)
+#define ETH_ALEN		                     6
+#define SIOGETSSID                           0x89F2
+#define PKT_AGGR_NUM                         (10)
+#if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
+#define KERNEL_DEBUG_LEVE     "\001" "0"
+#else
+#define KERNEL_DEBUG_LEVE       "<0>"
+#endif
+
+#define printkd(fmt, ...)     ({if(WLAN_SYSTEM_DBG)printk("[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define printkp(fmt, ...)     ({if(WLAN_PATH_DBG)printk("[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define printke(fmt, ...)     ({printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define ASSERT(fmt, ...)      ({printk(KERNEL_DEBUG_LEVE  "[SC2331-ASSERT][%s][%d]" fmt "\n", __func__, __LINE__,  ##__VA_ARGS__); 0; })
+
+#define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
+#define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
+
+typedef struct
+{
+	unsigned char  chn[16];
+	unsigned char  num;
+	unsigned short bit_map;
+	spinlock_t     lock;
+}sdio_chn_t;
+
+typedef enum
+{
+	EVENT_Q_ID_0   = 0,
+	EVENT_Q_ID_1   = 1,
+	EVENT_Q_ID_2   = 2,
+	EVENT_Q_ID_3   = 3,
+	EVENT_Q_ID_4   = 4,
+	EVENT_Q_MAX_ID = 5,
+}EVENT_Q_ID_T;
+
+typedef enum
+{
+	NETIF_0_ID   = 0,
+	NETIF_1_ID   = 1,
+	WLAN_MAX_ID  = 2,
+}NETIF_ID_T;
+
+typedef struct
+{
+	int              exit;
+	struct semaphore sem;
+}drv_sync_t;
+
+typedef struct
+{
+	sdio_chn_t            sdio_tx_chn;
+	sdio_chn_t            sdio_rx_chn;
+	unsigned int          tx_cnt;
+	unsigned int          rx_cnt;
+	unsigned int          rx_record;
+	struct wake_lock      wlan_lock;
+	struct early_suspend  early_suspend;
+	int                   wakeup;
+	struct timer_list     wakeup_timer;
+	unsigned long         wakeup_time;
+	int                   can_sleep;
+}hw_info_t;
+typedef struct
+{
+	m_event_t          tx_q;
+	txfifo_t           tx_fifo;
+	int                status;
+}tx_buf_t;
+
+typedef struct
+{
+	struct task_struct *task;
+	struct semaphore    sem;	
+}wlan_thread_t;
+
+typedef struct
+{
+	unsigned char      mac[ETH_ALEN];
+	unsigned char      netif_id;
+	unsigned char      prio;
+	unsigned char      wmm_supp;
+	unsigned char      status;
+}net_connect_dev_t;
+
+typedef struct
+{
+	wait_queue_head_t  waitQ;
+	int                wakeup;
+	struct mutex       cmd_lock;
+	unsigned char     *mem;
+}wlan_cmd_t;
+
+typedef struct
+{
+    struct work_struct       work;
+    unsigned short           frame_type;
+    bool                     reg;
+    void                    *vif;
+}register_frame_param_t;
+
+typedef struct
+{
+	struct wake_lock                  scan_done_lock;
+	atomic_t                          scan_status;
+	struct cfg80211_scan_request     *scan_request;
+	struct timer_list                 scan_timeout;
+	int                               connect_status;
+	int                               ssid_len;
+	unsigned char                     ssid[IEEE80211_MAX_SSID_LEN];
+	unsigned char                     bssid[ETH_ALEN];
+	unsigned char                     cipher_type;
+	unsigned char                     key_index[2];
+	unsigned char                     key[2][4][WLAN_MAX_KEY_LEN];
+	unsigned char                     key_len[2][4];
+	unsigned char                     key_txrsc[2][WLAN_MAX_KEY_LEN];
+	unsigned char                    *scan_frame_array;
+	int                               p2p_mode;
+	register_frame_param_t            register_frame;
+}wlan_cfg80211_t;
+
+/* Best not to use the work to send deauth cmd
+ * FIXME in the future
+ */
+struct deauth_info {
+	struct work_struct work;
+	/* 60 length is enough, maybe FIXME */
+	unsigned char mac[60];
+	unsigned short len;
+};
+
+typedef struct
+{
+	struct net_device                *ndev;
+	struct wireless_dev               wdev;
+	unsigned short                    id;
+	unsigned char                     mac[ETH_ALEN];
+	int                               mode;	
+	wlan_cfg80211_t                   cfg80211;
+	net_connect_dev_t                 connect_dev[8];
+	struct deauth_info	deauth_info;
+	txfifo_t                          txfifo;
+	m_event_t                         event_q[EVENT_Q_MAX_ID];
+}wlan_vif_t;
+
+typedef struct
+{
+	struct wiphy       *wiphy;
+	struct device      *dev;
+	wlan_thread_t       wlan_core;
+	wlan_thread_t       wlan_trans;
+	hw_info_t           hw;
+	wlan_cmd_t          cmd;
+	drv_sync_t          sync;	
+	wlan_vif_t          netif[2];
+	rxfifo_t            rxfifo;
+}wlan_info_t;
+
+
+extern void core_down(void);
+extern void core_up(void);
+extern void trans_down(void );
+extern void trans_up(void );
+extern void up_wlan_rx_trans(void );
+extern int wlan_module_init(struct device *dev);
+extern int wlan_module_exit(struct device *dev);
+extern int hex_dump(unsigned char  *name, unsigned short nLen, unsigned char *pData,  unsigned short len);
+extern void init_register_frame_param(wlan_vif_t *vif );
+extern void init_send_deauth_work(wlan_vif_t *vif);
+extern wlan_vif_t *ndev_to_vif(struct net_device *ndev);
+extern wlan_vif_t *id_to_vif(unsigned char id);
+extern int hostap_conf_load(char *filename, unsigned char *key_val);
+extern int mac_addr_cfg(wlan_vif_t *vif, unsigned char vif_id);
+extern int wlan_vif_init(wlan_vif_t  *vif, int type, const char *name, void *ops);
+extern int wlan_wiphy_new(wlan_info_t *wlan);
+extern int wlan_vif_free(wlan_vif_t *vif);
+extern int wlan_wiphy_free(wlan_info_t *wlan);
+extern void wlan_nl_init(void );
+extern void wlan_nl_deinit(void );
+
+extern bool get_sdiohal_status(void);
+extern int  sdio_chn_status(unsigned short chn, unsigned short *status);
+extern int  sdio_dev_read(unsigned int chn,void* read_buf,unsigned int *count);
+extern int  sdio_dev_write(unsigned int chn,void* data_buf,unsigned int count);
+extern int  sdiodev_readchn_init(int chn, void *callback, bool with_para );
+extern int  sdio_read_wlan(unsigned int chn,void* read_buf,unsigned int *count);
+extern void marlin_pa_enable(bool enable);
+extern int set_marlin_wakeup(unsigned int chn,unsigned int user_id);
+extern int set_marlin_sleep(unsigned int  chn,unsigned int user_id);
+extern char * get_cmd_name(int id);
+extern unsigned int g_dbg;
+extern wlan_info_t g_wlan;
+#endif
