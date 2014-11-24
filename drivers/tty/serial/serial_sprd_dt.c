@@ -425,6 +425,11 @@ static void serial_sprd_set_termios(struct uart_port *port,
 	unsigned int lcr, fc;
 	/* ask the core to calculate the divisor for us */
 	baud = uart_get_baud_rate(port, termios, old, 1200, 3000000);
+#ifdef 	CONFIG_SPRD_2331
+    printk("marlin sprd_dt serial_sprd_set_termios baud %d\n", baud);
+    if(baud == 3000000)
+        baud = 3250000; // add this case, becaulse UART support 325000 baud rate
+#endif
 
 	quot = (unsigned int)((port->uartclk + baud / 2) / baud);
 

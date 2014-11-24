@@ -71,3 +71,4 @@ obj-$(CONFIG_SDIODEV)     += sdiodev/
 obj-$(CONFIG_MDBG)  += mdbg/
 obj-y	+= sprd_dwnload/
 obj-y	+= sprd_board_type.o
+obj-y	+= sprd_wcn/
