@@ -126,6 +126,10 @@
 #include "__board-sp9630ea.h"
 #endif
 
+#ifdef CONFIG_MACH_SP9630EA4MN
+#include "__board-sp9630ea4mn.h"
+#endif
+
 #ifdef CONFIG_MACH_SP9830EA3MN
 #include "__board-sp9830ea3mn.h"
 #endif
