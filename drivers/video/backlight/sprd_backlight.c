@@ -122,13 +122,11 @@ static int pwm_whiteled_both = 0;
 static int sprd_bl_whiteled_update_status(struct backlight_device *bldev);
 #endif
 
-static DEFINE_SPINLOCK(clock_en_lock);
 static void bl_pwm_clk_en(int enable)
 {
         unsigned long spin_lock_flags;
         static int current_state = 0;
 
-        spin_lock_irqsave(&clock_en_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_state) {
                         clk_prepare_enable(sprdbl.clk);
@@ -140,7 +138,6 @@ static void bl_pwm_clk_en(int enable)
                         current_state = 0;
                 }
         }
-        spin_unlock_irqrestore(&clock_en_lock, spin_lock_flags);
 
         return;
 }

@@ -84,13 +84,11 @@ static struct sprd_pwm_bl_device_data sprd_pwm_bl = {
         .gpio_active_level = 0,
 };
 
-static DEFINE_SPINLOCK(clock_en_lock);
 static void pwm_clk_en(int enable)
 {
         unsigned long spin_lock_flags;
         static int current_state = 0;
 
-        spin_lock_irqsave(&clock_en_lock, spin_lock_flags);
         if (1 == enable) {
                 if (0 == current_state) {
                         clk_prepare_enable(sprd_pwm_bl.clk);
@@ -102,7 +100,6 @@ static void pwm_clk_en(int enable)
                         current_state = 0;
                 }
         }
-        spin_unlock_irqrestore(&clock_en_lock, spin_lock_flags);
 
         return;
 }
