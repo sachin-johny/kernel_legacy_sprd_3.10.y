@@ -860,14 +860,6 @@ static int serial_sprd_suspend(struct platform_device *dev, pm_message_t state)
 
 	if (BT_RX_WAKE_UP == plat_data.wakeup_type) {
 		is_uart_rx_wakeup = false;
-	} else if (BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type) {
-		/*when the uart0 going to sleep,config the RTS pin of hardware flow
-		   control as the AF3 to make the pin can be set to high */
-		unsigned long fc = 0;
-		struct uart_port *port = serial_sprd_ports[0];
-		fc = serial_in(port, ARM_UART_CTL1);
-		fc &= ~(RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
-		serial_out(port, ARM_UART_CTL1, fc);
 	} else {
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
@@ -894,15 +886,6 @@ static int serial_sprd_resume(struct platform_device *dev)
 			is_uart_rx_wakeup = false;
 			wake_lock_timeout(&uart_rx_lock, HZ / 5);	// 0.2s
 		}
-	} else if (BT_RTS_HIGH_WHEN_SLEEP == plat_data.wakeup_type) {
-		/*when the uart0 waking up,reconfig the RTS pin of hardware flow control work
-		   in the hardware flow control mode to make the pin can be controlled by
-		   hardware */
-		unsigned long fc = 0;
-		struct uart_port *port = serial_sprd_ports[0];
-		fc = serial_in(port, ARM_UART_CTL1);
-		fc |= (RX_HW_FLOW_CTL_EN | TX_HW_FLOW_CTL_EN);
-		serial_out(port, ARM_UART_CTL1, fc);
 	} else {
 		pr_debug("BT host wake up feature has not been supported\n");
 	}
