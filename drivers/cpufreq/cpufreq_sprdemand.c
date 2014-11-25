@@ -83,6 +83,10 @@ struct unplug_work_info {
 
 struct delayed_work plugin_work;
 struct delayed_work unplug_work;
+#ifdef CONFIG_THERMAL
+struct work_struct thm_unplug_work;
+static void sprd_thm_unplug_cpu(struct work_struct *work);
+#endif
 
 static DEFINE_PER_CPU(struct unplug_work_info, uwi);
 
@@ -1615,6 +1619,9 @@ static int sd_init(struct dbs_data *dbs_data)
 
 	INIT_DELAYED_WORK(&plugin_work, sprd_plugin_one_cpu);
 	INIT_DELAYED_WORK(&unplug_work, sprd_unplug_one_cpu);
+#ifdef CONFIG_THERMAL
+	INIT_WORK(&thm_unplug_work, sprd_thm_unplug_cpu);
+#endif
 
 	for_each_possible_cpu(i) {
 		puwi = &per_cpu(uwi, i);
@@ -1726,14 +1733,44 @@ static int set_cur_state(struct thermal_cooling_device *cdev,
 		return 0;
 	}
 	sd_tuners->cpu_num_limit = max_core;
-	cpus = num_online_cpus();
-	for (i = 0; i < cpus - max_core; ++i){
-		schedule_delayed_work_on(0, &unplug_work, 0);
-	}
+	schedule_work_on(0, &thm_unplug_work);
 
 	return 0;
 }
 
+static void sprd_thm_unplug_cpu(struct work_struct *work)
+{
+	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
+	struct dbs_data *dbs_data = policy->governor_data;
+	struct sd_dbs_tuners *sd_tuners = NULL;
+	int cpuid, max_core, cpus, i;
+
+	if(NULL == dbs_data)
+	{
+		pr_info("%s return\n", __func__);
+		if (g_sd_tuners == NULL)
+			return ;
+		sd_tuners = g_sd_tuners;
+	}
+	else
+	{
+		sd_tuners = dbs_data->tuners;
+	}
+
+
+#ifdef CONFIG_HOTPLUG_CPU
+	cpus = num_online_cpus();
+	max_core = sd_tuners->cpu_num_limit;
+	for (i = 0; i < cpus - max_core; ++i){
+		if (!sd_tuners->cpu_hotplug_disable) {
+			cpuid = cpumask_next(0, cpu_online_mask);
+			pr_info("!!  we gonna unplug cpu%d  !!\n", cpuid);
+			cpu_down(cpuid);
+		}
+	}
+#endif
+	return;
+}
 static struct thermal_cooling_device_ops sprd_cpufreq_cooling_ops = {
 	.get_max_state = get_max_state,
 	.get_cur_state = get_cur_state,
