@@ -51,19 +51,11 @@ static void SPI_Enable( uint32_t spi_id, bool is_en)
 #endif
 	if(is_en)
 	{
-#ifdef CONFIG_OF
 		clk_prepare_enable(spi_clk);
-#else
-		clk_enable(spi_clk);
-#endif
 	}
 	else
 	{
-#ifdef CONFIG_OF
 		clk_disable_unprepare(spi_clk);
-#else
-		clk_disable(spi_clk);
-#endif
 	}
 }
 

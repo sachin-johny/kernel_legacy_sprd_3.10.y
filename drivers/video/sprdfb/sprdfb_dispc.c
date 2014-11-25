@@ -116,8 +116,8 @@ struct sprdfb_dispc_context {
 	bool			clk_is_open;
 	bool			clk_is_refreshing;
 	int				clk_open_count;
-	spinlock_t clk_spinlock;
-
+	//spinlock_t clk_spinlock;
+	struct semaphore clk_sem;
 	struct sprdfb_device	*dev;
 
 	uint32_t	 	vsync_waiter;
@@ -924,11 +924,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	else
 		dispc_update_clk(dev, dpi_clk, SPRDFB_FORCE_PCLK);
 
-#ifdef CONFIG_OF
 	ret = clk_prepare_enable(dispc_ctx.clk_dispc_emc);
-#else
-	ret = clk_enable(dispc_ctx.clk_dispc_emc);
-#endif
 	if(ret){
 		printk("sprdfb: enable clk_dispc_emc error!!!\n");
 		ret=-1;
@@ -1054,7 +1050,8 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 	int ret = 0;
 
 	if (!dispc_ctx.is_inited) {
-		spin_lock_init(&dispc_ctx.clk_spinlock);
+//		spin_lock_init(&dispc_ctx.clk_spinlock);
+		sema_init(&dispc_ctx.clk_sem, 1);
 	}
 
 	ret = dispc_clk_init(dev);
@@ -1092,14 +1089,15 @@ static int32_t sprdfb_dispc_early_init(struct sprdfb_device *dev)
 static int sprdfb_dispc_clk_disable(struct sprdfb_dispc_context *dispc_ctx_ptr, SPRDFB_DYNAMIC_CLK_SWITCH_E clock_switch_type)
 {
 	bool is_need_disable=false;
-	unsigned long irqflags;
+//	unsigned long irqflags;
 
 	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 	if(!dispc_ctx_ptr){
 		return 0;
 	}
 
-	spin_lock_irqsave(&dispc_ctx.clk_spinlock, irqflags);
+//	spin_lock_irqsave(&dispc_ctx.clk_spinlock, irqflags);
+	down(&dispc_ctx.clk_sem);
 	switch(clock_switch_type){
 		case SPRDFB_DYNAMIC_CLK_FORCE:
 			is_need_disable=true;
@@ -1126,21 +1124,16 @@ static int sprdfb_dispc_clk_disable(struct sprdfb_dispc_context *dispc_ctx_ptr, 
 
 	if(dispc_ctx_ptr->clk_is_open && is_need_disable){
 		pr_debug(KERN_INFO "sprdfb: sprdfb_dispc_clk_disable real\n");
-#ifdef CONFIG_OF
 		clk_disable_unprepare(dispc_ctx_ptr->clk_dispc);
 		clk_disable_unprepare(dispc_ctx_ptr->clk_dispc_dpi);
 		clk_disable_unprepare(dispc_ctx_ptr->clk_dispc_dbi);
-#else
-		clk_disable(dispc_ctx_ptr->clk_dispc);
-		clk_disable(dispc_ctx_ptr->clk_dispc_dpi);
-		clk_disable(dispc_ctx_ptr->clk_dispc_dbi);
-#endif
 		dispc_ctx_ptr->clk_is_open=false;
 		dispc_ctx_ptr->clk_is_refreshing=false;
 		dispc_ctx_ptr->clk_open_count=0;
 	}
 
-	spin_unlock_irqrestore(&dispc_ctx.clk_spinlock,irqflags);
+//	spin_unlock_irqrestore(&dispc_ctx.clk_spinlock,irqflags);
+	up(&dispc_ctx.clk_sem);
 
 	pr_debug(KERN_INFO "sprdfb: sprdfb_dispc_clk_disable type=%d refresh=%d,count=%d\n",clock_switch_type,dispc_ctx_ptr->clk_is_refreshing,dispc_ctx_ptr->clk_open_count);
 	return 0;
@@ -1151,44 +1144,33 @@ static int sprdfb_dispc_clk_enable(struct sprdfb_dispc_context *dispc_ctx_ptr, S
 	int ret = 0;
 	bool is_dispc_enable=false;
 	bool is_dispc_dpi_enable=false;
-	unsigned long irqflags;
+	//unsigned long irqflags;
 
 	pr_debug(KERN_INFO "sprdfb: [%s]\n",__FUNCTION__);
 	if(!dispc_ctx_ptr){
 		return -1;
 	}
 
-	spin_lock_irqsave(&dispc_ctx.clk_spinlock, irqflags);
+	//spin_lock_irqsave(&dispc_ctx.clk_spinlock, irqflags);
+	down(&dispc_ctx.clk_sem);
 
 	if(!dispc_ctx_ptr->clk_is_open){
 		pr_debug(KERN_INFO "sprdfb: sprdfb_dispc_clk_enable real\n");
-#ifdef CONFIG_OF
 		ret = clk_prepare_enable(dispc_ctx_ptr->clk_dispc);
-#else
-		ret = clk_enable(dispc_ctx_ptr->clk_dispc);
-#endif
 		if(ret){
 			printk("sprdfb: enable clk_dispc error!!!\n");
 			ret=-1;
 			goto ERROR_CLK_ENABLE;
 		}
 		is_dispc_enable=true;
-#ifdef CONFIG_OF
 		ret = clk_prepare_enable(dispc_ctx_ptr->clk_dispc_dpi);
-#else
-		ret = clk_enable(dispc_ctx_ptr->clk_dispc_dpi);
-#endif
 		if(ret){
 			printk("sprdfb: enable clk_dispc_dpi error!!!\n");
 			ret=-1;
 			goto ERROR_CLK_ENABLE;
 		}
 		is_dispc_dpi_enable=true;
-#ifdef CONFIG_OF
 		ret = clk_prepare_enable(dispc_ctx_ptr->clk_dispc_dbi);
-#else
-		ret = clk_enable(dispc_ctx_ptr->clk_dispc_dbi);
-#endif
 		if(ret){
 			printk("sprdfb: enable clk_dispc_dbi error!!!\n");
 			ret=-1;
@@ -1210,28 +1192,22 @@ static int sprdfb_dispc_clk_enable(struct sprdfb_dispc_context *dispc_ctx_ptr, S
 			break;
 	}
 
-	spin_unlock_irqrestore(&dispc_ctx.clk_spinlock,irqflags);
+	//spin_unlock_irqrestore(&dispc_ctx.clk_spinlock,irqflags);
+	up(&dispc_ctx.clk_sem);
 
 	pr_debug(KERN_INFO "sprdfb: sprdfb_dispc_clk_enable type=%d refresh=%d,count=%d,ret=%d\n",clock_switch_type,dispc_ctx_ptr->clk_is_refreshing,dispc_ctx_ptr->clk_open_count,ret);
 	return ret;
 
 ERROR_CLK_ENABLE:
 	if(is_dispc_enable){
-#ifdef CONFIG_OF
 		clk_disable_unprepare(dispc_ctx_ptr->clk_dispc);
-#else
-		clk_disable(dispc_ctx_ptr->clk_dispc);
-#endif
 	}
 	if(is_dispc_dpi_enable){
-#ifdef CONFIG_OF
 		clk_disable_unprepare(dispc_ctx_ptr->clk_dispc_dpi);
-#else
-		clk_disable(dispc_ctx_ptr->clk_dispc_dpi);
-#endif
 	}
 
-	spin_unlock_irqrestore(&dispc_ctx.clk_spinlock,irqflags);
+	//spin_unlock_irqrestore(&dispc_ctx.clk_spinlock,irqflags);
+	up(&dispc_ctx.clk_sem);
 
 	printk("sprdfb: sprdfb_dispc_clk_enable error!!!!!!\n");
 	return ret;
@@ -1551,11 +1527,7 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		msleep(50); /*fps>20*/
 
-#ifdef CONFIG_OF
-        clk_disable_unprepare(dispc_ctx.clk_dispc_emc);
-#else
-		clk_disable(dispc_ctx.clk_dispc_emc);
-#endif
+		clk_disable_unprepare(dispc_ctx.clk_dispc_emc);
 		sprdfb_dispc_clk_disable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
 //		sci_glb_clr(DISPC_EMC_EN, BIT_DISPC_EMC_EN);
 	}else{
