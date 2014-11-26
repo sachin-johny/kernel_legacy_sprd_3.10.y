@@ -23,6 +23,7 @@
 #include "thm.h"
 #include <linux/sprd_thm.h>
 #include <mach/arch_misc.h>
+#include "thermal_core.h"
 
 //#define SPRD_THM_DEBUG
 #ifdef SPRD_THM_DEBUG
@@ -82,7 +83,6 @@
 #define A_HOT2NOR_RANGE   15
 #define A_LOCAL_SENSOR_ADDR_OFF 0x100
 #define A_DELAY_TEMPERATURE 3
-#define INTOFFSET 3
 
 #define A_TSMC_DOLPHINW4T_CHIP_ID_1  0x7715A001
 #define A_TSMC_DOLPHINW4T_CHIP_ID_2  0x7715A003
@@ -623,10 +623,10 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 
 	__thm_reg_write((local_sensor_addr + SENSOR_INT_CLR), int_sts, ~0);	//CLR INT
 
-	THM_DEBUG("sprd_thm_hw_irq_handle --------@@@------id:%d, int_sts :0x%x \n",
+	printk("sprd_thm_hw_irq_handle --------@@@------id:%d, int_sts :0x%x \n",
 			pzone->sensor_id, int_sts);
 	temp = sprd_thm_temp_read(pzone);
-	THM_DEBUG("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n", temp);
+	printk("sprd_thm_hw_irq_handle ------$$$--------temp:%d\n", temp);
 
 	overhead_hot_tem_cur = __thm_reg_read((local_sensor_addr + SENSOR_HOT_THRES))
 											& RAW_TEMP_RANGE_MSK;
@@ -639,12 +639,12 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 			current_trip_num = trip_tab->num_trips - 2;
 			return ret;
 		}
-		if (temp >= trip_tab->trip_points[current_trip_num].temp - INTOFFSET){
+		if (temp >= trip_tab->trip_points[current_trip_num].temp - TRIP_TEMP_OFFSET){
 			current_trip_num++;
 			sprd_thm_set_active_trip(pzone,current_trip_num);
 		}
 	}else if (int_sts & SEN_LOWOFF_INT_BIT){
-		if (temp < trip_tab->trip_points[current_trip_num].lowoff + INTOFFSET){
+		if (temp < trip_tab->trip_points[current_trip_num].lowoff + TRIP_TEMP_OFFSET){
 			current_trip_num--;
 			sprd_thm_set_active_trip(pzone,current_trip_num);
 		}

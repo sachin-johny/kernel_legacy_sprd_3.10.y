@@ -16,8 +16,8 @@
 		id = <0>;
 		interrupts = <0 26 0x0>;
 		reg = <0xf5260000 0x1000>;
-		trip_points_active = <62 65 68>;
-		trip_points_lowoff = <55 55 58>;
+		trip_points_active = <60 90 110>;
+		trip_points_lowoff = <0 50 80>;
 		trip_points_critical = <110>;
 		trip_num = <4>;
 	};
@@ -45,9 +45,9 @@
 	sprd_cpu_cooling{
 		compatible = "sprd,sprd-cpu-cooling";
 		id = <0>;
-		max_freq = <1350000 900000 768000 768000>;
-		max_core = <4 4 4 1>;
-		state_num = <4>;
+		max_freq = <1350000 900000 768000>;
+		max_core = <4 4 1>;
+		state_num = <3>;
 	};
 
 };

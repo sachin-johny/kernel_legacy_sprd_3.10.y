@@ -151,8 +151,6 @@ static void thermal_zone_trip_update(struct thermal_zone_device *tz, int trip)
 }
 #else
 
-#define TEMP_OFFSET	3
-
 static int get_trip_target(struct thermal_zone_device *tz)
 {
 	int count = 0;
@@ -164,7 +162,7 @@ static int get_trip_target(struct thermal_zone_device *tz)
 	for (count = 0; count < tz->trips; count++) {
 		tz->ops->get_trip_temp(tz, count, &trip_temp);
 		printk("temp:%d, trip_temp:%d\n", tz->temperature, trip_temp);
-		if (tz->temperature < (long)trip_temp  - TEMP_OFFSET)
+		if (tz->temperature < (long)trip_temp  - TRIP_TEMP_OFFSET)
 			break;
 	}
 	return count;

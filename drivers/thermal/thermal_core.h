@@ -30,6 +30,7 @@
 /* Initial state of a cooling device during binding */
 #define THERMAL_NO_TARGET -1UL
 
+#define TRIP_TEMP_OFFSET	2
 /*
  * This structure is used to describe the behavior of
  * a certain cooling device on a certain trip point
