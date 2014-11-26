@@ -130,8 +130,8 @@
 #include "__board-sp9630ea4mn.h"
 #endif
 
-#ifdef CONFIG_MACH_SP9830EA3MN
-#include "__board-sp9830ea3mn.h"
+#ifdef CONFIG_MACH_SP9630EA3MN
+#include "__board-sp9630ea3mn.h"
 #endif
 
 #ifdef CONFIG_MACH_SP9630EA_3592M_3MOD

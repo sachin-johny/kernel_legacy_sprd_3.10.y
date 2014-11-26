@@ -365,8 +365,8 @@ config MACH_SP9630EA4MN
 	help
 	SPX35L board based on shark-l serial.
 
-config MACH_SP9830EA3MN
-	bool "sp9830ea3mn Board"
+config MACH_SP9630EA3MN
+	bool "sp9630ea3mn Board"
 	depends on ARCH_SC
 	depends on ARCH_SCX35
 	depends on ARCH_SCX35L
