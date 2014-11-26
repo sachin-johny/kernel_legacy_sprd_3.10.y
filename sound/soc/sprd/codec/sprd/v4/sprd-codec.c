@@ -1156,6 +1156,16 @@ static inline void sprd_codec_pa_en(struct snd_soc_codec *codec, int on)
 	spin_unlock(&sprd_codec->sprd_codec_pa_sw_lock);
 }
 
+static inline void sprd_codec_ovp_ldo_en(struct snd_soc_codec *codec, int on)
+{
+	int mask;
+	int val;
+	sp_asoc_pr_dbg("%s set %d\n", __func__, on);
+	mask = BIT(OVP_LDO_EN);
+	val = on ? mask : 0;
+	snd_soc_update_bits(codec, SOC_REG(ANA_PMU0), mask, val);
+}
+
 static inline void sprd_codec_linein_mute_init(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec->sprd_linein_mute = 0;
@@ -1237,7 +1247,8 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 	mutex_lock(&sprd_codec->inter_pa_mutex);
 	if (on) {
 		sprd_inter_speaker_pa_pre(codec);
-		sprd_codec_pa_ovp_v_sel(codec, PA_OVP_465);
+		sprd_codec_pa_ovp_v_sel(codec, PA_OVP_435);
+		sprd_codec_ovp_ldo_en(codec,1);
 		sprd_codec_ovp_irq_enable(codec);
 		sprd_codec_pa_d_en(codec, p_setting->is_classD_mode);
 		sprd_codec_pa_demi_en(codec, p_setting->is_DEMI_mode);

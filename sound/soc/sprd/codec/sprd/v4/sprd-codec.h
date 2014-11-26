@@ -119,6 +119,7 @@
 #define PA_SW_EN		    (15)
 #define PA_LDO_EN		    (14)
 #define PA_EN			    (13)
+#define OVP_LDO_EN      	(11)
 #define LDOCG_EN            (10)
 #define VB_EN			    (9)
 #define VBO_EN			    (8)
