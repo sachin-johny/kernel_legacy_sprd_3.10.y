@@ -85,10 +85,8 @@ void sprd_debug_check_crash_key(unsigned int code, int value)
 	if (!sprd_debug_level.en.kernel_fault)
 		return;
 
-#if 0
 	/* Must be deleted later */
 	pr_info("Test %s:key code(%d) value(%d),(up:%d,down:%d)\n", __func__, code, value, volup_p, voldown_p);
-#endif
 
 	/* Enter Force Upload
 	 *  Hold volume down key first
