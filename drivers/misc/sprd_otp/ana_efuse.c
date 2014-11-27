@@ -167,6 +167,7 @@ u32 __adie_efuse_read_bits(int bit_index, int length)
 	pr_debug("otp read bits %d ++ %d 0x%08x\n\n", bit_index, length, val);
 	return val;
 }
+EXPORT_SYMBOL_GPL(__adie_efuse_read_bits);
 
 static ssize_t adie_efuse_block_show(struct device *dev,
 				     struct device_attribute *attr, char *buf)

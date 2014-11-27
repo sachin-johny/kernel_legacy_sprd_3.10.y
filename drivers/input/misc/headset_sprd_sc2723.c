@@ -35,6 +35,9 @@
 #include <linux/slab.h>
 #include <linux/of_device.h>
 #endif
+#include <asm/div64.h>
+#include <linux/sched.h>
+#include <linux/timer.h>
 
 //====================  debug  ====================
 #define ENTER \
@@ -59,11 +62,11 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
  **********************************************/
 #define ADPGAR_BYP_SELECT
 
-#define PLUG_CONFIRM_COUNT (2)
+#define PLUG_CONFIRM_COUNT (1)
 #define NO_MIC_RETRY_COUNT (0)
 #define ADC_READ_COUNT (5)
 #define ADC_READ_LOOP (2)
-#define ADC_GND (100)
+#define ADC_GND (300)
 #define SCI_ADC_GET_VALUE_COUNT (50)
 
 #define EIC3_DBNC_CTRL (0x4C)
@@ -186,9 +189,9 @@ static inline uint32_t headset_reg_get_bit(uint32_t addr, uint32_t bit)
 }
 
 typedef enum sprd_headset_type {
-        HEADSET_NORMAL,
+        HEADSET_4POLE_NORMAL,
         HEADSET_NO_MIC,
-        HEADSET_NORTH_AMERICA,
+        HEADSET_4POLE_NOT_NORMAL,
         HEADSET_APPLE,
         HEADSET_TYPE_ERR = -1,
 } SPRD_HEADSET_TYPE;
@@ -200,6 +203,22 @@ static struct workqueue_struct *reg_dump_work_queue;
 static struct delayed_work adpgar_byp_select_work;
 static struct workqueue_struct *adpgar_byp_select_work_queue;
 #endif
+
+struct sprd_headset_auxadc_cal_l {
+	u32 A;
+	u32 B;
+	u32 E;
+	u32 cal_type;
+};
+
+#define SPRD_HEADSET_AUXADC_CAL_NO 0
+#define SPRD_HEADSET_AUXADC_CAL_DO 1
+
+static struct sprd_headset_auxadc_cal_l adc_cal_headset = {
+        0, 0,0,SPRD_HEADSET_AUXADC_CAL_NO,
+};
+
+
 
 static DEFINE_SPINLOCK(irq_button_lock);
 static DEFINE_SPINLOCK(irq_detect_lock);
@@ -540,7 +559,7 @@ static int adc_compare(int x1, int x2)
         int delta = 0;
         int max = 0;
 
-        if((x1<100) && (x2<100))
+        if((x1<300) && (x2<300))
                 return 1;
 
         x1 = ((0==x1) ? 1 : (x1*100));
@@ -578,7 +597,7 @@ static int adc_get_average(int gpio_num, int gpio_value)
 
                 while(count < 20) {
                         count++;
-                        adc_val = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 1);
+                        adc_val = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
                         gpio_button = gpio_get_value(pdata->gpio_button);
                         ana_pmu0 = sci_adi_read(HEADMIC_DETECT_REG(ANA_PMU0));
                         ana_hdt0 = sci_adi_read(HEADMIC_DETECT_REG(ANA_HDT0));
@@ -604,7 +623,8 @@ static int adc_get_average(int gpio_num, int gpio_value)
                         PRINT_INFO("ana_sts0_confirm failed!!! the adc read operation aborted (step2)\n");
                         return -1;
                 }
-                adc[0] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 1);
+                adc[0] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+
                 for(j=0; j<ADC_READ_COUNT-1; j++) {
                         udelay(100);
                         if(gpio_get_value(gpio_num) != gpio_value) {
@@ -615,7 +635,8 @@ static int adc_get_average(int gpio_num, int gpio_value)
                                 PRINT_INFO("ana_sts0_confirm failed!!! the adc read operation aborted (step4)\n");
                                 return -1;
                         }
-                        adc[j+1] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 1);
+                        adc[j+1] = wrap_sci_adc_get_value(ADC_CHANNEL_HEADMIC, 0);
+
                         if(0 == adc_compare(adc[j], adc[j+1])) {
                                 success = 0;
                                 for(k=0; k<=j+1; k++) {
@@ -625,7 +646,7 @@ static int adc_get_average(int gpio_num, int gpio_value)
                         }
                 }
                 if(1 == success) {
-                        msleep(SW_DBNC_VALUE);
+                        msleep(3);
                         if(gpio_get_value(gpio_num) != gpio_value) {
                                 PRINT_INFO("gpio value changed!!! the adc read operation aborted (step5)\n");
                                 return -1;
@@ -646,7 +667,7 @@ static int adc_get_average(int gpio_num, int gpio_value)
                         msleep(1);
                 }
         }
-
+        PRINT_INFO("adc_get_average out \n");
         return -1;
 }
 
@@ -731,7 +752,7 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
         int adc_current = 0;
         int count = 0;
         int adc_read_interval = 10;
-        msleep(5);
+
         adc_last = adc_get_average(pdata->gpio_detect, last_gpio_detect_value);
         if(-1 == adc_last) {
                 PRINT_INFO("headset_plug_confirm_by_adc failed!!!\n");
@@ -755,6 +776,7 @@ static int headset_plug_confirm_by_adc(int last_gpio_detect_value)
         PRINT_INFO("headset_plug_confirm_by_adc success!!!\n");
         return adc_current;
 }
+static int adc_get_ideal(u32 adc_mic);
 
 static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
 {
@@ -762,6 +784,7 @@ static SPRD_HEADSET_TYPE headset_type_detect(int last_gpio_detect_value)
         struct sprd_headset_platform_data *pdata = ht->platform_data;
         int adc_mic_average = 0;
         int adc_left_average = 0;
+        int adc_mic_ideal = 0;
         int no_mic_retry_count = NO_MIC_RETRY_COUNT;
 
         ENTER;
@@ -781,7 +804,7 @@ no_mic_retry:
         if(EIC_AUD_HEAD_INST2 == pdata->gpio_detect) {
                 PRINT_INFO("HEADSET_DETECT_GPIO=%d, matched the reference phone, now getting adc value of left\n", pdata->gpio_detect);
                 set_adc_to_headmic(0);
-                msleep(50);
+                msleep(100);
                 adc_left_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
                 if(-1 == adc_left_average)
                         return HEADSET_TYPE_ERR;
@@ -797,7 +820,11 @@ no_mic_retry:
         adc_mic_average = headset_plug_confirm_by_adc(last_gpio_detect_value);
         if(-1 == adc_mic_average)
                 return HEADSET_TYPE_ERR;
-
+        adc_mic_ideal = adc_get_ideal(adc_mic_average);
+        PRINT_INFO("adc_mic_average=%d, adc_mic_ideal=%d\n", adc_mic_average, adc_mic_ideal);
+        if(adc_mic_ideal >= 0) {
+            adc_mic_average = adc_mic_ideal;
+        }
         PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
         PRINT_INFO("adc_left_average = %d\n", adc_left_average);
 
@@ -819,10 +846,10 @@ no_mic_retry:
                 }
                 return HEADSET_NO_MIC;
         } else if((adc_left_average < ADC_GND) && (adc_mic_average > ADC_GND))
-                return HEADSET_NORMAL;
+                return HEADSET_4POLE_NORMAL;
         else if((adc_left_average > ADC_GND) && (adc_mic_average > ADC_GND)
                 && (ABS(adc_mic_average - adc_left_average) < ADC_GND))
-                return HEADSET_NORTH_AMERICA;
+                return HEADSET_4POLE_NOT_NORMAL;
         else
                 return HEADSET_TYPE_ERR;
 
@@ -854,6 +881,7 @@ static void headset_button_work_func(struct work_struct *work)
         int button_state_current = 0;
         int adc_mic_average = 0;
         int i = 0;
+        int adc_ideal = 0;
 
         down(&headset_sem);
         set_adc_to_headmic(1);
@@ -881,6 +909,10 @@ static void headset_button_work_func(struct work_struct *work)
 #endif
                                 goto out;
                         }
+                        adc_ideal = adc_get_ideal(adc_mic_average);
+                        PRINT_INFO("adc_mic_average=%d, adc_ideal=%d\n", adc_mic_average, adc_ideal);
+                        if (adc_ideal >= 0)
+                            adc_mic_average = adc_ideal;
                         PRINT_INFO("adc_mic_average = %d\n", adc_mic_average);
                         for (i = 0; i < ht->platform_data->nbuttons; i++) {
                                 if (adc_mic_average >= ht->platform_data->headset_buttons[i].adc_min &&
@@ -954,7 +986,8 @@ static void headset_detect_work_func(struct work_struct *work)
         }
 
         if(0 == plug_state_last) {
-                headmicbias_power_on(&this_pdev->dev, 1);
+            //schedule_timeout_uninterruptible(msecs_to_jiffies(10));
+            headmicbias_power_on(&this_pdev->dev, 1);
         }
 
         if(0 == plug_state_last) {
@@ -988,13 +1021,13 @@ static void headset_detect_work_func(struct work_struct *work)
                 case HEADSET_TYPE_ERR:
                         PRINT_INFO("headset_type = %d (HEADSET_TYPE_ERR)\n", headset_type);
                         goto out;
-                case HEADSET_NORTH_AMERICA:
-                        PRINT_INFO("headset_type = %d (HEADSET_NORTH_AMERICA)\n", headset_type);
+                case HEADSET_4POLE_NOT_NORMAL:
+                        PRINT_INFO("headset_type = %d (HEADSET_4POLE_NOT_NORMAL)\n", headset_type);
                         if(0 != pdata->gpio_switch)
                                 gpio_direction_output(pdata->gpio_switch, 1);
                         break;
-                case HEADSET_NORMAL:
-                        PRINT_INFO("headset_type = %d (HEADSET_NORMAL)\n", headset_type);
+                case HEADSET_4POLE_NORMAL:
+                        PRINT_INFO("headset_type = %d (HEADSET_4POLE_NORMAL)\n", headset_type);
                         if(0 != pdata->gpio_switch)
                                 gpio_direction_output(pdata->gpio_switch, 0);
                         break;
@@ -1028,9 +1061,9 @@ static void headset_detect_work_func(struct work_struct *work)
                 } else {
                         headset_button_irq_threshold(1);
 
-                        if((HEADSET_NORTH_AMERICA == headset_type) && (0 == pdata->gpio_switch)) {
+                        if((HEADSET_4POLE_NOT_NORMAL == headset_type) && (0 == pdata->gpio_switch)) {
                                 headset_irq_button_enable(0, ht->irq_button);
-                                PRINT_INFO("HEADSET_NORTH_AMERICA is not supported by your hardware! so disable the button irq!\n");
+                                PRINT_INFO("HEADSET_4POLE_NOT_NORMAL is not supported by your hardware! so disable the button irq!\n");
                         } else {
                                 if (1 == ht->platform_data->irq_trigger_level_button)
                                         headset_irq_set_irq_type(ht->irq_button, IRQF_TRIGGER_HIGH);
@@ -1086,6 +1119,8 @@ out:
 
         if(0 == plug_state_last) {
                 headmicbias_power_on(&this_pdev->dev, 0);
+                headset_detect_clk_en();
+                regulator_set_mode(sprd_hts_power.head_mic, REGULATOR_MODE_NORMAL);
         }
 
         headset_irq_detect_enable(1, ht->irq_detect);
@@ -1386,7 +1421,7 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(struct device 
                         dev_err(dev, "fail to get type\n");
                         goto fail_buttons_data;
                 }
-                printk("device tree data: adc_min = %d adc_max = %d code = %d type = %d \n", buttons_data->adc_min,
+                PRINT_INFO("device tree data: adc_min = %d adc_max = %d code = %d type = %d \n", buttons_data->adc_min,
                        buttons_data->adc_max, buttons_data->code, buttons_data->type);
                 buttons_data++;
         };
@@ -1649,6 +1684,78 @@ static int headset_resume(struct platform_device *dev)
 #define headset_resume NULL
 #endif
 
+static int adc_get_ideal(u32 adc_mic)
+{
+    u64 numerator = 0;
+    u32 denominator = 0;
+    u32 adc_ideal = 0;
+    if (adc_cal_headset.cal_type == SPRD_HEADSET_AUXADC_CAL_DO){
+        PRINT_INFO("wangzuo adc_get_ideal in\n");
+        u32 a = adc_cal_headset.A;
+        u32 b = adc_cal_headset.B;
+        u32 e = adc_cal_headset.E;
+
+        if (9*adc_mic + b < 10*a){
+            return adc_mic;
+        }
+        denominator = e*(b-a);
+        numerator = 917280*(9*(u64)adc_mic+(u64)b-10*(u64)a);
+        PRINT_INFO("denominator=%u, numerator=%llu\n", denominator, numerator);
+        do_div(numerator,denominator);
+        adc_ideal = (u32)numerator;
+        PRINT_INFO("adc_mic=%d, adc_ideal=%d\n", adc_mic, adc_ideal);
+        return adc_ideal;
+    } else {
+        return adc_mic;
+    }
+}
+extern u32 __adie_efuse_read_bits(int bit_index, int length);
+
+#define DELTA1_BLOCK9 9
+#define DELTA2_BLOCK10 10
+#define DELTA3_BLOCK11 11
+#define BITCOUNT 8
+#define BLK_WIDTH 8
+static void adc_cal_from_efuse(void)
+{
+    u32 delta[3] = {0};
+    u32 block0_bit7 = 128;
+    u8 test[3] = {0};
+    PRINT_INFO("to get calibration data from efuse ...\n");
+
+    if (adc_cal_headset.cal_type == SPRD_HEADSET_AUXADC_CAL_NO) {
+
+        delta[0] = __adie_efuse_read_bits(DELTA1_BLOCK9*BLK_WIDTH,BITCOUNT);
+        delta[1] = __adie_efuse_read_bits(DELTA2_BLOCK10*BLK_WIDTH,BITCOUNT);
+        delta[2] = __adie_efuse_read_bits(DELTA3_BLOCK11*BLK_WIDTH,BITCOUNT);
+
+        test[0] = delta[0]&0xff;
+        test[1] = delta[1]&0xff;
+        test[2] = delta[2]&0xff;
+        PRINT_INFO("test[0] 0x%x %d, test[1] 0x%x %d, test[2] 0x%x %d \n",test[0],test[0],test[1],test[1],test[2],test[2]);
+
+        block0_bit7 = __adie_efuse_read_bits(0,BITCOUNT);
+        PRINT_INFO("block_7 0x%08x \n",block0_bit7);
+        if(block0_bit7&(1<<7)){
+            PRINT_INFO("block 0 bit 7 set 1 no efuse data\n");
+            return;
+        } else {
+            adc_cal_headset.cal_type = SPRD_HEADSET_AUXADC_CAL_DO;
+            PRINT_INFO("block 0 bit 7 set 0 have efuse data\n");
+        }
+
+        PRINT_INFO("test[0] %d, test[1] %d, test[2] %d \n",test[0],test[1],test[2]);
+
+        adc_cal_headset.A = (test[0]*4)-184;
+        adc_cal_headset.B = (test[1]*4)+2764;
+        adc_cal_headset.E = (test[2]*2)+2500;
+        PRINT_INFO("adc_cal_headset.A %d, adc_cal_headset.B %d, adc_cal_headset.E %d \n",adc_cal_headset.A,adc_cal_headset.B,adc_cal_headset.E);
+    } else {
+        PRINT_INFO("efuse A,B,E has been calculated! \n");
+    }
+
+}
+
 static const struct of_device_id headset_detect_of_match[] = {
         {.compatible = "sprd,headset_sprd_sc2723",},
         { }
@@ -1667,6 +1774,7 @@ static struct platform_driver headset_detect_driver = {
 static int __init headset_init(void)
 {
         int ret;
+        adc_cal_from_efuse();
         ret = platform_driver_register(&headset_detect_driver);
         return ret;
 }
