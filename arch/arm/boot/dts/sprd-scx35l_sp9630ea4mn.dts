@@ -11,17 +11,18 @@
 /* memory reserved for SMEM */
 /memreserve/ 0x87800000 0x540000; /* Offset:120M, Size:5M+256K */
 
-
+/* memory reserved for WARM modem */
+/memreserve/ 0x88000000 0x1600000; /* Offset:128M, Size:22M*/
 
 /* memory reserved for LTE modem */
-/memreserve/ 0x89600000 0x4000000; /* Offset:150M, Size:64M*/
+/memreserve/ 0x89600000 0x6A00000; /* Offset:150M, Size:106M*/
 
 /* memory reserved for fb */
-/memreserve/ 0x9F8AD000 0x465000; /* 480*800*4*3, 4K alignment*/
+/memreserve/ 0x9F74F000 0x4B1000; /* 480*854*4*3, 4K alignment*/
 
 
 /* memory reserved for ION */
-/memreserve/ 0x9FD12000 0x2EE000; /* 480*800*4*2, 4K alignment*/
+/memreserve/ 0x9FC00000 0x400000; /* 480*854*4*2, 1M alignment*/
 
 
 /include/ "skeleton.dtsi"
@@ -311,7 +312,7 @@
                compatible = "broadcom,bluesleep";
                bt-wake-gpio = <&d_gpio_gpio 132 0>;  /*GPIO_AP2BT_WAKE*/
                host-wake-gpio = <&d_gpio_gpio 133 0>; /*GPIO_BT2AP_WAKE*/
-         };
+      };
 
 	 sprd_vsp@f5300000{
                  compatible = "sprd,sprd_vsp";
@@ -363,10 +364,10 @@
 			poll_interval = <10>;
 			min_interval = <10>;
 			g_range = <0>;
-			axis_map_x = <1>;
-			axis_map_y = <0>;
+			axis_map_x = <0>;
+			axis_map_y = <1>;
 			axis_map_z = <2>;
-			negate_x = <0>;
+			negate_x = <1>;
 			negate_y = <1>;
 			negate_z = <0>;
 		};
@@ -375,6 +376,11 @@
 			reg = <0x23>;
 			gpios = <&d_gpio_gpio 140 0>;
 		};
+                epl2182_pls@49{
+                         compatible = "ELAN,epl2182_pls";
+                         reg = <0x49>;
+                         gpios = <&d_gpio_gpio 140 0>;
+                 };
 	 };
 	 i2c3: i2c@f5372000{
 		 compatible  = "sprd,i2c";
@@ -391,6 +397,18 @@
 			virtualkeys = <80 900 60 45
 				240 900 60 45
 				400 900 60 45>;
+			TP_MAX_X = <480>;
+			TP_MAX_Y = <800>;
+		 };
+		 msg2138_ts@26{
+			compatible = "Mstar,msg2138_ts";
+			reg = <0x26>;
+			gpios = <&d_gpio_gpio 145 0
+                                 &d_gpio_gpio 144 0>;
+			vdd_name = "vdd28";
+			virtualkeys = <256 1068 64 64
+				128 1068 64 64
+				192 1068 64 64>;
 			TP_MAX_X = <480>;
 			TP_MAX_Y = <800>;
 		 };
@@ -438,7 +456,7 @@
 		clock-src = <256000000 256000000 384000000>;
 		dpi_clk_div = <7>;
 		sprd,fb_use_reservemem;
-		sprd,fb_mem = <0x9F8AD000 0x465000>;
+		sprd,fb_mem = <0x9F74F000 0x4B1000>;
 	};
 	gsp:gsp@20a00000 {
 		compatible = "sprd,gsp";
@@ -457,19 +475,19 @@
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
-		ranges =<0x09600000 0x89600000 0x4000000>,
+		ranges = <0x09600000 0x89600000 0x6a00000>,
 				<0x07800000 0x87800000 0x540000>,
-				<0x0d5ff000 0x8d5ff000 0x1000>;
+				<0x0ffff000 0x8ffff000 0x1000>;
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
 			sprd,dst = <5>;
 			/* it's unnecessary to config IPI info upon mailbox arch */
 			mailbox,core = <7>;
-			reg = <0x09600000 0x4000000> , /* <CP_start_addr size> */
+			reg = <0x09600000 0x6a00000> , /* <CP_start_addr size> */
 				<0x07800000 0x540000>, /* <SMEM_phy_addr total_size> */
-				<0x0d5ff000 0x1000>; /* smsg ring buffer <base size> */
+				<0x0ffff000 0x1000>; /* smsg ring buffer <base size> */
 		};
-          };
+	};
 
         sctrl_pmic{
                 compatible = "sprd,sctrl";
@@ -610,8 +628,8 @@
 		sprd,name = "cptl";
 		sprd,ctrl-reg = <0x0c 0xff 0xb0 0x78>; /* <shut_down deep_sleep reset get_status> */
 		sprd,ctrl-mask = <0x300000 0x40000 0x02 0x1>; /* masks <> */
-		sprd,iram-data = <0xe59f0000 0xe12fff10 0x8ae00000>; /* 3rd param equals modem_addr*/
-		reg = <0x89600000 0x4000000>, /* <CP_start_addr total_size> = <+128M 26M> */
+		sprd,iram-data = <0xe59f0000 0xe12fff10 0x89900000>; /* 3rd param equals modem_addr*/
+		reg = <0x89600000 0x6a00000>, /* <CP_start_addr total_size> = <+128M 26M> */
 			<0xf53e1000 0x0c>, /* <iram1_base size> */
 			<0xf5250000 0x100>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <pmu_apb size> */
@@ -621,19 +639,19 @@
 		#address-cells = <1>;
 		#size-cells = <1>;
 		/* segnr=2 */
-		ranges = <0x1800000 0x8ae00000 0x03100000>,
+		ranges = <0x300000 0x89900000 0x06700000>,
 				<0x20000 0x89620000 0x00320000>;
-		modem@0x1800000 {
+		modem@0x400000 {
 			cproc,name = "modem";
-			reg = <0x1800000 0x31000000>; /* <modem_addr size> */
+			reg = <0x300000 0x06700000>; /* <modem_addr size> */
 		};
 		dsp@0x20000 {
 			cproc,name = "tgdsp";
 			reg = <0x20000 0x002e0000>; /* <dsp_addr size>*/
 		};
-                dsp@0x300000 {
+                dsp@0xd80000 {
 			cproc,name = "ldsp";
-			reg = <0x300000 0x1c0000>; /* <dsp_addr size>*/
+			reg = <0xd80000 0x1c0000>; /* <dsp_addr size>*/
 		};
 
 	};
@@ -701,7 +719,7 @@
 		clocks = <&clk_sdio1>, <&clk_96m>;
 		enb-bit = <0x200>;
 		rst-bit = <0x1000>;
-		keep-power = <1>;
+		keep-power = <0>;
 		runtime = <1>;
 	};
 	 usb: usb@f5116000{
@@ -852,7 +870,7 @@
                        reg = <3>;                      /* OVERLAY */
                        reg-names = "ion_heap_carveout_overlay";
                        sprd,ion-heap-type = <2>;       /* CARVEOUT */
-                       sprd,ion-heap-mem = <0x9FD12000 0x2EE000>;      /* 480*800*4*2, 4K alignment */
+                       sprd,ion-heap-mem = <0x9FC00000 0x400000>;      /* 480*854*4*2, 1M alignment */
                  };
          };
          sprd_iommu0:sprd_iommu@F5410000 {
