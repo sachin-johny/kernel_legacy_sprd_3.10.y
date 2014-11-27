@@ -15,6 +15,7 @@ obj-$(CONFIG_FB_LCD_ILI9486_RGB_SPI) += lcd_ili9486_rgb_spi.o
 obj-$(CONFIG_FB_LCD_NT51017_MIPI_LVDS) += lcd_nt51017_mipi_lvds.o
 obj-$(CONFIG_FB_LCD_HX8369B_MIPI) += lcd_hx8369b_mipi.o
 obj-$(CONFIG_FB_LCD_HX8369B_MIPI_COREPRIMELITE) += lcd_hx8369b_mipi_coreprimelite.o
+obj-$(CONFIG_FB_LCD_HX8369B_MIPI_COREPRIMELITE_MARLIN) += lcd_hx8369b_mipi_coreprimelite_marlin.o
 obj-$(CONFIG_FB_LCD_ILI9341) += lcd_ili9341.o
 obj-$(CONFIG_FB_LCD_ST7789V_MCU)  += lcd_st7789v_mcu.o
 obj-$(CONFIG_FB_LCD_OTM1283A_MIPI)  += lcd_otm1283a_mipi.o

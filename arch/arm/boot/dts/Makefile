@@ -239,6 +239,7 @@ dtb-$(CONFIG_MACH_SP9630EA3MN) += sprd-scx35l_sp9630ea3mn.dtb
 dtb-$(CONFIG_MACH_SP9630EA4MN) += sprd-scx35l_sp9630ea4mn.dtb
 dtb-$(CONFIG_MACH_SP9630EA_3592M_3MOD) += sprd-scx35l_sp9630ea_3592m_3mod.dtb
 dtb-$(CONFIG_MACH_COREPRIMELITE) += sprd-scx35l_coreprimelite.dtb
+dtb-$(CONFIG_MACH_COREPRIMELITE_MARLIN) += sprd-scx35l_coreprimelite_marlin.dtb
 dtb-$(CONFIG_MACH_SP9630EA_4MOD) += sprd-scx35l_sp9630ea_4mod.dtb
 
 DTB_NAMES := $(subst $\",,$(CONFIG_BUILD_ARM_APPENDED_DTB_IMAGE_NAMES))
