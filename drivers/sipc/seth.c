@@ -64,8 +64,6 @@
 /* enable NAPI */
 #define SETH_NAPI
 
-#define SETH_SHARKL
-
 /* tx pkt return value */
 #define SETH_TX_SUCCESS		 0
 #define SETH_TX_NO_BLK		-1
@@ -415,34 +413,30 @@ seth_rx_handler (void* data)
 	rx_fifo = (volatile struct seth_rx_fifo *)seth->rx_fifo;
 #endif
 
-	if (seth->state != DEV_ON) {
-		SETH_ERR ("rx_handler the state of %s is off!\n", seth->netdev->name);
-		seth->stats.rx_errors++;
-		ret = sblock_receive(pdata->dst, pdata->channel, &blk, -1);
-		if (ret) {
-			SETH_ERR ("receive sblock failed (%d)\n", ret);
-			seth->stats.rx_errors++;
-			return;
-		}
-		goto rx_failed;
-	}
-
 	sblkret = 0;
 	cnt = 0;
-	while(!sblkret){
+	while (!sblkret){
 		sblkret = sblock_receive(pdata->dst, pdata->channel, &blk, 0);
 		if (sblkret) {
 			SETH_DEBUG("receive sblock error %d\n", sblkret);
 			break;
 		}
 
+		/* if the seth state is off, drop the comming packet */
+		if (seth->state != DEV_ON) {
+			SETH_ERR ("rx_handler the state of %s is off!\n", seth->netdev->name);
+			sblock_release(pdata->dst, pdata->channel, &blk);
+			continue;
+		}
+
 #ifdef CONFIG_DEBUG_FS
+		/* print the sequence field of tcp packet for debug purpose*/
 		if (seth_print_seq) {
 			pkt_seq_print((void *)(blk.addr + NET_IP_ALIGN));
 		}
 #endif
 
-#ifdef SETH_SHARKL
+#ifdef CONFIG_SETH_OPT
 		/*
 		 * start from SHARKL, the first 2 bytes of sblock are reserved for optimization,
 		 * so IP field has been aligned to 4 Bytes already
@@ -548,7 +542,6 @@ seth_rx_handler (void* data)
 	}
 #endif
 
-rx_failed:
 	return;
 }
 
@@ -628,23 +621,25 @@ seth_tx_pkt(void* data, struct sk_buff* skb)
 		return SETH_TX_INVALID_BLK;
 	}
 
-#ifdef SETH_SHARKL
+#ifdef CONFIG_SETH_OPT
 	/* padding 2 Bytes in the head */
 	blk.length = skb->len + NET_IP_ALIGN;
 	memcpy(blk.addr + NET_IP_ALIGN, skb->data, skb->len);
+	/* copy the content into smem in mute */
+	sblock_send_prepare(pdata->dst, pdata->channel, &blk);
 #else
 	blk.length = skb->len;
 	memcpy(blk.addr, skb->data,skb->len);
+	/* copy the content into smem and trigger a smsg to the peer side */
+	sblock_send(pdata->dst, pdata->channel, &blk);
 #endif
-	sblock_send_prepare(pdata->dst, pdata->channel, &blk);
 	dev_kfree_skb_any(skb);
 
-	/*
-	* Statistics.
-	*/
+	/* update the statistics */
 	seth->stats.tx_bytes += skb->len;
 	seth->stats.tx_packets++;
-#ifdef SETH_NAPI
+
+#ifdef CONFIG_SETH_OPT
 	atomic_inc(&seth->txpending);
 #endif
 
@@ -664,9 +659,7 @@ static void seth_tx_flush(unsigned long data)
 	if(ret) {
 		SETH_INFO("seth tx failed(%d)!\n", ret);
 	} else {
-#ifdef SETH_NAPI
 		atomic_set(&seth->txpending, 0);
-#endif
 	}
 }
 
@@ -719,7 +712,7 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		netif_stop_queue(dev);
 	}
 
-#ifdef SETH_NAPI
+#ifdef CONFIG_SETH_OPT
 	if ((atomic_read(&seth->txpending) >= SETH_TX_WEIGHT) || flag) {
 		del_timer(&seth->tx_timer);
 		seth_tx_flush((unsigned long)dev);
@@ -732,8 +725,6 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 		mod_timer(&seth->tx_timer, seth->tx_timer.expires);
 		SETH_DEBUG ("seth_start_xmit:Timer\n");
 	}
-#else
-	seth_tx_flush((unsigned long)dev);
 #endif
 	dev->trans_start = jiffies;
 	return NETDEV_TX_OK;
