@@ -181,6 +181,8 @@ void sprdchg_init(struct sprd_battery_platform_data *pdata)
 {
 	//struct sprdbat_drivier_data *data = platform_get_drvdata(pdev);
 	pbat_data = pdata;
+
+	BUG_ON(NULL == pbat_data);
 #if defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0, BIT_CHGLDO_DIS, BIT_CHGLDO_DIS);
 #endif
@@ -188,6 +190,16 @@ void sprdchg_init(struct sprd_battery_platform_data *pdata)
 	sci_adi_set(ANA_REG_GLB_CHGR_CTRL2, BIT_CHGR_CC_EN);
 	sci_adi_write(ANA_REG_GLB_CHGR_CTRL0,
 		      BITS_CHGR_CV_V(0), BITS_CHGR_CV_V(~0));
+
+#if defined(CONFIG_ADIE_SC2723S) ||defined(CONFIG_ADIE_SC2723)
+	if (pbat_data->chg_end_vol_pure < 4300) {	//fixed bug367845,only for 2723
+		sci_adi_write(ANA_REG_GLB_CHGR_CTRL2,
+			BITS_CHGR_DPM(2), BITS_CHGR_DPM(~0));
+	} else {
+		sci_adi_write(ANA_REG_GLB_CHGR_CTRL2,
+			BITS_CHGR_DPM(3), BITS_CHGR_DPM(~0));
+	}
+#endif
 
 	if (adc_cal.cal_type == SPRDBAT_AUXADC_CAL_NO) {
 		extern int sci_efuse_calibration_get(unsigned int *p_cal_data);
