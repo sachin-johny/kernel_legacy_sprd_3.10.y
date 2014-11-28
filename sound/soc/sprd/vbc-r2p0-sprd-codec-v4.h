@@ -65,8 +65,11 @@ static const struct snd_soc_dapm_route vbc_r2p0_codec_map[] = {
 extern struct sprd_dfm_priv dfm;
 static int dfm_rate(struct snd_pcm_hw_params *params)
 {
-	dfm.hw_rate = params_rate(params);
-
+#ifdef CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE
+   dfm.hw_rate = CONFIG_SND_SOC_VBC_SRC_SAMPLE_RATE;
+#else
+   dfm.hw_rate = params_rate(params);
+#endif
 	if (dfm.hw_rate == 8000)
 		dfm.sample_rate = 8000;
 	else {
