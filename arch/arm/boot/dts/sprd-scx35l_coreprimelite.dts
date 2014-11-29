@@ -470,8 +470,7 @@
 
 	rfkill{
 		compatible = "broadcom,rfkill";
-		gpios = <&d_gpio_gpio 131 0		/* power */
-				&d_gpio_gpio 122 0>;	/* reset */
+		gpios = <&d_gpio_gpio 131 0>;		/* power */
 	};
 
 	sprd_vsp@f5300000{
