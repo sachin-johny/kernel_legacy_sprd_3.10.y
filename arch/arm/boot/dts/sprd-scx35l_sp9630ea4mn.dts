@@ -732,7 +732,7 @@
 		clocks = <&clk_sdio1>, <&clk_96m>;
 		enb-bit = <0x200>;
 		rst-bit = <0x1000>;
-		keep-power = <0>;
+		keep-power = <1>;
 		runtime = <1>;
 	};
 	 usb: usb@f5116000{
