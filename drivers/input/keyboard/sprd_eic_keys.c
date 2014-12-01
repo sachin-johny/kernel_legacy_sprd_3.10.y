@@ -285,7 +285,39 @@ static inline struct sprd_eic_keys_platform_data *sprd_eic_keys_get_devtree_pdat
 }
 
 #endif
+static ssize_t sprd_eic_button_show(struct kobject *kobj, struct kobj_attribute *attr, char *buff)
+{
+        int status = 0;
 
+        status = sprd_eic_button_state(&this_pdata->buttons[0]);
+        PRINT_INFO("button status = %d (0 == released, 1 == pressed)\n", status);
+        return sprintf(buff, "%d\n", status);
+}
+
+static struct kobject *sprd_eic_button_kobj = NULL;
+static struct kobj_attribute sprd_eic_button_attr =
+        __ATTR(status, 0644, sprd_eic_button_show, NULL);
+
+static int sprd_eic_button_sysfs_init(void)
+{
+        int ret = -1;
+
+        sprd_eic_button_kobj = kobject_create_and_add("sprd_eic_button", kernel_kobj);
+        if (sprd_eic_button_kobj == NULL) {
+                ret = -ENOMEM;
+                PRINT_ERR("register sysfs failed. ret = %d\n", ret);
+                return ret;
+        }
+
+        ret = sysfs_create_file(sprd_eic_button_kobj, &sprd_eic_button_attr.attr);
+        if (ret) {
+                PRINT_ERR("create sysfs failed. ret = %d\n", ret);
+                return ret;
+        }
+
+        PRINT_INFO("sprd_eic_button_sysfs_init success\n");
+        return ret;
+}
 static int sprd_eic_keys_probe(struct platform_device *pdev)
 {
         struct device *dev = &pdev->dev;
@@ -331,7 +363,7 @@ static int sprd_eic_keys_probe(struct platform_device *pdev)
                 PRINT_ERR("Unable to register input device!\n");
                 goto fail3;
         }
-
+	sprd_eic_button_sysfs_init();
         PRINT_INFO("probe success!\n");
         return 0;
 
