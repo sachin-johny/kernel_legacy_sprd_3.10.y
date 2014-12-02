@@ -254,6 +254,8 @@ extern int  sdio_dev_read(unsigned int chn,void* read_buf,unsigned int *count);
 extern int  sdio_dev_write(unsigned int chn,void* data_buf,unsigned int count);
 extern int  sdiodev_readchn_init(int chn, void *callback, bool with_para );
 extern int  sdio_read_wlan(unsigned int chn,void* read_buf,unsigned int *count);
+extern int sdiodev_readchn_uninit(unsigned int chn);
+extern void mdbg_sdio_read(void);
 extern void marlin_pa_enable(bool enable);
 extern int set_marlin_wakeup(unsigned int chn,unsigned int user_id);
 extern int set_marlin_sleep(unsigned int  chn,unsigned int user_id);

@@ -721,6 +721,8 @@ static int wlan_trans_thread(void *data)
 	rx_fifo = &(g_wlan.rxfifo);
 	tx_chn_info  = &(g_wlan.hw.sdio_tx_chn);
 	sema_init(&g_wlan.wlan_trans.sem, 0);
+	sdiodev_readchn_init(8, (void *)wlan_rx_chn_isr, 1);
+	sdiodev_readchn_init(9, (void *)wlan_rx_chn_isr, 1);
 	printke("%s enter\n", __func__);
 	up(&(g_wlan.sync.sem));
 	trans_down();
@@ -752,13 +754,16 @@ RX:
 		}
 		wlan_wakeup();
 		set_marlin_wakeup(0, 1);
-		ret = sdio_chn_status( 0x300, &status);
-		if( 0 == (status&(0x300)) )
+		ret = sdio_chn_status( 0x4300, &status);
+		if( 0 == (status&(0x4300)) )
 			goto TX;
-		if(!( status & (1<<rx_chn_index)) )
+		if(status & (1<<8))
+			rx_chn_index = 8;
+		else if(status & (1<<9))
+			rx_chn_index = 9;
+		else
 		{
-			rx_chn_index++;
-			rx_chn_index = (rx_chn_index>9)?(8):(rx_chn_index);	
+			mdbg_sdio_read();
 			goto TX;
 		}
 		ret = rx_fifo_in(rx_chn_index, rx_fifo, hw_rx);
@@ -768,8 +773,6 @@ RX:
 			goto TX;
 		}
 		core_up();
-		rx_chn_index++;
-		rx_chn_index = (rx_chn_index>9)?(8):(rx_chn_index);
 #endif
 
 TX:	
@@ -830,6 +833,9 @@ TX:
 			trans_down();
 		}
 	}while(!kthread_should_stop());
+	sdiodev_readchn_uninit(8);
+	sdiodev_readchn_uninit(9);
+	mdbg_sdio_read();
 	del_timer_sync(&(g_wlan.hw.wakeup_timer));
 	printke("%s exit\n", __func__);
 	up(&(g_wlan.sync.sem));
@@ -1060,8 +1066,7 @@ int wlan_module_init(struct device *dev)
 		printke("sdio is ready !!!\n");
 	}
 	marlin_pa_enable(true);
-	sdiodev_readchn_init(8, (void *)wlan_rx_chn_isr, 1);
-	sdiodev_readchn_init(9, (void *)wlan_rx_chn_isr, 1);
+
 
 	memset((unsigned char *)(&g_wlan), 0, sizeof(wlan_info_t));
 	g_wlan.dev = dev;

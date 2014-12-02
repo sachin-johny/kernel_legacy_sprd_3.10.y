@@ -493,7 +493,7 @@ int  sdio_dev_read(uint32 chn,void* read_buf,uint32 *count)
 	if(NULL != count)
 		*count = data_len;
 	
-	mdelay(1);
+
 
 	return err_ret;
 
@@ -1106,9 +1106,16 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 	}
 	SDIOTRAN_ERR("enable func1 ok!!!");
 
+	init_timer(&sleep_para.gpio_timer);
+	sleep_para.gpio_timer.function = gpio_timer_handler;
+	sleep_para.marlin_waketime = 3000;
+	sleep_para.gpio_opt_tag = 0;
+	sleep_para.gpioreq_need_pulldown = 1;
+
 	wakeup_slave_pin_init();
 	marlin_wake_intr_init();
 	marlin_sdio_sync_init();
+	
 //case6
 #if defined(CONFIG_SDIODEV_TEST)
 		gaole_creat_test();
@@ -1126,11 +1133,7 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 #endif
 */
 	set_bt_pm_func(set_marlin_wakeup,set_marlin_sleep);
-	init_timer(&sleep_para.gpio_timer);
-	sleep_para.gpio_timer.function = gpio_timer_handler;
-	sleep_para.marlin_waketime = 3000;
-	sleep_para.gpio_opt_tag = 0;
-	sleep_para.gpioreq_need_pulldown = 1;
+
 
 	set_apsdiohal_ready();
 		
