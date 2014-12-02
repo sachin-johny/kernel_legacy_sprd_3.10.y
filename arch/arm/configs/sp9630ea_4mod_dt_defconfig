@@ -2806,7 +2806,7 @@ CONFIG_SIPC_STTY=y
 #
 # SPRD IQ modules
 #
-# CONFIG_SPRD_IQ is not set
+CONFIG_SPRD_IQ=y
 # CONFIG_NO_HOTPLUG_POLICY is not set
 
 #
