@@ -56,7 +56,6 @@
 #define ISP_PRINT(...)
 #endif
 #define ISP_MINOR		MISC_DYNAMIC_MINOR/*isp minor number*/
-static struct proc_dir_entry*  isp_proc_file;
 
 /**file operation functions declare**/
 static int32_t _isp_kernel_open(struct inode *node, struct file *filp);
@@ -248,18 +247,7 @@ static int _isp_probe(struct platform_device *pdev)
 		ISP_PRINT ( "isp_k:probe cannot register miscdev on minor=%d (%d)\n",(int32_t)ISP_MINOR, (int32_t)ret);
 		return ret;
 	}
-/*
-	isp_proc_file = create_proc_read_entry("driver/sprd_isp" ,
-					0444,
-					NULL,
-					_isp_kernel_proc_read,
-					NULL);
-	if (unlikely(NULL == isp_proc_file)) {
-		ISP_PRINT("isp_k:probe Can't create an entry for isp in /proc \n");
-		ret = ENOMEM;
-		return ret;
-	}
-*/
+
 	isp_dev.this_device->of_node = pdev->dev.of_node;
 	ISP_PRINT (" isp_k:probe end\n");
 	return 0;
@@ -270,10 +258,6 @@ static int _isp_remove(struct platform_device * dev)
 	ISP_PRINT ("isp_k: remove start \n");
 
 	misc_deregister(&isp_dev);
-
-	if (isp_proc_file) {
-		remove_proc_entry("driver/sprd_isp", NULL);
-	}
 
 	ISP_PRINT ("isp_k: remove end !\n");
 

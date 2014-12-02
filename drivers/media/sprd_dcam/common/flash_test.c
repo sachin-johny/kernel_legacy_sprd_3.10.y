@@ -17,7 +17,7 @@
 #include "flash_test.h"
 
 static struct class* flash_test_class = NULL;
-static int g_flash_mode=0;
+static int g_flash_mode = 0;
 
 #if defined (CONFIG_ARCH_SCX35)
 int setflash(uint32_t flash_mode)
@@ -89,7 +89,7 @@ static ssize_t flash_test_store(struct device *dev,
 	ret = kstrtoul(buf, 16, &flash_mode);
 	if (ret)
 		return ret;
-	g_flash_mode=flash_mode;
+	g_flash_mode = flash_mode;
 	setflash(flash_mode);
 	return c;
 }

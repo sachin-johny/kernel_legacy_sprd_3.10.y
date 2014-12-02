@@ -1,6 +1,7 @@
 #include <linux/kernel.h>
 #include <linux/semaphore.h>
 #include <linux/delay.h>
+#include <linux/vmalloc.h>
 #include <linux/spinlock.h>
 #include <linux/interrupt.h>
 #include <mach/sci_glb_regs.h>
@@ -29,15 +30,8 @@
 
 #endif
 
-static DEFINE_SPINLOCK(csi2_lock);
-
-static u32            g_csi2_irq = 0x12000034;
-static handler_t      csi_api_event_registry[MAX_EVENT] = {NULL};
-static csi2_isr_func  isr_cb = NULL;
-static void           *u_data = NULL;
-
-void csi_api_event1_handler(void *param);
-void csi_api_event2_handler(void *param);
+void csi_api_event1_handler(int irq, void *handle);
+void csi_api_event2_handler(int irq, void *handle);
 
 static void csi_phy_power_down(u32 phy_id, u32 is_eb)
 {
@@ -111,6 +105,30 @@ static void csi_enable(void)
     sci_glb_clr(CSI2_RST, CSI2_RST_BIT);
 }
 
+int csi_api_malloc(void **handle)
+{
+	int ret = 0;
+	struct csi_context *csi_handle = NULL;
+	csi_handle = (struct csi_context *)vzalloc(sizeof(struct csi_context));
+	if (NULL == handle) {
+		printk("vzalloc fail,no mem");
+		return -1;
+	}
+	csi_handle->g_csi2_irq = 0x12000034;
+	spin_lock_init(&csi_handle->csi2_lock);
+	*handle = csi_handle;
+
+	return ret;
+}
+
+void csi_api_free(void *handle)
+{
+	if (handle != NULL) {
+		vfree(handle);
+		handle = NULL;
+	}
+}
+
 u8 csi_api_init(u32 bps_per_lane, u32 phy_id)
 {
     csi_error_t e = SUCCESS;
@@ -120,7 +138,7 @@ u8 csi_api_init(u32 bps_per_lane, u32 phy_id)
     {
         csi_phy_power_down(phy_id, 0);
         csi_enable();
-        e = csi_init(base_address);                                                                                        
+        e = csi_init(base_address);
         if(e != SUCCESS)                                                                                                   
         {                                                                                                                  
             LOG_ERROR("Unable to initialise driver");                                                                      
@@ -135,11 +153,15 @@ u8 csi_api_init(u32 bps_per_lane, u32 phy_id)
 
                                                                                                                            
 //u8 csi_api_start(u32 base_address)                                                                                         
-u8 csi_api_start(void)                                                                                         
+u8 csi_api_start(void *handle)
 {                                                                                                                          
 	csi_error_t e = SUCCESS;  
 	int         ret = 0;
-
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
 	do                                                                                                                     
 	{
 		/* set only one lane (lane 0) as active (ON) */                                                                    
@@ -147,7 +169,7 @@ u8 csi_api_start(void)
 		if(e != SUCCESS)                                                                                                   
 		{                                                                                                                  
 			LOG_ERROR("Unable to set lanes");                                                                              
-			csi_close();                                                                                                   
+			csi_close();
 			break;                                                                                                         
 		}                                                                                                                  
 		LOG_DEBUG("Lane set OK");                                                                                          
@@ -155,7 +177,7 @@ u8 csi_api_start(void)
 		if(e != SUCCESS)                                                                                                   
 		{                                                                                                                  
 			LOG_ERROR("Unable to bring up PHY");                                                                           
-			csi_close();                                                                                                   
+			csi_close();
 			break;                                                                                                         
 		}                                                                                                                  
 		LOG_DEBUG("PHY power up OK");                                                                                      
@@ -164,7 +186,7 @@ u8 csi_api_start(void)
 		if(e != SUCCESS)                                                                                                   
 		{                                                                                                                  
 			LOG_ERROR("Unable to reset PHY");                                                                              
-			csi_close();                                                                                                   
+			csi_close();
 			break;                                                                                                         
 		}                                                                                                                  
 		LOG_DEBUG("PHY reset OK");                                                                                         
@@ -173,7 +195,7 @@ u8 csi_api_start(void)
 		if(e != SUCCESS)                                                                                                   
 		{                                                                                                                  
 			LOG_ERROR("Unable to reset controller");                                                                       
-			csi_close();                                                                                                   
+			csi_close();
 			break;                                                                                                         
 		}                                                                                                                  
 		/* MASK all interrupts */                                                                                          
@@ -183,7 +205,7 @@ u8 csi_api_start(void)
 				(irq_handler_t)csi_api_event1_handler,
 				IRQF_SHARED, 
 				"CSI2_0", 
-				(void *)(&g_csi2_irq));
+				(void *)csi_handle);
 		if (ret) {
 			e = ERR_UNDEFINED;
 			break;
@@ -193,7 +215,7 @@ u8 csi_api_start(void)
 				(irq_handler_t)csi_api_event2_handler,
 				IRQF_SHARED, 
 				"CSI2_1", 
-				(void *)(&g_csi2_irq));
+				(void *)csi_handle);
 		if (ret) {
 			e = ERR_UNDEFINED;
 			break;
@@ -203,13 +225,18 @@ u8 csi_api_start(void)
 	return e;                                                                                                              
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_close(u32 phy_id)
+u8 csi_api_close(void *handle, u32 phy_id)
 {
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
     LOG_DEBUG("exit");
-    csi_api_unregister_all_events();                                                                                       
+    csi_api_unregister_all_events(handle);
     csi_shut_down_phy(1);    
-    free_irq(IRQ_CSI_INT0, &g_csi2_irq);
-    free_irq(IRQ_CSI_INT1, &g_csi2_irq);
+    free_irq(IRQ_CSI_INT0, &csi_handle->g_csi2_irq);
+    free_irq(IRQ_CSI_INT1, &csi_handle->g_csi2_irq);
     csi_close();
     csi_phy_power_down(phy_id, 1);
     return SUCCESS;
@@ -275,12 +302,18 @@ static u32 csi_api_event_map (u8 event, u8 vc_lane)
     return 0x80000000;                                                                                                     
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_register_event(csi_event_t event, u8 vc_lane, handler_t handler)                                                
+u8 csi_api_register_event(void *handle, csi_event_t event, u8 vc_lane, handler_t handler)
 {                                                                                                                          
     /* the VC_LANE value is the lane number ONLY in PHY ERRORS                                                             
      * the rest are all virtual channels number except for                                                                 
      * double ECC, where VC is unknown */                                                                                  
-    u8 e = SUCCESS;                                                                                                        
+    u8 e = SUCCESS;
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
+
     if (vc_lane < 4) /* the maximum */                                                                                     
     {                                                                                                                      
         switch (event)                                                                                                     
@@ -313,14 +346,20 @@ u8 csi_api_register_event(csi_event_t event, u8 vc_lane, handler_t handler)
     }                                                                                                                      
     if (e == SUCCESS)                                                                                                      
     {                                                                                                                      
-        csi_api_event_registry[event + vc_lane] = handler;                                                                 
+        csi_handle->csi_api_event_registry[event + vc_lane] = handler;
     }                                                                                                                      
     return e;                                                                                                              
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_unregister_event(csi_event_t event, u8 vc_lane)                                                                 
+u8 csi_api_unregister_event(void *handle, csi_event_t event, u8 vc_lane)
 {                                                                                                                          
-    csi_error_t e = SUCCESS;                                                                                               
+    csi_error_t e = SUCCESS;
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
+
     if (vc_lane < 4) /* the maximum */                                                                                     
     {                                                                                                                      
         switch (event)                                                                                                     
@@ -353,18 +392,24 @@ u8 csi_api_unregister_event(csi_event_t event, u8 vc_lane)
     }                                                                                                                      
     if (e == SUCCESS)                                                                                                      
     {                                                                                                                      
-        csi_api_event_registry[event + vc_lane] = NULL;                                                                    
+        csi_handle->csi_api_event_registry[event + vc_lane] = NULL;
     }                                                                                                                      
     return e;                                                                                                              
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_register_line_event(u8 vc, csi_data_type_t data_type, csi_line_event_t line_event, handler_t handler)           
+u8 csi_api_register_line_event(void *handle, u8 vc, csi_data_type_t data_type, csi_line_event_t line_event, handler_t handler)
 {                                                                                                                          
     u8 id = 0;                                                                                                             
     int counter = 0;                                                                                                       
     int first_slot = -1;                                                                                                   
     int already_registered = 0;                                                                                            
-    u8 e = SUCCESS;                                                                                                        
+    u8 e = SUCCESS;
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
+
     if ((data_type < NULL_PACKET)                                                                                          
     || ((data_type > EMBEDDED_8BIT_NON_IMAGE_DATA) && (data_type < YUV420_8BIT))                                           
     || ((data_type > RGB888) && (data_type < RAW6))                                                                        
@@ -406,13 +451,13 @@ u8 csi_api_register_line_event(u8 vc, csi_data_type_t data_type, csi_line_event_
             if (already_registered != 1) /* if not already registered */                                                   
             {                                                                                                              
                 e = csi_register_line_event(vc, data_type, first_slot);                                                    
-                if (csi_api_event_registry[line_event + first_slot] != NULL)                                               
+                if (csi_handle->csi_api_event_registry[line_event + first_slot] != NULL)
                 {                                                                                                          
                     LOG_WARNING("already registered event and callback (overwriting!)");                                   
                 }                                                                                                          
             }                                                                                                              
             /* register callback */                                                                                        
-            csi_api_event_registry[line_event + first_slot] = handler;                                                     
+            csi_handle->csi_api_event_registry[line_event + first_slot] = handler;
         }                                                                                                                  
     }                                                                                                                      
     else                                                                                                                   
@@ -423,7 +468,7 @@ u8 csi_api_register_line_event(u8 vc, csi_data_type_t data_type, csi_line_event_
     return e;                                                                                                              
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_event_t line_event)                            
+u8 csi_api_unregister_line_event(void *handle, u8 vc, csi_data_type_t data_type, csi_line_event_t line_event)
 {                                                                                                                          
     u8 id = 0;                                                                                                             
     int counter = 0;                                                                                                       
@@ -432,7 +477,12 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
     u8 vc_new = 0;                                                                                                         
     csi_data_type_t dt_new;                                                                                                
     csi_line_event_t other_line_event;                                                                                     
-                                                                                                                           
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
+
     if ((data_type < NULL_PACKET)                                                                                          
     || ((data_type > EMBEDDED_8BIT_NON_IMAGE_DATA) && (data_type < YUV420_8BIT))                                           
     || ((data_type > RGB888) && (data_type < RAW6))                                                                        
@@ -483,7 +533,7 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
     vc_new = csi_get_registered_line_event(last_slot) >> 6;                                                                
     dt_new = (csi_get_registered_line_event(last_slot) << 2) >> 2;                                                         
                                                                                                                            
-    if ((csi_api_event_registry[other_line_event + replace_slot] == NULL) && (last_slot != replace_slot))                  
+    if ((csi_handle->csi_api_event_registry[other_line_event + replace_slot] == NULL) && (last_slot != replace_slot))
     {                                                                                                                      
         /* swap IDI with last registered if its NOT the last entry*/                                                       
         /* copy the last to (over) the one to be deleted*/                                                                 
@@ -491,12 +541,12 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
         /* now that last registered is copied to a new location, unregister old location */                                
         csi_event_disable(csi_api_event_map(line_event, last_slot), (last_slot / 4 == 1)? 2: 1);                           
         /* swap event registry */                                                                                          
-        csi_api_event_registry[line_event + replace_slot] = csi_api_event_registry[line_event + last_slot];                
+        csi_handle->csi_api_event_registry[line_event + replace_slot] = csi_handle->csi_api_event_registry[line_event + last_slot];
         /* mask last slot */                                                                                               
-        if (csi_api_event_registry[other_line_event + last_slot] != NULL)                                                  
+        if (csi_handle->csi_api_event_registry[other_line_event + last_slot] != NULL)
         {                                                                                                                  
             /* swap event registry - the other possible line event of the last slot */                                     
-            csi_api_event_registry[other_line_event + replace_slot] = csi_api_event_registry[other_line_event + last_slot];
+            csi_handle->csi_api_event_registry[other_line_event + replace_slot] = csi_handle->csi_api_event_registry[other_line_event + last_slot];
             /* mask last slot, other line event!*/                                                                         
             csi_event_disable(csi_api_event_map(other_line_event, last_slot), (last_slot / 4 == 1)? 2: 1);                 
             /* un mask other line event */                                                                                 
@@ -507,11 +557,11 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
     else                                                                                                                   
     {                                                                                                                      
         /* remove from event registry */                                                                                   
-        csi_api_event_registry[line_event + replace_slot] = NULL;                                                          
+        csi_handle->csi_api_event_registry[line_event + replace_slot] = NULL;
         /* mask */                                                                                                         
         csi_event_disable(csi_api_event_map(line_event, replace_slot), (replace_slot / 4 == 1)? 2: 1);                     
                                                                                                                            
-        if ((csi_api_event_registry[other_line_event + replace_slot] == NULL) && (last_slot == replace_slot))              
+        if ((csi_handle->csi_api_event_registry[other_line_event + replace_slot] == NULL) && (last_slot == replace_slot))
         {  /* if it is last entry */                                                                                       
             csi_unregister_line_event(last_slot);                                                                          
         }                                                                                                                  
@@ -520,17 +570,22 @@ u8 csi_api_unregister_line_event(u8 vc, csi_data_type_t data_type, csi_line_even
 }                                                                                                                          
                                                                                                                            
                                                                                                                            
-void csi_api_event1_handler(void *param)
+void csi_api_event1_handler(int irq, void *handle)
 {                                                                                                                          
 	u32 source = 0;                                                                                                        
 	unsigned long flag;
-
-    	source = csi_event_get_source(1);
-    	spin_lock_irqsave(&csi2_lock,flag);
-	if (NULL != isr_cb) {
-		(*isr_cb)(1, source, u_data);
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return;
 	}
-	spin_unlock_irqrestore(&csi2_lock, flag);
+
+    source = csi_event_get_source(1);
+    spin_lock_irqsave(&csi_handle->csi2_lock,flag);
+	if (NULL != csi_handle->isr_cb) {
+		(*csi_handle->isr_cb)(1, source, csi_handle->u_data);
+	}
+	spin_unlock_irqrestore(&csi_handle->csi2_lock, flag);
 
 	return ;
 #if 0
@@ -581,17 +636,22 @@ void csi_api_event1_handler(void *param)
                                                                                                                    
 }                                                                                                                          
 
-void csi_api_event2_handler(void *param)
+void csi_api_event2_handler(int irq, void *handle)
 {                                                                                                                          
 	u32 source = 0;                                                                                                        
 	unsigned long flag;
-
-    	source = csi_event_get_source(2);
-    	spin_lock_irqsave(&csi2_lock, flag);
-	if (isr_cb) {
-		(*isr_cb)(2, source, u_data);
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ;
 	}
-	spin_unlock_irqrestore(&csi2_lock, flag);
+
+    source = csi_event_get_source(2);
+    spin_lock_irqsave(&csi_handle->csi2_lock, flag);
+	if (csi_handle->isr_cb) {
+		(*csi_handle->isr_cb)(2, source, csi_handle->u_data);
+	}
+	spin_unlock_irqrestore(&csi_handle->csi2_lock, flag);
 
 	return ;
 	                                                                                                             
@@ -641,10 +701,16 @@ void csi_api_event2_handler(void *param)
 #endif
 }                                                                                                                          
                                                                                                                                
-u8 csi_api_unregister_all_events()                                                                                         
+u8 csi_api_unregister_all_events(void *handle)
 {                                                                                                                          
     u8 e = SUCCESS;                                                                                                        
-    u8 counter = 0;                                                                                                        
+    u8 counter = 0;
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return -1;
+	}
+
     e = csi_event_disable(0xffffffff, 1);                                                                                  
     e = csi_event_disable(0xffffffff, 2);                                                                                  
     if (e == SUCCESS)                                                                                                      
@@ -655,7 +721,7 @@ u8 csi_api_unregister_all_events()
         }                                                                                                                  
         for (counter = (u8)(ERR_PHY_TX_START); counter < (u8)(MAX_EVENT); counter++)                                       
         {                                                                                                                  
-            csi_api_event_registry[counter] = NULL;                                                                        
+            csi_handle->csi_api_event_registry[counter] = NULL;
         }                                                                                                                  
     }                                                                                                                      
     return e;                                                                                                              
@@ -676,9 +742,9 @@ u8 csi_api_reset_controller()
     return csi_reset_controller();                                                                                         
 }                                                                                                                          
                                                                                                                            
-u8 csi_api_core_write(csi_registers_t address, u32 data)                                                                   
+u8 csi_api_core_write(csi_registers_t address, u32 data)
 {                                                                                                                          
-    return csi_core_write(address, data);                                                                                  
+    return csi_core_write(address, data);
 }                                                                                                                          
                                                                                                                            
 u32 csi_api_core_read(csi_registers_t address)                                                                             
@@ -687,14 +753,19 @@ u32 csi_api_core_read(csi_registers_t address)
 }                                                                                                                          
 
 
-int csi_reg_isr(csi2_isr_func user_func, void* user_data)
+int csi_reg_isr(void *handle, csi2_isr_func user_func, void* user_data)
 {
 	unsigned long                flag;
+	struct csi_context *csi_handle = handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return ERR_UNDEFINED;
+	}
 
-	spin_lock_irqsave(&csi2_lock, flag);
-	isr_cb = user_func;
-	u_data = user_data;
-	spin_unlock_irqrestore(&csi2_lock, flag);
+	spin_lock_irqsave(&csi_handle->csi2_lock, flag);
+	csi_handle->isr_cb = user_func;
+	csi_handle->u_data = user_data;
+	spin_unlock_irqrestore(&csi_handle->csi2_lock, flag);
 	return 0;
 }
 

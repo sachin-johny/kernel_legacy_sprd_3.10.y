@@ -285,7 +285,7 @@ LOCAL void        _dcam_path_updated_notice(enum dcam_path_index path_index);
 
 
 LOCAL const dcam_isr isr_list[DCAM_IRQ_NUMBER] = {
-	_dcam_isp_root,
+	NULL,//_dcam_isp_root,
 	_dcam_sensor_eof,
 	_dcam_cap_sof,
 	_dcam_cap_eof,

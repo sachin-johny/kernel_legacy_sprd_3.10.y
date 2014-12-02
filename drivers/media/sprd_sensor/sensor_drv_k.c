@@ -164,6 +164,7 @@ struct sensor_file_tag {
 	struct regulator                *camdvdd_regulator;
 	struct regulator                *cammot_regulator;
 	struct sensor_mem_tag           sensor_mem;
+	void                            *csi_handle;
 };
 
 LOCAL const struct sensor_mclk_tag c_sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
@@ -172,8 +173,6 @@ LOCAL const struct sensor_mclk_tag c_sensor_mclk_tab[SENSOR_MCLK_SRC_NUM] = {
 						{48, "clk_48m"},
 						{26, "ext_26m"}
 };
-
-LOCAL struct sensor_module_tab_tag * s_p_sensor_mod_tab = PNULL;
 
 LOCAL void* _sensor_k_malloc(struct sensor_file_tag *fd_handle, size_t size)
 {
@@ -1028,14 +1027,27 @@ int sensor_k_open(struct inode *node, struct file *file)
 {
 	int                            ret = 0;
 	struct sensor_file_tag         *p_file;
-	struct sensor_module_tab_tag   *p_mod = s_p_sensor_mod_tab;// platform_get_drvdata(_sensor_k_get_platform_device());
+	struct sensor_module_tab_tag   *p_mod = NULL;// platform_get_drvdata(_sensor_k_get_platform_device());
+	struct miscdevice *md = (struct miscdevice *)file->private_data ;
 
+	if (!md) {
+		ret = -EFAULT;
+		printk("rot_k_open fail miscdevice NULL \n");
+		return -1;
+	}
+	p_mod = (struct sensor_module_tab_tag*)md->this_device->platform_data;
 	SENSOR_CHECK_ZERO(p_mod);
 
 	p_file = (struct sensor_file_tag *)vzalloc(sizeof(struct sensor_file_tag));
 	SENSOR_CHECK_ZERO(p_file);
 	file->private_data = p_file;
 	p_file->module_data = p_mod;
+	ret = csi_api_malloc(&p_file->csi_handle);
+	if (ret) {
+		vfree(p_file);
+		p_file = NULL;
+		return -1;
+	}
 
 	if (atomic_inc_return(&p_mod->total_users) == 1) {
 		struct device_node *dn = p_mod->of_node;
@@ -1050,12 +1062,16 @@ int _sensor_k_close_mipi(struct file *file)
 {
 	int                            ret = 0;
 	struct sensor_file_tag         *p_file = file->private_data;
-
+	struct csi_context             *handle = NULL;
 	SENSOR_CHECK_ZERO(p_file);
-
+	handle = p_file->csi_handle;
+	if (NULL == handle) {
+		printk("handle null\n");
+		return -1;
+	}
 	if (INTERFACE_MIPI == p_file->if_type) {
 		if (1 == p_file->mipi_on) {
-			csi_api_close(p_file->phy_id);
+			csi_api_close(handle, p_file->phy_id);
 			_sensor_k_mipi_clk_dis(p_file);
 			p_file->mipi_on = 0;
 			printk("MIPI off \n");
@@ -1093,6 +1109,7 @@ int sensor_k_release(struct inode *node, struct file *file)
 	if (SENSOR_ADDR_INVALID(p_file)) {
 		printk("SENSOR: Invalid addr, 0x%x", (uint32_t)p_mod);
 	} else {
+		csi_api_free(p_file->csi_handle);
 		vfree(p_file);
 		p_file = NULL;
 		file->private_data = NULL;
@@ -1483,6 +1500,12 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 	case SENSOR_IO_IF_CFG:
 		{
 			struct sensor_if_cfg_tag if_cfg;
+			struct csi_context *csi_handle;
+			csi_handle = p_file->csi_handle;
+			if (NULL == csi_handle) {
+				printk("handle null\n");
+				return -1;
+			}
 			SENSOR_PRINT("SENSOR: ioctl SENSOR_IO_IF_CFG \n");
 			ret = copy_from_user((void*)&if_cfg, (struct sensor_if_cfg_tag *)arg, sizeof(struct sensor_if_cfg_tag));
 			if (0 == ret) {
@@ -1492,8 +1515,8 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 							_sensor_k_mipi_clk_en(p_file, p_mod->of_node);
 							udelay(1);
 							csi_api_init(if_cfg.bps_per_lane, if_cfg.phy_id);
-							csi_api_start();
-							csi_reg_isr(_sensor_csi2_error, (void*)p_file);
+							csi_api_start(csi_handle);
+							csi_reg_isr(csi_handle,_sensor_csi2_error, (void*)p_file);
 							csi_set_on_lanes(if_cfg.lane_num);
 							p_file->mipi_on = 1;
 							p_file->phy_id = if_cfg.phy_id;
@@ -1506,7 +1529,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 				} else {
 					if (INTERFACE_MIPI == if_cfg.if_type) {
 						if (1 == p_file->mipi_on) {
-							csi_api_close(if_cfg.phy_id);
+							csi_api_close(csi_handle, if_cfg.phy_id);
 							_sensor_k_mipi_clk_dis(p_file);
 							p_file->mipi_on = 0;
 							printk("MIPI off \n");
@@ -1614,7 +1637,6 @@ int sensor_k_probe(struct platform_device *pdev)
 	int                          gpio_id = 0;
 
 	printk(KERN_ALERT "sensor probe called\n");
-
 	p_mod = (struct sensor_module_tab_tag *)vzalloc(sizeof(struct sensor_module_tab_tag));
 	SENSOR_CHECK_ZERO(p_mod);
 
@@ -1626,7 +1648,6 @@ int sensor_k_probe(struct platform_device *pdev)
 	wake_lock_init(&p_mod->wakelock, WAKE_LOCK_SUSPEND,
                    "pm_message_wakelock_sensor_k");
 	platform_set_drvdata(pdev, p_mod);
-	s_p_sensor_mod_tab = p_mod;
 	atomic_set(&p_mod->total_users, 0);
 
 	ret = misc_register(&sensor_dev);
@@ -1636,6 +1657,7 @@ int sensor_k_probe(struct platform_device *pdev)
 		goto misc_register_error;
 	}
 	p_mod->of_node = pdev->dev.of_node;
+	sensor_dev.this_device->platform_data = (void *)p_mod;
 	for (i = 0; i < SENSOR_DEV_MAX; i++) {
 		get_gpio_id(p_mod->of_node, &gpio_tab.pwn, &gpio_tab.reset, i);
 		ret = gpio_request(gpio_tab.pwn, NULL);
@@ -1714,7 +1736,6 @@ LOCAL int sensor_k_remove(struct platform_device *dev)
 		vfree(p_mod);
 		p_mod = NULL;
 		platform_set_drvdata(dev, NULL);
-		s_p_sensor_mod_tab = NULL;
 	}
 	printk(KERN_INFO "sensor remove Success !\n");
 	return 0;
