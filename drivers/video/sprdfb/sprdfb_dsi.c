@@ -278,6 +278,7 @@ static irqreturn_t dsi_isr1(int irq, void *data)
 			}
 			printk("**************************\n");
 		}
+
 		dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PWR_UP, 1);
 	}
 	//dsi_irq_trick(1,reg_val);
@@ -433,8 +434,8 @@ static int32_t dsi_module_init(struct sprdfb_device *dev)
 	phy->reference_freq = DSI_PHY_REF_CLOCK;
 
 	dsi_instance->address = SPRD_MIPI_DSIC_BASE;
-	dsi_instance->color_mode_polarity =mipi->color_mode_pol;
-	dsi_instance->shut_down_polarity = mipi->shut_down_pol;
+	//dsi_instance->color_mode_polarity =mipi->color_mode_pol;
+	//dsi_instance->shut_down_polarity = mipi->shut_down_pol;
 	dsi_instance->core_read_function = dsi_core_read_function;
 	dsi_instance->core_write_function = dsi_core_write_function;
 	dsi_instance->log_error = dsi_log_error;
@@ -445,7 +446,7 @@ static int32_t dsi_module_init(struct sprdfb_device *dev)
 	dsi_instance->max_hs_to_lp_cycles = 4;//110;
 	dsi_instance->max_lp_to_hs_cycles = 15;//10;
 #endif
-	dsi_instance->max_lanes = mipi->lan_number;
+	//dsi_instance->max_lanes = mipi->lan_number;
 #ifdef CONFIG_OF
 	irq_num_1 = irq_of_parse_and_map(dev->of_dev->of_node, 1);
 #else
@@ -515,6 +516,10 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 //	dsi_core_write_function(SPRD_MIPI_DSIC_BASE,  R_DSI_HOST_ERROR_MSK1, 0x3ffff);
 //#ifndef FB_DSIH_VERSION_1P21A
 	dsi_instance->phy_feq = dev->panel->info.mipi->phy_feq;
+	dsi_instance->max_lanes = dev->panel->info.mipi->lan_number;
+	dsi_instance->color_mode_polarity =dev->panel->info.mipi->color_mode_pol;
+	dsi_instance->shut_down_polarity = dev->panel->info.mipi->shut_down_pol;
+
 //#endif
 	result = mipi_dsih_open(dsi_instance);
 	if(OK != result){
