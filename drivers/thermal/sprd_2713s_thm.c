@@ -189,8 +189,13 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 
 	//set Hot2Normal int temp value
 	raw_temp =
-	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff - pmic_sen_cal_offset);
+	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff  + 2 - pmic_sen_cal_offset);
 	__thm_reg_write((local_sensor_addr + SENSOR_HOT2NOR_THRES),
+		raw_temp, RAW_TEMP_RANGE_MSK);
+
+	raw_temp =
+	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff  + 1 - pmic_sen_cal_offset);
+	__thm_reg_write((local_sensor_addr + SENSOR_HIGHOFF_THRES),
 		raw_temp, RAW_TEMP_RANGE_MSK);
 
 	//set cold int temp value
@@ -551,10 +556,16 @@ int sprd_thm_hw_enable_sensor(struct sprd_thermal_zone *pzone)
 	// Sensor minitor enable
 	THM_DEBUG("sprd_2713S_thm enable sensor sensor_ID:0x%x \n",pzone->sensor_id);
 	if(SPRD_ARM_SENSOR == pzone->sensor_id){
+		sci_glb_set(REG_AON_APB_APB_RTC_EB,
+			    (BIT_THM_RTC_EB | BIT_ARM_THMA_RTC_EB |
+			     BIT_ARM_THMA_RTC_AUTO_EN));
 		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x01, 0x01);
-		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x8, 0x8);
+		__thm_reg_write((u32)(pzone->reg_base + SENSOR_CTRL), 0x8, 0x8);	
 	}
 	else if(SPRD_PMIC_SENSOR == pzone->sensor_id){
+		sci_adi_set(ANA_REG_GLB_RTC_CLK_EN,
+			    BIT_RTC_THMA_AUTO_EN | BIT_RTC_THMA_EN |
+			    BIT_RTC_THM_EN);
 		__thm_reg_write((u32)(pzone->reg_base + A_SENSOR_CTRL), 0x01, 0x01);
 		__thm_reg_write((u32)(pzone->reg_base + A_SENSOR_CTRL), 0x8, 0x8);
 	}
