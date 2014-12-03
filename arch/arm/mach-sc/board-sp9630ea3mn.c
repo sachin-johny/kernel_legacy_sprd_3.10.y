@@ -49,7 +49,7 @@
 #include <mach/serial_sprd.h>
 #include <mach/adi.h>
 #include <mach/adc.h>
-#include <mach/pinmap.h>
+//#include <mach/pinmap.h>
 #if(defined(CONFIG_INV_MPU_IIO)||defined(CONFIG_INV_MPU_IIO_MODULE))
 #include <linux/mpu.h>
 #endif

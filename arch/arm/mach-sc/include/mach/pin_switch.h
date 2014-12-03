@@ -32,6 +32,9 @@ enum power_domain_id {
 	PD_CNT,
 };
 
+u32 pinmap_get(u32 offset);
+int pinmap_set(u32 offset, u32 value);
+
 #define VOL_THRESHOLD 1800000
 
 #endif

@@ -108,7 +108,7 @@ static int mtdoobsize = 0;
 #include <linux/spinlock.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
-#include <mach/pinmap.h>
+//#include <mach/pinmap.h>
 #include <linux/of.h>
 #include <linux/of_device.h>
 #include "sc8830_nand.h"

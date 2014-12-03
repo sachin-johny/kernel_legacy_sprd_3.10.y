@@ -28,7 +28,7 @@
 #include <linux/fs.h>
 #include <linux/mmc/host.h>
 #include <linux/mmc/sdhci.h>
-#include <mach/pinmap.h>
+//#include <mach/pinmap.h>
 
 #define GET_WIFI_MAC_ADDR_FROM_NV_ITEM	        1
 

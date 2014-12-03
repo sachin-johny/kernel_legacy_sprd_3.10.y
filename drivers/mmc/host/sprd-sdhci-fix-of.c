@@ -29,7 +29,7 @@
 #include <mach/hardware.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
-#include <mach/pinmap.h>
+//#include <mach/pinmap.h>
 #include "sdhci.h"
 #include "sprd-sdhci-regulator.h"
 #include <mach/adi.h>
