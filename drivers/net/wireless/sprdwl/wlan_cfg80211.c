@@ -1468,13 +1468,13 @@ static int wlan_cfg80211_flush_pmksa(struct wiphy *wiphy, struct net_device *net
 void cfg80211_report_connect_result(unsigned char vif_id, unsigned char *pData, int len)
 {
 	unsigned char *req_ie_ptr, *resp_ie_ptr, *bssid_ptr, *pos, *value_ptr;
-	unsigned char status_code, status_len;
+	unsigned char status_code;
 	unsigned short bssid_len;
 	unsigned char req_ie_len;
 	unsigned short resp_ie_len;
 	unsigned int event_len;
 	int left;
-	char reassociate_rsp_flag = 0;
+	unsigned char reassociate_rsp_flag = 0;
 	
 	wlan_vif_t *vif = id_to_vif(vif_id);	
 	printkd("%s(), enter\n", __func__);
@@ -1495,9 +1495,19 @@ void cfg80211_report_connect_result(unsigned char vif_id, unsigned char *pData, 
 	}
 	/* The first byte of event data is status and len */
 	memcpy(pos, pData, event_len);
-	memcpy(&status_len, pos, 1);
-	memcpy(&reassociate_rsp_flag, pos+1, 1);
-	memcpy(&status_code, (pos + 2), status_len);
+	/* msg byte format
+	 * byte [0] the length for status_code,here is 1
+	 * byte [1] reassociate_rsp_flag
+	 * byte [2] status_code
+	 * ..... other data
+	 */
+	if (1 != *pos) {
+		ASSERT("msg first byte err:%d != 1", (int)*pos);
+		kfree(pos);
+		goto out;
+	}
+	reassociate_rsp_flag = *(pos + 1);
+	status_code = *(pos + 2);
 	
 	/* FIXME later the status code should be reported by CP2 */
 	if (status_code != 0)
@@ -1507,8 +1517,8 @@ void cfg80211_report_connect_result(unsigned char vif_id, unsigned char *pData, 
 		goto out;
 	}
 	
-	value_ptr = pos + 2 + status_len;
-	left = event_len - 2 - status_len;
+	value_ptr = pos + 3;
+	left = event_len - 3;
 	/* BSSID is 6 + len is 2 = 8 */
 	if (left < 8)
 	{
@@ -1723,6 +1733,11 @@ void cfg80211_report_scan_done(unsigned char vif_id, unsigned char *pData, int l
 		memcpy(&channel_len, pos, 2);
 		pos += 2;
 		left -= 2;
+		if (channel_len > 2) {
+			ASSERT("channel_len %u > 2\n", channel_len);
+			kfree(mgmt);
+			goto out;
+		}
 		memcpy(&channel_num, pos, channel_len);
 		pos += channel_len;
 		left -= channel_len;
