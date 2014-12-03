@@ -927,7 +927,7 @@ static int32_t dispc_clk_init(struct sprdfb_device *dev)
 	ret = clk_prepare_enable(dispc_ctx.clk_dispc_emc);
 	if(ret){
 		printk("sprdfb: enable clk_dispc_emc error!!!\n");
-		ret=-1;
+		return -1;
 	}
 
 	ret = sprdfb_dispc_clk_enable(&dispc_ctx,SPRDFB_DYNAMIC_CLK_FORCE);
