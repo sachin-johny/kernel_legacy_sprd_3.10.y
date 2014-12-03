@@ -9,7 +9,7 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x540000; /* Offset:120M, Size:5M+256K */
+/memreserve/ 0x87800000 0x5B0000; /* Offset:120M, Size:5M+256K */
 
 /* memory reserved for WARM modem */
 /memreserve/ 0x88000000 0x1600000; /* Offset:128M, Size:22M*/
@@ -484,12 +484,12 @@
 
 	sipc: sipc@0x87800000 {
 		compatible = "sprd,sipc";
-		reg = <0x87800000 0x540000>; /* <SMEM SIZE>*/
+		reg = <0x87800000 0x5B0000>; /* <SMEM SIZE>*/
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x09600000 0x89600000 0x6a00000>,
-				<0x07800000 0x87800000 0x540000>,
+				<0x07800000 0x87800000 0x5B0000>,
 				<0x0ffff000 0x8ffff000 0x1000>;
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
@@ -497,7 +497,7 @@
 			/* it's unnecessary to config IPI info upon mailbox arch */
 			mailbox,core = <7>;
 			reg = <0x09600000 0x6a00000> , /* <CP_start_addr size> */
-				<0x07800000 0x540000>, /* <SMEM_phy_addr total_size> */
+				<0x07800000 0x5B0000>, /* <SMEM_phy_addr total_size> */
 				<0x0ffff000 0x1000>; /* smsg ring buffer <base size> */
 		};
 	};
@@ -554,6 +554,16 @@
 		sprd,size-rxbuf = <0x40000>; /* 256*1024*/
 		sprd,size-txbuf = <0x8000>; /* 32*1024 */
 	};
+
+        sdiag_lte {
+                compatible = "sprd,spipe";
+                sprd,name = "sdiag_lte";
+                sprd,dst = <5>;
+                sprd,channel = <21>;
+                sprd,ringnr = <1>;
+                sprd,size-rxbuf = <0x40000>; /* 256*1024*/
+                sprd,size-txbuf = <0x8000>; /* 32*1024 */
+        };
 
 	stty_lte {
 		compatible = "sprd,spipe";

@@ -69,6 +69,7 @@ enum {
 	SMSG_CH_DATA3,		/* 2G/3G wirleless data */
 	SMSG_CH_DATA4,		/* 2G/3G wirleless data */
 	SMSG_CH_DATA5,		/* 2G/3G wirleless data */
+        SMSG_CH_DIAG,           /* pipe for debug log/dump */
 	SMSG_CH_NR,		/* total channel number */
 };
 
