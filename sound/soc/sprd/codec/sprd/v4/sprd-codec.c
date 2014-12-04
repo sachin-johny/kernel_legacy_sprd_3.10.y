@@ -1222,6 +1222,7 @@ static void sprd_codec_ovp_delay_worker(struct work_struct *work)
 	} else {
 		sprd_ovp_irq(codec, 1);
 		sprd_codec_ovp_start(sprd_codec, 500);
+		sprd_codec_pa_ldo_v_sel(codec, PA_LDO_V_36);
 	}
 }
 
@@ -1247,6 +1248,8 @@ static int sprd_inter_speaker_pa(struct snd_soc_codec *codec, int on)
 	mutex_lock(&sprd_codec->inter_pa_mutex);
 	if (on) {
 		sprd_inter_speaker_pa_pre(codec);
+		/* set ldo_v to 3.6v for ovp as weifeng's suggestion */
+		sprd_codec_pa_ldo_v_sel(codec, PA_LDO_V_36);
 		sprd_codec_pa_ovp_v_sel(codec, PA_OVP_435);
 		sprd_codec_ovp_ldo_en(codec,1);
 		sprd_codec_ovp_irq_enable(codec);
