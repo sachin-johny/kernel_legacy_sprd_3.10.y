@@ -48,6 +48,8 @@
 
 #define MAX_TUNING_LOOP 40
 
+#define SDHCI_MAX_TIMEOUT 3 // 3s
+
 static unsigned int debug_quirks = 0;
 static unsigned int debug_quirks2;
 
@@ -81,6 +83,9 @@ void sdhci_dumpregs(struct sdhci_host *host)
 
 	regAddr = SDHCI_DMA_ADDRESS;
 	for (i = 0; i < 0x08; i++) {
+         #if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+		printk(" DDR_OP_MODE:0x%08x \n",__raw_readl(SPRD_LPDDR2_BASE + 0x03fc) );
+	   #endif
 		printk(KERN_ERR DRIVER_NAME ": 0x%08x | 0x%08x | 0x%08x | 0x%08x\n\r",
 			sdhci_readl(host, (regAddr + 16 *i)), sdhci_readl(host, (regAddr + 4+16*i)),
 			sdhci_readl(host, (regAddr + 8 + 16* i)), sdhci_readl(host, (regAddr + 12 + 16* i)));
@@ -640,9 +645,19 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 	 * longer to time out, but that's much better than having a too-short
 	 * timeout value.
 	 */
-	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL)
-		return 0xE;
-
+	if (host->quirks & SDHCI_QUIRK_BROKEN_TIMEOUT_VAL){
+		count=0;
+		target_timeout = SDHCI_MAX_TIMEOUT*host->clock;
+		current_timeout = 1<<16;
+		while(target_timeout > current_timeout){
+			count++;
+			current_timeout <<= 1;
+		}
+		if (count >= 0xF) {
+			count = 0xE;
+		}
+		return count;
+	}
 	/* Unspecified timeout, assume max */
 	if (!data && !cmd->cmd_timeout_ms)
 		return 0xE;
