@@ -1524,6 +1524,13 @@ struct sysdump_mem sprd_dump_mem[] = {
 		.size		= SPRD_GREG_SIZE,
 		.type		= SYSDUMP_IOMEM,
 	},
+	{
+		.paddr          = SPRD_USB_PHYS,
+		.vaddr          = SPRD_USB_BASE,
+		.soff           = 0x0,
+		.size           = SPRD_USB_SIZE,
+		.type           = SYSDUMP_IOMEM,
+	},
 };
 int sprd_dump_mem_num = ARRAY_SIZE(sprd_dump_mem);
 #ifndef CONFIG_OF
