@@ -172,7 +172,6 @@ static int wlan_rx_skb_process(const unsigned char vif_id, unsigned char *pData,
 	skb_put(skb, len);
 	skb->dev = ndev;
 	skb->protocol = eth_type_trans(skb, ndev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	ndev->stats.rx_packets++;
 	printkp("rx_skb:%d\n", (int)(ndev->stats.rx_packets) );
 	ndev->stats.rx_bytes += skb->len;
@@ -227,7 +226,6 @@ static int wlan_rx_wapi_process(const unsigned char vif_id, unsigned char *pData
 	}
 	skb->dev = ndev;
 	skb->protocol = eth_type_trans(skb, ndev);
-	skb->ip_summed = CHECKSUM_UNNECESSARY;
 	ndev->stats.rx_packets++;
 	printkp("rx_skb:%d\n", (int)(ndev->stats.rx_packets) );
 	ndev->stats.rx_bytes += skb->len;
