@@ -875,11 +875,11 @@ static int serial_sprd_resume(struct platform_device *dev)
 
 	port = serial_sprd_ports[id];
 	serial_out(port, ARM_UART_CTL0, uart_bak[id].ctrl0);
-	serial_out(port, ARM_UART_CTL1, uart_bak[id].ctrl1);
 	serial_out(port, ARM_UART_CTL2, uart_bak[id].ctrl2);
 	serial_out(port, ARM_UART_CLKD0, uart_bak[id].clkd0);
 	serial_out(port, ARM_UART_CLKD1, uart_bak[id].clkd1);
 	serial_out(port, ARM_UART_IEN, uart_bak[id].ien);
+	serial_out(port, ARM_UART_CTL1, uart_bak[id].ctrl1);
 
 	if (BT_RX_WAKE_UP == plat_data.wakeup_type) {
 		if (is_uart_rx_wakeup) {
