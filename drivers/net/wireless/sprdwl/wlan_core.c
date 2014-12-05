@@ -76,10 +76,12 @@ static int hw_rx(const unsigned short chn, unsigned char *buf, unsigned int *len
 	static unsigned int cnt = 0;
 	if(NULL == buf)
 		return ERROR;
-#ifdef GPIO_POLL_SUPPORT
-	ret = sdio_read_wlan(chn, buf, &read_len);
+#if 0
+	ret = sdio_read_wlan(chn, buf, HW_RX_SIZE);
+	*len = HW_RX_SIZE;
 #else
 	ret = sdio_dev_read(chn, buf, &read_len);
+	*len = read_len;
 #endif
 	if(0 != ret)
 	{
@@ -93,24 +95,10 @@ static int hw_rx(const unsigned short chn, unsigned char *buf, unsigned int *len
 		sprintf(str, "[HEX-RX][%d]:", 1024);
 		hex_dump(str, strlen(str), buf, 1024);
 	}
-	printkp("[rx][%d][%d]\n", chn, read_len);
-#ifndef GPIO_POLL_SUPPORT	
-	spin_lock(&(g_wlan.hw.sdio_rx_chn.lock));
-	g_wlan.hw.sdio_rx_chn.chn[chn] = 0;
-	spin_unlock(&(g_wlan.hw.sdio_rx_chn.lock));
+	printkp("[rx][%d]\n", chn );
 	cnt++;
 	*len = read_len;
 	g_wlan.hw.rx_cnt++;
-	memcpy((char *)(&sc2331_tx_cnt),  buf+4, 4);
-	if(g_wlan.hw.rx_cnt != sc2331_tx_cnt)
-	{
-		printkd("[rx_seq_err][%d, %d]\n", g_wlan.hw.rx_cnt, sc2331_tx_cnt);
-		wlan_cmd_assert(0, 1);
-	}
-#else
-	cnt++;
-	g_wlan.hw.rx_cnt++;
-#endif	
 	return OK;
 }
 
@@ -239,16 +227,7 @@ static int wlan_rx_wapi_process(const unsigned char vif_id, unsigned char *pData
 void wlan_rx_chn_isr(int chn)
 {
 	static unsigned int cnt = 1;
-	printkp("[irq][%d]\n",cnt);
-#ifndef GPIO_POLL_SUPPORT	
-	spin_lock(&(g_wlan.hw.sdio_rx_chn.lock));
-	if(1 == g_wlan.hw.sdio_rx_chn.chn[chn] )
-	{
-		ASSERT();
-	}
-	g_wlan.hw.sdio_rx_chn.chn[chn] = 1;
-	spin_unlock(&(g_wlan.hw.sdio_rx_chn.lock));
-#endif	
+	printkp("[irq][%d]\n", cnt);
 	cnt++;
 	trans_up();
 }
@@ -297,7 +276,7 @@ static int wlan_xmit(struct sk_buff *skb, struct net_device *dev)
 	struct sk_buff *wapi_skb;
 
 	vif     = ndev_to_vif(dev);
-	q_id    = prio_to_q_id(skb->data);
+	q_id    = EVENT_Q_ID_1;//q_id    = prio_to_q_id(skb->data);
 	event_q = &(vif->event_q[q_id]);
 	if(event_q->event_cnt > event_q->highThres)
 	{
@@ -485,7 +464,6 @@ static void wlan_late_resume(struct early_suspend *es)
 int wlan_wakeup(void )
 {
 	int ret;
-#ifdef WLAN_DRV_SLEEP
 	if(0 != g_wlan.hw.wakeup)
 		return OK;
 	wake_lock(&g_wlan.hw.wlan_lock);
@@ -494,23 +472,17 @@ int wlan_wakeup(void )
 	g_wlan.hw.wakeup    = 1;
 	g_wlan.hw.can_sleep = 0;
 	return ret;
-#else
-	return OK;
-#endif
 }
 
 void wlan_sleep(void )
 {
 	int     ret;
-#ifdef WLAN_DRV_SLEEP	
 	if( (1 != g_wlan.hw.wakeup) || (0 == g_wlan.hw.can_sleep) )
 		return;
 	g_wlan.hw.wakeup = 0;
+	printkd("time[4]\n");
 	wake_unlock(&g_wlan.hw.wlan_lock);
 	return;
-#else
-	return;
-#endif	
 }
 
 void wakeup_timer_func(unsigned long data)
@@ -685,93 +657,114 @@ static int wlan_core_thread(void *data)
 	return 0;
 }
 
-static int check_valid_chn(int flag, unsigned short chn_status, sdio_chn_t *chn_info, unsigned char *index)
+static int check_valid_chn(int flag, unsigned short status, sdio_chn_t *chn_info)
 {
-	int i,ret;
-	unsigned short  status;
-
+	int i,index = -1;
 	if(1 == flag)
-		status = ( (chn_status & chn_info->bit_map) ^ (chn_info->bit_map) );
+		status = ( status & (chn_info->bit_map) );	
 	else
-		status = (chn_status & (chn_info->bit_map) );
+		status = ( (status & chn_info->bit_map) ^ (chn_info->bit_map) );
 	if(0 == status)
-		return ERROR;
+		return -1;
 	for(i=0; i < chn_info->num; i++)
 	{
-		if( status & (0x1 << chn_info->chn[*index]) )
+		if( status & (0x1 << chn_info->chn[i]) )
+		{
+			index = chn_info->chn[i];		
 			break;
-		*index = INCR_RING_BUFF_INDX(*index, chn_info->num);
+		}
 	}
-	return OK;
+	return index;
 }
 
 static int wlan_trans_thread(void *data)
 {
-	int i,vif_id,ret,done, retry,sem_count,send_pkt;
+	int i,vif_id,ret,done, retry,sem_count,send_pkt, index,pkt_num;
 	rxfifo_t       *rx_fifo;
 	txfifo_t       *tx_fifo;
-	unsigned short  chn_status;
 	wlan_vif_t     *vif;	
-	sdio_chn_t     *tx_chn_info;
-	unsigned char   rx_chn_index = 8;
-	unsigned char   tx_chn_index = 0;
+	sdio_chn_t     *tx_chn;
+	sdio_chn_t     *rx_chn;
 	unsigned short  status;
-	rx_fifo = &(g_wlan.rxfifo);
-	tx_chn_info  = &(g_wlan.hw.sdio_tx_chn);
+	int             tx_retry_cnt;
+	bool            tx_retry_flag = false;
+	
 	sema_init(&g_wlan.wlan_trans.sem, 0);
 	sdiodev_readchn_init(8, (void *)wlan_rx_chn_isr, 1);
-	sdiodev_readchn_init(9, (void *)wlan_rx_chn_isr, 1);
-	printke("%s enter\n", __func__);
+	sdiodev_readchn_init(9, (void *)wlan_rx_chn_isr, 1);	
+	rx_chn       = &(g_wlan.hw.sdio_rx_chn);
+	tx_chn       = &(g_wlan.hw.sdio_tx_chn);
+	rx_fifo      = &(g_wlan.rxfifo);
 	up(&(g_wlan.sync.sem));
+	printke("%s enter\n", __func__);
 	trans_down();
+	
 	do
 	{
 		send_pkt  = retry = done = 0;
 		sem_count = g_wlan.wlan_trans.sem.count;
-#ifndef GPIO_POLL_SUPPORT		
-		for(rx_chn_index =8; rx_chn_index <= 9; rx_chn_index++)
-		{
-			if(0 == g_wlan.hw.sdio_rx_chn.chn[rx_chn_index])
-				continue;
-			ret = rx_fifo_in(rx_chn_index, rx_fifo, hw_rx);
-			if(OK != ret )
-			{
-				retry++;
-				continue;
-			}
-			core_up();
-			done++;
-			break;
-		}
-#else
-
 RX:
-		if(! gpio_get_value(132) )
+		if(! gpio_get_value(SDIO_RX_GPIO) )
 		{
+#ifdef SDIO_CHN_CHECK	
+			if(true == rx_chn->gpio_high)
+			{
+				rx_chn->gpio_high    = false;
+				rx_chn->timeout_flag = false;
+			}
+#endif
 			goto TX;
+		}
+		else
+		{
+#ifdef SDIO_CHN_CHECK
+			if(false == rx_chn->gpio_high)
+			{
+				rx_chn->gpio_high    = true;
+			}
+#endif
 		}
 		wlan_wakeup();
 		set_marlin_wakeup(0, 1);
-		ret = sdio_chn_status( 0x4300, &status);
-		if( 0 == (status&(0x4300)) )
+		ret   = sdio_chn_status( rx_chn->bit_map, &status);
+		index = check_valid_chn(1, status, rx_chn);
+		if(index < 0)
+		{
+#ifdef SDIO_CHN_CHECK	
+			if(false == rx_chn->timeout_flag)
+			{
+				rx_chn->timeout_flag = true;
+				rx_chn->timeout      = jiffies + msecs_to_jiffies(rx_chn->timeout_time); 
+			}
+			else
+			{
+				if ( time_after(jiffies, rx_chn->timeout) )
+				{
+					rx_chn->timeout  = jiffies + msecs_to_jiffies(rx_chn->timeout_time); 
+					printke("[SDIO_RX_CHN][TIMEOUT][%d]\n", rx_chn->timeout_time);
+				}
+			}
+#endif		
 			goto TX;
-		if(status & (1<<8))
-			rx_chn_index = 8;
-		else if(status & (1<<9))
-			rx_chn_index = 9;
-		else
+		}		
+#ifdef	SDIO_CHN_CHECK
+		if(true == rx_chn->timeout_flag)
+		{
+			rx_chn->timeout_flag = false;
+		}
+#endif
+		if(14 == index)
 		{
 			mdbg_sdio_read();
 			goto TX;
 		}
-		ret = rx_fifo_in(rx_chn_index, rx_fifo, hw_rx);
+		ret = rx_fifo_in(index, rx_fifo, hw_rx);
 		if(OK != ret )
 		{
 			retry++;
 			goto TX;
 		}
 		core_up();
-#endif
 
 TX:	
 		for(vif_id = NETIF_0_ID; vif_id < WLAN_MAX_ID; vif_id++ )
@@ -783,19 +776,35 @@ TX:
 				continue;
 			wlan_wakeup();
 			set_marlin_wakeup(0, 1);
-			ret = sdio_chn_status(tx_chn_info->bit_map, &chn_status);
-			if(-1 == ret)
+			ret = sdio_chn_status(tx_chn->bit_map, &status);
+			index = check_valid_chn(0, status, tx_chn);
+			if(index < 0)
 			{
-				ASSERT();
-				continue;
-			}
-			ret = check_valid_chn(1, chn_status, tx_chn_info, &tx_chn_index);
-			if(OK != ret)
-			{
+#ifdef SDIO_CHN_CHECK
+				if(false == tx_chn->timeout_flag)
+				{
+					tx_chn->timeout_flag = true;
+					tx_chn->timeout      = jiffies + msecs_to_jiffies(tx_chn->timeout_time); 
+				}
+				else
+				{
+					if ( time_after(jiffies, tx_chn->timeout) )
+					{
+						tx_chn->timeout      = jiffies + msecs_to_jiffies(tx_chn->timeout_time); 
+						printke("[SDIO_TX_CHN][TIMEOUT][%d]\n", tx_chn->timeout_time);
+					}
+				}
+#endif				
 				retry++;
 				continue;
 			}
-			ret    = tx_fifo_out(vif_id, tx_chn_info->chn[tx_chn_index], tx_fifo, hw_tx, &send_pkt);
+#ifdef SDIO_CHN_CHECK
+			if(true == tx_chn->timeout_flag)
+			{
+				tx_chn->timeout_flag = false;
+			}
+#endif
+			ret    = tx_fifo_out(vif_id, index, tx_fifo, hw_tx, &send_pkt);
 			if(OK != ret)
 			{
 				if(HW_WRITE_ERROR == ret)
@@ -803,14 +812,13 @@ TX:
 				continue;
 			}
 			done = done + send_pkt;
-			tx_chn_index = INCR_RING_BUFF_INDX(tx_chn_index, tx_chn_info->num);
 		}
 		
 		if(g_wlan.sync.exit)
 			break;
 		wlan_sleep();
-#ifdef GPIO_POLL_SUPPORT
-		if(gpio_get_value(132))
+		
+		if(gpio_get_value(SDIO_RX_GPIO))
 		{
 			if(g_wlan.wlan_trans.sem.count - done <= 1)
 			{
@@ -822,10 +830,6 @@ TX:
 			if( (0 == done) && (0 == retry) )
 				done = (  (0 == sem_count)?(1):(sem_count) );
 		}
-#else		
-		if((0 == done) && (0 == retry) )
-			done = (  (0 == sem_count)?(1):(sem_count) );
-#endif
 		for(i=0; i<done; i++)
 		{
 			trans_down();
@@ -868,7 +872,7 @@ static int wlan_tx_buf_alloc(wlan_vif_t *vif)
 	vif->event_q[EVENT_Q_ID_3].weight = 20;
 	vif->event_q[EVENT_Q_ID_4].weight = 10;
 		
-	fifo_conf.cp2_txRam   = (1024*15)+960;
+	fifo_conf.cp2_txRam   = HW_TX_SIZE - 64;
 	fifo_conf.max_msg_num = PKT_AGGR_NUM;
 	fifo_conf.size        = 1024*256;
 	ret =  tx_fifo_alloc(&(vif->txfifo), &fifo_conf);
@@ -930,21 +934,28 @@ static int wlan_rx_buf_free(void )
 
 static int wlan_hw_init(hw_info_t *hw)
 {
-	int i;
 	memset(hw, 0, sizeof(hw_info_t) );
 	
-	hw->sdio_tx_chn.num = 2;
-	for(i=0; i<hw->sdio_tx_chn.num; i++)
-	{
-		hw->sdio_tx_chn.chn[i] = i;
-	}
-	hw->sdio_tx_chn.bit_map = 0x0003;
+	hw->sdio_tx_chn.num          = 3;
+	hw->sdio_tx_chn.chn[0]       = 0;
+	hw->sdio_tx_chn.chn[1]       = 1;
+	hw->sdio_tx_chn.chn[2]       = 2;
+	hw->sdio_tx_chn.bit_map      = 0x0007;
+	hw->sdio_tx_chn.timeout_time = 3000;
+	hw->sdio_tx_chn.timeout_flag = false;
+
+	hw->sdio_rx_chn.num          = 3;
+	hw->sdio_rx_chn.chn[0]       = 8;
+	hw->sdio_rx_chn.chn[1]       = 9;
+	hw->sdio_rx_chn.chn[2]       = 14;
+	hw->sdio_rx_chn.bit_map      = 0x4300;
+	hw->sdio_rx_chn.gpio_high    = false;	
+	hw->sdio_rx_chn.timeout_time = 3000;
+	hw->sdio_rx_chn.timeout_flag = false;
+
+	printke("[SDIO_TX_CHN][0x%x][0x%x]\n", hw->sdio_tx_chn.bit_map, HW_TX_SIZE);
+	printke("[SDIO_RX_CHN][0x%x][0x%x]\n", hw->sdio_rx_chn.bit_map, HW_RX_SIZE);
 	
-	hw->sdio_rx_chn.num = 2;
-	for(i=0; i<hw->sdio_rx_chn.num; i++)
-	{
-		hw->sdio_rx_chn.chn[i+8] = 0;
-	}
 	hw->wakeup = 0;
 	spin_lock_init(&(hw->sdio_rx_chn.lock));
 	wake_lock_init(&g_wlan.hw.wlan_lock, WAKE_LOCK_SUSPEND, "wlan_sc2331_lock");
@@ -1050,7 +1061,7 @@ int wlan_module_init(struct device *dev)
 {
 	int ret;
 	
-	printke("[%s] [ version:0x20 ] [ time(%s %s) ]\n", __func__, __DATE__, __TIME__);
+	printke("[%s] [ version:0x21 ] [ time(%s %s) ]\n", __func__, __DATE__, __TIME__);
 	if(NULL == dev)
 		return -EPERM;
 	ret = get_sdiohal_status();
@@ -1158,10 +1169,7 @@ int wlan_module_exit(struct device *dev)
 	wlan_rx_buf_free();
 	wlan_nl_deinit();
 
-	sdiodev_readchn_init(8, NULL, 1);
-	sdiodev_readchn_init(9, NULL, 1);
 	remove_proc_entry("wlan", NULL);
-	remove_proc_entry("lte_concur", NULL);
 	unregister_early_suspend(&g_wlan.hw.early_suspend);
 	wake_lock_destroy(&g_wlan.hw.wlan_lock);
 	printke("%s ok!\n", __func__);

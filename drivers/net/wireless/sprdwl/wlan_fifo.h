@@ -1,6 +1,8 @@
 #ifndef __SPRD_WLAN_FIFO_H_
 #define __SPRD_WLAN_FIFO_H_
 
+#include "wlan_common.h"
+
 #define TX_MSG_HEAD_FILED(hdr)         (  ( sizeof(t_msg_hdr_t) + ( (2==((hdr)->type) )?34:0 )   ) )
 #define TX_MSG_UNIT_LEN(hdr)           (  ( ALIGN_4BYTE( TX_MSG_HEAD_FILED(hdr) + ((hdr)->len) ) )  )      
 #define TX_MSG_NEXT_MSG(hdr)           (  ( (t_msg_hdr_t *)( (unsigned char *)(hdr) + TX_MSG_UNIT_LEN(hdr) ) ) )
@@ -13,7 +15,7 @@
 #define HW_READ_ERROR                  (-6)
 
 #define RX_FIFO_BLOCK_NUM              (8)
-#define RX_FIFO_BLOCK_SIZE             (1024*16)
+#define RX_FIFO_BLOCK_SIZE             HW_RX_SIZE
 
 typedef  int (*P_FUNC_1)(unsigned short, unsigned char *,  unsigned int  );
 typedef  int (*P_FUNC_2)(unsigned short, unsigned char *,  unsigned int *);
@@ -67,6 +69,8 @@ typedef struct
 	unsigned int   cp2_txRam;
 	unsigned short max_msg_num;
 	spinlock_t     lock;
+	unsigned int   wt_cnt;
+	unsigned int   rd_cnt;
 }txfifo_t;
 
 typedef struct
@@ -94,5 +98,6 @@ extern int rx_fifo_used(rxfifo_t *fifo);
 extern unsigned int tx_fifo_used(txfifo_t *fifo);
 extern int rx_fifo_alloc(rxfifo_t *fifo);
 extern int rx_fifo_free(rxfifo_t *fifo);
+extern unsigned int tx_fifo_in_pkt(txfifo_t *tx_fifo);
 #endif
 

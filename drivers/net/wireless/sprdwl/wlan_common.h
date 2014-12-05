@@ -50,12 +50,10 @@
 #include "wlan_cmd.h"
 #include "wlan_cfg80211.h"
 
-#define WLAN_DRV_SLEEP
+//#define SDIO_CHN_CHECK                     (1) 
 #define WIFI_DRV_WAPI
- 
 #define KERNEL_VERSION(a, b, c)              (((a) << 16) + ((b) << 8) + (c))
 #define LINUX_VERSION_CODE                   KERNEL_VERSION(3, 10, 0)
-#define GPIO_POLL_SUPPORT
 
 #define SDIO_ALIGN_SIZE                      (1024)
 #define ALIGN_4BYTE(a)                       (  (((a)+3)&(~3))  ) 
@@ -71,15 +69,20 @@
 #define MAC_PCAP                             TEST_BIT(g_dbg, 5)
 #define ETH_ALEN		                     6
 #define SIOGETSSID                           0x89F2
-#define PKT_AGGR_NUM                         (10)
+
+#define HW_TX_SIZE                          (11264)
+#define HW_RX_SIZE                          (15360)
+#define PKT_AGGR_NUM                        (10)
+#define SDIO_RX_GPIO                        (132)
+
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 #define KERNEL_DEBUG_LEVE     "\001" "0"
 #else
 #define KERNEL_DEBUG_LEVE       "<0>"
 #endif
 
-#define printkd(fmt, ...)     ({if(WLAN_SYSTEM_DBG)printk("[SC2331]" fmt, ##__VA_ARGS__); 0; })
-#define printkp(fmt, ...)     ({if(WLAN_PATH_DBG)printk("[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define printkd(fmt, ...)     ({if(WLAN_SYSTEM_DBG)printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define printkp(fmt, ...)     ({if(WLAN_PATH_DBG)printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
 #define printke(fmt, ...)     ({printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
 #define ASSERT(fmt, ...)      ({printk(KERNEL_DEBUG_LEVE  "[SC2331-ASSERT][%s][%d]" fmt "\n", __func__, __LINE__,  ##__VA_ARGS__); 0; })
 
@@ -92,6 +95,10 @@ typedef struct
 	unsigned char  num;
 	unsigned short bit_map;
 	spinlock_t     lock;
+	int            gpio_high;
+	unsigned long  timeout;
+	unsigned long  timeout_time;
+	bool           timeout_flag;
 }sdio_chn_t;
 
 typedef enum

@@ -94,6 +94,7 @@ int tx_fifo_in(txfifo_t *fifo,  tx_msg_t *msg )
 		memcpy(p, (unsigned char *)(msg->slice[0].data),  msg->hdr.len );
 	}
 	fifo->WT = fifo->WT + unitLen;
+	fifo->wt_cnt++;
 	if(HOST_SC2331_CMD == hdr->type)
 	{
 		printkp("[CMD_IN][%s]\n", get_cmd_name(hdr->subtype) );
@@ -188,6 +189,7 @@ restart:
 	if( (fifo->RD  >  fifo->WT) &&  ( (readMax - readTo) < sizeof(t_msg_hdr_t) )  )
 	{
 		fifo->RD = 0;
+		fifo->rd_cnt = fifo->rd_cnt + num; 
 		spin_lock( &(fifo->lock) );
 		fifo->LASTWT = -1;
 		spin_unlock( &(fifo->lock) );
@@ -195,9 +197,15 @@ restart:
 	else
 	{
 		fifo->RD = readTo - fifo->mem;
+		fifo->rd_cnt = fifo->rd_cnt + num;
 	}	
 out:
 	return ret;
+}
+
+unsigned int tx_fifo_in_pkt(txfifo_t *tx_fifo)
+{
+	return tx_fifo->wt_cnt - tx_fifo->rd_cnt;
 }
 
 unsigned int tx_fifo_used(txfifo_t *tx_fifo)
