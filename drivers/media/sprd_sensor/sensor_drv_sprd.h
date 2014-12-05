@@ -73,7 +73,7 @@ enum sensor_id_e {
 #define PIN_CTL_CCIRPD0                      PIN_CTL_BASE + 0x348UL
 
 #define MISC_BASE                            SPRD_MISC_BASE    /*0xE0033000<-->0x82000000 */
-#ifdef CONFIG_ARCH_SC8810
+#if IS_ENABLED(VERSION2T)
 #define ANA_REG_BASE                         MISC_BASE + 0x600
 #define ANA_LDO_PD_CTL                       ANA_REG_BASE + 0x10
 #define ANA_LDO_VCTL2                        ANA_REG_BASE + 0x20

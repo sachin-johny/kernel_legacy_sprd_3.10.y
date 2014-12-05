@@ -41,9 +41,9 @@
 #include <linux/of_device.h>
 #include <linux/vmalloc.h>
 
-#if defined(CONFIG_ARCH_SCX35)
+#if IS_ENABLED(VERSION3T) || IS_ENABLED(VERSION3L)
 #include "Shark_reg_isp.h"
-#elif defined(CONFIG_ARCH_SC8825)
+#elif IS_ENABLED(VERSION2)
 #include "Tiger_reg_isp.h"
 #else
 #error "Unknown architecture specification"
@@ -96,11 +96,11 @@
 
 #define ISP_DCAM_IRQ_MASK	0x03
 #define ISP_DCAM_IRQ_NUM	0x02
-#if defined(CONFIG_ARCH_SC8825)
+#if IS_ENABLED(VERSION2)
 #define ISP_BUF_MAX_SIZE ISP_TMP_BUF_SIZE_MAX_V0000
 #define ISP_IRQ_NUM ISP_IRQ_NUM_V0000
 #define ISP_IRQ_HW_MASK ISP_IRQ_HW_MASK_V0000
-#elif defined(CONFIG_ARCH_SCX35)
+#elif IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 #define ISP_BUF_MAX_SIZE ISP_TMP_BUF_SIZE_MAX_V0001
 #define ISP_IRQ_NUM ISP_IRQ_NUM_V0001
 #define ISP_IRQ_HW_MASK ISP_IRQ_HW_MASK_V0001
@@ -205,7 +205,7 @@ static int32_t _isp_module_eb(void *handle)
 	if (0x01 == atomic_inc_return(&fd->s_isp_users)) {
 
 		ret = clk_mm_i_eb(isp_dev.this_device->of_node,1);
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 		ret = _isp_set_clk(fd, ISP_CLK_312M);
 #else
 		ret = _isp_set_clk(fd, ISP_CLK_256M);
@@ -253,7 +253,7 @@ static int32_t _isp_module_rst(void *handle)
 	}
 	if (0x00 != atomic_read(&fd->s_isp_users)) {
 
-#if defined(CONFIG_ARCH_SCX35)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 		ISP_OWR(ISP_AXI_MASTER_STOP, BIT_0);
 #endif
 		reg_value=ISP_READL(ISP_AXI_MASTER);
@@ -270,7 +270,7 @@ static int32_t _isp_module_rst(void *handle)
 
 		ISP_WRITEL(ISP_INT_CLEAR, ISP_IRQ_HW_MASK);
 
-#if defined(CONFIG_ARCH_SCX35)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 		sci_glb_set(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
 		sci_glb_set(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
 		sci_glb_set(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
@@ -280,7 +280,7 @@ static int32_t _isp_module_rst(void *handle)
 
 		sci_glb_clr(ISP_MODULE_RESET, ISP_RST_CFG_BIT);
 		sci_glb_clr(ISP_MODULE_RESET, ISP_RST_LOG_BIT);
-#elif defined(CONFIG_ARCH_SC8825)
+#elif IS_ENABLED(VERSION2)
 		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
 		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
 		sci_glb_set(ISP_MODULE_RESET, ISP_RST_BIT);
@@ -436,7 +436,7 @@ static int32_t _isp_set_clk(void *handle, enum isp_clk_sel clk_sel)
 	struct isp_k_file *fd = (struct isp_k_file*)handle;
 	ISP_CHECK_ZERO(fd);
 
-#if defined(CONFIG_ARCH_SCX35)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 	switch (clk_sel) {
 	case ISP_CLK_312M:
 		parent = "clk_312m";

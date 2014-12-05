@@ -40,9 +40,9 @@
 #include <linux/of.h>
 #include <linux/of_device.h>
 
-#if defined(CONFIG_ARCH_SCX35)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 #include "Shark_reg_isp.h"
-#elif defined(CONFIG_ARCH_SC8825)
+#elif IS_ENABLED(VERSION2)
 #include "Tiger_reg_isp.h"
 #else
 #error "Unknown architecture specification"

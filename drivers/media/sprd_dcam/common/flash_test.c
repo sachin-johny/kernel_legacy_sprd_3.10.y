@@ -19,7 +19,7 @@
 static struct class* flash_test_class = NULL;
 static int g_flash_mode = 0;
 
-#if defined (CONFIG_ARCH_SCX35)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 int setflash(uint32_t flash_mode)
 {
 	switch (flash_mode) {

@@ -617,7 +617,7 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 
 	DCAM_TRACE("V4L2: check format for path0 \n");
 
-#if CONFIG_ARCH_SCX35L
+#if IS_ENABLED(VERSION3L)
 	path->is_from_isp = f->fmt.pix.priv;
 #endif
 
@@ -634,7 +634,7 @@ LOCAL int sprd_v4l2_check_path0_cap(uint32_t fourcc,
 		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
 		break;
 
-#if CONFIG_ARCH_SCX35L
+#if IS_ENABLED(VERSION3L)
 	case V4L2_PIX_FMT_YUYV:
 		path->out_fmt = DCAM_OUTPUT_YVYU_1FRAME;
 		path->end_sel.y_endian = DCAM_ENDIAN_LITTLE;
@@ -1320,7 +1320,7 @@ LOCAL int sprd_v4l2_path0_cfg(path_cfg_func path_cfg,
 	} else {
 		param = 0;
 	}
-#if CONFIG_ARCH_SCX35L
+#if IS_ENABLED(VERSION3L)
 	ret = path_cfg(DCAM_PATH_SRC_SEL, &param);
 	V4L2_RTN_IF_ERR(ret);
 #endif
@@ -1328,7 +1328,7 @@ LOCAL int sprd_v4l2_path0_cfg(path_cfg_func path_cfg,
 	ret = path_cfg(DCAM_PATH_INPUT_SIZE, &path_spec->in_size);
 	V4L2_RTN_IF_ERR(ret);
 
-#if CONFIG_ARCH_SCX35L
+#if IS_ENABLED(VERSION3L)
 	ret = path_cfg(DCAM_PATH_INPUT_RECT, &path_spec->in_rect);
 	V4L2_RTN_IF_ERR(ret);
 #endif

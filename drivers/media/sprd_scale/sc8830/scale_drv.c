@@ -620,7 +620,7 @@ int scale_k_start(struct scale_frame_param_t *cfg_ptr, struct scale_path_info *p
 	dcam_glb_reg_owr(SCALE_BASE, SCALE_PATH_EB_BIT, DCAM_CFG_REG);
 
 	dcam_glb_reg_owr(SCALE_CTRL, (SCALE_FRC_COPY_BIT|SCALE_COEFF_FRC_COPY_BIT), DCAM_CONTROL_REG);
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#if IS_ENABLED(VERSION3L) || IS_ENABLED(VERSION3T)
 	REG_OWR(SCALE_REV_BURST_IN_CFG, SCALE_START_BIT);
 #else
 	dcam_glb_reg_owr(SCALE_CTRL, SCALE_START_BIT, DCAM_CONTROL_REG);
