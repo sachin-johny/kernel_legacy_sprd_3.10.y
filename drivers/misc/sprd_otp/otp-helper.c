@@ -95,6 +95,19 @@ EXPORT_SYMBOL_GPL(sci_efuse_calibration_get);
 
 int sci_efuse_cccv_cal_get(unsigned int *p_cal_data)
 {
+#if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
+	unsigned int data,blk0;
+
+	blk0 = __adie_efuse_read(0);
+
+	if (blk0 & (1 << 7)) {
+		return 0;
+	}
+
+	data = __adie_efuse_read_bits(BITSINDEX(14, 0), 6);
+	pr_info("sci_efuse_cccv_cal_get data:0x%x\n", data);
+	*p_cal_data = (data) & 0x003F;
+#else
 	unsigned int data;
 
 	data = __ddie_efuse_read(BLK_CCCV_DETA);
@@ -107,7 +120,7 @@ int sci_efuse_cccv_cal_get(unsigned int *p_cal_data)
 	}
 
 	*p_cal_data = (data >> 24) & 0x003F;	/*block 9, bit 29..24 */
-
+#endif
 	return 1;
 }
 
@@ -256,7 +269,7 @@ int sci_efuse_get_cal(unsigned int *pdata, int num)
 		return -1;
 	}
 
-	WARN_ON(!((delta[0] > delta[1]) && (delta[1] > delta[2])));
+	//WARN_ON(!((delta[0] > delta[1]) && (delta[1] > delta[2])));
 
 	for (i = 0; i < num; i++) {
 		pdata[i] =
