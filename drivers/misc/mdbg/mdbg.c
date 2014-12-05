@@ -10,8 +10,22 @@
 #include "mdbg_sdio.h"
 #include <linux/mutex.h>
 #include <linux/wait.h>
+#include <linux/poll.h>
+#include <linux/proc_fs.h>
 
 #define MDBG_MAX_BUFFER_LEN (PAGE_SIZE-1)
+
+#define MDBG_CHANNEL_WRITE			(5)
+#define MDBG_CHANNEL_ASSERT			(3)
+#define MDBG_CHANNEL_WDTIRQ			(4)
+#define MDBG_CHANNEL_LOOPCHECK 		(6)
+#define MDBG_CHANNEL_AT_CMD			(11)
+
+#define MDBG_WRITE_SIZE 			(64)
+#define MDBG_ASSERT_SIZE			(1024)
+#define MDBG_WDTIRQ_SIZE			(128)
+#define MDBG_LOOPCHECK_SIZE			(128)
+#define MDBG_AT_CMD_SIZE 			(128)
 
 bool read_flag = 0;
 struct mdbg_devvice_t{
@@ -20,9 +34,296 @@ struct mdbg_devvice_t{
 	char			*read_buf;
 	char			*write_buf;
 };
-
 static struct mdbg_devvice_t *mdbg_dev=NULL;
 wait_queue_head_t	mdbg_wait;
+
+struct mdbg_proc_entry {
+	char *name;
+	struct proc_dir_entry *entry;
+	wait_queue_head_t	wait;
+	void *buf;
+};
+
+struct mdbg_proc_t{
+	char *dir_name;
+	struct proc_dir_entry		*procdir;
+	struct mdbg_proc_entry		assert;
+	struct mdbg_proc_entry		wdtirq;
+	struct mdbg_proc_entry		loopcheck;
+	struct mdbg_proc_entry		at_cmd;
+	char write_buf[MDBG_WRITE_SIZE];
+};
+
+static struct mdbg_proc_t *mdbg_proc=NULL;
+
+
+void mdbg_assert_read(void)
+{
+	int read_len;
+	read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_ASSERT);
+	if(read_len <= 0){
+		return;
+	}
+
+	if(read_len > MDBG_ASSERT_SIZE)
+		MDBG_ERR( "The assert data len:%d, beyond max read:%d",read_len,MDBG_ASSERT_SIZE);
+
+	sdio_dev_read(MDBG_CHANNEL_ASSERT,mdbg_proc->assert.buf,&read_len);
+	wake_up_interruptible(&mdbg_proc->assert.wait);
+
+	return;
+}
+
+void mdbg_wdtirq_read(void)
+{
+	int read_len;
+	read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_WDTIRQ);
+	if(read_len <= 0){
+		return;
+	}
+
+	if(read_len > MDBG_WDTIRQ_SIZE)
+		MDBG_ERR( "The assert data len:%d, beyond max read:%d",read_len,MDBG_WDTIRQ_SIZE);
+
+	sdio_dev_read(MDBG_CHANNEL_WDTIRQ,mdbg_proc->wdtirq.buf,&read_len);
+	wake_up_interruptible(&mdbg_proc->wdtirq.wait);
+
+	return;
+}
+
+void mdbg_loopcheck_read(void)
+{
+	int read_len;
+
+	read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_LOOPCHECK);
+	if(read_len <= 0){
+		return;
+	}
+
+	if(read_len > MDBG_LOOPCHECK_SIZE)
+		MDBG_ERR( "The loopcheck data len:%d, beyond max read:%d",read_len,MDBG_LOOPCHECK_SIZE);
+
+	sdio_dev_read(MDBG_CHANNEL_LOOPCHECK,mdbg_proc->loopcheck.buf,&read_len);
+	wake_up_interruptible(&mdbg_proc->loopcheck.wait);
+
+	return;
+}
+
+void mdbg_at_cmd_read(void)
+{
+	int read_len;
+
+	read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_AT_CMD);
+	if(read_len <= 0){
+		return;
+	}
+
+	if(read_len > MDBG_AT_CMD_SIZE)
+		MDBG_ERR( "The at cmd data len:%d, beyond max read:%d",read_len,MDBG_AT_CMD_SIZE);
+
+	sdio_dev_read(MDBG_CHANNEL_AT_CMD,mdbg_proc->at_cmd.buf,&read_len);
+	printk("mdbg_at_cmd_read:%s\n",mdbg_proc->at_cmd.buf);
+	wake_up_interruptible(&mdbg_proc->at_cmd.wait);
+
+	return;
+}
+
+static int mdbg_proc_open(struct inode *inode, struct file *filp)
+{
+	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)PDE_DATA(inode);
+	char *type = entry->name;
+
+	filp->private_data = entry;
+	MDBG_ERR("%s type:%s\n",__func__,type);
+
+	return 0;
+}
+
+static int mdbg_proc_release(struct inode *inode, struct file *filp)
+{
+	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)PDE_DATA(inode);
+	char *type = entry->name;
+
+	MDBG_ERR("%s type:%s\n",__func__,type);
+
+	return 0;
+}
+
+static ssize_t mdbg_proc_read(struct file *filp,
+		char __user *buf, size_t count, loff_t *ppos)
+{
+	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)filp->private_data;
+	char *type = entry->name;
+
+	if(strcmp(type, "assert") == 0) {
+		printk(KERN_INFO "Read assert info\n");
+		printk("mdbg_proc->assert.buf:%s\n",mdbg_proc->assert.buf);
+		if(copy_to_user((void __user *)buf, mdbg_proc->assert.buf, min(count,(size_t)MDBG_ASSERT_SIZE))){
+			MDBG_ERR( "Read assert info error\n");
+		}
+	}
+
+	if(strcmp(type, "wdtirq") == 0) {
+		printk(KERN_INFO "Read wdtirq info\n");
+		printk("mdbg_proc->wdtirq.buf:%s\n",mdbg_proc->wdtirq.buf);
+		if(copy_to_user((void __user *)buf, mdbg_proc->wdtirq.buf, min(count,(size_t)MDBG_WDTIRQ_SIZE))){
+			MDBG_ERR( "Read wdtirq info error\n");
+		}
+	}
+
+	if(strcmp(type, "loopcheck") == 0) {
+		printk(KERN_INFO "Read loopcheck info\n");
+		printk("mdbg_proc->loopcheck.buf:%s\n",mdbg_proc->loopcheck.buf);
+		if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
+			MDBG_ERR( "Read loopcheck info error\n");
+		}
+	}
+
+	if(strcmp(type, "at_cmd") == 0) {
+		printk(KERN_INFO "Read at cmd ack info\n");
+		printk("mdbg_proc->at_cmd.buf:%s\n",mdbg_proc->at_cmd.buf);
+		if(copy_to_user((void __user *)buf, mdbg_proc->at_cmd.buf, min(count,(size_t)MDBG_AT_CMD_SIZE))){
+			MDBG_ERR( "Read at cmd ack info error\n");
+		}
+	}
+	return count;
+}
+
+static ssize_t mdbg_proc_write(struct file *filp,
+		const char __user *buf, size_t count, loff_t *ppos)
+{
+	if(count > MDBG_WRITE_SIZE){
+		MDBG_ERR( "mdbg_proc_write count > MDBG_WRITE_SIZE\n");
+		return -ENOMEM;
+	}
+
+	if (copy_from_user(mdbg_proc->write_buf,buf,count )){
+		return -EFAULT;
+	}
+	printk("mdbg_proc->write_buf:%s",mdbg_proc->write_buf);
+	set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
+
+	sdio_dev_write(MDBG_CHANNEL_WRITE, mdbg_proc->write_buf, count);
+
+	return count;
+}
+
+static unsigned int mdbg_proc_poll(struct file *filp, poll_table *wait)
+{
+	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)filp->private_data;
+	char *type = entry->name;
+	unsigned int mask = 0;
+	printk("%s type:%s\n",__func__,type);
+
+	if(strcmp(type, "assert") == 0)
+		poll_wait(filp, &mdbg_proc->assert.wait, wait);
+
+	if(strcmp(type, "wdtirq") == 0)
+		poll_wait(filp, &mdbg_proc->wdtirq.wait, wait);
+
+	if(strcmp(type, "loopcheck") == 0)
+		poll_wait(filp, &mdbg_proc->loopcheck.wait, wait);
+
+	if(strcmp(type, "at_cmd") == 0)
+		poll_wait(filp, &mdbg_proc->at_cmd.wait, wait);
+
+	mask |= POLLIN | POLLRDNORM;
+
+	return mask;
+}
+
+struct file_operations mdbg_proc_fops = {
+	.open		= mdbg_proc_open,
+	.release	= mdbg_proc_release,
+	.read		= mdbg_proc_read,
+	.write		= mdbg_proc_write,
+	.poll		= mdbg_proc_poll,
+};
+
+LOCAL  void mdbg_fs_channel_init(void)
+{
+	int retval=0;
+
+	mdbg_proc->assert.buf =  kzalloc(MDBG_ASSERT_SIZE, GFP_KERNEL);
+	retval = sdiodev_readchn_init(MDBG_CHANNEL_ASSERT, mdbg_assert_read,0);
+
+	mdbg_proc->wdtirq.buf =  kzalloc(MDBG_WDTIRQ_SIZE, GFP_KERNEL);
+	retval = sdiodev_readchn_init(MDBG_CHANNEL_WDTIRQ, mdbg_wdtirq_read,0);
+
+	mdbg_proc->loopcheck.buf =  kzalloc(MDBG_LOOPCHECK_SIZE, GFP_KERNEL);
+	retval = sdiodev_readchn_init(MDBG_CHANNEL_LOOPCHECK, mdbg_loopcheck_read,0);
+
+	mdbg_proc->at_cmd.buf =  kzalloc(MDBG_AT_CMD_SIZE, GFP_KERNEL);
+	retval = sdiodev_readchn_init(MDBG_CHANNEL_AT_CMD, mdbg_at_cmd_read,0);
+}
+
+LOCAL  void mdbg_fs_channel_uninit(void)
+{
+	sdiodev_readchn_uninit(MDBG_CHANNEL_ASSERT);
+	kfree(mdbg_proc->assert.buf);
+	mdbg_proc->assert.buf= NULL;
+
+	sdiodev_readchn_uninit(MDBG_CHANNEL_WDTIRQ);
+	kfree(mdbg_proc->wdtirq.buf);
+	mdbg_proc->wdtirq.buf= NULL;
+
+	sdiodev_readchn_uninit(MDBG_CHANNEL_LOOPCHECK);
+	kfree(mdbg_proc->loopcheck.buf);
+	mdbg_proc->loopcheck.buf= NULL;
+
+	sdiodev_readchn_uninit(MDBG_CHANNEL_AT_CMD);
+	kfree(mdbg_proc->at_cmd.buf);
+	mdbg_proc->at_cmd.buf= NULL;
+}
+
+
+LOCAL void mdbg_fs_init(void)
+{
+	mdbg_proc = kzalloc(sizeof(struct mdbg_proc_t), GFP_KERNEL);
+	if (!mdbg_proc)
+		return;
+
+	mdbg_proc->dir_name = "mdbg";
+	mdbg_proc->procdir = proc_mkdir(mdbg_proc->dir_name, NULL);
+
+	mdbg_proc->assert.name = "assert";
+	mdbg_proc->assert.entry = proc_create_data(mdbg_proc->assert.name, S_IRUSR,
+	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->assert));
+
+	mdbg_proc->wdtirq.name = "wdtirq";
+	mdbg_proc->wdtirq.entry = proc_create_data(mdbg_proc->wdtirq.name, S_IRUSR,
+	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->wdtirq));
+
+	mdbg_proc->loopcheck.name = "loopcheck";
+	mdbg_proc->loopcheck.entry = proc_create_data(mdbg_proc->loopcheck.name, S_IRUSR,
+	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->loopcheck));
+
+	mdbg_proc->at_cmd.name = "at_cmd";
+	mdbg_proc->at_cmd.entry = proc_create_data(mdbg_proc->at_cmd.name, S_IRUSR,
+	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->at_cmd));
+
+	mdbg_fs_channel_init();
+
+	init_waitqueue_head(&mdbg_proc->assert.wait);
+	init_waitqueue_head(&mdbg_proc->wdtirq.wait);
+	init_waitqueue_head(&mdbg_proc->loopcheck.wait);
+	init_waitqueue_head(&mdbg_proc->at_cmd.wait);
+}
+
+LOCAL void mdbg_fs_init_exit(void)
+{
+	mdbg_fs_channel_uninit();
+
+	remove_proc_entry(mdbg_proc->assert.name , mdbg_proc->procdir);
+	remove_proc_entry(mdbg_proc->wdtirq.name , mdbg_proc->procdir);
+	remove_proc_entry(mdbg_proc->loopcheck.name , mdbg_proc->procdir);
+	remove_proc_entry(mdbg_proc->at_cmd.name , mdbg_proc->procdir);
+	remove_proc_entry(mdbg_proc->dir_name, NULL);
+
+	kfree(mdbg_proc);
+	mdbg_proc=NULL;
+}
+
 
 LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *pos)
 {
@@ -107,7 +408,7 @@ LOCAL ssize_t mdbg_write(struct file *filp, const char __user *buf,size_t count,
 
 static int mdbg_open(struct inode *inode,struct file *filp)
 {
-	printk(KERN_INFO "MDBG:%s entry\n",__func__);
+	//printk(KERN_INFO "MDBG:%s entry\n",__func__);
 
 	if (mdbg_dev->open_count!=0) {
 		MDBG_ERR( "mdbg_open %d \n",mdbg_dev->open_count);
@@ -120,7 +421,7 @@ static int mdbg_open(struct inode *inode,struct file *filp)
 
 static int mdbg_release(struct inode *inode,struct file *filp)
 {
-	printk(KERN_INFO "MDBG:%s entry\n",__func__);
+	//printk(KERN_INFO "MDBG:%s entry\n",__func__);
 
 	mdbg_dev->open_count--;
 	return 0;
@@ -169,6 +470,8 @@ LOCAL int __init mdbg_module_init(void)
 	if(err < 0)
 		return -ENOMEM;
 
+	mdbg_fs_init();
+
 	return misc_register(&mdbg_device);
 }
 
@@ -176,6 +479,7 @@ LOCAL void __exit mdbg_module_exit(void)
 {
 	MDBG_FUNC_ENTERY;
 	mdbg_sdio_remove();
+	mdbg_fs_init_exit();
 	mutex_destroy(&mdbg_dev->mdbg_lock);
 	kfree(mdbg_dev->read_buf);
 	kfree(mdbg_dev->write_buf);

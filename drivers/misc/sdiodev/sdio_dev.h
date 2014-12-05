@@ -103,6 +103,7 @@ extern volatile bool marlin_mmc_suspend;
 #define MARLIN_DEVICE_ID  0x2331
 #define SDIO_CHN_8  0x1 
 #define SDIO_CHN_9	0x2
+#define SDIO_CHN_11	0x8
 #define SDIO_CHN_12	0x10
 #define SDIO_CHN_13	0x20
 
@@ -118,6 +119,8 @@ extern volatile bool marlin_mmc_suspend;
 #define SDIOLOG_CHN  14
 #define SDIO_SYNC_CHN 10
 #define DOWNLOAD_CHANNEL_READ	12
+#define PSEUDO_ATC_CHANNEL_READ	11
+
 #define WIFI_CHN_8	8
 #define WIFI_CHN_9	9
 

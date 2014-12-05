@@ -360,6 +360,8 @@ int  sdio_dev_get_read_chn(void)
 		return 8;
 	else if(chn_status & SDIO_CHN_9)
 		return 9;
+	else if(chn_status & SDIO_CHN_11)
+		return 11;
 	else if(chn_status & SDIO_CHN_12)
 		return 12;
 	else if(chn_status & SDIO_CHN_14)
@@ -620,6 +622,23 @@ int sdio_download_handler(void)
 	}
 }
 
+int sdio_pseudo_atc_handler(void)
+{
+	SDIOTRAN_ERR("ENTRY");
+
+	if(NULL != sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback)
+	{
+		SDIOTRAN_ERR("DOWNLOAD_CHN tran_callback=%p",sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback);
+		sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback();
+		return 0;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+
 int sdio_wifi_handler(uint32 chn)
 {
 	if(NULL != sdio_tran_handle[chn].tran_callback_para)
@@ -651,6 +670,9 @@ static void marlin_workq(void)
 			break;
 		case DOWNLOAD_CHANNEL_READ:
 			ret = sdio_download_handler();
+			break;
+		case PSEUDO_ATC_CHANNEL_READ:
+			ret = sdio_pseudo_atc_handler();
 			break;
 		case WIFI_CHN_8:
 		case WIFI_CHN_9:
