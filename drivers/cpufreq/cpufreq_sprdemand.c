@@ -46,8 +46,8 @@
 #define DEF_FREQUENCY_UP_THRESHOLD		(80)
 #define DEF_SAMPLING_DOWN_FACTOR		(1)
 #define MAX_SAMPLING_DOWN_FACTOR		(100000)
-#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(3)
-#define MICRO_FREQUENCY_UP_THRESHOLD		(95)
+#define MICRO_FREQUENCY_DOWN_DIFFERENTIAL	(10)
+#define MICRO_FREQUENCY_UP_THRESHOLD		(80)
 #define MICRO_FREQUENCY_MIN_SAMPLE_RATE		(10000)
 #define MIN_FREQUENCY_UP_THRESHOLD		(11)
 #define MAX_FREQUENCY_UP_THRESHOLD		(100)
@@ -248,6 +248,7 @@ static void dbs_freq_increase(struct cpufreq_policy *p, unsigned int freq)
 			CPUFREQ_RELATION_L : CPUFREQ_RELATION_H);
 }
 
+extern unsigned int percpu_load[4] ;
 static void sprd_unplug_one_cpu(struct work_struct *work)
 {
 	struct cpufreq_policy *policy = cpufreq_cpu_get(0);
@@ -277,6 +278,7 @@ static void sprd_unplug_one_cpu(struct work_struct *work)
 		}
 	}
 #endif
+	//trace_cpu_load(percpu_load[0],policy->cur,num_online_cpus());
 	return;
 }
 
@@ -309,6 +311,7 @@ static void sprd_plugin_one_cpu(struct work_struct *work)
 		}
 	}
 #endif
+	//trace_cpu_load(percpu_load[0],policy->cur,num_online_cpus());
 	return;
 }
 
@@ -355,9 +358,9 @@ int a_score_sub[4][4][11]=
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
-		{0,0,0,0,0,0,0,10,20,20,30},
-		{0,0,0,0,0,0,0,5,10,10,20},
-		{0,0,0,0,0,0,0,0,5,5,10},
+		{0,0,0,0,0,0,0,0,5,10,20},
+		{-10,-5,-5,0,0,0,0,0,0,5,10},
+		{-20,-10,-5,0,0,0,0,0,0,5,10},
 		{0,0,0,0,0,0,0,0,0,0,0}
 	},
 	{
@@ -823,6 +826,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 		else
 			dbs_freq_increase(policy, policy->max-1);
 
+		//trace_cpu_load(percpu_load[0],policy->cur,num_online_cpus());
 		goto plug_check;
 	}
 
@@ -856,7 +860,7 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 		freq_next = sd_ops.powersave_bias_target(policy, freq_next,
 					CPUFREQ_RELATION_L);
 		__cpufreq_driver_target(policy, freq_next, CPUFREQ_RELATION_L);
-
+		//trace_cpu_load(percpu_load[0],policy->cur,num_online_cpus());
 	}
 
 plug_check:
@@ -865,9 +869,10 @@ plug_check:
 	if (sd_tuners->cpu_hotplug_disable)
 		return;
 
+	itself_avg_load = sd_unplug_avg_load1(local_cpu, sd_tuners, local_load);
 	/* cpu plugin check */
 	if(num_online_cpus() < sd_tuners->cpu_num_limit) {
-		cpu_score += cpu_evaluate_score(policy->cpu,sd_tuners, local_load);
+		cpu_score += cpu_evaluate_score(policy->cpu,sd_tuners, itself_avg_load);
 		if (cpu_score < 0)
 			cpu_score = 0;
 		if (cpu_score >= sd_tuners->cpu_score_up_threshold) {
@@ -899,12 +904,13 @@ plug_check:
 	else if((num_online_cpus() > 1) && (dvfs_unplug_select == 2))
 	{
 		/* calculate itself's average load */
-		itself_avg_load = sd_unplug_avg_load1(local_cpu, sd_tuners, local_load);
+		//itself_avg_load = sd_unplug_avg_load1(local_cpu, sd_tuners, local_load);
 		pr_debug("check unplug: for cpu%u avg_load=%d\n", local_cpu, itself_avg_load);
 		if(itself_avg_load < sd_tuners->cpu_down_threshold)
 		{
 				pr_info("cpu%u's avg_load=%d,begin unplug cpu\n",
 						local_cpu, itself_avg_load);
+
 				percpu_load[local_cpu] = 0;
 				cur_window_size[local_cpu] = 0;
 				cur_window_index[local_cpu] = 0;
