@@ -18,13 +18,13 @@
 #define MDBG_RING_LOCK_UNINIT(pRing)	mutex_destroy(pRing->plock)
 #define MDBG_RING_LOCK(pRing) 			mutex_lock(pRing->plock)
 #define MDBG_RING_UNLOCK(pRing) 		mutex_unlock(pRing->plock)
-#define _MDBG_RING_REMAIN(rp,wp,size) 	((uint32_t)wp >= (uint32_t)rp?(size - (uint32_t)wp + (uint32_t)rp - 1): ((uint32_t)rp - (uint32_t)wp -1))
+#define _MDBG_RING_REMAIN(rp,wp,size) 	((u_long)wp >= (u_long)rp?(size - (u_long)wp + (u_long)rp - 1): ((u_long)rp - (u_long)wp -1))
 
 LOCAL MDBG_SIZE_T mdbg_ring_remain(MDBG_RING_T* pRing);
 LOCAL MDBG_SIZE_T mdbg_ring_content_len(MDBG_RING_T* pRing);
 LOCAL char* mdbg_ring_start(MDBG_RING_T* pRing);
 LOCAL char* mdbg_ring_end(MDBG_RING_T* pRing);
-LOCAL bool mdbg_ring_over_loop(MDBG_RING_T* pRing, uint32_t len, int rw);
+LOCAL bool mdbg_ring_over_loop(MDBG_RING_T* pRing, u_long len, int rw);
 
 
 /*******************************************************/
@@ -58,7 +58,7 @@ PUBLIC MDBG_RING_T* mdbg_ring(MDBG_SIZE_T size)
 		pRing->size = size;
 		pRing->rp = pRing->pbuff;
 		pRing->wp = pRing->pbuff;
-		pRing->end = (char*)(((uint32_t)pRing->pbuff) + (pRing->size - 1));
+		pRing->end = (char*)(((u_long)pRing->pbuff) + (pRing->size - 1));
 		return (pRing);//created a MDBG_RING!
 	}while(0);
 	mdbg_ring_destroy(pRing);
@@ -126,7 +126,7 @@ PUBLIC int mdbg_ring_read(MDBG_RING_T* pRing, char* buf, int len)
 		len2 = read_len -len1;
 		memcpy(buf, pRing->rp, len1);
 		memcpy((buf+ len1), pstart, len2);
-		pRing->rp = (char *)((uint32)pstart + len2);
+		pRing->rp = (char *)((u_long)pstart + len2);
 	}else{
 		memcpy(buf, pRing->rp, read_len);
 		pRing->rp += read_len;
@@ -155,19 +155,13 @@ PUBLIC int mdbg_ring_write(MDBG_RING_T* pRing, char* buf, int len)
 	MDBG_LOG("len = %d",len);
 	MDBG_LOG("pRing->wp = %p",pRing->wp);
 	
-	if(mdbg_ring_will_full(pRing,len)){
-		MDBG_ERR("Ring Write Failed, Ring Full!");
-		MDBG_RING_UNLOCK(pRing);
-		return(MDBG_ERR_RING_FULL);//ring full
-	}
-	
 	if(mdbg_ring_over_loop(pRing, len, MDBG_RING_W)){
 		MDBG_LOG("Ring overloop.");
 		len1 = pend - pRing->wp + 1;
 		len2 = len - len1;
 		memcpy(pRing->wp, buf, len1);
 		memcpy(pstart, (buf + len1), len2);
-		pRing->wp = (char *)((uint32)pstart + len2);
+		pRing->wp = (char *)((u_long)pstart + len2);
 
 	}else{
 		memcpy(pRing->wp, buf, len);
@@ -230,12 +224,12 @@ LOCAL char* mdbg_ring_end(MDBG_RING_T* pRing)
 	return(pRing->end);
 }
 
-LOCAL bool mdbg_ring_over_loop(MDBG_RING_T* pRing, uint32_t len, int rw)
+LOCAL bool mdbg_ring_over_loop(MDBG_RING_T* pRing, u_long len, int rw)
 {
 	if(MDBG_RING_R == rw){
-		return ((uint32_t)pRing->rp + len > (uint32_t)mdbg_ring_end(pRing));
+		return ((u_long)pRing->rp + len > (u_long)mdbg_ring_end(pRing));
 	}else{
-		return ((uint32_t)pRing->wp + len > (uint32_t)mdbg_ring_end(pRing));
+		return ((u_long)pRing->wp + len > (u_long)mdbg_ring_end(pRing));
 	}
 }
 

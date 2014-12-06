@@ -27,5 +27,6 @@ int 				mdbg_sdio_init(void);
 void 				mdbg_sdio_remove(void);
 MDBG_SIZE_T	mdbg_send(char* buff, MDBG_SIZE_T len);
 MDBG_SIZE_T 	mdbg_receive(char* buff, MDBG_SIZE_T len);
+int mdbg_channel_init(void);
 
 #endif

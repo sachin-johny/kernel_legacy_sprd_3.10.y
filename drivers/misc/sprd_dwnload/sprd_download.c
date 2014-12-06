@@ -14,6 +14,7 @@
 #include <linux/timer.h>
 #include <linux/wakelock.h>
 #include "../sdiodev/sdio_dev.h"
+#include "../mdbg/mdbg_sdio.h"
 
 #define 	DLOADER_NAME	        "download"
 
@@ -103,6 +104,8 @@ static int sprd_download_open(struct inode *inode,struct file *filp)
 		return -EBUSY;
 	}
 
+	marlin_sdio_init();
+	mdbg_channel_init();
 
 	while(1 != get_apsdiohal_status()){
 		if(retry++ > 3){

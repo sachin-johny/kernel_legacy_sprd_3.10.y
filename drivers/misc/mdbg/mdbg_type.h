@@ -16,11 +16,9 @@
 #include <linux/miscdevice.h>
 #include <linux/delay.h>
 #include <linux/module.h>
-#include <linux/interrupt.h>
 #include <linux/slab.h>
 #include <linux/irq.h>
 #include <linux/input.h>
-#include <linux/gpio.h>
 #include <linux/fs.h>
 #include <asm/uaccess.h>
 #include <linux/miscdevice.h>
@@ -61,7 +59,7 @@
 #define MDBG_ERR_NO_FILE		(-6)
 
 
-typedef int MDBG_SIZE_T;
+typedef long int MDBG_SIZE_T;
 
 
 #endif

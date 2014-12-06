@@ -184,6 +184,7 @@ int  sdio_dev_read(uint32 chn,void* read_buf,uint32 *count);
 int sdiodev_readchn_init(uint32 chn,void* callback,bool with_para);
 int sdiodev_readchn_uninit(uint32 chn);
 void set_sprd_download_fin(int dl_tag);
+int marlin_sdio_init(void);
 
 void set_blklen(int blklen);
 

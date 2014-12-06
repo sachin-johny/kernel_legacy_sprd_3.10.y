@@ -27,11 +27,12 @@
 MDBG_RING_T* rx_ring;
 struct mutex mdbg_read_mutex;
 extern bool read_flag;
-
+extern wait_queue_head_t	mdbg_wait;
 /*******************************************************/
 /******************Local Variables*******************/
 /*******************************************************/
 LOCAL uint8_t* mdbg_rx_buff;
+
 LOCAL struct work_struct rx_workq;
 MDBG_SIZE_T sdio_read_len;
 static struct wake_lock  mdbg_wake_lock;
@@ -45,7 +46,7 @@ void mdbg_rx_handler(void )
 {
 	sdio_read_len = mdbg_ring_write(rx_ring,mdbg_rx_buff, sdio_read_len);
 	read_flag = 1;
-	//printk("\001" "0" "[%s]\n",__func__);
+	wake_up_interruptible(&mdbg_wait);
 	return;
 }
 
@@ -54,57 +55,25 @@ void mdbg_rx_handler(void )
 /*******************************************************/
 PUBLIC int mdbg_sdio_init(void)
 {
-	int retry_cnt = 0;
 	int err = 0;
-	do{
-		//Step 1: Wait for sdio hal being ready.
-		while(1 != get_sdiohal_status()){//check if sdio hal is ready; 
-			if(retry_cnt++ > MDBG_MAX_RETRY){
-				MDBG_ERR("SDIO hal not ready for a long time, init failed.");
-				return (MDBG_ERR_TIMEOUT);//init failed,return immediately.
-			}
-			MDBG_ERR("SDIO hal not ready, wait 500ms and try again!");
-			msleep(500);
-		}
-		MDBG_LOG("SDIO hal ready !");
+	rx_ring = mdbg_ring(MDBG_RX_RING_SIZE);
+	if(!rx_ring){
+		MDBG_ERR("Ring malloc error.");
+		err = (MDBG_ERR_MALLOC_FAIL);
+	}
 
-		//Step 2: Init a ring buffer for sdio rx.
-		wake_lock_init(&mdbg_wake_lock, WAKE_LOCK_SUSPEND, "mdbg_wake_lock");
-		INIT_WORK(&rx_workq, mdbg_rx_handler);
-		rx_ring = mdbg_ring(MDBG_RX_RING_SIZE);
-		if(!rx_ring){
-			MDBG_ERR("Ring malloc error.");
-			err = (MDBG_ERR_MALLOC_FAIL);
-			break;//goto init failed
-		}
-		MDBG_LOG("Ring alloc succeed !");
-		
-		//Step 3: Init mdbg_rx_buff.
-		mdbg_rx_buff = kmalloc(MDBG_RX_BUFF_SIZE, GFP_KERNEL);
-		if(!mdbg_rx_buff){
-			MDBG_ERR("mdbg_rx_buff malloc error.");
-			err = (MDBG_ERR_MALLOC_FAIL);
-			break;//goto init failed
-		}
-		MDBG_LOG("mdbg_rx_buff alloc succeed !");
-		
-		//Step 4: Init sdio dev read channel.
-		err = sdiodev_readchn_init(MDBG_CHANNEL_READ, mdbg_sdio_read,0);
-		if(err != 0){
-			MDBG_ERR("Sdio dev read channel init failed!");
-			err = (MDBG_ERR_SDIO_ERR);
-			break;//goto init failed
-		}		
-		mutex_init(&mdbg_read_mutex);
-		MDBG_LOG("Sdio dev read channel init succeed !");
-		//probe succeed;
-		return (MDBG_SUCCESS);
-	}while(0);
+	mdbg_rx_buff = kmalloc(MDBG_RX_BUFF_SIZE, GFP_KERNEL);
+	if(!mdbg_rx_buff){
+		MDBG_ERR("mdbg_rx_buff malloc error.");
+		err = (MDBG_ERR_MALLOC_FAIL);
+	}
 
-	//Marlin debug system probe failed.
-	//clear everything.
-	mdbg_sdio_remove();
-	MDBG_ERR("init failed,return val:%d", err);
+	mutex_init(&mdbg_read_mutex);
+
+	wake_lock_init(&mdbg_wake_lock, WAKE_LOCK_SUSPEND, "mdbg_wake_lock");
+	INIT_WORK(&rx_workq, mdbg_rx_handler);
+	MDBG_LOG("mdbg_sdio_init!");
+
 	return (err);
 }
 
@@ -119,6 +88,19 @@ PUBLIC void mdbg_sdio_remove(void)
 		kfree(mdbg_rx_buff);
 	}
 }
+
+int mdbg_channel_init(void)
+{
+	int err = 0;
+
+	err = sdiodev_readchn_init(MDBG_CHANNEL_READ, mdbg_sdio_read,0);
+	if(err != 0){
+		MDBG_ERR("Sdio dev read channel init failed!");
+	}
+	return err;
+}
+EXPORT_SYMBOL_GPL(mdbg_channel_init);
+
 
 /*******************************************************/
 /***********MDBG SDIO IO Functions**************/
@@ -139,14 +121,13 @@ PUBLIC void mdbg_sdio_read(void)
 	sdio_read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_READ);
 	if(sdio_read_len <= 0)
 	{
-		printk("\001" "0" "[%s][%d]\n",__func__, sdio_read_len);
+		MDBG_ERR("[%s][%d]\n",__func__, sdio_read_len);
 		wake_unlock(&mdbg_wake_lock);
 		mutex_unlock(&mdbg_read_mutex);
 		return;
 	}
 	sdio_dev_read(MDBG_CHANNEL_READ,mdbg_rx_buff,&sdio_read_len);
 	schedule_work(&rx_workq);
-	//printk("\001" "0" "[%s][%d]\n",__func__, sdio_read_len);
 	wake_unlock(&mdbg_wake_lock);
 	mutex_unlock(&mdbg_read_mutex);
 	return;

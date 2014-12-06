@@ -149,6 +149,9 @@ static long sprd_power_ctl_ioctl(struct file *file, unsigned int cmd, unsigned l
 static struct file_operations sprd_power_ctl__fops = {
 	.owner = THIS_MODULE,
 	.unlocked_ioctl	= sprd_power_ctl_ioctl,
+	#ifdef CONFIG_COMPAT
+	.compat_ioctl = sprd_power_ctl_ioctl,
+	#endif
 	.open  = sprd_power_ctl_open,
 	.release = sprd_power_ctl_release,
 };

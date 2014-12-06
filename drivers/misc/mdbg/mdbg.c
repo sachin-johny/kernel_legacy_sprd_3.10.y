@@ -9,9 +9,8 @@
 #include "mdbg.h"
 #include "mdbg_sdio.h"
 #include <linux/mutex.h>
+#include <linux/wait.h>
 
-#define MDBG_INIT mdbg_sdio_init()
-#define MDBG_REMOVE mdbg_sdio_remove()
 #define MDBG_MAX_BUFFER_LEN (PAGE_SIZE-1)
 
 bool read_flag = 0;
@@ -23,15 +22,32 @@ struct mdbg_devvice_t{
 };
 
 static struct mdbg_devvice_t *mdbg_dev=NULL;
+wait_queue_head_t	mdbg_wait;
 
 LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *pos)
 {
 	MDBG_SIZE_T read_size;;
+	int timeout = -1;
+	int rval;
 
-	mutex_lock(&mdbg_dev->mdbg_lock);
+	if (filp->f_flags & O_NONBLOCK) {
+		timeout = 0;
+	}
 
 	if(count > MDBG_MAX_BUFFER_LEN)
 		count = MDBG_MAX_BUFFER_LEN;
+
+	if (timeout < 0){
+		/* wait forever */
+		rval = wait_event_interruptible(mdbg_wait,read_flag == 1);
+		if (rval < 0){
+			MDBG_ERR("mdbg_read wait interrupted!\n");
+		}
+	}else{
+		MDBG_ERR("mdbg_read no blok\n");
+	}
+
+	mutex_lock(&mdbg_dev->mdbg_lock);
 
 	if(!read_flag){
 		mutex_unlock(&mdbg_dev->mdbg_lock);
@@ -95,8 +111,43 @@ static int mdbg_open(struct inode *inode,struct file *filp)
 
 	if (mdbg_dev->open_count!=0) {
 		MDBG_ERR( "mdbg_open %d \n",mdbg_dev->open_count);
-		return -EBUSY;
 	}
+
+	mdbg_dev->open_count++;
+
+	return 0;
+}
+
+static int mdbg_release(struct inode *inode,struct file *filp)
+{
+	printk(KERN_INFO "MDBG:%s entry\n",__func__);
+
+	mdbg_dev->open_count--;
+	return 0;
+}
+
+static struct file_operations mdbg_fops = {
+	.owner = THIS_MODULE,
+	.read  = mdbg_read,
+	.write = mdbg_write,
+	.open  = mdbg_open,
+	.release = mdbg_release,
+};
+static struct miscdevice mdbg_device = {
+	.minor = MISC_DYNAMIC_MINOR,
+	.name = "slog_wcn",
+	.fops = &mdbg_fops,
+};
+
+LOCAL int __init mdbg_module_init(void)
+{
+	int err;
+
+	MDBG_FUNC_ENTERY;
+
+	mdbg_dev = kzalloc(sizeof(*mdbg_dev), GFP_KERNEL);
+	if (!mdbg_dev)
+		return -ENOMEM;
 
 	mdbg_dev->read_buf = kzalloc(MDBG_MAX_BUFFER_LEN, GFP_KERNEL);
 	if (mdbg_dev->read_buf == NULL) {
@@ -111,53 +162,12 @@ static int mdbg_open(struct inode *inode,struct file *filp)
 		return -ENOMEM;
 	}
 
-	mdbg_dev->open_count++;
-
-	return 0;
-}
-
-static int mdbg_release(struct inode *inode,struct file *filp)
-{
-	printk(KERN_INFO "MDBG:%s entry\n",__func__);
-
-	kfree(mdbg_dev->read_buf);
-	kfree(mdbg_dev->write_buf);
-	mdbg_dev->read_buf = NULL;
-	mdbg_dev->write_buf = NULL;
-	mdbg_dev->open_count--;
-	return 0;
-}
-
-static struct file_operations mdbg_fops = {
-	.owner = THIS_MODULE,
-	.read  = mdbg_read,
-	.write = mdbg_write,
-	.open  = mdbg_open,
-	.release = mdbg_release,
-};
-static struct miscdevice mdbg_device = {
-	.minor = MISC_DYNAMIC_MINOR,
-	.name = "mdbg",
-	.fops = &mdbg_fops,
-};
-
-LOCAL int __init mdbg_module_init(void)
-{
-	int err;
-
-	MDBG_FUNC_ENTERY;
-
-	mdbg_dev = kzalloc(sizeof(*mdbg_dev), GFP_KERNEL);
-	if (!mdbg_dev)
-		return -ENOMEM;
-
 	mdbg_dev->open_count = 0;
 	mutex_init(&mdbg_dev->mdbg_lock);
-	err = MDBG_INIT;
-	if(err != MDBG_SUCCESS){
-		MDBG_ERR("mdbg thread init failed!error code:%d", err);
-		return err;
-	}
+	init_waitqueue_head(&mdbg_wait);
+	err = mdbg_sdio_init();
+	if(err < 0)
+		return -ENOMEM;
 
 	return misc_register(&mdbg_device);
 }
@@ -165,8 +175,12 @@ LOCAL int __init mdbg_module_init(void)
 LOCAL void __exit mdbg_module_exit(void)
 {
 	MDBG_FUNC_ENTERY;
-	MDBG_REMOVE;
+	mdbg_sdio_remove();
 	mutex_destroy(&mdbg_dev->mdbg_lock);
+	kfree(mdbg_dev->read_buf);
+	kfree(mdbg_dev->write_buf);
+	mdbg_dev->read_buf = NULL;
+	mdbg_dev->write_buf = NULL;
 	misc_deregister(&mdbg_device);
 }
 

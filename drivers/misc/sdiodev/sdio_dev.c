@@ -54,7 +54,7 @@ static struct work_struct marlin_wq;
 static struct work_struct marlinwake_wq;
 
 static bool ap_sdio_ready = 0;
-
+static bool have_card = 0;
 static MARLIN_SDIO_READY_T marlin_sdio_ready = {0};
 
 
@@ -806,6 +806,12 @@ bool get_sdiohal_status(void)
 }
 EXPORT_SYMBOL_GPL(get_sdiohal_status);
 
+static void clear_sdiohal_status(void)
+{
+	marlin_sdio_ready.marlin_sdio_init_start_tag = 0;
+	marlin_sdio_ready.marlin_sdio_init_end_tag = 0;
+}
+
 static irqreturn_t marlinsdio_ready_irq_handler(int irq, void * para)
 {
 	disable_irq_nosync(irq);	
@@ -1081,6 +1087,24 @@ void set_blklen(int blklen)
 
 }
 
+static void sdio_init_timer(void)
+{
+	init_timer(&sleep_para.gpio_timer);
+	sleep_para.gpio_timer.function = gpio_timer_handler;
+	sleep_para.marlin_waketime = 3000;
+	sleep_para.gpio_opt_tag = 0;
+	sleep_para.gpioreq_need_pulldown = 1;
+}
+
+
+static void sdio_uninit_timer(void)
+{
+	del_timer(&sleep_para.gpio_timer);
+	sleep_para.marlin_waketime = 0;
+	sleep_para.gpio_opt_tag = 0;
+	sleep_para.gpioreq_need_pulldown = 0;
+}
+
 static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
 {
 	int ret;
@@ -1106,16 +1130,9 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 	}
 	SDIOTRAN_ERR("enable func1 ok!!!");
 
-	init_timer(&sleep_para.gpio_timer);
-	sleep_para.gpio_timer.function = gpio_timer_handler;
-	sleep_para.marlin_waketime = 3000;
-	sleep_para.gpio_opt_tag = 0;
-	sleep_para.gpioreq_need_pulldown = 1;
-
 	wakeup_slave_pin_init();
 	marlin_wake_intr_init();
 	marlin_sdio_sync_init();
-	
 //case6
 #if defined(CONFIG_SDIODEV_TEST)
 		gaole_creat_test();
@@ -1133,22 +1150,23 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 #endif
 */
 	set_bt_pm_func(set_marlin_wakeup,set_marlin_sleep);
-
+	sdio_init_timer();
 
 	set_apsdiohal_ready();
-		
+	have_card = 1;
 	return 0;
 }
 
 static void marlin_sdio_remove(struct sdio_func *func)
 {
 	SDIOTRAN_DEBUG("entry");
-
+	sdio_uninit_timer();
 	free_sdio_dev_func(func);
 	sdio_dev_intr_uninit();
 	marlin_wake_intr_uninit();
 	//marlin_sdio_sync_uninit();
 	set_apsdiohal_unready();
+	clear_sdiohal_status();
 
 	SDIOTRAN_DEBUG("ok");
 
@@ -1235,19 +1253,31 @@ static void* sdio_dev_get_host(void)
 		
 }
 
-static int __init marlin_sdio_init(void)
+void  marlin_sdio_uninit(void)
+{
+	sdio_unregister_driver(&marlin_sdio_driver);
+	sdio_dev_host = NULL;
+	have_card == 0;
+
+	SDIOTRAN_ERR("ok");
+}
+
+int marlin_sdio_init(void)
 {
 	int ret;
-	SDIOTRAN_ERR("entry");	
-	
+	SDIOTRAN_ERR("entry");
+	if(have_card == 1){
+		marlin_sdio_uninit();
+	}
+
 	sdio_dev_host = sdio_dev_get_host();
-	if(NULL == sdio_dev_host) 
+	if(NULL == sdio_dev_host)
 	{
 		SDIOTRAN_ERR("get host failed!!!");
 		return -1;
 	}
 	SDIOTRAN_ERR("sdio get host ok!!!");
-	
+
 	ret = sdio_register_driver(&marlin_sdio_driver);
 	if(0 != ret) 
 	{
@@ -1258,24 +1288,10 @@ static int __init marlin_sdio_init(void)
 	SDIOTRAN_ERR("sdio register drv succ!!!");
 
 	flush_delayed_work(&sdio_dev_host->detect);
-
-	mmc_detect_change(sdio_dev_host, 0);	
+	mmc_detect_change(sdio_dev_host, 0);
 	
 	return ret;
 }
+EXPORT_SYMBOL_GPL(marlin_sdio_init);
 
-static void __exit marlin_sdio_exit(void)
-{
-	SDIOTRAN_ERR("entry");
-	sdio_unregister_driver(&marlin_sdio_driver);
-	sdio_dev_host = NULL;
 
-	SDIOTRAN_ERR("ok");
-}
-
-module_init(marlin_sdio_init);
-module_exit(marlin_sdio_exit);
-MODULE_DESCRIPTION("MARLIN sdio driver");
-MODULE_AUTHOR("Gaole.Zhang");
-MODULE_LICENSE("GPL");
-MODULE_VERSION(MARLIN_SDIO_VERSION);
