@@ -1538,9 +1538,6 @@ void dwc_otg_core_init(dwc_otg_core_if_t * core_if)
 	} else {
 		DWC_DEBUGPL(DBG_ANY, "Device Mode\n");
 		core_if->op_state = B_PERIPHERAL;
-#ifdef DWC_DEVICE_ONLY
-		dwc_otg_core_dev_init(core_if);
-#endif
 	}
 }
 

@@ -198,6 +198,7 @@ void usb_phy_ahb_rst(void)
 	mdelay(3);
 	sci_glb_clr(REG_AP_AHB_AHB_RST,BIT(6));
 	mdelay(3);
+	sci_glb_set(REG_AP_AHB_OTG_PHY_CTRL,BIT(9));
 	pr_info("Usb_hw.c: [%s]usb phy tune : 0x%x\n", __FUNCTION__, tune_from_uboot);
 #else
 	sci_glb_set(REG_AP_AHB_AHB_RST,BIT(7));
