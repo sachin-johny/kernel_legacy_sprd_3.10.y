@@ -136,14 +136,14 @@ static struct ieee80211_supported_band itm_band_2ghz = {
 	.ht_cap.ht_supported = true,
 };
 
-static struct ieee80211_supported_band itm_band_5ghz = {
+/*static struct ieee80211_supported_band itm_band_5ghz = {
 	.n_channels = ARRAY_SIZE(itm_5ghz_channels),
 	.channels = itm_5ghz_channels,
 	.n_bitrates = ITM_A_RATE_NUM,
 	.bitrates = itm_a_rates,
 	.ht_cap.cap = itm_g_htcap,
 	.ht_cap.ht_supported = true,
-};
+};*/
 
 static const u32 itm_cipher_suites[] = {
 	WLAN_CIPHER_SUITE_WEP40,
@@ -2504,7 +2504,7 @@ static void init_wiphy_parameters(struct wiphy *wiphy)
 	wiphy->n_cipher_suites = ARRAY_SIZE(itm_cipher_suites);
 	/*Attach bands */
 	wiphy->bands[IEEE80211_BAND_2GHZ] = &itm_band_2ghz;
-	wiphy->bands[IEEE80211_BAND_5GHZ] = &itm_band_5ghz;
+	//wiphy->bands[IEEE80211_BAND_5GHZ] = &itm_band_5ghz;
 
 	/*Default not in powersave state */
 	wiphy->flags &= ~WIPHY_FLAG_PS_ON_BY_DEFAULT;
