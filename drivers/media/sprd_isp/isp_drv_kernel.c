@@ -129,13 +129,19 @@ struct isp_k_file
 	struct semaphore sem_isp;/*for the isp device, protect the isp hardware; protect  only  one caller use the oi*/ 
 				/*controll/read/write functions*/
 	struct clk* s_isp_clk_mm_i;
-	struct clk              *s_isp_clk;
+	struct clk* s_isp_clk;
 	atomic_t s_isp_users;
-	uint32_t s_isp_alloc_addr;
-	uint32_t s_isp_alloc_order;
-	uint32_t s_isp_alloc_len;
+	unsigned long s_isp_alloc_addr;
+	unsigned long s_isp_alloc_order;
+	unsigned long s_isp_alloc_len;
 	struct mutex s_isp_lock;
 	spinlock_t isp_spin_lock;
+};
+
+struct isp_buf_phy {
+	unsigned long buf_phy_ptr;
+	unsigned long buf_vir_ptr;
+	unsigned long buf_len;
 };
 
 uint32_t s_dcam_int_eb = 0x00;
@@ -388,41 +394,6 @@ static int32_t _isp_free(void *handle)
 		fd->s_isp_alloc_order = 0x00;
 		fd->s_isp_alloc_addr = 0x00;
 		fd->s_isp_alloc_len=0x00;
-	}
-
-	return ret;
-}
-
-static int32_t _isp_alloc(void *handle, uint32_t* addr, uint32_t len)
-{
-	int32_t ret = 0x00;
-	uint32_t buf=0x00;
-	void *ptr = 0x00;
-	struct isp_k_file *fd = (struct isp_k_file*)handle;
-	if (NULL == handle) {
-		ISP_PRINT("_isp_module_eb handle null\n");
-		return -ENOENT;
-	}
-	if((0x00 != fd->s_isp_alloc_addr)
-		&&(len <= fd->s_isp_alloc_len)) {
-		*addr = fd->s_isp_alloc_addr;
-	} else {
-		_isp_free(fd);
-	}
-
-	if(0x00 == fd->s_isp_alloc_addr) {
-		fd->s_isp_alloc_len=len;
-		fd->s_isp_alloc_order = get_order(len);
-		fd->s_isp_alloc_addr = (uint32_t)__get_free_pages(GFP_KERNEL | __GFP_COMP, fd->s_isp_alloc_order);
-		if (NULL == (void*)fd->s_isp_alloc_addr) {
-			ISP_PRINT("ISP_RAW:_isp_alloc order:0x%x, addr:0x%x, len:0x%x error\n", fd->s_isp_alloc_order, fd->s_isp_alloc_addr, fd->s_isp_alloc_len);
-			return 1;
-		}
-		ptr = (void*)fd->s_isp_alloc_addr;
-		*addr = fd->s_isp_alloc_addr;
-		buf = virt_to_phys((volatile void *)fd->s_isp_alloc_addr);
-		dmac_flush_range(ptr, ptr + len);
-		outer_flush_range(__pa(ptr), __pa(ptr) + len);
 	}
 
 	return ret;
@@ -702,6 +673,8 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	int32_t ret = 0;
 	uint32_t addr = 0;
 	struct isp_k_file *fd = NULL;
+	struct miscdevice *md = pf->private_data;
+	struct isp_buf_phy *isp_buf = NULL;
 	ISP_PRINT ("isp_k: open start \n");
 
 	fd = (struct isp_k_file*)vzalloc(sizeof(struct isp_k_file));
@@ -711,9 +684,10 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	init_MUTEX(&fd->sem_isp);
 	init_MUTEX_LOCKED(&fd->sem_isr); /*for interrupt */
 	spin_lock_init(&fd->isp_spin_lock);
-	fd->s_isp_alloc_addr = 0x00;
-	fd->s_isp_alloc_len = 0x00;
-	fd->s_isp_alloc_order = 0x00;
+	isp_buf = (struct isp_buf_phy*)md->this_device->platform_data;
+	fd->s_isp_alloc_addr = isp_buf->buf_vir_ptr;
+	fd->s_isp_alloc_len = isp_buf->buf_len;
+	fd->s_isp_alloc_order = get_order(isp_buf->buf_len);
 	fd->s_isp_clk = NULL;
 	fd->s_isp_clk_mm_i = NULL;
 	fd->buf_addr = 0;
@@ -726,13 +700,6 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 		goto ISP_K_OPEN_ERROR_EXIT1;
 	}
 	fd->buf_len = ISP_BUF_MAX_SIZE;
-
-	ret = _isp_alloc(fd, &addr, ISP_BUF_MAX_SIZE);
-	if (ret) {
-		ret = -1;
-		ISP_PRINT ("isp_kernel_init 2: alloc  error \n");
-		goto ISP_K_OPEN_ERROR_EXIT1;
-	}
 
 	ret =  _isp_get_ctlr(fd);
 	if (unlikely(ret)) {
@@ -1224,13 +1191,9 @@ static long _isp_kernel_ioctl(struct file *fl, unsigned int cmd, unsigned long p
 					ret = -EFAULT;
 					break;
 				}
-				ret = _isp_alloc(fd, &reg_param.reg_param, reg_param.counts);
-				if ( 0 == ret) {
-					ret = copy_to_user((void*)param, (void*)&reg_param, sizeof(struct isp_reg_param));
-				} else {
-					ISP_PRINT("isp_k: ioctl alloc error, ret = 0x%x", (uint32_t)ret);
-					ret = -EFAULT;
-				}
+				reg_param.reg_param = fd->s_isp_alloc_addr;
+				reg_param.counts = fd->s_isp_alloc_len;
+				ret = copy_to_user((void*)param, (void*)&reg_param, sizeof(struct isp_reg_param));
 			}
 			break;
 
@@ -1252,33 +1215,49 @@ static long _isp_kernel_ioctl(struct file *fl, unsigned int cmd, unsigned long p
 static int _isp_probe(struct platform_device *pdev)
 {
 	int ret = 0;
+	uint32_t order = 0;
+	struct isp_buf_phy *isp_buf = NULL;
+
 	ISP_PRINT ("isp_k:probe start\n");
 
+	isp_buf = devm_kzalloc(&pdev->dev, sizeof(struct isp_buf_phy), GFP_KERNEL);
+	if (!isp_buf) {
+		return -ENOMEM;
+	}
+
+	platform_set_drvdata(pdev, isp_buf);
 	ret = misc_register(&isp_dev);
 	if (ret) {
 		ISP_PRINT ( "isp_k:probe cannot register miscdev on minor=%d (%d)\n",(int32_t)ISP_MINOR, (int32_t)ret);
 		return ret;
 	}
-/*
-	isp_proc_file = create_proc_read_entry("driver/sprd_isp" ,
-					0444,
-					NULL,
-					_isp_kernel_proc_read,
-					NULL);
-	if (unlikely(NULL == isp_proc_file)) {
-		ISP_PRINT("isp_k:probe Can't create an entry for isp in /proc \n");
-		ret = ENOMEM;
-		return ret;
+
+	isp_buf->buf_len = ISP_BUF_MAX_SIZE;
+	order = get_order(isp_buf->buf_len);
+	isp_buf->buf_vir_ptr = __get_free_pages(GFP_KERNEL | __GFP_COMP, order);
+	if (NULL == (void*)isp_buf->buf_vir_ptr ) {
+		ISP_PRINT("ISP_RAW:_isp_alloc order:0x%x, len:0x%x error\n", order, isp_buf->buf_len);
+		return 1;
 	}
-*/
+	isp_buf->buf_phy_ptr = virt_to_phys((volatile void *)isp_buf->buf_vir_ptr);
+	dmac_flush_range(isp_buf->buf_vir_ptr, isp_buf->buf_vir_ptr + isp_buf->buf_len);
+	outer_flush_range(__pa(isp_buf->buf_phy_ptr), __pa(isp_buf->buf_phy_ptr) + isp_buf->buf_len);
+
 	isp_dev.this_device->of_node = pdev->dev.of_node;
+	isp_dev.this_device->platform_data = (void *)isp_buf;
+
 	ISP_PRINT (" isp_k:probe end\n");
 	return 0;
 }
 
 static int _isp_remove(struct platform_device * dev)
 {
+	struct isp_buf_phy *isp_buf;
+
 	ISP_PRINT ("isp_k: remove start \n");
+	isp_buf = platform_get_drvdata(dev);
+	if (!isp_buf)
+		goto remove_exit;
 
 	misc_deregister(&isp_dev);
 /*
@@ -1286,8 +1265,12 @@ static int _isp_remove(struct platform_device * dev)
 		remove_proc_entry("driver/sprd_isp", NULL);
 	}
 */
+	devm_kfree(&dev->dev, isp_buf);
+	platform_set_drvdata(dev, NULL);
+
 	ISP_PRINT ("isp_k: remove end !\n");
 
+remove_exit:
 	return 0;
 }
 
