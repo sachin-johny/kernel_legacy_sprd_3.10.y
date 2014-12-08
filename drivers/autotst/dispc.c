@@ -917,7 +917,7 @@ static int32_t dispc_clk_init(void)
 	ret = clk_enable(autotst_dispc_ctx.clk_dispc_emc);
 	if(ret){
 		printk("autotst_dispc:enable clk_dispc_emc error!!!\n");
-		ret=-1;
+		return -1;
 	}
 
 	ret = dispc_clk_enable(&autotst_dispc_ctx);
