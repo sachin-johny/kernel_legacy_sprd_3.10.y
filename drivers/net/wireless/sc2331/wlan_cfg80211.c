@@ -1206,32 +1206,15 @@ static int wlan_cfg80211_add_key(struct wiphy *wiphy,
 	if(ITM_NONE_MODE == vif->mode)
 		return -EAGAIN;	
 	printkd("[%s][%d] enter\n", __func__, vif_id);
-	if ( vif->mode == ITM_AP_MODE && (vif->cfg80211.p2p_mode == false) ) {
-		printkd("%s line:%d\n", __func__, __LINE__);
-		
-		memset(&key[0], 0, 32);
-		ret = hostap_conf_load(HOSTAP_CONF_FILE_NAME, key);
-		if (ret != 0) {
-			printkd("%s failed to load hostapd conf!\n",  __func__);
-			return ret;
-		}
-		ret = wlan_cmd_set_psk(vif_id, key, sizeof(key));
-		if (ret < 0) {
-			printkd("%s failed to set psk!\n", __func__);
-			return ret;
-		}
-	}
-	else if ((vif->mode == ITM_STATION_MODE) || vif->mode == ITM_P2P_CLIENT_MODE || vif->mode == ITM_P2P_GO_MODE) 
+	
+	vif->cfg80211.key_index[pairwise] = idx;
+	vif->cfg80211.key_len[pairwise][idx] = params->key_len;
+	memcpy(vif->cfg80211.key[pairwise][idx], params->key, params->key_len);
+	ret = itm_wlan_add_cipher_key(vif, pairwise, idx, params->cipher, params->seq, mac_addr);
+	if (ret < 0)
 	{
-		vif->cfg80211.key_index[pairwise] = idx;
-		vif->cfg80211.key_len[pairwise][idx] = params->key_len;
-		memcpy(vif->cfg80211.key[pairwise][idx], params->key, params->key_len);
-		ret = itm_wlan_add_cipher_key(vif, pairwise, idx, params->cipher, params->seq, mac_addr);
-		if (ret < 0) 
-		{
-			printkd("%s failed to add cipher key!\n", __func__);
-			return ret;
-		}
+		printkd("%s failed to add cipher key!\n", __func__);
+		return ret;
 	}
 
 	return 0;
