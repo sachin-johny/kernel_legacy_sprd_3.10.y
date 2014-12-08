@@ -11,7 +11,11 @@ else
 ifeq ($(CONFIG_MACH_SP9630EA_4MOD),y)
 obj-y += flash_parallel_connect_bg.o
 else
+ifeq ($(CONFIG_MACH_SP9630EA4MN),y)
+obj-y += flash_parallel_connect_bg.o
+else
 obj-y += flash_common.o
+endif
 endif
 endif
 endif
