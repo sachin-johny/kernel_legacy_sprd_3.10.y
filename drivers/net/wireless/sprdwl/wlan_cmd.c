@@ -79,6 +79,7 @@ static cmd_t g_cmd_table[] =
 	CMD_ITEM(WIFI_CMD_GET_IP),
 	CMD_ITEM(WIFI_EVENT_REPORT_MIC_FAIL),
 	CMD_ITEM(WIFI_CMD_REQ_LTE_CONCUR),
+	CMD_ITEM(WIFI_CMD_SCAN_NOR_CHANNELS),
 };
 char * get_cmd_name(int id)
 {
@@ -776,6 +777,19 @@ int wlan_cmd_get_txrate_txfailed(unsigned char vif_id, unsigned int *rate, unsig
 err:
 	mutex_unlock(&(cmd->cmd_lock));
 	return ERROR;
+}
+
+int wlan_cmd_set_regdom(unsigned char vif_id, unsigned char *regdom, unsigned int len)
+{
+	int dataLen;
+	wlan_ieee80211_regdomain *ptr;
+
+	dataLen = len;
+	ptr = kmalloc( dataLen, GFP_KERNEL);
+	memcpy(ptr,  regdom,  dataLen);
+ 
+	wlan_cmd_send_recv(vif_id, (unsigned char *)ptr, dataLen, WIFI_CMD_SCAN_NOR_CHANNELS, CMD_WAIT_TIMEOUT);
+	return 0;
 }
 
 int wlan_cmd_npi_send_recv(unsigned char *s_buf,unsigned short s_len, unsigned char *r_buf, unsigned short *r_len )

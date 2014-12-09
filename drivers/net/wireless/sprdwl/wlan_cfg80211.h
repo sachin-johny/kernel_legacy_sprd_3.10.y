@@ -112,6 +112,13 @@ typedef struct
     unsigned int  size;
 }lte_concur_data_t;
 
+typedef struct
+{
+	u32 n_reg_rules;
+	char alpha2[2];
+	struct ieee80211_reg_rule reg_rules[];
+}wlan_ieee80211_regdomain;
+
 extern void cfg80211_report_connect_result(unsigned char vif_id, unsigned char *pData, int len);
 extern void cfg80211_report_disconnect_done(unsigned char vif_id, unsigned char *pData, int len);
 extern void cfg80211_report_scan_done(unsigned char vif_id, unsigned char *pData, int len, bool aborted);

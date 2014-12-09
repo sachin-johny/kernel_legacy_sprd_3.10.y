@@ -286,6 +286,12 @@ struct wlan_cmd_ft_ies_params
 	unsigned char  ie[0];
 }__attribute__((packed));
 
+struct wlan_set_regdom_params
+{
+	u32 len;
+	u8 value[0];
+}__attribute__((packed));
+
 struct wlan_event_report_frame_t {
     unsigned char channel;
     unsigned char frame_type;
@@ -347,5 +353,6 @@ extern void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pDat
 extern void cfg80211_report_mic_failure(unsigned char vif_id, unsigned char *pdata, int len);
 extern int wlan_cmd_sleep(int ops);
 extern int wlan_cmd_req_lte_concur(unsigned char vif_id, const unsigned char *val, int len);
+extern int wlan_cmd_set_regdom(unsigned char vif_id, unsigned char *regdom, unsigned int len);
 #endif
 
