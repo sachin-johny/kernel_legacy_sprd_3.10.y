@@ -44,13 +44,28 @@
  * configuration
 *******************************************************************************/
 #define PS_INTERRUPT_MODE		1		// 0 is polling mode, 1 is interrupt mode
-#define P_SENSOR_LTHD			37000+1000//120		//100
-#define P_SENSOR_HTHD			37000+1500//170		//500
+#define PLSENSOR_ADAPTIVE
+#ifdef PLSENSOR_ADAPTIVE
+static u16 P_SENSOR_LTHD = 0x7fff;   //init
+static u16 P_SENSOR_HTHD = 0x0;       //init
+#else
+#define P_SENSOR_LTHD                  1900//120         //100
+#define P_SENSOR_HTHD                  2000//170         //500
+#endif
 
 #define PS_POLLING_RATE			100
 #define ALS_POLLING_RATE		1000
 
 #define LUX_PER_COUNT			440		// 660 = 1.1*0.6*1000
+#ifdef PLSENSOR_ADAPTIVE
+#define DEBOUNCE 30
+#define MIN_SPACING 250
+#define DIVEDE 4
+static bool first_do_irq = true;
+static u16 ps_min = 0;
+static u16 ps_max = 0;
+static u16 ps_threshold = 0;
+#endif
 /******************************************************************************
  * configuration
 *******************************************************************************/
@@ -325,10 +340,11 @@ static int elan_sensor_lsensor_enable(struct elan_epl_data *epld)
 //value: 0 represent near.
 //value: 1 represent far.
 */
-static void elan_epl_ps_poll_rawdata(void)
+static int elan_epl_ps_poll_rawdata(void)
 {
     struct elan_epl_data *epld = epl_data;
     struct i2c_client *client = epld->client;
+    u16 value = 0;
 
     elan_sensor_I2C_Write(epld->client,REG_7,W_SINGLE_BYTE,0x02,EPL_DATA_LOCK);
 
@@ -340,12 +356,42 @@ static void elan_epl_ps_poll_rawdata(void)
     elan_sensor_I2C_Read(client);
     gRawData.ps_ch1_raw = (gRawData.raw_bytes[1]<<8) | gRawData.raw_bytes[0];
 
+#ifdef PLSENSOR_ADAPTIVE
+    value = gRawData.ps_ch1_raw;
+    /*threshold detect process*/
+    if(0 == ps_max || 0 == ps_min) {
+        ps_min = value;
+        ps_max = value;
+        ps_threshold = ps_min + MIN_SPACING;
+    }
+    if(value > ps_max) {
+        ps_max = value;
+        ps_threshold = ((ps_max - ps_min)  / DIVEDE) + ps_min;
+        if(ps_threshold - ps_min < MIN_SPACING)
+              ps_threshold = ps_min + MIN_SPACING;
+    } else if(value < ps_min) {
+        ps_min = value;
+        ps_threshold = ((ps_max - ps_min)  / DIVEDE) + ps_min;
+        if(ps_threshold - ps_min < MIN_SPACING)
+              ps_threshold = ps_min + MIN_SPACING;
+    }
+    P_SENSOR_LTHD = ps_threshold - DEBOUNCE;
+    P_SENSOR_HTHD = ps_threshold + DEBOUNCE;
+    set_psensor_intr_threshold(P_SENSOR_LTHD ,P_SENSOR_HTHD);
+    /*threshold detect process end*/
+    LOG_INFO("ps_min (%4d), ps_max (%4d), ps_threshold (%4d)\n", ps_min, ps_max, ps_threshold);
+    if (true == first_do_irq) {
+        first_do_irq = false;
+        return -1;
+    }
+#endif
     elan_sensor_I2C_Write(epld->client,REG_7,W_SINGLE_BYTE,0x02,EPL_DATA_UNLOCK);
+    LOG_INFO("### ps_ch1_raw_data  (%d), value(%d) ###\n", gRawData.ps_ch1_raw, gRawData.ps_state);
+    ps_data_changed = 1;
 
-    LOG_INFO("### ps_ch1_raw_data  (%d), value(%d) ###\n\n", gRawData.ps_ch1_raw, gRawData.ps_state);
-	ps_data_changed = 1;
     input_report_abs(epld->ps_input_dev, ABS_DISTANCE, gRawData.ps_state);
     input_sync(epld->ps_input_dev);
+    return 0;
 }
 
 static void elan_epl_als_rawdata(void)
@@ -423,7 +469,7 @@ static void epl_sensor_irq_do_work(struct work_struct *work)
     }
     else
     {
-        LOG_INFO("error: interrupt in als\n");
+        LOG_INFO("interrupt in als\n");
     }
     elan_sensor_I2C_Write(client,REG_9,W_SINGLE_BYTE,0x02,EPL_INT_ACTIVE_LOW);
     elan_sensor_I2C_Write(client,REG_7,W_SINGLE_BYTE,0x02,EPL_DATA_UNLOCK);
