@@ -132,4 +132,10 @@ extern void cfg80211_report_mic_failure(unsigned char vif_id, unsigned char *pda
 extern int lte_concur_proc_open(struct inode *inode, struct file *filp)  ;
 extern int lte_concur_proc_release(struct inode *inode, struct file *filp);
 extern ssize_t lte_concur_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long arg);
+extern void cfg80211_report_cqm_low(unsigned char vif_id,
+					unsigned char *pdata, int len);
+extern void cfg80211_report_cqm_high(unsigned char vif_id,
+					unsigned char *pdata, int len);
+extern void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
+					unsigned char *pdata, int len);
 #endif

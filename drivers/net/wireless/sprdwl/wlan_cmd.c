@@ -520,6 +520,25 @@ int wlan_cmd_pmksa(unsigned char vif_id, const unsigned char *bssid, const unsig
 	return 0;
 }
 
+int wlan_cmd_cmq_rssi(unsigned char vif_id,
+			s32 rssi_thold, u32 rssi_hyst,
+			unsigned char type)
+{
+	int dataLen;
+	struct wlan_cmd_cqm_rssi *cmd;
+
+	dataLen = sizeof(struct wlan_cmd_cqm_rssi);
+	cmd = kmalloc(dataLen, GFP_KERNEL);
+	memset((char *)cmd, 0, dataLen);
+
+	cmd->rssih = rssi_thold;
+	cmd->rssil = rssi_hyst;
+
+	wlan_cmd_send_recv(vif_id, (unsigned char *)cmd, dataLen,
+				type, CMD_WAIT_TIMEOUT);
+	return 0;
+}
+
 int wlan_cmd_disconnect(unsigned char vif_id, unsigned short reason_code)
 {
 
@@ -889,6 +908,15 @@ int wlan_rx_event_process(const unsigned char vif_id, unsigned char event, unsig
 			break;
 		case WIFI_EVENT_REPORT_MIC_FAIL:
 			cfg80211_report_mic_failure(vif_id, pData, len);
+			break;
+		case WIFI_EVENT_REPORT_CQM_RSSI_LOW:
+			cfg80211_report_cqm_low(vif_id, pData, len);
+			break;
+		case WIFI_EVENT_REPORT_CQM_RSSI_HIGH:
+			cfg80211_report_cqm_high(vif_id, pData, len);
+			break;
+		case WIFI_EVENT_REPORT_CQM_RSSI_LOSS_BEACON:
+			cfg80211_report_cqm_beacon_loss(vif_id, pData, len);
 			break;
 		default:
 			break;

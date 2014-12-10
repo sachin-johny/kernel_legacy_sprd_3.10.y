@@ -60,6 +60,7 @@ enum ITM_HOST_TROUT3_CMD_LIST
 	WIFI_CMD_SCAN_NOR_CHANNELS,
 	WIFI_CMD_GET_IP,
 	WIFI_CMD_REQ_LTE_CONCUR,
+	WIFI_CMD_SET_CQM_RSSI,
 	WIFI_CMD_MAX,
 	
 	
@@ -75,6 +76,9 @@ enum ITM_HOST_TROUT3_CMD_LIST
 	WIFI_EVENT_SDIO_SEQ_NUM,
 	WIFI_EVENT_REPORT_SCAN_FRAME,
 	WIFI_EVENT_REPORT_MIC_FAIL,
+	WIFI_EVENT_REPORT_CQM_RSSI_LOW,
+	WIFI_EVENT_REPORT_CQM_RSSI_HIGH,
+	WIFI_EVENT_REPORT_CQM_RSSI_LOSS_BEACON,
 	WIFI_EVENT_MAX,
 };
 
@@ -108,6 +112,11 @@ struct wlan_cmd_pmkid
 	unsigned char bssid[ETH_ALEN];
 	unsigned char pmkid[ITM_PMKID_LEN];
 }__attribute__((packed));
+
+struct wlan_cmd_cqm_rssi {
+	s32 rssih;
+	u32 rssil;
+} __attribute__((packed));
 
 struct wlan_cmd_beacon
 {
@@ -354,5 +363,8 @@ extern void cfg80211_report_mic_failure(unsigned char vif_id, unsigned char *pda
 extern int wlan_cmd_sleep(int ops);
 extern int wlan_cmd_req_lte_concur(unsigned char vif_id, const unsigned char *val, int len);
 extern int wlan_cmd_set_regdom(unsigned char vif_id, unsigned char *regdom, unsigned int len);
+extern int wlan_cmd_cmq_rssi(unsigned char vif_id,
+				s32 rssi_thold, u32 rssi_hyst,
+				unsigned char type);
 #endif
 

@@ -212,6 +212,7 @@ typedef struct
 	struct wireless_dev               wdev;
 	unsigned short                    id;
 	unsigned char                     mac[ETH_ALEN];
+	u8			beacon_loss;
 	int                               mode;	
 	wlan_cfg80211_t                   cfg80211;
 	net_connect_dev_t                 connect_dev[8];

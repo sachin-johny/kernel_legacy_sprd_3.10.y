@@ -1819,6 +1819,7 @@ out:
 
 void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData, int len)
 {
+	struct cfg80211_bss *bss = NULL;
 	int i, report_null;
 	wlan_vif_t            *vif;
 	buf_scan_frame_t      *scan_buf;
@@ -1968,6 +1969,22 @@ void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData, int 
 #endif
 		report_null = 0;
 	}
+
+	if (vif->beacon_loss) {
+		bss = cfg80211_get_bss(wiphy, NULL,
+					vif->cfg80211.bssid,
+					vif->cfg80211.ssid,
+					vif->cfg80211.ssid_len,
+					WLAN_CAPABILITY_ESS,
+					WLAN_CAPABILITY_ESS);
+		if (bss) {
+			cfg80211_unlink_bss(wiphy, bss);
+			wiphy_info(wiphy, "find beacon loss event " MACSTR "",
+					MAC2STR(bss->bssid));
+			vif->beacon_loss = 0;
+		}
+	}
+
 	if(-1 == report_null)
 	{
 		printkd("[%s %d][report-ssid][NULL]\n", __func__, vif_id);
@@ -1978,6 +1995,8 @@ void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData, int 
 	if (vif->cfg80211.scan_done_lock.link.next != LIST_POISON1 && vif->cfg80211.scan_done_lock.link.prev != LIST_POISON2)
 		wake_unlock(&vif->cfg80211.scan_done_lock);
 	atomic_dec(&vif->cfg80211.scan_status);
+	memset(vif->cfg80211.scan_frame_array, 0,
+		MAX_SCAN_FRAME_BUF_NUM * sizeof(buf_scan_frame_t));
 	printkd("[%s %d] ok!\n", __func__, vif_id);
 	return;
 }
@@ -2002,6 +2021,55 @@ void cfg80211_report_mic_failure(unsigned char vif_id,
 				(mic_failure->is_mcast ? NL80211_KEYTYPE_GROUP :
 				 NL80211_KEYTYPE_PAIRWISE), mic_failure->key_id,
 				NULL, GFP_KERNEL);
+	}
+}
+
+void cfg80211_report_cqm_low(unsigned char vif_id,
+		unsigned char *pdata, int len)
+{
+	wlan_vif_t *vif = id_to_vif(vif_id);
+	struct wiphy *wiphy = vif->wdev.wiphy;
+	wiphy_info(wiphy, "Recv NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW");
+
+	if (vif) {
+		cfg80211_cqm_rssi_notify(vif->ndev,
+					NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW,
+					GFP_KERNEL);
+	}
+}
+
+
+void cfg80211_report_cqm_high(unsigned char vif_id,
+		unsigned char *pdata, int len)
+{
+	wlan_vif_t *vif = id_to_vif(vif_id);
+	struct wiphy *wiphy = vif->wdev.wiphy;
+	wiphy_info(wiphy, "Recv  NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH");
+
+	if (vif) {
+		cfg80211_cqm_rssi_notify(vif->ndev,
+					NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH,
+					GFP_KERNEL);
+	}
+}
+
+
+void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
+		unsigned char *pdata, int len)
+{
+	wlan_vif_t *vif = id_to_vif(vif_id);
+	struct wiphy *wiphy = vif->wdev.wiphy;
+	wiphy_info(wiphy, "Recv NL80211_CQM_RSSI_BEACON_LOSS_EVENT");
+
+	if (vif) {
+		vif->beacon_loss = 1;
+		/*
+		TODO wpa_supplicant not support the event ,
+		so we workaround this issue
+		*/
+		cfg80211_cqm_rssi_notify(vif->ndev,
+					NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW,
+					GFP_KERNEL);
 	}
 }
 
@@ -2538,6 +2606,28 @@ ssize_t lte_concur_proc_ioctl(struct file *filp, unsigned int cmd, unsigned long
 	return 0;
 }
 
+/*
+ * CFG802.11 operation handler for connection quality monitoring.
+ *
+ * This function subscribes/unsubscribes HIGH_RSSI and LOW_RSSI
+ * events to FW.
+ */
+int wlan_cfg80211_set_cqm_rssi_config(struct wiphy *wiphy,
+						struct net_device *ndev,
+						s32 rssi_thold, u32 rssi_hyst)
+{
+	int ret = -ENOTSUPP;
+	wlan_vif_t      *vif = ndev_to_vif(ndev);
+	unsigned char  vif_id = vif->id;
+	if (ITM_NONE_MODE == vif->mode)
+		return -EAGAIN;
+	wiphy_info(wiphy, "[%s][%d] rssi_thold %d rssi_hyst %d",
+			__func__, vif_id , rssi_thold , rssi_hyst);
+	if (rssi_thold && rssi_hyst)
+		ret = wlan_cmd_cmq_rssi(vif_id, rssi_thold , rssi_hyst ,
+					WIFI_CMD_SET_CQM_RSSI);
+	return ret;
+}
 
 static struct cfg80211_ops wlan_cfg80211_ops =
 {
@@ -2559,6 +2649,7 @@ static struct cfg80211_ops wlan_cfg80211_ops =
 	.mgmt_frame_register = wlan_cfg80211_mgmt_frame_register,
 	.change_virtual_intf = wlan_cfg80211_change_iface,
 	.update_ft_ies = wlan_cfg80211_update_ft_ies,
+	.set_cqm_rssi_config = wlan_cfg80211_set_cqm_rssi_config,
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 	.libertas_set_mesh_channel = wlan_cfg80211_set_channel,
 #else
@@ -2743,6 +2834,7 @@ int wlan_vif_init(wlan_vif_t  *vif, int type, const char *name, void *ops)
 		return ERROR;
 	}
 	vif->ndev = ndev;
+	vif->beacon_loss = 0;
 	memcpy( (unsigned char *)(netdev_priv(ndev) ), (unsigned char *)(&vif), 4 );
 	ndev->netdev_ops = ops;
 	ndev->watchdog_timeo = 1*HZ;
