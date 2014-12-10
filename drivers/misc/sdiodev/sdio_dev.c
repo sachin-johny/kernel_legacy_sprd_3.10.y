@@ -440,7 +440,7 @@ EXPORT_SYMBOL_GPL(sdio_dev_get_chn_datalen);
 
 int sdio_dev_write(uint32 chn,void* data_buf,uint32 count)
 {
-	int ret;
+	int ret,data_len;
 	
 	MARLIN_PM_RESUME_WAIT(marlin_sdio_wait);
 	MARLIN_PM_RESUME_RETURN_ERROR(-1);
@@ -449,6 +449,17 @@ int sdio_dev_write(uint32 chn,void* data_buf,uint32 count)
 	{
 		SDIOTRAN_ERR("func uninit!!!");
 		return -1;
+	}
+
+	if(chn != 0 && chn != 1)
+	{
+		data_len = sdio_dev_get_chn_datalen(chn);
+		if(data_len < count)
+		{
+			BUG_ON(1);
+			SDIOTRAN_ERR("chn %d, len %d; cnt %d err!!!");
+			return -1;
+		}
 	}
 	
 	sdio_claim_host(sprd_sdio_func[SDIODEV_FUNC_1]);	
