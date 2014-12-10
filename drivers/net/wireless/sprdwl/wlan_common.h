@@ -70,8 +70,8 @@
 #define ETH_ALEN		                     6
 #define SIOGETSSID                           0x89F2
 
-#define HW_TX_SIZE                          (11264)
-#define HW_RX_SIZE                          (15360)
+#define HW_TX_SIZE                          (13312)
+#define HW_RX_SIZE                          (12288)
 #define PKT_AGGR_NUM                        (10)
 #define SDIO_RX_GPIO                        (132)
 
