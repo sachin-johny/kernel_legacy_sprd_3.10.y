@@ -1466,6 +1466,7 @@ static void binder_transaction(struct binder_proc *proc,
 	t->buffer = binder_alloc_buf(target_proc, tr->data_size,
 		tr->offsets_size, !reply && (t->flags & TF_ONE_WAY));
 	if (t->buffer == NULL) {
+		binder_user_error("%d:%d alloc buffer failed\n", proc->pid, thread->pid);
 		return_error = BR_FAILED_REPLY;
 		goto err_binder_alloc_buf_failed;
 	}
@@ -1517,6 +1518,7 @@ static void binder_transaction(struct binder_proc *proc,
 			if (node == NULL) {
 				node = binder_new_node(proc, fp->binder, fp->cookie);
 				if (node == NULL) {
+					binder_user_error("%d:%d new mode failed\n", proc->pid, thread->pid);
 					return_error = BR_FAILED_REPLY;
 					goto err_binder_new_node_failed;
 				}
@@ -1536,6 +1538,8 @@ static void binder_transaction(struct binder_proc *proc,
 			}
 			ref = binder_get_ref_for_node(target_proc, node);
 			if (ref == NULL) {
+				binder_user_error("%d:%d get ref failed for node %d\n",
+					proc->pid, thread->pid, node->debug_id);
 				return_error = BR_FAILED_REPLY;
 				goto err_binder_get_ref_for_node_failed;
 			}
@@ -1584,6 +1588,8 @@ static void binder_transaction(struct binder_proc *proc,
 				struct binder_ref *new_ref;
 				new_ref = binder_get_ref_for_node(target_proc, ref->node);
 				if (new_ref == NULL) {
+					binder_user_error("%d:%d get ref failed for node %d\n",
+						proc->pid, thread->pid, ref->node->debug_id);
 					return_error = BR_FAILED_REPLY;
 					goto err_binder_get_ref_for_node_failed;
 				}
@@ -1630,6 +1636,7 @@ static void binder_transaction(struct binder_proc *proc,
 			}
 			target_fd = task_get_unused_fd_flags(target_proc, O_CLOEXEC);
 			if (target_fd < 0) {
+				binder_user_error("%d cannot get unused fd\n", target_proc->pid);
 				fput(file);
 				return_error = BR_FAILED_REPLY;
 				goto err_get_unused_fd_failed;
