@@ -10,6 +10,7 @@
 #include <linux/gpio.h>
 #include <linux/seq_file.h>
 #include <net/bluetooth/bluetooth.h>
+#include <linux/wakelock.h>
 
 #include <linux/export.h>
 
@@ -21,6 +22,7 @@ extern int set_marlin_wakeup(unsigned int chn,unsigned int user_id);
 extern int set_marlin_sleep(unsigned int chn,unsigned int user_id);
 
 struct proc_dir_entry *bluetooth_dir, *sleep_dir;
+static struct wake_lock BT_wakelock;
 
 typedef int (*WAKEUP_FUNC)(unsigned int chn,unsigned int user_id);
 typedef int (*SLEEP_FUNC)(unsigned int chn,unsigned int user_id);
@@ -49,20 +51,20 @@ void bt_wakeup(unsigned int chn,unsigned int user_id)
 	if(marlin_pm_func.marlin_bt_wakeup != NULL)
 		marlin_pm_func.marlin_bt_wakeup(chn,user_id);
 	else
-		gpio_direction_output(57,1);
+		gpio_direction_output(133,1);
 }
 void bt_sleep(unsigned int chn,unsigned int user_id)
 {
 	if(marlin_pm_func.marlin_bt_sleep != NULL)
 		marlin_pm_func.marlin_bt_sleep(chn,user_id);
 	else
-		gpio_direction_output(57,0);
+		gpio_direction_output(133,0);
 }
 
 static ssize_t bluesleep_write_proc_btwrite(struct file *file, const char __user *buffer,size_t count, loff_t *pos)
 {                           
 	char b;
-	BT_ERR("bluesleep_write_proc_btwrite");
+	//BT_ERR("bluesleep_write_proc_btwrite");
 
 	if (count < 1)
 		return -EINVAL;
@@ -71,11 +73,16 @@ static ssize_t bluesleep_write_proc_btwrite(struct file *file, const char __user
 		return -EFAULT;
 	BT_ERR("bluesleep_write_proc_btwrite=%d",b);
 	
-	if(b != '0')
-		bt_wakeup(0xff,0x2);//set_marlin_wakeup(0xff,0x2);
+	if(b == '1')
+	{
+		wake_lock(&BT_wakelock);
+		bt_wakeup(0xff,0x2);//set_marlin_wakeup(0xff,0x2)  
+	}   
+	else if(b=='2')
+		wake_unlock(&BT_wakelock);
 	else
-		bt_sleep(0xff,0x2);//set_marlin_sleep(0xff ,0x2);
-
+		BT_ERR("bludroid pass a unsupport parameter");	
+		//bt_sleep(0xff,0x2);//set_marlin_sleep(0xff ,0x2)
 	return count;
 }
 static int btwrite_proc_show(struct seq_file * m,void * v)
@@ -98,6 +105,7 @@ static const struct file_operations lpm_proc_btwrite_fops = {
 	.open = bluesleep_open_proc_btwrite,
 	.read = seq_read,
 	.write = bluesleep_write_proc_btwrite,
+	.release = single_release,
 };
 
 
@@ -123,12 +131,14 @@ static int __init bluesleep_init(void)
 	 retval = -ENOMEM;
          goto fail;
 	}
+        wake_lock_init(&BT_wakelock, WAKE_LOCK_SUSPEND, "bluetooth_wakelock");
         return 0;
 
 fail:
 	remove_proc_entry("btwrite", sleep_dir);
 	remove_proc_entry("sleep", bluetooth_dir);
 	remove_proc_entry("bluetooth", 0);
+	wake_lock_destroy(&BT_wakelock);
 	return retval;
 }
 
@@ -137,6 +147,8 @@ static void __exit bluesleep_exit(void)
         remove_proc_entry("btwrite", sleep_dir);
         remove_proc_entry("sleep", bluetooth_dir);
         remove_proc_entry("bluetooth", 0);
+	wake_lock_destroy(&BT_wakelock);
+
 }
 
 module_init(bluesleep_init);
