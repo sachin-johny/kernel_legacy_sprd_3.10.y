@@ -36,6 +36,12 @@ struct memory_layout{
 	u32 shm_start;
 	u32 shm_end;
 
+	u32 cplte_start;
+	u32 cplte_end;
+
+	u32 msg_start;
+	u32 msg_end;
+
 	u32 ap_start2;
 	u32 ap_end2;
 
@@ -60,6 +66,7 @@ static struct memory_layout memory_layout;
 static DEFINE_SPINLOCK(bm_lock);
 
 extern int in_calibration(void);
+static int sci_bm_get_mem_layout(void);
 
 static u32 __sci_get_bm_base(u32 bm_index)
 {
@@ -330,7 +337,7 @@ static int __sci_bm_chn_sel(u32 bm_index, u32 chn_id)
 
 static void __sci_bm_store_int_info(u32 bm_index)
 {
-	u32 reg_addr;
+	u32 reg_addr, mask_id;
 
 	reg_addr = __sci_get_bm_base(bm_index);
 	if(bm_ctn_dbg.bm_continue_dbg == false){
@@ -339,28 +346,34 @@ static void __sci_bm_store_int_info(u32 bm_index)
 		debug_bm_int_info[bm_index].msk_cmd = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_CMD_REG));
 		debug_bm_int_info[bm_index].msk_data_l = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_L_REG));
 		debug_bm_int_info[bm_index].msk_data_h = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_H_REG));
-		debug_bm_int_info[bm_index].msk_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
-		BM_INFO("bm int info:\n	%d	0x%X	0x%X	0x%X	0x%X	0x%X\n",
+		mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
+		debug_bm_int_info[bm_index].msk_id = mask_id >> 2 ? 0 : mask_id;
+
+		BM_ERR("bm int info:\nBM CHN:	%d\nOverlap ADDR:	0x%X\nOverlap CMD:	0x%X\nOverlap DATA:	0x%X	0x%X\nOverlap ID:	%s--%d\n",
 			debug_bm_int_info[bm_index].bm_index,
 			debug_bm_int_info[bm_index].msk_addr,
 			debug_bm_int_info[bm_index].msk_cmd,
 			debug_bm_int_info[bm_index].msk_data_l,
 			debug_bm_int_info[bm_index].msk_data_h,
-			debug_bm_int_info[bm_index].msk_id);
+			&bm_match_id[bm_index].chn_name[debug_bm_int_info[bm_index].msk_id],
+			mask_id);
 	}else{
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index = bm_index;
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ADDR_REG));
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_CMD_REG));
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_L_REG));
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_H_REG));
-		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
-		BM_INFO("bm ctn int info:\n	%d	0x%X	0x%X	0x%X	0x%X	0x%X\n",
+		mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
+		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id  = mask_id >> 2 ? 0 : mask_id;
+
+		BM_ERR("bm ctn info:\nBM CHN:	%d\nOverlap ADDR:	0x%X\nOverlap CMD:	0x%X\nOverlap DATA:	0x%X	0x%X\nOverlap ID:	%d--%s\n",
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h,
-			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id);
+			&bm_match_id[bm_index].chn_name[bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id],
+			mask_id);
 		bm_ctn_dbg.current_cnt++;
 	}
 }
@@ -435,10 +448,13 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 	for(bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
 	{
 		bm_reg = __sci_get_bm_base(bm_index);
-		bm_int = __raw_readl((volatile void *)(bm_reg + AXI_BM_INTC_REG));
+		if(bm_index < AHB_BM0_DAP_A7_DMA)
+			bm_int = __raw_readl((volatile void *)(bm_reg + AXI_BM_INTC_REG));
+		else
+			bm_int = __raw_readl((volatile void *)(bm_reg + AHB_BM_INTC_REG));
 		if (bm_int & BM_INT_MSK_STS) {
 			__sci_bm_store_int_info(bm_index);
-			if((bm_ctn_dbg.bm_continue_dbg == true)||(bm_ctn_dbg.current_cnt <= BM_CONTINUE_DEBUG_SIZE)){
+			if((bm_ctn_dbg.bm_continue_dbg == true) && (bm_ctn_dbg.current_cnt <= BM_CONTINUE_DEBUG_SIZE)){
 				bm_int &= ~BM_INT_EN;
 				bm_int |= (BM_INT_CLR | BM_INT_EN);
 			}else{
@@ -516,7 +532,7 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 	if (bm_index < AHB_BM0_DAP_A7_DMA) {
 		bm_reg->addr_min = cfg->addr_min;
 		bm_reg->addr_max = cfg->addr_max;
-		bm_reg->addr_msk = 0x0;
+		bm_reg->addr_msk = 0x00000000;
 
 		/* the interrupt just trigger by addr range for axi
 		 * busmonitor, so set the data range difficult to
@@ -614,9 +630,14 @@ static void sci_bm_def_val_set_by_dts(void)
 	u32 bm_chn, ret;
 	struct sci_bm_cfg bm_cfg;
 
-	for (bm_chn = AXI_BM5_CP0ARM_WCDMA; bm_chn <= AXI_BM9_CP1_A5; bm_chn++){
-		bm_cfg.addr_min = memory_layout.ap_start3;
-		bm_cfg.addr_max = memory_layout.ap_end3;
+	for (bm_chn = AXI_BM0_CA7; bm_chn <= AXI_BM9_CP1_A5; bm_chn++){
+		if(bm_chn < AXI_BM5_CP0ARM_WCDMA){
+			bm_cfg.addr_min = memory_layout.cptl_start;
+			bm_cfg.addr_max = memory_layout.msg_start - 4;
+		}else{
+			bm_cfg.addr_min = memory_layout.ap_start3;
+			bm_cfg.addr_max = memory_layout.ap_end3;
+		}
 		bm_cfg.bm_mode = W_MODE;
 		ret = sci_bm_set_point(bm_chn, CHN0, &bm_cfg, NULL, NULL);
 		if(SPRD_BM_SUCCESS != ret)
@@ -774,6 +795,7 @@ static ssize_t sci_bm_axi_dbg_store(struct device *dev,
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
 	bm_st_info.bm_dbg_st = true;
+	bm_st_info.bm_dfs_off_st = true;
 
 	if(channel != BM_DEBUG_ALL_CHANNEL){
 		bm_cfg.addr_min = (u32)start_addr;
@@ -850,6 +872,7 @@ static ssize_t sci_bm_ahb_dbg_store(struct device *dev,
 	for (bm_index = AHB_BM0_DAP_A7_DMA; bm_index <= AHB_BM2_NFC_USB; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
 	bm_st_info.bm_dbg_st = true;
+	bm_st_info.bm_dfs_off_st = true;
 
 	bm_cfg.addr_min = (u32)start_addr;
 	bm_cfg.addr_max = (u32)end_addr;
@@ -872,6 +895,7 @@ static ssize_t sci_bm_bandwidth_store(struct device *dev,
 	struct task_struct *t;
 
 	bm_st_info.bm_dbg_st = false;
+	bm_st_info.bm_dfs_off_st = false;
 	sscanf(buf, "%d", &bw_en);
 	if(bw_en){
 		BM_INFO("bm bandwidth mode enable!!!\n");
@@ -911,7 +935,7 @@ static ssize_t sci_bm_occur_show(struct device *dev,
 	char occ_info[96] = {};
 	char chn_info[96*10] = {};
 
-	for(bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++){
+	for(bm_index = AXI_BM0_CA7; bm_index <= BM_SIZE; bm_index++){
 		if(debug_bm_int_info[bm_index].msk_addr != 0){
 			sprintf(occ_info, " %s\n addr: 0x%X\n CMD: 0x%X\n msk_data_l: 0x%X\n msk_data_h: 0x%X\n id 0x%X\n",
 				bm_chn_name[bm_index].chn_name,
@@ -991,10 +1015,10 @@ static ssize_t sci_bm_dfs_store(struct device *dev,
 	u32 dfs_flg;
 	sscanf(buf, "%d", &dfs_flg);
 	if(dfs_flg){
-		BM_INFO("Reopen BM DFS.\n");
+		BM_INFO("Disable BM DFS.\n");
 		bm_st_info.bm_dfs_off_st = true;
 	}else{
-		BM_INFO("Disable BM DFS.\n");
+		BM_INFO("Enable BM DFS.\n");
 		bm_st_info.bm_dfs_off_st = false;
 	}
 	return strnlen(buf, count);
@@ -1017,10 +1041,10 @@ static ssize_t sci_bm_panic_store(struct device *dev,
 	u32 panic_flg;
 	sscanf(buf, "%d", &panic_flg);
 	if(panic_flg){
-		BM_INFO("Reopen BM DFS.\n");
+		BM_INFO("Reopen BM panic.\n");
 		bm_st_info.bm_panic_st = true;
 	}else{
-		BM_INFO("Disable BM DFS.\n");
+		BM_INFO("Disable BM panic.\n");
 		bm_st_info.bm_panic_st = false;
 	}
 	return strnlen(buf, count);
@@ -1123,6 +1147,26 @@ static int sci_bm_get_mem_layout(void)
 			memory_layout.shm_start = res.start;
 			memory_layout.shm_end = res.end;
 		}
+
+		struct device_node *lte_child = NULL;
+		char *lte_reg_name = NULL;
+		u32 lte_val[2] = { 0 };
+
+		for_each_child_of_node(np, lte_child){
+			of_property_read_string(lte_child, "sprd,name", (const char **)&lte_reg_name);
+			if(!strcmp("sipc-lte", lte_reg_name)){
+				ret = of_address_to_resource(lte_child, 1, &res);
+				if(!ret){
+					memory_layout.cplte_start = res.start;
+					memory_layout.cplte_end = res.end;
+				}
+				ret = of_address_to_resource(lte_child, 2, &res);
+				if(!ret){
+					memory_layout.msg_start = res.start;
+					memory_layout.msg_end = res.end;
+				}
+			}
+		}
 	}
 
 	for_each_compatible_node(np, NULL, "sprd,scproc"){
@@ -1182,16 +1226,86 @@ static int sci_bm_get_mem_layout(void)
 	memory_layout.ap_start3 = memory_layout.cptl_end + 1;
 	memory_layout.ap_end3 = memory_layout.fb_start -1;
 
-	BM_INFO("%s: dram: 0x%08X ~ 0x%08X\n", __func__, memory_layout.dram_start, memory_layout.dram_end);
-	BM_INFO("%s: ap_1: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start1, memory_layout.ap_end1);
-	BM_INFO("%s: shm : 0x%08X ~ 0x%08X\n", __func__, memory_layout.shm_start, memory_layout.shm_end);
-	BM_INFO("%s: ap_2: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start2, memory_layout.ap_end2);
-	BM_INFO("%s: cpge: 0x%08X ~ 0x%08X\n", __func__, memory_layout.cpgge_start, memory_layout.cpgge_end);
-	BM_INFO("%s: cptl: 0x%08X ~ 0x%08X\n", __func__, memory_layout.cptl_start, memory_layout.cptl_end);
-	BM_INFO("%s: ap_3: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start3, memory_layout.ap_end3);
-	BM_INFO("%s: fb  : 0x%08X ~ 0x%08X\n", __func__, memory_layout.fb_start, memory_layout.fb_end);
-	BM_INFO("%s: ion : 0x%08X ~ 0x%08X\n", __func__, memory_layout.ion_start, memory_layout.ion_end);
+	BM_ERR("%s: dram: 0x%08X ~ 0x%08X\n", __func__, memory_layout.dram_start, memory_layout.dram_end);
+	BM_ERR("%s: ap_1: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start1, memory_layout.ap_end1);
+	BM_ERR("%s: shm : 0x%08X ~ 0x%08X\n", __func__, memory_layout.shm_start, memory_layout.shm_end);
+	BM_ERR("%s: ap_2: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start2, memory_layout.ap_end2);
+	BM_ERR("%s: cpge: 0x%08X ~ 0x%08X\n", __func__, memory_layout.cpgge_start, memory_layout.cpgge_end);
+	BM_ERR("%s: cptl: 0x%08X ~ 0x%08X\n", __func__, memory_layout.cptl_start, memory_layout.cptl_end);
+	BM_ERR("%s: ap_3: 0x%08X ~ 0x%08X\n", __func__, memory_layout.ap_start3, memory_layout.ap_end3);
+	BM_ERR("%s: fb  : 0x%08X ~ 0x%08X\n", __func__, memory_layout.fb_start, memory_layout.fb_end);
+	BM_ERR("%s: ion : 0x%08X ~ 0x%08X\n", __func__, memory_layout.ion_start, memory_layout.ion_end);
 
+	BM_ERR("%s: lte  : 0x%08X ~ 0x%08X\n", __func__, memory_layout.cplte_start, memory_layout.cplte_end);
+	BM_ERR("%s: msg : 0x%08X ~ 0x%08X\n", __func__, memory_layout.msg_start, memory_layout.msg_end);
+
+	return 0;
+}
+
+static int sci_bm_suspend(struct platform_device *pdev, pm_message_t state)
+{
+	u32 bm_chn, reg_addr, bm_mode;
+	struct sci_bm_cfg bm_cfg;
+
+	if(true == bm_st_info.bm_dbg_st){
+		for (bm_chn = AXI_BM0_CA7; bm_chn < BM_SIZE; bm_chn++){
+			reg_addr = __sci_get_bm_base(bm_chn);
+			bm_store_vale[bm_chn].str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG));
+			bm_store_vale[bm_chn].end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG));
+			bm_mode = __raw_readl((volatile void *)(reg_addr + AXI_BM_CFG_REG)) & 0x3;
+			if(0 == bm_mode)
+				bm_store_vale[bm_chn].mode = RW_MODE;
+			else if(1 == bm_mode)
+				bm_store_vale[bm_chn].mode = R_MODE;
+			else if(3 == bm_mode)
+				bm_store_vale[bm_chn].mode = W_MODE;
+			if(bm_chn >= AHB_BM0_DAP_A7_DMA){
+				bm_store_vale[bm_chn].min_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MIN_L_REG));
+				bm_store_vale[bm_chn].max_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MAX_L_REG));
+				bm_mode = sci_glb_read(REG_AP_AHB_MISC_CFG, 0xFFFFFFFF);
+				switch(bm_chn){
+					case AHB_BM0_DAP_A7_DMA:
+						bm_store_vale[bm_chn].chn_sel = (bm_mode >> 4) & 0x3;
+						break;
+					case AHB_BM1_SDIO_EMMC:
+						bm_store_vale[bm_chn].chn_sel = (bm_mode >> 8) & 0x3;
+						break;
+					case AHB_BM2_NFC_USB:
+						bm_store_vale[bm_chn].chn_sel = (bm_mode >> 10) & 0x3;
+						break;
+					default:
+						break;
+				}
+			}
+		}
+	}
+	return 0;
+}
+
+static int sci_bm_resume(struct platform_device *pdev)
+{
+	u32 bm_chn, ret;
+	struct sci_bm_cfg bm_cfg;
+
+	__sci_bm_init();
+	if(true == bm_st_info.bm_dbg_st){
+		for (bm_chn = AXI_BM0_CA7; bm_chn < BM_SIZE; bm_chn++){
+			if((0x00000000 == bm_store_vale[bm_chn].str_addr) && (0x00000000 == bm_store_vale[bm_chn].end_addr))
+				continue;
+			bm_cfg.addr_min = bm_store_vale[bm_chn].str_addr;
+			bm_cfg.addr_max = bm_store_vale[bm_chn].end_addr;
+			bm_cfg.bm_mode = bm_store_vale[bm_chn].mode;
+			if(bm_chn >= AHB_BM0_DAP_A7_DMA){
+				bm_cfg.data_min_l = bm_store_vale[bm_chn].min_data;
+				bm_cfg.data_min_h = 0;
+				bm_cfg.data_max_l = bm_store_vale[bm_chn].max_data;
+				bm_cfg.data_max_h = 0;
+			}
+			ret = sci_bm_set_point(bm_chn, bm_store_vale[bm_chn].chn_sel, &bm_cfg, NULL, NULL);
+			if(SPRD_BM_SUCCESS != ret)
+				return ;
+		}
+	}
 	return 0;
 }
 
@@ -1233,6 +1347,10 @@ static int sci_bm_probe(struct platform_device *pdev)
 	bm_st_info.bm_dbg_st = true;
 	bm_st_info.bm_stack_st = true;
 	bm_st_info.bm_panic_st = true;
+	//bm_ctn_dbg.bm_continue_dbg= true;
+	//bm_ctn_dbg.loop_cnt = 20;
+	bm_st_info.bm_dfs_off_st = true;
+	BM_ERR("Bus Monitor default config set success!!!\n");
 #endif
 	return SPRD_BM_SUCCESS;
 }
@@ -1299,6 +1417,7 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 			if(SPRD_BM_SUCCESS != ret)
 				return ret;
 			bm_st_info.bm_dbg_st = true;
+			bm_st_info.bm_dfs_off_st = true;
 			break;
 		case BM_AHB_DEBUG_SET://set ahb debug point
 			if(copy_from_user(&bm_cfg, (struct sci_bm_cfg __user *)args, sizeof(struct sci_bm_cfg)))
@@ -1307,6 +1426,7 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 			if(SPRD_BM_SUCCESS != ret)
 				return ret;
 			bm_st_info.bm_dbg_st = true;
+			bm_st_info.bm_dfs_off_st = true;
 			break;
 		case BM_PERFORM_SET://set performance point
 			if(per_buf == NULL){
@@ -1326,6 +1446,7 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 			sci_bm_set_perform_point();
 			msleep(100);
 			bm_st_info.bm_dbg_st = false;
+			bm_st_info.bm_dfs_off_st = false;
 			break;
 		case BM_PERFORM_UNSET://unset performance point
 			if(per_buf != NULL)
@@ -1399,6 +1520,8 @@ static const struct of_device_id bm_of_match[] = {
 static struct platform_driver sprd_bm_driver = {
 	.probe    = sci_bm_probe,
 	.remove   = sci_bm_remove,
+	.suspend  = sci_bm_suspend,
+	.resume   = sci_bm_resume,
 	.driver = {
 		.owner = THIS_MODULE,
 		.name = "sprd_bm",

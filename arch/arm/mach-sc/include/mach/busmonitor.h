@@ -29,6 +29,8 @@
 #define AXI_BM_PEAKBW_IN_WIN_REG	0x5c
 #define AXI_BM_MATCH_ID_REG			0x64
 
+#define AHB_BM_INTC_REG				0x00
+
 #define SPRD_BM_SUCCESS	0
 #define BM_INT_MSK_STS	BIT(31)
 #define BM_INT_CLR		BIT(29)
@@ -253,6 +255,22 @@ static struct bm_chn_name_info bm_chn_name[BM_CHANNEL_SIZE + 1] = {
 	{BM_CHANNEL_SIZE,""},
 };
 
+struct bm_id_name {
+	unsigned char chn_name[4];
+};
+static struct bm_id_name bm_match_id[AXI_BM9_CP1_A5] = {
+	{"CA7"},
+	{"DISPC","TMC"},
+	{"GSP","GPU"},
+	{"ZIPENC","ZIPDEC","AP"},
+	{"DCAM","ISP","VSP","JPG"},
+	{"CP0 WCDMA","CP0 ARM0","CP0 ARM1","CP0 WCDMA"},
+	{"CP0 DSP"},
+	{"CP1 LTEACC/HARQ"},
+	{"CP1 DSP"},
+	{"CA5","CA5 AHB"},
+};
+
 #ifdef BM_DEFAULT_VALUE_SET
 struct bm_chn_def_val {
 	u32 str_addr;
@@ -262,17 +280,18 @@ struct bm_chn_def_val {
 	u32 mode;
 	u32 chn_sel;
 };
+static struct bm_chn_def_val bm_store_vale[BM_SIZE];
 static struct bm_chn_def_val bm_def_value[BM_SIZE] = {
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0},	//ca7
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0},	//DISP
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0}, //GSP/GPU
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0}, //ZIP/AP
-	{0x00000000, 0x00000000, 0x0fffffff, 0x00000000, W_MODE, 0}, //MM
-	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP0 ARM0/1/WCDMA
-	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP0 DSPx2
-	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //HARQ/LTE ACC
-	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP1 DPS
-	{0x8D600000, 0x9F8AD000, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP1 A5
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //ca7
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //DISP
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //GSP/GPU
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //ZIP/AP
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //MM
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP0 ARM0/1/WCDMA
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP0 DSPx2
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //HARQ/LTE ACC
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP1 DPS
+	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //CP1 A5
 
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-DAP, 1-CA7, 2-DMA WRITE, 3-DMA READ
 	{0x00000000, 0x00000000, 0x00000000, 0x00000000, W_MODE, 0}, //0-SDIO 0, 1-SDIO 1, 2-SDIO 2, 3-EMMC
