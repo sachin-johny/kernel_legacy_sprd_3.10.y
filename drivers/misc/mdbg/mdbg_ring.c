@@ -146,7 +146,6 @@ PUBLIC int mdbg_ring_write(MDBG_RING_T* pRing, char* buf, int len)
 		MDBG_ERR("Ring Write Failed, Param Error!,buf=%p,pRing=%p,len=%d",buf,pRing,len);
 		return (MDBG_ERR_BAD_PARAM);
 	}
-	MDBG_RING_LOCK(pRing);
 	pstart = mdbg_ring_start(pRing);
 	pend = mdbg_ring_end(pRing);
 	MDBG_LOG("pstart = %p",pstart);
@@ -168,7 +167,6 @@ PUBLIC int mdbg_ring_write(MDBG_RING_T* pRing, char* buf, int len)
 		pRing->wp += len;	
 	}
 	MDBG_LOG("Ring Wrote len = %d",len);
-	MDBG_RING_UNLOCK(pRing);
 	return (len);
 }
 

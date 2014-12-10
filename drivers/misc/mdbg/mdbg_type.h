@@ -44,7 +44,7 @@
 #define MDBG_FUNC_EXIT 		MDBG_LOG("EXIT.")
 
 
-#define MDBG_RX_RING_SIZE 			(1024*128)
+#define MDBG_RX_RING_SIZE 			(1024*1024)
 
 
 /*******************************************************/

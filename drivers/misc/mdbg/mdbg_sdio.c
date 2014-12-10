@@ -32,8 +32,6 @@ extern wait_queue_head_t	mdbg_wait;
 /******************Local Variables*******************/
 /*******************************************************/
 LOCAL uint8_t* mdbg_rx_buff;
-
-LOCAL struct work_struct rx_workq;
 MDBG_SIZE_T sdio_read_len;
 static struct wake_lock  mdbg_wake_lock;
 /*******************************************************/
@@ -41,14 +39,6 @@ static struct wake_lock  mdbg_wake_lock;
 /*******************************************************/
 LOCAL void mdbg_sdio_read(void);
 LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len);
-
-void mdbg_rx_handler(void )
-{
-	sdio_read_len = mdbg_ring_write(rx_ring,mdbg_rx_buff, sdio_read_len);
-	read_flag = 1;
-	wake_up_interruptible(&mdbg_wait);
-	return;
-}
 
 /*******************************************************/
 /************MDBG SDIO Life Cycle****************/
@@ -71,7 +61,6 @@ PUBLIC int mdbg_sdio_init(void)
 	mutex_init(&mdbg_read_mutex);
 
 	wake_lock_init(&mdbg_wake_lock, WAKE_LOCK_SUSPEND, "mdbg_wake_lock");
-	INIT_WORK(&rx_workq, mdbg_rx_handler);
 	MDBG_LOG("mdbg_sdio_init!");
 
 	return (err);
@@ -80,7 +69,6 @@ PUBLIC int mdbg_sdio_init(void)
 PUBLIC void mdbg_sdio_remove(void)
 {
 	MDBG_FUNC_ENTERY;
-	cancel_work_sync(&rx_workq);
 	wake_lock_destroy(&mdbg_wake_lock);
 	sdiodev_readchn_uninit(MDBG_CHANNEL_READ);
 	mdbg_ring_destroy(rx_ring);
@@ -127,7 +115,10 @@ PUBLIC void mdbg_sdio_read(void)
 		return;
 	}
 	sdio_dev_read(MDBG_CHANNEL_READ,mdbg_rx_buff,&sdio_read_len);
-	schedule_work(&rx_workq);
+	sdio_read_len = mdbg_ring_write(rx_ring,mdbg_rx_buff, sdio_read_len);
+	read_flag = 1;
+	wake_up_interruptible(&mdbg_wait);
+
 	wake_unlock(&mdbg_wake_lock);
 	mutex_unlock(&mdbg_read_mutex);
 	return;
