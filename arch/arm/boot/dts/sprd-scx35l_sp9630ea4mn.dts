@@ -716,6 +716,7 @@
 		caps = <0x80000000>;
 		caps2 = <0x202>;
 		host-caps-mask = <0x05000000>;
+                cd-gpios=<141>;
 		/*sharkl reference phone hardware just use the vddsdcore*/
 		/*vdd-vmmc = "vddsdcore";*/
 		vdd-vqmmc = "vddsdcore";
