@@ -123,10 +123,7 @@ static inline void __sci_axi_bm_chn_en(int chn)
 	val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
 	val |= (BM_CHN_EN);
 	__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
-
-	return;
 }
-
 
 static inline void __sci_axi_bm_chn_int_clr(int chn)
 {
@@ -136,9 +133,27 @@ static inline void __sci_axi_bm_chn_int_clr(int chn)
 	val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
 	val |= (BM_INT_CLR);
 	__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
+}
 
-	return;
+static inline void __sci_axi_bm_chn_int_disable(int chn)
+{
+	u32 base_reg, val;
 
+	base_reg = __sci_get_bm_base(chn);
+	val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
+	val &= ~(BM_INT_EN);
+	val |= (BM_INT_CLR);
+	__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
+}
+
+static inline void __sci_axi_bm_chn_int_enable(int chn)
+{
+	u32 base_reg, val;
+
+	base_reg = __sci_get_bm_base(chn);
+	val = __raw_readl((volatile void *)(base_reg + AXI_BM_INTC_REG));
+	val |= (BM_INT_CLR | BM_INT_EN);
+	__raw_writel(val, (volatile void *)(base_reg + AXI_BM_INTC_REG));
 }
 
 static inline u32 __sci_axi_bm_chn_cnt_bw(int chn)
@@ -186,6 +201,24 @@ static void __sci_axi_bm_int_clr(void)
 
 	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
 		__sci_axi_bm_chn_int_clr(bm_index);
+	}
+}
+
+static void __sci_axi_bm_int_disable(void)
+{
+	int bm_index;
+
+	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
+		__sci_axi_bm_chn_int_disable(bm_index);
+	}
+}
+
+static void __sci_axi_bm_int_enable(void)
+{
+	int bm_index;
+
+	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
+		__sci_axi_bm_chn_int_enable(bm_index);
 	}
 }
 
@@ -1375,8 +1408,6 @@ static int sci_bm_open(struct inode *inode, struct file *filp)
 {
 	u32 bm_index;
 	BM_INFO("%s!\n", __func__);
-	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
-		__sci_bm_glb_reset_and_enable(bm_index, true);
 	return 0;
 }
 
@@ -1384,8 +1415,6 @@ static int sci_bm_release(struct inode *inode, struct file *filp)
 {
 	u32 bm_index;
 	BM_INFO("%s!\n", __func__);
-	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
-		__sci_bm_glb_reset_and_enable(bm_index, false);
 	return 0;
 }
 
@@ -1398,6 +1427,7 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 
 	if(_IOC_TYPE(cmd) >= BM_CMD_MAX)
 		return -EINVAL;
+	BM_INFO("%s : cmd -> %d!\n", __func__, cmd);
 
 	switch(cmd){
 		case BM_STATE:
@@ -1492,6 +1522,12 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 				return -EFAULT;
 		case BM_BW_CNT_CLR:
 			dmc_mon_cnt_clr();
+			break;
+		case BM_DBG_INT_CLR:
+			__sci_axi_bm_int_disable();
+			break;
+		case BM_DBG_INT_SET:
+			__sci_axi_bm_int_enable();
 			break;
 		default:
 		return -EINVAL;

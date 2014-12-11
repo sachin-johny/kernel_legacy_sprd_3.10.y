@@ -125,6 +125,8 @@ enum sci_bm_cmd_index {
 	BM_BW_CNT_RESUME,
 	BM_BW_CNT,
 	BM_BW_CNT_CLR,
+	BM_DBG_INT_CLR,
+	BM_DBG_INT_SET,
 	BM_CMD_MAX,
 };
 
