@@ -671,7 +671,7 @@
 		clocks = <&clk_emmc>, <&clk_384m>;
 		enb-bit = <0x800>;
 		rst-bit = <0x4000>;
-		write-delay = <0x20>;
+		write-delay = <0x2d>;
 		read-pos-delay = <0x1b>;
 		read-neg-delay = <0x13>;
 		keep-power = <0>;
