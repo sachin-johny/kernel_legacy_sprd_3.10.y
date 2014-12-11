@@ -1880,6 +1880,9 @@ void dbs_refresh_callback(struct work_struct *work)
 	if (policy->cur < policy->max)
 	{
 		if (thermal_cooling_info.cooling_state){
+			__cpufreq_driver_target(policy,
+					thermal_cooling_info.limit_freq, CPUFREQ_RELATION_L);
+		}else{
 			cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
 		}
 
