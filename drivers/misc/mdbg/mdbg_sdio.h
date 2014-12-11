@@ -20,12 +20,17 @@
 #define MDBG_BYTE_MODE 0
 #define MDBG_WRITE_LEN (128)
 
+#define MDBG_CHANNEL_READ			(14)
+#define MDBG_CHANNEL_WRITE 		(15)
+#define MDBG_MAX_RETRY 			(3)
+#define MDBG_RX_BUFF_SIZE 			(4096)
+
 /*******************************************************/
 /***********Public Interface Declaration************/
 /*******************************************************/
 int 				mdbg_sdio_init(void);
 void 				mdbg_sdio_remove(void);
-MDBG_SIZE_T	mdbg_send(char* buff, MDBG_SIZE_T len);
+MDBG_SIZE_T	mdbg_send(char* buff, MDBG_SIZE_T len, uint32 chn);
 MDBG_SIZE_T 	mdbg_receive(char* buff, MDBG_SIZE_T len);
 int mdbg_channel_init(void);
 

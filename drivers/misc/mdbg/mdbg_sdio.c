@@ -13,13 +13,6 @@
 #include "mdbg_ring.h"
 #include <linux/mutex.h>
 
-/*******************************************************/
-/******************Macor Definitions****************/
-/*******************************************************/
-#define MDBG_CHANNEL_READ			(14)
-#define MDBG_CHANNEL_WRITE 		(15)
-#define MDBG_MAX_RETRY 			(3)
-#define MDBG_RX_BUFF_SIZE 			(4096)
 
 /*******************************************************/
 /******************Global Variables*****************/
@@ -38,7 +31,7 @@ static struct wake_lock  mdbg_wake_lock;
 /***********Local Functions Declaration************/
 /*******************************************************/
 LOCAL void mdbg_sdio_read(void);
-LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len);
+LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len,uint32 chn);
 
 /*******************************************************/
 /************MDBG SDIO Life Cycle****************/
@@ -93,11 +86,15 @@ EXPORT_SYMBOL_GPL(mdbg_channel_init);
 /*******************************************************/
 /***********MDBG SDIO IO Functions**************/
 /*******************************************************/
-LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len)
+LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len,uint32 chn)
 {
 	MDBG_LOG("buff=%p,len=%d,[%s]",buff,len,buff);
+	if(1 != get_sdiohal_status()){
+		return len;
+	}
+
 	set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
-	sdio_dev_write(MDBG_CHANNEL_WRITE, buff, len);
+	sdio_dev_write(chn, buff, len);
 	return len;
 }
 
@@ -128,13 +125,13 @@ EXPORT_SYMBOL_GPL(mdbg_sdio_read);
 /*******************************************************/
 /**************MDBG IO Functions******************/
 /*******************************************************/
-PUBLIC MDBG_SIZE_T mdbg_send(char* buff, MDBG_SIZE_T len)
+PUBLIC MDBG_SIZE_T mdbg_send(char* buff, MDBG_SIZE_T len,uint32 chn)
 {
 	MDBG_SIZE_T sent_size = 0;
 
 	MDBG_LOG("BYTE MODE");
 	wake_lock(&mdbg_wake_lock);
-	sent_size = mdbg_sdio_write(buff, len);
+	sent_size = mdbg_sdio_write(buff, len,chn);
 	wake_unlock(&mdbg_wake_lock);
 	return len;
 }

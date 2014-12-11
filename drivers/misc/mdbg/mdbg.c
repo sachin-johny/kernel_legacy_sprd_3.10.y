@@ -15,7 +15,7 @@
 
 #define MDBG_MAX_BUFFER_LEN (PAGE_SIZE-1)
 
-#define MDBG_CHANNEL_WRITE			(5)
+#define MDBG_WCN_WRITE			(5)
 #define MDBG_CHANNEL_ASSERT			(3)
 #define MDBG_CHANNEL_WDTIRQ			(4)
 #define MDBG_CHANNEL_LOOPCHECK 		(6)
@@ -120,7 +120,7 @@ void mdbg_at_cmd_read(void)
 
 	if(read_len > MDBG_AT_CMD_SIZE)
 		MDBG_ERR( "The at cmd data len:%d, beyond max read:%d",read_len,MDBG_AT_CMD_SIZE);
-
+	memset(mdbg_proc->at_cmd.buf,0,MDBG_AT_CMD_SIZE);
 	sdio_dev_read(MDBG_CHANNEL_AT_CMD,mdbg_proc->at_cmd.buf,&read_len);
 	printk("mdbg_at_cmd_read:%s\n",mdbg_proc->at_cmd.buf);
 	wake_up_interruptible(&mdbg_proc->at_cmd.wait);
@@ -201,9 +201,8 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		return -EFAULT;
 	}
 	printk("mdbg_proc->write_buf:%s",mdbg_proc->write_buf);
-	set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
 
-	sdio_dev_write(MDBG_CHANNEL_WRITE, mdbg_proc->write_buf, count);
+	mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
 
 	return count;
 }
@@ -287,19 +286,19 @@ LOCAL void mdbg_fs_init(void)
 	mdbg_proc->procdir = proc_mkdir(mdbg_proc->dir_name, NULL);
 
 	mdbg_proc->assert.name = "assert";
-	mdbg_proc->assert.entry = proc_create_data(mdbg_proc->assert.name, S_IRUSR,
+	mdbg_proc->assert.entry = proc_create_data(mdbg_proc->assert.name, S_IRUSR |S_IWUSR,
 	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->assert));
 
 	mdbg_proc->wdtirq.name = "wdtirq";
-	mdbg_proc->wdtirq.entry = proc_create_data(mdbg_proc->wdtirq.name, S_IRUSR,
+	mdbg_proc->wdtirq.entry = proc_create_data(mdbg_proc->wdtirq.name, S_IRUSR | S_IWUSR,
 	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->wdtirq));
 
 	mdbg_proc->loopcheck.name = "loopcheck";
-	mdbg_proc->loopcheck.entry = proc_create_data(mdbg_proc->loopcheck.name, S_IRUSR,
+	mdbg_proc->loopcheck.entry = proc_create_data(mdbg_proc->loopcheck.name, S_IRUSR | S_IWUSR,
 	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->loopcheck));
 
 	mdbg_proc->at_cmd.name = "at_cmd";
-	mdbg_proc->at_cmd.entry = proc_create_data(mdbg_proc->at_cmd.name, S_IRUSR,
+	mdbg_proc->at_cmd.entry = proc_create_data(mdbg_proc->at_cmd.name, S_IRUSR | S_IWUSR,
 	mdbg_proc->procdir, &mdbg_proc_fops, &(mdbg_proc->at_cmd));
 
 	mdbg_fs_channel_init();
@@ -399,7 +398,7 @@ LOCAL ssize_t mdbg_write(struct file *filp, const char __user *buf,size_t count,
 		return -EFAULT;
 	}
 
-	sent_size = mdbg_send(mdbg_dev->write_buf , count);
+	sent_size = mdbg_send(mdbg_dev->write_buf , count, MDBG_CHANNEL_WRITE);
 	mutex_unlock(&mdbg_dev->mdbg_lock);
 
 	MDBG_LOG("sent_size = %d",sent_size);
