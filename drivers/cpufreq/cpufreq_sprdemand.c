@@ -2003,6 +2003,8 @@ static int get_cpu_cooling_dt_data(struct device *dev)
 	return 0;
 
 error:
+	kfree(pdata);
+	pdata = NULL;
 	return -1;
 }
 #endif
@@ -2040,6 +2042,8 @@ static int sprd_cpu_cooling_probe(struct platform_device *pdev)
 static int sprd_cpu_cooling_remove(struct platform_device *pdev)
 {
 	thermal_cooling_device_unregister(thermal_cooling_info.cdev);
+
+	return 0;
 }
 
 #ifdef CONFIG_OF
