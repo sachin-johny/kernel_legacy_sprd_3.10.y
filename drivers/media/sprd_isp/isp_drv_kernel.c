@@ -380,7 +380,7 @@ static int32_t _isp_lnc_param_set(void *handle, uint32_t* addr, uint32_t len)
 	return ret;
 }
 
-static int32_t _isp_free(void *handle)
+static int32_t _isp_update(void *handle)
 {
 	int32_t ret = 0;
 	struct isp_k_file *fd = (struct isp_k_file*)handle;
@@ -390,7 +390,6 @@ static int32_t _isp_free(void *handle)
 	}
 	if((0x00 != fd->s_isp_alloc_addr)
 		&&(0x00 != fd->s_isp_alloc_order)) {
-		free_pages(fd->s_isp_alloc_addr, fd->s_isp_alloc_order);
 		fd->s_isp_alloc_order = 0x00;
 		fd->s_isp_alloc_addr = 0x00;
 		fd->s_isp_alloc_len=0x00;
@@ -685,6 +684,12 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	init_MUTEX_LOCKED(&fd->sem_isr); /*for interrupt */
 	spin_lock_init(&fd->isp_spin_lock);
 	isp_buf = (struct isp_buf_phy*)md->this_device->platform_data;
+	if (!isp_buf) {
+		ret = -EFAULT;
+		printk("isp_kernel_open fail isp_buf NULL \n");
+		goto exit;
+	}
+
 	fd->s_isp_alloc_addr = isp_buf->buf_vir_ptr;
 	fd->s_isp_alloc_len = isp_buf->buf_len;
 	fd->s_isp_alloc_order = get_order(isp_buf->buf_len);
@@ -742,12 +747,14 @@ ISP_K_OPEN_ERROR_EXIT2:
 		ret = -EFAULT;
 	}
 ISP_K_OPEN_ERROR_EXIT1:
-	_isp_free(fd);
+	_isp_update(fd);
 	if (fd->buf_addr) {
 		vfree((void *)fd->buf_addr);
 		fd->buf_addr = 0;
 		fd->buf_len = 0;
 	}
+
+exit:
 	if (fd) {
 		vfree(fd);
 		fd = 0;
@@ -850,7 +857,7 @@ static int32_t _isp_kernel_release (struct inode *node, struct file *pf)
 	}
 
 	mutex_destroy(&fd->s_isp_lock);
-	_isp_free(fd);
+	_isp_update(fd);
 	ISP_CHECK_ZERO_VOID(fd);
 	if (fd->buf_addr) {
 		vfree((void *)fd->buf_addr);
@@ -1229,7 +1236,7 @@ static int _isp_probe(struct platform_device *pdev)
 	ret = misc_register(&isp_dev);
 	if (ret) {
 		ISP_PRINT ( "isp_k:probe cannot register miscdev on minor=%d (%d)\n",(int32_t)ISP_MINOR, (int32_t)ret);
-		return ret;
+		goto probe_out;
 	}
 
 	isp_buf->buf_len = ISP_BUF_MAX_SIZE;
@@ -1237,7 +1244,8 @@ static int _isp_probe(struct platform_device *pdev)
 	isp_buf->buf_vir_ptr = __get_free_pages(GFP_KERNEL | __GFP_COMP, order);
 	if (NULL == (void*)isp_buf->buf_vir_ptr ) {
 		ISP_PRINT("ISP_RAW:_isp_alloc order:0x%x, len:0x%x error\n", order, isp_buf->buf_len);
-		return 1;
+		ret = 1;
+		goto probe_out;
 	}
 	isp_buf->buf_phy_ptr = virt_to_phys((volatile void *)isp_buf->buf_vir_ptr);
 	dmac_flush_range(isp_buf->buf_vir_ptr, isp_buf->buf_vir_ptr + isp_buf->buf_len);
@@ -1247,12 +1255,18 @@ static int _isp_probe(struct platform_device *pdev)
 	isp_dev.this_device->platform_data = (void *)isp_buf;
 
 	ISP_PRINT (" isp_k:probe end\n");
-	return 0;
+	goto exit;
+probe_out:
+	devm_kfree(&pdev->dev, isp_buf);
+	platform_set_drvdata(pdev, NULL);
+exit:
+	return ret;
 }
 
 static int _isp_remove(struct platform_device * dev)
 {
 	struct isp_buf_phy *isp_buf;
+	uint32_t order = 0;
 
 	ISP_PRINT ("isp_k: remove start \n");
 	isp_buf = platform_get_drvdata(dev);
@@ -1265,6 +1279,8 @@ static int _isp_remove(struct platform_device * dev)
 		remove_proc_entry("driver/sprd_isp", NULL);
 	}
 */
+	order = get_order(isp_buf->buf_len);
+	free_pages(isp_buf->buf_vir_ptr, order);
 	devm_kfree(&dev->dev, isp_buf);
 	platform_set_drvdata(dev, NULL);
 
