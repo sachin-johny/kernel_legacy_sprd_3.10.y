@@ -115,6 +115,7 @@ void mdbg_at_cmd_read(void)
 
 	read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_AT_CMD);
 	if(read_len <= 0){
+		MDBG_ERR("MDBG_CHANNEL_AT_CMD len err\n");
 		return;
 	}
 
@@ -127,6 +128,7 @@ void mdbg_at_cmd_read(void)
 
 	return;
 }
+EXPORT_SYMBOL_GPL(mdbg_at_cmd_read);
 
 static int mdbg_proc_open(struct inode *inode, struct file *filp)
 {

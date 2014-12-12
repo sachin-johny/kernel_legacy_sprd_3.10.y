@@ -758,6 +758,11 @@ RX:
 			mdbg_sdio_read();
 			goto TX;
 		}
+		if(11 == index)
+		{
+			mdbg_at_cmd_read();
+			goto TX;
+		}
 		ret = rx_fifo_in(index, rx_fifo, hw_rx);
 		if(OK != ret )
 		{
@@ -944,11 +949,12 @@ static int wlan_hw_init(hw_info_t *hw)
 	hw->sdio_tx_chn.timeout_time = 3000;
 	hw->sdio_tx_chn.timeout_flag = false;
 
-	hw->sdio_rx_chn.num          = 3;
+	hw->sdio_rx_chn.num          = 4;
 	hw->sdio_rx_chn.chn[0]       = 8;
 	hw->sdio_rx_chn.chn[1]       = 9;
 	hw->sdio_rx_chn.chn[2]       = 14;
-	hw->sdio_rx_chn.bit_map      = 0x4300;
+	hw->sdio_rx_chn.chn[3]       = 11;
+	hw->sdio_rx_chn.bit_map      = 0x4b00;
 	hw->sdio_rx_chn.gpio_high    = false;	
 	hw->sdio_rx_chn.timeout_time = 3000;
 	hw->sdio_rx_chn.timeout_flag = false;
