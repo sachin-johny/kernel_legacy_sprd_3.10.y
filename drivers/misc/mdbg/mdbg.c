@@ -40,7 +40,8 @@ wait_queue_head_t	mdbg_wait;
 struct mdbg_proc_entry {
 	char *name;
 	struct proc_dir_entry *entry;
-	wait_queue_head_t	wait;
+	struct completion completed;
+	unsigned int   	rcv_len;
 	void *buf;
 };
 
@@ -69,7 +70,8 @@ void mdbg_assert_read(void)
 		MDBG_ERR( "The assert data len:%d, beyond max read:%d",read_len,MDBG_ASSERT_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_ASSERT,mdbg_proc->assert.buf,&read_len);
-	wake_up_interruptible(&mdbg_proc->assert.wait);
+	mdbg_proc->assert.rcv_len = read_len;
+	complete(&mdbg_proc->assert.completed);
 
 	return;
 }
@@ -86,7 +88,8 @@ void mdbg_wdtirq_read(void)
 		MDBG_ERR( "The assert data len:%d, beyond max read:%d",read_len,MDBG_WDTIRQ_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_WDTIRQ,mdbg_proc->wdtirq.buf,&read_len);
-	wake_up_interruptible(&mdbg_proc->wdtirq.wait);
+	mdbg_proc->wdtirq.rcv_len = read_len;
+	complete(&mdbg_proc->wdtirq.completed);
 
 	return;
 }
@@ -104,7 +107,8 @@ void mdbg_loopcheck_read(void)
 		MDBG_ERR( "The loopcheck data len:%d, beyond max read:%d",read_len,MDBG_LOOPCHECK_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_LOOPCHECK,mdbg_proc->loopcheck.buf,&read_len);
-	wake_up_interruptible(&mdbg_proc->loopcheck.wait);
+	mdbg_proc->loopcheck.rcv_len = read_len;
+	complete(&mdbg_proc->loopcheck.completed);
 
 	return;
 }
@@ -121,10 +125,11 @@ void mdbg_at_cmd_read(void)
 
 	if(read_len > MDBG_AT_CMD_SIZE)
 		MDBG_ERR( "The at cmd data len:%d, beyond max read:%d",read_len,MDBG_AT_CMD_SIZE);
-	memset(mdbg_proc->at_cmd.buf,0,MDBG_AT_CMD_SIZE);
+
 	sdio_dev_read(MDBG_CHANNEL_AT_CMD,mdbg_proc->at_cmd.buf,&read_len);
+	mdbg_proc->at_cmd.rcv_len = read_len;
 	printk("mdbg_at_cmd_read:%s\n",mdbg_proc->at_cmd.buf);
-	wake_up_interruptible(&mdbg_proc->at_cmd.wait);
+	complete(&mdbg_proc->at_cmd.completed);
 
 	return;
 }
@@ -156,39 +161,67 @@ static ssize_t mdbg_proc_read(struct file *filp,
 {
 	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)filp->private_data;
 	char *type = entry->name;
+	int timeout = -1;
+	int len;
+
+	if (filp->f_flags & O_NONBLOCK) {
+		timeout = 0;
+	}
 
 	if(strcmp(type, "assert") == 0) {
-		printk(KERN_INFO "Read assert info\n");
-		printk("mdbg_proc->assert.buf:%s\n",mdbg_proc->assert.buf);
+		if (timeout < 0){
+			wait_for_completion(&mdbg_proc->assert.completed);
+		}
+
 		if(copy_to_user((void __user *)buf, mdbg_proc->assert.buf, min(count,(size_t)MDBG_ASSERT_SIZE))){
 			MDBG_ERR( "Read assert info error\n");
 		}
+		len = mdbg_proc->assert.rcv_len;
+		mdbg_proc->assert.rcv_len = 0;
+		memset(mdbg_proc->loopcheck.buf,0,MDBG_ASSERT_SIZE);
 	}
 
 	if(strcmp(type, "wdtirq") == 0) {
-		printk(KERN_INFO "Read wdtirq info\n");
-		printk("mdbg_proc->wdtirq.buf:%s\n",mdbg_proc->wdtirq.buf);
+		if (timeout < 0){
+			wait_for_completion(&mdbg_proc->wdtirq.completed);
+		}
 		if(copy_to_user((void __user *)buf, mdbg_proc->wdtirq.buf, min(count,(size_t)MDBG_WDTIRQ_SIZE))){
 			MDBG_ERR( "Read wdtirq info error\n");
 		}
+
+		len = mdbg_proc->wdtirq.rcv_len;
+		mdbg_proc->wdtirq.rcv_len = 0;
+		memset(mdbg_proc->loopcheck.buf,0,MDBG_WDTIRQ_SIZE);
 	}
 
 	if(strcmp(type, "loopcheck") == 0) {
-		printk(KERN_INFO "Read loopcheck info\n");
-		printk("mdbg_proc->loopcheck.buf:%s\n",mdbg_proc->loopcheck.buf);
-		if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
-			MDBG_ERR( "Read loopcheck info error\n");
+		if (timeout < 0){
+			wait_for_completion(&mdbg_proc->loopcheck.completed);
 		}
+
+		if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
+			MDBG_ERR("Read loopcheck info error\n");
+		}
+
+		memset(mdbg_proc->loopcheck.buf,0,MDBG_LOOPCHECK_SIZE);
+		len = mdbg_proc->loopcheck.rcv_len;
+		mdbg_proc->loopcheck.rcv_len = 0;
 	}
 
 	if(strcmp(type, "at_cmd") == 0) {
-		printk(KERN_INFO "Read at cmd ack info\n");
-		printk("mdbg_proc->at_cmd.buf:%s\n",mdbg_proc->at_cmd.buf);
+		wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+
+		MDBG_ERR("at_cmd.buf:%s\n",mdbg_proc->at_cmd.buf);
 		if(copy_to_user((void __user *)buf, mdbg_proc->at_cmd.buf, min(count,(size_t)MDBG_AT_CMD_SIZE))){
-			MDBG_ERR( "Read at cmd ack info error\n");
+			MDBG_ERR("Read at cmd ack info error\n");
 		}
+
+		len = mdbg_proc->at_cmd.rcv_len;
+		mdbg_proc->at_cmd.rcv_len = 0;
+		memset(mdbg_proc->at_cmd.buf,0,MDBG_AT_CMD_SIZE);
 	}
-	return count;
+
+	return len;
 }
 
 static ssize_t mdbg_proc_write(struct file *filp,
@@ -198,6 +231,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 		MDBG_ERR( "mdbg_proc_write count > MDBG_WRITE_SIZE\n");
 		return -ENOMEM;
 	}
+	memset(mdbg_proc->write_buf,0,MDBG_WRITE_SIZE);
 
 	if (copy_from_user(mdbg_proc->write_buf,buf,count )){
 		return -EFAULT;
@@ -209,6 +243,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 	return count;
 }
 
+#if 0
 static unsigned int mdbg_proc_poll(struct file *filp, poll_table *wait)
 {
 	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)filp->private_data;
@@ -232,13 +267,14 @@ static unsigned int mdbg_proc_poll(struct file *filp, poll_table *wait)
 
 	return mask;
 }
+#endif
 
 struct file_operations mdbg_proc_fops = {
 	.open		= mdbg_proc_open,
 	.release	= mdbg_proc_release,
 	.read		= mdbg_proc_read,
 	.write		= mdbg_proc_write,
-	.poll		= mdbg_proc_poll,
+	//.poll		= mdbg_proc_poll,
 };
 
 LOCAL  void mdbg_fs_channel_init(void)
@@ -305,10 +341,10 @@ LOCAL void mdbg_fs_init(void)
 
 	mdbg_fs_channel_init();
 
-	init_waitqueue_head(&mdbg_proc->assert.wait);
-	init_waitqueue_head(&mdbg_proc->wdtirq.wait);
-	init_waitqueue_head(&mdbg_proc->loopcheck.wait);
-	init_waitqueue_head(&mdbg_proc->at_cmd.wait);
+	init_completion(&mdbg_proc->assert.completed);
+	init_completion(&mdbg_proc->wdtirq.completed);
+	init_completion(&mdbg_proc->loopcheck.completed);
+	init_completion(&mdbg_proc->at_cmd.completed);
 }
 
 LOCAL void mdbg_fs_init_exit(void)
@@ -394,6 +430,7 @@ LOCAL ssize_t mdbg_write(struct file *filp, const char __user *buf,size_t count,
 		return -EINVAL;
 	}
 
+	memset(mdbg_dev->write_buf,0,MDBG_MAX_BUFFER_LEN);
 	if (copy_from_user(mdbg_dev->write_buf ,(void  __user *)buf,count )){
 		mutex_unlock(&mdbg_dev->mdbg_lock);
 		MDBG_ERR("to user fail!");

@@ -90,7 +90,7 @@ LOCAL MDBG_SIZE_T mdbg_sdio_write(char* buff, MDBG_SIZE_T len,uint32 chn)
 {
 	MDBG_LOG("buff=%p,len=%d,[%s]",buff,len,buff);
 	if(1 != get_sdiohal_status()){
-		return len;
+		return 0;
 	}
 
 	set_marlin_wakeup(MDBG_CHANNEL_WRITE,0x1);
