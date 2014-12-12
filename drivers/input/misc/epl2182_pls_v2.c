@@ -46,6 +46,7 @@
 #define PS_INTERRUPT_MODE		1		// 0 is polling mode, 1 is interrupt mode
 #define PLSENSOR_ADAPTIVE
 #ifdef PLSENSOR_ADAPTIVE
+/*ensure the initial value can enable Psensor interrupt,the ps_state of the initial value will be 0*/
 static u16 P_SENSOR_LTHD = 0x7fff;   //init
 static u16 P_SENSOR_HTHD = 0x0;       //init
 #else
@@ -262,6 +263,20 @@ static int elan_sensor_psensor_enable(struct elan_epl_data *epld)
     ret = elan_sensor_I2C_Write(client,REG_1,W_SINGLE_BYTE,0X02,regdata);
 
     set_psensor_intr_threshold(P_SENSOR_LTHD ,P_SENSOR_HTHD);
+#ifdef PLSENSOR_ADAPTIVE
+    if (true == first_do_irq) {
+            msleep(PS_DELAY);
+            elan_sensor_I2C_Write(client,REG_13,R_SINGLE_BYTE,0x01,0);
+            elan_sensor_I2C_Read(client);
+            gRawData.ps_state= !((gRawData.raw_bytes[0]&0x04)>>2);
+            elan_sensor_I2C_Write(client,REG_16,R_TWO_BYTE,0x01,0x00);
+            elan_sensor_I2C_Read(client);
+            gRawData.ps_ch1_raw = (gRawData.raw_bytes[1]<<8) | gRawData.raw_bytes[0];
+            P_SENSOR_LTHD = gRawData.ps_ch1_raw + MIN_SPACING - DEBOUNCE;
+            P_SENSOR_HTHD = gRawData.ps_ch1_raw + MIN_SPACING - DEBOUNCE;
+            set_psensor_intr_threshold(P_SENSOR_LTHD ,P_SENSOR_HTHD);
+    }
+#endif
 
     ret = elan_sensor_I2C_Write(client,REG_7,W_SINGLE_BYTE,0X02,EPL_C_RESET);
     ret = elan_sensor_I2C_Write(client,REG_7,W_SINGLE_BYTE,0x02,EPL_C_START_RUN);
@@ -380,10 +395,8 @@ static int elan_epl_ps_poll_rawdata(void)
     set_psensor_intr_threshold(P_SENSOR_LTHD ,P_SENSOR_HTHD);
     /*threshold detect process end*/
     LOG_INFO("ps_min (%4d), ps_max (%4d), ps_threshold (%4d)\n", ps_min, ps_max, ps_threshold);
-    if (true == first_do_irq) {
-        first_do_irq = false;
-        return -1;
-    }
+    if (true == first_do_irq)
+            first_do_irq = false;
 #endif
     elan_sensor_I2C_Write(epld->client,REG_7,W_SINGLE_BYTE,0x02,EPL_DATA_UNLOCK);
     LOG_INFO("### ps_ch1_raw_data  (%d), value(%d) ###\n", gRawData.ps_ch1_raw, gRawData.ps_state);
