@@ -7759,15 +7759,19 @@ dhdsdio_suspend(void *context)
 
 	dhd_bus_t *bus = (dhd_bus_t*)context;
 	int wait_time = 0;
-	if (bus->idletime > 0) {
-		wait_time = msecs_to_jiffies(bus->idletime * dhd_watchdog_ms);
+	if (SLPAUTO_ENAB(bus)) {	
+		if (bus->idletime > 0) {
+			wait_time = msecs_to_jiffies(bus->idletime * dhd_watchdog_ms);
+		}
 	}
-
+	
 	ret = dhd_os_check_wakelock(bus->dhd);
-	if ((!ret) && (bus->dhd->up)) {
-		if (wait_event_timeout(bus->bus_sleep, bus->sleeping, wait_time) == 0) {
-			if (!bus->sleeping) {
-				return 1;
+	if (SLPAUTO_ENAB(bus)) {
+		if ((!ret) && (bus->dhd->up)) {
+			if (wait_event_timeout(bus->bus_sleep, bus->sleeping, wait_time) == 0) {
+				if (!bus->sleeping) {
+					return 1;
+				}
 			}
 		}
 	}
