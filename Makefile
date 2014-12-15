@@ -326,7 +326,12 @@ include $(srctree)/scripts/Kbuild.include
 
 AS		= $(CROSS_COMPILE)as
 LD		= $(CROSS_COMPILE)ld
-CC		= $(CROSS_COMPILE)gcc
+CC      = $(WRAPPER) $(ARM_EABI_TOOLCHAIN)/$(strip $(CROSS_COMPILE))gcc
+
+ifneq ($(USE_CCACHE),)
+CC     := $(CROSS_COMPILE)gcc
+endif
+
 CPP		= $(CC) -E
 AR		= $(CROSS_COMPILE)ar
 NM		= $(CROSS_COMPILE)nm
