@@ -654,6 +654,23 @@ static void bak_restore_pub(int bak)
 		sci_glb_write(REG_PUB_APB_DDR_QOS_CFG3, pub_reg_saved.ddr_qos_cfg3, -1UL);
 	}
 }
+
+static void bak_restore_ap_intc(int bak)
+{
+	static u32 intc0_eb, intc1_eb, intc2_eb,intc3_eb;
+	if(bak) {
+		intc0_eb = sci_glb_read(SPRD_INTC0_BASE + 0x8, -1UL);
+		intc1_eb = sci_glb_read(SPRD_INTC1_BASE + 0x8, -1UL);
+		intc2_eb = sci_glb_read(SPRD_INTC2_BASE + 0x8, -1UL);
+		intc3_eb = sci_glb_read(SPRD_INTC3_BASE + 0x8, -1UL);
+	} else {
+		sci_glb_write(SPRD_INTC0_BASE + 0x8, intc0_eb, -1UL);
+		sci_glb_write(SPRD_INTC1_BASE + 0x8, intc1_eb, -1UL);
+		sci_glb_write(SPRD_INTC2_BASE + 0x8, intc2_eb, -1UL);
+		sci_glb_write(SPRD_INTC3_BASE + 0x8, intc3_eb, -1UL);
+	}
+}
+
 #define REG_PIN_XTLEN                   ( SPRD_PIN_BASE + 0x0138 )
 #define REG_PIN_CHIP_SLEEP              ( SPRD_PIN_BASE + 0x0208 )
 #define REG_PIN_XTL_BUF_EN0             ( SPRD_PIN_BASE + 0x020C )
@@ -1105,6 +1122,7 @@ static __used void wait_until_uart1_tx_done(void)
 	bak_restore_ahb(1); \
 	bak_restore_aon(1); \
 	bak_restore_pub(1); \
+	bak_restore_ap_intc(1);\
 	}while(0)
 #define RESTORE_GLOBAL_REG do{ \
 	bak_restore_apb(0); \
@@ -1112,6 +1130,7 @@ static __used void wait_until_uart1_tx_done(void)
 	bak_restore_aon(0); \
 	bak_restore_ahb(0); \
 	bak_restore_pub(0); \
+	bak_restore_ap_intc(0);\
 	}while(0)
 
 /* arm core sleep*/
@@ -1224,10 +1243,12 @@ int deep_sleep(int from_idle)
 #define dmc_retention_func	(SPRD_IRAM1_BASE + 0x1800)
 #define dmc_retention_para_vaddr	(SPRD_IRAM1_BASE + 0x2400)
 
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	/* set auto-self refresh mode */
 	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(1));
 	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(0));
+#endif
+#if defined(CONFIG_ARCH_SCX30G)
 	((void (*)(unsigned long,unsigned long))(dmc_retention_func))(1,dmc_retention_para_vaddr);
 #endif
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
@@ -1239,7 +1260,7 @@ int deep_sleep(int from_idle)
         cp0_sys_power_domain_open();
 #endif
 
-#if defined(CONFIG_ARCH_SCX30G)
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 	/* set auto powerdown mode */
 	sci_glb_set(SPRD_LPDDR2_BASE+0x30, BIT(1));
 	sci_glb_clr(SPRD_LPDDR2_BASE+0x30, BIT(0));

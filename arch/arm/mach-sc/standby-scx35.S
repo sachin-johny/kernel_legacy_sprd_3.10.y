@@ -508,7 +508,7 @@ go_on:
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 	isb
-#ifdef CONFIG_ARCH_SCX30G
+#ifdef CONFIG_ARCH_SCX30G || CONFIG_ARCH_SCX35L
 	bl	v7_flush_icache_all
 #endif
 	bl sc8830_standby_iram
