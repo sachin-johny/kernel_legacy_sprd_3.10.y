@@ -40,6 +40,7 @@
 #ifdef CONFIG_OF
 #include <linux/of_device.h>
 #endif
+#include <linux/kthread.h>
 
 /* On-demand governor macros */
 #define DEF_FREQUENCY_DOWN_DIFFERENTIAL		(10)
@@ -388,6 +389,8 @@ unsigned int a_sub_windowsize[8][6] =
 	{1,2,2,3,4,4},
 	{0,1,1,2,3,3}
 };
+
+atomic_t g_atomic_tb_cnt = ATOMIC_INIT(0);
 
 static int cpu_evaluate_score(int cpu, struct sd_dbs_tuners *sd_tunners , unsigned int load)
 {
@@ -800,7 +803,10 @@ static void sd_check_cpu(int cpu, unsigned int load_freq)
 			__func__, sd_tuners->is_suspend?"true":"false");
 		goto plug_check;
 	}
-
+	if(atomic_read(&g_atomic_tb_cnt)){
+		atomic_sub_return(1,&g_atomic_tb_cnt);
+		goto plug_check;
+	}
 
 	dbs_info->freq_lo = 0;
 
@@ -883,6 +889,7 @@ plug_check:
 			pr_debug("cpu_score=%d, begin plugin cpu!\n", cpu_score);
 			cpu_score = 0;
 			schedule_delayed_work_on(0, &plugin_work, 0);
+			return;
 		}
 	}
 
@@ -908,7 +915,6 @@ plug_check:
 	else if((num_online_cpus() > 1) && (dvfs_unplug_select == 2))
 	{
 		/* calculate itself's average load */
-		//itself_avg_load = sd_unplug_avg_load1(local_cpu, sd_tuners, local_load);
 		pr_debug("check unplug: for cpu%u avg_load=%d\n", local_cpu, itself_avg_load);
 		if(itself_avg_load < sd_tuners->cpu_down_threshold)
 		{
@@ -1868,6 +1874,7 @@ void dbs_refresh_callback(struct work_struct *work)
 			cpu);
 
 	struct cpufreq_policy *policy;
+	static unsigned int old_jiffies = 0;
 
 	policy = core_dbs_info->cdbs.cur_policy;
 
@@ -1884,6 +1891,11 @@ void dbs_refresh_callback(struct work_struct *work)
 					thermal_cooling_info.limit_freq, CPUFREQ_RELATION_L);
 		}else{
 			cpufreq_driver_target(policy, policy->max, CPUFREQ_RELATION_H);
+			if((time_after(jiffies,old_jiffies))
+				&&(old_jiffies)){
+				atomic_add(3,&g_atomic_tb_cnt);
+			}
+			old_jiffies = jiffies + (HZ / 1000) * 20;
 		}
 
 		core_dbs_info->cdbs.prev_cpu_idle = get_cpu_idle_time(cpu,
@@ -1892,6 +1904,8 @@ void dbs_refresh_callback(struct work_struct *work)
 
 }
 
+
+struct semaphore tb_sem;
 static void dbs_input_event(struct input_handle *handle, unsigned int type,
 		unsigned int code, int value)
 {
@@ -1899,6 +1913,10 @@ static void dbs_input_event(struct input_handle *handle, unsigned int type,
 	bool ret;
 	static int tp_time = 0;
 
+	if(strcmp(handle->dev->name,"focaltech_ts"))
+		return;
+
+	up(&tb_sem);
 	if(!dvfs_plug_select)
 		return;
 
@@ -2076,6 +2094,30 @@ struct input_handler dbs_input_handler = {
 };
 #endif
 
+void sprd_tb_thread()
+{
+	while(1)
+	{
+		if(time_before(jiffies, boot_done))
+			continue;
+
+		down(&tb_sem);
+		dbs_refresh_callback(NULL);
+		/*
+		if((num_online_cpus() < 3)
+			&&((percpu_load[0] > 50) || (cpu_score > 50))){
+			schedule_delayed_work_on(0, &plugin_work, 0);
+			cpu_score = 0;
+		}
+		*/
+		if(num_online_cpus() < 3){
+			schedule_delayed_work_on(0, &plugin_work, 0);
+			cpu_score = 0;
+		}
+
+	}
+}
+static struct task_struct *ksprd_tb;
 static int __init cpufreq_gov_dbs_init(void)
 {
 	int i = 0;
@@ -2103,6 +2145,12 @@ static int __init cpufreq_gov_dbs_init(void)
 	{
 		pr_err("[DVFS] input_register_handler failed\n");
 	}
+
+	sema_init(&tb_sem, 0);
+
+	ksprd_tb = kthread_create(sprd_tb_thread,NULL,"sprd_tb_thread");
+
+	wake_up_process(ksprd_tb);
 
 #if defined(CONFIG_THERMAL)
 	platform_driver_register(&cpu_cooling_driver);
