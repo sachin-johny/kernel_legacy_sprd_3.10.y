@@ -1,1 +1,0 @@
-obj-$(CONFIG_SPRDWL_MEM_ALLOC) += sprdwl_mem_alloc.o

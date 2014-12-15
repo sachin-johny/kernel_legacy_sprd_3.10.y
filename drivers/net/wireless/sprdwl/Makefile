@@ -1,3 +1,15 @@
-obj-$(CONFIG_SPRDWL) += sprdwl.o
-sprdwl-objs:= wlan_core.o wlan_fifo.o wlan_event_q.o wlan_cmd.o wlan_npi.o wlan_hostapd_conf.o wlan_cfg80211.o wlan_wapi.o $(sprdwl-y)
+ccflags-y += -DDEBUG
+#ccflags-y += -DDUMP_TRANSMIT_PACKET
+#ccflags-y += -DDUMP_RECEIVE_PACKET
+#ccflags-y += -DDUMP_COMMAND
+#ccflags-y += -DDUMP_COMMAND_RESPONSE
+#ccflags-y += -DDUMP_EVENT
 
+ccflags-y += -DCONFIG_SPRDWL_ENHANCED_PM
+
+obj-$(CONFIG_SPRDWL) += sprdwl.o
+
+sprdwl-objs:= main.o cfg80211.o sipc.o \
+	      hostap_conf.o npi.o wifi_nvm.o \
+	      wapi.o \
+	      $(sprdwl-y)
