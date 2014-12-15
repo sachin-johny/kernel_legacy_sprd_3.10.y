@@ -2072,6 +2072,9 @@
 #define PM_FAST 2
 #define PM_FORCE_OFF 3		/* use this bit to force PM off even bt is active */
 
+#define PM_KEEP 4 /*use this to disable changing PM Mode, add for SPRD Engineer mode*/
+#define PM_KEEP_OFF 5 /*use this to enable changing PM Mode, add for SPRD Engineer mode*/
+
 #define WL_WME_CNT_VERSION	1	/* current version of wl_wme_cnt_t */
 
 /* fbt_cap: FBT assoc / reassoc modes. */

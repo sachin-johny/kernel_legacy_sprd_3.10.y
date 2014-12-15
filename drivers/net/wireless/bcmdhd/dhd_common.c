@@ -325,6 +325,38 @@ dhd_wl_ioctl(dhd_pub_t *dhd_pub, int ifidx, wl_ioctl_t *ioc, void *buf, int len)
 {
 	int ret = BCME_ERROR;
 
+
+//add for ENG Mode to disable sleep mode. Bug#366377
+{
+	static u32 g_keep_power_mode = FALSE;
+
+	int power_mode = 0;
+
+	if ((ioc) && (WLC_SET_PM == ioc->cmd) && (ioc->buf)) {
+		power_mode = *((int *)(ioc->buf));
+
+		DHD_ERROR(("%s: Power mode = %d, g_keep_power_mode: %d\n", __FUNCTION__, power_mode, g_keep_power_mode));
+		if (PM_KEEP == power_mode) {
+			g_keep_power_mode = TRUE;
+			return BCME_OK;
+		} else if (PM_KEEP_OFF == power_mode) {
+			g_keep_power_mode = FALSE;
+			return BCME_OK;
+		}
+	}
+
+	if ((ioc) && (TRUE == g_keep_power_mode) && ((WLC_SET_PM == ioc->cmd) ||
+		((WLC_SET_VAR == ioc->cmd) && (strstr(ioc->buf,  "mpc") != NULL)))) {
+
+		DHD_ERROR(("%s: Power mode = %d, g_keep_power_mode: %d, return\n", __FUNCTION__, power_mode, g_keep_power_mode));
+
+		return BCME_OK;
+	}
+}
+//add for ENG Mode to disable sleep mode. Bug#366377 END
+
+
+
 	if (dhd_os_proto_block(dhd_pub))
 	{
 #if defined(WL_WLC_SHIM)
