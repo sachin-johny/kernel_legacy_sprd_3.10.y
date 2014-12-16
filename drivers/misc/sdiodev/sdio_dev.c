@@ -431,7 +431,13 @@ int  sdio_dev_get_chn_datalen(uint32 chn)
 	sdio_release_host(sprd_sdio_func[SDIODEV_FUNC_0]); 
 	
 	usedata = ((uint32)(status0) ) + ((uint32)(status1) << 8) + ((uint32)(status2)  << 16);
-	
+
+	if(status0 == 0xff || status1 == 0xff || status2 == 0xff)
+	{
+		SDIOTRAN_ERR("read err!!!");
+		return -1;
+	}
+
 	return usedata;	
 	
 }

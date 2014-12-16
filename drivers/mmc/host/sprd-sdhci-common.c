@@ -101,6 +101,7 @@ void sdhci_dumpregs(struct sdhci_host *host)
 		       readl(host->ioaddr + SDHCI_ADMA_ADDRESS));
 
 	printk(KERN_ERR DRIVER_NAME ": ===========================================\n");
+	mdelay(1);
 }
 
 /*****************************************************************************\
