@@ -471,6 +471,12 @@
 		compatible = "broadcom,rfkill";
 		gpios = <&d_gpio_gpio 131 0>;		/* power */
 	};
+        bluesleep {
+               compatible = "broadcom,bluesleep";
+               bt-wake-gpio = <&d_gpio_gpio 132 0>;  /*GPIO_AP2BT_WAKE*/
+               host-wake-gpio = <&d_gpio_gpio 133 0>; /*GPIO_BT2AP_WAKE*/
+         };
+
 
 	sprd_vsp@f5300000{
 		compatible = "sprd,sprd_vsp";
