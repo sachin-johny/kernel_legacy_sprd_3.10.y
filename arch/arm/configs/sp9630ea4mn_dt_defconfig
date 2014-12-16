@@ -1397,8 +1397,8 @@ CONFIG_WLAN=y
 # CONFIG_WL_TI is not set
 # CONFIG_MWIFIEX is not set
 # CONFIG_SPRDWL is not set
-CONFIG_SPRDWL=m
-CONFIG_SPRDWL_MEM_ALLOC=y
+CONFIG_SC2331=m
+CONFIG_SC2331_MEM_ALLOC=y
 
 #
 # Enable WiMAX (Networking options) to see the WiMAX drivers
