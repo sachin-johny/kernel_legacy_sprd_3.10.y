@@ -2228,8 +2228,11 @@ dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 		if (ETHER_ISMULTI(eh->ether_dhost))
 			/* one additional queue index (highest AC + 1) is used for bc/mc queue */
 			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), AC_COUNT);
-		else
-			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), WME_PRIO2AC(PKTPRIO(pktbuf)));
+		else{
+            /* convert BK to BE. */
+            if(PKTPRIO(pktbuf) < 3)
+                PKTPRIO(pktbuf) = 0;
+			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), WME_PRIO2AC(PKTPRIO(pktbuf)));}
 	} else
 #endif /* PROP_TXSTATUS */
 	/* If the protocol uses a data header, apply it */
@@ -6185,6 +6188,24 @@ dhd_preinit_ioctls(dhd_pub_t *dhd)
 		FALSE) {
 		wlfc_enable = FALSE;
 	}
+
+	if (dhd->op_mode & DHD_FLAG_HOSTAP_MODE) {
+		/* Set PowerSave mode */
+		power_mode = PM_OFF;
+		dhd_wl_ioctl_cmd(dhd, WLC_SET_PM, (char *)&power_mode, sizeof(power_mode), TRUE, 0);
+		/* Turn off MPC in AP mode */
+		mpc = 0;
+		bcm_mkiovar("mpc", (char *)&mpc, 4, iovbuf, sizeof(iovbuf));
+		dhd_wl_ioctl_cmd(dhd, WLC_SET_VAR, iovbuf, sizeof(iovbuf), TRUE, 0);
+		//brcm, cg, enable proptxstatus in softap mode
+		wlfc_enable = TRUE;
+		DHD_ERROR(("proptxstatus enable in softap mode\n"));
+		} else {
+		//brcm, cg, disable proptxstatus in none-softap mode
+		wlfc_enable = FALSE;
+		DHD_ERROR(("proptxstatus disable in none-softap mode\n"));
+	}
+
 
 #ifndef DISABLE_11N
 	bcm_mkiovar("ampdu_hostreorder", (char *)&hostreorder, 4, iovbuf, sizeof(iovbuf));
