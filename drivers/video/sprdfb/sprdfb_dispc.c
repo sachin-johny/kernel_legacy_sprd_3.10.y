@@ -1358,7 +1358,7 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 #ifdef CONFIG_FB_MMAP_CACHED
 	if(NULL != dispc_ctx.vma){
 		pr_debug("sprdfb: sprdfb_dispc_refresh dispc_ctx.vma=0x%x\n ",dispc_ctx.vma);
-		dma_sync_single_for_device(dev, dev->fb->fix.smem_start, dev->fb->fix.smem_len, DMA_TO_DEVICE);
+		dma_sync_single_for_device(dev->fb->dev, dev->fb->fix.smem_start, dev->fb->fix.smem_len, DMA_TO_DEVICE);
 	}
 	if(fb->var.reserved[3] == 1){
 		dispc_dithering_enable(false);
@@ -2169,8 +2169,8 @@ int sprdfb_dispc_chg_clk(struct sprdfb_device *fb_dev,
 	case SPRDFB_DYNAMIC_PCLK:
 		if (fb_dev->panel_if_type != SPRDFB_PANEL_IF_DPI) {
 			pr_err("current dispc interface isn't DPI\n");
-			up(&fb_dev->refresh_lock);
-			return -EINVAL;
+			ret=-EINVAL;
+			goto exit;
 		}
 		/* Note: local interrupt will be disabled */
 		local_irq_save(flags);
@@ -2184,8 +2184,8 @@ int sprdfb_dispc_chg_clk(struct sprdfb_device *fb_dev,
 			dispc_ctx.vsync_waiter ++;
 			dispc_sync(fb_dev);
 			sprdfb_panel_change_fps(fb_dev, new_val);
-			up(&fb_dev->refresh_lock);
-			return ret;
+			ret=0;
+			goto exit;
 		}
 		/* Note: local interrupt will be disabled */
 		local_irq_save(flags);
@@ -2201,8 +2201,9 @@ int sprdfb_dispc_chg_clk(struct sprdfb_device *fb_dev,
 		break;
 
 	default:
-		ret = -EINVAL;
-		break;
+		pr_err("invalid CMD type\n");
+		ret=-EINVAL;
+		goto exit;
 	}
 
 	if (ret) {
@@ -2226,6 +2227,11 @@ DONE:
 
 	pr_debug("%s --leave--", __func__);
 	return ret;
+
+exit:
+	up(&fb_dev->refresh_lock);
+	return ret;
+
 }
 #endif
 
@@ -2481,7 +2487,7 @@ void sprdfb_dispc_logo_proc(struct sprdfb_device *dev)
 	printk("sprdfb: %s[%d]: lcd_base_from_uboot: 0x%08x, logo_src_v:0x%08x\n",__func__,__LINE__,lcd_base_from_uboot,logo_src_v);
 	printk("sprdfb: %s[%d]: logo_dst_p:0x%08x,logo_dst_v:0x%08x\n",__func__,__LINE__,logo_dst_p,logo_dst_v);
 	memcpy(logo_dst_v, logo_src_v, logo_size);
-	dma_sync_single_for_device(dev, logo_dst_p, logo_size, DMA_TO_DEVICE);
+	dma_sync_single_for_device(dev->fb->dev, logo_dst_p, logo_size, DMA_TO_DEVICE);
 
 	iounmap(logo_src_v);
 #if 0
