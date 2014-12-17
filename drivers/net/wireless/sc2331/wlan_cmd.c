@@ -894,7 +894,7 @@ int wlan_rx_event_process(const unsigned char vif_id, unsigned char event, unsig
 			cfg80211_report_remain_on_channel_expired(vif_id, pData, len);
 			break;
 		case WIFI_EVENT_NEW_STATION:
-			cfg80211_report_new_station(vif_id, pData, len);
+			cfg80211_report_station(vif_id, pData, len);
 			break;
 		case WIFI_EVENT_REPORT_FRAME:
 			cfg80211_report_frame(vif_id, pData, len);

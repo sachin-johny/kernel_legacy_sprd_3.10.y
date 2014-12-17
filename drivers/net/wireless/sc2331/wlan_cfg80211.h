@@ -125,7 +125,7 @@ extern void cfg80211_report_scan_done(unsigned char vif_id, unsigned char *pData
 extern void cfg80211_report_mgmt_deauth(unsigned char vif_id, unsigned char *data, unsigned short len);
 extern void cfg80211_report_mgmt_disassoc(unsigned char vif_id, unsigned char *data, unsigned short len );
 extern void cfg80211_report_remain_on_channel_expired(unsigned char vif_id, unsigned char *data, unsigned short len);
-extern void cfg80211_report_new_station(unsigned char vif_id, unsigned char *data, unsigned short len );
+extern void cfg80211_report_station(unsigned char vif_id, unsigned char *data, unsigned short len );
 extern void cfg80211_report_frame(unsigned char vif_id, unsigned char *data, unsigned short len);
 extern void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData, int len);
 extern void cfg80211_report_mic_failure(unsigned char vif_id, unsigned char *pdata, int len);

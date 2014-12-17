@@ -497,8 +497,9 @@ void cfg80211_report_mgmt_disassoc(unsigned char vif_id, unsigned char *data, un
 	cfg80211_send_disassoc(vif->ndev, mac_ptr, mac_len);
 }
 
-void cfg80211_report_new_station(unsigned char vif_id, unsigned char *data, unsigned short len )
+void cfg80211_report_station(unsigned char vif_id, unsigned char *data, unsigned short len )
 {
+	u8 connect_ap;
 	u8  *req_ptr, *index;
 	u16 req_len, mac_len;
 	u8 *sta_mac;
@@ -506,21 +507,25 @@ void cfg80211_report_new_station(unsigned char vif_id, unsigned char *data, unsi
 	int left;
 	struct station_info sinfo;
 	wlan_vif_t *vif = id_to_vif(vif_id);
+	struct wiphy *wiphy  = vif->wdev.wiphy;
 	
-	printkd("enter cfg80211_report_new_station\n");
-
 	event_len = len;
 	index =  data;
 	
 	left = event_len;
 
-	/* The first byte of event data is mac */
+	/* The first byte of event data is connection */
+	memcpy(&connect_ap, index, 1);
+	index++;
+	left--;
+
+	/* The second  byte of event data is mac */
 	memcpy(&mac_len, index, 2);
 	index += 2;
 	left -= 2;
 
 	if (mac_len != 6) {
-		printkd( "channel len not equal 6 bytes\n");
+		printkd( "channel len %d not equal 6 bytes\n", mac_len);
 		return;
 	}
 
@@ -533,7 +538,7 @@ void cfg80211_report_new_station(unsigned char vif_id, unsigned char *data, unsi
 		return;
 	}
 
-	/* The second event data is associate request */
+	/* The third event data is associate request */
 	memcpy(&req_len, index, 2);
 	index += 2;
 	left -= 2;
@@ -546,10 +551,15 @@ void cfg80211_report_new_station(unsigned char vif_id, unsigned char *data, unsi
 	sinfo.assoc_req_ies_len = req_len;
 	sinfo.filled = STATION_INFO_ASSOC_REQ_IES;
 
-	cfg80211_new_sta(vif->ndev, sta_mac, &sinfo, GFP_KERNEL);
-
-	printkd("proccess new station event completed\n");	
-
+	if (connect_ap) {
+		cfg80211_new_sta(vif->ndev, sta_mac, &sinfo, GFP_KERNEL);
+		wiphy_info(wiphy, "New station (" MACSTR ") connected\n",
+			   MAC2STR(sta_mac));
+	} else {
+		cfg80211_del_sta(vif->ndev, sta_mac, GFP_KERNEL);
+		wiphy_info(wiphy, "A station (" MACSTR ") disconnected\n",
+			   MAC2STR(sta_mac));
+	}
 }
 
 void cfg80211_report_frame(unsigned char vif_id, unsigned char *data, unsigned short len)
