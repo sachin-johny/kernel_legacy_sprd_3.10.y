@@ -141,7 +141,7 @@ static int mdbg_proc_open(struct inode *inode, struct file *filp)
 	char *type = entry->name;
 
 	filp->private_data = entry;
-	MDBG_ERR("%s type:%s\n",__func__,type);
+	//MDBG_ERR("%s type:%s\n",__func__,type);
 
 	return 0;
 }
@@ -151,7 +151,7 @@ static int mdbg_proc_release(struct inode *inode, struct file *filp)
 	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)PDE_DATA(inode);
 	char *type = entry->name;
 
-	MDBG_ERR("%s type:%s\n",__func__,type);
+	//MDBG_ERR("%s type:%s\n",__func__,type);
 
 	return 0;
 }
@@ -162,15 +162,21 @@ static ssize_t mdbg_proc_read(struct file *filp,
 	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)filp->private_data;
 	char *type = entry->name;
 	int timeout = -1;
-	int len;
+	int len = 0;
+	int ret;
 
+	MDBG_ERR("type:%s\n",type);
 	if (filp->f_flags & O_NONBLOCK) {
 		timeout = 0;
 	}
 
 	if(strcmp(type, "assert") == 0) {
 		if (timeout < 0){
-			wait_for_completion(&mdbg_proc->assert.completed);
+			while(1){
+				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				if (ret != -ERESTARTSYS)
+					break;
+			}
 		}
 
 		if(copy_to_user((void __user *)buf, mdbg_proc->assert.buf, min(count,(size_t)MDBG_ASSERT_SIZE))){
@@ -183,8 +189,13 @@ static ssize_t mdbg_proc_read(struct file *filp,
 
 	if(strcmp(type, "wdtirq") == 0) {
 		if (timeout < 0){
-			wait_for_completion(&mdbg_proc->wdtirq.completed);
+			while(1){
+				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				if (ret != -ERESTARTSYS)
+					break;
+			}
 		}
+
 		if(copy_to_user((void __user *)buf, mdbg_proc->wdtirq.buf, min(count,(size_t)MDBG_WDTIRQ_SIZE))){
 			MDBG_ERR( "Read wdtirq info error\n");
 		}
@@ -196,7 +207,11 @@ static ssize_t mdbg_proc_read(struct file *filp,
 
 	if(strcmp(type, "loopcheck") == 0) {
 		if (timeout < 0){
-			wait_for_completion(&mdbg_proc->loopcheck.completed);
+			while(1){
+				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				if (ret != -ERESTARTSYS)
+					break;
+			}
 		}
 
 		if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
@@ -209,9 +224,14 @@ static ssize_t mdbg_proc_read(struct file *filp,
 	}
 
 	if(strcmp(type, "at_cmd") == 0) {
-		wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+		if (timeout < 0){
+			while(1){
+				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				if (ret != -ERESTARTSYS)
+					break;
+			}
+		}
 
-		MDBG_ERR("at_cmd.buf:%s\n",mdbg_proc->at_cmd.buf);
 		if(copy_to_user((void __user *)buf, mdbg_proc->at_cmd.buf, min(count,(size_t)MDBG_AT_CMD_SIZE))){
 			MDBG_ERR("Read at cmd ack info error\n");
 		}
@@ -236,7 +256,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 	if (copy_from_user(mdbg_proc->write_buf,buf,count )){
 		return -EFAULT;
 	}
-	printk("mdbg_proc->write_buf:%s",mdbg_proc->write_buf);
+	printk("mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
 
 	mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
 
