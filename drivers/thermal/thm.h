@@ -38,5 +38,7 @@ extern int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_hw_suspend(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_temp_read(struct sprd_thermal_zone *pzone);
+extern int sprd_thm_trip_set(struct sprd_thermal_zone *pzone,int trip);
+extern int sci_efuse_thermal_cal_get(void);
 
 #endif

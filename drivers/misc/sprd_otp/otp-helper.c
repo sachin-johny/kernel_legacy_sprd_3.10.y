@@ -21,6 +21,7 @@
 #define BLK_UID_HIGH                    ( 0 )
 #define BLK_UID_LOW                     ( 1 )
 #define BLK_ADC_DETA                    ( 7 )
+#define BLK_THM_DETA		(7)
 #define BLK_CCCV_DETA                   ( 9 )
 
 #define BLK_FGU_DETA_ABC                ( 8 )
@@ -48,6 +49,14 @@ u64 sci_efuse_get_uid(void)
 }
 
 EXPORT_SYMBOL_GPL(sci_efuse_get_uid);
+
+int sci_efuse_thermal_cal_get(void)
+{
+	u32 data=__ddie_efuse_read(BLK_THM_DETA);
+	int thm_cal = (data >> 24) & 0x001F;
+	return thm_cal -16;
+}
+EXPORT_SYMBOL_GPL(sci_efuse_thermal_cal_get);
 
 #define BASE_ADC_P0				711	//3.6V
 #define BASE_ADC_P1				830	//4.2V

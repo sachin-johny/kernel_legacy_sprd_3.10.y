@@ -26,7 +26,7 @@
 //#include <linux/of_address.h>
 #include <linux/of_irq.h>
 #endif
-
+//#define THM_TRIP_DEBUG
 ///#define COOLING_TEST
 #ifdef COOLING_TEST		//test cooling
 static int get_max_state(struct thermal_cooling_device *cdev,
@@ -307,6 +307,98 @@ fail:
 extern int of_address_to_resource(struct device_node *dev, int index,
 				  struct resource *r);
 #endif
+
+#ifdef THM_TRIP_DEBUG
+static int sprd_debug_get_trip_temp(struct thermal_zone_device *thermal,
+				  int trip, unsigned long *temp,unsigned long *low_off)
+{
+	struct sprd_thermal_zone *pzone = thermal->devdata;
+	struct sprd_thm_platform_data *ptrips = pzone->trip_tab;
+	if (trip >= ptrips->num_trips)
+		return -EINVAL;
+	*temp = ptrips->trip_points[trip].temp;
+	*low_off = ptrips->trip_points[trip].lowoff;
+	return 0;
+}
+
+static int sprd_debug_set_trip_temp(struct thermal_zone_device *thermal,
+				  int trip, unsigned long temp,unsigned long low_off)
+{
+	
+	struct sprd_thermal_zone *pzone = thermal->devdata;
+	struct sprd_thm_platform_data *ptrips = pzone->trip_tab;
+	ptrips->trip_points[trip].temp = temp;
+	ptrips->trip_points[trip].lowoff = low_off;
+	return sprd_thm_trip_set(pzone,trip);
+}
+static ssize_t
+trip_point_debug_temp_show(struct device *dev, struct device_attribute *attr,
+		     char *buf)
+{
+	struct thermal_zone_device *tz = container_of(dev, struct thermal_zone_device, device);
+	int trip, ret;
+	long temperature,low_off;
+	if (!sscanf(attr->attr.name, "trip_%d_temp", &trip))
+		return -EINVAL;
+	ret = sprd_debug_get_trip_temp(tz, trip, &temperature,&low_off);
+
+	if (ret)
+		return ret;
+	return sprintf(buf, "tem = %ld,low_off=%ld\n", temperature,low_off);
+}
+static ssize_t
+trip_point_debug_temp_store(struct device *dev, struct device_attribute *attr,
+		     const char *buf, size_t count)
+{
+	struct thermal_zone_device *tz = container_of(dev, struct thermal_zone_device, device);
+	int trip, ret;
+	unsigned long temperature,low_off;
+	if (!sscanf(attr->attr.name, "trip_%d_temp", &trip))
+		return -EINVAL;
+	if(!sscanf(buf,"%ld,%ld",&temperature,&low_off))
+		return -EINVAL;
+	ret = sprd_debug_set_trip_temp(tz, trip, temperature, low_off);
+	return ret ? ret : count;
+}
+
+static int create_trip_attrs(struct thermal_zone_device *tz)
+{
+	int indx;
+	int size = sizeof(struct thermal_attr) * tz->trips;
+
+	tz->trip_temp_attrs = kzalloc(size, GFP_KERNEL);
+	if (!tz->trip_temp_attrs) {
+		return -ENOMEM;
+	}
+
+	for (indx = 0; indx < tz->trips; indx++) {
+		/* create trip temp attribute */
+		snprintf(tz->trip_temp_attrs[indx].name, THERMAL_NAME_LENGTH,
+			 "trip_%d_temp", indx);
+
+		sysfs_attr_init(&tz->trip_temp_attrs[indx].attr.attr);
+		tz->trip_temp_attrs[indx].attr.attr.name =
+						tz->trip_temp_attrs[indx].name;
+		tz->trip_temp_attrs[indx].attr.attr.mode = S_IRUGO;
+		tz->trip_temp_attrs[indx].attr.show = trip_point_debug_temp_show;
+		tz->trip_temp_attrs[indx].attr.attr.mode |= S_IWUSR;
+		tz->trip_temp_attrs[indx].attr.store =trip_point_debug_temp_store;
+		device_create_file(&tz->device,
+				   &tz->trip_temp_attrs[indx].attr);
+	}
+	return 0;
+}
+
+static void remove_trip_attrs(struct thermal_zone_device *tz)
+{
+	int indx;
+	for (indx = 0; indx < tz->trips; indx++) {
+		device_remove_file(&tz->device,
+				   &tz->trip_temp_attrs[indx].attr);
+	}
+	kfree(tz->trip_temp_attrs);
+}
+#endif
 static int sprd_thermal_probe(struct platform_device *pdev)
 {
 	struct sprd_thermal_zone *pzone = NULL;
@@ -401,12 +493,18 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 						&cooling_ops);
 	}
 #endif /*  */
-	return 0;
+#ifdef THM_TRIP_DEBUG
+	 create_trip_attrs(pzone->therm_dev);	
+#endif
+return 0;
 }
 
 static int sprd_thermal_remove(struct platform_device *pdev)
 {
 	struct sprd_thermal_zone *pzone = platform_get_drvdata(pdev);
+#ifdef THM_TRIP_DEBUG
+	remove_trip_attrs(pzone->therm_dev);
+#endif
 	thermal_zone_device_unregister(pzone->therm_dev);
 	cancel_work_sync(&pzone->therm_work);
 	mutex_destroy(&pzone->th_lock);
