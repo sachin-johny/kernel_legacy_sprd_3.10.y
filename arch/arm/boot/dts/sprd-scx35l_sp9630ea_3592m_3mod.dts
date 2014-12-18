@@ -750,10 +750,10 @@
 		id = <0>;
 		interrupts = <0 26 0x0>;
 		reg = <0xf5260000 0x1000>;
-		trip_points_active = <80 88 100>;
-		trip_points_lowoff = <72 72 81>;
+		trip_points_active = <56 60 90 110>;
+		trip_points_lowoff = <0 46 50 80>;
 		trip_points_critical = <110>;
-		trip_num = <4>;
+		trip_num = <5>;
 	};
 	sprd_thermal1 {
 		compatible = "sprd,sprd-thermal";
@@ -765,6 +765,13 @@
 		trip_points_lowoff = <81>; /*no use, jut for compatiable*/
 		trip_points_critical = <114>;
 		trip_num = <2>;
+	};
+	sprd_cpu_cooling{
+		compatible = "sprd,sprd-cpu-cooling";
+		id = <0>;
+		max_freq = <1500000 1350000 900000 768000>;
+		max_core = <4 4 4 1>;
+		state_num = <4>;
 	};
 
 	 spi0: spi@70a00000{
