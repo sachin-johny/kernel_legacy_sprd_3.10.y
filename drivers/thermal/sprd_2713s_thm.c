@@ -622,6 +622,26 @@ int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone)
 	return ret;
 }
 
+int sprd_thm_get_trend(struct sprd_thermal_zone *pzone, int trip, enum thermal_trend *ptrend)
+{
+	*ptrend = pzone->trend_val;
+
+	return 0;
+}
+
+int sprd_thm_get_hyst(struct sprd_thermal_zone *pzone, int trip, unsigned long *physt)
+{
+	struct sprd_thm_platform_data *trip_tab = pzone->trip_tab;
+
+	if (trip >= trip_tab->num_trips - 2){
+		*physt = 0;
+	}else{
+		*physt = trip_tab->trip_points[trip].temp - trip_tab->trip_points[trip + 1].lowoff;
+	}
+
+	return 0;
+}
+
 int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 {
 	u32 local_sen_id = 0;
@@ -649,6 +669,7 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 		return ret;
 	}
 	if (int_sts & SEN_HOT_INT_BIT){
+		pzone->trend_val = THERMAL_TREND_RAISING;
 		if ((current_trip_num) >= (trip_tab->num_trips - 2)){
 			current_trip_num = trip_tab->num_trips - 2;
 			return ret;
@@ -658,6 +679,7 @@ int sprd_thm_hw_irq_handle(struct sprd_thermal_zone *pzone)
 			sprd_thm_set_active_trip(pzone,current_trip_num);
 		}
 	}else if (int_sts & SEN_LOWOFF_INT_BIT){
+		pzone->trend_val = THERMAL_TREND_DROPPING;
 		if (temp < trip_tab->trip_points[current_trip_num].lowoff + TRIP_TEMP_OFFSET){
 			current_trip_num--;
 			sprd_thm_set_active_trip(pzone,current_trip_num);

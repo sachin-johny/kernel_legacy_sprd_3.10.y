@@ -156,6 +156,22 @@ static int sprd_sys_set_mode(struct thermal_zone_device *thermal,
 	return 0;
 }
 
+static int sprd_sys_get_trend(struct thermal_zone_device *thermal,
+		int trip, enum thermal_trend * ptrend)
+{
+	struct sprd_thermal_zone *pzone = thermal->devdata;
+
+	return sprd_thm_get_trend(pzone, trip, ptrend);
+}
+
+static int sprd_sys_get_hyst(struct thermal_zone_device *thermal,
+		int trip, unsigned long *physt)
+{
+	struct sprd_thermal_zone *pzone = thermal->devdata;
+
+	return sprd_thm_get_hyst(pzone, trip, physt);
+}
+
 /* Callback to get trip point type */
 static int sprd_sys_get_trip_type(struct thermal_zone_device *thermal,
 				  int trip, enum thermal_trip_type *type)
@@ -202,6 +218,8 @@ static struct thermal_zone_device_ops thdev_ops = {
 	.get_temp = sprd_sys_get_temp,
 	.get_mode = sprd_sys_get_mode,
 	.set_mode = sprd_sys_set_mode,
+	.get_trend = sprd_sys_get_trend,
+	.get_trip_hyst = sprd_sys_get_hyst,
 	.get_trip_type = sprd_sys_get_trip_type,
 	.get_trip_temp = sprd_sys_get_trip_temp,
 	.get_crit_temp = sprd_sys_get_crit_temp,
@@ -427,6 +445,7 @@ static int sprd_thermal_probe(struct platform_device *pdev)
 	mutex_lock(&pzone->th_lock);
 	pzone->mode = THERMAL_DEVICE_DISABLED;
 	pzone->trip_tab = ptrips;
+	pzone->trend_val = THERMAL_TREND_STABLE;
 #ifdef CONFIG_OF
 	ret = of_property_read_u32(np, "id", &pdev->id);
 	if(ret){

@@ -19,6 +19,7 @@
 #define __CTL_THM_H__
 #include <linux/types.h>
 #include <linux/sprd_thm.h>
+#include <linux/thermal.h>
 
 struct sprd_thermal_zone {
 	struct thermal_zone_device *therm_dev;
@@ -30,6 +31,7 @@ struct sprd_thermal_zone {
 	int sensor_id;
 	void __iomem *reg_base;
 	char thermal_zone_name[30];
+	enum thermal_trend trend_val;
 };
 
 extern int sprd_thm_chip_id_check(void);
@@ -40,5 +42,7 @@ extern int sprd_thm_hw_resume(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_temp_read(struct sprd_thermal_zone *pzone);
 extern int sprd_thm_trip_set(struct sprd_thermal_zone *pzone,int trip);
 extern int sci_efuse_thermal_cal_get(void);
+extern int sprd_thm_get_trend(struct sprd_thermal_zone *pzone, int trip, enum thermal_trend *ptrend);
+extern int sprd_thm_get_hyst(struct sprd_thermal_zone *pzone, int trip, unsigned long *physt);
 
 #endif
