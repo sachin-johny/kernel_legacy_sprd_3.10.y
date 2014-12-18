@@ -654,7 +654,6 @@ static u8 sdhci_calc_timeout(struct sdhci_host *host, struct mmc_command *cmd)
 			count++;
 			current_timeout <<= 1;
 		}
-		count--;
 		if (count >= 0xF) {
 			count = 0xE;
 		}
