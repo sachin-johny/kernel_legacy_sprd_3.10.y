@@ -165,6 +165,18 @@ struct sprd_codec_pga_op {
 	sprd_codec_pga_set set;
 };
 
+typedef int (*sprd_codec_switch_set) (struct snd_soc_codec * codec, int on);
+struct sprd_codec_switch{
+	sprd_codec_switch_set set;
+	int min;
+};
+
+struct sprd_codec_switch_op {
+	int on;
+	sprd_codec_switch_set set;
+};
+
+
 enum {
 	SPRD_CODEC_LEFT = 0,
 	SPRD_CODEC_RIGHT = 1,
@@ -232,6 +244,7 @@ static const char *sprd_codec_mixer_debug_str[SPRD_CODEC_MIXER_MAX] = {
 #define IS_SPRD_CODEC_MIXER_RANG(reg) (((reg) >= ID_FUN(SPRD_CODEC_MIXER_START, SPRD_CODEC_LEFT)) && ((reg) <= ID_FUN(SPRD_CODEC_MIXER_END, SPRD_CODEC_LEFT)))
 #define IS_SPRD_CODEC_PGA_RANG(reg) (((reg) >= SPRD_CODEC_PGA_START) && ((reg) <= SPRD_CODEC_PGA_END))
 #define IS_SPRD_CODEC_MIC_BIAS_RANG(reg) (((reg) >= SPRD_CODEC_MIC_BIAS_START) && ((reg) <= SPRD_CODEC_MIC_BIAS_END))
+#define IS_SPRD_CODEC_SWITCH_RANG(reg) (((reg) >= SPRD_CODEC_SWITCH_START) && ((reg) <= SPRD_CODEC_SWITCH_END))
 
 typedef int (*sprd_codec_mixer_set) (struct snd_soc_codec * codec, int on);
 struct sprd_codec_mixer {
@@ -334,6 +347,25 @@ static const char *mic_bias_name[SPRD_CODEC_MIC_BIAS_MAX] = {
 	"AuxMic Bias",
 	"HeadMic Bias",
 };
+enum {
+	SPRD_CODEC_SWITCH_START = SPRD_CODEC_MIC_BIAS_END + 20,
+	SPRD_CODEC_DACL = SPRD_CODEC_SWITCH_START,
+	SPRD_CODEC_DACR,
+	SPRD_CODEC_HPLCGL,
+	SPRD_CODEC_HPRCGR,
+
+	SPRD_CODEC_SWITCH_END
+};
+
+#define GET_SWITCH_ID(x)   ((x)-SPRD_CODEC_SWITCH_START)
+#define SPRD_CODEC_SWITCH_MAX (SPRD_CODEC_SWITCH_END-SPRD_CODEC_SWITCH_START)
+static const char *switch_name[SPRD_CODEC_SWITCH_MAX] = {
+	"DACL",
+	"DACR",
+	"HPLCGL",
+	"HPRCGR",
+};
+
 
 enum {
 	SPRD_CODEC_HP_PA_VER_1,
@@ -349,6 +381,7 @@ struct sprd_codec_priv {
 	int ad1_sample_val;
 	struct sprd_codec_mixer mixer[SPRD_CODEC_MIXER_MAX];
 	struct sprd_codec_pga_op pga[SPRD_CODEC_PGA_MAX];
+    struct sprd_codec_switch_op switcher[SPRD_CODEC_SWITCH_MAX];
 	int mic_bias[SPRD_CODEC_MIC_BIAS_MAX];
 
 	int ap_irq;
@@ -386,6 +419,10 @@ struct sprd_codec_priv {
 	int sprd_linein_set;
 	struct mutex sprd_linein_mute_mutex;
 	struct notifier_block nb;
+
+    int sprd_dacspkl_enable;
+    int sprd_dacspkl_set;
+    struct mutex sprd_dacspkl_mutex;
 };
 
 static int sprd_codec_power_get(struct device *dev, struct regulator **regu,
@@ -730,7 +767,39 @@ static int sprd_codec_pga_cg_hpr_2_set(struct snd_soc_codec *codec, int pgaval)
 	val = (pgaval << CG_HPR_G_2) & mask;
 	return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
 }
+static int sprd_codec_switch_dacl_set(struct snd_soc_codec *codec, int on)
+{
+    int reg, val, mask;
+    reg = ANA_CDC2;
+    mask = 1 << DACL_EN;
+    val = (on << DACL_EN) & mask;
+    return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
+static int sprd_codec_switch_dacr_set(struct snd_soc_codec *codec, int on)
+{
+    int reg, val, mask;
+    reg = ANA_CDC2;
+    mask = 1 << DACR_EN;
+    val = (on << DACR_EN) & mask;
 
+    return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
+static int sprd_codec_switch_hplcgl_set(struct snd_soc_codec *codec, int on)
+{
+    int reg, val, mask;
+    reg = ANA_CDC7;
+    mask = BIT(HPL_CGL);
+    val = (on << HPL_CGL) & mask;
+    return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
+static int sprd_codec_switch_hprcgr_set(struct snd_soc_codec *codec, int on)
+{
+    int reg, val, mask;
+    reg = ANA_CDC7;
+    mask = BIT(HPR_CGR);
+    val = (on << HPR_CGR) & mask;
+    return snd_soc_update_bits(codec, SOC_REG(reg), mask, val);
+}
 static struct sprd_codec_pga sprd_codec_pga_cfg[SPRD_CODEC_PGA_MAX] = {
 	{sprd_codec_pga_spk_set, 0},
 	{sprd_codec_pga_spkr_set, 0},
@@ -752,6 +821,12 @@ static struct sprd_codec_pga sprd_codec_pga_cfg[SPRD_CODEC_PGA_MAX] = {
 	{sprd_codec_pga_cg_hpr_1_set, -1},
 	{sprd_codec_pga_cg_hpl_2_set, -1},
 	{sprd_codec_pga_cg_hpr_2_set, -1},
+};
+static struct sprd_codec_switch sprd_codec_switch_cfg[SPRD_CODEC_SWITCH_MAX] = {
+	{sprd_codec_switch_dacl_set, 0},
+	{sprd_codec_switch_dacr_set, 0},
+	{sprd_codec_switch_hplcgl_set, 0},
+	{sprd_codec_switch_hprcgr_set, 0},
 };
 
 static void _mixer_adc_linein_mute_nolock(struct snd_soc_codec *codec, int need_mute)
@@ -925,16 +1000,45 @@ static int adcrhpr_set(struct snd_soc_codec *codec, int on)
 
 static int daclspkl_set(struct snd_soc_codec *codec, int on)
 {
-	sp_asoc_pr_dbg("%s %d\n", __func__, on);
-	return snd_soc_update_bits(codec, SOC_REG(ANA_CDC6), BIT(DACL_AOL),
-				   on << DACL_AOL);
+    int ret = 0;
+    int enable;
+    struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+    sp_asoc_pr_dbg("%s %d\n", __func__, on);
+    mutex_lock(&sprd_codec->sprd_dacspkl_mutex);
+    if(on){
+        sprd_codec->sprd_dacspkl_set |= BIT(SPRD_CODEC_LEFT);
+    } else {
+        sprd_codec->sprd_dacspkl_set &= ~BIT(SPRD_CODEC_LEFT);
+    }
+    enable = sprd_codec->sprd_dacspkl_enable & BIT(SPRD_CODEC_LEFT);
+    sp_asoc_pr_dbg("%s %d,enalbe :%d\n", __func__, on,enable);
+    if(enable){
+        ret = snd_soc_update_bits(codec, SOC_REG(ANA_CDC6), BIT(DACL_AOL),
+                on << DACL_AOL);
+    }
+    mutex_unlock(&sprd_codec->sprd_dacspkl_mutex);
 }
 
 static int dacrspkl_set(struct snd_soc_codec *codec, int on)
 {
-	sp_asoc_pr_dbg("%s %d\n", __func__, on);
-	return snd_soc_update_bits(codec, SOC_REG(ANA_CDC6), BIT(DACR_AOL),
-				   on << DACR_AOL);
+    int ret = 0;
+    int enable;
+    struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+    sp_asoc_pr_dbg("%s %d\n", __func__, on);
+    mutex_lock(&sprd_codec->sprd_dacspkl_mutex);
+    if(on){
+        sprd_codec->sprd_dacspkl_set |= BIT(SPRD_CODEC_RIGHT);
+    } else {
+        sprd_codec->sprd_dacspkl_set &= ~BIT(SPRD_CODEC_RIGHT);
+    }
+    enable = sprd_codec->sprd_dacspkl_enable & BIT(SPRD_CODEC_RIGHT);
+    sp_asoc_pr_dbg("%s %d,enalbe :%d\n", __func__, on,enable);
+    if(enable){
+        ret = snd_soc_update_bits(codec, SOC_REG(ANA_CDC6), BIT(DACR_AOL),
+                on << DACR_AOL);
+    }
+    mutex_unlock(&sprd_codec->sprd_dacspkl_mutex);
+    return ret;
 }
 
 static int adclspkl_set(struct snd_soc_codec *codec, int on)
@@ -1177,6 +1281,21 @@ static inline void sprd_codec_inter_pa_init(struct sprd_codec_priv *sprd_codec)
 {
 	sprd_codec->inter_pa.setting.LDO_V_sel = 0x03;
 	sprd_codec->inter_pa.setting.DTRI_F_sel = 0x01;
+}
+static inline void sprd_codec_dacspkl_enable_init(struct sprd_codec_priv *sprd_codec)
+{
+	sprd_codec->sprd_dacspkl_enable = BIT(SPRD_CODEC_RIGHT)|BIT(SPRD_CODEC_LEFT);
+	sprd_codec->sprd_dacspkl_set = 0;
+	mutex_init(&sprd_codec->sprd_dacspkl_mutex);
+}
+
+static inline void sprd_codec_switch_init(struct sprd_codec_priv *sprd_codec)
+{
+    int i = 0;
+    for(i=0;i<SPRD_CODEC_SWITCH_MAX;i++){
+        sprd_codec->switcher[i].set = NULL;
+        sprd_codec->switcher[i].on = 1;
+    }
 }
 
 static void sprd_codec_ovp_irq_enable(struct snd_soc_codec *codec)
@@ -2555,6 +2674,36 @@ static int pga_event(struct snd_soc_dapm_widget *w,
 	return ret;
 }
 
+static int switch_event(struct snd_soc_dapm_widget *w,
+		     struct snd_kcontrol *kcontrol, int event)
+{
+    struct snd_soc_codec *codec = w->codec;
+    struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+    int id = GET_SWITCH_ID(FUN_REG(w->reg));
+    int ret = 0;
+    int min = 0;
+    struct sprd_codec_switch_op *switcher = &(sprd_codec->switcher[id]);
+    sp_asoc_pr_info("%s Switch %d(%s) Event is %s\n", __func__,
+            switch_name[id], switcher->on? "on":"off",
+            get_event_name(event));
+    min = sprd_codec_switch_cfg[id].min;
+    switch (event) {
+        case SND_SOC_DAPM_PRE_PMU:
+            switcher->set = sprd_codec_switch_cfg[id].set;
+            ret = switcher->set(codec, switcher->on);
+            break;
+        case SND_SOC_DAPM_PRE_PMD:
+            switcher->set = 0;
+            if(min >= 0)
+                ret = sprd_codec_switch_cfg[id].set(codec, min);
+            break;
+        default:
+            BUG();
+            ret = -EINVAL;
+    }
+    return ret;
+}
+
 static int adcpgar_byp_set(struct snd_soc_codec *codec, int value)
 {
 	int mask = ADCPGAR_BYP_MASK << ADCPGAR_BYP;
@@ -2876,12 +3025,12 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   AUDIFA_DACL_EN, 0, NULL, 0),
 	SND_SOC_DAPM_PGA_S("ADie Digital DACR Switch", 5, SOC_REG(DIG_CFG0),
 			   AUDIFA_DACR_EN, 0, NULL, 0),
-	SND_SOC_DAPM_PGA_S("DACL Switch", 6, SOC_REG(ANA_CDC2), DACL_EN, 0,
-			   NULL,
-			   0),
-	SND_SOC_DAPM_PGA_S("DACR Switch", 6, SOC_REG(ANA_CDC2), DACR_EN, 0,
-			   NULL,
-			   0),
+	SND_SOC_DAPM_PGA_S("DACL Switch", 6, FUN_REG(SPRD_CODEC_DACL), 0, 0,
+			   switch_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_S("DACR Switch", 6, FUN_REG(SPRD_CODEC_DACR), 0, 0,
+			   switch_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("DACL Mute", 6, FUN_REG(SPRD_CODEC_PGA_DACL), 0, 0,
 			   pga_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
@@ -3082,12 +3231,12 @@ static const struct snd_soc_dapm_widget sprd_codec_dapm_widgets[] = {
 			   0, 0,
 			   spk_pa_event,
 			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("HPL CGL Switch", SPRD_CODEC_HP_PA_POST_ORDER, SOC_REG(ANA_CDC7),
-			   HPL_CGL, 0, NULL,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
-	SND_SOC_DAPM_PGA_S("HPR CGR Switch", SPRD_CODEC_HP_PA_POST_ORDER, SOC_REG(ANA_CDC7),
-			   HPR_CGR, 0, NULL,
-			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_POST_PMD),
+	SND_SOC_DAPM_PGA_S("HPL CGL Switch", SPRD_CODEC_HP_PA_POST_ORDER, FUN_REG(SPRD_CODEC_HPLCGL),
+			   HPL_CGL, 0, switch_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
+	SND_SOC_DAPM_PGA_S("HPR CGR Switch", SPRD_CODEC_HP_PA_POST_ORDER, FUN_REG(SPRD_CODEC_HPRCGR),
+			   HPR_CGR, 0, switch_event,
+			   SND_SOC_DAPM_PRE_PMU | SND_SOC_DAPM_PRE_PMD),
 	SND_SOC_DAPM_PGA_S("HPL CG Mute1", SPRD_CODEC_CG_PGA_ORDER, FUN_REG(SPRD_CODEC_PGA_CG_HPL_1),
 	           0, 0,
 			   pga_event,
@@ -3340,7 +3489,54 @@ static int sprd_codec_vol_get(struct snd_kcontrol *kcontrol,
 
 	return 0;
 }
+static int sprd_codec_switch_put(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int id = GET_SWITCH_ID(FUN_REG(mc->reg));
+	int max = mc->max;
+	unsigned int mask = (1 << fls(max)) - 1;
+	unsigned int invert = mc->invert;
+	unsigned int val;
+	struct sprd_codec_switch_op *switcher = &(sprd_codec->switcher[id]);
+	int ret = 0;
 
+	sp_asoc_pr_info("Switch [%s] %s\n", switch_name[id],
+			ucontrol->value.integer.value[0]?"on":"off");
+
+	val = (ucontrol->value.integer.value[0] & mask);
+	if (invert)
+		val = max - val;
+	switcher->on = val;
+	if (switcher->set) {
+		ret = switcher->set(codec, switcher->on);
+	}
+	return ret;
+}
+
+static int sprd_codec_switch_get(struct snd_kcontrol *kcontrol,
+			      struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+	    (struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+	unsigned int id = GET_SWITCH_ID(FUN_REG(mc->reg));
+	int max = mc->max;
+	unsigned int invert = mc->invert;
+	struct sprd_codec_switch_op *switcher= &(sprd_codec->switcher[id]);
+
+	ucontrol->value.integer.value[0] = switcher->on;
+	if (invert) {
+		ucontrol->value.integer.value[0] =
+		    max - ucontrol->value.integer.value[0];
+	}
+
+	return 0;
+}
 static int sprd_codec_inter_pa_put(struct snd_kcontrol *kcontrol,
 				   struct snd_ctl_elem_value *ucontrol)
 {
@@ -3478,6 +3674,81 @@ static int sprd_codec_linein_mute_get(struct snd_kcontrol *kcontrol,
 		    max - ucontrol->value.integer.value[0];
 	}
 	return 0;
+}
+static void _dacspkl_switch_nolock(struct snd_soc_codec *codec, int val)
+{
+    int dacrspkl = val & BIT(SPRD_CODEC_RIGHT);
+    int daclspkl = val & BIT(SPRD_CODEC_LEFT);
+    int r_on = dacrspkl ? 1:0;
+    int l_on = daclspkl ? 1:0;
+	struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+
+    sp_asoc_pr_info("%s,l:%d,r:%d\n",__func__,l_on,r_on);
+	if (sprd_codec->sprd_dacspkl_set & BIT(SPRD_CODEC_RIGHT)) {
+	    snd_soc_update_bits(codec, SOC_REG(ANA_CDC6), BIT(DACR_AOL),
+				   r_on << DACR_AOL);
+	}
+	if (sprd_codec->sprd_dacspkl_set & BIT(SPRD_CODEC_LEFT)) {
+	    snd_soc_update_bits(codec, SOC_REG(ANA_CDC6), BIT(DACL_AOL),
+				   l_on << DACL_AOL);
+	}
+}
+
+static int dacspkl_enable_put(struct snd_kcontrol *kcontrol,
+        struct snd_ctl_elem_value *ucontrol)
+{
+    struct soc_mixer_control *mc =
+        (struct soc_mixer_control *)kcontrol->private_value;
+    struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+    struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+    int max = mc->max;
+    unsigned int mask = (1 << fls(max)) - 1;
+    unsigned int invert = mc->invert;
+    unsigned int val;
+    unsigned int shift = mc ->shift;
+
+    sp_asoc_pr_info("%s, %s(%s)\n",
+            __func__,shift?"dacrspkl":"daclspkl",(int)ucontrol->value.integer.value[0] ? "on":"off");
+
+    val = (ucontrol->value.integer.value[0] & mask);
+    if (invert)
+        val = max - val;
+    mutex_lock(&sprd_codec->sprd_dacspkl_mutex);
+    if(val){
+        sprd_codec->sprd_dacspkl_enable |= (1 << shift);
+    } else {
+        sprd_codec->sprd_dacspkl_enable &= ~(1 << shift);
+    }
+    sp_asoc_pr_info("%s,0x%x,0x%x\n",__func__,sprd_codec->sprd_dacspkl_enable,sprd_codec->sprd_dacspkl_set);
+    if (sprd_codec->sprd_dacspkl_set) {
+        _dacspkl_switch_nolock(codec, sprd_codec->sprd_dacspkl_enable);
+    }
+    mutex_unlock(&sprd_codec->sprd_dacspkl_mutex);
+    return 0;
+}
+
+static int dacspkl_enable_get(struct snd_kcontrol *kcontrol,
+        struct snd_ctl_elem_value *ucontrol)
+{
+    struct soc_mixer_control *mc =
+        (struct soc_mixer_control *)kcontrol->private_value;
+    struct snd_soc_codec *codec = snd_kcontrol_chip(kcontrol);
+    struct sprd_codec_priv *sprd_codec = snd_soc_codec_get_drvdata(codec);
+    int max = mc->max;
+    int shift = mc->shift;
+    unsigned int invert = mc->invert;
+    int mask = 1 << shift;
+
+    sp_asoc_pr_info("%s, 0x%08x,%s,shift:%d\n",
+            __func__,mask,mask&0x2 ? "dacrspkl":"daclspkl",shift);
+    mutex_lock(&sprd_codec->sprd_dacspkl_mutex);
+    ucontrol->value.integer.value[0] = (sprd_codec->sprd_dacspkl_enable & mask) >> shift;
+    mutex_unlock(&sprd_codec->sprd_dacspkl_mutex);
+    if (invert) {
+        ucontrol->value.integer.value[0] =
+            max - ucontrol->value.integer.value[0];
+    }
+    return 0;
 }
 
 static int sprd_codec_inter_hp_pa_put(struct snd_kcontrol *kcontrol,
@@ -3631,6 +3902,10 @@ static const DECLARE_TLV_DB_SCALE(clsg_2_tlv, -84, 12, 0);
 	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, \
 			sprd_codec_mic_bias_get, sprd_codec_mic_bias_put)
 
+#define SPRD_CODEC_SWITCH(xname, xreg) \
+	SOC_SINGLE_EXT(xname, FUN_REG(xreg), 0, 1, 0, \
+			sprd_codec_switch_get, sprd_codec_switch_put)
+
 static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 	SPRD_CODEC_PGA("SPKL Playback Volume", SPRD_CODEC_PGA_SPKL, spk_tlv),
 	SPRD_CODEC_PGA("SPKR Playback Volume", SPRD_CODEC_PGA_SPKR, spk_tlv),
@@ -3662,23 +3937,37 @@ static const struct snd_kcontrol_new sprd_codec_snd_controls[] = {
 			   headmic_tlv),
 	SPRD_CODEC_PGA_MAX("Linein Boost", SPRD_CODEC_PGA_AIL, 3, ailr_tlv),
 
-	SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
-		       sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
+    SOC_SINGLE_EXT("Inter PA Config", 0, 0, LONG_MAX, 0,
+            sprd_codec_inter_pa_get, sprd_codec_inter_pa_put),
 
-	SOC_SINGLE_EXT("Inter HP PA Config", 0, 0, LONG_MAX, 0,
-		       sprd_codec_inter_hp_pa_get, sprd_codec_inter_hp_pa_put),
+    SOC_SINGLE_EXT("Inter HP PA Config", 0, 0, LONG_MAX, 0,
+            sprd_codec_inter_hp_pa_get, sprd_codec_inter_hp_pa_put),
 
-	SPRD_CODEC_MIC_BIAS("MIC Bias Switch", SPRD_CODEC_MIC_BIAS),
+    SPRD_CODEC_SWITCH("DACL Switch",SPRD_CODEC_DACL),
 
-	SPRD_CODEC_MIC_BIAS("AUXMIC Bias Switch", SPRD_CODEC_AUXMIC_BIAS),
+    SPRD_CODEC_SWITCH("DACR Switch",SPRD_CODEC_DACR),
 
-	SPRD_CODEC_MIC_BIAS("HEADMIC Bias Switch", SPRD_CODEC_HEADMIC_BIAS),
+    SPRD_CODEC_SWITCH("HPLCGL Switch",SPRD_CODEC_HPLCGL),
 
-	SOC_SINGLE_EXT("Linein Mute Switch", 0, 0, 1, 0,
-		       sprd_codec_linein_mute_get, sprd_codec_linein_mute_put),
+    SPRD_CODEC_SWITCH("HPRCGR Switch",SPRD_CODEC_HPRCGR),
 
-	SOC_ENUM_EXT("Aud Codec Info", codec_info_enum,
-			   sprd_codec_info_get, sprd_codec_info_put),
+    SPRD_CODEC_MIC_BIAS("MIC Bias Switch", SPRD_CODEC_MIC_BIAS),
+
+    SPRD_CODEC_MIC_BIAS("AUXMIC Bias Switch", SPRD_CODEC_AUXMIC_BIAS),
+
+    SPRD_CODEC_MIC_BIAS("HEADMIC Bias Switch", SPRD_CODEC_HEADMIC_BIAS),
+
+    SOC_SINGLE_EXT("Linein Mute Switch", 0, 0, 1, 0,
+            sprd_codec_linein_mute_get, sprd_codec_linein_mute_put),
+
+    SOC_SINGLE_EXT("DACLSPKL Enable", 0, SPRD_CODEC_LEFT , 1, 0,
+            dacspkl_enable_get, dacspkl_enable_put),
+
+    SOC_SINGLE_EXT("DACRSPKL Enable", 0, SPRD_CODEC_RIGHT , 1, 0,
+            dacspkl_enable_get, dacspkl_enable_put),
+
+    SOC_ENUM_EXT("Aud Codec Info", codec_info_enum,
+            sprd_codec_info_get, sprd_codec_info_put),
 };
 
 static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
@@ -3701,6 +3990,7 @@ static unsigned int sprd_codec_read(struct snd_soc_codec *codec,
 		return mixer->on;
 	} else if (IS_SPRD_CODEC_PGA_RANG(FUN_REG(reg))) {
 	} else if (IS_SPRD_CODEC_MIC_BIAS_RANG(FUN_REG(reg))) {
+	} else if (IS_SPRD_CODEC_SWITCH_RANG(FUN_REG(reg))) {
 	} else
 		sp_asoc_pr_dbg("read the register is not codec's reg = 0x%x\n",
 			       reg);
@@ -3732,10 +4022,16 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
 		mixer->on = val ? 1 : 0;
 	} else if (IS_SPRD_CODEC_PGA_RANG(FUN_REG(reg))) {
 	} else if (IS_SPRD_CODEC_MIC_BIAS_RANG(FUN_REG(reg))) {
-	} else
-		sp_asoc_pr_dbg("write the register is not codec's reg = 0x%x\n",
-			       reg);
-	return ret;
+    } else if (IS_SPRD_CODEC_SWITCH_RANG(FUN_REG(reg))) {
+        struct sprd_codec_priv *sprd_codec =
+            snd_soc_codec_get_drvdata(codec);
+        int id = GET_SWITCH_ID(FUN_REG(reg));
+        struct sprd_codec_mixer *switcher = &(sprd_codec->switcher[id]);
+        switcher->on = val ? 1 : 0;
+    } else
+        sp_asoc_pr_dbg("write the register is not codec's reg = 0x%x\n",
+                reg);
+    return ret;
 }
 
 static int sprd_codec_pcm_hw_params(struct snd_pcm_substream *substream,
@@ -4210,19 +4506,20 @@ static int sprd_codec_probe(struct platform_device *pdev)
 		return ret;
 	}
 
-	sprd_codec_inter_pa_init(sprd_codec);
-	sprd_codec_inter_hp_pa_init(sprd_codec);
-	sprd_codec_linein_mute_init(sprd_codec);
+    sprd_codec_inter_pa_init(sprd_codec);
+    sprd_codec_inter_hp_pa_init(sprd_codec);
+    sprd_codec_linein_mute_init(sprd_codec);
+    sprd_codec_switch_init(sprd_codec);
+    sprd_codec_dacspkl_enable_init(sprd_codec);
+    sprd_codec_power_regulator_init(sprd_codec, &pdev->dev);
 
-	sprd_codec_power_regulator_init(sprd_codec, &pdev->dev);
+    mutex_init(&sprd_codec->inter_pa_mutex);
+    mutex_init(&sprd_codec->inter_hp_pa_mutex);
+    spin_lock_init(&sprd_codec->sprd_codec_fun_lock);
+    spin_lock_init(&sprd_codec->sprd_codec_pa_sw_lock);
 
-	mutex_init(&sprd_codec->inter_pa_mutex);
-	mutex_init(&sprd_codec->inter_hp_pa_mutex);
-	spin_lock_init(&sprd_codec->sprd_codec_fun_lock);
-	spin_lock_init(&sprd_codec->sprd_codec_pa_sw_lock);
-
-	sprd_codec_vcom_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
-	sprd_codec_pa_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
+    sprd_codec_vcom_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
+    sprd_codec_pa_ldo_cfg(sprd_codec, ldo_v_map, ARRAY_SIZE(ldo_v_map));
 
 	sprd_codec->nb.notifier_call = hp_notifier_handler;
 #ifndef  CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
