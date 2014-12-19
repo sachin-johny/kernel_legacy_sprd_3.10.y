@@ -82,6 +82,10 @@ static int sec_chg_get_property(struct power_supply *psy,
 	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
 		val->intval = charger->charging_current * val->intval / 100;
 		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		if (!sec_hal_chg_get_property(charger_variable, psp, val))
+			return -EINVAL;
+		break;
 	default:
 		return -EINVAL;
 	}
@@ -156,6 +160,10 @@ static int sec_chg_set_property(struct power_supply *psy,
 		/* change val as charging current by SIOP level
 		 * do NOT change initial charging current setting
 		 */
+#ifdef CONFIG_CHARGER_SM5414
+		if (!sec_hal_chg_set_property(charger_variable, psp, val))
+			return -EINVAL;
+#else
 		input_value.intval =
 			charger->charging_current * val->intval / 100;
 
@@ -175,6 +183,7 @@ static int sec_chg_set_property(struct power_supply *psy,
 		if (!sec_hal_chg_set_property(charger_variable,
 			POWER_SUPPLY_PROP_CURRENT_AVG, &input_value))
 			return -EINVAL;
+#endif
 		break;
 #ifdef CONFIG_CHARGER_SM5414
 	case POWER_SUPPLY_PROP_HEALTH:

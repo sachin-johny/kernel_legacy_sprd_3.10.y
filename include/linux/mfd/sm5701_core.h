@@ -29,6 +29,7 @@
 
 /* Enable charger Operation Mode */
 #define OP_MODE_CHG_ON 0x02
+#define OP_MODE_CHG_ON_REV3 0x04
 
 /* Disable charger Operation Mode */
 #define OP_MODE_CHG_OFF 0x01
@@ -133,7 +134,7 @@ enum sm5701_flash_mode {
 			MOVIE_MODE,
 			FLASH_MODE,
 	};
-	
+
 enum sm5701_flash_operation {
 
 		SM5701_FLEDEN_DISABLED = 0,

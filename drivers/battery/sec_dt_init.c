@@ -14,7 +14,15 @@
 #include <linux/of_device.h>
 #include <linux/of_gpio.h>
 #include <linux/of_irq.h>
+#include <mach/adc.h>
 #include <linux/battery/sec_battery.h>
+
+#include <mach/sci_glb_regs.h>
+#include <mach/sci.h>
+#include <mach/adi.h>
+#include <mach/arch_misc.h>
+#include <mach/hardware.h>
+#include <linux/delay.h>
 
 #ifdef CONFIG_MFD_RT8973
 #include <linux/mfd/rt8973.h>
@@ -29,12 +37,15 @@
 #include <linux/battery/fuelgauge/sprd27x3_fuelgauge4samsung.h>
 #endif
 
+#define BATT_DET_CURRENT 313
+
 static int current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 static u8 attached_cable;
 static bool is_jig_on;
 static unsigned int lpcharge;
 //EXPORT_SYMBOL(lpcharge);
 static unsigned chg_irq;
+static int gpio_vbat_detect;
 
 #if defined(CONFIG_INPUT_TOUCHSCREEN)
 void (*tsp_charger_status_cb)(int);
@@ -264,6 +275,7 @@ void sec_charger_cb(u8 cable_type)
 		current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 		break;
 	case MUIC_RT8973_CABLE_TYPE_USB:
+	case MUIC_RT8973_CABLE_TYPE_L_USB:
 	case MUIC_RT8973_CABLE_TYPE_CDP:
 	case MUIC_RT8973_CABLE_TYPE_JIG_USB_ON:
 	case MUIC_RT8973_CABLE_TYPE_JIG_USB_OFF:
@@ -400,6 +412,7 @@ void sec_charger_cb(u8 cable_type)
 	case MUIC_SM5504_CABLE_TYPE_NONE:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_OFF:
+	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON_WITH_VBUS:
 		current_cable_type = POWER_SUPPLY_TYPE_BATTERY;
 		break;
 	case MUIC_SM5504_CABLE_TYPE_USB:
@@ -412,12 +425,16 @@ void sec_charger_cb(u8 cable_type)
 	case MUIC_SM5504_CABLE_TYPE_REGULAR_TA:
 	case MUIC_SM5504_CABLE_TYPE_ATT_TA:
 	case MUIC_SM5504_CABLE_TYPE_JIG_UART_OFF_WITH_VBUS:
-	case MUIC_SM5504_CABLE_TYPE_JIG_UART_ON_WITH_VBUS:
 	case MUIC_SM5504_CABLE_TYPE_TYPE1_CHARGER:
 		current_cable_type = POWER_SUPPLY_TYPE_MAINS;
 		break;
+	case MUIC_SM5504_CABLE_TYPE_UART:
+		current_cable_type = POWER_SUPPLY_TYPE_UNKNOWN;
+		break;
 	case MUIC_SM5504_CABLE_TYPE_OTG:
-		goto skip;
+	case MUIC_SM5504_CABLE_TYPE_OTG_WITH_VBUS:
+		current_cable_type = POWER_SUPPLY_TYPE_OTG;
+		break;
 	case MUIC_SM5504_CABLE_TYPE_0x15:
 	case MUIC_SM5504_CABLE_TYPE_0x1A:
 //	case MUIC_SM5504_CABLE_TYPE_0x1A_VBUS:
@@ -448,6 +465,47 @@ skip:
 
 }
 #endif /* CONFIG_MFD_SM5504 */
+
+int sec_vf_adc_current_check(void)
+{
+        int battery_on = 0;
+
+	sci_adi_set(ANA_REG_GLB_AUXAD_CTL,
+		(BIT_AUXAD_CURRENTSEN_EN | BITS_AUXAD_CURRENT_IBS(0x6)));
+	sci_adi_set(ANA_REG_GLB_BATDET_CUR_CTRL,
+		(BIT_BATDET_CUR_EN | BITS_BATDET_CUR_I(0x4)));
+	mdelay(5);
+
+        if (gpio_get_value(gpio_vbat_detect))
+        {
+                printk("%s : vbat good!\n", __func__);
+                battery_on = 1;
+        }
+        else
+        {
+                printk("%s : vbat is not connected!\n", __func__);
+                battery_on = 0;
+        }
+
+	sci_adi_clr(ANA_REG_GLB_AUXAD_CTL, BIT_AUXAD_CURRENTSEN_EN);
+	sci_adi_clr(ANA_REG_GLB_BATDET_CUR_CTRL, BIT_BATDET_CUR_EN);
+
+        return battery_on;
+}
+
+/* vf adc check, only for MUIC & young2dtv */
+int sec_vf_adc_check(void)
+{
+	int adc = 0;
+
+	adc = sci_adc_get_value(0, false);
+	pr_info("%s, vf adc : %d", __func__, adc);
+
+	if (adc > 500)
+		return 0;
+	else
+		return 1;
+}
 
 int sec_bat_dt_init(struct device_node *np,
 			 struct device *dev,
@@ -889,6 +947,12 @@ int sec_chg_dt_init(struct device_node *np,
 		return chg_gpio_en;
 	}
 
+	ret = of_property_read_u32(np, "chg-irq-attr",
+					&chg_irq_attr);
+	if (ret) {
+		pr_info("%s chg_irq_attr request failed: %d\n", __func__, chg_irq_attr);
+	}
+
 	ret = gpio_request(chg_gpio_en, "chgen-gpio");
 	if (ret) {
 		pr_err("%s gpio_request failed: %d\n", __func__, chg_gpio_en);
@@ -896,7 +960,7 @@ int sec_chg_dt_init(struct device_node *np,
 	}
 
 	chg_irq_gpio = of_get_named_gpio(np, "chgirq-gpio", 0);
-	if (chg_irq_gpio < 0) 
+	if (chg_irq_gpio < 0)
 		pr_err("%s: chgirq gpio get failed: %d\n", __func__, chg_irq_gpio);
 
 	ret = gpio_request(chg_irq_gpio, "chgirq-gpio");
@@ -975,7 +1039,7 @@ int sec_chg_dt_init(struct device_node *np,
 	if (ret)
 		pr_info("%s : Full check type 2nd is Empty\n", __func__);
 
-	if (chg_irq_gpio) {
+	if (chg_irq_gpio > 0) {
 		pdata->chg_irq_attr = chg_irq_attr;
 		pdata->chg_irq = gpio_to_irq(chg_irq_gpio);
 	}

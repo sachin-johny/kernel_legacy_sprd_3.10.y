@@ -44,6 +44,8 @@ enum {
     MUIC_SM5504_CABLE_TYPE_L_USB, // L-USB cable
     MUIC_SM5504_CABLE_TYPE_UNKNOWN,
     MUIC_SM5504_CABLE_TYPE_INVALID, // Un-initialized
+
+    MUIC_SM5504_CABLE_TYPE_OTG_WITH_VBUS,
 };
 
 typedef enum {
@@ -65,6 +67,8 @@ struct sm5504_platform_data {
     void (*jig_callback)(jig_type_t type, uint8_t attached);
 
 };
+
+bool sm5504_get_otg_status(void);
 
 #endif // LINUX_MFD_SM5504_H
 

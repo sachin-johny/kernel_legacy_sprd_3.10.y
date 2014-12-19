@@ -24,6 +24,11 @@
  */
 #define SEC_CHARGER_I2C_SLAVEADDR	(0x92>>1)
 
+#define CALL_EVENT_SIOP 50
+#define HIGH_TEMP_SIOP 30
+#define CALL_EVENT_CURRENT 450
+#define HIGH_TEMP_CURRENT 350
+
 /* SM5414 Registers. */
 
 #define SM5414_INT1		    0x00

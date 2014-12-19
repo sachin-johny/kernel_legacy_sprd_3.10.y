@@ -69,6 +69,10 @@
 #include <linux/battery/charger/sm5701_charger.h>
 #endif
 
+#if defined(CONFIG_CHARGER_SM5414)
+extern int sec_vf_adc_check(void);
+#endif
+
 struct sec_charger_info {
 	struct i2c_client		*client;
 	sec_battery_platform_data_t *pdata;
@@ -97,6 +101,7 @@ struct sec_charger_info {
 
 	/* charging current : + charging, - OTG */
 	int charging_current;
+	int input_current_limit;
 	unsigned charging_current_max;
 
 	/* register programming */

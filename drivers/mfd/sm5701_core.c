@@ -50,6 +50,7 @@ static struct mfd_cell SM5701_devs[] = {
 static struct i2c_client *SM5701_core_client = NULL;
 
 static int led_ready_state = 0;
+int led_state_charger = LED_DISABLE;
 
 int SM5701_reg_read(struct i2c_client *i2c, u8 reg, u8 *dest)
 {
@@ -200,23 +201,25 @@ out_strtoint:
 }
 
 void sm5701_led_ready(int led_status)
-{  
+{
 	struct i2c_client * client;
 	u8 data = 0;
-	
+
 	client = SM5701_core_client;
-	
+
 	if(!client) return;
-	
+
 	SM5701_reg_read(client, SM5701_DEVICE_ID, &data);
-	
+
 	printk("sm5701 device id =%d, led_status=%d\n", data, led_status);
-	
+
     printk("%s led_status = %d\n",__func__,led_status);
     // led_status == 0 : LED_DISABLE
     // led_status == 1 : LED_FLASH
     // led_status == 2 : LED_MOVIE
 	led_ready_state = led_status;
+	/* SM5701 charger */
+	led_state_charger = led_status;
 
     SM5701_operation_mode_function_control();
 }
@@ -230,13 +233,13 @@ int SM5701_operation_mode_function_control(void)
         client = SM5701_core_client;
         pdata = client->dev.platform_data;
 		printk("SM5701_operation_mode_function_control\n");
-		printk("client:%x\n", client); 
-		printk("client->dev:%x\n", client->dev); 
-		printk("pdata = client->dev.platform_data:%x\n", client->dev.platform_data); 
-		printk("pdata->charger_data:%x\n", pdata->charger_data); 
+		printk("client:%x\n", client);
+		printk("client->dev:%x\n", client->dev);
+		printk("pdata = client->dev.platform_data:%x\n", client->dev.platform_data);
+		printk("pdata->charger_data:%x\n", pdata->charger_data);
 		printk("pdata->charger_data->cable_type:%x\n", pdata->charger_data->cable_type);
 
-        if ((pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_MAINS) || 
+        if ((pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_MAINS) ||
                         (pdata->charger_data->cable_type == POWER_SUPPLY_TYPE_USB))
         {
                 if (led_ready_state == LED_FLASH)
@@ -247,8 +250,12 @@ int SM5701_operation_mode_function_control(void)
                 else if (led_ready_state == LED_MOVIE)
                 {
                         SM5701_set_bstout(SM5701_BSTOUT_4P5);
-                       // SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
-						SM5701_set_operationmode(SM5701_OPERATIONMODE_CHARGER_ON_FLASH_ON);
+						if (pdata->charger_data->dev_id == 4)
+							SM5701_set_operationmode(
+								SM5701_OPERATIONMODE_FLASH_ON);
+						else
+							SM5701_set_operationmode(
+								SM5701_OPERATIONMODE_CHARGER_ON_FLASH_ON);
                 }
                 else if (led_ready_state == LED_DISABLE)
                 {

@@ -41,6 +41,7 @@
 extern int sec_chg_dt_init(struct device_node *np,
 			 struct device *dev,
 			 sec_battery_platform_data_t *pdata);
+extern led_state_charger;
 
 static enum power_supply_property sec_charger_props[] = {
         POWER_SUPPLY_PROP_STATUS,
@@ -259,34 +260,38 @@ static int SM5701_get_charging_current(
 
 static u8 SM5701_toggle_charger(struct SM5701_charger_data *charger, int enable)
 {
-	u8 chg_en = 0;
+	u8 chg_en = 0, mask = 0;
 
 	SM5701_reg_read(charger->SM5701->i2c, SM5701_CNTL, &chg_en);
 
-	if (charger->dev_id < 3) {
-		chg_en &= ~SM5701_CNTL_OPERATIONMODE;
+	mask = charger->dev_id < 3 ? OP_MODE_CHG_ON : OP_MODE_CHG_ON_REV3;
+	chg_en &= ~mask;
+
+	if ((led_state_charger == LED_DISABLE) || (charger->dev_id != 4)) {
 		if (enable)
-			chg_en |= OP_MODE_CHG_ON;
-		else
-			chg_en |= OP_MODE_CHG_OFF;
+			chg_en |= mask;
+
 		SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, chg_en);
 		gpio_direction_output((charger->pdata->chg_gpio_en), !enable);
+
+		pr_info("%s: SM5701 Charger toggled!! \n", __func__);
+
+		SM5701_reg_read(charger->SM5701->i2c, SM5701_CNTL, &chg_en);
+		pr_info("%s : CNTL register (0x09) : 0x%02x\n", __func__, chg_en);
+
 	} else {
+		 SM5701_set_operationmode(SM5701_OPERATIONMODE_FLASH_ON);
+		pr_info("%s: SM5701 Charger toggled!! - flash on!! \n", __func__);
 		gpio_direction_output((charger->pdata->chg_gpio_en), !enable);
 	}
-
-	pr_info("%s: SM5701 Charger toggled!! \n", __func__);
-
-	SM5701_reg_read(charger->SM5701->i2c, SM5701_CNTL, &chg_en);
-	pr_info("%s : CNTL register (0x09) : 0x%02x\n", __func__, chg_en);
 
 	return chg_en;
 }
 
 static void SM5701_isr_work(struct work_struct *work)
 {
-	union power_supply_propval val;
-	struct SM5701_charger_data *charger = 
+	union power_supply_propval val, value;
+	struct SM5701_charger_data *charger =
 		container_of(work, struct SM5701_charger_data, isr_work.work);;
 	int full_check_type;
 
@@ -320,7 +325,17 @@ static void SM5701_isr_work(struct work_struct *work)
 			psy_do_property("battery", set,
 				POWER_SUPPLY_PROP_HEALTH, val);
 			break;
+		case POWER_SUPPLY_HEALTH_UNDERVOLTAGE:
+		/* case POWER_SUPPLY_HEALTH_UNDERVOLTAGE: */
+			psy_do_property("battery", get,
+				POWER_SUPPLY_PROP_ONLINE, value);
 
+			if (value.intval != POWER_SUPPLY_TYPE_BATTERY) {
+				pr_info("%s: Interrupted by OVP/UVLO\n", __func__);
+				psy_do_property("battery", set,
+					POWER_SUPPLY_PROP_HEALTH, val);
+			}
+			break;
 		case POWER_SUPPLY_HEALTH_GOOD:
 			pr_err("%s: Interrupted but Good\n", __func__);
 			psy_do_property("battery", set,
@@ -415,9 +430,9 @@ static void SM5701_charger_initialize(struct SM5701_charger_data *charger)
 	SM5701_reg_write(charger->SM5701->i2c, SM5701_CNTL, reg_data);
 
 	/* Disable AUTOSTOP */
-	//SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
-	//reg_data &= ~SM5701_CHGCNTL1_AUTOSTOP;
-	//SM5701_reg_write(charger->SM5701->i2c, SM5701_CHGCNTL1, reg_data);
+	SM5701_reg_read(charger->SM5701->i2c, SM5701_CHGCNTL1, &reg_data);
+	reg_data &= ~SM5701_CHGCNTL1_AUTOSTOP;
+	SM5701_reg_write(charger->SM5701->i2c, SM5701_CHGCNTL1, reg_data);
 
 	(void) debugfs_create_file("SM5701_regs",
 		S_IRUGO, NULL, (void *)charger, &SM5701_debugfs_fops);

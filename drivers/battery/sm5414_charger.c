@@ -78,6 +78,19 @@ static void SM5414_read_regs(struct i2c_client *client, char *str)
 	}
 }
 
+static int SM5414_get_battery_present(struct i2c_client *client)
+{
+	u8 data;
+
+	SM5414_i2c_read(client, SM5414_INT2, &data);
+
+	pr_info("%s: SM5414_INT2 (0x%02x)\n", __func__, data);
+
+	data = ((data & SM5414_INT2_NOBAT) >> 6);
+
+	return data;
+}
+
 static int SM5414_get_charging_status(struct i2c_client *client)
 {
 	int status = POWER_SUPPLY_STATUS_UNKNOWN;
@@ -117,6 +130,7 @@ int sec_get_charging_health(struct i2c_client *client)
 	static int health = POWER_SUPPLY_HEALTH_GOOD;
 	struct sec_charger_info *charger = i2c_get_clientdata(client);
 	u8 int1;
+	int vf_status;
 
 	SM5414_i2c_read(client, SM5414_INT1, &int1);
 
@@ -330,14 +344,28 @@ static void SM5414_charger_function_control(
 		gpio_direction_output((charger->pdata->chg_gpio_en), 0);
 		msleep(100);
 
+		/* Young2 DTV event charging set */
+		if (charger->pdata->siop_level == CALL_EVENT_SIOP) {
+			charger->charging_current = CALL_EVENT_CURRENT;
+			charger->input_current_limit = CALL_EVENT_CURRENT;
+		} else if (charger->pdata->siop_level == HIGH_TEMP_SIOP) {
+			charger->charging_current = HIGH_TEMP_CURRENT;
+			charger->input_current_limit = HIGH_TEMP_CURRENT;
+		} else {
+			charger->charging_current =
+				charger->pdata->charging_current
+				[charger->cable_type].fast_charging_current;
+			charger->input_current_limit =
+				charger->pdata->charging_current
+				[charger->cable_type].input_current_limit;
+		}
+
 		/* Input current limit */
 		dev_info(&client->dev, "%s : input current (%dmA)\n",
-			__func__, charger->pdata->charging_current
-			[charger->cable_type].input_current_limit);
+			__func__, charger->input_current_limit);
 
 		SM5414_set_input_current_limit_data(
-			client, charger->pdata->charging_current
-			[charger->cable_type].input_current_limit);
+			client, charger->input_current_limit);
 
 		/* Set fast charge current */
 		dev_info(&client->dev, "%s : fast charging current (%dmA), siop_level=%d\n",
@@ -507,6 +535,9 @@ bool sec_hal_chg_get_property(struct i2c_client *client,
 				__func__, charger->charging_current, val->intval);*/
 		}
 		break;
+	case POWER_SUPPLY_PROP_PRESENT:
+		val->intval = SM5414_get_battery_present(client);
+		break;
 	case POWER_SUPPLY_PROP_POWER_STATUS:
 		val->intval = POWER_SUPPLY_PWR_RDY_UNKNOWN;
 		break;
@@ -522,6 +553,8 @@ bool sec_hal_chg_set_property(struct i2c_client *client,
 {
 	struct sec_charger_info *charger = i2c_get_clientdata(client);
 	switch (psp) {
+	case POWER_SUPPLY_PROP_CHARGE_FULL_DESIGN:
+		charger->pdata->siop_level = val->intval;
 	/* val->intval : type */
 	case POWER_SUPPLY_PROP_ONLINE:
 		if (charger->charging_current < 0)

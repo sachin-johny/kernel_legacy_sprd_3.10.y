@@ -100,7 +100,7 @@
 #define DEV_VERB                (6)
 
 #define IST30XX_DEBUG_TAG       "[ TSP ]"
-#define IST30XX_DEBUG_LEVEL     DEV_VERB
+#define IST30XX_DEBUG_LEVEL     DEV_INFO
 
 #define tsp_err(fmt, ...)       tsp_printk(DEV_ERR, fmt, ## __VA_ARGS__)
 #define tsp_warn(fmt, ...)      tsp_printk(DEV_WARN, fmt, ## __VA_ARGS__)

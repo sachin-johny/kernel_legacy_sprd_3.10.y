@@ -307,6 +307,13 @@ static void smb328_charger_function_control(struct sec_charger_info *charger)
 	if (charger->cable_type == POWER_SUPPLY_TYPE_BATTERY) {
 		/* turn off charger */
 		smb328_set_charge_enable(charger->client, 0);
+	} else if (charger->cable_type == POWER_SUPPLY_TYPE_OTG) {
+		pr_info("[%s] set otg mode\n", __func__);
+		/* turn off charger */
+		smb328_set_charge_enable(charger->client, 0);
+		smb328_i2c_read(charger->client, SMB328_COMMAND, &reg_data);
+		reg_data |= 0x2;
+		smb328_i2c_write(charger->client, SMB328_COMMAND, &reg_data);
 	} else {
 		pr_info("%s: Input : %d, Charge : %d\n", __func__,
 			charger->pdata->charging_current[charger->cable_type].input_current_limit,
@@ -346,7 +353,7 @@ static void smb328_charger_function_control(struct sec_charger_info *charger)
 					(charger->cable_type == POWER_SUPPLY_TYPE_UARTOFF) ?
 					0x3 : 0x2;
 		smb328_i2c_read(charger->client, SMB328_COMMAND, &reg_data);
-		reg_data &= ~0x0C;
+		reg_data &= ~0x0E;
 		reg_data |= charge_mode << 2;
 		smb328_i2c_write(charger->client, SMB328_COMMAND, &reg_data);
 
@@ -588,6 +595,7 @@ static int sec_chg_set_property(struct power_supply *psy,
 		break;
 	/* val->intval : type */
 	case POWER_SUPPLY_PROP_ONLINE:
+		charger->cable_type = val->intval;
 		if (charger->charging_current < 0)
 			smb328_charger_otg_control(charger, 1);
 		else if (charger->charging_current > 0) {
@@ -595,7 +603,10 @@ static int sec_chg_set_property(struct power_supply *psy,
 			smb328_charger_otg_control(charger, 1);
 		 } else {
 			smb328_charger_function_control(charger);
-			smb328_charger_otg_control(charger, 0);
+			if(charger->cable_type == POWER_SUPPLY_TYPE_OTG)
+				smb328_charger_otg_control(charger, 1);
+			else
+				smb328_charger_otg_control(charger, 0);
 		}
 		break;
 	default:

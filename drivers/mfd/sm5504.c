@@ -29,6 +29,11 @@
 #include <linux/switch.h>
 #endif
 #endif
+#if defined(CONFIG_MUIC_SUPPORT_RUSTPROOF)
+#include <linux/battery/sec_charger.h>
+extern int sec_vf_adc_check(void);
+#endif
+
 #ifdef CONFIG_USB_INTERRUPT_BY_MUIC
 extern void dwc_udc_startup(void);
 extern void dwc_udc_shutdown(void);
@@ -72,11 +77,11 @@ extern struct class *sec_class;
 #endif
 int epmic_event_handler(int level);
 
-#ifdef CONFIG_MUIC_SUPPORT_RUSTPROOF
+#if defined(CONFIG_MUIC_SUPPORT_RUSTPROOF)
 bool is_close_uart_path = false;
 #endif
 
-#if defined(CONFIG_TOUCHSCREEN_IST30XXA) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+#if defined(CONFIG_TOUCHSCREEN_IST30XXA) || defined(CONFIG_TOUCHSCREEN_IST30XXB) || defined(CONFIG_TOUCHSCREEN_BAFFINE_LITE_VE_IST3038)
 int flag =0;
 extern void ist30xx_set_ta_mode(bool charging);
 #endif
@@ -126,7 +131,7 @@ static const struct id_desc id_to_cable_type_mapping[] = {
 	{
 	 /* 00000, 0 */
 	 .name = "OTG",
-	 .cable_type_with_vbus = MUIC_SM5504_CABLE_TYPE_OTG,
+	 .cable_type_with_vbus = MUIC_SM5504_CABLE_TYPE_OTG_WITH_VBUS,
 	 .cable_type_without_vbus = MUIC_SM5504_CABLE_TYPE_OTG,
 	 },
 	{			/* 00001, 1 */
@@ -284,6 +289,11 @@ static const struct id_desc id_to_cable_type_mapping[] = {
 	 .cable_type_with_vbus = MUIC_SM5504_CABLE_TYPE_ATT_TA,
 	 .cable_type_without_vbus = MUIC_SM5504_CABLE_TYPE_NONE,
 	 },
+	{           /* 100000, 32 */  // MHL 0x20
+	  .name = "AT&T TA/No cable",
+        .cable_type_with_vbus = MUIC_SM5504_CABLE_TYPE_ATT_TA,
+        .cable_type_without_vbus = MUIC_SM5504_CABLE_TYPE_NONE,
+        },
 };
 
 enum {
@@ -338,9 +348,17 @@ typedef struct sm5504_chip {
 #ifdef CONFIG_MUIC_SUPPORT_FACTORY
 	struct device *switch_dev;
 #endif
+
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+	bool			is_usb_ready;
+#endif
+
 	struct workqueue_struct *wq;
 	/*struct delayed_work irq_work;*/
 	struct delayed_work init_work;
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+	struct delayed_work usb_work;
+#endif
 	struct wake_lock muic_wake_lock;
 	struct sm5504_status prev_status;
 	struct sm5504_status curr_status;
@@ -348,6 +366,10 @@ typedef struct sm5504_chip {
 	int irq;
 	int adc_reg_addr;
 } sm5504_chip_t;
+
+//global
+static sm5504_chip_t *g_sm5504_chip = NULL;
+
 
 #ifdef CONFIG_MUIC_SUPPORT_FACTORY
 static struct sm5504_status *current_status;
@@ -717,6 +739,9 @@ static void sm5504_cable_change_handler(struct sm5504_chip *chip,
 	       sm5504_cable_names[chip->curr_status.cable_type]);
 
 #if defined(CONFIG_BATTERY_SAMSUNG) || defined(CONFIG_RT_BATTERY)
+	if((chip->curr_status.cable_type == MUIC_SM5504_CABLE_TYPE_OTG) &&  (chip->curr_status.vbus_status== 1))
+		cable_change_callback(MUIC_SM5504_CABLE_TYPE_OTG_WITH_VBUS);
+	else
     cable_change_callback(chip->curr_status.cable_type);
 #endif
 	if(!chip->curr_status.ovp_status){
@@ -728,7 +753,7 @@ static void sm5504_cable_change_handler(struct sm5504_chip *chip,
 		else if (chip->pdata->cable_chg_callback)
 			chip->pdata->cable_chg_callback(chip->curr_status.cable_type);
 	}
-#if defined(CONFIG_TOUCHSCREEN_IST30XXA) || defined(CONFIG_TOUCHSCREEN_IST30XXB)
+#if defined(CONFIG_TOUCHSCREEN_IST30XXA) || defined(CONFIG_TOUCHSCREEN_IST30XXB) || defined(CONFIG_TOUCHSCREEN_BAFFINE_LITE_VE_IST3038)
 	if(strcmp(sm5504_cable_names[chip->curr_status.cable_type], "MUIC_SM5504_CABLE_TYPE_REGULAR_TA") == 0 || 
 		strcmp(sm5504_cable_names[chip->curr_status.cable_type], "MUIC_SM5504_CABLE_TYPE_USB") == 0 )
 	{
@@ -759,6 +784,9 @@ static uint8_t get_usb_type(int cable_type)
 	return ret;
 }
 
+#ifndef CONFIG_SPRD_USB_DEVICE_ONLY
+extern void usb_otg_cable_detect_event(bool otg_cable_in);
+#endif
 static void sm5504_otg_attach_handler(struct sm5504_chip *chip,
 				      const struct sm5504_event_handler
 				      *handler, unsigned int old_status,
@@ -770,6 +798,10 @@ static void sm5504_otg_attach_handler(struct sm5504_chip *chip,
 	sm5504_clr_bits(chip, SM5504_REG_CONTROL, (1 << 2) | (1 << 6));
 	if (chip->pdata->otg_callback)
 		chip->pdata->otg_callback(1);
+#ifndef CONFIG_SPRD_USB_DEVICE_ONLY
+	mdelay(50);
+	usb_otg_cable_detect_event(1);
+#endif
 }
 
 static void sm5504_otg_detach_handler(struct sm5504_chip *chip,
@@ -781,6 +813,10 @@ static void sm5504_otg_detach_handler(struct sm5504_chip *chip,
 	sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x00);
 	/* Enable USBCHDEN and AutoConfig*/
 	sm5504_set_bits(chip, SM5504_REG_CONTROL, (1 << 2) | (1 << 6));
+#ifndef CONFIG_SPRD_USB_DEVICE_ONLY
+	usb_otg_cable_detect_event(0);
+	mdelay(50);
+#endif
 	if (chip->pdata->otg_callback)
 		chip->pdata->otg_callback(0);
 }
@@ -794,10 +830,15 @@ static void sm5504_usb_attach_handler(struct sm5504_chip *chip,
 	RTINFO("USB attached\n");
 	usb_type = get_usb_type(chip->curr_status.cable_type);
 #ifdef CONFIG_USB_INTERRUPT_BY_MUIC
-	pr_info("usb: [%s] startup usb by muic\n", __func__);
-	dwc_udc_startup();
-#endif
+	if (chip->is_usb_ready )
+	{
+		pr_info("usb: [%s] startup usb by muic\n", __func__);
+		dwc_udc_startup();
+	}
+	if (chip->pdata->usb_callback && chip->is_usb_ready)
+#else
 	if (chip->pdata->usb_callback)
+#endif
 		chip->pdata->usb_callback(usb_type);
 }
 
@@ -821,13 +862,21 @@ static void sm5504_uart_attach_handler(struct sm5504_chip *chip,
 				       *handler, unsigned int old_status,
 				       unsigned int new_status)
 {
-	RTINFO("UART attached\n");
 #if defined(CONFIG_MUIC_SUPPORT_RUSTPROOF) && !defined(CONFIG_MUIC_SUPPORT_FACTORY)
+    RTINFO("UART attached\n");
+    if (sec_vf_adc_check()) {
 		sm5504_reg_write(chip, SM5504_REG_MANUAL_SW1, 0x00);
         	sm5504_clr_bits(chip, SM5504_REG_CONTROL, 1 << 2);
 		is_close_uart_path = true;
-        	RTINFO("Close UART PATH on USER Binary\n");
+        RTINFO("Open UART PATH in case of battery\n");
+    } else {
+		if (chip->pdata->uart_callback)
+			chip->pdata->uart_callback(1);
+        RTINFO("Close UART PATH in case of No battery\n");
+    }
 #else
+	RTINFO("UART attached\n");
+
 	if (chip->pdata->uart_callback)
 		chip->pdata->uart_callback(1);
 #endif
@@ -847,6 +896,9 @@ static void sm5504_uart_detach_handler(struct sm5504_chip *chip,
         	sm5504_set_bits(chip, SM5504_REG_CONTROL, 1 << 2);
 		is_close_uart_path = false;
 		RTINFO("Open UART PATH by detaching\n");
+	} else {
+		if (chip->pdata->uart_callback)
+			chip->pdata->uart_callback(0);
 	}
 #else
 	if (chip->pdata->uart_callback)
@@ -1043,18 +1095,49 @@ static void sm5504_process_urgent_evt(sm5504_chip_t *chip)
 	}
 }
 
-static void sm5504_process_normal_evt(sm5504_chip_t *chip)
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+static void sm5504_process_usb_evt(sm5504_chip_t *chip)
 {
 	unsigned int i;
 	unsigned int type, sta_chk;
 	uint32_t prev_status, curr_status;
+
 	prev_status = chip->prev_status.status;
 	curr_status = chip->curr_status.status;
+
 	for (i = 0; i < ARRAY_SIZE(normal_event_handlers); i++) {
 		sta_chk = state_check(prev_status,
 				      curr_status,
 				      normal_event_handlers[i].bit_mask);
 		type = normal_event_handlers[i].type;
+
+		if (type & sta_chk) {
+			if (normal_event_handlers[i].handler &&
+				(!strcmp(normal_event_handlers[i].name, "USB attached")))
+				normal_event_handlers[i].handler(chip,
+						normal_event_handlers + i,
+						prev_status,
+						curr_status);
+		}
+	}
+}
+#endif
+
+static void sm5504_process_normal_evt(sm5504_chip_t *chip)
+{
+	unsigned int i;
+	unsigned int type, sta_chk;
+	uint32_t prev_status, curr_status;
+
+	prev_status = chip->prev_status.status;
+	curr_status = chip->curr_status.status;
+
+	for (i = 0; i < ARRAY_SIZE(normal_event_handlers); i++) {
+		sta_chk = state_check(prev_status,
+				      curr_status,
+				      normal_event_handlers[i].bit_mask);
+		type = normal_event_handlers[i].type;
+
 		if (type & sta_chk) {
 			if (normal_event_handlers[i].handler)
 				normal_event_handlers[i].handler(chip,
@@ -1133,6 +1216,7 @@ static void sm5504_irq_work(sm5504_chip_t *chip)
 	       chip->curr_status.uart_connect,
 	       chip->curr_status.jig_connect,
 	       chip->curr_status.l_usb_connect);
+
 	sm5504_process_urgent_evt(chip);
 
 	if((chip->curr_status.ovp_status != chip->prev_status.ovp_status)
@@ -1187,6 +1271,22 @@ static bool sm5504_reset_check(struct i2c_client *iic)
 #define BATTERY_PSY_NAME "battery"
 #define CHARGER_PSY_NAME "sec-charger"
 #define POLL_DELAY  50
+
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+static void sm5504_muic_usb_detect(struct work_struct *work)
+{
+	struct sm5504_chip *chip =
+		container_of(work, struct sm5504_chip, usb_work.work);
+
+//	mutex_lock(&chip->io_lock);
+	printk("usb: %s chip->prev_status = 0x%x, chip->curr_status=0x%x \r\n", __func__,
+							chip->prev_status.status, chip->curr_status.status);
+	chip->is_usb_ready = true;
+	chip->prev_status.status = 0;
+	sm5504_process_usb_evt(chip);
+//	mutex_unlock(&chip->io_lock);
+}
+#endif
 
 static void sm5504_init_work(struct work_struct *work)
 {
@@ -1352,6 +1452,12 @@ static int sm5504_parse_dt(struct device *dev,
     return 0;
 }
 
+bool sm5504_get_otg_status(void){
+	struct sm5504_chip *chip = g_sm5504_chip;
+	if(NULL == chip)
+		return 0;
+	return chip->curr_status.otg_status;
+}
 
 static int sm5504_probe(struct i2c_client *client,
 				  const struct i2c_device_id *id)
@@ -1393,11 +1499,14 @@ static int sm5504_probe(struct i2c_client *client,
 		ret = -ENOMEM;
 		goto err_nomem;
 	}
+	g_sm5504_chip = chip;
 #ifdef CONFIG_MUIC_SUPPORT_FACTORY
 	current_status = &chip->curr_status;
 #endif
 	wake_lock_init(&chip->muic_wake_lock, WAKE_LOCK_SUSPEND,
 		       "sm5504_wakelock");
+
+
 	ret = gpio_request(pdata->irq_gpio, "SM5504_EINT");
 	RTWARN_IF(ret < 0,
 		  "Warning : failed to request GPIO%d (retval = %d)\n",
@@ -1437,6 +1546,14 @@ static int sm5504_probe(struct i2c_client *client,
 #ifdef CONFIG_MUIC_FACTORY_EVENT
 	muic_init_factory_cb();
 #endif
+
+#ifdef CONFIG_USB_INTERRUPT_BY_MUIC
+/* usb cable notification delay */
+	chip->is_usb_ready = false;
+	INIT_DELAYED_WORK(&chip->usb_work, sm5504_muic_usb_detect);
+	schedule_delayed_work(&chip->usb_work, msecs_to_jiffies(13000));
+#endif
+
 	pr_info("SM5504 : SiliconMitus SM5504 MUIC driver %s initialize successfully\n", SM5504_DRV_VER);
 	return 0;
 err_request_irq_fail:

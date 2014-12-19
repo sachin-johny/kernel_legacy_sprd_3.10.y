@@ -133,7 +133,11 @@ char *sec_bat_health_str[] = {
 	"OverVoltage",
 	"UnspecFailure",
 	"Cold",
-	"UnderVoltage"
+	"Cool",
+	"Watchdog timer expier",
+	"Safety timer expier",
+	"UnderVoltage",
+	"Overheatlimit"
 };
 
 static int sec_bat_set_charge(
@@ -352,7 +356,7 @@ static bool sec_bat_check_vf_adc(struct sec_battery_info *battery)
 		battery->check_adc_value = adc;
 
 	if ((battery->check_adc_value < battery->pdata->check_adc_max) &&
-		(battery->check_adc_value > battery->pdata->check_adc_min))
+		(battery->check_adc_value >= battery->pdata->check_adc_min))
 		return true;
 	else
 		return false;
@@ -1529,6 +1533,10 @@ static bool sec_bat_fullcharged_check(
 	return true;
 }
 
+#if defined(CONFIG_TOUCHSCREEN_IST30XXA)
+int battery_temp;
+#endif
+
 static void sec_bat_get_battery_info(
 				struct sec_battery_info *battery)
 {
@@ -1621,6 +1629,10 @@ static void sec_bat_get_battery_info(
 	default:
 		break;
 	}
+
+#if defined(CONFIG_TOUCHSCREEN_IST30XXA)
+	battery_temp = battery->temperature;
+#endif
 
 	dev_info(battery->dev,
 		"%s:Vnow(%dmV),Inow(%dmA),Imax(%dmA),SOC(%d%%),Tbat(%d)\n",
