@@ -586,62 +586,41 @@ static int wlan_core_thread(void *data)
 	rxfifo_t      *rx_fifo;
 	txfifo_t      *tx_fifo;
 	m_event_t     *event_q;
-	unsigned long  timeout;
-	int            i,ret,retry,vif_id, done, sem_count, q_id, q_index,need_tx,tx_cnt,tmp;
-	short          q_event_num[EVENT_Q_MAX_ID] = {0};
+	int            i,ret,retry,vif_id, done, sem_count,q_index,need_tx,tx_cnt,tx_pkt;
 	rx_fifo = &(g_wlan.rxfifo);
 	sema_init(&g_wlan.wlan_core.sem, 0);
-	printke("%s enter\n", __func__);
+	printke("%s enter new\n", __func__);
 	up(&(g_wlan.sync.sem));
 	core_down();
 	do
 	{	
 		retry = done = 0;
 		sem_count = g_wlan.wlan_core.sem.count ;
-
 		ret    = wlan_rx(rx_fifo, 1);
-		done   = done + ret;
-		
-		for(vif_id = NETIF_0_ID, tx_cnt = 0; vif_id < WLAN_MAX_ID; vif_id++)
+		if(1 == ret)
+			done++;
+		for(vif_id = NETIF_0_ID; vif_id < WLAN_MAX_ID; vif_id++)
 		{
 			vif     = &(g_wlan.netif[vif_id]);
-			tx_fifo = &(vif->txfifo);
-			ret     = wmm_calc(vif, q_event_num);
-			if(OK  != ret)
-			{
-				continue;
-			}
-			for( q_index=EVENT_Q_ID_0;  q_index<EVENT_Q_MAX_ID;  q_index++ )
+			tx_fifo = &(vif->txfifo);			
+			for( q_index=EVENT_Q_ID_0;  q_index <= EVENT_Q_ID_1;  q_index++ )
 			{
 				event_q      = &(vif->event_q[q_index]);
-				need_tx      = q_event_num[q_index];
-				timeout      = jiffies + msecs_to_jiffies(need_tx);
-				while(need_tx)
+				need_tx      = vif->event_q[q_index].event_cnt;
+				for(i=0; i<need_tx; i++)
 				{
-					tmp      = (need_tx > PKT_AGGR_NUM)?(PKT_AGGR_NUM):(need_tx);
-					ret      = wlan_tx(tx_fifo, event_q, tmp);
-					tmp      = done;
-					if(ret  != tmp)
-						retry++;
-					done     = done    + ret;
-					tx_cnt   = tx_cnt  + ret;
-					need_tx  = need_tx - ret;
-					if(tx_cnt > PKT_AGGR_NUM)
-					{
-						ret  = wlan_rx(rx_fifo, 1);
-						done = done + ret;
-						if(1 == ret)
-							tx_cnt -= PKT_AGGR_NUM;
-					}
-					if ( time_after(jiffies, timeout) )
+					ret = wlan_tx(tx_fifo, event_q, 1);
+					if(1  != ret)
 					{
 						retry++;
-						break;
+						continue;
 					}
+					done = done + ret;
+					ret  = wlan_rx(rx_fifo, 1);
+					done = done + ret;
 				}
 			}
 		}
-		
 		if(g_wlan.sync.exit)
 			break;
 		if((0 == done) && (0 == retry) )
@@ -1067,7 +1046,7 @@ int wlan_module_init(struct device *dev)
 {
 	int ret;
 	
-	printke("[%s] [ version:0x21 ] [ time(%s %s) ]\n", __func__, __DATE__, __TIME__);
+	printke("[%s] [ version:0x22 ] [ time(%s %s) ]\n", __func__, __DATE__, __TIME__);
 	if(NULL == dev)
 		return -EPERM;
 	ret = get_sdiohal_status();

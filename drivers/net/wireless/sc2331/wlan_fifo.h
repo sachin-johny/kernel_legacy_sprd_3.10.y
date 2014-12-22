@@ -71,6 +71,8 @@ typedef struct
 	spinlock_t     lock;
 	unsigned int   wt_cnt;
 	unsigned int   rd_cnt;
+	unsigned int   seq1;
+	unsigned int   seq2;
 }txfifo_t;
 
 typedef struct

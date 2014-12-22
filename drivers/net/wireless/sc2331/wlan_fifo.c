@@ -58,15 +58,16 @@ int fifo_mem_free(unsigned char *mem, unsigned int byte)
 int tx_fifo_in(txfifo_t *fifo,  tx_msg_t *msg )
 {
 	int ret;
-	unsigned int unitLen;
+	unsigned int unitLen,rd;
 	unsigned char *p;
 	t_msg_hdr_t *hdr = &(msg->hdr);
 	unitLen = TX_MSG_UNIT_LEN(hdr);
-	if(fifo->WT >= fifo->RD)
+	rd = fifo->RD;
+	if(fifo->WT >= rd)
 	{
 		if( unitLen > (fifo->size - fifo->WT) )
 		{
-			if( (unitLen+sizeof(tx_big_hdr_t)) > fifo->RD  )
+			if( (unitLen+sizeof(tx_big_hdr_t)) > rd  )
 			{
 				ret = TX_FIFO_FULL;
 				goto out;
@@ -79,13 +80,12 @@ int tx_fifo_in(txfifo_t *fifo,  tx_msg_t *msg )
 	}
 	else
 	{
-		if( (unitLen + sizeof(tx_big_hdr_t) > (fifo->RD - fifo->WT) ))
+		if( (unitLen + sizeof(tx_big_hdr_t) > (rd - fifo->WT) ))
 		{
 			ret = TX_FIFO_FULL;
 			goto out;
 		}
-	}	
-
+	}
 	hdr = (t_msg_hdr_t *)(fifo->mem + fifo->WT);
 	memcpy((unsigned char *)hdr,  (unsigned char *)(&(msg->hdr)),  sizeof(t_msg_hdr_t) );
 	p = (unsigned char *)hdr + TX_MSG_HEAD_FILED(hdr);
@@ -93,12 +93,20 @@ int tx_fifo_in(txfifo_t *fifo,  tx_msg_t *msg )
 	{
 		memcpy(p, (unsigned char *)(msg->slice[0].data),  msg->hdr.len );
 	}
-	fifo->WT = fifo->WT + unitLen;
-	fifo->wt_cnt++;
-	if(HOST_SC2331_CMD == hdr->type)
+	if(HOST_SC2331_PKT == hdr->type)
+	{
+		memcpy( (char *)(hdr+1), (char *)(&(fifo->seq1)), 4 );
+		fifo->seq1++;
+	}
+	else if(HOST_SC2331_CMD == hdr->type)
 	{
 		printkp("[CMD_IN][%s]\n", get_cmd_name(hdr->subtype) );
 	}
+	else
+	{}
+	fifo->wt_cnt++;
+	fifo->WT = fifo->WT + unitLen;
+	
 	ret = OK;
 out:
 	return ret;
@@ -106,18 +114,19 @@ out:
 
 int tx_fifo_out(const unsigned char netif_id, const unsigned chn, txfifo_t *fifo, P_FUNC_1 pfunc , unsigned short *count )
 {
-	unsigned int len,num;
+	unsigned int len,num,wt,seq;
 	unsigned char *readTo, *readFrom, *readMax;
 	t_msg_hdr_t *hdr;
 	tx_big_hdr_t  *big_hdr;	
 	int ret = ERROR;
 	
 restart:
-	if(fifo->RD == fifo->WT )
+	wt = fifo->WT;
+	if(fifo->RD == wt )
 	{
 		readMax = fifo->mem + fifo->LASTWT;
 	}
-	else if(fifo->WT < fifo->RD)
+	else if(wt < fifo->RD)
 	{
 		if(fifo->RD == fifo->LASTWT)
 		{
@@ -134,9 +143,9 @@ restart:
 	}
 	else
 	{
-		readMax = fifo->mem + fifo->WT;
+		readMax = fifo->mem + wt;
 	}
-
+	
 	readTo = fifo->mem + fifo->RD;
 	readFrom = readTo - sizeof(tx_big_hdr_t);
 	big_hdr = (tx_big_hdr_t  *)(readFrom);
@@ -153,14 +162,24 @@ restart:
 		len = len + TX_MSG_UNIT_LEN(hdr);
 		if( len >= fifo->cp2_txRam )
 			break;
-		if(HOST_SC2331_CMD == hdr->type)
-		{
-			printkp("[CMD_OUT][%s]\n", get_cmd_name(hdr->subtype) );
-		}
 		if( (hdr->type > 2) || (hdr->subtype > 47) )
 		{
 			ASSERT();
+			break;
 		}
+		if(HOST_SC2331_PKT == hdr->type)
+		{
+			memcpy((char *)(&seq), (char *)(hdr + 1),  4);
+			if(seq != fifo->seq2)
+				ASSERT();
+			fifo->seq2++;
+		}
+		else if(HOST_SC2331_CMD == hdr->type)
+		{
+			printkp("[CMD_OUT][%s]\n", get_cmd_name(hdr->subtype) );
+		}
+		else
+		{}
 		memcpy( (unsigned char *)(&(big_hdr->msg[num])), readTo, sizeof(t_msg_hdr_t));
 		big_hdr->msg_num++;
 		hdr = TX_MSG_NEXT_MSG(hdr);
@@ -186,7 +205,7 @@ restart:
 		ASSERT();
 		ret = -5;
 	}
-	if( (fifo->RD  >  fifo->WT) &&  ( (readMax - readTo) < sizeof(t_msg_hdr_t) )  )
+	if( (fifo->RD  >  wt) &&  ( (readMax - readTo) < sizeof(t_msg_hdr_t) )  )
 	{
 		fifo->RD = 0;
 		fifo->rd_cnt = fifo->rd_cnt + num; 
