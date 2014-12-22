@@ -858,10 +858,8 @@ first_try:
 
 		if (unlikely(ret < 0)) {
 			/* nop */
-		} else if (unlikely(wait_for_completion_interruptible(&done))) {
-			ret = -EINTR;
-			usb_ep_dequeue(ep->ep, req);
-		} else {
+		} else  {
+			wait_for_completion(&done);
 			ret = ep->status;
 			if (read && ret > 0){
 				ret = min_t(size_t, ret, len);
