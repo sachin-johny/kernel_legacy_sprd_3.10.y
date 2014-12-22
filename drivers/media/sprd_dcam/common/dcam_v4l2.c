@@ -2262,6 +2262,7 @@ LOCAL int v4l2_try_fmt_vid_cap(struct file *file,
 		return -EINVAL;
 	}
 
+	memcpy((void*)&f->fmt.pix.field, (void*)&dev->dcam_cxt.dcam_path[channel_id].end_sel, sizeof(struct dcam_endian_sel));
 	if ((0 == ret) && (0 != atomic_read(&dev->stream_on))) {
 		if (DCAM_PATH1 == channel_id)
 			ret = sprd_v4l2_update_video(file, channel_id);
@@ -2382,7 +2383,6 @@ LOCAL int v4l2_dqbuf(struct file *file,
 		p->length = path->frm_id_base;
 		p->memory = path->fourcc;
 		DCAM_TRACE("index %d real_index %d frm_id_base %d fmr_index %d \n", node.index, p->field, path->frm_id_base, fmr_index);
-		memcpy((void*)&p->bytesused, (void*)&path->end_sel, sizeof(struct dcam_endian_sel));
 	} else {
 		if (p->flags == V4L2_TIMEOUT)
 			sprd_v4l2_print_reg();

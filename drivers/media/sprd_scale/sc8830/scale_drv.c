@@ -447,9 +447,12 @@ int scale_k_frame_cfg(struct scale_frame_param_t *cfg_ptr, struct scale_path_inf
 		rtn = -1;
 		goto cfg_exit;
 	} else {
+		cfg_ptr->input_endian.uv_endian = cfg_ptr->input_endian.y_endian;
 		dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT | SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
 		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_Y_ENDIAN_MASK, cfg_ptr->input_endian.y_endian, DCAM_ENDIAN_REG);
 		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_INPUT_UV_ENDIAN_MASK, (cfg_ptr->input_endian.uv_endian << 2), DCAM_ENDIAN_REG);
+		SCALE_TRACE("scale_k_io_cfg: output_endian {%d %d} 0x%x \n",
+					cfg_ptr->input_endian.y_endian, cfg_ptr->input_endian.uv_endian, REG_RD(SCALE_ENDIAN_SEL));
 	}
 
 	SCALE_TRACE("scale_k_io_cfg: output_size {%d %d} \n",
@@ -519,6 +522,7 @@ int scale_k_frame_cfg(struct scale_frame_param_t *cfg_ptr, struct scale_path_inf
 		rtn = -1;
 		goto cfg_exit;
 	} else {
+		cfg_ptr->output_endian.uv_endian = cfg_ptr->output_endian.y_endian;
 		dcam_glb_reg_owr(SCALE_ENDIAN_SEL,(SCALE_AXI_RD_ENDIAN_BIT|SCALE_AXI_WR_ENDIAN_BIT), DCAM_ENDIAN_REG);
 		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_Y_ENDIAN_MASK, (cfg_ptr->output_endian.y_endian << 10), DCAM_ENDIAN_REG);
 		dcam_glb_reg_mwr(SCALE_ENDIAN_SEL, SCALE_OUTPUT_UV_ENDIAN_MASK, (cfg_ptr->output_endian.uv_endian<< 12), DCAM_ENDIAN_REG);
