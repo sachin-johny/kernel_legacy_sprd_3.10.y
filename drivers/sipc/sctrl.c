@@ -74,8 +74,8 @@ void sctrl_timer_func(unsigned long arg)
 static int sctrl_thread(void *data)
 {
     struct sctrl_mgr *strcl_mgr_ptr= data;
-    struct smsg mcmd, mrecv;
-    int rval, bufid;
+    struct smsg mrecv;
+    int rval;
     struct sched_param param = {.sched_priority = 90};
 
     /*set the thread as a real time thread, and its priority is 90*/
@@ -178,7 +178,7 @@ void sctrl_send_request(uint32_t type, uint32_t target_id, uint32_t value)
 int sctrl_create(uint8_t dst, uint8_t channel, uint32_t bufnum)
 {
     struct sctrl_mgr *strcl_mgr_ptr;
-    int hsize, i, result;
+    int result;
 
     strcl_mgr_ptr = kzalloc(sizeof(struct sctrl_mgr), GFP_KERNEL);
     if (!strcl_mgr_ptr) {
@@ -196,7 +196,7 @@ int sctrl_create(uint8_t dst, uint8_t channel, uint32_t bufnum)
             kfree(strcl_mgr_ptr);
             return result;
     }
-    printk(KERN_ERR " strcl_mgr_ptr create strcl_mgr_ptr->thread %x\n", strcl_mgr_ptr->thread);
+    printk(KERN_ERR " strcl_mgr_ptr create strcl_mgr_ptr->thread %p\n", strcl_mgr_ptr->thread);
     wake_up_process(strcl_mgr_ptr->thread);
     return 0;
 }
@@ -327,7 +327,7 @@ static ssize_t smsg_assert_trigger_store(struct device *dev,
                 struct device_attribute *attr, const char *buf, size_t size)
 {
     uint8_t value;
-    if (sscanf(buf, "%d", &value) == 1) {
+    if (sscanf(buf, "%d", (int *)&value) == 1) {
          assert_trigger_state = value;
          return size;
     }
