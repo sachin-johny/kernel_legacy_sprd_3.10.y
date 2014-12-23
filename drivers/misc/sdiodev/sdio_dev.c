@@ -167,7 +167,7 @@ void gpio_timer_handler(unsigned long data)
 	{
 		sleep_para.gpio_opt_tag = 1;
 		mod_timer(&(sleep_para.gpio_timer),\
-			jiffies + msecs_to_jiffies(1000));
+			jiffies + msecs_to_jiffies(300));//   250<300<2000-1500
 		SDIOTRAN_ERR("ack high");
 	}
 	else
@@ -964,7 +964,7 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		{
 			SDIOTRAN_DEBUG("ENTRY bt irq!!!");
 			marlin_bt_wake_flag = 1;
-			wake_lock_timeout(&BT_AP_wakelock, HZ*5);    //wsh
+			wake_lock_timeout(&BT_AP_wakelock, HZ*2);    //wsh
 		}
 
 	}
@@ -974,7 +974,7 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	//schedule_work(&marlinack_wq);
 	if(gpio_wake_status)
 	{
-		wake_lock_timeout(&marlinpub_wakelock, HZ*2); 
+		wake_lock_timeout(&marlinpub_wakelock, HZ*1); 
 		if(sleep_para.gpioreq_need_pulldown)
 		{
 			SDIOTRAN_DEBUG("ENTRY sdio irq!!!");
@@ -1130,7 +1130,7 @@ static void sdio_init_timer(void)
 {
 	init_timer(&sleep_para.gpio_timer);
 	sleep_para.gpio_timer.function = gpio_timer_handler;
-	sleep_para.marlin_waketime = 3000;
+	sleep_para.marlin_waketime = 1500;
 	sleep_para.gpio_opt_tag = 0;
 	sleep_para.gpioreq_need_pulldown = 1;
 }
