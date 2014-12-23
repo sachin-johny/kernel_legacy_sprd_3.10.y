@@ -123,7 +123,15 @@ extern   "C"
 //GSP DDR access relative
 //#define SPRD_AONAPB_PHYS		0X402E0000
 #define GSP_EMC_MATRIX_BASE		(REG_AON_APB_APB_EB1) // GSP access DDR through matrix to AXI, must enable gsp-gate on this matrix
+
+
+#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
+#define GSP_EMC_MATRIX_BIT		(BIT_GSP_EMC_EB) // [13] gsp-gate bit on matrix , EMC is DDR controller, should always enabled
+#else
 #define GSP_EMC_MATRIX_BIT		(BIT_DISP_EMC_EB) // [11] gsp-gate bit on matrix , EMC is DDR controller, should always enabled
+#endif
+
+#define GSP_CLK_SEL_BIT_MASK		(0x3)
 
 //GSP inner work loggy clock ctl
 //#define SPRD_APBCKG_PHYS		0X71200000
@@ -308,6 +316,16 @@ GSP_CORE_GREQ;
 #define GSP_Ld_ADDR_SET(addr)\
     *(volatile GSP_DATA_ADDR_T*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_des_y_addr_u) = (addr)
 
+#define GSP_L0_ADDRY_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_y_addr_u.dwValue)
+#define GSP_L0_ADDRUV_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_uv_addr_u.dwValue)
+#define GSP_L0_ADDRVA_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_va_addr_u.dwValue)
+#define GSP_L1_ADDRY_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_y_addr_u.dwValue)
+#define GSP_L1_ADDRUV_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_uv_addr_u.dwValue)
+#define GSP_L1_ADDRVA_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_layer1_va_addr_u.dwValue)
+#define GSP_Ld_ADDRY_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_des_y_addr_u.dwValue)
+#define GSP_Ld_ADDRUV_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_des_uv_addr_u.dwValue)
+#define GSP_Ld_ADDRVA_GET()    (((GSP_REG_T*)GSP_REG_BASE)->gsp_des_v_addr_u.dwValue)
+
 #define GSP_L0_PITCH_GET()  (*(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u))
 #define GSP_L0_PITCH_SET(pitch)\
     *(volatile uint32_t*)(&((GSP_REG_T*)GSP_REG_BASE)->gsp_layer0_pitch_u) = (pitch)
@@ -458,6 +476,7 @@ GSP_CORE_GREQ;
     ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.gsp_run = 1
 
 #define GSP_L0_ENABLE_GET()     (((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.l0_en)
+#define GSP_L1_ENABLE_GET()     (((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.l1_en)
 
 #define GSP_CFG_L1_PARAM(param)\
     *(volatile GSP_LAYER1_REG_T *)GSP_L1_BASE = (param)
@@ -469,15 +488,15 @@ GSP_CORE_GREQ;
     **                         Function Propertype                                *
     **---------------------------------------------------------------------------*/
 
-    PUBLIC void GSP_Init(void);
+    PUBLIC int GSP_Init(void);
     PUBLIC void GSP_Deinit(void);
     PUBLIC void GSP_ConfigLayer(GSP_MODULE_ID_E layer_id);
     PUBLIC uint32_t GSP_Trigger(void);
     PUBLIC void GSP_Wait_Finish(void);
     PUBLIC void GSP_module_enable(void);
     PUBLIC void GSP_module_disable(void);
-
-
+    PUBLIC int GSP_ClocksCheckPhase0(void);
+    PUBLIC int GSP_ClocksCheckPhase1(void);
 
 #ifdef __cplusplus
 }

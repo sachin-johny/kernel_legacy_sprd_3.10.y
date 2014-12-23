@@ -182,6 +182,7 @@ extern   "C"
         GSP_KERNEL_FORCE_EXIT = 0x8E,//not an err
         GSP_KERNEL_CTL_CMD_ERR = 0x8F,//not an err
         GSP_KERNEL_ADDR_MAP_ERR = 0x90,//iommu map err
+        GSP_KERNEL_CLOCK_ERR = 0x91,//gsp relative clock check failed
         /*GSP kernel driver defined err code, end*/
 		
 		/*GSP HAL defined err code, start*/

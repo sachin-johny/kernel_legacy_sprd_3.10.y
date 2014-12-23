@@ -1531,14 +1531,14 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
         }
 
     //ret = down_interruptible(&gsp_wait_interrupt_sem);//interrupt lose
-        ret = down_timeout(&gsp_wait_interrupt_sem,30);//for interrupt lose, timeout return -ETIME,
+        ret = down_timeout(&gsp_wait_interrupt_sem,msecs_to_jiffies(500));//for interrupt lose, timeout return -ETIME,
     if (ret == 0)//gsp process over
     {
         GSP_TRACE("%s:pid:0x%08x, wait done sema success, L%d \n",__func__,pUserdata->pid,__LINE__);
     }
     else if (ret == -ETIME)
     {
-            printk("%s:pid:0x%08x, wait done sema 30-jiffies-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
+            printk("%s:pid:0x%08x, wait done sema 500-ms-timeout,it's abnormal!!!!!!!! L%d \n",__func__,pUserdata->pid,__LINE__);
             ret = GSP_KERNEL_WORKAROUND_WAITDONE_TIMEOUT;
     }
     else if (ret)// == -EINTR
@@ -1577,14 +1577,14 @@ static int32_t GSP_work_around1(gsp_user* pUserdata)
             }
 
             //ret = down_interruptible(&gsp_wait_interrupt_sem);//interrupt lose
-            ret = down_timeout(&gsp_wait_interrupt_sem,30);//for interrupt lose, timeout return -ETIME,
+            ret = down_timeout(&gsp_wait_interrupt_sem,msecs_to_jiffies(500));//for interrupt lose, timeout return -ETIME,
             if (ret == 0)//gsp process over
             {
                 GSP_TRACE("%s%d:pid:0x%08x, wait done sema success \n",__func__,__LINE__,pUserdata->pid);
             }
             else if (ret == -ETIME)
             {
-                printk("%s%d:pid:0x%08x, wait done sema 30-jiffies-timeout,it's abnormal!!\n",__func__,__LINE__,pUserdata->pid);
+                printk("%s%d:pid:0x%08x, wait done sema 500-ms-timeout,it's abnormal!!\n",__func__,__LINE__,pUserdata->pid);
                 printk("%s%d:EMC_MATRIX:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
                        (uint32_t)(GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT),
                        ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
@@ -2246,7 +2246,6 @@ static long gsp_drv_ioctl(struct file *file,
         case GSP_IO_GET_CAPABILITY:
             if (param_size>=sizeof(GSP_CAPABILITY_T)) {
                 volatile GSP_CAPABILITY_T *cap=GSP_Config_Capability();
-
                 ret=copy_to_user((void __user *)arg,(volatile void*)cap,sizeof(GSP_CAPABILITY_T));
                 if(ret) {
                     printk("%s[%d] err:get gsp capability failed in copy_to_user !\n",__func__,__LINE__);
@@ -2324,7 +2323,10 @@ static long gsp_drv_ioctl(struct file *file,
                 else
                 {
                     GSP_TRACE("%s:pid:0x%08x, copy_params_from_user success!, L%d \n",__func__,pUserdata->pid,__LINE__);
-                    GSP_Init();
+                    ret = GSP_Init();
+                    if(ret) {
+                        goto exit1;
+                    }
 
                     // if the y u v address is virtual, should be converted to phy address here!!!
                     if(s_gsp_cfg.layer0_info.layer_en == 1)
@@ -2456,7 +2458,7 @@ static long gsp_drv_ioctl(struct file *file,
             {
                 GSP_TRACE("%s:pid:0x%08x, bf wait done sema, L%d \n",__func__,pUserdata->pid,__LINE__);
                 //ret = down_interruptible(&gsp_wait_interrupt_sem);//interrupt lose
-                ret = down_timeout(&gsp_wait_interrupt_sem,60);//for interrupt lose, timeout return -ETIME,
+                ret = down_timeout(&gsp_wait_interrupt_sem,msecs_to_jiffies(500));//for interrupt lose, timeout return -ETIME,
                 if (ret == 0)//gsp process over
                 {
                     if(gsp_perf == PERF_MAGIC)
@@ -2480,9 +2482,11 @@ static long gsp_drv_ioctl(struct file *file,
                 }
                 else if (ret == -ETIME)
                 {
-                printk("%s%d:pid:0x%08x, wait done sema 60-jiffies-timeout,it's abnormal!!!!!!!! \n",__func__,__LINE__,pUserdata->pid);
-                printk("%s%d:EMC_MATRIX:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
+                printk("%s%d:pid:0x%08x, wait done sema 500-ms-timeout,it's abnormal!!!!!!!! \n",__func__,__LINE__,pUserdata->pid);
+                printk("%s%d:GSP_EN:0x%08x,EMC_MATRIX:0x%08x,IOMMU:0x%08x,GSP_GAP:0x%08x,GSP_CLOCK:0x%08x,GSP_AUTO_GATE:0x%08x\n",__func__,__LINE__,
+                       (uint32_t)(GSP_REG_READ(GSP_MOD_EN)&GSP_MOD_EN_BIT),
                        (uint32_t)(GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT),
+                       GSP_REG_READ(GSP_MMU_CTRL_BASE),
                        ((volatile GSP_REG_T*)GSP_REG_BASE)->gsp_cfg_u.mBits.dist_rb,
                        GSP_REG_READ(GSP_CLOCK_BASE)&0x3,
                        (uint32_t)(GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT));

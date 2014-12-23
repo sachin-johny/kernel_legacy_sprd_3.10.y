@@ -170,8 +170,77 @@ PUBLIC void GSP_module_disable(void)
 	}
 }
 
+/*
+func:GSP_ClocksCheckPhase0
+desc: check all clock except iommu
+*/
+PUBLIC int GSP_ClocksCheckPhase0(void)
+{
+    int ret = 0;
 
-PUBLIC void GSP_Init(void)
+    //check GSP enable
+    if(0==(GSP_REG_READ(GSP_MOD_EN)&GSP_MOD_EN_BIT)) {
+        printk(KERN_ERR "%s: err: gsp enable is not set!%lx:%08x\n",__FUNCTION__,
+               (ulong)GSP_MOD_EN,GSP_REG_READ(GSP_MOD_EN));
+        ret++;
+    }
+
+    //check GSP clock select
+    if(GSP_CLK_SEL_BIT_MASK!=(GSP_REG_READ(GSP_CLOCK_BASE)&GSP_CLK_SEL_BIT_MASK)) {
+        printk(KERN_INFO "%s: info: gsp clock select is not set to hightest freq!%lx:%08x\n",__FUNCTION__,
+               (ulong)GSP_CLOCK_BASE,GSP_REG_READ(GSP_CLOCK_BASE));
+    }
+
+    //check GSP AUTO_GATE clock
+    if(0==(GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE)&GSP_AUTO_GATE_ENABLE_BIT)) {
+        printk(KERN_ERR "%s: err: gsp auto gate clock is not enable!%lx:%08x\n",__FUNCTION__,
+               (ulong)GSP_AUTO_GATE_ENABLE_BASE,GSP_REG_READ(GSP_AUTO_GATE_ENABLE_BASE));
+        ret++;
+    }
+
+    //check GSP EMC clock
+    if(0==(GSP_REG_READ(GSP_EMC_MATRIX_BASE)&GSP_EMC_MATRIX_BIT)) {
+        printk(KERN_ERR "%s: err: gsp emc clock is not enable!%lx:%08x\n",__FUNCTION__,
+               (ulong)GSP_EMC_MATRIX_BASE,GSP_REG_READ(GSP_EMC_MATRIX_BASE));
+        ret++;
+    }
+    return (ret>0)?GSP_KERNEL_CLOCK_ERR:GSP_NO_ERR;
+}
+
+/*
+func:GSP_ClocksCheckPhase1
+desc: check iommu cfg
+*/
+PUBLIC int GSP_ClocksCheckPhase1(void)
+{
+    int ret = 0;
+    uint32_t ctl_val = GSP_REG_READ(GSP_MMU_CTRL_BASE);
+    uint32_t addr_y0 = GSP_L0_ADDRY_GET();
+    uint32_t addr_uv0 = GSP_L0_ADDRUV_GET();
+    uint32_t addr_va0 = GSP_L0_ADDRVA_GET();
+    uint32_t addr_y1 = GSP_L1_ADDRY_GET();
+    uint32_t addr_uv1 = GSP_L1_ADDRUV_GET();
+    uint32_t addr_va1 = GSP_L1_ADDRVA_GET();
+    uint32_t addr_yd = GSP_Ld_ADDRY_GET();
+    uint32_t addr_uvd = GSP_Ld_ADDRUV_GET();
+    uint32_t addr_vad = GSP_Ld_ADDRVA_GET();
+
+#define IOVA_CHECK(addr)    (0x10000000<= (addr) && (addr) < 0x80000000)
+
+    //check GSP IOMMU ENABLE
+    if(((ctl_val & 0x1)==0 || (ctl_val & 0xF0000000)==0)/*IOMMU be disabled*/
+       &&(((GSP_L0_ENABLE_GET() == 1) && (IOVA_CHECK(addr_y0) || IOVA_CHECK(addr_uv0) || IOVA_CHECK(addr_va0)))/*L0 is enabled and use iova*/
+          ||((GSP_L1_ENABLE_GET() == 1) && (IOVA_CHECK(addr_y1) || IOVA_CHECK(addr_uv1) || IOVA_CHECK(addr_va1)))/*L1 is enabled and use iova*/
+          ||((GSP_L0_ENABLE_GET() == 1 ||GSP_L1_ENABLE_GET() == 1 ) && (IOVA_CHECK(addr_yd) || IOVA_CHECK(addr_uvd) || IOVA_CHECK(addr_vad))))) {
+        printk(KERN_ERR "%s: err: gsp iommu is not enable or iova base is null!%lx:%08x\n",__FUNCTION__,
+               (ulong)GSP_MMU_CTRL_BASE,GSP_REG_READ(GSP_MMU_CTRL_BASE));
+        ret++;
+    }
+    return (ret>0)?GSP_KERNEL_CLOCK_ERR:GSP_NO_ERR;
+}
+
+
+PUBLIC int GSP_Init(void)
 {
     int ret = 0;
 #ifdef CONFIG_OF
@@ -181,7 +250,7 @@ PUBLIC void GSP_Init(void)
 #endif
     if(ret) {
         printk(KERN_ERR "%s: enable emc clock failed!\n",__FUNCTION__);
-        return;
+        return GSP_KERNEL_CLOCK_ERR;
     } else {
         pr_debug(KERN_INFO "%s: enable emc clock ok!\n",__FUNCTION__);
     }
@@ -193,6 +262,9 @@ PUBLIC void GSP_Init(void)
 #endif
 
     GSP_IRQMODE_SET(GSP_IRQ_MODE_LEVEL);
+
+    ret = GSP_ClocksCheckPhase0();
+    return ret;
 }
 PUBLIC void GSP_Deinit(void)
 {
@@ -229,18 +301,18 @@ PUBLIC void GSP_ConfigLayer(GSP_MODULE_ID_E layer_id)
 
 PUBLIC void GSP_Wait_Finish(void)
 {
-    while(1)
-    {
-        if(GSP_WORKSTATUS_GET() == 0)
-        {
-            break;
-        }
+    if(GSP_WORKSTATUS_GET() != 0) {
+        printk(KERN_ERR "%s: err:busy is still on!!!!\n",__FUNCTION__);
     }
 }
 
-
 PUBLIC uint32_t GSP_Trigger(void)
 {
+    int ret = GSP_ClocksCheckPhase1();
+    if(ret) {
+        return ret;
+    }
+
     if(GSP_ERRFLAG_GET())
     {
         //GSP_ASSERT();
