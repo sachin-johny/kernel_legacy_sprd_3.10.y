@@ -202,7 +202,7 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		}
 		sleep_para.gpioreq_need_pulldown = 1;
 		gpio_direction_output(GPIO_AP_TO_MARLIN,1);		
-		SDIOTRAN_ERR("pull up gpio 57");
+		SDIOTRAN_ERR("pull up gpio %d",GPIO_AP_TO_MARLIN);
 		//sleep_para.gpioreq_up_time = jiffies;
 		
 		if(user_id == 1)
@@ -230,7 +230,7 @@ int set_marlin_sleep(uint32 chn,uint32 user_id)
 	if(sleep_para.gpioreq_need_pulldown)
 	{
 		gpio_direction_output(GPIO_AP_TO_MARLIN,0);
-		SDIOTRAN_ERR("pull down gpio 57");
+		SDIOTRAN_ERR("pull down gpio %d",GPIO_AP_TO_MARLIN);
 		if(user_id == 1)
 		{	
 			sdio_w_flag = 0;
@@ -460,10 +460,10 @@ int sdio_dev_write(uint32 chn,void* data_buf,uint32 count)
 	if(chn != 0 && chn != 1)
 	{
 		data_len = sdio_dev_get_chn_datalen(chn);
-		if(data_len < count)
+		if(data_len < count || data_len <= 0)
 		{
 			BUG_ON(1);
-			SDIOTRAN_ERR("chn %d, len %d; cnt %d err!!!");
+			SDIOTRAN_ERR("chn %d, len %d, cnt %d, err!!!",chn,data_len,count);
 			return -1;
 		}
 	}
@@ -495,9 +495,9 @@ int  sdio_dev_read(uint32 chn,void* read_buf,uint32 *count)
 	}
 
 	data_len = sdio_dev_get_chn_datalen(chn);
-	if(0 == data_len)
+	if(data_len <= 0)
 	{
-		SDIOTRAN_ERR("no data!!!");		
+		SDIOTRAN_ERR("chn %d,datelen %d err!!!",chn,data_len);
 		return -1;
 	}
 
@@ -595,8 +595,8 @@ void invalid_recv_flush(uint32 chn)
 	}
 
 	len = sdio_dev_get_chn_datalen(chn);	
-	if(0 == len){
-		SDIOTRAN_ERR("len is 0!!");
+	if(len <= 0){
+		SDIOTRAN_ERR("chn %d, len err %d!!",chn,len);
 		return;
 	}
 	SDIOTRAN_ERR("NO VALID DATA! CHN %d FLUSH! DATALEN %d!",chn,len);	
@@ -1070,7 +1070,7 @@ static void marlin_wake_intr_uninit(void)
 static void sdio_tran_sync(void)
 {
 
-	uint32 datalen,i,j;
+	int datalen,i,j;
 
 	SDIOTRAN_ERR("entry");
 
@@ -1085,7 +1085,7 @@ static void sdio_tran_sync(void)
 	while(1)
 	{
 		datalen = sdio_dev_get_chn_datalen(SDIO_SYNC_CHN);
-		if(datalen)
+		if(datalen > 0)
 		{
 			SDIOTRAN_ERR("channel %d len is =%d!!!",SDIO_SYNC_CHN,datalen);
 			break;
