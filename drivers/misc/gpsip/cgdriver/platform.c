@@ -360,6 +360,13 @@ static void CgxDriverRFInit(void)
 	gps_spi_write_bytes(1, 0x80*4, value);
 	gps_spi_read_bytes(1, 0x81*4, &value);
 	printk("rf 0x077b0112:0x%x\n",value);
+
+	/*for config gps_32k no pull up and no pull down because of leakage*/
+	gps_spi_sysreg_read_bytes(1,0x1eb,&value);
+	value &= ~(1<<6);
+	gps_spi_sysreg_write_bytes(1,0x1eb,value );
+	gps_spi_sysreg_read_bytes(1,0x1eb,&value);
+	printk("gps32k 0xleb:0x%x\n",value);
 }
 
 void gps_gpio_request(void)
