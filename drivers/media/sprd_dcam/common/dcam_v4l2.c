@@ -1150,10 +1150,6 @@ LOCAL int sprd_v4l2_tx_done(struct dcam_frame *frame, void* param)
 	if (NULL == frame || NULL == param || 0 == atomic_read(&dev->stream_on))
 		return -EINVAL;
 
-	if (0 == dev->dcam_cxt.capture_mode) {/*single-frame sample mode*/
-		dev->dcam_cxt.flash_status = FLASH_CLOSE_AFTER_OPEN;
-		sprd_v4l2_start_flash(frame, param);
-	}
 	atomic_set(&dev->run_flag, 1);
 
 	memset((void*)&node, 0, sizeof(struct dcam_node));
@@ -1756,6 +1752,11 @@ LOCAL int v4l2_s_parm(struct file *file,
 		mutex_lock(&dev->dcam_mutex);
 		dev->dcam_cxt.flash_status = streamparm->parm.capture.reserved[0];
 		mutex_unlock(&dev->dcam_mutex);
+		if ((dev->dcam_cxt.flash_status == FLASH_CLOSE_AFTER_OPEN)
+			|| (dev->dcam_cxt.flash_status == FLASH_CLOSE)
+			|| (dev->dcam_cxt.flash_status == FLASH_CLOSE_AFTER_AUTOFOCUS)) {
+			up(&dev->flash_thread_sem);
+		}
 		DCAM_TRACE("V4L2: s_parm, status %d \n", dev->dcam_cxt.flash_status);
 		break;
 
