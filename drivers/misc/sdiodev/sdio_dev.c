@@ -1279,16 +1279,8 @@ static void* sdio_dev_get_host(void)
 	}
 
 	host = platform_get_drvdata(pdev);	
-	if(host->mmc != NULL)
-	{		
-		return host->mmc;
-	}
-	else
-	{
-		SDIOTRAN_ERR("sdio dev get host failed!!!");
-		return NULL;
+	return container_of(host, struct mmc_host, private);
 
-	}
 		
 }
 

@@ -31,7 +31,6 @@
 #include <linux/mmc/card.h>
 #include <linux/mmc/sdio.h>
 #include <linux/mmc/sdio_func.h>
-#include <linux/mmc/sdhci.h>
 #include <mach/gpio.h>
 #include <linux/slab.h>
 #include <linux/delay.h>
