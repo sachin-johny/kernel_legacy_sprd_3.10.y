@@ -87,7 +87,7 @@
 
 #ifdef SETH_NAPI
 #define SETH_NAPI_WEIGHT 64
-#define SETH_NAPI_FIFO_DEPTH 256
+#define SETH_NAPI_FIFO_DEPTH 1024
 #define SETH_TX_WEIGHT 16
 
 struct seth_rx_fifo {
