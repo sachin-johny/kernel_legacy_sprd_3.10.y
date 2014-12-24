@@ -51,6 +51,7 @@ asynchronous and synchronous parts of the kernel.
 #include <linux/async.h>
 #include <linux/atomic.h>
 #include <linux/ktime.h>
+#include <linux/mm.h>
 #include <linux/export.h>
 #include <linux/wait.h>
 #include <linux/sched.h>
@@ -159,6 +160,13 @@ static async_cookie_t __async_schedule(async_func_t func, void *data, struct asy
 	 * pending already, we execute synchronously.
 	 */
 	if (!entry || atomic_read(&entry_count) > MAX_WORK) {
+		if(!entry) {
+			pr_emerg("%s:kzalloc failed due to out of memory\n", __func__);
+			show_mem(0);
+		} else {
+			pr_emerg("%s:there's too much work pending\n", __func__);
+		}
+		BUG();
 		kfree(entry);
 		spin_lock_irqsave(&async_lock, flags);
 		newcookie = next_cookie++;
