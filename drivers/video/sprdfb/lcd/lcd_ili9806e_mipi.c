@@ -564,12 +564,18 @@ static uint32_t ili9806e_check_esd(struct panel_spec *self)
 	}
 }
 
+static uint32_t ili9806e_mipi_after_suspend(struct panel_spec *self)
+{
+	return 0;
+}
 
 static struct panel_operations lcd_ili9806e_mipi_operations = {
 	.panel_init = ili9806e_mipi_init,
 	.panel_readid = ili9806e_readid,
 	.panel_enter_sleep = ili9806e_enter_sleep,
 	.panel_esd_check = ili9806e_check_esd,
+	.panel_after_suspend = ili9806e_mipi_after_suspend,
+
 };
 
 static struct timing_rgb lcd_ili9806e_mipi_timing = {
