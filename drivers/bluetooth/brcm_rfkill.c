@@ -24,6 +24,7 @@
 #include <mach/board.h>
 #include <linux/of_gpio.h>
 
+#include <mach/pin_switch.h>
 
 static struct rfkill *bt_rfk;
 static const char bt_name[] = "bluetooth";
@@ -94,11 +95,16 @@ static int bluetooth_set_power(void *data, bool blocked)
 		gpio_direction_output(bt_power, 1);
 		gpio_direction_output(bt_reset, 1);
 		mdelay(150);
+                pinmap_set(0x118,0x000be002);  //set IIS0CLK to function 0
+		pinmap_set(0x11c,0x000be002);  //set IIS0LRCK to function 0
                // bt_clk_init();
 	} else {
  		gpio_direction_output(bt_power, 0);
 		gpio_direction_output(bt_reset, 0);
 		mdelay(10);
+                pinmap_set(0x118,0x000be032); //set IIS0CLK to GPIO function 3 in order to prevent leakage
+		pinmap_set(0x11c,0x000be032); //set IIS0LRCK to GPIO function 3 in order to prevent leakage
+
 	}
 	printk("%s: end_block=%d\n",__func__, blocked);
 	return 0;
