@@ -4026,7 +4026,7 @@ static int sprd_codec_write(struct snd_soc_codec *codec, unsigned int reg,
         struct sprd_codec_priv *sprd_codec =
             snd_soc_codec_get_drvdata(codec);
         int id = GET_SWITCH_ID(FUN_REG(reg));
-        struct sprd_codec_mixer *switcher = &(sprd_codec->switcher[id]);
+        struct sprd_codec_switch_op *switcher = &(sprd_codec->switcher[id]);
         switcher->on = val ? 1 : 0;
     } else
         sp_asoc_pr_dbg("write the register is not codec's reg = 0x%x\n",
