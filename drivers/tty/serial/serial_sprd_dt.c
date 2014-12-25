@@ -351,6 +351,8 @@ static int serial_sprd_startup(struct uart_port *port)
 {
 	int ret = 0;
 	unsigned int ien, ctrl1;
+	int rx_count = 130;
+	int tx_count = 130;
 
 	/* FIXME: don't know who change u0cts pin in 88 */
 	serial_sprd_pin_config();
@@ -364,9 +366,20 @@ static int serial_sprd_startup(struct uart_port *port)
 	/* clear rx fifo */
 	while (serial_in(port, ARM_UART_STS1) & 0x00ff) {
 		serial_in(port, ARM_UART_RXD);
+		if(!(rx_count)){
+			printk("serial_sprd_startup rx\n");
+			return -EIO;			
+		}
+		rx_count --;
 	}
 	/* clear tx fifo */
-	while (serial_in(port, ARM_UART_STS1) & 0xff00) ;
+	while (serial_in(port, ARM_UART_STS1) & 0xff00){
+		if(!(tx_count)){
+			printk("serial_sprd_startup tx\n");
+			return -EIO;
+		}
+		tx_count --;
+	}
 	/* clear interrupt */
 	serial_out(port, ARM_UART_IEN, 0x00);
 	serial_out(port, ARM_UART_ICLR, 0xffffffff);
