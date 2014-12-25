@@ -462,7 +462,6 @@ int sdio_dev_write(uint32 chn,void* data_buf,uint32 count)
 		data_len = sdio_dev_get_chn_datalen(chn);
 		if(data_len < count || data_len <= 0)
 		{
-			BUG_ON(1);
 			SDIOTRAN_ERR("chn %d, len %d, cnt %d, err!!!",chn,data_len,count);
 			return -1;
 		}
