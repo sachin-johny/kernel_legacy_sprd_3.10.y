@@ -1329,6 +1329,7 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 	down(&dev->refresh_lock);
 	if(0 == dev->enable){
 		printk("sprdfb: [%s]: do not refresh in suspend!!!\n", __FUNCTION__);
+//		dev->frame_count = 0;
 		goto ERROR_REFRESH;
 	}
 
@@ -1454,6 +1455,7 @@ static int32_t sprdfb_dispc_refresh (struct sprdfb_device *dev)
 	}
 #endif
 
+	dev->frame_count += 1;
 	dispc_run(dev);
 
 #ifdef CONFIG_FB_ESD_SUPPORT
@@ -1524,6 +1526,8 @@ static int32_t sprdfb_dispc_suspend(struct sprdfb_device *dev)
 
 		dispc_stop(dev);
 		dispc_write(0, DISPC_INT_EN);
+
+//		dev->frame_count = 0;
 
 		msleep(50); /*fps>20*/
 
@@ -1966,8 +1970,10 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 	down(&dev->refresh_lock);
 	if(0 == dev->enable){
 		printk("sprdfb: [%s] leave (Invalid device status)!\n", __FUNCTION__);
+//		dev->frame_count = 0;
 		goto ERROR_DISPLAY_OVERLAY;
 	}
+
 	if(SPRDFB_PANEL_IF_DPI != dev->panel_if_type){
 		dispc_ctx.vsync_waiter ++;
 		dispc_sync(dev);
@@ -2018,7 +2024,7 @@ static int32_t sprdfb_dispc_display_overlay(struct sprdfb_device *dev, struct ov
 		}
 	}
 
-
+	dev->frame_count += 1;
 	dispc_run(dev);
 
 	if((SPRD_OVERLAY_DISPLAY_SYNC == setting->display_mode) && (SPRDFB_PANEL_IF_DPI != dev->panel_if_type)){

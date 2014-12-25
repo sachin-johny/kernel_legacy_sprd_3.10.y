@@ -53,6 +53,16 @@ static ssize_t sysfs_rd_current_mipi_clk(struct device *dev,
 static ssize_t sysfs_write_mipi_clk(struct device *dev,
 			struct device_attribute *attr,
 			const char *buf, size_t count);
+static ssize_t sysfs_rd_current_frame_count(struct device *dev,
+		struct device_attribute *attr, char *buf);
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+static ssize_t sysfs_rd_current_esd(struct device *dev,
+		struct device_attribute *attr, char *buf);
+static ssize_t sysfs_write_esd(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count);
+#endif
 
 static DEVICE_ATTR(dynamic_pclk, S_IRUGO | S_IWUSR, sysfs_rd_current_pclk,
 		sysfs_write_pclk);
@@ -60,11 +70,23 @@ static DEVICE_ATTR(dynamic_fps, S_IRUGO | S_IWUSR, sysfs_rd_current_fps,
 		sysfs_write_fps);
 static DEVICE_ATTR(dynamic_mipi_clk, S_IRUGO | S_IWUSR,
 		sysfs_rd_current_mipi_clk, sysfs_write_mipi_clk);
+static DEVICE_ATTR(dynamic_frame_count, S_IRUGO,
+		sysfs_rd_current_frame_count, NULL);
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+static DEVICE_ATTR(dynamic_esd, S_IRUGO | S_IWUSR,
+		sysfs_rd_current_esd, sysfs_write_esd);
+#endif
 
 static struct attribute *sprdfb_fs_attrs[] = {
 	&dev_attr_dynamic_pclk.attr,
 	&dev_attr_dynamic_fps.attr,
 	&dev_attr_dynamic_mipi_clk.attr,
+	&dev_attr_dynamic_frame_count.attr,
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+	&dev_attr_dynamic_esd.attr,
+#endif
 	NULL,
 };
 
@@ -304,6 +326,72 @@ static ssize_t sysfs_write_mipi_clk(struct device *dev,
 
 	return count;
 }
+
+static ssize_t sysfs_rd_current_frame_count(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct sprdfb_device *fb_dev = (struct sprdfb_device *)fbi->par;
+
+	if (!fb_dev) {
+		pr_err("fb_dev can't be found\n");
+		return -ENXIO;
+	}
+	ret = snprintf(buf, PAGE_SIZE,
+			"current frame_count: %lld\n", fb_dev->frame_count);
+
+	return ret;
+}
+
+#ifdef CONFIG_FB_ESD_SUPPORT
+static ssize_t sysfs_rd_current_esd(struct device *dev,
+		struct device_attribute *attr, char *buf)
+{
+	int ret;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct sprdfb_device *fb_dev = (struct sprdfb_device *)fbi->par;
+//	struct attr_info *attr_info = fb_dev->priv1;
+
+	if (!fb_dev) {
+		pr_err("fb_dev can't be found\n");
+		return -ENXIO;
+	}
+	ret = snprintf(buf, PAGE_SIZE,
+			"current esd: %u\n",fb_dev->ESD_work_start);
+
+	return ret;
+}
+
+static ssize_t sysfs_write_esd(struct device *dev,
+			struct device_attribute *attr,
+			const char *buf, size_t count)
+{
+	int ret, esd;
+	struct fb_info *fbi = dev_get_drvdata(dev);
+	struct sprdfb_device *fb_dev = (struct sprdfb_device *)fbi->par;
+//	struct attr_info *attr_info = fb_dev->priv1;
+
+	ret = kstrtoint(buf, 10, &esd);
+
+	esd = (esd == 1) ? 1:0;
+
+	if ((1 == esd) && (fb_dev->enable == 1)) {
+		if (!fb_dev->ESD_work_start) {
+			printk("sprdfb: schedule ESD work queue!\n");
+			schedule_delayed_work(&fb_dev->ESD_work, msecs_to_jiffies(fb_dev->ESD_timeout_val));
+			fb_dev->ESD_work_start = true;
+		}
+	} else {
+		if (fb_dev->ESD_work_start == true) {
+			printk("sprdfb: cancel ESD work queue\n");
+			cancel_delayed_work_sync(&fb_dev->ESD_work);
+			fb_dev->ESD_work_start = false;
+		}
+	}
+	return count;
+}
+#endif
 
 int sprdfb_create_sysfs(struct sprdfb_device *fb_dev)
 {

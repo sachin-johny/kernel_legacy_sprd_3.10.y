@@ -557,7 +557,7 @@ static int sprdfb_probe(struct platform_device *pdev)
 		dev->ctrl = &sprdfb_lcdc_ctrl;
 #endif
 	}
-
+	dev->frame_count = 0;
 	dev->logo_buffer_addr_v = 0;
 
 	if(sprdfb_panel_get(dev)){

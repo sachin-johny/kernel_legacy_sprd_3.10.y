@@ -145,6 +145,7 @@ struct sprdfb_device {
 
 	uint32_t dpi_clock;
 	struct semaphore   refresh_lock;
+	uint64_t frame_count;
 
 #ifdef CONFIG_FB_ESD_SUPPORT
 	struct delayed_work ESD_work;
