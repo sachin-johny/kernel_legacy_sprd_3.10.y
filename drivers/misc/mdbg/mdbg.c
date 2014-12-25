@@ -13,12 +13,12 @@
 #include <linux/poll.h>
 #include <linux/proc_fs.h>
 
-#define MDBG_MAX_BUFFER_LEN (PAGE_SIZE-1)
+#define MDBG_MAX_BUFFER_LEN (PAGE_SIZE)
 
 #define MDBG_WCN_WRITE			(5)
 #define MDBG_CHANNEL_ASSERT			(3)
 #define MDBG_CHANNEL_WDTIRQ			(4)
-#define MDBG_CHANNEL_LOOPCHECK 		(6)
+#define MDBG_CHANNEL_LOOPCHECK 		(15)
 #define MDBG_CHANNEL_AT_CMD			(11)
 
 #define MDBG_WRITE_SIZE 			(64)
@@ -75,6 +75,7 @@ void mdbg_assert_read(void)
 
 	return;
 }
+EXPORT_SYMBOL_GPL(mdbg_assert_read);
 
 void mdbg_wdtirq_read(void)
 {
@@ -93,6 +94,7 @@ void mdbg_wdtirq_read(void)
 
 	return;
 }
+EXPORT_SYMBOL_GPL(mdbg_wdtirq_read);
 
 void mdbg_loopcheck_read(void)
 {
@@ -107,11 +109,13 @@ void mdbg_loopcheck_read(void)
 		MDBG_ERR( "The loopcheck data len:%d, beyond max read:%d",read_len,MDBG_LOOPCHECK_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_LOOPCHECK,mdbg_proc->loopcheck.buf,&read_len);
+	//printk("mdbg_loopcheck_read:%s\n",mdbg_proc->loopcheck.buf);
 	mdbg_proc->loopcheck.rcv_len = read_len;
 	complete(&mdbg_proc->loopcheck.completed);
 
 	return;
 }
+EXPORT_SYMBOL_GPL(mdbg_loopcheck_read);
 
 void mdbg_at_cmd_read(void)
 {
@@ -165,7 +169,7 @@ static ssize_t mdbg_proc_read(struct file *filp,
 	int len = 0;
 	int ret;
 
-	MDBG_ERR("type:%s\n",type);
+	//MDBG_ERR("type:%s\n",type);
 	if (filp->f_flags & O_NONBLOCK) {
 		timeout = 0;
 	}
@@ -173,7 +177,7 @@ static ssize_t mdbg_proc_read(struct file *filp,
 	if(strcmp(type, "assert") == 0) {
 		if (timeout < 0){
 			while(1){
-				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				ret = wait_for_completion_timeout(&mdbg_proc->assert.completed,msecs_to_jiffies(1000));
 				if (ret != -ERESTARTSYS)
 					break;
 			}
@@ -184,13 +188,13 @@ static ssize_t mdbg_proc_read(struct file *filp,
 		}
 		len = mdbg_proc->assert.rcv_len;
 		mdbg_proc->assert.rcv_len = 0;
-		memset(mdbg_proc->loopcheck.buf,0,MDBG_ASSERT_SIZE);
+		memset(mdbg_proc->assert.buf,0,MDBG_ASSERT_SIZE);
 	}
 
 	if(strcmp(type, "wdtirq") == 0) {
 		if (timeout < 0){
 			while(1){
-				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				ret = wait_for_completion_timeout(&mdbg_proc->wdtirq.completed,msecs_to_jiffies(1000));
 				if (ret != -ERESTARTSYS)
 					break;
 			}
@@ -202,13 +206,13 @@ static ssize_t mdbg_proc_read(struct file *filp,
 
 		len = mdbg_proc->wdtirq.rcv_len;
 		mdbg_proc->wdtirq.rcv_len = 0;
-		memset(mdbg_proc->loopcheck.buf,0,MDBG_WDTIRQ_SIZE);
+		memset(mdbg_proc->wdtirq.buf,0,MDBG_WDTIRQ_SIZE);
 	}
 
 	if(strcmp(type, "loopcheck") == 0) {
 		if (timeout < 0){
 			while(1){
-				ret = wait_for_completion_timeout(&mdbg_proc->at_cmd.completed,msecs_to_jiffies(1000));
+				ret = wait_for_completion_timeout(&mdbg_proc->loopcheck.completed,msecs_to_jiffies(1000));
 				if (ret != -ERESTARTSYS)
 					break;
 			}
@@ -256,7 +260,7 @@ static ssize_t mdbg_proc_write(struct file *filp,
 	if (copy_from_user(mdbg_proc->write_buf,buf,count )){
 		return -EFAULT;
 	}
-	printk("mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
+	//printk("mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
 
 	mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
 
@@ -402,7 +406,7 @@ LOCAL ssize_t mdbg_read(struct file *filp,char __user *buf,size_t count,loff_t *
 			MDBG_ERR("mdbg_read wait interrupted!\n");
 		}
 	}else{
-		MDBG_ERR("mdbg_read no blok\n");
+		//MDBG_ERR("mdbg_read no blok\n");
 	}
 
 	mutex_lock(&mdbg_dev->mdbg_lock);

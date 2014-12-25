@@ -107,6 +107,7 @@ extern volatile bool marlin_mmc_suspend;
 #define SDIO_CHN_13	0x20
 
 #define SDIO_CHN_14	0x40
+#define SDIO_CHN_15	0x80
 
 #define GPIO_MARLIN_SDIO_READY  131
 #define GPIO_MARLIN_TO_AP  132
@@ -119,6 +120,8 @@ extern volatile bool marlin_mmc_suspend;
 #define SDIO_SYNC_CHN 10
 #define DOWNLOAD_CHANNEL_READ	12
 #define PSEUDO_ATC_CHANNEL_READ	11
+#define PSEUDO_ATC_CHANNEL_LOOPCHECK         (15)
+
 
 #define WIFI_CHN_8	8
 #define WIFI_CHN_9	9

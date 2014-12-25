@@ -366,6 +366,8 @@ int  sdio_dev_get_read_chn(void)
 		return 12;
 	else if(chn_status & SDIO_CHN_14)
 		return 14;
+	else if(chn_status & SDIO_CHN_15)
+		return 15;
 	else
 	{		
 		SDIOTRAN_ERR("Invalid sdio read chn!!!chn status 0x%x!!!",chn_status);
@@ -644,8 +646,24 @@ int sdio_pseudo_atc_handler(void)
 
 	if(NULL != sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback)
 	{
-		SDIOTRAN_ERR("DOWNLOAD_CHN tran_callback=%p",sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback);
+		SDIOTRAN_ERR("tran_callback=%p",sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback);
 		sdio_tran_handle[PSEUDO_ATC_CHANNEL_READ].tran_callback();
+		return 0;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+int sdio_pseudo_loopcheck_handler(void)
+{
+	SDIOTRAN_ERR("ENTRY");
+
+	if(NULL != sdio_tran_handle[PSEUDO_ATC_CHANNEL_LOOPCHECK].tran_callback)
+	{
+		SDIOTRAN_ERR("tran_callback=%p",sdio_tran_handle[PSEUDO_ATC_CHANNEL_LOOPCHECK].tran_callback);
+		sdio_tran_handle[PSEUDO_ATC_CHANNEL_LOOPCHECK].tran_callback();
 		return 0;
 	}
 	else
@@ -689,6 +707,9 @@ static void marlin_workq(void)
 			break;
 		case PSEUDO_ATC_CHANNEL_READ:
 			ret = sdio_pseudo_atc_handler();
+			break;
+		case PSEUDO_ATC_CHANNEL_LOOPCHECK:
+			ret = sdio_pseudo_loopcheck_handler();
 			break;
 		case WIFI_CHN_8:
 		case WIFI_CHN_9:
@@ -863,7 +884,7 @@ static irqreturn_t marlinsdio_ready_irq_handler(int irq, void * para)
 		marlin_sdio_ready.marlin_sdio_init_start_tag = 1;}
 	else{
 		SDIOTRAN_ERR("end");
-		irq_set_irq_type(irq,IRQF_TRIGGER_RISING);
+		irq_set_irq_type(irq,IRQF_TRIGGER_HIGH);
 		marlin_sdio_ready.marlin_sdio_init_end_tag = 1;}
 	
 	if(!marlin_sdio_ready.marlin_sdio_init_end_tag)
@@ -877,6 +898,11 @@ static irqreturn_t marlinsdio_ready_irq_handler(int irq, void * para)
 static int marlin_sdio_sync_init(void)
 {
 	int ret;	
+
+	SDIOTRAN_ERR("entry");
+
+	sci_glb_clr(SPRD_PIN_BASE + 0x27c,(BIT(3)|BIT(7)|0));
+	sci_glb_set(SPRD_PIN_BASE + 0x27c,(BIT(4)|BIT(5)|BIT(2)|BIT(6)));
 
 	wake_lock_init(&marlin_sdio_ready_wakelock, WAKE_LOCK_SUSPEND, "marlin_sdio_ready_wakelock");
 
@@ -898,7 +924,7 @@ static int marlin_sdio_sync_init(void)
 	}
 
 	marlin_sdio_ready_irq_num = gpio_to_irq(GPIO_MARLIN_SDIO_READY);
-	
+	SDIOTRAN_ERR("req irq");
 	ret = request_irq(marlin_sdio_ready_irq_num, marlinsdio_ready_irq_handler,IRQF_TRIGGER_RISING |IRQF_NO_SUSPEND, "m_sdio_ready_intr", NULL );
 	if (ret != 0) {
 		SDIOTRAN_ERR("request irq err!!!gpio is %d!!!",GPIO_MARLIN_SDIO_READY);

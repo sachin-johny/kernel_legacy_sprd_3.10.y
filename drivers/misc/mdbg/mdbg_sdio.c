@@ -78,6 +78,9 @@ int mdbg_channel_init(void)
 	if(err != 0){
 		MDBG_ERR("Sdio dev read channel init failed!");
 	}
+
+	if(rx_ring->pbuff != NULL)
+		memset(rx_ring->pbuff,0,MDBG_RX_RING_SIZE);
 	return err;
 }
 EXPORT_SYMBOL_GPL(mdbg_channel_init);
@@ -102,7 +105,7 @@ PUBLIC void mdbg_sdio_read(void)
 {
 	wake_lock(&mdbg_wake_lock);
 	mutex_lock(&mdbg_read_mutex);
-	set_marlin_wakeup(MDBG_CHANNEL_READ,0x1);
+	//set_marlin_wakeup(MDBG_CHANNEL_READ,0x1);
 	sdio_read_len = sdio_dev_get_chn_datalen(MDBG_CHANNEL_READ);
 	if(sdio_read_len <= 0)
 	{

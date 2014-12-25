@@ -273,6 +273,7 @@ extern int  sdiodev_readchn_init(int chn, void *callback, bool with_para );
 extern int  sdio_read_wlan(unsigned int chn,void* read_buf,unsigned int *count);
 extern int sdiodev_readchn_uninit(unsigned int chn);
 extern void mdbg_at_cmd_read(void);
+extern void mdbg_loopcheck_read(void);
 
 extern void mdbg_sdio_read(void);
 extern void marlin_pa_enable(bool enable);

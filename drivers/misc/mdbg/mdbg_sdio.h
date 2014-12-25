@@ -21,7 +21,7 @@
 #define MDBG_WRITE_LEN (128)
 
 #define MDBG_CHANNEL_READ			(14)
-#define MDBG_CHANNEL_WRITE 		(15)
+#define MDBG_CHANNEL_WRITE 		(6)
 #define MDBG_MAX_RETRY 			(3)
 #define MDBG_RX_BUFF_SIZE 			(4096)
 
