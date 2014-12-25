@@ -50,11 +50,16 @@ u64 sci_efuse_get_uid(void)
 
 EXPORT_SYMBOL_GPL(sci_efuse_get_uid);
 
-int sci_efuse_thermal_cal_get(void)
+int  sci_efuse_thermal_cal_get(int *cal)
 {
 	u32 data=__ddie_efuse_read(BLK_THM_DETA);
 	int thm_cal = (data >> 24) & 0x001F;
-	return thm_cal -16;
+	if (thm_cal ==0) {
+		*cal  = 0;
+		return -1;
+	}
+	*cal = thm_cal -16;
+	return 0;
 }
 EXPORT_SYMBOL_GPL(sci_efuse_thermal_cal_get);
 

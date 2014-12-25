@@ -385,10 +385,10 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 	u32 local_sensor_addr, base_addr = 0;
 	u32 local_sen_id = 0;
 	u32 raw_temp = 0;
-	int i;
+	int i,ret=0;
 	struct sprd_thm_platform_data *trip_tab = pzone->trip_tab;
-	arm_sen_cal_offset = sci_efuse_thermal_cal_get() ;
-	THM_DEBUG("arm_sen_cal_offset =%d\n",arm_sen_cal_offset);
+	ret = sci_efuse_thermal_cal_get(&arm_sen_cal_offset) ;
+	THM_DEBUG("arm_sen_cal_offset =%d,ret =%d\n",arm_sen_cal_offset,ret);
 	base_addr = (u32) pzone->reg_base;
 
 	printk(KERN_NOTICE "sprd_thm_hw_init 2713s_thm id:%d,base 0x%x \n",
