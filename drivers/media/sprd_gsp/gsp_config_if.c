@@ -183,6 +183,11 @@ PUBLIC int GSP_ClocksCheckPhase0(void)
         printk(KERN_ERR "%s: err: gsp enable is not set!%lx:%08x\n",__FUNCTION__,
                (ulong)GSP_MOD_EN,GSP_REG_READ(GSP_MOD_EN));
         ret++;
+    } else {
+        if(GSP_WORKSTATUS_GET() != 0) {
+            printk(KERN_ERR "%s: err:busy is still on!!!!\n",__FUNCTION__);
+            ret++;
+        }
     }
 
     //check GSP clock select

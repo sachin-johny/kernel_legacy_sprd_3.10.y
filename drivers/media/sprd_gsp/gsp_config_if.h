@@ -177,9 +177,6 @@ GSP_CORE_GREQ;
 #define GSP_VER_COEF_BASE   (GSP_REG_BASE + 0x110)
 #define GSP_L1_BASE			(GSP_REG_BASE + 0x60)
 
-#ifndef GSP_ASSERT
-#define GSP_ASSERT()        do{}while(1)
-#endif
 
 #ifdef CONFIG_OF
 #define GSP_CLOCK_PARENT3		("clk_gsp_parent")

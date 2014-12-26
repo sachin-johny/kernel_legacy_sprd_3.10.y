@@ -1963,13 +1963,6 @@ desc:config info to register
 */
 static uint32_t GSP_Info_Config(void)
 {
-    //check GSP is in idle
-    if(GSP_WORKSTATUS_GET())
-    {
-        printk("GSP_Info_Config(): GSP busy when config!!!\n");
-        GSP_ASSERT();
-    }
-
     GSP_ConfigLayer(GSP_MODULE_LAYER0);
     GSP_ConfigLayer(GSP_MODULE_LAYER1);
     GSP_ConfigLayer(GSP_MODULE_ID_MAX);
