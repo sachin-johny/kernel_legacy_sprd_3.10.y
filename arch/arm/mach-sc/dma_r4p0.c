@@ -375,13 +375,18 @@ static void __inline __dma_soft_request(u32 dma_chn)
 
 static void __dma_stop_and_disable(u32 dma_chn)
 {
+	int time_out;
+
 	/*if the chn has disable already, do nothing */
 	if (!(readl(DMA_CHN_CFG(dma_chn)) & 0x1))
 		return;
 
 	writel(readl(DMA_CHN_PAUSE(dma_chn)) | 0x1, DMA_CHN_PAUSE(dma_chn));
 	/*fixme, need to set timeout */
-	while (!(readl(DMA_CHN_PAUSE(dma_chn)) & (0x1 << 16))) ;
+	while (!(readl(DMA_CHN_PAUSE(dma_chn)) & (0x1 << 16))){
+		if(time_out++ > 500)
+			break;
+	};
 
 	writel(readl(DMA_CHN_CFG(dma_chn)) & ~0x1, DMA_CHN_CFG(dma_chn));
 

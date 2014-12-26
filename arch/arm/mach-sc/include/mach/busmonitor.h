@@ -273,7 +273,6 @@ static struct bm_id_name bm_match_id[AXI_BM9_CP1_A5] = {
 	{"CA5","CA5 AHB"},
 };
 
-#ifdef BM_DEFAULT_VALUE_SET
 struct bm_chn_def_val {
 	u32 str_addr;
 	u32 end_addr;
@@ -283,6 +282,7 @@ struct bm_chn_def_val {
 	u32 chn_sel;
 };
 static struct bm_chn_def_val bm_store_vale[BM_SIZE];
+#ifdef BM_DEFAULT_VALUE_SET
 static struct bm_chn_def_val bm_def_value[BM_SIZE] = {
 	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //ca7
 	{0x00009000, 0x0062acbc, 0x0fffffff, 0x00000000, W_MODE, 0}, //DISP

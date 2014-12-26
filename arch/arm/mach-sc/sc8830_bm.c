@@ -26,6 +26,7 @@
 #include <linux/of_irq.h>
 #endif
 
+#ifdef BM_DEFAULT_VALUE_SET
 struct memory_layout{
 	u32 dram_start;
 	u32 dram_end;
@@ -60,8 +61,8 @@ struct memory_layout{
 	u32 ion_start;
 	u32 ion_end;
 };
-
 static struct memory_layout memory_layout;
+#endif
 
 static DEFINE_SPINLOCK(bm_lock);
 
@@ -430,6 +431,14 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 	bm_reg = __sci_get_bm_base(AXI_BM0_CA7);
 	if(__raw_readl((volatile void *)(bm_reg + AXI_BM_INTC_REG)) & BM_CNT_EN)
 	{
+		if(NULL == bm_info){
+			BM_ERR("BM irq ERR, int info: int 0x%x, min addr 0x%x, max addr 0x%x, cnt len 0x%x\n",
+				__raw_readl((volatile void *)(bm_reg + AXI_BM_INTC_REG)),
+				__raw_readl((volatile void *)(bm_reg + AXI_BM_ADDR_MIN_REG)),
+				__raw_readl((volatile void *)(bm_reg + AXI_BM_ADDR_MAX_REG)),
+				__raw_readl((volatile void *)(bm_reg + AXI_BM_CNT_WIN_LEN_REG)));
+			return IRQ_NONE;
+		}
 		__sci_axi_bm_cnt_stop();
 
 		rwbw_cnt = 0x0;
@@ -517,31 +526,39 @@ unsigned int dmc_mon_cnt_bw(void)
 	int chn;
 	u32 cnt = 0;
 
-	if(true == bm_st_info.bm_dfs_off_st)
+	if(bm_st_info.bm_dbg_st != true){
+		if(true == bm_st_info.bm_dfs_off_st)
+			return 0xFFFFFFFF;
+		for (chn = AXI_BM0_CA7; chn <= AXI_BM9_CP1_A5; chn++)
+			cnt += __sci_axi_bm_chn_cnt_bw(chn);
+		return cnt;
+	}else
 		return 0xFFFFFFFF;
-	for (chn = AXI_BM0_CA7; chn <= AXI_BM9_CP1_A5; chn++)
-		cnt += __sci_axi_bm_chn_cnt_bw(chn);
-	return cnt;
 }
 
 void dmc_mon_cnt_clr(void)
 {
-	__sci_axi_bm_cnt_clr();
+	if(bm_st_info.bm_dbg_st != true)
+		__sci_axi_bm_cnt_clr();
 	return;
 }
 
 void dmc_mon_cnt_start(void)
 {
-	__sci_axi_bm_cnt_start();
-	__sci_bm_glb_count_enable(true);
-	__sci_axi_bm_cnt_start();
+	if(bm_st_info.bm_dbg_st != true){
+		__sci_axi_bm_cnt_start();
+		__sci_bm_glb_count_enable(true);
+		__sci_axi_bm_cnt_start();
+	}
 	return;
 }
 
 void dmc_mon_cnt_stop(void)
 {
-	__sci_bm_glb_count_enable(false);
-	__sci_axi_bm_cnt_stop();
+	if(bm_st_info.bm_dbg_st != true){
+		__sci_bm_glb_count_enable(false);
+		__sci_axi_bm_cnt_stop();
+	}
 	return;
 }
 
@@ -1156,6 +1173,7 @@ static struct attribute_group bm_attr_group = {
 	.attrs = bm_attrs,
 };
 
+#ifdef BM_DEFAULT_VALUE_SET
 static int sci_bm_get_mem_layout(void)
 {
 #ifdef CONFIG_OF
@@ -1274,6 +1292,7 @@ static int sci_bm_get_mem_layout(void)
 
 	return 0;
 }
+#endif
 
 static int sci_bm_suspend(struct platform_device *pdev, pm_message_t state)
 {
@@ -1321,6 +1340,7 @@ static int sci_bm_resume(struct platform_device *pdev)
 	struct sci_bm_cfg bm_cfg;
 
 	__sci_bm_init();
+	__sci_axi_bm_int_clr();
 	if(true == bm_st_info.bm_dbg_st){
 		for (bm_chn = AXI_BM0_CA7; bm_chn < BM_SIZE; bm_chn++){
 			if((0x00000000 == bm_store_vale[bm_chn].str_addr) && (0x00000000 == bm_store_vale[bm_chn].end_addr))
