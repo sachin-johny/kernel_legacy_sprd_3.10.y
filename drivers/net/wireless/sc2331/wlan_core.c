@@ -110,7 +110,7 @@ static int hw_tx(const unsigned short chn, unsigned char *buf, unsigned int len)
 	tx_big_hdr_t *big_hdr;
 
 	big_hdr = (tx_big_hdr_t *)buf;
-	if( (14 < big_hdr->msg_num) || (0 == big_hdr->msg_num) )
+	if ((PKT_AGGR_NUM < big_hdr->msg_num) || (0 == big_hdr->msg_num))
 	{
 		ASSERT();
 		return ERROR;
@@ -704,7 +704,6 @@ RX:
 #endif
 		}
 		wlan_wakeup();
-		set_marlin_wakeup(0, 1);
 		ret   = sdio_chn_status( rx_chn->bit_map, &status);
 		index = check_valid_chn(1, status, rx_chn);
 		if(index < 0)
@@ -856,7 +855,7 @@ static int wlan_tx_buf_alloc(wlan_vif_t *vif)
 	vif->event_q[EVENT_Q_ID_3].weight = 20;
 	vif->event_q[EVENT_Q_ID_4].weight = 10;
 		
-	fifo_conf.cp2_txRam   = HW_TX_SIZE - 64;
+	fifo_conf.cp2_txRam   = HW_TX_SIZE - sizeof(tx_big_hdr_t);
 	fifo_conf.max_msg_num = PKT_AGGR_NUM;
 	fifo_conf.size        = 1024*256;
 	ret =  tx_fifo_alloc(&(vif->txfifo), &fifo_conf);

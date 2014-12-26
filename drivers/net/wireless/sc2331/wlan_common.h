@@ -70,9 +70,13 @@
 #define ETH_ALEN		                     6
 #define SIOGETSSID                           0x89F2
 
+/* HW_TX_SIZE, HW_RX_SIZE and PKT_AGGR_NUM must keep pace with CP
+ * TX: CP discrp number 38, use 3 blocks, 13k per block
+ * PKT_AGGR_NUM 12 = 38 / 3
+ */
 #define HW_TX_SIZE                          (13312)
 #define HW_RX_SIZE                          (12288)
-#define PKT_AGGR_NUM                        (10)
+#define PKT_AGGR_NUM                        (12)
 #define SDIO_RX_GPIO                        (132)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
