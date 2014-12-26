@@ -2123,14 +2123,16 @@ static int32_t spdfb_dispc_wait_for_vsync(struct sprdfb_device *dev)
 
 static void dispc_stop_for_feature(struct sprdfb_device *dev)
 {
-	int i = 0;
+	int wait_count = 0;
 
 	if(SPRDFB_PANEL_IF_DPI == dev->panel_if_type){
 		dispc_stop(dev);
-		while(dispc_read(DISPC_DPI_STS1) & BIT(16)){
-			if(0x0 == ++i%500000){
-				printk("sprdfb: [%s] warning: busy waiting stop!\n", __FUNCTION__);
-			}
+		while((dispc_read(DISPC_DPI_STS1) & BIT(16)) && (wait_count < 100)){
+			udelay(1000);
+			wait_count++;
+		}
+		if(wait_count >= 100){
+			printk("sprdfb:[%s] can't wait till dispc stop!!!\n");
 		}
 		udelay(25);
 	}

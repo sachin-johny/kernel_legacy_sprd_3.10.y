@@ -490,7 +490,7 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 	dsih_ctrl_t* dsi_instance = &(dsi_ctx.dsi_inst);
 	dphy_t *phy = &(dsi_instance->phy_instance);
 	struct info_mipi * mipi = dev->panel->info.mipi;
-	int i = 0;
+	int wait_count = 0;
 #ifdef FB_DSIH_VERSION_1P21A
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_INT_MSK0, 0x1fffff);
 	dsi_core_write_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_INT_MSK1, 0x3ffff);
@@ -535,10 +535,15 @@ int32_t sprdfb_dsih_init(struct sprdfb_device *dev)
 		return -1;
 	}
 
-	while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5)){
-		if(0x0 == ++i%500000){
+	while(5 != (dsi_core_read_function(SPRD_MIPI_DSIC_BASE, R_DSI_HOST_PHY_STATUS) & 5) &&
+		(wait_count < 100000)){
+		udelay(3);
+		if(0x0 == ++wait_count%1000){
 			printk("sprdfb: [%s] warning: busy waiting!\n", __FUNCTION__);
 		}
+	}
+	if(wait_count >= 100000){
+		printk("sprdfb: [%s] Errior: dsi phy can't be locked!!!\n", __FUNCTION__);
 	}
 
 	if(SPRDFB_MIPI_MODE_CMD == mipi->work_mode){
