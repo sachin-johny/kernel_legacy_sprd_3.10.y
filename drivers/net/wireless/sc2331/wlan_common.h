@@ -50,7 +50,7 @@
 #include "wlan_cmd.h"
 #include "wlan_cfg80211.h"
 
-//#define SDIO_CHN_CHECK                     (1) 
+#define WLAN_THREAD_SLEPP_POLICE
 #define WIFI_DRV_WAPI
 #define KERNEL_VERSION(a, b, c)              (((a) << 16) + ((b) << 8) + (c))
 #define LINUX_VERSION_CODE                   KERNEL_VERSION(3, 10, 0)

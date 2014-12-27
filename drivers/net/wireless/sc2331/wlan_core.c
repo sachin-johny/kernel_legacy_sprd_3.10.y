@@ -507,7 +507,6 @@ int wlan_rx(rxfifo_t *rx_fifo, int cnt)
 		num = cnt;
 	for(i=0; i < num ; i++)	
 	{
-		wlan_wakeup();
 		ret = rx_fifo_out(rx_fifo, wlan_rx_process);
 		if(ERROR == ret)
 			break;
@@ -526,6 +525,7 @@ int wlan_tx(txfifo_t *tx_fifo, m_event_t *event_q, int cnt)
 		event = get_event(event_q);
 		if(NULL == event)
 		{
+			ret = TX_FIFO_EMPTY;
 			break;
 		}
 		ret = tx_fifo_in(tx_fifo, event);
@@ -550,7 +550,7 @@ int wlan_tx(txfifo_t *tx_fifo, m_event_t *event_q, int cnt)
 		free_event((void *)event, event_q );
 		tx_cnt++;
 	}
-	return tx_cnt;
+	return tx_cnt ? tx_cnt : ret;
 }
 
 int wmm_calc(wlan_vif_t *vif, unsigned short *q_event_num)
@@ -580,6 +580,7 @@ int wmm_calc(wlan_vif_t *vif, unsigned short *q_event_num)
 	return OK;
 }
 
+#define WLAN_CORE_SLEEP_TIME	600
 static int wlan_core_thread(void *data)
 {
 	wlan_vif_t    *vif;	
@@ -587,6 +588,10 @@ static int wlan_core_thread(void *data)
 	txfifo_t      *tx_fifo;
 	m_event_t     *event_q;
 	int            i,ret,retry,vif_id, done, sem_count,q_index,need_tx,tx_cnt,tx_pkt;
+	int sleep_flag;
+	unsigned long timeout;
+
+	sleep_flag = timeout = 0;
 	rx_fifo = &(g_wlan.rxfifo);
 	sema_init(&g_wlan.wlan_core.sem, 0);
 	printke("%s enter new\n", __func__);
@@ -612,9 +617,28 @@ static int wlan_core_thread(void *data)
 					ret = wlan_tx(tx_fifo, event_q, 1);
 					if(1  != ret)
 					{
+						if (TX_FIFO_FULL == ret) {
+							if (0 == sleep_flag) {
+								timeout = jiffies + msecs_to_jiffies(WLAN_CORE_SLEEP_TIME);
+								sleep_flag = 1;
+							} else {
+								if (time_after(jiffies, timeout)) {
+									printke("%s [TIMEOUT][%lu] jiffies:%lu\n",
+										timeout, jiffies);
+									msleep(300);
+									sleep_flag == 0;
+								}
+							}
+						} else {
+							/* no problem as need_tx, excpt get_event erro */
+							ASSERT();
+							msleep(10);
+						}
 						retry++;
 						continue;
 					}
+					if (sleep_flag)
+						sleep_flag = 0;
 					done = done + ret;
 					ret  = wlan_rx(rx_fifo, 1);
 					done = done + ret;
@@ -639,6 +663,11 @@ static int wlan_core_thread(void *data)
 static int check_valid_chn(int flag, unsigned short status, sdio_chn_t *chn_info)
 {
 	int i,index = -1;
+
+	if ((status & 0xFF) == 0xFF)
+		status &= 0xFF00;
+	if ((status & 0xFF00) == 0xFF00)
+		status &= 0xFF;
 	if(1 == flag)
 		status = ( status & (chn_info->bit_map) );	
 	else
@@ -685,7 +714,7 @@ static int wlan_trans_thread(void *data)
 RX:
 		if(! gpio_get_value(SDIO_RX_GPIO) )
 		{
-#ifdef SDIO_CHN_CHECK	
+#ifdef WLAN_THREAD_SLEPP_POLICE
 			if(true == rx_chn->gpio_high)
 			{
 				rx_chn->gpio_high    = false;
@@ -696,7 +725,7 @@ RX:
 		}
 		else
 		{
-#ifdef SDIO_CHN_CHECK
+#ifdef WLAN_THREAD_SLEPP_POLICE
 			if(false == rx_chn->gpio_high)
 			{
 				rx_chn->gpio_high    = true;
@@ -708,7 +737,7 @@ RX:
 		index = check_valid_chn(1, status, rx_chn);
 		if(index < 0)
 		{
-#ifdef SDIO_CHN_CHECK	
+#ifdef WLAN_THREAD_SLEPP_POLICE
 			if(false == rx_chn->timeout_flag)
 			{
 				rx_chn->timeout_flag = true;
@@ -718,14 +747,16 @@ RX:
 			{
 				if ( time_after(jiffies, rx_chn->timeout) )
 				{
-					rx_chn->timeout  = jiffies + msecs_to_jiffies(rx_chn->timeout_time); 
-					printke("[SDIO_RX_CHN][TIMEOUT][%d]\n", rx_chn->timeout_time);
+					printke("[SDIO_RX_CHN][TIMEOUT][%lu] jiffies:%lu\n",
+						rx_chn->timeout_time, jiffies);
+					msleep(300);
+					rx_chn->timeout_flag = false;
 				}
 			}
 #endif		
 			goto TX;
 		}		
-#ifdef	SDIO_CHN_CHECK
+#ifdef	WLAN_THREAD_SLEPP_POLICE
 		if(true == rx_chn->timeout_flag)
 		{
 			rx_chn->timeout_flag = false;
@@ -763,7 +794,7 @@ TX:
 			index = check_valid_chn(0, status, tx_chn);
 			if(index < 0)
 			{
-#ifdef SDIO_CHN_CHECK
+#ifdef WLAN_THREAD_SLEPP_POLICE
 				if(false == tx_chn->timeout_flag)
 				{
 					tx_chn->timeout_flag = true;
@@ -773,15 +804,17 @@ TX:
 				{
 					if ( time_after(jiffies, tx_chn->timeout) )
 					{
-						tx_chn->timeout      = jiffies + msecs_to_jiffies(tx_chn->timeout_time); 
-						printke("[SDIO_TX_CHN][TIMEOUT][%d]\n", tx_chn->timeout_time);
+						printke("[SDIO_TX_CHN][TIMEOUT][%lu] jiffies:%lu\n",
+							tx_chn->timeout_time, jiffies);
+						msleep(300);
+						tx_chn->timeout_flag = false;
 					}
 				}
 #endif				
 				retry++;
 				continue;
 			}
-#ifdef SDIO_CHN_CHECK
+#ifdef WLAN_THREAD_SLEPP_POLICE
 			if(true == tx_chn->timeout_flag)
 			{
 				tx_chn->timeout_flag = false;
@@ -924,7 +957,7 @@ static int wlan_hw_init(hw_info_t *hw)
 	hw->sdio_tx_chn.chn[1]       = 1;
 	hw->sdio_tx_chn.chn[2]       = 2;
 	hw->sdio_tx_chn.bit_map      = 0x0007;
-	hw->sdio_tx_chn.timeout_time = 3000;
+	hw->sdio_tx_chn.timeout_time = 600;
 	hw->sdio_tx_chn.timeout_flag = false;
 
 	hw->sdio_rx_chn.num          = 4;
@@ -934,7 +967,7 @@ static int wlan_hw_init(hw_info_t *hw)
 	hw->sdio_rx_chn.chn[3]       = 11;
 	hw->sdio_rx_chn.bit_map      = 0x4b00;
 	hw->sdio_rx_chn.gpio_high    = false;	
-	hw->sdio_rx_chn.timeout_time = 3000;
+	hw->sdio_rx_chn.timeout_time = 600;
 	hw->sdio_rx_chn.timeout_flag = false;
 
 	printke("[SDIO_TX_CHN][0x%x][0x%x]\n", hw->sdio_tx_chn.bit_map, HW_TX_SIZE);
