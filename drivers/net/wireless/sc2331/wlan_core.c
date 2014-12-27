@@ -1154,6 +1154,7 @@ int wlan_module_exit(struct device *dev)
 	wlan_nl_deinit();
 
 	remove_proc_entry("wlan", NULL);
+	remove_proc_entry("lte_concur", NULL);
 	unregister_early_suspend(&g_wlan.hw.early_suspend);
 	wake_lock_destroy(&g_wlan.hw.wlan_lock);
 	printke("%s ok!\n", __func__);

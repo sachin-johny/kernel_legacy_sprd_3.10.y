@@ -2481,6 +2481,12 @@ static void wlan_cfg80211_reg_notify(struct wiphy *wiphy, struct regulatory_requ
     
 	wiphy_info(wiphy, "%s %c%c initiator %d hint_type %d\n", __func__,request->alpha2[0], request->alpha2[1],request->initiator, request->user_reg_hint_type);
 
+	if ((num != 1) && (num != 2))
+	{
+		num++;
+		return;
+	}
+
 	/* Figure out the actual rule number */
 	for (band = 0; band < IEEE80211_NUM_BANDS; band++) {
 		sband = wiphy->bands[band];
@@ -2546,18 +2552,10 @@ static void wlan_cfg80211_reg_notify(struct wiphy *wiphy, struct regulatory_requ
 			}
 		}
 	}
-	if ((num == 0) || (num ==1))
-	{
-		num++;
-		kfree(rd);
-		return;
-	}
-	num++;
 	if (wlan_cmd_set_regdom(0, (u8 *)rd, rd_size))
 		wiphy_err(wiphy, "%s failed to set regdomain!\n", __func__);
 	kfree(rd);
-	if(num ==4)
-		num =0;
+	num++;
 }
 
 int lte_concur_proc_open(struct inode *inode, struct file *filp)  
