@@ -430,5 +430,6 @@ struct srpc_client {
 int srpc_init(uint8_t dst);
 int srpc_server_register(uint8_t dst, struct srpc_server *server);
 int srpc_client_call(uint8_t dst, struct srpc_client *client);
+int sctrl_send_sync(uint32_t type, uint32_t target_id, uint32_t value);
 
 #endif

@@ -23,11 +23,27 @@
 #define SMSG_EVENT_SBUF_RDPTR	0x0002
 #define SCTL_STATE_IDLE		0
 #define SCTL_STATE_READY	1
+#define SCTL_STATE_REV_CMPT     2
+struct sctrl_device {
+	struct spipe_init_data	*init;
+	int			major;
+	int			minor;
+	struct cdev		cdev;
+};
+
+struct sctrl_buf {
+	uint8_t			dst;
+	uint8_t			channel;
+	uint32_t		bufid;
+};
+
 
 struct sctrl_mgr {
 	uint8_t			dst;
 	uint8_t			channel;
 	uint32_t		state;
+        wait_queue_head_t       tx_pending;
+        wait_queue_head_t       rx_pending;
 	struct task_struct	*thread;
 };
 

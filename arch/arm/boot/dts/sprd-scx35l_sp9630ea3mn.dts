@@ -489,6 +489,7 @@
                 sprd,name = "sctrl_pmic";
                 sprd,dst = <6>;
                 sprd,channel= <1>;
+		sprd,ringnr = <1>;
                 /* it's unnecessary to config IPI info upon mailbox arch */
                 mailbox,core = <1>;
 		sprd,ringbase = <0xf5429000>; /* SMSG ring mem base address*/

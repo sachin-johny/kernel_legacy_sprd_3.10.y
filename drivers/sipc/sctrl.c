@@ -13,6 +13,7 @@
 
 #include <linux/kernel.h>
 #include <linux/module.h>
+#include <linux/wait.h>
 #include <linux/cdev.h>
 #include <linux/poll.h>
 #include <linux/platform_device.h>
@@ -39,24 +40,12 @@
 #define SMSG_RXBUF_RDPTR	(SMSG_RINGHDR + 8)
 #define SMSG_RXBUF_WRPTR	(SMSG_RINGHDR + 12)
 uint8_t assert_trigger_state = 0;
-struct sctrl_device {
-	struct spipe_init_data	*init;
-	int			major;
-	int			minor;
-	struct cdev		cdev;
-};
-
-struct sctrl_buf {
-	uint8_t			dst;
-	uint8_t			channel;
-	uint32_t		bufid;
-};
-
 static struct class	*sctrl_class;
+static struct sctrl_mgr strcl_mgr_val;
 //#define SCTRL_LOOPBACK_DEBUG
 #ifdef SCTRL_LOOPBACK_DEBUG
 struct timer_list sctrl_ti;
-static int sctrl_tx(void)
+static void sctrl_tx(void)
 {
     struct smsg mrevt;
     smsg_set(&mrevt, 1, 0, 0, 0);
@@ -66,8 +55,8 @@ void sctrl_timer_func(unsigned long arg)
 {
     struct timer_list *timer=(struct timer_list *)arg;
     unsigned long  j = jiffies;
-    mod_timer(timer,j+HZ);
-    printk(KERN_ERR " sctrl_timer_func expired at jif=%x\n", j);
+    mod_timer(timer,j+8*HZ);
+    pr_err(" sctrl_timer_func expired at jif=%lx\n", j);
     sctrl_tx();
 }
 #endif
@@ -87,7 +76,6 @@ static int sctrl_thread(void *data)
         printk(KERN_ERR "Failed to open channel %d, rval=%d\n", strcl_mgr_ptr->channel,rval);
         /* assign NULL to thread poniter as failed to open channel */
         strcl_mgr_ptr->thread = NULL;
-        kfree(strcl_mgr_ptr);
         return rval;
     }
 
@@ -110,17 +98,25 @@ static int sctrl_thread(void *data)
             msleep(5);
             continue;
         }
-        printk(KERN_ERR "sctrl thread recv msg: dst=%d, channel=%d, "
-                        "type=%d, flag=0x%04x, value=0x%08x\n",
+        printk(KERN_ERR "sctrl thread recv msg: dst=%d, channel=%d,type=%d, flag=0x%04x, value=0x%08x\n",
                             strcl_mgr_ptr->dst, strcl_mgr_ptr->channel,
                             mrecv.type, mrecv.flag, mrecv.value);
-#if 0
         switch (mrecv.type) {
-        case SMSG_TYPE_OPEN:
-        /* handle channel recovery */
-        smsg_open_ack(strcl_mgr_ptr->dst, strcl_mgr_ptr->channel);
-        break;
-
+        case  SMSG_TYPE_DFS_RSP:
+            if(mrecv.value == 0)
+            {
+                strcl_mgr_ptr->state = SCTL_STATE_REV_CMPT;
+            }
+            else
+            {
+                strcl_mgr_ptr->state = SCTL_STATE_READY;
+            }
+            wake_up_interruptible_all(&strcl_mgr_ptr->rx_pending);
+            break;
+        default :
+            break;
+        }
+#if 0
         case SMSG_TYPE_CLOSE:
         /* handle channel recovery */
         smsg_close_ack(strcl_mgr_ptr->dst, strcl_mgr_ptr->channel);
@@ -133,71 +129,67 @@ static int sctrl_thread(void *data)
         smsg_send(strcl_mgr_ptr->dst, &mcmd, -1);
         strcl_mgr_ptr->state = SCTL_STATE_READY;
             break;
-
-        case SMSG_TYPE_EVENT:
-        bufid = mrecv.value;
-        /*
-        WARN_ON(bufid >= sctrl->ringnr);
-        switch (mrecv.flag) {
-            case SMSG_EVENT_SBUF_RDPTR:
-            wake_up_interruptible_all(&(sbuf->rings[bufid].txwait));
-            break;
-            case SMSG_EVENT_SBUF_WRPTR:
-            wake_up_interruptible_all(&(sbuf->rings[bufid].rxwait));
-                break;
-            default:
-            rval = 1;
-                break;
-            }
-        */
-        break;
-
-        default:
-            rval = 1;
-            break;
-        };
-        if (rval) {
-                printk(KERN_WARNING "non-handled strcl_mgr_ptr msg: %d-%d, %d, %d, %d\n",
-                                            strcl_mgr_ptr->dst, strcl_mgr_ptr->channel,
-                                            mrecv.type, mrecv.flag, mrecv.value);
-                rval = 0;
-        }
 #endif
     }
-    kfree(strcl_mgr_ptr);
     return 0;
 }
-void sctrl_send_request(uint32_t type, uint32_t target_id, uint32_t value)
+void sctrl_send_async(uint32_t type, uint32_t target_id, uint32_t value)
 {
         struct smsg mevt;
         smsg_set(&mevt,  1, type, target_id ,value);
         smsg_send(SIPC_ID_PMIC, &mevt, -1);
 }
-
-
+int sctrl_send_sync(uint32_t type, uint32_t target_id, uint32_t value)
+{
+        struct smsg mrecv;
+        int rval = 0;
+        int timeout =msecs_to_jiffies(50000);
+        smsg_set(&mrecv,  1, type, target_id ,value);
+        smsg_send(SIPC_ID_PMIC, &mrecv, -1);
+        if(type ==SMSG_TYPE_DFS)
+        {
+            rval = wait_event_interruptible_timeout(strcl_mgr_val.rx_pending,\
+                strcl_mgr_val.state != SCTL_STATE_IDLE, timeout);
+            if (rval < 0) {
+                pr_warning(" sctrl_send_sync wait interrupted!\n");
+            } else if (rval == 0) {
+                pr_err(" sctrl_send_sync wait timeout!\n");
+                rval = -ETIME;
+            }
+            if (strcl_mgr_val.state == SCTL_STATE_REV_CMPT)
+            {
+                strcl_mgr_val.state =  SCTL_STATE_IDLE;
+                pr_info(" sctrl_send_sync DFS Response!\n");
+                return 0;
+            }
+            else
+            {
+                goto FAIL;
+            }
+        }
+        else {
+                goto FAIL;
+        }
+FAIL:
+        strcl_mgr_val.state =  SCTL_STATE_IDLE;
+        return -EINVAL;
+} 
 int sctrl_create(uint8_t dst, uint8_t channel, uint32_t bufnum)
 {
-    struct sctrl_mgr *strcl_mgr_ptr;
     int result;
-
-    strcl_mgr_ptr = kzalloc(sizeof(struct sctrl_mgr), GFP_KERNEL);
-    if (!strcl_mgr_ptr) {
-            printk(KERN_ERR "Failed to allocate mgr for strcl_mgr_ptr\n");
-            return -ENOMEM;
-    }
-    printk(KERN_ERR " strcl_mgr_ptr create kmalloc \n");
-    strcl_mgr_ptr->state = SCTL_STATE_IDLE;
-    strcl_mgr_ptr->dst = dst;
-    strcl_mgr_ptr->channel = channel;
-    strcl_mgr_ptr->thread = kthread_create(sctrl_thread, strcl_mgr_ptr, "sctrl-%d-%d", dst, channel);
-    if (IS_ERR(strcl_mgr_ptr->thread)) {
+    strcl_mgr_val.state = SCTL_STATE_IDLE;
+    strcl_mgr_val.dst = dst;
+    strcl_mgr_val.channel = channel;
+    init_waitqueue_head(&strcl_mgr_val.tx_pending);
+    init_waitqueue_head(&strcl_mgr_val.rx_pending);
+    strcl_mgr_val.thread = kthread_create(sctrl_thread, &strcl_mgr_val, "sctrl-%d-%d", dst, channel);
+    if (IS_ERR(strcl_mgr_val.thread)) {
         printk(KERN_ERR "Failed to create kthread: sctrl-%d-%d\n", dst, channel);
-            result = PTR_ERR(strcl_mgr_ptr->thread);
-            kfree(strcl_mgr_ptr);
+            result = PTR_ERR(strcl_mgr_val.thread);
             return result;
     }
-    printk(KERN_ERR " strcl_mgr_ptr create strcl_mgr_ptr->thread %p\n", strcl_mgr_ptr->thread);
-    wake_up_process(strcl_mgr_ptr->thread);
+    pr_err(" sctrl create strcl_mgr_val.thread %p\n", strcl_mgr_val.thread);
+    wake_up_process(strcl_mgr_val.thread);
     return 0;
 }
 static int sctrl_open(struct inode *inode, struct file *filp)
@@ -209,14 +201,15 @@ static int sctrl_open(struct inode *inode, struct file *filp)
 	sctrl = container_of(inode->i_cdev, struct sctrl_device, cdev);
 	sbuf = kmalloc(sizeof(struct sctrl_buf), GFP_KERNEL);
 	if (!sbuf) {
-		return -ENOMEM;
+            pr_err(" sctrl open malloc sbuf fail\n");
+            return -ENOMEM;
 	}
 	filp->private_data = sbuf;
 
 	sbuf->dst = sctrl->init->dst;
 	sbuf->channel = sctrl->init->channel;
 	sbuf->bufid = minor - sctrl->minor;
-
+        pr_info("sctrl open sucess\n"); 
 	return 0;
 }
 
@@ -263,18 +256,24 @@ static ssize_t sctrl_write(struct file *filp,
 	if (filp->f_flags & O_NONBLOCK) {
 		timeout = 0;
 	}
+        pr_info("sctrl open sucess\n"); 
 
-        smsg_set(&mevt, sbuf->channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_WRPTR,  sbuf->bufid);
-        smsg_send(sbuf->dst, &mevt, -1);
+        //smsg_set(&mevt, sbuf->channel, SMSG_TYPE_EVENT, SMSG_EVENT_SBUF_WRPTR,  sbuf->bufid);
+        //smsg_send(sbuf->dst, &mevt, -1); 
+        sctrl_send_sync(SMSG_TYPE_DFS, SIPC_ID_PMIC,0xfe);
         return count;
 }
 
 static unsigned int sctrl_poll(struct file *filp, poll_table *wait)
 {
-	struct sctrl_buf *sbuf = filp->private_data;
+    struct sctrl_buf *sbuf = filp->private_data;
+    unsigned int mask = 0;
+    if (!sbuf) {
+        return -ENODEV;
+    }
+    return mask;
 
-	return sbuf_poll_wait(sbuf->dst, sbuf->channel, sbuf->bufid,
-			filp, wait);
+
 }
 
 static long sctrl_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
@@ -382,6 +381,13 @@ static int sctrl_parse_dt(struct spipe_init_data **init, struct device *dev)
 		goto error;
 	}
 	pdata->channel = (uint8_t)data;
+        ret = of_property_read_u32(np, "sprd,ringnr", (uint32_t *)&data);
+        if (ret) {
+            printk(KERN_ERR "Failed to read sprd ringnr, ret=%d\n", ret);
+            goto error;
+        }
+        pdata->ringnr=data;
+
 	ret = of_property_read_u32(np, "sprd,ringbase", &ring_base);
 	if (ret) {
 		goto error;
@@ -453,14 +459,12 @@ static int sctrl_probe(struct platform_device *pdev)
 
 	sctrl = kzalloc(sizeof(struct sctrl_device), GFP_KERNEL);
 	if (sctrl == NULL) {
-		sbuf_destroy(init->dst, init->channel);
 		sctrl_destroy_pdata(&init);
 		printk(KERN_ERR "Failed to allocate sctrl_device\n");
 		return -ENOMEM;
 	}
-	rval = alloc_chrdev_region(&devid, 0, init->ringnr, init->name);
+	rval = alloc_chrdev_region(&devid, 0, init->ringnr,init->name);
 	if (rval != 0) {
-		sbuf_destroy(init->dst, init->channel);
 		kfree(sctrl);
 		sctrl_destroy_pdata(&init);
 		printk(KERN_ERR "Failed to alloc sctrl chrdev\n");
@@ -468,9 +472,8 @@ static int sctrl_probe(struct platform_device *pdev)
 	}
 
 	cdev_init(&(sctrl->cdev), &sctrl_fops);
-	rval = cdev_add(&(sctrl->cdev), devid, init->ringnr);
+	rval = cdev_add(&(sctrl->cdev), devid,  init->ringnr);
 	if (rval != 0) {
-		sbuf_destroy(init->dst, init->channel);
 		kfree(sctrl);
 		unregister_chrdev_region(devid, init->ringnr);
 		sctrl_destroy_pdata(&init);
@@ -522,7 +525,6 @@ static int  sctrl_remove(struct platform_device *pdev)
 	unregister_chrdev_region(
 		MKDEV(sctrl->major, sctrl->minor), sctrl->init->ringnr);
 
-	sbuf_destroy(sctrl->init->dst, sctrl->init->channel);
 	sctrl_destroy_pdata(&sctrl->init);
 
 	kfree(sctrl);
