@@ -169,6 +169,7 @@ typedef struct
 	wait_queue_head_t  waitQ;
 	int                wakeup;
 	struct mutex       cmd_lock;
+	struct mutex       mem_lock;
 	unsigned char     *mem;
 }wlan_cmd_t;
 

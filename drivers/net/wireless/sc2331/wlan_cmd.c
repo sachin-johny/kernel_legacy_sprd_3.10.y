@@ -95,11 +95,13 @@ char * get_cmd_name(int id)
 	return "NULL";
 }
 
+#define WLAN_CMD_MEM_LEN	(8 * 1024)
 int wlan_cmd_init(void )
 {
 	wlan_cmd_t *cmd = &(g_wlan.cmd);
-	cmd->mem = kmalloc( 8* 1024,  GFP_KERNEL);
+	cmd->mem = kmalloc(WLAN_CMD_MEM_LEN, GFP_KERNEL);
 	mutex_init( &(cmd->cmd_lock) );
+	mutex_init(&cmd->mem_lock);
 	init_waitqueue_head(&(cmd->waitQ));
 	cmd->wakeup = 0;
 	return OK;
@@ -116,6 +118,22 @@ int wlan_cmd_deinit(void )
 	mutex_destroy(&(cmd->cmd_lock));
 	return OK;
 	
+}
+
+static inline void wlan_cmd_clean(void)
+{
+	wlan_cmd_t *cmd = &g_wlan.cmd;
+	r_msg_hdr_t *msg;
+	mutex_lock(&cmd->mem_lock);
+	if (cmd->wakeup) {
+		msg = (r_msg_hdr_t *)cmd->mem;
+		printke("%s drop msg [%d][%s][%d]\n",
+			__func__, msg->mode,
+			get_cmd_name(msg->subtype),
+			msg->len);
+		cmd->wakeup = 0;
+	}
+	mutex_unlock(&cmd->mem_lock);
 }
 
 int wlan_cmd_send_to_ic(unsigned char vif_id, unsigned char *pData, int len, int subtype)
@@ -152,8 +170,11 @@ int wlan_cmd_send_to_ic(unsigned char vif_id, unsigned char *pData, int len, int
 		event->slice[0].data = pData;
 		event->slice[0].len = len;
 	}
+
+	wlan_cmd_clean();
 	post_event( (unsigned char *)event, event_q );
 	core_up();
+
 	return OK;
 }
 
@@ -162,14 +183,17 @@ int wlan_timeout_recv_rsp(unsigned char *r_buf, unsigned short *r_len, unsigned 
 	int ret;
 	r_msg_hdr_t *msg;
 	wlan_cmd_t  *cmd = &(g_wlan.cmd);
+
 	ret = wait_event_timeout( cmd->waitQ,  ((1 == cmd->wakeup)||(1 == g_wlan.sync.exit)), msecs_to_jiffies(timeout) );
-	cmd->wakeup = 0;
-	msg = (r_msg_hdr_t *)(cmd->mem);	
 	if(0 == ret)
 	{
 		printke("[%s][%d][err]\n", __func__, __LINE__);
+		cmd->wakeup = 0;
 		return -1;
 	}
+	mutex_lock(&cmd->mem_lock);
+	cmd->wakeup = 0;
+	msg = (r_msg_hdr_t *)(cmd->mem);
 	if(*r_len < msg->len)
 	{
 		printke("[%s][%d][err]\n", __func__, __LINE__);
@@ -177,6 +201,7 @@ int wlan_timeout_recv_rsp(unsigned char *r_buf, unsigned short *r_len, unsigned 
 	}
 	*r_len = msg->len;
 	memcpy(r_buf, cmd->mem, sizeof(r_msg_hdr_t) + msg->len );
+	mutex_unlock(&cmd->mem_lock);
 	return 0;
 }
 
@@ -861,11 +886,22 @@ err:
 int wlan_rx_rsp_process(const unsigned char vif_id, r_msg_hdr_t *msg)
 {
 	wlan_cmd_t  *cmd = &(g_wlan.cmd);
-	
-	printkd("[RECV_RSP][%d][%s][%d]\n",vif_id, get_cmd_name(msg->subtype), msg->len);
-	memcpy(cmd->mem, (unsigned char *)msg,  msg->len + sizeof(r_msg_hdr_t) );
-	cmd->wakeup = 1;
-	wake_up(&(cmd->waitQ));
+
+	if (mutex_trylock(&cmd->mem_lock)) {
+		printkd("[RECV_RSP][%d][%s][%d]\n", vif_id,
+			get_cmd_name(msg->subtype), msg->len);
+		if (msg->len + sizeof(r_msg_hdr_t) > WLAN_CMD_MEM_LEN)
+			BUG_ON(1);
+		memcpy(cmd->mem, (unsigned char *)msg,
+		       msg->len + sizeof(r_msg_hdr_t));
+		cmd->wakeup = 1;
+		wake_up(&cmd->waitQ);
+		mutex_unlock(&cmd->mem_lock);
+	} else {
+		printke("[RECV_RSP][%d][%s][%d], but drop it!\n",
+			vif_id, get_cmd_name(msg->subtype), msg->len);
+	}
+
 	return OK;
 }
 
