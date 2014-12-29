@@ -849,7 +849,7 @@
 		cap-power-off-card = <1>;
 		caps = <0x80000000>;
 		clock-names = "clk_sdio1";
-		clocks = <&clk_sdio1>, <&clk_96m>;
+		clocks = <&clk_sdio1>, <&clk_76m8>;
 		enb-bit = <0x200>;
 		rst-bit = <0x1000>;
 		keep-power = <1>;
