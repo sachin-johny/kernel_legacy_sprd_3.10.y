@@ -1231,7 +1231,8 @@ static int sci_bm_get_mem_layout(void)
 					memory_layout.cpgge_end = res.end;
 				}
 			}
-			else if(!strcmp(devname, "cptl")){
+
+			if(!strcmp(devname, "cptl")){
 				ret = of_address_to_resource(np, 0, &res);
 				if(!ret){
 					memory_layout.cptl_start = res.start;
