@@ -152,7 +152,11 @@ typedef struct
 typedef struct
 {
 	struct task_struct *task;
-	struct semaphore    sem;	
+	struct semaphore    sem;
+	int                 null_run;
+	int                 max_null_run;
+	int                 idle_sleep;
+	int                 prio;
 }wlan_thread_t;
 
 typedef struct

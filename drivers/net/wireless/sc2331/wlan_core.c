@@ -581,6 +581,25 @@ int wmm_calc(wlan_vif_t *vif, unsigned short *q_event_num)
 }
 
 #define WLAN_CORE_SLEEP_TIME	600
+void thread_sched_policy(wlan_thread_t *thread)
+{
+	int ret;
+	struct sched_param param;
+	param.sched_priority = thread->prio;
+	ret = sched_setscheduler(current, SCHED_FIFO,   &param);
+	printkd("sched_setscheduler, prio:%d,ret:%d\n", param.sched_priority, ret);
+	return;
+}
+
+void thread_sleep_policy(wlan_thread_t *thread)
+{
+	if(thread->null_run > thread->max_null_run)
+	{
+		usleep_range(thread->idle_sleep - 50, thread->idle_sleep + 50);
+		//thread->null_run = 0;
+	}
+	return;
+}
 static int wlan_core_thread(void *data)
 {
 	wlan_vif_t    *vif;	
@@ -696,7 +715,9 @@ static int wlan_trans_thread(void *data)
 	unsigned short  status;
 	int             tx_retry_cnt;
 	bool            tx_retry_flag = false;
+	wlan_thread_t  *thread;
 	
+	thread = &(g_wlan.wlan_trans);
 	sema_init(&g_wlan.wlan_trans.sem, 0);
 	sdiodev_readchn_init(8, (void *)wlan_rx_chn_isr, 1);
 	sdiodev_readchn_init(9, (void *)wlan_rx_chn_isr, 1);	
@@ -705,12 +726,21 @@ static int wlan_trans_thread(void *data)
 	rx_fifo      = &(g_wlan.rxfifo);
 	up(&(g_wlan.sync.sem));
 	printke("%s enter\n", __func__);
+
+	g_wlan.wlan_trans.null_run     = 0;
+	g_wlan.wlan_trans.max_null_run = 200;
+	g_wlan.wlan_trans.idle_sleep   = 200;
+	g_wlan.wlan_trans.prio         = 90;
+	
+	thread_sched_policy(thread);
 	trans_down();
 	
 	do
 	{
+		thread_sleep_policy(thread);
 		send_pkt  = retry = done = 0;
 		sem_count = g_wlan.wlan_trans.sem.count;
+		
 RX:
 		if(! gpio_get_value(SDIO_RX_GPIO) )
 		{
@@ -846,6 +876,10 @@ TX:
 			if( (0 == done) && (0 == retry) )
 				done = (  (0 == sem_count)?(1):(sem_count) );
 		}
+		if(done > 0)
+			g_wlan.wlan_trans.null_run= 0;
+		else
+			g_wlan.wlan_trans.null_run++;		
 		for(i=0; i<done; i++)
 		{
 			trans_down();
