@@ -624,7 +624,7 @@ static int wlan_core_thread(void *data)
 							} else {
 								if (time_after(jiffies, timeout)) {
 									printke("%s [TIMEOUT][%lu] jiffies:%lu\n",
-										timeout, jiffies);
+										__func__, timeout, jiffies);
 									msleep(300);
 									sleep_flag = 0;
 								}
