@@ -1003,10 +1003,15 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		if(sleep_para.gpioreq_need_pulldown)
 		{
 			SDIOTRAN_DEBUG("ENTRY sdio irq!!!");
-			complete(&marlin_ack);
-			
+			if(sdio_w_flag == 1){
+				complete(&marlin_ack);
+				set_marlin_sleep(0xff,0x1);
+			}
+			else{
+				set_marlin_sleep(0xff,0x2);
+			}
 		}
-		set_marlin_sleep(0xff,0x1);
+
 	}
 	
 
@@ -1313,7 +1318,7 @@ void  marlin_sdio_uninit(void)
 {
 	sdio_unregister_driver(&marlin_sdio_driver);
 	sdio_dev_host = NULL;
-	have_card == 0;
+	have_card = 0;
 
 	SDIOTRAN_ERR("ok");
 }
