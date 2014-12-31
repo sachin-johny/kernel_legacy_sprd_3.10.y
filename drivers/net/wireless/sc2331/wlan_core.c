@@ -451,12 +451,19 @@ struct net_device_ops wlan_ops =
 
 static void wlan_early_suspend(struct early_suspend *es)
 {
+	/* suspend clear bit0 of screen_on */
+	if (atomic_read(&g_wlan.screen_on) & 0x1)
+		atomic_dec(&g_wlan.screen_on);
 	printkd("[%s]\n", __func__);
 	wlan_cmd_sleep(1);
 }
 
 static void wlan_late_resume(struct early_suspend *es)
 {
+	/* resume set bit0 for resume,
+	 * set bit1 for status change, used by wlan_wakeup_cp
+	 */
+	atomic_set(&g_wlan.screen_on, 0x3);
 	printkd("[%s]\n", __func__);
 	wlan_cmd_sleep(2);
 }
@@ -476,7 +483,6 @@ int wlan_wakeup(void )
 
 void wlan_sleep(void )
 {
-	int     ret;
 	if( (1 != g_wlan.hw.wakeup) || (0 == g_wlan.hw.can_sleep) )
 		return;
 	g_wlan.hw.wakeup = 0;
@@ -634,25 +640,24 @@ static int wlan_core_thread(void *data)
 				for(i=0; i<need_tx; i++)
 				{
 					ret = wlan_tx(tx_fifo, event_q, 1);
-					if(1  != ret)
-					{
-						if (TX_FIFO_FULL == ret) {
-							if (0 == sleep_flag) {
-								timeout = jiffies + msecs_to_jiffies(WLAN_CORE_SLEEP_TIME);
-								sleep_flag = 1;
-							} else {
-								if (time_after(jiffies, timeout)) {
-									printke("%s [TIMEOUT][%lu] jiffies:%lu\n",
-										__func__, timeout, jiffies);
-									msleep(300);
-									sleep_flag = 0;
-								}
-							}
+					if (TX_FIFO_FULL == ret) {
+						if (0 == sleep_flag) {
+							timeout = jiffies + msecs_to_jiffies(WLAN_CORE_SLEEP_TIME);
+							sleep_flag = 1;
 						} else {
-							/* no problem as need_tx, excpt get_event erro */
-							ASSERT();
-							msleep(10);
+							if (time_after(jiffies, timeout)) {
+								printke("%s [TIMEOUT][%lu] jiffies:%lu\n",
+										__func__, timeout, jiffies);
+								msleep(300);
+								sleep_flag = 0;
+							}
 						}
+						retry++;
+						continue;
+					} else if (TX_FIFO_EMPTY == ret) {
+						/* no problem as need_tx, excpt get_event erro */
+						ASSERT();
+						msleep(10);
 						retry++;
 						continue;
 					}
@@ -704,6 +709,40 @@ static int check_valid_chn(int flag, unsigned short status, sdio_chn_t *chn_info
 	return index;
 }
 
+#define WLAN_GPIO_PULL_CNT	8
+static int wlan_wakeup_cp(unsigned long timeout)
+{
+	static int gpio_cnt = WLAN_GPIO_PULL_CNT;
+	static unsigned long last_time;
+	int screen;
+
+	screen = atomic_read(&g_wlan.screen_on);
+	/* suspend -> resume, reset gpio_cnt
+	 * gpio_cnt used when suspend change to resume
+	 * This make sure resume_cmd is recieved by CP
+	 */
+	if (screen & 0x2) {
+		atomic_sub(0x2, &g_wlan.screen_on);
+		gpio_cnt = WLAN_GPIO_PULL_CNT;
+	}
+	/* resume */
+	if (screen & 0x1) {
+		if (gpio_cnt) {
+			gpio_cnt--;
+			last_time = jiffies;
+		} else if (time_after(jiffies, last_time + timeout))
+			last_time = jiffies;
+		else
+			return 0;
+	}
+	/* wake up cp */
+	screen = set_marlin_wakeup(0, 1);
+	if (screen)
+		gpio_cnt = WLAN_GPIO_PULL_CNT;
+
+	return screen;
+}
+
 static int wlan_trans_thread(void *data)
 {
 	int i,vif_id,ret,done, retry,sem_count,send_pkt, index,pkt_num;
@@ -714,6 +753,7 @@ static int wlan_trans_thread(void *data)
 	sdio_chn_t     *rx_chn;
 	unsigned short  status;
 	int             tx_retry_cnt;
+	unsigned long   gpio_time;
 	bool            tx_retry_flag = false;
 	wlan_thread_t  *thread;
 	
@@ -735,6 +775,7 @@ static int wlan_trans_thread(void *data)
 	thread_sched_policy(thread);
 	trans_down();
 	
+	gpio_time = msecs_to_jiffies(1600);
 	do
 	{
 		thread_sleep_policy(thread);
@@ -824,7 +865,10 @@ TX:
 			if(0 == ret)
 				continue;
 			wlan_wakeup();
-			set_marlin_wakeup(0, 1);
+			if (wlan_wakeup_cp(gpio_time)) {
+				retry++;
+				continue;
+			}
 			ret = sdio_chn_status(tx_chn->bit_map, &status);
 			index = check_valid_chn(0, status, tx_chn);
 			if(index < 0)
@@ -1139,6 +1183,7 @@ int wlan_module_init(struct device *dev)
 	g_wlan.netif[NETIF_0_ID].id= NETIF_0_ID;
 	g_wlan.netif[NETIF_1_ID].id= NETIF_1_ID;
 	g_wlan.sync.exit = 0;
+	atomic_set(&g_wlan.screen_on, 1);
 	sema_init(&g_wlan.sync.sem, 0);
 	wlan_hw_init(&(g_wlan.hw));
 	

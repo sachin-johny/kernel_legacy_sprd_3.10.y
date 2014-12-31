@@ -241,6 +241,7 @@ typedef struct
 	drv_sync_t          sync;	
 	wlan_vif_t          netif[2];
 	rxfifo_t            rxfifo;
+	atomic_t           screen_on;
 }wlan_info_t;
 
 
