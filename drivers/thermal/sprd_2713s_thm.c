@@ -180,7 +180,7 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 	//set hot int temp value
 	THM_DEBUG("thm sensor trip:%d, temperature:%d \n", trip, trip_tab->trip_points[trip].temp);
 	raw_temp = sprd_thm_temp2rawdata(pzone->sensor_id,
-		trip_tab->trip_points[trip].temp - pmic_sen_cal_offset);
+		trip_tab->trip_points[trip].temp + arm_sen_cal_offset);
 	if (raw_temp < RAW_TEMP_RANGE_MSK) {
 	raw_temp++;
 	}
@@ -189,18 +189,18 @@ int sprd_thm_set_active_trip(struct sprd_thermal_zone *pzone, int trip )
 
 	//set Hot2Normal int temp value
 	raw_temp =
-	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff  + 2 - pmic_sen_cal_offset);
+	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff  + 2 + arm_sen_cal_offset);
 	__thm_reg_write((local_sensor_addr + SENSOR_HOT2NOR_THRES),
 		raw_temp, RAW_TEMP_RANGE_MSK);
 
 	raw_temp =
-	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff  + 1 - pmic_sen_cal_offset);
+	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff  + 1 + arm_sen_cal_offset);
 	__thm_reg_write((local_sensor_addr + SENSOR_HIGHOFF_THRES),
 		raw_temp, RAW_TEMP_RANGE_MSK);
 
 	//set cold int temp value
 	raw_temp =
-	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff - pmic_sen_cal_offset);
+	sprd_thm_temp2rawdata(pzone->sensor_id, trip_tab->trip_points[trip].lowoff + arm_sen_cal_offset);
 	__thm_reg_write((local_sensor_addr + SENSOR_LOWOFF_THRES),
 		raw_temp,RAW_TEMP_RANGE_MSK);
 
@@ -388,12 +388,11 @@ int sprd_thm_hw_init(struct sprd_thermal_zone *pzone)
 	int i,ret=0;
 	struct sprd_thm_platform_data *trip_tab = pzone->trip_tab;
 	ret = sci_efuse_thermal_cal_get(&arm_sen_cal_offset) ;
+
 	THM_DEBUG("arm_sen_cal_offset =%d,ret =%d\n",arm_sen_cal_offset,ret);
 	base_addr = (u32) pzone->reg_base;
-
 	printk(KERN_NOTICE "sprd_thm_hw_init 2713s_thm id:%d,base 0x%x \n",
 		pzone->sensor_id, base_addr);
-
 	if (SPRD_ARM_SENSOR == pzone->sensor_id) {
 		//ddie thm en
 		sci_glb_set(REG_AON_APB_APB_EB1, BIT_THM_EB);

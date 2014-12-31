@@ -14,8 +14,8 @@ enum sprd_thm_sensor_id {
 	SPRD_MAX_SENSOR = 2,
 };
 struct sprd_trip_point {
-	unsigned long temp;
-	unsigned long lowoff;
+	 long temp;
+	 long lowoff;
 	enum thermal_trip_type type;
 	char cdev_name[COOLING_DEV_MAX][THERMAL_NAME_LENGTH];
 };
