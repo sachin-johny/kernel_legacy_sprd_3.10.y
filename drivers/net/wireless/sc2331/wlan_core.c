@@ -753,6 +753,7 @@ static int wlan_trans_thread(void *data)
 	sdio_chn_t     *rx_chn;
 	unsigned short  status;
 	int             tx_retry_cnt;
+	int             wake_flag;
 	unsigned long   gpio_time;
 	bool            tx_retry_flag = false;
 	wlan_thread_t  *thread;
@@ -775,12 +776,15 @@ static int wlan_trans_thread(void *data)
 	thread_sched_policy(thread);
 	trans_down();
 	
+	wake_flag = 1;
 	gpio_time = msecs_to_jiffies(1600);
 	do
 	{
 		thread_sleep_policy(thread);
 		send_pkt  = retry = done = 0;
 		sem_count = g_wlan.wlan_trans.sem.count;
+		if (wake_flag)
+			wake_lock(&g_wlan.hw.wlan_lock);
 		
 RX:
 		if(! gpio_get_value(SDIO_RX_GPIO) )
@@ -803,7 +807,7 @@ RX:
 			}
 #endif
 		}
-		wlan_wakeup();
+		/* wlan_wakeup(); */
 		ret   = sdio_chn_status( rx_chn->bit_map, &status);
 		index = check_valid_chn(1, status, rx_chn);
 		if(index < 0)
@@ -864,7 +868,7 @@ TX:
 			ret = tx_fifo_used(tx_fifo);
 			if(0 == ret)
 				continue;
-			wlan_wakeup();
+			/* wlan_wakeup() */
 			if (wlan_wakeup_cp(gpio_time)) {
 				retry++;
 				continue;
@@ -909,9 +913,11 @@ TX:
 			done = done + send_pkt;
 		}
 		
-		if(g_wlan.sync.exit)
+		if (g_wlan.sync.exit) {
+			wake_unlock(&g_wlan.hw.wlan_lock);
 			break;
-		wlan_sleep();
+		}
+		/* wlan_sleep(); */
 		
 		if(gpio_get_value(SDIO_RX_GPIO))
 		{
@@ -929,6 +935,11 @@ TX:
 			g_wlan.wlan_trans.null_run= 0;
 		else
 			g_wlan.wlan_trans.null_run++;		
+		if (done >= g_wlan.wlan_trans.sem.count) {
+			wake_flag = 1;
+			wake_unlock(&g_wlan.hw.wlan_lock);
+		} else
+			wake_flag = 0;
 		for(i=0; i<done; i++)
 		{
 			trans_down();
