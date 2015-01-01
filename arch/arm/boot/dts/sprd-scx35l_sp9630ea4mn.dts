@@ -18,11 +18,10 @@
 /memreserve/ 0x89600000 0x4300000; /* Offset:150M, Size:67M*/
 
 /* memory reserved for fb */
-/memreserve/ 0x9F74F000 0x4B1000; /* 480*854*4*3, 4K alignment*/
-
+/memreserve/ 0x9F82D000 0x4B1000; /* 480*854*4*3, 4K alignment*/
 
 /* memory reserved for ION */
-/memreserve/ 0x9FC00000 0x400000; /* 480*854*4*2, 1M alignment*/
+/memreserve/ 0x9FCDE000 0x322000; /* 480*854*4*2, 8K alignment*/
 
 
 /include/ "skeleton.dtsi"
@@ -469,7 +468,7 @@
 		clock-src = <256000000 256000000 384000000>;
 		dpi_clk_div = <7>;
 		sprd,fb_use_reservemem;
-		sprd,fb_mem = <0x9F74F000 0x4B1000>;
+		sprd,fb_mem = <0x9F82D000 0x4B1000>;
 	};
 	gsp:gsp@20a00000 {
 		compatible = "sprd,gsp";
@@ -901,7 +900,7 @@
                        reg = <3>;                      /* OVERLAY */
                        reg-names = "ion_heap_carveout_overlay";
                        sprd,ion-heap-type = <2>;       /* CARVEOUT */
-                       sprd,ion-heap-mem = <0x9FC00000 0x400000>;      /* 480*854*4*2, 1M alignment */
+                       sprd,ion-heap-mem = <0x9FCDE000 0x322000>;      /* 480*854*4*2, 8K alignment */
                  };
          };
          sprd_iommu0:sprd_iommu@F5410000 {
