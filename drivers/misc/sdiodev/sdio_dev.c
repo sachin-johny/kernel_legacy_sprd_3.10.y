@@ -177,6 +177,21 @@ void gpio_timer_handler(unsigned long data)
 	}
 }
 
+int fwdownload_fin = 0;
+
+int get_sprd_download_fin(void)
+{
+	return fwdownload_fin;
+}
+EXPORT_SYMBOL_GPL(get_sprd_download_fin);
+
+void set_sprd_download_fin(int dl_tag)
+{
+	return fwdownload_fin = dl_tag;
+}
+EXPORT_SYMBOL_GPL(set_sprd_download_fin);
+
+
 int set_marlin_wakeup(uint32 chn,uint32 user_id)
 {
 	//user_id: wifi=0x1;bt=0x2
@@ -185,6 +200,12 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 	int ret;
 	SDIOTRAN_DEBUG("entry");
 
+	if(get_sprd_download_fin() != 1)
+	{
+		SDIOTRAN_ERR("marlin unready");
+		return -1;
+	}
+	
 	if(0 != sleep_para.gpio_opt_tag)		
 	{
 		sleep_para.gpioreq_need_pulldown = 0;
@@ -747,19 +768,6 @@ static void marlin_workq(void)
 
 }
 
-int fwdownload_fin = 0;
-
-int get_sprd_download_fin(void)
-{
-	return fwdownload_fin;
-}
-EXPORT_SYMBOL_GPL(get_sprd_download_fin);
-
-void set_sprd_download_fin(int dl_tag)
-{
-	return fwdownload_fin = dl_tag;
-}
-EXPORT_SYMBOL_GPL(set_sprd_download_fin);
 
 static irqreturn_t marlin_irq_handler(int irq, void * para)
 {
