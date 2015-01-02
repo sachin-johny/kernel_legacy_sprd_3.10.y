@@ -50,6 +50,7 @@
 #include "wlan_cmd.h"
 #include "wlan_cfg80211.h"
 
+/* #define WLAN_LESS_WAKEUP_CP */
 #define WLAN_THREAD_SLEPP_POLICE
 #define WIFI_DRV_WAPI
 #define KERNEL_VERSION(a, b, c)              (((a) << 16) + ((b) << 8) + (c))
@@ -241,7 +242,9 @@ typedef struct
 	drv_sync_t          sync;	
 	wlan_vif_t          netif[2];
 	rxfifo_t            rxfifo;
+#ifdef WLAN_LESS_WAKEUP_CP
 	atomic_t           screen_on;
+#endif
 }wlan_info_t;
 
 

@@ -451,19 +451,23 @@ struct net_device_ops wlan_ops =
 
 static void wlan_early_suspend(struct early_suspend *es)
 {
+#ifdef WLAN_LESS_WAKEUP_CP
 	/* suspend clear bit0 of screen_on */
 	if (atomic_read(&g_wlan.screen_on) & 0x1)
 		atomic_dec(&g_wlan.screen_on);
+#endif
 	printkd("[%s]\n", __func__);
 	wlan_cmd_sleep(1);
 }
 
 static void wlan_late_resume(struct early_suspend *es)
 {
+#ifdef WLAN_LESS_WAKEUP_CP
 	/* resume set bit0 for resume,
 	 * set bit1 for status change, used by wlan_wakeup_cp
 	 */
 	atomic_set(&g_wlan.screen_on, 0x3);
+#endif
 	printkd("[%s]\n", __func__);
 	wlan_cmd_sleep(2);
 }
@@ -712,6 +716,7 @@ static int check_valid_chn(int flag, unsigned short status, sdio_chn_t *chn_info
 #define WLAN_GPIO_PULL_CNT	8
 static int wlan_wakeup_cp(unsigned long timeout)
 {
+#ifdef WLAN_LESS_WAKEUP_CP
 	static int gpio_cnt = WLAN_GPIO_PULL_CNT;
 	static unsigned long last_time;
 	int screen;
@@ -741,6 +746,9 @@ static int wlan_wakeup_cp(unsigned long timeout)
 		gpio_cnt = WLAN_GPIO_PULL_CNT;
 
 	return screen;
+#else
+	return set_marlin_wakeup(0, 1);
+#endif
 }
 
 static int wlan_trans_thread(void *data)
@@ -869,14 +877,13 @@ TX:
 			if(0 == ret)
 				continue;
 			/* wlan_wakeup() */
-			if (wlan_wakeup_cp(gpio_time)) {
-				retry++;
-				continue;
-			}
+			if (wlan_wakeup_cp(gpio_time))
+				goto sleep_police;
 			ret = sdio_chn_status(tx_chn->bit_map, &status);
 			index = check_valid_chn(0, status, tx_chn);
 			if(index < 0)
 			{
+sleep_police:
 #ifdef WLAN_THREAD_SLEPP_POLICE
 				if(false == tx_chn->timeout_flag)
 				{
@@ -1194,7 +1201,10 @@ int wlan_module_init(struct device *dev)
 	g_wlan.netif[NETIF_0_ID].id= NETIF_0_ID;
 	g_wlan.netif[NETIF_1_ID].id= NETIF_1_ID;
 	g_wlan.sync.exit = 0;
+
+#ifdef WLAN_LESS_WAKEUP_CP
 	atomic_set(&g_wlan.screen_on, 1);
+#endif
 	sema_init(&g_wlan.sync.sem, 0);
 	wlan_hw_init(&(g_wlan.hw));
 	
