@@ -79,6 +79,7 @@
 #define HW_RX_SIZE                          (12288)
 #define PKT_AGGR_NUM                        (12)
 #define SDIO_RX_GPIO                        (132)
+#define MAX_TCP_SESSION                     (10)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 #define KERNEL_DEBUG_LEVE     "\001" "0"
@@ -218,6 +219,17 @@ struct deauth_info {
 
 typedef struct
 {
+	int            tid;
+	int            active;
+	unsigned int   data_seq;
+	unsigned int   ack_seq;
+	struct timeval data_time;
+	struct timeval ack_time;
+	m_event_t      event_q;
+}wlan_tcp_session_t;
+
+typedef struct
+{
 	struct net_device                *ndev;
 	struct wireless_dev               wdev;
 	unsigned short                    id;
@@ -229,6 +241,8 @@ typedef struct
 	struct deauth_info	deauth_info;
 	txfifo_t                          txfifo;
 	m_event_t                         event_q[EVENT_Q_MAX_ID];
+	bool                              tcp_ack_suppress;
+	wlan_tcp_session_t                tcp_session[MAX_TCP_SESSION];
 }wlan_vif_t;
 
 typedef struct
@@ -286,4 +300,13 @@ extern int set_marlin_sleep(unsigned int  chn,unsigned int user_id);
 extern char * get_cmd_name(int id);
 extern unsigned int g_dbg;
 extern wlan_info_t g_wlan;
+extern m_event_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len);
+extern int wlan_tcpack_tx(wlan_vif_t *vif, int *done);
+extern int wlan_tcpack_buf_malloc(wlan_vif_t *vif);
+extern int wlan_tcpack_buf_free(wlan_vif_t *vif);
+extern int wlan_rx_buf_decode(unsigned char *buf, unsigned int max_len);
+extern int wlan_tx_buf_decode(unsigned char *buf, unsigned int max_len);
+extern void seq_point(unsigned char *frame, unsigned int len);
+extern void ack_timeout_point(unsigned char *frame, unsigned int len);
+extern void tcp_session_cfg(int cmd, int value);
 #endif
