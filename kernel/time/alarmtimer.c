@@ -43,6 +43,13 @@ static struct alarm_base {
 	clockid_t		base_clockid;
 } alarm_bases[ALARM_NUMTYPE];
 
+enum ALARM_TYPE {
+	SET_POWERON_ALARM = 0,
+	GET_POWERON_ALARM,
+	SET_WAKE_ALARM,
+	GET_WAKE_ALARM,
+};
+
 /* freezer delta & lock used to handle clock_nanosleep triggered wakeups */
 static ktime_t freezer_delta;
 static DEFINE_SPINLOCK(freezer_delta_lock);
@@ -222,12 +229,12 @@ ktime_t alarm_expires_remaining(const struct alarm *alarm)
  */
 static int alarmtimer_suspend(struct device *dev)
 {
-	struct rtc_time tm;
-	ktime_t min, now;
+	struct rtc_time tm, tm_set;
+	ktime_t min, now, set_time;
 	unsigned long flags;
 	struct rtc_device *rtc;
-	int i;
-	int ret;
+	struct rtc_wkalrm alarm;
+	int i, ret;
 
 	spin_lock_irqsave(&freezer_delta_lock, flags);
 	min = freezer_delta;
@@ -266,12 +273,21 @@ static int alarmtimer_suspend(struct device *dev)
 	rtc_timer_cancel(rtc, &rtctimer);
 	rtc_read_time(rtc, &tm);
 	now = rtc_tm_to_ktime(tm);
-	now = ktime_add(now, min);
+	set_time = ktime_add(now, min);
+	tm_set = rtc_ktime_to_tm(set_time);
+
+	pr_info("alarm set at %d-%d-%d %d:%d:%d\n",tm_set.tm_year + 1900, tm_set.tm_mon + 1,
+		tm_set.tm_mday,tm_set.tm_hour, tm_set.tm_min, tm_set.tm_sec);
+	alarm.time = tm_set;
+	alarm.enabled = 1;
+	if (rtc->ops && rtc->ops->set_alarm)
+		ret = rtc->ops->ioctl(rtc->dev.parent, SET_WAKE_ALARM, (unsigned long)&alarm);
 
 	/* Set alarm, if in the past reject suspend briefly to handle */
-	ret = rtc_timer_start(rtc, &rtctimer, now, ktime_set(0, 0));
-	if (ret < 0)
+	if (ret < 0){
+		pr_err("alarm suspend err %d\n", ret);
 		__pm_wakeup_event(ws, MSEC_PER_SEC);
+	}
 	return ret;
 }
 #else
@@ -325,10 +341,12 @@ void alarmtimer_shutdown(struct platform_device * pdev)
 		tm_set.tm_hour, tm_set.tm_min, tm_set.tm_sec);
 	pr_info("         now %d-%d-%d %d:%d:%d\n",tm_now.tm_year + 1900, tm_now.tm_mon + 1, tm_now.tm_mday, \
 		tm_now.tm_hour, tm_now.tm_min, tm_now.tm_sec);
+
 	alarm.time = tm_set;
 	alarm.enabled = 1;
 	if (rtc->ops && rtc->ops->set_alarm)
-		ret = rtc->ops->set_alarm(rtc->dev.parent, &alarm);
+		ret = rtc->ops->ioctl(rtc->dev.parent, SET_POWERON_ALARM, (unsigned long)&alarm);
+
 	if(ret)
 		pr_err("alarm shutdown err %d\n", ret);
 	return;
@@ -415,6 +433,7 @@ static void set_real_alarm(struct work_struct *work)
 	alarm.enabled = 1;
 	if (rtc->ops && rtc->ops->set_alarm)
 		rtc->ops->set_alarm(rtc->dev.parent, &alarm);
+
 	wake_unlock(&alarm_wake_lock);
 	return;
 }
