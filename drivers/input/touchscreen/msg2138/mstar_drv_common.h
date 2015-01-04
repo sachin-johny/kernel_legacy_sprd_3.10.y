@@ -160,7 +160,7 @@
  * If this compile option is disabled, the permission 0777 will be used. 
  * By default, this compile option is disabled.
  */
-//#define SYSFS_AUTHORITY_CHANGE_FOR_CTS_TEST
+#define SYSFS_AUTHORITY_CHANGE_FOR_CTS_TEST
 
 /*
  * Note.

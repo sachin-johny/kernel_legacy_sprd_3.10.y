@@ -842,6 +842,7 @@ s32 DrvMainTouchDeviceInitialize(void)
 
     DBG("*** %s() ***\n", __func__);
 
+#ifdef CONFIG_UPDATE_FIRMWARE_BY_SW_ID
     /* set sysfs for firmware */
     _gFirmwareClass = class_create(THIS_MODULE, "ms-touchscreen-msg20xx");
     if (IS_ERR(_gFirmwareClass))
@@ -906,6 +907,7 @@ s32 DrvMainTouchDeviceInitialize(void)
         DBG("Failed to create device file(%s)!\n", dev_attr_driver_version.attr.name);
 
     dev_set_drvdata(_gFirmwareCmdDev, NULL);
+#endif /*CONFIG_UPDATE_FIRMWARE_BY_SW_ID*/
 
 #ifdef CONFIG_ENABLE_ITO_MP_TEST
     DrvIcFwLyrCreateMpTestWorkQueue();
