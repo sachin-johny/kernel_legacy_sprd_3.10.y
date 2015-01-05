@@ -226,7 +226,7 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		SDIOTRAN_ERR("pull up gpio %d",GPIO_AP_TO_MARLIN);
 		//sleep_para.gpioreq_up_time = jiffies;
 		
-		if(user_id == 1)
+		if((user_id == 1) &&( !gpio_get_value(GPIO_MARLIN_WAKE)))
 		{	
 			ret = wait_for_completion_timeout( &marlin_ack, msecs_to_jiffies(100) );
 			if (ret == 0){
