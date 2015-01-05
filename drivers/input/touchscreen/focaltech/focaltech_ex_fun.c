@@ -40,7 +40,7 @@ int fts_ctpm_fw_upgrade(struct i2c_client *client, u8 *pbt_buf,
 			  u32 dw_lenth);
 
 static unsigned char FT6306_FW[] = {
-#include "FT6x06_4Column_Ver0x03_20141117_app.h"
+#include "FT6x06_4Column_Ver0x11_20141206_app.h"
 };
 
 static unsigned char FT_FW_NULL[] = {
@@ -445,7 +445,17 @@ int fts_ctpm_auto_upgrade(struct i2c_client *client)
 	uc_host_fm_ver = fts_ctpm_get_i_file_ver();
 
        printk("[FTS] uc_tp_fm_ver = 0x%x, uc_host_fm_ver = 0x%x\n",uc_tp_fm_ver, uc_host_fm_ver);
-	   
+/*
+*avoid the old module about 500pcs to upgrade the firmware,
+*the firmware version of old module is from 0x01 to 0x03,
+*but the new module firmware version is more than 0x10.
+*bug385939
+*/
+	if (uc_reg_value == 0x06) {
+		if (uc_tp_fm_ver < 0x04)
+			 return 0;
+	}
+
 	if (/*the firmware in touch panel maybe corrupted */
 		uc_tp_fm_ver == FT_REG_FW_VER ||
 		/*the firmware in host flash is new, need upgrade */
