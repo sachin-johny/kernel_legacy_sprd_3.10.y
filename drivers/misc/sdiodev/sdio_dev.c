@@ -406,6 +406,7 @@ int  sdio_chn_status(unsigned short chn, unsigned short *status)
 	unsigned char status0 = 0;
 	unsigned char status1 = 0;	
 	int err_ret;
+	int ret = 0;
 
 	SDIOTRAN_DEBUG("ENTRY");
 	MARLIN_PM_RESUME_WAIT(marlin_sdio_wait);
@@ -417,17 +418,23 @@ int  sdio_chn_status(unsigned short chn, unsigned short *status)
 	
 	sdio_claim_host(sprd_sdio_func[SDIODEV_FUNC_0]);
 	
-	if(0x00FF & chn)
+	if (0x00FF & chn) {
 		status0 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x840,&err_ret);
+		if (status0 == 0xFF)
+			ret = -1;
+	}
 
-	if(0xFF00 & chn)
+	if (0xFF00 & chn) {
 		status1 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x841,&err_ret);   
+		if (status1 == 0xFF)
+			ret = -1;
+	}
 
 	sdio_release_host(sprd_sdio_func[SDIODEV_FUNC_0]);
 	
 	*status = ( (status0+(status1 << 8)) & chn );
 	
-	return 0;	
+	return ret;
 }
 EXPORT_SYMBOL_GPL(sdio_chn_status);
 

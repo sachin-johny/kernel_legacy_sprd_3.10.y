@@ -708,10 +708,6 @@ static int check_valid_chn(int flag, unsigned short status, sdio_chn_t *chn_info
 {
 	int i,index = -1;
 
-	if ((status & 0xFF) == 0xFF)
-		status &= 0xFF00;
-	if ((status & 0xFF00) == 0xFF00)
-		status &= 0xFF;
 	if(1 == flag)
 		status = ( status & (chn_info->bit_map) );	
 	else
@@ -832,10 +828,15 @@ RX:
 #endif
 		}
 		/* wlan_wakeup(); */
+		if (wlan_wakeup_cp(gpio_time))
+			goto rx_sleep_police;
 		ret   = sdio_chn_status( rx_chn->bit_map, &status);
+		if (ret)
+			goto rx_sleep_police;
 		index = check_valid_chn(1, status, rx_chn);
 		if(index < 0)
 		{
+rx_sleep_police:
 #ifdef WLAN_THREAD_SLEPP_POLICE
 			if(false == rx_chn->timeout_flag)
 			{
@@ -894,12 +895,14 @@ TX:
 				continue;
 			/* wlan_wakeup() */
 			if (wlan_wakeup_cp(gpio_time))
-				goto sleep_police;
+				goto tx_sleep_police;
 			ret = sdio_chn_status(tx_chn->bit_map, &status);
+			if (ret)
+				goto tx_sleep_police;
 			index = check_valid_chn(0, status, tx_chn);
 			if(index < 0)
 			{
-sleep_police:
+tx_sleep_police:
 #ifdef WLAN_THREAD_SLEPP_POLICE
 				if(false == tx_chn->timeout_flag)
 				{
