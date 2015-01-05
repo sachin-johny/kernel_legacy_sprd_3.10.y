@@ -57,7 +57,7 @@
 #define DCAM_MINOR_VERSION                      0
 #define DCAM_RELEASE                            0
 #define DCAM_QUEUE_LENGTH                       16
-#define DCAM_TIMEOUT                            1000
+#define DCAM_TIMEOUT                            1500
 
 #define DCAM_ZOOM_LEVEL_MAX                     4
 #define DCAM_ZOOM_STEP(x, y)                   (((x) - (y)) / DCAM_ZOOM_LEVEL_MAX)
