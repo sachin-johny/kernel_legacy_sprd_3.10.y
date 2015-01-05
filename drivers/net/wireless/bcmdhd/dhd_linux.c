@@ -2230,7 +2230,8 @@ dhd_sendpkt(dhd_pub_t *dhdp, int ifidx, void *pktbuf)
 			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), AC_COUNT);
 		else{
             /* convert BK to BE. */
-            if(PKTPRIO(pktbuf) < 3)
+	    /* Hardcode prio to 0, because of abnormal TOS value of some area, which decreases softap throughput*/
+            //if(PKTPRIO(pktbuf) < 3)
                 PKTPRIO(pktbuf) = 0;
 			DHD_PKTTAG_SETFIFO(PKTTAG(pktbuf), WME_PRIO2AC(PKTPRIO(pktbuf)));}
 	} else
