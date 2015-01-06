@@ -22,7 +22,7 @@
 #define MBOX_IRQ_STS 0x18
 #define MBOX_IRQ_MSK 0x1c
 #define MBOX_LOCK 0x20
-
+#define FIFO_BLOCK_STS (0x20)
 #define MBOX_UNLOCK_KEY 0x5a5a5a5a
 
 struct mbox_chn {
@@ -32,6 +32,18 @@ struct mbox_chn {
 };
 
 static struct mbox_chn mbox_chns[MBOX_NR];
+static irqreturn_t  mbox_src_irqhandle(int irq_num, void *dev)
+{
+	u8 target_id;
+	u32 irq_sts;
+	u32 reg_val;
+
+        reg_val = __raw_readl(SPRD_SEND_MBOX_BASE + MBOX_ID);
+	irq_sts = __raw_readl(SPRD_SEND_MBOX_BASE + MBOX_FIFO_STS);
+        irq_sts = irq_sts & 0x3f;
+        if(irq_sts & FIFO_BLOCK_STS )
+            panic("target 0x%x mailbox blocked", reg_val);
+}
 
 static irqreturn_t mbox_recv_irqhandle(int irq_num, void *dev)
 {
@@ -123,7 +135,7 @@ int mbox_raw_sent(u8 target_id, u64 msg)
 	while (!(__raw_readl(SPRD_SEND_MBOX_BASE + MBOX_LOCK) & 0x1));
 
 	/*sent fifo is not full*/
-	while (__raw_readl(SPRD_SEND_MBOX_BASE + MBOX_FIFO_STS) & 0x4);
+	//while (__raw_readl(SPRD_SEND_MBOX_BASE + MBOX_FIFO_STS) & 0x4);
 #if 0
 	__raw_writeq(msg, SPRD_SEND_MBOX_BASE + MBOX_MSG_L );
 #endif
@@ -144,7 +156,8 @@ static int __init mbox_init(void)
 {
 	int i;
 	int ret;
-        int vmailbox_irq = SCI_IRQ(69);
+        int vmailbox_tag_irq = SCI_IRQ(69);
+        int vmailbox_src_irq = SCI_IRQ(68);
 
 	/*glb enable and rst*/
 	sci_glb_set(REG_AON_APB_APB_EB1, BIT_MBOX_EB);
@@ -154,16 +167,24 @@ static int __init mbox_init(void)
 
 	for (i = 0; i < 0x100; i++);
 
-	__raw_writel(0x0, SPRD_SEND_MBOX_BASE  + MBOX_FIFO_RST);
+	__raw_writel(0, SPRD_SEND_MBOX_BASE  + MBOX_FIFO_RST);
+	__raw_writel(~FIFO_BLOCK_STS, SPRD_SEND_MBOX_BASE + MBOX_IRQ_MSK);
+        ret = request_irq(vmailbox_src_irq, mbox_src_irqhandle, IRQF_NO_SUSPEND, "sprd-mailbox_source", NULL);
+	if (ret) {
+            pr_err("mbox request source irq:%d failed\n", vmailbox_src_irq);
+            return -1; /*fixme*/
+	}
+        enable_irq_wake(vmailbox_src_irq);
+
 	/*recv use the irq_type_1 default*/
 	__raw_writel(0x10000, SPRD_RECV_MBOX_BASE +  MBOX_FIFO_RST);
 	/* FIXME: irq num */
-	ret = request_irq(vmailbox_irq, mbox_recv_irqhandle, IRQF_NO_SUSPEND, "sprd-mailbox", NULL);
+	ret = request_irq(vmailbox_tag_irq, mbox_recv_irqhandle, IRQF_NO_SUSPEND, "sprd-mailbox_target", NULL);
 	if (ret) {
-            pr_err("mbox request irq:%d failed\n",vmailbox_irq);
-            return 0; /*fixme*/
+            pr_err("mbox request target irq:%d failed\n",vmailbox_tag_irq);
+            return -1; /*fixme*/
 	}
-        enable_irq_wake(vmailbox_irq);
+        enable_irq_wake(vmailbox_tag_irq);
 
 	/*disable recv irq*/
 	__raw_writel(0xff00, SPRD_RECV_MBOX_BASE + MBOX_IRQ_MSK);
