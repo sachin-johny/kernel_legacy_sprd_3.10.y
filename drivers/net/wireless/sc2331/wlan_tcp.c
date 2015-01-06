@@ -28,33 +28,60 @@ int time_d_value(struct timeval *start, struct timeval *end)
 	return (end->tv_sec - start->tv_sec)*1000000 + (end->tv_usec - start->tv_usec);
 }
 
+static int get_ip_hdr(unsigned char *frame, int len, unsigned char **ip_hdr)
+{
+	int ip_hdr_len;
+   *ip_hdr     = frame + 14;
+	ip_hdr_len  = ((*ip_hdr)[0]&0x0F) * 4;
+	return ip_hdr_len;
+}
+
+static int get_tcp_hdr(unsigned char *frame, int len,unsigned char **tcp_hdr)
+{
+	int ip_hdr_len, tcp_hdr_len;
+	ip_hdr_len  = (frame[14]&0x0F) * 4;
+   *tcp_hdr     = frame + 14 + ip_hdr_len;
+	tcp_hdr_len = ((*tcp_hdr)[12]>>4) * 4;
+	return tcp_hdr_len;
+}
+
 static bool is_tcp_data(unsigned char *frame, int len)
 {
-	int payload;
+	int ip_hdr_len, tcp_hdr_len;
+	unsigned char *ip_hdr, *tcp_hdr;
 	if(len <= 54)
 		return false;
-	payload = len - (34 + (frame[0x2e]>>4)*4);
-	if(payload <= 0)
-		return false;
-	if( !(0x08 == frame[12] && 0x0==frame[13]) )//IP
+	if( !(0x08  == frame[12] && 0x0==frame[13]) )//IP
 		return false;
 	if( ! (0x06 == frame[23]) )//TCP
 		return false;
+
+	ip_hdr_len  = get_ip_hdr(frame, len,  &ip_hdr);
+	tcp_hdr_len = get_tcp_hdr(frame, len, &tcp_hdr);
+
+	if( (len - (14+ip_hdr_len+tcp_hdr_len)) <= 0)
+		return false;
+	
 	return true;
 }
 
 static bool is_tcp_ack(unsigned char *frame, int len)
 {
-	int payload;
-	if(len < 54)
+	int ip_hdr_len, tcp_hdr_len;
+	unsigned char *ip_hdr, *tcp_hdr;
+	if(len != 54)
 		return false;
-	payload = len - (34 + (frame[0x2e]>>4)*4);
-	if(0 < payload)
+	if( !(0x08  == frame[12] && 0x0==frame[13]) )//IP
 		return false;
-	if( !(0x08 == frame[12] && 0x0==frame[13]) )
+	if( ! (0x06 == frame[23]) )//TCP
 		return false;
-	if( ! (0x06 == frame[23]) )
+	
+	ip_hdr_len  = get_ip_hdr(frame, len,  &ip_hdr);
+	tcp_hdr_len = get_tcp_hdr(frame, len, &tcp_hdr);
+	
+	if( (len - (14+ip_hdr_len+tcp_hdr_len)) != 0)
 		return false;
+	
 	return true;
 }
 
@@ -69,12 +96,16 @@ static bool ack_no_loss(unsigned char *frame, int len)
 
 static unsigned int get_data_seq(unsigned char *frame, unsigned int len)
 {
-	unsigned int seq;
+	unsigned char *tcp_hdr;
+	unsigned int   seq;
 	unsigned char  seq1[4];
-	seq1[3] = frame[38];
-	seq1[2] = frame[39];	
-	seq1[1] = frame[40];
-	seq1[0] = frame[41];
+	
+	get_tcp_hdr(frame, len, &tcp_hdr);
+	
+	seq1[3] = tcp_hdr[4];
+	seq1[2] = tcp_hdr[5];	
+	seq1[1] = tcp_hdr[6];
+	seq1[0] = tcp_hdr[7];
 	memcpy((char *)(&seq), &seq1[0], 4);
 	CLEAR_BIT(seq, 31);
 	return seq;
@@ -82,15 +113,37 @@ static unsigned int get_data_seq(unsigned char *frame, unsigned int len)
 
 static unsigned int get_ack_seq(unsigned char *frame, unsigned int len)
 {
-	unsigned int seq;
+	unsigned char *tcp_hdr;
+	unsigned int   seq;
 	unsigned char  seq1[4];
-	seq1[3] = frame[42];
-	seq1[2] = frame[43];	
-	seq1[1] = frame[44];
-	seq1[0] = frame[45];
+	
+	get_tcp_hdr(frame, len, &tcp_hdr);
+	
+	seq1[3] = tcp_hdr[8];
+	seq1[2] = tcp_hdr[9];	
+	seq1[1] = tcp_hdr[10];
+	seq1[0] = tcp_hdr[11];
 	memcpy((char *)(&seq), &seq1[0], 4);
 	CLEAR_BIT(seq, 31);
 	return seq;
+}
+
+static unsigned int tid_calc(unsigned char *frame, unsigned int len)
+{
+	unsigned int    src_ip,dst_ip, tid;
+	unsigned short  src_port,dst_port;
+	unsigned char  *tcp_hdr;
+	
+	memcpy((char *)(&src_ip),   &frame[0x1a], 4);
+	memcpy((char *)(&dst_ip),   &frame[0x1e], 4);
+
+	get_tcp_hdr(frame, len, &tcp_hdr);
+	
+	memcpy((char *)(&src_port), &(tcp_hdr[0]), 2);
+	memcpy((char *)(&dst_port), &(tcp_hdr[2]), 2);
+	
+	tid = (src_ip ^ dst_ip^dst_port^src_port);
+	return tid;
 }
 
 static void tcp_session_del(wlan_tcp_session_t  *session)
@@ -102,8 +155,7 @@ static void tcp_session_del(wlan_tcp_session_t  *session)
 
 void tcp_session_updata(const unsigned char vif_id, unsigned char *frame, unsigned int len)
 {
-	unsigned int    src_ip,dst_ip,tid,seq;
-	unsigned short  src_port,dst_port;
+	unsigned int    tid,seq;
 	int             i,id;
 	wlan_vif_t     *vif;
 	wlan_tcp_session_t  *session;
@@ -111,14 +163,10 @@ void tcp_session_updata(const unsigned char vif_id, unsigned char *frame, unsign
 	if(false == g_wlan.netif[vif_id].tcp_ack_suppress)
 		return;
 	if(false == is_tcp_data(frame, len) )
+	{
 		return;
-	
-	memcpy((char *)(&src_ip),   &frame[0x1a], 4);
-	memcpy((char *)(&dst_ip),   &frame[0x1e], 4);
-	memcpy((char *)(&src_port), &frame[0x22], 2);
-	memcpy((char *)(&dst_port), &frame[0x24], 2);
-
-	tid = (src_ip ^ dst_ip^dst_port^src_port);
+	}
+	tid = tid_calc(frame, len);
 	seq = get_data_seq(frame, len);
 	vif = &(g_wlan.netif[vif_id]);	
 	do_gettimeofday(&cur_time);
@@ -172,21 +220,15 @@ void tcp_session_updata(const unsigned char vif_id, unsigned char *frame, unsign
 
 m_event_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len)
 {
-	unsigned int    src_ip,dst_ip,tid,i;
-	unsigned short  src_port,dst_port;
+	unsigned int    tid,i;
 	m_event_t      *event_q;
 	
 	event_q  = &(vif->event_q[1] );
 	if(false == vif->tcp_ack_suppress)
 		return event_q;
 	if(false == is_tcp_ack(frame, len) )
-		return event_q;
-	
-	memcpy((char *)(&dst_ip),   &frame[0x1a], 4);
-	memcpy((char *)(&src_ip),   &frame[0x1e], 4);
-	memcpy((char *)(&src_port), &frame[0x22], 2);
-	memcpy((char *)(&dst_port), &frame[0x24], 2);
-	tid = (src_ip ^ dst_ip^src_port^dst_port);
+		goto EXIT;
+	tid = tid_calc(frame, len);
 	for(i=0; i<MAX_TCP_SESSION; i++)
 	{
 		if( (1 == vif->tcp_session[i].active) && (tid == vif->tcp_session[i].tid) )
@@ -194,6 +236,12 @@ m_event_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len
 			event_q = &(vif->tcp_session[i].event_q);
 			break;
 		}
+	}
+	
+EXIT:	
+	if(&(vif->event_q[1]) == event_q)
+	{
+		
 	}
 	return event_q;
 }
@@ -274,7 +322,6 @@ int wlan_tcpack_buf_malloc(wlan_vif_t *vif)
 	for(index=0; index < MAX_TCP_SESSION; index++)
 	{
 		event_q_init( &(vif->tcp_session[index].event_q), &q_conf);
-		printkd("[event][%d][%d][0x%x]\n", vif->id,index, &(vif->tcp_session[index].event_q) );
 	}
 	return OK;
 }
