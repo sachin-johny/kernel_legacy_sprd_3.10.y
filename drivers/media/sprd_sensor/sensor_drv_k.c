@@ -1547,7 +1547,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 		case SENSOR_IO_POWER_CFG:
 		{
 			struct sensor_power_info_tag pwr_cfg;
-
+			uint32_t sensor_id_temp = p_file->sensor_id;
 			ret = copy_from_user(&pwr_cfg, (struct sensor_power_info_tag*) arg, sizeof(struct sensor_power_info_tag));
 			if (0 == ret) {
 				if (pwr_cfg.is_on) {
@@ -1556,6 +1556,7 @@ LOCAL long sensor_k_ioctl(struct file *file, unsigned int cmd,
 					ret = sensor_power_off((uint32_t *)p_file, pwr_cfg.op_sensor_id, &pwr_cfg.dev0, &pwr_cfg.dev1, &pwr_cfg.dev2);
 				}
 			}
+			p_file->sensor_id = sensor_id_temp;
 		}
 		break;
 	default:
