@@ -964,7 +964,7 @@ static void sd_dbs_timer(struct work_struct *work)
 	struct dbs_data *dbs_data = dbs_info->cdbs.cur_policy->governor_data;
 	struct sd_dbs_tuners *sd_tuners = dbs_data->tuners;
 	int delay = 0, sample_type = core_dbs_info->sample_type;
-	bool modify_all = true;
+	bool modify_all = false;
 
 	mutex_lock(&core_dbs_info->cdbs.timer_mutex);
 	if(time_before(jiffies, boot_done))
