@@ -2072,6 +2072,25 @@ static int GSP_Unmap(void)
 
 	return 0;
 }
+uint32_t  __attribute__((weak)) sci_get_chip_id(void)
+{
+    printk("GSP local read chip id, *(%p) == %x \n",(void*)(SPRD_AONAPB_BASE+0xFC),GSP_REG_READ(SPRD_AONAPB_BASE+0xFC));
+    return GSP_REG_READ(SPRD_AONAPB_BASE+0xFC);
+}
+
+uint32_t  gsp_get_chip_id(void)
+{
+    uint32_t adie_chip_id = sci_get_chip_id();
+    if((adie_chip_id & 0xffff0000) < 0x50000000) {
+        printk("%s[%d]:warning, chip id 0x%08x is invalidate, try to get it by reading reg directly!\n", __func__, __LINE__ , adie_chip_id);
+        adie_chip_id = GSP_REG_READ(SPRD_AONAPB_BASE+0xFC);
+        if((adie_chip_id & 0xffff0000) < 0x50000000) {
+            printk("%s[%d]:warning, chip id 0x%08x from reg is invalidate too!\n", __func__, __LINE__ , adie_chip_id);
+        }
+    }
+    printk("%s[%d] return chip id 0x%08x \n", __func__, __LINE__, adie_chip_id);
+    return adie_chip_id;
+}
 
 static GSP_ADDR_TYPE_E GSP_Get_Addr_Type(void)
 {
@@ -2090,8 +2109,7 @@ static GSP_ADDR_TYPE_E GSP_Get_Addr_Type(void)
         /*set s_gsp_addr_type according to the chip id*/
         //adie_chip_id = sci_get_ana_chip_id();
         //printk("GSPa : get chip id :0x%08x \n", adie_chip_id);
-        adie_chip_id = sci_get_chip_id();
-        printk("GSPd : get chip id :0x%08x \n", adie_chip_id);
+        adie_chip_id = gsp_get_chip_id();
 
         if((adie_chip_id & 0xffff0000) > 0x50000000) {
             printk("GSP : get chip id :%08x is validate, scan bugchip list.\n", adie_chip_id);
@@ -2140,60 +2158,58 @@ static volatile GSP_CAPABILITY_T* GSP_Config_Capability(void)
         s_gsp_capability.scale_updown_sametime=0;
         s_gsp_capability.OSD_scaling=0;
 
-        adie_chip_id = sci_get_chip_id();
-        switch(adie_chip_id) {
-            case 0x8300a001://shark,9620
+        adie_chip_id = gsp_get_chip_id();
+        switch(adie_chip_id&0xFFFF0000) {
+            case 0x83000000:/*shark-0x8300a001 & 9620*/
                 s_gsp_capability.version = 0x00;
                 s_gsp_capability.scale_range_up=256;
                 break;
-
-            case 0x7715a000:
-            case 0x7715a001:
-            case 0x8815a000://dolphin iommu ctl reg access err
-                s_gsp_capability.version = 0x01;
-                s_gsp_capability.video_need_copy = 1;
-                s_gsp_capability.max_video_size = 1;
+            case 0x77150000:
+            case 0x88150000:
+                if(adie_chip_id == 0x7715a000
+                   ||adie_chip_id == 0x7715a001
+                   ||adie_chip_id == 0x8815a000) { /*dolphin iommu ctl reg access err*/
+                    s_gsp_capability.version = 0x01;
+                    s_gsp_capability.video_need_copy = 1;
+                    s_gsp_capability.max_video_size = 1;
+                } else if(adie_chip_id == 0x7715a002
+                          ||adie_chip_id == 0x7715a003
+                          ||adie_chip_id == 0x8815a001
+                          ||adie_chip_id == 0x8815a002) { /*dolphin iommu ctl reg access ok, but with black line bug*/
+                    s_gsp_capability.version = 0x02;
+                    s_gsp_capability.video_need_copy = 1;
+                    s_gsp_capability.max_video_size = 1;
+                } else { /*adie_chip_id > 0x7715a003 || adie_chip_id > 0x8815a002, dolphin black line bug fixed*/
+                    s_gsp_capability.version = 0x03;
+                    s_gsp_capability.max_video_size = 1;
+                    s_gsp_capability.scale_range_up=256;
+                    printk("%s[%d]: info:a new chip id, treated as newest dolphin that without any bugs!\n",__func__,__LINE__);
+                }
                 break;
-                /*
-                case 0x8300a001://dolphin iommu ctl reg access ok, but with black line bug
-                s_gsp_capability.version = 0x02;
-                s_gsp_capability.video_need_copy = 1;
-                s_gsp_capability.max_video_size = 1;
+            case 0x87300000:
+                if(adie_chip_id == 0x8730b000) { /*tshark, with black line bug*/
+                    s_gsp_capability.version = 0x04;
+                    s_gsp_capability.video_need_copy = 1;
+                } else { /*tshark-0x8730b001 & tshark2-?, black line bug fixed*/
+                    s_gsp_capability.version = 0x05;
+                    s_gsp_capability.max_layer_cnt = 2;
+                    s_gsp_capability.scale_range_up=256;
+                }
                 break;
-                case 0x8300a001://dolphin black line bug fixed
-                s_gsp_capability.version = 0x03;
-                s_gsp_capability.max_video_size = 1;
-                s_gsp_capability.scale_range_up=256;
-                break;
-                */
-
-            case 0x8730b000://tshark, with black line bug
-                s_gsp_capability.version = 0x04;
-                s_gsp_capability.video_need_copy = 1;
-                break;
-            case 0x8730b001://tshark, black line bug fixed
-                s_gsp_capability.version = 0x05;
-                s_gsp_capability.max_layer_cnt = 2;
-                s_gsp_capability.scale_range_up=256;
-                break;
-            case 0x96300000://SharkL==Tshark+YCbCr->RGB888
+            default:
+                if(adie_chip_id != 0x96300000/*SharkL, with YCbCr->RGB888*/
+                   && adie_chip_id != 0x96310000/*SharkL64*/) {
+                    /*
+                    pike/pikeL/sharkLT8 ...
+                    after sharkL, gsp will not update any more,so these late-comers are same with sharkL.
+                    */
+                    printk("%s[%d]: info:a new chip id, be treated as sharkL!\n",__func__,__LINE__);
+                }
                 s_gsp_capability.version = 0x06;
                 s_gsp_capability.blend_video_with_OSD=1;
-                s_gsp_capability.max_layer_cnt_with_video = 2;
+                s_gsp_capability.max_layer_cnt_with_video = 3;
                 s_gsp_capability.max_layer_cnt = 2;
                 s_gsp_capability.scale_range_up=256;
-                break;
-                /*
-                case 0x8300a001://pike, yuv contrast saturation can adjust
-                s_gsp_capability.version = 0x06;
-                s_gsp_capability.blend_video_with_OSD = 1;
-                s_gsp_capability.max_layer_cnt_with_video = 3;
-                s_gsp_capability.max_layer_cnt = 4;
-                break;
-                */
-
-            default:
-                s_gsp_capability.version = 0x00;
                 break;
         }
 

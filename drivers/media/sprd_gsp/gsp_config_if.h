@@ -123,14 +123,7 @@ extern   "C"
 //GSP DDR access relative
 //#define SPRD_AONAPB_PHYS		0X402E0000
 #define GSP_EMC_MATRIX_BASE		(REG_AON_APB_APB_EB1) // GSP access DDR through matrix to AXI, must enable gsp-gate on this matrix
-
-
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 #define GSP_EMC_MATRIX_BIT		(BIT_GSP_EMC_EB) // [13] gsp-gate bit on matrix , EMC is DDR controller, should always enabled
-#else
-#define GSP_EMC_MATRIX_BIT		(BIT_DISP_EMC_EB) // [11] gsp-gate bit on matrix , EMC is DDR controller, should always enabled
-#endif
-
 #define GSP_CLK_SEL_BIT_MASK		(0x3)
 
 //GSP inner work loggy clock ctl
@@ -181,30 +174,18 @@ GSP_CORE_GREQ;
 #ifdef CONFIG_OF
 #define GSP_CLOCK_PARENT3		("clk_gsp_parent")
 #else
-#ifdef CONFIG_ARCH_SCX15// dolphin
-#define GSP_CLOCK_PARENT3		("clk_153m6")
-#define GSP_CLOCK_PARENT2		("clk_128m")
-#define GSP_CLOCK_PARENT1		("clk_96m")
-#define GSP_CLOCK_PARENT0		("clk_76m8")
-#else //shark
 #define GSP_CLOCK_PARENT3		("clk_256m")
 #define GSP_CLOCK_PARENT2		("clk_192m")
 #define GSP_CLOCK_PARENT1		("clk_153m6")
 #define GSP_CLOCK_PARENT0		("clk_96m")
 #endif
-#endif
-
 #define GSP_CLOCK_NAME			("clk_gsp")
 
 #define GSP_EMC_CLOCK_PARENT_NAME		("clk_aon_apb")
-
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 #define GSP_EMC_CLOCK_NAME				("clk_gsp_emc")
-#else
-#define GSP_EMC_CLOCK_NAME				("clk_disp_emc")
-#endif
 
-#if 0
+
+#ifdef CONFIG_FPGA
 #define GSP_EMC_MATRIX_ENABLE() (*(volatile uint32_t*)(GSP_EMC_MATRIX_BASE) |= GSP_EMC_MATRIX_BIT)
 #define GSP_CLOCK_SET(sel)\
 {\
@@ -252,17 +233,10 @@ GSP_CORE_GREQ;
 #define GSP_AHB_CLOCK_SET(sel)      sci_glb_write(GSP_AHB_CLOCK_BASE, (sel), 0x3)
 #define GSP_AHB_CLOCK_GET()      	sci_glb_read(GSP_AHB_CLOCK_BASE,0x3)
 
+//#define sci_get_chip_id()			GSP_REG_READ(SPRD_AONAPB_BASE+0xFC)
 
 
-#if 0
-//0x402B001C multi-media force shutdown [25]
-//0x402E0000 MM enable
-#define GSP_ENABLE_MM(addr)\
-{\
-    sci_glb_clr((SPRD_PMU_BASE+0x1c),(1<<25));\
-    sci_glb_set(SPRD_AONAPB_BASE,(1<<25));\
-}
-#else
+
 //0x402B001C multi-media force shutdown [25]
 //0x402E0000 MM enable
 #define GSP_ENABLE_MM(addr)\
@@ -271,19 +245,11 @@ GSP_CORE_GREQ;
     sci_glb_set(REG_AON_APB_APB_EB0,(BIT_PD_MM_TOP_FORCE_SHUTDOWN));\
 }
 
-#endif
 
-#if defined(CONFIG_ARCH_SCX15) || defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
-//in dolphin,soft reset should not be called for iommu workaround
 #ifdef CONFIG_OF
 #define GSP_MMU_CTRL_BASE        (gsp_mmu_ctrl_addr)
 #else
-
-#if defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L)
 #define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x8000)
-#else
-#define GSP_MMU_CTRL_BASE (SPRD_GSPMMU_BASE+0x4000)
-#endif
 #endif
 
 #define GSP_HWMODULE_SOFTRESET()\
@@ -293,14 +259,7 @@ GSP_CORE_GREQ;
 	sci_glb_clr(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
 	GSP_REG_WRITE(GSP_MMU_CTRL_BASE,0x10000001);\
 }
-#else
-#define GSP_HWMODULE_SOFTRESET()\
-    sci_glb_set(GSP_SOFT_RESET,GSP_SOFT_RST_BIT);\
-    udelay(10);\
-    sci_glb_clr(GSP_SOFT_RESET,GSP_SOFT_RST_BIT)
-#endif
-
-#define GSP_HWMODULE_ENABLE()       sci_glb_set(GSP_MOD_EN,GSP_MOD_EN_BIT)
+#define GSP_HWMODULE_ENABLE()			sci_glb_set(GSP_MOD_EN,GSP_MOD_EN_BIT)
 #define GSP_HWMODULE_DISABLE()		sci_glb_clr(GSP_MOD_EN,GSP_MOD_EN_BIT)
 
 #endif
