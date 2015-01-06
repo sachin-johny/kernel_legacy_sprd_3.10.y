@@ -35,6 +35,7 @@
 #include <linux/sprd_cproc.h>
 #include <mach/sci.h>
 #include <mach/sci_glb_regs.h>
+#include <mach/board.h>
 
 
 #define CPROC_WDT_TRUE   1
