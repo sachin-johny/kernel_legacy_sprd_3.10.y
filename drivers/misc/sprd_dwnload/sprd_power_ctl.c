@@ -124,7 +124,7 @@ static void sprd_download_rst(void)
 	gpio_direction_output(DOWNLOAD_GPIO_RST,0);
 	msleep(1);
 	gpio_direction_output(DOWNLOAD_GPIO_RST,1);
-	msleep(100);
+	msleep(1);
 }
 
 static long sprd_power_ctl_ioctl(struct file *file, unsigned int cmd, unsigned long arg)
