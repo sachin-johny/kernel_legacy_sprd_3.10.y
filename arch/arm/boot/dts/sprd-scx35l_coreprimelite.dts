@@ -9,7 +9,7 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x400000; /* Offset:120M, Size:4M */
+/memreserve/ 0x87800000 0x540000; /* Offset:120M, Size:5M+256K */
 
 /* memory reserved for LTE modem */
 /memreserve/ 0x89600000 0x4000000; /* Offset:150M, Size:64M*/
@@ -640,12 +640,12 @@
 
 	sipc: sipc@0x87800000 {
 		compatible = "sprd,sipc";
-		reg = <0x87800000 0x400000>; /* <SMEM SIZE>*/
+		reg = <0x87800000 0x540000>; /* <SMEM SIZE>*/
 		//#interrupt-cells = <2>;
 		#address-cells = <1>;
 		#size-cells = <1>;
 		ranges = <0x09600000 0x89600000 0x4000000>,
-				 <0x07800000 0x87800000 0x400000>,
+				 <0x07800000 0x87800000 0x540000>,
 				 <0x0d5ff000 0x8d5ff000 0x1000>;
 		sipc_lte@0x09600000 {
 			sprd,name = "sipc-lte";
@@ -653,9 +653,22 @@
 			/* it's unnecessary to config IPI info upon mailbox arch */
 			mailbox,core = <7>;
 			reg = <0x09600000 0x4000000> , /* <CP_start_addr size> */
-				  <0x07800000 0x400000>, /* <SMEM_phy_addr total_size> */
+				  <0x07800000 0x540000>, /* <SMEM_phy_addr total_size> */
 				  <0x0d5ff000 0x1000>; /* smsg ring buffer <base size> */
 		};
+	};
+
+        sctrl_pmic{
+                compatible = "sprd,sctrl";
+                sprd,name = "sctrl_pmic";
+                sprd,dst = <6>;
+                sprd,channel= <1>;
+		sprd,ringnr = <1>;
+                /* it's unnecessary to config IPI info upon mailbox arch */
+                mailbox,core = <1>;
+		sprd,ringbase = <0xf5429000>; /* SMSG ring mem base address*/
+                sprd,size-rxbuf = <0x0400>; /* 2*1024*/
+		sprd,size-txbuf = <0x0400>; /* 2*1024 */
 	};
 
 	saudio_lte{
@@ -715,7 +728,7 @@
 		sprd,name = "seth_lte0";
 		sprd,dst = <5>;
 		sprd,channel = <7>;
-		sprd,blknum = <64>;
+		sprd,blknum = <256>;
 	};
 
 	seth1_lte {
@@ -723,7 +736,7 @@
 		sprd,name = "seth_lte1";
 		sprd,dst = <5>;
 		sprd,channel = <8>;
-		sprd,blknum = <64>;
+		sprd,blknum = <256>;
 	};
 
 	seth2_lte {
@@ -731,7 +744,31 @@
 		sprd,name = "seth_lte2";
 		sprd,dst = <5>;
 		sprd,channel = <9>;
-		sprd,blknum = <64>;
+		sprd,blknum = <256>;
+	};
+
+	seth3_lte {
+		compatible = "sprd,seth";
+		sprd,name = "seth_lte3";
+		sprd,dst = <5>;
+		sprd,channel = <18>;
+		sprd,blknum = <256>;
+	};
+
+	seth4_lte {
+		compatible = "sprd,seth";
+		sprd,name = "seth_lte4";
+		sprd,dst = <5>;
+		sprd,channel = <19>;
+		sprd,blknum = <256>;
+	};
+
+	seth5_lte {
+		compatible = "sprd,seth";
+		sprd,name = "seth_lte5";
+		sprd,dst = <5>;
+		sprd,channel = <20>;
+		sprd,blknum = <256>;
 	};
 
 	scproc_arm7: scproc@0x50800000 {
@@ -878,10 +915,10 @@
 		id = <0>;
 		interrupts = <0 26 0x0>;
 		reg = <0xf5260000 0x1000>;
-		trip_points_active = <80 88 100>;
-		trip_points_lowoff = <72 72 81>;
+		trip_points_active = <56 60 90 110>;
+		trip_points_lowoff = <0 46 50 80>;
 		trip_points_critical = <110>;
-		trip_num = <4>;
+		trip_num = <5>;
 	};
 
 	sprd_thermal1 {
@@ -890,9 +927,19 @@
 		interrupt-parent = <&adi>;
 		interrupts = <9 0x0>;
 		reg = <0xf51c8280 0x1000>;
-		trip_points_active = <90>;
-		trip_points_lowoff = <81>; /*no use, jut for compatiable*/
+		trip_points_active = <100>;
+		trip_points_lowoff = <90>; /*no use, jut for compatiable*/
 		trip_points_critical = <114>;
+		trip_num = <2>;
+	};
+	 sprd_thermal2 {
+		compatible = "sprd,sprd-thermal";
+		id = <2>;
+		interrupts = <0 26 0x0>;
+		reg = <0xf5260000 0x1000>;
+		trip_points_active = <100>;
+		trip_points_lowoff = <90>;
+		trip_points_critical = <110>;
 		trip_num = <2>;
 	};
 
@@ -1025,6 +1072,9 @@
                  clocks = <&clk_mmu>,<&clk_mm>,<&clk_mm_axi>;
 		status = "ok";
 	};
+         sprd_bm {
+                 compatible = "sprd,sprd_bm";
+         };
 };
 
 &vbc_r2p0 {
