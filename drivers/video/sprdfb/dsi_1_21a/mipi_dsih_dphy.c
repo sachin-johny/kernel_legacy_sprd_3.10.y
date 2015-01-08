@@ -151,10 +151,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
 				flag = 1;
 				loop_divider = tmp_loop_divider;
 				delta = output_freq - (tmp_loop_divider * (phy->reference_freq / input_divider));
-				/* variable was incremented before exiting the loop */
-				input_divider--;
+				break;
 			}
-			if ((output_freq - (tmp_loop_divider * (phy->reference_freq / input_divider))) < delta)
+			else if ((output_freq - (tmp_loop_divider * (phy->reference_freq / input_divider))) < delta)
 			{	/* values found with smaller delta */
 				loop_divider = tmp_loop_divider;
 				delta = output_freq - (tmp_loop_divider * (phy->reference_freq / input_divider));
@@ -169,10 +168,9 @@ dsih_error_t mipi_dsih_dphy_configure(dphy_t * phy, uint8_t no_of_lanes, uint32_
 				flag = 1;
 				loop_divider = tmp_loop_divider;
 				delta = (tmp_loop_divider * (phy->reference_freq / input_divider)) - output_freq;
-				/* variable was incremented before exiting the loop */
-				input_divider--;
+				break;
 			}
-			if (((tmp_loop_divider * (phy->reference_freq / input_divider)) - output_freq) < delta)
+			else if (((tmp_loop_divider * (phy->reference_freq / input_divider)) - output_freq) < delta)
 			{	/* values found with smaller delta */
 				loop_divider = tmp_loop_divider;
 				delta = (tmp_loop_divider * (phy->reference_freq / input_divider)) - output_freq;

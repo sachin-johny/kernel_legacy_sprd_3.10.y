@@ -1,7 +1,7 @@
                                                                                                                                                                          
 /*                                                                                                                                                                       
     The Synopsys Software Driver and documentation (hereinafter "Software")                                                                                              
-    is an unsupported proprietary work of Synopsys, Inc. unless otherwise                                                                                                
+    is an unsupported work of Synopsys, Inc. unless otherwise
     expressly agreed to in writing between  Synopsys and you.                                                                                                            
                                                                                                                                                                          
     The Software IS NOT an item of Licensed Software or Licensed Product under                                                                                           
@@ -111,4 +111,3 @@ uint32_t mipi_dsih_write_register_configuration(dsih_ctrl_t * instance, register
                                                                                                                                                                          
                                                                                                                                                                          
 #endif /* MIPI_DSIH_API_H_ */                                                                                                                                            
-                                                                                                                                                                               
