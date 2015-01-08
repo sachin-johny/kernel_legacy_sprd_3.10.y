@@ -981,5 +981,18 @@
 		&a_eic_gpio 4 0        /* cv state */
 		&a_eic_gpio 6 0		/* chg ovi */
 		&a_eic_gpio 9 0>;	/* battery detect */
+
+	fgu-mode = <0>;
+	alm-soc = <5>;
+	alm-vol = <3500>;
+	soft-vbat-uvlo = <3100>;
+	rint = <250>;
+	cnom = <1900>;
 	rsense-real = <230>;
+	rsense-spec = <200>;
+	relax-current = <50>;
+	fgu-cal-ajust = <0>;
+	ocv-tab-size = <21>;
+	ocv-tab-vol = <4168 4113 4076 4016 3973 3953 3924 3894 3851 3821 3802 3789 3780 3777 3771 3758 3738 3703 3684 3609 3400>;
+	ocv-tab-cap = <100  95   90   85   80   75   70   65   60   55   50   45   40   35   30   25   20   15   10   5    0>;
 };

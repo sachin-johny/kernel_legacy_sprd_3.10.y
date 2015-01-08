@@ -2090,7 +2090,7 @@ static int sprdbat_probe(struct platform_device *pdev)
 	platform_set_drvdata(pdev, data);
 	sprdbat_data = data;
 
-	//print_pdata(sprdbat_data->pdata);
+	print_pdata(sprdbat_data->pdata);
 
 	data->battery.properties = sprdbat_battery_props;
 	data->battery.num_properties = ARRAY_SIZE(sprdbat_battery_props);
