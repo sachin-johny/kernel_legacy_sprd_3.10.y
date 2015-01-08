@@ -359,7 +359,7 @@ static void suspend(struct work_struct *work)
 			tm.tm_year + 1900, tm.tm_mon + 1, tm.tm_mday,
 			tm.tm_hour, tm.tm_min, tm.tm_sec, ts_exit.tv_nsec);
 	}
-
+#if 0
 	if (ts_exit.tv_sec - ts_entry.tv_sec <= 1) {
 		++suspend_short_count;
 
@@ -370,7 +370,7 @@ static void suspend(struct work_struct *work)
 	} else {
 		suspend_short_count = 0;
 	}
-
+#endif
 	if (current_event_num == entry_event_num) {
 		if (debug_mask & DEBUG_SUSPEND)
 			pr_info("suspend: pm_suspend returned with no event\n");
