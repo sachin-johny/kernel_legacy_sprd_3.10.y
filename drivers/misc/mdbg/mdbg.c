@@ -218,12 +218,16 @@ static ssize_t mdbg_proc_read(struct file *filp,
 			}
 		}
 
-		if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
-			MDBG_ERR("Read loopcheck info error\n");
+		//if(copy_to_user((void __user *)buf, mdbg_proc->loopcheck.buf, min(count,(size_t)MDBG_LOOPCHECK_SIZE))){
+		//	MDBG_ERR("Read loopcheck info error\n");
+		//}
+
+		if(copy_to_user((void __user *)buf, "loopcheck_ack", 13)){
+				MDBG_ERR("Read loopcheck info error\n");
 		}
 
 		memset(mdbg_proc->loopcheck.buf,0,MDBG_LOOPCHECK_SIZE);
-		len = mdbg_proc->loopcheck.rcv_len;
+		len = 13;//mdbg_proc->loopcheck.rcv_len;
 		mdbg_proc->loopcheck.rcv_len = 0;
 	}
 
