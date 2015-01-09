@@ -241,6 +241,7 @@ static int32_t _isp_module_dis(void *handle)
 		if (unlikely(0 != ret)) {
 			ISP_PRINT("isp_k: close clock error\n");
 			ret = -EFAULT;
+			return ret;
 		}
 		ret =  clk_mm_i_eb(isp_dev.this_device->of_node,0);
 	}
@@ -741,11 +742,7 @@ static int32_t _isp_kernel_open (struct inode *node, struct file *pf)
 	return ret;
 
 ISP_K_OPEN_ERROR_EXIT2:
-	ret =  _isp_put_ctlr(fd);
-	if (unlikely(ret)) {
-		ISP_PRINT ("isp_k: get control error \n");
-		ret = -EFAULT;
-	}
+	 _isp_put_ctlr(fd);
 ISP_K_OPEN_ERROR_EXIT1:
 	_isp_update(fd);
 	if (fd->buf_addr) {
@@ -1060,12 +1057,6 @@ static long _isp_kernel_ioctl(struct file *fl, unsigned int cmd, unsigned long p
 
 			case ISP_IO_SETCLK: {
 			ISP_PRINT(" isp_k:ioctl set clock start \n");
-			//ret = _isp_set_clk(ISP_CLK_xxx);
-			if (ret) {
-
-				ISP_PRINT("isp_k: ioctl set clock error!\n");
-				ret = -EFAULT;
-			}
 			}
 			break;
 

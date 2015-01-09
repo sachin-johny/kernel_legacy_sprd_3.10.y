@@ -2825,14 +2825,14 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 	DCAM_CHECK_ZERO(s_p_dcam_mod);
 
 	if (DCAM_PATH_IDX_0 == path_index) {
-		frame = &s_p_dcam_mod->path0_frame[0];
+		//frame = &s_p_dcam_mod->path0_frame[0];
 		path = &s_p_dcam_mod->dcam_path0;
 		yuv_reg[0] = DCAM_FRM_ADDR0;
 		yuv_reg[1] = DCAM_FRM_ADDR12;
 		path_max_frm_cnt = DCAM_PATH_0_FRM_CNT_MAX;
 		p_heap = &s_p_dcam_mod->dcam_path0.frame_queue;
 	} else if (DCAM_PATH_IDX_1 == path_index) {
-		frame = &s_p_dcam_mod->path1_frame[0];
+		//frame = &s_p_dcam_mod->path1_frame[0];
 		path = &s_p_dcam_mod->dcam_path1;
 		yuv_reg[0] = DCAM_FRM_ADDR1;
 		yuv_reg[1] = DCAM_FRM_ADDR2;
@@ -2840,7 +2840,7 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 		path_max_frm_cnt = DCAM_PATH_1_FRM_CNT_MAX;
 		p_heap = &s_p_dcam_mod->dcam_path1.frame_queue;
 	} else /*if(DCAM_PATH_IDX_2 == path_index)*/ {
-		frame = &s_p_dcam_mod->path2_frame[0];
+		//frame = &s_p_dcam_mod->path2_frame[0];
 		path = &s_p_dcam_mod->dcam_path2;
 		yuv_reg[0] = DCAM_FRM_ADDR4;
 		yuv_reg[1] = DCAM_FRM_ADDR5;
