@@ -32,6 +32,7 @@
 #include <linux/wakelock.h>
 #include <mach/adi.h>
 #include <mach/arch_misc.h>
+#include <asm/suspend.h>
 #if defined(CONFIG_SPRD_DEBUG)
 /* For saving Fault status */
 #include <mach/sprd_debug.h>
@@ -586,7 +587,6 @@ void disable_aon_module(void)
 
 	sci_glb_clr(REG_AON_APB_APB_EB0, BIT_AON_TMR_EB | BIT_AP_TMR0_EB);
 	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_AP_TMR2_EB | BIT_AP_TMR1_EB);
-	sci_glb_clr(REG_AON_APB_APB_EB1, BIT_DISP_EMC_EB);
 }
 void bak_restore_aon(int bak)
 {
@@ -1194,6 +1194,20 @@ void cp0_sys_power_domain_open(void)
 
 extern void pm_debug_set_wakeup_timer(void);
 extern void pm_debug_set_apwdt(void);
+typedef u32 (*iram_standby_entry_ptr)(u32,u32);
+static int sc_sleep_call(unsigned long flag)
+{
+	u32 ret = 0;
+	struct mm_struct *mm = current->active_mm;
+
+	iram_standby_entry_ptr func_ptr;
+	cpu_switch_mm(init_mm.pgd, &init_mm);
+	func_ptr = (iram_standby_entry_ptr)(SLEEP_RESUME_CODE_PHYS + (u32)sp_pm_collapse - (u32)sc8830_standby_iram);
+	ret = (func_ptr)(0, flag);
+	cpu_switch_mm(mm->pgd, mm);
+
+	return ret;
+}
 int deep_sleep(int from_idle)
 {
 	int ret = 0;
@@ -1254,8 +1268,7 @@ int deep_sleep(int from_idle)
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
         cp0_sys_power_domain_close();
 #endif
-
-	ret = sp_pm_collapse(0, from_idle);
+	ret = sc_sleep_call(from_idle);
 #if defined(CONFIG_MACH_SC9620OPENPHONE)
         cp0_sys_power_domain_open();
 #endif
@@ -1573,11 +1586,20 @@ static void sc8830_machine_restart(char mode, const char *cmd)
 
 	while (1);
 }
-
+void resume_code_remap(void)
+{
+	int ret;
+	ret = ioremap_page_range(SPRD_IRAM0_PHYS, SPRD_IRAM0_PHYS+SZ_8K, SPRD_IRAM0_PHYS, PAGE_KERNEL_EXEC);
+	if(ret){
+		printk("resume_code_remap err %d\n", ret);
+		BUG();
+	}
+}
 void __init sc_pm_init(void)
 {
 	
 	init_reset_vector();
+	resume_code_remap();
 	pm_power_off   = sc8830_power_off;
 	arm_pm_restart = sc8830_machine_restart;
 	pr_info("power off %pf, restart %pf\n", pm_power_off, arm_pm_restart);

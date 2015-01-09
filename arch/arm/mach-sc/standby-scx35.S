@@ -28,6 +28,11 @@
 #define UART1_CTR0_PHY	(SPRD_UART1_PHYS + 0x18)
 #define UART1_CKD_VIR	(SPRD_UART1_BASE + 0x24)
 #define UART1_CTR0_VIR	(SPRD_UART1_BASE + 0x18)
+#define LPDDR2_PHY_STATUS (SPRD_LPDDR2_PHY_PHYS+0x0184)
+#define PUB_ACCESS_SET (SPRD_PUB_PHYS+0x1064)
+#define PUB_ACCESS_CLR (SPRD_PUB_PHYS+0x2064)
+#define AON_APB_RES_REG1 (SPRD_AONAPB_PHYS+0x3048)
+#define SLEEP_RESUME_CODE_PHYS	0X400
 
 	.macro	addruart,rx
 	@ see if the MMU is enabled and select appropriate base address
@@ -66,10 +71,11 @@ ENTRY(sc8830_standby_iram)
 sprd_pm_mapped_va:
 	stmfd sp!, {lr}
 	/* disable uart1 for idle deep sleep */
-	ldr r0, =REG_UART1_ENABLE_VIR
+	ldr r0, =REG_UART1_ENABLE_PHY
 	ldr r1, [r0]
 	bic r1, #REG_UART1_ENABLE_BIT
 	str r1, [r0]
+/*
 	ldr r0, =sprd_pm_va_to_iram
 	ldr r1, =sc8830_standby_iram
 	ldr r2, =iram_start
@@ -78,6 +84,7 @@ sprd_pm_mapped_va:
 	add r0, r0, r3
 	mov pc, r0
 sprd_pm_va_to_iram:
+*/
 	nop
 	nop
 	nop
@@ -99,10 +106,40 @@ sprd_pm_va_to_iram:
 	cmp	r0, #0x0
 	bne	5b
 #else
+	ldr r0, =PUB_ACCESS_SET
+	mov r1, #0x1
+	str r1, [r0]
+	dsb
+	isb
+	nop
+	nop
+	nop
+
 	/*enable icache*/
 	mrc	p15, 0, r0, c1, c0, 0
 	orr	r0, r0, #0x1000
 	mcr	p15, 0, r0, c1, c0, 0
+
+#ifdef CONFIG_ARCH_SCX35L
+check_pub_fsm_wfi0:
+	ldr r0,=0x402b00c4
+check_pub_fsm_wfi:
+	ldr r2,[r0]
+	ldr r1,[r0]
+	and r2,r2,#0x0f000000
+	and r1,r1,#0x0f000000
+	cmp r2,#0x0
+	bne check_pub_fsm_wfi
+	cmp r1,#0x0
+	bne check_pub_fsm_wfi
+
+	ldr r0,=LPDDR2_PHY_STATUS
+	ldr r1,[r0]
+	tst r1,#0x1
+	beq check_pub_fsm_wfi0
+	dsb
+	isb
+#endif
 
 	/*   NOTE: here is some trick code, please pay more attention.
 	 *   Put some code which before "wfi" executed into I-cache to avoid
@@ -115,7 +152,7 @@ sprd_pm_va_to_iram:
 9:	cmp	r1, #0x1
 	wfieq
 	movne	r0, #0x1
-	moveq	r0, #0x20000
+	moveq	r0, #0x900000
 	/*wait 60us for clk is safely closed*/
 5:	sub	r0, r0, #0x1
 	cmp	r0, #0x0
@@ -124,6 +161,31 @@ sprd_pm_va_to_iram:
 	add	r1, r1, #0x1
 	cmp	r1, #0x1
 	beq	9b
+	dsb
+	isb
+
+#ifdef CONFIG_ARCH_SCX35L
+check_pub_fsm_wake0:
+	ldr r0,=0x402b00c4
+check_pub_fsm_wake:
+	ldr r2,[r0]
+	ldr r1,[r0]
+	and r2,r2,#0x0f000000
+	and r1,r1,#0x0f000000
+	cmp r2,#0x0
+	bne check_pub_fsm_wake
+	cmp r1,#0x0
+	bne check_pub_fsm_wake
+	ldr r0,=LPDDR2_PHY_STATUS
+	ldr r1,[r0]
+	tst r1,#0x1
+	beq check_pub_fsm_wake0
+
+	ldr r0, =PUB_ACCESS_CLR
+	mov r1, #0x1
+	str r1, [r0]
+#endif
+
 	/*disable icache*/
 	mrc	p15, 0, r0, c1, c0, 0
 	bic	r0, r0, #0x1000
@@ -132,11 +194,11 @@ sprd_pm_va_to_iram:
 #if 0
 6:  b 6b
 #endif
-	ldr r0, =REG_AON_APB_EB0_VIR
+	ldr r0, =REG_AON_APB_EB0_PHY
 	ldr r1, [r0]
 	orr r1, #JTAG_DAP_EN
 	str r1, [r0]
-	ldr r0, =REG_UART1_ENABLE_VIR
+	ldr r0, =REG_UART1_ENABLE_PHY
 	ldr r1, [r0]
 	orr r1, #REG_UART1_ENABLE_BIT
 	str r1, [r0]
@@ -156,8 +218,14 @@ loopq:
 	mov r0, #'B'
 	bl printch
 	b loopq
-
 #endif
+
+	dsb
+	isb
+	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
+	orr     r0, r1, #(1 << 0)        /* enable MMU   */
+	mcr     p15, 0, r0, c1, c0, 0    /* enable MMU  */
+
 	mov r0, #0
 	mov pc, lr
 	nop
@@ -170,11 +238,22 @@ loopq:
 ENDPROC(sc8830_standby_iram)
 
 ENTRY(sc8830_standby_exit_iram)
+
+	/*delay on 26MHZ in IRAM*/
+	mov	r0, #0xf000
+delay_after_reset:
+	sub	r0, r0, #0x1
+	cmp	r0, #0x0
+	bne	delay_after_reset
+
+	bl uart1_en
+
+	/*enable DAP for debug*/
 	ldr r0, =REG_AON_APB_EB0_PHY
 	ldr r1, [r0]
 	orr r1, #JTAG_DAP_EN
 	str r1, [r0]
-	bl uart1_en
+
 	mrs r0, cpsr
 	and r0, r0, #0xff
 	mov r6, r0
@@ -184,6 +263,7 @@ ENTRY(sc8830_standby_exit_iram)
 
 	ldr r0, =0x20
 	bl my_delay
+
 #ifdef CONFIG_ARCH_SCX30G
 	mov r2, #0x3
 	ldr r0,=0x402b00c8
@@ -219,21 +299,26 @@ next:
 #endif
 
 #ifdef CONFIG_ARCH_SCX35L
+check_pub_fsm0:
 	ldr r0,=0x402b00c4
-	mov r1,#0x3
 check_pub_fsm:
 	ldr r2,[r0]
+	ldr r1,[r0]
 	and r2,r2,#0x0f000000
+	and r1,r1,#0x0f000000
 	cmp r2,#0x0
 	bne check_pub_fsm
-	sub r1,r1,#0x1
 	cmp r1,#0x0
 	bne check_pub_fsm
-	ldr r0,=0x30010184
-check_ddr_done:
+
+	ldr r0,=LPDDR2_PHY_STATUS
 	ldr r1,[r0]
 	tst r1,#0x1
-	beq check_ddr_done
+	beq check_pub_fsm0
+
+	ldr r0, =PUB_ACCESS_CLR
+	mov r1, #0x1
+	str r1, [r0]
 #endif
 
 /* DLL calibration */
@@ -443,16 +528,6 @@ str_n:	.asciz	"N!\n"
 str_deep: .asciz	"from deep!"
 str_err: .asciz	"DDR ERR!"
 
-ENTRY(sc8830_standby_iram_end)
-
-ENTRY(sp_arch_idle)
-	wfi
-	nop
-	nop
-	nop
-	bx	lr
-ENDPROC(sp_arch_idle)
-
 ENTRY(sp_pm_collapse)
 	mov r3, r1
 	ldr	r0, =sp_saved_state	/* address of sp_saved_state ptr */
@@ -493,7 +568,8 @@ go_on:
 	mrc     p15, 0, ip, c13, c0, 1 /* context ID */
 	stmia   r0!, {r1-r10, ip}
 
-	bl	v7_flush_dcache_all
+	ldr 	r0, =v7_flush_dcache_all
+	blx		r0
 #if 0
 	blx	outer_flush_all
 	blx		outer_disable
@@ -508,10 +584,17 @@ go_on:
 	bic     r0, r0, #(1 << 12)       /* clear icache bit   */
 	mcr     p15, 0, r0, c1, c0, 0    /* disable d/i cache  */
 	isb
-#ifdef CONFIG_ARCH_SCX30G || CONFIG_ARCH_SCX35L
-	bl	v7_flush_icache_all
+
+#if (defined(CONFIG_ARCH_SCX30G) || defined(CONFIG_ARCH_SCX35L))
+	ldr r1, =v7_flush_icache_all
+	blx r1
 #endif
-	bl sc8830_standby_iram
+	mrc     p15, 0, r4, c1, c0, 0    /* read current CR    */
+	bic     r0, r4, #(1 << 0)        /* disable MMU   */
+	mcr     p15, 0, r0, c1, c0, 0    /* disable MMU  */
+
+	ldr	r1, =SLEEP_RESUME_CODE_PHYS /*jump to sc8830_standby_iram*/
+	blx r1
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
@@ -539,6 +622,7 @@ ENDPROC(sp_pm_collapse)
 str_a6:	.asciz	"idle deep\n"
 str_a7:	.asciz	"real deep\n"
 ENTRY(sp_pm_collapse_exit)
+
 	mov r0, #'Z'
 	bl printch
 	ldr     r1, =sp_saved_state
@@ -637,8 +721,16 @@ sp_pm_pa_to_va:
 	nop
 1:	b       1b
 ENDPROC(sp_pm_collapse_exit)
+ENTRY(sc8830_standby_iram_end)
 
 	.data
 sp_saved_state:
 	.space  CPU_SAVED_STATE_SIZE * CONFIG_NR_CPUS
 
+ENTRY(sp_arch_idle)
+	wfi
+	nop
+	nop
+	nop
+	bx	lr
+ENDPROC(sp_arch_idle)
