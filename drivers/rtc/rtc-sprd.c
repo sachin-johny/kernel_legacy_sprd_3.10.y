@@ -85,6 +85,7 @@ static unsigned int RTC_BASE;
 
 #define RTC_UPD_TIME_MASK				(RTC_SEC_ACK_BIT | RTC_MIN_ACK_BIT | RTC_HOUR_ACK_BIT | RTC_DAY_ACK_BIT)
 #define RTC_INT_ALL_MSK					(0xFFFF&(~(BIT(5)|BIT(7))))
+#define RTC_INT_ALM_MSK 				(RTC_SEC_BIT | RTC_MIN_BIT | RTC_HOUR_BIT | RTC_DAY_BIT | RTC_ALARM_BIT | RTC_AUX_ALARM_BIT)
 #define RTC_ALM_TIME_MASK				(RTC_SEC_ALM_ACK_BIT | RTC_MIN_ALM_ACK_BIT | RTC_HOUR_ALM_ACK_BIT | RTC_DAY_ALM_ACK_BIT)
 
 #define RTC_SEC_MASK 					(0x3F)
@@ -103,6 +104,9 @@ static unsigned int RTC_BASE;
 #define ANA_RTC_RST2					(ANA_CTL_GLB_BASE + 0x164)
 #define ANA_RTC_RST1					(ANA_CTL_GLB_BASE + 0x160)
 
+/* set alarm type */
+#define ALARM_DELAY
+
 struct sprd_rtc{
 	struct rtc_device 	*rtc;
 	unsigned int 		irq_no;
@@ -117,7 +121,6 @@ enum ALARM_TYPE {
 	GET_WAKE_ALARM,
 };
 
-static struct sprd_rtc *rtc_data;
 static struct wake_lock rtc_wake_lock;
 static struct wake_lock rtc_interrupt_wake_lock;
 static unsigned long secs_start_year_to_1970;
@@ -253,6 +256,45 @@ static inline unsigned long sprd_rtc_get_alarm_sec(void)
 	return alarm_sec;
 }
 
+#ifdef ALARM_DELAY
+static int sprd_rtc_set_alarm_sec(unsigned long secs)
+{
+	unsigned int sec, min, hour, day;
+	unsigned int timeout = 0;
+	unsigned long temp;
+	static bool rtc_alarm_in_update = false;
+
+	sec = secs % 60;
+	temp = (secs - sec)/60;
+	min = temp%60;
+	temp = (temp - min)/60;
+	hour = temp%24;
+	temp = (temp - hour)/24;
+	day = temp;
+
+	if (rtc_alarm_in_update) {
+		while ((sci_adi_read((unsigned long)ANA_RTC_INT_RSTS) & RTC_ALM_TIME_MASK) !=
+			RTC_ALM_TIME_MASK)
+		{
+			msleep(10);
+			if (timeout++ > SPRD_RTC_SET_MAX) {
+				printk("RTC set alarm timeout!\n");
+				break;
+			}
+		}
+	}
+	sci_adi_set((unsigned long)ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
+
+	sci_adi_raw_write((unsigned long)ANA_RTC_SEC_ALM, sec);
+	sci_adi_raw_write((unsigned long)ANA_RTC_MIN_ALM, min);
+	sci_adi_raw_write((unsigned long)ANA_RTC_HOUR_ALM, hour);
+	sci_adi_raw_write((unsigned long)ANA_RTC_DAY_ALM, day);
+
+	rtc_alarm_in_update = true;
+	return 0;
+}
+
+#else
 static int sprd_rtc_set_alarm_sec(unsigned long secs)
 {
 	unsigned int sec, min, hour, day;
@@ -292,6 +334,7 @@ static int sprd_rtc_set_alarm_sec(unsigned long secs)
     sci_adi_set((unsigned long)ANA_RTC_INT_CLR, RTC_ALM_TIME_MASK);
 	return ret;
 }
+#endif
 
 static int sprd_rtc_read_alarm(struct device *dev,
 		struct rtc_wkalrm *alrm)
@@ -474,7 +517,7 @@ static int sprd_rtc_set_mmss(struct device *dev, unsigned long secs)
 	return ret;
 }
 
-#if defined(CONFIG_ARCH_SCX35) || defined(CONFIG_ARCH_SC7710)
+#if defined(CONFIG_ADIE_SC2723) || defined(CONFIG_ADIE_SC2723S)
 static int sprd_rtc_check_power_down(struct device *dev)
 {
 	int rst_value;
@@ -504,7 +547,7 @@ static int sprd_rtc_check_power_down(struct device *dev)
 
 	spg_value = sci_adi_read((unsigned long)ANA_RTC_SPG_VALUE);
 	if(spg_value != SPRD_RTC_UNLOCK){
-		printk("RTC power down and reset RTC time!\n");
+		printk("RTC power down and reset RTC time!!\n");
 		secs = mktime(CONFIG_RTC_START_YEAR, 1, 2, 0, 0, 0);
 		rtc_time_to_tm(secs, &tm);
 		if((ret = sprd_rtc_set_time(dev,&tm)) < 0)
@@ -533,7 +576,7 @@ static irqreturn_t rtc_interrupt_handler(int irq, void *dev_id)
 	//rtc_update_irq(rdev, 1, RTC_AF | RTC_IRQF);
 	wake_lock_timeout(&rtc_interrupt_wake_lock,2*HZ);
 	rtc_aie_update_irq(rdev);
-	clear_rtc_int(RTC_INT_ALL_MSK);
+	clear_rtc_int(RTC_INT_ALM_MSK);
 	return IRQ_HANDLED;
 }
 
@@ -639,9 +682,10 @@ static const struct rtc_class_ops sprd_rtc_ops = {
 
 static int sprd_rtc_probe(struct platform_device *plat_dev)
 {
-	int err = -ENODEV;
 	struct resource *res;
+	static struct sprd_rtc *rtc_dev;
 	int ret = 0;
+
 #ifdef CONFIG_OF
 	res = platform_get_resource(plat_dev, IORESOURCE_MEM, 0);
 	if(!res){
@@ -651,33 +695,33 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 
 	RTC_BASE = res->start;
 #endif
-	/*disable and clean irq*/
-	sci_adi_clr(ANA_RTC_INT_EN, 0xffff);
-	sci_adi_set(ANA_RTC_INT_CLR, 0xffff);
 
-	rtc_data = kzalloc(sizeof(*rtc_data), GFP_KERNEL);
-	if(IS_ERR(rtc_data)){
-		err = PTR_ERR(rtc_data);
-		return err;
+	rtc_dev = kzalloc(sizeof(*rtc_dev), GFP_KERNEL);
+	if(IS_ERR(rtc_dev)){
+		ret = PTR_ERR(rtc_dev);
+		return ret;
 	};
 
 	/* enable rtc device */
-	rtc_data->clk = clk_get(&plat_dev->dev, "ext_32k");
-	if (IS_ERR(rtc_data->clk)) {
-		err = PTR_ERR(rtc_data->clk);
+	rtc_dev->clk = clk_get(&plat_dev->dev, "ext_32k");
+	if (IS_ERR(rtc_dev->clk)) {
+		ret = PTR_ERR(rtc_dev->clk);
 		goto kfree_data;
 	}
 
-	err = clk_prepare_enable(rtc_data->clk);
-	if (err < 0)
+	ret = clk_prepare_enable(rtc_dev->clk);
+	if (ret < 0)
 		goto put_clk;
 
+	/*disable and clean irq*/
+	sci_adi_clr(ANA_RTC_INT_EN, 0xffff);
 	clear_rtc_int(RTC_INT_ALL_MSK);
+
 	device_init_wakeup(&plat_dev->dev, 1);
-	rtc_data->rtc = rtc_device_register("sprd_rtc", &plat_dev->dev,
+	rtc_dev->rtc = rtc_device_register("sprd_rtc", &plat_dev->dev,
 			&sprd_rtc_ops, THIS_MODULE);
-	if (IS_ERR(rtc_data->rtc)) {
-		err = PTR_ERR(rtc_data->rtc);
+	if (IS_ERR(rtc_dev->rtc)) {
+		ret = PTR_ERR(rtc_dev->rtc);
 		goto disable_clk;
 	}
 
@@ -686,39 +730,40 @@ static int sprd_rtc_probe(struct platform_device *plat_dev)
 		dev_err(&plat_dev->dev, "no irq resource specified\n");
 		goto unregister_rtc;
 	}
-	rtc_data->irq_no = res->start;
+	rtc_dev->irq_no = res->start;
 
-	platform_set_drvdata(plat_dev, rtc_data);
+	platform_set_drvdata(plat_dev, rtc_dev);
 
-	ret = request_irq(rtc_data->irq_no, rtc_interrupt_handler, 0, "sprd_rtc", rtc_data->rtc);
+	ret = request_threaded_irq(rtc_dev->irq_no, rtc_interrupt_handler,
+					NULL, 0, "sprd_rtc", rtc_dev->rtc);
 	if(ret){
 		printk(KERN_ERR "RTC regist irq error\n");
-		return ret;
+		goto unregister_rtc;
 	}
-	sprd_creat_caliberate_attr(rtc_data->rtc->dev);
+	sprd_creat_caliberate_attr(rtc_dev->rtc->dev);
 
 	sprd_rtc_check_power_down(&plat_dev->dev);
 	return 0;
 
 unregister_rtc:
-	rtc_device_unregister(rtc_data->rtc);
+	rtc_device_unregister(rtc_dev->rtc);
 disable_clk:
-	clk_disable_unprepare(rtc_data->clk);
+	clk_disable_unprepare(rtc_dev->clk);
 put_clk:
-	clk_put(rtc_data->clk);
+	clk_put(rtc_dev->clk);
 kfree_data:
-	kfree(rtc_data);
-	return err;
+	kfree(rtc_dev);
+	return ret;
 }
 
 static int sprd_rtc_remove(struct platform_device *plat_dev)
 {
-	struct sprd_rtc *rtc_data = platform_get_drvdata(plat_dev);
-	sprd_remove_caliberate_attr(rtc_data->rtc->dev);
-	rtc_device_unregister(rtc_data->rtc);
-	clk_disable_unprepare(rtc_data->clk);
-	clk_put(rtc_data->clk);
-	kfree(rtc_data);
+	struct sprd_rtc *rtc_dev = platform_get_drvdata(plat_dev);
+	sprd_remove_caliberate_attr(rtc_dev->rtc->dev);
+	rtc_device_unregister(rtc_dev->rtc);
+	clk_disable_unprepare(rtc_dev->clk);
+	clk_put(rtc_dev->clk);
+	kfree(rtc_dev);
 
 	return 0;
 }
@@ -741,6 +786,7 @@ static struct platform_driver sprd_rtc_driver = {
 static int __init sprd_rtc_init(void)
 {
 	int err;
+	struct rtc_time read_tm;
 
 	wake_lock_init(&rtc_wake_lock, WAKE_LOCK_SUSPEND, "rtc");
 	wake_lock_init(&rtc_interrupt_wake_lock, WAKE_LOCK_SUSPEND, "rtc_interrupt");
@@ -756,6 +802,9 @@ static int __init sprd_rtc_init(void)
 		return err;
 	}
 
+	sprd_rtc_read_time(NULL,&read_tm);
+	printk("After init RTC time: %d-%d-%d %d:%d:%d\n",read_tm.tm_year+1900,
+			read_tm.tm_mon+1,read_tm.tm_mday,read_tm.tm_hour,read_tm.tm_min,read_tm.tm_sec);
 	return 0;
 }
 
