@@ -214,6 +214,7 @@ int sprdfb_dsi_tx_cmds(struct panel_spec *panel,
 						cmds->tag & LCM_TAG_MASK);
 			else
 				ops->mipi_dcs_write(cmds->data, cmds->tag & LCM_TAG_MASK);
+			udelay(20);
 		} else if (cmds->tag & LCM_TAG_SLEEP) {
 			time = (cmds->tag & LCM_TAG_MASK) * 1000;
 			usleep_range(time, time);

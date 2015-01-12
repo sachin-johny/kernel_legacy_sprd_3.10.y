@@ -192,7 +192,7 @@ static int32_t otm8018b_mipi_init(struct panel_spec *self)
 		tag = (init->tag >>24);
 		if(tag & LCM_TAG_SEND){
 			mipi_gen_write(init->data, (init->tag & LCM_TAG_MASK));
-			udelay(10);
+			udelay(20);
 		}else if(tag & LCM_TAG_SLEEP){
 			msleep((init->tag & LCM_TAG_MASK));
 		}
