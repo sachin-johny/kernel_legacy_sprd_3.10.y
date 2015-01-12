@@ -2302,6 +2302,12 @@ static int itm_wlan_start_ap(wlan_vif_t *vif, struct cfg80211_beacon_data *beaco
 
 	ret = wlan_cmd_start_ap(vif_id, (unsigned char *)mgmt, mgmt_len);
 	kfree(mgmt);
+	if (!netif_carrier_ok(vif->ndev))
+	{
+		printkd("%s(), netif_carrier_on, ssid:%s\n", __func__, vif->cfg80211.ssid);
+		netif_carrier_on(vif->ndev);
+		netif_wake_queue(vif->ndev);
+	}
 	if (ret != 0)
 	{
 		printke("%s line:%d err\n", __func__, __LINE__);
