@@ -21,6 +21,7 @@ MDBG_RING_T* rx_ring;
 struct mutex mdbg_read_mutex;
 extern bool read_flag;
 extern wait_queue_head_t	mdbg_wait;
+extern unsigned int first_boot;
 /*******************************************************/
 /******************Local Variables*******************/
 /*******************************************************/
@@ -74,6 +75,7 @@ int mdbg_channel_init(void)
 {
 	int err = 0;
 
+	first_boot = 0;
 	err = sdiodev_readchn_init(MDBG_CHANNEL_READ, mdbg_sdio_read,0);
 	if(err != 0){
 		MDBG_ERR("Sdio dev read channel init failed!");
