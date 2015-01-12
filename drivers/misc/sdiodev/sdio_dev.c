@@ -418,6 +418,7 @@ int  sdio_chn_status(unsigned short chn, unsigned short *status)
 	MARLIN_PM_RESUME_RETURN_ERROR(-1);
 	if(NULL == sprd_sdio_func[SDIODEV_FUNC_0])
 	{
+		SDIOTRAN_ERR("func err");
 		return -1;
 	}
 	
@@ -425,14 +426,18 @@ int  sdio_chn_status(unsigned short chn, unsigned short *status)
 	
 	if (0x00FF & chn) {
 		status0 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x840,&err_ret);
-		if (status0 == 0xFF)
+		if (status0 == 0xFF){
+			SDIOTRAN_ERR("sdio chn reg0 err");
 			ret = -1;
+			}
 	}
 
 	if (0xFF00 & chn) {
 		status1 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x841,&err_ret);   
-		if (status1 == 0xFF)
+		if (status1 == 0xFF){
+			SDIOTRAN_ERR("sdio chn reg1 err");
 			ret = -1;
+			}
 	}
 
 	sdio_release_host(sprd_sdio_func[SDIODEV_FUNC_0]);
@@ -644,6 +649,70 @@ void invalid_recv_flush(uint32 chn)
 	}
 }
 EXPORT_SYMBOL_GPL(invalid_recv_flush);
+
+void flush_blkchn(void)
+{
+	uint8  rw_flag0,rw_flag1;
+	uint8  status0,status1;
+	uint32 chn_status;
+	uint32 chn_rw_flag;
+	uint32 tmp;
+	int err_ret,read_chn;
+	MARLIN_PM_RESUME_WAIT(marlin_sdio_wait);
+	MARLIN_PM_RESUME_RETURN_ERROR(-1);
+
+	sdio_claim_host(sprd_sdio_func[SDIODEV_FUNC_0]);
+
+	status0 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x840,&err_ret);
+	if (status0 == 0xFF){
+		SDIOTRAN_ERR("sdio chn reg0 err");
+		return;
+		}
+		
+	status1 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x841,&err_ret);
+	if (status1 == 0xFF){
+		SDIOTRAN_ERR("sdio chn reg1 err");
+		return;
+		}
+	
+	rw_flag0 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x842,&err_ret);
+	if (rw_flag0 == 0xFF){
+		SDIOTRAN_ERR("sdio RW reg0 err");
+		return;
+		}
+	
+	rw_flag1 = sdio_readb(sprd_sdio_func[SDIODEV_FUNC_0],0x843,&err_ret);
+	if (rw_flag1 == 0xFF){
+		SDIOTRAN_ERR("sdio RW reg1 err");
+		return;
+		}
+
+	sdio_release_host(sprd_sdio_func[SDIODEV_FUNC_0]);
+
+	chn_status = (uint32)(status0) + ((uint32)(status1) << 8);
+	chn_rw_flag = (uint32)(rw_flag0) + ((uint32)(rw_flag1) << 8);
+
+	SDIOTRAN_ERR("chn_status is 0x%x!!!",chn_status);
+	SDIOTRAN_ERR("chn_rw_flag is 0x%x!!!",chn_rw_flag);
+
+	tmp = (chn_status&(~chn_rw_flag))&(0x0000ffff);
+
+	for(read_chn=0;read_chn<16;read_chn++)
+	{
+		if(BIT_0 & (tmp>>read_chn))
+		{
+			SDIOTRAN_ERR("BLK CHN is 0x%x!!!",read_chn);
+			invalid_recv_flush(read_chn);
+		 	return;
+		}
+	}
+
+	SDIOTRAN_ERR("NO BLK CHN!!!");
+	return;	
+
+}
+EXPORT_SYMBOL_GPL(flush_blkchn);
+
 
 int sdiolog_handler(void)
 {
@@ -985,7 +1054,7 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	
 	wake_lock(&marlinup_wakelock);	
 	
-	SDIOTRAN_ERR("ENTRY marlinwake_irq_handler!!!");
+	SDIOTRAN_ERR("ENTRY!!!");
 
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(GPIO_MARLIN_WAKE);

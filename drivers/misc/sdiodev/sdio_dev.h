@@ -198,6 +198,7 @@ void set_sprd_download_fin(int dl_tag);
 int marlin_sdio_init(void);
 
 void set_blklen(int blklen);
+void flush_blkchn(void);
 
 
 #endif
