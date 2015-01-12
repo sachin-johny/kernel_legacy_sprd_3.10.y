@@ -1,8 +1,8 @@
 #sdiodevhal
 obj-$(CONFIG_SDIODEV)           := sdiodevhal.o
 
-ifeq ($(CONFIG_SP9630EA6MNA_SDIODEV), y)
-sdiodevhal-c-objs   += sdio_dev_6mna.o
+ifeq ($(CONFIG_SP9630EA6MN_SDIODEV), y)
+sdiodevhal-c-objs   += sdio_dev_6mn.o
 else
 sdiodevhal-c-objs   += sdio_dev.o
 endif
