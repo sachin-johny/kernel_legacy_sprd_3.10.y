@@ -94,8 +94,6 @@ int sprd_download_sdio_init(void)
 
 static int sprd_download_open(struct inode *inode,struct file *filp)
 {
-	int retry = 0;
-
 	if (download_dev==NULL) {
 		return -EIO;
 	}
@@ -106,15 +104,6 @@ static int sprd_download_open(struct inode *inode,struct file *filp)
 
 	marlin_sdio_init();
 	mdbg_channel_init();
-
-	while(1 != get_apsdiohal_status()){
-		if(retry++ > 3){
-			printk("SDIO dev not ready for a long time, init failed.");
-			return -EAGAIN;
-		}
-		printk("SDIO dev not ready, wait 500ms and try again!");
-		msleep(500);
-	}
 
 	download_dev->read_buffer = kzalloc(READ_BUFFER_SIZE, GFP_KERNEL);
 	if (download_dev->read_buffer == NULL) {
@@ -189,6 +178,11 @@ static int sprd_download_write(struct file *filp, const char __user *buf,size_t 
 	if (copy_from_user(download_dev->write_buffer,buf,count )){
 		sprd_download_unlock(&download_dev->write_excl);
 		return -EFAULT;
+	}
+
+	while(1 != get_apsdiohal_status()){
+		printk("SDIO dev not ready, wait 50ms and try again!\n");
+		msleep(50);
 	}
 
 	if(strncmp(download_dev->write_buffer,"start_calibration",17) == 0)
