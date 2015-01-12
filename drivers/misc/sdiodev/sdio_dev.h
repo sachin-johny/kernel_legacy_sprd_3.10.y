@@ -43,7 +43,8 @@
 #include <mach/sci.h>
 #include <mach/board.h>
 #include <linux/sprd_iommu.h>
-
+#include <linux/spinlock.h>
+#include <asm/system.h>
 
 
 
