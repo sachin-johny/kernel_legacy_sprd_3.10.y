@@ -92,7 +92,7 @@ static bool marlin_bt_wake_flag = 0;
 static struct completion marlin_ack = {0};
 
 static SLEEP_POLICY_T sleep_para = {0};
-spinlock_t     sleep_spinlock ;
+
 
 volatile bool marlin_mmc_suspend = 0;
 MARLIN_PM_RESUME_WAIT_INIT(marlin_sdio_wait);
@@ -205,13 +205,10 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		SDIOTRAN_ERR("marlin unready");
 		return -1;
 	}
-
-	spin_trylock(&sleep_spinlock);
-
+	
 	if(0 != sleep_para.gpio_opt_tag)		
 	{
 		sleep_para.gpioreq_need_pulldown = 0;
-		spin_unlock(&sleep_spinlock);
 	}	
 	else
 	{		
@@ -225,9 +222,7 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 			bt_wake_flag = 1;
 		}
 		sleep_para.gpioreq_need_pulldown = 1;
-		gpio_direction_output(GPIO_AP_TO_MARLIN,1);	
-		spin_unlock(&sleep_spinlock);
-		
+		gpio_direction_output(GPIO_AP_TO_MARLIN,1);		
 		SDIOTRAN_ERR("pull up gpio %d",GPIO_AP_TO_MARLIN);
 		//sleep_para.gpioreq_up_time = jiffies;
 		
@@ -920,8 +915,8 @@ static int marlin_sdio_sync_init(void)
 	int ret;	
 
 	SDIOTRAN_ERR("entry");
-	sci_glb_clr(SPRD_PIN_BASE + 0x27c,(BIT(3)|BIT(7)|0));
-	sci_glb_set(SPRD_PIN_BASE + 0x27c,(BIT(4)|BIT(5)|BIT(2)|BIT(6)));
+	sci_glb_clr(SPRD_PIN_BASE + 0x244,(BIT(3)|BIT(7)|0));
+	sci_glb_set(SPRD_PIN_BASE + 0x244,(BIT(4)|BIT(5)|BIT(2)|BIT(6)));
 
 	wake_lock_init(&marlin_sdio_ready_wakelock, WAKE_LOCK_SUSPEND, "marlin_sdio_ready_wakelock");
 
@@ -960,7 +955,8 @@ void marlin_sdio_sync_uninit(void)
 	free_irq(marlin_sdio_ready_irq_num,NULL);
 	gpio_free(GPIO_MARLIN_SDIO_READY);
 	wake_lock_destroy(&marlin_sdio_ready_wakelock);	
-	sci_glb_clr(SPRD_PIN_BASE + 0x27c,(BIT(4)|BIT(5)|0));
+	sci_glb_clr(SPRD_PIN_BASE + 0x244,(BIT(4)|BIT(5)|0));
+	sci_glb_set(SPRD_PIN_BASE + 0x244,(BIT(4)));
 	SDIOTRAN_ERR("ok!!!");
 }
 EXPORT_SYMBOL_GPL(marlin_sdio_sync_uninit);
@@ -985,7 +981,7 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	
 	wake_lock(&marlinup_wakelock);	
 	
-	SDIOTRAN_ERR("ENTRY marlinwake_irq_handler!!!");
+	SDIOTRAN_DEBUG("ENTRY!!!");
 
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(GPIO_MARLIN_WAKE);
@@ -1006,7 +1002,7 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		if(jiffies_to_msecs(sleep_para.gpio_down_time -\
 			sleep_para.gpio_up_time)>200)
 		{
-			SDIOTRAN_ERR("ENTRY bt irq!!!");
+			SDIOTRAN_DEBUG("ENTRY bt irq!!!");
 			marlin_bt_wake_flag = 1;
 			wake_lock_timeout(&BT_AP_wakelock, HZ*2);    //wsh
 		}
@@ -1021,7 +1017,7 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		wake_lock_timeout(&marlinpub_wakelock, HZ*1); 
 		if(sleep_para.gpioreq_need_pulldown)
 		{
-			SDIOTRAN_ERR("ENTRY sdio irq!!!");
+			SDIOTRAN_DEBUG("ENTRY sdio irq!!!");
 			if(sdio_w_flag == 1){
 				complete(&marlin_ack);
 				set_marlin_sleep(0xff,0x1);
@@ -1217,8 +1213,7 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 		return ret;
 	}
 	SDIOTRAN_ERR("enable func1 ok!!!");
-	
-	spin_lock_init(&sleep_spinlock);
+
 	wakeup_slave_pin_init();
 	marlin_wake_intr_init();
 	marlin_sdio_sync_init();

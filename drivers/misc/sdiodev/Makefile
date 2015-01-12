@@ -1,7 +1,11 @@
 #sdiodevhal
 obj-$(CONFIG_SDIODEV)           := sdiodevhal.o
 
+ifeq ($(CONFIG_SP9630EA6MNA_SDIODEV), y)
+sdiodevhal-c-objs   += sdio_dev_6mna.o
+else
 sdiodevhal-c-objs   += sdio_dev.o
+endif
 
 ifeq ($(CONFIG_SDIODEV_TEST),y)
 ccflags-y += -DSDIO_TEST_CASE6
