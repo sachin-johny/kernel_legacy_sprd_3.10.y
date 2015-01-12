@@ -105,25 +105,9 @@ static int sprd_download_open(struct inode *inode,struct file *filp)
 	marlin_sdio_init();
 	mdbg_channel_init();
 
-	download_dev->read_buffer = kzalloc(READ_BUFFER_SIZE, GFP_KERNEL);
-	if (download_dev->read_buffer == NULL) {
-		printk(KERN_ERR "DLoade_open fail(NO MEM) \n");
-		return -ENOMEM;
-	}
-	download_dev->write_buffer = kzalloc(WRITE_BUFFER_SIZE+4, GFP_KERNEL);
-	if (download_dev->write_buffer == NULL) {
-		kfree(download_dev->read_buffer);
-		download_dev->read_buffer = NULL;
-		printk(KERN_ERR "DLoade_open fail(NO MEM) \n");
-		return -ENOMEM;
-	}
 	download_dev->open_count++;
 	wake_lock(&download_wake_lock);
 	if(sprd_download_sdio_init()< 0){
-		kfree(download_dev->write_buffer);
-		download_dev->write_buffer = NULL;
-		kfree(download_dev->read_buffer);
-		download_dev->read_buffer = NULL;
 		printk(KERN_ERR "sprd_download_sdio_init failed \n");
 		return -EBUSY;
 	}
@@ -212,10 +196,6 @@ static int sprd_download_release(struct inode *inode,struct file *filp)
 {
 	printk(KERN_INFO "%s\n",__func__);
 	sdiodev_readchn_uninit(DOWNLOAD_CHANNEL_READ);
-	kfree(download_dev->read_buffer);
-	kfree(download_dev->write_buffer);
-	download_dev->read_buffer = NULL;
-	download_dev->write_buffer = NULL;
 	wake_unlock(&download_wake_lock);
 	download_dev->open_count--;
 	set_sprd_download_fin(1);
@@ -256,11 +236,28 @@ static int __init sprd_download_init(void)
 		printk(KERN_INFO "download dev add failed!!!\n");
 		kfree(dev);
 	}
+
+	download_dev->read_buffer = kzalloc(READ_BUFFER_SIZE, GFP_KERNEL);
+	if (download_dev->read_buffer == NULL) {
+		printk(KERN_ERR "DLoade_open fail(NO MEM) \n");
+		return -ENOMEM;
+	}
+	download_dev->write_buffer = kzalloc(WRITE_BUFFER_SIZE+4, GFP_KERNEL);
+	if (download_dev->write_buffer == NULL) {
+		kfree(download_dev->read_buffer);
+		download_dev->read_buffer = NULL;
+		printk(KERN_ERR "DLoade_open fail(NO MEM) \n");
+		return -ENOMEM;
+	}
 	msleep(500);
 	return err;
 }
 static void __exit sprd_download_cleanup(void)
 {
+	kfree(download_dev->read_buffer);
+	kfree(download_dev->write_buffer);
+	download_dev->read_buffer = NULL;
+	download_dev->write_buffer = NULL;
 	misc_deregister(&sprd_download_device);
 	kfree(download_dev);
 	wake_lock_destroy(&download_wake_lock);
