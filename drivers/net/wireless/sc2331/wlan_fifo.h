@@ -7,8 +7,6 @@
 #define TX_MSG_UNIT_LEN(hdr)           (  ( ALIGN_4BYTE( TX_MSG_HEAD_FILED(hdr) + ((hdr)->len) ) )  )      
 #define TX_MSG_NEXT_MSG(hdr)           (  ( (t_msg_hdr_t *)( (unsigned char *)(hdr) + TX_MSG_UNIT_LEN(hdr) ) ) )
 
-#define OK                             ( 0)
-#define ERROR                          (-1)
 #define TX_FIFO_FULL                   (-2)
 #define TX_FIFO_EMPTY                  (-3)
 #define HW_WRITE_ERROR                 (-4)

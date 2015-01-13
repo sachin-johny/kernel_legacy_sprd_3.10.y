@@ -15,8 +15,8 @@
  * GNU General Public License for more details.
  */
 
-#include "wlan_event_q.h"
 #include "wlan_common.h"
+#include "wlan_msg_q.h"
 
 #define TCP_ACK_WIN_TIMEOUT      (500)
 #define TCP_ACK_WIN_H_SIZE       (23168)
@@ -69,8 +69,7 @@ static bool is_tcp_ack(unsigned char *frame, int len)
 {
 	int ip_hdr_len, tcp_hdr_len;
 	unsigned char *ip_hdr, *tcp_hdr;
-	if(len != 54)
-		return false;
+	
 	if( !(0x08  == frame[12] && 0x0==frame[13]) )//IP
 		return false;
 	if( ! (0x06 == frame[23]) )//TCP
@@ -149,7 +148,7 @@ static unsigned int tid_calc(unsigned char *frame, unsigned int len)
 static void tcp_session_del(wlan_tcp_session_t  *session)
 {
 	printkd("DEL TID:0x%x\n", session->tid);
-	memset((char *)session, 0, sizeof(wlan_tcp_session_t) - sizeof(m_event_t) );
+	memset((char *)session, 0, sizeof(wlan_tcp_session_t) - sizeof(msg_q_t) );
 	return;
 }
 
@@ -218,32 +217,23 @@ void tcp_session_updata(const unsigned char vif_id, unsigned char *frame, unsign
 	return;
 }
 
-m_event_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len)
+msg_q_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len)
 {
-	unsigned int    tid,i;
-	m_event_t      *event_q;
-	
-	event_q  = &(vif->event_q[1] );
-	if(false == vif->tcp_ack_suppress)
-		return event_q;
-	if(false == is_tcp_ack(frame, len) )
-		goto EXIT;
+	unsigned int  tid,i;
+	msg_q_t      *msg_q = &(vif->msg_q[1]);
+
+	if(vif->tcp_ack_suppress  == false)
+		return msg_q;
+	if(is_tcp_ack(frame, len) == false)
+		return msg_q;
 	tid = tid_calc(frame, len);
-	for(i=0; i<MAX_TCP_SESSION; i++)
-	{
-		if( (1 == vif->tcp_session[i].active) && (tid == vif->tcp_session[i].tid) )
-		{
-			event_q = &(vif->tcp_session[i].event_q);
+	for(i=0; i<MAX_TCP_SESSION; i++){
+		if( (vif->tcp_session[i].active == 1) && (tid == vif->tcp_session[i].tid) ){
+			msg_q = &(vif->tcp_session[i].msg_q);
 			break;
 		}
 	}
-	
-EXIT:	
-	if(&(vif->event_q[1]) == event_q)
-	{
-		
-	}
-	return event_q;
+	return msg_q;
 }
 
 int wlan_tcpack_tx(wlan_vif_t *vif, int *done)
@@ -251,9 +241,9 @@ int wlan_tcpack_tx(wlan_vif_t *vif, int *done)
 	int            i,ack_cnt,usec,time_dt, seq_dt,index,retry,len, send_pkt;
 	unsigned int   seq;
 	tx_msg_t      *msg;
+	msg_q_t       *msg_q;
 	struct timeval cur_time;
 	wlan_tcp_session_t *session;
-	m_event_t     *event_q;
 	txfifo_t      *tx_fifo;
 	unsigned char *frame;
 	
@@ -264,8 +254,8 @@ int wlan_tcpack_tx(wlan_vif_t *vif, int *done)
 	for(index =0; index < MAX_TCP_SESSION; index++)
 	{
 		session = &(vif->tcp_session[index]);
-		event_q = &(session->event_q);
-		ack_cnt = event_q->event_cnt;
+		msg_q   = &(session->msg_q);
+		ack_cnt = msg_num(msg_q);
 		if(0 == ack_cnt)
 			continue;
 		usec     = time_d_value(&(session->ack_time), &cur_time);
@@ -277,7 +267,7 @@ int wlan_tcpack_tx(wlan_vif_t *vif, int *done)
 		}	
 		for(i=0, send_pkt = 0; i<ack_cnt; i++)
 		{
-			msg = get_event(event_q);
+			msg = msg_get(msg_q);
 			if(NULL == msg)
 				break;
 			frame  = msg->slice[0].data;
@@ -298,7 +288,7 @@ int wlan_tcpack_tx(wlan_vif_t *vif, int *done)
 			}
 			(*done)++;
 			dev_kfree_skb((struct sk_buff  *)(msg->p));
-			free_event((void *)msg, event_q );
+			msg_free(msg_q, msg);
 		}
 		for(i=0; i<send_pkt; i++)
 		{
@@ -312,26 +302,18 @@ int wlan_tcpack_tx(wlan_vif_t *vif, int *done)
 
 int wlan_tcpack_buf_malloc(wlan_vif_t *vif)
 {
-	int index;
-	m_event_conf_t q_conf = {0};
-	q_conf.event_size  = sizeof(tx_msg_t);
-	q_conf.max_events  = 40;
-	q_conf.highThres   = 100;
-	q_conf.lowThres    = 0;
-	q_conf.weight      = 100;
-	for(index=0; index < MAX_TCP_SESSION; index++)
-	{
-		event_q_init( &(vif->tcp_session[index].event_q), &q_conf);
+	int i;
+	for(i=0; i < MAX_TCP_SESSION; i++){
+		msg_q_alloc( &(vif->tcp_session[i].msg_q), sizeof(tx_msg_t),  100 );
 	}
 	return OK;
 }
 
 int wlan_tcpack_buf_free(wlan_vif_t *vif)
 {
-	int index;
-	for(index=0; index < MAX_TCP_SESSION; index++)
-	{
-		event_q_deinit( &(vif->tcp_session[index].event_q) );
+	int i;
+	for(i=0; i < MAX_TCP_SESSION; i++){
+		msg_q_free( &(vif->tcp_session[i].msg_q) );
 	}
 	return OK;
 }

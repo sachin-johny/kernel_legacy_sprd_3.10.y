@@ -136,45 +136,36 @@ static inline void wlan_cmd_clean(void)
 	mutex_unlock(&cmd->mem_lock);
 }
 
-int wlan_cmd_send_to_ic(unsigned char vif_id, unsigned char *pData, int len, int subtype)
+int wlan_cmd_send_to_ic(unsigned char vif_id, unsigned char *data, int len, int subtype)
 {
-	
-	tx_msg_t  *event;
-	m_event_t *event_q;
-	wlan_cmd_t *cmd;
-	cmd     = &(g_wlan.cmd);
-	event_q = &(g_wlan.netif[vif_id].event_q[EVENT_Q_ID_0]);
-	printkd("[SEND_CMD][%d][%s]\n",vif_id, get_cmd_name(subtype));
-	event = alloc_event(event_q);
-	if(NULL == event)
-	{
-		printke("%s alloc_event err\n", __func__);
+	int ret;
+	tx_msg_t    msg    = {0};
+	msg_q_t    *msg_q  = &(g_wlan.netif[vif_id].msg_q[0]);
+	wlan_cmd_t *cmd    = &(g_wlan.cmd);
+
+	msg.hdr.mode       = vif_id;
+	msg.hdr.type       = HOST_SC2331_CMD;
+	msg.hdr.subtype    = subtype;
+	if((len == 0) || (data == NULL)){
+		
+		msg.hdr.len = 0;
+		msg.slice[0].data = NULL;
+		msg.slice[0].len  = 0;
+	}
+	else{
+		msg.hdr.len       = len;
+		msg.slice[0].data = data;
+		msg.slice[0].len  = len;
+	}
+	wlan_cmd_clean();
+	ret = msg_q_in(msg_q, &msg);
+	if(ret != OK){
+		printkd("[SEND_CMD][%d][%s][ERR][MSG_Q NULL]\n",vif_id, get_cmd_name(subtype));
 		return ERROR;
 	}
-	memset((unsigned char *)event,  0, sizeof(tx_msg_t) );
-	if((0 == len) || (NULL == pData))
-	{
-		event->hdr.mode = vif_id;
-		event->hdr.len = 0;
-		event->hdr.type = HOST_SC2331_CMD;
-		event->hdr.subtype = subtype;
-		event->slice[0].data = NULL;
-		event->slice[0].len = 0;
-	}
-	else
-	{
-		event->hdr.mode = vif_id;
-		event->hdr.len = len;
-		event->hdr.type = HOST_SC2331_CMD;
-		event->hdr.subtype = subtype;
-		event->slice[0].data = pData;
-		event->slice[0].len = len;
-	}
-
-	wlan_cmd_clean();
-	post_event( (unsigned char *)event, event_q );
+	printkd("[SEND_CMD][%d][%s]\n",vif_id, get_cmd_name(subtype));
+	g_wlan.wlan_core.need_tx++;
 	core_up();
-
 	return OK;
 }
 
@@ -981,7 +972,7 @@ int hex_dump(unsigned char  *name, unsigned short nLen, unsigned char *pData,  u
 		ret = sprintf( (str+ nLen + p),  "%02x ",  *(pData+i)  );
 		p = p+ret;
 	}
-	printke("%s\n", str);
+	printke("%s\n\n", str);
 	kfree(str);
 	return 0;
 }

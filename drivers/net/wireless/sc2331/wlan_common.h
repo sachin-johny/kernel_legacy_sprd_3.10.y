@@ -45,20 +45,20 @@
 #include <linux/wakelock.h>
 #include <linux/earlysuspend.h>
 #include <mach/gpio.h>
-#include "wlan_event_q.h"
 #include "wlan_fifo.h"
 #include "wlan_cmd.h"
 #include "wlan_cfg80211.h"
+#include "wlan_msg_q.h"
 
 /* #define WLAN_LESS_WAKEUP_CP */
 #define WLAN_THREAD_SLEPP_POLICE
 #define WIFI_DRV_WAPI
+
+#define INCR_RING_BUFF_INDX(indx,max_num)    ((((indx) + 1) < (max_num)) ?  ((indx) + 1) : (0) )
 #define KERNEL_VERSION(a, b, c)              (((a) << 16) + ((b) << 8) + (c))
 #define LINUX_VERSION_CODE                   KERNEL_VERSION(3, 10, 0)
-
 #define SDIO_ALIGN_SIZE                      (1024)
 #define ALIGN_4BYTE(a)                       (  (((a)+3)&(~3))  ) 
-#define INCR_RING_BUFF_INDX(indx,max_num)    ((((indx) + 1) < (max_num)) ?  ((indx) + 1) : (0) )
 #define MAX_TX_BUFFER_ID                     (12)
 #define TEST_BIT(a, k)                       ((a>>k)&1)
 #define CLEAR_BIT(a, k)                      ({a = ( a&(~(1<<k)) );0;})
@@ -68,18 +68,20 @@
 #define WLAN_HEX_DBG                         TEST_BIT(g_dbg, 3)
 #define ETH_PCAP                             TEST_BIT(g_dbg, 4)
 #define MAC_PCAP                             TEST_BIT(g_dbg, 5)
-#define ETH_ALEN		                     6
-#define SIOGETSSID                           0x89F2
+#define ETH_ALEN		                     (6)
+#define SIOGETSSID                           (0x89F2)
 
 /* HW_TX_SIZE, HW_RX_SIZE and PKT_AGGR_NUM must keep pace with CP
  * TX: CP discrp number 38, use 3 blocks, 13k per block
  * PKT_AGGR_NUM 12 = 38 / 3
  */
-#define HW_TX_SIZE                          (13312)
-#define HW_RX_SIZE                          (12288)
-#define PKT_AGGR_NUM                        (12)
-#define SDIO_RX_GPIO                        (132)
-#define MAX_TCP_SESSION                     (10)
+#define OK                                   ( 0)
+#define ERROR                                (-1) 
+#define HW_TX_SIZE                           (13312)
+#define HW_RX_SIZE                           (12288)
+#define PKT_AGGR_NUM                         (12)
+#define SDIO_RX_GPIO                         (132)
+#define MAX_TCP_SESSION                      (10)
 
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(3, 10, 0))
 #define KERNEL_DEBUG_LEVE     "\001" "0"
@@ -144,12 +146,6 @@ typedef struct
 	unsigned long         wakeup_time;
 	int                   can_sleep;
 }hw_info_t;
-typedef struct
-{
-	m_event_t          tx_q;
-	txfifo_t           tx_fifo;
-	int                status;
-}tx_buf_t;
 
 typedef struct
 {
@@ -159,6 +155,11 @@ typedef struct
 	int                 max_null_run;
 	int                 idle_sleep;
 	int                 prio;
+	unsigned int        need_tx;
+	unsigned int        done_tx;
+	unsigned int        need_rx;
+	unsigned int        done_rx;
+	atomic_t            retry;
 }wlan_thread_t;
 
 typedef struct
@@ -225,7 +226,7 @@ typedef struct
 	unsigned int   ack_seq;
 	struct timeval data_time;
 	struct timeval ack_time;
-	m_event_t      event_q;
+	msg_q_t        msg_q;
 }wlan_tcp_session_t;
 
 typedef struct
@@ -234,13 +235,13 @@ typedef struct
 	struct wireless_dev               wdev;
 	unsigned short                    id;
 	unsigned char                     mac[ETH_ALEN];
-	u8			beacon_loss;
+	u8			                      beacon_loss;
 	int                               mode;	
 	wlan_cfg80211_t                   cfg80211;
 	net_connect_dev_t                 connect_dev[8];
-	struct deauth_info	deauth_info;
+	struct deauth_info	              deauth_info;
 	txfifo_t                          txfifo;
-	m_event_t                         event_q[EVENT_Q_MAX_ID];
+	msg_q_t                           msg_q[2];
 	bool                              tcp_ack_suppress;
 	wlan_tcp_session_t                tcp_session[MAX_TCP_SESSION];
 }wlan_vif_t;
@@ -300,7 +301,7 @@ extern int set_marlin_sleep(unsigned int  chn,unsigned int user_id);
 extern char * get_cmd_name(int id);
 extern unsigned int g_dbg;
 extern wlan_info_t g_wlan;
-extern m_event_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len);
+extern msg_q_t *wlan_tcpack_q(wlan_vif_t *vif, unsigned char *frame, unsigned int len);
 extern int wlan_tcpack_tx(wlan_vif_t *vif, int *done);
 extern int wlan_tcpack_buf_malloc(wlan_vif_t *vif);
 extern int wlan_tcpack_buf_free(wlan_vif_t *vif);
