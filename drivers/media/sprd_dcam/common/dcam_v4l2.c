@@ -3033,6 +3033,7 @@ ssize_t sprd_v4l2_write(struct file *file, const char __user * u_data, size_t cn
 
 	switch (buf.flags) {
 	case DCAM_V4L2_WRITE_STOP:
+		printk("V4L2: exit \n");
 		mutex_lock(&dev->dcam_mutex);
 		ret = sprd_v4l2_tx_stop(dev);
 		if (ret)
