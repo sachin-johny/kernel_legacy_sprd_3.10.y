@@ -92,7 +92,6 @@ static bool marlin_bt_wake_flag = 0;
 static struct completion marlin_ack = {0};
 
 static SLEEP_POLICY_T sleep_para = {0};
-spinlock_t     sleep_spinlock ;
 
 volatile bool marlin_mmc_suspend = 0;
 MARLIN_PM_RESUME_WAIT_INIT(marlin_sdio_wait);
@@ -206,12 +205,11 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		return -1;
 	}
 
-	spin_trylock(&sleep_spinlock);
+
 
 	if(0 != sleep_para.gpio_opt_tag)		
 	{
 		sleep_para.gpioreq_need_pulldown = 0;
-		spin_unlock(&sleep_spinlock);
 	}	
 	else
 	{		
@@ -226,7 +224,6 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		}
 		sleep_para.gpioreq_need_pulldown = 1;
 		gpio_direction_output(GPIO_AP_TO_MARLIN,1);	
-		spin_unlock(&sleep_spinlock);
 		
 		SDIOTRAN_ERR("pull up gpio %d",GPIO_AP_TO_MARLIN);
 		//sleep_para.gpioreq_up_time = jiffies;
@@ -1287,7 +1284,6 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 	}
 	SDIOTRAN_ERR("enable func1 ok!!!");
 	
-	spin_lock_init(&sleep_spinlock);
 	wakeup_slave_pin_init();
 	marlin_wake_intr_init();
 	marlin_sdio_sync_init();
