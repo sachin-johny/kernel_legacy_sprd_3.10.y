@@ -54,7 +54,7 @@ static unsigned adc_read(unsigned addr)
 #define ADC_HW_CH_DELAY		(0x48)
 
 #define ADC_DAT		(0x4c)
-#define adc_get_data(_SAMPLE_BITS_)		(adc_read(io_base + ADC_DAT) & (_SAMPLE_BITS_))
+#define adc_get_data(_SAMPLE_BITS_)		(adc_read((unsigned)(io_base + ADC_DAT)) & (_SAMPLE_BITS_))
 
 #define ADC_IRQ_EN		(0x50)
 #define adc_enable_irq(_X_)	do {adc_write(((_X_) & 0x1),io_base + ADC_IRQ_EN);} while(0)
@@ -63,10 +63,10 @@ static unsigned adc_read(unsigned addr)
 #define adc_clear_irq()		do {adc_write(0x1, io_base + ADC_IRQ_CLR);} while (0)
 
 #define ADC_IRQ_STS		(0x58)
-#define adc_mask_irqstatus()     adc_read(io_base + ADC_IRQ_STS)
+#define adc_mask_irqstatus()     adc_read((unsigned)(io_base + ADC_IRQ_STS))
 
 #define ADC_IRQ_RAW		(0x5c)
-#define adc_raw_irqstatus()     adc_read(io_base + ADC_IRQ_RAW)
+#define adc_raw_irqstatus()     adc_read((unsigned)(io_base + ADC_IRQ_RAW))
 
 #define ADC_DEBUG		(0x60)
 
@@ -296,7 +296,7 @@ static int sprd_device_create_attributes(struct device *dev,
 
 	return rc;
 }
-
+#ifndef CONFIG_OF
 static int __init sprd_adc_dev_register(void)
 {
 	static struct platform_device sprdadc_device = {
@@ -306,7 +306,7 @@ static int __init sprd_adc_dev_register(void)
 
 	return platform_device_register(&sprdadc_device);
 }
-
+#endif
 static int sprd_adc_probe(struct platform_device *pdev)
 {
 	struct sprd_adc_data *adc_data = NULL;
@@ -444,7 +444,7 @@ void sci_adc_init(void __iomem * adc_base)
 		pr_warn("Can't get the adc reg base!\n");
 		return;
 	}
-	io_base = res.start;
+	io_base = (void __iomem *)res.start;
 	pr_info(" ADC reg base is %p!\n", io_base);
 
 #else
@@ -483,9 +483,9 @@ static int sci_adc_config(struct adc_sample_data *adc)
 			  io_base + ADC_HW_CH_DELAY);
 
 		if (adc->channel_type == 1) {	/*slow */
-			addr = io_base + ADC_SLOW_HW_CHX_CFG(adc->channel_id);
+			addr = (unsigned)(io_base + ADC_SLOW_HW_CHX_CFG(adc->channel_id));
 		} else {
-			addr = io_base + ADC_FAST_HW_CHX_CFG(adc->channel_id);
+			addr = (unsigned)(io_base + ADC_FAST_HW_CHX_CFG(adc->channel_id));
 		}
 		adc_write(val, addr);
 	}
@@ -773,7 +773,7 @@ int sci_adc_get_values(struct adc_sample_data *adc)
 
 	sci_adc_config(adc);	//configs adc sample.
 
-	addr = io_base + ADC_CTL;
+	addr = (unsigned)(io_base + ADC_CTL);
 	val = adc_read(addr);
 	val &= ~(BIT_ADC_EN | BIT_SW_CH_ON | BIT_ADC_BIT_MODE_MASK);
 	adc_write(val, addr);
