@@ -1037,6 +1037,7 @@ CONFIG_HAVE_BPF_JIT=y
 #
 # Device Drivers
 #
+CONFIG_GPS_LSI_S5N6420=y
 
 #
 # Generic Driver Options
@@ -1167,10 +1168,10 @@ CONFIG_SPRD_CPROC=y
 # 2351 modules
 #
 # CONFIG_SPRD_2351 is not set
-CONFIG_CGX=y
-CONFIG_CGX_DRIVER=y
-CONFIG_CGX_VIRTUALCOM=y
-CONFIG_CGX_GE_GPS=y
+# CONFIG_CGX is not set
+# CONFIG_CGX_DRIVER is not set
+# CONFIG_CGX_VIRTUALCOM is not set
+# CONFIG_CGX_GE_GPS is not set
 # CONFIG_SR2351_FM is not set
 # CONFIG_FM_SEEK_STEP_50KHZ is not set
 # CONFIG_C2PORT is not set

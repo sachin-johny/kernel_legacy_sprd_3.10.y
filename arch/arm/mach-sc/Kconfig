@@ -619,6 +619,10 @@ config MACH_SAMSUNG
 
 endmenu
 
+config GPS_LSI_S5N6420
+	bool "LSI_GPS_CHIPSET_HARRIER"
+	default n
+
 config SPRD_ION_MM_SIZE
         int "size for ion"
         range 1 64

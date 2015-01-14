@@ -110,4 +110,5 @@ obj-$(CONFIG_MACH_SP9630EA_3592M_3MOD) += board-sp9630ea_3592m_3mod.o dma_r4p0.o
 obj-$(CONFIG_MACH_SP9630EA3MN) += board-sp9630ea3mn.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_SP9630EA4MN) += board-sp9630ea4mn.o dma_r4p0.o mailbox.o
 obj-$(CONFIG_MACH_SP9630EA) += board-sp9630ea.o dma_r4p0.o mailbox.o
+obj-$(CONFIG_GPS_LSI_S5N6420)		+= sec_gps_s5n6420.o
 

@@ -615,6 +615,12 @@
 		compatible = "sprd,sprd_dma_copy";
 	};
 
+	gps {
+		compatible = "lsi,s5n6420";
+		gps-pwr-en = <&d_gpio_gpio 11 0>;	/*GPS_PWON*/
+		gps-reset = <&d_gpio_gpio 90 0>;	/*GPS_RESET*/
+		gps-regulator = "vddcamd";
+	};
 	fb0: fb@20800000 {
 		compatible = "sprd,sprdfb";
 		reg = <0xf5122000 0x1000>,<0xf514e000 0x1000>;
