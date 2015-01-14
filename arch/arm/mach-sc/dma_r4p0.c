@@ -34,7 +34,7 @@
 #else
 
 static void __iomem *dma_reg_base;
-static inline void __iomem * get_dma_base()
+static inline void __iomem * get_dma_base(void)
 {
 	return dma_reg_base;
 }
@@ -336,9 +336,9 @@ static irqreturn_t __dma_irq_handle(int irq, void *dev_id)
 		irq_status &= (irq_status - 1);
 
 		/*the dma chn index is start with 1,notice! */
-		reg_addr = DMA_CHN_INT(i + 1);
+		reg_addr = (u32)DMA_CHN_INT(i + 1);
 		/*clean all type interrupt */
-		writel(readl(reg_addr) | (0x1f << 24), reg_addr);
+		writel(readl((volatile void *)reg_addr) | (0x1f << 24), (volatile void *)reg_addr);
 
 		if (dma_chns[i + 1].irq_handler)
 			/*audio driver need to get the dma chn */
@@ -461,7 +461,7 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 
 	ret =
 	    __dma_cfg_check_and_convert(dma_chn, cfg_list,
-					DMA_CHx_BASE(dma_chn));
+					(u32)DMA_CHx_BASE(dma_chn));
 	if (ret < 0) {
 		printk("%s %d error\n", __func__, __LINE__);
 	}
@@ -495,7 +495,7 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 
 	ret =
 	    __dma_cfg_check_and_convert(dma_chn, &list_cfg,
-					DMA_CHx_BASE(dma_chn));
+					(u32)DMA_CHx_BASE(dma_chn));
 
 	return ret;
 }
@@ -608,7 +608,7 @@ int sci_dma_dump_reg(u32 dma_chn, u32 *reg_base)
 	}
 
 	if(reg_base) {
-		*reg_base = DMA_CHx_BASE(dma_chn);
+		*reg_base = (u32)DMA_CHx_BASE(dma_chn);
 	}
 
 	return  DMA_CHx_OFFSET;
@@ -726,7 +726,7 @@ static int __init sci_init_dma(void)
 		pr_warn("Can't get the DMAC reg base!\n");
 		return -EIO;
 	}
-	dma_reg_base = res.start;
+	dma_reg_base = (void *)res.start;
 	pr_info(" DMA reg base is %p!\n", dma_reg_base);
 
 	dma_irq = irq_of_parse_and_map(dma_node, 0);

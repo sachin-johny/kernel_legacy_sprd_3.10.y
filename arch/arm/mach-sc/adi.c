@@ -75,7 +75,7 @@ static unsigned int CTL_ADI_BASE;
 
 /* bits definitions for register REG_ADI_FIFO_STS */
 #define BIT_FIFO_FULL                   ( BIT(11) )
-#define FIFO_IS_FULL()	(__raw_readl(REG_ADI_FIFO_STS) & BIT_FIFO_FULL)
+#define FIFO_IS_FULL()	(__raw_readl((void *__iomem)REG_ADI_FIFO_STS) & BIT_FIFO_FULL)
 
 #define BIT_FIFO_EMPTY                  ( BIT(10) )
 
@@ -111,7 +111,7 @@ static inline int __adi_ver(void)
 static inline int __adi_fifo_drain(void)
 {
 	int cnt = 1000;
-	while (!(__raw_readl(REG_ADI_FIFO_STS) & BIT_FIFO_EMPTY) && cnt--) {
+	while (!(__raw_readl((void *__iomem)REG_ADI_FIFO_STS) & BIT_FIFO_EMPTY) && cnt--) {
 		udelay(1);
 	}
 	WARN(cnt == 0, "ADI WAIT timeout!!!");
@@ -170,7 +170,7 @@ static inline int __adi_read(u32 regPddr, unsigned int *v)
 	 * Because if normal write is SYNC, that will
 	 * wait fifo empty at the end of the write.
 	 */
-	__raw_writel(regPddr, REG_ADI_RD_CMD);
+	__raw_writel(regPddr, (void *__iomem)REG_ADI_RD_CMD);
 
 	/*
 	 * wait read operation complete, RD_data[31]
@@ -178,7 +178,7 @@ static inline int __adi_read(u32 regPddr, unsigned int *v)
 	 * RD_data[31] will be cleared after the read operation complete, 
 	 */
 	do {
-		val = __raw_readl(REG_ADI_RD_DATA);
+		val = __raw_readl((void *__iomem)REG_ADI_RD_DATA);
 	} while ((val & BIT_RD_CMD_BUSY) && cnt--);
 
 	WARN(cnt == 0, "ADI READ timeout!!!");
@@ -247,7 +247,7 @@ static inline int __adi_write(u32 reg, u16 val, u32 sync)
 	tail_p->val = val;
 	__p_add(&tail_p, TAIL_ADD);
 	while (!FIFO_IS_FULL() && (data_in_cache != 0)) {
-		__raw_writel(head_p->val, head_p->reg);
+		__raw_writel(head_p->val, (void *__iomem)head_p->reg);
 		__p_add(&head_p, HEAD_ADD);
 	}
 
@@ -257,7 +257,7 @@ static inline int __adi_write(u32 reg, u16 val, u32 sync)
 			while (FIFO_IS_FULL()) {
 				cpu_relax();
 			}
-			__raw_writel(head_p->val, head_p->reg);
+			__raw_writel(head_p->val, (void *__iomem)head_p->reg);
 			__p_add(&head_p, HEAD_ADD);
 		}
 		__adi_fifo_drain();
@@ -300,19 +300,19 @@ EXPORT_SYMBOL(sci_adi_write);
 static void __init __adi_init(void)
 {
 	uint32_t value;
-	value = __raw_readl(REG_ADI_CTRL0);
+	value = __raw_readl((void *__iomem)REG_ADI_CTRL0);
 
 	if (__adi_ver() == 0) {
 		value &= ~BIT_ARM_SCLK_EN;
 		value |= BITS_CMMB_WR_PRI;
-		__raw_writel(value, REG_ADI_CTRL0);
+		__raw_writel(value, (void *__iomem)REG_ADI_CTRL0);
 
-		value = __raw_readl(REG_ADI_CHNL_PRI);
+		value = __raw_readl((void *__iomem)REG_ADI_CHNL_PRI);
 		value |= BITS_PD_WR_PRI | BITS_RFT_WR_PRI |
 		    BITS_DSP_RD_PRI | BITS_DSP_WR_PRI |
 		    BITS_ARM_RD_PRI | BITS_ARM_WR_PRI |
 		    BITS_STC_WR_PRI | BITS_INT_STEAL_PRI;
-		__raw_writel(value, REG_ADI_CHNL_PRI);
+		__raw_writel(value, (void *__iomem)REG_ADI_CHNL_PRI);
 
 		readback_addr_mak = 0x7ff;
 	} else if (__adi_ver() == 1) {
@@ -320,13 +320,13 @@ static void __init __adi_init(void)
 			WARN_ON(1);
 
 		value = VALUE_CH_PRI;
-		__raw_writel(value, REG_ADI_CHNL_PRI);
+		__raw_writel(value, (void *__iomem)REG_ADI_CHNL_PRI);
 
-		value = __raw_readl(REG_ADI_CHNL_EN);
+		value = __raw_readl((void *__iomem)REG_ADI_CHNL_EN);
 		value |= (BIT(2) | BIT(3)); /* vbc da0, da1*/
-		__raw_writel(value, REG_ADI_CHNL_EN);
+		__raw_writel(value, (void *__iomem)REG_ADI_CHNL_EN);
 
-		value = __raw_readl(REG_ADI_GSSI_CFG0);
+		value = __raw_readl((void *__iomem)REG_ADI_GSSI_CFG0);
 		readback_addr_mak = (value & 0x3f) - ((value >> 11) & 0x1f) - 1;
 		readback_addr_mak = (1<<(readback_addr_mak + 2)) - 1;
 	}

@@ -62,7 +62,7 @@ postcore_initcall_sync(early_init_hwlocks);
 
 static int __init hwspinlocks_init(void)
 {
-	int ret;
+	int ret = 0;
 
 #ifdef CONFIG_OF
 	struct device_node *np;
@@ -83,7 +83,7 @@ static int __init hwspinlocks_init(void)
 	pr_info("SPRD register hwspinlock1 ok!\n");
 //	of_detach_node(np);
 
-	return 0;
+	return ret;
 
 #else
 	ret = platform_device_register(&sprd_hwspinlock_device1);

@@ -258,19 +258,19 @@ static struct bm_chn_name_info bm_chn_name[BM_CHANNEL_SIZE + 1] = {
 };
 
 struct bm_id_name {
-	unsigned char chn_name[4];
+	unsigned char *chn_name[4];
 };
-static struct bm_id_name bm_match_id[AXI_BM9_CP1_A5] = {
-	{"CA7"},
-	{"DISPC","TMC"},
-	{"GSP","GPU"},
-	{"ZIPENC","ZIPDEC","AP"},
-	{"DCAM","ISP","VSP","JPG"},
-	{"CP0 WCDMA","CP0 ARM0","CP0 ARM1","CP0 WCDMA"},
-	{"CP0 DSP"},
-	{"CP1 LTEACC/HARQ"},
-	{"CP1 DSP"},
-	{"CA5","CA5 AHB"},
+static struct bm_id_name bm_match_id[AXI_BM9_CP1_A5 + 1] = {
+	{{"CA7", "", "", ""}},
+	{{"DISPC", "TMC", "", ""}},
+	{{"GSP", "GPU", "", ""}},
+	{{"ZIPENC", "ZIPDEC", "AP", ""}},
+	{{"DCAM", "ISP", "VSP", "JPG"}},
+	{{"CP0 WCDMA", "CP0 ARM0", "CP0 ARM1", "CP0 WCDMA"}},
+	{{"CP0 DSP", "", "", ""}},
+	{{"CP1 LTEACC/HARQ", "", "", ""}},
+	{{"CP1 DSP", "", "", ""}},
+	{{"CA5", "CA5 AHB", "", ""}},
 };
 
 struct bm_chn_def_val {

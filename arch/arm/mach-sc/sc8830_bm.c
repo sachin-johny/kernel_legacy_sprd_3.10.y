@@ -389,7 +389,7 @@ static void __sci_bm_store_int_info(u32 bm_index)
 			debug_bm_int_info[bm_index].msk_cmd,
 			debug_bm_int_info[bm_index].msk_data_l,
 			debug_bm_int_info[bm_index].msk_data_h,
-			&bm_match_id[bm_index].chn_name[debug_bm_int_info[bm_index].msk_id],
+			bm_match_id[bm_index].chn_name[debug_bm_int_info[bm_index].msk_id],
 			mask_id);
 	}else{
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index = bm_index;
@@ -400,13 +400,13 @@ static void __sci_bm_store_int_info(u32 bm_index)
 		mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id  = mask_id >> 2 ? 0 : mask_id;
 
-		BM_ERR("bm ctn info:\nBM CHN:	%d\nOverlap ADDR:	0x%X\nOverlap CMD:	0x%X\nOverlap DATA:	0x%X	0x%X\nOverlap ID:	%d--%s\n",
+		BM_ERR("bm ctn info:\nBM CHN:	%d\nOverlap ADDR:	0x%X\nOverlap CMD:	0x%X\nOverlap DATA:	0x%X	0x%X\nOverlap ID:	%s--%d\n",
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_addr,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l,
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h,
-			&bm_match_id[bm_index].chn_name[bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id],
+			bm_match_id[bm_index].chn_name[bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id],
 			mask_id);
 		bm_ctn_dbg.current_cnt++;
 	}
@@ -1179,6 +1179,8 @@ static int sci_bm_get_mem_layout(void)
 #ifdef CONFIG_OF
 	struct device_node *np = NULL;
 	struct resource res;
+	struct device_node *lte_child = NULL;
+	char *lte_reg_name = NULL;
 	int ret;
 	char *devname;
 
@@ -1198,10 +1200,6 @@ static int sci_bm_get_mem_layout(void)
 			memory_layout.shm_start = res.start;
 			memory_layout.shm_end = res.end;
 		}
-
-		struct device_node *lte_child = NULL;
-		char *lte_reg_name = NULL;
-		u32 lte_val[2] = { 0 };
 
 		for_each_child_of_node(np, lte_child){
 			of_property_read_string(lte_child, "sprd,name", (const char **)&lte_reg_name);
@@ -1298,7 +1296,6 @@ static int sci_bm_get_mem_layout(void)
 static int sci_bm_suspend(struct platform_device *pdev, pm_message_t state)
 {
 	u32 bm_chn, reg_addr, bm_mode;
-	struct sci_bm_cfg bm_cfg;
 
 	if(true == bm_st_info.bm_dbg_st){
 		for (bm_chn = AXI_BM0_CA7; bm_chn < BM_SIZE; bm_chn++){
@@ -1357,10 +1354,10 @@ static int sci_bm_resume(struct platform_device *pdev)
 			}
 			ret = sci_bm_set_point(bm_chn, bm_store_vale[bm_chn].chn_sel, &bm_cfg, NULL, NULL);
 			if(SPRD_BM_SUCCESS != ret)
-				return ;
+				return ret;
 		}
 	}
-	return 0;
+	return ret;
 }
 
 static int sci_bm_probe(struct platform_device *pdev)
@@ -1427,14 +1424,12 @@ static int sci_bm_remove(struct platform_device *pdev)
 
 static int sci_bm_open(struct inode *inode, struct file *filp)
 {
-	u32 bm_index;
 	BM_INFO("%s!\n", __func__);
 	return 0;
 }
 
 static int sci_bm_release(struct inode *inode, struct file *filp)
 {
-	u32 bm_index;
 	BM_INFO("%s!\n", __func__);
 	return 0;
 }
