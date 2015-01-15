@@ -15,11 +15,11 @@
 static u32 inline get_sys_cnt(void)
 {
 	u32 val1, val2;
-        val1 = __raw_readl(SYSCNT_COUNT);
-        val2 = __raw_readl(SYSCNT_COUNT);
+        val1 = __raw_readl((volatile void *)SYSCNT_COUNT);
+        val2 = __raw_readl((volatile void *)SYSCNT_COUNT);
         while(val2 != val1) {
              val1 = val2;
-             val2 = __raw_readl(SYSCNT_COUNT);
+             val2 = __raw_readl((volatile void *)SYSCNT_COUNT);
         }
         return val2;
 }

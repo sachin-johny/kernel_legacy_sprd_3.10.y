@@ -2663,12 +2663,12 @@ uint32_t cpw_rxirq_status(void)
 
 void cpw_rxirq_clear(void)
 {
-	__raw_writel(CPW2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+	__raw_writel(CPW2AP_IRQ0_CLR, (volatile void *)CP2AP_INT_CTRL);
 }
 
 void cpw_txirq_trigger(void)
 {
-	__raw_writel(AP2CPW_IRQ0_TRIG, AP2CP_INT_CTRL);
+	__raw_writel(AP2CPW_IRQ0_TRIG,(volatile void *) AP2CP_INT_CTRL);
 }
 #ifdef CONFIG_ARCH_SCX30G
 #define AP2CPT_IRQ0_TRIG        0x01
@@ -2684,12 +2684,12 @@ uint32_t cpt_rxirq_status(void)
 
 void cpt_rxirq_clear(void)
 {
-	__raw_writel(CPT2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+	__raw_writel(CPT2AP_IRQ0_CLR, (volatile void *)CP2AP_INT_CTRL);
 }
 
 void cpt_txirq_trigger(void)
 {
-	__raw_writel(AP2CPT_IRQ0_TRIG, AP2CP_INT_CTRL);
+	__raw_writel(AP2CPT_IRQ0_TRIG, (volatile void *)AP2CP_INT_CTRL);
 }
 
 #define AP2WCN_IRQ0_TRIG	0x100
@@ -2701,11 +2701,11 @@ uint32_t wcn_rxirq_status(void)
 
 void wcn_rxirq_clear(void)
 {
-	__raw_writel(WCN2AP_IRQ0_CLR, CP2AP_INT_CTRL);
+	__raw_writel(WCN2AP_IRQ0_CLR, (volatile void  *)CP2AP_INT_CTRL);
 }
 
 void wcn_txirq_trigger(void)
 {
-	__raw_writel(AP2WCN_IRQ0_TRIG, AP2CP_INT_CTRL);
+	__raw_writel(AP2WCN_IRQ0_TRIG, (volatile void *)AP2CP_INT_CTRL);
 }
 

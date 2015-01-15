@@ -26,14 +26,14 @@
 
 u32 sci_glb_read(u32 reg, u32 msk)
 {
-	return __raw_readl(reg) & msk;
+	return __raw_readl((volatile void *)reg) & msk;
 }
 
 int sci_glb_write(u32 reg, u32 val, u32 msk)
 {
 	unsigned long flags;
 	__arch_default_lock(HWLOCK_GLB, &flags);
-	__raw_writel((__raw_readl(reg) & ~msk) | val, reg);
+	__raw_writel((__raw_readl((volatile void *)reg) & ~msk) | val, (volatile void *)reg);
 	__arch_default_unlock(HWLOCK_GLB, &flags);
 	return 0;
 }
@@ -56,11 +56,11 @@ static int __is_glb(u32 reg)
 int sci_glb_set(u32 reg, u32 bit)
 {
 	if (__is_glb(reg)) {
-		__raw_writel(bit, REG_GLB_SET(reg));
+		__raw_writel(bit, (volatile void *)REG_GLB_SET(reg));
 	} else {
 		unsigned long flags;
 		__arch_default_lock(HWLOCK_GLB, &flags);
-		__raw_writel(__raw_readl(reg) | bit, reg);
+		__raw_writel(__raw_readl((volatile void *)reg) | bit, (volatile void *)reg);
 		__arch_default_unlock(HWLOCK_GLB, &flags);
 	}
 	return 0;
@@ -69,11 +69,11 @@ int sci_glb_set(u32 reg, u32 bit)
 int sci_glb_clr(u32 reg, u32 bit)
 {
 	if (__is_glb(reg)) {
-		__raw_writel(bit, REG_GLB_CLR(reg));
+		__raw_writel(bit, (volatile void *)REG_GLB_CLR(reg));
 	} else {
 		unsigned long flags;
 		__arch_default_lock(HWLOCK_GLB, &flags);
-		__raw_writel((__raw_readl(reg) & ~bit), reg);
+		__raw_writel((__raw_readl((volatile void *)reg) & ~bit), (volatile void *)reg);
 		__arch_default_unlock(HWLOCK_GLB, &flags);
 	}
 	return 0;
