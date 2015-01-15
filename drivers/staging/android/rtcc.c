@@ -34,7 +34,6 @@ extern unsigned long rtcc_reclaim_pages(unsigned long nr_to_reclaim,
 extern long nr_kswapd_swapped;
 
 static long nr_krtccd_swapped;
-static atomic_t krtccd_running;
 static atomic_t need_to_reclaim;
 static struct task_struct *krtccd;
 static unsigned long prev_jiffy;
@@ -54,11 +53,6 @@ static unsigned long boost_end_jiffy;
 #endif
 
 #define RTCC_DBG			1
-
-int get_rtcc_status(void)
-{
-	return atomic_read(&krtccd_running);
-}
 
 static long swap_toplimit;
 
@@ -182,6 +176,9 @@ static int rtcc_thread(void * nothing)
 	unsigned long dt;
 	struct timeval tv1, tv2;
 #endif
+	struct task_struct *tsk = current;
+
+	tsk->flags |= PF_KRTCCD;
 
 	set_freezable();
 
@@ -190,48 +187,44 @@ static int rtcc_thread(void * nothing)
 		if (kthread_should_stop())
 			break;
 
-		if (likely(atomic_read(&krtccd_running) == 1)) {
 #if RTCC_DBG
-			do_gettimeofday(&tv1);
+		do_gettimeofday(&tv1);
 #endif
-			swap_toplimit = get_swapped_pages() + get_anon_pages() / 2;
-			swap_toplimit = min(swap_toplimit, total_swap_pages);
+		swap_toplimit = get_swapped_pages() + get_anon_pages() / 2;
+		swap_toplimit = min(swap_toplimit, total_swap_pages);
 
-			nr_to_reclaim = get_reclaim_count();
-			swappiness = get_reclaim_swappiness();
-			nr_swapped = 0;
+		nr_to_reclaim = get_reclaim_count();
+		swappiness = get_reclaim_swappiness();
+		nr_swapped = 0;
 
-			nr_reclaimed = rtcc_reclaim_pages(nr_to_reclaim, swappiness, &nr_swapped);
-			nr_krtccd_swapped += nr_swapped;
+		nr_reclaimed = rtcc_reclaim_pages(nr_to_reclaim, swappiness, &nr_swapped);
+		nr_krtccd_swapped += nr_swapped;
 
-			printk("%s: reclaimed %ld (swapped %ld) pages.\n", __func__, nr_reclaimed, nr_swapped);
+		printk("%s: reclaimed %ld (swapped %ld) pages.\n", __func__, nr_reclaimed, nr_swapped);
 
-			if (likely(rtcc_boost_mode == 0)) {
-				if (get_rtcc_grade() <= 0) {
-					// If free memory is enough, cancel reclaim
-					atomic_set(&need_to_reclaim, 0);
-				} else if (swappiness <= 1 && get_file_pages() <= rtcc_minfree[RTCC_GRADE_NUM-2]) {
-					// If swap space is full and file pages is few, also cancel reclaim
-					atomic_set(&need_to_reclaim, 0);
-				}
-			} else if (get_anon_pages() < swap_toplimit / 4) {
-				rtcc_boost_mode = 0;
+		if (likely(rtcc_boost_mode == 0)) {
+			if (get_rtcc_grade() <= 0) {
+				// If free memory is enough, cancel reclaim
 				atomic_set(&need_to_reclaim, 0);
-				printk("%s: swapped %ldMB enough, exit boost mode.\n", __func__, get_swapped_pages()/256);
-			} else if (time_after(jiffies, boost_end_jiffy)) {
-				rtcc_boost_mode = 0;
-				printk("%s: time out, swapped %ldMB, exit boost mode.\n", __func__, get_swapped_pages()/256);
+			} else if (swappiness <= 1 && get_file_pages() <= rtcc_minfree[RTCC_GRADE_NUM-2]) {
+				// If swap space is full and file pages is few, also cancel reclaim
+				atomic_set(&need_to_reclaim, 0);
 			}
-
-			atomic_set(&krtccd_running, 0);
+		} else if (get_anon_pages() < swap_toplimit / 4) {
+			rtcc_boost_mode = 0;
+			atomic_set(&need_to_reclaim, 0);
+			printk("%s: swapped %ldMB enough, exit boost mode.\n", __func__, get_swapped_pages()/256);
+		} else if (time_after(jiffies, boost_end_jiffy)) {
+			rtcc_boost_mode = 0;
+			printk("%s: time out, swapped %ldMB, exit boost mode.\n", __func__, get_swapped_pages()/256);
+		}
 
 #if RTCC_DBG
-			do_gettimeofday(&tv2);
-			dt = tv2.tv_sec*1000000 + tv2.tv_usec - tv1.tv_sec*1000000 - tv1.tv_usec;
-			printk("%s: cost %ldms, %ldus one page, ", __func__, dt/1000, dt/nr_reclaimed);
-			printk("expect=%ld, swappiness=%d \n", (nr_reclaimed*swappiness/200), swappiness);
+		do_gettimeofday(&tv2);
+		dt = tv2.tv_sec*1000000 + tv2.tv_usec - tv1.tv_sec*1000000 - tv1.tv_usec;
+		printk("%s: cost %ldms, %ldus one page, ", __func__, dt/1000, dt/nr_reclaimed);
+		printk("expect=%ld, swappiness=%d \n", (nr_reclaimed*swappiness/200), swappiness);
 #endif
-		}
 
 		set_current_state(TASK_INTERRUPTIBLE);
 		schedule();
@@ -246,7 +239,6 @@ static int rtcc_thread(void * nothing)
 static void rtcc_dump(void)
 {
 	printk("\nneed_to_reclaim = %d\n", atomic_read(&need_to_reclaim));
-	printk("krtccd_running = %d\n", atomic_read(&krtccd_running));
 }
 
 /*
@@ -263,12 +255,9 @@ static ssize_t rtcc_trigger_store(struct class *class, struct class_attribute *a
 		pr_info("%s: wake up krtccd async\n", __func__);
 		atomic_set(&need_to_reclaim, 1);
 	} else if (val == RTCC_MSG_SYNC) {
-		if (atomic_read(&krtccd_running) == 0) {
-			pr_info("%s: wake up krtccd sync\n", __func__);
-			atomic_set(&krtccd_running, 1);
-			wake_up_process(krtccd);
-			prev_jiffy = jiffies;
-		}
+		pr_info("%s: wake up krtccd sync\n", __func__);
+		wake_up_process(krtccd);
+		prev_jiffy = jiffies;
 	} else {
 		rtcc_dump();
 	}
@@ -304,12 +293,9 @@ static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void 
 	if (unlikely(idle_cpu(task_cpu(krtccd)) && this_cpu_loadx(3) == 0) || rtcc_boost_mode)
 #endif
 	{
-			if (likely(atomic_read(&krtccd_running) == 0)) {
-				pr_info("%s: wake up krtccd!!!!!!\n", __func__);
-				atomic_set(&krtccd_running, 1);
-				wake_up_process(krtccd);
-				prev_jiffy = jiffies;
-			}
+		pr_info("%s: wake up krtccd!!!!!!\n", __func__);
+		wake_up_process(krtccd);
+		prev_jiffy = jiffies;
 	}
 
 	return 0;
@@ -336,7 +322,6 @@ static int __init rtcc_init(void)
 
 	set_user_nice(krtccd, 5);
 	atomic_set(&need_to_reclaim, 1);
-	atomic_set(&krtccd_running, 0);
 	prev_jiffy = jiffies;
 	boost_end_jiffy = jiffies + BOOSTMODE_TIMEOUT;
 

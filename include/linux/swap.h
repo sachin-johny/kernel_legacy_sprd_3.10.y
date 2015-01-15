@@ -29,6 +29,13 @@ static inline int current_is_kswapd(void)
 	return current->flags & PF_KSWAPD;
 }
 
+#ifdef CONFIG_RUNTIME_COMPCACHE
+static inline int current_is_krtccd(void)
+{
+	return current->flags & PF_KRTCCD;
+}
+#endif
+
 /*
  * MAX_SWAPFILES defines the maximum number of swaptypes: things which can
  * be swapped to.  The swap type and the offset into that swap type are

@@ -147,7 +147,6 @@ int vm_swappiness = 60;
 unsigned long vm_total_pages;	/* The total number of pages which the VM controls */
 
 #ifdef CONFIG_RUNTIME_COMPCACHE
-extern int get_rtcc_status(void);
 long nr_kswapd_swapped = 0;
 
 static bool rtcc_reclaim(struct scan_control *sc)
@@ -1274,7 +1273,7 @@ static int too_many_isolated(struct zone *zone, int file,
 	unsigned long inactive, isolated;
 
 #ifdef CONFIG_RUNTIME_COMPCACHE
-	if (get_rtcc_status() == 1)
+	if (current_is_krtccd())
 		return 0;
 #endif /* CONFIG_RUNTIME_COMPCACHE */
 
