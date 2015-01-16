@@ -24,7 +24,7 @@
 #include <linux/debugfs.h>
 #include <linux/seq_file.h>
 
-
+#include <linux/wakelock.h>
 #include <linux/sipc.h>
 #include "sbuf.h"
 
@@ -99,6 +99,7 @@ static int sbuf_thread(void *data)
 				if (sbuf->rings[bufid].handler) {
 					sbuf->rings[bufid].handler(SBUF_NOTIFY_READ, sbuf->rings[bufid].data);
 				}
+				wake_lock_timeout(&(sbuf->rings[bufid].sbuf_wake_lock), HZ/10);
 				break;
 			default:
 				rval = 1;
@@ -127,6 +128,7 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 	volatile struct sbuf_smem_header *smem;
 	volatile struct sbuf_ring_header *ringhd;
 	int hsize, i, result;
+	char lock_name[20];
 
 	sbuf = kzalloc(sizeof(struct sbuf_mgr), GFP_KERNEL);
 	if (!sbuf) {
@@ -189,6 +191,8 @@ int sbuf_create(uint8_t dst, uint8_t channel, uint32_t bufnum,
 		init_waitqueue_head(&(sbuf->rings[i].rxwait));
 		mutex_init(&(sbuf->rings[i].txlock));
 		mutex_init(&(sbuf->rings[i].rxlock));
+		sprintf(lock_name, "sipc-sbuf-%d-%d\n", channel, i);
+		wake_lock_init(&sbuf->rings[i].sbuf_wake_lock, WAKE_LOCK_SUSPEND, lock_name);
 	}
 
 	sbuf->thread = kthread_create(sbuf_thread, sbuf,
@@ -225,6 +229,12 @@ void sbuf_destroy(uint8_t dst, uint8_t channel)
 	/* stop sbuf thread if it's created successfully and still alive */
 	if (!IS_ERR_OR_NULL(sbuf->thread)) {
 		kthread_stop(sbuf->thread);
+	}
+
+	if (sbuf->rings) {
+		for (i = 0; i < sbuf->ringnr; i++) {
+			wake_lock_destroy(&sbuf->rings[i].sbuf_wake_lock);
+		}
 	}
 
 	if (sbuf->rings) {
@@ -509,6 +519,10 @@ int sbuf_read(uint8_t dst, uint8_t channel, uint32_t bufid,
 
 		left -= rxsize;
 		buf += rxsize;
+	}
+
+	if (ringhd->rxbuf_wrptr == ringhd->rxbuf_rdptr) {
+		wake_unlock(&(sbuf->rings[bufid].sbuf_wake_lock));
 	}
 
 	mutex_unlock(&ring->rxlock);

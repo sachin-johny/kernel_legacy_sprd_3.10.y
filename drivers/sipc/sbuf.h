@@ -59,6 +59,8 @@ struct sbuf_ring {
 	struct mutex		txlock;
 	struct mutex		rxlock;
 
+	struct wake_lock 	sbuf_wake_lock;
+
 	void			(*handler)(int event, void *data);
 	void			*data;
 };
