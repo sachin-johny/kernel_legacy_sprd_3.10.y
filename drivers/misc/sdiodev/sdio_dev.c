@@ -387,6 +387,8 @@ int  sdio_dev_get_read_chn(void)
 		return 11;
 	else if(chn_status & SDIO_CHN_12)
 		return 12;
+	else if(chn_status & SDIO_CHN_13)
+		return 13;
 	else if(chn_status & SDIO_CHN_14)
 		return 14;
 	else if(chn_status & SDIO_CHN_15)
@@ -786,6 +788,23 @@ int sdio_wifi_handler(uint32 chn)
 	}
 }
 
+int sdio_assertinfo_handler(void)
+{
+	SDIOTRAN_ERR("ENTRY");
+
+	if(NULL != sdio_tran_handle[MARLIN_ASSERTINFO_CHN].tran_callback)
+	{
+		SDIOTRAN_ERR("tran_callback=%p",sdio_tran_handle[MARLIN_ASSERTINFO_CHN].tran_callback);
+		sdio_tran_handle[MARLIN_ASSERTINFO_CHN].tran_callback();
+		return 0;
+	}
+	else
+	{
+		return -1;
+	}
+}
+
+
 static void marlin_workq(void)
 {
 	int read_chn;
@@ -809,6 +828,9 @@ static void marlin_workq(void)
 			break;
 		case PSEUDO_ATC_CHANNEL_LOOPCHECK:
 			ret = sdio_pseudo_loopcheck_handler();
+			break;
+		case MARLIN_ASSERTINFO_CHN:
+			ret = sdio_assertinfo_handler();
 			break;
 		case WIFI_CHN_8:
 		case WIFI_CHN_9:

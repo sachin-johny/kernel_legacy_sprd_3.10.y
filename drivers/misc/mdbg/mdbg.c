@@ -16,7 +16,7 @@
 #define MDBG_MAX_BUFFER_LEN (PAGE_SIZE)
 
 #define MDBG_WCN_WRITE			(5)
-#define MDBG_CHANNEL_ASSERT			(3)
+#define MDBG_CHANNEL_ASSERT			(13)
 #define MDBG_CHANNEL_WDTIRQ			(4)
 #define MDBG_CHANNEL_LOOPCHECK 		(15)
 #define MDBG_CHANNEL_AT_CMD			(11)
@@ -42,6 +42,7 @@ struct mdbg_proc_entry {
 	char *name;
 	struct proc_dir_entry *entry;
 	struct completion completed;
+	wait_queue_head_t	rxwait;
 	unsigned int   	rcv_len;
 	void *buf;
 };
@@ -71,8 +72,10 @@ void mdbg_assert_read(void)
 		MDBG_ERR( "The assert data len:%d, beyond max read:%d",read_len,MDBG_ASSERT_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_ASSERT,mdbg_proc->assert.buf,&read_len);
+	printk(KERN_INFO "mdbg_assert_read:%s\n",mdbg_proc->assert.buf);
 	mdbg_proc->assert.rcv_len = read_len;
 	complete(&mdbg_proc->assert.completed);
+	wake_up_interruptible(&mdbg_proc->assert.rxwait);
 
 	return;
 }
@@ -90,8 +93,10 @@ void mdbg_wdtirq_read(void)
 		MDBG_ERR( "The assert data len:%d, beyond max read:%d",read_len,MDBG_WDTIRQ_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_WDTIRQ,mdbg_proc->wdtirq.buf,&read_len);
+	printk(KERN_INFO "mdbg_wdtirq_read:%s\n",mdbg_proc->wdtirq.buf);
 	mdbg_proc->wdtirq.rcv_len = read_len;
 	complete(&mdbg_proc->wdtirq.completed);
+	wake_up_interruptible(&mdbg_proc->wdtirq.rxwait);
 
 	return;
 }
@@ -110,7 +115,7 @@ void mdbg_loopcheck_read(void)
 		MDBG_ERR( "The loopcheck data len:%d, beyond max read:%d",read_len,MDBG_LOOPCHECK_SIZE);
 
 	sdio_dev_read(MDBG_CHANNEL_LOOPCHECK,mdbg_proc->loopcheck.buf,&read_len);
-	//printk("mdbg_loopcheck_read:%s\n",mdbg_proc->loopcheck.buf);
+	//printk(KERN_INFO "mdbg_loopcheck_read:%s\n",mdbg_proc->loopcheck.buf);
 	mdbg_proc->loopcheck.rcv_len = read_len;
 	complete(&mdbg_proc->loopcheck.completed);
 
@@ -133,7 +138,7 @@ void mdbg_at_cmd_read(void)
 
 	sdio_dev_read(MDBG_CHANNEL_AT_CMD,mdbg_proc->at_cmd.buf,&read_len);
 	mdbg_proc->at_cmd.rcv_len = read_len;
-	printk("mdbg_at_cmd_read:%s\n",mdbg_proc->at_cmd.buf);
+	printk(KERN_INFO "mdbg_at_cmd_read:%s\n",mdbg_proc->at_cmd.buf);
 	complete(&mdbg_proc->at_cmd.completed);
 
 	return;
@@ -170,7 +175,7 @@ static ssize_t mdbg_proc_read(struct file *filp,
 	int len = 0;
 	int ret;
 
-	//MDBG_ERR("type:%s\n",type);
+	//printk(KERN_INFO "type:%s\n",type);
 	if (filp->f_flags & O_NONBLOCK) {
 		timeout = 0;
 	}
@@ -269,45 +274,43 @@ static ssize_t mdbg_proc_write(struct file *filp,
 	if (copy_from_user(mdbg_proc->write_buf,buf,count )){
 		return -EFAULT;
 	}
-	//printk("mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
+	//printk(KERN_INFO "mdbg_proc->write_buf:%s\n",mdbg_proc->write_buf);
 
 	mdbg_send(mdbg_proc->write_buf , count, MDBG_WCN_WRITE);
 
 	return count;
 }
 
-#if 0
 static unsigned int mdbg_proc_poll(struct file *filp, poll_table *wait)
 {
 	struct mdbg_proc_entry *entry = (struct mdbg_proc_entry *)filp->private_data;
 	char *type = entry->name;
 	unsigned int mask = 0;
-	printk("%s type:%s\n",__func__,type);
+	//printk(KERN_INFO "%s type:%s\n",__func__,type);
 
 	if(strcmp(type, "assert") == 0)
-		poll_wait(filp, &mdbg_proc->assert.wait, wait);
+	{
+		poll_wait(filp, &mdbg_proc->assert.rxwait, wait);
+		if(mdbg_proc->assert.rcv_len > 0)
+			mask |= POLLIN | POLLRDNORM;
+	}
 
 	if(strcmp(type, "wdtirq") == 0)
-		poll_wait(filp, &mdbg_proc->wdtirq.wait, wait);
-
-	if(strcmp(type, "loopcheck") == 0)
-		poll_wait(filp, &mdbg_proc->loopcheck.wait, wait);
-
-	if(strcmp(type, "at_cmd") == 0)
-		poll_wait(filp, &mdbg_proc->at_cmd.wait, wait);
-
-	mask |= POLLIN | POLLRDNORM;
+	{
+		poll_wait(filp, &mdbg_proc->wdtirq.rxwait, wait);
+		if(mdbg_proc->wdtirq.rcv_len > 0)
+			mask |= POLLIN | POLLRDNORM;
+	}
 
 	return mask;
 }
-#endif
 
 struct file_operations mdbg_proc_fops = {
 	.open		= mdbg_proc_open,
 	.release	= mdbg_proc_release,
 	.read		= mdbg_proc_read,
 	.write		= mdbg_proc_write,
-	//.poll		= mdbg_proc_poll,
+	.poll		= mdbg_proc_poll,
 };
 
 LOCAL  void mdbg_fs_channel_init(void)
@@ -378,6 +381,8 @@ LOCAL void mdbg_fs_init(void)
 	init_completion(&mdbg_proc->wdtirq.completed);
 	init_completion(&mdbg_proc->loopcheck.completed);
 	init_completion(&mdbg_proc->at_cmd.completed);
+	init_waitqueue_head(&mdbg_proc->assert.rxwait);
+	init_waitqueue_head(&mdbg_proc->wdtirq.rxwait);
 }
 
 LOCAL void mdbg_fs_init_exit(void)

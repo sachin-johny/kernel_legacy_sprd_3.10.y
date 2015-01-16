@@ -127,6 +127,7 @@ extern volatile bool marlin_mmc_suspend;
 #define DOWNLOAD_CHANNEL_READ	12
 #define PSEUDO_ATC_CHANNEL_READ	11
 #define PSEUDO_ATC_CHANNEL_LOOPCHECK         (15)
+#define MARLIN_ASSERTINFO_CHN	(13)
 
 
 #define WIFI_CHN_8	8
