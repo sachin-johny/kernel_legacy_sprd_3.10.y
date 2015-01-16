@@ -31,4 +31,6 @@ obj-$(CONFIG_FB_LCD_ILI6150_LVDS) += lcd_ili6150_lvds.o
 obj-$(CONFIG_FB_LCD_RM68180_MIPI) += lcd_rm68180_mipi.o
 obj-$(CONFIG_FB_LCD_ILI9486S1_MIPI) += lcd_ili9486s1_mipi.o
 obj-$(CONFIG_FB_LCD_OTM8019A_MIPI) += lcd_otm8019a_mipi.o
+obj-$(CONFIG_FB_LCD_FL10802_MIPI) += lcd_fl10802_mipi.o
+obj-$(CONFIG_FB_LCD_JD9161_MIPI) += lcd_jd9161_mipi.o
 obj-$(CONFIG_FB_LCD_DUMMY) += lcd_dummy.o

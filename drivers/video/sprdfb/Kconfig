@@ -101,6 +101,14 @@ config FB_LCD_NT35516_MIPI
 	depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
 	default n
 
+config FB_LCD_FL10802_MIPI
+       boolean "support FL10802 mipi panel"
+       default n
+
+config FB_LCD_JD9161_MIPI
+       boolean "support JD9161 mipi panel"
+       default n
+
 config FB_LCD_ILI6150_LVDS
         boolean "support ILI6150 lvds panel"
         depends on FB_SC8825 || FB_SCX35 || FB_SCX30G || FB_SCX35L
