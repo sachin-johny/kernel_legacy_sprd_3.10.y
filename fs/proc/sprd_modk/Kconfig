@@ -1,0 +1,5 @@
+config SPRD_DISPLAY_CPU_FREQ
+    bool "sprd display cpu frequency"
+    default y
+    help
+        This option enable display the cpu frequency

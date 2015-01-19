@@ -69,3 +69,4 @@ config PROC_PAGE_MONITOR
           interfaces will reduce the size of the kernel by approximately 4kb.
 
 source "fs/proc/sprd_debug/Kconfig"
+source "fs/proc/sprd_modk/Kconfig"
