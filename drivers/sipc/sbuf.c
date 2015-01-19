@@ -99,7 +99,7 @@ static int sbuf_thread(void *data)
 				if (sbuf->rings[bufid].handler) {
 					sbuf->rings[bufid].handler(SBUF_NOTIFY_READ, sbuf->rings[bufid].data);
 				}
-				wake_lock_timeout(&(sbuf->rings[bufid].sbuf_wake_lock), HZ/10);
+				wake_lock_timeout(&(sbuf->rings[bufid].sbuf_wake_lock), HZ/2);
 				break;
 			default:
 				rval = 1;
