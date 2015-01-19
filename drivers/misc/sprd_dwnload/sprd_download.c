@@ -19,7 +19,7 @@
 #define 	DLOADER_NAME	        "download"
 
 #define DOWNLOAD_CHANNEL_READ		12
-#define DOWNLOAD_CHANNEL_WRITE 		13
+#define DOWNLOAD_CHANNEL_WRITE 		3
 #define DOWNLOAD_CALI_WRITE 		0
 
 
