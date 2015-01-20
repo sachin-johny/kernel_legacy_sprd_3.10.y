@@ -2886,7 +2886,7 @@ LOCAL int32_t _dcam_path_set_next_frm(enum dcam_path_index path_index, uint32_t 
 			rtn = DCAM_RTN_PATH_FRAME_LOCKED;
 		}
 	} else {
-		printk("DCAM: No freed frame,  path_index %d \n", path_index);
+		DCAM_TRACE("DCAM: No freed frame,  path_index %d \n", path_index);
 		rtn = DCAM_RTN_PATH_FRAME_LOCKED;
 	}
 
@@ -3455,7 +3455,7 @@ LOCAL void    _dcam_path1_done(void)
 
 	if (path->need_wait) {
 		path->need_wait = 0;
-		printk("DCAM: path 1 wait \n");
+		DCAM_TRACE("DCAM: path 1 wait \n");
 	} else {
 		rtn = _dcam_frame_dequeue(&path->frame_queue, &frame);
 		if (0 == rtn) {
@@ -3741,7 +3741,7 @@ LOCAL void    _dcam_path1_sof(void)
 
 		if (rtn) {
 			path->need_wait = 1;
-			printk("DCAM: sof 1 wait \n");
+			printk("DCAM: 1 w\n");
 			return;
 		}
 	}
@@ -3795,7 +3795,7 @@ LOCAL void    _dcam_path2_sof(void)
 
 			if (rtn) {
 				path->need_wait = 1;
-				printk("DCAM:sof 2 wait \n");
+				printk("DCAM: 2 w\n");
 				return;
 			}
 		}
