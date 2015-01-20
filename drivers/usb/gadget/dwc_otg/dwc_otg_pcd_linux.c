@@ -357,7 +357,9 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	//trace_printk("(%p,%p,%d)\n",
 	//	    usb_ep, usb_req, gfp_flags);
 
-	if (!usb_req || !usb_req->complete || !usb_req->buf) {
+	if (!usb_req || !usb_req->complete ||
+		(!gadget_wrapper->gadget.sg_supported &&
+			!usb_req->buf)) {
 		DWC_WARN("bad params\n");
 		return -EINVAL;
 	}
@@ -383,8 +385,8 @@ static int ep_queue(struct usb_ep *usb_ep, struct usb_request *usb_req,
 	usb_req->actual = 0;
 
 	retval = dwc_otg_pcd_ep_queue(pcd, usb_ep, usb_req->buf, usb_req->dma/*dma_addr*/,
-				      usb_req->length, usb_req->zero, usb_req->num_sgs, usb_req,
-				      gfp_flags == GFP_ATOMIC ? 1 : 0);
+				      usb_req->length, usb_req->zero, usb_req->num_sgs,
+				      usb_req->sg, usb_req, gfp_flags == GFP_ATOMIC ? 1 : 0);
 	if (retval) {
 		pr_err("%s, cannot enqueue a renquest, err :%d\n", __func__,
 			retval);
@@ -673,7 +675,7 @@ static int pullup(struct usb_gadget *gadget, int is_on)
 	struct gadget_wrapper *d;
 	int action = is_on;
 
-#ifndef DWC_DEVICE_ONLY	
+#ifndef DWC_DEVICE_ONLY
 	if(!usb_get_id_state())
 		return 0;
 #endif
@@ -1071,6 +1073,9 @@ static struct gadget_wrapper *alloc_wrapper(
 	d->gadget.ops = &dwc_otg_pcd_ops;
 	d->gadget.max_speed = USB_SPEED_HIGH;
 	d->gadget.is_otg = dwc_otg_pcd_is_otg(otg_dev->pcd);
+	if (d->pcd->core_if->dma_enable &&
+		d->pcd->core_if->dma_desc_enable)
+		d->gadget.sg_supported = 1;
 
 	d->driver = 0;
 	/* Register the gadget device */

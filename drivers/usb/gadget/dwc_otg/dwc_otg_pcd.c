@@ -97,7 +97,7 @@ static void noinline dump_log(unsigned char * buf, int len, int direction)
 void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 			  int32_t status)
 {
-	unsigned i, stopped = ep->stopped;
+	unsigned stopped = ep->stopped;
 
 	DWC_DEBUGPL(DBG_PCDV, "%s(ep %p req %p)\n", __func__, ep, req);
 	DWC_CIRCLEQ_REMOVE_INIT(&ep->queue, req, queue_entry);
@@ -105,25 +105,30 @@ void dwc_otg_request_done(dwc_otg_pcd_ep_t * ep, dwc_otg_pcd_request_t * req,
 	/* don't modify queue heads during completion callback */
 	ep->stopped = 1;
 	if (GET_CORE_IF(ep->pcd)->dma_enable){
-		for(i = 0; i < req->buf_num; i++) {
-			if (req->mapped & (1 << i)) {
-				dma_unmap_single(NULL, req->dma[i], req->buf_len[i],
+		if (req->num_mapped_sgs) {
+			dma_unmap_sg(NULL, req->sg, req->num_mapped_sgs,
+				(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+				((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
+				 DMA_FROM_DEVICE));
+		} else {
+			if (req->mapped) {
+				dma_unmap_single(NULL, req->dma, req->length,
 						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
 						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
 						 DMA_FROM_DEVICE));
-				req->dma[i] = DWC_DMA_ADDR_INVALID;
+				req->dma = DWC_DMA_ADDR_INVALID;
+				req->mapped = 0;
 			} else {
-				dma_sync_single_for_cpu(NULL, req->dma[i], req->buf_len[i],
+				dma_sync_single_for_cpu(NULL, req->dma, req->length,
 						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
 						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE :
 						 DMA_FROM_DEVICE));
 			}
 		}
-		req->mapped = 0;
 	}
 
 	if (!ep->dwc_ep.is_in) {
-		dump_log(req->buf[0], req->actual, 0);
+		dump_log(req->buf, req->actual, 0);
 	}
 	/* spin_unlock/spin_lock now done in fops->complete() */
 	ep->pcd->fops->complete(ep->pcd, ep->priv, req->priv, status,
@@ -2069,21 +2074,20 @@ int dwc_otg_pcd_xiso_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
  ** whether scatter buffer list is employed in this request.
  ** If <num_sgs> equals ZERO, <buf> will be interpreted as buffer address of
  ** data to be transfered.
- ** If <num_sgs> is greater than ZERO, <buf> wil be interpreted as the base address
- ** of a buffer list whose each node contains two elements buffer address
- ** and its length (see at the definition of <struct sg_buf_list> in dwc_otg_cil.h),
+ ** If <num_sgs> is greater than ZERO, <sg> wil be interpreted as the base address
+ ** of a buffer list.
  ** <num_sgs> means buffer number.
  ** <length> denotes total length of this transfer.
  **/
 int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 			 uint8_t * buf, dwc_dma_t dma_buf, uint32_t buflen,
-			 int zero, uint32_t num_sgs, void *req_handle, int atomic_alloc)
+			 int zero, uint32_t num_sgs, struct scatterlist *sg,
+			 void *req_handle, int atomic_alloc)
 {
 	dwc_irqflags_t flags;
 	dwc_otg_pcd_request_t *req;
 	dwc_otg_pcd_ep_t *ep;
-	sg_buf_list_t *buf_list;
-	uint32_t i, max_transfer;
+	uint32_t max_transfer;
 
 	ep = get_ep_from_handle(pcd, ep_handle);
 	if (!ep || (!ep->desc && ep->dwc_ep.num != 0)) {
@@ -2135,34 +2139,24 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
 					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
 			}
-			req->buf[0] = buf;
-			req->dma[0] = dma_buf;
-			req->buf_len[0] = buflen;
+			req->buf = buf;
+			req->dma = dma_buf;
 			req->length = buflen;
-			req->buf_num = 1;
+			req->sg = 0;
+			req->num_mapped_sgs = 0;
 		} else {
-			buf_list = (sg_buf_list_t*)buf;
-			req->length = 0;
-			for (i = 0; i < num_sgs; i++) {
-				if (buf_list->dma == DWC_DMA_ADDR_INVALID) {
-					buf_list->dma = dma_map_single(NULL,
-						buf_list->buf, buf_list->buf_len,
-						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
-						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
-					req->mapped |= 1<<i;
-				} else {
-					dma_sync_single_for_device(NULL,
-						buf_list->dma, buf_list->buf_len,
-						(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
-						((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
-				}
-				req->buf[i] = buf_list->buf;
-				req->dma[i] = buf_list->dma;
-				req->buf_len[i] = buf_list->buf_len;
-				buf_list++;
+			int 	mapped;
+
+			mapped = dma_map_sg(NULL, sg, num_sgs,
+					(ep->dwc_ep.num == 0) ? DMA_BIDIRECTIONAL :
+					((ep->dwc_ep.is_in) ? DMA_TO_DEVICE : DMA_FROM_DEVICE));
+			if (mapped == 0) {
+				DWC_ERROR("failed to map SGs\n");
+				return -EFAULT;
 			}
 			req->length = buflen;
-			req->buf_num = num_sgs;
+			req->sg = sg;
+			req->num_mapped_sgs = mapped;
 		}
 	}
 	req->sent_zlp = zero;
@@ -2246,9 +2240,9 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 				DWC_SPINUNLOCK_IRQRESTORE(pcd->lock, flags);
 				return -DWC_E_SHUTDOWN;
 			}
-			ep->dwc_ep.start_xfer_buff = req->buf[0];
-			ep->dwc_ep.xfer_buff = req->buf[0];
-			ep->dwc_ep.dma_addr = req->dma[0];
+			ep->dwc_ep.start_xfer_buff = req->buf;
+			ep->dwc_ep.xfer_buff = req->buf;
+			ep->dwc_ep.dma_addr = req->dma;
 			ep->dwc_ep.xfer_len = req->length;
 			ep->dwc_ep.xfer_count = 0;
 			ep->dwc_ep.sent_zlp = 0;
@@ -2299,6 +2293,8 @@ int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
 						&& (ep->dwc_ep.total_len != 0)) {
 						ep->dwc_ep.sent_zlp = 1;
 					}
+					if (num_sgs)
+						req->short_packet = 1;
 				}
 				if (ep->dwc_ep.maxxfer < ep->dwc_ep.total_len) {
 					ep->dwc_ep.maxxfer -=

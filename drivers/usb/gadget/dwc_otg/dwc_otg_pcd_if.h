@@ -199,9 +199,9 @@ extern int dwc_otg_pcd_ep_disable(dwc_otg_pcd_t * pcd, void *ep_handle);
  * Returns -DWC_E_SHUTDOWN if any other error ocurred.
  * Returns 0 on success. */
 extern int dwc_otg_pcd_ep_queue(dwc_otg_pcd_t * pcd, void *ep_handle,
-				uint8_t * buf, dwc_dma_t dma_buf,
-				uint32_t buflen, int zero, uint32_t num_sgs, void *req_handle,
-				int atomic_alloc);
+				uint8_t * buf, dwc_dma_t dma_buf, uint32_t buflen, int zero,
+				uint32_t num_sgs, struct scatterlist *sg,
+				void *req_handle, int atomic_alloc);
 #ifdef DWC_UTE_PER_IO
 /**
  *

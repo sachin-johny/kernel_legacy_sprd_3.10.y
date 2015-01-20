@@ -60,7 +60,6 @@
 #include "dwc_os.h"
 #include "dwc_otg_regs.h"
 #include "dwc_otg_cil.h"
-#include "dwc_otg_pcd.h"
 
 extern int in_calibration(void);
 extern int in_autotest(void);
@@ -3498,13 +3497,14 @@ void dwc_otg_ep_deactivate(dwc_otg_core_if_t * core_if, dwc_ep_t * ep)
  * @param ep The EP to start the transfer on.
  */
 static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
-								dwc_otg_pcd_request_t *req)
+					 dwc_otg_pcd_request_t *req)
 {
 	dwc_otg_dev_dma_desc_t *dma_desc;
 	uint32_t offset;
 	uint32_t xfer_est;
-	int i;
+	int i = 0;
 	unsigned maxxfer_local, bytes;
+	struct scatterlist *sg = NULL;
 	dma_addr_t dma_addr;
 
 	if (!ep->is_in && ep->type == DWC_OTG_EP_TYPE_INTR &&
@@ -3515,10 +3515,18 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 	}
 	dma_desc = ep->desc_addr;
 	ep->desc_cnt = 0;
+	if (req->num_mapped_sgs)
+		sg = req->sg;
 
-	for (i = 0; i < req->buf_num; i++) {
-		xfer_est = req->buf_len[i];
-		dma_addr = req->dma[i];
+	do {
+		if (sg) {
+			dma_addr = sg_dma_address(sg);
+			xfer_est = sg_dma_len(sg);
+			sg++;
+		} else {
+			dma_addr = req->dma;
+			xfer_est = req->length;
+		}
 		offset = 0;
 		if (!xfer_est) {
 			dma_desc->status.b.bs = BS_HOST_BUSY;
@@ -3530,7 +3538,6 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 			dma_desc->status.b.sts = 0;
 			dma_desc->status.b.bs = BS_HOST_READY;
 			dma_desc++;
-			continue;
 		}
 		/** DMA Descriptor Setup */
 		while (xfer_est) {
@@ -3550,12 +3557,14 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 				dma_desc->status.b.bs = BS_HOST_BUSY;
 				dma_desc->status.b.l = 0;
 				dma_desc->status.b.ioc = 0;
-				/** WORKROUND: If this buffer length is not multiple of DWORD,
+				/** WORKAROUND: If this buffer length is not multiple of DWORD,
 				 ** and it wants to concatenate to next buffer, DMA would behave
 				 ** abnormally, so it is sent as a short packet.
 				 */
 				//if( core_if->snpsid <= OTG_CORE_REV_2_94a)
-				dma_desc->status.b.sp = xfer_est % 4 ? 1 : 0;
+				dma_desc->status.b.sp =
+					(req->short_packet && xfer_est % ep->maxpacket) ?
+						1 : (xfer_est % 4 ? 1 : 0);
 				dma_desc->status.b.bytes = xfer_est;
 				dma_desc->buf = dma_addr + offset;
 				dma_desc->status.b.sts = 0;
@@ -3568,7 +3577,8 @@ static void init_dma_desc_chain(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 			if( ++ep->desc_cnt > MAX_DMA_DESC_CNT)
 				goto end;
 		}
-	}
+		i++;
+	}while (i < req->num_mapped_sgs);
 end:
 	/** the Last DMA Descriptor Setup */
 	--dma_desc;
@@ -3718,7 +3728,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 				if (req->dw_align_buf_dma)
 					buf_dma = req->dw_align_buf_dma + ep->xfer_count;
 				else
-					buf_dma = req->dma[0] + ep->xfer_count;
+					buf_dma = req->dma + ep->xfer_count;
 				if (ep->type != DWC_OTG_EP_TYPE_ISOC)
 					deptsiz.b.mc = 1;
 				DWC_WRITE_REG32(&in_regs->dieptsiz,
@@ -3841,7 +3851,7 @@ void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
 				if (req->dw_align_buf_dma)
 					buf_dma = req->dw_align_buf_dma;
 				else
-					buf_dma = req->dma[0];
+					buf_dma = req->dma;
 				DWC_WRITE_REG32(&out_regs->doeptsiz,
 						deptsiz.d32);
 

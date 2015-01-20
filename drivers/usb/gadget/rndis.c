@@ -690,6 +690,12 @@ static int rndis_reset_response(int configNr, rndis_reset_msg_type *buf)
 	rndis_reset_cmplt_type *resp;
 	rndis_resp_t *r;
 	struct rndis_params *params = rndis_per_dev_params + configNr;
+	u32 length;
+	u8 *xbuf;
+
+	/* drain the response queue */
+	while ((xbuf = rndis_get_next_response(configNr, &length)))
+		rndis_free_response(configNr, xbuf);
 
 	r = rndis_add_response(configNr, sizeof(rndis_reset_cmplt_type));
 	if (!r)
@@ -1007,13 +1013,12 @@ static rndis_resp_t *rndis_add_response(int configNr, u32 length)
 		&(rndis_per_dev_params[configNr].resp_queue));
 	return r;
 }
-#if 1
+
 int rndis_rm_hdr(struct gether *port,
 			struct sk_buff *skb,
 			struct sk_buff_head *list)
 {
 	int num_pkts = 0;
-
 
 	while (skb->len) {
 		struct rndis_packet_msg_type *hdr;
@@ -1075,33 +1080,7 @@ int rndis_rm_hdr(struct gether *port,
 
 	return 0;
 }
-#else
-int rndis_rm_hdr(struct gether *port,
-			struct sk_buff *skb,
-			struct sk_buff_head *list)
-{
-	/* tmp points to a struct rndis_packet_msg_type */
-	__le32 *tmp = (void *)skb->data;
 
-	/* MessageType, MessageLength */
-	if (cpu_to_le32(RNDIS_MSG_PACKET)
-			!= get_unaligned(tmp++)) {
-		dev_kfree_skb_any(skb);
-		return -EINVAL;
-	}
-	tmp++;
-
-	/* DataOffset, DataLength */
-	if (!skb_pull(skb, get_unaligned_le32(tmp++) + 8)) {
-		dev_kfree_skb_any(skb);
-		return -EOVERFLOW;
-	}
-	skb_trim(skb, get_unaligned_le32(tmp++));
-
-	skb_queue_tail(list, skb);
-	return 0;
-}
-#endif
 #ifdef CONFIG_USB_GADGET_DEBUG_FILES
 
 static int rndis_proc_show(struct seq_file *m, void *v)

@@ -34,6 +34,7 @@
 #if !defined(__DWC_CIL_H__)
 #define __DWC_CIL_H__
 
+#include <linux/scatterlist.h>
 #include "dwc_list.h"
 #include "dwc_otg_dbg.h"
 #include "dwc_otg_regs.h"
@@ -61,14 +62,6 @@ typedef enum _data_buffer_mode {
 	BM_ALIGN = 4		/* data buffer is in buffer alignment mode */
 } data_buffer_mode_e;
 #endif //DWC_UTE_CFI
-
-#define MAX_SG_BUF_NUM 32
-/* List of USB transfer buffers */
-typedef struct sg_buf_list{
-	uint8_t* buf;
-	dma_addr_t dma;
-	uint32_t buf_len;
-}sg_buf_list_t;
 
 
 /** Macros defined for DWC OTG HW Release version */
@@ -1013,13 +1006,14 @@ struct dwc_otg_core_if {
 
 typedef struct dwc_otg_pcd_request {
 	void *priv;
-	void *buf[MAX_SG_BUF_NUM];
-	dwc_dma_t dma[MAX_SG_BUF_NUM];
-	uint32_t buf_len[MAX_SG_BUF_NUM];
-	uint32_t buf_num;
+	void *buf;
+	dwc_dma_t dma;
+	uint32_t num_mapped_sgs;
+	struct scatterlist *sg;
 	uint32_t length;
 	uint32_t actual;
 
+	unsigned short_packet:1;
 	unsigned sent_zlp:1;
 	unsigned mapped;//for DMA transfer lee
 	/**
@@ -1101,18 +1095,18 @@ extern void dwc_otg_ep0_activate(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
 extern void dwc_otg_ep_activate(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
 extern void dwc_otg_ep_deactivate(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
 extern void dwc_otg_ep_start_transfer(dwc_otg_core_if_t * core_if, dwc_ep_t * ep,
-							dwc_otg_pcd_request_t *req);
+				 dwc_otg_pcd_request_t *req);
 extern void dwc_otg_ep_start_zl_transfer(dwc_otg_core_if_t * _core_if,
-					 dwc_ep_t * _ep);
+				 dwc_ep_t * _ep);
 extern void dwc_otg_ep0_start_transfer(dwc_otg_core_if_t * _core_if,
-				       dwc_ep_t * _ep);
+				 dwc_ep_t * _ep);
 extern void dwc_otg_ep0_continue_transfer(dwc_otg_core_if_t * _core_if,
-					  dwc_ep_t * _ep);
+				 dwc_ep_t * _ep);
 extern void dwc_otg_ep_write_packet(dwc_otg_core_if_t * _core_if,
-				    dwc_ep_t * _ep, int _dma);
+				 dwc_ep_t * _ep, int _dma);
 extern void dwc_otg_ep_set_stall(dwc_otg_core_if_t * _core_if, dwc_ep_t * _ep);
 extern void dwc_otg_ep_clear_stall(dwc_otg_core_if_t * _core_if,
-				   dwc_ep_t * _ep);
+				 dwc_ep_t * _ep);
 extern void dwc_otg_enable_device_interrupts(dwc_otg_core_if_t * _core_if);
 
 #ifdef DWC_EN_ISOC

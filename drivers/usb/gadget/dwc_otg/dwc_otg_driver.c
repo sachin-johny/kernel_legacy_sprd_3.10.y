@@ -257,7 +257,7 @@ static struct dwc_otg_driver_module_params dwc_otg_module_params = {
  */
 static ssize_t is_support_otg_show(struct device_driver *dev, char *buf)
 {
-#ifdef DWC_DEVICE_ONLY	
+#ifdef DWC_DEVICE_ONLY
 	return sprintf(buf, "%x\n", 0);
 #else
 	return sprintf(buf, "%x\n", 1);
@@ -616,7 +616,7 @@ static int dwc_otg_driver_remove(
 	/*
 	 * Free the IRQ
 	 */
-#ifndef DWC_DEVICE_ONLY 
+#ifndef DWC_DEVICE_ONLY
 	/*if otg is supported*/
 	if (otg_dev->common_irq_installed) {
 		free_irq(platform_get_irq(_dev, 0), otg_dev);
@@ -840,9 +840,9 @@ static int dwc_otg_driver_probe(
 	 */
 	dwc_otg_attr_create(_dev);
 
-{
-	dev_dbg(&_dev->dev, "number EP=%d\n", dwc_otg_get_param_dev_endpoints(dwc_otg_device->core_if));
-}
+	dev_dbg(&_dev->dev, "number EP=%d\n",
+		dwc_otg_get_param_dev_endpoints(dwc_otg_device->core_if));
+
 	/*
 	 * Disable the global interrupt until all the interrupt
 	 * handlers are installed.
@@ -874,7 +874,7 @@ static int dwc_otg_driver_probe(
 
 #if 0//ndef DWC_DEVICE_ONLY //no need
 	/*
-	 * judge wheather otg cable is connected 
+	 * judge wheather otg cable is connected
 	 */
 	if(!usb_get_id_state())
 		dwc_otg_core_fore_host(dwc_otg_device->core_if);

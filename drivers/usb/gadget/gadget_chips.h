@@ -59,7 +59,7 @@ static inline bool gadget_supports_altsettings(struct usb_gadget *gadget)
  */
 static inline bool gadget_dma32(struct usb_gadget *gadget)
 {
-        if (gadget_is_sprd_dwc(gadget))
+        if (gadget_is_sprd_dwc(gadget) && !gadget->sg_supported)
                 return true;
         return false;
 }
