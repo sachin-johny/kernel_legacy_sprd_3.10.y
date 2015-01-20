@@ -6493,7 +6493,8 @@ dhd_bus_watchdog(dhd_pub_t *dhdp)
 	dhd_os_sdlock(bus->dhd);
 
 	/* Poll period: check device if appropriate. */
-	if (!SLPAUTO_ENAB(bus) && (bus->poll && (++bus->polltick >= bus->pollrate))) {
+	//if (!SLPAUTO_ENAB(bus) && (bus->poll && (++bus->polltick >= bus->pollrate))) {
+	if (bus->poll && (++bus->polltick >= bus->pollrate)) {
 		uint32 intstatus = 0;
 
 		/* Reset poll tick */
@@ -8522,6 +8523,18 @@ dhd_get_chipid(dhd_pub_t *dhd)
 		return (uint16)bus->sih->chip;
 	else
 		return 0;
+}
+void dhdsdio_poll_enable(dhd_pub_t* pub)
+{
+    pub->bus->poll = FALSE;
+    pub->bus->pollrate= 0;
+    printk(" poll enable is %d poll rate is %d\n",pub->bus->poll,pub->bus->pollrate);
+}
+void dhdsdio_poll_disable(dhd_pub_t* pub)
+{
+    pub->bus->poll = TRUE;
+    pub->bus->pollrate= 1;
+    printk("poll disable is %d poll rate is %d\n",pub->bus->poll,pub->bus->pollrate);
 }
 #endif /* BCMSDIO */
 

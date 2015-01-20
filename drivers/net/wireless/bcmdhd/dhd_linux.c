@@ -610,7 +610,8 @@ int dhd_idletime = DHD_IDLETIME_TICKS;
 module_param(dhd_idletime, int, 0);
 
 /* Use polling */
-uint dhd_poll = FALSE;
+//uint dhd_poll = FALSE;
+uint dhd_poll = TRUE;
 module_param(dhd_poll, uint, 0);
 
 /* Use interrupts */
@@ -1498,13 +1499,18 @@ static int dhd_suspend_resume_helper(struct dhd_info *dhd, int val, int force)
 }
 
 #if defined(CONFIG_HAS_EARLYSUSPEND) && defined(DHD_USE_EARLYSUSPEND)
+extern void dhdsdio_poll_enable(dhd_pub_t* pub);
+extern void dhdsdio_poll_disable(dhd_pub_t* pub);
 static void dhd_early_suspend(struct early_suspend *h)
 {
 	struct dhd_info *dhd = container_of(h, struct dhd_info, early_suspend);
 	DHD_TRACE_HW4(("%s: enter\n", __FUNCTION__));
 
 	if (dhd)
+	{
 		dhd_suspend_resume_helper(dhd, 1, 0);
+		dhdsdio_poll_enable(&(dhd->pub)); /*pause dpc thread for kernel suspend because wd_wakelock in timer*/
+	}
 }
 
 static void dhd_late_resume(struct early_suspend *h)
@@ -1513,7 +1519,10 @@ static void dhd_late_resume(struct early_suspend *h)
 	DHD_TRACE_HW4(("%s: enter\n", __FUNCTION__));
 
 	if (dhd)
+	{
 		dhd_suspend_resume_helper(dhd, 0, 0);
+		dhdsdio_poll_disable(&(dhd->pub)); /*pause dpc thread for kernel suspend because wd_wakelock in timer */
+	}
 }
 #endif /* CONFIG_HAS_EARLYSUSPEND && DHD_USE_EARLYSUSPEND */
 
