@@ -152,8 +152,8 @@ check_pub_fsm_wfi:
 9:	cmp	r1, #0x1
 	wfieq
 	movne	r0, #0x1
-	moveq	r0, #0x900000
-	/*wait 60us for clk is safely closed*/
+	moveq	r0, #0x30000
+	/*wait 250us for clk is safely closed*/
 5:	sub	r0, r0, #0x1
 	cmp	r0, #0x0
 	bne	5b
@@ -220,12 +220,6 @@ loopq:
 	b loopq
 #endif
 
-	dsb
-	isb
-	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
-	orr     r0, r1, #(1 << 0)        /* enable MMU   */
-	mcr     p15, 0, r0, c1, c0, 0    /* enable MMU  */
-
 	mov r0, #0
 	mov pc, lr
 	nop
@@ -240,7 +234,7 @@ ENDPROC(sc8830_standby_iram)
 ENTRY(sc8830_standby_exit_iram)
 
 	/*delay on 26MHZ in IRAM*/
-	mov	r0, #0xf000
+	mov	r0, #0x100
 delay_after_reset:
 	sub	r0, r0, #0x1
 	cmp	r0, #0x0
@@ -572,7 +566,7 @@ go_on:
 	blx		r0
 #if 0
 	blx	outer_flush_all
-	blx		outer_disable
+	blx	outer_disable
 #endif
 	dmb
 
@@ -594,7 +588,14 @@ go_on:
 	mcr     p15, 0, r0, c1, c0, 0    /* disable MMU  */
 
 	ldr	r1, =SLEEP_RESUME_CODE_PHYS /*jump to sc8830_standby_iram*/
-	blx r1
+	blx	r1
+
+	dsb
+	isb
+	mrc     p15, 0, r1, c1, c0, 0    /* read current CR    */
+	orr     r0, r1, #(1 << 0)        /* enable MMU   */
+	mcr     p15, 0, r0, c1, c0, 0    /* enable MMU  */
+	isb
 
 	mcr     p15, 0, r4, c1, c0, 0    /* restore d/i cache  */
 	isb
@@ -705,7 +706,7 @@ sp_pm_pa_to_va:
 
 #if 0
 	stmfd   sp!, {lr}
-	blx		outer_resume
+	blx	outer_resume
 	dmb
 	ldmfd   sp!, {lr}
 #endif
