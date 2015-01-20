@@ -727,7 +727,10 @@ TCgReturnCode CgxDriverExecuteSpecific(
             DBGMSG("CGX_IOCTL_RF_WRITE_CONTROL");
 			pResults->rc = CgCpuRFControlWriteByte(pControl->writeReg.value);
 			break;
-
+                 case CGX_IOCTL_READ_SYS_REG:
+			pResults->rc=gps_spi_sysreg_read_bytes(1, pControl->readReg.offset, &pResults->readReg.value);
+			printk("chip id is :0x%08X\n", pResults->readReg.value);
+			break;
 		default:
 			return ECgGeneralFailure;
 		}

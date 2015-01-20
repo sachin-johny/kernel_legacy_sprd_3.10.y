@@ -76,6 +76,7 @@ extern "C" {
 
 #define CGX_IOCTL_DMA_TEST			0x0100	/**< DMA test */
 
+#define CGX_IOCTL_READ_SYS_REG             0x0042       /*Read sys reg */
 
 
 
