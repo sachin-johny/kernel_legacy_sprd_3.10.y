@@ -320,6 +320,10 @@ void alarmtimer_shutdown(struct platform_device * pdev)
 	next = timerqueue_getnext(&base->timerqueue);
 	spin_unlock_irqrestore(&base->lock, flags);
 	if (!next){
+		pr_info("disable rtc alarm.\n");
+		alarm.enabled = 0;
+		if (rtc->ops && rtc->ops->set_alarm)
+			ret = rtc->ops->set_alarm(rtc->dev.parent, &alarm);
 		pr_info("no poweroff alarm found\n");
 		return;
 	}
