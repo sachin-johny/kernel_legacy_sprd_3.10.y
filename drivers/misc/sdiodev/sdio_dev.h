@@ -70,7 +70,7 @@ typedef struct _sleep_policy
 {
 	struct timer_list gpio_timer;
 	uint32 marlin_waketime;
-	uint32 gpio_opt_tag;
+	uint32 gpio_opt_tag; //  1:dont't pull gpio    0:pull gpio
 	unsigned long gpioreq_up_time;
 	unsigned long gpioreq_need_pulldown;
 	unsigned long gpio_up_time;

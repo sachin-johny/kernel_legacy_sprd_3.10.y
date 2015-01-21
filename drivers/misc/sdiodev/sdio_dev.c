@@ -85,7 +85,9 @@ static int gpio_marlin_req_tag = 0;
 static int gpio_marlinwake_tag = 0;
 
 static bool sdio_w_flag = 0;
+static bool req_marlin_wait_tag = 0; //0: don't wait   1: wait
 static bool bt_wake_flag = 0;
+
 static bool marlin_bt_wake_flag = 0;
 
 
@@ -95,7 +97,6 @@ static SLEEP_POLICY_T sleep_para = {0};
 
 volatile bool marlin_mmc_suspend = 0;
 MARLIN_PM_RESUME_WAIT_INIT(marlin_sdio_wait);
-
 
 
 static int get_sdio_dev_func(struct sdio_func *func)
@@ -191,6 +192,7 @@ void set_sprd_download_fin(int dl_tag)
 EXPORT_SYMBOL_GPL(set_sprd_download_fin);
 
 
+
 int set_marlin_wakeup(uint32 chn,uint32 user_id)
 {
 	//user_id: wifi=0x1;bt=0x2
@@ -205,13 +207,8 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		return -1;
 	}
 
-
-
-	if(0 != sleep_para.gpio_opt_tag)		
-	{
-		sleep_para.gpioreq_need_pulldown = 0;
-	}	
-	else
+	if((0 == sleep_para.gpio_opt_tag) && \
+		(!gpio_get_value(GPIO_MARLIN_WAKE)))
 	{		
 		if(user_id == 1)
 		{
@@ -224,18 +221,26 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		}
 		sleep_para.gpioreq_need_pulldown = 1;
 		gpio_direction_output(GPIO_AP_TO_MARLIN,1);	
-		
-		SDIOTRAN_ERR("pull up gpio %d",GPIO_AP_TO_MARLIN);
+
+		SDIOTRAN_ERR("pull up gpio %d, user_id %d hcnt %d",\
+			GPIO_AP_TO_MARLIN,user_id);
 		//sleep_para.gpioreq_up_time = jiffies;
-		
-		if((user_id == 1) &&( !gpio_get_value(GPIO_MARLIN_WAKE)))
-		{	
-			ret = wait_for_completion_timeout( &marlin_ack, msecs_to_jiffies(100) );
-			if (ret == 0){
-			
-				SDIOTRAN_ERR("marlin chn %d ack timeout!!!",chn);
-				return -ETIMEDOUT;//timeout
+		if(user_id == 1)
+		{
+			if(!gpio_get_value(GPIO_MARLIN_WAKE))
+			{
+				req_marlin_wait_tag = 1;
+				ret = wait_for_completion_timeout( &marlin_ack, msecs_to_jiffies(100) );
+				if (ret == 0){
+					SDIOTRAN_ERR("marlin chn %d ack timeout!!!",chn);
+					return -ETIMEDOUT;//timeout
+				}
 			}
+			else
+			{
+				SDIOTRAN_ERR("sdio chn %d req don't wait here!!!",chn);
+			}
+			req_marlin_wait_tag = 0;
 		}
 	}
 
@@ -249,11 +254,10 @@ int set_marlin_sleep(uint32 chn,uint32 user_id)
 {
 	//user_id: wifi=0x1;bt=0x2
 #if !defined(CONFIG_MARLIN_NO_SLEEP)
-	SDIOTRAN_ERR("entry");	
+	SDIOTRAN_DEBUG("entry");
 	if(sleep_para.gpioreq_need_pulldown)
 	{
 		gpio_direction_output(GPIO_AP_TO_MARLIN,0);
-		SDIOTRAN_ERR("pull down gpio %d",GPIO_AP_TO_MARLIN);
 		if(user_id == 1)
 		{	
 			sdio_w_flag = 0;
@@ -262,6 +266,8 @@ int set_marlin_sleep(uint32 chn,uint32 user_id)
 		{
 			bt_wake_flag = 0;
 		}
+		sleep_para.gpioreq_need_pulldown = 0;
+		SDIOTRAN_ERR("pull down gpio %d, user_id %d",GPIO_AP_TO_MARLIN,user_id);
 	}
 #endif
 	return 0;
@@ -549,8 +555,6 @@ int  sdio_dev_read(uint32 chn,void* read_buf,uint32 *count)
 
 	if(NULL != count)
 		*count = data_len;
-	
-
 
 	return err_ret;
 
@@ -869,13 +873,14 @@ static void marlin_workq(void)
 }
 
 
+
+
 static irqreturn_t marlin_irq_handler(int irq, void * para)
 {
 	disable_irq_nosync(irq);
 	
 	wake_lock(&marlin_wakelock);
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING);
-
 
 	if(NULL != sdio_tran_handle[WIFI_CHN_8].tran_callback_para)
 	{
@@ -888,9 +893,6 @@ static irqreturn_t marlin_irq_handler(int irq, void * para)
 	enable_irq(irq);
 	
 	return IRQ_HANDLED;
-
-
-
 }
 
 static int sdio_dev_intr_init(void)
@@ -1071,21 +1073,19 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	uint32 gpio_wake_status = 0;
 	disable_irq_nosync(irq);
 	
-	wake_lock(&marlinup_wakelock);	
-	
-	SDIOTRAN_ERR("ENTRY!!!");
+	wake_lock(&marlinup_wakelock);
 
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(GPIO_MARLIN_WAKE);
 
 	if(gpio_wake_status)
 	{
-		sleep_para.gpio_up_time = jiffies;		
-		sleep_para.gpio_opt_tag = 1;		
-		mod_timer(&(sleep_para.gpio_timer),  jiffies + msecs_to_jiffies(sleep_para.marlin_waketime) );
+		SDIOTRAN_ERR("HIGH!!!");
+		sleep_para.gpio_up_time = jiffies;
 	}
 	else
 	{
+		SDIOTRAN_ERR("LOW!!!");
 		sleep_para.gpio_down_time = jiffies;
 	}
 	
@@ -1094,43 +1094,37 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 		if(jiffies_to_msecs(sleep_para.gpio_down_time -\
 			sleep_para.gpio_up_time)>200)
 		{
-			SDIOTRAN_ERR("ENTRY bt irq!!!");
+			SDIOTRAN_ERR("BT REQ!!!");
 			marlin_bt_wake_flag = 1;
 			wake_lock_timeout(&BT_AP_wakelock, HZ*2);    //wsh
 		}
 
 	}
 	
-
-	
 	//schedule_work(&marlinack_wq);
 	if(gpio_wake_status)
 	{
 		wake_lock_timeout(&marlinpub_wakelock, HZ*1); 
 		if(sleep_para.gpioreq_need_pulldown)
-		{
-			SDIOTRAN_ERR("ENTRY sdio irq!!!");
+		{	
+			sleep_para.gpio_opt_tag = 1;
+			mod_timer(&(sleep_para.gpio_timer),\
+				jiffies + msecs_to_jiffies(sleep_para.marlin_waketime) );
+
 			if(sdio_w_flag == 1){
-				complete(&marlin_ack);
+				if(req_marlin_wait_tag)
+				{
+					complete(&marlin_ack);
+					SDIOTRAN_ERR("set complete");
+				}
 				set_marlin_sleep(0xff,0x1);
 			}
 			else{
 				set_marlin_sleep(0xff,0x2);
 			}
 		}
-
 	}
 	
-
-
-	
-	/*
-	else if(marlin_bt_wake_flag == 1 && )
-	{
-		SDIOTRAN_ERR("ENTRY bt irq!!!");
-   		wake_lock_timeout(&BT_AP_wakelock, HZ*10);    //wsh
-	}*/
-
 	enable_irq(irq);
 	wake_unlock(&marlinup_wakelock);
 
@@ -1138,10 +1132,12 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 }
 
 
+
 static int marlin_wake_intr_init(void)
 {
 	int ret;
 	sdio_w_flag = 0;
+	bt_wake_flag = 0;
 
 	INIT_WORK(&marlinwake_wq, marlinack_workq);	
 
@@ -1278,7 +1274,7 @@ static void sdio_uninit_timer(void)
 	del_timer(&sleep_para.gpio_timer);
 	sleep_para.marlin_waketime = 0;
 	sleep_para.gpio_opt_tag = 0;
-	sleep_para.gpioreq_need_pulldown = 0;
+	sleep_para.gpioreq_need_pulldown = 1;
 }
 
 static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id *id)
@@ -1325,7 +1321,7 @@ static int marlin_sdio_probe(struct sdio_func *func, const struct sdio_device_id
 	gaole_creat_test();
 #endif
 */
-	set_bt_pm_func(set_marlin_wakeup,set_marlin_sleep);
+	//set_bt_pm_func(set_marlin_wakeup,set_marlin_sleep);
 	sdio_init_timer();
 
 	set_apsdiohal_ready();

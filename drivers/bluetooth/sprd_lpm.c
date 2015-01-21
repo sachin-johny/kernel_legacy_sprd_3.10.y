@@ -18,47 +18,20 @@
 #define BT_SLEEP_DBG BT_ERR
 
 #define PROC_DIR        "bluetooth/sleep"
+
 extern int set_marlin_wakeup(unsigned int chn,unsigned int user_id);
 extern int set_marlin_sleep(unsigned int chn,unsigned int user_id);
 
 struct proc_dir_entry *bluetooth_dir, *sleep_dir;
 static struct wake_lock BT_wakelock;
 
-typedef int (*WAKEUP_FUNC)(unsigned int chn,unsigned int user_id);
-typedef int (*SLEEP_FUNC)(unsigned int chn,unsigned int user_id);
-
-typedef struct _WakeUp
-{
-	WAKEUP_FUNC marlin_bt_wakeup;
-	SLEEP_FUNC marlin_bt_sleep;
-}WAKEUP_FUNC_T;
-
-WAKEUP_FUNC_T marlin_pm_func = {0};
-void set_bt_pm_func(void *wakeup,void *sleep)
-{
-	marlin_pm_func.marlin_bt_wakeup = wakeup;
-	marlin_pm_func.marlin_bt_sleep = sleep;
-}
-EXPORT_SYMBOL_GPL(set_bt_pm_func);
-
-int bt_pm_func_ready(void)
-{
-	return ((marlin_pm_func.marlin_bt_wakeup != NULL)&&(marlin_pm_func.marlin_bt_sleep != NULL));
-}
-
 void bt_wakeup(unsigned int chn,unsigned int user_id)
 {
-	if(marlin_pm_func.marlin_bt_wakeup != NULL)
-		marlin_pm_func.marlin_bt_wakeup(chn,user_id);
-	else
-		gpio_direction_output(133,1);
+	set_marlin_wakeup(chn,user_id);
 }
 void bt_sleep(unsigned int chn,unsigned int user_id)
 {
-	if(marlin_pm_func.marlin_bt_sleep != NULL)
-		marlin_pm_func.marlin_bt_sleep(chn,user_id);
-	else
-		gpio_direction_output(133,0);
+	return;
 }
 
 static ssize_t bluesleep_write_proc_btwrite(struct file *file, const char __user *buffer,size_t count, loff_t *pos)
