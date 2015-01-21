@@ -154,7 +154,6 @@ static int veth_rx_poll_handler(struct napi_struct * napi, int budget)
 
 		skb->protocol = eth_type_trans(skb, veth->netdev);
 		skb->ip_summed = CHECKSUM_NONE;
-		netif_receive_skb(skb);
 
 		/* update fifo rd_ptr */
 		rx_fifo->rd_ptr += 1;
@@ -162,6 +161,7 @@ static int veth_rx_poll_handler(struct napi_struct * napi, int budget)
 		veth->stats.rx_bytes += skb->len;
 		veth->stats.rx_packets++;
 
+		netif_receive_skb(skb);
 		/* update skb counter*/
 		skb_cnt++;
 	}
