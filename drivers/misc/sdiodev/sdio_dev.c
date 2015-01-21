@@ -1010,9 +1010,14 @@ static int marlin_sdio_sync_init(void)
 	int ret;	
 
 	SDIOTRAN_ERR("entry");
+
+#if defined(CONFIG_MARLIN_CALI_READY_94)
+	sci_glb_clr(SPRD_PIN_BASE + 0x244,(BIT(3)|BIT(7)|0));
+	sci_glb_set(SPRD_PIN_BASE + 0x244,(BIT(4)|BIT(5)|BIT(2)|BIT(6)));
+#else
 	sci_glb_clr(SPRD_PIN_BASE + 0x27c,(BIT(3)|BIT(7)|0));
 	sci_glb_set(SPRD_PIN_BASE + 0x27c,(BIT(4)|BIT(5)|BIT(2)|BIT(6)));
-
+#endif
 	wake_lock_init(&marlin_sdio_ready_wakelock, WAKE_LOCK_SUSPEND, "marlin_sdio_ready_wakelock");
 
 	gpio_request(GPIO_MARLIN_SDIO_READY,"marlin_sdio_ready_irq");
@@ -1050,7 +1055,13 @@ void marlin_sdio_sync_uninit(void)
 	free_irq(marlin_sdio_ready_irq_num,NULL);
 	gpio_free(GPIO_MARLIN_SDIO_READY);
 	wake_lock_destroy(&marlin_sdio_ready_wakelock);	
+
+#if defined(CONFIG_MARLIN_CALI_READY_94)
+	sci_glb_clr(SPRD_PIN_BASE + 0x244,(BIT(4)|BIT(5)|0));
+	sci_glb_set(SPRD_PIN_BASE + 0x244,(BIT(4)));
+#else
 	sci_glb_clr(SPRD_PIN_BASE + 0x27c,(BIT(4)|BIT(5)|0));
+#endif
 	SDIOTRAN_ERR("ok!!!");
 }
 EXPORT_SYMBOL_GPL(marlin_sdio_sync_uninit);

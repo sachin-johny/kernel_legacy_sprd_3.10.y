@@ -13,10 +13,16 @@ config SDIODEV_TEST
 	help
 	  FOR RUN SDIODEV TEST CASE,DO NOT OPEN IT IN NORMAL MODE
 
-config SP9630EA6MN_SDIODEV
-	bool "SP9630-6 SDIO"
+config MARLIN_CALI_READY_94
+	bool "Marlin cali ready 94"
 	default n
 	help
-	  FOR SP9630-6 SDIO
+	  FOR marlin cali ready 94
+
+config MARLIN_CALI_READY_131
+        bool "Marlin cali ready 131"
+        default n
+        help
+          FOR marlin cali ready 131
 
 endmenu

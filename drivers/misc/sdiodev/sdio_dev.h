@@ -110,7 +110,7 @@ extern volatile bool marlin_mmc_suspend;
 #define SDIO_CHN_14	0x40
 #define SDIO_CHN_15	0x80
 
-#if defined(CONFIG_SP9630EA6MN_SDIODEV)
+#if defined(CONFIG_MARLIN_CALI_READY_94)
 #define GPIO_MARLIN_SDIO_READY  94
 #else
 #define GPIO_MARLIN_SDIO_READY  131
