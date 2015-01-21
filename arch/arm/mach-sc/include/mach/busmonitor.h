@@ -1,7 +1,7 @@
 #ifndef __SPRD_BM_H__
 #define __SPRD_BM_H__
 
-#define BM_DEFAULT_VALUE_SET
+//#define BM_DEFAULT_VALUE_SET
 
 #define AXI_BM_INTC_REG				0x0
 #define AXI_BM_CFG_REG				0x4

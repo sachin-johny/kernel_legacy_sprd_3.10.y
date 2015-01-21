@@ -1384,8 +1384,8 @@ static int sci_bm_probe(struct platform_device *pdev)
 
 	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
-	__sci_bm_glb_count_enable(true);
-	__sci_bm_init();
+	//__sci_bm_glb_count_enable(true);
+	//__sci_bm_init();
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &bm_attr_group);
 	if (ret) {
@@ -1395,6 +1395,7 @@ static int sci_bm_probe(struct platform_device *pdev)
 #ifdef BM_DEFAULT_VALUE_SET
 	sci_bm_get_mem_layout();
 	sci_bm_def_val_set_by_dts();
+#endif
 	bm_st_info.bm_dbg_st = true;
 	bm_st_info.bm_stack_st = true;
 	bm_st_info.bm_panic_st = true;
@@ -1402,7 +1403,6 @@ static int sci_bm_probe(struct platform_device *pdev)
 	//bm_ctn_dbg.loop_cnt = 20;
 	bm_st_info.bm_dfs_off_st = true;
 	BM_ERR("Bus Monitor default config set success!!!\n");
-#endif
 	return SPRD_BM_SUCCESS;
 }
 
