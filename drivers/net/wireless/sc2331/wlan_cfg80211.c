@@ -695,6 +695,37 @@ static int itm_wlan_add_cipher_key(wlan_vif_t *vif, bool pairwise,  unsigned cha
 	return 0;
 }
 
+u8 sprdwl_find_ssid_count(wlan_vif_t *vif)
+{
+	buf_scan_frame_t *scan_buf = NULL;
+	int i;
+	int count = 0;
+	struct wiphy *wiphy = vif->wdev.wiphy;
+
+	if(!vif->cfg80211.scan_frame_array)
+		return 0;
+
+	for(i = 0; i < MAX_SCAN_FRAME_BUF_NUM; i++) {
+		scan_buf = (buf_scan_frame_t *)(vif->cfg80211.scan_frame_array
+							+ i*sizeof(buf_scan_frame_t));
+
+		if (0xff != scan_buf->live)
+			continue;
+
+		if (0 == scan_buf->ssid[0])
+			continue;
+
+		if (0 != memcmp(vif->cfg80211.ssid, scan_buf->ssid, vif->cfg80211.ssid_len))
+			continue;
+
+		count++;
+	}
+
+	wiphy_info(wiphy,"the same ssid num %d with current connect ssid" , count);
+
+	return count;
+}
+
 static int wlan_cfg80211_scan(struct wiphy *wiphy,
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(3, 10, 0))
 				  						 struct net_device *dev,
@@ -1988,8 +2019,8 @@ void cfg80211_report_scan_frame(unsigned char vif_id, unsigned char *pData, int 
 	if (vif->cfg80211.scan_done_lock.link.next != LIST_POISON1 && vif->cfg80211.scan_done_lock.link.prev != LIST_POISON2)
 		wake_unlock(&vif->cfg80211.scan_done_lock);
 	atomic_dec(&vif->cfg80211.scan_status);
-	memset(vif->cfg80211.scan_frame_array, 0,
-		MAX_SCAN_FRAME_BUF_NUM * sizeof(buf_scan_frame_t));
+	//memset(vif->cfg80211.scan_frame_array, 0,
+		//MAX_SCAN_FRAME_BUF_NUM * sizeof(buf_scan_frame_t));
 	printkd("[%s %d] ok!\n", __func__, vif_id);
 	return;
 }
@@ -2025,9 +2056,11 @@ void cfg80211_report_cqm_low(unsigned char vif_id,
 	wiphy_info(wiphy, "Recv NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW");
 
 	if (vif) {
-		cfg80211_cqm_rssi_notify(vif->ndev,
+		if (sprdwl_find_ssid_count(vif) >= 2) {
+			cfg80211_cqm_rssi_notify(vif->ndev,
 					NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW,
 					GFP_KERNEL);
+		}
 	}
 }
 
@@ -2040,9 +2073,11 @@ void cfg80211_report_cqm_high(unsigned char vif_id,
 	wiphy_info(wiphy, "Recv  NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH");
 
 	if (vif) {
-		cfg80211_cqm_rssi_notify(vif->ndev,
+		if (sprdwl_find_ssid_count(vif) >= 2) {
+			cfg80211_cqm_rssi_notify(vif->ndev,
 					NL80211_CQM_RSSI_THRESHOLD_EVENT_HIGH,
 					GFP_KERNEL);
+		}
 	}
 }
 
@@ -2060,9 +2095,11 @@ void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
 		TODO wpa_supplicant not support the event ,
 		so we workaround this issue
 		*/
-		cfg80211_cqm_rssi_notify(vif->ndev,
+		if (sprdwl_find_ssid_count(vif) >= 2) {
+			cfg80211_cqm_rssi_notify(vif->ndev,
 					NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW,
 					GFP_KERNEL);
+		}
 	}
 }
 
