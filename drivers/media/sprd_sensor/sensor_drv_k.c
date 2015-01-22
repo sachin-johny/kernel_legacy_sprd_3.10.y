@@ -73,6 +73,7 @@
 
 #define SENSOR_MINOR                      MISC_DYNAMIC_MINOR
 #define SLEEP_MS(ms)                      msleep(ms)
+#define PREALLOC_SIZE                     16000
 
 #define SENSOR_I2C_ID                     0
 #define SENSOR_I2C_OP_TRY_NUM             4
@@ -186,16 +187,21 @@ LOCAL void* _sensor_k_malloc(struct sensor_file_tag *fd_handle, size_t size)
 		fd_handle->sensor_mem.buf_ptr = vzalloc(size);
 		if(PNULL != fd_handle->sensor_mem.buf_ptr) {
 			fd_handle->sensor_mem.size = size;
+		} else {
+			printk("cam_err: malloc fd_handle->sensor_mem.buf_ptr\n");
 		}
 
 	} else if (size > fd_handle->sensor_mem.size) {
 		//realloc memory
+		printk("size = %d fd_handle->sensor_mem.size= %d\n", size, fd_handle->sensor_mem.size);
 		vfree(fd_handle->sensor_mem.buf_ptr);
 		fd_handle->sensor_mem.buf_ptr = PNULL;
 		fd_handle->sensor_mem.size = 0;
 		fd_handle->sensor_mem.buf_ptr = vzalloc(size);
 		if (PNULL != fd_handle->sensor_mem.buf_ptr) {
 			fd_handle->sensor_mem.size = size;
+		} else {
+			printk("cam_err: malloc fd_handle->sensor_mem.buf_ptr\n");
 		}
 	}
 
@@ -1042,6 +1048,14 @@ int sensor_k_open(struct inode *node, struct file *file)
 	SENSOR_CHECK_ZERO(p_file);
 	file->private_data = p_file;
 	p_file->module_data = p_mod;
+
+	p_file->sensor_mem.buf_ptr = (void *)vzalloc(PREALLOC_SIZE);
+	if (PNULL != p_file->sensor_mem.buf_ptr) {
+		p_file->sensor_mem.size = PREALLOC_SIZE;
+	} else {
+		printk("vzalloc p_file->sensor_mem.buf_ptr fail \n");
+	}
+
 	ret = csi_api_malloc(&p_file->csi_handle);
 	if (ret) {
 		vfree(p_file);
@@ -1110,9 +1124,16 @@ int sensor_k_release(struct inode *node, struct file *file)
 		printk("SENSOR: Invalid addr, 0x%x", (uint32_t)p_mod);
 	} else {
 		csi_api_free(p_file->csi_handle);
-		vfree(p_file);
-		p_file = NULL;
-		file->private_data = NULL;
+		if (PNULL != p_file->sensor_mem.buf_ptr) {
+			vfree(p_file->sensor_mem.buf_ptr);
+			p_file->sensor_mem.buf_ptr = PNULL;
+			p_file->sensor_mem.size = 0;
+		}
+		if (PNULL != p_file) {
+			vfree(p_file);
+			p_file = PNULL;
+		}
+		file->private_data = PNULL;
 	}
 	printk("sensor: release %d \n", ret);
 	return ret;
