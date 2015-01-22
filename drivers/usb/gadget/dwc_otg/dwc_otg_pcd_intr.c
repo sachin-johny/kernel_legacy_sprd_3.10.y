@@ -44,7 +44,7 @@ extern void complete_xiso_ep(dwc_otg_pcd_ep_t * ep);
 //#define PRINT_CFI_DMA_DESCS
 
 #define DEBUG_EP0
-#define USB_DEBUG
+//#define USB_DEBUG
 
 /**
  * This function updates OTG.

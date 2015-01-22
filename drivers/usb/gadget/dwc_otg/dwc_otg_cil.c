@@ -1655,6 +1655,7 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 	fifosize_data_t txfifosize;
 	dthrctl_data_t dthrctl;
 	fifosize_data_t ptxfifosize;
+	gotgctl_data_t gotgctl = {.d32 = 0};
 
 	/* Restart the Phy Clock */
 	DWC_WRITE_REG32(core_if->pcgcctl, 0);
@@ -1677,6 +1678,11 @@ void dwc_otg_core_dev_init(dwc_otg_core_if_t * core_if)
 
 
 	DWC_WRITE_REG32(&dev_if->dev_global_regs->dcfg, dcfg.d32);
+
+	gotgctl.d32 = DWC_READ_REG32(&global_regs->gotgctl);
+	gotgctl.b.bvalidoven = 1;
+	gotgctl.b.bvalidovval = 1;
+	DWC_WRITE_REG32(&global_regs->gotgctl, gotgctl.d32);
 
 	/* Configure data FIFO sizes */
 	if (core_if->hwcfg2.b.dynamic_fifo && params->enable_dynamic_fifo) {
@@ -2636,7 +2642,7 @@ void ep_xfer_timeout(void *ptr)
 	}
 
 	ep_num = xfer_info->ep->num;
-	DWC_WARN("%s: timeout on endpoit %d\n", __func__, ep_num);
+	//DWC_WARN("%s: timeout on endpoit %d\n", __func__, ep_num);
 	/* Put the sate to 2 as it was time outed */
 	xfer_info->state = 2;
 
