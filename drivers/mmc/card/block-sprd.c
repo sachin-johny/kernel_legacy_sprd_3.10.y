@@ -2186,7 +2186,7 @@ static void mmc_blk_remove_req(struct mmc_blk_data *md)
 					&md->power_ro_lock);
 
 			/* Stop new requests from getting into the queue */
-			del_gendisk(md->disk);
+			del_gendisk_async(md->disk);
 		}
 
 		/* Then flush out any already in there */
