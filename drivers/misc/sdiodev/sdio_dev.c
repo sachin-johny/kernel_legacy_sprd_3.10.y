@@ -222,7 +222,7 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 		sleep_para.gpioreq_need_pulldown = 1;
 		gpio_direction_output(GPIO_AP_TO_MARLIN,1);	
 
-		SDIOTRAN_ERR("pull up gpio %d, user_id %d hcnt %d",\
+		SDIOTRAN_ERR("pull up gpio %d, user_id %d",\
 			GPIO_AP_TO_MARLIN,user_id);
 		//sleep_para.gpioreq_up_time = jiffies;
 		if(user_id == 1)
@@ -984,7 +984,7 @@ static void clear_sdiohal_status(void)
 static irqreturn_t marlinsdio_ready_irq_handler(int irq, void * para)
 {
 	disable_irq_nosync(irq);	
-	wake_lock(&marlin_sdio_ready_wakelock);
+
 	
 	SDIOTRAN_ERR("entry");
 	
@@ -1000,7 +1000,7 @@ static irqreturn_t marlinsdio_ready_irq_handler(int irq, void * para)
 	if(!marlin_sdio_ready.marlin_sdio_init_end_tag)
 		enable_irq(irq);
 	
-	wake_unlock(&marlin_sdio_ready_wakelock);
+
 	return IRQ_HANDLED;
 
 }
