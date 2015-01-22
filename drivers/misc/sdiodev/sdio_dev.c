@@ -1084,19 +1084,19 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	uint32 gpio_wake_status = 0;
 	disable_irq_nosync(irq);
 	
-	wake_lock(&marlinup_wakelock);
-
 	irq_set_irq_type(irq,IRQF_TRIGGER_RISING|IRQF_TRIGGER_FALLING);
 	gpio_wake_status = gpio_get_value(GPIO_MARLIN_WAKE);
 
 	if(gpio_wake_status)
 	{
 		SDIOTRAN_ERR("HIGH!!!");
+		wake_lock(&marlinpub_wakelock);
 		sleep_para.gpio_up_time = jiffies;
 	}
 	else
 	{
 		SDIOTRAN_ERR("LOW!!!");
+		wake_unlock(&marlinpub_wakelock);
 		sleep_para.gpio_down_time = jiffies;
 	}
 	
@@ -1115,7 +1115,6 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	//schedule_work(&marlinack_wq);
 	if(gpio_wake_status)
 	{
-		wake_lock_timeout(&marlinpub_wakelock, HZ*1); 
 		if(sleep_para.gpioreq_need_pulldown)
 		{	
 			sleep_para.gpio_opt_tag = 1;
@@ -1137,7 +1136,6 @@ static irqreturn_t marlinwake_irq_handler(int irq, void * para)
 	}
 	
 	enable_irq(irq);
-	wake_unlock(&marlinup_wakelock);
 
 	return IRQ_HANDLED;
 }
