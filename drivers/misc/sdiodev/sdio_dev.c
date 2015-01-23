@@ -43,12 +43,10 @@ static int marlin_sdio_ready_irq_num;
 
 
 static struct wake_lock marlin_wakelock;
-static struct wake_lock marlinup_wakelock;
 static struct wake_lock BT_AP_wakelock;
 
 static struct wake_lock marlinpub_wakelock;
 
-static struct wake_lock marlin_sdio_ready_wakelock;
 
 static struct work_struct marlin_wq;
 static struct work_struct marlinwake_wq;
@@ -141,7 +139,7 @@ static int wakeup_slave_pin_init(void)
 {
 	int ret;
 	ret = gpio_request(GPIO_AP_TO_MARLIN,"marlin_wakeup");
-	if (ret)
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("req gpio GPIO_MARLIN_TO_CP = %d fail!!!",\
 			GPIO_AP_TO_MARLIN);
@@ -904,16 +902,16 @@ static int sdio_dev_intr_init(void)
 	
 	INIT_WORK(&marlin_wq, marlin_workq);	
 
-	gpio_request(GPIO_MARLIN_TO_AP,"marlin_irq");
-	if (ret)
+	ret = gpio_request(GPIO_MARLIN_TO_AP,"marlin_irq");
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("req gpio GPIO_MARLIN_TO_AP = %d fail!!!",\
 			GPIO_MARLIN_TO_AP);
 		return ret;
 	}
 	
-	gpio_direction_input(GPIO_MARLIN_TO_AP);
-	if (ret)
+	ret = gpio_direction_input(GPIO_MARLIN_TO_AP);
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("GPIO_MARLIN_TO_AP = %d input set fail!!!",\
 			GPIO_MARLIN_TO_AP);
@@ -1018,18 +1016,18 @@ static int marlin_sdio_sync_init(void)
 	sci_glb_clr(SPRD_PIN_BASE + 0x27c,(BIT(3)|BIT(7)|0));
 	sci_glb_set(SPRD_PIN_BASE + 0x27c,(BIT(4)|BIT(5)|BIT(2)|BIT(6)));
 #endif
-	wake_lock_init(&marlin_sdio_ready_wakelock, WAKE_LOCK_SUSPEND, "marlin_sdio_ready_wakelock");
 
-	gpio_request(GPIO_MARLIN_SDIO_READY,"marlin_sdio_ready_irq");
-	if (ret)
+
+	ret = gpio_request(GPIO_MARLIN_SDIO_READY,"marlin_sdio_ready_irq");
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("req gpio GPIO_MARLIN_SDIO_READY = %d fail!!!",\
 			GPIO_MARLIN_SDIO_READY);
 		return ret;
 	}
 	
-	gpio_direction_input(GPIO_MARLIN_SDIO_READY);
-	if (ret)
+	ret = gpio_direction_input(GPIO_MARLIN_SDIO_READY);
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("GPIO_MARLIN_SDIO_READY = %d input set fail!!!",\
 			GPIO_MARLIN_SDIO_READY);
@@ -1054,7 +1052,7 @@ void marlin_sdio_sync_uninit(void)
 {
 	free_irq(marlin_sdio_ready_irq_num,NULL);
 	gpio_free(GPIO_MARLIN_SDIO_READY);
-	wake_lock_destroy(&marlin_sdio_ready_wakelock);	
+
 
 #if defined(CONFIG_MARLIN_CALI_READY_94)
 	sci_glb_clr(SPRD_PIN_BASE + 0x244,(BIT(4)|BIT(5)|0));
@@ -1075,7 +1073,6 @@ static void marlinack_workq(void)
 	SDIOTRAN_ERR("ENTRY");
 	if(sdio_w_flag == 1)
 		complete(&marlin_ack);
-	wake_unlock(&marlinup_wakelock);
 
 }
 
@@ -1152,21 +1149,21 @@ static int marlin_wake_intr_init(void)
 
 	init_completion (&marlin_ack);
 
-	wake_lock_init(&marlinup_wakelock, WAKE_LOCK_SUSPEND, "marlinup_wakelock");
+
 	wake_lock_init(&BT_AP_wakelock, WAKE_LOCK_SUSPEND, "marlinbtup_wakelock");	
 	
 	wake_lock_init(&marlinpub_wakelock, WAKE_LOCK_SUSPEND, "marlinpub_wakelock");	
 	
-	gpio_request(GPIO_MARLIN_WAKE,"marlinwake_irq");
-	if (ret)
+	ret = gpio_request(GPIO_MARLIN_WAKE,"marlinwake_irq");
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("req gpio GPIO_MARLIN_WAKE = %d fail!!!",\
 			GPIO_MARLIN_WAKE);
 		return ret;
 	}
 	
-	gpio_direction_input(GPIO_MARLIN_WAKE);
-	if (ret)
+	ret = gpio_direction_input(GPIO_MARLIN_WAKE);
+	if (ret<0)
 	{
 		SDIOTRAN_ERR("GPIO_MARLIN_WAKE = %d input set fail!!!",\
 			GPIO_MARLIN_WAKE);
@@ -1199,7 +1196,7 @@ static void marlin_wake_intr_uninit(void)
 	//flush_workqueue(&marlinwake_wq);
 	//destroy_workqueue(&marlinwake_wq);
 
-	wake_lock_destroy(&marlinup_wakelock);
+
 	wake_lock_destroy(&BT_AP_wakelock);
 	wake_lock_destroy(&marlinpub_wakelock);
 
