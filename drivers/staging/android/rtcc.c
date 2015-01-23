@@ -23,16 +23,13 @@
 #include <linux/types.h>
 #include <linux/device.h>
 #include <linux/vmstat.h>
-
-#include <asm/atomic.h>
+#include <linux/atomic.h>
 
 /*
  * RTCC reclaim entry, defined in vmscan.c
  */
 extern unsigned long rtcc_reclaim_pages(unsigned long nr_to_reclaim,
 	int swappiness, unsigned long *nr_swapped);
-extern long nr_kswapd_swapped;
-
 static long nr_krtccd_swapped;
 static atomic_t need_to_reclaim;
 static struct task_struct *krtccd;
@@ -43,7 +40,7 @@ static unsigned long boost_end_jiffy;
 #define DEF_RECLAIM_INTERVAL	(10*HZ)
 #define RTCC_MSG_ASYNC			1
 #define RTCC_MSG_SYNC			2
-#define RTCC_GRADE_NUM 			5
+#define RTCC_GRADE_NUM			5
 #define RTCC_GRADE_LIMIT		2
 
 #ifdef CONFIG_SMP
@@ -66,23 +63,26 @@ static int rtcc_grade[RTCC_GRADE_NUM] = {
 	1024 * RTCC_GRADE_MULTI,
 	4096 * RTCC_GRADE_MULTI,
 };
-// These values will be changed when system is booting up
+/*
+ * These values will be changed when system is booting up
+ */
 static int rtcc_minfree[RTCC_GRADE_NUM] = {
-        36 * 1024, // 144MB
-        31 * 1024, // 124MB
-        26 * 1024, // 104MB
-        21 * 1024, // 84MB
-        16 * 1024, // 64MB
+	36 * 1024,	/* 144MB */
+	31 * 1024,	/* 124MB */
+	26 * 1024,	/* 104MB */
+	21 * 1024,	/* 84MB  */
+	16 * 1024,	/* 64MB  */
 };
 
 static inline unsigned long get_swapped_pages(void)
 {
-	return (total_swap_pages - get_nr_swap_pages());
+	return total_swap_pages - get_nr_swap_pages();
 }
 
 static inline unsigned long get_anon_pages(void)
 {
-	return global_page_state(NR_INACTIVE_ANON) + global_page_state(NR_ACTIVE_ANON);
+	return global_page_state(NR_INACTIVE_ANON) +
+		global_page_state(NR_ACTIVE_ANON);
 }
 
 static inline unsigned long get_file_pages(void)
@@ -97,11 +97,11 @@ static int get_rtcc_grade(void)
 {
 	int free, i;
 
-	// In boost mode, we will do reclaim in max speed
+	/* In boost mode, we will do reclaim in max speed */
 	if (unlikely(rtcc_boost_mode))
 		return RTCC_GRADE_NUM - 1;
 
-	// In other case, choose the grade by free memory level.
+	/* In other case, choose the grade by free memory level. */
 	free = global_page_state(NR_FREE_PAGES);
 	for (i = 0; i <= RTCC_GRADE_LIMIT; i++) {
 		if (free >= rtcc_minfree[i])
@@ -121,13 +121,14 @@ static int get_reclaim_count(void)
 	grade = get_rtcc_grade();
 
 #if RTCC_DBG
-	printk("rtcc grade = %d, swap_top = %ld\n", grade, swap_toplimit);
+	pr_info("rtcc grade = %d, swap_top = %ld\n",
+			grade, swap_toplimit);
 #endif
 
 	if (unlikely(rtcc_boost_mode))
 		return rtcc_grade[grade];
 
-	// Divide a large reclaim into several smaller one
+	/* Divide a large reclaim into several smaller one */
 	times = rtcc_grade[grade] / rtcc_grade[RTCC_GRADE_LIMIT];
 	if (likely(grade < RTCC_GRADE_LIMIT))
 		times = 1;
@@ -146,29 +147,32 @@ static int get_reclaim_swappiness(void)
 {
 	int index;
 
-	if(totalram_pages > (256 << 20) >> PAGE_SHIFT)
+	if (totalram_pages > (256 << 20) >> PAGE_SHIFT)
 		index = RTCC_GRADE_NUM - 2;
 	else
 		index = RTCC_GRADE_NUM - 3;
 
-	// The swap space in risk of using up, disable swap
-	if (unlikely((swap_toplimit - get_swapped_pages()) <= rtcc_grade[index]))
+	/* The swap space in risk of using up, disable swap */
+	if (unlikely((swap_toplimit - get_swapped_pages()) <=
+	    rtcc_grade[index]))
 		return 1;
 
-	// File pages is too few, only do swap. We need keep the file cache
-	// at a rational level
+	/* File pages is too few, only do swap. We need keep the file cache
+	 * at a rational level
+	 */
 	if (unlikely(get_file_pages() <= rtcc_minfree[RTCC_GRADE_NUM - 2]))
 		return 200;
 
-	// Both of them are available, return the calculated swappiness value
-	// To use ZRAM as more as possible, swappiness always greater than 60
+	/* Both of them are available, return the calculated swappiness value
+	 * To use ZRAM as more as possible, swappiness always greater than 60
+	 */
 	return 100 + 100 * get_anon_pages() / swap_toplimit / 2;
 }
 
 /*
  * RTCC thread entry
  */
-static int rtcc_thread(void * nothing)
+static int rtcc_thread(void *nothing)
 {
 	unsigned long nr_to_reclaim, nr_reclaimed, nr_swapped;
 	int swappiness;
@@ -182,7 +186,7 @@ static int rtcc_thread(void * nothing)
 
 	set_freezable();
 
-	for ( ; ; ) {
+	for (;;) {
 		try_to_freeze();
 		if (kthread_should_stop())
 			break;
@@ -197,33 +201,44 @@ static int rtcc_thread(void * nothing)
 		swappiness = get_reclaim_swappiness();
 		nr_swapped = 0;
 
-		nr_reclaimed = rtcc_reclaim_pages(nr_to_reclaim, swappiness, &nr_swapped);
+		nr_reclaimed = rtcc_reclaim_pages(nr_to_reclaim,
+				    swappiness, &nr_swapped);
 		nr_krtccd_swapped += nr_swapped;
 
-		printk("%s: reclaimed %ld (swapped %ld) pages.\n", __func__, nr_reclaimed, nr_swapped);
+		pr_info("%s: reclaimed %ld (swapped %ld) pages.\n",
+			__func__, nr_reclaimed, nr_swapped);
 
 		if (likely(rtcc_boost_mode == 0)) {
 			if (get_rtcc_grade() <= 0) {
-				// If free memory is enough, cancel reclaim
+				/* If free memory is enough, cancel reclaim */
 				atomic_set(&need_to_reclaim, 0);
-			} else if (swappiness <= 1 && get_file_pages() <= rtcc_minfree[RTCC_GRADE_NUM-2]) {
-				// If swap space is full and file pages is few, also cancel reclaim
+			} else if (swappiness <= 1 &&
+				   get_file_pages() <=
+					rtcc_minfree[RTCC_GRADE_NUM-2]) {
+				/* If swap space is full and file pages is few,
+				 * also cancel reclaim
+				 */
 				atomic_set(&need_to_reclaim, 0);
 			}
 		} else if (get_anon_pages() < swap_toplimit / 4) {
 			rtcc_boost_mode = 0;
 			atomic_set(&need_to_reclaim, 0);
-			printk("%s: swapped %ldMB enough, exit boost mode.\n", __func__, get_swapped_pages()/256);
+			pr_info("%s: swapped %ldMB enough, exit boost mode.\n",
+				__func__, get_swapped_pages()/256);
 		} else if (time_after(jiffies, boost_end_jiffy)) {
 			rtcc_boost_mode = 0;
-			printk("%s: time out, swapped %ldMB, exit boost mode.\n", __func__, get_swapped_pages()/256);
+			pr_info("%s: time out, swapped %ldMB, exit boost mode.\n",
+				__func__, get_swapped_pages()/256);
 		}
 
 #if RTCC_DBG
 		do_gettimeofday(&tv2);
-		dt = tv2.tv_sec*1000000 + tv2.tv_usec - tv1.tv_sec*1000000 - tv1.tv_usec;
-		printk("%s: cost %ldms, %ldus one page, ", __func__, dt/1000, dt/nr_reclaimed);
-		printk("expect=%ld, swappiness=%d \n", (nr_reclaimed*swappiness/200), swappiness);
+		dt = tv2.tv_sec*1000000 + tv2.tv_usec -
+		     tv1.tv_sec*1000000 - tv1.tv_usec;
+		pr_info("%s: cost %ldms, %ldus one page, " \
+			 "expect=%ld, swappiness=%d\n",
+			__func__, dt/1000, dt/nr_reclaimed,
+			(nr_reclaimed*swappiness/200), swappiness);
 #endif
 
 		set_current_state(TASK_INTERRUPTIBLE);
@@ -238,13 +253,14 @@ static int rtcc_thread(void * nothing)
  */
 static void rtcc_dump(void)
 {
-	printk("\nneed_to_reclaim = %d\n", atomic_read(&need_to_reclaim));
+	pr_info("\nneed_to_reclaim = %d\n", atomic_read(&need_to_reclaim));
 }
 
 /*
  * RTCC triggered by framework code
  */
-static ssize_t rtcc_trigger_store(struct class *class, struct class_attribute *attr,
+static ssize_t rtcc_trigger_store(struct class *class,
+		struct class_attribute *attr,
 		const char *buf, size_t count)
 {
 	int val;
@@ -271,7 +287,8 @@ static struct class *rtcc_class;
 /*
  * RTCC idle handler, called when CPU is idle
  */
-static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void *data)
+static int rtcc_idle_handler(struct notifier_block *nb,
+		unsigned long val, void *data)
 {
 	int cpu;
 	struct pglist_data *pgdat;
@@ -280,19 +297,21 @@ static int rtcc_idle_handler(struct notifier_block *nb, unsigned long val, void 
 	if (likely(atomic_read(&need_to_reclaim) == 0))
 		return 0;
 
-	// To prevent RTCC from running too frequently
+	/* To prevent RTCC from running too frequently */
 	if (likely(time_before(jiffies, prev_jiffy + rtcc_reclaim_interval)))
 		return 0;
-	/*make sure kswapd is not running*/
+
+	/* make sure kswapd is not running */
 	if (unlikely(!waitqueue_active(&pgdat->kswapd_wait)))
 		return 0;
 
 #ifdef CONFIG_SMP
-	if ((num_online_cpus() == 1) || rtcc_boost_mode)
+	if ((num_online_cpus() == 1) ||
+	    rtcc_boost_mode) {
 #else
-	if (unlikely(idle_cpu(task_cpu(krtccd)) && this_cpu_loadx(3) == 0) || rtcc_boost_mode)
+	if (unlikely(idle_cpu(task_cpu(krtccd)) && this_cpu_loadx(3) == 0) ||
+	    rtcc_boost_mode) {
 #endif
-	{
 		pr_info("%s: wake up krtccd!!!!!!\n", __func__);
 		wake_up_process(krtccd);
 		prev_jiffy = jiffies;
@@ -336,7 +355,8 @@ static int __init rtcc_init(void)
 	}
 
 	if (class_create_file(rtcc_class, &class_attr_rtcc_trigger) < 0) {
-		pr_err("%s: couldn't create rtcc trigger file in sysfs.\n", __func__);
+		pr_err("%s: couldn't create rtcc trigger file in sysfs.\n",
+			__func__);
 		class_destroy(rtcc_class);
 	}
 
@@ -358,8 +378,10 @@ static void __exit rtcc_exit(void)
 	}
 }
 
-module_param_array_named(grade, rtcc_grade, uint, &rtcc_grade_size, S_IRUGO | S_IWUSR);
-module_param_array_named(minfree, rtcc_minfree, uint, &rtcc_grade_size, S_IRUGO | S_IWUSR);
+module_param_array_named(grade, rtcc_grade, uint, &rtcc_grade_size,
+			 S_IRUGO | S_IWUSR);
+module_param_array_named(minfree, rtcc_minfree, uint, &rtcc_grade_size,
+			 S_IRUGO | S_IWUSR);
 
 module_init(rtcc_init);
 module_exit(rtcc_exit);
