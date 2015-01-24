@@ -170,8 +170,6 @@ restart:
 		if(HOST_SC2331_PKT == hdr->type)
 		{
 			memcpy((char *)(&seq), (char *)(hdr + 1),  4);
-			if(seq != fifo->seq2)
-				ASSERT();
 			fifo->seq2++;
 		}
 		else if(HOST_SC2331_CMD == hdr->type)
@@ -284,7 +282,7 @@ int rx_fifo_in(const unsigned char chn, rxfifo_t *fifo, P_FUNC_2 pfunc )
 	if(true == full)
 		return ERROR;
 	ret = pfunc(chn, fifo->mem[fifo->WT], &rx_len);
-	if(ERROR != ret)
+	if(OK == ret)
 		fifo->WT  = INCR_RING_BUFF_INDX(fifo->WT, fifo->block_num);
 	return ret;
 }

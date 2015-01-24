@@ -89,10 +89,10 @@
 #define KERNEL_DEBUG_LEVE       "<0>"
 #endif
 
-#define printkd(fmt, ...)     ({if(WLAN_SYSTEM_DBG)printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
-#define printkp(fmt, ...)     ({if(WLAN_PATH_DBG)printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define printkd(fmt, ...)     ({if(WLAN_SYSTEM_DBG)printk("[SC2331]" fmt, ##__VA_ARGS__); 0; })
+#define printkp(fmt, ...)     ({if(WLAN_PATH_DBG)printk("[SC2331]" fmt, ##__VA_ARGS__); 0; })
 #define printke(fmt, ...)     ({printk(KERNEL_DEBUG_LEVE "[SC2331]" fmt, ##__VA_ARGS__); 0; })
-#define ASSERT(fmt, ...)      ({printk(KERNEL_DEBUG_LEVE  "[SC2331-ASSERT][%s][%d]" fmt "\n", __func__, __LINE__,  ##__VA_ARGS__); 0; })
+#define ASSERT(fmt, ...)      ({printk(KERNEL_DEBUG_LEVE  "[SC2331][ASSERT][%s][%d]" fmt "\n", __func__, __LINE__,  ##__VA_ARGS__); 0; })
 
 #define MACSTR "%02x:%02x:%02x:%02x:%02x:%02x"
 #define MAC2STR(a) (a)[0], (a)[1], (a)[2], (a)[3], (a)[4], (a)[5]
@@ -257,9 +257,6 @@ typedef struct
 	drv_sync_t          sync;	
 	wlan_vif_t          netif[2];
 	rxfifo_t            rxfifo;
-#ifdef WLAN_LESS_WAKEUP_CP
-	atomic_t           screen_on;
-#endif
 }wlan_info_t;
 
 
