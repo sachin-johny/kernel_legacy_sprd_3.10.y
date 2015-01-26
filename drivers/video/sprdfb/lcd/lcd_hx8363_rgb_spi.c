@@ -28,6 +28,10 @@
 { \
 	spi_send_data((data & 0xFF));\
 }
+int lcd_hx8363_display_width  = 480 ;   /*lcd-display_width*/
+int lcd_hx8363_display_height = 854 ;
+EXPORT_SYMBOL(lcd_hx8363_display_width);
+EXPORT_SYMBOL(lcd_hx8363_display_height);
 
 static int32_t hx8363_init(struct panel_spec *self)
 {
@@ -441,9 +445,31 @@ struct panel_cfg lcd_hx8363_rgb_spi = {
 	.lcd_name = "lcd_hx8363_rgb_spi",
 	.panel = &lcd_panel_hx8363_rgb_spi_spec,
 };
-static int __init lcd_hx8363_rgb_spi_init(void)
-{
+static int __init lcd_hx8363_rgb_spi_init(void){
+      lcd_panel_hx8363_rgb_spi_spec.display_height = lcd_hx8363_display_height;
+      lcd_panel_hx8363_rgb_spi_spec.display_width  = lcd_hx8363_display_width;
 	return sprdfb_panel_register(&lcd_hx8363_rgb_spi);
 }
 
+//parser cmdline arg "lcd_res=xxx,xxx"
+static int __init lcd_hx8363_rgb_spi_disp_resolution_modify(char *str){
+     char a[5];
+     char b[5];
+     int i = 0;
+     int j = 0;
+     if (str != NULL){
+          while(i < 7){
+               if(i < 3){
+                    a[i] = str[i];
+               }else if(i > 3){
+                    b[j++] = str[i];
+               }
+                    i++ ;
+          }
+          lcd_hx8363_display_width  = (a[0]-48)*100+(a[1]-48)*10+(a[2]-48);
+          lcd_hx8363_display_height = (b[0]-48)*100+(b[1]-48)*10+(b[2]-48);
+     }
+     return 1;
+}
+__setup("lcd_res=", lcd_hx8363_rgb_spi_disp_resolution_modify);
 subsys_initcall(lcd_hx8363_rgb_spi_init);

@@ -80,6 +80,8 @@
 
 #define	FTS_PACKET_LENGTH	128
 
+extern int lcd_hx8363_display_width;
+extern int lcd_hx8363_display_height;
 #if USE_WAIT_QUEUE
 static struct task_struct *thread = NULL;
 static DECLARE_WAIT_QUEUE_HEAD(waiter);
@@ -463,7 +465,6 @@ static int ft5x0x_update_data(void)
 	int ret = -1;
 	int i;
 	u16 x , y;
-
 	ret = ft5x0x_i2c_rxdata(buf, 31);
 
 	if (ret < 0) {
@@ -772,6 +773,8 @@ static int ft5x0x_ts_probe(struct i2c_client *client, const struct i2c_device_id
 #if MULTI_PROTOCOL_TYPE_B
 	input_mt_init_slots(input_dev, TS_MAX_FINGER,0);
 #endif
+     pdata->TP_MAX_X = 540*(lcd_hx8363_display_width)/480;
+     pdata->TP_MAX_Y = 960*(lcd_hx8363_display_height)/854;
 	input_set_abs_params(input_dev,ABS_MT_POSITION_X, 0, pdata->TP_MAX_X, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_POSITION_Y, 0, pdata->TP_MAX_Y, 0, 0);
 	input_set_abs_params(input_dev,ABS_MT_TOUCH_MAJOR, 0, 255, 0, 0);
