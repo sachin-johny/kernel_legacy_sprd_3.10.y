@@ -18,6 +18,13 @@
 #define __I2S_H
 
 #include <mach/sprd-audio.h>
+#include <linux/string.h>
+#include <linux/io.h>
+#include <sound/info.h>
+#include <sound/core.h>
+#include <sound/soc.h>
+
+
 #define I2S_VERSION	"i2s.r0p0"
 
 #define I2S_MAGIC_ID		(0x124)
@@ -84,8 +91,44 @@ struct i2s_config {
 	u16 tx_watermark;
 	u16 rx_watermark;
 };
-
 /* -------------------------- */
 #define I2S_FIFO_DEPTH 32
+
+/**********i2s-debug*********/
+#define SAMPLATE_MIN 8000
+#define SAMPLATE_MAX 96000
+
+
+#define FUN_REG(f) ((unsigned short)(-((f) + 1)))
+enum {
+	FS = 0,
+	HW_PROT,
+	SLAVE_TIMEOUT,
+	BUS_TYPE,
+	BYTE_PER_CHAN,
+	MODE,
+	LSB,
+	TRX_MODE,
+	LRCK_INV,
+	SYNC_MODE,
+	CLK_INV,
+	I2S_BUS_MODE,
+	PCM_BUS_MODE,
+	PCM_SLOT,
+	PCM_CYCLE,
+	TX_WATERMARK,
+	RX_WATERMARK,
+	I2S_CONFIG_MAX
+};
+void i2s_debug_write(struct snd_info_entry *entry,
+			struct snd_info_buffer *buffer);
+void i2s_debug_read(struct snd_info_entry *entry,
+			struct snd_info_buffer *buffer);
+void i2s_register_proc_read(struct snd_info_entry *entry,
+			struct snd_info_buffer *buffer);
+int i2s_config_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol);
+int i2s_config_set(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol);
 
 #endif /* __I2S_H */

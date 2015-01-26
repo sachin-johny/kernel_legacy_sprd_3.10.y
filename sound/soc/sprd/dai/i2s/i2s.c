@@ -16,12 +16,12 @@
  */
 #include "sprd-asoc-debug.h"
 #define pr_fmt(fmt) pr_sprd_fmt(" I2S ") fmt
+#define DEBUG
 
 #include <linux/module.h>
 #include <linux/moduleparam.h>
 #include <linux/init.h>
 #include <linux/kernel.h>
-#include <linux/string.h>
 #include <linux/sysfs.h>
 #include <linux/stat.h>
 #include <linux/device.h>
@@ -63,6 +63,12 @@
 
 #define I2S_REG(i2s, offset) ((unsigned int)((i2s)->membase + (offset)))
 #define I2S_PHY_REG(i2s, offset) (((unsigned int)(i2s)->memphys + (offset)))
+
+static unsigned int membase = 0;
+static struct i2s_config *dup_config = NULL;
+
+#define CMD_BUFFER_LENGTH 64
+
 
 struct i2s_rtx {
 	int dma_no;
@@ -616,7 +622,6 @@ static int i2s_hw_params(struct snd_pcm_substream *substream,
 	struct sprd_pcm_dma_params *dma_data;
 	struct i2s_config *config = dai->ac97_pdata;
 	struct i2s_priv *i2s = container_of(config, struct i2s_priv, config);
-
 	sp_asoc_pr_dbg("%s Port %d\n", __func__, i2s->hw_port);
 
 	if (substream->stream == SNDRV_PCM_STREAM_PLAYBACK) {
@@ -692,8 +697,294 @@ static struct snd_soc_dai_ops sprd_i2s_dai_ops = {
 	.hw_params = i2s_hw_params,
 	.trigger = i2s_trigger,
 };
+static void i2s_config_setting(int index,int value,struct i2s_config *config)
+{
+	pr_debug("i2s_config_setting i2s index %d,value %d \n",index,value);
+	if (config == NULL) {
+		pr_err("i2s_config_setting config is NULL,error! \n");
+		return;
+	}
+	switch (index) {
+	case FS:
+		if (value >= SAMPLATE_MIN && value <= SAMPLATE_MAX)
+			config->fs = value;
+		break;
+	case HW_PROT:
+		if (value >= 0 && value <= 3)
+			config->hw_port = value;
+		break;
+	case SLAVE_TIMEOUT:
+		config->slave_timeout = value;
+		break;
+	case BUS_TYPE:
+		if (value == I2S_BUS || value == PCM_BUS)
+			config->bus_type = value;
+		break;
+	case BYTE_PER_CHAN:
+		if (value == I2S_BPCH_8 || value == I2S_BPCH_16 || value == I2S_BPCH_32)
+			config->byte_per_chan = value;
+		break;
+	case MODE:
+		if (value == I2S_MASTER || value == I2S_SLAVE)
+			config->mode = value;
+		break;
+	case LSB:
+		if (value == I2S_MSB || value == I2S_LSB)
+			config->lsb = value;
+		break;
+	case TRX_MODE:
+		if (value >= I2S_RTX_DIS && value <= I2S_RTX_MODE)
+			config->rtx_mode = value;
+		break;
+	case LRCK_INV:
+		if (value == I2S_L_LEFT || value == I2S_L_RIGTH)
+			config->lrck_inv = value;
+		break;
+	case SYNC_MODE:
+		if (value == I2S_SYNC || value == I2S_LRCK)
+			config->sync_mode = value;
+		break;
+	case CLK_INV:
+		if (value == I2S_CLK_N || value == I2S_CLK_R)
+			config->clk_inv = value;
+		break;
+	case I2S_BUS_MODE:
+		if (value == I2S_MSBJUSTFIED || value == I2S_COMPATIBLE)
+			config->i2s_bus_mode = value;
+		break;
+	case PCM_BUS_MODE:
+		if (value == I2S_SHORT_FRAME || value == I2S_LONG_FRAME)
+			config->pcm_bus_mode = value;
+		break;
+	case PCM_SLOT:
+		if (value >= 1 && value <= 4)
+			config->pcm_slot = value;
+		break;
+	case PCM_CYCLE:
+		if (value >= 0 && value <= 127)
+			config->pcm_cycle = value;
+		break;
+	case TX_WATERMARK:
+		if (value >= 0 && value <= I2S_FIFO_DEPTH)
+			config->tx_watermark = value;
+		break;
+	case RX_WATERMARK:
+		if (value >= 0 && value <= I2S_FIFO_DEPTH)
+			config->rx_watermark = value;
+		break;
+	default:
+		pr_err("i2s echo cmd is invalide \n");
+		break;
+	}
+}
 
+static int i2s_config_getting(int index,struct i2s_config *config)
+{
+	pr_debug("i2s_config_getting i2s index %d\n",index);
+	if (config == NULL) {
+		pr_err("i2s_config_getting config is NULL,error\n");
+		return -1;
+	}
+	switch (index) {
+	case FS:
+		return config->fs;
+	case HW_PROT:
+		return config->hw_port;
+	case SLAVE_TIMEOUT:
+		return config->slave_timeout;
+	case BUS_TYPE:
+		return config->bus_type;
+	case BYTE_PER_CHAN:
+		return config->byte_per_chan;
+	case MODE:
+		return config->mode;
+	case LSB:
+		return config->lsb;
+	case TRX_MODE:
+		return config->rtx_mode;
+	case LRCK_INV:
+		return config->lrck_inv;
+	case SYNC_MODE:
+		return config->sync_mode;
+	case CLK_INV:
+		return config->clk_inv;
+	case I2S_BUS_MODE:
+		return config->i2s_bus_mode;
+	case PCM_BUS_MODE:
+		return config->pcm_bus_mode;
+	case PCM_SLOT:
+		return config->pcm_slot;
+	case PCM_CYCLE:
+		return config->pcm_cycle;
+	case TX_WATERMARK:
+		return config->tx_watermark;
+	case RX_WATERMARK:
+		return config->rx_watermark;
+	default:
+		pr_err("i2s config index is invalide \n");
+	return -1;
+	}
+}
 
+static int get_index(char *line_first,char *line_end)
+{
+	char *line_index = line_first;
+	char *line_first_dummy = line_first;
+	if (line_first == NULL || line_end == NULL)
+		return -1;
+	for (line_first;line_first < line_end;line_first++) {
+		if (*line_first >= '0' && *line_first <= '9') {
+			*line_index = *line_first;
+			line_index++;
+		}
+	}
+	*line_index = '\0';
+	return simple_strtoul(line_first_dummy, NULL, 10);
+}
+
+static int get_index_value(char *line_first)
+{
+	char *line_index_value = line_first;
+	char *line_first_dummy = line_first;
+	if (line_first == NULL)
+		return -1;
+	pr_debug("i2s get_index_value %s\n",line_first);
+	for (line_first;;line_first++) {
+		if (*line_first == '\0')
+			break;
+		if (*line_first >= '0' && *line_first <= '9') {
+			*line_index_value = *line_first;
+			line_index_value ++;
+		}
+	}
+	*line_index_value = '\0';
+	return simple_strtoul(line_first_dummy, NULL, 10);
+}
+
+void i2s_debug_write(struct snd_info_entry *entry,
+				struct snd_info_buffer *buffer)
+{
+	int index;
+	int index_value;
+	char *line = NULL;
+	char *sym_eq = NULL;
+	if (dup_config == NULL) {
+		pr_err("i2s_debug_write failed! \n");
+		return;
+	}
+	line = kzalloc(CMD_BUFFER_LENGTH,GFP_KERNEL);
+	if (!line) {
+		pr_err("malloc line buffer failed! \n");
+		return;
+	}
+	if (!snd_info_get_line(buffer, line, CMD_BUFFER_LENGTH)) {
+		pr_debug("i2s: input line %s\n",line);
+		sym_eq = strchr(line,'=');
+		if (sym_eq != NULL) {
+			index = get_index(line,sym_eq);
+			pr_debug("i2s: index %d\n",index);
+			index_value = get_index_value(++sym_eq);
+			pr_debug("i2s: index_value %d \n",index_value);
+			if (index >= 0 && index_value >= 0)
+				i2s_config_setting(index,index_value,dup_config);
+		} else if (strstr(line,"pcm")) {
+			memcpy(dup_config,&def_pcm_config,sizeof(def_pcm_config));
+		} else if (strstr(line,"i2s")) {
+			memcpy(dup_config,&def_i2s_config,sizeof(def_i2s_config));
+		} else {
+			pr_err("i2s:echo str fmt not right \n");
+		}
+	} else {
+		pr_err("i2s echo error \n");
+	}
+	kfree(line);
+	return;
+}
+
+void i2s_debug_read(struct snd_info_entry *entry,
+				struct snd_info_buffer *buffer)
+{
+	if (dup_config == NULL) {
+		snd_iprintf(buffer, "\n\n dup_config is NUll,error!\n");
+		return;
+	}
+	snd_iprintf(buffer, "\n\n using examples :\n");
+	snd_iprintf(buffer, " 1)echo 0=33 > i2s-debug \n");
+	snd_iprintf(buffer, " 2)echo i2s > i2s-debug \n");
+	snd_iprintf(buffer, " 3)echo pcm >i2s-debug \n\n");
+	snd_iprintf(buffer, " 0     fs 0d:%d\n 1     hw_port 0d:%d\n 2     slave_timeout 0x%x\n",
+			dup_config->fs,dup_config->hw_port,dup_config->slave_timeout);
+	snd_iprintf(buffer, " 3     bus_type(****tip:bus_type 0 is iis,1 is pcm****) 0x%x\n 4     byte_per_chan 0x%x\n",
+			dup_config->bus_type,dup_config->byte_per_chan);
+	snd_iprintf(buffer, " 5     mode(****tip:mode 0 is master,1 is slave****) 0x%x\n 6     lsb 0x%x\n",
+			dup_config->mode,dup_config->lsb);
+	snd_iprintf(buffer, " 7     rtx_mode 0x%x\n 8     lrck_inv 0x%x\n",
+			dup_config->rtx_mode,dup_config->lrck_inv);
+	snd_iprintf(buffer, " 9     sync_mode 0x%x\n 10    clk_inv 0x%x\n",
+			dup_config->sync_mode,dup_config->clk_inv);
+	snd_iprintf(buffer, " 11    i2s_bus_mode 0x%x\n 12    pcm_bus_mode 0x%x\n",
+			dup_config->i2s_bus_mode,dup_config->pcm_bus_mode);
+	snd_iprintf(buffer, " 13    pcm_slot 0x%x\n 14    pcm_cycle 0x%x\n",
+			dup_config->pcm_slot,dup_config->pcm_cycle);
+	snd_iprintf(buffer, " 15    tx_watermark 0d:%d\n 16    rx_watermark 0d:%d\n\n",
+			dup_config->tx_watermark,dup_config->rx_watermark);
+}
+
+static inline int iis_reg_read(unsigned int reg)
+{
+	return __raw_readl((void *__iomem)reg);
+}
+
+void i2s_register_proc_read(struct snd_info_entry *entry,
+			struct snd_info_buffer *buffer)
+{
+	int reg;
+	if (membase == 0) {
+		snd_iprintf(buffer,"\n\n i2s membase is NULL \n");
+		return;
+	}
+	pr_debug("i2s membase 0x%x \n",membase);
+	snd_iprintf(buffer, "i2s register dump\n");
+	for (reg = IIS_TXD + membase; reg <= IIS_STS4 + membase; reg += 0x10) {
+		snd_iprintf(buffer, "0x%08x | 0x%08x 0x%08x 0x%08x 0x%08x\n",
+			(reg - IIS_TXD -membase)
+			, iis_reg_read(reg + 0x00)
+			, iis_reg_read(reg + 0x04)
+			, iis_reg_read(reg + 0x08)
+			, iis_reg_read(reg + 0x0C)
+			);
+	}
+}
+
+int i2s_config_get(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	int id = FUN_REG(mc->reg);
+	if (dup_config == NULL) {
+		pr_err("i2s_config_get return \n");
+		return 0;
+	}
+	ucontrol->value.integer.value[0] = i2s_config_getting(id,dup_config);
+	pr_debug("i2s_config_get return value %d,id %d\n",ucontrol->value.integer.value[0],id);
+	return 0;
+}
+
+int i2s_config_set(struct snd_kcontrol *kcontrol,
+			struct snd_ctl_elem_value *ucontrol)
+{
+	struct soc_mixer_control *mc =
+		(struct soc_mixer_control *)kcontrol->private_value;
+	struct snd_soc_card *card = snd_kcontrol_chip(kcontrol);
+	int id = FUN_REG(mc->reg);
+	if (dup_config == NULL) {
+		pr_err("i2s_config_set return \n");
+		return 0;
+	}
+	i2s_config_setting(id, ucontrol->value.integer.value[0],dup_config);
+	return 0;
+}
 
 static const struct snd_soc_component_driver sprd_i2s_component = {
 	.name = "i2s",
@@ -839,7 +1130,6 @@ static int i2s_config_from_node(struct device_node *node, struct i2s_priv *i2s)
 	}
 	return 0;
 }
-
 static int i2s_drv_probe(struct platform_device *pdev)
 {
 	int ret;
@@ -1092,6 +1382,10 @@ static int i2s_drv_probe(struct platform_device *pdev)
 				       i2s->i2s_dai_driver, ARRAY_SIZE(i2s->i2s_dai_driver));
 	sp_asoc_pr_dbg("return %i\n", ret);
 
+	if (strcmp(i2s->dai_name,"i2s_bt_sco0") == 0) {
+		dup_config = &(i2s->config);
+		membase = i2s->membase;
+	}
 	return ret;
 out:
 	devm_kfree(&pdev->dev,i2s);
@@ -1102,10 +1396,10 @@ static int i2s_drv_remove(struct platform_device *pdev)
 {
 	struct i2s_priv *i2s;
 	i2s = platform_get_drvdata(pdev);
-
 	snd_soc_unregister_component(&pdev->dev);
 	return 0;
 }
+
 
 #ifdef CONFIG_OF
 static const struct of_device_id i2s_of_match[] = {

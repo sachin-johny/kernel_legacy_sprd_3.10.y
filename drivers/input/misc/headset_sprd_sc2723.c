@@ -1120,7 +1120,9 @@ out:
         if(0 == plug_state_last) {
                 headmicbias_power_on(&this_pdev->dev, 0);
                 headset_detect_clk_en();
-                regulator_set_mode(sprd_hts_power.head_mic, REGULATOR_MODE_NORMAL);
+                if(sprd_hts_power.head_mic){
+                    regulator_set_mode(sprd_hts_power.head_mic, REGULATOR_MODE_NORMAL);
+                }
         }
 
         headset_irq_detect_enable(1, ht->irq_detect);
@@ -1785,7 +1787,7 @@ static void __exit headset_exit(void)
         platform_driver_unregister(&headset_detect_driver);
 }
 
-module_init(headset_init);
+late_initcall(headset_init);
 module_exit(headset_exit);
 
 MODULE_DESCRIPTION("headset & button detect driver v2");
