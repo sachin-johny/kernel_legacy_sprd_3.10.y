@@ -185,7 +185,7 @@ void DrvPlatformLyrTouchDevicePowerOn(void)
     DBG("*** %s() ***\n", __func__);
     
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
-    gpio_direction_output(MS_TS_MSG_IC_GPIO_RST, 1);
+//    gpio_direction_output(MS_TS_MSG_IC_GPIO_RST, 1);
 //    gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1); 
 //    mdelay(100);
     gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 0);
@@ -231,8 +231,8 @@ void DrvPlatformLyrTouchDeviceResetHw(void)
     DBG("*** %s() ***\n", __func__);
     
 #if defined(CONFIG_TOUCH_DRIVER_RUN_ON_SPRD_PLATFORM) || defined(CONFIG_TOUCH_DRIVER_RUN_ON_QCOM_PLATFORM)
-    gpio_direction_output(MS_TS_MSG_IC_GPIO_RST, 1);
-//    gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1);
+//   gpio_direction_output(MS_TS_MSG_IC_GPIO_RST, 1);
+//   gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1);
     gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 0);
     mdelay(10);
     gpio_set_value(MS_TS_MSG_IC_GPIO_RST, 1);

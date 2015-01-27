@@ -52,6 +52,9 @@
 #include <linux/regulator/consumer.h>
 #endif //CONFIG_ENABLE_REGULATOR_POWER_ON
 
+#if(defined(CONFIG_I2C_SPRD) || defined(CONFIG_I2C_SPRD_V1))
+#include <mach/i2c-sprd.h>
+#endif
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/of_gpio.h>
@@ -168,6 +171,10 @@ static int /*__devinit*/ touch_driver_probe(struct i2c_client *client,
 #ifdef CONFIG_ENABLE_REGULATOR_POWER_ON
     g_ReguVdd = regulator_get(&g_I2cClient->dev, pdata->vdd_name);
 #endif //CONFIG_ENABLE_REGULATOR_POWER_ON
+
+#if(defined(CONFIG_I2C_SPRD) || defined(CONFIG_I2C_SPRD_V1))
+    sprd_i2c_ctl_chg_clk(client->adapter->nr, 100000);
+#endif
 
     return MsDrvInterfaceTouchDeviceProbe(g_I2cClient, id);
 exit_alloc_platform_data_failed:
