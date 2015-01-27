@@ -543,7 +543,7 @@
 		sprd,name = "spipe_lte";
 		sprd,dst = <5>;
 		sprd,channel = <4>;
-		sprd,ringnr = <9>;
+		sprd,ringnr = <15>;
 		sprd,size-rxbuf = <0x1000>; /* 4*1024 */
 		sprd,size-txbuf = <0x1000>; /* 4*1024 */
 	};
