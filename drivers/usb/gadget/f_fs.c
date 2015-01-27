@@ -2294,7 +2294,8 @@ static int ffs_func_bind(struct usb_configuration *c,
 	/* Zero */
 	memset(data->eps, 0, sizeof data->eps);
 	memcpy(data->raw_descs, ffs->raw_descs + 16, sizeof data->raw_descs);
-	memset(data->inums, 0xff, sizeof data->inums);
+    if(data->inums)
+        memset(data->inums, 0xff, sizeof data->inums);
 	for (ret = ffs->eps_count; ret; --ret)
 		data->eps[ret].num = -1;
 
@@ -2345,6 +2346,7 @@ static int ffs_func_bind(struct usb_configuration *c,
 
 error:
 	/* XXX Do we need to release all claimed endpoints here? */
+    kfree(data);
 	return ret;
 }
 
