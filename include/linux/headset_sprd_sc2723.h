@@ -34,8 +34,10 @@ struct sprd_headset_platform_data {
         int gpio_switch;
         int gpio_detect;
         int gpio_button;
+        int gpio_detect_mic;
         int irq_trigger_level_detect;
         int irq_trigger_level_button;
+        int irq_trigger_level_detect_mic;
         int adc_threshold_3pole_detect;
         int adc_threshold_4pole_detect;
         int irq_threshold_buttont;
@@ -49,6 +51,7 @@ struct sprd_headset {
         int headphone;
         int type;
         int irq_detect;
+        int irq_detect_mic;
         int irq_button;
         struct sprd_headset_platform_data *platform_data;
         struct switch_dev sdev;

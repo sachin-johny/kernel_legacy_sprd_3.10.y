@@ -260,8 +260,10 @@
 			gpio_switch = <0>;
 			gpio_detect = <312>;
 			gpio_button = <307>;
+			gpio_detect_mic = <309>;
 			irq_trigger_level_detect = <1>;
 			irq_trigger_level_button = <1>;
+			irq_trigger_level_detect_mic = <0>;
 			adc_threshold_3pole_detect = <300>;
 			adc_threshold_4pole_detect = <3270>;
 			irq_threshold_buttont = <1>;

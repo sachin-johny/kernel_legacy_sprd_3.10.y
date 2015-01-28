@@ -75,6 +75,12 @@ do{ printk(KERN_ERR "[SPRD_HEADSET_ERR][%d] func: %s  line: %04d  info: " format
 #define DBNC_CNT3_SHIFT (0)
 #define DBNC_CNT3_MASK (0xFFF << DBNC_CNT3_SHIFT)
 
+#define EIC5_DBNC_CTRL (0x54)
+#define DBNC_CNT5_VALUE (25)
+#define DBNC_CNT5_SHIFT (0)
+#define DBNC_CNT5_MASK (0xFFF << DBNC_CNT5_SHIFT)
+
+
 #define EIC8_DBNC_CTRL (0x60)
 #define DBNC_CNT8_VALUE (25)
 #define DBNC_CNT8_SHIFT (0)
@@ -222,6 +228,7 @@ static struct sprd_headset_auxadc_cal_l adc_cal_headset = {
 
 static DEFINE_SPINLOCK(irq_button_lock);
 static DEFINE_SPINLOCK(irq_detect_lock);
+static DEFINE_SPINLOCK(irq_detect_mic_lock);
 
 
 static int debug_level = 0;
@@ -503,6 +510,26 @@ static void headset_irq_detect_enable(int enable, unsigned int irq)
         return;
 }
 
+static void headset_irq_detect_mic_enable(int enable, unsigned int irq)
+{
+	unsigned long spin_lock_flags;
+	static int current_irq_state = 1;//irq is enabled after request_irq()
+	spin_lock_irqsave(&irq_detect_mic_lock, spin_lock_flags);
+	if (1 == enable) {
+		if (0 == current_irq_state) {
+			enable_irq(irq);
+			current_irq_state = 1;
+		}
+	} else {
+		if (1 == current_irq_state) {
+			disable_irq_nosync(irq);
+			current_irq_state = 0;
+		}
+	}
+	spin_unlock_irqrestore(&irq_detect_mic_lock, spin_lock_flags);
+	return;
+}
+
 static void headmic_sleep_disable(struct device *dev, int on)
 {
         static int current_power_state = 0;
@@ -549,11 +576,14 @@ static void headmicbias_power_on(struct device *dev, int on)
 static int ana_sts0_confirm(void)
 {
         if(0 == headset_reg_get_bit(HEADMIC_DETECT_REG(ANA_STS0), AUDIO_HEAD_INSERT))
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+                return 0;
+#else
                 return 1;
+#endif
         else
                 return 1;
 }
-
 static int adc_compare(int x1, int x2)
 {
         int delta = 0;
@@ -1083,13 +1113,16 @@ static void headset_detect_work_func(struct work_struct *work)
                 }
 
                 plug_state_last = 1;
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+                headset_irq_detect_enable(0, ht->irq_detect);
+                headset_irq_detect_mic_enable(1,ht->irq_detect_mic);
+#else
                 if(1 == pdata->irq_trigger_level_detect)
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_LOW);
                 else
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_HIGH);
-
                 headset_irq_detect_enable(1, ht->irq_detect);
+#endif
         } else if(0 == plug_state_current && 1 == plug_state_last) {
 
                 headset_irq_button_enable(0, ht->irq_button);
@@ -1104,12 +1137,14 @@ static void headset_detect_work_func(struct work_struct *work)
                 //hp_notifier_call_chain(ht->type);
                 switch_set_state(&ht->sdev, ht->type);
                 plug_state_last = 0;
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+                headset_irq_detect_mic_enable(0,ht->irq_detect_mic);
+#else
                 if(1 == pdata->irq_trigger_level_detect)
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_HIGH);
                 else
                         headset_irq_set_irq_type(ht->irq_detect, IRQF_TRIGGER_LOW);
-
+#endif
                 headset_irq_detect_enable(1, ht->irq_detect);
         } else {
                 PRINT_INFO("irq_detect must be enabled anyway!!!\n");
@@ -1118,14 +1153,24 @@ static void headset_detect_work_func(struct work_struct *work)
 out:
 
         if(0 == plug_state_last) {
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+                headset_irq_detect_mic_enable(0,ht->irq_detect_mic);
+                headset_irq_detect_enable(1, ht->irq_detect);
+#endif
                 headmicbias_power_on(&this_pdev->dev, 0);
                 headset_detect_clk_en();
                 if(sprd_hts_power.head_mic){
                     regulator_set_mode(sprd_hts_power.head_mic, REGULATOR_MODE_NORMAL);
                 }
         }
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        if(1 == plug_state_last){
+            headset_irq_detect_mic_enable(1,ht->irq_detect_mic);
+            headset_irq_detect_enable(0, ht->irq_detect);
+        }
+#else
         headset_irq_detect_enable(1, ht->irq_detect);
+#endif
         //wake_unlock(&headset_detect_wakelock);
         up(&headset_sem);
         return;
@@ -1149,6 +1194,7 @@ static void reg_dump_func(struct work_struct *work)
 
         int gpio_detect = 0;
         int gpio_button = 0;
+        int gpio_detect_mic = 0;
 
         int ana_sts0 = 0;
         int ana_pmu0 = 0;
@@ -1167,6 +1213,7 @@ static void reg_dump_func(struct work_struct *work)
 
         gpio_detect = gpio_get_value(headset.platform_data->gpio_detect);
         gpio_button = gpio_get_value(headset.platform_data->gpio_button);
+        gpio_detect_mic = gpio_get_value(headset.platform_data->gpio_detect_mic);
 
         sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN, BIT_ANA_AUD_EN);//arm base address:0x40038800 for register accessable
         ana_pmu0 = sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_PMU0);//arm base address:0x40038600
@@ -1184,9 +1231,10 @@ static void reg_dump_func(struct work_struct *work)
         arm_module_en = sci_adi_read(ANA_REG_GLB_ARM_MODULE_EN);
         arm_clk_en = sci_adi_read(ANA_REG_GLB_ARM_CLK_EN);
 
-        PRINT_INFO("GPIO_%03d(det)=%d    GPIO_%03d(but)=%d    adc_mic=%d\n",
+        PRINT_INFO("GPIO_%03d(det)=%d    GPIO_%03d(but)=%d    GPIO_%03d(det_mic)=%d    adc_mic=%d\n",
                    headset.platform_data->gpio_detect, gpio_detect,
                    headset.platform_data->gpio_button, gpio_button,
+                   headset.platform_data->gpio_detect_mic,gpio_detect_mic,
                    adc_mic);
         PRINT_INFO("arm_module_en|arm_clk_en|ana_pmu0  |ana_cfg1  |ana_hdt0 |ana_sts0  |hid_cfg2  |hid_cfg3  |hid_cfg4  |hid_cfg0\n");
         PRINT_INFO("0x%08X   |0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
@@ -1206,7 +1254,6 @@ static void reg_dump_func(struct work_struct *work)
         PRINT_INFO("0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X|0x%08X\n",
                    hbd[10], hbd[11], hbd[12], hbd[13], hbd[14], hbd[15], hbd[16], hbd[17], hbd[18], hbd[19]);
 #endif
-
         if (debug_level >= 2)
                 queue_delayed_work(reg_dump_work_queue, &reg_dump_work, msecs_to_jiffies(500));
         return;
@@ -1231,7 +1278,6 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
         struct sprd_headset *ht = dev;
         int button_state_current = 0;
         int gpio_button_value_current = 0;
-
         if(0 == headset_button_valid(gpio_get_value(ht->platform_data->gpio_detect))) {
                 PRINT_INFO("headset_button_irq_handler: button is invalid!!! IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                            ht->irq_button, ht->platform_data->gpio_button, gpio_button_value_last,
@@ -1270,16 +1316,37 @@ static irqreturn_t headset_button_irq_handler(int irq, void *dev)
 static irqreturn_t headset_detect_irq_handler(int irq, void *dev)
 {
         struct sprd_headset *ht = dev;
-
+        PRINT_INFO("headset_detect_irq_handler in \n");
         headset_irq_button_enable(0, ht->irq_button);
         headset_irq_detect_enable(0, ht->irq_detect);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        headset_irq_detect_mic_enable(0,ht->irq_detect_mic);
+#endif
         wake_lock_timeout(&headset_detect_wakelock, msecs_to_jiffies(2000));
         gpio_detect_value_last = gpio_get_value(ht->platform_data->gpio_detect);
         PRINT_DBG("headset_detect_irq_handler: IRQ_%d(GPIO_%d) = %d, ANA_STS0 = 0x%08X\n",
                   ht->irq_detect, ht->platform_data->gpio_detect, gpio_detect_value_last,
                   sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_STS0));
         queue_delayed_work(ht->detect_work_queue, &ht->work_detect, msecs_to_jiffies(0));
+        PRINT_INFO("headset_detect_irq_handler out \n");
         return IRQ_HANDLED;
+}
+
+static irqreturn_t headset_detect_mic_irq_handler(int irq, void *dev)
+{
+    struct sprd_headset *ht = dev;
+    PRINT_INFO("headset_detect_mic_irq_handler in \n");
+    if (plug_state_last != 1){
+        headset_irq_detect_mic_enable(0,ht->irq_detect_mic);
+        PRINT_INFO("headset_detect_mic_irq_handler out0 \n");
+        return IRQ_HANDLED;
+    }
+    headset_irq_detect_mic_enable(0,ht->irq_detect_mic);
+    headset_irq_detect_enable(0, ht->irq_detect);
+    wake_lock_timeout(&headset_detect_wakelock, msecs_to_jiffies(2000));
+    queue_delayed_work(ht->detect_work_queue, &ht->work_detect, msecs_to_jiffies(0));
+    PRINT_INFO("headset_detect_mic_irq_handler out1 \n");
+    return IRQ_HANDLED;
 }
 
 //================= create sys fs for debug ===================
@@ -1350,6 +1417,11 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(struct device 
                 dev_err(dev, "fail to get gpio_detect\n");
                 goto fail;
         }
+        ret = of_property_read_u32(np, "gpio_detect_mic", &pdata->gpio_detect_mic);
+        if(ret) {
+                dev_err(dev, "fail to get gpio_detect_mic\n");
+                goto fail;
+        }
         ret = of_property_read_u32(np, "gpio_button", &pdata->gpio_button);
         if(ret) {
                 dev_err(dev, "fail to get gpio_button\n");
@@ -1358,6 +1430,11 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(struct device 
         ret = of_property_read_u32(np, "irq_trigger_level_detect", &pdata->irq_trigger_level_detect);
         if(ret) {
                 dev_err(dev, "fail to get irq_trigger_level_detect\n");
+                goto fail;
+        }
+        ret = of_property_read_u32(np, "irq_trigger_level_detect_mic", &pdata->irq_trigger_level_detect_mic);
+        if(ret) {
+                dev_err(dev, "fail to get irq_trigger_level_detect_mic\n");
                 goto fail;
         }
         ret = of_property_read_u32(np, "irq_trigger_level_button", &pdata->irq_trigger_level_button);
@@ -1535,7 +1612,9 @@ static int headset_detect_probe(struct platform_device *pdev)
         gpio_direction_input(pdata->gpio_button);
         ht->irq_detect = gpio_to_irq(pdata->gpio_detect);
         ht->irq_button = gpio_to_irq(pdata->gpio_button);
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        ht->irq_detect_mic = gpio_to_irq(pdata->gpio_detect_mic);
+#endif
         ret = switch_dev_register(&ht->sdev);
         if (ret < 0) {
                 PRINT_ERR("switch_dev_register failed!\n");
@@ -1580,7 +1659,6 @@ static int headset_detect_probe(struct platform_device *pdev)
                 PRINT_ERR("create_singlethread_workqueue for headset_detect failed!\n");
                 goto failed_to_create_singlethread_workqueue_for_headset_detect;
         }
-
         INIT_DELAYED_WORK(&reg_dump_work, reg_dump_func);
         reg_dump_work_queue = create_singlethread_workqueue("headset_reg_dump");
         if(reg_dump_work_queue == NULL) {
@@ -1606,9 +1684,13 @@ static int headset_detect_probe(struct platform_device *pdev)
 
         //set EIC3 de-bounce time for button irq
         headset_reg_set_val((ANA_EIC_BASE+EIC3_DBNC_CTRL), DBNC_CNT3_VALUE, DBNC_CNT3_MASK, DBNC_CNT3_SHIFT);
-        //set EIC5 de-bounce time for inser irq
+        //set EIC8 de-bounce time for inser irq
         headset_reg_set_val((ANA_EIC_BASE+EIC8_DBNC_CTRL), DBNC_CNT8_VALUE, DBNC_CNT8_MASK, DBNC_CNT8_SHIFT);
 
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        //set EIC5 de-bounce time for ins_mic irq
+        headset_reg_set_val((ANA_EIC_BASE+EIC5_DBNC_CTRL), DBNC_CNT5_VALUE, DBNC_CNT5_MASK, DBNC_CNT5_SHIFT);
+#endif
         irqflags = pdata->irq_trigger_level_button ? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
         ret = request_irq(ht->irq_button, headset_button_irq_handler, irqflags | IRQF_NO_SUSPEND, "headset_button", ht);
         if (ret) {
@@ -1624,12 +1706,22 @@ static int headset_detect_probe(struct platform_device *pdev)
                 PRINT_ERR("failed to request IRQ_%d(GPIO_%d)\n", ht->irq_detect, pdata->gpio_detect);
                 goto failed_to_request_irq_headset_detect;
         }
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        irqflags = pdata->irq_trigger_level_detect_mic? IRQF_TRIGGER_HIGH : IRQF_TRIGGER_LOW;
+        ret = request_irq(ht->irq_detect_mic, headset_detect_mic_irq_handler, irqflags | IRQF_NO_SUSPEND, "headset_detect_mic", ht);
+        if (ret < 0) {
+            PRINT_ERR("failed to request IRQ_%d(GPIO_%d)\n", ht->irq_detect_mic, pdata->gpio_detect_mic);
+            goto failed_to_request_irq_mic_headset_detect;
+        }
+#endif
         ret = headset_debug_sysfs_init();
 
         PRINT_INFO("headset_detect_probe success\n");
         return ret;
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+failed_to_request_irq_mic_headset_detect:
+        free_irq(ht->irq_detect_mic,ht);
+#endif
 failed_to_request_irq_headset_detect:
         free_irq(ht->irq_button, ht);
 failed_to_request_irq_headset_button:
