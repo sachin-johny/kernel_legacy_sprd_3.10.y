@@ -1213,7 +1213,9 @@ static void reg_dump_func(struct work_struct *work)
 
         gpio_detect = gpio_get_value(headset.platform_data->gpio_detect);
         gpio_button = gpio_get_value(headset.platform_data->gpio_button);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
         gpio_detect_mic = gpio_get_value(headset.platform_data->gpio_detect_mic);
+#endif
 
         sci_adi_write(ANA_REG_GLB_ARM_MODULE_EN, BIT_ANA_AUD_EN, BIT_ANA_AUD_EN);//arm base address:0x40038800 for register accessable
         ana_pmu0 = sci_adi_read(ANA_AUDCFGA_INT_BASE+ANA_PMU0);//arm base address:0x40038600
@@ -1417,11 +1419,13 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(struct device 
                 dev_err(dev, "fail to get gpio_detect\n");
                 goto fail;
         }
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
         ret = of_property_read_u32(np, "gpio_detect_mic", &pdata->gpio_detect_mic);
         if(ret) {
                 dev_err(dev, "fail to get gpio_detect_mic\n");
                 goto fail;
         }
+#endif
         ret = of_property_read_u32(np, "gpio_button", &pdata->gpio_button);
         if(ret) {
                 dev_err(dev, "fail to get gpio_button\n");
@@ -1432,11 +1436,13 @@ static struct sprd_headset_platform_data *headset_detect_parse_dt(struct device 
                 dev_err(dev, "fail to get irq_trigger_level_detect\n");
                 goto fail;
         }
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
         ret = of_property_read_u32(np, "irq_trigger_level_detect_mic", &pdata->irq_trigger_level_detect_mic);
         if(ret) {
                 dev_err(dev, "fail to get irq_trigger_level_detect_mic\n");
                 goto fail;
         }
+#endif
         ret = of_property_read_u32(np, "irq_trigger_level_button", &pdata->irq_trigger_level_button);
         if(ret) {
                 dev_err(dev, "fail to get irq_trigger_level_button\n");
@@ -1599,7 +1605,13 @@ static int headset_detect_probe(struct platform_device *pdev)
                 PRINT_ERR("failed to request GPIO_%d(headset_detect)\n", pdata->gpio_detect);
                 goto failed_to_request_gpio_detect;
         }
-
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        ret = gpio_request(pdata->gpio_detect_mic, "headset_detect_mic");
+        if (ret < 0) {
+                PRINT_ERR("failed to request GPIO_%d(headset_detect_mic)\n", pdata->gpio_detect_mic);
+                goto failed_to_request_gpio_detect_mic;
+        }
+#endif
         ret = gpio_request(pdata->gpio_button, "headset_button");
         if (ret < 0) {
                 PRINT_ERR("failed to request GPIO_%d(headset_button)\n", pdata->gpio_button);
@@ -1609,6 +1621,9 @@ static int headset_detect_probe(struct platform_device *pdev)
         if(0 != pdata->gpio_switch)
                 gpio_direction_output(pdata->gpio_switch, 0);
         gpio_direction_input(pdata->gpio_detect);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+        gpio_direction_input(pdata->gpio_detect_mic);
+#endif
         gpio_direction_input(pdata->gpio_button);
         ht->irq_detect = gpio_to_irq(pdata->gpio_detect);
         ht->irq_button = gpio_to_irq(pdata->gpio_button);
@@ -1748,6 +1763,10 @@ failed_to_register_switch_dev:
         gpio_free(pdata->gpio_button);
 failed_to_request_gpio_button:
         gpio_free(pdata->gpio_detect);
+#ifdef CONFIG_SND_SOC_SPRD_USE_EAR_JACK_TYPE13
+failed_to_request_gpio_detect_mic:
+        gpio_free(pdata->gpio_detect_mic);
+#endif
 failed_to_request_gpio_detect:
         if(0 != pdata->gpio_switch)
                 gpio_free(pdata->gpio_switch);
