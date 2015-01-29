@@ -100,6 +100,11 @@ static void __inline __dma_clk_disable(void)
 	sci_glb_clr(REG_AP_AHB_AHB_EB, BIT_DMA_EB);
 }
 
+static void __inline __dma_softreset(void)
+{
+	sci_glb_clr(REG_AP_AHB_AHB_RST, BIT_DMA_SOFT_RST);
+}
+
 static int __dma_set_int_type(u32 dma_chn, dma_int_type int_type)
 {
 	u32 reg_val;
@@ -375,7 +380,7 @@ static void __inline __dma_soft_request(u32 dma_chn)
 
 static void __dma_stop_and_disable(u32 dma_chn)
 {
-	int time_out;
+	u32 time_out = 0x2000;
 
 	/*if the chn has disable already, do nothing */
 	if (!(readl(DMA_CHN_CFG(dma_chn)) & 0x1))
@@ -384,8 +389,11 @@ static void __dma_stop_and_disable(u32 dma_chn)
 	writel(readl(DMA_CHN_PAUSE(dma_chn)) | 0x1, DMA_CHN_PAUSE(dma_chn));
 	/*fixme, need to set timeout */
 	while (!(readl(DMA_CHN_PAUSE(dma_chn)) & (0x1 << 16))){
-		if(time_out++ > 500)
+		time_out--;
+		if(time_out == 0){
+			__dma_softreset();
 			break;
+		}
 	};
 
 	writel(readl(DMA_CHN_CFG(dma_chn)) & ~0x1, DMA_CHN_CFG(dma_chn));
@@ -558,8 +566,10 @@ int sci_dma_free(u32 dma_chn)
 			break;
 	}
 
-	if (i > DMA_CHN_MAX)
+	if (i > DMA_CHN_MAX){
+		__dma_softreset();
 		__dma_clk_disable();
+	}
 
 	mutex_unlock(&dma_mutex);
 
