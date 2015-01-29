@@ -470,8 +470,8 @@
 
 //changed by jian.chen---use the same as dolphin first
 #define SPRD_IRAM2_BASE			SCI_IOMAP(0x3d7000)
-#define SPRD_IRAM2_PHYS			0x50004000
-#define SPRD_IRAM2_SIZE			(SZ_32K + SZ_4K)
+#define SPRD_IRAM2_PHYS			0x50002000
+#define SPRD_IRAM2_SIZE			(SZ_16K + SZ_4K + SZ_2K + SZ_1K)
 
 #define SPRD_MMMMU_BASE				SCI_IOMAP(0x430000)
 #define SPRD_MMMMU_PHYS				0X60F00000

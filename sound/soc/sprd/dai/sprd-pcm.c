@@ -58,6 +58,8 @@ struct sprd_runtime_data {
 	int uid_cid_map[2];
 	int int_pos_update[2];
 	sprd_dma_desc *dma_cfg_array;
+	dma_addr_t *dma_desc_array_orig;
+	dma_addr_t dma_desc_array_phys_orig;
 	dma_addr_t *dma_desc_array;
 	dma_addr_t dma_desc_array_phys;
 	int burst_len;
@@ -273,11 +275,15 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 	    || !((substream->stream == SNDRV_PCM_STREAM_PLAYBACK)
 		 && 0 == sprd_buffer_iram_backup())) {
 #endif
-		rtd->dma_desc_array =
+		rtd->dma_desc_array_orig =
 		    dma_alloc_writecombine(substream->pcm->card->dev,
-					   hw_chan * PAGE_SIZE,
-					   &rtd->dma_desc_array_phys,
+					   hw_chan * (PAGE_SIZE+32),
+					   &rtd->dma_desc_array_phys_orig,
 					   GFP_KERNEL);
+
+		rtd->dma_desc_array_phys = (rtd->dma_desc_array_phys_orig+31)&(~31);
+		rtd->dma_desc_array  =	(unsigned int)rtd->dma_desc_array_orig + (rtd->dma_desc_array_phys - rtd->dma_desc_array_phys_orig);
+
 		if (atomic_inc_return(&lightsleep_refcnt) == 1)
 			sprd_lightsleep_disable("audio", 1);
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM
@@ -290,12 +296,15 @@ static int sprd_pcm_open(struct snd_pcm_substream *substream)
 		    (void *)(s_iram_remap_base + runtime->hw.buffer_bytes_max);
 		rtd->dma_desc_array_phys =
 		    SPRD_IRAM_ALL_PHYS + runtime->hw.buffer_bytes_max;
+		rtd->dma_desc_array_orig = rtd->dma_desc_array;
+		rtd->dma_desc_array_phys_orig = rtd->dma_desc_array_phys;
 		rtd->buffer_in_iram = 1;
 		/*must clear the dma_desc_array first here */
 		memset(rtd->dma_desc_array, 0, (2 * SPRD_AUDIO_DMA_NODE_SIZE));
 	}
 #endif
-	if (!rtd->dma_desc_array)
+
+	if (!rtd->dma_desc_array_orig)
 		goto err1;
 
 	rtd->dma_cfg_array =
@@ -323,8 +332,8 @@ err2:
 #endif
 		dma_free_writecombine(substream->pcm->card->dev,
 				      hw_chan * PAGE_SIZE,
-				      rtd->dma_desc_array,
-				      rtd->dma_desc_array_phys);
+				      rtd->dma_desc_array_orig,
+				      rtd->dma_desc_array_phys_orig);
 err1:
 	pr_err("ERR:dma_desc_array alloc failed!\n");
 	kfree(rtd);
@@ -354,8 +363,8 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 #endif
 		dma_free_writecombine(substream->pcm->card->dev,
 				      rtd->hw_chan * PAGE_SIZE,
-				      rtd->dma_desc_array,
-				      rtd->dma_desc_array_phys);
+				      rtd->dma_desc_array_orig,
+				      rtd->dma_desc_array_phys_orig);
 		if (!atomic_dec_return(&lightsleep_refcnt))
 			sprd_lightsleep_disable("audio", 0);
 #ifdef CONFIG_SND_SOC_SPRD_AUDIO_BUFFER_USE_IRAM

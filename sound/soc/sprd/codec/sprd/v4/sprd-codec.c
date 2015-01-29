@@ -2683,7 +2683,7 @@ static int switch_event(struct snd_soc_dapm_widget *w,
     int ret = 0;
     int min = 0;
     struct sprd_codec_switch_op *switcher = &(sprd_codec->switcher[id]);
-    sp_asoc_pr_info("%s Switch %d(%s) Event is %s\n", __func__,
+    sp_asoc_pr_info("%s Switch %s(%s) Event is %s\n", __func__,
             switch_name[id], switcher->on? "on":"off",
             get_event_name(event));
     min = sprd_codec_switch_cfg[id].min;
