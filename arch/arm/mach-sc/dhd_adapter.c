@@ -51,7 +51,7 @@
 #define DHD_SKB_2PAGE_BUFSIZE	((PAGE_SIZE*2)-DHD_SKB_HDRSIZE)
 #define DHD_SKB_4PAGE_BUFSIZE	((PAGE_SIZE*4)-DHD_SKB_HDRSIZE)
 
-#define WLAN_SKB_BUF_NUM	16
+#define WLAN_SKB_BUF_NUM	17
 #define IFHWADDRLEN        	6
 
 #define CUSTOMER_MAC_FILE "/data/misc/wifi/wifimac.txt"
