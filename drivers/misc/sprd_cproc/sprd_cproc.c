@@ -70,7 +70,7 @@ struct cproc_proc_fs {
 	struct cproc_proc_entry		start;
 	struct cproc_proc_entry		stop;
 	struct cproc_proc_entry		modem;
-	struct cproc_proc_entry		dsp[2];
+	struct cproc_proc_entry		dsp[3];
 	struct cproc_proc_entry		status;
 	struct cproc_proc_entry		wdtirq;
 	struct cproc_proc_entry		mem;
@@ -150,6 +150,7 @@ static int cproc_proc_open(struct inode *inode, struct file *filp)
 		return -ENOMEM;
 	}
 */
+        pr_info("cproc proc open type: %s\n!", entry->name);
 
 	filp->private_data = entry;
 
@@ -269,8 +270,6 @@ static ssize_t cproc_proc_write(struct file *filp,
 	void *vmem;
 	size_t r, i;/*count ioremap, shi yunlong*/
 
-	pr_debug("cproc proc write type: %s\n!", type);
-
 	if (strcmp(type, "start") == 0) {
 		printk(KERN_INFO "cproc_proc_write to map cproc base start\n");
 		cproc->initdata->start(cproc);
@@ -305,6 +304,13 @@ static ssize_t cproc_proc_write(struct file *filp,
 		size = cproc->initdata->segs[2].maxsz;
 		offset = *ppos;
 	}
+        else if (strcmp(type, "warm") == 0)
+        {
+            base = cproc->initdata->segs[3].base;
+            size = cproc->initdata->segs[3].maxsz;
+            offset = *ppos;
+            pr_info_once("cproc proc write type: %s,base=%x\n", type,base);
+        }
         else {
 		return -EINVAL;
 	}
