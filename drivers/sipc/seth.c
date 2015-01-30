@@ -387,7 +387,7 @@ seth_tx_ready_handler (void* data)
 {
 	SEth* seth = (SEth*) data;
 
-	SETH_INFO("seth_tx_ready_handler state %0x\n", seth->state);
+	SETH_DEBUG("seth_tx_ready_handler state %0x\n", seth->state);
 	if (seth->state != DEV_ON) {
 		seth->state = DEV_ON;
 		seth->txstate = DEV_ON;
@@ -449,6 +449,8 @@ static void seth_rx_handler (void * data)
 		SETH_ERR("seth_rx_handler data is NULL.\n");
 		return;
 	}
+
+
 	/* if the poll handler has been done, trigger to schedule*/
 	if (!atomic_read(&seth->rx_busy)) {
 		atomic_inc(&seth->rx_busy);
@@ -740,6 +742,27 @@ seth_start_xmit (struct sk_buff* skb, struct net_device* dev)
 static int seth_open (struct net_device *dev)
 {
 	SEth* seth = netdev_priv(dev);
+	struct seth_init_data *pdata;
+	struct sblock blk;
+	int ret = 0, num = 0;
+
+	SETH_INFO("open seth!\n");
+
+	if (!seth) {
+		return -ENODEV;
+	}
+
+	pdata = seth->pdata;
+
+	/* clean the resident sblocks */
+	while(!ret) {
+		ret = sblock_receive(pdata->dst, pdata->channel, &blk, 0);
+		if (!ret) {
+			sblock_release(pdata->dst, pdata->channel, &blk);
+			num++;
+		}
+	}
+	SETH_INFO("seth_open clean %d resident sblocks\n", num);
 
 	/* Reset stats */
 	memset(&seth->stats, 0, sizeof(seth->stats));
@@ -756,6 +779,7 @@ static int seth_open (struct net_device *dev)
 #endif
 
 	seth->txstate = DEV_ON;
+	seth->state = DEV_ON;
 
 	netif_start_queue(dev);
 
@@ -769,13 +793,16 @@ static int seth_close (struct net_device *dev)
 {
 	SEth* seth = netdev_priv(dev);
 
+	SETH_INFO("close seth!\n");
+
+	seth->txstate = DEV_OFF;
+	seth->state = DEV_OFF;
+
 #ifdef SETH_NAPI
 	napi_disable(&seth->napi);
 #endif
 
 	netif_stop_queue(dev);
-
-	seth->txstate = DEV_OFF;
 
 	return 0;
 }
@@ -1037,7 +1064,7 @@ static int seth_debug_show(struct seq_file *m, void *v)
 	seq_printf(m, "\nRX statistics:\n");
 	seq_printf(m, "rx_pkt_max=%u, rx_pkt_min=%u, rx_sum=%u, rx_cnt=%u\n",
 			stats->rx_pkt_max, stats->rx_pkt_min, stats->rx_sum, stats->rx_cnt);
-	seq_printf(m, "rx_alloc_fails=%u\n", stats->rx_alloc_fails);
+	seq_printf(m, "rx_alloc_fails=%u, rx_busy=%d\n", stats->rx_alloc_fails, atomic_read(&seth->rx_busy));
 
 	seq_printf(m, "\nTX statistics:\n");
 	seq_printf(m, "tx_pkt_max=%u, tx_pkt_min=%u, tx_sum=%u, tx_cnt=%u\n",
