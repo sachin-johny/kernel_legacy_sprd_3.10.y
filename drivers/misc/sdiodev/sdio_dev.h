@@ -142,7 +142,7 @@ extern volatile bool marlin_mmc_suspend;
 
 
 	
-#define SDIOTRAN_HEADER "\nSDIOTRAN:"
+#define SDIOTRAN_HEADER "[SDIOTRAN]"
 	
 #define SDIOTRAN_ERR(fmt,args...)	\
 	pr_err(SDIOTRAN_HEADER "%s:" fmt "\n", __func__, ## args)
@@ -155,7 +155,7 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id);
 int set_marlin_sleep(uint32 chn,uint32 user_id);
 
 
-#if !defined(CONFIG_MARLIN_NO_SLEEP)
+#if 0//#if !defined(CONFIG_MARLIN_NO_SLEEP)
 
 #define MARLIN_PM_RESUME_WAIT_INIT(a) DECLARE_WAIT_QUEUE_HEAD(a);
 #define _MARLIN_PM_RESUME_WAIT(a, b) do {\
