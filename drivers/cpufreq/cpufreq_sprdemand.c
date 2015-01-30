@@ -1814,6 +1814,9 @@ static int sprdemand_gov_pm_notifier_call(struct notifier_block *nb,
 		dbs_freq_increase(policy, policy->max);
 		pr_info(" %s, recv pm suspend notify done\n", __func__ );
 	}
+	if (event == PM_POST_SUSPEND) {
+		sd_tuners->is_suspend = false;
+	}
 
 	return NOTIFY_OK;
 }
@@ -1851,7 +1854,6 @@ static void sprdemand_gov_late_resume(struct early_suspend *h)
 	if (sd_tuners->cpu_num_limit > 1)
 		if(cpu_hotplug_disable_set == false)
 			sd_tuners->cpu_hotplug_disable = false;
-	sd_tuners->is_suspend = false;
 
 	return;
 }
