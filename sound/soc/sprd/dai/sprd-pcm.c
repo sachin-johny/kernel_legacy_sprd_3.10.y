@@ -331,7 +331,7 @@ err2:
 	else
 #endif
 		dma_free_writecombine(substream->pcm->card->dev,
-				      hw_chan * PAGE_SIZE,
+				      hw_chan * (PAGE_SIZE + 32),
 				      rtd->dma_desc_array_orig,
 				      rtd->dma_desc_array_phys_orig);
 err1:
@@ -362,7 +362,7 @@ static int sprd_pcm_close(struct snd_pcm_substream *substream)
 	else {
 #endif
 		dma_free_writecombine(substream->pcm->card->dev,
-				      rtd->hw_chan * PAGE_SIZE,
+				      rtd->hw_chan * (PAGE_SIZE + 32),
 				      rtd->dma_desc_array_orig,
 				      rtd->dma_desc_array_phys_orig);
 		if (!atomic_dec_return(&lightsleep_refcnt))
