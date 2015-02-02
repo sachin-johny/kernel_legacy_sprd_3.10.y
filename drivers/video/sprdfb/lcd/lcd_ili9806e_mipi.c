@@ -325,6 +325,7 @@ static LCM_Init_Code init_data[] = {
 	{LCM_SEND(2), {0x3D,0x22}},
 	{LCM_SEND(2), {0x3E,0x22}},
 	{LCM_SEND(2), {0x3F,0x22}},
+	{LCM_SEND(2), {0x52,0x10}}, /*reduce current when battery charging*/
 
 	{LCM_SEND(2), {0x40,0x22}},
 
