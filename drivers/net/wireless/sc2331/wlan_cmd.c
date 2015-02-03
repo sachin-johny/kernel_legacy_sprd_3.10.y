@@ -716,6 +716,7 @@ int wlan_cmd_mac_close(unsigned char vif_id, unsigned char mode)
 
 int wlan_cmd_assert(unsigned char vif_id, unsigned int reason_code)
 {
+	return 0;
 	struct wlan_cmd_assert_t *assert_cmd = NULL;
 	unsigned int  dataLen = sizeof(struct wlan_cmd_assert_t);
 	assert_cmd = kmalloc(sizeof(struct wlan_cmd_assert_t), GFP_KERNEL);
