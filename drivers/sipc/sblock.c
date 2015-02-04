@@ -571,8 +571,8 @@ static int sblock_send_ex(uint8_t dst, uint8_t channel, struct sblock *blk, bool
 		        rval = smsg_send(dst, &mevt, 0);
                 }
                 else if(!ring->yell) {
-                        if(((int)(ringhd->txblk_wrptr - ringhd->txblk_rdptr) == 1) &&
-                                ((int)(poolhd->txblk_wrptr - poolhd->txblk_rdptr) == (sblock->txblknum - 1))) {
+                        if(((int)(ringhd->txblk_wrptr - ringhd->txblk_rdptr) == 1) /*&&
+                                ((int)(poolhd->txblk_wrptr - poolhd->txblk_rdptr) == (sblock->txblknum - 1))*/) {
                                 ring->yell = 1;
                         }
                 }
