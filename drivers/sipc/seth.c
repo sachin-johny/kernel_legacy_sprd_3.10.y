@@ -277,15 +277,18 @@ static int seth_rx_poll_handler(struct napi_struct * napi, int budget)
 {
 	struct SEth *seth = container_of(napi, struct SEth, napi);
 	struct sk_buff * skb;
-	struct seth_init_data *pdata = seth->pdata;
+	struct seth_init_data *pdata;
 	struct sblock blk;
+	struct seth_dtrans_stats *dt_stats;
 	int skb_cnt, blk_ret, ret;
-	struct seth_dtrans_stats *dt_stats = &seth->dt_stats;
 
 	if (!seth) {
 		SETH_ERR("seth_rx_poll_handler no seth device\n");
 		return 0;
 	}
+
+	pdata = seth->pdata;
+	dt_stats = &seth->dt_stats;
 
 	blk_ret = 0;
 	skb_cnt = 0;
