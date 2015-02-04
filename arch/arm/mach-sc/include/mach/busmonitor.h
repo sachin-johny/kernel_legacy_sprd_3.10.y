@@ -40,6 +40,7 @@
 #define BM_CNT_EN		BIT(1)
 #define BM_CHN_EN		BIT(0)
 #define BM_DEBUG_ALL_CHANNEL	0xFF
+#define BM_CHANNEL_ENABLE_FLAGE	0x03FF0000
 
 #define BM_DBG(f,x...)	printk(KERN_DEBUG "BM_INFO " f, ##x)
 #define BM_INFO(f,x...)	printk(KERN_INFO "BM_INFO " f, ##x)
@@ -52,6 +53,7 @@
 #define PER_COUNT_BUF_SIZE (64 * 4 * PER_COUNT_RECORD_SIZE)
 
 #define LOG_FILE_PATH "/mnt/obb/axi_per_log"
+//#define LOG_FILE_PATH "/storage/sdcard0/axi_per_log"
 /*the log file size about 1.5Mbytes per min*/
 #define LOG_FILE_SECONDS (60  * 30)
 #define LOG_FILE_MAX_RECORDS (LOG_FILE_SECONDS * 100)
@@ -127,6 +129,8 @@ enum sci_bm_cmd_index {
 	BM_BW_CNT_CLR,
 	BM_DBG_INT_CLR,
 	BM_DBG_INT_SET,
+	BM_DISABLE,
+	BM_ENABLE,
 	BM_CMD_MAX,
 };
 
@@ -148,6 +152,7 @@ enum sci_bm_mode {
 };
 
 struct bm_per_info {
+	u32 count;
 	u32 t_start;
 	u32 t_stop;
 	u32 tmp1;
@@ -224,6 +229,7 @@ struct bm_state_info{
 	bool bm_dfs_off_st;
 	bool bm_panic_st;
 	bool bm_stack_st;
+	u32 bm_mask;
 };
 static struct bm_state_info bm_st_info;
 
@@ -260,7 +266,7 @@ static struct bm_chn_name_info bm_chn_name[BM_CHANNEL_SIZE + 1] = {
 struct bm_id_name {
 	unsigned char *chn_name[4];
 };
-static struct bm_id_name bm_match_id[AXI_BM9_CP1_A5 + 1] = {
+static struct bm_id_name bm_match_id[BM_SIZE] = {
 	{{"CA7", "", "", ""}},
 	{{"DISPC", "TMC", "", ""}},
 	{{"GSP", "GPU", "", ""}},
@@ -271,6 +277,10 @@ static struct bm_id_name bm_match_id[AXI_BM9_CP1_A5 + 1] = {
 	{{"CP1 LTEACC/HARQ", "", "", ""}},
 	{{"CP1 DSP", "", "", ""}},
 	{{"CA5", "CA5 AHB", "", ""}},
+
+	{{"DAP", "CA7", "DMA WRITE", "DMA READ"}},
+	{{"SDIO 0", "SDIO 1", "SDIO 2", "EMMC"}},
+	{{"NFC", "USB", "HSIC", ""}},
 };
 
 struct bm_chn_def_val {

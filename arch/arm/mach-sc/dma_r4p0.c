@@ -22,6 +22,7 @@
 #include <linux/of_device.h>
 #include <linux/of_address.h>
 #include <linux/of_irq.h>
+#include <linux/delay.h>
 
 #include <mach/hardware.h>
 #include <mach/sci.h>
@@ -102,6 +103,8 @@ static void __inline __dma_clk_disable(void)
 
 static void __inline __dma_softreset(void)
 {
+	sci_glb_set(REG_AP_AHB_AHB_RST, BIT_DMA_SOFT_RST);
+	udelay(1);
 	sci_glb_clr(REG_AP_AHB_AHB_RST, BIT_DMA_SOFT_RST);
 }
 
@@ -477,7 +480,8 @@ int sci_dma_config(u32 dma_chn, struct sci_dma_cfg *cfg_list,
 	return ret;
 
  linklist_config:
-	if (NULL == cfg_addr)
+	/*the dma linklist pointer need 32 byte aligns*/
+	if((NULL == cfg_addr) || (cfg_addr->phys_addr & 0x1f))
 		return -EINVAL;
 
 	dma_reg_list = (struct sci_dma_reg *)cfg_addr->virt_addr;

@@ -13,6 +13,9 @@
 #include <linux/delay.h>
 #include <linux/fs.h>
 #include <linux/miscdevice.h>
+#include <linux/timer.h>
+#include <linux/timex.h>
+#include <linux/rtc.h>
 
 #include <mach/sci.h>
 #include <mach/hardware.h>
@@ -63,6 +66,8 @@ struct memory_layout{
 };
 static struct memory_layout memory_layout;
 #endif
+
+static u32 bm_count = 0;
 
 static DEFINE_SPINLOCK(bm_lock);
 
@@ -200,7 +205,7 @@ static void __sci_axi_bm_int_clr(void)
 {
 	int bm_index;
 
-	for (bm_index = AXI_BM0_CA7; bm_index <= AXI_BM9_CP1_A5; bm_index++) {
+	for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++) {
 		__sci_axi_bm_chn_int_clr(bm_index);
 	}
 }
@@ -246,7 +251,7 @@ static void __sci_axi_bm_set_winlen(void)
 	u32 bm_index, base_reg, axi_clk, win_len;
 	/*the win len is 10ms*/
 #ifdef CONFIG_ARCH_SCX30G
-axi_clk = 640;//emc_clk_get();
+axi_clk = emc_clk_get();
 #else
 //axi_clk = __raw_readl(REG_AON_APB_DPLL_CFG) & 0x7ff;
 //axi_clk = axi_clk << 2;
@@ -380,8 +385,13 @@ static void __sci_bm_store_int_info(u32 bm_index)
 		debug_bm_int_info[bm_index].msk_cmd = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_CMD_REG));
 		debug_bm_int_info[bm_index].msk_data_l = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_L_REG));
 		debug_bm_int_info[bm_index].msk_data_h = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_H_REG));
-		mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
-		debug_bm_int_info[bm_index].msk_id = mask_id >> 2 ? 0 : mask_id;
+		if(bm_index <= AXI_BM9_CP1_A5){
+			mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
+			debug_bm_int_info[bm_index].msk_id = mask_id >> 2 ? 0 : mask_id;
+		}else{
+			mask_id = sci_glb_read(REG_AP_AHB_MISC_CFG, 0xFFFFFFFF);
+			debug_bm_int_info[bm_index].msk_id = 0;
+		}
 
 		BM_ERR("bm int info:\nBM CHN:	%d\nOverlap ADDR:	0x%X\nOverlap CMD:	0x%X\nOverlap DATA:	0x%X	0x%X\nOverlap ID:	%s--%d\n",
 			debug_bm_int_info[bm_index].bm_index,
@@ -397,8 +407,13 @@ static void __sci_bm_store_int_info(u32 bm_index)
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_cmd = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_CMD_REG));
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_l = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_L_REG));
 		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_data_h = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_DATA_H_REG));
-		mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
-		bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id  = mask_id >> 2 ? 0 : mask_id;
+		if(bm_index <= AXI_BM9_CP1_A5){
+			mask_id = __raw_readl((volatile void *)(reg_addr + AXI_BM_MATCH_ID_REG));
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id = mask_id >> 2 ? 0 : mask_id;
+		}else{
+			mask_id = sci_glb_read(REG_AP_AHB_MISC_CFG, 0xFFFFFFFF);
+			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].msk_id = 0;
+		}
 
 		BM_ERR("bm ctn info:\nBM CHN:	%d\nOverlap ADDR:	0x%X\nOverlap CMD:	0x%X\nOverlap DATA:	0x%X	0x%X\nOverlap ID:	%s--%d\n",
 			bm_ctn_dbg.bm_ctn_info[bm_ctn_dbg.current_cnt].bm_index,
@@ -417,6 +432,8 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 	u32 bm_index, rwbw_cnt, bm_chn, bm_reg, bm_int;
 	struct bm_per_info *bm_info;
 	bm_info = (struct bm_per_info *)per_buf;
+	struct timeval tv;
+	struct rtc_time tm;
 
 	spin_lock(&bm_lock);
 
@@ -444,6 +461,7 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 		rwbw_cnt = 0x0;
 		/*count stop time stamp */
 		bm_info[buf_write_index].t_stop = __raw_readl((const volatile void *)(SPRD_SYSCNT_BASE + 0xc));
+		bm_info[buf_write_index].count = bm_count;
 
 		for (bm_chn = AXI_BM0_CA7; bm_chn <= AXI_BM9_CP1_A5; bm_chn++) {
 			bm_reg = __sci_get_bm_base(bm_chn);
@@ -475,8 +493,11 @@ static irqreturn_t __sci_bm_isr(int irq_num, void *dev)
 		__sci_axi_bm_set_winlen();
 
 		/*count start time stamp */
+		do_gettimeofday(&tv);
+		rtc_time_to_tm(tv.tv_sec,&tm);
+		tm.tm_hour = tm.tm_hour < 16 ? (tm.tm_hour + 8) : (tm.tm_hour - 16);
 		bm_info[buf_write_index].t_start = __raw_readl((const volatile void *)(SPRD_SYSCNT_BASE + 0xc));
-		bm_info[buf_write_index].tmp1	 = 640;//emc_clk_get();
+		bm_info[buf_write_index].tmp1	 = (tm.tm_hour * 10000) + (tm.tm_min * 100) + tm.tm_sec;//emc_clk_get();
 		bm_info[buf_write_index].tmp2	 = 640;//__raw_readl(REG_AON_APB_DPLL_CFG);
 
 		__sci_axi_bm_cnt_start();
@@ -571,6 +592,9 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 	const struct sci_bm_cfg *cfg, void(*call_back)(void *), void *data)
 {
 	int ret;
+	u32 ddr_size = 0;
+	struct device_node *np = NULL;
+	struct resource res;
 	volatile struct sci_bm_reg *bm_reg;
 
 	bm_reg = (struct sci_bm_reg *)__sci_get_bm_base(bm_index);
@@ -579,10 +603,28 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 	bm_reg->intc = 0x0;
 	memset((void *)bm_reg, 0x0, sizeof(*bm_reg));
 
+#ifdef CONFIG_OF
+	np = of_find_node_by_name(NULL, "memory");
+	if(np){
+		ret = of_address_to_resource(np, 0, &res);
+		if(!ret)
+			ddr_size = res.end - res.start;
+	}
+	/* if monitor ddr addr, it needs addr wrap*/
+	if(cfg->addr_min >= 0x80000000){
+		if(ddr_size == 0x1fffffff)//512M
+			bm_st_info.bm_mask = 0xE0000000;
+		else if(ddr_size == 0x3fffffff)//1G
+			bm_st_info.bm_mask = 0xC0000000;
+		else// >= 4G, do not need mask
+			bm_st_info.bm_mask = 0x00000000;
+	}
+#endif
+
 	if (bm_index < AHB_BM0_DAP_A7_DMA) {
-		bm_reg->addr_min = cfg->addr_min;
-		bm_reg->addr_max = cfg->addr_max;
-		bm_reg->addr_msk = 0x00000000;
+		bm_reg->addr_min = cfg->addr_min & (~bm_st_info.bm_mask);
+		bm_reg->addr_max = cfg->addr_max & (~bm_st_info.bm_mask);
+		bm_reg->addr_msk = bm_st_info.bm_mask;
 
 		/* the interrupt just trigger by addr range for axi
 		 * busmonitor, so set the data range difficult to
@@ -612,9 +654,9 @@ int sci_bm_set_point(enum sci_bm_index bm_index, enum sci_bm_chn chn,
 		bm_reg->intc |= BM_INT_EN | BM_CHN_EN;
 
 	} else {
-		bm_reg->addr_min = cfg->addr_min;
-		bm_reg->addr_max = cfg->addr_max;
-		bm_reg->addr_msk = 0x0;
+		bm_reg->addr_min = cfg->addr_min & (~bm_st_info.bm_mask);
+		bm_reg->addr_max = cfg->addr_max & (~bm_st_info.bm_mask);
+		bm_reg->addr_msk = bm_st_info.bm_mask;
 		bm_reg->data_min_l = cfg->data_min_l;
 		bm_reg->data_min_h = cfg->data_min_h;
 		bm_reg->data_max_l = cfg->data_max_l;
@@ -792,8 +834,8 @@ static ssize_t sci_bm_axi_dbg_show(struct device *dev,
 
 	for(bm_index = AXI_BM0_CA7; bm_index < AHB_BM0_DAP_A7_DMA; bm_index++){
 		reg_addr = __sci_get_bm_base(bm_index);
-		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG));
-		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG));
+		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG)) + (0x80000000 & bm_st_info.bm_mask);
+		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG)) + (0x80000000 & bm_st_info.bm_mask);
 		sprintf(chn_info, "%d	0x%08X	0x%08X	%s\n", bm_index, str_addr, end_addr, bm_chn_name[bm_index].chn_name);
 		strcat(info_buf, chn_info);
 	}
@@ -877,8 +919,8 @@ static ssize_t sci_bm_ahb_dbg_show(struct device *dev,
 
 	for(bm_index = AHB_BM0_DAP_A7_DMA; bm_index < BM_SIZE; bm_index++){
 		reg_addr = __sci_get_bm_base(bm_index);
-		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG));
-		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG));
+		str_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MIN_REG)) + (0x80000000 & bm_st_info.bm_mask);
+		end_addr = __raw_readl((volatile void *)(reg_addr + AXI_BM_ADDR_MAX_REG)) + (0x80000000 & bm_st_info.bm_mask);
 		str_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MIN_L_REG));
 		end_data = __raw_readl((volatile void *)(reg_addr + AXI_BM_DATA_MAX_L_REG));
 		chn_sel = __sci_bm_get_chn_sel(bm_index);
@@ -967,8 +1009,16 @@ static ssize_t sci_bm_bandwidth_store(struct device *dev,
 		msleep(100);
 	}else{
 		BM_INFO("bm bandwidth mode disable!!!\n");
-		if(per_buf != NULL)
+		if(per_buf != NULL){
 			kfree(per_buf);
+			per_buf = NULL;
+			if(log_file != NULL){
+				filp_close(log_file, NULL);
+				log_file = NULL;
+				buf_write_index = 0;
+				bm_count = 0;
+			}
+		}
 
 		for (bm_index = AXI_BM0_CA7; bm_index <= AHB_BM2_NFC_USB; bm_index++)
 			__sci_bm_glb_reset_and_enable(bm_index, false);
@@ -1125,6 +1175,23 @@ static ssize_t sci_bm_stack_store(struct device *dev,
 	return strnlen(buf, count);
 }
 
+static ssize_t sci_bm_disable_store(struct device *dev,
+				struct device_attribute *attr, const char *buf,
+				size_t count)
+{
+	u32 dis_val;
+	sscanf(buf, "%d", &dis_val);
+	if(dis_val){
+		BM_INFO("Set BM disable count %d\n", bm_count);
+		__raw_writel(0x0, (volatile void *)(REG_PUB_APB_BUSMON_CFG));
+	}else{
+		bm_count++;
+		BM_INFO("Set BM enable count %d\n", bm_count);
+		__raw_writel(BM_CHANNEL_ENABLE_FLAGE, (volatile void *)(REG_PUB_APB_BUSMON_CFG));
+	}
+	return strnlen(buf, count);
+}
+
 static DEVICE_ATTR(state, S_IRUGO | S_IWUSR,
 	sci_bm_state_show, NULL);
 
@@ -1155,6 +1222,9 @@ static DEVICE_ATTR(panic, S_IRUGO | S_IWUSR,
 static DEVICE_ATTR(stack, S_IRUGO | S_IWUSR,
 	sci_bm_stack_show, sci_bm_stack_store);
 
+static DEVICE_ATTR(disable, S_IRWXU | S_IRWXG | S_IRWXO,
+	NULL, sci_bm_disable_store);
+
 static struct attribute *bm_attrs[] = {
 	&dev_attr_state.attr,
 	&dev_attr_chn.attr,
@@ -1166,6 +1236,7 @@ static struct attribute *bm_attrs[] = {
 	&dev_attr_dfs.attr,
 	&dev_attr_panic.attr,
 	&dev_attr_stack.attr,
+	&dev_attr_disable.attr,
 	NULL,
 };
 
@@ -1385,6 +1456,7 @@ static int sci_bm_probe(struct platform_device *pdev)
 	for (bm_index = AXI_BM0_CA7; bm_index < BM_SIZE; bm_index++)
 		__sci_bm_glb_reset_and_enable(bm_index, true);
 	__sci_bm_glb_count_enable(true);
+	__sci_axi_bm_int_clr();
 	__sci_bm_init();
 
 	ret = sysfs_create_group(&pdev->dev.kobj, &bm_attr_group);
@@ -1544,6 +1616,12 @@ static long sci_bm_ioctl(struct file *filp, unsigned int cmd, unsigned long args
 			break;
 		case BM_DBG_INT_SET:
 			__sci_axi_bm_int_enable();
+			break;
+		case BM_DISABLE:
+			__raw_writel(0x0, (volatile void *)(REG_PUB_APB_BUSMON_CFG));
+			break;
+		case BM_ENABLE:
+			__raw_writel(BM_CHANNEL_ENABLE_FLAGE, (volatile void *)(REG_PUB_APB_BUSMON_CFG));
 			break;
 		default:
 		return -EINVAL;
