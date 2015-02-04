@@ -26,8 +26,19 @@ struct cooling_state {
 	int max_core;
 };
 
+struct freq_vddarm {
+	unsigned int freq;
+	unsigned int vddarm_mv;
+};
+
+struct vddarm_update {
+	unsigned long state;
+	struct freq_vddarm *freq_vddarm;
+};
+
 struct sprd_cpu_cooling_platform_data {
 	struct cooling_state cpu_state[MAX_CPU_STATE];
+	struct vddarm_update *vddarm_update;
 	int state_num;
 };
 

@@ -75,6 +75,8 @@ struct cpufreq_table_data {
 
 struct cpufreq_conf *sprd_cpufreq_conf = NULL;
 
+static struct mutex cpufreq_vddarm_lock;
+
 #if defined(CONFIG_ARCH_SC8825)
 static struct cpufreq_table_data sc8825_cpufreq_table_data = {
 	.freq_tbl =	{
@@ -282,6 +284,40 @@ struct cpufreq_conf sc8830_cpufreq_conf = {
 	.vddarm_mv = NULL,
 };
 
+int cpufreq_table_thermal_update(unsigned int freq, unsigned int voltage)
+{
+	struct cpufreq_frequency_table 	*freq_tbl;
+	unsigned int *vddarm;
+	int i;
+
+	if (NULL == sprd_cpufreq_conf){
+		return -1;
+	}
+	freq_tbl = sprd_cpufreq_conf->freq_tbl;
+	vddarm = sprd_cpufreq_conf->vddarm_mv;
+	if (NULL == freq_tbl && NULL == vddarm){
+		return -1;
+	}
+
+	for (i = 0; freq_tbl[i].frequency != CPUFREQ_TABLE_END; ++i){
+		if (freq_tbl[i].frequency == freq){
+			goto done;
+		}
+	}
+	printk(KERN_ERR "%s cpufreq %dMHz isn't find!\n", __func__, freq);
+	return -1;
+done:
+	printk("%s: %dMHz voltage is %dmV\n", __func__, freq, voltage);
+	if (vddarm[i] == voltage){
+		return 0;
+	}
+	mutex_lock(&cpufreq_vddarm_lock);
+	vddarm[i] = voltage;
+	mutex_unlock(&cpufreq_vddarm_lock);
+
+	return 0;
+}
+
 static unsigned int sprd_raw_get_cpufreq(void)
 {
 #if defined(CONFIG_ARCH_SCX35)
@@ -344,9 +380,11 @@ static void sprd_raw_set_cpufreq(int cpu, struct cpufreq_freqs *freq, int index)
 
 #define CPUFREQ_SET_VOLTAGE() \
 	do { \
-	    ret = regulator_set_voltage(sprd_cpufreq_conf->regulator, \
+		mutex_lock(&cpufreq_vddarm_lock);	\
+		ret = regulator_set_voltage(sprd_cpufreq_conf->regulator, \
 			sprd_cpufreq_conf->vddarm_mv[index], \
 			sprd_cpufreq_conf->vddarm_mv[index]); \
+		mutex_unlock(&cpufreq_vddarm_lock);	\
 		if (ret) \
 			pr_err("Failed to set vdd to %d mv\n", \
 				sprd_cpufreq_conf->vddarm_mv[index]); \
@@ -1012,6 +1050,7 @@ static int __init sprd_cpufreq_modinit(void)
 	global_freqs.old = sprd_raw_get_cpufreq();
 
 #endif
+	mutex_init(&cpufreq_vddarm_lock);
 
 	boot_done = jiffies + DVFS_BOOT_TIME;
 	ret = cpufreq_register_notifier(
