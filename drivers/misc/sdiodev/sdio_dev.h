@@ -46,14 +46,6 @@
 #include <linux/spinlock.h>
 #include <asm/system.h>
 
-
-
-
-
-
-
-
-
 typedef unsigned int uint32;
 typedef unsigned char uint8;
 typedef irqreturn_t (*sdiodev_handler_t)(int, void *);
@@ -150,9 +142,11 @@ extern volatile bool marlin_mmc_suspend;
 #define SDIOTRAN_DEBUG(fmt,args...)	\
 	pr_debug(SDIOTRAN_HEADER "%s:" fmt "\n", __func__, ## args)
 
-	
+int set_wlan_status(int status);
+
 int set_marlin_wakeup(uint32 chn,uint32 user_id);
 int set_marlin_sleep(uint32 chn,uint32 user_id);
+
 
 
 #if 0//#if !defined(CONFIG_MARLIN_NO_SLEEP)

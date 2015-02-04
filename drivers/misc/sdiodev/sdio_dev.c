@@ -270,6 +270,14 @@ void set_sprd_download_fin(int dl_tag)
 }
 EXPORT_SYMBOL_GPL(set_sprd_download_fin);
 
+atomic_t              is_wlan_open;    //0: wlan close,  1: wlan open
+
+int set_wlan_status(int status)
+{
+	atomic_set(&(is_wlan_open), status);
+	return 0;
+}
+EXPORT_SYMBOL_GPL(set_wlan_status);
 
 
 int set_marlin_wakeup(uint32 chn,uint32 user_id)
@@ -284,6 +292,16 @@ int set_marlin_wakeup(uint32 chn,uint32 user_id)
 	{
 		SDIOTRAN_ERR("marlin unready");
 		return -1;
+	}
+
+	/*add for avoid bt ack 250ms high, then ap don't req cp and send data directly*/
+	if((1 == atomic_read(&(is_wlan_open))) && (1 == user_id) )
+	{
+		if((gpio_get_value(GPIO_MARLIN_WAKE)) && (0 == sleep_para.gpio_opt_tag) )
+			mdelay(300);
+		if(gpio_get_value(GPIO_MARLIN_WAKE))
+			SDIOTRAN_ERR("err:bt req delay 300ms\n");
+		atomic_set(&is_wlan_open, 0);
 	}
 
 	if((0 == sleep_para.gpio_opt_tag) && \
@@ -1564,6 +1582,7 @@ int marlin_sdio_init(void)
 	mgr_suspend_init();
 	atomic_set(&req_marlin_wait_tag, 0);
 	atomic_set(&gpioreq_need_pulldown, 1);
+	atomic_set(&is_wlan_open, 0);
 	sdio_dev_host = sdio_dev_get_host();
 	if(NULL == sdio_dev_host)
 	{

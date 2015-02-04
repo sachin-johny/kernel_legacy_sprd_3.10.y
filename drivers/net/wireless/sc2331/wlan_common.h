@@ -260,6 +260,7 @@ typedef struct
 }wlan_info_t;
 
 
+
 extern void core_down(void);
 extern void core_up(void);
 extern void trans_down(void );
@@ -294,6 +295,7 @@ extern void mdbg_assert_read(void);
 
 extern void mdbg_sdio_read(void);
 extern void marlin_pa_enable(bool enable);
+extern int set_wlan_status(int status);
 extern int set_marlin_wakeup(unsigned int chn,unsigned int user_id);
 extern int set_marlin_sleep(unsigned int  chn,unsigned int user_id);
 extern char * get_cmd_name(int id);

@@ -684,6 +684,8 @@ int wlan_cmd_update_ft_ies( unsigned char vif_id, struct cfg80211_update_ft_ies_
 	return ret;
 }
 
+
+
 int wlan_cmd_mac_open(unsigned char vif_id, unsigned char mode, unsigned char *mac_addr)
 {
 	int ret;
@@ -701,6 +703,7 @@ int wlan_cmd_mac_open(unsigned char vif_id, unsigned char mode, unsigned char *m
 	open->mode = mode;
 	if(NULL != mac_addr)
 		memcpy( (unsigned char *)(&(open->mac[0])),  mac_addr, 6);
+	set_wlan_status(1);
 	ret = wlan_cmd_send_recv(vif_id, (unsigned char *)open, sizeof(struct wlan_cmd_mac_open), WIFI_CMD_SET_DEV_OPEN, 8000);
 	return ret;
 }
@@ -710,6 +713,7 @@ int wlan_cmd_mac_close(unsigned char vif_id, unsigned char mode)
 	struct wlan_cmd_mac_close *close;
 	close = kmalloc(sizeof(struct wlan_cmd_mac_close), GFP_KERNEL);
 	close->mode = mode;
+	set_wlan_status(0);
 	wlan_cmd_send_recv(vif_id, (unsigned char *)(close), sizeof(struct wlan_cmd_mac_close), WIFI_CMD_SET_DEV_CLOSE,  CMD_WAIT_TIMEOUT);
 	return 0;
 }
