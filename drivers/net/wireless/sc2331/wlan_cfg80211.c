@@ -2092,14 +2092,12 @@ void cfg80211_report_cqm_beacon_loss(unsigned char vif_id,
 	if (vif) {
 		vif->beacon_loss = 1;
 		/*
-		TODO wpa_supplicant not support the event ,
-		so we workaround this issue
-		*/
-		if (sprdwl_find_ssid_count(vif) >= 2) {
-			cfg80211_cqm_rssi_notify(vif->ndev,
-					NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW,
-					GFP_KERNEL);
-		}
+		   TODO wpa_supplicant not support the event ,
+		   so we workaround this issue
+		 */
+		cfg80211_cqm_rssi_notify(vif->ndev,
+				NL80211_CQM_RSSI_THRESHOLD_EVENT_LOW,
+				GFP_KERNEL);
 	}
 }
 
