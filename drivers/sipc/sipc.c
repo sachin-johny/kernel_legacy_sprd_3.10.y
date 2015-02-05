@@ -337,7 +337,7 @@ error:
 
 static void sipc_destroy_pdata(struct sipc_init_data **ppdata)
 {
-    struct sipc_init_data *pdata = ppdata;
+    struct sipc_init_data *pdata = *ppdata;
     if (pdata && pdata->is_alloc) {
            kfree(pdata);
        }

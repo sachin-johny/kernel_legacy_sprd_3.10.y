@@ -591,13 +591,7 @@ int sbuf_register_notifier(uint8_t dst, uint8_t channel, uint32_t bufid,
 	if (!sbuf) {
 		return -ENODEV;
 	}
-        ring = &(sbuf->rings[bufid]);
-
-	if (!ring) {
-		printk(KERN_ERR "sbuf-%d-%d not ready!\n", dst, channel);
-		return -ENODEV;
-	}
-
+	ring = &(sbuf->rings[bufid]);
 	ring->handler = handler;
 	ring->data = data;
 

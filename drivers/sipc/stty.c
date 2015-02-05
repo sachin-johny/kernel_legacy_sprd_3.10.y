@@ -181,7 +181,7 @@ static const struct tty_operations stty_ops = {
 	.write_room  = stty_write_room,
 };
 
-static struct tty_port *stty_port_init()
+static struct tty_port *stty_port_init(void)
 {
 	struct tty_port *port = NULL;
 
@@ -245,7 +245,7 @@ static void stty_driver_exit(struct stty_device *device)
 static int stty_parse_dt(struct stty_init_data **init, struct device *dev)
 {
 #ifdef CONFIG_OF
-	struct of_device_node *np = dev->of_node;
+	struct device_node *np = dev->of_node;
 	struct stty_init_data *pdata = NULL;
 	int ret;
 	uint32_t data;
@@ -346,7 +346,7 @@ static int  stty_probe(struct platform_device *pdev)
 		return rval;
 	}
 
-	printk( "stty_probe init device addr: 0x%0x\n", (void *)stty);
+	printk( "stty_probe init device addr: 0x%0x\n", (size_t)stty);
 	platform_set_drvdata(pdev, stty);
 
 	return 0;
