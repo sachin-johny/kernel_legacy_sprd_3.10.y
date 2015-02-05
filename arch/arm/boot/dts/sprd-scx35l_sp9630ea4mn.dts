@@ -9,7 +9,7 @@
 /dts-v1/;
 
 /* memory reserved for SMEM */
-/memreserve/ 0x87800000 0x5B0000; /* Offset:120M, Size:5M+256K */
+/memreserve/ 0x87800000 0x800000; /* Offset:120M, Size:5M+256K */
 
 /* memory reserved for WARM modem */
 /memreserve/ 0x8d900000 0xD00000; /* Offset:217M, Size:13M*/
@@ -659,7 +659,8 @@
 			<0xf5250000 0x100>, /* <aon_apb_base size> */
 			<0xf5230000 0x100>, /* <pmu_apb size> */
 			<0xf5230000 0x100>, /* <pmu_base size> */
-			<0xf5250000 0x100>; /* <aon_apb_base size> */
+			<0xf5250000 0x100>, /* <aon_apb_base size> */
+			<0x87fff000 0x1000>;/* <CP_shmem_base size> */
 		interrupts = <0 84 0x0>; /* cp1_wdg_int */
 		#address-cells = <1>;
 		#size-cells = <1>;

@@ -61,7 +61,11 @@ struct cproc_proc_fs;
 struct cproc_proc_entry {
 	char				*name;
 	struct proc_dir_entry	*entry;
-	struct cproc_device		*cproc;
+	union
+	{
+		struct cproc_device		*cproc;
+		struct cproc_segments	*seg;
+	}data;
 };
 
 struct cproc_proc_fs {
@@ -69,11 +73,11 @@ struct cproc_proc_fs {
 
 	struct cproc_proc_entry		start;
 	struct cproc_proc_entry		stop;
-	struct cproc_proc_entry		modem;
-	struct cproc_proc_entry		dsp[3];
 	struct cproc_proc_entry		status;
 	struct cproc_proc_entry		wdtirq;
 	struct cproc_proc_entry		mem;
+	struct cproc_proc_entry		mini_dump;
+	struct cproc_proc_entry		*processor;
 };
 
 struct cproc_device {
@@ -87,6 +91,80 @@ struct cproc_device {
 	int					status;
 	struct cproc_proc_fs		procfs;
 };
+
+struct cproc_dump_info
+{
+	char parent_name[20];
+	char name[20];
+	uint32_t start_addr;
+	uint32_t size;
+};
+ 
+static int list_each_dump_info(struct cproc_dump_info *base,struct cproc_dump_info **info)
+{
+	struct cproc_dump_info *next;
+	int ret = 1;
+
+	if(info == NULL)
+		return 0;
+	
+	next = *info;
+	if(!next)
+		next = base;
+	else
+		next ++;
+	if(next->parent_name[0] != '\0')
+		*info = next;
+	else{
+		*info = NULL;
+		ret = 0;
+	}
+	return ret;
+}
+
+static ssize_t sprd_cproc_seg_dump(uint32_t base,uint32_t maxsz,
+	char __user *buf,size_t count,loff_t offset)
+{
+	void *vmem;
+	uint32_t loop = 0;
+	uint32_t start_addr;
+	uint32_t total;
+
+	if (offset >= maxsz) {
+		return 0;
+	}
+	if ((offset + count) > maxsz) {
+		count = maxsz - offset;
+	}
+	start_addr = base + offset;
+	total = count;
+	
+	do{
+		uint32_t copy_size = CPROC_VMALLOC_SIZE_LIMIT;
+		
+		vmem = ioremap(start_addr + CPROC_VMALLOC_SIZE_LIMIT * loop, CPROC_VMALLOC_SIZE_LIMIT);
+		if (!vmem) {
+			printk(KERN_ERR "Unable to map cproc base: 0x%08x\n", 
+				start_addr + CPROC_VMALLOC_SIZE_LIMIT * loop);
+			if(loop > 0){
+				return CPROC_VMALLOC_SIZE_LIMIT * loop;
+			}else{
+				return -ENOMEM;
+			}
+		}
+		if(count < CPROC_VMALLOC_SIZE_LIMIT) 
+			copy_size = count;
+		if (copy_to_user(buf, vmem, copy_size)) {
+			printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+			iounmap(vmem);
+			return -EFAULT;
+		}
+		iounmap(vmem);
+		count -= copy_size;
+		loop ++;
+	}while(count);
+	return total;
+}
 
 static int sprd_cproc_open(struct inode *inode, struct file *filp)
 {
@@ -174,7 +252,8 @@ static ssize_t cproc_proc_read(struct file *filp,
 		char __user *buf, size_t count, loff_t *ppos)
 {
 	struct cproc_proc_entry *entry = (struct cproc_proc_entry *)filp->private_data;
-	struct cproc_device *cproc = entry->cproc;
+	struct cproc_device *cproc;
+	struct cproc_segments *seg;
 	char *type = entry->name;
 	unsigned int len;
 	void *vmem;
@@ -184,6 +263,7 @@ static ssize_t cproc_proc_read(struct file *filp,
 /*	pr_info("cproc proc read type: %s ppos %ll\n", type, *ppos);*/
 
 	if (strcmp(type, "mem") == 0) {
+		cproc= entry->data.cproc;
 		if (*ppos >= cproc->initdata->maxsz) {
 			return 0;
 		}
@@ -225,6 +305,7 @@ static ssize_t cproc_proc_read(struct file *filp,
 		}while(r > 0);
 		/*remap and unmap in each read operation, shi yunlong, end*/
 	} else if (strcmp(type, "status") == 0) {
+		cproc= entry->data.cproc;
 		if (cproc->status >= CP_MAX_STATUS) {
 			return -EINVAL;
 		}
@@ -238,6 +319,7 @@ static ssize_t cproc_proc_read(struct file *filp,
 			return -EFAULT;
 		}
 	} else if (strcmp(type, "wdtirq") == 0) {
+		cproc= entry->data.cproc;
 		/* wait forever */
 		rval = wait_event_interruptible(cproc->wdtwait, cproc->wdtcnt  != CPROC_WDT_FLASE);
 		if (rval < 0) {
@@ -252,8 +334,71 @@ static ssize_t cproc_proc_read(struct file *filp,
 			printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
 			return -EFAULT;
 		}
-	} else {
+	}else if(strcmp(type,"start") == 0){
 		return -EINVAL;
+	}else if(strcmp(type,"stop") == 0){
+		return -EINVAL;
+	}else if(strcmp(type,"mini_dump") == 0){
+		static struct cproc_dump_info *s_cur_info = NULL;
+		uint8_t head[sizeof(struct cproc_dump_info) + 32];
+		int len,total = 0,offset = 0;
+		ssize_t written = 0;
+
+		cproc = entry->data.cproc;
+		if(!s_cur_info && *ppos)
+			return 0;
+
+		if(!s_cur_info)
+			list_each_dump_info(cproc->initdata->shmem,&s_cur_info);
+		while(s_cur_info){
+			if(!count)
+				break;
+			len = sprintf(head,"%s_%s_0x%8x_0x%x.bin",s_cur_info->parent_name,s_cur_info->name,
+				s_cur_info->start_addr,s_cur_info->size);
+			if(*ppos > len)
+				offset = *ppos - len;
+			else{
+				if(*ppos + count > len) written = len - *ppos;
+				else written = count;
+				if (copy_to_user(buf + total, head + *ppos, written)) {
+					printk(KERN_ERR "cproc_proc_read copy data to user error !\n");
+					return -EFAULT;
+				}
+				*ppos += written;
+			}
+			total += written;
+			count -= written;
+			if(count){
+				written = sprd_cproc_seg_dump(s_cur_info->start_addr,s_cur_info->size,
+					buf + total,count,offset);
+				if(written > 0){
+					total += written;
+					count -= written;
+					*ppos += written;
+				}else if(written == 0){		
+					if(list_each_dump_info(cproc->initdata->shmem,&s_cur_info))
+						*ppos = 0;
+				}else
+					return written;
+			}else
+				break;
+			written = 0;
+			offset = 0;
+		}
+		return total;
+	}else{
+		seg = entry->data.seg;
+		if(strcmp(type,seg->name) != 0)
+		{
+			pr_info("cproc proc read type not match: %s\n", type);
+			return -EINVAL;
+		}
+		ssize_t ret;
+		ret = sprd_cproc_seg_dump(seg->base,seg->maxsz,buf,count,*ppos);
+		if(ret >= 0)
+			count = ret;
+		else
+			return ret;
 	}
 
 	*ppos += count;
@@ -264,7 +409,8 @@ static ssize_t cproc_proc_write(struct file *filp,
 		const char __user *buf, size_t count, loff_t *ppos)
 {
 	struct cproc_proc_entry *entry = (struct cproc_proc_entry *)filp->private_data;
-	struct cproc_device *cproc = entry->cproc;
+	struct cproc_device *cproc;
+	struct cproc_segments *seg;
 	char *type = entry->name;
 	uint32_t base, size, offset;
 	void *vmem;
@@ -272,47 +418,30 @@ static ssize_t cproc_proc_write(struct file *filp,
 
 	if (strcmp(type, "start") == 0) {
 		printk(KERN_INFO "cproc_proc_write to map cproc base start\n");
+		cproc = entry->data.cproc;
 		cproc->initdata->start(cproc);
 		cproc->wdtcnt = CPROC_WDT_FLASE;
 		cproc->status = CP_NORMAL_STATUS;
 		return count;
-	}
-	if (strcmp(type, "stop") == 0) {
-		printk(KERN_INFO "cproc_proc_write to map cproc base stop\n");
+	}else if (strcmp(type, "stop") == 0) { 
+		cproc = entry->data.cproc;
 		cproc->initdata->stop(cproc);
 		cproc->status = CP_STOP_STATUS;
 		return count;
-	}
-
-	if (strcmp(type, "modem") == 0) {
-		base = cproc->initdata->segs[0].base;
-		size = cproc->initdata->segs[0].maxsz;
-		offset = *ppos;
-	}
-        else if (strcmp(type, "dsp") == 0) {
-		base = cproc->initdata->segs[1].base;
-		size = cproc->initdata->segs[1].maxsz;
-		offset = *ppos;
-	}
-        else if (strcmp(type, "tgdsp") == 0) {
-		base = cproc->initdata->segs[1].base;
-		size = cproc->initdata->segs[1].maxsz;
-		offset = *ppos;
-	}
-        else if (strcmp(type, "ldsp") == 0) {
-		base = cproc->initdata->segs[2].base;
-		size = cproc->initdata->segs[2].maxsz;
-		offset = *ppos;
-	}
-        else if (strcmp(type, "warm") == 0)
-        {
-            base = cproc->initdata->segs[3].base;
-            size = cproc->initdata->segs[3].maxsz;
-            offset = *ppos;
-            pr_info_once("cproc proc write type: %s,base=%x\n", type,base);
-        }
-        else {
+	}else if(strcmp(type,"mini_dump") == 0){
+		printk(KERN_INFO "cproc_proc_write mini dump not support write\n");
 		return -EINVAL;
+	}
+	else{
+		seg = entry->data.seg;
+		if(strcmp(type,seg->name) != 0)
+		{
+			pr_info("cproc proc write type not match: %s\n", type);
+			return -EINVAL;
+		}
+		base = seg->base;
+		size = seg->maxsz;
+		offset = *ppos;
 	}
 
 	if (size <= offset) {
@@ -356,7 +485,7 @@ static ssize_t cproc_proc_write(struct file *filp,
 static loff_t cproc_proc_lseek(struct file* filp, loff_t off, int whence )
 {
 	struct cproc_proc_entry *entry = (struct cproc_proc_entry *)filp->private_data;
-	struct cproc_device *cproc = entry->cproc;
+	struct cproc_device *cproc;
 	char *type = entry->name;
 	loff_t new;
 
@@ -371,6 +500,7 @@ static loff_t cproc_proc_lseek(struct file* filp, loff_t off, int whence )
 		break;
 	case SEEK_END:
 		if (strcmp(type, "mem") == 0) {
+			cproc = entry->data.cproc;
 			new = cproc->initdata->maxsz + off;
 			filp->f_pos = new;
 		} else {
@@ -386,13 +516,14 @@ static loff_t cproc_proc_lseek(struct file* filp, loff_t off, int whence )
 static unsigned int cproc_proc_poll(struct file *filp, poll_table *wait)
 {
 	struct cproc_proc_entry *entry = (struct cproc_proc_entry *)filp->private_data;
-	struct cproc_device *cproc = entry->cproc;
+	struct cproc_device *cproc;
 	char *type = entry->name;
 	unsigned int mask = 0;
 
 	pr_info("cproc proc poll type: %s \n", type);
 
 	if (strcmp(type, "wdtirq") == 0) {
+		cproc = entry->data.cproc;
 		poll_wait(filp, &cproc->wdtwait, wait);
 		if (cproc->wdtcnt  != CPROC_WDT_FLASE) {
 			mask |= POLLIN | POLLRDNORM;
@@ -417,43 +548,54 @@ static inline void sprd_cproc_fs_init(struct cproc_device *cproc)
 {
         uint8_t i= 0;
 	cproc->procfs.procdir = proc_mkdir(cproc->name, NULL);
+	
+	cproc->procfs.processor = kzalloc(sizeof(struct cproc_proc_entry)* cproc->initdata->segnr, 
+			GFP_KERNEL);
+	if (!cproc->procfs.processor) {
+		printk(KERN_ERR "sprd_cproc_fs_init alloc memory failed !\n");
+		return -ENOMEM;
+	}
 
 	cproc->procfs.start.name = "start";
 	cproc->procfs.start.entry = proc_create_data(cproc->procfs.start.name, S_IWUSR,
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.start));
-	cproc->procfs.start.cproc = cproc;
+	cproc->procfs.start.data.cproc = cproc;
 
 	cproc->procfs.stop.name = "stop";
 	cproc->procfs.stop.entry = proc_create_data(cproc->procfs.stop.name, S_IWUSR,
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.stop));
-	cproc->procfs.stop.cproc = cproc;
-
-	cproc->procfs.modem.name =cproc->initdata->segs[0].name;
-	cproc->procfs.modem.entry = proc_create_data(cproc->procfs.modem.name, S_IWUSR,
-			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.modem));
-	cproc->procfs.modem.cproc = cproc;
-
-       for(i = 0; i < cproc->initdata->segnr - 1; i++){
-            cproc->procfs.dsp[i].name = cproc->initdata->segs[1+i].name;
-            cproc->procfs.dsp[i].entry = proc_create_data(cproc->procfs.dsp[i].name, S_IWUSR,
-                            cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.dsp[i]));
-            cproc->procfs.dsp[i].cproc = cproc;
-        }
+	cproc->procfs.stop.data.cproc = cproc;
 
 	cproc->procfs.status.name = "status";
 	cproc->procfs.status.entry = proc_create_data(cproc->procfs.status.name, S_IWUSR,
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.status));
-	cproc->procfs.status.cproc = cproc;
+	cproc->procfs.status.data.cproc = cproc;
 
 	cproc->procfs.wdtirq.name = "wdtirq";
 	cproc->procfs.wdtirq.entry = proc_create_data(cproc->procfs.wdtirq.name, S_IWUSR,
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.wdtirq));
-	cproc->procfs.wdtirq.cproc = cproc;
+	cproc->procfs.wdtirq.data.cproc = cproc;
 
 	cproc->procfs.mem.name = "mem";
-	cproc->procfs.mem.entry = proc_create_data(cproc->procfs.mem.name, S_IWUSR,
+	cproc->procfs.mem.entry = proc_create_data(cproc->procfs.mem.name, S_IWUSR | S_IROTH,
 			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.mem));
-	cproc->procfs.mem.cproc = cproc;
+	cproc->procfs.mem.data.cproc = cproc;
+
+	cproc->procfs.mini_dump.name = "mini_dump";
+	cproc->procfs.mini_dump.data.cproc = cproc;
+	cproc->procfs.mini_dump.entry = proc_create_data(cproc->procfs.mini_dump.name, S_IRUSR | S_IROTH,
+			cproc->procfs.procdir, &cpproc_fs_fops, &(cproc->procfs.mini_dump));
+	
+	
+	for(i = 0;i < cproc->initdata->segnr;i ++)
+	{
+		 cproc->procfs.processor[i].name = cproc->initdata->segs[i].name;
+		 cproc->procfs.processor[i].data.seg = &cproc->initdata->segs[i];
+		 cproc->procfs.processor[i].entry = proc_create_data(cproc->initdata->segs[i].name,S_IWUSR, 
+		 		cproc->procfs.procdir,&cpproc_fs_fops,&cproc->procfs.processor[i]);
+		 
+	}
+	return;
 }
 
 static inline void sprd_cproc_fs_exit(struct cproc_device *cproc)
@@ -461,14 +603,14 @@ static inline void sprd_cproc_fs_exit(struct cproc_device *cproc)
         uint8_t i= 0;
 	remove_proc_entry(cproc->procfs.start.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.stop.name, cproc->procfs.procdir);
-	remove_proc_entry(cproc->procfs.modem.name, cproc->procfs.procdir);
-        for(i = 0; i < cproc->initdata->segnr - 1; i++){
-            remove_proc_entry(cproc->procfs.dsp[i].name, cproc->procfs.procdir);
-        }
-	remove_proc_entry(cproc->procfs.dsp[1].name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.status.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.wdtirq.name, cproc->procfs.procdir);
 	remove_proc_entry(cproc->procfs.mem.name, cproc->procfs.procdir);
+	remove_proc_entry(cproc->procfs.mini_dump.name, cproc->procfs.procdir);
+	for(i = 0; i < cproc->initdata->segnr; i++){
+		remove_proc_entry(cproc->procfs.processor[i].name, cproc->procfs.procdir);
+	}
+	kfree(cproc->procfs.processor);
 	remove_proc_entry(cproc->name, NULL);
 }
 
@@ -671,8 +813,10 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 	struct resource res;
 	struct device_node *np = dev->of_node, *chd;
 	int ret, i, segnr;
-	uint32_t base, offset;
-        uint32_t reg_base[6];
+#define REG_BASE_NR	7
+	uint32_t reg_base[REG_BASE_NR];
+	struct cproc_dump_info *dump_info = NULL;
+		
 
 	segnr = of_get_child_count(np);
 	pr_info("sprd_cproc mem size: %u\n", sizeof(struct cproc_init_data) + segnr * sizeof(struct cproc_segments));
@@ -695,16 +839,14 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 	}
 
 	/* get pmu base addr */
-        for(i=0;i < 6;i++){
-	ret = of_address_to_resource(np, i, &res);
-	if (ret) {
-		ret = -ENODEV;
-		goto error;
+	for(i=0;i < REG_BASE_NR;i++){
+		ret = of_address_to_resource(np, i, &res);
+		if (!ret) {
+	        reg_base[i] = res.start;
+			pr_info("sprd_cproc: base 0x%x\n", reg_base[i]);
+		}
 	}
-        reg_base[i] = res.start;
-	pr_info("sprd_cproc: base 0x%x\n", reg_base[i]);
-        }
-        /* get ctrl_reg addr on pmu base */
+    /* get ctrl_reg addr on pmu base */
 	ret = of_property_read_u32_array(np, "sprd,ctrl-reg", (uint32_t *)ctrl->ctrl_reg, CPROC_CTRL_NR);
 	if (ret) {
 		goto error;
@@ -757,6 +899,21 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 	}
 	pr_info("sprd_cproc: wdt irq %u\n", pdata->wdtirq);
 
+	/* get share memory base+offset */
+	ret = of_address_to_resource(np,6,&res);
+	if(ret)
+		dump_info = NULL;
+	else
+	{
+		dump_info = ioremap(res.start, res.end - res.start + 1);
+		if (!dump_info){
+			printk(KERN_ERR "Unable to map dump info base: 0x%08x\n", res.start);
+			ret = -ENOMEM;
+			goto error;
+		}
+		pdata->shmem = dump_info;
+	}
+
 	i = 0;
 	for_each_child_of_node(np, chd) {
 		struct cproc_segments *seg;
@@ -773,8 +930,7 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 		}
 		seg->base = res.start;
 		seg->maxsz = res.end - res.start + 1;
-		pr_info("sprd_cproc: child node [%d] base=0x%x, size=0x%0x\n", i, seg->base, seg->maxsz);
-
+		pr_info("sprd_cproc: child node [%s] base=0x%x, size=0x%0x\n", seg->name, seg->base, seg->maxsz);	
 		i++;
 	}
 
@@ -794,6 +950,9 @@ static int sprd_cproc_parse_dt(struct cproc_init_data **init, struct device *dev
 	*init = pdata;
 	return 0;
 error:
+	if(dump_info)
+		iounmap(dump_info);
+	pdata->shmem= NULL;
 	kfree(ctrl);
 	kfree(pdata);
 	return ret;
@@ -806,6 +965,12 @@ static void sprd_cproc_destroy_pdata(struct cproc_init_data **init)
 {
 #ifdef CONFIG_OF
 	struct cproc_init_data *pdata = *init;
+
+	if(pdata->shmem)
+	{
+		iounmap(pdata->shmem);
+		pdata->shmem = NULL;
+	}
 
 	if (pdata) {
 		if (pdata->ctrl) {
