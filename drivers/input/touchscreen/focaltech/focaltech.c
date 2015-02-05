@@ -80,6 +80,7 @@
 
 #define	FTS_PACKET_LENGTH	128
 
+#define FILTER_MOVEMENT         3
 extern int lcd_hx8363_display_width;
 extern int lcd_hx8363_display_height;
 #if USE_WAIT_QUEUE
@@ -154,6 +155,9 @@ struct ts_event {
 	u16	pressure;
     u8  touch_point;
 };
+
+bool movement, first_touch;
+u16 first_x, first_y;
 
 struct ft5x0x_ts_data {
 	struct input_dev	*input_dev;
@@ -455,6 +459,8 @@ static void ft5x0x_clear_report_data(struct ft5x0x_ts_data *ft5x0x_ts)
 	#endif
 	}
 	input_sync(ft5x0x_ts->input_dev);
+    movement = 0;
+    first_touch = 0;
 }
 
 static int ft5x0x_update_data(void)
@@ -465,6 +471,7 @@ static int ft5x0x_update_data(void)
 	int ret = -1;
 	int i;
 	u16 x , y;
+
 	ret = ft5x0x_i2c_rxdata(buf, 31);
 
 	if (ret < 0) {
@@ -475,38 +482,53 @@ static int ft5x0x_update_data(void)
 	memset(event, 0, sizeof(struct ts_event));
 	event->touch_point = buf[2] & 0x07;
 
-	for(i = 0; i < TS_MAX_FINGER; i++) {
-		if((buf[6*i+3] & 0xc0) == 0xc0)
-			continue;
-		x = (s16)(buf[6*i+3] & 0x0F)<<8 | (s16)buf[6*i+4];	
-		y = (s16)(buf[6*i+5] & 0x0F)<<8 | (s16)buf[6*i+6];
-		if((buf[6*i+3] & 0x40) == 0x0) {
-		#if MULTI_PROTOCOL_TYPE_B
-			input_mt_slot(data->input_dev, buf[6*i+5]>>4);
-			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, true);
-		#endif
-			input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
-			input_report_abs(data->input_dev, ABS_MT_POSITION_Y, y);
-			input_report_key(data->input_dev, BTN_TOUCH, 1);
-		#if !MULTI_PROTOCOL_TYPE_B
-			input_mt_sync(data->input_dev);
-		#endif
-			pr_debug("===x%d = %d,y%d = %d ====",i, x, i, y);
-		}
-		else {
-		#if MULTI_PROTOCOL_TYPE_B
-			input_mt_slot(data->input_dev, buf[6*i+5]>>4);
-			input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
-		#endif
+	if(event->touch_point>0) {
+		for(i = 0; i < event->touch_point; i++) {
+			if((buf[6*i+3] & 0xc0) == 0xc0)
+				continue;
+			x = (s16)(buf[6*i+3] & 0x0F)<<8 | (s16)buf[6*i+4];
+			y = (s16)(buf[6*i+5] & 0x0F)<<8 | (s16)buf[6*i+6];
+			if (event->touch_point == 1 && !movement) {
+				if (first_touch == 0) {
+					first_touch = 1;
+					first_x = x;
+					first_y = y;
+				} else {
+					if (abs(first_x - x) <= FILTER_MOVEMENT && abs(first_y - y) <= FILTER_MOVEMENT ) {
+						return 0;
+					} else {
+						movement == 1;
+					}
+				}
+			}
+			if((buf[6*i+3] & 0x40) == 0x0) {
+			#if MULTI_PROTOCOL_TYPE_B
+				input_mt_slot(data->input_dev, buf[6*i+5]>>4);
+				input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, true);
+			#endif
+				input_report_abs(data->input_dev, ABS_MT_POSITION_X, x);
+				input_report_abs(data->input_dev, ABS_MT_POSITION_Y, y);
+				input_report_key(data->input_dev, BTN_TOUCH, 1);
+			#if !MULTI_PROTOCOL_TYPE_B
+				input_mt_sync(data->input_dev);
+			#endif
+				pr_debug("===x%d = %d,y%d = %d ====",i, x, i, y);
+			}
+			else {
+			#if MULTI_PROTOCOL_TYPE_B
+				input_mt_slot(data->input_dev, buf[6*i+5]>>4);
+				input_mt_report_slot_state(data->input_dev, MT_TOOL_FINGER, false);
+			#endif
+			}
 		}
 	}
-	if(event->touch_point==0)
-	{
+	else {
 		input_report_key(data->input_dev, BTN_TOUCH, 0);
 		#if !MULTI_PROTOCOL_TYPE_B
 			input_mt_sync(data->input_dev);
 		#endif
-
+		movement = 0;
+		first_touch = 0;
 	}
 	input_sync(data->input_dev);
 
