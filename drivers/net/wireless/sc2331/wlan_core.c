@@ -726,7 +726,9 @@ RX:
 		if(0 != ret)
 		{
 			printke("rx call set_marlin_wakeup error:%d\n", ret);
-			goto RX_SLEEP;
+			if (ret != -ETIMEDOUT)
+				msleep(200);
+			goto TX;
 		}
 		ret   = sdio_chn_status( rx_chn->bit_map, &status);
 		if(0 != ret)
@@ -798,7 +800,10 @@ TX:
 			if (0 != ret)
 			{
 				printke("tx call set_marlin_wakeup error:%d\n", ret);
-				goto TX_SLEEP;
+				if (ret != -ETIMEDOUT)
+					msleep(200);
+				retry++;
+				continue;
 			}
 			ret = sdio_chn_status(tx_chn->bit_map, &status);
 			if (ret)
